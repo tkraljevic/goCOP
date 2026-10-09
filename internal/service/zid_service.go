@@ -502,7 +502,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		case v.Archived:
 			d.Naslov, d.Tekst = "Maknuto dežurstvo", kad
 		case nova:
-			d.Naslov, d.Tekst = "Upisano dežurstvo", kad+" · "+strings.ToLower(z.Mjesto)
+			d.Naslov, d.Tekst = "Upisano dežurstvo", kad+" · "+z.MjestoTekst()
 		case z.Potvrdio != "":
 			d.Naslov, d.Tekst = "Potvrđeno dežurstvo", kad
 		default:

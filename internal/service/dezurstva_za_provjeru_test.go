@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/obracun"
 	"gocop/internal/repository"
@@ -265,5 +266,40 @@ func TestZadrziTragIspravka(t *testing.T) {
 		if got := zadrziTragIspravka(s.staro, s.novo); got != s.want {
 			t.Errorf("zadrziTragIspravka(%q, %q) = %q, a treba %q", s.staro, s.novo, got, s.want)
 		}
+	}
+}
+
+// Na zidu događanja upisano dežurstvo nosi mjesto rada kao u planu: izvedeno
+// iz opisa kad je opis s popisa, a „mjesto nepoznato — za provjeru” kad se
+// ne zna, umjesto praznog mjesta iza točke.
+func TestDezurstvoNaZiduNosiMjestoKaoPlan(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	for _, d := range []*models.Dezurstvo{
+		{JournalID: o.dnevnik.ID, UserID: o.pperic.ID.String(), UserName: "Pero Perić", Od: dzSat(9, 8, 0), Do: dzSat(9, 12, 0), Opis: "Opis s drugog čvora"},
+		{JournalID: o.dnevnik.ID, UserID: o.pperic.ID.String(), UserName: "Pero Perić", Od: dzSat(10, 8, 0), Do: dzSat(10, 12, 0), Opis: "Obilazak i pregled obrambenih objekata"},
+		{JournalID: o.dnevnik.ID, UserID: o.pperic.ID.String(), UserName: "Pero Perić", Od: dzSat(11, 8, 0), Do: dzSat(11, 12, 0), Opis: "Dežurstvo u COP-u", Mjesto: models.MjestoUred},
+	} {
+		if err := o.svc.repo.SaveDezurstvo(ctx, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	rec := ledger.New(o.baza, "test")
+	zid := NewZidService(rec, o.svc.repo, nil, nil, nil, nil, nil)
+	dog, _, err := zid.Zadnji(ctx, o.ovlUprav, FiltarZida{Modul: ModulDezurstva, Limit: 10})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var redovi []string
+	for _, d := range dog {
+		redovi = append(redovi, d.Naslov+" — "+d.Tekst)
+	}
+	ocekivano := []string{
+		"Upisano dežurstvo — 11.9. 08:00 – 11.9. 12:00 · ured",
+		"Upisano dežurstvo — 10.9. 08:00 – 10.9. 12:00 · teren",
+		"Upisano dežurstvo — 9.9. 08:00 – 9.9. 12:00 · mjesto nepoznato — za provjeru",
+	}
+	if strings.Join(redovi, "\n") != strings.Join(ocekivano, "\n") {
+		t.Errorf("zid:\n%s\n\na mora biti:\n%s", strings.Join(redovi, "\n"), strings.Join(ocekivano, "\n"))
 	}
 }
