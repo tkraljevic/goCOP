@@ -119,7 +119,7 @@ func TestNovListIsteOsobeIDanaImaIstuOznaku(t *testing.T) {
 	if models.IDListaVodocuvara(ivoIvic, danIve.AddDate(0, 0, 1)) == la.ID || models.IDListaVodocuvara(anaAnic, danIve) == la.ID {
 		t.Error("drugi dan ili druga osoba moraju imati drugu oznaku")
 	}
-	// zadnji nacrt vrijedi, kao i dosad
+	// nijedan nacrt nema vodočuvarov upis noviji od drugoga: vrijedi zadnji
 	if l := isteKnjige(t, a, b); l.Opis != "na poslužitelju" {
 		t.Errorf("vrijedi nacrt %q, očekivan zadnji", l.Opis)
 	}
@@ -165,8 +165,9 @@ func TestBiljeskaSNacrtaOstajeNaPredanomListu(t *testing.T) {
 	}
 }
 
-// Dva nacrta s dva čvora: vrijedi zadnji, kao i dosad, a bilješke s oba
-// ostaju, složene po vremenu upisa.
+// Dva nacrta s dva čvora bez vodočuvarova upisa: vrijedi zadnji, a bilješke
+// s oba ostaju, složene po vremenu upisa. Nacrt s vodočuvarovim upisom ima
+// prednost (vodocuvar_nacrt_dva_cvora_test.go).
 func TestDvaNacrtaZadnjiVrijediBiljeskeOstaju(t *testing.T) {
 	a, b := noviCvor(t, "laptop"), noviCvor(t, "posluzitelj")
 	nacrtSUpisom(t, a, "druga bilješka", time.Date(2026, time.October, 14, 9, 0, 0, 0, models.Zagreb))

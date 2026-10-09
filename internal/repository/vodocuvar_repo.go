@@ -21,10 +21,10 @@ import (
 const EntityVodocuvarski = "vodocuvarski_listovi"
 
 const vodocuvarskiColumns = `id, user_id, ime, sektor, area_id, datum, broj, od, do_, prilike, naredbe, opis, zapazanja, ocitanja, zadaci, upisi, prijave, parafe,
-	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at, rekonstrukcija, izvor, prilozi`
+	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at, rekonstrukcija, izvor, prilozi, napisano_at`
 
 const vodocuvarskiUpsert = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	` + vodocuvarskiNaSukob
 
 // vodocuvarskiNaSukob je izmjena postojećeg lista u upisu
@@ -32,13 +32,13 @@ const vodocuvarskiNaSukob = `ON CONFLICT(id) DO UPDATE SET user_id = excluded.us
 	datum = excluded.datum, broj = excluded.broj, od = excluded.od, do_ = excluded.do_, prilike = excluded.prilike, naredbe = excluded.naredbe,
 	opis = excluded.opis, zapazanja = excluded.zapazanja, ocitanja = excluded.ocitanja, zadaci = excluded.zadaci, upisi = excluded.upisi, prijave = excluded.prijave, parafe = excluded.parafe, predano_at = excluded.predano_at,
 	potvrdio_id = excluded.potvrdio_id, potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at, cvor = excluded.cvor, updated_at = excluded.updated_at,
-	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi`
+	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi, napisano_at = excluded.napisano_at`
 
 // vodocuvarskiPredaja je upis predaje i nacrta: list se upisuje samo dok ni on ni
 // drugi list vodočuvara za isti dan nije predan. Uz stupce lista traži još
 // user_id, datum i id lista za provjeru drugih listova dana.
 const vodocuvarskiPredaja = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
-	SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+	SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 	WHERE NOT EXISTS (SELECT 1 FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ? AND id <> ? AND predano_at IS NOT NULL)
 	` + vodocuvarskiNaSukob + `
 	WHERE vodocuvarski_listovi.predano_at IS NULL`
@@ -49,24 +49,34 @@ func vodocuvarskiArgs(l *models.VodocuvarskiList) []any {
 	zadaci, _ := json.Marshal(l.Zadaci)
 	upisi, _ := json.Marshal(l.Upisi)
 	prijave, _ := json.Marshal(l.Prijave)
-	var predano, potvrdeno any
-	if l.PredanoAt != nil {
-		predano = l.PredanoAt.UTC()
-	}
-	if l.PotvrdenoAt != nil {
-		potvrdeno = l.PotvrdenoAt.UTC()
-	}
 	return []any{l.ID, l.UserID, l.Ime, l.Sektor, l.AreaID, l.Datum.In(models.Zagreb).Format("2006-01-02"), l.Broj, l.Od, l.Do, l.Prilike, l.Naredbe, l.Opis, l.Zapazanja, l.Ocitanja, string(zadaci), string(upisi), string(prijave), string(parafe),
-		predano, l.PotvrdioID, l.Potvrdio, potvrdeno, l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC(), boolToInt(l.Rekonstrukcija), l.Izvor, string(prilozi)}
+		utcIliNil(l.PredanoAt), l.PotvrdioID, l.Potvrdio, utcIliNil(l.PotvrdenoAt), l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC(), boolToInt(l.Rekonstrukcija), l.Izvor, string(prilozi), utcIliNil(l.NapisanoAt)}
+}
+
+// utcIliNil je vrijeme za upis u bazu: u UTC-u, a bez vremena NULL
+func utcIliNil(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC()
+}
+
+// vrijemeIliNil je vrijeme pročitano iz baze; nil kad je NULL
+func vrijemeIliNil(t sql.NullTime) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	v := t.Time
+	return &v
 }
 
 func scanVodocuvarski(sc interface{ Scan(...any) error }) (models.VodocuvarskiList, error) {
 	var l models.VodocuvarskiList
 	var datum, parafe, zadaci, upisi, prijave, prilozi string
-	var predano, potvrdeno sql.NullTime
+	var predano, potvrdeno, napisano sql.NullTime
 	var rekonstrukcija int
 	err := sc.Scan(&l.ID, &l.UserID, &l.Ime, &l.Sektor, &l.AreaID, &datum, &l.Broj, &l.Od, &l.Do, &l.Prilike, &l.Naredbe, &l.Opis, &l.Zapazanja, &l.Ocitanja, &zadaci, &upisi, &prijave, &parafe,
-		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt, &rekonstrukcija, &l.Izvor, &prilozi)
+		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt, &rekonstrukcija, &l.Izvor, &prilozi, &napisano)
 	if err != nil {
 		return l, err
 	}
@@ -77,14 +87,7 @@ func scanVodocuvarski(sc interface{ Scan(...any) error }) (models.VodocuvarskiLi
 	_ = json.Unmarshal([]byte(upisi), &l.Upisi)
 	_ = json.Unmarshal([]byte(prijave), &l.Prijave)
 	_ = json.Unmarshal([]byte(prilozi), &l.Prilozi)
-	if predano.Valid {
-		t := predano.Time
-		l.PredanoAt = &t
-	}
-	if potvrdeno.Valid {
-		t := potvrdeno.Time
-		l.PotvrdenoAt = &t
-	}
+	l.PredanoAt, l.PotvrdenoAt, l.NapisanoAt = vrijemeIliNil(predano), vrijemeIliNil(potvrdeno), vrijemeIliNil(napisano)
 	return l, nil
 }
 

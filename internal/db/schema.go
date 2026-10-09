@@ -1580,6 +1580,9 @@ func migrateSchema(database *sql.DB) error {
 		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
 		// pri pokretanju čvora, jer otisak traži ključ čvora
 		{"posta_racuni", "otisak_lozinke", "BLOB"},
+		// Kad je vodočuvar zadnji put spremio svoj upis na dnevnom listu: po
+		// tome nacrt s drugog čvora ne prepisuje njegov tekst
+		{"vodocuvarski_listovi", "napisano_at", "DATETIME"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

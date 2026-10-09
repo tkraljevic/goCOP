@@ -370,6 +370,9 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 	if err := oznaciZadatke(l.Zadaci, unos.Zadaci); err != nil {
 		return nil, "", err
 	}
+	// vodočuvarov upis: nacrt s drugog čvora bez njega ne prepisuje ovaj tekst
+	napisano := time.Now()
+	l.NapisanoAt = &napisano
 	// svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi;
 	// nacrt za budući dan broj dobiva tek kad njegov dan počne
 	if err := s.dodijeliBroj(ctx, l); err != nil {

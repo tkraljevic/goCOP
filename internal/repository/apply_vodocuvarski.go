@@ -18,9 +18,14 @@ import (
 // iz zadnje verzije, nego iz cijele povijesti zapisa:
 //
 //   - predan list uvijek ima prednost pred nacrtom s drugog čvora, i pred
-//     brisanjem nacrta; od verzija iste vrste vrijedi zadnja, kao i inače;
-//   - bilješke rukovoditelja (upisi) iz druge verzije ne gube se: listu se
-//     dodaju upisi svih verzija nakon zadnjeg brisanja;
+//     brisanjem nacrta; od dva predana vrijedi zadnji;
+//   - od nacrta vrijedi onaj s najnovijim vodočuvarovim upisom
+//     (models.VodocuvarskiList.NapisanoAt), a od dva jednaka zadnji: nacrt
+//     koji je nastao bez vodočuvarova upisa (rukovoditeljev „Upiši”, akt o
+//     obrani, objava prijave na čvoru koji vodočuvarov list još nema) ne
+//     prepisuje njegov tekst;
+//   - bilješke rukovoditelja (upisi) i prijave iz druge verzije ne gube se:
+//     listu se dodaju upisi i prijave svih verzija nakon zadnjeg brisanja;
 //   - arhivirana verzija miče list s površine samo kad je ona ta koja
 //     vrijedi.
 //
@@ -86,34 +91,80 @@ func spojiVerzijeLista(verzije []verzijaLista) *models.VodocuvarskiList {
 		return nil
 	}
 	l := verzije[i].list
-	l.Upisi = spojiUpise(l.Upisi, upisiNakonBrisanja(verzije))
+	upisi, prijave := dodaciNakonBrisanja(verzije)
+	l.Upisi = spojiUpise(l.Upisi, upisi)
+	l.Prijave = spojiPrijave(l.Prijave, prijave)
 	return &l
 }
 
-// vrijediVerzija je indeks verzije koja vrijedi: zadnja predana, a bez
-// predane zadnja verzija. Arhivirana verzija ima vrstu lista koji je
-// uklonila. -1 kad verzija nema.
+// vrijediVerzija je indeks verzije koja vrijedi (imaPrednost). Arhivirana
+// verzija ima vrstu lista koji je uklonila. -1 kad verzija nema.
 func vrijediVerzija(verzije []verzijaLista) int {
 	vrijedi := -1
 	for i, v := range verzije {
-		if vrijedi < 0 || v.list.Predan() || !verzije[vrijedi].list.Predan() {
+		if vrijedi < 0 || imaPrednost(v, verzije[vrijedi]) {
 			vrijedi = i
 		}
 	}
 	return vrijedi
 }
 
-// upisiNakonBrisanja su upisi rukovoditelja iz svih verzija nakon zadnjeg
-// brisanja: obrisan nacrt odnio je i svoje upise
-func upisiNakonBrisanja(verzije []verzijaLista) []models.UpisRukovoditelja {
-	var out []models.UpisRukovoditelja
+// imaPrednost javlja vrijedi li kasnija verzija v umjesto dosad vrijedeće
+// w: predan list pred nacrtom, a nacrt nikad pred predanim; od dva predana
+// kasniji; brisanje nacrta i nacrt nakon njega kao kasniji; od dva nacrta
+// onaj čiji vodočuvarov upis nije stariji
+func imaPrednost(v, w verzijaLista) bool {
+	switch {
+	case v.list.Predan() != w.list.Predan():
+		return v.list.Predan()
+	case v.list.Predan(), v.arhivirana, w.arhivirana:
+		return true
+	}
+	return !napisano(v.list).Before(napisano(w.list))
+}
+
+// napisano je trenutak vodočuvarova upisa; nula kad ga verzija nema
+func napisano(l models.VodocuvarskiList) time.Time {
+	if l.NapisanoAt == nil {
+		return time.Time{}
+	}
+	return *l.NapisanoAt
+}
+
+// dodaciNakonBrisanja su upisi rukovoditelja i prijave iz svih verzija
+// nakon zadnjeg brisanja: obrisan nacrt odnio je i svoje upise
+func dodaciNakonBrisanja(verzije []verzijaLista) ([]models.UpisRukovoditelja, []models.PrijavaNaListu) {
+	var upisi []models.UpisRukovoditelja
+	var prijave []models.PrijavaNaListu
 	for _, v := range verzije {
 		if v.arhivirana {
-			out = nil
+			upisi, prijave = nil, nil
 			continue
 		}
-		out = append(out, v.list.Upisi...)
+		upisi = append(upisi, v.list.Upisi...)
+		prijave = append(prijave, v.list.Prijave...)
 	}
+	return upisi, prijave
+}
+
+// spojiPrijave dodaje prijavama lista prijave iz drugih verzija kojih na
+// njemu nema, po oznaci prijave; kad je nešto dodano, slažu se po vremenu
+func spojiPrijave(prijave, drugi []models.PrijavaNaListu) []models.PrijavaNaListu {
+	ima := map[string]bool{}
+	for _, p := range prijave {
+		ima[p.ID] = true
+	}
+	out := append([]models.PrijavaNaListu(nil), prijave...)
+	for _, p := range drugi {
+		if !ima[p.ID] {
+			ima[p.ID] = true
+			out = append(out, p)
+		}
+	}
+	if len(out) == len(prijave) {
+		return prijave
+	}
+	sort.SliceStable(out, func(a, b int) bool { return out[a].Kad.Before(out[b].Kad) })
 	return out
 }
 

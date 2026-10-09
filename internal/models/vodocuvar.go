@@ -55,6 +55,12 @@ type VodocuvarskiList struct {
 	Rekonstrukcija bool   `json:"rekonstrukcija,omitempty"`
 	Izvor          string `json:"izvor,omitempty"` // oznaka zapisa u ranijoj evidenciji
 
+	// NapisanoAt je trenutak kad je vodočuvar zadnji put spremio ono što sam
+	// upisuje (obrazac lista): radno vrijeme, prilike, opis, zapažanja i
+	// stanje zadataka. Upis rukovoditelja, akta ili prijave ga prenosi kakav
+	// jest, pa nacrt koji je nastao bez vodočuvarova upisa (npr. „Upiši” na
+	// čvoru koji njegov list još nema) ne prepisuje njegov tekst pri razmjeni.
+	NapisanoAt  *time.Time `json:"napisano_at,omitempty"`
 	PredanoAt   *time.Time `json:"predano_at,omitempty"` // potpis vodočuvara
 	PotvrdioID  string     `json:"potvrdio_id,omitempty"`
 	Potvrdio    string     `json:"potvrdio,omitempty"`
