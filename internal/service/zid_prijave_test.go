@@ -272,9 +272,11 @@ func TestDogadjajiPrijave(t *testing.T) {
 	}
 }
 
-// Redak prijave obrisan s oglasne ploče ostaje obrisan: brisanje uklanja
+// Redak prijave obrisan s oglasne ploče na čvoru na kojem su upisane i
+// njezine ostale verzije ostaje obrisan na tom čvoru: brisanje uklanja
 // verziju s događajem, pa urudžba ili kasnija verzija ne smiju postati novi
-// redak objave ili rješenja s kasnijim vremenom.
+// redak objave ili rješenja s kasnijim vremenom. Što brisanje radi kad su
+// prijavu pisala dva čvora zaključava TestZidBrisanjePrijaveSPloceNaDvaCvora.
 func TestZidObrisanRedakPrijaveNeVracaSe(t *testing.T) {
 	z := noviZidPrijava(t)
 	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
@@ -431,4 +433,110 @@ func TestZidPrijavaSazetaNaDvaCvora(t *testing.T) {
 	if dog[1].Cvor != "teren" || !dog[1].Vazno {
 		t.Errorf("objava ostaje verzija s terena, istaknuta: %+v", dog[1])
 	}
+}
+
+// razmijeni šalje čvoru do ono što od čvora od još nema, kao razmjena
+// čvorova, i vraća broj primljenih verzija
+func razmijeni(t *testing.T, ctx context.Context, od, do *ledger.Recorder) int {
+	t.Helper()
+	granica, err := do.Frontier(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paket, err := od.Delta(ctx, granica, nil, 1000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := do.Apply(ctx, paket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Brisanje s oglasne ploče briše verziju iz knjige samo na ovom čvoru
+// (Administracija › Opcije: „Briše samo na ovom čvoru”), i za redak prijave
+// s terena kao za svaki drugi redak. Test zaključava sadašnje ponašanje, a
+// ne obećava trajno brisanje:
+//   - prijavu objavi vodočuvar na terenskom čvoru, urudžbira je ured: kad
+//     ured obriše redak objave, redak ostaje i nosi ga urudžba, jer se
+//     brisanje tuđe verzije ne razlikuje od sažimanja knjige (iza obrisane
+//     objave ne ostaje starija verzija ureda);
+//   - obrisana verzija koja je zadnji upis svog čvora u kanalu vraća se
+//     sljedećom razmjenom, pa je redak opet objava s terena;
+//   - kad je sve verzije upisao ured, obrisani redak ne vraća ni razmjena.
+func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
+	z := noviZidPrijava(t) // ured: čvor ovog zida
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	bazaT, err := db.OpenDB(filepath.Join(t.TempDir(), "teren.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { bazaT.Close() })
+	if err := db.InitSchema(bazaT); err != nil {
+		t.Fatal(err)
+	}
+	recT := ledger.New(bazaT, "teren")
+	teren := repository.NewPrijavaRepository(bazaT, recT)
+
+	pr := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+		Naslov: "Procjeđivanje na nasipu", Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt, Vodotok: "Dunav"}
+	if err := teren.Save(z.ctx, pr); err != nil {
+		t.Fatal(err)
+	}
+	sad := time.Now()
+	pr.Broj, pr.Godina, pr.Status, pr.ObjavljenoAt = 42, sad.In(models.Zagreb).Year(), models.PrijavaObjavljena, &sad
+	if err := teren.Save(z.ctx, pr); err != nil {
+		t.Fatal(err)
+	}
+	if n := razmijeni(t, z.ctx, recT, z.rec); n != 2 {
+		t.Fatalf("razmjena s terena: %d verzija, očekivane 2", n)
+	}
+	objava, err := z.rec.Latest(z.ctx, repository.EntityPrijave, pr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pr.Klasa = "325-01/26-01/1"
+	z.spremi(t, pr) // urudžba u uredu
+	urudzba, err := z.rec.Latest(z.ctx, repository.EntityPrijave, pr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	redakObjave := func(korak, verzija string) {
+		t.Helper()
+		dog := z.prijaveNaZidu(t, ana, FiltarZida{})
+		if len(dog) != 1 || !strings.HasPrefix(dog[0].Naslov, "Prijava s terena") || dog[0].VersionID != verzija {
+			t.Fatalf("%s: očekivan redak objave u verziji %s:\n%s", korak, verzija, naslovi(dog))
+		}
+	}
+	redakObjave("prije brisanja", objava.VersionID)
+
+	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, objava.VersionID); err != nil {
+		t.Fatal(err)
+	}
+	redakObjave("nakon brisanja tuđe objave", urudzba.VersionID)
+	if n := razmijeni(t, z.ctx, recT, z.rec); n != 1 {
+		t.Fatalf("razmjena nakon brisanja: %d verzija, očekivana obrisana objava", n)
+	}
+	redakObjave("nakon razmjene", objava.VersionID)
+
+	// prijava koju je cijelu upisao ured: brisanje vrijedi i nakon razmjene
+	druga := z.nova(t, models.PrijavaObavijest, "Otpad u kanalu", 43)
+	druga.Klasa = "325-01/26-01/2"
+	z.spremi(t, druga)
+	razmijeni(t, z.ctx, z.rec, recT)
+	objavaDruge := ""
+	for _, d := range z.prijaveNaZidu(t, ana, FiltarZida{}) {
+		if strings.HasPrefix(d.Naslov, "Obavijest s terena") {
+			objavaDruge = d.VersionID
+		}
+	}
+	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, objavaDruge); err != nil {
+		t.Fatal(err)
+	}
+	if n := razmijeni(t, z.ctx, recT, z.rec); n != 0 {
+		t.Errorf("razmjena je vratila %d verzija", n)
+	}
+	redakObjave("obrisana obavijest ureda", objava.VersionID)
 }
