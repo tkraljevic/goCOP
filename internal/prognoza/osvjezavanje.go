@@ -121,6 +121,9 @@ type Ishod struct {
 	// ovoga je prognoza satima tiho stajala („za ovaj sat već je izdana”), a
 	// nije se vidjelo da čeka letvu kojoj je izvor zapeo.
 	Ceka map[string]int64
+	// Upozorenja kažu što pri izdavanju nije radilo i koji su rezultati
+	// zbog toga upitni (Upozori); zapisuju se s izdanjem i putuju s njim.
+	Upozorenja []Upozorenje
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -392,6 +395,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 				Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model})
 		}
 	}
+	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
 
