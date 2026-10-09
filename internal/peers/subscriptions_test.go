@@ -80,3 +80,56 @@ func TestPretplataOgradjujeRazmjenu(t *testing.T) {
 		t.Error("kanal pod pretplatom ne smije se obrisati")
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 21: zapis o vrijednosti odbačenoj izvan
+// raspona putuje u kanalu očitanja letve. Kad se kanal obriše s računala,
+// s očitanjima nestaje i taj zapis, inače bi stranica letve brojila odbačeno
+// iz kanala koji računalo više ne drži (verzije su obrisane, redak ostao).
+func TestBrisanjeKanalaBriseOdbaceneVrijednosti(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	n := startNodeBezRegistra(t, ctx, "laptop-baranja")
+	ch16 := ledger.ChannelFor(ledger.ChannelReadings, 16, 2026)
+	ch15 := ledger.ChannelFor(ledger.ChannelReadings, 15, 2026)
+	sada := time.Now().UTC()
+	for _, z := range []struct{ id, kanal string }{{"odbacena-16", ch16}, {"odbacena-15", ch15}} {
+		if _, err := n.db.Exec(`INSERT INTO odbacena_ocitanja (id, letva, kad, polje, izvor, opis, zabiljezeno)
+			VALUES (?, ?, ?, 'vodostaj', 'hdv.voda.hr', '−1102 cm', ?)`, z.id, "station:"+z.id, sada, sada); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := n.rec.RecordIn(ctx, n.db, z.kanal, "odbacena_ocitanja", z.id, map[string]string{"id": z.id}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if _, err := n.svc.PurgeChannel(ctx, ch16); err != nil {
+		t.Fatal(err)
+	}
+	ostalo := map[string]bool{}
+	rows, err := n.db.Query(`SELECT id FROM odbacena_ocitanja`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			t.Fatal(err)
+		}
+		ostalo[id] = true
+	}
+	rows.Close()
+	if ostalo["odbacena-16"] || !ostalo["odbacena-15"] {
+		t.Errorf("nakon brisanja kanala BP 16 ostali su zapisi %v, očekivan samo BP 15", ostalo)
+	}
+
+	// kad se površina ne može obrisati, knjiga kanala ostaje
+	if _, err := n.db.Exec(`DROP TABLE odbacena_ocitanja`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := n.svc.PurgeChannel(ctx, ch15); err == nil {
+		t.Error("brisanje kanala mora javiti grešku površine")
+	}
+	if counts, _ := n.rec.CountByChannel(ctx); counts[ch15] != 1 {
+		t.Errorf("knjiga kanala BP 15 nakon neuspjelog brisanja: %v", counts)
+	}
+}
