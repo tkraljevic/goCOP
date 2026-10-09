@@ -16,11 +16,14 @@ import (
 //
 // Čvor sa starijim programom (0.0.34) ova polja ne poznaje, ali ih knjiga
 // verzija pri njegovoj izmjeni prepiše iz prethodne inačice; izmjena na
-// takvom čvoru predano izvješće i dalje ostavlja predanim.
+// takvom čvoru predano izvješće i dalje ostavlja predanim. Predaju na
+// takvom čvoru program ne pripisuje onome tko je predao prije: PredaoAt
+// kaže za koju je predaju zapisano tko je predao.
 type TragPredaje struct {
 	PrvoPredanoAt *time.Time `json:"prvo_predano_at,omitempty"`
 	PredaoID      string     `json:"predao_id,omitempty"` // tko je predao zadnji put
 	Predao        string     `json:"predao,omitempty"`
+	PredaoAt      *time.Time `json:"predao_at,omitempty"` // vrijeme predaje za koju su zapisani PredaoID i Predao
 	// svi koji su izvješće mijenjali nakon prve predaje, redom prve izmjene
 	Izmijenili []Izmjenitelj `json:"izmijenili,omitempty"`
 }
@@ -112,7 +115,7 @@ func (t *TragPredaje) ZabiljeziPredaju(kad time.Time, u *User) {
 		t.PrvoPredanoAt = &kad
 	}
 	if u != nil {
-		t.PredaoID, t.Predao = u.ID.String(), u.FullName
+		t.PredaoID, t.Predao, t.PredaoAt = u.ID.String(), u.FullName, &kad
 	}
 }
 
@@ -137,15 +140,15 @@ func (t TragPredaje) opisPredaje(predano *time.Time, kome, format string) string
 
 // trag je nastavak retka o izradi dokumenta („Datum i sat izrade … ·
 // Sastavio …”): tko je sve izvješće mijenjao nakon predaje, kad je predano i,
-// kad to nije onaj tko ga je sastavio, tko ga je predao
+// kad se zna i nije onaj tko ga je sastavio, tko ga je predao
 func (t TragPredaje) trag(predano *time.Time, izradio, kome, format string) string {
 	var dijelovi []string
 	if iz := t.izmjeneZaIspis(); iz != "" {
 		dijelovi = append(dijelovi, iz)
 	}
 	if o := t.opisPredaje(predano, kome, format); o != "" {
-		if predano != nil && t.Predao != "" && t.Predao != izradio {
-			o += " (predao " + t.Predao + ")"
+		if p := t.predaoIli(predano, izradio); predano != nil && p != "" && p != izradio {
+			o += " (predao " + p + ")"
 		}
 		dijelovi = append(dijelovi, o)
 	}
@@ -155,13 +158,25 @@ func (t TragPredaje) trag(predano *time.Time, izradio, kome, format string) stri
 	return " · " + strings.Join(dijelovi, " · ")
 }
 
-// predaoIli je tko je izvješće predao; za izvješće predano prije nego što se
-// to pamtilo, onaj tko ga je sastavio
-func (t TragPredaje) predaoIli(izradio string) string {
-	if t.Predao != "" {
+// predaoIli je tko je izvješće predao u predaji s vremenom predano.
+// Zapisani predavatelj vrijedi samo za predaju za koju je zapisan. Ponovnu
+// predaju na čvoru sa starijim programom (0.0.34), koji predavatelja ne
+// pamti, nije predao onaj tko je predao prije, pa se tada ne zna tko ju je
+// predao (prazno). Za izvješće predano prije nego što se to pamtilo, onaj
+// tko ga je sastavio.
+func (t TragPredaje) predaoIli(predano *time.Time, izradio string) string {
+	switch {
+	case t.predaoZa(predano):
 		return t.Predao
+	case t.ponovno(predano):
+		return ""
 	}
 	return izradio
+}
+
+// predaoZa javlja je li zapisani predavatelj predao baš predaju s vremenom predano
+func (t TragPredaje) predaoZa(predano *time.Time) bool {
+	return t.Predao != "" && predano != nil && t.PredaoAt != nil && predano.Equal(*t.PredaoAt)
 }
 
 // PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom
@@ -183,8 +198,8 @@ func (i SektorskoIzvjesce) TragUDokumentu(kome, format string) string {
 	return i.trag(i.PredanoAt, i.Izradio, kome, format)
 }
 
-// TkoJePredao je tko je izvješće predao zadnji put
-func (i SektorskoIzvjesce) TkoJePredao() string { return i.predaoIli(i.Izradio) }
+// TkoJePredao je tko je izvješće predao zadnji put; prazno kad se ne zna
+func (i SektorskoIzvjesce) TkoJePredao() string { return i.predaoIli(i.PredanoAt, i.Izradio) }
 
 // PovuciPredaju vraća predano izvješće u nacrt bez izmjene sadržaja; prvo
 // vrijeme predaje ostaje
@@ -222,8 +237,8 @@ func (i DnevnoIzvjesce) TragUDokumentu(kome, format string) string {
 	return i.trag(i.PredanoAt, i.Izradio, kome, format)
 }
 
-// TkoJePredao je tko je izvješće predao zadnji put
-func (i DnevnoIzvjesce) TkoJePredao() string { return i.predaoIli(i.Izradio) }
+// TkoJePredao je tko je izvješće predao zadnji put; prazno kad se ne zna
+func (i DnevnoIzvjesce) TkoJePredao() string { return i.predaoIli(i.PredanoAt, i.Izradio) }
 
 // ZabiljeziSpremanje bilježi u trag spremanje izvješća koje je već bilo
 // predano: prvo vrijeme predaje ostaje, a onaj tko sprema pamti se među

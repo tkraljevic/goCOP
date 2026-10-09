@@ -183,3 +183,40 @@ func TestSpremanjeBiljeziSamoStvarnuIzmjenu(t *testing.T) {
 		t.Error("nezapisivo je isto")
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 12, dok čvorovi rade s različitim
+// programima: čvor s 0.0.34 tko je predao ne pamti, a knjiga verzija trag
+// prepiše iz prethodne inačice. Ponovna predaja na takvom čvoru zato se ne
+// pripisuje onome tko je predao prije; izmjena predanog na takvom čvoru
+// (vrijeme predaje ostaje) ostaje pod onim tko je predao. Ana Anić
+// sastavlja i predaje, Ivo Ivić mijenja.
+func TestPredajaStarijegProgramaBezImena(t *testing.T) {
+	ana := &User{ID: uuid.New(), FullName: "Ana Anić"}
+	ivo := &User{ID: uuid.New(), FullName: "Ivo Ivić"}
+	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, Zagreb)
+	drugi := time.Date(2026, 10, 7, 14, 20, 0, 0, Zagreb)
+
+	iz := DnevnoIzvjesce{Izradio: "Ana Anić", PredanoAt: &prvi}
+	iz.ZabiljeziPredaju(prvi, ana)
+	if iz.PredaoAt == nil || !iz.PredaoAt.Equal(prvi) {
+		t.Fatalf("predaja ne pamti za koju je predaju: %+v", iz.TragPredaje)
+	}
+	// izmjena na 0.0.34: predano ostaje s istim vremenom, predala je Ana
+	if iz.TkoJePredao() != "Ana Anić" {
+		t.Errorf("izmjena predanog na starijem čvoru: %q", iz.TkoJePredao())
+	}
+	// Ivo mijenja na novom čvoru, pa izvješće na 0.0.34 netko ponovno preda
+	iz.IzmjenaPoslijePredaje(iz.PredanoAt, ivo, true)
+	iz.PredanoAt = &drugi
+	if !iz.PonovnoPredano() || iz.TkoJePredao() != "" {
+		t.Errorf("ponovna predaja na starijem čvoru: %q", iz.TkoJePredao())
+	}
+	if o := iz.TragUDokumentu("", "15:04"); o != " · izmijenio poslije predaje: Ivo Ivić · prvi put predano 09:40, ponovno 14:20" {
+		t.Errorf("trag: %q", o)
+	}
+	// zamjenik ponovno preda na novom čvoru: opet se zna tko
+	iz.ZabiljeziPredaju(drugi, ivo)
+	if iz.TkoJePredao() != "Ivo Ivić" || iz.TragUDokumentu("", "15:04") != " · izmijenio poslije predaje: Ivo Ivić · prvi put predano 09:40, ponovno 14:20 (predao Ivo Ivić)" {
+		t.Errorf("ponovna predaja na novom čvoru: %q, %q", iz.TkoJePredao(), iz.TragUDokumentu("", "15:04"))
+	}
+}
