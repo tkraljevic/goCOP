@@ -219,7 +219,7 @@
 <div class="akt-potpis-stanje{{if not $.Sukob.Rijesen}} ne-vrijedi{{end}}" id="oznaka">
   {{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a> (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>
   {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).{{end}}
-  {{else}}Oba akta ostaju valjana i potpisana: ovjerena su na dva čvora dok veze nije bilo. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
+  {{else}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}Svi ostaju valjani i rješenje ih ne mijenja. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
   {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
   <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="mt-2">
     <label for="napomena-oznake" class="form-label">Kako je sukob riješen</label>

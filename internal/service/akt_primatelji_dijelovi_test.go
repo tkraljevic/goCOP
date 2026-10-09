@@ -90,14 +90,14 @@ func TestOsobaNaPopisuPrimatelja(t *testing.T) {
 func TestPotvrdaPopisaPrimatelja(t *testing.T) {
 	u := &models.User{ID: uuid.New(), FullName: "Iva Ivić"}
 	a := &models.Akt{}
-	if err := potvrdiPrimatelje(a, u, nil, false, "x"); err != nil || len(a.Potvrde) != 0 {
+	if err := potvrdiPrimatelje(a, u, nil, false, "Pitanje: ", "x"); err != nil || len(a.Potvrde) != 0 {
 		t.Fatalf("bez upozorenja: %v %+v", err, a.Potvrde)
 	}
-	err := potvrdiPrimatelje(a, u, []string{"prvo", "drugo"}, false, "x")
-	if _, ok := err.(*TrebaPotvrduError); !ok || !strings.Contains(err.Error(), "prvo; drugo") || len(a.Potvrde) != 0 {
+	err := potvrdiPrimatelje(a, u, []string{"prvo", "drugo"}, false, "Pitanje: ", "x")
+	if _, ok := err.(*TrebaPotvrduError); !ok || !strings.HasPrefix(err.Error(), "Pitanje: prvo; drugo") || len(a.Potvrde) != 0 {
 		t.Fatalf("bez potvrde: %v %+v", err, a.Potvrde)
 	}
-	if err := potvrdiPrimatelje(a, u, []string{"prvo"}, true, "Uvod: "); err != nil || !a.ImaPotvrdu(models.PotvrdaPrimatelji) ||
+	if err := potvrdiPrimatelje(a, u, []string{"prvo"}, true, "Pitanje: ", "Uvod: "); err != nil || !a.ImaPotvrdu(models.PotvrdaPrimatelji) ||
 		a.Potvrde[0].Tekst != "Uvod: prvo" || a.Potvrde[0].Tko != "Iva Ivić" || a.Potvrde[0].TkoID != u.ID.String() || a.Potvrde[0].Kad.IsZero() {
 		t.Fatalf("potvrda: %v %+v", err, a.Potvrde)
 	}
@@ -121,5 +121,29 @@ func TestPDFSkena(t *testing.T) {
 	}
 	if _, err := pdfSkena([]byte("nije ni PDF ni slika"), "Akt"); err == nil || err.Error() != "sken mora biti PDF" {
 		t.Errorf("nečitljiv sken: %v", err)
+	}
+}
+
+// Tekst potvrde kaže ono što se dogodilo: otisak koji se ne slaže ne broji
+// razliku prema nacrtu (osoba je mogla vidjeti drukčiji popis ili samo
+// drugo upozorenje), a sken kojem je jedini razlog razlika prema ispisu ne
+// kaže da popis nije potpun
+func TestTekstoviPotvrdePrimatelja(t *testing.T) {
+	u := &models.User{ID: uuid.New(), FullName: "Iva Ivić"}
+	err := primateljiZaOvjeru(u, &models.Akt{}, PotvrdaOvjere{Otisak: "vidjela"}, PregledPrimatelja{Otisak: "sada"})
+	if err == nil || strings.Contains(err.Error(), "dodano 0") || !strings.Contains(err.Error(), "otkad je stranica otvorena") {
+		t.Errorf("promijenjen otisak: %v", err)
+	}
+	err = primateljiZaOvjeru(u, &models.Akt{}, PotvrdaOvjere{}, PregledPrimatelja{Upozorenja: []string{"teritorij dionice B.1 nije pročitan"}})
+	if err == nil || !strings.HasPrefix(err.Error(), "Popis primatelja nije potpun: teritorij dionice B.1") {
+		t.Errorf("ovjera uz upozorenje: %v", err)
+	}
+	err = primateljiSkena(u, &models.Akt{}, PotvrdaOvjere{}, PregledPrimatelja{Dodani: []models.AktPrimatelj{{Naziv: "Ravnateljstvo civilne zaštite"}}})
+	if err == nil || strings.Contains(err.Error(), "nije potpun") || !strings.Contains(err.Error(), "popis složen sada bio bi drukčiji od onoga na ispisu (dodano 1, uklonjeno 0)") {
+		t.Errorf("sken s popisom koji bi sada bio drukčiji: %v", err)
+	}
+	err = primateljiSkena(u, &models.Akt{UpozorenjaPrimatelja: []string{"dionice bez upisanog teritorija: B.1"}}, PotvrdaOvjere{}, PregledPrimatelja{})
+	if err == nil || !strings.Contains(err.Error(), "nije potpun") || !strings.Contains(err.Error(), "bez upisanog teritorija: B.1") {
+		t.Errorf("sken uz upozorenje nacrta: %v", err)
 	}
 }

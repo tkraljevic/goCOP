@@ -181,7 +181,7 @@ func TestOvjeraIPopisPrimatelja(t *testing.T) {
 	if err := o.akti.SpremiPrimatelja(ctx, uprava, &models.Primatelj{Sektor: "P", Naziv: "Ravnateljstvo civilne zaštite", Email: "rcz@primjer.hr", Aktivan: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, service.PotvrdaOvjere{Otisak: vidio.Otisak, Primatelji: true}); err == nil || !strings.Contains(err.Error(), "promijenio se") {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, service.PotvrdaOvjere{Otisak: vidio.Otisak, Primatelji: true}); err == nil || !strings.Contains(err.Error(), "otkad je stranica otvorena") {
 		t.Fatalf("ovjera sa zastarjelim popisom: %v", err)
 	}
 	if nacrt, _ := o.akti.Get(ctx, a.ID); nacrt.Ovjeren() || strings.Contains(imena(nacrt.Primatelji), "Ravnateljstvo") {

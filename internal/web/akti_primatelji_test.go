@@ -156,7 +156,7 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 	}
 	stranica(a.ID, "Razlika prema popisu u nacrtu:", "+ Ravnateljstvo civilne zaštite &lt;rcz@primjer.hr&gt;", "razlikuje se od nacrta (dodano 1, uklonjeno 0)",
 		"a popis složen sada bio bi drukčiji (dodano 1, uklonjeno 0): svejedno ovjeravam")
-	if l := ovjeri(url.Values{"id": {a.ID}, "otisak": {vidjela}, "potvrda_primatelja": {"1"}}); !strings.Contains(l, "promijenio se otkad je stranica otvorena") {
+	if l := ovjeri(url.Values{"id": {a.ID}, "otisak": {vidjela}, "potvrda_primatelja": {"1"}}); !strings.Contains(l, "otkad je stranica otvorena") {
 		t.Errorf("ovjera sa zastarjelim popisom: %s", l)
 	}
 

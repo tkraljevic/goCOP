@@ -55,3 +55,25 @@ func TestSukobiOznaka(t *testing.T) {
 		t.Errorf("identiteti akata: %v", ids)
 	}
 }
+
+// Gdje su ovjereni akti iste oznake: na različitim čvorovima, na istom, ili
+// se ne zna (čvor nije upisan)
+func TestCvoroviSukobaOznake(t *testing.T) {
+	akt := func(cvor string) Akt { return Akt{Cvor: cvor} }
+	for _, c := range []struct {
+		opis  string
+		a     Akt
+		drugi []Akt
+		hoce  string
+	}{
+		{"dva čvora", akt("laptop"), []Akt{akt("unraid")}, SukobRazlicitiCvorovi},
+		{"jedan od trojice s drugog čvora", akt("laptop"), []Akt{akt(""), akt("unraid")}, SukobRazlicitiCvorovi},
+		{"isti čvor", akt("laptop"), []Akt{akt("laptop")}, SukobIstiCvor},
+		{"čvor drugog akta nije upisan", akt("laptop"), []Akt{akt("laptop"), akt("")}, ""},
+		{"čvor akta nije upisan", akt(""), []Akt{akt("unraid")}, ""},
+	} {
+		if got := (SukobOznake{Drugi: c.drugi}).Cvorovi(c.a); got != c.hoce {
+			t.Errorf("%s: %q, očekivano %q", c.opis, got, c.hoce)
+		}
+	}
+}

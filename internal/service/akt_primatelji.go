@@ -443,9 +443,9 @@ type PotvrdaOvjere struct {
 // se ovjerava s novim popisom, a dok stoji upozorenje, samo uz potvrdu
 func primateljiZaOvjeru(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledPrimatelja) error {
 	if p.Otisak != "" && p.Otisak != pr.Otisak {
-		return fmt.Errorf("popis primatelja promijenio se otkad je stranica otvorena (%s); pregledajte razliku i ovjerite ponovno", pr.OpisRazlike())
+		return fmt.Errorf("popis primatelja ili upozorenje uz njega promijenili su se otkad je stranica otvorena; pregledajte ih pod Primatelji pri ovjeri i ovjerite ponovno")
 	}
-	if err := potvrdiPrimatelje(a, u, pr.Upozorenja, p.Primatelji, "Ovjereno uz upozorenje o popisu primatelja: "); err != nil {
+	if err := potvrdiPrimatelje(a, u, pr.Upozorenja, p.Primatelji, "Popis primatelja nije potpun: ", "Ovjereno uz upozorenje o popisu primatelja: "); err != nil {
 		return err
 	}
 	a.Primatelji, a.UpozorenjaPrimatelja = pr.Primatelji, pr.Upozorenja
@@ -457,21 +457,26 @@ func primateljiZaOvjeru(u *models.User, a *models.Akt, p PotvrdaOvjere, pr Pregl
 // složen sada bio drukčiji
 func primateljiSkena(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledPrimatelja) error {
 	razlozi := append([]string(nil), a.UpozorenjaPrimatelja...)
+	pitanje := "Popis primatelja s ispisa nije potpun: "
+	if len(razlozi) == 0 {
+		pitanje = "Sken nosi popis primatelja s ispisa: "
+	}
 	if pr.Razlikuje() {
 		razlozi = append(razlozi, "popis složen sada bio bi drukčiji od onoga na ispisu ("+pr.OpisRazlike()+")")
 	}
-	return potvrdiPrimatelje(a, u, razlozi, p.Primatelji, "Sken ovjeren s popisom primatelja s ispisa, uz upozorenje: ")
+	return potvrdiPrimatelje(a, u, razlozi, p.Primatelji, pitanje, "Sken ovjeren s popisom primatelja s ispisa, uz upozorenje: ")
 }
 
 // potvrdiPrimatelje: dok stoje upozorenja, ovjera prolazi samo uz izričitu
-// potvrdu, koja se bilježi uz akt
-func potvrdiPrimatelje(a *models.Akt, u *models.User, upozorenja []string, potvrdeno bool, uvod string) error {
+// potvrdu, koja se bilježi uz akt. pitanje uvodi upozorenja u pitanju, a
+// uvod u zabilježenoj potvrdi.
+func potvrdiPrimatelje(a *models.Akt, u *models.User, upozorenja []string, potvrdeno bool, pitanje, uvod string) error {
 	if len(upozorenja) == 0 {
 		return nil
 	}
 	tekst := strings.Join(upozorenja, "; ")
 	if !potvrdeno {
-		return &TrebaPotvrduError{Pitanje: "Popis primatelja nije potpun: " + tekst + ". Ovjera traži izričitu potvrdu."}
+		return &TrebaPotvrduError{Pitanje: pitanje + tekst + ". Ovjera traži izričitu potvrdu."}
 	}
 	a.Potvrde = append(a.Potvrde, models.PotvrdaAkta{Vrsta: models.PotvrdaPrimatelji, Tekst: uvod + tekst,
 		TkoID: u.ID.String(), Tko: u.FullName, Kad: time.Now().UTC().Truncate(time.Second)})

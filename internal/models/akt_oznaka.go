@@ -49,6 +49,32 @@ type SukobOznake struct {
 // Rijesen javlja je li sukob označen riješenim
 func (s SukobOznake) Rijesen() bool { return s.Rjesenje != nil }
 
+// Gdje su ovjereni akti iste oznake (SukobOznake.Cvorovi)
+const (
+	SukobRazlicitiCvorovi = "RAZLICITI" // bar jedan drugi akt na drugom čvoru
+	SukobIstiCvor         = "ISTI"      // svi na čvoru ovog akta
+)
+
+// Cvorovi kaže gdje su ovjereni akti iste oznake, prema aktu a:
+// SukobRazlicitiCvorovi, SukobIstiCvor, ili prazno kad se ne zna jer čvor
+// nije upisan
+func (s SukobOznake) Cvorovi(a Akt) string {
+	if a.Cvor == "" {
+		return ""
+	}
+	isti := SukobIstiCvor
+	for _, d := range s.Drugi {
+		switch d.Cvor {
+		case a.Cvor:
+		case "":
+			isti = ""
+		default:
+			return SukobRazlicitiCvorovi
+		}
+	}
+	return isti
+}
+
 // SukobiOznaka su sukobi oznaka među aktima, po ID-u akta: svaki akt s
 // brojem čiju oznaku (sektor, broj, godina) nosi još koji akt. Nacrt nema
 // broja i ne ulazi; poništen akt zadržava broj, pa ulazi. Sukob je riješen

@@ -66,6 +66,14 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	}
 	batina := akt("Batina", "laptop", "3FA9C21B0D", models.PhasePrep)
 	vukovar := akt("Vukovar", "unraid", "7C11E0A2B4", models.PhaseRegular)
+	// isti broj dvaput na istom čvoru (npr. prije brojača akata)
+	aljmas, dalj := akt("Aljmaš", "laptop", "11AA22BB33", models.PhaseEmergency), akt("Dalj", "laptop", "44CC55DD66", models.PhaseState)
+	aljmas.Broj, dalj.Broj = 8, 8
+	for _, a := range []*models.Akt{aljmas, dalj} {
+		if err := aktiRepo.SaveAkt(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	sektor := "B"
 	voditelj := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true,
@@ -114,12 +122,17 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 
 	popis := zovi(operater, oOvl, http.MethodGet, "/akti", nil)
 	ima(popis, "popis sa sukobom", `class="akt-sukob"`, "ista oznaka kao akt", "Vukovar, RJEŠENJE o uspostavi", "kod 7C11E0A2B4", "čvor unraid", "čeka odluku")
-	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 2 {
-		t.Errorf("oba akta iste oznake moraju biti crvena, a crvenih redaka je %d", n)
+	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 4 {
+		t.Errorf("akti iste oznake (dva para) moraju biti crveni, a crvenih redaka je %d", n)
 	}
+	ima(zovi(operater, oOvl, http.MethodGet, "/akti/"+aljmas.ID, nil), "isti broj na istom čvoru", "Ista oznaka kao akt", "Dalj", "ovjereni na istom čvoru")
 	// rukovoditelj sektora vidi sukob, ali ga ne rješava
 	stranica := zovi(operater, oOvl, http.MethodGet, "/akti/"+batina.ID, nil)
-	ima(stranica, "akt rukovoditelju", "Ista oznaka kao akt", "Vukovar", "ista oznaka kao drugi akt", "Voditelj Centra obrane od poplava ili zamjenik")
+	ima(stranica, "akt rukovoditelju", "Ista oznaka kao akt", "Vukovar", "ista oznaka kao drugi akt", "Voditelj Centra obrane od poplava ili zamjenik",
+		"ovjereni na različitim čvorovima")
+	if strings.Contains(stranica.Body.String(), "potpisan") {
+		t.Error("akti bez potpisa čvora ne smiju se opisati kao potpisani")
+	}
 	if strings.Contains(stranica.Body.String(), "Označi riješenim") {
 		t.Error("rukovoditelj sektora ne rješava sukob oznake")
 	}
@@ -132,8 +145,8 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	}
 	popis = zovi(operater, oOvl, http.MethodGet, "/akti", nil)
 	ima(popis, "popis nakon rješenja", "ista oznaka kao akt", "riješeno")
-	if strings.Contains(popis.Body.String(), `class="akt-sukob"`) {
-		t.Error("riješen sukob više nije crven")
+	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 2 {
+		t.Errorf("riješen sukob više nije crven, a nerješen ostaje: %d crvenih redaka", n)
 	}
 	ima(zovi(operater, oOvl, http.MethodGet, "/akti/"+vukovar.ID, nil), "drugi akt nakon rješenja", "Sukob je riješen: Primateljima poslan dopis", "Ana Anić")
 	if s, _ := akti.SukobiOznaka(ctx); !s[vukovar.ID].Rijesen() || !s[batina.ID].Rijesen() {
