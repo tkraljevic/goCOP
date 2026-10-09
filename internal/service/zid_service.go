@@ -756,11 +756,8 @@ func (c *opisivac) verzijePrijave(id string) (objava, rjesenje string) {
 
 // dogadjajiPrijave nalazi u povijesti prijave (najnovija verzija prva)
 // verziju objave i verziju rješenja: verziju u kojoj je prijava postala
-// objavljena, odnosno riješena (prijelazPrijave)
+// objavljena, odnosno riješena, prema verziji prije nje (prethodnicaPrijave)
 func dogadjajiPrijave(povijest []ledger.Version) (objava, rjesenje string) {
-	if len(povijest) == 0 {
-		return "", ""
-	}
 	verzije := make(map[string]*models.PrijavaSTerena, len(povijest))
 	for _, v := range povijest {
 		var p models.PrijavaSTerena
@@ -770,39 +767,72 @@ func dogadjajiPrijave(povijest []ledger.Version) (objava, rjesenje string) {
 			verzije[v.VersionID] = nil
 		}
 	}
-	najstarija := povijest[len(povijest)-1].VersionID
-	for _, v := range povijest {
-		if v.Archived || verzije[v.VersionID] == nil {
+	sazeta := prazninaSazimanja(povijest)
+	for i, v := range povijest {
+		p := verzije[v.VersionID]
+		if v.Archived || p == nil {
 			continue
 		}
-		if prijelazPrijave(v, models.PrijavaSTerena.Objavljena, verzije, najstarija) {
+		prije, ok := prethodnicaPrijave(povijest, i, verzije, sazeta)
+		if !ok {
+			continue
+		}
+		if prijelazPrijave(p, prije, models.PrijavaSTerena.Objavljena) {
 			objava = v.VersionID
 		}
-		if prijelazPrijave(v, models.PrijavaSTerena.Rijesena, verzije, najstarija) {
+		if prijelazPrijave(p, prije, models.PrijavaSTerena.Rijesena) {
 			rjesenje = v.VersionID
 		}
 	}
 	return objava, rjesenje
 }
 
-// prijelazPrijave javlja je li stanje prijave nastupilo u verziji v: u v
-// vrijedi, a u verziji koju je v zamijenila nije. Kad te verzije u
-// povijesti nema, prijelaz nosi v samo ako je najstarija verzija koja je
-// ostala (povijest sažeta od početka). Inače je nedostajuća verzija
-// obrisana s oglasne ploče, a s njom i događaj, pa ga kasnija verzija ne
-// smije ponoviti s kasnijim vremenom.
-func prijelazPrijave(v ledger.Version, stanje func(models.PrijavaSTerena) bool, verzije map[string]*models.PrijavaSTerena, najstarija string) bool {
-	if !stanje(*verzije[v.VersionID]) {
-		return false
-	}
+// prethodnicaPrijave je verzija prema kojoj se gleda prijelaz u verziji i:
+// verzija koju je zamijenila. Kad nje nema, a mogla je nestati sažimanjem
+// knjige (prazninaSazimanja), to je prva starija verzija koja je ostala, a
+// kad ni nje nema, prijelaz nosi i (povijest sažeta od početka). Inače je
+// nedostajuća verzija obrisana s oglasne ploče na ovom čvoru, a s njom i
+// događaj, pa ga i ne smije ponoviti s kasnijim vremenom (ok=false). Nil
+// znači da prethodnice nema ili se ne može pročitati.
+func prethodnicaPrijave(povijest []ledger.Version, i int, verzije map[string]*models.PrijavaSTerena, sazeta map[string]bool) (*models.PrijavaSTerena, bool) {
+	v := povijest[i]
 	if v.Supersedes == "" {
-		return true
+		return nil, true
 	}
-	prethodna, ima := verzije[v.Supersedes]
-	if !ima {
-		return v.VersionID == najstarija
+	if p, ima := verzije[v.Supersedes]; ima {
+		return p, true
 	}
-	return prethodna == nil || !stanje(*prethodna)
+	if !sazeta[v.VersionID] {
+		return nil, false
+	}
+	if i+1 < len(povijest) {
+		return verzije[povijest[i+1].VersionID], true
+	}
+	return nil, true
+}
+
+// prazninaSazimanja javlja za svaku verziju je li njezina prethodnica, kad
+// je nema, mogla nestati sažimanjem knjige. Sažimanje (ledger.Compact) od
+// starijih verzija čuva samo zadnju verziju svakog čvora u kanalu, pa uz
+// sažetu prethodnicu ne ostaje starija verzija čvora i kanala verzije koja
+// ju je zamijenila; brisanje s oglasne ploče briše jednu verziju, a starije
+// verzije istog čvora ostavlja. Tako prijava objavljena na jednom čvoru, a
+// riješena na drugom, i nakon sažimanja ostaje na zidu kao riješena.
+func prazninaSazimanja(povijest []ledger.Version) map[string]bool {
+	out := make(map[string]bool, len(povijest))
+	vidjeno := map[string]bool{}
+	for i := len(povijest) - 1; i >= 0; i-- {
+		k := ledger.FrontierKey(povijest[i].NodeID, povijest[i].Channel)
+		out[povijest[i].VersionID] = !vidjeno[k]
+		vidjeno[k] = true
+	}
+	return out
+}
+
+// prijelazPrijave javlja je li stanje prijave nastupilo u verziji p: u p
+// vrijedi, a u prethodnici nije (ili prethodnice nema)
+func prijelazPrijave(p, prije *models.PrijavaSTerena, stanje func(models.PrijavaSTerena) bool) bool {
+	return stanje(*p) && (prije == nil || !stanje(*prije))
 }
 
 // prijenosIzDrugogSektora: ulaz prijenosa iz skladišta drugog sektora na

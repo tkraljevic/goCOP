@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -19,6 +20,7 @@ import (
 // vodočuvar na BP 34 (Sektor B), piše prijave
 type zidPrijava struct {
 	ctx      context.Context
+	baza     *sql.DB
 	rec      *ledger.Recorder
 	repo     *repository.PrijavaRepository
 	prijave  *PrijavaService
@@ -51,7 +53,7 @@ func noviZidPrijava(t *testing.T) *zidPrijava {
 	repo := repository.NewPrijavaRepository(baza, rec)
 	vodocuvar := NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "test")
 	journals := repository.NewJournalRepository(baza, rec)
-	return &zidPrijava{ctx: context.Background(), rec: rec, repo: repo, prijave: NewPrijavaService(repo, users, vodocuvar, "test"),
+	return &zidPrijava{ctx: context.Background(), baza: baza, rec: rec, repo: repo, prijave: NewPrijavaService(repo, users, vodocuvar, "test"),
 		zid: NewZidService(rec, journals, repository.NewSectionRepository(baza, rec), nil, userRepo, nil, nil), journals: journals,
 		marko: &models.User{ID: uuid.New(), FullName: "Marko Markić"}}
 }
@@ -192,12 +194,19 @@ func godina(t time.Time) string { return t.In(models.Zagreb).Format("2006") }
 // Redak objave i redak rješenja određuje povijest prijave: verzija u kojoj
 // je prijava postala objavljena, odnosno riješena, prema verziji koju je
 // zamijenila. Kad je starija povijest sažeta, događaj nosi najstarija
-// verzija koja je ostala; kad je verzija s događajem obrisana s oglasne
-// ploče (iza nje ostaju starije verzije), događaja više nema.
+// verzija koja je ostala, a verziju čija je prethodnica sažeta uspoređuje
+// se s prvom starijom verzijom koja je ostala. Kad je verzija s događajem
+// obrisana s oglasne ploče (iza nje ostaje starija verzija istog čvora u
+// istom kanalu, koju bi sažimanje obrisalo), događaja više nema.
 func TestDogadjajiPrijave(t *testing.T) {
 	v := func(id, prethodna, payload string, arhivirana bool) ledger.Version {
 		return ledger.Version{VersionID: id, Supersedes: prethodna, Entity: repository.EntityPrijave, Payload: []byte(payload), Archived: arhivirana}
 	}
+	// vc je verzija s čvorom i kanalom
+	vc := func(id, prethodna, payload, cvor, kanal string) ledger.Version {
+		return ledger.Version{VersionID: id, Supersedes: prethodna, Entity: repository.EntityPrijave, Payload: []byte(payload), NodeID: cvor, Channel: kanal}
+	}
+	kanal := "prijave/34/2026"
 	objavljeno := `"objavljeno_at":"2026-10-08T08:00:00Z"`
 	nacrt := v("1", "", `{"status":"NACRT"}`, false)
 	for _, k := range []struct {
@@ -231,6 +240,24 @@ func TestDogadjajiPrijave(t *testing.T) {
 			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
 			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
 			nacrt}, "2", ""},
+		{"sažeto na dva čvora: objava s terena, urbroj u uredu", []ledger.Version{
+			vc("u2", "r", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("p", "d", `{"status":"OBJAVLJENA",`+objavljeno+`}`, "teren", kanal)}, "p", "u2"},
+		{"sažeto na dva čvora: riješena već prije praznine", []ledger.Version{
+			vc("u2", "g", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("r", "x", `{"status":"RIJESENA",`+objavljeno+`}`, "teren", kanal)}, "r", "r"},
+		{"obrisano s ploče, poslije sažeto: kasnija verzija ga ne ponavlja", []ledger.Version{
+			vc("u2", "g", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("r", "x", `{"status":"RIJESENA",`+objavljeno+`}`, "teren", kanal),
+			vc("d", "", `{"status":"NACRT"}`, "teren", kanal)}, "", ""},
+		{"starija verzija istog čvora u drugom kanalu ne znači brisanje", []ledger.Version{
+			vc("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("1", "", `{"status":"NACRT"}`, "ured", "prijave/34/2025")}, "3", ""},
+		{"obrisano s ploče: starija verzija istog čvora i kanala", []ledger.Version{
+			vc("u2", "r", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("u1", "p", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("p", "d", `{"status":"OBJAVLJENA",`+objavljeno+`}`, "teren", kanal),
+			vc("d", "", `{"status":"NACRT"}`, "teren", kanal)}, "p", ""},
 		{"prethodnica se ne može pročitati", []ledger.Version{
 			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
 			v("1", "", `nije json`, false)}, "2", ""},
@@ -349,5 +376,59 @@ func TestZidPrijavaNakonSazimanjaKnjige(t *testing.T) {
 	}
 	if dog[0].VersionID != zadnja.VersionID || !dog[0].Kad.Equal(zadnja.CreatedAt) || dog[0].Vazno {
 		t.Errorf("rješenje nakon sažimanja: %+v, zadnja verzija %s u %v", dog[0], zadnja.VersionID, zadnja.CreatedAt)
+	}
+}
+
+// Prijava objavljena na terenskom čvoru, a urudžbirana i riješena na čvoru
+// ovog zida, pa sažimanje knjige: sažimanje zadržava zadnju verziju svakog
+// čvora u kanalu, pa objava s terena ostaje bez nacrta, a urbroj bez
+// rješenja. Zid i dalje pokazuje rješenje kao zatvaranje predmeta i objavu
+// (Odluke (8. 10. 2026.), pitanje 20); praznina u povijesti je sažimanje, a
+// ne brisanje s oglasne ploče, jer iza nje ne ostaje starija verzija istog
+// čvora u istom kanalu.
+func TestZidPrijavaSazetaNaDvaCvora(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	teren := repository.NewPrijavaRepository(z.baza, ledger.New(z.baza, "teren"))
+
+	pr := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+		Naslov: "Procjeđivanje na nasipu", Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt, Vodotok: "Dunav"}
+	if err := teren.Save(z.ctx, pr); err != nil {
+		t.Fatal(err)
+	}
+	sad := time.Now()
+	pr.Broj, pr.Godina, pr.Status, pr.ObjavljenoAt = 42, sad.In(models.Zagreb).Year(), models.PrijavaObjavljena, &sad
+	if err := teren.Save(z.ctx, pr); err != nil {
+		t.Fatal(err)
+	}
+	pr.Klasa = "325-01/26-01/1"
+	z.spremi(t, pr)
+	pr.Status, pr.RijesioID, pr.Rijesio, pr.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+	z.spremi(t, pr)
+	pr.Urbroj = "2158-26-1"
+	z.spremi(t, pr)
+
+	ocekivano := "Riješena prijava s terena|" + pr.Oznaka() + ": Procjeđivanje na nasipu|Ivo Ivić\n" +
+		"Prijava s terena " + pr.Oznaka() + "|Procjeđivanje na nasipu · Dunav|Marko Markić"
+	if got := naslovi(z.prijaveNaZidu(t, ana, FiltarZida{})); got != ocekivano {
+		t.Fatalf("zid prije sažimanja:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
+	if n, err := z.rec.Compact(z.ctx, time.Now().Add(time.Hour)); err != nil || n != 3 {
+		t.Fatalf("sažimanje: %d, %v; očekivano 3 obrisane verzije (nacrt, urudžba, rješenje)", n, err)
+	}
+	dog := z.prijaveNaZidu(t, ana, FiltarZida{})
+	if got := naslovi(dog); got != ocekivano {
+		t.Fatalf("zid nakon sažimanja:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
+	zadnja, err := z.rec.Latest(z.ctx, repository.EntityPrijave, pr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dog[0].VersionID != zadnja.VersionID || dog[0].Cvor != "test" || dog[0].Vazno {
+		t.Errorf("rješenje nosi urbroj %s: %+v", zadnja.VersionID, dog[0])
+	}
+	if dog[1].Cvor != "teren" || !dog[1].Vazno {
+		t.Errorf("objava ostaje verzija s terena, istaknuta: %+v", dog[1])
 	}
 }
