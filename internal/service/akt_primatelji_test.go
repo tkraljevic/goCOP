@@ -52,7 +52,9 @@ func imena(p []models.AktPrimatelj) string {
 }
 
 // Akt po letvi koja pokriva dionice dvaju područja: firme i rukovoditelji
-// oba područja na popisu su, registar primatelja ostaje uz područje akta
+// oba područja na popisu su, i ispostava i izvođač upisani u registar za
+// drugo područje; ostali unosi registra za područje ostaju uz područje akta
+// (Odluke (8. 10. 2026.), pitanje 19)
 func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	uzTeritorij(t, o)
@@ -76,6 +78,9 @@ func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 	for _, p := range []models.Primatelj{
 		{Sektor: "P", Naziv: "Glavni centar obrane od poplava", Aktivan: true},
 		{Sektor: "P", AreaID: 2, Naziv: "Registar samo za područje 2", Aktivan: true},
+		{Sektor: "P", AreaID: 2, Skupina: models.SkupinaIspostava, Naziv: "Izvođač područja 2 iz registra", Email: "izvodjac2@primjer.hr", Aktivan: true},
+		{Sektor: "P", AreaID: 3, Skupina: models.SkupinaIspostava, Naziv: "Izvođač područja 3 iz registra", Aktivan: true},
+		{Sektor: "P", AreaID: 2, Skupina: models.SkupinaIspostava, Naziv: "Izvođač područja 2 od izvanredne", OdStupnja: models.PhaseEmergency, Aktivan: true},
 	} {
 		p := p
 		if err := o.akti.SpremiPrimatelja(ctx, uprava, &p); err != nil {
@@ -92,12 +97,12 @@ func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 	}
 	popis := imena(a.Primatelji)
 	for _, d := range []string{"Glavni centar obrane od poplava", "Ugovorna osoba područja 1", "Vodogradnja Drugo d.o.o.", "Pero Perić, Rukovoditelj BP 1",
-		"Ana Anić, Rukovoditeljica BP 2", "Civilna zaštita Vukovar", "Pismohrana"} {
+		"Ana Anić, Rukovoditeljica BP 2", "Civilna zaštita Vukovar", "Pismohrana", "Izvođač područja 2 iz registra"} {
 		if !strings.Contains(popis, d) {
 			t.Errorf("na popisu nema %q: %s", d, popis)
 		}
 	}
-	for _, ne := range []string{"Registar samo za područje 2", "Ugovorna osoba područja 2"} {
+	for _, ne := range []string{"Registar samo za područje 2", "Ugovorna osoba područja 2", "Izvođač područja 3 iz registra", "Izvođač područja 2 od izvanredne"} {
 		if strings.Contains(popis, ne) {
 			t.Errorf("na popisu ne smije biti %q: %s", ne, popis)
 		}
@@ -105,13 +110,15 @@ func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 	if len(a.UpozorenjaPrimatelja) != 1 || !strings.Contains(a.UpozorenjaPrimatelja[0], "bez upisanog teritorija (naselja i općine): P.1.2, P.2.1") {
 		t.Errorf("upozorenje o dionicama bez teritorija: %v", a.UpozorenjaPrimatelja)
 	}
-	// izvanredno stanje: župan i grad ugroženog područja, s e-poštom
+	// izvanredno stanje: župan i grad ugroženog područja, s e-poštom, i
+	// izvođač drugog područja upisan od izvanredne obrane
 	a.Stupanj = models.PhaseState
 	p := o.akti.PregledPrimatelja(ctx, a)
 	if s := imena(p.Primatelji); !strings.Contains(s, "Župan, Vukovarsko-srijemska županija") || !strings.Contains(s, "Grad Primjerovo") {
 		t.Errorf("samouprava izvanrednog stanja: %s", s)
 	}
-	if len(p.Dodani) != 2 || p.Dodani[0].Email != "zupan@primjer.hr" || p.Dodani[1].Email != "grad@primjer.hr" || len(p.Uklonjeni) != 0 || p.OpisRazlike() != "dodano 2, uklonjeno 0" {
+	if len(p.Dodani) != 3 || p.Dodani[0].Naziv != "Izvođač područja 2 od izvanredne" || p.Dodani[1].Email != "zupan@primjer.hr" || p.Dodani[2].Email != "grad@primjer.hr" ||
+		len(p.Uklonjeni) != 0 || p.OpisRazlike() != "dodano 3, uklonjeno 0" {
 		t.Errorf("razlika prema nacrtu: +%v −%v", p.Dodani, p.Uklonjeni)
 	}
 }

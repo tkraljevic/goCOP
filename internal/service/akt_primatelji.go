@@ -80,8 +80,9 @@ func (s *AktService) sloziPrimatelje(ctx context.Context, a *models.Akt) ([]mode
 	dionice := s.dioniceSPodrucjem(a, p)
 	ter := s.teritorijDionica(ctx, a, p)
 	s.dodajSluzbe(ctx, a.Stupanj, ter, p)
-	s.dodajRegistar(ctx, a, p)
-	for _, podrucje := range podrucjaPrimatelja(a.AreaID, dionice) {
+	podrucja := podrucjaPrimatelja(a.AreaID, dionice)
+	s.dodajRegistar(ctx, a, podrucja, p)
+	for _, podrucje := range podrucja {
 		s.dodajFirme(ctx, podrucje, p)
 	}
 	if a.Stupanj == models.PhaseState {
@@ -199,8 +200,8 @@ func dodajSluzbeZupanije(sluzbe []models.Sluzba, stupanj models.DefensePhase, ug
 }
 
 // dodajRegistar dodaje primatelje iz registra sektora: za cijeli sektor ili
-// za branjeno područje akta, od zadanog stupnja
-func (s *AktService) dodajRegistar(ctx context.Context, a *models.Akt, p *slaganjePrimatelja) {
+// za branjeno područje akta, od zadanog stupnja (registarZaAkt)
+func (s *AktService) dodajRegistar(ctx context.Context, a *models.Akt, podrucja []int, p *slaganjePrimatelja) {
 	reg, err := s.repo.ListPrimatelji(ctx, a.Sektor)
 	if err != nil {
 		p.upozori("registar primatelja sektora %s nije pročitan", a.Sektor)
@@ -213,10 +214,22 @@ func (s *AktService) dodajRegistar(ctx context.Context, a *models.Akt, p *slagan
 		return reg[i].Redoslijed < reg[j].Redoslijed
 	})
 	for _, x := range reg {
-		if x.Vrijedi(a.AreaID, a.Stupanj) {
+		if registarZaAkt(x, a, podrucja) {
 			p.dodaj(x.Skupina, x.Naziv, x.Email)
 		}
 	}
+}
+
+// registarZaAkt javlja ide li unos registra na akt: unos za cijeli sektor
+// ili za područje akta, a ispostava i izvođač i kad su upisani za drugo
+// branjeno područje čije su dionice u aktu (podrucja). Ostali unosi za
+// drugo područje ne idu (Odluke (8. 10. 2026.), pitanje 19, govori o
+// firmama i rukovoditeljima).
+func registarZaAkt(x models.Primatelj, a *models.Akt, podrucja []int) bool {
+	if x.Vrijedi(a.AreaID, a.Stupanj) {
+		return true
+	}
+	return x.Skupina == models.SkupinaIspostava && sadrziBroj(podrucja, x.AreaID) && x.Vrijedi(x.AreaID, a.Stupanj)
 }
 
 // dodajFirme dodaje licencirane pravne osobe za obranu na branjenom
