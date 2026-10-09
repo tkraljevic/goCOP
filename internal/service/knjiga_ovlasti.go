@@ -60,10 +60,33 @@ const (
 	radnjaZadatak
 )
 
-// SetStanjeObrane daje servisu stanje obrane dionice iz ovjerenih akata
-// (AktService.StanjeObrane), za zadatke rukovoditelja dionice
-func (s *VodocuvarService) SetStanjeObrane(f func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)) {
-	s.stanjeObrane = f
+// SetStanjaObrane daje servisu stanja obrane dionica sektora iz ovjerenih
+// akata (AktService.StanjaSektora), za zadatke rukovoditelja dionice
+func (s *VodocuvarService) SetStanjaObrane(f func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)) {
+	s.stanjaObrane = f
+}
+
+// pamcenjeKnjige pamti za jedan popis (vodočuvari kojima se zadaje ili u
+// čije se knjige upisuje) ono što je isto za sve vodočuvare na popisu:
+// stanja obrane po sektoru i dionice po području iz registra. Akti sektora
+// i registar tako se čitaju jednom po popisu, a ne za svakog vodočuvara i
+// svaku dionicu.
+type pamcenjeKnjige struct {
+	stanja  map[string]map[string]models.StanjeObrane
+	dionice map[int][]string
+}
+
+type kljucPamcenjaKnjige struct{}
+
+// sPamcenjem daje kontekst s novim pamćenjem za jedan popis
+func sPamcenjem(ctx context.Context) context.Context {
+	return context.WithValue(ctx, kljucPamcenjaKnjige{}, &pamcenjeKnjige{stanja: map[string]map[string]models.StanjeObrane{}, dionice: map[int][]string{}})
+}
+
+// pamcenjeIz je pamćenje popisa iz konteksta; nil kad ga nema
+func pamcenjeIz(ctx context.Context) *pamcenjeKnjige {
+	m, _ := ctx.Value(kljucPamcenjaKnjige{}).(*pamcenjeKnjige)
+	return m
 }
 
 // SmijeZadati javlja smije li osoba vodočuvaru lista zadati zadatak
@@ -238,9 +261,9 @@ func (s *VodocuvarService) dionicarSmije(ctx context.Context, d models.Duty, l *
 	}
 	c := &cuvar{v: s.vodocuvarLista(l, v)}
 	if r == radnjaZadatak {
-		return s.obranaNaDionicama(ctx, l.Sektor, s.dioniceVeze(d, s.zaduzenjaCuvara(c, time.Time{}), l.AreaID))
+		return s.obranaNaDionicama(ctx, l.Sektor, s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, time.Time{}), l.AreaID))
 	}
-	return len(s.dioniceVeze(d, s.zaduzenjaCuvara(c, l.Datum), l.AreaID)) > 0
+	return len(s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, l.Datum), l.AreaID)) > 0
 }
 
 // vodocuvarLista je vodočuvar čiji je list: zadan, ili pročitan po listu;
@@ -260,10 +283,10 @@ func (s *VodocuvarService) vodocuvarLista(l *models.VodocuvarskiList, v *models.
 // dioniceVeze su dionice dužnosti rukovoditelja dionice koje na branjenom
 // području lista vodočuvar čuva po nekom od zaduženja zad; dužnost bez
 // upisanih dionica vodi sve dionice područja iz registra
-func (s *VodocuvarService) dioniceVeze(d models.Duty, zad []models.Duty, areaID int) []string {
+func (s *VodocuvarService) dioniceVeze(ctx context.Context, d models.Duty, zad []models.Duty, areaID int) []string {
 	moje := d.Dionice()
 	if len(moje) == 0 {
-		moje = s.dionicePodrucja(areaID)
+		moje = s.dionicePodrucjaZa(ctx, areaID)
 	}
 	var out []string
 	for _, k := range moje {
@@ -290,6 +313,20 @@ func cuvaDionicu(zad []models.Duty, areaID int, dionica string) bool {
 // zadatke gleda na njima
 func (s *VodocuvarService) SetDionice(r *repository.SectionRepository) { s.dionice = r }
 
+// dionicePodrucjaZa su dionicePodrucja, uz pamćenje popisa kad ga
+// kontekst ima
+func (s *VodocuvarService) dionicePodrucjaZa(ctx context.Context, areaID int) []string {
+	m := pamcenjeIz(ctx)
+	if m == nil {
+		return s.dionicePodrucja(areaID)
+	}
+	if out, ima := m.dionice[areaID]; ima {
+		return out
+	}
+	m.dionice[areaID] = s.dionicePodrucja(areaID)
+	return m.dionice[areaID]
+}
+
 // dionicePodrucja su šifre dionica branjenog područja iz registra; bez
 // registra, bez područja ili uz grešku čitanja nijedna
 func (s *VodocuvarService) dionicePodrucja(areaID int) []string {
@@ -309,18 +346,37 @@ func (s *VodocuvarService) dionicePodrucja(areaID int) []string {
 
 // obranaNaDionicama javlja traje li na ijednoj od dionica obrana od
 // poplava: redovna ili izvanredna obrana ili izvanredno stanje iz ovjerenih
-// akata (pripremno stanje nije obrana). Bez izvora stanja obrane, ili kad se
-// akti ne daju pročitati, obrana se ne pretpostavlja.
+// akata (pripremno stanje nije obrana). Bez dionica akti se ne čitaju; bez
+// izvora stanja obrane, ili kad se akti ne daju pročitati, obrana se ne
+// pretpostavlja.
 func (s *VodocuvarService) obranaNaDionicama(ctx context.Context, sektor string, dionice []string) bool {
-	if s.stanjeObrane == nil {
+	if s.stanjaObrane == nil || len(dionice) == 0 {
 		return false
 	}
-	sad := time.Now()
+	stanja := s.stanjaSektora(ctx, sektor)
 	for _, k := range dionice {
-		st, _, err := s.stanjeObrane(ctx, sektor, k, sad)
-		if err == nil && st.Najvisi().Severity() >= models.PhaseRegular.Severity() {
+		if stanja[k].Najvisi().Severity() >= models.PhaseRegular.Severity() {
 			return true
 		}
 	}
 	return false
+}
+
+// stanjaSektora su stanja obrane dionica sektora sada, jednom po popisu kad
+// kontekst ima pamćenje; uz grešku čitanja nijedno
+func (s *VodocuvarService) stanjaSektora(ctx context.Context, sektor string) map[string]models.StanjeObrane {
+	m := pamcenjeIz(ctx)
+	if m != nil {
+		if st, ima := m.stanja[sektor]; ima {
+			return st
+		}
+	}
+	st, err := s.stanjaObrane(ctx, sektor, time.Now())
+	if err != nil {
+		st = nil
+	}
+	if m != nil {
+		m.stanja[sektor] = st
+	}
+	return st
 }

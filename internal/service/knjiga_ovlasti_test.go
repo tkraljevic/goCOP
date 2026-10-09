@@ -71,21 +71,19 @@ func (k *knjigaProba) vodocuvar(t *testing.T, korisnik, ime, dionice string) *mo
 	return u
 }
 
-// obrana postavlja izvor stanja obrane: zadani stadij na dionici
+// obrana postavlja izvor stanja obrane sektora P: zadani stadij na
+// dionici; akti drugog sektora se ne daju pročitati
 func (k *knjigaProba) obrana(stadiji map[string]models.DefensePhase) {
 	k.obranaNaPS = stadiji
-	k.o.vs.SetStanjeObrane(func(_ context.Context, sektor, dionica string, _ time.Time) (models.StanjeObrane, []models.Akt, error) {
+	k.o.vs.SetStanjaObrane(func(_ context.Context, sektor string, _ time.Time) (map[string]models.StanjeObrane, error) {
 		if sektor != "P" {
-			return models.StanjeObrane{}, nil, errors.New("nepoznat sektor")
+			return nil, errors.New("akti se ne čitaju")
 		}
-		if dionica == "GRESKA" {
-			return models.StanjeObrane{}, nil, errors.New("akti se ne čitaju")
+		out := map[string]models.StanjeObrane{}
+		for dionica, f := range k.obranaNaPS {
+			out[dionica] = models.StanjeObrane{IzAkata: true, Aktivni: []models.AktivniStadij{{Stupanj: f}}}
 		}
-		st := models.StanjeObrane{IzAkata: true}
-		if f, ima := k.obranaNaPS[dionica]; ima {
-			st.Aktivni = []models.AktivniStadij{{Stupanj: f}}
-		}
-		return st, nil, nil
+		return out, nil
 	})
 }
 
@@ -214,13 +212,13 @@ func TestRukovoditeljDioniceZadajeUObrani(t *testing.T) {
 			t.Errorf("%s: parafa i bilješka ovise o obrani", s.naziv)
 		}
 	}
-	// greška čitanja akata: obrana se ne pretpostavlja
+	// greška čitanja akata (ovdje sektor Q): obrana se ne pretpostavlja
 	k.obrana(map[string]models.DefensePhase{"P.1.1": models.PhaseRegular})
-	if k.o.vs.obranaNaDionicama(context.Background(), "P", []string{"GRESKA"}) {
+	if k.o.vs.obranaNaDionicama(context.Background(), "Q", []string{"P.1.1"}) {
 		t.Error("uz grešku čitanja akata obrana se pretpostavlja")
 	}
-	if k.o.vs.obranaNaDionicama(context.Background(), "Q", []string{"P.1.1"}) {
-		t.Error("obrana iz tuđeg sektora")
+	if k.o.vs.obranaNaDionicama(context.Background(), "P", nil) {
+		t.Error("obrana bez dionica")
 	}
 }
 

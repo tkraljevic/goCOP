@@ -42,10 +42,11 @@ type VodocuvarService struct {
 	// brisanja; testovi njime predaju ili brišu list u međuvremenu, kao
 	// druga kartica
 	prijeBrisanja func(ctx context.Context)
-	// stanjeObrane je stanje obrane dionice iz ovjerenih akata (AktService):
-	// rukovoditelj dionice zadaje zadatke samo dok na njegovoj dionici traje
-	// obrana. Bez njega (nil) obrana se ne pretpostavlja.
-	stanjeObrane func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)
+	// stanjaObrane su stanja obrane dionica sektora iz ovjerenih akata
+	// (AktService.StanjaSektora): rukovoditelj dionice zadaje zadatke samo
+	// dok na njegovoj dionici traje obrana. Bez njega (nil) obrana se ne
+	// pretpostavlja.
+	stanjaObrane func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
 	// dionice je registar dionica: rukovoditelj dionice bez upisanih
 	// dionica vodi sve dionice područja (knjiga_ovlasti.go). Bez njega
 	// (nil) takvom rukovoditelju obrana se ne gleda ni na jednoj.
@@ -564,6 +565,8 @@ func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserP
 	if err != nil {
 		return nil
 	}
+	// akti sektora i registar dionica čitaju se jednom za cijeli popis
+	ctx = sPamcenjem(ctx)
 	var out []models.User
 	for i := range svi {
 		if probni := zaZadatke(&svi[i]); probni != nil && s.smijeRadnju(ctx, perms, probni, &svi[i], r) {
