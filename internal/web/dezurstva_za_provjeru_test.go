@@ -71,6 +71,7 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", h.IzvoziIORS)
+	mux.HandleFunc("GET /dnevnici/{id}/obracun.xlsx", h.IzvoziObracun)
 
 	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"P": true}, AllowedSectors: map[string]bool{"P": true}}
@@ -170,6 +171,25 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	}
 	if len(utorak) < 14 || utorak[6] != "nepoznato" || !strings.Contains(utorak[4], "(mjesto nepoznato — za provjeru — nije u obračunu)") || utorak[13] != "" || utorak[8] != "" {
 		t.Errorf("redak bez mjesta u Excelu: %v", utorak)
+	}
+
+	// obračun u Excelu za računovodstvo: sati za provjeru nisu u zbroju, a
+	// rekapitulacija to kaže
+	w = zovi(ana, uprava, http.MethodGet, "/dnevnici/"+j.ID+"/obracun.xlsx?od=2026-09-01&do=2026-09-29", nil)
+	if w.Code != http.StatusOK {
+		t.Fatalf("obračun u Excelu: %d", w.Code)
+	}
+	if redci, err = procitajXLSX(w.Body.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	napomena := ""
+	for _, r := range redci {
+		if len(r) > 0 && strings.HasPrefix(r[0], "Stvarni sati u razdoblju:") {
+			napomena = r[0]
+		}
+	}
+	if !strings.Contains(napomena, "Nije u obračunu: 8:00 h zapisa „mjesto nepoznato — za provjeru”") {
+		t.Errorf("napomena rekapitulacije: %q", napomena)
 	}
 
 	// potvrda izravnim zahtjevom odbija se

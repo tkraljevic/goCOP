@@ -445,8 +445,8 @@ func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzv
 			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(4, prvi), xlsxw.Adresa(4, zadnji)), 0, xlsxw.TablicaBrojPod))
 	}
 	rk.Dodaj()
-	napomenaLista(rk, fmt.Sprintf("Stvarni sati u razdoblju: %s h; obračunski sati: %s. Iznosi se izračunaju kad računovodstvo upiše satnice na listovima po područjima.",
-		satiTekst(obr.Stvarni), strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ",")), 5, 30)
+	napomena, visina := napomenaRekapitulacije(obr)
+	napomenaLista(rk, napomena, 5, visina)
 	potpisiLista(rk, z, 5, z.Potpisnici)
 
 	// po razredima, za provjeru
@@ -481,6 +481,20 @@ func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzv
 		}
 	}
 	return k
+}
+
+// napomenaRekapitulacije je napomena ispod zbroja rekapitulacije, s
+// visinom retka: stvarni i obračunski sati, i koliko sati dežurstava kojima
+// se ne zna mjesto rada u zbroju nema (Odluke (8. 10. 2026.), pitanje 10)
+func napomenaRekapitulacije(obr service.Obracun) (string, float64) {
+	tekst := fmt.Sprintf("Stvarni sati u razdoblju: %s h; obračunski sati: %s. ", satiTekst(obr.Stvarni), strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ","))
+	visina := 30.0
+	if obr.ZaProvjeru > 0 {
+		tekst += "Nije u obračunu: " + satiTekst(obr.ZaProvjeru) + " h zapisa „" + models.OznakaZaProvjeru +
+			"” — ne zna se je li rad bio u uredu ili na terenu, pa ti sati čekaju da uprava centra u planu izabere opis rada s popisa. "
+		visina = 45
+	}
+	return tekst + "Iznosi se izračunaju kad računovodstvo upiše satnice na listovima po područjima.", visina
 }
 
 // vrijednostStupca daje brojku osobe u stupcu obrasca (2..21): sati ili
