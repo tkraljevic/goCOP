@@ -235,7 +235,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 			return errors.New("izvješće nije pronađeno")
 		}
 		if cur.BiloPredano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
-			return errors.New("predano izvješće mijenja tko ga je predao, ili uprava")
+			return errors.New("izvješće koje je bilo predano mijenja samo tko ga je izradio, ili uprava područja ili sektora")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
 		iz.IzmjenaPoslijePredaje(cur.PredanoAt, u)
@@ -277,6 +277,13 @@ func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *mod
 	return s.repo.Save(ctx, iz)
 }
 
+// SmijeBrisati: nacrt koji nikad nije predan briše tko smije pisati
+// izvješće dionice; izvješće koje je bilo predano, i dok čeka ponovnu
+// predaju, samo uprava područja ili sektora
+func (s *IzvjescaService) SmijeBrisati(perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) bool {
+	return s.SmijePisati(perms, sec) && (!iz.BiloPredano() || perms.CanAdminister(sec.SectorID, sec.AreaID))
+}
+
 // Obrisi arhivira izvješće; nacrt briše tko ga je pisao, predano samo uprava.
 // Izvješće koje je bilo predano, a izmjenom vraćeno u nacrt, i dalje briše
 // samo uprava: izmjena nije put oko te zaštite.
@@ -291,8 +298,8 @@ func (s *IzvjescaService) Obrisi(ctx context.Context, u *models.User, perms *mod
 	if iz == nil || iz.SectionCode != sec.Code {
 		return errors.New("izvješće nije pronađeno")
 	}
-	if iz.BiloPredano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) {
-		return errors.New("predano izvješće briše uprava područja ili sektora")
+	if !s.SmijeBrisati(perms, sec, iz) {
+		return errors.New("izvješće koje je bilo predano briše samo uprava područja ili sektora")
 	}
 	return s.repo.Arhiviraj(ctx, iz)
 }

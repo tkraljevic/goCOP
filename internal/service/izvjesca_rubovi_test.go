@@ -156,10 +156,12 @@ func TestDnevnoIzvjescePredanoIzmjena(t *testing.T) {
 		t.Error("druga predaja promijenila je vrijeme")
 	}
 
-	// zamjenik s pravom na dionici predano ne mijenja
+	// zamjenik s pravom na dionici predano ne mijenja. Odluke (8. 10. 2026.),
+	// pitanje 12: poruka sada kaže onoga koga provjera gleda, tko ga je
+	// izradio (prije „tko ga je predao”).
 	izmjena := *predano
 	izmjena.Sadrzaj.Pregled = "Procjeđivanje kod Primjerova."
-	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || !strings.Contains(err.Error(), "tko ga je predao") {
+	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || !strings.Contains(err.Error(), "tko ga je izradio") {
 		t.Errorf("zamjenik mijenja predano: %v", err)
 	}
 	// Odluke (8. 10. 2026.), pitanje 12: autor mijenja i predano, ali izmjena

@@ -91,3 +91,56 @@ func TestPonovnaPredajaNaZidu(t *testing.T) {
 		}
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 12: izvješće dionice koje je bilo predano
+// mijenja samo tko ga je izradio, ili uprava, a briše samo uprava. Poruka
+// odbijanja kaže onoga koga provjera gleda — tko je izvješće izradio, a ne
+// tko ga je predao (zamjenik može predati tuđe) — i vrijedi i za nacrt koji
+// čeka ponovnu predaju. Gumb za brisanje vidi samo tko smije brisati.
+func TestOdbijanjeIzmjenePredanogKazeTkoJeIzradio(t *testing.T) {
+	o := novaOkolinaIzvjesca(t)
+	ctx := context.Background()
+	const (
+		mijenja = "izvješće koje je bilo predano mijenja samo tko ga je izradio, ili uprava područja ili sektora"
+		brise   = "izvješće koje je bilo predano briše samo uprava područja ili sektora"
+	)
+	iz := punoIzvjesce("P.1.1", danas())
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, iz); err != nil {
+		t.Fatal(err)
+	}
+	if !o.svc.SmijeBrisati(o.pisePero, o.d111, iz) {
+		t.Error("nacrt koji nikad nije predan ne briše tko ga smije pisati")
+	}
+	// zamjenik preda Perino izvješće
+	if err := o.svc.Predaj(ctx, o.urednik, o.pisePero, o.d111, iz.ID); err != nil {
+		t.Fatal(err)
+	}
+	predano, _ := o.svc.Get(ctx, iz.ID)
+	if predano.TkoJePredao() != "Pero Perić (zamjenik)" || predano.Izradio != "Pero Perić" {
+		t.Fatalf("predaja zamjenika: %+v", predano)
+	}
+	izmjena := *predano
+	izmjena.Sadrzaj.Pregled = "Zamjenik prepisuje."
+	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || err.Error() != mijenja {
+		t.Errorf("zamjenik mijenja predano: %v", err)
+	}
+	if err := o.svc.Obrisi(ctx, o.urednik, o.pisePero, o.d111, iz.ID); err == nil || err.Error() != brise {
+		t.Errorf("zamjenik briše predano: %v", err)
+	}
+	// Pero ga izmijeni: nacrt koji čeka ponovnu predaju, poruke iste
+	moje := *predano
+	moje.Sadrzaj.Pregled = "Procjeđivanje kod Primjerova."
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, &moje); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || err.Error() != mijenja {
+		t.Errorf("zamjenik mijenja nacrt koji čeka ponovnu predaju: %v", err)
+	}
+	if err := o.svc.Obrisi(ctx, o.pero, o.pisePero, o.d111, iz.ID); err == nil || err.Error() != brise {
+		t.Errorf("autor briše nacrt koji čeka ponovnu predaju: %v", err)
+	}
+	nacrt, _ := o.svc.Get(ctx, iz.ID)
+	if o.svc.SmijeBrisati(o.pisePero, o.d111, nacrt) || !o.svc.SmijeBrisati(o.upravaP, o.d111, nacrt) || o.svc.SmijeBrisati(&models.UserPermissions{}, o.d111, iz) {
+		t.Error("gumb za brisanje: autor i zamjenik ne smiju, uprava smije, bez prava nitko")
+	}
+}

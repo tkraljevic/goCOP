@@ -40,9 +40,11 @@ type IzvjescaPageData struct {
 	Tendencije  []struct{ Kod, Naziv string }
 	IsEdit      bool
 	SmijePisati bool
-	Danas       string
-	Dan         string // filtar popisa
-	Sifra       string // filtar popisa: dionica
+	// SmijeBrisati: izvješće koje je bilo predano briše samo uprava
+	SmijeBrisati bool
+	Danas        string
+	Dan          string // filtar popisa
+	Sifra        string // filtar popisa: dionica
 
 	// sektorska izvješća na popisu, za one koji ih slažu ili vide
 	Sektorska []models.SektorskoIzvjesce
@@ -175,6 +177,7 @@ func (h *IzvjescaHandler) ucitaj(w http.ResponseWriter, r *http.Request, data *I
 		return nil, nil, false
 	}
 	data.Izvjesce, data.Dionica, data.SmijePisati = iz, sec, svc.SmijePisati(data.Permissions, sec)
+	data.SmijeBrisati = svc.SmijeBrisati(data.Permissions, sec, iz)
 	return iz, sec, true
 }
 

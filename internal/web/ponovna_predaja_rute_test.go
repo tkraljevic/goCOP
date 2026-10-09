@@ -194,6 +194,12 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	w = zovi(pero, dionica, http.MethodPost, "/izvjesca", izv)
 	poruka(w, "success", "Izvješće je predano.")
 	idd := strings.SplitN(strings.TrimPrefix(w.Header().Get("Location"), "/izvjesca/"), "?", 2)[0]
+	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "predano izvješće dionice kao autor", `action="/izvjesca/`+idd+`/obrisi"`)
+	// nacrt koji nikad nije predan briše i autor
+	jucer := url.Values{"dan": {time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format("2006-01-02")}, "dionica": {"P.1.1"}, "stadij": {"REDOVNA"}, "pregled": {"Nacrt."}}
+	w = zovi(pero, dionica, http.MethodPost, "/izvjesca", jucer)
+	idn := strings.SplitN(strings.TrimPrefix(w.Header().Get("Location"), "/izvjesca/"), "?", 2)[0]
+	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idn, nil), http.StatusOK, "nacrt kao autor", `action="/izvjesca/`+idn+`/obrisi"`)
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd+"/uredi", nil), http.StatusOK, "obrazac predanog izvješća dionice",
 		"Spremljena izmjena vraća ga u nacrt", "Spremi i ponovo predaj")
 	izv.Set("pregled", "Procjeđivanje kod Primjerova.")
@@ -202,6 +208,9 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	poruka(w, "success", "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar.")
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "izvješće dionice nakon izmjene",
 		"badge badge-pending\">nacrt", "prvi put predano ", ", čeka ponovnu predaju", "izmijenio poslije predaje: Pero Perić", "Ponovo predaj")
+	// gumb za brisanje: izvješće koje je bilo predano briše samo uprava
+	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "nacrt nakon predaje kao autor", `action="/izvjesca/`+idd+`/obrisi"`)
+	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "nacrt nakon predaje kao uprava", `action="/izvjesca/`+idd+`/obrisi"`)
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd+"/uredi", nil), http.StatusOK, "obrazac nacrta nakon predaje",
 		"Izvješće je nacrt: prvi put predano u podcentar", "Spremi i ponovo predaj")
 	izv.Set("predaj", "1")
