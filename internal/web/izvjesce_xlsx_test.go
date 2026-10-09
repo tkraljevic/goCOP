@@ -155,3 +155,39 @@ func TestTablicaValovaStaneUListIBrojiNavrate(t *testing.T) {
 		t.Errorf("nedosegnuta izvanredna obrana: %q", redci[0][7])
 	}
 }
+
+// Excel historijata nosi i ostale odjeljke stranice: promjene kote nule, niz
+// mjerenja, odakle podaci dolaze, krivulje protoka i proglašene obrane.
+func TestExcelHistorijataNosiOstaleOdjeljkeStranice(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceHistorijat
+	iz.Sastavio = "Ana Anić"
+	kota := 80.189
+	iz.Station.ZeroDatumHistory = []models.ZeroDatumChange{
+		{Datum: &kota, System: "TRST"},
+		{ValidFrom: "2015-03-01", Datum: &kota, System: "HVRS71", Note: "novi elaborat"},
+	}
+	iz.Sazetak = []models.SazetakVelicine{{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-30",
+		Zapisa: 46000, Srednjak: 312.4, Min: -80, MinNa: "1947-10-20", Max: 797, MaxNa: "1956-06-17"}}
+	iz.Spojevi = []models.SpojDoseg{{Velicina: "vodostaj", Korak: "dnevni", Od: "1901-01-01", Do: "2026-09-30",
+		Zapisa: 100, Dijelovi: []models.SpojDio{{Izvor: "his2000", Zapisa: 100}}}}
+	iz.Krivulje = []models.HQKrivulja{
+		{VrijediOd: "2010-01-01", VrijediDo: "2019-12-31", Izvor: "DHMZ", Odsjecci: []models.HQOdsjecak{{OdCm: -100, DoCm: 300}}},
+		{VrijediOd: "2020-01-01", Izvor: "DHMZ", Odsjecci: []models.HQOdsjecak{{OdCm: -100, DoCm: 300}, {OdCm: 300, DoCm: 900}}},
+	}
+	kraj := time.Date(2024, 6, 9, 10, 0, 0, 0, time.UTC)
+	iz.Episodes = []models.DefenseEpisode{{SectionCode: "P.1.1", Phase: models.PhaseRegular,
+		StartedAt: time.Date(2024, 6, 3, 8, 0, 0, 0, time.UTC), EndedAt: &kraj}}
+	s := tekstKnjigeLetve(t, iz)
+	for _, want := range []string{
+		"Promjene kote nule", "od početka mjerenja", "1.3.2015.", "HVRS71", "novi elaborat",
+		"Niz mjerenja", "Vodostaj", "1.1.1901. – 30.9.2026.",
+		"Odakle podaci dolaze", "dnevni", models.NazivIzvora("his2000"),
+		"Krivulje protoka", "1.1.2010. – 31.12.2019.", "1.1.2020. – do danas", "-100 do 300 cm\n300 do 900 cm",
+		"Proglašene obrane", "P.1.1", "03.06.2024. 10:00", "09.06.2024. 12:00", models.PhaseRegular.Label(),
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("u Excelu historijata nema %q", want)
+		}
+	}
+}
