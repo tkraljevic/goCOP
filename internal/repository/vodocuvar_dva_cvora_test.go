@@ -300,7 +300,8 @@ func TestDvaListaIstogDanaPredanPaStariji(t *testing.T) {
 }
 
 // Spajanje verzija: bez verzija nema lista; od verzija iste vrste vrijedi
-// zadnja; arhivirana predana verzija miče list; isti upis se ne udvostručuje.
+// zadnja; brisanje miče samo ono što pokriva, a nacrt napisan nakon njega
+// ostaje; isti upis se ne udvostručuje.
 func TestSpajanjeVerzijaLista(t *testing.T) {
 	kad := time.Now()
 	nacrt := func(opis string, upisi ...models.UpisRukovoditelja) verzijaLista {
@@ -317,8 +318,16 @@ func TestSpajanjeVerzijaLista(t *testing.T) {
 	}
 	obrisan := predan("obrisan")
 	obrisan.arhivirana = true
-	if l := spojiVerzijeLista([]verzijaLista{predan("predan"), obrisan, nacrt("kasniji nacrt")}); l != nil {
-		t.Errorf("arhivirana predana verzija mora maknuti list: %+v", l)
+	if l := spojiVerzijeLista([]verzijaLista{predan("predan"), obrisan}); l != nil {
+		t.Errorf("arhivirana predana verzija mora maknuti list istog potpisa: %+v", l)
+	}
+	if l := spojiVerzijeLista([]verzijaLista{predan("predan"), obrisan, nacrt("kasniji nacrt")}); l == nil || l.Opis != "kasniji nacrt" {
+		t.Errorf("nacrt napisan nakon brisanja ostaje: %+v", l)
+	}
+	brisanjeNacrta := nacrt("obrisan nacrt")
+	brisanjeNacrta.arhivirana = true
+	if l := spojiVerzijeLista([]verzijaLista{predan("predan"), brisanjeNacrta}); l == nil || l.Opis != "predan" {
+		t.Errorf("brisanje nacrta ne miče predan list: %+v", l)
 	}
 	u := upisAne("bilješka", time.Date(2026, time.October, 14, 8, 0, 0, 0, models.Zagreb))
 	isti := u

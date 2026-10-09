@@ -17,6 +17,10 @@ import (
 // razmjena vidi jedan list u dvije verzije. Površina se zato ne slaže samo
 // iz zadnje verzije, nego iz cijele povijesti zapisa:
 //
+//   - verzija koju je kasnija verzija zamijenila znajući za nju (pokriva)
+//     više ne vrijedi; brisanje nacrta tako odnosi samo ono što je čvor
+//     koji briše znao, a nacrt i bilješka s drugog čvora za koje nije znao
+//     ostaju;
 //   - predan list uvijek ima prednost pred nacrtom s drugog čvora, i pred
 //     brisanjem nacrta; od dva predana vrijedi zadnji;
 //   - od nacrta vrijedi onaj s najnovijim vodočuvarovim upisom
@@ -25,9 +29,7 @@ import (
 //     obrani, objava prijave na čvoru koji vodočuvarov list još nema) ne
 //     prepisuje njegov tekst;
 //   - bilješke rukovoditelja (upisi) i prijave iz druge verzije ne gube se:
-//     listu se dodaju upisi i prijave svih verzija nakon zadnjeg brisanja;
-//   - arhivirana verzija miče list s površine samo kad je ona ta koja
-//     vrijedi.
+//     listu se dodaju upisi i prijave svih verzija koje vrijede.
 //
 // Ishod ovisi samo o skupu verzija, a ne o redoslijedu kojim su stigle, pa
 // svi čvorovi s istim verzijama pokazuju isti list. Čvor starijeg programa
@@ -84,21 +86,87 @@ func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista,
 }
 
 // spojiVerzijeLista vraća list kakav vrijedi po verzijama, od najstarije;
-// nil kad lista na površini nema (nijedne verzije, ili vrijedi brisanje)
+// nil kad lista na površini nema (nijedne verzije, ili su sve obrisane)
 func spojiVerzijeLista(verzije []verzijaLista) *models.VodocuvarskiList {
-	i := vrijediVerzija(verzije)
-	if i < 0 || verzije[i].arhivirana {
+	zive := ziveVerzije(verzije)
+	if len(zive) == 0 {
 		return nil
 	}
-	l := verzije[i].list
-	upisi, prijave := dodaciNakonBrisanja(verzije)
+	l := zive[vrijediVerzija(zive)].list
+	upisi, prijave := dodaciVerzija(zive)
 	l.Upisi = spojiUpise(l.Upisi, upisi)
 	l.Prijave = spojiPrijave(l.Prijave, prijave)
 	return &l
 }
 
-// vrijediVerzija je indeks verzije koja vrijedi (imaPrednost). Arhivirana
-// verzija ima vrstu lista koji je uklonila. -1 kad verzija nema.
+// ziveVerzije su verzije lista koje vrijede: nisu brisanje i nijedna
+// kasnija verzija ih ne pokriva
+func ziveVerzije(verzije []verzijaLista) []verzijaLista {
+	var out []verzijaLista
+	for i, v := range verzije {
+		if !v.arhivirana && !pokrivenaKasnijom(verzije, i) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// pokrivenaKasnijom javlja pokriva li i-tu verziju neka kasnija
+func pokrivenaKasnijom(verzije []verzijaLista, i int) bool {
+	for _, w := range verzije[i+1:] {
+		if pokriva(w, verzije[i]) {
+			return true
+		}
+	}
+	return false
+}
+
+// pokriva javlja je li kasnija verzija w (i brisanje) nastala znajući za
+// verziju v: ima sve njezine bilješke i prijave, a vodočuvarov upis nije joj
+// stariji. Predan list pokriva samo verzija istog potpisa (ovjera, parafa,
+// upis na predan list), nikad nacrt ni brisanje nacrta.
+func pokriva(w, v verzijaLista) bool {
+	if v.list.Predan() && !istiPotpis(w.list, v.list) {
+		return false
+	}
+	return !napisano(v.list).After(napisano(w.list)) && imaUpise(w.list.Upisi, v.list.Upisi) && imaPrijave(w.list.Prijave, v.list.Prijave)
+}
+
+// istiPotpis javlja jesu li oba lista predana istim potpisom vodočuvara
+func istiPotpis(a, b models.VodocuvarskiList) bool {
+	return a.Predan() && b.Predan() && a.PredanoAt.Equal(*b.PredanoAt)
+}
+
+// imaUpise javlja jesu li svi upisi drugi i među upisima
+func imaUpise(upisi, drugi []models.UpisRukovoditelja) bool {
+	ima := map[string]bool{}
+	for _, u := range upisi {
+		ima[kljucUpisa(u)] = true
+	}
+	for _, u := range drugi {
+		if !ima[kljucUpisa(u)] {
+			return false
+		}
+	}
+	return true
+}
+
+// imaPrijave javlja jesu li sve prijave drugi i među prijavama
+func imaPrijave(prijave, drugi []models.PrijavaNaListu) bool {
+	ima := map[string]bool{}
+	for _, p := range prijave {
+		ima[p.ID] = true
+	}
+	for _, p := range drugi {
+		if !ima[p.ID] {
+			return false
+		}
+	}
+	return true
+}
+
+// vrijediVerzija je indeks verzije koja vrijedi među verzijama koje vrijede
+// (imaPrednost); -1 kad verzija nema
 func vrijediVerzija(verzije []verzijaLista) int {
 	vrijedi := -1
 	for i, v := range verzije {
@@ -111,14 +179,10 @@ func vrijediVerzija(verzije []verzijaLista) int {
 
 // imaPrednost javlja vrijedi li kasnija verzija v umjesto dosad vrijedeće
 // w: predan list pred nacrtom, a nacrt nikad pred predanim; od dva predana
-// kasniji; brisanje nacrta i nacrt nakon njega kao kasniji; od dva nacrta
-// onaj čiji vodočuvarov upis nije stariji
+// kasniji; od dva nacrta onaj čiji vodočuvarov upis nije stariji
 func imaPrednost(v, w verzijaLista) bool {
-	switch {
-	case v.list.Predan() != w.list.Predan():
+	if v.list.Predan() || w.list.Predan() {
 		return v.list.Predan()
-	case v.list.Predan(), v.arhivirana, w.arhivirana:
-		return true
 	}
 	return !napisano(v.list).Before(napisano(w.list))
 }
@@ -131,16 +195,11 @@ func napisano(l models.VodocuvarskiList) time.Time {
 	return *l.NapisanoAt
 }
 
-// dodaciNakonBrisanja su upisi rukovoditelja i prijave iz svih verzija
-// nakon zadnjeg brisanja: obrisan nacrt odnio je i svoje upise
-func dodaciNakonBrisanja(verzije []verzijaLista) ([]models.UpisRukovoditelja, []models.PrijavaNaListu) {
+// dodaciVerzija su upisi rukovoditelja i prijave iz svih verzija
+func dodaciVerzija(verzije []verzijaLista) ([]models.UpisRukovoditelja, []models.PrijavaNaListu) {
 	var upisi []models.UpisRukovoditelja
 	var prijave []models.PrijavaNaListu
 	for _, v := range verzije {
-		if v.arhivirana {
-			upisi, prijave = nil, nil
-			continue
-		}
 		upisi = append(upisi, v.list.Upisi...)
 		prijave = append(prijave, v.list.Prijave...)
 	}

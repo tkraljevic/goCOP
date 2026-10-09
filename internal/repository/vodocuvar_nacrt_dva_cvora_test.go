@@ -81,3 +81,90 @@ func TestSpajanjePrijavaLista(t *testing.T) {
 		t.Errorf("bez prijava: %+v", got)
 	}
 }
+
+// Ivo na laptopu napiše pa obriše nacrt, a za to vrijeme Ana na
+// poslužitelju upiše bilješku za isti dan. Brisanje odnosi samo ono što je
+// laptop znao: nakon razmjene list s Aninom bilješkom ostaje na oba čvora.
+// Kad laptop zatim zna za bilješku i obriše list, brisanje vrijedi svugdje.
+func TestBrisanjeNaDrugomCvoruNeBriseBiljesku(t *testing.T) {
+	a, b := noviCvor(t, "posluzitelj"), noviCvor(t, "laptop")
+	nacrt := nacrtIve(t, b, "nacrt na laptopu", time.Date(2026, time.October, 14, 9, 0, 0, 0, models.Zagreb))
+	nacrtSUpisom(t, a, "pojačati noćnu ophodnju", time.Date(2026, time.October, 14, 10, 0, 0, 0, models.Zagreb))
+	repoB := NewVodocuvarRepository(b.db, b.rec)
+	nuzno(t, repoB.Delete(ctxRaz, nacrt.ID))
+
+	l := isteKnjige(t, a, b)
+	if !imaUpis(l, "pojačati noćnu ophodnju") || l.Opis != "" {
+		t.Errorf("brisanje na laptopu odnijelo je bilješku s poslužitelja: %+v", l)
+	}
+	nuzno(t, repoB.Delete(ctxRaz, nacrt.ID))
+	posalji(t, b, a)
+	if la, lb := listoviIve(t, a), listoviIve(t, b); len(la) != 0 || len(lb) != 0 {
+		t.Errorf("brisanje lista kojemu je laptop znao bilješku: %d i %d listova", len(la), len(lb))
+	}
+}
+
+// Ivo na poslužitelju obriše nacrt, a na laptopu je bez veze napisao noviji
+// tekst za isti dan: brisanje ne odnosi tekst za koji poslužitelj nije znao.
+func TestBrisanjeNeOdnosiNovijiNacrtSDrugogCvora(t *testing.T) {
+	a, b := noviCvor(t, "posluzitelj"), noviCvor(t, "laptop")
+	stari := nacrtIve(t, a, "stari nacrt", time.Date(2026, time.October, 14, 8, 0, 0, 0, models.Zagreb))
+	posalji(t, a, b)
+	novi := jedanListIve(t, b)
+	napisano := time.Date(2026, time.October, 14, 12, 0, 0, 0, models.Zagreb)
+	novi.Opis, novi.NapisanoAt = "noviji nacrt na laptopu", &napisano
+	nuzno(t, NewVodocuvarRepository(b.db, b.rec).Save(ctxRaz, &novi))
+	nuzno(t, NewVodocuvarRepository(a.db, a.rec).Delete(ctxRaz, stari.ID))
+
+	if l := isteKnjige(t, a, b); l.Opis != "noviji nacrt na laptopu" {
+		t.Errorf("brisanje starog nacrta odnijelo je noviji: %+v", l)
+	}
+}
+
+// Što koja verzija pokriva: nacrt pokriva kasnija verzija koja ima sve
+// njegove bilješke i prijave i nije starijeg vodočuvarova upisa; predan list
+// samo verzija istog potpisa. Vrijeme upisa iz baze (nanosekunde) ostaje
+// isto, pa brisanje spremljenog nacrta pokriva i nacrt s istim upisom.
+func TestPokrivanjeVerzijaLista(t *testing.T) {
+	rano, kasno := time.Date(2026, time.October, 14, 8, 0, 0, 0, time.UTC), time.Date(2026, time.October, 14, 9, 0, 0, 0, time.UTC)
+	nacrt := func(n *time.Time, upisi ...models.UpisRukovoditelja) verzijaLista {
+		return verzijaLista{list: models.VodocuvarskiList{NapisanoAt: n, Upisi: upisi}}
+	}
+	biljeska := upisAne("bilješka", rano)
+	slucajevi := []struct {
+		ime     string
+		w, v    verzijaLista
+		pokriva bool
+	}{
+		{"noviji upis vodočuvara", nacrt(&kasno), nacrt(&rano), true},
+		{"stariji upis vodočuvara", nacrt(&rano), nacrt(&kasno), false},
+		{"nacrt bez upisa ne pokriva upis", nacrt(nil), nacrt(&rano), false},
+		{"bez bilješke", nacrt(&kasno), nacrt(&rano, biljeska), false},
+		{"s bilješkom", nacrt(&kasno, biljeska), nacrt(&rano, biljeska), true},
+		{"prijava", verzijaLista{}, verzijaLista{list: models.VodocuvarskiList{Prijave: []models.PrijavaNaListu{{ID: "p1"}}}}, false},
+		{"nacrt ne pokriva predan", nacrt(&kasno), verzijaLista{list: models.VodocuvarskiList{PredanoAt: &rano}}, false},
+		{"drugi potpis", verzijaLista{list: models.VodocuvarskiList{PredanoAt: &kasno}}, verzijaLista{list: models.VodocuvarskiList{PredanoAt: &rano}}, false},
+		{"isti potpis", verzijaLista{list: models.VodocuvarskiList{PredanoAt: &rano}}, verzijaLista{list: models.VodocuvarskiList{PredanoAt: &rano}}, true},
+	}
+	for _, s := range slucajevi {
+		if got := pokriva(s.w, s.v); got != s.pokriva {
+			t.Errorf("%s: pokriva %v, očekivano %v", s.ime, got, s.pokriva)
+		}
+	}
+
+	a, b := noviCvor(t, "posluzitelj"), noviCvor(t, "laptop")
+	l := listIve("nacrt")
+	sad := time.Now()
+	l.NapisanoAt = &sad
+	repo := NewVodocuvarRepository(a.db, a.rec)
+	nuzno(t, repo.Save(ctxRaz, l))
+	if iz := jedanListIve(t, a); iz.NapisanoAt == nil || !iz.NapisanoAt.Equal(sad) {
+		t.Fatalf("vrijeme upisa iz baze: %v, upisano %v", iz.NapisanoAt, sad)
+	}
+	posalji(t, a, b)
+	nuzno(t, repo.Delete(ctxRaz, l.ID))
+	posalji(t, a, b)
+	if n := len(listoviIve(t, b)); n != 0 {
+		t.Errorf("obrisan nacrt s upisom vodočuvara ostao je na drugom čvoru: %d", n)
+	}
+}
