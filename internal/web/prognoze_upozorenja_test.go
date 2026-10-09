@@ -446,3 +446,28 @@ func TestKisaSlivovaBezDnevne(t *testing.T) {
 		t.Errorf("pločica s dnevnom: %s", b.String())
 	}
 }
+
+// Kad dnevne nema samo za neke letve, a za druge u izdanju ima (Mohács bez
+// mjerenja: dunavske letve bez dnevne, dravske s njom), pločica mora reći za
+// koje, umjesto da im porast tiho izostane.
+func TestKisaSlivovaBezDnevneZaDioLetvi(t *testing.T) {
+	iscrtajSliv := func(letve ...PorastLetve) string {
+		t.Helper()
+		sliv := SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "H", Razina: 1}, Naziv: "Donji sliv", Klasa: "kisa-zuto", Letve: letve}
+		var b strings.Builder
+		if err := kisaSlivovaTmpl.Execute(&b, kisaSlivovaPodaci{Slivovi: []SlivUKisi{sliv}, Upozorenja: []SlivUKisi{sliv},
+			Izdano: time.Now()}); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	s := iscrtajSliv(PorastLetve{Naziv: "Donji Grad"}, PorastLetve{Naziv: "Preko"}, PorastLetve{Naziv: "Belo Selo", Ima: true, Cm: 12, Dan: 2})
+	for _, want := range []string{"(bez dnevne prognoze: Donji Grad, Preko)", "+12 cm (2. dan)", "Porast vode iz dnevne prognoze izdane"} {
+		if !strings.Contains(s, want) {
+			t.Errorf("pločica nema %q:\n%s", want, s)
+		}
+	}
+	if s := iscrtajSliv(PorastLetve{Naziv: "Donji Grad"}, PorastLetve{Naziv: "Preko"}); !strings.Contains(s, "(dnevne prognoze nema)") {
+		t.Errorf("nijedna letva sliva nema dnevnu, a pločica to ne kaže:\n%s", s)
+	}
+}

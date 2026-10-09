@@ -41,6 +41,26 @@ type SlivUKisi struct {
 	Oznaka string // riječima
 }
 
+// BezDnevne kaže za koje letve sliva porast nije poznat jer u izdanju nemaju
+// dnevnu prognozu: prazno kad je imaju sve, „dnevne prognoze nema” kad je
+// nema nijedna, inače koje su bez nje. Mohács bez mjerenja: dunavske letve
+// nemaju dnevnu, a dravske je imaju, pa izdanje ima dnevnu prognozu.
+func (s SlivUKisi) BezDnevne() string {
+	var bez []string
+	for _, l := range s.Letve {
+		if !l.Ima {
+			bez = append(bez, l.Naziv)
+		}
+	}
+	switch len(bez) {
+	case 0:
+		return ""
+	case len(s.Letve):
+		return "dnevne prognoze nema"
+	}
+	return "bez dnevne prognoze: " + strings.Join(bez, ", ")
+}
+
 type kisaSlivovaPodaci struct {
 	Slivovi    []SlivUKisi
 	Upozorenja []SlivUKisi
@@ -155,7 +175,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
     <div class="kisa-brojke">palo 24 h <strong>{{mm .Palo24}} mm</strong> · 72 h <strong>{{mm .Palo72}} mm</strong> · očekuje se 48 h <strong>{{mm .Dolazi48}} mm</strong></div>
     <div class="kisa-letve">{{icon "trending-up"}} Voda će rasti na:
       {{range $i, $l := .Letve}}{{if $i}}, {{end}}<strong>{{$l.Naziv}}</strong>{{if $l.Ima}}{{if ge $l.Cm 5.0}} <span class="kisa-porast">+{{cm $l.Cm}} cm ({{$l.Dan}}. dan)</span>{{end}}{{end}}{{end}}
-      {{if $.Izdano.IsZero}}<span class="reg-card-sub">(dnevne prognoze nema)</span>{{end}}
+      {{with .BezDnevne}}<span class="reg-card-sub">({{.}})</span>{{end}}
     </div>
   </div>
   {{else}}
