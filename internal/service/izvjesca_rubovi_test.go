@@ -239,6 +239,11 @@ func TestDnevnoIzvjesceVracenoUNacrtOstajeZasticeno(t *testing.T) {
 	if err := o.svc.Predaj(ctx, o.pero, o.pisePero, o.d111, iz.ID); err != nil {
 		t.Fatal(err)
 	}
+	// prva predaja pročitana iz baze nije ponovna: vrijeme predaje i prvo
+	// vrijeme predaje su isto vrijeme, i nakon zapisa u bazu
+	if g, _ := o.svc.Get(ctx, iz.ID); !g.Predano() || g.PonovnoPredano() || !g.PrviPutPredano().Equal(*g.PredanoAt) {
+		t.Fatalf("prva predaja iz baze: %+v", g)
+	}
 	// Pero ispravi svoje predano izvješće: sada je nacrt koji čeka ponovnu predaju
 	izmjena, _ := o.svc.Get(ctx, iz.ID)
 	izmjena.Sadrzaj.Pregled = "Procjeđivanje kod Primjerova."
