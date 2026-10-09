@@ -143,8 +143,8 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 // izmjena ne mijenja: tko je i kada upisao, i trag ispravka opisa u
 // napomeni. Tuđe dežurstvo mijenja uprava centra. Dežurstvu kojemu se ne zna
 // mjesto rada opis bira uprava centra (Odluke (8. 10. 2026.), pitanje 10),
-// pa ga vlasnik ne mijenja ni običnim spremanjem; kad ga uprava tako
-// promijeni, ostaje isti trag kao kod ispravka opisa.
+// pa ga osoba čije je dežurstvo ne mijenja ni običnim spremanjem; kad ga
+// uprava tako promijeni, ostaje isti trag kao kod ispravka opisa.
 func (s *JournalService) izmjenaDezurstva(ctx context.Context, u *models.User, uprava bool, j *models.Journal, d *models.Dezurstvo) error {
 	cur, err := s.repo.GetDezurstvo(ctx, d.ID)
 	if err != nil {

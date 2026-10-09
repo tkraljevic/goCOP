@@ -182,14 +182,14 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("vodočuvar ispravlja opis: %s", l)
 	}
-	// ni vlasnik ga ne ispravlja običnim spremanjem istog zapisa
+	// ni Ivo, čije je dežurstvo, ne ispravlja ga običnim spremanjem istog zapisa
 	w = zovi(ivo, vodocuvar, http.MethodPost, plan, url.Values{"id": {d.ID}, "user_id": {ivo.ID.String()}, "opis": {"Obilazak i pregled obrambenih objekata"},
 		"od_date": {"2026-09-15"}, "od_time": {"22:00"}, "do_date": {"2026-09-16"}, "do_time": {"06:00"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
-		t.Errorf("vlasnik sprema opis zapisa za provjeru: %s", l)
+		t.Errorf("Ivo sprema opis svog zapisa za provjeru: %s", l)
 	}
 	if sad, _ := journalRepo.GetDezurstvo(context.Background(), d.ID); !sad.ZaProvjeru() {
-		t.Errorf("vlasnik je ispravio opis: %+v", sad)
+		t.Errorf("Ivo je ispravio opis: %+v", sad)
 	}
 	// Ana izabere opis s popisa; dežurstvo čeka potvrdu, pa ga potvrdi
 	w = zovi(ana, uprava, http.MethodPost, plan+"/"+d.ID+"/opis", url.Values{"opis": {"Obilazak i pregled obrambenih objekata"}})
