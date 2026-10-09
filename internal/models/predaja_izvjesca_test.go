@@ -22,8 +22,8 @@ func TestTragPredajeIzvjesca(t *testing.T) {
 		t.Fatalf("nacrt: %+v", iz)
 	}
 	// izmjena nacrta koji nikad nije predan ne ostavlja trag
-	iz.IzmjenaPoslijePredaje(iz.PredanoAt, ivo)
-	if iz.Izmijenio != "" || iz.PrvoPredanoAt != nil {
+	iz.IzmjenaPoslijePredaje(iz.PredanoAt, ivo, true)
+	if iz.TkoJeMijenjao() != "" || iz.PrvoPredanoAt != nil {
 		t.Errorf("izmjena nepredanog: %+v", iz.TragPredaje)
 	}
 
@@ -41,9 +41,9 @@ func TestTragPredajeIzvjesca(t *testing.T) {
 	}
 
 	// Ivo mijenja: nacrt, prvo vrijeme ostaje, zna se tko je mijenjao
-	iz.IzmjenaPoslijePredaje(iz.PredanoAt, ivo)
+	iz.IzmjenaPoslijePredaje(iz.PredanoAt, ivo, true)
 	iz.PredanoAt = nil
-	if iz.Izmijenio != "Ivo Ivić" || iz.IzmijenioID != ivo.ID.String() || !iz.PrviPutPredano().Equal(prvi) || iz.PonovnoPredano() {
+	if iz.TkoJeMijenjao() != "Ivo Ivić" || len(iz.Izmijenili) != 1 || iz.Izmijenili[0].ID != ivo.ID.String() || !iz.PrviPutPredano().Equal(prvi) || iz.PonovnoPredano() {
 		t.Errorf("izmjena predanog: %+v", iz.TragPredaje)
 	}
 	if o := iz.OpisPredaje("", "15:04"); o != "prvi put predano 09:40, čeka ponovnu predaju" {
@@ -67,9 +67,9 @@ func TestTragPredajeIzvjesca(t *testing.T) {
 		t.Errorf("povučeno: %+v", iz)
 	}
 	// bez osobe se ne bilježi tko (i ne pada)
-	iz.IzmjenaPoslijePredaje(nil, nil)
+	iz.IzmjenaPoslijePredaje(nil, nil, true)
 	iz.ZabiljeziPredaju(drugi, nil)
-	if iz.Izmijenio != "Ivo Ivić" || iz.Predao != "Ivo Ivić" {
+	if iz.TkoJeMijenjao() != "Ivo Ivić" || iz.Predao != "Ivo Ivić" {
 		t.Errorf("bez osobe: %+v", iz.TragPredaje)
 	}
 }
@@ -90,9 +90,9 @@ func TestTragPredajeStarogIzvjesca(t *testing.T) {
 	}
 	// izmjena: prvo vrijeme se prepiše iz vremena predaje
 	marko := &User{ID: uuid.New(), FullName: "Marko Markić"}
-	iz.IzmjenaPoslijePredaje(iz.PredanoAt, marko)
+	iz.IzmjenaPoslijePredaje(iz.PredanoAt, marko, true)
 	iz.PredanoAt = nil
-	if !iz.PrviPutPredano().Equal(predano) || iz.Izmijenio != "Marko Markić" {
+	if !iz.PrviPutPredano().Equal(predano) || iz.TkoJeMijenjao() != "Marko Markić" {
 		t.Errorf("izmjena starog: %+v", iz.TragPredaje)
 	}
 	if o := iz.TragUDokumentu("u podcentar", "15:04"); o != " · izmijenio poslije predaje: Marko Markić · prvi put predano u podcentar 07:50, čeka ponovnu predaju" {
@@ -104,5 +104,82 @@ func TestTragPredajeStarogIzvjesca(t *testing.T) {
 	iz.ZabiljeziPredaju(sad, &User{ID: uuid.New(), FullName: "Pero Perić"})
 	if o := iz.TragUDokumentu("u podcentar", "15:04"); o != " · izmijenio poslije predaje: Marko Markić · prvi put predano u podcentar 07:50, ponovno 11:05" {
 		t.Errorf("trag ponovne predaje autora: %q", o)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 12: pamti se tko je predano izvješće
+// mijenjao. Spremanje bez promjene nikoga ne dodaje (i ne briše onoga tko
+// je stvarno mijenjao), a kad mijenja više ljudi, pamte se svi, svatko
+// jednom, redom prve izmjene. Ana Anić predaje, Ivo Ivić i Marko Markić
+// mijenjaju.
+func TestSpremanjeBiljeziSamoStvarnuIzmjenu(t *testing.T) {
+	ana := &User{ID: uuid.New(), FullName: "Ana Anić"}
+	ivo := &User{ID: uuid.New(), FullName: "Ivo Ivić"}
+	marko := &User{ID: uuid.New(), FullName: "Marko Markić"}
+	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, Zagreb)
+	dan := time.Date(2026, 10, 7, 0, 0, 0, 0, Zagreb)
+
+	t.Run("izvješće sektora", func(t *testing.T) {
+		predano := SektorskoIzvjesce{Dan: dan, Izradio: "Ana Anić", PredanoAt: &prvi, Sadrzaj: SektorskiSadrzaj{Evakuacija: "40"}}
+		spremi := func(prije SektorskoIzvjesce, u *User, mijenjaj func(*SektorskoIzvjesce)) SektorskoIzvjesce {
+			novo := prije
+			novo.TragPredaje.Izmijenili = append([]Izmjenitelj(nil), prije.Izmijenili...)
+			mijenjaj(&novo)
+			novo.ZabiljeziSpremanje(&prije, u)
+			novo.PredanoAt = nil
+			return novo
+		}
+		isto := func(*SektorskoIzvjesce) {}
+		g := spremi(predano, ana, isto)
+		if g.TkoJeMijenjao() != "" || !g.PrviPutPredano().Equal(prvi) || g.TragUDokumentu("", "15:04") != " · prvi put predano 09:40, čeka ponovnu predaju" {
+			t.Errorf("spremanje bez promjene: %+v", g.TragPredaje)
+		}
+		g = spremi(g, ivo, func(i *SektorskoIzvjesce) { i.Sadrzaj.Evakuacija = "4" })
+		g = spremi(g, ana, isto)
+		g = spremi(g, marko, func(i *SektorskoIzvjesce) { i.Dan = dan.AddDate(0, 0, -1) })
+		g = spremi(g, ivo, func(i *SektorskoIzvjesce) { i.Sadrzaj.Napomena = "Ivo opet." })
+		if g.TkoJeMijenjao() != "Ivo Ivić, Marko Markić" {
+			t.Errorf("mijenjali: %q", g.TkoJeMijenjao())
+		}
+		if o := g.TragUDokumentu("", "15:04"); o != " · izmijenili poslije predaje: Ivo Ivić, Marko Markić · prvi put predano 09:40, čeka ponovnu predaju" {
+			t.Errorf("trag: %q", o)
+		}
+		// novo izvješće nema prethodne inačice
+		novo := SektorskoIzvjesce{Dan: dan}
+		novo.ZabiljeziSpremanje(nil, ana)
+		if novo.BiloPredano() || novo.TkoJeMijenjao() != "" {
+			t.Errorf("novo: %+v", novo.TragPredaje)
+		}
+	})
+
+	t.Run("izvješće dionice", func(t *testing.T) {
+		predano := DnevnoIzvjesce{Dan: dan, Stadij: PhaseRegular, Izradio: "Ana Anić", PredanoAt: &prvi, Sadrzaj: IzvjesceSadrzaj{Pregled: "Bez oštećenja."}}
+		for _, s := range []struct {
+			ime          string
+			mijenjaj     func(*DnevnoIzvjesce)
+			promijenjeno bool
+		}{
+			{"bez promjene", func(*DnevnoIzvjesce) {}, false},
+			{"dan", func(i *DnevnoIzvjesce) { i.Dan = dan.AddDate(0, 0, -1) }, true},
+			{"stadij", func(i *DnevnoIzvjesce) { i.Stadij = PhaseEmergency }, true},
+			{"sadržaj", func(i *DnevnoIzvjesce) { i.Sadrzaj.Pregled = "Procjeđivanje." }, true},
+		} {
+			novo := predano
+			s.mijenjaj(&novo)
+			novo.ZabiljeziSpremanje(&predano, ivo)
+			if (novo.TkoJeMijenjao() == "Ivo Ivić") != s.promijenjeno || !novo.PrviPutPredano().Equal(prvi) {
+				t.Errorf("%s: %+v", s.ime, novo.TragPredaje)
+			}
+		}
+		novo := DnevnoIzvjesce{Dan: dan}
+		novo.ZabiljeziSpremanje(nil, ivo)
+		if novo.BiloPredano() || novo.TkoJeMijenjao() != "" {
+			t.Errorf("novo: %+v", novo.TragPredaje)
+		}
+	})
+
+	// što se ne da zapisati, nije isto
+	if istiJSON(make(chan int), make(chan int)) {
+		t.Error("nezapisivo je isto")
 	}
 }

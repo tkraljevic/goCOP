@@ -370,7 +370,8 @@ func (s *IzvjescaService) PredlozakSektora(ctx context.Context, sektor string, d
 // izvješća dionica (po ID-u) i preuzme izabrane zapise, tekst ostaje
 // voditeljev. Jedno po sektoru i danu, ne unaprijed. Spremljeno izvješće
 // uvijek je nacrt: izmjena predanog vraća ga u nacrt koji se mora ponovo
-// predati, prvo vrijeme predaje ostaje, a pamti se tko je mijenjao.
+// predati, prvo vrijeme predaje ostaje, a pamte se svi koji su ga
+// mijenjali; tko sprema bez promjene, među njih ne ulazi.
 func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, perms *models.UserPermissions, iz *models.SektorskoIzvjesce, izvjesca, zapisi []string) error {
 	if s.sektorska == nil {
 		return errors.New("sektorska izvješća nisu uključena")
@@ -398,6 +399,7 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 	if postojece != nil && postojece.ID != iz.ID {
 		return fmt.Errorf("izvješće sektora %s za %s već postoji", iz.Sektor, iz.Dan.Format("2.1.2006."))
 	}
+	var prije *models.SektorskoIzvjesce // spremljena inačica; nil za novo izvješće
 	if iz.ID != "" {
 		cur, err := s.sektorska.Get(ctx, iz.ID)
 		if err != nil {
@@ -408,8 +410,7 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 			return errors.New("izvješće nije pronađeno")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.JournalID = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.JournalID
-		iz.TragPredaje = cur.TragPredaje
-		iz.IzmjenaPoslijePredaje(cur.PredanoAt, u)
+		iz.TragPredaje, prije = cur.TragPredaje, cur
 	} else {
 		iz.IzradioID, iz.Izradio, iz.TragPredaje = u.ID.String(), u.FullName, models.TragPredaje{}
 		if iz.JournalID == "" {
@@ -442,6 +443,7 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 			}
 		}
 	}
+	iz.ZabiljeziSpremanje(prije, u)
 	iz.IzradenoAt, iz.PredanoAt = time.Now().In(models.Zagreb), nil
 	return s.sektorska.Save(ctx, iz)
 }

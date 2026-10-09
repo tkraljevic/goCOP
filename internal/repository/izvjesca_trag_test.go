@@ -15,7 +15,8 @@ import (
 // Odluke (8. 10. 2026.), pitanje 12: trag predaje izvješća (prvo vrijeme
 // predaje, tko je predao, tko je mijenjao nakon predaje) sprema se uz
 // izvješće dionice i sektora, čita natrag i razmjenom stiže na drugi čvor
-// isti. Ana Anić je prva predala, Ivo Ivić mijenjao i ponovno predao.
+// isti. Ana Anić je prva predala, Ivo Ivić i Marko Markić mijenjali, Ivo
+// ponovno predao.
 func TestTragPredajeIzvjescaKrozBazuIRazmjenu(t *testing.T) {
 	ctx := context.Background()
 	otvori := func(ime string) (*IzvjescaRepository, *SektorskaIzvjescaRepository, *ledger.Recorder) {
@@ -35,7 +36,7 @@ func TestTragPredajeIzvjescaKrozBazuIRazmjenu(t *testing.T) {
 
 	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, models.Zagreb)
 	drugi := time.Date(2026, 10, 7, 14, 20, 0, 0, models.Zagreb)
-	trag := models.TragPredaje{PrvoPredanoAt: &prvi, PredaoID: "ivo", Predao: "Ivo Ivić", IzmijenioID: "ivo", Izmijenio: "Ivo Ivić"}
+	trag := models.TragPredaje{PrvoPredanoAt: &prvi, PredaoID: "ivo", Predao: "Ivo Ivić", Izmijenili: []models.Izmjenitelj{{ID: "ivo", Ime: "Ivo Ivić"}, {ID: "marko", Ime: "Marko Markić"}}}
 	dan := time.Date(2026, 10, 6, 0, 0, 0, 0, models.Zagreb)
 	dio := &models.DnevnoIzvjesce{SectionCode: "P.1.1", Dan: dan, Stadij: models.PhaseRegular, IzradioID: "ana", Izradio: "Ana Anić",
 		IzradenoAt: drugi, PredanoAt: &drugi, TragPredaje: trag}
@@ -48,7 +49,7 @@ func TestTragPredajeIzvjescaKrozBazuIRazmjenu(t *testing.T) {
 	}
 	isti := func(sto string, t1 models.TragPredaje, predano *time.Time) {
 		t.Helper()
-		if t1.PrvoPredanoAt == nil || !t1.PrvoPredanoAt.Equal(prvi) || t1.Predao != "Ivo Ivić" || t1.PredaoID != "ivo" || t1.Izmijenio != "Ivo Ivić" || t1.IzmijenioID != "ivo" ||
+		if t1.PrvoPredanoAt == nil || !t1.PrvoPredanoAt.Equal(prvi) || t1.Predao != "Ivo Ivić" || t1.PredaoID != "ivo" || t1.TkoJeMijenjao() != "Ivo Ivić, Marko Markić" || t1.Izmijenili[1].ID != "marko" ||
 			predano == nil || !predano.Equal(drugi) {
 			t.Errorf("%s: %+v, predano %v", sto, t1, predano)
 		}

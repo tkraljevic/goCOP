@@ -174,7 +174,7 @@ func TestDnevnoIzvjescePredanoIzmjena(t *testing.T) {
 	}
 	poslije, _ := o.svc.Get(ctx, iz.ID)
 	if poslije.Sadrzaj.Pregled != "Procjeđivanje kod Primjerova." || poslije.Predano() || !poslije.PrviPutPredano().Equal(*predano.PredanoAt) ||
-		poslije.Izmijenio != "Pero Perić" || poslije.Izradio != "Pero Perić" || poslije.IzradioID != o.pero.ID.String() {
+		poslije.TkoJeMijenjao() != "Pero Perić" || poslije.Izradio != "Pero Perić" || poslije.IzradioID != o.pero.ID.String() {
 		t.Errorf("izmjena predanog: %+v", poslije)
 	}
 	// ponovna predaja: novo vrijeme predaje, prvo ostaje
@@ -190,12 +190,13 @@ func TestDnevnoIzvjescePredanoIzmjena(t *testing.T) {
 	if err := o.svc.Spremi(ctx, o.urednik, o.pisePero, o.d111, &izmjena); err == nil || !strings.Contains(err.Error(), "tko ga je") {
 		t.Errorf("zamjenik mijenja ponovno predano: %v", err)
 	}
-	// uprava sektora mijenja predano: opet nacrt, izmijenio je onaj iz uprave
+	// uprava sektora mijenja predano: opet nacrt; pamte se oba koja su
+	// mijenjala, autor i onaj iz uprave, redom
 	izmjena.Sadrzaj.Pregled = "Ispravak uprave."
 	if err := o.svc.Spremi(ctx, o.urednik, o.upravaP, o.d111, &izmjena); err != nil {
 		t.Errorf("uprava mijenja predano: %v", err)
 	}
-	if g, _ := o.svc.Get(ctx, iz.ID); g.Predano() || g.Izmijenio != "Pero Perić (zamjenik)" || !g.PrviPutPredano().Equal(*predano.PredanoAt) {
+	if g, _ := o.svc.Get(ctx, iz.ID); g.Predano() || g.TkoJeMijenjao() != "Pero Perić, Pero Perić (zamjenik)" || !g.PrviPutPredano().Equal(*predano.PredanoAt) {
 		t.Errorf("izmjena uprave: %+v", g)
 	}
 	// uprava ga i preda; predao je ona, ne autor
@@ -533,7 +534,7 @@ func TestSektorskoIzvjesceIzmjenaIPredaja(t *testing.T) {
 		t.Fatalf("izmjena predanog danas prolazi: %v", err)
 	}
 	if g, _ := o.svc.GetSektorsko(ctx, iz.ID); g.Sadrzaj.Hidrometeo != "Ispravljeno poslije predaje." || g.Predano() || !g.PrviPutPredano().Equal(*predano.PredanoAt) ||
-		g.Izmijenio != "Pero Perić (zamjenik)" || g.Izradio != "Pero Perić" {
+		g.TkoJeMijenjao() != "Pero Perić (zamjenik)" || g.Izradio != "Pero Perić" {
 		t.Errorf("predano poslije izmjene: %+v", g)
 	}
 	// ponovna predaja: novo vrijeme, prvo ostaje, predao je onaj tko je predao

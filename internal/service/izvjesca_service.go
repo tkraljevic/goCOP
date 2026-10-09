@@ -192,8 +192,8 @@ func vodotokDionice(sec *models.Section) string {
 // Spremi upisuje ili mijenja izvješće. Jedno po dionici i danu — drugog za
 // isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
 // Spremljeno izvješće uvijek je nacrt: izmjena predanog vraća ga u nacrt
-// koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamti se tko
-// je mijenjao. Izvješće koje je bilo predano i dok čeka ponovnu predaju
+// koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi
+// koji su ga mijenjali; tko sprema bez promjene, među njih ne ulazi. Izvješće koje je bilo predano i dok čeka ponovnu predaju
 // mijenja samo tko ga je izradio, ili uprava.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
@@ -225,6 +225,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 	if postojece != nil && postojece.ID != iz.ID {
 		return fmt.Errorf("izvješće dionice %s za %s već postoji", sec.Code, iz.Dan.Format("2.1.2006."))
 	}
+	var prije *models.DnevnoIzvjesce // spremljena inačica; nil za novo izvješće
 	if iz.ID != "" {
 		cur, err := s.repo.Get(ctx, iz.ID)
 		if err != nil {
@@ -238,7 +239,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 			return errors.New("izvješće koje je bilo predano mijenja samo tko ga je izradio, ili uprava područja ili sektora")
 		}
 		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
-		iz.IzmjenaPoslijePredaje(cur.PredanoAt, u)
+		prije = cur
 		if iz.IzradioID == "" {
 			iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
 		}
@@ -248,6 +249,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 	if iz.Sadrzaj.Vodotok == "" {
 		iz.Sadrzaj.Vodotok = vodotokDionice(sec)
 	}
+	iz.ZabiljeziSpremanje(prije, u)
 	iz.IzradenoAt, iz.PredanoAt = time.Now().In(models.Zagreb), nil
 	return s.repo.Save(ctx, iz)
 }
