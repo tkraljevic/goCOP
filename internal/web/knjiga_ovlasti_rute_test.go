@@ -88,8 +88,10 @@ func TestKnjigaVodocuvaraKrozRutePoOdlukama(t *testing.T) {
 	}
 	h := NewVodocuvarHandler(func() *service.VodocuvarService { return vod }, users, func() *repository.OrgRepository { return orgRepo }, tmpl("vodocuvar.html"), tmpl("vodocuvar_list.html"))
 	h.SetOpcije(func(context.Context) models.Opcije { return models.Opcije{} })
+	h.SetKalendar(tmpl("vodocuvar_kalendar.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /vodocuvar", h.ShowPopis)
+	mux.HandleFunc("GET /vodocuvar/kalendar", h.ShowKalendar)
 	mux.HandleFunc("GET /vodocuvar/{id}", h.ShowList)
 	mux.HandleFunc("POST /vodocuvar/zadatak", h.HandleZadatak)
 	mux.HandleFunc("POST /vodocuvar/upis", h.HandleUpis)
@@ -137,6 +139,14 @@ func TestKnjigaVodocuvaraKrozRutePoOdlukama(t *testing.T) {
 	}
 	if l := loc(zovi(operater, http.MethodPost, "/vodocuvar/"+list.ID+"/radnja", url.Values{"radnja": {"parafiraj"}})); !strings.Contains(l, "error") {
 		t.Errorf("parafa operatera: %s", l)
+	}
+	// kalendar mu je samo za čitanje: bez + u danu i bez upute kako se zadaje
+	kal := zovi(operater, http.MethodGet, "/vodocuvar/kalendar?vodocuvar="+vodocuvar.ID.String(), nil)
+	if kal.Code != http.StatusOK || !strings.Contains(kal.Body.String(), "Kalendar zadataka: Pero Perić") {
+		t.Fatalf("kalendar za operatera: %d", kal.Code)
+	}
+	if b := kal.Body.String(); strings.Contains(b, `action="/vodocuvar/zadatak"`) || strings.Contains(b, "Zadatak se zadaje") {
+		t.Error("kalendar operatera nudi zadavanje zadatka")
 	}
 
 	// poslovođa izvođača: u knjige ne ulazi, ni izravnim upisom
