@@ -125,7 +125,15 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"vrijednost je ona na kojoj prognoza u provjeri ne pobjeđuje pretpostavku da se ništa neće promijeniti " +
 				"— ondje je bolje vjerovati zadnjem mjerenju. Sitno ispod stoje tuđe prognoze za isti termin: HU " +
 				"mađarska, RS srpska, AT austrijska. Termin obojen bojom faze obrane doseže prag, obrubljen ga " +
-				"doseže tek gornjom granicom raspona."),
+				"doseže tek gornjom granicom raspona. Slovo s znači da bi taj dan dao dnevni model, ali za to " +
+				"izdanje nije računao, pa stoji satna prognoza u 07 h."),
+			tekstM("Kad pri izdavanju nešto ne radi — letva bez mjerenja, dnevni model koji nije računao, račun iz " +
+				"rezerve, vrh lanca bez svoje budućnosti, dnevni model bez kiše — iznad kartica stoji okvir " +
+				"„Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga upitne, satna od kojeg " +
+				"dosega i dnevna koja nije izdana. Kartica takve postaje ima kratak redak s razlogom. Sitnije stvari " +
+				"(dnevni model iz rezerve, sati s letve na drugoj obali, postaja bez prognoze, vrijednosti izvan " +
+				"krivulje protoka) stoje sklopljene pod „Napomene”. Upozorenja zapisuje čvor koji izdaje i ona putuju " +
+				"s izdanjem, pa svi čvorovi pokazuju isto; izdanje starije od tri sata stranica javlja sama."),
 			tekstM("Kartica postaje na vrhu lanca kaže odakle joj budućnost: iz modela ispuštanja elektrane, iz " +
 				"našeg dnevnog modela ili iz tuđe prognoze s navedenim izvorom. Uzdužni profil crta vodostaj uzduž toka " +
 				"prema vodi zadnjih 30 dana na svakoj letvi: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
@@ -451,6 +459,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom " +
 				"ispuštanja i Muru iz Gornje Radgone. Vrijednost iz dnevnog modela na stranici je označena slovom " +
 				"d, a u Excelu retkom „model”."),
+			tekstM("Kad dnevni model za izdanje nije računao — najčešće zato što ulazu u nekom od dana koje traži " +
+				"fali više od šest sati mjerenja — dani od kojih bi ga tablica uzimala pokazuju satnu prognozu u 07 h " +
+				"s oznakom s, a dani do kojih satni lanac ne seže (dalje od 96 sati) ostaju prazni. Brojke se pritom " +
+				"ne mijenjaju i ništa se ne zapisuje; dnevna starijeg izdanja ne podmeće se uz noviju satnu. U Excelu " +
+				"redak „model” tada piše „satni (dnevni nije izdan)” ili „nema (dnevni nije izdan)”."),
 			tekstM("Dan prijelaza ovisi i o vodostaju u satu izdavanja. Oba modela uspoređena su prema izmjerenom " +
 				"vodostaju u ciljnom satu, kako ga pokazuje tablica (siječanj 2024. – rujan 2026., modeli naučeni prije, " +
 				"dnevni s tada izdanim prognozama kiše), zasebno za nisku vodu (ispod 25. percentila 2016.–2025.), " +
@@ -568,10 +581,12 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči; unutar dana odluke elektrane ostaju nepredvidive. Pri velikoj vodi HEP akumulacije spušta i puni bez zapisanog pravila, pa model to uči iz razine. Varaždin ispod HE Varaždin o njima ovisi cijeli.",
 				"Na Dunavu je prognoza za valove ovisna o mađarskoj službi dok se dionica Wildungsmauer → Nagybajcs ne namjesti po režimima.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi valja biti oprezan.",
-				"Prognoza kiše iz Open-Meteo je jedina; kad izostane (kvota, mreža), dnevni model radi bez kiše i to piše uz izdanje."),
+				"Prognoza kiše iz Open-Meteo je jedina; kad izostane (kvota, mreža), dnevni model radi bez kiše i to piše uz izdanje.",
+				"Doseg od kojeg je satna prognoza upitna kad gore nešto ne radi („najranije od +N h”) je najraniji mogući: nevolja se niz lanac širi najmanjim namještenim kašnjenjem vala, a postaja niže izmjerena je do izdanja, pa je stiže tek poslije njega. Prozor prosjeka i ispravak po zadnjem mjerenju taj doseg samo odgađaju."),
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",
 				"1. 10. 2026. — izvoz u Excel počinje listom „Sažetak” (naše postaje sada, sutra, za 3 dana i zadnji dan, usporedba s mađarskom prognozom, kiša po slivovima); Vukovar ima svoj protok (protoci i krivulja iz HIS-2000); protok dnevnog modela ostaje i kad granica raspona ispadne iz krivulje.",
 				"30. 9. 2026. (navečer) — Goričan i Letenye prva dva dana bez kiše (kiša ondje kvari 1–2 cm); stranica Postavke: satni, dnevni ili kombinacija posebno za graf, tablicu i Excel, uz generiranje i pripremu modela; pričuvni izračun u Excelu za dane kad prognoza ne radi; doprinos kiše izmjeren iznova s kišom poznatom u trenutku izdanja (ranije brojke bile su preoptimistične); izmjerena kiša (SPARTACUS, kišomjeri s DanubeHIS-a) isprobana i nije ugrađena.",

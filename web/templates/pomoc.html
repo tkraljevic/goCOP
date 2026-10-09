@@ -727,6 +727,23 @@
       model, a takva vrijednost nosi oznaku <em>d</em>. Na stranici <em>Postavke prognoze</em>
       globalni administrator posebno za graf, tablicu i izvoz u Excel bira satni lanac, dnevni
       model ili kombinaciju.</p>
+    <p>Kad dnevni model za izdanje nije računao, dani od kojih bi ga tablica uzimala pokazuju satnu
+      prognozu u 07 h s oznakom <em>s</em>, a dani do kojih satni lanac ne seže (dalje od 96 sati)
+      ostaju prazni. Brojke su iste kao satne; vidi se samo da dnevne nema.</p>
+
+    <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
+    <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji okvir <strong>Upozorenja uz ovo
+      izdanje</strong>. Svako upozorenje kaže što ne radi — npr. letva bez mjerenja, s izvorom i od
+      kada do kada, dnevni model koji nije računao, račun iz rezerve, vrh lanca bez svoje budućnosti
+      ili dnevni model bez kiše — i što je zbog toga upitno: satna prognoza po postajama od kojeg dosega
+      i dnevna prognoza koja nije izdana. Doseg je najraniji mogući („najranije od +7 h”): vrijednosti
+      prije njega ne ovise o onome što ne radi. Kartica takve postaje ima kratak redak s razlogom, a isto
+      stoji u izvozu u Excel, u sažetku i uz graf postaje.</p>
+    <p>Sitnije stvari — dnevni model iz rezerve, sati preuzeti s letve na drugoj obali, postaja bez
+      ijednog sata prognoze, vrh lanca koji kasni i vrijednosti izvan krivulje protoka — stoje
+      sklopljene pod <em>Napomene</em>. Upozorenja zapisuje čvor koji izdaje prognozu i ona putuju s
+      izdanjem, pa svi čvorovi pokazuju isto. Kad je izdanje starije od tri sata, stranica to javlja
+      sama, a uz izdanje čvora na starijoj inačici programa piše da upozorenja ne zapisuje.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
