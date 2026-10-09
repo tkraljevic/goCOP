@@ -23,6 +23,24 @@
   </div>
 </div>
 
+{{if .Zastarjelo}}<div class="razmjena-upozorenje prog-zastarjelo" role="alert">{{icon "clock"}} {{.Zastarjelo}}</div>{{end}}
+{{if or .Upozorenja .Napomene}}
+<section class="prog-upozorenja"{{if .Upozorenja}} role="alert" aria-label="Upozorenja uz ovo izdanje"{{else}} aria-label="Napomene uz ovo izdanje"{{end}}>
+  {{if .Upozorenja}}<div class="razmjena-upozorenje">
+    <h2 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h2>
+    <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
+      <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </div>{{end}}
+  {{if .Napomene}}<details class="prog-napomene">
+    <summary>Napomene uz ovo izdanje ({{len .Napomene}})</summary>
+    <ul class="prog-upozorenja-popis">{{range .Napomene}}
+      <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </details>{{end}}
+</section>
+{{end}}
+
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
   <p>{{.Razlog}}</p>
@@ -126,6 +144,7 @@
     </header>
     {{if .Nepovezana}}<p class="prog-nepovezana">{{icon "info"}} {{.Nepovezana}}</p>{{end}}
     {{if .Rezerva}}<p class="prog-nepovezana prog-rezerva">{{icon "refresh-cw"}} {{.Rezerva}}</p>{{end}}
+    {{if .Upozorenje}}<p class="prog-nepovezana prog-upozorenje">{{icon "triangle-alert"}} {{.Upozorenje}}</p>{{end}}
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}

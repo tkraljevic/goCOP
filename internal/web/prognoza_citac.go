@@ -89,6 +89,17 @@ func (c *CitacPrognoza) DnevnoZa(izdano time.Time) (map[string][]prognoza.Dnevna
 	return prognoza.DnevneIzdanja(c.db, izdano.Unix()/3600)
 }
 
+// Upozorenja čita upozorenja koja je izdavač zapisao uz izdanje. zapisano
+// je false kad ih izdavač nije bilježio (starija inačica) ili se ne daju
+// pročitati: tada se ne zna radi li sve, pa se ne smije reći da radi.
+func (c *CitacPrognoza) Upozorenja(izdano time.Time) ([]prognoza.Upozorenje, bool) {
+	if c == nil || c.db == nil {
+		return nil, false
+	}
+	u, zapisano, err := prognoza.UpozorenjaIzdanja(c.db, izdano.Unix()/3600)
+	return u, zapisano && err == nil
+}
+
 // TudaVrijednost je jedna vrijednost tuđe prognoze.
 type TudaVrijednost struct {
 	Cm, PlusMin float64

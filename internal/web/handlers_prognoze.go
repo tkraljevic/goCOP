@@ -131,6 +131,7 @@ type LetvaPrognoze struct {
 	Nepovezana      string // poruka kad letva nije povezana sa živom vodom, pa prognoze nema
 	Rezerva         string // poruka kad se letva računa iz rezervnih ulaza
 	Preneseno       string // srpska letva: odakle je prognoza prenesena i koliko odnos drži
+	Upozorenje      string // zašto je prognoza letve u ovom izdanju upitna
 	Pragovi         []PragKartice
 	// Najniži i najviši zabilježeni vodostaj kao brojevi, za sažetak izvoza
 	KrajMin, KrajMax *Krajnost
@@ -297,6 +298,10 @@ type PrognozePageData struct {
 	ImaTudih bool
 	Tablice  []TablicaPrognoza
 	Izdaje   string // centar koji prognozu izdaje, npr. COP Osijek
+
+	// Upozorenja uz izdanje: otvorena, sklopljene napomene i zastarjelost
+	Upozorenja, Napomene []UpozorenjeStranice
+	Zastarjelo           string
 
 	// Za izvoz: satni nizovi izdanja i registar letvi, iz kojih se crtaju
 	// grafovi. Stranica ih ne prikazuje.
@@ -540,6 +545,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 			}
 		}
 	}
+	upozorenjaStranice(&data, c, izdano, time.Now(), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)
 	data.pregled, data.dnevne, data.postajeM = letve, dnevne, postaje
