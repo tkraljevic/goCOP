@@ -1,11 +1,12 @@
 package prognoza
 
-// Naučeni dnevni modeli. Učenje iz arhive traje sekundu-dvije, pa se ne
-// ponavlja svaki sat: naučeno vrijedi do kraja zagrebačkog dana ili dok se
-// arhiva ne promijeni. Inačica koja se nije dala naučiti pokušava se opet
-// idući sat; dosad je greška stajala do ponoći i popravljalo ju je samo
-// ponovno pokretanje programa, a uvoz u arhivu tijekom dana nije se vidio do
-// sutra. Odluke (8. 10. 2026.), pitanje 15.
+// Naučeni dnevni modeli. Učenje iz arhive traje desetak sekundi (9 s za svih
+// 13 ciljeva na arhivi od 9. 10. 2026.), pa se ne ponavlja svaki sat:
+// naučeno vrijedi do kraja zagrebačkog dana ili dok se arhiva ne promijeni.
+// Inačica koja se nije dala naučiti pokušava se opet idući sat; dosad je
+// greška stajala do ponoći i popravljalo ju je samo ponovno pokretanje
+// programa, a uvoz u arhivu tijekom dana nije se vidio do sutra. Odluke
+// (8. 10. 2026.), pitanje 15.
 
 import (
 	"database/sql"
