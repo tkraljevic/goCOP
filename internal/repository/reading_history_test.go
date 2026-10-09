@@ -16,7 +16,6 @@ import (
 // Terenski uređaj drži zadnjih godinu dana: razmjena mu smije donijeti nova
 // očitanja, a povijest od stotinjak godina ne smije.
 func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "teren.db"))
 	if err != nil {
 		t.Fatal(err)
