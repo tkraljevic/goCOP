@@ -818,16 +818,18 @@ Kote nule vodomjera vode se u sustavu Trst, a HVRS71 i baltičke kote zasebno
 Testovi djelatnika i ovlasti, uvoza i razmjene među čvorovima rade na
 izmišljenom skupu podataka [`testdata/sektor-p`](../testdata/sektor-p/README.md)
 (sektor P, pet izmišljenih djelatnika), pa se izvode svugdje, i na GitHubu.
-Samo 13 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
-nule iz elaborata, cjelovitost registara) treba stvarne registre: izvorne
-datoteke registara prvog punjenja, one s kojima je napunjen prvi čvor
-(`sections.json`, `watercourses.json`, `territories.json`,
-`section_territories.json`, `objekti_bp16.json`, `organizacija.json`), u
-mapi `data/` u korijenu repozitorija. Brojke u provjerama su brojke tih
-datoteka, pa registri izvezeni iz baze čvora koji radi ne vrijede. Bez
-datoteka se provjere preskaču, uz poruku što treba. Pokreću se prije svakog
-izdanja naredbom `make provjera-registara`, koja bez datoteka pada umjesto da
-ih preskoči.
+Samo 11 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
+nule iz elaborata, cjelovitost registara) treba stvarne registre. Dvije opće
+provjere prvog punjenja (drugo punjenje ništa ne udvostručuje, tekstovi su
+ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
+ponavljaju se i na njima. Stvarni registri su izvorne datoteke registara
+prvog punjenja, one s kojima je napunjen prvi čvor (`sections.json`,
+`watercourses.json`, `territories.json`, `section_territories.json`,
+`objekti_bp16.json`, `organizacija.json`), u mapi `data/` u korijenu
+repozitorija. Brojke u provjerama su brojke tih datoteka, pa registri
+izvezeni iz baze čvora koji radi ne vrijede. Bez datoteka se provjere
+preskaču, uz poruku što treba. Pokreću se prije svakog izdanja naredbom
+`make provjera-registara`, koja bez datoteka pada umjesto da ih preskoči.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
