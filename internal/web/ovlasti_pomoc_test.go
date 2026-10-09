@@ -38,6 +38,8 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
 		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica",
 		"i onu vodočuvara kojemu je njegova dionica upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
+		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",
+		"tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)
