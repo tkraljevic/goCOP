@@ -286,3 +286,31 @@ func TestZidObrisanRedakPrijaveNeVracaSe(t *testing.T) {
 		t.Fatalf("obrisano rješenje se vratilo na zid:\n%s", naslovi(dog))
 	}
 }
+
+// Redak rješenja nosi vrstu: riješeni zahtjev nije „riješena prijava”,
+// jer je „Prijava” zasebna, istaknuta vrsta (Odluke (8. 10. 2026.),
+// pitanje 20)
+func TestZidRjesenjeNosiVrstuPrijave(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	ocekivano := map[string]string{
+		models.PrijavaObavijest: "Riješena obavijest s terena",
+		models.PrijavaPrijava:   "Riješena prijava s terena",
+		models.PrijavaIzvjesce:  "Riješeno izvješće s terena",
+		models.PrijavaZahtjev:   "Riješen zahtjev s terena",
+	}
+	for i, vrsta := range models.VrstePrijava {
+		p := z.nova(t, vrsta, "Košnja pokosa", 50+i)
+		sad := time.Now()
+		p.Status, p.RijesioID, p.Rijesio, p.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+		z.spremi(t, p)
+		dog := z.prijaveNaZidu(t, ana, FiltarZida{})
+		if len(dog) == 0 || dog[0].Naslov != ocekivano[vrsta] || dog[0].Tekst != p.Oznaka()+": Košnja pokosa" || dog[0].Vazno {
+			t.Errorf("%s: rješenje na zidu\n%s\nočekivan naslov %q", vrsta, naslovi(dog), ocekivano[vrsta])
+		}
+	}
+	if got := naslovRjesenja("NEPOZNATA"); got != "Riješena prijava s terena" {
+		t.Errorf("nepoznata vrsta: %q", got)
+	}
+}

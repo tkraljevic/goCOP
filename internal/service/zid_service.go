@@ -708,7 +708,7 @@ func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
 	objava, rjesenje := c.verzijePrijave(v.EntityID)
 	switch v.VersionID {
 	case rjesenje:
-		d.Naslov, d.Tekst = "Riješena prijava s terena", p.Oznaka()+": "+p.Naslov
+		d.Naslov, d.Tekst = naslovRjesenja(p.Vrsta), p.Oznaka()+": "+p.Naslov
 		if p.Rijesio != "" {
 			d.Tko = p.Rijesio
 		}
@@ -721,6 +721,20 @@ func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
 		return d, false
 	}
 	return d, true
+}
+
+// naslovRjesenja: redak rješenja nosi vrstu prijave, u njezinu rodu, jer je
+// „Prijava” zasebna vrsta i riješeni zahtjev nije riješena prijava
+func naslovRjesenja(vrsta string) string {
+	switch vrsta {
+	case models.PrijavaObavijest:
+		return "Riješena obavijest s terena"
+	case models.PrijavaIzvjesce:
+		return "Riješeno izvješće s terena"
+	case models.PrijavaZahtjev:
+		return "Riješen zahtjev s terena"
+	}
+	return "Riješena prijava s terena"
 }
 
 // verzijePrijave čita povijest prijave jednom po zidu i vraća verziju
