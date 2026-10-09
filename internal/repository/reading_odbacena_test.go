@@ -308,3 +308,79 @@ func TestOznaciKotu(t *testing.T) {
 		t.Errorf("već označena: %v, %v", ok, err)
 	}
 }
+
+// odbaciUBuducnosti provjerava očitanje kao da sat računala kasni tri sata,
+// pa je očitanje „više od sat unaprijed”, i bilježi to odbacivanje
+func odbaciUBuducnosti(t *testing.T, c *cvorZaRazmjenu, rd models.Reading) {
+	t.Helper()
+	ctx := context.Background()
+	tx, err := c.db.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	p := novaProvjeraRaspona(tx, c.rec)
+	p.sada = rd.MeasuredAt.Add(-3 * time.Hour)
+	if upisati, err := p.propusti(ctx, &rd); err != nil || upisati {
+		t.Fatalf("očitanje tri sata unaprijed: upisati %v, %v", upisati, err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): očitanje odbačeno samo zato
+// što je stiglo više od sat unaprijed (sat izvora ili računala ide naprijed)
+// sljedeći krug primi, kad mu vrijeme dođe. Tada se više ne broji kao
+// odbačeno, jer ga letva ima; odbačena vrijednost (vodostaj izvan raspona)
+// broji se i kad letva za isti sat poslije dobije ispravno očitanje.
+func TestOdbacenoVrijemeNeBrojiSeKadLetvaPoslijeImaOcitanje(t *testing.T) {
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	repo := NewReadingRepository(a.db, a.rec)
+	pivnica := novaLetva(t, a, "pivnica-probna", false)
+	kad := time.Now().Truncate(time.Hour).Add(-time.Hour)
+
+	rano := uvezeno(pivnica, kad, 120)
+	odbaciUBuducnosti(t, a, rano)
+	zaglavljeno := uvezeno(pivnica, kad.Add(-2*time.Hour), -1102)
+	if _, err := repo.ImportBatch(ctx, []models.Reading{zaglavljeno}); err != nil {
+		t.Fatal(err)
+	}
+	if s, err := repo.SazetakOdbacenih(ctx, "station:"+pivnica.ID.String()); err != nil || s == nil || s.Broj != 2 {
+		t.Fatalf("prije upisa: %+v, %v", s, err)
+	}
+
+	// sljedeći krug isto očitanje prima; ispravno očitanje u satu
+	// zaglavljenog mjerila ne briše odbačeni vodostaj
+	ispravljeno := uvezeno(pivnica, zaglavljeno.MeasuredAt, 118)
+	if n, err := repo.ImportBatch(ctx, []models.Reading{rano, ispravljeno}); err != nil || n != 2 {
+		t.Fatalf("drugi krug: %d, %v", n, err)
+	}
+	s, err := repo.SazetakOdbacenih(ctx, "station:"+pivnica.ID.String())
+	if err != nil || s == nil || s.Broj != 1 || s.Zadnja.Polje != models.PoljeVodostaj || s.Zadnja.Opis != "−1102 cm" {
+		t.Errorf("poslije upisa: %+v, %v", s, err)
+	}
+
+	// drugi čvor dobije zapis i očitanje razmjenom: ni on ga ne broji
+	a.posalji(t, b, "")
+	s, err = NewReadingRepository(b.db, b.rec).SazetakOdbacenih(ctx, "station:"+pivnica.ID.String())
+	if err != nil || s == nil || s.Broj != 1 || s.Zadnja.Polje != models.PoljeVodostaj {
+		t.Errorf("na drugom čvoru: %+v, %v", s, err)
+	}
+
+	// objekt: zapis odbačen zbog vremena, pa primljen, ne ostaje ni kao sažetak
+	cm := 215
+	cs := models.Reading{ID: uuid.New(), StructureID: uuid.NewString(), MeasuredAt: kad, LevelCm: &cm,
+		Origin: models.ReadingOriginBP16, Source: models.ReadingSourceManual}
+	odbaciUBuducnosti(t, a, cs)
+	if s, _ := repo.SazetakOdbacenih(ctx, cs.GaugeKey()); s == nil || s.Broj != 1 {
+		t.Fatalf("objekt prije upisa: %+v", s)
+	}
+	if n, err := repo.ImportBatch(ctx, []models.Reading{cs}); err != nil || n != 1 {
+		t.Fatalf("objekt: %d, %v", n, err)
+	}
+	if s, err := repo.SazetakOdbacenih(ctx, cs.GaugeKey()); err != nil || s != nil {
+		t.Errorf("objekt poslije upisa: %+v, %v", s, err)
+	}
+}

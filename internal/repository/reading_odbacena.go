@@ -123,6 +123,16 @@ func ocitanjeLetve(letva string, kad time.Time) *models.Reading {
 	return rd
 }
 
+// stupacLetve vraća stupac očitanja po kojem se traži letva iz ključa letve
+// (GaugeKey) i njezin identifikator
+func stupacLetve(letva string) (string, string) {
+	rd := ocitanjeLetve(letva, time.Time{})
+	if rd.StructureID != "" {
+		return "structure_id", rd.StructureID
+	}
+	return "station_id", rd.StationID
+}
+
 // ZabiljeziOdbacene upisuje vrijednosti koje je uvoz odbacio prije nego što
 // je od njih složio očitanje (npr. ćelija tablice izvan raspona)
 func (r *ReadingRepository) ZabiljeziOdbacene(ctx context.Context, odbacene []models.OdbacenaVrijednost) error {
@@ -141,10 +151,21 @@ func (r *ReadingRepository) ZabiljeziOdbacene(ctx context.Context, odbacene []mo
 // raspona (na ovom čvoru ili na onom od kojeg je zapis stigao razmjenom) i
 // koja je zadnja; nil kad nijedna nije. Zadnja je zadnja zabilježena, a
 // među istodobno zabilježenima ona s najkasnijim trenutkom.
+//
+// Očitanje odbačeno samo zato što je stiglo više od sat unaprijed ne broji
+// se kad letva za taj trenutak ipak ima očitanje: sljedeći krug ga je primio
+// kad mu je vrijeme došlo (sat izvora ili računala ide naprijed). Zapis
+// ostaje; ne broji se ni na čvoru koji je očitanje i zapis dobio razmjenom,
+// kojim god redom stignu.
 func (r *ReadingRepository) SazetakOdbacenih(ctx context.Context, letva string) (*models.SazetakOdbacenih, error) {
 	s := models.SazetakOdbacenih{Zadnja: models.OdbacenaVrijednost{Letva: letva}}
-	err := r.db.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM odbacena_ocitanja WHERE letva = ?), kad, polje, izvor, opis
-		FROM odbacena_ocitanja WHERE letva = ? ORDER BY zabiljezeno DESC, kad DESC LIMIT 1`, letva, letva).
+	stupac, id := stupacLetve(letva)
+	err := r.db.QueryRowContext(ctx, `WITH o AS (
+			SELECT kad, polje, izvor, opis, zabiljezeno FROM odbacena_ocitanja
+			WHERE letva = ? AND NOT (polje = ? AND EXISTS (
+				SELECT 1 FROM readings WHERE `+stupac+` = ? AND measured_at = odbacena_ocitanja.kad)))
+		SELECT (SELECT COUNT(*) FROM o), kad, polje, izvor, opis FROM o ORDER BY zabiljezeno DESC, kad DESC LIMIT 1`,
+		letva, models.PoljeVrijeme, id).
 		Scan(&s.Broj, &s.Zadnja.Kad, &s.Zadnja.Polje, &s.Zadnja.Izvor, &s.Zadnja.Opis)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
