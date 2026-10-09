@@ -21,10 +21,13 @@ import (
 )
 
 // Poslovođa izvođača u Dnevnicima usluga A.02 i A.03 vidi samo svoj
-// dnevnik: dnevnike branjenog područja svoje dužnosti, a ne dnevnike drugih
-// firmi na drugim područjima, ni na popisu (ni kad područje zada u adresi),
-// ni izravnom adresom (Odluke (8. 10. 2026.), pitanje 1). Rukovoditelj
-// područja čita dnevnike usluga kao i dosad. Podaci su izmišljeni.
+// dnevnik: dnevnik svoje firme na branjenom području svoje dužnosti, a ne
+// dnevnike drugih firmi, ni na drugim područjima ni na svom, ni na popisu
+// (ni kad područje zada u adresi), ni izravnom adresom (Odluke (8. 10.
+// 2026.), pitanje 1). Dnevnik je firmin kad naslovnica kao izvođača navodi
+// firmu s računa poslovođe ili njega kao voditelja usluga; dnevnik bez
+// izvođača na naslovnici nije ničiji. Rukovoditelj područja čita dnevnike
+// usluga kao i dosad. Podaci su izmišljeni.
 func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "usluge.db"))
 	if err != nil {
@@ -60,17 +63,25 @@ func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 		return u
 	}
 	poslovodja := osoba("mmarkic", "Marko Markić", models.Duty{Title: "Poslovođa Primjer d.o.o.", Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &prvo})
+	if _, err := baza.Exec(`UPDATE users SET org_name = 'Primjer d.o.o.' WHERE id = ?`, poslovodja.ID.String()); err != nil {
+		t.Fatal(err)
+	}
 	rukovoditelj := osoba("iivic", "Ivo Ivić", models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
-	dnevnik := func(podrucje int, izvodjac string) *models.Journal {
+	dnevnik := func(podrucje int, vrsta, naslov, izvodjac, voditelj string) *models.Journal {
 		t.Helper()
-		j := &models.Journal{AreaID: podrucje, Kind: models.JournalKindMaintenanceA02, Title: "A.02 " + izvodjac, Year: 2026, Contractor: izvodjac}
+		j := &models.Journal{AreaID: podrucje, Kind: vrsta, Title: naslov, Year: 2026, Contractor: izvodjac, ContractorLead: voditelj}
 		if err := journalRepo.SaveJournal(ctx, j); err != nil {
 			t.Fatal(err)
 		}
 		return j
 	}
-	svoj := dnevnik(prvo, "Primjer d.o.o.")
-	tudji := dnevnik(drugo, "Probni radovi d.o.o.")
+	svoj := dnevnik(prvo, models.JournalKindMaintenanceA02, "A.02 Primjer d.o.o.", "PRIMJER d.o.o., Primjerska 1, Primjerica", "")
+	tudji := dnevnik(drugo, models.JournalKindMaintenanceA02, "A.02 Probni radovi d.o.o.", "Probni radovi d.o.o.", "")
+	// na njegovu području: dnevnik druge firme, dnevnik u kojem je on
+	// voditelj usluga i dnevnik bez izvođača na naslovnici
+	drugaFirma := dnevnik(prvo, models.JournalKindMaintenanceA03, "A.03 Drugi radovi d.o.o.", "Drugi radovi d.o.o.", "Ivo Ivić")
+	voditelj := dnevnik(prvo, models.JournalKindMaintenanceA03, "A.03 Treći radovi", "Treći radovi d.o.o.", "Marko Markić, ing.")
+	bezIzvodjaca := dnevnik(prvo, models.JournalKindMaintenanceA03, "A.03 Bez naslovnice", "", "")
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -114,6 +125,23 @@ func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 	}
 	if w := zovi(poslovodja, "/dnevnici/"+tudji.ID); w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "Probni radovi") {
 		t.Errorf("poslovođa na dnevniku druge firme: %d", w.Code)
+	}
+	// na svom području: druga firma i dnevnik bez izvođača zabranjeni, a
+	// dnevnik u kojem je voditelj usluga njegov
+	popisA03 := zovi(poslovodja, "/dnevnici/popis?vrsta=ODRZAVANJE_A03").Body.String()
+	if strings.Contains(popisA03, "Drugi radovi") || strings.Contains(popisA03, "Bez naslovnice") || !strings.Contains(popisA03, "A.03 Treći radovi") {
+		t.Error("popis A.03 na području poslovođe: vidi tuđe ili ne vidi svoj dnevnik")
+	}
+	for _, j := range []*models.Journal{drugaFirma, bezIzvodjaca} {
+		if w := zovi(poslovodja, "/dnevnici/"+j.ID); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "svoje firme") {
+			t.Errorf("poslovođa na dnevniku %s: %d %.120s", j.Title, w.Code, w.Body.String())
+		}
+	}
+	if w := zovi(poslovodja, "/dnevnici/"+voditelj.ID); w.Code != http.StatusOK {
+		t.Errorf("poslovođa na dnevniku u kojem je voditelj usluga: %d", w.Code)
+	}
+	if w := zovi(rukovoditelj, "/dnevnici/"+drugaFirma.ID); w.Code != http.StatusOK {
+		t.Errorf("rukovoditelj na dnevniku druge firme svog područja: %d", w.Code)
 	}
 	// rukovoditelj područja 1 čita dnevnike usluga kao i dosad
 	if w := zovi(rukovoditelj, "/dnevnici/"+tudji.ID); w.Code != http.StatusOK {

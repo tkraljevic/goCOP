@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Građevinski dnevnik: onaj koji izvođač vodi svaki dan, a Hrvatske vode
@@ -160,6 +161,37 @@ func (j Journal) Ovjeren() bool { return j.ZakljucenoAt != nil }
 func (j Journal) SmijePrepravakZapisa() bool { return j.Reconstruction }
 
 func (j Journal) IsDefense() bool { return j.Kind == JournalKindDefense }
+
+// VodiFirma javlja vodi li dnevnik usluge firma osobe u: naslovnica kao
+// izvođača navodi firmu s računa osobe (OrgName), ili osobu kao voditelja
+// usluga. Oba su slobodan upis, pa se nazivi uspoređuju bez obzira na
+// velika slova, interpunkciju i razmake, i kad jedan sadrži drugi kao cijele
+// riječi („Primjer d.o.o.” i „PRIMJER d.o.o., Primjerska 1”). Dnevnik bez
+// izvođača na naslovnici nije ničiji.
+func (j Journal) VodiFirma(u *User) bool {
+	if u == nil {
+		return false
+	}
+	return istiNaziv(j.Contractor, u.OrgName) || istiNaziv(j.ContractorLead, u.FullName)
+}
+
+// istiNaziv javlja navode li dva slobodna upisa isti naziv: jedan, sveden
+// na riječi malim slovima, sadrži drugi kao cijele riječi; prazan upis ne
+// navodi ništa
+func istiNaziv(a, b string) bool {
+	a, b = rijeciNaziva(a), rijeciNaziva(b)
+	if a == "" || b == "" {
+		return false
+	}
+	return strings.Contains(" "+a+" ", " "+b+" ") || strings.Contains(" "+b+" ", " "+a+" ")
+}
+
+// rijeciNaziva svodi upis na riječi malim slovima odvojene jednim razmakom
+func rijeciNaziva(s string) string {
+	return strings.Join(strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	}), " ")
+}
 
 // Program vraća program radova kojem dnevnik pripada
 func (j Journal) Program() string {
