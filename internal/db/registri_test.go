@@ -1,6 +1,7 @@
 package db
 
 import (
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -38,9 +39,9 @@ func registriIliPreskoci(t *testing.T) {
 	t.Skip(porukaRegistara)
 }
 
-// Provjere registara nalaze izvoz registara i imenik u mapi data/ iznad radne
-// mape testa i na njih usmjeravaju prvo punjenje. Bez izvoza javljaju da ga
-// nema i putanje ne diraju; imenik se traži samo uz registre.
+// Provjere registara nalaze datoteke prvog punjenja u mapi data/ iznad radne
+// mape testa i na njih usmjeravaju prvo punjenje (i imenik, ako ga ondje
+// ima). Bez datoteka javljaju da ih nema i putanje ne diraju.
 func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	staraMapa, stariImenik := DataDir, ImenikPath
 	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
@@ -51,11 +52,11 @@ func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	}
 	t.Chdir(paket)
 
-	if UseRepoData() || UseRepoImenik() {
-		t.Fatal("bez izvoza registara nađeni su registri ili imenik")
+	if UseRepoData() {
+		t.Fatal("bez datoteka prvog punjenja nađeni su registri")
 	}
 	if DataDir != staraMapa || ImenikPath != stariImenik {
-		t.Fatalf("bez izvoza putanje su promijenjene: %s, %s", DataDir, ImenikPath)
+		t.Fatalf("bez datoteka putanje su promijenjene: %s, %s", DataDir, ImenikPath)
 	}
 
 	mapa := filepath.Join(korijen, "data")
@@ -65,18 +66,12 @@ func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mapa, "sections.json"), []byte("[]"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if UseRepoImenik() {
-		t.Error("imenik nađen, a uz registre ga nema")
+	if !UseRepoData() {
+		t.Error("datoteke prvog punjenja nisu nađene")
 	}
 	gore := filepath.Join("..", "..", "data")
 	if DataDir != gore || ImenikPath != filepath.Join(gore, "imenik.json") {
-		t.Errorf("putanje nisu na izvozu registara: %s, %s", DataDir, ImenikPath)
-	}
-	if err := os.WriteFile(filepath.Join(mapa, "imenik.json"), []byte("[]"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if !UseRepoData() || !UseRepoImenik() {
-		t.Error("izvoz registara s imenikom nije nađen")
+		t.Errorf("putanje nisu na datotekama prvog punjenja: %s, %s", DataDir, ImenikPath)
 	}
 }
 
@@ -104,5 +99,37 @@ func TestPorukaRegistaraTraziDatotekePrvogPunjenja(t *testing.T) {
 	}
 	if strings.Contains(porukaRegistara, "izvoz registara iz baze") {
 		t.Errorf("poruka traži izvoz iz baze, a s njim brojke ne prolaze: %s", porukaRegistara)
+	}
+}
+
+// Stvarne registre u data/ traže samo provjere registara u ovom paketu. Test
+// drugog paketa koji bi se na njih usmjerio na računalu s registrima punio bi
+// bazu stvarnim podacima i ljudima, a na GitHubu bi se preskakao (Odluke
+// (8. 10. 2026.), pitanje 13). Ostali testovi rade na izmišljenom skupu,
+// kroz KoristiIzmisljenePodatke.
+func TestStvarniRegistriSamoUProvjeramaRegistara(t *testing.T) {
+	korijen := filepath.Join("..", "..")
+	ovaj := filepath.Join(korijen, "internal", "db")
+	// UseRepoImenik više nema, ali grane starije od izmišljenog skupa ga zovu
+	zabranjeni := []string{"db.UseRepoData(", "db.UseRepoImenik("}
+	for _, mapa := range []string{"cmd", "internal"} {
+		err := filepath.WalkDir(filepath.Join(korijen, mapa), func(put string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(put, "_test.go") || filepath.Dir(put) == ovaj {
+				return err
+			}
+			raw, err := os.ReadFile(put)
+			if err != nil {
+				return err
+			}
+			for _, poziv := range zabranjeni {
+				if strings.Contains(string(raw), poziv) {
+					t.Errorf("%s zove %s: stvarne registre traže samo provjere registara u internal/db, ostali testovi db.KoristiIzmisljenePodatke", put, poziv)
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
