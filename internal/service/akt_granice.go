@@ -13,7 +13,8 @@ import (
 // obrane u sektoru ili više od 7 dana unaprijed: to su sigurno pogreške
 // (tipfeler u godini). Više od 24 sata unatrag ili 3 dana unaprijed prolazi
 // samo uz izričitu potvrdu, koja se bilježi uz akt: naknadno unesen akt i
-// najava unaprijed ispravna su praksa. Godina oznake i dalje je godina iz
+// najava unaprijed ispravna su praksa. Tvrde granice provjeravaju se
+// ponovno pri ovjeri (vrijediZaOvjeru). Godina oznake i dalje je godina iz
 // „Vrijedi od” (odluka od 4. 10. 2026.).
 const (
 	vrijediNajviseUnaprijed = 7 * 24 * time.Hour
@@ -49,11 +50,11 @@ func potvrdeVrijedi(a *models.Akt, u *models.User, potvrdeno bool, sad time.Time
 		TkoID: u.ID.String(), Tko: u.FullName, Kad: sad.UTC().Truncate(time.Second)}}
 }
 
-// provjeriVrijedi provjerava „Vrijedi od” novog nacrta prema otvorenom
+// granicaVrijedi provjerava tvrde granice „Vrijedi od” prema otvorenom
 // Dnevniku COP-a sektora (nil = pravilo aktivne obrane nije zadano) i
-// trenutku sastavljanja
-func provjeriVrijedi(a *models.Akt, dnevnik *models.Journal, sad time.Time) error {
-	v := a.Vrijedi.In(models.Zagreb)
+// trenutku sad: ne prije otvaranja dnevnika i ne više od 7 dana unaprijed
+func granicaVrijedi(vrijedi time.Time, dnevnik *models.Journal, sad time.Time) error {
+	v := vrijedi.In(models.Zagreb)
 	if dnevnik != nil && dnevnik.StartedAt != nil && v.Before(*dnevnik.StartedAt) {
 		return fmt.Errorf("„Vrijedi od” (%s) je prije otvaranja Dnevnika COP-a (%s): akt ne može vrijediti prije aktivne obrane u sektoru; provjerite dan i godinu",
 			v.Format("2. 1. 2006. u 15:04"), dnevnik.StartedAt.In(models.Zagreb).Format("2. 1. 2006."))
@@ -61,8 +62,29 @@ func provjeriVrijedi(a *models.Akt, dnevnik *models.Journal, sad time.Time) erro
 	if v.After(sad.Add(vrijediNajviseUnaprijed)) {
 		return fmt.Errorf("„Vrijedi od” (%s) je više od 7 dana unaprijed; provjerite dan i godinu", v.Format("2. 1. 2006. u 15:04"))
 	}
-	if vrijediTraziPotvrdu(v, sad) && !a.ImaPotvrdu(models.PotvrdaVrijedi) {
-		return &TrebaPotvrduError{Pitanje: pitanjeVrijedi(v)}
+	return nil
+}
+
+// provjeriVrijedi provjerava „Vrijedi od” novog nacrta: tvrde granice
+// (granicaVrijedi) i, izvan uobičajenog raspona, izričitu potvrdu
+func provjeriVrijedi(a *models.Akt, dnevnik *models.Journal, sad time.Time) error {
+	if err := granicaVrijedi(a.Vrijedi, dnevnik, sad); err != nil {
+		return err
+	}
+	if vrijediTraziPotvrdu(a.Vrijedi, sad) && !a.ImaPotvrdu(models.PotvrdaVrijedi) {
+		return &TrebaPotvrduError{Pitanje: pitanjeVrijedi(a.Vrijedi)}
+	}
+	return nil
+}
+
+// vrijediZaOvjeru: tvrde granice „Vrijedi od” vrijede i pri ovjeri, na oba
+// puta, jer nacrt koji ih ne poštuje može doći s čvora sa starijim
+// programom ili iz obrane čiji je dnevnik u međuvremenu zatvoren. Potvrda
+// za više od 24 sata unatrag ili 3 dana unaprijed ne traži se ponovno: dana
+// je pri sastavljanju nacrta.
+func vrijediZaOvjeru(a *models.Akt, dnevnik *models.Journal, sad time.Time) error {
+	if err := granicaVrijedi(a.Vrijedi, dnevnik, sad); err != nil {
+		return fmt.Errorf("akt se ne može ovjeriti — %w; nacrtu se „Vrijedi od” ne mijenja, pa treba novi nacrt", err)
 	}
 	return nil
 }

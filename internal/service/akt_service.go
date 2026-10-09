@@ -596,11 +596,16 @@ func (s *AktService) StanjaSektora(ctx context.Context, sektor string, t time.Ti
 }
 
 // provjeriPrijeOvjere: isti preduvjeti na oba puta ovjere (izravno i skenom
-// potpisanog akta): aktivna obrana u sektoru, prekid vezan na uspostavu koja
-// se još smije prekinuti i slijed stadija na dionicama akta uz već ovjerene
-// (docs/NACRT-STADIJI-OBRANE.md)
+// potpisanog akta): aktivna obrana u sektoru, „Vrijedi od” u tvrdim
+// granicama (Odluke (8. 10. 2026.), pitanje 17), prekid vezan na uspostavu
+// koja se još smije prekinuti i slijed stadija na dionicama akta uz već
+// ovjerene (docs/NACRT-STADIJI-OBRANE.md)
 func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) error {
-	if _, err := s.trebaAktivnu(ctx, a); err != nil {
+	dnevnik, err := s.trebaAktivnu(ctx, a)
+	if err != nil {
+		return err
+	}
+	if err := vrijediZaOvjeru(a, dnevnik, time.Now()); err != nil {
 		return err
 	}
 	if err := s.uspostavaJosZaPrekid(ctx, a); err != nil {
