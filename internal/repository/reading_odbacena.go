@@ -18,8 +18,10 @@ import (
 // očitanje koje ne upisuje čovjek kroz obrazac — satno preuzimanje s javnih
 // stranica i telemetrije, rezervni izvori, uvoz iz BP16, tablica centra,
 // lijepljenje — prolazi kroz ImportBatch, pa se raspon provjerava ondje,
-// zajedničkim pravilom iz models. Vrijednost izvan raspona se ne upisuje;
-// zapiše se u tablicu odbacena_ocitanja, iz koje stranica letve pokazuje
+// zajedničkim pravilom iz models. Kao ni ručnim upisom, očitanje s
+// vrijednošću izvan raspona ne upisuje se, ni s ostalim vrijednostima, pa
+// njegov sat ostaje slobodan za ispravljeno očitanje. Vrijednost izvan
+// raspona zapiše se u tablicu odbacena_ocitanja, iz koje stranica letve pokazuje
 // koliko je odbačeno i što zadnje. Zapis putuje razmjenom (entitet
 // odbacena_ocitanja, u kanalu očitanja letve): preuzima jedan čvor, a broj
 // mora vidjeti i laptop koji očitanja dobiva samo razmjenom. Očitanja
@@ -43,17 +45,17 @@ func novaProvjeraRaspona(tx *sql.Tx, rec *ledger.Recorder) *provjeraRaspona {
 	return &provjeraRaspona{tx: tx, rec: rec, sada: time.Now(), kote: map[string]bool{}}
 }
 
-// propusti uklanja iz očitanja vrijednosti izvan raspona, bilježi ih i
-// javlja smije li se očitanje upisati
+// propusti bilježi vrijednosti očitanja izvan raspona i javlja smije li se
+// očitanje upisati: smije samo kad takvih nema
 func (p *provjeraRaspona) propusti(ctx context.Context, rd *models.Reading) (bool, error) {
 	kota, err := p.kota(ctx, rd.StationID)
 	if err != nil {
 		return false, err
 	}
-	izvan, upisati := models.OcistiOcitanje(rd, kota, p.sada)
+	izvan := models.IzvanRasponaOcitanja(*rd, kota, p.sada)
 	n, err := zabiljeziOdbacene(ctx, p.tx, p.rec, models.OdbaceneVrijednosti(*rd, izvan), p.sada)
 	p.novih += n
-	return upisati && err == nil, err
+	return len(izvan) == 0 && err == nil, err
 }
 
 // kota javlja vodi li letva kotu u cm n. m.; objekt i nepoznata letva ne vode

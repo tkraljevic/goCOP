@@ -13,8 +13,9 @@ import (
 
 // Odluke (8. 10. 2026.), pitanje 21: uvoz iz BP16 prima isti raspon kao
 // ručni upis. Tipfeler u staroj evidenciji (21 500 umjesto 215) ne ulazi,
-// nego se bilježi za stranicu letve; stanje crpne stanice iz istog zapisa
-// ostaje.
+// nego se bilježi za stranicu letve. Kao ni ručnim upisom, ne upisuje se ni
+// stanje crpne stanice iz istog zapisa (dorada, Odluke (8. 10. 2026.),
+// pitanje 21; prije je stanje ostajalo bez vodostaja).
 func TestUvozBP16NeUpisujeVodostajIzvanRaspona(t *testing.T) {
 	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
@@ -58,8 +59,8 @@ func TestUvozBP16NeUpisujeVodostajIzvanRaspona(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.Fetched != 3 || rep.Inserted != 2 {
-		t.Fatalf("pročitano %d, upisano %d; očekivano 3 i 2 (tipfeler bez ičega drugog otpada)", rep.Fetched, rep.Inserted)
+	if rep.Fetched != 3 || rep.Inserted != 1 {
+		t.Fatalf("pročitano %d, upisano %d; očekivano 3 i 1 (zapisi s tipfelerom otpadaju cijeli)", rep.Fetched, rep.Inserted)
 	}
 	var izvan, bezVodostaja int
 	if err := database.QueryRow(`SELECT COUNT(*) FROM readings WHERE level_cm > 3000`).Scan(&izvan); err != nil {
@@ -69,7 +70,7 @@ func TestUvozBP16NeUpisujeVodostajIzvanRaspona(t *testing.T) {
 		models.StructureStateFault).Scan(&bezVodostaja); err != nil {
 		t.Fatal(err)
 	}
-	if izvan != 0 || bezVodostaja != 1 {
+	if izvan != 0 || bezVodostaja != 0 {
 		t.Errorf("izvan raspona upisano %d, stanje bez vodostaja %d", izvan, bezVodostaja)
 	}
 	var letva string
