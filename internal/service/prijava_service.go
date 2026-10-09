@@ -323,6 +323,11 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	return p, "", nil
 }
 
+// ErrTudjiNacrt: nacrt prijave postoji samo za vodočuvara koji ga piše, pa
+// ga drugi ne dobivaju kao da ga nema. I dalje je ErrUnauthorized, s istom
+// porukom.
+var ErrTudjiNacrt = fmt.Errorf("%w", ErrUnauthorized)
+
 // Get čita prijavu ako je osoba smije vidjeti
 func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions, id string) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
@@ -330,9 +335,18 @@ func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions,
 		return nil, err
 	}
 	if !s.SmijeVidjeti(perms, p) {
-		return nil, ErrUnauthorized
+		return nil, zabranaPrijave(p)
 	}
 	return p, nil
+}
+
+// zabranaPrijave je greška za prijavu koju osoba ne smije čitati: za tuđi
+// nacrt ErrTudjiNacrt, inače ErrUnauthorized
+func zabranaPrijave(p *models.PrijavaSTerena) error {
+	if p.Status == models.PrijavaNacrt {
+		return ErrTudjiNacrt
+	}
+	return ErrUnauthorized
 }
 
 // List vraća prijave koje osoba smije vidjeti

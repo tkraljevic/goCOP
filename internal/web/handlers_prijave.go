@@ -346,14 +346,19 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// nedostupna odgovara na prijavu koju osoba ne dobiva: tko tuđu prijavu ne
-// smije čitati, a u dnevnike vodočuvara ne gleda (izvođač, strojar), dobiva
-// objašnjenje kao na popisu; inače, i za nepostojeću prijavu, 404
+// nedostupna odgovara na prijavu koju osoba ne dobiva: tko u dnevnike
+// vodočuvara ne gleda (izvođač, strojar), dobiva objašnjenje kao na popisu,
+// a tko gleda, ali ovu prijavu ne smije čitati (rukovoditelj dionice kojoj
+// nije vezana, iako joj naslov vidi na dnevnom listu), objašnjenje tko
+// prijave čita; nepostojeća prijava i tuđi nacrt su 404
 func (h *PrijaveHandler) nedostupna(w http.ResponseWriter, r *http.Request, u *models.User, err error) {
-	if errors.Is(err, service.ErrUnauthorized) && !h.vod.pristup(w, u) {
+	if !errors.Is(err, service.ErrUnauthorized) || errors.Is(err, service.ErrTudjiNacrt) {
+		http.NotFound(w, r)
 		return
 	}
-	http.NotFound(w, r)
+	if h.vod.pristup(w, u) {
+		http.Error(w, "Ovu prijavu ne možete otvoriti. Prijave s terena čitaju vodočuvar koji ih je objavio, dežurni operater sektora, rukovoditelj branjenog područja i ovlaštenici tog područja, a rukovoditelj dionice samo prijave vezane uz svoju dionicu.", http.StatusForbidden)
+	}
 }
 
 // prilog skuplja što uz prijavu ide u dokument: sektor, područje, slike,
