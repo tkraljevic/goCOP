@@ -192,7 +192,7 @@ func upozorenjaUlaza(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]N
 	for letva, z := range karikeBezMjerenja(pojasi, nizovi, ishod.Sada) {
 		u, s := g.uzmi(letva)
 		u.Zadnje = z
-		s.satna(doseziUpitnog(Nizvodno(pojasi, map[string]int64{letva: z + 1}, ishod.Sada), ishod.Sada))
+		s.satna(satnaNizvodno(ishod, pojasi, letva, z+1))
 	}
 	pokriveno := map[string]bool{}
 	for cilj, nd := range dnevniBezUlaza(ishod, ima) {
@@ -216,6 +216,18 @@ func upozorenjaUlaza(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]N
 		out = append(out, *u)
 	}
 	return out, pokriveno
+}
+
+// satnaNizvodno su dosezi od kojih je satna prognoza upitna kad nevolja
+// počne na letvi u satu prvi: ona i letve niz lanac (Nizvodno). Letva bez
+// ijednog sata prognoze nije upitna od nekog dosega, nego je nema, pa ovdje
+// ne ulazi; za nju stoji napomena VrstaBezPrognoze.
+func satnaNizvodno(ishod *Ishod, pojasi map[string][]Pojas, letva string, prvi int64) map[string]int {
+	d := doseziUpitnog(Nizvodno(pojasi, map[string]int64{letva: prvi}, ishod.Sada), ishod.Sada)
+	for l := range ishod.BezPrognoze {
+		delete(d, l)
+	}
+	return d
 }
 
 // rupaLetve nalazi rupu zadane letve.
@@ -322,7 +334,7 @@ func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bo
 		s := skupUpitnog{}
 		switch vrsta {
 		case VrstaRezerva, VrstaDrzi:
-			s.satna(doseziUpitnog(Nizvodno(pojasi, map[string]int64{letva: ishod.Sada + 1}, ishod.Sada), ishod.Sada))
+			s.satna(satnaNizvodno(ishod, pojasi, letva, ishod.Sada+1))
 		case VrstaDnevnaRezerva:
 			u.Tezina = TezinaNapomena
 			s.dnevna(letva)
@@ -398,7 +410,7 @@ func upozorenjaVrhova(ishod *Ishod, vrhovi map[Izvor]bool, pojasi map[string][]P
 			continue
 		}
 		imaju[iz.Letva] = true // vrh u obje veličine javlja se jednom
-		dosezi := doseziUpitnog(Nizvodno(pojasi, map[string]int64{iz.Letva: ishod.Sada + 1}, ishod.Sada), ishod.Sada)
+		dosezi := satnaNizvodno(ishod, pojasi, iz.Letva, ishod.Sada+1)
 		delete(dosezi, iz.Letva) // vrh nema svoju prognozu, samo mjerenje
 		s := skupUpitnog{}
 		s.satna(dosezi)

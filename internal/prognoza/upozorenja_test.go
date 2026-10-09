@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"testing"
 	"time"
 )
@@ -422,6 +423,22 @@ func TestUpozorenjeString(t *testing.T) {
 	} {
 		if got := tc.u.String(); got != tc.want {
 			t.Errorf("%q, želim %q", got, tc.want)
+		}
+	}
+}
+
+// Letva bez ijednog sata prognoze nije upitna od nekog dosega: nema je.
+// Ona stoji u svojoj napomeni (Ustava Draž pri malim vodama).
+func TestLetvaBezPrognozeNijeUpitnaOdDosega(t *testing.T) {
+	postavi(t, &DnevniCiljevi, nil)
+	sada := int64(500000)
+	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada - 7, "donja": sada})
+	ishod := &Ishod{Sada: sada, BezPrognoze: map[string]error{"cetvrta": fmt.Errorf("nema ulaza za nijedan sat unaprijed")},
+		Izbor: map[string]Izbor{"donja": {Inacica: 1, Opis: "rezerva: gornja umjesto srednja"}}}
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
+	for _, u := range Upozori(ishod, lanacUpozorenja(), nizovi, map[Izvor]bool{{Letva: "gornja", Velicina: "vodostaj"}: true}) {
+		if slices.ContainsFunc(u.Upitno, func(q Upitno) bool { return q.Letva == "cetvrta" }) {
+			t.Errorf("%s: cetvrta nema prognoze, a upitna je: %+v", u.Vrsta, u.Upitno)
 		}
 	}
 }
