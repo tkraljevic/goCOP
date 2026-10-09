@@ -178,15 +178,21 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 	return oborineUvoznik, kisUvoznik, oborineDB
 }
 
+// zaboraviDnevneModele baca naučene dnevne modele, pa ih idući krug uči
+// iznova; testovi ga zamjenjuju brojačem.
+var zaboraviDnevneModele = prognoza.ZaboraviDnevneModele
+
 // pripremaModela je priprema modela iz aplikacije (Prognoze → Pripremi
 // model): namjesti lanac iz arhive, provjerom unatrag zapiše promašaje i odmah
 // izda prognozu novim modelom. Ako satni krug upravo traje, novo izdanje
 // pričeka idući sat — dva izdavanja istog sata ne idu jedno preko drugog.
+// Dnevni modeli uče se iznova već idući krug, a ne tek iza zagrebačke ponoći.
 func pripremaModela(peersService *peers.Service, arhivaRO, pb *sql.DB, javniUvoznik *javnivodostaji.Uvoznik, osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(ctx context.Context, p *poslovi.Posao) error {
 	return func(ctx context.Context, p *poslovi.Posao) error {
 		if !peersService.TrenutneUloge().Izdaje {
 			return fmt.Errorf("model priprema čvor koji izdaje prognozu (Postavke → Čvor); ovaj ga prima razmjenom")
 		}
+		zaboraviDnevneModele()
 		n, err := prognoza.NamjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
 		if err != nil {
 			return err
