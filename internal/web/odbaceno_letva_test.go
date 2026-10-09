@@ -236,3 +236,20 @@ func TestOdbacenoIzStareEvidencijeNijeKvarMjerila(t *testing.T) {
 		}
 	}
 }
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): očitanje s vrijednošću izvan
+// raspona otpada cijelo, pa pomoć ne smije reći da ostale vrijednosti
+// ostaju. Zapis BP16 s tipfelerom u vodostaju gubi i sate rada agregata;
+// pomoć kaže kako se to vidi i kako se zapis vraća.
+func TestPomocKazeDaZapisIzvanRasponaOtpadaCijeli(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "ostale vrijednosti istog očitanja ostaju") {
+		t.Error("pomoć još kaže da ostale vrijednosti očitanja izvan raspona ostaju")
+	}
+	for _, s := range []string{"ne upisuju se ni ostale vrijednosti tog očitanja",
+		"sa satima rada agregata", "nosi dan i sat zapisa", "sljedeći uvoz ga upiše"} {
+		if !strings.Contains(h, s) {
+			t.Errorf("pomoć ne spominje %q", s)
+		}
+	}
+}
