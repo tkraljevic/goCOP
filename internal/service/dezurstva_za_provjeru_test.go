@@ -195,3 +195,75 @@ func TestIzvanZbroja(t *testing.T) {
 		t.Errorf("bez mjesta: čeka %v, za provjeru %v", ceka, zaProvjeru)
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: opis rada dežurstva kojemu se ne zna
+// mjesto bira uprava centra. Vlasnik ga ne smije zaobići ni običnim
+// spremanjem istog zapisa (POST plana s id-om), a spremanje ne smije
+// izbrisati trag ispravka iz napomene.
+func TestSpremanjeDezurstvaZaProvjeru(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	jutro := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, jutro); err != nil {
+		t.Fatal(err)
+	}
+	o.bezMjesta(t, jutro)
+
+	// Pero sprema isti zapis s opisom s popisa: odbijeno, zapis ostaje za provjeru
+	izmjena := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	izmjena.ID, izmjena.Opis = jutro.ID, "Obilazak i pregled obrambenih objekata"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, izmjena); err == nil || !strings.Contains(err.Error(), "voditelj ili zamjenik centra") {
+		t.Errorf("vlasnik mijenja opis zapisa za provjeru: %v", err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); !d.ZaProvjeru() || d.Opis != "Opis s drugog čvora" {
+		t.Errorf("zapis za provjeru promijenjen: %+v", d)
+	}
+
+	// uprava smije i običnim spremanjem: opis s popisa, trag kao kod ispravka
+	uprava := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	uprava.ID, uprava.Opis = jutro.ID, "Obilazak i pregled obrambenih objekata"
+	if err := o.svc.SpremiDezurstvo(ctx, ana, o.ovlUprav, o.opseg, o.dnevnik, uprava); err != nil {
+		t.Fatal(err)
+	}
+	d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID)
+	if d.ZaProvjeru() || d.Mjesto != models.MjestoTeren || !strings.Contains(d.Napomena, "[opis ispravio Ana Anić ") || !strings.Contains(d.Napomena, "prije: „Opis s drugog čvora”]") {
+		t.Errorf("uprava sprema zapis za provjeru: %+v", d)
+	}
+
+	// Pero poslije mijenja svoj (sada poznat) zapis s novom napomenom: trag
+	// ispravka ostaje uz njegovu napomenu
+	moje := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 13, 0))
+	moje.ID, moje.Opis, moje.Napomena = jutro.ID, "Obilazak i pregled obrambenih objekata", "produljeno do 13"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, moje); err != nil {
+		t.Fatal(err)
+	}
+	d, _ = o.svc.repo.GetDezurstvo(ctx, jutro.ID)
+	if !strings.HasPrefix(d.Napomena, "produljeno do 13 ") || !strings.Contains(d.Napomena, "prije: „Opis s drugog čvora”]") || strings.Count(d.Napomena, "[opis ispravio") != 1 {
+		t.Errorf("napomena poslije vlasnikove izmjene: %q", d.Napomena)
+	}
+	// ponovno spremanje iste napomene ne udvostručuje trag
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, &models.Dezurstvo{ID: jutro.ID, UserID: o.pperic.ID.String(), UserName: "Pero Perić",
+		Od: dzSat(9, 8, 0), Do: dzSat(9, 13, 0), Opis: "Obilazak i pregled obrambenih objekata", Napomena: d.Napomena}); err != nil {
+		t.Fatal(err)
+	}
+	if d2, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); d2.Napomena != d.Napomena {
+		t.Errorf("trag udvostručen: %q", d2.Napomena)
+	}
+}
+
+func TestZadrziTragIspravka(t *testing.T) {
+	trag := "[opis ispravio Ana Anić 8.10.2026. 14:20; prije: „Opis s drugog čvora”]"
+	drugi := "[opis ispravio Ivo Ivić 9.10.2026. 08:05; prije: „Dežurstvo u COP-u”]"
+	for _, s := range []struct{ staro, novo, want string }{
+		{"", "nova", "nova"},
+		{"stara " + trag, "", trag},
+		{"stara " + trag + " " + drugi, "nova", "nova " + trag + " " + drugi},
+		{trag, "nova " + trag, "nova " + trag},
+		{"[dulje od 24 h bez stanke — provjeriti prije potvrde]", "nova", "nova"},
+	} {
+		if got := zadrziTragIspravka(s.staro, s.novo); got != s.want {
+			t.Errorf("zadrziTragIspravka(%q, %q) = %q, a treba %q", s.staro, s.novo, got, s.want)
+		}
+	}
+}

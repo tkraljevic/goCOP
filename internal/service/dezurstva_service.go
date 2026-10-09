@@ -125,17 +125,9 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	d.JournalID = j.ID
 	d.UserName, d.Napomena = strings.TrimSpace(d.UserName), strings.TrimSpace(d.Napomena)
 	if d.ID != "" {
-		cur, err := s.repo.GetDezurstvo(ctx, d.ID)
-		if err != nil {
+		if err := s.izmjenaDezurstva(ctx, u, uprava, j, d); err != nil {
 			return err
 		}
-		if cur == nil || cur.JournalID != j.ID {
-			return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
-		}
-		if !uprava && cur.UserID != u.ID.String() {
-			return errors.New("tuđe dežurstvo mijenja voditelj ili zamjenik centra")
-		}
-		d.CreatedBy, d.CreatedAt = cur.CreatedBy, cur.CreatedAt
 	} else {
 		d.CreatedBy = u.ID.String()
 	}
@@ -145,6 +137,48 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
 	}
 	return s.repo.SaveDezurstvo(ctx, d)
+}
+
+// izmjenaDezurstva provjerava izmjenu upisanog dežurstva i preuzima ono što
+// izmjena ne mijenja: tko je i kada upisao, i trag ispravka opisa u
+// napomeni. Tuđe dežurstvo mijenja uprava centra. Dežurstvu kojemu se ne zna
+// mjesto rada opis bira uprava centra (Odluke (8. 10. 2026.), pitanje 10),
+// pa ga vlasnik ne mijenja ni običnim spremanjem; kad ga uprava tako
+// promijeni, ostaje isti trag kao kod ispravka opisa.
+func (s *JournalService) izmjenaDezurstva(ctx context.Context, u *models.User, uprava bool, j *models.Journal, d *models.Dezurstvo) error {
+	cur, err := s.repo.GetDezurstvo(ctx, d.ID)
+	if err != nil {
+		return err
+	}
+	if cur == nil || cur.JournalID != j.ID {
+		return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
+	}
+	if !uprava && cur.UserID != u.ID.String() {
+		return errors.New("tuđe dežurstvo mijenja voditelj ili zamjenik centra")
+	}
+	if !uprava && cur.ZaProvjeru() {
+		return errors.New("mjesto rada nije poznato: opis rada bira voditelj ili zamjenik centra")
+	}
+	d.CreatedBy, d.CreatedAt = cur.CreatedBy, cur.CreatedAt
+	d.Napomena = zadrziTragIspravka(cur.Napomena, d.Napomena)
+	if cur.ZaProvjeru() {
+		d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(cur.Opis, u.FullName, time.Now().In(models.Zagreb)))
+	}
+	return nil
+}
+
+// reTragIspravka prepoznaje bilješku koju ostavlja ispravak opisa rada
+var reTragIspravka = regexp.MustCompile(`\[opis ispravio .*?; prije: „.*?”\]`)
+
+// zadrziTragIspravka vraća novu napomenu uz tragove ispravka opisa iz stare
+// koje nova nema: izmjena napomene ne briše tko je i kada ispravio opis
+func zadrziTragIspravka(staro, novo string) string {
+	for _, trag := range reTragIspravka.FindAllString(staro, -1) {
+		if !strings.Contains(novo, trag) {
+			novo = strings.TrimSpace(novo + " " + trag)
+		}
+	}
+	return novo
 }
 
 // PotvrdiDezurstvo: uprava centra provjerila je upis i potvrđuje ga.

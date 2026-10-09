@@ -64,6 +64,7 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 		tmpl("dnevnik_obracun.html"), tmpl("dnevnik_dezurstva.html"), tmpl("dnevnik_iors.html"))
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /dnevnici/{id}/dezurstva", h.ShowDezurstva)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstva", h.HandleSaveDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", h.HandlePotvrdiDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/opis", h.HandleIspraviOpisDezurstva)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
@@ -179,6 +180,15 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	w = zovi(ivo, vodocuvar, http.MethodPost, plan+"/"+d.ID+"/opis", url.Values{"opis": {"Obilazak i pregled obrambenih objekata"}})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("vodočuvar ispravlja opis: %s", l)
+	}
+	// ni vlasnik ga ne ispravlja običnim spremanjem istog zapisa
+	w = zovi(ivo, vodocuvar, http.MethodPost, plan, url.Values{"id": {d.ID}, "user_id": {ivo.ID.String()}, "opis": {"Obilazak i pregled obrambenih objekata"},
+		"od_date": {"2026-09-15"}, "od_time": {"22:00"}, "do_date": {"2026-09-16"}, "do_time": {"06:00"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("vlasnik sprema opis zapisa za provjeru: %s", l)
+	}
+	if sad, _ := journalRepo.GetDezurstvo(context.Background(), d.ID); !sad.ZaProvjeru() {
+		t.Errorf("vlasnik je ispravio opis: %+v", sad)
 	}
 	// Ana izabere opis s popisa; dežurstvo čeka potvrdu, pa ga potvrdi
 	w = zovi(ana, uprava, http.MethodPost, plan+"/"+d.ID+"/opis", url.Values{"opis": {"Obilazak i pregled obrambenih objekata"}})
