@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"io"
 	"net/http"
@@ -307,17 +308,18 @@ func (h *PrijaveHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/prijave/"+p.ID, "success", poruka)
 }
 
-// ShowPrijava prikazuje prijavu; tko ne gleda u dnevnike vodočuvara dobiva
-// isto objašnjenje kao na popisu
+// ShowPrijava prikazuje prijavu. Vodočuvar svoju otvara uvijek, i kad mu je
+// zaduženje isteklo; tko tuđu prijavu ne smije čitati, a u dnevnike
+// vodočuvara ne gleda, dobiva isto objašnjenje kao na popisu.
 func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	u, perms, d := h.base(r)
 	s := h.service(w)
-	if s == nil || u == nil || !h.vod.pristup(w, u) {
+	if s == nil || u == nil {
 		return
 	}
 	p, err := s.Get(r.Context(), perms, r.PathValue("id"))
 	if err != nil || p == nil {
-		http.NotFound(w, r)
+		h.nedostupna(w, r, u, err)
 		return
 	}
 	d.Prijava, d.Moja = p, p.UserID == u.ID.String()
@@ -342,6 +344,16 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplView.ExecuteTemplate(w, "prijava.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// nedostupna odgovara na prijavu koju osoba ne dobiva: tko tuđu prijavu ne
+// smije čitati, a u dnevnike vodočuvara ne gleda (izvođač, strojar), dobiva
+// objašnjenje kao na popisu; inače, i za nepostojeću prijavu, 404
+func (h *PrijaveHandler) nedostupna(w http.ResponseWriter, r *http.Request, u *models.User, err error) {
+	if errors.Is(err, service.ErrUnauthorized) && !h.vod.pristup(w, u) {
+		return
+	}
+	http.NotFound(w, r)
 }
 
 // prilog skuplja što uz prijavu ide u dokument: sektor, područje, slike,
