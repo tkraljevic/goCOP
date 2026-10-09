@@ -176,6 +176,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	fw, _ := mw.CreateFormFile("sken", "sken.pdf")
 	_, _ = fw.Write([]byte("%PDF-1.4\n% sken\n%%EOF\n"))
 	_ = mw.WriteField("potpisnik_id", kunac.ID.String())
+	_ = mw.WriteField("potvrda_primatelja", "1") // dionica bez teritorija: Odluke (8. 10. 2026.), pitanje 19
 	_ = mw.Close()
 	r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())

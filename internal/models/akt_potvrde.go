@@ -6,7 +6,7 @@ import "time"
 // potvrdio i kada (Odluke (8. 10. 2026.)). Bilježi se uz akt, a ne ulazi u
 // potpisani sadržaj.
 type PotvrdaAkta struct {
-	Vrsta string    `json:"vrsta"` // PotvrdaVrijedi
+	Vrsta string    `json:"vrsta"` // PotvrdaVrijedi, PotvrdaPrimatelji
 	Tekst string    `json:"tekst"` // što je potvrđeno, kako je pitano
 	TkoID string    `json:"tko_id"`
 	Tko   string    `json:"tko"`
@@ -18,6 +18,9 @@ const (
 	// PotvrdaVrijedi: „Vrijedi od” je više od 24 sata unatrag ili više od 3
 	// dana unaprijed (Odluke (8. 10. 2026.), pitanje 17)
 	PotvrdaVrijedi = "VRIJEDI"
+	// PotvrdaPrimatelji: akt je ovjeren dok je stajalo upozorenje o popisu
+	// primatelja (Odluke (8. 10. 2026.), pitanje 19)
+	PotvrdaPrimatelji = "PRIMATELJI"
 )
 
 // ImaPotvrdu javlja nosi li akt potvrdu te vrste

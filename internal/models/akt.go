@@ -88,11 +88,15 @@ type Akt struct {
 
 	// RijesenaOznaka je rješenje sukoba oznake s aktom drugog čvora
 	// (Odluke (8. 10. 2026.), pitanje 4), a Potvrde su izričite potvrde uz
-	// akt, npr. „Vrijedi od” izvan uobičajenog raspona (pitanje 17). Ne
-	// ulaze u potpisani sadržaj akta, pa ih potpis i kod ovjere ne pokrivaju,
-	// a čvor sa starijim programom akt i dalje provjerava istim potpisom.
-	RijesenaOznaka *RjesenjeOznake `json:"rijesena_oznaka,omitempty"`
-	Potvrde        []PotvrdaAkta   `json:"potvrde,omitempty"`
+	// akt, npr. „Vrijedi od” izvan uobičajenog raspona (pitanje 17).
+	// UpozorenjaPrimatelja su izvori popisa primatelja koji se pri slaganju
+	// nisu dali pročitati i dionice bez upisanog teritorija; dok stoje,
+	// ovjera traži izričitu potvrdu (pitanje 19). Ništa od toga ne ulazi u
+	// potpisani sadržaj akta, pa ih potpis i kod ovjere ne pokrivaju, a čvor
+	// sa starijim programom akt i dalje provjerava istim potpisom.
+	RijesenaOznaka       *RjesenjeOznake `json:"rijesena_oznaka,omitempty"`
+	Potvrde              []PotvrdaAkta   `json:"potvrde,omitempty"`
+	UpozorenjaPrimatelja []string        `json:"upozorenja_primatelja,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

@@ -225,7 +225,7 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 	}
 	a.Potpisnik = s.potpisnik(a)
 	a.Potvrde = potvrdeVrijedi(a, u, z.PotvrdaVrijedi, time.Now())
-	a.Primatelji = s.primatelji(ctx, a)
+	a.Primatelji, a.UpozorenjaPrimatelja = s.sloziPrimatelje(ctx, a)
 	sp, _ := s.repo.GetSpranca(ctx, a.Sektor)
 	a.Uvod, a.Zavrsno, a.Poveznice = sp.Uvod(*a), sp.Zavrsno, strings.TrimSpace(sp.Poveznice)
 	return a, nil
@@ -467,186 +467,6 @@ func razinaPodrucja(perms *models.UserPermissions, a *models.Akt) bool {
 	return false
 }
 
-// primatelji slaže popis primatelja akta, po skupinama i bez ponavljanja
-func (s *AktService) primatelji(ctx context.Context, a *models.Akt) []models.AktPrimatelj {
-	var out []models.AktPrimatelj
-	vidjeno := map[string]bool{}
-	dodaj := func(skupina, naziv, email string) {
-		naziv = strings.TrimSpace(naziv)
-		if naziv == "" {
-			return
-		}
-		kljuc := strings.ToLower(naziv + "|" + email)
-		if vidjeno[kljuc] {
-			return
-		}
-		vidjeno[kljuc] = true
-		out = append(out, models.AktPrimatelj{Naziv: naziv, Email: strings.TrimSpace(email), Skupina: skupina})
-	}
-
-	// ugroženo područje dionica: županije, gradovi i općine
-	zupanije := map[int]string{}
-	var zupRed []int
-	opcineUgrozene := map[int]bool{}
-	var opcine []models.SectionTerritory
-	if s.territories != nil {
-		for _, d := range a.Dionice {
-			ter, err := s.territories.GetSectionTerritories(ctx, d.Code)
-			if err != nil {
-				continue
-			}
-			for _, t := range ter {
-				if _, ok := zupanije[t.CountyID]; !ok {
-					zupRed = append(zupRed, t.CountyID)
-				}
-				zupanije[t.CountyID] = t.CountyName
-				if !opcineUgrozene[t.MunicipalityID] {
-					opcine = append(opcine, t)
-				}
-				opcineUgrozene[t.MunicipalityID] = true
-			}
-		}
-	}
-
-	// službe županija ugroženog područja, za svaki stupanj: civilna zaštita
-	// s prevencijom i 112 kao podstavkama, policija, lučke kapetanije
-	for _, id := range zupRed {
-		sluzbe, err := s.territories.ListSluzbe(ctx, id)
-		if err != nil {
-			continue
-		}
-		sort.SliceStable(sluzbe, func(i, j int) bool {
-			if models.RedVrste(sluzbe[i].Vrsta) != models.RedVrste(sluzbe[j].Vrsta) {
-				return models.RedVrste(sluzbe[i].Vrsta) < models.RedVrste(sluzbe[j].Vrsta)
-			}
-			return sluzbe[i].Redoslijed < sluzbe[j].Redoslijed
-		})
-		imaCZ := false
-		for _, x := range sluzbe {
-			if x.MunicipalityID != 0 && !opcineUgrozene[x.MunicipalityID] {
-				continue
-			}
-			if !models.NaAktu(x.Vrsta, a.Stupanj) {
-				continue
-			}
-			naziv := x.Naziv
-			if x.Vrsta == models.SluzbaCivilnaZastita {
-				imaCZ = true
-			}
-			if imaCZ && models.PodCivilnomZastitom(x.Vrsta) {
-				naziv = "– " + naziv
-			}
-			dodaj(models.SkupinaSluzbe, naziv, x.Email)
-		}
-	}
-
-	// registar: sektor i područje, od stupnja
-	if reg, err := s.repo.ListPrimatelji(ctx, a.Sektor); err == nil {
-		sort.SliceStable(reg, func(i, j int) bool {
-			if reg[i].Skupina != reg[j].Skupina {
-				return redSkupine(reg[i].Skupina) < redSkupine(reg[j].Skupina)
-			}
-			return reg[i].Redoslijed < reg[j].Redoslijed
-		})
-		for _, p := range reg {
-			if p.Vrijedi(a.AreaID, a.Stupanj) {
-				dodaj(p.Skupina, p.Naziv, p.Email)
-			}
-		}
-	}
-	// licencirane pravne osobe za obranu na području, iz registra firmi;
-	// kad ih registar nema, ugovorna osoba upisana uz područje
-	if firme, err := s.repo.UgovorneFirme(ctx, a.AreaID); err == nil && len(firme) > 0 {
-		for _, f := range firme {
-			dodaj(models.SkupinaIspostava, f.Naziv, f.Email)
-		}
-	} else if areas, err := s.users.ListAreas(a.Sektor); err == nil {
-		for _, ar := range areas {
-			if ar.ID == a.AreaID && ar.ContractorName != "" {
-				dodaj(models.SkupinaIspostava, ar.ContractorName, "")
-			}
-		}
-	}
-	// župan, gradovi i općine ugroženih područja, od izvanrednog stanja
-	if a.Stupanj == models.PhaseState && s.territories != nil {
-		for _, id := range zupRed {
-			naziv := zupanije[id]
-			email := ""
-			if c, err := s.territories.GetCountyByID(ctx, id); err == nil && c != nil {
-				email = c.Email
-				naziv = c.Name
-			}
-			dodaj(models.SkupinaSamouprava, "Župan, "+naziv, email)
-		}
-		// e-pošta općina iz registra, jednim upitom po županiji
-		emailOpcine := map[int]string{}
-		for id := range zupanije {
-			if ms, err := s.territories.ListMunicipalities(ctx, id, "", ""); err == nil {
-				for _, m := range ms {
-					emailOpcine[m.ID] = m.Email
-				}
-			}
-		}
-		sort.Slice(opcine, func(i, j int) bool { return opcine[i].MunicipalityName < opcine[j].MunicipalityName })
-		for _, t := range opcine {
-			vrsta := "Općina"
-			if strings.EqualFold(t.MunicipalityType, "GRAD") {
-				vrsta = "Grad"
-			}
-			dodaj(models.SkupinaSamouprava, vrsta+" "+t.MunicipalityName, emailOpcine[t.MunicipalityID])
-		}
-	}
-	// rukovoditelji i zamjenici branjenog područja (razina 3) i dionica
-	// (razina 4), svaka osoba jednom sa svim svojim funkcijama. Sektor i
-	// Glavni centar primaju akt kao ustanove, pa njihovi ljudi ne idu
-	// poimence, kao ni teren.
-	type osoba struct {
-		naziv, email string
-		funkcije     []string
-	}
-	var redoslijed []string
-	osobe := map[string]*osoba{}
-	for _, d := range a.Dionice {
-		lista, err := s.sections.GetSectionPersonnel(d.Code, a.AreaID, a.Sektor)
-		if err != nil {
-			continue
-		}
-		for _, o := range lista {
-			if o.Rank != 3 && o.Rank != 4 {
-				continue
-			}
-			x := osobe[o.UserID]
-			if x == nil {
-				naziv := o.FullName
-				if o.Title != "" {
-					naziv += ", " + o.Title
-				}
-				x = &osoba{naziv: naziv, email: o.Email}
-				osobe[o.UserID] = x
-				redoslijed = append(redoslijed, o.UserID)
-			}
-			f := o.DutyTitle
-			if f == "" {
-				f = o.RoleLabel
-			}
-			if f != "" && !sadrzi(x.funkcije, f) {
-				x.funkcije = append(x.funkcije, f)
-			}
-		}
-	}
-	for _, id := range redoslijed {
-		x := osobe[id]
-		naziv := x.naziv
-		if len(x.funkcije) > 0 {
-			naziv += ", " + strings.Join(x.funkcije, "; ")
-		}
-		dodaj(models.SkupinaOsobe, naziv, x.email)
-	}
-	dodaj(models.SkupinaPismohrana, "Pismohrana", "")
-	sort.SliceStable(out, func(i, j int) bool { return redSkupine(out[i].Skupina) < redSkupine(out[j].Skupina) })
-	return out
-}
-
 // osnovaEpizode je po čemu je obrana proglašena, za epizodu na dionici
 func osnovaEpizode(a *models.Akt) string {
 	if a.Prognoza != "" {
@@ -712,8 +532,10 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 // Ovjeri ovjerava nacrt: dodijeli broj, upiše tko i kad, izračuna kod i
 // proglasi ili prekine obranu na dionicama. Vraća upozorenja s dionica na
 // kojima se stanje obrane nije dalo uskladiti; akt je svejedno ovjeren, jer
-// je odluka donesena, a stanje se može ispraviti na dionici.
-func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.Akt, []string, error) {
+// je odluka donesena, a stanje se može ispraviti na dionici. Popis
+// primatelja slaže se pri ovjeri ponovno; dok stoji upozorenje o popisu,
+// ovjera traži potvrdu (Odluke (8. 10. 2026.), pitanje 19).
+func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, p PotvrdaOvjere) (*models.Akt, []string, error) {
 	if perms == nil || u == nil {
 		return nil, nil, ErrUnauthorized
 	}
@@ -731,6 +553,9 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 		return nil, nil, fmt.Errorf("%w: %s ovjerava %s", ErrUnauthorized, a.Naslov(), strings.ToLower(a.Potpisnik))
 	}
 	if err := s.provjeriPrijeOvjere(ctx, a); err != nil {
+		return nil, nil, err
+	}
+	if err := primateljiZaOvjeru(u, a, p, s.PregledPrimatelja(ctx, a)); err != nil {
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
@@ -1094,8 +919,11 @@ func (s *AktService) MoguPotpisati(a *models.Akt) []models.User {
 // UcitajSkenirani prima sken ispisa potpisanog vlastoručno i ovjerenog
 // žigom (PDF, JPEG ili PNG) i njime ovjerava akt. Sken se ne može
 // provjeriti strojno, pa onaj tko ga učitava navodi tko je potpisao; to
-// mora biti osoba koja akt smije ovjeriti. Sken postaje izvornik.
-func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, datoteka []byte, potpisnikID string) (*models.Akt, []string, error) {
+// mora biti osoba koja akt smije ovjeriti. Sken postaje izvornik. Sken nosi
+// popis primatelja s ispisa nacrta; dok stoji upozorenje o tom popisu ili
+// bi popis složen sada bio drukčiji, ovjera traži potvrdu (Odluke
+// (8. 10. 2026.), pitanje 19).
+func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, datoteka []byte, potpisnikID string, p PotvrdaOvjere) (*models.Akt, []string, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
 		return nil, nil, err
@@ -1109,14 +937,9 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if !s.smijePripremiti(perms, u, a) {
 		return nil, nil, ErrUnauthorized
 	}
-	if len(datoteka) == 0 {
-		return nil, nil, fmt.Errorf("odaberite sken potpisanog akta")
-	}
-	pdf := datoteka
-	if !bytes.HasPrefix(datoteka, []byte("%PDF")) {
-		if pdf, err = pdfw.PDFIzSlike(datoteka, a.Naslov()); err != nil {
-			return nil, nil, fmt.Errorf("sken mora biti PDF")
-		}
+	pdf, err := pdfSkena(datoteka, a.Naslov())
+	if err != nil {
+		return nil, nil, err
 	}
 	pid, err := uuid.Parse(potpisnikID)
 	if err != nil {
@@ -1130,12 +953,31 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if !s.SmijeOvjeriti(potpisnikPerms, a) {
 		return nil, nil, fmt.Errorf("%s po zaduženjima ne smije ovjeriti %s", potpisnik.FullName, strings.ToLower(a.Naslov()))
 	}
+	if err := primateljiSkena(u, a, p, s.PregledPrimatelja(ctx, a)); err != nil {
+		return nil, nil, err
+	}
 	h := sha256.Sum256(pdf)
 	a.Rucno = &models.RucniPotpis{PotpisnikID: potpisnik.ID.String(), Potpisnik: potpisnik.FullName, Sazetak: hex.EncodeToString(h[:]), Ucitao: u.FullName, UcitanoAt: time.Now()}
 	if err := s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: a.Rucno.Sazetak}); err != nil {
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, potpisnikPerms, potpisnik, a, time.Now())
+}
+
+// pdfSkena je sken kao PDF: PDF kakav jest, a slika (fotografija s
+// mobitela) pretvorena u PDF
+func pdfSkena(datoteka []byte, naslov string) ([]byte, error) {
+	if len(datoteka) == 0 {
+		return nil, fmt.Errorf("odaberite sken potpisanog akta")
+	}
+	if bytes.HasPrefix(datoteka, []byte("%PDF")) {
+		return datoteka, nil
+	}
+	pdf, err := pdfw.PDFIzSlike(datoteka, naslov)
+	if err != nil {
+		return nil, fmt.Errorf("sken mora biti PDF")
+	}
+	return pdf, nil
 }
 
 // kljucImena svodi ime na usporedivi oblik: mala slova, bez dijakritike,

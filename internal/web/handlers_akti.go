@@ -95,6 +95,10 @@ type AktiPageData struct {
 	Sukobi              map[string]models.SukobOznake
 	Sukob               models.SukobOznake
 	SmijeRijesitiOznaku bool
+	// Pregled je popis primatelja nacrta složen iznova, kakav bi akt dobio
+	// ovjerom (Odluke (8. 10. 2026.), pitanje 19); nil za ovjeren akt i za
+	// onoga tko s nacrtom ne radi
+	Pregled *service.PregledPrimatelja
 
 	// špranca
 	Spranca models.Spranca
@@ -346,6 +350,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
 	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
 	h.sukobAkta(r.Context(), s, perms, a, &data)
+	pregledPrimatelja(r.Context(), s, a, &data)
 	for i := range data.Sektori {
 		if data.Sektori[i].ID == a.Sektor {
 			data.Sektor = &data.Sektori[i]
@@ -369,6 +374,52 @@ func (h *AktiHandler) sukobAkta(ctx context.Context, s *service.AktService, perm
 	h.sukobiOznaka(ctx, s, data)
 	data.Sukob = data.Sukobi[a.ID]
 	data.SmijeRijesitiOznaku = len(data.Sukob.Drugi) > 0 && service.SmijeRijesitiOznaku(perms, a)
+}
+
+// pregledPrimatelja upisuje u stranicu nacrta popis primatelja složen
+// iznova, za ovjeru: razliku prema nacrtu, upozorenja i otisak popisa
+func pregledPrimatelja(ctx context.Context, s *service.AktService, a *models.Akt, data *AktiPageData) {
+	if a.Ovjeren() || !(data.SmijeOvjeriti || data.SmijePripremiti) {
+		return
+	}
+	p := s.PregledPrimatelja(ctx, a)
+	data.Pregled = &p
+}
+
+// potvrdaOvjere su potvrde iz obrasca ovjere: otisak popisa primatelja koji
+// je osoba vidjela i kvačica uz upozorenje o popisu
+func potvrdaOvjere(r *http.Request) service.PotvrdaOvjere {
+	return service.PotvrdaOvjere{Otisak: r.FormValue("otisak"), Primatelji: r.FormValue("potvrda_primatelja") == "1"}
+}
+
+// ovjeriSaStranice ovjerava nacrt u goCOP-u sa stranice akta, koja pokazuje
+// popis primatelja složen iznova: bez otiska tog popisa (osoba ga nije
+// vidjela) ovjera se ne izvodi (Odluke (8. 10. 2026.), pitanje 19)
+func ovjeriSaStranice(r *http.Request, s *service.AktService, perms *models.UserPermissions, u *models.User, a *models.Akt) (*models.Akt, []string, error) {
+	p := potvrdaOvjere(r)
+	if p.Otisak == "" && !a.Ovjeren() {
+		return nil, nil, errors.New("prije ovjere otvorite stranicu akta i pregledajte popis primatelja koji se slaže pri ovjeri")
+	}
+	return s.Ovjeri(r.Context(), perms, u, a.ID, p)
+}
+
+// HandleSloziPrimatelje slaže popis primatelja nacrta iznova
+func (h *AktiHandler) HandleSloziPrimatelje(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	novi, err := s.PonovnoSloziPrimatelje(r.Context(), perms, u, a.ID)
+	if err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	poruka := "Popis primatelja ponovno je složen."
+	if len(novi.UpozorenjaPrimatelja) > 0 {
+		poruka += " Upozorenje uz popis i dalje stoji; pogledajte ga prije ovjere."
+	}
+	redirectWith(w, r, "/akti/"+a.ID+"#primatelji", "success", poruka)
 }
 
 // HandleRijesiOznaku označava sukob oznake akta riješenim, s napomenom
@@ -483,7 +534,7 @@ func (h *AktiHandler) HandleOvjeri(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	a, upozorenja, err := s.Ovjeri(r.Context(), perms, u, a.ID)
+	a, upozorenja, err := ovjeriSaStranice(r, s, perms, u, a)
 	if err != nil {
 		redirectWith(w, r, "/akti/"+r.PathValue("id"), "error", err.Error())
 		return
@@ -582,7 +633,7 @@ func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", "Sken nije čitljiv: "+err.Error())
 		return
 	}
-	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"))
+	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"), potvrdaOvjere(r))
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return

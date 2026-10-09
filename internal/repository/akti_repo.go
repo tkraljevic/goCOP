@@ -36,8 +36,8 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
-	rijesena_oznaka, potvrde)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	rijesena_oznaka, potvrde, upozorenja_primatelja)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
@@ -46,12 +46,12 @@ const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, 
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
 		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at,
-		rijesena_oznaka = excluded.rijesena_oznaka, potvrde = excluded.potvrde`
+		rijesena_oznaka = excluded.rijesena_oznaka, potvrde = excluded.potvrde, upozorenja_primatelja = excluded.upozorenja_primatelja`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
 	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
-	rijesena_oznaka, potvrde`
+	rijesena_oznaka, potvrde, upozorenja_primatelja`
 
 func aktArgs(a *models.Akt) []any {
 	dionice, _ := json.Marshal(a.Dionice)
@@ -75,7 +75,7 @@ func aktArgs(a *models.Akt) []any {
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
 		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, a.Uvod, a.Zavrsno, a.Poveznice, a.PrekidaAktID, a.IzvanSnage, rucno, storno, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
 		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC(),
-		jsonIliPrazno(a.RijesenaOznaka), jsonIliPrazno(a.Potvrde)}
+		jsonIliPrazno(a.RijesenaOznaka), jsonIliPrazno(a.Potvrde), jsonIliPrazno(a.UpozorenjaPrimatelja)}
 }
 
 // jsonIliPrazno je vrijednost kao JSON za stupac teksta; prazno kad je nema
@@ -97,14 +97,14 @@ func citajJSON(s string, v any) {
 
 func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var a models.Akt
-	var stupanj, dionice, primatelji, rucno, storno, rijesenaOznaka, potvrde string
+	var stupanj, dionice, primatelji, rucno, storno, rijesenaOznaka, potvrde, upozorenja string
 	var vodostaj sql.NullInt64
 	var vodostajKad, ovjerenoAt sql.NullTime
 	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
 		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &a.Uvod, &a.Zavrsno, &a.Poveznice, &a.PrekidaAktID, &a.IzvanSnage, &rucno, &storno, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
 		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt,
-		&rijesenaOznaka, &potvrde)
+		&rijesenaOznaka, &potvrde, &upozorenja)
 	if err != nil {
 		return a, err
 	}
@@ -133,6 +133,7 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	_ = json.Unmarshal([]byte(primatelji), &a.Primatelji)
 	citajJSON(rijesenaOznaka, &a.RijesenaOznaka)
 	citajJSON(potvrde, &a.Potvrde)
+	citajJSON(upozorenja, &a.UpozorenjaPrimatelja)
 	return a, nil
 }
 

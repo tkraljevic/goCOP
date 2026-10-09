@@ -1535,6 +1535,9 @@ func migrateSchema(database *sql.DB) error {
 		// izričite potvrde uz akt (JSON): što je program pitao, tko je
 		// potvrdio i kada (Odluke (8. 10. 2026.), pitanje 17)
 		{"akti", "potvrde", "TEXT NOT NULL DEFAULT ''"},
+		// izvori popisa primatelja koji se nisu dali pročitati i dionice bez
+		// teritorija (JSON) (Odluke (8. 10. 2026.), pitanje 19)
+		{"akti", "upozorenja_primatelja", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},
