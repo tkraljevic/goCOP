@@ -729,6 +729,23 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 		},
 		{
+			entitet: EntityRjesenjaOznaka, tablica: "akti_rjesenja_oznaka", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var x models.RjesenjeOznake
+				puni(&x)
+				x.Sektor = "B"
+				nuzno(t, NewAktiRepository(a.db, a.rec).SaveRjesenjeOznake(ctxRaz, &x))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.RjesenjeOznake](t, p)
+				x.Napomena += " (izmjena)"
+				nuzno(t, NewAktiRepository(b.db, b.rec).SaveRjesenjeOznake(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).ListRjesenjaOznaka(ctxRaz)
+			},
+		},
+		{
 			entitet: EntityZadaci, tablica: "vodocuvarski_zadaci", kljuc: "id",
 			napravi: func(t *testing.T, a *cvor) {
 				var z models.Zadatak

@@ -18,7 +18,7 @@ func TestSukobiOznaka(t *testing.T) {
 		akt("drugi-sektor", "D", 7, 2026),
 		akt("nacrt-1", "B", 0, 2026), akt("nacrt-2", "B", 0, 2026), // nacrti nemaju oznaku
 	}
-	s := SukobiOznaka(akti)
+	s := SukobiOznaka(akti, nil)
 	if len(s) != 2 {
 		t.Fatalf("u sukobu su samo dva akta B-7/2026, a dobiveno: %v", s)
 	}
@@ -29,17 +29,22 @@ func TestSukobiOznaka(t *testing.T) {
 		t.Errorf("sukob akta s poslužitelja: %+v", s["unraid"])
 	}
 
-	// rješenje na jednom od akata vrijedi za oba
-	rj := &RjesenjeOznake{Akti: []string{"osijek", "unraid"}, Napomena: "dopis primateljima", Kad: time.Now()}
-	akti[1].RijesenaOznaka = rj
-	s = SukobiOznaka(akti)
+	// rješenje obuhvaća oba akta; rješenje druge oznake ne rješava ovu
+	rjesenja := []RjesenjeOznake{
+		{Oznaka: "B-3/2026", Akti: []string{"neki", "drugi"}, Napomena: "druga oznaka"},
+		{Oznaka: "B-7/2026", Akti: []string{"osijek", "unraid"}, Napomena: "dopis primateljima", Kad: time.Now()},
+	}
+	s = SukobiOznaka(akti, rjesenja)
 	if !s["osijek"].Rijesen() || !s["unraid"].Rijesen() || s["osijek"].Rjesenje.Napomena != "dopis primateljima" {
 		t.Errorf("rješenje sukoba: %+v", s)
+	}
+	if s = SukobiOznaka(akti, rjesenja[:1]); s["osijek"].Rijesen() {
+		t.Errorf("rješenje druge oznake riješilo je ovu: %+v", s["osijek"])
 	}
 
 	// treći akt iste oznake koji stigne poslije ponovno otvara sukob
 	akti = append(akti, akt("treci", "B", 7, 2026))
-	s = SukobiOznaka(akti)
+	s = SukobiOznaka(akti, rjesenja)
 	if s["osijek"].Rijesen() || s["treci"].Rijesen() || len(s["treci"].Drugi) != 2 {
 		t.Errorf("novi akt iste oznake mora otvoriti sukob: %+v", s)
 	}

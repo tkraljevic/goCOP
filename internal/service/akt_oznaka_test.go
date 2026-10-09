@@ -16,8 +16,9 @@ import (
 	"gocop/internal/service"
 )
 
-// prenesiAkte prenosi verzije akata s jednog čvora na drugi, kao razmjena:
-// u knjigu primatelja i na njegovu površinu
+// prenesiAkte prenosi verzije akata i zapisa uz njih (entiteti „akti…”) s
+// jednog čvora na drugi, kao razmjena: u knjigu primatelja i na njegovu
+// površinu
 func prenesiAkte(t *testing.T, s, na *okolinaAkta) {
 	t.Helper()
 	ctx := context.Background()
@@ -27,7 +28,7 @@ func prenesiAkte(t *testing.T, s, na *okolinaAkta) {
 	}
 	var akti []ledger.Version
 	for _, v := range sve {
-		if v.Entity == repository.EntityAkti {
+		if strings.HasPrefix(v.Entity, repository.EntityAkti) {
 			akti = append(akti, v)
 		}
 	}
@@ -124,7 +125,7 @@ func TestIstaOznakaSDvaCvoraIRjesenjeSukoba(t *testing.T) {
 		t.Fatalf("nakon rješenja: %+v", sukobi)
 	}
 	for _, id := range []string{prvi.ID, drugi.ID} {
-		if a, _ := laptop.akti.Get(ctx, id); a.RijesenaOznaka == nil || service.ProvjeriPotpis(a) != service.PotpisVrijedi {
+		if a, _ := laptop.akti.Get(ctx, id); service.ProvjeriPotpis(a) != service.PotpisVrijedi {
 			t.Errorf("rješenje ne smije srušiti potpis akta %s: %+v", id, a)
 		}
 	}
@@ -150,5 +151,48 @@ func TestSukobOznakeKadBazaNeOdgovara(t *testing.T) {
 	voditelj := &models.User{ID: uuid.New(), FullName: "Iva Ivić", Duties: []models.Duty{{Role: models.RoleCopDeputy, SectorID: &sektor, IsActive: true}}}
 	if err := o.akti.RijesiOznaku(ctx, models.NewUserPermissions(*voditelj), voditelj, uuid.NewString(), "dopis"); err == nil {
 		t.Error("rješenje sukoba bez tablice akata")
+	}
+}
+
+// Rješenje sukoba oznake ne prepisuje akte: akt drugog čvora koji je ondje
+// poništen (storno) dok rješenje još nije stiglo ostaje poništen na oba
+// čvora, a rješenje vide oba (Odluke (8. 10. 2026.), pitanje 4)
+func TestRjesenjeOznakeNePrepisujeStornoDrugogCvora(t *testing.T) {
+	laptop, posluzitelj := novaOkolinaAkta(t), novaOkolinaAkta(t)
+	for _, o := range []*okolinaAkta{laptop, posluzitelj} {
+		_, k, _ := ed25519.GenerateKey(nil)
+		o.akti.SetKljuc(k)
+	}
+	ctx := context.Background()
+	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
+	nas, _ := laptop.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
+	tudi, _ := posluzitelj.ovjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(5*time.Minute))
+	prenesiAkte(t, posluzitelj, laptop)
+	prenesiAkte(t, laptop, posluzitelj)
+
+	// poslužitelj poništava svoj akt; laptop to još ne zna i rješava sukob
+	if _, _, err := posluzitelj.akti.Storniraj(ctx, posluzitelj.ovlasti, posluzitelj.rukovod, tudi.ID, "izdan greškom"); err != nil {
+		t.Fatal(err)
+	}
+	sektor := "P"
+	voditelj := &models.User{ID: uuid.New(), FullName: "Ana Anić", Duties: []models.Duty{{Role: models.RoleCopLeader, SectorID: &sektor, IsActive: true}}}
+	if err := laptop.akti.RijesiOznaku(ctx, models.NewUserPermissions(*voditelj), voditelj, nas.ID, "Primateljima poslan dopis."); err != nil {
+		t.Fatal(err)
+	}
+	prenesiAkte(t, laptop, posluzitelj)
+	prenesiAkte(t, posluzitelj, laptop)
+
+	for ime, o := range map[string]*okolinaAkta{"laptop": laptop, "poslužitelj": posluzitelj} {
+		x, err := o.akti.Get(ctx, tudi.ID)
+		if err != nil || x == nil || !x.Storniran() || x.Storno.Razlog != "izdan greškom" {
+			t.Errorf("%s: rješenje oznake poništilo je storno akta drugog čvora: %+v %v", ime, x, err)
+		}
+		if a, _ := o.akti.Get(ctx, nas.ID); a == nil || service.ProvjeriPotpis(a) != service.PotpisVrijedi {
+			t.Errorf("%s: rješenje ne smije srušiti potpis akta: %+v", ime, a)
+		}
+		sukobi, err := o.akti.SukobiOznaka(ctx)
+		if err != nil || !sukobi[nas.ID].Rijesen() || !sukobi[tudi.ID].Rijesen() || sukobi[tudi.ID].Rjesenje.Rijesio != "Ana Anić" {
+			t.Errorf("%s: rješenje sukoba: %+v %v", ime, sukobi, err)
+		}
 	}
 }

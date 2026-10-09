@@ -156,50 +156,69 @@ func TestAktiIsteOznakeINastavakNiza(t *testing.T) {
 	}
 }
 
-// Rješenje sukoba oznake upisuje se na sve akte te oznake odjednom, s
-// verzijom u knjizi za svaki, i čita se natrag
-func TestSpremanjeViseAkataIRjesenjaOznake(t *testing.T) {
+// Rješenje sukoba oznake je zaseban zapis s verzijom u knjizi i čita se
+// natrag; akte iste oznake ne dira (Odluke (8. 10. 2026.), pitanje 4)
+func TestRjesenjeOznakeJeZasebanZapis(t *testing.T) {
 	baza, repo := bazaAkata(t)
 	ctx := context.Background()
 	a, b := nacrtAkta(t, repo, "Batina"), nacrtAkta(t, repo, "Vukovar")
-	rj := &models.RjesenjeOznake{Akti: []string{a.ID, b.ID}, Napomena: "dopis primateljima", Rijesio: "Ivo Ivić", Kad: time.Now().UTC().Truncate(time.Second)}
-	a.RijesenaOznaka, b.RijesenaOznaka = rj, rj
-	if err := repo.SaveAkti(ctx, a, b); err != nil {
-		t.Fatal(err)
+	if r, err := repo.ListRjesenjaOznaka(ctx); err != nil || len(r) != 0 {
+		t.Fatalf("bez rješenja: %v %v", r, err)
+	}
+	rj := &models.RjesenjeOznake{Sektor: "B", Oznaka: "B-1/2026", Akti: []string{a.ID, b.ID}, Napomena: "dopis primateljima",
+		RijesioID: "ivo", Rijesio: "Ivo Ivić", Kad: time.Now().UTC().Truncate(time.Second)}
+	if err := repo.SaveRjesenjeOznake(ctx, rj); err != nil || rj.ID == "" {
+		t.Fatalf("upis rješenja: %v", err)
+	}
+	r, err := repo.ListRjesenjaOznaka(ctx)
+	if err != nil || len(r) != 1 || r[0].ID != rj.ID || r[0].Napomena != "dopis primateljima" || r[0].Oznaka != "B-1/2026" ||
+		r[0].Rijesio != "Ivo Ivić" || !r[0].Kad.Equal(rj.Kad) || !r[0].Obuhvaca([]string{a.ID, b.ID}) {
+		t.Fatalf("pročitano rješenje: %+v %v", r, err)
+	}
+	if n := brojRedaka(t, baza, `SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityRjesenjaOznaka, rj.ID); n != 1 {
+		t.Errorf("verzije rješenja u knjizi: %d", n)
 	}
 	for _, x := range []*models.Akt{a, b} {
-		procitan, _ := repo.GetAkt(ctx, x.ID)
-		if procitan.RijesenaOznaka == nil || procitan.RijesenaOznaka.Napomena != "dopis primateljima" || !procitan.RijesenaOznaka.Obuhvaca([]string{a.ID, b.ID}) {
-			t.Errorf("rješenje nije pročitano: %+v", procitan.RijesenaOznaka)
-		}
-		var n int
-		if err := baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityAkti, x.ID).Scan(&n); err != nil || n != 2 {
-			t.Errorf("verzije akta %s u knjizi: %d %v", x.ID, n, err)
+		if n := brojRedaka(t, baza, `SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityAkti, x.ID); n != 1 {
+			t.Errorf("rješenje je dodalo verziju akta %s: %d verzija", x.StationName, n)
 		}
 	}
-	// akt bez rješenja ne nosi ni prazan JSON
-	var stupac string
-	c := nacrtAkta(t, repo, "Aljmaš")
-	if err := baza.QueryRow(`SELECT rijesena_oznaka FROM akti WHERE id = ?`, c.ID).Scan(&stupac); err != nil || stupac != "" {
-		t.Errorf("stupac rješenja akta bez sukoba: %q %v", stupac, err)
-	}
-	// upis koji ne uspije ne upisuje nijedan akt, a ovjera koja ne uspije
-	// ne troši broj
+	// ovjera koja ne uspije ne troši broj
 	if _, err := baza.Exec(`CREATE TRIGGER pukni BEFORE INSERT ON akti WHEN NEW.napomena = 'pukni' BEGIN SELECT RAISE(ABORT, 'pukni'); END`); err != nil {
 		t.Fatal(err)
 	}
-	a.Napomena = "ne smije ostati"
-	if err := repo.SaveAkti(ctx, a, &models.Akt{Sektor: "B", Napomena: "pukni"}); err == nil {
-		t.Fatal("upis s aktom koji baza odbija mora pasti")
-	}
-	if procitan, _ := repo.GetAkt(ctx, a.ID); procitan.Napomena != "" {
-		t.Errorf("djelomičan upis ostao je u bazi: %q", procitan.Napomena)
-	}
-	if err := repo.OvjeriAkt(ctx, c, func(x *models.Akt) { x.Napomena = "pukni" }); err == nil {
+	if err := repo.OvjeriAkt(ctx, a, func(x *models.Akt) { x.Napomena = "pukni" }); err == nil {
 		t.Fatal("ovjera koju baza odbija mora pasti")
 	}
-	if procitan, _ := repo.GetAkt(ctx, c.ID); procitan.Broj != 0 || procitan.Ovjeren() {
+	if procitan, _ := repo.GetAkt(ctx, a.ID); procitan.Broj != 0 || procitan.Ovjeren() {
 		t.Errorf("neuspjela ovjera ostavila je broj: %+v", procitan)
+	}
+	// rješenje koje baza odbije ne ostaje ni u knjizi
+	if _, err := baza.Exec(`CREATE TRIGGER pukni_rjesenje BEFORE INSERT ON akti_rjesenja_oznaka WHEN NEW.napomena = 'pukni' BEGIN SELECT RAISE(ABORT, 'pukni'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveRjesenjeOznake(ctx, &models.RjesenjeOznake{Sektor: "B", Napomena: "pukni"}); err == nil {
+		t.Error("rješenje koje baza odbija mora pasti")
+	}
+	if n := brojRedaka(t, baza, `SELECT COUNT(*) FROM record_versions WHERE entity = ?`, EntityRjesenjaOznaka); n != 1 {
+		t.Errorf("odbijeno rješenje ostalo je u knjizi: %d verzija", n)
+	}
+	otkazan, prekini := context.WithCancel(ctx)
+	prekini()
+	if err := repo.SaveRjesenjeOznake(otkazan, rj); err == nil {
+		t.Error("upis rješenja s prekinutim zahtjevom mora pasti")
+	}
+	if _, err := baza.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveRjesenjeOznake(ctx, rj); err == nil {
+		t.Error("upis rješenja bez knjige mora pasti")
+	}
+	if _, err := baza.Exec(`DROP TABLE akti_rjesenja_oznaka`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ListRjesenjaOznaka(ctx); err == nil {
+		t.Error("rješenja bez tablice")
 	}
 }
 
@@ -212,7 +231,7 @@ func TestOvjeraAktaKadBazaNeOdgovara(t *testing.T) {
 	if err := repo.OvjeriAkt(otkazan, a, nil); err == nil {
 		t.Error("ovjera s prekinutim zahtjevom mora pasti")
 	}
-	if err := repo.SaveAkti(otkazan, a); err == nil {
+	if err := repo.SaveAkt(otkazan, a); err == nil {
 		t.Error("upis s prekinutim zahtjevom mora pasti")
 	}
 	if _, err := baza.Exec(`DROP TABLE akti`); err != nil {

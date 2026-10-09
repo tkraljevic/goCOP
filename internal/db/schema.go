@@ -255,6 +255,20 @@ func InitSchema(database *sql.DB) error {
 		// godini po sektoru. Ne putuje razmjenom i ne pada kad se akt
 		// trajno obriše, pa čvor isti broj ne daje dvaput (Odluke
 		// (8. 10. 2026.), pitanje 4).
+		// Rješenja sukoba oznaka: dva ovjerena akta iste oznake (u pravilu s
+		// dva čvora) i napomena Voditelja Centra obrane od poplava ili
+		// zamjenika kako je sukob riješen. Zaseban zapis s verzijom u knjizi,
+		// da rješenje ne prepisuje akte (Odluke (8. 10. 2026.), pitanje 4).
+		`CREATE TABLE IF NOT EXISTS akti_rjesenja_oznaka (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			oznaka TEXT NOT NULL DEFAULT '',
+			akti TEXT NOT NULL DEFAULT '[]',
+			napomena TEXT NOT NULL DEFAULT '',
+			rijesio_id TEXT NOT NULL DEFAULT '',
+			rijesio TEXT NOT NULL DEFAULT '',
+			kad DATETIME NOT NULL
+		);`,
 		`CREATE TABLE IF NOT EXISTS akti_brojac (
 			sektor TEXT NOT NULL,
 			godina INTEGER NOT NULL,
@@ -1539,9 +1553,6 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "rucno", "TEXT NOT NULL DEFAULT ''"},
 		// poništenje ovjerenog akta (JSON): tko, kada, zašto, potpis
 		{"akti", "storno", "TEXT NOT NULL DEFAULT ''"},
-		// rješenje sukoba oznake s aktom drugog čvora (JSON): koji akti, tko,
-		// kada, napomena (Odluke (8. 10. 2026.), pitanje 4)
-		{"akti", "rijesena_oznaka", "TEXT NOT NULL DEFAULT ''"},
 		// izričite potvrde uz akt (JSON): što je program pitao, tko je
 		// potvrdio i kada (Odluke (8. 10. 2026.), pitanje 17)
 		{"akti", "potvrde", "TEXT NOT NULL DEFAULT ''"},

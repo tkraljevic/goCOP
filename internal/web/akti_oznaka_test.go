@@ -136,8 +136,8 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 		t.Error("riješen sukob više nije crven")
 	}
 	ima(zovi(operater, oOvl, http.MethodGet, "/akti/"+vukovar.ID, nil), "drugi akt nakon rješenja", "Sukob je riješen: Primateljima poslan dopis", "Ana Anić")
-	if a, _ := akti.Get(ctx, vukovar.ID); a.RijesenaOznaka == nil {
-		t.Error("rješenje nije upisano na drugi akt")
+	if s, _ := akti.SukobiOznaka(ctx); !s[vukovar.ID].Rijesen() || !s[batina.ID].Rijesen() {
+		t.Error("rješenje ne obuhvaća oba akta iste oznake")
 	}
 	if w := zovi(voditelj, vOvl, http.MethodPost, "/akti/nema-ga/oznaka", url.Values{"napomena": {"x"}}); w.Code != http.StatusNotFound {
 		t.Errorf("rješenje akta kojeg nema: %d", w.Code)

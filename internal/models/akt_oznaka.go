@@ -8,9 +8,14 @@ import (
 // RjesenjeOznake: dva ovjerena akta nose istu oznaku (u pravilu s dva
 // čvora), oba ostaju valjana i potpisana, a Voditelj Centra obrane od
 // poplava ili zamjenik označio je sukob riješenim, s kratkom napomenom
-// (Odluke (8. 10. 2026.), pitanje 4). Upisuje se na svaki akt te oznake.
+// (Odluke (8. 10. 2026.), pitanje 4). Upisuje se zasebno, s vlastitom
+// verzijom u knjizi, a ne na akte: akt drugog čvora ostaje onakav kakav je
+// ondje potpisan ili poništen.
 type RjesenjeOznake struct {
-	Akti      []string  `json:"akti"` // akti iste oznake koje rješenje obuhvaća
+	ID        string    `json:"id"`
+	Sektor    string    `json:"sektor"`
+	Oznaka    string    `json:"oznaka"` // npr. B-1/2026
+	Akti      []string  `json:"akti"`   // akti iste oznake koje rješenje obuhvaća
 	Napomena  string    `json:"napomena"`
 	RijesioID string    `json:"rijesio_id"`
 	Rijesio   string    `json:"rijesio"`
@@ -47,8 +52,8 @@ func (s SukobOznake) Rijesen() bool { return s.Rjesenje != nil }
 // SukobiOznaka su sukobi oznaka među aktima, po ID-u akta: svaki akt s
 // brojem čiju oznaku (sektor, broj, godina) nosi još koji akt. Nacrt nema
 // broja i ne ulazi; poništen akt zadržava broj, pa ulazi. Sukob je riješen
-// kad rješenje na bilo kojem od tih akata obuhvaća sve njih.
-func SukobiOznaka(akti []Akt) map[string]SukobOznake {
+// kad neko od rješenja obuhvaća sve te akte.
+func SukobiOznaka(akti []Akt, rjesenja []RjesenjeOznake) map[string]SukobOznake {
 	skupine := map[string][]Akt{}
 	for _, a := range akti {
 		if a.Broj > 0 {
@@ -60,7 +65,7 @@ func SukobiOznaka(akti []Akt) map[string]SukobOznake {
 		if len(s) < 2 {
 			continue
 		}
-		rjesenje := rjesenjeSkupine(s)
+		rjesenje := rjesenjeSkupine(s, rjesenja)
 		for i := range s {
 			out[s[i].ID] = SukobOznake{Drugi: bezAkta(s, i), Rjesenje: rjesenje}
 		}
@@ -79,11 +84,11 @@ func IDAkata(akti []Akt) []string {
 }
 
 // rjesenjeSkupine je rješenje koje obuhvaća sve akte skupine iste oznake
-func rjesenjeSkupine(s []Akt) *RjesenjeOznake {
+func rjesenjeSkupine(s []Akt, rjesenja []RjesenjeOznake) *RjesenjeOznake {
 	ids := IDAkata(s)
-	for _, a := range s {
-		if a.RijesenaOznaka.Obuhvaca(ids) {
-			return a.RijesenaOznaka
+	for i := range rjesenja {
+		if rjesenja[i].Obuhvaca(ids) {
+			return &rjesenja[i]
 		}
 	}
 	return nil
