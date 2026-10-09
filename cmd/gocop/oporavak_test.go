@@ -19,7 +19,8 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// bazaZaOporavak je baza čvora s globalnim administratorom tkraljevic
+// bazaZaOporavak je baza čvora s globalnim administratorom iivic (izmišljeni
+// Ivo Ivić, kao u testdata/sektor-p)
 func bazaZaOporavak(t *testing.T) string {
 	t.Helper()
 	put := filepath.Join(t.TempDir(), "gocop.db")
@@ -35,7 +36,7 @@ func bazaZaOporavak(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
-	u := &models.User{Username: "tkraljevic", PasswordHash: string(hash), FullName: "Glavni Administrator",
+	u := &models.User{Username: "iivic", PasswordHash: string(hash), FullName: "Glavni Administrator",
 		IsGlobalAdmin: true, IsActive: true, OrgType: models.OrgHrvatskeVode}
 	if err := repository.NewUserRepository(baza, ledger.New(baza, "cvor")).CreateUser(u, nil); err != nil {
 		t.Fatal(err)
@@ -59,7 +60,7 @@ func TestNaredbaPonistiLozinku(t *testing.T) {
 	put := bazaZaOporavak(t)
 	dnevnik := dnevnikTesta(t)
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-unraid", "TKraljevic", false, &izlaz); kod != 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-unraid", "IIvic", false, &izlaz); kod != 0 {
 		t.Fatalf("izlazni kod %d, dnevnik: %s", kod, dnevnik)
 	}
 	m := regexp.MustCompile(`[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}`).FindAllString(izlaz.String(), -1)
@@ -70,7 +71,7 @@ func TestNaredbaPonistiLozinku(t *testing.T) {
 	if strings.Contains(dnevnik.String(), lozinka) {
 		t.Errorf("lozinka je u dnevniku: %s", dnevnik)
 	}
-	if !strings.Contains(dnevnik.String(), "tkraljevic") || !strings.Contains(dnevnik.String(), "konzole") {
+	if !strings.Contains(dnevnik.String(), "iivic") || !strings.Contains(dnevnik.String(), "konzole") {
 		t.Errorf("dnevnik ne bilježi poništenje: %q", dnevnik)
 	}
 	if strings.Contains(izlaz.String(), "UPOZORENJE") || strings.Contains(izlaz.String(), "nije globalni") {
@@ -85,7 +86,7 @@ func TestNaredbaPonistiLozinku(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	u, err := repository.NewUserRepository(baza, ledger.New(baza, "cvor")).GetUserByUsername("tkraljevic")
+	u, err := repository.NewUserRepository(baza, ledger.New(baza, "cvor")).GetUserByUsername("iivic")
 	if err != nil || u == nil {
 		t.Fatal(err)
 	}
@@ -100,7 +101,7 @@ func TestNaredbaPonistiLozinkuGreske(t *testing.T) {
 	dnevnik := dnevnikTesta(t)
 	var izlaz bytes.Buffer
 	nema := filepath.Join(t.TempDir(), "data", "gocop.db")
-	if kod := ponistiLozinkuSKonzole(nema, "cvor", "tkraljevic", false, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(nema, "cvor", "iivic", false, &izlaz); kod == 0 {
 		t.Error("nepostojeća baza: izlazni kod 0")
 	}
 	if _, err := os.Stat(filepath.Dir(nema)); !os.IsNotExist(err) {
@@ -134,13 +135,13 @@ func TestNaredbaPonistiLozinkuStarijaBaza(t *testing.T) {
 		}
 	}
 	var prije string
-	if err := baza.QueryRow(`SELECT password_hash FROM users WHERE username = 'tkraljevic'`).Scan(&prije); err != nil {
+	if err := baza.QueryRow(`SELECT password_hash FROM users WHERE username = 'iivic'`).Scan(&prije); err != nil {
 		t.Fatal(err)
 	}
 	baza.Close()
 
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "tkraljevic", false, &izlaz); kod == 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "iivic", false, &izlaz); kod == 0 {
 		t.Fatal("baza starijeg izdanja: izlazni kod 0")
 	}
 	if !strings.Contains(dnevnik.String(), "starije izdanje") || izlaz.Len() != 0 {
@@ -152,7 +153,7 @@ func TestNaredbaPonistiLozinkuStarijaBaza(t *testing.T) {
 	}
 	defer baza.Close()
 	var poslije string
-	if err := baza.QueryRow(`SELECT password_hash FROM users WHERE username = 'tkraljevic'`).Scan(&poslije); err != nil {
+	if err := baza.QueryRow(`SELECT password_hash FROM users WHERE username = 'iivic'`).Scan(&poslije); err != nil {
 		t.Fatal(err)
 	}
 	if poslije != prije {
@@ -182,7 +183,7 @@ func TestNaredbaPonistiLozinkuPotpisniKljuc(t *testing.T) {
 	}
 	defer baza.Close()
 	rec := ledger.New(baza, "cvor")
-	u, err := repository.NewUserRepository(baza, rec).GetUserByUsername("tkraljevic")
+	u, err := repository.NewUserRepository(baza, rec).GetUserByUsername("iivic")
 	if err != nil || u == nil {
 		t.Fatal(err)
 	}
@@ -193,7 +194,7 @@ func TestNaredbaPonistiLozinkuPotpisniKljuc(t *testing.T) {
 	}
 
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cvor", "tkraljevic", false, &izlaz); kod != 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cvor", "iivic", false, &izlaz); kod != 0 {
 		t.Fatalf("izlazni kod %d", kod)
 	}
 	lozinkaIzIspisa(t, izlaz.String())
