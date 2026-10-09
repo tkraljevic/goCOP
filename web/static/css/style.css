@@ -5155,6 +5155,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 :root[data-theme="dark"] .prog-tuda-rs { color: #c4b5fd; }
 :root[data-theme="dark"] .prog-tuda-at { color: #fca5a5; }
 .prognoze-tablica .prog-oznaka, .graf-natpis .prog-oznaka { font-size: 0.7em; color: var(--text-muted); margin-left: 1px; }
+/* Satna umjesto dnevne: dnevni model za to izdanje nije računao */
+.prog-oznaka.prog-oznaka-satna { color: var(--faza-r-fg); font-weight: 600; }
 .prognoze-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
 .prognoze-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
 .prognoze-tablica td.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }

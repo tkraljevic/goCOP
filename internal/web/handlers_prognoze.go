@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"math"
 	"net/http"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -215,14 +216,58 @@ var tudiIzvori = []struct{ izvor, oznaka, klasa, naslov string }{
 // modela, već prema tome koji je na tom danu za tu letvu provjerom točniji;
 // ispod stoji mađarska prognoza za isti termin, gdje je imaju.
 type CelijaDana struct {
-	CmV, QV        *float64 // iste vrijednosti kao broj, za izvoz
-	Naslov         string   // dan u tjednu i datum
-	Cm, Raspon     string
-	Q, QRaspon     string       // protok, gdje letva ima krivulju
-	Tude           []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
-	Dnevna         bool         // vrijednost daje dnevni model
-	Slabija        bool
-	Razina, Moguce string
+	CmV, QV    *float64 // iste vrijednosti kao broj, za izvoz
+	Naslov     string   // dan u tjednu i datum
+	Cm, Raspon string
+	Q, QRaspon string       // protok, gdje letva ima krivulju
+	Tude       []TudaCelija // tuđe prognoze za isti termin, svaka svojom bojom
+	Dnevna     bool         // vrijednost daje dnevni model
+	// IzSatne: dan bi davao dnevni model, ali ga u ovom izdanju nema, pa
+	// stoji satna; BezDnevne: dnevne nema, a satna do dana ne seže.
+	IzSatne, BezDnevne bool
+	Slabija            bool
+	Razina, Moguce     string
+}
+
+// Model kaže koji je model dao vrijednost dana, za skriveni redak izvoza.
+func (c CelijaDana) Model() string {
+	switch {
+	case c.BezDnevne:
+		return "nema (dnevni nije izdan)"
+	case c.CmV == nil:
+		return ""
+	case c.Dnevna:
+		return "dnevni"
+	case c.IzSatne:
+		return "satni (dnevni nije izdan)"
+	}
+	return "satni"
+}
+
+// ocekujeDnevnu javlja bi li letva u izdanju imala dnevnu prognozu: cilj
+// dnevnog modela ili srpska letva kojoj se dnevna prenosi s ciljeva.
+func ocekujeDnevnu(letva string) bool {
+	if jeDnevniCilj(letva) {
+		return true
+	}
+	for _, p := range prognoza.PreneseneLetve {
+		if p.Letva == letva {
+			return !slices.ContainsFunc(p.Izvori, func(l string) bool { return !jeDnevniCilj(l) })
+		}
+	}
+	return false
+}
+
+// nemaDnevne javlja da letva u izdanju nema dnevne, a inače bi je imala.
+func nemaDnevne(letva string, dnevne []prognoza.DnevnaIzdana) bool {
+	return len(dnevne) == 0 && ocekujeDnevnu(letva)
+}
+
+// zamjenaDnevne kaže kako stoji dan letve kojoj dnevne nema (bez): od dana
+// od kojeg bi ga davao dnevni model stoji satna (izSatne), a dan do kojeg
+// satna ne seže ostaje prazan, iako bi ga inače dala dnevna.
+func zamjenaDnevne(bez, imaSatni bool, dan, odDana int) (izSatne, prazno bool) {
+	return bez && imaSatni && odDana > 0 && dan >= odDana, bez && !imaSatni
 }
 
 type PrognozePageData struct {
@@ -1388,6 +1433,7 @@ func jeDnevniUlaz(letva string) bool {
 func celijeDana(letva string, odDana int, l PregledLetve, ciljevi []int64, dnevne []prognoza.DnevnaIzdana,
 	tude map[string]map[int64]TudaVrijednost, st models.Station) []CelijaDana {
 	out := make([]CelijaDana, len(ciljevi))
+	bez := nemaDnevne(letva, dnevne)
 	for k, t := range ciljevi {
 		c := &out[k]
 		var v, dolje, gore float64
@@ -1408,6 +1454,7 @@ func celijeDana(letva string, odDana int, l PregledLetve, ciljevi []int64, dnevn
 			v, dolje, gore, ima, c.Dnevna = dnevni.Vrijednost, dnevni.Dolje, dnevni.Gore, true, true
 			q, imaQ = dnevniQU(dnevne, t)
 		}
+		c.IzSatne, c.BezDnevne = zamjenaDnevne(bez, imaSatni, k+1, odDana)
 		if imaQ {
 			c.Q = brojHRf(q.Vrijednost, 0)
 			c.QV = ptr(q.Vrijednost, true)

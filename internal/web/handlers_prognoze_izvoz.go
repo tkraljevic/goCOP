@@ -190,16 +190,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		if ima(func(x LetvaPrognoze) bool { return dan(x).QV != nil }) {
 			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).QV, xlsxw.TablicaKurziv) })
 		}
-		redak("", "model", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija {
-			d := dan(x)
-			switch {
-			case d.CmV == nil:
-				return T("", xlsxw.TablicaSredina)
-			case d.Dnevna:
-				return T("dnevni", xlsxw.TablicaSredina)
-			}
-			return T("satni", xlsxw.TablicaSredina)
-		})
+		redak("", "model", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return T(dan(x).Model(), xlsxw.TablicaSredina) })
 		l.SakrijRedak(l.Redak() - 1) // tko želi vidjeti model, otkrije ga
 		for _, iz := range tudiIzvori {
 			tuda := func(x LetvaPrognoze) *TudaCelija {
