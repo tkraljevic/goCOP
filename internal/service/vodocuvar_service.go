@@ -18,8 +18,9 @@ import (
 
 // Vodočuvarski dnevnik: dnevni list po vodočuvaru, kao papirna knjiga.
 // Vodočuvar ga piše i potpisuje (preda), rukovoditelj branjenog područja
-// ili nadređeni na sektoru ga ovjerava, a ostali rukovoditelji vezani uz
-// područje mogu ga parafirati.
+// ili nadređeni na sektoru ga ovjerava, a parafirati ga mogu ovlaštenici i
+// uprava, te rukovoditelj dionice kad se list tiče njegove dionice
+// (knjiga_ovlasti.go).
 
 type VodocuvarService struct {
 	repo    *repository.VodocuvarRepository

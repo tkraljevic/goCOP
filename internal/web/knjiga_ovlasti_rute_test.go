@@ -127,6 +127,11 @@ func TestKnjigaVodocuvaraKrozRutePoOdlukama(t *testing.T) {
 	if strings.Contains(popis.Body.String(), "Zadaj zadatak vodočuvaru") {
 		t.Error("operater ima obrazac za zadatak")
 	}
+	// opis knjige kaže tko parafira po odluci, a ne „ostali rukovoditelji vezani uz područje”
+	if b := strings.Join(strings.Fields(popis.Body.String()), " "); strings.Contains(b, "ostali rukovoditelji vezani uz područje") ||
+		!strings.Contains(b, "rukovoditelj dionice kad se list tiče njegove dionice") {
+		t.Error("opis knjige ne kaže tko parafira list")
+	}
 	stranica := zovi(operater, http.MethodGet, "/vodocuvar/"+list.ID, nil).Body.String()
 	if !strings.Contains(stranica, "Upis u dnevnik") || strings.Contains(stranica, `value="parafiraj"`) {
 		t.Error("list za operatera: mora imati upis, a ne parafu")
