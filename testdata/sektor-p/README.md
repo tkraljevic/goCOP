@@ -24,7 +24,9 @@ prije svakog izdanja naredbom `make provjera-registara`.
 
 Sektor E postoji zato da provjere ovlasti imaju dionicu izvan sektora P. Nosi
 slovo iz raspona A–F jer program novu dionicu kroz obrazac prima samo sa
-šifrom takvog sektora; dionice sektora P stižu samo prvim punjenjem. Letve su Primjerovo, CS Probni, Oglednica i Rubno. CS Probni je i crpna
+šifrom takvog sektora; dionice sektora P stižu samo prvim punjenjem.
+
+Letve su Primjerovo, CS Probni, Oglednica i Rubno. CS Probni je i crpna
 stanica i njezina letva istog imena. Dva potoka Graničnik razlikuje samo
 pojašnjenje u zagradi.
 
