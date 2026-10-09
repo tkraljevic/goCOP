@@ -3,6 +3,9 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +22,7 @@ import (
 
 type knjigaProba struct {
 	o          *okolinaVodocuvara
+	users      *repository.UserRepository
 	pero, ana  *models.User
 	listPere   *models.VodocuvarskiList
 	listAne    *models.VodocuvarskiList
@@ -32,26 +36,29 @@ func novaKnjigaProba(t *testing.T) *knjigaProba {
 	o := novaOkolinaVodocuvara(t)
 	users := repository.NewUserRepository(o.baza, ledger.New(o.baza, "test"))
 	o.vs.users = NewUserService(users, nil, nil)
-	k := &knjigaProba{o: o, sektor: "P", p1: 1, p2: 2}
-	vodocuvar := func(korisnik, ime, dionice string) *models.User {
-		t.Helper()
-		u := &models.User{Username: korisnik, FullName: ime, IsActive: true}
-		d := models.Duty{Title: "Vodočuvar", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &k.sektor, AreaID: &k.p1,
-			SectionCodes: dionice, IsActive: true, IsPrimary: true}
-		if dionice == "" {
-			d.ScopeType = models.ScopeArea
-		}
-		if err := users.CreateUser(u, &d); err != nil {
-			t.Fatal(err)
-		}
-		return u
-	}
-	k.pero = vodocuvar("pperic", "Pero Perić", "P.1.1")
-	k.ana = vodocuvar("aanic", "Ana Anić", "")
+	k := &knjigaProba{o: o, users: users, sektor: "P", p1: 1, p2: 2}
+	k.pero = k.vodocuvar(t, "pperic", "Pero Perić", "P.1.1")
+	k.ana = k.vodocuvar(t, "aanic", "Ana Anić", "")
 	sad := time.Now()
 	k.listPere = &models.VodocuvarskiList{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Sektor: "P", AreaID: 1, PredanoAt: &sad}
 	k.listAne = &models.VodocuvarskiList{UserID: k.ana.ID.String(), Ime: k.ana.FullName, Sektor: "P", AreaID: 1, PredanoAt: &sad}
 	return k
+}
+
+// vodocuvar upisuje vodočuvara područja 1 s upisanim dionicama; bez dionica
+// čuva cijelo područje
+func (k *knjigaProba) vodocuvar(t *testing.T, korisnik, ime, dionice string) *models.User {
+	t.Helper()
+	u := &models.User{Username: korisnik, FullName: ime, IsActive: true}
+	d := models.Duty{Title: "Vodočuvar", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &k.sektor, AreaID: &k.p1,
+		SectionCodes: dionice, IsActive: true, IsPrimary: true}
+	if dionice == "" {
+		d.ScopeType = models.ScopeArea
+	}
+	if err := k.users.CreateUser(u, &d); err != nil {
+		t.Fatal(err)
+	}
+	return u
 }
 
 // obrana postavlja izvor stanja obrane: zadani stadij na dionici
@@ -252,6 +259,81 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 	}
 }
 
+// Prijava je vezana uz dionicu rukovoditelja i kad je polje Dionica prazno
+// ili pogrešno upisano (uvoz iz BP16 ga ne puni), a objavio ju je vodočuvar
+// koji po zaduženju izričito čuva tu dionicu. Prijava koja navodi drugu
+// dionicu svog vodočuvara vezana je samo uz tu dionicu; prijava vodočuvara
+// cijelog područja vezana je samo uz dionicu koju navodi. Pero Perić čuva
+// P.1.1, Iva Ivić P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
+func TestPrijavaVodocuvaraDionice(t *testing.T) {
+	k := novaKnjigaProba(t)
+	iva := k.vodocuvar(t, "iivic", "Iva Ivić", "P.1.1, P.1.2")
+	prijave := &PrijavaService{vodocuvar: k.o.vs}
+	prvi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1")
+	drugi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.2")
+	slucajevi := []struct {
+		naziv       string
+		vodocuvar   string
+		dionica     string
+		prvi, drugi bool
+	}{
+		{"Perina bez dionice", k.pero.ID.String(), "", true, false},
+		{"Perina s pogrešno upisanom dionicom", k.pero.ID.String(), "P11", true, false},
+		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", true, true},
+		{"Ivina bez dionice", iva.ID.String(), "", true, true},
+		{"Ivina s drugom svojom dionicom", iva.ID.String(), "P.1.2", false, true},
+		{"Anina bez dionice", k.ana.ID.String(), "", false, false},
+		{"Anina s dionicom", k.ana.ID.String(), "p.1.2", false, true},
+		{"nepoznatog vodočuvara", uuid.NewString(), "", false, false},
+	}
+	for _, s := range slucajevi {
+		p := &models.PrijavaSTerena{UserID: s.vodocuvar, Sektor: "P", AreaID: 1, DionicaCode: s.dionica, Status: models.PrijavaObjavljena}
+		if got := prijave.SmijeVidjeti(prvi, p); got != s.prvi {
+			t.Errorf("%s: rukovoditelj dionice P.1.1 vidi %v, očekivano %v", s.naziv, got, s.prvi)
+		}
+		if got := prijave.SmijeVidjeti(drugi, p); got != s.drugi {
+			t.Errorf("%s: rukovoditelj dionice P.1.2 vidi %v, očekivano %v", s.naziv, got, s.drugi)
+		}
+	}
+	// istekla dužnost vodočuvara ne veže njegove prijave uz dionicu
+	prosla := time.Now().Add(-time.Hour)
+	bivsi := &models.User{ID: uuid.New(), Duties: []models.Duty{{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla}}}
+	if prijavaVezana(models.Duty{SectionCodes: "P.1.1"}, &models.PrijavaSTerena{AreaID: 1}, bivsi, time.Now()) {
+		t.Error("prijava vodočuvara s isteklom dužnošću vezana je uz dionicu")
+	}
+}
+
+// Popis prijava rukovoditelju dionice daje i prijave vodočuvara njegove
+// dionice bez upisane dionice.
+func TestPopisPrijavaRukovoditeljaDionice(t *testing.T) {
+	k := novaKnjigaProba(t)
+	repo := repository.NewPrijavaRepository(k.o.baza, ledger.New(k.o.baza, "test"))
+	prijave := &PrijavaService{repo: repo, vodocuvar: k.o.vs}
+	ctx := context.Background()
+	for i, x := range []struct {
+		v       *models.User
+		dionica string
+	}{{k.pero, ""}, {k.pero, ""}, {k.ana, ""}, {k.ana, "P.1.1"}} {
+		p := &models.PrijavaSTerena{UserID: x.v.ID.String(), Ime: x.v.FullName, Sektor: "P", AreaID: 1, Vrsta: models.PrijavaObavijest,
+			Naslov: fmt.Sprintf("Prijava %d", i+1), Opis: "opis", Datum: time.Now(), DionicaCode: x.dionica, Status: models.PrijavaObjavljena}
+		if err := repo.Save(ctx, p); err != nil {
+			t.Fatal(err)
+		}
+	}
+	popis, err := prijave.List(ctx, k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1"), repository.FiltarPrijava{Sektor: "P"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var naslovi []string
+	for _, p := range popis {
+		naslovi = append(naslovi, p.Naslov)
+	}
+	sort.Strings(naslovi)
+	if got := strings.Join(naslovi, ", "); got != "Prijava 1, Prijava 2, Prijava 4" {
+		t.Errorf("popis rukovoditelja dionice P.1.1: %s", got)
+	}
+}
+
 // Kroz servis: operater upisuje bilješku, ali ne parafira i ne zadaje;
 // rukovoditelj dionice zadaje vodočuvaru svoje dionice samo u obrani, a na
 // popisu za zadatke i bilješke su samo oni koje smije.
@@ -321,6 +403,19 @@ func TestVodocuvarLista(t *testing.T) {
 	}
 	if v := vs.vodocuvarLista(&models.VodocuvarskiList{UserID: uuid.NewString()}, nil); v != nil {
 		t.Errorf("nepoznata osoba: %+v", v)
+	}
+	// vodočuvar prijave: popis ga pamti i drugi put ne čita
+	p := &models.PrijavaSTerena{UserID: k.pero.ID.String()}
+	poznati := map[string]*models.User{}
+	if v := vs.vodocuvarPrijave(p, poznati); v == nil || v.ID != k.pero.ID || poznati[p.UserID] != v {
+		t.Errorf("vodočuvar prijave: %+v, zapamćen %+v", v, poznati[p.UserID])
+	}
+	poznati[p.UserID] = k.ana
+	if v := vs.vodocuvarPrijave(p, poznati); v != k.ana {
+		t.Error("zapamćeni vodočuvar prijave čita se ponovno")
+	}
+	if v := vs.vodocuvarPrijave(p, nil); v == nil || v.ID != k.pero.ID {
+		t.Errorf("vodočuvar prijave bez pamćenja: %+v", v)
 	}
 	if v := (&VodocuvarService{}).vodocuvarLista(k.listPere, nil); v != nil {
 		t.Errorf("bez korisnika: %+v", v)

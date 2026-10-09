@@ -140,7 +140,7 @@ func (s *VodocuvarService) SmijeUpisati(perms *models.UserPermissions, l *models
 // pisanja na području NE otvara tuđi dnevnik — inače bi svaki vodočuvar
 // vidio dnevnike kolega s istog područja, a za to nema potrebe ni osnove.
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	return s.cita(perms, l, nil)
+	return s.cita(perms, l, nil, nil)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim

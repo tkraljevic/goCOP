@@ -76,7 +76,8 @@ func TestDioniceDuznosti(t *testing.T) {
 // Vodočuvar čuva dionicu kad ima valjano zaduženje vodočuvara na tom
 // području koje dionicu navodi (bez obzira na velika slova), ili ne navodi
 // nijednu pa pokriva cijelo područje. Zaduženje drugog područja, istekla ili
-// neaktivna dužnost i druga uloga ne čuvaju dionicu.
+// neaktivna dužnost i druga uloga ne čuvaju dionicu. Izričito je čuva samo
+// zaduženje koje je navodi; zaduženje cijelog područja to nije.
 func TestCuvaDionicu(t *testing.T) {
 	sad := time.Now()
 	jucer := sad.Add(-time.Hour)
@@ -86,20 +87,21 @@ func TestCuvaDionicu(t *testing.T) {
 		return &User{FullName: "Ivo Ivić", Duties: []Duty{d}}
 	}
 	slucajevi := []struct {
-		ime   string
-		u     *User
-		cuva  bool
-		drugu bool // čuva i P.1.2
+		ime      string
+		u        *User
+		cuva     bool
+		drugu    bool // čuva i P.1.2
+		izricito bool // izričito čuva P.1.1
 	}{
-		{"nil", nil, false, false},
-		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false},
-		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false},
-		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true},
-		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false},
-		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false},
-		{"istekla dužnost", vodocuvar(Duty{AreaID: &p1, ExpiresAt: &jucer}), false, false},
-		{"neaktivna dužnost", &User{Duties: []Duty{{Role: RoleWaterGuard, AreaID: &p1}}}, false, false},
-		{"strojar", &User{Duties: []Duty{{Role: RoleMachinist, IsActive: true, AreaID: &p1}}}, false, false},
+		{"nil", nil, false, false, false},
+		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false, true},
+		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false, true},
+		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true, false},
+		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false, false},
+		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false, false},
+		{"istekla dužnost", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1", ExpiresAt: &jucer}), false, false, false},
+		{"neaktivna dužnost", &User{Duties: []Duty{{Role: RoleWaterGuard, AreaID: &p1, SectionCodes: "P.1.1"}}}, false, false, false},
+		{"strojar", &User{Duties: []Duty{{Role: RoleMachinist, IsActive: true, AreaID: &p1, SectionCodes: "P.1.1"}}}, false, false, false},
 	}
 	for _, s := range slucajevi {
 		if got := s.u.CuvaDionicu(1, "P.1.1", sad); got != s.cuva {
@@ -107,6 +109,12 @@ func TestCuvaDionicu(t *testing.T) {
 		}
 		if got := s.u.CuvaDionicu(1, "P.1.2", sad); got != s.drugu {
 			t.Errorf("%s: čuva P.1.2 = %v, očekivano %v", s.ime, got, s.drugu)
+		}
+		if got := s.u.CuvaIzricito(1, "P.1.1", sad); got != s.izricito {
+			t.Errorf("%s: izričito čuva P.1.1 = %v, očekivano %v", s.ime, got, s.izricito)
+		}
+		if s.u.CuvaIzricito(1, "P.1.2", sad) {
+			t.Errorf("%s: izričito čuva P.1.2", s.ime)
 		}
 	}
 }

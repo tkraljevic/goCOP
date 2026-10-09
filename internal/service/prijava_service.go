@@ -64,6 +64,12 @@ func (s *PrijavaService) SmijePisati(u *models.User) bool { return VodiDnevnik(u
 
 // SmijeVidjeti javlja smije li osoba čitati prijavu
 func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
+	return s.smijeVidjeti(perms, p, nil)
+}
+
+// smijeVidjeti je SmijeVidjeti uz pamćenje vodočuvara već pročitanih za
+// popis (nil ne pamti)
+func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*models.User) bool {
 	if perms == nil || p == nil {
 		return false
 	}
@@ -73,7 +79,7 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 	if p.Status == models.PrijavaNacrt {
 		return false
 	}
-	return s.vodocuvar.cita(perms, probniList(p), p)
+	return s.vodocuvar.cita(perms, probniList(p), p, poznati)
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
@@ -336,8 +342,9 @@ func (s *PrijavaService) List(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	out := sve[:0]
+	poznati := map[string]*models.User{}
 	for _, p := range sve {
-		if s.SmijeVidjeti(perms, &p) {
+		if s.smijeVidjeti(perms, &p, poznati) {
 			out = append(out, p)
 		}
 	}

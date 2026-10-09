@@ -359,11 +359,13 @@ func (d Duty) Dionice() []string {
 // pokrivaDionicu javlja pokriva li dužnost dionicu: dužnost bez upisanih
 // dionica pokriva cijeli svoj doseg, a s dionicama samo upisane
 func (d Duty) pokrivaDionicu(dionica string) bool {
-	sifre := d.Dionice()
-	if len(sifre) == 0 {
-		return true
-	}
-	for _, k := range sifre {
+	return len(d.Dionice()) == 0 || d.navodiDionicu(dionica)
+}
+
+// navodiDionicu javlja je li dionica među upisanima na dužnost, bez obzira
+// na velika slova
+func (d Duty) navodiDionicu(dionica string) bool {
+	for _, k := range d.Dionice() {
 		if strings.EqualFold(k, dionica) {
 			return true
 		}
@@ -376,11 +378,24 @@ func (d Duty) pokrivaDionicu(dionica string) bool {
 // području koje dionicu navodi, ili ne navodi nijednu dionicu pa pokriva
 // cijelo područje
 func (u *User) CuvaDionicu(areaID int, dionica string, sad time.Time) bool {
+	return u.cuva(areaID, sad, func(d Duty) bool { return d.pokrivaDionicu(dionica) })
+}
+
+// CuvaIzricito javlja čuva li osoba kao vodočuvar dionicu po valjanom
+// zaduženju na branjenom području koje tu dionicu izričito navodi;
+// zaduženje cijelog područja se ovdje ne broji
+func (u *User) CuvaIzricito(areaID int, dionica string, sad time.Time) bool {
+	return u.cuva(areaID, sad, func(d Duty) bool { return d.navodiDionicu(dionica) })
+}
+
+// cuva javlja ima li osoba valjano zaduženje vodočuvara na branjenom
+// području koje zadovoljava uvjet
+func (u *User) cuva(areaID int, sad time.Time, uvjet func(Duty) bool) bool {
 	if u == nil {
 		return false
 	}
 	for _, d := range u.Duties {
-		if d.Role == RoleWaterGuard && d.vrijedi(sad) && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica) {
+		if d.Role == RoleWaterGuard && d.vrijedi(sad) && d.naPodrucju(areaID) && uvjet(d) {
 			return true
 		}
 	}

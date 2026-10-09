@@ -21,7 +21,11 @@ package service
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
 //   - prijava je vezana uz njegovu dionicu kad je vodočuvar u njoj naveo tu
-//     dionicu (polje Dionica);
+//     dionicu (polje Dionica), ili kad u njoj nije naveo nijednu od dionica
+//     koje po zaduženju izričito čuva (polje je prazno, kao kod uvoza iz
+//     BP16, ili s dionicom izvan njegova zaduženja), a po valjanom zaduženju
+//     na području prijave izričito čuva njegovu dionicu. Prijava vodočuvara
+//     cijelog područja vezana je samo uz dionicu koju navodi;
 //   - obrana traje kad je na dionici iz ovjerenih akata proglašena redovna
 //     ili izvanredna obrana ili izvanredno stanje; pripremno stanje nije
 //     obrana.
@@ -59,8 +63,9 @@ func (s *VodocuvarService) SmijeZadati(ctx context.Context, perms *models.UserPe
 // cita javlja smije li osoba čitati list ili, kad je prijava zadana,
 // objavljenu prijavu vodočuvara s tim listom: vodočuvar svoje, oni koji
 // ovjeravaju, administracija i svaka dužnost u čijem je dosegu list, a
-// rukovoditelj dionice od prijava samo one vezane uz svoju dionicu
-func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena) bool {
+// rukovoditelj dionice od prijava samo one vezane uz svoju dionicu.
+// poznati pamti vodočuvare prijava već pročitane (popis prijava); nil ne pamti.
+func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena, poznati map[string]*models.User) bool {
 	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
@@ -69,7 +74,7 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 	}
 	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if duznostUDosegu(d, l, sad) && citaPrijavu(d, p) {
+		if duznostUDosegu(d, l, sad) && s.citaPrijavu(d, p, poznati, sad) {
 			return true
 		}
 	}
@@ -78,13 +83,53 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 
 // citaPrijavu: bez prijave (čita se list) ili za ulogu koja nije
 // rukovoditelj dionice nema ograničenja; rukovoditelj dionice čita prijavu
-// koja navodi jednu od njegovih dionica
-func citaPrijavu(d models.Duty, p *models.PrijavaSTerena) bool {
+// vezanu uz svoju dionicu
+func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*models.User, sad time.Time) bool {
 	if p == nil || d.Role.OvlastKnjige() != models.KnjigaDionica {
 		return true
 	}
-	for _, k := range sifreDionica(p.DionicaCode) {
-		if sadrziDionicu(d.Dionice(), k) {
+	return prijavaVezana(d, p, s.vodocuvarPrijave(p, poznati), sad)
+}
+
+// vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
+// zadan, pamti već pročitane, da popis prijava svakoga čita jednom
+func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati map[string]*models.User) *models.User {
+	if v, ima := poznati[p.UserID]; ima {
+		return v
+	}
+	v := s.vodocuvarLista(probniList(p), nil)
+	if poznati != nil {
+		poznati[p.UserID] = v
+	}
+	return v
+}
+
+// prijavaVezana javlja je li prijava vezana uz dionicu rukovoditelja dionice
+// s dužnošću d: navodi njegovu dionicu, ili ne navodi nijednu dionicu koju
+// njezin vodočuvar v izričito čuva, a v izričito čuva njegovu dionicu
+func prijavaVezana(d models.Duty, p *models.PrijavaSTerena, v *models.User, sad time.Time) bool {
+	moje, navedene := d.Dionice(), sifreDionica(p.DionicaCode)
+	if imaZajednicku(moje, navedene) {
+		return true
+	}
+	return !cuvaIjednu(v, p.AreaID, navedene, sad) && cuvaIjednu(v, p.AreaID, moje, sad)
+}
+
+// imaZajednicku javlja dijele li dva popisa šifri dionica ijednu
+func imaZajednicku(a, b []string) bool {
+	for _, k := range b {
+		if sadrziDionicu(a, k) {
+			return true
+		}
+	}
+	return false
+}
+
+// cuvaIjednu javlja čuva li vodočuvar na području po zaduženju koje je
+// izričito navodi ijednu od dionica
+func cuvaIjednu(v *models.User, areaID int, sifre []string, sad time.Time) bool {
+	for _, k := range sifre {
+		if v.CuvaIzricito(areaID, k, sad) {
 			return true
 		}
 	}

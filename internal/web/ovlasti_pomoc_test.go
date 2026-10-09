@@ -27,3 +27,19 @@ func TestPomocOpisujeOvlastiPoDosegu(t *testing.T) {
 		}
 	}
 }
+
+// Pomoć mora reći tko što smije u knjizi vodočuvara i s prijavama s terena
+// (Odluke (8. 10. 2026.), pitanje 1), i kad je prijava vezana uz dionicu
+// rukovoditelja dionice.
+func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, want := range []string{
+		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
+		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica",
+		"i onu vodočuvara kojemu je njegova dionica upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje pravilo %q", want)
+		}
+	}
+}
