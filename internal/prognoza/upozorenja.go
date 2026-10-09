@@ -289,11 +289,11 @@ func upozorenjaDnevnog(ishod *Ishod, pokriveno, ima map[string]bool) []Upozorenj
 }
 
 // razlogBezDnevne je greška dnevnog modela bez šifre cilja na početku, da se
-// ciljevi s istim razlogom skupe; bez greške model nije ni pokušao (nema
-// arhive, nema naučenog modela).
+// ciljevi s istim razlogom skupe; bez greške model nije ni pokušao, jer
+// naučenog modela nema (osvježavanje bez arhive).
 func razlogBezDnevne(letva string, err error) string {
 	if err == nil {
-		return "dnevni model nije računao"
+		return "nema naučenog dnevnog modela"
 	}
 	return strings.TrimPrefix(err.Error(), letva+": ")
 }

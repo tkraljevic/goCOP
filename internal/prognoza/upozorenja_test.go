@@ -244,10 +244,10 @@ func TestUpozorenjeSpajaKarikuIDnevni(t *testing.T) {
 	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada - 11, "donja": sada, "cetvrta": sada})
 	got := Upozori(ishod, lanacUpozorenja(), nizovi, nil)
 	want := []Upozorenje{
-		{Vrsta: VrstaDnevni, Tezina: TezinaUpozorenje, Opis: "dnevni model nije računao",
-			Upitno: []Upitno{{Letva: "sesta", OdSata: -1, Dnevno: true}}},
 		{Vrsta: VrstaDnevni, Tezina: TezinaUpozorenje, Opis: "nema arhive",
 			Upitno: []Upitno{{Letva: "daleko", OdSata: -1, Dnevno: true}, {Letva: "peta", OdSata: -1, Dnevno: true}}},
+		{Vrsta: VrstaDnevni, Tezina: TezinaUpozorenje, Opis: "nema naučenog dnevnog modela",
+			Upitno: []Upitno{{Letva: "sesta", OdSata: -1, Dnevno: true}}},
 		{Vrsta: VrstaDnevni, Tezina: TezinaUpozorenje, Opis: "nepotpuna zadnja četiri dana na [oborina Donji]",
 			Upitno: []Upitno{{Letva: "osma", OdSata: -1, Dnevno: true}}},
 		{Vrsta: VrstaUlaz, Tezina: TezinaUpozorenje, Letva: "srednja", Zadnje: sada - 11,
