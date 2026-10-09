@@ -396,10 +396,10 @@ func bezPrimatelja(prvi, drugi []models.AktPrimatelj) []models.AktPrimatelj {
 func otisakPrimatelja(popis []models.AktPrimatelj, upozorenja []string) string {
 	h := sha256.New()
 	for _, x := range popis {
-		fmt.Fprintf(h, "%s<%s>%s\n", x.Naziv, x.Email, x.Skupina)
+		_, _ = fmt.Fprintf(h, "%s<%s>%s\n", x.Naziv, x.Email, x.Skupina)
 	}
 	for _, u := range upozorenja {
-		fmt.Fprintf(h, "! %s\n", u)
+		_, _ = fmt.Fprintf(h, "! %s\n", u)
 	}
 	return hex.EncodeToString(h.Sum(nil)[:12])
 }
