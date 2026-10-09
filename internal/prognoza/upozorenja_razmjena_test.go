@@ -236,6 +236,17 @@ func TestDnevneIzdanjaNeUzimaStarije(t *testing.T) {
 	if izdano, d, err := ZadnjeDnevno(db); err != nil || izdano != sada-1 || len(d["donja"]) != 2 {
 		t.Errorf("ZadnjeDnevno: %d %+v, %v", izdano, d, err)
 	}
+	// pokvaren redak (vrijednost nije broj) javlja grešku, ne pola izdanja
+	if _, err := db.Exec(`INSERT INTO dnevne (letva, izdano, dan, ciljni, vrijednost, dolje, gore, model)
+		VALUES ('donja', ?, 1, ?, 'x', 0, 0, 'dnevni-1')`, sada+1, sada+25); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := DnevneIzdanja(db, sada+1); err == nil {
+		t.Error("pokvaren redak bez greške")
+	}
+	if _, _, err := ZadnjeDnevno(db); err == nil {
+		t.Error("ZadnjeDnevno: pokvaren redak bez greške")
+	}
 	db.Close()
 	if _, err := DnevneIzdanja(db, sada); err == nil {
 		t.Error("zatvorena baza bez greške")
