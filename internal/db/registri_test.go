@@ -2,6 +2,7 @@ package db
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -29,4 +30,46 @@ func registriIliPreskoci(t *testing.T) {
 		t.Fatal(porukaRegistara)
 	}
 	t.Skip(porukaRegistara)
+}
+
+// Provjere registara nalaze izvoz registara i imenik u mapi data/ iznad radne
+// mape testa i na njih usmjeravaju prvo punjenje. Bez izvoza javljaju da ga
+// nema i putanje ne diraju; imenik se traži samo uz registre.
+func TestTrazenjeStvarnihRegistara(t *testing.T) {
+	staraMapa, stariImenik := DataDir, ImenikPath
+	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
+	korijen := t.TempDir()
+	paket := filepath.Join(korijen, "internal", "db")
+	if err := os.MkdirAll(paket, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(paket)
+
+	if UseRepoData() || UseRepoImenik() {
+		t.Fatal("bez izvoza registara nađeni su registri ili imenik")
+	}
+	if DataDir != staraMapa || ImenikPath != stariImenik {
+		t.Fatalf("bez izvoza putanje su promijenjene: %s, %s", DataDir, ImenikPath)
+	}
+
+	mapa := filepath.Join(korijen, "data")
+	if err := os.MkdirAll(mapa, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mapa, "sections.json"), []byte("[]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if UseRepoImenik() {
+		t.Error("imenik nađen, a uz registre ga nema")
+	}
+	gore := filepath.Join("..", "..", "data")
+	if DataDir != gore || ImenikPath != filepath.Join(gore, "imenik.json") {
+		t.Errorf("putanje nisu na izvozu registara: %s, %s", DataDir, ImenikPath)
+	}
+	if err := os.WriteFile(filepath.Join(mapa, "imenik.json"), []byte("[]"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !UseRepoData() || !UseRepoImenik() {
+		t.Error("izvoz registara s imenikom nije nađen")
+	}
 }
