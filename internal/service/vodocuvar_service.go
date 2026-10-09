@@ -46,6 +46,10 @@ type VodocuvarService struct {
 	// rukovoditelj dionice zadaje zadatke samo dok na njegovoj dionici traje
 	// obrana. Bez njega (nil) obrana se ne pretpostavlja.
 	stanjeObrane func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)
+	// dionice je registar dionica: rukovoditelj dionice bez upisanih
+	// dionica vodi sve dionice područja (knjiga_ovlasti.go). Bez njega
+	// (nil) takvom rukovoditelju obrana se ne gleda ni na jednoj.
+	dionice *repository.SectionRepository
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena

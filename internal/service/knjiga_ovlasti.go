@@ -16,6 +16,11 @@ package service
 // čita svoju knjigu. Ovjera lista i rješavanje prijave ostaju onima koji
 // ovjeravaju (SmijeOvjeriti).
 //
+// Rukovoditelj dionice bez upisanih dionica vodi sve dionice svog
+// branjenog područja, kao i drugdje u programu (normalizeScope,
+// dioniceDosega): vezan mu je svaki list i svaka prijava područja, a obrana
+// za zadatak gleda se na dionicama područja iz registra koje vodočuvar čuva.
+//
 // Veza s dionicom rukovoditelja dionice:
 //   - list je vezan uz njegovu dionicu kad vodočuvar lista ima valjano
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
@@ -38,6 +43,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // radnjaUKnjizi je upis u tuđu knjigu vodočuvara
@@ -105,11 +111,12 @@ func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati ma
 }
 
 // prijavaVezana javlja je li prijava vezana uz dionicu rukovoditelja dionice
-// s dužnošću d: navodi njegovu dionicu, ili ne navodi nijednu dionicu koju
-// njezin vodočuvar v izričito čuva, a v izričito čuva njegovu dionicu
+// s dužnošću d: on vodi sve dionice područja, prijava navodi njegovu
+// dionicu, ili ne navodi nijednu dionicu koju njezin vodočuvar v izričito
+// čuva, a v izričito čuva njegovu dionicu
 func prijavaVezana(d models.Duty, p *models.PrijavaSTerena, v *models.User, sad time.Time) bool {
 	moje, navedene := d.Dionice(), sifreDionica(p.DionicaCode)
-	if imaZajednicku(moje, navedene) {
+	if len(moje) == 0 || imaZajednicku(moje, navedene) {
 		return true
 	}
 	return !cuvaIjednu(v, p.AreaID, navedene, sad) && cuvaIjednu(v, p.AreaID, moje, sad)
@@ -186,13 +193,24 @@ func (s *VodocuvarService) duznostSmije(ctx context.Context, d models.Duty, l *m
 	case models.KnjigaBiljeska:
 		return r == radnjaBiljeska
 	case models.KnjigaDionica:
-		dionice := dioniceVeze(d, s.vodocuvarLista(l, v), l.AreaID, time.Now())
-		if r == radnjaZadatak {
-			return s.obranaNaDionicama(ctx, l.Sektor, dionice)
-		}
-		return len(dionice) > 0
+		return s.dionicarSmije(ctx, d, l, v, r)
 	}
 	return false
+}
+
+// dionicarSmije: rukovoditelj dionice parafira i upisuje bilješku na list
+// vezan uz svoju dionicu (rukovoditelju svih dionica područja vezan je
+// svaki list područja), a zadatak zadaje samo dok na dionici koja veže list
+// traje obrana
+func (s *VodocuvarService) dionicarSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, v *models.User, r radnjaUKnjizi) bool {
+	if r != radnjaZadatak && len(d.Dionice()) == 0 {
+		return true
+	}
+	dionice := s.dioniceVeze(d, s.vodocuvarLista(l, v), l.AreaID, time.Now())
+	if r == radnjaZadatak {
+		return s.obranaNaDionicama(ctx, l.Sektor, dionice)
+	}
+	return len(dionice) > 0
 }
 
 // vodocuvarLista je vodočuvar čiji je list: zadan, ili pročitan po listu;
@@ -210,13 +228,40 @@ func (s *VodocuvarService) vodocuvarLista(l *models.VodocuvarskiList, v *models.
 }
 
 // dioniceVeze su dionice dužnosti rukovoditelja dionice koje na branjenom
-// području lista čuva vodočuvar lista
-func dioniceVeze(d models.Duty, v *models.User, areaID int, sad time.Time) []string {
+// području lista čuva vodočuvar lista; dužnost bez upisanih dionica vodi
+// sve dionice područja iz registra
+func (s *VodocuvarService) dioniceVeze(d models.Duty, v *models.User, areaID int, sad time.Time) []string {
+	moje := d.Dionice()
+	if len(moje) == 0 {
+		moje = s.dionicePodrucja(areaID)
+	}
 	var out []string
-	for _, k := range d.Dionice() {
+	for _, k := range moje {
 		if v.CuvaDionicu(areaID, k, sad) {
 			out = append(out, k)
 		}
+	}
+	return out
+}
+
+// SetDionice daje servisu registar dionica: rukovoditelj dionice bez
+// upisanih dionica vodi sve dionice svog područja, pa se obrana za njegove
+// zadatke gleda na njima
+func (s *VodocuvarService) SetDionice(r *repository.SectionRepository) { s.dionice = r }
+
+// dionicePodrucja su šifre dionica branjenog područja iz registra; bez
+// registra, bez područja ili uz grešku čitanja nijedna
+func (s *VodocuvarService) dionicePodrucja(areaID int) []string {
+	if s.dionice == nil || areaID <= 0 {
+		return nil
+	}
+	sve, err := s.dionice.ListSections("", areaID, "")
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(sve))
+	for _, x := range sve {
+		out = append(out, x.Code)
 	}
 	return out
 }

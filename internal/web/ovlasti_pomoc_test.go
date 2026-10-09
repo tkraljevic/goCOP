@@ -35,6 +35,7 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
 	for _, want := range []string{
 		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
+		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
 		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica",
 		"i onu vodočuvara kojemu je njegova dionica upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
 	} {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -37,6 +39,14 @@ func novaKnjigaProba(t *testing.T) *knjigaProba {
 	users := repository.NewUserRepository(o.baza, ledger.New(o.baza, "test"))
 	o.vs.users = NewUserService(users, nil, nil)
 	k := &knjigaProba{o: o, users: users, sektor: "P", p1: 1, p2: 2}
+	if _, err := o.baza.Exec(`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES
+		('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01'),
+		('P.1.2', 1, 'P', 'potok Prvi', '2026-01-01', '2026-01-01'),
+		('P.1.3', 1, 'P', 'kanal Prvi', '2026-01-01', '2026-01-01'),
+		('P.2.1', 2, 'P', 'potok Drugi', '2026-01-01', '2026-01-01')`); err != nil {
+		t.Fatal(err)
+	}
+	o.vs.SetDionice(repository.NewSectionRepository(o.baza, ledger.New(o.baza, "test")))
 	k.pero = k.vodocuvar(t, "pperic", "Pero Perić", "P.1.1")
 	k.ana = k.vodocuvar(t, "aanic", "Ana Anić", "")
 	sad := time.Now()
@@ -143,7 +153,7 @@ func TestKnjigaVodocuvaraPoOdlukama(t *testing.T) {
 		{"rukovoditelj dionice P.1.1", k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1"), sve, sve},
 		{"zamjenik rukovoditelja dionice P.1.1", k.dionicar(models.RoleSectionDeputy, &k.p1, "P.1.1"), sve, sve},
 		{"rukovoditelj dionice P.1.2", k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.2"), ocekivanjeKnjige{vidi: true}, sve},
-		{"rukovoditelj dionice bez upisanih dionica", k.dionicar(models.RoleSectionLeader, &k.p1, ""), ocekivanjeKnjige{vidi: true}, ocekivanjeKnjige{vidi: true}},
+		{"rukovoditelj dionice bez upisanih dionica", k.dionicar(models.RoleSectionLeader, &k.p1, ""), sve, sve},
 		{"rukovoditelj dionice drugog područja", k.dionicar(models.RoleSectionLeader, &k.p2, "P.2.1"), nista, nista},
 		{"vodočuvar istog područja", k.osoba(models.Duty{Role: models.RoleWaterGuard, ScopeType: models.ScopeArea, AreaID: &k.p1}), nista, nista},
 	}
@@ -209,6 +219,64 @@ func TestRukovoditeljDioniceZadajeUObrani(t *testing.T) {
 	}
 }
 
+// Rukovoditelj dionice bez upisanih dionica vodi sve dionice svog područja
+// (kao i drugdje u programu): parafira i upisuje bilješku na svaki list
+// područja, a zadatak zadaje dok obrana traje na dionici koju vodočuvar
+// lista čuva; vodočuvaru cijelog područja na bilo kojoj dionici područja iz
+// registra. Bez registra takvom rukovoditelju obrana se ne gleda nigdje.
+func TestRukovoditeljSvihDionicaPodrucja(t *testing.T) {
+	k := novaKnjigaProba(t)
+	ctx := context.Background()
+	cijelo := k.dionicar(models.RoleSectionLeader, &k.p1, "")
+	slucajevi := []struct {
+		naziv     string
+		stadiji   map[string]models.DefensePhase
+		pero, ana bool
+	}{
+		{"bez obrane", map[string]models.DefensePhase{}, false, false},
+		{"obrana na Perinoj dionici", map[string]models.DefensePhase{"P.1.1": models.PhaseRegular}, true, true},
+		{"obrana na dionici koju Pero ne čuva", map[string]models.DefensePhase{"P.1.3": models.PhaseEmergency}, false, true},
+		{"pripremno stanje", map[string]models.DefensePhase{"P.1.1": models.PhasePrep}, false, false},
+		{"obrana na drugom području", map[string]models.DefensePhase{"P.2.1": models.PhaseRegular}, false, false},
+	}
+	for _, s := range slucajevi {
+		k.obrana(s.stadiji)
+		if got := k.o.vs.SmijeZadati(ctx, cijelo, k.listPere); got != s.pero {
+			t.Errorf("%s: zadaje Peri %v, očekivano %v", s.naziv, got, s.pero)
+		}
+		if got := k.o.vs.SmijeZadati(ctx, cijelo, k.listAne); got != s.ana {
+			t.Errorf("%s: zadaje Ani %v, očekivano %v", s.naziv, got, s.ana)
+		}
+		if !k.o.vs.SmijeParafirati(cijelo, k.listPere) || !k.o.vs.SmijeUpisati(cijelo, k.listAne) {
+			t.Errorf("%s: parafa i bilješka ovise o obrani", s.naziv)
+		}
+	}
+	// registar: dionice područja; bez registra, bez područja ili uz grešku nijedna
+	if got := strings.Join(k.o.vs.dionicePodrucja(1), ", "); got != "P.1.1, P.1.2, P.1.3" {
+		t.Errorf("dionice područja 1: %s", got)
+	}
+	if got := k.o.vs.dionicePodrucja(0); len(got) != 0 {
+		t.Errorf("dionice bez područja: %v", got)
+	}
+	k.obrana(map[string]models.DefensePhase{"P.1.3": models.PhaseRegular})
+	k.o.vs.SetDionice(nil)
+	if k.o.vs.SmijeZadati(ctx, cijelo, k.listAne) || len(k.o.vs.dionicePodrucja(1)) != 0 {
+		t.Error("bez registra dionica rukovoditelj svih dionica zadaje zadatak")
+	}
+	if !k.o.vs.SmijeParafirati(cijelo, k.listAne) {
+		t.Error("bez registra dionica rukovoditelj svih dionica ne parafira")
+	}
+	zatvorena, err := db.OpenDB(filepath.Join(t.TempDir(), "zatvorena.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	zatvorena.Close()
+	k.o.vs.SetDionice(repository.NewSectionRepository(zatvorena, nil))
+	if got := k.o.vs.dionicePodrucja(1); len(got) != 0 {
+		t.Errorf("dionice uz grešku čitanja: %v", got)
+	}
+}
+
 // Prijave s terena: rukovoditelj dionice čita samo prijave koje navode
 // njegovu dionicu (bez obzira na velika slova i razmake, i kad ih je
 // navedeno više); dežurni operater sektora čita sve, poslovođa nijednu, a
@@ -271,6 +339,8 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	prijave := &PrijavaService{vodocuvar: k.o.vs}
 	prvi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1")
 	drugi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.2")
+	// rukovoditelj dionice bez upisanih dionica vodi sve dionice područja
+	cijelo := k.dionicar(models.RoleSectionLeader, &k.p1, "")
 	slucajevi := []struct {
 		naziv       string
 		vodocuvar   string
@@ -294,6 +364,13 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 		if got := prijave.SmijeVidjeti(drugi, p); got != s.drugi {
 			t.Errorf("%s: rukovoditelj dionice P.1.2 vidi %v, očekivano %v", s.naziv, got, s.drugi)
 		}
+		if !prijave.SmijeVidjeti(cijelo, p) {
+			t.Errorf("%s: rukovoditelj svih dionica područja ne vidi prijavu", s.naziv)
+		}
+	}
+	drugdje := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Sektor: "P", AreaID: 2, Status: models.PrijavaObjavljena}
+	if prijave.SmijeVidjeti(cijelo, drugdje) {
+		t.Error("rukovoditelj dionica područja 1 vidi prijavu područja 2")
 	}
 	// istekla dužnost vodočuvara ne veže njegove prijave uz dionicu
 	prosla := time.Now().Add(-time.Hour)
