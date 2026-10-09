@@ -307,11 +307,12 @@ func (h *PrijaveHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/prijave/"+p.ID, "success", poruka)
 }
 
-// ShowPrijava prikazuje prijavu
+// ShowPrijava prikazuje prijavu; tko ne gleda u dnevnike vodočuvara dobiva
+// isto objašnjenje kao na popisu
 func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	u, perms, d := h.base(r)
 	s := h.service(w)
-	if s == nil || u == nil {
+	if s == nil || u == nil || !h.vod.pristup(w, u) {
 		return
 	}
 	p, err := s.Get(r.Context(), perms, r.PathValue("id"))

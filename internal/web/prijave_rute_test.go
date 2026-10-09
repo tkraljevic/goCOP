@@ -283,8 +283,9 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if w := get(poslovodja, "/prijave"); w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "B-T-1") {
 		t.Errorf("poslovođa na popisu prijava: %d", w.Code)
 	}
-	if w := get(poslovodja, "/prijave/"+id); w.Code == http.StatusOK || strings.Contains(w.Body.String(), "Oštećena rampa") {
-		t.Errorf("poslovođa na objavljenoj prijavi: %d", w.Code)
+	// i pojedinačna prijava mu daje zabranu s objašnjenjem, kao popis
+	if w := get(poslovodja, "/prijave/"+id); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "izvođači dnevnike usluga") || strings.Contains(w.Body.String(), "Oštećena rampa") {
+		t.Errorf("poslovođa na objavljenoj prijavi: %d %.200s", w.Code, w.Body.String())
 	}
 	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar riješio")
