@@ -99,6 +99,56 @@ func TestIskljucenRacunTudjimOcimaSamoCita(t *testing.T) {
 	}
 }
 
+// Simulacija potpisnog ključa najavljuje se samo kad u pogledu tuđim očima
+// nastaju i upisi. Na isključenom računu (Odluke (8. 10. 2026.), pitanje 2) i
+// bez prekidača „Upisi tuđim očima” predaje ni ovjere nema, pa list i prijava
+// ne smiju obećati da se predajom potpisuje simuliranim ključem.
+func TestSimulacijaKljucaSamoUzUpiseTudjimOcima(t *testing.T) {
+	o := novaOkolinaPrijave(t)
+	uprava := o.osoba("uprava", "upravina-lozinka", "uprava@example.com", true)
+	ana := o.osoba("aanic", "anina-lozinka", "aanic@example.com", false)
+	rec := ledger.New(o.baza, "test")
+	akti := service.NewAktService(repository.NewAktiRepository(o.baza, rec), nil, nil, nil, nil, nil, nil, "test")
+	s := &Server{authService: o.auth, moduleService: service.NewModuleService(repository.NewModuleRepository(o.baza, rec)), akti: akti}
+	vod := &VodocuvarHandler{}
+	vod.SetOpcije(s.opcije)
+	potpisi := service.NewPotpisService(nil, nil, "test", nil, nil)
+	vod.SetPotpis(func() *service.PotpisService { return potpisi })
+	sesija, _, err := o.auth.Login("uprava", "upravina-lozinka", "192.168.1.50", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.auth.StartViewingAs(sesija.ID, o.ovlasti(uprava), ana.ID); err != nil {
+		t.Fatal(err)
+	}
+	simulacija := false
+	h := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		simulacija = vod.simulacijaKljuca(r)
+	}))
+
+	for _, p := range []struct {
+		opis       string
+		upisi      bool
+		aktivan    bool
+		simulacija bool
+	}{
+		{"aktivan račun uz uključene upise", true, true, true},
+		{"isključen račun uz uključene upise", true, false, false},
+		{"aktivan račun bez upisa tuđim očima", false, true, false},
+	} {
+		if err := akti.SpremiOpcije(context.Background(), o.ovlasti(uprava), models.Opcije{SimulacijaKljuca: true, UpisTudjimOcima: p.upisi}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := o.baza.Exec(`UPDATE users SET is_active = ? WHERE id = ?`, p.aktivan, ana.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		simulacija = !p.simulacija
+		if w := mwZahtjev(h, http.MethodGet, "/vodocuvar/dan", sesija.ID.String()); w.Code != http.StatusOK || simulacija != p.simulacija {
+			t.Errorf("%s: %d, simulacija ključa %v, očekivano %v", p.opis, w.Code, simulacija, p.simulacija)
+		}
+	}
+}
+
 // Traka pregleda kaže da je račun isključen i da se samo čita
 func TestTrakaPregledaIskljucenogRacuna(t *testing.T) {
 	predlosci, err := fs.Sub(web.Files, "templates")
