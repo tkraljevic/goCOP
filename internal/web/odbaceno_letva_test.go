@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -195,7 +196,7 @@ func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	for _, s := range []string{`id="ocitanja-raspon"`, "vodostaj od −500 do 3000 cm", "satno preuzimanje",
 		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50",
 		"putuje razmjenom", "starijom verzijom programa (0.0.34) raspon ne provjerava",
-		"Oznaku postavlja program; u obrascu letve se ne mijenja"} {
+		"Oznaku postavlja program; u obrascu letve se ne mijenja", "greška u zapisu", "ne poništava"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
 		}
@@ -205,5 +206,33 @@ func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	}
 	if strings.Contains(h, "na ostalima se ne vidi") {
 		t.Error("pomoć još kaže da se broj vidi samo na računalu koje je vrijednost odbacilo")
+	}
+}
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): odbačeno iz uvoza starih
+// evidencija (21500 umjesto 215 cm na crpnoj stanici) je greška u zapisu, a
+// ne kvar mjerila, i broj se ne poništava. Stranica zato ne tvrdi da je
+// mjerilo u kvaru, nego kaže oba uzroka i datum zadnje vrijednosti, po kojem
+// se vidi traje li to još.
+func TestOdbacenoIzStareEvidencijeNijeKvarMjerila(t *testing.T) {
+	kad := time.Date(1987, 5, 3, 7, 0, 0, 0, models.Zagreb)
+	html := iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "Pero Perić"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Structure:   &models.Structure{ID: uuid.New(), Name: "CS Probna"},
+		GaugeName:   "CS Probna",
+		Odbaceno: &models.SazetakOdbacenih{Broj: 1, Zadnja: models.OdbacenaVrijednost{
+			Kad: kad, Polje: models.PoljeVodostaj, Opis: "21500 cm", Izvor: models.ReadingOriginBP16}},
+	})
+	if !strings.Contains(html, "Odbačeno izvan raspona: 1, zadnje 21500 cm 3. 5. 1987. u 07 h (evidencija VGI Baranja)") {
+		t.Errorf("upozorenje ne navodi datum zadnje vrijednosti:\n%s", html)
+	}
+	if strings.Contains(html, "jer je to znak da je mjerilo vjerojatno u kvaru") {
+		t.Error("stranica tvrdi da je mjerilo u kvaru i za grešku u staroj evidenciji")
+	}
+	for _, s := range []string{"greška u zapisu", "mjerilo u kvaru", "datum zadnje"} {
+		if !strings.Contains(html, s) {
+			t.Errorf("stranica ne spominje %q", s)
+		}
 	}
 }

@@ -272,9 +272,10 @@ type ReadingHistoryData struct {
 	JavniUvoz        bool
 	JavniStanje      *javnivodostaji.StanjeLetve
 	// Odbaceno je koliko vrijednosti ove letve nije upisano jer su izvan
-	// raspona, i koja zadnja: jedino upozorenje da je mjerilo u kvaru
-	// (Odluke (8. 10. 2026.), pitanje 21). Broje se i one koje je odbacio
-	// čvor koji preuzima, jer zapis putuje razmjenom. Nil kad nijedna.
+	// raspona, i koja zadnja: jedino upozorenje da je mjerilo u kvaru ili
+	// zapis u staroj evidenciji pogrešan (Odluke (8. 10. 2026.), pitanje
+	// 21). Broje se i one koje je odbacio čvor koji preuzima, jer zapis
+	// putuje razmjenom. Nil kad nijedna.
 	Odbaceno *models.SazetakOdbacenih
 
 	SuccessMessage string
