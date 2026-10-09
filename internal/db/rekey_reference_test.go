@@ -138,13 +138,13 @@ func TestPrekodiranjeNeDiraZaduzenja(t *testing.T) {
 		t.Fatal(err)
 	}
 	const kad = "2026-09-19 17:19:21 +0000 UTC"
-	korisnik := StableID("user", "amatijevic").String()
+	korisnik := StableID("user", "mmarkic").String()
 	if _, err := baza.Exec(`INSERT INTO users (id, username, password_hash, full_name, org_type, created_at, updated_at)
-		VALUES (?, 'amatijevic', 'x', 'Proba', 'sektor', ?, ?)`, korisnik, kad, kad); err != nil {
+		VALUES (?, 'mmarkic', 'x', 'Proba', 'sektor', ?, ?)`, korisnik, kad, kad); err != nil {
 		t.Fatal(err)
 	}
-	prvo := StableID("duty", "amatijevic|0").String()
-	drugo := StableID("duty", "amatijevic|1").String()
+	prvo := StableID("duty", "mmarkic|0").String()
+	drugo := StableID("duty", "mmarkic|1").String()
 	const nasumicno = "01a0c822-3dcc-707d-ba40-ac2b338fb999"
 	// obrnutim redom: drugo pa prvo, kao na čvoru koji ih je primio razmjenom
 	for _, id := range []string{drugo, prvo, nasumicno} {
