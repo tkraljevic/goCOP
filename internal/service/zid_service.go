@@ -696,7 +696,10 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 // verzije nisu novi redak. Sve četiri vrste, a vrsta „Prijava” je
 // istaknuta. Nacrt i prijava prenesena iz ranije evidencije (BP16) ne idu
 // na zid. Redak nosi prijavu jer ga vidi samo tko smije čitati tu prijavu
-// (Odluke (8. 10. 2026.), pitanje 20).
+// (Odluke (8. 10. 2026.), pitanje 20). Kad je sažimanje knjige objavu i
+// rješenje ostavilo u istoj verziji, redak je rješenje, s vremenom te
+// verzije: redak objave (i isticanje vrste „Prijava”) se gubi, jer jedna
+// verzija daje jedan redak.
 func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
 	var p models.PrijavaSTerena
 	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Objavljena() || p.Rekonstrukcija {

@@ -314,3 +314,40 @@ func TestZidRjesenjeNosiVrstuPrijave(t *testing.T) {
 		t.Errorf("nepoznata vrsta: %q", got)
 	}
 }
+
+// Sažimanje knjige (Održavanje baze) briše starije verzije, a zid ima samo
+// ono što je u knjizi ostalo. Prijava kojoj je ostala samo verzija objave
+// zadržava redak objave. Prijavi kojoj su objava i rješenje sažeti u jednu
+// verziju ostaje samo redak rješenja, s vremenom te verzije: redak objave,
+// s isticanjem vrste „Prijava”, nestaje, jer jedna verzija daje jedan
+// redak (Odluke (8. 10. 2026.), pitanje 20).
+func TestZidPrijavaNakonSazimanjaKnjige(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+
+	z.nova(t, models.PrijavaObavijest, "Otpad u kanalu", 41)
+	pr := z.nova(t, models.PrijavaPrijava, "Procjeđivanje na nasipu", 42)
+	sad := time.Now()
+	pr.Status, pr.RijesioID, pr.Rijesio, pr.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+	z.spremi(t, pr)
+	pr.Urbroj = "2158-26-1"
+	z.spremi(t, pr)
+	if n, err := z.rec.Compact(z.ctx, time.Now().Add(time.Hour)); err != nil || n == 0 {
+		t.Fatalf("sažimanje: %d, %v", n, err)
+	}
+
+	dog := z.prijaveNaZidu(t, ana, FiltarZida{})
+	ocekivano := "Riješena prijava s terena|" + pr.Oznaka() + ": Procjeđivanje na nasipu|Ivo Ivić\n" +
+		"Obavijest s terena B-T-41/" + godina(sad) + "|Otpad u kanalu · Dunav|Marko Markić"
+	if got := naslovi(dog); got != ocekivano {
+		t.Fatalf("zid nakon sažimanja:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
+	zadnja, err := z.rec.Latest(z.ctx, repository.EntityPrijave, pr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if dog[0].VersionID != zadnja.VersionID || !dog[0].Kad.Equal(zadnja.CreatedAt) || dog[0].Vazno {
+		t.Errorf("rješenje nakon sažimanja: %+v, zadnja verzija %s u %v", dog[0], zadnja.VersionID, zadnja.CreatedAt)
+	}
+}
