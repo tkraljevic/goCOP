@@ -132,6 +132,22 @@ type PrijasnjeZaduzenje struct {
 // Isteklo javlja je li zaduženje prestalo istekom roka, a ne opozivom
 func (z PrijasnjeZaduzenje) Isteklo() bool { return z.IsActive && z.ExpiresAt != nil }
 
+// Prestalo je trenutak kad je zaduženje prestalo: istek za isteklo, a za
+// opozvano opoziv ili raniji istek; nil kad je opozvano, a vrijeme opoziva
+// se ne zna, ili kad zaduženje nije prestalo
+func (z PrijasnjeZaduzenje) Prestalo() *time.Time {
+	if z.IsActive {
+		return z.ExpiresAt
+	}
+	if z.OpozvanoAt == nil {
+		return nil
+	}
+	if z.ExpiresAt != nil && z.ExpiresAt.Before(*z.OpozvanoAt) {
+		return z.ExpiresAt
+	}
+	return z.OpozvanoAt
+}
+
 // User predstavlja matični korisnički račun djelatnika ili vanjskog suradnika
 type User struct {
 	ID                 uuid.UUID  `json:"id"`
@@ -373,33 +389,58 @@ func (d Duty) navodiDionicu(dionica string) bool {
 	return false
 }
 
-// CuvaDionicu javlja čuva li osoba kao vodočuvar dionicu na branjenom
-// području: ima valjano (aktivno i neisteklo) zaduženje vodočuvara na tom
-// području koje dionicu navodi, ili ne navodi nijednu dionicu pa pokriva
-// cijelo područje
-func (u *User) CuvaDionicu(areaID int, dionica string, sad time.Time) bool {
-	return u.cuva(areaID, sad, func(d Duty) bool { return d.pokrivaDionicu(dionica) })
+// CuvaDionicu javlja čuva li vodočuvar po ovom zaduženju dionicu na
+// branjenom području: zaduženje vodočuvara na tom području navodi dionicu,
+// ili ne navodi nijednu pa pokriva cijelo područje. Vrijeme se ovdje ne
+// gleda; koja zaduženja vrijede za koji dan daje ZaduzenjaZaDan.
+func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
+	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
 }
 
-// CuvaIzricito javlja čuva li osoba kao vodočuvar dionicu po valjanom
-// zaduženju na branjenom području koje tu dionicu izričito navodi;
-// zaduženje cijelog područja se ovdje ne broji
-func (u *User) CuvaIzricito(areaID int, dionica string, sad time.Time) bool {
-	return u.cuva(areaID, sad, func(d Duty) bool { return d.navodiDionicu(dionica) })
+// CuvaIzricito javlja čuva li vodočuvar po ovom zaduženju dionicu na
+// branjenom području tako da je zaduženje izričito navodi; zaduženje
+// cijelog područja se ovdje ne broji
+func (d Duty) CuvaIzricito(areaID int, dionica string) bool {
+	return d.cuvaPodrucje(areaID) && d.navodiDionicu(dionica)
 }
 
-// cuva javlja ima li osoba valjano zaduženje vodočuvara na branjenom
-// području koje zadovoljava uvjet
-func (u *User) cuva(areaID int, sad time.Time, uvjet func(Duty) bool) bool {
-	if u == nil {
-		return false
-	}
-	for _, d := range u.Duties {
-		if d.Role == RoleWaterGuard && d.vrijedi(sad) && d.naPodrucju(areaID) && uvjet(d) {
-			return true
+// cuvaPodrucje javlja je li ovo zaduženje vodočuvara na branjenom području
+func (d Duty) cuvaPodrucje(areaID int) bool {
+	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
+}
+
+// ZaduzenjaZaDan su zaduženja koja vrijede za zapis dana dan (dnevni list,
+// prijava s terena): ona valjana u trenutku sad, za bilo koji dan, i prošla
+// koja su prestala (istekom ili opozivom) tek tog dana ili poslije, pa
+// zapis iz vremena zaduženja ostaje vezan uz njega i kad zaduženje prestane.
+// Bez dana (nula) samo valjana u trenutku sad. Zaduženje iz sadasnja koje
+// više ne vrijedi gleda se kao prošlo.
+func ZaduzenjaZaDan(sadasnja []Duty, prosla []PrijasnjeZaduzenje, dan, sad time.Time) []Duty {
+	var out []Duty
+	var nevazeca []PrijasnjeZaduzenje
+	for _, d := range sadasnja {
+		if d.vrijedi(sad) {
+			out = append(out, d)
+		} else {
+			nevazeca = append(nevazeca, PrijasnjeZaduzenje{Duty: d})
 		}
 	}
-	return false
+	if dan.IsZero() {
+		return out
+	}
+	pocetak := pocetakDana(dan)
+	for _, z := range append(nevazeca, prosla...) {
+		if kraj := z.Prestalo(); kraj != nil && !kraj.Before(pocetak) {
+			out = append(out, z.Duty)
+		}
+	}
+	return out
+}
+
+// pocetakDana je ponoć dana t po hrvatskom vremenu
+func pocetakDana(t time.Time) time.Time {
+	g, m, d := t.In(Zagreb).Date()
+	return time.Date(g, m, d, 0, 0, 0, 0, Zagreb)
 }
 
 // naPodrucju javlja je li dužnost upisana na to branjeno područje

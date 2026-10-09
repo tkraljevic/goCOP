@@ -21,16 +21,21 @@ package service
 // dioniceDosega): vezan mu je svaki list i svaka prijava područja, a obrana
 // za zadatak gleda se na dionicama područja iz registra koje vodočuvar čuva.
 //
-// Veza s dionicom rukovoditelja dionice:
-//   - list je vezan uz njegovu dionicu kad vodočuvar lista ima valjano
+// Veza s dionicom rukovoditelja dionice gleda zaduženja vodočuvara koja
+// vrijede za dan lista ili prijave (models.ZaduzenjaZaDan): valjana sada i
+// prošla (istekla ili opozvana) koja su prestala tek tog dana ili poslije.
+// List i prijava iz vremena privremenog zaduženja tako ostaju vezani uz
+// dionicu i kad zaduženje istekne s krajem obrane. Zadatak gleda samo
+// zaduženja valjana sada.
+//   - list je vezan uz njegovu dionicu kad vodočuvar lista ima takvo
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
 //   - prijava je vezana uz njegovu dionicu kad je vodočuvar u njoj naveo tu
 //     dionicu (polje Dionica), ili kad u njoj nije naveo nijednu od dionica
-//     koje po zaduženju izričito čuva (polje je prazno, kao kod uvoza iz
-//     BP16, ili s dionicom izvan njegova zaduženja), a po valjanom zaduženju
-//     na području prijave izričito čuva njegovu dionicu. Prijava vodočuvara
-//     cijelog područja vezana je samo uz dionicu koju navodi;
+//     koje po takvom zaduženju izričito čuva (polje je prazno, kao kod uvoza
+//     iz BP16, ili s dionicom izvan njegova zaduženja), a po takvom
+//     zaduženju na području prijave izričito čuva njegovu dionicu. Prijava
+//     vodočuvara cijelog područja vezana je samo uz dionicu koju navodi;
 //   - obrana traje kad je na dionici iz ovjerenih akata proglašena redovna
 //     ili izvanredna obrana ili izvanredno stanje; pripremno stanje nije
 //     obrana.
@@ -66,12 +71,34 @@ func (s *VodocuvarService) SmijeZadati(ctx context.Context, perms *models.UserPe
 	return s.smijeRadnju(ctx, perms, l, nil, radnjaZadatak)
 }
 
+// cuvar je vodočuvar lista ili prijave s prošlim (isteklim i opozvanim)
+// zaduženjima, koja se čitaju tek kad zatrebaju, i to jednom
+type cuvar struct {
+	v         *models.User
+	prosla    []models.PrijasnjeZaduzenje
+	procitana bool
+}
+
+// zaduzenjaCuvara su zaduženja vodočuvara koja vrijede za list ili prijavu
+// dana dan (models.ZaduzenjaZaDan); bez dana samo valjana sada, pa se
+// prošla ni ne čitaju
+func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Duty {
+	if c == nil || c.v == nil {
+		return nil
+	}
+	if !dan.IsZero() && !c.procitana && s.users != nil {
+		c.prosla, _ = s.users.PastDuties(c.v.ID)
+		c.procitana = true
+	}
+	return models.ZaduzenjaZaDan(c.v.Duties, c.prosla, dan, time.Now())
+}
+
 // cita javlja smije li osoba čitati list ili, kad je prijava zadana,
 // objavljenu prijavu vodočuvara s tim listom: vodočuvar svoje, oni koji
 // ovjeravaju, administracija i svaka dužnost u čijem je dosegu list, a
 // rukovoditelj dionice od prijava samo one vezane uz svoju dionicu.
 // poznati pamti vodočuvare prijava već pročitane (popis prijava); nil ne pamti.
-func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena, poznati map[string]*models.User) bool {
+func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
@@ -80,7 +107,7 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 	}
 	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if duznostUDosegu(d, l, sad) && s.citaPrijavu(d, p, poznati, sad) {
+		if duznostUDosegu(d, l, sad) && s.citaPrijavu(d, p, poznati) {
 			return true
 		}
 	}
@@ -90,36 +117,37 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 // citaPrijavu: bez prijave (čita se list) ili za ulogu koja nije
 // rukovoditelj dionice nema ograničenja; rukovoditelj dionice čita prijavu
 // vezanu uz svoju dionicu
-func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*models.User, sad time.Time) bool {
+func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if p == nil || d.Role.OvlastKnjige() != models.KnjigaDionica {
 		return true
 	}
-	return prijavaVezana(d, p, s.vodocuvarPrijave(p, poznati), sad)
-}
-
-// vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
-// zadan, pamti već pročitane, da popis prijava svakoga čita jednom
-func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati map[string]*models.User) *models.User {
-	if v, ima := poznati[p.UserID]; ima {
-		return v
-	}
-	v := s.vodocuvarLista(probniList(p), nil)
-	if poznati != nil {
-		poznati[p.UserID] = v
-	}
-	return v
-}
-
-// prijavaVezana javlja je li prijava vezana uz dionicu rukovoditelja dionice
-// s dužnošću d: on vodi sve dionice područja, prijava navodi njegovu
-// dionicu, ili ne navodi nijednu dionicu koju njezin vodočuvar v izričito
-// čuva, a v izričito čuva njegovu dionicu
-func prijavaVezana(d models.Duty, p *models.PrijavaSTerena, v *models.User, sad time.Time) bool {
 	moje, navedene := d.Dionice(), sifreDionica(p.DionicaCode)
 	if len(moje) == 0 || imaZajednicku(moje, navedene) {
 		return true
 	}
-	return !cuvaIjednu(v, p.AreaID, navedene, sad) && cuvaIjednu(v, p.AreaID, moje, sad)
+	return prijavaVezana(moje, navedene, p.AreaID, s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum))
+}
+
+// vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
+// zadan, pamti već pročitane, da popis prijava svakoga (i njegova prošla
+// zaduženja) čita jednom
+func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati map[string]*cuvar) *cuvar {
+	if c, ima := poznati[p.UserID]; ima {
+		return c
+	}
+	c := &cuvar{v: s.vodocuvarLista(probniList(p), nil)}
+	if poznati != nil {
+		poznati[p.UserID] = c
+	}
+	return c
+}
+
+// prijavaVezana javlja je li prijava na području areaID koja navodi dionice
+// navedene vezana uz dionice moje rukovoditelja dionice, kad ih ne navodi:
+// ne navodi nijednu dionicu koju njezin vodočuvar po zaduženjima zad
+// izričito čuva, a on izričito čuva neku od njegovih
+func prijavaVezana(moje, navedene []string, areaID int, zad []models.Duty) bool {
+	return !cuvaIjednu(zad, areaID, navedene) && cuvaIjednu(zad, areaID, moje)
 }
 
 // imaZajednicku javlja dijele li dva popisa šifri dionica ijednu
@@ -132,12 +160,14 @@ func imaZajednicku(a, b []string) bool {
 	return false
 }
 
-// cuvaIjednu javlja čuva li vodočuvar na području po zaduženju koje je
-// izričito navodi ijednu od dionica
-func cuvaIjednu(v *models.User, areaID int, sifre []string, sad time.Time) bool {
-	for _, k := range sifre {
-		if v.CuvaIzricito(areaID, k, sad) {
-			return true
+// cuvaIjednu javlja čuva li vodočuvar na području po nekom od zaduženja zad
+// koje je izričito navodi ijednu od dionica
+func cuvaIjednu(zad []models.Duty, areaID int, sifre []string) bool {
+	for _, d := range zad {
+		for _, k := range sifre {
+			if d.CuvaIzricito(areaID, k) {
+				return true
+			}
 		}
 	}
 	return false
@@ -199,18 +229,18 @@ func (s *VodocuvarService) duznostSmije(ctx context.Context, d models.Duty, l *m
 }
 
 // dionicarSmije: rukovoditelj dionice parafira i upisuje bilješku na list
-// vezan uz svoju dionicu (rukovoditelju svih dionica područja vezan je
-// svaki list područja), a zadatak zadaje samo dok na dionici koja veže list
-// traje obrana
+// vezan uz svoju dionicu po zaduženjima vodočuvara za dan lista
+// (rukovoditelju svih dionica područja vezan je svaki list područja), a
+// zadatak zadaje samo dok na dionici koju vodočuvar sada čuva traje obrana
 func (s *VodocuvarService) dionicarSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, v *models.User, r radnjaUKnjizi) bool {
 	if r != radnjaZadatak && len(d.Dionice()) == 0 {
 		return true
 	}
-	dionice := s.dioniceVeze(d, s.vodocuvarLista(l, v), l.AreaID, time.Now())
+	c := &cuvar{v: s.vodocuvarLista(l, v)}
 	if r == radnjaZadatak {
-		return s.obranaNaDionicama(ctx, l.Sektor, dionice)
+		return s.obranaNaDionicama(ctx, l.Sektor, s.dioniceVeze(d, s.zaduzenjaCuvara(c, time.Time{}), l.AreaID))
 	}
-	return len(dionice) > 0
+	return len(s.dioniceVeze(d, s.zaduzenjaCuvara(c, l.Datum), l.AreaID)) > 0
 }
 
 // vodocuvarLista je vodočuvar čiji je list: zadan, ili pročitan po listu;
@@ -228,20 +258,31 @@ func (s *VodocuvarService) vodocuvarLista(l *models.VodocuvarskiList, v *models.
 }
 
 // dioniceVeze su dionice dužnosti rukovoditelja dionice koje na branjenom
-// području lista čuva vodočuvar lista; dužnost bez upisanih dionica vodi
-// sve dionice područja iz registra
-func (s *VodocuvarService) dioniceVeze(d models.Duty, v *models.User, areaID int, sad time.Time) []string {
+// području lista vodočuvar čuva po nekom od zaduženja zad; dužnost bez
+// upisanih dionica vodi sve dionice područja iz registra
+func (s *VodocuvarService) dioniceVeze(d models.Duty, zad []models.Duty, areaID int) []string {
 	moje := d.Dionice()
 	if len(moje) == 0 {
 		moje = s.dionicePodrucja(areaID)
 	}
 	var out []string
 	for _, k := range moje {
-		if v.CuvaDionicu(areaID, k, sad) {
+		if cuvaDionicu(zad, areaID, k) {
 			out = append(out, k)
 		}
 	}
 	return out
+}
+
+// cuvaDionicu javlja čuva li vodočuvar dionicu na području po nekom od
+// zaduženja zad
+func cuvaDionicu(zad []models.Duty, areaID int, dionica string) bool {
+	for _, d := range zad {
+		if d.CuvaDionicu(areaID, dionica) {
+			return true
+		}
+	}
+	return false
 }
 
 // SetDionice daje servisu registar dionica: rukovoditelj dionice bez

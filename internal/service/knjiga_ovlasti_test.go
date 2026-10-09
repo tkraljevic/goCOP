@@ -388,11 +388,17 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	if prijave.SmijeVidjeti(cijelo, drugdje) {
 		t.Error("rukovoditelj dionica područja 1 vidi prijavu područja 2")
 	}
-	// istekla dužnost vodočuvara ne veže njegove prijave uz dionicu
-	prosla := time.Now().Add(-time.Hour)
-	bivsi := &models.User{ID: uuid.New(), Duties: []models.Duty{{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla}}}
-	if prijavaVezana(models.Duty{SectionCodes: "P.1.1"}, &models.PrijavaSTerena{AreaID: 1}, bivsi, time.Now()) {
-		t.Error("prijava vodočuvara s isteklom dužnošću vezana je uz dionicu")
+	// dužnost vodočuvara koja je prestala prije dana prijave ne veže prijavu
+	// uz dionicu; ona koja je tada vrijedila veže (Odluke (8. 10. 2026.),
+	// pitanje 1; TestVezaSDionicomPoZaduzenjuNaDanLista)
+	sad := time.Date(2026, 10, 10, 12, 0, 0, 0, models.Zagreb)
+	prosla := sad.Add(-time.Hour)
+	bivsi := []models.Duty{{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla}}
+	if prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaZaDan(bivsi, nil, sad.AddDate(0, 0, 1), sad)) {
+		t.Error("prijava nakon prestanka dužnosti vodočuvara vezana je uz dionicu")
+	}
+	if !prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaZaDan(bivsi, nil, sad, sad)) {
+		t.Error("prijava s dana dok je dužnost vrijedila nije vezana uz dionicu")
 	}
 }
 
@@ -499,16 +505,17 @@ func TestVodocuvarLista(t *testing.T) {
 	}
 	// vodočuvar prijave: popis ga pamti i drugi put ne čita
 	p := &models.PrijavaSTerena{UserID: k.pero.ID.String()}
-	poznati := map[string]*models.User{}
-	if v := vs.vodocuvarPrijave(p, poznati); v == nil || v.ID != k.pero.ID || poznati[p.UserID] != v {
-		t.Errorf("vodočuvar prijave: %+v, zapamćen %+v", v, poznati[p.UserID])
+	poznati := map[string]*cuvar{}
+	if c := vs.vodocuvarPrijave(p, poznati); c.v == nil || c.v.ID != k.pero.ID || poznati[p.UserID] != c {
+		t.Errorf("vodočuvar prijave: %+v, zapamćen %+v", c, poznati[p.UserID])
 	}
-	poznati[p.UserID] = k.ana
-	if v := vs.vodocuvarPrijave(p, poznati); v != k.ana {
+	ana := &cuvar{v: k.ana}
+	poznati[p.UserID] = ana
+	if c := vs.vodocuvarPrijave(p, poznati); c != ana {
 		t.Error("zapamćeni vodočuvar prijave čita se ponovno")
 	}
-	if v := vs.vodocuvarPrijave(p, nil); v == nil || v.ID != k.pero.ID {
-		t.Errorf("vodočuvar prijave bez pamćenja: %+v", v)
+	if c := vs.vodocuvarPrijave(p, nil); c.v == nil || c.v.ID != k.pero.ID {
+		t.Errorf("vodočuvar prijave bez pamćenja: %+v", c)
 	}
 	if v := (&VodocuvarService{}).vodocuvarLista(k.listPere, nil); v != nil {
 		t.Errorf("bez korisnika: %+v", v)

@@ -69,7 +69,7 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 
 // smijeVidjeti je SmijeVidjeti uz pamćenje vodočuvara već pročitanih za
 // popis (nil ne pamti)
-func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*models.User) bool {
+func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || p == nil {
 		return false
 	}
@@ -356,7 +356,7 @@ func (s *PrijavaService) List(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	out := sve[:0]
-	poznati := map[string]*models.User{}
+	poznati := map[string]*cuvar{}
 	for _, p := range sve {
 		if s.smijeVidjeti(perms, &p, poznati) {
 			out = append(out, p)

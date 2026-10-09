@@ -742,6 +742,8 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	if probni == nil {
 		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
 	}
+	// veza s dionicom gleda se za dan bilješke, kao na listu tog dana
+	probni.Datum = dan
 	if !s.smijeRadnju(ctx, perms, probni, v, radnjaBiljeska) {
 		return nil, ErrUnauthorized
 	}
