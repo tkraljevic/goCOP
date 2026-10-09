@@ -740,23 +740,54 @@ func (c *opisivac) verzijePrijave(id string) (objava, rjesenje string) {
 }
 
 // dogadjajiPrijave nalazi u povijesti prijave (najnovija verzija prva)
-// verziju objave i verziju rješenja: najstariju objavljenu i najstariju
-// riješenu. Kad je starija povijest sažeta, događaj nosi najstarija
-// verzija koja je ostala.
+// verziju objave i verziju rješenja: verziju u kojoj je prijava postala
+// objavljena, odnosno riješena (prijelazPrijave)
 func dogadjajiPrijave(povijest []ledger.Version) (objava, rjesenje string) {
+	if len(povijest) == 0 {
+		return "", ""
+	}
+	verzije := make(map[string]*models.PrijavaSTerena, len(povijest))
 	for _, v := range povijest {
 		var p models.PrijavaSTerena
-		if v.Archived || json.Unmarshal(v.Payload, &p) != nil {
+		if json.Unmarshal(v.Payload, &p) == nil {
+			verzije[v.VersionID] = &p
+		} else {
+			verzije[v.VersionID] = nil
+		}
+	}
+	najstarija := povijest[len(povijest)-1].VersionID
+	for _, v := range povijest {
+		if v.Archived || verzije[v.VersionID] == nil {
 			continue
 		}
-		if p.Objavljena() {
+		if prijelazPrijave(v, models.PrijavaSTerena.Objavljena, verzije, najstarija) {
 			objava = v.VersionID
 		}
-		if p.Rijesena() {
+		if prijelazPrijave(v, models.PrijavaSTerena.Rijesena, verzije, najstarija) {
 			rjesenje = v.VersionID
 		}
 	}
 	return objava, rjesenje
+}
+
+// prijelazPrijave javlja je li stanje prijave nastupilo u verziji v: u v
+// vrijedi, a u verziji koju je v zamijenila nije. Kad te verzije u
+// povijesti nema, prijelaz nosi v samo ako je najstarija verzija koja je
+// ostala (povijest sažeta od početka). Inače je nedostajuća verzija
+// obrisana s oglasne ploče, a s njom i događaj, pa ga kasnija verzija ne
+// smije ponoviti s kasnijim vremenom.
+func prijelazPrijave(v ledger.Version, stanje func(models.PrijavaSTerena) bool, verzije map[string]*models.PrijavaSTerena, najstarija string) bool {
+	if !stanje(*verzije[v.VersionID]) {
+		return false
+	}
+	if v.Supersedes == "" {
+		return true
+	}
+	prethodna, ima := verzije[v.Supersedes]
+	if !ima {
+		return v.VersionID == najstarija
+	}
+	return prethodna == nil || !stanje(*prethodna)
 }
 
 // prijenosIzDrugogSektora: ulaz prijenosa iz skladišta drugog sektora na

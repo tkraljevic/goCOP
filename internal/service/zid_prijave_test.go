@@ -189,36 +189,100 @@ func TestZidPrijaveSTerena(t *testing.T) {
 
 func godina(t time.Time) string { return t.In(models.Zagreb).Format("2006") }
 
-// Redak objave i redak rješenja određuje povijest prijave: prva verzija
-// koja je objavljena i prva koja je riješena. Kad je starija povijest
-// sažeta, događaj nosi najstarija verzija koja je ostala.
+// Redak objave i redak rješenja određuje povijest prijave: verzija u kojoj
+// je prijava postala objavljena, odnosno riješena, prema verziji koju je
+// zamijenila. Kad je starija povijest sažeta, događaj nosi najstarija
+// verzija koja je ostala; kad je verzija s događajem obrisana s oglasne
+// ploče (iza nje ostaju starije verzije), događaja više nema.
 func TestDogadjajiPrijave(t *testing.T) {
-	v := func(id, payload string, arhivirana bool) ledger.Version {
-		return ledger.Version{VersionID: id, Entity: repository.EntityPrijave, Payload: []byte(payload), Archived: arhivirana}
+	v := func(id, prethodna, payload string, arhivirana bool) ledger.Version {
+		return ledger.Version{VersionID: id, Supersedes: prethodna, Entity: repository.EntityPrijave, Payload: []byte(payload), Archived: arhivirana}
 	}
 	objavljeno := `"objavljeno_at":"2026-10-08T08:00:00Z"`
+	nacrt := v("1", "", `{"status":"NACRT"}`, false)
 	for _, k := range []struct {
 		ime              string
 		povijest         []ledger.Version // najnovija prva, kao rec.History
 		objava, rjesenje string
 	}{
-		{"nacrt", []ledger.Version{v("1", `{"status":"NACRT"}`, false)}, "", ""},
+		{"prazna povijest", nil, "", ""},
+		{"nacrt", []ledger.Version{nacrt}, "", ""},
 		{"objava i urudžba", []ledger.Version{
-			v("3", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
-			v("2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
-			v("1", `{"status":"NACRT"}`, false)}, "2", ""},
+			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
+			nacrt}, "2", ""},
 		{"rješenje pa urudžba", []ledger.Version{
-			v("4", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, false),
-			v("3", `{"status":"RIJESENA",`+objavljeno+`}`, false),
-			v("2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "2", "3"},
-		{"sažeta povijest", []ledger.Version{v("9", `{"status":"RIJESENA",`+objavljeno+`}`, false)}, "9", "9"},
+			v("4", "3", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, false),
+			v("3", "2", `{"status":"RIJESENA",`+objavljeno+`}`, false),
+			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
+			nacrt}, "2", "3"},
+		{"objavljena već u prvoj verziji", []ledger.Version{
+			v("2", "1", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			v("1", "", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "1", ""},
+		{"sažeta povijest", []ledger.Version{v("9", "8", `{"status":"RIJESENA",`+objavljeno+`}`, false)}, "9", "9"},
+		{"sažeta povijest, poslije urudžba", []ledger.Version{
+			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "2", ""},
+		{"objava obrisana s ploče", []ledger.Version{
+			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			nacrt}, "", ""},
+		{"rješenje obrisano s ploče", []ledger.Version{
+			v("5", "4", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, false),
+			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
+			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
+			nacrt}, "2", ""},
+		{"prethodnica se ne može pročitati", []ledger.Version{
+			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false),
+			v("1", "", `nije json`, false)}, "2", ""},
 		{"arhivirana i neispravna verzija se preskaču", []ledger.Version{
-			v("3", `{"status":"OBJAVLJENA",`+objavljeno+`}`, true),
-			v("2", `nije json`, false)}, "", ""},
+			v("3", "2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, true),
+			v("2", "", `nije json`, false)}, "", ""},
 	} {
 		objava, rjesenje := dogadjajiPrijave(k.povijest)
 		if objava != k.objava || rjesenje != k.rjesenje {
 			t.Errorf("%s: objava %q, rješenje %q; očekivano %q, %q", k.ime, objava, rjesenje, k.objava, k.rjesenje)
 		}
+	}
+}
+
+// Redak prijave obrisan s oglasne ploče ostaje obrisan: brisanje uklanja
+// verziju s događajem, pa urudžba ili kasnija verzija ne smiju postati novi
+// redak objave ili rješenja s kasnijim vremenom.
+func TestZidObrisanRedakPrijaveNeVracaSe(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	redak := func(naslov string) Dogadjaj {
+		t.Helper()
+		for _, d := range z.prijaveNaZidu(t, ana, FiltarZida{}) {
+			if strings.HasPrefix(d.Naslov, naslov) {
+				return d
+			}
+		}
+		t.Fatalf("na zidu nema retka %q:\n%s", naslov, naslovi(z.prijaveNaZidu(t, ana, FiltarZida{})))
+		return Dogadjaj{}
+	}
+
+	pr := z.nova(t, models.PrijavaPrijava, "Procjeđivanje na nasipu", 42)
+	pr.Klasa = "325-01/26-01/1"
+	z.spremi(t, pr)
+	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, redak("Prijava s terena").VersionID); err != nil {
+		t.Fatal(err)
+	}
+	if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
+		t.Fatalf("obrisana objava se vratila na zid:\n%s", naslovi(dog))
+	}
+
+	// rješenje pa urbroj: obrisano rješenje se ne vraća s vremenom urbroja
+	sad := time.Now()
+	pr.Status, pr.RijesioID, pr.Rijesio, pr.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+	z.spremi(t, pr)
+	pr.Urbroj = "2158-26-1"
+	z.spremi(t, pr)
+	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, redak("Riješena").VersionID); err != nil {
+		t.Fatal(err)
+	}
+	if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
+		t.Fatalf("obrisano rješenje se vratilo na zid:\n%s", naslovi(dog))
 	}
 }
