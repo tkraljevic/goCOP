@@ -31,6 +31,9 @@ type zalihaDnevnih struct {
 	sat    int64                     // sat zadnjeg učenja: neuspjelo se ponavlja tek idući sat
 	modeli map[string][]*DnevniModel // po letvi: glavni pa rezerve; nil gdje učenje nije prošlo
 	greske map[string]error          // letve kojima se nijedna inačica nije dala naučiti
+	// javljeno je dan i greška čitanja kiše koja je zadnja otišla u
+	// dnevnik: učenje se ponavlja svaki sat, a ista greška ide jednom na dan.
+	javljeno string
 }
 
 var dnevniModeli zalihaDnevnih
@@ -57,7 +60,19 @@ func (z *zalihaDnevnih) osvjezi(arhiva *sql.DB, oborine *OborinskiIzvor, sada ti
 		return
 	}
 	z.sat = sat
-	z.modeli, z.greske = nauciDnevne(arhiva, oborine, z.modeli)
+	u := &ucenjeDnevnih{arhiva: arhiva, oborine: oborine}
+	z.modeli, z.greske = u.nauci(z.modeli)
+	z.javi(u.greskaKise)
+}
+
+// javi zapisuje u dnevnik grešku čitanja kiše iz arhive, istu jednom na dan:
+// dok se arhiva ne da pročitati, učenje se ponavlja svaki sat.
+func (z *zalihaDnevnih) javi(err error) {
+	if err == nil || z.javljeno == z.dan+" "+err.Error() {
+		return
+	}
+	z.javljeno = z.dan + " " + err.Error()
+	log.Printf("dnevni model: oborina iz arhive: %v", err)
 }
 
 // danUcenja je zagrebački dan, kakav god bio sat računala: dnevni nizovi
@@ -91,11 +106,10 @@ func imaKisomjera(oborine *OborinskiIzvor) bool {
 	return oborine != nil && len(oborine.Tocke) > 0
 }
 
-// nauciDnevne uči inačice dnevnih ciljeva kojih u staro nema; naučene iz
-// staro ostaju kakve jesu. Mape i popisi su novi, jer stare još čita tko ih
-// je dobio prošli put.
-func nauciDnevne(arhiva *sql.DB, oborine *OborinskiIzvor, staro map[string][]*DnevniModel) (map[string][]*DnevniModel, map[string]error) {
-	u := &ucenjeDnevnih{arhiva: arhiva, oborine: oborine}
+// nauci uči inačice dnevnih ciljeva kojih u staro nema; naučene iz staro
+// ostaju kakve jesu. Mape i popisi su novi, jer stare još čita tko ih je
+// dobio prošli put.
+func (u *ucenjeDnevnih) nauci(staro map[string][]*DnevniModel) (map[string][]*DnevniModel, map[string]error) {
 	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
 	for _, c := range DnevniCiljevi {
 		in, err := u.inacice(c, staro[c.Letva])
@@ -110,9 +124,10 @@ func nauciDnevne(arhiva *sql.DB, oborine *OborinskiIzvor, staro map[string][]*Dn
 // ucenjeDnevnih je jedno učenje: dnevni nizovi čitaju se iz arhive jednom, i
 // tek kad ih neka inačica treba.
 type ucenjeDnevnih struct {
-	arhiva  *sql.DB
-	oborine *OborinskiIzvor
-	nizovi  map[string]DnevniNiz // nil dok ništa nije pročitano
+	arhiva     *sql.DB
+	oborine    *OborinskiIzvor
+	nizovi     map[string]DnevniNiz // nil dok ništa nije pročitano
+	greskaKise error                // kiša se nije dala pročitati iz arhive
 }
 
 // inacice uči inačice cilja c kojih u staro nema. Greška je greška prve
@@ -158,7 +173,7 @@ func (u *ucenjeDnevnih) inacica(cilj DnevniCilj, staro []*DnevniModel, i int) (*
 // srednjaci njegovih letvi.
 func (u *ucenjeDnevnih) ulazi(cilj DnevniCilj) (map[string]DnevniNiz, error) {
 	if u.nizovi == nil {
-		u.nizovi = oborineZaUcenje(u.arhiva, u.oborine)
+		u.nizovi, u.greskaKise = oborineZaUcenje(u.arhiva, u.oborine)
 	}
 	for _, l := range cilj.letve() {
 		if _, ima := u.nizovi[l]; ima {
@@ -175,18 +190,17 @@ func (u *ucenjeDnevnih) ulazi(cilj DnevniCilj) (map[string]DnevniNiz, error) {
 
 // oborineZaUcenje je dnevna oborina po međuslivovima iz arhive. Bez
 // kišomjera prazna je, a inačice s kišom se ni ne uče; kad se ne da
-// pročitati, također je prazna, a inačice s kišom pokušavaju se opet idući
-// sat.
-func oborineZaUcenje(arhiva *sql.DB, oborine *OborinskiIzvor) map[string]DnevniNiz {
+// pročitati, također je prazna, uz grešku, a inačice s kišom pokušavaju se
+// opet idući sat.
+func oborineZaUcenje(arhiva *sql.DB, oborine *OborinskiIzvor) (map[string]DnevniNiz, error) {
 	if !imaKisomjera(oborine) {
-		return map[string]DnevniNiz{}
+		return map[string]DnevniNiz{}, nil
 	}
 	ob, err := DnevneOborine(arhiva, oborine.Tocke)
 	if err != nil {
-		log.Printf("dnevni model: oborina iz arhive: %v", err)
-		return map[string]DnevniNiz{}
+		return map[string]DnevniNiz{}, err
 	}
-	return ob
+	return ob, nil
 }
 
 // zigArhive je otisak datoteke arhive: veličina i vrijeme izmjene baze i

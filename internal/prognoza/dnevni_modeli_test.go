@@ -3,6 +3,7 @@ package prognoza
 import (
 	"context"
 	"database/sql"
+	"log"
 	"math"
 	"path/filepath"
 	"strings"
@@ -248,6 +249,46 @@ func TestInacicaSKisomBezKisomjeraSeNePokusava(t *testing.T) {
 	}
 }
 
+// Kad se arhiva ne da pročitati (npr. nov čvor prije nego arhiva stigne),
+// učenje pada i ponavlja se svaki sat, ali greška čitanja kiše u dnevnik ide
+// jednom na dan, kao i prije, kad se učilo jednom na dan; nova greška ide
+// odmah.
+func TestGreskaKiseUDnevnikJednomNaDan(t *testing.T) {
+	ocistiDnevneModele(t)
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "cilj", Ulazi: []string{"ulaz"}, Slivovi: []string{"X"}}})
+	var dnevnik strings.Builder
+	izlaz, zastavice := log.Writer(), log.Flags()
+	log.SetOutput(&dnevnik)
+	log.SetFlags(0)
+	t.Cleanup(func() { log.SetOutput(izlaz); log.SetFlags(zastavice) })
+	arhiva, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "nema", "arhiva.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arhiva.Close()
+	o := &Osvjezivac{Arhiva: arhiva, Oborine: &OborinskiIzvor{Tocke: []OborinskaTocka{{Code: "kisomjer-x", Sliv: "X", Tezina: 1}}}}
+	redaka := func() int { return strings.Count(dnevnik.String(), "dnevni model: oborina iz arhive") }
+
+	sat := time.Date(2026, 10, 9, 10, 5, 0, 0, time.UTC)
+	for h := 0; h < 4; h++ {
+		uSat(t, sat.Add(time.Duration(h)*time.Hour))
+		if _, greske := o.dnevniModeliZaDanas(); greske["cilj"] == nil {
+			t.Fatalf("%d. sat: arhiva se ne da pročitati, a cilj je naučen", h)
+		}
+	}
+	if n := redaka(); n != 1 {
+		t.Errorf("četiri sata iste greške: %d redaka u dnevniku, želim 1\n%s", n, dnevnik.String())
+	}
+	// Novi zagrebački dan: greška se javlja opet, jednom.
+	uSat(t, time.Date(2026, 10, 9, 22, 30, 0, 0, time.UTC))
+	o.dnevniModeliZaDanas()
+	uSat(t, time.Date(2026, 10, 9, 23, 30, 0, 0, time.UTC))
+	o.dnevniModeliZaDanas()
+	if n := redaka(); n != 2 {
+		t.Errorf("novi dan: %d redaka u dnevniku, želim 2\n%s", n, dnevnik.String())
+	}
+}
+
 // Letva koju dnevni model računa iz rezerve ne stoji u BezDnevne, iako se
 // glavni model nije dao naučiti. Dosad je greška učenja glavnog ulazila u
 // BezDnevne prije računa i ostajala i kad je rezerva dala prognozu. Letva
@@ -380,8 +421,8 @@ func TestNedostajeInacica(t *testing.T) {
 // Kišomjeri koji se ne daju pročitati iz arhive ne ruše učenje: inačica s
 // kišom ne uči, ona bez kiše uči.
 func TestOborineZaUcenjeBezArhiveKise(t *testing.T) {
-	if n := oborineZaUcenje(nil, nil); len(n) != 0 {
-		t.Errorf("bez kišomjera: %v", n)
+	if n, err := oborineZaUcenje(nil, nil); len(n) != 0 || err != nil {
+		t.Errorf("bez kišomjera: %v, %v", n, err)
 	}
 	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "prazna.db"))
 	if err != nil {
@@ -389,8 +430,8 @@ func TestOborineZaUcenjeBezArhiveKise(t *testing.T) {
 	}
 	defer db.Close()
 	ob := &OborinskiIzvor{Tocke: []OborinskaTocka{{Code: "kisomjer-x", Sliv: "X", Tezina: 1}}}
-	if n := oborineZaUcenje(db, ob); n == nil || len(n) != 0 {
-		t.Errorf("arhiva bez tablice: %v", n)
+	if n, err := oborineZaUcenje(db, ob); n == nil || len(n) != 0 || err == nil {
+		t.Errorf("arhiva bez tablice: %v, %v", n, err)
 	}
 	// Letva koja se ne da pročitati (arhiva bez tablice spoj) je greška inačice.
 	u := &ucenjeDnevnih{arhiva: db}
