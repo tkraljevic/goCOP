@@ -2,8 +2,11 @@ package javnivodostaji
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"net/http"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -22,42 +25,63 @@ const tablicaZaglavljena = `<table><tr><th scope="col">DATUM</th><th scope="col"
 <tr> <td>18.09.2026.</td> <td>09:00 h</td> <td>-121 cm</td> <td><div class="blue">0</div></td> </tr>
 </table>`
 
-// Odluke (8. 10. 2026.), pitanje 21: satno preuzimanje ne upisuje vrijednost
-// izvan raspona ručnog upisa. Odbačeno se broji u stanju preuzimanja i
-// bilježi za stranicu letve, a sljedeći krug isti prozor ne broji dvaput.
-func TestPreuzimanjeOdbacujeVrijednostiIzvanRaspona(t *testing.T) {
+// preuzimanjeUBazu je uvoznik nad pravom bazom čvora, s letvom čija
+// telemetrija javlja zaglavljeno mjerilo
+type preuzimanjeUBazu struct {
+	baza     *sql.DB
+	ocitanja *repository.ReadingRepository
+	u        *Uvoznik
+	st       *models.Station
+}
+
+func novoPreuzimanjeUBazu(t *testing.T) *preuzimanjeUBazu {
+	t.Helper()
 	db.UseRepoImenik()
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "preuzimanje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer baza.Close()
+	t.Cleanup(func() { baza.Close() })
 	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	rec := ledger.New(baza, "cvor-p")
-	ctx := context.Background()
 	st := &models.Station{ID: uuid.New(), Name: "Pivnica Probna", Code: "pivnica-probna",
 		JavniURL: "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424", JavniUvoz: true}
-	if err := repository.NewStationRepository(baza, rec).CreateStation(ctx, st); err != nil {
+	if err := repository.NewStationRepository(baza, rec).CreateStation(context.Background(), st); err != nil {
 		t.Fatal(err)
 	}
 	ocitanja := repository.NewReadingRepository(baza, rec)
 	u := NoviUvoznik(repository.NewJavniSpremiste(baza, ocitanja), nil)
 	u.Client.HTTP = &http.Client{Transport: probniPrijenos{tablicaZaglavljena}}
+	return &preuzimanjeUBazu{baza: baza, ocitanja: ocitanja, u: u, st: st}
+}
 
-	s := u.Preuzmi(ctx, st)
+// broj vraća broj redaka koje upit izbroji
+func (p *preuzimanjeUBazu) broj(t *testing.T, upit string, args ...any) int {
+	t.Helper()
+	var n int
+	if err := p.baza.QueryRow(upit, args...).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Odluke (8. 10. 2026.), pitanje 21: satno preuzimanje ne upisuje vrijednost
+// izvan raspona ručnog upisa. Odbačeno se broji u stanju preuzimanja i
+// bilježi za stranicu letve, a sljedeći krug isti prozor ne broji dvaput.
+func TestPreuzimanjeOdbacujeVrijednostiIzvanRaspona(t *testing.T) {
+	p := novoPreuzimanjeUBazu(t)
+	ctx := context.Background()
+
+	s := p.u.Preuzmi(ctx, p.st)
 	if s.Greska != "" || s.Preuzeto != 3 || s.Novih != 1 || s.Odbaceno != 2 {
 		t.Fatalf("prvi krug: %+v", s)
 	}
-	var upisano int
-	if err := baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE station_id = ? AND level_cm < -500`, st.ID.String()).Scan(&upisano); err != nil {
-		t.Fatal(err)
+	if n := p.broj(t, `SELECT COUNT(*) FROM readings WHERE station_id = ? AND level_cm < -500`, p.st.ID.String()); n != 0 {
+		t.Errorf("upisano %d vrijednosti izvan raspona", n)
 	}
-	if upisano != 0 {
-		t.Errorf("upisano %d vrijednosti izvan raspona", upisano)
-	}
-	sazetak, err := ocitanja.SazetakOdbacenih(ctx, "station:"+st.ID.String())
+	sazetak, err := p.ocitanja.SazetakOdbacenih(ctx, "station:"+p.st.ID.String())
 	if err != nil || sazetak == nil || sazetak.Broj != 2 || sazetak.Zadnja.Opis != "−1102 cm" || sazetak.Zadnja.Izvor != Podrijetlo ||
 		!sazetak.Zadnja.Kad.Equal(time.Date(2026, 9, 18, 9, 0, 0, 0, time.UTC)) {
 		t.Fatalf("sažetak: %+v, %v", sazetak, err)
@@ -65,12 +89,37 @@ func TestPreuzimanjeOdbacujeVrijednostiIzvanRaspona(t *testing.T) {
 
 	// sljedeći sat stranica pokazuje isti prozor: odbačeno se opet javi u
 	// stanju kruga, ali se u bazi ne broji dvaput
-	s = u.Preuzmi(ctx, st)
+	s = p.u.Preuzmi(ctx, p.st)
 	if s.Novih != 0 || s.Odbaceno != 2 {
 		t.Errorf("drugi krug: %+v", s)
 	}
-	if sazetak, _ := ocitanja.SazetakOdbacenih(ctx, "station:"+st.ID.String()); sazetak == nil || sazetak.Broj != 2 {
+	if sazetak, _ := p.ocitanja.SazetakOdbacenih(ctx, "station:"+p.st.ID.String()); sazetak == nil || sazetak.Broj != 2 {
 		t.Errorf("drugi krug udvostručio je odbačene: %+v", sazetak)
+	}
+}
+
+// Kad se odbačena vrijednost ne može zabilježiti, ne prolazi ni ostatak
+// preuzimanja: stanje letve javlja grešku upisa, a ništa se ne upiše, pa ni
+// ispravno očitanje iz istog kruga (sljedeći krug ga donese ponovo). Inače bi
+// mjerilo u kvaru tiho nestalo sa stranice letve.
+func TestPreuzimanjeJavljaGreskuKadSeOdbacenoNeMozeZabiljeziti(t *testing.T) {
+	p := novoPreuzimanjeUBazu(t)
+	if _, err := p.baza.Exec(`CREATE TRIGGER odbij_biljezenje BEFORE INSERT ON odbacena_ocitanja
+		BEGIN SELECT RAISE(ABORT, 'bilježenje odbijeno'); END`); err != nil {
+		t.Fatal(err)
+	}
+	var zapisnik []string
+	p.u.Zapisnik = func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) }
+
+	s := p.u.Preuzmi(context.Background(), p.st)
+	if !strings.Contains(s.Greska, "bilježenje odbijeno") || s.Novih != 0 || s.UkupnoNovo != 0 || s.Odbaceno != 2 {
+		t.Errorf("stanje letve: %+v", s)
+	}
+	if n := p.broj(t, `SELECT COUNT(*) FROM readings WHERE station_id = ?`, p.st.ID.String()); n != 0 {
+		t.Errorf("upisano %d očitanja iz poništene serije", n)
+	}
+	if len(zapisnik) != 1 || !strings.Contains(zapisnik[0], "Pivnica Probna: upis: ") {
+		t.Errorf("dnevnik: %q", zapisnik)
 	}
 }
 
