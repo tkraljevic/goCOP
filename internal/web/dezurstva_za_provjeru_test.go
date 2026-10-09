@@ -67,6 +67,7 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva", h.HandleSaveDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", h.HandlePotvrdiDezurstvo)
 	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/opis", h.HandleIspraviOpisDezurstva)
+	mux.HandleFunc("POST /dnevnici/{id}/dezurstva/{dez}/makni", h.HandleMakniDezurstvo)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun", h.ShowObracun)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}", h.ShowIORS)
 	mux.HandleFunc("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", h.IzvoziIORS)
@@ -218,6 +219,29 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	mora(w, http.StatusOK, "obračun poslije potvrde", "Ivo Ivić", ">teren<", ">16,5<")
 	if strings.Contains(w.Body.String(), "mjesto nepoznato") {
 		t.Error("obračun i dalje javlja mjesto nepoznato")
+	}
+
+	// Ivin nepotvrđeni zapis za provjeru Ivo ne miče (pa ne bi upisao isti
+	// termin s opisom po svom izboru); nepotvrđeni s poznatim mjestom miče
+	nepoznato := &models.Dezurstvo{JournalID: j.ID, UserID: ivo.ID.String(), UserName: "Ivo Ivić",
+		Od: time.Date(2026, 9, 20, 8, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 9, 20, 12, 0, 0, 0, models.Zagreb), Opis: "Noćni obilazak nasipa"}
+	poznato := &models.Dezurstvo{JournalID: j.ID, UserID: ivo.ID.String(), UserName: "Ivo Ivić", Mjesto: models.MjestoTeren,
+		Od: time.Date(2026, 9, 21, 8, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 9, 21, 12, 0, 0, 0, models.Zagreb), Opis: "Obilazak i pregled obrambenih objekata"}
+	for _, z := range []*models.Dezurstvo{nepoznato, poznato} {
+		if err := journalRepo.SaveDezurstvo(context.Background(), z); err != nil {
+			t.Fatal(err)
+		}
+	}
+	makni := func(z *models.Dezurstvo) string { return plan + "/" + z.ID + "/makni" }
+	w = zovi(ivo, vodocuvar, http.MethodGet, plan, nil)
+	mora(w, http.StatusOK, "plan s Ivinim nepotvrđenim zapisima", makni(poznato))
+	if strings.Contains(w.Body.String(), makni(nepoznato)) {
+		t.Error("vodočuvaru se nudi micanje vlastitog zapisa za provjeru")
+	}
+	mora(zovi(ana, uprava, http.MethodGet, plan, nil), http.StatusOK, "plan uprave", makni(nepoznato), makni(poznato))
+	w = zovi(ivo, vodocuvar, http.MethodPost, makni(nepoznato), url.Values{})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("vodočuvar miče svoj zapis za provjeru: %s", l)
 	}
 }
 

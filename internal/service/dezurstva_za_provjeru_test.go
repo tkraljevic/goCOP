@@ -253,6 +253,40 @@ func TestSpremanjeDezurstvaZaProvjeru(t *testing.T) {
 	}
 }
 
+// Odluke (8. 10. 2026.), pitanje 10: opis rada dežurstva kojemu se ne zna
+// mjesto bira uprava centra. Osoba čije je dežurstvo to ne smije zaobići ni
+// tako da vlastiti nepotvrđeni zapis makne pa isti termin upiše ponovno s
+// opisom po svom izboru. Takav zapis miče samo uprava centra.
+func TestMicanjeDezurstvaZaProvjeru(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	jutro := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, jutro); err != nil {
+		t.Fatal(err)
+	}
+	o.bezMjesta(t, jutro)
+
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, jutro.ID); err == nil || !strings.Contains(err.Error(), "voditelj ili zamjenik centra") {
+		t.Errorf("Pero miče svoj zapis za provjeru: %v", err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); d == nil || !d.ZaProvjeru() {
+		t.Fatalf("zapis za provjeru maknut: %+v", d)
+	}
+	// uprava centra ga smije maknuti
+	if err := o.svc.MakniDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID); err != nil {
+		t.Errorf("uprava miče zapis za provjeru: %v", err)
+	}
+	// svoj nepotvrđeni zapis s poznatim mjestom Pero i dalje miče sam
+	popodne := o.peroDezura(dzSat(9, 14, 0), dzSat(9, 18, 0))
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, popodne); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, popodne.ID); err != nil {
+		t.Errorf("Pero miče svoj nepotvrđeni zapis: %v", err)
+	}
+}
+
 func TestZadrziTragIspravka(t *testing.T) {
 	trag := "[opis ispravio Ana Anić 8.10.2026. 14:20; prije: „Opis s drugog čvora”]"
 	drugi := "[opis ispravio Ivo Ivić 9.10.2026. 08:05; prije: „Dežurstvo u COP-u”]"
