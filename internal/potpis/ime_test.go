@@ -19,7 +19,7 @@ func TestImeUCertifikatuNosiKorisnickoIme(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	stari, err := ca.Novi(Osoba{UserID: "u-s", Ime: "Mile Kunac", Sektor: "B"}, "lozinka-s", kad)
+	stari, err := ca.Novi(Osoba{UserID: "u-s", Ime: "Marko Markić", Sektor: "B"}, "lozinka-s", kad)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +28,7 @@ func TestImeUCertifikatuNosiKorisnickoIme(t *testing.T) {
 		ime  string
 		loz  string
 		opis string
-	}{{novi, "Ivan Horvat (pperic)", "lozinka-v", "novi certifikat"}, {stari, "Mile Kunac", "lozinka-s", "stari certifikat"}} {
+	}{{novi, "Ivan Horvat (pperic)", "lozinka-v", "novi certifikat"}, {stari, "Marko Markić", "lozinka-s", "stari certifikat"}} {
 		o, c, err := x.z.Podaci()
 		if err != nil {
 			t.Fatal(err)

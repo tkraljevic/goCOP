@@ -52,7 +52,7 @@ func TestIzdavateljIzKljucaCvora(t *testing.T) {
 // certifikat, a certifikat nosi ime, funkciju, sektor i oznaku osobe.
 func TestOsobniKljucILozinka(t *testing.T) {
 	ca, _ := probniCA(t)
-	z, err := ca.Novi(Osoba{UserID: "u-1", Ime: "Mile Kunac", Funkcija: "Rukovoditelj BP 34", Sektor: "B"}, "tajna123", time.Now())
+	z, err := ca.Novi(Osoba{UserID: "u-1", Ime: "Marko Markić", Funkcija: "Rukovoditelj BP 34", Sektor: "B"}, "tajna123", time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,7 +66,7 @@ func TestOsobniKljucILozinka(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if o.UserID != "u-1" || o.Ime != "Mile Kunac" || o.Funkcija != "Rukovoditelj BP 34" || o.Sektor != "B" {
+	if o.UserID != "u-1" || o.Ime != "Marko Markić" || o.Funkcija != "Rukovoditelj BP 34" || o.Sektor != "B" {
 		t.Errorf("osoba iz certifikata: %+v", o)
 	}
 	if c.Issuer.CommonName != "goCOP cop-proba" {
@@ -102,7 +102,7 @@ func TestPotpisPDFDvaPotpisa(t *testing.T) {
 	ca, _ := probniCA(t)
 	kad := time.Date(2026, 9, 19, 9, 12, 0, 0, time.FixedZone("CEST", 2*3600))
 	zv, _ := ca.Novi(Osoba{UserID: "u-v", Ime: "Seit Vodočuvar", Sektor: "B"}, "vodavoda", kad)
-	zr, _ := ca.Novi(Osoba{UserID: "u-r", Ime: "Mile Kunac", Funkcija: "Rukovoditelj BP 34", Sektor: "B"}, "kunackunac", kad)
+	zr, _ := ca.Novi(Osoba{UserID: "u-r", Ime: "Marko Markić", Funkcija: "Rukovoditelj BP 34", Sektor: "B"}, "lozinka-r", kad)
 
 	d := pdfw.Novi("Dnevni list", "goCOP")
 	d.SviZnakovi()
@@ -136,8 +136,8 @@ func TestPotpisPDFDvaPotpisa(t *testing.T) {
 		t.Errorf("podaci prvog potpisa: %+v", ps[0])
 	}
 
-	pr, _ := NoviPotpisnik(zr, "kunackunac", ca.Cert)
-	v2, err := pr.PotpisiPDF(v1, pdfw.Dodatak{Stranica: 1, X: 340, Y: 600, W: 200, H: 46, Crtaj: blok("Mile Kunac"), Razlog: "Ovjera dnevnog lista", Kad: kad.Add(3 * time.Hour)})
+	pr, _ := NoviPotpisnik(zr, "lozinka-r", ca.Cert)
+	v2, err := pr.PotpisiPDF(v1, pdfw.Dodatak{Stranica: 1, X: 340, Y: 600, W: 200, H: 46, Crtaj: blok("Marko Markić"), Razlog: "Ovjera dnevnog lista", Kad: kad.Add(3 * time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -151,7 +151,7 @@ func TestPotpisPDFDvaPotpisa(t *testing.T) {
 	if !ps[0].Valjan || ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar" {
 		t.Errorf("prvi potpis nakon drugog: %+v", ps[0])
 	}
-	if !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Mile Kunac" || ps[1].Funkcija != "Rukovoditelj BP 34" {
+	if !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Marko Markić" || ps[1].Funkcija != "Rukovoditelj BP 34" {
 		t.Errorf("drugi potpis: %+v", ps[1])
 	}
 
@@ -189,7 +189,7 @@ func TestPotpisPDFDvaPotpisa(t *testing.T) {
 		if strings.Contains(s, "Digest Mismatch") || strings.Contains(s, "Signature is Invalid") {
 			t.Errorf("pdfsig: sažetak ne odgovara:\n%s", s)
 		}
-		if !strings.Contains(s, "Seit Vodo") || !strings.Contains(s, "Mile Kunac") {
+		if !strings.Contains(s, "Seit Vodo") || !strings.Contains(s, "Marko Markić") {
 			t.Errorf("pdfsig ne vidi potpisnike:\n%s", s)
 		}
 	} else {

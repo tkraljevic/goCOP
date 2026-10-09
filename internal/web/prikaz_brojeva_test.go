@@ -493,7 +493,7 @@ func TestKarticaDioniceNeProglasavaObranu(t *testing.T) {
 	otvorena := models.DefenseEpisode{
 		SectionCode: "B.34.1", StartedAt: poc, Phase: models.PhaseRegular,
 		Basis: models.BasisForecast, ThresholdAt: &prag,
-		DeclaredByName: "Željko Kovačević", Origin: models.EpisodeFromOperator,
+		DeclaredByName: "Ana Anić", Origin: models.EpisodeFromOperator,
 	}
 	sOtvorenom := osnovno
 	sOtvorenom.OpenEpisode = &otvorena
@@ -502,7 +502,7 @@ func TestKarticaDioniceNeProglasavaObranu(t *testing.T) {
 		Name: "Batina", Code: "batina"}
 
 	html = iscrtaj(t, "section_detail.html", sOtvorenom)
-	for _, want := range []string{"na snazi od", "Željko Kovačević", "prognoza",
+	for _, want := range []string{"na snazi od", "Ana Anić", "prognoza",
 		"30 sati prije", "Batina", "proglašava i prekida uz letvu"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("kartica s otvorenom obranom nema %q", want)
