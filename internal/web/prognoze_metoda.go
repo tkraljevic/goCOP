@@ -449,7 +449,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"k dana poslije."),
 			tekstM("Sam model uči se iz arhive jednom na dan, iza ponoći po zagrebačkom vremenu, i iznova čim se " +
 				"arhiva promijeni (uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri) ili se pokrene " +
-				"Pripremi model. Inačica koja se ne da naučiti pokušava se opet idući sat; dotle računa rezerva."),
+				"Pripremi model. Inačica koja se ne da naučiti pokušava se opet idući sat. Dotle računa prva " +
+				"naučena inačica, bez kiše ili iz rezervnih ulaza, a postaja kojoj se nijedna nije dala naučiti " +
+				"nema dnevne prognoze. Na čvoru bez kišomjera inačica s kišom se ni ne pokušava."),
 		}},
 		{"Koji model daje koji dan", []OdlomakMetode{
 			tekstM("Satni lanac seže do 96 sati. Od kojeg dana vrijednost daje dnevni model određeno je " +

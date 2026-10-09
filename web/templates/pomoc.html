@@ -727,6 +727,10 @@
       model, a takva vrijednost nosi oznaku <em>d</em>. Na stranici <em>Postavke prognoze</em>
       globalni administrator posebno za graf, tablicu i izvoz u Excel bira satni lanac, dnevni
       model ili kombinaciju.</p>
+    <p>Na istoj stranici <em>Izvoz stare prognoze</em> daje Excel tablicu kakva je bila za odabrani dan
+      i sat: ako u tom satu prognoza nije izdana, uzima se zadnje izdanje prije njega, a u tablici piše
+      kad je izdano. Brojke su onakve kakve su tada izdane; opis metode na listu „O prognozi” je
+      današnji, a rečenice o kiši na slivovima nema, jer se kiša čita samo za sada.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
@@ -782,8 +786,9 @@
       njemu i oduzimaju; postaja koja računa iz rezerve ostaje bez tog ispravka.</p>
     <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći po zagrebačkom vremenu, i
       iznova čim se arhiva promijeni — uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri.
-      Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat, a dotle računa
-      rezerva.</p>
+      Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva
+      inačica koja je naučena, bez kiše ili iz rezervnih ulaza; postaja kojoj se nijedna nije dala
+      naučiti nema dnevne prognoze. Čvor bez kišomjera inačicu s kišom ni ne pokušava.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
       nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se
