@@ -1046,6 +1046,19 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 		},
 		{
+			entitet: EntityOdbacena, tablica: "odbacena_ocitanja", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var o models.OdbacenaVrijednost
+				puni(&o)
+				o.Letva = "station:" + letva
+				nuzno(t, NewReadingRepository(a.db, a.rec).ZabiljeziOdbacene(ctxRaz, []models.OdbacenaVrijednost{o}))
+			},
+			bezUredjivanja: "odbačena vrijednost se zapisuje jednom i ne mijenja se",
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				return NewReadingRepository(n.db, n.rec).SazetakOdbacenih(ctxRaz, teret[models.OdbacenaVrijednost](t, p).Letva)
+			},
+		},
+		{
 			entitet: EntityStructures, tablica: "structures", kljuc: "id",
 			napravi: func(t *testing.T, a *cvor) {
 				var s models.Structure

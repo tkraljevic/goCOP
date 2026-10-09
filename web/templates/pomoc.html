@@ -574,7 +574,11 @@
       uvoz je ne upisuju: otpada vrijednost izvan raspona, a ostale vrijednosti istog očitanja
       ostaju. Na stranici letve tada piše koliko je vrijednosti odbačeno i koja zadnja, npr.
       <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em> — znak da je mjerilo vjerojatno
-      u kvaru. Taj broj vodi računalo koje je vrijednosti odbacilo; na ostalima se ne vidi.</p>
+      u kvaru. Zapis o odbačenoj vrijednosti putuje razmjenom kao i očitanja, pa broj vidi svako
+      računalo koje prati tu letvu, a ne samo ono koje je preuzima; ista vrijednost koju odbace dva
+      računala broji se jednom. Računalo sa starijom verzijom programa (0.0.34) raspon ne provjerava:
+      što ono preuzme, stiže razmjenom i upisuje se kao i dosad, a zapise o odbačenom čuva i prenosi,
+      ali ih ne pokazuje dok se ne ažurira.</p>
     <p>Letva akumulacije uz branu (razina akumulacije HEP-a) ne vodi vodostaj nego kotu vodnog lica
       nad morem. U obrascu letve ima oznaku <strong>kota u cm n. m.</strong>, koja stoji i uz naziv
       letve na kartici i na stranici očitanja, i prima vrijednosti od 5000 do 40 000 cm umjesto od

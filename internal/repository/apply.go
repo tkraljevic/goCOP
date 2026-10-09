@@ -85,7 +85,10 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici,
+	// odbačene vrijednosti: čvor na 0.0.34 ih prima u knjigu, ali ne na
+	// površinu; nakon ažuriranja ih obnova površine pri pokretanju stavi
+	EntityOdbacena}
 
 // PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
 // primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
@@ -100,7 +103,7 @@ func PoznatiEntiteti() []string {
 		EntityStructures, EntityMaintainedWaters, EntityWorkItems,
 		EntityJournals, EntityJournalSheets, EntityJournalEntries, EntityJournalIzvornici,
 		EntityDezurstva, EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
-		EntityReadings, EntityEpisodes, EntityIspravci, EntityBiljeske,
+		EntityReadings, EntityOdbacena, EntityEpisodes, EntityIspravci, EntityBiljeske,
 		EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 		EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe,
 		EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
@@ -298,6 +301,9 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		return upsertStation(ctx, tx, st)
+
+	case EntityOdbacena:
+		return upsertOdbacena(ctx, tx, v.Payload)
 
 	case EntitySections:
 		var sec models.Section
@@ -1057,6 +1063,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM arhiva_ispravci WHERE id = ?`
 	case EntityBiljeske:
 		stmt = `DELETE FROM arhiva_biljeske WHERE id = ?`
+	case EntityOdbacena:
+		stmt = `DELETE FROM odbacena_ocitanja WHERE id = ?`
 	case EntityOrgTerms:
 		// bez zapisa vrijede zadani nazivi, kao i kad ih nitko nije upisao
 		if _, err := tx.ExecContext(ctx, `DELETE FROM org_terms WHERE id = ?`, v.EntityID); err != nil {

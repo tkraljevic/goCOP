@@ -201,14 +201,17 @@ func decimalniHR(v float64) string {
 }
 
 // OdbacenaVrijednost je zapis o vrijednosti koja nije upisana jer je izvan
-// raspona. Vodi se na čvoru koji ju je odbacio i ne putuje razmjenom: nije
-// očitanje, nego trag da je mjerilo vjerojatno u kvaru.
+// raspona. Nije očitanje, nego trag da mjerilo ili zapis nije ispravan.
+// Putuje razmjenom kao i očitanja letve, jer preuzima samo jedan čvor, a
+// broj se mora vidjeti na svakom koji letvu prati.
 type OdbacenaVrijednost struct {
-	Letva string    // ključ letve (GaugeKey)
-	Kad   time.Time // trenutak očitanja kako ga je izvor javio
-	Polje string    // Polje*
-	Opis  string    // vrijednost s jedinicom
-	Izvor string    // podrijetlo očitanja (Origin)
+	ID          string    `json:"id"`          // izveden iz letve, trenutka, polja i izvora: isti na svakom čvoru
+	Letva       string    `json:"letva"`       // ključ letve (GaugeKey)
+	Kad         time.Time `json:"kad"`         // trenutak očitanja kako ga je izvor javio
+	Polje       string    `json:"polje"`       // Polje*
+	Opis        string    `json:"opis"`        // vrijednost s jedinicom
+	Izvor       string    `json:"izvor"`       // podrijetlo očitanja (Origin)
+	Zabiljezeno time.Time `json:"zabiljezeno"` // kad ju je čvor odbacio
 }
 
 // OdbaceneVrijednosti pretvara ono što je provjera odbacila u zapise za

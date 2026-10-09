@@ -1014,12 +1014,16 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
 
 		// Vrijednosti očitanja odbačene jer su izvan raspona (Odluke (8. 10.
-		// 2026.), pitanje 21). Tablica je LOKALNA: nije očitanje i ne putuje
-		// razmjenom, nego je trag na čvoru koji je vrijednost odbacio da je
-		// mjerilo vjerojatno u kvaru; stranica letve iz nje pokazuje koliko je
-		// odbačeno i što zadnje. Ista vrijednost istog trenutka upisuje se
-		// jednom, pa satno preuzimanje istog prozora ne udvostručuje broj.
+		// 2026.), pitanje 21). Nije očitanje, nego trag da mjerilo ili zapis
+		// nije ispravan; stranica letve iz nje pokazuje koliko je odbačeno i
+		// što zadnje. Sinkronizira se (entitet odbacena_ocitanja, u kanalu
+		// očitanja letve), jer preuzima jedan čvor, a broj treba vidjeti
+		// svaki koji letvu prati. Ista vrijednost istog trenutka s istog
+		// izvora upisuje se jednom, pa satno preuzimanje istog prozora ni
+		// drugi čvor koji preuzima istu letvu ne udvostručuju broj; id je
+		// izveden iz tih podataka i isti je na svakom čvoru.
 		`CREATE TABLE IF NOT EXISTS odbacena_ocitanja (
+			id TEXT NOT NULL DEFAULT '',
 			letva TEXT NOT NULL,
 			kad DATETIME NOT NULL,
 			polje TEXT NOT NULL,

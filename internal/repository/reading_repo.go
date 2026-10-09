@@ -339,7 +339,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		return 0, err
 	}
 	defer stmt.Close()
-	raspon := novaProvjeraRaspona(tx)
+	raspon := novaProvjeraRaspona(tx, r.rec)
 	inserted := 0
 	for i := range readings {
 		rd := &readings[i]

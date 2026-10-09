@@ -43,8 +43,9 @@ func (s *ReadingService) Stats(ctx context.Context) (int, time.Time, time.Time, 
 	return s.repo.Stats(ctx)
 }
 
-// SazetakOdbacenih kaže koliko je vrijednosti letve (GaugeKey) ovaj čvor
-// odbacio jer su izvan raspona i koja je zadnja; nil kad nijedna
+// SazetakOdbacenih kaže koliko je vrijednosti letve (GaugeKey) odbačeno jer
+// su izvan raspona, na ovom čvoru ili na onom od kojeg je zapis stigao
+// razmjenom, i koja je zadnja; nil kad nijedna
 func (s *ReadingService) SazetakOdbacenih(ctx context.Context, letva string) (*models.SazetakOdbacenih, error) {
 	return s.repo.SazetakOdbacenih(ctx, letva)
 }

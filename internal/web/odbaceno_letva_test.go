@@ -100,6 +100,10 @@ func TestStranicaLetvePokazujeOdbaceneVrijednosti(t *testing.T) {
 		!strings.Contains(tijelo, "odbačeno izvan raspona 1,") {
 		t.Errorf("stranica letve ne pokazuje odbačeno:\n%s", tijelo)
 	}
+	// broj nije samo ovog računala: zapis putuje razmjenom (dorada)
+	if !strings.Contains(tijelo, "zapis o njima putuje razmjenom") {
+		t.Error("stranica letve ne kaže da se broje i odbačene na računalu koje preuzima")
+	}
 	if strings.Contains(tijelo, "kota u cm n. m.") {
 		t.Error("obična letva nema oznaku kote")
 	}
@@ -166,9 +170,13 @@ func TestKarticaLetveNosiOznakuKote(t *testing.T) {
 func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	h := pomocHTML(t)
 	for _, s := range []string{`id="ocitanja-raspon"`, "vodostaj od −500 do 3000 cm", "satno preuzimanje",
-		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50"} {
+		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50",
+		"putuje razmjenom", "starijom verzijom programa (0.0.34) raspon ne provjerava"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
 		}
+	}
+	if strings.Contains(h, "na ostalima se ne vidi") {
+		t.Error("pomoć još kaže da se broj vidi samo na računalu koje je vrijednost odbacilo")
 	}
 }

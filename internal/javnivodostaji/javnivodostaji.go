@@ -407,7 +407,7 @@ type StanjeLetve struct {
 	UkupnoNovo int       // od pokretanja programa
 	// Odbaceno je koliko vrijednosti zadnjeg preuzimanja nije upisano jer su
 	// izvan raspona (Odluke (8. 10. 2026.), pitanje 21). Ukupan broj po
-	// letvi stoji u bazi čvora i vidi se na stranici letve.
+	// letvi putuje razmjenom i vidi se na stranici letve.
 	Odbaceno int
 }
 
