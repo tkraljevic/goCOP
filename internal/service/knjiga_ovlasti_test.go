@@ -167,8 +167,13 @@ func TestKnjigaVodocuvaraPoOdlukama(t *testing.T) {
 		t.Fatalf("Pero Perić: %v", err)
 	}
 	k.provjeri(t, "vlastita knjiga", models.NewUserPermissions(*pero), k.listPere, ocekivanjeKnjige{vidi: true})
-	// bez ovlasti nema ničega
+	// bez ovlasti nema ničega; uloga bez ovlasti u knjizi ne daje nijednu radnju
 	k.provjeri(t, "bez ovlasti", nil, k.listPere, nista)
+	for _, r := range []radnjaUKnjizi{radnjaParafa, radnjaBiljeska, radnjaZadatak} {
+		if k.o.vs.duznostSmije(context.Background(), models.Duty{Role: models.RoleGuest, AreaID: &k.p1}, k.listPere, nil, r) {
+			t.Errorf("gost smije radnju %d", r)
+		}
+	}
 	if k.o.vs.SmijeVidjeti(k.osoba(models.Duty{Role: models.RoleAreaLeader, AreaID: &k.p1}), nil) {
 		t.Error("bez lista nema čitanja")
 	}
@@ -324,6 +329,17 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 	nacrt.Status = models.PrijavaNacrt
 	if prijave.SmijeVidjeti(dionicar, nacrt) {
 		t.Error("rukovoditelj dionice vidi nacrt prijave")
+	}
+	// svoj nacrt vodočuvar vidi; bez osobe ili bez prijave nema čitanja
+	ana, err := k.o.vs.users.GetUserByID(k.ana.ID)
+	if err != nil || ana == nil {
+		t.Fatalf("Ana Anić: %v", err)
+	}
+	if !prijave.SmijeVidjeti(models.NewUserPermissions(*ana), nacrt) {
+		t.Error("vodočuvar ne vidi svoj nacrt")
+	}
+	if prijave.SmijeVidjeti(nil, prijava("P.1.1")) || prijave.SmijeVidjeti(dionicar, nil) {
+		t.Error("prijava se čita bez osobe ili bez prijave")
 	}
 }
 
