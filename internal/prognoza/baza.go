@@ -14,6 +14,7 @@ package prognoza
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"gocop/internal/hydro"
 	"gocop/internal/models"
@@ -195,6 +196,7 @@ CREATE TABLE IF NOT EXISTS izdanja (
 	izbor      TEXT NOT NULL DEFAULT '{}',-- letva → inačica i opis, kako je izdano
 	cvor       TEXT NOT NULL DEFAULT '',  -- čvor koji je izdao
 	knjiga     TEXT NOT NULL DEFAULT '',  -- verzija u knjizi kad je izdanje stiglo razmjenom
+	upozorenja TEXT NOT NULL DEFAULT '',  -- JSON upozorenja izdavača; '' kad ih izdavač ne bilježi
 	PRIMARY KEY (izdano, verzija)
 ) WITHOUT ROWID;
 -- Kiša po međuslivovima kakvu je dnevni model imao pri izdavanju: dan 0 je
@@ -262,7 +264,7 @@ func Otvori(put string) (*sql.DB, error) {
 // baza nastala jučer danas pucala na upisu.
 func uskladi(db *sql.DB) error {
 	// Stupci dodani zapisu o izdanjima: on se ne odbacuje, samo dograđuje.
-	for _, stupac := range []string{"cvor", "knjiga"} {
+	for _, stupac := range []string{"cvor", "knjiga", "upozorenja"} {
 		ima, err := imaStupac(db, "izdanja", stupac)
 		if err != nil {
 			return err
@@ -628,6 +630,10 @@ type ZapisIzdanja struct {
 	Kisa    map[string]DnevniNiz // sliv → dan → mm, kako ju je imao dnevni model
 	Cvor    string               // čvor koji je izdao
 	Knjiga  string               // verzija u knjizi, kad je izdanje stiglo razmjenom
+	// Upozorenja su što izdavaču pri izdavanju nije radilo. Putuju s
+	// izdanjem, pa ih svaki čvor pokazuje kakva su bila; nil je izdavač
+	// koji ih ne bilježi (0.0.34), prazan popis izdanje bez upozorenja.
+	Upozorenja []Upozorenje
 }
 
 // SpremiZapisIzdanja upisuje novu verziju zapisa za sat izdanja: verzija je
@@ -680,8 +686,8 @@ func SpremiZapisIzdanja(db *sql.DB, z ZapisIzdanja) (int, error) {
 	if z.Nastalo.IsZero() {
 		z.Nastalo = time.Now()
 	}
-	if _, err := tx.Exec(`INSERT INTO izdanja (izdano, verzija, nastalo, model, operateri, tude, izbor, cvor, knjiga) VALUES (?,?,?,?,?,?,?,?,?)`,
-		z.Izdano, z.Verzija, z.Nastalo.Unix(), z.Model, z.Operat, string(tude), string(izbor), z.Cvor, z.Knjiga); err != nil {
+	if _, err := tx.Exec(`INSERT INTO izdanja (izdano, verzija, nastalo, model, operateri, tude, izbor, cvor, knjiga, upozorenja) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+		z.Izdano, z.Verzija, z.Nastalo.Unix(), z.Model, z.Operat, string(tude), string(izbor), z.Cvor, z.Knjiga, zapisUpozorenja(z.Upozorenja)); err != nil {
 		return 0, err
 	}
 	for sliv, dani := range z.Kisa {
@@ -693,6 +699,36 @@ func SpremiZapisIzdanja(db *sql.DB, z ZapisIzdanja) (int, error) {
 		}
 	}
 	return z.Verzija, tx.Commit()
+}
+
+// zapisUpozorenja je stupac upozorenja: prazan za izdavača koji ih ne
+// bilježi (nil), inače JSON, pa i prazan popis („[]”), da se „provjereno,
+// ništa” razlikuje od „nije bilježeno”.
+func zapisUpozorenja(u []Upozorenje) string {
+	if u == nil {
+		return ""
+	}
+	b, _ := json.Marshal(u)
+	return string(b)
+}
+
+// UpozorenjaIzdanja čita upozorenja zadnje verzije sata izdanja. zapisano je
+// false kad izdanja nema ili ga je izdao čvor koji upozorenja ne bilježi.
+func UpozorenjaIzdanja(db *sql.DB, izdano int64) (u []Upozorenje, zapisano bool, err error) {
+	var s string
+	err = db.QueryRow(`SELECT upozorenja FROM izdanja WHERE izdano = ? ORDER BY verzija DESC LIMIT 1`, izdano).Scan(&s)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return nil, false, nil
+	case err != nil:
+		return nil, false, err
+	case s == "":
+		return nil, false, nil
+	}
+	if err := json.Unmarshal([]byte(s), &u); err != nil {
+		return nil, false, fmt.Errorf("upozorenja izdanja %d: %w", izdano, err)
+	}
+	return u, true, nil
 }
 
 // SpremiDnevne zapisuje dnevnu prognozu.

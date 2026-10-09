@@ -155,6 +155,12 @@ func TestDnevnaKojaPadneUpozoravaAIspravnaNe(t *testing.T) {
 	if !reflect.DeepEqual(ishod.Upozorenja, want) {
 		t.Errorf("upozorenja\n %+v\nželim\n %+v", ishod.Upozorenja, want)
 	}
+	if err := o.Zapisi(ishod); err != nil {
+		t.Fatal(err)
+	}
+	if got, zapisano, err := UpozorenjaIzdanja(o.Baza, sada); err != nil || !zapisano || !reflect.DeepEqual(got, want) {
+		t.Errorf("zapisano uz izdanje: %+v (%v, %v)", got, zapisano, err)
+	}
 }
 
 // Karika lanca bez mjerenja dulje od ZaostatakKarike računa se iz svojih

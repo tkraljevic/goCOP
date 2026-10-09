@@ -121,7 +121,7 @@ func Odmotaj(payload []byte, paket any) (Omotnica, error) {
 // SastaviIzdanje slaže paket iz upravo zapisanog izdanja.
 func SastaviIzdanje(db *sql.DB, ishod *Ishod) (PaketIzdanja, error) {
 	var p PaketIzdanja
-	z := ZapisIzdanja{Izdano: ishod.Sada, Verzija: ishod.Verzija, Kisa: ishod.Kisa}
+	z := ZapisIzdanja{Izdano: ishod.Sada, Verzija: ishod.Verzija, Kisa: ishod.Kisa, Upozorenja: ishod.Upozorenja}
 	var nastalo int64
 	var tude, izbor string
 	if err := db.QueryRow(`SELECT nastalo, model, operateri, tude, izbor, cvor FROM izdanja WHERE izdano = ? AND verzija = ?`,

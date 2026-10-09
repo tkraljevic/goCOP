@@ -798,8 +798,10 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 		return err
 	}
 	// Uz izdanje ide zapis za kalibraciju: kojim je modelom izdano, koje su
-	// tuđe prognoze tada bile u rukama i kakvu je kišu dnevni model imao.
-	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor})
+	// tuđe prognoze tada bile u rukama, kakvu je kišu dnevni model imao i
+	// što pri izdavanju nije radilo.
+	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor,
+		Upozorenja: ishod.Upozorenja})
 	if err != nil {
 		return fmt.Errorf("zapis o izdanju: %w", err)
 	}
