@@ -811,33 +811,29 @@ func (c *opisivac) prijenosIzDrugogSektora(p models.Promet, d Dogadjaj) Dogadjaj
 	if p.Vrsta != models.PrometPrijenos || p.Kolicina <= 0 || p.VezaID == "" {
 		return d
 	}
-	izvor := c.izlazPrijenosa(p.VezaID)
-	if izvor == nil || izvor.Sektor == p.Sektor {
+	sektor, skladiste := c.izlazPrijenosa(p.VezaID)
+	if sektor == "" || sektor == p.Sektor {
 		return d
 	}
-	d.Naslov, d.Vazno = "Prijenos iz Sektora "+izvor.Sektor, true
-	if sk := c.skladiste(izvor.SkladisteID); sk != nil {
+	d.Naslov, d.Vazno = "Prijenos iz Sektora "+sektor, true
+	if sk := c.skladiste(skladiste); sk != nil {
 		d.Tekst += " · iz " + sk.Naziv
 	}
 	return d
 }
 
-// izlazPrijenosa je redak izlaza istog poteza, iz skladišta koje šalje; nil
-// kad ga ovaj čvor nema
-func (c *opisivac) izlazPrijenosa(veza string) *models.Promet {
+// izlazPrijenosa: sektor i skladište izlaza istog poteza, iz kojeg se šalje;
+// prazno kad ga ovaj čvor nema. Traži se po indeksu veze, jer se zove za
+// svaki ulaz prijenosa koji zid pročita.
+func (c *opisivac) izlazPrijenosa(veza string) (sektor, skladisteID string) {
 	if c.s.mts == nil {
-		return nil
+		return "", ""
 	}
-	redci, err := c.s.mts.ListPromet(c.ctx, repository.FiltarPrometa{VezaID: veza})
+	sektor, skladisteID, err := c.s.mts.IzvorPoteza(c.ctx, veza)
 	if err != nil {
-		return nil
+		return "", ""
 	}
-	for i := range redci {
-		if redci[i].Kolicina < 0 {
-			return &redci[i]
-		}
-	}
-	return nil
+	return sektor, skladisteID
 }
 
 func absF(v float64) float64 {

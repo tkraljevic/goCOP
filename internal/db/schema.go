@@ -180,6 +180,8 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_skladiste ON mts_promet(skladiste_id, vrsta_id, oblik);`,
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_teren ON mts_promet(journal_id, area_id, section_code, vrsta_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_datum ON mts_promet(datum);`,
+		// zid događanja traži par poteza za svaki ulaz prijenosa
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_veza ON mts_promet(veza_id);`,
 		`CREATE TABLE IF NOT EXISTS mts_popisi (
 			id TEXT PRIMARY KEY,
 			skladiste_id TEXT NOT NULL,
