@@ -99,6 +99,9 @@ type AktiPageData struct {
 	// ovjerom (Odluke (8. 10. 2026.), pitanje 19); nil za ovjeren akt i za
 	// onoga tko s nacrtom ne radi
 	Pregled *service.PregledPrimatelja
+	// PitanjeVrijedi je pitanje uz „Vrijedi od” izvan uobičajenog raspona
+	// koje ovjera nacrta postavlja (pitanje 17); prazno kad potvrda ne treba
+	PitanjeVrijedi string
 
 	// špranca
 	Spranca models.Spranca
@@ -376,20 +379,24 @@ func (h *AktiHandler) sukobAkta(ctx context.Context, s *service.AktService, perm
 	data.SmijeRijesitiOznaku = len(data.Sukob.Drugi) > 0 && service.SmijeRijesitiOznaku(perms, a)
 }
 
-// pregledPrimatelja upisuje u stranicu nacrta popis primatelja složen
-// iznova, za ovjeru: razliku prema nacrtu, upozorenja i otisak popisa
+// pregledPrimatelja upisuje u stranicu nacrta ono što ovjera traži da se
+// pogleda: popis primatelja složen iznova (razliku prema nacrtu, upozorenja
+// i otisak popisa) i pitanje uz „Vrijedi od”
 func pregledPrimatelja(ctx context.Context, s *service.AktService, a *models.Akt, data *AktiPageData) {
 	if a.Ovjeren() || !(data.SmijeOvjeriti || data.SmijePripremiti) {
 		return
 	}
 	p := s.PregledPrimatelja(ctx, a)
 	data.Pregled = &p
+	data.PitanjeVrijedi = service.PitanjeVrijediZaOvjeru(*a, time.Now())
 }
 
 // potvrdaOvjere su potvrde iz obrasca ovjere: otisak popisa primatelja koji
-// je osoba vidjela i kvačica uz upozorenje o popisu
+// je osoba vidjela, kvačica uz upozorenje o popisu i kvačica uz „Vrijedi
+// od” izvan uobičajenog raspona
 func potvrdaOvjere(r *http.Request) service.PotvrdaOvjere {
-	return service.PotvrdaOvjere{Otisak: r.FormValue("otisak"), Primatelji: r.FormValue("potvrda_primatelja") == "1"}
+	return service.PotvrdaOvjere{Otisak: r.FormValue("otisak"), Primatelji: r.FormValue("potvrda_primatelja") == "1",
+		Vrijedi: r.FormValue("potvrda_vrijedi") == "1"}
 }
 
 // ovjeriSaStranice ovjerava nacrt u goCOP-u sa stranice akta, koja pokazuje

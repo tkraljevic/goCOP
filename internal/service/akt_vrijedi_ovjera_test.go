@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -17,7 +18,7 @@ import (
 // postaje akt. Takav nacrt nastaje kad ga je sastavio čvor sa starijim
 // programom, koji granice ne provodi, ili kad je Dnevnik COP-a u međuvremenu
 // zatvoren i otvoren nov. Potvrda za više od 24 sata unatrag ili 3 dana
-// unaprijed pri ovjeri se ne traži ponovno.
+// unaprijed dana pri sastavljanju nacrta pri ovjeri se ne traži ponovno.
 func TestTvrdeGraniceVrijediOdPriOvjeri(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
@@ -82,5 +83,92 @@ func TestTvrdeGraniceVrijediOdPriOvjeri(t *testing.T) {
 	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
 	if err != nil || !ovjeren.Ovjeren() || ovjeren.Godina != dvaDana.In(models.Zagreb).Year() {
 		t.Fatalf("ovjera nacrta u istoj obrani: %+v %v", ovjeren, err)
+	}
+}
+
+// Nacrt sastavljen bez potvrde „Vrijedi od” (tada u uobičajenom rasponu, ili
+// s čvora sa starijim programom) ovjerava se kad je „Vrijedi od” više od 24
+// sata unatrag ili više od 3 dana unaprijed: ovjera tada traži izričitu
+// potvrdu, na oba puta, i bilježi je uz akt (Odluke (8. 10. 2026.),
+// pitanje 17)
+func TestPotvrdaVrijediOdPriOvjeri(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	sken := []byte("%PDF-1.4 sken potpisanog akta")
+	nacrt := func(o *okolinaAkta, stupanj models.DefensePhase, vrijedi time.Time) *models.Akt {
+		t.Helper()
+		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+			Stupanj: stupanj, Vrijedi: time.Now().Add(-time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+			t.Fatal(err)
+		}
+		// nacrt je sastavljen davno: „Vrijedi od” je tada bio sada
+		if _, err := o.baza.Exec(`UPDATE akti SET vrijedi = ? WHERE id = ?`, vrijedi.UTC(), a.ID); err != nil {
+			t.Fatal(err)
+		}
+		return a
+	}
+	dvaDana := time.Now().Add(-48 * time.Hour).Truncate(time.Minute)
+	a := nacrt(o, models.PhasePrep, dvaDana)
+	for opis, ovjeri := range map[string]func(service.PotvrdaOvjere) error{
+		"u goCOP-u": func(p service.PotvrdaOvjere) error {
+			_, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, p)
+			return err
+		},
+		"skenom": func(p service.PotvrdaOvjere) error {
+			_, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, a.ID, sken, o.rukovod.ID.String(), p)
+			return err
+		},
+	} {
+		var p *service.TrebaPotvrduError
+		if err := ovjeri(potvrdaPrimatelja); !errors.As(err, &p) || !strings.Contains(p.Pitanje, "jeste li sigurni") {
+			t.Errorf("%s: ovjera bez potvrde „Vrijedi od” dva dana unatrag: %v", opis, err)
+		}
+		if x, _ := o.akti.Get(ctx, a.ID); x.Ovjeren() || x.Broj != 0 {
+			t.Errorf("%s: nacrt bez potvrde ne smije postati akt: %+v", opis, x)
+		}
+	}
+	if pdf, _ := o.akti.Izvornik(ctx, a.ID); len(pdf) != 0 {
+		t.Error("sken bez potvrde ne smije ostati kao izvornik")
+	}
+	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, service.PotvrdaOvjere{Primatelji: true, Vrijedi: true})
+	if err != nil || !ovjeren.Ovjeren() || !ovjeren.ImaPotvrdu(models.PotvrdaVrijedi) {
+		t.Fatalf("ovjera uz potvrdu: %+v %v", ovjeren, err)
+	}
+	if x, _ := o.akti.Get(ctx, a.ID); !x.ImaPotvrdu(models.PotvrdaVrijedi) || x.Potvrde[0].Tko != "Pero Perić" || !strings.Contains(x.Potvrde[0].Tekst, "jeste li sigurni") {
+		t.Errorf("potvrda pri ovjeri nije zabilježena uz akt: %+v", x.Potvrde)
+	}
+
+	// potvrda pri ovjeri skenom bilježi se kao i u goCOP-u; „Vrijedi od” u
+	// uobičajenom rasponu potvrdu ne traži
+	b := nacrt(o, models.PhaseRegular, time.Now().Add(5*24*time.Hour).Truncate(time.Minute))
+	if x, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, b.ID, sken, o.rukovod.ID.String(), service.PotvrdaOvjere{Primatelji: true, Vrijedi: true}); err != nil || !x.ImaPotvrdu(models.PotvrdaVrijedi) {
+		t.Errorf("sken uz potvrdu: %+v %v", x, err)
+	}
+	druga := novaOkolinaAkta(t)
+	c := nacrt(druga, models.PhasePrep, time.Now().Add(-2*time.Hour).Truncate(time.Minute))
+	if x, _, err := druga.akti.Ovjeri(ctx, druga.ovlasti, druga.rukovod, c.ID, potvrdaPrimatelja); err != nil || x.ImaPotvrdu(models.PotvrdaVrijedi) {
+		t.Errorf("ovjera u uobičajenom rasponu: %+v %v", x, err)
+	}
+	// pitanje za stranicu nacrta
+	d := nacrt(o, models.PhaseEmergency, dvaDana)
+	for _, c := range []struct {
+		opis string
+		o    *okolinaAkta
+		id   string
+		pita bool
+	}{{"nacrt dva dana unatrag", o, d.ID, true}, {"ovjeren uz potvrdu", o, a.ID, false}, {"ovjeren u rasponu", druga, c.ID, false}} {
+		x, _ := c.o.akti.Get(ctx, c.id)
+		if q := service.PitanjeVrijediZaOvjeru(*x, time.Now()); strings.Contains(q, "jeste li sigurni") != c.pita {
+			t.Errorf("%s: pitanje %q", c.opis, q)
+		}
+	}
+	x, _ := o.akti.Get(ctx, d.ID)
+	x.Potvrde = []models.PotvrdaAkta{{Vrsta: models.PotvrdaVrijedi}}
+	if q := service.PitanjeVrijediZaOvjeru(*x, time.Now()); q != "" {
+		t.Errorf("nacrt s potvrdom pri sastavljanju ne pita ponovno: %q", q)
 	}
 }

@@ -536,7 +536,8 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 // kojima se stanje obrane nije dalo uskladiti; akt je svejedno ovjeren, jer
 // je odluka donesena, a stanje se može ispraviti na dionici. Popis
 // primatelja slaže se pri ovjeri ponovno; dok stoji upozorenje o popisu,
-// ovjera traži potvrdu (Odluke (8. 10. 2026.), pitanje 19).
+// ovjera traži potvrdu (Odluke (8. 10. 2026.), pitanje 19), kao i „Vrijedi
+// od” izvan uobičajenog raspona koji nacrt nije potvrdio (pitanje 17).
 func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, p PotvrdaOvjere) (*models.Akt, []string, error) {
 	if perms == nil || u == nil {
 		return nil, nil, ErrUnauthorized
@@ -557,7 +558,7 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 	if err := s.provjeriPrijeOvjere(ctx, a); err != nil {
 		return nil, nil, err
 	}
-	if err := primateljiZaOvjeru(u, a, p, s.PregledPrimatelja(ctx, a)); err != nil {
+	if err := potvrdeOvjere(u, a, p, s.PregledPrimatelja(ctx, a), time.Now()); err != nil {
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
@@ -960,7 +961,7 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if !s.SmijeOvjeriti(potpisnikPerms, a) {
 		return nil, nil, fmt.Errorf("%s po zaduženjima ne smije ovjeriti %s", potpisnik.FullName, strings.ToLower(a.Naslov()))
 	}
-	if err := primateljiSkena(u, a, p, s.PregledPrimatelja(ctx, a)); err != nil {
+	if err := potvrdeSkena(u, a, p, s.PregledPrimatelja(ctx, a), time.Now()); err != nil {
 		return nil, nil, err
 	}
 	h := sha256.Sum256(pdf)

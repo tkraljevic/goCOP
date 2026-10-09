@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -80,6 +81,7 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	mux.HandleFunc("GET /akti/novi", h.ShowForm)
 	mux.HandleFunc("POST /akti/novi", h.HandleCreate)
 	mux.HandleFunc("GET /akti/{id}", h.ShowAkt)
+	mux.HandleFunc("POST /akti/{id}/ovjeri", h.HandleOvjeri)
 	zovi := func(metoda, putanja string, forma url.Values) *httptest.ResponseRecorder {
 		t.Helper()
 		r := httptest.NewRequest(metoda, putanja, strings.NewReader(forma.Encode()))
@@ -129,6 +131,36 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	if natrag, _ = url.Parse(l); !strings.Contains(natrag.Query().Get("error"), "7 dana unaprijed") || natrag.Query().Get("potvrdi") != "" {
 		t.Errorf("deset dana unaprijed: %s", l)
 	}
+	// nacrt sastavljen bez potvrde dok je „Vrijedi od” bio sada; dva dana
+	// poslije ovjera pita i bilježi potvrdu
+	l = zovi(http.MethodPost, "/akti/novi", forma(time.Now().Add(-time.Hour), "")).Header().Get("Location")
+	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/akti/")
+	if _, err := baza.Exec(`UPDATE akti SET vrijedi = ? WHERE id = ?`, dvaDana.UTC(), id); err != nil {
+		t.Fatal(err)
+	}
+	stranica := zovi(http.MethodGet, "/akti/"+id, nil).Body.String()
+	if !strings.Contains(stranica, `name="potvrda_vrijedi" value="1" form="ovjera-obrazac" required`) || !strings.Contains(stranica, "jeste li sigurni?") {
+		t.Fatal("stranica nacrta ne pita za „Vrijedi od” pri ovjeri")
+	}
+	otisak := regexp.MustCompile(`name="otisak" value="([^"]+)"`).FindStringSubmatch(stranica)
+	if otisak == nil {
+		t.Fatal("stranica nacrta nema otisak popisa primatelja")
+	}
+	ovjera := url.Values{"otisak": {otisak[1]}, "potvrda_primatelja": {"1"}}
+	if l = zovi(http.MethodPost, "/akti/"+id+"/ovjeri", ovjera).Header().Get("Location"); !strings.Contains(l, "error=") {
+		t.Errorf("ovjera bez potvrde „Vrijedi od”: %s", l)
+	}
+	ovjera.Set("potvrda_vrijedi", "1")
+	if l = zovi(http.MethodPost, "/akti/"+id+"/ovjeri", ovjera).Header().Get("Location"); strings.Contains(l, "error=") {
+		t.Fatalf("ovjera uz potvrdu: %s", l)
+	}
+	if b, _ := akti.Get(ctx, id); b == nil || !b.Ovjeren() || !b.ImaPotvrdu(models.PotvrdaVrijedi) || b.Potvrde[0].Tko != "Ana Anić" {
+		t.Errorf("potvrda pri ovjeri: %+v", b)
+	}
+	if s := zovi(http.MethodGet, "/akti/"+id, nil).Body.String(); strings.Contains(s, `name="potvrda_vrijedi"`) || !strings.Contains(s, "Potvrđeno pri ovjeri.") {
+		t.Error("ovjeren akt pokazuje potvrdu, a ne pita ponovno")
+	}
+
 	// neispravno vrijeme u upitu ne kvari obrazac
 	var data AktiPageData
 	obrazacVrijedi(url.Values{"vrijedi": {"sutra"}}, &data)

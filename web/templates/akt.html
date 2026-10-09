@@ -28,6 +28,11 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{with .PitanjeVrijedi}}
+<div class="alert alert-warning" id="vrijedi-potvrda">{{icon "triangle-alert"}} <strong>{{.}}</strong> Nacrt tu potvrdu nema, pa je traži ovjera; potvrda se bilježi uz akt.
+  {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" form="ovjera-obrazac" required> Da, „Vrijedi od” je točno upisan (ovjera u goCOP-u)</label>{{end}}
+</div>
+{{end}}
 
 {{with .Slanje}}
 <section class="akt-slanje" id="slanje">
@@ -157,6 +162,7 @@
         <option value="">— tko je potpisao —</option>
         {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
       </select>
+      {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
       {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if $a.UpozorenjaPrimatelja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
       <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>

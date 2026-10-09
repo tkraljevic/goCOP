@@ -14,7 +14,8 @@ import (
 // (tipfeler u godini). Više od 24 sata unatrag ili 3 dana unaprijed prolazi
 // samo uz izričitu potvrdu, koja se bilježi uz akt: naknadno unesen akt i
 // najava unaprijed ispravna su praksa. Tvrde granice provjeravaju se
-// ponovno pri ovjeri (vrijediZaOvjeru). Godina oznake i dalje je godina iz
+// ponovno pri ovjeri (vrijediZaOvjeru), a potvrda se pri ovjeri traži kad je
+// akt još nema (potvrdiVrijediPriOvjeri). Godina oznake i dalje je godina iz
 // „Vrijedi od” (odluka od 4. 10. 2026.).
 const (
 	vrijediNajviseUnaprijed = 7 * 24 * time.Hour
@@ -79,14 +80,61 @@ func provjeriVrijedi(a *models.Akt, dnevnik *models.Journal, sad time.Time) erro
 
 // vrijediZaOvjeru: tvrde granice „Vrijedi od” vrijede i pri ovjeri, na oba
 // puta, jer nacrt koji ih ne poštuje može doći s čvora sa starijim
-// programom ili iz obrane čiji je dnevnik u međuvremenu zatvoren. Potvrda
-// za više od 24 sata unatrag ili 3 dana unaprijed ne traži se ponovno: dana
-// je pri sastavljanju nacrta.
+// programom ili iz obrane čiji je dnevnik u međuvremenu zatvoren. Potvrdu
+// za više od 24 sata unatrag ili 3 dana unaprijed provjerava
+// potvrdiVrijediPriOvjeri.
 func vrijediZaOvjeru(a *models.Akt, dnevnik *models.Journal, sad time.Time) error {
 	if err := granicaVrijedi(a.Vrijedi, dnevnik, sad); err != nil {
 		return fmt.Errorf("akt se ne može ovjeriti — %w; nacrtu se „Vrijedi od” ne mijenja, pa treba novi nacrt", err)
 	}
 	return nil
+}
+
+// PitanjeVrijediZaOvjeru je pitanje koje ovjera nacrta postavlja kad je
+// „Vrijedi od” u trenutku sad više od 24 sata unatrag ili više od 3 dana
+// unaprijed, a akt potvrdu još ne nosi (nacrt je sastavljen dok je vrijeme
+// bilo u uobičajenom rasponu, ili na čvoru sa starijim programom). Prazno
+// kad potvrda ne treba.
+func PitanjeVrijediZaOvjeru(a models.Akt, sad time.Time) string {
+	if a.Ovjeren() || a.ImaPotvrdu(models.PotvrdaVrijedi) || !vrijediTraziPotvrdu(a.Vrijedi, sad) {
+		return ""
+	}
+	return pitanjeVrijedi(a.Vrijedi)
+}
+
+// potvrdiVrijediPriOvjeri: dok ovjera postavlja pitanje uz „Vrijedi od”
+// (PitanjeVrijediZaOvjeru), prolazi samo uz izričitu potvrdu, koja se
+// bilježi uz akt na onoga tko ovjeru izvodi
+func potvrdiVrijediPriOvjeri(a *models.Akt, u *models.User, potvrdeno bool, sad time.Time) error {
+	pitanje := PitanjeVrijediZaOvjeru(*a, sad)
+	switch {
+	case pitanje == "":
+		return nil
+	case !potvrdeno:
+		return &TrebaPotvrduError{Pitanje: pitanje}
+	}
+	a.Potvrde = append(a.Potvrde, models.PotvrdaAkta{Vrsta: models.PotvrdaVrijedi, Tekst: pitanje + " Potvrđeno pri ovjeri.",
+		TkoID: u.ID.String(), Tko: u.FullName, Kad: sad.UTC().Truncate(time.Second)})
+	return nil
+}
+
+// potvrdeOvjere su izričite potvrde koje ovjera u goCOP-u traži prije
+// upisa: „Vrijedi od” izvan uobičajenog raspona (pitanje 17) i popis
+// primatelja složen pri ovjeri (pitanje 19)
+func potvrdeOvjere(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledPrimatelja, sad time.Time) error {
+	if err := potvrdiVrijediPriOvjeri(a, u, p.Vrijedi, sad); err != nil {
+		return err
+	}
+	return primateljiZaOvjeru(u, a, p, pr)
+}
+
+// potvrdeSkena su izričite potvrde koje traži ovjera skenom: „Vrijedi od”
+// izvan uobičajenog raspona i popis primatelja s ispisa
+func potvrdeSkena(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledPrimatelja, sad time.Time) error {
+	if err := potvrdiVrijediPriOvjeri(a, u, p.Vrijedi, sad); err != nil {
+		return err
+	}
+	return primateljiSkena(u, a, p, pr)
 }
 
 // provjeriNoviNacrt: novi nacrt nastaje samo u aktivnoj obrani i s

@@ -433,6 +433,10 @@ type PotvrdaOvjere struct {
 	// Primatelji: osoba potvrđuje ovjeru dok stoji upozorenje o popisu
 	// primatelja
 	Primatelji bool
+	// Vrijedi: osoba potvrđuje „Vrijedi od” više od 24 sata unatrag ili više
+	// od 3 dana unaprijed kad nacrt potvrdu još ne nosi
+	// (PitanjeVrijediZaOvjeru; Odluke (8. 10. 2026.), pitanje 17)
+	Vrijedi bool
 }
 
 // primateljiZaOvjeru slaže popis primatelja iznova za ovjeru u programu: akt
