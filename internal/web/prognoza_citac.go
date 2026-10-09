@@ -75,6 +75,8 @@ func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	if r.Err() != nil || len(p.Tocke) < 2 {
 		return nil
 	}
+	u, _ := c.Upozorenja(p.Izdano)
+	p.Upitno = upitnoLetve(u, letva)
 	return p
 }
 

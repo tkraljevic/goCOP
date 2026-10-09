@@ -155,6 +155,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
     <div class="kisa-brojke">palo 24 h <strong>{{mm .Palo24}} mm</strong> · 72 h <strong>{{mm .Palo72}} mm</strong> · očekuje se 48 h <strong>{{mm .Dolazi48}} mm</strong></div>
     <div class="kisa-letve">{{icon "trending-up"}} Voda će rasti na:
       {{range $i, $l := .Letve}}{{if $i}}, {{end}}<strong>{{$l.Naziv}}</strong>{{if $l.Ima}}{{if ge $l.Cm 5.0}} <span class="kisa-porast">+{{cm $l.Cm}} cm ({{$l.Dan}}. dan)</span>{{end}}{{end}}{{end}}
+      {{if $.Izdano.IsZero}}<span class="reg-card-sub">(dnevne prognoze nema)</span>{{end}}
     </div>
   </div>
   {{else}}
@@ -183,7 +184,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
       </tr>{{end}}
       </tbody>
     </table></div>
-    <p class="reg-card-sub" style="margin:0.4rem 0 0;">mm, srednjak međusliva. Žuto: palo ili se očekuje koliko prosječno padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.{{if not .Izdano.IsZero}} Porast vode iz dnevne prognoze izdane {{sat .Izdano}}.{{end}} <a href="/slivovi">Slivovi</a> · <a href="/prognoze">Prognoze</a></p>
+    <p class="reg-card-sub" style="margin:0.4rem 0 0;">mm, srednjak međusliva. Žuto: palo ili se očekuje koliko prosječno padne tri puta godišnje, narančasto jednom godišnje, crveno jednom u pet godina.{{if not .Izdano.IsZero}} Porast vode iz dnevne prognoze izdane {{sat .Izdano}}.{{else}} Porasta vode nema: zadnje izdanje nema dnevne prognoze.{{end}} <a href="/slivovi">Slivovi</a> · <a href="/prognoze">Prognoze</a></p>
   </details>
   {{end}}
 </div>

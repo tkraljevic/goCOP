@@ -25,6 +25,7 @@ const PrognozaZastarijeva = 3 * time.Hour
 type UpozorenjeStranice struct {
 	Sto    string // što ne radi
 	Upitno string // što je zbog toga upitno; prazno kad ništa posebno
+	letve  []string
 }
 
 // pisacUpozorenja piše upozorenja imenima letvi i danima pregleda.
@@ -77,7 +78,7 @@ func satOdEpohe(sat int64) time.Time { return time.Unix(sat*3600, 0) }
 // slozi piše upozorenja: otvorena i sklopljena.
 func (p pisacUpozorenja) slozi(u []prognoza.Upozorenje) (otvorena, napomene []UpozorenjeStranice) {
 	for _, x := range u {
-		s := UpozorenjeStranice{Sto: p.sto(x), Upitno: p.upitno(x)}
+		s := UpozorenjeStranice{Sto: p.sto(x), Upitno: p.upitno(x), letve: letveUpozorenja(x)}
 		if x.Tezina >= prognoza.TezinaUpozorenje {
 			otvorena = append(otvorena, s)
 		} else {
@@ -388,4 +389,108 @@ func velikoSlovo(s string) string {
 		return strings.ToUpper(string(r)) + s[i+len(string(r)):]
 	}
 	return s
+}
+
+// letveUpozorenja su letve koje upozorenje imenuje: ona koja ne radi i one
+// kojima je prognoza upitna.
+func letveUpozorenja(u prognoza.Upozorenje) []string {
+	out := []string{u.Letva}
+	for _, q := range u.Upitno {
+		out = append(out, q.Letva)
+	}
+	return out
+}
+
+// upozorenjaIzvoza su zastarjelost i otvorena upozorenja koja imenuju
+// ijednu od zadanih letvi, za napomenu lista izvoza; svako u svom retku.
+func upozorenjaIzvoza(data PrognozePageData, letve []LetvaPrognoze) string {
+	var s []string
+	if data.Zastarjelo != "" {
+		s = append(s, data.Zastarjelo)
+	}
+	for _, u := range data.Upozorenja {
+		if slices.ContainsFunc(letve, func(l LetvaPrognoze) bool { return slices.Contains(u.letve, l.Kod) }) {
+			s = append(s, "Upozorenje: "+strings.TrimSpace(u.Sto+" "+u.Upitno))
+		}
+	}
+	if len(s) == 0 {
+		return ""
+	}
+	return strings.Join(s, "\n") + "\n"
+}
+
+// upozorenjaSazetka su zastarjelost i sva otvorena upozorenja izdanja, za
+// odlomak na početku sažetka; prazno kad ih nema.
+func upozorenjaSazetka(data PrognozePageData) string {
+	var s []string
+	if data.Zastarjelo != "" {
+		s = append(s, data.Zastarjelo)
+	}
+	for _, u := range data.Upozorenja {
+		s = append(s, strings.TrimSpace(u.Sto+" "+u.Upitno))
+	}
+	if len(s) == 0 {
+		return ""
+	}
+	return "Upozorenja uz izdanje: " + strings.Join(s, " ")
+}
+
+// neprazno su zadani tekstovi bez praznih.
+func neprazno(s ...string) []string {
+	return slices.DeleteFunc(s, func(x string) bool { return x == "" })
+}
+
+// upitnoLetve je kratak redak bez imena za natpis grafa letve: od kojeg je
+// dosega satna upitna i je li dnevna izdana; prazno kad je sve u redu.
+func upitnoLetve(u []prognoza.Upozorenje, letva string) string {
+	od, dnevna := -1, ""
+	for _, x := range u {
+		q, ima := upitnaLetva(x, letva)
+		if !ima {
+			continue
+		}
+		od = najranije(od, q.OdSata)
+		dnevna = cmp.Or(dnevna, dnevnaNaGrafu(x.Vrsta, q))
+	}
+	var s []string
+	if od >= 0 {
+		s = append(s, "satna upitna "+odDosega(od))
+	}
+	return velikoSlovo(strings.Join(append(s, neprazno(dnevna)...), "; "))
+}
+
+// upitnaLetva nalazi letvu među upitnima otvorenog upozorenja.
+func upitnaLetva(u prognoza.Upozorenje, letva string) (prognoza.Upitno, bool) {
+	i := slices.IndexFunc(u.Upitno, func(q prognoza.Upitno) bool { return q.Letva == letva })
+	if i < 0 || u.Tezina < prognoza.TezinaUpozorenje {
+		return prognoza.Upitno{}, false
+	}
+	return u.Upitno[i], true
+}
+
+// najranije je manji od dva dosega; −1 znači da dosega nema.
+func najranije(a, b int) int {
+	if b >= 0 && (a < 0 || b < a) {
+		return b
+	}
+	return a
+}
+
+// dnevnaNaGrafu: dnevna nije izdana, ili je izdana bez kiše.
+func dnevnaNaGrafu(vrsta string, q prognoza.Upitno) string {
+	switch {
+	case !q.Dnevno:
+		return ""
+	case vrsta == prognoza.VrstaKisa:
+		return "dnevna upitna"
+	}
+	return "dnevna nije izdana"
+}
+
+// natpisUpitnog dodaje natpisu grafa zašto je prognoza upitna.
+func natpisUpitnog(upitno string) string {
+	if upitno == "" {
+		return ""
+	}
+	return " " + upitno + "."
 }

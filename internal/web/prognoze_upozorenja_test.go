@@ -10,6 +10,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
+	"gocop/internal/xlsxw"
 )
 
 // izmisljenePostaje su registar izmišljenih letvi za tekstove upozorenja.
@@ -332,5 +333,116 @@ func TestImeSIzvorom(t *testing.T) {
 	}
 	if s := velikoSlovo("čeka se"); s != "Čeka se" {
 		t.Errorf("%q", s)
+	}
+}
+
+// Napomena lista izvoza počinje upozorenjima koja imenuju letve tog lista,
+// i zastarjelošću; upozorenje o letvama drugog lista tu ne stoji.
+func TestListPrognozeNapomenaUpozorenja(t *testing.T) {
+	v := func(x float64) *float64 { return &x }
+	// List nosi i redak vode (pritoka na listu rijeke), protok uz satni
+	// termin i dan koji letva nema, da se vidi da napomena ne smeta ostalom.
+	data := PrognozePageData{Udio: 70, Izdano: "8.10.2026. u 21:00", Dani: []string{"pet 9.10.", "sub 10.10."}, Bliski: []int{6},
+		Zastarjelo: "Zadnja prognoza izdana je za 8. 10. u 21 h — prije 5 h.",
+		Upozorenja: []UpozorenjeStranice{
+			{Sto: "Srednji Brod: nema mjerenja.", Upitno: "Upitno: satna prognoza Donji Grad najranije od +1 h.", letve: []string{"srednja", "donja"}},
+			{Sto: "Daleki Vrh: nema mjerenja.", letve: []string{"daleko"}},
+		}}
+	tab := TablicaPrognoza{Naslov: "Rijeka", Letve: []LetvaPrognoze{{Kod: "donja", Naziv: "Donji Grad", Voda: "Pritoka", Racuna: "vodostaj", SadaCmV: v(100),
+		Vrijednosti: []VrijednostPrognoze{{DosegH: 6, Ima: true, CmV: v(102), QV: v(40)}},
+		Dani:        []CelijaDana{{CmV: v(101)}}}}}
+	k := &xlsxw.Knjiga{}
+	listPrognoze(k, ZaglavljeIzvoza{Potpisnici: []PotpisnikIzvoza{{Funkcija: "voditelj Centra obrane od poplava", Ime: "Ana Anić"}}}, data, tab)
+	txt := tekstKnjige(t, k)
+	for _, want := range []string{">Pritoka<", ">40<", "sub 10.10. 07 h", "Zadnja prognoza izdana je za 8. 10. u 21 h", "Upozorenje: Srednji Brod: nema mjerenja. Upitno: satna prognoza Donji Grad najranije od +1 h."} {
+		if !strings.Contains(txt, want) {
+			t.Errorf("u napomeni nema %q", want)
+		}
+	}
+	if strings.Contains(txt, "Daleki Vrh") {
+		t.Error("upozorenje drugog lista u napomeni")
+	}
+	if s := upozorenjaIzvoza(PrognozePageData{}, tab.Letve); s != "" {
+		t.Errorf("bez upozorenja: %q", s)
+	}
+}
+
+// Sažetak počinje svim otvorenim upozorenjima; postaja nosi svoj redak u
+// napomeni.
+func TestSazetakUpozorenja(t *testing.T) {
+	data := PrognozePageData{Zastarjelo: "Zadnja prognoza izdana je prije 5 h.",
+		Upozorenja: []UpozorenjeStranice{{Sto: "Srednji Brod: nema mjerenja.", Upitno: "Upitno: dnevna prognoza Donji Grad."}, {Sto: "Daleki Vrh: nema mjerenja."}}}
+	if got, want := upozorenjaSazetka(data), "Upozorenja uz izdanje: Zadnja prognoza izdana je prije 5 h. Srednji Brod: nema mjerenja. "+
+		"Upitno: dnevna prognoza Donji Grad. Daleki Vrh: nema mjerenja."; got != want {
+		t.Errorf("%q\nželim\n%q", got, want)
+	}
+	if s := upozorenjaSazetka(PrognozePageData{}); s != "" {
+		t.Errorf("bez upozorenja: %q", s)
+	}
+	if n := neprazno("", "a", ""); len(n) != 1 || n[0] != "a" {
+		t.Errorf("neprazno: %q", n)
+	}
+	sve := postajeSazetka(PrognozePageData{Letve: []LetvaPrognoze{{Kod: sazetakSkupine[0].Letve[0], Naziv: "X", Upozorenje: "Dnevna nije izdana (Srednji Brod bez mjerenja)."}}})
+	if p := sve[sazetakSkupine[0].Voda]; len(p) != 1 || p[0].Upozorenje != "Dnevna nije izdana (Srednji Brod bez mjerenja)." {
+		t.Errorf("postaja sažetka: %+v", p)
+	}
+}
+
+// Natpis grafa letve kaže, bez imena, od kojeg je dosega satna upitna i je
+// li dnevna izdana; prognoza se čita iz baze kakva je stigla razmjenom.
+func TestNatpisGrafaUpitno(t *testing.T) {
+	izdano := satUTC(8, 19)
+	u := []prognoza.Upozorenje{
+		{Vrsta: prognoza.VrstaUlaz, Tezina: prognoza.TezinaUpozorenje, Letva: "srednja",
+			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 7, Dnevno: true}}},
+		{Vrsta: prognoza.VrstaRezerva, Tezina: prognoza.TezinaUpozorenje, Letva: "gornja",
+			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 4}, {Letva: "treca", OdSata: -1, Dnevno: true}}},
+		{Vrsta: prognoza.VrstaKisa, Tezina: prognoza.TezinaUpozorenje, Upitno: []prognoza.Upitno{{Letva: "cetvrta", OdSata: -1, Dnevno: true}}},
+		{Vrsta: prognoza.VrstaKrivulja, Tezina: prognoza.TezinaNapomena, Upitno: []prognoza.Upitno{{Letva: "cetvrta", Velicina: "protok", OdSata: 0}}},
+	}
+	for letva, want := range map[string]string{"donja": "Satna upitna najranije od +4 h; dnevna nije izdana",
+		"treca": "Dnevna nije izdana", "cetvrta": "Dnevna upitna", "peta": ""} {
+		if got := upitnoLetve(u, letva); got != want {
+			t.Errorf("%s: %q, želim %q", letva, got, want)
+		}
+	}
+	c, err := OtvoriPrognoze(izdanjeKodPrimatelja(t, izdano, u, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	p := c.ZaLetvu("donja", "vodostaj")
+	if p == nil || p.Upitno != "Satna upitna najranije od +4 h; dnevna nije izdana" {
+		t.Fatalf("prognoza niza: %+v", p)
+	}
+	g := crtajNizSPrognozom(nizOcitanja(p.Izdano, 24), "vodostaj", nil, nil, p)
+	if !strings.HasSuffix(g.PrognozaNatpis, "slučajeva. Satna upitna najranije od +4 h; dnevna nije izdana.") {
+		t.Errorf("natpis: %q", g.PrognozaNatpis)
+	}
+	if g := crtajNizSPrognozom(nizOcitanja(p.Izdano, 24), "vodostaj", nil, nil, nizPrognoze(p.Izdano, 24)); !strings.HasSuffix(g.PrognozaNatpis, "slučajeva.") {
+		t.Errorf("natpis bez upozorenja: %q", g.PrognozaNatpis)
+	}
+}
+
+// Pločica kiše bez dnevne prognoze to kaže, umjesto da porast tiho izostane.
+func TestKisaSlivovaBezDnevne(t *testing.T) {
+	sliv := SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "A", Razina: 1}, Naziv: "Gornji sliv", Klasa: "kisa-zuto",
+		Letve: []PorastLetve{{Naziv: "Donji Grad"}}}
+	var b strings.Builder
+	if err := kisaSlivovaTmpl.Execute(&b, kisaSlivovaPodaci{Slivovi: []SlivUKisi{sliv}, Upozorenja: []SlivUKisi{sliv}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"(dnevne prognoze nema)", "zadnje izdanje nema dnevne prognoze"} {
+		if !strings.Contains(b.String(), want) {
+			t.Errorf("pločica nema %q", want)
+		}
+	}
+	b.Reset()
+	sliv.Letve[0].Ima, sliv.Letve[0].Cm, sliv.Letve[0].Dan = true, 12, 2
+	if err := kisaSlivovaTmpl.Execute(&b, kisaSlivovaPodaci{Slivovi: []SlivUKisi{sliv}, Upozorenja: []SlivUKisi{sliv}, Izdano: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(b.String(), "dnevne prognoze nema") || !strings.Contains(b.String(), "Porast vode iz dnevne prognoze izdane") {
+		t.Errorf("pločica s dnevnom: %s", b.String())
 	}
 }

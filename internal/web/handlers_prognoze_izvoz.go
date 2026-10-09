@@ -218,7 +218,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	if z.Centar != "" {
 		izdaje = z.Centar
 	}
-	napomena := "Prognoza " + izdaje + ". " +
+	napomena := upozorenjaIzvoza(data, letve) + "Prognoza " + izdaje + ". " +
 		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +

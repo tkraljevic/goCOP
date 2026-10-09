@@ -46,6 +46,7 @@ type postajaSazetka struct {
 	QPrema      string // ime postaje čiji se protok uzima, kad nije vlastiti
 	Postaja     models.Station
 	ImaPostaju  bool
+	Upozorenje  string // zašto je prognoza postaje u ovom izdanju upitna
 }
 
 // kraj vraća zadnji dan s vrijednošću i njegov indeks
@@ -113,7 +114,8 @@ func postajeSazetka(data PrognozePageData) map[string][]postajaSazetka {
 				continue
 			}
 			ime, _ := imeIDrzava(x.Naziv)
-			p := postajaSazetka{Kod: kod, Ime: ime, Sada: x.SadaCmV, SadaQ: x.SadaQV, Min: x.KrajMin, Max: x.KrajMax}
+			p := postajaSazetka{Kod: kod, Ime: ime, Sada: x.SadaCmV, SadaQ: x.SadaQV, Min: x.KrajMin, Max: x.KrajMax,
+				Upozorenje: x.Upozorenje}
 			p.Postaja, p.ImaPostaju = data.postajeM[kod]
 			for _, d := range x.Dani {
 				p.Dani = append(p.Dani, d.CmV)
@@ -390,6 +392,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 		}
 	}
 	naslov("Ukratko")
+	odlomak(upozorenjaSazetka(data), xlsxw.Tekst)
 	for _, g := range sazetakSkupine {
 		odlomak(recenicaRijeke(g.Voda, sve[g.Voda]), xlsxw.Tekst)
 	}
@@ -507,6 +510,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 				premaNapomena = append(premaNapomena, fmt.Sprintf("%s: protok (kurziv) je protok %s — mjerenih protoka %s nema od 2019., a između njih nema većeg pritoka",
 					p.Ime, genitivPostaje(p.QPrema), genitivPostaje(p.Ime)))
 			}
+			napomena = append(napomena, neprazno(p.Upozorenje)...)
 			tekstNapomene := strings.Join(napomena, "; ")
 			redaka := 1
 			for _, c := range []struct {
