@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -223,5 +224,69 @@ func TestOvjeraAktaKadBazaNeOdgovara(t *testing.T) {
 	}
 	if err := repo.OvjeriAkt(ctx, a, nil); err == nil {
 		t.Error("ovjera bez tablice akata")
+	}
+}
+
+// Nacrt pročitan prije ovjere i upisan poslije nje ne vraća ovjeren akt u
+// nacrt i ne oslobađa njegov broj (Odluke (8. 10. 2026.), pitanje 4)
+func TestNacrtUpisanPoslijeOvjereNeVracaAktUNacrt(t *testing.T) {
+	baza, repo := bazaAkata(t)
+	ctx := context.Background()
+	nacrt := nacrtAkta(t, repo, "Batina")
+	zastario := *nacrt
+	if err := repo.OvjeriAkt(ctx, nacrt, ovjeren); err != nil {
+		t.Fatal(err)
+	}
+	zastario.Napomena = "dopuna iz zastarjele kopije"
+	if err := repo.SaveNacrt(ctx, &zastario); !errors.Is(err, ErrNijeNacrt) {
+		t.Errorf("zastarjela kopija nacrta preko ovjerenog akta: %v", err)
+	}
+	if a, _ := repo.GetAkt(ctx, nacrt.ID); a == nil || !a.Ovjeren() || a.Broj != 1 || a.Potpis != "potpis B-1/2026" || a.Napomena != "" {
+		t.Fatalf("ovjeren akt nakon zastarjelog upisa nacrta: %+v", a)
+	}
+	if n := brojRedaka(t, baza, `SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityAkti, nacrt.ID); n != 2 {
+		t.Errorf("odbijen upis nacrta ostavio je verziju u knjizi: %d verzija", n)
+	}
+	drugi := nacrtAkta(t, repo, "Vukovar")
+	if err := repo.OvjeriAkt(ctx, drugi, ovjeren); err != nil || drugi.Broj != 2 {
+		t.Errorf("sljedeća ovjera: %s %v", drugi.Oznaka(), err)
+	}
+
+	// nov nacrt se upisuje i mijenja dok je nacrt
+	nov := &models.Akt{Sektor: "B", AreaID: 34, Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Status: models.AktNacrt,
+		Vrijedi: time.Date(2026, 10, 6, 3, 0, 0, 0, models.Zagreb), IzradenoAt: time.Now()}
+	if err := repo.SaveNacrt(ctx, nov); err != nil || nov.ID == "" {
+		t.Fatalf("nov nacrt: %v", err)
+	}
+	nov.Napomena = "dopuna"
+	if err := repo.SaveNacrt(ctx, nov); err != nil {
+		t.Fatal(err)
+	}
+	if a, _ := repo.GetAkt(ctx, nov.ID); a == nil || a.Napomena != "dopuna" {
+		t.Errorf("izmijenjen nacrt: %+v", a)
+	}
+	// ono što nije nacrt ne upisuje se kao nacrt
+	for _, a := range []*models.Akt{{Sektor: "B", Status: models.AktOvjeren}, {Sektor: "B", Status: models.AktNacrt, Broj: 3, Godina: 2026}} {
+		if err := repo.SaveNacrt(ctx, a); err == nil || errors.Is(err, ErrNijeNacrt) {
+			t.Errorf("upis kao nacrt akta %+v: %v", a, err)
+		}
+	}
+	// baza koja ne odgovara
+	otkazan, prekini := context.WithCancel(ctx)
+	prekini()
+	if err := repo.SaveNacrt(otkazan, nov); err == nil {
+		t.Error("upis nacrta s prekinutim zahtjevom mora pasti")
+	}
+	if _, err := baza.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveNacrt(ctx, nov); err == nil {
+		t.Error("upis nacrta bez knjige mora pasti")
+	}
+	if _, err := baza.Exec(`DROP TABLE akti`); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveNacrt(ctx, nov); err == nil {
+		t.Error("upis nacrta bez tablice akata mora pasti")
 	}
 }

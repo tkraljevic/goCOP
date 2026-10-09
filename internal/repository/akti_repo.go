@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -161,6 +162,19 @@ func (r *AktiRepository) SaveAkti(ctx context.Context, akti ...*models.Akt) erro
 // upisiAkt upisuje akt na površinu i njegovu verziju u knjigu, unutar
 // zadane transakcije; nov akt dobiva identitet
 func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt) error {
+	if err := oznaciUpis(a); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
+		return fmt.Errorf("upis akta: %w", err)
+	}
+	_, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a)
+	return err
+}
+
+// oznaciUpis daje novom aktu identitet i vrijeme nastanka, a svakom vrijeme
+// izmjene
+func oznaciUpis(a *models.Akt) error {
 	now := time.Now().UTC()
 	if a.ID == "" {
 		id, err := uuid.NewV7()
@@ -174,11 +188,45 @@ func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt
 		a.CreatedAt = now
 	}
 	a.UpdatedAt = now
-	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
-		return fmt.Errorf("upis akta: %w", err)
+	return nil
+}
+
+// aktNacrtUpsert upisuje nacrt kao aktUpsert, ali zatečeni redak mijenja
+// samo dok je i sam nacrt bez broja
+const aktNacrtUpsert = aktUpsert + ` WHERE akti.status = '` + models.AktNacrt + `' AND akti.broj = 0`
+
+// ErrNijeNacrt: akt je u međuvremenu ovjeren, pa se nacrt ne upisuje preko
+// njega
+var ErrNijeNacrt = errors.New("akt je u međuvremenu ovjeren i ne mijenja se; ispravak je novi akt")
+
+// SaveNacrt upisuje nacrt, nov ili izmijenjen, s verzijom u knjizi. Zatečeni
+// akt mijenja samo dok je u bazi nacrt bez broja, i to provjerava u istom
+// koraku u kojem upisuje: nacrt pročitan prije ovjere ne vraća ovjeren akt u
+// nacrt i ne oslobađa njegov broj (Odluke (8. 10. 2026.), pitanje 4). Tada
+// vraća ErrNijeNacrt i ništa ne upisuje.
+func (r *AktiRepository) SaveNacrt(ctx context.Context, a *models.Akt) error {
+	if a.Status != models.AktNacrt || a.Broj != 0 {
+		return fmt.Errorf("upis nacrta: akt %s nije nacrt", a.Oznaka())
 	}
-	_, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a)
-	return err
+	if err := oznaciUpis(a); err != nil {
+		return err
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, aktNacrtUpsert, aktArgs(a)...)
+	if err != nil {
+		return fmt.Errorf("upis nacrta: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNijeNacrt
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // OvjeriAkt upisuje ovjeren akt i u istom mu koraku dodjeljuje redni broj u

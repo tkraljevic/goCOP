@@ -419,7 +419,9 @@ func (s *AktService) PonovnoSloziPrimatelje(ctx context.Context, perms *models.U
 		return nil, ErrUnauthorized
 	}
 	a.Primatelji, a.UpozorenjaPrimatelja = s.sloziPrimatelje(ctx, a)
-	return a, s.repo.SaveAkt(ctx, a)
+	// slaganje traje; nacrt ovjeren u međuvremenu ostaje ovjeren (Odluke
+	// (8. 10. 2026.), pitanje 4)
+	return a, s.repo.SaveNacrt(ctx, a)
 }
 
 // PotvrdaOvjere je ono što je osoba izričito potvrdila pri ovjeri

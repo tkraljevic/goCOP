@@ -370,7 +370,8 @@ func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissio
 	if a.Radnja == models.AktPrekid {
 		a.IzvanSnage = strings.TrimSpace(izvanSnage)
 	}
-	if err := s.repo.SaveAkt(ctx, a); err != nil {
+	// nacrt ovjeren u međuvremenu ostaje ovjeren (Odluke (8. 10. 2026.), pitanje 4)
+	if err := s.repo.SaveNacrt(ctx, a); err != nil {
 		return nil, err
 	}
 	return a, nil
@@ -526,7 +527,8 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 	}
 	a.Status = models.AktNacrt
 	a.Godina = a.Vrijedi.In(models.Zagreb).Year()
-	return s.repo.SaveAkt(ctx, a)
+	// nacrt ovjeren u međuvremenu ostaje ovjeren (Odluke (8. 10. 2026.), pitanje 4)
+	return s.repo.SaveNacrt(ctx, a)
 }
 
 // Ovjeri ovjerava nacrt: dodijeli broj, upiše tko i kad, izračuna kod i
