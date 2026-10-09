@@ -16,10 +16,12 @@ import (
 
 // Prijenos sredstava u skladište drugog sektora (Odluke (8. 10. 2026.),
 // pitanje 11): odlučuje strana koja šalje, bez potvrde, a stanje ciljnog
-// skladišta raste odmah. Ciljni sektor na svom zidu događanja dobiva
-// obavijest „Prijenos iz Sektora B”, istaknutu, s izvornim skladištem;
-// sektor koji šalje vidi svoj prijenos. Prijenos unutar sektora ostaje
-// jedan događaj.
+// skladišta raste odmah. Dodaje se samo obavijest: ciljni sektor na svom
+// zidu događanja dobiva „Prijenos iz Sektora B”, istaknutu, s izvornim
+// skladištem. Potez ostaje jedan događaj kao i prije odluke, pa zid
+// sektora koji šalje ne dobiva novi redak izlaza (koji bi s nazivom samo
+// izvornog skladišta izgledao kao ulaz u nj), a tko vidi oba sektora vidi
+// jedan redak po prijenosu.
 func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
@@ -112,19 +114,18 @@ func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 		t.Errorf("filtar po Sektoru D: %+v", f)
 	}
 
-	// sektor koji šalje: oba svoja prijenosa, svaki jednom, bez obavijesti
+	// sektor koji šalje: kao prije odluke, samo prijenos unutar sektora, s
+	// ciljnim skladištem; izlaz u Sektor D nije novi redak
 	uB := prijenosi(upravaB, FiltarZida{})
-	if len(uB) != 2 {
-		t.Fatalf("Sektor B treba dva prijenosa (u Sektor D i unutar sektora), ima %d: %+v", len(uB), uB)
+	if len(uB) != 1 {
+		t.Fatalf("Sektor B treba samo prijenos unutar sektora, ima %d: %+v", len(uB), uB)
 	}
-	for _, d := range uB {
-		if d.Naslov != "Prijenos" || d.Sektor != "B" || d.Vazno {
-			t.Errorf("prijenos na zidu Sektora B: %+v", d)
-		}
+	if d := uB[0]; d.Naslov != "Prijenos" || d.Sektor != "B" || d.Vazno || !strings.HasSuffix(d.Tekst, "· Skladište Dalj") {
+		t.Errorf("prijenos na zidu Sektora B: %+v", d)
 	}
-	// uprava organizacije vidi oba sektora: prijenos u D je i izlaz i obavijest
-	if sve := prijenosi(glavni, FiltarZida{}); len(sve) != 3 {
-		t.Errorf("uprava organizacije: %d prijenosa, očekivano 3: %+v", len(sve), sve)
+	// uprava organizacije vidi oba sektora: jedan redak po prijenosu
+	if sve := prijenosi(glavni, FiltarZida{}); len(sve) != 2 || sve[1].Naslov != "Prijenos iz Sektora B" || !strings.HasSuffix(sve[0].Tekst, "· Skladište Dalj") {
+		t.Errorf("uprava organizacije: %d prijenosa, očekivano 2: %+v", len(sve), sve)
 	}
 }
 
@@ -178,12 +179,14 @@ func TestZidPrijenosIzDrugogSektoraRubovi(t *testing.T) {
 		t.Errorf("nečitljiva knjiga prometa: %+v", d)
 	}
 
-	// ključ poteza: par po sektoru; stari redak bez veze i drugi entiteti nisu par
+	// ključ poteza: veza, bez obzira na sektor retka; stari redak bez veze i
+	// drugi entiteti nisu par
 	for _, k := range []struct {
 		v    ledger.Version
 		want string
 	}{
-		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"D"}`)}, "veza-1|D"},
+		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"D"}`)}, "veza-1"},
+		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"veza_id":"veza-1","sektor":"B"}`)}, "veza-1"},
 		{ledger.Version{Entity: repository.EntityMtsPromet, Payload: []byte(`{"sektor":"D"}`)}, ""},
 		{ledger.Version{Entity: repository.EntityJournalEntries, Payload: []byte(`{"veza_id":"veza-1"}`)}, ""},
 	} {

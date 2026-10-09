@@ -229,19 +229,17 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 }
 
 // kljucPoteza: redci jednog poteza sredstava (prijenos, punjenje, izdavanje)
-// su jedan događaj po sektoru. Prijenos u skladište drugog sektora zato je
-// događaj na zidu obaju sektora: izlaz kod onoga koji šalje, obavijest kod
-// onoga koji prima. Prazno za sve što nije par prometa.
+// su jedan događaj. Ulaz se upisuje iza izlaza, pa je događaj ulaz; kod
+// prijenosa u skladište drugog sektora to je obavijest ciljnom sektoru, a
+// zid sektora koji šalje ostaje kakav je bio (Odluke (8. 10. 2026.),
+// pitanje 11). Prazno za sve što nije par prometa.
 func kljucPoteza(v ledger.Version) string {
 	if v.Entity != repository.EntityMtsPromet {
 		return ""
 	}
 	var p models.Promet
 	_ = json.Unmarshal(v.Payload, &p)
-	if p.VezaID == "" {
-		return ""
-	}
-	return p.VezaID + "|" + p.Sektor
+	return p.VezaID
 }
 
 // vidiRedak: redak prijave s terena vidi samo tko smije čitati tu prijavu,
