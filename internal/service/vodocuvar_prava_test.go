@@ -66,8 +66,9 @@ var vrijemeProbe = time.Now()
 // ni njegove objavljene prijave. Po Odlukama (8. 10. 2026.), pitanje 1,
 // dežurni operater sektora vidi oboje dok mu dužnost vrijedi, a voditelj
 // usluga / poslovođa izvođača ni jedno; rukovoditelj dionice vidi listove,
-// a od prijava samo one koje navode njegovu dionicu. Gost i preglednik s
-// dužnošću na području ne vide ni dnevnik ni prijave.
+// a od prijava samo one vezane uz njegovu dionicu (knjiga_ovlasti_test.go):
+// prijava bez dionice vodočuvara za kojeg se ne zna što čuva nije vezana.
+// Gost i preglednik s dužnošću na području ne vide ni dnevnik ni prijave.
 func TestPrijaveIduSDnevnikom(t *testing.T) {
 	podrucje := 1
 	sektor := "P"
@@ -90,7 +91,7 @@ func TestPrijaveIduSDnevnikom(t *testing.T) {
 		{"rukovoditelj područja", osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &podrucje}), true, true},
 		{"operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector}), true, true},
 		{"poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
-		{"rukovoditelj dionice, prijava bez dionice", osoba(models.Duty{Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, AreaID: &podrucje, SectionCodes: "P.1.1"}), true, false},
+		{"rukovoditelj dionice, prijava bez dionice nepoznatog vodočuvara", osoba(models.Duty{Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, AreaID: &podrucje, SectionCodes: "P.1.1"}), true, false},
 		{"istekli operater sektora", osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, ExpiresAt: &jucer}), false, false},
 		{"istekli poslovođa izvođača", osoba(models.Duty{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, AreaID: &podrucje, ExpiresAt: &jucer}), false, false},
 		{"gost na području", osoba(models.Duty{Role: models.RoleGuest, ScopeType: models.ScopeArea, AreaID: &podrucje}), false, false},
