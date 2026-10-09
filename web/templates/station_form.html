@@ -270,14 +270,13 @@
     <textarea id="povijest" name="povijest" class="form-control" rows="6"
               placeholder="osnivanje, položaj, uređaji kroz vrijeme, stalne točke i reperi">{{.Station.Povijest}}</textarea>
   </div>
-  <label class="form-check d-flex items-center gap-2 mb-1">
-    <input type="checkbox" name="kota_nm" value="1" {{if .Station.KotaNM}}checked{{end}}>
-    <span>Kota u cm n. m. — letva ne vodi vodostaj nego kotu vodnog lica nad morem (razina akumulacije uz branu)</span>
-  </label>
+  {{if .Station.KotaNM}}
   <p class="form-help mb-4">
-    Takva letva prima očitanja od 5000 do 40 000 cm umjesto od −500 do 3000 cm, i pri ručnom upisu i pri
-    preuzimanju i uvozu. Vrijednost izvan raspona se ne upisuje.
+    <span class="reg-chip">kota u cm n. m.</span> Letva akumulacije HEP-a ne vodi vodostaj nego kotu vodnog lica nad
+    morem, pa prima očitanja od 5000 do 40 000 cm umjesto od −500 do 3000 cm, i pri ručnom upisu i pri preuzimanju
+    i uvozu. Oznaku postavlja program; u obrascu se ne mijenja.
   </p>
+  {{end}}
 
   <h3 class="obrazac-podnaslov">Javna stranica vodostaja</h3>
   <div class="form-row">

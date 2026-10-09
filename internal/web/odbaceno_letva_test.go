@@ -121,32 +121,55 @@ func TestPorukaPreuzimanja(t *testing.T) {
 	}
 }
 
-// Oznaka „kota u cm n. m.” upisuje se kvačicom u obrascu letve, i skida
-func TestOznakaKoteIzObrascaLetve(t *testing.T) {
-	var st models.Station
-	stationForm{KotaNM: "1"}.primijeni(&st)
-	if !st.KotaNM {
-		t.Error("kvačica nije upisala oznaku")
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): oznaku „kota u cm n. m.”
+// imaju tri letve akumulacija HEP-a i nju upisuje popravak podataka. Obrazac
+// letve je pokazuje, ali je ne mijenja: kvačica je na novoj letvi bila
+// bačena (toStation je nije prenosio), a na postojećoj ju je svaki urednik
+// dionice mogao skinuti ili staviti — i JSON klijent koji polje ne pošalje
+// skidao ju je — pa bi se razina akumulacije odbacivala na svim putovima,
+// ili obična letva odbacivala svaki vodostaj.
+func TestObrazacLetveNeMijenjaOznakuKote(t *testing.T) {
+	akumulacija := models.Station{ID: uuid.New(), Code: "gvb-he-varazdin", Name: "Akumulacija Probna", KotaNM: true}
+	stationForm{Name: "Akumulacija Probna"}.primijeni(&akumulacija)
+	if !akumulacija.KotaNM {
+		t.Error("kartica bez polja oznake skinula je oznaku akumulacije")
 	}
-	stationForm{}.primijeni(&st)
-	if st.KotaNM {
-		t.Error("prazna kvačica nije skinula oznaku")
+
+	zovi := func(vrsta, tijelo string) stationForm {
+		t.Helper()
+		r := httptest.NewRequest(http.MethodPost, "/api/stations/create", strings.NewReader(tijelo))
+		r.Header.Set("Content-Type", vrsta)
+		f, err := decodeStationForm(r)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return f
 	}
-	// historijat ne nosi kvačicu pa je ne dira
-	st.KotaNM = true
-	stationForm{Obrazac: obrazacHistorijat}.primijeni(&st)
-	if !st.KotaNM {
-		t.Error("obrazac historijata skinuo je oznaku")
-	}
-	for v, ocekivano := range map[string]bool{"1": true, "on": true, "true": true, "": false, "0": false, "da": false} {
-		if kvacica(v) != ocekivano {
-			t.Errorf("%q: očekivano %v", v, ocekivano)
+	for _, f := range []stationForm{
+		zovi("application/x-www-form-urlencoded", "name=Letva+Probna&code=letva-probna&kota_nm=1"),
+		zovi("application/json", `{"name":"Letva Probna","code":"letva-probna","kota_nm":"1"}`),
+	} {
+		obicna := models.Station{Name: "Letva Probna"}
+		f.primijeni(&obicna)
+		if obicna.KotaNM || f.toStation().KotaNM {
+			t.Errorf("obrazac je upisao oznaku kote: %+v", f)
 		}
 	}
-	r := httptest.NewRequest(http.MethodPost, "/stations", strings.NewReader("kota_nm=1"))
-	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	if f, err := decodeStationForm(r); err != nil || f.KotaNM != "1" {
-		t.Errorf("obrazac: %+v, %v", f.KotaNM, err)
+
+	nova := iscrtaj(t, "station_form.html", StationPageData{CurrentUser: &models.User{FullName: "Pero Perić"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true}})
+	uredjivanje := iscrtaj(t, "station_form.html", StationPageData{CurrentUser: &models.User{FullName: "Pero Perić"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true}, Station: akumulacija, IsEdit: true})
+	for ime, html := range map[string]string{"nova letva": nova, "letva akumulacije": uredjivanje} {
+		if strings.Contains(html, `name="kota_nm"`) {
+			t.Errorf("%s: obrazac nudi polje oznake kote", ime)
+		}
+	}
+	if strings.Contains(nova, "kota u cm n. m.") {
+		t.Error("obrazac nove letve spominje oznaku kote")
+	}
+	if !strings.Contains(uredjivanje, "kota u cm n. m.") || !strings.Contains(uredjivanje, "5000 do 40 000 cm") {
+		t.Error("obrazac letve akumulacije ne pokazuje oznaku i raspon")
 	}
 }
 
@@ -171,10 +194,14 @@ func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	h := pomocHTML(t)
 	for _, s := range []string{`id="ocitanja-raspon"`, "vodostaj od −500 do 3000 cm", "satno preuzimanje",
 		"evidencije BP16", "kota u cm n. m.", "5000 do 40 000 cm", "Odbačeno izvan raspona: 50",
-		"putuje razmjenom", "starijom verzijom programa (0.0.34) raspon ne provjerava"} {
+		"putuje razmjenom", "starijom verzijom programa (0.0.34) raspon ne provjerava",
+		"Oznaku postavlja program; u obrascu letve se ne mijenja"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
 		}
+	}
+	if strings.Contains(h, "U obrascu letve ima oznaku") {
+		t.Error("pomoć još kaže da se oznaka kote stavlja u obrascu letve")
 	}
 	if strings.Contains(h, "na ostalima se ne vidi") {
 		t.Error("pomoć još kaže da se broj vidi samo na računalu koje je vrijednost odbacilo")
