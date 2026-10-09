@@ -220,6 +220,34 @@ func TestNeuspjelaInacicaSePonavljaIduciSat(t *testing.T) {
 	}
 }
 
+// Na čvoru bez kišomjera (baza oborina se ne da otvoriti ili registar nema
+// kišomjera) inačica s kišom ne može se naučiti nikad. Ne pokušava se ni
+// prvi put ni idući sat: svaki je pokušaj iznova čitao dnevne nizove iz
+// arhive i uzalud namještao model (1,8 s po satnom krugu na arhivi od
+// 9. 10. 2026.). Inačica bez kiše uči se, a letva nema greške.
+func TestInacicaSKisomBezKisomjeraSeNePokusava(t *testing.T) {
+	ocistiDnevneModele(t)
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "cilj", Ulazi: []string{"ulaz"}, Slivovi: []string{"X"}}})
+	for ime, oborine := range map[string]*OborinskiIzvor{"bez izvora oborina": nil, "registar bez kišomjera": {}} {
+		ocistiDnevneModele(t)
+		o := &Osvjezivac{Arhiva: arhivaRijeke(t), Oborine: oborine}
+		sat := time.Date(2026, 10, 9, 10, 5, 0, 0, time.UTC)
+		uSat(t, sat)
+		modeli, greske := o.dnevniModeliZaDanas()
+		if in := modeli["cilj"]; len(in) != 2 || in[0] != nil || in[1] == nil || len(greske) != 0 {
+			t.Fatalf("%s: inačice %v, greške %v", ime, in, greske)
+		}
+		for h := 1; h <= 3; h++ {
+			uSat(t, sat.Add(time.Duration(h)*time.Hour))
+			o.dnevniModeliZaDanas()
+		}
+		if dnevniModeli.sat != sat.Unix()/3600 {
+			t.Errorf("%s: inačica s kišom pokušana opet, zadnje učenje u %d h, a ne %d h",
+				ime, dnevniModeli.sat-sat.Unix()/3600, 0)
+		}
+	}
+}
+
 // Letva koju dnevni model računa iz rezerve ne stoji u BezDnevne, iako se
 // glavni model nije dao naučiti. Dosad je greška učenja glavnog ulazila u
 // BezDnevne prije računa i ostajala i kad je rezerva dala prognozu. Letva
@@ -321,22 +349,30 @@ func TestOtisakArhive(t *testing.T) {
 }
 
 // Nedostaje inačica koja nije naučena, ali i cilj koji u naučenom nema
-// nijednu (dodan u popis ciljeva poslije učenja).
+// nijednu (dodan u popis ciljeva poslije učenja). Inačica s kišom nedostaje
+// samo kad čvor ima kišomjere: bez njih se ne može naučiti.
 func TestNedostajeInacica(t *testing.T) {
 	gornja, donja := DnevniCilj{Letva: "gornja"}, DnevniCilj{Letva: "donja"}
-	postavi(t, &DnevniCiljevi, []DnevniCilj{gornja, donja})
+	kisna := DnevniCilj{Letva: "kisna", Slivovi: []string{"X"}} // s kišom i bez nje
+	postavi(t, &DnevniCiljevi, []DnevniCilj{gornja, donja, kisna})
 	postavi(t, &DnevneRezerve, map[string][][]string{})
 	m := &DnevniModel{}
+	kisomjeri := &OborinskiIzvor{Tocke: []OborinskaTocka{{Code: "kisomjer-x", Sliv: "X", Tezina: 1}}}
 	for _, s := range []struct {
-		modeli map[string][]*DnevniModel
-		want   bool
+		modeli  map[string][]*DnevniModel
+		oborine *OborinskiIzvor
+		want    bool
 	}{
-		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}}, false},
-		{map[string][]*DnevniModel{"gornja": {m}, "donja": {nil}}, true},
-		{map[string][]*DnevniModel{"gornja": {m}}, true},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}, "kisna": {m, m}}, nil, false},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {nil}, "kisna": {m, m}}, nil, true},
+		{map[string][]*DnevniModel{"gornja": {m}, "kisna": {m, m}}, nil, true},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}, "kisna": {nil, m}}, nil, false},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}, "kisna": {nil, m}}, &OborinskiIzvor{}, false},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}, "kisna": {nil, m}}, kisomjeri, true},
+		{map[string][]*DnevniModel{"gornja": {m}, "donja": {m}, "kisna": {m, nil}}, nil, true},
 	} {
-		if got := nedostaje(s.modeli); got != s.want {
-			t.Errorf("%v: nedostaje %v, želim %v", s.modeli, got, s.want)
+		if got := nedostaje(s.modeli, s.oborine); got != s.want {
+			t.Errorf("%v uz %v: nedostaje %v, želim %v", s.modeli, s.oborine, got, s.want)
 		}
 	}
 }

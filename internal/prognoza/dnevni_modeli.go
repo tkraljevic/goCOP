@@ -6,7 +6,8 @@ package prognoza
 // Inačica koja se nije dala naučiti pokušava se opet idući sat; dosad je
 // greška stajala do ponoći i popravljalo ju je samo ponovno pokretanje
 // programa, a uvoz u arhivu tijekom dana nije se vidio do sutra. Odluke
-// (8. 10. 2026.), pitanje 15.
+// (8. 10. 2026.), pitanje 15. Inačica s kišom na čvoru bez kišomjera ne
+// pokušava se ni jednom, jer se ne može naučiti.
 
 import (
 	"database/sql"
@@ -52,7 +53,7 @@ func (z *zalihaDnevnih) osvjezi(arhiva *sql.DB, oborine *OborinskiIzvor, sada ti
 		z.modeli = nil
 	}
 	z.dan, z.zig = dan, zig
-	if z.modeli != nil && (z.sat == sat || !nedostaje(z.modeli)) {
+	if z.modeli != nil && (z.sat == sat || !nedostaje(z.modeli, oborine)) {
 		return
 	}
 	z.sat = sat
@@ -63,20 +64,31 @@ func (z *zalihaDnevnih) osvjezi(arhiva *sql.DB, oborine *OborinskiIzvor, sada ti
 // arhive stoje po lokalnim danima, a ponoć mora biti ista na svakom čvoru.
 func danUcenja(t time.Time) string { return t.In(models.Zagreb).Format("2006-01-02") }
 
-// nedostaje javlja ima li dnevni cilj inačicu koja nije naučena.
-func nedostaje(modeli map[string][]*DnevniModel) bool {
+// nedostaje javlja ima li dnevni cilj inačicu koja nije naučena, a mogla bi
+// se naučiti.
+func nedostaje(modeli map[string][]*DnevniModel, oborine *OborinskiIzvor) bool {
 	for _, c := range DnevniCiljevi {
 		in := modeli[c.Letva]
-		if len(in) < len(c.Inacice()) {
-			return true
-		}
-		for _, m := range in {
-			if m == nil {
+		for i, cilj := range c.Inacice() {
+			if (i >= len(in) || in[i] == nil) && mozeUciti(cilj, oborine) {
 				return true
 			}
 		}
 	}
 	return false
+}
+
+// mozeUciti javlja može li se inačica uopće naučiti. Inačica s kišom ne može
+// na čvoru bez kišomjera (baza oborina se ne da otvoriti ili registar nema
+// kišomjera), pa se ni ne pokušava: svaki bi pokušaj uzalud čitao dnevne
+// nizove iz arhive i namještao model.
+func mozeUciti(cilj DnevniCilj, oborine *OborinskiIzvor) bool {
+	return len(cilj.Slivovi) == 0 || imaKisomjera(oborine)
+}
+
+// imaKisomjera javlja ima li čvor kišomjere iz kojih dnevni model uči kišu.
+func imaKisomjera(oborine *OborinskiIzvor) bool {
+	return oborine != nil && len(oborine.Tocke) > 0
 }
 
 // nauciDnevne uči inačice dnevnih ciljeva kojih u staro nema; naučene iz
@@ -126,9 +138,14 @@ func (u *ucenjeDnevnih) inacice(c DnevniCilj, staro []*DnevniModel) ([]*DnevniMo
 }
 
 // inacica vraća i-tu inačicu iz staro kad je naučena, a inače je uči.
+// Inačica koja se ne može naučiti (s kišom, a bez kišomjera) ostaje nil, bez
+// greške: to nije kvar, a grešku letve daje inačica koja se mogla naučiti.
 func (u *ucenjeDnevnih) inacica(cilj DnevniCilj, staro []*DnevniModel, i int) (*DnevniModel, error) {
 	if i < len(staro) && staro[i] != nil {
 		return staro[i], nil
+	}
+	if !mozeUciti(cilj, u.oborine) {
+		return nil, nil
 	}
 	nizovi, err := u.ulazi(cilj)
 	if err != nil {
@@ -157,10 +174,11 @@ func (u *ucenjeDnevnih) ulazi(cilj DnevniCilj) (map[string]DnevniNiz, error) {
 }
 
 // oborineZaUcenje je dnevna oborina po međuslivovima iz arhive. Bez
-// kišomjera, ili kad se ne da pročitati, prazna je: inačice s kišom tada ne
-// uče i pokušavaju se opet idući sat.
+// kišomjera prazna je, a inačice s kišom se ni ne uče; kad se ne da
+// pročitati, također je prazna, a inačice s kišom pokušavaju se opet idući
+// sat.
 func oborineZaUcenje(arhiva *sql.DB, oborine *OborinskiIzvor) map[string]DnevniNiz {
-	if oborine == nil || len(oborine.Tocke) == 0 {
+	if !imaKisomjera(oborine) {
 		return map[string]DnevniNiz{}
 	}
 	ob, err := DnevneOborine(arhiva, oborine.Tocke)
