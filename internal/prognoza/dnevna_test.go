@@ -199,6 +199,33 @@ func TestRupaJeOnaKojaJeOborilaDan(t *testing.T) {
 	}
 }
 
+// Ulaz koji je prije dva dana bio dulje bez mjerenja, a sad ih nema osam
+// sati: rupa je ona koja traje, ne stara i dulja, jer bi upozorenje inače
+// reklo da su se mjerenja vratila. Dok rupa na kraju sama ne obara dan (do
+// šest sati), dan je oborila stara i ona se imenuje.
+func TestStaraDuljaRupaNeSkrivaOnuKojaTraje(t *testing.T) {
+	sada := int64(500000)
+	rupaNa := func(zadnje int64) []RupaUlaza {
+		t.Helper()
+		satni := map[string]Niz{
+			"cilj": nizSRupama(sada-200, sada),
+			"ulaz": nizSRupama(sada-200, zadnje, [2]int64{sada - 45, sada - 25}), // 21 sat, dan −1
+		}
+		_, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"ulaz"}}}, satni, nil, sada)
+		var nd *NepotpuniDani
+		if !errors.As(err, &nd) {
+			t.Fatalf("greška %v nije NepotpuniDani", err)
+		}
+		return nd.Rupe
+	}
+	if got, want := rupaNa(sada-8), []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 8}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("osam sati bez mjerenja: rupe %+v, želim %+v", got, want)
+	}
+	if got, want := rupaNa(sada-6), []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 46, Sljedece: sada - 24}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("šest sati bez mjerenja: rupe %+v, želim %+v", got, want)
+	}
+}
+
 // Cilj s kišom kojemu fali oborina imenuje sliv, ne letvu, i nema rupe u
 // satnom nizu; s kišom računa i nosi oznaku modela s kišom.
 func TestDnevniSKisomImenujeSliv(t *testing.T) {

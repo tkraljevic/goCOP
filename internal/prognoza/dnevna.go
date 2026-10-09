@@ -935,6 +935,10 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 	return promjena, raspon
 }
 
+// satiZaDan je koliko sati s vrijednošću od 24 dan treba da bi ga
+// DnevniIzSatnog složio: dan kojem fali više od šest sati izostaje.
+const satiZaDan = 18
+
 // DnevniIzSatnog slaže dnevne vrijednosti iz satnog niza: dan 0 je srednjak
 // 24 sata koji završavaju u satu izdavanja, dan -1 prethodna 24 sata i tako
 // unatrag. Kalendarski dan čekao bi ponoć; ovako prognoza ide sa svakim
@@ -951,7 +955,7 @@ func DnevniIzSatnog(n Niz, sada int64, dana int) DnevniNiz {
 				k++
 			}
 		}
-		if k >= 18 {
+		if k >= satiZaDan {
 			out[int64(-d)] = s / float64(k)
 		}
 	}
@@ -1011,14 +1015,19 @@ func imaDaneZnacajki(n DnevniNiz) bool {
 	return d0 && d1 && d3
 }
 
-// rupaUlaza nalazi rupu zbog koje niz nema dan značajki: najdulji slijed
-// sati bez vrijednosti (ni premošćene, NajveciRazmak) u danima 0, −1 i −3
-// kojima fali više od šest sati. Najdulji, a ne zadnji: ulaz koji kasni sat
-// iza izdanja ima kratku rupu na samom kraju, a dan je oborila duga prije nje;
-// ni prvi, jer stara zatvorena rupa ne smije sakriti onu koja još traje.
-// Zadnje je zadnje očitanje prije rupe, Sljedece prvo poslije nje do sata
-// izdavanja, 0 dok rupa traje.
+// rupaUlaza nalazi rupu zbog koje niz nema dan značajki. Rupa koja traje do
+// sata izdavanja i sama obara dan 0 (rupaKojaTraje) ima prednost: stara
+// zatvorena rupa, ni dulja, ne smije je sakriti, jer bi upozorenje reklo da
+// su se mjerenja vratila. Inače najdulji slijed sati bez vrijednosti (ni
+// premošćene, NajveciRazmak) u danima 0, −1 i −3 kojima fali više od šest
+// sati. Najdulji, a ne zadnji: ulaz koji kasni sat iza izdanja ima kratku
+// rupu na samom kraju, a dan je oborila duga prije nje. Zadnje je zadnje
+// očitanje prije rupe, Sljedece prvo poslije nje do sata izdavanja, 0 dok
+// rupa traje.
 func rupaUlaza(n Niz, sada int64) (RupaUlaza, bool) {
+	if r, traje := rupaKojaTraje(n, sada); traje {
+		return r, true
+	}
 	var kraj, duljina int64
 	for _, d := range []int64{0, 1, 3} {
 		k := sada - 24*d
@@ -1039,6 +1048,23 @@ func rupaUlaza(n Niz, sada int64) (RupaUlaza, bool) {
 		r.Sljedece = n.Sati[i]
 	}
 	return r, true
+}
+
+// rupaKojaTraje je rupa od zadnjeg sata s vrijednošću do sata izdavanja kad
+// je dulja od onoga što dan 0 smije nemati (24 − satiZaDan sati), pa ga
+// sama obara. Sljedećeg očitanja nema, rupa traje.
+func rupaKojaTraje(n Niz, sada int64) (RupaUlaza, bool) {
+	t := sada
+	for ; t > sada-24; t-- {
+		if _, ima := n.U(t); ima {
+			break
+		}
+	}
+	if sada-t <= 24-satiZaDan {
+		return RupaUlaza{}, false
+	}
+	z, _ := n.ZadnjiSatDo(sada)
+	return RupaUlaza{Zadnje: z}, true
 }
 
 // najduljaRupa vraća zadnji sat i duljinu najduljeg slijeda sati od od do do
