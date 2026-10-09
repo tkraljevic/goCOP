@@ -229,11 +229,23 @@ func (r *AktiRepository) SaveNacrt(ctx context.Context, a *models.Akt) error {
 	return tx.Commit()
 }
 
+// sljedeciBrojAkta je sljedeći redni broj akta u godini po sektoru (args:
+// sektor i godina, triput): iza najvećeg broja među aktima koje čvor vidi,
+// najvećeg koji je čvor ikad dao (akti_brojac; ne pada kad se akt trajno
+// obriše) i najvećeg koji nosi bilo koja verzija akta u knjizi (akt obrisan
+// prije brojača, ovjera koju je na površini nadjačala novija verzija)
+const sljedeciBrojAkta = `1 + MAX(
+	(SELECT COALESCE(MAX(broj), 0) FROM akti WHERE sektor = ? AND godina = ?),
+	(SELECT COALESCE(MAX(zadnji), 0) FROM akti_brojac WHERE sektor = ? AND godina = ?),
+	(SELECT COALESCE(MAX(CAST(json_extract(payload, '$.broj') AS INTEGER)), 0) FROM record_versions
+		WHERE entity = '` + EntityAkti + `' AND json_extract(payload, '$.sektor') = ? AND json_extract(payload, '$.godina') = ?))`
+
 // OvjeriAkt upisuje ovjeren akt i u istom mu koraku dodjeljuje redni broj u
 // godini po sektoru (Odluke (8. 10. 2026.), pitanje 4). Dodjela broja prvi je
 // upis transakcije, pa transakcija od tada drži pravo pisanja u bazu: druga
 // ovjera na ovom čvoru čeka da se ova upiše i dobiva sljedeći broj, a isti
-// broj čvor ne može dati dvaput. Akt mora biti spremljen kao nacrt (broj 0);
+// broj čvor ne može dati dvaput, ni kad se akt poslije trajno obriše
+// (sljedeciBrojAkta). Akt mora biti spremljen kao nacrt (broj 0);
 // drugi pokušaj ovjere istog nacrta ne prolazi. dovrsi dovršava akt kad je
 // broj poznat: potpis ključem čvora pokriva i oznaku.
 func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi func(*models.Akt)) error {
@@ -242,8 +254,8 @@ func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi fu
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE akti SET broj = (SELECT COALESCE(MAX(broj), 0) + 1 FROM akti WHERE sektor = ? AND godina = ?)
-		WHERE id = ? AND broj = 0`, a.Sektor, a.Godina, a.ID)
+	res, err := tx.ExecContext(ctx, `UPDATE akti SET broj = `+sljedeciBrojAkta+` WHERE id = ? AND broj = 0`,
+		a.Sektor, a.Godina, a.Sektor, a.Godina, a.Sektor, a.Godina, a.ID)
 	if err != nil {
 		return fmt.Errorf("dodjela broja akta: %w", err)
 	}
@@ -252,6 +264,10 @@ func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi fu
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT broj FROM akti WHERE id = ?`, a.ID).Scan(&a.Broj); err != nil {
 		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO akti_brojac (sektor, godina, zadnji) VALUES (?, ?, ?)
+		ON CONFLICT(sektor, godina) DO UPDATE SET zadnji = MAX(zadnji, excluded.zadnji)`, a.Sektor, a.Godina, a.Broj); err != nil {
+		return fmt.Errorf("brojač akata: %w", err)
 	}
 	if dovrsi != nil {
 		dovrsi(a)

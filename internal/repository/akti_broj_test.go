@@ -290,3 +290,77 @@ func TestNacrtUpisanPoslijeOvjereNeVracaAktUNacrt(t *testing.T) {
 		t.Error("upis nacrta bez tablice akata mora pasti")
 	}
 }
+
+// Broj koji je čvor jednom dao ne daje ponovno ni kad akt s najvećim brojem
+// više nije na površini (Odluke (8. 10. 2026.), pitanje 4): trajno obrisan
+// ovjeren akt, akt obrisan prije nego što je čvor brojao svoje brojeve (broj
+// ostaje u knjizi) i ovjera koju je na površini nadjačala novija verzija.
+func TestBrojAktaNeVracaSeNakonBrisanja(t *testing.T) {
+	baza, repo := bazaAkata(t)
+	ctx := context.Background()
+	prvi := nacrtAkta(t, repo, "Batina")
+	if err := repo.OvjeriAkt(ctx, prvi, ovjeren); err != nil || prvi.Broj != 1 {
+		t.Fatalf("prva ovjera: %s %v", prvi.Oznaka(), err)
+	}
+	if err := repo.DeleteAktTrajno(ctx, prvi.ID); err != nil {
+		t.Fatal(err)
+	}
+	drugi := nacrtAkta(t, repo, "Vukovar")
+	if err := repo.OvjeriAkt(ctx, drugi, ovjeren); err != nil || drugi.Broj != 2 {
+		t.Errorf("ovjera nakon trajnog brisanja akta B-1/2026 dala je %s (%v); B-1/2026 je već izdan", drugi.Oznaka(), err)
+	}
+
+	// akt B-7/2026 obrisan prije brojača: na površini ga nema, brojač ga ne
+	// zna, a knjiga ga pamti
+	if _, err := baza.Exec(`DELETE FROM akti_brojac`); err != nil {
+		t.Fatal(err)
+	}
+	obrisan := nacrtAkta(t, repo, "Aljmaš")
+	obrisan.Broj, obrisan.Status = 7, models.AktOvjeren
+	if err := repo.SaveAkt(ctx, obrisan); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.DeleteAktTrajno(ctx, obrisan.ID); err != nil {
+		t.Fatal(err)
+	}
+	treci := nacrtAkta(t, repo, "Batina")
+	if err := repo.OvjeriAkt(ctx, treci, ovjeren); err != nil || treci.Broj != 8 {
+		t.Errorf("ovjera nakon brisanja B-7/2026 iz knjige: %s %v", treci.Oznaka(), err)
+	}
+
+	// ovjera B-9/2026 drugog čvora koju je na površini nadjačala novija
+	// verzija nacrta
+	tudi := nacrtAkta(t, repo, "Vukovar")
+	tudi.Broj, tudi.Status = 9, models.AktOvjeren
+	if err := repo.SaveAkt(ctx, tudi); err != nil {
+		t.Fatal(err)
+	}
+	tudi.Broj, tudi.Status = 0, models.AktNacrt
+	if err := repo.SaveAkt(ctx, tudi); err != nil {
+		t.Fatal(err)
+	}
+	cetvrti := nacrtAkta(t, repo, "Batina")
+	if err := repo.OvjeriAkt(ctx, cetvrti, ovjeren); err != nil || cetvrti.Broj != 10 {
+		t.Errorf("ovjera uz B-9/2026 samo u knjizi: %s %v", cetvrti.Oznaka(), err)
+	}
+	// druga godina i drugi sektor imaju svoj niz
+	idueGodine := nacrtAkta(t, repo, "Batina")
+	idueGodine.Godina = 2027
+	if err := repo.SaveAkt(ctx, idueGodine); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.OvjeriAkt(ctx, idueGodine, ovjeren); err != nil || idueGodine.Broj != 1 {
+		t.Errorf("prva ovjera 2027.: %s %v", idueGodine.Oznaka(), err)
+	}
+	// brojač koji se ne da upisati ruši ovjeru, a broj ostaje slobodan
+	if _, err := baza.Exec(`CREATE TRIGGER pukni_brojac BEFORE INSERT ON akti_brojac BEGIN SELECT RAISE(ABORT, 'pukni'); END`); err != nil {
+		t.Fatal(err)
+	}
+	peti := nacrtAkta(t, repo, "Batina")
+	if err := repo.OvjeriAkt(ctx, peti, ovjeren); err == nil {
+		t.Error("ovjera bez upisa u brojač mora pasti")
+	}
+	if a, _ := repo.GetAkt(ctx, peti.ID); a.Broj != 0 || a.Ovjeren() {
+		t.Errorf("pala ovjera ostavila je broj: %+v", a)
+	}
+}
