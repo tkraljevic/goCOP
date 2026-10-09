@@ -19,10 +19,14 @@ package prognoza
 // doista dogodilo: u mirnoj vodi uzak, u valu širok.
 
 import (
+	"cmp"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -993,8 +997,9 @@ type RupaUlaza struct {
 // NepotpuniDani je greška dnevnog modela kad ulazima fale dani od kojih se
 // slažu značajke. Fali su letve (i „oborina X”) kojima fali dan 0, −1 ili
 // −3; Rupe kažu gdje je u satnom nizu tih letvi rupa, da upozorenje uz
-// izdanje može reći od kada do kada letva nema mjerenja. Tekst greške ostaje
-// kakav je bio, jer ga dnevnik i alati već ispisuju.
+// izdanje može reći od kada do kada letva nema mjerenja. Kad padnu sve
+// inačice cilja, Fali i Rupe skupljaju sve njih (spojiNepotpune). Tekst
+// greške ostaje kakav je bio, jer ga dnevnik i alati već ispisuju.
 type NepotpuniDani struct {
 	Letva string
 	Fali  []string
@@ -1095,6 +1100,50 @@ func rupeUlaza(satni map[string]Niz, letve []string, sada int64) []RupaUlaza {
 		}
 	}
 	return out
+}
+
+// prognozirajInacicu računa jednu inačicu dnevnog modela cilja. Kad padne,
+// njezina se greška spaja s greškom inačica koje su pale prije nje (prije),
+// da se zna svaki ulaz bez mjerenja, a ne samo onaj zadnje inačice: kad
+// stanu i Borl I i Varaždin iz rezerve, upozorenje mora imenovati oba.
+func prognozirajInacicu(m *DnevniModel, satni map[string]Niz, oborine map[string]DnevniNiz, sada int64, prije error) ([]DnevnaIzdana, error) {
+	d, err := PrognozirajDnevno(m, satni, oborine, sada)
+	if err != nil {
+		return nil, spojiNepotpune(prije, err)
+	}
+	return d, nil
+}
+
+// spojiNepotpune spaja greške dviju inačica istog cilja: svaka letva kojoj
+// fale dani jednom, redom kojim su inačice pale i letve prije oborina, te
+// rupa svake letve. Bez ranije greške, ili kad nije NepotpuniDani, ostaje
+// zadnja.
+func spojiNepotpune(prije, err error) error {
+	var a, b *NepotpuniDani
+	if !errors.As(prije, &a) || !errors.As(err, &b) {
+		return err
+	}
+	s := &NepotpuniDani{Letva: a.Letva}
+	for _, f := range slices.Concat(a.Fali, b.Fali) {
+		if !slices.Contains(s.Fali, f) {
+			s.Fali = append(s.Fali, f)
+		}
+	}
+	slices.SortStableFunc(s.Fali, func(x, y string) int { return cmp.Compare(redFali(x), redFali(y)) })
+	for _, r := range slices.Concat(a.Rupe, b.Rupe) {
+		if _, ima := rupaLetve(s.Rupe, r.Letva); !ima {
+			s.Rupe = append(s.Rupe, r)
+		}
+	}
+	return s
+}
+
+// redFali stavlja letve kojima fale dani ispred oborina koje fale.
+func redFali(f string) int {
+	if strings.HasPrefix(f, "oborina ") {
+		return 1
+	}
+	return 0
 }
 
 // PrognozirajDnevno izdaje dnevnu prognozu cilja iz satnih nizova uživo.

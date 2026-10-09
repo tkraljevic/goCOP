@@ -692,7 +692,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			if m == nil {
 				continue
 			}
-			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
+			if d, err = prognozirajInacicu(m, satni, oborine, sada, err); err == nil {
 				d = SastaviBezKise(d, m, in, satni, oborine, sada)
 				if len(c.Slivovi) > 0 {
 					if len(m.Cilj.Slivovi) > 0 {

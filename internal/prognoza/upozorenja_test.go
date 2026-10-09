@@ -164,6 +164,45 @@ func TestDnevnaKojaPadneUpozoravaAIspravnaNe(t *testing.T) {
 	}
 }
 
+// Kad padnu i glavni ulaz dnevnog modela i ulaz rezerve (Borl I pa
+// Varaždin), upozorenje mora imenovati oba: glavni je pao prvi, a dosad se
+// pamtila samo greška zadnje inačice koja je pokušala.
+func TestDnevniBezGlavnogIRezerveImenujeOba(t *testing.T) {
+	postavi(t, &PoluvijekIspravka, 0)
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	ocitanja := ocitanjaLetvi(t, zadnji,
+		probnaLetva{sifra: "gornja"}, probnaLetva{sifra: "donja"},
+		probnaLetva{sifra: "glavni", rupa: [2]int{14, 34}},   // 21 sat, do 13 h prije izdanja
+		probnaLetva{sifra: "pricuvni", rupa: [2]int{26, 46}}) // 21 sat, do 25 h prije izdanja
+	gornja, donja := DnevniCilj{Letva: "gornja"}, DnevniCilj{Letva: "donja", Ulazi: []string{"glavni"}}
+	postavi(t, &DnevniCiljevi, []DnevniCilj{gornja, donja})
+	postavi(t, &DnevneRezerve, map[string][][]string{"donja": {{"pricuvni"}}})
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{})
+	podmetniDnevneModele(t, map[string][]*DnevniModel{
+		"gornja": {{Cilj: gornja}},
+		"donja":  {{Cilj: donja}, {Cilj: DnevniCilj{Letva: "donja", Ulazi: []string{"pricuvni"}}}},
+	})
+	o := probniOsvjezivac(t, ocitanja)
+	o.Arhiva, o.Najdalje = praznaArhiva(t), 96
+
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sada := ishod.Sada
+	if got, want := fmt.Sprint(ishod.BezDnevne["donja"]), "donja: nepotpuna zadnja četiri dana na [glavni pricuvni]"; got != want {
+		t.Errorf("bez dnevne: %q, želim %q", got, want)
+	}
+	donjaDnevno := []Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}
+	want := []Upozorenje{
+		{Vrsta: VrstaUlaz, Tezina: TezinaUpozorenje, Letva: "glavni", Zadnje: sada - 35, Sljedece: sada - 13, Upitno: donjaDnevno},
+		{Vrsta: VrstaUlaz, Tezina: TezinaUpozorenje, Letva: "pricuvni", Zadnje: sada - 47, Sljedece: sada - 25, Upitno: donjaDnevno},
+	}
+	if !reflect.DeepEqual(ishod.Upozorenja, want) {
+		t.Errorf("upozorenja\n %+v\nželim\n %+v", ishod.Upozorenja, want)
+	}
+}
+
 // Karika lanca bez mjerenja dulje od ZaostatakKarike računa se iz svojih
 // ulaza; upozorenje imenuje nju i od kojeg je dosega upitna svaka letva niže.
 // Dok kasni manje, upozorenja nema.

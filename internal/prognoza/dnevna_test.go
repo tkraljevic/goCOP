@@ -226,6 +226,37 @@ func TestStaraDuljaRupaNeSkrivaOnuKojaTraje(t *testing.T) {
 	}
 }
 
+// Greške inačica istog cilja spajaju se: svaka letva jednom, redom kojim su
+// inačice pale, oborine iza letvi; rupa letve ostaje ona prve inačice koja
+// ju je našla.
+func TestSpojiNepotpune(t *testing.T) {
+	glavna := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 10, Sljedece: 30}}}
+	rezerva := &NepotpuniDani{Letva: "donja", Fali: []string{"pricuvni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "pricuvni", Zadnje: 5, Sljedece: 28}}}
+	bezKise := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 11, Sljedece: 30}}}
+	if got := spojiNepotpune(nil, glavna); got != glavna {
+		t.Errorf("prva greška mora ostati kakva jest: %v", got)
+	}
+	got := spojiNepotpune(spojiNepotpune(glavna, rezerva), bezKise)
+	want := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni", "pricuvni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 10, Sljedece: 30}, {Letva: "pricuvni", Zadnje: 5, Sljedece: 28}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("spojeno %+v, želim %+v", got, want)
+	}
+	if got.Error() != "donja: nepotpuna zadnja četiri dana na [glavni pricuvni oborina A]" {
+		t.Errorf("tekst: %q", got.Error())
+	}
+	if !reflect.DeepEqual(glavna.Fali, []string{"glavni", "oborina A"}) {
+		t.Errorf("spajanje je promijenilo grešku glavne inačice: %v", glavna.Fali)
+	}
+	druga := errors.New("nešto drugo")
+	if got := spojiNepotpune(glavna, druga); got != druga {
+		t.Errorf("greška koja nije NepotpuniDani ostaje zadnja: %v", got)
+	}
+}
+
 // Cilj s kišom kojemu fali oborina imenuje sliv, ne letvu, i nema rupe u
 // satnom nizu; s kišom računa i nosi oznaku modela s kišom.
 func TestDnevniSKisomImenujeSliv(t *testing.T) {
