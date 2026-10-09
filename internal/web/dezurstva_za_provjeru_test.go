@@ -205,6 +205,14 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	if l := w.Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("potvrda poslije ispravka: %s", l)
 	}
+	// isti opis još jednom: ništa se ne mijenja, potvrda ostaje, a poruka to i kaže
+	w = zovi(ana, uprava, http.MethodPost, plan+"/"+d.ID+"/opis", url.Values{"opis": {"Obilazak i pregled obrambenih objekata"}})
+	if l, _ := url.Parse(w.Header().Get("Location")); l == nil || l.Query().Get("success") != "Opis rada je već takav; ništa nije promijenjeno." {
+		t.Errorf("ispravak bez promjene: %s", w.Header().Get("Location"))
+	}
+	if sad, _ := journalRepo.GetDezurstvo(context.Background(), d.ID); !sad.Potvrdeno() {
+		t.Error("ispravak bez promjene povukao je potvrdu")
+	}
 	// noćni rad radnim danom na terenu: 8 h × 2,05 = 16,4 → 16,5
 	w = zovi(ana, uprava, http.MethodGet, obr+"?od=2026-09-01&do=2026-09-29", nil)
 	mora(w, http.StatusOK, "obračun poslije potvrde", "Ivo Ivić", ">teren<", ">16,5<")

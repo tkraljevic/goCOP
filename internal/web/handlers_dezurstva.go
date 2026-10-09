@@ -129,7 +129,8 @@ func (h *JournalsHandler) HandlePotvrdiDezurstvo(w http.ResponseWriter, r *http.
 	redirectWith(w, r, back, "success", "Dežurstvo je potvrđeno.")
 }
 
-// HandleIspraviOpisDezurstva: uprava centra mijenja opis rada dežurstva
+// HandleIspraviOpisDezurstva: uprava centra mijenja opis rada dežurstva;
+// isti opis ne mijenja ništa, i poruka to kaže
 func (h *JournalsHandler) HandleIspraviOpisDezurstva(w http.ResponseWriter, r *http.Request) {
 	j, _, ok := h.loadJournal(w, r)
 	if !ok {
@@ -137,11 +138,16 @@ func (h *JournalsHandler) HandleIspraviOpisDezurstva(w http.ResponseWriter, r *h
 	}
 	u, perms := h.base(r)
 	back := "/dnevnici/" + j.ID + "/dezurstva"
-	if err := h.journals.IspraviOpisDezurstva(r.Context(), u, perms, j, r.PathValue("dez"), strings.TrimSpace(r.FormValue("opis"))); err != nil {
+	promijenjeno, err := h.journals.IspraviOpisDezurstva(r.Context(), u, perms, j, r.PathValue("dez"), strings.TrimSpace(r.FormValue("opis")))
+	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, back, "success", "Opis rada je ispravljen; dežurstvo čeka potvrdu.")
+	poruka := "Opis rada je ispravljen; dežurstvo čeka potvrdu."
+	if !promijenjeno {
+		poruka = "Opis rada je već takav; ništa nije promijenjeno."
+	}
+	redirectWith(w, r, back, "success", poruka)
 }
 
 // ShowObracun prikazuje sate po osobi za razdoblje; zadano je cijelo

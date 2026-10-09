@@ -87,19 +87,19 @@ func TestDezurstvoBezMjestaZaProvjeru(t *testing.T) {
 		{"opis izvan popisa", ana, o.ovlUprav, noc.ID, "Opis s drugog čvora", "s popisa"},
 		{"nepostojeće", ana, o.ovlUprav, uuid.NewString(), "Dežurstvo u COP-u", "nije pronađeno"},
 	} {
-		if err := o.svc.IspraviOpisDezurstva(ctx, s.u, s.perms, o.dnevnik, s.id, s.opis); err == nil || !strings.Contains(err.Error(), s.greska) {
+		if _, err := o.svc.IspraviOpisDezurstva(ctx, s.u, s.perms, o.dnevnik, s.id, s.opis); err == nil || !strings.Contains(err.Error(), s.greska) {
 			t.Errorf("%s: očekivano „%s”, dobiveno %v", s.ime, s.greska, err)
 		}
 	}
 	drugi := &models.Journal{ID: "drugi", Kind: models.JournalKindDefense, CentarSektor: "P"}
-	if err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, drugi, noc.ID, "Dežurstvo u COP-u"); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, drugi, noc.ID, "Dežurstvo u COP-u"); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
 		t.Errorf("ispravak kroz drugi dnevnik: %v", err)
 	}
 
 	// Ana ispravi opis potvrđene noći: mjesto slijedi iz opisa, potvrda se
 	// povlači, prijašnji opis ostaje u napomeni i u knjizi verzija
-	if err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Obilazak i pregled obrambenih objekata"); err != nil {
-		t.Fatal(err)
+	if promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Obilazak i pregled obrambenih objekata"); err != nil || !promijenjeno {
+		t.Fatal(promijenjeno, err)
 	}
 	ispravljeno, _ := o.svc.repo.GetDezurstvo(ctx, noc.ID)
 	if ispravljeno.Opis != "Obilazak i pregled obrambenih objekata" || ispravljeno.Mjesto != models.MjestoTeren || ispravljeno.Potvrdeno() || ispravljeno.ZaProvjeru() {
@@ -119,9 +119,9 @@ func TestDezurstvoBezMjestaZaProvjeru(t *testing.T) {
 	if n := verzija(noc.ID); n != 2 {
 		t.Errorf("knjiga verzija: %d inačica, a moraju biti upis i ispravak", n)
 	}
-	// isti opis ponovno: ništa se ne mijenja ni ne bilježi
-	if err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Obilazak i pregled obrambenih objekata"); err != nil || verzija(noc.ID) != 2 {
-		t.Errorf("ponovljeni ispravak: %v, %d inačica", err, verzija(noc.ID))
+	// isti opis ponovno: ništa se ne mijenja ni ne bilježi, i to se javlja
+	if promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Obilazak i pregled obrambenih objekata"); err != nil || promijenjeno || verzija(noc.ID) != 2 {
+		t.Errorf("ponovljeni ispravak: %v, promijenjeno %v, %d inačica", err, promijenjeno, verzija(noc.ID))
 	}
 	// sada se potvrđuje i ulazi u obračun kao teren: 8 h noćnih × 2,05 = 16,4 → 16,5
 	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID); err != nil {
@@ -132,7 +132,7 @@ func TestDezurstvoBezMjestaZaProvjeru(t *testing.T) {
 		t.Errorf("obračun poslije ispravka: %+v, za provjeru %v", ob, ob.ZaProvjeru)
 	}
 	// ispravljeno Perino jutro čeka potvrdu i tada je u „čeka potvrdu”
-	if err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Dežurstvo u COP-u"); err != nil {
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Dežurstvo u COP-u"); err != nil {
 		t.Fatal(err)
 	}
 	iors, _ = o.svc.ObracunOsobe(ctx, o.dnevnik, o.pperic.ID.String(), dzSat(1, 0, 0), dzSat(30, 0, 0), obracun.Hrvatski{}, obracun.IORS2026, nil)
@@ -164,7 +164,7 @@ func TestDezurstvoBezMjestaZaProvjeru(t *testing.T) {
 	if _, err := o.baza.Exec(`ALTER TABLE dezurstva RENAME TO nema_dezurstva`); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Dežurstvo u COP-u"); err == nil {
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, noc.ID, "Dežurstvo u COP-u"); err == nil {
 		t.Error("ispravak bez tablice dežurstava")
 	}
 }

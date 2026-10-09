@@ -211,28 +211,30 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 // mjesto rada izvodi se iz njega. Prijašnji opis, tko je ispravio i kada
 // ostaju u napomeni, a cijela prijašnja inačica u knjizi verzija. Potvrda se
 // povlači: ispravljeno dežurstvo uprava potvrđuje kao i svako drugo.
-func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis string) error {
+// Promijenjeno je false kad dežurstvo već ima taj opis i mjesto: tada se
+// ništa ne sprema, a potvrda ostaje.
+func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis string) (promijenjeno bool, err error) {
 	if u == nil || !s.UpravaCentra(perms, j) {
-		return errors.New("opis rada ispravlja voditelj ili zamjenik centra")
+		return false, errors.New("opis rada ispravlja voditelj ili zamjenik centra")
 	}
 	mjesto := models.MjestoZaOpis(opis)
 	if mjesto == "" {
-		return errors.New("odaberite opis rada s popisa")
+		return false, errors.New("odaberite opis rada s popisa")
 	}
 	d, err := s.repo.GetDezurstvo(ctx, id)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if d == nil || d.JournalID != j.ID {
-		return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
+		return false, errors.New("dežurstvo nije pronađeno u ovom dnevniku")
 	}
 	if d.Opis == opis && d.Mjesto == mjesto {
-		return nil
+		return false, nil
 	}
 	d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(d.Opis, u.FullName, time.Now().In(models.Zagreb)))
 	d.Opis, d.Mjesto = opis, mjesto
 	d.Potvrdio, d.PotvrdenoAt = "", nil
-	return s.repo.SaveDezurstvo(ctx, d)
+	return true, s.repo.SaveDezurstvo(ctx, d)
 }
 
 // tragIspravkaOpisa je bilješka o ispravku opisa rada: tko, kada i što je
