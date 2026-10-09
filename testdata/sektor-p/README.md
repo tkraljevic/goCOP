@@ -43,3 +43,9 @@ Početna lozinka svih je `gocop2026`, kao u svakom sjemenu.
 | `mmarkic` | Marko Markić | Vodočuvar dionice P.1.1 |
 
 Račun `admin` dodaje se sam, kao pri svakom prvom punjenju.
+
+Korisnička imena iz tablice vrijede u svim testovima, i onima koji osobe
+upisuju sami: Ivo Ivić je uvijek `iivic`, Iva Ivić uvijek `ivaivic`. Računi
+zajedničkih okolina testova, na koje druge provjere dodaju ove osobe, nose
+imena po ulozi (`admin`, `uprava`, `glavniadmin`), ne imena osoba. Inače bi
+drugi račun istog imena pao na jedinstvenosti korisničkog imena.
