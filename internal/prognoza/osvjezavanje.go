@@ -8,7 +8,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -454,66 +453,14 @@ func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
 	return n, err == nil && ima
 }
 
-// dnevniModeli drži naučene dnevne modele. Uče se iz arhive jednom dnevno:
-// arhiva se mijenja rijetko, a učenje traje sekundu-dvije.
-var dnevniModeli struct {
-	sync.Mutex
-	dan    string
-	modeli map[string][]*DnevniModel // po letvi: glavni pa rezerve; nil gdje učenje nije prošlo
-	greske map[string]error
-}
-
+// dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna
+// inačica nije dala naučiti. Uče se iz arhive i vrijede do zagrebačke ponoći
+// ili do promjene arhive; neuspjelo se ponavlja idući sat (zalihaDnevnih).
 func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[string]error) {
-	danas := time.Now().Format("2006-01-02")
 	dnevniModeli.Lock()
 	defer dnevniModeli.Unlock()
-	if dnevniModeli.dan == danas {
-		return dnevniModeli.modeli, dnevniModeli.greske
-	}
-	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
-	nizovi := map[string]DnevniNiz{}
-	if o.Oborine != nil && len(o.Oborine.Tocke) > 0 {
-		if ob, err := DnevneOborine(o.Arhiva, o.Oborine.Tocke); err != nil {
-			log.Printf("dnevni model: oborina iz arhive: %v", err)
-		} else {
-			for k, n := range ob {
-				nizovi[k] = n
-			}
-		}
-	}
-	for _, c := range DnevniCiljevi {
-		var in []*DnevniModel
-		for _, cilj := range c.Inacice() {
-			var m *DnevniModel
-			ok := true
-			for _, l := range cilj.letve() {
-				if _, ima := nizovi[l]; ima {
-					continue
-				}
-				n, err := DnevniIzArhive(o.Arhiva, l)
-				if err != nil {
-					greske[c.Letva] = err
-					ok = false
-					break
-				}
-				nizovi[l] = n
-			}
-			if ok {
-				var err error
-				if m, err = NamjestiDnevni(nizovi, cilj, 0); err != nil {
-					greske[c.Letva] = err
-					m = nil
-				}
-			}
-			in = append(in, m)
-		}
-		if in[0] != nil {
-			delete(greske, c.Letva) // glavni je prošao; greška rezerve nije greška letve
-		}
-		modeli[c.Letva] = in
-	}
-	dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = danas, modeli, greske
-	return modeli, greske
+	dnevniModeli.osvjezi(o.Arhiva, o.Oborine, sadaUcenja())
+	return dnevniModeli.modeli, dnevniModeli.greske
 }
 
 // oborinskiDosezi su koliko dana kiše unatrag i unaprijed dnevni model traži.
