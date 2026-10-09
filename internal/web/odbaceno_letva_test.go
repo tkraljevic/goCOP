@@ -146,6 +146,22 @@ func TestOznakaKoteIzObrascaLetve(t *testing.T) {
 	}
 }
 
+// Kartica letve u registru nosi oznaku „kota u cm n. m.”, kao i stranica
+// očitanja; obična letva je nema
+func TestKarticaLetveNosiOznakuKote(t *testing.T) {
+	for _, kota := range []bool{true, false} {
+		st := models.Station{ID: uuid.New(), Code: "akumulacija-probna", Name: "Akumulacija Probna", KotaNM: kota}
+		html := iscrtaj(t, "station_detail.html", StationPageData{
+			CurrentUser: &models.User{FullName: "Pero Perić"},
+			Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+			Station:     st,
+		})
+		if strings.Contains(html, ">kota u cm n. m.</span>") != kota {
+			t.Errorf("letva s oznakom %v: oznaka na kartici %v", kota, !kota)
+		}
+	}
+}
+
 // Pomoć opisuje zajednički raspon, oznaku kote i upozorenje na stranici letve
 func TestPomocOpisujeRasponOcitanja(t *testing.T) {
 	h := pomocHTML(t)
