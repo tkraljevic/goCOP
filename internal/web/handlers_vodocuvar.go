@@ -336,10 +336,17 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 	h.prikazi(w, r, d, perms, l, l.UserID == u.ID.String())
 }
 
+// nudiOvjeru javlja nudi li stranica lista gumb „Ovjeri list”: osoba list
+// smije ovjeriti, list je predan, nije ni ovjeren ni prenesen iz ranije
+// evidencije, a njegov je dan počeo (Odluke (8. 10. 2026.), pitanje 5)
+func nudiOvjeru(s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	return s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija && s.DanListaPoceo(l)
+}
+
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
-	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija && s.DanListaPoceo(l)
+	d.SmijeOvjeriti = nudiOvjeru(s, perms, l)
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
