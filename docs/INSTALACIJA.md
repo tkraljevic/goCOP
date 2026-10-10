@@ -476,7 +476,9 @@ premješten) uzima ime pod kojim pamti ključ ovog čvora, iz članstva u mreži
 ili zapisa čvora; kad ga ne zna, zadržava dosadašnje `gocop-cvor`. Od
 0.0.35-alfa uz postojeću bazu bez `gocop.toml` program ne zapisuje novi
 primjer, koji bi tiho zamijenio izvorne postavke, nego pri svakom pokretanju
-u dnevniku javlja da datoteke nema i gdje se očekuje. Uparivanje odbija
+u dnevniku javlja da datoteke nema i gdje se očekuje; isto i
+`gocop -pripremi`, koji instalacijska skripta na Linuxu pokreće pri svakoj
+instalaciji i nadogradnji. Uparivanje odbija
 računalo koje nosi ime ovog čvora ili ime poznatog čvora s drugim ključem
 (dvojnik), isto i primanje na daljinu i
 članstvo koje čvor pokaže pri spajanju; računalo koje je samo dobilo novi
