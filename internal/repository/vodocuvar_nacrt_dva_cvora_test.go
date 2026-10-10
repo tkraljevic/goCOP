@@ -168,3 +168,59 @@ func TestPokrivanjeVerzijaLista(t *testing.T) {
 		t.Errorf("obrisan nacrt s upisom vodočuvara ostao je na drugom čvoru: %d", n)
 	}
 }
+
+// Nacrt za dan koji još nije počeo nema broja, a broj dobiva prvim
+// spremanjem kad njegov dan počne (Odluke (8. 10. 2026.), pitanje 5). Ivo
+// na laptopu navečer dopuni nacrt za sutra (bez broja), a Ana ujutro na
+// poslužitelju, koji ima raniji nacrt, upiše bilješku, i list ondje dobije
+// broj 41. Nakon razmjene vrijedi Ivin tekst, a broj 41 ostaje: inače bi ga
+// knjiga poslužitelja izgubila i mogla dati drugom listu.
+func TestBrojNacrtaSDrugogCvoraOstaje(t *testing.T) {
+	a, b := noviCvor(t, "laptop"), noviCvor(t, "posluzitelj")
+	plan := listIve("plan obilaska")
+	plan.Broj, plan.NapisanoAt = 0, ptrVrijeme(time.Date(2026, time.October, 13, 18, 0, 0, 0, models.Zagreb))
+	nuzno(t, NewVodocuvarRepository(a.db, a.rec).Save(ctxRaz, plan))
+	isteKnjige(t, a, b)
+
+	dopuna := jedanListIve(t, a)
+	dopuna.Opis, dopuna.NapisanoAt = "plan obilaska i košnje", ptrVrijeme(time.Date(2026, time.October, 13, 23, 0, 0, 0, models.Zagreb))
+	nuzno(t, NewVodocuvarRepository(a.db, a.rec).Save(ctxRaz, &dopuna))
+	upis := jedanListIve(t, b)
+	upis.Broj = 41
+	upis.Upisi = append(upis.Upisi, upisAne("pojačati ophodnju", time.Date(2026, time.October, 14, 7, 0, 0, 0, models.Zagreb)))
+	nuzno(t, NewVodocuvarRepository(b.db, b.rec).Save(ctxRaz, &upis))
+
+	if l := isteKnjige(t, a, b); l.Broj != 41 || l.Opis != "plan obilaska i košnje" || !imaUpis(l, "pojačati ophodnju") {
+		t.Errorf("nakon razmjene: broj %d, opis %q, upisi %+v", l.Broj, l.Opis, l.Upisi)
+	}
+}
+
+func ptrVrijeme(t time.Time) *time.Time { return &t }
+
+// Broj složenog lista: broj verzije koja vrijedi ostaje kakav jest (kako se
+// broj dodjeljuje za tekući i prošli dan, ova dorada ne mijenja); bez njega
+// najmanji broj iz drugih verzija, neovisno o redoslijedu; bez ijednog
+// broja nacrt ostaje bez broja.
+func TestBrojIzVerzija(t *testing.T) {
+	verzije := func(brojevi ...int) []verzijaLista {
+		var out []verzijaLista
+		for _, b := range brojevi {
+			out = append(out, verzijaLista{list: models.VodocuvarskiList{Broj: b}})
+		}
+		return out
+	}
+	for _, s := range []struct {
+		vrijedi int
+		zive    []verzijaLista
+		broj    int
+	}{
+		{42, verzije(42, 41), 42},
+		{0, verzije(0, 43, 41), 41},
+		{0, verzije(41, 0, 43), 41},
+		{0, verzije(0, 0), 0},
+	} {
+		if got := brojIzVerzija(s.vrijedi, s.zive); got != s.broj {
+			t.Errorf("broj %d uz %+v: %d, očekivan %d", s.vrijedi, s.zive, got, s.broj)
+		}
+	}
+}

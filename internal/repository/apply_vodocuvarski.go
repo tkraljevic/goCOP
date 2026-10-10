@@ -30,7 +30,9 @@ import (
 //     obrani, objava prijave na čvoru koji vodočuvarov list još nema) ne
 //     prepisuje njegov tekst;
 //   - bilješke rukovoditelja (upisi) i prijave iz druge verzije ne gube se:
-//     listu se dodaju upisi i prijave svih verzija koje vrijede.
+//     listu se dodaju upisi i prijave svih verzija koje vrijede;
+//   - ne gubi se ni redni broj: nacrt bez broja (spremljen dok njegov dan
+//     nije počeo) dobiva broj koji list ima u drugoj verziji koja vrijedi.
 //
 // Ishod ovisi samo o skupu verzija, a ne o redoslijedu kojim su stigle, pa
 // svi čvorovi s istim verzijama pokazuju isti list. Čvor starijeg programa
@@ -117,7 +119,8 @@ func spojiVerzijeLista(verzije []verzijaLista) *models.VodocuvarskiList {
 }
 
 // spojiZive slaže list iz verzija koje vrijede: osnova je verzija koja
-// vrijedi, uz upise i prijave svih; nil kad verzija nema
+// vrijedi, uz upise i prijave svih i broj koji je list dobio; nil kad
+// verzija nema
 func spojiZive(zive []verzijaLista) *models.VodocuvarskiList {
 	if len(zive) == 0 {
 		return nil
@@ -126,7 +129,25 @@ func spojiZive(zive []verzijaLista) *models.VodocuvarskiList {
 	upisi, prijave := dodaciVerzija(zive)
 	l.Upisi = spojiUpise(l.Upisi, upisi)
 	l.Prijave = spojiPrijave(l.Prijave, prijave)
+	l.Broj = brojIzVerzija(l.Broj, zive)
 	return &l
+}
+
+// brojIzVerzija je redni broj lista složenog iz verzija: broj verzije koja
+// vrijedi, a kad ga ona nema (nacrt spremljen dok njegov dan još nije
+// počeo), najmanji broj koji list ima u nekoj drugoj verziji koja vrijedi.
+// Broj koji je list dobio na jednom čvoru tako se ne gubi kad vrijedi
+// kasniji nacrt s drugog čvora, spremljen prije nego što je dan počeo.
+func brojIzVerzija(broj int, zive []verzijaLista) int {
+	if broj != 0 {
+		return broj
+	}
+	for _, v := range zive {
+		if b := v.list.Broj; b > 0 && (broj == 0 || b < broj) {
+			broj = b
+		}
+	}
+	return broj
 }
 
 // ziveVerzije su verzije lista koje vrijede: nisu brisanje i nijedna
