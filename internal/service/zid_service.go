@@ -189,7 +189,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			prije = ""
 			break
 		}
-		for _, v := range verzije {
+		for i, v := range verzije {
 			prije = v.VersionID
 			d, ok := c.opisi(v)
 			if !ok {
@@ -215,6 +215,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			}
 			out = append(out, d)
 			if len(out) >= f.Limit {
+				prije = krajPoteza(verzije[i+1:], videneVeze, prije)
 				break
 			}
 		}
@@ -240,6 +241,20 @@ func kljucPoteza(v ledger.Version) string {
 	var p models.Promet
 	_ = json.Unmarshal(v.Payload, &p)
 	return p.VezaID
+}
+
+// krajPoteza: kad se stranica zida napuni na retku poteza, oznaka za
+// listanje unatrag preskače retke istog poteza koji odmah slijede (izlaz se
+// upisuje prije ulaza), da sljedeća stranica ne pokaže izlaz kao zaseban
+// događaj; staje na prvom retku koji nije dio već viđenog poteza
+func krajPoteza(sljedece []ledger.Version, videne map[string]bool, prije string) string {
+	for _, v := range sljedece {
+		if k := kljucPoteza(v); k == "" || !videne[k] {
+			break
+		}
+		prije = v.VersionID
+	}
+	return prije
 }
 
 // vidiRedak: redak prijave s terena vidi samo tko smije čitati tu prijavu,
