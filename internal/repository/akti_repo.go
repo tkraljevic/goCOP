@@ -275,17 +275,23 @@ const drugeOvjereAkata = `SELECT v.version_id, v.entity_id, v.payload FROM recor
 	WHERE v.entity = '` + EntityAkti + `' AND json_extract(v.payload, '$.status') = '` + models.AktOvjeren + `'
 		AND COALESCE(json_extract(v.payload, '$.ovjera_kod'), '') <> p.ovjera_kod`
 
+// aktiIsteOznakeUpit: druge ovjere i oznake u sukobu slažu se jednom
+// (MATERIALIZED, GROUP BY), a ne posebno za svaki akt, pa vrijeme raste s
+// brojem akata i verzija u knjizi, a ne s njihovim umnoškom
+const aktiIsteOznakeUpit = `WITH druge AS MATERIALIZED (SELECT d.entity_id, json_extract(d.payload, '$.sektor') AS sektor,
+		json_extract(d.payload, '$.godina') AS godina, json_extract(d.payload, '$.broj') AS broj FROM (` + drugeOvjereAkata + `) d),
+	oznake AS MATERIALIZED (SELECT sektor, godina, broj FROM akti WHERE broj > 0 GROUP BY sektor, godina, broj HAVING COUNT(*) > 1
+		UNION SELECT sektor, godina, broj FROM druge)
+	SELECT ` + aktColumns + ` FROM akti a WHERE a.broj > 0 AND (a.id IN (SELECT entity_id FROM druge)
+		OR (a.sektor, a.godina, a.broj) IN (SELECT sektor, godina, broj FROM oznake))
+	ORDER BY a.sektor, a.godina, a.broj, a.created_at`
+
 // AktiIsteOznake su akti s brojem čiju oznaku (sektor, broj, godina) nosi
 // još koji akt ili druga ovjera drugog akta, i akti s drugom ovjerom: u
 // pravilu ovjere dvaju čvorova bez veze, koje je razmjena spojila (Odluke
 // (8. 10. 2026.), pitanje 4)
 func (r *AktiRepository) AktiIsteOznake(ctx context.Context) ([]models.Akt, error) {
-	rows, err := r.db.QueryContext(ctx, `WITH druge AS (`+drugeOvjereAkata+`)
-		SELECT `+aktColumns+` FROM akti a WHERE a.broj > 0 AND (EXISTS (
-			SELECT 1 FROM akti b WHERE b.sektor = a.sektor AND b.godina = a.godina AND b.broj = a.broj AND b.id <> a.id)
-		OR EXISTS (SELECT 1 FROM druge d WHERE d.entity_id = a.id OR (json_extract(d.payload, '$.sektor') = a.sektor
-			AND json_extract(d.payload, '$.godina') = a.godina AND json_extract(d.payload, '$.broj') = a.broj)))
-		ORDER BY a.sektor, a.godina, a.broj, a.created_at`)
+	rows, err := r.db.QueryContext(ctx, aktiIsteOznakeUpit)
 	if err != nil {
 		return nil, err
 	}
