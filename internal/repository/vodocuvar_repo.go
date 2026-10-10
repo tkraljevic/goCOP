@@ -132,7 +132,7 @@ func (r *VodocuvarRepository) zapisIzvornika(ctx context.Context, iz *models.Izv
 	if iz.PredanoAt == nil {
 		iz.PredanoAt = l.PredanoAt
 	}
-	return listChannel(l), zapisLista(l)
+	return listChannel(l), zapisLista(ctx, r.db, EntityVodocuvarskiIzvornici, l)
 }
 
 // Save upisuje list, s verzijom u knjizi. Nepredan list (nacrt, upis
@@ -170,20 +170,31 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
 		return fmt.Errorf("upis lista: %w", err)
 	}
-	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(l), l)
+	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(ctx, tx, EntityVodocuvarski, l), l)
 	return err
 }
 
-// zapisLista je oznaka zapisa u knjizi u koji se list upisuje: drugi
-// predani list iste oznake (models.IDDvostrukogLista) upisuje se u zapis
-// lista od kojeg je izveden, svaki drugi list u svoj
-// (apply_vodocuvarski_dvojnici.go)
-func zapisLista(l *models.VodocuvarskiList) string {
+// zapisLista je oznaka zapisa entiteta (list ili izvornik) u knjizi u koji
+// se list upisuje: drugi predani list iste oznake (models.IDDvostrukogLista)
+// upisuje se u zapis lista od kojeg je izveden, svaki drugi list u svoj
+// (apply_vodocuvarski_dvojnici.go). Iznimka je drugi list koji već ima svoj
+// zapis tog entiteta (upisao ga je čvor 0.0.34, koji drugi list prima kao
+// zadnju verziju zapisa lista): površina ga tada slaže iz tog zapisa
+// (upisiDvojnika, upisiIzvornikLista), pa i upis ide u njega.
+func zapisLista(ctx context.Context, q rowQuerier, entitet string, l *models.VodocuvarskiList) string {
 	x := models.IDListaVodocuvara(l.UserID, l.Datum)
-	if l.Predan() && l.ID == models.IDDvostrukogLista(x, *l.PredanoAt) {
-		return x
+	if !l.Predan() || l.ID != models.IDDvostrukogLista(x, *l.PredanoAt) || imaVlastitiZapis(ctx, q, entitet, l.ID) {
+		return l.ID
 	}
-	return l.ID
+	return x
+}
+
+// imaVlastitiZapis javlja ima li zapis entiteta pod oznakom svoje verzije u
+// knjizi; kad se to ne može pročitati, javlja da nema
+func imaVlastitiZapis(ctx context.Context, q rowQuerier, entitet, id string) bool {
+	var vlastitih int
+	err := q.QueryRowContext(ctx, `SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, entitet, id).Scan(&vlastitih)
+	return err == nil && vlastitih > 0
 }
 
 // upisiNepredan je upisiList za predaju i nacrt: list se upisuje samo dok ni
@@ -210,7 +221,7 @@ func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *
 	if n == 0 {
 		return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), odbijeno)
 	}
-	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(l), l)
+	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(ctx, tx, EntityVodocuvarski, l), l)
 	return err
 }
 

@@ -309,3 +309,49 @@ func TestZapisIzvornika(t *testing.T) {
 		}
 	}
 }
+
+// Čvor 0.0.34 drugi list prima kao zadnju verziju zapisa lista, pa ga
+// parafira i ovjeri pod njegovom oznakom: drugi list tada ima svoj zapis i
+// svoj zapis izvornika, i površina ga slaže iz njih. Ovjera, parafa i
+// izvornik koje zatim upiše čvor s novim programom idu u te zapise, pa ih
+// vide svi čvorovi, a ne samo čvor koji ih je upisao, i ostaju i nakon
+// obnove površine.
+func TestUpisNaDrugiListSVlastitimZapisomStizeSvima(t *testing.T) {
+	spremisteZaProbu(t)
+	a, b, stari := noviCvor(t, "posluzitelj"), noviCvor(t, "laptop"), noviCvor(t, "stari")
+	predajIvu(t, a, "predan na poslužitelju")
+	predajIvu(t, b, "predan na laptopu")
+	_, drugi := dvaListaIve(t, a, b)
+
+	// čvor 0.0.34 upisuje verziju pod oznakom drugog lista, s parafom Ane
+	parafiran := drugi
+	parafiran.Parafe = []models.Parafa{{UserID: anaAnic, Ime: "Ana Anić", Kad: time.Now()}}
+	tx, err := stari.db.BeginTx(ctxRaz, nil)
+	nuzno(t, err)
+	_, err = stari.rec.RecordIn(ctxRaz, tx, listChannel(&parafiran), EntityVodocuvarski, drugi.ID, parafiran)
+	nuzno(t, err)
+	_, err = stari.rec.RecordIn(ctxRaz, tx, listChannel(&parafiran), EntityVodocuvarskiIzvornici, drugi.ID,
+		models.IzvornikLista{ListID: drugi.ID, Sazetak: "stari", UpdatedAt: time.Now().UTC()})
+	nuzno(t, err)
+	nuzno(t, tx.Commit())
+	posalji(t, stari, a)
+	posalji(t, stari, b)
+
+	// Ana na laptopu ovjeri drugi list i spremi izvornik ovjere
+	ovjeriIvu(t, b, drugi.ID)
+	izvornikIve(t, b, drugi.ID, "%PDF predan na laptopu, ovjera Ane")
+	razmijeniSve(t, a, b)
+	for _, n := range []*cvor{a, b} {
+		if _, err := ReplaySurface(ctxRaz, n.db, n.rec); err != nil {
+			t.Fatal(err)
+		}
+		l, err := NewVodocuvarRepository(n.db, n.rec).Get(ctxRaz, drugi.ID)
+		nuzno(t, err)
+		if l == nil || !l.Potvrden() || len(l.Parafe) != 1 || l.Opis != "predan na laptopu" {
+			t.Errorf("čvor %s: drugi list %+v", n.ime, l)
+		}
+		if pdf := pdfIve(t, n, drugi.ID); pdf != "%PDF predan na laptopu, ovjera Ane" {
+			t.Errorf("čvor %s: izvornik drugog lista %q", n.ime, pdf)
+		}
+	}
+}
