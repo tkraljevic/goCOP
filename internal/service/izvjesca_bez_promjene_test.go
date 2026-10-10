@@ -253,3 +253,29 @@ func TestPredanoSektorskoNestaloIzOdabiraNijeIzmjena(t *testing.T) {
 		t.Errorf("izmjena predanog izvješća sektora: predano %v, mijenjali %q, %+v", g.Predano(), g.TkoJeMijenjao(), g.Sadrzaj)
 	}
 }
+
+// Snimka izvješća sektora čita izvješća dionica i zapise dnevnika dana;
+// kad se jedno od toga ne da pročitati, izvješće se ne sprema.
+func TestSnimkaSektorskogBezIzvora(t *testing.T) {
+	for _, tablica := range []string{"journal_entries", "dnevna_izvjesca"} {
+		t.Run(tablica, func(t *testing.T) {
+			o := novaOkolinaIzvjesca(t)
+			ctx := context.Background()
+			pocetak := danas().AddDate(0, 0, -3)
+			obrana := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "P", Title: "Dnevnik COP-a Primjerovo", Year: 2026, StartedAt: &pocetak}
+			if err := o.dnevnici.SaveJournal(ctx, obrana); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := o.baza.Exec(`ALTER TABLE ` + tablica + ` RENAME TO nema_izvora`); err != nil {
+				t.Fatal(err)
+			}
+			iz := &models.SektorskoIzvjesce{Sektor: "P", Dan: danas(), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Vodostaji rastu."}}
+			if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, iz, nil, nil); err == nil {
+				t.Error("izvješće sektora spremljeno bez snimke")
+			}
+			if postoji, _ := o.svc.sektorska.ZaDan(ctx, "P", danas()); postoji != nil {
+				t.Errorf("spremljeno: %+v", postoji)
+			}
+		})
+	}
+}
