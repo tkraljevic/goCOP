@@ -84,16 +84,22 @@ func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg)
 // 1). Kad se ne da pročitati koje je uloge osoba imala, a nema dužnost u
 // ustroju, gleda se kao izvođač; bez izvora (nil) samo po aktivnoj dužnosti.
 func (s *JournalService) IzvodjacZaDnevnike(u *models.User) bool {
+	return izvodjacZaDnevnike(u, s.imaoUlogu)
+}
+
+// izvodjacZaDnevnike je pravilo IzvodjacZaDnevnike uz izvor uloga koje je
+// osoba ikad imala; bez izvora (nil) samo po aktivnoj dužnosti
+func izvodjacZaDnevnike(u *models.User, imaoUlogu func(uuid.UUID, models.Role) (bool, error)) bool {
 	if u == nil {
 		return false
 	}
 	if IsContractor(u) {
 		return true
 	}
-	if s.imaoUlogu == nil || imaDuznostUUstroju(u) {
+	if imaoUlogu == nil || imaDuznostUUstroju(u) {
 		return false
 	}
-	imao, err := s.imaoUlogu(u.ID, models.RoleServiceLeaderForeman)
+	imao, err := imaoUlogu(u.ID, models.RoleServiceLeaderForeman)
 	return imao || err != nil
 }
 

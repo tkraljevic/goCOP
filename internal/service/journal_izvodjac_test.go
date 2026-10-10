@@ -204,12 +204,12 @@ func TestFirmaIzvodjacaNaSebi(t *testing.T) {
 		{"izvođač, druga firma", poslovodja, "Beta d.o.o.", true},
 		{"nije izvođač, druga organizacija", rukovoditelj, "VGO Probnica", false},
 	} {
-		err := firmaIzvodjacaNaSebi(s.u, s.firma)
+		err := firmaIzvodjacaNaSebi(s.u, s.firma, IsContractor(s.u))
 		if s.odbija != errors.Is(err, ErrUnauthorized) {
 			t.Errorf("%s: %v", s.naziv, err)
 		}
 	}
-	if err := zabranjenoNaSebi(poslovodja, UpdateUserRequest{OrgName: "Beta d.o.o."}); !errors.Is(err, ErrUnauthorized) {
+	if err := zabranjenoNaSebi(poslovodja, UpdateUserRequest{OrgName: "Beta d.o.o."}, true); !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("izmjena vlastitog računa mijenja firmu izvođača: %v", err)
 	}
 }
@@ -312,5 +312,36 @@ func TestBivsiPoslovodjaNeVidiDnevnikeDrugihFirmi(t *testing.T) {
 	}
 	if !s.IzvodjacZaDnevnike(&ucitaj(vodocuvar).User) {
 		t.Error("uz grešku čitanja povijesti vodočuvar nije izvođač")
+	}
+}
+
+// Ni poslovođa kojemu je dužnost izmijenjena u ulogu izvan ustroja obrane
+// ne mijenja sam firmu na svom računu: za dnevnike usluga i dalje je
+// izvođač (IzvodjacZaDnevnike), pa bi mu druga firma otvorila njezine
+// dnevnike (Odluke (8. 10. 2026.), pitanje 1). Podaci su izmišljeni.
+func TestBivsiPoslovodjaNeMijenjaFirmuNaSebi(t *testing.T) {
+	baza, _ := uslugeBaza(t)
+	users := repository.NewUserRepository(baza, ledger.New(baza, "test"))
+	us := NewUserService(users, nil, NewSSEBroker())
+	sektor, p1 := "P", 1
+	d := &models.Duty{Title: "Poslovođa", Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &p1}
+	u := &models.User{Username: "mmarkic", PasswordHash: "x", FullName: "Marko Markić", OrgName: "Alfa d.o.o.", IsActive: true}
+	if err := users.CreateUser(u, d); err != nil {
+		t.Fatal(err)
+	}
+	d.Role = models.RoleWaterGuard
+	if err := users.UpdateDuty(d); err != nil {
+		t.Fatal(err)
+	}
+	perms, err := users.GetUserPermissions(u.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := UpdateUserRequest{ID: u.ID, Username: u.Username, FullName: u.FullName, OrgName: "Beta d.o.o.", IsActive: true}
+	if _, err := us.UpdateUser(perms, req); !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("bivši poslovođa sam mijenja firmu: %v", err)
+	}
+	if x, _ := users.GetUserByID(u.ID); x.OrgName != "Alfa d.o.o." {
+		t.Errorf("firma na računu: %q", x.OrgName)
 	}
 }
