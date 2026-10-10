@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"testing"
 	"time"
@@ -60,9 +61,10 @@ func TestIzvodjacVidiSamoSvojDnevnikUsluge(t *testing.T) {
 }
 
 // Na svom području izvođač čita samo dnevnik svoje firme: naslovnica kao
-// izvođača navodi firmu s njegova računa ili njega kao voditelja usluga.
-// Dnevnik druge firme i dnevnik bez izvođača na naslovnici ne čita;
-// administrator i HV strana čitaju svaki. Podaci su izmišljeni.
+// izvođača navodi firmu s njegova računa. Dnevnik druge firme, i kad je on
+// na njoj upisan kao voditelj usluga, i dnevnik bez izvođača na naslovnici
+// ne čita (Odluke (8. 10. 2026.), pitanje 1); administrator i HV strana
+// čitaju svaki. Podaci su izmišljeni.
 func TestIzvodjacVidiSamoDnevnikSvojeFirme(t *testing.T) {
 	_, repo := uslugeBaza(t)
 	s := NewJournalService(repo, nil, nil)
@@ -88,8 +90,8 @@ func TestIzvodjacVidiSamoDnevnikSvojeFirme(t *testing.T) {
 		perms                     *models.UserPermissions
 		svoj, vodi, drugi, prazan bool
 	}{
-		{"poslovođa firme Primjer", poslovodja, true, true, false, false},
-		{"poslovođa bez firme na računu", bezFirme, false, true, false, false},
+		{"poslovođa firme Primjer", poslovodja, true, false, false, false},
+		{"poslovođa bez firme na računu", bezFirme, false, false, false, false},
 		{"poslovođa s administracijom", administrator, true, true, true, true},
 		{"rukovoditelj područja", rukovoditelj, true, true, true, true},
 		{"bez ovlasti", nil, false, false, false, false},
@@ -181,5 +183,33 @@ func TestDnevnikIzvodjacaPoUpisima(t *testing.T) {
 	}
 	if s.dnevnikIzvodjaca(ctx, pero, upisom) {
 		t.Error("uz grešku čitanja dnevnik je izvođačev")
+	}
+}
+
+// Firmu na svom računu izvođač ne mijenja sam: po njoj vidi dnevnike
+// usluga svoje firme (Odluke (8. 10. 2026.), pitanje 1). Prazna ili ista
+// firma ne mijenja ništa; tko nije izvođač mijenja je kao i dosad. Podaci
+// su izmišljeni.
+func TestFirmaIzvodjacaNaSebi(t *testing.T) {
+	poslovodja := &models.User{FullName: "Marko Markić", OrgName: "Alfa d.o.o.", Duties: []models.Duty{{IsActive: true, Role: models.RoleServiceLeaderForeman}}}
+	rukovoditelj := &models.User{FullName: "Ana Anić", OrgName: "VGO Primjerica", Duties: []models.Duty{{IsActive: true, Role: models.RoleAreaLeader}}}
+	for _, s := range []struct {
+		naziv  string
+		u      *models.User
+		firma  string
+		odbija bool
+	}{
+		{"izvođač, prazna firma iz obrasca", poslovodja, "", false},
+		{"izvođač, ista firma s razmacima", poslovodja, " Alfa d.o.o. ", false},
+		{"izvođač, druga firma", poslovodja, "Beta d.o.o.", true},
+		{"nije izvođač, druga organizacija", rukovoditelj, "VGO Probnica", false},
+	} {
+		err := firmaIzvodjacaNaSebi(s.u, s.firma)
+		if s.odbija != errors.Is(err, ErrUnauthorized) {
+			t.Errorf("%s: %v", s.naziv, err)
+		}
+	}
+	if err := zabranjenoNaSebi(poslovodja, UpdateUserRequest{OrgName: "Beta d.o.o."}); !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("izmjena vlastitog računa mijenja firmu izvođača: %v", err)
 	}
 }

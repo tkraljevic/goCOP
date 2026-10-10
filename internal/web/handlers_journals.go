@@ -212,7 +212,7 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		return nil, nil, false
 	}
 	if !h.journals.VidiDnevnikUsluge(r.Context(), perms, models.OpsegPodrucja(*area), j) {
-		http.Error(w, "Izvođač vidi samo dnevnike usluga svoje firme na svom branjenom području: one na čijoj je naslovnici njegova firma kao izvođač ili on kao voditelj usluga, i one u kojima je već pisao.", http.StatusForbidden)
+		http.Error(w, "Izvođač vidi samo dnevnike usluga svoje firme na svom branjenom području: one na čijoj je naslovnici kao izvođač upisana firma s njegova računa, i one u kojima je već pisao.", http.StatusForbidden)
 		return nil, nil, false
 	}
 	return j, area, true

@@ -388,8 +388,8 @@ func (s *UserService) provjeriVlastituAdresu(target *models.User, req UpdateUser
 }
 
 // zabranjenoNaSebi odbija izmjenu vlastitog računa koja mijenja korisničko
-// ime ili uključenost računa: to osobi mijenja uprava. Nepromijenjene
-// vrijednosti iz obrasca ne smetaju.
+// ime ili uključenost računa, ili izvođaču firmu (firmaIzvodjacaNaSebi): to
+// osobi mijenja uprava. Nepromijenjene vrijednosti iz obrasca ne smetaju.
 func zabranjenoNaSebi(target *models.User, req UpdateUserRequest) error {
 	if strings.TrimSpace(req.Username) != target.Username {
 		return fmt.Errorf("%w: svoje korisničko ime ne mijenjate sami, nego uprava", ErrUnauthorized)
@@ -397,7 +397,20 @@ func zabranjenoNaSebi(target *models.User, req UpdateUserRequest) error {
 	if req.IsActive != target.IsActive {
 		return fmt.Errorf("%w: svoj račun ne uključujete ni isključujete sami", ErrUnauthorized)
 	}
-	return nil
+	return firmaIzvodjacaNaSebi(target, req.OrgName)
+}
+
+// firmaIzvodjacaNaSebi odbija da voditelj usluga / poslovođa izvođača sam
+// promijeni firmu na svom računu: po njoj vidi dnevnike usluga svoje firme,
+// a ne drugih (Odluke (8. 10. 2026.), pitanje 1). Prazna ili ista firma
+// (uz razmake) ne mijenja ništa; ostali firmu na svom računu mijenjaju kao
+// i dosad.
+func firmaIzvodjacaNaSebi(target *models.User, firma string) error {
+	firma = strings.TrimSpace(firma)
+	if firma == "" || firma == strings.TrimSpace(target.OrgName) || !IsContractor(target) {
+		return nil
+	}
+	return fmt.Errorf("%w: firmu na svom računu izvođač ne mijenja sam, nego uprava: po njoj vidi dnevnike usluga svoje firme", ErrUnauthorized)
 }
 
 // UpdateUser ažurira matične podatke korisnika. Vlastitu adresu e-pošte
