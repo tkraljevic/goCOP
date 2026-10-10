@@ -597,3 +597,70 @@ func TestZidSazetaObjavaNeVracaSeSVremenomUrudzbe(t *testing.T) {
 		t.Errorf("Događanja za dan urudžbe nakon sažimanja:\n%s\nočekivano:\n%s", got, obavijest)
 	}
 }
+
+// Nacrt prenesen iz BP16 koji autor dovrši i objavi u goCOP-u: objava mu
+// daje novi broj i upis na dnevni list, ali prijava zadržava oznaku
+// rekonstrukcije (tako je i prije odluke, a po njoj je i stranica i PDF
+// zovu prenesenom iz ranije evidencije). Zid zato ni njezinu objavu ni
+// rješenje ne pokazuje nikome: prijave prenesene iz BP16 ne idu na zid
+// (Odluke (8. 10. 2026.), pitanje 20), a zid ih prepoznaje samo po toj
+// oznaki, kao i ostatak programa. Ista povijest bez oznake na objavi daje
+// oba retka, pa kad objava u goCOP-u bude skidala oznaku, zid se ne mijenja;
+// tada se mijenja prvi dio ovog testa.
+func TestZidNacrtIzBP16ObjavljenUGoCOPu(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	b, bp := "B", 34
+	z.marko.Username, z.marko.IsActive = "mmarkic", true
+	if err := repository.NewUserRepository(z.baza, z.rec).CreateUser(z.marko, &models.Duty{Title: "Vodočuvar", Role: models.RoleWaterGuard,
+		ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	autor := &models.UserPermissions{User: *z.marko, AllowedSectors: map[string]bool{"B": true}, AllowedAreas: map[int]bool{34: true}}
+	nacrtIzBP16 := func(naslov, izvor string) *models.PrijavaSTerena {
+		p := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+			Naslov: naslov, Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt,
+			Rekonstrukcija: true, Izvor: izvor}
+		z.spremi(t, p)
+		return p
+	}
+	rijesi := func(p *models.PrijavaSTerena) {
+		sad := time.Now()
+		p.Status, p.RijesioID, p.Rijesio, p.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+		z.spremi(t, p)
+	}
+
+	// objava kroz goCOP, pa rješenje: oznaka ostaje, zid ne pokazuje ništa
+	p := nacrtIzBP16("Procjeđivanje na nasipu", "bp16:obavijesti_sa_terena:9")
+	if _, _, err := z.prijave.Objavi(z.ctx, z.marko, p.ID, func(*models.PrijavaSTerena) ([]byte, error) {
+		return []byte("%PDF-1.7 probni izvornik"), nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	objavljena, err := z.repo.Get(z.ctx, p.ID)
+	if err != nil || objavljena == nil || !objavljena.Objavljena() || objavljena.Broj == 0 || objavljena.ListID == "" {
+		t.Fatalf("objava nacrta iz BP16: %+v, %v", objavljena, err)
+	}
+	if !objavljena.Rekonstrukcija {
+		t.Fatalf("objava u goCOP-u skida oznaku rekonstrukcije: zid sad treba pokazati objavu i rješenje, promijeni ovaj test")
+	}
+	rijesi(objavljena)
+	for ime, perms := range map[string]*models.UserPermissions{"uprava organizacije": ana, "autor": autor} {
+		if dog := z.prijaveNaZidu(t, perms, FiltarZida{}); len(dog) != 0 {
+			t.Errorf("%s: prijava s oznakom rekonstrukcije na zidu:\n%s", ime, naslovi(dog))
+		}
+	}
+
+	// ista povijest, a objava bez oznake: zid pokazuje objavu i rješenje
+	q := nacrtIzBP16("Odron pokosa", "bp16:obavijesti_sa_terena:10")
+	sad := time.Now()
+	q.Rekonstrukcija, q.Status, q.Broj, q.Godina, q.ObjavljenoAt = false, models.PrijavaObjavljena, 61, sad.In(models.Zagreb).Year(), &sad
+	z.spremi(t, q)
+	rijesi(q)
+	ocekivano := "Riješena prijava s terena|" + q.Oznaka() + ": Odron pokosa|Ivo Ivić\n" +
+		"Prijava s terena " + q.Oznaka() + "|Odron pokosa|Marko Markić"
+	if got := naslovi(z.prijaveNaZidu(t, autor, FiltarZida{})); got != ocekivano {
+		t.Errorf("objava bez oznake rekonstrukcije:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
+}
