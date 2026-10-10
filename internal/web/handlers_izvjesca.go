@@ -319,7 +319,9 @@ func (h *IzvjescaHandler) HandleObrisi(w http.ResponseWriter, r *http.Request) {
 func izvjesceIzObrasca(r *http.Request) *models.DnevnoIzvjesce {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	broj := func(k string) int { n, _ := strconv.Atoi(strings.ReplaceAll(f(k), ",", ".")); return n }
-	dec := func(k string) float64 { v, _ := strconv.ParseFloat(strings.ReplaceAll(f(k), ",", "."), 64); return v }
+	// površina u hektarima: obrazac je piše točno, bez razdjelnika tisućica,
+	// a čita se i zapis s njima („1.500,0”), da se ne pretvori u nulu
+	dec := func(k string) float64 { return atof(f(k)) }
 	iz := &models.DnevnoIzvjesce{SectionCode: f("dionica"), Stadij: models.DefensePhase(f("stadij"))}
 	if t, err := time.ParseInLocation("2006-01-02", f("dan"), models.Zagreb); err == nil {
 		iz.Dan = t

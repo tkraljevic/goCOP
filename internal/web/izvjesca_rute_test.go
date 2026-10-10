@@ -116,7 +116,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 		"vodostaj_vrijednost": {"551", ""}, "vodostaj_jedinica": {"cm", "cm"},
 		"pregled": {"Nasip pregledan, bez oštećenja."}, "radnje": {"Nadvišenje nasipa 120 m."}, "vrece": {"1500"},
 		"pravne_ljudi": {"12"}, "pravne_kamioni": {"2"}, "ostali_vatrogasci": {"8"},
-		"popl_naselja": {"Batina"}, "popl_ljudi": {"0"}, "popl_sumske": {"12,5"},
+		"popl_naselja": {"Batina"}, "popl_ljudi": {"0"}, "popl_sumske": {"12,5"}, "popl_poljoprivredne": {"1500"}, "popl_ostale": {"0,25"},
 	}
 	w := zovi(http.MethodPost, "/izvjesca", obrazac)
 	mora(w, http.StatusSeeOther, "spremanje")
@@ -141,6 +141,17 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodPost, "/izvjesca/"+id+"/predaj", url.Values{}), http.StatusSeeOther, "predaja")
 	mora(zovi(http.MethodGet, "/izvjesca/"+id, nil), http.StatusOK, "predano", "predano u podcentar")
+	// Obrazac predanog izvješća poslan natrag bez ijedne izmjene ostavlja ga
+	// predanim (Odluke (8. 10. 2026.), pitanje 12): svako polje, i površina
+	// u hektarima, vraća se onakvo kakvo je spremljeno.
+	natrag := poljaObrasca(t, zovi(http.MethodGet, "/izvjesca/"+id+"/uredi", nil).Body.String(), "/izvjesca/"+id)
+	w = zovi(http.MethodPost, "/izvjesca/"+id, natrag)
+	if l, _ := url.QueryUnescape(w.Header().Get("Location")); !strings.Contains(l, "success=Izvješće nije mijenjano i ostaje predano") {
+		t.Errorf("obrazac predanog izvješća poslan natrag bez izmjene: %q\n%v", l, natrag)
+	}
+	if iz, _ := svc.Get(context.Background(), id); !iz.Predano() || iz.Sadrzaj.Poplavljeno.SumskeHa != 12.5 || iz.Sadrzaj.Poplavljeno.PoljoprivredneHa != 1500 || iz.Sadrzaj.Poplavljeno.OstaleHa != 0.25 {
+		t.Errorf("nakon obrasca poslanog natrag: predano %v, površine %+v", iz.Predano(), iz.Sadrzaj.Poplavljeno)
+	}
 	mora(zovi(http.MethodGet, "/izvjesca?dionica=B.16.3", nil), http.StatusOK, "popis poslije", "B.16.3", "Dunav", ">R<", "predano")
 
 	// Izvoz je valjana .xlsx datoteka s obrascem.

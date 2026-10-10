@@ -149,6 +149,9 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	w = zovi(ana, uprava, http.MethodGet, dok, nil)
 	mora(w, http.StatusOK, "predano nakon spremanja bez promjene", "predano GCOP-u ", "Povuci predaju")
 	nema(w, "predano nakon spremanja bez promjene", "prvi put", "izmijenio poslije predaje")
+	// isto i kad se obrazac pošalje natrag onakav kakav ga preglednik prikaže
+	w = zovi(ivo, uprava, http.MethodPost, dok, poljaObrasca(t, zovi(ivo, uprava, http.MethodGet, dok+"/uredi", nil).Body.String(), dok))
+	poruka(w, "success", "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru.")
 
 	// Ivo ispravi broj evakuiranih i samo spremi: nacrt, čeka ponovnu predaju
 	obrazac.Set("evakuacija", "Evakuirano 4 ljudi.")
