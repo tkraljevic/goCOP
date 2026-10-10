@@ -16,11 +16,12 @@ import (
 // EntitySektorskaIzvjesca je naziv entiteta sektorskih izvješća u knjizi verzija
 const EntitySektorskaIzvjesca = "sektorska_izvjesca"
 
-const sektorskoUpsert = `INSERT INTO sektorska_izvjesca (id, journal_id, sektor, dan, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+const sektorskoUpsert = `INSERT INTO sektorska_izvjesca (id, journal_id, sektor, dan, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at, trag_predaje)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET journal_id = excluded.journal_id, sektor = excluded.sektor, dan = excluded.dan,
 		sadrzaj = excluded.sadrzaj, izradio_id = excluded.izradio_id, izradio = excluded.izradio,
-		izradeno_at = excluded.izradeno_at, predano_at = excluded.predano_at, created_at = excluded.created_at, updated_at = excluded.updated_at`
+		izradeno_at = excluded.izradeno_at, predano_at = excluded.predano_at, created_at = excluded.created_at, updated_at = excluded.updated_at,
+		trag_predaje = excluded.trag_predaje`
 
 func sektorskoArgs(i *models.SektorskoIzvjesce) ([]any, error) {
 	sadrzaj, err := json.Marshal(i.Sadrzaj)
@@ -31,17 +32,21 @@ func sektorskoArgs(i *models.SektorskoIzvjesce) ([]any, error) {
 	if i.PredanoAt != nil {
 		predano = i.PredanoAt.UTC()
 	}
-	return []any{i.ID, i.JournalID, i.Sektor, i.DanKey(), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC()}, nil
+	return []any{i.ID, i.JournalID, i.Sektor, i.DanKey(), string(sadrzaj), i.IzradioID, i.Izradio, i.IzradenoAt.UTC(), predano, i.CreatedAt.UTC(), i.UpdatedAt.UTC(),
+		tragPredaje(i.TragPredaje)}, nil
 }
 
-const sektorskoColumns = `id, journal_id, sektor, dan, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at FROM sektorska_izvjesca`
+const sektorskoColumns = `id, journal_id, sektor, dan, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at, trag_predaje FROM sektorska_izvjesca`
 
 func scanSektorsko(row interface{ Scan(...any) error }) (*models.SektorskoIzvjesce, error) {
 	var i models.SektorskoIzvjesce
-	var dan, sadrzaj string
+	var dan, sadrzaj, trag string
 	var predano sql.NullTime
-	if err := row.Scan(&i.ID, &i.JournalID, &i.Sektor, &dan, &sadrzaj, &i.IzradioID, &i.Izradio, &i.IzradenoAt, &predano, &i.CreatedAt, &i.UpdatedAt); err != nil {
+	if err := row.Scan(&i.ID, &i.JournalID, &i.Sektor, &dan, &sadrzaj, &i.IzradioID, &i.Izradio, &i.IzradenoAt, &predano, &i.CreatedAt, &i.UpdatedAt, &trag); err != nil {
 		return nil, err
+	}
+	if err := citajTragPredaje(trag, &i.TragPredaje); err != nil {
+		return nil, fmt.Errorf("trag predaje sektorskog izvješća %s: %w", i.ID, err)
 	}
 	i.Dan = parseDay(dan)
 	if sadrzaj != "" {

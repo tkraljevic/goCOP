@@ -445,8 +445,8 @@ func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzv
 			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(4, prvi), xlsxw.Adresa(4, zadnji)), 0, xlsxw.TablicaBrojPod))
 	}
 	rk.Dodaj()
-	napomenaLista(rk, fmt.Sprintf("Stvarni sati u razdoblju: %s h; obračunski sati: %s. Iznosi se izračunaju kad računovodstvo upiše satnice na listovima po područjima.",
-		satiTekst(obr.Stvarni), strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ",")), 5, 30)
+	napomena, visina := napomenaRekapitulacije(obr)
+	napomenaLista(rk, napomena, 5, visina)
 	potpisiLista(rk, z, 5, z.Potpisnici)
 
 	// po razredima, za provjeru
@@ -481,6 +481,30 @@ func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzv
 		}
 	}
 	return k
+}
+
+// napomenaRekapitulacije je napomena ispod zbroja rekapitulacije, s
+// visinom retka: stvarni i obračunski sati, i koliko sati dežurstava kojima
+// se ne zna mjesto rada u zbroju nema i čiji su (Odluke (8. 10. 2026.),
+// pitanje 10)
+func napomenaRekapitulacije(obr service.Obracun) (string, float64) {
+	tekst := fmt.Sprintf("Stvarni sati u razdoblju: %s h; obračunski sati: %s. ", satiTekst(obr.Stvarni), strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ","))
+	visina := 30.0
+	if obr.ZaProvjeru > 0 {
+		tekst += "Nije u obračunu: " + satiTekst(obr.ZaProvjeru) + " h zapisa „" + models.OznakaZaProvjeru + "” (" + osobeZaProvjeru(obr.ZaProvjeruOsobe) +
+			") — ne zna se je li rad bio u uredu ili na terenu, pa ti sati čekaju da uprava centra u planu izabere opis rada s popisa. "
+		visina = 45 + 15*float64(len(obr.ZaProvjeruOsobe)/4)
+	}
+	return tekst + "Iznosi se izračunaju kad računovodstvo upiše satnice na listovima po područjima.", visina
+}
+
+// osobeZaProvjeru su osobe sa satima „za provjeru”: „Pero Perić 8:00 h, Ana Anić 2:00 h”
+func osobeZaProvjeru(osobe []service.OsobaZaProvjeru) string {
+	dijelovi := make([]string, len(osobe))
+	for k, o := range osobe {
+		dijelovi[k] = o.UserName + " " + satiTekst(o.Sati) + " h"
+	}
+	return strings.Join(dijelovi, ", ")
 }
 
 // vrijednostStupca daje brojku osobe u stupcu obrasca (2..21): sati ili
@@ -559,11 +583,11 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 			vidjeno[r.Za] = true
 			za = append(za, r.Za)
 		}
-		mjesta[strings.ToLower(r.Mjesto)] = true
+		mjesta[r.MjestoTekst()] = true
 	}
 	sort.Strings(za)
 	var mjestaTekst []string
-	for _, m := range []string{"ured", "teren"} {
+	for _, m := range []string{"ured", "teren", models.OznakaZaProvjeru} {
 		if mjesta[m] {
 			mjestaTekst = append(mjestaTekst, m)
 		}
@@ -588,8 +612,8 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 	osnovno("Mjesto rada", strings.Join(mjestaTekst, ", "), xlsxw.Tablica)
 	osnovno("Stvarni sati", satiTekst(iors.Stvarni)+" h", xlsxw.Tablica)
 	osnovno("Obračunski sati", strings.ReplaceAll(fmt.Sprintf("%.1f", iors.Obracunski), ".", ","), xlsxw.TablicaPod)
-	if iors.CekaPotvrdu > 0 {
-		osnovno("Čeka potvrdu", satiTekst(iors.CekaPotvrdu)+" h — nije u obračunu", xlsxw.Tablica)
+	for _, u := range upozorenjaIORS(iors) {
+		osnovno(u[0], u[1], xlsxw.Tablica)
 	}
 	l.Dodaj()
 	l.Visina(l.Redak()-1, 8)
@@ -622,14 +646,7 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 	l.PonoviRetke(r1, r1+1)
 	prvi := l.Redak()
 	for _, r := range iors.Redovi {
-		mjesto := "ured"
-		if r.Mjesto == models.MjestoTeren {
-			mjesto = "teren"
-		}
-		opis := r.Opis + " · " + r.Za
-		if !r.Potvrdeno {
-			opis += " (čeka potvrdu — nije u obračunu)"
-		}
+		opis, mjesto := opisRetkaIORS(r)
 		doTekst := r.Do.Format("15:04")
 		if doTekst == "00:00" {
 			doTekst = "24:00"
@@ -637,7 +654,7 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 		red := []xlsxw.Celija{B(strings.ToLower(danTjednaHR(r.Dan)), xlsxw.Tablica), B(r.Dan.Format("02.01.2006."), xlsxw.Tablica), B(r.Od.Format("15:04"), xlsxw.TablicaSredina), B(doTekst, xlsxw.TablicaSredina), B(opis, xlsxw.Tablica),
 			xlsxw.N(r.Ukupno.Hours(), xlsxw.TablicaBrojPod), B(mjesto, xlsxw.TablicaSredina)}
 		for _, razred := range obracun.Razredi {
-			if v := r.Sati[razred]; v > 0 && r.Potvrdeno {
+			if v := r.Sati[razred]; v > 0 && r.UObracunu() {
 				red = append(red, xlsxw.N(v.Hours(), xlsxw.TablicaBroj))
 			} else {
 				red = append(red, B("", xlsxw.Tablica))
@@ -648,7 +665,7 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 	zadnji := l.Redak() - 1
 	if zadnji >= prvi {
 		sve := []xlsxw.Celija{B("SVEUKUPNO", xlsxw.TablicaPod), B("", xlsxw.TablicaPod), B("", xlsxw.TablicaPod), B("", xlsxw.TablicaPod), B("", xlsxw.TablicaPod),
-			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(5, prvi), xlsxw.Adresa(5, zadnji)), iors.Stvarni.Hours()+iors.CekaPotvrdu.Hours(), xlsxw.TablicaBrojPod), B("", xlsxw.TablicaPod)}
+			xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(5, prvi), xlsxw.Adresa(5, zadnji)), iors.Stvarni.Hours()+iors.CekaPotvrdu.Hours()+iors.ZaProvjeru.Hours(), xlsxw.TablicaBrojPod), B("", xlsxw.TablicaPod)}
 		for i, razred := range obracun.Razredi {
 			c := 7 + i
 			sve = append(sve, xlsxw.F(fmt.Sprintf("SUM(%s:%s)", xlsxw.Adresa(c, prvi), xlsxw.Adresa(c, zadnji)), (iors.Ured[razred]+iors.Teren[razred]).Hours(), xlsxw.TablicaBrojPod))
@@ -703,6 +720,34 @@ func KnjigaIORS(iors service.IORS, koef obracun.Koeficijenti, rv obracun.RadnoVr
 	}
 	potpisiLista(l, z, stupaca, potpisi)
 	return k
+}
+
+// upozorenjaIORS su retci na vrhu obrasca o satima koji su u popisu, a nisu
+// u obračunu: nepotvrđeni i oni kojima se ne zna mjesto rada. Obrazac se
+// izvozi i s njima, ali se to vidi odmah.
+func upozorenjaIORS(iors service.IORS) [][2]string {
+	var out [][2]string
+	if iors.CekaPotvrdu > 0 {
+		out = append(out, [2]string{"Čeka potvrdu", satiTekst(iors.CekaPotvrdu) + " h — nije u obračunu"})
+	}
+	if iors.ZaProvjeru > 0 {
+		out = append(out, [2]string{"Za provjeru", satiTekst(iors.ZaProvjeru) + " h — " + models.OznakaZaProvjeru +
+			"; nije u obračunu dok uprava centra ne izabere opis rada s popisa"})
+	}
+	return out
+}
+
+// opisRetkaIORS je opis i mjesto retka obrasca; uz razmak koji nije u
+// obračunu piše zašto
+func opisRetkaIORS(r service.IORSRedak) (opis, mjesto string) {
+	opis, mjesto = r.Opis+" · "+r.Za, r.MjestoTekst()
+	switch {
+	case r.ZaProvjeru:
+		opis, mjesto = opis+" ("+models.OznakaZaProvjeru+" — nije u obračunu)", "nepoznato"
+	case !r.Potvrdeno:
+		opis += " (čeka potvrdu — nije u obračunu)"
+	}
+	return opis, mjesto
 }
 
 func satiTekst(d time.Duration) string {

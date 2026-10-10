@@ -864,6 +864,11 @@
       unos potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
       i čeka zasebnu provjeru i potvrdu uprave. Nepotvrđeni vlastiti unos osoba može maknuti,
       a uprava upravlja cijelim planom.</p>
+    <p>Krivo izabran opis rada uprava centra ispravlja na mjestu (<em>ispravi opis</em>), bez
+      micanja i ponovnog upisa. Mjesto rada slijedi iz novog opisa, prijašnji opis i tko ga je
+      ispravio ostaju u napomeni i u knjizi verzija, a ispravljeno dežurstvo ponovno čeka potvrdu.
+      Opis koji je ispravila uprava osoba čije je dežurstvo poslije ne mijenja i takvo dežurstvo
+      ne miče; to radi uprava centra.</p>
     <p>Dežurstvo preko ponoći ima datum završetka. U ručnom obrascu plana pojedini razmak može
       trajati najviše 36 sati; dulji se upisuje u više dijelova. Predaja aktivnog dežurstva
       iz dnevnika COP-a čuva cijelo stvarno trajanje, i kad je dulje od 36 sati, te za sve
@@ -876,6 +881,15 @@
       dnevnom ili noćnom pojasu te mjestu rada — ured ili teren. Nedjelja se obračunava kao
       blagdan. Koeficijente i kalendar blagdana održava globalni administrator; promjena vrijedi
       kao podatak organizacije, a ne kao tvrdo pravilo u programu.</p>
+    <p>Kad se za dežurstvo ne zna je li rad bio u uredu ili na terenu — na primjer kad je stiglo
+      s drugog čvora s opisom kojega nema na popisu — program mjesto najprije izvede iz opisa.
+      Ako ni to ne ide, dežurstvo je u planu, obračunu i IORS-u označeno
+      <strong>„mjesto nepoznato — za provjeru”</strong>: ne ulazi u zbroj i ne može se potvrditi
+      dok uprava centra ne izabere opis s popisa; osoba čije je dežurstvo opis ne mijenja ni
+      izmjenom vlastitog upisa, a takvo dežurstvo ne može ni maknuti pa upisati ponovno — miče
+      ga samo uprava centra. IORS u Excelu može se izvesti i tada, s
+      upozorenjem na vrhu, kao i za sate koji čekaju potvrdu. Obračun sati i obračun u Excelu
+      (u rekapitulaciji) navode koliko sati za provjeru nije u zbroju i čiji su.</p>
     <p>Obračunski sati zaokružuju se po razredu na pola sata, a točna sredina ide djelatniku.
       Sažetak prikazuje ljude po području, dok klik na osobu otvara njezin obrazac IORS s radom
       po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>.
@@ -891,6 +905,17 @@
     <p>Voditelj COP-a zatim slaže izvješće sektora iz predanih izvješća dionica i odabranih
       zapisa dnevnika COP-a. Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
       izvješća ne prepisuje već izrađeni sektorski dokument.</p>
+    <p>Predano izvješće (sektora prema Glavnom centru, dionice prema podcentru) ne mijenja se
+      potiho: spremljena izmjena vraća ga u nacrt koji treba ponovo predati, gumbom
+      <em>Spremi i ponovo predaj</em>. Nova predaja dobiva novo vrijeme, a prvo vrijeme predaje
+      ostaje zapisano i prikazuje se uz njega („prvi put predano 09:40, ponovno 14:20”), zbog
+      roka predaje. Spremanje bez ikakve promjene predano izvješće ostavlja predanim. Na
+      dokumentu pišu svi koji su izvješće nakon predaje mijenjali i tko ga je predao, a zid
+      događanja pokazuje „ponovno predano” s imenom onoga tko je predao. Predano izvješće
+      sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa je izvješće opet
+      nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan. Izvješće dionice
+      koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga je izradio ili
+      uprava, a briše ga samo uprava područja ili sektora.</p>
 
     <h3 id="dogadjanja">Događanja</h3>
     <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.

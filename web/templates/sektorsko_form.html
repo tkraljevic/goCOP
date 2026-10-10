@@ -17,7 +17,10 @@
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if $iz.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je predano {{$iz.PredanoAt.Format "2.1.2006. 15:04"}}. Izmjena ostaje zabilježena u knjizi verzija.</div>{{end}}
+{{if $iz.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je {{$iz.OpisPredaje "Glavnom centru" "2.1.2006. 15:04"}}.
+  Spremljena izmjena vraća ga u nacrt koji treba ponovo predati, s novim vremenom predaje; prvo vrijeme predaje ostaje zapisano,
+  a uz izvješće piše tko ga je mijenjao. Spremanje bez promjene ostavlja ga predanim.</div>
+{{else if $iz.BiloPredano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je nacrt: {{$iz.OpisPredaje "Glavnom centru" "2.1.2006. 15:04"}}.</div>{{end}}
 
 <form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if $iz.ID}}/sektorsko-izvjesce/{{$iz.ID}}{{else}}/sektorsko-izvjesce{{end}}">
   <input type="hidden" name="sektor" value="{{.Sektor}}">
@@ -49,7 +52,7 @@
         <td>{{tendencija .Sadrzaj.Tendencija}}</td>
         <td class="mono br">{{.Sadrzaj.Pravne.Ljudi}}</td>
         <td>{{.Izradio}}</td>
-        <td>{{if .Predano}}<span class="badge">predano {{.PredanoAt.Format "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}</td>
+        <td>{{if .Predano}}<span class="badge">{{.OpisPredaje "" "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if .BiloPredano}} <span class="reg-card-sub">čeka ponovnu predaju</span>{{end}}{{end}}</td>
       </tr>
       {{end}}
       </tbody>
@@ -116,7 +119,7 @@
 
   <div class="form-actions">
     <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
-    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} Spremi i predaj</button>
+    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} {{if $iz.BiloPredano}}Spremi i ponovo predaj{{else}}Spremi i predaj{{end}}</button>
     <span class="reading-meta">Slaže {{.CurrentUser.FullName}}; potpisuje rukovoditelj sektora. Tablice se snimaju pri spremanju.</span>
   </div>
 </form>

@@ -11,13 +11,17 @@
     <p class="page-desc">Za dan <strong>{{danTjedna .Izvjesce.Dan}} {{.Izvjesce.Dan.Format "2.1.2006."}}</strong> · dionica <strong>{{.Dionica.Code}}</strong>
       {{if .Izvjesce.Sadrzaj.Vodotok}} · vodotok <strong>{{.Izvjesce.Sadrzaj.Vodotok}}</strong>{{end}}
       · stadij <span class="threshold-pill {{.Izvjesce.Stadij.PillClass}}">{{.Izvjesce.StadijKratica}} — {{.Izvjesce.Stadij.Label}}</span>
-      {{if .Izvjesce.Predano}}· <span class="badge">predano {{.Izvjesce.PredanoAt.Format "2.1. 15:04"}}</span>{{else}}· <span class="badge badge-pending">nacrt</span>{{end}}</p>
+      {{/* Izmjena predanog izvješća vraća ga u nacrt; nova predaja ima novo
+           vrijeme, a prvo ostaje uz nju zbog roka do 08:00. */}}
+      {{if .Izvjesce.Predano}}· <span class="badge">{{.Izvjesce.OpisPredaje "" "2.1. 15:04"}}</span>{{else}}· <span class="badge badge-pending">nacrt</span>{{if .Izvjesce.BiloPredano}} <span class="reg-card-sub">{{.Izvjesce.OpisPredaje "" "2.1. 15:04"}}</span>{{end}}{{end}}</p>
   </div>
   <div class="page-actions">
     {{if .SmijePisati}}
     <a href="/izvjesca/{{.Izvjesce.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Obrazac</a>
-    {{if not .Izvjesce.Predano}}<form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/predaj" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "arrow-right"}} Predaj</button></form>{{end}}
-    <form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati izvješće? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>
+    {{if not .Izvjesce.Predano}}<form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/predaj" class="d-inline"><button type="submit" class="btn btn-primary">{{icon "arrow-right"}} {{if .Izvjesce.BiloPredano}}Ponovo predaj{{else}}Predaj{{end}}</button></form>{{end}}
+    {{/* Izvješće koje je bilo predano, i dok čeka ponovnu predaju, briše
+         samo uprava područja ili sektora. */}}
+    {{if .SmijeBrisati}}<form method="POST" action="/izvjesca/{{.Izvjesce.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati izvješće? U knjizi verzija ostaje arhivirano.');"><button type="submit" class="btn btn-secondary" title="Obriši">{{icon "trash"}}</button></form>{{end}}
     {{end}}
     <a href="/izvjesca/{{.Izvjesce.ID}}/izvjesce.xlsx" class="btn btn-secondary" title="Obrazac za ispis, A4">{{icon "download"}} Excel</a>
   </div>
@@ -76,7 +80,6 @@
     </dl>
   </section>
 
-  <p class="reading-meta">Datum i sat izrade: {{.Izvjesce.IzradenoAt.Format "2.1.2006. 15:04"}} · Rukovoditelj/zamjenik dionice: <strong>{{.Izvjesce.Izradio}}</strong>
-    {{if .Izvjesce.Predano}} · predano u podcentar {{.Izvjesce.PredanoAt.Format "2.1.2006. 15:04"}}{{end}}</p>
+  <p class="reading-meta">Datum i sat izrade: {{.Izvjesce.IzradenoAt.Format "2.1.2006. 15:04"}} · Rukovoditelj/zamjenik dionice: <strong>{{.Izvjesce.Izradio}}</strong>{{.Izvjesce.TragUDokumentu "u podcentar" "2.1.2006. 15:04"}}</p>
 </div>
 {{end}}

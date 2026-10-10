@@ -26,6 +26,9 @@ type SektorskoIzvjesce struct {
 	IzradenoAt time.Time  `json:"izradeno_at"`
 	PredanoAt  *time.Time `json:"predano_at,omitempty"`
 
+	// prvo vrijeme predaje, tko je predao i tko je mijenjao nakon predaje
+	TragPredaje
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

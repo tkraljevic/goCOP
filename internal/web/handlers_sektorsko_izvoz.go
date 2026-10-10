@@ -187,10 +187,9 @@ func KnjigaSektorskog(iz *models.SektorskoIzvjesce, z ZaglavljeIzvoza) *xlsxw.Kn
 
 	// Izrada i potpisi
 	l.Dodaj()
-	izrada := "Datum i sat izrade: " + iz.IzradenoAt.In(models.Zagreb).Format("02.01.2006. 15:04") + " · sastavio: " + iz.Izradio
-	if iz.Predano() {
-		izrada += " · predano Glavnom centru " + iz.PredanoAt.In(models.Zagreb).Format("02.01.2006. 15:04")
-	}
+	// uz izradu: tko je mijenjao nakon predaje, prvo i ponovno vrijeme predaje
+	izrada := "Datum i sat izrade: " + iz.IzradenoAt.In(models.Zagreb).Format("02.01.2006. 15:04") + " · sastavio: " + iz.Izradio +
+		iz.TragUDokumentu("Glavnom centru", "02.01.2006. 15:04")
 	r = l.Redak()
 	out := make([]xlsxw.Celija, stupaca)
 	out[0] = B(izrada, xlsxw.Obican)

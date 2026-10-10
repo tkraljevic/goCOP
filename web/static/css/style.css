@@ -4308,6 +4308,13 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .zapis:hover .zapis-ispravak > summary, .zapis-ispravak[open] > summary { opacity: 1; }
 .zapis-ispravak[open] { display: block; margin: 0.5rem 0 0; }
 .zapis-ispravak-obrazac { margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ddd); border-radius: 4px; }
+/* Ispravak opisa rada u planu dežurstava: sklopljen uz opis, otvoren kad
+   se mjesto rada ne zna. */
+.dezurstvo-ispravak { margin-top: 0.3rem; }
+.dezurstvo-ispravak > summary { list-style: none; cursor: pointer; display: inline-block; padding: 0 0.4rem; font-size: 0.72rem; }
+.dezurstvo-ispravak > summary::-webkit-details-marker { display: none; }
+.dezurstvo-ispravak-obrazac { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
+.dezurstvo-ispravak-obrazac select { flex: 1 1 16rem; min-width: 0; }
 
 /* Novi zapis stoji na kraju, kao u bilježnici. */
 .novi-zapis { padding: 1rem; margin-top: 1.5rem; }

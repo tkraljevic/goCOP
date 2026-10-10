@@ -25,6 +25,10 @@
 <div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .IORS.CekaPotvrdu}} h</strong> u razdoblju još čeka potvrdu
   uprave centra: vidi se u popisu, ali nije u obračunu.</div>
 {{end}}
+{{if .IORS.ZaProvjeru}}
+<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>{{sati .IORS.ZaProvjeru}} h</strong> u razdoblju ima
+  <strong>zapisa „mjesto nepoznato — za provjeru”</strong>: vidi se u popisu, ali nije u obračunu dok uprava centra ne izabere opis rada s popisa.</div>
+{{end}}
 
 {{if .IORS.Redovi}}
 {{/* Prvi dio obrasca: redak po danu i razmaku — dan u tjednu, datum, od–do,
@@ -37,14 +41,14 @@
        vodoravnog klizanja; puna tablica je stvar izvoza. */}}
   <div class="iors-dani">
     {{range .IORS.Redovi}}
-    <article class="iors-dan{{if not .Potvrdeno}} iors-ceka{{end}}">
+    <article class="iors-dan{{if not .UObracunu}} iors-ceka{{end}}">
       <div class="iors-dan-glava">
         <div class="iors-dan-datum">{{danTjedna .Dan}} <strong>{{.Dan.Format "2.1.2006."}}</strong></div>
         <div class="iors-dan-vrijeme mono">{{.Od.Format "15:04"}} – {{if eq (.Do.Format "15:04") "00:00"}}24:00{{else}}{{.Do.Format "15:04"}}{{end}}</div>
         <div class="iors-dan-ukupno mono"><strong>{{sati .Ukupno}}</strong> h</div>
       </div>
-      <div class="iors-dan-opis">{{.Opis}} <span class="reg-chip">{{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}}</span>
-        <span class="reg-chip">{{.Za}}</span>{{if not .Potvrdeno}} <span class="badge badge-pending">čeka potvrdu</span>{{end}}</div>
+      <div class="iors-dan-opis">{{.Opis}} {{if .ZaProvjeru}}<span class="badge badge-warning">{{.MjestoTekst}}</span>{{else}}<span class="reg-chip">{{.MjestoTekst}}</span>{{end}}
+        <span class="reg-chip">{{.Za}}</span>{{if and (not .Potvrdeno) (not .ZaProvjeru)}} <span class="badge badge-pending">čeka potvrdu</span>{{end}}</div>
       <ul class="obracun-stavke iors-dan-razredi">
         {{range .PoRazredima}}<li><span class="reg-card-sub">{{.Razred.Kratko}}</span> <span class="mono">{{sati .Sati}}</span></li>{{end}}
       </ul>

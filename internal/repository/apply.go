@@ -80,10 +80,14 @@ func KeepVersion(v ledger.Version) bool {
 }
 
 // SurfaceEntities su entiteti čija se površina obnavlja iz knjige: sve osim
-// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu
+// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu.
+// Izvješća dionica i sektora su tu jer je njihov trag predaje (Odluke
+// (8. 10. 2026.), pitanje 12) nov stupac: čvor nadograđen s 0.0.34 drži trag
+// samo u knjizi, a obnova ga pri pokretanju vraća u tablicu.
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
+	EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
 
