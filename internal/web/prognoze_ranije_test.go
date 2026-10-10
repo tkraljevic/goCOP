@@ -2,13 +2,17 @@ package web
 
 import (
 	"context"
+	"html/template"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/prognoza"
+	webassets "gocop/web"
 )
 
 // Sati dvaju izdanja u bazi za izvoz ranije prognoze: 5. 10. 2026. u 10 h
@@ -207,4 +211,75 @@ func TestPorukaRanijegIzdanja(t *testing.T) {
 	if sat, ranije := IzdanjeZahtjeva(UzRanijeIzdanje(context.Background(), iz)); !ranije || sat != satStarog {
 		t.Errorf("sat ranijeg izdanja %d %v", sat, ranije)
 	}
+}
+
+// Postavke nude izvoz ranije prognoze svakome tko može izvoziti: kažu od kad
+// baza čuva izdanja, a za traženi sat koje se izdanje izvozi.
+func TestPostavkeRanijaPrognoza(t *testing.T) {
+	h := rukovateljRanijih(t)
+	h.SetPostavke(predlozakPostavki(t))
+	stranica := func(upit string) (int, string) {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/prognoze/postavke"+upit, nil)
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, &models.User{FullName: "Ana Anić"}))
+		h.ShowPostavke(w, r)
+		return w.Code, w.Body.String()
+	}
+	kod, html := stranica("")
+	if kod != http.StatusOK {
+		t.Fatalf("postavke bez kruga preuzimanja: %d — izvoz ranije prognoze mora biti dostupan", kod)
+	}
+	for _, want := range []string{`id="ranije"`, "najstarije je od 5.10.2026. u 10:00", `min="2026-10-05"`, `name="sat"`, "23:00"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("odjeljak nema %q", want)
+		}
+	}
+	if strings.Contains(html, "prog-ranije-ishod") {
+		t.Error("ishod stoji, a ništa nije traženo")
+	}
+	_, html = stranica("?dan=2026-10-05&sat=12")
+	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00.",
+		`href="/prognoze.xlsx?dan=2026-10-05&amp;sat=12"`, `value="2026-10-05"`, `<option value="12" selected>`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("ishod nema %q", want)
+		}
+	}
+	_, html = stranica("?dan=2026-10-01&sat=9")
+	if !strings.Contains(html, "ni ranije nema sačuvane prognoze") || strings.Contains(html, "/prognoze.xlsx?") {
+		t.Error("prije prvog izdanja nudi se izvoz")
+	}
+	_, html = stranica("?dan=nije&sat=9")
+	if !strings.Contains(html, "Ranije izdanje: dan nije ispravan datum.") {
+		t.Error("krivi dan bez poruke")
+	}
+
+	// Gumb Postavke stoji na pregledu čim ima prognoze, i bez kruga preuzimanja.
+	pregled := iscrtaj(t, "prognoze.html", PrognozePageData{CurrentUser: &models.User{FullName: "Ana Anić"}, ActiveNav: "prognoze",
+		Izdano: "5.10.2026. u 10:00", Tablice: []TablicaPrognoza{{Naslov: "Pritoke", Letve: []LetvaPrognoze{{Kod: "gornja", Naziv: "Gornji Brod"}}}}})
+	if !strings.Contains(pregled, `href="/prognoze/postavke"`) {
+		t.Error("na pregledu s prognozom nema gumba Postavke")
+	}
+
+	prazan := NewPrognozeHandler(nil, nil, nil)
+	prazan.SetPostavke(predlozakPostavki(t))
+	w := httptest.NewRecorder()
+	prazan.ShowPostavke(w, httptest.NewRequest(http.MethodGet, "/prognoze/postavke", nil))
+	if w.Code != http.StatusSeeOther {
+		t.Errorf("bez izdanja i bez kruga postavke ne vode na pregled: %d", w.Code)
+	}
+}
+
+// predlozakPostavki učitava stranicu „Postavke prognoze” kao poslužitelj.
+func predlozakPostavki(t *testing.T) *template.Template {
+	t.Helper()
+	templatesFS, err := fs.Sub(webassets.Files, "templates")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tmpl, err := template.New("base.html").Funcs(templateFuncs()).
+		ParseFS(templatesFS, DijeloviPredloska("prognoze_postavke.html")...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tmpl
 }

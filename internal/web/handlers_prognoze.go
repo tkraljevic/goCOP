@@ -335,14 +335,15 @@ func (h *PrognozeHandler) ShowPrognoze(w http.ResponseWriter, r *http.Request) {
 }
 
 // ShowPostavke je stranica „Postavke prognoze”: generiranje i priprema modela,
-// odvojeni od pregleda da ga ne produljuju.
+// odvojeni od pregleda da ga ne produljuju, i izvoz ranije prognoze.
 func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	if h.postavkeTmpl == nil {
 		http.NotFound(w, r)
 		return
 	}
 	data := h.zaglavlje(r)
-	if !data.MozeGenerirati && !data.MozePripremiti {
+	data.Ranije = h.ranijiIzvoz(r)
+	if !data.MozeGenerirati && !data.MozePripremiti && data.Ranije.Od == "" {
 		http.Redirect(w, r, "/prognoze", http.StatusSeeOther)
 		return
 	}

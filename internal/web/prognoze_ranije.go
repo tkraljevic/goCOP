@@ -200,3 +200,35 @@ func (h *PrognozeHandler) citacBaze() *CitacPrognoza {
 	}
 	return h.citac()
 }
+
+// ranijiIzvoz slaže odjeljak „Ranija prognoza”: od kad baza čuva izdanja i,
+// kad je korisnik tražio dan i sat, koje se izdanje izvozi.
+func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
+	c := h.citacBaze()
+	sada := time.Now().In(models.Zagreb)
+	out := RanijiIzvoz{Dan: sada.Format("2006-01-02"), Sat: sada.Hour(), DoDan: sada.Format("2006-01-02")}
+	prvo, ima := c.PrvoIzdanje()
+	if !ima {
+		return out
+	}
+	out.Od, out.OdDan = satRanijeg(prvo), prvo.In(models.Zagreb).Format("2006-01-02")
+	q := r.URL.Query()
+	if !q.Has("dan") {
+		return out
+	}
+	out.Trazeno = true
+	trazeno, err := trazeniSat(q)
+	if err != nil {
+		out.Poruka = "Ranije izdanje: " + err.Error() + "."
+		return out
+	}
+	out.Dan, out.Sat = trazeno.Format("2006-01-02"), trazeno.Hour()
+	iz, ok := nadjiRanije(c, trazeno)
+	if !ok {
+		out.Poruka = bezRanijeg(c, trazeno)
+		return out
+	}
+	out.Poruka = iz.Poruka()
+	out.URL = "/prognoze.xlsx?" + url.Values{"dan": {out.Dan}, "sat": {strconv.Itoa(out.Sat)}}.Encode()
+	return out
+}

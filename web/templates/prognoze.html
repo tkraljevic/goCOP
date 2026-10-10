@@ -18,8 +18,8 @@
       title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
     {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary"
       title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
-    {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke" class="btn btn-secondary"
-      title="Generiranje prognoze i priprema modela">{{icon "settings"}} Postavke</a>{{end}}
+    {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-secondary"
+      title="Generiranje prognoze, priprema modela i izvoz ranije prognoze">{{icon "settings"}} Postavke</a>{{end}}
   </div>
 </div>
 

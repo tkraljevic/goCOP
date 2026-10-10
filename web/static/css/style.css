@@ -6249,6 +6249,14 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-prikaz-red label { flex: 0 0 13rem; margin: 0; font-weight: 600; }
 .prog-prikaz-red select { flex: 1; }
 .prog-prikaz-obrazac .btn { align-self: flex-start; margin-top: 0.25rem; }
+/* Ranija prognoza: dan i sat u jednom retku, na uskom zaslonu jedno ispod drugog */
+.prog-ranije-obrazac { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; max-width: 40rem; }
+.prog-ranije-polje { display: flex; align-items: center; gap: 0.5rem; }
+.prog-ranije-polje label { margin: 0; font-weight: 600; }
+.prog-ranije-polje input[type="date"] { width: 11rem; }
+.prog-ranije-polje select { width: 7rem; }
+.prog-ranije-ishod { margin-top: 0.75rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+.prog-ranije-ishod p { margin: 0; }
 
 /* Stranica kišomjera: pločice zbrojeva, prognoza po danima i graf stupaca */
 .kisa-plocice { display:grid; grid-template-columns:repeat(auto-fill, minmax(10.5rem, 1fr)); gap:0.6rem; }
