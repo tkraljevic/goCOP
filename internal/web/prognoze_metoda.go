@@ -146,7 +146,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Baza prognoza čuva svako izdanje. Na stranici Postavke prognoze, u odjeljku „Ranija prognoza”, " +
 				"bira se dan i sat, a izvoz u Excel tada je isti kao za zadnje izdanje, s brojkama, upozorenjima, dnevnom " +
 				"prognozom, kišom i tuđim prognozama toga izdanja i mjerenjima do sata izdanja. Kad u tom satu prognoza " +
-				"nije izdana, uzima se najbliže ranije izdanje i to se kaže; sat izdan više puta izvozi se u zadnjoj verziji."),
+				"nije izdana, uzima se najbliže ranije izdanje i kaže se koliko je ranije; sat izdan više puta izvozi se " +
+				"u zadnjoj verziji. Uz najstarija izdanja nije zapisano sve (dnevna prognoza, kiša, tuđe prognoze u " +
+				"rukama, upozorenja): odjeljak kaže od kad baza ima koji dio, a izvoz nabraja što uz odabrano izdanje nedostaje."),
 			tekstM("Prognozi vrijedi vjerovati manje:"),
 			popisM(
 				"na Dravi od trećeg dana pri velikom valu, jer ga model podcjenjuje — dotok iz Slovenije ne znamo unaprijed; gledati gornju granicu raspona;",
@@ -590,7 +592,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
-				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom.",
+				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",
 				"1. 10. 2026. — izvoz u Excel počinje listom „Sažetak” (naše postaje sada, sutra, za 3 dana i zadnji dan, usporedba s mađarskom prognozom, kiša po slivovima); Vukovar ima svoj protok (protoci i krivulja iz HIS-2000); protok dnevnog modela ostaje i kad granica raspona ispadne iz krivulje.",
