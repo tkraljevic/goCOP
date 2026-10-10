@@ -124,6 +124,9 @@ func TestRanijeIzdanjePokvarenZapis(t *testing.T) {
 	if _, err := TudeIzdanja(db, 10); err == nil {
 		t.Error("pokvaren zapis tuđih bez greške")
 	}
+	if _, err := SpremiZapisIzdanja(db, ZapisIzdanja{Izdano: 14, Cvor: "cvor-a"}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.Exec(`INSERT INTO kisa_izdanja (izdano, verzija, sliv, dan, mm) VALUES (14, 1, 'oborina:A', 0, 'puno')`); err != nil {
 		t.Fatal(err)
 	}
@@ -142,5 +145,18 @@ func TestRanijeIzdanjePokvarenZapis(t *testing.T) {
 	}
 	if _, err := kisaVerzije(db, 13, 2); err == nil {
 		t.Error("zatvorena baza: verzija kiše bez greške")
+	}
+}
+
+// Kiša ranijeg izdanja je kiša zadnje verzije zapisa: kad je sat izdan
+// iznova bez kiše, ne vraća se kiša starije verzije, jer izvoz uz brojke
+// zadnje verzije ne smije reći da je u prognozu uključena tuđa kiša.
+func TestKisaIzdanjaZadnjeVerzijeBezKise(t *testing.T) {
+	db := bazaRanijih(t)
+	if _, err := SpremiZapisIzdanja(db, ZapisIzdanja{Izdano: 10, Cvor: "cvor-a"}); err != nil {
+		t.Fatal(err)
+	}
+	if kisa, err := KisaIzdanja(db, 10); err != nil || len(kisa) != 0 {
+		t.Errorf("kiša 10. sata izdanog iznova bez kiše: %v %v", kisa, err)
 	}
 }

@@ -317,10 +317,12 @@ func ZadnjaKisa(db *sql.DB) (map[string]DnevniNiz, int64, error) {
 
 // KisaIzdanja vraća kišu po međuslivovima kakvu je imala zadnja verzija
 // izdanja zadanog sata, u obliku kao ZadnjaKisa; prazna je kad je uz izdanje
-// nema (izdanje starije od zapisa kiše ili bez dnevnog modela).
+// nema (izdanje starije od zapisa kiše ili bez dnevnog modela). Verzija je
+// zadnja u zapisu o izdanjima, ne zadnja s kišom: sat izdan iznova bez kiše
+// nema kiše starije verzije.
 func KisaIzdanja(db *sql.DB, izdano int64) (map[string]DnevniNiz, error) {
 	var verzija sql.NullInt64
-	if err := db.QueryRow(`SELECT max(verzija) FROM kisa_izdanja WHERE izdano = ?`, izdano).Scan(&verzija); err != nil {
+	if err := db.QueryRow(`SELECT max(verzija) FROM izdanja WHERE izdano = ?`, izdano).Scan(&verzija); err != nil {
 		return nil, err
 	}
 	return kisaVerzije(db, izdano, verzija.Int64)
