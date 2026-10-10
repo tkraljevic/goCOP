@@ -178,7 +178,7 @@
         {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C{{if .TempNote}} ({{.TempNote}}){{end}}</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
-      <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
+      <span>{{if index $.Ispravlja .ID}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
       {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
       <span class="extra">
         {{if .StructureState}}{{.StateLabel}}{{end}}

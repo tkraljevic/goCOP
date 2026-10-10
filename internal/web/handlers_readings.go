@@ -249,6 +249,9 @@ type ReadingHistoryData struct {
 	Profil    *models.ProfilKorita
 	CanRecord bool
 	CanEdit   bool
+	// Ispravlja su očitanja na stranici koja osoba smije ispraviti: olovka
+	// stoji samo uz njih (Odluke (8. 10. 2026.), pitanje 9)
+	Ispravlja map[uuid.UUID]bool
 	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
 	// stranica nije o letvi nego o vodnoj građevini.
 	LetvaStranica string
@@ -307,6 +310,9 @@ type ReadingFormData struct {
 	ProtokIzKrivulje string
 	ProtokIzvan      bool
 	ImaKrivulju      bool
+	// MozeObrisati: gumb za brisanje samo onome tko za letvu odgovara
+	// (Odluke (8. 10. 2026.), pitanje 9)
+	MozeObrisati bool
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -519,6 +525,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Odbaceno, _ = h.readingService.SazetakOdbacenih(r.Context(), data.GaugeKey)
+	data.Ispravlja = h.ispravljiva(data.Permissions, station, data.CanRecord, data.Readings)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži
@@ -813,6 +820,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		}
 		rd = existing
 		data.IsEdit = true
+		data.MozeObrisati = h.readingService.CanDelete(ctx, perms, existing)
 	} else {
 		q := r.URL.Query()
 		rd.StationID, rd.StructureID = q.Get("station"), q.Get("structure")
@@ -1320,4 +1328,24 @@ func (h *ReadingsHandler) HandleZalijepiPotvrda(w http.ResponseWriter, r *http.R
 		poruka += " Ostala su već bila upisana."
 	}
 	redirectWith(w, r, back, "success", poruka)
+}
+
+// ispravljiva su očitanja koja osoba smije ispraviti, po identifikatoru. Na
+// letvi postaje po pravu ispravka (autor dok upisuje na letvu, pa još 72 h;
+// tuđe tko odgovara za letvu), na objektu kao dosad: sva, kad osoba
+// upisuje na objekt.
+func (h *ReadingsHandler) ispravljiva(perms *models.UserPermissions, station *models.Station,
+	upisujeNaObjekt bool, ocitanja []models.Reading) map[uuid.UUID]bool {
+	out := make(map[uuid.UUID]bool, len(ocitanja))
+	if station == nil {
+		for _, rd := range ocitanja {
+			out[rd.ID] = upisujeNaObjekt
+		}
+		return out
+	}
+	prava, sad := h.readingService.PravaNaLetvu(perms, station), time.Now()
+	for i := range ocitanja {
+		out[ocitanja[i].ID] = prava.MozeIspraviti(&ocitanja[i], sad)
+	}
+	return out
 }
