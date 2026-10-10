@@ -73,8 +73,9 @@ func sadZahtjeva(r *http.Request) time.Time {
 }
 
 // trazeniSat čita dan i sat iz upita (dan=2026-10-05&sat=9), po mjesnom
-// vremenu.
-func trazeniSat(q url.Values) (time.Time, error) {
+// vremenu. Sat koji do trenutka sada još nije došao nema izdanja: zadnje
+// bi se tada izvezlo kao „najbliže ranije” i izgledalo zastarjelo.
+func trazeniSat(q url.Values, sada time.Time) (time.Time, error) {
 	dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(q.Get("dan")), models.Zagreb)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("dan nije ispravan datum")
@@ -83,7 +84,11 @@ func trazeniSat(q url.Values) (time.Time, error) {
 	if err != nil || sat < 0 || sat > 23 {
 		return time.Time{}, fmt.Errorf("sat mora biti od 0 do 23")
 	}
-	return time.Date(dan.Year(), dan.Month(), dan.Day(), sat, 0, 0, 0, models.Zagreb), nil
+	t := time.Date(dan.Year(), dan.Month(), dan.Day(), sat, 0, 0, 0, models.Zagreb)
+	if t.After(sada) {
+		return time.Time{}, fmt.Errorf("sat %s još nije došao — zadnja prognoza izvozi se na stranici Prognoze", satRanijeg(t))
+	}
+	return t, nil
 }
 
 // nadjiRanije traži izdanje za traženi sat; ok je false kad do njega nema
@@ -138,7 +143,7 @@ func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 // zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
 // zahtjeva; kad ga nema, odgovara sam i vraća false.
 func (h *PrognozeHandler) zahtjevRanijeg(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
-	trazeno, err := trazeniSat(r.URL.Query())
+	trazeno, err := trazeniSat(r.URL.Query(), time.Now())
 	if err != nil {
 		http.Error(w, "Ranije izdanje: "+err.Error()+".", http.StatusBadRequest)
 		return r, false
@@ -227,7 +232,7 @@ func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 		return out
 	}
 	out.Trazeno = true
-	trazeno, err := trazeniSat(q)
+	trazeno, err := trazeniSat(q, sada)
 	if err != nil {
 		out.Poruka = "Ranije izdanje: " + err.Error() + "."
 		return out

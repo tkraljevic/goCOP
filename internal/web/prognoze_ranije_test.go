@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -349,5 +350,32 @@ func TestPorukaRanijegIstaNaSvimCvorovima(t *testing.T) {
 	}
 	if want := "Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:41."; naIzdavacu != want {
 		t.Errorf("%q\nželim\n%q", naIzdavacu, want)
+	}
+}
+
+// Sat koji još nije došao nema izdanja ni ranijeg ni zadnjeg: izvoz ga ne
+// daje kao „najbliže ranije” zadnje izdanje (koje bi tada izgledalo
+// zastarjelo, sa svim vrijednostima upitnima), nego kaže da sat nije došao.
+func TestRanijeIzdanjeSatKojiNijeDosao(t *testing.T) {
+	h := rukovateljRanijih(t)
+	h.SetPostavke(predlozakPostavki(t))
+	buduci := time.Now().In(models.Zagreb).Add(6 * time.Hour)
+	upit := "?dan=" + buduci.Format("2006-01-02") + "&sat=" + strconv.Itoa(buduci.Hour())
+	w := izvezi(h, upit)
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "još nije došao") {
+		t.Errorf("izvoz za sat koji nije došao: %d %s", w.Code, w.Header().Get("Content-Disposition"))
+	}
+	r := httptest.NewRequest(http.MethodGet, "/prognoze/postavke"+upit, nil)
+	r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, &models.User{FullName: "Ana Anić"}))
+	wp := httptest.NewRecorder()
+	h.ShowPostavke(wp, r)
+	html := wp.Body.String()
+	if !strings.Contains(html, "još nije došao") || strings.Contains(html, "/prognoze.xlsx?") || strings.Contains(html, "nije izdana;") {
+		t.Errorf("postavke za sat koji nije došao nude izvoz ili ne kažu zašto")
+	}
+	// Tekući sat je dopušten: izdanje mu je zadnje ili najbliže ranije.
+	sada := time.Now().In(models.Zagreb)
+	if w := izvezi(h, "?dan="+sada.Format("2006-01-02")+"&sat="+strconv.Itoa(sada.Hour())); w.Code != http.StatusOK {
+		t.Errorf("tekući sat: %d %s", w.Code, w.Body.String())
 	}
 }
