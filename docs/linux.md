@@ -265,6 +265,11 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
   zaštićeno: tko ih ima, predstavlja se kao ovaj čvor, odnosno prima
   članove u mrežu.
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
+- Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
+  0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka
+  nedostaje. Vratite izvornik iz kopije; novi identitet samo izričito,
+  jednim pokretanjem sa zastavicom `-novi-kljuc-cvora` (vidi
+  [INSTALACIJA.md](INSTALACIJA.md), poglavlje 3).
 
 ## 7. Portovi i vatrozid
 

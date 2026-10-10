@@ -244,6 +244,19 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira. Čuvati ga u zaštićenoj
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
+  Svjež čvor (baze još nema ili u njoj nema nijednog zapisa) ključ napravi
+  sam. Od 0.0.35-alfa čvor čija baza već ima zapise, a ključa uz nju nema,
+  **ne kreće**: u dnevnik ispiše koja datoteka nedostaje i gdje se očekuje.
+  Novi ključ dao bi mu novi identitet, a upareni čvorovi odbili bi razmjenu
+  („dokazao je drugi ključ od uparenog”); ni tajne šifrirane starim ključem
+  (lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
+  Izvornu datoteku treba vratiti iz sigurnosne kopije ili s diska na koji je
+  premještena. Samo kad izvornog ključa više nema, a novi identitet je
+  namjeran, čvor se pokrene **jednom** sa zastavicom `-novi-kljuc-cvora`, pa
+  se zastavica ukloni; zatim ga čvor koji ga je primio u mrežu zaboravi,
+  opozove mu članstvo i ponovno ga primi. Zastavica se ne čita iz
+  `gocop.toml` i nikad se ne podrazumijeva. Čvorovi na 0.0.34 i starijim
+  izdanjima ključ i dalje prave sami.
 - **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
   šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
   korisnika; kad lozinku postavi netko drugi (poništenje, lozinka upisana u
@@ -671,10 +684,19 @@ Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
 spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
 datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i
 nakon nadogradnje provjeriti da montirani `/data` sadrži postojeće
-`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Ako se
-postojeći čvor iznenada prikaže kao nov ili s drugim ključem, zaustaviti ga
-i provjeriti montaže te vratiti originalni identitet iz kopije. Ponovnim
-osnivanjem mreže ne obnavlja se stari čvor.
+`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Tako je
+5. 10. 2026. mover premjestio `node-key` i `gocop.toml` s cachea na polje, a
+spremnik je uz postojeću bazu napravio novi ključ, pa su ga upareni čvorovi
+odbili. Od 0.0.35-alfa spremnik u tom slučaju ne kreće i u dnevniku
+spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Tada
+zaustaviti spremnik, provjeriti montaže (Shares → Browse pokazuje na kojem je
+disku datoteka) i vratiti izvornik u `/data`. Ako se postojeći čvor ipak
+prikaže kao nov ili s drugim ključem (izdanje prije 0.0.35), postupiti isto.
+Ponovnim osnivanjem mreže ne obnavlja se stari čvor. Samo kad izvornog ključa
+više nema, a novi identitet je namjeran: u predlošku spremnika dodati
+`-novi-kljuc-cvora` u *Post Arguments* (Advanced View), pokrenuti spremnik
+jednom, pa zastavicu ukloniti (`docker run … ghcr.io/tkraljevic/gocop:<oznaka>
+-novi-kljuc-cvora` izvan Unraida).
 
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi

@@ -133,6 +133,7 @@ type zastavice struct {
 	ispisiIzdanje      bool
 	podPostavom        bool
 	pripremi           bool
+	noviKljucCvora     bool
 	zadane             map[string]bool
 }
 
@@ -179,6 +180,7 @@ func procitajZastavice(args []string) (zastavice, error) {
 	fs.BoolVar(&z.ispisiIzdanje, "version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
 	fs.BoolVar(&z.podPostavom, "upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
 	fs.BoolVar(&z.pripremi, "pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
+	fs.BoolVar(&z.noviKljucCvora, peers.ZastavicaNovogKljuca, false, "Postojećoj bazi bez ključa čvora (node-key) izričito dopusti novi ključ, dakle novi identitet u mreži; samo za jedno pokretanje")
 	if err := fs.Parse(args); err != nil {
 		return z, err
 	}
@@ -700,6 +702,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	discoveryPort := &cfg.Sync.DiscoveryPort
 	autoSyncValue := cfg.AutoSyncDuration()
 	autoSync := &autoSyncValue
+
+	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
+	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
+	// čita bazu, prije nego što se išta zapiše.
+	if err := peers.ProvjeriKljucCvora(cfg.DB, z.noviKljucCvora); err != nil {
+		log.Print(err)
+		return 1
+	}
 
 	zapisiPrimjerPostavki(cfg, cfgFrom, imeIzDatoteke, noviIme, z.node != "")
 
