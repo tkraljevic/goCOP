@@ -12,9 +12,12 @@ import (
 	"gocop/internal/repository"
 )
 
-// Obrazac akta nudi letvu samo kad bi je priprema prihvatila: osoba piše po
-// dosegu akta ili ga smije ovjeriti, a letva ima dionica u registru. Letva
+// Obrazac akta nudi letvu samo kad bi je priprema prihvatila: osoba smije
+// sastaviti nacrt u sektoru akta, a letva ima dionica u registru. Letva
 // drugog sektora ne nudi se samo zato što osoba ima neki sektor ili područje.
+// Namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18: nacrt
+// sastavlja samo Centar obrane od poplava sektora, pa ni rukovoditelj
+// područja, ni vodočuvar, ni uprava organizacije letvu više ne dobivaju.
 func TestSmijeAktZaLetvu(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
@@ -53,14 +56,17 @@ func TestSmijeAktZaLetvu(t *testing.T) {
 		st    *models.Station
 		zeli  bool
 	}{
-		"rukovoditelj područja, svoja letva": {o.ovlasti, o.letva, true},
-		"vodočuvar dionice letve":            {o.vodOvl, o.letva, true},
+		"dežurni operater, letva sektora":    {o.dezOvl, o.letva, true},
+		"dežurni, letva drugog sektora":      {o.dezOvl, drugovo, false},
+		"dežurni, letva bez dionica":         {o.dezOvl, bez, false},
+		"rukovoditelj područja, svoja letva": {o.ovlasti, o.letva, false},
+		"vodočuvar dionice letve":            {o.vodOvl, o.letva, false},
 		"rukovoditelj, letva drugog sektora": {o.ovlasti, drugovo, false},
 		"vodočuvar, letva drugog sektora":    {o.vodOvl, drugovo, false},
-		"uprava, letva drugog sektora":       {uprava, drugovo, true},
+		"uprava, letva drugog sektora":       {uprava, drugovo, false},
 		"uprava, letva bez dionica":          {uprava, bez, false},
 		"bez ovlasti":                        {nil, o.letva, false},
-		"bez letve":                          {o.ovlasti, nil, false},
+		"bez letve":                          {o.dezOvl, nil, false},
 	} {
 		if got := o.akti.SmijeAktZaLetvu(ctx, z.perms, z.st, models.PhasePrep); got != z.zeli {
 			t.Errorf("%s: %v, očekivano %v", ime, got, z.zeli)

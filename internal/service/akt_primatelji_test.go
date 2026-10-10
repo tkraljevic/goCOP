@@ -88,7 +88,7 @@ func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 		}
 	}
 
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,11 +168,11 @@ func TestUpozorenjaKadSeIzvorPrimateljaNeDaProcitati(t *testing.T) {
 func TestOvjeraIPopisPrimatelja(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	if len(a.UpozorenjaPrimatelja) == 0 {
@@ -213,16 +213,18 @@ func TestOvjeraIPopisPrimatelja(t *testing.T) {
 	}
 }
 
-// Ponovno slaganje popisa u nacrtu: smije tko radi s nacrtom, ovjeren akt
-// zadržava popis s kojim je ovjeren
+// Ponovno slaganje popisa u nacrtu mijenja nacrt, pa smije samo njegov
+// autor dok smije sastavljati nacrte; vodočuvar i rukovoditelj koji akt
+// ovjerava više ne (namjerno promijenjeno prema Odlukama (8. 10. 2026.),
+// pitanje 18). Ovjeren akt zadržava popis s kojim je ovjeren.
 func TestPonovnoSlaganjePrimatelja(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	uzTeritorij(t, o)
@@ -230,10 +232,21 @@ func TestPonovnoSlaganjePrimatelja(t *testing.T) {
 	if _, err := o.akti.PonovnoSloziPrimatelje(ctx, models.NewUserPermissions(*stranac), stranac, a.ID); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("tko ne radi s nacrtom: %v", err)
 	}
-	if _, err := o.akti.PonovnoSloziPrimatelje(ctx, o.ovlasti, o.rukovod, "nema-ga"); err == nil {
+	if _, err := o.akti.PonovnoSloziPrimatelje(ctx, o.dezOvl, o.dezurni, "nema-ga"); err == nil {
 		t.Error("akt kojeg nema")
 	}
-	nov, err := o.akti.PonovnoSloziPrimatelje(ctx, o.vodOvl, o.vodocuv, a.ID)
+	for ime, z := range map[string]struct {
+		perms *models.UserPermissions
+		u     *models.User
+	}{
+		"vodočuvar dionice akta":     {o.vodOvl, o.vodocuv},
+		"rukovoditelj koji ovjerava": {o.ovlasti, o.rukovod},
+	} {
+		if _, err := o.akti.PonovnoSloziPrimatelje(ctx, z.perms, z.u, a.ID); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("%s: %v", ime, err)
+		}
+	}
+	nov, err := o.akti.PonovnoSloziPrimatelje(ctx, o.dezOvl, o.dezurni, a.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -246,7 +259,7 @@ func TestPonovnoSlaganjePrimatelja(t *testing.T) {
 	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, service.PotvrdaOvjere{Primatelji: true}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.akti.PonovnoSloziPrimatelje(ctx, o.ovlasti, o.rukovod, a.ID); err == nil || !strings.Contains(err.Error(), "ovjeren") {
+	if _, err := o.akti.PonovnoSloziPrimatelje(ctx, o.dezOvl, o.dezurni, a.ID); err == nil || !strings.Contains(err.Error(), "ovjeren") {
 		t.Errorf("ovjeren akt: %v", err)
 	}
 	if _, err := ledger.New(o.baza, "test").Latest(ctx, repository.EntityAkti, a.ID); err != nil {
@@ -259,11 +272,11 @@ func TestPonovnoSlaganjePrimatelja(t *testing.T) {
 func TestSkenIPopisPrimatelja(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	ispis := imena(a.Primatelji)
@@ -296,11 +309,11 @@ func TestSkenIPopisPrimatelja(t *testing.T) {
 func TestSkenNacrtaBezUpisanogUpozorenjaTraziPotvrdu(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := o.baza.Exec(`UPDATE akti SET upozorenja_primatelja = '' WHERE id = ?`, a.ID); err != nil {

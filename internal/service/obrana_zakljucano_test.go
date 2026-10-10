@@ -35,6 +35,9 @@ type okolinaObrane struct {
 	letva    models.Station
 	pero     *models.User
 	uprava   *models.UserPermissions
+	// dezurni je Dežurni operater u COP-u sektora P: nacrt akta sastavlja
+	// samo Centar obrane od poplava (Odluke (8. 10. 2026.), pitanje 18)
+	dezurni *models.UserPermissions
 }
 
 const pperic = "pperic"
@@ -72,11 +75,15 @@ func novaOkolinaObrane(t *testing.T) *okolinaObrane {
 	pero := &models.User{ID: uuid.New(), Username: pperic, FullName: "Pero Perić"}
 	korisnici := repository.NewUserRepository(baza, rec)
 	users := NewUserService(korisnici, NewAuthService(korisnici, repository.NewSessionRepository(baza)), NewSSEBroker())
+	sektor := "P"
+	dezurni := *pero
+	dezurni.Duties = []models.Duty{{Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true}}
 	return &okolinaObrane{
 		svc: svc, akti: NewAktService(repository.NewAktiRepository(baza, rec), stanice, repository.NewSectionRepository(baza, rec),
 			repository.NewTerritoryRepository(baza, rec), nil, users, svc, "cvor-probni"),
 		epizode: epizode, ocitanja: ocitanja, stanice: stanice, rec: rec, letva: st,
 		pero: pero, uprava: &models.UserPermissions{IsGlobalAdmin: true, User: *pero},
+		dezurni: models.NewUserPermissions(dezurni),
 	}
 }
 
@@ -90,7 +97,10 @@ func (o *okolinaObrane) ocitanje(t *testing.T, kad time.Time, cm int) {
 }
 
 // ovjeriAkt sprema i ovjerava akt o obrani po letvi (prazno: bez letve) na
-// zadanim dionicama: jedini put kojim se mijenja stanje obrane
+// zadanim dionicama: jedini put kojim se mijenja stanje obrane. Nacrt
+// sprema dežurni operater, a ovjerava uprava; namjerno promijenjeno prema
+// Odlukama (8. 10. 2026.), pitanje 18 (nacrt sastavlja samo Centar obrane od
+// poplava), pravila stanja obrane koja test zaključava ostaju ista.
 func (o *okolinaObrane) ovjeriAkt(t *testing.T, letva, radnja string, stupanj models.DefensePhase, vrijedi time.Time, dionice ...string) *models.Akt {
 	t.Helper()
 	ctx := context.Background()
@@ -101,7 +111,7 @@ func (o *okolinaObrane) ovjeriAkt(t *testing.T, letva, radnja string, stupanj mo
 	// Testovi obrane namjerno proglašavaju i unatrag: „Vrijedi od” izvan
 	// uobičajenog raspona je potvrđen (Odluke (8. 10. 2026.), pitanje 17).
 	a.Potvrde = potvrdeVrijedi(a, o.pero, true, time.Now())
-	if err := o.akti.Spremi(ctx, o.uprava, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezurni, a); err != nil {
 		t.Fatalf("spremanje akta %s %s: %v", radnja, stupanj, err)
 	}
 	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.uprava, o.pero, a.ID, PotvrdaOvjere{Primatelji: true, Vrijedi: true})

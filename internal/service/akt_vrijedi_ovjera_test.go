@@ -59,12 +59,12 @@ func TestTvrdeGraniceVrijediOdPriOvjeri(t *testing.T) {
 
 	// nacrt iz obrane čiji je dnevnik zatvoren; sada je otvoren nov
 	dvaDana := time.Now().Add(-48 * time.Hour).Truncate(time.Minute)
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
 		Stupanj: models.PhasePrep, Vrijedi: dvaDana, PotvrdaVrijedi: true})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	o.akti.SetObrana(dnevnik(time.Now().Add(-time.Hour)), nil)
@@ -97,12 +97,12 @@ func TestPotvrdaVrijediOdPriOvjeri(t *testing.T) {
 	sken := []byte("%PDF-1.4 sken potpisanog akta")
 	nacrt := func(o *okolinaAkta, stupanj models.DefensePhase, vrijedi time.Time) *models.Akt {
 		t.Helper()
-		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
 			Stupanj: stupanj, Vrijedi: time.Now().Add(-time.Hour)})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+		if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 			t.Fatal(err)
 		}
 		// nacrt je sastavljen davno: „Vrijedi od” je tada bio sada

@@ -21,7 +21,7 @@ func TestPrekidVezanSamoNaNeponistenuNeprekinutuUspostavu(t *testing.T) {
 	ctx := context.Background()
 	sat := time.Now().Add(-6 * time.Hour).Truncate(time.Minute)
 	prekid := func(stupanj models.DefensePhase, prekida string) (*models.Akt, error) {
-		return o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid,
+		return o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid,
 			Stupanj: stupanj, Vrijedi: time.Now().Truncate(time.Minute), PrekidaAktID: prekida})
 	}
 
@@ -95,12 +95,12 @@ func TestOvjeraPrekidaKadJeUspostavaVecPrekinuta(t *testing.T) {
 	sken := []byte("%PDF-1.4 potpisani akt")
 	nacrt := func(vrijedi time.Time) *models.Akt {
 		t.Helper()
-		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid,
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid,
 			Stupanj: models.PhasePrep, Vrijedi: vrijedi})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+		if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 			t.Fatal(err)
 		}
 		return a

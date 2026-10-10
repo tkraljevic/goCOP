@@ -419,7 +419,8 @@ func otisakPrimatelja(popis []models.AktPrimatelj, upozorenja []string) string {
 }
 
 // PonovnoSloziPrimatelje slaže popis primatelja nacrta iznova, s
-// upozorenjima; smije tko smije raditi s nacrtom
+// upozorenjima; mijenja nacrt, pa smije samo tko smije mijenjati nacrt
+// (SmijeUreditiNacrt; Odluke (8. 10. 2026.), pitanje 18)
 func (s *AktService) PonovnoSloziPrimatelje(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.Akt, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	switch {
@@ -429,7 +430,7 @@ func (s *AktService) PonovnoSloziPrimatelje(ctx context.Context, perms *models.U
 		return nil, fmt.Errorf("akt ne postoji")
 	case a.Ovjeren():
 		return nil, fmt.Errorf("akt %s je ovjeren: popis primatelja ostaje onaj s kojim je ovjeren", a.Oznaka())
-	case !s.smijePripremiti(perms, u, a):
+	case !SmijeUreditiNacrt(perms, u, a):
 		return nil, ErrUnauthorized
 	}
 	a.Primatelji, a.UpozorenjaPrimatelja = s.sloziPrimatelje(ctx, a)

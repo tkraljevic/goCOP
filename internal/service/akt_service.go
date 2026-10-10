@@ -179,7 +179,7 @@ func (s *AktService) Pripremi(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	if !s.smijeSastaviti(perms, a) {
-		return nil, fmt.Errorf("%w: akt za branjeno područje %d sastavlja tko ondje vodi obranu", ErrUnauthorized, a.AreaID)
+		return nil, fmt.Errorf("%w: %s", ErrUnauthorized, tkoSastavlja(a.Sektor))
 	}
 
 	// odabrano očitanje (ili zadnje) i tendencija prema očitanju prije njega
@@ -244,16 +244,74 @@ func (s *AktService) dosegAkta(ctx context.Context, a *models.Akt, st *models.St
 	return nil
 }
 
-// smijeSastaviti javlja smije li osoba sastaviti akt: piše po njegovu
-// dosegu ili ga smije ovjeriti
+// smijeSastaviti javlja smije li osoba sastaviti nacrt akta: smije ga
+// sastavljati u sektoru akta (SmijeSastaviti)
 func (s *AktService) smijeSastaviti(perms *models.UserPermissions, a *models.Akt) bool {
-	return s.pisePoAktu(perms, a) || s.SmijeOvjeriti(perms, a)
+	return SmijeSastaviti(perms, a.Sektor)
+}
+
+// SmijeSastaviti javlja smije li osoba sastavljati nacrte akata o stupnju
+// obrane u sektoru. Akt se izdaje isključivo u Centru obrane od poplava, pa
+// nacrt sastavljaju samo voditelj centra, njegov zamjenik i Dežurni
+// operater u COP-u tog sektora, s valjanom dužnošću (Odluke (8. 10. 2026.),
+// pitanje 18). Nitko drugi: ni vodočuvar, rukovoditelj dionice, područja ili
+// sektora, ni uprava organizacije ili globalni administrator bez takve
+// dužnosti. Ovjera ostaje kakva je (SmijeOvjeriti).
+func SmijeSastaviti(perms *models.UserPermissions, sektor string) bool {
+	return sektoriCOPa(perms)[sektor]
+}
+
+// SastavljaNacrte javlja smije li osoba sastavljati nacrte akata u ijednom
+// sektoru (SmijeSastaviti); samo njoj se nudi „Novi akt”
+func SastavljaNacrte(perms *models.UserPermissions) bool {
+	return len(sektoriCOPa(perms)) > 0
+}
+
+// sektoriCOPa su sektori u čijem Centru obrane od poplava osoba ima valjanu
+// (aktivnu, neisteklu) dužnost
+func sektoriCOPa(perms *models.UserPermissions) map[string]bool {
+	out := map[string]bool{}
+	if perms == nil {
+		return out
+	}
+	for _, d := range aktivnaZaduzenja(perms) {
+		if ulogaCOPa(d.Role) && d.SectorID != nil && *d.SectorID != "" {
+			out[*d.SectorID] = true
+		}
+	}
+	return out
+}
+
+// ulogaCOPa javlja je li uloga u Centru obrane od poplava: voditelj centra,
+// njegov zamjenik (i uloga „Voditelj / Zamjenik COP-a” iz ranijih izdanja) i
+// Dežurni operater u COP-u
+func ulogaCOPa(r models.Role) bool {
+	switch r {
+	case models.RoleCopLeader, models.RoleCopDeputy, models.RoleAreaAdmin, models.RoleOperator:
+		return true
+	}
+	return false
+}
+
+// tkoSastavlja je poruka osobi koja nacrt akta ne smije sastaviti
+func tkoSastavlja(sektor string) string {
+	return "nacrt akta o stupnju obrane sastavlja Centar obrane od poplava sektora " + sektor +
+		": voditelj centra, njegov zamjenik ili dežurni operater"
+}
+
+// SmijeUreditiNacrt javlja smije li osoba mijenjati postojeći nacrt (tekst,
+// popis primatelja): samo onaj tko ga je sastavio, i to dok smije
+// sastavljati nacrte u sektoru akta. Inače se nacrt samo ovjerava (Odluke
+// (8. 10. 2026.), pitanje 18).
+func SmijeUreditiNacrt(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
+	return u != nil && a != nil && a.IzradioID == u.ID.String() && SmijeSastaviti(perms, a.Sektor)
 }
 
 // SmijeAktZaLetvu javlja bi li Pripremi osobi prihvatio akt stupnja po
 // letvi (bez užeg izbora dionica): dionice letve su u registru, a osoba
-// piše po dosegu akta ili ga smije ovjeriti. Obrazac akta nudi samo takve
-// letve.
+// smije sastaviti nacrt akta u njegovu sektoru. Obrazac akta nudi samo
+// takve letve, a stranica očitanja letve samo takvima gumb „Proglasi /
+// prekini”.
 func (s *AktService) SmijeAktZaLetvu(ctx context.Context, perms *models.UserPermissions, st *models.Station, stupanj models.DefensePhase) bool {
 	if perms == nil || st == nil {
 		return false
@@ -346,7 +404,8 @@ func (s *AktService) SpremiSprancu(ctx context.Context, perms *models.UserPermis
 }
 
 // UrediTekst mijenja tekst nacrta: uvod, završnu rečenicu i napomenu. Smije
-// tko je nacrt sastavio ili tko ga smije ovjeriti; ovjeren akt se ne mijenja.
+// samo tko je nacrt sastavio, dok smije sastavljati nacrte
+// (SmijeUreditiNacrt); ovjeren akt se ne mijenja.
 func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissions, u *models.User, id, uvod, izvanSnage, zavrsno, napomena string) (*models.Akt, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
@@ -358,7 +417,7 @@ func (s *AktService) UrediTekst(ctx context.Context, perms *models.UserPermissio
 	if a.Ovjeren() {
 		return nil, fmt.Errorf("akt %s je ovjeren i ne mijenja se; ispravak je novi akt", a.Oznaka())
 	}
-	if u == nil || (a.IzradioID != u.ID.String() && !s.SmijeOvjeriti(perms, a)) {
+	if !SmijeUreditiNacrt(perms, u, a) {
 		return nil, ErrUnauthorized
 	}
 	uvod, zavrsno = strings.TrimSpace(uvod), strings.TrimSpace(zavrsno)
@@ -494,21 +553,24 @@ func redSkupine(s string) int {
 	return len(models.SkupinePrimatelja)
 }
 
-// Spremi sprema nacrt; ovjeren akt se ne mijenja
+// Spremi sprema nacrt; ovjeren akt se ne mijenja. Novi nacrt sprema tko ga
+// smije sastaviti, a postojeći samo njegov autor dok smije sastavljati
+// (smijeSpremiti).
 func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, a *models.Akt) error {
 	if perms == nil {
 		return ErrUnauthorized
 	}
+	var postojeci *models.Akt
 	if a.ID != "" {
-		postojeci, err := s.repo.GetAkt(ctx, a.ID)
-		if err != nil {
+		var err error
+		if postojeci, err = s.repo.GetAkt(ctx, a.ID); err != nil {
 			return err
 		}
 		if postojeci != nil && postojeci.Ovjeren() {
 			return fmt.Errorf("akt %s je ovjeren i ne mijenja se; ispravak je novi akt", postojeci.Oznaka())
 		}
 	}
-	if !s.pisePoAktu(perms, a) && !s.SmijeOvjeriti(perms, a) {
+	if !smijeSpremiti(perms, a, postojeci) {
 		return ErrUnauthorized
 	}
 	if a.ID == "" {
@@ -529,6 +591,13 @@ func (s *AktService) Spremi(ctx context.Context, perms *models.UserPermissions, 
 	a.Godina = a.Vrijedi.In(models.Zagreb).Year()
 	// nacrt ovjeren u međuvremenu ostaje ovjeren (Odluke (8. 10. 2026.), pitanje 4)
 	return s.repo.SaveNacrt(ctx, a)
+}
+
+// smijeSpremiti javlja smije li osoba spremiti nacrt a: smije ga sastaviti u
+// njegovu sektoru, a postojeći nacrt (postojeci, nil za novi) i mijenjati
+// (SmijeUreditiNacrt; Odluke (8. 10. 2026.), pitanje 18)
+func smijeSpremiti(perms *models.UserPermissions, a, postojeci *models.Akt) bool {
+	return SmijeSastaviti(perms, a.Sektor) && (postojeci == nil || SmijeUreditiNacrt(perms, &perms.User, postojeci))
 }
 
 // Ovjeri ovjerava nacrt: dodijeli broj, upiše tko i kad, izračuna kod i
@@ -839,8 +908,11 @@ func (s *AktService) potpisiKljucemCvora(a *models.Akt) {
 	a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaPotpisa()))
 }
 
-// smijePripremiti javlja smije li osoba raditi s nacrtom: tko ga je
-// sastavio, tko piše na tom području ili sektoru, ili tko ga smije ovjeriti
+// smijePripremiti javlja smije li osoba raditi s nacrtom za ovjeru skenom i
+// slati ovjereni akt: tko ga je sastavio, tko piše na tom području ili
+// sektoru, ili tko ga smije ovjeriti. Ovjera ostaje kakva je bila; nacrt
+// mijenja samo njegov autor dok smije sastavljati (SmijeUreditiNacrt;
+// Odluke (8. 10. 2026.), pitanje 18).
 func (s *AktService) smijePripremiti(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
 	if perms == nil || u == nil {
 		return false

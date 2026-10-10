@@ -103,8 +103,13 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		}
 	}
 
-	// registar primatelja: jedan uvijek, jedan od izvanrednog stanja
-	admin := &models.User{ID: uuid.New(), Username: "uprava", FullName: "Uprava Sektora", IsGlobalAdmin: true, IsActive: true}
+	// registar primatelja: jedan uvijek, jedan od izvanrednog stanja.
+	// Uprava ovjerava (razina 1 uvijek), a nacrt sastavlja kao dežurni
+	// operater u COP-u sektora B: nacrt sastavlja samo Centar obrane od
+	// poplava (namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18).
+	sektorCOPa := "B"
+	admin := &models.User{ID: uuid.New(), Username: "uprava", FullName: "Uprava Sektora", IsGlobalAdmin: true, IsActive: true,
+		Duties: []models.Duty{{Title: "Dežurni operater u COP-u", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorCOPa, IsActive: true}}}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *admin}
 	for _, p := range []models.Primatelj{
 		{Sektor: "B", Naziv: "Glavni centar obrane od poplava Zagreb", Email: "GCOPRH@voda.hr", Skupina: models.SkupinaUprava, Aktivan: true, Redoslijed: 1},

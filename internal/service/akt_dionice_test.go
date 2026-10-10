@@ -57,13 +57,13 @@ func TestPripremaAktaZadaneDionice(t *testing.T) {
 		"nema je u registru":          {[]string{"P.1.8"}, "P.1.8"},
 		"uz ispravnu nema u registru": {[]string{"P.1.2", "P.1.8"}, "P.1.8"},
 	} {
-		if _, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, zahtjev(o.letva, z.dionice...)); err == nil || !strings.Contains(err.Error(), z.sifra) {
+		if _, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, zahtjev(o.letva, z.dionice...)); err == nil || !strings.Contains(err.Error(), z.sifra) {
 			t.Errorf("%s: priprema mora javiti dionicu %s: %v", ime, z.sifra, err)
 		}
 	}
 
 	// bez zadanih: dionice letve koje su u registru
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, zahtjev(o.letva))
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, zahtjev(o.letva))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestPripremaAktaZadaneDionice(t *testing.T) {
 		t.Errorf("dionice letve: %+v, sektor %q, područje %d", a.Dionice, a.Sektor, a.AreaID)
 	}
 	// uži izbor
-	if a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, zahtjev(o.letva, "P.1.2")); err != nil || len(a.Dionice) != 1 || a.Dionice[0].Code != "P.1.2" {
+	if a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, zahtjev(o.letva, "P.1.2")); err != nil || len(a.Dionice) != 1 || a.Dionice[0].Code != "P.1.2" {
 		t.Errorf("uži izbor: %+v (%v)", a, err)
 	}
 
