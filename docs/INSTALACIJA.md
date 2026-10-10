@@ -830,6 +830,11 @@ repozitorija. Brojke u provjerama su brojke tih datoteka, pa registri
 izvezeni iz baze čvora koji radi ne vrijede. Bez datoteka se provjere
 preskaču, uz poruku što treba. Pokreću se prije svakog izdanja naredbom
 `make provjera-registara`, koja bez datoteka pada umjesto da ih preskoči.
+Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
+i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
+upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
+ne smije nositi stvarno ime, osim imena koja program sam prikazuje u
+pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
