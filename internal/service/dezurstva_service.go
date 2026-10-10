@@ -196,6 +196,8 @@ func zadrziTragIspravka(staro, novo string) string {
 // PotvrdiDezurstvo: uprava centra provjerila je upis i potvrđuje ga.
 // Dežurstvo kojemu se ne zna mjesto rada ne potvrđuje se dok uprava ne
 // ispravi opis: potvrdom bi ušlo u obračun kao ured ili teren nasumce.
+// Mjesto izvedeno iz opisa potvrdom se zapisuje, pa potvrđeni sati ne ovise
+// o popisu opisa ni o tome kako ga čita čvor sa starijim programom.
 func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id string) error {
 	if u == nil || !s.UpravaCentra(perms, j) {
 		return errors.New("dežurstvo potvrđuje voditelj ili zamjenik centra")
@@ -214,7 +216,7 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 		return nil
 	}
 	now := time.Now().In(models.Zagreb)
-	d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
+	d.Potvrdio, d.PotvrdenoAt, d.Mjesto = u.FullName, &now, d.MjestoRada()
 	return s.repo.SaveDezurstvo(ctx, d)
 }
 

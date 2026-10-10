@@ -74,3 +74,32 @@ func TestIspravljenOpisDezurstvaBiraUprava(t *testing.T) {
 		t.Errorf("uprava miče zapis s ispravljenim opisom: %v", err)
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: mjesto rada izvedeno iz opisa s popisa
+// zapisuje se kad uprava centra dežurstvo potvrdi. Potvrđeni sati tako ne
+// ovise o tome hoće li se popis opisa poslije promijeniti, a čvor sa
+// starijim programom, koji svako mjesto osim terena broji kao ured, ne
+// plaća isti teren kao ured. Pero Perićev obilazak stigao je bez mjesta,
+// Ana Anić ga potvrđuje.
+func TestPotvrdaZapisujeIzvedenoMjesto(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	obilazak := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	obilazak.Opis = "Obilazak i pregled obrambenih objekata"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, obilazak); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`UPDATE dezurstva SET mjesto = '' WHERE id = ?`, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); d.Mjesto != "" || d.MjestoRada() != models.MjestoTeren {
+		t.Fatalf("priprema: %+v", d)
+	}
+	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); !d.Potvrdeno() || d.Mjesto != models.MjestoTeren {
+		t.Errorf("potvrđeno bez zapisanog mjesta: %+v", d)
+	}
+}
