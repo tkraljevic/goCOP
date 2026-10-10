@@ -779,28 +779,9 @@ func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPe
 	if err != nil || v == nil {
 		return nil, fmt.Errorf("nepoznat vodočuvar")
 	}
-	probni := zaVodocuvara(v)
-	if probni == nil {
-		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
-	}
-	// veza s dionicom gleda se za dan bilješke, kao na listu tog dana
-	probni.Datum = dan
-	if !s.smijeRadnju(ctx, perms, probni, v, radnjaBiljeska) {
-		return nil, ErrUnauthorized
-	}
-	if Arhivirana(dan.In(models.Zagreb).Year()) {
-		return nil, fmt.Errorf("knjiga za %d. je arhivirana", dan.In(models.Zagreb).Year())
-	}
-	// upis na budući dan slijedi pravilo lista: najviše 30 dana unaprijed,
-	// na nacrt koji broj dobiva tek kad njegov dan počne
-	if err := provjeriDanLista(dan, s.sada()); err != nil {
-		return nil, err
-	}
-	// list za dan koji je prošao više se ne otvara, ni upisom (Odluke
-	// (8. 10. 2026.), pitanje 6)
-	l, err := s.listZaUpis(ctx, v, dan, listID)
+	l, naredba, err := s.listZaBiljesku(ctx, perms, v, dan, listID)
 	if err != nil {
-		return nil, bezListaZaUpis(v, dan, err)
+		return nil, err
 	}
 	if err := s.dodijeliBroj(ctx, l); err != nil {
 		return nil, err
@@ -809,12 +790,62 @@ func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPe
 	if d := najvisaDuznost(u); d != nil {
 		funkcija = d.Title
 	}
-	naredba := s.smijeRadnju(ctx, perms, probni, v, radnjaParafa)
 	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst, Biljeska: !naredba})
 	if err := s.spremi(ctx, l); err != nil {
 		return nil, err
 	}
 	return l, nil
+}
+
+// listZaBiljesku je list vodočuvara v za dan u koji osoba upisuje
+// bilješku; naredba javlja stoji li upis pod naredbama (osoba smije list
+// parafirati). Pravo se gleda na listu tog dana kad postoji
+// (listZaPravoBiljeske), a upis slijedi pravila lista: najviše 30 dana
+// unaprijed, a za dan koji je prošao list se više ne otvara, ni upisom
+// (Odluke (8. 10. 2026.), pitanja 1, 5 i 6).
+func (s *VodocuvarService) listZaBiljesku(ctx context.Context, perms *models.UserPermissions, v *models.User, dan time.Time, listID string) (*models.VodocuvarskiList, bool, error) {
+	probni, err := s.listZaPravoBiljeske(ctx, v, dan, listID)
+	if err != nil {
+		return nil, false, err
+	}
+	if !s.smijeRadnju(ctx, perms, probni, v, radnjaBiljeska) {
+		return nil, false, ErrUnauthorized
+	}
+	if Arhivirana(dan.In(models.Zagreb).Year()) {
+		return nil, false, fmt.Errorf("knjiga za %d. je arhivirana", dan.In(models.Zagreb).Year())
+	}
+	if err := provjeriDanLista(dan, s.sada()); err != nil {
+		return nil, false, err
+	}
+	naredba := s.smijeRadnju(ctx, perms, probni, v, radnjaParafa)
+	l, err := s.listZaUpis(ctx, v, dan, listID)
+	if err != nil {
+		return nil, false, bezListaZaUpis(v, dan, err)
+	}
+	return l, naredba, nil
+}
+
+// listZaPravoBiljeske je list po kojem se gleda pravo na bilješku: list tog
+// dana kad postoji, jer nosi branjeno područje na kojem je napisan i kad je
+// vodočuvar poslije premješten (predan list na čijoj je stranici upis, ili
+// list dana); bez lista sadašnje zaduženje vodočuvara s vezom s dionicom
+// za dan bilješke.
+func (s *VodocuvarService) listZaPravoBiljeske(ctx context.Context, v *models.User, dan time.Time, listID string) (*models.VodocuvarskiList, error) {
+	probni := zaVodocuvara(v)
+	if probni == nil {
+		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
+	}
+	probni.Datum = dan
+	if listID != "" {
+		if l, err := s.repo.Get(ctx, listID); err == nil && predanListDana(l, v.ID.String(), dan) {
+			return l, nil
+		}
+	}
+	l, err := s.repo.ZaDan(ctx, v.ID.String(), dan)
+	if err != nil || l != nil {
+		return l, err
+	}
+	return probni, nil
 }
 
 // ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska. Od
