@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -76,6 +77,8 @@ type AktiPageData struct {
 	// TraziPotvrduVrijedi: nacrt je odbijen jer „Vrijedi od” traži izričitu
 	// potvrdu (Odluke (8. 10. 2026.), pitanje 17); obrazac je nudi
 	TraziPotvrduVrijedi bool
+	// Unos je ono što je osoba upisala prije pitanja; obrazac ga zadrži
+	Unos UnosObrasca
 
 	// jedan akt
 	Sektor              *models.Sector
@@ -211,6 +214,7 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		data.Stupanj = models.PhasePrep
 	}
 	obrazacVrijedi(q, &data)
+	data.Unos = unosObrasca(q)
 	if id, err := uuid.Parse(q.Get("station")); err == nil {
 		if st, err := h.stations.GetStation(r.Context(), id); err == nil && st != nil {
 			data.Station = st
@@ -249,14 +253,55 @@ func obrazacVrijedi(q url.Values, data *AktiPageData) {
 	data.TraziPotvrduVrijedi = q.Get("potvrdi") == "vrijedi"
 }
 
+// UnosObrasca je ono što je osoba upisala u obrazac novog akta kad se
+// obrazac vraća s pitanjem za potvrdu „Vrijedi od”: obrazac ga zadrži, pa
+// nacrt uz potvrdu nastaje iz istog unosa (Odluke (8. 10. 2026.), pitanje 17)
+type UnosObrasca struct {
+	Zadrzan      bool
+	Dionice      []string
+	OcitanjeID   string
+	Tendencija   string
+	PrekidaAktID string
+	Prognoza     string
+	Napomena     string
+}
+
+// unosObrasca čita zadržani unos iz povratka na obrazac s pitanjem
+func unosObrasca(q url.Values) UnosObrasca {
+	if q.Get("potvrdi") != "vrijedi" {
+		return UnosObrasca{}
+	}
+	return UnosObrasca{Zadrzan: true, Dionice: q["dionica"], OcitanjeID: q.Get("ocitanje_id"), Tendencija: q.Get("tendencija"),
+		PrekidaAktID: q.Get("prekida_akt_id"), Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena")}
+}
+
+// ImaDionicu javlja je li dionica označena; bez zadržanog unosa jesu sve
+func (u UnosObrasca) ImaDionicu(kod string) bool {
+	return !u.Zadrzan || slices.Contains(u.Dionice, kod)
+}
+
+// Ocitanje javlja je li očitanje odabrano; bez zadržanog izbora odabrano je
+// zadnje, prvo na popisu
+func (u UnosObrasca) Ocitanje(id string, zadnje bool) bool {
+	if u.OcitanjeID == "" {
+		return zadnje
+	}
+	return u.OcitanjeID == id
+}
+
 // natragNaObrazac je povratak na obrazac nakon odbijenog nacrta: kad nacrt
-// traži potvrdu „Vrijedi od”, obrazac zadrži upisano vrijeme i ponudi potvrdu
+// traži potvrdu „Vrijedi od”, obrazac zadrži upisano vrijeme i sav ostali
+// unos (unosObrasca) i ponudi potvrdu
 func natragNaObrazac(natrag string, r *http.Request, err error) string {
 	var p *service.TrebaPotvrduError
-	if errors.As(err, &p) {
-		return natrag + "&vrijedi=" + url.QueryEscape(r.FormValue("vrijedi")) + "&potvrdi=vrijedi"
+	if !errors.As(err, &p) {
+		return natrag
 	}
-	return natrag
+	q := url.Values{"vrijedi": {r.FormValue("vrijedi")}, "potvrdi": {"vrijedi"}, "dionica": r.Form["dionica"]}
+	for _, k := range []string{"ocitanje_id", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
+		q.Set(k, r.FormValue(k))
+	}
+	return natrag + "&" + q.Encode()
 }
 
 // ObranaSektora je način rada sektora za stranice akata: otvoren dnevnik

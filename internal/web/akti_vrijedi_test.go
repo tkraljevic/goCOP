@@ -39,6 +39,7 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (34, 'B', 'Primjerica', 'VGI Primjerica')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.1', 34, 'B', 'd.o. r. Primjerica', '2026-01-01', '2026-01-01')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('B.34.2', 34, 'B', 'l.o. r. Primjerica', '2026-01-01', '2026-01-01')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
 			t.Fatal(err)
@@ -61,8 +62,10 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	if err := stationRepo.CreateStation(ctx, st); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := baza.Exec(`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES (?, 'B.34.1', ?, ?)`, uuid.NewString(), st.ID.String(), time.Now()); err != nil {
-		t.Fatal(err)
+	for _, d := range []string{"B.34.1", "B.34.2"} {
+		if _, err := baza.Exec(`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES (?, ?, ?, ?)`, uuid.NewString(), d, st.ID.String(), time.Now()); err != nil {
+			t.Fatal(err)
+		}
 	}
 	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *ana}
@@ -159,6 +162,46 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 	}
 	if s := zovi(http.MethodGet, "/akti/"+id, nil).Body.String(); strings.Contains(s, `name="potvrda_vrijedi"`) || !strings.Contains(s, "Potvrđeno pri ovjeri.") {
 		t.Error("ovjeren akt pokazuje potvrdu, a ne pita ponovno")
+	}
+
+	// obrazac vraćen s pitanjem zadrži sve upisano (dionice, osnovu,
+	// napomenu), pa nacrt uz potvrdu nastaje iz istog unosa
+	unos := forma(dvaDana, "")
+	unos["dionica"] = []string{"B.34.2"}
+	unos.Set("tendencija", models.TendencijaOpadanje)
+	unos.Set("prognoza", "najavljen porast do 600 cm")
+	unos.Set("napomena", "Napomena za Ivu Ivić")
+	natrag, _ = url.Parse(zovi(http.MethodPost, "/akti/novi", unos).Header().Get("Location"))
+	if natrag.Query().Get("potvrdi") != "vrijedi" {
+		t.Fatalf("bez potvrde obrazac se vraća s pitanjem: %s", natrag)
+	}
+	obrazac = zovi(http.MethodGet, natrag.String(), nil).Body.String()
+	for _, d := range []string{`name="dionica" value="B.34.1">`, `name="dionica" value="B.34.2" checked>`, `value="najavljen porast do 600 cm"`,
+		`>Napomena za Ivu Ivić</textarea>`, `value="` + models.TendencijaOpadanje + `" selected>`, `type="checkbox" name="potvrda_vrijedi"`} {
+		if !strings.Contains(obrazac, d) {
+			t.Errorf("vraćeni obrazac ne zadrži unos %q", d)
+		}
+	}
+	unos.Set("potvrda_vrijedi", "1")
+	l = zovi(http.MethodPost, "/akti/novi", unos).Header().Get("Location")
+	if !strings.Contains(l, "success=") {
+		t.Fatalf("uz potvrdu nacrt nastaje: %s", l)
+	}
+	if b, _ := akti.Get(ctx, strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/akti/")); b == nil || len(b.Dionice) != 1 || b.Dionice[0].Code != "B.34.2" ||
+		b.Prognoza != "najavljen porast do 600 cm" || b.Napomena != "Napomena za Ivu Ivić" {
+		t.Errorf("nacrt iz zadržanog unosa: %+v", b)
+	}
+	// obrazac otvoren bez pitanja: sve dionice označene, ništa upisano
+	obrazac = zovi(http.MethodGet, "/akti/novi?station="+st.ID.String(), nil).Body.String()
+	if !strings.Contains(obrazac, `name="dionica" value="B.34.1" checked>`) || !strings.Contains(obrazac, `name="dionica" value="B.34.2" checked>`) ||
+		strings.Contains(obrazac, `value="`+models.TendencijaOpadanje+`" selected>`) {
+		t.Error("nov obrazac mora imati sve dionice označene i tendenciju prema očitanjima")
+	}
+
+	// zadano očitanje je zadnje, a zadržano ono koje je osoba odabrala
+	if !(UnosObrasca{}).Ocitanje("o-1", true) || (UnosObrasca{}).Ocitanje("o-2", false) ||
+		!(UnosObrasca{OcitanjeID: "o-2"}).Ocitanje("o-2", false) || (UnosObrasca{OcitanjeID: "o-2"}).Ocitanje("o-1", true) {
+		t.Error("izbor očitanja u obrascu")
 	}
 
 	// neispravno vrijeme u upitu ne kvari obrazac

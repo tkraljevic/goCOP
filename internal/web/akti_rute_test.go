@@ -216,6 +216,14 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	}
 	// Dani u rujnu 2026. više su od 24 sata unatrag, pa nacrt nosi potvrdu
 	// „Vrijedi od” (Odluke (8. 10. 2026.), pitanje 17).
+	// Bez potvrde obrazac se vraća s pitanjem i zadrži odabrano očitanje.
+	nazad := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "ocitanje_id": {sva[1].ID.String()}}).Header().Get("Location")
+	if !strings.Contains(nazad, "potvrdi=vrijedi") {
+		t.Fatalf("nacrt bez potvrde „Vrijedi od”: %s", nazad)
+	}
+	if o := zovi(http.MethodGet, nazad, nil).Body.String(); !strings.Contains(o, `value="`+sva[1].ID.String()+`" selected>`) || strings.Contains(o, `value="`+sva[0].ID.String()+`" selected>`) {
+		t.Error("vraćeni obrazac ne zadrži odabrano očitanje")
+	}
 	// Prvo sastavi po starijem očitanju (640) i tendenciji po izboru, pa obriši.
 	w := zovi(http.MethodPost, "/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"IZVANREDNA"}, "vrijedi": {"2026-09-15T12:00"}, "potvrda_vrijedi": {"1"}, "ocitanje_id": {sva[1].ID.String()}, "tendencija": {models.TendencijaNagliPorast}})
 	stari := strings.TrimPrefix(strings.SplitN(w.Header().Get("Location"), "?", 2)[0], "/akti/")

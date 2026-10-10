@@ -50,14 +50,14 @@
     <label class="form-label" for="prekida_akt_id">Akt o uspostavi koji se stavlja izvan snage</label>
     <select id="prekida_akt_id" name="prekida_akt_id" class="form-control">
       <option value="">zadnji ovjereni, neprekinuti istog stupnja</option>
-      {{range .ZaPrekid}}<option value="{{.ID}}">{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{formatDate (localTime .Vrijedi)}}</option>{{end}}
+      {{range .ZaPrekid}}<option value="{{.ID}}"{{if eq .ID $.Unos.PrekidaAktID}} selected{{end}}>{{.Oznaka}} · {{.VrstaNaziv}} o uspostavi {{.Predmet}} · {{formatDate (localTime .Vrijedi)}}</option>{{end}}
     </select>
     <div class="form-help">Samo za prekid. {{if not .ZaPrekid}}Po ovom vodomjeru nema ovjerenog akta o uspostavi koji je još na snazi; rečenicu možete upisati u nacrtu.{{end}}</div>
   </div>
   <div class="form-group">
     <label class="form-label">Dionice</label>
     {{range .Dionice}}
-    <label style="display:flex; gap:0.5rem; align-items:baseline; min-height:32px;"><input type="checkbox" name="dionica" value="{{.Code}}" checked> <strong class="mono">{{.Code}}</strong> <span class="reg-card-sub">{{.Description}}</span></label>
+    <label style="display:flex; gap:0.5rem; align-items:baseline; min-height:32px;"><input type="checkbox" name="dionica" value="{{.Code}}"{{if $.Unos.ImaDionicu .Code}} checked{{end}}> <strong class="mono">{{.Code}}</strong> <span class="reg-card-sub">{{.Description}}</span></label>
     {{end}}
     <div class="form-help">Sve dionice za koje je vodomjer mjerodavan; odznači one koje akt ne obuhvaća.</div>
   </div>
@@ -65,7 +65,7 @@
     <div class="form-group">
       <label class="form-label" for="ocitanje_id">Očitanje na koje se akt poziva</label>
       <select id="ocitanje_id" name="ocitanje_id" class="form-control">
-        {{range $i, $o := .Ocitanja}}<option value="{{$o.ID}}"{{if eq $i 0}} selected{{end}}>{{formatDate $o.LocalTime}} · {{intOf $o.LevelCm}} cm{{if $o.OriginLabel}} · {{$o.OriginLabel}}{{end}}</option>{{end}}
+        {{range $i, $o := .Ocitanja}}<option value="{{$o.ID}}"{{if $.Unos.Ocitanje (print $o.ID) (eq $i 0)}} selected{{end}}>{{formatDate $o.LocalTime}} · {{intOf $o.LevelCm}} cm{{if $o.OriginLabel}} · {{$o.OriginLabel}}{{end}}</option>{{end}}
       </select>
       <div class="form-help">{{if .Ocitanja}}Zadano je zadnje; odaberite ono u kojem je vodostaj dosegao razinu. Tendencija se računa prema očitanju prije njega.{{else}}Vodomjer nema očitanja s vodostajem; akt se donosi po prognozi.{{end}}</div>
     </div>
@@ -73,7 +73,7 @@
       <label class="form-label" for="tendencija">Tendencija</label>
       <select id="tendencija" name="tendencija" class="form-control">
         <option value="">prema očitanjima</option>
-        {{range .Tendencije}}<option value="{{.Kod}}">{{.Naziv}}</option>{{end}}
+        {{range .Tendencije}}<option value="{{.Kod}}"{{if eq .Kod $.Unos.Tendencija}} selected{{end}}>{{.Naziv}}</option>{{end}}
       </select>
     </div>
   </div>
@@ -86,13 +86,13 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="prognoza">Po prognozi (umjesto po vodostaju)</label>
-      <input type="text" id="prognoza" name="prognoza" class="form-control" placeholder="npr. najavljen porast do 600 cm 20.9.">
+      <input type="text" id="prognoza" name="prognoza" class="form-control" value="{{.Unos.Prognoza}}" placeholder="npr. najavljen porast do 600 cm 20.9.">
       <div class="form-help">Prazno znači po odabranom očitanju s tendencijom.</div>
     </div>
   </div>
   <div class="form-group">
     <label class="form-label" for="napomena">Napomena na aktu</label>
-    <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno"></textarea>
+    <textarea id="napomena" name="napomena" class="form-control" rows="2" placeholder="neobavezno">{{.Unos.Napomena}}</textarea>
   </div>
   <p class="form-help">Tekst akta slaže se iz špranče sektora; u nacrtu ga možete ispraviti prije ovjere.</p>
   <script>
