@@ -141,12 +141,11 @@ func postoji(put string) (bool, error) {
 }
 
 // citajBazu otvori postojeću bazu samo za čitanje (query_only odbija svaki
-// upis), preda je fn i zatvori je
+// upis), preda je fn i zatvori je; javlja i grešku zatvaranja
 func citajBazu(dbPath string, fn func(*sql.DB) error) error {
 	baza, err := sql.Open("sqlite", dbPath+"?_pragma=query_only(1)&_pragma=busy_timeout(5000)")
 	if err == nil {
-		defer baza.Close()
-		err = fn(baza)
+		err = errors.Join(fn(baza), baza.Close())
 	}
 	return err
 }
