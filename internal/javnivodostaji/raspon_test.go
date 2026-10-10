@@ -147,3 +147,87 @@ func TestNovaOcitanjaBrojiPoRasponuLetve(t *testing.T) {
 		t.Errorf("s postojećim: %d novih, %d odbačeno", len(nova), odbaceno)
 	}
 }
+
+// probniIzvor daje zadane retke pod zadanim nazivom izvora (npr. vizugy.hu)
+type probniIzvor struct {
+	naziv string
+	redci []Redak
+}
+
+func (p probniIzvor) Naziv() string                                     { return p.naziv }
+func (p probniIzvor) Prepoznaje(string) bool                            { return true }
+func (p probniIzvor) Ocitanja(context.Context, string) ([]Redak, error) { return p.redci, nil }
+
+// danubeHISRedci je stranica DanubeHIS-a sa satnim vodostajima u zadanim
+// trenucima
+func danubeHISRedci(cm map[time.Time]int) string {
+	var b strings.Builder
+	for kad, v := range cm {
+		fmt.Fprintf(&b, `<td class="views-field views-field-time" > %s </td>
+<td class="views-field views-field-value views-align-right" > %d </td>
+<td class="views-field views-field-unit" > cm </td>
+<td class="views-field views-field-description" > Current water level </td>`, kad.In(models.Zagreb).Format("2006-01-02 15:04"), v)
+	}
+	return b.String()
+}
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): rezerva DanubeHIS popunjava i
+// sate čiju je vrijednost s vizugy.hu provjera raspona odbacila. Prozor
+// rezerve počinje iza zadnjeg sata koji vizugy daje u rasponu, a ne iza
+// zadnjeg retka, i odbačeno očitanje ne zauzima sat. Prije su takvi sati
+// ostajali prazni iako ih je DanubeHIS imao.
+func TestRezervaDanubeHISPopunjavaSateOdbaceneSVizugyja(t *testing.T) {
+	p := novoPreuzimanjeUBazu(t)
+	ctx := context.Background()
+	mohacs := &models.Station{ID: uuid.New(), Name: "Mohács (HU)", Code: "mohacs",
+		JavniURL: "https://www.vizugy.hu/?AllomasVOA=probna", JavniUvoz: true}
+	if err := repository.NewStationRepository(p.baza, ledger.New(p.baza, "cvor-p")).CreateStation(ctx, mohacs); err != nil {
+		t.Fatal(err)
+	}
+	sat := time.Now().UTC().Truncate(time.Hour)
+	p.u.Izvori = []Izvor{probniIzvor{naziv: PodrijetloVizugy, redci: []Redak{
+		{Kad: sat.Add(-6 * time.Hour), LevelCm: intPtr(300)},
+		{Kad: sat.Add(-5 * time.Hour), LevelCm: intPtr(301)},
+		{Kad: sat.Add(-4 * time.Hour), LevelCm: intPtr(-9999)},
+		{Kad: sat.Add(-3 * time.Hour), LevelCm: intPtr(-9999)},
+	}}}
+	p.u.Client.HTTP = &http.Client{Transport: probniPrijenos{danubeHISRedci(map[time.Time]int{
+		sat.Add(-5 * time.Hour): 301, sat.Add(-4 * time.Hour): 302, sat.Add(-3 * time.Hour): 303, sat.Add(-2 * time.Hour): 304,
+	})}}
+
+	s := p.u.Preuzmi(ctx, mohacs)
+	if s.Greska != "" || s.Novih != 5 || s.Odbaceno != 2 {
+		t.Fatalf("preuzimanje: %+v", s)
+	}
+	for _, x := range []struct {
+		sati  int
+		cm    int
+		izvor string
+	}{{6, 300, PodrijetloVizugy}, {5, 301, PodrijetloVizugy}, {4, 302, PodrijetloDanubeHIS}, {3, 303, PodrijetloDanubeHIS}, {2, 304, PodrijetloDanubeHIS}} {
+		kad := sat.Add(-time.Duration(x.sati) * time.Hour)
+		if n := p.broj(t, `SELECT COUNT(*) FROM readings WHERE station_id = ? AND measured_at = ? AND level_cm = ? AND origin = ?`,
+			mohacs.ID.String(), kad, x.cm, x.izvor); n != 1 {
+			t.Errorf("%s: %d očitanja %d cm s %s", kad.Format(time.RFC3339), n, x.cm, x.izvor)
+		}
+	}
+	sazetak, err := p.ocitanja.SazetakOdbacenih(ctx, "station:"+mohacs.ID.String())
+	if err != nil || sazetak == nil || sazetak.Broj != 2 || sazetak.Zadnja.Izvor != PodrijetloVizugy {
+		t.Errorf("sažetak: %+v, %v", sazetak, err)
+	}
+}
+
+// Zadnji sat izvora za prozor rezerve je zadnji koji bi se upisao
+func TestZadnjeUpisivo(t *testing.T) {
+	sat := time.Now().UTC().Truncate(time.Hour)
+	st := &models.Station{ID: uuid.New()}
+	redci := []Redak{{Kad: sat.Add(-3 * time.Hour), LevelCm: intPtr(300)}, {Kad: sat.Add(-2 * time.Hour), LevelCm: intPtr(-9999)}}
+	if z := zadnjeUpisivo(st, redci, PodrijetloVizugy, time.Now()); !z.Equal(sat.Add(-3 * time.Hour)) {
+		t.Errorf("zadnje: %v", z)
+	}
+	if z := zadnjeUpisivo(st, redci[1:], PodrijetloVizugy, time.Now()); !z.IsZero() {
+		t.Errorf("bez upisivog: %v", z)
+	}
+	if z := zadnjeUpisivo(st, nil, PodrijetloVizugy, time.Now()); !z.IsZero() {
+		t.Errorf("bez redaka: %v", z)
+	}
+}
