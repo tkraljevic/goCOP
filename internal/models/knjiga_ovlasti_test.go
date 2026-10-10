@@ -274,3 +274,42 @@ func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
 		t.Errorf("zaduženje upisano s verzijom: %+v", p)
 	}
 }
+
+// Zapis s dana prije ikojeg zaduženja osobe u programu (prijenos iz ranije
+// evidencije, uvoz iz BP16) vezan je uz zaduženja s kojima je ušla u
+// program; zapis između dvaju zaduženja i zapis bez povijesti nisu vezani
+// ni uz jedno (Odluke (8. 10. 2026.), pitanje 1). Najraniji početak traži
+// se u cijeloj povijesti, a ne samo u prvoj verziji.
+func TestZaduzenjaZaZapis(t *testing.T) {
+	usred := func(g int, m time.Month, d int) time.Time { return time.Date(g, m, d, 15, 0, 0, 0, Zagreb) }
+	isteklo := usred(2026, 3, 1)
+	povijest := []VerzijaZaduzenja{
+		{Duty: Duty{ID: uuid.New(), Title: "drugo", IsActive: true}, Od: usred(2026, 5, 1)},
+		{Duty: Duty{ID: uuid.New(), Title: "prvo", IsActive: true, ExpiresAt: &isteklo}, Od: usred(2026, 1, 10)},
+	}
+	naslovi := func(dd []Duty) string {
+		var out []string
+		for _, d := range dd {
+			out = append(out, d.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	for _, s := range []struct {
+		ime string
+		dan time.Time
+		ima string
+	}{
+		{"iz BP16, godinu prije", usred(2025, 5, 1), "prvo"},
+		{"dan prije prvog", usred(2026, 1, 9), "prvo"},
+		{"dan prvog", usred(2026, 1, 10), "prvo"},
+		{"između dvaju zaduženja", usred(2026, 4, 1), ""},
+		{"za vrijeme drugog", usred(2026, 6, 1), "drugo"},
+	} {
+		if got := naslovi(ZaduzenjaZaZapis(povijest, s.dan)); got != s.ima {
+			t.Errorf("%s: %q, očekivano %q", s.ime, got, s.ima)
+		}
+	}
+	if got := ZaduzenjaZaZapis(nil, usred(2025, 5, 1)); len(got) != 0 {
+		t.Errorf("bez povijesti: %+v", got)
+	}
+}

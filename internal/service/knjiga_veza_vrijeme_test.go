@@ -161,7 +161,10 @@ func (k *knjigaProba) zaduzenOd(t *testing.T, u *models.User, kad time.Time) {
 // Ivo Ivić čuva P.1.1 i danas prelazi na P.1.2 opozivom i novim
 // zaduženjem; Pero Perić isto, izmjenom zaduženja. Jučerašnji list obojice
 // vezan je uz P.1.1, a ne uz P.1.2; sutrašnji uz P.1.2, a ne uz P.1.1. List
-// iz vremena prije zaduženja nije vezan ni uz jednu. Podaci su izmišljeni.
+// iz vremena prije ikojeg zaduženja u programu vezan je uz zaduženje s
+// kojim je vodočuvar ušao u program, P.1.1, i nakon izmjene u mjestu
+// (dosad nije bio vezan ni uz jednu; Odluke (8. 10. 2026.), pitanje 1,
+// TestVezaSDionicomPrijeZaduzenjaUProgramu). Podaci su izmišljeni.
 func TestVezaSDionicomPratiZaduzenjeKojeJeTadaVrijedilo(t *testing.T) {
 	k := novaKnjigaProba(t)
 	vs := k.o.vs
@@ -197,7 +200,7 @@ func TestVezaSDionicomPratiZaduzenjeKojeJeTadaVrijedilo(t *testing.T) {
 			}
 		}
 	}
-	provjeri("prije zaduženja", k.pero, -61, false, false)
+	provjeri("prije zaduženja", k.pero, -61, true, false)
 	provjeri("prije prelaska", k.pero, -1, true, false)
 
 	// Ivo prelazi opozivom i novim zaduženjem
@@ -228,5 +231,67 @@ func TestVezaSDionicomPratiZaduzenjeKojeJeTadaVrijedilo(t *testing.T) {
 	}
 	provjeri("izmjena zaduženja", k.pero, -1, true, false)
 	provjeri("izmjena zaduženja", k.pero, 1, false, true)
-	provjeri("izmjena zaduženja", k.pero, -61, false, false)
+	provjeri("izmjena zaduženja", k.pero, -61, true, false)
+}
+
+// List i prijava s dana prije nego što je vodočuvar u programu dobio ikoje
+// zaduženje (prijenos iz ranije evidencije, uvoz prijava iz BP16, koji ne
+// upisuje dionicu) vezani su uz zaduženja s kojima je u program ušao
+// (Odluke (8. 10. 2026.), pitanje 1: rukovoditelj dionice čita prijave
+// vezane uz svoju dionicu). Pero Perić u program je ušao kao vodočuvar
+// P.1.1, Ana Anić kao vodočuvar cijelog područja; njihova prijava i list
+// od 1. 5. 2025. vezani su uz P.1.1, odnosno uz svaku dionicu područja.
+// Ivo Ivić ušao je kao vodočuvar P.1.3 i poslije prešao na P.1.2: stari
+// zapis veže se uz P.1.3. Podaci su izmišljeni.
+func TestVezaSDionicomPrijeZaduzenjaUProgramu(t *testing.T) {
+	k := novaKnjigaProba(t)
+	vs := k.o.vs
+	prijave := &PrijavaService{vodocuvar: vs}
+	sad := time.Now()
+	ivo := k.vodocuvar(t, "iivic", "Ivo Ivić", "P.1.3")
+	for _, u := range []*models.User{k.pero, k.ana, ivo} {
+		k.zaduzenOd(t, u, sad.AddDate(0, 0, -30))
+	}
+	stara, err := k.users.GetDutiesForUser(ivo.ID)
+	if err != nil || len(stara) != 1 {
+		t.Fatalf("Ivina zaduženja: %v %+v", err, stara)
+	}
+	if err := k.users.RevokeDuty(stara[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	nova := models.Duty{UserID: ivo.ID, Title: "Vodočuvar P.1.2", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &k.sektor, AreaID: &k.p1, SectionCodes: "P.1.2", IsActive: true, IsPrimary: true}
+	if err := k.users.AddDuty(&nova); err != nil {
+		t.Fatal(err)
+	}
+	dan := time.Date(2025, 5, 1, 9, 30, 0, 0, models.Zagreb)
+	rukovoditelj := k.osoba(models.Duty{Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &k.p1})
+	dionicari := map[string]*models.UserPermissions{}
+	for _, d := range []string{"P.1.1", "P.1.2", "P.1.3"} {
+		dionicari[d] = k.dionicar(models.RoleSectionLeader, &k.p1, d)
+	}
+	for _, x := range []struct {
+		u      *models.User
+		vezane map[string]bool
+	}{
+		{k.pero, map[string]bool{"P.1.1": true}},
+		{k.ana, map[string]bool{"P.1.1": true, "P.1.2": true, "P.1.3": true}},
+		{ivo, map[string]bool{"P.1.3": true}},
+	} {
+		p := &models.PrijavaSTerena{UserID: x.u.ID.String(), Sektor: "P", AreaID: 1, Datum: dan, Status: models.PrijavaObjavljena, Rekonstrukcija: true, Izvor: "bp16:obavijesti_sa_terena:1"}
+		l := &models.VodocuvarskiList{UserID: x.u.ID.String(), Ime: x.u.FullName, Sektor: "P", AreaID: 1, Datum: dan, Rekonstrukcija: true}
+		if !prijave.SmijeVidjeti(rukovoditelj, p) || !vs.SmijeVidjeti(rukovoditelj, l) {
+			t.Errorf("%s: rukovoditelj područja ne čita stari zapis", x.u.FullName)
+		}
+		for d, perms := range dionicari {
+			if got := prijave.SmijeVidjeti(perms, p); got != x.vezane[d] {
+				t.Errorf("%s: prijava od 1. 5. 2025., rukovoditelj %s = %v, očekivano %v", x.u.FullName, d, got, x.vezane[d])
+			}
+			if got := vs.SmijeUpisati(perms, l); got != x.vezane[d] {
+				t.Errorf("%s: list od 1. 5. 2025., bilješka rukovoditelja %s = %v, očekivano %v", x.u.FullName, d, got, x.vezane[d])
+			}
+			if !vs.SmijeVidjeti(perms, l) {
+				t.Errorf("%s: rukovoditelj %s ne čita stari list", x.u.FullName, d)
+			}
+		}
+	}
 }

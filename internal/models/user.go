@@ -473,6 +473,34 @@ func ZaduzenjaUDanu(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
 	return out
 }
 
+// ZaduzenjaZaZapis su zaduženja uz koja je vezan zapis (dnevni list,
+// prijava s terena) dana dan: ZaduzenjaUDanu. Zapis s dana prije nego što
+// je osoba u programu dobila ikoje zaduženje (list ili prijava preneseni iz
+// ranije evidencije, npr. uvozom iz BP16) vezan je uz zaduženja s kojima je
+// u program ušla: ona koja su vrijedila na dan nastanka njezina prvog
+// zaduženja. Zapis iz vremena između dvaju zaduženja nije vezan ni uz jedno.
+func ZaduzenjaZaZapis(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
+	if prvi, ima := pocetakPovijesti(povijest); ima && pocetakDana(dan).Before(pocetakDana(prvi)) {
+		dan = prvi
+	}
+	return ZaduzenjaUDanu(povijest, dan)
+}
+
+// pocetakPovijesti je najraniji trenutak od kojeg stoji ikoja verzija u
+// povijesti zaduženja; bez povijesti ga nema
+func pocetakPovijesti(povijest []VerzijaZaduzenja) (time.Time, bool) {
+	if len(povijest) == 0 {
+		return time.Time{}, false
+	}
+	prvi := povijest[0].Od
+	for _, v := range povijest[1:] {
+		if v.Od.Before(prvi) {
+			prvi = v.Od
+		}
+	}
+	return prvi, true
+}
+
 // vrijediIzmedu javlja vrijedi li verzija zaduženja u nekom trenutku od od
 // do do (bez do): tada stoji (od Od), aktivna je i neistekla. Prva verzija
 // stoji od nastanka zaduženja, pa zaduženje ne vrijedi prije nastanka.

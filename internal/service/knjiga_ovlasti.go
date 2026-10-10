@@ -26,7 +26,10 @@ package service
 // knjizi verzija (models.ZaduzenjaUDanu). List i prijava iz vremena
 // privremenog zaduženja tako ostaju vezani uz dionicu i kad zaduženje
 // istekne s krajem obrane, bude opozvano ili izmijenjeno; zaduženje nastalo
-// poslije ne veže ranije dane. Zadatak gleda samo zaduženja valjana sada.
+// poslije ne veže ranije dane. List i prijava s dana prije vodočuvarova
+// prvog zaduženja u programu (prijenos iz ranije evidencije, uvoz iz BP16)
+// vezani su uz zaduženja s kojima je u program ušao
+// (models.ZaduzenjaZaZapis). Zadatak gleda samo zaduženja valjana sada.
 //   - list je vezan uz njegovu dionicu kad vodočuvar lista ima takvo
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
@@ -105,9 +108,11 @@ type cuvar struct {
 }
 
 // zaduzenjaCuvara su zaduženja vodočuvara koja su vrijedila na dan lista ili
-// prijave, u obliku u kojem su tada stajala (models.ZaduzenjaUDanu); bez
-// dana ona koja vrijede sada, pa se povijest ni ne čita. Bez povijesti
-// (greška čitanja) dan nije vezan ni uz jedno zaduženje.
+// prijave, u obliku u kojem su tada stajala; za dan prije njegova prvog
+// zaduženja u programu ona s kojima je u program ušao
+// (models.ZaduzenjaZaZapis). Bez dana ona koja vrijede sada, pa se povijest
+// ni ne čita. Bez povijesti (greška čitanja) dan nije vezan ni uz jedno
+// zaduženje.
 func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Duty {
 	if c == nil || c.v == nil {
 		return nil
@@ -119,7 +124,7 @@ func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Dut
 		c.povijest, _ = s.users.PovijestZaduzenja(c.v.ID)
 		c.procitana = true
 	}
-	return models.ZaduzenjaUDanu(c.povijest, dan)
+	return models.ZaduzenjaZaZapis(c.povijest, dan)
 }
 
 // cita javlja smije li osoba čitati list ili, kad je prijava zadana,
