@@ -276,3 +276,19 @@ func TestStranicaLetveKazeKadOtpadaCijeloOcitanje(t *testing.T) {
 		}
 	}
 }
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): stranica letve pokazuje broj
+// odbačenih i zadnju odbačenu vrijednost, s danom i satom; popisa svih nema
+// ni na jednoj stranici. Pomoć ne smije obećavati da se svaki odbačeni zapis
+// (npr. 40 tipfelera iz BP16) može naći i ispraviti.
+func TestPomocNeObecavaPopisOdbacenih(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "pa se zapis može naći i ispraviti") {
+		t.Error("pomoć još obećava da se svaki odbačeni zapis može naći")
+	}
+	for _, s := range []string{"samo broj i zadnju odbačenu vrijednost", "Popisa svih odbačenih vrijednosti nema"} {
+		if !strings.Contains(h, s) {
+			t.Errorf("pomoć ne kaže %q", s)
+		}
+	}
+}
