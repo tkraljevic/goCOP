@@ -18,9 +18,10 @@ import (
 // očitanje koje ne upisuje čovjek kroz obrazac — satno preuzimanje s javnih
 // stranica i telemetrije, rezervni izvori, uvoz iz BP16, tablica centra,
 // lijepljenje — prolazi kroz ImportBatch, pa se raspon provjerava ondje,
-// zajedničkim pravilom iz models. Vrijednost izvan raspona se ne upisuje, a
-// ostale vrijednosti istog očitanja upisuju se; očitanje kojem ništa ne
-// ostane preskače se. Odbačena vrijednost zapiše se u tablicu
+// zajedničkim pravilom iz models (OcistiOcitanje). Vrijednost izvan raspona
+// se ne upisuje; uz vrijeme ili vodostaj izvan raspona ne upisuje se cijelo
+// očitanje, kao u ručnom upisu, a uz temperaturu ili protok ostale
+// vrijednosti istog očitanja upisuju se. Odbačena vrijednost zapiše se u tablicu
 // odbacena_ocitanja, iz koje stranica letve pokazuje koliko je odbačeno i
 // što zadnje. Zapis putuje razmjenom (entitet
 // odbacena_ocitanja, u kanalu očitanja letve): preuzima jedan čvor, a broj

@@ -122,10 +122,15 @@ func TestIzvanRasponaOcitanja(t *testing.T) {
 }
 
 // Putovi bez čovjeka koji bi grešku ispravio (preuzimanje, uvoz) ne
-// upisuju vrijednost izvan raspona, a ostale vrijednosti istog očitanja
-// upisuju (dorada, Odluke (8. 10. 2026.), pitanje 21: odbačene vrijednosti
-// se ne upisuju; ostale nije odbacila nijedna granica). Pokvaren termometar
-// ne odnosi dobar vodostaj, ni tipfeler u vodostaju sate rada agregata.
+// upisuju vrijednost izvan raspona (Odluke (8. 10. 2026.), pitanje 21).
+//
+// Dorada: vodostaj (uzvodni ili nizvodni) ili kota izvan raspona odbacuje
+// cijelo očitanje, kao ručni upis. Protok koji izvor računa iz vodostaja
+// (vizugy.hu krivuljom, Popovac 0,0 m³/s uz zaglavljenih −1104 cm), sati
+// rada agregata i stanje iz istog zapisa BP16 pripadaju krivom zapisu, a
+// sat mora ostati slobodan za rezervni izvor i ispravak. Kad je izvan
+// raspona samo temperatura ili protok, otpada samo ta vrijednost: pokvaren
+// termometar ne odnosi dobar vodostaj.
 func TestOcistiOcitanje(t *testing.T) {
 	sada := time.Now()
 	prije := sada.Add(-time.Hour)
@@ -141,16 +146,23 @@ func TestOcistiOcitanje(t *testing.T) {
 		t.Errorf("prazno: %+v, %v", izvan, ok)
 	}
 
-	// zaglavljeno mjerilo bez ičega drugog: vodostaj otpada, a s njim i očitanje
+	// zaglavljeno mjerilo bez ičega drugog: očitanje otpada
 	zaglavljeno := Reading{MeasuredAt: prije, LevelCm: cmR(-1102)}
 	izvan, ok := OcistiOcitanje(&zaglavljeno, false, sada)
-	if ok || len(izvan) != 1 || izvan[0].Opis != "−1102 cm" || zaglavljeno.LevelCm != nil {
-		t.Errorf("zaglavljeno: %+v, %v, %v", izvan, ok, zaglavljeno.LevelCm)
+	if ok || len(izvan) != 1 || izvan[0].Opis != "−1102 cm" {
+		t.Errorf("zaglavljeno: %+v, %v", izvan, ok)
 	}
-	// zaglavljeno mjerilo s protokom izvora: protok u rasponu ostaje
+	// zaglavljeno mjerilo s protokom izvora: protok je izračunat iz krivog
+	// vodostaja, pa otpada s njim; broji se samo vodostaj
 	sProtokom := Reading{MeasuredAt: prije, LevelCm: cmR(-1104), FlowM3s: broj(0)}
-	if izvan, ok := OcistiOcitanje(&sProtokom, false, sada); !ok || len(izvan) != 1 || sProtokom.LevelCm != nil || sProtokom.FlowM3s == nil {
+	if izvan, ok := OcistiOcitanje(&sProtokom, false, sada); ok || len(izvan) != 1 || izvan[0].Polje != PoljeVodostaj {
 		t.Errorf("s protokom: %+v, %v, %+v", izvan, ok, sProtokom)
+	}
+	// vizugy.hu: protok preračunat krivuljom iz vodostaja izvan raspona
+	krivulja := Reading{MeasuredAt: prije, LevelCm: cmR(-9999), FlowM3s: broj(10),
+		FlowMethod: FlowMethodKrivulja, FlowNote: "preračunat iz vodostaja krivuljom"}
+	if izvan, ok := OcistiOcitanje(&krivulja, false, sada); ok || len(izvan) != 1 {
+		t.Errorf("protok iz krivulje: %+v, %v, %+v", izvan, ok, krivulja)
 	}
 
 	// pokvaren termometar ne odnosi dobar vodostaj; s temperaturom ide i njezina bilješka
@@ -161,29 +173,39 @@ func TestOcistiOcitanje(t *testing.T) {
 		rd.FlowM3s != nil || rd.FlowMethod != "" || rd.FlowNote != "" {
 		t.Errorf("djelomično: %+v, %v, %+v", izvan, ok, rd)
 	}
+	// protok izvan raspona bez vodostaja: ostaje temperatura
+	samoTemperatura := Reading{MeasuredAt: prije, TempC: broj(12), FlowM3s: broj(-3)}
+	if izvan, ok := OcistiOcitanje(&samoTemperatura, false, sada); !ok || len(izvan) != 1 || samoTemperatura.FlowM3s != nil || samoTemperatura.TempC == nil {
+		t.Errorf("samo temperatura: %+v, %v, %+v", izvan, ok, samoTemperatura)
+	}
+	// samo protok izvan raspona: ništa ne ostaje
+	samoProtok := Reading{MeasuredAt: prije, FlowM3s: broj(-3)}
+	if _, ok := OcistiOcitanje(&samoProtok, false, sada); ok {
+		t.Error("očitanje bez ijedne vrijednosti u rasponu upisalo bi se")
+	}
 
-	// nizvodni vodostaj otpada, uzvodni i zapornica ostaju
+	// nizvodni vodostaj izvan raspona: zapis ustave otpada cijeli, s
+	// uzvodnim vodostajem i zapornicom, da ga uvoz upiše kad se ispravi
 	ustava := Reading{MeasuredAt: prije, LevelCm: cmR(100), Level2Cm: cmR(-900), Gate: GateClosed}
-	if izvan, ok := OcistiOcitanje(&ustava, false, sada); !ok || len(izvan) != 1 || ustava.Level2Cm != nil || ustava.LevelCm == nil {
+	if izvan, ok := OcistiOcitanje(&ustava, false, sada); ok || len(izvan) != 1 || izvan[0].Polje != PoljeNizvodni {
 		t.Errorf("ustava: %+v, %v, %+v", izvan, ok, ustava)
 	}
 
-	// tipfeler u vodostaju crpne stanice: sati rada agregata ostaju
+	// tipfeler u vodostaju crpne stanice: zapis otpada cijeli, sa satima agregata
 	sati := 7
 	crpna := Reading{MeasuredAt: prije, LevelCm: cmR(21500), AgHours1: &sati, Observer: "Pero Perić"}
-	if izvan, ok := OcistiOcitanje(&crpna, false, sada); !ok || len(izvan) != 1 || crpna.LevelCm != nil || crpna.AgHours1 == nil {
+	if izvan, ok := OcistiOcitanje(&crpna, false, sada); ok || len(izvan) != 1 {
 		t.Errorf("crpna stanica: %+v, %v, %+v", izvan, ok, crpna)
 	}
-	// očitavač nije vrijednost: bez ičega drugog zapis otpada
-	samoOcitavac := Reading{MeasuredAt: prije, LevelCm: cmR(21500), Observer: "Pero Perić"}
-	if _, ok := OcistiOcitanje(&samoOcitavac, false, sada); ok {
-		t.Error("očitanje sa samim očitavačem upisalo bi se bez ijedne vrijednosti")
-	}
-
-	// napomena bez vrijednosti prolazi i ručni upis, pa ostaje
+	// ni napomena ne zadržava zapis s vodostajem izvan raspona
 	sNapomenom := Reading{MeasuredAt: prije, LevelCm: cmR(21500), Note: "letva pod ledom"}
-	if izvan, ok := OcistiOcitanje(&sNapomenom, false, sada); !ok || len(izvan) != 1 || sNapomenom.LevelCm != nil {
+	if izvan, ok := OcistiOcitanje(&sNapomenom, false, sada); ok || len(izvan) != 1 {
 		t.Errorf("s napomenom: %+v, %v", izvan, ok)
+	}
+	// vodostaj i temperatura izvan raspona: broje se obje vrijednosti
+	obje := Reading{MeasuredAt: prije, LevelCm: cmR(-1102), TempC: broj(85)}
+	if izvan, ok := OcistiOcitanje(&obje, false, sada); ok || len(izvan) != 2 {
+		t.Errorf("vodostaj i temperatura: %+v, %v", izvan, ok)
 	}
 
 	// letva akumulacije: kota prolazi, vodostaj ne
@@ -191,7 +213,7 @@ func TestOcistiOcitanje(t *testing.T) {
 	if izvan, ok := OcistiOcitanje(&akumulacija, true, sada); izvan != nil || !ok {
 		t.Errorf("kota: %+v, %v", izvan, ok)
 	}
-	akumulacija.LevelCm = cmR(300)
+	akumulacija.LevelCm, akumulacija.TempC = cmR(300), broj(12)
 	if izvan, ok := OcistiOcitanje(&akumulacija, true, sada); ok || len(izvan) != 1 || izvan[0].Polje != PoljeKota {
 		t.Errorf("vodostaj na akumulaciji: %+v, %v", izvan, ok)
 	}

@@ -863,7 +863,8 @@ type izRedak struct {
 // vrijednosti izvan raspona. Njih upis ne prima (Odluke (8. 10. 2026.),
 // pitanje 21): očitanja idu u Upisi cijela, a ondje ih zajednička provjera
 // raspona očisti i odbačeno zabilježi za stranicu letve. Očitanje koje bi
-// provjera odbacila cijelo ne zauzima sat, pa ga može popuniti redak
+// provjera odbacila cijelo (vodostaj izvan raspona, i s protokom koji je
+// izvor iz njega izračunao) ne zauzima sat, pa ga može popuniti redak
 // rezerve; isto očitanje (isti izvor i sat) šalje se jednom.
 func novaOcitanja(st *models.Station, svi []izRedak, postojeca map[int64]bool, sada time.Time) ([]models.Reading, int) {
 	var nova []models.Reading

@@ -326,7 +326,8 @@ func (r *ReadingRepository) ExistingIDs(ctx context.Context, origin string) (map
 //
 // Svako očitanje prije upisa prolazi zajedničku provjeru raspona (Odluke
 // (8. 10. 2026.), pitanje 21): vrijednost izvan raspona se ne upisuje nego
-// bilježi za stranicu letve, a očitanje kojem ništa ne ostane preskače se.
+// bilježi za stranicu letve; uz vrijeme ili vodostaj izvan raspona, i kad
+// očitanju ništa ne ostane, preskače se cijelo očitanje.
 func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.Reading) (int, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {

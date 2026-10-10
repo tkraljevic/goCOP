@@ -600,11 +600,14 @@
       lijepljenje, satno preuzimanje s javnih stranica i telemetrije (i rezervne izvore), uvoz iz
       evidencije BP16 i uvoz tablice dnevnih vodostaja centra.</p>
     <p>Ručni upis i lijepljenje takvu vrijednost odbiju s porukom, pa se ispravi. Preuzimanje i
-      uvoz je ne upisuju: otpada vrijednost izvan raspona, a ostale vrijednosti istog očitanja
-      ostaju (pokvaren termometar ne odnosi dobar vodostaj, ni tipfeler u vodostaju iz evidencije BP16
-      sate rada agregata i stanje crpne stanice). Očitanje kojem ništa ne ostane ne upisuje se, pa ga
-      uvoz upiše kad se u izvoru ispravi. Očitanje upisano bez odbačene vrijednosti preuzimanje i uvoz
-      poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
+      uvoz je ne upisuju. Kad je izvan raspona vodostaj (uzvodni ili nizvodni) ili kota, ne upisuje se
+      cijelo očitanje, kao ni ručnim upisom: protok koji izvor računa iz vodostaja te sati rada agregata
+      i stanje crpne stanice iz istog zapisa BP16 pripadaju krivom zapisu. Sat tako ostaje slobodan, pa
+      ga popuni rezervni izvor ili ispravak koji izvor poslije pošalje, a zapis iz evidencije BP16 uvoz
+      upiše kad se ondje ispravi. Kad je izvan raspona samo temperatura ili protok, otpada samo ta
+      vrijednost, a ostale vrijednosti istog očitanja ostaju (pokvaren termometar ne odnosi dobar
+      vodostaj). Očitanje kojem ništa ne ostane ne upisuje se. Očitanje upisano bez odbačene temperature
+      ili protoka preuzimanje i uvoz poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
       vrijednosti odbačeno i koja zadnja, npr.
       <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. S preuzimanja je to obično znak da
       je mjerilo u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu; odbačena
