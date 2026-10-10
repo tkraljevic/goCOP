@@ -23,11 +23,11 @@ func TestNacrtSDrugogCvoraNeVracaOvjerenAktUNacrt(t *testing.T) {
 		izmijeni func(o *okolinaAkta, id string) error
 	}{
 		{"ispravljen tekst", func(o *okolinaAkta, id string) error {
-			_, err := o.akti.UrediTekst(ctx, o.ovlasti, o.rukovod, id, "Uvod s poslužitelja.", "", "Završna rečenica.", "napomena s poslužitelja")
+			_, err := o.akti.UrediTekst(ctx, o.dezOvl, o.dezurni, id, "Uvod s poslužitelja.", "", "Završna rečenica.", "napomena s poslužitelja")
 			return err
 		}},
 		{"ponovno složeni primatelji", func(o *okolinaAkta, id string) error {
-			_, err := o.akti.PonovnoSloziPrimatelje(ctx, o.ovlasti, o.rukovod, id)
+			_, err := o.akti.PonovnoSloziPrimatelje(ctx, o.dezOvl, o.dezurni, id)
 			return err
 		}},
 		{"obrisan nacrt", func(o *okolinaAkta, id string) error {
@@ -38,12 +38,12 @@ func TestNacrtSDrugogCvoraNeVracaOvjerenAktUNacrt(t *testing.T) {
 			laptop, posluzitelj, treci := novaOkolinaAkta(t), novaOkolinaAkta(t), novaOkolinaAkta(t)
 			_, k, _ := ed25519.GenerateKey(nil)
 			laptop.akti.SetKljuc(k)
-			a, err := laptop.akti.Pripremi(ctx, laptop.ovlasti, laptop.rukovod, service.ZahtjevAkta{StationID: laptop.letva.ID.String(),
+			a, err := laptop.akti.Pripremi(ctx, laptop.dezOvl, laptop.dezurni, service.ZahtjevAkta{StationID: laptop.letva.ID.String(),
 				Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := laptop.akti.Spremi(ctx, laptop.ovlasti, a); err != nil {
+			if err := laptop.akti.Spremi(ctx, laptop.dezOvl, a); err != nil {
 				t.Fatal(err)
 			}
 			prenesiAkte(t, laptop, posluzitelj)

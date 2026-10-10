@@ -101,11 +101,11 @@ func TestOvjeraSkenomIstiPreduvjeti(t *testing.T) {
 	sken := []byte("%PDF-1.4 potpisani akt")
 	nacrt := func(radnja string, stupanj models.DefensePhase, vrijedi time.Time) *models.Akt {
 		t.Helper()
-		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+		if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 			t.Fatal(err)
 		}
 		return a
@@ -191,11 +191,11 @@ func TestStornoAkta(t *testing.T) {
 		t.Errorf("nov akt nakon poništenih: %v", got)
 	}
 	// nacrt se ne poništava
-	n, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid, Stupanj: models.PhasePrep, Vrijedi: sat.Add(30 * time.Minute)})
+	n, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktPrekid, Stupanj: models.PhasePrep, Vrijedi: sat.Add(30 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, n); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, n); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := o.akti.Storniraj(ctx, o.ovlasti, o.rukovod, n.ID, "nacrt"); err == nil || !strings.Contains(err.Error(), "samo ovjeren") {

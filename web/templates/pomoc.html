@@ -361,8 +361,9 @@
 
     <h3 id="dionica-obrana">Proglašavanje obrane</h3>
     <p>Obranu proglašava i prekida <strong>čovjek</strong>, aktom. Na stranici očitanja
-      mjerodavne letve gumb <em>Proglasi / prekini</em> otvara rješenje ili obavijest o stupnju
-      obrane (vidi <a href="#akti">Rješenja i obavijesti</a>). Stanje obrane dionice računa se iz
+      mjerodavne letve gumb <em>Proglasi / prekini</em> otvara nacrt rješenja ili obavijesti o stupnju
+      obrane; gumb vidi samo Centar obrane od poplava sektora, koji nacrt sastavlja (vidi
+      <a href="#akti">Rješenja i obavijesti</a>). Stanje obrane dionice računa se iz
       ovjerenih akata, a akt stupa na snagu kad u njemu piše. Sam program obranu ne proglašava.</p>
     <p>Stadiji se <strong>slažu</strong>: pripremno stanje, redovna i izvanredna obrana i
       izvanredno stanje proglašavaju se prema gore, a ukidaju obrnutim redom. Kad se ukine
@@ -1122,6 +1123,18 @@
       prognoza, dionice, vrijeme od kojeg vrijedi i primatelji. Nacrt se smije uređivati; nakon
       ovjere dobiva oznaku, izvornik i trag slanja. Akt o prekidu povezuje se s aktom koji stavlja
       izvan snage.</p>
+    <p>Akt se izdaje isključivo u <strong>Centru obrane od poplava</strong>. Nacrt sastavljaju samo
+      voditelj centra, njegov zamjenik i dežurni operater u COP-u sektora akta, dok im dužnost
+      vrijedi; samo njima se nude <em>Novi akt</em> i <em>Proglasi / prekini</em>. Nacrt ispravlja
+      (tekst, ponovno složeni primatelji) samo onaj tko ga je sastavio, i to dok smije sastavljati
+      nacrte. Nacrt koji je sastavio netko izvan centra (npr. prije nadogradnje programa) ne
+      ispravlja nitko: ovjerava se kakav jest, ili ga autor ili onaj tko ga ovjerava obriše pa
+      centar sastavi novi. Ovjerava ga kao i dosad rukovoditelj branjenog područja ili njegov zamjenik, odnosno
+      razina sektora prema stupnju, a razina 1 uvijek. Vodočuvari i rukovoditelji dionica
+      ovjeren akt vide na znanje; upisuje se i na dnevne listove vodočuvara i u dnevnike usluga.
+      Ovo provjerava računalo s novim izdanjem programa. Računalo sa starijom verzijom (0.0.34) i
+      dalje pušta da nacrt sastavi ili mijenja i netko izvan centra, kao i dosad; takav nacrt ili
+      izmjena stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše.</p>
     <p>„Vrijedi od” ne smije biti prije otvaranja Dnevnika COP-a aktivne obrane u sektoru ni više
       od 7 dana unaprijed: takav nacrt program ne sastavlja i ne ovjerava (npr. nacrt iz obrane čiji
       je dnevnik u međuvremenu zatvoren; tada treba novi nacrt). Vrijeme više od 24 sata unatrag (akt
@@ -1279,12 +1292,14 @@
       primarnost ostavljaju kakvi jesu ili ih uklanjaju. Terenska uloga traži dionice ili
       područje; samo uz sektor ne bi davala nikakvo pravo, pa se ne upisuje.</p>
     <p>Pravo pisanja ide po dosegu dužnosti: dužnost sektora piše u cijelom sektoru, dužnost
-      područja u svom području, a dužnost na dionicama na tim dionicama, njihovim objektima i
-      aktima te u dnevnicima svog područja i COP-a; terenska dužnost bez dionica piše u cijelom
+      područja u svom području, a dužnost na dionicama na tim dionicama i njihovim objektima te
+      u dnevnicima svog područja i COP-a; terenska dužnost bez dionica piše u cijelom
       području. Sektor upisan uz dužnost područja ili dionice ne daje pisanje po sektoru:
-      rukovoditelj dionice B.16.1 ne uređuje dionice, objekte, akte ni dnevnike područja 17, a
-      uprava područja 16 ne otvara dionice u području 17. Akt vodomjera piše tko piše na bilo
-      kojoj njegovoj dionici. Objekt drugog područja koji stoji i na dionici vodi njegovo
+      rukovoditelj dionice B.16.1 ne uređuje dionice, objekte ni dnevnike područja 17, a
+      uprava područja 16 ne otvara dionice u području 17. Doseg dužnosti ne daje pravo na akt o
+      stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar obrane od poplava
+      sektora, a ovjerava se kao i dosad (vidi <a href="#akti">Rješenja i obavijesti</a>).
+      Objekt drugog područja koji stoji i na dionici vodi njegovo
       područje, a novu vezu dionice na objekt ili vodomjer drugog područja upisuje samo tko
       ondje piše. Popisi i zadani izbor sektora i dalje se ravnaju po svim dužnostima osobe.</p>
     <p>Privremena uprava dužnosti koje daju upravu na istoj ili nižoj razini dodjeljuje kao

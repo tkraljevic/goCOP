@@ -271,12 +271,14 @@ Portovi se mijenjaju u `gocop.toml`.
   ostale se brišu i upisuju ponovno.
 - **Ovlasti po dosegu.** Pravo pisanja ide po dosegu dužnosti: dužnost
   sektora piše u cijelom sektoru, dužnost područja u svom području, a dužnost
-  na dionicama na tim dionicama, njihovim objektima i aktima te u dnevnicima
-  svog područja i COP-a (terenska dužnost bez dionica u cijelom području;
-  samo uz sektor terenska se dužnost ne upisuje). Akt vodomjera piše tko
-  piše na bilo kojoj njegovoj dionici. Objekt drugog područja koji stoji na
-  dionici vodi njegovo područje, i vezu dionice na objekt ili vodomjer
-  drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
+  na dionicama na tim dionicama i njihovim objektima te u dnevnicima svog
+  područja i COP-a (terenska dužnost bez dionica u cijelom području; samo uz
+  sektor terenska se dužnost ne upisuje). Doseg dužnosti ne daje pravo na
+  akt o stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar
+  obrane od poplava sektora (voditelj centra, zamjenik i dežurni operater),
+  a ovjerava se kao i dosad (Pomoć › Rješenja i obavijesti). Objekt drugog
+  područja koji stoji na dionici vodi njegovo područje, i vezu dionice na
+  objekt ili vodomjer drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
   područja ili dionice ne daje pisanje po sektoru; popisi i zadani izbor
   sektora i dalje se ravnaju po svim dužnostima osobe. Račun bez aktivne
   dužnosti, isključen račun i globalnog administratora zadužuje samo

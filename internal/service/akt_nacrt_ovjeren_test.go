@@ -24,25 +24,25 @@ func TestNacrtSeNeUpisujePrekoAktaOvjerenogUMedjuvremenu(t *testing.T) {
 		upisi func(o *okolinaAkta, a *models.Akt) error
 	}{
 		{"ponovno složeni primatelji", func(o *okolinaAkta, a *models.Akt) error {
-			_, err := o.akti.PonovnoSloziPrimatelje(ctx, o.ovlasti, o.rukovod, a.ID)
+			_, err := o.akti.PonovnoSloziPrimatelje(ctx, o.dezOvl, o.dezurni, a.ID)
 			return err
 		}},
 		{"ispravljen tekst", func(o *okolinaAkta, a *models.Akt) error {
-			_, err := o.akti.UrediTekst(ctx, o.ovlasti, o.rukovod, a.ID, "Uvod.", "", "Završna rečenica.", "napomena")
+			_, err := o.akti.UrediTekst(ctx, o.dezOvl, o.dezurni, a.ID, "Uvod.", "", "Završna rečenica.", "napomena")
 			return err
 		}},
 		{"ponovno spremljen nacrt", func(o *okolinaAkta, a *models.Akt) error {
-			return o.akti.Spremi(ctx, o.ovlasti, a)
+			return o.akti.Spremi(ctx, o.dezOvl, a)
 		}},
 	} {
 		t.Run(c.opis, func(t *testing.T) {
 			o := novaOkolinaAkta(t)
-			a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(),
+			a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(),
 				Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+			if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 				t.Fatal(err)
 			}
 			verzija := func() int {

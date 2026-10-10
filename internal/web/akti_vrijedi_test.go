@@ -67,7 +67,12 @@ func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true}
+	// Ana ovjerava kao uprava, a nacrt sastavlja kao dežurna operaterka u
+	// COP-u sektora B (namjerno promijenjeno prema Odlukama (8. 10. 2026.),
+	// pitanje 18: nacrt sastavlja samo Centar obrane od poplava)
+	sektorCOPa := "B"
+	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true,
+		Duties: []models.Duty{{Title: "Dežurni operater u COP-u", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorCOPa, IsActive: true}}}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *ana}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")

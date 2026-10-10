@@ -811,6 +811,7 @@ func (s *Server) setupRoutes() {
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(s.Arhiva)
 	readingsH.SetPrognoze(s.Prognoze)
+	readingsH.SetAkti(func() *service.AktService { return s.akti })
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil

@@ -23,12 +23,12 @@ func TestVrijediOdNovogNacrta(t *testing.T) {
 	}, nil)
 	nacrt := func(vrijedi time.Time, potvrda bool) (*models.Akt, error) {
 		t.Helper()
-		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
 			Stupanj: models.PhasePrep, Vrijedi: vrijedi, PotvrdaVrijedi: potvrda})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return a, o.akti.Spremi(ctx, o.ovlasti, a)
+		return a, o.akti.Spremi(ctx, o.dezOvl, a)
 	}
 
 	if _, err := nacrt(otvoren.Add(-time.Minute), true); err == nil || !strings.Contains(err.Error(), "prije otvaranja Dnevnika COP-a") {
@@ -46,15 +46,17 @@ func TestVrijediOdNovogNacrta(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dva dana unatrag uz potvrdu: %v", err)
 	}
+	// potvrdu daje tko nacrt sastavlja: dežurni operater (Odluke
+	// (8. 10. 2026.), pitanje 18)
 	spremljen, _ := o.akti.Get(ctx, a.ID)
-	if !spremljen.ImaPotvrdu(models.PotvrdaVrijedi) || spremljen.Potvrde[0].Tko != "Pero Perić" {
+	if !spremljen.ImaPotvrdu(models.PotvrdaVrijedi) || spremljen.Potvrde[0].Tko != "Iva Ivić" {
 		t.Fatalf("potvrda nije zabilježena uz akt: %+v", spremljen.Potvrde)
 	}
 	// doradu postojećeg nacrta granice ne priječe, a potvrda ostaje
-	if _, err := o.akti.UrediTekst(ctx, o.ovlasti, o.rukovod, a.ID, spremljen.Uvod, "", spremljen.Zavrsno, "dopuna"); err != nil {
+	if _, err := o.akti.UrediTekst(ctx, o.dezOvl, o.dezurni, a.ID, spremljen.Uvod, "", spremljen.Zavrsno, "dopuna"); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, spremljen); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, spremljen); err != nil {
 		t.Errorf("spremanje postojećeg nacrta: %v", err)
 	}
 	if poslije, _ := o.akti.Get(ctx, a.ID); !poslije.ImaPotvrdu(models.PotvrdaVrijedi) {
@@ -69,13 +71,13 @@ func TestVrijediOdNovogNacrta(t *testing.T) {
 	// obrani ne nastaje ni s ispravnim vremenom
 	bez := *obican
 	bez.ID, bez.Vrijedi = "", time.Time{}
-	if err := o.akti.Spremi(ctx, o.ovlasti, &bez); err == nil || !strings.Contains(err.Error(), "upiši dan i sat") {
+	if err := o.akti.Spremi(ctx, o.dezOvl, &bez); err == nil || !strings.Contains(err.Error(), "upiši dan i sat") {
 		t.Errorf("nacrt bez „Vrijedi od”: %v", err)
 	}
 	o.akti.SetObrana(func(context.Context, string) *models.Journal { return nil }, nil)
 	bez.Vrijedi = time.Now()
 	var preventivna service.ErrPreventivnaObrana
-	if err := o.akti.Spremi(ctx, o.ovlasti, &bez); !errors.As(err, &preventivna) {
+	if err := o.akti.Spremi(ctx, o.dezOvl, &bez); !errors.As(err, &preventivna) {
 		t.Errorf("nacrt u preventivnoj obrani: %v", err)
 	}
 }

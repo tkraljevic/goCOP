@@ -74,7 +74,12 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 	if _, err := baza.Exec(`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES (?, 'B.34.1', ?, ?)`, uuid.NewString(), st.ID.String(), time.Now()); err != nil {
 		t.Fatal(err)
 	}
-	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true}
+	// Ana ovjerava kao uprava, a nacrt sastavlja kao dežurna operaterka u
+	// COP-u sektora B (namjerno promijenjeno prema Odlukama (8. 10. 2026.),
+	// pitanje 18: nacrt sastavlja samo Centar obrane od poplava)
+	sektorCOPa := "B"
+	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true,
+		Duties: []models.Duty{{Title: "Dežurni operater u COP-u", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorCOPa, IsActive: true}}}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *ana}
 	marko := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
 

@@ -8,7 +8,7 @@ import (
 )
 
 // Pomoć mora reći tko zadužuje račun bez dužnosti, da se piše po dosegu
-// dužnosti (i u dnevnike svog područja, i po dionicama akta), da lozinku
+// dužnosti (i u dnevnike svog područja), da lozinku
 // e-pošte nakon promjene ili poništenja lozinke treba upisati ponovno i kad
 // se briše, da se zauzeta adresa ne upisuje, da se ključ uklanja uz lozinku
 // i da certifikat nosi korisničko ime, bez zagrada iz punog imena.
@@ -18,7 +18,10 @@ func TestPomocOpisujeOvlastiPoDosegu(t *testing.T) {
 		"Račun bez aktivne dužnosti", "zadužuje samo globalni administrator", "kao ispomoć, pod nazivom uloge",
 		"Pravo pisanja ide po dosegu dužnosti", "ne daje pisanje po sektoru",
 		"prestaje vrijediti i briše se", "pri prvoj sljedećoj uporabi ili pokretanju čvora", "brišu na ovom čvoru i spremljenu",
-		"u dnevnicima svog područja i COP-a", "Akt vodomjera piše tko piše na bilo", "upisuje samo tko",
+		// „Akt vodomjera piše tko piše na bilo kojoj njegovoj dionici” više
+		// ne vrijedi: nacrt akta sastavlja samo Centar obrane od poplava
+		// (Odluke (8. 10. 2026.), pitanje 18; TestDosegDuznostiNeDajeAkt)
+		"u dnevnicima svog područja i COP-a", "upisuje samo tko",
 		"Terenska uloga traži dionice ili", "pri izmjeni naziv i", "zagrade iz punog imena se",
 		"Adresu e-pošte koju već ima drugi aktivni račun program ne upisuje nikome", "ni preimenovanjem",
 		"uklanjanju ključa (tuđim očima ni jedno ni drugo)", "„Ime Prezime (korisnicko)”",
@@ -71,5 +74,32 @@ func TestKarticaKnjigeVodocuvaraKazeTkoParafira(t *testing.T) {
 	want := "parafiraju ovlaštenici za praćenje ugovora i uprava, a rukovoditelj dionice list koji se tiče njegove dionice"
 	if !strings.Contains(h, want) {
 		t.Errorf("kartica ne kaže %q", want)
+	}
+}
+
+// Doseg dužnosti ne daje pravo na akt o stupnju obrane: nacrt sastavlja samo
+// Centar obrane od poplava sektora (voditelj, zamjenik, dežurni operater), pa
+// ni Pomoć (Korisnici) ni upute za instalaciju, koje se čitaju prije
+// odobrenja, ne smiju reći da vodočuvar ili rukovoditelj dionice piše akte
+// svojih dionica, ni da akt vodomjera piše tko piše na njegovoj dionici
+// (Odluke (8. 10. 2026.), pitanje 18).
+func TestDosegDuznostiNeDajeAkt(t *testing.T) {
+	inst, err := os.ReadFile(filepath.Join("..", "..", "docs", "INSTALACIJA.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for ime, tekst := range map[string]string{"pomoć": pomocHTML(t), "INSTALACIJA.md": string(inst)} {
+		h := strings.Join(strings.Fields(tekst), " ")
+		for _, ne := range []string{
+			"njihovim objektima i aktima", "objekte, akte ni dnevnike",
+			"Akt vodomjera piše tko piše",
+		} {
+			if strings.Contains(h, ne) {
+				t.Errorf("%s i dalje kaže %q", ime, ne)
+			}
+		}
+		if !strings.Contains(h, "Doseg dužnosti ne daje pravo na akt o stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar obrane od poplava sektora") {
+			t.Errorf("%s ne kaže da doseg dužnosti ne daje pravo na akt", ime)
+		}
 	}
 }

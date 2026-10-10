@@ -78,7 +78,11 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(dionica, &models.Duty{Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1"}); err != nil {
 		t.Fatal(err)
 	}
-	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a"}
+	// voditelj COP-a sastavlja nacrt po dužnosti voditelja centra sektora B
+	// (namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18: nacrt
+	// sastavlja samo Centar obrane od poplava, a ne uprava sektora kao takva)
+	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a",
+		Duties: []models.Duty{{Title: "Voditelj COP-a", Role: models.RoleCopLeader, ScopeType: models.ScopeSector, SectorID: &b, IsActive: true}}}
 	perms := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")

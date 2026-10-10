@@ -33,7 +33,16 @@ type okolinaAkta struct {
 	ovlasti *models.UserPermissions
 	vodocuv *models.User
 	vodOvl  *models.UserPermissions
+	// dezurni je Dežurni operater u COP-u sektora P: nacrt akta sastavlja
+	// samo Centar obrane od poplava, a ovjerava rukovoditelj (Odluke
+	// (8. 10. 2026.), pitanje 18). Isti je djelatnik na svim čvorovima
+	// (račun stiže razmjenom), pa ima isti ID.
+	dezurni *models.User
+	dezOvl  *models.UserPermissions
 }
+
+// idDezurnog je ID dežurnog operatera okoline, jednak na svim čvorovima
+var idDezurnog = uuid.MustParse("6f1c0a4e-1d2b-4c3d-9e8f-a0b1c2d3e4f5")
 
 func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 	t.Helper()
@@ -87,6 +96,9 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 	sektor, podrucje := "P", 1
 	osoba := func(ime, puno string, d *models.Duty) (*models.User, *models.UserPermissions) {
 		u := &models.User{ID: uuid.New(), Username: ime, FullName: puno, IsActive: true}
+		if d.Role == models.RoleOperator {
+			u.ID = idDezurnog
+		}
 		if err := userRepo.CreateUser(u, d); err != nil {
 			t.Fatal(err)
 		}
@@ -100,7 +112,11 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
 	vod, vodOvl := osoba("pperic-vodocuvar", "Pero Perić", &models.Duty{Title: "Vodočuvar P.1.1", Role: models.RoleWaterGuard,
 		ScopeType: models.ScopeSection, SectorID: &sektor, AreaID: &podrucje, SectionCodes: "P.1.1", IsPrimary: true})
-	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, users: users, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
+	rok := time.Now().Add(24 * time.Hour)
+	dez, dezOvl := osoba("iivic-cop", "Iva Ivić", &models.Duty{Title: "Dežurni operater u COP-u", Role: models.RoleOperator,
+		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true, IsTemporary: true, ExpiresAt: &rok})
+	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, users: users, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl,
+		dezurni: dez, dezOvl: dezOvl}
 }
 
 // potvrdaPrimatelja: dionice okoline nemaju upisan teritorij, pa popis
@@ -109,15 +125,18 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 // pravila stanja obrane koja test zaključava ostaju ista.
 var potvrdaPrimatelja = service.PotvrdaOvjere{Primatelji: true}
 
-// ovjeri priprema, sprema i ovjerava akt rukovoditelja područja
+// ovjeri priprema i sprema nacrt dežurnog operatera, a rukovoditelj
+// područja ga ovjerava. Namjerna izmjena zaključanog testa: nacrt sastavlja
+// samo Centar obrane od poplava (Odluke (8. 10. 2026.), pitanje 18); pravila
+// stanja obrane koja test zaključava ostaju ista.
 func (o *okolinaAkta) ovjeri(t *testing.T, radnja string, stupanj models.DefensePhase, vrijedi time.Time) (*models.Akt, []string) {
 	t.Helper()
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
 	if err != nil {
 		t.Fatalf("priprema %s %s: %v", radnja, stupanj, err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatalf("spremanje: %v", err)
 	}
 	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
@@ -232,16 +251,17 @@ func TestOvjeraAktaMijenjaStanjeObrane(t *testing.T) {
 	}
 }
 
-// neOvjeri priprema i sprema akt pa pokuša ovjeru koja ne smije proći;
-// vraća grešku ovjere
+// neOvjeri priprema i sprema nacrt dežurnog operatera pa pokuša ovjeru koja
+// ne smije proći; vraća grešku ovjere (nacrt: Odluke (8. 10. 2026.),
+// pitanje 18)
 func (o *okolinaAkta) neOvjeri(t *testing.T, radnja string, stupanj models.DefensePhase, vrijedi time.Time) error {
 	t.Helper()
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: radnja, Stupanj: stupanj, Vrijedi: vrijedi})
 	if err != nil {
 		t.Fatalf("priprema %s %s: %v", radnja, stupanj, err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatalf("spremanje: %v", err)
 	}
 	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
@@ -254,12 +274,12 @@ func (o *okolinaAkta) neOvjeri(t *testing.T, radnja string, stupanj models.Defen
 func TestOvjeraBezOvlasti(t *testing.T) {
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
-	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(),
+	a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(),
 		Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+	if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
 		t.Fatal(err)
 	}
 	// vodočuvar piše na dionici akta, ali akt ne ovjerava
@@ -286,7 +306,7 @@ func TestOvjeraBezOvlasti(t *testing.T) {
 		"kriva letva":    {StationID: "nije-uuid", Radnja: models.AktUspostava, Stupanj: models.PhasePrep},
 		"tuđe dionice":   {StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Dionice: []string{"X.9.9"}},
 	} {
-		if _, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, z); err == nil {
+		if _, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, z); err == nil {
 			t.Errorf("%s: priprema mora biti odbijena", ime)
 		}
 	}
