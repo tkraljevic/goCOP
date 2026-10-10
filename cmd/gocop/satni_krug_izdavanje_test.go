@@ -88,3 +88,25 @@ func TestGenerirajGaziStaroIzdanjeIstogSata(t *testing.T) {
 		t.Error("Generiraj nije pogazio staro izdanje istog sata: letva koja se više ne računa zadržala je staru prognozu")
 	}
 }
+
+// Krug koji izda prognozu upisuje u svoj dnevnik i upozorenja izdanja:
+// dnevni cilj bez naučenog modela (čvor bez arhive) javlja se ondje gdje
+// osoba koja prati krug gleda, a ne samo na stranici prognoza.
+func TestKrugIzdanjaJavljaUpozorenja(t *testing.T) {
+	k, objavljeno := izdavackiKrug(t)
+	ciljevi := prognoza.DnevniCiljevi
+	t.Cleanup(func() { prognoza.DnevniCiljevi = ciljevi })
+	prognoza.DnevniCiljevi = []prognoza.DnevniCilj{{Letva: "donja"}}
+
+	k.izracunajIIzdaj(context.Background())
+	if len(*objavljeno) != 1 {
+		t.Fatalf("objavljeno %d izdanja, redci %q", len(*objavljeno), k.uvoznik.Napredak().Redci)
+	}
+	if len((*objavljeno)[0].Upozorenja) == 0 {
+		t.Fatal("izdanje bez upozorenja, a dnevnog modela nema")
+	}
+	redci := strings.Join(k.uvoznik.Napredak().Redci, "\n")
+	if zelim := "upozorenje: dnevni; nema naučenog dnevnog modela; upitno: donja dnevna"; !strings.Contains(redci, zelim) {
+		t.Errorf("redci:\n%s\nnema retka %q", redci, zelim)
+	}
+}
