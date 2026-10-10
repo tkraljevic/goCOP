@@ -11,20 +11,21 @@ import (
 // Provjere registara (prvo punjenje daje poznate brojke, Batina i Vukovar na
 // Dunavu, kota nule iz elaborata, vodomjeri i objekti vezani na dionice,
 // cjelovit registar vodnih tijela) imaju smisla samo na stvarnim registrima,
-// pa ne prelaze na izmišljeni skup. Trebaju izvorne datoteke s kojima je
-// napunjen prvi čvor: brojke u njima su brojke tih datoteka, a baza čvora
-// koji radi od tada ima druge registre, pa ih izvoz iz nje ne bi dao (a
-// naredbe za takav izvoz ni nema). Na GitHubu i na računalu bez tih datoteka
-// provjere se preskaču, uz poruku što treba. Prije svakog izdanja pokreću se
-// naredbom make provjera-registara, koja postavlja GOCOP_REGISTRI: tada bez
-// datoteka padaju, jer preskočena provjera ne dokazuje ništa.
+// pa ne prelaze na izmišljeni skup. Trebaju izvoz registara u mapi data/ u
+// korijenu repozitorija: datoteke koje prvo punjenje čita (sections.json slaže
+// alat prijepis-dionica, izvan repozitorija). Brojke u provjerama su brojke
+// izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se pregledaju
+// i brojke mijenjaju svjesno, s razlogom u commitu. Na GitHubu i na računalu
+// bez izvoza provjere se preskaču, uz poruku što treba. Prije svakog izdanja
+// pokreću se naredbom make provjera-registara, koja postavlja GOCOP_REGISTRI:
+// tada bez izvoza padaju, jer preskočena provjera ne dokazuje ništa.
 
 // porukaRegistara kaže što provjeri registra treba i kada se pokreće
-const porukaRegistara = "provjera registara treba izvorne datoteke registara prvog punjenja, one s kojima je " +
-	"napunjen prvi čvor (sections.json, watercourses.json, territories.json, section_territories.json, " +
-	"objekti_bp16.json, organizacija.json), u mapi data/ u korijenu repozitorija. Brojke u provjerama su " +
-	"brojke tih datoteka; registri izvezeni iz baze čvora koji radi ne vrijede, jer su se od prvog punjenja " +
-	"mijenjali. Pokreće se prije svakog izdanja naredbom make provjera-registara"
+const porukaRegistara = "provjera registara treba izvoz registara u mapi data/ u korijenu repozitorija: " +
+	"sections.json, watercourses.json, territories.json, section_territories.json, objekti_bp16.json i " +
+	"organizacija.json (sections.json slaže alat prijepis-dionica iz tools/migrations, izvan repozitorija). " +
+	"Brojke u provjerama su brojke izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se pregledaju " +
+	"i brojke mijenjaju svjesno, s razlogom u commitu. Pokreće se prije svakog izdanja naredbom make provjera-registara"
 
 // registriIliPreskoci usmjerava prvo punjenje na stvarne registre u data/;
 // bez njih provjeru preskače, a uz GOCOP_REGISTRI ruši
@@ -39,9 +40,9 @@ func registriIliPreskoci(t *testing.T) {
 	t.Skip(porukaRegistara)
 }
 
-// Provjere registara nalaze datoteke prvog punjenja u mapi data/ iznad radne
-// mape testa i na njih usmjeravaju prvo punjenje (i imenik, ako ga ondje
-// ima). Bez datoteka javljaju da ih nema i putanje ne diraju.
+// Provjere registara nalaze izvoz registara u mapi data/ iznad radne mape
+// testa i na njega usmjeravaju prvo punjenje (i imenik, ako ga ondje ima).
+// Bez izvoza javljaju da ga nema i putanje ne diraju.
 func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	staraMapa, stariImenik := DataDir, ImenikPath
 	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
@@ -53,10 +54,10 @@ func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	t.Chdir(paket)
 
 	if UseRepoData() {
-		t.Fatal("bez datoteka prvog punjenja nađeni su registri")
+		t.Fatal("bez izvoza registara nađeni su registri")
 	}
 	if DataDir != staraMapa || ImenikPath != stariImenik {
-		t.Fatalf("bez datoteka putanje su promijenjene: %s, %s", DataDir, ImenikPath)
+		t.Fatalf("bez izvoza putanje su promijenjene: %s, %s", DataDir, ImenikPath)
 	}
 
 	mapa := filepath.Join(korijen, "data")
@@ -67,19 +68,20 @@ func TestTrazenjeStvarnihRegistara(t *testing.T) {
 		t.Fatal(err)
 	}
 	if !UseRepoData() {
-		t.Error("datoteke prvog punjenja nisu nađene")
+		t.Error("izvoz registara nije nađen")
 	}
 	gore := filepath.Join("..", "..", "data")
 	if DataDir != gore || ImenikPath != filepath.Join(gore, "imenik.json") {
-		t.Errorf("putanje nisu na datotekama prvog punjenja: %s, %s", DataDir, ImenikPath)
+		t.Errorf("putanje nisu na izvozu registara: %s, %s", DataDir, ImenikPath)
 	}
 }
 
-// Poruka kaže što provjere registara stvarno traže: izvorne datoteke s
-// kojima je napunjen prvi čvor, sve koje prvo punjenje čita (iste su u
-// izmišljenom skupu). Brojke u provjerama su brojke tih datoteka, a izvoz iz
-// baze čvora koji radi daje druge, pa ga poruka ne smije tražiti.
-func TestPorukaRegistaraTraziDatotekePrvogPunjenja(t *testing.T) {
+// Poruka kaže ono što traži odluka: izvoz registara u mapu data/, sa svim
+// datotekama koje prvo punjenje čita (iste su u izmišljenom skupu), i da se
+// provjere pokreću prije svakog izdanja (Odluke (8. 10. 2026.), pitanje 13).
+// Kaže i odakle je sections.json, jer ga slaže alat izvan repozitorija, a
+// ne traži izvoz iz baze, jer naredbe za njega nema.
+func TestPorukaRegistaraTraziIzvozRegistaraUData(t *testing.T) {
 	mapa, ok := nadjiIzmisljenePodatke()
 	if !ok {
 		t.Fatal("izmišljeni skup nije nađen")
@@ -91,14 +93,18 @@ func TestPorukaRegistaraTraziDatotekePrvogPunjenja(t *testing.T) {
 	for _, d := range datoteke {
 		ime := filepath.Base(d)
 		if ime != "imenik.json" && !strings.Contains(porukaRegistara, ime) {
-			t.Errorf("poruka ne navodi datoteku prvog punjenja %s", ime)
+			t.Errorf("poruka ne navodi datoteku registra %s", ime)
 		}
 	}
-	if !strings.Contains(porukaRegistara, "prvog punjenja") || !strings.Contains(porukaRegistara, "make provjera-registara") {
-		t.Errorf("poruka ne kaže da trebaju datoteke prvog punjenja i kako se pokreće: %s", porukaRegistara)
+	for _, zeli := range []string{"izvoz registara u mapi data/", "prijepis-dionica", "prije svakog izdanja", "make provjera-registara"} {
+		if !strings.Contains(porukaRegistara, zeli) {
+			t.Errorf("poruka ne kaže %q: %s", zeli, porukaRegistara)
+		}
 	}
-	if strings.Contains(porukaRegistara, "izvoz registara iz baze") {
-		t.Errorf("poruka traži izvoz iz baze, a s njim brojke ne prolaze: %s", porukaRegistara)
+	for _, ne := range []string{"iz baze", "izvorne datoteke"} {
+		if strings.Contains(porukaRegistara, ne) {
+			t.Errorf("poruka traži nešto čega nema (%q): %s", ne, porukaRegistara)
+		}
 	}
 }
 

@@ -31,10 +31,12 @@ quality-deep:
 
 # Provjere registara na stvarnim podacima (Batina i Vukovar na Dunavu, kota
 # nule iz elaborata, cjelovitost registara), obavezno prije svakog izdanja.
-# Trebaju izvorne datoteke registara prvog punjenja (one s kojima je napunjen
-# prvi čvor) u data/ u korijenu repozitorija; izvoz iz baze čvora koji radi
-# ne vrijedi. Bez tih datoteka padaju, ne preskaču se. Ostale provjere rade
-# na izmišljenom skupu testdata/sektor-p i ne trebaju ništa. Kad je u data/
+# Trebaju izvoz registara u data/ u korijenu repozitorija (sections.json
+# slaže alat prijepis-dionica, izvan repozitorija). Brojke u provjerama su
+# brojke izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se
+# pregledaju i brojke mijenjaju svjesno, s razlogom u commitu. Bez izvoza
+# provjere padaju, ne preskaču se. Ostale provjere rade na izmišljenom skupu
+# testdata/sektor-p i ne trebaju ništa. Kad je u data/
 # i baza čvora (gocop.db), testovi se usput pregledaju prema imenima iz nje:
 # nijedan ne smije nositi stvarno ime ni korisničko ime. Baza se otvara samo
 # za čitanje.
