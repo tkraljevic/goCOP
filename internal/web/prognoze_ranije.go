@@ -1,0 +1,202 @@
+package web
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
+	"gocop/internal/models"
+)
+
+// Izvoz ranije prognoze. Baza prognoza čuva svako izdanje, pa se izdanje
+// zadanog dana i sata (po mjesnom vremenu) izvozi kao i zadnje: isti listovi,
+// a brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze iz tog
+// izdanja. Kad u tom satu prognoza nije izdana, uzima se najbliže ranije
+// izdanje i to se kaže. Mjerenja na grafovima sežu do sata izdanja, kao u
+// izvozu koji bi se tada napravio.
+
+// RanijeIzdanje je izdanje nađeno za traženi sat.
+type RanijeIzdanje struct {
+	Trazeno time.Time // traženi sat
+	Izdano  time.Time // sat izdanja koje se izvozi: traženi ili najbliži raniji
+	Verzija int       // koliko je puta sat izdan; izvozi se zadnja verzija
+	Nastalo time.Time // kad je zadnja verzija izračunata; nula kad zapisa nema
+}
+
+// Tocno javlja je li u traženom satu prognoza izdana.
+func (iz RanijeIzdanje) Tocno() bool { return iz.Izdano.Equal(iz.Trazeno) }
+
+// kljucRanijeg nosi ranije izdanje u kontekstu zahtjeva izvoza.
+type kljucRanijeg struct{}
+
+// IzdanjeZahtjeva javlja sat (od epohe) ranijeg izdanja koje zahtjev izvozi.
+// Čvor po njemu daje kišu po međuslivovima kakvu je to izdanje imalo.
+func IzdanjeZahtjeva(ctx context.Context) (int64, bool) {
+	iz, ok := ctx.Value(kljucRanijeg{}).(RanijeIzdanje)
+	return iz.Izdano.Unix() / 3600, ok
+}
+
+// UzRanijeIzdanje stavlja ranije izdanje u kontekst zahtjeva izvoza.
+func UzRanijeIzdanje(ctx context.Context, iz RanijeIzdanje) context.Context {
+	return context.WithValue(ctx, kljucRanijeg{}, iz)
+}
+
+// ranijeIz vraća ranije izdanje iz konteksta zahtjeva.
+func ranijeIz(ctx context.Context) (RanijeIzdanje, bool) {
+	iz, ok := ctx.Value(kljucRanijeg{}).(RanijeIzdanje)
+	return iz, ok
+}
+
+// citacZahtjeva je čitač prognoza za zahtjev: prikovan na ranije izdanje kad
+// ga zahtjev izvozi, inače onaj koji služi zadnje.
+func (h *PrognozeHandler) citacZahtjeva(r *http.Request) *CitacPrognoza {
+	c := h.citacBaze()
+	if iz, ok := ranijeIz(r.Context()); ok {
+		return c.Na(iz.Izdano.Unix() / 3600)
+	}
+	return c
+}
+
+// sadZahtjeva je trenutak prema kojem se izdanje gleda: traženi sat uz
+// ranije izdanje (zastarjelost se računa kako bi tada bila), inače sada.
+func sadZahtjeva(r *http.Request) time.Time {
+	if iz, ok := ranijeIz(r.Context()); ok {
+		return iz.Trazeno
+	}
+	return time.Now()
+}
+
+// trazeniSat čita dan i sat iz upita (dan=2026-10-05&sat=9), po mjesnom
+// vremenu.
+func trazeniSat(q url.Values) (time.Time, error) {
+	dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(q.Get("dan")), models.Zagreb)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("dan nije ispravan datum")
+	}
+	sat, err := strconv.Atoi(strings.TrimSpace(q.Get("sat")))
+	if err != nil || sat < 0 || sat > 23 {
+		return time.Time{}, fmt.Errorf("sat mora biti od 0 do 23")
+	}
+	return time.Date(dan.Year(), dan.Month(), dan.Day(), sat, 0, 0, 0, models.Zagreb), nil
+}
+
+// nadjiRanije traži izdanje za traženi sat; ok je false kad do njega nema
+// nijednog.
+func nadjiRanije(c *CitacPrognoza, trazeno time.Time) (RanijeIzdanje, bool) {
+	izdano, ok := c.IzdanjeDo(trazeno)
+	if !ok {
+		return RanijeIzdanje{}, false
+	}
+	iz := RanijeIzdanje{Trazeno: trazeno, Izdano: izdano}
+	if o, ima := c.OpisIzdanja(izdano); ima {
+		iz.Verzija, iz.Nastalo = o.Verzija, o.Nastalo
+	}
+	return iz, true
+}
+
+// satRanijeg je sat po mjesnom vremenu, npr. „5.10.2026. u 09:00”.
+func satRanijeg(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. u 15:04") }
+
+// Poruka kaže koje se izdanje izvozi i zašto baš to.
+func (iz RanijeIzdanje) Poruka() string {
+	var b strings.Builder
+	if iz.Tocno() {
+		fmt.Fprintf(&b, "Prognoza izdana %s.", satRanijeg(iz.Izdano))
+	} else {
+		fmt.Fprintf(&b, "Za %s prognoza nije izdana; najbliže ranije izdanje je %s.",
+			satRanijeg(iz.Trazeno), satRanijeg(iz.Izdano))
+	}
+	if iz.Verzija > 1 {
+		fmt.Fprintf(&b, " Taj je sat izdan %d puta; izvozi se zadnje izdanje, izračunato %s.",
+			iz.Verzija, iz.Nastalo.In(models.Zagreb).Format("15:04"))
+	}
+	return b.String()
+}
+
+// Napomena je odlomak na prvom listu izvoza: koje je izdanje i što je u
+// izvozu iz njega, a što prema današnjem stanju.
+func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
+	return "Ranije izdanje, izvezeno " + satRanijeg(izvezeno) + ". " + iz.Poruka() +
+		" Brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze su iz tog izdanja, a mjerenja na grafovima sežu" +
+		" do sata izdanja; godišnji vodostaji, zabilježene krajnosti i list „O prognozi” su prema današnjoj arhivi i modelu."
+}
+
+// zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
+// zahtjeva; kad ga nema, odgovara sam i vraća false.
+func (h *PrognozeHandler) zahtjevRanijeg(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
+	trazeno, err := trazeniSat(r.URL.Query())
+	if err != nil {
+		http.Error(w, "Ranije izdanje: "+err.Error()+".", http.StatusBadRequest)
+		return r, false
+	}
+	c := h.citacBaze()
+	iz, ok := nadjiRanije(c, trazeno)
+	if !ok {
+		http.Error(w, bezRanijeg(c, trazeno), http.StatusNotFound)
+		return r, false
+	}
+	return r.WithContext(UzRanijeIzdanje(r.Context(), iz)), true
+}
+
+// bezRanijeg kaže zašto za traženi sat izdanja nema.
+func bezRanijeg(c *CitacPrognoza, trazeno time.Time) string {
+	if prvo, ima := c.PrvoIzdanje(); ima {
+		return fmt.Sprintf("Za %s ni ranije nema sačuvane prognoze; najstarije izdanje u bazi je %s.",
+			satRanijeg(trazeno), satRanijeg(prvo))
+	}
+	return "Nijedna prognoza još nije izdana."
+}
+
+// oznaciRanije u podacima za izvoz označava ranije izdanje: uz vrijeme
+// izdanja na svakom listu i napomenom na prvom.
+func oznaciRanije(data *PrognozePageData, r *http.Request) {
+	iz, ok := ranijeIz(r.Context())
+	if !ok {
+		return
+	}
+	data.Izdano += " (ranije izdanje)"
+	data.Ranije.Napomena = iz.Napomena(time.Now())
+}
+
+// imeIzvoza je ime datoteke: za zadnje izdanje vrijeme izvoza, kao dosad, a
+// za ranije sat izdanja.
+func imeIzvoza(r *http.Request) string {
+	if iz, ok := ranijeIz(r.Context()); ok {
+		return "prognoza_izdanje_" + iz.Izdano.In(models.Zagreb).Format("2006-01-02_15h") + ".xlsx"
+	}
+	return "prognoza_" + time.Now().In(models.Zagreb).Format("2006-01-02_15h") + ".xlsx"
+}
+
+// RanijiIzvoz je odjeljak „Ranija prognoza” na postavkama i napomena na
+// prvom listu izvoza ranijeg izdanja.
+type RanijiIzvoz struct {
+	Od           string // najstarije izdanje u bazi; prazno dok izdanja nema
+	OdDan, DoDan string // granice birača dana, 2006-01-02
+	Dan          string // traženi dan, 2006-01-02
+	Sat          int    // traženi sat
+	Trazeno      bool   // korisnik je tražio izdanje
+	Poruka       string // što je nađeno ili zašto nije
+	URL          string // preuzimanje izvoza; prazno kad izdanja nema
+	Napomena     string // odlomak na prvom listu izvoza ranijeg izdanja
+}
+
+// Sati su sati dana za birač.
+func (RanijiIzvoz) Sati() []int {
+	s := make([]int, 24)
+	for i := range s {
+		s[i] = i
+	}
+	return s
+}
+
+// citacBaze je čitač zadnjeg izdanja; nil kad baze prognoza nema.
+func (h *PrognozeHandler) citacBaze() *CitacPrognoza {
+	if h.citac == nil {
+		return nil
+	}
+	return h.citac()
+}

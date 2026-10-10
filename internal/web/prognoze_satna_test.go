@@ -179,7 +179,13 @@ func tekstKnjige(t *testing.T, k *xlsxw.Knjiga) string {
 	if err := k.Zapisi(&b); err != nil {
 		t.Fatal(err)
 	}
-	zr, err := zip.NewReader(bytes.NewReader(b.Bytes()), int64(b.Len()))
+	return tekstZipa(t, b.Bytes())
+}
+
+// tekstZipa je sav XML knjige zapisane u bajtove (npr. odgovor izvoza).
+func tekstZipa(t *testing.T, b []byte) string {
+	t.Helper()
+	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {
 		t.Fatal(err)
 	}

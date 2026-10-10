@@ -392,6 +392,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 		}
 	}
 	naslov("Ukratko")
+	odlomak(data.Ranije.Napomena, xlsxw.Tekst)
 	odlomak(upozorenjaSazetka(data), xlsxw.Tekst)
 	for _, g := range sazetakSkupine {
 		odlomak(recenicaRijeke(g.Voda, sve[g.Voda]), xlsxw.Tekst)

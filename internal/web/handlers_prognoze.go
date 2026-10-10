@@ -303,6 +303,8 @@ type PrognozePageData struct {
 	Upozorenja, Napomene []UpozorenjeStranice
 	Zastarjelo           string
 
+	Ranije RanijiIzvoz // izvoz ranijeg izdanja: odjeljak postavki i napomena izvoza
+
 	// Za izvoz: satni nizovi izdanja i registar letvi, iz kojih se crtaju
 	// grafovi. Stranica ih ne prikazuje.
 	pregled  []PregledLetve
@@ -456,10 +458,7 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa string) PrognozePageData {
 	data := h.zaglavlje(r)
 	data.NacinTablice, data.NacinGrafa = models.OpisNacinaPrognoze(nacinTablice), models.OpisNacinaPrognoze(nacinGrafa)
-	var c *CitacPrognoza
-	if h.citac != nil {
-		c = h.citac()
-	}
+	c := h.citacZahtjeva(r)
 	if c == nil {
 		data.Nema, data.Razlog = true, "Baza prognoza nije otvorena."
 		return data
@@ -545,12 +544,12 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 			}
 		}
 	}
-	upozorenjaStranice(&data, c, izdano, time.Now(), postaje)
+	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)
 	data.pregled, data.dnevne, data.postajeM = letve, dnevne, postaje
 	naProfilu := letveProfila(postaje, letve)
-	jutro := h.jutarnje(r.Context(), postaje, naProfilu, time.Now())
+	jutro := h.jutarnje(r.Context(), postaje, naProfilu, sadZahtjeva(r))
 	// Sat od kojega graf uzima dnevni model: dan kad ga uzima i tablica.
 	odSata := map[string]int{}
 	for _, l := range letve {
@@ -784,7 +783,7 @@ func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 	if c == nil || c.db == nil {
 		return time.Time{}, nil, nil
 	}
-	izdano, ima, err := prognoza.ZadnjeIzdanje(c.db)
+	izdano, ima, err := c.izdanje()
 	if err != nil || !ima {
 		return time.Time{}, nil, err
 	}
