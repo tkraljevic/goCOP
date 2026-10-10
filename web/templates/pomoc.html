@@ -917,7 +917,9 @@
       <li>U aktivnoj obrani vode se dežurstva, proglašavaju i prekidaju stupnjevi te nastaju
         dnevna izvješća.</li>
       <li>Ovjereni akt automatski se bilježi u dnevniku COP-a, dnevnim listovima vodočuvara
-        područja i otvorenim dnevnicima održavanja tog područja.</li>
+        područja (na list dana od kojeg vrijedi, a vodočuvaru koji za taj dan, koji je prošao,
+        nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list) i
+        otvorenim dnevnicima održavanja tog područja.</li>
       <li>Na završetku se predaju aktivna dežurstva, upisuje kraj dnevnika, provjerava obračun,
         a voditelj COP-a dnevnik zaključuje i elektronički ovjerava.</li>
     </ol>
@@ -1020,8 +1022,22 @@
       unaprijed. Takav nacrt nastaje kad se na taj dan nešto upiše: rukovoditeljev upis („Upiši”),
       akt o obrani ili prijava s terena za sutrašnji dan. Vodočuvar ga zatim vidi u svom dnevniku
       i može ga dopuniti. Nacrt nema redni broj (na popisu piše „Nacrt bez broja”); broj dobiva
-      prvim spremanjem ili predajom kad njegov dan počne. Potpisati i predati list može se tek
-      od 00:00 toga dana, a ovjeriti tek predan list, i to kad njegov dan počne.</p>
+      prvim spremanjem ili predajom kad njegov dan počne, a najkasnije kad broj dobije list nekog
+      kasnijeg dana, i to prije njega, pa brojevi novih listova idu redom dana. Brojevi koje
+      listovi već imaju ne mijenjaju se. Potpisati i predati list može se tek od 00:00 toga dana,
+      a ovjeriti tek predan list, i to kad njegov dan počne.</p>
+    <p>List za dan koji je prošao (od 00:00 idućeg dana) više se ne otvara: tko list nije otvorio
+      na svoj dan, taj dan nije radio. Vodočuvar koji otvori takav dan, npr. jučerašnjim datumom u
+      adresi, vraća se na popis s porukom „za 09.10.2026. nema dnevnog lista, a list za dan koji je
+      prošao više se ne otvara: dnevni list otvara se na svoj dan”. Ni
+      rukovoditeljev „Upiši” za takav dan ne otvara list. List koji za prošli dan već postoji
+      (otvoren na svoj dan ili unaprijed) i dalje se dopunjuje, predaje, parafira i ovjerava. Ni
+      program ne otvara list za prošli dan: ovjeren akt o obrani koji vrijedi od dana za koji
+      vodočuvar nema lista upisuje se na njegov današnji list, uz napomenu od kada akt vrijedi, a
+      prijava s terena za takav dan na današnji list, uz dan događaja. Listovi preneseni iz ranije
+      evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj: akt ili prijava za dan s takvim
+      listom idu na današnji list, kao za dan bez lista, a rukovoditeljeva bilješka za taj dan
+      upisuje se na prenesen list.</p>
     <p>Jedan vodočuvar za jedan dan ima jedan dnevni list, i kad ga pišu dva čvora bez veze
       (npr. prijenosno računalo na terenu i poslužitelj sektora): nakon razmjene to je isti list.
       Predan list ima prednost pred nacrtom s drugog čvora, a bilješke rukovoditelja s nacrta
@@ -1059,7 +1075,8 @@
       Nacrt se može uređivati i obrisati samo prije objave.</p>
     <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
       fotografijama. Tada postaje službeni zapis i istodobno se upisuje na vodočuvarov dnevni
-      list za dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
+      list za dan događaja; kad za taj dan, koji je prošao, lista nema ili je list tog dana
+      prenesen iz ranije evidencije, upisuje se na današnji list, uz dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
       rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena
       njegova dionica ili objekt koji je u registru na njegovoj dionici; onu u kojoj nije navedena
       ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan (vodočuvar

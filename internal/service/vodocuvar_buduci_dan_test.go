@@ -91,13 +91,20 @@ func TestBuduciDanSamoNacrtBezBroja(t *testing.T) {
 		t.Errorf("sutrašnji nacrt: %+v %v", l, err)
 	}
 
-	// u ponoć ponedjeljka dan je počeo: spremanje daje sljedeći broj
+	// u ponoć ponedjeljka dan je počeo: spremanje daje sljedeći broj. Nacrt
+	// za sutra (nedjelja) nitko nije spremio na njegov dan, a brojevi idu
+	// redom dana (Odluke (8. 10. 2026.), pitanje 6): on dobiva broj 2 prije
+	// ponedjeljka, koji je zato 3 (dotad je ponedjeljak dobivao 2, a nedjelja
+	// broj tek kad je netko spremi).
 	o.vs.sad = func() time.Time { return ponedjeljak }
 	l, err = o.vs.Spremi(ctx, u, ponedjeljak, unos, false)
-	if err != nil || l.ID != nacrt.ID || l.Broj != 2 {
+	if err != nil || l.ID != nacrt.ID || l.Broj != 3 {
 		t.Fatalf("nacrt kad je dan počeo: %+v %v", l, err)
 	}
-	if l, err = o.vs.Spremi(ctx, u, ponedjeljak, unos, true); err != nil || !l.Predan() || l.Broj != 2 {
+	if l := o.vdListIzBaze(t, u, danas.AddDate(0, 0, 1)); l == nil || l.Broj != 2 {
+		t.Errorf("nacrt dana prije ponedjeljka: %+v", l)
+	}
+	if l, err = o.vs.Spremi(ctx, u, ponedjeljak, unos, true); err != nil || !l.Predan() || l.Broj != 3 {
 		t.Fatalf("predaja kad je dan počeo: %+v %v", l, err)
 	}
 	if ev := o.vdZadatakIzBaze(t, ustava.ID); ev.Status != models.ZadatakObavljen || ev.ListID != nacrt.ID {

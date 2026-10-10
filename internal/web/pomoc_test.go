@@ -239,17 +239,44 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 
 // Pomoć o dnevnom listu za budući dan (Odluke (8. 10. 2026.), pitanja 5 i
 // 6) ne obećava više od programa: redni broj nacrt dobiva prvim spremanjem
-// ili predajom kad njegov dan počne, ali kako se broj daje za tekući i
-// prošli dan nije promijenjeno, pa brojevi ne idu nužno redom dana. Pomoć
-// kaže i kako takav nacrt nastaje, jer vodočuvar budući dan ne otvara sam.
+// ili predajom kad njegov dan počne. Pomoć kaže i kako takav nacrt nastaje,
+// jer vodočuvar budući dan ne otvara sam. Do provedbe pitanja 6 pomoć nije
+// smjela reći da brojevi idu redom dana; sad to program jamči za nove
+// listove (nacrt ranijeg dana dobiva broj prije lista kasnijeg dana), a
+// postojeći brojevi se ne mijenjaju, pa pomoć to i kaže.
 func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
-	for _, ne := range []string{"idu redom dana", "vodočuvar u njega može upisati plan"} {
+	for _, ne := range []string{"vodočuvar u njega može upisati plan"} {
 		if strings.Contains(h, ne) {
 			t.Errorf("pomoć obećava %q", ne)
 		}
 	}
-	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne"} {
+	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne",
+		"pa brojevi novih listova idu redom dana", "Brojevi koje listovi već imaju ne mijenjaju se"} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
+// Pomoć o listu prenesenom iz ranije evidencije i danu koji je prošao
+// (Odluke (8. 10. 2026.), pitanje 6): prenesen list nikad ne dobiva redni
+// broj, a akt i prijava za njegov dan idu na današnji list, kao za dan bez
+// lista; rukovoditeljeva bilješka za taj dan ide na prenesen list. Poruka
+// vodočuvaru koji otvori prošli dan navodi se kako je program javlja i ne
+// upućuje ga da list priprema unaprijed.
+func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "ili unaprijed kao nacrt") {
+		t.Error("pomoć upućuje vodočuvara da list priprema unaprijed")
+	}
+	for _, da := range []string{
+		"„za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan”",
+		"nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list",
+		"Listovi preneseni iz ranije evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj",
+		"rukovoditeljeva bilješka za taj dan upisuje se na prenesen list",
+		"lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji list",
+	} {
 		if !strings.Contains(h, da) {
 			t.Errorf("pomoć ne kaže %q", da)
 		}

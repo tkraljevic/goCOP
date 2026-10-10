@@ -76,6 +76,7 @@ func TestZadatakVodiNaListPredanNaDrugomCvoru(t *testing.T) {
 
 	// list bez dvojnika i dalje daje sve zadatke koje drži evidencija
 	sutra := dan.AddDate(0, 0, 1)
+	o.naDan(sutra)
 	z := o.vdZadatak(t, u, "pokositi nasip", sutra)
 	l, err := o.vs.Spremi(ctx, u, sutra, vdUnos("košnja"), false)
 	if err != nil {

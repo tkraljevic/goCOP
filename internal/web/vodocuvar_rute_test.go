@@ -198,6 +198,16 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {markic.ID.String()}, "datum": {danas}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar ne upisuje kao rukovoditelj")
 	}
+	// List za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.),
+	// pitanje 6): vodočuvar koji prekjučerašnji datum upiše u adresu vraća
+	// se na popis s porukom, a ni rukovoditeljev „Upiši” ne otvara taj list.
+	prekjucer := time.Now().In(models.Zagreb).AddDate(0, 0, -2)
+	if l := loc(zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+prekjucer.Format("2006-01-02"), nil)); l != "/vodocuvar?error=za "+prekjucer.Format("02.01.2006.")+" nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan" {
+		t.Errorf("list za prošli dan: %s", l)
+	}
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {markic.ID.String()}, "datum": {prekjucer.Format("2006-01-02")}, "tekst": {"naknadna bilješka"}})); !strings.Contains(l, "error=Marko Markić nema dnevni list za "+prekjucer.Format("02.01.2006.")) {
+		t.Errorf("upis rukovoditelja za prošli dan bez lista: %s", l)
+	}
 
 	// današnji list: zadaci s imenom tko ih je zadao, očitanje letve
 	dan := zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+danas, nil)
@@ -338,9 +348,11 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if w := zovi(stranac, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+markic.ID.String(), nil); w.Code != http.StatusForbidden {
 		t.Errorf("tuđa knjiga bez prava: %d", w.Code)
 	}
-	// prošla godina je arhiva: u nju se ne upisuje
+	// prošla godina je arhiva: u nju se ne upisuje; list koji ondje nema ni
+	// ne nastaje, jer se list za dan koji je prošao više ne otvara (Odluke
+	// (8. 10. 2026.), pitanje 6; dotad je poruka bila „arhivirana”)
 	lani := time.Date(godina-1, 6, 1, 0, 0, 0, 0, models.Zagreb).Format("2006-01-02")
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", url.Values{"datum": {lani}, "od": {"08:00"}, "do": {"16:00"}, "opis": {"x"}, "radnja": {"spremi"}})); !strings.Contains(l, "arhivirana") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", url.Values{"datum": {lani}, "od": {"08:00"}, "do": {"16:00"}, "opis": {"x"}, "radnja": {"spremi"}})); !strings.Contains(l, "više se ne otvara") {
 		t.Errorf("upis u arhiviranu knjigu: %s", l)
 	}
 	if w := zovi(markic, http.MethodGet, "/vodocuvar?godina="+strconv.Itoa(godina-1), nil); !strings.Contains(w.Body.String(), "zaključena istekom godine") {
@@ -401,6 +413,13 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	if listovi, _ := vod.Moji(ctx, markic, time.Now().In(models.Zagreb).Year()); len(listovi) != 1 {
 		t.Fatalf("zabranjena predaja promijenila je dnevnik: %d listova", len(listovi))
+	}
+	// jučerašnji list postoji (pripremljen unaprijed kao nacrt), pa se i
+	// nakon svog dana predaje; nov list za jučer više se ne bi otvorio
+	// (Odluke (8. 10. 2026.), pitanje 6)
+	if err := repository.NewVodocuvarRepository(baza, rec).Save(ctx, &models.VodocuvarskiList{UserID: markic.ID.String(), Ime: markic.FullName, Sektor: "B", AreaID: 34,
+		Datum: time.Now().In(models.Zagreb).AddDate(0, 0, -1), Od: "07:30", Do: "15:30", Opis: "plan obilaska"}); err != nil {
+		t.Fatal(err)
 	}
 	simulacija = true
 	if s := tudjim(markic, http.MethodGet, "/vodocuvar/dan?datum="+jucer, nil).Body.String(); !strings.Contains(s, "simuliranim ključem") {

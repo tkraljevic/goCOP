@@ -444,6 +444,7 @@ func TestKnjigaKrozServis(t *testing.T) {
 	ctx := context.Background()
 	vs := k.o.vs
 	dan := vdDan(time.March, 10)
+	k.o.naDan(dan)
 	operater := k.osoba(models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector})
 	if _, err := vs.Upisi(ctx, operater, &operater.User, k.pero.ID.String(), dan, "Javljeno iz COP-a u 2 h"); err != nil {
 		t.Fatalf("bilješka operatera: %v", err)

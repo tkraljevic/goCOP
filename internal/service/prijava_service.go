@@ -263,8 +263,9 @@ func (s *PrijavaService) Slike(ctx context.Context, p *models.PrijavaSTerena) ma
 }
 
 // Objavi objavljuje nacrt: dodijeli broj, upiše prijavu na dnevni list
-// vodočuvara za dan događaja i spremi potpisani PDF kao izvornik; PDF gradi
-// pozivatelj (crta i potpisuje) nad prijavom kakva će biti objavljena.
+// vodočuvara za dan događaja (za prošli dan bez lista ili s listom prenesenim
+// iz ranije evidencije na današnji) i spremi potpisani PDF kao izvornik; PDF
+// gradi pozivatelj (crta i potpisuje) nad prijavom kakva će biti objavljena.
 // Objava i izvornik su jedna transakcija; upis na list slijedi, a ako ne
 // uspije vraća se kao upozorenje uz objavljenu prijavu.
 func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, izradi func(p *models.PrijavaSTerena) ([]byte, error)) (*models.PrijavaSTerena, string, error) {
@@ -284,8 +285,11 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 		return nil, "", fmt.Errorf("knjiga za %d. je arhivirana", dan.Year())
 	}
 	// list dana: postojeći ili novi, s brojem; list za dan koji još nije
-	// počeo ostaje nacrt bez broja
-	l, err := s.vodocuvar.pripremiZa(ctx, cijeli, dan)
+	// počeo ostaje nacrt bez broja. Za dan koji je prošao list se više ne
+	// otvara: bez lista tog dana, ili kad je list tog dana prenesen iz
+	// ranije evidencije, prijava ide na današnji list (Odluke (8. 10. 2026.),
+	// pitanje 6).
+	l, _, err := s.vodocuvar.listZaUpisPrograma(ctx, cijeli, dan)
 	if err != nil {
 		return nil, "", err
 	}
@@ -315,11 +319,23 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 		return nil, "", err
 	}
 	s.ObrisiSlikePoObjavi(ctx, p)
-	l.Prijave = append(l.Prijave, models.PrijavaNaListu{ID: p.ID, Oznaka: p.Oznaka(), Vrsta: p.Vrsta, Naslov: p.Naslov, Kad: sad})
+	l.Prijave = append(l.Prijave, prijavaNaListu(p, l, sad))
 	if err := s.vodocuvar.repo.Save(ctx, l); err != nil {
 		return p, "prijava je objavljena, ali upis na dnevni list nije uspio: " + err.Error(), nil
 	}
 	return p, "", nil
+}
+
+// prijavaNaListu je upis objavljene prijave na dnevni list vodočuvara. Kad
+// list nije list dana događaja (za taj dan, koji je prošao, nema lista, pa
+// je prijava upisana na današnji), uz naslov stoji dan događaja (Odluke
+// (8. 10. 2026.), pitanje 6).
+func prijavaNaListu(p *models.PrijavaSTerena, l *models.VodocuvarskiList, kad time.Time) models.PrijavaNaListu {
+	naslov := p.Naslov
+	if !istiDan(l.Datum, p.Datum) {
+		naslov += " (događaj od " + p.Datum.In(models.Zagreb).Format("02.01.2006.") + ")"
+	}
+	return models.PrijavaNaListu{ID: p.ID, Oznaka: p.Oznaka(), Vrsta: p.Vrsta, Naslov: naslov, Kad: kad}
 }
 
 // ErrTudjiNacrt: nacrt prijave postoji samo za vodočuvara koji ga piše, pa

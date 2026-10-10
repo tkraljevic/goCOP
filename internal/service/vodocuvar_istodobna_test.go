@@ -40,6 +40,7 @@ func TestIstodobnaPredajaIstogLista(t *testing.T) {
 			ctx := context.Background()
 			u := vdVodocuvar()
 			dan := vdDan(time.March, 10)
+			o.naDan(dan)
 			z := o.vdZadatak(t, u, "pregledati ustavu", dan)
 			if slucaj.nacrt {
 				if _, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false); err != nil {
@@ -123,6 +124,7 @@ func TestNacrtNePrepisujeListPredanUMedjuvremenu(t *testing.T) {
 			ctx := context.Background()
 			u := vdVodocuvar()
 			dan := vdDan(time.March, 10)
+			o.naDan(dan)
 			if slucaj.nacrt {
 				if _, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false); err != nil {
 					t.Fatal(err)
@@ -176,6 +178,7 @@ func TestUpisRukovoditeljaNePrepisujeListPredanUMedjuvremenu(t *testing.T) {
 				t.Fatalf("vodočuvar: %v %v", u, err)
 			}
 			dan := vdDan(time.March, 10)
+			o.naDan(dan)
 			if slucaj.nacrt {
 				if _, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false); err != nil {
 					t.Fatal(err)
@@ -279,6 +282,7 @@ func TestBrisanjeNeBriseListPredanUMedjuvremenu(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
 	if err != nil {
 		t.Fatal(err)
@@ -322,6 +326,7 @@ func TestObrisiNacrtSIzvornikom(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
 	if err != nil {
 		t.Fatal(err)
@@ -356,6 +361,7 @@ func TestIstodobnoBrisanjeIstogNacrta(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	nacrt, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false)
 	if err != nil {
 		t.Fatal(err)
