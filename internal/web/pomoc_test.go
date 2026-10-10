@@ -265,3 +265,20 @@ func TestPomocOPrenesenomListuSDrugogCvora(t *testing.T) {
 		t.Error("pomoć ne kaže da nacrt s drugog čvora ne zamjenjuje prenesen list")
 	}
 }
+
+// Nacrt akta sastavlja i ispravlja samo Centar obrane od poplava, ali to
+// provjerava tek računalo s novim izdanjem. Pomoć mora reći da računalo sa
+// starijom verzijom (0.0.34) i dalje pušta nacrt i izmjenu izvan centra, da
+// oni stižu razmjenom i zamjenjuju neovjereni nacrt, i da uz nacrt ne piše
+// tko ga je mijenjao (Odluke (8. 10. 2026.), pitanje 18).
+func TestPomocONacrtuAktaSaStarijegCvora(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, da := range []string{
+		"Računalo sa starijom verzijom (0.0.34) i dalje pušta da nacrt sastavi ili mijenja i netko izvan centra",
+		"stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše",
+	} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
