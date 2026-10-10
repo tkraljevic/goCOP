@@ -54,6 +54,38 @@ func TestUpisIzAktaNaBuduciDanBezBroja(t *testing.T) {
 	}
 }
 
+// Akt o obrani koji vrijedi od dana dalje od 30 dana unaprijed ne otvara
+// dnevni list vodočuvara, jer list za budući dan smije postojati najviše 30
+// dana unaprijed (Odluke (8. 10. 2026.), pitanje 5): umjesto lista vraća se
+// upozorenje. Za 30. dan unaprijed list nastaje kao nacrt bez broja.
+func TestUpisIzAktaNajvise30DanaUnaprijed(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero, _ := o.vdVodocuvarUBazi(t)
+	danas := vdDan(time.March, 10)
+	o.vs.sad = func() time.Time { return danas.Add(9 * time.Hour) }
+	akt := &models.Akt{Sektor: "P", AreaID: 1, Broj: 4, Godina: danas.Year(), OvjerioID: "01900000-0000-7000-8000-0000000017a2", Ovjerio: "Ana Anić"}
+
+	predaleko := danas.AddDate(0, 0, models.NajdaljePlaniranje+1)
+	upozorenja := o.vs.UpisiIzAkta(ctx, akt, predaleko, "pripremno stanje")
+	ocekivano := "dnevnici vodočuvara: dnevni list za budući dan priprema se najviše 30 dana unaprijed, do " +
+		danas.AddDate(0, 0, models.NajdaljePlaniranje).Format("02.01.2006.")
+	if len(upozorenja) != 1 || upozorenja[0] != ocekivano {
+		t.Errorf("upis iz akta dalje od 30 dana: %q", upozorenja)
+	}
+	if l := o.vdListIzBaze(t, pero, predaleko); l != nil {
+		t.Errorf("list dalje od 30 dana unaprijed ne smije nastati: %+v", l)
+	}
+
+	zadnji := danas.AddDate(0, 0, models.NajdaljePlaniranje)
+	if upozorenja := o.vs.UpisiIzAkta(ctx, akt, zadnji, "pripremno stanje"); len(upozorenja) != 0 {
+		t.Fatalf("upis iz akta 30 dana unaprijed: %v", upozorenja)
+	}
+	if l := o.vdListIzBaze(t, pero, zadnji); l == nil || l.Broj != 0 || len(l.Upisi) != 1 {
+		t.Errorf("list 30 dana unaprijed iz akta: %+v", l)
+	}
+}
+
 func TestObjavaPrijaveZaSutraNaNacrtBezBroja(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()

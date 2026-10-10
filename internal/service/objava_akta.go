@@ -178,10 +178,16 @@ func prvaDionica(a *models.Akt) string {
 }
 
 // UpisiIzAkta upisuje bilješku o aktu u dnevni list svakog vodočuvara
-// branjenog područja na dan od kojeg akt vrijedi; list nastaje ako ga nema
+// branjenog područja na dan od kojeg akt vrijedi; list nastaje ako ga nema.
+// List za budući dan smije postojati najviše 30 dana unaprijed (Odluke
+// (8. 10. 2026.), pitanje 5): za dan dalje od toga akt se ne upisuje u
+// dnevnike vodočuvara, nego se vraća upozorenje.
 func (s *VodocuvarService) UpisiIzAkta(ctx context.Context, a *models.Akt, dan time.Time, tekst string) []string {
 	if s == nil || a == nil || Arhivirana(dan.Year()) {
 		return nil
+	}
+	if err := provjeriDanLista(dan, s.sada()); err != nil {
+		return []string{"dnevnici vodočuvara: " + err.Error()}
 	}
 	svi, err := s.users.ListUsers("", 0, "", "", "active")
 	if err != nil {
