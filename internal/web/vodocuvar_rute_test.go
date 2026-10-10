@@ -72,25 +72,25 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, bp := "B", 34
-	markic := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
-	if err := userRepo.CreateUser(markic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+	anic := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	if err := userRepo.CreateUser(anic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
 	ivic := &models.User{ID: uuid.New(), Username: "iivic", FullName: "Ivo Ivić", IsActive: true}
 	if err := userRepo.CreateUser(ivic, &models.Duty{Title: "Rukovoditelj dionice B.34.1", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
-	strojar := &models.User{ID: uuid.New(), Username: "strojar", FullName: "Stipe Strojar", IsActive: true}
+	strojar := &models.User{ID: uuid.New(), Username: "ivaivic", FullName: "Iva Ivić", IsActive: true}
 	if err := userRepo.CreateUser(strojar, &models.Duty{Title: "Strojar CS Batina", Role: models.RoleMachinist, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
-	seit := &models.User{ID: uuid.New(), Username: "seit", FullName: "Seit Vodočuvar", IsActive: true}
-	if err := userRepo.CreateUser(seit, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
+	markic := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
+	if err := userRepo.CreateUser(markic, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
 	// vodočuvar je danas očitao letvu
 	lvl := 114
-	if err := readingRepo.Create(ctx, &models.Reading{ID: uuid.New(), StationID: st.ID.String(), MeasuredAt: time.Now(), LevelCm: &lvl, Source: "MANUAL", UserID: seit.ID.String()}); err != nil {
+	if err := readingRepo.Create(ctx, &models.Reading{ID: uuid.New(), StationID: st.ID.String(), MeasuredAt: time.Now(), LevelCm: &lvl, Source: "MANUAL", UserID: markic.ID.String()}); err != nil {
 		t.Fatal(err)
 	}
 	orgRepo := repository.NewOrgRepository(baza, rec)
@@ -159,27 +159,27 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	danas := time.Now().In(models.Zagreb).Format("2006-01-02")
 
 	// rukovoditelj BP zada dva zadatka; vodočuvar ne smije zadavati
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"Deponija pijeska Batina"}})); !strings.Contains(l, "success") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"Deponija pijeska Batina"}})); !strings.Contains(l, "success") {
 		t.Fatalf("zadatak: %s", l)
 	}
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"Potok Karašica"}})); !strings.Contains(l, "success") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"Potok Karašica"}})); !strings.Contains(l, "success") {
 		t.Fatalf("zadatak 2: %s", l)
 	}
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar ne zadaje zadatke sam sebi")
 	}
 	// planirani zadatak: za prekosutra, ne dalje od 30 dana, ne u prošlost; na današnjem listu ga nema
 	prekosutra := time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("2006-01-02")
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"Nasip Zmajevac"}, "za": {prekosutra}})); !strings.Contains(l, "na listu za") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"Nasip Zmajevac"}, "za": {prekosutra}})); !strings.Contains(l, "na listu za") {
 		t.Fatalf("planirani zadatak: %s", l)
 	}
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"predaleko"}, "za": {time.Now().AddDate(0, 0, 45).Format("2006-01-02")}})); !strings.Contains(l, "30 dana") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"predaleko"}, "za": {time.Now().AddDate(0, 0, 45).Format("2006-01-02")}})); !strings.Contains(l, "30 dana") {
 		t.Errorf("predaleko planiranje: %s", l)
 	}
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {seit.ID.String()}, "tekst": {"prošlost"}, "za": {"2020-01-01"}})); !strings.Contains(l, "prošli dan") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/zadatak", url.Values{"vodocuvar": {markic.ID.String()}, "tekst": {"prošlost"}, "za": {"2020-01-01"}})); !strings.Contains(l, "prošli dan") {
 		t.Errorf("planiranje u prošlost: %s", l)
 	}
-	kal := zovi(markic, http.MethodGet, "/vodocuvar/kalendar?vodocuvar="+seit.ID.String()+"&mjesec="+time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("2006-01"), nil)
+	kal := zovi(anic, http.MethodGet, "/vodocuvar/kalendar?vodocuvar="+markic.ID.String()+"&mjesec="+time.Now().In(models.Zagreb).AddDate(0, 0, 2).Format("2006-01"), nil)
 	if kal.Code != http.StatusOK || !strings.Contains(kal.Body.String(), "Nasip Zmajevac") || !strings.Contains(kal.Body.String(), "kal-dan") {
 		t.Fatalf("kalendar: %d\n%.600s", kal.Code, kal.Body.String())
 	}
@@ -189,16 +189,16 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 
 	// ovlaštenik/rukovoditelj dionice upisuje bilješku izravno u dnevnik, neovisno o zadacima
-	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {seit.ID.String()}, "datum": {danas}, "tekst": {"Obilazak nasipa s ovlaštenikom u 10 h"}})); !strings.Contains(l, "success") {
+	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {markic.ID.String()}, "datum": {danas}, "tekst": {"Obilazak nasipa s ovlaštenikom u 10 h"}})); !strings.Contains(l, "success") {
 		t.Fatalf("upis rukovoditelja: %s", l)
 	}
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {seit.ID.String()}, "datum": {danas}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {markic.ID.String()}, "datum": {danas}, "tekst": {"sam sebi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar ne upisuje kao rukovoditelj")
 	}
 
 	// današnji list: zadaci s imenom tko ih je zadao, očitanje letve
-	dan := zovi(seit, http.MethodGet, "/vodocuvar/dan?datum="+danas, nil)
-	for _, x := range []string{"Deponija pijeska Batina", "Potok Karašica", "zadao Marko Markić", "114 cm (", "Potpiši i predaj", "Obilazak nasipa s ovlaštenikom", "upisao Ivo Ivić"} {
+	dan := zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+danas, nil)
+	for _, x := range []string{"Deponija pijeska Batina", "Potok Karašica", "zadao Ana Anić", "114 cm (", "Potpiši i predaj", "Obilazak nasipa s ovlaštenikom", "upisao Ivo Ivić"} {
 		if !strings.Contains(dan.Body.String(), x) {
 			t.Fatalf("današnji list nema %q:\n%.1500s", x, dan.Body.String())
 		}
@@ -207,7 +207,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Errorf("na današnjem listu su samo dva zadatka, ne i planirani za prekosutra: %d", strings.Count(dan.Body.String(), `name="zadatak_obavljeno_`))
 	}
 	// zadatak ID-ovi iz obrasca
-	zadaci := vod.Zadaci(ctx, seit.ID.String())
+	zadaci := vod.Zadaci(ctx, markic.ID.String())
 	if len(zadaci) != 3 {
 		t.Fatalf("zadataka: %d", len(zadaci))
 	}
@@ -221,15 +221,15 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		}
 	}
 	// vodočuvar i rukovoditelj BP naprave potpisni ključ u profilu; bez lozinke ne ide
-	if l := loc(zovi(seit, http.MethodPost, "/profile/potpisni-kljuc", url.Values{"radnja": {"novi"}})); !strings.Contains(l, "error") {
+	if l := loc(zovi(markic, http.MethodPost, "/profile/potpisni-kljuc", url.Values{"radnja": {"novi"}})); !strings.Contains(l, "error") {
 		t.Error("ključ bez lozinke")
 	}
-	for _, u := range []*models.User{seit, markic} {
+	for _, u := range []*models.User{markic, anic} {
 		if l := loc(zovi(u, http.MethodPost, "/profile/potpisni-kljuc", url.Values{"radnja": {"novi"}, "lozinka": {"tajna" + u.Username}})); !strings.Contains(l, "success") {
 			t.Fatalf("ključ za %s: %s", u.Username, l)
 		}
 	}
-	if k := potpisi.Zapis(ctx, seit.ID.String()); k == nil || k.Izdao != "cop-osijek" {
+	if k := potpisi.Zapis(ctx, markic.ID.String()); k == nil || k.Izdao != "cop-osijek" {
 		t.Fatal("ključ vodočuvara nije spremljen")
 	}
 
@@ -237,36 +237,36 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	forma := url.Values{"datum": {danas}, "od": {"08:00"}, "do": {"16:00"}, "prilike": {"sunčano, vruće"}, "opis": {"- obilazak deponije pijeska u Batini\n- obilazak vodotoka"}, "zapazanja": {"Bilje: +114 (d.o.)"},
 		"zadatak_status_" + z1: {"OBAVLJEN"}, "zadatak_obavljeno_" + z1: {"obiđeno, deponija u redu"}, "zadatak_status_" + z2: {"OTVOREN"}, "radnja": {"predaj"}}
 	// s ključem predaja prvo traži lozinku, i to pravu; list dotad ostaje nepredan
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "lozinku") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "lozinku") {
 		t.Fatalf("predaja bez lozinke: %s", l)
 	}
 	forma.Set("lozinka", "kriva")
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "error") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "error") {
 		t.Fatalf("predaja krivom lozinkom: %s", l)
 	}
-	forma.Set("lozinka", "tajnaseit")
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "obrazložite") {
+	forma.Set("lozinka", "tajnammarkic")
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "obrazložite") {
 		t.Fatalf("predaja bez obrazloženja: %s", l)
 	}
 	forma.Set("zadatak_obavljeno_"+z2, "nije stigao, sutra")
-	l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma))
+	l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", forma))
 	if !strings.Contains(l, "predan") {
 		t.Fatalf("predaja: %s", l)
 	}
 	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/vodocuvar/")
-	list := zovi(seit, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
-	for _, x := range []string{"Dnevni list 1", "obavljeno", "nije obavljeno, prenosi se", "nije stigao, sutra", "8,0 sati", "čeka ovjeru", "Seit Vodočuvar"} {
+	list := zovi(markic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
+	for _, x := range []string{"Dnevni list 1", "obavljeno", "nije obavljeno, prenosi se", "nije stigao, sutra", "8,0 sati", "čeka ovjeru", "Marko Markić"} {
 		if !strings.Contains(list, x) {
 			t.Errorf("predani list nema %q", x)
 		}
 	}
 	// predan list se ne mijenja
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "više se ne mijenja") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", forma)); !strings.Contains(l, "više se ne mijenja") {
 		t.Errorf("predan list: %s", l)
 	}
 	// neobavljeni zadatak je na sutrašnjem listu, obavljeni nije
 	sutra := time.Now().In(models.Zagreb).Add(24 * time.Hour).Format("2006-01-02")
-	dan2 := zovi(seit, http.MethodGet, "/vodocuvar/dan?datum="+sutra, nil).Body.String()
+	dan2 := zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+sutra, nil).Body.String()
 	// u obrascu je samo neobavljeni zadatak; obavljeni ostaje u pregledu zadataka pri dnu
 	if !strings.Contains(dan2, "Potok Karašica") || strings.Count(dan2, "zadatak_status_") != 3 {
 		// prekosutrašnji zadatak nije još na sutrašnjem listu: samo Karašica
@@ -277,78 +277,78 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Error("rukovoditelj dionice ne ovjerava list")
 	}
 	// izvornik predaje: jedan valjan potpis vodočuvara, preko cijelog dokumenta
-	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(markic), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar (seit)" || !strings.Contains(ps[0].Razlog, "Predaja") {
+	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(anic), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Marko Markić (mmarkic)" || !strings.Contains(ps[0].Razlog, "Predaja") {
 		t.Fatalf("potpis predaje: %+v", ps)
 	}
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"kriva"}})); !strings.Contains(l, "error") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"kriva"}})); !strings.Contains(l, "error") {
 		t.Fatalf("ovjera krivom lozinkom: %s", l)
 	}
-	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"tajnammarkic"}})); !strings.Contains(l, "ovjeren") {
+	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}, "lozinka": {"tajnaaanic"}})); !strings.Contains(l, "ovjeren") {
 		t.Fatalf("ovjera: %s", l)
 	}
 	// izvornik ovjere: potpis vodočuvara i dalje valjan, ovjera preko cijelog dokumenta
-	izvornik := mustIzvornik(t, vod, kao(markic), id)
-	if ps := potpisi.Provjeri(ctx, izvornik); len(ps) != 2 || !ps[0].Valjan || ps[0].Cijeli || !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Marko Markić (mmarkic)" || ps[1].Funkcija != "Rukovoditelj BP 34" {
+	izvornik := mustIzvornik(t, vod, kao(anic), id)
+	if ps := potpisi.Provjeri(ctx, izvornik); len(ps) != 2 || !ps[0].Valjan || ps[0].Cijeli || !ps[1].Valjan || !ps[1].Cijeli || ps[1].Ime != "Ana Anić (aanic)" || ps[1].Funkcija != "Rukovoditelj BP 34" {
 		t.Fatalf("potpisi ovjere: %+v", ps)
 	}
 	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"parafiraj"}})); !strings.Contains(l, "parafiran") {
 		t.Fatalf("parafa: %s", l)
 	}
-	list = zovi(markic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
-	if !strings.Contains(list, "ovjerio Marko Markić") || !strings.Contains(list, "Ivo Ivić") {
+	list = zovi(anic, http.MethodGet, "/vodocuvar/"+id, nil).Body.String()
+	if !strings.Contains(list, "ovjerio Ana Anić") || !strings.Contains(list, "Ivo Ivić") {
 		t.Error("list ne pokazuje ovjeru i parafu")
 	}
 	if strings.Count(list, "elektronički potpisao") != 2 || !strings.Contains(list, "pokriva cijeli dokument") {
 		t.Error("list ne pokazuje oba elektronička potpisa iz izvornika")
 	}
 	// PDF lista je izvornik s potpisima, ne novi crtež
-	if pdf := zovi(markic, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil); !bytes.Equal(pdf.Body.Bytes(), izvornik) {
+	if pdf := zovi(anic, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil); !bytes.Equal(pdf.Body.Bytes(), izvornik) {
 		t.Error("PDF lista nije izvornik")
 	}
-	if pem := zovi(markic, http.MethodGet, "/potpis/izdavatelj.pem", nil).Body.String(); !strings.HasPrefix(pem, "-----BEGIN CERTIFICATE-----") {
+	if pem := zovi(anic, http.MethodGet, "/potpis/izdavatelj.pem", nil).Body.String(); !strings.HasPrefix(pem, "-----BEGIN CERTIFICATE-----") {
 		t.Error("certifikat izdavatelja")
 	}
 	// PDF kao papir (crtež bez izvornika, za knjigu; ovdje list bez potpisa)
-	pdf := zovi(markic, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil)
+	pdf := zovi(anic, http.MethodGet, "/vodocuvar/"+id+"/list.pdf", nil)
 	if !bytes.HasPrefix(pdf.Body.Bytes(), []byte("%PDF")) {
 		t.Fatal("PDF lista")
 	}
 	tekst := pdfTekst(t, pdf.Body.Bytes())
-	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "obilazak deponije", "Vodočuvar", "Rukovoditelj branjenog područja", "ELEKTRONIČKI POTPISANO U goCOP-u", "Seit Vodočuvar", "Marko Markić", "001"} {
+	for _, x := range []string{"DNEVNI LIST", "Naredbe rukovoditelja", "1. Deponija pijeska Batina", "2. Potok Karašica", "3. Obilazak nasipa", "upisao Ivo Ivić", "Opis radnih aktivnosti", "obilazak deponije", "Vodočuvar", "Rukovoditelj branjenog područja", "ELEKTRONIČKI POTPISANO U goCOP-u", "Marko Markić", "Ana Anić", "001"} {
 		if !strings.Contains(tekst, x) {
 			t.Errorf("PDF nema %q:\n%s", x, tekst)
 		}
 	}
 	// cijela knjiga: naslovna stranica i list po stranici; tuđu knjigu vidi rukovoditelj, ne bilo tko
 	godina := time.Now().In(models.Zagreb).Year()
-	knjiga := zovi(markic, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+seit.ID.String()+"&godina="+strconv.Itoa(godina), nil)
+	knjiga := zovi(anic, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+markic.ID.String()+"&godina="+strconv.Itoa(godina), nil)
 	if knjiga.Code != http.StatusOK || !bytes.HasPrefix(knjiga.Body.Bytes(), []byte("%PDF")) || bytes.Count(knjiga.Body.Bytes(), []byte("/Type /Page /Parent")) < 2 {
 		t.Errorf("knjiga: %d, stranica %d", knjiga.Code, bytes.Count(knjiga.Body.Bytes(), []byte("/Type /Page /Parent")))
 	}
-	if tk := pdfTekst(t, knjiga.Body.Bytes()); !strings.Contains(tk, "VODOČUVARSKI DNEVNIK") || !strings.Contains(tk, "Seit Vodočuvar") {
+	if tk := pdfTekst(t, knjiga.Body.Bytes()); !strings.Contains(tk, "VODOČUVARSKI DNEVNIK") || !strings.Contains(tk, "Marko Markić") {
 		t.Errorf("knjiga bez naslovnice: %.300s", tk)
 	}
 	stranac := &models.User{ID: uuid.New(), Username: "stranac", FullName: "Netko Drugi", IsActive: true}
 	if err := userRepo.CreateUser(stranac, nil); err != nil {
 		t.Fatal(err)
 	}
-	if w := zovi(stranac, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+seit.ID.String(), nil); w.Code != http.StatusForbidden {
+	if w := zovi(stranac, http.MethodGet, "/vodocuvar/knjiga.pdf?vodocuvar="+markic.ID.String(), nil); w.Code != http.StatusForbidden {
 		t.Errorf("tuđa knjiga bez prava: %d", w.Code)
 	}
 	// prošla godina je arhiva: u nju se ne upisuje
 	lani := time.Date(godina-1, 6, 1, 0, 0, 0, 0, models.Zagreb).Format("2006-01-02")
-	if l := loc(zovi(seit, http.MethodPost, "/vodocuvar/spremi", url.Values{"datum": {lani}, "od": {"08:00"}, "do": {"16:00"}, "opis": {"x"}, "radnja": {"spremi"}})); !strings.Contains(l, "arhivirana") {
+	if l := loc(zovi(markic, http.MethodPost, "/vodocuvar/spremi", url.Values{"datum": {lani}, "od": {"08:00"}, "do": {"16:00"}, "opis": {"x"}, "radnja": {"spremi"}})); !strings.Contains(l, "arhivirana") {
 		t.Errorf("upis u arhiviranu knjigu: %s", l)
 	}
-	if w := zovi(seit, http.MethodGet, "/vodocuvar?godina="+strconv.Itoa(godina-1), nil); !strings.Contains(w.Body.String(), "zaključena istekom godine") {
+	if w := zovi(markic, http.MethodGet, "/vodocuvar?godina="+strconv.Itoa(godina-1), nil); !strings.Contains(w.Body.String(), "zaključena istekom godine") {
 		t.Error("arhivirana godina nema oznaku")
 	}
 
 	// popis: vodočuvar vidi svoj dnevnik, rukovoditelj listove koji čekaju
-	if w := zovi(markic, http.MethodGet, "/vodocuvar?ceka=1", nil); strings.Contains(w.Body.String(), "čeka ovjeru</span>") {
+	if w := zovi(anic, http.MethodGet, "/vodocuvar?ceka=1", nil); strings.Contains(w.Body.String(), "čeka ovjeru</span>") {
 		t.Error("ovjeren list ne čeka ovjeru")
 	}
-	if w := zovi(markic, http.MethodGet, "/vodocuvar?sektor=B&podrucje=34", nil); !strings.Contains(w.Body.String(), "Seit Vodočuvar") || !strings.Contains(w.Body.String(), "Zadaj zadatak") || !strings.Contains(w.Body.String(), "sva branjena područja") {
+	if w := zovi(anic, http.MethodGet, "/vodocuvar?sektor=B&podrucje=34", nil); !strings.Contains(w.Body.String(), "Marko Markić") || !strings.Contains(w.Body.String(), "Zadaj zadatak") || !strings.Contains(w.Body.String(), "sva branjena područja") {
 		t.Error("rukovoditelj vidi listove vodočuvara i zadaje zadatke")
 	}
 	// geokodiranje preko probnog OpenStreetMapa
@@ -368,7 +368,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if w := zovi(admin, http.MethodGet, "/administracija/potpisi", nil); !strings.Contains(w.Body.String(), "goCOP cop-osijek") || strings.Count(w.Body.String(), "<tr><td>") != 3 {
 		t.Errorf("administracija potpisa: %d, %d redaka", w.Code, strings.Count(w.Body.String(), "<tr><td>"))
 	}
-	if w := zovi(markic, http.MethodGet, "/administracija/potpisi", nil); w.Code != http.StatusForbidden {
+	if w := zovi(anic, http.MethodGet, "/administracija/potpisi", nil); w.Code != http.StatusForbidden {
 		t.Errorf("rukovoditelj BP u administraciji potpisa: %d", w.Code)
 	}
 
@@ -393,33 +393,33 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	formaJucer := url.Values{"datum": {jucer}, "od": {"07:30"}, "do": {"15:30"}, "opis": {"proba simulacije"}, "radnja": {"predaj"}}
 	// Bez opcije gledanje tuđim očima ne smije potpisati ni kad promatrana
 	// osoba ima pravi ključ: samo izričita simulacija stvara testni potpis.
-	if l := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer)); !strings.Contains(l, "nije dopu") {
+	if l := loc(tudjim(markic, http.MethodPost, "/vodocuvar/spremi", formaJucer)); !strings.Contains(l, "nije dopu") {
 		t.Fatalf("tuđim očima bez simulacije: %s", l)
 	}
-	if listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year()); len(listovi) != 1 {
+	if listovi, _ := vod.Moji(ctx, markic, time.Now().In(models.Zagreb).Year()); len(listovi) != 1 {
 		t.Fatalf("zabranjena predaja promijenila je dnevnik: %d listova", len(listovi))
 	}
 	simulacija = true
-	if s := tudjim(seit, http.MethodGet, "/vodocuvar/dan?datum="+jucer, nil).Body.String(); !strings.Contains(s, "simuliranim ključem") {
+	if s := tudjim(markic, http.MethodGet, "/vodocuvar/dan?datum="+jucer, nil).Body.String(); !strings.Contains(s, "simuliranim ključem") {
 		t.Error("obrazac ne najavljuje simulaciju")
 	}
-	lJucer := loc(tudjim(seit, http.MethodPost, "/vodocuvar/spremi", formaJucer))
+	lJucer := loc(tudjim(markic, http.MethodPost, "/vodocuvar/spremi", formaJucer))
 	if !strings.Contains(lJucer, "predan") {
 		t.Fatalf("predaja simulacijom: %s", lJucer)
 	}
 	idJucer := strings.TrimPrefix(strings.SplitN(lJucer, "?", 2)[0], "/vodocuvar/")
-	sim := mustIzvornik(t, vod, kao(markic), idJucer)
+	sim := mustIzvornik(t, vod, kao(anic), idJucer)
 	if ps := potpisi.Provjeri(ctx, sim); len(ps) != 1 || !ps[0].Simulacija || !ps[0].Valjan || !strings.Contains(ps[0].Ime, "(SIMULACIJA)") || !strings.Contains(ps[0].Razlog, "SIMULACIJA") {
 		t.Fatalf("simulirani potpis: %+v", ps)
 	}
-	if s := zovi(markic, http.MethodGet, "/vodocuvar/"+idJucer, nil).Body.String(); !strings.Contains(s, "SIMULIRANI potpis, bezvrijedan") {
+	if s := zovi(anic, http.MethodGet, "/vodocuvar/"+idJucer, nil).Body.String(); !strings.Contains(s, "SIMULIRANI potpis, bezvrijedan") {
 		t.Error("list ne označava simulirani potpis")
 	}
 	// ovjera simulacijom očima rukovoditelja: drugi potpis, pečat ostaje jedan
-	if l := loc(tudjim(markic, http.MethodPost, "/vodocuvar/"+idJucer+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "ovjeren") {
+	if l := loc(tudjim(anic, http.MethodPost, "/vodocuvar/"+idJucer+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "ovjeren") {
 		t.Fatalf("ovjera simulacijom: %s", l)
 	}
-	sim = mustIzvornik(t, vod, kao(markic), idJucer)
+	sim = mustIzvornik(t, vod, kao(anic), idJucer)
 	if ps := potpisi.Provjeri(ctx, sim); len(ps) != 2 || !ps[1].Simulacija || !ps[1].Valjan || !ps[0].Valjan {
 		t.Fatalf("potpisi nakon ovjere simulacijom: %+v", ps)
 	}
@@ -427,7 +427,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if os.Getenv("PROBA_PDF") != "" {
 		_ = os.WriteFile(os.Getenv("PROBA_PDF"), sim, 0o644)
 	}
-	if w := zovi(seit, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); w.Code != http.StatusForbidden {
+	if w := zovi(markic, http.MethodGet, "/organizacija/geokod?q=Osijek", nil); w.Code != http.StatusForbidden {
 		t.Error("geokodiranje je za administratore")
 	}
 	// skupno traženje ide kao posao s trakom napretka
@@ -463,7 +463,7 @@ func pdfTekst(t *testing.T, pdf []byte) string {
 	t.Helper()
 	if _, err := exec.LookPath("pdftotext"); err != nil {
 		t.Log("pdftotext nije dostupan; tekst PDF-a se ne provjerava")
-		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica 3. Obilazak nasipa upisao Ivo Ivić Opis radnih aktivnosti 1. obilazak deponije Vodočuvar Rukovoditelj branjenog područja ELEKTRONIČKI POTPISANO U goCOP-u Seit Vodočuvar Marko Markić 001 VODOČUVARSKI DNEVNIK Seit Vodočuvar"
+		return "DNEVNI LIST Naredbe rukovoditelja 1. Deponija pijeska Batina 2. Potok Karašica 3. Obilazak nasipa upisao Ivo Ivić Opis radnih aktivnosti 1. obilazak deponije Vodočuvar Rukovoditelj branjenog područja ELEKTRONIČKI POTPISANO U goCOP-u Marko Markić Ana Anić 001 VODOČUVARSKI DNEVNIK Marko Markić"
 	}
 	put := filepath.Join(t.TempDir(), "list.pdf")
 	_ = os.WriteFile(put, pdf, 0o644)

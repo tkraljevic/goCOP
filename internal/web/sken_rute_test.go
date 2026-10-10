@@ -70,8 +70,8 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, bp := "B", 34
-	markic := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
-	if err := userRepo.CreateUser(markic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+	anic := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	if err := userRepo.CreateUser(anic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
 	dionica := &models.User{ID: uuid.New(), Username: "iivic", FullName: "Ivo Ivić", IsActive: true}
@@ -132,7 +132,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
 
 	stranica := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
-	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Marko Markić"} {
+	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Ana Anić"} {
 		if !strings.Contains(stranica, ocekivano) {
 			t.Fatalf("stranica nacrta nema %q", ocekivano)
 		}
@@ -161,7 +161,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}{
 		{"bez potpisnika", "", sken.Bytes(), "potpis"},
 		{"bez prava", dionica.ID.String(), sken.Bytes(), "ne smije ovjeriti"},
-		{"nije sken", markic.ID.String(), []byte("nešto"), "PDF"},
+		{"nije sken", anic.ID.String(), []byte("nešto"), "PDF"},
 	} {
 		if loc := posalji(id, c.potpisnik, "sken.png", c.podaci); !strings.Contains(loc, "error") || !strings.Contains(loc, c.greska) {
 			t.Errorf("%s: %s", c.opis, loc)
@@ -170,11 +170,11 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 
 	// skener daje PDF; on je izvornik bajt za bajt
 	skenPDF := []byte("%PDF-1.4\n% sken s potpisom i žigom\n%%EOF\n")
-	if loc := posalji(id, markic.ID.String(), "sken.pdf", skenPDF); !strings.Contains(loc, "success") {
+	if loc := posalji(id, anic.ID.String(), "sken.pdf", skenPDF); !strings.Contains(loc, "success") {
 		t.Fatalf("sken odbijen: %s", loc)
 	}
 	a, _ := akti.Get(ctx, id)
-	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Marko Markić" || a.Broj != 1 {
+	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Ana Anić" || a.Broj != 1 {
 		t.Fatalf("ovjera skenom: %+v", a)
 	}
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhasePrep {
@@ -187,7 +187,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if !strings.Contains(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String(), "Potpisan vlastoručno i ovjeren žigom") {
 		t.Error("stranica ne pokazuje ručni potpis")
 	}
-	if loc := posalji(id, markic.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
+	if loc := posalji(id, anic.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
 		t.Errorf("ponovni sken: %s", loc)
 	}
 

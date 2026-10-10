@@ -78,15 +78,15 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
 	ctx := context.Background()
 	b, bp := "B", 34
+	anic := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	if err := userRepo.CreateUser(anic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
 	markic := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
-	if err := userRepo.CreateUser(markic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+	if err := userRepo.CreateUser(markic, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
-	seit := &models.User{ID: uuid.New(), Username: "seit", FullName: "Seit Vodočuvar", IsActive: true}
-	if err := userRepo.CreateUser(seit, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
-		t.Fatal(err)
-	}
-	strojar := &models.User{ID: uuid.New(), Username: "strojar", FullName: "Stipe Strojar", IsActive: true}
+	strojar := &models.User{ID: uuid.New(), Username: "ivaivic", FullName: "Iva Ivić", IsActive: true}
 	if err := userRepo.CreateUser(strojar, &models.Duty{Title: "Strojar", Role: models.RoleMachinist, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
@@ -170,7 +170,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if w := get(strojar, "/prijave"); w.Code != http.StatusForbidden {
 		t.Errorf("strojar na prijavama: %d", w.Code)
 	}
-	if s := get(seit, "/prijave/nova").Body.String(); !strings.Contains(s, "Nova prijava s terena") || !strings.Contains(s, "karta-izbor") {
+	if s := get(markic, "/prijave/nova").Body.String(); !strings.Contains(s, "Nova prijava s terena") || !strings.Contains(s, "karta-izbor") {
 		t.Fatal("obrazac nove prijave")
 	}
 
@@ -189,40 +189,40 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	_ = mw.Close()
 	r := httptest.NewRequest(http.MethodPost, "/prijave", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
-	l := loc(zovi(seit, r))
+	l := loc(zovi(markic, r))
 	if !strings.Contains(l, "success") || !strings.Contains(l, "2 fotografija") {
 		t.Fatalf("nacrt: %s", l)
 	}
 	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/prijave/")
-	p, _ := prijave.Get(ctx, kao(seit), id)
+	p, _ := prijave.Get(ctx, kao(markic), id)
 	if p == nil || p.Status != models.PrijavaNacrt || len(p.Slike) != 2 || p.Slike[0].Sirina != 1000 || p.Slike[0].Visina != 750 || p.Slike[0].Bajtova > 300<<10 || !p.ImaKoordinate() || p.AreaID != 34 {
 		t.Fatalf("nacrt: %+v", p)
 	}
-	if s := get(seit, "/prijave/"+id).Body.String(); !strings.Contains(s, "Oštećena rampa") || !strings.Contains(s, "Objavi i potpiši") || strings.Count(s, "/slika/") < 2 || !strings.Contains(s, "karta-letve") {
+	if s := get(markic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Oštećena rampa") || !strings.Contains(s, "Objavi i potpiši") || strings.Count(s, "/slika/") < 2 || !strings.Contains(s, "karta-letve") {
 		t.Error("stranica nacrta")
 	}
-	if w := get(seit, "/prijave/"+id+"/slika/"+p.Slike[0].ID); w.Code != 200 || w.Header().Get("Content-Type") != "image/jpeg" {
+	if w := get(markic, "/prijave/"+id+"/slika/"+p.Slike[0].ID); w.Code != 200 || w.Header().Get("Content-Type") != "image/jpeg" {
 		t.Errorf("slika: %d %s", w.Code, w.Header().Get("Content-Type"))
 	}
 	// nacrt vidi samo vodočuvar
-	if w := get(markic, "/prijave/"+id); w.Code != http.StatusNotFound {
+	if w := get(anic, "/prijave/"+id); w.Code != http.StatusNotFound {
 		t.Errorf("rukovoditelj vidi tuđi nacrt: %d", w.Code)
 	}
-	if w := forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}}); !strings.Contains(loc(w), "error") {
+	if w := forma(anic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}}); !strings.Contains(loc(w), "error") {
 		t.Error("rukovoditelj objavio tuđi nacrt")
 	}
 
 	// objava: s ključem traži lozinku; potpisani PDF je izvornik, upis na listu
-	if _, err := potpisi.Novi(ctx, seit, "tajnaseit"); err != nil {
+	if _, err := potpisi.Novi(ctx, markic, "tajnammarkic"); err != nil {
 		t.Fatal(err)
 	}
-	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}})); !strings.Contains(l, "lozinku") {
+	if l := loc(forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}})); !strings.Contains(l, "lozinku") {
 		t.Fatalf("objava bez lozinke: %s", l)
 	}
-	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}, "lozinka": {"tajnaseit"}})); !strings.Contains(l, "potpisana") {
+	if l := loc(forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"objavi"}, "lozinka": {"tajnammarkic"}})); !strings.Contains(l, "potpisana") {
 		t.Fatalf("objava: %s", l)
 	}
-	p, _ = prijave.Get(ctx, kao(seit), id)
+	p, _ = prijave.Get(ctx, kao(markic), id)
 	if p == nil || !p.Objavljena() || p.Broj != 1 || p.Oznaka() != "B-T-1/"+danas[:4] || p.ListID == "" || p.ListBroj != 1 {
 		t.Fatalf("objavljena prijava: %+v", p)
 	}
@@ -233,7 +233,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if put := os.Getenv("PROBA_PDF"); put != "" {
 		_ = os.WriteFile(put, iz.PDF, 0o644)
 	}
-	if ps := potpisi.Provjeri(ctx, iz.PDF); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Seit Vodočuvar (seit)" || !strings.Contains(ps[0].Razlog, "B-T-1") {
+	if ps := potpisi.Provjeri(ctx, iz.PDF); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Marko Markić (mmarkic)" || !strings.Contains(ps[0].Razlog, "B-T-1") {
 		t.Fatalf("potpis izvornika: %+v", ps)
 	}
 	// dokument kao dosadašnja tiskana prijava: zaglavlje, štambilj, podaci,
@@ -244,26 +244,26 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if tekst := pdfTekst(t, iz.PDF); !strings.Contains(tekst, "DNEVNI LIST") && (!strings.Contains(tekst, "OŠTEĆENA RAMPA") || !strings.Contains(tekst, "Klasifikacijska oznaka") || !strings.Contains(tekst, "Naziv vodotoka:") || !strings.Contains(tekst, "NASIP") || !strings.Contains(tekst, "Lokacija na karti") || !strings.Contains(tekst, "Fotografija 2 od 2") || !strings.Contains(tekst, "dnevni list vodočuvara 001") || !strings.Contains(tekst, "provjera u goCOP-u")) {
 		t.Errorf("tekst PDF-a: %.600s", tekst)
 	}
-	listovi, _ := vod.Moji(ctx, seit, time.Now().In(models.Zagreb).Year())
+	listovi, _ := vod.Moji(ctx, markic, time.Now().In(models.Zagreb).Year())
 	if len(listovi) != 1 || len(listovi[0].Prijave) != 1 || listovi[0].Prijave[0].Oznaka != p.Oznaka() || listovi[0].Broj != 1 {
 		t.Fatalf("dnevni list nakon objave: %+v", listovi)
 	}
-	if s := get(seit, "/vodocuvar/"+listovi[0].ID).Body.String(); !strings.Contains(s, "Prijava s terena B-T-1") {
+	if s := get(markic, "/vodocuvar/"+listovi[0].ID).Body.String(); !strings.Contains(s, "Prijava s terena B-T-1") {
 		t.Error("list ne pokazuje prijavu")
 	}
 	// objavljena se ne mijenja; PDF s rute je izvornik
-	if l := loc(get(seit, "/prijave/"+id+"/uredi")); !strings.Contains(l, "error") {
+	if l := loc(get(markic, "/prijave/"+id+"/uredi")); !strings.Contains(l, "error") {
 		t.Error("objavljena prijava se uređuje")
 	}
-	if w := get(markic, "/prijave/"+id+"/prijava.pdf"); !bytes.Equal(w.Body.Bytes(), iz.PDF) {
+	if w := get(anic, "/prijave/"+id+"/prijava.pdf"); !bytes.Equal(w.Body.Bytes(), iz.PDF) {
 		t.Error("PDF s rute nije izvornik")
 	}
 
 	// rukovoditelj sad vidi prijavu, na popisu i pojedinačno, i označi je riješenom
-	if s := get(markic, "/prijave").Body.String(); !strings.Contains(s, "B-T-1") || !strings.Contains(s, "Oštećena rampa") {
+	if s := get(anic, "/prijave").Body.String(); !strings.Contains(s, "B-T-1") || !strings.Contains(s, "Oštećena rampa") {
 		t.Error("popis rukovoditelja")
 	}
-	if s := get(markic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
+	if s := get(anic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
 		t.Error("stranica objavljene prijave za rukovoditelja")
 	}
 	// prijave idu s dnevnikom: dežurni operater sektora vidi dnevnik pa i
@@ -276,15 +276,15 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if w := get(operater, "/prijave/"+id); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Oštećena rampa") {
 		t.Errorf("operater na objavljenoj prijavi: %d", w.Code)
 	}
-	if l := loc(forma(seit, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {
+	if l := loc(forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "error") {
 		t.Error("vodočuvar riješio")
 	}
 	// urudžba: pisarnica dala klasu i urbroj; upisuju se naknadno kao bilješka
 	// preko štambilja na potpisanom PDF-u, bez parafa: potpis vodočuvara i dalje vrijedi
-	if l := loc(forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"urudzbiraj"}, "klasa": {"325-02/26-01/0000513"}, "urbroj": {"374-26-274"}, "primljeno": {danas}})); !strings.Contains(l, "upisani") {
+	if l := loc(forma(anic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"urudzbiraj"}, "klasa": {"325-02/26-01/0000513"}, "urbroj": {"374-26-274"}, "primljeno": {danas}})); !strings.Contains(l, "upisani") {
 		t.Fatalf("urudžba: %s", l)
 	}
-	if p, _ = prijave.Get(ctx, kao(markic), id); p.Klasa != "325-02/26-01/0000513" || p.Urbroj != "374-26-274" || p.PrimljenoAt == nil || p.Rijesena() {
+	if p, _ = prijave.Get(ctx, kao(anic), id); p.Klasa != "325-02/26-01/0000513" || p.Urbroj != "374-26-274" || p.PrimljenoAt == nil || p.Rijesena() {
 		t.Fatalf("urudžba: %+v", p)
 	}
 	iz2, _ := prijaveRepo.Izvornik(ctx, id)
@@ -294,14 +294,14 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if ps := potpisi.Provjeri(ctx, iz2.PDF); len(ps) != 1 || !ps[0].Valjan || ps[0].Cijeli {
 		t.Fatalf("potpis vodočuvara nakon urudžbe: %+v", ps)
 	}
-	if l := loc(forma(markic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "rije") {
+	if l := loc(forma(anic, http.MethodPost, "/prijave/"+id+"/radnja", url.Values{"radnja": {"rijesi"}})); !strings.Contains(l, "rije") {
 		t.Fatalf("rješavanje: %s", l)
 	}
-	if p, _ = prijave.Get(ctx, kao(markic), id); !p.Rijesena() {
+	if p, _ = prijave.Get(ctx, kao(anic), id); !p.Rijesena() {
 		t.Fatalf("riješena: %+v", p)
 	}
 	iz = iz2
-	if s := get(markic, "/prijave/"+id).Body.String(); !strings.Contains(s, "URBROJ 374-26-274") {
+	if s := get(anic, "/prijave/"+id).Body.String(); !strings.Contains(s, "URBROJ 374-26-274") {
 		t.Error("stranica ne pokazuje urudžbu")
 	}
 
@@ -312,13 +312,13 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if n, _ := prijaveRepo.ObrisiStareSlike(ctx, time.Now().Add(time.Hour)); n != 2 {
 		t.Errorf("brisanje nakon roka: %d", n)
 	}
-	if w := get(markic, "/prijave/"+id+"/slika/"+p.Slike[0].ID); w.Code != http.StatusNotFound {
+	if w := get(anic, "/prijave/"+id+"/slika/"+p.Slike[0].ID); w.Code != http.StatusNotFound {
 		t.Errorf("obrisana slika još služi: %d", w.Code)
 	}
 	if iz2, _ := prijaveRepo.Izvornik(ctx, id); iz2 == nil || !bytes.Equal(iz2.PDF, iz.PDF) {
 		t.Error("PDF promijenjen brisanjem slika")
 	}
-	if s := get(markic, "/prijave/"+id).Body.String(); !strings.Contains(s, "nema-slike") {
+	if s := get(anic, "/prijave/"+id).Body.String(); !strings.Contains(s, "nema-slike") {
 		t.Error("stranica bez napomene o slikama u PDF-u")
 	}
 }
