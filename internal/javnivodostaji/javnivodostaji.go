@@ -858,10 +858,9 @@ type izRedak struct {
 }
 
 // novaOcitanja slaže očitanja za trenutke koje letva još nema i broji
-// vrijednosti izvan raspona. Očitanje s njima upis ne prima (Odluke (8. 10.
-// 2026.), pitanje 21): očitanja idu u Upisi cijela, a ondje zajednička
-// provjera raspona takvo očitanje preskoči i odbačeno zabilježi za stranicu
-// letve.
+// vrijednosti izvan raspona. Njih upis ne prima (Odluke (8. 10. 2026.),
+// pitanje 21): očitanja idu u Upisi cijela, a ondje ih zajednička provjera
+// raspona očisti i odbačeno zabilježi za stranicu letve.
 func novaOcitanja(st *models.Station, svi []izRedak, postojeca map[int64]bool, sada time.Time) ([]models.Reading, int) {
 	var nova []models.Reading
 	odbaceno := 0

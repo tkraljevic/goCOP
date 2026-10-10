@@ -237,19 +237,40 @@ func TestOdbacenoIzStareEvidencijeNijeKvarMjerila(t *testing.T) {
 	}
 }
 
-// Dorada (Odluke (8. 10. 2026.), pitanje 21): očitanje s vrijednošću izvan
-// raspona otpada cijelo, pa pomoć ne smije reći da ostale vrijednosti
-// ostaju. Zapis BP16 s tipfelerom u vodostaju gubi i sate rada agregata;
-// pomoć kaže kako se to vidi i kako se zapis vraća.
-func TestPomocKazeDaZapisIzvanRasponaOtpadaCijeli(t *testing.T) {
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): preuzimanje i uvoz ne
+// upisuju samo vrijednost izvan raspona, a ostale vrijednosti istog očitanja
+// upisuju. Pomoć to kaže, i da se upisano očitanje poslije ne dopunjuje, a
+// ne smije reći da otpada cijelo očitanje ni da mu sat ostaje slobodan.
+func TestPomocKazeDaOstaleVrijednostiOcitanjaOstaju(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
-	if strings.Contains(h, "ostale vrijednosti istog očitanja ostaju") {
-		t.Error("pomoć još kaže da ostale vrijednosti očitanja izvan raspona ostaju")
+	for _, s := range []string{"ne upisuju se ni ostale vrijednosti tog očitanja", "sat slobodan", "sa satima rada agregata"} {
+		if strings.Contains(h, s) {
+			t.Errorf("pomoć još kaže %q", s)
+		}
 	}
-	for _, s := range []string{"ne upisuju se ni ostale vrijednosti tog očitanja",
-		"sa satima rada agregata", "nosi dan i sat zapisa", "sljedeći uvoz ga upiše"} {
+	for _, s := range []string{"ostale vrijednosti istog očitanja ostaju", "sate rada agregata",
+		"Očitanje kojem ništa ne ostane ne upisuje se", "nosi dan i sat zapisa", "ne dopunjuju"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
 		}
+	}
+}
+
+// Stranica letve uz broj odbačenih ne tvrdi da se ne upisuju ni ostale
+// vrijednosti očitanja
+func TestStranicaLetveKazeDaOstaleVrijednostiOstaju(t *testing.T) {
+	html := strings.Join(strings.Fields(iscrtaj(t, "reading_history.html", ReadingHistoryData{
+		CurrentUser: &models.User{FullName: "Pero Perić"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     &models.Station{ID: uuid.New(), Name: "Pivnica Probna"},
+		GaugeName:   "Pivnica Probna",
+		Odbaceno: &models.SazetakOdbacenih{Broj: 1, Zadnja: models.OdbacenaVrijednost{
+			Kad: time.Now(), Polje: models.PoljeTemperatura, Opis: "temperatura 85,0 °C", Izvor: "hdv.voda.hr"}},
+	})), " ")
+	if strings.Contains(html, "pa ni ostale vrijednosti tog očitanja") {
+		t.Error("stranica letve još kaže da se ne upisuju ni ostale vrijednosti očitanja")
+	}
+	if !strings.Contains(html, "ostale vrijednosti istog očitanja upisuju se") {
+		t.Error("stranica letve ne kaže da ostale vrijednosti istog očitanja ostaju")
 	}
 }

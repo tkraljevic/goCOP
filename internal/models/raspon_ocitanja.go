@@ -11,10 +11,9 @@ import (
 // ulazi u program: ručni upis i izmjenu, lijepljenje, satno preuzimanje s
 // javnih stranica i telemetrije (s rezervnim izvorima), uvoz iz BP16 i uvoz
 // tablice centra (Odluke (8. 10. 2026.), pitanje 21). Vrijednost izvan
-// raspona nije mjerenje nego kvar mjerila ili zabuna u upisu, pa se očitanje
-// s njom ne upisuje: ručni upis ga odbija s porukom, a ostali putovi ga
-// odbace cijelog, vrijednosti izvan raspona prebroje i pokažu na stranici
-// letve.
+// raspona nije mjerenje nego kvar mjerila ili zabuna u upisu, pa se ne
+// upisuje: ručni upis je odbija s porukom, a ostali putovi je odbace,
+// prebroje i pokažu na stranici letve.
 const (
 	VodostajNajmanjeCm = -500
 	VodostajNajviseCm  = 3000
@@ -106,6 +105,44 @@ func IzvanRasponaOcitanja(rd Reading, kota bool, sada time.Time) []IzvanRaspona 
 		return []IzvanRaspona{*o}
 	}
 	return VrijednostiIzvanRaspona(rd, kota)
+}
+
+// OcistiOcitanje je provjera raspona za putove bez čovjeka koji bi grešku
+// ispravio (preuzimanje, uvoz). Vrijednost izvan raspona se iz očitanja
+// uklanja; ostale vrijednosti istog očitanja ostaju, jer pokvaren
+// termometar ne smije odnijeti dobar vodostaj, ni tipfeler u vodostaju sate
+// rada agregata. Vraća odbačeno i smije li se očitanje upisati: ne smije kad
+// mu je vrijeme izvan raspona (sve mu vrijednosti pripadaju nemogućem
+// trenutku), ili kad nakon uklanjanja ne nosi ništa od onoga što prima ručni
+// upis (vrijednost, napomena, stanje objekta, zapornica) ni sate rada
+// agregata.
+func OcistiOcitanje(rd *Reading, kota bool, sada time.Time) ([]IzvanRaspona, bool) {
+	izvan := IzvanRasponaOcitanja(*rd, kota, sada)
+	if len(izvan) == 0 {
+		return nil, true
+	}
+	if izvan[0].Polje == PoljeVrijeme {
+		return izvan, false
+	}
+	for _, o := range izvan {
+		ukloniVrijednost(rd, o.Polje)
+	}
+	return izvan, rd.ImaSadrzaj() || rd.HasAgHours()
+}
+
+// ukloniVrijednost briše iz očitanja odbačenu vrijednost i ono što o njoj
+// govori (bilješka uz temperaturu, način i bilješka uz protok)
+func ukloniVrijednost(rd *Reading, polje string) {
+	switch polje {
+	case PoljeVodostaj, PoljeKota:
+		rd.LevelCm = nil
+	case PoljeNizvodni:
+		rd.Level2Cm = nil
+	case PoljeTemperatura:
+		rd.TempC, rd.TempNote = nil, ""
+	case PoljeProtok:
+		rd.FlowM3s, rd.FlowMethod, rd.FlowNote = nil, "", ""
+	}
 }
 
 // ImaSadrzaj javlja nosi li očitanje išta što prima ručni upis: bar jednu
