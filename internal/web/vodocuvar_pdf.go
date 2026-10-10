@@ -211,8 +211,21 @@ func prijeUKnjizi(a, b models.VodocuvarskiList) bool {
 	return a.Broj < b.Broj || (a.Broj == b.Broj && a.Datum.Before(b.Datum))
 }
 
+// oznaciNacrtBezBroja upisuje u zaglavlje stranice, desno, oznaku „nacrt
+// bez broja” kad je list nacrt za dan koji pri spremanju još nije počeo
+// (Odluke (8. 10. 2026.), pitanja 5 i 6): takav list nije stranica knjige i
+// ne smije izgledati kao nepotpisana stranica s brojem
+func oznaciNacrtBezBroja(d *pdfw.Doc, l *models.VodocuvarskiList) {
+	if !l.NacrtBezBroja() {
+		return
+	}
+	const tekst = "nacrt bez broja"
+	d.TekstBoja(d.W-d.Desno-pdfw.SirinaTeksta(tekst, 7, true), d.Y, 7, true, tekst, crvena)
+}
+
 // nacrtajList crta jedan dnevni list na tekuću stranicu
 func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova) mjestaPotpisa {
+	oznaciNacrtBezBroja(d, l)
 	dan := l.Datum.In(models.Zagreb)
 	// zaglavlje: organizacija i područje, sitno
 	org := t.OrgName
