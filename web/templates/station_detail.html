@@ -100,6 +100,11 @@
     <div class="reg-empty">Postaja još nije dodijeljena nijednoj dionici. Dodaje se iz modula dionica.</div>
     {{end}}
   </div>
+  {{if .Pracenje}}
+  <p class="reg-card-sub mt-2" title="Sektori i branjena područja upisani u obrascu letve, uz one s dionica">
+    {{icon "users"}} Prate je: {{range $i, $p := .Pracenje}}{{if $i}}, {{end}}{{$p}}{{end}}
+  </p>
+  {{end}}
 </section>
 
 <div class="kartica-podnozje">
