@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -144,13 +145,15 @@ func TestBuduciDanKrozRute(t *testing.T) {
 		t.Errorf("upis dalje od 30 dana: %s", l)
 	}
 
-	popis := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar", nil).Body.String()
+	// popis godine nacrta: 30. i 31. prosinca to je iduća godina
+	godinaNacrta := "/vodocuvar?godina=" + dan.Format("2006")
+	popis := o.zovi(t, o.rukovodi, http.MethodGet, godinaNacrta, nil).Body.String()
 	for _, x := range []string{`max="` + danZaTest(30) + `"`, "Nacrt bez broja"} {
 		if !strings.Contains(popis, x) {
 			t.Errorf("knjige vodočuvara bez %q", x)
 		}
 	}
-	if moj := o.zovi(t, o.vodocuvar, http.MethodGet, "/vodocuvar", nil).Body.String(); !strings.Contains(moj, "Nacrt bez broja") || strings.Contains(moj, "(nepredan)") {
+	if moj := o.zovi(t, o.vodocuvar, http.MethodGet, godinaNacrta, nil).Body.String(); !strings.Contains(moj, "Nacrt bez broja") || strings.Contains(moj, "(nepredan)") {
 		t.Error("moj dnevnik: budući nacrt mora pisati „Nacrt bez broja”")
 	}
 
@@ -219,5 +222,30 @@ func TestListPrijaveBezBroja(t *testing.T) {
 	p.ListBroj = 0
 	if got := listPrijave(p); got != "od 10.03.2026. (nacrt bez broja)" {
 		t.Errorf("list bez broja: %q", got)
+	}
+}
+
+// Popis nudi godine od godine najdaljeg dana za koji se list smije
+// pripremiti unaprijed (30 dana) do najstarijeg lista: od 2. prosinca nacrt
+// smije biti za siječanj iduće godine, pa popis nudi i tu godinu, inače
+// takav nacrt (i rukovoditeljev „Upiši” na njega) ne bi bio ni u jednom
+// popisu.
+func TestGodineKnjigaSIducomGodinom(t *testing.T) {
+	sat := func(mjesec time.Month, dan, sat int) time.Time {
+		return time.Date(2026, mjesec, dan, sat, 0, 0, 0, models.Zagreb)
+	}
+	for _, s := range []struct {
+		sad        time.Time
+		najstarija int
+		godine     []int
+	}{
+		{sat(time.December, 1, 23), 2025, []int{2026, 2025}},
+		{sat(time.December, 2, 0), 2025, []int{2027, 2026, 2025}},
+		{sat(time.December, 31, 23), 2026, []int{2027, 2026}},
+		{sat(time.March, 10, 12), 2026, []int{2026}},
+	} {
+		if got := godineKnjiga(s.sad, s.najstarija); !reflect.DeepEqual(got, s.godine) {
+			t.Errorf("%s: godine %v, očekivano %v", s.sad.Format("02.01.2006. 15:04"), got, s.godine)
+		}
 	}
 }

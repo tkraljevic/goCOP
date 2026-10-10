@@ -202,10 +202,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 	// godine idu do najstarijeg lista koji čvor ima, a ne do proizvoljne
 	// granice: prijenosom starije evidencije knjige sežu unatrag
-	najstarija := h.najstarijaGodina(r.Context())
-	for g := time.Now().In(models.Zagreb).Year(); g >= najstarija; g-- {
-		d.Godine = append(d.Godine, g)
-	}
+	d.Godine = godineKnjiga(time.Now(), h.najstarijaGodina(r.Context()))
 	d.Arhivirana = service.Arhivirana(d.Godina)
 	if d.VodiDnevnik {
 		d.Moji, _ = s.Moji(r.Context(), u, d.Godina)
@@ -284,6 +281,18 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// godineKnjiga su godine koje popis nudi, od najnovije: od godine
+// najdaljeg dana za koji se list smije pripremiti unaprijed (30 dana, pa od
+// 2. prosinca i iduća godina, Odluke (8. 10. 2026.), pitanje 5) do
+// najstarijeg lista na čvoru
+func godineKnjiga(sad time.Time, najstarija int) []int {
+	var out []int
+	for g := sad.In(models.Zagreb).AddDate(0, 0, models.NajdaljePlaniranje).Year(); g >= najstarija; g-- {
+		out = append(out, g)
+	}
+	return out
 }
 
 func danIzObrasca(s string) time.Time {
