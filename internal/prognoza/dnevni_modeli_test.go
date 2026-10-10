@@ -339,7 +339,8 @@ func TestOtisakArhive(t *testing.T) {
 		t.Error("čitanje je promijenilo otisak")
 	}
 
-	// Arhiva otvorena samo za čitanje, kao u poslužitelju, ima isti otisak.
+	// Arhiva otvorena kao u poslužitelju (put s „?mode=ro”, što modernc na
+	// običnom putu ne poštuje, pa ta veza može i pisati) ima isti otisak.
 	ro, err := sql.Open("sqlite", put+"?mode=ro")
 	if err != nil {
 		t.Fatal(err)
@@ -495,5 +496,48 @@ func TestKrugDnevnihUzimaModeleJednom(t *testing.T) {
 	}
 	if iduce, _ := o.dnevniModeliZaDanas(uKrugu(context.Background())); iduce["cilj"][0] == prvi["cilj"][0] {
 		t.Error("iduće izdanje ne vidi promjenu arhive")
+	}
+}
+
+// Otisak arhive javlja promjenu i bez novih podataka kad se zatvori zadnja
+// veza na arhivu: SQLite tada prepiše zapisnik u bazu i obriše ga. Cijena je
+// jedno učenje iz istih podataka; zato poslužitelj drži veze arhive otvorene.
+// Test bilježi to ograničenje, da se otisku ne pripiše više nego što zna.
+func TestOtisakArhivePoZatvaranjuSvihVeza(t *testing.T) {
+	_, put := arhivaUDatoteci(t)
+	pise, err := sql.Open("sqlite", put+"?_pragma=journal_mode(WAL)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pise.Exec(`INSERT INTO spoj VALUES ('gornja', 'vodostaj', 'dnevni', 0, 1)`); err != nil {
+		t.Fatal(err)
+	}
+	cita, err := sql.Open("sqlite", put+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	prije := otisakArhive(cita)
+	if z := otisakArhive(cita); z.promijenjen(prije) || prije.wal.velicina == 0 {
+		t.Fatalf("čitanje je promijenilo otisak ili zapisnika nema: %+v, %+v", prije, z)
+	}
+	// „?mode=ro” na običnom putu ne brani upis.
+	if _, err := cita.Exec(`INSERT INTO spoj VALUES ('gornja', 'vodostaj', 'dnevni', 86400, 2)`); err != nil {
+		t.Errorf("upis kroz ?mode=ro odbijen (%v): komentar uz zigArhive više ne vrijedi", err)
+	}
+	prije = otisakArhive(cita)
+	pise.Close()
+	cita.Close()
+
+	opet, err := sql.Open("sqlite", put+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer opet.Close()
+	var n int
+	if err := opet.QueryRow(`SELECT count(*) FROM spoj`).Scan(&n); err != nil || n != 2 {
+		t.Fatalf("podaci nakon zatvaranja: %d, %v", n, err)
+	}
+	if !prije.promijenjen(otisakArhive(opet)) {
+		t.Error("zatvaranje svih veza nije promijenilo otisak: komentar uz zigArhive više ne vrijedi")
 	}
 }
