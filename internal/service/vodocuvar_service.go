@@ -157,7 +157,8 @@ func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim
 // što program zna (radno vrijeme, vremenske prilike, očitanja, zadaci).
-// List za dan dalje od 30 dana unaprijed ne otvara se.
+// List za dan dalje od 30 dana unaprijed ne otvara se, a ni nov list za dan
+// koji je prošao (ErrProsliDan).
 func (s *VodocuvarService) Pripremi(ctx context.Context, u *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
 	if err := provjeriDanLista(dan, s.sada()); err != nil {
 		return nil, err
@@ -175,6 +176,10 @@ func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan t
 	}
 	if l, err := s.repo.ZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
 		return l, err
+	}
+	// list za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.), pitanje 6)
+	if err := provjeriNoviList(dan, s.sada()); err != nil {
+		return nil, err
 	}
 	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "07:30", Do: "15:30", Cvor: s.cvor}
 	if s.radnoVrijeme != nil {
@@ -745,8 +750,9 @@ func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermi
 }
 
 // Upisi upisuje bilješku rukovoditelja ili ovlaštenika u dnevnik vodočuvara
-// za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema.
-// Upis nosi ime, funkciju i vrijeme, i ne mijenja se.
+// za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema,
+// osim za dan koji je prošao. Upis nosi ime, funkciju i vrijeme, i ne
+// mijenja se.
 func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, tekst string) (*models.VodocuvarskiList, error) {
 	return s.UpisiNaList(ctx, perms, u, vodocuvarID, dan, "", tekst)
 }
@@ -783,9 +789,11 @@ func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPe
 	if err := provjeriDanLista(dan, s.sada()); err != nil {
 		return nil, err
 	}
+	// list za dan koji je prošao više se ne otvara, ni upisom (Odluke
+	// (8. 10. 2026.), pitanje 6)
 	l, err := s.listZaUpis(ctx, v, dan, listID)
 	if err != nil {
-		return nil, err
+		return nil, bezListaZaUpis(v, dan, err)
 	}
 	if err := s.dodijeliBroj(ctx, l); err != nil {
 		return nil, err

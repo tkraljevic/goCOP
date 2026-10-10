@@ -81,13 +81,21 @@ func vdVodocuvar() *models.User {
 
 // vdDan je dan u tekućoj godini. Sat servisa u testovima stoji na kraju
 // godine (vdSat), pa je svaki takav dan već počeo i testovi ne ovise o tome
-// koji je danas dan.
+// koji je danas dan. Nov list za takav dan test otvara na sam dan (naDan).
 func vdDan(mjesec time.Month, dan int) time.Time {
 	return time.Date(time.Now().In(models.Zagreb).Year(), mjesec, dan, 0, 0, 0, 0, models.Zagreb)
 }
 
 // vdSat je sat servisa u testovima: podne 31. prosinca tekuće godine
 func vdSat() time.Time { return vdDan(time.December, 31).Add(12 * time.Hour) }
+
+// naDan stavlja sat servisa na podne zadanog dana. Nov list otvara se na
+// svoj dan ili unaprijed, a za dan koji je prošao više ne (Odluke
+// (8. 10. 2026.), pitanje 6), pa test koji otvara list za neki dan prvo
+// pomakne sat na taj dan.
+func (o *okolinaVodocuvara) naDan(dan time.Time) {
+	o.vs.sad = func() time.Time { return pocetakDana(dan).Add(12 * time.Hour) }
+}
 
 func vdUnos(opis string) UnosLista {
 	return UnosLista{Od: "07:00", Do: "15:00", Opis: opis}
@@ -177,6 +185,7 @@ func TestListNosiPodrucjeZaduzenjaVodocuvara(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
 
+	o.naDan(vdDan(time.March, 10))
 	glavno := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true), vdDuznost(models.RoleWaterGuard, 1, false), vdDuznost(models.RoleWaterGuard, 2, true))
 	l, err := o.vs.Spremi(ctx, glavno, vdDan(time.March, 10), vdUnos(""), false)
 	if err != nil {
@@ -208,6 +217,7 @@ func TestRadnoVrijemeNaListu(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 
 	for _, k := range []struct{ od, do string }{
 		{"", "15:00"}, {"07:00", ""}, {"7", "15:00"}, {"07:00", "15h"}, {"24:00", "15:00"}, {"07:60", "15:00"}, {"07:00:00", "15:00"},
@@ -262,6 +272,7 @@ func TestPripremaListaRadnoVrijeme(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
 	u := vdVodocuvar()
+	o.naDan(vdDan(time.March, 10))
 
 	l, err := o.vs.Pripremi(ctx, u, vdDan(time.March, 10))
 	if err != nil {
@@ -292,7 +303,10 @@ func TestPripremaListaRadnoVrijeme(t *testing.T) {
 
 // Svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi:
 // izmjena ga ne mijenja, nova stranica dobiva sljedeći, a knjiga svake
-// godine počinje od 1. Broj prati redoslijed upisa, ne datum.
+// godine počinje od 1. Do Odluka (8. 10. 2026.) broj je pratio redoslijed
+// upisa, pa je raniji dan upisan kasnije dobivao sljedeći broj. Po pitanju
+// 6 list za dan koji je prošao više se ne otvara, nego se unaprijed
+// priprema kao nacrt bez broja, pa brojevi idu redom dana.
 func TestRedniBrojLista(t *testing.T) {
 	o := novaOkolinaVodocuvara(t)
 	ctx := context.Background()
@@ -305,6 +319,7 @@ func TestRedniBrojLista(t *testing.T) {
 		}
 		return l
 	}
+	o.naDan(vdDan(time.March, 10))
 	if l := spremi(vdDan(time.March, 10)); l.Broj != 1 || l.ID == "" {
 		t.Errorf("prvi list: broj %d, id %q", l.Broj, l.ID)
 	}
@@ -312,16 +327,23 @@ func TestRedniBrojLista(t *testing.T) {
 	if prvi.Broj != 1 {
 		t.Errorf("izmjena prvog lista promijenila je broj u %d", prvi.Broj)
 	}
-	if l := spremi(vdDan(time.March, 12)); l.Broj != 2 {
-		t.Errorf("drugi list: %d", l.Broj)
+	// nacrti unaprijed su bez broja, i kad su upisani obrnutim redom
+	for _, d := range []int{12, 11} {
+		if l := spremi(vdDan(time.March, d)); l.Broj != 0 {
+			t.Errorf("nacrt za %d. 3. unaprijed: broj %d", d, l.Broj)
+		}
 	}
-	// raniji dan upisan kasnije dobiva sljedeći broj
-	if l := spremi(vdDan(time.March, 11)); l.Broj != 3 {
-		t.Errorf("list od 11. 3. upisan treći: broj %d", l.Broj)
+	o.naDan(vdDan(time.March, 11))
+	if l := spremi(vdDan(time.March, 11)); l.Broj != 2 {
+		t.Errorf("list od 11. 3.: broj %d", l.Broj)
+	}
+	o.naDan(vdDan(time.March, 12))
+	if l := spremi(vdDan(time.March, 12)); l.Broj != 3 {
+		t.Errorf("list od 12. 3.: broj %d", l.Broj)
 	}
 	// drugi vodočuvar ima svoju knjigu
 	drugi := vdVodocuvar()
-	if l, err := o.vs.Spremi(ctx, drugi, vdDan(time.March, 10), vdUnos(""), false); err != nil || l.Broj != 1 {
+	if l, err := o.vs.Spremi(ctx, drugi, vdDan(time.March, 12), vdUnos(""), false); err != nil || l.Broj != 1 {
 		t.Errorf("knjiga drugog vodočuvara: %v %v", l, err)
 	}
 	// iduće godine knjiga počinje ispočetka; list se sprema kad je taj dan
@@ -344,6 +366,7 @@ func TestZakljucenListSeNeMijenja(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 
 	predan, err := o.vs.Spremi(ctx, u, dan, vdUnos("obilazak nasipa"), true)
 	if err != nil {
@@ -371,15 +394,25 @@ func TestZakljucenListSeNeMijenja(t *testing.T) {
 		t.Errorf("prenesen list promijenjen: %+v", l)
 	}
 
+	// List za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.),
+	// pitanje 6), pa arhivirana knjiga ima listove koji već postoje: nacrt
+	// iz prošle godine ostaje kakav je bio.
 	lani := vdDan(time.March, 10).AddDate(-1, 0, 0)
+	silvestrovo := vdDan(time.January, 1).AddDate(0, 0, -1)
+	for _, d := range []time.Time{lani, silvestrovo} {
+		if err := o.repo.Save(ctx, &models.VodocuvarskiList{UserID: u.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: d, Od: "07:00", Do: "15:00", Opis: "nacrt"}); err != nil {
+			t.Fatal(err)
+		}
+	}
 	_, err = o.vs.Spremi(ctx, u, lani, vdUnos("kasni upis"), false)
 	vdGreska(t, err, "je arhivirana istekom godine")
-	if l := o.vdListIzBaze(t, u, lani); l != nil {
+	if l := o.vdListIzBaze(t, u, lani); l == nil || l.Opis != "nacrt" {
 		t.Errorf("upis u arhiviranu knjigu: %+v", l)
 	}
 	// i 31. prosinca prošle godine je arhiviran, a 1. siječnja nije
 	_, err = o.vs.Spremi(ctx, u, vdDan(time.January, 1).Add(-time.Minute), vdUnos(""), false)
 	vdGreska(t, err, "arhivirana")
+	o.naDan(vdDan(time.January, 1))
 	if _, err := o.vs.Spremi(ctx, u, vdDan(time.January, 1), vdUnos(""), false); err != nil {
 		t.Errorf("1. siječnja: %v", err)
 	}
@@ -392,6 +425,7 @@ func TestPredajaTraziOpis(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 
 	_, err := o.vs.Spremi(ctx, u, dan, UnosLista{Od: "07:00", Do: "15:00", Zapazanja: "nacrt"}, true)
 	vdGreska(t, err, "prije predaje upišite opis radnih aktivnosti; upisano je spremljeno kao nacrt")
@@ -422,6 +456,7 @@ func TestZadaciNaListuIPredaja(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 
 	ustava := o.vdZadatak(t, u, "pregledati ustavu", dan)
 	nasip := o.vdZadatak(t, u, "obići nasip", dan)
@@ -538,6 +573,7 @@ func TestPredajaTraziObrazlozenjeNeobavljenogZadatka(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	z := o.vdZadatak(t, u, "pregledati ustavu", dan)
 
 	_, err := o.vs.Spremi(ctx, u, dan, vdUnos("obilazak"), true)
@@ -577,6 +613,7 @@ func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	z := o.vdZadatak(t, u, "pregledati ustavu", prvi)
 
 	// nacrt prvog dana: obavljen
+	o.naDan(prvi)
 	unos := vdUnos("obilazak")
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
 	if _, err := o.vs.Spremi(ctx, u, prvi, unos, false); err != nil {
@@ -584,6 +621,7 @@ func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	}
 	// drugi dan isti zadatak stoji otvoren (evidencija ga još drži otvorenim)
 	// i predajom se odbacuje
+	o.naDan(drugi)
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakOdbacen, Obavljeno: "ustava srušena"}}
 	l2, napomena, err := o.vs.SpremiSPorukom(ctx, u, drugi, unos, true)
 	if err != nil {
@@ -614,6 +652,7 @@ func TestZadatakZakljucenNaDvaLista(t *testing.T) {
 	// zadatak zaključen u evidenciji bez lista (npr. prenesen iz ranije
 	// evidencije) bilježi se tako
 	treci := vdDan(time.March, 12)
+	o.naDan(treci)
 	propust := o.vdZadatak(t, u, "očistiti propust", treci)
 	unos.Zadaci = map[string]UnosZadatka{propust.ID: {Status: models.ZadatakObavljen, Obavljeno: "očišćen"}}
 	if _, err := o.vs.Spremi(ctx, u, treci, unos, false); err != nil {
@@ -647,11 +686,13 @@ func TestIstodobnaPredajaListovaSIstimZadatkom(t *testing.T) {
 	prvi, drugi := vdDan(time.March, 10), vdDan(time.March, 11)
 	z := o.vdZadatak(t, u, "pregledati ustavu", prvi)
 
+	o.naDan(prvi)
 	unos := vdUnos("obilazak")
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
 	if _, err := o.vs.Spremi(ctx, u, prvi, unos, false); err != nil {
 		t.Fatal(err)
 	}
+	o.naDan(drugi)
 	drugiUnos := vdUnos("obilazak")
 	drugiUnos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakOdbacen, Obavljeno: "ustava srušena"}}
 	var l2 *models.VodocuvarskiList
@@ -697,6 +738,7 @@ func TestOcitanjaNaListuPriPredaji(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	upisi := func(kad time.Time, cm *int, korisnik string) {
 		t.Helper()
 		if err := o.readings.Create(ctx, &models.Reading{ID: uuid.New(), StationID: o.letva.ID.String(), MeasuredAt: kad.UTC(), LevelCm: cm,
@@ -741,6 +783,7 @@ func TestNeuspjeliUpisLista(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	if _, err := o.baza.Exec(`CREATE TRIGGER vd_bez_upisa BEFORE INSERT ON vodocuvarski_listovi BEGIN SELECT RAISE(ABORT, 'upis zabranjen'); END`); err != nil {
 		t.Fatal(err)
 	}
@@ -761,6 +804,7 @@ func TestGreskaCitanjaOtvorenihZadataka(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	o.vdZadatak(t, u, "pregledati ustavu", dan)
 	if _, err := o.vs.Spremi(ctx, u, dan, vdUnos("nacrt"), false); err != nil {
 		t.Fatal(err)
@@ -785,6 +829,7 @@ func TestPredajaBezZakljucenogZadatka(t *testing.T) {
 	ctx := context.Background()
 	u := vdVodocuvar()
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 	z := o.vdZadatak(t, u, "pregledati ustavu", dan)
 	unos := vdUnos("obilazak")
 	unos.Zadaci = map[string]UnosZadatka{z.ID: {Status: models.ZadatakObavljen, Obavljeno: "pregledana"}}
@@ -871,6 +916,7 @@ func TestDanListaKadSeSatPomice(t *testing.T) {
 	}
 
 	listopad := vdZadnjaNedjelja(time.October)
+	o.naDan(listopad)
 	upisi(u2330(listopad), 120)
 	kasni := &models.Zadatak{UserID: u.ID.String(), Sektor: "P", AreaID: 1, Tekst: "pregled nasipa", ZadanoAt: u2330(listopad), Status: models.ZadatakOtvoren}
 	if err := o.repo.SaveZadatak(ctx, kasni); err != nil {
@@ -893,6 +939,7 @@ func TestDanListaKadSeSatPomice(t *testing.T) {
 	}
 
 	ozujak := vdZadnjaNedjelja(time.March)
+	o.naDan(ozujak)
 	upisi(time.Date(ozujak.Year(), ozujak.Month(), ozujak.Day()+1, 0, 30, 0, 0, models.Zagreb), 140)
 	if l, err = o.vs.Spremi(ctx, u, ozujak, vdUnos("obilazak"), true); err != nil {
 		t.Fatal(err)

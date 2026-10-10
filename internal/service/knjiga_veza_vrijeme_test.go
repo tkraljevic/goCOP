@@ -99,6 +99,11 @@ func TestVezaSDionicomPoZaduzenjuNaDanLista(t *testing.T) {
 	if !vs.SmijeParafirati(drugi, listAne(sutra)) {
 		t.Error("Anin list nakon prelaska nije vezan uz P.1.2")
 	}
+	// bilješka za prošli dan ide samo na list koji za taj dan postoji: list
+	// za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.), pitanje 6)
+	if err := k.o.repo.Save(ctx, &models.VodocuvarskiList{UserID: k.ana.ID.String(), Ime: k.ana.FullName, Sektor: "P", AreaID: 1, Datum: jucer, Od: "07:00", Do: "15:00"}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := vs.Upisi(ctx, dionicar, &dionicar.User, k.ana.ID.String(), jucer, "Javljeno s dionice P.1.1"); err != nil {
 		t.Errorf("bilješka za dan prije prelaska: %v", err)
 	}

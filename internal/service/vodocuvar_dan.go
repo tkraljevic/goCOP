@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -13,8 +14,16 @@ import (
 // zadaci); potpisuje se i predaje tek od 00:00 svog dana, po hrvatskom
 // vremenu, a ovjerava tek predan i kad mu je dan počeo. Nacrt za budući dan
 // nema redni broj: broj dobiva prvim spremanjem ili predajom kad njegov dan
-// počne. Za tekući i prošli dan broj se dodjeljuje kao i dosad (pitanje 6
-// o redu brojeva je otvoreno), pa brojevi u knjizi ne idu nužno redom dana.
+// počne.
+//
+// List za dan koji je prošao (pitanje 6) više se ne otvara: tko list nije
+// otvorio na svoj dan, taj dan nije radio. Ni vodočuvar ni rukovoditeljev
+// „Upiši” ne otvaraju list za prošli dan; list koji za taj dan već postoji
+// i dalje se dopunjuje, predaje, parafira i ovjerava. Ni program ga ne
+// otvara: akt o obrani i objava prijave s terena za prošli dan bez lista
+// upisuju se na današnji list, uz napomenu o danu (listZaUpisPrograma).
+// Pravilo provodi čvor ovog programa; list za prošli dan koji stigne
+// razmjenom (npr. s čvora 0.0.34) prima se kao i dosad.
 
 // sada je trenutak po satu servisa; testovi ga postavljaju
 func (s *VodocuvarService) sada() time.Time {
@@ -28,6 +37,50 @@ func (s *VodocuvarService) sada() time.Time {
 // vremenu (pocetakDana)
 func danPoceo(dan, sad time.Time) bool {
 	return !pocetakDana(dan).After(sad)
+}
+
+// danProsao javlja je li dan lista prošao: od 00:00 idućeg dana, po
+// hrvatskom vremenu
+func danProsao(dan, sad time.Time) bool {
+	return !pocetakDana(dan).AddDate(0, 0, 1).After(sad)
+}
+
+// istiDan javlja jesu li dva trenutka istog dana po hrvatskom vremenu
+func istiDan(a, b time.Time) bool {
+	return pocetakDana(a).Equal(pocetakDana(b))
+}
+
+// ErrProsliDan: za dan koji je prošao nema dnevnog lista, a takav list se
+// više ne otvara (Odluke (8. 10. 2026.), pitanje 6)
+var ErrProsliDan = errors.New("list za dan koji je prošao više se ne otvara")
+
+// provjeriNoviList odbija nov list za dan koji je prošao; poruka je za
+// vodočuvara koji list otvara
+func provjeriNoviList(dan, sad time.Time) error {
+	if !danProsao(dan, sad) {
+		return nil
+	}
+	return fmt.Errorf("za %s nema dnevnog lista, a %w: dnevni list otvara se na svoj dan, ili unaprijed kao nacrt", pocetakDana(dan).Format("02.01.2006."), ErrProsliDan)
+}
+
+// bezListaZaUpis je greška rukovoditeljeva upisa na dan za koji vodočuvar
+// nema lista, a dan je prošao; ostale greške ostaju kakve jesu
+func bezListaZaUpis(v *models.User, dan time.Time, err error) error {
+	if !errors.Is(err, ErrProsliDan) {
+		return err
+	}
+	return fmt.Errorf("%s nema dnevni list za %s, a %w, pa se ni bilješka za taj dan ne upisuje", v.FullName, pocetakDana(dan).Format("02.01.2006."), ErrProsliDan)
+}
+
+// listZaUpisPrograma je list na koji program sam upisuje (akt o obrani,
+// objava prijave s terena): list tog dana, a kad je dan prošao i za njega
+// nema lista, današnji list vodočuvara
+func (s *VodocuvarService) listZaUpisPrograma(ctx context.Context, v *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
+	l, err := s.pripremiZa(ctx, v, dan)
+	if errors.Is(err, ErrProsliDan) {
+		return s.pripremiZa(ctx, v, pocetakDana(s.sada()))
+	}
+	return l, err
 }
 
 // najdaljiDanLista je zadnji dan za koji se list smije pripremiti unaprijed

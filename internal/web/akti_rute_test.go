@@ -293,7 +293,13 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	if zapisi, _ := js.EntriesForJournal(ctx, dnevnikCOP.ID); len(zapisi) != 1 || zapisi[0].Kind != models.EntryKindNotice || !strings.Contains(zapisi[0].Text, "B-1/2026") || zapisi[0].UserName != "Uprava Sektora" || zapisi[0].PodrucjeID() != 34 {
 		t.Errorf("zapis u dnevniku COP-a: %+v", zapisi)
 	}
-	if listovi, _ := vod.Moji(ctx, vodocuvar, 2026); len(listovi) != 1 || len(listovi[0].Upisi) != 1 || !strings.Contains(listovi[0].Upisi[0].Tekst, "B-1/2026") || listovi[0].Datum.In(models.Zagreb).Day() != 15 {
+	// Vodočuvar za 15. 9. nema lista, a list za dan koji je prošao ni program
+	// više ne otvara: akt je na njegovu današnjem listu, uz napomenu od kada
+	// vrijedi (Odluke (8. 10. 2026.), pitanje 6; dotad je otvarao list 15. 9.)
+	danas := time.Now().In(models.Zagreb)
+	if listovi, _ := vod.Moji(ctx, vodocuvar, danas.Year()); len(listovi) != 1 || len(listovi[0].Upisi) != 1 || !strings.Contains(listovi[0].Upisi[0].Tekst, "B-1/2026") ||
+		!strings.HasSuffix(listovi[0].Upisi[0].Tekst, "Akt vrijedi od 15.09.2026. u 12:00; za taj dan nema dnevnog lista, pa je upisan na današnji.") ||
+		listovi[0].Datum.In(models.Zagreb).Format("2006-01-02") != danas.Format("2006-01-02") {
 		t.Errorf("list vodočuvara nakon akta: %+v", listovi)
 	}
 	if sh, _ := js.ListSheets(ctx, a02.ID); len(sh) != 1 {

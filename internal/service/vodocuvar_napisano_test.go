@@ -22,6 +22,7 @@ func TestVodocuvarovUpisNosiVrijeme(t *testing.T) {
 		t.Fatalf("vodočuvar iz baze: %v %v", pero, err)
 	}
 	dan := vdDan(time.March, 10)
+	o.naDan(dan)
 
 	prije := time.Now()
 	l, err := o.vs.Spremi(ctx, pero, dan, vdUnos("obilazak nasipa"), false)

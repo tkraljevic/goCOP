@@ -60,7 +60,7 @@
 {{if and .Moja (not $p.Objavljena)}}
 <section class="detail-section">
   <h2>{{icon "lock"}} Objavi i potpiši</h2>
-  <p class="page-desc">Objavom prijava dobiva broj, PDF s ugrađenim fotografijama postaje izvornik{{if .ImaKljuc}} potpisan vašim ključem{{end}}, a upis ide na vaš dnevni list za {{$p.Datum.Format "02.01.2006."}}. Poslije objave se ne mijenja.</p>
+  <p class="page-desc">Objavom prijava dobiva broj, PDF s ugrađenim fotografijama postaje izvornik{{if .ImaKljuc}} potpisan vašim ključem{{end}}, a upis ide na vaš dnevni list za {{$p.Datum.Format "02.01.2006."}} (ako za taj dan, koji je prošao, nemate lista, na današnji). Poslije objave se ne mijenja.</p>
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" class="d-flex gap-2 items-end flex-wrap" onsubmit="return confirm('Objaviti i potpisati prijavu? Poslije se ne mijenja.')">
     <input type="hidden" name="radnja" value="objavi">
     {{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group m-0"><label class="form-label" for="lozinka">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" required></div>{{end}}
