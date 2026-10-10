@@ -391,11 +391,12 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	// pitanje 1; TestVezaSDionicomPoZaduzenjuNaDanLista)
 	sad := time.Date(2026, 10, 10, 12, 0, 0, 0, models.Zagreb)
 	prosla := sad.Add(-time.Hour)
-	bivsi := []models.Duty{{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla}}
-	if prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaZaDan(bivsi, nil, sad.AddDate(0, 0, 1), sad)) {
+	pocetak := sad.AddDate(0, 0, -30)
+	bivsi := []models.VerzijaZaduzenja{{Duty: models.Duty{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla, CreatedAt: pocetak}, Od: pocetak}}
+	if prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad.AddDate(0, 0, 1))) {
 		t.Error("prijava nakon prestanka dužnosti vodočuvara vezana je uz dionicu")
 	}
-	if !prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaZaDan(bivsi, nil, sad, sad)) {
+	if !prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad)) {
 		t.Error("prijava s dana dok je dužnost vrijedila nije vezana uz dionicu")
 	}
 }

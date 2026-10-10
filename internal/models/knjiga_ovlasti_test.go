@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // Ovlast uloge u tuđoj knjizi vodočuvara po Odlukama (8. 10. 2026.),
@@ -115,45 +117,50 @@ func TestCuvaDionicu(t *testing.T) {
 	}
 }
 
-// Zaduženje je prestalo istekom (isteklo), opozivom ili ranijim istekom
-// (opozvano); opozvanom bez zabilježenog opoziva i zaduženju koje nije
-// prestalo vrijeme prestanka se ne zna.
-func TestPrestaloZaduzenje(t *testing.T) {
-	istek := time.Date(2026, 10, 5, 12, 0, 0, 0, Zagreb)
-	opoziv := time.Date(2026, 10, 3, 9, 0, 0, 0, Zagreb)
-	kasniOpoziv := time.Date(2026, 10, 7, 9, 0, 0, 0, Zagreb)
-	slucajevi := []struct {
-		ime  string
-		z    PrijasnjeZaduzenje
-		kraj *time.Time
-	}{
-		{"isteklo", PrijasnjeZaduzenje{Duty: Duty{IsActive: true, ExpiresAt: &istek}}, &istek},
-		{"nije prestalo", PrijasnjeZaduzenje{Duty: Duty{IsActive: true}}, nil},
-		{"opozvano", PrijasnjeZaduzenje{Duty: Duty{}, OpozvanoAt: &opoziv}, &opoziv},
-		{"opozvano prije isteka", PrijasnjeZaduzenje{Duty: Duty{ExpiresAt: &istek}, OpozvanoAt: &opoziv}, &opoziv},
-		{"opozvano nakon isteka", PrijasnjeZaduzenje{Duty: Duty{ExpiresAt: &istek}, OpozvanoAt: &kasniOpoziv}, &istek},
-		{"opozvano bez vremena opoziva", PrijasnjeZaduzenje{Duty: Duty{ExpiresAt: &istek}}, nil},
+// Povijest zaduženja: ranije verzije iz knjige, a zadnja je stanje s
+// površine od trenutka zadnje verzije; zaduženje bez verzija stoji od
+// nastanka. Verzije drugih osoba ne ulaze.
+func TestSloziPovijestZaduzenja(t *testing.T) {
+	kad := func(d int) time.Time { return time.Date(2026, 10, d, 9, 0, 0, 0, Zagreb) }
+	a, b, tudje := uuid.New(), uuid.New(), uuid.New()
+	povrsinaA := Duty{ID: a, Title: "A sada", CreatedAt: kad(1)}
+	povrsinaB := Duty{ID: b, Title: "B sada", CreatedAt: kad(2)}
+	knjiga := []VerzijaZaduzenja{
+		{Duty: Duty{ID: a, Title: "A prvo"}, Od: kad(1)},
+		{Duty: Duty{ID: tudje, Title: "tuđe"}, Od: kad(2)},
+		{Duty: Duty{ID: a, Title: "A drugo"}, Od: kad(4)},
 	}
-	for _, s := range slucajevi {
-		got := s.z.Prestalo()
-		if (got == nil) != (s.kraj == nil) || (got != nil && !got.Equal(*s.kraj)) {
-			t.Errorf("%s: prestalo %v, očekivano %v", s.ime, got, s.kraj)
+	got := SloziPovijestZaduzenja([]Duty{povrsinaA, povrsinaB}, knjiga)
+	ocekivano := []struct {
+		naslov string
+		od     time.Time
+	}{{"A prvo", kad(1)}, {"A sada", kad(4)}, {"B sada", kad(2)}}
+	if len(got) != len(ocekivano) {
+		t.Fatalf("povijest %+v", got)
+	}
+	for i, o := range ocekivano {
+		if got[i].Title != o.naslov || !got[i].Od.Equal(o.od) {
+			t.Errorf("%d. verzija: %q od %v, očekivano %q od %v", i+1, got[i].Title, got[i].Od, o.naslov, o.od)
 		}
 	}
 }
 
-// Za zapis dana vrijede zaduženja valjana sada (za bilo koji dan) i prošla
-// koja su prestala tek tog dana ili poslije; bez dana samo valjana sada.
-// Zaduženje među sadašnjima koje više ne vrijedi gleda se kao prošlo.
-func TestZaduzenjaZaDan(t *testing.T) {
-	sad := time.Date(2026, 10, 10, 12, 0, 0, 0, Zagreb)
+// Za zapis dana vrijede zaduženja koja su u nekom trenutku tog dana (po
+// hrvatskom vremenu) stajala, bila nastala, aktivna i neistekla, u obliku u
+// kojem su tada stajala; zaduženje nastalo poslije i verzija zamijenjena
+// prije dana ne vrijede.
+func TestZaduzenjaUDanu(t *testing.T) {
 	dan := func(d int) time.Time { return time.Date(2026, 10, d, 0, 0, 0, 0, Zagreb) }
-	usred := func(d int) *time.Time { t := time.Date(2026, 10, d, 15, 0, 0, 0, Zagreb); return &t }
-	sada := Duty{Title: "sada", IsActive: true}
-	isteklo := Duty{Title: "isteklo 5.", IsActive: true, ExpiresAt: usred(5)}
-	ugaseno := Duty{Title: "ugašeno"}
-	opozvano := PrijasnjeZaduzenje{Duty: Duty{Title: "opozvano 7."}, OpozvanoAt: usred(7)}
-	bezVremena := PrijasnjeZaduzenje{Duty: Duty{Title: "opozvano bez vremena"}}
+	usred := func(d int) time.Time { return time.Date(2026, 10, d, 15, 0, 0, 0, Zagreb) }
+	istek := usred(5)
+	isteklo, prijelaz := uuid.New(), uuid.New()
+	povijest := []VerzijaZaduzenja{
+		{Duty: Duty{ID: isteklo, Title: "isteklo 5.", IsActive: true, ExpiresAt: &istek, CreatedAt: usred(1)}, Od: usred(1)},
+		{Duty: Duty{ID: prijelaz, Title: "P.1.1", IsActive: true, CreatedAt: usred(2)}, Od: usred(2)},
+		{Duty: Duty{ID: prijelaz, Title: "P.1.2", IsActive: true, CreatedAt: usred(2)}, Od: usred(7)},
+		{Duty: Duty{ID: prijelaz, Title: "opozvano", CreatedAt: usred(2)}, Od: usred(9)},
+		{Duty: Duty{ID: uuid.New(), Title: "nastalo 8.", IsActive: true, CreatedAt: usred(8)}, Od: usred(8)},
+	}
 	naslovi := func(dd []Duty) string {
 		var out []string
 		for _, d := range dd {
@@ -166,17 +173,48 @@ func TestZaduzenjaZaDan(t *testing.T) {
 		dan time.Time
 		ima string
 	}{
-		{"bez dana", time.Time{}, "sada"},
-		{"dan prije isteka", dan(4), "sada, isteklo 5., opozvano 7."},
-		{"dan isteka", dan(5), "sada, isteklo 5., opozvano 7."},
-		{"dan opoziva", dan(7), "sada, opozvano 7."},
-		{"nakon svega", dan(9), "sada"},
-		{"lokalni dan iz UTC trenutka", time.Date(2026, 10, 7, 22, 30, 0, 0, time.UTC), "sada"},
+		{"prije svega", dan(1).AddDate(0, 0, -1), ""},
+		{"dan nastanka", dan(1), "isteklo 5."},
+		{"dan isteka", dan(5), "isteklo 5., P.1.1"},
+		{"nakon isteka", dan(6), "P.1.1"},
+		{"dan izmjene", dan(7), "P.1.1, P.1.2"},
+		{"dan nastanka drugog", dan(8), "P.1.2, nastalo 8."},
+		{"dan opoziva", dan(9), "P.1.2, nastalo 8."},
+		{"nakon opoziva", dan(10), "nastalo 8."},
+		{"lokalni dan iz UTC trenutka (7. 10.)", time.Date(2026, 10, 6, 22, 30, 0, 0, time.UTC), "P.1.1, P.1.2"},
 	}
 	for _, s := range slucajevi {
-		got := ZaduzenjaZaDan([]Duty{sada, isteklo, ugaseno}, []PrijasnjeZaduzenje{opozvano, bezVremena}, s.dan, sad)
-		if naslovi(got) != s.ima {
-			t.Errorf("%s: %q, očekivano %q", s.ime, naslovi(got), s.ima)
+		if got := naslovi(ZaduzenjaUDanu(povijest, s.dan)); got != s.ima {
+			t.Errorf("%s: %q, očekivano %q", s.ime, got, s.ima)
 		}
+	}
+}
+
+// Zaduženje koje istječe točno u ponoć ne vrijedi za dan koji tada počinje
+// („vrijedi zaključno s” prethodnim danom)
+func TestZaduzenjeIstekloUPonocNeVrijediZaTajDan(t *testing.T) {
+	ponoc := time.Date(2026, 10, 15, 0, 0, 0, 0, Zagreb)
+	pocetak := time.Date(2026, 10, 1, 9, 0, 0, 0, Zagreb)
+	povijest := []VerzijaZaduzenja{{Duty: Duty{ID: uuid.New(), IsActive: true, ExpiresAt: &ponoc, CreatedAt: pocetak}, Od: pocetak}}
+	if len(ZaduzenjaUDanu(povijest, ponoc)) != 0 {
+		t.Error("zaduženje isteklo u ponoć vrijedi za dan koji tada počinje")
+	}
+	if len(ZaduzenjaUDanu(povijest, ponoc.AddDate(0, 0, -1))) != 1 {
+		t.Error("zaduženje ne vrijedi za zadnji dan prije isteka")
+	}
+}
+
+// Vrijede samo aktivna i neistekla zaduženja
+func TestVazecaZaduzenja(t *testing.T) {
+	sad := time.Date(2026, 10, 10, 12, 0, 0, 0, Zagreb)
+	proslo, buduce := sad.Add(-time.Hour), sad.Add(time.Hour)
+	got := VazecaZaduzenja([]Duty{
+		{Title: "stalno", IsActive: true},
+		{Title: "isteklo", IsActive: true, ExpiresAt: &proslo},
+		{Title: "do sutra", IsActive: true, ExpiresAt: &buduce},
+		{Title: "opozvano"},
+	}, sad)
+	if len(got) != 2 || got[0].Title != "stalno" || got[1].Title != "do sutra" {
+		t.Errorf("važeća: %+v", got)
 	}
 }

@@ -38,7 +38,7 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
 		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica",
 		"i onu vodočuvara kojemu je na dan prijave njegova dionica bila upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
-		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo ili opozvano)",
+		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo, opozvano ili izmijenjeno; list s dana prije zaduženja nije vezan)",
 		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",
 		"tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati",
 		"Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području na kojem ima dužnost",

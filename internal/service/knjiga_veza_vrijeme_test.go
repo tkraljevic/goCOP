@@ -25,6 +25,10 @@ func TestVezaSDionicomPoZaduzenjuNaDanLista(t *testing.T) {
 	danas := sad.In(models.Zagreb)
 	jucer := time.Date(danas.Year(), danas.Month(), danas.Day()-1, 0, 0, 0, 0, models.Zagreb)
 	sutra := time.Date(danas.Year(), danas.Month(), danas.Day()+1, 0, 0, 0, 0, models.Zagreb)
+	// zaduženja Pere i Ane postoje od prije mjesec dana
+	for _, u := range []*models.User{k.pero, k.ana} {
+		k.zaduzenOd(t, u, sad.AddDate(0, 0, -30))
+	}
 	list := func(dan time.Time) *models.VodocuvarskiList {
 		return &models.VodocuvarskiList{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Sektor: "P", AreaID: 1, Datum: dan, PredanoAt: &sad}
 	}
@@ -103,8 +107,9 @@ func TestVezaSDionicomPoZaduzenjuNaDanLista(t *testing.T) {
 	}
 }
 
-// Prošla zaduženja vodočuvara čitaju se samo kad je dan zadan, i to
-// jednom; bez vodočuvara nema zaduženja.
+// Povijest zaduženja vodočuvara čita se samo kad je dan zadan, i to
+// jednom; bez vodočuvara nema zaduženja, a bez izvora povijesti dan nije
+// vezan ni uz jedno zaduženje.
 func TestZaduzenjaCuvara(t *testing.T) {
 	k := novaKnjigaProba(t)
 	vs := k.o.vs
@@ -117,13 +122,106 @@ func TestZaduzenjaCuvara(t *testing.T) {
 	pero, _ := vs.users.GetUserByID(k.pero.ID)
 	c := &cuvar{v: pero}
 	if got := vs.zaduzenjaCuvara(c, time.Time{}); len(got) != 1 || c.procitana {
-		t.Errorf("bez dana: %d zaduženja, prošla pročitana %v", len(got), c.procitana)
+		t.Errorf("bez dana: %d zaduženja, povijest pročitana %v", len(got), c.procitana)
 	}
 	if got := vs.zaduzenjaCuvara(c, time.Now()); len(got) != 1 || !c.procitana {
-		t.Errorf("s danom: %d zaduženja, prošla pročitana %v", len(got), c.procitana)
+		t.Errorf("s danom: %d zaduženja, povijest pročitana %v", len(got), c.procitana)
 	}
-	c.prosla = []models.PrijasnjeZaduzenje{{Duty: models.Duty{Role: models.RoleWaterGuard}, OpozvanoAt: &time.Time{}}}
-	if got := vs.zaduzenjaCuvara(c, time.Now()); len(got) != 1 {
-		t.Errorf("prošla se čitaju ponovno: %d", len(got))
+	c.povijest = nil
+	if got := vs.zaduzenjaCuvara(c, time.Now()); len(got) != 0 {
+		t.Errorf("povijest se čita ponovno: %d", len(got))
 	}
+	if got := (&VodocuvarService{}).zaduzenjaCuvara(&cuvar{v: pero}, time.Now()); got != nil {
+		t.Errorf("bez izvora povijesti: %+v", got)
+	}
+}
+
+// zaduzenOd pomiče nastanak svih zaduženja osobe, i njihovih verzija u
+// knjizi, na trenutak kad: zaduženja iz probe tada već postoje
+func (k *knjigaProba) zaduzenOd(t *testing.T, u *models.User, kad time.Time) {
+	t.Helper()
+	for _, q := range []string{
+		`UPDATE record_versions SET created_at = ? WHERE entity = 'duties' AND entity_id IN (SELECT id FROM duties WHERE user_id = ?)`,
+		`UPDATE duties SET created_at = ? WHERE user_id = ?`,
+	} {
+		if _, err := k.o.baza.Exec(q, kad.UTC(), u.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+// Veza lista i prijave s dionicom gleda zaduženje koje je vrijedilo na dan
+// lista, u obliku u kojem je tada vrijedilo (Odluke (8. 10. 2026.),
+// pitanje 1: parafa, bilješka i prijava samo uz vezu s njegovom dionicom).
+// Ivo Ivić čuva P.1.1 i danas prelazi na P.1.2 opozivom i novim
+// zaduženjem; Pero Perić isto, izmjenom zaduženja. Jučerašnji list obojice
+// vezan je uz P.1.1, a ne uz P.1.2; sutrašnji uz P.1.2, a ne uz P.1.1. List
+// iz vremena prije zaduženja nije vezan ni uz jednu. Podaci su izmišljeni.
+func TestVezaSDionicomPratiZaduzenjeKojeJeTadaVrijedilo(t *testing.T) {
+	k := novaKnjigaProba(t)
+	vs := k.o.vs
+	prijave := &PrijavaService{vodocuvar: vs}
+	sad := time.Now()
+	danas := sad.In(models.Zagreb)
+	dan := func(pomak int) time.Time {
+		return time.Date(danas.Year(), danas.Month(), danas.Day()+pomak, 0, 0, 0, 0, models.Zagreb)
+	}
+	ivo := k.vodocuvar(t, "iivic", "Ivo Ivić", "P.1.1")
+	for _, u := range []*models.User{k.pero, ivo} {
+		k.zaduzenOd(t, u, dan(-60))
+	}
+	prvi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.1")
+	drugi := k.dionicar(models.RoleSectionLeader, &k.p1, "P.1.2")
+	provjeri := func(stanje string, u *models.User, pomak int, uzPrvu, uzDrugu bool) {
+		t.Helper()
+		l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Sektor: "P", AreaID: 1, Datum: dan(pomak), PredanoAt: &sad}
+		p := &models.PrijavaSTerena{UserID: u.ID.String(), Sektor: "P", AreaID: 1, Datum: dan(pomak), Status: models.PrijavaObjavljena}
+		for _, x := range []struct {
+			dionica string
+			perms   *models.UserPermissions
+			veza    bool
+		}{{"P.1.1", prvi, uzPrvu}, {"P.1.2", drugi, uzDrugu}} {
+			if got := vs.SmijeParafirati(x.perms, l); got != x.veza {
+				t.Errorf("%s: %s, list za dan %+d, parafa rukovoditelja %s = %v, očekivano %v", stanje, u.FullName, pomak, x.dionica, got, x.veza)
+			}
+			if got := vs.SmijeUpisati(x.perms, l); got != x.veza {
+				t.Errorf("%s: %s, list za dan %+d, bilješka rukovoditelja %s = %v, očekivano %v", stanje, u.FullName, pomak, x.dionica, got, x.veza)
+			}
+			if got := prijave.SmijeVidjeti(x.perms, p); got != x.veza {
+				t.Errorf("%s: %s, prijava bez dionice za dan %+d, rukovoditelj %s = %v, očekivano %v", stanje, u.FullName, pomak, x.dionica, got, x.veza)
+			}
+		}
+	}
+	provjeri("prije zaduženja", k.pero, -61, false, false)
+	provjeri("prije prelaska", k.pero, -1, true, false)
+
+	// Ivo prelazi opozivom i novim zaduženjem
+	stara, err := k.users.GetDutiesForUser(ivo.ID)
+	if err != nil || len(stara) != 1 {
+		t.Fatalf("Ivina zaduženja: %v %+v", err, stara)
+	}
+	if err := k.users.RevokeDuty(stara[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	nova := models.Duty{UserID: ivo.ID, Title: "Vodočuvar P.1.2", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &k.sektor, AreaID: &k.p1, SectionCodes: "P.1.2", IsActive: true, IsPrimary: true}
+	if err := k.users.AddDuty(&nova); err != nil {
+		t.Fatal(err)
+	}
+	provjeri("opoziv i novo zaduženje", ivo, -1, true, false)
+	provjeri("opoziv i novo zaduženje", ivo, -30, true, false)
+	provjeri("opoziv i novo zaduženje", ivo, 1, false, true)
+
+	// Pero prelazi izmjenom zaduženja u mjestu
+	perina, err := k.users.GetDutiesForUser(k.pero.ID)
+	if err != nil || len(perina) != 1 {
+		t.Fatalf("Perina zaduženja: %v %+v", err, perina)
+	}
+	izmijenjena := perina[0]
+	izmijenjena.Title, izmijenjena.SectionCodes = "Vodočuvar P.1.2", "P.1.2"
+	if err := k.users.UpdateDuty(&izmijenjena); err != nil {
+		t.Fatal(err)
+	}
+	provjeri("izmjena zaduženja", k.pero, -1, true, false)
+	provjeri("izmjena zaduženja", k.pero, 1, false, true)
+	provjeri("izmjena zaduženja", k.pero, -61, false, false)
 }

@@ -21,12 +21,12 @@ package service
 // dioniceDosega): vezan mu je svaki list i svaka prijava područja, a obrana
 // za zadatak gleda se na dionicama područja iz registra koje vodočuvar čuva.
 //
-// Veza s dionicom rukovoditelja dionice gleda zaduženja vodočuvara koja
-// vrijede za dan lista ili prijave (models.ZaduzenjaZaDan): valjana sada i
-// prošla (istekla ili opozvana) koja su prestala tek tog dana ili poslije.
-// List i prijava iz vremena privremenog zaduženja tako ostaju vezani uz
-// dionicu i kad zaduženje istekne s krajem obrane. Zadatak gleda samo
-// zaduženja valjana sada.
+// Veza s dionicom rukovoditelja dionice gleda zaduženja vodočuvara koja su
+// vrijedila na dan lista ili prijave, u obliku u kojem su tada stajala, po
+// knjizi verzija (models.ZaduzenjaUDanu). List i prijava iz vremena
+// privremenog zaduženja tako ostaju vezani uz dionicu i kad zaduženje
+// istekne s krajem obrane, bude opozvano ili izmijenjeno; zaduženje nastalo
+// poslije ne veže ranije dane. Zadatak gleda samo zaduženja valjana sada.
 //   - list je vezan uz njegovu dionicu kad vodočuvar lista ima takvo
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
@@ -94,26 +94,30 @@ func (s *VodocuvarService) SmijeZadati(ctx context.Context, perms *models.UserPe
 	return s.smijeRadnju(ctx, perms, l, nil, radnjaZadatak)
 }
 
-// cuvar je vodočuvar lista ili prijave s prošlim (isteklim i opozvanim)
-// zaduženjima, koja se čitaju tek kad zatrebaju, i to jednom
+// cuvar je vodočuvar lista ili prijave s poviješću zaduženja, koja se
+// čita tek kad zatreba, i to jednom
 type cuvar struct {
 	v         *models.User
-	prosla    []models.PrijasnjeZaduzenje
+	povijest  []models.VerzijaZaduzenja
 	procitana bool
 }
 
-// zaduzenjaCuvara su zaduženja vodočuvara koja vrijede za list ili prijavu
-// dana dan (models.ZaduzenjaZaDan); bez dana samo valjana sada, pa se
-// prošla ni ne čitaju
+// zaduzenjaCuvara su zaduženja vodočuvara koja su vrijedila na dan lista ili
+// prijave, u obliku u kojem su tada stajala (models.ZaduzenjaUDanu); bez
+// dana ona koja vrijede sada, pa se povijest ni ne čita. Bez povijesti
+// (greška čitanja) dan nije vezan ni uz jedno zaduženje.
 func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Duty {
 	if c == nil || c.v == nil {
 		return nil
 	}
-	if !dan.IsZero() && !c.procitana && s.users != nil {
-		c.prosla, _ = s.users.PastDuties(c.v.ID)
+	if dan.IsZero() {
+		return models.VazecaZaduzenja(c.v.Duties, time.Now())
+	}
+	if !c.procitana && s.users != nil {
+		c.povijest, _ = s.users.PovijestZaduzenja(c.v.ID)
 		c.procitana = true
 	}
-	return models.ZaduzenjaZaDan(c.v.Duties, c.prosla, dan, time.Now())
+	return models.ZaduzenjaUDanu(c.povijest, dan)
 }
 
 // cita javlja smije li osoba čitati list ili, kad je prijava zadana,

@@ -132,22 +132,6 @@ type PrijasnjeZaduzenje struct {
 // Isteklo javlja je li zaduženje prestalo istekom roka, a ne opozivom
 func (z PrijasnjeZaduzenje) Isteklo() bool { return z.IsActive && z.ExpiresAt != nil }
 
-// Prestalo je trenutak kad je zaduženje prestalo: istek za isteklo, a za
-// opozvano opoziv ili raniji istek; nil kad je opozvano, a vrijeme opoziva
-// se ne zna, ili kad zaduženje nije prestalo
-func (z PrijasnjeZaduzenje) Prestalo() *time.Time {
-	if z.IsActive {
-		return z.ExpiresAt
-	}
-	if z.OpozvanoAt == nil {
-		return nil
-	}
-	if z.ExpiresAt != nil && z.ExpiresAt.Before(*z.OpozvanoAt) {
-		return z.ExpiresAt
-	}
-	return z.OpozvanoAt
-}
-
 // User predstavlja matični korisnički račun djelatnika ili vanjskog suradnika
 type User struct {
 	ID                 uuid.UUID  `json:"id"`
@@ -392,7 +376,7 @@ func (d Duty) navodiDionicu(dionica string) bool {
 // CuvaDionicu javlja čuva li vodočuvar po ovom zaduženju dionicu na
 // branjenom području: zaduženje vodočuvara na tom području navodi dionicu,
 // ili ne navodi nijednu pa pokriva cijelo područje. Vrijeme se ovdje ne
-// gleda; koja zaduženja vrijede za koji dan daje ZaduzenjaZaDan.
+// gleda; koja zaduženja vrijede za koji dan daje ZaduzenjaUDanu.
 func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
 	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
 }
@@ -409,29 +393,82 @@ func (d Duty) cuvaPodrucje(areaID int) bool {
 	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
 }
 
-// ZaduzenjaZaDan su zaduženja koja vrijede za zapis dana dan (dnevni list,
-// prijava s terena): ona valjana u trenutku sad, za bilo koji dan, i prošla
-// koja su prestala (istekom ili opozivom) tek tog dana ili poslije, pa
-// zapis iz vremena zaduženja ostaje vezan uz njega i kad zaduženje prestane.
-// Bez dana (nula) samo valjana u trenutku sad. Zaduženje iz sadasnja koje
-// više ne vrijedi gleda se kao prošlo.
-func ZaduzenjaZaDan(sadasnja []Duty, prosla []PrijasnjeZaduzenje, dan, sad time.Time) []Duty {
-	var out []Duty
-	var nevazeca []PrijasnjeZaduzenje
-	for _, d := range sadasnja {
-		if d.vrijedi(sad) {
-			out = append(out, d)
-		} else {
-			nevazeca = append(nevazeca, PrijasnjeZaduzenje{Duty: d})
+// VerzijaZaduzenja je zaduženje kako je stajalo od trenutka Od do sljedeće
+// verzije istog zaduženja (knjiga verzija): izmjena u mjestu, opoziv ili
+// produljenje daju novu verziju
+type VerzijaZaduzenja struct {
+	Duty
+	Od time.Time
+}
+
+// SloziPovijestZaduzenja slaže povijest zaduženja osobe za ZaduzenjaUDanu.
+// Za svako zaduženje (stanje na površini, i opozvano i isteklo) idu njegove
+// ranije verzije iz knjige, redom nastanka, a kao zadnja stanje s površine,
+// od trenutka zadnje verzije u knjizi. Zaduženje bez verzija u knjizi stoji
+// u stanju s površine od svog nastanka.
+func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, d := range zaduzenja {
+		ranije, od := verzijeZaduzenja(knjiga, d.ID), d.CreatedAt
+		if n := len(ranije); n > 0 {
+			ranije, od = ranije[:n-1], ranije[n-1].Od
+		}
+		out = append(append(out, ranije...), VerzijaZaduzenja{Duty: d, Od: od})
+	}
+	return out
+}
+
+// verzijeZaduzenja su verzije iz knjige jednog zaduženja, redom kojim dolaze
+func verzijeZaduzenja(knjiga []VerzijaZaduzenja, id uuid.UUID) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, v := range knjiga {
+		if v.ID == id {
+			out = append(out, v)
 		}
 	}
-	if dan.IsZero() {
-		return out
-	}
+	return out
+}
+
+// ZaduzenjaUDanu su zaduženja koja su vrijedila u nekom trenutku dana dan
+// po hrvatskom vremenu, svako u obliku u kojem je tada stajalo, iz povijesti
+// koju slaže SloziPovijestZaduzenja. Zapis toga dana (dnevni list, prijava
+// s terena) tako ostaje vezan uz zaduženje kakvo je tada bilo: i kad
+// zaduženje poslije istekne, bude opozvano ili izmijenjeno, a zaduženje
+// nastalo poslije ga ne dobiva. Zaduženje izmijenjeno toga dana daje obje
+// verzije.
+func ZaduzenjaUDanu(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
 	pocetak := pocetakDana(dan)
-	for _, z := range append(nevazeca, prosla...) {
-		if kraj := z.Prestalo(); kraj != nil && !kraj.Before(pocetak) {
-			out = append(out, z.Duty)
+	kraj := pocetak.AddDate(0, 0, 1)
+	var out []Duty
+	for i, v := range povijest {
+		do := kraj
+		if i+1 < len(povijest) && povijest[i+1].ID == v.ID && povijest[i+1].Od.Before(kraj) {
+			do = povijest[i+1].Od
+		}
+		if v.vrijediIzmedu(pocetak, do) {
+			out = append(out, v.Duty)
+		}
+	}
+	return out
+}
+
+// vrijediIzmedu javlja vrijedi li verzija zaduženja u nekom trenutku od od
+// do do (bez do): tada stoji (od Od), aktivna je i neistekla. Prva verzija
+// stoji od nastanka zaduženja, pa zaduženje ne vrijedi prije nastanka.
+func (v VerzijaZaduzenja) vrijediIzmedu(od, do time.Time) bool {
+	if v.Od.After(od) {
+		od = v.Od
+	}
+	return v.IsActive && od.Before(do) && (v.ExpiresAt == nil || v.ExpiresAt.After(od))
+}
+
+// VazecaZaduzenja su zaduženja koja vrijede u trenutku sad: aktivna i
+// neistekla
+func VazecaZaduzenja(zaduzenja []Duty, sad time.Time) []Duty {
+	var out []Duty
+	for _, d := range zaduzenja {
+		if d.vrijedi(sad) {
+			out = append(out, d)
 		}
 	}
 	return out

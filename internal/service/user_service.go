@@ -755,6 +755,13 @@ func (s *UserService) PastDuties(userID uuid.UUID) ([]models.PrijasnjeZaduzenje,
 	return s.userRepo.GetPastDutiesForUser(userID)
 }
 
+// PovijestZaduzenja vraća sva zaduženja osobe kako su stajala kroz vrijeme
+// (repository.UserRepository.PovijestZaduzenja), za vezu zapisa s
+// zaduženjem na dan zapisa
+func (s *UserService) PovijestZaduzenja(userID uuid.UUID) ([]models.VerzijaZaduzenja, error) {
+	return s.userRepo.PovijestZaduzenja(userID)
+}
+
 // RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
 func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
 	if actorRank(actor) == 0 {
