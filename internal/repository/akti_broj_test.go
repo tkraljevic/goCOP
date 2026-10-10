@@ -165,14 +165,14 @@ func TestRjesenjeOznakeJeZasebanZapis(t *testing.T) {
 	if r, err := repo.ListRjesenjaOznaka(ctx); err != nil || len(r) != 0 {
 		t.Fatalf("bez rješenja: %v %v", r, err)
 	}
-	rj := &models.RjesenjeOznake{Sektor: "B", Oznaka: "B-1/2026", Akti: []string{a.ID, b.ID}, Napomena: "dopis primateljima",
+	rj := &models.RjesenjeOznake{Sektor: "B", Oznaka: "B-1/2026", Akti: []string{a.ID, b.ID}, Kodovi: []string{a.OvjeraKod, b.OvjeraKod}, Napomena: "dopis primateljima",
 		RijesioID: "ivo", Rijesio: "Ivo Ivić", Kad: time.Now().UTC().Truncate(time.Second)}
 	if err := repo.SaveRjesenjeOznake(ctx, rj); err != nil || rj.ID == "" {
 		t.Fatalf("upis rješenja: %v", err)
 	}
 	r, err := repo.ListRjesenjaOznaka(ctx)
 	if err != nil || len(r) != 1 || r[0].ID != rj.ID || r[0].Napomena != "dopis primateljima" || r[0].Oznaka != "B-1/2026" ||
-		r[0].Rijesio != "Ivo Ivić" || !r[0].Kad.Equal(rj.Kad) || !r[0].Obuhvaca([]string{a.ID, b.ID}) {
+		r[0].Rijesio != "Ivo Ivić" || !r[0].Kad.Equal(rj.Kad) || !r[0].Obuhvaca([]models.Akt{*a, *b}) {
 		t.Fatalf("pročitano rješenje: %+v %v", r, err)
 	}
 	if n := brojRedaka(t, baza, `SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityRjesenjaOznaka, rj.ID); n != 1 {

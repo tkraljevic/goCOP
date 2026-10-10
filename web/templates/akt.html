@@ -10,7 +10,7 @@
   <div>
     <h1 class="page-title">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
-      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if and .Sukob.Drugi (not .Sukob.Rijesen)}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}</p>
+      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if not .Sukob.Rijesen}}{{if .Sukob.Drugi}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}{{if .Sukob.Ovjere}} <a href="#oznaka" class="badge badge-danger">ovjeren i na drugom čvoru</a>{{end}}{{end}}</p>
   </div>
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
@@ -215,11 +215,13 @@
 </details>
 {{end}}
 
-{{with .Sukob.Drugi}}
+{{if .Sukob.Ima}}
 <div class="akt-potpis-stanje{{if not $.Sukob.Rijesen}} ne-vrijedi{{end}}" id="oznaka">
-  {{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a> (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>
+  {{with .Sukob.Drugi}}{{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a>{{if $.Sukob.IzvanPopisa $d}} u drugoj ovjeri, koja u popisu ne stoji{{end}} (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>{{end}}
+  {{with .Sukob.Ovjere}}{{icon "triangle-alert"}} <strong>Isti nacrt ovjeren je i na drugom čvoru, dok među čvorovima nije bilo veze.</strong> Ovdje stoji ovjera {{$a.Oznaka}} (kod {{$a.OvjeraKod}}{{with $a.Cvor}}, čvor {{.}}{{end}}). Druga ovjera ne stoji u popisu akata, ali i ona vrijedi i mogla je otići primateljima:
+  <ul class="mb-0">{{range .}}<li>{{.Oznaka}}, kod <span class="mono">{{.OvjeraKod}}</span>{{with .Cvor}}, čvor {{.}}{{end}}, ovjerio {{.Ovjerio}}{{with .OvjerenoAt}}, {{formatDate (localTime (derefTime .))}}{{end}}{{if .Storniran}}, poništen{{end}}; {{$p := index $.PotpisiOvjera .OvjeraKod}}{{if eq $p "VRIJEDI"}}elektronički potpis vrijedi{{else if eq $p "NE_VRIJEDI"}}elektronički potpis ne vrijedi{{else}}bez elektroničkog potpisa{{end}}</li>{{end}}</ul>{{end}}
   {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).{{end}}
-  {{else}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}Svi ostaju valjani i rješenje ih ne mijenja. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
+  {{else}}{{if .Sukob.Drugi}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}{{end}}Sve ovjere ostaju valjane i rješenje ih ne mijenja. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
   {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
   <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="mt-2">
     <label for="napomena-oznake" class="form-label">Kako je sukob riješen</label>
