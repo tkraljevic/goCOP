@@ -500,6 +500,74 @@ func TestOdbacenoVrijemeNeBrojiSeNiKadOcitanjeOdeIzBaze(t *testing.T) {
 	}
 }
 
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): jedna loša vrijednost broji
+// se jednom. Očitanje koje stigne više od sat unaprijed s vodostajem −1102 cm
+// prvo otpada zbog vremena; kad mu vrijeme dođe, sljedeći krug ga odbaci
+// zbog vodostaja i ne upiše ga. Zapis o vremenu tada više ne vrijedi
+// (očitanje je stiglo na vrijeme) i uklanja se, i na čvoru koji ga je dobio
+// razmjenom; prije su se brojala oba, zauvijek. Isto vrijedi za ćeliju
+// tablice centra. Zapis o vremenu drugog trenutka ostaje.
+func TestPreranoOcitanjeIzvanRasponaBrojiSeJednom(t *testing.T) {
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	repo := NewReadingRepository(a.db, a.rec)
+	pivnica := novaLetva(t, a, "pivnica-probna", false)
+	letva := "station:" + pivnica.ID.String()
+	kad := time.Now().Truncate(time.Hour).Add(-time.Hour)
+
+	rano := uvezeno(pivnica, kad, -1102)
+	odbaciUBuducnosti(t, a, rano)
+	odbaciUBuducnosti(t, a, uvezeno(pivnica, kad.Add(-time.Hour), 118))
+	a.posalji(t, b, "")
+	if n, err := repo.ImportBatch(ctx, []models.Reading{rano}); err != nil || n != 0 {
+		t.Fatalf("drugi krug: %d, %v", n, err)
+	}
+	a.posalji(t, b, "")
+	for ime, c := range map[string]*cvorZaRazmjenu{"a": a, "b": b} {
+		s, err := NewReadingRepository(c.db, c.rec).SazetakOdbacenih(ctx, letva)
+		if err != nil || s == nil || s.Broj != 2 || s.Zadnja.Polje != models.PoljeVodostaj || s.Zadnja.Opis != "−1102 cm" {
+			t.Errorf("čvor %s: %+v, %v", ime, s, err)
+		}
+	}
+
+	// ćelija tablice centra: prvo dan u budućnosti, pa vrijednost izvan raspona
+	dan := kad.Add(-24 * time.Hour)
+	for _, o := range []models.OdbacenaVrijednost{
+		{Letva: letva, Kad: dan, Polje: models.PoljeVrijeme, Opis: "vrijeme", Izvor: "tablica"},
+		{Letva: letva, Kad: dan, Polje: models.PoljeVodostaj, Opis: "8650 cm", Izvor: "tablica"},
+	} {
+		if err := repo.ZabiljeziOdbacene(ctx, []models.OdbacenaVrijednost{o}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if s, err := repo.SazetakOdbacenih(ctx, letva); err != nil || s == nil || s.Broj != 3 {
+		t.Errorf("s ćelijom tablice: %+v, %v", s, err)
+	}
+}
+
+// Kad se zapis o prerano odbačenom ne može ukloniti, ne bilježi se ni
+// vrijednost istog očitanja: inače bi se jedna loša vrijednost brojala
+// dvaput
+func TestOdbacenaVrijednostPadaKadSeZapisOVremenuNeMozeUkloniti(t *testing.T) {
+	c := noviCvorZaRazmjenu(t, "a")
+	ctx := context.Background()
+	repo := NewReadingRepository(c.db, c.rec)
+	letva := "station:" + novaLetva(t, c, "pivnica-probna", false).ID.String()
+	dan := time.Now().Truncate(time.Hour).Add(-24 * time.Hour)
+	if err := repo.ZabiljeziOdbacene(ctx, []models.OdbacenaVrijednost{
+		{Letva: letva, Kad: dan, Polje: models.PoljeVrijeme, Opis: "vrijeme", Izvor: "tablica"}}); err != nil {
+		t.Fatal(err)
+	}
+	izvrsi(t, c, `CREATE TRIGGER odbij BEFORE DELETE ON odbacena_ocitanja BEGIN SELECT RAISE(ABORT, 'odbijeno'); END`)
+	if err := repo.ZabiljeziOdbacene(ctx, []models.OdbacenaVrijednost{
+		{Letva: letva, Kad: dan, Polje: models.PoljeVodostaj, Opis: "8650 cm", Izvor: "tablica"}}); err == nil {
+		t.Fatal("ZabiljeziOdbacene mora javiti grešku baze")
+	}
+	if s, err := repo.SazetakOdbacenih(ctx, letva); err != nil || s == nil || s.Broj != 1 || s.Zadnja.Polje != models.PoljeVrijeme {
+		t.Errorf("poništeno bilježenje: %+v, %v", s, err)
+	}
+}
+
 // Kad se upisanom očitanju ne može dati kanal ili verzija, ili se zapis o
 // prerano odbačenom ne može ukloniti, serija pada cijela, kao i pri svakoj
 // drugoj grešci upisa: inače bi zapis ostao, a očitanje ne bi putovalo.

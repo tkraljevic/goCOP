@@ -79,13 +79,20 @@ func (p *provjeraRaspona) kota(ctx context.Context, stationID string) (bool, err
 // primljeno uklanja zapise o očitanju letve odbačenom samo zato što je
 // stiglo više od sat unaprijed, kad letva za taj trenutak primi očitanje:
 // sljedeći krug ga je primio kad mu je vrijeme došlo (sat izvora ili
-// računala ide naprijed). Zapis se uklanja verzijom u knjizi, pa nestaje i
-// na čvorovima koji su ga dobili razmjenom, i ne broji se opet kad očitanje
-// poslije ode iz operativne baze (zaboravljanje uloženog, ograda povijesti
-// očitanja). Odbačena vrijednost (npr. vodostaj −1102 cm) ostaje.
+// računala ide naprijed). Odbačena vrijednost (npr. vodostaj −1102 cm)
+// ostaje.
 func (p *provjeraRaspona) primljeno(ctx context.Context, rd *models.Reading) error {
-	rows, err := p.tx.QueryContext(ctx, `DELETE FROM odbacena_ocitanja WHERE letva = ? AND kad = ? AND polje = ?
-		RETURNING id, letva, kad, polje, izvor, opis, zabiljezeno`, rd.GaugeKey(), rd.MeasuredAt.UTC(), models.PoljeVrijeme)
+	return ukloniPreranoOdbaceno(ctx, p.tx, p.rec, rd.GaugeKey(), rd.MeasuredAt)
+}
+
+// ukloniPreranoOdbaceno uklanja zapise o očitanju letve za dani trenutak
+// odbačenom samo zato što je stiglo više od sat unaprijed. Zapis se uklanja
+// verzijom u knjizi, pa nestaje i na čvorovima koji su ga dobili razmjenom,
+// i ne broji se opet kad očitanje poslije ode iz operativne baze
+// (zaboravljanje uloženog, ograda povijesti očitanja).
+func ukloniPreranoOdbaceno(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, letva string, kad time.Time) error {
+	rows, err := tx.QueryContext(ctx, `DELETE FROM odbacena_ocitanja WHERE letva = ? AND kad = ? AND polje = ?
+		RETURNING id, letva, kad, polje, izvor, opis, zabiljezeno`, letva, kad.UTC(), models.PoljeVrijeme)
 	if err != nil {
 		return err
 	}
@@ -94,8 +101,8 @@ func (p *provjeraRaspona) primljeno(ctx context.Context, rd *models.Reading) err
 		return err
 	}
 	for _, o := range uklonjene {
-		kanal := readingChannel(ctx, p.tx, ocitanjeLetve(o.Letva, o.Kad))
-		if _, err := p.rec.ArchiveIn(ctx, p.tx, kanal, EntityOdbacena, o.ID, o); err != nil {
+		kanal := readingChannel(ctx, tx, ocitanjeLetve(o.Letva, o.Kad))
+		if _, err := rec.ArchiveIn(ctx, tx, kanal, EntityOdbacena, o.ID, o); err != nil {
 			return err
 		}
 	}
@@ -130,25 +137,45 @@ func (p *provjeraRaspona) javi() {
 // Identitet zapisa je zato izveden iz tih podataka, isti na svakom čvoru, a
 // zapis koji je čvor već primio razmjenom ne dobiva novu verziju. Vraća
 // koliko je zapisa novo.
-func zabiljeziOdbacene(ctx context.Context, tx ledger.Execer, rec *ledger.Recorder, odbacene []models.OdbacenaVrijednost, sada time.Time) (int, error) {
+func zabiljeziOdbacene(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, odbacene []models.OdbacenaVrijednost, sada time.Time) (int, error) {
 	novih := 0
 	for _, o := range odbacene {
-		o.ID, o.Kad, o.Zabiljezeno = idOdbacene(o), o.Kad.UTC(), sada.UTC()
-		res, err := tx.ExecContext(ctx, `INSERT INTO odbacena_ocitanja (id, letva, kad, polje, izvor, opis, zabiljezeno)
-			VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, o.ID, o.Letva, o.Kad, o.Polje, o.Izvor, o.Opis, o.Zabiljezeno)
+		nova, err := zabiljeziOdbacenu(ctx, tx, rec, o, sada)
 		if err != nil {
 			return novih, err
 		}
-		if n, _ := res.RowsAffected(); n == 0 {
-			continue
+		if nova {
+			novih++
 		}
-		kanal := readingChannel(ctx, tx, ocitanjeLetve(o.Letva, o.Kad))
-		if _, err := rec.RecordIn(ctx, tx, kanal, EntityOdbacena, o.ID, o); err != nil {
-			return novih, err
-		}
-		novih++
 	}
 	return novih, nil
+}
+
+// zabiljeziOdbacenu upisuje jednu odbačenu vrijednost i javlja je li zapis
+// nov. Vrijednost (vodostaj, kota, temperatura, protok) provjerava se tek
+// kad je vrijeme očitanja u rasponu (models.IzvanRasponaOcitanja, ćelija
+// tablice centra), pa zapis o njoj znači da je očitanje stiglo na vrijeme:
+// zapis o istom očitanju odbačenom prije jer je stiglo prerano tada se
+// uklanja, da se jedna loša vrijednost ne broji dvaput (Odluke (8. 10.
+// 2026.), pitanje 21).
+func zabiljeziOdbacenu(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, o models.OdbacenaVrijednost, sada time.Time) (bool, error) {
+	o.ID, o.Kad, o.Zabiljezeno = idOdbacene(o), o.Kad.UTC(), sada.UTC()
+	if o.Polje != models.PoljeVrijeme {
+		if err := ukloniPreranoOdbaceno(ctx, tx, rec, o.Letva, o.Kad); err != nil {
+			return false, err
+		}
+	}
+	res, err := tx.ExecContext(ctx, `INSERT INTO odbacena_ocitanja (id, letva, kad, polje, izvor, opis, zabiljezeno)
+		VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`, o.ID, o.Letva, o.Kad, o.Polje, o.Izvor, o.Opis, o.Zabiljezeno)
+	if err != nil {
+		return false, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return false, nil
+	}
+	kanal := readingChannel(ctx, tx, ocitanjeLetve(o.Letva, o.Kad))
+	_, err = rec.RecordIn(ctx, tx, kanal, EntityOdbacena, o.ID, o)
+	return err == nil, err
 }
 
 // idOdbacene je identitet zapisa o odbačenoj vrijednosti: letva, trenutak,
