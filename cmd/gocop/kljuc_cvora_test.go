@@ -12,6 +12,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gocop/internal/config"
+	"gocop/internal/db"
+	"gocop/internal/imecvora"
+	"gocop/internal/peers"
 )
 
 // Baza čvora koji je već radio (knjiga nije prazna), a ključa uz nju nema:
@@ -43,7 +48,8 @@ func TestPostojeciCvorBezKljucaNeKreceURunu(t *testing.T) {
 	}
 }
 
-// Uz -novi-kljuc-cvora isti čvor kreće i dobiva novi ključ.
+// Uz -novi-kljuc-cvora isti čvor kreće i dobiva novi ključ. Postavki uz
+// bazu nema, a baza postoji, pa se primjer postavki ne zapisuje.
 func TestNoviKljucCvoraURunu(t *testing.T) {
 	if testing.Short() {
 		t.Skip("podiže cijeli čvor")
@@ -53,7 +59,88 @@ func TestNoviKljucCvoraURunu(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(filepath.Dir(put), "node-key")); err != nil {
 		t.Errorf("novi ključ nije napravljen: %v", err)
 	}
+	if _, err := os.Stat(filepath.Join(filepath.Dir(put), config.FileName)); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("uz postojeću bazu zapisan je primjer postavki: %v", err)
+	}
 	if kod := ugasi(); kod != 0 {
 		t.Errorf("gašenje s kodom %d", kod)
+	}
+}
+
+// Postojeća baza bez upisanog imena (gocop.toml je premješten) uzima ime pod
+// kojim pamti ključ ovog čvora; bez ključa, ili kad ga baza ne zna, ostaje
+// staro zadano ime, kao i dosad.
+func TestImeCvoraIzBaze(t *testing.T) {
+	put := bazaZaOporavak(t)
+	dnevnik := dnevnikTesta(t)
+	cfg := config.Config{DB: put}
+	if odrediImeCvora(&cfg) || cfg.Node.ID != imecvora.Stari {
+		t.Errorf("bez ključa: %q", cfg.Node.ID)
+	}
+	cvor, err := peers.LoadNode(put, "", "", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Node.ID = ""
+	if odrediImeCvora(&cfg) || cfg.Node.ID != imecvora.Stari {
+		t.Errorf("baza ne zna ključ: %q", cfg.Node.ID)
+	}
+
+	baza, err := db.OpenDB(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = baza.Exec(`INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-unraid', ?, '2026-10-02T06:00:00Z')`, cvor.PublicKey())
+	baza.Close()
+	if err != nil {
+		t.Fatal(err)
+	}
+	cfg.Node.ID = ""
+	if odrediImeCvora(&cfg) || cfg.Node.ID != "pperic-unraid" {
+		t.Errorf("ime iz baze: %q", cfg.Node.ID)
+	}
+	if !strings.Contains(dnevnik.String(), "Ime čvora pperic-unraid pročitano iz baze") {
+		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Baza koja se ne da pročitati ne daje ime: vrijedi staro zadano, uz zapis
+// u dnevniku
+func TestImeCvoraIzNecitljiveBaze(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "gocop.db")
+	if err := os.WriteFile(put, []byte(strings.Repeat("nije sqlite ", 1000)), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := peers.LoadNode(put, "", "", "test"); err != nil {
+		t.Fatal(err)
+	}
+	dnevnik := dnevnikTesta(t)
+	cfg := config.Config{DB: put}
+	if odrediImeCvora(&cfg) || cfg.Node.ID != imecvora.Stari {
+		t.Errorf("nečitljiva baza: %q", cfg.Node.ID)
+	}
+	if !strings.Contains(dnevnik.String(), "ne može se pročitati pod kojim imenom zna ključ čvora") {
+		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Uz postojeću bazu bez postavki primjer se ne zapisuje (zamijenio bi
+// izvorne postavke koje su premještene); dnevnik kaže koja datoteka
+// nedostaje i što učiniti.
+func TestPrimjerPostavkiUzPostojecuBazu(t *testing.T) {
+	put := bazaZaOporavak(t)
+	cfg := config.Default()
+	cfg.DB = put
+	cfg.Node.ID = "pperic-unraid"
+	dnevnik := dnevnikTesta(t)
+	zapisiPrimjerPostavki(cfg, "", "", false, false)
+	primjer := filepath.Join(filepath.Dir(put), config.FileName)
+	if _, err := os.Stat(primjer); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("uz postojeću bazu zapisan je primjer: %v", err)
+	}
+	for _, mora := range []string{"nema " + primjer, "Primjer se ne zapisuje", "pperic-unraid", "Vratite izvornu datoteku"} {
+		if !strings.Contains(dnevnik.String(), mora) {
+			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
+		}
 	}
 }

@@ -184,3 +184,93 @@ func TestPostojiDatoteka(t *testing.T) {
 		t.Errorf("knjiga na putu kroz datoteku: %v %v", ima, err)
 	}
 }
+
+// upisiUBazu izvrši jedan upis u bazu testa, mimo knjige: test slaže stanje
+// koje je razmjena već ostavila
+func upisiUBazu(t *testing.T, put, upit string, args ...any) {
+	t.Helper()
+	baza, err := db.OpenDB(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if _, err := baza.Exec(upit, args...); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Ime čvora iz baze je ime pod kojim baza pamti ključ iz node-key, u zapisu
+// poznatog čvora ili u članstvu. Bez ključa, kad ga baza ne zna i kad ga zna
+// pod dva imena, ime se ne pogađa.
+func TestImeIzBaze(t *testing.T) {
+	put := bazaZaKljuc(t, true)
+	if ime, err := ImeIzBaze(put); ime != "" || err != nil {
+		t.Errorf("bez ključa: %q %v", ime, err)
+	}
+	cvor, err := LoadNode(put, "", "", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	javni := cvor.PublicKey()
+	if ime, err := ImeIzBaze(put); ime != "" || err != nil {
+		t.Errorf("baza ne zna ključ: %q %v", ime, err)
+	}
+
+	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-unraid', ?, '2026-10-02T06:00:00Z')`, javni)
+	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('aanic-laptop', 'drugi-kljuc', '2026-10-02T06:00:00Z')`)
+	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+		t.Errorf("zapis čvora: %q %v", ime, err)
+	}
+	upisiUBazu(t, put, `INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
+		VALUES ('pperic-unraid', ?, 'Probna mreža', 'aanic-laptop', '2026-10-02T06:00:00Z', '2027-10-02T06:00:00Z', 'potpis', '2026-10-02T06:00:00Z')`, javni)
+	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+		t.Errorf("zapis čvora i članstvo: %q %v", ime, err)
+	}
+	upisiUBazu(t, put, `DELETE FROM peers`)
+	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+		t.Errorf("samo članstvo: %q %v", ime, err)
+	}
+	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('ivic-stari', ?, '2026-10-02T06:00:00Z')`, javni)
+	if ime, err := ImeIzBaze(put); ime != "" || err != nil {
+		t.Errorf("dva imena za isti ključ: %q %v", ime, err)
+	}
+}
+
+// Što se ne da pročitati (put, ključ, baza) javlja se greškom; baza koje
+// nema nije greška, i ne stvara se
+func TestImeIzBazeGreske(t *testing.T) {
+	dir := t.TempDir()
+	nema := filepath.Join(dir, "gocop.db")
+	if ime, err := ImeIzBaze(nema); ime != "" || err != nil {
+		t.Errorf("baze nema: %q %v", ime, err)
+	}
+	if _, err := os.Stat(nema); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("traženje imena napravilo je bazu: %v", err)
+	}
+	datoteka := filepath.Join(dir, "datoteka")
+	if err := os.WriteFile(datoteka, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if ime, err := ImeIzBaze(filepath.Join(datoteka, "gocop.db")); ime != "" || err == nil {
+		t.Errorf("put kroz datoteku: %q %v", ime, err)
+	}
+
+	// prazna datoteka baze (bez tablica) uz ispravan ključ
+	if err := os.WriteFile(nema, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := LoadNode(nema, "", "", "test"); err != nil {
+		t.Fatal(err)
+	}
+	if ime, err := ImeIzBaze(nema); ime != "" || err == nil {
+		t.Errorf("baza bez tablica: %q %v", ime, err)
+	}
+
+	// ključ koji nije ključ
+	if err := os.WriteFile(filepath.Join(dir, KeyFileName), []byte("nije ključ"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if ime, err := ImeIzBaze(nema); ime != "" || err == nil {
+		t.Errorf("pokvaren ključ: %q %v", ime, err)
+	}
+}

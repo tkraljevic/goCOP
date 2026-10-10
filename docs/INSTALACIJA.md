@@ -466,9 +466,14 @@ upisuje svoje zapise, a drugi ga pamte uz ključ. Ime se zadaje **prije prvog
 pokretanja**: u instalacijskom programu, u `gocop.toml` ili zastavicom
 `-node`. Bez toga svjež čvor sam izabere jedinstveno ime (ime računala i
 četiri nasumična znaka) i upiše ga u `gocop.toml`. Nakon prvog pokretanja ime
-se ne mijenja. Postojeća baza bez upisanog imena zadržava dosadašnje
-`gocop-cvor`. Uparivanje odbija računalo koje nosi ime ovog čvora ili ime
-poznatog čvora s drugim ključem (dvojnik), isto i primanje na daljinu i
+se ne mijenja. Postojeća baza bez upisanog imena (npr. kad je `gocop.toml`
+premješten) uzima ime pod kojim pamti ključ ovog čvora, iz članstva u mreži
+ili zapisa čvora; kad ga ne zna, zadržava dosadašnje `gocop-cvor`. Od
+0.0.35-alfa uz postojeću bazu bez `gocop.toml` program ne zapisuje novi
+primjer, koji bi tiho zamijenio izvorne postavke, nego pri svakom pokretanju
+u dnevniku javlja da datoteke nema i gdje se očekuje. Uparivanje odbija
+računalo koje nosi ime ovog čvora ili ime poznatog čvora s drugim ključem
+(dvojnik), isto i primanje na daljinu i
 članstvo koje čvor pokaže pri spajanju; računalo koje je samo dobilo novi
 ključ najprije se zaboravi i opozove mu se članstvo.
 
@@ -687,11 +692,13 @@ nakon nadogradnje provjeriti da montirani `/data` sadrži postojeće
 `gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Tako je
 5. 10. 2026. mover premjestio `node-key` i `gocop.toml` s cachea na polje, a
 spremnik je uz postojeću bazu napravio novi ključ, pa su ga upareni čvorovi
-odbili. Od 0.0.35-alfa spremnik u tom slučaju ne kreće i u dnevniku
-spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Tada
-zaustaviti spremnik, provjeriti montaže (Shares → Browse pokazuje na kojem je
-disku datoteka) i vratiti izvornik u `/data`. Ako se postojeći čvor ipak
-prikaže kao nov ili s drugim ključem (izdanje prije 0.0.35), postupiti isto.
+odbili. Od 0.0.35-alfa spremnik bez ključa uz postojeću bazu ne kreće, a u
+dnevniku spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Bez
+`gocop.toml`, a s ključem, kreće, ali ime uzima iz baze, ne zapisuje novi
+primjer i u dnevniku javlja da datoteke nema. U oba slučaja zaustaviti
+spremnik, provjeriti montaže (Shares → Browse pokazuje na kojem je disku
+datoteka) i vratiti izvornike u `/data`; isto i kad se postojeći čvor na
+izdanju prije 0.0.35 prikaže kao nov ili s drugim ključem.
 Ponovnim osnivanjem mreže ne obnavlja se stari čvor. Samo kad izvornog ključa
 više nema, a novi identitet je namjeran: u predlošku spremnika dodati
 `-novi-kljuc-cvora` u *Post Arguments* (Advanced View), pokrenuti spremnik

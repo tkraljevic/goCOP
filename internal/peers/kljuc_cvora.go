@@ -9,6 +9,7 @@ package peers
 // bez ključa ne kreće, a novi identitet dobiva samo na izričit zahtjev.
 
 import (
+	"crypto/ed25519"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -16,6 +17,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+
+	"gocop/internal/razmjena"
 )
 
 // ZastavicaNovogKljuca je zastavica naredbenog retka kojom administrator
@@ -88,6 +91,44 @@ func knjigaImaZapisa(dbPath string) (ima bool, err error) {
 		return baza.QueryRow(`SELECT EXISTS (SELECT 1 FROM record_versions)`).Scan(&ima)
 	})
 	return ima, err
+}
+
+// ImeIzBaze traži ime ovog čvora u postojećoj bazi, za čvor čije ga
+// postavke nemaju (gocop.toml je premješten ili izgubljen): ime pod kojim
+// baza pamti javni ključ iz node-key, u članstvima ili među poznatim
+// čvorovima. Vraća "" kad baze ili ključa nema, kad baza ključ ne zna i kad
+// ga zna pod više imena; tada odlučuje pozivatelj. Baza se samo čita.
+func ImeIzBaze(dbPath string) (string, error) {
+	if ima, err := postoji(dbPath); !ima {
+		return "", err
+	}
+	kljuc, err := razmjena.LoadKey(putKljuca(dbPath))
+	if errors.Is(err, fs.ErrNotExist) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	javni := razmjena.PublicKeyString(kljuc.Public().(ed25519.PublicKey))
+	var ime string
+	err = citajBazu(dbPath, func(baza *sql.DB) (err error) {
+		ime, err = imeSKljucem(baza, javni)
+		return err
+	})
+	return ime, err
+}
+
+// imeSKljucem vraća ime čvora kojem baza pamti javni ključ (članstvo u
+// mreži ili zapis poznatog čvora); "" kad ga ne zna ili ga zna pod više imena
+func imeSKljucem(baza *sql.DB, javni string) (ime string, err error) {
+	var imena int
+	err = baza.QueryRow(`SELECT COUNT(*), COALESCE(MIN(node_id), '') FROM (
+		SELECT node_id FROM memberships WHERE public_key = ?
+		UNION SELECT node_id FROM peers WHERE public_key = ?)`, javni, javni).Scan(&imena, &ime)
+	if imena != 1 {
+		return "", err
+	}
+	return ime, err
 }
 
 // postoji javlja postoji li datoteka; to što je nema nije greška
