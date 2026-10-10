@@ -41,8 +41,8 @@ quality-deep:
 # izvoza provjere padaju, ne preskaču se, i kažu koje datoteke nema; izvoz
 # se tada prije izdanja vraća iz pričuve ili slaže iznova. Ostale provjere
 # rade na izmišljenom skupu testdata/sektor-p i ne trebaju ništa. Kad je u
-# data/ i baza čvora (gocop.db), testovi se usput pregledaju prema imenima iz nje:
-# nijedan ne smije nositi stvarno ime ni korisničko ime. Baza se otvara samo
-# za čitanje.
+# data/ i baza čvora (gocop.db), testovi se usput pregledaju prema imenima
+# iz nje: nijedan ne smije nositi stvarno ime, korisničko ime ni broj
+# mobitela. Baza se otvara samo za čitanje.
 provjera-registara:
 	GOCOP_REGISTRI=obavezno $(if $(wildcard data/gocop.db),GOCOP_STVARNA_BAZA="$(CURDIR)/data/gocop.db") go test -count=1 ./internal/db/

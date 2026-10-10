@@ -14,7 +14,8 @@ import (
 // Testovi i njihovi podaci rade na izmišljenim osobama (Odluke (8. 10. 2026.),
 // pitanje 13). Pregled prema bazi čvora nalazi stvarna imena koja su ipak
 // ostala: imena djelatnika i svih koji su upisivali u dnevnike, dežurstva,
-// vodočuvarske listove i prijave, te korisnička imena računa. Pregled samo
+// vodočuvarske listove i prijave, korisnička imena računa i brojeve mobitela
+// djelatnika. Pregled samo
 // prema računima promašio bi dežurne iz prijepisa dnevnika COP-a, koji nisu
 // računi. Baza čvora je stvarna i ne čita se sama od sebe (ni make quality ne
 // čita živu bazu): pregled se pokreće uz GOCOP_STVARNA_BAZA, koju make
@@ -47,8 +48,64 @@ var izmisljeni = map[string]bool{
 // početnim slovom (ne „VGI Osijek”, ne „telefonom”)
 var reOsobnoIme = regexp.MustCompile(`^\p{Lu}\p{Ll}+(?:[ -]\p{Lu}\p{Ll}+)+$`)
 
-// nalazStvarnogImena je stvarno ime ili korisničko ime nađeno u datoteci testa
+// nalazStvarnogImena je stvarno ime, korisničko ime ili broj mobitela nađen
+// u datoteci testa
 type nalazStvarnogImena struct{ datoteka, ime string }
+
+// reTelefon prepoznaje zapis broja telefona: znamenke s razmacima,
+// crticama, kosim crtama, točkama ili zagradama, s pozivnim + ili bez njega
+var reTelefon = regexp.MustCompile(`\+?\d[\d /().-]*\d`)
+
+// najmanjeZnamenki: kraći broj (skraćeni, kućni) ne ulazi u pregled, jer bi
+// se nalazio u svakom nizu znamenki
+const najmanjeZnamenki = 8
+
+// znamenkeTelefona svodi broj na znamenke, bez pozivnog 00385, +385 ili 385
+// i bez vodeće nule, pa su „+385 91 000 0011” i „091-000-0011” isti broj
+func znamenkeTelefona(s string) string {
+	var b strings.Builder
+	for _, r := range s {
+		if r >= '0' && r <= '9' {
+			b.WriteRune(r)
+		}
+	}
+	z := b.String()
+	if strings.HasPrefix(z, "00385") {
+		z = z[5:]
+	} else if strings.HasPrefix(z, "385") {
+		z = z[3:]
+	}
+	return strings.TrimLeft(z, "0")
+}
+
+// stvarniMobiteli čita iz baze čvora brojeve mobitela djelatnika; zapis s
+// više brojeva dijeli na zarezu i točka-zarezu (kosa crta je unutar broja)
+func stvarniMobiteli(baza *sql.DB) (map[string]bool, error) {
+	zapisi := map[string]bool{}
+	if err := skupi(baza, "SELECT mobile_phone FROM users", zapisi); err != nil {
+		return nil, err
+	}
+	mobiteli := map[string]bool{}
+	for zapis := range zapisi {
+		for _, broj := range strings.FieldsFunc(zapis, func(c rune) bool { return c == ',' || c == ';' }) {
+			if z := znamenkeTelefona(broj); len(z) >= najmanjeZnamenki {
+				mobiteli[z] = true
+			}
+		}
+	}
+	return mobiteli, nil
+}
+
+// telefoniUTekstu vraća zapise brojeva iz teksta koji su brojevi mobitela iz baze čvora
+func telefoniUTekstu(put, tekst string, mobiteli map[string]bool) []nalazStvarnogImena {
+	var nalazi []nalazStvarnogImena
+	for _, zapis := range reTelefon.FindAllString(tekst, -1) {
+		if mobiteli[znamenkeTelefona(zapis)] {
+			nalazi = append(nalazi, nalazStvarnogImena{put, zapis})
+		}
+	}
+	return nalazi
+}
 
 // otvoriSamoZaCitanje otvara bazu čvora tako da je pregled ne može promijeniti
 func otvoriSamoZaCitanje(put string) (*sql.DB, error) {
@@ -126,10 +183,10 @@ func jeTestnaDatoteka(put string) bool {
 	return strings.HasSuffix(put, "_test.go") || strings.Contains(filepath.ToSlash(put), "/testdata/")
 }
 
-// pregledajTestove traži stvarna imena i korisnička imena u testovima i
-// testnim podacima ispod korijena. Ime koje program sam prikazuje (autor i
-// zahvale u pomoći, u tekstu dopusteno) nije nalaz.
-func pregledajTestove(korijen string, imena, racuni map[string]bool, dopusteno string) ([]nalazStvarnogImena, error) {
+// pregledajTestove traži stvarna imena, korisnička imena i brojeve mobitela
+// u testovima i testnim podacima ispod korijena. Ime koje program sam
+// prikazuje (autor i zahvale u pomoći, u tekstu dopusteno) nije nalaz.
+func pregledajTestove(korijen string, imena, racuni, mobiteli map[string]bool, dopusteno string) ([]nalazStvarnogImena, error) {
 	var nalazi []nalazStvarnogImena
 	for _, mapa := range []string{"cmd", "internal", "testdata"} {
 		err := filepath.WalkDir(filepath.Join(korijen, mapa), func(put string, d fs.DirEntry, err error) error {
@@ -141,6 +198,7 @@ func pregledajTestove(korijen string, imena, racuni map[string]bool, dopusteno s
 				return err
 			}
 			nalazi = append(nalazi, imenaUTekstu(put, string(raw), imena, racuni, dopusteno)...)
+			nalazi = append(nalazi, telefoniUTekstu(put, string(raw), mobiteli)...)
 			return nil
 		})
 		if err != nil && !os.IsNotExist(err) {
@@ -168,9 +226,9 @@ func imenaUTekstu(put, tekst string, imena, racuni map[string]bool, dopusteno st
 	return nalazi
 }
 
-// Nijedan test ni testni podatak ne nosi ime ni korisničko ime iz baze čvora,
-// osim izmišljenih osoba i imena koja program sam prikazuje u pomoći. Pokreće
-// se samo uz GOCOP_STVARNA_BAZA.
+// Nijedan test ni testni podatak ne nosi ime, korisničko ime ni broj mobitela
+// iz baze čvora, osim izmišljenih osoba i imena koja program sam prikazuje u
+// pomoći. Pokreće se samo uz GOCOP_STVARNA_BAZA.
 func TestTestoviBezImenaIzStvarneBaze(t *testing.T) {
 	put := os.Getenv("GOCOP_STVARNA_BAZA")
 	if put == "" {
@@ -191,17 +249,94 @@ func TestTestoviBezImenaIzStvarneBaze(t *testing.T) {
 	if len(imena) == 0 || len(racuni) == 0 {
 		t.Fatalf("baza %s nema ni imena ni računa: %d imena, %d računa", put, len(imena), len(racuni))
 	}
+	mobiteli, err := stvarniMobiteli(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
 	korijen := filepath.Join("..", "..")
 	pomoc, err := os.ReadFile(filepath.Join(korijen, "web", "templates", "pomoc.html"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	nalazi, err := pregledajTestove(korijen, imena, racuni, string(pomoc))
+	nalazi, err := pregledajTestove(korijen, imena, racuni, mobiteli, string(pomoc))
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, n := range nalazi {
-		t.Errorf("%s: stvarno ime iz baze čvora %q; testovi rade na izmišljenim osobama (testdata/sektor-p)", n.datoteka, n.ime)
+		t.Errorf("%s: stvarni podatak osobe iz baze čvora %q; testovi rade na izmišljenim osobama (testdata/sektor-p)", n.datoteka, n.ime)
+	}
+}
+
+// Ni broj mobitela iz baze čvora ne smije ostati u testu: pregled ga nalazi
+// u svakom zapisu (s pozivnim +385 ili 00385, s vodećom nulom, s razmacima,
+// crticama i kosim crtama) i ne miješa ga s kraćim ili drugačijim brojem
+func TestPregledNalaziStvarniBrojMobitela(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "cvor.db")
+	baza, err := sql.Open("sqlite", put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`CREATE TABLE users (username TEXT, full_name TEXT, mobile_phone TEXT)`,
+		`INSERT INTO users VALUES ('aanic', 'Ana Anić', '+385 91 000 0011'), ('iivic', 'Ivo Ivić', '091 000 012; 091/000-013'), ('mmarkic', 'Marko Markić', '1234'), ('ivaivic', 'Iva Ivić', NULL)`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	baza.Close()
+	baza, err = otvoriSamoZaCitanje(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	mobiteli, err := stvarniMobiteli(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(mobiteli) != 3 || !mobiteli["910000011"] || !mobiteli["91000012"] || !mobiteli["91000013"] {
+		t.Errorf("mobiteli (kraći od osam znamenki ne ulaze): %v", mobiteli)
+	}
+
+	korijen := t.TempDir()
+	for put, sadrzaj := range map[string]string{
+		"internal/x/pozivni_test.go": `{"+385 91 000 0011", "x"}`,
+		"internal/x/nula_test.go":    `Mobitel: "091-000-012"`,
+		"internal/x/popis_test.go":   `"031 000 001, 0038591000013"`,
+		"internal/x/drugi_test.go":   `"091-000-014", "1234", "91 000 0011 5"`,
+		"internal/x/program.go":      `"091-000-012"`,
+		"testdata/skup/imenik.json":  `{"mobile_phone": "091 000 0011"}`,
+	} {
+		p := filepath.Join(korijen, filepath.FromSlash(put))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	nalazi, err := pregledajTestove(korijen, nil, nil, mobiteli, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	nadjeno := map[string]bool{}
+	for _, n := range nalazi {
+		rel, _ := filepath.Rel(korijen, n.datoteka)
+		nadjeno[filepath.ToSlash(rel)+" "+n.ime] = true
+	}
+	zeli := []string{
+		"internal/x/pozivni_test.go +385 91 000 0011",
+		"internal/x/nula_test.go 091-000-012",
+		"internal/x/popis_test.go 0038591000013",
+		"testdata/skup/imenik.json 091 000 0011",
+	}
+	for _, z := range zeli {
+		if !nadjeno[z] {
+			t.Errorf("nije nađeno: %s", z)
+		}
+	}
+	if len(nadjeno) != len(zeli) {
+		t.Errorf("nalazi %v, očekivano samo %v", nadjeno, zeli)
 	}
 }
 
@@ -265,7 +400,7 @@ func TestPregledStvarnihImenaNalaziImeIRacun(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	nalazi, err := pregledajTestove(korijen, imena, racuni, "Zahvale: Ivo Ivić")
+	nalazi, err := pregledajTestove(korijen, imena, racuni, nil, "Zahvale: Ivo Ivić")
 	if err != nil {
 		t.Fatal(err)
 	}

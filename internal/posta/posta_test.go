@@ -133,16 +133,17 @@ func TestImenaZaPrijavu(t *testing.T) {
 	}
 }
 
+// Brojevi su izmišljeni (Odluke (8. 10. 2026.), pitanje 13)
 func TestUsporedbaTelefona(t *testing.T) {
-	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031/252-802", "031 252 802"}, {"031 632052, 031 285676", "031-632-052"}, {"00385 31 252 852", "031-252-852"}} {
+	for _, c := range [][2]string{{"+385 91 000 001", "091-000-001"}, {"031/000-002", "031 000 002"}, {"031 000003, 031 000004", "031-000-003"}, {"00385 31 000 005", "031-000-005"}} {
 		if SamoZnamenke(c[0]) != SamoZnamenke(c[1]) {
 			t.Errorf("%q i %q moraju biti isti broj (%s, %s)", c[0], c[1], SamoZnamenke(c[0]), SamoZnamenke(c[1]))
 		}
 	}
-	if SamoZnamenke("098-404-497") == SamoZnamenke("098-404-499") {
+	if SamoZnamenke("091-000-001") == SamoZnamenke("091-000-009") {
 		t.Error("različiti brojevi")
 	}
-	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031 252 886", "031-252-886"}, {"031 632052, 031 285676", "031-632-052"}, {"099 346 3075", "099-346-3075"}, {"+43 1 234", "+431234"}} {
+	for _, c := range [][2]string{{"+385 91 000 001", "091-000-001"}, {"031 000 006", "031-000-006"}, {"031 000003, 031 000004", "031-000-003"}, {"099 000 0007", "099-000-0007"}, {"+43 1 234", "+431234"}} {
 		if got := FormatirajTelefon(c[0]); got != c[1] {
 			t.Errorf("FormatirajTelefon(%q) = %q, očekivano %q", c[0], got, c[1])
 		}

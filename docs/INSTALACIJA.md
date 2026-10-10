@@ -908,9 +908,9 @@ naredbom `make provjera-registara`, koja ih bez cijelog izvoza ruši umjesto
 da ih preskoči.
 Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
 i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
-upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
-ne smije nositi stvarno ime, osim imena koja program sam prikazuje u
-pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave) i prema
+brojevima mobitela djelatnika: nijedan ne smije nositi stvarno ime ni broj,
+osim imena koja program sam prikazuje u pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
 Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
 (`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
 ne provjerava.
