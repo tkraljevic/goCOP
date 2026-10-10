@@ -207,7 +207,7 @@ func TestProvjeraOcitanja(t *testing.T) {
 		{"samo zapornica na postaji", func(r *models.Reading) { r.LevelCm, r.Gate = nil, models.GateClosed }, "samo na objektu"},
 	}
 	for _, s := range slucajevi {
-		err := o.rs.validate(osnovno(s.izmj))
+		err := o.rs.validate(osnovno(s.izmj), false)
 		switch {
 		case s.greska == "" && err != nil:
 			t.Errorf("%s: %v", s.ime, err)
@@ -219,7 +219,7 @@ func TestProvjeraOcitanja(t *testing.T) {
 	// provjera i mijenja očitanje: prazan način postaje ručni, a napomena i
 	// očitao se obrežu
 	rd := osnovno(func(r *models.Reading) { r.Note, r.Observer = "  mutna voda \n", "  Pero Perić " })
-	if err := o.rs.validate(rd); err != nil {
+	if err := o.rs.validate(rd, false); err != nil {
 		t.Fatal(err)
 	}
 	if rd.Source != models.ReadingSourceManual || rd.Note != "mutna voda" || rd.Observer != "Pero Perić" {

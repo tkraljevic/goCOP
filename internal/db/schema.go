@@ -740,6 +740,7 @@ func InitSchema(database *sql.DB) error {
 			javni_uvoz INTEGER NOT NULL DEFAULT 0,
 			telemetrija_site TEXT NOT NULL DEFAULT '',
 			telemetrija_uvoz INTEGER NOT NULL DEFAULT 0,
+			kota_nm INTEGER NOT NULL DEFAULT 0,
 			povijest TEXT NOT NULL DEFAULT '',
 			opis_vodokaza TEXT NOT NULL DEFAULT '',
 			datum_osnivanja TEXT NOT NULL DEFAULT '',
@@ -1037,6 +1038,26 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_readings_station_time ON readings(station_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
+
+		// Vrijednosti očitanja odbačene jer su izvan raspona (Odluke (8. 10.
+		// 2026.), pitanje 21). Nije očitanje, nego trag da mjerilo ili zapis
+		// nije ispravan; stranica letve iz nje pokazuje koliko je odbačeno i
+		// što zadnje. Sinkronizira se (entitet odbacena_ocitanja, u kanalu
+		// očitanja letve), jer preuzima jedan čvor, a broj treba vidjeti
+		// svaki koji letvu prati. Ista vrijednost istog trenutka s istog
+		// izvora upisuje se jednom, pa satno preuzimanje istog prozora ni
+		// drugi čvor koji preuzima istu letvu ne udvostručuju broj; id je
+		// izveden iz tih podataka i isti je na svakom čvoru.
+		`CREATE TABLE IF NOT EXISTS odbacena_ocitanja (
+			id TEXT NOT NULL DEFAULT '',
+			letva TEXT NOT NULL,
+			kad DATETIME NOT NULL,
+			polje TEXT NOT NULL,
+			izvor TEXT NOT NULL DEFAULT '',
+			opis TEXT NOT NULL DEFAULT '',
+			zabiljezeno DATETIME NOT NULL,
+			PRIMARY KEY (letva, kad, polje, izvor)
+		);`,
 
 		// Letve čiju povijest ovaj čvor drži u cijelosti. Tablica je LOKALNA:
 		// ne sinkronizira se, jer je odluka o mjestu na disku stvar ovog
@@ -1533,6 +1554,11 @@ func migrateSchema(database *sql.DB) error {
 		// postaje ondje i sklopka koja to uključuje.
 		{"stations", "telemetrija_site", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "telemetrija_uvoz", "INTEGER NOT NULL DEFAULT 0"},
+		// Oznaka „kota u cm n. m.”: letva akumulacije vodi kotu vodnog lica,
+		// pa ima raspon kote umjesto raspona vodostaja (Odluke (8. 10.
+		// 2026.), pitanje 21). Tri letve akumulacija HEP-a označava popravak
+		// podataka letve-akumulacija-kota, kroz knjigu verzija.
+		{"stations", "kota_nm", "INTEGER NOT NULL DEFAULT 0"},
 		// Povijest postaje, opis same letve i dan kad je počela raditi. To
 		// stoji u dokumentaciji službe, a iz niza se ne vidi: zamjena
 		// limnigrafa ili premještanje letve ostave trag u podacima, a razlog

@@ -28,6 +28,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/db"
 	"gocop/internal/models"
 )
@@ -405,6 +407,10 @@ type StanjeLetve struct {
 	Greska     string    // prazno kad je prošlo
 	ZadnjeKad  time.Time // najnovije očitanje sa stranice
 	UkupnoNovo int       // od pokretanja programa
+	// Odbaceno je koliko vrijednosti zadnjeg preuzimanja nije upisano jer su
+	// izvan raspona (Odluke (8. 10. 2026.), pitanje 21). Ukupan broj po
+	// letvi putuje razmjenom i vidi se na stranici letve.
+	Odbaceno int
 }
 
 // Uvoznik svaki sat preuzme označene letve. Stanje po letvi drži u
@@ -786,12 +792,12 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		}
 	}
 	// Mađarska letva kojoj vizugy.hu kasni ili ne odgovara: sati iza
-	// zadnjeg njegova očitanja uzimaju se s DanubeHIS-a.
+	// zadnjeg njegova očitanja koje bi se upisalo uzimaju se s DanubeHIS-a.
 	var rezerva []Redak
 	if izvor.Naziv() == PodrijetloVizugy {
 		var zadnje time.Time
-		if err == nil && len(redci) > 0 {
-			zadnje = redci[len(redci)-1].Kad
+		if err == nil {
+			zadnje = zadnjeUpisivo(st, redci, izvor.Naziv(), time.Now())
 		}
 		rezerva = u.rezervaDanubeHIS(cctx, st, zadnje)
 		if len(rezerva) > 0 && (err != nil || len(redci) == 0) {
@@ -807,10 +813,6 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	if len(redci) == 0 && len(rezerva) == 0 {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
-	}
-	type izRedak struct {
-		r     Redak
-		izvor string
 	}
 	var svi []izRedak
 	for _, r := range redci {
@@ -836,13 +838,7 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		return s
 	}
 	var nova []models.Reading
-	for _, x := range svi {
-		if postojeca[x.r.Kad.Unix()] {
-			continue
-		}
-		postojeca[x.r.Kad.Unix()] = true
-		nova = append(nova, Ocitanje(st, x.r, x.izvor))
-	}
+	nova, s.Odbaceno = novaOcitanja(st, svi, postojeca, time.Now())
 	if len(nova) == 0 {
 		return s
 	}
@@ -855,6 +851,51 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 	s.Novih = n
 	s.UkupnoNovo += n
 	return s
+}
+
+// izRedak je redak s izvora uz naziv izvora s kojeg je stigao
+type izRedak struct {
+	r     Redak
+	izvor string
+}
+
+// novaOcitanja slaže očitanja za trenutke koje letva još nema i broji
+// vrijednosti izvan raspona. Njih upis ne prima (Odluke (8. 10. 2026.),
+// pitanje 21): očitanja idu u Upisi cijela, a ondje ih zajednička provjera
+// raspona očisti i odbačeno zabilježi za stranicu letve. Očitanje koje bi
+// provjera odbacila cijelo ne zauzima sat, pa ga može popuniti redak
+// rezerve; isto očitanje (isti izvor i sat) šalje se jednom.
+func novaOcitanja(st *models.Station, svi []izRedak, postojeca map[int64]bool, sada time.Time) ([]models.Reading, int) {
+	var nova []models.Reading
+	odbaceno := 0
+	poslano := map[uuid.UUID]bool{}
+	for _, x := range svi {
+		rd := Ocitanje(st, x.r, x.izvor)
+		if postojeca[x.r.Kad.Unix()] || poslano[rd.ID] {
+			continue
+		}
+		poslano[rd.ID] = true
+		cisto := rd
+		izvan, upisati := models.OcistiOcitanje(&cisto, st.KotaNM, sada)
+		odbaceno += len(izvan)
+		postojeca[x.r.Kad.Unix()] = upisati
+		nova = append(nova, rd)
+	}
+	return nova, odbaceno
+}
+
+// zadnjeUpisivo vraća trenutak zadnjeg retka izvora koji bi zajednička
+// provjera raspona propustila; nula kad takvog nema. Iza njega počinje
+// prozor rezerve: sat čiju je vrijednost provjera odbacila ostaje prazan,
+// pa ga rezerva smije popuniti (Odluke (8. 10. 2026.), pitanje 21).
+func zadnjeUpisivo(st *models.Station, redci []Redak, izvor string, sada time.Time) time.Time {
+	for i := len(redci) - 1; i >= 0; i-- {
+		rd := Ocitanje(st, redci[i], izvor)
+		if _, upisati := models.OcistiOcitanje(&rd, st.KotaNM, sada); upisati {
+			return redci[i].Kad
+		}
+	}
+	return time.Time{}
 }
 
 // isteklo javlja je li upit pao zato što odgovor nije stigao na vrijeme, a

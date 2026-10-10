@@ -270,6 +270,13 @@
     <textarea id="povijest" name="povijest" class="form-control" rows="6"
               placeholder="osnivanje, položaj, uređaji kroz vrijeme, stalne točke i reperi">{{.Station.Povijest}}</textarea>
   </div>
+  {{if .Station.KotaNM}}
+  <p class="form-help mb-4">
+    <span class="reg-chip">kota u cm n. m.</span> Letva akumulacije HEP-a ne vodi vodostaj nego kotu vodnog lica nad
+    morem, pa prima očitanja od 5000 do 40 000 cm umjesto od −500 do 3000 cm, i pri ručnom upisu i pri preuzimanju
+    i uvozu. Oznaku postavlja program; u obrascu se ne mijenja.
+  </p>
+  {{end}}
 
   <h3 class="obrazac-podnaslov">Javna stranica vodostaja</h3>
   <div class="form-row">

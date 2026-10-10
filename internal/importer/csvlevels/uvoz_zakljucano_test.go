@@ -251,9 +251,13 @@ func TestUvozTabliceRazlikePremaZatecenom(t *testing.T) {
 	if r.Gauge != "Primjerovo" || r.Have != 140 || r.New != 120 || r.HaveAt.Format("15:04") != "08:15" {
 		t.Errorf("razlika: %+v", r)
 	}
+	// Odluke (8. 10. 2026.), pitanje 21: raspon je zajednički svim putovima
+	// upisa i ovisi o letvi stupca (kota akumulacije) i o vremenu, pa sažetak
+	// broji ćelije izvan raspona i navodi sva tri raspona, a ne samo raspon
+	// vodostaja („izvan raspona −500..3000 cm: 2”).
 	if !strings.HasPrefix(rep.Summary(), "PROBNI PROLAZ") || !strings.Contains(rep.Summary(), "nečitljivih datuma 1") ||
 		!strings.Contains(rep.Summary(), "nečitljivih vrijednosti 3") ||
-		!strings.Contains(rep.Summary(), "izvan raspona −500..3000 cm: 2") {
+		!strings.Contains(rep.Summary(), "izvan raspona: 2 (vodostaj −500..3000 cm, kota akumulacije 5000..40000 cm n. m.") {
 		t.Errorf("sažetak: %s", rep.Summary())
 	}
 	// samo konačni brojevi bez eksponenta
