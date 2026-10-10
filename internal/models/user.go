@@ -405,7 +405,8 @@ type VerzijaZaduzenja struct {
 // Za svako zaduženje (stanje na površini, i opozvano i isteklo) idu njegove
 // ranije verzije iz knjige, redom nastanka, a kao zadnja stanje s površine,
 // od trenutka zadnje verzije u knjizi. Zaduženje bez verzija u knjizi stoji
-// u stanju s površine od svog nastanka.
+// u stanju s površine od svog nastanka. Zaduženje stoji od nastanka i kad
+// mu prva verzija u knjizi dolazi poslije (odNastanka).
 func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []VerzijaZaduzenja {
 	var out []VerzijaZaduzenja
 	for _, d := range zaduzenja {
@@ -413,9 +414,29 @@ func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []Verzi
 		if n := len(ranije); n > 0 {
 			ranije, od = ranije[:n-1], ranije[n-1].Od
 		}
-		out = append(append(out, ranije...), VerzijaZaduzenja{Duty: d, Od: od})
+		out = append(out, odNastanka(append(ranije, VerzijaZaduzenja{Duty: d, Od: od}), d.CreatedAt)...)
 	}
 	return out
+}
+
+// odNastanka produljuje povijest jednog zaduženja unatrag do njegova
+// nastanka. Zaduženje upisano mimo knjige verzija (imenik pri prvom
+// pokretanju, starija baza) dobiva prvu verziju tek pri prvoj izmjeni,
+// opozivu ili produljenju, a i verzija upisana uz nastanak nosi trenutak
+// malo kasniji. Do prve verzije zaduženje je stajalo u njezinu obliku i
+// aktivno, jer zaduženje nastaje aktivno, a tek opoziv ostavlja verziju:
+// prva verzija koja je opoziv dobiva ispred sebe aktivnu.
+func odNastanka(povijest []VerzijaZaduzenja, nastanak time.Time) []VerzijaZaduzenja {
+	prva := povijest[0]
+	if !nastanak.Before(prva.Od) {
+		return povijest
+	}
+	if prva.IsActive {
+		povijest[0].Od = nastanak
+		return povijest
+	}
+	prva.IsActive, prva.Od = true, nastanak
+	return append([]VerzijaZaduzenja{prva}, povijest...)
 }
 
 // verzijeZaduzenja su verzije iz knjige jednog zaduženja, redom kojim dolaze

@@ -218,3 +218,59 @@ func TestVazecaZaduzenja(t *testing.T) {
 		t.Errorf("važeća: %+v", got)
 	}
 }
+
+// Zaduženje upisano mimo knjige verzija (imenik pri prvom pokretanju,
+// starija baza) dobiva prvu verziju tek pri prvoj izmjeni, opozivu ili
+// produljenju. Do nje je stajalo od nastanka, u obliku te verzije i
+// aktivno: zaduženje nastaje aktivno, a tek opoziv ostavlja verziju.
+// Zaduženje bez verzija i zaduženje upisano s verzijom stoje od nastanka
+// kao i dosad.
+func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
+	nastanak := time.Date(2026, 1, 1, 9, 0, 0, 0, Zagreb)
+	prvaIzmjena := time.Date(2026, 10, 5, 9, 0, 0, 0, Zagreb)
+	drugaIzmjena := time.Date(2026, 10, 7, 9, 0, 0, 0, Zagreb)
+	dan := func(m time.Month, d int) time.Time { return time.Date(2026, m, d, 0, 0, 0, 0, Zagreb) }
+	izmijenjeno, opozvano, dvaput := uuid.New(), uuid.New(), uuid.New()
+	povrsina := []Duty{
+		{ID: izmijenjeno, Title: "izmijenjeno", IsActive: true, CreatedAt: nastanak},
+		{ID: opozvano, Title: "opozvano", CreatedAt: nastanak},
+		{ID: dvaput, Title: "dvaput", IsActive: true, CreatedAt: nastanak},
+	}
+	knjiga := []VerzijaZaduzenja{
+		{Duty: Duty{ID: izmijenjeno, Title: "izmijenjeno", IsActive: true, CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: opozvano, Title: "opozvano", CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: dvaput, Title: "dvaput prvo", IsActive: true, CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: dvaput, Title: "dvaput", IsActive: true, CreatedAt: nastanak}, Od: drugaIzmjena},
+	}
+	povijest := SloziPovijestZaduzenja(povrsina, knjiga)
+	naslovi := func(dd []Duty) string {
+		var out []string
+		for _, d := range dd {
+			out = append(out, d.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	for _, s := range []struct {
+		ime string
+		dan time.Time
+		ima string
+	}{
+		{"prije nastanka", dan(12, 31).AddDate(-1, 0, 0), ""},
+		{"dan nastanka", dan(1, 1), "izmijenjeno, opozvano, dvaput prvo"},
+		{"između nastanka i prve izmjene", dan(9, 1), "izmijenjeno, opozvano, dvaput prvo"},
+		{"dan prve izmjene i opoziva", dan(10, 5), "izmijenjeno, opozvano, dvaput prvo"},
+		{"nakon opoziva", dan(10, 6), "izmijenjeno, dvaput prvo"},
+		{"nakon druge izmjene", dan(10, 8), "izmijenjeno, dvaput"},
+	} {
+		if got := naslovi(ZaduzenjaUDanu(povijest, s.dan)); got != s.ima {
+			t.Errorf("%s: %q, očekivano %q", s.ime, got, s.ima)
+		}
+	}
+	// zaduženje upisano s verzijom u istoj transakciji stoji od nastanka,
+	// a ne od trenutka upisa verzije
+	upisano := Duty{ID: uuid.New(), Title: "upisano", IsActive: true, CreatedAt: nastanak}
+	p := SloziPovijestZaduzenja([]Duty{upisano}, []VerzijaZaduzenja{{Duty: upisano, Od: nastanak.Add(time.Millisecond)}})
+	if len(p) != 1 || !p[0].Od.Equal(nastanak) {
+		t.Errorf("zaduženje upisano s verzijom: %+v", p)
+	}
+}

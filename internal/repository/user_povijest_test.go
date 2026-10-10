@@ -18,8 +18,8 @@ func vodocuvarDuznost(korisnik uuid.UUID, dionice string) *models.Duty {
 
 // Povijest zaduženja: svaka verzija iz knjige redom nastanka, a zadnje stanje
 // sa zapisa na površini, od trenutka zadnje verzije. Izmjena u mjestu i
-// opoziv tako ne brišu kako je zaduženje prije stajalo. Zaduženje bez
-// verzija u knjizi stoji od nastanka; tuđa zaduženja ne ulaze.
+// opoziv tako ne brišu kako je zaduženje prije stajalo. Zaduženje stoji od
+// nastanka, i kad nema verzija u knjizi; tuđa zaduženja ne ulaze.
 func TestPovijestZaduzenja(t *testing.T) {
 	n := noviCvor(t, "ured")
 	repo := NewUserRepository(n.db, n.rec)
@@ -56,7 +56,7 @@ func TestPovijestZaduzenja(t *testing.T) {
 		aktivno bool
 		od      time.Time
 	}{
-		{osnovaDionica, true, verzije[2].CreatedAt},
+		{osnovaDionica, true, d.CreatedAt},
 		{"B.16.2", true, verzije[1].CreatedAt},
 		{"B.16.2", false, verzije[0].CreatedAt},
 	}
@@ -93,5 +93,40 @@ func TestPovijestZaduzenjaGreske(t *testing.T) {
 				t.Errorf("bez greške: %+v", p)
 			}
 		})
+	}
+}
+
+// Zaduženje upisano mimo knjige verzija (imenik pri prvom pokretanju)
+// dobiva prvu verziju tek pri prvoj izmjeni ili opozivu; do nje stoji od
+// nastanka, aktivno, pa zapisi iz tog vremena ostaju vezani uz njega
+// (Odluke (8. 10. 2026.), pitanje 1). Podaci su izmišljeni.
+func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	nastanak := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	mimoKnjige := func(dionice string) uuid.UUID {
+		t.Helper()
+		id := uuid.New()
+		if _, err := n.db.Exec(`INSERT INTO duties (id, user_id, title, role, scope_type, area_id, section_codes, created_at, is_active)
+			VALUES (?, ?, 'Vodočuvar', 'WATER_GUARD', 'SECTION', 16, ?, ?, 1)`, id.String(), osnovaKorisnik.String(), dionice, nastanak); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	opozvano, izmijenjeno := mimoKnjige(osnovaDionica), mimoKnjige("B.16.2")
+	nuzno(t, repo.RevokeDuty(opozvano))
+	d, err := repo.GetDuty(izmijenjeno)
+	nuzno(t, err)
+	d.Title = "Vodočuvar dionice"
+	nuzno(t, repo.UpdateDuty(d))
+
+	povijest, err := repo.PovijestZaduzenja(osnovaKorisnik)
+	nuzno(t, err)
+	usred := time.Date(2026, 6, 1, 0, 0, 0, 0, models.Zagreb)
+	if got := models.ZaduzenjaUDanu(povijest, usred); len(got) != 2 {
+		t.Errorf("između nastanka i prve verzije: %+v", got)
+	}
+	if got := models.ZaduzenjaUDanu(povijest, time.Now().AddDate(0, 0, 1)); len(got) != 1 || got[0].ID != izmijenjeno || got[0].Title != "Vodočuvar dionice" {
+		t.Errorf("nakon opoziva i izmjene: %+v", got)
 	}
 }
