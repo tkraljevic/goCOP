@@ -26,6 +26,7 @@ type slozeniListovi struct {
 	glavni   *models.VodocuvarskiList  // pod oznakom zapisa; nil kad ga nema
 	dvojnici []models.VodocuvarskiList // listovi kasnijih potpisa, pod izvedenom oznakom
 	potpisi  []time.Time               // svi potpisi iz povijesti zapisa, i oni koji više ne vrijede
+	verzije  []verzijaLista            // sve verzije zapisa, od najstarije
 }
 
 // slozi slaže listove zapisa iz njegovih verzija, od najstarije. Glavni
@@ -33,7 +34,7 @@ type slozeniListovi struct {
 // potpisa je to nacrt.
 func slozi(id string, verzije []verzijaLista) slozeniListovi {
 	nacrti, predani := podijeliPoPotpisu(ziveVerzije(verzije))
-	s := slozeniListovi{potpisi: potpisiVerzija(verzije)}
+	s := slozeniListovi{potpisi: potpisiVerzija(verzije), verzije: verzije}
 	glavni := nacrti
 	if len(predani) > 0 {
 		glavni = append(append([]verzijaLista(nil), predani[0]...), nacrti...)

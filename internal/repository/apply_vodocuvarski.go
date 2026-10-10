@@ -41,10 +41,12 @@ import (
 // svi čvorovi s istim verzijama pokazuju isti list. Čvor starijeg programa
 // (0.0.34) i dalje pokazuje zadnju verziju.
 
-// verzijaLista je jedna verzija lista iz knjige
+// verzijaLista je jedna verzija lista iz knjige, s čvorom koji ju je upisao
 type verzijaLista struct {
 	arhivirana bool
 	list       models.VodocuvarskiList
+	cvor       string // čvor koji je verziju upisao
+	verzija    string // oznaka verzije, redom nastanka na čvoru
 }
 
 // vodocuvarskiIzPovijesti upisuje list složen iz povijesti; i vrijeme
@@ -92,7 +94,7 @@ func upisiSlozeni(ctx context.Context, tx *sql.Tx, id string, l *models.Vodocuva
 
 // verzijeListaTx čita sve verzije lista iz knjige, od najstarije
 func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT archived, payload FROM record_versions
+	rows, err := tx.QueryContext(ctx, `SELECT archived, payload, node_id, version_id FROM record_versions
 		WHERE entity = ? AND entity_id = ? ORDER BY version_id`, EntityVodocuvarski, id)
 	if err != nil {
 		return nil, err
@@ -102,10 +104,11 @@ func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista,
 	for rows.Next() {
 		var arhivirana int
 		var payload string
-		if err := rows.Scan(&arhivirana, &payload); err != nil {
+		var v verzijaLista
+		if err := rows.Scan(&arhivirana, &payload, &v.cvor, &v.verzija); err != nil {
 			return nil, err
 		}
-		v := verzijaLista{arhivirana: arhivirana != 0}
+		v.arhivirana = arhivirana != 0
 		if err := json.Unmarshal([]byte(payload), &v.list); err != nil {
 			return nil, fmt.Errorf("verzija lista %s: %w", id, err)
 		}

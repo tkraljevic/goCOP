@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -16,8 +17,10 @@ import (
 // (zapisIzvornika), a površina svakom listu (glavnom i dvojniku,
 // apply_vodocuvarski_dvojnici.go) daje zadnju verziju izvornika njegova
 // potpisa (models.IzvornikLista.PredanoAt). Ovjera tako ide na PDF lista
-// koji se ovjerava. Izvornik bez potpisa (čvor 0.0.34, starije verzije)
-// ostaje uz list pod svojom oznakom, a od više verzija za isti list
+// koji se ovjerava. Izvornik bez potpisa (čvor 0.0.34, izvornici upisani
+// prije potpisa u izvorniku) pripada potpisu lista koji je njegov čvor
+// zadnji predao ili ovjerio prije njega (potpisIzvornika); bez takve
+// verzije ostaje uz list pod svojom oznakom. Od više verzija za isti list
 // vrijedi zadnja, kao i dosad. Ishod ovisi samo o skupu verzija, ne o
 // redoslijedu kojim su stigle.
 
@@ -26,6 +29,8 @@ type verzijaIzvornika struct {
 	arhivirana bool
 	kanal      string
 	iz         models.IzvornikLista
+	cvor       string // čvor koji je verziju upisao
+	verzija    string // oznaka verzije, redom nastanka na čvoru
 }
 
 // primijeniIzvornikeIzPovijesti slaže izvornike listova jednog zapisa iz
@@ -45,6 +50,7 @@ func primijeniIzvornike(ctx context.Context, tx *sql.Tx, id string, s slozeniLis
 	if err != nil || len(verzije) == 0 {
 		return err
 	}
+	dopuniPotpise(verzije, s.verzije)
 	zadnje := zadnjiIzvornici(id, s, verzije)
 	for _, listID := range listoviIzvornika(id, s, zadnje) {
 		if err := upisiIzvornikLista(ctx, tx, id, listID, zadnje[listID]); err != nil {
@@ -57,7 +63,7 @@ func primijeniIzvornike(ctx context.Context, tx *sql.Tx, id string, s slozeniLis
 // verzijeIzvornikaTx čita sve verzije izvornika zapisa iz knjige, od
 // najstarije
 func verzijeIzvornikaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaIzvornika, error) {
-	rows, err := tx.QueryContext(ctx, `SELECT archived, channel, payload FROM record_versions
+	rows, err := tx.QueryContext(ctx, `SELECT archived, channel, payload, node_id, version_id FROM record_versions
 		WHERE entity = ? AND entity_id = ? ORDER BY version_id`, EntityVodocuvarskiIzvornici, id)
 	if err != nil {
 		return nil, err
@@ -68,7 +74,7 @@ func verzijeIzvornikaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaIz
 		var arhivirana int
 		var payload string
 		var v verzijaIzvornika
-		if err := rows.Scan(&arhivirana, &v.kanal, &payload); err != nil {
+		if err := rows.Scan(&arhivirana, &v.kanal, &payload, &v.cvor, &v.verzija); err != nil {
 			return nil, err
 		}
 		v.arhivirana = arhivirana != 0
@@ -78,6 +84,30 @@ func verzijeIzvornikaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaIz
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+// dopuniPotpise daje izvorniku bez potpisa potpis lista kojemu pripada
+// (potpisIzvornika)
+func dopuniPotpise(izvornici []verzijaIzvornika, listovi []verzijaLista) {
+	for i := range izvornici {
+		if izvornici[i].iz.PredanoAt == nil {
+			izvornici[i].iz.PredanoAt = potpisIzvornika(izvornici[i], listovi)
+		}
+	}
+}
+
+// potpisIzvornika je potpis lista kojemu pripada izvornik bez potpisa:
+// izvornik se sprema odmah nakon predaje ili ovjere, na istom čvoru, pa je
+// to potpis zadnje predane verzije lista koju je čvor izvornika upisao
+// prije njega; nil kad je nema
+func potpisIzvornika(v verzijaIzvornika, listovi []verzijaLista) *time.Time {
+	var potpis *time.Time
+	for _, l := range listovi {
+		if l.cvor == v.cvor && l.verzija < v.verzija && l.list.Predan() {
+			potpis = l.list.PredanoAt
+		}
+	}
+	return potpis
 }
 
 // zadnjiIzvornici daje za svaki list zadnju verziju njegova izvornika
