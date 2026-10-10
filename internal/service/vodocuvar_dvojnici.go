@@ -79,6 +79,19 @@ func (s *VodocuvarService) DrugiPredani(ctx context.Context, l *models.Vodocuvar
 	return out
 }
 
+// OznakeDvostrukih vraća za svaki predan list koji ima dvojnika brojeve
+// drugih predanih listova iste osobe za isti dan, za oznaku „dvostruki list
+// – vidi i list br. …” na popisu listova. Gleda sve listove na čvoru, a ne
+// samo one u pregledu, pa oznaka stoji i u suženom pregledu (npr. „čeka
+// ovjeru”) kad drugi list u njemu nije.
+func (s *VodocuvarService) OznakeDvostrukih(ctx context.Context) map[string][]int {
+	svi, err := s.repo.Dvojnici(ctx)
+	if err != nil {
+		return nil
+	}
+	return BrojeviDvostrukih(svi)
+}
+
 // BrojeviDvostrukih vraća za svaki predan list brojeve drugih predanih
 // listova iste osobe za isti dan, za oznaku na popisu listova
 func BrojeviDvostrukih(listovi []models.VodocuvarskiList) map[string][]int {

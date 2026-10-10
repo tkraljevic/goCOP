@@ -50,3 +50,35 @@ func TestDvostrukiListoviKrozRute(t *testing.T) {
 		t.Error("predan list bez oznake dvostrukog lista")
 	}
 }
+
+// Pregled „čeka ovjeru” pokazuje samo predane listove bez ovjere. List čiji
+// je dvojnik već ovjeren i ondje nosi oznaku „dvostruki list – vidi i list
+// br. …”, jer se upravo ondje ovjerava; oznaka ne ovisi o tome je li i
+// drugi list u pregledu.
+func TestOznakaDvostrukogListaUPregleduCekaOvjeru(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	n := time.Now().In(models.Zagreb)
+	dan := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
+	predan := func(broj int, ovjeren bool) *models.VodocuvarskiList {
+		t.Helper()
+		kad := time.Now()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: o.vodocuvar.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1,
+			Datum: dan, Broj: broj, Od: "07:00", Do: "15:00", Opis: "obilazak nasipa", PredanoAt: &kad}
+		if ovjeren {
+			l.PotvrdioID, l.Potvrdio, l.PotvrdenoAt = o.rukovodi.ID.String(), "Ana Anić", &kad
+		}
+		if err := o.repo.Save(context.Background(), l); err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+	predan(41, true)
+	predan(42, false)
+	ceka := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar?ceka=1", nil).Body.String()
+	if !strings.Contains(ceka, "List 42") || strings.Contains(ceka, "List 41") {
+		t.Fatal("pregled „čeka ovjeru” mora pokazati samo list 42")
+	}
+	if !strings.Contains(ceka, "dvostruki list – vidi i list br. 41") {
+		t.Error("list 42 u pregledu „čeka ovjeru” bez oznake dvostrukog lista")
+	}
+}

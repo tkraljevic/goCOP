@@ -113,3 +113,31 @@ func TestDvostrukiListoviSamoSePrijavljuju(t *testing.T) {
 		t.Errorf("brojevi dvostrukih listova: %+v", brojevi)
 	}
 }
+
+// Oznaka „dvostruki list – vidi i list br. …” računa se iz svih listova na
+// čvoru: stoji uz predan list koji ima predanog dvojnika, a ne uz list čiji
+// je dvojnik nacrt ni uz jedini list dana
+func TestOznakeDvostrukih(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	prvi := o.dvojnik(t, pero, dan, 7, "prvi", true)
+	drugi := o.dvojnik(t, pero, dan, 8, "drugi", true)
+	o.dvojnik(t, pero, dan.AddDate(0, 0, 1), 0, "nacrt", false)
+	uzNacrt := o.dvojnik(t, pero, dan.AddDate(0, 0, 1), 9, "predan", true)
+	jedini := o.dvojnik(t, pero, dan.AddDate(0, 0, 2), 10, "jedini", true)
+
+	oznake := o.vs.OznakeDvostrukih(ctx)
+	if len(oznake[prvi.ID]) != 1 || oznake[prvi.ID][0] != 8 || len(oznake[drugi.ID]) != 1 || oznake[drugi.ID][0] != 7 {
+		t.Errorf("oznake dvostrukih predanih listova: %+v", oznake)
+	}
+	if oznake[uzNacrt.ID] != nil || oznake[jedini.ID] != nil {
+		t.Errorf("oznaka bez predanog dvojnika: %+v", oznake)
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if oznake := o.vs.OznakeDvostrukih(prekinut); oznake != nil {
+		t.Errorf("greška čitanja: %+v", oznake)
+	}
+}

@@ -276,7 +276,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 	d.MojiMjeseci = poMjesecima(d.Moji)
 	d.Dvostruki = s.DvostrukiListovi(r.Context(), perms)
-	d.Dvojnici = service.BrojeviDvostrukih(append(append([]models.VodocuvarskiList{}, d.Moji...), d.Tudji...))
+	d.Dvojnici = s.OznakeDvostrukih(r.Context())
 	// Vodočuvar koji ne vidi ničiji tuđi dnevnik i nikome ne zadaje zadatke
 	// dobiva samo svoju knjigu: filtri i tuđe knjige mu ništa ne znače, a
 	// svaki suvišan gumb je razlog manje da program uopće otvori.
