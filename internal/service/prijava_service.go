@@ -263,9 +263,9 @@ func (s *PrijavaService) Slike(ctx context.Context, p *models.PrijavaSTerena) ma
 }
 
 // Objavi objavljuje nacrt: dodijeli broj, upiše prijavu na dnevni list
-// vodočuvara za dan događaja (za prošli dan bez lista na današnji) i spremi
-// potpisani PDF kao izvornik; PDF gradi pozivatelj (crta i potpisuje) nad
-// prijavom kakva će biti objavljena.
+// vodočuvara za dan događaja (za prošli dan bez lista ili s listom prenesenim
+// iz ranije evidencije na današnji) i spremi potpisani PDF kao izvornik; PDF
+// gradi pozivatelj (crta i potpisuje) nad prijavom kakva će biti objavljena.
 // Objava i izvornik su jedna transakcija; upis na list slijedi, a ako ne
 // uspije vraća se kao upozorenje uz objavljenu prijavu.
 func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, izradi func(p *models.PrijavaSTerena) ([]byte, error)) (*models.PrijavaSTerena, string, error) {
@@ -286,9 +286,10 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	}
 	// list dana: postojeći ili novi, s brojem; list za dan koji još nije
 	// počeo ostaje nacrt bez broja. Za dan koji je prošao list se više ne
-	// otvara: bez lista tog dana prijava ide na današnji list (Odluke
-	// (8. 10. 2026.), pitanje 6).
-	l, err := s.vodocuvar.listZaUpisPrograma(ctx, cijeli, dan)
+	// otvara: bez lista tog dana, ili kad je list tog dana prenesen iz
+	// ranije evidencije, prijava ide na današnji list (Odluke (8. 10. 2026.),
+	// pitanje 6).
+	l, _, err := s.vodocuvar.listZaUpisPrograma(ctx, cijeli, dan)
 	if err != nil {
 		return nil, "", err
 	}

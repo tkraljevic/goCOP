@@ -306,3 +306,90 @@ func TestPreneseniListZaProsliDan(t *testing.T) {
 		t.Errorf("prenesen list promijenjen: %+v", l)
 	}
 }
+
+// Prenesen list iz ranije evidencije (BP16, „Preneseno”) ne dobiva redni
+// broj ni kad mu netko nešto upiše (Odluke (8. 10. 2026.), pitanje 6, uz
+// pravilo da preneseni listovi ostaju kakvi jesu). Akt o obrani koji vrijedi
+// od dana s prenesenim listom ne mijenja taj list, nego ide na današnji, uz
+// napomenu od kada vrijedi i zašto je ondje. Rukovoditeljeva bilješka za
+// taj dan i dalje ide na prenesen list, kao i prije odluke, ali bez broja.
+func TestPreneseniListBezBrojaIAkta(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := o.vdVodocuvarSDuznosti(t)
+	stari := vdDan(time.March, 2)
+	prenesen := &models.VodocuvarskiList{UserID: pero.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: stari,
+		Opis: "obilazak iz stare evidencije", Rekonstrukcija: true, Izvor: "probni-zapis-1"}
+	if err := o.repo.Save(ctx, prenesen); err != nil {
+		t.Fatal(err)
+	}
+	danas := vdDan(time.March, 10)
+	o.naDan(danas)
+
+	akt := &models.Akt{Sektor: "P", AreaID: 1, Broj: 5, Godina: stari.Year(), Vrijedi: stari.Add(14 * time.Hour),
+		OvjerioID: "01900000-0000-7000-8000-0000000017a2", Ovjerio: "Ana Anić"}
+	if upozorenja := o.vs.UpisiIzAkta(ctx, akt, stari, "redovna obrana"); len(upozorenja) != 0 {
+		t.Fatalf("akt za dan s prenesenim listom: %v", upozorenja)
+	}
+	if l := o.vdListIzBaze(t, pero, stari); l.ID != prenesen.ID || l.Broj != 0 || len(l.Upisi) != 0 {
+		t.Errorf("akt je promijenio prenesen list: broj %d, upisi %+v", l.Broj, l.Upisi)
+	}
+	l := o.vdListIzBaze(t, pero, danas)
+	napomena := "Obrana od poplava: redovna obrana Akt vrijedi od " + stari.Format("02.01.2006.") + " u 14:00; list tog dana prenesen je iz ranije evidencije, pa je akt upisan na današnji."
+	if l == nil || l.Broj != 1 || len(l.Upisi) != 1 || l.Upisi[0].Tekst != napomena {
+		t.Fatalf("akt na današnjem listu: %+v", l)
+	}
+
+	rukovoditelj := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	rukovoditelj.Username, rukovoditelj.FullName = "mmarkic", "Marko Markić"
+	perms := models.NewUserPermissions(*rukovoditelj)
+	for _, listID := range []string{"", prenesen.ID} {
+		if l, err := o.vs.UpisiNaList(ctx, perms, rukovoditelj, pero.ID.String(), stari, listID, "obilazak potvrđen"); err != nil || l.ID != prenesen.ID || l.Broj != 0 {
+			t.Fatalf("bilješka za dan s prenesenim listom (stranica %q): %+v %v", listID, l, err)
+		}
+	}
+	if l := o.vdListIzBaze(t, pero, stari); l.Broj != 0 || len(l.Upisi) != 2 || !l.Rekonstrukcija || l.Opis != "obilazak iz stare evidencije" {
+		t.Errorf("prenesen list nakon bilješke: %+v", l)
+	}
+}
+
+// Objavljena prijava s terena za dan s prenesenim listom ne mijenja taj
+// list, nego ide na današnji, uz dan događaja (Odluke (8. 10. 2026.),
+// pitanje 6).
+func TestPrijavaZaDanSPrenesenimListom(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero, users := o.vdVodocuvarUBazi(t)
+	// prijava pazi na stvarni sat (dan događaja najviše sutra), pa i dnevnik
+	o.vs.sad = nil
+	n := time.Now().In(models.Zagreb)
+	danas := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
+	jucer := danas.AddDate(0, 0, -1)
+	if jucer.Year() != danas.Year() {
+		t.Skip("jučer je u knjizi arhiviranoj istekom godine")
+	}
+	prenesen := &models.VodocuvarskiList{UserID: pero.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: jucer,
+		Opis: "obilazak iz stare evidencije", Rekonstrukcija: true, Izvor: "probni-zapis-1"}
+	if err := o.repo.Save(ctx, prenesen); err != nil {
+		t.Fatal(err)
+	}
+	prijave := NewPrijavaService(repository.NewPrijavaRepository(o.baza, ledger.New(o.baza, "test")), users, o.vs, "cvor-probni")
+	p, err := prijave.Spremi(ctx, pero, "", UnosPrijave{Vrsta: models.PrijavaObavijest, Naslov: "Oštećena rampa", Opis: "odrezana brava na rampi nasipa", Datum: jucer})
+	if err != nil {
+		t.Fatal(err)
+	}
+	p, upozorenje, err := prijave.Objavi(ctx, pero, p.ID, func(*models.PrijavaSTerena) ([]byte, error) {
+		return []byte("%PDF-1.4\n% probna prijava\n%%EOF\n"), nil
+	})
+	if err != nil || upozorenje != "" {
+		t.Fatalf("objava prijave: %v %s", err, upozorenje)
+	}
+	if l := o.vdListIzBaze(t, pero, jucer); l.ID != prenesen.ID || l.Broj != 0 || len(l.Prijave) != 0 {
+		t.Errorf("prijava je promijenila prenesen list: broj %d, prijave %+v", l.Broj, l.Prijave)
+	}
+	l := o.vdListIzBaze(t, pero, danas)
+	if l == nil || p.ListID != l.ID || l.Broj != 1 || len(l.Prijave) != 1 ||
+		l.Prijave[0].Naslov != "Oštećena rampa (događaj od "+jucer.Format("02.01.2006.")+")" {
+		t.Fatalf("prijava za dan s prenesenim listom: prijava na listu %s, današnji list %+v", p.ListID, l)
+	}
+}

@@ -25,7 +25,9 @@ import (
 // „Upiši” ne otvaraju list za prošli dan; list koji za taj dan već postoji
 // i dalje se dopunjuje, predaje, parafira i ovjerava. Ni program ga ne
 // otvara: akt o obrani i objava prijave s terena za prošli dan bez lista
-// upisuju se na današnji list, uz napomenu o danu (listZaUpisPrograma).
+// upisuju se na današnji list, uz napomenu o danu (listZaUpisPrograma), kao
+// i za dan čiji je list prenesen iz ranije evidencije (BP16): takav list
+// ostaje kakav jest i nikad ne dobiva redni broj.
 // Pravilo provodi čvor ovog programa; list za prošli dan koji stigne
 // razmjenom (npr. s čvora 0.0.34) prima se kao i dosad.
 
@@ -93,14 +95,17 @@ func bezListaZaUpis(v *models.User, dan time.Time, err error) error {
 }
 
 // listZaUpisPrograma je list na koji program sam upisuje (akt o obrani,
-// objava prijave s terena): list tog dana, a kad je dan prošao i za njega
-// nema lista, današnji list vodočuvara
-func (s *VodocuvarService) listZaUpisPrograma(ctx context.Context, v *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
+// objava prijave s terena): list tog dana, a današnji list vodočuvara kad je
+// dan prošao i za njega nema lista, ili kad je list tog dana prenesen iz
+// ranije evidencije (BP16), koji ostaje kakav jest. Drugi rezultat javlja da
+// je list tog dana prenesen.
+func (s *VodocuvarService) listZaUpisPrograma(ctx context.Context, v *models.User, dan time.Time) (*models.VodocuvarskiList, bool, error) {
 	l, err := s.pripremiZa(ctx, v, dan)
-	if errors.Is(err, ErrProsliDan) {
-		return s.pripremiZa(ctx, v, pocetakDana(s.sada()))
+	prenesen := err == nil && l.Rekonstrukcija
+	if prenesen || errors.Is(err, ErrProsliDan) {
+		l, err = s.pripremiZa(ctx, v, pocetakDana(s.sada()))
 	}
-	return l, err
+	return l, prenesen, err
 }
 
 // najdaljiDanLista je zadnji dan za koji se list smije pripremiti unaprijed
@@ -143,13 +148,15 @@ func provjeriPocetakDana(dan, sad time.Time) error {
 }
 
 // dodijeliBroj daje listu bez broja sljedeći redni broj u knjizi, ali tek
-// kad je njegov dan počeo; nacrt za budući dan ostaje bez broja. Nacrti
+// kad je njegov dan počeo; nacrt za budući dan ostaje bez broja, a list
+// prenesen iz ranije evidencije (BP16) bez broja uvijek, i kad mu
+// rukovoditelj upiše bilješku, jer ne ulazi u numeraciju knjige. Nacrti
 // ranijih dana iste knjige koji još nemaju broj dobivaju ga prije njega,
 // redom dana (brojNacrtimaRanijihDana), pa brojevi idu redom dana i kad
 // nacrt pripremljen unaprijed nitko nije spremio na njegov dan (Odluke
 // (8. 10. 2026.), pitanje 6).
 func (s *VodocuvarService) dodijeliBroj(ctx context.Context, l *models.VodocuvarskiList) error {
-	if l.Broj != 0 || !danPoceo(l.Datum, s.sada()) {
+	if l.Broj != 0 || l.Rekonstrukcija || !danPoceo(l.Datum, s.sada()) {
 		return nil
 	}
 	if err := s.brojNacrtimaRanijihDana(ctx, l); err != nil {

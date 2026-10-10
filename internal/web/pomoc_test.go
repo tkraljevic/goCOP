@@ -259,6 +259,24 @@ func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
 	}
 }
 
+// Pomoć o listu prenesenom iz ranije evidencije i danu koji je prošao
+// (Odluke (8. 10. 2026.), pitanje 6): prenesen list nikad ne dobiva redni
+// broj, a akt i prijava za njegov dan idu na današnji list, kao za dan bez
+// lista; rukovoditeljeva bilješka za taj dan ide na prenesen list.
+func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, da := range []string{
+		"nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list",
+		"Listovi preneseni iz ranije evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj",
+		"rukovoditeljeva bilješka za taj dan upisuje se na prenesen list",
+		"lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji list",
+	} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
 // Pomoć kaže da list prenesen iz ranije evidencije pri razmjeni vrijedi kao
 // predan: nacrt s drugog čvora ga ne zamjenjuje, a preneseni obilasci
 // ostaju (Odluke (8. 10. 2026.), pitanje 7).
