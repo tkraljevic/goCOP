@@ -571,13 +571,15 @@ func (s *VodocuvarService) Vodocuvari(ctx context.Context, perms *models.UserPer
 	return s.vodocuvariZa(ctx, perms, radnjaZadatak)
 }
 
-// VodocuvariZaBiljesku su vodočuvari u čije knjige osoba smije upisati
-// bilješku, kao Vodocuvari; njihova knjiga postoji i kad je još prazna
+// VodocuvariZaBiljesku su vodočuvari u čije knjige osoba danas smije
+// upisati bilješku, kao Vodocuvari; njihova knjiga postoji i kad je još
+// prazna. Pravo se gleda za današnji dan, kao kod upisa (Upisi) za danas.
 func (s *VodocuvarService) VodocuvariZaBiljesku(ctx context.Context, perms *models.UserPermissions) []models.User {
 	return s.vodocuvariZa(ctx, perms, radnjaBiljeska)
 }
 
 // vodocuvariZa su vodočuvari s aktivnim računom za koje osoba smije radnju
+// danas: probni list nosi današnji dan, koji zadatak ne gleda
 func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserPermissions, r radnjaUKnjizi) []models.User {
 	svi, err := s.users.ListUsers("", 0, "", "", "")
 	if err != nil {
@@ -585,9 +587,15 @@ func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserP
 	}
 	// akti sektora i registar dionica čitaju se jednom za cijeli popis
 	ctx = sPamcenjem(ctx)
+	danas := time.Now()
 	var out []models.User
 	for i := range svi {
-		if probni := zaZadatke(&svi[i]); probni != nil && s.smijeRadnju(ctx, perms, probni, &svi[i], r) {
+		probni := zaZadatke(&svi[i])
+		if probni == nil {
+			continue
+		}
+		probni.Datum = danas
+		if s.smijeRadnju(ctx, perms, probni, &svi[i], r) {
 			out = append(out, svi[i])
 		}
 	}

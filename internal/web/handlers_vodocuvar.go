@@ -226,12 +226,16 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		d.Podrucja, _ = h.users.ListAreas(d.Filtar.Sektor)
 	}
 	d.Tudji, _ = s.Tudji(r.Context(), perms, d.Filtar)
+	// obrazac bilješke uz knjigu nudi današnji dan, pa se pokazuje po
+	// današnjem pravu, a ne po najnovijem listu u knjizi
+	zaBiljesku := s.VodocuvariZaBiljesku(r.Context(), perms)
+	smijeUpisati := poIdentitetu(zaBiljesku)
 	// po vodočuvaru: svaki ima svoju knjigu
 	poOsobi := map[string]*KnjigaVodocuvara{}
 	for _, l := range d.Tudji {
 		k := poOsobi[l.UserID]
 		if k == nil {
-			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: s.SmijeUpisati(perms, &l)}
+			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: smijeUpisati[l.UserID]}
 			poOsobi[l.UserID] = k
 			d.Knjige = append(d.Knjige, *k)
 		}
@@ -254,7 +258,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	// samo iz odabranog sektora i područja; tko prima bilješku ima svoju
 	// knjigu i kad je još prazna
 	d.Vodocuvari = uOdabiru(s.Vodocuvari(r.Context(), perms), d.Filtar)
-	for _, v := range uOdabiru(s.VodocuvariZaBiljesku(r.Context(), perms), d.Filtar) {
+	for _, v := range uOdabiru(zaBiljesku, d.Filtar) {
 		if v.ID.String() == u.ID.String() || poOsobi[v.ID.String()] != nil {
 			continue
 		}
@@ -283,6 +287,15 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// poIdentitetu je skup identifikatora osoba
+func poIdentitetu(osobe []models.User) map[string]bool {
+	out := make(map[string]bool, len(osobe))
+	for _, u := range osobe {
+		out[u.ID.String()] = true
+	}
+	return out
 }
 
 // uOdabiru ostavlja vodočuvare čije je glavno zaduženje u odabranom sektoru
