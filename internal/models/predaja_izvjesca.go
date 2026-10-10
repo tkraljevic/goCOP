@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 )
@@ -224,16 +225,54 @@ func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User
 }
 
 // PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
-// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena: predano
-// izvješće koje spremanje ne mijenja ostaje kakvo je bilo, predano i s
-// istim vremenima, a odgovor je false — nema se što spremiti.
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena onoga
+// tko sprema (ostajePredano): predano izvješće koje on nije mijenjao ostaje
+// kakvo je bilo, predano, s istim vremenima i tablicama kakve su predane,
+// a odgovor je false — nema se što spremiti.
 func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time) bool {
-	if !i.ZabiljeziSpremanje(prije, u) && prije.Predano() {
+	if i.ostajePredano(prije) {
 		*i = *prije
 		return false
 	}
+	i.ZabiljeziSpremanje(prije, u)
 	i.IzradenoAt, i.PredanoAt = sad, nil
 	return true
+}
+
+// ostajePredano javlja da spremanje predano izvješće sektora ne vraća u
+// nacrt: onaj tko sprema nije promijenio ni dan, ni tekst, ni odabir
+// izvješća dionica i zapisa dnevnika. Tablice i reci koji se pri spremanju
+// snimaju iznova nisu njegova izmjena — izvješće dionice popravljeno
+// poslije predaje i novi nacrt dionice za isti dan predano izvješće sektora
+// ostavljaju kakvo je predano.
+func (i SektorskoIzvjesce) ostajePredano(prije *SektorskoIzvjesce) bool {
+	return prije != nil && prije.Predano() && prije.DanKey() == i.DanKey() && istiJSON(prije.Sadrzaj.izbor(), i.Sadrzaj.izbor())
+}
+
+// izborSektorskog je ono što u izvješću sektora piše i bira onaj tko ga
+// slaže: tekstovi te koja izvješća dionica i koji zapisi dnevnika ulaze
+type izborSektorskog struct {
+	Tekst    SektorskiSadrzaj `json:"tekst"` // bez snimke iz dionica i dnevnika
+	Izvjesca []string         `json:"izvjesca"`
+	Zapisi   []string         `json:"zapisi"`
+}
+
+// izbor vadi iz sadržaja ono što bira i piše onaj tko izvješće slaže, bez
+// snimke iz dionica i dnevnika. Odabrano je skup: redoslijed nije bitan.
+func (s SektorskiSadrzaj) izbor() izborSektorskog {
+	iz := izborSektorskog{Tekst: s}
+	iz.Tekst.Pregled, iz.Tekst.Zapisi = SektorskiPregled{}, nil
+	for _, pod := range s.Pregled.Podrucja {
+		for _, d := range pod.Dionice {
+			iz.Izvjesca = append(iz.Izvjesca, d.IzvjesceID)
+		}
+	}
+	for _, z := range s.Zapisi {
+		iz.Zapisi = append(iz.Zapisi, z.ID)
+	}
+	sort.Strings(iz.Izvjesca)
+	sort.Strings(iz.Zapisi)
+	return iz
 }
 
 // PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom

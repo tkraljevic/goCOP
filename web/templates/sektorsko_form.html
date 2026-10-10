@@ -19,7 +19,7 @@
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{if $iz.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je {{$iz.OpisPredaje "Glavnom centru" "2.1.2006. 15:04"}}.
   Spremljena izmjena vraća ga u nacrt koji treba ponovo predati, s novim vremenom predaje; prvo vrijeme predaje ostaje zapisano,
-  a uz izvješće piše tko ga je mijenjao. Spremanje bez promjene ostavlja ga predanim.</div>
+  a uz izvješće piše tko ga je mijenjao. Spremanje bez promjene teksta i odabira ostavlja ga predanim, s tablicama kakve su predane.</div>
 {{else if $iz.BiloPredano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je nacrt: {{$iz.OpisPredaje "Glavnom centru" "2.1.2006. 15:04"}}.</div>{{end}}
 
 <form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if $iz.ID}}/sektorsko-izvjesce/{{$iz.ID}}{{else}}/sektorsko-izvjesce{{end}}">

@@ -90,3 +90,93 @@ func TestSpremanjePredanogBezPromjeneOstajePredano(t *testing.T) {
 		}
 	})
 }
+
+// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora u nacrt vraća
+// spremljena izmjena onoga tko ga sprema — teksta ili odabira izvješća
+// dionica i zapisa dnevnika. Izvješće dionice popravljeno poslije predaje i
+// novi nacrt dionice za isti dan nisu njegova izmjena: spremanje bez
+// promjene ostavlja izvješće sektora predanim, s tablicama kakve su
+// predane, i ne navodi onoga tko sprema među onima koji su ga mijenjali.
+// Pero Perić piše izvješće dionice, Pero Perić (zamjenik) sastavlja i
+// predaje izvješće sektora, a Pero Perić ga poslije sprema.
+func TestPredanoSektorskoNeMijenjajuIzvjescaDionica(t *testing.T) {
+	o := novaOkolinaIzvjesca(t)
+	ctx := context.Background()
+	dionica := punoIzvjesce("P.1.1", danas())
+	dionica.Sadrzaj.Pravne.Ljudi = 5
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, dionica); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Predaj(ctx, o.pero, o.pisePero, o.d111, dionica.ID); err != nil {
+		t.Fatal(err)
+	}
+	obrazac := func(id, hidrometeo string) *models.SektorskoIzvjesce {
+		return &models.SektorskoIzvjesce{ID: id, Sektor: "P", Dan: danas(), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: hidrometeo}}
+	}
+	sektorsko := obrazac("", "Vodostaji rastu.")
+	if err := o.svc.SpremiSektorsko(ctx, o.urednik, o.upravaP, sektorsko, []string{dionica.ID}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.PredajSektorsko(ctx, o.urednik, o.upravaP, sektorsko.ID); err != nil {
+		t.Fatal(err)
+	}
+	predano, _ := o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if predano.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 5 || predano.Sadrzaj.Pregled.Nacrta != 0 {
+		t.Fatalf("priprema: %+v", predano.Sadrzaj.Pregled)
+	}
+
+	// poslije predaje dionica P.1.1 popravi i ponovo preda svoje izvješće, a
+	// za P.1.2 nastane nacrt za isti dan
+	ispravak := punoIzvjesce("P.1.1", danas())
+	ispravak.ID = dionica.ID
+	ispravak.Sadrzaj.Pravne.Ljudi = 12
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, ispravak); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Predaj(ctx, o.pero, o.pisePero, o.d111, dionica.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Spremi(ctx, o.urednik, o.upravaP, o.d112, punoIzvjesce("P.1.2", danas())); err != nil {
+		t.Fatal(err)
+	}
+
+	// isti tekst i isti odabir: izvješće sektora ostaje predano, kakvo je predano
+	isto := obrazac(sektorsko.ID, "Vodostaji rastu.")
+	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, isto, []string{dionica.ID}, nil); err != nil {
+		t.Fatal(err)
+	}
+	g, _ := o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if !g.Predano() || !g.PredanoAt.Equal(*predano.PredanoAt) || g.TkoJeMijenjao() != "" {
+		t.Errorf("predano izvješće sektora nakon spremanja bez promjene: predano %v, mijenjali %q", g.Predano(), g.TkoJeMijenjao())
+	}
+	if p := g.Sadrzaj.Pregled; p.Ukupno.Pravne.Ljudi != 5 || p.Nacrta != 0 {
+		t.Errorf("tablice predanog izvješća snimljene iznova bez promjene: %d ljudi, %d nacrta", p.Ukupno.Pravne.Ljudi, p.Nacrta)
+	}
+	if !isto.Predano() {
+		t.Errorf("pozivatelj ne vidi da je izvješće ostalo predano: %+v", isto)
+	}
+
+	// izmjena teksta vraća ga u nacrt, tablice se snimaju iznova, a uz
+	// izvješće piše tko ga je mijenjao
+	izmjena := obrazac(sektorsko.ID, "Vodostaji stagniraju.")
+	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, izmjena, []string{dionica.ID}, nil); err != nil {
+		t.Fatal(err)
+	}
+	g, _ = o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if g.Predano() || !g.BiloPredano() || g.TkoJeMijenjao() != "Pero Perić" || g.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 12 || g.Sadrzaj.Pregled.Nacrta != 1 {
+		t.Errorf("izmjena predanog izvješća sektora: predano %v, mijenjali %q, pregled %+v", g.Predano(), g.TkoJeMijenjao(), g.Sadrzaj.Pregled)
+	}
+
+	// promjena samo odabira izvješća dionica također je izmjena
+	if err := o.svc.PredajSektorsko(ctx, o.urednik, o.upravaP, sektorsko.ID); err != nil {
+		t.Fatal(err)
+	}
+	bezDionice := obrazac(sektorsko.ID, "Vodostaji stagniraju.")
+	if err := o.svc.SpremiSektorsko(ctx, o.urednik, o.upravaP, bezDionice, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	g, _ = o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if g.Predano() || g.Sadrzaj.Pregled.Izvjesca != 0 || g.TkoJeMijenjao() != "Pero Perić, Pero Perić (zamjenik)" {
+		t.Errorf("promjena odabira na predanom izvješću sektora: predano %v, mijenjali %q, pregled %+v", g.Predano(), g.TkoJeMijenjao(), g.Sadrzaj.Pregled)
+	}
+}

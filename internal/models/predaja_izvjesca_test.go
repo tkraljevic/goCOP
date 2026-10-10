@@ -276,3 +276,76 @@ func TestPripremaSpremanjaIzvjesca(t *testing.T) {
 		}
 	})
 }
+
+// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora u nacrt vraća
+// samo izmjena onoga tko ga sprema — dana, teksta ili odabira izvješća
+// dionica i zapisa dnevnika (skup, redoslijed nije bitan). Tablice i reci
+// snimljeni iz dionica i dnevnika mijenjaju se i bez njega: izvješće
+// dionice popravljeno poslije predaje ili novi nacrt za isti dan predano
+// izvješće sektora ostavljaju kakvo je predano. Ana Anić predaje, Ivo Ivić
+// sprema.
+func TestPredanoSektorskoMijenjaSamoIzbor(t *testing.T) {
+	ana := &User{ID: uuid.New(), FullName: "Ana Anić"}
+	ivo := &User{ID: uuid.New(), FullName: "Ivo Ivić"}
+	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, Zagreb)
+	izrada := time.Date(2026, 10, 7, 9, 30, 0, 0, Zagreb)
+	sad := time.Date(2026, 10, 7, 11, 0, 0, 0, Zagreb)
+	dan := time.Date(2026, 10, 7, 0, 0, 0, 0, Zagreb)
+	sadrzaj := func(ljudi, nacrta int, izvjesca []string, zapisi ...ZapisUIzvjescu) SektorskiSadrzaj {
+		pod := PodrucjeUPregledu{AreaID: 1}
+		for _, id := range izvjesca {
+			pod.Dionice = append(pod.Dionice, DionicaUPregledu{IzvjesceID: id, Code: "P.1." + id, Stadij: PhaseRegular})
+		}
+		p := SektorskiPregled{Podrucja: []PodrucjeUPregledu{pod}, Izvjesca: len(izvjesca), Nacrta: nacrta}
+		p.Ukupno.Pravne.Ljudi = ljudi
+		return SektorskiSadrzaj{Hidrometeo: "Vodostaji rastu.", Pregled: p, Zapisi: zapisi}
+	}
+	z1 := ZapisUIzvjescu{ID: "z1", Vrijeme: "07:15", Tekst: "Dojava o procjeđivanju."}
+	z2 := ZapisUIzvjescu{ID: "z2", Vrijeme: "08:30", Tekst: "Obavijest podcentru."}
+	predano := SektorskoIzvjesce{ID: "s1", Dan: dan, Izradio: "Ana Anić", IzradenoAt: izrada, PredanoAt: &prvi, Sadrzaj: sadrzaj(5, 0, []string{"1", "2"}, z1, z2)}
+	predano.ZabiljeziPredaju(prvi, ana)
+
+	popravljenZapis := z1
+	popravljenZapis.Tekst = "Dojava o procjeđivanju kod Primjerova."
+	for _, s := range []struct {
+		ime     string
+		dan     time.Time
+		sadrzaj SektorskiSadrzaj
+		ostaje  bool
+	}{
+		{"isti izbor, nove brojke i nacrt dionice", dan, sadrzaj(12, 1, []string{"1", "2"}, z1, z2), true},
+		{"isti izbor drugim redom, popravljen zapis", dan, sadrzaj(5, 0, []string{"2", "1"}, z2, popravljenZapis), true},
+		{"drugi tekst", dan, func() SektorskiSadrzaj {
+			s := sadrzaj(5, 0, []string{"1", "2"}, z1, z2)
+			s.Napomena = "Najava za sutra."
+			return s
+		}(), false},
+		{"izvješće dionice više", dan, sadrzaj(5, 0, []string{"1", "2", "3"}, z1, z2), false},
+		{"izvješće dionice manje", dan, sadrzaj(5, 0, []string{"1"}, z1, z2), false},
+		{"zapis manje", dan, sadrzaj(5, 0, []string{"1", "2"}, z1), false},
+		{"drugi dan", dan.AddDate(0, 0, -1), sadrzaj(5, 0, []string{"1", "2"}, z1, z2), false},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			novo := SektorskoIzvjesce{ID: "s1", Dan: s.dan, Sadrzaj: s.sadrzaj, TragPredaje: predano.TragPredaje}
+			spremljeno := novo.PripremiSpremanje(&predano, ivo, sad)
+			if s.ostaje {
+				if spremljeno || !novo.Predano() || !novo.IzradenoAt.Equal(izrada) || novo.TkoJeMijenjao() != "" || !istiJSON(novo.Sadrzaj, predano.Sadrzaj) {
+					t.Errorf("mora ostati predano kakvo je predano: spremljeno %v, %+v", spremljeno, novo)
+				}
+				return
+			}
+			if !spremljeno || novo.Predano() || !novo.IzradenoAt.Equal(sad) || novo.TkoJeMijenjao() != "Ivo Ivić" || !istiJSON(novo.Sadrzaj, s.sadrzaj) {
+				t.Errorf("izmjena mora vratiti u nacrt sa snimkom iz spremanja: spremljeno %v, %+v", spremljeno, novo)
+			}
+		})
+	}
+
+	// nacrt (i onaj koji je bio predan) sprema se sa snimkom iz spremanja, a
+	// nove brojke u njemu jesu izmjena nakon predaje
+	nacrt := predano
+	nacrt.PovuciPredaju()
+	novo := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: sadrzaj(12, 1, []string{"1", "2"}, z1, z2), TragPredaje: nacrt.TragPredaje}
+	if !novo.PripremiSpremanje(&nacrt, ivo, sad) || novo.Predano() || novo.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 12 || novo.TkoJeMijenjao() != "Ivo Ivić" {
+		t.Errorf("nacrt s novim brojkama: %+v", novo)
+	}
+}
