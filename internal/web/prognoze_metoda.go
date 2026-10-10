@@ -145,7 +145,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"vrijeme izdanja tada piše na kojem je čvoru izdano."),
 			tekstM("Baza prognoza čuva svako izdanje. Na stranici Postavke prognoze, u odjeljku „Ranija prognoza”, " +
 				"bira se dan i sat, a izvoz u Excel tada je isti kao za zadnje izdanje, s brojkama, upozorenjima, dnevnom " +
-				"prognozom, kišom i tuđim prognozama toga izdanja i mjerenjima do sata izdanja. Kad u tom satu prognoza " +
+				"prognozom, kišom i tuđim prognozama toga izdanja i mjerenjima do sata izdanja; koji dan daje satni, a koji " +
+				"dnevni model ide po današnjem odabiru „Izvoz u Excel”. Kad u tom satu prognoza " +
 				"nije izdana, uzima se najbliže ranije izdanje i kaže se koliko je ranije; sat izdan više puta izvozi se " +
 				"u zadnjoj verziji. Uz najstarija izdanja nije zapisano sve (dnevna prognoza, kiša, tuđe prognoze u " +
 				"rukama, upozorenja): odjeljak kaže od kad baza ima koji dio, a izvoz nabraja što uz odabrano izdanje nedostaje."),

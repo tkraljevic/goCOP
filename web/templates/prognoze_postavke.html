@@ -73,7 +73,8 @@
   <h2>{{icon "history"}} Ranija prognoza</h2>
   <p class="reg-card-sub">Baza prognoza čuva svako izdanje; najstarije je od {{.Ranije.Od}}. Odaberite dan i sat:
     izvoz u Excel isti je kao za zadnje izdanje, s brojkama, upozorenjima, dnevnom prognozom i kišom toga izdanja, a
-    mjerenja na grafovima sežu do sata izdanja. Kad u tom satu prognoza nije izdana, nudi se najbliže ranije izdanje;
+    mjerenja na grafovima sežu do sata izdanja. Koji dan daje satni, a koji dnevni model ide po odabiru „Izvoz u Excel”
+    gore. Kad u tom satu prognoza nije izdana, nudi se najbliže ranije izdanje;
     kad je sat izdan više puta, izvozi se zadnje.{{with .Ranije.Ogranicenje}} {{.}} Što uz odabrano izdanje nije
     zapisano, izvoz nema i to kaže.{{end}}</p>
   <form method="GET" action="/prognoze/postavke#ranije" class="prog-ranije-obrazac">
