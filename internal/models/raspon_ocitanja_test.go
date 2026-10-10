@@ -264,3 +264,17 @@ func TestTekstOdbacenihZaStranicuLetve(t *testing.T) {
 		t.Errorf("tekst: %q", s.Tekst())
 	}
 }
+
+// Oznaku kote po odluci imaju tri letve akumulacija HEP-a, po šifri
+func TestJeLetvaAkumulacijeHEP(t *testing.T) {
+	for _, sifra := range []string{"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava"} {
+		if !JeLetvaAkumulacijeHEP(sifra) {
+			t.Errorf("%s nije prepoznata kao letva akumulacije", sifra)
+		}
+	}
+	for _, sifra := range []string{"", "botovo", "gvb-he"} {
+		if JeLetvaAkumulacijeHEP(sifra) {
+			t.Errorf("%q je prepoznata kao letva akumulacije", sifra)
+		}
+	}
+}

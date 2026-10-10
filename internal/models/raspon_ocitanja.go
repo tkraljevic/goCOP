@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +31,15 @@ const (
 	OcitanjeNajviseUnaprijed = time.Hour
 	OcitanjeNajranijaGodina  = 1900
 )
+
+// LetveAkumulacijaHEP su šifre triju letvi akumulacija HEP-a uz brane na
+// Dravi. One po odluci vode kotu u cm n. m. (Odluke (8. 10. 2026.), pitanje
+// 21), pa oznaku kote imaju po šifri, a ne samo po polju letve: polje može
+// skinuti novija verzija letve s čvora koji ga ne poznaje.
+var LetveAkumulacijaHEP = []string{"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava"}
+
+// JeLetvaAkumulacijeHEP javlja je li šifra jedne od letvi akumulacija HEP-a
+func JeLetvaAkumulacijeHEP(sifra string) bool { return slices.Contains(LetveAkumulacijaHEP, sifra) }
 
 // Polja očitanja koja provjera raspona imenuje
 const (

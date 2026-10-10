@@ -58,16 +58,19 @@ func (p *provjeraRaspona) propusti(ctx context.Context, rd *models.Reading) (boo
 	return upisati && err == nil, err
 }
 
-// kota javlja vodi li letva kotu u cm n. m.; objekt i nepoznata letva ne vode
+// kota javlja vodi li letva kotu u cm n. m. (po oznaci ili, za akumulacije
+// HEP-a, po šifri); objekt i nepoznata letva ne vode
 func (p *provjeraRaspona) kota(ctx context.Context, stationID string) (bool, error) {
 	if k, ima := p.kote[stationID]; ima || stationID == "" {
 		return k, nil
 	}
-	var k bool
-	err := p.tx.QueryRowContext(ctx, `SELECT kota_nm <> 0 FROM stations WHERE id = ?`, stationID).Scan(&k)
+	var oznaka int
+	var sifra string
+	err := p.tx.QueryRowContext(ctx, `SELECT kota_nm, code FROM stations WHERE id = ?`, stationID).Scan(&oznaka, &sifra)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return false, err
 	}
+	k := vodiKotu(oznaka, sifra)
 	p.kote[stationID] = k
 	return k, nil
 }

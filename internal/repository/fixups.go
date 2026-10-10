@@ -188,16 +188,13 @@ var fixups = []fixup{
 	},
 }
 
-// letveAkumulacija su šifre letvi akumulacija HEP-a uz brane na Dravi
-var letveAkumulacija = []string{"gvb-he-varazdin", "gvb-he-cakovec", "gvb-he-dubrava"}
-
 // oznaciLetveAkumulacija upisuje oznaku kote letvama akumulacija koje čvor
 // ima. Letva koje (još) nema preskače se: stići će razmjenom s oznakom od
 // čvora koji ju je upisao.
 func oznaciLetveAkumulacija(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder) (int, error) {
 	changed := 0
 	var preskoceni preskoceniZapisi
-	for _, sifra := range letveAkumulacija {
+	for _, sifra := range models.LetveAkumulacijaHEP {
 		var id string
 		err := tx.QueryRowContext(ctx, `SELECT id FROM stations WHERE code = ?`, sifra).Scan(&id)
 		if errors.Is(err, sql.ErrNoRows) {

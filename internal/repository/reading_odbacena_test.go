@@ -279,6 +279,64 @@ func TestPopravakOznacujeLetveAkumulacija(t *testing.T) {
 	}
 }
 
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): tri letve akumulacija HEP-a
+// zadržavaju raspon kote na svim putovima i kad im oznaku skine istodobna
+// izmjena letve na čvoru koji je ne poznaje. Čvor a označi Varaždin
+// popravkom; prije nego što oznaka stigne do čvora b, b (0.0.34) izmijeni
+// letvu i pošalje verziju bez oznake. Njegova je novija i pobjeđuje na
+// svakom čvoru, a popravak je zabilježen kao izveden i više se ne pokreće.
+// Oznaka se zato izvodi i iz šifre letve: kota Varaždina (19 089 cm n. m.)
+// se i dalje upisuje, a izmjena letve na čvoru s ovim programom oznaku
+// ponovo upisuje u knjigu.
+func TestLetvaAkumulacijeZadrzavaKotuKadJojIzmjenaSDrugogCvoraSkineOznaku(t *testing.T) {
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	varazdin := novaLetva(t, a, "gvb-he-varazdin", false)
+	a.posalji(t, b, "")
+	if err := RunFixups(ctx, a.db, a.rec); err != nil {
+		t.Fatal(err)
+	}
+
+	// čvor b na 0.0.34: polje ne poznaje, pa ga njegova verzija ne nosi
+	stB := *varazdin
+	stB.Notes, stB.KotaNM = "Izmijenio Ivo Ivić", false
+	if _, err := b.rec.Record(ctx, b.db, EntityStations, varazdin.ID.String(), stB); err != nil {
+		t.Fatal(err)
+	}
+	b.posalji(t, a, "")
+	if n := brojRedaka(t, a.db, `SELECT kota_nm FROM stations WHERE id = ?`, varazdin.ID.String()); n != 0 {
+		t.Fatalf("verzija s čvora b nije skinula oznaku (kota_nm = %d): test ne ponavlja utrku", n)
+	}
+	if err := RunFixups(ctx, a.db, a.rec); err != nil {
+		t.Fatal(err)
+	}
+
+	repoA := NewStationRepository(a.db, a.rec)
+	got, err := repoA.GetStationByID(ctx, varazdin.ID)
+	if err != nil || got == nil || !got.KotaNM || got.Notes != "Izmijenio Ivo Ivić" {
+		t.Fatalf("letva akumulacije na čvoru a: %+v, %v", got, err)
+	}
+	kota := uvezeno(varazdin, time.Now().Truncate(time.Hour).Add(-time.Hour), 19089)
+	kota.Origin = "mletva.voda.hr"
+	if n, err := NewReadingRepository(a.db, a.rec).ImportBatch(ctx, []models.Reading{kota}); err != nil || n != 1 {
+		t.Fatalf("kota akumulacije nije upisana: %d, %v", n, err)
+	}
+
+	// izmjena letve na čvoru a oznaku ponovo upisuje u knjigu
+	got.Notes = "Izmijenila Ana Anić"
+	if err := repoA.UpdateStation(ctx, got); err != nil {
+		t.Fatal(err)
+	}
+	v, err := a.rec.Latest(ctx, EntityStations, varazdin.ID.String())
+	if err != nil || v == nil {
+		t.Fatalf("zadnja verzija letve: %v, %v", v, err)
+	}
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(v.Payload, &m); err != nil || string(m["kota_nm"]) != "true" {
+		t.Errorf("izmjena letve nije upisala oznaku: %s, %v", v.Payload, err)
+	}
+}
+
 // Letvu koju je zadnji izmijenio noviji program popravak preskače i ne
 // bilježi se kao izveden
 func TestPopravakKotePreskaceLetvuNovijeSheme(t *testing.T) {

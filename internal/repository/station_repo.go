@@ -104,7 +104,7 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 	}
 	st.JavniUvoz = javniUvoz != 0
 	st.TelemetrijaUvoz = telUvoz != 0
-	st.KotaNM = kotaNM != 0
+	st.KotaNM = vodiKotu(kotaNM, st.Code)
 
 	parsedID, err := uuid.Parse(idStr)
 	if err != nil {
@@ -137,6 +137,16 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 	st.Record.Cm = nullIntPtr(recordCm)
 
 	return st, nil
+}
+
+// vodiKotu javlja vodi li letva kotu u cm n. m.: ima li oznaku, ili je
+// jedna od letvi akumulacija HEP-a. Njima oznaku po odluci postavlja
+// program (Odluke (8. 10. 2026.), pitanje 21), pa vrijedi i kad ju je s
+// površine skinula novija verzija letve s čvora koji polje ne poznaje
+// (0.0.34). Izmjena takve letve na ovom čvoru oznaku ponovo upisuje u
+// knjigu.
+func vodiKotu(oznaka int, sifra string) bool {
+	return oznaka != 0 || models.JeLetvaAkumulacijeHEP(sifra)
 }
 
 func nullIntPtr(v sql.NullInt64) *int {
