@@ -194,6 +194,37 @@ func TestPrijaveIspomociNaDrugomPodrucju(t *testing.T) {
 	}
 }
 
+// Dionice objekta pamte se za popis: drugo čitanje istog objekta (i
+// prijave bez objekta) na istom području ne ide u registar, ni kad se
+// registar u međuvremenu ne da pročitati; bez pamćenja ide svaki put, a
+// bez registra objekata nema dionica.
+func TestDioniceObjektaPamtiPopis(t *testing.T) {
+	k := novaKnjigaProba(t)
+	vs := k.o.vs
+	vs.SetObjekti(repository.NewStructureRepository(k.o.baza, ledger.New(k.o.baza, "test")))
+	ctx := sPamcenjem(context.Background())
+	for _, objekt := range []string{"Crpna stanica Prva", ""} {
+		if _, err := vs.dioniceObjekta(ctx, 1, "", objekt); err != nil {
+			t.Fatalf("%q: %v", objekt, err)
+		}
+	}
+	if _, err := k.o.baza.Exec(`DROP TABLE section_structures`); err != nil {
+		t.Fatal(err)
+	}
+	for _, objekt := range []string{"Crpna stanica Prva", ""} {
+		if _, err := vs.dioniceObjekta(ctx, 1, "", objekt); err != nil {
+			t.Errorf("zapamćen %q čita registar: %v", objekt, err)
+		}
+	}
+	if _, err := vs.dioniceObjekta(context.Background(), 1, "", "Crpna stanica Prva"); err == nil {
+		t.Error("bez pamćenja registar se ne čita")
+	}
+	vs.SetObjekti(nil)
+	if d, err := vs.dioniceObjekta(context.Background(), 1, "", "Crpna stanica Prva"); d != nil || err != nil {
+		t.Errorf("bez registra objekata: %v %v", d, err)
+	}
+}
+
 // Mjesto zaduženja bez sektora ili područja i dužnost bez područja ili
 // sektora: doseg i veza s dionicom gledaju ono što postoji, a ostatak uzimaju
 // s lista.
@@ -237,5 +268,21 @@ func TestKnjigaBezListova(t *testing.T) {
 	}
 	if _, err := vs.Tudji(ctx, rukovoditelj, repository.FiltarListova{}); err == nil {
 		t.Error("popis bez tablice listova")
+	}
+}
+
+// Polje Dionica prijava na popisu čita dionice područja iz registra jednom
+// po popisu, a ne za svaku prijavu: zapamćene dionice područja vrijede i
+// kad se registar u međuvremenu ne da pročitati.
+func TestDioniceUpisaPamtePopis(t *testing.T) {
+	k := novaKnjigaProba(t)
+	vs := k.o.vs
+	ctx := sPamcenjem(context.Background())
+	if got := strings.Join(vs.dioniceUpisa(ctx, "P.1.2 i P.9.9", 1), "|"); got != "P.1.2" {
+		t.Fatalf("dionice upisa: %s", got)
+	}
+	vs.SetDionice(nil)
+	if got := strings.Join(vs.dioniceUpisa(ctx, "P.1.2 i P.9.9", 1), "|"); got != "P.1.2" {
+		t.Errorf("zapamćene dionice područja: %s", got)
 	}
 }

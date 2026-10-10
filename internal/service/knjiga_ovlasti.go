@@ -89,17 +89,33 @@ func (s *VodocuvarService) SetStanjaObrane(f func(ctx context.Context, sektor st
 type pamcenjeKnjige struct {
 	stanja  map[string]map[string]models.StanjeObrane
 	dionice map[int][]string
+	// objekti su dionice objekata po području i objektu (dioniceObjekta)
+	objekti map[kljucObjekta]dioniceObjektaPamcene
 	// mjesta su mjesta svih zaduženja vodočuvara (mozdaUDosegu), pročitana
 	// jednom; bez njih (greška čitanja) provjera ide po povijesti
 	mjesta          map[string][]models.Duty
 	mjestaProcitana bool
 }
 
+// kljucObjekta je objekt prijave na području: identifikator i naziv kako
+// ih prijava navodi
+type kljucObjekta struct {
+	podrucje  int
+	id, naziv string
+}
+
+// dioniceObjektaPamcene su zapamćene dionice objekta i greška čitanja
+type dioniceObjektaPamcene struct {
+	dionice []string
+	err     error
+}
+
 type kljucPamcenjaKnjige struct{}
 
 // sPamcenjem daje kontekst s novim pamćenjem za jedan popis
 func sPamcenjem(ctx context.Context) context.Context {
-	return context.WithValue(ctx, kljucPamcenjaKnjige{}, &pamcenjeKnjige{stanja: map[string]map[string]models.StanjeObrane{}, dionice: map[int][]string{}})
+	return context.WithValue(ctx, kljucPamcenjaKnjige{}, &pamcenjeKnjige{stanja: map[string]map[string]models.StanjeObrane{}, dionice: map[int][]string{},
+		objekti: map[kljucObjekta]dioniceObjektaPamcene{}})
 }
 
 // pamcenjeIz je pamćenje popisa iz konteksta; nil kad ga nema
@@ -282,13 +298,25 @@ func sadrziPodrucje(podrucja []int, areaID int) bool {
 }
 
 // dioniceObjekta su dionice objekta koji prijava navodi (identifikatorom
-// iz registra ili nazivom) na području areaID, iz registra objekata. Bez
-// registra nijedna.
+// iz registra ili nazivom) na području areaID, iz registra objekata;
+// zapamćene za popis kad kontekst ima pamćenje, pa popis registar za isti
+// objekt (i za prijave bez objekta) čita jednom. Bez registra nijedna.
 func (s *VodocuvarService) dioniceObjekta(ctx context.Context, areaID int, id, naziv string) ([]string, error) {
 	if s.objekti == nil {
 		return nil, nil
 	}
-	return s.objekti.DioniceObjekta(ctx, areaID, id, naziv)
+	m := pamcenjeIz(ctx)
+	k := kljucObjekta{podrucje: areaID, id: id, naziv: naziv}
+	if m != nil {
+		if z, ima := m.objekti[k]; ima {
+			return z.dionice, z.err
+		}
+	}
+	dionice, err := s.objekti.DioniceObjekta(ctx, areaID, id, naziv)
+	if m != nil {
+		m.objekti[k] = dioniceObjektaPamcene{dionice: dionice, err: err}
+	}
+	return dionice, err
 }
 
 // dioniceUpisa su dionice na koje pokazuje slobodan upis polja Dionica
@@ -297,13 +325,14 @@ func (s *VodocuvarService) dioniceObjekta(ctx context.Context, areaID int, id, n
 // nije takva šifra (pogrešno upisana šifra, veznik, dionica drugog
 // područja) ne pokazuje ni na jednu. Prazan upis registar ni ne čita; kad
 // registar za područje nema nijedne dionice (ili se ne da pročitati), svaka
-// riječ upisa uzima se kao šifra.
+// riječ upisa uzima se kao šifra. Dionice područja pamte se za popis kad
+// kontekst ima pamćenje.
 func (s *VodocuvarService) dioniceUpisa(ctx context.Context, upis string, areaID int) []string {
 	rijeci := rijeciUpisa(upis)
 	if len(rijeci) == 0 {
 		return nil
 	}
-	podrucja := s.dionicePodrucja(areaID)
+	podrucja := s.dionicePodrucjaZa(ctx, areaID)
 	if len(podrucja) == 0 {
 		return rijeci
 	}
