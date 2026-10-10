@@ -21,6 +21,18 @@ import (
 // treba jedino prvom čvoru u mreži.
 var ImenikPath = "data/imenik.json"
 
+// UseRepoImenik traži imenik u mapi data/ repozitorija i javlja je li nađen;
+// usput postavlja i mapu registara. Novi testovi ga ne zovu, nego rade na
+// izmišljenom skupu (KoristiIzmisljenePodatke); ostaje zbog testova pisanih
+// prije tog skupa, koji bez njega ne bi prevodili.
+func UseRepoImenik() bool {
+	if !UseRepoData() {
+		return false
+	}
+	_, err := os.Stat(ImenikPath)
+	return err == nil
+}
+
 type seedDuty struct {
 	Title        string  `json:"title"`
 	Role         string  `json:"role"`

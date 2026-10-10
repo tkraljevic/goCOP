@@ -37,8 +37,8 @@ func readDataFile(name string) ([]byte, error) {
 }
 
 // UseRepoData traži mapu data/ repozitorija s registrima i javlja je li
-// nađena. Zovu je samo provjere registara u ovom paketu; ostali testovi rade
-// na izmišljenom skupu (KoristiIzmisljenePodatke).
+// nađena. Zovu je provjere registara u ovom paketu i UseRepoImenik; ostali
+// testovi rade na izmišljenom skupu (KoristiIzmisljenePodatke).
 func UseRepoData() bool {
 	for _, up := range []string{"", "..", "../..", "../../.."} {
 		candidate := filepath.Join(up, "data")
