@@ -152,7 +152,7 @@ func (s *VodocuvarService) SmijeUpisati(perms *models.UserPermissions, l *models
 // pisanja na području NE otvara tuđi dnevnik — inače bi svaki vodočuvar
 // vidio dnevnike kolega s istog područja, a za to nema potrebe ni osnove.
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	return s.cita(perms, l, nil, nil)
+	return s.cita(context.Background(), perms, l, nil, nil)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim
@@ -700,22 +700,37 @@ func (s *VodocuvarService) Tudji(ctx context.Context, perms *models.UserPermissi
 	if err != nil {
 		return nil, err
 	}
-	out := svi[:0]
-	for _, l := range svi {
-		if l.UserID != perms.User.ID.String() && s.SmijeVidjeti(perms, &l) {
+	return s.citljivi(ctx, perms, svi, false), nil
+}
+
+// citljivi ostavlja listove koje osoba smije čitati, bez njezinih kad
+// svoje nije tražila. Popis jednom čita svakog vodočuvara i ono što je
+// isto za sve (knjiga_ovlasti.go).
+func (s *VodocuvarService) citljivi(ctx context.Context, perms *models.UserPermissions, listovi []models.VodocuvarskiList, svoje bool) []models.VodocuvarskiList {
+	ctx = sPamcenjem(ctx)
+	poznati := map[string]*cuvar{}
+	out := listovi[:0]
+	for _, l := range listovi {
+		if (svoje || l.UserID != perms.User.ID.String()) && s.cita(ctx, perms, &l, nil, poznati) {
 			out = append(out, l)
 		}
 	}
-	return out, nil
+	return out
 }
 
-// Knjiga vraća listove jednog vodočuvara u godini, ako ih osoba smije vidjeti
+// Knjiga vraća listove jednog vodočuvara u godini koje osoba smije vidjeti:
+// svaki list po sebi, jer doseg ovisi o mjestu i danu lista (npr. samo
+// listovi iz vremena ispomoći na području osobe). Knjiga s listovima od
+// kojih osoba ne smije čitati nijedan je zabranjena.
 func (s *VodocuvarService) Knjiga(ctx context.Context, perms *models.UserPermissions, vodocuvarID string, godina int) ([]models.VodocuvarskiList, error) {
 	listovi, err := s.repo.List(ctx, repository.FiltarListova{UserID: vodocuvarID, Godina: godina})
 	if err != nil {
 		return nil, err
 	}
-	if len(listovi) > 0 && !s.SmijeVidjeti(perms, &listovi[0]) {
+	if len(listovi) == 0 {
+		return listovi, nil
+	}
+	if listovi = s.citljivi(ctx, perms, listovi, true); len(listovi) == 0 {
 		return nil, ErrUnauthorized
 	}
 	return listovi, nil

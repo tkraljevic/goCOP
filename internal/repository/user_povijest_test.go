@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -178,6 +181,72 @@ func TestImaoUlogu(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := repo.ImaoUlogu(nikad, models.RoleServiceLeaderForeman); err == nil {
+		t.Error("knjiga verzija se ne čita, a nema greške")
+	}
+}
+
+// Mjesta vodočuvara: sektor i područje svakog zaduženja vodočuvara koje je
+// osoba ikad imala, i opozvanog, i iz ranije verzije zaduženja poslije
+// premještenog izmjenom u mjestu; zaduženja drugih uloga ne ulaze, a knjiga
+// koja se ne čita i nečitljivo mjesto su greška. Podaci su izmišljeni.
+func TestMjestaVodocuvara(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('C', 'Sektor C', 'VGO', 'COP')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (17, 'B', 'Područje 17', 'VGI')`,
+	} {
+		if _, err := n.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pero := &models.User{Username: "pperic", PasswordHash: "x", FullName: "Pero Perić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	d := vodocuvarDuznost(uuid.Nil, osnovaDionica)
+	nuzno(t, repo.CreateUser(pero, d))
+	premjesten := *d
+	podrucje := 17
+	premjesten.AreaID = &podrucje
+	nuzno(t, repo.UpdateDuty(&premjesten))
+	ispomoc := vodocuvarDuznost(pero.ID, "")
+	drugi := "C"
+	ispomoc.SectorID, ispomoc.AreaID = &drugi, nil
+	nuzno(t, repo.AddDuty(ispomoc))
+	nuzno(t, repo.RevokeDuty(ispomoc.ID))
+	ana := &models.User{Username: "aanic", PasswordHash: "x", FullName: "Ana Anić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	sektor, bp := "B", 16
+	nuzno(t, repo.CreateUser(ana, &models.Duty{Title: "Rukovoditelj", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &bp}))
+
+	mjesta, err := repo.MjestaVodocuvara()
+	nuzno(t, err)
+	var got []string
+	for _, m := range mjesta[pero.ID.String()] {
+		s, a := "", 0
+		if m.SectorID != nil {
+			s = *m.SectorID
+		}
+		if m.AreaID != nil {
+			a = *m.AreaID
+		}
+		if m.Role != models.RoleWaterGuard {
+			t.Errorf("mjesto uloge %s", m.Role)
+		}
+		got = append(got, fmt.Sprintf("%s/%d", s, a))
+	}
+	sort.Strings(got)
+	if strings.Join(got, " ") != "B/16 B/17 C/0" || len(mjesta[ana.ID.String()]) != 0 {
+		t.Errorf("mjesta: %v, Ana %v", got, mjesta[ana.ID.String()])
+	}
+
+	if _, err := n.db.Exec(`UPDATE record_versions SET payload = json_set(payload, '$.area_id', 'nije broj') WHERE entity = 'duties'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.MjestaVodocuvara(); err == nil {
+		t.Error("nečitljivo mjesto, a nema greške")
+	}
+	if _, err := n.db.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.MjestaVodocuvara(); err == nil {
 		t.Error("knjiga verzija se ne čita, a nema greške")
 	}
 }

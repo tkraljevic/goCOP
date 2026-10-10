@@ -783,6 +783,12 @@ func (s *UserService) ImaoUlogu(userID uuid.UUID, uloga models.Role) (bool, erro
 	return s.userRepo.ImaoUlogu(userID, uloga)
 }
 
+// MjestaVodocuvara su mjesta svih zaduženja vodočuvara koja su osobe ikad
+// imale (repository.UserRepository.MjestaVodocuvara)
+func (s *UserService) MjestaVodocuvara() (map[string][]models.Duty, error) {
+	return s.userRepo.MjestaVodocuvara()
+}
+
 // RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
 func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
 	if actorRank(actor) == 0 {

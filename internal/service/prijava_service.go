@@ -56,7 +56,7 @@ var ErrNijeNacrt = errors.New("objavljena prijava se ne mijenja; ispravak je nov
 // rukovoditelja dionice, koji čita samo prijave vezane uz svoju dionicu
 // (knjiga_ovlasti.go)
 func probniList(p *models.PrijavaSTerena) *models.VodocuvarskiList {
-	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID}
+	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID, Datum: p.Datum}
 }
 
 // SmijePisati javlja vodi li osoba vodočuvarski dnevnik, pa i prijave
@@ -64,12 +64,13 @@ func (s *PrijavaService) SmijePisati(u *models.User) bool { return VodiDnevnik(u
 
 // SmijeVidjeti javlja smije li osoba čitati prijavu
 func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
-	return s.smijeVidjeti(perms, p, nil)
+	return s.smijeVidjeti(context.Background(), perms, p, nil)
 }
 
 // smijeVidjeti je SmijeVidjeti uz pamćenje vodočuvara već pročitanih za
-// popis (nil ne pamti)
-func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
+// popis (nil ne pamti) i onoga što je isto za cijeli popis (kontekst s
+// pamćenjem, sPamcenjem)
+func (s *PrijavaService) smijeVidjeti(ctx context.Context, perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || p == nil {
 		return false
 	}
@@ -79,7 +80,7 @@ func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.P
 	if p.Status == models.PrijavaNacrt {
 		return false
 	}
-	return s.vodocuvar.cita(perms, probniList(p), p, poznati)
+	return s.vodocuvar.cita(ctx, perms, probniList(p), p, poznati)
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
@@ -379,9 +380,9 @@ func (s *PrijavaService) List(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	out := sve[:0]
-	poznati := map[string]*cuvar{}
+	poznati, popis := map[string]*cuvar{}, sPamcenjem(ctx)
 	for _, p := range sve {
-		if s.smijeVidjeti(perms, &p, poznati) {
+		if s.smijeVidjeti(popis, perms, &p, poznati) {
 			out = append(out, p)
 		}
 	}

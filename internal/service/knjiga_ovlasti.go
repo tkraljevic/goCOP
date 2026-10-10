@@ -44,6 +44,15 @@ package service
 //   - obrana traje kad je na dionici iz ovjerenih akata proglašena redovna
 //     ili izvanredna obrana ili izvanredno stanje; pripremno stanje nije
 //     obrana.
+//
+// Doseg dužnosti pokriva list i prijavu po mjestu na kojem su napisani
+// (sektor i branjeno područje vodočuvarova glavnog zaduženja), ali i po
+// mjestu svakog zaduženja vodočuvara koje je vrijedilo na njihov dan:
+// vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi u
+// doseg tog područja za listove i prijave iz vremena ispomoći, a za
+// zadatke dok ispomoć vrijedi. Veza s dionicom gleda se na području
+// dužnosti, a prijava pokazuje na dionice koje navodi na svakom od tih
+// područja. Ovjera i rješavanje prijave ostaju području lista.
 
 import (
 	"context"
@@ -80,6 +89,10 @@ func (s *VodocuvarService) SetStanjaObrane(f func(ctx context.Context, sektor st
 type pamcenjeKnjige struct {
 	stanja  map[string]map[string]models.StanjeObrane
 	dionice map[int][]string
+	// mjesta su mjesta svih zaduženja vodočuvara (mozdaUDosegu), pročitana
+	// jednom; bez njih (greška čitanja) provjera ide po povijesti
+	mjesta          map[string][]models.Duty
+	mjestaProcitana bool
 }
 
 type kljucPamcenjaKnjige struct{}
@@ -100,12 +113,59 @@ func (s *VodocuvarService) SmijeZadati(ctx context.Context, perms *models.UserPe
 	return s.smijeRadnju(ctx, perms, l, nil, radnjaZadatak)
 }
 
-// cuvar je vodočuvar lista ili prijave s poviješću zaduženja, koja se
-// čita tek kad zatreba, i to jednom
+// cuvar je vodočuvar lista ili prijave (oznaka računa id): osoba i
+// povijest zaduženja čitaju se tek kad zatrebaju, i to jednom
 type cuvar struct {
+	id        string
 	v         *models.User
+	ucitan    bool
 	povijest  []models.VerzijaZaduzenja
 	procitana bool
+}
+
+// cuvarLista je vodočuvar lista l: već poznat s popisa, ili novi, sa
+// zadanom osobom v kad je pozivatelj ima; poznati ga pamti za popis (nil ne
+// pamti)
+func cuvarLista(l *models.VodocuvarskiList, v *models.User, poznati map[string]*cuvar) *cuvar {
+	if c, ima := poznati[l.UserID]; ima {
+		return c
+	}
+	c := &cuvar{id: l.UserID, v: v}
+	if poznati != nil {
+		poznati[l.UserID] = c
+	}
+	return c
+}
+
+// oznaka je oznaka računa vodočuvara
+func (c *cuvar) oznaka() string {
+	if c.v != nil {
+		return c.v.ID.String()
+	}
+	return c.id
+}
+
+// osobaCuvara je vodočuvar sa sadašnjim zaduženjima, pročitan jednom;
+// nil kad se ne zna
+func (s *VodocuvarService) osobaCuvara(c *cuvar) *models.User {
+	if c != nil && c.v == nil && !c.ucitan {
+		c.v, c.ucitan = s.osobaPoOznaci(c.id), true
+	}
+	if c == nil {
+		return nil
+	}
+	return c.v
+}
+
+// osobaPoOznaci je osoba s računom te oznake; nil uz neispravnu oznaku,
+// nepoznatu osobu ili bez korisnika
+func (s *VodocuvarService) osobaPoOznaci(oznaka string) *models.User {
+	id, err := uuid.Parse(oznaka)
+	if err != nil || s.users == nil {
+		return nil
+	}
+	v, _ := s.users.GetUserByID(id)
+	return v
 }
 
 // zaduzenjaCuvara su zaduženja vodočuvara koja su vrijedila na dan lista ili
@@ -115,17 +175,27 @@ type cuvar struct {
 // ni ne čita. Bez povijesti (greška čitanja) dan nije vezan ni uz jedno
 // zaduženje.
 func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Duty {
-	if c == nil || c.v == nil {
+	if dan.IsZero() {
+		if v := s.osobaCuvara(c); v != nil {
+			return models.VazecaZaduzenja(v.Duties, time.Now())
+		}
 		return nil
 	}
-	if dan.IsZero() {
-		return models.VazecaZaduzenja(c.v.Duties, time.Now())
+	return models.ZaduzenjaZaZapis(s.povijestCuvara(c), dan)
+}
+
+// povijestCuvara je povijest zaduženja vodočuvara, pročitana jednom; bez
+// vodočuvara, izvora ili uz grešku čitanja nijedna
+func (s *VodocuvarService) povijestCuvara(c *cuvar) []models.VerzijaZaduzenja {
+	if c == nil {
+		return nil
 	}
-	if !c.procitana && s.users != nil {
-		c.povijest, _ = s.users.PovijestZaduzenja(c.v.ID)
+	id, err := uuid.Parse(c.oznaka())
+	if !c.procitana && err == nil && s.users != nil {
+		c.povijest, _ = s.users.PovijestZaduzenja(id)
 		c.procitana = true
 	}
-	return models.ZaduzenjaZaZapis(c.povijest, dan)
+	return c.povijest
 }
 
 // cita javlja smije li osoba čitati list ili, kad je prijava zadana,
@@ -133,16 +203,17 @@ func (s *VodocuvarService) zaduzenjaCuvara(c *cuvar, dan time.Time) []models.Dut
 // ovjeravaju, administracija i svaka dužnost u čijem je dosegu list, a
 // rukovoditelj dionice od prijava samo one vezane uz svoju dionicu.
 // poznati pamti vodočuvare prijava već pročitane (popis prijava); nil ne pamti.
-func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
+func (s *VodocuvarService) cita(ctx context.Context, perms *models.UserPermissions, l *models.VodocuvarskiList, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
 	if perms.User.ID.String() == l.UserID || s.SmijeOvjeriti(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID) {
 		return true
 	}
+	c := cuvarLista(l, nil, poznati)
 	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if duznostUDosegu(d, l, sad) && s.citaPrijavu(d, p, poznati) {
+		if s.uDosegu(ctx, d, l, c, l.Datum, sad) && s.citaPrijavu(ctx, d, l, p, c) {
 			return true
 		}
 	}
@@ -152,10 +223,11 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 // citaPrijavu: bez prijave (čita se list) ili za ulogu koja nije
 // rukovoditelj dionice nema ograničenja; rukovoditelj dionice čita prijavu
 // vezanu uz svoju dionicu: onu koja pokazuje na nju, a onu koja ne
-// pokazuje ni na jednu dionicu kao list njezina vodočuvara toga dana. Kad
-// se ne zna na koje sve dionice prijava pokazuje (greška čitanja registra
-// objekata), vezana je samo ako navodi njegovu dionicu.
-func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
+// pokazuje ni na jednu dionicu kao list njezina vodočuvara toga dana (na
+// području dužnosti). Kad se ne zna na koje sve dionice prijava pokazuje
+// (greška čitanja registra objekata), vezana je samo ako navodi njegovu
+// dionicu.
+func (s *VodocuvarService) citaPrijavu(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, p *models.PrijavaSTerena, c *cuvar) bool {
 	if p == nil || d.Role.OvlastKnjige() != models.KnjigaDionica {
 		return true
 	}
@@ -163,25 +235,60 @@ func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, 
 	if len(moje) == 0 {
 		return true
 	}
-	navedene, ok := s.dionicePrijave(p)
+	zad := s.zaduzenjaCuvara(c, p.Datum)
+	navedene, ok := s.dionicePrijave(ctx, p, zad)
 	if len(navedene) > 0 || !ok {
 		return imaZajednicku(moje, navedene)
 	}
-	return cuvaKojuOd(s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum), p.AreaID, moje)
+	return cuvaKojuOd(zad, podrucjeDuznosti(d, l), moje)
 }
 
-// dionicePrijave su dionice na koje prijava pokazuje: dionice područja
-// prijave koje navodi polje Dionica (dioniceUpisa) i dionice objekta koji
-// navodi, iz registra objekata (po identifikatoru ili nazivu, na području
-// prijave). Kad se registar objekata ne da pročitati, ok je false, a
-// dionice su samo one iz polja Dionica.
-func (s *VodocuvarService) dionicePrijave(p *models.PrijavaSTerena) (dionice []string, ok bool) {
-	dionice = s.dioniceUpisa(p.DionicaCode, p.AreaID)
-	if s.objekti == nil {
-		return dionice, true
+// dionicePrijave su dionice na koje prijava pokazuje na svakom od njezinih
+// područja (podrucjaPrijave): dionice koje navodi polje Dionica
+// (dioniceUpisa) i dionice objekta koji navodi, iz registra objekata (po
+// identifikatoru ili nazivu). Kad se registar objekata ne da pročitati, ok
+// je false, a dionice su one koje su se dale pročitati.
+func (s *VodocuvarService) dionicePrijave(ctx context.Context, p *models.PrijavaSTerena, zad []models.Duty) (dionice []string, ok bool) {
+	ok = true
+	for _, a := range podrucjaPrijave(p.AreaID, zad) {
+		objekta, err := s.dioniceObjekta(ctx, a, p.ObjektID, p.Objekt)
+		dionice = append(append(dionice, s.dioniceUpisa(ctx, p.DionicaCode, a)...), objekta...)
+		ok = ok && err == nil
 	}
-	objekta, err := s.objekti.DioniceObjekta(context.Background(), p.AreaID, p.ObjektID, p.Objekt)
-	return append(dionice, objekta...), err == nil
+	return dionice, ok
+}
+
+// podrucjaPrijave su branjena područja prijave: ono na kojem je napisana i
+// područja zaduženja vodočuvara koja su vrijedila na njezin dan (zad), npr.
+// privremene ispomoći na drugom području; svako jednom
+func podrucjaPrijave(areaID int, zad []models.Duty) []int {
+	out := []int{areaID}
+	for _, d := range zad {
+		if d.Role == models.RoleWaterGuard && d.AreaID != nil && !sadrziPodrucje(out, *d.AreaID) {
+			out = append(out, *d.AreaID)
+		}
+	}
+	return out
+}
+
+// sadrziPodrucje javlja je li područje među područjima
+func sadrziPodrucje(podrucja []int, areaID int) bool {
+	for _, a := range podrucja {
+		if a == areaID {
+			return true
+		}
+	}
+	return false
+}
+
+// dioniceObjekta su dionice objekta koji prijava navodi (identifikatorom
+// iz registra ili nazivom) na području areaID, iz registra objekata. Bez
+// registra nijedna.
+func (s *VodocuvarService) dioniceObjekta(ctx context.Context, areaID int, id, naziv string) ([]string, error) {
+	if s.objekti == nil {
+		return nil, nil
+	}
+	return s.objekti.DioniceObjekta(ctx, areaID, id, naziv)
 }
 
 // dioniceUpisa su dionice na koje pokazuje slobodan upis polja Dionica
@@ -191,7 +298,7 @@ func (s *VodocuvarService) dionicePrijave(p *models.PrijavaSTerena) (dionice []s
 // područja) ne pokazuje ni na jednu. Prazan upis registar ni ne čita; kad
 // registar za područje nema nijedne dionice (ili se ne da pročitati), svaka
 // riječ upisa uzima se kao šifra.
-func (s *VodocuvarService) dioniceUpisa(upis string, areaID int) []string {
+func (s *VodocuvarService) dioniceUpisa(ctx context.Context, upis string, areaID int) []string {
 	rijeci := rijeciUpisa(upis)
 	if len(rijeci) == 0 {
 		return nil
@@ -228,20 +335,6 @@ func odvajaSifre(r rune) bool {
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-'
 }
 
-// vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
-// zadan, pamti već pročitane, da popis prijava svakoga (i njegova prošla
-// zaduženja) čita jednom
-func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati map[string]*cuvar) *cuvar {
-	if c, ima := poznati[p.UserID]; ima {
-		return c
-	}
-	c := &cuvar{v: s.vodocuvarLista(probniList(p), nil)}
-	if poznati != nil {
-		poznati[p.UserID] = c
-	}
-	return c
-}
-
 // cuvaKojuOd javlja čuva li vodočuvar po nekom od zaduženja zad ijednu od
 // dionica, izričito ili čuvajući cijelo područje
 func cuvaKojuOd(zad []models.Duty, areaID int, sifre []string) bool {
@@ -273,17 +366,85 @@ func sadrziDionicu(sifre []string, dionica string) bool {
 	return false
 }
 
-// duznostUDosegu javlja vrijedi li dužnost (aktivna, neistekla), smije li
-// njezina uloga išta u tuđoj knjizi i pokriva li njezin doseg list: dužnost
-// s područjem to područje, a dužnost sektora bez područja cijeli sektor
-func duznostUDosegu(d models.Duty, l *models.VodocuvarskiList, sad time.Time) bool {
+// uDosegu javlja vrijedi li dužnost (aktivna, neistekla), smije li
+// njezina uloga išta u tuđoj knjizi i pokriva li njezin doseg list: mjesto
+// na kojem je napisan, ili mjesto nekog zaduženja vodočuvara koje je
+// vrijedilo na dan (bez dana: koje vrijedi sada), npr. privremene ispomoći
+// na drugom području. Mjesta zaduženja čitaju se tek kad mjesto lista nije
+// u dosegu.
+func (s *VodocuvarService) uDosegu(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, c *cuvar, dan, sad time.Time) bool {
 	if !d.CitaVodocuvarskiDnevnik(sad) || d.Role.OvlastKnjige() == models.KnjigaNe {
 		return false
 	}
-	if d.AreaID != nil {
-		return *d.AreaID == l.AreaID
+	if dosegPokriva(d, l.Sektor, l.AreaID) {
+		return true
 	}
-	return d.SectorID != nil && *d.SectorID == l.Sektor && d.ScopeType == models.ScopeSector
+	return s.mozdaUDosegu(ctx, d, c) && cuvaUDosegu(d, s.zaduzenjaDosega(c, dan))
+}
+
+// zaduzenjaDosega su zaduženja vodočuvara po kojima list ulazi u doseg
+// dužnosti izvan mjesta na kojem je napisan: ona koja su vrijedila na dan
+// (models.ZaduzenjaUDanu), a bez dana ona koja vrijede sada. Za dan prije
+// vodočuvarova prvog zaduženja u programu nema ih: ne zna se gdje je tada
+// čuvao, pa list ostaje u dosegu samo po mjestu na kojem je napisan.
+func (s *VodocuvarService) zaduzenjaDosega(c *cuvar, dan time.Time) []models.Duty {
+	if dan.IsZero() {
+		return s.zaduzenjaCuvara(c, dan)
+	}
+	return models.ZaduzenjaUDanu(s.povijestCuvara(c), dan)
+}
+
+// dosegPokriva javlja pokriva li doseg dužnosti mjesto: dužnost s
+// područjem to područje, a dužnost sektora bez područja cijeli sektor
+func dosegPokriva(d models.Duty, sektor string, areaID int) bool {
+	if d.AreaID != nil {
+		return *d.AreaID == areaID
+	}
+	return d.SectorID != nil && *d.SectorID == sektor && d.ScopeType == models.ScopeSector
+}
+
+// cuvaUDosegu javlja je li neko od zaduženja zad zaduženje vodočuvara na
+// mjestu u dosegu dužnosti d
+func cuvaUDosegu(d models.Duty, zad []models.Duty) bool {
+	for _, z := range zad {
+		if z.Role == models.RoleWaterGuard && dosegPokriva(d, deref(z.SectorID), derefPodrucje(z.AreaID)) {
+			return true
+		}
+	}
+	return false
+}
+
+// deref je tekst iz pokazivača; prazan kad ga nema
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// derefPodrucje je branjeno područje iz pokazivača; 0 kad ga nema
+func derefPodrucje(a *int) int {
+	if a == nil {
+		return 0
+	}
+	return *a
+}
+
+// mozdaUDosegu javlja može li vodočuvar uopće imati zaduženje u dosegu
+// dužnosti: popis (kontekst s pamćenjem) jednom čita mjesta svih zaduženja
+// vodočuvara koja su ikad postojala i po njima preskače vodočuvare koji
+// nikad nisu bili u dosegu, bez čitanja njihove povijesti. Bez pamćenja,
+// bez izvora ili uz grešku čitanja ne preskače nikoga.
+func (s *VodocuvarService) mozdaUDosegu(ctx context.Context, d models.Duty, c *cuvar) bool {
+	m := pamcenjeIz(ctx)
+	if m == nil || s.users == nil {
+		return true
+	}
+	if !m.mjestaProcitana {
+		m.mjesta, _ = s.users.MjestaVodocuvara()
+		m.mjestaProcitana = true
+	}
+	return m.mjesta == nil || cuvaUDosegu(d, m.mjesta[c.oznaka()])
 }
 
 // smijeRadnju javlja smije li osoba na tuđem listu parafirati, upisati
@@ -296,55 +457,72 @@ func (s *VodocuvarService) smijeRadnju(ctx context.Context, perms *models.UserPe
 	if s.SmijeOvjeriti(perms, l) {
 		return true
 	}
-	sad := time.Now()
+	c := cuvarLista(l, v, nil)
+	dan, sad := danRadnje(l, r), time.Now()
 	for _, d := range perms.User.Duties {
-		if duznostUDosegu(d, l, sad) && s.duznostSmije(ctx, d, l, v, r) {
+		if s.uDosegu(ctx, d, l, c, dan, sad) && s.duznostSmije(ctx, d, l, c, r) {
 			return true
 		}
 	}
 	return false
 }
 
+// danRadnje je dan po čijim se zaduženjima vodočuvara gleda doseg radnje:
+// zadatak gleda zaduženja koja vrijede sada (nulti dan), parafa i bilješka
+// dan lista
+func danRadnje(l *models.VodocuvarskiList, r radnjaUKnjizi) time.Time {
+	if r == radnjaZadatak {
+		return time.Time{}
+	}
+	return l.Datum
+}
+
 // duznostSmije javlja daje li dužnost u čijem je dosegu list radnju
-func (s *VodocuvarService) duznostSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, v *models.User, r radnjaUKnjizi) bool {
+func (s *VodocuvarService) duznostSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, c *cuvar, r radnjaUKnjizi) bool {
 	switch d.Role.OvlastKnjige() {
 	case models.KnjigaSve:
 		return true
 	case models.KnjigaBiljeska:
 		return r == radnjaBiljeska
 	case models.KnjigaDionica:
-		return s.dionicarSmije(ctx, d, l, v, r)
+		return s.dionicarSmije(ctx, d, l, c, r)
 	}
 	return false
 }
 
 // dionicarSmije: rukovoditelj dionice parafira i upisuje bilješku na list
 // vezan uz svoju dionicu po zaduženjima vodočuvara za dan lista
-// (rukovoditelju svih dionica područja vezan je svaki list područja), a
-// zadatak zadaje samo dok na dionici koju vodočuvar sada čuva traje obrana
-func (s *VodocuvarService) dionicarSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, v *models.User, r radnjaUKnjizi) bool {
+// (rukovoditelju svih dionica područja vezan je svaki list u dosegu), a
+// zadatak zadaje samo dok na dionici koju vodočuvar sada čuva traje obrana.
+// Dionice se gledaju na području dužnosti, i kad list nosi drugo područje
+// (ispomoć).
+func (s *VodocuvarService) dionicarSmije(ctx context.Context, d models.Duty, l *models.VodocuvarskiList, c *cuvar, r radnjaUKnjizi) bool {
 	if r != radnjaZadatak && len(d.Dionice()) == 0 {
 		return true
 	}
-	c := &cuvar{v: s.vodocuvarLista(l, v)}
+	podrucje := podrucjeDuznosti(d, l)
 	if r == radnjaZadatak {
-		return s.obranaNaDionicama(ctx, l.Sektor, s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, time.Time{}), l.AreaID))
+		return s.obranaNaDionicama(ctx, sektorDuznosti(d, l), s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, time.Time{}), podrucje))
 	}
-	return len(s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, l.Datum), l.AreaID)) > 0
+	return len(s.dioniceVeze(ctx, d, s.zaduzenjaCuvara(c, l.Datum), podrucje)) > 0
 }
 
-// vodocuvarLista je vodočuvar čiji je list: zadan, ili pročitan po listu;
-// nil kad se ne zna
-func (s *VodocuvarService) vodocuvarLista(l *models.VodocuvarskiList, v *models.User) *models.User {
-	if v != nil || s.users == nil {
-		return v
+// podrucjeDuznosti je branjeno područje na kojem dužnost gleda dionice:
+// njezino, a bez njega područje lista
+func podrucjeDuznosti(d models.Duty, l *models.VodocuvarskiList) int {
+	if d.AreaID != nil {
+		return *d.AreaID
 	}
-	id, err := uuid.Parse(l.UserID)
-	if err != nil {
-		return nil
+	return l.AreaID
+}
+
+// sektorDuznosti je sektor čiji se akti gledaju za obranu na dionicama
+// dužnosti: njezin, a bez njega sektor lista
+func sektorDuznosti(d models.Duty, l *models.VodocuvarskiList) string {
+	if d.SectorID != nil {
+		return *d.SectorID
 	}
-	v, _ = s.users.GetUserByID(id)
-	return v
+	return l.Sektor
 }
 
 // dioniceVeze su dionice dužnosti rukovoditelja dionice koje na branjenom

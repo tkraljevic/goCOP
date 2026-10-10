@@ -386,7 +386,10 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 			t.Errorf("%s: rukovoditelj svih dionica područja ne vidi prijavu", s.naziv)
 		}
 	}
-	drugdje := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Sektor: "P", AreaID: 2, Status: models.PrijavaObjavljena}
+	// prijava napisana na području 2 prije Perina zaduženja u programu (npr.
+	// uvoz iz BP16): na području 1 tada nije čuvao, pa nije u dosegu
+	// njegova područja (doseg po zaduženju na dan prijave, ispomoć)
+	drugdje := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Sektor: "P", AreaID: 2, Datum: time.Date(2026, 1, 15, 9, 0, 0, 0, models.Zagreb), Status: models.PrijavaObjavljena}
 	if prijave.SmijeVidjeti(cijelo, drugdje) {
 		t.Error("rukovoditelj dionica područja 1 vidi prijavu područja 2")
 	}
@@ -494,38 +497,33 @@ func TestKnjigaKrozServis(t *testing.T) {
 	}
 }
 
-// Vodočuvar lista čita se po listu kad ga pozivatelj nema; neispravna
-// oznaka, nepoznata osoba i servis bez korisnika ne daju nikoga.
+// Vodočuvar lista čita se po oznaci s lista kad ga pozivatelj nema, i to
+// jednom; neispravna oznaka, nepoznata osoba i servis bez korisnika ne daju
+// nikoga. Popis (poznati) pamti vodočuvara i drugi put ga ne čita.
 func TestVodocuvarLista(t *testing.T) {
 	k := novaKnjigaProba(t)
 	vs := k.o.vs
-	if v := vs.vodocuvarLista(k.listPere, nil); v == nil || v.ID != k.pero.ID {
+	if v := vs.osobaCuvara(cuvarLista(k.listPere, nil, nil)); v == nil || v.ID != k.pero.ID {
 		t.Errorf("vodočuvar lista: %+v", v)
 	}
-	if v := vs.vodocuvarLista(&models.VodocuvarskiList{UserID: "nije-oznaka"}, nil); v != nil {
-		t.Errorf("neispravna oznaka: %+v", v)
+	for _, oznaka := range []string{"nije-oznaka", uuid.NewString()} {
+		c := cuvarLista(&models.VodocuvarskiList{UserID: oznaka}, nil, nil)
+		if v := vs.osobaCuvara(c); v != nil || !c.ucitan {
+			t.Errorf("oznaka %s: %+v", oznaka, v)
+		}
 	}
-	if v := vs.vodocuvarLista(&models.VodocuvarskiList{UserID: uuid.NewString()}, nil); v != nil {
-		t.Errorf("nepoznata osoba: %+v", v)
+	if vs.osobaCuvara(nil) != nil {
+		t.Error("bez čuvara ima osobe")
 	}
-	// vodočuvar prijave: popis ga pamti i drugi put ne čita
-	p := &models.PrijavaSTerena{UserID: k.pero.ID.String()}
 	poznati := map[string]*cuvar{}
-	if c := vs.vodocuvarPrijave(p, poznati); c.v == nil || c.v.ID != k.pero.ID || poznati[p.UserID] != c {
-		t.Errorf("vodočuvar prijave: %+v, zapamćen %+v", c, poznati[p.UserID])
+	c := cuvarLista(k.listPere, nil, poznati)
+	if poznati[k.listPere.UserID] != c || cuvarLista(k.listPere, k.ana, poznati) != c {
+		t.Error("popis ne pamti vodočuvara lista")
 	}
-	ana := &cuvar{v: k.ana}
-	poznati[p.UserID] = ana
-	if c := vs.vodocuvarPrijave(p, poznati); c != ana {
-		t.Error("zapamćeni vodočuvar prijave čita se ponovno")
-	}
-	if c := vs.vodocuvarPrijave(p, nil); c.v == nil || c.v.ID != k.pero.ID {
-		t.Errorf("vodočuvar prijave bez pamćenja: %+v", c)
-	}
-	if v := (&VodocuvarService{}).vodocuvarLista(k.listPere, nil); v != nil {
+	if v := (&VodocuvarService{}).osobaCuvara(cuvarLista(k.listPere, nil, nil)); v != nil {
 		t.Errorf("bez korisnika: %+v", v)
 	}
-	if v := vs.vodocuvarLista(k.listPere, k.ana); v != k.ana {
+	if v := vs.osobaCuvara(cuvarLista(k.listPere, k.ana, nil)); v != k.ana {
 		t.Error("zadani vodočuvar se ne poštuje")
 	}
 }

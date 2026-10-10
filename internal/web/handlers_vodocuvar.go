@@ -301,19 +301,15 @@ func poIdentitetu(osobe []models.User) map[string]bool {
 	return out
 }
 
-// uOdabiru ostavlja vodočuvare čije je glavno zaduženje u odabranom sektoru
-// i području; prazan izbor ne miče nikoga
+// uOdabiru ostavlja vodočuvare čije je glavno zaduženje, ili neko valjano
+// zaduženje vodočuvara (npr. privremena ispomoć na drugom području), u
+// odabranom sektoru i području; prazan izbor ne miče nikoga
 func uOdabiru(svi []models.User, f repository.FiltarListova) []models.User {
 	var out []models.User
 	for _, v := range svi {
-		pd := v.PrimaryDuty()
-		if f.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != f.Sektor) {
-			continue
+		if f.Sektor == "" && f.AreaID == 0 || uOdabiruZaduzenje(v.PrimaryDuty(), f) || imaVodocuvarskoUOdabiru(v, f) {
+			out = append(out, v)
 		}
-		if f.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != f.AreaID) {
-			continue
-		}
-		out = append(out, v)
 	}
 	return out
 }
@@ -328,6 +324,28 @@ func godineKnjiga(sad time.Time, najstarija int) []int {
 		out = append(out, g)
 	}
 	return out
+}
+
+// imaVodocuvarskoUOdabiru javlja ima li osoba valjano zaduženje vodočuvara
+// u odabranom sektoru i području
+func imaVodocuvarskoUOdabiru(v models.User, f repository.FiltarListova) bool {
+	for _, d := range models.VazecaZaduzenja(v.Duties, time.Now()) {
+		if d.Role == models.RoleWaterGuard && uOdabiruZaduzenje(&d, f) {
+			return true
+		}
+	}
+	return false
+}
+
+// uOdabiruZaduzenje javlja je li zaduženje u odabranom sektoru i području
+func uOdabiruZaduzenje(d *models.Duty, f repository.FiltarListova) bool {
+	if d == nil {
+		return false
+	}
+	if f.Sektor != "" && (d.SectorID == nil || *d.SectorID != f.Sektor) {
+		return false
+	}
+	return f.AreaID <= 0 || d.AreaID != nil && *d.AreaID == f.AreaID
 }
 
 func danIzObrasca(s string) time.Time {

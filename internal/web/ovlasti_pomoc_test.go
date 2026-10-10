@@ -53,6 +53,8 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 		"i mora biti isti: dio naziva nije ista firma",
 		"Dnevnike drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na naslovnici u kojem nije pisao",
 		"Tako ostaje i kad mu se dužnost opozove, istekne ili promijeni u ulogu izvan ustroja obrane",
+		"Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog područja",
+		"Listovi od prije ispomoći ostaju samo području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)

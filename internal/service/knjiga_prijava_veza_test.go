@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
@@ -130,13 +131,13 @@ func TestPrijavaPokazujeNaDioniceIzRegistra(t *testing.T) {
 	}
 	// prazan upis ne pokazuje ni na što; bez dionica područja u registru
 	// svaka riječ upisa uzima se kao šifra
-	if got := k.o.vs.dioniceUpisa(" , ", 1); got != nil {
+	if got := k.o.vs.dioniceUpisa(context.Background(), " , ", 1); got != nil {
 		t.Errorf("prazan upis: %q", got)
 	}
-	if got := strings.Join((&VodocuvarService{}).dioniceUpisa("P.1.1 i (P.1.2).", 1), "|"); got != "P.1.1|i|P.1.2" {
+	if got := strings.Join((&VodocuvarService{}).dioniceUpisa(context.Background(), "P.1.1 i (P.1.2).", 1), "|"); got != "P.1.1|i|P.1.2" {
 		t.Errorf("bez registra: %q", got)
 	}
-	if got := strings.Join(k.o.vs.dioniceUpisa("Q.3.1", 3), "|"); got != "Q.3.1" {
+	if got := strings.Join(k.o.vs.dioniceUpisa(context.Background(), "Q.3.1", 3), "|"); got != "Q.3.1" {
 		t.Errorf("područje bez dionica u registru: %q", got)
 	}
 }
