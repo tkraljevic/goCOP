@@ -794,10 +794,15 @@ na GitHubu označena su kao *pre-release*.
 
 Izdanje:
 
-1. na računalu s izvozom registara u `data/` pokrenuti
-   `make provjera-registara` (provjere registara GitHub ne može
-   izvesti), promijeniti `verzijaPrograma`, upisati novo u
-   [CHANGELOG.md](../CHANGELOG.md), commit i oznaka `v0.0.x-alfa`;
+1. na računalu s cijelim izvozom registara u `data/` (šest datoteka;
+   odakle je koja, piše u odjeljku
+   [Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju))
+   pokrenuti `make provjera-registara` (provjere registara GitHub ne može
+   izvesti). Bez izvoza provjera ne prolazi, pa se izvoz prije izdanja
+   vraća iz pričuve ili slaže iznova; ako se izvoz promijenio, brojke u
+   provjerama mijenjaju se svjesno, s razlogom u commitu. Zatim promijeniti
+   `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md), commit
+   i oznaka `v0.0.x-alfa`;
 2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
@@ -889,13 +894,15 @@ ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
 ponavljaju se i na njima. Stvarni registri su izvoz registara u mapi
 `data/` u korijenu repozitorija (`sections.json`, `watercourses.json`,
 `territories.json`, `section_territories.json`, `objekti_bp16.json`,
-`organizacija.json`); `sections.json` slaže administratorski alat
-`prijepis-dionica`, izvan repozitorija. Brojke u provjerama su brojke
-izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se
-pregledaju i brojke mijenjaju svjesno, s razlogom u commitu. Bez izvoza se
-provjere preskaču, uz poruku što treba. Pokreću se prije svakog izdanja
-naredbom `make provjera-registara`, koja ih bez izvoza ruši umjesto da ih
-preskoči.
+`organizacija.json`); odakle je koja, piše u odjeljku
+[Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju), a
+`sections.json` slaže administratorski alat `prijepis-dionica`, izvan
+repozitorija. Brojke u provjerama su brojke izvoza s kojim je napunjen
+prvi čvor; uz noviji izvoz razlike se pregledaju i brojke mijenjaju
+svjesno, s razlogom u commitu. Bez cijelog izvoza provjere se preskaču, uz
+poruku koje datoteke nema i što treba. Pokreću se prije svakog izdanja
+naredbom `make provjera-registara`, koja ih bez cijelog izvoza ruši umjesto
+da ih preskoči.
 Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
 i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
 upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
