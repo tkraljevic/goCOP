@@ -63,11 +63,13 @@ func (h *PrognozeHandler) citacZahtjeva(r *http.Request) *CitacPrognoza {
 	return c
 }
 
-// sadZahtjeva je trenutak prema kojem se izdanje gleda: traženi sat uz
-// ranije izdanje (zastarjelost se računa kako bi tada bila), inače sada.
+// sadZahtjeva je trenutak prema kojem se izdanje gleda: uz ranije izdanje
+// njegov sat, inače sada. Ranije izdanje tako nije zastarjelo: kad traženi
+// sat nije imao izdanja, poruka kaže koliko je izvezeno ranije, a
+// zastarjelost pod „Upozorenja uz izdanje” izdanje nije imalo.
 func sadZahtjeva(r *http.Request) time.Time {
 	if iz, ok := ranijeIz(r.Context()); ok {
-		return iz.Trazeno
+		return iz.Izdano
 	}
 	return time.Now()
 }
@@ -114,7 +116,8 @@ func (iz RanijeIzdanje) Poruka() string {
 		return "Prognoza izdana " + satRanijeg(iz.Izdano) + iz.izracunato("izračunata") + "."
 	}
 	return "Za " + satRanijeg(iz.Trazeno) + " prognoza nije izdana; najbliže ranije izdanje je " +
-		satRanijeg(iz.Izdano) + iz.izracunato("izračunato") + "."
+		satRanijeg(iz.Izdano) + fmt.Sprintf(" (%d h ranije)", int(iz.Trazeno.Sub(iz.Izdano).Hours())) +
+		iz.izracunato("izračunato") + "."
 }
 
 // izracunato kaže kad je izdavač izračunao izvezenu verziju, npr.

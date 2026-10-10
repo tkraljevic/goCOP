@@ -154,8 +154,10 @@ func TestIzvozRanijegIzdanja(t *testing.T) {
 	}
 }
 
-// Sat bez izdanja daje najbliže ranije, s napomenom; zastarjelost se računa
-// prema traženom satu. Prije prvog izdanja i uz krivi upit izvoza nema.
+// Sat bez izdanja daje najbliže ranije, s napomenom koliko je ranije. Ono
+// se ne proglašava zastarjelim pod „Upozorenja uz izdanje”: to upozorenje
+// izdanje nije imalo, a vrijednosti nisu upitne zato što je traženi sat
+// kasniji. Prije prvog izdanja i uz krivi upit izvoza nema.
 func TestIzvozRanijegBezIzdanjaUSatu(t *testing.T) {
 	h := rukovateljRanijih(t)
 	w := izvezi(h, "?dan=2026-10-05&sat=15")
@@ -166,14 +168,16 @@ func TestIzvozRanijegBezIzdanjaUSatu(t *testing.T) {
 		t.Errorf("ime datoteke: %s", d)
 	}
 	txt := tekstZipa(t, w.Body.Bytes())
-	for _, want := range []string{"Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00, izračunato u 10:20.",
-		">36<", "Zadnja prognoza izdana je za 5. 10. u 10 h — prije 5 h"} {
+	for _, want := range []string{"Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00 (5 h ranije), izračunato u 10:20.",
+		">36<"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("u izvozu nema %q", want)
 		}
 	}
-	if strings.Contains(txt, ">506<") {
-		t.Error("izvezeno novije izdanje")
+	for _, nema := range []string{">506<", "Zadnja prognoza izdana je", "Upitno: sve vrijednosti"} {
+		if strings.Contains(txt, nema) {
+			t.Errorf("u izvozu je %q", nema)
+		}
 	}
 
 	w = izvezi(h, "?dan=2026-10-01&sat=9")
@@ -202,7 +206,7 @@ func TestPorukaRanijegIzdanja(t *testing.T) {
 	kasnije := RanijeIzdanje{Trazeno: satOdEpohe(satStarog + 5), Izdano: satOdEpohe(satStarog),
 		Nastalo: time.Date(2026, 10, 6, 6, 12, 0, 0, time.UTC)}
 	if got, want := kasnije.Poruka(), "Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je "+
-		"5.10.2026. u 10:00, izračunato 6.10.2026. u 08:12."; got != want {
+		"5.10.2026. u 10:00 (5 h ranije), izračunato 6.10.2026. u 08:12."; got != want {
 		t.Errorf("%q\nželim\n%q", got, want)
 	}
 	if got, want := (RanijeIzdanje{Trazeno: iz.Trazeno, Izdano: iz.Izdano}).Poruka(), "Prognoza izdana 5.10.2026. u 10:00."; got != want {
@@ -251,7 +255,7 @@ func TestPostavkeRanijaPrognoza(t *testing.T) {
 		t.Error("ishod stoji, a ništa nije traženo")
 	}
 	_, html = stranica("?dan=2026-10-05&sat=12")
-	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00, izračunato u 10:20.",
+	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00 (2 h ranije), izračunato u 10:20.",
 		`href="/prognoze.xlsx?dan=2026-10-05&amp;sat=12"`, `value="2026-10-05"`, `<option value="12" selected>`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("ishod nema %q", want)
