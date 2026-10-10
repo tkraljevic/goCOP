@@ -33,14 +33,14 @@ package service
 //   - list je vezan uz njegovu dionicu kad vodočuvar lista ima takvo
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
-//   - prijava pokazuje na dionice upisane u polje Dionica i na dionice
-//     objekta koji navodi (registar objekata, po identifikatoru ili nazivu
-//     na području prijave). Vezana je uz njegovu dionicu kad pokazuje na
-//     nju; kad ne pokazuje ni na jednu dionicu (kao kod uvoza iz BP16),
-//     vezana je kao list njezina vodočuvara toga dana; kad pokazuje samo
-//     na dionice koje vodočuvar po takvom zaduženju ne čuva izričito,
-//     vezana je i uz dionice koje izričito čuva. Prijava vodočuvara
-//     cijelog područja koja pokazuje na dionicu tako je vezana samo uz nju;
+//   - prijava pokazuje na dionice područja iz registra koje navodi polje
+//     Dionica (slobodan upis: riječ koja nije šifra dionice područja ne
+//     pokazuje ni na jednu) i na dionice objekta koji navodi (registar
+//     objekata, po identifikatoru ili nazivu na području prijave). Kad
+//     pokazuje na ikoju dionicu, vezana je samo uz dionice na koje
+//     pokazuje, i kad ih vodočuvar ne čuva; kad ne pokazuje ni na jednu
+//     (kao kod uvoza iz BP16), vezana je kao list njezina vodočuvara toga
+//     dana;
 //   - obrana traje kad je na dionici iz ovjerenih akata proglašena redovna
 //     ili izvanredna obrana ili izvanredno stanje; pripremno stanje nije
 //     obrana.
@@ -49,6 +49,7 @@ import (
 	"context"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -150,9 +151,10 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 
 // citaPrijavu: bez prijave (čita se list) ili za ulogu koja nije
 // rukovoditelj dionice nema ograničenja; rukovoditelj dionice čita prijavu
-// vezanu uz svoju dionicu. Kad se ne zna na koje sve dionice prijava
-// pokazuje (greška čitanja registra objekata), vezana je samo ako navodi
-// njegovu dionicu.
+// vezanu uz svoju dionicu: onu koja pokazuje na nju, a onu koja ne
+// pokazuje ni na jednu dionicu kao list njezina vodočuvara toga dana. Kad
+// se ne zna na koje sve dionice prijava pokazuje (greška čitanja registra
+// objekata), vezana je samo ako navodi njegovu dionicu.
 func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if p == nil || d.Role.OvlastKnjige() != models.KnjigaDionica {
 		return true
@@ -162,23 +164,68 @@ func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, 
 		return true
 	}
 	navedene, ok := s.dionicePrijave(p)
-	if imaZajednicku(moje, navedene) {
-		return true
+	if len(navedene) > 0 || !ok {
+		return imaZajednicku(moje, navedene)
 	}
-	return ok && prijavaVezana(moje, navedene, p.AreaID, s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum))
+	return cuvaKojuOd(s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum), p.AreaID, moje)
 }
 
-// dionicePrijave su dionice na koje prijava pokazuje: upisane u polje
-// Dionica i dionice objekta koji navodi, iz registra objekata (po
-// identifikatoru ili nazivu, na području prijave). Kad se registar ne da
-// pročitati, ok je false, a dionice su samo one iz polja Dionica.
+// dionicePrijave su dionice na koje prijava pokazuje: dionice područja
+// prijave koje navodi polje Dionica (dioniceUpisa) i dionice objekta koji
+// navodi, iz registra objekata (po identifikatoru ili nazivu, na području
+// prijave). Kad se registar objekata ne da pročitati, ok je false, a
+// dionice su samo one iz polja Dionica.
 func (s *VodocuvarService) dionicePrijave(p *models.PrijavaSTerena) (dionice []string, ok bool) {
-	dionice = sifreDionica(p.DionicaCode)
+	dionice = s.dioniceUpisa(p.DionicaCode, p.AreaID)
 	if s.objekti == nil {
 		return dionice, true
 	}
 	objekta, err := s.objekti.DioniceObjekta(context.Background(), p.AreaID, p.ObjektID, p.Objekt)
 	return append(dionice, objekta...), err == nil
+}
+
+// dioniceUpisa su dionice na koje pokazuje slobodan upis polja Dionica
+// prijave na području areaID: njegove riječi (rijeciUpisa) koje su šifre
+// dionica tog područja iz registra, bez obzira na velika slova. Riječ koja
+// nije takva šifra (pogrešno upisana šifra, veznik, dionica drugog
+// područja) ne pokazuje ni na jednu. Prazan upis registar ni ne čita; kad
+// registar za područje nema nijedne dionice (ili se ne da pročitati), svaka
+// riječ upisa uzima se kao šifra.
+func (s *VodocuvarService) dioniceUpisa(upis string, areaID int) []string {
+	rijeci := rijeciUpisa(upis)
+	if len(rijeci) == 0 {
+		return nil
+	}
+	podrucja := s.dionicePodrucja(areaID)
+	if len(podrucja) == 0 {
+		return rijeci
+	}
+	var out []string
+	for _, r := range rijeci {
+		if sadrziDionicu(podrucja, r) {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// rijeciUpisa rastavlja slobodan upis na riječi koje bi mogle biti šifre
+// dionica: odvaja ih sve osim slova, znamenki, točke i crtice, a točka i
+// crtica na kraju ili početku riječi (kraj rečenice) otpadaju
+func rijeciUpisa(upis string) []string {
+	var out []string
+	for _, r := range strings.FieldsFunc(upis, odvajaSifre) {
+		if r = strings.Trim(r, ".-"); r != "" {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// odvajaSifre javlja odvaja li znak riječi upisa: sve osim slova, znamenke,
+// točke i crtice
+func odvajaSifre(r rune) bool {
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '.' && r != '-'
 }
 
 // vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
@@ -193,20 +240,6 @@ func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati ma
 		poznati[p.UserID] = c
 	}
 	return c
-}
-
-// prijavaVezana javlja je li prijava na području areaID koja pokazuje na
-// dionice navedene vezana uz dionice moje rukovoditelja dionice kad ni na
-// jednu od njih ne pokazuje. Prijava koja ne pokazuje ni na jednu dionicu
-// vezana je kao list njezina vodočuvara: kad po zaduženjima zad čuva neku
-// od njegovih dionica ili cijelo područje. Prijava koja ne pokazuje ni na
-// jednu dionicu koju vodočuvar po zaduženjima izričito čuva vezana je uz
-// dionice koje izričito čuva.
-func prijavaVezana(moje, navedene []string, areaID int, zad []models.Duty) bool {
-	if len(navedene) == 0 {
-		return cuvaKojuOd(zad, areaID, moje)
-	}
-	return !cuvaIjednu(zad, areaID, navedene) && cuvaIjednu(zad, areaID, moje)
 }
 
 // cuvaKojuOd javlja čuva li vodočuvar po nekom od zaduženja zad ijednu od
@@ -225,19 +258,6 @@ func imaZajednicku(a, b []string) bool {
 	for _, k := range b {
 		if sadrziDionicu(a, k) {
 			return true
-		}
-	}
-	return false
-}
-
-// cuvaIjednu javlja čuva li vodočuvar na području po nekom od zaduženja zad
-// koje je izričito navodi ijednu od dionica
-func cuvaIjednu(zad []models.Duty, areaID int, sifre []string) bool {
-	for _, d := range zad {
-		for _, k := range sifre {
-			if d.CuvaIzricito(areaID, k) {
-				return true
-			}
 		}
 	}
 	return false

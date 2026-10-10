@@ -345,11 +345,12 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 
 // Prijava je vezana uz dionicu rukovoditelja i kad je polje Dionica prazno
 // ili pogrešno upisano (uvoz iz BP16 ga ne puni), a objavio ju je vodočuvar
-// koji po zaduženju izričito čuva tu dionicu. Prijava koja navodi drugu
-// dionicu svog vodočuvara vezana je samo uz tu dionicu. Prijava vodočuvara
-// cijelog područja koja navodi dionicu vezana je samo uz nju, a ona bez
-// dionice uz svaku, kao i njegov list. Pero Perić čuva P.1.1, Iva Ivić
-// P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
+// koji po zaduženju čuva tu dionicu. Prijava koja navodi dionicu iz
+// registra vezana je samo uz nju, i kad je njezin vodočuvar ne čuva (dosad
+// i uz dionice koje čuva; Odluke (8. 10. 2026.), pitanje 1,
+// TestPrijavaPokazujeNaDioniceIzRegistra). Prijava vodočuvara cijelog
+// područja bez dionice vezana je uz svaku, kao i njegov list. Pero Perić
+// čuva P.1.1, Iva Ivić P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
 func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	k := novaKnjigaProba(t)
 	iva := k.vodocuvar(t, "iivic", "Iva Ivić", "P.1.1, P.1.2")
@@ -366,7 +367,7 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	}{
 		{"Perina bez dionice", k.pero.ID.String(), "", true, false},
 		{"Perina s pogrešno upisanom dionicom", k.pero.ID.String(), "P11", true, false},
-		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", true, true},
+		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", false, true},
 		{"Ivina bez dionice", iva.ID.String(), "", true, true},
 		{"Ivina s drugom svojom dionicom", iva.ID.String(), "P.1.2", false, true},
 		{"Anina bez dionice", k.ana.ID.String(), "", true, true},
@@ -396,10 +397,10 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	prosla := sad.Add(-time.Hour)
 	pocetak := sad.AddDate(0, 0, -30)
 	bivsi := []models.VerzijaZaduzenja{{Duty: models.Duty{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla, CreatedAt: pocetak}, Od: pocetak}}
-	if prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad.AddDate(0, 0, 1))) {
+	if cuvaKojuOd(models.ZaduzenjaUDanu(bivsi, sad.AddDate(0, 0, 1)), 1, []string{"P.1.1"}) {
 		t.Error("prijava nakon prestanka dužnosti vodočuvara vezana je uz dionicu")
 	}
-	if !prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad)) {
+	if !cuvaKojuOd(models.ZaduzenjaUDanu(bivsi, sad), 1, []string{"P.1.1"}) {
 		t.Error("prijava s dana dok je dužnost vrijedila nije vezana uz dionicu")
 	}
 }

@@ -79,8 +79,7 @@ func TestDioniceDuznosti(t *testing.T) {
 // Zaduženje vodočuvara čuva dionicu kad je na tom području i dionicu navodi
 // (bez obzira na velika slova), ili ne navodi nijednu pa pokriva cijelo
 // područje. Zaduženje drugog područja i druga uloga ne čuvaju dionicu.
-// Izričito je čuva samo zaduženje koje je navodi; zaduženje cijelog
-// područja to nije. Koje zaduženje vrijedi za koji dan, ovdje se ne gleda.
+// Koje zaduženje vrijedi za koji dan, ovdje se ne gleda.
 func TestCuvaDionicu(t *testing.T) {
 	p1, p2 := 1, 2
 	vodocuvar := func(d Duty) Duty {
@@ -88,18 +87,17 @@ func TestCuvaDionicu(t *testing.T) {
 		return d
 	}
 	slucajevi := []struct {
-		ime      string
-		d        Duty
-		cuva     bool
-		drugu    bool // čuva i P.1.2
-		izricito bool // izričito čuva P.1.1
+		ime   string
+		d     Duty
+		cuva  bool
+		drugu bool // čuva i P.1.2
 	}{
-		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false, true},
-		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false, true},
-		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true, false},
-		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false, false},
-		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false, false},
-		{"strojar", Duty{Role: RoleMachinist, IsActive: true, AreaID: &p1, SectionCodes: "P.1.1"}, false, false, false},
+		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false},
+		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false},
+		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true},
+		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false},
+		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false},
+		{"strojar", Duty{Role: RoleMachinist, IsActive: true, AreaID: &p1, SectionCodes: "P.1.1"}, false, false},
 	}
 	for _, s := range slucajevi {
 		if got := s.d.CuvaDionicu(1, "P.1.1"); got != s.cuva {
@@ -107,12 +105,6 @@ func TestCuvaDionicu(t *testing.T) {
 		}
 		if got := s.d.CuvaDionicu(1, "P.1.2"); got != s.drugu {
 			t.Errorf("%s: čuva P.1.2 = %v, očekivano %v", s.ime, got, s.drugu)
-		}
-		if got := s.d.CuvaIzricito(1, "P.1.1"); got != s.izricito {
-			t.Errorf("%s: izričito čuva P.1.1 = %v, očekivano %v", s.ime, got, s.izricito)
-		}
-		if s.d.CuvaIzricito(1, "P.1.2") {
-			t.Errorf("%s: izričito čuva P.1.2", s.ime)
 		}
 	}
 }

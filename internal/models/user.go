@@ -381,13 +381,6 @@ func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
 	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
 }
 
-// CuvaIzricito javlja čuva li vodočuvar po ovom zaduženju dionicu na
-// branjenom području tako da je zaduženje izričito navodi; zaduženje
-// cijelog područja se ovdje ne broji
-func (d Duty) CuvaIzricito(areaID int, dionica string) bool {
-	return d.cuvaPodrucje(areaID) && d.navodiDionicu(dionica)
-}
-
 // cuvaPodrucje javlja je li ovo zaduženje vodočuvara na branjenom području
 func (d Duty) cuvaPodrucje(areaID int) bool {
 	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
