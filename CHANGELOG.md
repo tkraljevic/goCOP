@@ -4,6 +4,93 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.35-alfa — u pripremi
+
+**Odluke od 8. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.
+Sve čvorove treba nadograditi: nova pravila vrijede tek na čvorovima s ovom
+inačicom, a čvor na 0.0.34 zadržava staro ponašanje i ne ruši se na novim
+poljima.**
+
+- **Prognoza: upozorenja uz izdanje.** Kad nešto zakaže, prognoza to sama
+  kaže. Okvir „Upozorenja uz ovo izdanje” javlja što ne radi i od kada (npr.
+  „Mohács (vizugy.hu): nema mjerenja od 7. 10. u 11 h”) i koji su rezultati
+  zbog toga upitni: koje letve i od kojeg najranijeg dosega, ili koji dani
+  dnevne prognoze. Sitnice su u sklopljenim napomenama: rezervna inačica,
+  krivulja izvan raspona, letva bez prognoze. Upozorenje se zapisuje uz
+  izdanje i putuje razmjenom, pa ga svaki čvor pokazuje jednako. Ide i u
+  Excel, na graf letve i na pločicu kiše. Kad je izdanje starije od 3 sata,
+  stranica kaže da je prognoza zastarjela.
+- **Satna uskače kad dnevne nema.** Dani bez dnevne prognoze pokazuju satnu
+  vrijednost s oznakom „s”, a peti i šesti dan ostaju prazni, s objašnjenjem.
+  Stranica čita dnevnu prognozu istog izdanja kao satnu, pa se starija dnevna
+  više ne miješa s novijom satnom.
+- **Ranija prognoza.** U postavkama prognoze bira se dan i sat, a dobiva se
+  Excel kakav je tada izdan, s upozorenjima toga izdanja.
+- **Dnevni model** (odluka 15): neuspjelo učenje ponavlja se već idući sat,
+  modeli se uče iznova nakon uvoza u arhivu i nakon „Pripremi model”, a dan se
+  računa po zagrebačkom vremenu. Popis letvi bez dnevne prognoze ne navodi
+  letvu koju je pokrila rezerva.
+- **Provjera unatrag** (odluka 16) mjeri i ispravlja promašaje samo na glavnom
+  računu, kao živa prognoza; doseg 0 nigdje se ne ispravlja.
+- **Uzdužni profil.** Nula se računa iz istih dana na cijelom toku, pa
+  mađarske i naše letve stoje usporedivo. S profila ispada mjerilo koje danima
+  stoji dok se susjedi miču (na rekordno niskoj vodi Siga, Petreš i Vrbovka) i
+  letva koja nakon prekida mjerenja nastavi na drugoj razini. Ispod crteža piše
+  koje su izostavljene i zašto.
+- **Knjiga vodočuvara i prijave s terena** (odluka 1):
+  - Dežurni operater u COP-u čita dnevne listove i prijave svog sektora i
+    upisuje bilješku, ali ne parafira i ne zadaje zadatke.
+  - Voditelj usluga / Poslovođa ne vidi ni knjigu vodočuvara ni prijave, a u
+    dnevnicima usluga A.02 i A.03 samo dnevnik svoje firme.
+  - Rukovoditelj dionice čita listove svog područja, a parafira, upisuje i
+    (u obrani) zadaje samo ono što se tiče njegove dionice.
+  - Ovlaštenik za praćenje ugovora ima sve na svom području.
+- **Pregled tuđim očima** (odluka 2): isključen račun gleda se samo za čitanje,
+  i kad su upisi tuđim očima uključeni.
+- **Lozinka operateru** (odluka 3): uprava sektora daje Dežurnom operateru u
+  COP-u svog sektora privremenu lozinku i kod za prijavu izvana.
+- **Akti o obrani:**
+  - Broj je jedinstven na čvoru; ista oznaka s drugog čvora označi se crveno,
+    a sukob rješava voditelj Centra obrane od poplava ili zamjenik
+    (odluka 4).
+  - „Vrijedi od” se odbija prije otvaranja Dnevnika COP-a i više od 7 dana
+    unaprijed; za više od 24 h unatrag ili 3 dana unaprijed traži se potvrda
+    (odluka 17).
+  - Popis primatelja: kad izvor zakaže ili dionica nema teritorij, nacrt
+    nastaje uz upozorenje, a ovjera traži potvrdu. Popis se slaže iznova pri
+    ovjeri i pokazuje razliku, a na njemu su firme i rukovoditelji svih
+    područja akta (odluka 19).
+- **Dnevni list vodočuvara:**
+  - Za budući dan postoji samo nacrt, bez broja, najviše 30 dana unaprijed;
+    predaja je moguća od 00:00 toga dana (odluka 5).
+  - Isti vodočuvar i isti dan na svim čvorovima daju isti list, a predan list
+    ima prednost; postojeći dvojnici se prijavljuju, ne brišu (odluka 7).
+- **Dežurstva** (odluka 10): zapis bez poznatog mjesta rada program prvo
+  pokuša prepoznati iz opisa, a inače je „za provjeru”, izvan zbroja, dok
+  uprava centra ne izabere opis.
+- **Izvješća** (odluka 12): izmjena predanog izvješća vraća ga u nacrt i traži
+  novu predaju. Pamti se prvo vrijeme predaje i tko je mijenjao, a predano se
+  povlači, ne briše.
+- **Zid događanja:**
+  - Objavljene i riješene prijave s terena, samo onima koji ih smiju čitati
+    (odluka 20).
+  - Prijenos sredstava u drugi sektor javlja se ciljnom sektoru (odluka 11).
+- **Rasponi** (odluka 21): preuzimanje i uvoz ne upisuju vodostaj izvan
+  raspona, isto kao ručni upis. Stranica letve pokazuje koliko je vrijednosti
+  odbačeno i zadnju od njih, a tri akumulacije HEP-a imaju raspon kote.
+- **Obrana** (odluka 14): uklonjen je stari kod ručnog proglašenja i računanja
+  obrane iz vodostaja. „Valovi obrane u nizu” na historijatu letve pokazuju
+  kada bi koji stadij bio dosegnut, samo kao prikaz.
+- **Testovi** (odluka 13): provjere djelatnika, uvoza i razmjene rade na
+  izmišljenim osobama sektora P, a provjere registara posebno, prije izdanja.
+- **Privremeno imenovanje i rokovi dužnosti** (odluke 5. 10.):
+  - Dužnosti su stalne. Privremena ispomoć ističe s prestankom obrane prema
+    ovjerenom aktu ili zaključno sa zadanim danom.
+  - „Vrijedi zaključno s 14. 10.” prestaje 15. 10. u 0 h.
+  - Profil kaže odakle je istek.
+- **Pomoć:** u Zahvalama je opet stvarno ime (Mario Spajić); izmišljena imena
+  služe samo za primjere i testove.
+
 ## 0.0.34-alfa — 4. 10. 2026.
 
 **Stanje obrane iz ovjerenih akata, poništenje akta i ispravci nađeni

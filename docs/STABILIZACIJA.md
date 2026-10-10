@@ -355,6 +355,11 @@ Sama ništa ne piše: zapis radi `Zapisi` (`:719`).
 
 ## 7. `service.(*EpisodeService).Declare`, `Raise`, `End` i `izracunaj` — `internal/service/episode_service.go:44`, `:85`, `:109`, `:213`
 
+**Uklonjeno 10. 10. 2026.** (odluka 14): ove funkcije, `Rebuild` i
+`EpisodeRepository.DeleteEpisodesFrom` više ne postoje; stanje obrane dolazi
+samo iz ovjerenih akata (`EpisodeService.UskladiIzAkata`). Opis ispod ostaje
+kao zapis polazišta.
+
 **Odgovornost.** Proglašenje, podizanje i prestanak obrane na dionici (operaterske epizode), i izračun epizoda iz niza očitanja.
 
 **Pravila.**
@@ -843,6 +848,28 @@ primjerima od 6. 10.
     putove upisa; odbačene vrijednosti broje se i pokazuju na stranici letve;
     tri akumulacije HEP-a dobivaju oznaku „kota u cm n. m.” (5000…40 000 cm).
     Označavanje po letvi dolazi kasnije.
+
+**Provedba (10. 10. 2026.).** Odluke 1–5, 7, 10–17 i 19–21 provedene su na
+grani `odluke-8-10`. Svaka je imala neovisan kritički pregled i doradu.
+Svaka ima testove koji bez nje padaju, a zaključani testovi su okrenuti uz
+napomenu o odluci. Uz to, uzdužni profil računa nulu iz istih dana na cijelom
+toku i izostavlja mjerila koja stoje (Siga, Petreš, Vrbovka na rekordno niskoj
+vodi) te letve koje nakon prekida nastave na drugoj razini. Prognoza nosi
+upozorenja uz izdanje, a satna uskače kad dnevne nema. Ranija prognoza izvozi
+se za odabrani dan i sat. Odluke 6, 8, 9 i 18 provode se u drugom krugu, na
+istoj grani. Sva nova pravila vrijede tek kad su svi čvorovi na 0.0.35;
+čvorovi na 0.0.34 zadržavaju staro ponašanje i ne ruše se na novim poljima.
+
+Otvoreno nakon pregleda, za odluku:
+- stare otvorene epizode obrane bez akta (izvor OPERATER ili OČITANJA iz
+  ranijih izdanja) i dalje se računaju kao trenutna obrana, a zatvoriti ih se
+  više nema čime;
+- provjere registara traže datoteke prvog punjenja, a njih nema nigdje, pa se
+  `make provjera-registara` ne može pokrenuti;
+- na zidu je istaknuta samo objava prijave vrste „Prijava”, ne i njezino
+  rješenje;
+- nacrt prijave prenesen iz BP16 koji vodočuvar dovrši u goCOP-u ne ide na zid;
+- 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči.
 
 ## Nestabilno mjerenje
 
