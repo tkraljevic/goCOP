@@ -71,6 +71,11 @@ func TestOvjeraAktaBezLetve(t *testing.T) {
 	for kod, letva := range map[string]string{"P.1.1": "", "P.1.2": "nije-uuid"} {
 		a := &models.Akt{ID: uuid.NewString(), Sektor: "P", AreaID: 1, Radnja: models.AktUspostava, Stupanj: models.PhaseRegular,
 			Vrijedi: time.Now().Add(-time.Minute), StationID: letva, StationName: "Primjerovo", Dionice: []models.AktDionica{{Code: kod}}}
+		// ovjera dodjeljuje broj spremljenom nacrtu, u istom koraku s upisom
+		// (Odluke (8. 10. 2026.), pitanje 4)
+		if err := svc.repo.SaveAkt(ctx, a); err != nil {
+			t.Fatal(err)
+		}
 		ovjeren, _, err := svc.zakljuciOvjeru(ctx, uprava, pero, a, time.Now())
 		if err != nil || ovjeren == nil || ovjeren.Status != models.AktOvjeren {
 			t.Fatalf("ovjera akta s letvom %q: %+v %v", letva, ovjeren, err)

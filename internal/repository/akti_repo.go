@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -19,6 +20,10 @@ const (
 	EntityAkti       = "akti"
 	EntityPrimatelji = "primatelji"
 	EntitySprance    = "akti_sprance"
+	// EntityRjesenjaOznaka su rješenja sukoba oznaka (Odluke (8. 10.
+	// 2026.), pitanje 4); čvor sa starijim programom ih čuva u knjizi i
+	// prenosi, a javlja da je stiglo nešto što ne poznaje
+	EntityRjesenjaOznaka = "akti_rjesenja_oznaka"
 )
 
 // AktiRepository čuva akte i registar primatelja. Sve ide knjigom verzija:
@@ -35,8 +40,9 @@ func NewAktiRepository(db *sql.DB, rec *ledger.Recorder) *AktiRepository {
 
 const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
+	potvrde, upozorenja_primatelja)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, area_id = excluded.area_id, broj = excluded.broj, godina = excluded.godina,
 		radnja = excluded.radnja, stupanj = excluded.stupanj, station_id = excluded.station_id, station_name = excluded.station_name,
 		watercourse = excluded.watercourse, vodostaj_cm = excluded.vodostaj_cm, vodostaj_kad = excluded.vodostaj_kad,
@@ -44,11 +50,13 @@ const aktUpsert = `INSERT INTO akti (id, sektor, area_id, broj, godina, radnja, 
 		napomena = excluded.napomena, potpisnik = excluded.potpisnik, primatelji = excluded.primatelji, status = excluded.status,
 		izradio_id = excluded.izradio_id, izradio = excluded.izradio, izradeno_at = excluded.izradeno_at,
 		ovjerio_id = excluded.ovjerio_id, ovjerio = excluded.ovjerio, ovjereno_at = excluded.ovjereno_at,
-		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at`
+		ovjera_kod = excluded.ovjera_kod, u_zamjeni = excluded.u_zamjeni, potpis = excluded.potpis, kljuc_cvora = excluded.kljuc_cvora, cvor = excluded.cvor, created_at = excluded.created_at, updated_at = excluded.updated_at,
+		potvrde = excluded.potvrde, upozorenja_primatelja = excluded.upozorenja_primatelja`
 
 const aktColumns = `id, sektor, area_id, broj, godina, radnja, stupanj, station_id, station_name, watercourse,
 	vodostaj_cm, vodostaj_kad, tendencija, prognoza, uvod, zavrsno, poveznice, prekida_akt_id, izvan_snage, rucno, storno, dionice, vrijedi, napomena, potpisnik, primatelji,
-	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at`
+	status, izradio_id, izradio, izradeno_at, ovjerio_id, ovjerio, ovjereno_at, ovjera_kod, u_zamjeni, potpis, kljuc_cvora, cvor, created_at, updated_at,
+	potvrde, upozorenja_primatelja`
 
 func aktArgs(a *models.Akt) []any {
 	dionice, _ := json.Marshal(a.Dionice)
@@ -71,18 +79,37 @@ func aktArgs(a *models.Akt) []any {
 	}
 	return []any{a.ID, a.Sektor, a.AreaID, a.Broj, a.Godina, a.Radnja, string(a.Stupanj), a.StationID, a.StationName, a.Watercourse,
 		a.VodostajCm, vodostajKad, a.Tendencija, a.Prognoza, a.Uvod, a.Zavrsno, a.Poveznice, a.PrekidaAktID, a.IzvanSnage, rucno, storno, string(dionice), a.Vrijedi.UTC(), a.Napomena, a.Potpisnik, string(primatelji),
-		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC()}
+		a.Status, a.IzradioID, a.Izradio, a.IzradenoAt.UTC(), a.OvjerioID, a.Ovjerio, ovjerenoAt, a.OvjeraKod, boolInt(a.UZamjeni), a.Potpis, a.KljucCvora, a.Cvor, a.CreatedAt.UTC(), a.UpdatedAt.UTC(),
+		jsonIliPrazno(a.Potvrde), jsonIliPrazno(a.UpozorenjaPrimatelja)}
+}
+
+// jsonIliPrazno je vrijednost kao JSON za stupac teksta; prazno kad je nema
+// (nil ili prazan popis), da se stupac ne puni s "null"
+func jsonIliPrazno(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil || string(b) == "null" || string(b) == "[]" {
+		return ""
+	}
+	return string(b)
+}
+
+// citajJSON čita JSON stupca u v; prazan stupac ostavlja v kakav jest
+func citajJSON(s string, v any) {
+	if s != "" {
+		_ = json.Unmarshal([]byte(s), v)
+	}
 }
 
 func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	var a models.Akt
-	var stupanj, dionice, primatelji, rucno, storno string
+	var stupanj, dionice, primatelji, rucno, storno, potvrde, upozorenja string
 	var vodostaj sql.NullInt64
 	var vodostajKad, ovjerenoAt sql.NullTime
 	var uZamjeni int
 	err := sc.Scan(&a.ID, &a.Sektor, &a.AreaID, &a.Broj, &a.Godina, &a.Radnja, &stupanj, &a.StationID, &a.StationName, &a.Watercourse,
 		&vodostaj, &vodostajKad, &a.Tendencija, &a.Prognoza, &a.Uvod, &a.Zavrsno, &a.Poveznice, &a.PrekidaAktID, &a.IzvanSnage, &rucno, &storno, &dionice, &a.Vrijedi, &a.Napomena, &a.Potpisnik, &primatelji,
-		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt)
+		&a.Status, &a.IzradioID, &a.Izradio, &a.IzradenoAt, &a.OvjerioID, &a.Ovjerio, &ovjerenoAt, &a.OvjeraKod, &uZamjeni, &a.Potpis, &a.KljucCvora, &a.Cvor, &a.CreatedAt, &a.UpdatedAt,
+		&potvrde, &upozorenja)
 	if err != nil {
 		return a, err
 	}
@@ -109,31 +136,79 @@ func scanAkt(sc interface{ Scan(...any) error }) (models.Akt, error) {
 	}
 	_ = json.Unmarshal([]byte(dionice), &a.Dionice)
 	_ = json.Unmarshal([]byte(primatelji), &a.Primatelji)
+	citajJSON(potvrde, &a.Potvrde)
+	citajJSON(upozorenja, &a.UpozorenjaPrimatelja)
 	return a, nil
 }
 
 // SaveAkt upisuje akt, nov ili izmijenjen, s verzijom u knjizi
 func (r *AktiRepository) SaveAkt(ctx context.Context, a *models.Akt) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := r.upisiAkt(ctx, tx, a); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upisiAkt upisuje akt na površinu i njegovu verziju u knjigu, unutar
+// zadane transakcije; nov akt dobiva identitet
+func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt) error {
+	oznaciUpis(a)
+	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
+		return fmt.Errorf("upis akta: %w", err)
+	}
+	_, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a)
+	return err
+}
+
+// oznaciUpis daje novom aktu identitet i vrijeme nastanka, aktu s
+// identitetom bez vremena nastanka to vrijeme, a svakom vrijeme izmjene. Identitet se daje kao drugdje u repozitoriju
+// (uuid.Must): bez slučajnih brojeva sustava upis ionako ne može dalje.
+func oznaciUpis(a *models.Akt) {
 	now := time.Now().UTC()
 	if a.ID == "" {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		a.ID = id.String()
+		a.ID = uuid.Must(uuid.NewV7()).String()
 		a.CreatedAt = now
 	}
 	if a.CreatedAt.IsZero() {
 		a.CreatedAt = now
 	}
 	a.UpdatedAt = now
+}
+
+// aktNacrtUpsert upisuje nacrt kao aktUpsert, ali zatečeni redak mijenja
+// samo dok je i sam nacrt bez broja
+const aktNacrtUpsert = aktUpsert + ` WHERE akti.status = '` + models.AktNacrt + `' AND akti.broj = 0`
+
+// ErrNijeNacrt: akt je u međuvremenu ovjeren, pa se nacrt ne upisuje preko
+// njega
+var ErrNijeNacrt = errors.New("akt je u međuvremenu ovjeren i ne mijenja se; ispravak je novi akt")
+
+// SaveNacrt upisuje nacrt, nov ili izmijenjen, s verzijom u knjizi. Zatečeni
+// akt mijenja samo dok je u bazi nacrt bez broja, i to provjerava u istom
+// koraku u kojem upisuje: nacrt pročitan prije ovjere ne vraća ovjeren akt u
+// nacrt i ne oslobađa njegov broj (Odluke (8. 10. 2026.), pitanje 4). Tada
+// vraća ErrNijeNacrt i ništa ne upisuje.
+func (r *AktiRepository) SaveNacrt(ctx context.Context, a *models.Akt) error {
+	if a.Status != models.AktNacrt || a.Broj != 0 {
+		return fmt.Errorf("upis nacrta: akt %s nije nacrt", a.Oznaka())
+	}
+	oznaciUpis(a)
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
-		return fmt.Errorf("upis akta: %w", err)
+	res, err := tx.ExecContext(ctx, aktNacrtUpsert, aktArgs(a)...)
+	if err != nil {
+		return fmt.Errorf("upis nacrta: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNijeNacrt
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityAkti, a.ID, a); err != nil {
 		return err
@@ -141,14 +216,132 @@ func (r *AktiRepository) SaveAkt(ctx context.Context, a *models.Akt) error {
 	return tx.Commit()
 }
 
-// SljedeciBroj daje sljedeći redni broj akta u godini po sektoru
-func (r *AktiRepository) SljedeciBroj(ctx context.Context, sektor string, godina int) (int, error) {
-	var n sql.NullInt64
-	err := r.db.QueryRowContext(ctx, `SELECT MAX(broj) FROM akti WHERE sektor = ? AND godina = ?`, sektor, godina).Scan(&n)
+// sljedeciBrojAkta je sljedeći redni broj akta u godini po sektoru (args:
+// sektor i godina, triput): iza najvećeg broja među aktima koje čvor vidi,
+// najvećeg koji je čvor ikad dao (akti_brojac; ne pada kad se akt trajno
+// obriše) i najvećeg koji nosi bilo koja verzija akta u knjizi (akt obrisan
+// prije brojača, ovjera koju je na površini nadjačala novija verzija)
+const sljedeciBrojAkta = `1 + MAX(
+	(SELECT COALESCE(MAX(broj), 0) FROM akti WHERE sektor = ? AND godina = ?),
+	(SELECT COALESCE(MAX(zadnji), 0) FROM akti_brojac WHERE sektor = ? AND godina = ?),
+	(SELECT COALESCE(MAX(CAST(json_extract(payload, '$.broj') AS INTEGER)), 0) FROM record_versions
+		WHERE entity = '` + EntityAkti + `' AND json_extract(payload, '$.sektor') = ? AND json_extract(payload, '$.godina') = ?))`
+
+// OvjeriAkt upisuje ovjeren akt i u istom mu koraku dodjeljuje redni broj u
+// godini po sektoru (Odluke (8. 10. 2026.), pitanje 4). Dodjela broja prvi je
+// upis transakcije, pa transakcija od tada drži pravo pisanja u bazu: druga
+// ovjera na ovom čvoru čeka da se ova upiše i dobiva sljedeći broj, a isti
+// broj čvor ne može dati dvaput, ni kad se akt poslije trajno obriše
+// (sljedeciBrojAkta). Akt mora biti spremljen kao nacrt (broj 0);
+// drugi pokušaj ovjere istog nacrta ne prolazi. dovrsi dovršava akt kad je
+// broj poznat: potpis ključem čvora pokriva i oznaku.
+func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi func(*models.Akt)) error {
+	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return err
 	}
-	return int(n.Int64) + 1, nil
+	defer tx.Rollback()
+	res, err := tx.ExecContext(ctx, `UPDATE akti SET broj = `+sljedeciBrojAkta+` WHERE id = ? AND broj = 0`,
+		a.Sektor, a.Godina, a.Sektor, a.Godina, a.Sektor, a.Godina, a.ID)
+	if err != nil {
+		return fmt.Errorf("dodjela broja akta: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n != 1 {
+		return fmt.Errorf("akt nije nacrt: već je ovjeren ili ga nema")
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT broj FROM akti WHERE id = ?`, a.ID).Scan(&a.Broj); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO akti_brojac (sektor, godina, zadnji) VALUES (?, ?, ?)
+		ON CONFLICT(sektor, godina) DO UPDATE SET zadnji = MAX(zadnji, excluded.zadnji)`, a.Sektor, a.Godina, a.Broj); err != nil {
+		return fmt.Errorf("brojač akata: %w", err)
+	}
+	if dovrsi != nil {
+		dovrsi(a)
+	}
+	if err := r.upisiAkt(ctx, tx, a); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// AktiIsteOznake su akti s brojem čiju oznaku (sektor, broj, godina) nosi
+// još koji akt: u pravilu akti dvaju čvorova ovjereni bez veze, koje je
+// razmjena spojila (Odluke (8. 10. 2026.), pitanje 4)
+func (r *AktiRepository) AktiIsteOznake(ctx context.Context) ([]models.Akt, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT `+aktColumns+` FROM akti a WHERE a.broj > 0 AND EXISTS (
+		SELECT 1 FROM akti b WHERE b.sektor = a.sektor AND b.godina = a.godina AND b.broj = a.broj AND b.id <> a.id)
+		ORDER BY a.sektor, a.godina, a.broj, a.created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Akt
+	for rows.Next() {
+		a, err := scanAkt(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, a)
+	}
+	return out, rows.Err()
+}
+
+const rjesenjeOznakeUpsert = `INSERT INTO akti_rjesenja_oznaka (id, sektor, oznaka, akti, napomena, rijesio_id, rijesio, kad)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, oznaka = excluded.oznaka, akti = excluded.akti,
+		napomena = excluded.napomena, rijesio_id = excluded.rijesio_id, rijesio = excluded.rijesio, kad = excluded.kad`
+
+func rjesenjeOznakeArgs(x *models.RjesenjeOznake) []any {
+	akti, _ := json.Marshal(x.Akti)
+	return []any{x.ID, x.Sektor, x.Oznaka, string(akti), x.Napomena, x.RijesioID, x.Rijesio, x.Kad.UTC()}
+}
+
+// SaveRjesenjeOznake upisuje rješenje sukoba oznake kao zaseban zapis s
+// verzijom u knjizi: akte iste oznake ne dira, pa rješenje ne prepisuje
+// izmjenu akta (npr. storno) napravljenu na drugom čvoru (Odluke
+// (8. 10. 2026.), pitanje 4)
+func (r *AktiRepository) SaveRjesenjeOznake(ctx context.Context, x *models.RjesenjeOznake) error {
+	if x.ID == "" {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return err
+		}
+		x.ID = id.String()
+	}
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(x)...); err != nil {
+		return fmt.Errorf("upis rješenja oznake: %w", err)
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityRjesenjaOznaka, x.ID, x); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ListRjesenjaOznaka su sva rješenja sukoba oznaka, najstarije prvo
+func (r *AktiRepository) ListRjesenjaOznaka(ctx context.Context) ([]models.RjesenjeOznake, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, sektor, oznaka, akti, napomena, rijesio_id, rijesio, kad
+		FROM akti_rjesenja_oznaka ORDER BY kad, id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.RjesenjeOznake
+	for rows.Next() {
+		var x models.RjesenjeOznake
+		var akti string
+		if err := rows.Scan(&x.ID, &x.Sektor, &x.Oznaka, &akti, &x.Napomena, &x.RijesioID, &x.Rijesio, &x.Kad); err != nil {
+			return nil, err
+		}
+		citajJSON(akti, &x.Akti)
+		out = append(out, x)
+	}
+	return out, rows.Err()
 }
 
 // GetAkt čita jedan akt

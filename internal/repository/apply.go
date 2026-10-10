@@ -89,7 +89,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
 
 // PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
 // primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
@@ -107,7 +107,7 @@ func PoznatiEntiteti() []string {
 		EntityReadings, EntityEpisodes, EntityIspravci, EntityBiljeske,
 		EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 		EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe,
-		EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
+		EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
 		EntityPostavke, EntityPotpisi, EntityZigovi,
 		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
@@ -191,17 +191,17 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	for len(ostaje) > 0 {
 		failed = failed[:0]
 		for _, v := range ostaje {
-			top, err := rec.Latest(ctx, v.Entity, v.EntityID)
+			naPovrsinu, primijeni, err := verzijaZaPovrsinu(ctx, rec, v)
 			if err != nil {
 				return err
 			}
-			if top.VersionID != v.VersionID {
+			if !primijeni {
 				continue // netko je već zapisao noviju; površina je već njezina
 			}
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := applyOne(ctx, tx, v); err != nil {
+			if err := applyOne(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
@@ -672,6 +672,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, primateljUpsert, primateljArgs(&p)...)
 		return err
 
+	case EntityRjesenjaOznaka:
+		var x models.RjesenjeOznake
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(&x)...)
+		return err
+
 	case EntityRoleModules:
 		var rm models.RoleModules
 		if err := json.Unmarshal(v.Payload, &rm); err != nil {
@@ -1113,6 +1121,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM mts_potrebe WHERE id = ?`
 	case EntityAkti:
 		stmt = `DELETE FROM akti WHERE id = ?`
+	case EntityRjesenjaOznaka:
+		stmt = `DELETE FROM akti_rjesenja_oznaka WHERE id = ?`
 	case EntityPrimatelji:
 		stmt = `DELETE FROM primatelji WHERE id = ?`
 	case EntitySprance:

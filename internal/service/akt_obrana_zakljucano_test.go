@@ -103,6 +103,12 @@ func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 	return &okolinaAkta{baza: baza, akti: akti, epizode: epizode, users: users, letva: st, rukovod: ruk, ovlasti: rukOvl, vodocuv: vod, vodOvl: vodOvl}
 }
 
+// potvrdaPrimatelja: dionice okoline nemaju upisan teritorij, pa popis
+// primatelja nosi upozorenje, a ovjera dok ono stoji traži izričitu potvrdu.
+// Namjerna izmjena zaključanog testa: Odluke (8. 10. 2026.), pitanje 19;
+// pravila stanja obrane koja test zaključava ostaju ista.
+var potvrdaPrimatelja = service.PotvrdaOvjere{Primatelji: true}
+
 // ovjeri priprema, sprema i ovjerava akt rukovoditelja područja
 func (o *okolinaAkta) ovjeri(t *testing.T, radnja string, stupanj models.DefensePhase, vrijedi time.Time) (*models.Akt, []string) {
 	t.Helper()
@@ -114,7 +120,7 @@ func (o *okolinaAkta) ovjeri(t *testing.T, radnja string, stupanj models.Defense
 	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
 		t.Fatalf("spremanje: %v", err)
 	}
-	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID)
+	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
 	if err != nil {
 		t.Fatalf("ovjera %s %s: %v", radnja, stupanj, err)
 	}
@@ -238,7 +244,7 @@ func (o *okolinaAkta) neOvjeri(t *testing.T, radnja string, stupanj models.Defen
 	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
 		t.Fatalf("spremanje: %v", err)
 	}
-	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID)
+	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
 	if err == nil && ovjeren != nil && ovjeren.Ovjeren() {
 		t.Errorf("ovjeren je akt koji ne smije proći: %s %s", radnja, stupanj)
 	}
@@ -260,17 +266,17 @@ func TestOvjeraBezOvlasti(t *testing.T) {
 	if o.akti.SmijeOvjeriti(o.vodOvl, a) {
 		t.Fatal("vodočuvar ne ovjerava akt o obrani")
 	}
-	if _, _, err := o.akti.Ovjeri(ctx, o.vodOvl, o.vodocuv, a.ID); !errors.Is(err, service.ErrUnauthorized) {
+	if _, _, err := o.akti.Ovjeri(ctx, o.vodOvl, o.vodocuv, a.ID, potvrdaPrimatelja); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("ovjera bez ovlasti: %v", err)
 	}
 	if e, _ := o.epizode.Open(ctx, "P.1.1"); e != nil {
 		t.Error("neovjereni akt ne smije otvoriti obranu")
 	}
 	// ovjeren akt se ne ovjerava ponovno
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID); err != nil {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID); err == nil {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja); err == nil {
 		t.Error("druga ovjera istog akta mora biti odbijena")
 	}
 	// ni nepoznatih ulaza

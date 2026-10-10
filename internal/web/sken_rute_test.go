@@ -120,13 +120,16 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		fw, _ := mw.CreateFormFile("sken", ime)
 		_, _ = fw.Write(podaci)
 		_ = mw.WriteField("potpisnik_id", potpisnik)
+		// dionica nema teritorija: sken s tim popisom ovjerava se uz potvrdu
+		// (Odluke (8. 10. 2026.), pitanje 19)
+		_ = mw.WriteField("potvrda_primatelja", "1")
 		_ = mw.Close()
 		r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		return mustUnescape(zovi(r).Header().Get("Location"))
 	}
 
-	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}
+	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}
 	r := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
@@ -260,14 +263,15 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Error("slika potpisa")
 	}
 	// akt ovjeren u goCOP-u: PDF nosi žig i potpis, ispis za ruku ne
-	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}
+	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}, "potvrda_vrijedi": {"1"}}
 	r2 := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma2.Encode()))
 	r2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id2 := strings.TrimPrefix(strings.SplitN(zovi(r2).Header().Get("Location"), "?", 2)[0], "/akti/")
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/za-ispis.pdf", nil)); bytes.Contains(w.Body.Bytes(), []byte("/Subtype /Image")) {
 		t.Error("ispis za vlastoručni potpis ne nosi skenirani žig")
 	}
-	r3 := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/ovjeri", strings.NewReader(""))
+	otisak := otisakSaStranice(t, zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2, nil)).Body.String())
+	r3 := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/ovjeri", strings.NewReader(url.Values{"otisak": {otisak}, "potvrda_primatelja": {"1"}}.Encode()))
 	r3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if loc := mustUnescape(zovi(r3).Header().Get("Location")); !strings.Contains(loc, "success") {
 		t.Fatalf("ovjera u goCOP-u: %s", loc)

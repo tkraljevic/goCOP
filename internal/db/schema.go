@@ -253,6 +253,30 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_akti_sektor_vrijedi ON akti(sektor, vrijedi DESC);`,
+		// Brojač akata ovog čvora: zadnji redni broj koji je čvor dao u
+		// godini po sektoru. Ne putuje razmjenom i ne pada kad se akt
+		// trajno obriše, pa čvor isti broj ne daje dvaput (Odluke
+		// (8. 10. 2026.), pitanje 4).
+		// Rješenja sukoba oznaka: dva ovjerena akta iste oznake (u pravilu s
+		// dva čvora) i napomena Voditelja Centra obrane od poplava ili
+		// zamjenika kako je sukob riješen. Zaseban zapis s verzijom u knjizi,
+		// da rješenje ne prepisuje akte (Odluke (8. 10. 2026.), pitanje 4).
+		`CREATE TABLE IF NOT EXISTS akti_rjesenja_oznaka (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			oznaka TEXT NOT NULL DEFAULT '',
+			akti TEXT NOT NULL DEFAULT '[]',
+			napomena TEXT NOT NULL DEFAULT '',
+			rijesio_id TEXT NOT NULL DEFAULT '',
+			rijesio TEXT NOT NULL DEFAULT '',
+			kad DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS akti_brojac (
+			sektor TEXT NOT NULL,
+			godina INTEGER NOT NULL,
+			zadnji INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (sektor, godina)
+		);`,
 		// Službe uz županije i gradove: civilna zaštita, 112, policija,
 		// lučke kapetanije — kontakti koje akti o obrani obavještavaju
 		`CREATE TABLE IF NOT EXISTS sluzbe (
@@ -1531,6 +1555,12 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "rucno", "TEXT NOT NULL DEFAULT ''"},
 		// poništenje ovjerenog akta (JSON): tko, kada, zašto, potpis
 		{"akti", "storno", "TEXT NOT NULL DEFAULT ''"},
+		// izričite potvrde uz akt (JSON): što je program pitao, tko je
+		// potvrdio i kada (Odluke (8. 10. 2026.), pitanje 17)
+		{"akti", "potvrde", "TEXT NOT NULL DEFAULT ''"},
+		// izvori popisa primatelja koji se nisu dali pročitati i dionice bez
+		// teritorija (JSON) (Odluke (8. 10. 2026.), pitanje 19)
+		{"akti", "upozorenja_primatelja", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},

@@ -166,7 +166,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		return zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
 	}
 
-	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}), "?", 2)[0], "/akti/")
+	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}), "?", 2)[0], "/akti/")
 	if strings.Contains(stranica(id), "Slanje na znanje") {
 		t.Error("nacrt se ne šalje")
 	}
@@ -176,6 +176,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	fw, _ := mw.CreateFormFile("sken", "sken.pdf")
 	_, _ = fw.Write([]byte("%PDF-1.4\n% sken\n%%EOF\n"))
 	_ = mw.WriteField("potpisnik_id", kunac.ID.String())
+	_ = mw.WriteField("potvrda_primatelja", "1") // dionica bez teritorija: Odluke (8. 10. 2026.), pitanje 19
 	_ = mw.Close()
 	r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())

@@ -111,15 +111,15 @@ func TestOvjeraPrekidaKadJeUspostavaVecPrekinuta(t *testing.T) {
 	if prvi.PrekidaAktID != u1.ID || drugi.PrekidaAktID != u1.ID {
 		t.Fatalf("nacrti nisu vezani na uspostavu: %q %q", prvi.PrekidaAktID, drugi.PrekidaAktID)
 	}
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, drugi.ID); err != nil {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, drugi.ID, potvrdaPrimatelja); err != nil {
 		t.Fatalf("ovjera drugog prekida: %v", err)
 	}
 	u2, _ := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat.Add(2*time.Hour))
 
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, prvi.ID); err == nil || !strings.Contains(err.Error(), "već prekinut") {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, prvi.ID, potvrdaPrimatelja); err == nil || !strings.Contains(err.Error(), "već prekinut") {
 		t.Errorf("izravna ovjera prekida već prekinute uspostave: %v", err)
 	}
-	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, prvi.ID, sken, o.rukovod.ID.String()); err == nil || !strings.Contains(err.Error(), "već prekinut") {
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, prvi.ID, sken, o.rukovod.ID.String(), potvrdaPrimatelja); err == nil || !strings.Contains(err.Error(), "već prekinut") {
 		t.Errorf("ovjera skenom prekida već prekinute uspostave: %v", err)
 	}
 	if pdf, _ := o.akti.Izvornik(ctx, prvi.ID); len(pdf) != 0 {
@@ -145,7 +145,7 @@ func TestOvjeraPrekidaKadJeUspostavaVecPrekinuta(t *testing.T) {
 	if novi.PrekidaAktID != u2.ID {
 		t.Fatalf("novi prekid nije vezan na novu uspostavu: %q", novi.PrekidaAktID)
 	}
-	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, novi.ID); err != nil {
+	if _, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, novi.ID, potvrdaPrimatelja); err != nil {
 		t.Errorf("ovjera prekida nove uspostave: %v", err)
 	}
 }
