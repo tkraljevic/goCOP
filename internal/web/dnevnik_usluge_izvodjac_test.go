@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -64,10 +65,13 @@ func novaUslugeProba(t *testing.T) *uslugeProba {
 		}
 		return tp
 	}
-	h := NewJournalsHandler(service.NewJournalService(p.journalRepo, nil, nil), p.users, nil, nil, nil,
+	js := service.NewJournalService(p.journalRepo, nil, nil)
+	js.SetImaoUlogu(p.users.ImaoUlogu)
+	h := NewJournalsHandler(js, p.users, nil, nil, nil,
 		tmpl("dnevnici_izbor.html"), tmpl("dnevnici.html"), tmpl("dnevnik_form.html"), tmpl("dnevnik.html"),
 		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"), tmpl("dnevnik_dezurstva.html"), tmpl("dnevnik_iors.html"))
 	p.mux = http.NewServeMux()
+	p.mux.HandleFunc("GET /dnevnici", h.ShowJournalKinds)
 	p.mux.HandleFunc("GET /dnevnici/popis", h.ShowJournals)
 	p.mux.HandleFunc("GET /dnevnici/{id}", h.ShowJournal)
 	p.mux.HandleFunc("POST /dnevnici/{id}/listovi", h.HandleOpenSheet)
@@ -313,5 +317,64 @@ func TestPoslovodjaNeOtvaraTudjiDnevnikSvojimImenom(t *testing.T) {
 	isto.OrgName = " Alfa d.o.o. "
 	if _, err := p.users.UpdateUser(perms, isto); err != nil {
 		t.Errorf("izmjena s nepromijenjenom firmom: %v", err)
+	}
+}
+
+// brojDnevnikaNaKartici je broj na kartici vrste dnevnika na razdjelnici
+// Dokumentacija
+func brojDnevnikaNaKartici(t *testing.T, stranica, naslov string) string {
+	t.Helper()
+	m := regexp.MustCompile(`>(\d+)</span>\s*</div>\s*<div class="dash-card-body">\s*<h2 class="dash-card-title">` + regexp.QuoteMeta(naslov) + `<`).FindStringSubmatch(stranica)
+	if m == nil {
+		t.Fatalf("na razdjelnici nema kartice %q s brojem", naslov)
+	}
+	return m[1]
+}
+
+// Kartice dnevnika usluga A.02 i A.03 na razdjelnici Dokumentacija
+// poslovođi broje samo dnevnike koje smije čitati (dnevnike svoje firme na
+// području svoje dužnosti), a ne dnevnike svih firmi na svim područjima;
+// opozvanom poslovođi nijedan. Ostali vide broj svih (Odluke (8. 10.
+// 2026.), pitanje 1). Podaci su izmišljeni.
+func TestPoslovodjaNaRazdjelniciBrojiSamoSvojeDnevnike(t *testing.T) {
+	p := novaUslugeProba(t)
+	prvo, drugo := 1, 2
+	poslovodja := p.poslovodja(t, "mmarkic", "Marko Markić", "Alfa d.o.o.")
+	opozvani := p.poslovodja(t, "iivic", "Ivo Ivić", "Alfa d.o.o.")
+	rukovoditelj := p.osoba(t, "aanic", "Ana Anić", "", models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Alfa", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Beta", "Beta d.o.o.", "", nil)
+	p.dnevnik(t, drugo, models.JournalKindMaintenanceA02, "A.02 Alfa na drugom", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA03, "A.03 Alfa", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, drugo, models.JournalKindMaintenanceA03, "A.03 Gama", "Gama d.o.o.", "", nil)
+	cijeli, err := p.users.GetUserByID(opozvani.ID)
+	if err != nil || len(cijeli.Duties) != 1 {
+		t.Fatalf("dužnost opozvanog: %v", err)
+	}
+	if err := p.userRepo.RevokeDuty(cijeli.Duties[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []struct {
+		u        *models.User
+		a02, a03 string
+	}{
+		{poslovodja, "1", "1"},
+		{opozvani, "0", "0"},
+		{rukovoditelj, "3", "2"},
+	} {
+		w := p.zovi(t, x.u, http.MethodGet, "/dnevnici")
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: %d", x.u.FullName, w.Code)
+		}
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.02"); got != x.a02 {
+			t.Errorf("%s: A.02 %s, očekivano %s", x.u.FullName, got, x.a02)
+		}
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.03"); got != x.a03 {
+			t.Errorf("%s: A.03 %s, očekivano %s", x.u.FullName, got, x.a03)
+		}
+	}
+	// opozvanom poslovođi ne otvara se ni popis ni dnevnik druge firme
+	if popis := p.zovi(t, opozvani, http.MethodGet, "/dnevnici/popis?vrsta=ODRZAVANJE_A02&area=2").Body.String(); strings.Contains(popis, "A.02 Alfa") || strings.Contains(popis, "A.02 Beta") {
+		t.Error("opozvani poslovođa vidi dnevnike usluga na popisu")
 	}
 }

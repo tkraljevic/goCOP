@@ -294,10 +294,35 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 				data.BrojIzvjesca, _ = svc.Broj(r.Context())
 			}
 		}
-		data.BrojA02 = broj[models.JournalKindMaintenanceA02]
-		data.BrojA03 = broj[models.JournalKindMaintenanceA03]
+		data.BrojA02, data.BrojA03 = h.brojeviUsluga(r.Context(), data.Permissions, broj)
 	}
 	h.render(w, h.tmplIzbor, "dnevnici_izbor.html", data)
+}
+
+// brojeviUsluga su brojevi dnevnika usluga A.02 i A.03 na razdjelnici:
+// izvođaču (IzvodjacZaDnevnike) samo dnevnici koje smije čitati, svima
+// ostalima svi (sviPoVrsti)
+func (h *JournalsHandler) brojeviUsluga(ctx context.Context, perms *models.UserPermissions, sviPoVrsti map[string]int) (a02, a03 int) {
+	if perms != nil && !perms.IsGlobalAdmin && h.journals.IzvodjacZaDnevnike(&perms.User) {
+		sviPoVrsti = h.vidljiviPoVrsti(ctx, perms)
+	}
+	return sviPoVrsti[models.JournalKindMaintenanceA02], sviPoVrsti[models.JournalKindMaintenanceA03]
+}
+
+// vidljiviPoVrsti broji po vrsti dnevnike usluga koje osoba smije čitati,
+// na područjima koja smije vidjeti; područje čiji se dnevnici ne daju
+// pročitati ne broji se
+func (h *JournalsHandler) vidljiviPoVrsti(ctx context.Context, perms *models.UserPermissions) map[string]int {
+	out := map[string]int{}
+	sva, _ := h.users.ListAreas("")
+	_, vidljiva := h.vidljivaPodrucja(perms, nil, sva)
+	for _, a := range vidljiva {
+		js, _ := h.journals.ListJournals(ctx, a.ID)
+		for _, j := range h.vidljiviDnevnici(ctx, perms, a, js) {
+			out[j.Kind]++
+		}
+	}
+	return out
 }
 
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
