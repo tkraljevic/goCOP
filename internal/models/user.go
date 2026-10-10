@@ -545,6 +545,23 @@ func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
 	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]
 }
 
+// RadiNaDionici javlja ima li osoba valjanu dužnost s pravom upisa na
+// dionici: dužnost dosega dionice (rukovoditelj dionice, vodočuvar, strojar…)
+// na njezinu području koja dionicu navodi, ili ne navodi nijednu pa pokriva
+// cijelo područje. Po tome se zna tko odgovara za letvu te dionice
+// (Odluke (8. 10. 2026.), pitanje 9).
+func (p *UserPermissions) RadiNaDionici(areaID int, dionica string) bool {
+	if p == nil || areaID <= 0 || dionica == "" {
+		return false
+	}
+	for _, d := range VazecaZaduzenja(p.User.Duties, time.Now()) {
+		if d.Role.Writes() && d.Doseg() == ScopeSection && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica) {
+			return true
+		}
+	}
+	return false
+}
+
 // RadiUSektoru javlja ima li osoba u sektoru ijednu dužnost s pravom upisa,
 // bilo kojeg dosega; za prikaz i izbor, ne za pravo pisanja
 func (p *UserPermissions) RadiUSektoru(sektor string) bool {

@@ -15,9 +15,10 @@ import (
 
 // ReadingService: očitanja vodostaja na letvama postaja i objekata.
 // Tko smije upisati: za objekt onaj tko smije pisati u njegov sektor ili
-// područje; za postaju onaj tko smije uređivati bar jednu dionicu kojoj je
-// mjerodavna. Postaja bez dionica (npr. mađarske uzvodne) prima očitanja od
-// svakoga tko ima bilo koje pravo pisanja — nema koga drugoga da ih upiše.
+// područje; za postaju svatko s dužnošću u sektoru koji je prati, preko
+// njezinih dionica ili upisanog praćenja (strane letve: Mohács, Letenye…).
+// Postaja bez ijednog sektora prima očitanja od svakoga tko ima bilo koje
+// pravo pisanja, dok joj se sektor ne upiše.
 type ReadingService struct {
 	repo           *repository.ReadingRepository
 	stationRepo    *repository.StationRepository
@@ -58,7 +59,6 @@ func hasAnyWriteRight(perms *models.UserPermissions) bool {
 		len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0 || len(perms.AllowedSections) > 0
 }
 
-// CanRecordStation javlja smije li korisnik upisati očitanje na postaju
 // PrvoOcitanje vraća vrijeme najstarijeg očitanja vodostaja letve.
 func (s *ReadingService) PrvoOcitanje(ctx context.Context, stationID string) (time.Time, bool) {
 	if s == nil || s.repo == nil {
@@ -75,26 +75,12 @@ func (s *ReadingService) Krajnosti(ctx context.Context, stationID string) []mode
 	return s.repo.Krajnosti(ctx, stationID)
 }
 
+// CanRecordStation javlja smije li korisnik upisati očitanje na letvu
+// postaje: tko ima valjanu dužnost u sektoru koji letvu prati, preko
+// dionica ili upisanog praćenja; letvu bez sektora svatko tko igdje upisuje
+// (ocitanja_prava.go; Odluke (8. 10. 2026.), pitanje 8)
 func (s *ReadingService) CanRecordStation(perms *models.UserPermissions, st *models.Station) bool {
-	if perms == nil || st == nil {
-		return false
-	}
-	if perms.IsGlobalAdmin {
-		return true
-	}
-	if len(st.SectionCodes) == 0 {
-		return hasAnyWriteRight(perms)
-	}
-	for _, code := range st.SectionCodes {
-		if perms.AllowedSections[code] {
-			return true
-		}
-		sec, err := s.sectionService.GetSectionWithDetails(code)
-		if err == nil && sec != nil && s.sectionService.CanEditSection(perms, sec) {
-			return true
-		}
-	}
-	return false
+	return s.PravaNaLetvu(perms, st).Upisuje
 }
 
 // CanRecordStructure javlja smije li korisnik upisati očitanje na objekt:
@@ -122,29 +108,59 @@ func (s *ReadingService) CanRecordStructure(perms *models.UserPermissions, st *m
 	return len(st.SectionCodes) == 0
 }
 
-// CanEdit javlja smije li korisnik mijenjati ili brisati postojeće očitanje:
-// tko ga je upisao, ili tko smije upisivati na tu letvu
+// CanEdit javlja smije li korisnik ispraviti postojeće očitanje. Na letvi
+// postaje po PravaLetve.MozeIspraviti (Odluke (8. 10. 2026.), pitanje 9);
+// na objektu kao dosad: tko ga je upisao, ili tko smije upisivati na objekt.
 func (s *ReadingService) CanEdit(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) bool {
+	return s.smijeDirati(ctx, perms, rd, func(p PravaLetve) bool { return p.MozeIspraviti(rd, time.Now()) })
+}
+
+// CanDelete javlja smije li korisnik obrisati očitanje. Na letvi postaje
+// samo tko za nju odgovara, i vlastito (PravaLetve.MozeObrisati); na objektu
+// kao dosad, isto kao izmjena.
+func (s *ReadingService) CanDelete(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) bool {
+	return s.smijeDirati(ctx, perms, rd, PravaLetve.MozeObrisati)
+}
+
+// smijeDirati je zajednički put izmjene i brisanja: administrator sve,
+// objekt po dosadašnjem pravilu, letva postaje po pravilu sud
+func (s *ReadingService) smijeDirati(ctx context.Context, perms *models.UserPermissions, rd *models.Reading, sud func(PravaLetve) bool) bool {
 	if perms == nil || rd == nil {
 		return false
 	}
-	if perms.IsGlobalAdmin || (rd.UserID != "" && rd.UserID == perms.User.ID.String()) {
+	if perms.IsGlobalAdmin {
 		return true
 	}
 	if rd.StructureID != "" {
-		id, err := uuid.Parse(rd.StructureID)
-		if err != nil {
-			return false
-		}
-		st, err := s.structureRepo.GetStructure(ctx, id)
-		return err == nil && s.CanRecordStructure(perms, st)
+		return (rd.UserID != "" && rd.UserID == perms.User.ID.String()) || s.smijeNaObjekt(ctx, perms, rd.StructureID)
 	}
-	id, err := uuid.Parse(rd.StationID)
+	st := s.postajaOcitanja(ctx, rd.StationID)
+	return st != nil && sud(s.PravaNaLetvu(perms, st))
+}
+
+// smijeNaObjekt javlja smije li osoba upisivati na objekt zadan
+// identifikatorom; nepostojeći objekt ne daje pravo
+func (s *ReadingService) smijeNaObjekt(ctx context.Context, perms *models.UserPermissions, structureID string) bool {
+	id, err := uuid.Parse(structureID)
 	if err != nil {
 		return false
 	}
+	st, err := s.structureRepo.GetStructure(ctx, id)
+	return err == nil && s.CanRecordStructure(perms, st)
+}
+
+// postajaOcitanja je letva postaje na koju je očitanje upisano; nil kad
+// identifikator ne valja ili postaje nema
+func (s *ReadingService) postajaOcitanja(ctx context.Context, stationID string) *models.Station {
+	id, err := uuid.Parse(stationID)
+	if err != nil {
+		return nil
+	}
 	st, err := s.stationRepo.GetStationByID(ctx, id)
-	return err == nil && s.CanRecordStation(perms, st)
+	if err != nil {
+		return nil
+	}
+	return st
 }
 
 // validate provjerava očitanje iz obrasca. Raspon vremena i vrijednosti je
@@ -301,7 +317,7 @@ func (s *ReadingService) Delete(ctx context.Context, perms *models.UserPermissio
 	if existing == nil {
 		return nil, fmt.Errorf("očitanje ne postoji")
 	}
-	if !s.CanEdit(ctx, perms, existing) {
+	if !s.CanDelete(ctx, perms, existing) {
 		return nil, fmt.Errorf("nemate pravo brisati ovo očitanje")
 	}
 	return existing, s.repo.Delete(ctx, id)
