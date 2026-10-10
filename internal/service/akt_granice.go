@@ -58,7 +58,7 @@ func granicaVrijedi(vrijedi time.Time, dnevnik *models.Journal, sad time.Time) e
 	v := vrijedi.In(models.Zagreb)
 	if dnevnik != nil && dnevnik.StartedAt != nil && v.Before(*dnevnik.StartedAt) {
 		return fmt.Errorf("„Vrijedi od” (%s) je prije otvaranja Dnevnika COP-a (%s): akt ne može vrijediti prije aktivne obrane u sektoru; provjerite dan i godinu",
-			v.Format("2. 1. 2006. u 15:04"), dnevnik.StartedAt.In(models.Zagreb).Format("2. 1. 2006."))
+			v.Format("2. 1. 2006. u 15:04"), dnevnik.StartedAt.In(models.Zagreb).Format("2. 1. 2006. u 15:04"))
 	}
 	if v.After(sad.Add(vrijediNajviseUnaprijed)) {
 		return fmt.Errorf("„Vrijedi od” (%s) je više od 7 dana unaprijed; provjerite dan i godinu", v.Format("2. 1. 2006. u 15:04"))
