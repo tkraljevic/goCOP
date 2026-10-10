@@ -14,11 +14,13 @@ import (
 // gleda rok (sektor do 10:00, dionica do 08:00), uz imena svih koji su
 // izvješće mijenjali nakon predaje i onoga tko ga je predao.
 //
-// Čvor sa starijim programom (0.0.34) ova polja ne poznaje, ali ih knjiga
-// verzija pri njegovoj izmjeni prepiše iz prethodne inačice; izmjena na
-// takvom čvoru predano izvješće i dalje ostavlja predanim. Predaju na
-// takvom čvoru program ne pripisuje onome tko je predao prije: PredaoAt
-// kaže za koju je predaju zapisano tko je predao.
+// Čvor sa starijim programom (0.0.34) izvješće koje je zadnji zapisao ovaj
+// program ne uređuje, jer izvješća nose višu shemu (repository.ShemaIzvjesca).
+// Izvješće koje je zadnji zapisao stariji program on i dalje mijenja: ova
+// polja ne poznaje, ali ih knjiga verzija pri njegovoj izmjeni prepiše iz
+// prethodne inačice, a izmjena na takvom čvoru predano izvješće ostavlja
+// predanim. Predaju na takvom čvoru program ne pripisuje onome tko je
+// predao prije: PredaoAt kaže za koju je predaju zapisano tko je predao.
 type TragPredaje struct {
 	PrvoPredanoAt *time.Time `json:"prvo_predano_at,omitempty"`
 	PredaoID      string     `json:"predao_id,omitempty"` // tko je predao zadnji put

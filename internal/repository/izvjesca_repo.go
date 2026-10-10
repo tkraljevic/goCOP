@@ -16,6 +16,21 @@ import (
 // EntityDnevnaIzvjesca je naziv entiteta dnevnih izvješća u knjizi verzija
 const EntityDnevnaIzvjesca = "dnevna_izvjesca"
 
+// ShemaIzvjesca je shema izvješća dionica i sektora u knjizi verzija.
+// Podignuta je Odlukama (8. 10. 2026.), pitanje 12: izmjena predanog
+// izvješća vraća ga u nacrt, a izvješće sektora koje je bilo predano ne
+// briše se. Program 0.0.34 to ne zna (njegova izmjena ostavlja izvješće
+// predanim, a brisanje bi se razmjenom proširilo na sve čvorove), pa
+// izvješće koje je zadnji zapisao noviji program ne uređuje: sprema ga,
+// prenosi i prikazuje, a za izmjenu traži ažuriranje (ledger/shema.go,
+// pravilo 2).
+const ShemaIzvjesca = 2
+
+func init() {
+	ledger.PostaviShemu(EntityDnevnaIzvjesca, ShemaIzvjesca)
+	ledger.PostaviShemu(EntitySektorskaIzvjesca, ShemaIzvjesca)
+}
+
 // Izvješće putuje kanalom svog dnevnika COP-a kad ga ima, inače zajedničkim
 const izvjesceUpsert = `INSERT INTO dnevna_izvjesca (id, journal_id, section_code, dan, stadij, sadrzaj, izradio_id, izradio, izradeno_at, predano_at, created_at, updated_at, trag_predaje)
 	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
