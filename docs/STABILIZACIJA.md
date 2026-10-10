@@ -890,10 +890,9 @@ Redoslijed:
 Kriterij izdanja:
 - `make quality` zelen (testovi, race, statička analiza, vrata kvalitete) i
   puni CI na PR-u;
-- proba miješanih inačica na jednom računalu: čvor na 0.0.34 i čvor na novoj
-  inačici, na kopijama stvarnih baza, razmjena u oba smjera. Nema
-  neočekivanog „nepoznat entitet”, nema „ažurirajte goCOP” za zapise koje
-  stari čvor smije mijenjati, i nijedno polje ne nestaje pri povratku;
+- svi aktivni čvorovi nadograđuju se na 0.0.35 odmah, bez probe stare i nove
+  inačice jedne uz drugu (odluka 10. 10. 2026.); razdoblje mješovitih
+  inačica je samo vrijeme same nadogradnje;
 - nakon nadogradnje glavni čvorovi vide isto stanje: isti broj zapisa po
   sinkroniziranom entitetu, ista upozorenja uz isto izdanje prognoze, pločica
   razmjene bez grešaka;
