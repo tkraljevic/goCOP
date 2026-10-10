@@ -225,8 +225,9 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 // mjesto rada izvodi se iz njega. Prijašnji opis, tko je ispravio i kada
 // ostaju u napomeni, a cijela prijašnja inačica u knjizi verzija. Potvrda se
 // povlači: ispravljeno dežurstvo uprava potvrđuje kao i svako drugo.
-// Promijenjeno je false kad dežurstvo već ima taj opis i mjesto: tada se
-// ništa ne sprema, a potvrda ostaje.
+// Promijenjeno je false kad dežurstvo već ima taj opis i mjesto rada —
+// zapisano ili izvedeno iz opisa (stariji zapis, zapis s drugog čvora):
+// tada se ništa ne sprema, a potvrda ostaje.
 func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis string) (promijenjeno bool, err error) {
 	if u == nil || !s.UpravaCentra(perms, j) {
 		return false, errors.New("opis rada ispravlja voditelj ili zamjenik centra")
@@ -242,7 +243,7 @@ func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.Use
 	if d == nil || d.JournalID != j.ID {
 		return false, errors.New("dežurstvo nije pronađeno u ovom dnevniku")
 	}
-	if d.Opis == opis && d.Mjesto == mjesto {
+	if d.Opis == opis && d.MjestoRada() == mjesto {
 		return false, nil
 	}
 	d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(d.Opis, u.FullName, time.Now().In(models.Zagreb)))

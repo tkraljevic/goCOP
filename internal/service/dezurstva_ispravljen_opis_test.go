@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Odluke (8. 10. 2026.), pitanje 10: opis rada koji je ispravila uprava
@@ -101,5 +102,54 @@ func TestPotvrdaZapisujeIzvedenoMjesto(t *testing.T) {
 	}
 	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); !d.Potvrdeno() || d.Mjesto != models.MjestoTeren {
 		t.Errorf("potvrđeno bez zapisanog mjesta: %+v", d)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: ispravak opisa rada istim opisom ne
+// mijenja ništa ni kad mjesto rada nije zapisano nego se izvodi iz opisa
+// (stariji zapis ili zapis s drugog čvora). Mjesto je i tada poznato, pa
+// potvrda ostaje, napomena ne dobiva trag ispravka, nova inačica se ne
+// piše, a opis i dalje ne bira uprava — osoba čije je dežurstvo s njim radi
+// kao i prije. Pero Perićev obilazak stigao je bez zapisanog mjesta i
+// potvrđen je; Ana Anić iz uprave centra izabere opis koji već ima.
+func TestIspravakIstimOpisomBezZapisanogMjesta(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	obilazak := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	obilazak.Opis = "Obilazak i pregled obrambenih objekata"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, obilazak); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`UPDATE dezurstva SET mjesto = '' WHERE id = ?`, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	prije, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID)
+	if prije.Mjesto != "" || prije.MjestoRada() != models.MjestoTeren || !prije.Potvrdeno() || prije.OpisBiraUprava() {
+		t.Fatalf("priprema: %+v", prije)
+	}
+	verzija := func() int {
+		t.Helper()
+		var n int
+		if err := o.baza.QueryRow(`SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, repository.EntityDezurstva, obilazak.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	n := verzija()
+
+	promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, "Obilazak i pregled obrambenih objekata")
+	if err != nil || promijenjeno {
+		t.Errorf("ispravak istim opisom: promijenjeno %v, %v", promijenjeno, err)
+	}
+	d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID)
+	if d.Napomena != prije.Napomena || !d.Potvrdeno() || d.OpisBiraUprava() {
+		t.Errorf("ispravak istim opisom promijenio je dežurstvo: napomena %q, potvrdio %q, opis bira uprava %v", d.Napomena, d.Potvrdio, d.OpisBiraUprava())
+	}
+	if m := verzija(); m != n {
+		t.Errorf("ispravak istim opisom upisao je inačicu: %d → %d", n, m)
 	}
 }
