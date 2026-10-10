@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -82,6 +83,19 @@ type Dogadjaj struct {
 	// prijava s terena kojoj redak pripada: njezin redak vidi samo tko
 	// smije čitati tu prijavu (vidiRedak)
 	prijava *models.PrijavaSTerena
+	// josSektora su sektori kojima redak pripada uz Sektor, odvojeni
+	// zarezom: očitanje letve bez dionica koju prati više sektora
+	// (sektorLetve). Tekst, a ne popis, da se događaji i dalje daju
+	// uspoređivati.
+	josSektora string
+}
+
+// ostaliSektori su sektori kojima redak pripada uz Sektor
+func (d Dogadjaj) ostaliSektori() []string {
+	if d.josSektora == "" {
+		return nil
+	}
+	return strings.Split(d.josSektora, ",")
 }
 
 // ModulNaziv i ModulIkona za predloške
@@ -204,7 +218,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			if !s.vidiRedak(perms, d, podrucja) {
 				continue
 			}
-			if f.Sektor != "" && d.Sektor != "" && d.Sektor != f.Sektor {
+			if !d.pripadaSektoru(f.Sektor) {
 				continue
 			}
 			if f.AreaID > 0 && d.AreaID != f.AreaID {
@@ -263,9 +277,29 @@ func krajPoteza(sljedece []ledger.Version, videne map[string]bool, prije string)
 // (Odluke (8. 10. 2026.), pitanje 20). Ostali redci idu po pravilu zida.
 func (s *ZidService) vidiRedak(perms *models.UserPermissions, d Dogadjaj, podrucja map[int]string) bool {
 	if d.prijava == nil {
-		return s.vidi(perms, d, podrucja)
+		return s.vidiIjedanSektor(perms, d, podrucja)
 	}
 	return s.vidiPrijavu != nil && s.vidiPrijavu(perms, d.prijava)
+}
+
+// vidiIjedanSektor: redak koji pripada i drugim sektorima (josSektora) vidi
+// tko vidi ijedan od njih, po pravilu zida
+func (s *ZidService) vidiIjedanSektor(perms *models.UserPermissions, d Dogadjaj, podrucja map[int]string) bool {
+	for _, sektor := range d.ostaliSektori() {
+		if s.vidi(perms, Dogadjaj{Sektor: sektor}, podrucja) {
+			return true
+		}
+	}
+	return s.vidi(perms, d, podrucja)
+}
+
+// pripadaSektoru: filtar zida po sektoru propušta događaj bez sektora,
+// događaj tog sektora i događaj koji tom sektoru pripada uz drugi
+func (d Dogadjaj) pripadaSektoru(sektor string) bool {
+	if sektor == "" || d.Sektor == "" || d.Sektor == sektor {
+		return true
+	}
+	return slices.Contains(d.ostaliSektori(), sektor)
 }
 
 // vidi: administrator sve; ostali svoj sektor i područje; događaj bez
@@ -418,6 +452,36 @@ func (c *opisivac) postaja(id string) *models.Station {
 	}
 	c.postaje[id] = st
 	return st
+}
+
+// sektorLetve upisuje očitanju letve sektor i područje preko dionica na
+// kojima je letva mjerodavna. Letva bez dionica dobiva sektore koji je
+// prate, iz upisanog praćenja (Odluke (8. 10. 2026.), pitanje 8); prije su
+// njezina očitanja iznad praga bila bez sektora, pa ih je vidio svatko.
+// Letva bez dionica i bez praćenja ostaje bez sektora.
+func (c *opisivac) sektorLetve(d *Dogadjaj, st *models.Station) {
+	if sec := c.dionicaLetve(st.ID.String()); sec != nil {
+		d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
+		return
+	}
+	if sektori := st.SektoriPracenja(c.podrucja); len(sektori) > 0 {
+		d.Sektor, d.josSektora = sektori[0], strings.Join(sektori[1:], ",")
+	}
+}
+
+// dionicaLetve je prva dionica na kojoj je letva mjerodavna; nil kad je
+// nema ili se dionice ne mogu pročitati
+func (c *opisivac) dionicaLetve(stationID string) *models.Section {
+	if c.s.sections == nil {
+		return nil
+	}
+	sve, _ := c.s.sections.ListSections("", 0, "")
+	for i := range sve {
+		if slices.Contains(sve[i].AllStationIDs(), stationID) {
+			return &sve[i]
+		}
+	}
+	return nil
 }
 
 // dnevnoIzvjesce opisuje inačicu izvješća dionice: početak i predaju.
@@ -659,22 +723,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		d.Tekst = fmt.Sprintf("%s: %+d cm · %s · %s", st.Name, *r.LevelCm, faza.Label(), r.MeasuredAt.In(models.Zagreb).Format("2.1. 15:04"))
 		d.Link = "/stations/" + r.StationID
 		d.Tko = c.ime(r.UserID)
-		// sektor preko dionica na kojima je letva mjerodavna
-		if c.s.sections != nil {
-			if sve, err := c.s.sections.ListSections("", 0, ""); err == nil {
-				for _, sec := range sve {
-					for _, id := range sec.AllStationIDs() {
-						if id == r.StationID {
-							d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
-							break
-						}
-					}
-					if d.Sektor != "" {
-						break
-					}
-				}
-			}
-		}
+		c.sektorLetve(&d, st)
 
 	case repository.EntitySections:
 		if !nova || v.Archived {

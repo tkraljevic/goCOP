@@ -249,7 +249,7 @@
   </div>
 </form>
 
-{{if .IsEdit}}
+{{if .MozeObrisati}}
 <form method="POST" action="/readings/delete" class="mt-4" onsubmit="return confirm('Obrisati ovo očitanje? Zapis ostaje u povijesti.')">
   <input type="hidden" name="id" value="{{.Reading.ID}}">
   <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši očitanje</button>

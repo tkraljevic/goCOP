@@ -741,6 +741,8 @@ func InitSchema(database *sql.DB) error {
 			telemetrija_site TEXT NOT NULL DEFAULT '',
 			telemetrija_uvoz INTEGER NOT NULL DEFAULT 0,
 			kota_nm INTEGER NOT NULL DEFAULT 0,
+			prate_sektori TEXT NOT NULL DEFAULT '',
+			prate_podrucja TEXT NOT NULL DEFAULT '',
 			povijest TEXT NOT NULL DEFAULT '',
 			opis_vodokaza TEXT NOT NULL DEFAULT '',
 			datum_osnivanja TEXT NOT NULL DEFAULT '',
@@ -1559,6 +1561,11 @@ func migrateSchema(database *sql.DB) error {
 		// 2026.), pitanje 21). Tri letve akumulacija HEP-a označava popravak
 		// podataka letve-akumulacija-kota, kroz knjigu verzija.
 		{"stations", "kota_nm", "INTEGER NOT NULL DEFAULT 0"},
+		// Sektori i branjena područja koji letvu prate, uz one preko
+		// njezinih dionica: šifre sektora i brojevi područja odvojeni
+		// zarezom (Odluke (8. 10. 2026.), pitanja 8 i 9).
+		{"stations", "prate_sektori", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "prate_podrucja", "TEXT NOT NULL DEFAULT ''"},
 		// Povijest postaje, opis same letve i dan kad je počela raditi. To
 		// stoji u dokumentaciji službe, a iz niza se ne vidi: zamjena
 		// limnigrafa ili premještanje letve ostave trag u podacima, a razlog

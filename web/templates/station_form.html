@@ -320,6 +320,37 @@
     Sat na koji letva već ima očitanje, iz bilo kojeg izvora, ne dira se.
   </p>
 
+  {{if .IzborPracenja}}
+  <h3 class="obrazac-podnaslov">Sektori i područja koji letvu prate</h3>
+  <p class="form-help mt-0 mb-2">
+    Neobavezno. Domaća letva je preko svojih dionica ionako u sektoru i branjenom području; ovdje se
+    upisuje sektor koji prati stranu letvu (Mohács, Letenye, Barcs…) ili još koji sektor ili područje
+    uz one s dionica. Područje donosi i svoj sektor. Očitanje na letvu upisuje svatko s dužnošću u
+    sektoru koji je prati; letva bez ijednog sektora prima očitanje od svakoga tko igdje upisuje.
+  </p>
+  <input type="hidden" name="prate_obrazac" value="1">
+  <div class="mb-4">
+    {{range .IzborPracenja}}
+    <div class="mb-2">
+      <label class="form-check d-flex items-center gap-2">
+        <input type="checkbox" name="prate_sektor" value="{{.Sektor.ID}}" {{if $.Station.PratiSektor .Sektor.ID}}checked{{end}}>
+        <strong>{{if .Sektor.Name}}{{.Sektor.Name}}{{else}}Sektor {{.Sektor.ID}}{{end}}</strong>
+      </label>
+      {{if .Podrucja}}
+      <div class="d-flex gap-2" style="flex-wrap:wrap; margin-left:1.5rem;">
+        {{range .Podrucja}}
+        <label class="form-check d-flex items-center gap-2">
+          <input type="checkbox" name="prate_podrucje" value="{{.ID}}" {{if $.Station.PratiPodrucje .ID}}checked{{end}}>
+          <span>BP {{.ID}} {{.Name}}</span>
+        </label>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+
   <h3 class="obrazac-podnaslov">Podrijetlo i provjera</h3>
   <div class="form-row">
     <div class="form-group">

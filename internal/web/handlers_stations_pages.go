@@ -75,6 +75,10 @@ type StationPageData struct {
 	CanRecord         bool   // smije li upisati očitanje
 	LetvaStranica     string // koja je stranica letve otvorena: kartica, ocitanja, historijat
 	HistorijatPrazan  bool   // letva još nema ništa od onoga što historijat pokazuje
+	// Sektori i područja koji letvu prate (Odluke (8. 10. 2026.), pitanje 8):
+	// izbor u obrascu i nazivi upisanih na kartici
+	IzborPracenja []SektorPracenja
+	Pracenje      []string
 	// KrajnostiIzNiza su najviše i najniže što program ima u podacima. Stoje uz
 	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
 	// podrijetlom, ovo je najveće što u nizu stoji.
@@ -210,6 +214,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.LetvaStranica = "kartica"
+	data.Pracenje = h.pracenjeLetve(data.Station)
 	if data.Station.ImaKoordinate() {
 		if b, err := json.Marshal(h.stationMapItem(r.Context(), data.Station)); err == nil {
 			data.MapStationJSON = template.JS(b)
@@ -582,6 +587,7 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 	}
 	data.TelemetrijaRacun = h.racunHidroView(r.Context(), data.Station.Code)
 	data.TelemetrijaMoguca = data.TelemetrijaRacun != ""
+	data.IzborPracenja = izborPracenja(h.sektoriIPodrucja())
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

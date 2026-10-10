@@ -518,7 +518,8 @@ type Session struct {
 // dužnost područja u području, dužnost dionica na tim dionicama. Dužnost
 // područja ili dionice nosi i sektor (normalizeScope ga upiše iz područja),
 // ali on joj ne daje pisanje po sektoru; zato SektoriDuznosti i
-// PodrucjaDuznosti stoje odvojeno, samo za prikaz i zadani izbor.
+// PodrucjaDuznosti stoje odvojeno, za prikaz i zadani izbor, a sektor još
+// samo za upis očitanja na letvu koju prati (RadiUSektoru).
 type UserPermissions struct {
 	User            User
 	IsGlobalAdmin   bool
@@ -529,7 +530,8 @@ type UserPermissions struct {
 	AllowedSections map[string]bool // Pojedinačne dionice s pravom pisanja
 	// SektoriDuznosti i PodrucjaDuznosti su sektori i područja svih dužnosti
 	// s pravom upisa, bez obzira na doseg: koji sektor ili područje otvoriti,
-	// što pokazati. Pravo pisanja ne daju.
+	// što pokazati. Pravo pisanja po dosegu ne daju; sektor daje samo upis
+	// očitanja na letvu koju prati (RadiUSektoru).
 	SektoriDuznosti  map[string]bool
 	PodrucjaDuznosti map[int]bool
 	// PodrucjaDionica su područja u kojima osoba ima dužnost na dionicama
@@ -545,8 +547,27 @@ func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
 	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]
 }
 
+// RadiNaDionici javlja ima li osoba valjanu dužnost s pravom upisa na
+// dionici: dužnost dosega dionice (rukovoditelj dionice, vodočuvar, strojar…)
+// na njezinu području koja dionicu navodi, ili ne navodi nijednu pa pokriva
+// cijelo područje. Po tome se zna tko odgovara za letvu te dionice
+// (Odluke (8. 10. 2026.), pitanje 9).
+func (p *UserPermissions) RadiNaDionici(areaID int, dionica string) bool {
+	if p == nil || areaID <= 0 || dionica == "" {
+		return false
+	}
+	for _, d := range VazecaZaduzenja(p.User.Duties, time.Now()) {
+		if d.Role.Writes() && d.Doseg() == ScopeSection && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica) {
+			return true
+		}
+	}
+	return false
+}
+
 // RadiUSektoru javlja ima li osoba u sektoru ijednu dužnost s pravom upisa,
-// bilo kojeg dosega; za prikaz i izbor, ne za pravo pisanja
+// bilo kojeg dosega. Služi za prikaz i izbor, a daje i pravo upisa očitanja
+// na letvu koju sektor prati (Odluke (8. 10. 2026.), pitanje 8); ostalo
+// pisanje ide po dosegu dužnosti, ne po njoj.
 func (p *UserPermissions) RadiUSektoru(sektor string) bool {
 	return p != nil && sektor != "" && (p.AllowedSectors[sektor] || p.SektoriDuznosti[sektor])
 }

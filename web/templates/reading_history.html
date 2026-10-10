@@ -178,7 +178,7 @@
         {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C{{if .TempNote}} ({{.TempNote}}){{end}}</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
-      <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
+      <span>{{if index $.Ispravlja .ID}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
       {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
       <span class="extra">
         {{if .StructureState}}{{.StateLabel}}{{end}}
@@ -246,8 +246,10 @@
     </div>
     <p class="form-help mt-3">Stupac <strong>id</strong> govori koji je
       redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
-      očitao i napomena; za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
-      Prije upisa program pokaže što bi se promijenilo.</p>
+      očitao i napomena;
+      {{if .BriseNaLetvi}}za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
+      {{else}}ispraviti možeš samo svoja očitanja, a tuđa ispravlja i briše onaj tko odgovara za letvu.
+      {{end}}Prije upisa program pokaže što bi se promijenilo.</p>
   </div>
 </section>
 {{end}}

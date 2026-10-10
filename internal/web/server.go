@@ -716,6 +716,7 @@ func (s *Server) setupRoutes() {
 		}
 		return sek
 	})
+	stationsH.SetUstroj(s.ustroj)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
