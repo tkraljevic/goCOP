@@ -89,6 +89,7 @@
     {{if .Ranije.URL}}<p>{{.Ranije.Poruka}}</p>
     <a href="{{.Ranije.URL}}" class="btn btn-primary">{{icon "download"}} Izvoz u Excel</a>
     {{else}}<p class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Ranije.Poruka}}</p>{{end}}
+    {{with .Ranije.Drugi}}{{if .URL}}<p>{{.Tekst}} <a href="{{.URL}}">{{.Poveznica}}</a></p>{{end}}{{end}}
   </div>{{end}}
 </section>
 {{end}}

@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -503,5 +504,102 @@ func TestOgranicenjeZapisa(t *testing.T) {
 	}
 	if got := ogranicenjeZapisa(prognoza.Pocetci{Izdane: 7, Dnevne: 7, Zapis: 7, Upozorenja: 7}); got != "" {
 		t.Errorf("sve od prvog izdanja: %q", got)
+	}
+}
+
+// Prelazak na zimsko i ljetno vrijeme: jesenski sat 02:00 dolazi dvaput i
+// zadano je kasniji (zimsko vrijeme), a ljetno=1 raniji; poruke uz takav sat
+// kažu koje vrijeme. Proljetni sat 02:00 ne postoji i ne postaje tiho 03:00.
+func TestTrazeniSatPrelazakVremena(t *testing.T) {
+	sada := time.Date(2030, 1, 1, 0, 0, 0, 0, time.UTC)
+	utc := func(d, h int, m time.Month, g int) time.Time { return time.Date(g, m, d, h, 0, 0, 0, time.UTC) }
+	for _, x := range []struct {
+		upit string
+		want time.Time
+	}{
+		{"dan=2026-10-25&sat=1", utc(24, 23, time.October, 2026)},
+		{"dan=2026-10-25&sat=2", utc(25, 1, time.October, 2026)},
+		{"dan=2026-10-25&sat=2&ljetno=1", utc(25, 0, time.October, 2026)},
+		{"dan=2026-10-25&sat=3", utc(25, 2, time.October, 2026)},
+		{"dan=2026-10-25&sat=3&ljetno=1", utc(25, 2, time.October, 2026)},
+		{"dan=2026-03-29&sat=1", utc(29, 0, time.March, 2026)},
+		{"dan=2026-03-29&sat=3", utc(29, 1, time.March, 2026)},
+	} {
+		q, _ := url.ParseQuery(x.upit)
+		if got, err := trazeniSat(q, sada); err != nil || !got.Equal(x.want) {
+			t.Errorf("%s: %v %v, želim %v", x.upit, got.UTC(), err, x.want)
+		}
+	}
+	q, _ := url.ParseQuery("dan=2026-03-29&sat=2")
+	if got, err := trazeniSat(q, sada); err == nil || !strings.Contains(err.Error(), "ne postoji") {
+		t.Errorf("proljetni 02:00: %v %v", got.UTC(), err)
+	}
+	for sat, want := range map[time.Time]string{
+		utc(25, 0, time.October, 2026):  "25.10.2026. u 02:00 (ljetno vrijeme)",
+		utc(25, 1, time.October, 2026):  "25.10.2026. u 02:00 (zimsko vrijeme)",
+		utc(25, 2, time.October, 2026):  "25.10.2026. u 03:00",
+		utc(24, 23, time.October, 2026): "25.10.2026. u 01:00",
+	} {
+		if got := satRanijeg(sat); got != want {
+			t.Errorf("%v: %q, želim %q", sat, got, want)
+		}
+	}
+}
+
+// Jesenski dan s izdanjima u oba sata 02:00: zadano se izvozi kasniji, uz
+// poveznicu na raniji, a ljetno=1 izvozi raniji. Bez kasnijeg je raniji
+// najbliže ranije izdanje, imenovan svojim vremenom.
+func TestRanijeIzdanjeDvaSata(t *testing.T) {
+	ljetni := time.Date(2025, 10, 26, 0, 0, 0, 0, time.UTC).Unix() / 3600
+	zimski := ljetni + 1
+	put := bazaPrognoza(t, ljetni)
+	db, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prognoza.SpremiIzdane(db, []prognoza.Izdana{{Letva: "belisce", Velicina: "vodostaj", Izdano: zimski,
+		Ciljni: zimski + 1, Vrijednost: 444, Dolje: 440, Gore: 448, Model: "proba"}}); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	h := rukovateljBaze(t, put)
+	h.SetPostavke(predlozakPostavki(t))
+	stranica := func(upit string) string {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/prognoze/postavke"+upit, nil)
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, &models.User{FullName: "Ana Anić"}))
+		h.ShowPostavke(w, r)
+		return w.Body.String()
+	}
+	html := stranica("?dan=2025-10-26&sat=2")
+	for _, want := range []string{"Prognoza izdana 26.10.2025. u 02:00 (zimsko vrijeme).",
+		`href="/prognoze.xlsx?dan=2025-10-26&amp;sat=2"`, `href="/prognoze/postavke?dan=2025-10-26&amp;ljetno=1&amp;sat=2#ranije"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("postavke za kasniji 02:00 nemaju %q", want)
+		}
+	}
+	html = stranica("?dan=2025-10-26&sat=2&ljetno=1")
+	for _, want := range []string{"Prognoza izdana 26.10.2025. u 02:00 (ljetno vrijeme).",
+		`href="/prognoze.xlsx?dan=2025-10-26&amp;ljetno=1&amp;sat=2"`, `href="/prognoze/postavke?dan=2025-10-26&amp;sat=2#ranije"`} {
+		if !strings.Contains(html, want) {
+			t.Errorf("postavke za raniji 02:00 nemaju %q", want)
+		}
+	}
+	w := izvezi(h, "?dan=2025-10-26&sat=2&ljetno=1")
+	if w.Code != http.StatusOK || !strings.Contains(tekstZipa(t, w.Body.Bytes()), "Prognoza izdana 26.10.2025. u 02:00 (ljetno vrijeme).") {
+		t.Errorf("izvoz ranijeg 02:00: %d", w.Code)
+	}
+
+	db, err = prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prognoza.ObrisiIzdanje(db, zimski); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	if html := stranica("?dan=2025-10-26&sat=2"); !strings.Contains(html, "Za 26.10.2025. u 02:00 (zimsko vrijeme) prognoza "+
+		"nije izdana; najbliže ranije izdanje je 26.10.2025. u 02:00 (ljetno vrijeme) (1 h ranije).") {
+		t.Error("bez kasnijeg 02:00 raniji nije najbliže ranije imenovan svojim vremenom")
 	}
 }

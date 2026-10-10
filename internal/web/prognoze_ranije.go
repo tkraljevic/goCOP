@@ -82,6 +82,9 @@ func sadZahtjeva(r *http.Request) time.Time {
 // trazeniSat čita dan i sat iz upita (dan=2026-10-05&sat=9), po mjesnom
 // vremenu. Sat koji do trenutka sada još nije došao nema izdanja: zadnje
 // bi se tada izvezlo kao „najbliže ranije” i izgledalo zastarjelo.
+// Proljetni sat koji zbog ljetnog vremena ne postoji ne pretvara se tiho u
+// sljedeći. Jesenski sat koji dođe dvaput zadano je kasniji, po zimskom
+// vremenu, jer najbliže ranije tada pokriva oba; ljetno=1 bira raniji.
 func trazeniSat(q url.Values, sada time.Time) (time.Time, error) {
 	dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(q.Get("dan")), models.Zagreb)
 	if err != nil {
@@ -92,6 +95,16 @@ func trazeniSat(q url.Values, sada time.Time) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("sat mora biti od 0 do 23")
 	}
 	t := time.Date(dan.Year(), dan.Month(), dan.Day(), sat, 0, 0, 0, models.Zagreb)
+	if t.Hour() != sat {
+		return time.Time{}, fmt.Errorf("%s u %02d:00 ne postoji — toga se dana sat pomiče unaprijed na ljetno vrijeme",
+			dan.Format("2.1.2006."), sat)
+	}
+	if prvi, drugi, dvaput := dvaPuta(t); dvaput {
+		t = drugi
+		if q.Get("ljetno") == "1" {
+			t = prvi
+		}
+	}
 	if t.After(sada) {
 		return time.Time{}, fmt.Errorf("sat %s još nije došao — zadnja prognoza izvozi se na stranici Prognoze", satRanijeg(t))
 	}
@@ -115,8 +128,63 @@ func nadjiRanije(c *CitacPrognoza, trazeno time.Time) (RanijeIzdanje, bool) {
 	return iz, true
 }
 
-// satRanijeg je sat po mjesnom vremenu, npr. „5.10.2026. u 09:00”.
-func satRanijeg(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. u 15:04") }
+// dvaPuta javlja je li mjesni sat trenutka t dvoznačan — na jesenski
+// prelazak na zimsko vrijeme 02:00 dođe dvaput — i vraća oba trenutka:
+// raniji po ljetnom, kasniji po zimskom vremenu.
+func dvaPuta(t time.Time) (prvi, drugi time.Time, dvaput bool) {
+	for _, p := range []time.Time{t.Add(-time.Hour), t} {
+		d := p.Add(time.Hour)
+		if p.In(models.Zagreb).Hour() == d.In(models.Zagreb).Hour() {
+			return p, d, true
+		}
+	}
+	return t, t, false
+}
+
+// satRanijeg je sat po mjesnom vremenu, npr. „5.10.2026. u 09:00”; uz sat
+// koji je toga dana bio dvaput kaže i po kojem vremenu.
+func satRanijeg(t time.Time) string {
+	s := t.In(models.Zagreb).Format("2.1.2006. u 15:04")
+	if _, _, dvaput := dvaPuta(t); !dvaput {
+		return s
+	}
+	if t.In(models.Zagreb).IsDST() {
+		return s + " (ljetno vrijeme)"
+	}
+	return s + " (zimsko vrijeme)"
+}
+
+// upitSata je upit za traženi sat; raniji od dva jesenska sata nosi ljetno=1.
+func upitSata(t time.Time) url.Values {
+	l := t.In(models.Zagreb)
+	q := url.Values{"dan": {l.Format("2006-01-02")}, "sat": {strconv.Itoa(l.Hour())}}
+	if prvi, _, dvaput := dvaPuta(t); dvaput && t.Equal(prvi) {
+		q.Set("ljetno", "1")
+	}
+	return q
+}
+
+// DrugiSat je poveznica na drugi od dva jesenska sata istog imena.
+type DrugiSat struct {
+	Tekst, Poveznica, URL string
+}
+
+// drugiSat vodi s jednog jesenskog sata koji dođe dvaput na drugi; prazan
+// za sve ostale sate.
+func drugiSat(t time.Time) DrugiSat {
+	prvi, drugi, dvaput := dvaPuta(t)
+	if !dvaput {
+		return DrugiSat{}
+	}
+	o, vrijeme := prvi, "ljetnom"
+	if t.Equal(prvi) {
+		o, vrijeme = drugi, "zimskom"
+	}
+	sat := t.In(models.Zagreb).Format("15:04")
+	return DrugiSat{Tekst: "Toga je dana " + sat + " bilo dvaput (prelazak na zimsko vrijeme).",
+		Poveznica: "Izdanje u " + sat + " po " + vrijeme + " vremenu",
+		URL:       "/prognoze/postavke?" + upitSata(o).Encode() + "#ranije"}
+}
 
 // Poruka kaže koje se izdanje izvozi, zašto baš to i što uz njega nije
 // zapisano.
@@ -238,15 +306,16 @@ func imeIzvoza(r *http.Request) string {
 // RanijiIzvoz je odjeljak „Ranija prognoza” na postavkama i napomena na
 // prvom listu izvoza ranijeg izdanja.
 type RanijiIzvoz struct {
-	Od           string // najstarije izdanje u bazi; prazno dok izdanja nema
-	Ogranicenje  string // od kad baza ima koji dio izdanja; prazno kad uz sva sve
-	OdDan, DoDan string // granice birača dana, 2006-01-02
-	Dan          string // traženi dan, 2006-01-02
-	Sat          int    // traženi sat
-	Trazeno      bool   // korisnik je tražio izdanje
-	Poruka       string // što je nađeno ili zašto nije
-	URL          string // preuzimanje izvoza; prazno kad izdanja nema
-	Napomena     string // odlomak na prvom listu izvoza ranijeg izdanja
+	Od           string   // najstarije izdanje u bazi; prazno dok izdanja nema
+	Ogranicenje  string   // od kad baza ima koji dio izdanja; prazno kad uz sva sve
+	OdDan, DoDan string   // granice birača dana, 2006-01-02
+	Dan          string   // traženi dan, 2006-01-02
+	Sat          int      // traženi sat
+	Trazeno      bool     // korisnik je tražio izdanje
+	Poruka       string   // što je nađeno ili zašto nije
+	URL          string   // preuzimanje izvoza; prazno kad izdanja nema
+	Drugi        DrugiSat // drugi jesenski sat istog imena; prazno za ostale
+	Napomena     string   // odlomak na prvom listu izvoza ranijeg izdanja
 }
 
 // Sati su sati dana za birač.
@@ -289,14 +358,14 @@ func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 		out.Poruka = "Ranije izdanje: " + err.Error() + "."
 		return out
 	}
-	out.Dan, out.Sat = trazeno.Format("2006-01-02"), trazeno.Hour()
+	out.Dan, out.Sat, out.Drugi = trazeno.Format("2006-01-02"), trazeno.Hour(), drugiSat(trazeno)
 	iz, ok := nadjiRanije(c, trazeno)
 	if !ok {
 		out.Poruka = bezRanijeg(c, trazeno)
 		return out
 	}
 	out.Poruka = iz.Poruka()
-	out.URL = "/prognoze.xlsx?" + url.Values{"dan": {out.Dan}, "sat": {strconv.Itoa(out.Sat)}}.Encode()
+	out.URL = "/prognoze.xlsx?" + upitSata(trazeno).Encode()
 	return out
 }
 
