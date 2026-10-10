@@ -68,6 +68,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 	js := service.NewJournalService(journalRepo, stationRepo, readingRepo)
 	vod := service.NewVodocuvarService(repository.NewVodocuvarRepository(baza, rec), users, "cop-osijek")
 	akti.SetObrana(js.AktivnaObrana, service.NewObjavaAkta(js, vod).Objavi)
+	akti.SetPocetakObrane(js.PocetakAktivneObrane)
 
 	ctx := context.Background()
 	st := &models.Station{ID: uuid.New(), Code: "batina", Name: "Batina", Watercourse: "Dunav"}

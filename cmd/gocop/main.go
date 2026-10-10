@@ -981,6 +981,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetVodocuvar(vodocuvarService, orgRepo)
 	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
 	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
+	aktService.SetPocetakObrane(journalService.PocetakAktivneObrane)
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
 	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)

@@ -144,5 +144,18 @@ func (s *AktService) provjeriNoviNacrt(ctx context.Context, a *models.Akt, sad t
 	if err != nil || a.Vrijedi.IsZero() {
 		return err
 	}
-	return provjeriVrijedi(a, dnevnik, sad)
+	return provjeriVrijedi(a, s.dnevnikGranice(ctx, a, dnevnik), sad)
+}
+
+// dnevnikGranice je dnevnik čije je otvaranje donja granica „Vrijedi od”:
+// najranije otvoren dnevnik COP-a sektora (pocetak), a bez tog pravila ili
+// kad ono dnevnik ne nađe, dnevnik aktivne obrane
+func (s *AktService) dnevnikGranice(ctx context.Context, a *models.Akt, aktivni *models.Journal) *models.Journal {
+	if s.pocetak == nil || aktivni == nil {
+		return aktivni
+	}
+	if j := s.pocetak(ctx, a.Sektor); j != nil {
+		return j
+	}
+	return aktivni
 }
