@@ -815,7 +815,14 @@
       na stranici <em>Postavke prognoze</em> čvora koji izdaje prognozu pokreće <em>Pripremi
       model</em>: program iznova namjesti veze letvi i modele
       ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon,
-      i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se na poslužitelju.</p>
+      nauči dnevni model iznova i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se
+      na poslužitelju. Promašaji se mjere samo na izdanjima koja je računao glavni ulaz, jer se samo
+      njemu i oduzimaju; postaja koja računa iz rezerve ostaje bez tog ispravka.</p>
+    <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći po zagrebačkom vremenu, i
+      iznova čim se arhiva promijeni — uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri.
+      Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva
+      inačica koja je naučena, bez kiše ili iz rezervnih ulaza; postaja kojoj se nijedna nije dala
+      naučiti nema dnevne prognoze. Čvor bez kišomjera inačicu s kišom ni ne pokušava.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
       nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se

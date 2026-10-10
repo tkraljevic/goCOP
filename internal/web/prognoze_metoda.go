@@ -329,7 +329,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"velikoj vodi ista granica isprobana je na 126 dravskih vrhova i ne mijenja ni centimetar, pa ondje ne vrijedi."),
 			tekstM("Sustavna pogreška. Prognoza je puštena unatrag kroz arhivu — izdanje svakih 12 sati kroz " +
 				"više godina, svako samo s onim što je u tom trenutku bilo izmjereno, s istim vrhovima lanca kao " +
-				"uživo — i za svaku postaju i doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima."),
+				"uživo — i za svaku postaju i doseg τ izmjerena je srednja pogreška b(τ). Ona se od prognoze oduzima. " +
+				"Mjeri se samo na izdanjima koja je računao glavni ulaz, jer se samo njemu i oduzima: karika koja " +
+				"računa iz rezerve ostaje bez tog ispravka, s rasponom iz namještanja. Sat izdavanja je mjerenje, " +
+				"pa se ne ispravlja ni uživo ni u provjeri."),
 		}},
 		{"Satni lanac — raspon", []OdlomakMetode{
 			tekstM(fmt.Sprintf("Polovina širine raspona r(τ) je empirijski %d. percentil apsolutnog odstupanja "+
@@ -444,6 +447,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Uživo je „dan” srednjak 24 sata koji završavaju u satu izdavanja, pa se dnevna prognoza " +
 				"obnavlja svaki sat, a ne tek u ponoć; vrijednost za dan k srednjak je 24 sata koji završavaju " +
 				"k dana poslije."),
+			tekstM("Sam model uči se iz arhive jednom na dan, iza ponoći po zagrebačkom vremenu, i iznova čim se " +
+				"arhiva promijeni (uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri) ili se pokrene " +
+				"Pripremi model. Inačica koja se ne da naučiti pokušava se opet idući sat. Dotle računa prva " +
+				"naučena inačica, bez kiše ili iz rezervnih ulaza, a postaja kojoj se nijedna nije dala naučiti " +
+				"nema dnevne prognoze. Na čvoru bez kišomjera inačica s kišom se ni ne pokušava."),
 		}},
 		{"Koji model daje koji dan", []OdlomakMetode{
 			tekstM("Satni lanac seže do 96 sati. Od kojeg dana vrijednost daje dnevni model određeno je " +

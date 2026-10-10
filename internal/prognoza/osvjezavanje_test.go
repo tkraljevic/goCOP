@@ -447,17 +447,7 @@ func TestVrhIzDnevnogUzimaRezervuKadGlavniNeDaDvijeTocke(t *testing.T) {
 			glavni.koef[k][g] = []float64{1000}
 		}
 	}
-	dnevniModeli.Lock()
-	dan, modeli, greske := dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske
-	dnevniModeli.dan = time.Now().Format("2006-01-02")
-	dnevniModeli.modeli = map[string][]*DnevniModel{"gornja": {glavni, rezerva}}
-	dnevniModeli.greske = map[string]error{}
-	dnevniModeli.Unlock()
-	t.Cleanup(func() {
-		dnevniModeli.Lock()
-		dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = dan, modeli, greske
-		dnevniModeli.Unlock()
-	})
+	podmetniDnevne(t, map[string][]*DnevniModel{"gornja": {glavni, rezerva}})
 
 	o := &Osvjezivac{Ocitanja: ocitanja, Arhiva: arhiva}
 	sada := zadnji.Unix() / 3600

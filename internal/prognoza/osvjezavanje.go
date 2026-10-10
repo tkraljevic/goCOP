@@ -8,7 +8,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -154,6 +153,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
+	ctx = uKrugu(ctx)
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -454,66 +454,26 @@ func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
 	return n, err == nil && ima
 }
 
-// dnevniModeli drži naučene dnevne modele. Uče se iz arhive jednom dnevno:
-// arhiva se mijenja rijetko, a učenje traje sekundu-dvije.
-var dnevniModeli struct {
-	sync.Mutex
-	dan    string
-	modeli map[string][]*DnevniModel // po letvi: glavni pa rezerve; nil gdje učenje nije prošlo
-	greske map[string]error
+// dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna
+// inačica nije dala naučiti. Uče se iz arhive i vrijede do zagrebačke ponoći
+// ili do promjene arhive; neuspjelo se ponavlja idući sat (zalihaDnevnih).
+// U izdanju (kontekst iz uKrugu) zaliha se pita jednom, pa vrhovi lanca i
+// dnevna prognoza računaju istim modelima.
+func (o *Osvjezivac) dnevniModeliZaDanas(ctx context.Context) (map[string][]*DnevniModel, map[string]error) {
+	k, ima := ctx.Value(kljucKruga{}).(*krugDnevnih)
+	if !ima {
+		return o.dnevniIzZalihe()
+	}
+	k.Do(func() { k.modeli, k.greske = o.dnevniIzZalihe() })
+	return k.modeli, k.greske
 }
 
-func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[string]error) {
-	danas := time.Now().Format("2006-01-02")
+// dnevniIzZalihe osvježi zalihu naučenih modela i vraća ih.
+func (o *Osvjezivac) dnevniIzZalihe() (map[string][]*DnevniModel, map[string]error) {
 	dnevniModeli.Lock()
 	defer dnevniModeli.Unlock()
-	if dnevniModeli.dan == danas {
-		return dnevniModeli.modeli, dnevniModeli.greske
-	}
-	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
-	nizovi := map[string]DnevniNiz{}
-	if o.Oborine != nil && len(o.Oborine.Tocke) > 0 {
-		if ob, err := DnevneOborine(o.Arhiva, o.Oborine.Tocke); err != nil {
-			log.Printf("dnevni model: oborina iz arhive: %v", err)
-		} else {
-			for k, n := range ob {
-				nizovi[k] = n
-			}
-		}
-	}
-	for _, c := range DnevniCiljevi {
-		var in []*DnevniModel
-		for _, cilj := range c.Inacice() {
-			var m *DnevniModel
-			ok := true
-			for _, l := range cilj.letve() {
-				if _, ima := nizovi[l]; ima {
-					continue
-				}
-				n, err := DnevniIzArhive(o.Arhiva, l)
-				if err != nil {
-					greske[c.Letva] = err
-					ok = false
-					break
-				}
-				nizovi[l] = n
-			}
-			if ok {
-				var err error
-				if m, err = NamjestiDnevni(nizovi, cilj, 0); err != nil {
-					greske[c.Letva] = err
-					m = nil
-				}
-			}
-			in = append(in, m)
-		}
-		if in[0] != nil {
-			delete(greske, c.Letva) // glavni je prošao; greška rezerve nije greška letve
-		}
-		modeli[c.Letva] = in
-	}
-	dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = danas, modeli, greske
-	return modeli, greske
+	dnevniModeli.osvjezi(o.Arhiva, o.Oborine, sadaUcenja())
+	return dnevniModeli.modeli, dnevniModeli.greske
 }
 
 // oborinskiDosezi su koliko dana kiše unatrag i unaprijed dnevni model traži.
@@ -546,7 +506,7 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 	if len(velicina) == 0 {
 		return out
 	}
-	modeli, _ := o.dnevniModeliZaDanas()
+	modeli, _ := o.dnevniModeliZaDanas(ctx)
 	unatrag, unaprijed := oborinskiDosezi()
 	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
 	if err != nil {
@@ -633,7 +593,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	if o.Arhiva == nil {
 		return nil, nil, bez, izbor, nil
 	}
-	modeli, greske := o.dnevniModeliZaDanas()
+	modeli, greske := o.dnevniModeliZaDanas(ctx)
 	for l, err := range greske {
 		bez[l] = err
 	}
