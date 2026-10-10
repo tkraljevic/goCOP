@@ -45,6 +45,22 @@ type ReadingsHandler struct {
 	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
 	prognoze         func() *CitacPrognoza
+	akti             func() *service.AktService
+}
+
+// SetAkti daje rukovatelju servis akata: gumb „Proglasi / prekini” vidi samo
+// tko smije sastaviti nacrt akta po letvi
+func (h *ReadingsHandler) SetAkti(f func() *service.AktService) { h.akti = f }
+
+// smijeProglasiti javlja smije li osoba sastaviti nacrt akta po letvi: samo
+// Centar obrane od poplava njezina sektora (Odluke (8. 10. 2026.), pitanje
+// 18); bez servisa akata ne smije nitko
+func (h *ReadingsHandler) smijeProglasiti(ctx context.Context, perms *models.UserPermissions, st *models.Station) bool {
+	if h.akti == nil {
+		return false
+	}
+	s := h.akti()
+	return s != nil && s.SmijeAktZaLetvu(ctx, perms, st, models.PhasePrep)
 }
 
 // SetPrognoze daje rukovatelju čitač prognoza. Bez njega graf radi kao i dosad,
@@ -249,6 +265,9 @@ type ReadingHistoryData struct {
 	Profil    *models.ProfilKorita
 	CanRecord bool
 	CanEdit   bool
+	// SmijeProglasiti: osoba smije sastaviti nacrt akta po letvi, pa vidi
+	// gumb „Proglasi / prekini” (Odluke (8. 10. 2026.), pitanje 18)
+	SmijeProglasiti bool
 	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
 	// stranica nije o letvi nego o vodnoj građevini.
 	LetvaStranica string
@@ -519,6 +538,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.Odbaceno, _ = h.readingService.SazetakOdbacenih(r.Context(), data.GaugeKey)
+	data.SmijeProglasiti = h.smijeProglasiti(r.Context(), data.Permissions, station)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži

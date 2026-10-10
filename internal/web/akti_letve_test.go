@@ -24,7 +24,8 @@ import (
 // Obrazac novog akta nudi samo letve po kojima bi priprema osobi prihvatila
 // akt: dežurnom operateru u COP-u letvu svog sektora, a ne i letvu drugog
 // sektora. Namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18:
-// nacrt sastavlja samo Centar obrane od poplava.
+// nacrt sastavlja samo Centar obrane od poplava, pa rukovoditelja područja
+// obrazac vraća na popis akata s objašnjenjem.
 func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti-letve.db"))
 	if err != nil {
@@ -65,7 +66,7 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	sektor := "P"
+	sektor, podrucje := "P", 1
 	osoba := func(korisnik, ime string, d *models.Duty) (*models.User, *models.UserPermissions) {
 		t.Helper()
 		u := &models.User{ID: uuid.New(), Username: korisnik, FullName: ime, IsActive: true}
@@ -80,6 +81,8 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	}
 	pero, perms := osoba("pperic", "Pero Perić", &models.Duty{Title: "Dežurni operater u COP-u", Role: models.RoleOperator,
 		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true})
+	ana, anaOvl := osoba("aanic", "Ana Anić", &models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader,
+		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tp, err := template.New("base.html").Funcs(templateFuncs()).ParseFS(templatesFS, DijeloviPredloska("akt_form.html")...)
@@ -100,5 +103,15 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	}
 	if strings.Contains(w.Body.String(), "Drugovo") {
 		t.Error("obrazac nudi letvu drugog sektora, koju bi priprema odbila")
+	}
+
+	// rukovoditelj područja nacrt ne sastavlja: obrazac ga vraća na popis
+	r = httptest.NewRequest(http.MethodGet, "/akti/novi?station="+uuid.NewString(), nil)
+	c = context.WithValue(context.WithValue(r.Context(), contextKeyUser, ana), contextKeyPerms, anaOvl)
+	w = httptest.NewRecorder()
+	h.ShowForm(w, r.WithContext(c))
+	if poruka := mustUnescape(w.Header().Get("Location")); w.Code != http.StatusSeeOther ||
+		!strings.HasPrefix(poruka, "/akti?error=") || !strings.Contains(poruka, "sastavlja Centar obrane od poplava") {
+		t.Errorf("rukovoditelj područja: %d %s", w.Code, poruka)
 	}
 }

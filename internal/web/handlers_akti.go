@@ -62,6 +62,9 @@ type AktiPageData struct {
 	Godine    []int
 	Stupnjevi []models.DefensePhase
 	Obrana    []ObranaSektora // način rada po sektoru: aktivna (otvoren dnevnik COP-a) ili preventivna
+	// SmijeSastavljati: osoba sastavlja nacrte akata u nekom sektoru, pa joj
+	// se nudi „Novi akt” (Odluke (8. 10. 2026.), pitanje 18)
+	SmijeSastavljati bool
 
 	// obrazac
 	Station    *models.Station
@@ -89,9 +92,12 @@ type AktiPageData struct {
 	SmijePonistiti      bool   // ovjeren akt: autor ili tko ga smije ovjeriti
 	Potpis              string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	SmijePripremiti     bool
-	MoguPotpisati       []models.User // za izbor potpisnika uz sken
-	Slanje              *SlanjeData   // slanje izvornika primateljima "na znanje"
-	Upozorenja          []string
+	// SmijeUreditiNacrt: ispraviti tekst i ponovno složiti primatelje smije
+	// samo autor nacrta dok smije sastavljati (pitanje 18)
+	SmijeUreditiNacrt bool
+	MoguPotpisati     []models.User // za izbor potpisnika uz sken
+	Slanje            *SlanjeData   // slanje izvornika primateljima "na znanje"
+	Upozorenja        []string
 
 	// Sukobi oznaka (Odluke (8. 10. 2026.), pitanje 4): u popisu po ID-u
 	// akta, a na stranici akta njegov sukob i smije li ga osoba riješiti
@@ -127,7 +133,8 @@ func (h *AktiHandler) base(r *http.Request) (*models.User, *models.UserPermissio
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	q := r.URL.Query()
 	data := AktiPageData{CurrentUser: u, Permissions: perms, SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
-		ActiveNav: "journals", ViewAsBanner: viewBanner(r), Stupnjevi: models.StupnjeviAkta, Skupine: models.SkupinePrimatelja}
+		ActiveNav: "journals", ViewAsBanner: viewBanner(r), Stupnjevi: models.StupnjeviAkta, Skupine: models.SkupinePrimatelja,
+		SmijeSastavljati: service.SastavljaNacrte(perms)}
 	data.Sektori, _ = h.users.ListSectors()
 	if s := h.akti(); s != nil && perms != nil {
 		for _, sk := range data.Sektori {
@@ -198,10 +205,16 @@ func uzGresku(poruka, sto string, err error) string {
 	return strings.TrimSpace(poruka + " " + sto + ": " + err.Error())
 }
 
-// ShowForm je obrazac za novi akt: vodomjer, radnja, stupanj, vrijeme
+// ShowForm je obrazac za novi akt: vodomjer, radnja, stupanj, vrijeme.
+// Otvara se samo onome tko sastavlja nacrte (Odluke (8. 10. 2026.), pitanje
+// 18); drugoga vraća na popis akata s objašnjenjem.
 func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	_, perms, data := h.base(r)
 	if h.svc(w) == nil {
+		return
+	}
+	if !data.SmijeSastavljati {
+		redirectWith(w, r, "/akti", "error", "Nacrt akta o stupnju obrane sastavlja Centar obrane od poplava: voditelj centra, njegov zamjenik ili dežurni operater.")
 		return
 	}
 	q := r.URL.Query()
@@ -395,6 +408,7 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
+	data.SmijeUreditiNacrt = !a.Ovjeren() && service.SmijeUreditiNacrt(perms, u, a)
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
 	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
 	h.sukobAkta(r.Context(), s, perms, a, &data)
