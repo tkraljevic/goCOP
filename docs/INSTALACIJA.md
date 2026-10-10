@@ -837,6 +837,9 @@ i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
 upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
 ne smije nositi stvarno ime, osim imena koja program sam prikazuje u
 pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
+(`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
+ne provjerava.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
