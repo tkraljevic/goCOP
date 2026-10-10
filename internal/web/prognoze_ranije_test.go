@@ -4,12 +4,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"html"
 	"html/template"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -279,7 +281,8 @@ func TestPostavkeRanijaPrognoza(t *testing.T) {
 	}
 	_, html = stranica("?dan=2026-10-05&sat=12")
 	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00 (2 h ranije), izračunato u 10:20.",
-		`href="/prognoze.xlsx?dan=2026-10-05&amp;sat=12"`, `value="2026-10-05"`, `<option value="12" selected>`} {
+		`href="/prognoze.xlsx?dan=2026-10-05&amp;izdanje=` + oznakaIzdanja(satStarog, satOdEpohe(satStarog).Add(20*time.Minute)) + `&amp;sat=12"`,
+		`value="2026-10-05"`, `<option value="12" selected>`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("ishod nema %q", want)
 		}
@@ -307,6 +310,16 @@ func TestPostavkeRanijaPrognoza(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Errorf("bez izdanja i bez kruga postavke ne vode na pregled: %d", w.Code)
 	}
+}
+
+// oznakaIzdanja je oznaka izdanja u poveznici s postavki: sat izdanja i kad
+// je izračunato (0 bez zapisa).
+func oznakaIzdanja(sat int64, nastalo time.Time) string {
+	n := int64(0)
+	if !nastalo.IsZero() {
+		n = nastalo.Unix()
+	}
+	return strconv.FormatInt(sat, 10) + "-" + strconv.FormatInt(n, 10)
 }
 
 // predlozakPostavki učitava stranicu „Postavke prognoze” kao poslužitelj.
@@ -573,14 +586,16 @@ func TestRanijeIzdanjeDvaSata(t *testing.T) {
 	}
 	html := stranica("?dan=2025-10-26&sat=2")
 	for _, want := range []string{"Prognoza izdana 26.10.2025. u 02:00 (zimsko vrijeme).",
-		`href="/prognoze.xlsx?dan=2025-10-26&amp;sat=2"`, `href="/prognoze/postavke?dan=2025-10-26&amp;ljetno=1&amp;sat=2#ranije"`} {
+		`href="/prognoze.xlsx?dan=2025-10-26&amp;izdanje=` + oznakaIzdanja(zimski, time.Time{}) + `&amp;sat=2"`,
+		`href="/prognoze/postavke?dan=2025-10-26&amp;ljetno=1&amp;sat=2#ranije"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("postavke za kasniji 02:00 nemaju %q", want)
 		}
 	}
 	html = stranica("?dan=2025-10-26&sat=2&ljetno=1")
 	for _, want := range []string{"Prognoza izdana 26.10.2025. u 02:00 (ljetno vrijeme).",
-		`href="/prognoze.xlsx?dan=2025-10-26&amp;ljetno=1&amp;sat=2"`, `href="/prognoze/postavke?dan=2025-10-26&amp;sat=2#ranije"`} {
+		`href="/prognoze.xlsx?dan=2025-10-26&amp;izdanje=` + oznakaIzdanja(ljetni, time.Time{}) + `&amp;ljetno=1&amp;sat=2"`,
+		`href="/prognoze/postavke?dan=2025-10-26&amp;sat=2#ranije"`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("postavke za raniji 02:00 nemaju %q", want)
 		}
@@ -634,5 +649,87 @@ func TestRanijeIzdanjeOznacenoSatomKojiNijeDosao(t *testing.T) {
 		if !strings.Contains(wp.Body.String(), want) {
 			t.Errorf("postavke zadano ne nude sat zadnjeg izdanja: nema %q", want)
 		}
+	}
+}
+
+// Izvoz s postavki daje izdanje koje je stranica najavila. Kad se izdanje
+// između pretrage i preuzimanja promijeni — stigne izdanje za traženi sat
+// ili se sat izda iznova — izvoz se ne preuzima, nego se postavke otvore s
+// novim nalazom i kažu zašto.
+func TestIzvozSPostavkiDajeNajavljenoIzdanje(t *testing.T) {
+	put := bazaDvaIzdanja(t)
+	h := rukovateljBaze(t, put)
+	h.SetPostavke(predlozakPostavki(t))
+	stranica := func(upit string) string {
+		w := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodGet, "/prognoze/postavke"+upit, nil)
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, &models.User{FullName: "Ana Anić"}))
+		h.ShowPostavke(w, r)
+		return w.Body.String()
+	}
+	poveznica := func(upit string) string {
+		t.Helper()
+		m := regexp.MustCompile(`href="/prognoze\.xlsx(\?[^"]*)"`).FindStringSubmatch(stranica(upit))
+		if m == nil {
+			t.Fatalf("postavke za %s ne nude izvoz", upit)
+		}
+		return html.UnescapeString(m[1])
+	}
+	pisi := func(f func(*sql.DB) error) {
+		t.Helper()
+		pb, err := prognoza.Otvori(put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer pb.Close()
+		if err := f(pb); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	link := poveznica("?dan=2026-10-05&sat=12")
+	w := izvezi(h, link)
+	if w.Code != http.StatusOK || !strings.Contains(tekstZipa(t, w.Body.Bytes()),
+		"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00") {
+		t.Fatalf("izvoz najavljenog izdanja: %d", w.Code)
+	}
+
+	// Za traženi sat stiglo je izdanje: izvoz ga ne daje umjesto najavljenog.
+	sat := satStarog + 2
+	pisi(func(pb *sql.DB) error {
+		return prognoza.SpremiIzdane(pb, []prognoza.Izdana{{Letva: "belisce", Velicina: "vodostaj", Izdano: sat,
+			Ciljni: sat + 1, Vrijednost: 640, Dolje: 638, Gore: 642, Model: "proba"}})
+	})
+	w = izvezi(h, link)
+	kamo := w.Header().Get("Location")
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(kamo, "/prognoze/postavke?") || !strings.HasSuffix(kamo, "#ranije") {
+		t.Fatalf("izvoz nakon promjene: %d %q", w.Code, kamo)
+	}
+	nalaz := stranica(strings.TrimSuffix(strings.TrimPrefix(kamo, "/prognoze/postavke"), "#ranije"))
+	for _, want := range []string{"Izvoz nije preuzet: od pretrage je stiglo ili izračunato novije izdanje.",
+		"Prognoza izdana 5.10.2026. u 12:00."} {
+		if !strings.Contains(nalaz, want) {
+			t.Errorf("postavke nakon promjene nemaju %q", want)
+		}
+	}
+	if w := izvezi(h, poveznica("?dan=2026-10-05&sat=12")); w.Code != http.StatusOK ||
+		!strings.Contains(tekstZipa(t, w.Body.Bytes()), ">640<") {
+		t.Errorf("nova poveznica ne daje novo izdanje: %d", w.Code)
+	}
+
+	// Sat izdan iznova: najavljena verzija više nije zadnja.
+	link = poveznica("?dan=2026-10-05&sat=10")
+	pisi(func(pb *sql.DB) error {
+		_, err := prognoza.SpremiZapisIzdanja(pb, prognoza.ZapisIzdanja{Izdano: satStarog, Cvor: "cvor-izdavac",
+			Nastalo: satOdEpohe(satStarog).Add(40 * time.Minute)})
+		return err
+	})
+	if w := izvezi(h, link); w.Code != http.StatusSeeOther {
+		t.Errorf("izvoz sata izdanog iznova nakon pretrage: %d", w.Code)
+	}
+	// Upit bez oznake izdanja (ručno upisan) daje zadnju verziju, kao dosad.
+	if w := izvezi(h, "?dan=2026-10-05&sat=10"); w.Code != http.StatusOK ||
+		!strings.Contains(tekstZipa(t, w.Body.Bytes()), "izračunata u 10:40") {
+		t.Errorf("izvoz bez oznake izdanja: %d", w.Code)
 	}
 }

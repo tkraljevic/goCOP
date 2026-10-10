@@ -197,6 +197,17 @@ func drugiSat(t time.Time) DrugiSat {
 		URL:       "/prognoze/postavke?" + upitSata(o).Encode() + "#ranije"}
 }
 
+// oznaka je izdanje i verzija koje su postavke najavile: sat izdanja i kad
+// je zadnja verzija izračunata (0 kad zapisa nema). Poveznica s postavki je
+// nosi, pa izvoz daje baš najavljeno izdanje.
+func (iz RanijeIzdanje) oznaka() string {
+	var nastalo int64
+	if !iz.Nastalo.IsZero() {
+		nastalo = iz.Nastalo.Unix()
+	}
+	return strconv.FormatInt(iz.Izdano.Unix()/3600, 10) + "-" + strconv.FormatInt(nastalo, 10)
+}
+
 // Poruka kaže koje se izdanje izvozi, zašto baš to i što uz njega nije
 // zapisano.
 func (iz RanijeIzdanje) Poruka() string {
@@ -269,10 +280,13 @@ func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 }
 
 // zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
-// zahtjeva; kad ga nema, odgovara sam i vraća false.
+// zahtjeva; kad ga nema, odgovara sam i vraća false. Upit s oznakom izdanja
+// (poveznica s postavki) daje samo to izdanje: kad se od pretrage
+// promijenilo, vodi natrag na postavke s novim nalazom.
 func (h *PrognozeHandler) zahtjevRanijeg(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
 	c := h.citacBaze()
-	trazeno, err := trazeniSat(r.URL.Query(), granicaSata(c, time.Now()))
+	q := r.URL.Query()
+	trazeno, err := trazeniSat(q, granicaSata(c, time.Now()))
 	if err != nil {
 		http.Error(w, "Ranije izdanje: "+err.Error()+".", http.StatusBadRequest)
 		return r, false
@@ -280,6 +294,12 @@ func (h *PrognozeHandler) zahtjevRanijeg(w http.ResponseWriter, r *http.Request)
 	iz, ok := nadjiRanije(c, trazeno)
 	if !ok {
 		http.Error(w, bezRanijeg(c, trazeno), http.StatusNotFound)
+		return r, false
+	}
+	if o := q.Get("izdanje"); o != "" && o != iz.oznaka() {
+		natrag := upitSata(trazeno)
+		natrag.Set("promijenjeno", "1")
+		http.Redirect(w, r, "/prognoze/postavke?"+natrag.Encode()+"#ranije", http.StatusSeeOther)
 		return r, false
 	}
 	return r.WithContext(UzRanijeIzdanje(r.Context(), iz)), true
@@ -378,7 +398,13 @@ func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 		return out
 	}
 	out.Poruka = iz.Poruka()
-	out.URL = "/prognoze.xlsx?" + upitSata(trazeno).Encode()
+	if q.Get("promijenjeno") == "1" {
+		// Poveznica je nosila izdanje koje se od pretrage promijenilo.
+		out.Poruka = "Izvoz nije preuzet: od pretrage je stiglo ili izračunato novije izdanje. " + out.Poruka
+	}
+	izvoz := upitSata(trazeno)
+	izvoz.Set("izdanje", iz.oznaka())
+	out.URL = "/prognoze.xlsx?" + izvoz.Encode()
 	return out
 }
 
