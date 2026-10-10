@@ -2,10 +2,12 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -70,7 +72,7 @@ func bazaDvaIzdanja(t *testing.T) string {
 	}
 	for _, sat := range []int64{satStarog, satNovog} {
 		if _, err := prognoza.SpremiZapisIzdanja(db, prognoza.ZapisIzdanja{Izdano: sat, Cvor: "cvor-izdavac",
-			Upozorenja: upozorenja[sat]}); err != nil {
+			Nastalo: satOdEpohe(sat).Add(20 * time.Minute), Upozorenja: upozorenja[sat]}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -120,7 +122,7 @@ func TestIzvozRanijegIzdanja(t *testing.T) {
 	}
 	staro := tekstZipa(t, w.Body.Bytes())
 	for _, want := range []string{"izdano 5.10.2026. u 10:00 (ranije izdanje)", "Ranije izdanje, izvezeno",
-		"Prognoza izdana 5.10.2026. u 10:00.", ">36<", ">42<", ">77<", ">222<", "nema mjerenja", "palo 72 h 11 mm"} {
+		"Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:20.", ">36<", ">42<", ">77<", ">222<", "nema mjerenja", "palo 72 h 11 mm"} {
 		if !strings.Contains(staro, want) {
 			t.Errorf("u izvozu ranijeg izdanja nema %q", want)
 		}
@@ -163,7 +165,7 @@ func TestIzvozRanijegBezIzdanjaUSatu(t *testing.T) {
 		t.Errorf("ime datoteke: %s", d)
 	}
 	txt := tekstZipa(t, w.Body.Bytes())
-	for _, want := range []string{"Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00.",
+	for _, want := range []string{"Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00, izračunato u 10:20.",
 		">36<", "Zadnja prognoza izdana je za 5. 10. u 10 h — prije 5 h"} {
 		if !strings.Contains(txt, want) {
 			t.Errorf("u izvozu nema %q", want)
@@ -188,12 +190,22 @@ func TestIzvozRanijegBezIzdanjaUSatu(t *testing.T) {
 	}
 }
 
-// Ponovno izdan sat: izvozi se zadnja verzija i to se kaže.
+// Poruka kaže kad je izvezeno izdanje izračunato, s danom kad to nije dan
+// izdanja; bez zapisa o izdanju to ne zna.
 func TestPorukaRanijegIzdanja(t *testing.T) {
-	iz := RanijeIzdanje{Trazeno: satOdEpohe(satStarog), Izdano: satOdEpohe(satStarog), Verzija: 2,
+	iz := RanijeIzdanje{Trazeno: satOdEpohe(satStarog), Izdano: satOdEpohe(satStarog),
 		Nastalo: time.Date(2026, 10, 5, 8, 41, 0, 0, time.UTC)}
-	if got, want := iz.Poruka(), "Prognoza izdana 5.10.2026. u 10:00. Taj je sat izdan 2 puta; izvozi se zadnje izdanje, izračunato 10:41."; got != want {
+	if got, want := iz.Poruka(), "Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:41."; got != want {
 		t.Errorf("%q\nželim\n%q", got, want)
+	}
+	kasnije := RanijeIzdanje{Trazeno: satOdEpohe(satStarog + 5), Izdano: satOdEpohe(satStarog),
+		Nastalo: time.Date(2026, 10, 6, 6, 12, 0, 0, time.UTC)}
+	if got, want := kasnije.Poruka(), "Za 5.10.2026. u 15:00 prognoza nije izdana; najbliže ranije izdanje je "+
+		"5.10.2026. u 10:00, izračunato 6.10.2026. u 08:12."; got != want {
+		t.Errorf("%q\nželim\n%q", got, want)
+	}
+	if got, want := (RanijeIzdanje{Trazeno: iz.Trazeno, Izdano: iz.Izdano}).Poruka(), "Prognoza izdana 5.10.2026. u 10:00."; got != want {
+		t.Errorf("bez zapisa: %q", got)
 	}
 	if !strings.Contains(iz.Napomena(satOdEpohe(satNovog)), "Ranije izdanje, izvezeno 9.10.2026. u 19:00. Prognoza izdana") {
 		t.Errorf("napomena: %q", iz.Napomena(satOdEpohe(satNovog)))
@@ -238,7 +250,7 @@ func TestPostavkeRanijaPrognoza(t *testing.T) {
 		t.Error("ishod stoji, a ništa nije traženo")
 	}
 	_, html = stranica("?dan=2026-10-05&sat=12")
-	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00.",
+	for _, want := range []string{"Za 5.10.2026. u 12:00 prognoza nije izdana; najbliže ranije izdanje je 5.10.2026. u 10:00, izračunato u 10:20.",
 		`href="/prognoze.xlsx?dan=2026-10-05&amp;sat=12"`, `value="2026-10-05"`, `<option value="12" selected>`} {
 		if !strings.Contains(html, want) {
 			t.Errorf("ishod nema %q", want)
@@ -282,4 +294,60 @@ func predlozakPostavki(t *testing.T) *template.Template {
 		t.Fatal(err)
 	}
 	return tmpl
+}
+
+// Isto izdanje piše se jednako na izdavaču i na čvoru koji ga je primio
+// nadoknadom (samo zadnju verziju sata): ni jedan ne broji koliko je puta
+// sat izdan, jer primatelj to ne zna, nego kaže kad je izvezeno izdanje
+// izračunao izdavač.
+func TestPorukaRanijegIstaNaSvimCvorovima(t *testing.T) {
+	sat := satStarog
+	prvi, drugi := time.Date(2026, 10, 5, 8, 12, 0, 0, time.UTC), time.Date(2026, 10, 5, 8, 41, 0, 0, time.UTC)
+	izdane := []prognoza.Izdana{{Letva: "belisce", Velicina: "vodostaj", Izdano: sat, Ciljni: sat + 1,
+		Vrijednost: 40, Dolje: 38, Gore: 42, Model: "proba"}}
+	otvori := func(t *testing.T) (string, *sql.DB) {
+		put := filepath.Join(t.TempDir(), "prognoze.db")
+		db, err := prognoza.Otvori(put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { db.Close() })
+		return put, db
+	}
+	putIzdavaca, izdavac := otvori(t)
+	for _, nastalo := range []time.Time{prvi, drugi} {
+		if err := prognoza.SpremiIzdane(izdavac, izdane); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := prognoza.SpremiZapisIzdanja(izdavac, prognoza.ZapisIzdanja{Izdano: sat, Nastalo: nastalo, Cvor: "cvor-izdavac"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	putPrimatelja, primatelj := otvori(t)
+	if _, err := prognoza.PrimiIzdanje(primatelj, "v9", prognoza.PaketIzdanja{Zapis: prognoza.ZapisIzdanja{Izdano: sat, Verzija: 2,
+		Nastalo: drugi, Cvor: "cvor-izdavac"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := prognoza.SpremiIzdane(primatelj, izdane); err != nil {
+		t.Fatal(err)
+	}
+	poruka := func(put string) string {
+		c, err := OtvoriPrognoze(put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		iz, ok := nadjiRanije(c, satOdEpohe(sat))
+		if !ok {
+			t.Fatal("izdanja nema")
+		}
+		return iz.Poruka()
+	}
+	naIzdavacu, naPrimatelju := poruka(putIzdavaca), poruka(putPrimatelja)
+	if naIzdavacu != naPrimatelju {
+		t.Errorf("izdavač: %q\nprimatelj: %q", naIzdavacu, naPrimatelju)
+	}
+	if want := "Prognoza izdana 5.10.2026. u 10:00, izračunata u 10:41."; naIzdavacu != want {
+		t.Errorf("%q\nželim\n%q", naIzdavacu, want)
+	}
 }

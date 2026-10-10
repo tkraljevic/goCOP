@@ -23,8 +23,10 @@ import (
 type RanijeIzdanje struct {
 	Trazeno time.Time // traženi sat
 	Izdano  time.Time // sat izdanja koje se izvozi: traženi ili najbliži raniji
-	Verzija int       // koliko je puta sat izdan; izvozi se zadnja verzija
-	Nastalo time.Time // kad je zadnja verzija izračunata; nula kad zapisa nema
+	// Nastalo je kad je izdavač izračunao zadnju verziju sata; nula kad
+	// zapisa o izdanju nema. Putuje s izdanjem, pa je na svim čvorovima
+	// isto, a broj verzija nije: primatelj nadoknadom dobije samo zadnju.
+	Nastalo time.Time
 }
 
 // Tocno javlja je li u traženom satu prognoza izdana.
@@ -93,7 +95,7 @@ func nadjiRanije(c *CitacPrognoza, trazeno time.Time) (RanijeIzdanje, bool) {
 	}
 	iz := RanijeIzdanje{Trazeno: trazeno, Izdano: izdano}
 	if o, ima := c.OpisIzdanja(izdano); ima {
-		iz.Verzija, iz.Nastalo = o.Verzija, o.Nastalo
+		iz.Nastalo = o.Nastalo
 	}
 	return iz, true
 }
@@ -103,25 +105,33 @@ func satRanijeg(t time.Time) string { return t.In(models.Zagreb).Format("2.1.200
 
 // Poruka kaže koje se izdanje izvozi i zašto baš to.
 func (iz RanijeIzdanje) Poruka() string {
-	var b strings.Builder
 	if iz.Tocno() {
-		fmt.Fprintf(&b, "Prognoza izdana %s.", satRanijeg(iz.Izdano))
-	} else {
-		fmt.Fprintf(&b, "Za %s prognoza nije izdana; najbliže ranije izdanje je %s.",
-			satRanijeg(iz.Trazeno), satRanijeg(iz.Izdano))
+		return "Prognoza izdana " + satRanijeg(iz.Izdano) + iz.izracunato("izračunata") + "."
 	}
-	if iz.Verzija > 1 {
-		fmt.Fprintf(&b, " Taj je sat izdan %d puta; izvozi se zadnje izdanje, izračunato %s.",
-			iz.Verzija, iz.Nastalo.In(models.Zagreb).Format("15:04"))
+	return "Za " + satRanijeg(iz.Trazeno) + " prognoza nije izdana; najbliže ranije izdanje je " +
+		satRanijeg(iz.Izdano) + iz.izracunato("izračunato") + "."
+}
+
+// izracunato kaže kad je izdavač izračunao izvezenu verziju, npr.
+// „, izračunata u 10:41”; s danom kad to nije dan izdanja, a prazno kad
+// zapisa nema.
+func (iz RanijeIzdanje) izracunato(rijec string) string {
+	if iz.Nastalo.IsZero() {
+		return ""
 	}
-	return b.String()
+	n := iz.Nastalo.In(models.Zagreb)
+	if n.Format("2.1.2006.") == iz.Izdano.In(models.Zagreb).Format("2.1.2006.") {
+		return ", " + rijec + " u " + n.Format("15:04")
+	}
+	return ", " + rijec + " " + satRanijeg(n)
 }
 
 // Napomena je odlomak na prvom listu izvoza: koje je izdanje i što je u
 // izvozu iz njega, a što prema današnjem stanju.
 func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 	return "Ranije izdanje, izvezeno " + satRanijeg(izvezeno) + ". " + iz.Poruka() +
-		" Brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze su iz tog izdanja, a mjerenja na grafovima sežu" +
+		" Brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze su iz tog izdanja (iz zadnjeg, kad je sat" +
+		" izdan više puta), a mjerenja na grafovima sežu" +
 		" do sata izdanja; godišnji vodostaji, zabilježene krajnosti i list „O prognozi” su prema današnjoj arhivi i modelu."
 }
 
