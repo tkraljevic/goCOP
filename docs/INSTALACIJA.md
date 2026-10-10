@@ -903,7 +903,10 @@ brojke izvoza tek na stvarnim registrima. Stvarni registri su izvoz registara u 
 repozitorija. Brojke u provjerama su brojke izvoza s kojim je napunjen
 prvi čvor; uz noviji izvoz razlike se pregledaju i brojke mijenjaju
 svjesno, s razlogom u commitu. Bez cijelog izvoza provjere se preskaču, uz
-poruku koje datoteke nema i što treba. Pokreću se prije svakog izdanja
+poruku koje datoteke nema i što treba. `go test` bez `-v` preskakanje ne
+ispisuje, pa to na kraju kaže `make quality` (zasebno `make
+stanje-registara`), a na GitHubu stoji kao upozorenje u sažetku provjere.
+Pokreću se prije svakog izdanja
 naredbom `make provjera-registara`, koja ih bez cijelog izvoza ruši umjesto
 da ih preskoči.
 Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove

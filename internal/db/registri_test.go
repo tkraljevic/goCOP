@@ -62,16 +62,22 @@ func nedostajuRegistri(mapa string) []string {
 	return nema
 }
 
+// nedostajeIzvoza usmjerava prvo punjenje na izvoz registara u data/ i
+// vraća datoteke izvoza kojih ondje nema; bez mape data/ sve
+func nedostajeIzvoza() []string {
+	if UseRepoData() {
+		return nedostajuRegistri(DataDir)
+	}
+	return datotekeRegistara
+}
+
 // registriIliPreskoci usmjerava prvo punjenje na stvarne registre u data/.
 // Bez cijelog izvoza provjeru preskače, a uz GOCOP_REGISTRI ruši, i kaže
 // koje datoteke nema: prvo punjenje tablicu bez datoteke tiho preskoči, pa
 // bi provjera na djelomičnom izvozu pala na brojkama, a ne na izvozu.
 func registriIliPreskoci(t preskakanje) {
 	t.Helper()
-	nema := datotekeRegistara
-	if UseRepoData() {
-		nema = nedostajuRegistri(DataDir)
-	}
+	nema := nedostajeIzvoza()
 	if len(nema) == 0 {
 		return
 	}
@@ -398,4 +404,79 @@ func TestUputeNavodeProbeNaStvarnimBazama(t *testing.T) {
 			t.Errorf("upute za razvoj ne navode ručnu probu %s", v)
 		}
 	}
+}
+
+// receptMakea vraća retke recepta cilja iz Makefilea
+func receptMakea(makefile, cilj string) []string {
+	var recept []string
+	u := false
+	for _, redak := range strings.Split(makefile, "\n") {
+		switch {
+		case strings.HasPrefix(redak, cilj+":"):
+			u = true
+		case u && strings.HasPrefix(redak, "\t"):
+			recept = append(recept, strings.TrimSpace(redak))
+		case u:
+			return recept
+		}
+	}
+	return recept
+}
+
+// go test bez -v preskočenu provjeru ne ispisuje, pa make quality (i
+// GitHub, koji ga pokreće) ne bi rekao da provjere registara nisu izvedene.
+// Zato make quality na kraju pokreće make stanje-registara, a on uz -v
+// pokreće provjeru koja to kaže (Odluke (8. 10. 2026.), pitanje 13).
+func TestQualityKazeJesuLiProvjereRegistaraIzvedene(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "Makefile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	quality := receptMakea(string(raw), "quality")
+	if len(quality) == 0 || !strings.Contains(quality[len(quality)-1], "stanje-registara") {
+		t.Errorf("make quality na kraju ne pokreće stanje-registara: %q", quality)
+	}
+	stanje := strings.Join(receptMakea(string(raw), "stanje-registara"), "\n")
+	for _, zeli := range []string{"go test", " -v ", "-run '^TestStanjeProvjeraRegistara$$'", "./internal/db/"} {
+		if !strings.Contains(stanje, zeli) {
+			t.Errorf("make stanje-registara ne sadrži %q: %q", zeli, stanje)
+		}
+	}
+}
+
+// naslovUpozorenja je naslov upozorenja u sažetku provjere na GitHubu
+const naslovUpozorenja = "Provjere registara nisu izvedene"
+
+// upozorenjeGitHuba je naredba kojom GitHub poruku pokaže kao upozorenje u
+// sažetku provjere; postotak i prijelome retka GitHub traži kodirane
+func upozorenjeGitHuba(poruka string) string {
+	return "::warning title=" + naslovUpozorenja + "::" + strings.NewReplacer("%", "%25", "\r", "%0D", "\n", "%0A").Replace(poruka)
+}
+
+// Naredba upozorenja nosi cijelu poruku u jednom retku
+func TestUpozorenjeGitHubaJeJedanRedak(t *testing.T) {
+	if got, zeli := upozorenjeGitHuba("nema a.json; 5 % izvoza\nprije izdanja\r"),
+		"::warning title=Provjere registara nisu izvedene::nema a.json; 5 %25 izvoza%0Aprije izdanja%0D"; got != zeli {
+		t.Errorf("%q, očekivano %q", got, zeli)
+	}
+}
+
+// Stanje provjera registara: kaže jesu li izvedene, a ako nisu, što im treba
+// i da se pokreću prije svakog izdanja. Preskakanje se vidi samo uz -v, pa
+// ovu provjeru uz -v pokreće make stanje-registara, na kraju make quality; na
+// GitHubu se poruka pokaže i kao upozorenje u sažetku provjere (Odluke
+// (8. 10. 2026.), pitanje 13). Uz make provjera-registara bez cijelog izvoza
+// pada kao i ostale provjere registara.
+func TestStanjeProvjeraRegistara(t *testing.T) {
+	staraMapa, stariImenik := DataDir, ImenikPath
+	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
+	nema := nedostajeIzvoza()
+	if len(nema) == 0 {
+		t.Log("izvoz registara u data/ je cijel, pa se provjere registara izvode")
+		return
+	}
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Println(upozorenjeGitHuba(porukaNedostaju(nema)))
+	}
+	registriIliPreskoci(t)
 }

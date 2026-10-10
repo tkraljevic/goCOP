@@ -4,7 +4,7 @@ QUALITY_ROOT := $(CURDIR)
 QUALITY_OUT ?= $(QUALITY_ROOT)/.quality
 QUALITY_BASELINE ?= $(QUALITY_ROOT)/quality/baseline.json
 
-.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep provjera-registara
+.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep provjera-registara stanje-registara
 
 quality-tools:
 	GOBIN="$(QUALITY_ROOT)/bin/quality" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
@@ -14,6 +14,7 @@ quality-test:
 
 quality: quality-test
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -baseline "$(QUALITY_BASELINE)"
+	@$(MAKE) --no-print-directory stanje-registara
 
 quality-report: quality-test
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -baseline "$(QUALITY_BASELINE)" -report-only
@@ -48,3 +49,10 @@ quality-deep:
 # samo ime, pa ne zamjenjuje čitanje testa. Baza se otvara samo za čitanje.
 provjera-registara:
 	GOCOP_REGISTRI=obavezno $(if $(wildcard data/gocop.db),GOCOP_STVARNA_BAZA="$(CURDIR)/data/gocop.db") go test -count=1 ./internal/db/
+
+# Bez izvoza registara u data/ provjere registara se preskaču, a go test bez
+# -v preskakanje ne ispisuje, ni u make quality ni na GitHubu. Ovaj cilj kaže
+# jesu li izvedene i, ako nisu, što im treba; na GitHubu i kao upozorenje u
+# sažetku provjere. make quality ga pokreće na kraju.
+stanje-registara:
+	go test -count=1 -v -run '^TestStanjeProvjeraRegistara$$' ./internal/db/
