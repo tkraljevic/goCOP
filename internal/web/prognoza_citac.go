@@ -72,6 +72,26 @@ func (c *CitacPrognoza) PrvoIzdanje() (time.Time, bool) {
 	return satOdEpohe(sat), ok && err == nil
 }
 
+// PocetciZapisa kaže od kojeg sata baza ima koji dio izdanja; ok je false
+// dok izdanja nema.
+func (c *CitacPrognoza) PocetciZapisa() (prognoza.Pocetci, bool) {
+	if c == nil || c.db == nil {
+		return prognoza.Pocetci{}, false
+	}
+	p, err := prognoza.PocetciZapisa(c.db)
+	return p, err == nil && p.Izdane != 0
+}
+
+// KisaZapisana javlja je li uz izdanje zadanog sata zapisana kiša po
+// međuslivovima.
+func (c *CitacPrognoza) KisaZapisana(izdano time.Time) bool {
+	if c == nil || c.db == nil {
+		return false
+	}
+	kisa, err := prognoza.KisaIzdanja(c.db, izdano.Unix()/3600)
+	return err == nil && len(kisa) > 0
+}
+
 // OpisIzdanja opisuje zadnju verziju izdanja zadanog sata.
 func (c *CitacPrognoza) OpisIzdanja(izdano time.Time) (prognoza.OpisIzdanja, bool) {
 	if c == nil {

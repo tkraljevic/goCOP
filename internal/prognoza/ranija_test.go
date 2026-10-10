@@ -160,3 +160,25 @@ func TestKisaIzdanjaZadnjeVerzijeBezKise(t *testing.T) {
 		t.Errorf("kiša 10. sata izdanog iznova bez kiše: %v %v", kisa, err)
 	}
 }
+
+// Početci zapisa kažu od kojeg sata baza ima koji dio izdanja; dijela kojeg
+// nema ni uz jedno izdanje je 0.
+func TestPocetciZapisa(t *testing.T) {
+	db := bazaRanijih(t)
+	if p, err := PocetciZapisa(db); err != nil || p != (Pocetci{Izdane: 10, Zapis: 10}) {
+		t.Errorf("bez dnevne i upozorenja: %+v %v", p, err)
+	}
+	if err := SpremiDnevne(db, []DnevnaIzdana{{Letva: "gornja", Izdano: 13, Dan: 1, Ciljni: 37, Vrijednost: 1, Model: ModelDnevni}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := SpremiZapisIzdanja(db, ZapisIzdanja{Izdano: 13, Upozorenja: []Upozorenje{}}); err != nil {
+		t.Fatal(err)
+	}
+	if p, err := PocetciZapisa(db); err != nil || p != (Pocetci{Izdane: 10, Dnevne: 13, Zapis: 10, Upozorenja: 13}) {
+		t.Errorf("s dnevnom i upozorenjima od 13: %+v %v", p, err)
+	}
+	db.Close()
+	if _, err := PocetciZapisa(db); err == nil {
+		t.Error("zatvorena baza bez greške")
+	}
+}

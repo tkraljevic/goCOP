@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 )
 
 // Izvoz ranije prognoze. Baza prognoza čuva svako izdanje, pa se izdanje
@@ -17,7 +18,8 @@ import (
 // a brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze iz tog
 // izdanja. Kad u tom satu prognoza nije izdana, uzima se najbliže ranije
 // izdanje i to se kaže. Mjerenja na grafovima sežu do sata izdanja, kao u
-// izvozu koji bi se tada napravio.
+// izvozu koji bi se tada napravio. Uz najstarija izdanja nije zapisano sve
+// (prognoza.Pocetci): izvoz nema ono čega nema i to kaže.
 
 // RanijeIzdanje je izdanje nađeno za traženi sat.
 type RanijeIzdanje struct {
@@ -27,6 +29,9 @@ type RanijeIzdanje struct {
 	// zapisa o izdanju nema. Putuje s izdanjem, pa je na svim čvorovima
 	// isto, a broj verzija nije: primatelj nadoknadom dobije samo zadnju.
 	Nastalo time.Time
+	// Što je uz izdanje zapisano. Najstarija izdanja nemaju sve (vidi
+	// prognoza.Pocetci); izvoz nema ono čega nema i to kaže.
+	Zapis, Dnevna, Upozorenja, Kisa bool
 }
 
 // Tocno javlja je li u traženom satu prognoza izdana.
@@ -102,22 +107,63 @@ func nadjiRanije(c *CitacPrognoza, trazeno time.Time) (RanijeIzdanje, bool) {
 	}
 	iz := RanijeIzdanje{Trazeno: trazeno, Izdano: izdano}
 	if o, ima := c.OpisIzdanja(izdano); ima {
-		iz.Nastalo = o.Nastalo
+		iz.Nastalo, iz.Zapis = o.Nastalo, true
 	}
+	_, iz.Upozorenja = c.Upozorenja(izdano)
+	dnevne, _ := c.DnevnoZa(izdano)
+	iz.Dnevna, iz.Kisa = len(dnevne) > 0, c.KisaZapisana(izdano)
 	return iz, true
 }
 
 // satRanijeg je sat po mjesnom vremenu, npr. „5.10.2026. u 09:00”.
 func satRanijeg(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. u 15:04") }
 
-// Poruka kaže koje se izdanje izvozi i zašto baš to.
+// Poruka kaže koje se izdanje izvozi, zašto baš to i što uz njega nije
+// zapisano.
 func (iz RanijeIzdanje) Poruka() string {
 	if iz.Tocno() {
-		return "Prognoza izdana " + satRanijeg(iz.Izdano) + iz.izracunato("izračunata") + "."
+		return "Prognoza izdana " + satRanijeg(iz.Izdano) + iz.izracunato("izračunata") + "." + iz.nezapisano()
 	}
 	return "Za " + satRanijeg(iz.Trazeno) + " prognoza nije izdana; najbliže ranije izdanje je " +
 		satRanijeg(iz.Izdano) + fmt.Sprintf(" (%d h ranije)", int(iz.Trazeno.Sub(iz.Izdano).Hours())) +
-		iz.izracunato("izračunato") + "."
+		iz.izracunato("izračunato") + "." + iz.nezapisano()
+}
+
+// nezapisano je rečenica o dijelovima izdanja koji uz njega nisu zapisani;
+// prazno kad je zapisano sve.
+func (iz RanijeIzdanje) nezapisano() string {
+	d := iz.dijelovi(false)
+	if len(d) == 0 {
+		return ""
+	}
+	return " Izvoz nema ono što uz to izdanje nije zapisano: " + strings.Join(d, "; ") + "."
+}
+
+// dijelovi su dijelovi izdanja koji uz njega jesu ili nisu zapisani; uz
+// nezapisane piše i što to znači.
+func (iz RanijeIzdanje) dijelovi(zapisani bool) []string {
+	svi := []struct {
+		ima        bool
+		jest, nije string
+	}{
+		{true, "brojke", ""},
+		{iz.Dnevna, "dnevna prognoza", "dnevna prognoza"},
+		{iz.Upozorenja, "upozorenja", "upozorenja (inačica programa koja je izdala prognozu nije ih bilježila, " +
+			"pa se ne vidi je li pri izdavanju sve radilo)"},
+		{iz.Kisa, "kiša po međuslivovima", "kiša po međuslivovima"},
+		{iz.Zapis, "tuđe prognoze koje je izdavač tada imao",
+			"koje je tuđe prognoze izdavač tada imao (uzete su one izdane do sata izdanja)"},
+	}
+	var out []string
+	for _, d := range svi {
+		switch {
+		case d.ima && zapisani:
+			out = append(out, d.jest)
+		case !d.ima && !zapisani:
+			out = append(out, d.nije)
+		}
+	}
+	return out
 }
 
 // izracunato kaže kad je izdavač izračunao izvezenu verziju, npr.
@@ -138,9 +184,9 @@ func (iz RanijeIzdanje) izracunato(rijec string) string {
 // izvozu iz njega, a što prema današnjem stanju.
 func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 	return "Ranije izdanje, izvezeno " + satRanijeg(izvezeno) + ". " + iz.Poruka() +
-		" Brojke, upozorenja, dnevna prognoza, kiša i tuđe prognoze su iz tog izdanja (iz zadnjeg, kad je sat" +
-		" izdan više puta), a mjerenja na grafovima sežu" +
-		" do sata izdanja; godišnji vodostaji, zabilježene krajnosti i list „O prognozi” su prema današnjoj arhivi i modelu."
+		" Iz tog izdanja (iz zadnjeg, kad je sat izdan više puta) su " + nabroji(iz.dijelovi(true)) +
+		"; mjerenja na grafovima sežu do sata izdanja, a godišnji vodostaji, zabilježene krajnosti i list" +
+		" „O prognozi” su prema današnjoj arhivi i modelu."
 }
 
 // zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
@@ -193,6 +239,7 @@ func imeIzvoza(r *http.Request) string {
 // prvom listu izvoza ranijeg izdanja.
 type RanijiIzvoz struct {
 	Od           string // najstarije izdanje u bazi; prazno dok izdanja nema
+	Ogranicenje  string // od kad baza ima koji dio izdanja; prazno kad uz sva sve
 	OdDan, DoDan string // granice birača dana, 2006-01-02
 	Dan          string // traženi dan, 2006-01-02
 	Sat          int    // traženi sat
@@ -225,11 +272,13 @@ func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 	c := h.citacBaze()
 	sada := time.Now().In(models.Zagreb)
 	out := RanijiIzvoz{Dan: sada.Format("2006-01-02"), Sat: sada.Hour(), DoDan: sada.Format("2006-01-02")}
-	prvo, ima := c.PrvoIzdanje()
+	p, ima := c.PocetciZapisa()
 	if !ima {
 		return out
 	}
+	prvo := satOdEpohe(p.Izdane)
 	out.Od, out.OdDan = satRanijeg(prvo), prvo.In(models.Zagreb).Format("2006-01-02")
+	out.Ogranicenje = ogranicenjeZapisa(p)
 	q := r.URL.Query()
 	if !q.Has("dan") {
 		return out
@@ -249,4 +298,35 @@ func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 	out.Poruka = iz.Poruka()
 	out.URL = "/prognoze.xlsx?" + url.Values{"dan": {out.Dan}, "sat": {strconv.Itoa(out.Sat)}}.Encode()
 	return out
+}
+
+// ogranicenjeZapisa kaže od kad baza ima koji dio izdanja, za dijelove koji
+// ne sežu do prvog izdanja; prazno kad je uz sva izdanja zapisano sve.
+func ogranicenjeZapisa(p prognoza.Pocetci) string {
+	var d []string
+	for _, x := range []struct {
+		od  int64
+		sto string
+	}{
+		{p.Dnevne, "dnevna prognoza"},
+		{p.Zapis, "kiša po međuslivovima i tuđe prognoze koje je izdavač imao"},
+		{p.Upozorenja, "upozorenja"},
+	} {
+		if x.od != p.Izdane {
+			d = append(d, x.sto+" "+odSataZapisa(x.od))
+		}
+	}
+	if len(d) == 0 {
+		return ""
+	}
+	return "Uz starija izdanja nije zapisano sve: " + strings.Join(d, "; ") + "."
+}
+
+// odSataZapisa je „od 26.9.2026. u 15:00”, a za dio koji nema nijedno
+// izdanje „još ni uz jedno izdanje”.
+func odSataZapisa(sat int64) string {
+	if sat == 0 {
+		return "još ni uz jedno izdanje"
+	}
+	return "od " + satRanijeg(satOdEpohe(sat))
 }

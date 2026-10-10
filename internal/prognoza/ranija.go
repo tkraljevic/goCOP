@@ -27,6 +27,27 @@ func PrvoIzdanje(db *sql.DB) (izdano int64, ok bool, err error) {
 	return satIzdanja(db, `SELECT min(izdano) FROM izdane`)
 }
 
+// Pocetci su satovi od kojih baza ima koji dio izdanja; 0 je dio kojeg nema
+// ni uz jedno izdanje. Baza je počela samo sa satnim vrijednostima, a
+// dnevnu prognozu, zapis o izdanju (kiša po međuslivovima, tuđe prognoze u
+// rukama, vrijeme računa) i upozorenja pamti tek od kad ih program bilježi,
+// pa najstarija izdanja nemaju sve.
+type Pocetci struct {
+	Izdane     int64 // satne vrijednosti: prvo izdanje
+	Dnevne     int64 // dnevna prognoza
+	Zapis      int64 // zapis o izdanju, s kišom po međuslivovima
+	Upozorenja int64 // zapis s upozorenjima
+}
+
+// PocetciZapisa čita od kojeg sata baza ima koji dio izdanja.
+func PocetciZapisa(db *sql.DB) (Pocetci, error) {
+	var n [4]sql.NullInt64
+	err := db.QueryRow(`SELECT (SELECT min(izdano) FROM izdane), (SELECT min(izdano) FROM dnevne),
+		(SELECT min(izdano) FROM izdanja), (SELECT min(izdano) FROM izdanja WHERE upozorenja != '')`).
+		Scan(&n[0], &n[1], &n[2], &n[3])
+	return Pocetci{Izdane: n[0].Int64, Dnevne: n[1].Int64, Zapis: n[2].Int64, Upozorenja: n[3].Int64}, err
+}
+
 // satIzdanja čita jedan sat izdanja upitom koji vraća max ili min.
 func satIzdanja(db *sql.DB, upit string, args ...any) (int64, bool, error) {
 	var sat sql.NullInt64
