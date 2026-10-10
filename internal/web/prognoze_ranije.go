@@ -79,13 +79,24 @@ func sadZahtjeva(r *http.Request) time.Time {
 	return time.Now()
 }
 
+// granicaSata je najkasniji sat koji se smije tražiti: sada ili, kad je
+// zadnje izdanje označeno satom koji još nije došao, taj sat. Izdanje je
+// označeno satom najnovijeg mjerenja, pa zna nastati i prije punog sata
+// kojim je označeno, a Prognoze ga tada već pokazuju.
+func granicaSata(c *CitacPrognoza, sada time.Time) time.Time {
+	if zadnje, ima := c.ZadnjeIzdano(); ima && zadnje.After(sada) {
+		return zadnje
+	}
+	return sada
+}
+
 // trazeniSat čita dan i sat iz upita (dan=2026-10-05&sat=9), po mjesnom
-// vremenu. Sat koji do trenutka sada još nije došao nema izdanja: zadnje
-// bi se tada izvezlo kao „najbliže ranije” i izgledalo zastarjelo.
+// vremenu. Sat kasniji od granice (granicaSata) nema izdanja: zadnje bi se
+// tada izvezlo kao „najbliže ranije” i izgledalo zastarjelo.
 // Proljetni sat koji zbog ljetnog vremena ne postoji ne pretvara se tiho u
 // sljedeći. Jesenski sat koji dođe dvaput zadano je kasniji, po zimskom
 // vremenu, jer najbliže ranije tada pokriva oba; ljetno=1 bira raniji.
-func trazeniSat(q url.Values, sada time.Time) (time.Time, error) {
+func trazeniSat(q url.Values, granica time.Time) (time.Time, error) {
 	dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(q.Get("dan")), models.Zagreb)
 	if err != nil {
 		return time.Time{}, fmt.Errorf("dan nije ispravan datum")
@@ -105,7 +116,7 @@ func trazeniSat(q url.Values, sada time.Time) (time.Time, error) {
 			t = prvi
 		}
 	}
-	if t.After(sada) {
+	if t.After(granica) {
 		return time.Time{}, fmt.Errorf("sat %s još nije došao — zadnja prognoza izvozi se na stranici Prognoze", satRanijeg(t))
 	}
 	return t, nil
@@ -260,12 +271,12 @@ func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 // zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
 // zahtjeva; kad ga nema, odgovara sam i vraća false.
 func (h *PrognozeHandler) zahtjevRanijeg(w http.ResponseWriter, r *http.Request) (*http.Request, bool) {
-	trazeno, err := trazeniSat(r.URL.Query(), time.Now())
+	c := h.citacBaze()
+	trazeno, err := trazeniSat(r.URL.Query(), granicaSata(c, time.Now()))
 	if err != nil {
 		http.Error(w, "Ranije izdanje: "+err.Error()+".", http.StatusBadRequest)
 		return r, false
 	}
-	c := h.citacBaze()
 	iz, ok := nadjiRanije(c, trazeno)
 	if !ok {
 		http.Error(w, bezRanijeg(c, trazeno), http.StatusNotFound)
@@ -336,10 +347,12 @@ func (h *PrognozeHandler) citacBaze() *CitacPrognoza {
 }
 
 // ranijiIzvoz slaže odjeljak „Ranija prognoza”: od kad baza čuva izdanja i,
-// kad je korisnik tražio dan i sat, koje se izdanje izvozi.
+// kad je korisnik tražio dan i sat, koje se izdanje izvozi. Zadani dan i sat
+// su sadašnji, a kad je zadnje izdanje označeno satom koji još nije došao,
+// njegov: tako se zadano nalazi izdanje koje Prognoze pokazuju.
 func (h *PrognozeHandler) ranijiIzvoz(r *http.Request) RanijiIzvoz {
 	c := h.citacBaze()
-	sada := time.Now().In(models.Zagreb)
+	sada := granicaSata(c, time.Now()).In(models.Zagreb)
 	out := RanijiIzvoz{Dan: sada.Format("2006-01-02"), Sat: sada.Hour(), DoDan: sada.Format("2006-01-02")}
 	p, ima := c.PocetciZapisa()
 	if !ima {

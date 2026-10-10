@@ -63,6 +63,15 @@ func (c *CitacPrognoza) IzdanjeDo(t time.Time) (time.Time, bool) {
 	return satOdEpohe(sat), ok && err == nil
 }
 
+// ZadnjeIzdano je sat zadnjeg izdanja u bazi prognoza.
+func (c *CitacPrognoza) ZadnjeIzdano() (time.Time, bool) {
+	if c == nil || c.db == nil {
+		return time.Time{}, false
+	}
+	sat, ok, err := prognoza.ZadnjeIzdanje(c.db)
+	return satOdEpohe(sat), ok && err == nil
+}
+
 // PrvoIzdanje je najstarije izdanje u bazi prognoza.
 func (c *CitacPrognoza) PrvoIzdanje() (time.Time, bool) {
 	if c == nil || c.db == nil {

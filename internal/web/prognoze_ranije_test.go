@@ -603,3 +603,36 @@ func TestRanijeIzdanjeDvaSata(t *testing.T) {
 		t.Error("bez kasnijeg 02:00 raniji nije najbliže ranije imenovan svojim vremenom")
 	}
 }
+
+// Izdanje je označeno satom najnovijeg mjerenja, pa zna nastati i prije
+// punog sata kojim je označeno; Prognoze ga tada već pokazuju. Taj se sat
+// smije tražiti i prije nego što dođe, a postavke ga zadano nude. Sat iza
+// zadnjeg izdanja koji još nije došao i dalje se odbija.
+func TestRanijeIzdanjeOznacenoSatomKojiNijeDosao(t *testing.T) {
+	sljedeci := time.Now().Truncate(time.Hour).Add(time.Hour)
+	h := rukovateljBaze(t, bazaPrognoza(t, sljedeci.Unix()/3600))
+	h.SetPostavke(predlozakPostavki(t))
+	w := izvezi(h, "?"+upitSata(sljedeci).Encode())
+	if w.Code != http.StatusOK {
+		t.Fatalf("sat zadnjeg izdanja prije punog sata: %d %s", w.Code, w.Body.String())
+	}
+	if txt := tekstZipa(t, w.Body.Bytes()); !strings.Contains(txt, "Prognoza izdana "+satRanijeg(sljedeci)+".") {
+		t.Error("izvoz ne daje zadnje izdanje za njegov sat")
+	}
+	kasnije := sljedeci.Add(time.Hour)
+	if w := izvezi(h, "?"+upitSata(kasnije).Encode()); w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "još nije došao") {
+		t.Errorf("sat iza zadnjeg izdanja: %d %s", w.Code, w.Body.String())
+	}
+
+	r := httptest.NewRequest(http.MethodGet, "/prognoze/postavke", nil)
+	r = r.WithContext(context.WithValue(r.Context(), contextKeyUser, &models.User{FullName: "Ana Anić"}))
+	wp := httptest.NewRecorder()
+	h.ShowPostavke(wp, r)
+	l := sljedeci.In(models.Zagreb)
+	for _, want := range []string{`value="` + l.Format("2006-01-02") + `"`, `max="` + l.Format("2006-01-02") + `"`,
+		`<option value="` + strconv.Itoa(l.Hour()) + `" selected>`} {
+		if !strings.Contains(wp.Body.String(), want) {
+			t.Errorf("postavke zadano ne nude sat zadnjeg izdanja: nema %q", want)
+		}
+	}
+}
