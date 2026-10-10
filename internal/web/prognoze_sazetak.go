@@ -382,10 +382,12 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 	// Ukratko
 	var kisa []prognoza.StanjeSliva
 	var kisaErr error
-	if f := h.kisaZa(ctx); f != nil {
-		c, otkazi := context.WithTimeout(ctx, 10*time.Second)
-		kisa, _, kisaErr = f(c)
-		otkazi()
+	if h.kisa != nil {
+		if f := h.kisa(); f != nil {
+			c, otkazi := context.WithTimeout(ctx, 10*time.Second)
+			kisa, _, kisaErr = f(c)
+			otkazi()
+		}
 	}
 	naslov("Ukratko")
 	for _, g := range sazetakSkupine {

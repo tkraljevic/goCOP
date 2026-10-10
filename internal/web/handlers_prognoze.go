@@ -269,7 +269,6 @@ type PrognozePageData struct {
 	Generira       bool   // krug upravo traje
 	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
 	Napredak       javnivodostaji.Napredak
-	Danas          string // današnji dan po našem vremenu (2026-10-05), za izvoz stare prognoze
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -304,7 +303,6 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Opcije = h.nacini(r.Context())
 	data.SmijeMijenjati = h.spremiOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
-	data.Danas = time.Now().In(models.Zagreb).Format("2006-01-02")
 	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -408,7 +406,10 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa string) PrognozePageData {
 	data := h.zaglavlje(r)
 	data.NacinTablice, data.NacinGrafa = models.OpisNacinaPrognoze(nacinTablice), models.OpisNacinaPrognoze(nacinGrafa)
-	c := h.citacZa(r.Context())
+	var c *CitacPrognoza
+	if h.citac != nil {
+		c = h.citac()
+	}
 	if c == nil {
 		data.Nema, data.Razlog = true, "Baza prognoza nije otvorena."
 		return data
@@ -726,14 +727,13 @@ type PregledLetve struct {
 	PragPovezanosti float64
 }
 
-// Pregled čita najnovije izdanje (čitač stare prognoze: zadnje do svog sata):
-// za svaku letvu vrijednost u satu izdavanja i na svakom dosegu, uz podatak
-// pobjeđuje li ondje postojanost.
+// Pregled čita najnovije izdanje: za svaku letvu vrijednost u satu izdavanja i
+// na svakom dosegu, uz podatak pobjeđuje li ondje postojanost.
 func (c *CitacPrognoza) Pregled() (time.Time, []PregledLetve, error) {
 	if c == nil || c.db == nil {
 		return time.Time{}, nil, nil
 	}
-	izdano, ima, err := prognoza.ZadnjeIzdanjeDo(c.db, c.granica())
+	izdano, ima, err := prognoza.ZadnjeIzdanje(c.db)
 	if err != nil || !ima {
 		return time.Time{}, nil, err
 	}

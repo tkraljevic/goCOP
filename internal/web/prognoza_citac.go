@@ -15,24 +15,6 @@ import (
 // CitacPrognoza čita izdane prognoze iz baze prognoza.
 type CitacPrognoza struct {
 	db *sql.DB
-	do int64 // zadnji sat izdanja koji čitač vidi (sati od epohe, UTC); 0 = sva izdanja
-}
-
-// Do je čitač iste baze koji vidi samo izdanja do sata kad, uključivo:
-// izvoz stare prognoze čita ono što je u tom satu bilo zadnje izdanje.
-func (c *CitacPrognoza) Do(kad time.Time) *CitacPrognoza {
-	if c == nil {
-		return nil
-	}
-	return &CitacPrognoza{db: c.db, do: kad.Unix() / 3600}
-}
-
-// granica je zadnji sat izdanja koji čitač vidi.
-func (c *CitacPrognoza) granica() int64 {
-	if c.do == 0 {
-		return math.MaxInt64
-	}
-	return c.do
 }
 
 // OtvoriPrognoze otvara bazu prognoza za čitanje.
@@ -102,7 +84,7 @@ func (c *CitacPrognoza) Dnevno() (time.Time, map[string][]prognoza.DnevnaIzdana,
 	if c == nil || c.db == nil {
 		return time.Time{}, nil, nil
 	}
-	izdano, sve, err := prognoza.ZadnjeDnevnoDo(c.db, c.granica())
+	izdano, sve, err := prognoza.ZadnjeDnevno(c.db)
 	if err != nil || len(sve) == 0 {
 		return time.Time{}, nil, err
 	}
@@ -116,8 +98,7 @@ type TudaVrijednost struct {
 
 // Tude čita najnovije izdanje tuđe prognoze za svaku letvu, ako nije starije
 // od dva dana: letva → ciljni sat → vrijednost. Jutarnje mjerenje koje stoji
-// uz izdanje kao sidro ne vraća se — to nije prognoza. Čitač stare prognoze
-// ne vidi tuđa izdanja poslije svog sata.
+// uz izdanje kao sidro ne vraća se — to nije prognoza.
 func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]TudaVrijednost {
 	out := map[string]map[int64]TudaVrijednost{}
 	if c == nil || c.db == nil {
@@ -125,9 +106,9 @@ func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]
 	}
 	od := sada.Add(-48*time.Hour).Unix() / 3600
 	r, err := c.db.Query(`SELECT t.letva, t.ciljni, t.vrijednost, t.raspon FROM tude t
-		JOIN (SELECT letva, max(izdano) AS izdano FROM tude WHERE izvor = ? AND izdano >= ? AND izdano <= ?
+		JOIN (SELECT letva, max(izdano) AS izdano FROM tude WHERE izvor = ? AND izdano >= ?
 			GROUP BY letva) z ON z.letva = t.letva AND z.izdano = t.izdano
-		WHERE t.izvor = ? AND t.ciljni > t.izdano`, izvor, od, c.granica(), izvor)
+		WHERE t.izvor = ? AND t.ciljni > t.izdano`, izvor, od, izvor)
 	if err != nil {
 		return out
 	}
@@ -208,7 +189,7 @@ func (c *CitacPrognoza) Izdavac() string {
 	if c == nil || c.db == nil {
 		return ""
 	}
-	cvor, primljeno, err := prognoza.ZadnjiIzdavacDo(c.db, c.granica())
+	cvor, primljeno, err := prognoza.ZadnjiIzdavac(c.db)
 	if err != nil || !primljeno {
 		return ""
 	}
