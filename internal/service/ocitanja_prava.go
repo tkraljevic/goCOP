@@ -132,7 +132,7 @@ func (p PravaLetve) MozeIspraviti(rd *models.Reading, sad time.Time) bool {
 }
 
 // MozeObrisati javlja smije li osoba obrisati očitanje letve: samo tko za
-// nju odgovara, i svoje
+// nju odgovara, i kad je očitanje njegovo
 func (p PravaLetve) MozeObrisati() bool { return p.Odgovara }
 
 // autor javlja je li očitanje upisala ova osoba
