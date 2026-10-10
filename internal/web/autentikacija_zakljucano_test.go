@@ -248,14 +248,17 @@ func TestTudjimOcimaKrozProvjeru(t *testing.T) {
 		t.Error("izlaz iz pregleda tuđim očima mora proći i kao POST")
 	}
 
-	// Gledani račun smije biti isključen: provjera gleda samo stvarnog korisnika.
+	// Gledani račun smije biti isključen: provjera gleda samo stvarnog
+	// korisnika. Pregled isključenog računa ostaje, ali samo za čitanje i uz
+	// uključene upise tuđim očima (Odluke (8. 10. 2026.), pitanje 2; vidi
+	// TestIskljucenRacunTudjimOcimaSamoCita).
 	if _, err := o.baza.Exec(`UPDATE users SET is_active = 0 WHERE id = ?`, pperic.ID.String()); err != nil {
 		t.Fatal(err)
 	}
 	z = &mwZapis{}
 	mwZahtjev(mwPosluzitelj(o, z), http.MethodGet, "/dashboard", sesija.ID.String())
 	if !z.pozvan || !z.gleda || z.korisnik.ID != pperic.ID {
-		t.Errorf("pogled na isključen račun danas prolazi; dobiveno %+v", z)
+		t.Errorf("pogled na isključen račun mora proći za čitanje; dobiveno %+v", z)
 	}
 
 	// kad administratoru prestane uprava, pogled se gasi i vidi sebe

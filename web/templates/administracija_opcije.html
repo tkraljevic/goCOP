@@ -61,7 +61,7 @@
       </label>
       <div class="opcija-opis">
         <p><strong>Što radi:</strong> administrator koji gleda program očima drugog djelatnika (Djelatnici › „Pogledaj kao”) može u tom pogledu i upisivati: otvoriti dnevni list vodočuvara, upisati očitanje, predati list, kao da za tipkovnicom sjedi taj djelatnik. Zapis nastaje pod imenom djelatnika čijim se očima gleda; u dnevnik poslužitelja upisuje se tko je stvarno pisao.</p>
-        <p><strong>Što ne radi:</strong> ne daje administratoru više prava nego što ih ima taj djelatnik; ovlasti su njegove. Bez prekidača se tuđim očima samo čita.</p>
+        <p><strong>Što ne radi:</strong> ne daje administratoru više prava nego što ih ima taj djelatnik; ovlasti su njegove. Bez prekidača se tuđim očima samo čita. Račun kojemu je prijava isključena i uz prekidač se tuđim očima samo čita, pa pod imenom osobe koja se ne smije prijaviti zapis ne nastaje; isključi li se račun usred pregleda, pregled od idućeg koraka samo čita.</p>
         <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se tok isproba bez prijave na tuđi račun. <strong>U operativnom radu držite isključeno:</strong> potpis na listu mora biti djelatnikov, ne administratorov.</p>
       </div>
     </div>
@@ -72,7 +72,7 @@
         <span class="badge {{if .Opcije.SimulacijaKljuca}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.SimulacijaKljuca}}uključeno{{else}}isključeno{{end}}</span>
       </label>
       <div class="opcija-opis">
-        <p><strong>Što radi:</strong> administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</p>
+        <p><strong>Što radi:</strong> administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”, na računu koji nije isključen) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</p>
         <p><strong>Što ne radi:</strong> ne dira pravi ključ djelatnika ni njegovu lozinku; simulirani potpis se u programu i u čitaču PDF-a jasno razlikuje od pravog i nema nikakvu vrijednost. Bez pogleda tuđim očima prekidač ne mijenja ništa: svatko potpisuje samo svojim ključem i lozinkom.</p>
         <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></p>
       </div>

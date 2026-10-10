@@ -78,6 +78,54 @@ func TestIstaRazinaUredjujeNePonistava(t *testing.T) {
 	}
 }
 
+// Uprava sektora daje Dežurnom operateru u COP-u svog sektora privremenu
+// lozinku i kod za prijavu izvana: operater ničim ne upravlja, pa nije
+// uprava iste razine (Odluke (8. 10. 2026.), pitanje 3). Voditelju COP-a i
+// zamjeniku, upravi iste razine, ih i dalje daje viša razina.
+func TestUpravaSektoraDajeOperateruLozinkuIKod(t *testing.T) {
+	o, users := okolinaSektora(t)
+	osoba := func(ime string, r models.Role) *models.User {
+		t.Helper()
+		u := o.racun(t, ime, "lozinka-"+ime, ime+"@voda.hr", false, true)
+		if err := users.AddDuty(o.admin, service.AddDutyRequest{UserID: u.ID, Role: r, SectorID: sektor("A")}); err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	ovlasti := func(u *models.User) *models.UserPermissions {
+		t.Helper()
+		p, err := o.auth.PermissionsFor(u.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	rukovoditeljica := osoba("aanic", models.RoleSectorLeader)
+	voditelj := osoba("iivic", models.RoleCopLeader)
+	zamjenik := osoba("mmarkic", models.RoleCopDeputy)
+	operater := osoba("pperic", models.RoleOperator)
+	ctx := context.Background()
+
+	for _, uprava := range []*models.User{rukovoditeljica, voditelj, zamjenik} {
+		p := ovlasti(uprava)
+		if _, lozinka, err := users.ResetPassword(p, operater.ID); err != nil || lozinka == "" {
+			t.Errorf("%s: privremena lozinka operateru: %v", uprava.Username, err)
+		}
+		if kod, _, err := o.dk.IzdajPrivremeniKod(ctx, p, operater.ID, false); err != nil || kod == "" {
+			t.Errorf("%s: kod za prijavu izvana operateru: %v", uprava.Username, err)
+		}
+	}
+	p := ovlasti(rukovoditeljica)
+	for _, ista := range []*models.User{voditelj, zamjenik} {
+		if _, _, err := users.ResetPassword(p, ista.ID); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("poništenje lozinke upravi iste razine (%s): %v", ista.Username, err)
+		}
+		if _, _, err := o.dk.IzdajPrivremeniKod(ctx, p, ista.ID, false); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("kod upravi iste razine (%s): %v", ista.Username, err)
+		}
+	}
+}
+
 // Privremena uprava na svojoj razini dodjeljuje najdulje do vlastitog
 // isteka; nižim razinama rok ne ograničava
 func TestPrivremenaUpravaNeDajeTrajnu(t *testing.T) {
