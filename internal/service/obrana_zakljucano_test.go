@@ -70,8 +70,11 @@ func novaOkolinaObrane(t *testing.T) *okolinaObrane {
 	}
 	svc := NewEpisodeService(epizode, ocitanja, stanice)
 	pero := &models.User{ID: uuid.New(), Username: pperic, FullName: "Pero Perić"}
+	korisnici := repository.NewUserRepository(baza, rec)
+	users := NewUserService(korisnici, NewAuthService(korisnici, repository.NewSessionRepository(baza)), NewSSEBroker())
 	return &okolinaObrane{
-		svc: svc, akti: NewAktService(repository.NewAktiRepository(baza, rec), stanice, nil, nil, nil, nil, svc, "cvor-probni"),
+		svc: svc, akti: NewAktService(repository.NewAktiRepository(baza, rec), stanice, repository.NewSectionRepository(baza, rec),
+			repository.NewTerritoryRepository(baza, rec), nil, users, svc, "cvor-probni"),
 		epizode: epizode, ocitanja: ocitanja, stanice: stanice, rec: rec, letva: st,
 		pero: pero, uprava: &models.UserPermissions{IsGlobalAdmin: true, User: *pero},
 	}
@@ -95,10 +98,13 @@ func (o *okolinaObrane) ovjeriAkt(t *testing.T, letva, radnja string, stupanj mo
 	for _, d := range dionice {
 		a.Dionice = append(a.Dionice, models.AktDionica{Code: d})
 	}
+	// Testovi obrane namjerno proglašavaju i unatrag: „Vrijedi od” izvan
+	// uobičajenog raspona je potvrđen (Odluke (8. 10. 2026.), pitanje 17).
+	a.Potvrde = potvrdeVrijedi(a, o.pero, true, time.Now())
 	if err := o.akti.Spremi(ctx, o.uprava, a); err != nil {
 		t.Fatalf("spremanje akta %s %s: %v", radnja, stupanj, err)
 	}
-	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.uprava, o.pero, a.ID)
+	ovjeren, upozorenja, err := o.akti.Ovjeri(ctx, o.uprava, o.pero, a.ID, PotvrdaOvjere{Primatelji: true, Vrijedi: true})
 	if err != nil || len(upozorenja) != 0 {
 		t.Fatalf("ovjera akta %s %s: %v (upozorenja %v)", radnja, stupanj, err, upozorenja)
 	}
