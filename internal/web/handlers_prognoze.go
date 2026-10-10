@@ -867,7 +867,7 @@ func uDosezima(d int) bool {
 func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	dnevne map[string][]prognoza.DnevnaIzdana, odSata map[string]int, izdano time.Time,
 	mjereno map[string]map[int]float64, usca map[string][]UsceUlaz,
-	uobicajeno map[string]Sredina, mjesec map[string]float64, jutro Jutro) []*UzduzniProfil {
+	uobicajeno map[string]Sredina, mjesec NulaProfila, jutro Jutro) []*UzduzniProfil {
 	poVodi := map[string][]LetvaProfila{}
 	var redom []string
 	izdanoH := izdano.Unix() / 3600
@@ -889,7 +889,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			Cm: map[int]float64{}, Granice: map[int][2]float64{},
 			Pragovi: map[string]float64{}, Niz: map[int]float64{},
 		}
-		lp.UobicajenoCm, lp.ImaUobicajeno = mjesec[l.Letva]
+		lp.UobicajenoCm, lp.ImaUobicajeno = mjesec.Cm[l.Letva]
 		if s, ima := uobicajeno[l.Letva]; ima {
 			lp.DugiMedijanCm, lp.SrednjakCm = s.Medijan, s.Srednjak
 		}
@@ -1001,6 +1001,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 	for _, voda := range redom {
 		if p := crtajUzduzni(voda, poVodi[voda], usca[voda], brane[voda]...); p != nil {
 			p.JutroOpis = opisJutra(jutro.Dan)
+			mjesec.opisi(p, voda)
 			out = append(out, p)
 		}
 	}
