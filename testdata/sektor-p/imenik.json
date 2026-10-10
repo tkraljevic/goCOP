@@ -1,0 +1,140 @@
+[
+  {
+    "username": "pperic",
+    "full_name": "Pero Perić",
+    "title": "Rukovoditelj obrane od poplava sektora P",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "VGO za Primjerski sliv, Primjerovo",
+    "phone": "000 000 010",
+    "mobile_phone": "000 000 011",
+    "short_phone": "1010",
+    "short_mobile": "1011",
+    "email": "pperic@example.com",
+    "is_global_admin": false,
+    "duties": [
+      {
+        "title": "Rukovoditelj sektora P",
+        "role": "SECTOR_LEADER",
+        "scope_type": "SECTOR",
+        "sector_id": "P",
+        "area_id": null,
+        "section_codes": "",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "username": "aanic",
+    "full_name": "Ana Anić",
+    "title": "Dežurna operaterka u COP-u Primjerovo",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "VGO za Primjerski sliv, Primjerovo",
+    "phone": "000 000 020",
+    "mobile_phone": "000 000 021",
+    "short_phone": "2020",
+    "short_mobile": "2021",
+    "email": "aanic@example.com",
+    "is_global_admin": false,
+    "duties": [
+      {
+        "title": "Dežurna operaterka u COP-u",
+        "role": "OPERATOR",
+        "scope_type": "SECTOR",
+        "sector_id": "P",
+        "area_id": null,
+        "section_codes": "",
+        "is_primary": true
+      }
+    ]
+  },
+  {
+    "username": "iivic",
+    "full_name": "Ivo Ivić",
+    "title": "Administrator goCOP-a",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "Direkcija Primjerske vodoprivrede",
+    "phone": "000 000 030",
+    "mobile_phone": "000 000 031",
+    "short_phone": "3030",
+    "short_mobile": "3031",
+    "email": "iivic@example.com",
+    "is_global_admin": true,
+    "duties": [
+      {
+        "title": "Glavni administrator COP-a",
+        "role": "GLOBAL_ADMIN",
+        "scope_type": "ALL",
+        "sector_id": "DIREKCIJA",
+        "area_id": null,
+        "section_codes": "",
+        "is_primary": true
+      },
+      {
+        "title": "Dežurni operater u COP-u",
+        "role": "OPERATOR",
+        "scope_type": "SECTOR",
+        "sector_id": "P",
+        "area_id": null,
+        "section_codes": "",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "username": "ivaivic",
+    "full_name": "Iva Ivić",
+    "title": "Rukovoditeljica dionica P.1.1 i P.1.2",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "VGI Primjerica, Primjerovo",
+    "phone": "000 000 040",
+    "mobile_phone": "000 000 041",
+    "short_phone": "",
+    "short_mobile": "",
+    "email": "ivaivic@example.com",
+    "is_global_admin": false,
+    "duties": [
+      {
+        "title": "Rukovoditeljica dionica P.1.1 i P.1.2",
+        "role": "SECTION_LEADER",
+        "scope_type": "SECTION",
+        "sector_id": "P",
+        "area_id": 1,
+        "section_codes": "P.1.1, P.1.2",
+        "is_primary": true
+      },
+      {
+        "title": "Rukovoditeljica branjenog područja 3",
+        "role": "AREA_LEADER",
+        "scope_type": "AREA",
+        "sector_id": "E",
+        "area_id": 3,
+        "section_codes": "",
+        "is_primary": false
+      }
+    ]
+  },
+  {
+    "username": "mmarkic",
+    "full_name": "Marko Markić",
+    "title": "Vodočuvar",
+    "org_type": "HRVATSKE_VODE",
+    "org_name": "VGI Primjerica, Primjerovo",
+    "phone": "",
+    "mobile_phone": "000 000 051",
+    "short_phone": "",
+    "short_mobile": "",
+    "email": "mmarkic@example.com",
+    "is_global_admin": false,
+    "duties": [
+      {
+        "title": "Vodočuvar dionice P.1.1",
+        "role": "WATER_GUARD",
+        "scope_type": "SECTION",
+        "sector_id": "P",
+        "area_id": 1,
+        "section_codes": "P.1.1",
+        "is_primary": true
+      }
+    ]
+  }
+]

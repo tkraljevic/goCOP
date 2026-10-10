@@ -17,7 +17,6 @@ import (
 // ostane gola brojka koja izgleda kao mjerenje — zato se traži cijeli zapis
 // natrag, i nakon upisa i nakon izmjene.
 func TestPovratniVodostajiPrezivePohranu(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "postaje.db"))
 	if err != nil {
 		t.Fatal(err)

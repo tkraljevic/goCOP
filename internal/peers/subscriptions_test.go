@@ -9,9 +9,9 @@ import (
 	"gocop/internal/peers"
 )
 
-// Laptop koji prati samo BP 16 dobiva zajedničke zapise i BP 16, ne i
-// BP 15; kad pretplatu makne i obriše, verzije nestaju s računala, a
-// vraćaju se čim se opet pretplati.
+// Laptop koji prati samo BP 1 dobiva zajedničke zapise i BP 1, ne i
+// BP 2; kad pretplatu makne i obriše, verzije nestaju s računala, a
+// vraćaju se čim se opet pretplati. Oba su područja u izmišljenom sektoru P.
 func TestPretplataOgradjujeRazmjenu(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -22,34 +22,34 @@ func TestPretplataOgradjujeRazmjenu(t *testing.T) {
 	pair(t, ctx, ured, laptop)
 	ured.svc.SetWantsAll(true)
 
-	ch16 := ledger.ChannelFor(ledger.ChannelReadings, 16, 2026)
-	ch15 := ledger.ChannelFor(ledger.ChannelReadings, 15, 2026)
+	ch1 := ledger.ChannelFor(ledger.ChannelReadings, 1, 2026)
+	ch2 := ledger.ChannelFor(ledger.ChannelReadings, 2, 2026)
 	db := ured.rec
-	if _, err := db.RecordIn(ctx, ured.db, ch16, "probni", "r-16", map[string]int{"cm": 300}); err != nil {
+	if _, err := db.RecordIn(ctx, ured.db, ch1, "probni", "r-1", map[string]int{"cm": 300}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.RecordIn(ctx, ured.db, ch15, "probni", "r-15", map[string]int{"cm": 200}); err != nil {
+	if _, err := db.RecordIn(ctx, ured.db, ch2, "probni", "r-2", map[string]int{"cm": 200}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Record(ctx, ured.db, "probni", "zajednicki", map[string]int{"cm": 1}); err != nil {
 		t.Fatal(err)
 	}
 
-	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{Kind: ledger.ChannelReadings, AreaID: 16}); err != nil {
+	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{Kind: ledger.ChannelReadings, AreaID: 1}); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := laptop.svc.SyncWith(ctx, ured.id); err != nil {
 		t.Fatalf("razmjena: %v", err)
 	}
 	counts, _ := laptop.rec.CountByChannel(ctx)
-	if counts[ch16] != 1 || counts[ch15] != 0 {
-		t.Fatalf("laptop drži %v, očekivano samo BP 16", counts)
+	if counts[ch1] != 1 || counts[ch2] != 0 {
+		t.Fatalf("laptop drži %v, očekivano samo BP 1", counts)
 	}
 	if _, err := laptop.rec.Latest(ctx, "probni", "zajednicki"); err != nil {
 		t.Error("zajednički zapis mora stići svakome")
 	}
 
-	// druga razmjena ne vraća ništa: BP 15 nije rupa u granici
+	// druga razmjena ne vraća ništa: BP 2 nije rupa u granici
 	applied, _, err := laptop.svc.SyncWith(ctx, ured.id)
 	if err != nil || applied != 0 {
 		t.Errorf("ponovljena razmjena: primljeno %d, %v", applied, err)
@@ -61,22 +61,22 @@ func TestPretplataOgradjujeRazmjenu(t *testing.T) {
 		t.Fatal(err)
 	}
 	removed, err := laptop.svc.PurgeUnwanted(ctx)
-	if err != nil || removed[ch16] != 1 {
+	if err != nil || removed[ch1] != 1 {
 		t.Fatalf("brisanje s računala: %v %v", removed, err)
 	}
-	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{SectorID: "B"}); err != nil {
+	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{SectorID: "P"}); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := laptop.svc.SyncWith(ctx, ured.id); err != nil {
 		t.Fatal(err)
 	}
 	counts, _ = laptop.rec.CountByChannel(ctx)
-	if counts[ch16] != 1 || counts[ch15] != 1 {
-		t.Errorf("pretplata na sektor B mora vratiti oba područja: %v", counts)
+	if counts[ch1] != 1 || counts[ch2] != 1 {
+		t.Errorf("pretplata na sektor P mora vratiti oba područja: %v", counts)
 	}
 
 	// kanal pod pretplatom se ne briše
-	if _, err := laptop.svc.PurgeChannel(ctx, ch16); err == nil {
+	if _, err := laptop.svc.PurgeChannel(ctx, ch1); err == nil {
 		t.Error("kanal pod pretplatom ne smije se obrisati")
 	}
 }

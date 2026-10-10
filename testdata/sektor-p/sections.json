@@ -1,0 +1,237 @@
+[
+  {
+    "code": "P.1.1",
+    "area_id": 1,
+    "sector_id": "P",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-primjerica",
+        "stationing_kind": "rkm",
+        "km_from": 10.0,
+        "km_to": 18.5,
+        "bank": "LD",
+        "protected_text": "Primjerovo i Probno Selo",
+        "gauges": [
+          {
+            "station_name": "Primjerovo, rkm 12+300 (81,25)",
+            "prep_cm": "+300",
+            "regular_cm": "+350",
+            "emerg_cm": "+400",
+            "critical_cm": "+450",
+            "record_cm": "+478 (01.03.2026.)",
+            "notes": ""
+          }
+        ],
+        "objects": [
+          {
+            "name": "CS Probni",
+            "stationing_kind": "rkm",
+            "stationing": 12.8,
+            "stationing_text": "rkm 12+800"
+          }
+        ],
+        "embankments": [
+          {
+            "name": "Lijevi nasip Primjerice",
+            "water_kind": "rkm",
+            "water_from": 10.0,
+            "water_to": 18.5,
+            "length_km": 8.5
+          }
+        ]
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  },
+  {
+    "code": "P.1.2",
+    "area_id": 1,
+    "sector_id": "P",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-primjerica",
+        "stationing_kind": "rkm",
+        "km_from": 18.5,
+        "km_to": 25.0,
+        "bank": "D",
+        "protected_text": "Ogledno",
+        "gauges": [
+          {
+            "station_name": "Primjerovo, rkm 12+300 (81,25)",
+            "prep_cm": "+300",
+            "regular_cm": "+350",
+            "emerg_cm": "+400",
+            "critical_cm": "+450",
+            "record_cm": "+478 (01.03.2026.)",
+            "notes": ""
+          },
+          {
+            "station_name": "CS Probni (80,15)",
+            "prep_cm": "+150",
+            "regular_cm": "+180",
+            "emerg_cm": "+210",
+            "critical_cm": "",
+            "record_cm": "",
+            "notes": "letva crpne stanice"
+          }
+        ],
+        "objects": [
+          {
+            "name": "Ustava Probna",
+            "stationing_kind": "rkm",
+            "stationing": 21.0,
+            "stationing_text": "rkm 21+000"
+          }
+        ],
+        "embankments": []
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  },
+  {
+    "code": "P.1.3",
+    "area_id": 1,
+    "sector_id": "P",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "kanal-probni",
+        "stationing_kind": "km",
+        "km_from": 0.0,
+        "km_to": 6.1,
+        "bank": "LD",
+        "protected_text": "Probno Selo",
+        "gauges": [
+          {
+            "station_name": "CS Probni (80,15)",
+            "prep_cm": "+150",
+            "regular_cm": "+180",
+            "emerg_cm": "+210",
+            "critical_cm": "",
+            "record_cm": "",
+            "notes": "letva crpne stanice"
+          }
+        ],
+        "objects": [],
+        "embankments": []
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  },
+  {
+    "code": "P.2.1",
+    "area_id": 2,
+    "sector_id": "P",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-oglednica",
+        "stationing_kind": "rkm",
+        "km_from": 0.0,
+        "km_to": 6.0,
+        "bank": "LD",
+        "protected_text": "Ogledno",
+        "gauges": [
+          {
+            "station_name": "Oglednica, rkm 3+100 (78,40)",
+            "prep_cm": "+250",
+            "regular_cm": "+300",
+            "emerg_cm": "+350",
+            "critical_cm": "+400",
+            "record_cm": "",
+            "notes": ""
+          }
+        ],
+        "objects": [],
+        "embankments": []
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  },
+  {
+    "code": "E.3.1",
+    "area_id": 3,
+    "sector_id": "E",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-rubnica",
+        "stationing_kind": "rkm",
+        "km_from": 0.0,
+        "km_to": 12.0,
+        "bank": "LD",
+        "protected_text": "Rubno",
+        "gauges": [
+          {
+            "station_name": "Rubno, rkm 5+000 (90,00)",
+            "prep_cm": "+200",
+            "regular_cm": "+260",
+            "emerg_cm": "+320",
+            "critical_cm": "",
+            "record_cm": "",
+            "notes": ""
+          }
+        ],
+        "objects": [],
+        "embankments": []
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  },
+  {
+    "code": "E.3.2",
+    "area_id": 3,
+    "sector_id": "E",
+    "description": "",
+    "description_custom": false,
+    "parts": [
+      {
+        "seq": 1,
+        "watercourse_code": "rijeka-rubnica",
+        "stationing_kind": "rkm",
+        "km_from": 12.0,
+        "km_to": 20.0,
+        "bank": "D",
+        "protected_text": "Rubno",
+        "gauges": [
+          {
+            "station_name": "Rubno, rkm 5+000 (90,00)",
+            "prep_cm": "+200",
+            "regular_cm": "+260",
+            "emerg_cm": "+320",
+            "critical_cm": "",
+            "record_cm": "",
+            "notes": ""
+          }
+        ],
+        "objects": [],
+        "embankments": []
+      }
+    ],
+    "notes": "",
+    "created_at": "",
+    "updated_at": ""
+  }
+]

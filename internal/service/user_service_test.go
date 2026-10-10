@@ -16,11 +16,13 @@ import (
 	"github.com/google/uuid"
 )
 
+// setupTestServices puni bazu iz izmišljenog skupa sektora P
+// (testdata/sektor-p): administrator Ivo Ivić, rukovoditelj sektora Pero
+// Perić, operaterka Ana Anić, rukovoditeljica dionica Iva Ivić i vodočuvar
+// Marko Markić
 func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService, *service.SSEBroker, *repository.UserRepository) {
 	t.Helper()
-	if !db.UseRepoImenik() {
-		t.Skip("imenik.json nije dostupan — osobni podaci djelatnika stoje izvan repozitorija (data/imenik.json)")
-	}
+	db.KoristiIzmisljenePodatke(t)
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_gocop.db")
 
@@ -47,20 +49,20 @@ func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService
 	return userService, authService, sseBroker, userRepo
 }
 
-// TestSeedAdminProvjera provjerava profil i višestruke funkcije Tomislava Kraljevića (COP Osijek)
+// TestSeedAdminProvjera provjerava profil i višestruke funkcije administratora Ive Ivića
 func TestSeedAdminProvjera(t *testing.T) {
 	_, authService, _, userRepo := setupTestServices(t)
 
-	admin, err := userRepo.GetUserByUsername("tkraljevic")
+	admin, err := userRepo.GetUserByUsername("iivic")
 	if err != nil {
 		t.Fatalf("Greška pri dohvatu admina: %v", err)
 	}
 	if admin == nil {
-		t.Fatal("Korisnik 'tomislav' nije pronađen u seed podacima")
+		t.Fatal("Korisnik 'iivic' nije pronađen u seed podacima")
 	}
 
 	if !admin.IsGlobalAdmin {
-		t.Error("Očekivano da Tomislav ima IsGlobalAdmin = true")
+		t.Error("Očekivano da Ivo Ivić ima IsGlobalAdmin = true")
 	}
 	if admin.MobilePhone == "" || admin.ShortPhone == "" {
 		t.Errorf("Očekivani mobitel i skraćeni lokal iz imenika, dobiveno: %q / %q", admin.MobilePhone, admin.ShortPhone)
@@ -68,7 +70,7 @@ func TestSeedAdminProvjera(t *testing.T) {
 
 	// Provjera višestrukih funkcija
 	if len(admin.Duties) < 2 {
-		t.Fatalf("Očekivano barem 2 funkcije za Tomislava, pronađeno: %d", len(admin.Duties))
+		t.Fatalf("Očekivano barem 2 funkcije za Ivu Ivića, pronađeno: %d", len(admin.Duties))
 	}
 
 	// Provjera lozinke
@@ -77,38 +79,41 @@ func TestSeedAdminProvjera(t *testing.T) {
 	}
 }
 
-// TestMultiDutyPersonProvjera provjerava Josipa Fučeka koji ima i branjeno područje i više dionica
+// TestMultiDutyPersonProvjera provjerava Ivu Ivić koja ima i branjeno područje i više dionica
 func TestMultiDutyPersonProvjera(t *testing.T) {
 	_, _, _, userRepo := setupTestServices(t)
 
-	fucek, err := userRepo.GetUserByUsername("jfucek")
+	iva, err := userRepo.GetUserByUsername("ivaivic")
 	if err != nil {
 		t.Fatalf("Greška pri dohvatu korisnika: %v", err)
 	}
-	if fucek == nil {
-		t.Fatal("Korisnik 'jfucek' nije pronađen u seed podacima")
+	if iva == nil {
+		t.Fatal("Korisnik 'ivaivic' nije pronađen u seed podacima")
 	}
 
-	if len(fucek.Duties) != 2 {
-		t.Fatalf("Josip Fuček bi trebao imati točno 2 funkcije, pronađeno: %d", len(fucek.Duties))
+	if len(iva.Duties) != 2 {
+		t.Fatalf("Iva Ivić bi trebala imati točno 2 funkcije, pronađeno: %d", len(iva.Duties))
 	}
 
-	perms, err := userRepo.GetUserPermissions(fucek.ID)
+	perms, err := userRepo.GetUserPermissions(iva.ID)
 	if err != nil {
 		t.Fatalf("Greška pri dohvatu ovlasti: %v", err)
 	}
 
-	// Ima pristup branjenom području 19
-	if !perms.HasWriteAccess("A", 19, "") {
-		t.Error("Korisnik bi trebao imati pravo pisanja za branjeno područje 19")
+	// Ima pristup branjenom području 3 (sektor E)
+	if !perms.HasWriteAccess("E", 3, "") {
+		t.Error("Korisnik bi trebao imati pravo pisanja za branjeno područje 3")
 	}
 
-	// Ima pristup dionicama A.19.8, A.19.9, A.19.10
-	if !perms.HasWriteAccess("A", 0, "A.19.8") {
-		t.Error("Korisnik bi trebao imati pravo pisanja za dionicu A.19.8")
+	// Ima pristup dionicama P.1.1 i P.1.2, ali ne i ostatku područja 1
+	if !perms.HasWriteAccess("P", 0, "P.1.1") {
+		t.Error("Korisnik bi trebao imati pravo pisanja za dionicu P.1.1")
 	}
-	if !perms.HasWriteAccess("A", 0, "A.19.10") {
-		t.Error("Korisnik bi trebao imati pravo pisanja za dionicu A.19.10")
+	if !perms.HasWriteAccess("P", 0, "P.1.2") {
+		t.Error("Korisnik bi trebao imati pravo pisanja za dionicu P.1.2")
+	}
+	if perms.HasWriteAccess("P", 1, "P.1.3") {
+		t.Error("Rukovoditeljica dionica ne smije pisati po cijelom području 1")
 	}
 }
 
@@ -119,72 +124,72 @@ func TestDynamicAddDutyOnTheFly(t *testing.T) {
 	sseChan := sseBroker.Subscribe()
 	defer sseBroker.Unsubscribe(sseChan)
 
-	admin, _ := userRepo.GetUserByUsername("tkraljevic")
+	admin, _ := userRepo.GetUserByUsername("iivic")
 	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
 
-	sectorB := "B"
-	area15 := 15
+	sectorP := "P"
+	area1 := 1
 
-	// 1. Kreiranje novog djelatnika u Osijeku
+	// 1. Kreiranje novog djelatnika u Primjerovu
 	newUser, err := userService.CreateUser(adminPerms, service.CreateUserRequest{
 		Username:     "operater1",
 		Password:     "tajna123",
-		FullName:     "Petar Perić",
+		FullName:     "Novi Operater",
 		Title:        "ing.građ.",
 		OrgType:      models.OrgHrvatskeVode,
-		OrgName:      "VGO Osijek",
-		Phone:        "031-252-800",
-		MobilePhone:  "098-111-2222",
-		ShortPhone:   "2800",
-		Email:        "petar.peric@voda.hr",
-		DutyTitle:    "Dežurni inženjer COP Osijek",
+		OrgName:      "VGO za Primjerski sliv, Primjerovo",
+		Phone:        "000 000 090",
+		MobilePhone:  "000 000 091",
+		ShortPhone:   "9090",
+		Email:        "operater1@example.com",
+		DutyTitle:    "Dežurni operater u COP-u Primjerovo",
 		Role:         models.RoleOperator,
 		ScopeType:    models.ScopeArea,
-		SectorID:     &sectorB,
-		AreaID:       &area15,
-		SectionCodes: "B.15.1, B.15.2",
+		SectorID:     &sectorP,
+		AreaID:       &area1,
+		SectionCodes: "P.1.1, P.1.2",
 	})
 	if err != nil {
 		t.Fatalf("Greška pri kreiranju djelatnika: %v", err)
 	}
 
 	permsBefore, _ := userRepo.GetUserPermissions(newUser.ID)
-	if !permsBefore.HasWriteAccess("B", 15, "B.15.1") {
-		t.Error("Korisnik bi trebao imati pristup dionici B.15.1")
+	if !permsBefore.HasWriteAccess("P", 1, "P.1.1") {
+		t.Error("Korisnik bi trebao imati pristup dionici P.1.1")
 	}
-	if permsBefore.HasWriteAccess("D", 10, "D.10.1") {
-		t.Error("Korisnik ne bi smio imati pristup dionicama u Sisku")
+	if permsBefore.HasWriteAccess("E", 3, "E.3.1") {
+		t.Error("Korisnik ne bi smio imati pristup dionicama sektora E")
 	}
 
-	// 2. Dodjela dodatnog zaduženja / ispomoći za Sektor D / Područje 10 i specifične dionice D.10.1, D.10.2
-	sectorD := "D"
-	area10 := 10
+	// 2. Dodjela dodatnog zaduženja / ispomoći za Sektor E / Područje 3 i specifične dionice E.3.1, E.3.2
+	sectorE := "E"
+	area3 := 3
 	expires := time.Now().Add(72 * time.Hour)
 
 	err = userService.AddDuty(adminPerms, service.AddDutyRequest{
 		UserID:       newUser.ID,
-		Title:        "Ispomoć — Ophodnja dionica na Savi u Sisku",
+		Title:        "Ispomoć — Ophodnja dionica na Rubnici",
 		Role:         models.RoleSectionLeader,
 		ScopeType:    models.ScopeSection,
-		SectorID:     &sectorD,
-		AreaID:       &area10,
-		SectionCodes: "D.10.1, D.10.2, D.10.3",
+		SectorID:     &sectorE,
+		AreaID:       &area3,
+		SectionCodes: "E.3.1, E.3.2",
 		IsPrimary:    false,
 		IsTemporary:  true,
-		Reason:       "Hitno podizanje nasipa kod Siska",
+		Reason:       "Hitno podizanje nasipa kod Rubnog",
 		ExpiresAt:    &expires,
 	})
 	if err != nil {
 		t.Fatalf("Greška pri dodjeli funkcije: %v", err)
 	}
 
-	// 3. Provjera novih ovlasti: sada IMA pristup dionicama D.10.1 i D.10.2
+	// 3. Provjera novih ovlasti: sada IMA pristup dionicama E.3.1 i E.3.2
 	permsAfter, _ := userRepo.GetUserPermissions(newUser.ID)
-	if !permsAfter.HasWriteAccess("D", 0, "D.10.1") {
-		t.Error("Korisnik bi sada MORAO imati pristup dionici D.10.1 na Savi")
+	if !permsAfter.HasWriteAccess("E", 0, "E.3.1") {
+		t.Error("Korisnik bi sada MORAO imati pristup dionici E.3.1 na Rubnici")
 	}
-	if !permsAfter.HasWriteAccess("D", 0, "D.10.3") {
-		t.Error("Korisnik bi sada MORAO imati pristup dionici D.10.3 na Savi")
+	if !permsAfter.HasWriteAccess("E", 0, "E.3.2") {
+		t.Error("Korisnik bi sada MORAO imati pristup dionici E.3.2 na Rubnici")
 	}
 
 	// 4. Provjera primitka SSE poruke
@@ -202,53 +207,53 @@ func TestDynamicAddDutyOnTheFly(t *testing.T) {
 func TestSearchUsers(t *testing.T) {
 	userService, _, _, userRepo := setupTestServices(t)
 
-	// Pretraga po imenu i prezimenu
-	results, err := userService.ListUsers("", 0, "", "Kraljević", "")
+	// Pretraga po prezimenu: Ivić su i Ivo i Iva
+	results, err := userService.ListUsers("", 0, "", "Ivić", "")
 	if err != nil {
 		t.Fatalf("Greška pri pretrazi: %v", err)
 	}
-	if len(results) == 0 {
-		t.Fatal("Pretraga za 'Kraljević' morala je pronaći barem jednog korisnika")
+	if len(results) != 2 {
+		t.Fatalf("Pretraga za 'Ivić' morala je pronaći Ivu Ivića i Ivu Ivić, pronađeno: %d", len(results))
 	}
-	foundTomislav := false
+	foundIvo := false
 	for _, u := range results {
-		if u.Username == "tkraljevic" {
-			foundTomislav = true
+		if u.Username == "iivic" {
+			foundIvo = true
 			break
 		}
 	}
-	if !foundTomislav {
-		t.Error("Korisnik 'tomislav' nije pronađen u rezultatima pretrage")
+	if !foundIvo {
+		t.Error("Korisnik 'iivic' nije pronađen u rezultatima pretrage")
 	}
 
 	// Pretraga po dionici
-	dionicaResults, err := userService.ListUsers("", 0, "", "B.15.1", "")
+	dionicaResults, err := userService.ListUsers("", 0, "", "P.1.1", "")
 	if err != nil {
 		t.Fatalf("Greška pri pretrazi dionica: %v", err)
 	}
 	if len(dionicaResults) == 0 {
-		t.Fatal("Pretraga po dionici 'B.15.1' morala je vratiti rezultate")
+		t.Fatal("Pretraga po dionici 'P.1.1' morala je vratiti rezultate")
 	}
 
 	// Pretraga po broju mobitela
 	// pretraga po broju telefona: broj se uzima iz zapisa, ne piše se u test
-	tomislavZaBroj, _ := userRepo.GetUserByUsername("tkraljevic")
-	phoneResults, err := userService.ListUsers("", 0, "", tomislavZaBroj.MobilePhone, "")
+	ivoZaBroj, _ := userRepo.GetUserByUsername("iivic")
+	phoneResults, err := userService.ListUsers("", 0, "", ivoZaBroj.MobilePhone, "")
 	if err != nil {
 		t.Fatalf("Greška pri pretrazi po mobitelu: %v", err)
 	}
 	if len(phoneResults) == 0 {
 		t.Error("Očekivani rezultati pretrage po broju mobitela, pronađeno 0")
 	}
-	foundTomislavPhone := false
+	foundIvoPhone := false
 	for _, u := range phoneResults {
-		if u.Username == "tkraljevic" {
-			foundTomislavPhone = true
+		if u.Username == "iivic" {
+			foundIvoPhone = true
 			break
 		}
 	}
-	if !foundTomislavPhone {
-		t.Error("Korisnik 'tomislav' nije pronađen u pretrazi po mobitelu")
+	if !foundIvoPhone {
+		t.Error("Korisnik 'iivic' nije pronađen u pretrazi po mobitelu")
 	}
 }
 
@@ -256,7 +261,7 @@ func TestSearchUsers(t *testing.T) {
 func TestDeleteUser(t *testing.T) {
 	userService, _, _, userRepo := setupTestServices(t)
 
-	admin, _ := userRepo.GetUserByUsername("tkraljevic")
+	admin, _ := userRepo.GetUserByUsername("iivic")
 	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
 
 	// Pokušaj brisanja samoga sebe mora vratiti grešku
@@ -265,7 +270,9 @@ func TestDeleteUser(t *testing.T) {
 		t.Fatal("Očekivana greška pri pokušaju brisanja vlastitog profila")
 	}
 
-	// Stvaranje privremenog korisnika za brisanje
+	// Stvaranje privremenog korisnika za brisanje; terenska uloga traži
+	// branjeno područje
+	area1 := 1
 	target, err := userService.CreateUser(adminPerms, service.CreateUserRequest{
 		Username:  "za_brisanje",
 		Password:  "gocop2026",
@@ -273,6 +280,7 @@ func TestDeleteUser(t *testing.T) {
 		Title:     "ing.",
 		Role:      models.RoleFieldWorker,
 		ScopeType: models.ScopeSector,
+		AreaID:    &area1,
 		DutyTitle: "Pripravnik",
 	})
 	if err != nil {
@@ -305,8 +313,8 @@ func TestDeleteUser(t *testing.T) {
 func TestChangePassword(t *testing.T) {
 	_, authService, _, userRepo := setupTestServices(t)
 
-	// 1. Dohvat korisnika nakon početnog seeda
-	user, err := userRepo.GetUserByUsername("tkraljevic")
+	// 1. Dohvat korisnice nakon početnog seeda: Ana Anić
+	user, err := userRepo.GetUserByUsername("aanic")
 	if err != nil || user == nil {
 		t.Fatalf("Greška pri dohvatu korisnika: %v", err)
 	}
@@ -317,7 +325,7 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 2. Prijava s početnom lozinkom mora uspjeti
-	_, loggedUser, err := authService.Login("tkraljevic", "gocop2026", "127.0.0.1", "test-agent")
+	_, loggedUser, err := authService.Login("aanic", "gocop2026", "127.0.0.1", "test-agent")
 	if err != nil || loggedUser == nil {
 		t.Fatalf("Prijava s početnom lozinkom 'gocop2026' nije uspjela: %v", err)
 	}
@@ -350,13 +358,13 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 7. Stara lozinka više ne smije prolaziti
-	_, _, err = authService.Login("tkraljevic", "gocop2026", "127.0.0.1", "test-agent")
+	_, _, err = authService.Login("aanic", "gocop2026", "127.0.0.1", "test-agent")
 	if err == nil {
 		t.Error("Stara lozinka ne smije vrijediti nakon promjene")
 	}
 
 	// 8. Nova lozinka mora uspješno prijaviti korisnika
-	_, _, err = authService.Login("tkraljevic", "mojaNovaSigurnaLozinka", "127.0.0.1", "test-agent")
+	_, _, err = authService.Login("aanic", "mojaNovaSigurnaLozinka", "127.0.0.1", "test-agent")
 	if err != nil {
 		t.Fatalf("Prijava s novom lozinkom nije uspjela: %v", err)
 	}
@@ -367,10 +375,10 @@ func TestChangePassword(t *testing.T) {
 func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 	userService, _, _, userRepo := setupTestServices(t)
 
-	// Uzmimo redovnog korisnika (terenskog radnika / strojara Zvonka Ciprića)
-	user, err := userRepo.GetUserByUsername("zcipric")
+	// Uzmimo redovnog korisnika (vodočuvara Marka Markića)
+	user, err := userRepo.GetUserByUsername("mmarkic")
 	if err != nil || user == nil {
-		t.Fatalf("Korisnik 'zcipric' nije pronađen: %v", err)
+		t.Fatalf("Korisnik 'mmarkic' nije pronađen: %v", err)
 	}
 
 	userPerms, err := userRepo.GetUserPermissions(user.ID)
@@ -379,31 +387,33 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 	}
 
 	// 1. Korisnik smije ažurirati SVOJ profil (telefon, mobitel, titulu);
-	// adresa e-pošte ima svoja pravila (TestVlastitaPromjenaAdrese)
+	// adresa e-pošte ima svoja pravila (TestVlastitaPromjenaAdrese), a
+	// obrazac šalje i zatečenu uključenost računa, koju sam ne mijenja
 	updated, err := userService.UpdateUser(userPerms, service.UpdateUserRequest{
 		ID:          user.ID,
 		Username:    user.Username,
-		FullName:    "Zvonko Ciprić (Ažuriran)",
+		FullName:    "Marko Markić (Ažuriran)",
 		Title:       "struč.spec.ing.",
-		Phone:       "035-123-456",
-		MobilePhone: "099-999-8888",
-		ShortPhone:  "9999",
+		Phone:       "000 000 050",
+		MobilePhone: "000 000 059",
+		ShortPhone:  "5059",
 		Email:       user.Email,
+		IsActive:    user.IsActive,
 	})
 	if err != nil {
 		t.Fatalf("Redovni korisnik mora moći urediti vlastiti profil, greška: %v", err)
 	}
-	if updated.MobilePhone != "099-999-8888" || updated.Email != user.Email || updated.Title != "struč.spec.ing." {
+	if updated.MobilePhone != "000 000 059" || updated.Email != user.Email || updated.Title != "struč.spec.ing." {
 		t.Errorf("Ažurirani podaci ne odgovaraju: %+v", updated)
 	}
 
-	// 2. Korisnik NE SMIJE moći uređivati tuđi profil (npr. Tomislava Kraljevića)
-	otherUser, _ := userRepo.GetUserByUsername("tkraljevic")
+	// 2. Korisnik NE SMIJE moći uređivati tuđi profil (npr. administratora Ive Ivića)
+	otherUser, _ := userRepo.GetUserByUsername("iivic")
 	_, err = userService.UpdateUser(userPerms, service.UpdateUserRequest{
 		ID:          otherUser.ID,
 		Username:    otherUser.Username,
 		FullName:    "Hakirani Admin",
-		MobilePhone: "091-000-0000",
+		MobilePhone: "000 000 000",
 	})
 	if err != service.ErrUnauthorized {
 		t.Errorf("Očekivano ErrUnauthorized pri pokušaju uređivanja tuđeg profila, dobiveno: %v", err)
@@ -438,12 +448,12 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 // Izmjena zaduženja: uprava mijenja dionice u mjestu, redovni korisnik ne smije
 func TestIzmjenaZaduzenja(t *testing.T) {
 	userService, _, _, userRepo := setupTestServices(t)
-	admin, _ := userRepo.GetUserByUsername("tkraljevic")
+	admin, _ := userRepo.GetUserByUsername("iivic")
 	adminPerms, _ := userRepo.GetUserPermissions(admin.ID)
 
-	osoba, _ := userRepo.GetUserByUsername("jfucek")
+	osoba, _ := userRepo.GetUserByUsername("ivaivic")
 	if osoba == nil || len(osoba.Duties) == 0 {
-		t.Skip("nema osobe s dionicama u imeniku")
+		t.Fatal("u izmišljenom skupu nema Ive Ivić s dužnostima")
 	}
 	var zad *models.Duty
 	for i := range osoba.Duties {
@@ -453,14 +463,14 @@ func TestIzmjenaZaduzenja(t *testing.T) {
 		}
 	}
 	if zad == nil {
-		t.Skip("nema zaduženja s dionicama")
+		t.Fatal("Iva Ivić nema zaduženje s dionicama")
 	}
-	req := service.AddDutyRequest{UserID: osoba.ID, Title: zad.Title + " (izmjena)", Role: zad.Role, SectorID: zad.SectorID, AreaID: zad.AreaID, SectionCodes: zad.SectionCodes + ", A.99.9", IsPrimary: zad.IsPrimary}
+	req := service.AddDutyRequest{UserID: osoba.ID, Title: zad.Title + " (izmjena)", Role: zad.Role, SectorID: zad.SectorID, AreaID: zad.AreaID, SectionCodes: zad.SectionCodes + ", P.1.3", IsPrimary: zad.IsPrimary}
 	if err := userService.UpdateDuty(adminPerms, zad.ID, req); err != nil {
 		t.Fatalf("uprava ne može izmijeniti zaduženje: %v", err)
 	}
 	poslije, _ := userRepo.GetDuty(zad.ID)
-	if poslije == nil || !strings.HasSuffix(poslije.SectionCodes, "A.99.9") || !strings.HasSuffix(poslije.Title, "(izmjena)") {
+	if poslije == nil || !strings.HasSuffix(poslije.SectionCodes, "P.1.3") || !strings.HasSuffix(poslije.Title, "(izmjena)") {
 		t.Fatalf("izmjena nije spremljena: %+v", poslije)
 	}
 

@@ -166,12 +166,28 @@ func TestStranicaKisomjera(t *testing.T) {
 	}
 }
 
+// Poruka preskočene probe kaže da proba treba stvarne baze čvora iz data/ i
+// da ništa ne provjerava, da se ne broji među provjere koje samo čekaju
+// varijablu okoline (Odluke (8. 10. 2026.), pitanje 13)
+func TestPorukaProbeKisomjeraKazeStoTreba(t *testing.T) {
+	for _, zeli := range []string{"GOCOP_KISA_PROBA", "data/", "gocop.db", "oborine.db", "vodostaji.db", "pregled okom", "ne provjerava"} {
+		if !strings.Contains(porukaProbeKisomjera, zeli) {
+			t.Errorf("poruka ne kaže %q: %s", zeli, porukaProbeKisomjera)
+		}
+	}
+}
+
+// porukaProbeKisomjera kaže što ručnoj probi stranice kišomjera treba
+const porukaProbeKisomjera = "ručna proba: iscrta stranice kišomjera na stvarnim bazama čvora u data/ " +
+	"(gocop.db, oborine.db, vodostaji.db) u mapu GOCOP_KISA_PROBA=<mapa za HTML>, za pregled okom; " +
+	"ništa ne provjerava, pa se bez te varijable preskače"
+
 // TestStranicaKisomjeraNaPravimPodacima iscrta stranice na pravim bazama
 // čvora, za pregled okom. Pokreće se samo s GOCOP_KISA_PROBA=<mapa za HTML>.
 func TestStranicaKisomjeraNaPravimPodacima(t *testing.T) {
 	izlaz := os.Getenv("GOCOP_KISA_PROBA")
 	if izlaz == "" {
-		t.Skip("GOCOP_KISA_PROBA nije postavljen")
+		t.Skip(porukaProbeKisomjera)
 	}
 	podaci := "../../data/"
 	baza, err := sql.Open("sqlite", podaci+"gocop.db?mode=ro")

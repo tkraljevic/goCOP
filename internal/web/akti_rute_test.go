@@ -203,7 +203,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	sekB, bp34 := "B", 34
-	vodocuvar := &models.User{ID: uuid.New(), Username: "seit", FullName: "Seit Vodočuvar", IsActive: true}
+	vodocuvar := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
 	if err := userRepo.CreateUser(vodocuvar, &models.Duty{Title: "Vodočuvar Batina", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, SectorID: &sekB, AreaID: &bp34, SectionCodes: "B.34.1", IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}

@@ -13,7 +13,8 @@ import (
 // odavde ih čuva test. Ako se namjerno promijene (novi izvor, bolji parser),
 // promijeni se i ovdje — svjesno, s razlogom u commitu.
 
-func freshDatabase(t *testing.T) *sql.DB {
+// praznaBaza je baza sa shemom, bez ijednog zapisa
+func praznaBaza(t *testing.T) *sql.DB {
 	t.Helper()
 	database, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
@@ -24,13 +25,40 @@ func freshDatabase(t *testing.T) *sql.DB {
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("shema: %v", err)
 	}
-	if !UseRepoImenik() {
-		t.Skip("imenik.json nije dostupan — osobni podaci djelatnika stoje izvan repozitorija (data/imenik.json)")
-	}
+	return database
+}
+
+// napunjena pokreće prvo punjenje iz datoteka na koje pokazuju DataDir i ImenikPath
+func napunjena(t *testing.T, database *sql.DB) *sql.DB {
+	t.Helper()
 	if err := SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	return database
+}
+
+func freshDatabase(t *testing.T) *sql.DB {
+	t.Helper()
+	database := praznaBaza(t)
+	// stvarni registri; imenik iz data/ čita se ako postoji, ali ne treba
+	registriIliPreskoci(t)
+	return napunjena(t, database)
+}
+
+// svjezaBazaSektoraP je svježa baza napunjena iz izmišljenog skupa sektora P
+func svjezaBazaSektoraP(t *testing.T) *sql.DB {
+	t.Helper()
+	KoristiIzmisljenePodatke(t)
+	return napunjena(t, praznaBaza(t))
+}
+
+// naObaSkupa pokreće opću provjeru prvog punjenja, koja ne ovisi o sadržaju
+// registara, na izmišljenom skupu (svugdje, i na GitHubu) i na stvarnim
+// registrima (kad ih ima, i obavezno uz make provjera-registara)
+func naObaSkupa(t *testing.T, provjera func(*testing.T, *sql.DB)) {
+	t.Helper()
+	t.Run("sektor-p", func(t *testing.T) { provjera(t, svjezaBazaSektoraP(t)) })
+	t.Run("stvarni-registri", func(t *testing.T) { provjera(t, freshDatabase(t)) })
 }
 
 func count(t *testing.T, database *sql.DB, query string, args ...any) int {
@@ -75,21 +103,24 @@ func TestSeedNaSvjezojBaziDajePoznateBrojke(t *testing.T) {
 	}
 }
 
-// Seed mora biti idempotentan — svaki start aplikacije ga pokreće
-func TestSeedJeIdempotentan(t *testing.T) {
-	database := freshDatabase(t)
+// tabliceSeeda su tablice koje provjera idempotentnosti broji prije i poslije drugog punjenja
+var tabliceSeeda = []string{"sections", "stations", "section_stations", "watercourses", "users", "duties", "counties", "section_territories"}
 
+// Seed mora biti idempotentan — svaki start aplikacije ga pokreće. Provjera
+// ne ovisi o sadržaju registara, pa radi i na izmišljenom skupu.
+func TestSeedJeIdempotentan(t *testing.T) {
+	naObaSkupa(t, provjeriIdempotentnost)
+}
+
+func provjeriIdempotentnost(t *testing.T, database *sql.DB) {
 	before := map[string]int{}
-	tables := []string{"sections", "stations", "section_stations", "watercourses", "users", "duties", "counties", "section_territories"}
+	tables := tabliceSeeda
 	for _, tbl := range tables {
 		before[tbl] = count(t, database, `SELECT COUNT(*) FROM `+tbl)
 	}
 
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("druga shema: %v", err)
-	}
-	if !UseRepoImenik() {
-		t.Skip("imenik.json nije dostupan — osobni podaci djelatnika stoje izvan repozitorija (data/imenik.json)")
 	}
 	if err := SeedInitialData(database); err != nil {
 		t.Fatalf("drugi seed: %v", err)
@@ -102,11 +133,25 @@ func TestSeedJeIdempotentan(t *testing.T) {
 	}
 }
 
-// Nijedan tekst iz seeda ne smije biti neispravan UTF-8 — jedan takav redak
-// već je srušio prikaz stranice
-func TestSeedNeOstavljaNeispravanUTF8(t *testing.T) {
-	database := freshDatabase(t)
+// Provjera idempotentnosti na izmišljenom skupu nešto dokazuje samo ako mu
+// prvo punjenje upiše retke u svaku tablicu koju provjera broji
+func TestIzmisljeniSkupPuniTabliceProvjereSeeda(t *testing.T) {
+	database := svjezaBazaSektoraP(t)
+	for _, tbl := range tabliceSeeda {
+		if count(t, database, `SELECT COUNT(*) FROM `+tbl) == 0 {
+			t.Errorf("%s: izmišljeni skup ne upisuje nijedan redak", tbl)
+		}
+	}
+}
 
+// Nijedan tekst iz seeda ne smije biti neispravan UTF-8 — jedan takav redak
+// već je srušio prikaz stranice. Ni ova provjera ne ovisi o sadržaju
+// registara, pa radi i na izmišljenom skupu.
+func TestSeedNeOstavljaNeispravanUTF8(t *testing.T) {
+	naObaSkupa(t, provjeriUTF8)
+}
+
+func provjeriUTF8(t *testing.T, database *sql.DB) {
 	checks := []struct{ table, column string }{
 		{"stations", "name"}, {"stations", "watercourse"}, {"stations", "source_name"},
 		{"sections", "description"}, {"watercourses", "official_name"}, {"watercourses", "name"},

@@ -85,7 +85,7 @@ func TestIzazovSeCita(t *testing.T) {
 	if z.Zastavice&ntlmKeyExch != 0 {
 		t.Error("poslužitelj ne traži razmjenu ključa")
 	}
-	if got := ntlmDrugoIme("tkraljevic@voda.hr", z); got != `VODA\tkraljevic` {
+	if got := ntlmDrugoIme("pperic@voda.hr", z); got != `VODA\pperic` {
 		t.Errorf("drugo ime: %s", got)
 	}
 	if got := ntlmDrugoIme(`VODA\x`, z); got != "" {

@@ -9,9 +9,7 @@ import (
 )
 
 func TestRegistarVodnihTijelaJeCjelovit(t *testing.T) {
-	if !UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
+	registriIliPreskoci(t)
 	raw, err := readDataFile("watercourses.json")
 	if err != nil {
 		t.Fatalf("watercourses.json se ne može pročitati: %v", err)

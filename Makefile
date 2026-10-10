@@ -4,7 +4,7 @@ QUALITY_ROOT := $(CURDIR)
 QUALITY_OUT ?= $(QUALITY_ROOT)/.quality
 QUALITY_BASELINE ?= $(QUALITY_ROOT)/quality/baseline.json
 
-.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep
+.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep provjera-registara
 
 quality-tools:
 	GOBIN="$(QUALITY_ROOT)/bin/quality" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
@@ -28,3 +28,17 @@ quality-deep:
 	@test -n "$(MUTATION_ROOT)" || (echo 'Postavite MUTATION_ROOT na zasebnu čistu kopiju; vidi docs/CODE_QUALITY.md'; exit 1)
 	GOBIN="$(QUALITY_ROOT)/bin/quality" go install github.com/go-gremlins/gremlins/cmd/gremlins@$(GREMLINS_VERSION)
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -mutation-root "$(MUTATION_ROOT)" -mutation-package "$(MUTATION_PACKAGE)" -out "$(QUALITY_OUT)"
+
+# Provjere registara na stvarnim podacima (Batina i Vukovar na Dunavu, kota
+# nule iz elaborata, cjelovitost registara), obavezno prije svakog izdanja.
+# Trebaju izvoz registara u data/ u korijenu repozitorija (sections.json
+# slaže alat prijepis-dionica, izvan repozitorija). Brojke u provjerama su
+# brojke izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se
+# pregledaju i brojke mijenjaju svjesno, s razlogom u commitu. Bez izvoza
+# provjere padaju, ne preskaču se. Ostale provjere rade na izmišljenom skupu
+# testdata/sektor-p i ne trebaju ništa. Kad je u data/
+# i baza čvora (gocop.db), testovi se usput pregledaju prema imenima iz nje:
+# nijedan ne smije nositi stvarno ime ni korisničko ime. Baza se otvara samo
+# za čitanje.
+provjera-registara:
+	GOCOP_REGISTRI=obavezno $(if $(wildcard data/gocop.db),GOCOP_STVARNA_BAZA="$(CURDIR)/data/gocop.db") go test -count=1 ./internal/db/
