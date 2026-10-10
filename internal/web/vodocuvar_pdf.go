@@ -7,6 +7,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/pdfw"
+	"gocop/internal/service"
 )
 
 // PDFVodocuvarskiList crta dnevni list kao papirnatu stranicu knjige:
@@ -173,12 +174,30 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 	// knjiga nosi fotografije uz listove; karte obuhvata ne, jer se crtaju iz
 	// mreže i uvijek se mogu nacrtati iznova iz zapisa zadatka
 	pr := PrilogListaPDF{Slike: prilozi}
+	dvojnici := service.BrojeviDvostrukih(listovi)
 	for i := range poredani {
 		d.NovaStranica()
+		oznaciDvostrukiList(d, dvojnici[poredani[i].ID])
 		nacrtajList(d, &poredani[i], t, area, otisci, crtajOba)
 		nacrtajPriloge(d, &poredani[i], pr)
 	}
 	return d.Bajtovi()
+}
+
+// oznaciDvostrukiList upisuje u zaglavlje stranice knjige, desno, oznaku
+// „dvostruki list – vidi i list br. …” kad je za isti dan predano više
+// listova (Odluke (8. 10. 2026.), pitanje 7); stranica se ne pomiče, a
+// izvornik lista (potpisani PDF) se ne mijenja
+func oznaciDvostrukiList(d *pdfw.Doc, brojevi []int) {
+	if len(brojevi) == 0 {
+		return
+	}
+	b := make([]string, len(brojevi))
+	for i, n := range brojevi {
+		b[i] = fmt.Sprint(n)
+	}
+	tekst := "dvostruki list – vidi i list br. " + strings.Join(b, ", ")
+	d.TekstBoja(d.W-d.Desno-pdfw.SirinaTeksta(tekst, 7, true), d.Y, 7, true, tekst, crvena)
 }
 
 // prijeUKnjizi javlja ide li list a u ispisu knjige prije lista b: po

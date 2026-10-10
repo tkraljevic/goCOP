@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"os/exec"
 	"strings"
 	"testing"
 	"time"
@@ -80,5 +81,30 @@ func TestOznakaDvostrukogListaUPregleduCekaOvjeru(t *testing.T) {
 	}
 	if !strings.Contains(ceka, "dvostruki list – vidi i list br. 41") {
 		t.Error("list 42 u pregledu „čeka ovjeru” bez oznake dvostrukog lista")
+	}
+}
+
+// Cijela knjiga ispisuje oba predana lista istog dana i svaki nosi oznaku
+// „dvostruki list – vidi i list br. …”, kao na popisu; list bez dvojnika je
+// nema
+func TestKnjigaOznacavaDvostrukeListove(t *testing.T) {
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan; tekst PDF-a se ne može provjeriti")
+	}
+	dan := time.Date(2026, time.March, 10, 0, 0, 0, 0, models.Zagreb)
+	kad := dan.Add(15 * time.Hour)
+	list := func(id string, d time.Time, broj int) models.VodocuvarskiList {
+		return models.VodocuvarskiList{ID: id, UserID: "pero", Ime: "Pero Perić", Datum: d, Broj: broj, Od: "07:00", Do: "15:00", Opis: "obilazak nasipa", PredanoAt: &kad}
+	}
+	pdf := PDFVodocuvarskaKnjiga([]models.VodocuvarskiList{list("a", dan, 41), list("b", dan, 42), list("c", dan.AddDate(0, 0, 1), 43)},
+		"Pero Perić", 2026, models.OrgTerms{}, nil, models.OtisciLista{}, nil)
+	tekst := pdfTekst(t, pdf)
+	for _, x := range []string{"dvostruki list – vidi i list br. 42", "dvostruki list – vidi i list br. 41"} {
+		if strings.Count(tekst, x) != 1 {
+			t.Errorf("knjiga: %q %d puta, očekivano jednom", x, strings.Count(tekst, x))
+		}
+	}
+	if strings.Count(tekst, "dvostruki list") != 2 {
+		t.Errorf("oznaka dvostrukog lista u knjizi %d puta, očekivano dvaput", strings.Count(tekst, "dvostruki list"))
 	}
 }
