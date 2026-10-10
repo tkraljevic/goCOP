@@ -85,4 +85,11 @@ func TestPracenjeLetveUObrascu(t *testing.T) {
 	sada = findStation(t, repo, "Mohács probni")
 	sada.PrateSektori = nil
 	odbijeno("bez ovlasti", svc.UpdateStation(ctx, &models.UserPermissions{AllowedSectors: map[string]bool{"P": true}}, sada), "nemate ovlasti")
+
+	// podaci letve provjeravaju se prije praćenja, a registar koji se ne
+	// može pročitati zaustavlja upis
+	odbijeno("nova letva bez naziva", svc.CreateStation(ctx, globalAdmin(), &models.Station{PrateSektori: []string{"P"}}, ""), "naziv")
+	baza.Close()
+	odbijeno("registar se ne čita", svc.CreateStation(ctx, globalAdmin(), &models.Station{Name: "Barcs probni", PrateSektori: []string{"P"}}, ""),
+		"greška pri provjeri registra")
 }
