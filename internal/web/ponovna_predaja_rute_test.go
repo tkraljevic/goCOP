@@ -193,8 +193,9 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	// Pero (bez uprave sektora) ne povlači
 	w = zovi(pero, dionica, http.MethodPost, dok+"/povuci", url.Values{})
 	poruka(w, "error", "predaju izvješća sektora povlači voditelj centra ili rukovoditelj sektora")
+	// ponovna predaja gumbom na izvješću javlja se kao ponovna
 	w = zovi(ana, uprava, http.MethodPost, dok+"/predaj", url.Values{})
-	poruka(w, "success", "Izvješće sektora je predano Glavnom centru.")
+	poruka(w, "success", "Izvješće sektora je ponovno predano Glavnom centru.")
 
 	// Izvješće dionice prema podcentru: isto pravilo
 	izv := url.Values{"dan": {danas}, "dionica": {"P.1.1"}, "stadij": {"REDOVNA"}, "vodotok": {"Primjerica"}, "pregled": {"Nasip pregledan."}, "predaj": {"1"}}
@@ -241,6 +242,38 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 		t.Errorf("izvoz izvješća dionice nema trag predaje:\n%s", s)
 	}
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "ponovno predano izvješće dionice", "prvi put predano ", ", ponovno ")
+	// ponovna predaja gumbom na izvješću javlja se kao ponovna, prva kao prva
+	izv.Del("predaj")
+	izv.Set("pregled", "Procjeđivanje kod Primjerova sanirano.")
+	zovi(pero, dionica, http.MethodPost, "/izvjesca/"+idd, izv)
+	w = zovi(pero, dionica, http.MethodPost, "/izvjesca/"+idd+"/predaj", url.Values{})
+	poruka(w, "success", "Izvješće je ponovno predano.")
+	w = zovi(pero, dionica, http.MethodPost, "/izvjesca/"+idn+"/predaj", url.Values{})
+	poruka(w, "success", "Izvješće je predano.")
+}
+
+func TestPorukePredajeIzvjesca(t *testing.T) {
+	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, models.Zagreb)
+	drugi := time.Date(2026, 10, 7, 14, 20, 0, 0, models.Zagreb)
+	trag := models.TragPredaje{PrvoPredanoAt: &prvi}
+	if p := porukaPredajeSektorskog(nil); p != "Izvješće sektora je predano Glavnom centru." {
+		t.Errorf("sektor bez izvješća: %q", p)
+	}
+	if p := porukaPredajeSektorskog(&models.SektorskoIzvjesce{PredanoAt: &prvi, TragPredaje: trag}); p != "Izvješće sektora je predano Glavnom centru." {
+		t.Errorf("sektor prvi put: %q", p)
+	}
+	if p := porukaPredajeSektorskog(&models.SektorskoIzvjesce{PredanoAt: &drugi, TragPredaje: trag}); p != "Izvješće sektora je ponovno predano Glavnom centru." {
+		t.Errorf("sektor ponovno: %q", p)
+	}
+	if p := porukaPredajeIzvjesca(nil); p != "Izvješće je predano." {
+		t.Errorf("dionica bez izvješća: %q", p)
+	}
+	if p := porukaPredajeIzvjesca(&models.DnevnoIzvjesce{PredanoAt: &prvi, TragPredaje: trag}); p != "Izvješće je predano." {
+		t.Errorf("dionica prvi put: %q", p)
+	}
+	if p := porukaPredajeIzvjesca(&models.DnevnoIzvjesce{PredanoAt: &drugi, TragPredaje: trag}); p != "Izvješće je ponovno predano." {
+		t.Errorf("dionica ponovno: %q", p)
+	}
 }
 
 func TestPorukeSpremanjaIzvjesca(t *testing.T) {

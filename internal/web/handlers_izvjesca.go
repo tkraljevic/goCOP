@@ -288,7 +288,17 @@ func (h *IzvjescaHandler) HandlePredaj(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/izvjesca/"+iz.ID, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je predano.")
+	predano, _ := h.svc().Get(r.Context(), iz.ID)
+	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaPredajeIzvjesca(predano))
+}
+
+// porukaPredajeIzvjesca kaže je li izvješće predano prvi put ili ponovno,
+// nakon izmjene; nil je predano kao i prije
+func porukaPredajeIzvjesca(iz *models.DnevnoIzvjesce) string {
+	if iz != nil && iz.PonovnoPredano() {
+		return "Izvješće je ponovno predano."
+	}
+	return "Izvješće je predano."
 }
 
 // HandleObrisi arhivira izvješće

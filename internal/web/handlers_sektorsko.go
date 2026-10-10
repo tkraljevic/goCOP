@@ -221,7 +221,17 @@ func (h *IzvjescaHandler) HandleSektorskoPredaj(w http.ResponseWriter, r *http.R
 		redirectWith(w, r, "/sektorsko-izvjesce/"+id, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/sektorsko-izvjesce/"+id, "success", "Izvješće sektora je predano Glavnom centru.")
+	iz, _ := h.svc().GetSektorsko(r.Context(), id)
+	redirectWith(w, r, "/sektorsko-izvjesce/"+id, "success", porukaPredajeSektorskog(iz))
+}
+
+// porukaPredajeSektorskog kaže je li izvješće predano prvi put ili ponovno,
+// nakon izmjene ili povučene predaje; nil je predano kao i prije
+func porukaPredajeSektorskog(iz *models.SektorskoIzvjesce) string {
+	if iz != nil && iz.PonovnoPredano() {
+		return "Izvješće sektora je ponovno predano Glavnom centru."
+	}
+	return "Izvješće sektora je predano Glavnom centru."
 }
 
 // HandleSektorskoPovuci vraća predano izvješće u nacrt
