@@ -229,9 +229,11 @@ func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User
 // vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena onoga
 // tko sprema (ostajePredano): predano izvješće koje on nije mijenjao ostaje
 // kakvo je bilo, predano, s istim vremenima i tablicama kakve su predane,
-// a odgovor je false — nema se što spremiti.
-func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time) bool {
-	if i.ostajePredano(prije) {
+// a odgovor je false — nema se što spremiti. dostupno su ID-ovi izvješća
+// dionica i zapisa dnevnika koji za taj dan još postoje; nil kad se to ne
+// zna, pa se ništa ne izuzima.
+func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time, dostupno map[string]bool) bool {
+	if i.ostajePredano(prije, dostupno) {
 		*i = *prije
 		return false
 	}
@@ -245,9 +247,12 @@ func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User,
 // izvješća dionica i zapisa dnevnika. Tablice i reci koji se pri spremanju
 // snimaju iznova nisu njegova izmjena — izvješće dionice popravljeno
 // poslije predaje i novi nacrt dionice za isti dan predano izvješće sektora
-// ostavljaju kakvo je predano.
-func (i SektorskoIzvjesce) ostajePredano(prije *SektorskoIzvjesce) bool {
-	return prije != nil && prije.Predano() && prije.DanKey() == i.DanKey() && istiJSON(prije.Sadrzaj.izbor(), i.Sadrzaj.izbor())
+// ostavljaju kakvo je predano. Nije njegova izmjena ni što iz odabira
+// predanog izvješća više ne postoji (storniran zapis, obrisano izvješće
+// dionice): to u obrascu ne vidi i ne može zadržati.
+func (i SektorskoIzvjesce) ostajePredano(prije *SektorskoIzvjesce, dostupno map[string]bool) bool {
+	return prije != nil && prije.Predano() && prije.DanKey() == i.DanKey() &&
+		istiJSON(prije.Sadrzaj.izbor().samoDostupno(dostupno), i.Sadrzaj.izbor().samoDostupno(dostupno))
 }
 
 // izborSektorskog je ono što u izvješću sektora piše i bira onaj tko ga
@@ -256,6 +261,27 @@ type izborSektorskog struct {
 	Tekst    SektorskiSadrzaj `json:"tekst"` // bez snimke iz dionica i dnevnika
 	Izvjesca []string         `json:"izvjesca"`
 	Zapisi   []string         `json:"zapisi"`
+}
+
+// samoDostupno ostavlja u odabiru samo izvješća dionica i zapise dnevnika
+// koji još postoje; nil znači da se to ne zna, pa ostaje cijeli odabir
+func (iz izborSektorskog) samoDostupno(dostupno map[string]bool) izborSektorskog {
+	if dostupno == nil {
+		return iz
+	}
+	iz.Izvjesca, iz.Zapisi = samoUSkupu(iz.Izvjesca, dostupno), samoUSkupu(iz.Zapisi, dostupno)
+	return iz
+}
+
+// samoUSkupu su ID-ovi iz popisa koji su u skupu, istim redom
+func samoUSkupu(ids []string, skup map[string]bool) []string {
+	var out []string
+	for _, id := range ids {
+		if skup[id] {
+			out = append(out, id)
+		}
+	}
+	return out
 }
 
 // izbor vadi iz sadržaja ono što bira i piše onaj tko izvješće slaže, bez

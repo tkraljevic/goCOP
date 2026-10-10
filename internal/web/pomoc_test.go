@@ -336,3 +336,16 @@ func TestPomocBiljeskuOIspravkuOpisaUpisujeProgram(t *testing.T) {
 		t.Error("pomoć ne kaže da bilješku o ispravku opisa upisuje samo program")
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora spremljeno bez
+// izmjene teksta i odabira ostaje predano s tablicama kakve su predane, i
+// kad je zapis koji je ušao u nj storniran; pomoć mora reći kako se
+// preuzimaju nove brojke.
+func TestPomocPredanoSektorskoINoveBrojke(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{"zapis koji je ušao u izvješće storniran", "Nove brojke preuzima izmjena izvješća sektora ili spremanje"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje %q", want)
+		}
+	}
+}

@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -178,5 +179,77 @@ func TestPredanoSektorskoNeMijenjajuIzvjescaDionica(t *testing.T) {
 	g, _ = o.svc.GetSektorsko(ctx, sektorsko.ID)
 	if g.Predano() || g.Sadrzaj.Pregled.Izvjesca != 0 || g.TkoJeMijenjao() != "Pero Perić, Pero Perić (zamjenik)" {
 		t.Errorf("promjena odabira na predanom izvješću sektora: predano %v, mijenjali %q, pregled %+v", g.Predano(), g.TkoJeMijenjao(), g.Sadrzaj.Pregled)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 12: što je ušlo u predano izvješće sektora,
+// a poslije ga više nema — storniran zapis dnevnika COP-a, obrisan nacrt
+// izvješća dionice — obrazac ne nudi, pa ga onaj tko sprema ne može ni
+// zadržati. Spremanje bez izmjene teksta i odabira zato izvješće ostavlja
+// predanim, kakvo je predano, i ne navodi onoga tko sprema među onima koji
+// su ga mijenjali — kao i kad se izvješće dionice popravi. Pero Perić piše
+// nacrt dionice, Pero Perić (zamjenik) sastavlja i predaje izvješće sektora.
+func TestPredanoSektorskoNestaloIzOdabiraNijeIzmjena(t *testing.T) {
+	o := novaOkolinaIzvjesca(t)
+	ctx := context.Background()
+	pocetak := danas().AddDate(0, 0, -3)
+	obrana := &models.Journal{Kind: models.JournalKindDefense, CentarSektor: "P", Title: "Dnevnik COP-a Primjerovo", Year: 2026, StartedAt: &pocetak}
+	if err := o.dnevnici.SaveJournal(ctx, obrana); err != nil {
+		t.Fatal(err)
+	}
+	h := danas().Add(7 * time.Hour)
+	dojava := &models.JournalEntry{JournalID: obrana.ID, Date: danas(), Kind: models.EntryKindReport, HappenedAt: &h, Text: "Procjeđivanje kod Primjerova.", UserName: "Ana Anić"}
+	if err := o.dnevnici.SaveEntry(ctx, dojava); err != nil {
+		t.Fatal(err)
+	}
+	nacrt := punoIzvjesce("P.1.1", danas())
+	nacrt.Sadrzaj.Pravne.Ljudi = 7
+	if err := o.svc.Spremi(ctx, o.pero, o.pisePero, o.d111, nacrt); err != nil {
+		t.Fatal(err)
+	}
+	obrazac := func(id, napomena string) *models.SektorskoIzvjesce {
+		return &models.SektorskoIzvjesce{ID: id, Sektor: "P", Dan: danas(), Sadrzaj: models.SektorskiSadrzaj{Hidrometeo: "Vodostaji rastu.", Napomena: napomena}}
+	}
+	sektorsko := obrazac("", "")
+	if err := o.svc.SpremiSektorsko(ctx, o.urednik, o.upravaP, sektorsko, []string{nacrt.ID}, []string{dojava.ID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.PredajSektorsko(ctx, o.urednik, o.upravaP, sektorsko.ID); err != nil {
+		t.Fatal(err)
+	}
+	predano, _ := o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if predano.Sadrzaj.Pregled.Izvjesca != 1 || len(predano.Sadrzaj.Zapisi) != 1 {
+		t.Fatalf("priprema: %+v", predano.Sadrzaj)
+	}
+
+	// zapis se stornira, nacrt dionice briše; obrazac ih više ne nudi
+	dojava.Voided, dojava.VoidReason = true, "Krivi dan."
+	if err := o.dnevnici.SaveEntry(ctx, dojava); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.Obrisi(ctx, o.pero, o.pisePero, o.d111, nacrt.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	isto := obrazac(sektorsko.ID, "")
+	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, isto, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	g, _ := o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if !g.Predano() || !g.PredanoAt.Equal(*predano.PredanoAt) || g.TkoJeMijenjao() != "" {
+		t.Errorf("predano izvješće sektora nakon spremanja bez izmjene: predano %v, mijenjali %q", g.Predano(), g.TkoJeMijenjao())
+	}
+	if g.Sadrzaj.Pregled.Izvjesca != 1 || g.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 7 || len(g.Sadrzaj.Zapisi) != 1 {
+		t.Errorf("predano izvješće nije ostalo kakvo je predano: %+v", g.Sadrzaj)
+	}
+
+	// izmjena teksta ga vraća u nacrt, a nestalo više nije u njemu
+	izmjena := obrazac(sektorsko.ID, "Najava za sutra.")
+	if err := o.svc.SpremiSektorsko(ctx, o.pero, o.upravaP, izmjena, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	g, _ = o.svc.GetSektorsko(ctx, sektorsko.ID)
+	if g.Predano() || g.TkoJeMijenjao() != "Pero Perić" || g.Sadrzaj.Pregled.Izvjesca != 0 || len(g.Sadrzaj.Zapisi) != 0 {
+		t.Errorf("izmjena predanog izvješća sektora: predano %v, mijenjali %q, %+v", g.Predano(), g.TkoJeMijenjao(), g.Sadrzaj)
 	}
 }

@@ -240,21 +240,21 @@ func TestPripremaSpremanjaIzvjesca(t *testing.T) {
 		predano := SektorskoIzvjesce{ID: "s1", Dan: dan, Izradio: "Ana Anić", IzradenoAt: izrada, PredanoAt: &prvi, Sadrzaj: SektorskiSadrzaj{Evakuacija: "40"}}
 		predano.ZabiljeziPredaju(prvi, ana)
 		isto := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: SektorskiSadrzaj{Evakuacija: "40"}, TragPredaje: predano.TragPredaje}
-		if isto.PripremiSpremanje(&predano, ivo, sad) || !isto.Predano() || !isto.PredanoAt.Equal(prvi) || !isto.IzradenoAt.Equal(izrada) || isto.TkoJeMijenjao() != "" {
+		if isto.PripremiSpremanje(&predano, ivo, sad, nil) || !isto.Predano() || !isto.PredanoAt.Equal(prvi) || !isto.IzradenoAt.Equal(izrada) || isto.TkoJeMijenjao() != "" {
 			t.Errorf("predano bez promjene: %+v", isto)
 		}
 		izmjena := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: SektorskiSadrzaj{Evakuacija: "4"}, TragPredaje: predano.TragPredaje}
-		if !izmjena.PripremiSpremanje(&predano, ivo, sad) || izmjena.Predano() || !izmjena.IzradenoAt.Equal(sad) || izmjena.TkoJeMijenjao() != "Ivo Ivić" {
+		if !izmjena.PripremiSpremanje(&predano, ivo, sad, nil) || izmjena.Predano() || !izmjena.IzradenoAt.Equal(sad) || izmjena.TkoJeMijenjao() != "Ivo Ivić" {
 			t.Errorf("predano s izmjenom: %+v", izmjena)
 		}
 		// nacrt (i onaj koji je bio predan) sprema se i bez promjene
 		nacrt := izmjena
 		ponovo := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: SektorskiSadrzaj{Evakuacija: "4"}, TragPredaje: nacrt.TragPredaje}
-		if !ponovo.PripremiSpremanje(&nacrt, ana, sad.Add(time.Hour)) || ponovo.Predano() || !ponovo.IzradenoAt.Equal(sad.Add(time.Hour)) || ponovo.TkoJeMijenjao() != "Ivo Ivić" {
+		if !ponovo.PripremiSpremanje(&nacrt, ana, sad.Add(time.Hour), nil) || ponovo.Predano() || !ponovo.IzradenoAt.Equal(sad.Add(time.Hour)) || ponovo.TkoJeMijenjao() != "Ivo Ivić" {
 			t.Errorf("nacrt bez promjene: %+v", ponovo)
 		}
 		novo := SektorskoIzvjesce{Dan: dan}
-		if !novo.PripremiSpremanje(nil, ana, sad) || !novo.IzradenoAt.Equal(sad) || novo.BiloPredano() {
+		if !novo.PripremiSpremanje(nil, ana, sad, nil) || !novo.IzradenoAt.Equal(sad) || novo.BiloPredano() {
 			t.Errorf("novo: %+v", novo)
 		}
 	})
@@ -327,7 +327,7 @@ func TestPredanoSektorskoMijenjaSamoIzbor(t *testing.T) {
 	} {
 		t.Run(s.ime, func(t *testing.T) {
 			novo := SektorskoIzvjesce{ID: "s1", Dan: s.dan, Sadrzaj: s.sadrzaj, TragPredaje: predano.TragPredaje}
-			spremljeno := novo.PripremiSpremanje(&predano, ivo, sad)
+			spremljeno := novo.PripremiSpremanje(&predano, ivo, sad, nil)
 			if s.ostaje {
 				if spremljeno || !novo.Predano() || !novo.IzradenoAt.Equal(izrada) || novo.TkoJeMijenjao() != "" || !istiJSON(novo.Sadrzaj, predano.Sadrzaj) {
 					t.Errorf("mora ostati predano kakvo je predano: spremljeno %v, %+v", spremljeno, novo)
@@ -345,7 +345,62 @@ func TestPredanoSektorskoMijenjaSamoIzbor(t *testing.T) {
 	nacrt := predano
 	nacrt.PovuciPredaju()
 	novo := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: sadrzaj(12, 1, []string{"1", "2"}, z1, z2), TragPredaje: nacrt.TragPredaje}
-	if !novo.PripremiSpremanje(&nacrt, ivo, sad) || novo.Predano() || novo.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 12 || novo.TkoJeMijenjao() != "Ivo Ivić" {
+	if !novo.PripremiSpremanje(&nacrt, ivo, sad, nil) || novo.Predano() || novo.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 12 || novo.TkoJeMijenjao() != "Ivo Ivić" {
 		t.Errorf("nacrt s novim brojkama: %+v", novo)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 12: izvješće dionice ili zapis dnevnika
+// koji je ušao u predano izvješće sektora, a poslije ga više nema
+// (storniran zapis, obrisano izvješće dionice), onaj tko sprema ne vidi u
+// obrascu i ne može ga zadržati. Da nestalo nije u odabiru nije njegova
+// izmjena: kao i nove brojke iz dionica, predano izvješće ostavlja kakvo je
+// predano. Izmjena teksta ili odabira među onim što postoji i dalje ga
+// vraća u nacrt. Ana Anić predaje, Ivo Ivić sprema.
+func TestPredanoSektorskoNestaloIzOdabiraNijeIzmjena(t *testing.T) {
+	ana := &User{ID: uuid.New(), FullName: "Ana Anić"}
+	ivo := &User{ID: uuid.New(), FullName: "Ivo Ivić"}
+	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, Zagreb)
+	izrada := time.Date(2026, 10, 7, 9, 30, 0, 0, Zagreb)
+	sad := time.Date(2026, 10, 7, 11, 0, 0, 0, Zagreb)
+	dan := time.Date(2026, 10, 7, 0, 0, 0, 0, Zagreb)
+	sadrzaj := func(napomena string, izvjesca []string, zapisi ...ZapisUIzvjescu) SektorskiSadrzaj {
+		pod := PodrucjeUPregledu{AreaID: 1}
+		for _, id := range izvjesca {
+			pod.Dionice = append(pod.Dionice, DionicaUPregledu{IzvjesceID: id, Code: "P.1." + id, Stadij: PhaseRegular})
+		}
+		return SektorskiSadrzaj{Hidrometeo: "Vodostaji rastu.", Napomena: napomena, Pregled: SektorskiPregled{Podrucja: []PodrucjeUPregledu{pod}, Izvjesca: len(izvjesca)}, Zapisi: zapisi}
+	}
+	z1 := ZapisUIzvjescu{ID: "z1", Vrijeme: "07:15", Tekst: "Dojava o procjeđivanju."}
+	z2 := ZapisUIzvjescu{ID: "z2", Vrijeme: "08:30", Tekst: "Obavijest podcentru."}
+	predano := SektorskoIzvjesce{ID: "s1", Dan: dan, Izradio: "Ana Anić", IzradenoAt: izrada, PredanoAt: &prvi, Sadrzaj: sadrzaj("", []string{"1", "2"}, z1, z2)}
+	predano.ZabiljeziPredaju(prvi, ana)
+	// izvješća dionice 2 i zapisa z2 više nema; izvješće dionice 3 je novo
+	dostupno := map[string]bool{"1": true, "3": true, "z1": true}
+
+	for _, s := range []struct {
+		ime     string
+		sadrzaj SektorskiSadrzaj
+		ostaje  bool
+	}{
+		{"isto, bez nestalih", sadrzaj("", []string{"1"}, z1), true},
+		{"drugi tekst", sadrzaj("Najava za sutra.", []string{"1"}, z1), false},
+		{"maknuto izvješće dionice koje postoji", sadrzaj("", nil, z1), false},
+		{"maknut zapis koji postoji", sadrzaj("", []string{"1"}), false},
+		{"dodano novo izvješće dionice", sadrzaj("", []string{"1", "3"}, z1), false},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			novo := SektorskoIzvjesce{ID: "s1", Dan: dan, Sadrzaj: s.sadrzaj, TragPredaje: predano.TragPredaje}
+			spremljeno := novo.PripremiSpremanje(&predano, ivo, sad, dostupno)
+			if s.ostaje {
+				if spremljeno || !novo.Predano() || !novo.IzradenoAt.Equal(izrada) || novo.TkoJeMijenjao() != "" || !istiJSON(novo.Sadrzaj, predano.Sadrzaj) {
+					t.Errorf("mora ostati predano kakvo je predano: spremljeno %v, %+v", spremljeno, novo)
+				}
+				return
+			}
+			if !spremljeno || novo.Predano() || novo.TkoJeMijenjao() != "Ivo Ivić" || !istiJSON(novo.Sadrzaj, s.sadrzaj) {
+				t.Errorf("izmjena mora vratiti u nacrt: spremljeno %v, %+v", spremljeno, novo)
+			}
+		})
 	}
 }
