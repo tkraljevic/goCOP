@@ -458,6 +458,97 @@ func TestOdbacenoVrijemeNeBrojiSeKadLetvaPoslijeImaOcitanje(t *testing.T) {
 	}
 }
 
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): očitanje odbačeno jer je
+// stiglo prerano, a poslije primljeno, ne broji se ni kad ga operativna baza
+// više nema. Zaboravljanje ga briše kad je uloženo u arhivu
+// (ulaganje/zaboravljanje.go), a čvor s ograničenom poviješću očitanja ne
+// drži stara očitanja letvi koje ne prati. Upis očitanja zato zapis o
+// prerano odbačenom uklanja s površine verzijom u knjizi, pa nestaje i na
+// čvoru koji ga je dobio razmjenom; prije se samo nije brojao dok očitanje
+// postoji.
+func TestOdbacenoVrijemeNeBrojiSeNiKadOcitanjeOdeIzBaze(t *testing.T) {
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	repo := NewReadingRepository(a.db, a.rec)
+	pivnica := novaLetva(t, a, "pivnica-probna", false)
+	letva := "station:" + pivnica.ID.String()
+	kad := time.Now().Truncate(time.Hour).Add(-time.Hour)
+
+	rano := uvezeno(pivnica, kad, 120)
+	odbaciUBuducnosti(t, a, rano)
+	a.posalji(t, b, "") // drugi čvor ima zapis o odbačenom prije očitanja
+	if s, _ := NewReadingRepository(b.db, b.rec).SazetakOdbacenih(ctx, letva); s == nil || s.Broj != 1 {
+		t.Fatalf("drugi čvor prije upisa: %+v", s)
+	}
+	if n, err := repo.ImportBatch(ctx, []models.Reading{rano}); err != nil || n != 1 {
+		t.Fatalf("drugi krug: %d, %v", n, err)
+	}
+	a.posalji(t, b, "")
+
+	for ime, c := range map[string]*cvorZaRazmjenu{"a": a, "b": b} {
+		if _, err := c.db.Exec(`DELETE FROM readings WHERE id = ?`, rano.ID.String()); err != nil {
+			t.Fatal(err)
+		}
+		if s, err := NewReadingRepository(c.db, c.rec).SazetakOdbacenih(ctx, letva); err != nil || s != nil {
+			t.Errorf("čvor %s, očitanje otišlo iz baze: %+v, %v", ime, s, err)
+		}
+	}
+	// zapis se ne briše iz knjige, nego uklanja s površine
+	o := models.OdbacenaVrijednost{Letva: letva, Kad: kad, Polje: models.PoljeVrijeme, Izvor: rano.Origin}
+	if v, err := a.rec.Latest(ctx, EntityOdbacena, idOdbacene(o)); err != nil || v == nil || !v.Archived {
+		t.Errorf("verzija zapisa o prerano odbačenom: %+v, %v", v, err)
+	}
+}
+
+// Kad se upisanom očitanju ne može dati kanal ili verzija, ili se zapis o
+// prerano odbačenom ne može ukloniti, serija pada cijela, kao i pri svakoj
+// drugoj grešci upisa: inače bi zapis ostao, a očitanje ne bi putovalo.
+func TestUvozPadaKadSeUpisanoNeMozeZabiljeziti(t *testing.T) {
+	for ime, pripremi := range map[string]func(t *testing.T, c *cvorZaRazmjenu, rano models.Reading){
+		"kanal": func(t *testing.T, c *cvorZaRazmjenu, _ models.Reading) {
+			izvrsi(t, c, `CREATE TRIGGER odbij BEFORE UPDATE OF channel ON readings BEGIN SELECT RAISE(ABORT, 'odbijeno'); END`)
+		},
+		"verzija očitanja": func(t *testing.T, c *cvorZaRazmjenu, _ models.Reading) {
+			izvrsi(t, c, `CREATE TRIGGER odbij BEFORE INSERT ON record_versions WHEN NEW.entity = 'readings'
+				BEGIN SELECT RAISE(ABORT, 'odbijeno'); END`)
+		},
+		"uklanjanje zapisa": func(t *testing.T, c *cvorZaRazmjenu, _ models.Reading) {
+			izvrsi(t, c, `ALTER TABLE odbacena_ocitanja RENAME COLUMN opis TO opis_stari`)
+		},
+		"čitanje zapisa": func(t *testing.T, c *cvorZaRazmjenu, rano models.Reading) {
+			if _, err := c.db.Exec(`INSERT INTO odbacena_ocitanja (id, letva, kad, polje, izvor, opis, zabiljezeno)
+				VALUES ('x', ?, ?, ?, 'drugi', '', 'nije vrijeme')`, rano.GaugeKey(), rano.MeasuredAt.UTC(), models.PoljeVrijeme); err != nil {
+				t.Fatal(err)
+			}
+		},
+		"verzija zapisa": func(t *testing.T, c *cvorZaRazmjenu, rano models.Reading) {
+			odbaciUBuducnosti(t, c, rano)
+			izvrsi(t, c, `CREATE TRIGGER odbij BEFORE INSERT ON record_versions WHEN NEW.entity = 'odbacena_ocitanja'
+				BEGIN SELECT RAISE(ABORT, 'odbijeno'); END`)
+		},
+	} {
+		t.Run(ime, func(t *testing.T) {
+			c := noviCvorZaRazmjenu(t, "a")
+			repo := NewReadingRepository(c.db, c.rec)
+			rano := uvezeno(novaLetva(t, c, "pivnica-probna", false), time.Now().Truncate(time.Hour).Add(-time.Hour), 120)
+			pripremi(t, c, rano)
+			if n, err := repo.ImportBatch(context.Background(), []models.Reading{rano}); err == nil || n != 0 {
+				t.Fatalf("serija s neuspjelim upisom: %d, %v", n, err)
+			}
+			if n := brojRedaka(t, c.db, `SELECT COUNT(*) FROM readings`); n != 0 {
+				t.Errorf("poništena serija ostavila je %d očitanja", n)
+			}
+		})
+	}
+}
+
+func izvrsi(t *testing.T, c *cvorZaRazmjenu, upit string) {
+	t.Helper()
+	if _, err := c.db.Exec(upit); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // Dorada (Odluke (8. 10. 2026.), pitanje 21): vodostaj izvan raspona
 // odbacuje cijelo očitanje, kao ručni upis. Zaglavljeno mjerilo Popovca
 // (hdv.voda.hr, 8. 10. 2026.) javlja −1104 cm uz protok 0,0 m³/s; protok je

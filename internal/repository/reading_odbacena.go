@@ -76,6 +76,46 @@ func (p *provjeraRaspona) kota(ctx context.Context, stationID string) (bool, err
 	return k, nil
 }
 
+// primljeno uklanja zapise o očitanju letve odbačenom samo zato što je
+// stiglo više od sat unaprijed, kad letva za taj trenutak primi očitanje:
+// sljedeći krug ga je primio kad mu je vrijeme došlo (sat izvora ili
+// računala ide naprijed). Zapis se uklanja verzijom u knjizi, pa nestaje i
+// na čvorovima koji su ga dobili razmjenom, i ne broji se opet kad očitanje
+// poslije ode iz operativne baze (zaboravljanje uloženog, ograda povijesti
+// očitanja). Odbačena vrijednost (npr. vodostaj −1102 cm) ostaje.
+func (p *provjeraRaspona) primljeno(ctx context.Context, rd *models.Reading) error {
+	rows, err := p.tx.QueryContext(ctx, `DELETE FROM odbacena_ocitanja WHERE letva = ? AND kad = ? AND polje = ?
+		RETURNING id, letva, kad, polje, izvor, opis, zabiljezeno`, rd.GaugeKey(), rd.MeasuredAt.UTC(), models.PoljeVrijeme)
+	if err != nil {
+		return err
+	}
+	uklonjene, err := procitajOdbacene(rows)
+	if err != nil {
+		return err
+	}
+	for _, o := range uklonjene {
+		kanal := readingChannel(ctx, p.tx, ocitanjeLetve(o.Letva, o.Kad))
+		if _, err := p.rec.ArchiveIn(ctx, p.tx, kanal, EntityOdbacena, o.ID, o); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// procitajOdbacene čita zapise o odbačenim vrijednostima i zatvara upit
+func procitajOdbacene(rows *sql.Rows) ([]models.OdbacenaVrijednost, error) {
+	defer rows.Close()
+	var out []models.OdbacenaVrijednost
+	for rows.Next() {
+		var o models.OdbacenaVrijednost
+		if err := rows.Scan(&o.ID, &o.Letva, &o.Kad, &o.Polje, &o.Izvor, &o.Opis, &o.Zabiljezeno); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
 // javi upisuje u dnevnik čvora koliko je vrijednosti serija novo odbacila
 func (p *provjeraRaspona) javi() {
 	if p.novih > 0 {
@@ -160,9 +200,10 @@ func (r *ReadingRepository) ZabiljeziOdbacene(ctx context.Context, odbacene []mo
 //
 // Očitanje odbačeno samo zato što je stiglo više od sat unaprijed ne broji
 // se kad letva za taj trenutak ipak ima očitanje: sljedeći krug ga je primio
-// kad mu je vrijeme došlo (sat izvora ili računala ide naprijed). Zapis
-// ostaje; ne broji se ni na čvoru koji je očitanje i zapis dobio razmjenom,
-// kojim god redom stignu.
+// kad mu je vrijeme došlo (sat izvora ili računala ide naprijed). Čvor koji
+// očitanje upiše zapis uklanja (provjeraRaspona.primljeno); dok to ne
+// stigne, ne broji se ni na čvoru koji je očitanje i zapis dobio
+// razmjenom, kojim god redom stignu.
 func (r *ReadingRepository) SazetakOdbacenih(ctx context.Context, letva string) (*models.SazetakOdbacenih, error) {
 	s := models.SazetakOdbacenih{Zadnja: models.OdbacenaVrijednost{Letva: letva}}
 	stupac, id := stupacLetve(letva)
