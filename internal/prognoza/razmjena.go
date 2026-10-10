@@ -308,9 +308,29 @@ func ZadnjaKisa(db *sql.DB) (map[string]DnevniNiz, int64, error) {
 	if err != nil {
 		return nil, 0, err
 	}
-	r, err := db.Query(`SELECT sliv, dan, mm FROM kisa_izdanja WHERE izdano = ? AND verzija = ?`, izdano, verzija)
+	out, err := kisaVerzije(db, izdano, verzija)
 	if err != nil {
 		return nil, 0, err
+	}
+	return out, izdano, nil
+}
+
+// KisaIzdanja vraća kišu po međuslivovima kakvu je imala zadnja verzija
+// izdanja zadanog sata, u obliku kao ZadnjaKisa; prazna je kad je uz izdanje
+// nema (izdanje starije od zapisa kiše ili bez dnevnog modela).
+func KisaIzdanja(db *sql.DB, izdano int64) (map[string]DnevniNiz, error) {
+	var verzija sql.NullInt64
+	if err := db.QueryRow(`SELECT max(verzija) FROM kisa_izdanja WHERE izdano = ?`, izdano).Scan(&verzija); err != nil {
+		return nil, err
+	}
+	return kisaVerzije(db, izdano, verzija.Int64)
+}
+
+// kisaVerzije čita kišu jedne verzije izdanja, po slivu i danu.
+func kisaVerzije(db *sql.DB, izdano, verzija int64) (map[string]DnevniNiz, error) {
+	r, err := db.Query(`SELECT sliv, dan, mm FROM kisa_izdanja WHERE izdano = ? AND verzija = ?`, izdano, verzija)
+	if err != nil {
+		return nil, err
 	}
 	defer r.Close()
 	out := map[string]DnevniNiz{}
@@ -319,14 +339,14 @@ func ZadnjaKisa(db *sql.DB) (map[string]DnevniNiz, int64, error) {
 		var dan int64
 		var mm float64
 		if err := r.Scan(&sliv, &dan, &mm); err != nil {
-			return nil, 0, err
+			return nil, err
 		}
 		if out[sliv] == nil {
 			out[sliv] = DnevniNiz{}
 		}
 		out[sliv][dan] = mm
 	}
-	return out, izdano, r.Err()
+	return out, r.Err()
 }
 
 // zaokruzi skraćuje realne brojeve na tisućinku: vodostaj u cm i protok u
@@ -436,23 +456,43 @@ func vrijednost(v any) any {
 	return f
 }
 
-// OpisIzdanja je zadnje izdanje u bazi: za koji sat, kad je nastalo, koji
-// ga je čvor izdao i je li stiglo razmjenom.
+// OpisIzdanja je izdanje u bazi: za koji sat, kad je nastalo, koji ga je
+// čvor izdao, je li stiglo razmjenom i koja je to verzija sata.
 type OpisIzdanja struct {
 	Izdano    time.Time
 	Nastalo   time.Time
 	Cvor      string
 	Primljeno bool
+	Verzija   int // veća od 1 kad je sat izdan iznova; opisuje se zadnja
 }
 
 // OpisZadnjegIzdanja opisuje zadnje izdanje; ok je false dok izdanja nema.
 func OpisZadnjegIzdanja(db *sql.DB) (OpisIzdanja, bool) {
+	if db == nil {
+		return OpisIzdanja{}, false
+	}
+	return opisIzdanja(db.QueryRow(`SELECT izdano, verzija, nastalo, cvor, knjiga FROM izdanja
+		ORDER BY izdano DESC, verzija DESC LIMIT 1`))
+}
+
+// OpisIzdanjaZa opisuje zadnju verziju izdanja zadanog sata; ok je false kad
+// za taj sat zapisa nema (izdanje starije od zapisa o izdanjima ili sat bez
+// izdanja).
+func OpisIzdanjaZa(db *sql.DB, izdano int64) (OpisIzdanja, bool) {
+	if db == nil {
+		return OpisIzdanja{}, false
+	}
+	return opisIzdanja(db.QueryRow(`SELECT izdano, verzija, nastalo, cvor, knjiga FROM izdanja
+		WHERE izdano = ? ORDER BY verzija DESC LIMIT 1`, izdano))
+}
+
+// opisIzdanja čita jedan redak zapisa o izdanju.
+func opisIzdanja(r *sql.Row) (OpisIzdanja, bool) {
 	var o OpisIzdanja
 	var izdano, nastalo int64
 	var knjiga string
-	if db == nil || db.QueryRow(`SELECT izdano, nastalo, cvor, knjiga FROM izdanja ORDER BY izdano DESC, verzija DESC LIMIT 1`).
-		Scan(&izdano, &nastalo, &o.Cvor, &knjiga) != nil {
-		return o, false
+	if r.Scan(&izdano, &o.Verzija, &nastalo, &o.Cvor, &knjiga) != nil {
+		return OpisIzdanja{}, false
 	}
 	o.Izdano, o.Nastalo, o.Primljeno = time.Unix(izdano*3600, 0), time.Unix(nastalo, 0), knjiga != ""
 	return o, true
