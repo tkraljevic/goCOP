@@ -141,10 +141,11 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 
 // izmjenaDezurstva provjerava izmjenu upisanog dežurstva i preuzima ono što
 // izmjena ne mijenja: tko je i kada upisao, i trag ispravka opisa u
-// napomeni. Tuđe dežurstvo mijenja uprava centra. Dežurstvu kojemu se ne zna
-// mjesto rada opis bira uprava centra (Odluke (8. 10. 2026.), pitanje 10),
-// pa ga osoba čije je dežurstvo ne mijenja ni običnim spremanjem; kad ga
-// uprava tako promijeni, ostaje isti trag kao kod ispravka opisa.
+// napomeni. Tuđe dežurstvo mijenja uprava centra. Opis rada dežurstva
+// kojemu se ne zna mjesto, ili kojemu je opis već ispravila, bira uprava
+// centra (Odluke (8. 10. 2026.), pitanje 10); kad ga uprava promijeni
+// običnim spremanjem, ostaje isti trag kao kod ispravka opisa, pa napomena
+// kaže tko je izabrao sadašnji opis.
 func (s *JournalService) izmjenaDezurstva(ctx context.Context, u *models.User, uprava bool, j *models.Journal, d *models.Dezurstvo) error {
 	cur, err := s.repo.GetDezurstvo(ctx, d.ID)
 	if err != nil {
@@ -153,27 +154,38 @@ func (s *JournalService) izmjenaDezurstva(ctx context.Context, u *models.User, u
 	if cur == nil || cur.JournalID != j.ID {
 		return errors.New("dežurstvo nije pronađeno u ovom dnevniku")
 	}
-	if !uprava && cur.UserID != u.ID.String() {
-		return errors.New("tuđe dežurstvo mijenja voditelj ili zamjenik centra")
-	}
-	if !uprava && cur.ZaProvjeru() {
-		return errors.New("mjesto rada nije poznato: opis rada bira voditelj ili zamjenik centra")
+	if !uprava {
+		if err := izmjenaBezUprave(u, cur, d); err != nil {
+			return err
+		}
 	}
 	d.CreatedBy, d.CreatedAt = cur.CreatedBy, cur.CreatedAt
 	d.Napomena = zadrziTragIspravka(cur.Napomena, d.Napomena)
-	if cur.ZaProvjeru() {
+	if cur.OpisBiraUprava() && d.Opis != cur.Opis {
 		d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(cur.Opis, u.FullName, time.Now().In(models.Zagreb)))
 	}
 	return nil
 }
 
-// reTragIspravka prepoznaje bilješku koju ostavlja ispravak opisa rada
-var reTragIspravka = regexp.MustCompile(`\[opis ispravio .*?; prije: „.*?”\]`)
+// izmjenaBezUprave: bez uprave centra osoba mijenja samo svoje dežurstvo, i
+// u njemu ne opis rada koji bira uprava centra — ni kad se ne zna mjesto
+// rada, ni kad je opis uprava već ispravila
+func izmjenaBezUprave(u *models.User, cur, d *models.Dezurstvo) error {
+	switch {
+	case cur.UserID != u.ID.String():
+		return errors.New("tuđe dežurstvo mijenja voditelj ili zamjenik centra")
+	case cur.ZaProvjeru():
+		return errors.New("mjesto rada nije poznato: opis rada bira voditelj ili zamjenik centra")
+	case cur.OpisBiraUprava() && d.Opis != cur.Opis:
+		return errors.New("opis rada izabrala je uprava centra: mijenja ga voditelj ili zamjenik centra")
+	}
+	return nil
+}
 
 // zadrziTragIspravka vraća novu napomenu uz tragove ispravka opisa iz stare
 // koje nova nema: izmjena napomene ne briše tko je i kada ispravio opis
 func zadrziTragIspravka(staro, novo string) string {
-	for _, trag := range reTragIspravka.FindAllString(staro, -1) {
+	for _, trag := range models.TragoviIspravkaOpisa(staro) {
 		if !strings.Contains(novo, trag) {
 			novo = strings.TrimSpace(novo + " " + trag)
 		}
@@ -247,8 +259,8 @@ func tragIspravkaOpisa(prije, tko string, kad time.Time) string {
 }
 
 // MakniDezurstvo miče dežurstvo iz plana; u knjizi verzija ostaje trag.
-// Svoje nepotvrđeno miče svatko, osim kad mu se ne zna mjesto rada; ostalo
-// uprava centra.
+// Svoje nepotvrđeno miče svatko, osim kad mu opis rada bira uprava centra;
+// ostalo uprava centra.
 func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id string) error {
 	if u == nil || j == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -269,15 +281,17 @@ func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, per
 }
 
 // micanjeVlastitog: bez uprave centra osoba miče samo svoje nepotvrđeno
-// dežurstvo, i to ne ono kojemu se ne zna mjesto rada — tome opis bira
-// uprava, pa ga osoba ne smije maknuti i upisati ponovno s opisom po svom
-// izboru
+// dežurstvo, i to ne ono kojemu opis bira uprava (mjesto rada se ne zna, ili
+// je opis uprava već ispravila) — takvo bi osoba maknula i upisala ponovno s
+// opisom po svom izboru
 func micanjeVlastitog(u *models.User, d *models.Dezurstvo) error {
 	switch {
 	case d.UserID != u.ID.String() || d.Potvrdeno():
 		return errors.New("potvrđeno ili tuđe dežurstvo miče voditelj ili zamjenik centra")
 	case d.ZaProvjeru():
 		return errors.New("mjesto rada nije poznato: takvo dežurstvo miče ili mu opis bira voditelj ili zamjenik centra")
+	case d.OpisBiraUprava():
+		return errors.New("opis rada izabrala je uprava centra: takvo dežurstvo miče voditelj ili zamjenik centra")
 	}
 	return nil
 }

@@ -247,7 +247,11 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 		Od: time.Date(2026, 9, 20, 8, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 9, 20, 12, 0, 0, 0, models.Zagreb), Opis: "Noćni obilazak nasipa"}
 	poznato := &models.Dezurstvo{JournalID: j.ID, UserID: ivo.ID.String(), UserName: "Ivo Ivić", Mjesto: models.MjestoTeren,
 		Od: time.Date(2026, 9, 21, 8, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 9, 21, 12, 0, 0, 0, models.Zagreb), Opis: "Obilazak i pregled obrambenih objekata"}
-	for _, z := range []*models.Dezurstvo{nepoznato, poznato} {
+	// opis koji je ispravila uprava bira uprava: ni taj zapis Ivo ne miče
+	ispravljeno := &models.Dezurstvo{JournalID: j.ID, UserID: ivo.ID.String(), UserName: "Ivo Ivić", Mjesto: models.MjestoUred,
+		Od: time.Date(2026, 9, 22, 8, 0, 0, 0, models.Zagreb), Do: time.Date(2026, 9, 22, 12, 0, 0, 0, models.Zagreb),
+		Opis: "Administrativni rad pri provedbi obrane od poplava", Napomena: "[opis ispravio Ana Anić 22.9.2026. 13:00; prije: „Noćni obilazak nasipa”]"}
+	for _, z := range []*models.Dezurstvo{nepoznato, poznato, ispravljeno} {
 		if err := journalRepo.SaveDezurstvo(context.Background(), z); err != nil {
 			t.Fatal(err)
 		}
@@ -258,7 +262,10 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 	if strings.Contains(w.Body.String(), makni(nepoznato)) {
 		t.Error("vodočuvaru se nudi micanje vlastitog zapisa za provjeru")
 	}
-	mora(zovi(ana, uprava, http.MethodGet, plan, nil), http.StatusOK, "plan uprave", makni(nepoznato), makni(poznato))
+	if strings.Contains(w.Body.String(), makni(ispravljeno)) {
+		t.Error("vodočuvaru se nudi micanje vlastitog zapisa kojemu je opis ispravila uprava")
+	}
+	mora(zovi(ana, uprava, http.MethodGet, plan, nil), http.StatusOK, "plan uprave", makni(nepoznato), makni(poznato), makni(ispravljeno))
 	w = zovi(ivo, vodocuvar, http.MethodPost, makni(nepoznato), url.Values{})
 	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("vodočuvar miče svoj zapis za provjeru: %s", l)

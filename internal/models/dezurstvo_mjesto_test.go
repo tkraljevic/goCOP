@@ -30,3 +30,30 @@ func TestMjestoRadaDezurstva(t *testing.T) {
 		t.Errorf("oznaka: %q", NazivMjesta(""))
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: opis rada bira uprava centra kad se ne
+// zna mjesto rada, i kad ga je već ispravila (u napomeni je trag ispravka)
+func TestOpisBiraUprava(t *testing.T) {
+	for _, s := range []struct {
+		ime  string
+		d    Dezurstvo
+		want bool
+	}{
+		{"opis s popisa", Dezurstvo{Opis: "Dežurstvo u COP-u", Mjesto: MjestoUred, Napomena: "noćna smjena"}, false},
+		{"mjesto nepoznato", Dezurstvo{Opis: "Opis s drugog čvora"}, true},
+		{"opis ispravila uprava", Dezurstvo{Opis: "Dežurstvo u COP-u", Mjesto: MjestoUred,
+			Napomena: "noćna [opis ispravio Ana Anić 8.10.2026. 14:20; prije: „Opis s drugog čvora”]"}, true},
+		{"samo slično tragu", Dezurstvo{Opis: "Dežurstvo u COP-u", Mjesto: MjestoUred, Napomena: "[opis ispravio sam]"}, false},
+	} {
+		if got := s.d.OpisBiraUprava(); got != s.want {
+			t.Errorf("%s: %v, a treba %v", s.ime, got, s.want)
+		}
+	}
+	napomena := "a [opis ispravio Ana Anić 8.10.2026. 14:20; prije: „—”] b [opis ispravio Ivo Ivić 9.10.2026. 08:05; prije: „Dežurstvo u COP-u”]"
+	if got := TragoviIspravkaOpisa(napomena); len(got) != 2 || got[1] != "[opis ispravio Ivo Ivić 9.10.2026. 08:05; prije: „Dežurstvo u COP-u”]" {
+		t.Errorf("tragovi: %q", got)
+	}
+	if got := TragoviIspravkaOpisa("noćna smjena"); len(got) != 0 {
+		t.Errorf("bez traga: %q", got)
+	}
+}
