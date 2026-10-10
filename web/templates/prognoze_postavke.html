@@ -49,10 +49,9 @@
 <section class="detail-section" id="stara">
   <h2>{{icon "download"}} Izvoz stare prognoze</h2>
   <p class="reg-card-sub">Ista Excel tablica kao izvoz zadnjeg izdanja, za odabrani dan i sat po našem vremenu. Ako u
-    tom satu prognoza nije izdana, izvozi se zadnje izdanje prije njega; u tablici piše kad je izdano. Ako je taj
-    sat izdan iznova (Generiraj, Pripremi model), brojke su zadnjeg računa, a uz vrijeme izdanja piše da je sat
-    izdan iznova i kada; ranije brojke čuvaju se u bazi prognoza, ali ih izvoz ne daje. Opis metode i postaja na
-    listu „O prognozi” je današnji. Rečenice o kiši na slivovima nema, jer se kiša čita samo za sada.</p>
+    tom satu prognoza nije izdana, izvozi se zadnje izdanje prije njega; u tablici piše kad je izdano. Brojke su
+    onakve kakve su tada izdane, a opis metode i postaja na listu „O prognozi” je današnji. Rečenice o kiši na
+    slivovima nema, jer se kiša čita samo za sada.</p>
   <form method="GET" action="/prognoze.xlsx" class="prog-prikaz-obrazac">
     <div class="prog-prikaz-red"><label for="izvoz_dan">Dan</label>
       <input type="date" name="dan" id="izvoz_dan" class="form-control" required value="{{.Danas}}" max="{{.Danas}}"></div>
