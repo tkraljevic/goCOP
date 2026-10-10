@@ -182,18 +182,68 @@ func TestTragIspravkaOpisa(t *testing.T) {
 
 func TestIzvanZbroja(t *testing.T) {
 	sad := time.Now()
-	var zaProvjeru, ceka time.Duration
+	var out Obracun
 	potvrdeno := models.Dezurstvo{Opis: "Dežurstvo u COP-u", Mjesto: models.MjestoUred, PotvrdenoAt: &sad}
-	if izvanZbroja(potvrdeno, time.Hour, &zaProvjeru, &ceka) || zaProvjeru != 0 || ceka != 0 {
+	if izvanZbroja(potvrdeno, time.Hour, &out) || out.ZaProvjeru != 0 || out.CekaPotvrdu != 0 {
 		t.Error("potvrđeno s mjestom je izvan zbroja")
 	}
 	nepotvrdeno := models.Dezurstvo{Opis: "Dežurstvo u COP-u", Mjesto: models.MjestoUred}
-	if !izvanZbroja(nepotvrdeno, time.Hour, &zaProvjeru, &ceka) || ceka != time.Hour || zaProvjeru != 0 {
-		t.Errorf("nepotvrđeno: čeka %v, za provjeru %v", ceka, zaProvjeru)
+	if !izvanZbroja(nepotvrdeno, time.Hour, &out) || out.CekaPotvrdu != time.Hour || out.ZaProvjeru != 0 {
+		t.Errorf("nepotvrđeno: čeka %v, za provjeru %v", out.CekaPotvrdu, out.ZaProvjeru)
 	}
-	bezMjesta := models.Dezurstvo{Opis: "Opis s drugog čvora", PotvrdenoAt: &sad}
-	if !izvanZbroja(bezMjesta, 2*time.Hour, &zaProvjeru, &ceka) || zaProvjeru != 2*time.Hour || ceka != time.Hour {
-		t.Errorf("bez mjesta: čeka %v, za provjeru %v", ceka, zaProvjeru)
+	bezMjesta := models.Dezurstvo{UserID: "pero", UserName: "Pero Perić", Opis: "Opis s drugog čvora", PotvrdenoAt: &sad}
+	if !izvanZbroja(bezMjesta, 2*time.Hour, &out) || out.ZaProvjeru != 2*time.Hour || out.CekaPotvrdu != time.Hour {
+		t.Errorf("bez mjesta: čeka %v, za provjeru %v", out.CekaPotvrdu, out.ZaProvjeru)
+	}
+	if len(out.ZaProvjeruOsobe) != 1 || out.ZaProvjeruOsobe[0] != (OsobaZaProvjeru{UserID: "pero", UserName: "Pero Perić", Sati: 2 * time.Hour}) {
+		t.Errorf("osobe za provjeru: %+v", out.ZaProvjeruOsobe)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: dežurstvo kojemu se ne zna mjesto
+// rada označeno je i u obračunu sati, pa obračun uz zbroj „za provjeru”
+// navodi i čiji sati nisu u obračunu, sa satima po osobi, redom prvog
+// takvog dežurstva u razdoblju. Pero Perić ima dva takva dežurstva, Ana
+// Anić jedno, a Iva Ivić jedno s poznatim mjestom.
+func TestObracunNavodiCijiSuSatiZaProvjeru(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	iva := &models.User{ID: uuid.New(), FullName: "Iva Ivić"}
+	upisi := []*models.Dezurstvo{
+		o.peroDezura(dzSat(7, 8, 0), dzSat(7, 16, 0)),
+		{UserID: ana.ID.String(), UserName: "Ana Anić", Od: dzSat(8, 8, 0), Do: dzSat(8, 10, 0), Opis: "Dežurstvo u COP-u"},
+		o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0)),
+		{UserID: iva.ID.String(), UserName: "Iva Ivić", Od: dzSat(10, 8, 0), Do: dzSat(10, 12, 0), Opis: "Dežurstvo u COP-u"},
+	}
+	for _, d := range upisi {
+		if err := o.svc.SpremiDezurstvo(ctx, ana, o.ovlUprav, o.opseg, o.dnevnik, d); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, d := range upisi[:3] {
+		o.bezMjesta(t, d)
+	}
+	ob, err := o.svc.Obracun(ctx, o.dnevnik, dzSat(1, 0, 0), dzSat(30, 0, 0), obracun.Hrvatski{}, obracun.IORS2026, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []OsobaZaProvjeru{
+		{UserID: o.pperic.ID.String(), UserName: "Pero Perić", Sati: 12 * time.Hour},
+		{UserID: ana.ID.String(), UserName: "Ana Anić", Sati: 2 * time.Hour},
+	}
+	if ob.ZaProvjeru != 14*time.Hour || len(ob.ZaProvjeruOsobe) != len(want) {
+		t.Fatalf("za provjeru %v, osobe %+v", ob.ZaProvjeru, ob.ZaProvjeruOsobe)
+	}
+	for k := range want {
+		if ob.ZaProvjeruOsobe[k] != want[k] {
+			t.Errorf("osoba %d: %+v, a treba %+v", k, ob.ZaProvjeruOsobe[k], want[k])
+		}
+	}
+	// izvan razdoblja nije ni u zbroju ni na popisu
+	ob, _ = o.svc.Obracun(ctx, o.dnevnik, dzSat(9, 0, 0), dzSat(30, 0, 0), obracun.Hrvatski{}, obracun.IORS2026, nil)
+	if ob.ZaProvjeru != 4*time.Hour || len(ob.ZaProvjeruOsobe) != 1 || ob.ZaProvjeruOsobe[0].UserName != "Pero Perić" {
+		t.Errorf("od 9. 9.: za provjeru %v, osobe %+v", ob.ZaProvjeru, ob.ZaProvjeruOsobe)
 	}
 }
 

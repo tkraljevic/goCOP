@@ -307,6 +307,28 @@ type Obracun struct {
 	Obracunski  float64
 	CekaPotvrdu time.Duration // sati u razdoblju koji još nisu potvrđeni; izvan zbroja
 	ZaProvjeru  time.Duration // sati dežurstava kojima se ne zna mjesto rada; izvan zbroja
+	// čiji su sati „za provjeru”, redom prvog takvog dežurstva u razdoblju
+	ZaProvjeruOsobe []OsobaZaProvjeru
+}
+
+// OsobaZaProvjeru su sati jedne osobe koji nisu u obračunu jer se ne zna
+// mjesto rada
+type OsobaZaProvjeru struct {
+	UserID, UserName string
+	Sati             time.Duration
+}
+
+// dodajZaProvjeru pribraja sate dežurstva kojemu se ne zna mjesto rada:
+// zbroju „za provjeru” i osobi čije je dežurstvo
+func (o *Obracun) dodajZaProvjeru(d models.Dezurstvo, sati time.Duration) {
+	o.ZaProvjeru += sati
+	for k := range o.ZaProvjeruOsobe {
+		if o.ZaProvjeruOsobe[k].UserID == d.UserID {
+			o.ZaProvjeruOsobe[k].Sati += sati
+			return
+		}
+	}
+	o.ZaProvjeruOsobe = append(o.ZaProvjeruOsobe, OsobaZaProvjeru{UserID: d.UserID, UserName: d.UserName, Sati: sati})
 }
 
 type ObracunGrupa struct {
@@ -354,7 +376,7 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	imena := map[string]string{}
 	for _, d := range dez {
 		a, b, ok := dioURazdoblju(d, od, do)
-		if !ok || izvanZbroja(d, b.Sub(a), &out.ZaProvjeru, &out.CekaPotvrdu) {
+		if !ok || izvanZbroja(d, b.Sub(a), &out) {
 			continue
 		}
 		kl := kljuc{d.PodrucjeID(), d.UserID, d.MjestoRada()}
@@ -436,14 +458,14 @@ func dioURazdoblju(d models.Dezurstvo, od, do time.Time) (a, b time.Time, ok boo
 }
 
 // izvanZbroja broji sate dežurstva koje ne ulazi u obračun: kad se ne zna
-// mjesto rada, u „za provjeru”, a kad nije potvrđeno, u „čeka potvrdu”.
-// Vraća true kad je dežurstvo izvan zbroja.
-func izvanZbroja(d models.Dezurstvo, sati time.Duration, zaProvjeru, cekaPotvrdu *time.Duration) bool {
+// mjesto rada, u „za provjeru” (i uz osobu), a kad nije potvrđeno, u „čeka
+// potvrdu”. Vraća true kad je dežurstvo izvan zbroja.
+func izvanZbroja(d models.Dezurstvo, sati time.Duration, out *Obracun) bool {
 	switch {
 	case d.ZaProvjeru():
-		*zaProvjeru += sati
+		out.dodajZaProvjeru(d, sati)
 	case !d.Potvrdeno():
-		*cekaPotvrdu += sati
+		out.CekaPotvrdu += sati
 	default:
 		return false
 	}

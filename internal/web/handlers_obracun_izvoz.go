@@ -485,16 +485,26 @@ func KnjigaObracuna(obr service.Obracun, rv obracun.RadnoVrijeme, z ZaglavljeIzv
 
 // napomenaRekapitulacije je napomena ispod zbroja rekapitulacije, s
 // visinom retka: stvarni i obračunski sati, i koliko sati dežurstava kojima
-// se ne zna mjesto rada u zbroju nema (Odluke (8. 10. 2026.), pitanje 10)
+// se ne zna mjesto rada u zbroju nema i čiji su (Odluke (8. 10. 2026.),
+// pitanje 10)
 func napomenaRekapitulacije(obr service.Obracun) (string, float64) {
 	tekst := fmt.Sprintf("Stvarni sati u razdoblju: %s h; obračunski sati: %s. ", satiTekst(obr.Stvarni), strings.ReplaceAll(fmt.Sprintf("%.1f", obr.Obracunski), ".", ","))
 	visina := 30.0
 	if obr.ZaProvjeru > 0 {
-		tekst += "Nije u obračunu: " + satiTekst(obr.ZaProvjeru) + " h zapisa „" + models.OznakaZaProvjeru +
-			"” — ne zna se je li rad bio u uredu ili na terenu, pa ti sati čekaju da uprava centra u planu izabere opis rada s popisa. "
-		visina = 45
+		tekst += "Nije u obračunu: " + satiTekst(obr.ZaProvjeru) + " h zapisa „" + models.OznakaZaProvjeru + "” (" + osobeZaProvjeru(obr.ZaProvjeruOsobe) +
+			") — ne zna se je li rad bio u uredu ili na terenu, pa ti sati čekaju da uprava centra u planu izabere opis rada s popisa. "
+		visina = 45 + 15*float64(len(obr.ZaProvjeruOsobe)/4)
 	}
 	return tekst + "Iznosi se izračunaju kad računovodstvo upiše satnice na listovima po područjima.", visina
+}
+
+// osobeZaProvjeru su osobe sa satima „za provjeru”: „Pero Perić 8:00 h, Ana Anić 2:00 h”
+func osobeZaProvjeru(osobe []service.OsobaZaProvjeru) string {
+	dijelovi := make([]string, len(osobe))
+	for k, o := range osobe {
+		dijelovi[k] = o.UserName + " " + satiTekst(o.Sati) + " h"
+	}
+	return strings.Join(dijelovi, ", ")
 }
 
 // vrijednostStupca daje brojku osobe u stupcu obrasca (2..21): sati ili

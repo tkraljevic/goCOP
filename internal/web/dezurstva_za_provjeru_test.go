@@ -136,7 +136,8 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 		t.Error("vodočuvar vidi ispravak opisa")
 	}
 	mora(zovi(ana, uprava, http.MethodGet, obr+"?od=2026-09-01&do=2026-09-29", nil), http.StatusOK, "obračun",
-		"<strong>8:00 h</strong> u razdoblju ima", "mjesto nepoznato — za provjeru", "nema potvrđenih sati")
+		"<strong>8:00 h</strong> u razdoblju ima", "mjesto nepoznato — za provjeru", "nema potvrđenih sati",
+		"Čiji sati nisu u obračunu: <a href=\""+obr+"/"+ivo.ID.String()+"?od=2026-09-01&amp;do=2026-09-29\">Ivo Ivić</a> 8:00 h")
 	mora(zovi(ana, uprava, http.MethodGet, iors, nil), http.StatusOK, "IORS", "badge badge-warning\">mjesto nepoznato — za provjeru",
 		"<strong>8:00 h</strong> u razdoblju ima")
 
@@ -188,7 +189,7 @@ func TestDezurstvoZaProvjeruKrozRute(t *testing.T) {
 			napomena = r[0]
 		}
 	}
-	if !strings.Contains(napomena, "Nije u obračunu: 8:00 h zapisa „mjesto nepoznato — za provjeru”") {
+	if !strings.Contains(napomena, "Nije u obračunu: 8:00 h zapisa „mjesto nepoznato — za provjeru” (Ivo Ivić 8:00 h)") {
 		t.Errorf("napomena rekapitulacije: %q", napomena)
 	}
 
@@ -295,5 +296,25 @@ func TestIORSUpozorenjaIOpisRetka(t *testing.T) {
 		if opis, mjesto := opisRetkaIORS(s.r); opis != s.opis || mjesto != s.mjesto {
 			t.Errorf("%q: %q / %q", s.r.Opis, opis, mjesto)
 		}
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: napomena rekapitulacije obračuna u
+// Excelu kaže koliko sati za provjeru nije u zbroju i čiji su; redak je
+// viši kad je osoba više
+func TestNapomenaRekapitulacijeNavodiOsobe(t *testing.T) {
+	if tekst, visina := napomenaRekapitulacije(service.Obracun{Stvarni: 8 * time.Hour, Obracunski: 8}); strings.Contains(tekst, "Nije u obračunu") || visina != 30 {
+		t.Errorf("bez sati za provjeru: %q, %v", tekst, visina)
+	}
+	osobe := []service.OsobaZaProvjeru{{UserName: "Pero Perić", Sati: 8 * time.Hour}, {UserName: "Ana Anić", Sati: 90 * time.Minute}}
+	tekst, visina := napomenaRekapitulacije(service.Obracun{ZaProvjeru: 570 * time.Minute, ZaProvjeruOsobe: osobe})
+	if !strings.Contains(tekst, "Nije u obračunu: 9:30 h zapisa „mjesto nepoznato — za provjeru” (Pero Perić 8:00 h, Ana Anić 1:30 h) — ") || visina != 45 {
+		t.Errorf("dvije osobe: %q, %v", tekst, visina)
+	}
+	for _, ime := range []string{"Ivo Ivić", "Iva Ivić", "Marko Markić"} {
+		osobe = append(osobe, service.OsobaZaProvjeru{UserName: ime, Sati: time.Hour})
+	}
+	if _, visina := napomenaRekapitulacije(service.Obracun{ZaProvjeru: 12 * time.Hour, ZaProvjeruOsobe: osobe}); visina != 60 {
+		t.Errorf("pet osoba: visina %v", visina)
 	}
 }
