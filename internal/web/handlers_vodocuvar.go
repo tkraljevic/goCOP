@@ -471,7 +471,7 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
-	l, err := s.Upisi(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("tekst"))
+	l, err := s.UpisiNaList(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("list"), r.FormValue("tekst"))
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return

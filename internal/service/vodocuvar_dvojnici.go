@@ -218,3 +218,27 @@ func zakljuceniNa(l *models.VodocuvarskiList, zadaci []models.Zadatak) []models.
 	}
 	return out
 }
+
+// listZaUpis je list na koji rukovoditelj upisuje bilješku: predan list
+// vodočuvara za taj dan na čijoj je stranici „Upiši” (listID), i kad je za
+// isti dan predan i drugi list, jer su oba potpisani dokumenti; inače list
+// dana koji uzima i spremanje (predan, a od dva jednaka stariji), ili nov
+// nacrt
+func (s *VodocuvarService) listZaUpis(ctx context.Context, v *models.User, dan time.Time, listID string) (*models.VodocuvarskiList, error) {
+	if listID == "" {
+		return s.pripremiZa(ctx, v, dan)
+	}
+	l, err := s.repo.Get(ctx, listID)
+	if err != nil {
+		return nil, err
+	}
+	if predanListDana(l, v.ID.String(), dan) {
+		return l, nil
+	}
+	return s.pripremiZa(ctx, v, dan)
+}
+
+// predanListDana javlja je li l predan list osobe za taj dan
+func predanListDana(l *models.VodocuvarskiList, userID string, dan time.Time) bool {
+	return l != nil && l.Predan() && l.UserID == userID && l.Datum.In(models.Zagreb).Format("2006-01-02") == dan.In(models.Zagreb).Format("2006-01-02")
+}

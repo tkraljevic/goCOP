@@ -734,6 +734,12 @@ func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermi
 // za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema.
 // Upis nosi ime, funkciju i vrijeme, i ne mijenja se.
 func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, tekst string) (*models.VodocuvarskiList, error) {
+	return s.UpisiNaList(ctx, perms, u, vodocuvarID, dan, "", tekst)
+}
+
+// UpisiNaList je Upisi sa stranice lista: bilješka ide na otvoreni list
+// kad je to predan list vodočuvara za taj dan (listZaUpis)
+func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, listID, tekst string) (*models.VodocuvarskiList, error) {
 	tekst = strings.TrimSpace(tekst)
 	if tekst == "" {
 		return nil, fmt.Errorf("upišite bilješku")
@@ -761,7 +767,7 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	if err := provjeriDanLista(dan, s.sada()); err != nil {
 		return nil, err
 	}
-	l, err := s.pripremiZa(ctx, v, dan)
+	l, err := s.listZaUpis(ctx, v, dan, listID)
 	if err != nil {
 		return nil, err
 	}

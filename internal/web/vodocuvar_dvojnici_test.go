@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"os/exec"
 	"strings"
 	"testing"
@@ -106,5 +107,51 @@ func TestKnjigaOznacavaDvostrukeListove(t *testing.T) {
 	}
 	if strings.Count(tekst, "dvostruki list") != 2 {
 		t.Errorf("oznaka dvostrukog lista u knjizi %d puta, očekivano dvaput", strings.Count(tekst, "dvostruki list"))
+	}
+}
+
+// „Upiši” na stranici jednog od dva predana lista istog dana upisuje
+// bilješku na taj list, a ne na drugi: obrazac nosi oznaku lista. Upis bez
+// oznake lista (pregled dnevnika) ide na list koji uzima i spremanje.
+func TestUpisNaDvostrukiListIdeNaTajList(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	n := time.Now().In(models.Zagreb)
+	dan := time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, models.Zagreb)
+	predan := func(broj int) *models.VodocuvarskiList {
+		t.Helper()
+		kad := time.Now()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: o.vodocuvar.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1,
+			Datum: dan, Broj: broj, Od: "07:00", Do: "15:00", Opis: "obilazak nasipa", PredanoAt: &kad}
+		if err := o.repo.Save(context.Background(), l); err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+	prvi, drugi := predan(41), predan(42)
+	stranica := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+drugi.ID, nil).Body.String()
+	if !strings.Contains(stranica, `name="list" value="`+drugi.ID+`"`) {
+		t.Fatal("obrazac upisa na stranici lista ne nosi oznaku lista")
+	}
+	upisi := func(listID, tekst string) string {
+		t.Helper()
+		forma := url.Values{"vodocuvar": {o.vodocuvar.ID.String()}, "datum": {dan.Format("2006-01-02")}, "list": {listID}, "tekst": {tekst}, "natrag": {"/vodocuvar/" + listID}}
+		return mustUnescape(o.zovi(t, o.rukovodi, http.MethodPost, "/vodocuvar/upis", forma).Header().Get("Location"))
+	}
+	if l := upisi(drugi.ID, "provjeriti propust"); !strings.HasPrefix(l, "/vodocuvar/"+drugi.ID) || !strings.Contains(l, "na listu 42") {
+		t.Errorf("upis sa stranice drugog lista: %s", l)
+	}
+	upisa := func(id string) int {
+		t.Helper()
+		l, err := o.repo.Get(context.Background(), id)
+		if err != nil || l == nil {
+			t.Fatalf("list %s: %v", id, err)
+		}
+		return len(l.Upisi)
+	}
+	if upisa(drugi.ID) != 1 || upisa(prvi.ID) != 0 {
+		t.Errorf("upis je na listu 41 (%d) umjesto na listu 42 (%d)", upisa(prvi.ID), upisa(drugi.ID))
+	}
+	if l := upisi("", "upis iz pregleda"); !strings.Contains(l, "na listu 41") || upisa(prvi.ID) != 1 {
+		t.Errorf("upis bez oznake lista: %s", l)
 	}
 }

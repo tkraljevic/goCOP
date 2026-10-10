@@ -182,3 +182,51 @@ func TestDvostrukeListoveDobivaRukovoditeljPodrucjaIAdministrator(t *testing.T) 
 		}
 	}
 }
+
+// Upis sa stranice lista ide na taj list samo kad je to predan list te
+// osobe za taj dan; nacrt, list druge osobe ili drugog dana i nepostojeća
+// oznaka vode na list dana koji uzima i spremanje. Greška čitanja lista se
+// javlja.
+func TestListZaUpis(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	spremi := func(userID string, d time.Time, predan bool) *models.VodocuvarskiList {
+		t.Helper()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: userID, Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: d, Broj: 41, Od: "07:00", Do: "15:00"}
+		if predan {
+			kad := d.Add(15 * time.Hour)
+			l.PredanoAt = &kad
+		}
+		if err := o.repo.Save(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+	nacrt := spremi(pero.ID.String(), dan, false)
+	prvi := spremi(pero.ID.String(), dan, true)
+	drugi := spremi(pero.ID.String(), dan, true)
+	sutra := spremi(pero.ID.String(), dan.AddDate(0, 0, 1), true)
+	tudi := spremi(uuid.NewString(), dan, true)
+	for _, s := range []struct {
+		ime, listID, want string
+	}{
+		{"bez oznake", "", prvi.ID},
+		{"drugi predan list dana", drugi.ID, drugi.ID},
+		{"nacrt", nacrt.ID, prvi.ID},
+		{"list drugog dana", sutra.ID, prvi.ID},
+		{"list druge osobe", tudi.ID, prvi.ID},
+		{"nepostojeći list", uuid.NewString(), prvi.ID},
+	} {
+		l, err := o.vs.listZaUpis(ctx, pero, dan, s.listID)
+		if err != nil || l == nil || l.ID != s.want {
+			t.Errorf("%s: %+v %v", s.ime, l, err)
+		}
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if _, err := o.vs.listZaUpis(prekinut, pero, dan, drugi.ID); err == nil {
+		t.Error("prekinuto čitanje lista nije javilo grešku")
+	}
+}

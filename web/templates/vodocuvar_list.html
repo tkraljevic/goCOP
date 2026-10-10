@@ -100,6 +100,7 @@
   <form method="POST" action="/vodocuvar/upis" class="posta-trazi items-start">
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
+    <input type="hidden" name="list" value="{{$l.ID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
     <input class="form-control" name="tekst" required placeholder="naredba, napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>
