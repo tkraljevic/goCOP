@@ -139,7 +139,7 @@ func (r *JournalRepository) ArhivirajDezurstvo(ctx context.Context, d *models.De
 // strftime ne čita.
 func (r *JournalRepository) PlanoviOsobe(ctx context.Context, userID string) ([]models.PlanOsobe, error) {
 	rows, err := r.db.QueryContext(ctx, `
-		SELECT j.id, j.title, COALESCE(s.center_cop, ''), j.centar_sektor, j.ended_at IS NOT NULL, d.od, d.do_, d.potvrdeno_at IS NULL
+		SELECT j.id, j.title, COALESCE(s.center_cop, ''), j.centar_sektor, j.ended_at IS NOT NULL, d.od, d.do_, d.potvrdeno_at, d.opis, d.mjesto
 		FROM dezurstva d JOIN journals j ON j.id = d.journal_id LEFT JOIN sectors s ON s.id = j.centar_sektor
 		WHERE d.user_id = ? ORDER BY d.od`, userID)
 	if err != nil {
@@ -150,30 +150,22 @@ func (r *JournalRepository) PlanoviOsobe(ctx context.Context, userID string) ([]
 	var redom []string
 	for rows.Next() {
 		var p models.PlanOsobe
-		var od, do time.Time
-		var ceka bool
-		if err := rows.Scan(&p.JournalID, &p.Naslov, &p.Centar, &p.Sektor, &p.Zakljucen, &od, &do, &ceka); err != nil {
+		var d models.Dezurstvo
+		var potvrdeno sql.NullTime
+		if err := rows.Scan(&p.JournalID, &p.Naslov, &p.Centar, &p.Sektor, &p.Zakljucen, &d.Od, &d.Do, &potvrdeno, &d.Opis, &d.Mjesto); err != nil {
 			return nil, err
 		}
-		od, do = od.In(models.Zagreb), do.In(models.Zagreb)
+		d.Od, d.Do = d.Od.In(models.Zagreb), d.Do.In(models.Zagreb)
+		if potvrdeno.Valid {
+			d.PotvrdenoAt = &potvrdeno.Time
+		}
 		g := po[p.JournalID]
 		if g == nil {
-			p.Prvo, p.Zadnje = od, do
 			g = &p
 			po[p.JournalID] = g
 			redom = append(redom, p.JournalID)
 		}
-		g.Dezurstava++
-		g.Sati += do.Sub(od)
-		if ceka {
-			g.CekaPotvrdu++
-		}
-		if od.Before(g.Prvo) {
-			g.Prvo = od
-		}
-		if do.After(g.Zadnje) {
-			g.Zadnje = do
-		}
+		g.Dodaj(d)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

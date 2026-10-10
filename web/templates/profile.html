@@ -286,6 +286,7 @@
           <div class="reg-card-foot">
             <span class="reg-chip">{{icon "clock"}} {{.Dezurstava}} {{uzBroj .Dezurstava "dežurstvo" "dežurstva" "dežurstava"}}, {{sati .Sati}} h</span>
             {{if .CekaPotvrdu}}<span class="badge badge-pending">{{.CekaPotvrdu}} čeka potvrdu</span>{{end}}
+            {{if .ZaProvjeru}}<span class="badge badge-warning" title="Mjesto rada nepoznato: nije u obračunu dok uprava centra ne izabere opis rada s popisa">{{.ZaProvjeru}} za provjeru</span>{{end}}
             <a href="/dnevnici/{{.JournalID}}/dezurstva" class="btn btn-sm btn-secondary">{{icon "users"}} Plan</a>
             <a href="/dnevnici/{{.JournalID}}/obracun/{{$.User.ID}}" class="btn btn-sm btn-secondary">{{icon "calculator"}} Izvješće o satima</a>
           </div>
