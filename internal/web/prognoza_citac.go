@@ -202,6 +202,25 @@ func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
 	return vrijednosti, izdanja
 }
 
+// IzdanIznova javlja je li sat izdanja izdan više puta (Generiraj, Pripremi
+// model). Ponovni račun seli ranije brojke tog sata u izdane_ranije i
+// dnevne_ranije, a pregled i izvoz čitaju zadnji račun; uz to vraća kad je
+// zadnji izračunat, kad je to zapisano.
+func (c *CitacPrognoza) IzdanIznova(sat int64) (time.Time, bool) {
+	if c == nil || c.db == nil {
+		return time.Time{}, false
+	}
+	var iznova bool
+	var nastalo sql.NullInt64
+	err := c.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM izdane_ranije WHERE izdano = ?)
+		OR EXISTS (SELECT 1 FROM dnevne_ranije WHERE izdano = ?),
+		(SELECT max(nastalo) FROM izdanja WHERE izdano = ?)`, sat, sat, sat).Scan(&iznova, &nastalo)
+	if err != nil || !iznova || !nastalo.Valid {
+		return time.Time{}, err == nil && iznova
+	}
+	return time.Unix(nastalo.Int64, 0), true
+}
+
 // Izdavac vraća čvor koji je izdao zadnje izdanje, samo kad je ono stiglo
 // razmjenom; izdanje ovog čvora ne treba oznaku.
 func (c *CitacPrognoza) Izdavac() string {

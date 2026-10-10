@@ -30,6 +30,23 @@ var (
 // izdanju.
 func bazaDvaIzdanja(t *testing.T) *CitacPrognoza {
 	t.Helper()
+	return citacBaze(t, putDvaIzdanja(t))
+}
+
+// citacBaze otvara čitač baze prognoza i zatvara ga kad test završi.
+func citacBaze(t *testing.T, put string) *CitacPrognoza {
+	t.Helper()
+	c, err := OtvoriPrognoze(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { c.Close() })
+	return c
+}
+
+// putDvaIzdanja slaže bazu iz bazaDvaIzdanja i vraća njezin put.
+func putDvaIzdanja(t *testing.T) string {
+	t.Helper()
 	put := filepath.Join(t.TempDir(), "prognoze.db")
 	db, err := prognoza.Otvori(put)
 	if err != nil {
@@ -67,12 +84,7 @@ func bazaDvaIzdanja(t *testing.T) *CitacPrognoza {
 			t.Fatal(err)
 		}
 	}
-	c, err := OtvoriPrognoze(put)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { c.Close() })
-	return c
+	return put
 }
 
 // Čitač stare prognoze vidi samo izdanja do svog sata: satno, dnevno, tuđe
@@ -250,5 +262,82 @@ func TestPostavkeNudeIzvozStarePrognoze(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Errorf("postavke nemaju %q", want)
 		}
+	}
+}
+
+// Sat izdan iznova (Generiraj, Pripremi model): izvoz stare prognoze daje
+// zadnji račun tog sata, a uz „izdano” piše da je sat izdan iznova i kada.
+// Dosad je izvoz davao brojke zadnjeg računa bez ikakve oznake, a stranica i
+// pomoć obećavale su brojke „onakve kakve su tada izdane”.
+func TestIzvozStarePrognozeIzdaneIznova(t *testing.T) {
+	put := putDvaIzdanja(t)
+	db, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := prognoza.ObrisiIzdanje(db, staroIzdanje); err != nil {
+		t.Fatal(err)
+	}
+	var izdane []prognoza.Izdana
+	for sat := int64(0); sat <= 72; sat++ {
+		v := 411 + float64(sat)
+		izdane = append(izdane, prognoza.Izdana{Letva: "donja", Velicina: "vodostaj", Izdano: staroIzdanje,
+			Ciljni: staroIzdanje + sat, Vrijednost: v, Dolje: v - 1, Gore: v + 1, Model: "proba"})
+	}
+	if err := prognoza.SpremiIzdane(db, izdane); err != nil {
+		t.Fatal(err)
+	}
+	// Ponovni račun 23. 9. u 09:30 po našem vremenu.
+	if _, err := prognoza.SpremiZapisIzdanja(db, prognoza.ZapisIzdanja{Izdano: staroIzdanje,
+		Nastalo: time.Unix(staroIzdanje*3600, 0).Add(150 * time.Minute)}); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	c := citacBaze(t, put)
+	h := &PrognozeHandler{citac: func() *CitacPrognoza { return c }}
+
+	rec := httptest.NewRecorder()
+	h.IzvoziPrognoze(rec, httptest.NewRequest("GET", "/prognoze.xlsx?dan=2026-09-23&sat=9", nil))
+	if rec.Code != 200 {
+		t.Fatalf("staro izdanje: %d %s", rec.Code, rec.Body.String())
+	}
+	staro := sadrzajKnjige(t, rec.Body.Bytes())
+	for _, want := range []string{">411<", "izdano 23.9.2026. u 07:00 (sat izdan iznova 23.9. u 09:30; brojke su zadnjeg računa)"} {
+		if !strings.Contains(staro, want) {
+			t.Errorf("izvoz sata izdanog iznova nema %q", want)
+		}
+	}
+
+	// Sat izdan jednom i izvoz zadnjeg izdanja nemaju oznake.
+	rec = httptest.NewRecorder()
+	h.IzvoziPrognoze(rec, httptest.NewRequest("GET", "/prognoze.xlsx", nil))
+	if zadnje := sadrzajKnjige(t, rec.Body.Bytes()); strings.Contains(zadnje, "izdan iznova") {
+		t.Error("zadnje izdanje, izdano jednom, označeno je kao izdano iznova")
+	}
+	if kad, iznova := c.IzdanIznova(novoIzdanje); iznova || !kad.IsZero() {
+		t.Errorf("novo izdanje, izdano jednom: %v %v", kad, iznova)
+	}
+	var nema *CitacPrognoza
+	if _, iznova := nema.IzdanIznova(staroIzdanje); iznova {
+		t.Error("čitač bez baze javlja sat izdan iznova")
+	}
+
+	// Izdanje iz vremena prije zapisa o izdanjima: zna se da je izdano
+	// iznova, ali ne i kada.
+	db, err = prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`DELETE FROM izdanja WHERE izdano = ?`, staroIzdanje); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	trazeno, _ := zahtjevIzdanja(httptest.NewRequest("GET", "/prognoze.xlsx?dan=2026-09-23&sat=9", nil))
+	if n := h.napomenaIznova(trazeno.Context(), staroIzdanje); n != " (sat izdan iznova; brojke su zadnjeg računa)" {
+		t.Errorf("bez zapisa o izdanju: %q", n)
+	}
+	c.Close()
+	if n := h.napomenaIznova(trazeno.Context(), staroIzdanje); n != "" {
+		t.Errorf("baza se ne da čitati, a napomena je %q", n)
 	}
 }
