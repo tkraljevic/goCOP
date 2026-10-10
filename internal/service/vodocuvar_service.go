@@ -468,10 +468,11 @@ func (s *VodocuvarService) zadaciZaZakljuciti(ctx context.Context, l *models.Vod
 	return out, napomene, nil
 }
 
-// gdjeJeZakljucen opisuje list kojim je zadatak zaključen u evidenciji
+// gdjeJeZakljucen opisuje list kojim je zadatak zaključen u evidenciji; od
+// lista predanog na dva čvora onaj koji ga je zaključio (listVeze)
 func (s *VodocuvarService) gdjeJeZakljucen(ctx context.Context, zad *models.Zadatak) string {
 	if zad.ListID != "" {
-		if dl, err := s.repo.Get(ctx, zad.ListID); err == nil && dl != nil {
+		if dl := s.listVeze(ctx, zad.ListID, func(l *models.VodocuvarskiList) bool { return zakljucioZadatak(l, zad.ID) }); dl != nil {
 			return fmt.Sprintf("listom br. %d od %s", dl.Broj, dl.Datum.In(models.Zagreb).Format("02.01.2006."))
 		}
 	}
@@ -775,13 +776,19 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	return l, nil
 }
 
-// ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska
+// ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska. Od
+// dva lista predana na dva čvora, koji dijele oznaku u evidenciji zadataka,
+// svaki dobiva one koje je sam zaključio (oznakaZadataka).
 func (s *VodocuvarService) ZadaciLista(ctx context.Context, listID string) []models.Zadatak {
-	z, err := s.repo.ZadaciZaList(ctx, listID)
+	oznaka, dijeli := s.oznakaZadataka(ctx, listID)
+	z, err := s.repo.ZadaciZaList(ctx, oznaka)
 	if err != nil {
 		return nil
 	}
-	return z
+	if dijeli == nil {
+		return z
+	}
+	return zakljuceniNa(dijeli, z)
 }
 
 // Prilozi vraća bajtove priloga lista po oznaci priloga; što ovaj čvor nema,

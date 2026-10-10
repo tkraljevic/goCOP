@@ -101,3 +101,90 @@ func BrojeviDvostrukih(listovi []models.VodocuvarskiList) map[string][]int {
 	}
 	return out
 }
+
+// Veze na list predan na dva čvora (Odluke (8. 10. 2026.), pitanje 7).
+// Prijava pamti oznaku lista na koji je upisana, a zadatak oznaku lista koji
+// ga je zaključio. Kad je isti list predan na dva čvora, list kasnijeg
+// potpisa nakon razmjene stoji pod izvedenom oznakom
+// (models.IDDvostrukogLista), a veze upisane na čvoru koji ga je potpisao i
+// dalje nose oznaku lista, koja sada pokazuje list prvog potpisa. Veza zato
+// vodi na list kojemu pripada: onaj na kojem je prijava, odnosno onaj koji
+// je zadatak zaključio.
+
+// izvedenIz javlja je li list d list kasnijeg potpisa lista s oznakom id
+func izvedenIz(d *models.VodocuvarskiList, id string) bool {
+	return d.Predan() && d.ID == models.IDDvostrukogLista(id, *d.PredanoAt)
+}
+
+// listoviDanaListe su svi listovi osobe za dan lista; bez njih prazno
+func (s *VodocuvarService) listoviDanaListe(ctx context.Context, l *models.VodocuvarskiList) []models.VodocuvarskiList {
+	listovi, _ := s.repo.ListoviDana(ctx, l.UserID, l.Datum)
+	return listovi
+}
+
+// listVeze čita list na koji veza pokazuje oznakom id. Kad mu veza ne
+// pripada, a list kasnijeg potpisa izveden iz njega joj pripada, vraća taj
+// list; nil kad lista nema.
+func (s *VodocuvarService) listVeze(ctx context.Context, id string, pripada func(*models.VodocuvarskiList) bool) *models.VodocuvarskiList {
+	l, err := s.repo.Get(ctx, id)
+	if err != nil || l == nil || pripada(l) {
+		return l
+	}
+	for _, d := range s.listoviDanaListe(ctx, l) {
+		if izvedenIz(&d, id) && pripada(&d) {
+			return &d
+		}
+	}
+	return l
+}
+
+// imaPrijavu javlja je li prijava upisana na list
+func imaPrijavu(l *models.VodocuvarskiList, id string) bool {
+	for _, p := range l.Prijave {
+		if p.ID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// zakljucioZadatak javlja je li zadatak na listu zaključen (obavljen ili
+// odbačen), a ne prenesen
+func zakljucioZadatak(l *models.VodocuvarskiList, id string) bool {
+	for _, z := range l.Zadaci {
+		if z.ID == id && z.Status != models.ZadatakOtvoren {
+			return true
+		}
+	}
+	return false
+}
+
+// oznakaZadataka je oznaka lista pod kojom evidencija drži zadatke koje je
+// list zaključio, uz sam list kad oznaku dijeli s drugim listom (predan na
+// dva čvora); inače list nije potreban i vraća se nil
+func (s *VodocuvarService) oznakaZadataka(ctx context.Context, listID string) (string, *models.VodocuvarskiList) {
+	l, err := s.repo.Get(ctx, listID)
+	if err != nil || l == nil {
+		return listID, nil
+	}
+	for _, d := range s.listoviDanaListe(ctx, l) {
+		if izvedenIz(l, d.ID) {
+			return d.ID, l
+		}
+		if izvedenIz(&d, l.ID) {
+			return l.ID, l
+		}
+	}
+	return listID, nil
+}
+
+// zakljuceniNa su od zadataka oni koje je list zaključio
+func zakljuceniNa(l *models.VodocuvarskiList, zadaci []models.Zadatak) []models.Zadatak {
+	var out []models.Zadatak
+	for _, z := range zadaci {
+		if zakljucioZadatak(l, z.ID) {
+			out = append(out, z)
+		}
+	}
+	return out
+}

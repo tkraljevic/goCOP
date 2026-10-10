@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -31,6 +32,10 @@ type okolinaDnevnika struct {
 	users     *service.UserService
 	vodocuvar *models.User
 	rukovodi  *models.User
+	baza      *sql.DB
+	rec       *ledger.Recorder
+	vodH      *VodocuvarHandler
+	tmpl      func(stranica string) *template.Template
 }
 
 func novaOkolinaDnevnika(t *testing.T) *okolinaDnevnika {
@@ -65,7 +70,7 @@ func novaOkolinaDnevnika(t *testing.T) *okolinaDnevnika {
 		}
 		return u
 	}
-	o := &okolinaDnevnika{users: users}
+	o := &okolinaDnevnika{users: users, baza: baza, rec: rec}
 	o.vodocuvar = osoba("pperic", "Pero Perić", models.Duty{Title: "Vodočuvar Primjerica", Role: models.RoleWaterGuard, ScopeType: models.ScopeSection, AreaID: &bp, SectionCodes: "P.1.1"})
 	o.rukovodi = osoba("aanic", "Ana Anić", models.Duty{Title: "Rukovoditeljica BP 1", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &bp})
 
@@ -86,6 +91,7 @@ func novaOkolinaDnevnika(t *testing.T) *okolinaDnevnika {
 	}
 	h := NewVodocuvarHandler(func() *service.VodocuvarService { return o.vod }, users, func() *repository.OrgRepository { return orgRepo }, tmpl("vodocuvar.html"), tmpl("vodocuvar_list.html"))
 	h.SetOpcije(func(context.Context) models.Opcije { return models.Opcije{} })
+	o.vodH, o.tmpl = h, tmpl
 	o.mux = http.NewServeMux()
 	o.mux.HandleFunc("GET /vodocuvar", h.ShowPopis)
 	o.mux.HandleFunc("GET /vodocuvar/dan", h.ShowDan)

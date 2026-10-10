@@ -314,6 +314,14 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	return p, "", nil
 }
 
+// ListPrijave vraća dnevni list na kojem je prijava, s brojem kakav list
+// sada ima: nacrt za dan koji pri objavi još nije počeo broj dobiva tek
+// poslije, a list predan na dva čvora stoji pod oznakom svog potpisa
+// (Odluke (8. 10. 2026.), pitanja 5 i 7); nil kad ga čvor nema
+func (s *PrijavaService) ListPrijave(ctx context.Context, p *models.PrijavaSTerena) *models.VodocuvarskiList {
+	return s.vodocuvar.listVeze(ctx, p.ListID, func(l *models.VodocuvarskiList) bool { return imaPrijavu(l, p.ID) })
+}
+
 // Get čita prijavu ako je osoba smije vidjeti
 func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions, id string) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
