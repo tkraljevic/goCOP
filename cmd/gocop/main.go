@@ -133,6 +133,7 @@ type zastavice struct {
 	ispisiIzdanje      bool
 	podPostavom        bool
 	pripremi           bool
+	noviKljucCvora     bool
 	zadane             map[string]bool
 }
 
@@ -179,6 +180,7 @@ func procitajZastavice(args []string) (zastavice, error) {
 	fs.BoolVar(&z.ispisiIzdanje, "version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
 	fs.BoolVar(&z.podPostavom, "upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
 	fs.BoolVar(&z.pripremi, "pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
+	fs.BoolVar(&z.noviKljucCvora, peers.ZastavicaNovogKljuca, false, "Postojećoj bazi bez ključa čvora (node-key) izričito dopusti novi ključ, dakle novi identitet u mreži; samo za jedno pokretanje")
 	if err := fs.Parse(args); err != nil {
 		return z, err
 	}
@@ -248,12 +250,13 @@ func odrediPostavke(z *zastavice) (cfg config.Config, cfgFrom, imeIzDatoteke str
 
 // Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
 // čvor izabere sam (ime računala i četiri nasumična znaka). Postojeća
-// baza bez upisanog imena zadržava dosadašnje zadano ime gocop-cvor:
-// pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
+// baza bez upisanog imena (npr. kad je gocop.toml premješten) uzima ime pod
+// kojim pamti ključ ovog čvora, a kad ga ne zna, dosadašnje zadano ime
+// gocop-cvor: pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
 func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 	if cfg.Node.ID == "" {
 		if _, err := os.Stat(cfg.DB); err == nil {
-			cfg.Node.ID = imecvora.Stari
+			cfg.Node.ID = imeIzBaze(cfg.DB)
 		} else {
 			racunalo, _ := os.Hostname()
 			cfg.Node.ID = imecvora.Nasumicno(racunalo)
@@ -264,6 +267,21 @@ func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 		log.Printf("Ime čvora %q: %v", cfg.Node.ID, err)
 	}
 	return noviIme
+}
+
+// imeIzBaze je ime postojećeg čvora kojemu postavke ime nemaju: ime pod
+// kojim baza pamti ključ iz node-key, a kad ga ne zna ili se ne da
+// pročitati, staro zadano gocop-cvor
+func imeIzBaze(dbPath string) string {
+	ime, err := peers.ImeIzBaze(dbPath)
+	if err != nil {
+		log.Printf("Ime čvora: u bazi %s ne može se pročitati pod kojim imenom zna ključ čvora: %v", dbPath, err)
+	}
+	if ime == "" {
+		return imecvora.Stari
+	}
+	log.Printf("Ime čvora %s pročitano iz baze: pod tim imenom baza zna ključ ovog čvora (%s)", ime, peers.KeyFileName)
+	return ime
 }
 
 // Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
@@ -568,14 +586,23 @@ func uveziLetveBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
 }
 
 // zapisiPrimjerPostavki: pri prvom pokretanju zapiše gocop.toml s
-// komentarima; inače upiše ime čvora koje datoteka nije imala
+// komentarima; inače upiše ime čvora koje datoteka nije imala. Uz
+// postojeću bazu primjer se ne zapisuje.
 func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, noviIme, imeIzZastavice bool) {
 	// Pri prvom pokretanju zapiši datoteku s komentarima da korisnik ima što urediti
 	// Primjer nosi ZADANE vrijednosti, ne one iz zastavica ovog pokretanja —
 	// zastavica je za jedan put, datoteka je za uvijek; jedino identifikator
 	// čvora ide iz pokretanja jer se nakon uparivanja ne smije mijenjati.
 	examplePath := filepath.Join(filepath.Dir(cfg.DB), config.FileName)
-	if cfgFrom == "" {
+	_, bazaPostoji := os.Stat(cfg.DB)
+	switch {
+	case cfgFrom == "" && bazaPostoji == nil:
+		// Postojeći čvor bez postavki: datoteka je premještena ili
+		// izgubljena (Unraid, 5. 10. 2026.). Primjer bi tiho zamijenio
+		// izvorne postavke, pa se ne zapisuje.
+		log.Printf("Postavke: nema %s, a baza %s već postoji. Primjer se ne zapisuje, da ne zamijeni izvorne postavke; čvor %s radi sa zadanim postavkama i zastavicama pokretanja. Vratite izvornu datoteku iz sigurnosne kopije ili s diska na koji je premještena pa ponovno pokrenite čvor.",
+			examplePath, cfg.DB, cfg.Node.ID)
+	case cfgFrom == "":
 		example := config.Default()
 		example.Node.ID = cfg.Node.ID
 		if written, err := config.WriteExample(examplePath, example); err != nil {
@@ -583,7 +610,7 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 		} else if written {
 			log.Printf("Postavke: zapisan primjer %s — uredite ga i ponovno pokrenite", examplePath)
 		}
-	} else {
+	default:
 		log.Printf("Postavke: čitane iz %s", cfgFrom)
 		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
 		// mora preživjeti ponovno pokretanje bez zastavice
@@ -700,6 +727,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	discoveryPort := &cfg.Sync.DiscoveryPort
 	autoSyncValue := cfg.AutoSyncDuration()
 	autoSync := &autoSyncValue
+
+	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
+	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
+	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
+	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
+	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {
+		return odbijPokretanje(ctx, z.podPostavom, cfg.Addr, err, ulaz)
+	}
 
 	zapisiPrimjerPostavki(cfg, cfgFrom, imeIzDatoteke, noviIme, z.node != "")
 

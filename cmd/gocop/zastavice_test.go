@@ -12,17 +12,17 @@ func TestZastavice(t *testing.T) {
 		t.Fatal(err)
 	}
 	// zadane vrijednosti koje znače "nije upisano" ili imaju smisleno zadano
-	if z.podaci != "vodostaji" || z.paketi != "pakete" || z.syncPort != -1 || z.pairPort != -1 || z.discoveryPort != -1 || z.csvHour != 7 || len(z.zadane) != 0 {
+	if z.podaci != "vodostaji" || z.paketi != "pakete" || z.syncPort != -1 || z.pairPort != -1 || z.discoveryPort != -1 || z.csvHour != 7 || z.noviKljucCvora || len(z.zadane) != 0 {
 		t.Errorf("zadano: %+v", z)
 	}
-	z, err = procitajZastavice([]string{"-db", "/tmp/x.db", "-podaci", "", "-sync-port", "0", "-upisi", "-node", "pperic-thinkpad"})
+	z, err = procitajZastavice([]string{"-db", "/tmp/x.db", "-podaci", "", "-sync-port", "0", "-upisi", "-node", "pperic-thinkpad", "-novi-kljuc-cvora"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if z.db != "/tmp/x.db" || z.podaci != "" || z.syncPort != 0 || !z.csvWrite || z.node != "pperic-thinkpad" {
+	if z.db != "/tmp/x.db" || z.podaci != "" || z.syncPort != 0 || !z.csvWrite || z.node != "pperic-thinkpad" || !z.noviKljucCvora {
 		t.Errorf("upisano: %+v", z)
 	}
-	for _, ime := range []string{"db", "podaci", "sync-port", "upisi", "node"} {
+	for _, ime := range []string{"db", "podaci", "sync-port", "upisi", "node", "novi-kljuc-cvora"} {
 		if !z.zadane[ime] {
 			t.Errorf("-%s nije zabilježena kao upisana", ime)
 		}

@@ -163,6 +163,14 @@ izdanje ne prekrši:
 - `GET /zdravlje` (samo s računala samog): `{"izdanje":"…","radi":true}`;
 - `-uvezi-prikljucak` i `-uvezi-biblioteku` za brzo namještanje.
 
+Od 0.0.35 čvor koji ne smije krenuti (postojeća baza bez ključa čvora) pod
+`-upravitelj` ne izlazi: dok mu se ne zatvori ulaz, samo na `127.0.0.1`
+odgovara na `/zdravlje` kao i inače, uz polje `odbijeno` s razlogom, a ploča
+kaže zašto ne radi. Inače bi ga Postava pri nadogradnji proglasila neuspjelim
+i vratila prethodno izdanje, koje uz takvu bazu tiho napravi novi ključ,
+dakle novi identitet. Postojeća Postava polje `odbijeno` ne čita, pa takav
+čvor pokazuje kao da radi.
+
 Sve ostalo goCOP smije mijenjati bez obzira na Postavu.
 
 ### 3.2 Priključenje na daljinu i prethodni prijedlog `.gocop-cvor`
