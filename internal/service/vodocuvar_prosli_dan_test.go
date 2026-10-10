@@ -47,8 +47,11 @@ func TestGranicaProslogDana(t *testing.T) {
 	if err := provjeriNoviList(ponoc.AddDate(0, 0, 3), ponoc); err != nil {
 		t.Errorf("list unaprijed: %v", err)
 	}
+	// poruka ne upućuje vodočuvara da list priprema unaprijed: nacrt za
+	// budući dan nastaje upisom rukovoditelja, akta ili prijave, kako kaže
+	// pomoć
 	err := provjeriNoviList(dan, ponoc)
-	if !errors.Is(err, ErrProsliDan) || err.Error() != "za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan, ili unaprijed kao nacrt" {
+	if !errors.Is(err, ErrProsliDan) || err.Error() != "za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan" {
 		t.Errorf("poruka vodočuvaru: %v", err)
 	}
 	if !istiDan(dan.Add(23*time.Hour), dan.UTC()) || istiDan(dan, ponoc) {

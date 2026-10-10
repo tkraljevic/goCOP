@@ -66,12 +66,13 @@ func kljucDana(t time.Time) string {
 var ErrProsliDan = errors.New("list za dan koji je prošao više se ne otvara")
 
 // provjeriNoviList odbija nov list za dan koji je prošao; poruka je za
-// vodočuvara koji list otvara
+// vodočuvara koji list otvara. Kao ni pomoć, ne upućuje ga da list priprema
+// unaprijed.
 func provjeriNoviList(dan, sad time.Time) error {
 	if !danProsao(dan, sad) {
 		return nil
 	}
-	return fmt.Errorf("za %s nema dnevnog lista, a %w: dnevni list otvara se na svoj dan, ili unaprijed kao nacrt", pocetakDana(dan).Format("02.01.2006."), ErrProsliDan)
+	return fmt.Errorf("za %s nema dnevnog lista, a %w: dnevni list otvara se na svoj dan", pocetakDana(dan).Format("02.01.2006."), ErrProsliDan)
 }
 
 // postojeciZaDan vraća list vodočuvara za dan kad postoji. Kad ga nema,

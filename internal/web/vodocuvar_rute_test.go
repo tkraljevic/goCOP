@@ -202,7 +202,7 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	// pitanje 6): vodočuvar koji prekjučerašnji datum upiše u adresu vraća
 	// se na popis s porukom, a ni rukovoditeljev „Upiši” ne otvara taj list.
 	prekjucer := time.Now().In(models.Zagreb).AddDate(0, 0, -2)
-	if l := loc(zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+prekjucer.Format("2006-01-02"), nil)); l != "/vodocuvar?error=za "+prekjucer.Format("02.01.2006.")+" nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan, ili unaprijed kao nacrt" {
+	if l := loc(zovi(markic, http.MethodGet, "/vodocuvar/dan?datum="+prekjucer.Format("2006-01-02"), nil)); l != "/vodocuvar?error=za "+prekjucer.Format("02.01.2006.")+" nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan" {
 		t.Errorf("list za prošli dan: %s", l)
 	}
 	if l := loc(zovi(anic, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {markic.ID.String()}, "datum": {prekjucer.Format("2006-01-02")}, "tekst": {"naknadna bilješka"}})); !strings.Contains(l, "error=Marko Markić nema dnevni list za "+prekjucer.Format("02.01.2006.")) {

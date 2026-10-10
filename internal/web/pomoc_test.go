@@ -262,10 +262,16 @@ func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
 // Pomoć o listu prenesenom iz ranije evidencije i danu koji je prošao
 // (Odluke (8. 10. 2026.), pitanje 6): prenesen list nikad ne dobiva redni
 // broj, a akt i prijava za njegov dan idu na današnji list, kao za dan bez
-// lista; rukovoditeljeva bilješka za taj dan ide na prenesen list.
+// lista; rukovoditeljeva bilješka za taj dan ide na prenesen list. Poruka
+// vodočuvaru koji otvori prošli dan navodi se kako je program javlja i ne
+// upućuje ga da list priprema unaprijed.
 func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "ili unaprijed kao nacrt") {
+		t.Error("pomoć upućuje vodočuvara da list priprema unaprijed")
+	}
 	for _, da := range []string{
+		"„za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan”",
 		"nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list",
 		"Listovi preneseni iz ranije evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj",
 		"rukovoditeljeva bilješka za taj dan upisuje se na prenesen list",
