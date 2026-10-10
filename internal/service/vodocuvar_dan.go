@@ -72,6 +72,17 @@ func provjeriNoviList(dan, sad time.Time) error {
 	return fmt.Errorf("za %s nema dnevnog lista, a %w: dnevni list otvara se na svoj dan, ili unaprijed kao nacrt", pocetakDana(dan).Format("02.01.2006."), ErrProsliDan)
 }
 
+// postojeciZaDan vraća list vodočuvara za dan kad postoji. Kad ga nema,
+// vraća nil, a za dan koji je prošao grešku (provjeriNoviList), jer se nov
+// list za takav dan više ne otvara.
+func (s *VodocuvarService) postojeciZaDan(ctx context.Context, userID string, dan time.Time) (*models.VodocuvarskiList, error) {
+	l, err := s.repo.ZaDan(ctx, userID, dan)
+	if err != nil || l != nil {
+		return l, err
+	}
+	return nil, provjeriNoviList(dan, s.sada())
+}
+
 // bezListaZaUpis je greška rukovoditeljeva upisa na dan za koji vodočuvar
 // nema lista, a dan je prošao; ostale greške ostaju kakve jesu
 func bezListaZaUpis(v *models.User, dan time.Time, err error) error {

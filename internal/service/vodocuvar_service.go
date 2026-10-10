@@ -174,12 +174,9 @@ func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan t
 	if d == nil {
 		return nil, ErrNijeVodocuvar
 	}
-	if l, err := s.repo.ZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
-		return l, err
-	}
 	// list za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.), pitanje 6)
-	if err := provjeriNoviList(dan, s.sada()); err != nil {
-		return nil, err
+	if l, err := s.postojeciZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
+		return l, err
 	}
 	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "07:30", Do: "15:30", Cvor: s.cvor}
 	if s.radnoVrijeme != nil {
