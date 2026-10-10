@@ -141,3 +141,44 @@ func TestOznakeDvostrukih(t *testing.T) {
 		t.Errorf("greška čitanja: %+v", oznake)
 	}
 }
+
+// Popis „Dvostruki dnevni listovi” dobivaju rukovoditelj branjenog
+// područja lista (i zamjenik, koji ima ista prava) i administrator
+// (globalni, kako ga program određuje), a ne svi koji list smiju ovjeriti
+// ili upravljaju sektorom: ni rukovoditelj sektora ni voditelj centra.
+func TestDvostrukeListoveDobivaRukovoditeljPodrucjaIAdministrator(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	o.dvojnik(t, pero, dan, 41, "prvi", true)
+	o.dvojnik(t, pero, dan, 42, "drugi", true)
+	sektorska := func(uloga models.Role) models.Duty {
+		sektor := "P"
+		return models.Duty{Title: "Probno zaduženje", Role: uloga, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true, IsPrimary: true}
+	}
+	jucer := time.Now().Add(-time.Hour)
+	istekla := vdDuznost(models.RoleAreaLeader, 1, true)
+	istekla.ExpiresAt = &jucer
+	administrator := vdPperic(vdDuznost(models.RoleWaterGuard, 2, true))
+	administrator.IsGlobalAdmin = true
+	for _, s := range []struct {
+		naziv string
+		osoba *models.User
+		vidi  bool
+	}{
+		{"rukovoditeljica branjenog područja", vdPperic(vdDuznost(models.RoleAreaLeader, 1, true)), true},
+		{"zamjenica rukovoditeljice područja", vdPperic(vdDuznost(models.RoleAreaDeputy, 1, true)), true},
+		{"administrator", administrator, true},
+		{"rukovoditelj drugog područja", vdPperic(vdDuznost(models.RoleAreaLeader, 2, true)), false},
+		{"rukovoditeljica područja s isteklom dužnošću", vdPperic(istekla), false},
+		{"rukovoditelj sektora", vdPperic(sektorska(models.RoleSectorLeader)), false},
+		{"voditelj centra obrane", vdPperic(sektorska(models.RoleCopLeader)), false},
+		{"ovlaštenik za praćenje ugovora", vdPperic(vdDuznost(models.RoleContractOfficerA3, 1, true)), false},
+	} {
+		s.osoba.FullName = "Ana Anić"
+		if dani := o.vs.DvostrukiListovi(ctx, models.NewUserPermissions(*s.osoba)); (len(dani) == 1) != s.vidi {
+			t.Errorf("%s: dana s dvojnicima %d, očekivano vidi=%v", s.naziv, len(dani), s.vidi)
+		}
+	}
+}

@@ -131,7 +131,7 @@ type VodocuvarPageData struct {
 	NajdaljeDan string // zadnji dan za koji se list priprema unaprijed (30 dana)
 	Arhivirana  bool   // odabrana godina je zaključena
 	// Dvostruki su dani s više dnevnih listova istog vodočuvara, za
-	// rukovoditelja koji ih ovjerava i administratora; Dvojnici su uz
+	// rukovoditelja branjenog područja i administratora; Dvojnici su uz
 	// predan list brojevi drugih predanih listova istog dana
 	Dvostruki []service.DvostrukiDan
 	Dvojnici  map[string][]int

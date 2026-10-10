@@ -11,8 +11,8 @@ import (
 // istog vodočuvara za isti dan s različitim oznakama, nastala prije
 // jedinstvene oznake lista ili na čvoru starijeg programa, ili isti list
 // predan na dva čvora (repository/apply_vodocuvarski_dvojnici.go). Ne brišu se,
-// jer su potpisani dokumenti, nego se prijavljuju rukovoditelju koji ih
-// ovjerava i administratoru. Kad su predana oba, oba ostaju s oznakom
+// jer su potpisani dokumenti, nego se prijavljuju rukovoditelju branjenog
+// područja i administratoru. Kad su predana oba, oba ostaju s oznakom
 // „dvostruki list – vidi i list br. …”.
 
 // DvostrukiDan su dnevni listovi istog vodočuvara za isti dan
@@ -24,8 +24,8 @@ type DvostrukiDan struct {
 }
 
 // DvostrukiListovi vraća dane na kojima vodočuvar ima više dnevnih
-// listova, onima koji te listove ovjeravaju (rukovoditelj branjenog
-// područja i nadređeni) ili ih administriraju
+// listova, rukovoditelju branjenog područja tih listova i administratoru
+// (prijavaDvojnika)
 func (s *VodocuvarService) DvostrukiListovi(ctx context.Context, perms *models.UserPermissions) []DvostrukiDan {
 	svi, err := s.repo.Dvojnici(ctx)
 	if err != nil {
@@ -55,9 +55,26 @@ func poDanima(listovi []models.VodocuvarskiList) []DvostrukiDan {
 }
 
 // prijavaDvojnika javlja dobiva li osoba dvojnike lista na popis: tko list
-// smije vidjeti, a ovjerava ga ili administrira njegov sektor ili područje
+// smije vidjeti, a rukovoditelj je branjenog područja lista ili
+// administrator (globalni, kako ga program određuje: requireAdmin). Ni
+// rukovoditelj sektora ni voditelj centra popis ne dobivaju, iako list
+// smiju ovjeriti.
 func (s *VodocuvarService) prijavaDvojnika(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	return s.SmijeVidjeti(perms, l) && (s.SmijeOvjeriti(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID))
+	return s.SmijeVidjeti(perms, l) && (perms.IsGlobalAdmin || rukovodiPodrucjem(perms, l.AreaID))
+}
+
+// rukovodiPodrucjem javlja ima li osoba valjanu dužnost rukovoditelja
+// branjenog područja na tom području, ili njegova zamjenika, koji ima ista
+// prava
+func rukovodiPodrucjem(perms *models.UserPermissions, podrucje int) bool {
+	sad := time.Now()
+	for _, d := range perms.User.Duties {
+		uloga := d.Role == models.RoleAreaLeader || d.Role == models.RoleAreaDeputy
+		if uloga && d.AreaID != nil && *d.AreaID == podrucje && d.CitaVodocuvarskiDnevnik(sad) {
+			return true
+		}
+	}
+	return false
 }
 
 // DrugiPredani vraća druge predane listove iste osobe za isti dan, uz
