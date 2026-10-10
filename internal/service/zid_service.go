@@ -30,6 +30,7 @@ const (
 	ModulSredstva  = "sredstva"
 	ModulOcitanja  = "ocitanja"
 	ModulRegistar  = "registar"
+	ModulPrijave   = "prijave"
 )
 
 // ModuliZida su moduli s nazivom i ikonom
@@ -38,6 +39,7 @@ var ModuliZida = []struct{ ID, Naziv, Ikona string }{
 	{ModulDnevnik, "Dnevnik COP-a", "notebook"},
 	{ModulDezurstva, "Dežurstva", "clock"},
 	{ModulIzvjesca, "Izvješća", "file-text"},
+	{ModulPrijave, "Prijave s terena", "map-pin"},
 	{ModulSredstva, "Sredstva", "package"},
 	{ModulOcitanja, "Očitanja", "activity"},
 	{ModulRegistar, "Registri", "book-open"},
@@ -76,6 +78,10 @@ type Dogadjaj struct {
 	Link      string
 	Cvor      string
 	Vazno     bool // istaknuto: proglašena obrana, izvanredno stanje
+
+	// prijava s terena kojoj redak pripada: njezin redak vidi samo tko
+	// smije čitati tu prijavu (vidiRedak)
+	prijava *models.PrijavaSTerena
 }
 
 // ModulNaziv i ModulIkona za predloške
@@ -108,11 +114,20 @@ type ZidService struct {
 	// stanjaSektora su stanja obrane dionica sektora iz ovjerenih akata; nil
 	// dok se ne postavi (tada vrijede epizode)
 	stanjaSektora func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
+	// vidiPrijavu je pravilo čitanja prijava s terena (PrijavaService); nil
+	// dok se ne postavi (tada prijave na zidu ne vidi nitko)
+	vidiPrijavu func(perms *models.UserPermissions, p *models.PrijavaSTerena) bool
 }
 
 // SetStanjaSektora postavlja stanja obrane iz ovjerenih akata (AktService)
 func (s *ZidService) SetStanjaSektora(f func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)) {
 	s.stanjaSektora = f
+}
+
+// SetVidiPrijavu postavlja pravilo čitanja prijava s terena, isto kao u
+// Dokumentaciji → Prijave s terena (PrijavaService.SmijeVidjeti)
+func (s *ZidService) SetVidiPrijavu(f func(perms *models.UserPermissions, p *models.PrijavaSTerena) bool) {
+	s.vidiPrijavu = f
 }
 
 func NewZidService(rec *ledger.Recorder, journals *repository.JournalRepository, sections *repository.SectionRepository,
@@ -125,6 +140,7 @@ var entitetiModula = map[string][]string{
 	ModulDnevnik:   {repository.EntityJournalEntries, repository.EntityJournals},
 	ModulDezurstva: {repository.EntityDezurstva},
 	ModulIzvjesca:  {repository.EntityDnevnaIzvjesca, repository.EntitySektorskaIzvjesca},
+	ModulPrijave:   {repository.EntityPrijave},
 	ModulObrana:    {repository.EntityEpisodes},
 	ModulSredstva:  {repository.EntityMtsPromet, repository.EntityMtsPopisi, repository.EntityMtsPotrebe},
 	ModulOcitanja:  {repository.EntityReadings},
@@ -173,24 +189,19 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			prije = ""
 			break
 		}
-		for _, v := range verzije {
+		for i, v := range verzije {
 			prije = v.VersionID
 			d, ok := c.opisi(v)
 			if !ok {
 				continue
 			}
-			if v.Entity == repository.EntityMtsPromet {
-				// redci jednog poteza su jedan događaj
-				var p models.Promet
-				_ = json.Unmarshal(v.Payload, &p)
-				if p.VezaID != "" {
-					if videneVeze[p.VezaID] {
-						continue
-					}
-					videneVeze[p.VezaID] = true
+			if k := kljucPoteza(v); k != "" {
+				if videneVeze[k] {
+					continue
 				}
+				videneVeze[k] = true
 			}
-			if !s.vidi(perms, d, podrucja) {
+			if !s.vidiRedak(perms, d, podrucja) {
 				continue
 			}
 			if f.Sektor != "" && d.Sektor != "" && d.Sektor != f.Sektor {
@@ -204,6 +215,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 			}
 			out = append(out, d)
 			if len(out) >= f.Limit {
+				prije = krajPoteza(verzije[i+1:], videneVeze, prije)
 				break
 			}
 		}
@@ -215,6 +227,45 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 		}
 	}
 	return out, prije, nil
+}
+
+// kljucPoteza: redci jednog poteza sredstava (prijenos, punjenje, izdavanje)
+// su jedan događaj. Ulaz se upisuje iza izlaza, pa je događaj ulaz; kod
+// prijenosa u skladište drugog sektora to je obavijest ciljnom sektoru, a
+// zid sektora koji šalje ostaje kakav je bio (Odluke (8. 10. 2026.),
+// pitanje 11). Prazno za sve što nije par prometa.
+func kljucPoteza(v ledger.Version) string {
+	if v.Entity != repository.EntityMtsPromet {
+		return ""
+	}
+	var p models.Promet
+	_ = json.Unmarshal(v.Payload, &p)
+	return p.VezaID
+}
+
+// krajPoteza: kad se stranica zida napuni na retku poteza, oznaka za
+// listanje unatrag preskače retke istog poteza koji odmah slijede (izlaz se
+// upisuje prije ulaza), da sljedeća stranica ne pokaže izlaz kao zaseban
+// događaj; staje na prvom retku koji nije dio već viđenog poteza
+func krajPoteza(sljedece []ledger.Version, videne map[string]bool, prije string) string {
+	for _, v := range sljedece {
+		if k := kljucPoteza(v); k == "" || !videne[k] {
+			break
+		}
+		prije = v.VersionID
+	}
+	return prije
+}
+
+// vidiRedak: redak prijave s terena vidi samo tko smije čitati tu prijavu,
+// po pravilu Dokumentacije → Prijave s terena, a ne po pravilu zida (koje
+// otvara sve retke sektora); bez tog pravila prijave ne vidi nitko
+// (Odluke (8. 10. 2026.), pitanje 20). Ostali redci idu po pravilu zida.
+func (s *ZidService) vidiRedak(perms *models.UserPermissions, d Dogadjaj, podrucja map[int]string) bool {
+	if d.prijava == nil {
+		return s.vidi(perms, d, podrucja)
+	}
+	return s.vidiPrijavu != nil && s.vidiPrijavu(perms, d.prijava)
 }
 
 // vidi: administrator sve; ostali svoj sektor i područje; događaj bez
@@ -276,6 +327,8 @@ type opisivac struct {
 	imena     map[string]string
 	postaje   map[string]*models.Station
 	podrucja  map[int]string
+	// prijave: po prijavi verzija objave i verzija rješenja
+	prijave map[string][2]string
 }
 
 func (c *opisivac) journal(id string) *models.Journal {
@@ -404,19 +457,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		}
 
 	case repository.EntityPrijave:
-		var p models.PrijavaSTerena
-		if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Objavljena() {
-			return d, false
-		}
-		d.Sektor, d.AreaID, d.Tko, d.Link = p.Sektor, p.AreaID, p.Ime, "/prijave/"+p.ID
-		if p.Rijesena() {
-			d.Naslov, d.Tekst = "Riješena prijava s terena", p.Oznaka()+": "+p.Naslov
-		} else {
-			d.Naslov, d.Tekst, d.Vazno = p.VrstaLabel()+" s terena "+p.Oznaka(), p.Naslov, p.Vrsta == models.PrijavaPrijava
-			if m := p.Mjesto(); m != "" {
-				d.Tekst += " · " + m
-			}
-		}
+		return c.opisiPrijavu(v, d)
 
 	case repository.EntityJournals:
 		var j models.Journal
@@ -554,6 +595,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		if p.VezaID != "" {
 			d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
 		}
+		d = c.prijenosIzDrugogSektora(p, d)
 
 	case repository.EntityMtsPopisi:
 		var p models.Popis
@@ -662,6 +704,184 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		return d, false
 	}
 	return d, true
+}
+
+// opisiPrijavu: prijava s terena na zidu je njezina objava i njezino
+// rješenje (zatvaranje predmeta), svaki jednom; urudžba i druge kasnije
+// verzije nisu novi redak. Sve četiri vrste, a vrsta „Prijava” je
+// istaknuta. Nacrt i prijava prenesena iz ranije evidencije (BP16) ne idu
+// na zid. Redak nosi prijavu jer ga vidi samo tko smije čitati tu prijavu
+// (Odluke (8. 10. 2026.), pitanje 20). Kad je sažimanje knjige objavu i
+// rješenje ostavilo u istoj verziji, redak je rješenje, s vremenom te
+// verzije: redak objave (i isticanje vrste „Prijava”) se gubi, jer jedna
+// verzija daje jedan redak.
+func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
+	var p models.PrijavaSTerena
+	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Objavljena() || p.Rekonstrukcija {
+		return d, false
+	}
+	d.Sektor, d.AreaID, d.Tko, d.Link, d.prijava = p.Sektor, p.AreaID, p.Ime, "/prijave/"+p.ID, &p
+	objava, rjesenje := c.verzijePrijave(v.EntityID)
+	switch v.VersionID {
+	case rjesenje:
+		d.Naslov, d.Tekst = naslovRjesenja(p.Vrsta), p.Oznaka()+": "+p.Naslov
+		if p.Rijesio != "" {
+			d.Tko = p.Rijesio
+		}
+	case objava:
+		d.Naslov, d.Tekst, d.Vazno = p.VrstaLabel()+" s terena "+p.Oznaka(), p.Naslov, p.Vrsta == models.PrijavaPrijava
+		if m := p.Mjesto(); m != "" {
+			d.Tekst += " · " + m
+		}
+	default:
+		return d, false
+	}
+	return d, true
+}
+
+// naslovRjesenja: redak rješenja nosi vrstu prijave, u njezinu rodu, jer je
+// „Prijava” zasebna vrsta i riješeni zahtjev nije riješena prijava
+func naslovRjesenja(vrsta string) string {
+	switch vrsta {
+	case models.PrijavaObavijest:
+		return "Riješena obavijest s terena"
+	case models.PrijavaIzvjesce:
+		return "Riješeno izvješće s terena"
+	case models.PrijavaZahtjev:
+		return "Riješen zahtjev s terena"
+	}
+	return "Riješena prijava s terena"
+}
+
+// verzijePrijave čita povijest prijave jednom po zidu i vraća verziju
+// objave i verziju rješenja; prazno kad ih nema ili se povijest ne može
+// pročitati
+func (c *opisivac) verzijePrijave(id string) (objava, rjesenje string) {
+	if c.prijave == nil {
+		c.prijave = map[string][2]string{}
+	}
+	if v, ok := c.prijave[id]; ok {
+		return v[0], v[1]
+	}
+	povijest, _ := c.s.rec.History(c.ctx, repository.EntityPrijave, id)
+	objava, rjesenje = dogadjajiPrijave(povijest)
+	c.prijave[id] = [2]string{objava, rjesenje}
+	return objava, rjesenje
+}
+
+// dogadjajiPrijave nalazi u povijesti prijave (najnovija verzija prva)
+// verziju objave i verziju rješenja: verziju u kojoj je prijava postala
+// objavljena, odnosno riješena, prema verziji prije nje (prethodnicaPrijave)
+func dogadjajiPrijave(povijest []ledger.Version) (objava, rjesenje string) {
+	verzije := make(map[string]*models.PrijavaSTerena, len(povijest))
+	for _, v := range povijest {
+		var p models.PrijavaSTerena
+		if json.Unmarshal(v.Payload, &p) == nil {
+			verzije[v.VersionID] = &p
+		} else {
+			verzije[v.VersionID] = nil
+		}
+	}
+	sazeta := prazninaSazimanja(povijest)
+	for i, v := range povijest {
+		p := verzije[v.VersionID]
+		if v.Archived || p == nil {
+			continue
+		}
+		prije, ok := prethodnicaPrijave(povijest, i, verzije, sazeta)
+		if !ok {
+			continue
+		}
+		if prijelazPrijave(p, prije, models.PrijavaSTerena.Objavljena) {
+			objava = v.VersionID
+		}
+		if prijelazPrijave(p, prije, models.PrijavaSTerena.Rijesena) {
+			rjesenje = v.VersionID
+		}
+	}
+	return objava, rjesenje
+}
+
+// prethodnicaPrijave je verzija prema kojoj se gleda prijelaz u verziji i:
+// verzija koju je zamijenila. Kad nje nema, a mogla je nestati sažimanjem
+// knjige (prazninaSazimanja), to je prva starija verzija koja je ostala, a
+// kad ni nje nema, prijelaz nosi i (povijest sažeta od početka). Inače je
+// nedostajuća verzija obrisana s oglasne ploče na ovom čvoru, a s njom i
+// događaj, pa ga i ne smije ponoviti s kasnijim vremenom (ok=false). Nil
+// znači da prethodnice nema ili se ne može pročitati.
+func prethodnicaPrijave(povijest []ledger.Version, i int, verzije map[string]*models.PrijavaSTerena, sazeta map[string]bool) (*models.PrijavaSTerena, bool) {
+	v := povijest[i]
+	if v.Supersedes == "" {
+		return nil, true
+	}
+	if p, ima := verzije[v.Supersedes]; ima {
+		return p, true
+	}
+	if !sazeta[v.VersionID] {
+		return nil, false
+	}
+	if i+1 < len(povijest) {
+		return verzije[povijest[i+1].VersionID], true
+	}
+	return nil, true
+}
+
+// prazninaSazimanja javlja za svaku verziju je li njezina prethodnica, kad
+// je nema, mogla nestati sažimanjem knjige. Sažimanje (ledger.Compact) od
+// starijih verzija čuva samo zadnju verziju svakog čvora u kanalu, pa uz
+// sažetu prethodnicu ne ostaje starija verzija čvora i kanala verzije koja
+// ju je zamijenila; brisanje s oglasne ploče briše jednu verziju, a starije
+// verzije istog čvora ostavlja. Tako prijava objavljena na jednom čvoru, a
+// riješena na drugom, i nakon sažimanja ostaje na zidu kao riješena.
+func prazninaSazimanja(povijest []ledger.Version) map[string]bool {
+	out := make(map[string]bool, len(povijest))
+	vidjeno := map[string]bool{}
+	for i := len(povijest) - 1; i >= 0; i-- {
+		k := ledger.FrontierKey(povijest[i].NodeID, povijest[i].Channel)
+		out[povijest[i].VersionID] = !vidjeno[k]
+		vidjeno[k] = true
+	}
+	return out
+}
+
+// prijelazPrijave javlja je li stanje prijave nastupilo u verziji p: u p
+// vrijedi, a u prethodnici nije (ili prethodnice nema)
+func prijelazPrijave(p, prije *models.PrijavaSTerena, stanje func(models.PrijavaSTerena) bool) bool {
+	return stanje(*p) && (prije == nil || !stanje(*prije))
+}
+
+// prijenosIzDrugogSektora: ulaz prijenosa iz skladišta drugog sektora na
+// zidu ciljnog sektora je istaknuta obavijest „Prijenos iz Sektora X”, s
+// izvornim skladištem. Prijenos ne traži potvrdu ciljnog sektora i stanje
+// raste odmah, pa ciljni sektor tako sazna za upis koji nije tražio
+// (Odluke (8. 10. 2026.), pitanje 11).
+func (c *opisivac) prijenosIzDrugogSektora(p models.Promet, d Dogadjaj) Dogadjaj {
+	if p.Vrsta != models.PrometPrijenos || p.Kolicina <= 0 || p.VezaID == "" {
+		return d
+	}
+	sektor, skladiste := c.izlazPrijenosa(p.VezaID)
+	if sektor == "" || sektor == p.Sektor {
+		return d
+	}
+	d.Naslov, d.Vazno = "Prijenos iz Sektora "+sektor, true
+	if sk := c.skladiste(skladiste); sk != nil {
+		d.Tekst += " · iz " + sk.Naziv
+	}
+	return d
+}
+
+// izlazPrijenosa: sektor i skladište izlaza istog poteza, iz kojeg se šalje;
+// prazno kad ga ovaj čvor nema. Traži se po indeksu veze, jer se zove za
+// svaki ulaz prijenosa koji zid pročita.
+func (c *opisivac) izlazPrijenosa(veza string) (sektor, skladisteID string) {
+	if c.s.mts == nil {
+		return "", ""
+	}
+	sektor, skladisteID, err := c.s.mts.IzvorPoteza(c.ctx, veza)
+	if err != nil {
+		return "", ""
+	}
+	return sektor, skladisteID
 }
 
 func absF(v float64) float64 {
