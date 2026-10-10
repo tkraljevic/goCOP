@@ -183,6 +183,9 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if kal.Code != http.StatusOK || !strings.Contains(kal.Body.String(), "Nasip Zmajevac") || !strings.Contains(kal.Body.String(), "kal-dan") {
 		t.Fatalf("kalendar: %d\n%.600s", kal.Code, kal.Body.String())
 	}
+	if !strings.Contains(kal.Body.String(), "Zadatak se zadaje klikom na + u danu") {
+		t.Error("kalendar rukovoditelja ne kaže kako se zadaje zadatak")
+	}
 	// strojar s iste dionice u vodočuvarske dnevnike ne ulazi uopće
 	if rr := zovi(strojar, http.MethodGet, "/vodocuvar", nil); rr.Code != http.StatusForbidden {
 		t.Errorf("strojar na popisu dnevnika: %d", rr.Code)

@@ -583,6 +583,15 @@ func (r *JournalRepository) SaveEntry(ctx context.Context, e *models.JournalEntr
 	return tx.Commit()
 }
 
+// PisaoUDnevnik javlja je li osoba u dnevniku otvorila list ili upisala
+// zapis (i storniran upis je njezin). Samo čita.
+func (r *JournalRepository) PisaoUDnevnik(ctx context.Context, journalID, userID string) (bool, error) {
+	var pisao bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM journal_sheets WHERE journal_id = ? AND created_by = ?)
+		OR EXISTS (SELECT 1 FROM journal_entries WHERE journal_id = ? AND user_id = ?)`, journalID, userID, journalID, userID).Scan(&pisao)
+	return pisao, err
+}
+
 // NumberGaps vraća redne brojeve koji u dnevniku nedostaju — kontrola da
 // nijedan upis nije nestao
 func (r *JournalRepository) NumberGaps(ctx context.Context, journalID string) ([]int, error) {

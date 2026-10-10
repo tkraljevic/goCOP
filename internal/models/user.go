@@ -272,12 +272,11 @@ func (u *User) IsFieldUser() bool {
 }
 
 // VidiVodocuvarskiDnevnik javlja smije li korisnik uopće u vodočuvarske
-// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe,
-// sve s aktivnom i neisteklom dužnošću. Strojari, rukovatelji, terenski
-// radnici i skladištari nemaju što ondje tražiti; oni će imati svoje
-// dnevnike. Ne vide ih ni gost, preglednik i nepoznata uloga. Dežurni
-// operater i poslovođa izvođača vide ih kao prije (u svom dosegu, uz
-// neisteklu dužnost) dok se ne odluči treba li im dnevnik.
+// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici, uprava i dežurni
+// operater u tuđe, sve s aktivnom i neisteklom dužnošću. Strojari,
+// rukovatelji, terenski radnici i skladištari nemaju što ondje tražiti; oni
+// će imati svoje dnevnike. Ne vide ih ni gost, preglednik, nepoznata uloga
+// ni voditelj usluga / poslovođa izvođača (Odluke (8. 10. 2026.), pitanje 1).
 func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u == nil {
 		return false
@@ -303,15 +302,187 @@ func (d Duty) CitaVodocuvarskiDnevnik(sad time.Time) bool {
 	return d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik()
 }
 
-// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice,
-// svaka uloga uprave (s ovlaštenicima za praćenje ugovora), te dežurni
-// operater i poslovođa izvođača, čije je pravilo još otvoreno pitanje
+// citaVodocuvarskiDnevnik: vodočuvar (svoju knjigu) i svaka uloga koja
+// nešto smije u tuđoj knjizi (OvlastKnjige)
 func (r Role) citaVodocuvarskiDnevnik() bool {
+	return r == RoleWaterGuard || r.OvlastKnjige() != KnjigaNe
+}
+
+// OvlastKnjige je ono što uloga smije u tuđoj knjizi vodočuvara (dnevni
+// listovi i objavljene prijave s terena), u dosegu dužnosti. Ovjera lista i
+// rješavanje prijave nisu ovdje: njih drži rukovoditelj branjenog područja i
+// uprava iznad njega.
+type OvlastKnjige int
+
+// Ovlasti u tuđoj knjizi vodočuvara (Odluke (8. 10. 2026.), pitanje 1)
+const (
+	// KnjigaNe: ne čita (gost, preglednik, terenske uloge, skladištar,
+	// voditelj usluga / poslovođa izvođača, nepoznata uloga)
+	KnjigaNe OvlastKnjige = iota
+	// KnjigaBiljeska: čita listove i prijave i upisuje bilješku, ali ne
+	// parafira i ne zadaje zadatke (dežurni operater u COP-u)
+	KnjigaBiljeska
+	// KnjigaDionica: čita listove; prijave, parafa i bilješka samo uz vezu s
+	// njegovom dionicom, a zadatak uz to samo dok na njoj traje obrana
+	// (rukovoditelj dionice i zamjenik)
+	KnjigaDionica
+	// KnjigaSve: čita, parafira, upisuje bilješku i zadaje zadatke (uprava
+	// razina 1 do 3, s ovlaštenicima za praćenje ugovora i zamjenicima)
+	KnjigaSve
+)
+
+// OvlastKnjige je ovlast uloge u tuđoj knjizi vodočuvara
+func (r Role) OvlastKnjige() OvlastKnjige {
 	switch r {
-	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy, RoleOperator, RoleServiceLeaderForeman:
-		return true
+	case RoleOperator:
+		return KnjigaBiljeska
+	case RoleSectionLeader, RoleSectionDeputy:
+		return KnjigaDionica
 	}
-	return r.RazinaUprave() > 0
+	if r.RazinaUprave() > 0 {
+		return KnjigaSve
+	}
+	return KnjigaNe
+}
+
+// Dionice su šifre dionica upisane na dužnost, bez praznih
+func (d Duty) Dionice() []string {
+	var out []string
+	for _, k := range strings.Split(d.SectionCodes, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// pokrivaDionicu javlja pokriva li dužnost dionicu: dužnost bez upisanih
+// dionica pokriva cijeli svoj doseg, a s dionicama samo upisane
+func (d Duty) pokrivaDionicu(dionica string) bool {
+	return len(d.Dionice()) == 0 || d.navodiDionicu(dionica)
+}
+
+// navodiDionicu javlja je li dionica među upisanima na dužnost, bez obzira
+// na velika slova
+func (d Duty) navodiDionicu(dionica string) bool {
+	for _, k := range d.Dionice() {
+		if strings.EqualFold(k, dionica) {
+			return true
+		}
+	}
+	return false
+}
+
+// CuvaDionicu javlja čuva li vodočuvar po ovom zaduženju dionicu na
+// branjenom području: zaduženje vodočuvara na tom području navodi dionicu,
+// ili ne navodi nijednu pa pokriva cijelo područje. Vrijeme se ovdje ne
+// gleda; koja zaduženja vrijede za koji dan daje ZaduzenjaUDanu.
+func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
+	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
+}
+
+// CuvaIzricito javlja čuva li vodočuvar po ovom zaduženju dionicu na
+// branjenom području tako da je zaduženje izričito navodi; zaduženje
+// cijelog područja se ovdje ne broji
+func (d Duty) CuvaIzricito(areaID int, dionica string) bool {
+	return d.cuvaPodrucje(areaID) && d.navodiDionicu(dionica)
+}
+
+// cuvaPodrucje javlja je li ovo zaduženje vodočuvara na branjenom području
+func (d Duty) cuvaPodrucje(areaID int) bool {
+	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
+}
+
+// VerzijaZaduzenja je zaduženje kako je stajalo od trenutka Od do sljedeće
+// verzije istog zaduženja (knjiga verzija): izmjena u mjestu, opoziv ili
+// produljenje daju novu verziju
+type VerzijaZaduzenja struct {
+	Duty
+	Od time.Time
+}
+
+// SloziPovijestZaduzenja slaže povijest zaduženja osobe za ZaduzenjaUDanu.
+// Za svako zaduženje (stanje na površini, i opozvano i isteklo) idu njegove
+// ranije verzije iz knjige, redom nastanka, a kao zadnja stanje s površine,
+// od trenutka zadnje verzije u knjizi. Zaduženje bez verzija u knjizi stoji
+// u stanju s površine od svog nastanka.
+func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, d := range zaduzenja {
+		ranije, od := verzijeZaduzenja(knjiga, d.ID), d.CreatedAt
+		if n := len(ranije); n > 0 {
+			ranije, od = ranije[:n-1], ranije[n-1].Od
+		}
+		out = append(append(out, ranije...), VerzijaZaduzenja{Duty: d, Od: od})
+	}
+	return out
+}
+
+// verzijeZaduzenja su verzije iz knjige jednog zaduženja, redom kojim dolaze
+func verzijeZaduzenja(knjiga []VerzijaZaduzenja, id uuid.UUID) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, v := range knjiga {
+		if v.ID == id {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// ZaduzenjaUDanu su zaduženja koja su vrijedila u nekom trenutku dana dan
+// po hrvatskom vremenu, svako u obliku u kojem je tada stajalo, iz povijesti
+// koju slaže SloziPovijestZaduzenja. Zapis toga dana (dnevni list, prijava
+// s terena) tako ostaje vezan uz zaduženje kakvo je tada bilo: i kad
+// zaduženje poslije istekne, bude opozvano ili izmijenjeno, a zaduženje
+// nastalo poslije ga ne dobiva. Zaduženje izmijenjeno toga dana daje obje
+// verzije.
+func ZaduzenjaUDanu(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
+	pocetak := pocetakDana(dan)
+	kraj := pocetak.AddDate(0, 0, 1)
+	var out []Duty
+	for i, v := range povijest {
+		do := kraj
+		if i+1 < len(povijest) && povijest[i+1].ID == v.ID && povijest[i+1].Od.Before(kraj) {
+			do = povijest[i+1].Od
+		}
+		if v.vrijediIzmedu(pocetak, do) {
+			out = append(out, v.Duty)
+		}
+	}
+	return out
+}
+
+// vrijediIzmedu javlja vrijedi li verzija zaduženja u nekom trenutku od od
+// do do (bez do): tada stoji (od Od), aktivna je i neistekla. Prva verzija
+// stoji od nastanka zaduženja, pa zaduženje ne vrijedi prije nastanka.
+func (v VerzijaZaduzenja) vrijediIzmedu(od, do time.Time) bool {
+	if v.Od.After(od) {
+		od = v.Od
+	}
+	return v.IsActive && od.Before(do) && (v.ExpiresAt == nil || v.ExpiresAt.After(od))
+}
+
+// VazecaZaduzenja su zaduženja koja vrijede u trenutku sad: aktivna i
+// neistekla
+func VazecaZaduzenja(zaduzenja []Duty, sad time.Time) []Duty {
+	var out []Duty
+	for _, d := range zaduzenja {
+		if d.vrijedi(sad) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// pocetakDana je ponoć dana t po hrvatskom vremenu
+func pocetakDana(t time.Time) time.Time {
+	g, m, d := t.In(Zagreb).Date()
+	return time.Date(g, m, d, 0, 0, 0, 0, Zagreb)
+}
+
+// naPodrucju javlja je li dužnost upisana na to branjeno područje
+func (d Duty) naPodrucju(areaID int) bool {
+	return d.AreaID != nil && *d.AreaID == areaID
 }
 
 // PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je

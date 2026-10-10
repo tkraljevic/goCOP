@@ -1,6 +1,8 @@
 package web
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -25,5 +27,49 @@ func TestPomocOpisujeOvlastiPoDosegu(t *testing.T) {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)
 		}
+	}
+}
+
+// Pomoć mora reći tko što smije u knjizi vodočuvara i s prijavama s terena
+// (Odluke (8. 10. 2026.), pitanje 1), i kad je prijava vezana uz dionicu
+// rukovoditelja dionice.
+func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, want := range []string{
+		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
+		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
+		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica ili objekt koji je u registru na njegovoj dionici",
+		"onu u kojoj nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan",
+		"i onu vodočuvara kojemu je na dan prijave njegova dionica bila upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
+		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo, opozvano ili izmijenjeno; list s dana prije zaduženja nije vezan)",
+		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",
+		"tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati",
+		"Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području na kojem ima dužnost",
+		"i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao zapis)",
+		"i mora biti isti: dio naziva nije ista firma",
+		"Dnevnike drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na naslovnici u kojem nije pisao",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje pravilo %q", want)
+		}
+	}
+}
+
+// Kartica Vodočuvarskog dnevnika pod Dokumentacijom ne smije reći da
+// parafiraju svi ostali rukovoditelji: rukovoditelj dionice parafira samo
+// list koji se tiče njegove dionice, a parafira i uprava (Odluke (8. 10.
+// 2026.), pitanje 1).
+func TestKarticaKnjigeVodocuvaraKazeTkoParafira(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "web", "templates", "dnevnici_izbor.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := strings.Join(strings.Fields(string(b)), " ")
+	if strings.Contains(h, "ostali rukovoditelji i ovlaštenici parafiraju") {
+		t.Error("kartica kaže da parafiraju svi ostali rukovoditelji")
+	}
+	want := "parafiraju ovlaštenici za praćenje ugovora i uprava, a rukovoditelj dionice list koji se tiče njegove dionice"
+	if !strings.Contains(h, want) {
+		t.Errorf("kartica ne kaže %q", want)
 	}
 }

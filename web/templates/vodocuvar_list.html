@@ -90,7 +90,7 @@
 </section>
 {{end}}
 
-{{if and .SmijeParafirati (not .Moj) (not (eq $l.ID ""))}}
+{{if and .SmijeUpisati (not .Moj) (not (eq $l.ID ""))}}
 <section class="detail-section">
   <h2>{{icon "pencil"}} Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "02.01.2006."}}</h2>
   <form method="POST" action="/vodocuvar/upis" class="posta-trazi items-start">

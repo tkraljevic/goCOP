@@ -52,7 +52,9 @@ func NewPrijavaService(repo *repository.PrijavaRepository, users *UserService, v
 var ErrNijeNacrt = errors.New("objavljena prijava se ne mijenja; ispravak je nova prijava")
 
 // probni je list kojim se prava na prijavu provjeravaju kao na dnevniku
-// vodočuvara: tko vidi i parafira njegov list, vidi i njegove prijave
+// vodočuvara: tko čita njegov list, čita i njegove prijave, osim
+// rukovoditelja dionice, koji čita samo prijave vezane uz svoju dionicu
+// (knjiga_ovlasti.go)
 func probniList(p *models.PrijavaSTerena) *models.VodocuvarskiList {
 	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID}
 }
@@ -62,6 +64,12 @@ func (s *PrijavaService) SmijePisati(u *models.User) bool { return VodiDnevnik(u
 
 // SmijeVidjeti javlja smije li osoba čitati prijavu
 func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
+	return s.smijeVidjeti(perms, p, nil)
+}
+
+// smijeVidjeti je SmijeVidjeti uz pamćenje vodočuvara već pročitanih za
+// popis (nil ne pamti)
+func (s *PrijavaService) smijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || p == nil {
 		return false
 	}
@@ -71,7 +79,7 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 	if p.Status == models.PrijavaNacrt {
 		return false
 	}
-	return s.vodocuvar.SmijeVidjeti(perms, probniList(p))
+	return s.vodocuvar.cita(perms, probniList(p), p, poznati)
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
@@ -315,6 +323,11 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	return p, "", nil
 }
 
+// ErrTudjiNacrt: nacrt prijave postoji samo za vodočuvara koji ga piše, pa
+// ga drugi ne dobivaju kao da ga nema. I dalje je ErrUnauthorized, s istom
+// porukom.
+var ErrTudjiNacrt = fmt.Errorf("%w", ErrUnauthorized)
+
 // Get čita prijavu ako je osoba smije vidjeti
 func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions, id string) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
@@ -322,9 +335,18 @@ func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions,
 		return nil, err
 	}
 	if !s.SmijeVidjeti(perms, p) {
-		return nil, ErrUnauthorized
+		return nil, zabranaPrijave(p)
 	}
 	return p, nil
+}
+
+// zabranaPrijave je greška za prijavu koju osoba ne smije čitati: za tuđi
+// nacrt ErrTudjiNacrt, inače ErrUnauthorized
+func zabranaPrijave(p *models.PrijavaSTerena) error {
+	if p.Status == models.PrijavaNacrt {
+		return ErrTudjiNacrt
+	}
+	return ErrUnauthorized
 }
 
 // List vraća prijave koje osoba smije vidjeti
@@ -334,8 +356,9 @@ func (s *PrijavaService) List(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	out := sve[:0]
+	poznati := map[string]*cuvar{}
 	for _, p := range sve {
-		if s.SmijeVidjeti(perms, &p) {
+		if s.smijeVidjeti(perms, &p, poznati) {
 			out = append(out, p)
 		}
 	}
