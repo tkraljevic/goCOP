@@ -288,3 +288,43 @@ func TestSkenIPopisPrimatelja(t *testing.T) {
 		t.Error("ponovni sken ovjerenog akta")
 	}
 }
+
+// Nacrt bez upisanog upozorenja (sastavljen prije nadogradnje ili na čvoru
+// 0.0.34) ne ovjerava se skenom bez potvrde dok upozorenje uz popis složen
+// sada stoji, i kad je popis jednak onome na ispisu: sken pita isto što i
+// ovjera u goCOP-u (Odluke (8. 10. 2026.), pitanje 19)
+func TestSkenNacrtaBezUpisanogUpozorenjaTraziPotvrdu(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: time.Now().Add(-time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.akti.Spremi(ctx, o.ovlasti, a); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`UPDATE akti SET upozorenja_primatelja = '' WHERE id = ?`, a.ID); err != nil {
+		t.Fatal(err)
+	}
+	nacrt, _ := o.akti.Get(ctx, a.ID)
+	pregled := o.akti.PregledPrimatelja(ctx, nacrt)
+	if len(nacrt.UpozorenjaPrimatelja) != 0 || len(pregled.Upozorenja) == 0 || pregled.Razlikuje() {
+		t.Fatalf("nacrt bez upozorenja, a upozorenje sada stoji uz isti popis: %v, %+v", nacrt.UpozorenjaPrimatelja, pregled)
+	}
+	sken := []byte("%PDF-1.4\n% sken\n%%EOF\n")
+	var pitanje *service.TrebaPotvrduError
+	if _, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, a.ID, sken, o.rukovod.ID.String(), service.PotvrdaOvjere{}); !errors.As(err, &pitanje) ||
+		!strings.Contains(err.Error(), "bez upisanog teritorija") {
+		t.Fatalf("sken bez potvrde dok upozorenje stoji: %v", err)
+	}
+	if x, _ := o.akti.Get(ctx, a.ID); x.Ovjeren() {
+		t.Fatal("sken bez potvrde ovjerio je akt")
+	}
+	ovjeren, _, err := o.akti.UcitajSkenirani(ctx, o.ovlasti, o.rukovod, a.ID, sken, o.rukovod.ID.String(), service.PotvrdaOvjere{Primatelji: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ovjeren.Ovjeren() || !ovjeren.ImaPotvrdu(models.PotvrdaPrimatelji) || !strings.Contains(ovjeren.Potvrde[0].Tekst, "bez upisanog teritorija") {
+		t.Errorf("potvrda uz sken: %+v", ovjeren.Potvrde)
+	}
+}

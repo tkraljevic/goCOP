@@ -189,6 +189,24 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 	if l := ovjeri(url.Values{"id": {a.ID}}); !strings.Contains(l, "već ovjeren") {
 		t.Errorf("ponovna ovjera ovjerenog akta: %s", l)
 	}
+
+	// nacrt bez upisanog upozorenja (sastavljen prije nadogradnje ili na
+	// čvoru 0.0.34): sken svejedno traži kvačicu dok upozorenje uz popis
+	// složen sada stoji, i kad je popis jednak onome na ispisu
+	b, err := akti.Pripremi(ctx, perms, ana, service.ZahtjevAkta{StationID: st.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhaseRegular, Vrijedi: time.Now().Add(-time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := akti.Spremi(ctx, perms, b); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := baza.Exec(`UPDATE akti SET upozorenja_primatelja = '' WHERE id = ?`, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	if s := stranica(b.ID, "Popis složen sada jednak je popisu u nacrtu", "Upozorenje uz popis koji ulazi u ovjeru",
+		`name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa, uz upozorenje koje i dalje stoji: svejedno ovjeravam`); strings.Contains(s, "Popis primatelja u nacrtu nije potpun") {
+		t.Error("nacrt bez upisanog upozorenja ne kaže da ga nosi")
+	}
 }
 
 func primateljiTekst(a *models.Akt) string {

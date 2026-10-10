@@ -163,7 +163,7 @@
         {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
       </select>
       {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
-      {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if $a.UpozorenjaPrimatelja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
+      {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
       <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
   </ol>

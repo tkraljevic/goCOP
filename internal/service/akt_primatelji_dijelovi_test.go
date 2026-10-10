@@ -147,3 +147,22 @@ func TestTekstoviPotvrdePrimatelja(t *testing.T) {
 		t.Errorf("sken uz upozorenje nacrta: %v", err)
 	}
 }
+
+// Sken pita i za upozorenje uz popis složen sada kad ga nacrt ne nosi;
+// upozorenje koje nosi i nacrt navodi se jednom
+func TestSkenPitaZaUpozorenjeSlozenoSada(t *testing.T) {
+	u := &models.User{ID: uuid.New(), FullName: "Iva Ivić"}
+	sada := PregledPrimatelja{Upozorenja: []string{"dionice bez upisanog teritorija: B.1", "registar primatelja nije pročitan"}}
+	err := primateljiSkena(u, &models.Akt{}, PotvrdaOvjere{}, sada)
+	if err == nil || !strings.HasPrefix(err.Error(), "Popis primatelja s ispisa nije potpun: dionice bez upisanog teritorija: B.1; registar primatelja nije pročitan.") {
+		t.Errorf("sken nacrta bez upozorenja: %v", err)
+	}
+	a := &models.Akt{UpozorenjaPrimatelja: []string{"dionice bez upisanog teritorija: B.1"}}
+	if err := primateljiSkena(u, a, PotvrdaOvjere{Primatelji: true}, sada); err != nil || len(a.Potvrde) != 1 ||
+		a.Potvrde[0].Tekst != "Sken ovjeren s popisom primatelja s ispisa, uz upozorenje: dionice bez upisanog teritorija: B.1; registar primatelja nije pročitan" {
+		t.Errorf("potvrda: %v %+v", err, a.Potvrde)
+	}
+	if got := spojiUpozorenja(nil, nil); len(got) != 0 {
+		t.Errorf("bez upozorenja: %v", got)
+	}
+}

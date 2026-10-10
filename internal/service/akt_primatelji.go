@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -466,10 +467,10 @@ func primateljiZaOvjeru(u *models.User, a *models.Akt, p PotvrdaOvjere, pr Pregl
 }
 
 // primateljiSkena: sken nosi popis primatelja s ispisa nacrta, pa se popis
-// ne mijenja; potvrda treba dok stoji upozorenje nacrta ili kad bi popis
-// složen sada bio drukčiji
+// ne mijenja; potvrda treba dok stoji upozorenje nacrta ili upozorenje uz
+// popis složen sada, ili kad bi popis složen sada bio drukčiji
 func primateljiSkena(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledPrimatelja) error {
-	razlozi := append([]string(nil), a.UpozorenjaPrimatelja...)
+	razlozi := spojiUpozorenja(a.UpozorenjaPrimatelja, pr.Upozorenja)
 	pitanje := "Popis primatelja s ispisa nije potpun: "
 	if len(razlozi) == 0 {
 		pitanje = "Sken nosi popis primatelja s ispisa: "
@@ -478,6 +479,20 @@ func primateljiSkena(u *models.User, a *models.Akt, p PotvrdaOvjere, pr PregledP
 		razlozi = append(razlozi, "popis složen sada bio bi drukčiji od onoga na ispisu ("+pr.OpisRazlike()+")")
 	}
 	return potvrdiPrimatelje(a, u, razlozi, p.Primatelji, pitanje, "Sken ovjeren s popisom primatelja s ispisa, uz upozorenje: ")
+}
+
+// spojiUpozorenja su upozorenja nacrta i upozorenja uz popis složen sada,
+// svako jednom. Nacrt sastavljen prije nadogradnje ili na čvoru 0.0.34
+// upozorenje ne nosi, a ono uz popis s ispisa svejedno stoji (Odluke
+// (8. 10. 2026.), pitanje 19).
+func spojiUpozorenja(nacrt, sada []string) []string {
+	out := append([]string(nil), nacrt...)
+	for _, x := range sada {
+		if !slices.Contains(out, x) {
+			out = append(out, x)
+		}
+	}
+	return out
 }
 
 // potvrdiPrimatelje: dok stoje upozorenja, ovjera prolazi samo uz izričitu
