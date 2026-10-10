@@ -76,6 +76,45 @@ func TestTekstUpozorenjaKarike(t *testing.T) {
 	}
 }
 
+// Dani u tablici pišu se uz letve koje ih tako pokazuju: srpska letva s
+// prenesenom dnevnom ima satnu 2.–4. dan i inače, bez oznake s, a cilj pri
+// visokoj vodi (dnevna tek od 5. dana) ima samo prazne dane. Dani koje sve
+// upitne letve pokazuju jednako pišu se bez imena.
+func TestDaniBezDnevnePoLetvama(t *testing.T) {
+	izmisljeniCiljevi(t)
+	sa := []CelijaDana{{}, {IzSatne: true}, {IzSatne: true}, {IzSatne: true}, {BezDnevne: true}, {BezDnevne: true}}
+	odTreceg := []CelijaDana{{}, {}, {IzSatne: true}, {IzSatne: true}, {BezDnevne: true}, {BezDnevne: true}}
+	prazni := []CelijaDana{{}, {}, {}, {}, {BezDnevne: true}, {BezDnevne: true}}
+	upitno := []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}, {Letva: "treca", OdSata: -1, Dnevno: true},
+		{Letva: "preko", OdSata: -1, Dnevno: true}}
+	for _, tc := range []struct {
+		ime              string
+		donja, treca, pr []CelijaDana
+		want             string
+	}{
+		{"satna samo uz jednu letvu", sa, prazni, prazni,
+			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
+				"uto 13.10. i sri 14.10. bez vrijednosti"},
+		{"satna uz dvije od tri", sa, sa, prazni,
+			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letve Donji Grad i Treće Selo, " +
+				"uto 13.10. i sri 14.10. bez vrijednosti"},
+		{"različiti dani", sa, odTreceg, prazni,
+			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Donji Grad, " +
+				"ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Treće Selo, uto 13.10. i sri 14.10. bez vrijednosti"},
+		{"pri visokoj vodi bez oznake s", prazni, prazni, prazni, " — u tablici uto 13.10. i sri 14.10. bez vrijednosti"},
+		{"svima isto", sa, sa, sa,
+			" — u tablici sub 10.10., ned 11.10. i pon 12.10. stoji satna (oznaka s), uto 13.10. i sri 14.10. bez vrijednosti"},
+	} {
+		t.Run(tc.ime, func(t *testing.T) {
+			p := pisacUpozorenja{postaje: izmisljenePostaje(), dani: daniUpozorenja, letve: []LetvaPrognoze{
+				{Kod: "donja", Dani: tc.donja}, {Kod: "treca", Dani: tc.treca}, {Kod: "preko", Dani: tc.pr}, {Kod: "cetvrta", Dani: sa}}}
+			if got := p.daniBezDnevne(upitno); got != tc.want {
+				t.Errorf("\n %q\nželim\n %q", got, tc.want)
+			}
+		})
+	}
+}
+
 // Satna upitna po dosezima: ista grupa zajedno, dosezi redom, bez dosega
 // (samo dnevna) izostaje.
 func TestTekstSatnihDosega(t *testing.T) {

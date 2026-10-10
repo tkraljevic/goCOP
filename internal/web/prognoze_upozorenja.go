@@ -268,29 +268,60 @@ func (p pisacUpozorenja) dnevnaUpitna(u prognoza.Upozorenje) string {
 }
 
 // daniBezDnevne kaže koje dane tablica za upitne letve pokazuje iz satne
-// prognoze, a koji su prazni.
+// prognoze, a koji su prazni. Dane koje sve te letve ne pokazuju jednako
+// piše uz letve koje ih tako pokazuju.
 func (p pisacUpozorenja) daniBezDnevne(upitno []prognoza.Upitno) string {
-	izSatne, prazni := map[int]bool{}, map[int]bool{}
+	var letve []LetvaPrognoze
 	for _, l := range p.letve {
-		if !slices.ContainsFunc(upitno, func(x prognoza.Upitno) bool { return x.Dnevno && x.Letva == l.Kod }) {
-			continue
-		}
-		for k, d := range l.Dani {
-			izSatne[k] = izSatne[k] || d.IzSatne
-			prazni[k] = prazni[k] || d.BezDnevne
+		if slices.ContainsFunc(upitno, func(x prognoza.Upitno) bool { return x.Dnevno && x.Letva == l.Kod }) {
+			letve = append(letve, l)
 		}
 	}
-	var dijelovi []string
-	if s := p.naslovi(izSatne); len(s) > 0 {
-		dijelovi = append(dijelovi, nabroji(s)+" stoji satna (oznaka s)")
-	}
-	if s := p.naslovi(prazni); len(s) > 0 {
-		dijelovi = append(dijelovi, nabroji(s)+" bez vrijednosti")
-	}
+	dijelovi := slices.Concat(
+		p.daniPoLetvama(letve, func(c CelijaDana) bool { return c.IzSatne }, "stoji satna (oznaka s)"),
+		p.daniPoLetvama(letve, func(c CelijaDana) bool { return c.BezDnevne }, "bez vrijednosti"))
 	if len(dijelovi) == 0 {
 		return ""
 	}
 	return " — u tablici " + strings.Join(dijelovi, ", ")
+}
+
+// daniPoLetvama skuplja letve po danima kojima je ćelija označena, npr.
+// „ned 11.10. i pon 12.10. stoji satna (oznaka s) za letvu Osijek”; kad
+// iste dane imaju sve zadane letve, imena se ne pišu.
+func (p pisacUpozorenja) daniPoLetvama(letve []LetvaPrognoze, oznacena func(CelijaDana) bool, sto string) []string {
+	po := map[string][]string{} // dani → imena letvi
+	var redom []string
+	for _, l := range letve {
+		dani := map[int]bool{}
+		for k, d := range l.Dani {
+			dani[k] = oznacena(d)
+		}
+		n := nabroji(p.naslovi(dani))
+		if n == "" {
+			continue
+		}
+		if _, bilo := po[n]; !bilo {
+			redom = append(redom, n)
+		}
+		po[n] = append(po[n], p.ime(l.Kod))
+	}
+	out := make([]string, 0, len(redom))
+	for _, n := range redom {
+		out = append(out, n+" "+sto+zaLetve(po[n], len(letve)))
+	}
+	return out
+}
+
+// zaLetve imenuje letve uz dane, osim kad su to sve od njih ukupno.
+func zaLetve(imena []string, ukupno int) string {
+	switch {
+	case len(imena) == ukupno:
+		return ""
+	case len(imena) == 1:
+		return " za letvu " + imena[0]
+	}
+	return " za letve " + nabroji(imena)
 }
 
 // naslovi su naslovi dana označenih u skupu, redom.
