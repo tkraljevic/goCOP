@@ -153,6 +153,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
+	ctx = uKrugu(ctx)
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -456,7 +457,19 @@ func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
 // dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna
 // inačica nije dala naučiti. Uče se iz arhive i vrijede do zagrebačke ponoći
 // ili do promjene arhive; neuspjelo se ponavlja idući sat (zalihaDnevnih).
-func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[string]error) {
+// U izdanju (kontekst iz uKrugu) zaliha se pita jednom, pa vrhovi lanca i
+// dnevna prognoza računaju istim modelima.
+func (o *Osvjezivac) dnevniModeliZaDanas(ctx context.Context) (map[string][]*DnevniModel, map[string]error) {
+	k, ima := ctx.Value(kljucKruga{}).(*krugDnevnih)
+	if !ima {
+		return o.dnevniIzZalihe()
+	}
+	k.Do(func() { k.modeli, k.greske = o.dnevniIzZalihe() })
+	return k.modeli, k.greske
+}
+
+// dnevniIzZalihe osvježi zalihu naučenih modela i vraća ih.
+func (o *Osvjezivac) dnevniIzZalihe() (map[string][]*DnevniModel, map[string]error) {
 	dnevniModeli.Lock()
 	defer dnevniModeli.Unlock()
 	dnevniModeli.osvjezi(o.Arhiva, o.Oborine, sadaUcenja())
@@ -493,7 +506,7 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 	if len(velicina) == 0 {
 		return out
 	}
-	modeli, _ := o.dnevniModeliZaDanas()
+	modeli, _ := o.dnevniModeliZaDanas(ctx)
 	unatrag, unaprijed := oborinskiDosezi()
 	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
 	if err != nil {
@@ -580,7 +593,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	if o.Arhiva == nil {
 		return nil, nil, bez, izbor, nil
 	}
-	modeli, greske := o.dnevniModeliZaDanas()
+	modeli, greske := o.dnevniModeliZaDanas(ctx)
 	for l, err := range greske {
 		bez[l] = err
 	}

@@ -10,6 +10,7 @@ package prognoza
 // pokušava se ni jednom, jer se ne može naučiti.
 
 import (
+	"context"
 	"database/sql"
 	"log"
 	"os"
@@ -38,6 +39,27 @@ type zalihaDnevnih struct {
 
 var dnevniModeli zalihaDnevnih
 
+// krugDnevnih su dnevni modeli jednog izdanja. Izdanje ih traži dvaput —
+// za vrhove lanca i za dnevnu prognozu — a oba puta moraju biti isti i
+// učiti se najviše jednom. Dosad se zaliha pitala dvaput: paket arhive
+// ugrađen između dva traženja (razmjena arhive stiže svake dvije minute)
+// davao je izdanju dva skupa modela, a krug koji prijeđe puni sat dok
+// inačica nedostaje učio je dvaput.
+type krugDnevnih struct {
+	sync.Once
+	modeli map[string][]*DnevniModel
+	greske map[string]error
+}
+
+// kljucKruga je ključ krugDnevnih u kontekstu izdanja.
+type kljucKruga struct{}
+
+// uKrugu daje kontekst jednog izdanja: dnevni modeli uzimaju se iz zalihe
+// jednom, pri prvom traženju.
+func uKrugu(ctx context.Context) context.Context {
+	return context.WithValue(ctx, kljucKruga{}, &krugDnevnih{})
+}
+
 // ZaboraviDnevneModele baca naučene dnevne modele, pa ih idući krug uči
 // iznova iz arhive. Zove ga priprema modela, da novi model ne čeka ponoć.
 func ZaboraviDnevneModele() {
@@ -48,8 +70,9 @@ func ZaboraviDnevneModele() {
 
 // osvjezi baca naučeno kad je počeo novi zagrebački dan ili se arhiva
 // promijenila, pa uči ono čega nema: nakon bacanja sve, inače samo inačice
-// koje se nisu dale naučiti — i to najviše jednom na sat, jer jedno izdanje
-// modele traži dvaput (vrhovi lanca i dnevna prognoza).
+// koje se nisu dale naučiti — i to najviše jednom na sat, u idućem satnom
+// krugu, a ne pri svakom izdanju (i Generiraj izdaje), jer pokušaj traje
+// desetak sekundi.
 func (z *zalihaDnevnih) osvjezi(arhiva *sql.DB, oborine *OborinskiIzvor, sada time.Time) {
 	dan, zig, sat := danUcenja(sada), otisakArhive(arhiva), sada.Unix()/3600
 	if z.dan != dan || z.zig.promijenjen(zig) {

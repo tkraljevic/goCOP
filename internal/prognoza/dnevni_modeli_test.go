@@ -141,7 +141,7 @@ func TestDnevniModeliIznovaNakonPromjeneArhiveDanaIPripreme(t *testing.T) {
 
 	model := func() *DnevniModel {
 		t.Helper()
-		modeli, greske := o.dnevniModeliZaDanas()
+		modeli, greske := o.dnevniModeliZaDanas(context.Background())
 		if len(greske) != 0 || len(modeli["cilj"]) != 1 || modeli["cilj"][0] == nil {
 			t.Fatalf("modeli %v, greške %v", modeli, greske)
 		}
@@ -185,23 +185,23 @@ func TestNeuspjelaInacicaSePonavljaIduciSat(t *testing.T) {
 	sat := time.Date(2026, 10, 9, 10, 5, 0, 0, time.UTC)
 	uSat(t, sat)
 
-	modeli, greske := o.dnevniModeliZaDanas()
+	modeli, greske := o.dnevniModeliZaDanas(context.Background())
 	in := modeli["cilj"]
 	if len(in) != 2 || in[0] != nil || in[1] == nil || len(greske) != 0 {
 		t.Fatalf("bez kišomjera: inačice %v, greške %v", in, greske)
 	}
 	bezKise := in[1]
 
-	// Kišomjer je stigao, ali u istom satu se ne uči iznova: jedno izdanje
-	// modele traži dvaput.
+	// Kišomjer je stigao, ali u istom satu se ne uči iznova: neuspjelo se
+	// ponavlja idući sat.
 	o.Oborine = &OborinskiIzvor{Tocke: []OborinskaTocka{{Code: "kisomjer-x", Sliv: "X", Tezina: 1}}}
 	uSat(t, sat.Add(50*time.Minute))
-	if modeli, _ := o.dnevniModeliZaDanas(); modeli["cilj"][0] != nil {
+	if modeli, _ := o.dnevniModeliZaDanas(context.Background()); modeli["cilj"][0] != nil {
 		t.Error("isti sat: neuspjela inačica pokušana dvaput")
 	}
 
 	uSat(t, sat.Add(time.Hour))
-	modeli, greske = o.dnevniModeliZaDanas()
+	modeli, greske = o.dnevniModeliZaDanas(context.Background())
 	in = modeli["cilj"]
 	if len(in) != 2 || in[0] == nil || len(in[0].Cilj.Slivovi) != 1 || len(greske) != 0 {
 		t.Fatalf("idući sat: inačice %v, greške %v", in, greske)
@@ -216,7 +216,7 @@ func TestNeuspjelaInacicaSePonavljaIduciSat(t *testing.T) {
 	// Kad je sve naučeno, idući sati ne uče ništa.
 	sKisom := in[0]
 	uSat(t, sat.Add(2*time.Hour))
-	if modeli, _ := o.dnevniModeliZaDanas(); modeli["cilj"][0] != sKisom || modeli["cilj"][1] != bezKise {
+	if modeli, _ := o.dnevniModeliZaDanas(context.Background()); modeli["cilj"][0] != sKisom || modeli["cilj"][1] != bezKise {
 		t.Error("sve je naučeno, a modeli su učeni iznova")
 	}
 }
@@ -234,13 +234,13 @@ func TestInacicaSKisomBezKisomjeraSeNePokusava(t *testing.T) {
 		o := &Osvjezivac{Arhiva: arhivaRijeke(t), Oborine: oborine}
 		sat := time.Date(2026, 10, 9, 10, 5, 0, 0, time.UTC)
 		uSat(t, sat)
-		modeli, greske := o.dnevniModeliZaDanas()
+		modeli, greske := o.dnevniModeliZaDanas(context.Background())
 		if in := modeli["cilj"]; len(in) != 2 || in[0] != nil || in[1] == nil || len(greske) != 0 {
 			t.Fatalf("%s: inačice %v, greške %v", ime, in, greske)
 		}
 		for h := 1; h <= 3; h++ {
 			uSat(t, sat.Add(time.Duration(h)*time.Hour))
-			o.dnevniModeliZaDanas()
+			o.dnevniModeliZaDanas(context.Background())
 		}
 		if dnevniModeli.sat != sat.Unix()/3600 {
 			t.Errorf("%s: inačica s kišom pokušana opet, zadnje učenje u %d h, a ne %d h",
@@ -272,7 +272,7 @@ func TestGreskaKiseUDnevnikJednomNaDan(t *testing.T) {
 	sat := time.Date(2026, 10, 9, 10, 5, 0, 0, time.UTC)
 	for h := 0; h < 4; h++ {
 		uSat(t, sat.Add(time.Duration(h)*time.Hour))
-		if _, greske := o.dnevniModeliZaDanas(); greske["cilj"] == nil {
+		if _, greske := o.dnevniModeliZaDanas(context.Background()); greske["cilj"] == nil {
 			t.Fatalf("%d. sat: arhiva se ne da pročitati, a cilj je naučen", h)
 		}
 	}
@@ -281,9 +281,9 @@ func TestGreskaKiseUDnevnikJednomNaDan(t *testing.T) {
 	}
 	// Novi zagrebački dan: greška se javlja opet, jednom.
 	uSat(t, time.Date(2026, 10, 9, 22, 30, 0, 0, time.UTC))
-	o.dnevniModeliZaDanas()
+	o.dnevniModeliZaDanas(context.Background())
 	uSat(t, time.Date(2026, 10, 9, 23, 30, 0, 0, time.UTC))
-	o.dnevniModeliZaDanas()
+	o.dnevniModeliZaDanas(context.Background())
 	if n := redaka(); n != 2 {
 		t.Errorf("novi dan: %d redaka u dnevniku, želim 2\n%s", n, dnevnik.String())
 	}
@@ -437,5 +437,63 @@ func TestOborineZaUcenjeBezArhiveKise(t *testing.T) {
 	u := &ucenjeDnevnih{arhiva: db}
 	if _, err := u.inacica(DnevniCilj{Letva: "cilj"}, nil, 0); err == nil {
 		t.Error("arhiva bez tablice spoj: učenje bez greške")
+	}
+}
+
+// Jedno izdanje traži dnevne modele dvaput (vrhovi lanca i dnevna prognoza),
+// a uči ih najviše jednom i oba puta dobiva iste. Dosad je drugo traženje
+// opet gledalo sat i otisak arhive: krug koji prijeđe puni sat dok inačica
+// nedostaje učio je dvaput, a paket arhive ugrađen između dva traženja (stižu
+// svake dvije minute) davao je izdanju dva skupa modela. Ovdje se glavni
+// model vrha ne da naučiti, a sat učenja odmiče sat pri svakom čitanju.
+func TestIzdanjeUciDnevneModeleJednom(t *testing.T) {
+	ocistiDnevneModele(t)
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "gornja", Ulazi: []string{"nema"}}})
+	postavi(t, &DnevneRezerve, map[string][][]string{})
+	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
+	postavi(t, &PoluvijekIspravka, 0)
+	pocetak := time.Date(2026, 10, 9, 10, 0, 0, 0, time.UTC)
+	citanja := 0
+	postavi(t, &sadaUcenja, func() time.Time {
+		citanja++
+		return pocetak.Add(time.Duration(citanja-1) * time.Hour)
+	})
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := probniOsvjezivac(t, probneOcitanja(t, 120, zadnji))
+	o.Arhiva, _ = arhivaUDatoteci(t)
+
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil || ishod.Preskoceno {
+		t.Fatalf("izdanje: %v, preskočeno %v", err, ishod != nil && ishod.Preskoceno)
+	}
+	if ishod.BezDnevne["gornja"] == nil {
+		t.Error("glavni model vrha nije naučen, a gornja nije u BezDnevne")
+	}
+	if citanja != 1 || dnevniModeli.sat != pocetak.Unix()/3600 {
+		t.Errorf("jedno izdanje: zaliha pitana %d puta, zadnje učenje %d h od prvog, želim 1 i 0",
+			citanja, dnevniModeli.sat-pocetak.Unix()/3600)
+	}
+}
+
+// U kontekstu izdanja zaliha se pita jednom: upis u arhivu usred izdanja ne
+// mijenja modele tog izdanja, a vidi ga iduće. Bez konteksta izdanja svako
+// je traženje svoje.
+func TestKrugDnevnihUzimaModeleJednom(t *testing.T) {
+	ocistiDnevneModele(t)
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "cilj", Ulazi: []string{"ulaz"}}})
+	arhiva := arhivaRijeke(t)
+	o := &Osvjezivac{Arhiva: arhiva}
+	uSat(t, time.Date(2026, 10, 9, 10, 0, 0, 0, time.UTC))
+
+	krug := uKrugu(context.Background())
+	prvi, _ := o.dnevniModeliZaDanas(krug)
+	if _, err := arhiva.Exec(`INSERT INTO spoj VALUES ('cilj', 'vodostaj', 'dnevni', ?, 1)`, int64(3600)*86400); err != nil {
+		t.Fatal(err)
+	}
+	if drugi, _ := o.dnevniModeliZaDanas(krug); drugi["cilj"][0] != prvi["cilj"][0] {
+		t.Error("isto izdanje dobilo je dva skupa modela")
+	}
+	if iduce, _ := o.dnevniModeliZaDanas(uKrugu(context.Background())); iduce["cilj"][0] == prvi["cilj"][0] {
+		t.Error("iduće izdanje ne vidi promjenu arhive")
 	}
 }
