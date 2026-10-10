@@ -596,6 +596,9 @@ func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermiss
 	if !s.SmijeOvjeriti(perms, l) {
 		return nil, ErrUnauthorized
 	}
+	if err := provjeriDanOvjere(l.Datum, s.sada()); err != nil {
+		return nil, err
+	}
 	kad := time.Now()
 	l.PotvrdioID, l.Potvrdio, l.PotvrdenoAt = u.ID.String(), u.FullName, &kad
 	return l, s.repo.Save(ctx, l)

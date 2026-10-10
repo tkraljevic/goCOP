@@ -249,3 +249,26 @@ func TestGodineKnjigaSIducomGodinom(t *testing.T) {
 		}
 	}
 }
+
+// Predan list za dan koji još nije počeo (predan na čvoru 0.0.34) nema gumb
+// „Ovjeri list”; današnji predan list ga ima
+func TestBuduciPredanListBezGumbaOvjere(t *testing.T) {
+	o := novaOkolinaDnevnika(t)
+	predan := func(pomak int) string {
+		t.Helper()
+		dan, _ := time.ParseInLocation("2006-01-02", danZaTest(pomak), models.Zagreb)
+		kad := time.Now()
+		l := &models.VodocuvarskiList{UserID: o.vodocuvar.ID.String(), Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: dan, Broj: 5 + pomak,
+			Od: "07:00", Do: "15:00", Opis: "obilazak nasipa", PredanoAt: &kad}
+		if err := o.repo.Save(context.Background(), l); err != nil {
+			t.Fatal(err)
+		}
+		return l.ID
+	}
+	if s := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+predan(1), nil).Body.String(); strings.Contains(s, "Ovjeri list") {
+		t.Error("sutrašnji predan list ima gumb ovjere")
+	}
+	if s := o.zovi(t, o.rukovodi, http.MethodGet, "/vodocuvar/"+predan(0), nil).Body.String(); !strings.Contains(s, "Ovjeri list") {
+		t.Error("današnji predan list nema gumb ovjere")
+	}
+}

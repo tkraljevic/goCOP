@@ -206,3 +206,42 @@ func TestDodjelaBrojaGreska(t *testing.T) {
 		t.Errorf("današnji list po stvarnom satu: broj %d, greška %v", danas.Broj, err)
 	}
 }
+
+// „Ne može se ovjeriti i zaključiti nešto što još nije počelo.” Novi
+// program ne predaje list prije njegova dana, ali čvor 0.0.34 do izdanja
+// 0.0.35 takav list predaje, pa stiže predan. Rukovoditelj ga ne može
+// ovjeriti dok njegov dan ne počne; od 00:00 toga dana može.
+func TestPredanBuduciListOvjeravaSeKadDanPocne(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	u := vdVodocuvar()
+	danas := vdDan(time.March, 10)
+	sutra := danas.AddDate(0, 0, 1)
+	o.vs.sad = func() time.Time { return danas.Add(20 * time.Hour) }
+	kad := danas.Add(19 * time.Hour)
+	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Sektor: "P", AreaID: 1, Datum: sutra, Broj: 5,
+		Od: "07:00", Do: "15:00", Opis: "plan obilaska", PredanoAt: &kad}
+	if err := o.repo.Save(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	ana := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	ana.FullName = "Ana Anić"
+	perms := models.NewUserPermissions(*ana)
+
+	if o.vs.DanListaPoceo(l) {
+		t.Error("sutrašnji dan ne smije biti počeo")
+	}
+	_, err := o.vs.Ovjeri(ctx, perms, ana, l.ID)
+	vdGreska(t, err, "list za "+sutra.Format("02.01.2006.")+" ovjerava se tek kad taj dan počne")
+	if spremljen, _ := o.repo.Get(ctx, l.ID); spremljen == nil || spremljen.Potvrden() {
+		t.Fatalf("budući list ovjeren: %+v", spremljen)
+	}
+
+	o.vs.sad = func() time.Time { return sutra }
+	if !o.vs.DanListaPoceo(l) {
+		t.Error("u 00:00 dan lista je počeo")
+	}
+	if ovjeren, err := o.vs.Ovjeri(ctx, perms, ana, l.ID); err != nil || !ovjeren.Potvrden() {
+		t.Errorf("ovjera kad je dan počeo: %+v %v", ovjeren, err)
+	}
+}

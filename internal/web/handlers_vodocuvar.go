@@ -339,7 +339,7 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
-	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija
+	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija && s.DanListaPoceo(l)
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())

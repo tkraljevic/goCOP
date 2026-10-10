@@ -43,6 +43,23 @@ func provjeriDanLista(dan, sad time.Time) error {
 	return nil
 }
 
+// DanListaPoceo javlja je li dan lista počeo, po satu servisa: list za dan
+// koji još nije počeo ne ovjerava se („Ne može se ovjeriti i zaključiti
+// nešto što još nije počelo.”)
+func (s *VodocuvarService) DanListaPoceo(l *models.VodocuvarskiList) bool {
+	return danPoceo(l.Datum, s.sada())
+}
+
+// provjeriDanOvjere odbija ovjeru lista čiji dan još nije počeo. Novi
+// program takav list ne predaje, ali čvor 0.0.34 ga do izdanja 0.0.35
+// predaje, pa stiže predan.
+func provjeriDanOvjere(dan, sad time.Time) error {
+	if !danPoceo(dan, sad) {
+		return fmt.Errorf("list za %s ovjerava se tek kad taj dan počne, od 00:00", pocetakDana(dan).Format("02.01.2006."))
+	}
+	return nil
+}
+
 // provjeriPocetakDana odbija potpis i predaju lista čiji dan još nije počeo
 func provjeriPocetakDana(dan, sad time.Time) error {
 	if !danPoceo(dan, sad) {
