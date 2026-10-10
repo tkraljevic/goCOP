@@ -116,8 +116,8 @@ func (s *ReadingService) CanEdit(ctx context.Context, perms *models.UserPermissi
 }
 
 // CanDelete javlja smije li korisnik obrisati očitanje. Na letvi postaje
-// samo tko za nju odgovara, i vlastito (PravaLetve.MozeObrisati); na objektu
-// kao dosad, isto kao izmjena.
+// samo tko za nju odgovara, pa ni autor ne briše svoje ako za letvu ne
+// odgovara (PravaLetve.MozeObrisati); na objektu kao dosad, isto kao izmjena.
 func (s *ReadingService) CanDelete(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) bool {
 	return s.smijeDirati(ctx, perms, rd, PravaLetve.MozeObrisati)
 }
