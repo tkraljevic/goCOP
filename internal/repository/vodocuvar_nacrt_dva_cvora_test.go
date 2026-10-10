@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -222,5 +223,46 @@ func TestBrojIzVerzija(t *testing.T) {
 		if got := brojIzVerzija(s.vrijedi, s.zive); got != s.broj {
 			t.Errorf("broj %d uz %+v: %d, očekivan %d", s.vrijedi, s.zive, got, s.broj)
 		}
+	}
+}
+
+// list034 je dnevni list kakav ga zapisuje čvor 0.0.34: bez polja
+// napisano_at, koje taj program ne poznaje
+type list034 struct {
+	ID     string    `json:"id"`
+	UserID string    `json:"user_id"`
+	Sektor string    `json:"sektor"`
+	AreaID int       `json:"area_id"`
+	Datum  time.Time `json:"datum"`
+	Opis   string    `json:"opis"`
+}
+
+// Čvor 0.0.34 polje napisano_at ne poznaje, ali ga knjiga pri upisu
+// prenosi iz prethodne verzije (polja koja program ne poznaje). Ivina
+// izmjena nacrta na takvom čvoru zato nosi isti trenutak upisa kao verzija
+// koju je izmijenila, pa nakon razmjene vrijedi ona, a ne starija.
+func TestIzmjenaNaCvoru034NosiTrenutakUpisa(t *testing.T) {
+	a, stari := noviCvor(t, "novi"), noviCvor(t, "stari")
+	napisano := time.Date(2026, time.October, 14, 9, 0, 0, 0, models.Zagreb)
+	l := nacrtIve(t, a, "tekst s novog", napisano)
+	posalji(t, a, stari)
+
+	tx, err := stari.db.BeginTx(ctxRaz, nil)
+	nuzno(t, err)
+	_, err = stari.rec.RecordIn(ctxRaz, tx, listChannel(l), EntityVodocuvarski, l.ID,
+		list034{ID: l.ID, UserID: l.UserID, Sektor: l.Sektor, AreaID: l.AreaID, Datum: l.Datum, Opis: "tekst sa starog"})
+	nuzno(t, err)
+	nuzno(t, tx.Commit())
+	var payload string
+	nuzno(t, stari.db.QueryRow(`SELECT payload FROM record_versions WHERE entity = ? AND entity_id = ? ORDER BY version_id DESC LIMIT 1`,
+		EntityVodocuvarski, l.ID).Scan(&payload))
+	var zapisan models.VodocuvarskiList
+	nuzno(t, json.Unmarshal([]byte(payload), &zapisan))
+	if zapisan.NapisanoAt == nil || !zapisan.NapisanoAt.Equal(napisano) {
+		t.Fatalf("izmjena s čvora 0.0.34 nije prenijela napisano_at: %s", payload)
+	}
+	posalji(t, stari, a)
+	if l := jedanListIve(t, a); l.Opis != "tekst sa starog" {
+		t.Errorf("novi čvor nakon izmjene na čvoru 0.0.34: %q", l.Opis)
 	}
 }
