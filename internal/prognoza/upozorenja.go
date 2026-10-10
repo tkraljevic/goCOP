@@ -230,6 +230,15 @@ func satnaNizvodno(ishod *Ishod, pojasi map[string][]Pojas, letva string, prvi i
 	return d
 }
 
+// satnaNizVrha su dosezi niz lanac od vrha koji drži zadnje mjerenje, od
+// idućeg sata. Sam vrh nema svoju satnu prognozu, samo mjerenje u satu
+// izdanja, pa među upitnima nije.
+func satnaNizVrha(ishod *Ishod, pojasi map[string][]Pojas, vrh string) map[string]int {
+	d := satnaNizvodno(ishod, pojasi, vrh, ishod.Sada+1)
+	delete(d, vrh)
+	return d
+}
+
 // rupaLetve nalazi rupu zadane letve.
 func rupaLetve(rupe []RupaUlaza, letva string) (RupaUlaza, bool) {
 	i := slices.IndexFunc(rupe, func(r RupaUlaza) bool { return r.Letva == letva })
@@ -320,9 +329,10 @@ func sviDnevniCiljevi(letve []string) bool {
 }
 
 // upozorenjaIzbora prevodi izbor puta u upozorenja: satni račun iz rezerve
-// ili sa zadržanim mjerenjem (upitno od idućeg sata niz lanac), dnevni model
-// iz rezerve, kraj niza s druge obale i dnevni model bez kiše. Ključevi vrh:
-// i preneseno: su redovan rad i ne javljaju se.
+// (upitna letva i niz lanac od idućeg sata) ili sa zadržanim mjerenjem (letva
+// je vrh bez svoje satne, upitno je niz lanac), dnevni model iz rezerve, kraj
+// niza s druge obale i dnevni model bez kiše. Ključevi vrh: i preneseno: su
+// redovan rad i ne javljaju se.
 func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bool) []Upozorenje {
 	var out []Upozorenje
 	for k, iz := range ishod.Izbor {
@@ -333,8 +343,10 @@ func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bo
 		u := Upozorenje{Vrsta: vrsta, Tezina: TezinaUpozorenje, Letva: letva, Opis: iz.Opis}
 		s := skupUpitnog{}
 		switch vrsta {
-		case VrstaRezerva, VrstaDrzi:
+		case VrstaRezerva:
 			s.satna(satnaNizvodno(ishod, pojasi, letva, ishod.Sada+1))
+		case VrstaDrzi:
+			s.satna(satnaNizVrha(ishod, pojasi, letva))
 		case VrstaDnevnaRezerva:
 			u.Tezina = TezinaNapomena
 			s.dnevna(letva)
@@ -410,10 +422,8 @@ func upozorenjaVrhova(ishod *Ishod, vrhovi map[Izvor]bool, pojasi map[string][]P
 			continue
 		}
 		imaju[iz.Letva] = true // vrh u obje veličine javlja se jednom
-		dosezi := satnaNizvodno(ishod, pojasi, iz.Letva, ishod.Sada+1)
-		delete(dosezi, iz.Letva) // vrh nema svoju prognozu, samo mjerenje
 		s := skupUpitnog{}
-		s.satna(dosezi)
+		s.satna(satnaNizVrha(ishod, pojasi, iz.Letva))
 		out = append(out, Upozorenje{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: iz.Letva,
 			Opis: "nema budućnosti vrha (" + odakle + "); drži se zadnje mjerenje", Upitno: s.popis()})
 	}

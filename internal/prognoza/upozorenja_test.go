@@ -321,9 +321,11 @@ func TestUlazBezPoznateRupe(t *testing.T) {
 }
 
 // Izbor puta daje upozorenja: satna rezerva i zadržano mjerenje otvoreno, s
-// letvama niz lanac od idućeg sata; dnevna rezerva i druga obala kao
-// napomene; dnevni model bez kiše otvoreno. Vrh iz dnevnog modela, tuđa
-// prognoza ispred računa i prenesena prognoza redovan su rad.
+// letvama niz lanac od idućeg sata; letva koja drži zadnje mjerenje vrh je
+// lanca bez svoje satne, pa nije upitna ona, nego samo letve niz nju. Dnevna
+// rezerva i druga obala kao napomene; dnevni model bez kiše otvoreno. Vrh iz
+// dnevnog modela, tuđa prognoza ispred računa i prenesena prognoza redovan
+// su rad.
 func TestUpozorenjaIzbora(t *testing.T) {
 	sada := int64(500000)
 	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "donja", Slivovi: []string{"Gornji"}}, {Letva: "peta"}})
@@ -341,7 +343,7 @@ func TestUpozorenjaIzbora(t *testing.T) {
 				Upitno: []Upitno{{Letva: "srednja", OdSata: 1}, {Letva: "donja", OdSata: 10}, {Letva: "cetvrta", OdSata: 15}}}}},
 		{"drži zadnje mjerenje", map[string]Izbor{"donja": {Inacica: -1, Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje"}}, bezDonje,
 			[]Upozorenje{{Vrsta: VrstaDrzi, Tezina: TezinaUpozorenje, Letva: "donja", Opis: "bez svježeg ulaza (srednja): drži se zadnje mjerenje",
-				Upitno: []Upitno{{Letva: "donja", OdSata: 1}, {Letva: "cetvrta", OdSata: 6}}}}},
+				Upitno: []Upitno{{Letva: "cetvrta", OdSata: 6}}}}},
 		{"dnevna rezerva", map[string]Izbor{"dnevni:donja": {Inacica: 1, Opis: "dnevni model: druga umjesto srednja s oborinom"}}, lanacUpozorenja(),
 			[]Upozorenje{{Vrsta: VrstaDnevnaRezerva, Tezina: TezinaNapomena, Letva: "donja", Opis: "dnevni model: druga umjesto srednja s oborinom",
 				Upitno: []Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}}},
