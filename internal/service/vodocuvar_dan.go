@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sort"
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Dnevni list za dan koji još nije počeo (Odluke (8. 10. 2026.), pitanja 5
@@ -14,7 +16,9 @@ import (
 // zadaci); potpisuje se i predaje tek od 00:00 svog dana, po hrvatskom
 // vremenu, a ovjerava tek predan i kad mu je dan počeo. Nacrt za budući dan
 // nema redni broj: broj dobiva prvim spremanjem ili predajom kad njegov dan
-// počne.
+// počne, a najkasnije kad broj dobije list nekog kasnijeg dana, i to prije
+// njega, pa brojevi idu redom dana (dodijeliBroj). Brojevi koje listovi već
+// imaju ne mijenjaju se.
 //
 // List za dan koji je prošao (pitanje 6) više se ne otvara: tko list nije
 // otvorio na svoj dan, taj dan nije radio. Ni vodočuvar ni rukovoditeljev
@@ -48,6 +52,11 @@ func danProsao(dan, sad time.Time) bool {
 // istiDan javlja jesu li dva trenutka istog dana po hrvatskom vremenu
 func istiDan(a, b time.Time) bool {
 	return pocetakDana(a).Equal(pocetakDana(b))
+}
+
+// kljucDana je dan trenutka po hrvatskom vremenu, kao GGGG-MM-DD
+func kljucDana(t time.Time) string {
+	return t.In(models.Zagreb).Format("2006-01-02")
 }
 
 // ErrProsliDan: za dan koji je prošao nema dnevnog lista, a takav list se
@@ -123,15 +132,76 @@ func provjeriPocetakDana(dan, sad time.Time) error {
 }
 
 // dodijeliBroj daje listu bez broja sljedeći redni broj u knjizi, ali tek
-// kad je njegov dan počeo; nacrt za budući dan ostaje bez broja
+// kad je njegov dan počeo; nacrt za budući dan ostaje bez broja. Nacrti
+// ranijih dana iste knjige koji još nemaju broj dobivaju ga prije njega,
+// redom dana (brojNacrtimaRanijihDana), pa brojevi idu redom dana i kad
+// nacrt pripremljen unaprijed nitko nije spremio na njegov dan (Odluke
+// (8. 10. 2026.), pitanje 6).
 func (s *VodocuvarService) dodijeliBroj(ctx context.Context, l *models.VodocuvarskiList) error {
 	if l.Broj != 0 || !danPoceo(l.Datum, s.sada()) {
 		return nil
 	}
+	if err := s.brojNacrtimaRanijihDana(ctx, l); err != nil {
+		return err
+	}
+	return s.sljedeciBroj(ctx, l)
+}
+
+// sljedeciBroj daje listu sljedeći redni broj u knjizi njegove godine
+func (s *VodocuvarService) sljedeciBroj(ctx context.Context, l *models.VodocuvarskiList) error {
 	broj, err := s.repo.SljedeciBroj(ctx, l.UserID, l.Datum.In(models.Zagreb).Year())
 	if err != nil {
 		return err
 	}
 	l.Broj = broj
 	return nil
+}
+
+// brojNacrtimaRanijihDana daje redni broj, redom dana, nacrtima iste knjige
+// (osoba i godina) bez broja čiji je dan prije dana lista l
+// (nacrtiRanijihDana), i sprema ih. Brojevi koje listovi već imaju ne
+// mijenjaju se.
+func (s *VodocuvarService) brojNacrtimaRanijihDana(ctx context.Context, l *models.VodocuvarskiList) error {
+	knjiga, err := s.repo.List(ctx, repository.FiltarListova{UserID: l.UserID, Godina: l.Datum.In(models.Zagreb).Year()})
+	if err != nil {
+		return err
+	}
+	for _, n := range nacrtiRanijihDana(knjiga, l) {
+		if err := s.sljedeciBroj(ctx, &n); err != nil {
+			return err
+		}
+		if err := s.repo.Save(ctx, &n); err != nil {
+			return fmt.Errorf("redni broj nacrta od %s: %w", pocetakDana(n.Datum).Format("02.01.2006."), err)
+		}
+	}
+	return nil
+}
+
+// nacrtiRanijihDana su, redom dana, nacrti bez broja iz knjige čiji je dan
+// prije dana lista l: po jedan za dan (od dva stariji), i samo za dan na
+// kojem nijedan list nema broj, nije predan ni prenesen iz ranije
+// evidencije (preneseni listovi ostaju bez broja)
+func nacrtiRanijihDana(knjiga []models.VodocuvarskiList, l *models.VodocuvarskiList) []models.VodocuvarskiList {
+	sort.SliceStable(knjiga, func(i, j int) bool {
+		a, b := knjiga[i], knjiga[j]
+		if !istiDan(a.Datum, b.Datum) {
+			return a.Datum.Before(b.Datum)
+		}
+		return a.CreatedAt.Before(b.CreatedAt)
+	})
+	zauzet := map[string]bool{}
+	for _, x := range knjiga {
+		if x.Broj != 0 || x.Predan() || x.Rekonstrukcija {
+			zauzet[kljucDana(x.Datum)] = true
+		}
+	}
+	var out []models.VodocuvarskiList
+	for _, x := range knjiga {
+		if zauzet[kljucDana(x.Datum)] || !pocetakDana(x.Datum).Before(pocetakDana(l.Datum)) {
+			continue
+		}
+		zauzet[kljucDana(x.Datum)] = true
+		out = append(out, x)
+	}
+	return out
 }

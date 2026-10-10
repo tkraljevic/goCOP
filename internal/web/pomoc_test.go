@@ -239,17 +239,20 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 
 // Pomoć o dnevnom listu za budući dan (Odluke (8. 10. 2026.), pitanja 5 i
 // 6) ne obećava više od programa: redni broj nacrt dobiva prvim spremanjem
-// ili predajom kad njegov dan počne, ali kako se broj daje za tekući i
-// prošli dan nije promijenjeno, pa brojevi ne idu nužno redom dana. Pomoć
-// kaže i kako takav nacrt nastaje, jer vodočuvar budući dan ne otvara sam.
+// ili predajom kad njegov dan počne. Pomoć kaže i kako takav nacrt nastaje,
+// jer vodočuvar budući dan ne otvara sam. Do provedbe pitanja 6 pomoć nije
+// smjela reći da brojevi idu redom dana; sad to program jamči za nove
+// listove (nacrt ranijeg dana dobiva broj prije lista kasnijeg dana), a
+// postojeći brojevi se ne mijenjaju, pa pomoć to i kaže.
 func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
-	for _, ne := range []string{"idu redom dana", "vodočuvar u njega može upisati plan"} {
+	for _, ne := range []string{"vodočuvar u njega može upisati plan"} {
 		if strings.Contains(h, ne) {
 			t.Errorf("pomoć obećava %q", ne)
 		}
 	}
-	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne"} {
+	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne",
+		"pa brojevi novih listova idu redom dana", "Brojevi koje listovi već imaju ne mijenjaju se"} {
 		if !strings.Contains(h, da) {
 			t.Errorf("pomoć ne kaže %q", da)
 		}
