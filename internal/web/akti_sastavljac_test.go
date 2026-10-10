@@ -39,6 +39,10 @@ type okolinaSastavljaca struct {
 	letva      *models.Station
 	tmpl       func(stranica string) *template.Template
 	osobe      map[string]*models.User
+	// za cijeli poslužitelj: prijava sesijom i vidljivost modula
+	auth   *service.AuthService
+	sesije *repository.SessionRepository
+	moduli *service.ModuleService
 }
 
 // djelatnik je osoba s jednom aktivnom dužnošću u sektoru P
@@ -68,13 +72,16 @@ func novaOkolinaSastavljaca(t *testing.T) *okolinaSastavljaca {
 	}
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
-	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
+	sesije := repository.NewSessionRepository(baza)
+	auth := service.NewAuthService(userRepo, sesije)
+	users := service.NewUserService(userRepo, auth, service.NewSSEBroker())
 	sectionRepo := repository.NewSectionRepository(baza, rec)
 	sections := service.NewSectionService(sectionRepo, service.NewSSEBroker())
 	stationRepo := repository.NewStationRepository(baza, rec)
 	structureRepo := repository.NewStructureRepository(baza, rec)
 	readingRepo := repository.NewReadingRepository(baza, rec)
 	o := &okolinaSastavljaca{
+		auth: auth, sesije: sesije, moduli: service.NewModuleService(repository.NewModuleRepository(baza, rec)),
 		akti: service.NewAktService(repository.NewAktiRepository(baza, rec), stationRepo, sectionRepo, repository.NewTerritoryRepository(baza, rec), readingRepo, users,
 			service.NewEpisodeService(repository.NewEpisodeRepository(baza, rec), readingRepo, stationRepo), "test"),
 		readings:   service.NewReadingService(readingRepo, stationRepo, structureRepo, sections, users),
@@ -237,5 +244,34 @@ func TestProglasiPrekiniSamoSastavljacu(t *testing.T) {
 	bez.SetAkti(func() *service.AktService { return nil })
 	if bez.smijeProglasiti(ctx, perms, o.letva) {
 		t.Error("rukovatelj bez pokrenutog servisa akata nudi gumb")
+	}
+}
+
+// Gumb dobiva servis akata pri postavljanju poslužitelja (setupRoutes). Bez
+// toga ga ne bi vidio ni Centar obrane od poplava, a test samog rukovatelja
+// to ne bi primijetio; zato ovdje kroz pravi poslužitelj i prijavu sesijom.
+func TestProglasiPrekiniKrozPosluzitelj(t *testing.T) {
+	o := novaOkolinaSastavljaca(t)
+	s, err := NewServer("", o.auth, o.users, nil, nil, o.stations, nil, o.structures, o.readings, nil, o.moduli, nil, nil, nil,
+		SupportContact{}, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.SetAkti(o.akti)
+	for tko, vidi := range map[string]bool{"dežurni": true, "zamjenik": true, "rukovoditelj": false, "vodočuvar": false} {
+		sesija := &models.Session{UserID: o.osobe[tko].ID, IPAddress: "192.168.1.50", UserAgent: "test", ExpiresAt: time.Now().Add(time.Hour)}
+		if err := o.sesije.CreateSession(sesija); err != nil {
+			t.Fatal(err)
+		}
+		r := httptest.NewRequest(http.MethodGet, "/readings/station/"+o.letva.ID.String(), nil)
+		r.AddCookie(&http.Cookie{Name: imeKolacicaSesije, Value: sesija.ID.String()})
+		w := httptest.NewRecorder()
+		s.mux.ServeHTTP(w, r)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: stranica očitanja kroz poslužitelj %d: %s", tko, w.Code, w.Body.String())
+		}
+		if strings.Contains(w.Body.String(), "Proglasi / prekini") != vidi {
+			t.Errorf("%s: gumb „Proglasi / prekini” kroz poslužitelj, očekivano %v", tko, vidi)
+		}
 	}
 }
