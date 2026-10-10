@@ -757,7 +757,9 @@ func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermi
 // Upisi upisuje bilješku rukovoditelja ili ovlaštenika u dnevnik vodočuvara
 // za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema,
 // osim za dan koji je prošao. Upis nosi ime, funkciju i vrijeme, i ne
-// mijenja se.
+// mijenja se. Upis onoga tko list ne smije parafirati ni ovjeriti (dežurni
+// operater, koji ni zadatke ne zadaje) nije naredba rukovoditelja nego
+// bilješka (models.UpisRukovoditelja.Biljeska).
 func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, tekst string) (*models.VodocuvarskiList, error) {
 	return s.UpisiNaList(ctx, perms, u, vodocuvarID, dan, "", tekst)
 }
@@ -807,7 +809,8 @@ func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPe
 	if d := najvisaDuznost(u); d != nil {
 		funkcija = d.Title
 	}
-	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst})
+	naredba := s.smijeRadnju(ctx, perms, probni, v, radnjaParafa)
+	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: u.ID.String(), Ime: u.FullName, Funkcija: funkcija, Kad: time.Now(), Tekst: tekst, Biljeska: !naredba})
 	if err := s.spremi(ctx, l); err != nil {
 		return nil, err
 	}

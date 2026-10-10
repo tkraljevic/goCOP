@@ -345,9 +345,7 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		}
 		ucinjeno = append(ucinjeno, red)
 	}
-	for _, up := range l.Upisi {
-		naredbe = append(naredbe, up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
-	}
+	naredbe = append(naredbe, stavkeUpisa(l.UpisiNaredbe(), "")...)
 	naredbe = append(naredbe, l.NaredbeStavke()...)
 	ucinjeno = append(ucinjeno, l.OpisStavke()...)
 	okvir("Naredbe rukovoditelja:", numerirano(naredbe), 120)
@@ -359,6 +357,8 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	for _, p := range l.Prijave {
 		zap = append(zap, p.Tekst()+" ("+p.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
 	}
+	// bilješka onoga tko vodočuvaru ne zadaje zadatke nije naredba
+	zap = append(zap, stavkeUpisa(l.UpisiBiljeske(), "Bilješka: ")...)
 	okvir("Posebna zapažanja:", numerirano(zap), 160)
 
 	// potpisi: lijevo vodočuvar, desno rukovoditelj branjenog područja; tko je
@@ -431,6 +431,16 @@ func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, 
 		d.TekstSredina(x+w/2, crta+11, 9, false, ime)
 	}
 	d.Y = staro
+}
+
+// stavkeUpisa su upisi u list kao stavke obrasca: predznak, tekst, tko ga
+// je upisao i kada
+func stavkeUpisa(upisi []models.UpisRukovoditelja, predznak string) []string {
+	var out []string
+	for _, up := range upisi {
+		out = append(out, predznak+up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
+	}
+	return out
 }
 
 func ifNe(f string) string {

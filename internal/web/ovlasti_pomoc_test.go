@@ -39,7 +39,7 @@ func TestPomocOpisujeOvlastiPoDosegu(t *testing.T) {
 func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
 	for _, want := range []string{
-		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
+		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja",
 		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
 		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica ili objekt koji je u registru na njegovoj dionici",
 		"i onu u kojoj nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan",

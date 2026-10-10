@@ -34,8 +34,10 @@ type VodocuvarskiList struct {
 	// Zadaci su zadaci rukovoditelja koji su taj dan stajali na listu, sa
 	// stanjem kako ih je vodočuvar označio; neobavljeni prelaze na sljedeći list
 	Zadaci []ZadatakNaListu `json:"zadaci,omitempty"`
-	// Upisi su bilješke rukovoditelja i ovlaštenika upisane izravno u dnevnik,
-	// neovisno o zadacima: naredba, napomena, nalaz obilaska
+	// Upisi su bilješke rukovoditelja, ovlaštenika i dežurnog operatera
+	// upisane izravno u dnevnik, neovisno o zadacima: naredba, napomena,
+	// nalaz obilaska; bilješka dežurnog operatera nije naredba
+	// (UpisRukovoditelja.Biljeska)
 	Upisi []UpisRukovoditelja `json:"upisi,omitempty"`
 	// Prijave su prijave i obavijesti s terena koje je vodočuvar objavio taj
 	// dan; upis na listu je dokaz, dokument stoji uz prijavu
@@ -342,6 +344,31 @@ type UpisRukovoditelja struct {
 	Funkcija string    `json:"funkcija,omitempty"`
 	Kad      time.Time `json:"kad"`
 	Tekst    string    `json:"tekst"`
+	// Biljeska: upisao ju je netko tko list nije smio parafirati ni ovjeriti
+	// (dežurni operater, koji ni zadatke ne zadaje), pa nije naredba
+	// rukovoditelja i ne stoji pod naredbama nego pod posebnim zapažanjima
+	// (Odluke (8. 10. 2026.), pitanje 1). Čvor sa starijom inačicom polje
+	// ne zna: takav upis pokazuje pod naredbama, a kad sam izmijeni list,
+	// polje se gubi.
+	Biljeska bool `json:"biljeska,omitempty"`
+}
+
+// UpisiNaredbe su upisi u list koji stoje pod naredbama rukovoditelja
+func (l VodocuvarskiList) UpisiNaredbe() []UpisRukovoditelja { return l.upisiVrste(false) }
+
+// UpisiBiljeske su upisi u list koji nisu naredbe (UpisRukovoditelja.Biljeska)
+// i stoje pod posebnim zapažanjima
+func (l VodocuvarskiList) UpisiBiljeske() []UpisRukovoditelja { return l.upisiVrste(true) }
+
+// upisiVrste su upisi u list koji jesu ili nisu bilješke, redom upisa
+func (l VodocuvarskiList) upisiVrste(biljeske bool) []UpisRukovoditelja {
+	var out []UpisRukovoditelja
+	for _, u := range l.Upisi {
+		if u.Biljeska == biljeske {
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 // sazetakLista je sadržaj lista koji potpisi pokrivaju: tekst i zadaci
