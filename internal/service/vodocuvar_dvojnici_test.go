@@ -7,7 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Dvostruki dnevni listovi, Odluke (8. 10. 2026.), pitanje 7: dva lista
@@ -228,5 +230,46 @@ func TestListZaUpis(t *testing.T) {
 	odustani()
 	if _, err := o.vs.listZaUpis(prekinut, pero, dan, drugi.ID); err == nil {
 		t.Error("prekinuto čitanje lista nije javilo grešku")
+	}
+}
+
+// Upis sa stranice lista odbija prazan upis, nepoznatog vodočuvara, osobu
+// bez zaduženja vodočuvara i arhiviranu godinu, a javlja i grešku čitanja
+// lista na čijoj je stranici
+func TestUpisiNaListGreske(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero, _ := o.vdVodocuvarUBazi(t)
+	users := repository.NewUserRepository(o.baza, ledger.New(o.baza, "test"))
+	ana := &models.User{Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	d := vdDuznost(models.RoleAreaLeader, 1, true)
+	if err := users.CreateUser(ana, &d); err != nil {
+		t.Fatal(err)
+	}
+	rukovoditeljica := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	rukovoditeljica.Username, rukovoditeljica.FullName = "aanic", "Ana Anić"
+	perms := models.NewUserPermissions(*rukovoditeljica)
+	dan := vdDan(time.March, 10)
+	o.vs.sad = func() time.Time { return dan.Add(9 * time.Hour) }
+	for _, s := range []struct {
+		ime, vodocuvar, tekst, greska string
+		dan                           time.Time
+	}{
+		{"prazan upis", pero.ID.String(), "  ", "upišite bilješku", dan},
+		{"oznaka koja nije oznaka osobe", "nije-oznaka", "obilazak", "nepoznat vodočuvar", dan},
+		{"nepoznata osoba", uuid.NewString(), "obilazak", "nepoznat vodočuvar", dan},
+		{"osoba bez zaduženja vodočuvara", ana.ID.String(), "obilazak", "nema zaduženje vodočuvara", dan},
+		{"arhivirana godina", pero.ID.String(), "obilazak", "je arhivirana", dan.AddDate(-1, 0, 0)},
+	} {
+		_, err := o.vs.UpisiNaList(ctx, perms, rukovoditeljica, s.vodocuvar, s.dan, "", s.tekst)
+		vdGreska(t, err, s.greska)
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if _, err := o.vs.UpisiNaList(prekinut, perms, rukovoditeljica, pero.ID.String(), dan, uuid.NewString(), "obilazak"); err == nil {
+		t.Error("prekinuto čitanje lista nije javilo grešku")
+	}
+	if n := o.verzijeListova(t); n != 0 {
+		t.Errorf("odbijeni upisi zapisali su listove: %d verzija", n)
 	}
 }

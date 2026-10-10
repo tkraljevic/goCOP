@@ -129,3 +129,20 @@ func TestPokrivanjeOvjereIParafa(t *testing.T) {
 		t.Errorf("list koji je i sam ovjeren: %+v", l)
 	}
 }
+
+// Parafe iz drugih verzija dodaju se listu po osobi i slažu po vremenu;
+// bez novih parafa popis lista ostaje kakav jest
+func TestParafeVerzija(t *testing.T) {
+	rano, kasno := time.Date(2026, time.October, 14, 8, 0, 0, 0, models.Zagreb), time.Date(2026, time.October, 14, 9, 0, 0, 0, models.Zagreb)
+	ana := models.Parafa{UserID: anaAnic, Ime: "Ana Anić", Kad: kasno}
+	marko := models.Parafa{UserID: markoMarkic, Ime: "Marko Markić", Kad: rano}
+	ponovo := models.Parafa{UserID: anaAnic, Ime: "Ana Anić", Kad: rano}
+	zive := []verzijaLista{{list: models.VodocuvarskiList{Parafe: []models.Parafa{ponovo}}}, {list: models.VodocuvarskiList{Parafe: []models.Parafa{marko}}}}
+	got := parafeVerzija([]models.Parafa{ana}, zive)
+	if len(got) != 2 || got[0].Ime != "Marko Markić" || got[1].Ime != "Ana Anić" || !got[1].Kad.Equal(kasno) {
+		t.Errorf("parafe složene iz verzija: %+v", got)
+	}
+	if got := parafeVerzija([]models.Parafa{ana}, zive[:1]); len(got) != 1 || !got[0].Kad.Equal(kasno) {
+		t.Errorf("parafa iste osobe ne dodaje se: %+v", got)
+	}
+}
