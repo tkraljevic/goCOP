@@ -328,3 +328,11 @@ func TestPomocMjestoRadaIzvodiSamoIzOpisaSPopisa(t *testing.T) {
 		t.Error("pomoć kaže da program mjesto izvodi i iz opisa kojega nema na popisu")
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: bilješku o ispravku opisa dežurstva
+// upisuje samo program; pomoć to mora reći, jer se rukom upisana odbija.
+func TestPomocBiljeskuOIspravkuOpisaUpisujeProgram(t *testing.T) {
+	if !strings.Contains(pomocHTML(t), "Tu bilješku u napomenu upisuje samo program") {
+		t.Error("pomoć ne kaže da bilješku o ispravku opisa upisuje samo program")
+	}
+}

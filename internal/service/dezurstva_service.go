@@ -124,12 +124,8 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	}
 	d.JournalID = j.ID
 	d.UserName, d.Napomena = strings.TrimSpace(d.UserName), strings.TrimSpace(d.Napomena)
-	if d.ID != "" {
-		if err := s.izmjenaDezurstva(ctx, u, uprava, j, d); err != nil {
-			return err
-		}
-	} else {
-		d.CreatedBy = u.ID.String()
+	if err := s.upisDezurstva(ctx, u, uprava, j, d); err != nil {
+		return err
 	}
 	d.Potvrdio, d.PotvrdenoAt = "", nil
 	if potvrdiOdmah(uprava, d) {
@@ -137,6 +133,17 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
 	}
 	return s.repo.SaveDezurstvo(ctx, d)
+}
+
+// upisDezurstva priprema upis: izmjenu postojećeg dežurstva provjerava
+// izmjenaDezurstva, a novom upisu bilježi tko ga je upisao. Napomena novog
+// upisa ne smije nositi trag ispravka opisa — njega upisuje samo program.
+func (s *JournalService) upisDezurstva(ctx context.Context, u *models.User, uprava bool, j *models.Journal, d *models.Dezurstvo) error {
+	if d.ID != "" {
+		return s.izmjenaDezurstva(ctx, u, uprava, j, d)
+	}
+	d.CreatedBy = u.ID.String()
+	return samoPostojeciTragovi("", d.Napomena)
 }
 
 // izmjenaDezurstva provjerava izmjenu upisanog dežurstva i preuzima ono što
@@ -160,9 +167,35 @@ func (s *JournalService) izmjenaDezurstva(ctx context.Context, u *models.User, u
 		}
 	}
 	d.CreatedBy, d.CreatedAt = cur.CreatedBy, cur.CreatedAt
+	return napomenaIzmjene(cur, d, u.FullName)
+}
+
+// napomenaIzmjene slaže napomenu izmijenjenog dežurstva: tragovi ispravka
+// opisa iz spremljene napomene ostaju, novi se rukom ne upisuju, a kad je
+// promijenjen opis koji bira uprava centra, program dodaje trag s imenom
+// onoga tko ga je promijenio.
+func napomenaIzmjene(cur, d *models.Dezurstvo, tko string) error {
+	if err := samoPostojeciTragovi(cur.Napomena, d.Napomena); err != nil {
+		return err
+	}
 	d.Napomena = zadrziTragIspravka(cur.Napomena, d.Napomena)
 	if cur.OpisBiraUprava() && d.Opis != cur.Opis {
-		d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(cur.Opis, u.FullName, time.Now().In(models.Zagreb)))
+		d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(cur.Opis, tko, time.Now().In(models.Zagreb)))
+	}
+	return nil
+}
+
+// samoPostojeciTragovi: bilješku o ispravku opisa („[opis ispravio …]”)
+// upisuje samo program, kad uprava centra ispravi opis. Napomena smije
+// nositi samo tragove koji su u spremljenoj napomeni (staro) već bili.
+// Rukom upisan trag pripisao bi upravi ispravak koji nije napravila i
+// zaključao bi zapis: opis tada bira uprava, a osoba ga ne miče (Odluke
+// (8. 10. 2026.), pitanje 10).
+func samoPostojeciTragovi(staro, novo string) error {
+	for _, trag := range models.TragoviIspravkaOpisa(novo) {
+		if !strings.Contains(staro, trag) {
+			return errors.New("bilješku o ispravku opisa („[opis ispravio …]”) upisuje program kad uprava centra ispravi opis; uklonite je iz napomene")
+		}
 	}
 	return nil
 }
