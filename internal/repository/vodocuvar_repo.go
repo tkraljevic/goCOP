@@ -118,15 +118,21 @@ func zadatakChannel(z *models.Zadatak) string {
 	return ledger.ChannelFor(ledger.ChannelVodocuvar, z.AreaID, dan.In(models.Zagreb).Year())
 }
 
-// kanalListaIz čita kanal lista iz tablice, za izvornike i seljenje
-func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
-	var area int
-	var datum string
-	if err := db.QueryRowContext(ctx, `SELECT area_id, datum FROM vodocuvarski_listovi WHERE id = ?`, listID).Scan(&area, &datum); err != nil || len(datum) < 4 {
-		return ""
+// zapisIzvornika daje kanal i zapis u knjizi za izvornik lista, iz lista u
+// tablici: izvornik ide u zapis lista (zapisLista), a kad nema potpis lista
+// (PredanoAt), dobiva potpis lista kakav je sada. Tako izvornik drugog
+// predanog lista iste oznake stoji uz potpis kojemu pripada
+// (apply_vodocuvarski_izvornici.go). Bez lista nema kanala, a zapis je
+// oznaka lista iz izvornika.
+func (r *VodocuvarRepository) zapisIzvornika(ctx context.Context, iz *models.IzvornikLista) (kanal, zapis string) {
+	l, err := r.Get(ctx, iz.ListID)
+	if err != nil || l == nil {
+		return "", iz.ListID
 	}
-	g, _ := strconv.Atoi(datum[:4])
-	return ledger.ChannelFor(ledger.ChannelVodocuvar, area, g)
+	if iz.PredanoAt == nil {
+		iz.PredanoAt = l.PredanoAt
+	}
+	return listChannel(l), zapisLista(l)
 }
 
 // Save upisuje list, s verzijom u knjizi. Nepredan list (nacrt, upis
@@ -164,8 +170,20 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
 		return fmt.Errorf("upis lista: %w", err)
 	}
-	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
+	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(l), l)
 	return err
+}
+
+// zapisLista je oznaka zapisa u knjizi u koji se list upisuje: drugi
+// predani list iste oznake (models.IDDvostrukogLista) upisuje se u zapis
+// lista od kojeg je izveden, svaki drugi list u svoj
+// (apply_vodocuvarski_dvojnici.go)
+func zapisLista(l *models.VodocuvarskiList) string {
+	x := models.IDListaVodocuvara(l.UserID, l.Datum)
+	if l.Predan() && l.ID == models.IDDvostrukogLista(x, *l.PredanoAt) {
+		return x
+	}
+	return l.ID
 }
 
 // upisiNepredan je upisiList za predaju i nacrt: list se upisuje samo dok ni
@@ -192,7 +210,7 @@ func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *
 	if n == 0 {
 		return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), odbijeno)
 	}
-	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
+	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(l), l)
 	return err
 }
 
@@ -702,7 +720,7 @@ func (r *VodocuvarRepository) GetIzvornik(ctx context.Context, listID string) (*
 func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.IzvornikLista) error {
 	iz.UpdatedAt = time.Now().UTC()
 	pdf := iz.PDF
-	kanal := kanalListaIz(ctx, r.db, iz.ListID)
+	kanal, zapis := r.zapisIzvornika(ctx, iz)
 	opis, err := spremiPDF(ctx, EntityVodocuvarski, iz.ListID, kanal, pdf, iz.Sazetak, iz.UpdatedAt)
 	if err != nil {
 		return err
@@ -716,7 +734,7 @@ func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.Izvor
 	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt); err != nil {
 		return err
 	}
-	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityVodocuvarskiIzvornici, zapis, iz); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

@@ -76,7 +76,7 @@
 {{if .Dvostruki}}
 <section class="detail-section">
   <h2>{{icon "triangle-alert"}} Dvostruki dnevni listovi</h2>
-  <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista, ili na čvoru sa starijim programom. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, oba ostaju s oznakom „dvostruki list”.</p>
+  <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista ili na čvoru sa starijim programom, ili je isti list predan na dva čvora. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, oba ostaju s oznakom „dvostruki list”.</p>
   <ul class="stavke">
   {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "02.01.2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> ({{$l.Stanje}}){{end}}</li>{{end}}
   </ul>

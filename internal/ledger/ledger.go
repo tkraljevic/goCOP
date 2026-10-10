@@ -462,13 +462,27 @@ func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants fu
 // koji je dugo šutio može staru verziju poslati natrag; ona uđe u knjigu
 // kao povijest, ne dira površinu, i nestane pri sljedećem sažimanju.
 func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `
+	return r.CompactOsim(ctx, olderThan, nil)
+}
+
+// CompactOsim je Compact koji ne dira nijednu verziju zapisa s navedenim
+// oznakama (entity_id): njihova povijest ostaje cijela, npr. dnevni list
+// koji drži dva potpisa
+func (r *Recorder) CompactOsim(ctx context.Context, olderThan time.Time, cuvaj []string) (int64, error) {
+	q := `
 		DELETE FROM record_versions
 		WHERE created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, olderThan.UTC())
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)`
+	args := []any{olderThan.UTC()}
+	if len(cuvaj) > 0 {
+		q += ` AND entity_id NOT IN (?` + strings.Repeat(",?", len(cuvaj)-1) + `)`
+		for _, id := range cuvaj {
+			args = append(args, id)
+		}
+	}
+	res, err := r.db.ExecContext(ctx, q, args...)
 	if err != nil {
 		return 0, fmt.Errorf("sažimanje knjige: %w", err)
 	}

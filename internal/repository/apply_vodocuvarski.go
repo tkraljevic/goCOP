@@ -22,7 +22,8 @@ import (
 //     koji briše znao, a nacrt i bilješka s drugog čvora za koje nije znao
 //     ostaju;
 //   - predan list uvijek ima prednost pred nacrtom s drugog čvora, i pred
-//     brisanjem nacrta; od dva predana vrijedi zadnji;
+//     brisanjem nacrta; kad je list predan na dva čvora, oba potpisa ostaju
+//     (apply_vodocuvarski_dvojnici.go);
 //   - od nacrta vrijedi onaj s najnovijim vodočuvarovim upisom
 //     (models.VodocuvarskiList.NapisanoAt), a od dva jednaka zadnji: nacrt
 //     koji je nastao bez vodočuvarova upisa (rukovoditeljev „Upiši”, akt o
@@ -52,12 +53,35 @@ func primijeniListIzPovijesti(ctx context.Context, tx *sql.Tx, id string) error 
 	if err != nil {
 		return err
 	}
-	l := spojiVerzijeLista(verzije)
-	if l == nil {
-		_, err = tx.ExecContext(ctx, `DELETE FROM vodocuvarski_listovi WHERE id = ?`, id)
+	s := slozi(id, verzije)
+	if err := upisiSlozeni(ctx, tx, id, s.glavni); err != nil {
 		return err
 	}
-	_, err = tx.ExecContext(ctx, vodocuvarskiIzPovijesti, vodocuvarskiArgs(l)...)
+	if err := upisiDvojnike(ctx, tx, id, s); err != nil {
+		return err
+	}
+	return izvorniciPotpisa(ctx, tx, id, s)
+}
+
+// izvorniciPotpisa slaže iznova izvornike zapisa koji drži više potpisa:
+// kad se promijeni koji je potpis glavni list, izvornik ide za svojim
+// potpisom (apply_vodocuvarski_izvornici.go). Zapis s jednim potpisom
+// izvornike ne dira; njih slaže primjena izvornika.
+func izvorniciPotpisa(ctx context.Context, tx *sql.Tx, id string, s slozeniListovi) error {
+	if len(s.potpisi) < 2 {
+		return nil
+	}
+	return primijeniIzvornike(ctx, tx, id, s)
+}
+
+// upisiSlozeni upisuje list složen iz povijesti na površinu pod oznakom; bez
+// lista ga s površine briše
+func upisiSlozeni(ctx context.Context, tx *sql.Tx, id string, l *models.VodocuvarskiList) error {
+	if l == nil {
+		_, err := tx.ExecContext(ctx, `DELETE FROM vodocuvarski_listovi WHERE id = ?`, id)
+		return err
+	}
+	_, err := tx.ExecContext(ctx, vodocuvarskiIzPovijesti, vodocuvarskiArgs(l)...)
 	return err
 }
 
@@ -85,10 +109,16 @@ func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista,
 	return out, rows.Err()
 }
 
-// spojiVerzijeLista vraća list kakav vrijedi po verzijama, od najstarije;
-// nil kad lista na površini nema (nijedne verzije, ili su sve obrisane)
+// spojiVerzijeLista vraća list kakav vrijedi po verzijama, od najstarije,
+// kad su sve verzije jedan list; nil kad lista na površini nema (nijedne
+// verzije, ili su sve obrisane)
 func spojiVerzijeLista(verzije []verzijaLista) *models.VodocuvarskiList {
-	zive := ziveVerzije(verzije)
+	return spojiZive(ziveVerzije(verzije))
+}
+
+// spojiZive slaže list iz verzija koje vrijede: osnova je verzija koja
+// vrijedi, uz upise i prijave svih; nil kad verzija nema
+func spojiZive(zive []verzijaLista) *models.VodocuvarskiList {
 	if len(zive) == 0 {
 		return nil
 	}

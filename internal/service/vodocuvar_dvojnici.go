@@ -9,7 +9,8 @@ import (
 
 // Dvostruki dnevni listovi (Odluke (8. 10. 2026.), pitanje 7): dva lista
 // istog vodočuvara za isti dan s različitim oznakama, nastala prije
-// jedinstvene oznake lista ili na čvoru starijeg programa. Ne brišu se,
+// jedinstvene oznake lista ili na čvoru starijeg programa, ili isti list
+// predan na dva čvora (repository/apply_vodocuvarski_dvojnici.go). Ne brišu se,
 // jer su potpisani dokumenti, nego se prijavljuju rukovoditelju koji ih
 // ovjerava i administratoru. Kad su predana oba, oba ostaju s oznakom
 // „dvostruki list – vidi i list br. …”.

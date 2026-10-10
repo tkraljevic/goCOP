@@ -79,6 +79,16 @@ func IDListaVodocuvara(userID string, dan time.Time) string {
 	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:"+userID+"|"+dan.In(Zagreb).Format("2006-01-02"))).String()
 }
 
+// IDDvostrukogLista je oznaka drugog predanog lista iste oznake: kad je
+// isti list predan na dva čvora bez veze, oba potpisa ostaju (Odluke
+// (8. 10. 2026.), pitanje 7). List prvog potpisa zadržava oznaku lista, a
+// list svakog kasnijeg stoji pod oznakom izvedenom iz oznake lista i
+// trenutka potpisa (UUID v5), jednakom na svim čvorovima. Oznaka se ne
+// smije mijenjati.
+func IDDvostrukogLista(listID string, predano time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:dvostruki:"+listID+"|"+predano.UTC().Format(time.RFC3339Nano))).String()
+}
+
 // PrilogLista je fotografija ili datoteka priložena listu, uz zadatak ili
 // upis. Sadrzaj je otisak u spremištu sadržaja, po kojem se bajtovi čitaju
 // i dohvaćaju s drugog čvora.

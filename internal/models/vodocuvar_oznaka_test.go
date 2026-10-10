@@ -33,3 +33,24 @@ func TestIDListaVodocuvara(t *testing.T) {
 		t.Error("drugi dan ili druga osoba moraju imati drugu oznaku")
 	}
 }
+
+// Oznaka drugog predanog lista iste oznake izvodi se iz oznake lista i
+// trenutka potpisa: isti trenutak u drugoj zoni daje istu oznaku, drugi
+// trenutak ili drugi list drugu. Oznaka se ne smije promijeniti.
+func TestIDDvostrukogLista(t *testing.T) {
+	list := "8f882520-d0ac-5514-bdfd-7f5fa70b4714"
+	predano := time.Date(2026, time.October, 14, 15, 30, 0, 123456789, Zagreb)
+	id := IDDvostrukogLista(list, predano)
+	if id != "e937c047-5866-51a9-9ef1-2aa96ef51786" {
+		t.Errorf("oznaka drugog lista se promijenila: %s", id)
+	}
+	if u, err := uuid.Parse(id); err != nil || u.Version() != 5 {
+		t.Errorf("oznaka nije UUID v5: %s %v", id, err)
+	}
+	if IDDvostrukogLista(list, predano.UTC()) != id {
+		t.Error("isti trenutak u drugoj zoni mora dati istu oznaku")
+	}
+	if IDDvostrukogLista(list, predano.Add(time.Nanosecond)) == id || IDDvostrukogLista("drugi", predano) == id || id == list {
+		t.Error("drugi potpis ili drugi list moraju imati drugu oznaku")
+	}
+}

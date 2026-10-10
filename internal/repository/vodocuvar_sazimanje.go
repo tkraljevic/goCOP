@@ -21,14 +21,17 @@ import (
 // prije sažimanja svaki takav list upisuje u knjigu kakav vrijedi, kao nova
 // verzija: ona je zadnja i nosi sve, pa sažimanje više ništa ne gubi.
 
-// SazmiKnjigu sažima knjigu (ledger.Recorder.Compact) nakon što listove
-// vodočuvara složene iz povijesti upiše kao nove verzije. Kad upis ne
-// uspije, knjiga se ne sažima.
+// SazmiKnjigu sažima knjigu (ledger.Recorder.CompactOsim) nakon što listove
+// vodočuvara složene iz povijesti upiše kao nove verzije. Zapis lista koji
+// drži dva potpisa (isti list predan na dva čvora) ne sažima se: oba
+// predana lista su potpisani dokumenti. Kad upis ne uspije, knjiga se ne
+// sažima.
 func SazmiKnjigu(ctx context.Context, db *sql.DB, rec *ledger.Recorder, olderThan time.Time) (int64, error) {
-	if _, err := NewVodocuvarRepository(db, rec).UpisiSlozeneListove(ctx); err != nil {
+	_, cuvaj, err := NewVodocuvarRepository(db, rec).pripremiSazimanje(ctx)
+	if err != nil {
 		return 0, fmt.Errorf("dnevni listovi vodočuvara prije sažimanja: %w", err)
 	}
-	return rec.Compact(ctx, olderThan)
+	return rec.CompactOsim(ctx, olderThan, cuvaj)
 }
 
 // UpisiSlozeneListove upisuje kao novu verziju svaki dnevni list vodočuvara
@@ -36,46 +39,55 @@ func SazmiKnjigu(ctx context.Context, db *sql.DB, rec *ledger.Recorder, olderTha
 // knjizi; vraća koliko ih je upisano. Takav može biti samo list čije su
 // verzije pisala barem dva čvora.
 func (r *VodocuvarRepository) UpisiSlozeneListove(ctx context.Context) (int, error) {
+	n, _, err := r.pripremiSazimanje(ctx)
+	return n, err
+}
+
+// pripremiSazimanje je UpisiSlozeneListove koji vraća i oznake zapisa koji
+// drže dva potpisa, da ih sažimanje ne dira; uz zapis lista to je i zapis
+// njegovih izvornika, koji ima istu oznaku
+func (r *VodocuvarRepository) pripremiSazimanje(ctx context.Context) (int, []string, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	defer tx.Rollback()
 	ids, err := idsOf(ctx, tx, `SELECT entity_id FROM record_versions WHERE entity = ?
 		GROUP BY entity_id HAVING COUNT(DISTINCT node_id) > 1 ORDER BY entity_id`, EntityVodocuvarski)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
 	n := 0
+	var cuvaj []string
 	for _, id := range ids {
-		l, err := slozeniAkoNijeZadnji(ctx, tx, id)
+		s, upisati, err := slozeniZaSazimanje(ctx, tx, id)
 		if err != nil {
-			return 0, err
+			return 0, nil, err
 		}
-		if l == nil {
+		if len(s.dvojnici) > 0 {
+			cuvaj = append(cuvaj, id)
+		}
+		if !upisati {
 			continue
 		}
-		if err := r.upisiList(ctx, tx, l); err != nil {
-			return 0, err
+		if err := r.upisiList(ctx, tx, s.glavni); err != nil {
+			return 0, nil, err
 		}
 		n++
 	}
-	return n, tx.Commit()
+	return n, cuvaj, tx.Commit()
 }
 
-// slozeniAkoNijeZadnji vraća list kakav vrijedi po povijesti kad se
-// razlikuje od zadnje verzije u knjizi; nil kad je zadnja verzija već takva
-// ili lista na površini nema
-func slozeniAkoNijeZadnji(ctx context.Context, tx *sql.Tx, id string) (*models.VodocuvarskiList, error) {
+// slozeniZaSazimanje slaže listove zapisa iz povijesti i javlja treba li
+// glavni list upisati kao novu verziju: kad ga ima, a zadnja verzija u
+// knjizi nije takva
+func slozeniZaSazimanje(ctx context.Context, tx *sql.Tx, id string) (slozeniListovi, bool, error) {
 	verzije, err := verzijeListaTx(ctx, tx, id)
 	if err != nil {
-		return nil, err
+		return slozeniListovi{}, false, err
 	}
-	l := spojiVerzijeLista(verzije)
-	if l == nil || jednakZadnjoj(l, verzije[len(verzije)-1]) {
-		return nil, nil
-	}
-	return l, nil
+	s := slozi(id, verzije)
+	return s, s.glavni != nil && !jednakZadnjoj(s.glavni, verzije[len(verzije)-1]), nil
 }
 
 // jednakZadnjoj javlja je li složen list ista verzija kao zadnja u knjizi;

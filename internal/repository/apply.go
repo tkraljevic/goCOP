@@ -235,10 +235,11 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 
 // primjenjujeSe javlja ide li primljena verzija na površinu: samo zadnja
 // verzija zapisa, jer je površina slika zadnje verzije. Dnevni list
-// vodočuvara slaže se iz cijele povijesti zapisa (apply_vodocuvarski.go),
-// pa na površinu ide i starija verzija koja je stigla nakon novije.
+// vodočuvara i njegovi izvornici slažu se iz cijele povijesti zapisa
+// (apply_vodocuvarski.go, apply_vodocuvarski_izvornici.go), pa na površinu
+// ide i starija verzija koja je stigla nakon novije.
 func primjenjujeSe(top *ledger.Version, v ledger.Version) bool {
-	return top.VersionID == v.VersionID || v.Entity == EntityVodocuvarski
+	return top.VersionID == v.VersionID || v.Entity == EntityVodocuvarski || v.Entity == EntityVodocuvarskiIzvornici
 }
 
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
@@ -582,15 +583,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityVodocuvarskiIzvornici:
-		var iz models.IzvornikLista
-		if err := json.Unmarshal(v.Payload, &iz); err != nil {
-			return err
-		}
-		if err := primiIzvornik(ctx, EntityVodocuvarski, v.Channel, &iz); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
-		return err
+		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
 
 	case EntityJournalIzvornici:
 		var iz models.IzvornikDnevnika
@@ -1150,7 +1143,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityPotpisniIzdavatelji:
 		stmt = `DELETE FROM potpisni_izdavatelji WHERE cvor = ?`
 	case EntityVodocuvarskiIzvornici:
-		stmt = `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`
+		// izvornik lista predanog na drugom čvoru ostaje uz svoj list
+		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
 	case EntityJournalIzvornici:
 		stmt = `DELETE FROM journal_izvornici WHERE journal_id = ?`
 	case EntityMaintainedWaters:
