@@ -302,7 +302,10 @@ func tkoSastavlja(sektor string) string {
 // SmijeUreditiNacrt javlja smije li osoba mijenjati postojeći nacrt (tekst,
 // popis primatelja): samo onaj tko ga je sastavio, i to dok smije
 // sastavljati nacrte u sektoru akta. Inače se nacrt samo ovjerava (Odluke
-// (8. 10. 2026.), pitanje 18).
+// (8. 10. 2026.), pitanje 18): i nacrt koji je sastavio netko izvan centra
+// prije nadogradnje ne ispravlja nitko, nego se ovjerava ili briše. Pravilo
+// provjerava čvor na kojemu se nacrt mijenja; izmjena s čvora 0.0.34 stiže
+// razmjenom kao i dosad.
 func SmijeUreditiNacrt(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
 	return u != nil && a != nil && a.IzradioID == u.ID.String() && SmijeSastaviti(perms, a.Sektor)
 }

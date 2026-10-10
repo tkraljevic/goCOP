@@ -9,7 +9,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/repository"
 	"gocop/internal/service"
 )
 
@@ -236,4 +238,81 @@ func TestNacrtMijenjaSamoAutorDokSastavlja(t *testing.T) {
 			t.Fatalf("rukovoditelj područja ovjerava nacrt centra: %+v %v", ovjeren, err)
 		}
 	})
+}
+
+// Nacrt koji je sastavio netko izvan Centra obrane od poplava (prije
+// nadogradnje, ili na čvoru 0.0.34 koji pravilo još ne provjerava, pa stiže
+// razmjenom) ostaje nacrt, ali ga na novom čvoru ne ispravlja nitko: ni autor
+// (više ne sastavlja), ni centar (nije autor), ni onaj tko ga ovjerava.
+// Ovjerava se kakav jest, ili ga autor ili onaj tko ga ovjerava obriše pa
+// centar sastavi novi (Odluke (8. 10. 2026.), pitanje 18).
+func TestNacrtIzvanCentraSeOvjeravaIliBrise(t *testing.T) {
+	ctx := context.Background()
+	zahtjev := func(o *okolinaAkta) service.ZahtjevAkta {
+		return service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava, Stupanj: models.PhasePrep,
+			Vrijedi: time.Now().Add(-time.Hour).Truncate(time.Minute)}
+	}
+	// stariNacrt je nacrt kakav ostavlja raniji čvor: sastavio ga je vodočuvar
+	stariNacrt := func(t *testing.T) (*okolinaAkta, *models.Akt) {
+		t.Helper()
+		o := novaOkolinaAkta(t)
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, zahtjev(o))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := o.akti.Spremi(ctx, o.dezOvl, a); err != nil {
+			t.Fatal(err)
+		}
+		a.IzradioID, a.Izradio = o.vodocuv.ID.String(), "Marko Markić"
+		if err := repository.NewAktiRepository(o.baza, ledger.New(o.baza, "test")).SaveAkt(ctx, a); err != nil {
+			t.Fatal(err)
+		}
+		return o, a
+	}
+
+	o, a := stariNacrt(t)
+	for tko, z := range map[string]struct {
+		perms *models.UserPermissions
+		u     *models.User
+	}{
+		"autor, vodočuvar":           {o.vodOvl, o.vodocuv},
+		"dežurni operater centra":    {o.dezOvl, o.dezurni},
+		"rukovoditelj koji ovjerava": {o.ovlasti, o.rukovod},
+	} {
+		if service.SmijeUreditiNacrt(z.perms, z.u, a) {
+			t.Errorf("%s: ne ispravlja nacrt sastavljen izvan centra", tko)
+		}
+		if _, err := o.akti.UrediTekst(ctx, z.perms, z.u, a.ID, "Uvod.", "", "Završna rečenica.", ""); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("%s: ispravak teksta: %v", tko, err)
+		}
+		if _, err := o.akti.PonovnoSloziPrimatelje(ctx, z.perms, z.u, a.ID); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("%s: ponovno složeni primatelji: %v", tko, err)
+		}
+		isti := *a
+		if err := o.akti.Spremi(ctx, z.perms, &isti); !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("%s: ponovno spremljen nacrt: %v", tko, err)
+		}
+	}
+	ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja)
+	if err != nil || !ovjeren.Ovjeren() || ovjeren.Izradio != "Marko Markić" {
+		t.Fatalf("nacrt izvan centra ovjerava se kakav jest: %+v %v", ovjeren, err)
+	}
+
+	for tko, brise := range map[string]func(o *okolinaAkta) (*models.UserPermissions, *models.User){
+		"autor":                      func(o *okolinaAkta) (*models.UserPermissions, *models.User) { return o.vodOvl, o.vodocuv },
+		"rukovoditelj koji ovjerava": func(o *okolinaAkta) (*models.UserPermissions, *models.User) { return o.ovlasti, o.rukovod },
+	} {
+		o, a := stariNacrt(t)
+		perms, u := brise(o)
+		if err := o.akti.Obrisi(ctx, perms, u, a.ID); err != nil {
+			t.Errorf("%s briše nacrt sastavljen izvan centra: %v", tko, err)
+		}
+		novi, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, zahtjev(o))
+		if err == nil {
+			err = o.akti.Spremi(ctx, o.dezOvl, novi)
+		}
+		if err != nil || novi.Izradio != "Iva Ivić" {
+			t.Errorf("centar sastavlja novi nacrt umjesto obrisanog (%s): %v", tko, err)
+		}
+	}
 }
