@@ -252,6 +252,10 @@ type ReadingHistoryData struct {
 	// Ispravlja su očitanja na stranici koja osoba smije ispraviti: olovka
 	// stoji samo uz njih (Odluke (8. 10. 2026.), pitanje 9)
 	Ispravlja map[uuid.UUID]bool
+	// BriseNaLetvi: osoba odgovara za letvu postaje pa briše i tuđa
+	// očitanja; po tome uputa za ispravak u tablici spominje brisanje
+	// (Odluke (8. 10. 2026.), pitanje 9)
+	BriseNaLetvi bool
 	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
 	// stranica nije o letvi nego o vodnoj građevini.
 	LetvaStranica string
@@ -526,6 +530,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Odbaceno, _ = h.readingService.SazetakOdbacenih(r.Context(), data.GaugeKey)
 	data.Ispravlja = h.ispravljiva(data.Permissions, station, data.CanRecord, data.Readings)
+	data.BriseNaLetvi = h.briseNaLetvi(data.Permissions, station)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži
@@ -1348,4 +1353,10 @@ func (h *ReadingsHandler) ispravljiva(perms *models.UserPermissions, station *mo
 		out[ocitanja[i].ID] = prava.MozeIspraviti(&ocitanja[i], sad)
 	}
 	return out
+}
+
+// briseNaLetvi javlja odgovara li osoba za letvu postaje, pa briše i tuđa
+// očitanja; na vodnoj građevini ispravak u tablici se ne nudi
+func (h *ReadingsHandler) briseNaLetvi(perms *models.UserPermissions, station *models.Station) bool {
+	return station != nil && h.readingService.PravaNaLetvu(perms, station).MozeObrisati()
 }

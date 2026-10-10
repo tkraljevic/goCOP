@@ -246,8 +246,10 @@
     </div>
     <p class="form-help mt-3">Stupac <strong>id</strong> govori koji je
       redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
-      očitao i napomena; za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
-      Prije upisa program pokaže što bi se promijenilo.</p>
+      očitao i napomena;
+      {{if .BriseNaLetvi}}za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
+      {{else}}ispraviti možeš samo svoja očitanja, a tuđa ispravlja i briše onaj tko odgovara za letvu.
+      {{end}}Prije upisa program pokaže što bi se promijenilo.</p>
   </div>
 </section>
 {{end}}
