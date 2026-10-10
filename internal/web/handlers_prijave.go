@@ -357,7 +357,7 @@ func (h *PrijaveHandler) nedostupna(w http.ResponseWriter, r *http.Request, u *m
 		return
 	}
 	if h.vod.pristup(w, u) {
-		http.Error(w, "Ovu prijavu ne možete otvoriti. Prijave s terena čitaju vodočuvar koji ih je objavio, dežurni operater sektora, rukovoditelj branjenog područja i ovlaštenici tog područja, a rukovoditelj dionice samo prijave vezane uz svoju dionicu.", http.StatusForbidden)
+		http.Error(w, "Ovu prijavu ne možete otvoriti. Prijave s terena čitaju vodočuvar koji ih je objavio, dežurni operater sektora, rukovoditelj branjenog područja, ovlaštenici tog područja te uprava sektora i organizacije, a rukovoditelj dionice samo prijave vezane uz svoju dionicu.", http.StatusForbidden)
 	}
 }
 

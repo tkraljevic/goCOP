@@ -1,6 +1,8 @@
 package web
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -50,5 +52,24 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)
 		}
+	}
+}
+
+// Kartica Vodočuvarskog dnevnika pod Dokumentacijom ne smije reći da
+// parafiraju svi ostali rukovoditelji: rukovoditelj dionice parafira samo
+// list koji se tiče njegove dionice, a parafira i uprava (Odluke (8. 10.
+// 2026.), pitanje 1).
+func TestKarticaKnjigeVodocuvaraKazeTkoParafira(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "..", "web", "templates", "dnevnici_izbor.html"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := strings.Join(strings.Fields(string(b)), " ")
+	if strings.Contains(h, "ostali rukovoditelji i ovlaštenici parafiraju") {
+		t.Error("kartica kaže da parafiraju svi ostali rukovoditelji")
+	}
+	want := "parafiraju ovlaštenici za praćenje ugovora i uprava, a rukovoditelj dionice list koji se tiče njegove dionice"
+	if !strings.Contains(h, want) {
+		t.Errorf("kartica ne kaže %q", want)
 	}
 }

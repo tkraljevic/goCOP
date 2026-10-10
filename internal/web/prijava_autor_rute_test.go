@@ -194,7 +194,7 @@ func TestPrijavaKojuRukovoditeljDioniceNeCitaObjasnjava(t *testing.T) {
 		t.Errorf("rukovoditelj dionice na prijavi svoje dionice: %d", w.Code)
 	}
 	w := pr.get(t, ivo, "/prijave/"+drugaDionica.ID)
-	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "samo prijave vezane uz svoju dionicu") || strings.Contains(w.Body.String(), "Srušeno stablo") {
+	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "samo prijave vezane uz svoju dionicu") || !strings.Contains(w.Body.String(), "uprava sektora i organizacije") || strings.Contains(w.Body.String(), "Srušeno stablo") {
 		t.Errorf("rukovoditelj dionice na prijavi bez veze: %d %.200s", w.Code, w.Body.String())
 	}
 	// tuđi nacrt za druge ne postoji: 404, i rukovoditelju i izvođaču
