@@ -165,9 +165,9 @@ func skupi(baza *sql.DB, upit string, skup map[string]bool) error {
 }
 
 // rijeci rastavlja tekst na riječi. Uz unutarnje znakove (točka, crtica,
-// podvlaka, znamenke) riječ je cijelo korisničko ime, pa se korisničko ime
-// „anic” ne nalazi u adresi „ana.anic@primjer.hr”; bez njih (samo slova) su
-// dijelovi imena i prezimena, pa se „Ana” nalazi u „Ana-Marija”.
+// podvlaka, znamenke) riječ je cijelo korisničko ime s tim znakovima; bez
+// njih (samo slova) su dijelovi imena i prezimena, pa se „Ana” nalazi u
+// „Ana-Marija”.
 func rijeci(tekst string, unutarnji bool) map[string]bool {
 	skup := map[string]bool{}
 	for _, r := range strings.FieldsFunc(tekst, func(c rune) bool {
@@ -178,15 +178,35 @@ func rijeci(tekst string, unutarnji bool) map[string]bool {
 	return skup
 }
 
+// rijeciRacuna su riječi teksta malim slovima u kojima se traži korisničko
+// ime: cijele riječi s unutarnjim znakovima i njihovi dijelovi između tih
+// znakova, pa se korisničko ime nalazi i u složenici („<ime>-laptop”,
+// „<ime>.cvor”, adresa e-pošte) i pisano velikim slovima, ali ne kao
+// početak duže riječi
+func rijeciRacuna(tekst string) map[string]bool {
+	malo := strings.ToLower(tekst)
+	skup := rijeci(malo, true)
+	for r := range rijeci(malo, false) {
+		skup[r] = true
+	}
+	return skup
+}
+
+// imeIzPomoci javlja smije li ime stajati u datoteci jer ga program sam
+// prikazuje u pomoći: samo u testu koji pomoć čita
+func imeIzPomoci(tekst, ime string, tr trazeno) bool {
+	return strings.Contains(tekst, "pomoc.html") && strings.Contains(tr.dopusteno, ime)
+}
+
 // jeTestnaDatoteka javlja je li datoteka test ili testni podatak
 func jeTestnaDatoteka(put string) bool {
 	return strings.HasSuffix(put, "_test.go") || strings.Contains(filepath.ToSlash(put), "/testdata/")
 }
 
 // trazeno je ono što pregled testova traži: imena, korisnička imena i
-// brojeve mobitela iz baze čvora. Oblik izmišljenog imena (izmisljena) i ime
-// koje program sam prikazuje (autor i zahvale u pomoći, u tekstu dopusteno)
-// nisu nalaz.
+// brojeve mobitela iz baze čvora. Oblik izmišljenog imena (izmisljena) nije
+// nalaz, a ni ime koje program sam prikazuje (autor i zahvale u pomoći, u
+// tekstu dopusteno) u testu koji pomoć čita.
 type trazeno struct {
 	imena, racuni, mobiteli map[string]bool
 	izmisljena              map[string]bool
@@ -311,7 +331,7 @@ func pregledajTestove(korijen string, tr trazeno) ([]nalazStvarnogImena, error) 
 // te ime u padežu i obrnutim redom
 func imenaUTekstu(put, tekst string, tr trazeno, stvarna, izmisljena kazaloImena) []nalazStvarnogImena {
 	var nalazi []nalazStvarnogImena
-	dijelovi, cijele := rijeci(tekst, false), rijeci(tekst, true)
+	dijelovi, cijele := rijeci(tekst, false), rijeciRacuna(tekst)
 	nadjena := obliciImena(tekst, stvarna, izmisljena)
 	for ime := range tr.imena {
 		prva := strings.FieldsFunc(ime, func(c rune) bool { return c == ' ' || c == '-' })[0]
@@ -320,12 +340,12 @@ func imenaUTekstu(put, tekst string, tr trazeno, stvarna, izmisljena kazaloImena
 		}
 	}
 	for ime := range nadjena {
-		if !strings.Contains(tr.dopusteno, ime) {
+		if !imeIzPomoci(tekst, ime, tr) {
 			nalazi = append(nalazi, nalazStvarnogImena{put, ime})
 		}
 	}
 	for racun := range tr.racuni {
-		if cijele[racun] {
+		if cijele[strings.ToLower(racun)] {
 			nalazi = append(nalazi, nalazStvarnogImena{put, racun})
 		}
 	}
@@ -333,8 +353,8 @@ func imenaUTekstu(put, tekst string, tr trazeno, stvarna, izmisljena kazaloImena
 }
 
 // Nijedan test ni testni podatak ne nosi ime, korisničko ime ni broj mobitela
-// iz baze čvora, osim izmišljenih osoba i imena koja program sam prikazuje u
-// pomoći. Pokreće se samo uz GOCOP_STVARNA_BAZA.
+// iz baze čvora, osim izmišljenih osoba i, u testu koji pomoć čita, imena
+// koja program sam prikazuje u pomoći. Pokreće se samo uz GOCOP_STVARNA_BAZA.
 func TestTestoviBezImenaIzStvarneBaze(t *testing.T) {
 	put := os.Getenv("GOCOP_STVARNA_BAZA")
 	if put == "" {
@@ -378,7 +398,7 @@ func TestTestoviBezImenaIzStvarneBaze(t *testing.T) {
 // ne kraća od tri. Ne nalazi se samo prezime, samo ime, ime od tri slova u
 // padežu ni ime pisano velikim slovima, pa pregled ne zamjenjuje čitanje;
 // riječ s velikim slovom u sredini (ime polja u kodu) nije ime. Oblik
-// izmišljenog imena i ime iz pomoći nisu nalaz.
+// izmišljenog imena nije nalaz, a ime iz pomoći samo u testu koji pomoć čita.
 func TestPregledNalaziImeUPadezuIObrnutimRedom(t *testing.T) {
 	korijen := t.TempDir()
 	for put, sadrzaj := range map[string]string{
@@ -432,8 +452,11 @@ func TestPregledNalaziImeUPadezuIObrnutimRedom(t *testing.T) {
 		"internal/x/obrnuto_padez_test.go Marko Markić",
 		"testdata/skup/zapis.txt Ana Anić",
 	)
-	usporedi("izmišljeno ime i ime iz pomoći",
-		nadjeno(trazeno{imena: imena, izmisljena: map[string]bool{"Marko Markić": true, "mmarkic": true}, dopusteno: "Zahvale: Ana Anić"}))
+	usporedi("izmišljeno ime i ime iz pomoći, koje ovi testovi ne čitaju",
+		nadjeno(trazeno{imena: imena, izmisljena: map[string]bool{"Marko Markić": true, "mmarkic": true}, dopusteno: "Zahvale: Ana Anić"}),
+		"internal/x/obrnuto_test.go Ana Anić",
+		"testdata/skup/zapis.txt Ana Anić",
+	)
 }
 
 // Ni broj mobitela iz baze čvora ne smije ostati u testu: pregled ga nalazi
@@ -511,8 +534,12 @@ func TestPregledNalaziStvarniBrojMobitela(t *testing.T) {
 
 // Pregled čita imena iz svih tablica s osobama koje baza ima, izuzima
 // izmišljene i ono što nije ime osobe, i nalazi ime i korisničko ime u
-// testovima i testnim podacima, ali ne u kodu programa ni u imenu iz pomoći.
-// Ovdje „stvarne” osobe glume izmišljene, jer test ne smije nositi stvarna imena.
+// testovima i testnim podacima, ali ne u kodu programa. Korisničko ime nalazi
+// i u složenici s točkom, crticom, podvlakom ili znamenkom (naziv računala,
+// čvora, adresa e-pošte) i pisano velikim slovima, ali ne kao početak duže
+// riječi. Ime koje program prikazuje u pomoći smije stajati samo u testu koji
+// pomoć čita (Odluke (8. 10. 2026.), pitanje 13). Ovdje „stvarne” osobe glume
+// izmišljene, jer test ne smije nositi stvarna imena.
 func TestPregledStvarnihImenaNalaziImeIRacun(t *testing.T) {
 	put := filepath.Join(t.TempDir(), "cvor.db")
 	baza, err := sql.Open("sqlite", put)
@@ -555,7 +582,11 @@ func TestPregledStvarnihImenaNalaziImeIRacun(t *testing.T) {
 		"internal/x/ime_test.go":        `FullName: "Ana Anić"`,
 		"internal/x/racun_test.go":      `Username: "aanic"`,
 		"internal/x/adresa_test.go":     `Email: "ana.anic@primjer.hr", Ime: "Pero Perić", Org: "VGI Osijek"`,
-		"internal/x/pomoc_test.go":      `"Ivo Ivić"`,
+		"internal/x/pomoc_test.go":      `put := "web/templates/pomoc.html"; "Ivo Ivić"`,
+		"internal/x/zahvale_test.go":    `"Ivo Ivić"`,
+		"internal/x/slozenica_test.go":  `Racunalo: "aanic-laptop", Cvor: "aanic.cvor", Kljuc: "aanic_kljuc2"`,
+		"internal/x/velika_test.go":     `Korisnik: "AANIC"`,
+		"internal/x/sufiks_test.go":     `Korisnik: "aanicevic", Polje: "AanicLaptop"`,
 		"internal/x/crtica_test.go":     `"Ana-Marija Anić", "Marko Markić-Anić"`,
 		"internal/x/program.go":         `"Iva Ivić"`,
 		"testdata/skup/imenik.json":     `{"full_name": "Marko Markić"}`,
@@ -581,6 +612,10 @@ func TestPregledStvarnihImenaNalaziImeIRacun(t *testing.T) {
 	zeli := []string{
 		"internal/x/ime_test.go Ana Anić",
 		"internal/x/racun_test.go aanic",
+		"internal/x/adresa_test.go anic",
+		"internal/x/zahvale_test.go Ivo Ivić",
+		"internal/x/slozenica_test.go aanic",
+		"internal/x/velika_test.go aanic",
 		"testdata/skup/imenik.json Marko Markić",
 		"internal/x/crtica_test.go Marko Markić",
 		"cmd/y/testdata/ulaz/zapis.txt Iva Ivić",
