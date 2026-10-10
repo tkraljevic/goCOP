@@ -473,10 +473,10 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 }
 
 // naListu kaže na koji je list upisano: s brojem, ili na nacrt za dan koji
-// još nije počeo, koji broj dobiva kad taj dan počne
+// još nije počeo, koji broj dobiva prvim spremanjem kad taj dan počne
 func naListu(l *models.VodocuvarskiList) string {
 	if l.Broj == 0 {
-		return "na nacrtu lista bez broja od " + l.Datum.Format("02.01.2006.") + " (broj dobiva kad taj dan počne)"
+		return "na nacrtu lista bez broja od " + l.Datum.Format("02.01.2006.") + " (broj dobiva prvim spremanjem kad taj dan počne)"
 	}
 	return "na listu " + strconv.Itoa(l.Broj) + " od " + l.Datum.Format("02.01.2006.")
 }

@@ -137,7 +137,7 @@ func TestBuduciDanKrozRute(t *testing.T) {
 	dan, _ := time.ParseInLocation("2006-01-02", prekosutra, models.Zagreb)
 
 	l := mustUnescape(o.zovi(t, o.rukovodi, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {o.vodocuvar.ID.String()}, "datum": {prekosutra}, "tekst": {"ophodnja nasipa svaka 2 sata"}}).Header().Get("Location"))
-	if !strings.Contains(l, "na nacrtu lista bez broja od "+dan.Format("02.01.2006.")+" (broj dobiva kad taj dan počne)") {
+	if !strings.Contains(l, "na nacrtu lista bez broja od "+dan.Format("02.01.2006.")+" (broj dobiva prvim spremanjem kad taj dan počne)") {
 		t.Fatalf("upis na budući dan: %s", l)
 	}
 	l = mustUnescape(o.zovi(t, o.rukovodi, http.MethodPost, "/vodocuvar/upis", url.Values{"vodocuvar": {o.vodocuvar.ID.String()}, "datum": {danZaTest(40)}, "tekst": {"predaleko"}}).Header().Get("Location"))

@@ -236,3 +236,22 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 		}
 	}
 }
+
+// Pomoć o dnevnom listu za budući dan (Odluke (8. 10. 2026.), pitanja 5 i
+// 6) ne obećava više od programa: redni broj nacrt dobiva prvim spremanjem
+// ili predajom kad njegov dan počne, ali kako se broj daje za tekući i
+// prošli dan nije promijenjeno, pa brojevi ne idu nužno redom dana. Pomoć
+// kaže i kako takav nacrt nastaje, jer vodočuvar budući dan ne otvara sam.
+func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, ne := range []string{"idu redom dana", "vodočuvar u njega može upisati plan"} {
+		if strings.Contains(h, ne) {
+			t.Errorf("pomoć obećava %q", ne)
+		}
+	}
+	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne"} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}

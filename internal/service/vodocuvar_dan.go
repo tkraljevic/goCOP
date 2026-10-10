@@ -11,9 +11,10 @@ import (
 // Dnevni list za dan koji još nije počeo (Odluke (8. 10. 2026.), pitanja 5
 // i 6): smije postojati samo kao nacrt, najviše 30 dana unaprijed (kao
 // zadaci); potpisuje se i predaje tek od 00:00 svog dana, po hrvatskom
-// vremenu. Nacrt za budući dan nema redni broj: broj dobiva prvim
-// spremanjem ili predajom kad njegov dan počne, pa brojevi u knjizi idu
-// redom dana. Za tekući i prošli dan broj se dodjeljuje kao i dosad.
+// vremenu, a ovjerava tek predan i kad mu je dan počeo. Nacrt za budući dan
+// nema redni broj: broj dobiva prvim spremanjem ili predajom kad njegov dan
+// počne. Za tekući i prošli dan broj se dodjeljuje kao i dosad (pitanje 6
+// o redu brojeva je otvoreno), pa brojevi u knjizi ne idu nužno redom dana.
 
 // sada je trenutak po satu servisa; testovi ga postavljaju
 func (s *VodocuvarService) sada() time.Time {
