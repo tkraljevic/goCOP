@@ -187,17 +187,17 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	for len(ostaje) > 0 {
 		failed = failed[:0]
 		for _, v := range ostaje {
-			top, err := rec.Latest(ctx, v.Entity, v.EntityID)
+			naPovrsinu, primijeni, err := verzijaZaPovrsinu(ctx, rec, v)
 			if err != nil {
 				return err
 			}
-			if top.VersionID != v.VersionID {
+			if !primijeni {
 				continue // netko je već zapisao noviju; površina je već njezina
 			}
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := applyOne(ctx, tx, v); err != nil {
+			if err := applyOne(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
