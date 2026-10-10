@@ -730,10 +730,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 
 	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
 	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
-	// čita bazu, prije nego što se išta zapiše.
+	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
+	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
 	if err := peers.ProvjeriKljucCvora(cfg.DB, z.noviKljucCvora); err != nil {
-		log.Print(err)
-		return 1
+		return odbijPokretanje(ctx, z.podPostavom, cfg.Addr, err, ulaz)
 	}
 
 	zapisiPrimjerPostavki(cfg, cfgFrom, imeIzDatoteke, noviIme, z.node != "")

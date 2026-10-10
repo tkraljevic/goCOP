@@ -247,6 +247,9 @@ Portovi se mijenjaju u `gocop.toml`.
   Svjež čvor (baze još nema ili u njoj nema nijednog zapisa) ključ napravi
   sam. Od 0.0.35-alfa čvor čija baza već ima zapise, a ključa uz nju nema,
   **ne kreće**: u dnevnik ispiše koja datoteka nedostaje i gdje se očekuje.
+  Pod Postavom ne izlazi, nego ostaje upaljen dok ga ona ne zaustavi, a isti
+  razlog piše na ploči (`http://localhost/`) na tom računalu; ikona u traci
+  tada pokazuje da čvor radi.
   Novi ključ dao bi mu novi identitet, a upareni čvorovi odbili bi razmjenu
   („dokazao je drugi ključ od uparenog”); ni tajne šifrirane starim ključem
   (lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
@@ -436,7 +439,9 @@ kopira bazu u `data\kopije\` (zadnje tri), zamijeni program, pokrene ga i
 čeka da odgovori s novim izdanjem. Ne odgovori li za 90 sekundi, vraća
 prethodni program i javlja grešku; bazu ne vraća sama, jer ju je novo izdanje
 možda već promijenilo. Prethodni program ostaje kao `gocop.prethodni.exe`,
-neuspjeli kao `gocop.neuspjeli.exe`.
+neuspjeli kao `gocop.neuspjeli.exe`. Čvor bez ključa uz postojeću bazu
+(poglavlje 3) od 0.0.35-alfa odgovori i ostane upaljen, pa se prethodni
+program ne vraća: on bi uz takvu bazu napravio novi ključ.
 
 **Ako čvor padne,** Postava ga podiže ponovno, uz rastući razmak; nakon tri
 pada u deset minuta odustaje, ikona je crvena, a razlog je u dnevniku čvora.
