@@ -925,6 +925,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// rukovoditelj dionice zadaje zadatke vodočuvaru samo dok traje obrana
 	vodocuvarService.SetStanjaObrane(aktService.StanjaSektora)
 	vodocuvarService.SetDionice(sectionRepo)
+	// prijava pokazuje na dionice objekta koji navodi
+	vodocuvarService.SetObjekti(structureRepo)
 	vodocuvarService.SetRadnoVrijeme(func(ctx context.Context) (string, string) {
 		rv, err := obracunRepo.RadnoVrijeme(ctx)
 		if err != nil {

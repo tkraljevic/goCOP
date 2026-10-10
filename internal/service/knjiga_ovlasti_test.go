@@ -280,10 +280,12 @@ func TestRukovoditeljSvihDionicaPodrucja(t *testing.T) {
 	}
 }
 
-// Prijave s terena: rukovoditelj dionice čita samo prijave koje navode
-// njegovu dionicu (bez obzira na velika slova i razmake, i kad ih je
-// navedeno više); dežurni operater sektora čita sve, poslovođa nijednu, a
-// nacrt čita samo vodočuvar.
+// Prijave s terena: od prijava koje navode dionicu rukovoditelj dionice
+// čita samo one koje navode njegovu (bez obzira na velika slova i razmake,
+// i kad ih je navedeno više). Prijava Ane Anić bez dionice vezana je kao
+// njezin list: čuva cijelo područje, pa i njegovu dionicu. Dežurni
+// operater sektora čita sve, poslovođa nijednu, a nacrt čita samo
+// vodočuvar.
 func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 	k := novaKnjigaProba(t)
 	prijave := &PrijavaService{vodocuvar: k.o.vs}
@@ -302,7 +304,7 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 		{"malim slovima i s razmakom", " p.1.1 ", true, true, false},
 		{"više dionica", "P.1.2, P.1.1", true, true, false},
 		{"druga dionica", "P.1.2", false, true, false},
-		{"bez dionice", "", false, true, false},
+		{"bez dionice", "", true, true, false},
 	}
 	for _, s := range slucajevi {
 		p := prijava(s.dionica)
@@ -344,9 +346,10 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 // Prijava je vezana uz dionicu rukovoditelja i kad je polje Dionica prazno
 // ili pogrešno upisano (uvoz iz BP16 ga ne puni), a objavio ju je vodočuvar
 // koji po zaduženju izričito čuva tu dionicu. Prijava koja navodi drugu
-// dionicu svog vodočuvara vezana je samo uz tu dionicu; prijava vodočuvara
-// cijelog područja vezana je samo uz dionicu koju navodi. Pero Perić čuva
-// P.1.1, Iva Ivić P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
+// dionicu svog vodočuvara vezana je samo uz tu dionicu. Prijava vodočuvara
+// cijelog područja koja navodi dionicu vezana je samo uz nju, a ona bez
+// dionice uz svaku, kao i njegov list. Pero Perić čuva P.1.1, Iva Ivić
+// P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
 func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	k := novaKnjigaProba(t)
 	iva := k.vodocuvar(t, "iivic", "Iva Ivić", "P.1.1, P.1.2")
@@ -366,7 +369,7 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", true, true},
 		{"Ivina bez dionice", iva.ID.String(), "", true, true},
 		{"Ivina s drugom svojom dionicom", iva.ID.String(), "P.1.2", false, true},
-		{"Anina bez dionice", k.ana.ID.String(), "", false, false},
+		{"Anina bez dionice", k.ana.ID.String(), "", true, true},
 		{"Anina s dionicom", k.ana.ID.String(), "p.1.2", false, true},
 		{"nepoznatog vodočuvara", uuid.NewString(), "", false, false},
 	}
@@ -402,7 +405,8 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 }
 
 // Popis prijava rukovoditelju dionice daje i prijave vodočuvara njegove
-// dionice bez upisane dionice.
+// dionice bez upisane dionice, a ne daje prijavu vodočuvarke cijelog
+// područja koja navodi drugu dionicu.
 func TestPopisPrijavaRukovoditeljaDionice(t *testing.T) {
 	k := novaKnjigaProba(t)
 	repo := repository.NewPrijavaRepository(k.o.baza, ledger.New(k.o.baza, "test"))
@@ -411,7 +415,7 @@ func TestPopisPrijavaRukovoditeljaDionice(t *testing.T) {
 	for i, x := range []struct {
 		v       *models.User
 		dionica string
-	}{{k.pero, ""}, {k.pero, ""}, {k.ana, ""}, {k.ana, "P.1.1"}} {
+	}{{k.pero, ""}, {k.pero, ""}, {k.ana, "P.1.2"}, {k.ana, "P.1.1"}} {
 		p := &models.PrijavaSTerena{UserID: x.v.ID.String(), Ime: x.v.FullName, Sektor: "P", AreaID: 1, Vrsta: models.PrijavaObavijest,
 			Naslov: fmt.Sprintf("Prijava %d", i+1), Opis: "opis", Datum: time.Now(), DionicaCode: x.dionica, Status: models.PrijavaObjavljena}
 		if err := repo.Save(ctx, p); err != nil {

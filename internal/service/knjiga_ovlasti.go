@@ -30,12 +30,14 @@ package service
 //   - list je vezan uz njegovu dionicu kad vodočuvar lista ima takvo
 //     zaduženje vodočuvara na tom branjenom području koje tu dionicu navodi,
 //     ili ne navodi nijednu (čuva cijelo područje);
-//   - prijava je vezana uz njegovu dionicu kad je vodočuvar u njoj naveo tu
-//     dionicu (polje Dionica), ili kad u njoj nije naveo nijednu od dionica
-//     koje po takvom zaduženju izričito čuva (polje je prazno, kao kod uvoza
-//     iz BP16, ili s dionicom izvan njegova zaduženja), a po takvom
-//     zaduženju na području prijave izričito čuva njegovu dionicu. Prijava
-//     vodočuvara cijelog područja vezana je samo uz dionicu koju navodi;
+//   - prijava pokazuje na dionice upisane u polje Dionica i na dionice
+//     objekta koji navodi (registar objekata, po identifikatoru ili nazivu
+//     na području prijave). Vezana je uz njegovu dionicu kad pokazuje na
+//     nju; kad ne pokazuje ni na jednu dionicu (kao kod uvoza iz BP16),
+//     vezana je kao list njezina vodočuvara toga dana; kad pokazuje samo
+//     na dionice koje vodočuvar po takvom zaduženju ne čuva izričito,
+//     vezana je i uz dionice koje izričito čuva. Prijava vodočuvara
+//     cijelog područja koja pokazuje na dionicu tako je vezana samo uz nju;
 //   - obrana traje kad je na dionici iz ovjerenih akata proglašena redovna
 //     ili izvanredna obrana ili izvanredno stanje; pripremno stanje nije
 //     obrana.
@@ -143,16 +145,35 @@ func (s *VodocuvarService) cita(perms *models.UserPermissions, l *models.Vodocuv
 
 // citaPrijavu: bez prijave (čita se list) ili za ulogu koja nije
 // rukovoditelj dionice nema ograničenja; rukovoditelj dionice čita prijavu
-// vezanu uz svoju dionicu
+// vezanu uz svoju dionicu. Kad se ne zna na koje sve dionice prijava
+// pokazuje (greška čitanja registra objekata), vezana je samo ako navodi
+// njegovu dionicu.
 func (s *VodocuvarService) citaPrijavu(d models.Duty, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if p == nil || d.Role.OvlastKnjige() != models.KnjigaDionica {
 		return true
 	}
-	moje, navedene := d.Dionice(), sifreDionica(p.DionicaCode)
-	if len(moje) == 0 || imaZajednicku(moje, navedene) {
+	moje := d.Dionice()
+	if len(moje) == 0 {
 		return true
 	}
-	return prijavaVezana(moje, navedene, p.AreaID, s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum))
+	navedene, ok := s.dionicePrijave(p)
+	if imaZajednicku(moje, navedene) {
+		return true
+	}
+	return ok && prijavaVezana(moje, navedene, p.AreaID, s.zaduzenjaCuvara(s.vodocuvarPrijave(p, poznati), p.Datum))
+}
+
+// dionicePrijave su dionice na koje prijava pokazuje: upisane u polje
+// Dionica i dionice objekta koji navodi, iz registra objekata (po
+// identifikatoru ili nazivu, na području prijave). Kad se registar ne da
+// pročitati, ok je false, a dionice su samo one iz polja Dionica.
+func (s *VodocuvarService) dionicePrijave(p *models.PrijavaSTerena) (dionice []string, ok bool) {
+	dionice = sifreDionica(p.DionicaCode)
+	if s.objekti == nil {
+		return dionice, true
+	}
+	objekta, err := s.objekti.DioniceObjekta(context.Background(), p.AreaID, p.ObjektID, p.Objekt)
+	return append(dionice, objekta...), err == nil
 }
 
 // vodocuvarPrijave je vodočuvar koji je objavio prijavu; poznati, kad je
@@ -169,12 +190,29 @@ func (s *VodocuvarService) vodocuvarPrijave(p *models.PrijavaSTerena, poznati ma
 	return c
 }
 
-// prijavaVezana javlja je li prijava na području areaID koja navodi dionice
-// navedene vezana uz dionice moje rukovoditelja dionice, kad ih ne navodi:
-// ne navodi nijednu dionicu koju njezin vodočuvar po zaduženjima zad
-// izričito čuva, a on izričito čuva neku od njegovih
+// prijavaVezana javlja je li prijava na području areaID koja pokazuje na
+// dionice navedene vezana uz dionice moje rukovoditelja dionice kad ni na
+// jednu od njih ne pokazuje. Prijava koja ne pokazuje ni na jednu dionicu
+// vezana je kao list njezina vodočuvara: kad po zaduženjima zad čuva neku
+// od njegovih dionica ili cijelo područje. Prijava koja ne pokazuje ni na
+// jednu dionicu koju vodočuvar po zaduženjima izričito čuva vezana je uz
+// dionice koje izričito čuva.
 func prijavaVezana(moje, navedene []string, areaID int, zad []models.Duty) bool {
+	if len(navedene) == 0 {
+		return cuvaKojuOd(zad, areaID, moje)
+	}
 	return !cuvaIjednu(zad, areaID, navedene) && cuvaIjednu(zad, areaID, moje)
+}
+
+// cuvaKojuOd javlja čuva li vodočuvar po nekom od zaduženja zad ijednu od
+// dionica, izričito ili čuvajući cijelo područje
+func cuvaKojuOd(zad []models.Duty, areaID int, sifre []string) bool {
+	for _, k := range sifre {
+		if cuvaDionicu(zad, areaID, k) {
+			return true
+		}
+	}
+	return false
 }
 
 // imaZajednicku javlja dijele li dva popisa šifri dionica ijednu
@@ -311,6 +349,10 @@ func cuvaDionicu(zad []models.Duty, areaID int, dionica string) bool {
 	}
 	return false
 }
+
+// SetObjekti daje servisu registar objekata: prijava koja navodi objekt
+// pokazuje na dionice tog objekta
+func (s *VodocuvarService) SetObjekti(r *repository.StructureRepository) { s.objekti = r }
 
 // SetDionice daje servisu registar dionica: rukovoditelj dionice bez
 // upisanih dionica vodi sve dionice svog područja, pa se obrana za njegove

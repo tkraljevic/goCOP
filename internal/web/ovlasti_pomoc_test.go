@@ -36,7 +36,8 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 	for _, want := range []string{
 		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
 		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
-		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica",
+		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica ili objekt koji je u registru na njegovoj dionici",
+		"onu u kojoj nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan",
 		"i onu vodočuvara kojemu je na dan prijave njegova dionica bila upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
 		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo, opozvano ili izmijenjeno; list s dana prije zaduženja nije vezan)",
 		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",

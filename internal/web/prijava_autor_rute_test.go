@@ -181,18 +181,19 @@ func TestAutorOtvaraSvojuPrijavuBezZaduzenja(t *testing.T) {
 // Tko gleda u dnevnike vodočuvara, a prijavu ne smije čitati (rukovoditelj
 // dionice kojoj prijava nije vezana, iako njezin naslov vidi na dnevnom
 // listu), dobiva zabranu s objašnjenjem, a ne golu „404 page not found”.
-// Ana Anić čuva cijelo područje 1; Ivo Ivić rukovodi dionicom P.1.2.
+// Ana Anić čuva cijelo područje 1; Ivo Ivić rukovodi dionicom P.1.2, pa
+// mu Anina prijava koja navodi dionicu P.1.1 nije vezana.
 func TestPrijavaKojuRukovoditeljDioniceNeCitaObjasnjava(t *testing.T) {
 	pr := novaProbaPrijava(t)
 	bp := 1
 	ana := pr.osoba(t, "aanic", "Ana Anić", models.Duty{Title: "Vodočuvar Primjerica", Role: models.RoleWaterGuard, ScopeType: models.ScopeArea, AreaID: &bp})
 	ivo := pr.osoba(t, "iivic", "Ivo Ivić", models.Duty{Title: "Rukovoditelj dionice P.1.2", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, AreaID: &bp, SectionCodes: "P.1.2"})
-	bezDionice := pr.objavljena(t, ana, "Srušeno stablo", "")
+	drugaDionica := pr.objavljena(t, ana, "Srušeno stablo", "P.1.1")
 	njegova := pr.objavljena(t, ana, "Procjeđivanje kod crpne stanice", "P.1.2")
 	if w := pr.get(t, ivo, "/prijave/"+njegova.ID); w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Procjeđivanje") {
 		t.Errorf("rukovoditelj dionice na prijavi svoje dionice: %d", w.Code)
 	}
-	w := pr.get(t, ivo, "/prijave/"+bezDionice.ID)
+	w := pr.get(t, ivo, "/prijave/"+drugaDionica.ID)
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "samo prijave vezane uz svoju dionicu") || strings.Contains(w.Body.String(), "Srušeno stablo") {
 		t.Errorf("rukovoditelj dionice na prijavi bez veze: %d %.200s", w.Code, w.Body.String())
 	}

@@ -52,6 +52,10 @@ type VodocuvarService struct {
 	// dionica vodi sve dionice područja (knjiga_ovlasti.go). Bez njega
 	// (nil) takvom rukovoditelju obrana se ne gleda ni na jednoj.
 	dionice *repository.SectionRepository
+	// objekti je registar objekata: prijava pokazuje na dionice objekta koji
+	// navodi (knjiga_ovlasti.go). Bez njega (nil) objekt prijave ne pokazuje
+	// ni na jednu dionicu.
+	objekti *repository.StructureRepository
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena

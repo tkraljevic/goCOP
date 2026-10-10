@@ -11,7 +11,8 @@ import (
 	"gocop/internal/repository"
 )
 
-// Prijavu koju osoba ne smije čitati Get odbija s ErrUnauthorized; tuđi
+// Prijavu koju osoba ne smije čitati (prijava vodočuvara dionice P.1.1 za
+// rukovoditelja dionice P.1.2) Get odbija s ErrUnauthorized; tuđi
 // nacrt s ErrTudjiNacrt, koji je i dalje ErrUnauthorized s istom porukom,
 // da ga rute mogu pokazati kao nepostojeći. Podaci su izmišljeni.
 func TestGetPrijaveKojaSeNeCita(t *testing.T) {
@@ -21,7 +22,7 @@ func TestGetPrijaveKojaSeNeCita(t *testing.T) {
 	ctx := context.Background()
 	upisi := func(status string) *models.PrijavaSTerena {
 		t.Helper()
-		p := &models.PrijavaSTerena{UserID: k.ana.ID.String(), Ime: k.ana.FullName, Sektor: "P", AreaID: 1, Vrsta: models.PrijavaObavijest,
+		p := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Sektor: "P", AreaID: 1, Vrsta: models.PrijavaObavijest,
 			Naslov: "Srušeno stablo", Opis: "opis", Datum: time.Now(), Status: status}
 		if err := repo.Save(ctx, p); err != nil {
 			t.Fatal(err)
