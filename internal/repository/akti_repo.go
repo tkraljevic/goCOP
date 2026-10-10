@@ -157,9 +157,7 @@ func (r *AktiRepository) SaveAkt(ctx context.Context, a *models.Akt) error {
 // upisiAkt upisuje akt na površinu i njegovu verziju u knjigu, unutar
 // zadane transakcije; nov akt dobiva identitet
 func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt) error {
-	if err := oznaciUpis(a); err != nil {
-		return err
-	}
+	oznaciUpis(a)
 	if _, err := tx.ExecContext(ctx, aktUpsert, aktArgs(a)...); err != nil {
 		return fmt.Errorf("upis akta: %w", err)
 	}
@@ -167,23 +165,19 @@ func (r *AktiRepository) upisiAkt(ctx context.Context, tx *sql.Tx, a *models.Akt
 	return err
 }
 
-// oznaciUpis daje novom aktu identitet i vrijeme nastanka, a svakom vrijeme
-// izmjene
-func oznaciUpis(a *models.Akt) error {
+// oznaciUpis daje novom aktu identitet i vrijeme nastanka, aktu s
+// identitetom bez vremena nastanka to vrijeme, a svakom vrijeme izmjene. Identitet se daje kao drugdje u repozitoriju
+// (uuid.Must): bez slučajnih brojeva sustava upis ionako ne može dalje.
+func oznaciUpis(a *models.Akt) {
 	now := time.Now().UTC()
 	if a.ID == "" {
-		id, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		a.ID = id.String()
+		a.ID = uuid.Must(uuid.NewV7()).String()
 		a.CreatedAt = now
 	}
 	if a.CreatedAt.IsZero() {
 		a.CreatedAt = now
 	}
 	a.UpdatedAt = now
-	return nil
 }
 
 // aktNacrtUpsert upisuje nacrt kao aktUpsert, ali zatečeni redak mijenja
@@ -203,9 +197,7 @@ func (r *AktiRepository) SaveNacrt(ctx context.Context, a *models.Akt) error {
 	if a.Status != models.AktNacrt || a.Broj != 0 {
 		return fmt.Errorf("upis nacrta: akt %s nije nacrt", a.Oznaka())
 	}
-	if err := oznaciUpis(a); err != nil {
-		return err
-	}
+	oznaciUpis(a)
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
