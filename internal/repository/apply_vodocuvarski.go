@@ -33,7 +33,8 @@ import (
 //     obrani, objava prijave na čvoru koji vodočuvarov list još nema) ne
 //     prepisuje njegov tekst;
 //   - bilješke rukovoditelja (upisi) i prijave iz druge verzije ne gube se:
-//     listu se dodaju upisi i prijave svih verzija koje vrijede;
+//     listu se dodaju upisi i prijave svih verzija koje vrijede; isto vrijedi
+//     za ovjeru i parafe predanog lista, koje se ne povlače;
 //   - ne gubi se ni redni broj: nacrt bez broja (spremljen dok njegov dan
 //     nije počeo) dobiva broj koji list ima u drugoj verziji koja vrijedi.
 //
@@ -135,6 +136,8 @@ func spojiZive(zive []verzijaLista) *models.VodocuvarskiList {
 	upisi, prijave := dodaciVerzija(zive)
 	l.Upisi = spojiUpise(l.Upisi, upisi)
 	l.Prijave = spojiPrijave(l.Prijave, prijave)
+	l.Parafe = parafeVerzija(l.Parafe, zive)
+	ovjeraIzVerzija(&l, zive)
 	l.Zadaci, l.Prilozi = obilasciPrenesenih(l, zive)
 	l.Broj = brojIzVerzija(l.Broj, zive)
 	return &l
@@ -180,15 +183,53 @@ func pokrivenaKasnijom(verzije []verzijaLista, i int) bool {
 }
 
 // pokriva javlja je li kasnija verzija w (i brisanje) nastala znajući za
-// verziju v: ima sve njezine bilješke i prijave, a vodočuvarov upis nije joj
-// stariji. Predan list pokriva samo verzija istog potpisa (ovjera, parafa,
-// upis na predan list), a prenesen list samo prenesen list s njegovim
-// obilascima; nikad nacrt ni brisanje nacrta (smijePokriti).
+// verziju v: ima sve njezine bilješke, prijave, ovjeru i parafe, a
+// vodočuvarov upis nije joj stariji. Predan list pokriva samo verzija istog
+// potpisa (ovjera, parafa, upis na predan list), a prenesen list samo
+// prenesen list s njegovim obilascima; nikad nacrt ni brisanje nacrta
+// (smijePokriti).
 func pokriva(w, v verzijaLista) bool {
 	if !smijePokriti(w.list, v.list) {
 		return false
 	}
-	return !napisano(v.list).After(napisano(w.list)) && imaUpise(w.list.Upisi, v.list.Upisi) && imaPrijave(w.list.Prijave, v.list.Prijave)
+	return !napisano(v.list).After(napisano(w.list)) && imaDodatke(w.list, v.list)
+}
+
+// imaDodatke javlja ima li list w sve što je na list v upisano mimo
+// vodočuvarova obrasca: bilješke rukovoditelja, prijave, ovjeru i parafe
+func imaDodatke(w, v models.VodocuvarskiList) bool {
+	return imaUpise(w.Upisi, v.Upisi) && imaPrijave(w.Prijave, v.Prijave) && (!v.Potvrden() || w.Potvrden()) && imaSve(w.Parafe, v.Parafe, oznakaParafe)
+}
+
+// oznakaParafe prepoznaje istu parafu u dvije verzije: osoba parafira list
+// jednom
+func oznakaParafe(p models.Parafa) string { return p.UserID }
+
+// parafeVerzija su parafe lista uz parafe osoba iz drugih verzija koje
+// vrijede, a kojih na njemu nema; kad je nešto dodano, slažu se po vremenu
+func parafeVerzija(parafe []models.Parafa, zive []verzijaLista) []models.Parafa {
+	out := parafe
+	for _, v := range zive {
+		out = dodajNove(out, v.list.Parafe, oznakaParafe)
+	}
+	if len(out) != len(parafe) {
+		sort.SliceStable(out, func(a, b int) bool { return out[a].Kad.Before(out[b].Kad) })
+	}
+	return out
+}
+
+// ovjeraIzVerzija daje listu bez ovjere ovjeru zadnje ovjerene verzije koja
+// vrijedi: ovjera se ne povlači, pa ostaje i kad kasniju verziju istog
+// potpisa upiše čvor koji za nju nije znao
+func ovjeraIzVerzija(l *models.VodocuvarskiList, zive []verzijaLista) {
+	if l.Potvrden() {
+		return
+	}
+	for _, v := range zive {
+		if o := v.list; o.Potvrden() {
+			l.PotvrdioID, l.Potvrdio, l.PotvrdenoAt = o.PotvrdioID, o.Potvrdio, o.PotvrdenoAt
+		}
+	}
 }
 
 // istiPotpis javlja jesu li oba lista predana istim potpisom vodočuvara
