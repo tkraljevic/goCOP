@@ -152,9 +152,12 @@ type VodocuvarPageData struct {
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
 	SmijeUpisati    bool // bilješka na tuđi list
-	Parafirao       bool
-	Podrucje        *models.Area
-	DrugiPredani    []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
+	// UpisNaredba: upis osobe na ovaj list stoji pod naredbama, jer ga smije
+	// parafirati; inače je bilješka pod posebnim zapažanjima
+	UpisNaredba  bool
+	Parafirao    bool
+	Podrucje     *models.Area
+	DrugiPredani []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
 }
 
 func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPermissions, VodocuvarPageData) {
@@ -388,7 +391,8 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	if l.ID != "" && l.Predan() {
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
-	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
+	d.UpisNaredba = s.SmijeParafirati(perms, l)
+	d.SmijeParafirati = d.UpisNaredba && l.Predan() && !l.Rekonstrukcija
 	d.SmijeUpisati = s.SmijeUpisati(perms, l)
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	d.DrugiPredani = s.DrugiPredani(r.Context(), l)

@@ -106,7 +106,7 @@
     <input class="form-control" name="tekst" required placeholder="napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>
   </form>
-  <div class="form-help">Upis stoji na ovom listu pod naredbama, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
+  <div class="form-help">Upis stoji na ovom listu {{if .UpisNaredba}}pod naredbama{{else}}pod posebnim zapažanjima, kao bilješka, a ne pod naredbama{{end}}, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
 </section>
 {{end}}
 

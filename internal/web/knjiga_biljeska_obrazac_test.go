@@ -238,4 +238,13 @@ func TestBiljeskaOperateraNijeNaredba(t *testing.T) {
 			t.Errorf("%s, posebna zapažanja: %q", x.ime, x.zapazanja)
 		}
 	}
+	// obrazac upisa kaže gdje će upis stajati: operateru pod posebnim
+	// zapažanjima, rukovoditelju pod naredbama
+	zaOperatera := strings.Join(strings.Fields(k.zovi(t, operater, http.MethodGet, "/vodocuvar/"+l.ID, nil).Body.String()), " ")
+	if !strings.Contains(zaOperatera, "Upis stoji na ovom listu pod posebnim zapažanjima, kao bilješka, a ne pod naredbama") || strings.Contains(zaOperatera, "Upis stoji na ovom listu pod naredbama") {
+		t.Error("obrazac upisa operateru kaže da upis stoji pod naredbama")
+	}
+	if !strings.Contains(stranica, "Upis stoji na ovom listu pod naredbama") {
+		t.Error("obrazac upisa rukovoditelju ne kaže da upis stoji pod naredbama")
+	}
 }
