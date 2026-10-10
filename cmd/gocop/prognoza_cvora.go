@@ -129,19 +129,39 @@ func kisaSlivova(osvjezivac *prognoza.Osvjezivac, arhivaRO, pb *sql.DB, peersSer
 		if err != nil {
 			return nil, nil, err
 		}
-		var oborine map[string]prognoza.DnevniNiz
-		if peersService.TrenutneUloge().Izdaje {
-			oborine, err = prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
-		} else {
-			// Kišu preuzima čvor koji izdaje prognozu; stiže s izdanjem.
-			oborine, _, err = prognoza.ZadnjaKisa(pb)
+		ziva := func() (map[string]prognoza.DnevniNiz, error) {
+			return prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
 		}
+		oborine, izdano, err := kisaZaStanje(ctx, pb, ziva, peersService.TrenutneUloge().Izdaje)
 		if err != nil {
 			return nil, nil, err
 		}
-		_, dnevne, _ := prognoza.ZadnjeDnevno(pb)
+		// Dnevna istog izdanja kao satna; izdanje bez dnevne nema je.
+		dnevne, _ := prognoza.DnevneIzdanja(pb, izdano)
 		return prognoza.StanjeSlivova(oborine, pragovi), dnevne, nil
 	}
+}
+
+// kisaZaStanje vraća kišu po međuslivovima i sat izdanja čija dnevna
+// prognoza ide uz nju. Izvoz ranijeg izdanja uzima kišu kakvu je to izdanje
+// imalo; inače čvor koji izdaje prognozu uzima živu kišu, a ostali onu iz
+// zadnjeg izdanja, jer kišu preuzima izdavač i ona stiže s izdanjem.
+func kisaZaStanje(ctx context.Context, pb *sql.DB, ziva func() (map[string]prognoza.DnevniNiz, error),
+	izdaje bool) (map[string]prognoza.DnevniNiz, int64, error) {
+	if sat, ranije := web.IzdanjeZahtjeva(ctx); ranije {
+		kisa, err := prognoza.KisaIzdanja(pb, sat)
+		if err == nil && len(kisa) == 0 {
+			err = fmt.Errorf("uz izdanje kiša po međuslivovima nije zapisana")
+		}
+		return kisa, sat, err
+	}
+	izdano, _, _ := prognoza.ZadnjeIzdanje(pb)
+	if izdaje {
+		kisa, err := ziva()
+		return kisa, izdano, err
+	}
+	kisa, _, err := prognoza.ZadnjaKisa(pb)
+	return kisa, izdano, err
 }
 
 // pripremiOborine otvori bazu oborina uz bazu prognoza: kišomjeri iz

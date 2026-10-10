@@ -153,3 +153,32 @@ func TestSatniKrugCvorKojiIzdaje(t *testing.T) {
 		t.Errorf("drugi krug, srpska: %q", r)
 	}
 }
+
+// Dnevnik kruga kaže koji dnevni ciljevi nemaju dnevnu prognozu i zašto, i
+// otvorena upozorenja izdanja; cilj kojem je rezerva računala i napomene se
+// ne javljaju.
+func TestSatniKrugJavljaUpozorenja(t *testing.T) {
+	k, uvoznik := okolinaKruga(t, true)
+	sada := int64(497635)
+	ishod := &prognoza.Ishod{Sada: sada,
+		Dnevne: []prognoza.DnevnaIzdana{{Letva: "gornja", Dan: 1}},
+		BezDnevne: map[string]error{
+			"donja":   &prognoza.NepotpuniDani{Letva: "donja", Fali: []string{"srednja"}},
+			"cetvrta": errors.New("cetvrta: nema arhive"),
+			"gornja":  errors.New("gornja: glavni model nije naučen"), // rezerva je računala
+		},
+		Upozorenja: []prognoza.Upozorenje{
+			{Vrsta: prognoza.VrstaUlaz, Tezina: prognoza.TezinaUpozorenje, Letva: "srednja",
+				Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}},
+			{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "ustava", Opis: "nema ulaza"},
+		}}
+	javiUpozorenja(k.uvoznik, ishod)
+	zelim := []string{
+		"bez dnevne prognoze cetvrta: nema arhive",
+		"bez dnevne prognoze donja: nepotpuna zadnja četiri dana na [srednja]",
+		"upozorenje: ulaz srednja; upitno: donja dnevna",
+	}
+	if r := uvoznik.Napredak().Redci; strings.Join(r, "\n") != strings.Join(zelim, "\n") {
+		t.Errorf("redci:\n%s\nželim:\n%s", strings.Join(r, "\n"), strings.Join(zelim, "\n"))
+	}
+}

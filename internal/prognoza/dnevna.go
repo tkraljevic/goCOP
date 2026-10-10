@@ -19,10 +19,14 @@ package prognoza
 // doista dogodilo: u mirnoj vodi uzak, u valu širok.
 
 import (
+	"cmp"
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -935,6 +939,10 @@ func (m *DnevniModel) Prognoziraj(x []float64) (promjena, raspon [DnevniDosezi +
 	return promjena, raspon
 }
 
+// satiZaDan je koliko sati s vrijednošću od 24 dan treba da bi ga
+// DnevniIzSatnog složio: dan kojem fali više od šest sati izostaje.
+const satiZaDan = 18
+
 // DnevniIzSatnog slaže dnevne vrijednosti iz satnog niza: dan 0 je srednjak
 // 24 sata koji završavaju u satu izdavanja, dan -1 prethodna 24 sata i tako
 // unatrag. Kalendarski dan čekao bi ponoć; ovako prognoza ide sa svakim
@@ -951,7 +959,7 @@ func DnevniIzSatnog(n Niz, sada int64, dana int) DnevniNiz {
 				k++
 			}
 		}
-		if k >= 18 {
+		if k >= satiZaDan {
 			out[int64(-d)] = s / float64(k)
 		}
 	}
@@ -977,6 +985,167 @@ type DnevnaIzdana struct {
 // Raspon je polovina širine raspona.
 func (d DnevnaIzdana) Raspon() float64 { return (d.Gore - d.Dolje) / 2 }
 
+// RupaUlaza je rupa u satnom nizu ulaza dnevnog modela: Zadnje je sat
+// zadnjeg očitanja prije nje, Sljedece prvog poslije; Sljedece je 0 dok rupa
+// traje do sata izdavanja. Mohács 7.–8. 10. 2026.: zadnje u 9 h UTC, sljedeće
+// tek idućeg dana u 7 h — dvadeset jedan sat, preko NajveciRazmak.
+type RupaUlaza struct {
+	Letva            string
+	Zadnje, Sljedece int64
+}
+
+// NepotpuniDani je greška dnevnog modela kad ulazima fale dani od kojih se
+// slažu značajke. Fali su letve (i „oborina X”) kojima fali dan 0, −1 ili
+// −3; Rupe kažu gdje je u satnom nizu tih letvi rupa, da upozorenje uz
+// izdanje može reći od kada do kada letva nema mjerenja. Kad padnu sve
+// inačice cilja, Fali i Rupe skupljaju sve njih (spojiNepotpune). Tekst
+// greške ostaje kakav je bio, jer ga dnevnik i alati već ispisuju.
+type NepotpuniDani struct {
+	Letva string
+	Fali  []string
+	Rupe  []RupaUlaza
+}
+
+func (e *NepotpuniDani) Error() string {
+	return fmt.Sprintf("%s: nepotpuna zadnja četiri dana na %v", e.Letva, e.Fali)
+}
+
+// imaDaneZnacajki javlja ima li dnevni niz dane koje DnevneZnacajke traže za
+// dan 0: 0, −1 i −3. Dan −2 se ne gleda; greška je dosad imenovala i letvu
+// kojoj fali samo on, iako model bez njega računa.
+func imaDaneZnacajki(n DnevniNiz) bool {
+	_, d0 := n[0]
+	_, d1 := n[-1]
+	_, d3 := n[-3]
+	return d0 && d1 && d3
+}
+
+// rupaUlaza nalazi rupu zbog koje niz nema dan značajki. Rupa koja traje do
+// sata izdavanja i sama obara dan 0 (rupaKojaTraje) ima prednost: stara
+// zatvorena rupa, ni dulja, ne smije je sakriti, jer bi upozorenje reklo da
+// su se mjerenja vratila. Inače najdulji slijed sati bez vrijednosti (ni
+// premošćene, NajveciRazmak) u danima 0, −1 i −3 kojima fali više od šest
+// sati. Najdulji, a ne zadnji: ulaz koji kasni sat iza izdanja ima kratku
+// rupu na samom kraju, a dan je oborila duga prije nje. Zadnje je zadnje
+// očitanje prije rupe, Sljedece prvo poslije nje do sata izdavanja, 0 dok
+// rupa traje.
+func rupaUlaza(n Niz, sada int64) (RupaUlaza, bool) {
+	if r, traje := rupaKojaTraje(n, sada); traje {
+		return r, true
+	}
+	var kraj, duljina int64
+	for _, d := range []int64{0, 1, 3} {
+		k := sada - 24*d
+		if _, ima := DnevniIzSatnog(n, k, 1)[0]; ima {
+			continue
+		}
+		if t, l := najduljaRupa(n, k-23, k); l > duljina {
+			kraj, duljina = t, l
+		}
+	}
+	if duljina == 0 {
+		return RupaUlaza{}, false
+	}
+	var r RupaUlaza
+	r.Zadnje, _ = n.ZadnjiSatDo(kraj)
+	i := sort.Search(len(n.Sati), func(i int) bool { return n.Sati[i] > kraj })
+	if i < len(n.Sati) && n.Sati[i] <= sada {
+		r.Sljedece = n.Sati[i]
+	}
+	return r, true
+}
+
+// rupaKojaTraje je rupa od zadnjeg sata s vrijednošću do sata izdavanja kad
+// je dulja od onoga što dan 0 smije nemati (24 − satiZaDan sati), pa ga
+// sama obara. Sljedećeg očitanja nema, rupa traje.
+func rupaKojaTraje(n Niz, sada int64) (RupaUlaza, bool) {
+	t := sada
+	for ; t > sada-24; t-- {
+		if _, ima := n.U(t); ima {
+			break
+		}
+	}
+	if sada-t <= 24-satiZaDan {
+		return RupaUlaza{}, false
+	}
+	z, _ := n.ZadnjiSatDo(sada)
+	return RupaUlaza{Zadnje: z}, true
+}
+
+// najduljaRupa vraća zadnji sat i duljinu najduljeg slijeda sati od od do do
+// za koje niz nema vrijednosti; od dva jednako duga uzima kasniji.
+func najduljaRupa(n Niz, od, do int64) (kraj, duljina int64) {
+	var tek int64
+	for t := od; t <= do; t++ {
+		if _, ima := n.U(t); ima {
+			tek = 0
+			continue
+		}
+		tek++
+		if tek >= duljina {
+			kraj, duljina = t, tek
+		}
+	}
+	return kraj, duljina
+}
+
+// rupeUlaza su rupe zbog kojih zadanim letvama fale dani značajki, u četiri
+// dana do sata izdavanja koliko dnevni model gleda unatrag.
+func rupeUlaza(satni map[string]Niz, letve []string, sada int64) []RupaUlaza {
+	var out []RupaUlaza
+	for _, l := range letve {
+		if r, ima := rupaUlaza(satni[l], sada); ima {
+			r.Letva = l
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// prognozirajInacicu računa jednu inačicu dnevnog modela cilja. Kad padne,
+// njezina se greška spaja s greškom inačica koje su pale prije nje (prije),
+// da se zna svaki ulaz bez mjerenja, a ne samo onaj zadnje inačice: kad
+// stanu i Borl I i Varaždin iz rezerve, upozorenje mora imenovati oba.
+func prognozirajInacicu(m *DnevniModel, satni map[string]Niz, oborine map[string]DnevniNiz, sada int64, prije error) ([]DnevnaIzdana, error) {
+	d, err := PrognozirajDnevno(m, satni, oborine, sada)
+	if err != nil {
+		return nil, spojiNepotpune(prije, err)
+	}
+	return d, nil
+}
+
+// spojiNepotpune spaja greške dviju inačica istog cilja: svaka letva kojoj
+// fale dani jednom, redom kojim su inačice pale i letve prije oborina, te
+// rupa svake letve. Bez ranije greške, ili kad nije NepotpuniDani, ostaje
+// zadnja.
+func spojiNepotpune(prije, err error) error {
+	var a, b *NepotpuniDani
+	if !errors.As(prije, &a) || !errors.As(err, &b) {
+		return err
+	}
+	s := &NepotpuniDani{Letva: a.Letva}
+	for _, f := range slices.Concat(a.Fali, b.Fali) {
+		if !slices.Contains(s.Fali, f) {
+			s.Fali = append(s.Fali, f)
+		}
+	}
+	slices.SortStableFunc(s.Fali, func(x, y string) int { return cmp.Compare(redFali(x), redFali(y)) })
+	for _, r := range slices.Concat(a.Rupe, b.Rupe) {
+		if _, ima := rupaLetve(s.Rupe, r.Letva); !ima {
+			s.Rupe = append(s.Rupe, r)
+		}
+	}
+	return s
+}
+
+// redFali stavlja letve kojima fale dani ispred oborina koje fale.
+func redFali(f string) int {
+	if strings.HasPrefix(f, "oborina ") {
+		return 1
+	}
+	return 0
+}
+
 // PrognozirajDnevno izdaje dnevnu prognozu cilja iz satnih nizova uživo.
 // oborine su dnevni zbrojevi međuslivova unatrag i unaprijed (OborineOkoSada); bez njih
 // inačica s oborinom javlja što joj fali.
@@ -992,16 +1161,17 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 	if !ok {
 		var fali []string
 		for _, l := range m.Cilj.letve() {
-			if len(dnevni[l]) < 4 {
+			if !imaDaneZnacajki(dnevni[l]) {
 				fali = append(fali, l)
 			}
 		}
+		rupe := rupeUlaza(satni, fali, sada)
 		for _, s := range m.Cilj.Slivovi {
 			if _, ok := DnevneZnacajke(DnevniCilj{Letva: m.Cilj.Letva, Slivovi: []string{s}}, dnevni, 0); !ok {
 				fali = append(fali, "oborina "+s)
 			}
 		}
-		return nil, fmt.Errorf("%s: nepotpuna zadnja četiri dana na %v", m.Cilj.Letva, fali)
+		return nil, &NepotpuniDani{Letva: m.Cilj.Letva, Fali: fali, Rupe: rupe}
 	}
 	promjena, raspon := m.Prognoziraj(x)
 	sad := x[1]

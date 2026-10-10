@@ -105,6 +105,7 @@
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#prognoze">Prognoze</a>
     <a href="#prognoze-citanje">Kako čitati prognozu</a>
+    <a href="#prognoze-ranija">Ranija prognoza</a>
     <a href="#prognoze-profil">Uzdužni profil</a>
     <a href="#prognoze-metoda">Kako nastaje</a>
     <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
@@ -246,7 +247,9 @@
       (reanaliza ERA5 od 1990.): <strong>žuto</strong> kad je palo ili se očekuje koliko prosječno
       padne tri puta godišnje, <strong>narančasto</strong> jednom godišnje, <strong>crveno</strong>
       jednom u pet godina. Upozorenje kaže na kojim će letvama porasti voda, redom niz tok, s
-      najvećim porastom i danom iz zadnje dnevne prognoze. Gleda se i kiša koja tek dolazi, jer je
+      najvećim porastom i danom iz zadnje dnevne prognoze. Za letve kojima zadnje izdanje nema dnevne
+      prognoze (npr. kad uzvodna letva nema mjerenja) porasta nema, a uz upozorenje piše koje su to
+      letve, ili da dnevne prognoze nema. Gleda se i kiša koja tek dolazi, jer je
       za prognozu vodostaja ona najvažnija — upozorenje se zato može pojaviti dan-dva prije nego
       kiša padne. Kad ničeg neuobičajenog nema, stoji jedan redak, a na klik kiša po svim
       međuslivovima s uobičajenim pragom.</p>
@@ -763,6 +766,52 @@
       model, a takva vrijednost nosi oznaku <em>d</em>. Na stranici <em>Postavke prognoze</em>
       globalni administrator posebno za graf, tablicu i izvoz u Excel bira satni lanac, dnevni
       model ili kombinaciju.</p>
+    <p>Kad dnevni model za izdanje nije računao, dani od kojih bi ga tablica uzimala pokazuju satnu
+      prognozu u 07 h s oznakom <em>s</em>, a dani do kojih satni lanac ne seže (dalje od 96 sati)
+      ostaju prazni. Brojke su iste kao satne; vidi se samo da dnevne nema.</p>
+
+    <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
+    <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji okvir <strong>Upozorenja uz ovo
+      izdanje</strong>. Svako upozorenje kaže što ne radi — npr. letva bez mjerenja, s izvorom i od
+      kada do kada, dnevni model koji nije računao, račun iz rezerve, vrh lanca bez svoje budućnosti
+      ili dnevni model bez kiše — i što je zbog toga upitno: satna prognoza po postajama od kojeg dosega
+      i dnevna prognoza koja nije izdana. Doseg je najraniji mogući („najranije od +7 h”): vrijednosti
+      prije njega ne ovise o onome što ne radi. Kartica takve postaje ima kratak redak s razlogom, a isto
+      stoji u izvozu u Excel, u sažetku i uz graf postaje.</p>
+    <p>Sitnije stvari — dnevni model iz rezerve, sati preuzeti s letve na drugoj obali, postaja bez
+      ijednog sata prognoze, vrh lanca koji kasni i vrijednosti izvan krivulje protoka — stoje
+      sklopljene pod <em>Napomene</em>. Upozorenja zapisuje čvor koji izdaje prognozu i ona putuju s
+      izdanjem, pa svi čvorovi pokazuju isto. Kad je izdanje starije od tri sata, stranica to javlja
+      sama, a uz izdanje čvora na starijoj inačici programa piše da upozorenja ne zapisuje.</p>
+
+    <h3 id="prognoze-ranija">Ranija prognoza</h3>
+    <p>Baza prognoza čuva svako izdanje i ništa od toga ne briše. Na stranici <em>Postavke prognoze</em>
+      (gumb <em>Postavke</em> na stranici Prognoze), u odjeljku <strong>Ranija prognoza</strong>, odaberite dan
+      i sat po našem vremenu i pritisnite <em>Pronađi izdanje</em>. Stranica kaže koje će se izdanje izvesti, a
+      gumb <em>Izvoz u Excel</em> daje isti dokument kao za zadnje izdanje: sažetak, listove po vodama, grafove i
+      list „O prognozi”. Brojke, upozorenja, dnevna prognoza, kiša po međuslivovima i tuđe prognoze su one koje
+      je to izdanje imalo; mjerenja na grafovima sežu do sata izdanja, kao u izvozu napravljenom tada.
+      Koji dan daje satni, a koji dnevni model ide po današnjem odabiru <em>Izvoz u Excel</em> (uz kombinaciju i
+      po današnjoj provjeri), jer se uz izdanje ne pamti; godišnji vodostaji, zabilježene krajnosti i opis modela
+      slijede današnju arhivu i model. Prvi list izvoza to kaže.</p>
+    <p>Kad u odabranom satu prognoza nije izdana (čvor nije radio ili nije bilo novih mjerenja), nudi se
+      najbliže ranije izdanje i to piše i na stranici i na prvom listu izvoza, s time koliko je sati ranije;
+      takvo izdanje izvoz ne proglašava zastarjelim. Sat izdan više puta (npr. gumbom <em>Generiraj</em>)
+      izvozi se u zadnjoj verziji, a poruka kaže kad ju je izdavač izračunao. Gumb izvozi baš izdanje koje je
+      stranica najavila: ako se do preuzimanja promijeni (stigne izdanje za traženi sat ili se sat izda iznova),
+      izvoz se ne preuzima, nego se odjeljak otvori s novim nalazom i kaže zašto. Sat koji još nije došao ne
+      može se tražiti — zadnja prognoza izvozi se na stranici Prognoze. Iznimka je sat zadnjeg izdanja: izdanje
+      je označeno satom najnovijeg mjerenja, pa zna nastati i nešto prije tog punog sata; odjeljak ga tada
+      zadano nudi.</p>
+    <p>Uz najstarija izdanja nije zapisano sve: dnevna prognoza, zapis o izdanju (kiša po međuslivovima i
+      tuđe prognoze koje je izdavač imao) i upozorenja počinju kasnije od satnih vrijednosti, a upozorenja
+      bilježi tek novija inačica programa. Odjeljak kaže od kada baza ima koji dio, a poruka i prvi list
+      izvoza nabrajaju što uz odabrano izdanje nije zapisano; izvoz to nema. Čvor koji prognozu prima
+      razmjenom ima samo izdanja koja je primio, a nakon isključenja duljeg od tjedan dana starija mu ne
+      stignu. Izvoz ranije prognoze smije svatko tko smije izvoziti i zadnju.</p>
+    <p>Na proljetni prelazak na ljetno vrijeme sata 02:00 nema: stranica to kaže, a ne uzima 03:00 umjesto njega. Na jesenski
+      prelazak 02:00 dođe dvaput: izvozi se kasniji (zimsko vrijeme), a poveznica ispod vodi na raniji
+      (ljetno vrijeme); poruke uz taj sat kažu po kojem je vremenu.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje

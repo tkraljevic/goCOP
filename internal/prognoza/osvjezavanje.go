@@ -120,6 +120,9 @@ type Ishod struct {
 	// ovoga je prognoza satima tiho stajala („za ovaj sat već je izdana”), a
 	// nije se vidjelo da čeka letvu kojoj je izvor zapeo.
 	Ceka map[string]int64
+	// Upozorenja kažu što pri izdavanju nije radilo i koji su rezultati
+	// zbog toga upitni (Upozori); zapisuju se s izdanjem i putuju s njim.
+	Upozorenja []Upozorenje
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -392,6 +395,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 				Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model})
 		}
 	}
+	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
 
@@ -648,7 +652,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			if m == nil {
 				continue
 			}
-			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
+			if d, err = prognozirajInacicu(m, satni, oborine, sada, err); err == nil {
 				d = SastaviBezKise(d, m, in, satni, oborine, sada)
 				if len(c.Slivovi) > 0 {
 					if len(m.Cilj.Slivovi) > 0 {
@@ -754,8 +758,10 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 		return err
 	}
 	// Uz izdanje ide zapis za kalibraciju: kojim je modelom izdano, koje su
-	// tuđe prognoze tada bile u rukama i kakvu je kišu dnevni model imao.
-	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor})
+	// tuđe prognoze tada bile u rukama, kakvu je kišu dnevni model imao i
+	// što pri izdavanju nije radilo.
+	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor,
+		Upozorenja: ishod.Upozorenja})
 	if err != nil {
 		return fmt.Errorf("zapis o izdanju: %w", err)
 	}

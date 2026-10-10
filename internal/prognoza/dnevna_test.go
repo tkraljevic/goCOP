@@ -1,7 +1,9 @@
 package prognoza
 
 import (
+	"errors"
 	"math"
+	"reflect"
 	"testing"
 )
 
@@ -91,5 +93,187 @@ func TestDnevneRezerveUlazeUUlaze(t *testing.T) {
 				t.Errorf("inačice Botova: %+v", in)
 			}
 		}
+	}
+}
+
+// nizSRupama je satni niz od od do do (100 cm), bez sati iz zadanih raspona
+// [a, b].
+func nizSRupama(od, do int64, rupe ...[2]int64) Niz {
+	v := map[int64]float64{}
+	for t := od; t <= do; t++ {
+		v[t] = 100
+	}
+	for _, r := range rupe {
+		for t := r[0]; t <= r[1]; t++ {
+			delete(v, t)
+		}
+	}
+	return NoviNiz(v)
+}
+
+// Dnevni model kojem ulaz nema mjerenja mora reći koja letva i od kada do
+// kada: upozorenje uz izdanje iz toga piše što ne radi. Tekst greške ostaje
+// isti, jer ga dnevnik i alati već ispisuju.
+func TestDnevniBezUlazaImenujeRupu(t *testing.T) {
+	sada := int64(500000)
+	satni := map[string]Niz{
+		"donja":  nizSRupama(sada-200, sada),
+		"gornja": nizSRupama(sada-200, sada, [2]int64{sada - 34, sada - 14}), // 21 sat bez mjerenja
+	}
+	m := &DnevniModel{Cilj: DnevniCilj{Letva: "donja", Ulazi: []string{"gornja"}}}
+	_, err := PrognozirajDnevno(m, satni, nil, sada)
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) {
+		t.Fatalf("greška %v nije NepotpuniDani", err)
+	}
+	if !reflect.DeepEqual(nd.Fali, []string{"gornja"}) {
+		t.Errorf("fali %v, želim [gornja]", nd.Fali)
+	}
+	if want := []RupaUlaza{{Letva: "gornja", Zadnje: sada - 35, Sljedece: sada - 13}}; !reflect.DeepEqual(nd.Rupe, want) {
+		t.Errorf("rupe %+v, želim %+v", nd.Rupe, want)
+	}
+	if got, want := err.Error(), "donja: nepotpuna zadnja četiri dana na [gornja]"; got != want {
+		t.Errorf("tekst greške %q, želim %q", got, want)
+	}
+}
+
+// Značajke traže dane 0, −1 i −3. Letva kojoj fali samo dan −2 ne smije biti
+// okrivljena: dosad je greška imenovala svaku letvu s manje od četiri dana.
+func TestDnevniNeOkrivljujeLetvuKojojFaliSamoDrugiDan(t *testing.T) {
+	sada := int64(500000)
+	satni := map[string]Niz{
+		"cilj": nizSRupama(sada-200, sada),
+		"a":    nizSRupama(sada-200, sada, [2]int64{sada - 66, sada - 52}), // samo dan −2
+		"b":    nizSRupama(sada-200, sada, [2]int64{sada - 90, sada - 76}), // dan −3
+	}
+	_, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"a", "b"}}}, satni, nil, sada)
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) || !reflect.DeepEqual(nd.Fali, []string{"b"}) {
+		t.Fatalf("greška %v, želim da fali samo b", err)
+	}
+	if len(nd.Rupe) != 1 || nd.Rupe[0].Zadnje != sada-91 || nd.Rupe[0].Sljedece != sada-75 {
+		t.Errorf("rupa b: %+v", nd.Rupe)
+	}
+	d, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"a"}}}, satni, nil, sada)
+	if err != nil || len(d) != DnevniDosezi+1 {
+		t.Errorf("s a bez dana −2 model mora računati: %v, %d dana", err, len(d))
+	}
+}
+
+// Rupa koja još traje nema sljedećeg očitanja. Stara, zatvorena rupa
+// ranije u prozoru ne smije je sakriti.
+func TestRupaKojaJosTraje(t *testing.T) {
+	sada := int64(500000)
+	satni := map[string]Niz{
+		"cilj": nizSRupama(sada-200, sada),
+		"ulaz": nizSRupama(sada-200, sada-8, [2]int64{sada - 66, sada - 52}),
+	}
+	_, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"ulaz"}}}, satni, nil, sada)
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) {
+		t.Fatalf("greška %v nije NepotpuniDani", err)
+	}
+	if want := []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 8}}; !reflect.DeepEqual(nd.Rupe, want) {
+		t.Errorf("rupe %+v, želim %+v", nd.Rupe, want)
+	}
+	if _, ima := rupaUlaza(satni["cilj"], sada); ima {
+		t.Error("pun niz nema rupe")
+	}
+}
+
+// Ulaz koji kasni sat iza izdanja ima kratku rupu na samom kraju; dan je
+// oborila duga rupa prije nje i nju upozorenje mora imenovati.
+func TestRupaJeOnaKojaJeOborilaDan(t *testing.T) {
+	sada := int64(500000)
+	satni := map[string]Niz{
+		"cilj": nizSRupama(sada-200, sada),
+		"ulaz": nizSRupama(sada-200, sada-1, [2]int64{sada - 34, sada - 14}),
+	}
+	_, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"ulaz"}}}, satni, nil, sada)
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) {
+		t.Fatalf("greška %v nije NepotpuniDani", err)
+	}
+	if want := []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 35, Sljedece: sada - 13}}; !reflect.DeepEqual(nd.Rupe, want) {
+		t.Errorf("rupe %+v, želim %+v", nd.Rupe, want)
+	}
+}
+
+// Ulaz koji je prije dva dana bio dulje bez mjerenja, a sad ih nema osam
+// sati: rupa je ona koja traje, ne stara i dulja, jer bi upozorenje inače
+// reklo da su se mjerenja vratila. Dok rupa na kraju sama ne obara dan (do
+// šest sati), dan je oborila stara i ona se imenuje.
+func TestStaraDuljaRupaNeSkrivaOnuKojaTraje(t *testing.T) {
+	sada := int64(500000)
+	rupaNa := func(zadnje int64) []RupaUlaza {
+		t.Helper()
+		satni := map[string]Niz{
+			"cilj": nizSRupama(sada-200, sada),
+			"ulaz": nizSRupama(sada-200, zadnje, [2]int64{sada - 45, sada - 25}), // 21 sat, dan −1
+		}
+		_, err := PrognozirajDnevno(&DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Ulazi: []string{"ulaz"}}}, satni, nil, sada)
+		var nd *NepotpuniDani
+		if !errors.As(err, &nd) {
+			t.Fatalf("greška %v nije NepotpuniDani", err)
+		}
+		return nd.Rupe
+	}
+	if got, want := rupaNa(sada-8), []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 8}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("osam sati bez mjerenja: rupe %+v, želim %+v", got, want)
+	}
+	if got, want := rupaNa(sada-6), []RupaUlaza{{Letva: "ulaz", Zadnje: sada - 46, Sljedece: sada - 24}}; !reflect.DeepEqual(got, want) {
+		t.Errorf("šest sati bez mjerenja: rupe %+v, želim %+v", got, want)
+	}
+}
+
+// Greške inačica istog cilja spajaju se: svaka letva jednom, redom kojim su
+// inačice pale, oborine iza letvi; rupa letve ostaje ona prve inačice koja
+// ju je našla.
+func TestSpojiNepotpune(t *testing.T) {
+	glavna := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 10, Sljedece: 30}}}
+	rezerva := &NepotpuniDani{Letva: "donja", Fali: []string{"pricuvni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "pricuvni", Zadnje: 5, Sljedece: 28}}}
+	bezKise := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 11, Sljedece: 30}}}
+	if got := spojiNepotpune(nil, glavna); got != glavna {
+		t.Errorf("prva greška mora ostati kakva jest: %v", got)
+	}
+	got := spojiNepotpune(spojiNepotpune(glavna, rezerva), bezKise)
+	want := &NepotpuniDani{Letva: "donja", Fali: []string{"glavni", "pricuvni", "oborina A"},
+		Rupe: []RupaUlaza{{Letva: "glavni", Zadnje: 10, Sljedece: 30}, {Letva: "pricuvni", Zadnje: 5, Sljedece: 28}}}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("spojeno %+v, želim %+v", got, want)
+	}
+	if got.Error() != "donja: nepotpuna zadnja četiri dana na [glavni pricuvni oborina A]" {
+		t.Errorf("tekst: %q", got.Error())
+	}
+	if !reflect.DeepEqual(glavna.Fali, []string{"glavni", "oborina A"}) {
+		t.Errorf("spajanje je promijenilo grešku glavne inačice: %v", glavna.Fali)
+	}
+	druga := errors.New("nešto drugo")
+	if got := spojiNepotpune(glavna, druga); got != druga {
+		t.Errorf("greška koja nije NepotpuniDani ostaje zadnja: %v", got)
+	}
+}
+
+// Cilj s kišom kojemu fali oborina imenuje sliv, ne letvu, i nema rupe u
+// satnom nizu; s kišom računa i nosi oznaku modela s kišom.
+func TestDnevniSKisomImenujeSliv(t *testing.T) {
+	sada := int64(500000)
+	satni := map[string]Niz{"cilj": nizSRupama(sada-200, sada)}
+	m := &DnevniModel{Cilj: DnevniCilj{Letva: "cilj", Slivovi: []string{"sliv"}}}
+	_, err := PrognozirajDnevno(m, satni, nil, sada)
+	var nd *NepotpuniDani
+	if !errors.As(err, &nd) || !reflect.DeepEqual(nd.Fali, []string{"oborina sliv"}) || nd.Rupe != nil {
+		t.Fatalf("greška %v, želim da fali samo oborina sliv, bez rupa", err)
+	}
+	kisa := DnevniNiz{}
+	for d := int64(-7); d <= 7; d++ {
+		kisa[d] = 0
+	}
+	d, err := PrognozirajDnevno(m, satni, map[string]DnevniNiz{OborinaKljuc("sliv"): kisa}, sada)
+	if err != nil || len(d) != DnevniDosezi+1 || d[0].Model != ModelDnevniKisa {
+		t.Errorf("s kišom: %v, %+v", err, d)
 	}
 }
