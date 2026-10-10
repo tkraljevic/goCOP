@@ -21,7 +21,9 @@ import (
 // skladištem. Potez ostaje jedan događaj kao i prije odluke, pa zid
 // sektora koji šalje ne dobiva novi redak izlaza (koji bi s nazivom samo
 // izvornog skladišta izgledao kao ulaz u nj), a tko vidi oba sektora vidi
-// jedan redak po prijenosu.
+// jedan redak po prijenosu. Zato sektor koji šalje svoj prijenos u drugi
+// sektor na zidu, u Događanjima suženim na taj sektor ni u izvozu ne vidi,
+// kao ni prije odluke; vidi ga u prometu svog skladišta.
 func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 	z := noviZidPrijenosa(t)
 	ctx, mtsRepo, sava, zid := z.ctx, z.mtsRepo, z.sava, z.zid
@@ -76,6 +78,11 @@ func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 	}
 	if d := uB[0]; d.Naslov != "Prijenos" || d.Sektor != "B" || d.Vazno || !strings.HasSuffix(d.Tekst, "· Skladište Dalj") {
 		t.Errorf("prijenos na zidu Sektora B: %+v", d)
+	}
+	// ni Događanja (i izvoz) suženi na Sektor B ne nose prijenos u Sektor D:
+	// redak poteza je ulaz, a on pripada ciljnom sektoru
+	if f := prijenosi(glavni, FiltarZida{Sektor: "B"}); len(f) != 1 || !strings.HasSuffix(f[0].Tekst, "· Skladište Dalj") {
+		t.Errorf("filtar po Sektoru B: %+v", f)
 	}
 	// uprava organizacije vidi oba sektora: jedan redak po prijenosu
 	if sve := prijenosi(glavni, FiltarZida{}); len(sve) != 2 || sve[1].Naslov != "Prijenos iz Sektora B" || !strings.HasSuffix(sve[0].Tekst, "· Skladište Dalj") {
