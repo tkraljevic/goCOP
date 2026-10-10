@@ -95,3 +95,99 @@ func TestImeExcelIzvjescaRazlikujePoglede(t *testing.T) {
 		vidjeno[ime] = true
 	}
 }
+
+// Excel historijata nosi što i stranica: za svaki od najviših valova kada bi
+// po vodostaju počeo i završio svaki dosegnuti stupanj, ne samo početak i
+// kraj vala i najviši stupanj (Odluke (8. 10. 2026.), pitanje 14).
+func TestExcelHistorijataNosiVremenaSvakogStupnjaVala(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceHistorijat
+	iz.Sastavio = "Pero Perić"
+	if len(iz.Valovi) != 1 || iz.Valovi[0].NajviseDosegnuto() != models.PhaseEmergency {
+		t.Fatalf("priprema testa: %d valova", len(iz.Valovi))
+	}
+	s := tekstKnjigeLetve(t, iz)
+	v := iz.Valovi[0]
+	for _, z := range iz.ValoviZbroj {
+		if !strings.Contains(s, z.Stupanj.Label()) {
+			t.Errorf("u tablici valova nema stupca %s", z.Stupanj.Label())
+		}
+		st := v.StupanjZa(z.Stupanj)
+		if st == nil {
+			continue
+		}
+		vrijeme := st.PoceloHR() + " → " + st.ZavrsiloHR()
+		if !strings.Contains(s, vrijeme) {
+			t.Errorf("Excel nema kada bi %s počelo i završilo (%s)", z.Stupanj.Label(), vrijeme)
+		}
+	}
+}
+
+// Tablica valova u Excelu stane u list i za stupanj prekinut u valu kaže u
+// koliko navrata, a za nedosegnuti stavlja crticu, kao i stranica.
+func TestTablicaValovaStaneUListIBrojiNavrate(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	pragovi := st.PragoviObrane()
+	poc := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	var niz []models.HidroTocka
+	for _, d := range []struct{ sati, cm int }{{1, 100}, {24, 400}, {36, 600}, {12, 400}, {36, 600}, {24, 400}, {1, 100}} {
+		for i := 0; i < d.sati; i++ {
+			niz = append(niz, models.HidroTocka{Kad: poc.Add(time.Duration(len(niz)) * time.Hour), Vrijednost: float64(d.cm)})
+		}
+	}
+	valovi := models.Valovi(niz, pragovi)
+	zbroj := models.ZbrojValova(valovi, pragovi)
+	glave, redci := tablicaValova(valovi, zbroj)
+	if len(glave) != stupacaLetve || len(redci) != 1 || len(redci[0]) != len(glave) {
+		t.Fatalf("stupaca %d (list ima %d), redaka %d", len(glave), stupacaLetve, len(redci))
+	}
+	redovna := valovi[0].StupanjZa(models.PhaseRegular)
+	if redovna == nil || redovna.Navrata != 2 {
+		t.Fatal("priprema testa: redovna obrana mora biti u dva navrata")
+	}
+	if c := redci[0][6]; glave[6] != models.PhaseRegular.Label() ||
+		!strings.Contains(c, redovna.PoceloHR()+" → "+redovna.ZavrsiloHR()) || !strings.Contains(c, "u 2 navrata") {
+		t.Errorf("stupac %s: %q", glave[6], c)
+	}
+	if glave[7] != models.PhaseEmergency.Label() || redci[0][7] != "—" {
+		t.Errorf("nedosegnuta izvanredna obrana: %q", redci[0][7])
+	}
+}
+
+// Excel historijata nosi i ostale odjeljke stranice: promjene kote nule, niz
+// mjerenja, odakle podaci dolaze, krivulje protoka i proglašene obrane.
+func TestExcelHistorijataNosiOstaleOdjeljkeStranice(t *testing.T) {
+	iz := probnoIzvjesce(t)
+	iz.Dio = izvjesceHistorijat
+	iz.Sastavio = "Ana Anić"
+	kota := 80.189
+	iz.Station.ZeroDatumHistory = []models.ZeroDatumChange{
+		{Datum: &kota, System: "TRST"},
+		{ValidFrom: "2015-03-01", Datum: &kota, System: "HVRS71", Note: "novi elaborat"},
+	}
+	iz.Sazetak = []models.SazetakVelicine{{Velicina: "vodostaj", Od: "1901-01-01", Do: "2026-09-30",
+		Zapisa: 46000, Srednjak: 312.4, Min: -80, MinNa: "1947-10-20", Max: 797, MaxNa: "1956-06-17"}}
+	iz.Spojevi = []models.SpojDoseg{{Velicina: "vodostaj", Korak: "dnevni", Od: "1901-01-01", Do: "2026-09-30",
+		Zapisa: 100, Dijelovi: []models.SpojDio{{Izvor: "his2000", Zapisa: 100}}}}
+	iz.Krivulje = []models.HQKrivulja{
+		{VrijediOd: "2010-01-01", VrijediDo: "2019-12-31", Izvor: "DHMZ", Odsjecci: []models.HQOdsjecak{{OdCm: -100, DoCm: 300}}},
+		{VrijediOd: "2020-01-01", Izvor: "DHMZ", Odsjecci: []models.HQOdsjecak{{OdCm: -100, DoCm: 300}, {OdCm: 300, DoCm: 900}}},
+	}
+	kraj := time.Date(2024, 6, 9, 10, 0, 0, 0, time.UTC)
+	iz.Episodes = []models.DefenseEpisode{{SectionCode: "P.1.1", Phase: models.PhaseRegular,
+		StartedAt: time.Date(2024, 6, 3, 8, 0, 0, 0, time.UTC), EndedAt: &kraj}}
+	s := tekstKnjigeLetve(t, iz)
+	for _, want := range []string{
+		"Promjene kote nule", "od početka mjerenja", "1.3.2015.", "HVRS71", "novi elaborat",
+		"Niz mjerenja", "Vodostaj", "1.1.1901. – 30.9.2026.",
+		"Odakle podaci dolaze", "dnevni", models.NazivIzvora("his2000"),
+		"Krivulje protoka", "1.1.2010. – 31.12.2019.", "1.1.2020. – do danas", "-100 do 300 cm\n300 do 900 cm",
+		"Proglašene obrane", "P.1.1", "03.06.2024. 10:00", "09.06.2024. 12:00", models.PhaseRegular.Label(),
+	} {
+		if !strings.Contains(s, want) {
+			t.Errorf("u Excelu historijata nema %q", want)
+		}
+	}
+}

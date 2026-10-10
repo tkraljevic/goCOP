@@ -141,11 +141,10 @@ func TestOvjeraAktaMijenjaStanjeObrane(t *testing.T) {
 	ctx := context.Background()
 	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
 
-	// Rukovoditelj područja ne piše izravno na dionicama, pa obranu sam ne
-	// proglašava; ovjereni akt to ipak učini na svim dionicama akta.
-	if _, err := o.epizode.Declare(ctx, o.ovlasti, o.rukovod.ID.String(), "P.1.1", *o.letva, sat, models.PhasePrep, models.BasisOrder, ""); !errors.Is(err, service.ErrUnauthorized) {
-		t.Fatalf("izravno proglašenje rukovoditelja područja: %v", err)
-	}
+	// Rukovoditelj područja ne piše izravno na dionicama; ovjereni akt
+	// proglašava obranu na svim dionicama akta. Namjerno promijenjeno prema
+	// Odlukama (8. 10. 2026.), pitanje 14: izravnog proglašenja mimo akta više
+	// nema ni za koga, pa se njegovo odbijanje ovdje ne provjerava.
 	a, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
 	if len(upozorenja) != 0 || a.Status != models.AktOvjeren || a.Broj != 1 {
 		t.Fatalf("uspostava pripremnog: upozorenja %v, status %s, broj %d", upozorenja, a.Status, a.Broj)

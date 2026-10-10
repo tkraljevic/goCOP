@@ -214,17 +214,6 @@ func (r *EpisodeRepository) DeleteEpisode(ctx context.Context, e *models.Defense
 	return tx.Commit()
 }
 
-// DeleteEpisodesFrom briše epizode dionice utvrđene računom, da se mogu
-// preračunati iz novog niza očitanja. Epizode koje je upisao operater ostaju.
-func (r *EpisodeRepository) DeleteEpisodesFrom(ctx context.Context, sectionCode, origin string) (int, error) {
-	res, err := r.db.ExecContext(ctx, `DELETE FROM defense_episodes WHERE section_code = ? AND origin = ?`, sectionCode, origin)
-	if err != nil {
-		return 0, err
-	}
-	n, _ := res.RowsAffected()
-	return int(n), nil
-}
-
 // getEpisodeTx čita epizodu unutar transakcije, za popravke podataka koji
 // izmjenu moraju upisati i u knjigu verzija.
 func getEpisodeTx(ctx context.Context, tx *sql.Tx, id string) (models.DefenseEpisode, error) {
