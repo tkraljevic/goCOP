@@ -197,9 +197,12 @@ func (h *IzvjescaHandler) HandleSektorskoSpremi(w http.ResponseWriter, r *http.R
 }
 
 // porukaSpremanjaSektorskog kaže što je spremanje napravilo. Izmjena
-// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno.
+// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno;
+// predano izvješće spremljeno bez promjene ostaje predano.
 func porukaSpremanjaSektorskog(iz *models.SektorskoIzvjesce, predano bool) string {
 	switch {
+	case iz.Predano():
+		return "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru."
 	case predano && iz.BiloPredano():
 		return "Izvješće sektora je ponovno predano Glavnom centru."
 	case predano:

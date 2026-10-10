@@ -17,7 +17,7 @@
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
 {{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.
   Spremljena izmjena vraća ga u nacrt koji treba ponovo predati, s novim vremenom predaje; prvo vrijeme predaje ostaje zapisano,
-  a uz izvješće piše tko ga je mijenjao.</div>
+  a uz izvješće piše tko ga je mijenjao. Spremanje bez promjene ostavlja ga predanim.</div>
 {{else if .Izvjesce.BiloPredano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je nacrt: {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.</div>{{end}}
 
 <form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if .IsEdit}}/izvjesca/{{.Izvjesce.ID}}{{else}}/izvjesca{{end}}">

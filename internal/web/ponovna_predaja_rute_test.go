@@ -142,6 +142,13 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	nema(w, "predano", `action="`+dok+`/obrisi"`, "prvi put")
 	mora(zovi(ana, uprava, http.MethodGet, dok+"/uredi", nil), http.StatusOK, "obrazac predanog",
 		"Spremljena izmjena vraća ga u nacrt", "Spremi i ponovo predaj")
+	// spremanje bez promjene predano izvješće ostavlja predanim
+	bezPromjene := url.Values{"sektor": {"P"}, "dan": {danas}, "hidrometeo": {"Vodostaji rastu."}, "evakuacija": {"Evakuirano 40 ljudi."}}
+	w = zovi(ivo, uprava, http.MethodPost, dok, bezPromjene)
+	poruka(w, "success", "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru.")
+	w = zovi(ana, uprava, http.MethodGet, dok, nil)
+	mora(w, http.StatusOK, "predano nakon spremanja bez promjene", "predano GCOP-u ", "Povuci predaju")
+	nema(w, "predano nakon spremanja bez promjene", "prvi put", "izmijenio poslije predaje")
 
 	// Ivo ispravi broj evakuiranih i samo spremi: nacrt, čeka ponovnu predaju
 	obrazac.Set("evakuacija", "Evakuirano 4 ljudi.")
@@ -195,6 +202,11 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	poruka(w, "success", "Izvješće je predano.")
 	idd := strings.SplitN(strings.TrimPrefix(w.Header().Get("Location"), "/izvjesca/"), "?", 2)[0]
 	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "predano izvješće dionice kao autor", `action="/izvjesca/`+idd+`/obrisi"`)
+	// isti obrazac spremljen bez promjene: ostaje predano, ne povlači se
+	isto := url.Values{"dan": {danas}, "dionica": {"P.1.1"}, "stadij": {"REDOVNA"}, "vodotok": {"Primjerica"}, "pregled": {"Nasip pregledan."}}
+	w = zovi(pero, dionica, http.MethodPost, "/izvjesca/"+idd, isto)
+	poruka(w, "success", "Izvješće nije mijenjano i ostaje predano u podcentar.")
+	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "predano izvješće dionice nakon spremanja bez promjene", "badge badge-pending\">nacrt")
 	// nacrt koji nikad nije predan briše i autor
 	jucer := url.Values{"dan": {time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format("2006-01-02")}, "dionica": {"P.1.1"}, "stadij": {"REDOVNA"}, "pregled": {"Nacrt."}}
 	w = zovi(pero, dionica, http.MethodPost, "/izvjesca", jucer)
@@ -243,6 +255,8 @@ func TestPorukeSpremanjaIzvjesca(t *testing.T) {
 		{&models.SektorskoIzvjesce{}, true, "Izvješće sektora je predano Glavnom centru."},
 		{&models.SektorskoIzvjesce{TragPredaje: bilo}, false, "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati Glavnom centru."},
 		{&models.SektorskoIzvjesce{TragPredaje: bilo}, true, "Izvješće sektora je ponovno predano Glavnom centru."},
+		{&models.SektorskoIzvjesce{TragPredaje: bilo, PredanoAt: &sad}, false, "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru."},
+		{&models.SektorskoIzvjesce{TragPredaje: bilo, PredanoAt: &sad}, true, "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru."},
 	} {
 		if p := porukaSpremanjaSektorskog(s.iz, s.predano); p != s.poruka {
 			t.Errorf("sektor %v/%v: %q", s.iz.BiloPredano(), s.predano, p)
@@ -257,6 +271,8 @@ func TestPorukeSpremanjaIzvjesca(t *testing.T) {
 		{&models.DnevnoIzvjesce{}, true, "Izvješće je predano."},
 		{&models.DnevnoIzvjesce{TragPredaje: bilo}, false, "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar."},
 		{&models.DnevnoIzvjesce{TragPredaje: bilo}, true, "Izvješće je ponovno predano."},
+		{&models.DnevnoIzvjesce{TragPredaje: bilo, PredanoAt: &sad}, false, "Izvješće nije mijenjano i ostaje predano u podcentar."},
+		{&models.DnevnoIzvjesce{TragPredaje: bilo, PredanoAt: &sad}, true, "Izvješće nije mijenjano i ostaje predano u podcentar."},
 	} {
 		if p := porukaSpremanjaIzvjesca(s.iz, s.predano); p != s.poruka {
 			t.Errorf("dionica %v/%v: %q", s.iz.BiloPredano(), s.predano, p)

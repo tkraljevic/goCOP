@@ -369,9 +369,9 @@ func (s *IzvjescaService) PredlozakSektora(ctx context.Context, sektor string, d
 // SpremiSektorsko upisuje izvješće sektora: ponovno zbroji izabrana
 // izvješća dionica (po ID-u) i preuzme izabrane zapise, tekst ostaje
 // voditeljev. Jedno po sektoru i danu, ne unaprijed. Spremljeno izvješće
-// uvijek je nacrt: izmjena predanog vraća ga u nacrt koji se mora ponovo
-// predati, prvo vrijeme predaje ostaje, a pamte se svi koji su ga
-// mijenjali; tko sprema bez promjene, među njih ne ulazi.
+// je nacrt: izmjena predanog vraća ga u nacrt koji se mora ponovo predati,
+// prvo vrijeme predaje ostaje, a pamte se svi koji su ga mijenjali.
+// Spremanje bez promjene predano izvješće ostavlja predanim.
 func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, perms *models.UserPermissions, iz *models.SektorskoIzvjesce, izvjesca, zapisi []string) error {
 	if s.sektorska == nil {
 		return errors.New("sektorska izvješća nisu uključena")
@@ -443,8 +443,16 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 			}
 		}
 	}
-	iz.ZabiljeziSpremanje(prije, u)
-	iz.IzradenoAt, iz.PredanoAt = time.Now().In(models.Zagreb), nil
+	return s.spremiSektorsko(ctx, iz, prije, u)
+}
+
+// spremiSektorsko upisuje izvješće sektora kao nacrt. Predano izvješće koje
+// spremanje ne mijenja ostaje predano i ništa se ne upisuje: u nacrt ga
+// vraća samo izmjena.
+func (s *IzvjescaService) spremiSektorsko(ctx context.Context, iz, prije *models.SektorskoIzvjesce, u *models.User) error {
+	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb)) {
+		return nil
+	}
 	return s.sektorska.Save(ctx, iz)
 }
 

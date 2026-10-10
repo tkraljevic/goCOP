@@ -213,11 +213,27 @@ func (i *SektorskoIzvjesce) PovuciPredaju() {
 // predano: prvo vrijeme predaje ostaje, a onaj tko sprema pamti se među
 // onima koji su ga mijenjali samo kad je promijenio dan ili sadržaj. prije
 // je spremljena inačica (trag je već prepisan iz nje); nil za novo izvješće.
-func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User) {
+// Vraća je li spremanje izvješće promijenilo; novo izvješće jest promjena.
+func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User) bool {
 	if prije == nil {
-		return
+		return true
 	}
-	i.IzmjenaPoslijePredaje(prije.PredanoAt, u, prije.DanKey() != i.DanKey() || !istiJSON(prije.Sadrzaj, i.Sadrzaj))
+	promijenjeno := prije.DanKey() != i.DanKey() || !istiJSON(prije.Sadrzaj, i.Sadrzaj)
+	i.IzmjenaPoslijePredaje(prije.PredanoAt, u, promijenjeno)
+	return promijenjeno
+}
+
+// PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena: predano
+// izvješće koje spremanje ne mijenja ostaje kakvo je bilo, predano i s
+// istim vremenima, a odgovor je false — nema se što spremiti.
+func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time) bool {
+	if !i.ZabiljeziSpremanje(prije, u) && prije.Predano() {
+		*i = *prije
+		return false
+	}
+	i.IzradenoAt, i.PredanoAt = sad, nil
+	return true
 }
 
 // PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom
@@ -246,11 +262,26 @@ func (i DnevnoIzvjesce) TkoJePredao() string { return i.predaoIli(i.PredanoAt, i
 // predano: prvo vrijeme predaje ostaje, a onaj tko sprema pamti se među
 // onima koji su ga mijenjali samo kad je promijenio dan, stadij ili
 // sadržaj. prije je spremljena inačica (trag je već prepisan iz nje); nil
-// za novo izvješće.
-func (i *DnevnoIzvjesce) ZabiljeziSpremanje(prije *DnevnoIzvjesce, u *User) {
+// za novo izvješće. Vraća je li spremanje izvješće promijenilo; novo
+// izvješće jest promjena.
+func (i *DnevnoIzvjesce) ZabiljeziSpremanje(prije *DnevnoIzvjesce, u *User) bool {
 	if prije == nil {
-		return
+		return true
 	}
 	promijenjeno := prije.DanKey() != i.DanKey() || prije.Stadij != i.Stadij || !istiJSON(prije.Sadrzaj, i.Sadrzaj)
 	i.IzmjenaPoslijePredaje(prije.PredanoAt, u, promijenjeno)
+	return promijenjeno
+}
+
+// PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena: predano
+// izvješće koje spremanje ne mijenja ostaje kakvo je bilo, predano i s
+// istim vremenima, a odgovor je false — nema se što spremiti.
+func (i *DnevnoIzvjesce) PripremiSpremanje(prije *DnevnoIzvjesce, u *User, sad time.Time) bool {
+	if !i.ZabiljeziSpremanje(prije, u) && prije.Predano() {
+		*i = *prije
+		return false
+	}
+	i.IzradenoAt, i.PredanoAt = sad, nil
+	return true
 }

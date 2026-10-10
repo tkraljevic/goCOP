@@ -191,9 +191,9 @@ func vodotokDionice(sec *models.Section) string {
 
 // Spremi upisuje ili mijenja izvješće. Jedno po dionici i danu — drugog za
 // isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
-// Spremljeno izvješće uvijek je nacrt: izmjena predanog vraća ga u nacrt
-// koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi
-// koji su ga mijenjali; tko sprema bez promjene, među njih ne ulazi.
+// Spremljeno izvješće je nacrt: izmjena predanog vraća ga u nacrt koji se
+// mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi koji su
+// ga mijenjali. Spremanje bez promjene predano izvješće ostavlja predanim.
 // Izvješće koje je bilo predano i dok čeka ponovnu predaju mijenja samo tko
 // ga je izradio, ili uprava.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
@@ -250,8 +250,16 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 	if iz.Sadrzaj.Vodotok == "" {
 		iz.Sadrzaj.Vodotok = vodotokDionice(sec)
 	}
-	iz.ZabiljeziSpremanje(prije, u)
-	iz.IzradenoAt, iz.PredanoAt = time.Now().In(models.Zagreb), nil
+	return s.spremiDnevno(ctx, iz, prije, u)
+}
+
+// spremiDnevno upisuje izvješće dionice kao nacrt. Predano izvješće koje
+// spremanje ne mijenja ostaje predano i ništa se ne upisuje: u nacrt ga
+// vraća samo izmjena.
+func (s *IzvjescaService) spremiDnevno(ctx context.Context, iz, prije *models.DnevnoIzvjesce, u *models.User) error {
+	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb)) {
+		return nil
+	}
 	return s.repo.Save(ctx, iz)
 }
 

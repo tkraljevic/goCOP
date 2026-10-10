@@ -244,9 +244,12 @@ func (h *IzvjescaHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 }
 
 // porukaSpremanjaIzvjesca kaže što je spremanje napravilo. Izmjena
-// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno.
+// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno;
+// predano izvješće spremljeno bez promjene ostaje predano.
 func porukaSpremanjaIzvjesca(iz *models.DnevnoIzvjesce, predano bool) string {
 	switch {
+	case iz.Predano():
+		return "Izvješće nije mijenjano i ostaje predano u podcentar."
 	case predano && iz.BiloPredano():
 		return "Izvješće je ponovno predano."
 	case predano:
