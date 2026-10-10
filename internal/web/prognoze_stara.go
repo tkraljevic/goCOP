@@ -78,20 +78,3 @@ func datumIzvoza(ctx context.Context, izdanoSat int64) time.Time {
 	}
 	return time.Now().In(models.Zagreb)
 }
-
-// napomenaIznova je napomena uz „izdano” u izvozu stare prognoze kad je taj
-// sat izdan iznova: izvoz daje zadnji račun sata, a ne brojke koje su prve
-// otišle. Izvoz zadnjeg izdanja napomene nema.
-func (h *PrognozeHandler) napomenaIznova(ctx context.Context, izdanoSat int64) string {
-	if _, staro := trazenoIzdanje(ctx); !staro {
-		return ""
-	}
-	kad, iznova := h.citacZa(ctx).IzdanIznova(izdanoSat)
-	switch {
-	case !iznova:
-		return ""
-	case kad.IsZero():
-		return " (sat izdan iznova; brojke su zadnjeg računa)"
-	}
-	return " (sat izdan iznova " + kad.In(models.Zagreb).Format("2.1. u 15:04") + "; brojke su zadnjeg računa)"
-}

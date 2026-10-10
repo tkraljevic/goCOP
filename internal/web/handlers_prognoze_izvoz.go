@@ -41,7 +41,6 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		http.Error(w, data.Razlog, http.StatusNotFound)
 		return
 	}
-	data.Izdano += h.napomenaIznova(r.Context(), data.IzdanoSat)
 	z := h.zaglavljeIzvoza(data.CurrentUser)
 	z.Datum = datumIzvoza(r.Context(), data.IzdanoSat)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
