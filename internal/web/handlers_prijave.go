@@ -106,7 +106,9 @@ type PrijavePageData struct {
 	ImaKljuc      bool
 	Simulacija    bool
 	SmijeRijesiti bool
-	Lat, Lon      string
+	// DnevniList je list na kojem je prijava, s brojem kakav sada ima
+	DnevniList *models.VodocuvarskiList
+	Lat, Lon   string
 }
 
 func (h *PrijaveHandler) base(r *http.Request) (*models.User, *models.UserPermissions, PrijavePageData) {
@@ -332,6 +334,7 @@ func (h *PrijaveHandler) ShowPrijava(w http.ResponseWriter, r *http.Request) {
 	}
 	d.Simulacija = h.vod.simulacijaKljuca(r)
 	if p.Objavljena() {
+		d.DnevniList = s.ListPrijave(r.Context(), p)
 		if iz, _ := s.Izvornik(r.Context(), perms, p.ID); iz != nil && len(iz.PDF) > 0 {
 			d.Izvornik.Ima = true
 			if h.vod.potpis != nil {

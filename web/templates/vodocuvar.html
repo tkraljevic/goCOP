@@ -45,9 +45,9 @@
     <ul class="posta-kartice mt-2">
     {{range .Listovi}}
       <li class="posta-kartica"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}(nepredan){{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
+        <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.Od}}–{{.Do}} · {{.SatiTekst}} h{{end}}</span></div>
         <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-        <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}</div>
+        <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{if .Parafe}} · parafa: {{range $i, $p := .Parafe}}{{if $i}}, {{end}}{{$p.Ime}}{{end}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
       </a></li>
     {{end}}
     </ul>
@@ -73,6 +73,16 @@
 </section>
 {{end}}
 
+{{if .Dvostruki}}
+<section class="detail-section">
+  <h2>{{icon "triangle-alert"}} Dvostruki dnevni listovi</h2>
+  <p class="form-help">Isti vodočuvar za isti dan ima više dnevnih listova: nastali su na dva čvora bez veze prije jedinstvene oznake lista ili na čvoru sa starijim programom, ili je isti list predan na dva čvora. Ne brišu se, jer su potpisani dokumenti. „Današnji list” i spremanje uzimaju predan list, a od dva jednaka stariji; kad su predana oba, oba ostaju s oznakom „dvostruki list”.</p>
+  <ul class="stavke">
+  {{range .Dvostruki}}<li><strong>{{.Ime}}</strong>, {{.Datum.Format "02.01.2006."}}: {{range $i, $l := .Listovi}}{{if $i}}; {{end}}<a href="/vodocuvar/{{$l.ID}}">{{if $l.Broj}}list {{$l.Broj}}{{else if $l.Rekonstrukcija}}preneseno{{else}}nacrt bez broja{{end}}</a> ({{$l.Stanje}}){{end}}</li>{{end}}
+  </ul>
+</section>
+{{end}}
+
 {{if not .SamoMoj}}
 <section class="detail-section">
   <h2>{{icon "users"}} Knjige vodočuvara{{if .Filtar.AreaID}} · BP {{.Filtar.AreaID}}{{else if .Filtar.Sektor}} · {{terml "sektor"}} {{.Filtar.Sektor}}{{end}}</h2>
@@ -85,7 +95,7 @@
     {{if .SmijeUpisati}}
     <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
-      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" title="dan lista">
+      <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" max="{{$.NajdaljeDan}}" title="dan lista; unaprijed najviše 30 dana">
       <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
     </form>
@@ -96,9 +106,9 @@
       <ul class="posta-kartice mt-2">
       {{range .Listovi}}
         <li class="posta-kartica {{if and .Predan (not .Potvrden)}}neprocitano{{end}}"><a class="posta-kartica-tijelo" href="/vodocuvar/{{.ID}}">
-          <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}List —{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
+          <div class="posta-kartica-red"><span class="posta-od">{{if .Broj}}List {{.Broj}}{{else if .Rekonstrukcija}}Preneseno{{else}}Nacrt bez broja{{end}} · {{.DanUTjednu}}</span><span class="posta-kad">{{.Datum.Format "02.01.2006."}}{{if not .Rekonstrukcija}} · {{.SatiTekst}} h{{end}}</span></div>
           <div class="posta-predmet">{{if .Opis}}{{.Opis}}{{else if .Zadaci}}{{range $i, $z := .Zadaci}}{{if $i}}; {{end}}{{$z.Tekst}}{{end}}{{else}}(bez opisa){{end}}</div>
-          <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}</div>
+          <div class="posta-pregled">{{if .Rekonstrukcija}}ovjereno prijenosom · iz ranije evidencije, bez potpisa vodočuvara{{else}}{{.Stanje}}{{with .Potvrdio}} · ovjerio {{.}}{{end}}{{end}}{{template "dvostruki-list" (index $.Dvojnici .ID)}}</div>
         </a></li>
       {{end}}
       </ul>
@@ -110,3 +120,5 @@
 </section>
 {{end}}
 {{end}}
+
+{{define "dvostruki-list"}}{{with .}} · <strong>dvostruki list – vidi i list br. {{range $i, $b := .}}{{if $i}}, {{end}}{{$b}}{{end}}</strong>{{end}}{{end}}

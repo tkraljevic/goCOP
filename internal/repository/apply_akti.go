@@ -21,7 +21,10 @@ func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Versi
 	if err != nil {
 		return v, false, err
 	}
-	return *top, top.VersionID == v.VersionID, nil
+	// Dnevni list vodočuvara i njegov izvornik slažu površinu iz svih verzija
+	// (predan list ima prednost, dva potpisa ostaju dva lista), pa ide svaka
+	// primljena verzija (primjenjujeSe; Odluke (8. 10. 2026.), pitanje 7).
+	return v, primjenjujeSe(top, v), nil
 }
 
 // aktZaPovrsinu je verzija akta koja ide na površinu kad razmjena donese

@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // VodocuvarskiList je jedan dnevni list vodočuvarskog dnevnika, po uzoru
@@ -53,6 +55,12 @@ type VodocuvarskiList struct {
 	Rekonstrukcija bool   `json:"rekonstrukcija,omitempty"`
 	Izvor          string `json:"izvor,omitempty"` // oznaka zapisa u ranijoj evidenciji
 
+	// NapisanoAt je trenutak kad je vodočuvar zadnji put spremio ono što sam
+	// upisuje (obrazac lista): radno vrijeme, prilike, opis, zapažanja i
+	// stanje zadataka. Upis rukovoditelja, akta ili prijave ga prenosi kakav
+	// jest, pa nacrt koji je nastao bez vodočuvarova upisa (npr. „Upiši” na
+	// čvoru koji njegov list još nema) ne prepisuje njegov tekst pri razmjeni.
+	NapisanoAt  *time.Time `json:"napisano_at,omitempty"`
 	PredanoAt   *time.Time `json:"predano_at,omitempty"` // potpis vodočuvara
 	PotvrdioID  string     `json:"potvrdio_id,omitempty"`
 	Potvrdio    string     `json:"potvrdio,omitempty"`
@@ -60,6 +68,25 @@ type VodocuvarskiList struct {
 	Cvor        string     `json:"cvor,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// IDListaVodocuvara je unutarnja oznaka novog dnevnog lista, izvedena iz
+// osobe i dana (UUID v5): svaki čvor koji prvi put spremi list iste osobe
+// za isti dan daje mu istu oznaku, pa razmjena vidi jedan list u dvije
+// verzije, a ne dva lista (Odluke (8. 10. 2026.), pitanje 7). Oznaka se ne
+// smije mijenjati, jer je moraju jednako izvesti svi čvorovi.
+func IDListaVodocuvara(userID string, dan time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:"+userID+"|"+dan.In(Zagreb).Format("2006-01-02"))).String()
+}
+
+// IDDvostrukogLista je oznaka drugog predanog lista iste oznake: kad je
+// isti list predan na dva čvora bez veze, oba potpisa ostaju (Odluke
+// (8. 10. 2026.), pitanje 7). List prvog potpisa zadržava oznaku lista, a
+// list svakog kasnijeg stoji pod oznakom izvedenom iz oznake lista i
+// trenutka potpisa (UUID v5), jednakom na svim čvorovima. Oznaka se ne
+// smije mijenjati.
+func IDDvostrukogLista(listID string, predano time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:dvostruki:"+listID+"|"+predano.UTC().Format(time.RFC3339Nano))).String()
 }
 
 // PrilogLista je fotografija ili datoteka priložena listu, uz zadatak ili
@@ -150,6 +177,13 @@ func (l VodocuvarskiList) Stanje() string {
 		return "čeka potvrdu"
 	}
 	return "u pisanju"
+}
+
+// NacrtBezBroja javlja da je list spremljen, a još nema redni broj: nacrt
+// za dan koji tada nije počeo. Broj dobiva prvim spremanjem ili predajom
+// kad njegov dan počne; prenesen list nema broja i nije nacrt.
+func (l VodocuvarskiList) NacrtBezBroja() bool {
+	return l.ID != "" && l.Broj == 0 && !l.Rekonstrukcija
 }
 
 // Zakljucen javlja da se list više ne mijenja: predan je, ili je prenesen iz

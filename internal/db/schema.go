@@ -1643,6 +1643,9 @@ func migrateSchema(database *sql.DB) error {
 		// Izmjena predanog izvješća vraća ga u nacrt, pa se predaje ponovno.
 		{"dnevna_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
 		{"sektorska_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
+		// Kad je vodočuvar zadnji put spremio svoj upis na dnevnom listu: po
+		// tome nacrt s drugog čvora ne prepisuje njegov tekst
+		{"vodocuvarski_listovi", "napisano_at", "DATETIME"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

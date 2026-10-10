@@ -236,3 +236,32 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 		}
 	}
 }
+
+// Pomoć o dnevnom listu za budući dan (Odluke (8. 10. 2026.), pitanja 5 i
+// 6) ne obećava više od programa: redni broj nacrt dobiva prvim spremanjem
+// ili predajom kad njegov dan počne, ali kako se broj daje za tekući i
+// prošli dan nije promijenjeno, pa brojevi ne idu nužno redom dana. Pomoć
+// kaže i kako takav nacrt nastaje, jer vodočuvar budući dan ne otvara sam.
+func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, ne := range []string{"idu redom dana", "vodočuvar u njega može upisati plan"} {
+		if strings.Contains(h, ne) {
+			t.Errorf("pomoć obećava %q", ne)
+		}
+	}
+	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne"} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
+// Pomoć kaže da list prenesen iz ranije evidencije pri razmjeni vrijedi kao
+// predan: nacrt s drugog čvora ga ne zamjenjuje, a preneseni obilasci
+// ostaju (Odluke (8. 10. 2026.), pitanje 7).
+func TestPomocOPrenesenomListuSDrugogCvora(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if !strings.Contains(h, "list prenesen iz ranije evidencije: nacrt s drugog čvora ga ne zamjenjuje") {
+		t.Error("pomoć ne kaže da nacrt s drugog čvora ne zamjenjuje prenesen list")
+	}
+}

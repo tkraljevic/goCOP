@@ -36,6 +36,12 @@ type IzvornikLista struct {
 	Vrsta     string    `json:"vrsta,omitempty"`
 	Sazetak   string    `json:"sazetak"`
 	UpdatedAt time.Time `json:"updated_at"`
+	// PredanoAt je potpis vodočuvara (trenutak predaje) lista čiji je ovo
+	// PDF. Po njemu izvornik lista predanog na dva čvora ostaje uz list
+	// svog potpisa (Odluke (8. 10. 2026.), pitanje 7). Čvor 0.0.34 ga ne
+	// šalje; izvornik bez njega pripada potpisu lista koji je njegov čvor
+	// zadnji predao ili ovjerio prije njega.
+	PredanoAt *time.Time `json:"predano_at,omitempty"`
 }
 
 type IzvornikDnevnika struct {
