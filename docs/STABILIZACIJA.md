@@ -856,8 +856,8 @@ napomenu o odluci. Uz to, uzdužni profil računa nulu iz istih dana na cijelom
 toku i izostavlja mjerila koja stoje (Siga, Petreš, Vrbovka na rekordno niskoj
 vodi) te letve koje nakon prekida nastave na drugoj razini. Prognoza nosi
 upozorenja uz izdanje, a satna uskače kad dnevne nema. Ranija prognoza izvozi
-se za odabrani dan i sat. Odluke 6, 8, 9 i 18 provode se u drugom krugu, na
-istoj grani. Sva nova pravila vrijede tek kad su svi čvorovi na 0.0.35;
+se za odabrani dan i sat. U drugom krugu, na istoj grani, provedene su
+odluke 6, 8, 9 i 18 te provjera ključa čvora pri pokretanju (plan izdanja). Sva nova pravila vrijede tek kad su svi čvorovi na 0.0.35;
 čvorovi na 0.0.34 zadržavaju staro ponašanje i ne ruše se na novim poljima.
 
 Otvoreno nakon pregleda, za odluku:
@@ -869,7 +869,13 @@ Otvoreno nakon pregleda, za odluku:
 - na zidu je istaknuta samo objava prijave vrste „Prijava”, ne i njezino
   rješenje;
 - nacrt prijave prenesen iz BP16 koji vodočuvar dovrši u goCOP-u ne ide na zid;
-- 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči.
+- 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči;
+- vodočuvar može unaprijed spremiti prazne nacrte za idućih 30 dana i poslije
+  ispuniti dan koji je propustio, jer list postoji (odluke 5 i 6 zajedno);
+- list otvoren prije ponoći, a prvi put spremljen poslije nje, odbija se, a
+  upisani tekst se gubi;
+- sken ovjere i slanje ovjerenog akta i dalje smiju svi koji pišu na
+  dionicama akta, a ne samo Centar obrane od poplava.
 
 ## Izdanje 0.0.35: konsolidacijsko (odluka 10. 10. 2026.)
 

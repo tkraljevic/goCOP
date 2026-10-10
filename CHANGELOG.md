@@ -60,11 +60,19 @@ poljima.**
     nastaje uz upozorenje, a ovjera traži potvrdu. Popis se slaže iznova pri
     ovjeri i pokazuje razliku, a na njemu su firme i rukovoditelji svih
     područja akta (odluka 19).
+  - Nacrt akta o stupnju obrane sastavljaju samo voditelj Centra obrane od
+    poplava, njegov zamjenik i Dežurni operater u COP-u sektora; ovjera ostaje
+    kao dosad. Gumb „Proglasi / prekini” i „Novi akt” vidi samo tko sastavlja
+    (odluka 18).
 - **Dnevni list vodočuvara:**
   - Za budući dan postoji samo nacrt, bez broja, najviše 30 dana unaprijed;
     predaja je moguća od 00:00 toga dana (odluka 5).
   - Isti vodočuvar i isti dan na svim čvorovima daju isti list, a predan list
     ima prednost; postojeći dvojnici se prijavljuju, ne brišu (odluka 7).
+  - List za dan koji je prošao više se ne otvara: tko ga nije otvorio na svoj
+    dan, taj dan nije radio. Akt ili prijava za takav dan ide na današnji
+    list, uz napomenu. Brojevi idu redom dana; postojeći se ne mijenjaju
+    (odluka 6).
 - **Dežurstva** (odluka 10): zapis bez poznatog mjesta rada program prvo
   pokuša prepoznati iz opisa, a inače je „za provjeru”, izvan zbroja, dok
   uprava centra ne izabere opis.
@@ -78,9 +86,18 @@ poljima.**
 - **Rasponi** (odluka 21): preuzimanje i uvoz ne upisuju vodostaj izvan
   raspona, isto kao ručni upis. Stranica letve pokazuje koliko je vrijednosti
   odbačeno i zadnju od njih, a tri akumulacije HEP-a imaju raspon kote.
+- **Upis očitanja** (odluke 8 i 9): letva pamti sektore i područja koji je
+  prate. Očitanje upisuje svatko s dužnošću u sektoru letve (ne Gost ni
+  Preglednik); letva bez ikakvog sektora zadržava dosadašnje pravilo. Autor
+  ispravlja svoje očitanje dok je u sektoru, a nakon toga još 72 sata; briše
+  samo onaj tko odgovara za letvu.
 - **Obrana** (odluka 14): uklonjen je stari kod ručnog proglašenja i računanja
   obrane iz vodostaja. „Valovi obrane u nizu” na historijatu letve pokazuju
   kada bi koji stadij bio dosegnut, samo kao prikaz.
+- **Ključ čvora:** kad baza postoji, a datoteke `node-key` uz nju nema,
+  čvor ne kreće i kaže što nedostaje i kako ga vratiti. Novi identitet čvora
+  moguć je samo izričito, zastavicom `-novi-kljuc-cvora`. Kad nema
+  `gocop.toml`, ime čvora uzima se iz baze.
 - **Testovi** (odluka 13): provjere djelatnika, uvoza i razmjene rade na
   izmišljenim osobama sektora P, a provjere registara posebno, prije izdanja.
 - **Privremeno imenovanje i rokovi dužnosti** (odluke 5. 10.):
