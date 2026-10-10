@@ -732,7 +732,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
 	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
 	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
-	if err := peers.ProvjeriKljucCvora(cfg.DB, z.noviKljucCvora); err != nil {
+	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {
 		return odbijPokretanje(ctx, z.podPostavom, cfg.Addr, err, ulaz)
 	}
 

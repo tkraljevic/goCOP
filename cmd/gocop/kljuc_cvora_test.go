@@ -36,7 +36,8 @@ func TestPostojeciCvorBezKljucaNeKreceURunu(t *testing.T) {
 	if kod != 1 {
 		t.Errorf("izlazni kod %d, očekivano 1", kod)
 	}
-	for _, mora := range []string{"Čvor se ne pokreće", filepath.Join(dir, "node-key"), "novi identitet", "-novi-kljuc-cvora"} {
+	for _, mora := range []string{"Čvor se ne pokreće", filepath.Join(dir, "node-key"), "novi identitet", "-novi-kljuc-cvora",
+		"Uz bazu nema ni postavki " + filepath.Join(dir, config.FileName)} {
 		if !strings.Contains(dnevnik.String(), mora) {
 			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
 		}
@@ -139,6 +140,41 @@ func TestPrimjerPostavkiUzPostojecuBazu(t *testing.T) {
 		t.Errorf("uz postojeću bazu zapisan je primjer: %v", err)
 	}
 	for _, mora := range []string{"nema " + primjer, "Primjer se ne zapisuje", "pperic-unraid", "Vratite izvornu datoteku"} {
+		if !strings.Contains(dnevnik.String(), mora) {
+			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
+		}
+	}
+}
+
+// Kad uz ključ nema ni gocop.toml (Unraid, 5. 10. 2026.: mover je odnio
+// oboje), odbijanje kaže i za postavke, a novi identitet uz zastavicu javlja
+// pod kojim imenom čvor kreće i kako zadržati dosadašnje. Kad su postavke
+// pročitane, o njima se ne govori.
+func TestProvjeraKljucaBezPostavki(t *testing.T) {
+	put := bazaZaOporavak(t)
+	postavke := filepath.Join(filepath.Dir(put), config.FileName)
+	cfg := config.Config{DB: put}
+	cfg.Node.ID = "pperic-thinkpad"
+
+	var nema *peers.KljucNedostaje
+	if err := provjeriKljuc(cfg, "", false); !errors.As(err, &nema) || nema.Postavke != postavke {
+		t.Errorf("bez postavki: %v", err)
+	}
+	if err := provjeriKljuc(cfg, postavke, false); !errors.As(err, &nema) || nema.Postavke != "" {
+		t.Errorf("s postavkama: %v", err)
+	}
+
+	dnevnik := dnevnikTesta(t)
+	if err := provjeriKljuc(cfg, postavke, true); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(dnevnik.String(), "nema ni postavki") {
+		t.Errorf("postavke su pročitane, a dnevnik kaže da ih nema: %s", dnevnik)
+	}
+	if err := provjeriKljuc(cfg, "", true); err != nil {
+		t.Fatal(err)
+	}
+	for _, mora := range []string{"Ime čvora: uz bazu nema ni postavki " + postavke, "kreće pod imenom pperic-thinkpad", "id = \"…\" pod [node]"} {
 		if !strings.Contains(dnevnik.String(), mora) {
 			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
 		}

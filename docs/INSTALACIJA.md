@@ -254,12 +254,29 @@ Portovi se mijenjaju u `gocop.toml`.
   („dokazao je drugi ključ od uparenog”); ni tajne šifrirane starim ključem
   (lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
   Izvornu datoteku treba vratiti iz sigurnosne kopije ili s diska na koji je
-  premještena. Samo kad izvornog ključa više nema, a novi identitet je
-  namjeran, čvor se pokrene **jednom** sa zastavicom `-novi-kljuc-cvora`, pa
-  se zastavica ukloni; zatim ga čvor koji ga je primio u mrežu zaboravi,
-  opozove mu članstvo i ponovno ga primi. Zastavica se ne čita iz
-  `gocop.toml` i nikad se ne podrazumijeva. Čvorovi na 0.0.34 i starijim
-  izdanjima ključ i dalje prave sami.
+  premještena; kad uz nju nema ni `gocop.toml` (u njemu je i ime čvora),
+  poruka to kaže, pa se vraćaju obje. Samo kad izvornog ključa više nema, a
+  novi identitet je namjeran, zaustavljeni čvor se pokrene **jednom** sa
+  zastavicom `-novi-kljuc-cvora`, uz istu bazu i kao korisnik pod kojim
+  inače radi, pa se zastavica ukloni:
+  - **pod Postavom:** u izborniku ikone *Zaustavi*, pa u naredbenom retku
+    (na Windowsu `cmd`) `cd /d "%LOCALAPPDATA%\goCOP\data"` i
+    `gocop -novi-kljuc-cvora -db "%LOCALAPPDATA%\goCOP\data\gocop.db"`
+    (na macOS-u i Linuxu isto, u mapi `data` instalacije i s programom iz
+    mape `program`); kad dnevnik javi da je poslužitelj spreman, Ctrl+C, pa
+    u Postavi *Pokreni*;
+  - **kao usluga sustava (Linux):** naredbe u [linux.md](linux.md),
+    poglavlje 6 (sigurnosna kopija);
+  - **u Dockeru i na Unraidu:** poglavlje 6 ovih uputa (bilješka za
+    Unraid).
+
+  Kad nema ni `gocop.toml`, a ni njega se ne može vratiti, prije toga ga
+  treba napisati uz bazu s dosadašnjim imenom čvora (redak `id = "…"` pod
+  `[node]`); bez njega čvor s novim ključem kreće pod zadanim imenom
+  `gocop-cvor` i to javlja u dnevniku. Zatim ga čvor koji ga je primio u
+  mrežu zaboravi, opozove mu članstvo i ponovno ga primi. Zastavica se ne
+  čita iz `gocop.toml` i nikad se ne podrazumijeva. Čvorovi na 0.0.34 i
+  starijim izdanjima ključ i dalje prave sami.
 - **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
   šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
   korisnika; kad lozinku postavi netko drugi (poništenje, lozinka upisana u
@@ -710,7 +727,9 @@ Ponovnim osnivanjem mreže ne obnavlja se stari čvor. Samo kad izvornog ključa
 više nema, a novi identitet je namjeran: u predlošku spremnika dodati
 `-novi-kljuc-cvora` u *Post Arguments* (Advanced View), pokrenuti spremnik
 jednom, pa zastavicu ukloniti (`docker run … ghcr.io/tkraljevic/gocop:<oznaka>
--novi-kljuc-cvora` izvan Unraida).
+-novi-kljuc-cvora` izvan Unraida). Ako se ni `gocop.toml` ne može vratiti,
+prije toga ga napisati u `/data` s dosadašnjim imenom čvora (redak
+`id = "…"` pod `[node]`), inače čvor kreće pod imenom `gocop-cvor`.
 
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi

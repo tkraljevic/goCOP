@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"gocop/internal/imecvora"
 	"gocop/internal/razmjena"
 )
 
@@ -31,15 +32,24 @@ const ZastavicaNovogKljuca = "novi-kljuc-cvora"
 type KljucNedostaje struct {
 	Kljuc string // datoteka ključa, gdje se očekuje
 	Baza  string // baza s podacima
+	// Postavke su gocop.toml uz bazu kad ni njih nema (zadaje pokretanje,
+	// koje jedino zna odakle su postavke); "" kad su pročitane
+	Postavke string
 }
 
 func (e *KljucNedostaje) Error() string {
-	return fmt.Sprintf(`Čvor se ne pokreće: nema ključa čvora %s, a baza %s već ima podatke.
+	vratite, bezPostavki, ime := "izvornu datoteku "+KeyFileName, "", ""
+	if e.Postavke != "" {
+		vratite = "izvorne datoteke " + KeyFileName + " i " + filepath.Base(e.Postavke)
+		bezPostavki = fmt.Sprintf("\nUz bazu nema ni postavki %s, a u njima je i ime čvora u mreži; vjerojatno su premještene zajedno s ključem.", e.Postavke)
+		ime = fmt.Sprintf(" Ako ni postavki više nema, prije toga ih napišite uz bazu s dosadašnjim imenom čvora (redak id = \"…\" pod [node]); bez njih čvor s novim ključem kreće pod zadanim imenom %s.", imecvora.Stari)
+	}
+	return fmt.Sprintf(`Čvor se ne pokreće: nema ključa čvora %s, a baza %s već ima podatke.%s
 Ključ čvora (datoteka %s uz bazu) identitet je ovog računala u mreži. Novi ključ dao bi čvoru novi identitet: upareni čvorovi odbili bi razmjenu s njim („dokazao je drugi ključ od uparenog”), a tajne šifrirane starim ključem (npr. lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
 Što učiniti:
-  1. Vratite izvornu datoteku %s u %s, iz sigurnosne kopije ili s mjesta na koje je premještena (na Unraidu i u Dockeru provjerite montaže i nije li je mover odnio na drugi disk), pa ponovno pokrenite čvor.
-  2. Samo ako izvornog ključa više nema, a novi identitet je namjeran: pokrenite čvor jednom sa zastavicom -%s, pa je uklonite. Zatim ga na čvoru koji ga je primio u mrežu zaboravite, opozovite mu članstvo i ponovno ga primite.`,
-		e.Kljuc, e.Baza, KeyFileName, KeyFileName, filepath.Dir(e.Kljuc), ZastavicaNovogKljuca)
+  1. Vratite %s u %s, iz sigurnosne kopije ili s mjesta na koje je premještena (na Unraidu i u Dockeru provjerite montaže i nije li je mover odnio na drugi disk), pa ponovno pokrenite čvor.
+  2. Samo ako izvornog ključa više nema, a novi identitet je namjeran: zaustavite čvor i pokrenite ga jednom sa zastavicom -%s uz ovu bazu (-db %s), kao korisnik pod kojim inače radi, pa zastavicu uklonite (za Postavu, uslugu sustava, Docker i Unraid vidi docs/INSTALACIJA.md, poglavlje 3).%s Zatim ga na čvoru koji ga je primio u mrežu zaboravite, opozovite mu članstvo i ponovno ga primite.`,
+		e.Kljuc, e.Baza, bezPostavki, KeyFileName, vratite, filepath.Dir(e.Kljuc), ZastavicaNovogKljuca, e.Baza, ime)
 }
 
 // putKljuca je datoteka ključa čvora uz bazu (ista kao u LoadNode)
@@ -50,10 +60,11 @@ func putKljuca(dbPath string) string {
 // ProvjeriKljucCvora pazi da postojeći čvor ne dobije tiho novi identitet.
 // Kad uz bazu nema ključa čvora, a knjiga verzija u njoj nije prazna, vraća
 // *KljucNedostaje — osim kad je novi ključ izričito dopušten (dopustiNovi,
-// zastavica -novi-kljuc-cvora). Svjež čvor (baze nema ili joj je knjiga
-// prazna) prolazi, pa mu LoadNode ključ napravi kao i dosad. Poziva se prije
-// otvaranja baze; baza se pritom samo čita.
-func ProvjeriKljucCvora(dbPath string, dopustiNovi bool) error {
+// zastavica -novi-kljuc-cvora); tada je noviIdentitet true. Svjež čvor
+// (baze nema ili joj je knjiga prazna) prolazi, pa mu LoadNode ključ
+// napravi kao i dosad. Poziva se prije otvaranja baze; baza se pritom samo
+// čita.
+func ProvjeriKljucCvora(dbPath string, dopustiNovi bool) (noviIdentitet bool, err error) {
 	kljuc := putKljuca(dbPath)
 	if _, err := os.Stat(kljuc); !errors.Is(err, fs.ErrNotExist) {
 		// ključ postoji (ili se ne da ni pogledati, pa ga LoadNode ne
@@ -61,20 +72,20 @@ func ProvjeriKljucCvora(dbPath string, dopustiNovi bool) error {
 		if err == nil && dopustiNovi {
 			log.Printf("Ključ čvora: %s postoji, pa zastavica -%s nema učinka; uklonite je iz pokretanja", kljuc, ZastavicaNovogKljuca)
 		}
-		return nil
+		return false, nil
 	}
 	ima, err := knjigaImaZapisa(dbPath)
 	if err != nil {
-		return fmt.Errorf("ključ čvora %s ne postoji, a ne može se provjeriti ima li baza %s podataka: %w", kljuc, dbPath, err)
+		return false, fmt.Errorf("ključ čvora %s ne postoji, a ne može se provjeriti ima li baza %s podataka: %w", kljuc, dbPath, err)
 	}
 	if !ima {
-		return nil
+		return false, nil
 	}
 	if dopustiNovi {
 		log.Printf("Ključ čvora: %s ne postoji, a baza ima podatke; zastavicom -%s izričito je dopušten novi ključ, pa čvor dobiva NOVI identitet. Upareni čvorovi odbijat će ga dok ga ne zaborave, ne opozovu mu članstvo i ponovno ga prime u mrežu.", kljuc, ZastavicaNovogKljuca)
-		return nil
+		return true, nil
 	}
-	return &KljucNedostaje{Kljuc: kljuc, Baza: dbPath}
+	return false, &KljucNedostaje{Kljuc: kljuc, Baza: dbPath}
 }
 
 // knjigaImaZapisa javlja ima li baza ijednu verziju u knjizi: tada je to

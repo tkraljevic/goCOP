@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"gocop/internal/db"
+	"gocop/internal/imecvora"
 )
 
 // bazaZaKljuc napravi bazu sa shemom uz koju nema ključa čvora; sVerzijom
@@ -50,10 +51,10 @@ func zapisDnevnika(t *testing.T) *bytes.Buffer {
 // koji upareni čvorovi odbijaju, i kako dalje. Ključ se pritom ne stvara.
 func TestPostojeciCvorBezKljucaNeKrece(t *testing.T) {
 	put := bazaZaKljuc(t, true)
-	err := ProvjeriKljucCvora(put, false)
+	novi, err := ProvjeriKljucCvora(put, false)
 	var nema *KljucNedostaje
-	if !errors.As(err, &nema) {
-		t.Fatalf("očekivano odbijanje, dobiveno %v", err)
+	if !errors.As(err, &nema) || novi {
+		t.Fatalf("očekivano odbijanje, dobiveno %v (novi identitet %v)", err, novi)
 	}
 	kljuc := filepath.Join(filepath.Dir(put), KeyFileName)
 	if nema.Kljuc != kljuc || nema.Baza != put {
@@ -63,14 +64,42 @@ func TestPostojeciCvorBezKljucaNeKrece(t *testing.T) {
 	for _, mora := range []string{
 		"Čvor se ne pokreće", kljuc, put, "novi identitet", "odbili bi razmjenu",
 		"Vratite izvornu datoteku node-key u " + filepath.Dir(put), "sigurnosne kopije",
-		"-novi-kljuc-cvora", "opozovite mu članstvo",
+		"-novi-kljuc-cvora uz ovu bazu (-db " + put + ")", "kao korisnik pod kojim inače radi",
+		"INSTALACIJA.md, poglavlje 3", "opozovite mu članstvo",
 	} {
 		if !strings.Contains(poruka, mora) {
 			t.Errorf("u poruci nema %q:\n%s", mora, poruka)
 		}
 	}
+	if strings.Contains(poruka, "gocop.toml") {
+		t.Errorf("postavke su na mjestu, a poruka ih spominje:\n%s", poruka)
+	}
 	if _, err := os.Stat(kljuc); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("provjera je napravila ključ: %v", err)
+	}
+}
+
+// Kad uz ključ nema ni postavki (Unraid, 5. 10. 2026.: mover je odnio
+// oboje), odbijanje kaže i za njih: treba vratiti obje datoteke, a ako
+// postavki više nema, napisati ih s dosadašnjim imenom prije novog ključa,
+// jer bi čvor inače s novim ključem krenuo pod zadanim imenom
+func TestOdbijanjeKadNemaNiPostavki(t *testing.T) {
+	dir := t.TempDir()
+	e := &KljucNedostaje{
+		Kljuc:    filepath.Join(dir, KeyFileName),
+		Baza:     filepath.Join(dir, "gocop.db"),
+		Postavke: filepath.Join(dir, "gocop.toml"),
+	}
+	poruka := e.Error()
+	for _, mora := range []string{
+		"Uz bazu nema ni postavki " + e.Postavke, "ime čvora u mreži",
+		"Vratite izvorne datoteke node-key i gocop.toml u " + dir,
+		"id = \"…\" pod [node]", "pod zadanim imenom " + imecvora.Stari,
+		"-novi-kljuc-cvora",
+	} {
+		if !strings.Contains(poruka, mora) {
+			t.Errorf("u poruci nema %q:\n%s", mora, poruka)
+		}
 	}
 }
 
@@ -79,8 +108,8 @@ func TestPostojeciCvorBezKljucaNeKrece(t *testing.T) {
 func TestNoviKljucSamoIzricito(t *testing.T) {
 	put := bazaZaKljuc(t, true)
 	dnevnik := zapisDnevnika(t)
-	if err := ProvjeriKljucCvora(put, true); err != nil {
-		t.Fatalf("izričito dopušten novi ključ: %v", err)
+	if novi, err := ProvjeriKljucCvora(put, true); err != nil || !novi {
+		t.Fatalf("izričito dopušten novi ključ: %v (novi identitet %v)", err, novi)
 	}
 	if !strings.Contains(dnevnik.String(), "NOVI identitet") || !strings.Contains(dnevnik.String(), "-novi-kljuc-cvora") {
 		t.Errorf("dnevnik: %s", dnevnik)
@@ -92,14 +121,14 @@ func TestNoviKljucSamoIzricito(t *testing.T) {
 	// ključ sada postoji: provjera prolazi i bez zastavice, a zastavica
 	// koja je ostala u pokretanju samo se javi da je treba ukloniti
 	dnevnik.Reset()
-	if err := ProvjeriKljucCvora(put, false); err != nil {
-		t.Fatal(err)
+	if novi, err := ProvjeriKljucCvora(put, false); err != nil || novi {
+		t.Fatal(err, novi)
 	}
 	if dnevnik.Len() != 0 {
 		t.Errorf("bez zastavice nema što javiti: %s", dnevnik)
 	}
-	if err := ProvjeriKljucCvora(put, true); err != nil {
-		t.Fatal(err)
+	if novi, err := ProvjeriKljucCvora(put, true); err != nil || novi {
+		t.Fatal(err, novi)
 	}
 	if !strings.Contains(dnevnik.String(), "nema učinka") {
 		t.Errorf("dnevnik: %s", dnevnik)
@@ -111,7 +140,7 @@ func TestNoviKljucSamoIzricito(t *testing.T) {
 // Provjera pritom bazu ne stvara.
 func TestSvjezCvorDobivaKljucSam(t *testing.T) {
 	nema := filepath.Join(t.TempDir(), "gocop.db")
-	if err := ProvjeriKljucCvora(nema, false); err != nil {
+	if _, err := ProvjeriKljucCvora(nema, false); err != nil {
 		t.Errorf("baze nema: %v", err)
 	}
 	if _, err := os.Stat(nema); !errors.Is(err, os.ErrNotExist) {
@@ -122,12 +151,16 @@ func TestSvjezCvorDobivaKljucSam(t *testing.T) {
 	if err := os.WriteFile(prazna, nil, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := ProvjeriKljucCvora(prazna, false); err != nil {
+	if _, err := ProvjeriKljucCvora(prazna, false); err != nil {
 		t.Errorf("prazna datoteka baze: %v", err)
 	}
 
-	if err := ProvjeriKljucCvora(bazaZaKljuc(t, false), false); err != nil {
+	if _, err := ProvjeriKljucCvora(bazaZaKljuc(t, false), false); err != nil {
 		t.Errorf("baza bez verzija u knjizi: %v", err)
+	}
+	// i uz zastavicu svjež čvor dobiva ključ kao svjež, ne kao novi identitet
+	if novi, err := ProvjeriKljucCvora(bazaZaKljuc(t, false), true); err != nil || novi {
+		t.Errorf("svjež čvor uz zastavicu: %v (novi identitet %v)", err, novi)
 	}
 }
 
@@ -138,7 +171,7 @@ func TestNecitljivaBazaBezKljuca(t *testing.T) {
 	if err := os.WriteFile(put, []byte(strings.Repeat("nije sqlite ", 1000)), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	err := ProvjeriKljucCvora(put, false)
+	_, err := ProvjeriKljucCvora(put, false)
 	var nema *KljucNedostaje
 	if err == nil || errors.As(err, &nema) || !strings.Contains(err.Error(), "ne može se provjeriti") {
 		t.Fatalf("nečitljiva baza: %v", err)
@@ -149,7 +182,7 @@ func TestNecitljivaBazaBezKljuca(t *testing.T) {
 // čitanje odbija se
 func TestProvjeraKljucaSamoCita(t *testing.T) {
 	put := bazaZaKljuc(t, true)
-	if err := ProvjeriKljucCvora(put, false); err == nil {
+	if _, err := ProvjeriKljucCvora(put, false); err == nil {
 		t.Fatal("očekivano odbijanje")
 	}
 	err := citajBazu(put, func(baza *sql.DB) error {

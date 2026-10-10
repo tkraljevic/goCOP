@@ -271,9 +271,21 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
 - Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
   0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka
-  nedostaje. Vratite izvornik iz kopije; novi identitet samo izričito,
-  jednim pokretanjem sa zastavicom `-novi-kljuc-cvora` (vidi
-  [INSTALACIJA.md](INSTALACIJA.md), poglavlje 3).
+  nedostaje. Vratite izvornik iz kopije. Novi identitet samo izričito,
+  jednim pokretanjem sa zastavicom `-novi-kljuc-cvora`, kao korisnik
+  `gocop` i uz istu bazu (naredba pokrenuta kao `root` ostavila bi ključ
+  koji usluga ne može pročitati):
+
+  ```sh
+  sudo systemctl stop gocop
+  cd /var/lib/gocop && sudo runuser -u gocop -- /usr/local/bin/gocop \
+    -novi-kljuc-cvora -db /var/lib/gocop/gocop.db
+  # kad javi da je poslužitelj spreman (bez prava na port 80, na :8080): Ctrl+C
+  sudo systemctl start gocop
+  ```
+
+  Zatim ga čvor koji ga je primio u mrežu zaboravi, opozove mu članstvo i
+  ponovno ga primi (vidi [INSTALACIJA.md](INSTALACIJA.md), poglavlje 3).
 
 ## 7. Portovi i vatrozid
 
