@@ -162,7 +162,7 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	mora(w, http.StatusOK, "nacrt nakon izmjene", "badge badge-pending\">nacrt", "prvi put predano GCOP-u ", ", čeka ponovnu predaju",
 		"izmijenio poslije predaje: Ivo Ivić", "Ponovo predaj GCOP-u", "Sastavio: <strong>Ana Anić</strong>")
 	nema(w, "nacrt nakon izmjene", `action="`+dok+`/obrisi"`, "Povuci predaju")
-	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "čeka ponovnu predaju")
+	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "čeka ponovnu predaju", "izmijenio poslije predaje: Ivo Ivić")
 	// nacrt koji je bio predan ne briše se
 	w = zovi(ana, uprava, http.MethodPost, dok+"/obrisi", url.Values{})
 	poruka(w, "error", "izvješće sektora koje je bilo predano Glavnom centru ne briše se")
@@ -224,6 +224,7 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	poruka(w, "success", "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar.")
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "izvješće dionice nakon izmjene",
 		"badge badge-pending\">nacrt", "prvi put predano ", ", čeka ponovnu predaju", "izmijenio poslije predaje: Pero Perić", "Ponovo predaj")
+	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis nakon izmjene izvješća dionice", "izmijenio poslije predaje: Pero Perić")
 	// gumb za brisanje: izvješće koje je bilo predano briše samo uprava
 	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "nacrt nakon predaje kao autor", `action="/izvjesca/`+idd+`/obrisi"`)
 	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "nacrt nakon predaje kao uprava", `action="/izvjesca/`+idd+`/obrisi"`)

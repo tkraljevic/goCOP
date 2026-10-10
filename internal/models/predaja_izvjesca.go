@@ -92,9 +92,10 @@ func (t TragPredaje) TkoJeMijenjao() string {
 	return strings.Join(imena, ", ")
 }
 
-// izmjeneZaIspis: „izmijenio poslije predaje: Ivo Ivić”, a kad ih je više
-// „izmijenili poslije predaje: Ivo Ivić, Marko Markić”; prazno kad nitko
-func (t TragPredaje) izmjeneZaIspis() string {
+// IzmjeneZaIspis: „izmijenio poslije predaje: Ivo Ivić”, a kad ih je više
+// „izmijenili poslije predaje: Ivo Ivić, Marko Markić”; prazno kad nitko.
+// Tako piše na dokumentu, u izvozu i u popisu izvješća.
+func (t TragPredaje) IzmjeneZaIspis() string {
 	switch len(t.Izmijenili) {
 	case 0:
 		return ""
@@ -146,7 +147,7 @@ func (t TragPredaje) opisPredaje(predano *time.Time, kome, format string) string
 // kad se zna i nije onaj tko ga je sastavio, tko ga je predao
 func (t TragPredaje) trag(predano *time.Time, izradio, kome, format string) string {
 	var dijelovi []string
-	if iz := t.izmjeneZaIspis(); iz != "" {
+	if iz := t.IzmjeneZaIspis(); iz != "" {
 		dijelovi = append(dijelovi, iz)
 	}
 	if o := t.opisPredaje(predano, kome, format); o != "" {
