@@ -42,7 +42,9 @@ func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",
 		"tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati",
 		"Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području na kojem ima dužnost",
-		"Dnevnike drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na naslovnici",
+		"i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao zapis)",
+		"i mora biti isti: dio naziva nije ista firma",
+		"Dnevnike drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na naslovnici u kojem nije pisao",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)

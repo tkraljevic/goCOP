@@ -1,12 +1,18 @@
 package service
 
 import (
+	"context"
+	"database/sql"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"gocop/internal/db"
+	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Dnevnike usluga A.02 i A.03 izvođač čita samo na branjenom području svoje
@@ -58,7 +64,9 @@ func TestIzvodjacVidiSamoSvojDnevnikUsluge(t *testing.T) {
 // Dnevnik druge firme i dnevnik bez izvođača na naslovnici ne čita;
 // administrator i HV strana čitaju svaki. Podaci su izmišljeni.
 func TestIzvodjacVidiSamoDnevnikSvojeFirme(t *testing.T) {
-	s := &JournalService{}
+	_, repo := uslugeBaza(t)
+	s := NewJournalService(repo, nil, nil)
+	ctx := context.Background()
 	sektor := "P"
 	p1 := 1
 	podrucje1 := models.OpsegPodrucja(models.Area{ID: 1, SectorID: "P"})
@@ -91,16 +99,87 @@ func TestIzvodjacVidiSamoDnevnikSvojeFirme(t *testing.T) {
 			j    *models.Journal
 			vidi bool
 		}{{svoj, sl.svoj}, {vodi, sl.vodi}, {drugi, sl.drugi}, {prazan, sl.prazan}} {
-			if got := s.VidiDnevnikUsluge(sl.perms, podrucje1, x.j); got != x.vidi {
+			if got := s.VidiDnevnikUsluge(ctx, sl.perms, podrucje1, x.j); got != x.vidi {
 				t.Errorf("%s: dnevnik izvođača %q (voditelj %q) %v, očekivano %v", sl.naziv, x.j.Contractor, x.j.ContractorLead, got, x.vidi)
 			}
 		}
 	}
 	// svoj dnevnik na tuđem području ne čita; bez dnevnika nema čitanja
-	if s.VidiDnevnikUsluge(poslovodja, models.OpsegPodrucja(models.Area{ID: 2, SectorID: "P"}), svoj) {
+	if s.VidiDnevnikUsluge(ctx, poslovodja, models.OpsegPodrucja(models.Area{ID: 2, SectorID: "P"}), svoj) {
 		t.Error("poslovođa čita dnevnik svoje firme na području bez dužnosti")
 	}
-	if s.VidiDnevnikUsluge(poslovodja, podrucje1, nil) {
+	if s.VidiDnevnikUsluge(ctx, poslovodja, podrucje1, nil) {
 		t.Error("poslovođa čita nepoznat dnevnik")
+	}
+}
+
+// uslugeBaza je baza sa sektorom P i područjem 1 i repozitorij dnevnika
+// nad njom
+func uslugeBaza(t *testing.T) (*sql.DB, *repository.JournalRepository) {
+	t.Helper()
+	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "usluge.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	if err := db.InitSchema(baza); err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerica', 'COP Primjerica')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Primjerica', 'VGI Primjerica', 'Primjerica')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return baza, repository.NewJournalRepository(baza, ledger.New(baza, "test"))
+}
+
+// Dnevnik je izvođačev i kad ga naslovnica ne navodi, ako ga je izvođač
+// otvorio ili u njemu otvorio list ili upisao zapis; tuđi upis ga ne čini
+// njegovim, a bez baze (greška čitanja) nije njegov. Podaci su izmišljeni.
+func TestDnevnikIzvodjacaPoUpisima(t *testing.T) {
+	baza, repo := uslugeBaza(t)
+	s := NewJournalService(repo, nil, nil)
+	ctx := context.Background()
+	pero := &models.User{ID: uuid.New(), FullName: "Pero Perić"}
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	novi := func(otvorio string) *models.Journal {
+		t.Helper()
+		j := &models.Journal{AreaID: 1, Kind: models.JournalKindMaintenanceA03, Year: 2026, Contractor: "Primjer d.o.o.", CreatedBy: otvorio}
+		if err := repo.SaveJournal(ctx, j); err != nil {
+			t.Fatal(err)
+		}
+		return j
+	}
+	dan := time.Date(2026, 10, 8, 0, 0, 0, 0, models.Zagreb)
+	listom, upisom, otvorio, prazan := novi(""), novi(""), novi(pero.ID.String()), novi("")
+	if err := repo.SaveSheet(ctx, &models.JournalSheet{JournalID: listom.ID, Date: dan, CreatedBy: pero.ID.String()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveEntry(ctx, &models.JournalEntry{JournalID: upisom.ID, Date: dan, Kind: models.EntryKindWork, Text: "košnja", UserID: pero.ID.String()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repo.SaveEntry(ctx, &models.JournalEntry{JournalID: prazan.ID, Date: dan, Kind: models.EntryKindNote, Text: "napomena", UserID: ana.ID.String()}); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []struct {
+		ime    string
+		j      *models.Journal
+		njegov bool
+	}{{"otvorio list", listom, true}, {"upisao zapis", upisom, true}, {"otvorio dnevnik", otvorio, true}, {"upisao drugi", prazan, false}, {"bez dnevnika", nil, false}} {
+		if got := s.dnevnikIzvodjaca(ctx, pero, x.j); got != x.njegov {
+			t.Errorf("%s: %v, očekivano %v", x.ime, got, x.njegov)
+		}
+	}
+	if s.dnevnikIzvodjaca(ctx, ana, listom) {
+		t.Error("dnevnik je izvođačev po tuđem listu")
+	}
+	if _, err := baza.Exec(`DROP TABLE journal_entries`); err != nil {
+		t.Fatal(err)
+	}
+	if s.dnevnikIzvodjaca(ctx, pero, upisom) {
+		t.Error("uz grešku čitanja dnevnik je izvođačev")
 	}
 }
