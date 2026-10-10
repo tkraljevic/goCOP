@@ -255,3 +255,13 @@ func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
 		}
 	}
 }
+
+// Pomoć kaže da list prenesen iz ranije evidencije pri razmjeni vrijedi kao
+// predan: nacrt s drugog čvora ga ne zamjenjuje, a preneseni obilasci
+// ostaju (Odluke (8. 10. 2026.), pitanje 7).
+func TestPomocOPrenesenomListuSDrugogCvora(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if !strings.Contains(h, "list prenesen iz ranije evidencije: nacrt s drugog čvora ga ne zamjenjuje") {
+		t.Error("pomoć ne kaže da nacrt s drugog čvora ne zamjenjuje prenesen list")
+	}
+}

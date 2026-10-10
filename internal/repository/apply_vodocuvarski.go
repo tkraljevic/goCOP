@@ -24,6 +24,9 @@ import (
 //   - predan list uvijek ima prednost pred nacrtom s drugog čvora, i pred
 //     brisanjem nacrta; kad je list predan na dva čvora, oba potpisa ostaju
 //     (apply_vodocuvarski_dvojnici.go);
+//   - list prenesen iz ranije evidencije vrijedi kao predan: ima prednost
+//     pred nacrtom i brisanjem nacrta, a obilasci koje je uvoz prenio ostaju
+//     i na predanom listu (apply_vodocuvarski_preneseni.go);
 //   - od nacrta vrijedi onaj s najnovijim vodočuvarovim upisom
 //     (models.VodocuvarskiList.NapisanoAt), a od dva jednaka zadnji: nacrt
 //     koji je nastao bez vodočuvarova upisa (rukovoditeljev „Upiši”, akt o
@@ -129,6 +132,7 @@ func spojiZive(zive []verzijaLista) *models.VodocuvarskiList {
 	upisi, prijave := dodaciVerzija(zive)
 	l.Upisi = spojiUpise(l.Upisi, upisi)
 	l.Prijave = spojiPrijave(l.Prijave, prijave)
+	l.Zadaci, l.Prilozi = obilasciPrenesenih(l, zive)
 	l.Broj = brojIzVerzija(l.Broj, zive)
 	return &l
 }
@@ -175,9 +179,10 @@ func pokrivenaKasnijom(verzije []verzijaLista, i int) bool {
 // pokriva javlja je li kasnija verzija w (i brisanje) nastala znajući za
 // verziju v: ima sve njezine bilješke i prijave, a vodočuvarov upis nije joj
 // stariji. Predan list pokriva samo verzija istog potpisa (ovjera, parafa,
-// upis na predan list), nikad nacrt ni brisanje nacrta.
+// upis na predan list), a prenesen list samo prenesen list s njegovim
+// obilascima; nikad nacrt ni brisanje nacrta (smijePokriti).
 func pokriva(w, v verzijaLista) bool {
-	if v.list.Predan() && !istiPotpis(w.list, v.list) {
+	if !smijePokriti(w.list, v.list) {
 		return false
 	}
 	return !napisano(v.list).After(napisano(w.list)) && imaUpise(w.list.Upisi, v.list.Upisi) && imaPrijave(w.list.Prijave, v.list.Prijave)
@@ -229,11 +234,12 @@ func vrijediVerzija(verzije []verzijaLista) int {
 }
 
 // imaPrednost javlja vrijedi li kasnija verzija v umjesto dosad vrijedeće
-// w: predan list pred nacrtom, a nacrt nikad pred predanim; od dva predana
-// kasniji; od dva nacrta onaj čiji vodočuvarov upis nije stariji
+// w: predan list pred prenesenim i nacrtom, prenesen pred nacrtom, a nacrt
+// nikad pred zaključenim (prednostVerzije); od dva predana kasniji; od dva
+// nacrta (i dva prenesena) onaj čiji vodočuvarov upis nije stariji
 func imaPrednost(v, w verzijaLista) bool {
-	if v.list.Predan() || w.list.Predan() {
-		return v.list.Predan()
+	if a, b := prednostVerzije(v.list), prednostVerzije(w.list); a != b || a == prednostPredanog {
+		return a >= b
 	}
 	return !napisano(v.list).Before(napisano(w.list))
 }
