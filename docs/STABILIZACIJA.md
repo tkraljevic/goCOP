@@ -871,6 +871,42 @@ Otvoreno nakon pregleda, za odluku:
 - nacrt prijave prenesen iz BP16 koji vodočuvar dovrši u goCOP-u ne ide na zid;
 - 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči.
 
+## Izdanje 0.0.35: konsolidacijsko (odluka 10. 10. 2026.)
+
+0.0.35 izlazi nakon drugog kruga odluka od 8. 10., prije faze 3. Ne mora biti
+gotova stabilizacija, nego konzistentna mrežna baza za sljedeći korak: nova
+pravila i polja vrijede tek kad su svi čvorovi na istoj inačici, a mješovite
+inačice traže kompatibilnost po značajki. To je veći rizik od toga da faza 3
+kasni.
+
+Redoslijed:
+1. zatvoriti zaostatke faza 1–2 i odluke od 8. 10.;
+2. provjeriti (kriterij niže);
+3. izdati 0.0.35;
+4. nadograditi sve aktivne čvorove, prvo stalne (Unraid);
+5. zatim mrežni protokol;
+6. fazu 3 raditi usporedo s protokolom, gdje se dotiču.
+
+Kriterij izdanja:
+- `make quality` zelen (testovi, race, statička analiza, vrata kvalitete) i
+  puni CI na PR-u;
+- proba miješanih inačica na jednom računalu: čvor na 0.0.34 i čvor na novoj
+  inačici, na kopijama stvarnih baza, razmjena u oba smjera. Nema
+  neočekivanog „nepoznat entitet”, nema „ažurirajte goCOP” za zapise koje
+  stari čvor smije mijenjati, i nijedno polje ne nestaje pri povratku;
+- nakon nadogradnje glavni čvorovi vide isto stanje: isti broj zapisa po
+  sinkroniziranom entitetu, ista upozorenja uz isto izdanje prognoze, pločica
+  razmjene bez grešaka;
+- nema tihog gubitka podataka.
+
+Zatim: 0.0.34 je bila velika stabilizacija jezgre, 0.0.35 konsolidacija
+pravila i inačica čvorova, a dalje dolaze mrežni protokol i faza 3.
+Razdvajanje `applyOne` po entitetima nije samo smanjenje složenosti nego
+granica protokola. Ondje dolaze dogovor o inačicama, kompatibilnost sheme,
+postupak s nepoznatim entitetom, pravila nadogradnje, zapis odbijenih ili
+djelomično podržanih poruka i, gdje treba, pravilo kompatibilnosti po
+entitetu.
+
 ## Nestabilno mjerenje
 
 Coverage nekih funkcija mijenja se od pokretanja do pokretanja bez promjene koda i testova, pa `make quality` može javiti lažnu regresiju. Takav test treba učiniti determinističkim (grana se pogađa namjerno, a ne slučajno); baseline se zbog toga ne prihvaća.
