@@ -733,3 +733,20 @@ func TestIzvozSPostavkiDajeNajavljenoIzdanje(t *testing.T) {
 		t.Errorf("izvoz bez oznake izdanja: %d", w.Code)
 	}
 }
+
+// Koji dan daje satni, a koji dnevni model, uz izdanje se ne pamti: ranije
+// izdanje izvozi se po današnjem odabiru „Izvoz u Excel” i današnjoj
+// provjeri modela, pa napomena to kaže, a brojke ostaju iz izdanja.
+func TestNapomenaModelPoDanimaPremaDanasnjem(t *testing.T) {
+	want := "Prema današnjem stanju su: koji dan daje satni, a koji dnevni model (odabir „Izvoz u Excel” u " +
+		"Postavkama prognoze i, uz kombinaciju, dani koje je odredila provjera), godišnji vodostaji, zabilježene " +
+		"krajnosti i list „O prognozi”."
+	h := rukovateljRanijih(t)
+	w := izvezi(h, "?dan=2026-10-05&sat=10")
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", w.Code, w.Body.String())
+	}
+	if txt := tekstZipa(t, w.Body.Bytes()); !strings.Contains(txt, "mjerenja na grafovima sežu do sata izdanja. "+want) {
+		t.Errorf("napomena izvoza ne kaže da odabir modela po danima slijedi današnje postavke")
+	}
+}

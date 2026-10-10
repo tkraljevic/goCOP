@@ -271,12 +271,15 @@ func (iz RanijeIzdanje) izracunato(rijec string) string {
 }
 
 // Napomena je odlomak na prvom listu izvoza: koje je izdanje i što je u
-// izvozu iz njega, a što prema današnjem stanju.
+// izvozu iz njega, a što prema današnjem stanju. Koji dan daje satni, a koji
+// dnevni model uz izdanje se ne pamti, pa ide po današnjem odabiru i
+// današnjoj provjeri modela.
 func (iz RanijeIzdanje) Napomena(izvezeno time.Time) string {
 	return "Ranije izdanje, izvezeno " + satRanijeg(izvezeno) + ". " + iz.Poruka() +
 		" Iz tog izdanja (iz zadnjeg, kad je sat izdan više puta) su " + nabroji(iz.dijelovi(true)) +
-		"; mjerenja na grafovima sežu do sata izdanja, a godišnji vodostaji, zabilježene krajnosti i list" +
-		" „O prognozi” su prema današnjoj arhivi i modelu."
+		"; mjerenja na grafovima sežu do sata izdanja. Prema današnjem stanju su: koji dan daje satni, a koji" +
+		" dnevni model (odabir „Izvoz u Excel” u Postavkama prognoze i, uz kombinaciju, dani koje je odredila" +
+		" provjera), godišnji vodostaji, zabilježene krajnosti i list „O prognozi”."
 }
 
 // zahtjevRanijeg pronalazi izdanje koje upit traži i stavlja ga u kontekst
