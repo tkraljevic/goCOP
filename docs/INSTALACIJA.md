@@ -891,7 +891,10 @@ Samo 11 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
 nule iz elaborata, cjelovitost registara) treba stvarne registre. Dvije opće
 provjere prvog punjenja (drugo punjenje ništa ne udvostručuje, tekstovi su
 ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
-ponavljaju se i na njima. Stvarni registri su izvoz registara u mapi
+ponavljaju se i na njima. Tako i provjera registra teritorija (sve
+županije, gradovi i općine, naselja, sjedište županije, dionice sektora B i
+ugroženo područje dionice B.15.1): na izmišljenom skupu provjerava upite, a
+brojke izvoza tek na stvarnim registrima. Stvarni registri su izvoz registara u mapi
 `data/` u korijenu repozitorija (`sections.json`, `watercourses.json`,
 `territories.json`, `section_territories.json`, `objekti_bp16.json`,
 `organizacija.json`); odakle je koja, piše u odjeljku
