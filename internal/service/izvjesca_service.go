@@ -193,8 +193,9 @@ func vodotokDionice(sec *models.Section) string {
 // isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
 // Spremljeno izvješće uvijek je nacrt: izmjena predanog vraća ga u nacrt
 // koji se mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi
-// koji su ga mijenjali; tko sprema bez promjene, među njih ne ulazi. Izvješće koje je bilo predano i dok čeka ponovnu predaju
-// mijenja samo tko ga je izradio, ili uprava.
+// koji su ga mijenjali; tko sprema bez promjene, među njih ne ulazi.
+// Izvješće koje je bilo predano i dok čeka ponovnu predaju mijenja samo tko
+// ga je izradio, ili uprava.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
