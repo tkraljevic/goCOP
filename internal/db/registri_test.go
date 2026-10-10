@@ -355,3 +355,47 @@ func TestUseRepoImenikTraziImenikUzRegistre(t *testing.T) {
 		t.Errorf("putanje nisu na registrima: %s, %s", DataDir, ImenikPath)
 	}
 }
+
+// probeNaStvarnimBazama su varijable okoline kojima ručne probe izvan
+// provjera registara čitaju stvarne baze čvora
+var probeNaStvarnimBazama = []string{"GOCOP_KISA_PROBA", "GOCOP_PROGNOZE"}
+
+// Upute za razvoj navode svaku ručnu probu koja čita stvarne baze čvora, da
+// se zna što još, osim provjera registara i pregleda imena, dira stvarne
+// podatke; svaku od njih neki test doista čita
+func TestUputeNavodeProbeNaStvarnimBazama(t *testing.T) {
+	korijen := filepath.Join("..", "..")
+	upute, err := os.ReadFile(filepath.Join(korijen, "docs", "INSTALACIJA.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	citane := map[string]bool{}
+	for _, mapa := range []string{"cmd", "internal"} {
+		err := filepath.WalkDir(filepath.Join(korijen, mapa), func(put string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(put, "_test.go") {
+				return err
+			}
+			raw, err := os.ReadFile(put)
+			if err != nil {
+				return err
+			}
+			for _, v := range probeNaStvarnimBazama {
+				if strings.Contains(string(raw), `os.Getenv("`+v+`")`) {
+					citane[v] = true
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, v := range probeNaStvarnimBazama {
+		if !citane[v] {
+			t.Errorf("nijedan test ne čita %s; makni je s popisa ručnih proba", v)
+		}
+		if !strings.Contains(string(upute), "`"+v+"=") {
+			t.Errorf("upute za razvoj ne navode ručnu probu %s", v)
+		}
+	}
+}

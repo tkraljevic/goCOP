@@ -914,9 +914,12 @@ osim imena koja program sam prikazuje u pomoći. Pregled nalazi ime i
 prezime i u padežu i obrnutim redom, ali ne nalazi samo prezime, samo ime,
 ime od tri slova u padežu ni ime pisano velikim slovima, pa ne zamjenjuje
 čitanje testa. Baza se otvara samo za čitanje; bez nje se pregled preskače.
-Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
-(`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
-ne provjerava.
+Stvarne baze čvora čitaju još samo dvije ručne probe, koje ništa ne
+provjeravaju: proba stranice kišomjera (`GOCOP_KISA_PROBA=<mapa>`) iscrta
+stranice iz baza u `data/` za pregled okom, a mjera veličine izdanja
+prognoze u `internal/prognoza` (`GOCOP_PROGNOZE=<put do prognoze.db>`)
+ispiše veličinu zadnjeg izdanja. Mjera bazu prognoza otvara kao program, ne
+samo za čitanje (shemu može doraditi), pa se pokreće na kopiji baze.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati
