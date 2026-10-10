@@ -20,7 +20,9 @@ import (
 //   - verzija koju je kasnija verzija zamijenila znajući za nju (pokriva)
 //     više ne vrijedi; brisanje nacrta tako odnosi samo ono što je čvor
 //     koji briše znao, a nacrt i bilješka s drugog čvora za koje nije znao
-//     ostaju;
+//     ostaju; od nacrta s bilješkom za koju nije znalo ostaje bilješka, bez
+//     vodočuvarova teksta koji je brisanje vidjelo
+//     (apply_vodocuvarski_brisanje.go);
 //   - predan list uvijek ima prednost pred nacrtom s drugog čvora, i pred
 //     brisanjem nacrta; kad je list predan na dva čvora, oba potpisa ostaju
 //     (apply_vodocuvarski_dvojnici.go);
@@ -161,12 +163,17 @@ func brojIzVerzija(broj int, zive []verzijaLista) int {
 }
 
 // ziveVerzije su verzije lista koje vrijede: nisu brisanje i nijedna
-// kasnija verzija ih ne pokriva
+// kasnija verzija ih ne pokriva; od verzije koju je kasnije brisanje nacrta
+// vidjelo, a nije je pokrilo, vrijedi ono za što ono nije znalo
+// (apply_vodocuvarski_brisanje.go)
 func ziveVerzije(verzije []verzijaLista) []verzijaLista {
 	var out []verzijaLista
 	for i, v := range verzije {
-		if !v.arhivirana && !pokrivenaKasnijom(verzije, i) {
-			out = append(out, v)
+		if v.arhivirana || pokrivenaKasnijom(verzije, i) {
+			continue
+		}
+		if o, ostaje := ostatakNakonBrisanja(verzije, i); ostaje {
+			out = append(out, o)
 		}
 	}
 	return out
