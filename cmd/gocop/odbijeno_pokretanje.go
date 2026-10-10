@@ -66,7 +66,6 @@ func cekajOdbijen(ctx context.Context, addr, razlog string, ulaz io.Reader) {
 	}
 	srv := &http.Server{Handler: web.OdbijenoPokretanje(razlog), ReadHeaderTimeout: 10 * time.Second}
 	go func() { _ = srv.Serve(ln) }()
-	defer srv.Close()
 	log.Printf("Čvor ne radi, ali pod Postavom ostaje upaljen dok ga ona ne zaustavi, da ga pri nadogradnji ne zamijeni prethodnim izdanjem: ono bi uz ovu bazu napravilo novi ključ, dakle novi identitet. Razlog piše i na http://localhost:%d/ na ovom računalu.",
 		ln.Addr().(*net.TCPAddr).Port)
 	stop := make(chan os.Signal, 1)
@@ -75,6 +74,7 @@ func cekajOdbijen(ctx context.Context, addr, razlog string, ulaz io.Reader) {
 	case <-ctx.Done():
 	case <-stop:
 	}
+	_ = srv.Close() // čvor ionako izlazi; greška zatvaranja ništa ne mijenja
 }
 
 // portoviOdbijenog su portovi na kojima Postava pita /zdravlje: port iz
