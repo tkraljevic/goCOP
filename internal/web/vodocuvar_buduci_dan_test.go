@@ -167,6 +167,10 @@ func TestBuduciDanKrozRute(t *testing.T) {
 	if strings.Contains(list, `value="predaj"`) {
 		t.Error("budući list ne smije imati gumb predaje koji šalje obrazac")
 	}
+	// točka iza datuma završava i rečenicu
+	if strings.Contains(list, dan.Format("02.01.2006.")+".") || !strings.Contains(list, "od 00:00 "+dan.Format("02.01.2006.")+" Broj dobiva") {
+		t.Error("napomena o budućem danu: datum s dvije točke ili bez nastavka rečenice")
+	}
 	forma := url.Values{"datum": {prekosutra}, "od": {"07:00"}, "do": {"15:00"}, "opis": {"plan obilaska"}, "radnja": {"predaj"}}
 	l = mustUnescape(o.zovi(t, o.vodocuvar, http.MethodPost, "/vodocuvar/spremi", forma).Header().Get("Location"))
 	if !strings.Contains(l, "error") || !strings.Contains(l, "tek kad taj dan počne") {

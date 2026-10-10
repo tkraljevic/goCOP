@@ -65,7 +65,7 @@
   </div>
   {{end}}
   {{$buduci := gt ($l.Datum.Format "2006-01-02") .Danas}}
-  {{if $buduci}}<div class="form-help">Dan ovog lista još nije počeo: list se sprema kao nacrt bez rednog broja, a potpisuje i predaje tek od 00:00 {{$l.Datum.Format "02.01.2006."}}. Broj dobiva prvim spremanjem ili predajom kad taj dan počne.</div>{{end}}
+  {{if $buduci}}<div class="form-help">Dan ovog lista još nije počeo: list se sprema kao nacrt bez rednog broja, a potpisuje i predaje tek od 00:00 {{$l.Datum.Format "02.01.2006."}} Broj dobiva prvim spremanjem ili predajom kad taj dan počne.</div>{{end}}
   <div class="form-actions d-flex gap-2 flex-wrap">
     <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
     {{if $buduci}}<button type="button" class="btn btn-primary" disabled title="predaja od 00:00 {{$l.Datum.Format "02.01.2006."}}">{{icon "pencil"}} Potpiši i predaj</button>
