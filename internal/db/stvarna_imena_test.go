@@ -15,11 +15,11 @@ import (
 // pitanje 13). Pregled prema bazi čvora nalazi stvarna imena koja su ipak
 // ostala: imena djelatnika i svih koji su upisivali u dnevnike, dežurstva,
 // vodočuvarske listove i prijave, korisnička imena računa i brojeve mobitela
-// djelatnika. Pregled samo
-// prema računima promašio bi dežurne iz prijepisa dnevnika COP-a, koji nisu
-// računi. Baza čvora je stvarna i ne čita se sama od sebe (ni make quality ne
-// čita živu bazu): pregled se pokreće uz GOCOP_STVARNA_BAZA, koju make
-// provjera-registara postavlja kad je baza čvora u data/.
+// djelatnika. Pregled samo prema računima promašio bi dežurne iz prijepisa
+// dnevnika COP-a, koji nisu računi. Baza čvora je stvarna i ne čita se sama
+// od sebe (ni make quality ne čita živu bazu): pregled se pokreće uz
+// GOCOP_STVARNA_BAZA, koju make provjera-registara postavlja kad je baza
+// čvora u data/.
 
 // porukaStvarneBaze kaže što pregledu treba
 const porukaStvarneBaze = "pregled testova prema stvarnim imenima treba bazu čvora: GOCOP_STVARNA_BAZA=<apsolutna putanja do gocop.db>; " +
@@ -183,11 +183,109 @@ func jeTestnaDatoteka(put string) bool {
 	return strings.HasSuffix(put, "_test.go") || strings.Contains(filepath.ToSlash(put), "/testdata/")
 }
 
+// trazeno je ono što pregled testova traži: imena, korisnička imena i
+// brojeve mobitela iz baze čvora. Oblik izmišljenog imena (izmisljena) i ime
+// koje program sam prikazuje (autor i zahvale u pomoći, u tekstu dopusteno)
+// nisu nalaz.
+type trazeno struct {
+	imena, racuni, mobiteli map[string]bool
+	izmisljena              map[string]bool
+	dopusteno               string
+}
+
+// osnova je početak riječi koji ostaje u padežima: riječ bez zadnja dva
+// slova, ali ne kraća od tri (Markić → Mark, pa i Markića, Markiću)
+func osnova(rijec string) string {
+	r := []rune(rijec)
+	return string(r[:min(len(r), max(3, len(r)-2))])
+}
+
+// osnoveImena su osnove prve riječi imena, riječi ispred prezimena i
+// prezimena jedne osobe
+type osnoveImena struct{ ime, prva, predzadnja, prezime string }
+
+// oblikImena javlja jesu li dvije susjedne riječi ime i prezime ili
+// prezime i ime te osobe, u bilo kojem padežu
+func (o osnoveImena) oblikImena(w1, w2 string) bool {
+	return strings.HasPrefix(w1, o.predzadnja) && strings.HasPrefix(w2, o.prezime) ||
+		strings.HasPrefix(w1, o.prezime) && strings.HasPrefix(w2, o.prva)
+}
+
+// kazaloImena drži osnove imena po prva tri slova osnove prezimena, da se
+// par riječi provjeri samo prema osobama čije prezime tako počinje
+type kazaloImena map[string][]osnoveImena
+
+// pocetak je prvih n slova riječi, ili cijela kraća riječ
+func pocetak(rijec string, n int) string {
+	r := []rune(rijec)
+	return string(r[:min(n, len(r))])
+}
+
+// novoKazalo slaže kazalo imena od najmanje dvije riječi
+func novoKazalo(imena map[string]bool) kazaloImena {
+	k := kazaloImena{}
+	for ime := range imena {
+		d := strings.FieldsFunc(ime, func(c rune) bool { return c == ' ' || c == '-' })
+		if len(d) < 2 {
+			continue
+		}
+		o := osnoveImena{ime, osnova(d[0]), osnova(d[len(d)-2]), osnova(d[len(d)-1])}
+		kljuc := pocetak(o.prezime, 3)
+		k[kljuc] = append(k[kljuc], o)
+	}
+	return k
+}
+
+// osobe vraća imena osoba kojima su dvije susjedne riječi ime i prezime
+func (k kazaloImena) osobe(w1, w2 string) []string {
+	var nadjene []string
+	for _, w := range []string{w1, w2} {
+		// prezime od dva slova ima osnovu od dva slova
+		for _, n := range []int{2, 3} {
+			for _, o := range k[pocetak(w, n)] {
+				if o.oblikImena(w1, w2) {
+					nadjene = append(nadjene, o.ime)
+				}
+			}
+		}
+	}
+	return nadjene
+}
+
+// kaoIme javlja je li riječ zapisana kao ime: veliko početno slovo, ostala
+// mala (ne „ReportedBy”, ne „VGI”)
+func kaoIme(rijec string) bool {
+	for i, c := range []rune(rijec) {
+		if (i == 0) != unicode.IsUpper(c) {
+			return false
+		}
+	}
+	return rijec != ""
+}
+
+// obliciImena vraća stvarna imena čiji je oblik (padež, obrnut red) u
+// tekstu kao par susjednih riječi zapisanih kao ime; par koji je oblik
+// izmišljenog imena preskače
+func obliciImena(tekst string, stvarna, izmisljena kazaloImena) map[string]bool {
+	nadjena := map[string]bool{}
+	slijed := strings.FieldsFunc(tekst, func(c rune) bool { return !unicode.IsLetter(c) })
+	for i := 0; i+1 < len(slijed); i++ {
+		w1, w2 := slijed[i], slijed[i+1]
+		if !kaoIme(w1) || !kaoIme(w2) || len(izmisljena.osobe(w1, w2)) > 0 {
+			continue
+		}
+		for _, ime := range stvarna.osobe(w1, w2) {
+			nadjena[ime] = true
+		}
+	}
+	return nadjena
+}
+
 // pregledajTestove traži stvarna imena, korisnička imena i brojeve mobitela
-// u testovima i testnim podacima ispod korijena. Ime koje program sam
-// prikazuje (autor i zahvale u pomoći, u tekstu dopusteno) nije nalaz.
-func pregledajTestove(korijen string, imena, racuni, mobiteli map[string]bool, dopusteno string) ([]nalazStvarnogImena, error) {
+// u testovima i testnim podacima ispod korijena
+func pregledajTestove(korijen string, tr trazeno) ([]nalazStvarnogImena, error) {
 	var nalazi []nalazStvarnogImena
+	stvarna, izmisljena := novoKazalo(tr.imena), novoKazalo(tr.izmisljena)
 	for _, mapa := range []string{"cmd", "internal", "testdata"} {
 		err := filepath.WalkDir(filepath.Join(korijen, mapa), func(put string, d fs.DirEntry, err error) error {
 			if err != nil || d.IsDir() || !jeTestnaDatoteka(put) {
@@ -197,8 +295,8 @@ func pregledajTestove(korijen string, imena, racuni, mobiteli map[string]bool, d
 			if err != nil {
 				return err
 			}
-			nalazi = append(nalazi, imenaUTekstu(put, string(raw), imena, racuni, dopusteno)...)
-			nalazi = append(nalazi, telefoniUTekstu(put, string(raw), mobiteli)...)
+			nalazi = append(nalazi, imenaUTekstu(put, string(raw), tr, stvarna, izmisljena)...)
+			nalazi = append(nalazi, telefoniUTekstu(put, string(raw), tr.mobiteli)...)
 			return nil
 		})
 		if err != nil && !os.IsNotExist(err) {
@@ -208,17 +306,25 @@ func pregledajTestove(korijen string, imena, racuni, mobiteli map[string]bool, d
 	return nalazi, nil
 }
 
-// imenaUTekstu vraća stvarna imena i korisnička imena iz teksta jedne datoteke
-func imenaUTekstu(put, tekst string, imena, racuni map[string]bool, dopusteno string) []nalazStvarnogImena {
+// imenaUTekstu vraća stvarna imena i korisnička imena iz teksta jedne
+// datoteke: ime kako je zapisano u bazi čvora (i ime od tri i više riječi)
+// te ime u padežu i obrnutim redom
+func imenaUTekstu(put, tekst string, tr trazeno, stvarna, izmisljena kazaloImena) []nalazStvarnogImena {
 	var nalazi []nalazStvarnogImena
 	dijelovi, cijele := rijeci(tekst, false), rijeci(tekst, true)
-	for ime := range imena {
+	nadjena := obliciImena(tekst, stvarna, izmisljena)
+	for ime := range tr.imena {
 		prva := strings.FieldsFunc(ime, func(c rune) bool { return c == ' ' || c == '-' })[0]
-		if dijelovi[prva] && strings.Contains(tekst, ime) && !strings.Contains(dopusteno, ime) {
+		if dijelovi[prva] && strings.Contains(tekst, ime) {
+			nadjena[ime] = true
+		}
+	}
+	for ime := range nadjena {
+		if !strings.Contains(tr.dopusteno, ime) {
 			nalazi = append(nalazi, nalazStvarnogImena{put, ime})
 		}
 	}
-	for racun := range racuni {
+	for racun := range tr.racuni {
 		if cijele[racun] {
 			nalazi = append(nalazi, nalazStvarnogImena{put, racun})
 		}
@@ -258,13 +364,76 @@ func TestTestoviBezImenaIzStvarneBaze(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	nalazi, err := pregledajTestove(korijen, imena, racuni, mobiteli, string(pomoc))
+	nalazi, err := pregledajTestove(korijen, trazeno{imena: imena, racuni: racuni, mobiteli: mobiteli, izmisljena: izmisljeni, dopusteno: string(pomoc)})
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, n := range nalazi {
 		t.Errorf("%s: stvarni podatak osobe iz baze čvora %q; testovi rade na izmišljenim osobama (testdata/sektor-p)", n.datoteka, n.ime)
 	}
+}
+
+// Ime se nalazi i u padežu i obrnutim redom (prezime pa ime), kad su ime i
+// prezime susjedne riječi: osnova riječi je riječ bez zadnja dva slova, ali
+// ne kraća od tri. Ne nalazi se samo prezime, samo ime, ime od tri slova u
+// padežu ni ime pisano velikim slovima, pa pregled ne zamjenjuje čitanje;
+// riječ s velikim slovom u sredini (ime polja u kodu) nije ime. Oblik
+// izmišljenog imena i ime iz pomoći nisu nalaz.
+func TestPregledNalaziImeUPadezuIObrnutimRedom(t *testing.T) {
+	korijen := t.TempDir()
+	for put, sadrzaj := range map[string]string{
+		"internal/x/padez_test.go":         `"potpisao Marku Markiću"`,
+		"internal/x/obrnuto_test.go":       `Ime: "Anić Ana"`,
+		"internal/x/obrnuto_padez_test.go": "// od Markića Marka",
+		"internal/x/prezime_test.go":       `"Markić je prezime", "Marko je ime", "Ana"`,
+		"internal/x/kratko_test.go":        `"Ivi Iviću"`,
+		"internal/x/malo_test.go":          `"marku markiću"`,
+		"internal/x/polje_test.go":         `AnicevPotpis: "Ana", MARKIĆ MARKO`,
+		"internal/x/program.go":            `"Marku Markiću"`,
+		"testdata/skup/zapis.txt":          "upisao Anić, Ana",
+	} {
+		p := filepath.Join(korijen, filepath.FromSlash(put))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	imena := map[string]bool{"Ana Anić": true, "Marko Markić": true, "Ivo Ivić": true}
+	nadjeno := func(tr trazeno) map[string]bool {
+		t.Helper()
+		nalazi, err := pregledajTestove(korijen, tr)
+		if err != nil {
+			t.Fatal(err)
+		}
+		m := map[string]bool{}
+		for _, n := range nalazi {
+			rel, _ := filepath.Rel(korijen, n.datoteka)
+			m[filepath.ToSlash(rel)+" "+n.ime] = true
+		}
+		return m
+	}
+	usporedi := func(opis string, dobiveno map[string]bool, zeli ...string) {
+		t.Helper()
+		for _, z := range zeli {
+			if !dobiveno[z] {
+				t.Errorf("%s: nije nađeno %s", opis, z)
+			}
+		}
+		if len(dobiveno) != len(zeli) {
+			t.Errorf("%s: nalazi %v, očekivano samo %v", opis, dobiveno, zeli)
+		}
+	}
+
+	usporedi("stvarna imena", nadjeno(trazeno{imena: imena}),
+		"internal/x/padez_test.go Marko Markić",
+		"internal/x/obrnuto_test.go Ana Anić",
+		"internal/x/obrnuto_padez_test.go Marko Markić",
+		"testdata/skup/zapis.txt Ana Anić",
+	)
+	usporedi("izmišljeno ime i ime iz pomoći",
+		nadjeno(trazeno{imena: imena, izmisljena: map[string]bool{"Marko Markić": true, "mmarkic": true}, dopusteno: "Zahvale: Ana Anić"}))
 }
 
 // Ni broj mobitela iz baze čvora ne smije ostati u testu: pregled ga nalazi
@@ -315,7 +484,7 @@ func TestPregledNalaziStvarniBrojMobitela(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	nalazi, err := pregledajTestove(korijen, nil, nil, mobiteli, "")
+	nalazi, err := pregledajTestove(korijen, trazeno{mobiteli: mobiteli})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -400,7 +569,7 @@ func TestPregledStvarnihImenaNalaziImeIRacun(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	nalazi, err := pregledajTestove(korijen, imena, racuni, nil, "Zahvale: Ivo Ivić")
+	nalazi, err := pregledajTestove(korijen, trazeno{imena: imena, racuni: racuni, dopusteno: "Zahvale: Ivo Ivić"})
 	if err != nil {
 		t.Fatal(err)
 	}

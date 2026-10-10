@@ -43,6 +43,7 @@ quality-deep:
 # rade na izmišljenom skupu testdata/sektor-p i ne trebaju ništa. Kad je u
 # data/ i baza čvora (gocop.db), testovi se usput pregledaju prema imenima
 # iz nje: nijedan ne smije nositi stvarno ime, korisničko ime ni broj
-# mobitela. Baza se otvara samo za čitanje.
+# mobitela. Pregled ne nalazi samo prezime ni samo ime, pa ne zamjenjuje
+# čitanje testa. Baza se otvara samo za čitanje.
 provjera-registara:
 	GOCOP_REGISTRI=obavezno $(if $(wildcard data/gocop.db),GOCOP_STVARNA_BAZA="$(CURDIR)/data/gocop.db") go test -count=1 ./internal/db/

@@ -910,7 +910,10 @@ Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
 i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
 upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave) i prema
 brojevima mobitela djelatnika: nijedan ne smije nositi stvarno ime ni broj,
-osim imena koja program sam prikazuje u pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+osim imena koja program sam prikazuje u pomoći. Pregled nalazi ime i
+prezime i u padežu i obrnutim redom, ali ne nalazi samo prezime, samo ime,
+ime od tri slova u padežu ni ime pisano velikim slovima, pa ne zamjenjuje
+čitanje testa. Baza se otvara samo za čitanje; bez nje se pregled preskače.
 Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
 (`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
 ne provjerava.
