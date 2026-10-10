@@ -309,3 +309,22 @@ func TestPomocONacrtuAktaSaStarijegCvora(t *testing.T) {
 		}
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: mjesto rada program izvodi samo iz
+// opisa s popisa. Pomoć ne smije reći da ga izvodi iz opisa kojega na popisu
+// nema — upravo tada se mjesto ne zna i dežurstvo je za provjeru.
+func TestPomocMjestoRadaIzvodiSamoIzOpisaSPopisa(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"Mjesto rada slijedi iz opisa s popisa",
+		"Kad opisa nema na popisu",
+		"<strong>„mjesto nepoznato — za provjeru”</strong>",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje mjesto rada iz opisa: nema %q", want)
+		}
+	}
+	if strings.Contains(h, "s opisom kojega nema na popisu — program mjesto najprije izvede iz opisa") {
+		t.Error("pomoć kaže da program mjesto izvodi i iz opisa kojega nema na popisu")
+	}
+}
