@@ -130,3 +130,54 @@ func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
 		t.Errorf("nakon opoziva i izmjene: %+v", got)
 	}
 }
+
+// Uloga koju je osoba ikad imala: na zapisu zaduženja i kad je opozvano, i
+// u ranijoj verziji zaduženja koje je poslije izmijenjeno u drugu ulogu.
+// Tuđa zaduženja ne ulaze, a knjiga koja se ne čita je greška (Odluke (8.
+// 10. 2026.), pitanje 1: poslovođa ne dobiva dnevnike drugih firmi
+// opozivom dužnosti). Podaci su izmišljeni.
+func TestImaoUlogu(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	poslovodja := func(korisnik uuid.UUID) *models.Duty {
+		sektor, podrucje := "B", 16
+		return &models.Duty{UserID: korisnik, Title: "Poslovođa", Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje}
+	}
+	osoba := func(korisnik, ime string, d *models.Duty) (uuid.UUID, *models.Duty) {
+		t.Helper()
+		u := &models.User{Username: korisnik, PasswordHash: "x", FullName: ime, OrgType: models.OrgPravnaOsoba, IsActive: true}
+		nuzno(t, repo.CreateUser(u, d))
+		return u.ID, d
+	}
+	opozvan, d := osoba("mmarkic", "Marko Markić", poslovodja(uuid.Nil))
+	nuzno(t, repo.RevokeDuty(d.ID))
+	izmijenjen, d := osoba("iivic", "Ivo Ivić", poslovodja(uuid.Nil))
+	d.Role, d.Title = models.RoleWaterGuard, "Vodočuvar"
+	nuzno(t, repo.UpdateDuty(d))
+	nikad, _ := osoba("pperic", "Pero Perić", vodocuvarDuznost(uuid.Nil, osnovaDionica))
+	osoba("aanic", "Ana Anić", poslovodja(uuid.Nil))
+	for _, s := range []struct {
+		ime     string
+		osoba   uuid.UUID
+		uloga   models.Role
+		ocekuje bool
+	}{
+		{"opozvana dužnost", opozvan, models.RoleServiceLeaderForeman, true},
+		{"izmijenjena u drugu ulogu", izmijenjen, models.RoleServiceLeaderForeman, true},
+		{"izmijenjena, nova uloga", izmijenjen, models.RoleWaterGuard, true},
+		{"nikad nije imao ulogu", nikad, models.RoleServiceLeaderForeman, false},
+		{"uloga drugoga", opozvan, models.RoleWaterGuard, false},
+	} {
+		got, err := repo.ImaoUlogu(s.osoba, s.uloga)
+		nuzno(t, err)
+		if got != s.ocekuje {
+			t.Errorf("%s: %v, očekivano %v", s.ime, got, s.ocekuje)
+		}
+	}
+	if _, err := n.db.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ImaoUlogu(nikad, models.RoleServiceLeaderForeman); err == nil {
+		t.Error("knjiga verzija se ne čita, a nema greške")
+	}
+}

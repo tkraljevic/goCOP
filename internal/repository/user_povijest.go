@@ -50,3 +50,15 @@ func (r *UserRepository) verzijeZaduzenja(userID uuid.UUID) ([]models.VerzijaZad
 	}
 	return out, rows.Err()
 }
+
+// ImaoUlogu javlja je li osoba ikad imala zaduženje s ulogom: na zapisu
+// zaduženja (i opozvanom i isteklom) ili u ranijoj verziji iz knjige
+// verzija, kad je zaduženje poslije izmijenjeno u drugu ulogu. Samo čita.
+func (r *UserRepository) ImaoUlogu(userID uuid.UUID, uloga models.Role) (bool, error) {
+	var imao bool
+	err := r.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM duties WHERE user_id = ? AND role = ?)
+		OR EXISTS (SELECT 1 FROM record_versions v JOIN duties d ON d.id = v.entity_id
+			WHERE v.entity = ? AND d.user_id = ? AND json_extract(v.payload, '$.role') = ?)`,
+		userID.String(), string(uloga), EntityDuties, userID.String(), string(uloga)).Scan(&imao)
+	return imao, err
+}

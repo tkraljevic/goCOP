@@ -775,6 +775,12 @@ func (s *UserService) PovijestZaduzenja(userID uuid.UUID) ([]models.VerzijaZaduz
 	return s.userRepo.PovijestZaduzenja(userID)
 }
 
+// ImaoUlogu javlja je li osoba ikad imala zaduženje s ulogom
+// (repository.UserRepository.ImaoUlogu)
+func (s *UserService) ImaoUlogu(userID uuid.UUID, uloga models.Role) (bool, error) {
+	return s.userRepo.ImaoUlogu(userID, uloga)
+}
+
 // RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
 func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
 	if actorRank(actor) == 0 {

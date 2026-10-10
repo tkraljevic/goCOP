@@ -874,6 +874,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
 	journalRepo := repository.NewJournalRepository(database, recorder)
 	journalService := service.NewJournalService(journalRepo, stationRepo, readingRepo)
+	// tko je bio poslovođa izvođača, u dnevnicima usluga ostaje izvođač
+	journalService.SetImaoUlogu(userService.ImaoUlogu)
 	obracunRepo := repository.NewObracunRepository(database, recorder)
 	if err := obracunRepo.Osiguraj(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
 		log.Printf("Postavke obračuna sati nisu dopunjene: %v", err)

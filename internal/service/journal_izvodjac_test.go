@@ -213,3 +213,104 @@ func TestFirmaIzvodjacaNaSebi(t *testing.T) {
 		t.Errorf("izmjena vlastitog računa mijenja firmu izvođača: %v", err)
 	}
 }
+
+// Poslovođa ostaje izvođač za dnevnike usluga i kad mu je dužnost opozvana
+// ili izmijenjena u drugu ulogu izvan ustroja obrane: ne otvaraju mu se
+// dnevnici drugih firmi ni na jednom području (Odluke (8. 10. 2026.),
+// pitanje 1). Opozvani poslovođa bez druge dužnosti ne vidi nijedan, kao i
+// onaj kojemu je dužnost istekla. Tko je bio poslovođa, a sada ima dužnost u
+// ustroju obrane (razine 1 do 4), i tko poslovođa nikad nije bio, vide ih
+// kao i dosad. Kad se povijest ne da pročitati, osoba bez dužnosti u
+// ustroju gleda se kao izvođač. Podaci su izmišljeni.
+func TestBivsiPoslovodjaNeVidiDnevnikeDrugihFirmi(t *testing.T) {
+	baza, repo := uslugeBaza(t)
+	if _, err := baza.Exec(`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (2, 'P', 'Drugo', 'VGI Drugo', 'Drugo')`); err != nil {
+		t.Fatal(err)
+	}
+	users := repository.NewUserRepository(baza, ledger.New(baza, "test"))
+	s := NewJournalService(repo, nil, nil)
+	s.SetImaoUlogu(NewUserService(users, nil, nil).ImaoUlogu)
+	ctx := context.Background()
+	sektor, p1 := "P", 1
+	duznost := func(uloga models.Role) *models.Duty {
+		return &models.Duty{Title: "dužnost", Role: uloga, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &p1}
+	}
+	osoba := func(korisnik, ime string, d *models.Duty) *models.User {
+		t.Helper()
+		u := &models.User{Username: korisnik, PasswordHash: "x", FullName: ime, OrgName: "Alfa d.o.o.", IsActive: true}
+		if err := users.CreateUser(u, d); err != nil {
+			t.Fatal(err)
+		}
+		return u
+	}
+	ucitaj := func(u *models.User) *models.UserPermissions {
+		t.Helper()
+		x, err := users.GetUserByID(u.ID)
+		if err != nil || x == nil {
+			t.Fatal(err)
+		}
+		return models.NewUserPermissions(*x)
+	}
+	opozvaniD := duznost(models.RoleServiceLeaderForeman)
+	opozvani := osoba("mmarkic", "Marko Markić", opozvaniD)
+	if err := users.RevokeDuty(opozvaniD.ID); err != nil {
+		t.Fatal(err)
+	}
+	premjesteniD := duznost(models.RoleServiceLeaderForeman)
+	premjesteni := osoba("iivic", "Ivo Ivić", premjesteniD)
+	premjesteniD.Role = models.RoleWaterGuard
+	if err := users.UpdateDuty(premjesteniD); err != nil {
+		t.Fatal(err)
+	}
+	uUstrojuD := duznost(models.RoleServiceLeaderForeman)
+	uUstroju := osoba("iivic2", "Iva Ivić", uUstrojuD)
+	uUstrojuD.Role = models.RoleAreaLeader
+	if err := users.UpdateDuty(uUstrojuD); err != nil {
+		t.Fatal(err)
+	}
+	vodocuvar := osoba("pperic", "Pero Perić", duznost(models.RoleWaterGuard))
+
+	svoj := &models.Journal{AreaID: 1, Contractor: "Alfa d.o.o."}
+	drugi := &models.Journal{AreaID: 1, Contractor: "Beta d.o.o."}
+	podrucje1 := models.OpsegPodrucja(models.Area{ID: 1, SectorID: "P"})
+	podrucje2 := models.OpsegPodrucja(models.Area{ID: 2, SectorID: "P"})
+	slucajevi := []struct {
+		naziv                        string
+		perms                        *models.UserPermissions
+		izvodjac, drugo, svoj, drugi bool
+	}{
+		{"opozvani poslovođa", ucitaj(opozvani), true, false, false, false},
+		{"poslovođa premješten u vodočuvara", ucitaj(premjesteni), true, false, true, false},
+		{"bivši poslovođa u ustroju obrane", ucitaj(uUstroju), false, true, true, true},
+		{"vodočuvar koji nije bio poslovođa", ucitaj(vodocuvar), false, true, true, true},
+	}
+	for _, sl := range slucajevi {
+		if got := s.IzvodjacZaDnevnike(&sl.perms.User); got != sl.izvodjac {
+			t.Errorf("%s: izvođač %v, očekivano %v", sl.naziv, got, sl.izvodjac)
+		}
+		if got := s.VidiUslugePodrucja(sl.perms, podrucje2); got != sl.drugo {
+			t.Errorf("%s: područje 2 %v, očekivano %v", sl.naziv, got, sl.drugo)
+		}
+		if got := s.VidiDnevnikUsluge(ctx, sl.perms, podrucje1, svoj); got != sl.svoj {
+			t.Errorf("%s: dnevnik svoje firme %v, očekivano %v", sl.naziv, got, sl.svoj)
+		}
+		if got := s.VidiDnevnikUsluge(ctx, sl.perms, podrucje1, drugi); got != sl.drugi {
+			t.Errorf("%s: dnevnik druge firme %v, očekivano %v", sl.naziv, got, sl.drugi)
+		}
+	}
+	if s.IzvodjacZaDnevnike(nil) {
+		t.Error("nitko je izvođač")
+	}
+	// bez izvora povijesti (stariji poziv) gleda se samo valjana dužnost
+	bezPovijesti := NewJournalService(repo, nil, nil)
+	if bezPovijesti.IzvodjacZaDnevnike(&ucitaj(opozvani).User) {
+		t.Error("bez povijesti opozvani poslovođa je izvođač")
+	}
+	// povijest se ne čita: osoba bez dužnosti u ustroju je izvođač
+	if _, err := baza.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if !s.IzvodjacZaDnevnike(&ucitaj(vodocuvar).User) {
+		t.Error("uz grešku čitanja povijesti vodočuvar nije izvođač")
+	}
+}
