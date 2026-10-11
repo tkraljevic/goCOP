@@ -54,6 +54,9 @@ type PrognozaNiza struct {
 	Izdano time.Time
 	Udio   int
 	Tocke  []TockaPrognoze
+	// Upitno kaže, bez imena, zašto je prognoza letve u tom izdanju upitna,
+	// iz upozorenja izdavača; prazno kad je sve u redu.
+	Upitno string
 }
 
 // crtajNiz gradi graf iz spojenih vrijednosti. Pragovi se crtaju samo za
@@ -311,7 +314,7 @@ func nacrtajPrognozu(c *Chart, prog *PrognozaNiza, xOf func(time.Time) float64,
 	c.PrognozaTocke = sj.String()
 	c.PrognozaNatpis = "Prognoza izdana " + pocetak.In(models.Zagreb).Format("2.1.2006. u 15:04") +
 		". Očekuje se da vrijednost ostane unutar raspona u " +
-		strconv.Itoa(prog.Udio) + " % slučajeva."
+		strconv.Itoa(prog.Udio) + " % slučajeva." + natpisUpitnog(prog.Upitno)
 }
 
 // zapisiTocku ispisuje jednu točku za pokazivač: mjesto, datum, ura, vrijednost

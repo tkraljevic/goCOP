@@ -17,7 +17,8 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 	synced := []string{"sectors", "areas", "org_terms", "contractors", "contractor_assignments", "stations", "sections", "watercourses",
 		"counties", "municipalities", "settlements", "users", "duties",
 		"structures", "readings", "role_modules", "user_modules",
-		"maintained_waters", "work_items", "journals", "journal_sheets", "journal_entries"}
+		"maintained_waters", "work_items", "journals", "journal_sheets", "journal_entries",
+		"odbacena_ocitanja"}
 
 	files, err := filepath.Glob("*.go")
 	if err != nil {

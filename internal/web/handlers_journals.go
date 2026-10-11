@@ -211,7 +211,42 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		http.Error(w, "dnevnik pokazuje na nepoznato područje", http.StatusInternalServerError)
 		return nil, nil, false
 	}
+	if !h.journals.VidiDnevnikUsluge(r.Context(), perms, models.OpsegPodrucja(*area), j) {
+		http.Error(w, "Izvođač vidi samo dnevnike usluga svoje firme na svom branjenom području: one na čijoj je naslovnici njegova firma kao izvođač ili on kao voditelj usluga, i one u kojima je već pisao.", http.StatusForbidden)
+		return nil, nil, false
+	}
 	return j, area, true
+}
+
+// vidljivaPodrucja ostavlja područja čije dnevnike usluga osoba smije
+// čitati; odabrano područje koje ne smije zamjenjuje prvo koje smije, a nil
+// je kad takvog nema
+func (h *JournalsHandler) vidljivaPodrucja(perms *models.UserPermissions, area *models.Area, areas []models.Area) (*models.Area, []models.Area) {
+	var out []models.Area
+	for _, a := range areas {
+		if h.journals.VidiUslugePodrucja(perms, models.OpsegPodrucja(a)) {
+			out = append(out, a)
+		}
+	}
+	if area != nil && h.journals.VidiUslugePodrucja(perms, models.OpsegPodrucja(*area)) {
+		return area, out
+	}
+	if len(out) > 0 {
+		return &out[0], out
+	}
+	return nil, out
+}
+
+// vidljiviDnevnici ostavlja dnevnike usluga područja koje osoba smije
+// čitati: izvođač samo dnevnike svoje firme
+func (h *JournalsHandler) vidljiviDnevnici(ctx context.Context, perms *models.UserPermissions, area models.Area, js []models.Journal) []models.Journal {
+	var out []models.Journal
+	for i := range js {
+		if h.journals.VidiDnevnikUsluge(ctx, perms, models.OpsegPodrucja(area), &js[i]) {
+			out = append(out, js[i])
+		}
+	}
+	return out
 }
 
 // opseg je doseg dnevnika: po centru za COP, po području za uslugu. Popis
@@ -290,6 +325,8 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 
 	want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 	data.Area, data.Areas = h.areaOf(data.Permissions, want)
+	// izvođač vidi samo područja u koja piše, a na njima dnevnike svoje firme
+	data.Area, data.Areas = h.vidljivaPodrucja(data.Permissions, data.Area, data.Areas)
 	h.fillRights(&data)
 	if data.Area != nil {
 		js, err := h.journals.ListJournals(r.Context(), data.Area.ID)
@@ -307,7 +344,7 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 			}
 			js = samo
 		}
-		data.Journals = js
+		data.Journals = h.vidljiviDnevnici(r.Context(), data.Permissions, *data.Area, js)
 	}
 	h.render(w, h.tmplList, "dnevnici.html", data)
 }

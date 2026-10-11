@@ -180,6 +180,8 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_skladiste ON mts_promet(skladiste_id, vrsta_id, oblik);`,
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_teren ON mts_promet(journal_id, area_id, section_code, vrsta_id);`,
 		`CREATE INDEX IF NOT EXISTS idx_mts_promet_datum ON mts_promet(datum);`,
+		// zid događanja traži par poteza za svaki ulaz prijenosa
+		`CREATE INDEX IF NOT EXISTS idx_mts_promet_veza ON mts_promet(veza_id);`,
 		`CREATE TABLE IF NOT EXISTS mts_popisi (
 			id TEXT PRIMARY KEY,
 			skladiste_id TEXT NOT NULL,
@@ -251,6 +253,30 @@ func InitSchema(database *sql.DB) error {
 			updated_at DATETIME NOT NULL
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_akti_sektor_vrijedi ON akti(sektor, vrijedi DESC);`,
+		// Brojač akata ovog čvora: zadnji redni broj koji je čvor dao u
+		// godini po sektoru. Ne putuje razmjenom i ne pada kad se akt
+		// trajno obriše, pa čvor isti broj ne daje dvaput (Odluke
+		// (8. 10. 2026.), pitanje 4).
+		// Rješenja sukoba oznaka: dva ovjerena akta iste oznake (u pravilu s
+		// dva čvora) i napomena Voditelja Centra obrane od poplava ili
+		// zamjenika kako je sukob riješen. Zaseban zapis s verzijom u knjizi,
+		// da rješenje ne prepisuje akte (Odluke (8. 10. 2026.), pitanje 4).
+		`CREATE TABLE IF NOT EXISTS akti_rjesenja_oznaka (
+			id TEXT PRIMARY KEY,
+			sektor TEXT NOT NULL,
+			oznaka TEXT NOT NULL DEFAULT '',
+			akti TEXT NOT NULL DEFAULT '[]',
+			napomena TEXT NOT NULL DEFAULT '',
+			rijesio_id TEXT NOT NULL DEFAULT '',
+			rijesio TEXT NOT NULL DEFAULT '',
+			kad DATETIME NOT NULL
+		);`,
+		`CREATE TABLE IF NOT EXISTS akti_brojac (
+			sektor TEXT NOT NULL,
+			godina INTEGER NOT NULL,
+			zadnji INTEGER NOT NULL DEFAULT 0,
+			PRIMARY KEY (sektor, godina)
+		);`,
 		// Službe uz županije i gradove: civilna zaštita, 112, policija,
 		// lučke kapetanije — kontakti koje akti o obrani obavještavaju
 		`CREATE TABLE IF NOT EXISTS sluzbe (
@@ -714,6 +740,9 @@ func InitSchema(database *sql.DB) error {
 			javni_uvoz INTEGER NOT NULL DEFAULT 0,
 			telemetrija_site TEXT NOT NULL DEFAULT '',
 			telemetrija_uvoz INTEGER NOT NULL DEFAULT 0,
+			kota_nm INTEGER NOT NULL DEFAULT 0,
+			prate_sektori TEXT NOT NULL DEFAULT '',
+			prate_podrucja TEXT NOT NULL DEFAULT '',
 			povijest TEXT NOT NULL DEFAULT '',
 			opis_vodokaza TEXT NOT NULL DEFAULT '',
 			datum_osnivanja TEXT NOT NULL DEFAULT '',
@@ -1011,6 +1040,26 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_readings_station_time ON readings(station_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_structure_time ON readings(structure_id, measured_at DESC);`,
 		`CREATE INDEX IF NOT EXISTS idx_readings_source_ref ON readings(source_ref);`,
+
+		// Vrijednosti očitanja odbačene jer su izvan raspona (Odluke (8. 10.
+		// 2026.), pitanje 21). Nije očitanje, nego trag da mjerilo ili zapis
+		// nije ispravan; stranica letve iz nje pokazuje koliko je odbačeno i
+		// što zadnje. Sinkronizira se (entitet odbacena_ocitanja, u kanalu
+		// očitanja letve), jer preuzima jedan čvor, a broj treba vidjeti
+		// svaki koji letvu prati. Ista vrijednost istog trenutka s istog
+		// izvora upisuje se jednom, pa satno preuzimanje istog prozora ni
+		// drugi čvor koji preuzima istu letvu ne udvostručuju broj; id je
+		// izveden iz tih podataka i isti je na svakom čvoru.
+		`CREATE TABLE IF NOT EXISTS odbacena_ocitanja (
+			id TEXT NOT NULL DEFAULT '',
+			letva TEXT NOT NULL,
+			kad DATETIME NOT NULL,
+			polje TEXT NOT NULL,
+			izvor TEXT NOT NULL DEFAULT '',
+			opis TEXT NOT NULL DEFAULT '',
+			zabiljezeno DATETIME NOT NULL,
+			PRIMARY KEY (letva, kad, polje, izvor)
+		);`,
 
 		// Letve čiju povijest ovaj čvor drži u cijelosti. Tablica je LOKALNA:
 		// ne sinkronizira se, jer je odluka o mjestu na disku stvar ovog
@@ -1507,6 +1556,16 @@ func migrateSchema(database *sql.DB) error {
 		// postaje ondje i sklopka koja to uključuje.
 		{"stations", "telemetrija_site", "TEXT NOT NULL DEFAULT ''"},
 		{"stations", "telemetrija_uvoz", "INTEGER NOT NULL DEFAULT 0"},
+		// Oznaka „kota u cm n. m.”: letva akumulacije vodi kotu vodnog lica,
+		// pa ima raspon kote umjesto raspona vodostaja (Odluke (8. 10.
+		// 2026.), pitanje 21). Tri letve akumulacija HEP-a označava popravak
+		// podataka letve-akumulacija-kota, kroz knjigu verzija.
+		{"stations", "kota_nm", "INTEGER NOT NULL DEFAULT 0"},
+		// Sektori i branjena područja koji letvu prate, uz one preko
+		// njezinih dionica: šifre sektora i brojevi područja odvojeni
+		// zarezom (Odluke (8. 10. 2026.), pitanja 8 i 9).
+		{"stations", "prate_sektori", "TEXT NOT NULL DEFAULT ''"},
+		{"stations", "prate_podrucja", "TEXT NOT NULL DEFAULT ''"},
 		// Povijest postaje, opis same letve i dan kad je počela raditi. To
 		// stoji u dokumentaciji službe, a iz niza se ne vidi: zamjena
 		// limnigrafa ili premještanje letve ostave trag u podacima, a razlog
@@ -1529,6 +1588,12 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "rucno", "TEXT NOT NULL DEFAULT ''"},
 		// poništenje ovjerenog akta (JSON): tko, kada, zašto, potpis
 		{"akti", "storno", "TEXT NOT NULL DEFAULT ''"},
+		// izričite potvrde uz akt (JSON): što je program pitao, tko je
+		// potvrdio i kada (Odluke (8. 10. 2026.), pitanje 17)
+		{"akti", "potvrde", "TEXT NOT NULL DEFAULT ''"},
+		// izvori popisa primatelja koji se nisu dali pročitati i dionice bez
+		// teritorija (JSON) (Odluke (8. 10. 2026.), pitanje 19)
+		{"akti", "upozorenja_primatelja", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "temp_note", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_method", "TEXT NOT NULL DEFAULT ''"},
 		{"readings", "flow_note", "TEXT NOT NULL DEFAULT ''"},
@@ -1580,6 +1645,14 @@ func migrateSchema(database *sql.DB) error {
 		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
 		// pri pokretanju čvora, jer otisak traži ključ čvora
 		{"posta_racuni", "otisak_lozinke", "BLOB"},
+		// Trag predaje dnevnog izvješća dionice i sektora (JSON): prvo
+		// vrijeme predaje, tko je predao i tko je mijenjao nakon predaje.
+		// Izmjena predanog izvješća vraća ga u nacrt, pa se predaje ponovno.
+		{"dnevna_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
+		{"sektorska_izvjesca", "trag_predaje", "TEXT NOT NULL DEFAULT ''"},
+		// Kad je vodočuvar zadnji put spremio svoj upis na dnevnom listu: po
+		// tome nacrt s drugog čvora ne prepisuje njegov tekst
+		{"vodocuvarski_listovi", "napisano_at", "DATETIME"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

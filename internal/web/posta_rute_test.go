@@ -71,8 +71,8 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, bp := "B", 34
-	kunac := &models.User{ID: uuid.New(), Username: "mkunac", FullName: "Mile Kunac", IsActive: true}
-	if err := userRepo.CreateUser(kunac, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+	anic := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	if err := userRepo.CreateUser(anic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
 	dionica := &models.User{ID: uuid.New(), Username: "iivic", FullName: "Ivo Ivić", IsActive: true}
@@ -84,6 +84,10 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if err := userRepo.CreateUser(voditelj, nil); err != nil {
 		t.Fatal(err)
 	}
+	// voditelj COP-a sastavlja nacrt po dužnosti voditelja centra sektora B
+	// (namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18: nacrt
+	// sastavlja samo Centar obrane od poplava, a ne uprava sektora kao takva)
+	voditelj.Duties = []models.Duty{{Title: "Voditelj COP-a", Role: models.RoleCopLeader, ScopeType: models.ScopeSector, SectorID: &b, IsActive: true}}
 	perms := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
@@ -102,7 +106,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer srv.Zatvori()
-	// kao u HV-u: prijava prolazi samo s domenom, a korisnik upiše tkraljevic@voda.hr
+	// kao u HV-u: prijava prolazi samo s domenom, a korisnik upiše pperic@voda.hr
 	pp := srv.Postavke()
 	pp.Domena = "voda.int"
 	// datoteka kaže krivi poslužitelj; postavke spremljene u Administraciji imaju prednost
@@ -166,7 +170,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		return zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
 	}
 
-	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}), "?", 2)[0], "/akti/")
+	id := strings.TrimPrefix(strings.SplitN(post("/akti/novi", url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}), "?", 2)[0], "/akti/")
 	if strings.Contains(stranica(id), "Slanje na znanje") {
 		t.Error("nacrt se ne šalje")
 	}
@@ -175,7 +179,8 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	mw := multipart.NewWriter(&tijelo)
 	fw, _ := mw.CreateFormFile("sken", "sken.pdf")
 	_, _ = fw.Write([]byte("%PDF-1.4\n% sken\n%%EOF\n"))
-	_ = mw.WriteField("potpisnik_id", kunac.ID.String())
+	_ = mw.WriteField("potpisnik_id", anic.ID.String())
+	_ = mw.WriteField("potvrda_primatelja", "1") // dionica bez teritorija: Odluke (8. 10. 2026.), pitanje 19
 	_ = mw.Close()
 	r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
@@ -362,9 +367,9 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Errorf("poslani odgovor:\n%.800s", zadnje)
 	}
 	// prijedlozi adresa: djelatnici, registar, adresar tvrtke
-	srv.Adresar = []posta.Kontakt{{Ime: "Mile Kunac", Email: "mile.kunac@voda.hr"}}
-	wa := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=kun", nil))
-	if wa.Code != http.StatusOK || !strings.Contains(wa.Body.String(), `"email":"mile.kunac@voda.hr"`) || !strings.Contains(wa.Body.String(), `"izvor":"adresar"`) {
+	srv.Adresar = []posta.Kontakt{{Ime: "Ana Anić", Email: "ana.anic@voda.hr"}}
+	wa := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=ana", nil))
+	if wa.Code != http.StatusOK || !strings.Contains(wa.Body.String(), `"email":"ana.anic@voda.hr"`) || !strings.Contains(wa.Body.String(), `"izvor":"adresar"`) {
 		t.Errorf("prijedlozi adresa: %d %s", wa.Code, wa.Body.String())
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta/adrese.json?q=v", nil)); w.Body.String() != "[]\n" {
@@ -466,12 +471,12 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	srv.Adresar = []posta.Kontakt{
-		{Ime: "Mile Kunac", Email: "mile.kunac@voda.hr", Mobitel: "099 111 2222", Telefon: "031/252-802", Funkcija: "Rukovoditelj BP", Odjel: "VGO Osijek"},
+		{Ime: "Ana Anić", Email: "ana.anic@voda.hr", Mobitel: "099 111 2222", Telefon: "031/252-802", Funkcija: "Rukovoditelj BP", Odjel: "VGO Osijek"},
 		{Ime: "Ivo Ivić", Email: "ivo.ivic@voda.hr", Mobitel: "099 333 4444"},
 		{Ime: "Ivo Ivić", Email: "ivo.ivic2@voda.hr"},
 	}
 	perms.IsGlobalAdmin = true
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?trazi=kunac", nil)); !strings.Contains(w.Body.String(), "mile.kunac@voda.hr") || !strings.Contains(w.Body.String(), "Rukovoditelj BP") {
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/users/exchange?trazi=anic", nil)); !strings.Contains(w.Body.String(), "ana.anic@voda.hr") || !strings.Contains(w.Body.String(), "Rukovoditelj BP") {
 		t.Fatalf("traženje u adresaru:\n%.800s", w.Body.String())
 	}
 	// bez sektora se usporedba ne pokreće: svi odjednom preopterete poslužitelj
@@ -503,11 +508,11 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	}
 	usporedi := func() string { return pricekaj(post("/users/exchange/usporedi", url.Values{"sektor": {"B"}})) }
 	usp := usporedi()
-	if !strings.Contains(usp, `value="`+kunac.ID.String()+`|email"`) || !strings.Contains(usp, "099 111 2222") || !strings.Contains(usp, "više osoba tog imena") {
+	if !strings.Contains(usp, `value="`+anic.ID.String()+`|email"`) || !strings.Contains(usp, "099 111 2222") || !strings.Contains(usp, "više osoba tog imena") {
 		t.Fatalf("usporedba:\n%.1500s", usp)
 	}
-	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {kunac.ID.String() + "|email", kunac.ID.String() + "|mobile_phone"},
-		"v_" + kunac.ID.String() + "_email": {"mile.kunac@voda.hr"}, "v_" + kunac.ID.String() + "_mobile_phone": {"099 111 2222"}})
+	loc = post("/users/exchange", url.Values{"sektor": {"B"}, "p": {anic.ID.String() + "|email", anic.ID.String() + "|mobile_phone"},
+		"v_" + anic.ID.String() + "_email": {"ana.anic@voda.hr"}, "v_" + anic.ID.String() + "_mobile_phone": {"099 111 2222"}})
 	if !strings.Contains(loc, "success") || !strings.Contains(loc, "rezultat=") {
 		t.Fatalf("primjena iz adresara: %s", loc)
 	}
@@ -515,7 +520,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if s := pricekaj(loc); strings.Contains(s, `|email"`) {
 		t.Error("nakon usklađivanja adresa se više ne razlikuje (usporedba nakon upisa)")
 	}
-	if k, _ := users.GetUserByID(kunac.ID); k.Email != "mile.kunac@voda.hr" || k.MobilePhone != "099-111-2222" || k.Phone != "" {
+	if k, _ := users.GetUserByID(anic.ID); k.Email != "ana.anic@voda.hr" || k.MobilePhone != "099-111-2222" || k.Phone != "" {
 		t.Errorf("djelatnik nakon usklađivanja: %+v", k)
 	}
 	if s := usporedi(); strings.Contains(s, `|email"`) {

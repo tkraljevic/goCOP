@@ -98,6 +98,16 @@ type UzduzniProfil struct {
 	Brane                   []BranaProfila
 	SatOd, SatDo            int // raspon klizača, sati prema izdanju
 	Niz                     template.JS
+	NulaKratko              string   // razdoblje nule: „zadnjih 30 dana” ili „od 20. 9.”
+	Izostavljeno            []string // letve koje nisu na crtežu i zašto: „Siga — mjerilo stoji …”
+}
+
+// NulaNaziv je natpis crte nule: „voda zadnjih 30 dana”.
+func (p *UzduzniProfil) NulaNaziv() string {
+	if p.NulaKratko == "" {
+		return fmt.Sprintf("voda zadnjih %d dana", MjesecDana)
+	}
+	return "voda " + p.NulaKratko
 }
 
 func (p *UzduzniProfil) LijevoX() float64 { return p.Lijevo }

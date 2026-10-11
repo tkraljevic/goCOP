@@ -19,10 +19,12 @@ type potpisiIzvornika struct {
 }
 
 // simulacijaKljuca javlja potpisuje li se simuliranim ključem: gleda se
-// tuđim očima i opcija je uključena
+// tuđim očima, u tom pogledu nastaju i upisi i opcija je uključena. Bez
+// upisa (prekidač isključen ili gledani račun isključen) predaje ni ovjere
+// nema, pa se simulacija ne najavljuje.
 func (h *VodocuvarHandler) simulacijaKljuca(r *http.Request) bool {
-	viewing, _ := r.Context().Value(contextKeyViewing).(bool)
-	if !viewing || h.opcije == nil || h.potpis == nil || h.potpis() == nil {
+	upisi, _ := r.Context().Value(contextKeyUpisiTudjim).(bool)
+	if !upisi || h.opcije == nil || h.potpis == nil || h.potpis() == nil {
 		return false
 	}
 	return h.opcije(r.Context()).SimulacijaKljuca

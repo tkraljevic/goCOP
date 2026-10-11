@@ -2,8 +2,11 @@ package web
 
 import (
 	"context"
+	"errors"
 	"html/template"
 	"net/http"
+	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +62,9 @@ type AktiPageData struct {
 	Godine    []int
 	Stupnjevi []models.DefensePhase
 	Obrana    []ObranaSektora // način rada po sektoru: aktivna (otvoren dnevnik COP-a) ili preventivna
+	// SmijeSastavljati: osoba sastavlja nacrte akata u nekom sektoru, pa joj
+	// se nudi „Novi akt” (Odluke (8. 10. 2026.), pitanje 18)
+	SmijeSastavljati bool
 
 	// obrazac
 	Station    *models.Station
@@ -71,6 +77,11 @@ type AktiPageData struct {
 	LocalValue string
 	Radnja     string
 	Stupanj    models.DefensePhase
+	// TraziPotvrduVrijedi: nacrt je odbijen jer „Vrijedi od” traži izričitu
+	// potvrdu (Odluke (8. 10. 2026.), pitanje 17); obrazac je nudi
+	TraziPotvrduVrijedi bool
+	// Unos je ono što je osoba upisala prije pitanja; obrazac ga zadrži
+	Unos UnosObrasca
 
 	// jedan akt
 	Sektor              *models.Sector
@@ -81,9 +92,25 @@ type AktiPageData struct {
 	SmijePonistiti      bool   // ovjeren akt: autor ili tko ga smije ovjeriti
 	Potpis              string // stanje elektroničkog potpisa: VRIJEDI, NE_VRIJEDI, NEMA
 	SmijePripremiti     bool
-	MoguPotpisati       []models.User // za izbor potpisnika uz sken
-	Slanje              *SlanjeData   // slanje izvornika primateljima "na znanje"
-	Upozorenja          []string
+	// SmijeUreditiNacrt: ispraviti tekst i ponovno složiti primatelje smije
+	// samo autor nacrta dok smije sastavljati (pitanje 18)
+	SmijeUreditiNacrt bool
+	MoguPotpisati     []models.User // za izbor potpisnika uz sken
+	Slanje            *SlanjeData   // slanje izvornika primateljima "na znanje"
+	Upozorenja        []string
+
+	// Sukobi oznaka (Odluke (8. 10. 2026.), pitanje 4): u popisu po ID-u
+	// akta, a na stranici akta njegov sukob i smije li ga osoba riješiti
+	Sukobi              map[string]models.SukobOznake
+	Sukob               models.SukobOznake
+	SmijeRijesitiOznaku bool
+	// Pregled je popis primatelja nacrta složen iznova, kakav bi akt dobio
+	// ovjerom (Odluke (8. 10. 2026.), pitanje 19); nil za ovjeren akt i za
+	// onoga tko s nacrtom ne radi
+	Pregled *service.PregledPrimatelja
+	// PitanjeVrijedi je pitanje uz „Vrijedi od” izvan uobičajenog raspona
+	// koje ovjera nacrta postavlja (pitanje 17); prazno kad potvrda ne treba
+	PitanjeVrijedi string
 
 	// špranca
 	Spranca models.Spranca
@@ -106,7 +133,8 @@ func (h *AktiHandler) base(r *http.Request) (*models.User, *models.UserPermissio
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	q := r.URL.Query()
 	data := AktiPageData{CurrentUser: u, Permissions: perms, SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
-		ActiveNav: "journals", ViewAsBanner: viewBanner(r), Stupnjevi: models.StupnjeviAkta, Skupine: models.SkupinePrimatelja}
+		ActiveNav: "journals", ViewAsBanner: viewBanner(r), Stupnjevi: models.StupnjeviAkta, Skupine: models.SkupinePrimatelja,
+		SmijeSastavljati: service.SastavljaNacrte(perms)}
 	data.Sektori, _ = h.users.ListSectors()
 	if s := h.akti(); s != nil && perms != nil {
 		for _, sk := range data.Sektori {
@@ -151,6 +179,7 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Akti = akti
+	h.sukobiOznaka(r.Context(), s, &data)
 	g := time.Now().In(models.Zagreb).Year()
 	for y := g; y >= g-5; y-- {
 		data.Godine = append(data.Godine, y)
@@ -160,10 +189,32 @@ func (h *AktiHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// ShowForm je obrazac za novi akt: vodomjer, radnja, stupanj, vrijeme
+// sukobiOznaka upisuje u stranicu sukobe oznaka akata; kad se ne daju
+// provjeriti, to piše na stranici
+func (h *AktiHandler) sukobiOznaka(ctx context.Context, s *service.AktService, data *AktiPageData) {
+	sukobi, err := s.SukobiOznaka(ctx)
+	data.Sukobi = sukobi
+	data.ErrorMessage = uzGresku(data.ErrorMessage, "Akti s istom oznakom nisu provjereni", err)
+}
+
+// uzGresku dodaje poruci stranice grešku koja nije spriječila prikaz
+func uzGresku(poruka, sto string, err error) string {
+	if err == nil {
+		return poruka
+	}
+	return strings.TrimSpace(poruka + " " + sto + ": " + err.Error())
+}
+
+// ShowForm je obrazac za novi akt: vodomjer, radnja, stupanj, vrijeme.
+// Otvara se samo onome tko sastavlja nacrte (Odluke (8. 10. 2026.), pitanje
+// 18); drugoga vraća na popis akata s objašnjenjem.
 func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	_, perms, data := h.base(r)
 	if h.svc(w) == nil {
+		return
+	}
+	if !data.SmijeSastavljati {
+		redirectWith(w, r, "/akti", "error", "Nacrt akta o stupnju obrane sastavlja Centar obrane od poplava: voditelj centra, njegov zamjenik ili dežurni operater.")
 		return
 	}
 	q := r.URL.Query()
@@ -175,7 +226,8 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if data.Stupanj == "" {
 		data.Stupanj = models.PhasePrep
 	}
-	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
+	obrazacVrijedi(q, &data)
+	data.Unos = unosObrasca(q)
 	if id, err := uuid.Parse(q.Get("station")); err == nil {
 		if st, err := h.stations.GetStation(r.Context(), id); err == nil && st != nil {
 			data.Station = st
@@ -202,6 +254,67 @@ func (h *AktiHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplForm.ExecuteTemplate(w, "akt_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// obrazacVrijedi upisuje u obrazac „Vrijedi od”: sada, ili vrijeme upisano
+// prije kad se obrazac vraća s pitanjem za potvrdu
+func obrazacVrijedi(q url.Values, data *AktiPageData) {
+	data.LocalValue = time.Now().In(models.Zagreb).Format("2006-01-02T15:04")
+	if _, err := time.ParseInLocation("2006-01-02T15:04", q.Get("vrijedi"), models.Zagreb); err == nil {
+		data.LocalValue = q.Get("vrijedi")
+	}
+	data.TraziPotvrduVrijedi = q.Get("potvrdi") == "vrijedi"
+}
+
+// UnosObrasca je ono što je osoba upisala u obrazac novog akta kad se
+// obrazac vraća s pitanjem za potvrdu „Vrijedi od”: obrazac ga zadrži, pa
+// nacrt uz potvrdu nastaje iz istog unosa (Odluke (8. 10. 2026.), pitanje 17)
+type UnosObrasca struct {
+	Zadrzan      bool
+	Dionice      []string
+	OcitanjeID   string
+	Tendencija   string
+	PrekidaAktID string
+	Prognoza     string
+	Napomena     string
+}
+
+// unosObrasca čita zadržani unos iz povratka na obrazac s pitanjem
+func unosObrasca(q url.Values) UnosObrasca {
+	if q.Get("potvrdi") != "vrijedi" {
+		return UnosObrasca{}
+	}
+	return UnosObrasca{Zadrzan: true, Dionice: q["dionica"], OcitanjeID: q.Get("ocitanje_id"), Tendencija: q.Get("tendencija"),
+		PrekidaAktID: q.Get("prekida_akt_id"), Prognoza: q.Get("prognoza"), Napomena: q.Get("napomena")}
+}
+
+// ImaDionicu javlja je li dionica označena; bez zadržanog unosa jesu sve
+func (u UnosObrasca) ImaDionicu(kod string) bool {
+	return !u.Zadrzan || slices.Contains(u.Dionice, kod)
+}
+
+// Ocitanje javlja je li očitanje odabrano; bez zadržanog izbora odabrano je
+// zadnje, prvo na popisu
+func (u UnosObrasca) Ocitanje(id string, zadnje bool) bool {
+	if u.OcitanjeID == "" {
+		return zadnje
+	}
+	return u.OcitanjeID == id
+}
+
+// natragNaObrazac je povratak na obrazac nakon odbijenog nacrta: kad nacrt
+// traži potvrdu „Vrijedi od”, obrazac zadrži upisano vrijeme i sav ostali
+// unos (unosObrasca) i ponudi potvrdu
+func natragNaObrazac(natrag string, r *http.Request, err error) string {
+	var p *service.TrebaPotvrduError
+	if !errors.As(err, &p) {
+		return natrag
+	}
+	q := url.Values{"vrijedi": {r.FormValue("vrijedi")}, "potvrdi": {"vrijedi"}, "dionica": r.Form["dionica"]}
+	for _, k := range []string{"ocitanje_id", "tendencija", "prekida_akt_id", "prognoza", "napomena"} {
+		q.Set(k, r.FormValue(k))
+	}
+	return natrag + "&" + q.Encode()
 }
 
 // ObranaSektora je način rada sektora za stranice akata: otvoren dnevnik
@@ -248,6 +361,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		StationID: r.FormValue("station_id"), Radnja: r.FormValue("radnja"), Stupanj: models.DefensePhase(r.FormValue("stupanj")),
 		Prognoza: r.FormValue("prognoza"), Napomena: r.FormValue("napomena"), Dionice: r.Form["dionica"],
 		OcitanjeID: r.FormValue("ocitanje_id"), Tendencija: r.FormValue("tendencija"), PrekidaAktID: r.FormValue("prekida_akt_id"),
+		PotvrdaVrijedi: r.FormValue("potvrda_vrijedi") == "1",
 	}
 	if t, err := time.ParseInLocation("2006-01-02T15:04", r.FormValue("vrijedi"), models.Zagreb); err == nil {
 		z.Vrijedi = t
@@ -259,7 +373,7 @@ func (h *AktiHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Spremi(r.Context(), perms, a); err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
+		redirectWith(w, r, natragNaObrazac(natrag, r, err), "error", err.Error())
 		return
 	}
 	redirectWith(w, r, "/akti/"+a.ID, "success", "Nacrt je sastavljen. Pregledaj ga i ovjeri.")
@@ -294,8 +408,11 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
 	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
+	data.SmijeUreditiNacrt = !a.Ovjeren() && service.SmijeUreditiNacrt(perms, u, a)
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
 	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
+	h.sukobAkta(r.Context(), s, perms, a, &data)
+	pregledPrimatelja(r.Context(), s, a, &data)
 	for i := range data.Sektori {
 		if data.Sektori[i].ID == a.Sektor {
 			data.Sektor = &data.Sektori[i]
@@ -311,6 +428,78 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplAkt.ExecuteTemplate(w, "akt.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// sukobAkta upisuje u stranicu akta sukob njegove oznake i smije li ga
+// osoba označiti riješenim
+func (h *AktiHandler) sukobAkta(ctx context.Context, s *service.AktService, perms *models.UserPermissions, a *models.Akt, data *AktiPageData) {
+	h.sukobiOznaka(ctx, s, data)
+	data.Sukob = data.Sukobi[a.ID]
+	data.SmijeRijesitiOznaku = len(data.Sukob.Drugi) > 0 && service.SmijeRijesitiOznaku(perms, a)
+}
+
+// pregledPrimatelja upisuje u stranicu nacrta ono što ovjera traži da se
+// pogleda: popis primatelja složen iznova (razliku prema nacrtu, upozorenja
+// i otisak popisa) i pitanje uz „Vrijedi od”
+func pregledPrimatelja(ctx context.Context, s *service.AktService, a *models.Akt, data *AktiPageData) {
+	if a.Ovjeren() || !(data.SmijeOvjeriti || data.SmijePripremiti) {
+		return
+	}
+	p := s.PregledPrimatelja(ctx, a)
+	data.Pregled = &p
+	data.PitanjeVrijedi = service.PitanjeVrijediZaOvjeru(*a, time.Now())
+}
+
+// potvrdaOvjere su potvrde iz obrasca ovjere: otisak popisa primatelja koji
+// je osoba vidjela, kvačica uz upozorenje o popisu i kvačica uz „Vrijedi
+// od” izvan uobičajenog raspona
+func potvrdaOvjere(r *http.Request) service.PotvrdaOvjere {
+	return service.PotvrdaOvjere{Otisak: r.FormValue("otisak"), Primatelji: r.FormValue("potvrda_primatelja") == "1",
+		Vrijedi: r.FormValue("potvrda_vrijedi") == "1"}
+}
+
+// ovjeriSaStranice ovjerava nacrt u goCOP-u sa stranice akta, koja pokazuje
+// popis primatelja složen iznova: bez otiska tog popisa (osoba ga nije
+// vidjela) ovjera se ne izvodi (Odluke (8. 10. 2026.), pitanje 19)
+func ovjeriSaStranice(r *http.Request, s *service.AktService, perms *models.UserPermissions, u *models.User, a *models.Akt) (*models.Akt, []string, error) {
+	p := potvrdaOvjere(r)
+	if p.Otisak == "" && !a.Ovjeren() {
+		return nil, nil, errors.New("prije ovjere otvorite stranicu akta i pregledajte popis primatelja koji se slaže pri ovjeri")
+	}
+	return s.Ovjeri(r.Context(), perms, u, a.ID, p)
+}
+
+// HandleSloziPrimatelje slaže popis primatelja nacrta iznova
+func (h *AktiHandler) HandleSloziPrimatelje(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	novi, err := s.PonovnoSloziPrimatelje(r.Context(), perms, u, a.ID)
+	if err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	poruka := "Popis primatelja ponovno je složen."
+	if len(novi.UpozorenjaPrimatelja) > 0 {
+		poruka += " Upozorenje uz popis i dalje stoji; pogledajte ga prije ovjere."
+	}
+	redirectWith(w, r, "/akti/"+a.ID+"#primatelji", "success", poruka)
+}
+
+// HandleRijesiOznaku označava sukob oznake akta riješenim, s napomenom
+func (h *AktiHandler) HandleRijesiOznaku(w http.ResponseWriter, r *http.Request) {
+	u, perms, _ := h.base(r)
+	s, a := h.ucitaj(w, r)
+	if a == nil {
+		return
+	}
+	if err := s.RijesiOznaku(r.Context(), perms, u, a.ID, r.FormValue("napomena")); err != nil {
+		redirectWith(w, r, "/akti/"+a.ID, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/akti/"+a.ID, "success", "Sukob oznake "+a.Oznaka()+" označen je riješenim; rješenje vide svi čvorovi.")
 }
 
 // HandleTekst sprema ispravljeni tekst nacrta
@@ -411,7 +600,7 @@ func (h *AktiHandler) HandleOvjeri(w http.ResponseWriter, r *http.Request) {
 	if a == nil {
 		return
 	}
-	a, upozorenja, err := s.Ovjeri(r.Context(), perms, u, a.ID)
+	a, upozorenja, err := ovjeriSaStranice(r, s, perms, u, a)
 	if err != nil {
 		redirectWith(w, r, "/akti/"+r.PathValue("id"), "error", err.Error())
 		return
@@ -510,7 +699,7 @@ func (h *AktiHandler) HandleUcitajSken(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", "Sken nije čitljiv: "+err.Error())
 		return
 	}
-	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"))
+	a, upozorenja, err := s.UcitajSkenirani(r.Context(), perms, u, a.ID, podaci, r.FormValue("potpisnik_id"), potvrdaOvjere(r))
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return

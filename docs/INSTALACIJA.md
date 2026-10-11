@@ -244,6 +244,39 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira. Čuvati ga u zaštićenoj
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
+  Svjež čvor (baze još nema ili u njoj nema nijednog zapisa) ključ napravi
+  sam. Od 0.0.35-alfa čvor čija baza već ima zapise, a ključa uz nju nema,
+  **ne kreće**: u dnevnik ispiše koja datoteka nedostaje i gdje se očekuje.
+  Pod Postavom ne izlazi, nego ostaje upaljen dok ga ona ne zaustavi, a isti
+  razlog piše na ploči (`http://localhost/`) na tom računalu; ikona u traci
+  tada pokazuje da čvor radi.
+  Novi ključ dao bi mu novi identitet, a upareni čvorovi odbili bi razmjenu
+  („dokazao je drugi ključ od uparenog”); ni tajne šifrirane starim ključem
+  (lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
+  Izvornu datoteku treba vratiti iz sigurnosne kopije ili s diska na koji je
+  premještena; kad uz nju nema ni `gocop.toml` (u njemu je i ime čvora),
+  poruka to kaže, pa se vraćaju obje. Samo kad izvornog ključa više nema, a
+  novi identitet je namjeran, zaustavljeni čvor se pokrene **jednom** sa
+  zastavicom `-novi-kljuc-cvora`, uz istu bazu i kao korisnik pod kojim
+  inače radi, pa se zastavica ukloni:
+  - **pod Postavom:** u izborniku ikone *Zaustavi*, pa u naredbenom retku
+    (na Windowsu `cmd`) `cd /d "%LOCALAPPDATA%\goCOP\data"` i
+    `gocop -novi-kljuc-cvora -db "%LOCALAPPDATA%\goCOP\data\gocop.db"`
+    (na macOS-u i Linuxu isto, u mapi `data` instalacije i s programom iz
+    mape `program`); kad dnevnik javi da je poslužitelj spreman, Ctrl+C, pa
+    u Postavi *Pokreni*;
+  - **kao usluga sustava (Linux):** naredbe u [linux.md](linux.md),
+    poglavlje 6 (sigurnosna kopija);
+  - **u Dockeru i na Unraidu:** poglavlje 6 ovih uputa (bilješka za
+    Unraid).
+
+  Kad nema ni `gocop.toml`, a ni njega se ne može vratiti, prije toga ga
+  treba napisati uz bazu s dosadašnjim imenom čvora (redak `id = "…"` pod
+  `[node]`); bez njega čvor s novim ključem kreće pod zadanim imenom
+  `gocop-cvor` i to javlja u dnevniku. Zatim ga čvor koji ga je primio u
+  mrežu zaboravi, opozove mu članstvo i ponovno ga primi. Zastavica se ne
+  čita iz `gocop.toml` i nikad se ne podrazumijeva. Čvorovi na 0.0.34 i
+  starijim izdanjima ključ i dalje prave sami.
 - **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
   šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
   korisnika; kad lozinku postavi netko drugi (poništenje, lozinka upisana u
@@ -271,12 +304,14 @@ Portovi se mijenjaju u `gocop.toml`.
   ostale se brišu i upisuju ponovno.
 - **Ovlasti po dosegu.** Pravo pisanja ide po dosegu dužnosti: dužnost
   sektora piše u cijelom sektoru, dužnost područja u svom području, a dužnost
-  na dionicama na tim dionicama, njihovim objektima i aktima te u dnevnicima
-  svog područja i COP-a (terenska dužnost bez dionica u cijelom području;
-  samo uz sektor terenska se dužnost ne upisuje). Akt vodomjera piše tko
-  piše na bilo kojoj njegovoj dionici. Objekt drugog područja koji stoji na
-  dionici vodi njegovo područje, i vezu dionice na objekt ili vodomjer
-  drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
+  na dionicama na tim dionicama i njihovim objektima te u dnevnicima svog
+  područja i COP-a (terenska dužnost bez dionica u cijelom području; samo uz
+  sektor terenska se dužnost ne upisuje). Doseg dužnosti ne daje pravo na
+  akt o stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar
+  obrane od poplava sektora (voditelj centra, zamjenik i dežurni operater),
+  a ovjerava se kao i dosad (Pomoć › Rješenja i obavijesti). Objekt drugog
+  područja koji stoji na dionici vodi njegovo područje, i vezu dionice na
+  objekt ili vodomjer drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
   područja ili dionice ne daje pisanje po sektoru; popisi i zadani izbor
   sektora i dalje se ravnaju po svim dužnostima osobe. Račun bez aktivne
   dužnosti, isključen račun i globalnog administratora zadužuje samo
@@ -423,7 +458,9 @@ kopira bazu u `data\kopije\` (zadnje tri), zamijeni program, pokrene ga i
 čeka da odgovori s novim izdanjem. Ne odgovori li za 90 sekundi, vraća
 prethodni program i javlja grešku; bazu ne vraća sama, jer ju je novo izdanje
 možda već promijenilo. Prethodni program ostaje kao `gocop.prethodni.exe`,
-neuspjeli kao `gocop.neuspjeli.exe`.
+neuspjeli kao `gocop.neuspjeli.exe`. Čvor bez ključa uz postojeću bazu
+(poglavlje 3) od 0.0.35-alfa odgovori i ostane upaljen, pa se prethodni
+program ne vraća: on bi uz takvu bazu napravio novi ključ.
 
 **Ako čvor padne,** Postava ga podiže ponovno, uz rastući razmak; nakon tri
 pada u deset minuta odustaje, ikona je crvena, a razlog je u dnevniku čvora.
@@ -453,9 +490,16 @@ upisuje svoje zapise, a drugi ga pamte uz ključ. Ime se zadaje **prije prvog
 pokretanja**: u instalacijskom programu, u `gocop.toml` ili zastavicom
 `-node`. Bez toga svjež čvor sam izabere jedinstveno ime (ime računala i
 četiri nasumična znaka) i upiše ga u `gocop.toml`. Nakon prvog pokretanja ime
-se ne mijenja. Postojeća baza bez upisanog imena zadržava dosadašnje
-`gocop-cvor`. Uparivanje odbija računalo koje nosi ime ovog čvora ili ime
-poznatog čvora s drugim ključem (dvojnik), isto i primanje na daljinu i
+se ne mijenja. Postojeća baza bez upisanog imena (npr. kad je `gocop.toml`
+premješten) uzima ime pod kojim pamti ključ ovog čvora, iz članstva u mreži
+ili zapisa čvora; kad ga ne zna, zadržava dosadašnje `gocop-cvor`. Od
+0.0.35-alfa uz postojeću bazu bez `gocop.toml` program ne zapisuje novi
+primjer, koji bi tiho zamijenio izvorne postavke, nego pri svakom pokretanju
+u dnevniku javlja da datoteke nema i gdje se očekuje; isto i
+`gocop -pripremi`, koji instalacijska skripta na Linuxu pokreće pri svakoj
+instalaciji i nadogradnji. Uparivanje odbija
+računalo koje nosi ime ovog čvora ili ime poznatog čvora s drugim ključem
+(dvojnik), isto i primanje na daljinu i
 članstvo koje čvor pokaže pri spajanju; računalo koje je samo dobilo novi
 ključ najprije se zaboravi i opozove mu se članstvo.
 
@@ -671,10 +715,23 @@ Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
 spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
 datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i
 nakon nadogradnje provjeriti da montirani `/data` sadrži postojeće
-`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Ako se
-postojeći čvor iznenada prikaže kao nov ili s drugim ključem, zaustaviti ga
-i provjeriti montaže te vratiti originalni identitet iz kopije. Ponovnim
-osnivanjem mreže ne obnavlja se stari čvor.
+`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Tako je
+5. 10. 2026. mover premjestio `node-key` i `gocop.toml` s cachea na polje, a
+spremnik je uz postojeću bazu napravio novi ključ, pa su ga upareni čvorovi
+odbili. Od 0.0.35-alfa spremnik bez ključa uz postojeću bazu ne kreće, a u
+dnevniku spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Bez
+`gocop.toml`, a s ključem, kreće, ali ime uzima iz baze, ne zapisuje novi
+primjer i u dnevniku javlja da datoteke nema. U oba slučaja zaustaviti
+spremnik, provjeriti montaže (Shares → Browse pokazuje na kojem je disku
+datoteka) i vratiti izvornike u `/data`; isto i kad se postojeći čvor na
+izdanju prije 0.0.35 prikaže kao nov ili s drugim ključem.
+Ponovnim osnivanjem mreže ne obnavlja se stari čvor. Samo kad izvornog ključa
+više nema, a novi identitet je namjeran: u predlošku spremnika dodati
+`-novi-kljuc-cvora` u *Post Arguments* (Advanced View), pokrenuti spremnik
+jednom, pa zastavicu ukloniti (`docker run … ghcr.io/tkraljevic/gocop:<oznaka>
+-novi-kljuc-cvora` izvan Unraida). Ako se ni `gocop.toml` ne može vratiti,
+prije toga ga napisati u `/data` s dosadašnjim imenom čvora (redak
+`id = "…"` pod `[node]`), inače čvor kreće pod imenom `gocop-cvor`.
 
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi
@@ -730,8 +787,10 @@ na GitHubu označena su kao *pre-release*.
 
 Izdanje:
 
-1. promijeniti `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md),
-   commit i oznaka `v0.0.x-alfa`;
+1. na računalu s izvozom registara u `data/` pokrenuti
+   `make provjera-registara` (provjere registara GitHub ne može
+   izvesti), promijeniti `verzijaPrograma`, upisati novo u
+   [CHANGELOG.md](../CHANGELOG.md), commit i oznaka `v0.0.x-alfa`;
 2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
@@ -813,8 +872,31 @@ Razlozi su u komentarima `internal/ledger/shema.go` i
 
 Kote nule vodomjera vode se u sustavu Trst, a HVRS71 i baltičke kote zasebno
 (vidi [baltičke kote](balticke-kote.md)).
-Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
-nema u mapi `data/`.
+Testovi djelatnika i ovlasti, uvoza i razmjene među čvorovima rade na
+izmišljenom skupu podataka [`testdata/sektor-p`](../testdata/sektor-p/README.md)
+(sektor P, pet izmišljenih djelatnika), pa se izvode svugdje, i na GitHubu.
+Samo 11 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
+nule iz elaborata, cjelovitost registara) treba stvarne registre. Dvije opće
+provjere prvog punjenja (drugo punjenje ništa ne udvostručuje, tekstovi su
+ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
+ponavljaju se i na njima. Stvarni registri su izvoz registara u mapi
+`data/` u korijenu repozitorija (`sections.json`, `watercourses.json`,
+`territories.json`, `section_territories.json`, `objekti_bp16.json`,
+`organizacija.json`); `sections.json` slaže administratorski alat
+`prijepis-dionica`, izvan repozitorija. Brojke u provjerama su brojke
+izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se
+pregledaju i brojke mijenjaju svjesno, s razlogom u commitu. Bez izvoza se
+provjere preskaču, uz poruku što treba. Pokreću se prije svakog izdanja
+naredbom `make provjera-registara`, koja ih bez izvoza ruši umjesto da ih
+preskoči.
+Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
+i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
+upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
+ne smije nositi stvarno ime, osim imena koja program sam prikazuje u
+pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
+(`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
+ne provjerava.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati

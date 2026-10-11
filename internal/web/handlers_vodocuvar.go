@@ -96,6 +96,9 @@ type KnjigaVodocuvara struct {
 	// odjednom se gleda jedan mjesec
 	Mjeseci   []MjesecKnjige
 	Preneseni int // listovi iz ranije evidencije, bez potpisa i broja
+	// SmijeUpisati: osoba smije upisati bilješku u ovu knjigu (obrazac
+	// „Upiši” uz knjigu)
+	SmijeUpisati bool
 }
 
 // MjesecKnjige je jedan mjesec knjige, s listovima tog mjeseca
@@ -128,7 +131,13 @@ type VodocuvarPageData struct {
 	MojiMjeseci []MjesecKnjige // vlastiti listovi po mjesecima
 	SamoMoj     bool           // vodočuvar bez tuđih knjiga: zaslon bez filtara
 	Danas       string
-	Arhivirana  bool // odabrana godina je zaključena
+	NajdaljeDan string // zadnji dan za koji se list priprema unaprijed (30 dana)
+	Arhivirana  bool   // odabrana godina je zaključena
+	// Dvostruki su dani s više dnevnih listova istog vodočuvara, za
+	// rukovoditelja branjenog područja i administratora; Dvojnici su uz
+	// predan list brojevi drugih predanih listova istog dana
+	Dvostruki []service.DvostrukiDan
+	Dvojnici  map[string][]int
 
 	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -139,8 +148,10 @@ type VodocuvarPageData struct {
 	Izvornik        potpisiIzvornika // potpisi u potpisanom PDF-u lista
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
+	SmijeUpisati    bool // bilješka na tuđi list
 	Parafirao       bool
 	Podrucje        *models.Area
+	DrugiPredani    []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
 }
 
 func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPermissions, VodocuvarPageData) {
@@ -148,7 +159,8 @@ func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPerm
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	q := r.URL.Query()
 	d := VodocuvarPageData{CurrentUser: u, Permissions: perms, ActiveNav: "journals", ViewAsBanner: viewBanner(r),
-		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Danas: time.Now().In(models.Zagreb).Format("2006-01-02")}
+		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"), Danas: time.Now().In(models.Zagreb).Format("2006-01-02"),
+		NajdaljeDan: time.Now().In(models.Zagreb).AddDate(0, 0, models.NajdaljePlaniranje).Format("2006-01-02")}
 	if u != nil {
 		if cijeli, err := h.users.GetUserByID(u.ID); err == nil && cijeli != nil {
 			d.VodiDnevnik = service.VodiDnevnik(cijeli)
@@ -160,12 +172,12 @@ func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPerm
 }
 
 // pristup zatvara dnevnike onima koji u njih ne gledaju: strojar, rukovatelj,
-// terenski radnik i skladištar dobiju obavijest, ne popis
+// terenski radnik, skladištar i poslovođa izvođača dobiju obavijest, ne popis
 func (h *VodocuvarHandler) pristup(w http.ResponseWriter, u *models.User) bool {
 	if u == nil || u.VidiVodocuvarskiDnevnik() {
 		return true
 	}
-	http.Error(w, "Vodočuvarski dnevnik vode vodočuvari, a čitaju ga rukovoditelji i ovlaštenici područja; strojari, rukovatelji i skladištari imaju svoje dnevnike.", http.StatusForbidden)
+	http.Error(w, "Vodočuvarski dnevnik vode vodočuvari, a čitaju ga rukovoditelji, ovlaštenici, uprava i dežurni operater; strojari, rukovatelji i skladištari imaju svoje dnevnike, a izvođači dnevnike usluga.", http.StatusForbidden)
 	return false
 }
 
@@ -194,10 +206,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 	// godine idu do najstarijeg lista koji čvor ima, a ne do proizvoljne
 	// granice: prijenosom starije evidencije knjige sežu unatrag
-	najstarija := h.najstarijaGodina(r.Context())
-	for g := time.Now().In(models.Zagreb).Year(); g >= najstarija; g-- {
-		d.Godine = append(d.Godine, g)
-	}
+	d.Godine = godineKnjiga(time.Now(), h.najstarijaGodina(r.Context()))
 	d.Arhivirana = service.Arhivirana(d.Godina)
 	if d.VodiDnevnik {
 		d.Moji, _ = s.Moji(r.Context(), u, d.Godina)
@@ -219,7 +228,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	for _, l := range d.Tudji {
 		k := poOsobi[l.UserID]
 		if k == nil {
-			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID}
+			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: s.SmijeUpisati(perms, &l)}
 			poOsobi[l.UserID] = k
 			d.Knjige = append(d.Knjige, *k)
 		}
@@ -238,22 +247,16 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 		d.Knjige[i].Mjeseci = poMjesecima(d.Knjige[i].Listovi)
 	}
-	// vodočuvari kojima se zadaje: samo iz odabranog sektora i područja;
-	// svaki ima svoju knjigu i kad je još prazna
-	for _, v := range s.Vodocuvari(r.Context(), perms) {
-		pd := v.PrimaryDuty()
-		if d.Filtar.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != d.Filtar.Sektor) {
-			continue
-		}
-		if d.Filtar.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != d.Filtar.AreaID) {
-			continue
-		}
-		d.Vodocuvari = append(d.Vodocuvari, v)
+	// vodočuvari kojima se zadaje i oni u čije se knjige upisuje bilješka:
+	// samo iz odabranog sektora i područja; tko prima bilješku ima svoju
+	// knjigu i kad je još prazna
+	d.Vodocuvari = uOdabiru(s.Vodocuvari(r.Context(), perms), d.Filtar)
+	for _, v := range uOdabiru(s.VodocuvariZaBiljesku(r.Context(), perms), d.Filtar) {
 		if v.ID.String() == u.ID.String() || poOsobi[v.ID.String()] != nil {
 			continue
 		}
-		k := KnjigaVodocuvara{UserID: v.ID.String(), Ime: v.FullName}
-		if pd != nil && pd.AreaID != nil {
+		k := KnjigaVodocuvara{UserID: v.ID.String(), Ime: v.FullName, SmijeUpisati: true}
+		if pd := v.PrimaryDuty(); pd != nil && pd.AreaID != nil {
 			k.AreaID = *pd.AreaID
 		}
 		poOsobi[k.UserID] = &k
@@ -267,6 +270,8 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.MojiMjeseci = poMjesecima(d.Moji)
+	d.Dvostruki = s.DvostrukiListovi(r.Context(), perms)
+	d.Dvojnici = s.OznakeDvostrukih(r.Context())
 	// Vodočuvar koji ne vidi ničiji tuđi dnevnik i nikome ne zadaje zadatke
 	// dobiva samo svoju knjigu: filtri i tuđe knjige mu ništa ne znače, a
 	// svaki suvišan gumb je razlog manje da program uopće otvori.
@@ -274,6 +279,35 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	if err := h.tmplPopis.ExecuteTemplate(w, "vodocuvar.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// uOdabiru ostavlja vodočuvare čije je glavno zaduženje u odabranom sektoru
+// i području; prazan izbor ne miče nikoga
+func uOdabiru(svi []models.User, f repository.FiltarListova) []models.User {
+	var out []models.User
+	for _, v := range svi {
+		pd := v.PrimaryDuty()
+		if f.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != f.Sektor) {
+			continue
+		}
+		if f.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != f.AreaID) {
+			continue
+		}
+		out = append(out, v)
+	}
+	return out
+}
+
+// godineKnjiga su godine koje popis nudi, od najnovije: od godine
+// najdaljeg dana za koji se list smije pripremiti unaprijed (30 dana, pa od
+// 2. prosinca i iduća godina, Odluke (8. 10. 2026.), pitanje 5) do
+// najstarijeg lista na čvoru
+func godineKnjiga(sad time.Time, najstarija int) []int {
+	var out []int
+	for g := sad.In(models.Zagreb).AddDate(0, 0, models.NajdaljePlaniranje).Year(); g >= najstarija; g-- {
+		out = append(out, g)
+	}
+	return out
 }
 
 func danIzObrasca(s string) time.Time {
@@ -317,10 +351,17 @@ func (h *VodocuvarHandler) ShowList(w http.ResponseWriter, r *http.Request) {
 	h.prikazi(w, r, d, perms, l, l.UserID == u.ID.String())
 }
 
+// nudiOvjeru javlja nudi li stranica lista gumb „Ovjeri list”: osoba list
+// smije ovjeriti, list je predan, nije ni ovjeren ni prenesen iz ranije
+// evidencije, a njegov je dan počeo (Odluke (8. 10. 2026.), pitanje 5)
+func nudiOvjeru(s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	return s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija && s.DanListaPoceo(l)
+}
+
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
-	d.SmijeOvjeriti = s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija
+	d.SmijeOvjeriti = nudiOvjeru(s, perms, l)
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
@@ -331,11 +372,14 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
 	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
+	d.SmijeUpisati = s.SmijeUpisati(perms, l)
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
+	d.DrugiPredani = s.DrugiPredani(r.Context(), l)
 	if org := h.org(); org != nil && l.AreaID > 0 {
 		d.Podrucje, _ = org.GetArea(r.Context(), l.AreaID)
 	}
-	if s.SmijeParafirati(perms, l) || moj {
+	// zadaci vodočuvara stoje i na njegovim listovima: vidi ih tko čita knjigu
+	if s.SmijeVidjeti(perms, l) || moj {
 		d.ZadaciOsobe = s.Zadaci(r.Context(), l.UserID)
 	}
 	if err := h.tmplList.ExecuteTemplate(w, "vodocuvar_list.html", d); err != nil {
@@ -444,12 +488,21 @@ func (h *VodocuvarHandler) HandleUpis(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	natrag := povratnaPutanja(r.FormValue("natrag"), "/vodocuvar")
-	l, err := s.Upisi(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("tekst"))
+	l, err := s.UpisiNaList(r.Context(), perms, u, r.FormValue("vodocuvar"), danIzObrasca(r.FormValue("datum")), r.FormValue("list"), r.FormValue("tekst"))
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, na listu "+strconv.Itoa(l.Broj)+" od "+l.Datum.Format("02.01.2006.")+", s vašim imenom i vremenom.")
+	redirectWith(w, r, "/vodocuvar/"+l.ID, "success", "Upis je u dnevniku, "+naListu(l)+", s vašim imenom i vremenom.")
+}
+
+// naListu kaže na koji je list upisano: s brojem, ili na nacrt za dan koji
+// još nije počeo, koji broj dobiva prvim spremanjem kad taj dan počne
+func naListu(l *models.VodocuvarskiList) string {
+	if l.Broj == 0 {
+		return "na nacrtu lista bez broja od " + l.Datum.Format("02.01.2006.") + " (broj dobiva prvim spremanjem kad taj dan počne)"
+	}
+	return "na listu " + strconv.Itoa(l.Broj) + " od " + l.Datum.Format("02.01.2006.")
 }
 
 // HandleZadatak zadaje zadatak vodočuvaru

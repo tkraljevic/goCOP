@@ -8,6 +8,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
+	"gocop/internal/service"
 )
 
 // Mjere uzdužnog profila: uobičajena voda letve i jutarnje stanje.
@@ -111,12 +112,12 @@ const MjesecDana = 30
 // MjesecNajmanjeDana je koliko dana s mjerenjem mjesečni medijan traži.
 const MjesecNajmanjeDana = 7
 
-// mjesecnaVoda pamti mjesečne medijane po danu: nula stoji cijeli dan, kao
-// i jutro, pa se računa jednom na dan.
+// mjesecnaVoda pamti satne nizove zadnjih 30 dana po danu: nula stoji cijeli
+// dan, kao i jutro, pa se niz čita jednom na dan.
 type mjesecnaVoda struct {
 	mu  sync.Mutex
 	dan time.Time
-	cm  map[string]float64
+	niz map[string]map[int64]float64
 }
 
 // medijanSati vraća medijan satnih vrijednosti i ima li ih dovoljno dana.
@@ -138,58 +139,95 @@ func medijanSati(poSatu map[int64]float64) (float64, bool) {
 	return m, true
 }
 
-// mjesecno vraća medijan vode zadnjih 30 dana prije dana jutra, za svaku
-// letvu: satne vrijednosti iz arhive, dopunjene očitanjima koja arhiva još
-// nema. Letva s manje od tjedan dana mjerenja nema nulu i čeka.
-func (h *PrognozeHandler) mjesecno(ctx context.Context, postaje map[string]models.Station, letve []string, dan time.Time) map[string]float64 {
+// mjesecno vraća nulu profila: medijan vode istih dana na svim letvama toka,
+// unutar zadnjih 30 dana prije dana jutra (vidi uzduzni_nula.go). Satni nizovi
+// dolaze iz arhive, dopunjeni očitanjima koja arhiva još nema.
+func (h *PrognozeHandler) mjesecno(ctx context.Context, postaje map[string]models.Station, letve []string, dan time.Time) NulaProfila {
+	nizovi := h.mjesecniNizovi(ctx, postaje, letve, dan)
+	n := NulaProfila{Dan: dan, Voda: map[string]string{}, Rkm: map[string]float64{}, Naziv: map[string]string{}}
+	akumulacije := map[string]bool{}
+	for l := range nizovi {
+		st := postaje[l]
+		n.Voda[l], _, _ = profilVode(st)
+		n.Rkm[l], _ = rijecniKm(st.Stationing)
+		n.Naziv[l], _ = kratkoIme(st.Name)
+		akumulacije[l] = jeAkumulacija(st)
+	}
+	return sloziNulu(nizovi, n, akumulacije)
+}
+
+// mjesecniNizovi čita satne vodostaje letvi zadnjih 30 dana prije dana jutra,
+// jednom na dan po letvi. Letva bez ijedne vrijednosti nema niza.
+func (h *PrognozeHandler) mjesecniNizovi(ctx context.Context, postaje map[string]models.Station, letve []string, dan time.Time) map[string]map[int64]float64 {
 	u := &h.mjesecna
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	if !u.dan.Equal(dan) {
-		u.dan, u.cm = dan, map[string]float64{}
+		u.dan, u.niz = dan, map[string]map[int64]float64{}
 	}
-	od := dan.AddDate(0, 0, -MjesecDana)
-	var a *repository.ArhivaRepository
-	if h.arhiva != nil {
-		a = h.arhiva()
-	}
-	out := map[string]float64{}
+	out := map[string]map[int64]float64{}
 	for _, l := range letve {
-		if v, ima := u.cm[l]; ima {
-			out[l] = v
-			continue
-		}
-		st, ima := postaje[l]
+		niz, ima := u.niz[l]
 		if !ima {
-			continue
+			niz = h.satniNizLetve(ctx, postaje, l, dan)
+			u.niz[l] = niz
 		}
-		poSatu := map[int64]float64{}
-		if a != nil {
-			velicina := "vodostaj"
-			if jeAkumulacija(st) {
-				velicina = "kota"
-			}
-			if vs, err := a.SpojRaspon(ctx, l, velicina, "satni", od, dan.Add(-time.Second), 20000, 0, ""); err == nil {
-				for _, v := range vs {
-					poSatu[v.Kad.Unix()/3600] = v.Vrijednost
-				}
-			}
-		}
-		if h.readings != nil {
-			rs, err := h.readings.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: od, To: dan.Add(-time.Second)})
-			if err == nil {
-				for _, rd := range rs {
-					if rd.LevelCm != nil {
-						poSatu[rd.MeasuredAt.Unix()/3600] = float64(*rd.LevelCm)
-					}
-				}
-			}
-		}
-		if m, ok := medijanSati(poSatu); ok {
-			u.cm[l], out[l] = m, m
+		if len(niz) > 0 {
+			out[l] = niz
 		}
 	}
 	return out
+}
+
+// satniNizLetve slaže satni niz letve za zadnjih 30 dana prije dana jutra:
+// vrijednosti iz arhive, dopunjene očitanjima koja arhiva još nema.
+func (h *PrognozeHandler) satniNizLetve(ctx context.Context, postaje map[string]models.Station, l string, dan time.Time) map[int64]float64 {
+	poSatu := map[int64]float64{}
+	st, ima := postaje[l]
+	if !ima {
+		return poSatu
+	}
+	od, do := dan.AddDate(0, 0, -MjesecDana), dan.Add(-time.Second)
+	if h.arhiva != nil {
+		dodajIzArhive(ctx, h.arhiva(), st, od, do, poSatu)
+	}
+	if h.readings != nil {
+		dodajOcitanja(ctx, h.readings, st, od, do, poSatu)
+	}
+	return poSatu
+}
+
+// dodajIzArhive upisuje satne vrijednosti letve iz arhive (za akumulaciju
+// kotu, za letvu vodostaj).
+func dodajIzArhive(ctx context.Context, a *repository.ArhivaRepository, st models.Station, od, do time.Time, poSatu map[int64]float64) {
+	if a == nil {
+		return
+	}
+	velicina := "vodostaj"
+	if jeAkumulacija(st) {
+		velicina = "kota"
+	}
+	vs, err := a.SpojRaspon(ctx, st.Code, velicina, "satni", od, do, 20000, 0, "")
+	if err != nil {
+		return
+	}
+	for _, v := range vs {
+		poSatu[v.Kad.Unix()/3600] = v.Vrijednost
+	}
+}
+
+// dodajOcitanja upisuje očitanja letve preko arhive: očitanje istog sata
+// ima prednost, jer je novije.
+func dodajOcitanja(ctx context.Context, r *service.ReadingService, st models.Station, od, do time.Time, poSatu map[int64]float64) {
+	rs, err := r.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: od, To: do})
+	if err != nil {
+		return
+	}
+	for _, rd := range rs {
+		if rd.LevelCm != nil {
+			poSatu[rd.MeasuredAt.Unix()/3600] = float64(*rd.LevelCm)
+		}
+	}
 }
 
 // ocitanje je jedno mjerenje vodostaja u vremenu.

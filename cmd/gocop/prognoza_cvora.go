@@ -129,19 +129,39 @@ func kisaSlivova(osvjezivac *prognoza.Osvjezivac, arhivaRO, pb *sql.DB, peersSer
 		if err != nil {
 			return nil, nil, err
 		}
-		var oborine map[string]prognoza.DnevniNiz
-		if peersService.TrenutneUloge().Izdaje {
-			oborine, err = prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
-		} else {
-			// Kišu preuzima čvor koji izdaje prognozu; stiže s izdanjem.
-			oborine, _, err = prognoza.ZadnjaKisa(pb)
+		ziva := func() (map[string]prognoza.DnevniNiz, error) {
+			return prognoza.OborineOkoSada(ob, time.Now().Unix()/3600, 3, 2)
 		}
+		oborine, izdano, err := kisaZaStanje(ctx, pb, ziva, peersService.TrenutneUloge().Izdaje)
 		if err != nil {
 			return nil, nil, err
 		}
-		_, dnevne, _ := prognoza.ZadnjeDnevno(pb)
+		// Dnevna istog izdanja kao satna; izdanje bez dnevne nema je.
+		dnevne, _ := prognoza.DnevneIzdanja(pb, izdano)
 		return prognoza.StanjeSlivova(oborine, pragovi), dnevne, nil
 	}
+}
+
+// kisaZaStanje vraća kišu po međuslivovima i sat izdanja čija dnevna
+// prognoza ide uz nju. Izvoz ranijeg izdanja uzima kišu kakvu je to izdanje
+// imalo; inače čvor koji izdaje prognozu uzima živu kišu, a ostali onu iz
+// zadnjeg izdanja, jer kišu preuzima izdavač i ona stiže s izdanjem.
+func kisaZaStanje(ctx context.Context, pb *sql.DB, ziva func() (map[string]prognoza.DnevniNiz, error),
+	izdaje bool) (map[string]prognoza.DnevniNiz, int64, error) {
+	if sat, ranije := web.IzdanjeZahtjeva(ctx); ranije {
+		kisa, err := prognoza.KisaIzdanja(pb, sat)
+		if err == nil && len(kisa) == 0 {
+			err = fmt.Errorf("uz izdanje kiša po međuslivovima nije zapisana")
+		}
+		return kisa, sat, err
+	}
+	izdano, _, _ := prognoza.ZadnjeIzdanje(pb)
+	if izdaje {
+		kisa, err := ziva()
+		return kisa, izdano, err
+	}
+	kisa, _, err := prognoza.ZadnjaKisa(pb)
+	return kisa, izdano, err
 }
 
 // pripremiOborine otvori bazu oborina uz bazu prognoza: kišomjeri iz
@@ -178,15 +198,21 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 	return oborineUvoznik, kisUvoznik, oborineDB
 }
 
+// zaboraviDnevneModele baca naučene dnevne modele, pa ih idući krug uči
+// iznova; testovi ga zamjenjuju brojačem.
+var zaboraviDnevneModele = prognoza.ZaboraviDnevneModele
+
 // pripremaModela je priprema modela iz aplikacije (Prognoze → Pripremi
 // model): namjesti lanac iz arhive, provjerom unatrag zapiše promašaje i odmah
 // izda prognozu novim modelom. Ako satni krug upravo traje, novo izdanje
 // pričeka idući sat — dva izdavanja istog sata ne idu jedno preko drugog.
+// Dnevni modeli uče se iznova već idući krug, a ne tek iza zagrebačke ponoći.
 func pripremaModela(peersService *peers.Service, arhivaRO, pb *sql.DB, javniUvoznik *javnivodostaji.Uvoznik, osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(ctx context.Context, p *poslovi.Posao) error {
 	return func(ctx context.Context, p *poslovi.Posao) error {
 		if !peersService.TrenutneUloge().Izdaje {
 			return fmt.Errorf("model priprema čvor koji izdaje prognozu (Postavke → Čvor); ovaj ga prima razmjenom")
 		}
+		zaboraviDnevneModele()
 		n, err := prognoza.NamjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
 		if err != nil {
 			return err

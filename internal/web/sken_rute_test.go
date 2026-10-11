@@ -70,15 +70,19 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	b, bp := "B", 34
-	kunac := &models.User{ID: uuid.New(), Username: "mkunac", FullName: "Mile Kunac", IsActive: true}
-	if err := userRepo.CreateUser(kunac, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+	anic := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	if err := userRepo.CreateUser(anic, &models.Duty{Title: "Rukovoditelj BP 34", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
 		t.Fatal(err)
 	}
 	dionica := &models.User{ID: uuid.New(), Username: "iivic", FullName: "Ivo Ivić", IsActive: true}
 	if err := userRepo.CreateUser(dionica, &models.Duty{Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection, SectorID: &b, AreaID: &bp, SectionCodes: "B.34.1"}); err != nil {
 		t.Fatal(err)
 	}
-	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a"}
+	// voditelj COP-a sastavlja nacrt po dužnosti voditelja centra sektora B
+	// (namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18: nacrt
+	// sastavlja samo Centar obrane od poplava, a ne uprava sektora kao takva)
+	voditelj := &models.User{ID: uuid.New(), Username: "voditelj", FullName: "Voditelj COP-a",
+		Duties: []models.Duty{{Title: "Voditelj COP-a", Role: models.RoleCopLeader, ScopeType: models.ScopeSector, SectorID: &b, IsActive: true}}}
 	perms := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
@@ -120,19 +124,22 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		fw, _ := mw.CreateFormFile("sken", ime)
 		_, _ = fw.Write(podaci)
 		_ = mw.WriteField("potpisnik_id", potpisnik)
+		// dionica nema teritorija: sken s tim popisom ovjerava se uz potvrdu
+		// (Odluke (8. 10. 2026.), pitanje 19)
+		_ = mw.WriteField("potvrda_primatelja", "1")
 		_ = mw.Close()
 		r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 		r.Header.Set("Content-Type", mw.FormDataContentType())
 		return mustUnescape(zovi(r).Header().Get("Location"))
 	}
 
-	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}}
+	forma := url.Values{"station_id": {st.ID.String()}, "radnja": {"USPOSTAVA"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-15T09:00"}, "potvrda_vrijedi": {"1"}}
 	r := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
 
 	stranica := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
-	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Mile Kunac"} {
+	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Ana Anić"} {
 		if !strings.Contains(stranica, ocekivano) {
 			t.Fatalf("stranica nacrta nema %q", ocekivano)
 		}
@@ -161,7 +168,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}{
 		{"bez potpisnika", "", sken.Bytes(), "potpis"},
 		{"bez prava", dionica.ID.String(), sken.Bytes(), "ne smije ovjeriti"},
-		{"nije sken", kunac.ID.String(), []byte("nešto"), "PDF"},
+		{"nije sken", anic.ID.String(), []byte("nešto"), "PDF"},
 	} {
 		if loc := posalji(id, c.potpisnik, "sken.png", c.podaci); !strings.Contains(loc, "error") || !strings.Contains(loc, c.greska) {
 			t.Errorf("%s: %s", c.opis, loc)
@@ -170,11 +177,11 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 
 	// skener daje PDF; on je izvornik bajt za bajt
 	skenPDF := []byte("%PDF-1.4\n% sken s potpisom i žigom\n%%EOF\n")
-	if loc := posalji(id, kunac.ID.String(), "sken.pdf", skenPDF); !strings.Contains(loc, "success") {
+	if loc := posalji(id, anic.ID.String(), "sken.pdf", skenPDF); !strings.Contains(loc, "success") {
 		t.Fatalf("sken odbijen: %s", loc)
 	}
 	a, _ := akti.Get(ctx, id)
-	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Mile Kunac" || a.Broj != 1 {
+	if !a.Ovjeren() || a.Rucno == nil || a.Ovjerio != "Ana Anić" || a.Broj != 1 {
 		t.Fatalf("ovjera skenom: %+v", a)
 	}
 	if e, _ := episodes.Open(ctx, "B.34.1"); e == nil || e.Phase != models.PhasePrep {
@@ -187,7 +194,7 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	if !strings.Contains(zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String(), "Potpisan vlastoručno i ovjeren žigom") {
 		t.Error("stranica ne pokazuje ručni potpis")
 	}
-	if loc := posalji(id, kunac.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
+	if loc := posalji(id, anic.ID.String(), "sken.png", sken.Bytes()); !strings.Contains(loc, "već ovjeren") {
 		t.Errorf("ponovni sken: %s", loc)
 	}
 
@@ -260,14 +267,15 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 		t.Error("slika potpisa")
 	}
 	// akt ovjeren u goCOP-u: PDF nosi žig i potpis, ispis za ruku ne
-	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}}
+	forma2 := url.Values{"station_id": {st.ID.String()}, "radnja": {"PREKID"}, "stupanj": {"PRIPREMNO"}, "vrijedi": {"2026-09-16T09:00"}, "potvrda_vrijedi": {"1"}}
 	r2 := httptest.NewRequest(http.MethodPost, "/akti/novi", strings.NewReader(forma2.Encode()))
 	r2.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id2 := strings.TrimPrefix(strings.SplitN(zovi(r2).Header().Get("Location"), "?", 2)[0], "/akti/")
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/za-ispis.pdf", nil)); bytes.Contains(w.Body.Bytes(), []byte("/Subtype /Image")) {
 		t.Error("ispis za vlastoručni potpis ne nosi skenirani žig")
 	}
-	r3 := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/ovjeri", strings.NewReader(""))
+	otisak := otisakSaStranice(t, zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2, nil)).Body.String())
+	r3 := httptest.NewRequest(http.MethodPost, "/akti/"+id2+"/ovjeri", strings.NewReader(url.Values{"otisak": {otisak}, "potvrda_primatelja": {"1"}}.Encode()))
 	r3.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if loc := mustUnescape(zovi(r3).Header().Get("Location")); !strings.Contains(loc, "success") {
 		t.Fatalf("ovjera u goCOP-u: %s", loc)

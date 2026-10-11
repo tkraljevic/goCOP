@@ -135,7 +135,7 @@
     <span class="viewas-eye">{{icon "eye"}} </span>
     <span class="viewas-text">
       Gledaš program očima djelatnika <strong>{{.ViewedName}}</strong>{{if .ViewedTitle}} ({{.ViewedTitle}}){{end}}.
-      Prijavljen je <strong>{{.RealName}}</strong>. {{if .UpisiDopusteni}}<strong>Upisi su dopušteni</strong> i nastaju pod imenom {{.ViewedName}} (Opcije).{{else}}U ovom pogledu program samo čita.{{end}}
+      Prijavljen je <strong>{{.RealName}}</strong>. {{if .RacunIskljucen}}<strong>Račun je isključen, samo čitanje</strong>, i kad su upisi tuđim očima uključeni.{{else if .UpisiDopusteni}}<strong>Upisi su dopušteni</strong> i nastaju pod imenom {{.ViewedName}} (Opcije).{{else}}U ovom pogledu program samo čita.{{end}}
     </span>
     <form method="POST" action="/view-as/stop" class="viewas-form">
       <input type="hidden" name="back" value="/users">
@@ -341,7 +341,7 @@
   {{if .NulaUSlici}}
   <line class="uzd-nula" x1="{{printf "%.1f" .LijevoX}}" x2="{{printf "%.1f" .DesnoX}}"
         y1="{{printf "%.1f" .NulaY}}" y2="{{printf "%.1f" .NulaY}}"/>
-  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">voda zadnjih 30 dana (medijan)</text>
+  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">{{.NulaNaziv}} (medijan)</text>
   {{end}}
   {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
   {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}

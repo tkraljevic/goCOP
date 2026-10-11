@@ -113,8 +113,10 @@ func sqlNullable(v string) string {
 }
 
 // Unutar razine ide rukovoditelj pred zamjenikom, a ista osoba s dvije
-// dužnosti na istoj razini stoji jednom: Mario Spajić je i zamjenik
-// rukovoditelja sektora i voditelj centra, ali je jedan čovjek s jednim brojem.
+// dužnosti na istoj razini stoji jednom: Ana Anić je i zamjenica
+// rukovoditelja sektora i voditeljica centra, ali je jedna osoba s jednim
+// brojem. Rukovoditelj sektora Pero Perić abecedno je iza nje, pa redoslijed
+// mora doći od uloge, ne od imena.
 func TestUnutarRazineTezinaUlogeIJedanZapisPoOsobi(t *testing.T) {
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
@@ -130,8 +132,8 @@ func TestUnutarRazineTezinaUlogeIJedanZapisPoOsobi(t *testing.T) {
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (34, 'B', 'BP 34', 'VGI Baranja')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, parts, created_at, updated_at)
 		 VALUES ('B.34.1', 34, 'B', 'r. Dunav', '[]', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
-		user("u1", "spajic", "Mario Spajić"),
-		user("u2", "kovacevic", "Željko Kovačević"),
+		user("u1", "aanic", "Ana Anić"),
+		user("u2", "pperic", "Pero Perić"),
 		duty("d1", "u1", "SECTOR_DEPUTY", "SECTOR", "B", "NULL", "''"),
 		duty("d2", "u1", "COP_LEADER", "SECTOR", "B", "NULL", "''"),
 		duty("d3", "u2", "SECTOR_LEADER", "SECTOR", "B", "NULL", "''"),
@@ -147,9 +149,9 @@ func TestUnutarRazineTezinaUlogeIJedanZapisPoOsobi(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(ljudi) != 2 {
-		t.Fatalf("na kartici je %d zapisa, očekivano 2 (Spajić jednom)", len(ljudi))
+		t.Fatalf("na kartici je %d zapisa, očekivano 2 (Ana Anić jednom)", len(ljudi))
 	}
-	if ljudi[0].FullName != "Željko Kovačević" {
+	if ljudi[0].FullName != "Pero Perić" {
 		t.Errorf("prvi je %q, a rukovoditelj sektora mora biti pred zamjenikom", ljudi[0].FullName)
 	}
 	if !strings.Contains(ljudi[1].DutyTitle, "SECTOR_DEPUTY") || !strings.Contains(ljudi[1].DutyTitle, "COP_LEADER") {

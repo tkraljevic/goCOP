@@ -63,6 +63,7 @@ type Column struct {
 	Name   string // naziv letve u registru
 	Key    string // GaugeKey
 	Values int
+	Kota   bool // letva vodi kotu u cm n. m. (akumulacija), pa ima raspon kote
 }
 
 // Report je sažetak uvoza
@@ -78,11 +79,15 @@ type Report struct {
 	Differs   []Difference
 	BadDates  int
 	BadValues int
-	// IzvanRaspona su čitljivi brojevi izvan raspona ručnog upisa (npr.
-	// tablica s apsolutnim kotama u cm); ne uvoze se, ali nisu nečitljivi
+	// IzvanRaspona su čitljive ćelije izvan raspona ručnog upisa (npr.
+	// tablica s apsolutnim kotama u cm na letvi koja vodi vodostaj, ili dan
+	// u budućnosti); ne uvoze se, ali nisu nečitljive. Bilježe se za
+	// stranicu letve (Odluke (8. 10. 2026.), pitanje 21).
 	IzvanRaspona int
 	From, To     time.Time
 	DryRun       bool
+
+	odbacene []models.OdbacenaVrijednost
 }
 
 // Difference je isto jutro na istoj letvi s drukčijom vrijednošću u drugom
@@ -147,6 +152,7 @@ func Run(ctx context.Context, o Options) (Report, error) {
 	}
 
 	var batch []models.Reading
+	sada := time.Now()
 	for _, row := range records[1:] {
 		if len(row) == 0 {
 			continue
@@ -170,29 +176,13 @@ func Run(ctx context.Context, o Options) (Report, error) {
 			if i >= len(row) {
 				continue
 			}
-			cm, status := parseLevel(row[i])
+			cm, status, odbacena := col.procitaj(row[i], at, sada)
 			if status != levelOK {
-				rep.prebrojiPreskocenu(status)
+				rep.prebrojiPreskocenu(status, odbacena)
 				continue
 			}
 			col.Values++
-			rd := models.Reading{
-				ID:         db.StableID("reading-dnevni", col.Key+"|"+at.UTC().Format(time.RFC3339)),
-				MeasuredAt: at.UTC(),
-				LevelCm:    &cm,
-				Source:     o.Source,
-				Origin:     o.Origin,
-				Quality:    o.Quality, DerivedFrom: o.Derived, Method: o.Method,
-				SourceRef: "csv:" + col.Header + ":" + day.Format("2006-01-02"),
-				CreatedAt: time.Now().UTC(),
-			}
-			rd.UpdatedAt = rd.CreatedAt
-			if strings.HasPrefix(col.Key, "structure:") {
-				rd.StructureID = strings.TrimPrefix(col.Key, "structure:")
-			} else {
-				rd.StationID = strings.TrimPrefix(col.Key, "station:")
-			}
-			batch = append(batch, rd)
+			batch = append(batch, col.ocitanje(cm, at, day, &o))
 		}
 	}
 	for _, c := range cols {
@@ -250,6 +240,9 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		rep.Inserted = len(fresh)
 		return rep, nil
 	}
+	if err := upisiOdbacene(ctx, o, rep.odbacene); err != nil {
+		return rep, err
+	}
 	for start := 0; start < len(fresh); start += velicinaSerije {
 		end := start + velicinaSerije
 		if end > len(fresh) {
@@ -266,6 +259,60 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		o.logf("Uvoz tablice: upisano %d od %d", rep.Inserted, len(fresh))
 	}
 	return rep, nil
+}
+
+// procitaj čita ćeliju stupca i provjerava je zajedničkim rasponom svih
+// putova upisa (models, Odluke (8. 10. 2026.), pitanje 21): vrijeme očitanja
+// te vodostaj, a za letvu akumulacije kotu u cm n. m. Za ćeliju izvan
+// raspona vraća i zapis za stranicu letve, s vrijednošću kako piše u tablici.
+func (c *Column) procitaj(celija string, at, sada time.Time) (int, levelStatus, *models.OdbacenaVrijednost) {
+	cm, status := parseLevel(celija)
+	if status == levelBlank || status == levelBad {
+		return 0, status, nil
+	}
+	odbacena := &models.OdbacenaVrijednost{Letva: c.Key, Kad: at.UTC(), Polje: models.PoljeVodostaj,
+		Opis: strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(celija), "cm")) + " cm"}
+	if c.Kota {
+		odbacena.Polje, odbacena.Opis = models.PoljeKota, odbacena.Opis+" n. m."
+	}
+	if o := models.VrijemeIzvanRaspona(at, sada); o != nil {
+		odbacena.Polje, odbacena.Opis = o.Polje, o.Opis
+		return 0, levelIzvanRaspona, odbacena
+	}
+	if status == levelIzvanRaspona || !models.VodostajURasponu(float64(cm), c.Kota) {
+		return 0, levelIzvanRaspona, odbacena
+	}
+	return cm, levelOK, nil
+}
+
+// ocitanje slaže jutarnje očitanje stupca za zadani dan
+func (c *Column) ocitanje(cm int, at, day time.Time, o *Options) models.Reading {
+	rd := models.Reading{
+		ID:         db.StableID("reading-dnevni", c.Key+"|"+at.UTC().Format(time.RFC3339)),
+		MeasuredAt: at.UTC(),
+		LevelCm:    &cm,
+		Source:     o.Source,
+		Origin:     o.Origin,
+		Quality:    o.Quality, DerivedFrom: o.Derived, Method: o.Method,
+		SourceRef: "csv:" + c.Header + ":" + day.Format("2006-01-02"),
+		CreatedAt: time.Now().UTC(),
+	}
+	rd.UpdatedAt = rd.CreatedAt
+	if strings.HasPrefix(c.Key, "structure:") {
+		rd.StructureID = strings.TrimPrefix(c.Key, "structure:")
+	} else {
+		rd.StationID = strings.TrimPrefix(c.Key, "station:")
+	}
+	return rd
+}
+
+// upisiOdbacene bilježi ćelije izvan raspona za stranicu letve, s
+// podrijetlom tablice
+func upisiOdbacene(ctx context.Context, o Options, odbacene []models.OdbacenaVrijednost) error {
+	for i := range odbacene {
+		odbacene[i].Izvor = o.Origin
+	}
+	return o.Deps.Readings.ZabiljeziOdbacene(ctx, odbacene)
 }
 
 // velicinaSerije je broj očitanja upisanih u jednoj transakciji
@@ -306,7 +353,7 @@ func mapColumns(header []string, gauges *gaugeIndex, o Options, rep *Report) map
 			rep.Ambiguous = append(rep.Ambiguous, name+" (ista letva kao stupac "+zauzeto[found.key]+")")
 		default:
 			zauzeto[found.key] = name
-			cols[i] = &Column{Header: name, Name: found.name, Key: found.key}
+			cols[i] = &Column{Header: name, Name: found.name, Key: found.key, Kota: found.kota}
 		}
 	}
 	return cols
@@ -341,6 +388,7 @@ type gauge struct {
 	name      string
 	key       string
 	stationID string // kod objekta: vodomjer koji mu pripada
+	kota      bool   // letva vodi kotu u cm n. m. (akumulacija)
 }
 
 type gaugeIndex struct {
@@ -384,8 +432,8 @@ func loadGauges(ctx context.Context, d Deps) (*gaugeIndex, error) {
 		return nil, err
 	}
 	for _, st := range stations {
-		g := gauge{name: st.Name, key: "station:" + st.ID.String()}
-		idx.byCode[st.Code] = &gauge{name: st.Name, key: g.key}
+		g := gauge{name: st.Name, key: "station:" + st.ID.String(), kota: st.KotaNM}
+		idx.byCode[st.Code] = &gauge{name: st.Name, key: g.key, kota: g.kota}
 		idx.add(st.Name, g)
 		idx.add(st.Code, g)
 		if st.Watercourse != "" {
@@ -608,13 +656,15 @@ const (
 	levelIzvanRaspona             // čitljiv broj izvan raspona ručnog upisa
 )
 
-// prebrojiPreskocenu broji ćeliju koja se ne uvozi; prazna nije greška
-func (r *Report) prebrojiPreskocenu(status levelStatus) {
+// prebrojiPreskocenu broji ćeliju koja se ne uvozi; prazna nije greška.
+// Ćelija izvan raspona pamti se da se zabilježi za stranicu letve.
+func (r *Report) prebrojiPreskocenu(status levelStatus, odbacena *models.OdbacenaVrijednost) {
 	switch status {
 	case levelBad:
 		r.BadValues++
 	case levelIzvanRaspona:
 		r.IzvanRaspona++
+		r.odbacene = append(r.odbacene, *odbacena)
 	}
 }
 
@@ -652,19 +702,15 @@ func parseLevel(s string) (int, levelStatus) {
 	}
 	// Predug niz znamenki ParseFloat prihvati kao 1e20, a takav broj
 	// pretvoren u cijeli ovisi o platformi. Granice su iste kao kod ručnog
-	// upisa (ReadingService.validate): što obrazac odbije, ne ulazi ni uvozom.
+	// upisa (models): što obrazac odbije, ne ulazi ni uvozom. Ovdje otpada
+	// broj koji nije ni vodostaj ni kota akumulacije; koji od ta dva raspona
+	// vrijedi, ovisi o letvi stupca (Column.procitaj).
 	cm := math.Round(f)
-	if cm < najnizaRazinaCm || cm > najvisaRazinaCm {
+	if !models.VodostajURasponu(cm, false) && !models.VodostajURasponu(cm, true) {
 		return 0, levelIzvanRaspona
 	}
 	return int(cm), levelOK
 }
-
-// Razumni raspon vodostaja u centimetrima, isti kao u ReadingService.validate
-const (
-	najnizaRazinaCm = -500
-	najvisaRazinaCm = 3000
-)
 
 // decimalniBroj pušta samo znamenke, točku i predznak na početku.
 // ParseFloat bi prihvatio i NaN, Inf, eksponent (1e3) i heksadecimalni
@@ -692,8 +738,9 @@ func (r Report) Summary() string {
 		fmt.Fprintf(&sb, ", nečitljivih vrijednosti %d", r.BadValues)
 	}
 	if r.IzvanRaspona > 0 {
-		fmt.Fprintf(&sb, ", izvan raspona %s..%d cm: %d",
-			strings.Replace(strconv.Itoa(najnizaRazinaCm), "-", "−", 1), najvisaRazinaCm, r.IzvanRaspona)
+		fmt.Fprintf(&sb, ", izvan raspona: %d (vodostaj %s..%d cm, kota akumulacije %d..%d cm n. m., vrijeme do 1 h unaprijed)",
+			r.IzvanRaspona, strings.Replace(strconv.Itoa(models.VodostajNajmanjeCm), "-", "−", 1), models.VodostajNajviseCm,
+			models.KotaNajmanjeCm, models.KotaNajviseCm)
 	}
 	return sb.String()
 }

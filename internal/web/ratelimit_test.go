@@ -23,7 +23,7 @@ func TestPetNeuspjelihPrijavaBlokiraImeSAdrese(t *testing.T) {
 	now := time.Date(2026, 9, 4, 12, 0, 0, 0, time.UTC)
 	l.now = func() time.Time { return now }
 
-	napadac := kp("Tomislav", "10.0.0.1", true)
+	napadac := kp("PPeric", "10.0.0.1", true)
 	for i := 0; i < loginMaxAttempts-1; i++ {
 		l.Fail(napadac...)
 	}
@@ -35,7 +35,7 @@ func TestPetNeuspjelihPrijavaBlokiraImeSAdrese(t *testing.T) {
 	if !blocked || wait != loginBlock {
 		t.Fatalf("nakon %d neuspjeha očekivana blokada od %v, dobiveno %v/%v", loginMaxAttempts, loginBlock, blocked, wait)
 	}
-	if blocked, _ := l.Blocked(kp("tomislav", "10.0.0.2", true)...); blocked {
+	if blocked, _ := l.Blocked(kp("pperic", "10.0.0.2", true)...); blocked {
 		t.Error("vlasnik računa s druge adrese ne smije biti blokiran zbog tuđih pet pokušaja")
 	}
 	if blocked, _ := l.Blocked(kp("netko-drugi", "10.0.0.1", true)...); blocked {

@@ -69,7 +69,7 @@ func TestOsvjeziSebeMijenjaSamoNaziv(t *testing.T) {
 	if err := db.InitSchema(database); err != nil {
 		t.Fatal(err)
 	}
-	n, err := peers.LoadNode(dbPath, "laptop", "tkraljevic-laptop", "test")
+	n, err := peers.LoadNode(dbPath, "laptop", "iivic-laptop", "test")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,7 +90,7 @@ func TestOsvjeziSebeMijenjaSamoNaziv(t *testing.T) {
 		t.Fatal(err)
 	}
 	p, _ := svc.GetPeer(ctx, "laptop")
-	if p == nil || p.Name != "tkraljevic-laptop" || len(p.Addresses) != 1 || !p.IsBootstrap {
+	if p == nil || p.Name != "iivic-laptop" || len(p.Addresses) != 1 || !p.IsBootstrap {
 		t.Errorf("zapis nakon osvježavanja: %+v", p)
 	}
 }

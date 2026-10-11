@@ -8,7 +8,7 @@
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
+    <h1 class="page-title">{{icon "notebook-pen"}} Dnevni list{{if $l.Broj}} {{$l.Broj}}{{else if $l.NacrtBezBroja}} · nacrt bez broja{{end}} · {{$l.Datum.Day}}. {{$l.MjesecGenitiv}} {{$l.Datum.Year}}., {{$l.DanUTjednu}}</h1>
     <p class="page-desc">{{$l.Ime}}{{with .Podrucje}} · {{.VgiName}} · BP {{.ID}}{{end}} · <strong>{{$l.Stanje}}</strong>{{with $l.Potvrdio}} · ovjerio {{.}}{{end}}</p>
   </div>
   <div class="page-actions">
@@ -19,6 +19,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{with .DrugiPredani}}<div class="alert alert-warning">{{icon "triangle-alert"}} Dvostruki list – vidi i {{range $i, $d := .}}{{if $i}}, {{end}}<a href="/vodocuvar/{{$d.ID}}">list br. {{$d.Broj}}</a>{{end}}. Za isti dan predano je više listova; nijedan se ne briše.</div>{{end}}
 
 {{if and .Moj (not $l.Zakljucen)}}
 <form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
@@ -63,9 +64,12 @@
     <div class="form-help">Predajom se list elektronički potpisuje vašim ključem; lozinka ga otključava i ne sprema se.</div>
   </div>
   {{end}}
+  {{$buduci := gt ($l.Datum.Format "2006-01-02") .Danas}}
+  {{if $buduci}}<div class="form-help">Dan ovog lista još nije počeo: list se sprema kao nacrt bez rednog broja, a potpisuje i predaje tek od 00:00 {{$l.Datum.Format "02.01.2006."}} Broj dobiva prvim spremanjem ili predajom kad taj dan počne.</div>{{end}}
   <div class="form-actions d-flex gap-2 flex-wrap">
     <button type="submit" class="btn btn-secondary" name="radnja" value="spremi">{{icon "check"}} Spremi</button>
-    <button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>
+    {{if $buduci}}<button type="button" class="btn btn-primary" disabled title="predaja od 00:00 {{$l.Datum.Format "02.01.2006."}}">{{icon "pencil"}} Potpiši i predaj</button>
+    {{else}}<button type="submit" class="btn btn-primary" name="radnja" value="predaj" onclick="return confirm('Potpisati i predati list? Nakon predaje se više ne mijenja.')">{{icon "pencil"}} Potpiši i predaj</button>{{end}}
     {{if $l.ID}}<button type="submit" formaction="/vodocuvar/{{$l.ID}}/radnja" name="radnja" value="obrisi" class="btn btn-secondary btn-opasno" onclick="return confirm('Obrisati ovaj nepredani list?')">{{icon "trash"}} Obriši</button>{{end}}
   </div>
 </form>
@@ -90,12 +94,13 @@
 </section>
 {{end}}
 
-{{if and .SmijeParafirati (not .Moj) (not (eq $l.ID ""))}}
+{{if and .SmijeUpisati (not .Moj) (not (eq $l.ID ""))}}
 <section class="detail-section">
   <h2>{{icon "pencil"}} Upis u dnevnik: {{$l.Ime}}, {{$l.Datum.Format "02.01.2006."}}</h2>
   <form method="POST" action="/vodocuvar/upis" class="posta-trazi items-start">
     <input type="hidden" name="vodocuvar" value="{{$l.UserID}}">
     <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
+    <input type="hidden" name="list" value="{{$l.ID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
     <input class="form-control" name="tekst" required placeholder="naredba, napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>

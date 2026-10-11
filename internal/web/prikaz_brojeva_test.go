@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"context"
 	"encoding/json"
+	"fmt"
 	"github.com/google/uuid"
 	"gocop/internal/repository"
 	"math"
@@ -493,7 +494,7 @@ func TestKarticaDioniceNeProglasavaObranu(t *testing.T) {
 	otvorena := models.DefenseEpisode{
 		SectionCode: "B.34.1", StartedAt: poc, Phase: models.PhaseRegular,
 		Basis: models.BasisForecast, ThresholdAt: &prag,
-		DeclaredByName: "Željko Kovačević", Origin: models.EpisodeFromOperator,
+		DeclaredByName: "Ana Anić", Origin: models.EpisodeFromOperator,
 	}
 	sOtvorenom := osnovno
 	sOtvorenom.OpenEpisode = &otvorena
@@ -502,7 +503,7 @@ func TestKarticaDioniceNeProglasavaObranu(t *testing.T) {
 		Name: "Batina", Code: "batina"}
 
 	html = iscrtaj(t, "section_detail.html", sOtvorenom)
-	for _, want := range []string{"na snazi od", "Željko Kovačević", "prognoza",
+	for _, want := range []string{"na snazi od", "Ana Anić", "prognoza",
 		"30 sati prije", "Batina", "proglašava i prekida uz letvu"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("kartica s otvorenom obranom nema %q", want)
@@ -2610,10 +2611,115 @@ func TestKarticaLetvePrikazujeValoveObrane(t *testing.T) {
 	if !strings.Contains(html, "ne iz proglašenih obrana") {
 		t.Error("nema ograde da je riječ o izračunu, a ne o evidenciji")
 	}
+	// Kad bi po vodostaju bio koji stupanj ostaje kao prikaz, a obrana samo
+	// iz ovjerenih akata (Odluke (8. 10. 2026.), pitanje 14): tekst ne
+	// upućuje na ručno proglašenje na kartici dionice. Najviši stupanj i
+	// vremena po stupnju za svaki val zaključava
+	// TestValoviObranePoValuNajvisiStupanjIVremenaStupnjeva.
+	if strings.Contains(html, "na kartici dionice") || !strings.Contains(html, "ovjerenim aktom") {
+		t.Error("valovi moraju reći da obranu proglašava ovjereni akt, a ne kartica dionice")
+	}
 	iso := regexp.MustCompile(`>[^<]*\b\d{4}-\d{2}-\d{2}\b`)
 	if n := iso.FindAllString(html, -1); len(n) > 0 {
 		t.Errorf("sirovi datum među valovima: %q", n[0])
 	}
+}
+
+// Iz povijesnih vodostaja se čita kada bi koji stupanj bio da je proglašen
+// (Odluke (8. 10. 2026.), pitanje 14). Zato svaki val, i u tablici i u
+// popisu za uski zaslon, nosi svoj najviši stupanj i za svaki dosegnuti
+// stupanj kada bi počeo i završio — u ćeliji tog stupnja, ne samo kao
+// početak i kraj vala. Pripremno stanje počinje i završava s valom, pa se
+// njegova vremena traže baš u ćeliji stupnja.
+func TestValoviObranePoValuNajvisiStupanjIVremenaStupnjeva(t *testing.T) {
+	cm := func(v int) *int { return &v }
+	st := models.Station{ID: uuid.New(), Name: "Batina", Code: "batina",
+		Prep: models.Threshold{Cm: cm(300)}, Regular: models.Threshold{Cm: cm(500)},
+		Emergency: models.Threshold{Cm: cm(650)}, State: models.Threshold{Cm: cm(800)}}
+	pragovi := st.PragoviObrane()
+
+	poc := time.Date(2024, 6, 1, 0, 0, 0, 0, time.UTC)
+	var niz []models.HidroTocka
+	dodaj := func(sati int, v float64) {
+		for i := 0; i < sati; i++ {
+			niz = append(niz, models.HidroTocka{Kad: poc.Add(time.Duration(len(niz)) * time.Hour), Vrijednost: v})
+		}
+	}
+	dodaj(1, 100)
+	dodaj(48, 400) // prvi val: samo pripremno stanje
+	dodaj(120, 100)
+	dodaj(24, 400) // drugi val: redovna obrana u dva navrata
+	dodaj(36, 600)
+	dodaj(12, 400)
+	dodaj(36, 600)
+	dodaj(24, 400)
+	dodaj(1, 100)
+	valovi := models.Valovi(niz, pragovi) // najnoviji prvi
+	if len(valovi) != 2 || valovi[0].NajviseDosegnuto() != models.PhaseRegular ||
+		valovi[1].NajviseDosegnuto() != models.PhasePrep {
+		t.Fatalf("priprema testa: %d valova", len(valovi))
+	}
+	if s := valovi[0].StupanjZa(models.PhaseRegular); s == nil || s.Navrata != 2 {
+		t.Fatal("priprema testa: redovna obrana drugog vala mora biti u dva navrata")
+	}
+
+	html := iscrtaj(t, "station_history.html", StationPageData{
+		CurrentUser: &models.User{FullName: "P"},
+		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Station:     st, PragoviKote: pragoviUKotama(st),
+		Valovi:        valovi,
+		ValoviPragovi: pragovi,
+		ValoviZbroj:   models.ZbrojValova(valovi, pragovi),
+		ValoviNiz:     models.RazdobljeNiza{Od: niz[0].Kad, Do: niz[len(niz)-1].Kad, Zapisa: len(niz)},
+		ValoviPager:   pagerZa(&http.Request{URL: &url.URL{Path: "/x"}}, "val", 2, 20),
+	})
+	redci := dijeloviIzmedu(t, html, "<th>Val</th>", "</table>", "<tr>")[1:]
+	stavke := dijeloviIzmedu(t, html, `<ul class="valovi-usko`, "</ul>", "<li>")[1:]
+	if len(redci) != len(valovi) || len(stavke) != len(valovi) {
+		t.Fatalf("valova %d, redaka u tablici %d, stavki u popisu %d", len(valovi), len(redci), len(stavke))
+	}
+	for i, v := range valovi {
+		najvisi := `<span class="threshold-pill ` + v.NajviseDosegnuto().PillClass() + `">` +
+			v.NajviseDosegnuto().Label() + `</span>`
+		if !strings.Contains(redci[i], najvisi) || !strings.Contains(stavke[i], najvisi) {
+			t.Errorf("val %d: nema najvišeg stupnja %s", i+1, v.NajviseDosegnuto().Label())
+		}
+		for _, p := range pragovi {
+			s := v.StupanjZa(p.Faza)
+			if s == nil {
+				if strings.Contains(stavke[i], "<dt>"+p.Faza.Label()+"</dt>") {
+					t.Errorf("val %d: %s nije dosegnut, a popis ga navodi", i+1, p.Faza.Label())
+				}
+				continue
+			}
+			vrijeme := s.PoceloHR() + " → " + s.ZavrsiloHR()
+			if !strings.Contains(redci[i], `<div class="reg-card-sub">`+vrijeme+`</div>`) {
+				t.Errorf("val %d: u stupcu %s nema %q", i+1, p.Faza.Label(), vrijeme)
+			}
+			if !strings.Contains(stavke[i], "<dt>"+p.Faza.Label()+"</dt>") ||
+				!strings.Contains(stavke[i], `<span class="ekstrem-nacin">`+vrijeme) {
+				t.Errorf("val %d: u popisu nema %s %q", i+1, p.Faza.Label(), vrijeme)
+			}
+			if s.Prekidan() && !strings.Contains(redci[i], fmt.Sprintf("u %d navrata", s.Navrata)) {
+				t.Errorf("val %d: %s je prekidan, a ne piše u koliko navrata", i+1, p.Faza.Label())
+			}
+		}
+	}
+}
+
+// dijeloviIzmedu reže dio stranice od oznake početka do oznake kraja na
+// komade po razdjelniku.
+func dijeloviIzmedu(t *testing.T, html, od, do, razdjelnik string) []string {
+	t.Helper()
+	i := strings.Index(html, od)
+	if i < 0 {
+		t.Fatalf("na stranici nema %q", od)
+	}
+	dio := html[i:]
+	if j := strings.Index(dio, do); j >= 0 {
+		dio = dio[:j]
+	}
+	return strings.Split(dio, razdjelnik)
 }
 
 // Postaja bez pragova u centimetrima ne može dati valove, i to mora reći, a ne

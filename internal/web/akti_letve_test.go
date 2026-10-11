@@ -22,8 +22,10 @@ import (
 )
 
 // Obrazac novog akta nudi samo letve po kojima bi priprema osobi prihvatila
-// akt: rukovoditelju područja letvu svog područja, a ne i letvu drugog
-// sektora samo zato što ima neko područje
+// akt: dežurnom operateru u COP-u letvu svog sektora, a ne i letvu drugog
+// sektora. Namjerno promijenjeno prema Odlukama (8. 10. 2026.), pitanje 18:
+// nacrt sastavlja samo Centar obrane od poplava, pa rukovoditelja područja
+// obrazac vraća na popis akata s objašnjenjem.
 func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti-letve.db"))
 	if err != nil {
@@ -65,16 +67,22 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 		}
 	}
 	sektor, podrucje := "P", 1
-	pero := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", IsActive: true}
-	if err := userRepo.CreateUser(pero, &models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader,
-		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true}); err != nil {
-		t.Fatal(err)
+	osoba := func(korisnik, ime string, d *models.Duty) (*models.User, *models.UserPermissions) {
+		t.Helper()
+		u := &models.User{ID: uuid.New(), Username: korisnik, FullName: ime, IsActive: true}
+		if err := userRepo.CreateUser(u, d); err != nil {
+			t.Fatal(err)
+		}
+		u, err := userRepo.GetUserByID(u.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return u, models.NewUserPermissions(*u)
 	}
-	pero, err = userRepo.GetUserByID(pero.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	perms := models.NewUserPermissions(*pero)
+	pero, perms := osoba("pperic", "Pero Perić", &models.Duty{Title: "Dežurni operater u COP-u", Role: models.RoleOperator,
+		ScopeType: models.ScopeSector, SectorID: &sektor, IsPrimary: true})
+	ana, anaOvl := osoba("aanic", "Ana Anić", &models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader,
+		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tp, err := template.New("base.html").Funcs(templateFuncs()).ParseFS(templatesFS, DijeloviPredloska("akt_form.html")...)
@@ -91,9 +99,19 @@ func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
 		t.Fatalf("obrazac: %d\n%s", w.Code, w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), "Primjerovo") {
-		t.Error("obrazac ne nudi letvu područja rukovoditelja")
+		t.Error("obrazac ne nudi letvu sektora dežurnog operatera")
 	}
 	if strings.Contains(w.Body.String(), "Drugovo") {
 		t.Error("obrazac nudi letvu drugog sektora, koju bi priprema odbila")
+	}
+
+	// rukovoditelj područja nacrt ne sastavlja: obrazac ga vraća na popis
+	r = httptest.NewRequest(http.MethodGet, "/akti/novi?station="+uuid.NewString(), nil)
+	c = context.WithValue(context.WithValue(r.Context(), contextKeyUser, ana), contextKeyPerms, anaOvl)
+	w = httptest.NewRecorder()
+	h.ShowForm(w, r.WithContext(c))
+	if poruka := mustUnescape(w.Header().Get("Location")); w.Code != http.StatusSeeOther ||
+		!strings.HasPrefix(poruka, "/akti?error=") || !strings.Contains(poruka, "sastavlja Centar obrane od poplava") {
+		t.Errorf("rukovoditelj područja: %d %s", w.Code, poruka)
 	}
 }

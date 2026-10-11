@@ -203,6 +203,15 @@ type SessionView struct {
 	Viewing  bool                    // gleda li se tuđim očima
 }
 
+// RacunIskljucen javlja gleda li se tuđim očima račun kojemu je prijava
+// isključena. Takav se pregled samo čita, i kad je uprava uključila upise
+// tuđim očima (Odluke (8. 10. 2026.), pitanje 2): zapis pod imenom osobe
+// koja se ne smije prijaviti ne smije nastati. Gledani račun čita se pri
+// svakom zahtjevu, pa pregled prelazi na samo čitanje čim se račun isključi.
+func (v *SessionView) RacunIskljucen() bool {
+	return v.Viewing && v.User != nil && !v.User.IsActive
+}
+
 // AuthenticateSessionView vraća sesiju zajedno s pregledom tuđim očima.
 //
 // Kad administrator gleda tuđim očima, ovlasti su ovlasti tog djelatnika, pa

@@ -439,24 +439,32 @@ func (iz IzvjesceLetve) valoviObrane(d *docx.Dokument) {
 	for _, v := range najvisi {
 		r := []string{v.PoceloHR() + "\ndo " + v.ZavrsiloHR(),
 			v.VrhLabel() + "\n" + v.VrhKadHR(), v.NajviseDosegnuto().Label()}
-		for _, z := range iz.ValoviZbroj {
-			s := v.StupanjZa(z.Stupanj)
-			if s == nil {
-				r = append(r, "—")
-				continue
-			}
-			c := fmt.Sprintf("%s h\n%s → %s", brojHR(s.Sati()), s.PoceloHR(), s.ZavrsiloHR())
-			if s.Prekidan() {
-				c += fmt.Sprintf("\nu %d navrata", s.Navrata)
-			}
-			r = append(r, c)
-		}
-		redci = append(redci, r)
+		redci = append(redci, append(r, celijeStupnjevaVala(v, iz.ValoviZbroj)...))
 	}
 	d.Odjeljak(fmt.Sprintf("Najviših %d valova", len(najvisi)))
 	d.Tablica(glave, redci)
 	d.Napomena("Prijelaz praga se traži pravocrtno između dva mjerenja, pa i dnevni niz daje " +
 		"trajanje točnije od dana. Pad ispod pripremnog stanja kraći od tri dana ne prekida val.")
+}
+
+// celijeStupnjevaVala daje po jednu ćeliju za svaki stupanj iz zbroja: koliko
+// bi val bio u tom stanju te kada bi ono po vodostaju počelo i završilo, kao
+// na stranici. Stupanj koji val nije dosegnuo dobiva crticu.
+func celijeStupnjevaVala(v models.Val, zbroj []models.ZbrojStupnja) []string {
+	celije := make([]string, 0, len(zbroj))
+	for _, z := range zbroj {
+		s := v.StupanjZa(z.Stupanj)
+		if s == nil {
+			celije = append(celije, "—")
+			continue
+		}
+		c := fmt.Sprintf("%s h\n%s → %s", brojHR(s.Sati()), s.PoceloHR(), s.ZavrsiloHR())
+		if s.Prekidan() {
+			c += fmt.Sprintf("\nu %d navrata", s.Navrata)
+		}
+		celije = append(celije, c)
+	}
+	return celije
 }
 
 // najvisiValovi bira valove po vrhu, pa ih vraća od najnovijeg. Popis od

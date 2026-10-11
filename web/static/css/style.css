@@ -4308,6 +4308,13 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .zapis:hover .zapis-ispravak > summary, .zapis-ispravak[open] > summary { opacity: 1; }
 .zapis-ispravak[open] { display: block; margin: 0.5rem 0 0; }
 .zapis-ispravak-obrazac { margin-top: 0.5rem; padding: 0.75rem; border: 1px solid var(--border, #ddd); border-radius: 4px; }
+/* Ispravak opisa rada u planu dežurstava: sklopljen uz opis, otvoren kad
+   se mjesto rada ne zna. */
+.dezurstvo-ispravak { margin-top: 0.3rem; }
+.dezurstvo-ispravak > summary { list-style: none; cursor: pointer; display: inline-block; padding: 0 0.4rem; font-size: 0.72rem; }
+.dezurstvo-ispravak > summary::-webkit-details-marker { display: none; }
+.dezurstvo-ispravak-obrazac { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.4rem; max-width: 34rem; }
+.dezurstvo-ispravak-obrazac select { flex: 1 1 16rem; min-width: 0; }
 
 /* Novi zapis stoji na kraju, kao u bilježnici. */
 .novi-zapis { padding: 1rem; margin-top: 1.5rem; }
@@ -4794,6 +4801,9 @@ table.akt-poveznice { margin-top: 0.75rem; }
 .akt-potpis-stanje { max-width: 52rem; padding: 0.6rem 0.9rem; border-radius: 8px; margin: 0 0 1rem; border: 1px solid var(--border, #d9dee5); font-size: 0.88rem; }
 .akt-potpis-stanje.vrijedi { background: var(--mirno-bg); border-color: var(--mirno-rub); color: var(--mirno-fg); }
 .akt-potpis-stanje.ne-vrijedi { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger-fg); }
+/* ista oznaka kao akt drugog čvora: vidljivo crveno dok se ne riješi */
+.data-table tr.akt-sukob td { background: var(--danger-bg); }
+.akt-sukob-tekst { color: var(--danger-fg); font-weight: 600; font-size: 0.85rem; }
 
 .akt-signator { max-width: 52rem; border: 1px solid var(--border, #d9dee5); border-radius: 10px; padding: 0.75rem 1rem; margin: 0 0 1rem; background: var(--surface, #fff); }
 .akt-signator h2 { font-size: 1rem; margin: 0 0 0.5rem; }
@@ -5155,6 +5165,8 @@ table.akt-poveznice { margin-top: 0.75rem; }
 :root[data-theme="dark"] .prog-tuda-rs { color: #c4b5fd; }
 :root[data-theme="dark"] .prog-tuda-at { color: #fca5a5; }
 .prognoze-tablica .prog-oznaka, .graf-natpis .prog-oznaka { font-size: 0.7em; color: var(--text-muted); margin-left: 1px; }
+/* Satna umjesto dnevne: dnevni model za to izdanje nije računao */
+.prog-oznaka.prog-oznaka-satna { color: var(--faza-r-fg); font-weight: 600; }
 .prognoze-tablica td.dan-prep { background: var(--faza-p-bg); color: var(--faza-p-fg); }
 .prognoze-tablica td.dan-regular { background: var(--faza-r-bg); color: var(--faza-r-fg); }
 .prognoze-tablica td.dan-emerg { background: var(--faza-i-bg); color: var(--faza-i-fg); }
@@ -5364,6 +5376,15 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-nepovezana { margin: 0.5rem 0 0; padding: 0.45rem 0.7rem; font-size: 0.85rem; color: var(--text-muted);
   background: var(--bg-subtle); border-left: 3px solid var(--border); border-radius: 4px; }
 .prog-rezerva { border-left-color: var(--faza-r-crta); color: var(--text); }
+/* Upozorenja uz izdanje prognoze: otvorena, sklopljene napomene, kartica */
+.prog-upozorenja { margin: 0.5rem 0 1rem; }
+.prog-upozorenja-naslov { font-size: 1rem; margin: 0.1rem 0 0.35rem; display: flex; align-items: center; gap: 0.4rem; }
+.prog-upozorenja-popis { margin: 0; padding-left: 1.2rem; }
+.prog-upozorenja-popis li { margin: 0.3rem 0; }
+.prog-upitno { color: var(--text-muted); }
+.prog-napomene { margin: 0.4rem 0; font-size: 0.88rem; }
+.prog-napomene summary { cursor: pointer; color: var(--text-muted); }
+.prog-upozorenje { border-left-color: var(--faza-r-crta); background: var(--faza-r-bg); color: var(--faza-r-fg); }
 .prog-oborina { margin-top: 0.25rem; }
 .prog-oborina-bez { color: var(--faza-r-crta, #b45309); font-weight: 600; }
 .prog-izvozi { margin: 0.5rem 0; padding-left: 1.2rem; }
@@ -6238,6 +6259,14 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-prikaz-red label { flex: 0 0 13rem; margin: 0; font-weight: 600; }
 .prog-prikaz-red select { flex: 1; }
 .prog-prikaz-obrazac .btn { align-self: flex-start; margin-top: 0.25rem; }
+/* Ranija prognoza: dan i sat u jednom retku, na uskom zaslonu jedno ispod drugog */
+.prog-ranije-obrazac { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; max-width: 40rem; }
+.prog-ranije-polje { display: flex; align-items: center; gap: 0.5rem; }
+.prog-ranije-polje label { margin: 0; font-weight: 600; }
+.prog-ranije-polje input[type="date"] { width: 11rem; }
+.prog-ranije-polje select { width: 7rem; }
+.prog-ranije-ishod { margin-top: 0.75rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+.prog-ranije-ishod p { margin: 0; }
 
 /* Stranica kišomjera: pločice zbrojeva, prognoza po danima i graf stupaca */
 .kisa-plocice { display:grid; grid-template-columns:repeat(auto-fill, minmax(10.5rem, 1fr)); gap:0.6rem; }

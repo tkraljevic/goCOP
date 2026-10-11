@@ -61,7 +61,7 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	var slika bytes.Buffer
 	_ = png.Encode(&slika, img)
 	src := probniIzvor{zbirke: map[string][]json.RawMessage{
-		"users": raw(`{"id":"u-1","first_name":"Željko","last_name":"Brdar"}`, `{"id":"u-9","first_name":"Netko","last_name":"Nepoznat"}`),
+		"users": raw(`{"id":"u-1","first_name":"Marko","last_name":"Markić"}`, `{"id":"u-9","first_name":"Netko","last_name":"Nepoznat"}`),
 		"vode":  raw(`{"id":201,"voda":"Kanal B1"}`),
 		"obavijesti_sa_terena": raw(
 			`{"id":10,"status":"objavljeno","date_created":"2024-04-23T08:15:00.000Z","user_created":"u-1","vodocuvarsko_podrucje":"DUNAVSKI SEKTOR - SJEVER","cuvarnica":"DARDA","vrsta_dokumenta":"PRIJAVA","naslov":"SMEĆE U KANALU KAMENAC","Konstrukcijski_element":"KANAL","opis":"Obilaskom kanala uočio sam smeće.","vaznost_objekta":"HRVATSKE VODE - JVD","naziv_vodotoka":201,"slika_1":"s1","slika_2":null,"slika_3":null,"datoteka":"d1","lokacija":{"type":"Point","coordinates":[18.76,45.65]}}`,
@@ -72,7 +72,7 @@ func TestUvozObavijestiSTerena(t *testing.T) {
 	}}
 	deps := PrijaveDeps{
 		Prijave:   repo,
-		Korisnici: map[string]KorisnikUvoza{"Željko Brdar": {ID: "g-1", Ime: "Željko Brdar", Sektor: "B"}},
+		Korisnici: map[string]KorisnikUvoza{"Marko Markić": {ID: "g-1", Ime: "Marko Markić", Sektor: "B"}},
 		Podrucja:  map[string]int{"DUNAVSKI SEKTOR - SJEVER": 34, "KARAŠICA SEKTOR": 16},
 		Sektor:    "B", Cvor: "cop-osijek",
 		Datoteka: func(_ context.Context, id, upit string) ([]byte, error) {

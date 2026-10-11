@@ -178,10 +178,20 @@ func prvaDionica(a *models.Akt) string {
 }
 
 // UpisiIzAkta upisuje bilješku o aktu u dnevni list svakog vodočuvara
-// branjenog područja na dan od kojeg akt vrijedi; list nastaje ako ga nema
+// branjenog područja na dan od kojeg akt vrijedi; list nastaje ako ga nema.
+// List za budući dan smije postojati najviše 30 dana unaprijed (Odluke
+// (8. 10. 2026.), pitanje 5): za dan dalje od toga akt se ne upisuje u
+// dnevnike vodočuvara, nego se vraća upozorenje. List za dan koji je prošao
+// ni program ne otvara (pitanje 6): vodočuvar koji za taj dan nema lista, ili
+// mu je list tog dana prenesen iz ranije evidencije, dobiva akt na današnji
+// list, uz napomenu od kada akt vrijedi. U knjigu arhiviranu istekom godine
+// akt se ne upisuje.
 func (s *VodocuvarService) UpisiIzAkta(ctx context.Context, a *models.Akt, dan time.Time, tekst string) []string {
-	if s == nil || a == nil || Arhivirana(dan.Year()) {
+	if s == nil || a == nil {
 		return nil
+	}
+	if err := provjeriDanLista(dan, s.sada()); err != nil {
+		return []string{"dnevnici vodočuvara: " + err.Error()}
 	}
 	svi, err := s.users.ListUsers("", 0, "", "", "active")
 	if err != nil {
@@ -194,21 +204,43 @@ func (s *VodocuvarService) UpisiIzAkta(ctx context.Context, a *models.Akt, dan t
 		if d == nil || d.AreaID == nil || *d.AreaID != a.AreaID {
 			continue
 		}
-		l, err := s.pripremiZa(ctx, v, dan)
-		if err != nil {
-			upozorenja = append(upozorenja, v.FullName+": "+err.Error())
-			continue
-		}
-		if l.Broj == 0 {
-			if l.Broj, err = s.repo.SljedeciBroj(ctx, v.ID.String(), dan.Year()); err != nil {
-				upozorenja = append(upozorenja, v.FullName+": "+err.Error())
-				continue
-			}
-		}
-		l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: a.OvjerioID, Ime: a.Ovjerio, Funkcija: "akt " + a.Oznaka(), Kad: time.Now(), Tekst: "Obrana od poplava: " + tekst})
-		if err := s.repo.Save(ctx, l); err != nil {
+		if err := s.upisiAktVodocuvaru(ctx, v, a, dan, tekst); err != nil {
 			upozorenja = append(upozorenja, v.FullName+": "+err.Error())
 		}
 	}
 	return upozorenja
+}
+
+// upisiAktVodocuvaru upisuje bilješku o aktu na list vodočuvara: list dana
+// od kojeg akt vrijedi, ili današnji kad za taj dan, koji je prošao, nema
+// lista ili je list tog dana prenesen iz ranije evidencije
+// (listZaUpisPrograma). List u arhiviranoj knjizi se ne dira.
+func (s *VodocuvarService) upisiAktVodocuvaru(ctx context.Context, v *models.User, a *models.Akt, dan time.Time, tekst string) error {
+	l, prenesen, err := s.listZaUpisPrograma(ctx, v, dan)
+	if err != nil || Arhivirana(l.Datum.In(models.Zagreb).Year()) {
+		return err
+	}
+	// list za dan koji još nije počeo ostaje nacrt bez broja
+	if err := s.dodijeliBroj(ctx, l); err != nil {
+		return err
+	}
+	l.Upisi = append(l.Upisi, models.UpisRukovoditelja{UserID: a.OvjerioID, Ime: a.Ovjerio, Funkcija: "akt " + a.Oznaka(), Kad: time.Now(), Tekst: tekstAktaNaListu(a, l, prenesen, tekst)})
+	return s.repo.Save(ctx, l)
+}
+
+// tekstAktaNaListu je bilješka o aktu na listu vodočuvara. Kad list nije
+// list dana od kojeg akt vrijedi (za taj dan, koji je prošao, nema lista,
+// ili je list tog dana prenesen iz ranije evidencije, pa je akt upisan na
+// današnji), napomena kaže od kada akt vrijedi i zašto je na današnjem
+// listu (Odluke (8. 10. 2026.), pitanje 6).
+func tekstAktaNaListu(a *models.Akt, l *models.VodocuvarskiList, prenesen bool, tekst string) string {
+	t := "Obrana od poplava: " + tekst
+	if istiDan(l.Datum, a.Vrijedi) {
+		return t
+	}
+	t += " Akt vrijedi od " + a.Vrijedi.In(models.Zagreb).Format("02.01.2006. u 15:04")
+	if prenesen {
+		return t + "; list tog dana prenesen je iz ranije evidencije, pa je akt upisan na današnji."
+	}
+	return t + "; za taj dan nema dnevnog lista, pa je upisan na današnji."
 }

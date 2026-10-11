@@ -15,9 +15,7 @@ func TestObjektiBaranjeVezaniNaVodomjereIDionice(t *testing.T) {
 	if err := InitSchema(database); err != nil {
 		t.Fatal(err)
 	}
-	if !UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
+	registriIliPreskoci(t)
 	if err := SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}

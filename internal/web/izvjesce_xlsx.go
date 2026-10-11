@@ -256,11 +256,7 @@ func (x listLetve) historijat(iz IzvjesceLetve) {
 	}
 	if valovi := najvisiValovi(iz.Valovi, valovaUIzvjescu); len(valovi) > 0 {
 		x.naslov(fmt.Sprintf("Najviših %d valova", len(valovi)))
-		var rows [][]string
-		for _, v := range valovi {
-			rows = append(rows, []string{v.PoceloHR(), v.ZavrsiloHR(), v.VrhLabel(), v.VrhKadHR(), v.NajviseDosegnuto().Label()})
-		}
-		x.tablica([]string{"Početak", "Završetak", "Vrh", "Vrijeme vrha", "Najviši stupanj"}, rows)
+		x.tablica(tablicaValova(valovi, iz.ValoviZbroj))
 	}
 	if len(iz.Episodes) > 0 {
 		x.naslov("Proglašene obrane")
@@ -274,6 +270,23 @@ func (x listLetve) historijat(iz IzvjesceLetve) {
 		}
 		x.tablica([]string{"Dionica", "Od", "Do", "Dana", "Vrh", "Najviši stupanj"}, rows)
 	}
+}
+
+// tablicaValova daje zaglavlje i retke tablice najviših valova: početak i
+// kraj vala, vrh, najviši stupanj te za svaki stupanj iz zbroja kada bi po
+// vodostaju počeo i završio — isto što stranica pokazuje po valu. Pet
+// stupaca vala i najviše četiri stupnja stanu u devet stupaca lista.
+func tablicaValova(valovi []models.Val, zbroj []models.ZbrojStupnja) ([]string, [][]string) {
+	glave := []string{"Početak", "Završetak", "Vrh", "Vrijeme vrha", "Najviši stupanj"}
+	for _, z := range zbroj {
+		glave = append(glave, z.Stupanj.Label())
+	}
+	redci := make([][]string, 0, len(valovi))
+	for _, v := range valovi {
+		r := []string{v.PoceloHR(), v.ZavrsiloHR(), v.VrhLabel(), v.VrhKadHR(), v.NajviseDosegnuto().Label()}
+		redci = append(redci, append(r, celijeStupnjevaVala(v, zbroj)...))
+	}
+	return glave, redci
 }
 
 func (x listLetve) ocitanja(iz IzvjesceLetve) {

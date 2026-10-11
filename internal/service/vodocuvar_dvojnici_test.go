@@ -1,0 +1,275 @@
+package service
+
+import (
+	"context"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"gocop/internal/ledger"
+	"gocop/internal/models"
+	"gocop/internal/repository"
+)
+
+// Dvostruki dnevni listovi, Odluke (8. 10. 2026.), pitanje 7: dva lista
+// istog vodočuvara za isti dan s različitim oznakama ne brišu se, nego se
+// prijavljuju onome tko ih ovjerava i administratoru; kad su predana oba,
+// svaki upućuje na drugi. Osobe su izmišljene: vodočuvar Pero Perić,
+// rukovoditeljica branjenog područja Ana Anić, rukovoditelj drugog
+// područja Marko Markić i vodočuvar Ivo Ivić.
+
+// dvojnik upisuje list s vlastitom oznakom, kao list nastao prije
+// jedinstvene oznake ili na čvoru starijeg programa
+func (o *okolinaVodocuvara) dvojnik(t *testing.T, u *models.User, dan time.Time, broj int, opis string, predan bool) *models.VodocuvarskiList {
+	t.Helper()
+	l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: u.ID.String(), Ime: u.FullName, Sektor: "P", AreaID: 1,
+		Datum: dan, Broj: broj, Od: "07:00", Do: "15:00", Opis: opis}
+	if predan {
+		kad := time.Now()
+		l.PredanoAt = &kad
+	}
+	if err := o.repo.Save(context.Background(), l); err != nil {
+		t.Fatal(err)
+	}
+	return l
+}
+
+func TestDvostrukiListoviSamoSePrijavljuju(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	ivo := vdVodocuvar()
+	ivo.FullName = "Ivo Ivić"
+	dan := vdDan(time.March, 10)
+	nacrt := o.dvojnik(t, pero, dan, 41, "nacrt na poslužitelju", false)
+	predan := o.dvojnik(t, pero, dan, 42, "predan na laptopu", true)
+	o.dvojnik(t, pero, dan.AddDate(0, 0, 1), 43, "jedini list sutradan", true)
+	o.dvojnik(t, ivo, dan, 7, "Ivin prvi", true)
+	ivin := o.dvojnik(t, ivo, dan, 8, "Ivin drugi", true)
+
+	ana := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	ana.FullName = "Ana Anić"
+	dani := o.vs.DvostrukiListovi(ctx, models.NewUserPermissions(*ana))
+	if len(dani) != 2 {
+		t.Fatalf("rukovoditeljica vidi %d dana s dvojnicima, očekivana dva: %+v", len(dani), dani)
+	}
+	for _, d := range dani {
+		if len(d.Listovi) != 2 || !d.Datum.Equal(dan) {
+			t.Errorf("dan s dvojnicima: %+v", d)
+		}
+		// predan prvi
+		if !d.Listovi[0].Predan() {
+			t.Errorf("predan list mora biti prvi: %+v", d.Listovi)
+		}
+	}
+	// ništa nije obrisano
+	if l, err := o.repo.Get(ctx, nacrt.ID); err != nil || l == nil {
+		t.Errorf("nacrt dvojnika obrisan: %v", err)
+	}
+
+	// tko ne ovjerava i ne administrira, popis ne dobiva
+	markic := vdPperic(vdDuznost(models.RoleAreaLeader, 2, true))
+	markic.FullName = "Marko Markić"
+	if d := o.vs.DvostrukiListovi(ctx, models.NewUserPermissions(*markic)); len(d) != 0 {
+		t.Errorf("rukovoditelj drugog područja vidi dvojnike: %+v", d)
+	}
+	if d := o.vs.DvostrukiListovi(ctx, models.NewUserPermissions(*pero)); len(d) != 0 {
+		t.Errorf("vodočuvar vidi popis dvojnika: %+v", d)
+	}
+	if d := o.vs.DvostrukiListovi(ctx, nil); len(d) != 0 {
+		t.Errorf("bez prijave: %+v", d)
+	}
+	admin := vdPperic(vdDuznost(models.RoleAreaLeader, 2, true))
+	adminPerms := models.NewUserPermissions(*admin)
+	adminPerms.IsGlobalAdmin = true
+	if d := o.vs.DvostrukiListovi(ctx, adminPerms); len(d) != 2 {
+		t.Errorf("administrator vidi %d dana s dvojnicima", len(d))
+	}
+
+	// oznaka „vidi i list br.” stoji samo uz predane
+	if drugi := o.vs.DrugiPredani(ctx, predan); len(drugi) != 0 {
+		t.Errorf("uz predan list i nacrt nema oznake: %+v", drugi)
+	}
+	if drugi := o.vs.DrugiPredani(ctx, ivin); len(drugi) != 1 || drugi[0].Broj != 7 {
+		t.Errorf("dvostruki predan list: %+v", drugi)
+	}
+	if drugi := o.vs.DrugiPredani(ctx, nacrt); drugi != nil {
+		t.Errorf("nacrt nema oznaku: %+v", drugi)
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if drugi := o.vs.DrugiPredani(prekinut, ivin); drugi != nil {
+		t.Errorf("greška čitanja: %+v", drugi)
+	}
+	if d := o.vs.DvostrukiListovi(prekinut, adminPerms); d != nil {
+		t.Errorf("greška čitanja: %+v", d)
+	}
+
+	sviIvini, err := o.repo.ListoviDana(ctx, ivo.ID.String(), dan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	brojevi := BrojeviDvostrukih(append(sviIvini, *nacrt, *predan))
+	if len(brojevi) != 2 || len(brojevi[ivin.ID]) != 1 || brojevi[ivin.ID][0] != 7 || brojevi[predan.ID] != nil {
+		t.Errorf("brojevi dvostrukih listova: %+v", brojevi)
+	}
+}
+
+// Oznaka „dvostruki list – vidi i list br. …” računa se iz svih listova na
+// čvoru: stoji uz predan list koji ima predanog dvojnika, a ne uz list čiji
+// je dvojnik nacrt ni uz jedini list dana
+func TestOznakeDvostrukih(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	prvi := o.dvojnik(t, pero, dan, 7, "prvi", true)
+	drugi := o.dvojnik(t, pero, dan, 8, "drugi", true)
+	o.dvojnik(t, pero, dan.AddDate(0, 0, 1), 0, "nacrt", false)
+	uzNacrt := o.dvojnik(t, pero, dan.AddDate(0, 0, 1), 9, "predan", true)
+	jedini := o.dvojnik(t, pero, dan.AddDate(0, 0, 2), 10, "jedini", true)
+
+	oznake := o.vs.OznakeDvostrukih(ctx)
+	if len(oznake[prvi.ID]) != 1 || oznake[prvi.ID][0] != 8 || len(oznake[drugi.ID]) != 1 || oznake[drugi.ID][0] != 7 {
+		t.Errorf("oznake dvostrukih predanih listova: %+v", oznake)
+	}
+	if oznake[uzNacrt.ID] != nil || oznake[jedini.ID] != nil {
+		t.Errorf("oznaka bez predanog dvojnika: %+v", oznake)
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if oznake := o.vs.OznakeDvostrukih(prekinut); oznake != nil {
+		t.Errorf("greška čitanja: %+v", oznake)
+	}
+}
+
+// Popis „Dvostruki dnevni listovi” dobivaju rukovoditelj branjenog
+// područja lista (i zamjenik, koji ima ista prava) i administrator
+// (globalni, kako ga program određuje), a ne svi koji list smiju ovjeriti
+// ili upravljaju sektorom: ni rukovoditelj sektora ni voditelj centra.
+func TestDvostrukeListoveDobivaRukovoditeljPodrucjaIAdministrator(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	o.dvojnik(t, pero, dan, 41, "prvi", true)
+	o.dvojnik(t, pero, dan, 42, "drugi", true)
+	sektorska := func(uloga models.Role) models.Duty {
+		sektor := "P"
+		return models.Duty{Title: "Probno zaduženje", Role: uloga, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true, IsPrimary: true}
+	}
+	jucer := time.Now().Add(-time.Hour)
+	istekla := vdDuznost(models.RoleAreaLeader, 1, true)
+	istekla.ExpiresAt = &jucer
+	administrator := vdPperic(vdDuznost(models.RoleWaterGuard, 2, true))
+	administrator.IsGlobalAdmin = true
+	for _, s := range []struct {
+		naziv string
+		osoba *models.User
+		vidi  bool
+	}{
+		{"rukovoditeljica branjenog područja", vdPperic(vdDuznost(models.RoleAreaLeader, 1, true)), true},
+		{"zamjenica rukovoditeljice područja", vdPperic(vdDuznost(models.RoleAreaDeputy, 1, true)), true},
+		{"administrator", administrator, true},
+		{"rukovoditelj drugog područja", vdPperic(vdDuznost(models.RoleAreaLeader, 2, true)), false},
+		{"rukovoditeljica područja s isteklom dužnošću", vdPperic(istekla), false},
+		{"rukovoditelj sektora", vdPperic(sektorska(models.RoleSectorLeader)), false},
+		{"voditelj centra obrane", vdPperic(sektorska(models.RoleCopLeader)), false},
+		{"ovlaštenik za praćenje ugovora", vdPperic(vdDuznost(models.RoleContractOfficerA3, 1, true)), false},
+	} {
+		s.osoba.FullName = "Ana Anić"
+		if dani := o.vs.DvostrukiListovi(ctx, models.NewUserPermissions(*s.osoba)); (len(dani) == 1) != s.vidi {
+			t.Errorf("%s: dana s dvojnicima %d, očekivano vidi=%v", s.naziv, len(dani), s.vidi)
+		}
+	}
+}
+
+// Upis sa stranice lista ide na taj list samo kad je to predan list te
+// osobe za taj dan; nacrt, list druge osobe ili drugog dana i nepostojeća
+// oznaka vode na list dana koji uzima i spremanje. Greška čitanja lista se
+// javlja.
+func TestListZaUpis(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero := vdVodocuvar()
+	dan := vdDan(time.March, 10)
+	spremi := func(userID string, d time.Time, predan bool) *models.VodocuvarskiList {
+		t.Helper()
+		l := &models.VodocuvarskiList{ID: uuid.Must(uuid.NewV7()).String(), UserID: userID, Ime: "Pero Perić", Sektor: "P", AreaID: 1, Datum: d, Broj: 41, Od: "07:00", Do: "15:00"}
+		if predan {
+			kad := d.Add(15 * time.Hour)
+			l.PredanoAt = &kad
+		}
+		if err := o.repo.Save(ctx, l); err != nil {
+			t.Fatal(err)
+		}
+		return l
+	}
+	nacrt := spremi(pero.ID.String(), dan, false)
+	prvi := spremi(pero.ID.String(), dan, true)
+	drugi := spremi(pero.ID.String(), dan, true)
+	sutra := spremi(pero.ID.String(), dan.AddDate(0, 0, 1), true)
+	tudi := spremi(uuid.NewString(), dan, true)
+	for _, s := range []struct {
+		ime, listID, want string
+	}{
+		{"bez oznake", "", prvi.ID},
+		{"drugi predan list dana", drugi.ID, drugi.ID},
+		{"nacrt", nacrt.ID, prvi.ID},
+		{"list drugog dana", sutra.ID, prvi.ID},
+		{"list druge osobe", tudi.ID, prvi.ID},
+		{"nepostojeći list", uuid.NewString(), prvi.ID},
+	} {
+		l, err := o.vs.listZaUpis(ctx, pero, dan, s.listID)
+		if err != nil || l == nil || l.ID != s.want {
+			t.Errorf("%s: %+v %v", s.ime, l, err)
+		}
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if _, err := o.vs.listZaUpis(prekinut, pero, dan, drugi.ID); err == nil {
+		t.Error("prekinuto čitanje lista nije javilo grešku")
+	}
+}
+
+// Upis sa stranice lista odbija prazan upis, nepoznatog vodočuvara, osobu
+// bez zaduženja vodočuvara i arhiviranu godinu, a javlja i grešku čitanja
+// lista na čijoj je stranici
+func TestUpisiNaListGreske(t *testing.T) {
+	o := novaOkolinaVodocuvara(t)
+	ctx := context.Background()
+	pero, _ := o.vdVodocuvarUBazi(t)
+	users := repository.NewUserRepository(o.baza, ledger.New(o.baza, "test"))
+	ana := &models.User{Username: "aanic", FullName: "Ana Anić", IsActive: true}
+	d := vdDuznost(models.RoleAreaLeader, 1, true)
+	if err := users.CreateUser(ana, &d); err != nil {
+		t.Fatal(err)
+	}
+	rukovoditeljica := vdPperic(vdDuznost(models.RoleAreaLeader, 1, true))
+	rukovoditeljica.Username, rukovoditeljica.FullName = "aanic", "Ana Anić"
+	perms := models.NewUserPermissions(*rukovoditeljica)
+	dan := vdDan(time.March, 10)
+	o.vs.sad = func() time.Time { return dan.Add(9 * time.Hour) }
+	for _, s := range []struct {
+		ime, vodocuvar, tekst, greska string
+		dan                           time.Time
+	}{
+		{"prazan upis", pero.ID.String(), "  ", "upišite bilješku", dan},
+		{"oznaka koja nije oznaka osobe", "nije-oznaka", "obilazak", "nepoznat vodočuvar", dan},
+		{"nepoznata osoba", uuid.NewString(), "obilazak", "nepoznat vodočuvar", dan},
+		{"osoba bez zaduženja vodočuvara", ana.ID.String(), "obilazak", "nema zaduženje vodočuvara", dan},
+		{"arhivirana godina", pero.ID.String(), "obilazak", "je arhivirana", dan.AddDate(-1, 0, 0)},
+	} {
+		_, err := o.vs.UpisiNaList(ctx, perms, rukovoditeljica, s.vodocuvar, s.dan, "", s.tekst)
+		vdGreska(t, err, s.greska)
+	}
+	prekinut, odustani := context.WithCancel(ctx)
+	odustani()
+	if _, err := o.vs.UpisiNaList(prekinut, perms, rukovoditeljica, pero.ID.String(), dan, uuid.NewString(), "obilazak"); err == nil {
+		t.Error("prekinuto čitanje lista nije javilo grešku")
+	}
+	if n := o.verzijeListova(t); n != 0 {
+		t.Errorf("odbijeni upisi zapisali su listove: %d verzija", n)
+	}
+}

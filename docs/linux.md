@@ -122,7 +122,8 @@ onda pokreće.
    najprije zaustavi uslugu i kopira `gocop.db` (i `gocop.db-wal`) u
    `/var/lib/gocop/kopije` (zadržava zadnje tri kopije);
 4. upiše ime čvora u `/var/lib/gocop/gocop.toml` naredbom
-   `gocop -pripremi` — ime koje je već upisano ne mijenja;
+   `gocop -pripremi` — ime koje je već upisano ne mijenja, a uz postojeću
+   bazu bez `gocop.toml` ne zapisuje ništa, nego javlja da datoteke nema;
 5. postavi jedinicu `gocop.service` iz izdanja, uključi je i pokrene;
 6. pričeka da čvor odgovori na `/zdravlje` i ispiše adresu.
 
@@ -149,9 +150,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now gocop
 ```
 
-`gocop -pripremi` samo zapiše `gocop.toml` s imenom čvora i ne otvara bazu;
-pokreće se iz mape podataka jer program `gocop.toml` traži i u radnoj
-mapi.
+`gocop -pripremi` samo zapiše `gocop.toml` s imenom čvora, a bazu najviše
+pročita; pokreće se iz mape podataka jer program `gocop.toml` traži i u
+radnoj mapi. Kad baza već postoji, a `gocop.toml` nema (premješten ili
+izgubljen), od 0.0.35-alfa ne zapisuje novi primjer, nego ispiše gdje se
+datoteka očekuje i pod kojim imenom čvor bez nje kreće (ime pod kojim baza
+zna ključ čvora); izvornu datoteku treba vratiti.
 
 ## 4. Usluga
 
@@ -265,6 +269,23 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
   zaštićeno: tko ih ima, predstavlja se kao ovaj čvor, odnosno prima
   članove u mrežu.
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
+- Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
+  0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka
+  nedostaje. Vratite izvornik iz kopije. Novi identitet samo izričito,
+  jednim pokretanjem sa zastavicom `-novi-kljuc-cvora`, kao korisnik
+  `gocop` i uz istu bazu (naredba pokrenuta kao `root` ostavila bi ključ
+  koji usluga ne može pročitati):
+
+  ```sh
+  sudo systemctl stop gocop
+  cd /var/lib/gocop && sudo runuser -u gocop -- /usr/local/bin/gocop \
+    -novi-kljuc-cvora -db /var/lib/gocop/gocop.db
+  # kad javi da je poslužitelj spreman (bez prava na port 80, na :8080): Ctrl+C
+  sudo systemctl start gocop
+  ```
+
+  Zatim ga čvor koji ga je primio u mrežu zaboravi, opozove mu članstvo i
+  ponovno ga primi (vidi [INSTALACIJA.md](INSTALACIJA.md), poglavlje 3).
 
 ## 7. Portovi i vatrozid
 

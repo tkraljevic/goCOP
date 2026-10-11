@@ -80,12 +80,19 @@ func KeepVersion(v ledger.Version) bool {
 }
 
 // SurfaceEntities su entiteti čija se površina obnavlja iz knjige: sve osim
-// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu
+// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu.
+// Izvješća dionica i sektora su tu jer je njihov trag predaje (Odluke
+// (8. 10. 2026.), pitanje 12) nov stupac: čvor nadograđen s 0.0.34 drži trag
+// samo u knjizi, a obnova ga pri pokretanju vraća u tablicu.
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
 	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
+	EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
-	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici}
+	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici,
+	// odbačene vrijednosti: čvor na 0.0.34 ih prima u knjigu, ali ne na
+	// površinu; nakon ažuriranja ih obnova površine pri pokretanju stavi
+	EntityOdbacena}
 
 // PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
 // primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
@@ -100,10 +107,10 @@ func PoznatiEntiteti() []string {
 		EntityStructures, EntityMaintainedWaters, EntityWorkItems,
 		EntityJournals, EntityJournalSheets, EntityJournalEntries, EntityJournalIzvornici,
 		EntityDezurstva, EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
-		EntityReadings, EntityEpisodes, EntityIspravci, EntityBiljeske,
+		EntityReadings, EntityOdbacena, EntityEpisodes, EntityIspravci, EntityBiljeske,
 		EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
 		EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe,
-		EntityAkti, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
+		EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja,
 		EntityPostavke, EntityPotpisi, EntityZigovi,
 		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
@@ -187,17 +194,17 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	for len(ostaje) > 0 {
 		failed = failed[:0]
 		for _, v := range ostaje {
-			top, err := rec.Latest(ctx, v.Entity, v.EntityID)
+			naPovrsinu, primijeni, err := verzijaZaPovrsinu(ctx, rec, v)
 			if err != nil {
 				return err
 			}
-			if top.VersionID != v.VersionID {
+			if !primijeni {
 				continue // netko je već zapisao noviju; površina je već njezina
 			}
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := applyOne(ctx, tx, v); err != nil {
+			if err := applyOne(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
@@ -231,6 +238,15 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			len(failed), failed[0].v.Entity, failed[0].v.EntityID, failed[0].err)
 	}
 	return nil
+}
+
+// primjenjujeSe javlja ide li primljena verzija na površinu: samo zadnja
+// verzija zapisa, jer je površina slika zadnje verzije. Dnevni list
+// vodočuvara i njegovi izvornici slažu se iz cijele povijesti zapisa
+// (apply_vodocuvarski.go, apply_vodocuvarski_izvornici.go), pa na površinu
+// ide i starija verzija koja je stigla nakon novije.
+func primjenjujeSe(top *ledger.Version, v ledger.Version) bool {
+	return top.VersionID == v.VersionID || v.Entity == EntityVodocuvarski || v.Entity == EntityVodocuvarskiIzvornici
 }
 
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
@@ -298,6 +314,9 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		return upsertStation(ctx, tx, st)
+
+	case EntityOdbacena:
+		return upsertOdbacena(ctx, tx, v.Payload)
 
 	case EntitySections:
 		var sec models.Section
@@ -522,12 +541,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityVodocuvarski:
-		var l models.VodocuvarskiList
-		if err := json.Unmarshal(v.Payload, &l); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(&l)...)
-		return err
+		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
 
 	case EntityZigovi:
 		var z models.Zig
@@ -579,15 +593,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityVodocuvarskiIzvornici:
-		var iz models.IzvornikLista
-		if err := json.Unmarshal(v.Payload, &iz); err != nil {
-			return err
-		}
-		if err := primiIzvornik(ctx, EntityVodocuvarski, v.Channel, &iz); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
-		return err
+		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
 
 	case EntityJournalIzvornici:
 		var iz models.IzvornikDnevnika
@@ -666,6 +672,14 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, primateljUpsert, primateljArgs(&p)...)
+		return err
+
+	case EntityRjesenjaOznaka:
+		var x models.RjesenjeOznake
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		_, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(&x)...)
 		return err
 
 	case EntityRoleModules:
@@ -1057,6 +1071,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM arhiva_ispravci WHERE id = ?`
 	case EntityBiljeske:
 		stmt = `DELETE FROM arhiva_biljeske WHERE id = ?`
+	case EntityOdbacena:
+		stmt = `DELETE FROM odbacena_ocitanja WHERE id = ?`
 	case EntityOrgTerms:
 		// bez zapisa vrijede zadani nazivi, kao i kad ih nitko nije upisao
 		if _, err := tx.ExecContext(ctx, `DELETE FROM org_terms WHERE id = ?`, v.EntityID); err != nil {
@@ -1109,6 +1125,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM mts_potrebe WHERE id = ?`
 	case EntityAkti:
 		stmt = `DELETE FROM akti WHERE id = ?`
+	case EntityRjesenjaOznaka:
+		stmt = `DELETE FROM akti_rjesenja_oznaka WHERE id = ?`
 	case EntityPrimatelji:
 		stmt = `DELETE FROM primatelji WHERE id = ?`
 	case EntitySprance:
@@ -1134,7 +1152,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityZigovi:
 		stmt = `DELETE FROM zigovi WHERE sektor = ?`
 	case EntityVodocuvarski:
-		stmt = `DELETE FROM vodocuvarski_listovi WHERE id = ?`
+		// brisanje nacrta ne miče list koji je predan na drugom čvoru
+		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
 	case EntityZadaci:
 		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
 	case EntityPrijave:
@@ -1146,7 +1165,8 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityPotpisniIzdavatelji:
 		stmt = `DELETE FROM potpisni_izdavatelji WHERE cvor = ?`
 	case EntityVodocuvarskiIzvornici:
-		stmt = `DELETE FROM vodocuvarski_izvornici WHERE list_id = ?`
+		// izvornik lista predanog na drugom čvoru ostaje uz svoj list
+		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
 	case EntityJournalIzvornici:
 		stmt = `DELETE FROM journal_izvornici WHERE journal_id = ?`
 	case EntityMaintainedWaters:
@@ -1207,8 +1227,9 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			prep_cm, prep_raw, regular_cm, regular_raw, emergency_cm, emergency_raw, state_cm, state_raw,
 			record_cm, record_raw, notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
-			ograde_niza, telemetrija_site, telemetrija_uvoz, povijest, opis_vodokaza, datum_osnivanja
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			ograde_niza, telemetrija_site, telemetrija_uvoz, povijest, opis_vodokaza, datum_osnivanja, kota_nm,
+			prate_sektori, prate_podrucja
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			code = excluded.code, name = excluded.name, watercourse = excluded.watercourse,
 			watercourse_code = excluded.watercourse_code, watercourse_source = excluded.watercourse_source,
@@ -1232,7 +1253,9 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 			javni_url = excluded.javni_url, javni_uvoz = excluded.javni_uvoz,
 			ograde_niza = excluded.ograde_niza, telemetrija_site = excluded.telemetrija_site,
 			telemetrija_uvoz = excluded.telemetrija_uvoz, povijest = excluded.povijest,
-			opis_vodokaza = excluded.opis_vodokaza, datum_osnivanja = excluded.datum_osnivanja
+			opis_vodokaza = excluded.opis_vodokaza, datum_osnivanja = excluded.datum_osnivanja,
+			kota_nm = excluded.kota_nm, prate_sektori = excluded.prate_sektori,
+			prate_podrucja = excluded.prate_podrucja
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -1244,6 +1267,7 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 		st.Record.Cm, st.Record.Raw, st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.JavniURL, boolToInt(st.JavniUvoz),
 		ogradeNizaJSON(&st), st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz), st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
+		boolToInt(st.KotaNM), sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja),
 	)
 	return err
 }

@@ -729,6 +729,23 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 		},
 		{
+			entitet: EntityRjesenjaOznaka, tablica: "akti_rjesenja_oznaka", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var x models.RjesenjeOznake
+				puni(&x)
+				x.Sektor = "B"
+				nuzno(t, NewAktiRepository(a.db, a.rec).SaveRjesenjeOznake(ctxRaz, &x))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.RjesenjeOznake](t, p)
+				x.Napomena += " (izmjena)"
+				nuzno(t, NewAktiRepository(b.db, b.rec).SaveRjesenjeOznake(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).ListRjesenjaOznaka(ctxRaz)
+			},
+		},
+		{
 			entitet: EntityZadaci, tablica: "vodocuvarski_zadaci", kljuc: "id",
 			napravi: func(t *testing.T, a *cvor) {
 				var z models.Zadatak
@@ -1043,6 +1060,19 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
 				return NewReadingRepository(n.db, n.rec).Get(ctxRaz, uuid.MustParse(id))
+			},
+		},
+		{
+			entitet: EntityOdbacena, tablica: "odbacena_ocitanja", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var o models.OdbacenaVrijednost
+				puni(&o)
+				o.Letva = "station:" + letva
+				nuzno(t, NewReadingRepository(a.db, a.rec).ZabiljeziOdbacene(ctxRaz, []models.OdbacenaVrijednost{o}))
+			},
+			bezUredjivanja: "odbačena vrijednost se zapisuje jednom i ne mijenja se",
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				return NewReadingRepository(n.db, n.rec).SazetakOdbacenih(ctxRaz, teret[models.OdbacenaVrijednost](t, p).Letva)
 			},
 		},
 		{

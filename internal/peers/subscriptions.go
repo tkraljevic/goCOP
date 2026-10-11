@@ -389,7 +389,7 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 	defer tx.Rollback()
 	switch kind {
 	case ledger.ChannelReadings:
-		if _, err := tx.ExecContext(ctx, `DELETE FROM readings WHERE channel = ?`, channel); err != nil {
+		if err := obrisiOcitanjaKanala(ctx, tx, channel); err != nil {
 			return 0, err
 		}
 	case ledger.ChannelJournals:
@@ -441,6 +441,23 @@ func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, erro
 		}
 	}
 	return n, nil
+}
+
+// obrisiOcitanjaKanala briše s površine očitanja kanala i zapise o
+// vrijednostima odbačenima izvan raspona, koji putuju u istom kanalu
+// (Odluke (8. 10. 2026.), pitanje 21). Tablica odbačenih kanal ne pamti, pa
+// se njezin redak nalazi po verziji u knjizi; zato ide prije brisanja knjige.
+func obrisiOcitanjaKanala(ctx context.Context, tx *sql.Tx, channel string) error {
+	for _, stmt := range []string{
+		`DELETE FROM odbacena_ocitanja WHERE id IN (
+			SELECT entity_id FROM record_versions WHERE channel = ? AND entity = 'odbacena_ocitanja')`,
+		`DELETE FROM readings WHERE channel = ?`,
+	} {
+		if _, err := tx.ExecContext(ctx, stmt, channel); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // PurgeUnwanted briše sve kanale koje pretplata više ne pokriva

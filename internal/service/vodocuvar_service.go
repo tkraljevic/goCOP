@@ -18,8 +18,9 @@ import (
 
 // Vodočuvarski dnevnik: dnevni list po vodočuvaru, kao papirna knjiga.
 // Vodočuvar ga piše i potpisuje (preda), rukovoditelj branjenog područja
-// ili nadređeni na sektoru ga ovjerava, a ostali rukovoditelji vezani uz
-// područje mogu ga parafirati.
+// ili nadređeni na sektoru ga ovjerava, a parafirati ga mogu ovlaštenici i
+// uprava, te rukovoditelj dionice kad se list tiče njegove dionice
+// (knjiga_ovlasti.go).
 
 type VodocuvarService struct {
 	repo    *repository.VodocuvarRepository
@@ -42,6 +43,21 @@ type VodocuvarService struct {
 	// brisanja; testovi njime predaju ili brišu list u međuvremenu, kao
 	// druga kartica
 	prijeBrisanja func(ctx context.Context)
+	// stanjaObrane su stanja obrane dionica sektora iz ovjerenih akata
+	// (AktService.StanjaSektora): rukovoditelj dionice zadaje zadatke samo
+	// dok na njegovoj dionici traje obrana. Bez njega (nil) obrana se ne
+	// pretpostavlja.
+	stanjaObrane func(ctx context.Context, sektor string, t time.Time) (map[string]models.StanjeObrane, error)
+	// dionice je registar dionica: rukovoditelj dionice bez upisanih
+	// dionica vodi sve dionice područja (knjiga_ovlasti.go). Bez njega
+	// (nil) takvom rukovoditelju obrana se ne gleda ni na jednoj.
+	dionice *repository.SectionRepository
+	// objekti je registar objekata: prijava pokazuje na dionice objekta koji
+	// navodi (knjiga_ovlasti.go). Bez njega (nil) objekt prijave ne pokazuje
+	// ni na jednu dionicu.
+	objekti *repository.StructureRepository
+	// sad je sat po kojem se zna je li dan lista počeo; nil je time.Now
+	sad func() time.Time
 }
 
 // SetRadnoVrijeme daje servisu izvor redovnog radnog vremena
@@ -112,50 +128,41 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 	return false
 }
 
-// SmijeParafirati javlja smije li osoba parafirati list: svaki rukovoditelj
-// ili ovlaštenik čije je zaduženje vezano uz to područje ili sektor, osim
-// samog vodočuvara i terenskih uloga. Tko ne smije čitati dnevnik (gost,
-// preglednik, istekla dužnost), ne parafira, ne upisuje i ne zadaje zadatke.
-// Pravo se gleda po dužnosti: valjana dužnost na drugom području ne otvara
-// list područja na kojem je osoba gost ili joj je dužnost istekla.
+// SmijeParafirati javlja smije li osoba parafirati predani list: tko ga
+// ovjerava, uprava i ovlaštenici u dosegu, a rukovoditelj dionice samo list
+// vezan uz njegovu dionicu; dežurni operater ne parafira (knjiga_ovlasti.go).
+// Tko ne smije čitati dnevnik (gost, preglednik, istekla dužnost), ne
+// parafira, ne upisuje i ne zadaje zadatke. Pravo se gleda po dužnosti:
+// valjana dužnost na drugom području ne otvara list područja na kojem je
+// osoba gost ili joj je dužnost istekla.
 func (s *VodocuvarService) SmijeParafirati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil || perms.User.ID.String() == l.UserID || !perms.User.VidiVodocuvarskiDnevnik() {
-		return false
-	}
-	if s.SmijeOvjeriti(perms, l) {
-		return true
-	}
-	sad := time.Now()
-	for _, d := range perms.User.Duties {
-		if !d.CitaVodocuvarskiDnevnik(sad) || d.Role.IsField() {
-			continue
-		}
-		if d.AreaID != nil && *d.AreaID == l.AreaID {
-			return true
-		}
-		if d.AreaID == nil && d.SectorID != nil && *d.SectorID == l.Sektor && d.ScopeType == models.ScopeSector {
-			return true
-		}
-	}
-	return false
+	return s.smijeRadnju(context.Background(), perms, l, nil, radnjaParafa)
+}
+
+// SmijeUpisati javlja smije li osoba upisati bilješku na list vodočuvara
+// (knjiga_ovlasti.go)
+func (s *VodocuvarService) SmijeUpisati(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	return s.smijeRadnju(context.Background(), perms, l, nil, radnjaBiljeska)
 }
 
 // SmijeVidjeti javlja smije li osoba čitati list.
 //
-// Dnevnik je vodočuvarev: čita ga on, oni koji ga ovjeravaju i parafiraju, i
-// administracija. Pravo pisanja na području NE otvara tuđi dnevnik — inače
-// bi svaki vodočuvar vidio dnevnike kolega s istog područja, a za to nema
-// potrebe ni osnove.
+// Dnevnik je vodočuvarev: čita ga on, oni koji ga ovjeravaju i parafiraju,
+// rukovoditelji dionica i dežurni operater u dosegu, i administracija. Pravo
+// pisanja na području NE otvara tuđi dnevnik — inače bi svaki vodočuvar
+// vidio dnevnike kolega s istog područja, a za to nema potrebe ni osnove.
 func (s *VodocuvarService) SmijeVidjeti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
-		return false
-	}
-	return perms.User.ID.String() == l.UserID || s.SmijeParafirati(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID)
+	return s.cita(perms, l, nil, nil)
 }
 
 // Pripremi vraća list vodočuvara za dan: postojeći, ili novi popunjen onim
-// što program zna (radno vrijeme, vremenske prilike, očitanja, zadaci)
+// što program zna (radno vrijeme, vremenske prilike, očitanja, zadaci).
+// List za dan dalje od 30 dana unaprijed ne otvara se, a ni nov list za dan
+// koji je prošao (ErrProsliDan).
 func (s *VodocuvarService) Pripremi(ctx context.Context, u *models.User, dan time.Time) (*models.VodocuvarskiList, error) {
+	if err := provjeriDanLista(dan, s.sada()); err != nil {
+		return nil, err
+	}
 	return s.pripremiZa(ctx, u, dan)
 }
 
@@ -167,7 +174,8 @@ func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan t
 	if d == nil {
 		return nil, ErrNijeVodocuvar
 	}
-	if l, err := s.repo.ZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
+	// list za dan koji je prošao više se ne otvara (Odluke (8. 10. 2026.), pitanje 6)
+	if l, err := s.postojeciZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
 		return l, err
 	}
 	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "07:30", Do: "15:30", Cvor: s.cvor}
@@ -307,9 +315,12 @@ func oznaciZadatke(zadaci []models.ZadatakNaListu, unos map[string]UnosZadatka) 
 }
 
 // Spremi upisuje list vodočuvara; predan list više se ne mijenja
-// provjeriPredaju: predaja traži opis rada, a neobavljeni zadatak ostaje
-// upisan na listu s obrazloženjem
-func provjeriPredaju(l *models.VodocuvarskiList) error {
+// provjeriPredaju: list se predaje tek kad mu je dan počeo, predaja traži
+// opis rada, a neobavljeni zadatak ostaje upisan na listu s obrazloženjem
+func provjeriPredaju(l *models.VodocuvarskiList, sad time.Time) error {
+	if err := provjeriPocetakDana(l.Datum, sad); err != nil {
+		return err
+	}
 	if l.Opis == "" {
 		return fmt.Errorf("prije predaje upišite opis radnih aktivnosti")
 	}
@@ -361,12 +372,13 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 	if err := oznaciZadatke(l.Zadaci, unos.Zadaci); err != nil {
 		return nil, "", err
 	}
-	// svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi
-	if l.Broj == 0 {
-		l.Broj, err = s.repo.SljedeciBroj(ctx, u.ID.String(), dan.In(models.Zagreb).Year())
-		if err != nil {
-			return nil, "", err
-		}
+	// vodočuvarov upis: nacrt s drugog čvora bez njega ne prepisuje ovaj tekst
+	napisano := time.Now()
+	l.NapisanoAt = &napisano
+	// svaki list nosi redni broj od prvog spremanja, kao stranica u knjizi;
+	// nacrt za budući dan broj dobiva tek kad njegov dan počne
+	if err := s.dodijeliBroj(ctx, l); err != nil {
+		return nil, "", err
 	}
 	if predaj {
 		return s.predaj(ctx, l, dan)
@@ -393,7 +405,7 @@ func (s *VodocuvarService) spremi(ctx context.Context, l *models.VodocuvarskiLis
 // i sami se prenose na sljedeći list. Napomena javlja zadatke koje je već
 // zaključio drugi list.
 func (s *VodocuvarService) predaj(ctx context.Context, l *models.VodocuvarskiList, dan time.Time) (*models.VodocuvarskiList, string, error) {
-	if err := provjeriPredaju(l); err != nil {
+	if err := provjeriPredaju(l, s.sada()); err != nil {
 		// predaja ne prolazi, ali upisano se ne gubi: ostaje kao nacrt
 		if serr := s.spremi(ctx, l); serr != nil {
 			return nil, "", serr
@@ -458,10 +470,11 @@ func (s *VodocuvarService) zadaciZaZakljuciti(ctx context.Context, l *models.Vod
 	return out, napomene, nil
 }
 
-// gdjeJeZakljucen opisuje list kojim je zadatak zaključen u evidenciji
+// gdjeJeZakljucen opisuje list kojim je zadatak zaključen u evidenciji; od
+// lista predanog na dva čvora onaj koji ga je zaključio (listVeze)
 func (s *VodocuvarService) gdjeJeZakljucen(ctx context.Context, zad *models.Zadatak) string {
 	if zad.ListID != "" {
-		if dl, err := s.repo.Get(ctx, zad.ListID); err == nil && dl != nil {
+		if dl := s.listVeze(ctx, zad.ListID, func(l *models.VodocuvarskiList) bool { return zakljucioZadatak(l, zad.ID) }); dl != nil {
 			return fmt.Sprintf("listom br. %d od %s", dl.Broj, dl.Datum.In(models.Zagreb).Format("02.01.2006."))
 		}
 	}
@@ -506,8 +519,9 @@ func zaVodocuvara(v *models.User) *models.VodocuvarskiList {
 	return l
 }
 
-// ZadajZadatak zadaje zadatak vodočuvaru; smije tko smije parafirati ili
-// ovjeriti njegov list (rukovoditelji vezani uz područje i sektor)
+// ZadajZadatak zadaje zadatak vodočuvaru; smije tko ovjerava njegov list,
+// uprava i ovlaštenici u dosegu, a rukovoditelj dionice samo vodočuvaru
+// svoje dionice dok na njoj traje obrana (knjiga_ovlasti.go)
 // za je dan za koji se zadatak planira: danas ili do 30 dana unaprijed; nula = od danas
 func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID, tekst string, za time.Time) (*models.Zadatak, error) {
 	tekst = strings.TrimSpace(tekst)
@@ -537,7 +551,7 @@ func (s *VodocuvarService) ZadajZadatak(ctx context.Context, perms *models.UserP
 	if err != nil {
 		return nil, err
 	}
-	if !s.SmijeParafirati(perms, probni) {
+	if !s.smijeRadnju(ctx, perms, probni, v, radnjaZadatak) {
 		return nil, ErrUnauthorized
 	}
 	z := &models.Zadatak{UserID: v.ID.String(), Sektor: probni.Sektor, AreaID: probni.AreaID, Tekst: tekst, ZadaoID: u.ID.String(), Zadao: u.FullName, ZadanoAt: time.Now(), Za: za, Status: models.ZadatakOtvoren, Cvor: s.cvor}
@@ -554,13 +568,26 @@ func (s *VodocuvarService) Zadaci(ctx context.Context, vodocuvarID string) []mod
 // zadatke. Isključeni računi ne ulaze; vodočuvar koji se još nije prijavio
 // ulazi, zadatak ga čeka.
 func (s *VodocuvarService) Vodocuvari(ctx context.Context, perms *models.UserPermissions) []models.User {
+	return s.vodocuvariZa(ctx, perms, radnjaZadatak)
+}
+
+// VodocuvariZaBiljesku su vodočuvari u čije knjige osoba smije upisati
+// bilješku, kao Vodocuvari; njihova knjiga postoji i kad je još prazna
+func (s *VodocuvarService) VodocuvariZaBiljesku(ctx context.Context, perms *models.UserPermissions) []models.User {
+	return s.vodocuvariZa(ctx, perms, radnjaBiljeska)
+}
+
+// vodocuvariZa su vodočuvari s aktivnim računom za koje osoba smije radnju
+func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserPermissions, r radnjaUKnjizi) []models.User {
 	svi, err := s.users.ListUsers("", 0, "", "", "")
 	if err != nil {
 		return nil
 	}
+	// akti sektora i registar dionica čitaju se jednom za cijeli popis
+	ctx = sPamcenjem(ctx)
 	var out []models.User
 	for i := range svi {
-		if probni := zaZadatke(&svi[i]); probni != nil && s.SmijeParafirati(perms, probni) {
+		if probni := zaZadatke(&svi[i]); probni != nil && s.smijeRadnju(ctx, perms, probni, &svi[i], r) {
 			out = append(out, svi[i])
 		}
 	}
@@ -584,6 +611,9 @@ func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermiss
 	}
 	if !s.SmijeOvjeriti(perms, l) {
 		return nil, ErrUnauthorized
+	}
+	if err := provjeriDanOvjere(l.Datum, s.sada()); err != nil {
+		return nil, err
 	}
 	kad := time.Now()
 	l.PotvrdioID, l.Potvrdio, l.PotvrdenoAt = u.ID.String(), u.FullName, &kad
@@ -717,9 +747,16 @@ func (s *VodocuvarService) Kalendar(ctx context.Context, perms *models.UserPermi
 }
 
 // Upisi upisuje bilješku rukovoditelja ili ovlaštenika u dnevnik vodočuvara
-// za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema.
-// Upis nosi ime, funkciju i vrijeme, i ne mijenja se.
+// za zadani dan, neovisno o zadacima; list za taj dan nastaje ako ga nema,
+// osim za dan koji je prošao. Upis nosi ime, funkciju i vrijeme, i ne
+// mijenja se.
 func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, tekst string) (*models.VodocuvarskiList, error) {
+	return s.UpisiNaList(ctx, perms, u, vodocuvarID, dan, "", tekst)
+}
+
+// UpisiNaList je Upisi sa stranice lista: bilješka ide na otvoreni list
+// kad je to predan list vodočuvara za taj dan (listZaUpis)
+func (s *VodocuvarService) UpisiNaList(ctx context.Context, perms *models.UserPermissions, u *models.User, vodocuvarID string, dan time.Time, listID, tekst string) (*models.VodocuvarskiList, error) {
 	tekst = strings.TrimSpace(tekst)
 	if tekst == "" {
 		return nil, fmt.Errorf("upišite bilješku")
@@ -736,20 +773,27 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	if probni == nil {
 		return nil, fmt.Errorf("%s nema zaduženje vodočuvara pa nema ni dnevnik", v.FullName)
 	}
-	if !s.SmijeParafirati(perms, probni) {
+	// veza s dionicom gleda se za dan bilješke, kao na listu tog dana
+	probni.Datum = dan
+	if !s.smijeRadnju(ctx, perms, probni, v, radnjaBiljeska) {
 		return nil, ErrUnauthorized
 	}
 	if Arhivirana(dan.In(models.Zagreb).Year()) {
 		return nil, fmt.Errorf("knjiga za %d. je arhivirana", dan.In(models.Zagreb).Year())
 	}
-	l, err := s.pripremiZa(ctx, v, dan)
-	if err != nil {
+	// upis na budući dan slijedi pravilo lista: najviše 30 dana unaprijed,
+	// na nacrt koji broj dobiva tek kad njegov dan počne
+	if err := provjeriDanLista(dan, s.sada()); err != nil {
 		return nil, err
 	}
-	if l.Broj == 0 {
-		if l.Broj, err = s.repo.SljedeciBroj(ctx, v.ID.String(), dan.In(models.Zagreb).Year()); err != nil {
-			return nil, err
-		}
+	// list za dan koji je prošao više se ne otvara, ni upisom (Odluke
+	// (8. 10. 2026.), pitanje 6)
+	l, err := s.listZaUpis(ctx, v, dan, listID)
+	if err != nil {
+		return nil, bezListaZaUpis(v, dan, err)
+	}
+	if err := s.dodijeliBroj(ctx, l); err != nil {
+		return nil, err
 	}
 	funkcija := ""
 	if d := najvisaDuznost(u); d != nil {
@@ -762,13 +806,19 @@ func (s *VodocuvarService) Upisi(ctx context.Context, perms *models.UserPermissi
 	return l, nil
 }
 
-// ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska
+// ZadaciLista vraća zadatke zaključene na listu, s obuhvatom obilaska. Od
+// dva lista predana na dva čvora, koji dijele oznaku u evidenciji zadataka,
+// svaki dobiva one koje je sam zaključio (oznakaZadataka).
 func (s *VodocuvarService) ZadaciLista(ctx context.Context, listID string) []models.Zadatak {
-	z, err := s.repo.ZadaciZaList(ctx, listID)
+	oznaka, dijeli := s.oznakaZadataka(ctx, listID)
+	z, err := s.repo.ZadaciZaList(ctx, oznaka)
 	if err != nil {
 		return nil
 	}
-	return z
+	if dijeli == nil {
+		return z
+	}
+	return zakljuceniNa(dijeli, z)
 }
 
 // Prilozi vraća bajtove priloga lista po oznaci priloga; što ovaj čvor nema,

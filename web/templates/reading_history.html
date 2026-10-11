@@ -10,6 +10,7 @@
     <h1 class="page-title">{{icon "activity"}} {{.GaugeName}}</h1>
     <p class="page-desc">
       {{.GaugeSub}}
+      {{if and .Station .Station.KotaNM}} · <span class="reg-chip" title="Letva vodi kotu vodnog lica nad morem, ne vodostaj; prima vrijednosti od 5000 do 40 000 cm">kota u cm n. m.</span>{{end}}
       {{if .Station}} · <a href="/stations/{{.Station.ID}}">postaja u registru</a>{{end}}
       {{if .Structure}} · <a href="/structures/{{.Structure.ID}}">objekt u registru</a>{{end}}
     </p>
@@ -114,7 +115,7 @@
 <section class="detail-section">
   <div class="odjeljak-glava">
     <h2>{{icon "history"}} Svježa očitanja <span class="reg-chip">{{.Count}}</span>{{if .Followed}} <span class="reg-chip">{{icon "download"}} povijest se čuva</span>{{end}}</h2>
-    {{if and .Station .CanEdit}}
+    {{if and .Station .SmijeProglasiti}}
     <a href="/akti/novi?station={{.Station.ID}}" class="btn btn-secondary btn-sm" title="Rješenje ili obavijest o uspostavi ili prekidu stupnja obrane po ovom vodomjeru">{{icon "file-text"}} Proglasi / prekini</a>
     {{end}}
     {{if and .Station .JavniURL .CanEdit}}
@@ -140,7 +141,16 @@
   <p class="form-help mt-0 mb-3">
     {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
     {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
-    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if .Odbaceno}}, odbačeno izvan raspona {{.Odbaceno}}{{end}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+  </p>
+  {{end}}
+  {{with .Odbaceno}}
+  <p class="form-help mt-0 mb-3" data-odbaceno>
+    <span class="badge badge-inactive">{{icon "triangle-alert"}} {{.Tekst}}{{with .IzvorLabel}} ({{.}}){{end}}</span>
+    Vrijednosti izvan raspona ručnog upisa ne upisuju se ni s javnih stranica, telemetrije ni iz uvoza;
+    ostale vrijednosti istog očitanja upisuju se, a ovdje se broje odbačene. S preuzimanja su obično znak da je mjerilo u kvaru, a iz uvoza starih evidencija
+    greška u zapisu; broj se ne poništava, pa datum zadnje kaže traje li to još. Broje se i vrijednosti koje je
+    odbacilo računalo koje letvu preuzima: zapis o njima putuje razmjenom kao i očitanja.
   </p>
   {{end}}
   <form method="GET" action="" id="pogled" class="d-flex gap-2 items-center flex-wrap mb-3">
@@ -168,7 +178,7 @@
         {{if .TempC}}<span class="reading-meta" title="temperatura vode"> · {{brojHRf (deref .TempC) 1}} °C{{if .TempNote}} ({{.TempNote}}){{end}}</span>{{end}}
         {{if .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}" style="margin-left:0.4rem; font-size:0.7rem;">{{.Phase.Label}}</span>{{end}}
       </span>
-      <span>{{if $.CanEdit}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
+      <span>{{if index $.Ispravlja .ID}}<a href="/readings/edit/{{.ID}}" class="btn btn-sm btn-link" style="padding:0; color:var(--text-muted);">{{icon "pencil"}}</a>{{end}}</span>
       {{if or .StructureState .Gate .Observer .Note .HasAgHours (ne .Source "RUČNO") .OriginLabel (not .IsMeasured)}}
       <span class="extra">
         {{if .StructureState}}{{.StateLabel}}{{end}}
@@ -236,8 +246,10 @@
     </div>
     <p class="form-help mt-3">Stupac <strong>id</strong> govori koji je
       redak koji — ne diraj ga i ne dodaj retke. Mijenja se vrijeme, vodostaj, nizvodni, tko je
-      očitao i napomena; za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
-      Prije upisa program pokaže što bi se promijenilo.</p>
+      očitao i napomena;
+      {{if .BriseNaLetvi}}za brisanje upiši <strong>da</strong> u stupac <strong>obrisi</strong>.
+      {{else}}ispraviti možeš samo svoja očitanja, a tuđa ispravlja i briše onaj tko odgovara za letvu.
+      {{end}}Prije upisa program pokaže što bi se promijenilo.</p>
   </div>
 </section>
 {{end}}

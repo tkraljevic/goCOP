@@ -10,12 +10,12 @@
   <div>
     <h1 class="page-title">{{icon "file-text"}} {{$a.Vrsta}} o {{$a.RadnjaLabel}} {{$a.Predmet}}</h1>
     <p class="page-desc">{{$a.StationName}} · BP {{$a.AreaID}}{{with .Podrucje}} {{.Name}}{{end}} · {{term "sektor"}} {{$a.Sektor}} ·
-      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}</p>
+      {{if $a.Ovjeren}}<span class="badge badge-area-admin">{{icon "check"}} ovjeren {{$a.Oznaka}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{end}}{{if $a.Storniran}} <span class="badge badge-danger">poništen</span>{{end}}{{if and .Sukob.Drugi (not .Sukob.Rijesen)}} <a href="#oznaka" class="badge badge-danger">ista oznaka kao drugi akt</a>{{end}}</p>
   </div>
   <div class="page-actions">
     <a href="/akti/{{$a.ID}}/akt.pdf" class="btn btn-secondary" target="_blank">{{icon "printer"}} PDF</a>
     {{if .SmijeOvjeriti}}
-    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" class="d-inline" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.');"><button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
+    <form method="POST" action="/akti/{{$a.ID}}/ovjeri" class="d-inline" id="ovjera-obrazac" onsubmit="return confirm('Ovjeriti akt u goCOP-u? Ovjera se potpisuje ključem čvora, akt dobiva broj i kod ovjere, a PDF sa žigom i potpisom postaje izvornik.{{with .Pregled}}{{if .Razlikuje}} Popis primatelja složen pri ovjeri razlikuje se od nacrta ({{.OpisRazlike}}); razlika je na stranici, pod Primatelji pri ovjeri.{{end}}{{end}}');">{{with .Pregled}}<input type="hidden" name="otisak" value="{{.Otisak}}">{{end}}<button type="submit" class="btn btn-secondary" title="Hitna ovjera u programu, bez kvalificiranog potpisa">{{icon "check"}} Ovjeri u goCOP-u</button></form>
     {{end}}
     {{if .SmijeObrisati}}
     <form method="POST" action="/akti/{{$a.ID}}/obrisi" class="d-inline" onsubmit="return confirm('Obrisati nacrt?');"><button type="submit" class="btn btn-secondary">{{icon "trash"}} Obriši nacrt</button></form>
@@ -28,6 +28,11 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{with .PitanjeVrijedi}}
+<div class="alert alert-warning" id="vrijedi-potvrda">{{icon "triangle-alert"}} <strong>{{.}}</strong> Nacrt tu potvrdu nema, pa je traži ovjera; potvrda se bilježi uz akt.
+  {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" form="ovjera-obrazac" required> Da, „Vrijedi od” je točno upisan (ovjera u goCOP-u)</label>{{end}}
+</div>
+{{end}}
 
 {{with .Slanje}}
 <section class="akt-slanje" id="slanje">
@@ -157,13 +162,32 @@
         <option value="">— tko je potpisao —</option>
         {{range .MoguPotpisati}}<option value="{{.ID}}">{{.FullName}}{{with .PrimaryDuty}} · {{.Title}}{{end}}</option>{{end}}
       </select>
+      {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
+      {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
       <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
   </ol>
 </section>
 {{end}}
 
-{{if .SmijeObrisati}}
+{{if and (not $a.Ovjeren) (or .Pregled $a.UpozorenjaPrimatelja)}}
+<section class="akt-potpis-opcije" id="primatelji">
+  <h2>{{icon "users"}} Primatelji pri ovjeri</h2>
+  {{with $a.UpozorenjaPrimatelja}}<div class="alert alert-warning mt-0">{{icon "triangle-alert"}} <strong>Popis primatelja u nacrtu nije potpun:</strong>
+    <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>{{end}}
+  {{with .Pregled}}
+  <p class="form-help mt-0">Pri ovjeri u goCOP-u popis se slaže ponovno iz registara i takav ulazi u ovjereni akt. {{if .Razlikuje}}Razlika prema popisu u nacrtu:{{else}}Popis složen sada jednak je popisu u nacrtu.{{end}}</p>
+  {{if .Razlikuje}}<ul class="akt-razlika">{{range .Dodani}}<li>+ {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}{{range .Uklonjeni}}<li>− {{.Naziv}}{{with .Email}} &lt;{{.}}&gt;{{end}}</li>{{end}}</ul>{{end}}
+  {{with .Upozorenja}}<div class="alert alert-warning">{{icon "triangle-alert"}} <strong>Upozorenje uz popis koji ulazi u ovjeru:</strong>
+    <ul class="mb-0">{{range .}}<li>{{.}}</li>{{end}}</ul></div>
+    {{if $.SmijeOvjeriti}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" form="ovjera-obrazac" required> Ovjeravam u goCOP-u unatoč upozorenju o popisu primatelja</label>{{end}}{{end}}
+  {{if $.SmijeUreditiNacrt}}<form method="POST" action="/akti/{{$a.ID}}/slozi-primatelje" class="mt-2"><button type="submit" class="btn btn-sm btn-secondary">{{icon "refresh-cw"}} Ponovno složi primatelje</button>
+    <span class="form-help">Nacrt dobiva popis složen sada; ispis za potpis tada treba ponoviti.</span></form>{{end}}
+  {{end}}
+</section>
+{{end}}
+
+{{if .SmijeUreditiNacrt}}
 <details class="akt-uredi"{{if .ErrorMessage}} open{{end}}>
   <summary>{{icon "pencil"}} Ispravi tekst nacrta</summary>
   <form method="POST" action="/akti/{{$a.ID}}/tekst" class="form-page mt-3">
@@ -191,6 +215,20 @@
 </details>
 {{end}}
 
+{{with .Sukob.Drugi}}
+<div class="akt-potpis-stanje{{if not $.Sukob.Rijesen}} ne-vrijedi{{end}}" id="oznaka">
+  {{icon "triangle-alert"}} <strong>Ista oznaka kao akt {{range $i, $d := .}}{{if $i}}; {{end}}<a href="/akti/{{$d.ID}}">{{$d.StationName}}, {{$d.Vrsta}} o {{$d.RadnjaLabel}} {{$d.Predmet}}</a> (kod {{$d.OvjeraKod}}{{with $d.Cvor}}, čvor {{.}}{{end}}){{end}}.</strong>
+  {{if $.Sukob.Rijesen}}{{with $.Sukob.Rjesenje}}Sukob je riješen: {{.Napomena}} ({{.Rijesio}}, {{formatDate (localTime .Kad)}}).{{end}}
+  {{else}}{{$cv := $.Sukob.Cvorovi $a}}{{if eq $cv "RAZLICITI"}}Akti su ovjereni na različitim čvorovima, u pravilu dok među njima nije bilo veze. {{else if eq $cv "ISTI"}}Akti su ovjereni na istom čvoru. {{end}}Svi ostaju valjani i rješenje ih ne mijenja. Sukob rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s ispravkom oznake) i označava ga riješenim.{{end}}
+  {{if and $.SmijeRijesitiOznaku (not $.Sukob.Rijesen)}}
+  <form method="POST" action="/akti/{{$a.ID}}/oznaka" class="mt-2">
+    <label for="napomena-oznake" class="form-label">Kako je sukob riješen</label>
+    <input id="napomena-oznake" name="napomena" class="form-control" required placeholder="npr. primateljima poslan dopis s ispravkom oznake">
+    <button type="submit" class="btn btn-secondary mt-2">{{icon "check"}} Označi riješenim</button>
+  </form>
+  {{end}}
+</div>
+{{end}}
 {{with $a.Storno}}
 <div class="akt-potpis-stanje ne-vrijedi">
   {{icon "triangle-alert"}} <strong>Akt je poništen (storno):</strong> {{.Razlog}} Poništio {{.Ponistio}}, {{formatDate (localTime .PonistenoAt)}}. Poništen akt ne ulazi u stanje obrane; ako treba, ispravlja ga novi akt.
@@ -214,6 +252,12 @@
 </div>
 {{end}}
 
+{{with $a.Potvrde}}
+<div class="akt-potpis-stanje" id="potvrde">
+  {{icon "info"}} <strong>Potvrđeno uz akt:</strong>
+  <ul class="mb-0">{{range .}}<li>{{.Tekst}} ({{.Tko}}, {{formatDate (localTime .Kad)}})</li>{{end}}</ul>
+</div>
+{{end}}
 {{if $a.Ovjeren}}
 <div class="akt-potpis-stanje {{if eq .Potpis "VRIJEDI"}}vrijedi{{else if eq .Potpis "NE_VRIJEDI"}}ne-vrijedi{{end}}">
   {{if eq .Potpis "VRIJEDI"}}{{icon "check"}} <strong>Elektronički potpis vrijedi.</strong> Sadržaj akta nije mijenjan od ovjere:

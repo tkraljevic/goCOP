@@ -175,10 +175,9 @@ func KnjigaIzvjesca(iz *models.DnevnoIzvjesce, sec *models.Section, z ZaglavljeI
 
 	// Izrada i potpis
 	l.Dodaj()
-	izrada := "Datum i sat izrade: " + iz.IzradenoAt.In(models.Zagreb).Format("02.01.2006. 15:04")
-	if iz.Predano() {
-		izrada += " · predano u podcentar " + iz.PredanoAt.In(models.Zagreb).Format("02.01.2006. 15:04")
-	}
+	// uz izradu: tko je mijenjao nakon predaje, prvo i ponovno vrijeme predaje
+	izrada := "Datum i sat izrade: " + iz.IzradenoAt.In(models.Zagreb).Format("02.01.2006. 15:04") +
+		iz.TragUDokumentu("u podcentar", "02.01.2006. 15:04")
 	r = l.Redak()
 	out := make([]xlsxw.Celija, stupaca)
 	out[0] = B(izrada, xlsxw.Obican)

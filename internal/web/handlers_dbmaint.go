@@ -151,7 +151,9 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 	if days < 1 && !(r.FormValue("days") == "0" && h.brisanjePovijesti(r.Context())) {
 		days = DefaultKeepDays
 	}
-	n, err := h.rec.Compact(r.Context(), time.Now().AddDate(0, 0, -days))
+	// dnevni list vodočuvara složen iz povijesti prvo se upisuje kakav
+	// vrijedi, da sažimanje ne vrati nacrt preko predanog lista
+	n, err := repository.SazmiKnjigu(r.Context(), h.db(), h.rec, time.Now().AddDate(0, 0, -days))
 	if err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return

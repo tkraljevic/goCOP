@@ -716,6 +716,7 @@ func (s *Server) setupRoutes() {
 		}
 		return sek
 	})
+	stationsH.SetUstroj(s.ustroj)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -810,6 +811,7 @@ func (s *Server) setupRoutes() {
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(s.Arhiva)
 	readingsH.SetPrognoze(s.Prognoze)
+	readingsH.SetAkti(func() *service.AktService { return s.akti })
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil
@@ -890,6 +892,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", s.authMiddleware(http.HandlerFunc(journalsH.HandlePotvrdiDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/makni", s.authMiddleware(http.HandlerFunc(journalsH.HandleMakniDezurstvo)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/opis", s.authMiddleware(http.HandlerFunc(journalsH.HandleIspraviOpisDezurstva)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun.xlsx", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziObracun)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziIORS)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun/{user}", s.authMiddleware(http.HandlerFunc(journalsH.ShowIORS)))
@@ -1304,6 +1307,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /akti/{id}/akt.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziPDF)))
 	s.mux.Handle("POST /akti/{id}/ovjeri", s.authMiddleware(http.HandlerFunc(aktiH.HandleOvjeri)))
 	s.mux.Handle("POST /akti/{id}/storno", s.authMiddleware(http.HandlerFunc(aktiH.HandleStorno)))
+	s.mux.Handle("POST /akti/{id}/oznaka", s.authMiddleware(http.HandlerFunc(aktiH.HandleRijesiOznaku)))
+	s.mux.Handle("POST /akti/{id}/slozi-primatelje", s.authMiddleware(http.HandlerFunc(aktiH.HandleSloziPrimatelje)))
 	s.mux.Handle("GET /akti/{id}/za-ispis.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziZaIspis)))
 	s.mux.Handle("POST /akti/{id}/sken", s.authMiddleware(http.HandlerFunc(aktiH.HandleUcitajSken)))
 	s.mux.Handle("POST /akti/{id}/posalji", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosalji)))
@@ -1361,6 +1366,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/uredi", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoUredi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPredaj)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}/povuci", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPovuci)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoObrisi)))
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziSektorsko)))
 	izvjescaH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
@@ -1581,10 +1587,11 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		// Tuđim se očima samo gleda. Zapis pod tuđim imenom ne smije nastati
 		// ni omaškom, pa se zaustavlja ovdje, prije svakog rukovatelja.
-		upisiTudjim := view.Viewing && s.opcije(r.Context()).UpisTudjimOcima
+		// Isključen račun samo se čita i uz uključene upise.
+		upisiTudjim := s.upisiTudjimOcima(r, view)
 		if view.Viewing && !readOnlyRequest(r) {
 			if !upisiTudjim {
-				http.Error(w, "Dok gledaš tuđim očima program samo čita. Vrati se sebi pa ponovi, ili neka uprava uključi „Upisi tuđim očima” u Administraciji › Opcije.", http.StatusForbidden)
+				http.Error(w, porukaSamoCitanje(view), http.StatusForbidden)
 				return
 			}
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)

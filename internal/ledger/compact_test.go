@@ -140,3 +140,34 @@ func TestProrijediZamijenjene(t *testing.T) {
 		t.Error("granica se pomaknula")
 	}
 }
+
+// Sažimanje s popisom zapisa koje čuva: njihove starije verzije ostaju, a
+// ostali zapisi se sažimaju kao i inače
+func TestSazimanjeCuvaNavedeneZapise(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "ured")
+	ctx := context.Background()
+	for _, id := range []string{"st-1", "st-2", "st-3"} {
+		for _, prag := range []int{600, 610} {
+			if _, err := rec.Record(ctx, db, "stations", id, probni{"Županja", prag}); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if _, err := db.Exec(`UPDATE record_versions SET created_at = ?`, time.Now().AddDate(0, 0, -200)); err != nil {
+		t.Fatal(err)
+	}
+	n, err := rec.CompactOsim(ctx, time.Now().AddDate(0, 0, -90), []string{"st-1", "st-3"})
+	if err != nil || n != 1 {
+		t.Fatalf("sažimanje: obrisano %d, %v", n, err)
+	}
+	for id, ocekivano := range map[string]int{"st-1": 2, "st-2": 1, "st-3": 2} {
+		if hist, _ := rec.History(ctx, "stations", id); len(hist) != ocekivano {
+			t.Errorf("povijest %s: %d verzija, očekivano %d", id, len(hist), ocekivano)
+		}
+	}
+	db.Close()
+	if _, err := rec.CompactOsim(ctx, time.Now(), nil); err == nil {
+		t.Error("sažimanje zatvorene baze nije javilo grešku")
+	}
+}

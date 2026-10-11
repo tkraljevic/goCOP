@@ -13,7 +13,6 @@ import (
 // Serija koja padne poništena je cijela, pa izvješće uvoza ne smije njezina
 // očitanja brojati kao upisana; broji se tek nakon uspjelog upisa.
 func TestPalaSerijaSeNeBrojiKaoUpisana(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
 	if err != nil {
 		t.Fatal(err)

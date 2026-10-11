@@ -15,6 +15,98 @@ import (
 // CitacPrognoza čita izdane prognoze iz baze prognoza.
 type CitacPrognoza struct {
 	db *sql.DB
+	// Prikovano izdanje (sat od epohe) kad čitač služi ranije izdanje, 0 za
+	// zadnje; tuđe prognoze tada sežu do onih koje je izdavač imao u rukama.
+	sat    int64
+	tudeDo map[string]int64
+}
+
+// Na vraća čitač prikovan na izdanje zadanog sata: pregled, izdavač i tuđe
+// prognoze čitaju se iz tog izdanja, a ne iz zadnjeg. Dijeli vezu s čitačem
+// iz kojeg je nastao, pa se ne zatvara.
+func (c *CitacPrognoza) Na(sat int64) *CitacPrognoza {
+	if c == nil || c.db == nil {
+		return c
+	}
+	tude, _ := prognoza.TudeIzdanja(c.db, sat)
+	return &CitacPrognoza{db: c.db, sat: sat, tudeDo: tude}
+}
+
+// izdanje je sat izdanja koje čitač služi: prikovano ili zadnje.
+func (c *CitacPrognoza) izdanje() (int64, bool, error) {
+	if c.sat != 0 {
+		return c.sat, true, nil
+	}
+	return prognoza.ZadnjeIzdanje(c.db)
+}
+
+// doTudih je najkasniji sat izdanja tuđe prognoze koju čitač uzima: uz
+// prikovano izdanje ona koju je izdavač tada imao u rukama, a bez zapisa sat
+// izdanja; uz zadnje izdanje granice nema.
+func (c *CitacPrognoza) doTudih(izvor string) int64 {
+	if c.sat == 0 {
+		return math.MaxInt64
+	}
+	if sat, ima := c.tudeDo[izvor]; ima {
+		return sat
+	}
+	return c.sat
+}
+
+// IzdanjeDo traži izdanje za sat t: taj sat kad je tada izdano, inače
+// najbliže ranije; ok je false kad do t nema nijednog izdanja.
+func (c *CitacPrognoza) IzdanjeDo(t time.Time) (time.Time, bool) {
+	if c == nil || c.db == nil {
+		return time.Time{}, false
+	}
+	sat, ok, err := prognoza.IzdanjeDo(c.db, t.Unix()/3600)
+	return satOdEpohe(sat), ok && err == nil
+}
+
+// ZadnjeIzdano je sat zadnjeg izdanja u bazi prognoza.
+func (c *CitacPrognoza) ZadnjeIzdano() (time.Time, bool) {
+	if c == nil || c.db == nil {
+		return time.Time{}, false
+	}
+	sat, ok, err := prognoza.ZadnjeIzdanje(c.db)
+	return satOdEpohe(sat), ok && err == nil
+}
+
+// PrvoIzdanje je najstarije izdanje u bazi prognoza.
+func (c *CitacPrognoza) PrvoIzdanje() (time.Time, bool) {
+	if c == nil || c.db == nil {
+		return time.Time{}, false
+	}
+	sat, ok, err := prognoza.PrvoIzdanje(c.db)
+	return satOdEpohe(sat), ok && err == nil
+}
+
+// PocetciZapisa kaže od kojeg sata baza ima koji dio izdanja; ok je false
+// dok izdanja nema.
+func (c *CitacPrognoza) PocetciZapisa() (prognoza.Pocetci, bool) {
+	if c == nil || c.db == nil {
+		return prognoza.Pocetci{}, false
+	}
+	p, err := prognoza.PocetciZapisa(c.db)
+	return p, err == nil && p.Izdane != 0
+}
+
+// KisaZapisana javlja je li uz izdanje zadanog sata zapisana kiša po
+// međuslivovima.
+func (c *CitacPrognoza) KisaZapisana(izdano time.Time) bool {
+	if c == nil || c.db == nil {
+		return false
+	}
+	kisa, err := prognoza.KisaIzdanja(c.db, izdano.Unix()/3600)
+	return err == nil && len(kisa) > 0
+}
+
+// OpisIzdanja opisuje zadnju verziju izdanja zadanog sata.
+func (c *CitacPrognoza) OpisIzdanja(izdano time.Time) (prognoza.OpisIzdanja, bool) {
+	if c == nil {
+		return prognoza.OpisIzdanja{}, false
+	}
+	return prognoza.OpisIzdanjaZa(c.db, izdano.Unix()/3600)
 }
 
 // OtvoriPrognoze otvara bazu prognoza za čitanje.
@@ -75,20 +167,31 @@ func (c *CitacPrognoza) ZaLetvu(letva, velicina string) *PrognozaNiza {
 	if r.Err() != nil || len(p.Tocke) < 2 {
 		return nil
 	}
+	u, _ := c.Upozorenja(p.Izdano)
+	p.Upitno = upitnoLetve(u, letva)
 	return p
 }
 
-// Dnevno čita najnovije dnevno izdanje: za svaku letvu dan 0 (izmjereno) i
-// 1.–6. dan.
-func (c *CitacPrognoza) Dnevno() (time.Time, map[string][]prognoza.DnevnaIzdana, error) {
+// DnevnoZa čita dnevnu prognozu istog izdanja kao satna: za svaku letvu dan
+// 0 (izmjereno) i 1.–6. dan. Kad dnevni model u tom izdanju nije računao,
+// dnevne nema; starija se ne uzima, jer bi uz noviju satnu stajala kao da je
+// iz istog izdanja.
+func (c *CitacPrognoza) DnevnoZa(izdano time.Time) (map[string][]prognoza.DnevnaIzdana, error) {
 	if c == nil || c.db == nil {
-		return time.Time{}, nil, nil
+		return nil, nil
 	}
-	izdano, sve, err := prognoza.ZadnjeDnevno(c.db)
-	if err != nil || len(sve) == 0 {
-		return time.Time{}, nil, err
+	return prognoza.DnevneIzdanja(c.db, izdano.Unix()/3600)
+}
+
+// Upozorenja čita upozorenja koja je izdavač zapisao uz izdanje. zapisano
+// je false kad ih izdavač nije bilježio (starija inačica) ili se ne daju
+// pročitati: tada se ne zna radi li sve, pa se ne smije reći da radi.
+func (c *CitacPrognoza) Upozorenja(izdano time.Time) ([]prognoza.Upozorenje, bool) {
+	if c == nil || c.db == nil {
+		return nil, false
 	}
-	return time.Unix(izdano*3600, 0).UTC(), sve, nil
+	u, zapisano, err := prognoza.UpozorenjaIzdanja(c.db, izdano.Unix()/3600)
+	return u, zapisano && err == nil
 }
 
 // TudaVrijednost je jedna vrijednost tuđe prognoze.
@@ -98,7 +201,8 @@ type TudaVrijednost struct {
 
 // Tude čita najnovije izdanje tuđe prognoze za svaku letvu, ako nije starije
 // od dva dana: letva → ciljni sat → vrijednost. Jutarnje mjerenje koje stoji
-// uz izdanje kao sidro ne vraća se — to nije prognoza.
+// uz izdanje kao sidro ne vraća se — to nije prognoza. Uz ranije izdanje
+// novije od onoga što je izdavač tada imao ne uzima se.
 func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]TudaVrijednost {
 	out := map[string]map[int64]TudaVrijednost{}
 	if c == nil || c.db == nil {
@@ -106,9 +210,9 @@ func (c *CitacPrognoza) Tude(izvor string, sada time.Time) map[string]map[int64]
 	}
 	od := sada.Add(-48*time.Hour).Unix() / 3600
 	r, err := c.db.Query(`SELECT t.letva, t.ciljni, t.vrijednost, t.raspon FROM tude t
-		JOIN (SELECT letva, max(izdano) AS izdano FROM tude WHERE izvor = ? AND izdano >= ?
+		JOIN (SELECT letva, max(izdano) AS izdano FROM tude WHERE izvor = ? AND izdano >= ? AND izdano <= ?
 			GROUP BY letva) z ON z.letva = t.letva AND z.izdano = t.izdano
-		WHERE t.izvor = ? AND t.ciljni > t.izdano`, izvor, od, izvor)
+		WHERE t.izvor = ? AND t.ciljni > t.izdano`, izvor, od, c.doTudih(izvor), izvor)
 	if err != nil {
 		return out
 	}
@@ -183,13 +287,13 @@ func (c *CitacPrognoza) Brojke() (vrijednosti int64, izdanja int) {
 	return vrijednosti, izdanja
 }
 
-// Izdavac vraća čvor koji je izdao zadnje izdanje, samo kad je ono stiglo
-// razmjenom; izdanje ovog čvora ne treba oznaku.
+// Izdavac vraća čvor koji je izdao zadnje (ili prikovano) izdanje, samo kad
+// je ono stiglo razmjenom; izdanje ovog čvora ne treba oznaku.
 func (c *CitacPrognoza) Izdavac() string {
 	if c == nil || c.db == nil {
 		return ""
 	}
-	cvor, primljeno, err := prognoza.ZadnjiIzdavac(c.db)
+	cvor, primljeno, err := c.izdavac()
 	if err != nil || !primljeno {
 		return ""
 	}
@@ -197,4 +301,13 @@ func (c *CitacPrognoza) Izdavac() string {
 		return "drugom čvoru"
 	}
 	return cvor
+}
+
+// izdavac čita čvor zadnjeg izdanja ili, uz prikovano, toga izdanja.
+func (c *CitacPrognoza) izdavac() (string, bool, error) {
+	if c.sat == 0 {
+		return prognoza.ZadnjiIzdavac(c.db)
+	}
+	o, _ := prognoza.OpisIzdanjaZa(c.db, c.sat)
+	return o.Cvor, o.Primljeno, nil
 }

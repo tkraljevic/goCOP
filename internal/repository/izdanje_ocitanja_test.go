@@ -18,7 +18,6 @@ import (
 // Mehanizam ulaganja dolazi kasnije, ali zapis ga mora moći izraziti — dodati
 // stupac naknadno znači prepisati svako očitanje na svakom čvoru.
 func TestIzdanjeOcitanjaPrezivljavaUpisICitanje(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "proba.db"))
 	if err != nil {
 		t.Fatal(err)
