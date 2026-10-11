@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -38,8 +39,15 @@ func main() {
 	}
 }
 
+// rokNaredbe je najdulje što jedna naredba mjerenja smije trajati. Testovi
+// s race detektorom i atomskim coverageom na stroju CI-ja (Linux, malo
+// jezgri) traju višestruko dulje nego lokalno: 11. 10. 2026. cijeli paket
+// testova grane odluka prešao je 30 minuta (repository, service i prognoza
+// po 12–14 minuta), a lokalno traje oko 8.
+const rokNaredbe = 60 * time.Minute
+
 func commandOutput(dir, name string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), rokNaredbe)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
@@ -57,13 +65,19 @@ func logged(dir, path, name string, args ...string) error {
 	if err != nil {
 		return err
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), rokNaredbe)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
 	cmd.Stdout = f
 	cmd.Stderr = f
 	runErr := cmd.Run()
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		// prekinuta naredba sama ne kaže zašto je stala; bez ovoga zapis
+		// testova samo naglo završi, a izvještaj kaže „Tests FAIL”
+		fmt.Fprintf(f, "\nPREKINUTO: %s nije završio u roku od %v (rokNaredbe u dev/quality)\n", name, rokNaredbe)
+		runErr = fmt.Errorf("rok od %v istekao: %w", rokNaredbe, runErr)
+	}
 	closeErr := f.Close()
 	if runErr != nil {
 		return fmt.Errorf("%s: %w (log: %s)", name, runErr, path)
