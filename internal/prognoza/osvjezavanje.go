@@ -123,6 +123,9 @@ type Ishod struct {
 	// Upozorenja kažu što pri izdavanju nije radilo i koji su rezultati
 	// zbog toga upitni (Upozori); zapisuju se s izdanjem i putuju s njim.
 	Upozorenja []Upozorenje
+	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
+	// zadnja četiri dana prije izdanja: letva → rupe redom.
+	Rekonstruirano map[string][]RekonstruiranaRupa
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -264,7 +267,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	if ishod.Izbor == nil {
 		ishod.Izbor = map[string]Izbor{}
 	}
-	o.napomeneRekonstrukcije(ctx, nizovi, ishod.Izbor, od, sada)
+	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)

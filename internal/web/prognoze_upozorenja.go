@@ -262,10 +262,16 @@ func (p pisacUpozorenja) dnevnaUpitna(u prognoza.Upozorenje) string {
 		return ""
 	}
 	s := strings.Join(dijelovi, ", ")
-	if u.Vrsta == prognoza.VrstaKisa {
+	if dnevnaIzdana(u.Vrsta) {
 		return s
 	}
 	return s + p.daniBezDnevne(u.Upitno)
+}
+
+// dnevnaIzdana: uz ovu vrstu dnevna prognoza jest izdana, samo je upitna —
+// računata bez kiše ili iz rekonstruiranih sati izvan raspona provjere.
+func dnevnaIzdana(vrsta string) bool {
+	return vrsta == prognoza.VrstaKisa || vrsta == prognoza.VrstaRekonstrukcija
 }
 
 // daniBezDnevne kaže koje dane tablica za upitne letve pokazuje iz satne
@@ -382,7 +388,7 @@ func (p pisacUpozorenja) naKartici(u prognoza.Upozorenje, q prognoza.Upitno) str
 		s = append(s, "satna upitna "+odDosega(q.OdSata))
 	}
 	switch {
-	case q.Dnevno && u.Vrsta == prognoza.VrstaKisa:
+	case q.Dnevno && dnevnaIzdana(u.Vrsta):
 		s = append(s, "dnevna upitna")
 	case q.Dnevno:
 		s = append(s, "dnevna nije izdana")
@@ -403,6 +409,8 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return p.ime(u.Letva) + " bez budućnosti vrha"
 	case prognoza.VrstaKisa:
 		return "dnevni model bez kiše"
+	case prognoza.VrstaRekonstrukcija:
+		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
 	}
 	return "dnevni model nije računao"
 }

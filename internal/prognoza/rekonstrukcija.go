@@ -115,6 +115,31 @@ var Rekonstrukcije = map[string][]Susjed{
 	},
 }
 
+// Raspon su razine letve (cm) od..do.
+type Raspon struct{ Od, Do int64 }
+
+// RasponProvjere je raspon razina na kojem je rekonstrukcija letve
+// provjerena: arhiva od 2015., bez 0,1 % najnižih i najviših vrijednosti.
+// Odnos dviju letvi vrijedi samo ondje gdje je izmjeren
+// (docs/rekonstrukcija-nizova.md); izvan njega rekonstrukcija i dalje računa,
+// ali uz izdanje stoji upozorenje da točnost nije provjerena (odluka
+// 11. 10. 2026.). Na rekordno niskoj vodi u listopadu 2026. ispod raspona su
+// bile gotovo sve.
+var RasponProvjere = map[string]Raspon{
+	"szentborbas":     {-107, 569},
+	"mohacs":          {-18, 854},
+	"dunaszekcso":     {-8, 867},
+	"siga":            {19, 1596},
+	"aljmas":          {-91, 685},
+	"mohovo":          {49, 692},
+	"vukovar":         {-66, 982},
+	"mursko-sredisce": {113, 429},
+	"vizvar":          {199, 636},
+	"novo-virje":      {-7, 421},
+	"vrbovka":         {29, 608},
+	"moslavina":       {-106, 468},
+}
+
 const (
 	// RekonstrukcijaOd: rekonstruira se rupa dulja od toga. Kraću prognoza
 	// premosti sama, bez upozorenja (ZaostatakKarike, DnevniIzSatnog).
@@ -146,6 +171,10 @@ type RekonstruiranaRupa struct {
 	Sati     int      // koliko je sati popunjeno
 	Iz       []Susjed // susjedi koji su dali sate, redom
 	Tocnost  int      // cm, najslabija točnost među njima
+	// Izvan: razina u rupi ili na njezinim krajevima izlazi iz raspona na
+	// kojem je rekonstrukcija provjerena (Provjereno), pa točnost nije provjerena.
+	Izvan      bool
+	Provjereno Raspon
 }
 
 // dodaj bilježi sat t od susjeda.
@@ -162,6 +191,10 @@ func (r *RekonstruiranaRupa) dodaj(t int64, s Susjed, tocnost int) {
 // stranica zamijeni imenima.
 func (r RekonstruiranaRupa) Opis() string {
 	tocnost := fmt.Sprintf("na arhivi 95 %% unutar ±%d cm", r.Tocnost)
+	if r.Izvan {
+		tocnost = fmt.Sprintf("razina izvan raspona na kojem je provjereno (od %d do %d cm), pa točnost nije provjerena",
+			r.Provjereno.Od, r.Provjereno.Do)
+	}
 	if r.Sljedece == 0 {
 		return fmt.Sprintf("nema mjerenja od %s; %d h procijenjeno iz kretanja %s; %s",
 			satDnevnika(r.Zadnje), r.Sati, opisSusjeda(r.Iz), tocnost)
@@ -339,6 +372,21 @@ func cmSat(v float64) sirovoOcitanje {
 	return sirovoOcitanje{cm: sql.NullInt64{Int64: int64(math.Round(v)), Valid: true}}
 }
 
+// oznaciIzvan označava rupe u kojima letva, rekonstruirana ili na krajevima
+// rupe, izlazi iz raspona provjere.
+func oznaciIzvan(rupe []RekonstruiranaRupa, letva map[int64]sirovoOcitanje, raspon Raspon) {
+	for i := range rupe {
+		r := &rupe[i]
+		r.Provjereno = raspon
+		kraj := max(r.Do, r.Sljedece)
+		for t := r.Zadnje; t <= kraj && !r.Izvan; t++ {
+			if s := letva[t]; s.cm.Valid && (s.cm.Int64 < raspon.Od || s.cm.Int64 > raspon.Do) {
+				r.Izvan = true
+			}
+		}
+	}
+}
+
 // rekonstruiraj popunjava letvi rupe iz njezinih susjeda; susjedu prije toga
 // sate popuni druga obala.
 func (o *Osvjezivac) rekonstruiraj(ctx context.Context, letva string, sirovo map[int64]sirovoOcitanje, od time.Time) []RekonstruiranaRupa {
@@ -355,7 +403,9 @@ func (o *Osvjezivac) rekonstruiraj(ctx context.Context, letva string, sirovo map
 		o.dopuniDrugomObalom(ctx, s.Letva, n, od)
 		nizovi[s.Letva] = n
 	}
-	return Rekonstruiraj(sirovo, susjedi, nizovi)
+	rupe := Rekonstruiraj(sirovo, susjedi, nizovi)
+	oznaciIzvan(rupe, sirovo, RasponProvjere[letva])
+	return rupe
 }
 
 // dopuniDrugomObalom upisuje letvi sate koje ima samo letva s druge obale.
@@ -376,40 +426,51 @@ func (o *Osvjezivac) popuniRupe(ctx context.Context, letva string, sirovo map[in
 	return o.rekonstruiraj(ctx, letva, sirovo, od)
 }
 
-// napomeneRekonstrukcije upisuje u izbor napomenu za svaku letvu kojoj su
-// susjedi popunili rupu u zadnja četiri dana prije izdanja.
-func (o *Osvjezivac) napomeneRekonstrukcije(ctx context.Context, nizovi map[Izvor]Niz, izbor map[string]Izbor, od time.Time, sada int64) {
+// napomeneRekonstrukcije bilježi u ishod rupe koje su susjedi popunili u
+// zadnja četiri dana prije izdanja, a u izbor njihov opis za karticu letve.
+func (o *Osvjezivac) napomeneRekonstrukcije(ctx context.Context, nizovi map[Izvor]Niz, ishod *Ishod, od time.Time) {
 	letve := map[string]bool{}
 	for iz := range nizovi {
 		letve[iz.Letva] = true
 	}
 	for letva := range letve {
-		if opis, ima := o.rekonstrukcijaDo(ctx, letva, od, sada); ima {
-			izbor["rekonstrukcija:"+letva] = Izbor{Opis: opis}
+		rupe := o.rekonstrukcijaDo(ctx, letva, od, ishod.Sada)
+		if len(rupe) == 0 {
+			continue
 		}
+		if ishod.Rekonstruirano == nil {
+			ishod.Rekonstruirano = map[string][]RekonstruiranaRupa{}
+		}
+		ishod.Rekonstruirano[letva] = rupe
+		ishod.Izbor["rekonstrukcija:"+letva] = Izbor{Opis: OpisRekonstrukcije(rupe)}
 	}
 }
 
-// rekonstrukcijaDo opisuje rupe letve koje su susjedi popunili, a sežu u
-// zadnja četiri dana prije sada.
-func (o *Osvjezivac) rekonstrukcijaDo(ctx context.Context, letva string, od time.Time, sada int64) (string, bool) {
+// OpisRekonstrukcije je opis rupa jedne letve, redom.
+func OpisRekonstrukcije(rupe []RekonstruiranaRupa) string {
+	opisi := make([]string, len(rupe))
+	for i, r := range rupe {
+		opisi[i] = r.Opis()
+	}
+	return "rekonstrukcija: " + strings.Join(opisi, "; ")
+}
+
+// rekonstrukcijaDo su rupe letve koje su susjedi popunili, a sežu u zadnja
+// četiri dana prije sada, redom.
+func (o *Osvjezivac) rekonstrukcijaDo(ctx context.Context, letva string, od time.Time, sada int64) []RekonstruiranaRupa {
 	if _, ima := Rekonstrukcije[letva]; !ima {
-		return "", false
+		return nil
 	}
 	sirovo, err := o.ucitajSirovo(ctx, letva, od)
 	if err != nil {
-		return "", false
+		return nil
 	}
-	var opisi []string
-	rupe := o.popuniRupe(ctx, letva, sirovo, od)
-	slices.SortFunc(rupe, func(a, b RekonstruiranaRupa) int { return cmp.Compare(a.Zadnje, b.Zadnje) })
-	for _, r := range rupe {
+	var out []RekonstruiranaRupa
+	for _, r := range o.popuniRupe(ctx, letva, sirovo, od) {
 		if r.Do >= sada-RekonstrukcijaNapomena && r.Zadnje < sada {
-			opisi = append(opisi, r.Opis())
+			out = append(out, r)
 		}
 	}
-	if len(opisi) == 0 {
-		return "", false
-	}
-	return "rekonstrukcija: " + strings.Join(opisi, "; "), true
+	slices.SortFunc(out, func(a, b RekonstruiranaRupa) int { return cmp.Compare(a.Zadnje, b.Zadnje) })
+	return out
 }

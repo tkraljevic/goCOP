@@ -196,6 +196,8 @@ func TestOpisRekonstrukcije(t *testing.T) {
 			"rupa od 7.10. u 11:00 do 8.10. u 09:00 (15 od 21 h) procijenjena iz letvi bezdan 5 h nizvodno i dunaszekcso u istom satu; na arhivi 95 % unutar ±3 cm"},
 		{RekonstruiranaRupa{Zadnje: sat("2026-10-11 02"), Sati: 10, Iz: []Susjed{{Letva: "barcs", Zastoj: 4}}, Tocnost: 10},
 			"nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve barcs 4 h uzvodno; na arhivi 95 % unutar ±10 cm"},
+		{RekonstruiranaRupa{Zadnje: sat("2026-10-11 02"), Sati: 10, Iz: []Susjed{{Letva: "barcs", Zastoj: 4}}, Tocnost: 10, Izvan: true, Provjereno: Raspon{-107, 569}},
+			"nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve barcs 4 h uzvodno; razina izvan raspona na kojem je provjereno (od -107 do 569 cm), pa točnost nije provjerena"},
 	} {
 		if got := c.r.Opis(); got != c.want {
 			t.Errorf("\n got %q\nwant %q", got, c.want)
@@ -242,6 +244,7 @@ func satiCm(od, do int64, f func(int64) int64) map[int64]int64 {
 func TestRekonstrukcijaIzBaze(t *testing.T) {
 	sada := time.Now().UTC().Truncate(time.Hour).Unix() / 3600
 	postavi(t, &Rekonstrukcije, map[string][]Susjed{"szentborbas": {{Letva: "barcs", Zastoj: 4, Prosla: 8, Traje: 10}}})
+	postavi(t, &RasponProvjere, map[string]Raspon{"szentborbas": {-200, 500}})
 	szentborbas := satiCm(sada-200, sada-10, stalno(-124))
 	for h := sada - 100; h <= sada-80; h++ { // i jedna prošla rupa, od 21 h
 		delete(szentborbas, h)
@@ -269,21 +272,29 @@ func TestRekonstrukcijaIzBaze(t *testing.T) {
 		t.Errorf("izmjereni niz završava u %d, želim %d", z, sada-10)
 	}
 
-	opis, ima := o.rekonstrukcijaDo(ctx, "szentborbas", od, sada)
-	if !ima || !strings.HasPrefix(opis, "rekonstrukcija: rupa od ") || !strings.Contains(opis, "(21 h) procijenjena iz letve barcs 4 h uzvodno; na arhivi 95 % unutar ±8 cm; nema mjerenja od ") ||
+	rupe := o.rekonstrukcijaDo(ctx, "szentborbas", od, sada)
+	opis := OpisRekonstrukcije(rupe)
+	if len(rupe) != 2 || rupe[0].Izvan || rupe[1].Izvan || !strings.HasPrefix(opis, "rekonstrukcija: rupa od ") ||
+		!strings.Contains(opis, "(21 h) procijenjena iz letve barcs 4 h uzvodno; na arhivi 95 % unutar ±8 cm; nema mjerenja od ") ||
 		!strings.HasSuffix(opis, "10 h procijenjeno iz kretanja letve barcs 4 h uzvodno; na arhivi 95 % unutar ±10 cm") {
-		t.Errorf("napomena: %q %v", opis, ima)
+		t.Errorf("napomena: %q %+v", opis, rupe)
 	}
-	if _, ima := o.rekonstrukcijaDo(ctx, "szentborbas", od, sada+RekonstrukcijaNapomena+20); ima {
+	if rupe := o.rekonstrukcijaDo(ctx, "szentborbas", od, sada+RekonstrukcijaNapomena+20); len(rupe) != 0 {
 		t.Error("napomena za rupu stariju od četiri dana")
 	}
-	if _, ima := o.rekonstrukcijaDo(ctx, "barcs", od, sada); ima {
+	if rupe := o.rekonstrukcijaDo(ctx, "barcs", od, sada); len(rupe) != 0 {
 		t.Error("napomena za letvu bez rekonstrukcije")
+	}
+	// −124 cm ispod raspona provjere: točnost nije provjerena
+	RasponProvjere["szentborbas"] = Raspon{-110, 500}
+	if rupe := o.rekonstrukcijaDo(ctx, "szentborbas", od, sada); len(rupe) != 2 || !rupe[1].Izvan || rupe[1].Provjereno.Od != -110 ||
+		!strings.Contains(OpisRekonstrukcije(rupe), "razina izvan raspona na kojem je provjereno (od -110 do 500 cm)") {
+		t.Errorf("izvan raspona: %+v", rupe)
 	}
 
 	otkazan, odustani := context.WithCancel(ctx)
 	odustani()
-	if _, ima := o.rekonstrukcijaDo(otkazan, "szentborbas", od, sada); ima {
+	if rupe := o.rekonstrukcijaDo(otkazan, "szentborbas", od, sada); len(rupe) != 0 {
 		t.Error("napomena bez baze")
 	}
 	sirovo := map[int64]sirovoOcitanje{sada - 30: cmU(1), sada - 10: cmU(1)}
@@ -302,6 +313,7 @@ func TestOsvjezavanjeSRekonstrukcijom(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 0)
 	sada := time.Now().UTC().Truncate(time.Hour).Unix() / 3600
 	postavi(t, &Rekonstrukcije, map[string][]Susjed{"gornja": {{Letva: "treca", Zastoj: 2, Prosla: 4, Traje: 6}}})
+	postavi(t, &RasponProvjere, map[string]Raspon{"gornja": {0, 1000}})
 	o := probniOsvjezivac(t, bazaLetvi(t, map[string]map[int64]int64{
 		"gornja": satiCm(sada-47, sada-10, func(h int64) int64 { return 100 + (sada - h) }),
 		"donja":  satiCm(sada-47, sada, func(h int64) int64 { return 90 + (sada - h) }),
@@ -310,6 +322,9 @@ func TestOsvjezavanjeSRekonstrukcijom(t *testing.T) {
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)
+	}
+	if r := ishod.Rekonstruirano["gornja"]; len(r) != 1 || r[0].Izvan {
+		t.Errorf("rekonstruirano: %+v", ishod.Rekonstruirano)
 	}
 	if ishod.Sada != sada {
 		t.Errorf("izdano za %d, želim %d", ishod.Sada, sada)
@@ -324,13 +339,63 @@ func TestOsvjezavanjeSRekonstrukcijom(t *testing.T) {
 	if slices.ContainsFunc(ishod.Upozorenja, func(u Upozorenje) bool { return u.Vrsta == VrstaUlaz }) {
 		t.Errorf("karika s rekonstrukcijom javlja se kao bez mjerenja: %+v", ishod.Upozorenja)
 	}
+
+	// Ispod raspona provjere ista rupa je upozorenje, a satna niz lanac upitna.
+	RasponProvjere["gornja"] = Raspon{120, 1000}
+	o.Iznova = true
+	ishod, err = o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	i = slices.IndexFunc(ishod.Upozorenja, func(u Upozorenje) bool { return u.Vrsta == VrstaRekonstrukcija })
+	if i < 0 || ishod.Upozorenja[i].Tezina != TezinaUpozorenje ||
+		!slices.ContainsFunc(ishod.Upozorenja[i].Upitno, func(x Upitno) bool { return x.Letva == "donja" && x.OdSata >= 0 }) {
+		t.Errorf("izvan raspona: %+v", ishod.Upozorenja)
+	}
+}
+
+// Izvan raspona upitna je dnevna ciljeva kojima je letva ulaz, a satna niz
+// lanac samo za rupu koja traje; unutar raspona ostaje napomena.
+func TestUpozorenjaRekonstrukcije(t *testing.T) {
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "donja", Ulazi: []string{"srednja"}}, {Letva: "cetvrta", Ulazi: []string{"gornja"}}})
+	sada := int64(1000)
+	iz := []Susjed{{Letva: "susjed", Zastoj: 2}}
+	ishod := &Ishod{Sada: sada, BezPrognoze: map[string]error{}, Rekonstruirano: map[string][]RekonstruiranaRupa{
+		"srednja": {{Zadnje: sada - 7, Do: sada, Sati: 7, Iz: iz, Tocnost: 4, Izvan: true}},
+		"gornja":  {{Zadnje: sada - 40, Sljedece: sada - 20, Do: sada - 21, Sati: 19, Iz: iz, Tocnost: 2}},
+		"cetvrta": {{Zadnje: sada - 40, Sljedece: sada - 20, Do: sada - 21, Sati: 19, Iz: iz, Tocnost: 2, Izvan: true}},
+	}}
+	po := map[string]Upozorenje{}
+	for _, u := range upozorenjaRekonstrukcije(ishod, lanacUpozorenja(), map[string]bool{"donja": true, "cetvrta": true}) {
+		po[u.Letva] = u
+	}
+	if u := po["gornja"]; u.Tezina != TezinaNapomena || len(u.Upitno) != 0 {
+		t.Errorf("unutar raspona: %+v", u)
+	}
+	u := po["srednja"]
+	dnevna := slices.ContainsFunc(u.Upitno, func(x Upitno) bool { return x.Letva == "donja" && x.Dnevno })
+	satna := slices.ContainsFunc(u.Upitno, func(x Upitno) bool { return x.Letva == "cetvrta" && x.OdSata >= 0 })
+	if u.Tezina != TezinaUpozorenje || !dnevna || !satna {
+		t.Errorf("rupa koja traje izvan raspona: %+v", u)
+	}
+	if u := po["cetvrta"]; u.Tezina != TezinaUpozorenje || slices.ContainsFunc(u.Upitno, func(x Upitno) bool { return x.OdSata >= 0 }) {
+		t.Errorf("prošla rupa izvan raspona nema satnu: %+v", u)
+	}
 }
 
 // Tablica susjeda: susjed nije sama letva ni dvaput, točnost je upisana, a za
 // rupu koja traje služi samo susjed uzvodno ili u istom satu (nizvodni za
 // zadnje sate još nema mjerenja).
 func TestTablicaRekonstrukcija(t *testing.T) {
+	for letva := range RasponProvjere {
+		if _, ima := Rekonstrukcije[letva]; !ima {
+			t.Errorf("raspon provjere za letvu bez rekonstrukcije: %s", letva)
+		}
+	}
 	for letva, susjedi := range Rekonstrukcije {
+		if r, ima := RasponProvjere[letva]; !ima || r.Od >= r.Do {
+			t.Errorf("%s: raspon provjere %+v", letva, r)
+		}
 		vidjen := map[string]bool{}
 		for _, s := range susjedi {
 			if s.Letva == letva || vidjen[s.Letva] || s.Prosla <= 0 || s.Traje < 0 || (s.Traje > 0 && s.Zastoj < 0) {

@@ -152,6 +152,11 @@ func TestTekstSvihVrsta(t *testing.T) {
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaRekonstrukcija, Tezina: prognoza.TezinaNapomena, Letva: "gornja",
 			Opis: "rekonstrukcija: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve treca 4 h uzvodno; na arhivi 95 % unutar ±10 cm"},
 			"Gornji Brod: rekonstruirano iz susjeda: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve Treće Selo 4 h uzvodno; na arhivi 95 % unutar ±10 cm.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaRekonstrukcija, Tezina: prognoza.TezinaUpozorenje, Letva: "srednja",
+			Opis:   "rekonstrukcija: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve gornja 2 h uzvodno; razina izvan raspona na kojem je provjereno (od -107 do 569 cm), pa točnost nije provjerena",
+			Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: 3, Dnevno: true}}},
+			"Srednji Brod: rekonstruirano iz susjeda: nema mjerenja od 11.10. u 04:00; 10 h procijenjeno iz kretanja letve Gornji Brod 2 h uzvodno; razina izvan raspona na kojem je provjereno (od -107 do 569 cm), pa točnost nije provjerena.",
+			"Satna upitna najranije od +3 h, dnevna upitna (Srednji Brod rekonstruirana izvan provjerenog raspona)."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "cetvrta", Opis: "nema ulaza za nijedan sat unaprijed"},
 			"Četvrti Most: nema prognoze (nema ulaza za nijedan sat unaprijed).", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Zadnje: satUTC(8, 3)},
@@ -178,6 +183,9 @@ func TestTekstSvihVrsta(t *testing.T) {
 	}
 	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Upitno: dnevna prognoza Donji Grad." {
 		t.Errorf("kiša: %q", s)
+	}
+	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaRekonstrukcija, Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}}); s != "Upitno: dnevna prognoza Donji Grad." {
+		t.Errorf("rekonstrukcija: %q", s)
 	}
 	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka}); s != "" {
 		t.Errorf("bez upitnih: %q", s)

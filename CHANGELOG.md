@@ -19,6 +19,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   - Upozorenje „nema mjerenja” postaje napomena odakle su sati i koliko su
     točni. Rekonstruirani sati ne pokazuju se kao mjerenje i ne upisuju se u
     očitanja.
+  - Točnost vrijedi samo u rasponu razina na kojem je provjerena (arhiva od
+    2015.). Izvan njega (Odluke 11. 10. 2026.) rekonstrukcija i dalje računa,
+    pa dnevna prognoza ostaje izdana, ali uz izdanje stoji upozorenje da
+    točnost nije provjerena; dnevna koja iz nje računa i satna niz rijeku
+    označene su upitnima.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 

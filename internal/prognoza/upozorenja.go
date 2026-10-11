@@ -79,6 +79,7 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaVrhova(ishod, vrhovi, pojasi)...)
 	u = append(u, upozorenjaOstalog(ishod)...)
 	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
+	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
 		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))
@@ -332,7 +333,8 @@ func sviDnevniCiljevi(letve []string) bool {
 // upozorenjaIzbora prevodi izbor puta u upozorenja: satni račun iz rezerve
 // (upitna letva i niz lanac od idućeg sata) ili sa zadržanim mjerenjem (letva
 // je vrh bez svoje satne, upitno je niz lanac), dnevni model iz rezerve, kraj
-// niza s druge obale, rupa koju su popunili susjedi i dnevni model bez kiše. Ključevi vrh: i preneseno: su
+// niza s druge obale i dnevni model bez kiše. Rupu koju su popunili susjedi
+// javlja upozorenjaRekonstrukcije. Ključevi vrh: i preneseno: su
 // redovan rad i ne javljaju se.
 func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bool) []Upozorenje {
 	var out []Upozorenje
@@ -351,7 +353,7 @@ func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bo
 		case VrstaDnevnaRezerva:
 			u.Tezina = TezinaNapomena
 			s.dnevna(letva)
-		case VrstaZamjena, VrstaRekonstrukcija:
+		case VrstaZamjena:
 			u.Tezina = TezinaNapomena
 		case VrstaKisa:
 			s.dnevna(ciljeviSKisom(ima)...)
@@ -380,8 +382,8 @@ func vrstaIzbora(kljuc string, iz Izbor) (vrsta, letva string) {
 		if iz.Inacica > 0 {
 			return VrstaDnevnaRezerva, letva
 		}
-	case VrstaZamjena, VrstaRekonstrukcija:
-		return prefiks, letva
+	case "zamjena":
+		return VrstaZamjena, letva
 	}
 	return "", letva
 }
@@ -402,6 +404,44 @@ func ciljeviSKisom(ima map[string]bool) []string {
 	var out []string
 	for _, c := range DnevniCiljevi {
 		if len(c.Slivovi) > 0 && ima[c.Letva] {
+			out = append(out, c.Letva)
+		}
+	}
+	return out
+}
+
+// upozorenjaRekonstrukcije: rupa koju su susjedi popunili unutar raspona
+// provjere je napomena. Izvan njega točnost nije provjerena, pa je to
+// upozorenje: upitna je dnevna ciljeva kojima je letva ulaz, a za rupu koja
+// traje i satna niz lanac od prvog rekonstruiranog sata, kao da mjerenja
+// nema.
+func upozorenjaRekonstrukcije(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bool) []Upozorenje {
+	out := make([]Upozorenje, 0, len(ishod.Rekonstruirano))
+	for letva, rupe := range ishod.Rekonstruirano {
+		u := Upozorenje{Vrsta: VrstaRekonstrukcija, Tezina: TezinaNapomena, Letva: letva, Opis: OpisRekonstrukcije(rupe)}
+		s := skupUpitnog{}
+		for _, r := range rupe {
+			if !r.Izvan {
+				continue
+			}
+			u.Tezina = TezinaUpozorenje
+			if r.Sljedece == 0 {
+				s.satna(satnaNizvodno(ishod, pojasi, letva, r.Zadnje+1))
+			}
+			s.dnevna(dnevniCiljeviSUlazom(letva, ima)...)
+		}
+		u.Upitno = s.popis()
+		out = append(out, u)
+	}
+	return out
+}
+
+// dnevniCiljeviSUlazom su ciljevi dnevnog modela s dnevnom prognozom u
+// izdanju kojima je letva ulaz.
+func dnevniCiljeviSUlazom(letva string, ima map[string]bool) []string {
+	var out []string
+	for _, c := range DnevniCiljevi {
+		if ima[c.Letva] && slices.Contains(c.Ulazi, letva) {
 			out = append(out, c.Letva)
 		}
 	}
