@@ -52,8 +52,16 @@ func TestSukobiOznaka(t *testing.T) {
 		t.Error("bez rješenja ništa nije obuhvaćeno")
 	}
 	// rješenje pamti i kodove: ista oznaka s drugom ovjerom nije obuhvaćena
-	if (&RjesenjeOznake{Akti: []string{"osijek"}}).Obuhvaca([]Akt{osijek}) {
-		t.Error("rješenje bez koda ovjere ne obuhvaća ovjeru")
+	if (&RjesenjeOznake{Akti: []string{"osijek"}, Kodovi: []string{"K-drugi"}}).Obuhvaca([]Akt{osijek}) {
+		t.Error("rješenje s drugim kodom obuhvaća ovjeru")
+	}
+	// rješenje iz 0.0.35 kodove nema: obuhvaća akt po identitetu, da se
+	// sukob riješen prije nadogradnje ne otvori ponovno
+	if !(&RjesenjeOznake{Akti: []string{"osijek"}}).Obuhvaca([]Akt{osijek}) {
+		t.Error("rješenje iz 0.0.35 ponovno otvara riješen sukob")
+	}
+	if (&RjesenjeOznake{Akti: []string{"neki"}}).Obuhvaca([]Akt{osijek}) {
+		t.Error("rješenje iz 0.0.35 obuhvaća drugi akt")
 	}
 	if ids, kodovi := KljuceviRjesenja([]Akt{{ID: "b", OvjeraKod: "K2"}, {ID: "a", OvjeraKod: "K1"}, {ID: "b", OvjeraKod: "K3"}}); len(ids) != 2 || ids[0] != "a" ||
 		len(kodovi) != 3 || kodovi[0] != "K1" {

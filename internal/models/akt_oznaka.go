@@ -28,13 +28,18 @@ type RjesenjeOznake struct {
 // Obuhvaca javlja obuhvaća li rješenje sve zadane ovjere: akt po
 // identitetu i ovjeru po kodu. Ovjera koja stigne poslije rješenja (akt iste
 // oznake, ili isti nacrt ovjeren i na drugom čvoru) nije obuhvaćena i sukob
-// ponovno otvara.
+// ponovno otvara. Rješenje bez kodova zapisano je u 0.0.35, koja ih još nije
+// bilježila; ono obuhvaća akte samo po identitetu, da se sukobi riješeni
+// prije nadogradnje ne otvore ponovno.
 func (r *RjesenjeOznake) Obuhvaca(ovjere []Akt) bool {
 	if r == nil {
 		return false
 	}
 	for _, a := range ovjere {
-		if !slices.Contains(r.Akti, a.ID) || !slices.Contains(r.Kodovi, a.OvjeraKod) {
+		if !slices.Contains(r.Akti, a.ID) {
+			return false
+		}
+		if len(r.Kodovi) > 0 && !slices.Contains(r.Kodovi, a.OvjeraKod) {
 			return false
 		}
 	}
