@@ -200,4 +200,12 @@ func TestZapisiPrimjer(t *testing.T) {
 	if _, err := ZapisiPrimjer(filepath.Join(zapreka, "podmapa")); err == nil {
 		t.Error("primjer u mapu koja se ne da napraviti bez greške")
 	}
+	// na mjestu primjera stoji mapa: zapis javlja grešku
+	mapa := filepath.Join(dir, "mapa")
+	if err := os.MkdirAll(filepath.Join(mapa, PrimjerFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if zapisan, err := ZapisiPrimjer(mapa); err == nil || zapisan {
+		t.Errorf("primjer preko mape: %v %v", zapisan, err)
+	}
 }
