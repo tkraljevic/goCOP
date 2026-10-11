@@ -125,7 +125,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 		data.ErrorMessage = err.Error()
 	}
 	data.Channels, _ = h.peers.Channels(ctx)
-	data.Compactable, _ = h.rec.Compactable(ctx, time.Now().AddDate(0, 0, -data.KeepDays))
+	data.Compactable, _ = repository.ZaSazimanje(ctx, h.rec, time.Now().AddDate(0, 0, -data.KeepDays))
 	if db := h.db(); db != nil {
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM readings`).Scan(&data.Readings)
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM journals`).Scan(&data.Journals)
