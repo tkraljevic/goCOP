@@ -118,20 +118,25 @@ func IzvanRasponaOcitanja(rd Reading, kota bool, sada time.Time) []IzvanRaspona 
 }
 
 // OcistiOcitanje je provjera raspona za putove bez čovjeka koji bi grešku
-// ispravio (preuzimanje, uvoz). Vrijednost izvan raspona se iz očitanja
-// uklanja; ostale vrijednosti istog očitanja ostaju, jer pokvaren
-// termometar ne smije odnijeti dobar vodostaj, ni tipfeler u vodostaju sate
-// rada agregata. Vraća odbačeno i smije li se očitanje upisati: ne smije kad
-// mu je vrijeme izvan raspona (sve mu vrijednosti pripadaju nemogućem
-// trenutku), ili kad nakon uklanjanja ne nosi ništa od onoga što prima ručni
-// upis (vrijednost, napomena, stanje objekta, zapornica) ni sate rada
+// ispravio (preuzimanje, uvoz). Vraća odbačeno i smije li se očitanje
+// upisati.
+//
+// Kad je izvan raspona vrijeme ili razina (vodostaj, nizvodni vodostaj,
+// kota), očitanje otpada cijelo, kao u ručnom upisu, i ostaje netaknuto:
+// sve mu vrijednosti pripadaju nemogućem trenutku ili krivom zapisu (protok
+// koji izvor računa iz vodostaja, sati rada agregata iz istog zapisa BP16),
+// a sat mora ostati slobodan za rezervni izvor i ispravak. Kad je izvan
+// raspona samo temperatura ili protok, iz očitanja se uklanja samo ta
+// vrijednost, jer pokvaren termometar ne smije odnijeti dobar vodostaj;
+// očitanje se tada ne upisuje kad ne nosi više ništa od onoga što prima
+// ručni upis (vrijednost, napomena, stanje objekta, zapornica) ni sate rada
 // agregata.
 func OcistiOcitanje(rd *Reading, kota bool, sada time.Time) ([]IzvanRaspona, bool) {
 	izvan := IzvanRasponaOcitanja(*rd, kota, sada)
 	if len(izvan) == 0 {
 		return nil, true
 	}
-	if izvan[0].Polje == PoljeVrijeme {
+	if slices.ContainsFunc(izvan, odbacujeCijelo) {
 		return izvan, false
 	}
 	for _, o := range izvan {
@@ -140,19 +145,20 @@ func OcistiOcitanje(rd *Reading, kota bool, sada time.Time) ([]IzvanRaspona, boo
 	return izvan, rd.ImaSadrzaj() || rd.HasAgHours()
 }
 
-// ukloniVrijednost briše iz očitanja odbačenu vrijednost i ono što o njoj
-// govori (bilješka uz temperaturu, način i bilješka uz protok)
+// odbacujeCijelo javlja odbacuje li vrijednost izvan raspona cijelo
+// očitanje: vrijeme i razina da, temperatura i protok ne
+func odbacujeCijelo(o IzvanRaspona) bool {
+	return o.Polje != PoljeTemperatura && o.Polje != PoljeProtok
+}
+
+// ukloniVrijednost briše iz očitanja odbačenu temperaturu ili protok i ono
+// što o njima govori (bilješka uz temperaturu, način i bilješka uz protok)
 func ukloniVrijednost(rd *Reading, polje string) {
-	switch polje {
-	case PoljeVodostaj, PoljeKota:
-		rd.LevelCm = nil
-	case PoljeNizvodni:
-		rd.Level2Cm = nil
-	case PoljeTemperatura:
+	if polje == PoljeTemperatura {
 		rd.TempC, rd.TempNote = nil, ""
-	case PoljeProtok:
-		rd.FlowM3s, rd.FlowMethod, rd.FlowNote = nil, "", ""
+		return
 	}
+	rd.FlowM3s, rd.FlowMethod, rd.FlowNote = nil, "", ""
 }
 
 // ImaSadrzaj javlja nosi li očitanje išta što prima ručni upis: bar jednu

@@ -147,8 +147,9 @@
   {{with .Odbaceno}}
   <p class="form-help mt-0 mb-3" data-odbaceno>
     <span class="badge badge-inactive">{{icon "triangle-alert"}} {{.Tekst}}{{with .IzvorLabel}} ({{.}}){{end}}</span>
-    Vrijednosti izvan raspona ručnog upisa ne upisuju se ni s javnih stranica, telemetrije ni iz uvoza;
-    ostale vrijednosti istog očitanja upisuju se, a ovdje se broje odbačene. S preuzimanja su obično znak da je mjerilo u kvaru, a iz uvoza starih evidencija
+    Vrijednosti izvan raspona ručnog upisa ne upisuju se ni s javnih stranica, telemetrije ni iz uvoza:
+    uz vodostaj izvan raspona ne upisuje se cijelo očitanje, a uz temperaturu ili protok izvan raspona
+    ostale vrijednosti istog očitanja upisuju se. Ovdje se broje odbačene. S preuzimanja su obično znak da je mjerilo u kvaru, a iz uvoza starih evidencija
     greška u zapisu; broj se ne poništava, pa datum zadnje kaže traje li to još. Broje se i vrijednosti koje je
     odbacilo računalo koje letvu preuzima: zapis o njima putuje razmjenom kao i očitanja.
   </p>

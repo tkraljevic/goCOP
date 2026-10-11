@@ -417,40 +417,57 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 			iz.JournalID = s.otvoreniDnevnik(ctx, iz.Sektor)
 		}
 	}
-	// snimka iz dionica i dnevnika
-	sva, err := s.IzvjescaDana(ctx, iz.Sektor, iz.Dan)
+	dostupno, err := s.snimiSektorsko(ctx, iz, izvjesca, zapisi)
 	if err != nil {
 		return err
 	}
-	ukljuci := map[string]bool{}
-	for _, id := range izvjesca {
-		ukljuci[id] = true
+	return s.spremiSektorsko(ctx, iz, prije, u, dostupno)
+}
+
+// snimiSektorsko snima u izvješće izabrana izvješća dionica (zbroj i
+// tablice) i izabrane zapise dnevnika COP-a, kakvi su sada. Vraća ID-ove
+// izvješća dionica i zapisa koji za taj dan postoje, dakle što obrazac nudi:
+// samo to onaj tko sprema može zadržati u odabiru ili ga maknuti.
+func (s *IzvjescaService) snimiSektorsko(ctx context.Context, iz *models.SektorskoIzvjesce, izvjesca, zapisi []string) (map[string]bool, error) {
+	sva, err := s.IzvjescaDana(ctx, iz.Sektor, iz.Dan)
+	if err != nil {
+		return nil, err
 	}
-	iz.Sadrzaj.Pregled = s.PregledSektora(sva, ukljuci)
+	dostupni, err := s.ZapisiDana(ctx, iz.JournalID, iz.Dan)
+	if err != nil {
+		return nil, err
+	}
+	dostupno := map[string]bool{}
+	for _, d := range sva {
+		dostupno[d.ID] = true
+	}
+	iz.Sadrzaj.Pregled = s.PregledSektora(sva, skupID(izvjesca))
 	iz.Sadrzaj.Zapisi = nil
-	if len(zapisi) > 0 {
-		zeli := map[string]bool{}
-		for _, id := range zapisi {
-			zeli[id] = true
-		}
-		dostupni, err := s.ZapisiDana(ctx, iz.JournalID, iz.Dan)
-		if err != nil {
-			return err
-		}
-		for _, z := range dostupni {
-			if zeli[z.ID] {
-				iz.Sadrzaj.Zapisi = append(iz.Sadrzaj.Zapisi, z)
-			}
+	zeli := skupID(zapisi)
+	for _, z := range dostupni {
+		dostupno[z.ID] = true
+		if zeli[z.ID] {
+			iz.Sadrzaj.Zapisi = append(iz.Sadrzaj.Zapisi, z)
 		}
 	}
-	return s.spremiSektorsko(ctx, iz, prije, u)
+	return dostupno, nil
+}
+
+// skupID je skup ID-ova iz popisa
+func skupID(ids []string) map[string]bool {
+	skup := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		skup[id] = true
+	}
+	return skup
 }
 
 // spremiSektorsko upisuje izvješće sektora kao nacrt. Predano izvješće koje
 // spremanje ne mijenja ostaje predano i ništa se ne upisuje: u nacrt ga
-// vraća samo izmjena.
-func (s *IzvjescaService) spremiSektorsko(ctx context.Context, iz, prije *models.SektorskoIzvjesce, u *models.User) error {
-	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb)) {
+// vraća samo izmjena. dostupno je što od izvješća dionica i zapisa za taj
+// dan postoji (snimiSektorsko).
+func (s *IzvjescaService) spremiSektorsko(ctx context.Context, iz, prije *models.SektorskoIzvjesce, u *models.User, dostupno map[string]bool) error {
+	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb), dostupno) {
 		return nil
 	}
 	return s.sektorska.Save(ctx, iz)

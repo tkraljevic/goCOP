@@ -600,18 +600,24 @@
       lijepljenje, satno preuzimanje s javnih stranica i telemetrije (i rezervne izvore), uvoz iz
       evidencije BP16 i uvoz tablice dnevnih vodostaja centra.</p>
     <p>Ručni upis i lijepljenje takvu vrijednost odbiju s porukom, pa se ispravi. Preuzimanje i
-      uvoz je ne upisuju: otpada vrijednost izvan raspona, a ostale vrijednosti istog očitanja
-      ostaju (pokvaren termometar ne odnosi dobar vodostaj, ni tipfeler u vodostaju iz evidencije BP16
-      sate rada agregata i stanje crpne stanice). Očitanje kojem ništa ne ostane ne upisuje se, pa ga
-      uvoz upiše kad se u izvoru ispravi. Očitanje upisano bez odbačene vrijednosti preuzimanje i uvoz
-      poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
+      uvoz je ne upisuju. Kad je izvan raspona vodostaj (uzvodni ili nizvodni) ili kota, ne upisuje se
+      cijelo očitanje, kao ni ručnim upisom: protok koji izvor računa iz vodostaja te sati rada agregata
+      i stanje crpne stanice iz istog zapisa BP16 pripadaju krivom zapisu. Sat tako ostaje slobodan, pa
+      ga popuni rezervni izvor ili ispravak koji izvor poslije pošalje, a zapis iz evidencije BP16 uvoz
+      upiše kad se ondje ispravi. Kad je izvan raspona samo temperatura ili protok, otpada samo ta
+      vrijednost, a ostale vrijednosti istog očitanja ostaju (pokvaren termometar ne odnosi dobar
+      vodostaj). Očitanje kojem ništa ne ostane ne upisuje se. Očitanje upisano bez odbačene temperature
+      ili protoka preuzimanje i uvoz poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
       vrijednosti odbačeno i koja zadnja, npr.
       <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. S preuzimanja je to obično znak da
-      je mjerilo u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu; odbačena
-      vrijednost nosi dan i sat zapisa, pa se zapis može naći i ispraviti. Broj se
+      je mjerilo u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu. Stranica
+      letve pokazuje samo broj i zadnju odbačenu vrijednost, s danom i satom zapisa, pa se taj zapis može
+      naći i ispraviti. Popisa svih odbačenih vrijednosti nema; uvoz iz BP16 i uvoz tablice centra u
+      sažetku kažu koliko su ih odbacili. Broj se
       ne poništava: zadnja vrijednost nosi datum kad nije od danas, pa se vidi traje li to još. Iznimka je
       očitanje odbačeno samo zato što je stiglo više od sat unaprijed: kad ga letva poslije ipak primi,
-      više se ne broji. Zapis o odbačenoj vrijednosti putuje razmjenom kao i očitanja, pa broj vidi svako
+      više se ne broji, a kad ga poslije odbaci zbog vrijednosti (npr. vodostaja −1102 cm), broji se
+      samo ta vrijednost. Zapis o odbačenoj vrijednosti putuje razmjenom kao i očitanja, pa broj vidi svako
       računalo koje prati tu letvu, a ne samo ono koje je preuzima; ista vrijednost koju odbace dva
       računala broji se jednom. Računalo sa starijom verzijom programa (0.0.34) raspon ne provjerava:
       što ono preuzme, stiže razmjenom i upisuje se kao i dosad, a zapise o odbačenom čuva i prenosi,
@@ -994,6 +1000,8 @@
     <p>Krivo izabran opis rada uprava centra ispravlja na mjestu (<em>ispravi opis</em>), bez
       micanja i ponovnog upisa. Mjesto rada slijedi iz novog opisa, prijašnji opis i tko ga je
       ispravio ostaju u napomeni i u knjizi verzija, a ispravljeno dežurstvo ponovno čeka potvrdu.
+      Tu bilješku u napomenu upisuje samo program: upis s rukom napisanom bilješkom o ispravku
+      opisa ne sprema se.
       Opis koji je ispravila uprava osoba čije je dežurstvo poslije ne mijenja i takvo dežurstvo
       ne miče; to radi uprava centra.</p>
     <p>Dežurstvo preko ponoći ima datum završetka. U ručnom obrascu plana pojedini razmak može
@@ -1008,9 +1016,11 @@
       dnevnom ili noćnom pojasu te mjestu rada — ured ili teren. Nedjelja se obračunava kao
       blagdan. Koeficijente i kalendar blagdana održava globalni administrator; promjena vrijedi
       kao podatak organizacije, a ne kao tvrdo pravilo u programu.</p>
-    <p>Kad se za dežurstvo ne zna je li rad bio u uredu ili na terenu — na primjer kad je stiglo
-      s drugog čvora s opisom kojega nema na popisu — program mjesto najprije izvede iz opisa.
-      Ako ni to ne ide, dežurstvo je u planu, obračunu i IORS-u označeno
+    <p>Mjesto rada slijedi iz opisa s popisa (na primjer „Obilazak i pregled obrambenih objekata”
+      je teren), pa ga program zna i kad uz dežurstvo nije zapisano, kao kod starijeg zapisa ili
+      zapisa s drugog čvora. Kad opisa nema na popisu — na primjer kad je dežurstvo stiglo s drugog
+      čvora s opisom koji ovaj program ne poznaje — ne zna se je li rad bio u uredu ili na terenu,
+      pa je dežurstvo u planu, obračunu i IORS-u označeno
       <strong>„mjesto nepoznato — za provjeru”</strong>: ne ulazi u zbroj i ne može se potvrditi
       dok uprava centra ne izabere opis s popisa; osoba čije je dežurstvo opis ne mijenja ni
       izmjenom vlastitog upisa, a takvo dežurstvo ne može ni maknuti pa upisati ponovno — miče
@@ -1019,7 +1029,8 @@
       (u rekapitulaciji) navode koliko sati za provjeru nije u zbroju i čiji su.</p>
     <p>Obračunski sati zaokružuju se po razredu na pola sata, a točna sredina ide djelatniku.
       Sažetak prikazuje ljude po području, dok klik na osobu otvara njezin obrazac IORS s radom
-      po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>.
+      po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>,
+      gdje piše i koliko njezinih dežurstava čeka potvrdu, a koliko je za provjeru.
       Cijeli obračun može se izvesti u Excel u obliku za računovodstvo, s listovima
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
@@ -1036,13 +1047,18 @@
       potiho: spremljena izmjena vraća ga u nacrt koji treba ponovo predati, gumbom
       <em>Spremi i ponovo predaj</em>. Nova predaja dobiva novo vrijeme, a prvo vrijeme predaje
       ostaje zapisano i prikazuje se uz njega („prvi put predano 09:40, ponovno 14:20”), zbog
-      roka predaje. Spremanje bez ikakve promjene predano izvješće ostavlja predanim. Na
-      dokumentu pišu svi koji su izvješće nakon predaje mijenjali i tko ga je predao, a zid
-      događanja pokazuje „ponovno predano” s imenom onoga tko je predao. Predano izvješće
-      sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa je izvješće opet
-      nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan. Izvješće dionice
-      koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga je izradio ili
-      uprava, a briše ga samo uprava područja ili sektora.</p>
+      roka predaje. Spremanje bez ikakve promjene predano izvješće ostavlja predanim. Kod
+      izvješća sektora promjena je tekst ili odabir izvješća dionica i zapisa; izvješće dionice
+      popravljeno poslije predaje nije promjena sektorskog, pa ono ostaje predano s tablicama
+      kakve su predane. Isto vrijedi kad je zapis koji je ušao u izvješće storniran ili je
+      izvješće dionice obrisano. Nove brojke preuzima izmjena izvješća sektora ili spremanje
+      nakon povučene predaje. Svi koji su izvješće nakon predaje mijenjali pišu na dokumentu i u popisu
+      izvješća, a na dokumentu i tko ga je predao; zid događanja pokazuje „ponovno predano” s
+      imenom onoga tko je predao.
+      Predano izvješće sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa
+      je izvješće opet nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan.
+      Izvješće dionice koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga
+      je izradio ili uprava, a briše ga samo uprava područja ili sektora.</p>
 
     <h3 id="dogadjanja">Događanja</h3>
     <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.

@@ -111,14 +111,6 @@ func TestIzmjenaPostajeCuvaOnoStoObrazacNeSalje(t *testing.T) {
 	}
 }
 
-// poznataGreskaVezeVode: obrazac postaje polazi od zatečenog zapisa i
-// prenosi njegovu šifru vode, a upis upisanu šifru poštuje (e2fbc2a), pa
-// ručna promjena naziva vode ne raskida vezu na registar. Otkriveno kad je
-// test prešao na izmišljeni skup (Odluke (8. 10. 2026.), pitanje 13); dotad
-// se bez stvarnih registara preskakao. Ispravlja se odvojeno, u servisu;
-// kad greška nestane, test traži da se oznaka makne.
-const poznataGreskaVezeVode = "ručna promjena naziva vode ne raskida vezu na registar (šifra se prenosi sa zatečenog zapisa)"
-
 // Ručna promjena naziva vode raskida vezu na registar i bilježi se kao
 // potvrda operatera — inače bi postaja pisala jednu vodu, a pokazivala na drugu
 func TestRucnaPromjenaVodeRaskidaVezuNaRegistar(t *testing.T) {
@@ -140,13 +132,8 @@ func TestRucnaPromjenaVodeRaskidaVezuNaRegistar(t *testing.T) {
 	if after.WatercourseSource != models.WatercourseFromOperator {
 		t.Errorf("podrijetlo mora biti OPERATER, dobiveno %q", after.WatercourseSource)
 	}
-	switch {
-	case after.WatercourseCode != "" && poznataGreskaVezeVode != "":
-		t.Skipf("poznata greška: %s; ostala veza %q", poznataGreskaVezeVode, after.WatercourseCode)
-	case after.WatercourseCode != "":
+	if after.WatercourseCode != "" {
 		t.Errorf("veza na registar mora pasti kad se naziv ručno promijeni, ostala %q", after.WatercourseCode)
-	case poznataGreskaVezeVode != "":
-		t.Errorf("poznata greška više se ne javlja (%s) — isprazni poznataGreskaVezeVode", poznataGreskaVezeVode)
 	}
 }
 

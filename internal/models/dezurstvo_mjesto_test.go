@@ -1,6 +1,9 @@
 package models
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 // Odluke (8. 10. 2026.), pitanje 10: mjesto rada je pohranjeno mjesto kad je
 // ured ili teren; inače se izvodi iz opisa s popisa, a kad ni to ne ide,
@@ -55,5 +58,30 @@ func TestOpisBiraUprava(t *testing.T) {
 	}
 	if got := TragoviIspravkaOpisa("noćna smjena"); len(got) != 0 {
 		t.Errorf("bez traga: %q", got)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: plan osobe na profilu zna za dežurstva
+// kojima se ne zna mjesto rada. Takvo je „za provjeru” i kad je potvrđeno
+// (stiglo potvrđeno s drugog čvora ili potvrđeno prije nadogradnje), jer ne
+// ulazi u obračun; nepotvrđeno ne „čeka potvrdu”, jer se ne potvrđuje dok
+// uprava centra ne izabere opis. Prvi i zadnji dan ne ovise o redoslijedu.
+func TestPlanOsobeDodaj(t *testing.T) {
+	sat := func(dan, h int) time.Time { return time.Date(2026, 9, dan, h, 0, 0, 0, Zagreb) }
+	potvrdeno := sat(20, 8)
+	var p PlanOsobe
+	for _, d := range []Dezurstvo{
+		{Od: sat(9, 8), Do: sat(9, 12), Opis: "Dežurstvo u COP-u", Mjesto: MjestoUred, PotvrdenoAt: &potvrdeno},
+		{Od: sat(7, 22), Do: sat(8, 6), Opis: "Opis s drugog čvora", PotvrdenoAt: &potvrdeno},
+		{Od: sat(12, 8), Do: sat(12, 10), Opis: "Opis s drugog čvora"},
+		{Od: sat(10, 8), Do: sat(10, 9), Opis: "Obilazak i pregled obrambenih objekata"},
+	} {
+		p.Dodaj(d)
+	}
+	if p.Dezurstava != 4 || p.Sati != 15*time.Hour || p.ZaProvjeru != 2 || p.CekaPotvrdu != 1 {
+		t.Errorf("plan: %d dežurstava, %v, za provjeru %d, čeka potvrdu %d", p.Dezurstava, p.Sati, p.ZaProvjeru, p.CekaPotvrdu)
+	}
+	if !p.Prvo.Equal(sat(7, 22)) || !p.Zadnje.Equal(sat(12, 10)) {
+		t.Errorf("plan od %v do %v", p.Prvo, p.Zadnje)
 	}
 }

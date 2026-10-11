@@ -42,6 +42,10 @@ func setupTestTerritoryService(t *testing.T) (*TerritoryService, *SectionService
 	return territoryService, sectionService, adminPerms
 }
 
+// TestTerritorySeedingAndCounts broji teritorije izmišljenog skupa; brojke
+// stvarnog registra (21 županija, gradovi, općine, naselja) i ugroženo
+// područje dionice B.15.1 provjerava TestRegistarTeritorijaJeCjelovit u
+// internal/db, među provjerama registara
 func TestTerritorySeedingAndCounts(t *testing.T) {
 	ts, _, _ := setupTestTerritoryService(t)
 	ctx := context.Background()

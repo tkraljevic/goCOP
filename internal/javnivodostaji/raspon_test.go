@@ -216,6 +216,49 @@ func TestRezervaDanubeHISPopunjavaSateOdbaceneSVizugyja(t *testing.T) {
 	}
 }
 
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): vizugy.hu uz vodostaj daje
+// protok preračunat krivuljom iz tog vodostaja. Kad je vodostaj izvan
+// raspona, s njim otpada i protok: inače bi se upisao protok iz krivog
+// vodostaja kao mjeren, sat bi bio zauzet, a rezerva DanubeHIS ga ne bi
+// popunila.
+func TestRezervaDanubeHISPopunjavaSateKadVizugyUzOdbaceniVodostajDajeProtok(t *testing.T) {
+	p := novoPreuzimanjeUBazu(t)
+	ctx := context.Background()
+	mohacs := &models.Station{ID: uuid.New(), Name: "Mohács (HU)", Code: "mohacs",
+		JavniURL: "https://www.vizugy.hu/?AllomasVOA=probna", JavniUvoz: true}
+	if err := repository.NewStationRepository(p.baza, ledger.New(p.baza, "cvor-p")).CreateStation(ctx, mohacs); err != nil {
+		t.Fatal(err)
+	}
+	sat := time.Now().UTC().Truncate(time.Hour)
+	redak := func(sati, cm int) Redak {
+		return Redak{Kad: sat.Add(-time.Duration(sati) * time.Hour), LevelCm: intPtr(cm), FlowM3s: floatPtr(10),
+			FlowMetoda: models.FlowMethodKrivulja, FlowBiljeska: "preračunat iz vodostaja krivuljom mađarske službe, s vizugy.hu"}
+	}
+	p.u.Izvori = []Izvor{probniIzvor{naziv: PodrijetloVizugy, redci: []Redak{redak(6, 300), redak(5, 301), redak(4, -9999), redak(3, -9999)}}}
+	p.u.Client.HTTP = &http.Client{Transport: probniPrijenos{danubeHISRedci(map[time.Time]int{
+		sat.Add(-5 * time.Hour): 301, sat.Add(-4 * time.Hour): 302, sat.Add(-3 * time.Hour): 303, sat.Add(-2 * time.Hour): 304,
+	})}}
+
+	s := p.u.Preuzmi(ctx, mohacs)
+	if s.Greska != "" || s.Novih != 5 || s.Odbaceno != 2 {
+		t.Fatalf("preuzimanje: %+v", s)
+	}
+	if n := p.broj(t, `SELECT COUNT(*) FROM readings WHERE station_id = ? AND level_cm IS NULL`, mohacs.ID.String()); n != 0 {
+		t.Errorf("upisano %d očitanja s protokom iz odbačenog vodostaja", n)
+	}
+	for _, x := range []struct {
+		sati  int
+		cm    int
+		izvor string
+	}{{6, 300, PodrijetloVizugy}, {5, 301, PodrijetloVizugy}, {4, 302, PodrijetloDanubeHIS}, {3, 303, PodrijetloDanubeHIS}, {2, 304, PodrijetloDanubeHIS}} {
+		kad := sat.Add(-time.Duration(x.sati) * time.Hour)
+		if n := p.broj(t, `SELECT COUNT(*) FROM readings WHERE station_id = ? AND measured_at = ? AND level_cm = ? AND origin = ?`,
+			mohacs.ID.String(), kad, x.cm, x.izvor); n != 1 {
+			t.Errorf("%s: %d očitanja %d cm s %s", kad.Format(time.RFC3339), n, x.cm, x.izvor)
+		}
+	}
+}
+
 // Zadnji sat izvora za prozor rezerve je zadnji koji bi se upisao
 func TestZadnjeUpisivo(t *testing.T) {
 	sat := time.Now().UTC().Truncate(time.Hour)
@@ -226,6 +269,11 @@ func TestZadnjeUpisivo(t *testing.T) {
 	}
 	if z := zadnjeUpisivo(st, redci[1:], PodrijetloVizugy, time.Now()); !z.IsZero() {
 		t.Errorf("bez upisivog: %v", z)
+	}
+	// protok iz krivulje ne čini upisivim redak s vodostajem izvan raspona
+	redci[1].FlowM3s = floatPtr(10)
+	if z := zadnjeUpisivo(st, redci, PodrijetloVizugy, time.Now()); !z.Equal(sat.Add(-3 * time.Hour)) {
+		t.Errorf("zadnje uz protok: %v", z)
 	}
 	if z := zadnjeUpisivo(st, nil, PodrijetloVizugy, time.Now()); !z.IsZero() {
 		t.Errorf("bez redaka: %v", z)

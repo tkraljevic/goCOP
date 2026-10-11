@@ -195,9 +195,13 @@ func godina(t time.Time) string { return t.In(models.Zagreb).Format("2006") }
 // je prijava postala objavljena, odnosno riješena, prema verziji koju je
 // zamijenila. Kad je starija povijest sažeta, događaj nosi najstarija
 // verzija koja je ostala, a verziju čija je prethodnica sažeta uspoređuje
-// se s prvom starijom verzijom koja je ostala. Kad je verzija s događajem
-// obrisana s oglasne ploče (iza nje ostaje starija verzija istog čvora u
-// istom kanalu, koju bi sažimanje obrisalo), događaja više nema.
+// se s prvom starijom verzijom koja je ostala. Objavu ipak ne nosi verzija
+// koja je urudžbirana ili riješena: to se upisuje tek na objavljenu
+// prijavu, pa je verzija objave sažeta i redak objave nestaje s njom
+// (Odluke (8. 10. 2026.), pitanje 20; prije te dorade objavu je nosila i
+// takva verzija). Kad je verzija s događajem obrisana s oglasne ploče (iza
+// nje ostaje starija verzija istog čvora u istom kanalu, koju bi sažimanje
+// obrisalo), događaja više nema.
 func TestDogadjajiPrijave(t *testing.T) {
 	v := func(id, prethodna, payload string, arhivirana bool) ledger.Version {
 		return ledger.Version{VersionID: id, Supersedes: prethodna, Entity: repository.EntityPrijave, Payload: []byte(payload), Archived: arhivirana}
@@ -228,7 +232,11 @@ func TestDogadjajiPrijave(t *testing.T) {
 		{"objavljena već u prvoj verziji", []ledger.Version{
 			v("2", "1", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
 			v("1", "", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "1", ""},
-		{"sažeta povijest", []ledger.Version{v("9", "8", `{"status":"RIJESENA",`+objavljeno+`}`, false)}, "9", "9"},
+		{"sažeta povijest: ostalo samo rješenje", []ledger.Version{v("9", "8", `{"status":"RIJESENA",`+objavljeno+`}`, false)}, "", "9"},
+		{"sažeta povijest: ostala samo urudžba", []ledger.Version{v("9", "8", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false)}, "", ""},
+		{"sažeta objava, ostali nacrt i urudžba", []ledger.Version{
+			vc("3", "2", `{"status":"OBJAVLJENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("1", "", `{"status":"NACRT"}`, "ured", "prijave/34/2025")}, "", ""},
 		{"sažeta povijest, poslije urudžba", []ledger.Version{
 			v("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, false),
 			v("2", "1", `{"status":"OBJAVLJENA",`+objavljeno+`}`, false)}, "2", ""},
@@ -245,13 +253,13 @@ func TestDogadjajiPrijave(t *testing.T) {
 			vc("p", "d", `{"status":"OBJAVLJENA",`+objavljeno+`}`, "teren", kanal)}, "p", "u2"},
 		{"sažeto na dva čvora: riješena već prije praznine", []ledger.Version{
 			vc("u2", "g", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
-			vc("r", "x", `{"status":"RIJESENA",`+objavljeno+`}`, "teren", kanal)}, "r", "r"},
+			vc("r", "x", `{"status":"RIJESENA",`+objavljeno+`}`, "teren", kanal)}, "", "r"},
 		{"obrisano s ploče, poslije sažeto: kasnija verzija ga ne ponavlja", []ledger.Version{
 			vc("u2", "g", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
 			vc("r", "x", `{"status":"RIJESENA",`+objavljeno+`}`, "teren", kanal),
 			vc("d", "", `{"status":"NACRT"}`, "teren", kanal)}, "", ""},
 		{"starija verzija istog čvora u drugom kanalu ne znači brisanje", []ledger.Version{
-			vc("3", "2", `{"status":"OBJAVLJENA","klasa":"1",`+objavljeno+`}`, "ured", kanal),
+			vc("3", "2", `{"status":"OBJAVLJENA",`+objavljeno+`}`, "ured", kanal),
 			vc("1", "", `{"status":"NACRT"}`, "ured", "prijave/34/2025")}, "3", ""},
 		{"obrisano s ploče: starija verzija istog čvora i kanala", []ledger.Version{
 			vc("u2", "r", `{"status":"RIJESENA","urbroj":"1",`+objavljeno+`}`, "ured", kanal),
@@ -459,9 +467,11 @@ func razmijeni(t *testing.T, ctx context.Context, od, do *ledger.Recorder) int {
 // s terena kao za svaki drugi redak. Test zaključava sadašnje ponašanje, a
 // ne obećava trajno brisanje:
 //   - prijavu objavi vodočuvar na terenskom čvoru, urudžbira je ured: kad
-//     ured obriše redak objave, redak ostaje i nosi ga urudžba, jer se
-//     brisanje tuđe verzije ne razlikuje od sažimanja knjige (iza obrisane
-//     objave ne ostaje starija verzija ureda);
+//     ured obriše redak objave, redak nestaje. Brisanje tuđe verzije ne
+//     razlikuje se od sažimanja knjige (iza obrisane objave ne ostaje
+//     starija verzija ureda), a urudžba nije objava, pa redak objave ne
+//     nosi ni ona (Odluke (8. 10. 2026.), pitanje 20; prije te dorade
+//     nosila ga je, s vremenom urudžbe);
 //   - obrisana verzija koja je zadnji upis svog čvora u kanalu vraća se
 //     sljedećom razmjenom, pa je redak opet objava s terena;
 //   - kad je sve verzije upisao ured, obrisani redak ne vraća ni razmjena.
@@ -515,7 +525,9 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, objava.VersionID); err != nil {
 		t.Fatal(err)
 	}
-	redakObjave("nakon brisanja tuđe objave", urudzba.VersionID)
+	if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
+		t.Fatalf("nakon brisanja tuđe objave redak nosi verzija %s (urudžba %s):\n%s", dog[0].VersionID, urudzba.VersionID, naslovi(dog))
+	}
 	if n := razmijeni(t, z.ctx, recT, z.rec); n != 1 {
 		t.Fatalf("razmjena nakon brisanja: %d verzija, očekivana obrisana objava", n)
 	}
@@ -539,4 +551,116 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 		t.Errorf("razmjena je vratila %d verzija", n)
 	}
 	redakObjave("obrisana obavijest ureda", objava.VersionID)
+}
+
+// Prijava objavljena prije deset dana i urudžbirana danas, pa sažimanje
+// knjige s granicom od jučer: sažimanje briše verziju objave, a ostaje
+// urudžba. Urudžba se upisuje tek na objavljenu prijavu, pa njezina
+// verzija nije objava: redak objave nestaje sa svojom verzijom, kao i
+// drugi redci zida čija je verzija sažeta, a ne vraća se na vrh zida,
+// istaknut, s vremenom urudžbe, kao da je prijava tek objavljena
+// (Odluke (8. 10. 2026.), pitanje 20). Ni Događanja za dan urudžbe ne
+// pokazuju objavu.
+func TestZidSazetaObjavaNeVracaSeSVremenomUrudzbe(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+
+	pr := z.nova(t, models.PrijavaPrijava, "Procjeđivanje na nasipu", 42)
+	objavljeno := time.Now().AddDate(0, 0, -10).Truncate(time.Second)
+	if _, err := z.baza.Exec(`UPDATE record_versions SET created_at = ? WHERE entity = ? AND entity_id = ?`,
+		objavljeno.UTC(), repository.EntityPrijave, pr.ID); err != nil {
+		t.Fatal(err)
+	}
+	druga := z.nova(t, models.PrijavaObavijest, "Otpad u kanalu", 43)
+	pr.Klasa = "325-01/26-01/1"
+	z.spremi(t, pr) // urudžba danas
+
+	obavijest := "Obavijest s terena " + druga.Oznaka() + "|Otpad u kanalu · Dunav|Marko Markić"
+	objava := "Prijava s terena " + pr.Oznaka() + "|Procjeđivanje na nasipu · Dunav|Marko Markić"
+	dog := z.prijaveNaZidu(t, ana, FiltarZida{})
+	if got := naslovi(dog); got != obavijest+"\n"+objava {
+		t.Fatalf("zid prije sažimanja:\n%s", got)
+	}
+	if !dog[1].Kad.Equal(objavljeno) || !dog[1].Vazno {
+		t.Fatalf("objava prije sažimanja: %+v, objavljena %v", dog[1], objavljeno)
+	}
+
+	if n, err := z.rec.Compact(z.ctx, time.Now().Add(-24*time.Hour)); err != nil || n != 2 {
+		t.Fatalf("sažimanje: %d, %v; očekivane 2 obrisane verzije (nacrt i objava prijave %s)", n, err, pr.Oznaka())
+	}
+	if got := naslovi(z.prijaveNaZidu(t, ana, FiltarZida{})); got != obavijest {
+		t.Errorf("zid nakon sažimanja:\n%s\nočekivano:\n%s", got, obavijest)
+	}
+	danas := FiltarZida{Od: time.Now().Add(-time.Hour), Do: time.Now().Add(time.Hour)}
+	if got := naslovi(z.prijaveNaZidu(t, ana, danas)); got != obavijest {
+		t.Errorf("Događanja za dan urudžbe nakon sažimanja:\n%s\nočekivano:\n%s", got, obavijest)
+	}
+}
+
+// Nacrt prenesen iz BP16 koji autor dovrši i objavi u goCOP-u: objava mu
+// daje novi broj i upis na dnevni list, ali prijava zadržava oznaku
+// rekonstrukcije (tako je i prije odluke, a po njoj je i stranica i PDF
+// zovu prenesenom iz ranije evidencije). Zid zato ni njezinu objavu ni
+// rješenje ne pokazuje nikome: prijave prenesene iz BP16 ne idu na zid
+// (Odluke (8. 10. 2026.), pitanje 20), a zid ih prepoznaje samo po toj
+// oznaki, kao i ostatak programa. Ista povijest bez oznake na objavi daje
+// oba retka, pa kad objava u goCOP-u bude skidala oznaku, zid se ne mijenja;
+// tada se mijenja prvi dio ovog testa.
+func TestZidNacrtIzBP16ObjavljenUGoCOPu(t *testing.T) {
+	z := noviZidPrijava(t)
+	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
+	b, bp := "B", 34
+	z.marko.Username, z.marko.IsActive = "mmarkic", true
+	if err := repository.NewUserRepository(z.baza, z.rec).CreateUser(z.marko, &models.Duty{Title: "Vodočuvar", Role: models.RoleWaterGuard,
+		ScopeType: models.ScopeArea, SectorID: &b, AreaID: &bp, IsPrimary: true}); err != nil {
+		t.Fatal(err)
+	}
+	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
+	autor := &models.UserPermissions{User: *z.marko, AllowedSectors: map[string]bool{"B": true}, AllowedAreas: map[int]bool{34: true}}
+	nacrtIzBP16 := func(naslov, izvor string) *models.PrijavaSTerena {
+		p := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+			Naslov: naslov, Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt,
+			Rekonstrukcija: true, Izvor: izvor}
+		z.spremi(t, p)
+		return p
+	}
+	rijesi := func(p *models.PrijavaSTerena) {
+		sad := time.Now()
+		p.Status, p.RijesioID, p.Rijesio, p.RijesenoAt = models.PrijavaRijesena, uuid.NewString(), "Ivo Ivić", &sad
+		z.spremi(t, p)
+	}
+
+	// objava kroz goCOP, pa rješenje: oznaka ostaje, zid ne pokazuje ništa
+	p := nacrtIzBP16("Procjeđivanje na nasipu", "bp16:obavijesti_sa_terena:9")
+	if _, _, err := z.prijave.Objavi(z.ctx, z.marko, p.ID, func(*models.PrijavaSTerena) ([]byte, error) {
+		return []byte("%PDF-1.7 probni izvornik"), nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	objavljena, err := z.repo.Get(z.ctx, p.ID)
+	if err != nil || objavljena == nil || !objavljena.Objavljena() || objavljena.Broj == 0 || objavljena.ListID == "" {
+		t.Fatalf("objava nacrta iz BP16: %+v, %v", objavljena, err)
+	}
+	if !objavljena.Rekonstrukcija {
+		t.Fatalf("objava u goCOP-u skida oznaku rekonstrukcije: zid sad treba pokazati objavu i rješenje, promijeni ovaj test")
+	}
+	rijesi(objavljena)
+	for ime, perms := range map[string]*models.UserPermissions{"uprava organizacije": ana, "autor": autor} {
+		if dog := z.prijaveNaZidu(t, perms, FiltarZida{}); len(dog) != 0 {
+			t.Errorf("%s: prijava s oznakom rekonstrukcije na zidu:\n%s", ime, naslovi(dog))
+		}
+	}
+
+	// ista povijest, a objava bez oznake: zid pokazuje objavu i rješenje
+	q := nacrtIzBP16("Odron pokosa", "bp16:obavijesti_sa_terena:10")
+	sad := time.Now()
+	q.Rekonstrukcija, q.Status, q.Broj, q.Godina, q.ObjavljenoAt = false, models.PrijavaObjavljena, 61, sad.In(models.Zagreb).Year(), &sad
+	z.spremi(t, q)
+	rijesi(q)
+	ocekivano := "Riješena prijava s terena|" + q.Oznaka() + ": Odron pokosa|Ivo Ivić\n" +
+		"Prijava s terena " + q.Oznaka() + "|Odron pokosa|Marko Markić"
+	if got := naslovi(z.prijaveNaZidu(t, autor, FiltarZida{})); got != ocekivano {
+		t.Errorf("objava bez oznake rekonstrukcije:\n%s\nočekivano:\n%s", got, ocekivano)
+	}
 }
