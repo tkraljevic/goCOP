@@ -18,17 +18,18 @@ import (
 
 // Vrste upozorenja.
 const (
-	VrstaUlaz          = "ulaz"           // letva bez mjerenja: karika lanca ili ulaz dnevnog modela
-	VrstaDnevni        = "dnevni"         // dnevni model nije računao iz drugog razloga
-	VrstaRezerva       = "rezerva"        // satni račun iz rezerve
-	VrstaDrzi          = "drzi"           // bez svježeg ulaza, drži se zadnje mjerenje
-	VrstaVrh           = "vrh"            // vrh lanca bez budućnosti koju inače dobiva
-	VrstaKisa          = "kisa"           // dnevni model računa bez kiše
-	VrstaDnevnaRezerva = "dnevna-rezerva" // dnevni model iz rezerve
-	VrstaZamjena       = "zamjena"        // kraj niza s druge obale
-	VrstaBezPrognoze   = "bez-prognoze"   // letva bez ijednog sata prognoze
-	VrstaCeka          = "ceka"           // sat izdavanja drži vrh lanca koji kasni
-	VrstaKrivulja      = "krivulja"       // vrijednost izvan krivulje protoka
+	VrstaUlaz           = "ulaz"           // letva bez mjerenja: karika lanca ili ulaz dnevnog modela
+	VrstaDnevni         = "dnevni"         // dnevni model nije računao iz drugog razloga
+	VrstaRezerva        = "rezerva"        // satni račun iz rezerve
+	VrstaDrzi           = "drzi"           // bez svježeg ulaza, drži se zadnje mjerenje
+	VrstaVrh            = "vrh"            // vrh lanca bez budućnosti koju inače dobiva
+	VrstaKisa           = "kisa"           // dnevni model računa bez kiše
+	VrstaDnevnaRezerva  = "dnevna-rezerva" // dnevni model iz rezerve
+	VrstaZamjena        = "zamjena"        // kraj niza s druge obale
+	VrstaRekonstrukcija = "rekonstrukcija" // rupu su popunili susjedi
+	VrstaBezPrognoze    = "bez-prognoze"   // letva bez ijednog sata prognoze
+	VrstaCeka           = "ceka"           // sat izdavanja drži vrh lanca koji kasni
+	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -331,7 +332,7 @@ func sviDnevniCiljevi(letve []string) bool {
 // upozorenjaIzbora prevodi izbor puta u upozorenja: satni račun iz rezerve
 // (upitna letva i niz lanac od idućeg sata) ili sa zadržanim mjerenjem (letva
 // je vrh bez svoje satne, upitno je niz lanac), dnevni model iz rezerve, kraj
-// niza s druge obale i dnevni model bez kiše. Ključevi vrh: i preneseno: su
+// niza s druge obale, rupa koju su popunili susjedi i dnevni model bez kiše. Ključevi vrh: i preneseno: su
 // redovan rad i ne javljaju se.
 func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bool) []Upozorenje {
 	var out []Upozorenje
@@ -350,7 +351,7 @@ func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bo
 		case VrstaDnevnaRezerva:
 			u.Tezina = TezinaNapomena
 			s.dnevna(letva)
-		case VrstaZamjena:
+		case VrstaZamjena, VrstaRekonstrukcija:
 			u.Tezina = TezinaNapomena
 		case VrstaKisa:
 			s.dnevna(ciljeviSKisom(ima)...)
@@ -379,8 +380,8 @@ func vrstaIzbora(kljuc string, iz Izbor) (vrsta, letva string) {
 		if iz.Inacica > 0 {
 			return VrstaDnevnaRezerva, letva
 		}
-	case "zamjena":
-		return VrstaZamjena, letva
+	case VrstaZamjena, VrstaRekonstrukcija:
+		return prefiks, letva
 	}
 	return "", letva
 }

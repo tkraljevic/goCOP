@@ -4,6 +4,21 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.36-alfa — u pripremi
+
+- **Prognoza: rekonstrukcija iz susjeda.** Szentborbás i Mohács nemaju letvu
+  na drugoj obali. Kad im izvor stane na više od šest sati, rupu u računu
+  popunjavaju susjedi na istoj rijeci, pomaknuti za vrijeme putovanja vode:
+  Szentborbás iz Barcsa (4 h uzvodno), Mohács iz Bezdana (5 h nizvodno),
+  Dunaszekcsőa i Baje.
+  - Rupa koja je završila može imati najviše 48 sati. Rupa koja traje
+    popunjava se najviše 24 sata i nikad dalje od zadnjeg mjerenja susjeda.
+  - Na arhivi je 95 % grešaka unutar ±2 do ±12 cm, a zadržano zadnje mjerenje
+    griješi i do ±61 cm.
+  - Upozorenje „nema mjerenja” postaje napomena odakle su sati i koliko su
+    točni. Rekonstruirani sati ne pokazuju se kao mjerenje i ne upisuju se u
+    očitanja.
+
 ## 0.0.35-alfa — 11. 10. 2026.
 
 **Odluke od 8. i 11. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.

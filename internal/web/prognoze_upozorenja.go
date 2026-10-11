@@ -131,9 +131,10 @@ func (p pisacUpozorenja) imena(tekst string) string {
 // opisVrste kaže kako se opis izdavača piše na stranici: što mu se skida s
 // početka i čime se uvodi.
 var opisVrste = map[string]struct{ prefiks, uvod string }{
-	prognoza.VrstaRezerva:       {"rezerva: ", "računa se iz rezerve: "},
-	prognoza.VrstaDnevnaRezerva: {"dnevni model: ", "dnevna prognoza iz rezerve: "},
-	prognoza.VrstaZamjena:       {"zamjena: ", ""},
+	prognoza.VrstaRezerva:        {"rezerva: ", "računa se iz rezerve: "},
+	prognoza.VrstaDnevnaRezerva:  {"dnevni model: ", "dnevna prognoza iz rezerve: "},
+	prognoza.VrstaZamjena:        {"zamjena: ", ""},
+	prognoza.VrstaRekonstrukcija: {"rekonstrukcija: ", "rekonstruirano iz susjeda: "},
 }
 
 // uLetvi piše tekst uz letvu („Batina: …”), ili sam kad letve nema.
@@ -161,7 +162,7 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaKrivulja:
 		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
 	}
-	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, kiša i vrste
+	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
 	// koje ova inačica još ne zna: opis izdavača imenima letvi
 	o := opisVrste[u.Vrsta]
 	return p.uLetvi(u.Letva, o.uvod+p.imena(strings.TrimPrefix(u.Opis, o.prefiks)))

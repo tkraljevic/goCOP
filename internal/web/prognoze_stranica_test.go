@@ -246,6 +246,9 @@ func TestStranicaPrognozaRezerva(t *testing.T) {
 	if d := opisRezerve("dnevni model: mursko-sredisce + varazdin umjesto mursko-sredisce + borl-i", postaje); d != "Dnevna prognoza iz rezerve: mursko-sredisce + Varaždin umjesto mursko-sredisce + Borl I (Slovenija)." {
 		t.Errorf("opis dnevne rezerve: %q", d)
 	}
+	if d := opisRezerve("rekonstrukcija: rupa od 7.10. u 11:00 do 8.10. u 09:00 (21 h) procijenjena iz letve bezdan 5 h nizvodno; na arhivi 95 % unutar ±2 cm", postaje); d != "Rekonstruirano iz susjeda: rupa od 7.10. u 11:00 do 8.10. u 09:00 (21 h) procijenjena iz letve Bezdan (Srbija) 5 h nizvodno; na arhivi 95 % unutar ±2 cm." {
+		t.Errorf("opis rekonstrukcije: %q", d)
+	}
 	html := iscrtaj(t, "prognoze.html", PrognozePageData{
 		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		ActiveNav: "prognoze", Izdano: "x", Udio: 70,

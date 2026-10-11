@@ -483,13 +483,11 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 		if iz, ima := izbor[kod]; ima {
 			data.Letve[i].Rezerva = opisRezerve(iz.Opis, postaje)
 		}
-		if iz, ima := izbor["dnevni:"+kod]; ima {
-			if data.Letve[i].Rezerva != "" {
-				data.Letve[i].Rezerva += " "
+		for _, prefiks := range []string{"dnevni:", "zamjena:", "rekonstrukcija:"} {
+			iz, ima := izbor[prefiks+kod]
+			if !ima {
+				continue
 			}
-			data.Letve[i].Rezerva += opisRezerve(iz.Opis, postaje)
-		}
-		if iz, ima := izbor["zamjena:"+kod]; ima {
 			if data.Letve[i].Rezerva != "" {
 				data.Letve[i].Rezerva += " "
 			}
@@ -1215,6 +1213,8 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 	case strings.HasPrefix(opis, "zamjena: "):
 		o := imena(strings.TrimPrefix(opis, "zamjena: "))
 		return strings.ToUpper(o[:1]) + o[1:] + "."
+	case strings.HasPrefix(opis, "rekonstrukcija: "):
+		return "Rekonstruirano iz susjeda: " + imena(strings.TrimPrefix(opis, "rekonstrukcija: ")) + "."
 	case strings.HasPrefix(opis, "bez svježeg ulaza"):
 		return imena(opis) + "."
 	}

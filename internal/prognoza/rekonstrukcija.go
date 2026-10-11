@@ -1,0 +1,360 @@
+package prognoza
+
+// Rekonstrukcija rupe iz susjeda na istoj rijeci. Letve bez para na drugoj
+// obali (Zamjenske) ostaju bez mjerenja kad izvor stane: Szentborbás od
+// 11. 10. 2026. u 4 h, jer vizugy.hu za njega nije objavio ništa, a
+// DanubeHIS ga nema; Mohács od 7. 10. u 11 h do 8. 10. u 9 h. Prognoza je tada
+// karike računala iz uzvodnih letvi, a dnevni model je ostao bez dana.
+//
+// Rupu popuni susjed uzvodno ili nizvodno: letvi se dodaje ono što je susjed
+// u isto vrijeme (pomaknuto za vrijeme putovanja vode) promijenio. Rupi s
+// poznatim krajevima dodaje se odstupanje susjeda od pravca između njegovih
+// krajeva; rupi koja traje — promjena susjeda od zadnjeg mjerenja letve.
+//
+// Točnost je izmjerena na arhivi tako da su na mjestima s mjerenjem izrezane
+// rupe, rekonstruirane i uspoređene s izmjerenim (11. 10. 2026.):
+//
+//	Mohács, rupa 22–48 h:  Bezdan ±2 cm, Dunaszekcső ±3, Baja ±5 (pravac ±3)
+//	Mohács, traje 10–24 h: Dunaszekcső ±5 cm, Baja ±12 (zadnje mjerenje ±49)
+//	Szentborbás, rupa 22–48 h: Barcs ±8 cm
+//	Szentborbás, traje 10–24 h: Barcs ±10 cm (zadnje mjerenje ±61)
+//
+// (95 % grešaka unutar.) Terezino Polje bi bilo jednako dobro na živim
+// podacima, ali je u arhivi nepouzdano; kad zastane Barcs, popuni ga ono s
+// druge obale prije rekonstrukcije. Vrbovka stoji na niskoj vodi, pa ne
+// služi.
+//
+// Kao i zamjena s druge obale, rekonstruirani sat ulazi samo u račun
+// prognoze; mjerenjem se ne pokazuje i u evidenciju ne ide. Uz izdanje stoji
+// napomena odakle je i koliko je točan.
+
+import (
+	"cmp"
+	"context"
+	"database/sql"
+	"fmt"
+	"math"
+	"slices"
+	"strings"
+	"time"
+)
+
+// Susjed je letva na istoj rijeci koja letvi popunjava rupu.
+type Susjed struct {
+	Letva string
+	// Zastoj u satima: letva u satu t prati susjeda u satu t − Zastoj;
+	// uzvodni je iznad nule, nizvodni ispod.
+	Zastoj int64
+	Prosla int // cm, 95 % grešaka za rupu s poznatim krajevima
+	Traje  int // cm, isto za rupu koja traje; 0 kad za nju ne služi
+}
+
+// Rekonstrukcije su letve kojima rupu popunjavaju susjedi, redom po
+// točnosti; za svaki sat uzima se prvi koji ga može dati.
+var Rekonstrukcije = map[string][]Susjed{
+	"szentborbas": {{Letva: "barcs", Zastoj: 4, Prosla: 8, Traje: 10}},
+	"mohacs": {
+		{Letva: "bezdan", Zastoj: -5, Prosla: 2},
+		{Letva: "dunaszekcso", Prosla: 3, Traje: 5},
+		{Letva: "baja", Prosla: 5, Traje: 12},
+	},
+}
+
+const (
+	// RekonstrukcijaOd: rekonstruira se rupa dulja od toga. Kraću prognoza
+	// premosti sama, bez upozorenja (ZaostatakKarike, DnevniIzSatnog).
+	RekonstrukcijaOd = ZaostatakKarike
+	// RekonstrukcijaProsla je najdulja rupa s poznatim krajevima (provjereno do 48 h).
+	RekonstrukcijaProsla = 48
+	// RekonstrukcijaTraje je koliko se sati iza zadnjeg mjerenja popunjava
+	// (provjereno do 24 h); poslije toga ostaje upozorenje.
+	RekonstrukcijaTraje = 24
+	// RekonstrukcijaNapomena je koliko sati unatrag od izdanja rekonstruirana
+	// rupa ima napomenu: toliko unatrag gleda dnevni model.
+	RekonstrukcijaNapomena = 4 * 24
+)
+
+// Susjed stoji kad se u zadnjih StojiSati prije rupe nije pomaknuo više od
+// StojiDopust, a letva se u isto vrijeme pomaknula barem SeMaknula — kao
+// mjerila koja izostaju s uzdužnog profila. Takav susjed rupu ne popunjava.
+const (
+	StojiSati   = 144
+	StojiDopust = 1
+	SeMaknula   = 20
+)
+
+// RekonstruiranaRupa je rupa koju su popunili susjedi.
+type RekonstruiranaRupa struct {
+	Zadnje   int64    // zadnje mjerenje prije rupe
+	Sljedece int64    // prvo mjerenje poslije; 0 dok rupa traje
+	Do       int64    // zadnji popunjeni sat
+	Sati     int      // koliko je sati popunjeno
+	Iz       []Susjed // susjedi koji su dali sate, redom
+	Tocnost  int      // cm, najslabija točnost među njima
+}
+
+// dodaj bilježi sat t od susjeda.
+func (r *RekonstruiranaRupa) dodaj(t int64, s Susjed, tocnost int) {
+	r.Sati++
+	r.Do = max(r.Do, t)
+	r.Tocnost = max(r.Tocnost, tocnost)
+	if !slices.ContainsFunc(r.Iz, func(x Susjed) bool { return x.Letva == s.Letva }) {
+		r.Iz = append(r.Iz, s)
+	}
+}
+
+// Opis je rečenica za napomenu; šifre letvi stoje kao zasebne riječi, da ih
+// stranica zamijeni imenima.
+func (r RekonstruiranaRupa) Opis() string {
+	tocnost := fmt.Sprintf("na arhivi 95 %% unutar ±%d cm", r.Tocnost)
+	if r.Sljedece == 0 {
+		return fmt.Sprintf("nema mjerenja od %s; %d h procijenjeno iz kretanja %s; %s",
+			satDnevnika(r.Zadnje), r.Sati, opisSusjeda(r.Iz), tocnost)
+	}
+	sati := fmt.Sprintf("%d h", r.Sati)
+	if rupa := int(r.Sljedece - r.Zadnje - 1); r.Sati < rupa {
+		sati = fmt.Sprintf("%d od %d h", r.Sati, rupa)
+	}
+	return fmt.Sprintf("rupa od %s do %s (%s) procijenjena iz %s; %s",
+		satDnevnika(r.Zadnje), satDnevnika(r.Sljedece), sati, opisSusjeda(r.Iz), tocnost)
+}
+
+// opisSusjeda: „letve barcs 4 h uzvodno” ili „letvi bezdan 5 h nizvodno i
+// dunaszekcso u istom satu”; uz šifru nema interpunkcije, da je kartica letve
+// zamijeni imenom.
+func opisSusjeda(susjedi []Susjed) string {
+	dijelovi := make([]string, len(susjedi))
+	for i, s := range susjedi {
+		dijelovi[i] = s.Letva + " " + opisZastoja(s.Zastoj)
+	}
+	if len(dijelovi) == 1 {
+		return "letve " + dijelovi[0]
+	}
+	return "letvi " + strings.Join(dijelovi[:len(dijelovi)-1], ", ") + " i " + dijelovi[len(dijelovi)-1]
+}
+
+func opisZastoja(z int64) string {
+	switch {
+	case z > 0:
+		return fmt.Sprintf("%d h uzvodno", z)
+	case z < 0:
+		return fmt.Sprintf("%d h nizvodno", -z)
+	}
+	return "u istom satu"
+}
+
+// Rekonstruiraj popunjava rupe letve iz susjeda (šifra → sati susjeda) i
+// vraća što je popunila. Vlastito mjerenje se ne dira.
+func Rekonstruiraj(letva map[int64]sirovoOcitanje, susjedi []Susjed, nizovi map[string]map[int64]sirovoOcitanje) []RekonstruiranaRupa {
+	sati := make([]int64, 0, len(letva))
+	for t, s := range letva {
+		if s.cm.Valid || s.q.Valid {
+			sati = append(sati, t)
+		}
+	}
+	slices.Sort(sati)
+	var out []RekonstruiranaRupa
+	for i := 1; i < len(sati); i++ {
+		if r, ok := popuniProslu(letva, sati[i-1], sati[i], susjedi, nizovi); ok {
+			out = append(out, r)
+		}
+	}
+	if len(sati) > 0 {
+		if r, ok := popuniTraje(letva, sati[len(sati)-1], susjedi, nizovi); ok {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// popuniProslu popunjava rupu između mjerenja a i b.
+func popuniProslu(letva map[int64]sirovoOcitanje, a, b int64, susjedi []Susjed, nizovi map[string]map[int64]sirovoOcitanje) (RekonstruiranaRupa, bool) {
+	r := RekonstruiranaRupa{Zadnje: a, Sljedece: b}
+	if rupa := b - a - 1; rupa <= RekonstrukcijaOd || rupa > RekonstrukcijaProsla || !letva[a].cm.Valid || !letva[b].cm.Valid {
+		return r, false
+	}
+	ziv := zivi(letva, a, susjedi, nizovi)
+	for t := a + 1; t < b; t++ {
+		for _, s := range ziv {
+			if v, ok := prosliSat(letva, a, b, t, s.Zastoj, nizovi[s.Letva]); ok {
+				letva[t] = cmSat(v)
+				r.dodaj(t, s, s.Prosla)
+				break
+			}
+		}
+	}
+	return r, r.Sati > 0
+}
+
+// prosliSat: pravac između krajeva letve i odstupanje susjeda od pravca
+// između njegovih krajeva, u satu pomaknutom za zastoj.
+func prosliSat(letva map[int64]sirovoOcitanje, a, b, t, zastoj int64, susjed map[int64]sirovoOcitanje) (float64, bool) {
+	na, nb, nt := susjed[a-zastoj].cm, susjed[b-zastoj].cm, susjed[t-zastoj].cm
+	if !na.Valid || !nb.Valid || !nt.Valid {
+		return 0, false
+	}
+	udio := float64(t-a) / float64(b-a)
+	pravac := func(x, y int64) float64 { return float64(x) + float64(y-x)*udio }
+	return pravac(letva[a].cm.Int64, letva[b].cm.Int64) + float64(nt.Int64) - pravac(na.Int64, nb.Int64), true
+}
+
+// popuniTraje popunjava sate iza zadnjeg mjerenja a, najviše
+// RekonstrukcijaTraje, iz uzvodnih susjeda i nikad dalje od njihova zadnjeg
+// mjerenja; popunjava tek kad bi rupa bila dulja od RekonstrukcijaOd.
+func popuniTraje(letva map[int64]sirovoOcitanje, a int64, susjedi []Susjed, nizovi map[string]map[int64]sirovoOcitanje) (RekonstruiranaRupa, bool) {
+	r := RekonstruiranaRupa{Zadnje: a}
+	if !letva[a].cm.Valid {
+		return r, false
+	}
+	var uzvodni []Susjed
+	for _, s := range zivi(letva, a, susjedi, nizovi) {
+		if s.Traje > 0 && s.Zastoj >= 0 {
+			uzvodni = append(uzvodni, s)
+		}
+	}
+	vrijednosti := map[int64]float64{}
+	for t := a + 1; t <= a+RekonstrukcijaTraje; t++ {
+		for _, s := range uzvodni {
+			if v, ok := trajeSat(letva[a].cm.Int64, a, t, s.Zastoj, nizovi[s.Letva]); ok {
+				vrijednosti[t] = v
+				r.dodaj(t, s, s.Traje)
+				break
+			}
+		}
+	}
+	if r.Sati <= RekonstrukcijaOd {
+		return RekonstruiranaRupa{Zadnje: a}, false
+	}
+	for t, v := range vrijednosti {
+		letva[t] = cmSat(v)
+	}
+	return r, true
+}
+
+// trajeSat: zadnje mjerenje letve i promjena susjeda od tada. Sat koji
+// susjed još nije izmjerio je budućnost i ne popunjava se.
+func trajeSat(zadnje, a, t, zastoj int64, susjed map[int64]sirovoOcitanje) (float64, bool) {
+	n0, nt := susjed[a-zastoj].cm, susjed[t-zastoj].cm
+	if !n0.Valid || !nt.Valid || t > zadnjiSat(susjed) {
+		return 0, false
+	}
+	return float64(zadnje + nt.Int64 - n0.Int64), true
+}
+
+// zadnjiSat je zadnji sat s izmjerenim centimetrima.
+func zadnjiSat(niz map[int64]sirovoOcitanje) int64 {
+	var z int64
+	for t, s := range niz {
+		if s.cm.Valid && t > z {
+			z = t
+		}
+	}
+	return z
+}
+
+// zivi su susjedi koji pred rupom ne stoje.
+func zivi(letva map[int64]sirovoOcitanje, a int64, susjedi []Susjed, nizovi map[string]map[int64]sirovoOcitanje) []Susjed {
+	maknula := raspon(letva, a-StojiSati, a) >= SeMaknula
+	out := make([]Susjed, 0, len(susjedi))
+	for _, s := range susjedi {
+		if maknula && raspon(nizovi[s.Letva], a-s.Zastoj-StojiSati, a-s.Zastoj) <= StojiDopust {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+// raspon je razlika najvećeg i najmanjeg centimetra u satima od..do; bez
+// ijednog mjerenja −1.
+func raspon(niz map[int64]sirovoOcitanje, od, do int64) int64 {
+	var vrijednosti []int64
+	for t := od; t <= do; t++ {
+		if s := niz[t]; s.cm.Valid {
+			vrijednosti = append(vrijednosti, s.cm.Int64)
+		}
+	}
+	if len(vrijednosti) == 0 {
+		return -1
+	}
+	return slices.Max(vrijednosti) - slices.Min(vrijednosti)
+}
+
+func cmSat(v float64) sirovoOcitanje {
+	return sirovoOcitanje{cm: sql.NullInt64{Int64: int64(math.Round(v)), Valid: true}}
+}
+
+// rekonstruiraj popunjava letvi rupe iz njezinih susjeda; susjedu prije toga
+// sate popuni druga obala.
+func (o *Osvjezivac) rekonstruiraj(ctx context.Context, letva string, sirovo map[int64]sirovoOcitanje, od time.Time) []RekonstruiranaRupa {
+	susjedi, ima := Rekonstrukcije[letva]
+	if !ima {
+		return nil
+	}
+	nizovi := map[string]map[int64]sirovoOcitanje{}
+	for _, s := range susjedi {
+		n, err := o.ucitajSirovo(ctx, s.Letva, od)
+		if err != nil {
+			continue
+		}
+		o.dopuniDrugomObalom(ctx, s.Letva, n, od)
+		nizovi[s.Letva] = n
+	}
+	return Rekonstruiraj(sirovo, susjedi, nizovi)
+}
+
+// dopuniDrugomObalom upisuje letvi sate koje ima samo letva s druge obale.
+func (o *Osvjezivac) dopuniDrugomObalom(ctx context.Context, letva string, sirovo map[int64]sirovoOcitanje, od time.Time) {
+	druga, ima := DrugaObala(letva)
+	if !ima {
+		return
+	}
+	if drugo, err := o.ucitajSirovo(ctx, druga, od); err == nil {
+		PopuniSirovo(sirovo, drugo)
+	}
+}
+
+// popuniRupe popunjava sate koji letvi nedostaju: prvo s druge obale, pa
+// dulje rupe iz susjeda. Samo za račun prognoze.
+func (o *Osvjezivac) popuniRupe(ctx context.Context, letva string, sirovo map[int64]sirovoOcitanje, od time.Time) []RekonstruiranaRupa {
+	o.dopuniDrugomObalom(ctx, letva, sirovo, od)
+	return o.rekonstruiraj(ctx, letva, sirovo, od)
+}
+
+// napomeneRekonstrukcije upisuje u izbor napomenu za svaku letvu kojoj su
+// susjedi popunili rupu u zadnja četiri dana prije izdanja.
+func (o *Osvjezivac) napomeneRekonstrukcije(ctx context.Context, nizovi map[Izvor]Niz, izbor map[string]Izbor, od time.Time, sada int64) {
+	letve := map[string]bool{}
+	for iz := range nizovi {
+		letve[iz.Letva] = true
+	}
+	for letva := range letve {
+		if opis, ima := o.rekonstrukcijaDo(ctx, letva, od, sada); ima {
+			izbor["rekonstrukcija:"+letva] = Izbor{Opis: opis}
+		}
+	}
+}
+
+// rekonstrukcijaDo opisuje rupe letve koje su susjedi popunili, a sežu u
+// zadnja četiri dana prije sada.
+func (o *Osvjezivac) rekonstrukcijaDo(ctx context.Context, letva string, od time.Time, sada int64) (string, bool) {
+	if _, ima := Rekonstrukcije[letva]; !ima {
+		return "", false
+	}
+	sirovo, err := o.ucitajSirovo(ctx, letva, od)
+	if err != nil {
+		return "", false
+	}
+	var opisi []string
+	rupe := o.popuniRupe(ctx, letva, sirovo, od)
+	slices.SortFunc(rupe, func(a, b RekonstruiranaRupa) int { return cmp.Compare(a.Zadnje, b.Zadnje) })
+	for _, r := range rupe {
+		if r.Do >= sada-RekonstrukcijaNapomena && r.Zadnje < sada {
+			opisi = append(opisi, r.Opis())
+		}
+	}
+	if len(opisi) == 0 {
+		return "", false
+	}
+	return "rekonstrukcija: " + strings.Join(opisi, "; "), true
+}
