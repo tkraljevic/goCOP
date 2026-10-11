@@ -8,6 +8,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -151,6 +152,56 @@ func Load(candidates []string) (Config, string, error) {
 	return cfg, "", nil
 }
 
+// zaglavlje je uvod datoteke postavki: kad se čita, što ima prednost, gdje
+// piše što znači prazna vrijednost i najčešće izmjene.
+const zaglavlje = "# goCOP — postavke čvora\n" +
+	"#\n" +
+	"# Program čita ovu datoteku samo pri pokretanju: nakon izmjene ponovno\n" +
+	"# pokrenite goCOP. Zastavica na naredbenom retku (npr. -addr :8080) ima\n" +
+	"# prednost pred datotekom.\n" +
+	"#\n" +
+	"# Uz svaku postavku piše što znači prazna vrijednost (''). Redak s #\n" +
+	"# je komentar; primjer uključite tako da maknete # ispred njega.\n" +
+	"#\n" +
+	"# Najčešće izmjene:\n" +
+	"#   uredski poslužitelj, stalno upaljen:  [sync] sve = true\n" +
+	"#   terenski laptop ili mobitel:           [vodostaji] povijest_mjeseci = 12\n" +
+	"#   port 80 je zauzet:                     addr = ':8080'\n" +
+	"#   slanje akata e-poštom:                 [posta] posluzitelj = 'owa.voda.hr'\n\n"
+
+// PrimjerFileName je primjer postavki koji program piše uz bazu pri svakom
+// pokretanju, s opisima i primjerima tekuće inačice. Program ga ne čita.
+// Postojeći gocop.toml nikad se ne prepisuje, pa bez ovoga čvor nadograđen
+// sa starije inačice ne bi vidio nove opise.
+const PrimjerFileName = "gocop.toml.primjer"
+
+// zaglavljePrimjera stoji iznad uvoda u primjeru postavki.
+const zaglavljePrimjera = "# Ovo je primjer: program ga ne čita i piše ga iznova sa svakom\n" +
+	"# inačicom. Postavke čvora su u gocop.toml; odavde prepišite ono što trebate.\n" +
+	"#\n"
+
+// ZapisiPrimjer zapisuje gocop.toml.primjer u mapu dir, sa zadanim
+// vrijednostima, opisima i primjerima; vraća je li ga zapisao. Isti sadržaj
+// ne piše se iznova, pa se datoteka mijenja samo s novom inačicom.
+func ZapisiPrimjer(dir string) (bool, error) {
+	data, err := toml.Marshal(Default())
+	if err != nil {
+		return false, err
+	}
+	sadrzaj := []byte(zaglavljePrimjera + zaglavlje + string(data))
+	put := filepath.Join(dir, PrimjerFileName)
+	if postojeci, err := os.ReadFile(put); err == nil && bytes.Equal(postojeci, sadrzaj) {
+		return false, nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(put, sadrzaj, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // WriteExample zapisuje datoteku sa zadanim vrijednostima i komentarima —
 // samo ako ne postoji, da nikad ne pregazi korisnikove izmjene
 func WriteExample(path string, cfg Config) (bool, error) {
@@ -161,20 +212,7 @@ func WriteExample(path string, cfg Config) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	header := "# goCOP — postavke čvora\n" +
-		"#\n" +
-		"# Program čita ovu datoteku samo pri pokretanju: nakon izmjene ponovno\n" +
-		"# pokrenite goCOP. Zastavica na naredbenom retku (npr. -addr :8080) ima\n" +
-		"# prednost pred datotekom.\n" +
-		"#\n" +
-		"# Uz svaku postavku piše što znači prazna vrijednost (''). Redak s #\n" +
-		"# je komentar; primjer uključite tako da maknete # ispred njega.\n" +
-		"#\n" +
-		"# Najčešće izmjene:\n" +
-		"#   uredski poslužitelj, stalno upaljen:  [sync] sve = true\n" +
-		"#   terenski laptop ili mobitel:           [vodostaji] povijest_mjeseci = 12\n" +
-		"#   port 80 je zauzet:                     addr = ':8080'\n" +
-		"#   slanje akata e-poštom:                 [posta] posluzitelj = 'owa.voda.hr'\n\n"
+	header := zaglavlje
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return false, err
 	}
