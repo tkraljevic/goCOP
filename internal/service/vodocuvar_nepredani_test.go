@@ -96,14 +96,22 @@ func TestNepredaniListovi(t *testing.T) {
 	o.upisiListZaUpozorenje(t, pero, danKnjige2026(time.December, 31).AddDate(-1, 0, 0), ujutro(danKnjige2026(time.December, 31).AddDate(-1, 0, 0)))
 	o.upisiListZaUpozorenje(t, ivo, listopad(8), ujutro(listopad(8)))
 
+	// list koji je otvorio samo program (akt, „Upiši” rukovoditelja), s
+	// radnim vremenom koje program sam upiše, ne upozorava: vodočuvar taj
+	// dan nije radio. Njegov tekst ili objavljena prijava upozoravaju.
+	samoProgram := func(l *models.VodocuvarskiList) { l.Opis, l.NapisanoAt = "", nil }
+	o.upisiListZaUpozorenje(t, pero, listopad(2), ujutro(listopad(2)), samoProgram)
+	sPrijavom := o.upisiListZaUpozorenje(t, pero, listopad(3), ujutro(listopad(3)), samoProgram,
+		func(l *models.VodocuvarskiList) { l.Prijave = []models.PrijavaNaListu{{ID: "prijava-1"}} })
+
 	o.vs.SetSat(func() time.Time { return listopad(11).Add(10 * time.Hour) })
-	usporediOznake(t, "11. 10. u 10 h", o.idNepredanih(t, pero), stariji.ID, osmi.ID, unaprijed.ID, jucer.ID)
+	usporediOznake(t, "11. 10. u 10 h", o.idNepredanih(t, pero), sPrijavom.ID, stariji.ID, osmi.ID, unaprijed.ID, jucer.ID)
 
 	// dan lista prolazi u 00:00 idućeg dana
 	o.vs.sad = func() time.Time { return listopad(11).Add(-time.Second) }
-	usporediOznake(t, "10. 10. u 23:59:59", o.idNepredanih(t, pero), stariji.ID, osmi.ID, unaprijed.ID)
+	usporediOznake(t, "10. 10. u 23:59:59", o.idNepredanih(t, pero), sPrijavom.ID, stariji.ID, osmi.ID, unaprijed.ID)
 	o.vs.sad = func() time.Time { return listopad(11) }
-	usporediOznake(t, "11. 10. u 00:00", o.idNepredanih(t, pero), stariji.ID, osmi.ID, unaprijed.ID, jucer.ID)
+	usporediOznake(t, "11. 10. u 00:00", o.idNepredanih(t, pero), sPrijavom.ID, stariji.ID, osmi.ID, unaprijed.ID, jucer.ID)
 
 	// tko ne vodi dnevnik (zaduženje vodočuvara mu je isteklo) list više
 	// ne predaje, pa ni upozorenja nema

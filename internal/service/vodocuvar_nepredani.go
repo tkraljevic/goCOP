@@ -16,6 +16,8 @@ import (
 // Ne ulaze nacrti za danas i za buduće dane, predani listovi ni listovi
 // preneseni iz ranije evidencije (BP16), a ni knjiga arhivirana istekom
 // godine: u nju se više ne upisuje, pa se ni list iz nje ne može predati.
+// Ne ulazi ni list koji je otvorio samo program (akt, upis rukovoditelja),
+// a vodočuvar na njemu nije ništa upisao (vodocuvarPisao).
 
 // SetSat daje servisu sat po kojem se zna je li dan lista počeo ili prošao;
 // nil je time.Now. Služi testovima drugih paketa.
@@ -50,11 +52,23 @@ func nepredaniListovi(knjiga []models.VodocuvarskiList, sad time.Time) []models.
 	}
 	var out []models.VodocuvarskiList
 	for _, x := range knjiga {
-		if zakljucen[kljucDana(x.Datum)] || !danProsao(x.Datum, sad) {
+		if zakljucen[kljucDana(x.Datum)] || !danProsao(x.Datum, sad) || !vodocuvarPisao(x) {
 			continue
 		}
 		zakljucen[kljucDana(x.Datum)] = true
 		out = append(out, x)
 	}
 	return out
+}
+
+// vodocuvarPisao javlja je li vodočuvar na listu nešto upisao sam: spremio
+// svoj obrazac (NapisanoAt), upisao prilike, naredbe, opis ili zapažanja
+// (listovi spremljeni prije 0.0.35 nemaju NapisanoAt) ili na njemu ima
+// svoju objavljenu prijavu. List koji je otvorio samo program — upis
+// ovjerenog akta ili „Upiši” rukovoditelja — ne upozorava: vodočuvar koji
+// taj dan nije radio list nije ni otvorio (Odluke (11. 10. 2026.)). Radno
+// vrijeme ne govori ništa, jer ga program upiše u svaki novi list.
+func vodocuvarPisao(l models.VodocuvarskiList) bool {
+	return l.NapisanoAt != nil || l.Prilike != "" || l.Naredbe != "" || l.Opis != "" ||
+		l.Zapazanja != "" || len(l.Prijave) > 0
 }
