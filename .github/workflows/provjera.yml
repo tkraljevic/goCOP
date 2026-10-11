@@ -20,8 +20,8 @@ jobs:
   testovi:
     runs-on: ubuntu-latest
     # dva puna mjerenja (baseline iste platforme i ova verzija), svako s
-    # race i coverageom; jedno smije trajati do 60 min (rokNaredbe)
-    timeout-minutes: 150
+    # race i coverageom; testovi jednog smiju trajati do 90 min (rokNaredbe)
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with:

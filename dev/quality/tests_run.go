@@ -74,8 +74,10 @@ func runTests(o options, r *report) error {
 // rokPaketa je rok jednog testnog paketa. Race i atomski coverage zajedno
 // usporavaju testove nekoliko puta; najveći paket (internal/web) lokalno
 // traje oko 3,5 minute, a na sporijem stroju CI-ja i uz ostale pakete
-// usporedo prelazio je 10 minuta.
-const rokPaketa = "30m"
+// usporedo prelazio je 10 minuta. 11. 10. 2026. internal/service (372 testa,
+// gotovo svaki s vlastitom bazom i shemom) lokalno s race traje oko 10
+// minuta, a na CI-ju prešao je 30.
+const rokPaketa = "60m"
 
 // sazetakPada su retci zapisa testova koji kažu što je palo (test, panika,
 // istek roka, utrka), da se vide u ispisu i kad zapis nije priložen

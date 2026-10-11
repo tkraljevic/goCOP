@@ -42,9 +42,10 @@ func main() {
 // rokNaredbe je najdulje što jedna naredba mjerenja smije trajati. Testovi
 // s race detektorom i atomskim coverageom na stroju CI-ja (Linux, malo
 // jezgri) traju višestruko dulje nego lokalno: 11. 10. 2026. cijeli paket
-// testova grane odluka prešao je 30 minuta (repository, service i prognoza
-// po 12–14 minuta), a lokalno traje oko 8.
-const rokNaredbe = 60 * time.Minute
+// testova grane odluka prešao je 30 minuta (repository i prognoza po 12–14
+// minuta, service preko 30), a lokalno traje oko 8. Rok je iznad roka
+// jednog paketa (rokPaketa), jer paketi idu usporedo na malo jezgri.
+const rokNaredbe = 90 * time.Minute
 
 func commandOutput(dir, name string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), rokNaredbe)
