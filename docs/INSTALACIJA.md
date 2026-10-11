@@ -69,7 +69,8 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `prognoze.db` (+ `-wal`, `-shm`) | lokalna i primljena izdanja prognoza, parametri i rezultati provjere |
   | `oborine.db` (+ `-wal`, `-shm`) | mjerenja i prognozirane oborine |
-  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
+  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju i poslije je ne dira |
+  | `gocop.toml.primjer` | opisi i primjeri svih postavki tekuće inačice; program ga piše pri svakom pokretanju i ne čita ga |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
   | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
 

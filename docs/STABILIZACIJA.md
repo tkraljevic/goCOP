@@ -870,12 +870,30 @@ Otvoreno nakon pregleda, za odluku:
   rješenje;
 - nacrt prijave prenesen iz BP16 koji vodočuvar dovrši u goCOP-u ne ide na zid;
 - 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči;
-- vodočuvar može unaprijed spremiti prazne nacrte za idućih 30 dana i poslije
-  ispuniti dan koji je propustio, jer list postoji (odluke 5 i 6 zajedno);
 - list otvoren prije ponoći, a prvi put spremljen poslije nje, odbija se, a
   upisani tekst se gubi;
 - sken ovjere i slanje ovjerenog akta i dalje smiju svi koji pišu na
   dionicama akta, a ne samo Centar obrane od poplava.
+
+## Odluke (11. 10. 2026.)
+
+1. **Listovi unaprijed ostaju.** Vodočuvar smije otvoriti nacrt lista za
+   budući dan (najviše 30 dana unaprijed, bez broja, odluka 5) i dopisivati
+   ga sve dok ga ne potpiše i preda, i kad mu je dan prošao. Novi list za
+   prošli dan i dalje se ne otvara (odluka 6).
+2. **Upozorenje na nepredane listove.** Vodočuvar dobiva upozorenje za svaki
+   svoj list kojem je dan prošao, a nije ga potpisao i predao: na početnoj
+   stranici i u svom dnevniku, s poveznicom na list. Upozorava samo list na
+   koji je sam nešto upisao (spremljen obrazac, tekst ili objavljena
+   prijava). List koji je otvorio samo program, upisom ovjerenog akta ili
+   „Upiši” rukovoditelja, ne upozorava, jer taj dan nije radio. Ne upozoravaju
+   ni listovi iz BP16, dan na kojem je neki list predan, ni arhivirana knjiga.
+3. **Primjer postavki uz bazu.** Uz `gocop.toml` program pri svakom
+   pokretanju zapiše `gocop.toml.primjer` s kratkim opisima i komentiranim
+   primjerima svih postavki tekuće inačice. Postojeći `gocop.toml` ne dira, a
+   primjer ne čita.
+
+Provedeno na grani `odluke/11-10`, za izdanje 0.0.35.
 
 ## Izdanje 0.0.35: konsolidacijsko (odluka 10. 10. 2026.)
 

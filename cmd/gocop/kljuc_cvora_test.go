@@ -139,6 +139,11 @@ func TestPrimjerPostavkiUzPostojecuBazu(t *testing.T) {
 	if _, err := os.Stat(primjer); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("uz postojeću bazu zapisan je primjer: %v", err)
 	}
+	// gocop.toml.primjer ne zamjenjuje postavke (program ga ne čita), pa se
+	// piše i uz postojeću bazu
+	if _, err := os.Stat(filepath.Join(filepath.Dir(put), config.PrimjerFileName)); err != nil {
+		t.Errorf("uz postojeću bazu nema %s: %v", config.PrimjerFileName, err)
+	}
 	for _, mora := range []string{"nema " + primjer, "Primjer se ne zapisuje", "pperic-unraid", "Vratite izvornu datoteku"} {
 		if !strings.Contains(dnevnik.String(), mora) {
 			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)

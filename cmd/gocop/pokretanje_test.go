@@ -35,6 +35,9 @@ func TestPrimjerPostavkiUzBazu(t *testing.T) {
 	if !strings.Contains(string(b), "'pperic-thinkpad'") || strings.Contains(string(b), ":9999") {
 		t.Errorf("primjer:\n%s", b)
 	}
+	if _, err := os.Stat(filepath.Join(dir, config.PrimjerFileName)); err != nil {
+		t.Errorf("nema %s: %v", config.PrimjerFileName, err)
+	}
 	if !strings.Contains(dnevnik.String(), "zapisan primjer") || !strings.Contains(dnevnik.String(), "Novi čvor dobio je ime pperic-thinkpad") {
 		t.Errorf("dnevnik: %s", dnevnik)
 	}
@@ -63,7 +66,8 @@ func TestPrimjerPostavkiNeZapisiv(t *testing.T) {
 	cfg.DB = filepath.Join(zapreka, "gocop.db") // mapa baze je datoteka
 	dnevnik := dnevnikTesta(t)
 	zapisiPrimjerPostavki(cfg, "", "", false, false)
-	if !strings.Contains(dnevnik.String(), "primjer datoteke nije zapisan") {
+	if !strings.Contains(dnevnik.String(), "primjer datoteke nije zapisan") ||
+		!strings.Contains(dnevnik.String(), config.PrimjerFileName+" nije zapisan") {
 		t.Errorf("dnevnik: %s", dnevnik)
 	}
 }

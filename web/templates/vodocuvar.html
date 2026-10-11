@@ -17,6 +17,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{template "nepredaniListovi" .Nepredani}}
 
 {{if .SamoMoj}}
 {{if gt (len .Godine) 1}}

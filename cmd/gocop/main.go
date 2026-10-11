@@ -587,7 +587,8 @@ func uveziLetveBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
 
 // zapisiPrimjerPostavki: pri prvom pokretanju zapiše gocop.toml s
 // komentarima; inače upiše ime čvora koje datoteka nije imala. Uz
-// postojeću bazu primjer se ne zapisuje.
+// postojeću bazu gocop.toml se ne zapisuje. Primjer gocop.toml.primjer, s
+// opisima ove inačice, zapiše se uvijek.
 func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, noviIme, imeIzZastavice bool) {
 	// Pri prvom pokretanju zapiši datoteku s komentarima da korisnik ima što urediti
 	// Primjer nosi ZADANE vrijednosti, ne one iz zastavica ovog pokretanja —
@@ -622,6 +623,12 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 	}
 	if noviIme {
 		log.Printf("Novi čvor dobio je ime %s (upisano u postavke; ne mijenja se)", cfg.Node.ID)
+	}
+	// Primjer s opisima ove inačice ide uz bazu i kad gocop.toml postoji:
+	// postojeća datoteka se ne dira, pa bi nadograđeni čvor inače ostao sa
+	// starim opisima. Program ga ne čita.
+	if _, err := config.ZapisiPrimjer(filepath.Dir(cfg.DB)); err != nil {
+		log.Printf("Postavke: %s nije zapisan: %v", config.PrimjerFileName, err)
 	}
 }
 

@@ -657,6 +657,7 @@ func (s *Server) setupRoutes() {
 	})
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	dashH.SetZid(func() *service.ZidService { return s.zidService }, func() *service.IzvjescaService { return s.izvjescaService }, func() *service.MtsService { return s.mtsService })
+	dashH.SetVodocuvar(func() *service.VodocuvarService { return s.vodocuvar })
 	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
 	s.mux.Handle("GET /dogadjanja", s.authMiddleware(http.HandlerFunc(dogH.ShowDogadjanja)))
 	s.mux.Handle("GET /dogadjanja.xlsx", s.authMiddleware(http.HandlerFunc(dogH.IzvoziDogadjanja)))

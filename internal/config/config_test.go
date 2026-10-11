@@ -155,3 +155,57 @@ func TestZatvoreniIzvorPlocica(t *testing.T) {
 		t.Errorf("lokalni izvor promijenjen: %+v", c.Karta)
 	}
 }
+
+// gocop.toml.primjer (11. 10. 2026.): uz bazu se piše primjer s opisima ove
+// inačice, i kad gocop.toml postoji; gocop.toml se ne dira, isti primjer ne
+// piše se iznova, a stariji se zamijeni. Program primjer ne čita.
+func TestZapisiPrimjer(t *testing.T) {
+	dir := t.TempDir()
+	postavke := filepath.Join(dir, FileName)
+	if err := os.WriteFile(postavke, []byte("addr = ':9000'\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if zapisan, err := ZapisiPrimjer(dir); err != nil || !zapisan {
+		t.Fatalf("prvi primjer: %v %v", zapisan, err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, PrimjerFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, mora := range []string{"program ga ne čita", "# goCOP — postavke čvora", "#   addr = ':8080'", "[sync]"} {
+		if !strings.Contains(string(b), mora) {
+			t.Errorf("u primjeru nema %q", mora)
+		}
+	}
+	if zapisan, err := ZapisiPrimjer(dir); err != nil || zapisan {
+		t.Errorf("isti primjer zapisan iznova: %v %v", zapisan, err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, PrimjerFileName), []byte("# stari opisi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if zapisan, err := ZapisiPrimjer(dir); err != nil || !zapisan {
+		t.Errorf("stariji primjer nije zamijenjen: %v %v", zapisan, err)
+	}
+	if p, _ := os.ReadFile(postavke); string(p) != "addr = ':9000'\n" {
+		t.Errorf("gocop.toml je promijenjen: %q", p)
+	}
+	if cfg, put, err := Load(Candidates("", filepath.Join(dir, "gocop.db"))); err != nil || put != postavke || cfg.Addr != ":9000" {
+		t.Errorf("čitane postavke: %q %q %v", put, cfg.Addr, err)
+	}
+	// mapa koja se ne da napraviti javlja grešku
+	zapreka := filepath.Join(dir, "datoteka")
+	if err := os.WriteFile(zapreka, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ZapisiPrimjer(filepath.Join(zapreka, "podmapa")); err == nil {
+		t.Error("primjer u mapu koja se ne da napraviti bez greške")
+	}
+	// na mjestu primjera stoji mapa: zapis javlja grešku
+	mapa := filepath.Join(dir, "mapa")
+	if err := os.MkdirAll(filepath.Join(mapa, PrimjerFileName), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if zapisan, err := ZapisiPrimjer(mapa); err == nil || zapisan {
+		t.Errorf("primjer preko mape: %v %v", zapisan, err)
+	}
+}

@@ -29,6 +29,9 @@
     </div>
   </div>
 
+  <!-- Upozorenje vodočuvaru: dnevni listovi koje nije potpisao i predao -->
+  {{template "nepredaniListovi" .Nepredani}}
+
   <!-- Moduli: brzi pristup operativnim modulima -->
   <div class="moduli-red">
     {{if .Sees "teren"}}<a href="/teren" class="modul-gumb"><span class="modul-ikona success">{{icon "map-pin"}}</span><span>Teren</span></a>{{end}}
