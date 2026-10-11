@@ -123,6 +123,9 @@ type Ishod struct {
 	// Upozorenja kažu što pri izdavanju nije radilo i koji su rezultati
 	// zbog toga upitni (Upozori); zapisuju se s izdanjem i putuju s njim.
 	Upozorenja []Upozorenje
+	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
+	// zadnja četiri dana prije izdanja: letva → rupe redom.
+	Rekonstruirano map[string][]RekonstruiranaRupa
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -264,6 +267,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	if ishod.Izbor == nil {
 		ishod.Izbor = map[string]Izbor{}
 	}
+	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)
@@ -912,7 +916,7 @@ func ZadnjiZajednicki(nizovi map[Izvor]Niz, vrhovi map[Izvor]bool) (int64, bool)
 // ucitajNiz čita satni niz iz očitanja. Protok se uzima kako je izmjeren, a
 // gdje ga nema računa se iz krivulje — Terezino Polje šalje samo centimetre, a
 // model mu traži kubike. Sate koji letvi nedostaju popuni letva s druge obale
-// (Zamjenske), prije preračuna u protok.
+// (Zamjenske), a dulje rupe susjedi (Rekonstrukcije), prije preračuna u protok.
 func (o *Osvjezivac) ucitajNiz(ctx context.Context, iz Izvor, od time.Time) (Niz, error) {
 	return o.ucitajNizZ(ctx, iz, od, true)
 }
@@ -935,10 +939,8 @@ func (o *Osvjezivac) ucitajNizZ(ctx context.Context, iz Izvor, od time.Time, zam
 	if err != nil {
 		return Niz{}, err
 	}
-	if druga, ima := DrugaObala(iz.Letva); ima && zamjena {
-		if drugo, err := o.ucitajSirovo(ctx, druga, od); err == nil {
-			PopuniSirovo(sirovo, drugo)
-		}
+	if zamjena {
+		o.popuniRupe(ctx, iz.Letva, sirovo, od)
 	}
 	vrijednosti := map[int64]float64{}
 	for sat, s := range sirovo {

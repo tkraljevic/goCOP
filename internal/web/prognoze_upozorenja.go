@@ -131,9 +131,10 @@ func (p pisacUpozorenja) imena(tekst string) string {
 // opisVrste kaže kako se opis izdavača piše na stranici: što mu se skida s
 // početka i čime se uvodi.
 var opisVrste = map[string]struct{ prefiks, uvod string }{
-	prognoza.VrstaRezerva:       {"rezerva: ", "računa se iz rezerve: "},
-	prognoza.VrstaDnevnaRezerva: {"dnevni model: ", "dnevna prognoza iz rezerve: "},
-	prognoza.VrstaZamjena:       {"zamjena: ", ""},
+	prognoza.VrstaRezerva:        {"rezerva: ", "računa se iz rezerve: "},
+	prognoza.VrstaDnevnaRezerva:  {"dnevni model: ", "dnevna prognoza iz rezerve: "},
+	prognoza.VrstaZamjena:        {"zamjena: ", ""},
+	prognoza.VrstaRekonstrukcija: {"rekonstrukcija: ", "rekonstruirano iz susjeda: "},
 }
 
 // uLetvi piše tekst uz letvu („Batina: …”), ili sam kad letve nema.
@@ -161,7 +162,7 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaKrivulja:
 		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
 	}
-	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, kiša i vrste
+	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
 	// koje ova inačica još ne zna: opis izdavača imenima letvi
 	o := opisVrste[u.Vrsta]
 	return p.uLetvi(u.Letva, o.uvod+p.imena(strings.TrimPrefix(u.Opis, o.prefiks)))
@@ -261,10 +262,16 @@ func (p pisacUpozorenja) dnevnaUpitna(u prognoza.Upozorenje) string {
 		return ""
 	}
 	s := strings.Join(dijelovi, ", ")
-	if u.Vrsta == prognoza.VrstaKisa {
+	if dnevnaIzdana(u.Vrsta) {
 		return s
 	}
 	return s + p.daniBezDnevne(u.Upitno)
+}
+
+// dnevnaIzdana: uz ovu vrstu dnevna prognoza jest izdana, samo je upitna —
+// računata bez kiše ili iz rekonstruiranih sati izvan raspona provjere.
+func dnevnaIzdana(vrsta string) bool {
+	return vrsta == prognoza.VrstaKisa || vrsta == prognoza.VrstaRekonstrukcija
 }
 
 // daniBezDnevne kaže koje dane tablica za upitne letve pokazuje iz satne
@@ -381,7 +388,7 @@ func (p pisacUpozorenja) naKartici(u prognoza.Upozorenje, q prognoza.Upitno) str
 		s = append(s, "satna upitna "+odDosega(q.OdSata))
 	}
 	switch {
-	case q.Dnevno && u.Vrsta == prognoza.VrstaKisa:
+	case q.Dnevno && dnevnaIzdana(u.Vrsta):
 		s = append(s, "dnevna upitna")
 	case q.Dnevno:
 		s = append(s, "dnevna nije izdana")
@@ -402,6 +409,8 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return p.ime(u.Letva) + " bez budućnosti vrha"
 	case prognoza.VrstaKisa:
 		return "dnevni model bez kiše"
+	case prognoza.VrstaRekonstrukcija:
+		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
 	}
 	return "dnevni model nije računao"
 }

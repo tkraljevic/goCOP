@@ -4,6 +4,27 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.36-alfa — u pripremi
+
+- **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
+  rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
+  pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
+  Mohács iz Bezdana (5 h nizvodno), Dunaszekcsőa i Baje, a tako i
+  Dunaszekcső, Siga, Aljmaš, Mohovo, Vukovar, Mursko Središće, Vízvár, Novo
+  Virje, Vrbovka i Moslavina.
+  - Rupa koja je završila može imati najviše 48 sati. Rupa koja traje
+    popunjava se najviše 24 sata i nikad dalje od zadnjeg mjerenja susjeda.
+  - Na arhivi je 95 % grešaka unutar ±1 do ±20 cm (Drava uz elektrane više,
+    Dunav manje), a zadržano zadnje mjerenje griješi i do ±61 cm.
+  - Upozorenje „nema mjerenja” postaje napomena odakle su sati i koliko su
+    točni. Rekonstruirani sati ne pokazuju se kao mjerenje i ne upisuju se u
+    očitanja.
+  - Točnost vrijedi samo u rasponu razina na kojem je provjerena (arhiva od
+    2015.). Izvan njega (Odluke 11. 10. 2026.) rekonstrukcija i dalje računa,
+    pa dnevna prognoza ostaje izdana, ali uz izdanje stoji upozorenje da
+    točnost nije provjerena; dnevna koja iz nje računa i satna niz rijeku
+    označene su upitnima.
+
 ## 0.0.35-alfa — 11. 10. 2026.
 
 **Odluke od 8. i 11. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.
