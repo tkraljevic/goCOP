@@ -262,6 +262,14 @@
 </div>
 {{end}}
 
+{{/* Upozorenje vodočuvaru na dnevne listove koje nije potpisao i predao, a
+     dan im je prošao (Odluke (11. 10. 2026.)) — prima UpozorenjeNepredanih;
+     bez njega ništa. Stoji na početnoj stranici i u vodočuvarskom dnevniku.
+     Datum već završava točkom, pa je rečenica dobiva samo iza „i još N dana”. */}}
+{{define "nepredaniListovi"}}{{with .}}
+<div class="alert alert-warning nepredani-listovi" role="alert">{{icon "triangle-alert"}} Niste potpisali i predali {{if gt .Ukupno 1}}dnevne listove{{else}}dnevni list{{end}} za {{range .Dani}}{{.Prije}}<a href="/vodocuvar/{{.ID}}">{{.Dan}}</a>{{end}}{{with .Jos}} i još <a href="/vodocuvar">{{.}} {{uzBroj . "dan" "dana" "dana"}}</a>.{{end}} Otvorite list, provjerite ga i predajte.</div>
+{{end}}{{end}}
+
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">

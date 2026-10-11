@@ -201,13 +201,7 @@ func (s *VodocuvarService) brojNacrtimaRanijihDana(ctx context.Context, l *model
 // kojem nijedan list nema broj, nije predan ni prenesen iz ranije
 // evidencije (preneseni listovi ostaju bez broja)
 func nacrtiRanijihDana(knjiga []models.VodocuvarskiList, l *models.VodocuvarskiList) []models.VodocuvarskiList {
-	sort.SliceStable(knjiga, func(i, j int) bool {
-		a, b := knjiga[i], knjiga[j]
-		if !istiDan(a.Datum, b.Datum) {
-			return a.Datum.Before(b.Datum)
-		}
-		return a.CreatedAt.Before(b.CreatedAt)
-	})
+	sloziRedomDana(knjiga)
 	zauzet := map[string]bool{}
 	for _, x := range knjiga {
 		if x.Broj != 0 || x.Predan() || x.Rekonstrukcija {
@@ -223,4 +217,15 @@ func nacrtiRanijihDana(knjiga []models.VodocuvarskiList, l *models.VodocuvarskiL
 		out = append(out, x)
 	}
 	return out
+}
+
+// sloziRedomDana slaže listove redom dana, a listove istog dana od starijeg
+func sloziRedomDana(listovi []models.VodocuvarskiList) {
+	sort.SliceStable(listovi, func(i, j int) bool {
+		a, b := listovi[i], listovi[j]
+		if !istiDan(a.Datum, b.Datum) {
+			return a.Datum.Before(b.Datum)
+		}
+		return a.CreatedAt.Before(b.CreatedAt)
+	})
 }

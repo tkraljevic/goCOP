@@ -2521,6 +2521,10 @@ a:hover { color: var(--accent); }
 .alert-warning { border-left: 4px solid var(--warning); }
 .alert-info { border-left: 4px solid var(--primary); }
 
+/* Upozorenje vodočuvaru na dnevne listove koje nije potpisao i predao */
+.nepredani-listovi a { font-weight: 600; }
+.dashboard-container > .nepredani-listovi { margin-bottom: 0; }
+
 /* Ikone iz Lucide sprajta — boja i debljina poteza dolaze iz teksta oko njih */
 .icon {
   width: 1.15em;
