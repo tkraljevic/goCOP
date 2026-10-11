@@ -11,18 +11,30 @@ package prognoza
 // poznatim krajevima dodaje se odstupanje susjeda od pravca između njegovih
 // krajeva; rupi koja traje — promjena susjeda od zadnjeg mjerenja letve.
 //
-// Točnost je izmjerena na arhivi tako da su na mjestima s mjerenjem izrezane
-// rupe, rekonstruirane i uspoređene s izmjerenim (11. 10. 2026.):
+// Točnost je izmjerena na arhivi od 2015. tako da su na mjestima s mjerenjem
+// izrezane rupe, rekonstruirane i uspoređene s izmjerenim (11. 10. 2026.);
+// broj je granica unutar koje je 95 % grešaka, u zagradi zadržano zadnje
+// mjerenje za rupu koja traje 10/24 h:
 //
-//	Mohács, rupa 22–48 h:  Bezdan ±2 cm, Dunaszekcső ±3, Baja ±5 (pravac ±3)
-//	Mohács, traje 10–24 h: Dunaszekcső ±5 cm, Baja ±12 (zadnje mjerenje ±49)
-//	Szentborbás, rupa 22–48 h: Barcs ±8 cm
-//	Szentborbás, traje 10–24 h: Barcs ±10 cm (zadnje mjerenje ±61)
+//	letva           prošla rupa (22–48 h)           rupa koja traje (10–24 h)
+//	Szentborbás     Barcs ±8                         Barcs ±10           (±61)
+//	Mohács          Bezdan ±2, Dunaszekcső ±3, Baja ±5  Dunaszekcső ±5, Baja ±12 (±49)
+//	Dunaszekcső     Bezdan ±1, Baja ±2, Mohács ±2    Baja ±5, Mohács ±5  (±19/±46)
+//	Siga            Bezdan ±1, Petreš ±2, Batina ±3  Bezdan ±4, Petreš ±7 (±16/±37)
+//	Aljmaš          Petreš ±2, Bogojevo ±3           Petreš ±5           (±15/±36)
+//	Mohovo          Sotin ±2, Ilok ±2                Sotin ±3, Ilok ±5   (±12/±27)
+//	Vukovar         Bogojevo ±4, Sotin ±6            Bogojevo ±7         (±13/±30)
+//	Mursko Središće Goričan ±4, Gornja Radgona ±5    Gornja Radgona ±8   (±17/±33)
+//	Vízvár          Novo Virje ±10, Barcs ±15        Novo Virje ±12      (±53/±57)
+//	Novo Virje      Vízvár ±10, Botovo ±16           Botovo ±18          (±54/±57)
+//	Vrbovka         Moslavina ±8, Barcs ±11          Barcs ±15           (±30/±52)
+//	Moslavina       Drávaszabolcs ±6, Vrbovka ±8     Vrbovka ±13, Barcs ±20 (±29/±55)
 //
-// (95 % grešaka unutar.) Terezino Polje bi bilo jednako dobro na živim
-// podacima, ali je u arhivi nepouzdano; kad zastane Barcs, popuni ga ono s
-// druge obale prije rekonstrukcije. Vrbovka stoji na niskoj vodi, pa ne
-// služi.
+// Terezino Polje bi Szentborbásu bilo jednako dobro na živim podacima, ali je
+// u arhivi nepouzdano; kad zastane Barcs, popuni ga ono s druge obale prije
+// rekonstrukcije, a Batinu Bezdan, Goričan Letenye i Drávaszabolcs Donji
+// Miholjac. Botovo vode elektrane, pa mu susjedi ne pomažu (±36 do ±42);
+// Dalj, Sotin, Belišće i Osijek dobili bi tek malo prema zadržanom mjerenju.
 //
 // Kao i zamjena s druge obale, rekonstruirani sat ulazi samo u račun
 // prognoze; mjerenjem se ne pokazuje i u evidenciju ne ide. Uz izdanje stoji
@@ -57,6 +69,49 @@ var Rekonstrukcije = map[string][]Susjed{
 		{Letva: "bezdan", Zastoj: -5, Prosla: 2},
 		{Letva: "dunaszekcso", Prosla: 3, Traje: 5},
 		{Letva: "baja", Prosla: 5, Traje: 12},
+	},
+	"dunaszekcso": {
+		{Letva: "bezdan", Zastoj: -7, Prosla: 1},
+		{Letva: "baja", Zastoj: 3, Prosla: 2, Traje: 5},
+		{Letva: "mohacs", Prosla: 2, Traje: 5},
+	},
+	"siga": {
+		{Letva: "bezdan", Zastoj: 2, Prosla: 1, Traje: 4},
+		{Letva: "petres", Prosla: 2, Traje: 7},
+		{Letva: "batina", Zastoj: 3, Prosla: 3, Traje: 7},
+	},
+	"aljmas": {
+		{Letva: "petres", Prosla: 2, Traje: 5},
+		{Letva: "bogojevo", Zastoj: -3, Prosla: 3},
+	},
+	"mohovo": {
+		{Letva: "sotin", Zastoj: 2, Prosla: 2, Traje: 3},
+		{Letva: "ilok", Zastoj: 1, Prosla: 2, Traje: 5},
+	},
+	"vukovar": {
+		{Letva: "bogojevo", Zastoj: 2, Prosla: 4, Traje: 7},
+		{Letva: "sotin", Prosla: 6},
+	},
+	"mursko-sredisce": {
+		{Letva: "gorican", Zastoj: -6, Prosla: 4},
+		{Letva: "gornja-radgona", Zastoj: 5, Prosla: 5, Traje: 8},
+	},
+	"vizvar": {
+		{Letva: "novo-virje", Zastoj: 3, Prosla: 10, Traje: 12},
+		{Letva: "barcs", Zastoj: -7, Prosla: 15},
+	},
+	"novo-virje": {
+		{Letva: "vizvar", Zastoj: -3, Prosla: 10},
+		{Letva: "botovo", Zastoj: 4, Prosla: 16, Traje: 18},
+	},
+	"vrbovka": {
+		{Letva: "moslavina", Zastoj: -7, Prosla: 8},
+		{Letva: "barcs", Zastoj: 6, Prosla: 11, Traje: 15},
+	},
+	"moslavina": {
+		{Letva: "dravaszabolcs", Zastoj: -6, Prosla: 6},
+		{Letva: "vrbovka", Zastoj: 7, Prosla: 8, Traje: 13},
+		{Letva: "barcs", Zastoj: 12, Prosla: 15, Traje: 20},
 	},
 }
 

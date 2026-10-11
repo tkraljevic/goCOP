@@ -6,15 +6,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
-- **Prognoza: rekonstrukcija iz susjeda.** Szentborbás i Mohács nemaju letvu
-  na drugoj obali. Kad im izvor stane na više od šest sati, rupu u računu
-  popunjavaju susjedi na istoj rijeci, pomaknuti za vrijeme putovanja vode:
-  Szentborbás iz Barcsa (4 h uzvodno), Mohács iz Bezdana (5 h nizvodno),
-  Dunaszekcsőa i Baje.
+- **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
+  rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
+  pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
+  Mohács iz Bezdana (5 h nizvodno), Dunaszekcsőa i Baje, a tako i
+  Dunaszekcső, Siga, Aljmaš, Mohovo, Vukovar, Mursko Središće, Vízvár, Novo
+  Virje, Vrbovka i Moslavina.
   - Rupa koja je završila može imati najviše 48 sati. Rupa koja traje
     popunjava se najviše 24 sata i nikad dalje od zadnjeg mjerenja susjeda.
-  - Na arhivi je 95 % grešaka unutar ±2 do ±12 cm, a zadržano zadnje mjerenje
-    griješi i do ±61 cm.
+  - Na arhivi je 95 % grešaka unutar ±1 do ±20 cm (Drava uz elektrane više,
+    Dunav manje), a zadržano zadnje mjerenje griješi i do ±61 cm.
   - Upozorenje „nema mjerenja” postaje napomena odakle su sati i koliko su
     točni. Rekonstruirani sati ne pokazuju se kao mjerenje i ne upisuju se u
     očitanja.

@@ -325,3 +325,18 @@ func TestOsvjezavanjeSRekonstrukcijom(t *testing.T) {
 		t.Errorf("karika s rekonstrukcijom javlja se kao bez mjerenja: %+v", ishod.Upozorenja)
 	}
 }
+
+// Tablica susjeda: susjed nije sama letva ni dvaput, točnost je upisana, a za
+// rupu koja traje služi samo susjed uzvodno ili u istom satu (nizvodni za
+// zadnje sate još nema mjerenja).
+func TestTablicaRekonstrukcija(t *testing.T) {
+	for letva, susjedi := range Rekonstrukcije {
+		vidjen := map[string]bool{}
+		for _, s := range susjedi {
+			if s.Letva == letva || vidjen[s.Letva] || s.Prosla <= 0 || s.Traje < 0 || (s.Traje > 0 && s.Zastoj < 0) {
+				t.Errorf("%s: susjed %+v", letva, s)
+			}
+			vidjen[s.Letva] = true
+		}
+	}
+}
