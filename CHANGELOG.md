@@ -6,7 +6,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.35-alfa — u pripremi
 
-**Odluke od 8. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.
+**Odluke od 8. i 11. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.
 Sve čvorove treba nadograditi: nova pravila vrijede tek na čvorovima s ovom
 inačicom, a čvor na 0.0.34 zadržava staro ponašanje i ne ruši se na novim
 poljima.**
@@ -73,6 +73,13 @@ poljima.**
     dan, taj dan nije radio. Akt ili prijava za takav dan ide na današnji
     list, uz napomenu. Brojevi idu redom dana; postojeći se ne mijenjaju
     (odluka 6).
+  - Nacrt otvoren unaprijed vodočuvar dopisuje dok ga ne preda, i kad mu je
+    dan prošao (Odluke 11. 10.).
+  - Vodočuvar dobiva upozorenje na listove kojima je dan prošao, a nije ih
+    potpisao i predao: na početnoj stranici i u svom dnevniku, s poveznicom
+    na svaki list. Upozorava samo list na koji je sam nešto upisao; list koji
+    je otvorio samo program (upis akta, „Upiši” rukovoditelja) ne upozorava
+    (Odluke 11. 10.).
 - **Dežurstva** (odluka 10): zapis bez poznatog mjesta rada program prvo
   pokuša prepoznati iz opisa, a inače je „za provjeru”, izvan zbroja, dok
   uprava centra ne izabere opis.
@@ -98,6 +105,11 @@ poljima.**
   čvor ne kreće i kaže što nedostaje i kako ga vratiti. Novi identitet čvora
   moguć je samo izričito, zastavicom `-novi-kljuc-cvora`. Kad nema
   `gocop.toml`, ime čvora uzima se iz baze.
+- **Postavke čvora:** opisi u `gocop.toml` su kraći, uz komentirane primjere
+  koji se uključuju micanjem znaka `#`, a uvod navodi najčešće izmjene. Uz
+  bazu program pri svakom pokretanju zapiše `gocop.toml.primjer` s opisima
+  tekuće inačice, pa ih vidi i čvor nadograđen sa starije inačice; postojeći
+  `gocop.toml` ne dira, a primjer ne čita.
 - **Testovi** (odluka 13): provjere djelatnika, uvoza i razmjene rade na
   izmišljenim osobama sektora P, a provjere registara posebno, prije izdanja.
 - **Privremeno imenovanje i rokovi dužnosti** (odluke 5. 10.):
