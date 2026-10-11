@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.35-alfa — u pripremi
+## 0.0.35-alfa — 11. 10. 2026.
 
 **Odluke od 8. i 11. 10. 2026., upozorenja uz prognozu i sređen uzdužni profil.
 Sve čvorove treba nadograditi: nova pravila vrijede tek na čvorovima s ovom
