@@ -29,12 +29,12 @@ func TestIstiNacrtOvjerenNaDvaCvora(t *testing.T) {
 	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
 	svoj, _ := posluzitelj.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
 	posluzitelj.ovjeri(t, models.AktPrekid, models.PhasePrep, sat.Add(2*time.Minute))
-	nacrt, err := laptop.akti.Pripremi(ctx, laptop.ovlasti, laptop.rukovod, service.ZahtjevAkta{StationID: laptop.letva.ID.String(),
+	nacrt, err := laptop.akti.Pripremi(ctx, laptop.dezOvl, laptop.dezurni, service.ZahtjevAkta{StationID: laptop.letva.ID.String(),
 		Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Vrijedi: sat.Add(5 * time.Minute)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := laptop.akti.Spremi(ctx, laptop.ovlasti, nacrt); err != nil {
+	if err := laptop.akti.Spremi(ctx, laptop.dezOvl, nacrt); err != nil {
 		t.Fatal(err)
 	}
 	prenesiAkte(t, laptop, posluzitelj)

@@ -193,12 +193,12 @@ func TestVrijediOdUzDvaOtvorenaDnevnikaCOPa(t *testing.T) {
 	}
 	otvori(time.Now().Add(-10 * 24 * time.Hour).Truncate(time.Hour))
 	nacrt := func(vrijedi time.Time) (*models.Akt, error) {
-		a, err := o.akti.Pripremi(ctx, o.ovlasti, o.rukovod, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
 			Stupanj: models.PhasePrep, Vrijedi: vrijedi, PotvrdaVrijedi: true})
 		if err != nil {
 			t.Fatal(err)
 		}
-		return a, o.akti.Spremi(ctx, o.ovlasti, a)
+		return a, o.akti.Spremi(ctx, o.dezOvl, a)
 	}
 	a, err := nacrt(time.Now().Add(-5 * 24 * time.Hour).Truncate(time.Minute))
 	if err != nil {

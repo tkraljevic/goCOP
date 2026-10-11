@@ -66,6 +66,9 @@ func TestIspomocNaDrugomPodrucju(t *testing.T) {
 	ispomoc, prije := k.ispomoc(t)
 	sad := time.Now()
 	danas := time.Date(sad.In(models.Zagreb).Year(), sad.In(models.Zagreb).Month(), sad.In(models.Zagreb).Day(), 0, 0, 0, 0, models.Zagreb)
+	// list za dan koji je prošao više se ne otvara (pitanje 6), pa sat servisa
+	// stoji na današnjem danu
+	k.o.naDan(danas)
 	list := func(dan time.Time) *models.VodocuvarskiList {
 		return &models.VodocuvarskiList{UserID: k.pero.ID.String(), Ime: k.pero.FullName, Sektor: "P", AreaID: 1, Datum: dan, PredanoAt: &sad}
 	}
