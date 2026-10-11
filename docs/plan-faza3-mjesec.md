@@ -75,9 +75,13 @@ Rok za `applyOne` je 15. 11. 2026.; plan ga stavlja ranije, da ostane vremena.
 - **Na manjem limitu:** srednja pojednostavljenja u webu, pokrivenost cijelog
   koda do 85 %, stare teške funkcije (`RunJournals`, `opisi`).
 - **Transport veza/1** ([plan-protokol-povezivanja.md](plan-protokol-povezivanja.md)).
-- **Tek onda proširenja:** prognoza po branjenim područjima
-  ([plan-prognoza-po-tokovima.md](plan-prognoza-po-tokovima.md)) i karte
-  (nasipi, objekti, obuhvati poplave).
+- **Tek onda proširenja:**
+  - prognoza po branjenim područjima ([plan-prognoza-po-tokovima.md](plan-prognoza-po-tokovima.md));
+  - karte: nasipi, objekti i obuhvati poplave, iz podloga karata opasnosti od
+    poplava;
+  - registar crpnih stanica i ustava: ustave s uzvodnim i nizvodnim
+    vodomjerom; crpne stanice s radom agregata i vodostajima prije, tijekom i
+    nakon rada.
 
 ## Odluke potrebne za plan
 

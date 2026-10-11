@@ -184,6 +184,13 @@ Početna snimka: [izvještaj](CODE_QUALITY_BASELINE.md), podaci u
 `f5adb84` (0.0.31), jer su u zajedničkoj radnoj kopiji istodobno nastajale
 nepovezane izmjene za 0.0.32. Ne predstavlja verifikaciju tih nezavršenih izmjena.
 
+**Od 11. 10. 2026. referentna točka je `e4441a01`** (master nakon 0.0.35 i
+rekonstrukcije iz susjeda), snimljena sa strožim granicama. Odluka je bila da
+strože granice vrijede za kod od sada: uz staru točku sve funkcije napisane
+između 4. i 11. 10., pod starim granicama, mjerile bi se kao nove. Sav taj kod
+prošao je provjeru na svom PR-u, pa pomak ništa ne skriva. Napredak od 4. 10.
+i dalje se uspoređuje s brojkama početne snimke.
+
 Za namjerno pomicanje referentne točke, nakon pregleda:
 
 ```sh
@@ -199,9 +206,9 @@ kao valjan baseline. Svaku obnovu opisati i pregledati u PR-u, zajedno s promjen
 top funkcija i razloga zbog kojeg je obnova opravdana.
 
 Neusporedivi su različiti OS/arhitektura, Go verzija, verzija analizatora i hash
-konfiguracije. Pooštrenje granica 11. 10. 2026. zato je ponovno izmjerilo
-isti `f5adb84` novim pravilima (macOS, go1.27.1); brojke su iste, mijenja se
-otisak i ocjena. CI to radi sam pri svakom pokretanju s novom konfiguracijom. Nakon promjene pravila ili alata **ponovno izmjeriti prethodni
+konfiguracije. Pooštrenje granica 11. 10. 2026. zato je referentni commit
+izmjerilo novim pravilima (macOS, go1.27.1). CI to radi sam pri svakom
+pokretanju s novom konfiguracijom. Nakon promjene pravila ili alata **ponovno izmjeriti prethodni
 baseline commit novim pravilima**, pa usporediti novi kod. Ne prihvatiti novi kod
 kao vlastiti baseline. Za mjerenje čiste odvojene kopije:
 
