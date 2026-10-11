@@ -56,3 +56,31 @@ func TestKnjigaDionice(t *testing.T) {
 		}
 	}
 }
+
+// Poddionica bez imena vode nosi šifru vode, a bez šifre napomenu; poddionica
+// bez letve i nasipa javlja to u kartici umjesto praznih tablica.
+func TestKnjigaDioniceBezVodeILetve(t *testing.T) {
+	sifra := PartView{SectionPart: models.SectionPart{Seq: 1, WatercourseCode: "karasica", Unaligned: true}}
+	bez := PartView{SectionPart: models.SectionPart{Seq: 2}}
+	d := SectionPageData{Section: models.Section{Code: "B.16.9", AreaID: 16, SectorID: "B"}, Parts: []PartView{sifra, bez}}
+
+	var b bytes.Buffer
+	if err := KnjigaDionice(d, ZaglavljeIzvoza{Datum: time.Now()}).Zapisi(&b); err != nil {
+		t.Fatal(err)
+	}
+	redci, err := procitajXLSX(b.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var sve []string
+	for _, r := range redci {
+		sve = append(sve, strings.Join(r, "|"))
+	}
+	list := strings.Join(sve, "\n")
+	for _, want := range []string{"PODDIONICA 1 — karasica", "PODDIONICA 2 — voda nije vezana", "nisu poravnali pri prijepisu",
+		"Bez mjerodavnog vodomjera iz registra.", "Obrana koja traje|nije proglašena"} {
+		if !strings.Contains(list, want) {
+			t.Errorf("kartica nema %q\n%s", want, list)
+		}
+	}
+}

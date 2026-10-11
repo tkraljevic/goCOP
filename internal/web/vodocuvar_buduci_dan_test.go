@@ -283,23 +283,28 @@ func TestBuduciPredanListBezGumbaOvjere(t *testing.T) {
 // knjige; list s brojem i prenesen list tu oznaku nemaju (Odluke
 // (8. 10. 2026.), pitanja 5 i 6)
 func TestNacrtBezBrojaUPDFu(t *testing.T) {
-	if _, err := exec.LookPath("pdftotext"); err != nil {
-		t.Skip("pdftotext nije dostupan; tekst PDF-a se ne može provjeriti")
-	}
 	dan := time.Date(2026, time.March, 10, 0, 0, 0, 0, models.Zagreb)
 	list := func(id string, broj int) models.VodocuvarskiList {
 		return models.VodocuvarskiList{ID: id, UserID: "pero", Ime: "Pero Perić", Datum: dan, Broj: broj, Od: "07:00", Do: "15:00", Opis: "plan obilaska"}
 	}
 	nacrt, s := list("n", 0), list("a", 41)
-	if tekst := pdfTekst(t, PDFVodocuvarskiList(&nacrt, models.OrgTerms{}, nil, models.OtisciLista{})); !strings.Contains(tekst, "nacrt bez broja") {
-		t.Errorf("PDF nacrta bez broja: %s", tekst)
-	}
-	if tekst := pdfTekst(t, PDFVodocuvarskiList(&s, models.OrgTerms{}, nil, models.OtisciLista{})); strings.Contains(tekst, "nacrt bez broja") {
-		t.Error("list s brojem ne smije nositi oznaku nacrta bez broja")
-	}
 	prenesen := list("p", 0)
 	prenesen.Rekonstrukcija = true
-	knjiga := pdfTekst(t, PDFVodocuvarskaKnjiga([]models.VodocuvarskiList{s, nacrt, prenesen}, "Pero Perić", 2026, models.OrgTerms{}, nil, models.OtisciLista{}, nil))
+	// PDF-ovi se crtaju uvijek (i na stroju CI-ja bez pdftotexta, da se kod
+	// oznake izvede i izmjeri), a tekst se provjerava gdje ga se da pročitati
+	nacrtPDF := PDFVodocuvarskiList(&nacrt, models.OrgTerms{}, nil, models.OtisciLista{})
+	sPDF := PDFVodocuvarskiList(&s, models.OrgTerms{}, nil, models.OtisciLista{})
+	knjigaPDF := PDFVodocuvarskaKnjiga([]models.VodocuvarskiList{s, nacrt, prenesen}, "Pero Perić", 2026, models.OrgTerms{}, nil, models.OtisciLista{}, nil)
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan; PDF je nacrtan, a tekst se ne može provjeriti")
+	}
+	if tekst := pdfTekst(t, nacrtPDF); !strings.Contains(tekst, "nacrt bez broja") {
+		t.Errorf("PDF nacrta bez broja: %s", tekst)
+	}
+	if tekst := pdfTekst(t, sPDF); strings.Contains(tekst, "nacrt bez broja") {
+		t.Error("list s brojem ne smije nositi oznaku nacrta bez broja")
+	}
+	knjiga := pdfTekst(t, knjigaPDF)
 	if strings.Count(knjiga, "nacrt bez broja") != 1 {
 		t.Errorf("oznaka nacrta bez broja u knjizi %d puta, očekivano jednom", strings.Count(knjiga, "nacrt bez broja"))
 	}

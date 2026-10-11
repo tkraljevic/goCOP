@@ -89,9 +89,6 @@ func TestOznakaDvostrukogListaUPregleduCekaOvjeru(t *testing.T) {
 // „dvostruki list – vidi i list br. …”, kao na popisu; list bez dvojnika je
 // nema
 func TestKnjigaOznacavaDvostrukeListove(t *testing.T) {
-	if _, err := exec.LookPath("pdftotext"); err != nil {
-		t.Skip("pdftotext nije dostupan; tekst PDF-a se ne može provjeriti")
-	}
 	dan := time.Date(2026, time.March, 10, 0, 0, 0, 0, models.Zagreb)
 	kad := dan.Add(15 * time.Hour)
 	list := func(id string, d time.Time, broj int) models.VodocuvarskiList {
@@ -99,6 +96,11 @@ func TestKnjigaOznacavaDvostrukeListove(t *testing.T) {
 	}
 	pdf := PDFVodocuvarskaKnjiga([]models.VodocuvarskiList{list("a", dan, 41), list("b", dan, 42), list("c", dan.AddDate(0, 0, 1), 43)},
 		"Pero Perić", 2026, models.OrgTerms{}, nil, models.OtisciLista{}, nil)
+	// PDF se crta uvijek (i na stroju CI-ja bez pdftotexta, da se kod oznake
+	// izvede i izmjeri), a tekst se provjerava gdje ga se da pročitati
+	if _, err := exec.LookPath("pdftotext"); err != nil {
+		t.Skip("pdftotext nije dostupan; PDF je nacrtan, a tekst se ne može provjeriti")
+	}
 	tekst := pdfTekst(t, pdf)
 	for _, x := range []string{"dvostruki list – vidi i list br. 42", "dvostruki list – vidi i list br. 41"} {
 		if strings.Count(tekst, x) != 1 {

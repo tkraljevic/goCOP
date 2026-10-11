@@ -624,6 +624,21 @@ func TestCvoroviZaPotvrduPreskacuKrivKljuc(t *testing.T) {
 	}
 }
 
+// Zapis drugog čvora koji se ne da pročitati ruši popis čvorova za potvrdu,
+// iako se zapis ovog čvora čita
+func TestCvoroviZaPotvrduNecitljivDrugiCvor(t *testing.T) {
+	a := rubnaMreza(t, "cop-osijek")
+	if _, err := a.db.Exec(`INSERT INTO peers (node_id, public_key, created_at) VALUES ('los-datum', 'kljuc', 'nije vrijeme')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SelfPeer(ctxRub); err != nil {
+		t.Fatalf("zapis ovog čvora: %v", err)
+	}
+	if c, err := a.cvoroviZaPotvrdu(ctxRub); err == nil {
+		t.Errorf("nečitljiv čvor prošao: %+v", c)
+	}
+}
+
 func TestOvlastKadUpisIliCitanjePadne(t *testing.T) {
 	if _, err := rubniCvor(t, "samotnjak").IzdajOvlast(ctxRub, "x"); err == nil {
 		t.Error("ovlast bez mreže")
