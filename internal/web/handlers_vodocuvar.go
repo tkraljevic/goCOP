@@ -138,6 +138,9 @@ type VodocuvarPageData struct {
 	// predan list brojevi drugih predanih listova istog dana
 	Dvostruki []service.DvostrukiDan
 	Dvojnici  map[string][]int
+	// Nepredani su vlastiti listovi koje vodočuvar nije potpisao i predao,
+	// a dan im je prošao; nil kad ih nema
+	Nepredani *UpozorenjeNepredanih
 
 	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
 	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
@@ -270,6 +273,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	d.MojiMjeseci = poMjesecima(d.Moji)
+	d.Nepredani = nepredaniZa(r.Context(), s, u)
 	d.Dvostruki = s.DvostrukiListovi(r.Context(), perms)
 	d.Dvojnici = s.OznakeDvostrukih(r.Context())
 	// Vodočuvar koji ne vidi ničiji tuđi dnevnik i nikome ne zadaje zadatke

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 
@@ -14,14 +15,28 @@ type DashboardHandler struct {
 	tmpl         *template.Template
 	registriTmpl *template.Template
 
-	zid      func() *service.ZidService
-	izvjesca func() *service.IzvjescaService
-	mts      func() *service.MtsService
+	zid       func() *service.ZidService
+	izvjesca  func() *service.IzvjescaService
+	mts       func() *service.MtsService
+	vodocuvar func() *service.VodocuvarService
 }
 
 // SetZid daje naslovnoj zid događanja i traku stanja
 func (h *DashboardHandler) SetZid(zid func() *service.ZidService, izvjesca func() *service.IzvjescaService, mts func() *service.MtsService) {
 	h.zid, h.izvjesca, h.mts = zid, izvjesca, mts
+}
+
+// SetVodocuvar daje naslovnoj vodočuvarski dnevnik: vodočuvar na njoj vidi
+// upozorenje na dnevne listove koje nije potpisao i predao
+func (h *DashboardHandler) SetVodocuvar(f func() *service.VodocuvarService) { h.vodocuvar = f }
+
+// nepredani je upozorenje osobi na njezine nepredane listove; nil bez
+// vodočuvarskog dnevnika
+func (h *DashboardHandler) nepredani(ctx context.Context, u *models.User) *UpozorenjeNepredanih {
+	if h.vodocuvar == nil {
+		return nil
+	}
+	return nepredaniZa(ctx, h.vodocuvar(), u)
 }
 
 func NewDashboardHandler(userService *service.UserService, tmpl, registriTmpl *template.Template) *DashboardHandler {
@@ -57,6 +72,7 @@ type DashboardViewData struct {
 	Zid            []service.Dogadjaj
 	Moduli         []struct{ ID, Naziv, Ikona string }
 	Precaci        []Precac
+	Nepredani      *UpozorenjeNepredanih // vlastiti listovi koje vodočuvar nije predao
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -101,6 +117,7 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	data.Precaci = precaciZa(perms)
+	data.Nepredani = h.nepredani(r.Context(), user)
 
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := h.tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
