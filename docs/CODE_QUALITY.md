@@ -79,7 +79,8 @@ modula ne uključuje odvojeni quality modul; zato ga `make quality` zasebno test
 | Coverage | Ukupno ≥85%; kritično ≥95% |
 | CC | ≤6 GOOD; 7–10 WARNING; 11–15 HIGH; >15 zahtijeva pregled |
 | CRAP | ≤6 EXCELLENT; (6,10] GOOD; (10,15] WARNING; (15,30] HIGH; >30 FAIL cilj |
-| Kritične funkcije | CC ≤10 i CRAP ≤10; bez statičkih grešaka |
+| Nova funkcija u kritičnom kodu | CC ≤7 i CRAP ≤7, coverage ≥95 %; bez statičkih grešaka |
+| Nova funkcija drugdje | CC ≤10 i CRAP ≤10, coverage ≥85 % |
 | Exact duplikacija | <2% GOOD; [2,5)% WARNING; ≥5% HIGH |
 | Mutation efficacy | Kritični odabrani paket ≥80%, početno upozorenje |
 
@@ -92,6 +93,12 @@ coverage je u toj formuli udio 0–1, a ne postotak 0–100.
 
 Primjer: CC=10 uz coverage=50% daje CRAP=22,5; uz 100% daje 10.
 Visok CC ostaje vidljiv čak i kada se svi retci izvrše u testu.
+
+Granice za novi kod pooštrene su Odlukama (11. 10. 2026.): kritično CRAP ≤7,
+ostalo ≤10 (prije 10 i 30). CRAP ≤7 praktički znači CC ≤7: CC 5 traži barem
+57 % coveragea, CC 6 barem 70 %, CC 7 punih 100 %, a CC 8 ne prolazi nikako.
+U Go-u svaki `if err != nil` diže CC za 1, pa je granica stroga, ali izvediva
+malim funkcijama s imenom koje kaže što rade.
 
 Coverage je **statement coverage**, ne branch coverage. Ukupni i paketni rezultat
 ponderirani su brojem naredbi, a ne prosjekom postotaka funkcija. Zadano Go
@@ -141,6 +148,10 @@ Za postojeći dug dopušten je **samo zatečeni opseg**:
 - CC ne smije prijeći `max(stari CC, cilj)`; CRAP ne smije prijeći
   `max(cilj, stari CRAP + 0,5)`. Prate se pojedine funkcije, tako da mnogo novih
   jednostavnih funkcija ne može sakriti pogoršanje jedne velike.
+- Dirana funkcija tako ne smije postati gora. Mala funkcija ostaje ispod cilja
+  (u kritičnom kodu 7), a velika stara smije dobiti ispravak greške bez
+  obaveznog preuređenja, ali ne smije narasti. Hitan ispravak nikad ne čeka
+  refaktor; preuređenje velikih ide kroz fazu 3 (STABILIZACIJA.md).
 - Nepromijenjena funkcija (isti broj tokena, naredbi i CC kao u baselineu)
   ne uspoređuje se po coverageu ni CRAP-u: razlika tada dolazi od testova koji
   ovise o vremenu, a ne od promjene. Ukupni i kritični coverage i dalje se
@@ -188,7 +199,9 @@ kao valjan baseline. Svaku obnovu opisati i pregledati u PR-u, zajedno s promjen
 top funkcija i razloga zbog kojeg je obnova opravdana.
 
 Neusporedivi su različiti OS/arhitektura, Go verzija, verzija analizatora i hash
-konfiguracije. Nakon promjene pravila ili alata **ponovno izmjeriti prethodni
+konfiguracije. Pooštrenje granica 11. 10. 2026. zato je ponovno izmjerilo
+isti `f5adb84` novim pravilima (macOS, go1.27.1); brojke su iste, mijenja se
+otisak i ocjena. CI to radi sam pri svakom pokretanju s novom konfiguracijom. Nakon promjene pravila ili alata **ponovno izmjeriti prethodni
 baseline commit novim pravilima**, pa usporediti novi kod. Ne prihvatiti novi kod
 kao vlastiti baseline. Za mjerenje čiste odvojene kopije:
 
@@ -213,7 +226,7 @@ samo da bi CI bio zelen; posebno ne za stvarne greške autorizacije/uvoza.
 
 Funkcija izdvojena iz postojeće funkcije bez izmjene ponašanja (npr. dijelovi
 `main` premješteni u `run` i korake pokretanja) nije nov kod, a bez ovoga bi se
-mjerila kao nov: cilj 85 % i CC 15, iako je isti kod u izvoru bio bez testova.
+mjerila kao nov: cilj 85 % i CC 10, iako je isti kod u izvoru bio bez testova.
 Rastavljanje bi tako bilo skuplje od ostavljanja jedne goleme funkcije.
 
 Premještaji su u `premjestaji`: izvor (`iz`, funkcija koja postoji u
@@ -296,6 +309,31 @@ Mijenjati najmanji smisleni dio, dodati test koji provjerava ponašanje, pokrenu
 gate i pregledati razliku prema baselineu. Ne dijeliti funkcije radi same brojke,
 ne gasiti lintere, ne smanjivati pragove i ne osvježavati baseline bez objašnjenja.
 Kod obrane od poplava važniji su ispravna odluka, audit i čitljivost nego prosjek.
+
+### Pravila pisanja koda
+
+Jednaka za čovjeka i agenta (Odluke 11. 10. 2026.). Kod mora biti čitljiv
+onome tko ga sutra mijenja, a ne samo proći provjeru.
+
+1. **Prvo test.** Ponašanje koje se mijenja najprije se zaključa testom.
+   Preuređenje bez promjene ponašanja dokazuje se istim testovima prije i
+   poslije, a brojke koje dežurni čita usporedbom na istoj bazi ili arhivi.
+2. **Male funkcije s imenom koje kaže što rade.** Jedna funkcija, jedan
+   korak. Ako se dio može nazvati („provjeri pravo”, „složi primatelje”),
+   to je zasebna funkcija. Funkcija se ne dijeli radi brojke kad to otežava
+   čitanje; tada ide zapisana iznimka.
+3. **Greška se ne guta.** Svaka greška se vraća s kontekstom (`fmt.Errorf("…:
+   %w", err)`) ili se izričito zabilježi i objasni zašto se ide dalje.
+   Nova uporaba bez provjere je lint nalaz.
+4. **Nema globalnih tablica konfiguracije.** Što se mijenja ili razlikuje po
+   čvoru, toku ili sektoru predaje se kao parametar, a ne čita iz globalne
+   varijable koju testovi podmeću.
+5. **Komentar kaže zašto, a ne što.** Odluka, izvor podatka, mjerenje ili
+   slučaj iz prakse koji je pravilo uveo, s datumom. Što kod radi kaže kod.
+6. **Imena na hrvatskom**, kao i dosad, osim ustaljenih Go i tehničkih
+   izraza.
+7. **Procjena nikad kao mjerenje.** Popunjen, preračunat ili rekonstruiran
+   podatak nosi oznaku izvora i ne ulazi tamo gdje se mjerenje dokazuje.
 
 Izvori: [golangci konfiguracija](https://golangci-lint.run/docs/configuration/file/),
 [gocyclo](https://github.com/fzipp/gocyclo),
