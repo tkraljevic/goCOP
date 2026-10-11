@@ -4,6 +4,17 @@ Plan od 11. 10. 2026., prema 0.0.35-alfa i grani rekonstrukcije (PR #32).
 Nastavlja Odluke (4. 10. 2026.) o prognozi po rijekama i plan Postavki
 prognoze (30. 9. 2026.). Ništa od ovoga još nije ugrađeno.
 
+## Odluke (11. 10. 2026.)
+
+1. **Jedinica modela je branjeno područje.** Modeli se rade po branjenim
+   područjima, ne po rijeci. Prikaz po vodotoku i sektoru izvodi se iz
+   registra, kao i prije.
+2. **Model prognoze mijenja administrator.**
+3. **Kasnije dolazi i Sava.** Područja na Savi dobivaju svoje modele kao
+   podatak, bez promjene programa.
+4. **Plan se provodi kasnije.** Sada ostaju kvaliteta koda (faza 3) i mrežni
+   protokol.
+
 ## Cilj
 
 1. Prognoza se gleda i izvozi po vodotoku, sektoru i branjenom području, a
@@ -62,26 +73,28 @@ Tokovi već sada ovise jedan o drugome:
 
 ## Tok kao podatak
 
-Tok je povezan lanac letvi koji se računa zajedno. Predlažu se dva toka,
-kao što je kod danas već dijeli:
-- **Dunav** (s inundacijom);
-- **Drava** s Murom, Bednjom, Vučicom i Karašicom.
+Prema Odlukama (11. 10. 2026.) jedinica modela je branjeno područje: zapis
+nosi letve tog područja i ono iz čega se one računaju. Ulazi iz susjednih
+područja ulaze kao i svaka letva. Primjer su međudržavne rijeke: područje 33
+(Mura i Drava) hrani područje 34 (Drava i Dunav) preko Botova i Terezinog
+Polja, a u području 34 Osijek se računa iz Aljmaša. Riječ „tok” u ostatku
+plana znači model jednog branjenog područja.
 
-Pritoke ostaju u Dravi jer se vežu na nju: Jelengrad se računa iz Osijeka,
-Belišća i Marjančaca. Tok se poslije može razdvojiti kad netko preuzme
-svoju rijeku.
+Kod danas računa dvije skupine, Dravu (s Murom, Bednjom, Vučicom i
+Karašicom) i Dunav. Pri prvom punjenju one se raspodijele po područjima
+prema registru: dionice letve i područja koja je prate.
 
 Sektor i branjeno područje nisu tok: oni se za prikaz izvode iz registra
 (vodotok letve, sektori i područja koji je prate, dionice).
 
-Tok je zapis u knjizi verzija (novi entitet `prognoza_tok`, jedan zapis po
-toku). Primjer oblika, samo kao ilustracija; brojevi i ulazi su iz današnjih
-tablica:
+Model područja je zapis u knjizi verzija (novi entitet, jedan zapis po
+branjenom području). Primjer oblika, samo kao ilustracija; ulazi i brojevi
+su iz današnjih tablica:
 
 ```json
 {
-  "tok": "drava",
-  "naziv": "Drava s Murom, Bednjom, Vučicom i Karašicom",
+  "podrucje": 34,
+  "naziv": "Međudržavne rijeke Drava i Dunav",
   "letve": [
     {"letva": "botovo", "velicina": "protok",
      "ulazi": ["he-dubrava", "gorican"],
@@ -192,18 +205,16 @@ Ovisi o mrežnom protokolu (`applyOne` kao granica protokola, rok 15. 11.
 
 ## Otvorena pitanja
 
-1. **Što je tok.** Prijedlog: Dunav i Drava (s Murom, Bednjom, Vučicom i
-   Karašicom), kao danas u kodu. Sektor i branjeno područje izvode se za
-   prikaz.
-2. **Tko mijenja model toka.** Prijedlog: Centar obrane od poplava i nova
-   dužnost „prognostičar sektora” za tokove svog sektora; ostali vide, ali ne
-   mijenjaju.
-3. **Kad promjena vrijedi.** Prijedlog: odmah nakon „Probaj” i „Primijeni”,
+Odlučeno 11. 10. 2026.: jedinica modela je branjeno područje, model
+mijenja administrator, Sava dolazi kasnije, a plan se provodi kasnije.
+Ostaje:
+
+1. **Kad promjena vrijedi.** Prijedlog: odmah nakon „Probaj” i „Primijeni”,
    za sljedeće izdanje; razmjenom na sve čvorove.
-4. **Stari oblik modela.** Koliko dugo razmjena prihvaća paket `lanac` uz
+2. **Stari oblik modela.** Koliko dugo razmjena prihvaća paket `lanac` uz
    pakete po toku. Prijedlog: jedno izdanje.
-5. **Redoslijed.** Prijedlog: korak 1 odmah; koraci 2 i 3 uz fazu 3 za
-   prognozu; korak 4 nakon protokola.
+3. **Redoslijed kad dođe na red.** Prijedlog: korak 1 prvi; koraci 2 i 3 uz
+   fazu 3 za prognozu; korak 4 nakon protokola.
 
 ## Što se ne radi
 
