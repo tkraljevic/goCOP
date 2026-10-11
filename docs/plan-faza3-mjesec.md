@@ -86,12 +86,21 @@ Već riješeno:
 - **Prekid koji nije pripremni:** Odluke (4. 10. 2026.) o stadijima obrane;
   ukida se samo najviši stadij koji traje.
 
-Otvoreno, s rokom:
+Odluke (11. 10. 2026.):
+1. **Nepoznati entitet:** čvor zapis entiteta koji ne poznaje čuva u knjizi i
+   prosljeđuje dalje, ali ga ne primjenjuje dok se ne nadogradi; tada ga
+   primijeni. Pločica razmjene kaže koliko zapisa čeka nadogradnju. Stare i
+   nove inačice tako rade zajedno bez gubitka. Ide u 2. tjedan.
+2. **Dnevni list otvoren prije ponoći, spremljen poslije nje:** sprema se na
+   svoj dan, dan na koji je obrazac otvoren, bez broja dok se ne preda, kao i
+   nacrt. Tekst se ne gubi. Ide uz dorade u 1. tjednu.
+3. **Sken ovjere i slanje ovjerenog akta:** smije onaj tko akt smije
+   ovjeriti; slati smije i Dežurni operater u COP-u. Ide u 3. tjedan.
+4. **Stare otvorene epizode obrane bez akta:** pri prelasku na 0.0.36
+   program ih zatvori, s napomenom da su zatvorene pri prijelazu na stanje
+   iz akata. Ostaju u povijesti, a obrana se računa samo iz akata. Ide u
+   3. tjedan.
 
-| pitanje | potrebno do |
-|---|---|
-| Što čvor radi sa zapisom entiteta koji ne poznaje (novija inačica)? | 2. tjedan |
-| Dnevni list otvoren prije ponoći, a prvi put spremljen poslije nje: danas se odbija i tekst se gubi. | 1. tjedan |
-| Tko smije učitati sken ovjere i poslati ovjereni akt? Danas svatko tko piše na dionicama akta. | 3. tjedan |
-| Stare otvorene epizode obrane bez akta i dalje se računaju kao obrana koja traje, a zatvoriti ih se nema čime. | 3. tjedan |
-| Ovlasti: smije li dužnost uprave biti bez sektora ili s područjem 0? Smije li privremena uprava skinuti zastavicu globalnog administratora? | 4. tjedan |
+Otvoreno, do 4. tjedna:
+- **Ovlasti:** smije li dužnost uprave biti bez sektora ili s područjem 0?
+  Smije li privremena uprava skinuti zastavicu globalnog administratora?
