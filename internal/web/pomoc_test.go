@@ -309,3 +309,43 @@ func TestPomocONacrtuAktaSaStarijegCvora(t *testing.T) {
 		}
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: mjesto rada program izvodi samo iz
+// opisa s popisa. Pomoć ne smije reći da ga izvodi iz opisa kojega na popisu
+// nema — upravo tada se mjesto ne zna i dežurstvo je za provjeru.
+func TestPomocMjestoRadaIzvodiSamoIzOpisaSPopisa(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"Mjesto rada slijedi iz opisa s popisa",
+		"Kad opisa nema na popisu",
+		"<strong>„mjesto nepoznato — za provjeru”</strong>",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje mjesto rada iz opisa: nema %q", want)
+		}
+	}
+	if strings.Contains(h, "s opisom kojega nema na popisu — program mjesto najprije izvede iz opisa") {
+		t.Error("pomoć kaže da program mjesto izvodi i iz opisa kojega nema na popisu")
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: bilješku o ispravku opisa dežurstva
+// upisuje samo program; pomoć to mora reći, jer se rukom upisana odbija.
+func TestPomocBiljeskuOIspravkuOpisaUpisujeProgram(t *testing.T) {
+	if !strings.Contains(pomocHTML(t), "Tu bilješku u napomenu upisuje samo program") {
+		t.Error("pomoć ne kaže da bilješku o ispravku opisa upisuje samo program")
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora spremljeno bez
+// izmjene teksta i odabira ostaje predano s tablicama kakve su predane, i
+// kad je zapis koji je ušao u nj storniran; pomoć mora reći kako se
+// preuzimaju nove brojke.
+func TestPomocPredanoSektorskoINoveBrojke(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{"zapis koji je ušao u izvješće storniran", "Nove brojke preuzima izmjena izvješća sektora ili spremanje"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje %q", want)
+		}
+	}
+}

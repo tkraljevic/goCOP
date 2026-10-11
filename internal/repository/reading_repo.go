@@ -326,7 +326,8 @@ func (r *ReadingRepository) ExistingIDs(ctx context.Context, origin string) (map
 //
 // Svako očitanje prije upisa prolazi zajedničku provjeru raspona (Odluke
 // (8. 10. 2026.), pitanje 21): vrijednost izvan raspona se ne upisuje nego
-// bilježi za stranicu letve, a očitanje kojem ništa ne ostane preskače se.
+// bilježi za stranicu letve; uz vrijeme ili vodostaj izvan raspona, i kad
+// očitanju ništa ne ostane, preskače se cijelo očitanje.
 func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.Reading) (int, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -361,11 +362,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		if n, _ := res.RowsAffected(); n == 0 {
 			continue
 		}
-		channel := readingChannel(ctx, tx, rd)
-		if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
-			return 0, err
-		}
-		if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
+		if err := r.zabiljeziUvezeno(ctx, tx, raspon, rd); err != nil {
 			return 0, err
 		}
 		inserted++
@@ -375,6 +372,20 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	}
 	raspon.javi()
 	return inserted, nil
+}
+
+// zabiljeziUvezeno daje upisanom uvezenom očitanju kanal i verziju u knjizi
+// te uklanja zapis o istom očitanju odbačenom jer je stiglo prerano (Odluke
+// (8. 10. 2026.), pitanje 21)
+func (r *ReadingRepository) zabiljeziUvezeno(ctx context.Context, tx *sql.Tx, raspon *provjeraRaspona, rd *models.Reading) error {
+	channel := readingChannel(ctx, tx, rd)
+	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+		return err
+	}
+	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
+		return err
+	}
+	return raspon.primljeno(ctx, rd)
 }
 
 // popuniVrijemeUpisa daje uvezenom očitanju vrijeme upisa kad ga izvor nema

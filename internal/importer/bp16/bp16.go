@@ -193,9 +193,10 @@ type Report struct {
 	Inserted int
 	Skipped  int // već postojala
 	// IzvanRaspona su vrijednosti izvan raspona ručnog upisa (Odluke (8. 10.
-	// 2026.), pitanje 21): ne upisuju se, a zapis se upiše s ostalim
-	// vrijednostima. Odbaceno su zapisi kojima ništa nije ostalo, pa nisu
-	// upisani. Pregled ih broji isto kao uvoz.
+	// 2026.), pitanje 21). Zapis s vodostajem izvan raspona ne upisuje se
+	// cijeli, kao u ručnom upisu, pa ga uvoz upiše kad se u evidenciji
+	// ispravi. Odbaceno su zapisi koji zato nisu upisani. Pregled ih broji
+	// isto kao uvoz.
 	IzvanRaspona int
 	Odbaceno     int
 	Unmapped     map[string]int
@@ -652,8 +653,8 @@ func upisiSeriju(ctx context.Context, deps Deps, batch []models.Reading, kote ma
 
 // procijeniRaspon broji što će iz serije odbaciti zajednička provjera
 // raspona, ista koju serija prolazi pri upisu (models.OcistiOcitanje):
-// vrijednosti izvan raspona i zapise kojima ništa ne ostane. Serija se ne
-// dira.
+// vrijednosti izvan raspona i zapise koji zato ne bi bili upisani. Serija
+// se ne dira.
 func procijeniRaspon(batch []models.Reading, kote map[string]bool, sada time.Time) (izvan, odbaceno int) {
 	for _, rd := range batch {
 		odbacene, upisati := models.OcistiOcitanje(&rd, kote[rd.StationID], sada)

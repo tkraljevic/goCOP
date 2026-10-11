@@ -245,9 +245,10 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 
 // kljucPoteza: redci jednog poteza sredstava (prijenos, punjenje, izdavanje)
 // su jedan događaj. Ulaz se upisuje iza izlaza, pa je događaj ulaz; kod
-// prijenosa u skladište drugog sektora to je obavijest ciljnom sektoru, a
-// zid sektora koji šalje ostaje kakav je bio (Odluke (8. 10. 2026.),
-// pitanje 11). Prazno za sve što nije par prometa.
+// prijenosa u skladište drugog sektora to je obavijest ciljnom sektoru
+// (Odluke (8. 10. 2026.), pitanje 11). Par se spaja prije provjere tko
+// smije vidjeti i filtra sektora, pa sektor koji šalje taj prijenos na
+// zidu ne vidi, kao ni prije odluke. Prazno za sve što nije par prometa.
 func kljucPoteza(v ledger.Version) string {
 	if v.Entity != repository.EntityMtsPromet {
 		return ""
@@ -779,10 +780,10 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 // verzije nisu novi redak. Sve četiri vrste, a vrsta „Prijava” je
 // istaknuta. Nacrt i prijava prenesena iz ranije evidencije (BP16) ne idu
 // na zid. Redak nosi prijavu jer ga vidi samo tko smije čitati tu prijavu
-// (Odluke (8. 10. 2026.), pitanje 20). Kad je sažimanje knjige objavu i
-// rješenje ostavilo u istoj verziji, redak je rješenje, s vremenom te
-// verzije: redak objave (i isticanje vrste „Prijava”) se gubi, jer jedna
-// verzija daje jedan redak.
+// (Odluke (8. 10. 2026.), pitanje 20). Kad je sažimanje knjige obrisalo
+// verziju objave, redak objave (i isticanje vrste „Prijava”) se gubi
+// (objavaU); redak rješenja tada nosi verzija koja je ostala, s njezinim
+// vremenom.
 func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
 	var p models.PrijavaSTerena
 	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Objavljena() || p.Rekonstrukcija {
@@ -860,7 +861,7 @@ func dogadjajiPrijave(povijest []ledger.Version) (objava, rjesenje string) {
 		if !ok {
 			continue
 		}
-		if prijelazPrijave(p, prije, models.PrijavaSTerena.Objavljena) {
+		if objavaU(v, p, prije, verzije) {
 			objava = v.VersionID
 		}
 		if prijelazPrijave(p, prije, models.PrijavaSTerena.Rijesena) {
@@ -910,6 +911,21 @@ func prazninaSazimanja(povijest []ledger.Version) map[string]bool {
 		vidjeno[k] = true
 	}
 	return out
+}
+
+// objavaU javlja je li prijava objavljena u verziji v (sadržaja p) prema
+// prethodnici prije. Kad verzije koju je v zamijenila u knjizi nema
+// (sažeta, ili obrisana s ploče na drugom čvoru), objava je mogla biti u
+// verziji koja je nestala. Tada v nosi objavu samo ako nije urudžbirana ni
+// riješena: urudžba i rješenje upisuju se tek na objavljenu prijavu, pa
+// takva verzija nije objava. Redak objave tada nestaje sa svojom verzijom,
+// kao i drugi redci zida, a ne vraća se na vrh zida s vremenom kasnije
+// verzije (Odluke (8. 10. 2026.), pitanje 20).
+func objavaU(v ledger.Version, p, prije *models.PrijavaSTerena, verzije map[string]*models.PrijavaSTerena) bool {
+	if _, ima := verzije[v.Supersedes]; v.Supersedes != "" && !ima && (p.Urudzbirana() || p.Rijesena()) {
+		return false
+	}
+	return prijelazPrijave(p, prije, models.PrijavaSTerena.Objavljena)
 }
 
 // prijelazPrijave javlja je li stanje prijave nastupilo u verziji p: u p

@@ -387,3 +387,39 @@ func TestDezurstvoNaZiduNosiMjestoKaoPlan(t *testing.T) {
 		t.Errorf("zid:\n%s\n\na mora biti:\n%s", strings.Join(redovi, "\n"), strings.Join(ocekivano, "\n"))
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 10: plan na profilu osobe (Moj profil)
+// sažima ista dežurstva kao obračun i IORS, pa zna i za „za provjeru”:
+// potvrđeno dežurstvo bez poznatog mjesta nije obični sat, a nepotvrđeno ne
+// „čeka potvrdu”, jer se ne može potvrditi dok uprava centra ne izabere opis.
+func TestPlanoviOsobeZnajuZaProvjeru(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	noc := o.peroDezura(dzSat(7, 22, 0), dzSat(8, 6, 0)) // upisala uprava: potvrđeno
+	if err := o.svc.SpremiDezurstvo(ctx, ana, o.ovlUprav, o.opseg, o.dnevnik, noc); err != nil {
+		t.Fatal(err)
+	}
+	jutro := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0)) // upisao Pero: čeka potvrdu
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, jutro); err != nil {
+		t.Fatal(err)
+	}
+	podne := o.peroDezura(dzSat(10, 12, 0), dzSat(10, 14, 0)) // upisao Pero: čeka potvrdu
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, podne); err != nil {
+		t.Fatal(err)
+	}
+	o.bezMjesta(t, noc)
+	o.bezMjesta(t, jutro)
+
+	planovi, err := o.svc.PlanoviOsobe(ctx, o.pperic.ID.String())
+	if err != nil || len(planovi) != 1 {
+		t.Fatalf("planovi osobe: %+v, %v", planovi, err)
+	}
+	p := planovi[0]
+	if p.Dezurstava != 3 || p.Sati != 14*time.Hour || p.ZaProvjeru != 2 || p.CekaPotvrdu != 1 {
+		t.Errorf("plan na profilu: %d dežurstava, %v, za provjeru %d, čeka potvrdu %d", p.Dezurstava, p.Sati, p.ZaProvjeru, p.CekaPotvrdu)
+	}
+	if !p.Prvo.Equal(dzSat(7, 22, 0)) || !p.Zadnje.Equal(dzSat(10, 14, 0)) || p.Prvo.Location() != models.Zagreb {
+		t.Errorf("plan od %v do %v", p.Prvo, p.Zadnje)
+	}
+}

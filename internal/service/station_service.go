@@ -221,15 +221,7 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 		station.Code = existing.Code // šifra je identitet i ne uređuje se
 	}
 
-	// Naziv vodotoka mijenja i podrijetlo podatka: ručni unos je potvrda
-	// operatera i raskida vezu na registar dok se ne uspostavi iznova
-	if strings.EqualFold(strings.TrimSpace(station.Watercourse), strings.TrimSpace(existing.Watercourse)) {
-		station.WatercourseSource = existing.WatercourseSource
-	} else if strings.TrimSpace(station.Watercourse) == "" {
-		station.WatercourseSource = models.WatercourseUndetermined
-	} else {
-		station.WatercourseSource = models.WatercourseFromOperator
-	}
+	podrijetloVode(station, existing)
 
 	// Letva bez ijednog praga u centimetrima traži pregled bez obzira na
 	// kvačicu: to nije mišljenje operatera nego stanje podatka. Ima li pragove,
@@ -254,6 +246,26 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 			map[string]any{"station_id": station.ID.String()})
 	}
 	return nil
+}
+
+// podrijetloVode namješta podrijetlo naziva vode i vezu na registar voda.
+// Naziv vodotoka mijenja i podrijetlo podatka: ručni unos je potvrda
+// operatera i raskida vezu na registar dok se ne uspostavi iznova. Obrazac
+// postaje polazi od zatečenog zapisa, pa uz novi naziv nosi staru šifru vode;
+// takva šifra pokazuje na vodu koje na postaji više nema i pada. Nova šifra
+// uz novi naziv (veza na vodu iz registra) ostaje.
+func podrijetloVode(station, existing *models.Station) {
+	if strings.EqualFold(strings.TrimSpace(station.Watercourse), strings.TrimSpace(existing.Watercourse)) {
+		station.WatercourseSource = existing.WatercourseSource
+		return
+	}
+	station.WatercourseSource = models.WatercourseFromOperator
+	if strings.TrimSpace(station.Watercourse) == "" {
+		station.WatercourseSource = models.WatercourseUndetermined
+	}
+	if station.WatercourseCode == existing.WatercourseCode {
+		station.WatercourseCode = ""
+	}
 }
 
 // DeleteStation briše postaju iz registra. Postaja mjerodavna za neku dionicu
