@@ -6,6 +6,22 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i
+  epizode obrane uz njih, nisu se pojavile na novom čvoru, a razmjena nije
+  javila grešku. Događalo se kad je novija izmjena dionice stigla prije
+  letve, objekta ili naselja o koje se oslanja, a starija tek poslije. Sad
+  dionica dođe s najnovijom izmjenom čim stigne ono što joj treba. Epizode
+  obrane program obnavlja i pri pokretanju, kao dionice.
+- **Bilješka ili ispravak arhive upisan dvaput za isti sat.** Na novom
+  čvoru druga bilješka za isti sat javljala je grešku pri svakoj razmjeni,
+  a čvorovi su mogli pokazivati različitu bilješku, ovisno o tome koja je
+  prva stigla. Sad svi pokazuju noviju od dviju. Isto vrijedi za ispravke
+  arhive.
+- **Obrisan dnevnik ne ostavlja upise za sobom.** Upisi dnevnika obrisanog
+  ranije na novom su čvoru javljali grešku pri svakoj razmjeni. Sad se
+  preskaču, kao i na čvoru na kojem je dnevnik obrisan. Brisanje dnevnika
+  sad kao obrisan bilježi i upis koji to računalo nije imalo u dnevniku, pa
+  ga drugi čvorovi više ne primaju.
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s

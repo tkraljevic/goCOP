@@ -84,8 +84,11 @@ func KeepVersion(v ledger.Version) bool {
 // Izvješća dionica i sektora su tu jer je njihov trag predaje (Odluke
 // (8. 10. 2026.), pitanje 12) nov stupac: čvor nadograđen s 0.0.34 drži trag
 // samo u knjizi, a obnova ga pri pokretanju vraća u tablicu.
+// Epizode obrane su tu jer ovise o dionici: epizoda koja na novom čvoru stigne
+// prije svoje dionice ne prođe strani ključ, a popis nedovršenih ne preživi
+// ponovno pokretanje. Ima ih malo, pa obnova pri startu ne košta ništa.
 var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,
-	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
+	EntityUsers, EntityDuties, "role_modules", "user_modules", EntityStations, EntitySections, EntityEpisodes, EntityWatercourses, EntityKisomjeri, EntitySlivovi,
 	EntityCounties, EntityMunicipalities, EntitySettlements, EntityStructures, "maintained_waters", "work_items", "journals",
 	EntityDnevnaIzvjesca, EntitySektorskaIzvjesca,
 	EntityBlagdani, EntityKoeficijenti, EntityObracunPostavke,
@@ -138,11 +141,28 @@ func ReplaySurface(ctx context.Context, db *sql.DB, rec *ledger.Recorder) (int, 
 // je nedostajao zapis o koji se oslanja (naselje bez općine, dionica bez
 // područja). Novi čvor prvu razmjenu prima u paketima od po 5000 verzija, pa
 // naselje zna stići razmjenu prije svoje općine. Pokušavaju se iznova sa
-// svakom sljedećom primljenom razmjenom, dok ne prođu.
+// svakom sljedećom primljenom razmjenom, dok ne prođu. Zapis odlazi s popisa
+// tek kad je njegova zadnja verzija primijenjena.
 var nedovrseni = struct {
 	sync.Mutex
 	kljucevi map[string]bool
 }{kljucevi: map[string]bool{}}
+
+// dodajNedovrsene dodaje zapise koji ranije nisu prošli, svaki sa zadnjom
+// verzijom iz knjige: možda je njihov oslonac upravo stigao. Zadnja verzija
+// ide i kad je razmjena upravo donijela stariju verziju istog zapisa (paketi
+// stižu po autoru, ne redom nastanka). Starija bi se preskočila kao
+// zastarjela, a najnovija ne bi došla na površinu nikad.
+func dodajNedovrsene(ctx context.Context, rec *ledger.Recorder, zapisi map[string]ledger.Version) {
+	nedovrseni.Lock()
+	defer nedovrseni.Unlock()
+	for key := range nedovrseni.kljucevi {
+		entity, id, _ := strings.Cut(key, "|")
+		if top, err := rec.Latest(ctx, entity, id); err == nil {
+			zapisi[key] = *top
+		}
+	}
+}
 
 func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versions []ledger.Version) error {
 	// zadnja primljena verzija po zapisu — ostale su već u povijesti
@@ -154,17 +174,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 		}
 	}
 	// i ono što ranije nije prošlo: možda je njegov oslonac upravo stigao
-	nedovrseni.Lock()
-	for key := range nedovrseni.kljucevi {
-		if _, ima := latestReceived[key]; ima {
-			continue
-		}
-		entity, id, _ := strings.Cut(key, "|")
-		if top, err := rec.Latest(ctx, entity, id); err == nil {
-			latestReceived[key] = *top
-		}
-	}
-	nedovrseni.Unlock()
+	dodajNedovrsene(ctx, rec, latestReceived)
 
 	// redom nastanka: korisnik prije svoje dužnosti, sektor prije područja
 	ordered := make([]ledger.Version, 0, len(latestReceived))
@@ -190,6 +200,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 		err error
 	}
 	var failed []neuspjeh
+	var primijenjeni []string
 	ostaje := ordered
 	for len(ostaje) > 0 {
 		failed = failed[:0]
@@ -209,6 +220,8 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 					return rerr
 				}
 				failed = append(failed, neuspjeh{v, err})
+			} else {
+				primijenjeni = append(primijenjeni, v.Entity+"|"+v.EntityID)
 			}
 			if _, err := tx.ExecContext(ctx, "RELEASE SAVEPOINT apply_one"); err != nil {
 				return err
@@ -225,9 +238,11 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	// s popisa nedovršenih odlazi samo ono što je prošlo; zapis koji je ovaj
+	// put preskočen ostaje za sljedeću razmjenu
 	nedovrseni.Lock()
-	for _, v := range ordered {
-		delete(nedovrseni.kljucevi, v.Entity+"|"+v.EntityID)
+	for _, key := range primijenjeni {
+		delete(nedovrseni.kljucevi, key)
 	}
 	for _, f := range failed {
 		nedovrseni.kljucevi[f.v.Entity+"|"+f.v.EntityID] = true
@@ -279,34 +294,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityIspravci:
-		var i models.ArhivaIspravak
-		if err := json.Unmarshal(v.Payload, &i); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO arhiva_ispravci (id, letva, velicina, korak, vrijeme, vrijednost, staro,
-				razlog, ispravio, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET vrijednost=excluded.vrijednost, staro=excluded.staro,
-				razlog=excluded.razlog, ispravio=excluded.ispravio, updated_at=excluded.updated_at`,
-			i.ID.String(), i.Letva, i.Velicina, i.Korak, i.Vrijeme.UTC(), i.Vrijednost, i.Staro,
-			i.Razlog, i.Ispravio, i.CreatedAt.UTC(), i.UpdatedAt.UTC())
-		return err
+		return primijeniIspravak(ctx, tx, v.Payload)
 
 	case EntityBiljeske:
-		var b models.ArhivaBiljeska
-		if err := json.Unmarshal(v.Payload, &b); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO arhiva_biljeske (id, letva, velicina, korak, vrijeme, vrsta, tekst, tko,
-				created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET vrsta=excluded.vrsta, tekst=excluded.tekst,
-				tko=excluded.tko, updated_at=excluded.updated_at`,
-			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Vrsta, b.Tekst, b.Tko,
-			b.CreatedAt.UTC(), b.UpdatedAt.UTC())
-		return err
+		return primijeniBiljesku(ctx, tx, v.Payload)
 
 	case EntityStations:
 		var st models.Station
@@ -405,20 +396,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityJournalSheets:
-		var s models.JournalSheet
-		if err := json.Unmarshal(v.Payload, &s); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, sheetUpsert, sheetArgs(&s)...)
-		return err
+		return primijeniListDnevnika(ctx, tx, v.Payload)
 
 	case EntityJournalEntries:
-		var e models.JournalEntry
-		if err := json.Unmarshal(v.Payload, &e); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, entryUpsert, entryArgs(&e)...)
-		return err
+		return primijeniUpisDnevnika(ctx, tx, v.Payload)
 
 	case EntityDezurstva:
 		var d models.Dezurstvo
