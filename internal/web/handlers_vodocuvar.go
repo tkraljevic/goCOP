@@ -37,6 +37,7 @@ type VodocuvarHandler struct {
 	potpisSlika         func(ctx context.Context, userID string) *models.PotpisSlika // sken potpisa, za ispis
 	potpis              func() *service.PotpisService                                // elektronički potpisi; prazno bez servisa
 	opcije              func(ctx context.Context) models.Opcije                      // opće opcije (simulacija ključa)
+	otvaranje           *oznakeOtvaranja                                             // potpisani trenutak otvaranja obrasca lista
 }
 
 // SetOpcije daje rukovatelju čitanje općih opcija
@@ -73,7 +74,8 @@ func NewVodocuvarHandler(svc func() *service.VodocuvarService, users *service.Us
 	if org == nil {
 		org = func() *repository.OrgRepository { return nil }
 	}
-	return &VodocuvarHandler{svc: svc, users: users, org: org, geokoder: &weather.Geokoder{}, tmplPopis: popis, tmplList: list}
+	return &VodocuvarHandler{svc: svc, users: users, org: org, geokoder: &weather.Geokoder{}, tmplPopis: popis, tmplList: list,
+		otvaranje: noveOznakeOtvaranja()}
 }
 
 // SetPoslovi daje rukovatelju registar poslova i predložak stranice s trakom napretka
@@ -158,6 +160,9 @@ type VodocuvarPageData struct {
 	Parafirao    bool
 	Podrucje     *models.Area
 	DrugiPredani []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
+	// Otvoreno je potpisani trenutak otvaranja obrasca za list koji još ne
+	// postoji (oznakeOtvaranja)
+	Otvoreno string
 }
 
 func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPermissions, VodocuvarPageData) {
@@ -399,6 +404,11 @@ func nudiOvjeru(s *service.VodocuvarService, perms *models.UserPermissions, l *m
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
+	if moj && l.ID == "" {
+		// list koji još ne postoji: obrazac nosi kad je otvoren, da se
+		// spremi na svoj dan i kad ga vodočuvar spremi poslije ponoći
+		d.Otvoreno = h.otvaranje.oznaka(l.UserID, l.Datum, time.Now())
+	}
 	d.SmijeOvjeriti = nudiOvjeru(s, perms, l)
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
@@ -443,6 +453,7 @@ func (h *VodocuvarHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) 
 			unos.Zadaci[id] = service.UnosZadatka{Status: v[0], Obavljeno: r.FormValue("zadatak_obavljeno_" + id)}
 		}
 	}
+	unos.Otvoreno = h.otvaranje.otvoreno(r.FormValue("otvoreno"), u.ID.String(), dan)
 	predaj := r.FormValue("radnja") == "predaj"
 	var potpisnik *potpis.Potpisnik
 	if predaj {

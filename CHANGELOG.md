@@ -12,6 +12,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   obrazac, list zadržava sve upisano. Dosad su oba spremanja javljala
   uspjeh, a na listu je ostajalo samo zadnje; u knjizi verzija bilo je
   zapisano oboje.
+- **Dnevni list otvoren prije ponoći sprema se na svoj dan** (Odluke (11.
+  10. 2026.)). Obrazac otvoren prije ponoći, a prvi put spremljen poslije
+  nje, više se ne odbija jer je dan prošao: upisano se sprema na list dana
+  za koji je obrazac otvoren. Obrazac to dokazuje oznakom otvaranja koju
+  potpisuje program; nakon ponovnog pokretanja programa oznaka više ne
+  vrijedi i obrazac se otvara iznova.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
