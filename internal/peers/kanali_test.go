@@ -49,7 +49,7 @@ func TestZeljeniSadrzajPremaPretplatiIOgradi(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	s.SetSpremiste(sp)
 
 	tudji := sadrzaj.Otisak([]byte("izvornik dnevnika iz drugog područja"))
@@ -91,7 +91,9 @@ func TestZeljeniSadrzajPremaPretplatiIOgradi(t *testing.T) {
 		t.Errorf("pregled traži PDF: %v", got)
 	}
 
-	sp.Zatvori()
+	if err := sp.Zatvori(); err != nil {
+		t.Fatal(err)
+	}
 	if got := s.zeljeniOtisci(ctxRub, Wants{All: true}); got != nil {
 		t.Errorf("iz nečitljivog spremišta traženo %v", got)
 	}
