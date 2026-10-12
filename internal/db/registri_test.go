@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -11,33 +12,80 @@ import (
 // Provjere registara (prvo punjenje daje poznate brojke, Batina i Vukovar na
 // Dunavu, kota nule iz elaborata, vodomjeri i objekti vezani na dionice,
 // cjelovit registar vodnih tijela) imaju smisla samo na stvarnim registrima,
-// pa ne prelaze na izmišljeni skup. Trebaju izvoz registara u mapi data/ u
-// korijenu repozitorija: datoteke koje prvo punjenje čita (sections.json slaže
-// alat prijepis-dionica, izvan repozitorija). Brojke u provjerama su brojke
-// izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se pregledaju
-// i brojke mijenjaju svjesno, s razlogom u commitu. Na GitHubu i na računalu
-// bez izvoza provjere se preskaču, uz poruku što treba. Prije svakog izdanja
-// pokreću se naredbom make provjera-registara, koja postavlja GOCOP_REGISTRI:
-// tada bez izvoza padaju, jer preskočena provjera ne dokazuje ništa.
+// pa ne prelaze na izmišljeni skup. Trebaju cijeli izvoz registara u mapi
+// data/ u korijenu repozitorija: svih šest datoteka koje prvo punjenje čita.
+// Odakle je koja, piše u docs/INSTALACIJA.md, odjeljak „Podaci koji nisu u
+// repozitoriju” (sections.json slaže alat prijepis-dionica, izvan
+// repozitorija). Brojke u provjerama su brojke izvoza s kojim je napunjen
+// prvi čvor; uz noviji izvoz razlike se pregledaju i brojke mijenjaju
+// svjesno, s razlogom u commitu. Na GitHubu i na računalu bez cijelog izvoza
+// provjere se preskaču, uz poruku koje datoteke nema i što treba. Prije
+// svakog izdanja pokreću se naredbom make provjera-registara, koja postavlja
+// GOCOP_REGISTRI: tada bez cijelog izvoza padaju, jer preskočena provjera ne
+// dokazuje ništa, pa se izvoz prije izdanja vraća iz pričuve ili slaže iznova.
 
-// porukaRegistara kaže što provjeri registra treba i kada se pokreće
+// porukaRegistara kaže što provjeri registra treba, odakle je i kada se pokreće
 const porukaRegistara = "provjera registara treba izvoz registara u mapi data/ u korijenu repozitorija: " +
 	"sections.json, watercourses.json, territories.json, section_territories.json, objekti_bp16.json i " +
-	"organizacija.json (sections.json slaže alat prijepis-dionica iz tools/migrations, izvan repozitorija). " +
+	"organizacija.json. Odakle je koja datoteka piše u docs/INSTALACIJA.md, odjeljak " + odjeljakIzvora +
+	" (sections.json slaže alat prijepis-dionica iz tools/migrations, izvan repozitorija). " +
 	"Brojke u provjerama su brojke izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se pregledaju " +
-	"i brojke mijenjaju svjesno, s razlogom u commitu. Pokreće se prije svakog izdanja naredbom make provjera-registara"
+	"i brojke mijenjaju svjesno, s razlogom u commitu. Pokreće se prije svakog izdanja naredbom make provjera-registara; " +
+	"bez izvoza ne prolazi, pa se izvoz prije izdanja vraća iz pričuve ili slaže iznova"
 
-// registriIliPreskoci usmjerava prvo punjenje na stvarne registre u data/;
-// bez njih provjeru preskače, a uz GOCOP_REGISTRI ruši
-func registriIliPreskoci(t *testing.T) {
-	t.Helper()
+// datotekeRegistara su datoteke izvoza registara koje prvo punjenje čita
+var datotekeRegistara = []string{"sections.json", "watercourses.json", "territories.json", "section_territories.json", "objekti_bp16.json", "organizacija.json"}
+
+// odjeljakIzvora je odjeljak uputa koji kaže odakle je koja datoteka izvoza
+const odjeljakIzvora = "Podaci koji nisu u repozitoriju"
+
+// porukaNedostaju kaže koje datoteke izvoza nema, pa što provjeri treba
+func porukaNedostaju(nedostaju []string) string {
+	return "nema " + strings.Join(nedostaju, ", ") + "; " + porukaRegistara
+}
+
+// preskakanje je dio testing.TB kojim provjera registara preskače ili pada
+type preskakanje interface {
+	Helper()
+	Skip(args ...any)
+	Fatal(args ...any)
+}
+
+// nedostajuRegistri vraća datoteke izvoza registara kojih u mapi nema
+func nedostajuRegistri(mapa string) []string {
+	var nema []string
+	for _, ime := range datotekeRegistara {
+		if _, err := os.Stat(filepath.Join(mapa, ime)); err != nil {
+			nema = append(nema, ime)
+		}
+	}
+	return nema
+}
+
+// nedostajeIzvoza usmjerava prvo punjenje na izvoz registara u data/ i
+// vraća datoteke izvoza kojih ondje nema; bez mape data/ sve
+func nedostajeIzvoza() []string {
 	if UseRepoData() {
+		return nedostajuRegistri(DataDir)
+	}
+	return datotekeRegistara
+}
+
+// registriIliPreskoci usmjerava prvo punjenje na stvarne registre u data/.
+// Bez cijelog izvoza provjeru preskače, a uz GOCOP_REGISTRI ruši, i kaže
+// koje datoteke nema: prvo punjenje tablicu bez datoteke tiho preskoči, pa
+// bi provjera na djelomičnom izvozu pala na brojkama, a ne na izvozu.
+func registriIliPreskoci(t preskakanje) {
+	t.Helper()
+	nema := nedostajeIzvoza()
+	if len(nema) == 0 {
 		return
 	}
 	if os.Getenv("GOCOP_REGISTRI") != "" {
-		t.Fatal(porukaRegistara)
+		t.Fatal(porukaNedostaju(nema))
+		return
 	}
-	t.Skip(porukaRegistara)
+	t.Skip(porukaNedostaju(nema))
 }
 
 // Provjere registara nalaze izvoz registara u mapi data/ iznad radne mape
@@ -73,6 +121,107 @@ func TestTrazenjeStvarnihRegistara(t *testing.T) {
 	gore := filepath.Join("..", "..", "data")
 	if DataDir != gore || ImenikPath != filepath.Join(gore, "imenik.json") {
 		t.Errorf("putanje nisu na izvozu registara: %s, %s", DataDir, ImenikPath)
+	}
+}
+
+// biljezenje glumi test u provjeri registara: bilježi preskakanje i pad
+type biljezenje struct{ preskoceno, palo string }
+
+func (b *biljezenje) Helper()           {}
+func (b *biljezenje) Skip(args ...any)  { b.preskoceno = fmt.Sprint(args...) }
+func (b *biljezenje) Fatal(args ...any) { b.palo = fmt.Sprint(args...) }
+
+// Djelomičan izvoz (na primjer samo sections.json iz alata prijepis-dionica)
+// ne pokreće provjere registara: prvo punjenje tablice bez datoteke tiho
+// preskoči, pa bi provjere pale na brojkama i ne bi rekle da izvoz nije
+// cijel. Provjera se preskače, a uz make provjera-registara pada, i kaže koje
+// datoteke izvoza nema (Odluke (8. 10. 2026.), pitanje 13).
+func TestDjelomicanIzvozRegistaraKazeStoNedostaje(t *testing.T) {
+	staraMapa, stariImenik := DataDir, ImenikPath
+	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
+	korijen := t.TempDir()
+	paket := filepath.Join(korijen, "internal", "db")
+	mapa := filepath.Join(korijen, "data")
+	for _, m := range []string{paket, mapa} {
+		if err := os.MkdirAll(m, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	t.Chdir(paket)
+	upisi := func(imena ...string) {
+		for _, ime := range imena {
+			if err := os.WriteFile(filepath.Join(mapa, ime), []byte("[]"), 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	upisi("sections.json")
+	ostale := []string{"watercourses.json", "territories.json", "section_territories.json", "objekti_bp16.json", "organizacija.json"}
+
+	for _, obavezno := range []string{"", "obavezno"} {
+		t.Setenv("GOCOP_REGISTRI", obavezno)
+		b := &biljezenje{}
+		registriIliPreskoci(b)
+		poruka, krivo := b.preskoceno, b.palo
+		if obavezno != "" {
+			poruka, krivo = b.palo, b.preskoceno
+		}
+		if krivo != "" || poruka == "" {
+			t.Errorf("GOCOP_REGISTRI=%q, samo sections.json: preskočeno %q, palo %q", obavezno, b.preskoceno, b.palo)
+			continue
+		}
+		if zeli := porukaNedostaju(ostale); poruka != zeli {
+			t.Errorf("GOCOP_REGISTRI=%q: poruka %q, očekivano %q", obavezno, poruka, zeli)
+		}
+	}
+
+	upisi(ostale...)
+	b := &biljezenje{}
+	registriIliPreskoci(b)
+	if b.preskoceno != "" || b.palo != "" {
+		t.Errorf("cijeli izvoz: preskočeno %q, palo %q", b.preskoceno, b.palo)
+	}
+}
+
+// Bez mape data/ poruka navodi sve datoteke izvoza
+func TestBezIzvozaPorukaNavodiSveDatoteke(t *testing.T) {
+	staraMapa, stariImenik := DataDir, ImenikPath
+	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
+	paket := filepath.Join(t.TempDir(), "internal", "db")
+	if err := os.MkdirAll(paket, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Chdir(paket)
+	t.Setenv("GOCOP_REGISTRI", "")
+	b := &biljezenje{}
+	registriIliPreskoci(b)
+	if zeli := porukaNedostaju(datotekeRegistara); b.preskoceno != zeli || b.palo != "" {
+		t.Errorf("preskočeno %q, palo %q; očekivano preskakanje %q", b.preskoceno, b.palo, zeli)
+	}
+}
+
+// Odakle je koja datoteka izvoza piše u uputama, u odjeljku o podacima koji
+// nisu u repozitoriju; poruka provjere na njega upućuje, pa ondje moraju
+// biti sve datoteke izvoza
+func TestUputeKazuOdakleJeSvakaDatotekaIzvoza(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "docs", "INSTALACIJA.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, odjeljak, ok := strings.Cut(string(raw), "\n## "+odjeljakIzvora+"\n")
+	if !ok {
+		t.Fatalf("upute nemaju odjeljak %q", odjeljakIzvora)
+	}
+	if kraj := strings.Index(odjeljak, "\n## "); kraj >= 0 {
+		odjeljak = odjeljak[:kraj]
+	}
+	for _, ime := range datotekeRegistara {
+		if !strings.Contains(odjeljak, "`"+ime+"`") {
+			t.Errorf("odjeljak %q ne kaže odakle je %s", odjeljakIzvora, ime)
+		}
+	}
+	if !strings.Contains(porukaRegistara, "docs/INSTALACIJA.md, odjeljak "+odjeljakIzvora) {
+		t.Errorf("poruka ne upućuje na odjeljak %q: %s", odjeljakIzvora, porukaRegistara)
 	}
 }
 
@@ -211,4 +360,123 @@ func TestUseRepoImenikTraziImenikUzRegistre(t *testing.T) {
 	if DataDir != gore || ImenikPath != filepath.Join(gore, "imenik.json") {
 		t.Errorf("putanje nisu na registrima: %s, %s", DataDir, ImenikPath)
 	}
+}
+
+// probeNaStvarnimBazama su varijable okoline kojima ručne probe izvan
+// provjera registara čitaju stvarne baze čvora
+var probeNaStvarnimBazama = []string{"GOCOP_KISA_PROBA", "GOCOP_PROGNOZE"}
+
+// Upute za razvoj navode svaku ručnu probu koja čita stvarne baze čvora, da
+// se zna što još, osim provjera registara i pregleda imena, dira stvarne
+// podatke; svaku od njih neki test doista čita
+func TestUputeNavodeProbeNaStvarnimBazama(t *testing.T) {
+	korijen := filepath.Join("..", "..")
+	upute, err := os.ReadFile(filepath.Join(korijen, "docs", "INSTALACIJA.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	citane := map[string]bool{}
+	for _, mapa := range []string{"cmd", "internal"} {
+		err := filepath.WalkDir(filepath.Join(korijen, mapa), func(put string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() || !strings.HasSuffix(put, "_test.go") {
+				return err
+			}
+			raw, err := os.ReadFile(put)
+			if err != nil {
+				return err
+			}
+			for _, v := range probeNaStvarnimBazama {
+				if strings.Contains(string(raw), `os.Getenv("`+v+`")`) {
+					citane[v] = true
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, v := range probeNaStvarnimBazama {
+		if !citane[v] {
+			t.Errorf("nijedan test ne čita %s; makni je s popisa ručnih proba", v)
+		}
+		if !strings.Contains(string(upute), "`"+v+"=") {
+			t.Errorf("upute za razvoj ne navode ručnu probu %s", v)
+		}
+	}
+}
+
+// receptMakea vraća retke recepta cilja iz Makefilea
+func receptMakea(makefile, cilj string) []string {
+	var recept []string
+	u := false
+	for _, redak := range strings.Split(makefile, "\n") {
+		switch {
+		case strings.HasPrefix(redak, cilj+":"):
+			u = true
+		case u && strings.HasPrefix(redak, "\t"):
+			recept = append(recept, strings.TrimSpace(redak))
+		case u:
+			return recept
+		}
+	}
+	return recept
+}
+
+// go test bez -v preskočenu provjeru ne ispisuje, pa make quality (i
+// GitHub, koji ga pokreće) ne bi rekao da provjere registara nisu izvedene.
+// Zato make quality na kraju pokreće make stanje-registara, a on uz -v
+// pokreće provjeru koja to kaže (Odluke (8. 10. 2026.), pitanje 13).
+func TestQualityKazeJesuLiProvjereRegistaraIzvedene(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("..", "..", "Makefile"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	quality := receptMakea(string(raw), "quality")
+	if len(quality) == 0 || !strings.Contains(quality[len(quality)-1], "stanje-registara") {
+		t.Errorf("make quality na kraju ne pokreće stanje-registara: %q", quality)
+	}
+	stanje := strings.Join(receptMakea(string(raw), "stanje-registara"), "\n")
+	for _, zeli := range []string{"go test", " -v ", "-run '^TestStanjeProvjeraRegistara$$'", "./internal/db/"} {
+		if !strings.Contains(stanje, zeli) {
+			t.Errorf("make stanje-registara ne sadrži %q: %q", zeli, stanje)
+		}
+	}
+}
+
+// naslovUpozorenja je naslov upozorenja u sažetku provjere na GitHubu
+const naslovUpozorenja = "Provjere registara nisu izvedene"
+
+// upozorenjeGitHuba je naredba kojom GitHub poruku pokaže kao upozorenje u
+// sažetku provjere; postotak i prijelome retka GitHub traži kodirane
+func upozorenjeGitHuba(poruka string) string {
+	return "::warning title=" + naslovUpozorenja + "::" + strings.NewReplacer("%", "%25", "\r", "%0D", "\n", "%0A").Replace(poruka)
+}
+
+// Naredba upozorenja nosi cijelu poruku u jednom retku
+func TestUpozorenjeGitHubaJeJedanRedak(t *testing.T) {
+	if got, zeli := upozorenjeGitHuba("nema a.json; 5 % izvoza\nprije izdanja\r"),
+		"::warning title=Provjere registara nisu izvedene::nema a.json; 5 %25 izvoza%0Aprije izdanja%0D"; got != zeli {
+		t.Errorf("%q, očekivano %q", got, zeli)
+	}
+}
+
+// Stanje provjera registara: kaže jesu li izvedene, a ako nisu, što im treba
+// i da se pokreću prije svakog izdanja. Preskakanje se vidi samo uz -v, pa
+// ovu provjeru uz -v pokreće make stanje-registara, na kraju make quality; na
+// GitHubu se poruka pokaže i kao upozorenje u sažetku provjere (Odluke
+// (8. 10. 2026.), pitanje 13). Uz make provjera-registara bez cijelog izvoza
+// pada kao i ostale provjere registara.
+func TestStanjeProvjeraRegistara(t *testing.T) {
+	staraMapa, stariImenik := DataDir, ImenikPath
+	t.Cleanup(func() { DataDir, ImenikPath = staraMapa, stariImenik })
+	nema := nedostajeIzvoza()
+	if len(nema) == 0 {
+		t.Log("izvoz registara u data/ je cijel, pa se provjere registara izvode")
+		return
+	}
+	if os.Getenv("GITHUB_ACTIONS") == "true" {
+		fmt.Println(upozorenjeGitHuba(porukaNedostaju(nema)))
+	}
+	registriIliPreskoci(t)
 }

@@ -172,3 +172,46 @@ func TestPotvrdaVrijediOdPriOvjeri(t *testing.T) {
 		t.Errorf("nacrt s potvrdom pri sastavljanju ne pita ponovno: %q", q)
 	}
 }
+
+// Nacrt sastavljen u obrani koja traje od otvaranja jednog Dnevnika COP-a
+// ovjerava se i kad je u sektoru u međuvremenu otvoren i noviji dnevnik
+// (npr. godišnji, dok stari još nije zaključen): donja granica „Vrijedi
+// od” je otvaranje najranije otvorenog dnevnika, i pri sastavljanju i pri
+// ovjeri (Odluke (8. 10. 2026.), pitanje 17)
+func TestVrijediOdUzDvaOtvorenaDnevnikaCOPa(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	repo := repository.NewJournalRepository(o.baza, ledger.New(o.baza, "test"))
+	js := service.NewJournalService(repo, nil, nil)
+	o.akti.SetObrana(js.AktivnaObrana, nil)
+	o.akti.SetPocetakObrane(js.PocetakAktivneObrane)
+	otvori := func(od time.Time) {
+		t.Helper()
+		if err := repo.SaveJournal(ctx, &models.Journal{CentarSektor: "P", Title: "Dnevnik COP-a", Year: od.Year(), StartedAt: &od}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	otvori(time.Now().Add(-10 * 24 * time.Hour).Truncate(time.Hour))
+	nacrt := func(vrijedi time.Time) (*models.Akt, error) {
+		a, err := o.akti.Pripremi(ctx, o.dezOvl, o.dezurni, service.ZahtjevAkta{StationID: o.letva.ID.String(), Radnja: models.AktUspostava,
+			Stupanj: models.PhasePrep, Vrijedi: vrijedi, PotvrdaVrijedi: true})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return a, o.akti.Spremi(ctx, o.dezOvl, a)
+	}
+	a, err := nacrt(time.Now().Add(-5 * 24 * time.Hour).Truncate(time.Minute))
+	if err != nil {
+		t.Fatal(err)
+	}
+	otvori(time.Now().Add(-2 * time.Hour).Truncate(time.Minute))
+	if ovjeren, _, err := o.akti.Ovjeri(ctx, o.ovlasti, o.rukovod, a.ID, potvrdaPrimatelja); err != nil || !ovjeren.Ovjeren() {
+		t.Fatalf("ovjera nacrta iz obrane koja traje: %+v %v", ovjeren, err)
+	}
+	if _, err := nacrt(time.Now().Add(-6 * 24 * time.Hour).Truncate(time.Minute)); err != nil {
+		t.Errorf("nov nacrt u obrani koja traje: %v", err)
+	}
+	if _, err := nacrt(time.Now().Add(-11 * 24 * time.Hour).Truncate(time.Minute)); err == nil || !strings.Contains(err.Error(), "prije otvaranja Dnevnika COP-a") {
+		t.Errorf("nacrt prije otvaranja obrane: %v", err)
+	}
+}

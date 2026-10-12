@@ -79,8 +79,7 @@ func TestDioniceDuznosti(t *testing.T) {
 // Zaduženje vodočuvara čuva dionicu kad je na tom području i dionicu navodi
 // (bez obzira na velika slova), ili ne navodi nijednu pa pokriva cijelo
 // područje. Zaduženje drugog područja i druga uloga ne čuvaju dionicu.
-// Izričito je čuva samo zaduženje koje je navodi; zaduženje cijelog
-// područja to nije. Koje zaduženje vrijedi za koji dan, ovdje se ne gleda.
+// Koje zaduženje vrijedi za koji dan, ovdje se ne gleda.
 func TestCuvaDionicu(t *testing.T) {
 	p1, p2 := 1, 2
 	vodocuvar := func(d Duty) Duty {
@@ -88,18 +87,17 @@ func TestCuvaDionicu(t *testing.T) {
 		return d
 	}
 	slucajevi := []struct {
-		ime      string
-		d        Duty
-		cuva     bool
-		drugu    bool // čuva i P.1.2
-		izricito bool // izričito čuva P.1.1
+		ime   string
+		d     Duty
+		cuva  bool
+		drugu bool // čuva i P.1.2
 	}{
-		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false, true},
-		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false, true},
-		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true, false},
-		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false, false},
-		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false, false},
-		{"strojar", Duty{Role: RoleMachinist, IsActive: true, AreaID: &p1, SectionCodes: "P.1.1"}, false, false, false},
+		{"dionica na zaduženju", vodocuvar(Duty{AreaID: &p1, SectionCodes: "P.1.1"}), true, false},
+		{"dionica malim slovima", vodocuvar(Duty{AreaID: &p1, SectionCodes: "p.1.1, P.1.3"}), true, false},
+		{"cijelo područje", vodocuvar(Duty{AreaID: &p1}), true, true},
+		{"drugo područje", vodocuvar(Duty{AreaID: &p2}), false, false},
+		{"bez područja", vodocuvar(Duty{SectionCodes: "P.1.1"}), false, false},
+		{"strojar", Duty{Role: RoleMachinist, IsActive: true, AreaID: &p1, SectionCodes: "P.1.1"}, false, false},
 	}
 	for _, s := range slucajevi {
 		if got := s.d.CuvaDionicu(1, "P.1.1"); got != s.cuva {
@@ -107,12 +105,6 @@ func TestCuvaDionicu(t *testing.T) {
 		}
 		if got := s.d.CuvaDionicu(1, "P.1.2"); got != s.drugu {
 			t.Errorf("%s: čuva P.1.2 = %v, očekivano %v", s.ime, got, s.drugu)
-		}
-		if got := s.d.CuvaIzricito(1, "P.1.1"); got != s.izricito {
-			t.Errorf("%s: izričito čuva P.1.1 = %v, očekivano %v", s.ime, got, s.izricito)
-		}
-		if s.d.CuvaIzricito(1, "P.1.2") {
-			t.Errorf("%s: izričito čuva P.1.2", s.ime)
 		}
 	}
 }
@@ -216,5 +208,100 @@ func TestVazecaZaduzenja(t *testing.T) {
 	}, sad)
 	if len(got) != 2 || got[0].Title != "stalno" || got[1].Title != "do sutra" {
 		t.Errorf("važeća: %+v", got)
+	}
+}
+
+// Zaduženje upisano mimo knjige verzija (imenik pri prvom pokretanju,
+// starija baza) dobiva prvu verziju tek pri prvoj izmjeni, opozivu ili
+// produljenju. Do nje je stajalo od nastanka, u obliku te verzije i
+// aktivno: zaduženje nastaje aktivno, a tek opoziv ostavlja verziju.
+// Zaduženje bez verzija i zaduženje upisano s verzijom stoje od nastanka
+// kao i dosad.
+func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
+	nastanak := time.Date(2026, 1, 1, 9, 0, 0, 0, Zagreb)
+	prvaIzmjena := time.Date(2026, 10, 5, 9, 0, 0, 0, Zagreb)
+	drugaIzmjena := time.Date(2026, 10, 7, 9, 0, 0, 0, Zagreb)
+	dan := func(m time.Month, d int) time.Time { return time.Date(2026, m, d, 0, 0, 0, 0, Zagreb) }
+	izmijenjeno, opozvano, dvaput := uuid.New(), uuid.New(), uuid.New()
+	povrsina := []Duty{
+		{ID: izmijenjeno, Title: "izmijenjeno", IsActive: true, CreatedAt: nastanak},
+		{ID: opozvano, Title: "opozvano", CreatedAt: nastanak},
+		{ID: dvaput, Title: "dvaput", IsActive: true, CreatedAt: nastanak},
+	}
+	knjiga := []VerzijaZaduzenja{
+		{Duty: Duty{ID: izmijenjeno, Title: "izmijenjeno", IsActive: true, CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: opozvano, Title: "opozvano", CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: dvaput, Title: "dvaput prvo", IsActive: true, CreatedAt: nastanak}, Od: prvaIzmjena},
+		{Duty: Duty{ID: dvaput, Title: "dvaput", IsActive: true, CreatedAt: nastanak}, Od: drugaIzmjena},
+	}
+	povijest := SloziPovijestZaduzenja(povrsina, knjiga)
+	naslovi := func(dd []Duty) string {
+		var out []string
+		for _, d := range dd {
+			out = append(out, d.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	for _, s := range []struct {
+		ime string
+		dan time.Time
+		ima string
+	}{
+		{"prije nastanka", dan(12, 31).AddDate(-1, 0, 0), ""},
+		{"dan nastanka", dan(1, 1), "izmijenjeno, opozvano, dvaput prvo"},
+		{"između nastanka i prve izmjene", dan(9, 1), "izmijenjeno, opozvano, dvaput prvo"},
+		{"dan prve izmjene i opoziva", dan(10, 5), "izmijenjeno, opozvano, dvaput prvo"},
+		{"nakon opoziva", dan(10, 6), "izmijenjeno, dvaput prvo"},
+		{"nakon druge izmjene", dan(10, 8), "izmijenjeno, dvaput"},
+	} {
+		if got := naslovi(ZaduzenjaUDanu(povijest, s.dan)); got != s.ima {
+			t.Errorf("%s: %q, očekivano %q", s.ime, got, s.ima)
+		}
+	}
+	// zaduženje upisano s verzijom u istoj transakciji stoji od nastanka,
+	// a ne od trenutka upisa verzije
+	upisano := Duty{ID: uuid.New(), Title: "upisano", IsActive: true, CreatedAt: nastanak}
+	p := SloziPovijestZaduzenja([]Duty{upisano}, []VerzijaZaduzenja{{Duty: upisano, Od: nastanak.Add(time.Millisecond)}})
+	if len(p) != 1 || !p[0].Od.Equal(nastanak) {
+		t.Errorf("zaduženje upisano s verzijom: %+v", p)
+	}
+}
+
+// Zapis s dana prije ikojeg zaduženja osobe u programu (prijenos iz ranije
+// evidencije, uvoz iz BP16) vezan je uz zaduženja s kojima je ušla u
+// program; zapis između dvaju zaduženja i zapis bez povijesti nisu vezani
+// ni uz jedno (Odluke (8. 10. 2026.), pitanje 1). Najraniji početak traži
+// se u cijeloj povijesti, a ne samo u prvoj verziji.
+func TestZaduzenjaZaZapis(t *testing.T) {
+	usred := func(g int, m time.Month, d int) time.Time { return time.Date(g, m, d, 15, 0, 0, 0, Zagreb) }
+	isteklo := usred(2026, 3, 1)
+	povijest := []VerzijaZaduzenja{
+		{Duty: Duty{ID: uuid.New(), Title: "drugo", IsActive: true}, Od: usred(2026, 5, 1)},
+		{Duty: Duty{ID: uuid.New(), Title: "prvo", IsActive: true, ExpiresAt: &isteklo}, Od: usred(2026, 1, 10)},
+	}
+	naslovi := func(dd []Duty) string {
+		var out []string
+		for _, d := range dd {
+			out = append(out, d.Title)
+		}
+		return strings.Join(out, ", ")
+	}
+	for _, s := range []struct {
+		ime string
+		dan time.Time
+		ima string
+	}{
+		{"iz BP16, godinu prije", usred(2025, 5, 1), "prvo"},
+		{"dan prije prvog", usred(2026, 1, 9), "prvo"},
+		{"dan prvog", usred(2026, 1, 10), "prvo"},
+		{"između dvaju zaduženja", usred(2026, 4, 1), ""},
+		{"za vrijeme drugog", usred(2026, 6, 1), "drugo"},
+	} {
+		if got := naslovi(ZaduzenjaZaZapis(povijest, s.dan)); got != s.ima {
+			t.Errorf("%s: %q, očekivano %q", s.ime, got, s.ima)
+		}
+	}
+	if got := ZaduzenjaZaZapis(nil, usred(2025, 5, 1)); len(got) != 0 {
+		t.Errorf("bez povijesti: %+v", got)
 	}
 }

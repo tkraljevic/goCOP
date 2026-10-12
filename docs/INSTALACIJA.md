@@ -600,7 +600,8 @@ koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 i od čega, sažima knjigu verzija (svaki zapis zadržava zadnju verziju, a
 obrisani svoj nadgrobni spomenik; starije verzije brišu se nakon zadanog
 roka; od 0.0.24-alfa čuva i zadnju verziju
-koju je svaki čvor upisao u kanal), vraća prostor na disku, te izdaje kanal
+koju je svaki čvor upisao u kanal, a akt i zadnju verziju svake svoje
+ovjere), vraća prostor na disku, te izdaje kanal
 kao potpisan `.cop` paket (npr. `gocop-ocitanja-bp16-2024_v1.cop`, po izboru s PDF-ovima i slikama;
 stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u bilo koji čvor:
 arhiva na disku ili prijenos bez mreže. Na stranici prijave stoji kontakt
@@ -794,10 +795,15 @@ na GitHubu označena su kao *pre-release*.
 
 Izdanje:
 
-1. na računalu s izvozom registara u `data/` pokrenuti
-   `make provjera-registara` (provjere registara GitHub ne može
-   izvesti), promijeniti `verzijaPrograma`, upisati novo u
-   [CHANGELOG.md](../CHANGELOG.md), commit i oznaka `v0.0.x-alfa`;
+1. na računalu s cijelim izvozom registara u `data/` (šest datoteka;
+   odakle je koja, piše u odjeljku
+   [Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju))
+   pokrenuti `make provjera-registara` (provjere registara GitHub ne može
+   izvesti). Bez izvoza provjera ne prolazi, pa se izvoz prije izdanja
+   vraća iz pričuve ili slaže iznova; ako se izvoz promijenio, brojke u
+   provjerama mijenjaju se svjesno, s razlogom u commitu. Zatim promijeniti
+   `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md), commit
+   i oznaka `v0.0.x-alfa`;
 2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
@@ -886,24 +892,40 @@ Samo 11 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
 nule iz elaborata, cjelovitost registara) treba stvarne registre. Dvije opće
 provjere prvog punjenja (drugo punjenje ništa ne udvostručuje, tekstovi su
 ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
-ponavljaju se i na njima. Stvarni registri su izvoz registara u mapi
+ponavljaju se i na njima. Tako i provjera registra teritorija (sve
+županije, gradovi i općine, naselja, sjedište županije, dionice sektora B i
+ugroženo područje dionice B.15.1): na izmišljenom skupu provjerava upite, a
+brojke izvoza tek na stvarnim registrima. Stvarni registri su izvoz registara u mapi
 `data/` u korijenu repozitorija (`sections.json`, `watercourses.json`,
 `territories.json`, `section_territories.json`, `objekti_bp16.json`,
-`organizacija.json`); `sections.json` slaže administratorski alat
-`prijepis-dionica`, izvan repozitorija. Brojke u provjerama su brojke
-izvoza s kojim je napunjen prvi čvor; uz noviji izvoz razlike se
-pregledaju i brojke mijenjaju svjesno, s razlogom u commitu. Bez izvoza se
-provjere preskaču, uz poruku što treba. Pokreću se prije svakog izdanja
-naredbom `make provjera-registara`, koja ih bez izvoza ruši umjesto da ih
-preskoči.
+`organizacija.json`); odakle je koja, piše u odjeljku
+[Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju), a
+`sections.json` slaže administratorski alat `prijepis-dionica`, izvan
+repozitorija. Brojke u provjerama su brojke izvoza s kojim je napunjen
+prvi čvor; uz noviji izvoz razlike se pregledaju i brojke mijenjaju
+svjesno, s razlogom u commitu. Bez cijelog izvoza provjere se preskaču, uz
+poruku koje datoteke nema i što treba. `go test` bez `-v` preskakanje ne
+ispisuje, pa to na kraju kaže `make quality` (zasebno `make
+stanje-registara`), a na GitHubu stoji kao upozorenje u sažetku provjere.
+Pokreću se prije svakog izdanja
+naredbom `make provjera-registara`, koja ih bez cijelog izvoza ruši umjesto
+da ih preskoči.
 Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
 i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
-upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave): nijedan
-ne smije nositi stvarno ime, osim imena koja program sam prikazuje u
-pomoći. Baza se otvara samo za čitanje; bez nje se pregled preskače.
-Stvarne baze čvora u `data/` čita još samo ručna proba stranice kišomjera
-(`GOCOP_KISA_PROBA=<mapa>`), koja stranice iscrta za pregled okom i ništa
-ne provjerava.
+upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave) i prema
+brojevima mobitela djelatnika: nijedan ne smije nositi stvarno ime ni broj,
+osim imena koja program sam prikazuje u pomoći, i to samo u testu koji
+pomoć čita. Pregled nalazi ime i prezime i u padežu i obrnutim redom, a
+korisničko ime i u složenici (naziv računala ili čvora, adresa e-pošte) i
+pisano velikim slovima. Ne nalazi samo prezime, samo ime, ime od tri slova
+u padežu ni ime i prezime pisano velikim slovima, pa ne zamjenjuje
+čitanje testa. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+Stvarne baze čvora čitaju još samo dvije ručne probe, koje ništa ne
+provjeravaju: proba stranice kišomjera (`GOCOP_KISA_PROBA=<mapa>`) iscrta
+stranice iz baza u `data/` za pregled okom, a mjera veličine izdanja
+prognoze u `internal/prognoza` (`GOCOP_PROGNOZE=<put do prognoze.db>`)
+ispiše veličinu zadnjeg izdanja. Mjera bazu prognoza otvara kao program, ne
+samo za čitanje (shemu može doraditi), pa se pokreće na kopiji baze.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati

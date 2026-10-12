@@ -170,7 +170,30 @@ type PlanOsobe struct {
 	Sektor       string
 	Zakljucen    bool
 	Dezurstava   int
-	CekaPotvrdu  int
+	CekaPotvrdu  int // nepotvrđena dežurstva s poznatim mjestom rada
+	ZaProvjeru   int // dežurstva kojima se ne zna mjesto rada, potvrđena ili ne
 	Sati         time.Duration
 	Prvo, Zadnje time.Time
+}
+
+// Dodaj pribraja dežurstvo planu: broj, sate te prvi i zadnji dan. Što nije
+// u obračunu broji se posebno, kao u obračunu i IORS-u: dežurstvo kojemu se
+// ne zna mjesto rada je „za provjeru” i kad je potvrđeno, a nepotvrđeno
+// takvo ne čeka potvrdu, jer se ne potvrđuje dok uprava centra ne izabere
+// opis (Odluke (8. 10. 2026.), pitanje 10).
+func (p *PlanOsobe) Dodaj(d Dezurstvo) {
+	if p.Dezurstava == 0 || d.Od.Before(p.Prvo) {
+		p.Prvo = d.Od
+	}
+	if p.Dezurstava == 0 || d.Do.After(p.Zadnje) {
+		p.Zadnje = d.Do
+	}
+	p.Dezurstava++
+	p.Sati += d.Trajanje()
+	switch {
+	case d.ZaProvjeru():
+		p.ZaProvjeru++
+	case !d.Potvrdeno():
+		p.CekaPotvrdu++
+	}
 }

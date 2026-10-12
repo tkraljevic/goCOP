@@ -43,10 +43,11 @@
     <tbody>
     {{range .Akti}}
     {{$sukob := index $.Sukobi .ID}}
-    <tr{{if and $sukob.Drugi (not $sukob.Rijesen)}} class="akt-sukob"{{else if not .Ovjeren}} class="mts-prazno"{{end}}>
+    <tr{{if and $sukob.Ima (not $sukob.Rijesen)}} class="akt-sukob"{{else if not .Ovjeren}} class="mts-prazno"{{end}}>
       <td class="mono">{{.Oznaka}}</td>
       <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a>{{if .IzvanSnage}}<div class="reg-card-sub">{{.IzvanSnage}}</div>{{end}}
-        {{range $sukob.Drugi}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} ista oznaka kao akt <a href="/akti/{{.ID}}">{{.StationName}}, {{.Vrsta}} o {{.RadnjaLabel}} {{.Predmet}}</a>, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}</td>
+        {{range $sukob.Drugi}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} ista oznaka kao akt <a href="/akti/{{.ID}}">{{.StationName}}, {{.Vrsta}} o {{.RadnjaLabel}} {{.Predmet}}</a>{{if $sukob.IzvanPopisa .}} u drugoj ovjeri{{end}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}
+        {{range $sukob.Ovjere}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} isti nacrt ovjeren je i kao {{.Oznaka}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if .Storniran}}, poništen{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}</td>
       <td>{{.StationName}}{{if .VodostajCm}} <span class="reg-card-sub">{{intOf .VodostajCm}} cm</span>{{end}}</td>
       <td>{{.AreaID}}</td>
       <td class="mono">{{join .Sifre ", "}}</td>

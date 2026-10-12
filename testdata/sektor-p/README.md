@@ -12,7 +12,9 @@ i bez stvarnih imena. Test ga uključuje pozivom
 
 Provjere registara (Batina i Vukovar na Dunavu, kota nule iz elaborata,
 cjelovitost registara) ostaju na stvarnim registrima, izvozu registara u
-`data/`. Pokreću se prije svakog izdanja naredbom `make provjera-registara`.
+`data/` (odakle je koja datoteka, piše u
+[uputama](../../docs/INSTALACIJA.md#podaci-koji-nisu-u-repozitoriju)).
+Pokreću se prije svakog izdanja naredbom `make provjera-registara`.
 
 ## Organizacija
 

@@ -28,6 +28,10 @@ Slijede golangci-lint, funkcijski CC/CRAP, exact/fuzzy analiza i regresijski gat
 Kombinirana naredba istodobno provjerava izgradnju testiranih paketa, testove,
 race i coverage. Nije provjera svih OS/build-tag kombinacija. Prvi prolaz većeg
 projekta traje nekoliko minuta; izlaz testova postupno dolazi u `.quality/tests.log`.
+Na kraju `make quality` pokreće `make stanje-registara`, koji kaže jesu li
+provjere registara izvedene: bez izvoza registara u `data/` one se preskaču, a
+`go test` bez `-v` to ne ispisuje. Na GitHubu poruka stoji i kao upozorenje u
+sažetku provjere; vidi `make provjera-registara` u [INSTALACIJA.md](INSTALACIJA.md).
 
 - `make quality-report`: isti izvještaji; regresije ne određuju izlazni kod,
   ali neuspjelo mjerenje/test/race/ozbiljna statika i dalje vraćaju grešku.

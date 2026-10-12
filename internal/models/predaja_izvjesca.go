@@ -3,6 +3,7 @@ package models
 import (
 	"bytes"
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 )
@@ -91,9 +92,10 @@ func (t TragPredaje) TkoJeMijenjao() string {
 	return strings.Join(imena, ", ")
 }
 
-// izmjeneZaIspis: „izmijenio poslije predaje: Ivo Ivić”, a kad ih je više
-// „izmijenili poslije predaje: Ivo Ivić, Marko Markić”; prazno kad nitko
-func (t TragPredaje) izmjeneZaIspis() string {
+// IzmjeneZaIspis: „izmijenio poslije predaje: Ivo Ivić”, a kad ih je više
+// „izmijenili poslije predaje: Ivo Ivić, Marko Markić”; prazno kad nitko.
+// Tako piše na dokumentu, u izvozu i u popisu izvješća.
+func (t TragPredaje) IzmjeneZaIspis() string {
 	switch len(t.Izmijenili) {
 	case 0:
 		return ""
@@ -145,7 +147,7 @@ func (t TragPredaje) opisPredaje(predano *time.Time, kome, format string) string
 // kad se zna i nije onaj tko ga je sastavio, tko ga je predao
 func (t TragPredaje) trag(predano *time.Time, izradio, kome, format string) string {
 	var dijelovi []string
-	if iz := t.izmjeneZaIspis(); iz != "" {
+	if iz := t.IzmjeneZaIspis(); iz != "" {
 		dijelovi = append(dijelovi, iz)
 	}
 	if o := t.opisPredaje(predano, kome, format); o != "" {
@@ -224,16 +226,80 @@ func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User
 }
 
 // PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
-// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena: predano
-// izvješće koje spremanje ne mijenja ostaje kakvo je bilo, predano i s
-// istim vremenima, a odgovor je false — nema se što spremiti.
-func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time) bool {
-	if !i.ZabiljeziSpremanje(prije, u) && prije.Predano() {
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena onoga
+// tko sprema (ostajePredano): predano izvješće koje on nije mijenjao ostaje
+// kakvo je bilo, predano, s istim vremenima i tablicama kakve su predane,
+// a odgovor je false — nema se što spremiti. dostupno su ID-ovi izvješća
+// dionica i zapisa dnevnika koji za taj dan još postoje; nil kad se to ne
+// zna, pa se ništa ne izuzima.
+func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time, dostupno map[string]bool) bool {
+	if i.ostajePredano(prije, dostupno) {
 		*i = *prije
 		return false
 	}
+	i.ZabiljeziSpremanje(prije, u)
 	i.IzradenoAt, i.PredanoAt = sad, nil
 	return true
+}
+
+// ostajePredano javlja da spremanje predano izvješće sektora ne vraća u
+// nacrt: onaj tko sprema nije promijenio ni dan, ni tekst, ni odabir
+// izvješća dionica i zapisa dnevnika. Tablice i reci koji se pri spremanju
+// snimaju iznova nisu njegova izmjena — izvješće dionice popravljeno
+// poslije predaje i novi nacrt dionice za isti dan predano izvješće sektora
+// ostavljaju kakvo je predano. Nije njegova izmjena ni što iz odabira
+// predanog izvješća više ne postoji (storniran zapis, obrisano izvješće
+// dionice): to u obrascu ne vidi i ne može zadržati.
+func (i SektorskoIzvjesce) ostajePredano(prije *SektorskoIzvjesce, dostupno map[string]bool) bool {
+	return prije != nil && prije.Predano() && prije.DanKey() == i.DanKey() &&
+		istiJSON(prije.Sadrzaj.izbor().samoDostupno(dostupno), i.Sadrzaj.izbor().samoDostupno(dostupno))
+}
+
+// izborSektorskog je ono što u izvješću sektora piše i bira onaj tko ga
+// slaže: tekstovi te koja izvješća dionica i koji zapisi dnevnika ulaze
+type izborSektorskog struct {
+	Tekst    SektorskiSadrzaj `json:"tekst"` // bez snimke iz dionica i dnevnika
+	Izvjesca []string         `json:"izvjesca"`
+	Zapisi   []string         `json:"zapisi"`
+}
+
+// samoDostupno ostavlja u odabiru samo izvješća dionica i zapise dnevnika
+// koji još postoje; nil znači da se to ne zna, pa ostaje cijeli odabir
+func (iz izborSektorskog) samoDostupno(dostupno map[string]bool) izborSektorskog {
+	if dostupno == nil {
+		return iz
+	}
+	iz.Izvjesca, iz.Zapisi = samoUSkupu(iz.Izvjesca, dostupno), samoUSkupu(iz.Zapisi, dostupno)
+	return iz
+}
+
+// samoUSkupu su ID-ovi iz popisa koji su u skupu, istim redom
+func samoUSkupu(ids []string, skup map[string]bool) []string {
+	var out []string
+	for _, id := range ids {
+		if skup[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// izbor vadi iz sadržaja ono što bira i piše onaj tko izvješće slaže, bez
+// snimke iz dionica i dnevnika. Odabrano je skup: redoslijed nije bitan.
+func (s SektorskiSadrzaj) izbor() izborSektorskog {
+	iz := izborSektorskog{Tekst: s}
+	iz.Tekst.Pregled, iz.Tekst.Zapisi = SektorskiPregled{}, nil
+	for _, pod := range s.Pregled.Podrucja {
+		for _, d := range pod.Dionice {
+			iz.Izvjesca = append(iz.Izvjesca, d.IzvjesceID)
+		}
+	}
+	for _, z := range s.Zapisi {
+		iz.Zapisi = append(iz.Zapisi, z.ID)
+	}
+	sort.Strings(iz.Izvjesca)
+	sort.Strings(iz.Zapisi)
+	return iz
 }
 
 // PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom

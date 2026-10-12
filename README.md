@@ -75,6 +75,8 @@ svi na toj inačici.
   systemd, vatrozid, ažuriranje i deinstalacija.
 - [Sigurnost](SECURITY.md) — prijava ranjivosti, podržane verzije, model
   povjerenja i što nije zaštićeno.
+- [Code signing policy](docs/CODE_SIGNING.md) — što se potpisuje za Windows,
+  tko odobrava potpis i što program šalje u mrežu.
 - [Predlošci uvoza](docs/predlosci/README.md) — oblik datoteka za registre,
   prvo pokretanje, očitanja, ugovor A.02 i tok vodotoka.
 - [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)

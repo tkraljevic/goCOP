@@ -140,13 +140,18 @@ func (r *VodocuvarRepository) zapisIzvornika(ctx context.Context, iz *models.Izv
 // za isti dan nije predan: list koji je druga kartica predala nakon što je
 // ovaj pročitan ne vraća se u nacrt, nego se upis odbija s
 // ErrListPredanUMedjuvremenu, bez upisa i bez verzije u knjizi. Predan list
-// (ovjera, parafa, upis na predan list) upisuje se kako je pročitan.
+// (ovjera, parafa, upis na predan list) upisuje se kako je pročitan. Oba
+// zadržavaju ono što je na list u međuvremenu dodano mimo ove kopije
+// (dopuniSPovrsine).
 func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiList) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if err := dopuniSPovrsine(ctx, tx, l); err != nil {
+		return err
+	}
 	if l.PredanoAt == nil {
 		err = r.upisiNepredan(ctx, tx, l, ErrListPredanUMedjuvremenu)
 	} else {
@@ -225,6 +230,32 @@ func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *
 	return err
 }
 
+// dopuniSPovrsine dopunjuje list koji se upisuje onim što je na njega u
+// bazi upisano mimo ove kopije: bilješkama i naredbama, prijavama, parafama
+// i ovjerom, istim pravilom kao pri razmjeni (spojiZive). Upis koji je druga
+// kartica spremila između čitanja ove kopije i njezina upisa tako se ne
+// gubi. List se čita naredbom upisa koja ga ne mijenja, pa transakcija od
+// tog čitanja drži bazu za upis i list do njezina kraja nitko ne mijenja.
+func dopuniSPovrsine(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
+	id := l.ID
+	if id == "" {
+		id = models.IDListaVodocuvara(l.UserID, l.Datum)
+	}
+	p, err := scanVodocuvarski(tx.QueryRowContext(ctx, `UPDATE vodocuvarski_listovi SET upisi = upisi WHERE id = ? RETURNING `+vodocuvarskiColumns, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("čitanje lista prije upisa: %w", err)
+	}
+	povrsina := []verzijaLista{{list: p}}
+	l.Upisi = spojiUpise(l.Upisi, p.Upisi)
+	l.Prijave = spojiPrijave(l.Prijave, p.Prijave)
+	l.Parafe = parafeVerzija(l.Parafe, povrsina)
+	ovjeraIzVerzija(l, povrsina)
+	return nil
+}
+
 // ErrListPredan: list je u međuvremenu predan (istodobna predaja iz druge
 // kartice); predaja se ne upisuje. Greška kaže i datum lista („list od
 // 10.03.2026. je već predan…”), kao kod predaje predanog lista.
@@ -260,8 +291,12 @@ func (r *VodocuvarRepository) Predaj(ctx context.Context, l *models.Vodocuvarski
 		return err
 	}
 	defer tx.Rollback()
-	// upis lista prvi drži bazu za upis, pa stanje lista i zadataka
-	// pročitano nakon njega nitko više ne mijenja do kraja transakcije
+	// čitanje lista za dopunu prvo drži bazu za upis, pa stanje lista i
+	// zadataka pročitano nakon njega nitko više ne mijenja do kraja
+	// transakcije
+	if err := dopuniSPovrsine(ctx, tx, l); err != nil {
+		return err
+	}
 	if err := r.upisiNepredan(ctx, tx, l, ErrListPredan); err != nil {
 		return err
 	}

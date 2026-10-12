@@ -237,28 +237,30 @@ func TestOdbacenoIzStareEvidencijeNijeKvarMjerila(t *testing.T) {
 	}
 }
 
-// Dorada (Odluke (8. 10. 2026.), pitanje 21): preuzimanje i uvoz ne
-// upisuju samo vrijednost izvan raspona, a ostale vrijednosti istog očitanja
-// upisuju. Pomoć to kaže, i da se upisano očitanje poslije ne dopunjuje, a
-// ne smije reći da otpada cijelo očitanje ni da mu sat ostaje slobodan.
-func TestPomocKazeDaOstaleVrijednostiOcitanjaOstaju(t *testing.T) {
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): preuzimanje i uvoz uz
+// vodostaj izvan raspona ne upisuju cijelo očitanje, kao ručni upis, pa sat
+// ostaje slobodan; uz temperaturu ili protok izvan raspona otpada samo ta
+// vrijednost. Pomoć to kaže, i da se upisano očitanje poslije ne
+// dopunjuje, a ne smije reći da tipfeler u vodostaju ostavlja sate rada
+// agregata.
+func TestPomocKazeKadOtpadaCijeloOcitanje(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
-	for _, s := range []string{"ne upisuju se ni ostale vrijednosti tog očitanja", "sat slobodan", "sa satima rada agregata"} {
+	for _, s := range []string{"ni tipfeler u vodostaju", "otpada vrijednost izvan raspona, a ostale vrijednosti istog očitanja ostaju"} {
 		if strings.Contains(h, s) {
 			t.Errorf("pomoć još kaže %q", s)
 		}
 	}
-	for _, s := range []string{"ostale vrijednosti istog očitanja ostaju", "sate rada agregata",
-		"Očitanje kojem ništa ne ostane ne upisuje se", "nosi dan i sat zapisa", "ne dopunjuju"} {
+	for _, s := range []string{"ne upisuje se cijelo očitanje", "protok koji izvor računa iz vodostaja",
+		"Sat tako ostaje slobodan", "otpada samo ta vrijednost", "Očitanje kojem ništa ne ostane ne upisuje se", "ne dopunjuju"} {
 		if !strings.Contains(h, s) {
 			t.Errorf("pomoć ne spominje %q", s)
 		}
 	}
 }
 
-// Stranica letve uz broj odbačenih ne tvrdi da se ne upisuju ni ostale
-// vrijednosti očitanja
-func TestStranicaLetveKazeDaOstaleVrijednostiOstaju(t *testing.T) {
+// Stranica letve uz broj odbačenih kaže kad otpada cijelo očitanje, a kad
+// samo vrijednost izvan raspona (dorada, Odluke (8. 10. 2026.), pitanje 21)
+func TestStranicaLetveKazeKadOtpadaCijeloOcitanje(t *testing.T) {
 	html := strings.Join(strings.Fields(iscrtaj(t, "reading_history.html", ReadingHistoryData{
 		CurrentUser: &models.User{FullName: "Pero Perić"},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
@@ -267,10 +269,26 @@ func TestStranicaLetveKazeDaOstaleVrijednostiOstaju(t *testing.T) {
 		Odbaceno: &models.SazetakOdbacenih{Broj: 1, Zadnja: models.OdbacenaVrijednost{
 			Kad: time.Now(), Polje: models.PoljeTemperatura, Opis: "temperatura 85,0 °C", Izvor: "hdv.voda.hr"}},
 	})), " ")
-	if strings.Contains(html, "pa ni ostale vrijednosti tog očitanja") {
-		t.Error("stranica letve još kaže da se ne upisuju ni ostale vrijednosti očitanja")
+	for _, s := range []string{"uz vodostaj izvan raspona ne upisuje se cijelo očitanje",
+		"uz temperaturu ili protok izvan raspona ostale vrijednosti istog očitanja upisuju se"} {
+		if !strings.Contains(html, s) {
+			t.Errorf("stranica letve ne kaže %q", s)
+		}
 	}
-	if !strings.Contains(html, "ostale vrijednosti istog očitanja upisuju se") {
-		t.Error("stranica letve ne kaže da ostale vrijednosti istog očitanja ostaju")
+}
+
+// Dorada (Odluke (8. 10. 2026.), pitanje 21): stranica letve pokazuje broj
+// odbačenih i zadnju odbačenu vrijednost, s danom i satom; popisa svih nema
+// ni na jednoj stranici. Pomoć ne smije obećavati da se svaki odbačeni zapis
+// (npr. 40 tipfelera iz BP16) može naći i ispraviti.
+func TestPomocNeObecavaPopisOdbacenih(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "pa se zapis može naći i ispraviti") {
+		t.Error("pomoć još obećava da se svaki odbačeni zapis može naći")
+	}
+	for _, s := range []string{"samo broj i zadnju odbačenu vrijednost", "Popisa svih odbačenih vrijednosti nema"} {
+		if !strings.Contains(h, s) {
+			t.Errorf("pomoć ne kaže %q", s)
+		}
 	}
 }

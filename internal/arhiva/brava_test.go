@@ -85,8 +85,12 @@ func TestMrtvaBravaSePreuzimaIJavlja(t *testing.T) {
 // oduzela. Bolje stati nego dvaput graditi.
 func TestBravaBezPidaSeNeOduzima(t *testing.T) {
 	uz := filepath.Join(t.TempDir(), "vodostaji.db")
-	os.WriteFile(uz, []byte("x"), 0o644)
-	os.WriteFile(uz+ImeBrave, []byte(`{"sto":"nepoznato","tko":"?"}`), 0o644)
+	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(uz+ImeBrave, []byte(`{"sto":"nepoznato","tko":"?"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := Uzmi(uz, "gradnja", "ja"); err == nil {
 		t.Error("brava bez pida je oduzeta")
@@ -96,8 +100,12 @@ func TestBravaBezPidaSeNeOduzima(t *testing.T) {
 // Neupotrebljiv sadržaj brave ne smije zaključati arhivu zauvijek.
 func TestPokvarenaBravaSePreuzima(t *testing.T) {
 	uz := filepath.Join(t.TempDir(), "vodostaji.db")
-	os.WriteFile(uz, []byte("x"), 0o644)
-	os.WriteFile(uz+ImeBrave, []byte("ovo nije json"), 0o644)
+	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(uz+ImeBrave, []byte("ovo nije json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	b, err := Uzmi(uz, "gradnja", "ja")
 	if err != nil {
@@ -151,4 +159,28 @@ func TestBravaPrijasnjegZivotaIstogPida(t *testing.T) {
 		t.Error("brava ovog života je preuzeta usred posla")
 	}
 	nova.Pusti()
+}
+
+// Zaključava prikaz posla u tijeku: bez brave nema posla, dok je brava uzeta
+// vidi se čime se posao bavi, a nakon puštanja opet ništa. Puštanje već
+// puštene ili nepostojeće brave ne radi ništa.
+func TestPosaoUTijekuPremaBravi(t *testing.T) {
+	baza := filepath.Join(t.TempDir(), "arhiva.db")
+	if p := PosaoUTijeku(baza); p != "" {
+		t.Errorf("bez brave javljen posao %q", p)
+	}
+	b, err := Uzmi(baza, "ugradnja paketa osijek", "cop-osijek")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := PosaoUTijeku(baza); p != "ugradnja paketa osijek" {
+		t.Errorf("posao u tijeku %q", p)
+	}
+	b.Pusti()
+	if p := PosaoUTijeku(baza); p != "" {
+		t.Errorf("nakon puštanja javljen posao %q", p)
+	}
+	b.Pusti()
+	var nema *Brava
+	nema.Pusti()
 }

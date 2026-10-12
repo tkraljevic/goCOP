@@ -60,7 +60,8 @@ func TestSectionsSeedAndCount(t *testing.T) {
 	}
 }
 
-// TestSectionsFiltering provjerava filtriranje po sektoru P i branjenom području 1 (Primjerica)
+// TestSectionsFiltering provjerava filtriranje po sektoru P i branjenom području 1 (Primjerica);
+// broj dionica sektora B u stvarnom registru provjerava TestRegistarTeritorijaJeCjelovit u internal/db
 func TestSectionsFiltering(t *testing.T) {
 	sectionService, _, _, _, _ := setupSectionTestServices(t)
 

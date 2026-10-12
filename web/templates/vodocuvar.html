@@ -97,7 +97,7 @@
     <form method="POST" action="/vodocuvar/upis" class="posta-trazi" style="margin:0.4rem 0; align-items:center;">
       <input type="hidden" name="vodocuvar" value="{{.UserID}}">
       <input type="date" class="form-control max-w-11" name="datum" value="{{$.Danas}}" max="{{$.NajdaljeDan}}" title="dan lista; unaprijed najviše 30 dana, a za dan koji je prošao samo na list koji postoji">
-      <input class="form-control" name="tekst" required placeholder="upis u dnevnik: naredba, napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
+      <input class="form-control" name="tekst" required placeholder="upis u dnevnik: napomena, nalaz obilaska" style="min-width:16rem; flex:1;">
       <button type="submit" class="btn btn-secondary btn-sm">{{icon "pencil"}} Upiši</button>
     </form>
     {{end}}

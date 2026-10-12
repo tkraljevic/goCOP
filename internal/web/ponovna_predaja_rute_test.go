@@ -140,8 +140,11 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	w = zovi(ana, uprava, http.MethodGet, dok, nil)
 	mora(w, http.StatusOK, "predano", "predano GCOP-u ", `action="`+dok+`/povuci"`, "Povuci predaju")
 	nema(w, "predano", `action="`+dok+`/obrisi"`, "prvi put")
-	mora(zovi(ana, uprava, http.MethodGet, dok+"/uredi", nil), http.StatusOK, "obrazac predanog",
-		"Spremljena izmjena vraća ga u nacrt", "Spremi i ponovo predaj")
+	w = zovi(ana, uprava, http.MethodGet, dok+"/uredi", nil)
+	mora(w, http.StatusOK, "obrazac predanog", "Spremljena izmjena vraća ga u nacrt", "Spremi i ponovo predaj",
+		"Tablice predanog izvješća snimaju se iznova samo uz izmjenu teksta ili odabira.")
+	// podnožje ne smije reći da se tablice snimaju pri svakom spremanju
+	nema(w, "obrazac predanog", "Tablice se snimaju pri spremanju.")
 	// spremanje bez promjene predano izvješće ostavlja predanim
 	bezPromjene := url.Values{"sektor": {"P"}, "dan": {danas}, "hidrometeo": {"Vodostaji rastu."}, "evakuacija": {"Evakuirano 40 ljudi."}}
 	w = zovi(ivo, uprava, http.MethodPost, dok, bezPromjene)
@@ -149,6 +152,9 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	w = zovi(ana, uprava, http.MethodGet, dok, nil)
 	mora(w, http.StatusOK, "predano nakon spremanja bez promjene", "predano GCOP-u ", "Povuci predaju")
 	nema(w, "predano nakon spremanja bez promjene", "prvi put", "izmijenio poslije predaje")
+	// isto i kad se obrazac pošalje natrag onakav kakav ga preglednik prikaže
+	w = zovi(ivo, uprava, http.MethodPost, dok, poljaObrasca(t, zovi(ivo, uprava, http.MethodGet, dok+"/uredi", nil).Body.String(), dok))
+	poruka(w, "success", "Izvješće sektora nije mijenjano i ostaje predano Glavnom centru.")
 
 	// Ivo ispravi broj evakuiranih i samo spremi: nacrt, čeka ponovnu predaju
 	obrazac.Set("evakuacija", "Evakuirano 4 ljudi.")
@@ -159,7 +165,8 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	mora(w, http.StatusOK, "nacrt nakon izmjene", "badge badge-pending\">nacrt", "prvi put predano GCOP-u ", ", čeka ponovnu predaju",
 		"izmijenio poslije predaje: Ivo Ivić", "Ponovo predaj GCOP-u", "Sastavio: <strong>Ana Anić</strong>")
 	nema(w, "nacrt nakon izmjene", `action="`+dok+`/obrisi"`, "Povuci predaju")
-	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "čeka ponovnu predaju")
+	mora(zovi(ana, uprava, http.MethodGet, dok+"/uredi", nil), http.StatusOK, "obrazac nacrta nakon izmjene", "Tablice se snimaju pri spremanju.")
+	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis", "čeka ponovnu predaju", "izmijenio poslije predaje: Ivo Ivić")
 	// nacrt koji je bio predan ne briše se
 	w = zovi(ana, uprava, http.MethodPost, dok+"/obrisi", url.Values{})
 	poruka(w, "error", "izvješće sektora koje je bilo predano Glavnom centru ne briše se")
@@ -221,6 +228,7 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	poruka(w, "success", "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar.")
 	mora(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "izvješće dionice nakon izmjene",
 		"badge badge-pending\">nacrt", "prvi put predano ", ", čeka ponovnu predaju", "izmijenio poslije predaje: Pero Perić", "Ponovo predaj")
+	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca", nil), http.StatusOK, "popis nakon izmjene izvješća dionice", "izmijenio poslije predaje: Pero Perić")
 	// gumb za brisanje: izvješće koje je bilo predano briše samo uprava
 	nema(zovi(pero, dionica, http.MethodGet, "/izvjesca/"+idd, nil), "nacrt nakon predaje kao autor", `action="/izvjesca/`+idd+`/obrisi"`)
 	mora(zovi(ana, uprava, http.MethodGet, "/izvjesca/"+idd, nil), http.StatusOK, "nacrt nakon predaje kao uprava", `action="/izvjesca/`+idd+`/obrisi"`)

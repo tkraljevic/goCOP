@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/repository"
 )
 
 // Odluke (8. 10. 2026.), pitanje 10: opis rada koji je ispravila uprava
@@ -101,5 +102,126 @@ func TestPotvrdaZapisujeIzvedenoMjesto(t *testing.T) {
 	}
 	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); !d.Potvrdeno() || d.Mjesto != models.MjestoTeren {
 		t.Errorf("potvrđeno bez zapisanog mjesta: %+v", d)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: ispravak opisa rada istim opisom ne
+// mijenja ništa ni kad mjesto rada nije zapisano nego se izvodi iz opisa
+// (stariji zapis ili zapis s drugog čvora). Mjesto je i tada poznato, pa
+// potvrda ostaje, napomena ne dobiva trag ispravka, nova inačica se ne
+// piše, a opis i dalje ne bira uprava — osoba čije je dežurstvo s njim radi
+// kao i prije. Pero Perićev obilazak stigao je bez zapisanog mjesta i
+// potvrđen je; Ana Anić iz uprave centra izabere opis koji već ima.
+func TestIspravakIstimOpisomBezZapisanogMjesta(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	obilazak := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	obilazak.Opis = "Obilazak i pregled obrambenih objekata"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, obilazak); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`UPDATE dezurstva SET mjesto = '' WHERE id = ?`, obilazak.ID); err != nil {
+		t.Fatal(err)
+	}
+	prije, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID)
+	if prije.Mjesto != "" || prije.MjestoRada() != models.MjestoTeren || !prije.Potvrdeno() || prije.OpisBiraUprava() {
+		t.Fatalf("priprema: %+v", prije)
+	}
+	verzija := func() int {
+		t.Helper()
+		var n int
+		if err := o.baza.QueryRow(`SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, repository.EntityDezurstva, obilazak.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	n := verzija()
+
+	promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, "Obilazak i pregled obrambenih objekata")
+	if err != nil || promijenjeno {
+		t.Errorf("ispravak istim opisom: promijenjeno %v, %v", promijenjeno, err)
+	}
+	d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID)
+	if d.Napomena != prije.Napomena || !d.Potvrdeno() || d.OpisBiraUprava() {
+		t.Errorf("ispravak istim opisom promijenio je dežurstvo: napomena %q, potvrdio %q, opis bira uprava %v", d.Napomena, d.Potvrdio, d.OpisBiraUprava())
+	}
+	if m := verzija(); m != n {
+		t.Errorf("ispravak istim opisom upisao je inačicu: %d → %d", n, m)
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: bilješku o ispravku opisa u napomenu
+// upisuje samo program, kad uprava centra ispravi opis. Rukom upisana
+// bilješka upravi bi pripisala ispravak koji nije napravila, a zapis bi
+// zaključala (opis bira uprava, osoba ga ne miče). Zato je napomena ne smije
+// nositi, osim tragova koji su u njoj već bili. Pero Perić upisuje svoje
+// dežurstvo, Ana Anić je uprava centra.
+func TestTragIspravkaOpisaNeUpisujeSeRukom(t *testing.T) {
+	o := novaOkolinaDezurstava(t)
+	ctx := context.Background()
+	ana := &models.User{ID: uuid.New(), FullName: "Ana Anić"}
+	lazni := "[opis ispravio Ana Anić 8.10.2026. 14:20; prije: „Ostali terenski poslovi pri obrani od poplava”]"
+	broj := func() int {
+		t.Helper()
+		sva, err := o.svc.Dezurstva(ctx, o.dnevnik.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(sva)
+	}
+
+	// novi upis s lažnim tragom ne prolazi, ni Peri ni upravi
+	pero := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	pero.Napomena = "nasip kod crpne stanice " + lazni
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, pero); err == nil || !strings.Contains(err.Error(), "upisuje program") {
+		t.Errorf("Pero upisuje dežurstvo s lažnim tragom ispravka: %v", err)
+	}
+	upravin := o.peroDezura(dzSat(10, 8, 0), dzSat(10, 12, 0))
+	upravin.Napomena = lazni
+	if err := o.svc.SpremiDezurstvo(ctx, ana, o.ovlUprav, o.opseg, o.dnevnik, upravin); err == nil || !strings.Contains(err.Error(), "upisuje program") {
+		t.Errorf("uprava upisuje dežurstvo s rukom pisanim tragom ispravka: %v", err)
+	}
+	if n := broj(); n != 0 {
+		t.Fatalf("upisano %d dežurstava s lažnim tragom", n)
+	}
+
+	// napomena slična tragu, a nije trag, prolazi; zapis Pero i dalje miče
+	slicno := o.peroDezura(dzSat(11, 8, 0), dzSat(11, 12, 0))
+	slicno.Napomena = "[opis ispravio sam]"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, slicno); err != nil {
+		t.Fatalf("napomena slična tragu: %v", err)
+	}
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, slicno.ID); err != nil {
+		t.Errorf("Pero ne miče svoj zapis s napomenom sličnom tragu: %v", err)
+	}
+
+	// pravi ispravak: Pero mijenja napomenu uz postojeći trag, ali ne dodaje lažni
+	jutro := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, jutro); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Administrativni rad pri provedbi obrane od poplava"); err != nil {
+		t.Fatal(err)
+	}
+	ispravljeno, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID)
+	izmjena := o.peroDezura(dzSat(9, 8, 0), dzSat(9, 12, 0))
+	izmjena.ID, izmjena.Opis = jutro.ID, ispravljeno.Opis
+	izmjena.Napomena = ispravljeno.Napomena + " [opis ispravio Ivo Ivić 9.10.2026. 08:05; prije: „Dežurstvo u COP-u”]"
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, izmjena); err == nil || !strings.Contains(err.Error(), "upisuje program") {
+		t.Errorf("Pero dodaje lažni trag ispravljenom zapisu: %v", err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); d.Napomena != ispravljeno.Napomena {
+		t.Errorf("napomena promijenjena lažnim tragom: %q", d.Napomena)
+	}
+	izmjena.Napomena = "u uredu centra " + ispravljeno.Napomena
+	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, izmjena); err != nil {
+		t.Errorf("Pero mijenja napomenu uz postojeći trag: %v", err)
+	}
+	if d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); d.Napomena != "u uredu centra "+ispravljeno.Napomena {
+		t.Errorf("napomena uz postojeći trag: %q", d.Napomena)
 	}
 }

@@ -39,18 +39,22 @@ func TestPomocOpisujeOvlastiPoDosegu(t *testing.T) {
 func TestPomocOpisujeKnjiguVodocuvara(t *testing.T) {
 	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
 	for _, want := range []string{
-		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke",
+		"Dežurni operater upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja",
 		"Rukovoditelj dionice kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja",
 		"rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena njegova dionica ili objekt koji je u registru na njegovoj dionici",
-		"onu u kojoj nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan",
-		"i onu vodočuvara kojemu je na dan prijave njegova dionica bila upisana na zaduženju, osim kad prijava navodi drugu dionicu s tog zaduženja",
-		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo, opozvano ili izmijenjeno; list s dana prije zaduženja nije vezan)",
+		"i onu u kojoj nije navedena ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan",
+		"Prijava koja navodi dionicu ili objekt s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva",
+		"ono što nije šifra dionice tog područja (npr. pogrešno upisana šifra) ne navodi nijednu dionicu",
+		"koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu, npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program)",
 		"Dnevni list i njegov potpisani PDF nose oznaku, vrstu i naslov svake prijave objavljene za taj dan",
 		"tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati",
 		"Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području na kojem ima dužnost",
 		"i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao zapis)",
 		"i mora biti isti: dio naziva nije ista firma",
 		"Dnevnike drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na naslovnici u kojem nije pisao",
+		"Tako ostaje i kad mu se dužnost opozove, istekne ili promijeni u ulogu izvan ustroja obrane",
+		"Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog područja",
+		"Listovi od prije ispomoći ostaju samo području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje pravilo %q", want)
