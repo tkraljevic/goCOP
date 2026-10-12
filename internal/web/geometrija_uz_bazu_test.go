@@ -27,11 +27,15 @@ func TestGraniceSeTrazeUzBazu(t *testing.T) {
 	if got := h.mapaGeometrije(); got != geometrijaVodaDir {
 		t.Errorf("bez mape podataka: %q, očekivano %q", got, geometrijaVodaDir)
 	}
-	h.SetGeometrija(t.TempDir())
+	h.SetGeometrija("")
+	if got := h.mapaGeometrije(); got != geometrijaVodaDir {
+		t.Errorf("prazan put do baze: %q, očekivano %q", got, geometrijaVodaDir)
+	}
+	h.SetGeometrija(filepath.Join(t.TempDir(), "gocop.db"))
 	if got := h.mapaGeometrije(); got != geometrijaVodaDir {
 		t.Errorf("mapa podataka bez geometrije: %q, očekivano %q", got, geometrijaVodaDir)
 	}
-	h.SetGeometrija(podaci)
+	h.SetGeometrija(filepath.Join(podaci, "gocop.db"))
 	if got := h.mapaGeometrije(); got != geo {
 		t.Errorf("mapa geometrije uz bazu: %q, očekivano %q", got, geo)
 	}

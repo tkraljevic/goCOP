@@ -26,10 +26,14 @@ import (
 // (mapaGeometrije).
 const geometrijaVodaDir = "data/geometrija"
 
-// SetGeometrija zadaje mapu podataka čvora (mapu baze). Granice se traže u
-// njezinoj podmapi geometrija, jer Postava čvor pokreće iz same mape podataka,
-// pa put u odnosu na radnu mapu ondje ne vodi nikamo.
-func (h *TerritoriesHandler) SetGeometrija(podaci string) { h.podaci = podaci }
+// SetGeometrija zadaje put do baze čvora. Granice se traže u podmapi
+// geometrija uz bazu, jer Postava čvor pokreće iz same mape podataka, pa put
+// u odnosu na radnu mapu ondje ne vodi nikamo. Prazan put ne mijenja ništa.
+func (h *TerritoriesHandler) SetGeometrija(baza string) {
+	if baza != "" {
+		h.podaci = filepath.Dir(baza)
+	}
+}
 
 // mapaGeometrije je mapa s granicama: geometrija uz bazu kad postoji, inače
 // zadana mapa u odnosu na radnu mapu
