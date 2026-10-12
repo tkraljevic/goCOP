@@ -28,6 +28,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   za koji je obrazac otvoren. Obrazac to dokazuje oznakom otvaranja koju
   potpisuje program; nakon ponovnog pokretanja programa oznaka više ne
   vrijedi i obrazac se otvara iznova.
+- **Vrh vala ispod nule** ispisivao se za centimetar previsoko (−15,7 cm kao
+  −15 umjesto −16). Sad se zaokružuje na najbliži centimetar.
+- **Ugradnja arhive s drugog čvora.** Dok se jedna letva namjerno vraća na
+  starije izdanje, druga ugradnja u isto vrijeme mogla je preskočiti
+  provjeru starosti paketa. Sad svaka ugradnja provjerava svoj paket.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),

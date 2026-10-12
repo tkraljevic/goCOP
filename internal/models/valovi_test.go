@@ -326,3 +326,16 @@ func TestTrajanjeGrupiraTisucice(t *testing.T) {
 		}
 	}
 }
+
+// Vrh vala zaokružuje se na najbliži centimetar i ispod nule: -15,7 cm je
+// -16 cm, a ne -15.
+func TestVrhValaZaokruzen(t *testing.T) {
+	for _, c := range []struct {
+		cm   float64
+		hoce string
+	}{{15.2, "+15 cm"}, {15.5, "+16 cm"}, {0.4, "+0 cm"}, {-15.2, "-15 cm"}, {-15.7, "-16 cm"}} {
+		if got := (Val{VrhCm: c.cm}).VrhLabel(); got != c.hoce {
+			t.Errorf("vrh %.1f: %q, očekivano %q", c.cm, got, c.hoce)
+		}
+	}
+}

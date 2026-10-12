@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -131,7 +132,7 @@ func (v Val) ZavrsiloHR() string { return trenutakHR(v.Zavrsilo, v.Korak) }
 func (v Val) VrhKadHR() string   { return trenutakHR(v.VrhKad, v.Korak) }
 
 // VrhLabel je vršni vodostaj vala, zaokružen na cijeli centimetar.
-func (v Val) VrhLabel() string { return fmt.Sprintf("%+d cm", int(v.VrhCm+0.5)) }
+func (v Val) VrhLabel() string { return fmt.Sprintf("%+d cm", int(math.Round(v.VrhCm))) }
 
 // Godina je hidrološka pripadnost vala — godina u kojoj je počeo.
 func (v Val) Godina() int { return v.Pocelo.Year() }
