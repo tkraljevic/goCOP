@@ -24,7 +24,8 @@ import (
 // pri svakoj razmjeni, a epizode obrane obrisane dionice (do 13. 10. 2026.)
 // i pri svakom pokretanju. Dionica koja je navodila obrisanu letvu ili objekt
 // (do 13. 10. 2026.) nije stizala ni sa svojim kazalima i epizodama, a obnova
-// pri pokretanju javljala je za nju grešku.
+// pri pokretanju javljala je za nju grešku. Obrisana bilješka sata s dvije
+// bilješke (do 13. 10. 2026.) vraćala se na novom čvoru.
 //
 // Ovaj test na izvoru kroz repozitorije slaže skup zapisa koji se oslanjaju
 // jedni na druge i mijenjaju se, šalje ga svježem čvoru na više načina i
@@ -286,23 +287,29 @@ func obrisaneLetveRedoslijeda(t *testing.T, a *cvor, letva string) {
 
 // biljeskeRedoslijeda upisuje po dvije bilješke za isti sat s različitim
 // identitetom. Repozitorij na istom čvoru za isti sat uzima postojeći zapis,
-// pa drugu bilješku za prvi sat upisuje čvor "teren", a za drugi sat stiže
-// izravno u knjigu s čvora "drugi-ured": starijom verzijom, istim vremenom
-// izmjene i većim identitetom, pa na satu ostaje ona.
+// pa drugu bilješku za prvi i treći sat upisuje čvor "teren", a za drugi sat
+// stiže izravno u knjigu s čvora "drugi-ured": starijom verzijom, istim
+// vremenom izmjene i većim identitetom, pa na satu ostaje ona. Bilješku
+// trećeg sata ured zatim briše, pa ondje ne smije ostati nijedna.
 func biljeskeRedoslijeda(t *testing.T, a *cvor, letva string) {
 	t.Helper()
 	sat := time.Date(2026, 9, 21, 5, 0, 0, 0, time.UTC)
 	biljeska := func(kad time.Time, tekst, tko string) models.ArhivaBiljeska {
 		return models.ArhivaBiljeska{Letva: letva, Velicina: "vodostaj", Korak: "satni", Vrijeme: kad, Tekst: tekst, Tko: tko}
 	}
-	_, err := NewBiljeskaRepository(a.db, a.rec).Spremi(ctxRaz, []models.ArhivaBiljeska{
-		biljeska(sat, "s ureda", "Ivo Probić"), biljeska(sat.Add(time.Hour), "s ureda, sat poslije", "Ivo Probić")})
+	repo := NewBiljeskaRepository(a.db, a.rec)
+	_, err := repo.Spremi(ctxRaz, []models.ArhivaBiljeska{
+		biljeska(sat, "s ureda", "Ivo Probić"), biljeska(sat.Add(time.Hour), "s ureda, sat poslije", "Ivo Probić"),
+		biljeska(sat.Add(2*time.Hour), "s ureda, briše se", "Ivo Probić")})
 	nuzno(t, err)
 
 	teren := noviCvor(t, "teren")
-	_, err = NewBiljeskaRepository(teren.db, teren.rec).Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat, "s terena", "Ana Probić")})
+	_, err = NewBiljeskaRepository(teren.db, teren.rec).Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat, "s terena", "Ana Probić"),
+		biljeska(sat.Add(2*time.Hour), "s terena, briše se", "Ana Probić")})
 	nuzno(t, err)
 	posalji(t, teren, a)
+	_, err = repo.Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat.Add(2*time.Hour), "", "")})
+	nuzno(t, err)
 
 	var id string
 	nuzno(t, a.db.QueryRow(`SELECT id FROM arhiva_biljeske WHERE vrijeme = ?`, sat.Add(time.Hour)).Scan(&id))

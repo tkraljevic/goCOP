@@ -1063,9 +1063,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityEpisodes:
 		stmt = `DELETE FROM defense_episodes WHERE id = ?`
 	case EntityIspravci:
-		stmt = `DELETE FROM arhiva_ispravci WHERE id = ?`
+		// trenutak koji ostane prazan dobiva ispravak koji je u knjizi još živ
+		return makniSTrenutka(ctx, tx, "arhiva_ispravci", v, primijeniIspravak)
 	case EntityBiljeske:
-		stmt = `DELETE FROM arhiva_biljeske WHERE id = ?`
+		return makniSTrenutka(ctx, tx, "arhiva_biljeske", v, primijeniBiljesku)
 	case EntityOdbacena:
 		stmt = `DELETE FROM odbacena_ocitanja WHERE id = ?`
 	case EntityOrgTerms:

@@ -21,6 +21,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   je letva obrisana, a ondje se dionica više nije dala ni spremiti. Sad se
   obrisana letva ili objekt uz dionicu preskače. Letvu ili objekt koji na
   čvor još nisu stigli dionica i dalje čeka.
+- **Obrisana bilješka arhive ne vraća se.** Kad su za isti sat postojale
+  dvije bilješke, upisane na dva računala, brisanje je obrisalo samo onu
+  koja se vidjela. Druga se vratila pri idućem pokretanju programa, a novi
+  čvor ju je znao dobiti odmah. Sad brisanje bilješke briše sve bilješke tog
+  sata. Kad se obriše bilješka koja se vidi, a druga za isti sat ostane,
+  svi čvorovi odmah pokazuju tu drugu, ne tek nakon ponovnog pokretanja.
+  Isto vrijedi za ispravke arhive.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
