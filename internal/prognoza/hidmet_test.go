@@ -1,6 +1,12 @@
 package prognoza
 
 import (
+	"context"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 	"time"
 )
@@ -35,5 +41,78 @@ func TestCitaSrpskuPrognozu(t *testing.T) {
 	}
 	if b.Izdano.UTC().Hour() != 10 {
 		t.Errorf("izdano %v, a treba u 12 h po lokalnom", b.Izdano)
+	}
+}
+
+// premaPosluzitelju šalje svaki zahtjev probnom poslužitelju umjesto na
+// adresu iz zahtjeva, s upitom koji poslužitelju kaže kako da odgovori, i
+// pamti kamo je zahtjev bio upućen.
+type premaPosluzitelju struct {
+	cilj    *url.URL
+	upit    string
+	trazeno []*http.Request
+}
+
+func (p *premaPosluzitelju) RoundTrip(r *http.Request) (*http.Response, error) {
+	p.trazeno = append(p.trazeno, r)
+	r2 := r.Clone(r.Context())
+	r2.URL.Scheme, r2.URL.Host, r2.URL.RawQuery, r2.Host = p.cilj.Scheme, p.cilj.Host, p.upit, ""
+	return http.DefaultTransport.RoundTrip(r2)
+}
+
+// klijentPrema je HTTP klijent kojem je svaka adresa probni poslužitelj.
+func klijentPrema(t *testing.T, srv *httptest.Server, upit string) (*http.Client, *premaPosluzitelju) {
+	t.Helper()
+	u, err := url.Parse(srv.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := &premaPosluzitelju{cilj: u, upit: upit}
+	return &http.Client{Transport: p, Timeout: 10 * time.Second}, p
+}
+
+// DohvatiHidmet traži stranicu prognoze s našim potpisom i razlaže je; odgovor
+// koji nije 200, prekinut odgovor ili nedostupan poslužitelj su greška.
+func TestDohvatiHidmet(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.RawQuery {
+		case "nema":
+			http.Error(w, "nema", http.StatusServiceUnavailable)
+		case "prekid":
+			w.Header().Set("Content-Length", "1000")
+			fmt.Fprint(w, ispisHidmet[:100])
+		default:
+			fmt.Fprint(w, ispisHidmet)
+		}
+	}))
+	defer srv.Close()
+	klijent, put := klijentPrema(t, srv, "")
+
+	letve, err := DohvatiHidmet(context.Background(), klijent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(letve) != 2 || letve[0].Danas != 110 || len(letve[0].Dani) != 4 || letve[1].Dani[3].Cm != 10 {
+		t.Errorf("letve %+v", letve)
+	}
+	// Godine u tablici nema, pa se gleda samo dan i mjesec.
+	if d := letve[0].Dani[0].Kad.UTC(); d.Month() != 9 || d.Day() != 24 {
+		t.Errorf("prvi dan prognoze %v, želim 24. 9.", d)
+	}
+	if len(put.trazeno) != 1 || put.trazeno[0].URL.String() != AdresaHidmet ||
+		!strings.HasPrefix(put.trazeno[0].Header.Get("User-Agent"), "goCOP") {
+		t.Errorf("zahtjev %+v", put.trazeno)
+	}
+
+	for _, s := range []struct{ ime, upit string }{{"poslužitelj ne radi", "nema"}, {"prekinut odgovor", "prekid"}} {
+		k, _ := klijentPrema(t, srv, s.upit)
+		if l, err := DohvatiHidmet(context.Background(), k); err == nil {
+			t.Errorf("%s: bez greške, letve %+v", s.ime, l)
+		}
+	}
+
+	srv.Close()
+	if _, err := DohvatiHidmet(context.Background(), klijent); err == nil {
+		t.Error("nedostupan poslužitelj: bez greške")
 	}
 }

@@ -370,3 +370,27 @@ func TestStalniIspravakNeUValu(t *testing.T) {
 		t.Errorf("u valu na +24 h %g, želim %g (sav ispravak blijedi)", x, 100+r0*math.Exp2(-1))
 	}
 }
+
+// Kašnjenje koje nije cijeli broj sati čita ulaz između dva susjedna sata,
+// pravocrtno. Kad ijedan od ta dva sata nema vrijednosti, nema ni ulaza.
+func TestUlazUPomakuIzmeduSati(t *testing.T) {
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	r := NovoRacunalo(lanac(1, 0, 5, 3), map[Izvor]Niz{gornja: ravanNiz(900, 1000, 100, 1)}, 1000)
+	for _, s := range []struct {
+		t     int64
+		pomak float64
+		want  float64
+		ima   bool
+	}{
+		{950, 2, 148, true},
+		{950, 2.5, 147.5, true},
+		{950, 2.25, 147.75, true},
+		{901, 2.5, 0, false}, // ni bliži sat nema vrijednosti
+		{902, 2.5, 0, false}, // bliži ima, dalji ne
+	} {
+		v, ima := r.uPomaku(gornja, s.t, s.pomak, 1)
+		if ima != s.ima || math.Abs(v.Iznos-s.want) > 1e-9 {
+			t.Errorf("sat %d, pomak %g: %+v %v, želim %g %v", s.t, s.pomak, v, ima, s.want, s.ima)
+		}
+	}
+}
