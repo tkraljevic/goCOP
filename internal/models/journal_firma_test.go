@@ -67,3 +67,21 @@ func TestJezgraNaziva(t *testing.T) {
 		}
 	}
 }
+
+// Zaključava prepoznavanje dnevnika obrane: samo vrsta OBRANA, ne dnevnici
+// održavanja ni nepoznata vrsta.
+func TestDnevnikObrane(t *testing.T) {
+	for _, s := range []struct {
+		vrsta  string
+		obrana bool
+	}{
+		{JournalKindDefense, true},
+		{JournalKindMaintenanceA02, false},
+		{JournalKindMaintenanceA03, false},
+		{"", false},
+	} {
+		if got := (Journal{Kind: s.vrsta}).IsDefense(); got != s.obrana {
+			t.Errorf("%q: obrana %v, očekivano %v", s.vrsta, got, s.obrana)
+		}
+	}
+}

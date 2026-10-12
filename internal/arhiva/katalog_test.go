@@ -1,6 +1,7 @@
 package arhiva
 
 import (
+	"database/sql"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -75,5 +76,74 @@ func TestKatalogSePisaICitaNatrag(t *testing.T) {
 	b, _ := os.ReadFile(filepath.Join(d, ImeKataloga))
 	if err := json.Unmarshal(b, &sirovo); err != nil {
 		t.Errorf("zapisani katalog nije valjan JSON: %v", err)
+	}
+}
+
+// Zaključava traženje zadnjeg izdanja letve u katalogu: letva koje nema i
+// katalog koji se ne čita ne daju ništa, a izdana letva daje svoj redak.
+func TestZadnjeIzdanjeLetveIzKataloga(t *testing.T) {
+	d := t.TempDir()
+	if err := zapisiKatalog(d, Katalog{Inacica: 2, Paketi: []UPaketu{
+		{Letva: "vukovar", Izdanje: 3, Otisak: "abc"},
+		{Letva: "batina", Izdanje: 7, Otisak: "def"},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if p, ima := poLetvi(d, "batina"); !ima || p.Izdanje != 7 || p.Otisak != "def" {
+		t.Errorf("batina: %+v, ima %v", p, ima)
+	}
+	if p, ima := poLetvi(d, "osijek"); ima {
+		t.Errorf("neizdana letva našla se u katalogu: %+v", p)
+	}
+	pokvaren := t.TempDir()
+	if err := os.WriteFile(filepath.Join(pokvaren, ImeKataloga), []byte("{"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if p, ima := poLetvi(pokvaren, "vukovar"); ima {
+		t.Errorf("iz pokvarenog kataloga pročitano %+v", p)
+	}
+}
+
+// Zaključava da katalog koji postoji, ali se ne da pročitati, nije isto što
+// i katalog kojeg nema: greška se javlja, da se izdanja ne vrate na jedan.
+func TestNecitljivKatalogNijePrazan(t *testing.T) {
+	d := t.TempDir()
+	if err := os.Mkdir(filepath.Join(d, ImeKataloga), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := UcitajKatalog(d); err == nil {
+		t.Error("nečitljiv katalog pročitan je kao prazan")
+	}
+}
+
+// Zaključava pisanje sa strane: kad se privremena datoteka ne da zapisati,
+// javlja se greška i pod pravim imenom ne nastaje ništa.
+func TestZapisSaStraneKojiNeUspije(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "nema-mape", "vukovar_v3.cop")
+	if err := ZapisiSaStrane(put, []byte("paket")); err == nil {
+		t.Error("zapis u nepostojeću mapu javio je uspjeh")
+	}
+	if _, err := os.Stat(put); err == nil {
+		t.Error("pod pravim imenom je nešto nastalo")
+	}
+}
+
+// Zaključava popis letvi za izdavanje: arhiva bez tablice nizova javlja
+// grešku umjesto praznog popisa, a zadana letva bez nizova ne izdaje se.
+func TestLetveUArhivi(t *testing.T) {
+	db, _ := arhivaSNizom(t, "letva-hv")
+	if l, err := LetveUArhivi(db, ""); err != nil || len(l) != 1 || l[0] != "vukovar" {
+		t.Errorf("sve letve: %q, %v", l, err)
+	}
+	if l, err := LetveUArhivi(db, "batina"); err != nil || len(l) != 0 {
+		t.Errorf("letva bez nizova: %q, %v", l, err)
+	}
+	prazna, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "prazna.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { prazna.Close() })
+	if _, err := LetveUArhivi(prazna, ""); err == nil {
+		t.Error("arhiva bez tablice nizova dala je popis letvi")
 	}
 }

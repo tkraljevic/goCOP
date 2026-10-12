@@ -4,6 +4,9 @@ import (
 	"database/sql"
 	"math"
 	"path/filepath"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 )
 
@@ -121,5 +124,97 @@ func TestUravnoteziOperatera(t *testing.T) {
 	uravnotezi(unutra, t0, NoviNiz(q), NoviNiz(dotok), nil)
 	if unutra[t0+10] != 160 {
 		t.Errorf("unutar dopuštenog promijenjeno na %g", unutra[t0+10])
+	}
+}
+
+// Razina akumulacije ulazi kao odstupanje od kote uspora i promjena u šest
+// sati, u metrima. Kad razine u satu ili šest sati prije nema, učenje
+// odustaje, a prognoza uzima punu akumulaciju bez promjene.
+func TestRazinaZnacajke(t *testing.T) {
+	const kota = 14960.0
+	oba := NoviNiz(map[int64]float64{94: 14900, 100: 14950})
+	samoSada := NoviNiz(map[int64]float64{100: 14950})
+	samoPrije := NoviNiz(map[int64]float64{94: 14900})
+	for _, s := range []struct {
+		ime    string
+		r      *Niz
+		strogo bool
+		z, dz  float64
+		ok     bool
+	}{
+		{"oba sata", &oba, true, -0.1, 0.5, true},
+		{"oba sata, prognoza", &oba, false, -0.1, 0.5, true},
+		{"bez razine, učenje", nil, true, 0, 0, false},
+		{"bez razine, prognoza", nil, false, 0, 0, true},
+		{"bez sata prije, učenje", &samoSada, true, 0, 0, false},
+		{"bez sata prije, prognoza", &samoSada, false, -0.1, 0, true},
+		{"bez sadašnjeg sata, prognoza", &samoPrije, false, 0, 0.6, true},
+	} {
+		z, dz, ok := razinaZnacajke(s.r, kota, 100, s.strogo)
+		if ok != s.ok || math.Abs(z-s.z) > 1e-9 || math.Abs(dz-s.dz) > 1e-9 {
+			t.Errorf("%s: %g %g %v, želim %g %g %v", s.ime, z, dz, ok, s.z, s.dz, s.ok)
+		}
+	}
+}
+
+// Svaka elektrana s modelom zna letvu razine svoje akumulacije; druge letve
+// je nemaju.
+func TestRazinaOperatera(t *testing.T) {
+	for _, o := range Operateri {
+		if got := razinaOperatera(o.Letva); got != o.Razina || got == "" {
+			t.Errorf("%s: razina %q, želim %q", o.Letva, got, o.Razina)
+		}
+	}
+	if got := razinaOperatera("botovo"); got != "" {
+		t.Errorf("Botovo nije elektrana, a dobilo je razinu %q", got)
+	}
+}
+
+// Modeli ispuštanja traže istjecanje svake elektrane i njezinih uzvodnih, u
+// protoku, i razinu akumulacije kad je elektrana ima.
+func TestOperaterIzvori(t *testing.T) {
+	modeli := map[string]*OperaterModel{
+		"he-dubrava": {Letva: "he-dubrava", Ulazi: []string{"he-cakovec", "he-formin"}},
+		"proba":      {Letva: "proba", Ulazi: []string{"gornja"}},
+	}
+	got := OperaterIzvori(modeli)
+	sort.Slice(got, func(i, j int) bool { return got[i].Letva < got[j].Letva })
+	want := []Izvor{
+		{"gornja", "protok"}, {"gvb-he-dubrava", "kota"}, {"he-cakovec", "protok"},
+		{"he-dubrava", "protok"}, {"he-formin", "protok"}, {"proba", "protok"},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("izvori %v, želim %v", got, want)
+	}
+	if got := OperaterIzvori(nil); len(got) != 0 {
+		t.Errorf("bez modela: %v", got)
+	}
+}
+
+// Opis za dežurnog kaže režim po sadašnjem istjecanju, ulaze i od kojeg do
+// kojeg sata model u tom režimu pobjeđuje postojanost.
+func TestOpisOperatera(t *testing.T) {
+	m := &OperaterModel{Letva: "he-dubrava", Ulazi: []string{"he-cakovec", "he-formin"}, Prag: 500}
+	for k := 18; k <= OperaterDosezi; k++ {
+		m.Koristi[0][k] = true
+	}
+	for k := 3; k <= 48; k++ {
+		m.Koristi[1][k] = true
+	}
+	for _, s := range []struct {
+		q0   float64
+		want string
+	}{
+		{300, "budućnost vrha iz modela ispuštanja elektrane (obična voda, iz he-cakovec, he-formin; model od 18. do 96. sata, inače zadnje mjerenje)"},
+		{500, "budućnost vrha iz modela ispuštanja elektrane (velika voda, iz he-cakovec, he-formin; model od 3. do 48. sata, inače zadnje mjerenje)"},
+	} {
+		if got := OpisOperatera(m, s.q0); got != s.want {
+			t.Errorf("pri %g m³/s:\n%s\nželim\n%s", s.q0, got, s.want)
+		}
+	}
+	// Model bez praga velike vode uvijek je u običnoj vodi.
+	bez := &OperaterModel{Letva: "he-varazdin", Ulazi: []string{"he-formin"}}
+	if got := OpisOperatera(bez, 900); !strings.Contains(got, "(obična voda, iz he-formin;") {
+		t.Errorf("model bez praga: %s", got)
 	}
 }

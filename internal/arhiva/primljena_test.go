@@ -83,7 +83,9 @@ func TestIstiBrojSDrugimSadrzajemSeOdbija(t *testing.T) {
 		t.Fatal(err)
 	}
 	drugi := paketLetve(t, 3, func(d *sql.DB) {
-		d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`)
+		if _, err := d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`); err != nil {
+			t.Fatal(err)
+		}
 	})
 	err := Ugradi(db, put, drugi)
 	if err == nil {
@@ -116,7 +118,9 @@ func TestNovijeIzdanjeProlazi(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := Ugradi(db, put, paketLetve(t, 4, func(d *sql.DB) {
-		d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`)
+		if _, err := d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`); err != nil {
+			t.Fatal(err)
+		}
 	})); err != nil {
 		t.Fatalf("novije izdanje odbijeno: %v", err)
 	}
@@ -201,5 +205,44 @@ func TestUgradnjaBezPaketaIOznakaUnatrag(t *testing.T) {
 	}
 	if err := Ugradi(db, put, stariji); err == nil {
 		t.Error("paket vraćen unatrag ostao je označen pa ga obična ugradnja više ne provjerava")
+	}
+}
+
+// Zaključava da evidencija primljenih izdanja koja se ne da pročitati
+// zaustavlja ugradnju: bez nje se ne zna je li paket stariji od onoga što
+// čvor ima, pa se ne smije pretpostaviti da nije.
+func TestNecitljivaEvidencijaZaustavljaUgradnju(t *testing.T) {
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "bez-evidencije.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if p, err := Primljeno(db, "vukovar"); err == nil {
+		t.Errorf("evidencija bez tablice pročitana kao %+v", p)
+	}
+	if err := SmijeUgraditi(db, Manifest{Letva: "vukovar", Izdanje: 2, Otisak: "abc"}); err == nil {
+		t.Error("ugradnja dopuštena iako se evidencija ne da pročitati")
+	}
+}
+
+// Zaključava da vraćanje na starije izdanje dok arhivu drži drugi posao ne
+// ugrađuje ništa i ne upisuje se u evidenciju, nego kaže tko drži arhivu.
+func TestVracanjeUnatragDokArhivuDrziDrugiPosao(t *testing.T) {
+	db, baza := prazniCvor(t)
+	defer db.Close()
+	s := paketLetve(t, 2, nil)
+	drugi, err := Uzmi(baza, "gradnja arhive", "Pero Perić")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer drugi.Pusti()
+
+	err = UgradiUnatrag(db, baza, s, "izdanje 3 nosi pogrešnu kotu nule")
+	var z *Zauzeto
+	if !asZauzeto(err, &z) || z.Sto != "gradnja arhive" {
+		t.Fatalf("vraćanje uz zauzetu arhivu: %v", err)
+	}
+	if p, err := Primljeno(db, "vukovar"); err != nil || p != nil {
+		t.Errorf("evidencija nakon odbijenog vraćanja: %+v, %v", p, err)
 	}
 }

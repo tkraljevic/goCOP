@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"database/sql"
+	"encoding/base64"
 	"io"
 	"path/filepath"
 	"strings"
@@ -236,5 +237,32 @@ func TestPonovnaGradnjaNeMijenjaOtisak(t *testing.T) {
 	if prvi != drugi {
 		t.Errorf("ponovna gradnja bez promjene podataka dala drugi otisak:\n  %s\n  %s",
 			kratki(prvi), kratki(drugi))
+	}
+}
+
+// Zaključava odbijanje potpisa koji se ne da ni provjeriti: ključ koji nije
+// zapisan kako treba ili nije duljine ključa, i potpis koji nije zapisan kako
+// treba. Ključ bez potpisa je nepotpisan paket.
+func TestNeupotrebljivPotpisSeOdbija(t *testing.T) {
+	tajni := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{7}, ed25519.SeedSize))
+	m, d := probniManifest()
+	p := potpisi(m, d, tajni)
+	for _, s := range []struct {
+		ime    string
+		potpis *Potpis
+		greska string
+	}{
+		{"ključ nije base64", &Potpis{Kljuc: "%%%", Vaznost: p.Vaznost}, "ključ izdavača nije upotrebljiv"},
+		{"ključ prekratak", &Potpis{Kljuc: base64.StdEncoding.EncodeToString([]byte("kratko")), Vaznost: p.Vaznost}, "ključ izdavača nije upotrebljiv"},
+		{"potpis nije base64", &Potpis{Kljuc: p.Kljuc, Vaznost: "nije*base64"}, "potpis nije upotrebljiv"},
+		{"ključ bez potpisa", &Potpis{Kljuc: p.Kljuc}, "nije potpisan"},
+	} {
+		_, err := ProvjeriPotpis(m, d, s.potpis)
+		if err == nil || !strings.Contains(err.Error(), s.greska) {
+			t.Errorf("%s: greška %v, očekivano %q", s.ime, err, s.greska)
+		}
+	}
+	if _, err := ProvjeriPotpis(m, d, p); err != nil {
+		t.Errorf("ispravan potpis odbijen: %v", err)
 	}
 }
