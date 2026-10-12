@@ -35,7 +35,17 @@ var pravila = map[string]func(Config) string{
 	"sync.discovery_port":        func(c Config) string { return provjeriPort(c.Sync.DiscoveryPort) },
 	"vodostaji.povijest_mjeseci": func(c Config) string { return provjeriMjesece(c.Readings.HistoryMonths) },
 	"karta.plocice":              func(c Config) string { return provjeriPlocice(c.Karta.Plocice) },
+	"karta.zasluge":              func(c Config) string { return provjeriNatpis(c.Karta.Zasluge) },
 	"karta.najvise_z":            func(c Config) string { return provjeriPriblizavanje(c.Karta.NajviseZ) },
+}
+
+// provjeriNatpis: natpis o podrijetlu karte stranice upisuju u kartu kao
+// HTML (Leaflet), pa smije biti samo običan tekst, bez oznaka
+func provjeriNatpis(s string) string {
+	if strings.ContainsAny(s, "<>") {
+		return "Natpis je običan tekst, bez znakova < i >."
+	}
+	return ""
 }
 
 func provjeriJavnuAdresu(s string) string {

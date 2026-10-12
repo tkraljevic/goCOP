@@ -217,14 +217,16 @@ func TestProvjeriPostavke(t *testing.T) {
 	c.Readings.HistoryMonths = -1
 	c.Karta.Plocice = "https://plocice.primjer.hr/karta.png"
 	c.Karta.NajviseZ = 25
+	c.Karta.Zasluge = `<img src=x onerror="alert(1)">`
 	g := Provjeri(c)
-	for _, k := range []string{"javna_adresa", "sync.auto_sync", "sync.bootstrap", "sync.exchange_port", "vodostaji.povijest_mjeseci", "karta.plocice", "karta.najvise_z"} {
+	for _, k := range []string{"javna_adresa", "sync.auto_sync", "sync.bootstrap", "sync.exchange_port", "vodostaji.povijest_mjeseci", "karta.plocice", "karta.najvise_z", "karta.zasluge"} {
 		if g[k] == "" {
 			t.Errorf("%s: nema poruke (%v)", k, g)
 		}
 	}
 	c = Default()
 	c.JavnaAdresa, c.Sync.AutoSync, c.Karta.Plocice = "https://cop.primjer.hr", "0", ""
+	c.Karta.Zasluge = "© OpenStreetMap suradnici & DGU"
 	if g := Provjeri(c); len(g) != 0 {
 		t.Errorf("ispravno odbijeno: %v", g)
 	}
