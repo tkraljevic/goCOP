@@ -79,8 +79,10 @@ func KeepVersion(v ledger.Version) bool {
 	return KeepReadingVersion(v.Payload)
 }
 
-// SurfaceEntities su entiteti čija se površina obnavlja iz knjige: sve osim
-// očitanja i listova dnevnika, kojih je previše da se prolaze pri svakom startu.
+// SurfaceEntities su entiteti čija se površina pri pokretanju obnavlja iz
+// knjige primjenom zadnje verzije svakog zapisa. Očitanja, listove i upise
+// dnevnika i ostale s popisa obnovaPovrsine obnavlja ObnoviPovrsinu
+// (apply_obnova.go), samo za zapise kojima površina možda ne odgovara knjizi.
 // Izvješća dionica i sektora su tu jer je njihov trag predaje (Odluke
 // (8. 10. 2026.), pitanje 12) nov stupac: čvor nadograđen s 0.0.34 drži trag
 // samo u knjizi, a obnova ga pri pokretanju vraća u tablicu.
@@ -183,6 +185,11 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	}
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].VersionID < ordered[j].VersionID })
 
+	// paket koji ne prođe cijeli (BeginTx, Commit, greška izvan savepointa)
+	// ostaje za ponovni pokušaj: knjiga ga već ima, pa ga razmjena više ne šalje
+	potvrdjeno := false
+	defer zadrziNepotvrdjeno(ordered, &potvrdjeno)
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -238,6 +245,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	if err := tx.Commit(); err != nil {
 		return err
 	}
+	potvrdjeno = true
 	// s popisa nedovršenih odlazi samo ono što je prošlo; zapis koji je ovaj
 	// put preskočen ostaje za sljedeću razmjenu
 	nedovrseni.Lock()
@@ -249,10 +257,36 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	}
 	nedovrseni.Unlock()
 	if len(failed) > 0 {
-		return fmt.Errorf("%d verzija nije primijenjeno na površinu, ostale jesu i pokušat će se iznova sa sljedećom razmjenom; prva: %s/%s: %v",
-			len(failed), failed[0].v.Entity, failed[0].v.EntityID, failed[0].err)
+		return &greskaNedovrsenih{broj: len(failed), prva: failed[0].v, err: failed[0].err}
 	}
 	return nil
+}
+
+// greskaNedovrsenih javlja da dio verzija nije prošao na površinu; ostale
+// jesu i potvrđene su, a neuspjele čekaju među nedovršenima
+type greskaNedovrsenih struct {
+	broj int
+	prva ledger.Version
+	err  error
+}
+
+func (g *greskaNedovrsenih) Error() string {
+	return fmt.Sprintf("%d verzija nije primijenjeno na površinu, ostale jesu i pokušat će se iznova sa sljedećom razmjenom; prva: %s/%s: %v",
+		g.broj, g.prva.Entity, g.prva.EntityID, g.err)
+}
+
+// zadrziNepotvrdjeno stavlja cijeli paket među nedovršene kad transakcija
+// površine nije potvrđena. Bez toga bi se paket izgubio: verzije su već u
+// knjizi, granica ih pokriva i nijedan ih čvor više ne šalje.
+func zadrziNepotvrdjeno(paket []ledger.Version, potvrdjeno *bool) {
+	if *potvrdjeno {
+		return
+	}
+	nedovrseni.Lock()
+	defer nedovrseni.Unlock()
+	for _, v := range paket {
+		nedovrseni.kljucevi[v.Entity+"|"+v.EntityID] = true
+	}
 }
 
 // primjenjujeSe javlja ide li primljena verzija na površinu: samo zadnja

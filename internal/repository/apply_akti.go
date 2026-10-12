@@ -11,11 +11,14 @@ import (
 // verzijaZaPovrsinu je verzija zapisa koja ide na površinu kad razmjena
 // donese v, i javlja treba li je primijeniti. Za većinu zapisa to je
 // zadnja verzija u knjizi, i to samo kad je v ta zadnja: starija verzija
-// koja stigne zaobilazno ne vraća površinu unatrag. Akt je iznimka
-// (aktNaPovrsini).
+// koja stigne zaobilazno ne vraća površinu unatrag. Iznimke su akt
+// (aktNaPovrsini) i opoziv (opozivZaPovrsinu).
 func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
-	if v.Entity == EntityAkti {
+	switch v.Entity {
+	case EntityAkti:
 		return aktZaPovrsinu(ctx, rec, v)
+	case entitetOpozivi:
+		return opozivZaPovrsinu(ctx, rec, v)
 	}
 	top, err := rec.Latest(ctx, v.Entity, v.EntityID)
 	if err != nil {

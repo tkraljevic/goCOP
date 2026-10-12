@@ -4,6 +4,28 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.37-alfa — u pripremi
+
+- **Očitanja koja su stigla, a nisu bila upisana.** Kad dva čvora šalju u
+  isto vrijeme ili se računalo ugasi usred razmjene, primljena očitanja
+  znala su ostati spremljena, ali se nisu pokazivala, a razmjena ih više
+  nije slala. Jednom su čvoru tako nedostajali cijeli dani za Osijek,
+  Aljmaš, Belišće, Donji Miholjac i Terezino Polje, oko 21 000 očitanja.
+  Sad ih program vrati sam pri pokretanju i u dnevnik zapiše koliko ih je
+  vratio. Isto vrijedi za izmjene koje su ostale samo spremljene, npr.
+  ispravljen vodostaj ili potvrđeno dežurstvo, te za listove i upise
+  dnevnika, dežurstva, bilješke i ispravke arhive. Razmjena koja se ne
+  upiše do kraja sad se ponovi s idućom razmjenom.
+- **Zapis o brisanju više se ne briše s oglasne ploče.** Kad bi uprava s
+  ploče obrisala zapis o brisanju, npr. „Maknuto dežurstvo”, obrisani zapis
+  vratio bi se pri idućem pokretanju programa, a dežurstvo i u plan i u
+  obračun sati. Program sad takvo brisanje odbije, kao i brisanje zadnje
+  verzije živog zapisa.
+- **Opoziv čvora vrijedi i kad stigne zajedno s poništenjem.** Opoziv se ne
+  poništava, ali kad je čvor primio opoziv i njegovo poništenje u istoj
+  razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao
+  vjerodostojan.
+
 ## 0.0.36-alfa — 12. 10. 2026.
 
 - **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i

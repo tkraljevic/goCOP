@@ -228,6 +228,20 @@ func (r *Recorder) LatestOf(ctx context.Context, entities []string) ([]Version, 
 	return r.query(ctx, q+` ORDER BY version_id`, args...)
 }
 
+// Verzije vraća verzije s navedenim identitetima, redom nastanka; identitet
+// kojeg nema u knjizi preskače
+func (r *Recorder) Verzije(ctx context.Context, versionIDs []string) ([]Version, error) {
+	if len(versionIDs) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(versionIDs))
+	for i, id := range versionIDs {
+		args[i] = id
+	}
+	return r.query(ctx, `SELECT `+columns+` FROM record_versions
+		WHERE version_id IN (?`+strings.Repeat(",?", len(versionIDs)-1)+`) ORDER BY version_id`, args...)
+}
+
 // History vraća sve verzije zapisa, od najnovije prema najstarijoj
 func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Version, error) {
 	return r.query(ctx, `
@@ -618,27 +632,41 @@ func (r *Recorder) PurgeArchived(ctx context.Context) (int64, error) {
 // zasebno; briše se zapis
 var ErrVazecaVerzija = errors.New("to je važeća verzija zapisa; obrišite sam zapis, ne povijest")
 
+// ErrZapisOBrisanju: verzija je spomenik, zadnja verzija obrisanog zapisa.
+// Bez nje bi zadnja bila starija, živa verzija, pa bi obnova površine i
+// svaki novi čvor obrisani zapis vratili.
+var ErrZapisOBrisanju = errors.New("ovo je zapis o brisanju i ne briše se: bez njega bi se obrisani zapis vratio u program")
+
 // DeleteVersion briše jednu verziju iz knjige, npr. zapis s oglasne ploče.
-// Zadnja verzija živog zapisa ne briše se, jer bi površina i knjiga
-// ostale neusklađene.
+// Zadnja verzija zapisa ne briše se: kod živog zapisa površina i knjiga bi
+// ostale neusklađene, a bez spomenika bi se obrisani zapis vratio.
 func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
 	var entity, entityID string
-	var archived int
+	var archived bool
 	err := r.db.QueryRowContext(ctx, `SELECT entity, entity_id, archived FROM record_versions WHERE version_id = ?`, versionID).Scan(&entity, &entityID, &archived)
 	if err == sql.ErrNoRows {
 		return errors.New("zapis više ne postoji")
 	}
+	var zadnja string
+	if err == nil {
+		err = r.db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM record_versions WHERE entity = ? AND entity_id = ?`, entity, entityID).Scan(&zadnja)
+	}
 	if err != nil {
 		return err
 	}
-	if archived == 0 {
-		var zadnja string
-		if err := r.db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM record_versions WHERE entity = ? AND entity_id = ?`, entity, entityID).Scan(&zadnja); err == nil && zadnja == versionID {
-			return ErrVazecaVerzija
-		}
+	if zadnja == versionID {
+		return zadnjaVerzijaSeNeBrise(archived)
 	}
 	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
 	return err
+}
+
+// zadnjaVerzijaSeNeBrise je razlog zašto DeleteVersion odbija zadnju verziju
+func zadnjaVerzijaSeNeBrise(arhivirana bool) error {
+	if arhivirana {
+		return ErrZapisOBrisanju
+	}
+	return ErrVazecaVerzija
 }
 
 // Prorijedi briše verzije jednog entiteta nastale prije zadanog trenutka,
