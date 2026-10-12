@@ -22,7 +22,6 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   preskaču, kao i na čvoru na kojem je dnevnik obrisan. Brisanje dnevnika
   sad kao obrisan bilježi i upis koji to računalo nije imalo u dnevniku, pa
   ga drugi čvorovi više ne primaju.
-
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s
