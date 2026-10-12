@@ -30,7 +30,6 @@ import (
 
 	"gocop/internal/config"
 	"gocop/internal/models"
-	"gocop/internal/service"
 )
 
 // nacinPostavke kaže što se s postavkom smije u programu
@@ -90,6 +89,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"sync.bootstrap", mjestoPostavke{"mreza", postavkaSamoCitanje, "Stalno dostupni čvorovi", razlogBootstrapa}},
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
+	{"web.tailscale_lokalno", mjestoPostavke{"mreza", postavkaSamoCitanje, "Tailscale kao lokalna mreža", razlogPosrednika}},
 
 	{"sync.sve", mjestoPostavke{"pretplate", postavkaUrediva, "Prati sve", ""}},
 	{"vodostaji.povijest_mjeseci", mjestoPostavke{"pretplate", postavkaUrediva, "Povijest tuđih očitanja (mjeseci)", ""}},
@@ -115,6 +115,8 @@ var rasporedPostavki = []redakRasporeda{
 // datoteci („upiše ovdje”, „ova datoteka”) ili riječima true i false, što na
 // stranici zbunjuje
 var opisNaStranici = map[string]string{
+	"web.tailscale_lokalno": "Uključeno: na računalu s Tailscaleom zahtjev na Tailscale adresu ovog računala vrijedi kao iz lokalne mreže, pa prijava ne traži PIN. " +
+		"Isključeno: takav zahtjev traži PIN kao izvana. Na računalu bez Tailscalea ne mijenja ništa.",
 	"node.id": "Mala slova, brojke i crtica. Zadaje se prije prvog pokretanja; ako ga nema, program ga sam izabere i upiše u gocop.toml.",
 	"db":      "Datoteka baze ovog čvora. Uz nju stoje ključ čvora (node-key) i gocop.toml, pa se premještaju i kopiraju uvijek zajedno.",
 	"sync.sve": "Uključeno: čvor prati sva očitanja i dnevnike svih područja i godina (uredski poslužitelj). " +
@@ -405,8 +407,10 @@ func smijeMijenjatiCvor(r *http.Request) *zabranaCvora {
 	if gleda, _ := r.Context().Value(contextKeyViewing).(bool); gleda {
 		return zabranaTudjimOcima
 	}
-	k := klijentIz(r)
-	if service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik) {
+	// Tailscale je lokalna mreža samo za zahtjev koji je stigao na Tailscale
+	// adresu ovog računala (Odluke (12. 10. 2026.)); izvor 100.x na drugu
+	// adresu i dalje je izvana
+	if klijentIz(r).Izvana() {
 		return zabranaIzvana
 	}
 	return nil
