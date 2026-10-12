@@ -173,11 +173,10 @@ func TestRucnaTailscaleAdresaSeOdbija(t *testing.T) {
 			t.Errorf("neispravna adresa %q: %v", a, err)
 		}
 	}
-	p, err := s.PublicAddress(ctxRub, "ured-vukovar", "cop-vukovar.example.hr", "")
-	if err != nil {
+	if _, err := s.PublicAddress(ctxRub, "ured-vukovar", "cop-vukovar.example.hr", ""); err != nil {
 		t.Fatal(err)
 	}
-	p, err = s.PublicAddress(ctxRub, "ured-vukovar", "HTTPS://Cop-Vukovar.example.hr/razmjena", "192.168.24.70")
+	p, err := s.PublicAddress(ctxRub, "ured-vukovar", "HTTPS://Cop-Vukovar.example.hr/razmjena", "192.168.24.70")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -27,25 +27,48 @@ func slobodanPort(t *testing.T) int {
 // cekajPort čeka da port na loopbacku primi vezu
 func cekajPort(t *testing.T, port int) {
 	t.Helper()
+	if !portPrima(port, nil, 30*time.Second) {
+		t.Fatalf("port %d ne prima veze", port)
+	}
+}
+
+// portPrima čeka da port na loopbacku primi vezu, najviše rok; odustaje
+// kad slušalica javi da je stala (npr. port je u međuvremenu uzeo drugi)
+func portPrima(port int, stala <-chan error, rok time.Duration) bool {
 	adresa := fmt.Sprintf("127.0.0.1:%d", port)
-	for i := 0; i < 250; i++ {
+	kraj := time.Now().Add(rok)
+	for time.Now().Before(kraj) {
+		select {
+		case <-stala:
+			return false
+		default:
+		}
 		if c, err := net.Dial("tcp", adresa); err == nil {
 			c.Close()
-			return
+			return true
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
-	t.Fatalf("port %d ne prima veze", port)
+	return false
 }
 
-// naPetlji pokreće razmjenu čvora na slobodnom portu dok test traje
+// naPetlji pokreće razmjenu čvora na slobodnom portu dok test traje. Port
+// je slobodan kad ga test izabere, ali ga do pokretanja može uzeti test
+// iz drugog paketa; tada se bira drugi.
 func naPetlji(t *testing.T, s *Service) {
 	t.Helper()
-	s.ports.Exchange = slobodanPort(t)
-	ctx, otkazi := context.WithCancel(ctxRub)
-	t.Cleanup(otkazi)
-	go func() { _ = s.Serve(ctx) }()
-	cekajPort(t, s.ports.Exchange)
+	for pokusaj := 0; pokusaj < 5; pokusaj++ {
+		s.ports.Exchange = slobodanPort(t)
+		ctx, otkazi := context.WithCancel(ctxRub)
+		stala := make(chan error, 1)
+		go func() { stala <- s.Serve(ctx) }()
+		if portPrima(s.ports.Exchange, stala, 30*time.Second) {
+			t.Cleanup(otkazi)
+			return
+		}
+		otkazi()
+	}
+	t.Fatalf("%s: razmjena se ne da pokrenuti ni na jednom portu", s.node.ID)
 }
 
 // adresaNaPetlji je adresa porta razmjene čvora na loopbacku

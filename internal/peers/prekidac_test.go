@@ -179,6 +179,10 @@ func TestOdbijenaTailscaleRazmjenaNepoznatogCvora(t *testing.T) {
 	if n, redak := dnevnik.broj(); n != 1 || !strings.Contains(redak, a.node.PublicKey()) {
 		t.Errorf("dnevnik: %d, %q", n, redak)
 	}
+	// tekst odbijenice ostaje kakav je bio: „čvor odbio razmjenu: razlog”
+	if got := (odbijenaRazmjena{razmjena.RazlogZauzet}).Error(); got != "čvor odbio razmjenu: "+razmjena.RazlogZauzet {
+		t.Errorf("tekst odbijenice: %q", got)
+	}
 	if b.odbioTailscale(ctxRub, "tudji-laptop", fmt.Errorf("veza prekinuta")) || b.odbioTailscale(ctxRub, "tudji-laptop", odbijenaRazmjena{razmjena.RazlogZauzet}) {
 		t.Error("druge greške nisu odbijeni Tailscale")
 	}

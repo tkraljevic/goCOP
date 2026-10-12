@@ -57,6 +57,24 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   100.x daju i drugi VPN-ovi, npr. Cloudflare WARP. Isključuje se u
   `gocop.toml` s `[web] tailscale_lokalno = false`; tada prijava preko
   Tailscalea traži PIN, i preko IPv6.
+- **Razmjena preko Tailscalea.** Laptop kod kuće nije mogao izravno do
+  uredskog čvora, iako ih Tailscale spaja; sve je išlo preko Unraida i
+  tunela. Sad dva čvora koja oba imaju Tailscale jave jedan drugome svoje
+  Tailscale adrese kad razgovaraju izravno, u istoj mreži ili kroz tunel, i
+  svaki ih pamti samo kod sebe. Razmjena ih zove iza adresa iz lokalne
+  mreže, a ispred tunela. Te adrese nikad ne ulaze u popis adresa čvora,
+  koji dobivaju svi čvorovi mreže, pa ih čvorovi bez Tailscalea ne vide i
+  ne zovu. Njima se razmjena ne mijenja.
+- **Postavka `[sync] tailscale`.** Zadano je uključena. Uz `false` razmjena
+  radi kao da Tailscalea nema, npr. za probu razmjene preko interneta, a
+  razmjenu koja stigne na Tailscale adresu tog računala odbije. Na prijavu
+  ne utječe.
+- **Istodobne razmjene bez „database is locked”.** Uredski čvor je pri
+  istodobnom primanju s Unraida javio tu grešku i verzija nije ušla u
+  knjigu. Na Windowsu je istodobni rad vjerojatno ostavio dio očitanja samo
+  u knjizi. Sad primljeno upisuje jedna razmjena u isto vrijeme. Razgovor
+  pritom ne čeka: kad je upis zauzet dulje od pola minute, razgovor završi,
+  a primljeno se upiše odmah nakon njega.
 
 ## 0.0.36-alfa — 12. 10. 2026.
 
