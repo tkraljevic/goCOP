@@ -11,6 +11,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   poddionicu: obrazac je drugi upis tiho preskakao, i pri ručnom dodavanju
   i pri prijepisu iz dokumentacije. Sad se odbija samo isto područje uz
   isti nasip.
+- **Kartica dionice bez nasipa: ugroženo područje uz objekte.** Na
+  poddionici bez nasipa ugroženo područje stoji u retku uz objekte, po
+  županijama i općinama, kao i uz nasip na drugim dionicama, a ne više
+  iznad tablice; tako ga piše i izvoz kartice. Ugroženo područje bez nasipa
+  na poddionici koja nasipe ima ostaje iznad tablice.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),

@@ -1,6 +1,7 @@
 package web
 
 import (
+	"strings"
 	"testing"
 
 	"gocop/internal/models"
@@ -159,5 +160,52 @@ func TestNaseljeNepoznatogNasipaOstajeNaPoddionici(t *testing.T) {
 	}
 	if len(ostalo) != 1 {
 		t.Errorf("naselje se izgubilo: %v", ostalo)
+	}
+}
+
+// Poddionica bez nasipa ugroženo područje pokazuje u retku uz objekte, na
+// mjestu gdje ga poddionica s nasipima pokazuje uz nasip, a ne iznad
+// tablice. Poddionica s nasipima ostatak bez nasipa zadržava iznad tablice.
+func TestUgrozenoBezNasipaURetku(t *testing.T) {
+	t1, s1 := naselje(1, "Draž", "")
+	ostalo := []models.SectionTerritory{s1}
+	objekt := models.PartObject{Name: "Ustava Draž"}
+	for _, c := range []struct {
+		opis   string
+		part   models.SectionPart
+		redaka int
+		uRetku bool
+		iznad  int
+	}{
+		{"bez nasipa i objekata", models.SectionPart{Territories: []models.PartTerritory{t1}}, 1, true, 0},
+		{"bez nasipa, s objektom", models.SectionPart{Objects: []models.PartObject{objekt}, Territories: []models.PartTerritory{t1}}, 1, true, 0},
+		{"s nasipom", models.SectionPart{Embankments: []models.PartEmbankment{{Name: "Nasip Gomboš"}}, Territories: []models.PartTerritory{t1}}, 1, false, 1},
+	} {
+		rows, iznad := ugrozenoBezNasipa(embankmentRows(c.part), c.part, ostalo)
+		if len(rows) != c.redaka || len(iznad) != c.iznad {
+			t.Errorf("%s: %d redaka, %d iznad tablice", c.opis, len(rows), len(iznad))
+			continue
+		}
+		if u := len(rows[len(rows)-1].Territories) == 1; u != c.uRetku {
+			t.Errorf("%s: ugroženo u retku %v", c.opis, u)
+		}
+	}
+	if rows, iznad := ugrozenoBezNasipa(nil, models.SectionPart{}, nil); rows != nil || iznad != nil {
+		t.Errorf("bez ugroženog područja ne dodaje se redak: %v %v", rows, iznad)
+	}
+
+	// kartica: naselje stoji u retku „Bez nasipa”, a ne iznad tablice
+	part := models.SectionPart{Territories: []models.PartTerritory{t1}}
+	rows, iznad := ugrozenoBezNasipa(embankmentRows(part), part, ostalo)
+	html := iscrtaj(t, "section_detail.html", SectionPageData{
+		CurrentUser: &models.User{FullName: "Pero Perić"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Section: models.Section{Code: "P.1.1", AreaID: 1, SectorID: "P"},
+		Parts:   []PartView{{SectionPart: part, Rows: rows, Territories: iznad}}})
+	karta := strings.Index(html, `class="nasip-karta"`)
+	if karta < 0 || !strings.Contains(html[karta:], "Draž") {
+		t.Error("naselje nije u retku uz objekte")
+	}
+	if karta > 0 && strings.Contains(html[:karta], "Draž") {
+		t.Error("naselje je i dalje iznad tablice")
 	}
 }
