@@ -46,6 +46,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
     pa dnevna prognoza ostaje izdana, ali uz izdanje stoji upozorenje da
     točnost nije provjerena; dnevna koja iz nje računa i satna niz rijeku
     označene su upitnima.
+- **Očitanja iz prvog sata nove godine.** Takvo očitanje upisivalo se u
+  novu godinu, a kad bi ga netko ispravio ili obrisao, prelazilo je u
+  prethodnu. Čvor koji prati samo novu godinu tako nije vidio ni ispravak ni
+  brisanje. Godina se sad uvijek računa po hrvatskom vremenu.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 
