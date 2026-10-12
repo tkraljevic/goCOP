@@ -135,21 +135,21 @@ func Candidates(explicit, dbPath string) []string {
 // Load čita prvu datoteku koja postoji. Vraća i putanju koja je pročitana;
 // prazna putanja znači da datoteke nema i vrijede zadane vrijednosti.
 func Load(candidates []string) (Config, string, error) {
-	cfg := Default()
 	for _, path := range candidates {
 		data, err := os.ReadFile(path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return cfg, path, err
+			return Default(), path, err
 		}
-		if err := toml.Unmarshal(data, &cfg); err != nil {
+		cfg, err := ProcitajTekst(data)
+		if err != nil {
 			return cfg, path, fmt.Errorf("%s: %w", path, err)
 		}
 		return cfg, path, nil
 	}
-	return cfg, "", nil
+	return Default(), "", nil
 }
 
 // zaglavlje je uvod datoteke postavki: kad se čita, što ima prednost, gdje
@@ -208,15 +208,14 @@ func WriteExample(path string, cfg Config) (bool, error) {
 	if _, err := os.Stat(path); err == nil {
 		return false, nil
 	}
-	data, err := toml.Marshal(cfg)
+	data, err := Primjer(cfg)
 	if err != nil {
 		return false, err
 	}
-	header := zaglavlje
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return false, err
 	}
-	if err := os.WriteFile(path, []byte(header+string(data)), 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
