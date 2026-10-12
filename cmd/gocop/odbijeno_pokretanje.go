@@ -75,6 +75,9 @@ func cekajOdbijen(ctx context.Context, addr, razlog string, ulaz io.Reader) {
 	case <-stop:
 	}
 	_ = srv.Close() // čvor ionako izlazi; greška zatvaranja ništa ne mijenja
+	// Close ne zatvara slušatelja kojeg Serve još nije preuzeo (gašenje odmah
+	// nakon pokretanja), pa bi port ostao otvoren
+	_ = ln.Close()
 }
 
 // portoviOdbijenog su portovi na kojima Postava pita /zdravlje: port iz
