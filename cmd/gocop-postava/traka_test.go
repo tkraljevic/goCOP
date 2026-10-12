@@ -54,10 +54,12 @@ func (l *lazniSystemd) pozvano(pocetak string) bool {
 type lazniCvor struct {
 	zaustavljen int
 	greska      error
+	pokrenut    int
+	neKrece     error
 }
 
 func (c *lazniCvor) Instaliran() bool                       { return true }
-func (c *lazniCvor) Pokreni() error                         { return nil }
+func (c *lazniCvor) Pokreni() error                         { c.pokrenut++; return c.neKrece }
 func (c *lazniCvor) Zaustavi(time.Duration) error           { c.zaustavljen++; return c.greska }
 func (c *lazniCvor) Proces() postava.StanjeProcesa          { return postava.StanjeProcesa{Radi: true} }
 func (c *lazniCvor) Zdravlje(context.Context) (string, int) { return "", 0 }
@@ -215,5 +217,37 @@ func TestIkonaZaIzbornik(t *testing.T) {
 	exe, err := putPostave()
 	if err != nil || !filepath.IsAbs(exe) {
 		t.Errorf("mjesto programa: %q %v", exe, err)
+	}
+}
+
+func TestPocetakNePaliZaustavljenuUslugu(t *testing.T) {
+	// administrator je uslugu namjerno zaustavio: prijava je ne pali i ne
+	// traži lozinku
+	l := &lazniSystemd{aktivnost: "inactive"}
+	tr, pr := novaTraka(t, l)
+	tr.pocetak()
+	if l.pozvano("systemctl start") {
+		t.Error("pri prijavi pokrenuta zaustavljena usluga")
+	}
+	if len(pr.poruke) != 0 || len(pr.pitanja) != 0 {
+		t.Errorf("pri prijavi uz uslugu: poruke %v, pitanja %v", pr.poruke, pr.pitanja)
+	}
+}
+
+func TestPocetakPaliVlastitiCvor(t *testing.T) {
+	tr, pr := novaTraka(t, nil)
+	c := &lazniCvor{}
+	tr.p.Cvor = c
+	tr.pocetak()
+	if c.pokrenut != 1 || len(pr.poruke) != 0 {
+		t.Fatalf("vlastiti čvor: pokrenut %d, poruke %v", c.pokrenut, pr.poruke)
+	}
+
+	// čvor koji ne krene javlja se porukom
+	tr, pr = novaTraka(t, nil)
+	tr.p.Cvor = &lazniCvor{neKrece: errors.New("port je zauzet")}
+	tr.pocetak()
+	if len(pr.poruke) != 1 || !strings.Contains(pr.poruke[0], "port je zauzet") {
+		t.Errorf("poruke: %v", pr.poruke)
 	}
 }

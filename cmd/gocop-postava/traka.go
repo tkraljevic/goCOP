@@ -138,7 +138,7 @@ func (tr *traka) pocetak() {
 	}
 	if err := p.Cvor.Pokreni(); err != nil {
 		p.Pisi("Pokretanje čvora: %v", err)
-		postava.Poruka(naslov, "goCOP se ne može pokrenuti: "+err.Error(), true)
+		tr.poruka(naslov, "goCOP se ne može pokrenuti: "+err.Error(), true)
 	}
 }
 
