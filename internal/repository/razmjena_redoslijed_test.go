@@ -21,7 +21,8 @@ import (
 // gubili zapisi: novija verzija dionice stigla je prije letve o koju se
 // oslanja, a starija poslije, pa dionice nije bilo bez ikakve greške; dvije
 // bilješke za isti sat rušile su razmjenu; upisi obrisanog dnevnika padali su
-// pri svakoj razmjeni.
+// pri svakoj razmjeni, a epizode obrane obrisane dionice (do 13. 10. 2026.)
+// i pri svakom pokretanju.
 //
 // Ovaj test na izvoru kroz repozitorije slaže skup zapisa koji se oslanjaju
 // jedni na druge i mijenjaju se, šalje ga svježem čvoru na više načina i
@@ -104,6 +105,7 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 	nuzno(t, epizode.SaveEpisode(ctxRaz, &epizoda))
 
 	dnevniciRedoslijeda(t, a, prvi, drugi)
+	obrisaneDioniceRedoslijeda(t, a, prva.ID.String())
 
 	druga := models.Station{Code: "R-2", Name: "Probna letva druga"}
 	nuzno(t, letve.CreateStation(ctxRaz, &druga))
@@ -215,6 +217,37 @@ func dnevniciRedoslijeda(t *testing.T, a *cvor, prvi, drugi *models.User) {
 	_, err = tx.ExecContext(ctxRaz, `DELETE FROM journals WHERE id = ?`, stari.ID)
 	nuzno(t, err)
 	_, err = a.rec.ArchiveIn(ctxRaz, tx, journalChannel(stari), EntityJournals, stari.ID, stari)
+	nuzno(t, err)
+	nuzno(t, tx.Commit())
+}
+
+// obrisaneDioniceRedoslijeda upisuje dvije dionice s epizodom obrane i briše
+// ih: jednu repozitorijem, a drugu kao prije ispravka od 13. 10. 2026. —
+// spomenik dobiva samo dionica, a epizoda ostaje živa u knjizi (izravno u
+// knjigu, jer repozitorij to više ne radi)
+func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) {
+	t.Helper()
+	dionice := NewSectionRepository(a.db, a.rec)
+	epizode := NewEpisodeRepository(a.db, a.rec)
+	upisi := func(kod string) *models.Section {
+		d := &models.Section{Code: kod, AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
+			Description: "dionica koja se briše", DescriptionCustom: true,
+			Parts: []models.SectionPart{{StationIDs: []string{letva}}}}
+		nuzno(t, dionice.SaveSection(ctxRaz, d))
+		e := &models.DefenseEpisode{SectionCode: kod, StationID: letva, StartedAt: danRedoslijeda.Add(6 * time.Hour),
+			Phase: models.PhasePrep, DeclaredBy: "Ivo Probić"}
+		nuzno(t, epizode.SaveEpisode(ctxRaz, e))
+		return d
+	}
+	upisi("R.41.2")
+	nuzno(t, dionice.ArhivirajSekciju(ctxRaz, "R.41.2"))
+
+	stara := upisi("R.41.3")
+	tx, err := a.db.BeginTx(ctxRaz, nil)
+	nuzno(t, err)
+	defer tx.Rollback()
+	nuzno(t, makniDionicuSPovrsine(ctxRaz, tx, stara.Code))
+	_, err = a.rec.Archive(ctxRaz, tx, EntitySections, stara.Code, stara)
 	nuzno(t, err)
 	nuzno(t, tx.Commit())
 }

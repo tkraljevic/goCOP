@@ -4,6 +4,17 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.38-alfa — u pripremi
+
+- **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
+  dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa
+  drugi čvorovi za to nisu znali. Novi čvor takvu je epizodu čekao pri
+  svakoj razmjeni, a pri svakom pokretanju programa u dnevniku je stajala
+  greška, i na računalu na kojem je dionica obrisana. Sad brisanje dionice
+  kao obrisane bilježi i sve njezine epizode, a epizoda dionice obrisane
+  ranije se preskače. Ne vraća se ni kad se dionica poslije ponovno upiše
+  pod istom šifrom.
+
 ## 0.0.37-alfa — 13. 10. 2026.
 
 - **Očitanja koja su stigla, a nisu bila upisana.** Kad dva čvora šalju u

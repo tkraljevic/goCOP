@@ -320,15 +320,16 @@ func noveVezeDionice(ctx context.Context, tx *sql.Tx, dosad models.Section, s *m
 }
 
 // ArhivirajSekciju miče dionicu s površine zajedno s njezinim kazalima (letve,
-// objekti, teritorij); u knjizi verzija ostaje arhivirana, pa brisanje stiže
-// i na druge čvorove. Dionica koje nema nije greška.
+// objekti, teritorij) i epizodama obrane; u knjizi verzija ostaje arhivirana,
+// pa brisanje stiže i na druge čvorove. Spomenik dobiva i svaka epizoda
+// dionice koja je u knjizi živa, i ona koje na površini ovog čvora nema:
+// inače bi ostala živa u knjizi, a čvor koji primi obrisanu dionicu čekao bi
+// joj dionicu zauvijek. Kazala se izvode iz dionice i ne putuju zasebno, pa
+// spomenik ne trebaju. Dionica koje nema nije greška.
 func (r *SectionRepository) ArhivirajSekciju(ctx context.Context, code string) error {
-	sec, err := r.GetSectionByCode(code)
-	if err != nil {
+	sec, epizode, err := r.dionicaZaBrisanje(ctx, code)
+	if err != nil || sec == nil {
 		return err
-	}
-	if sec == nil {
-		return nil
 	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -338,13 +339,52 @@ func (r *SectionRepository) ArhivirajSekciju(ctx context.Context, code string) e
 	if err := makniDionicuSPovrsine(ctx, tx, code); err != nil {
 		return err
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntitySections, code, sec); err != nil {
+	if err := r.spomeniciDionice(ctx, tx, sec, epizode); err != nil {
 		return err
 	}
 	return tx.Commit()
 }
 
-// makniDionicuSPovrsine briše dionicu i kazala izvedena iz nje.
+// dionicaZaBrisanje čita dionicu s površine i zadnje verzije njezinih
+// epizoda obrane koje su u knjizi žive; dionicu koje nema vraća kao nil
+func (r *SectionRepository) dionicaZaBrisanje(ctx context.Context, code string) (*models.Section, []ledger.Version, error) {
+	sec, err := r.GetSectionByCode(code)
+	if err != nil || sec == nil {
+		return nil, nil, err
+	}
+	zadnje, err := r.rec.LatestOf(ctx, []string{EntityEpisodes})
+	return sec, epizodeDionice(zadnje, code), err
+}
+
+// epizodeDionice su od zadnjih verzija epizoda one koje su žive i pripadaju
+// dionici
+func epizodeDionice(verzije []ledger.Version, code string) []ledger.Version {
+	var out []ledger.Version
+	for _, v := range verzije {
+		var e struct {
+			SectionCode string `json:"section_code"`
+		}
+		if !v.Archived && json.Unmarshal(v.Payload, &e) == nil && e.SectionCode == code {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// spomeniciDionice bilježi u knjizi brisanje epizoda i dionice. Spomenik
+// epizode nosi njezinu zadnju verziju, u njezinom kanalu.
+func (r *SectionRepository) spomeniciDionice(ctx context.Context, tx *sql.Tx, sec *models.Section, epizode []ledger.Version) error {
+	for _, v := range epizode {
+		if _, err := r.rec.ArchiveIn(ctx, tx, v.Channel, v.Entity, v.EntityID, v.Payload); err != nil {
+			return err
+		}
+	}
+	_, err := r.rec.Archive(ctx, tx, EntitySections, sec.Code, sec)
+	return err
+}
+
+// makniDionicuSPovrsine briše dionicu i kazala izvedena iz nje. Epizode
+// obrane dionice odnosi strani ključ (ON DELETE CASCADE).
 func makniDionicuSPovrsine(ctx context.Context, tx *sql.Tx, code string) error {
 	for _, q := range []string{
 		`DELETE FROM section_stations WHERE section_code = ?`,
