@@ -34,7 +34,7 @@ var obnovaPovrsine = []struct{ entitet, naziv string }{
 	{EntityDezurstva, "dežurstva"},
 	{EntityIspravci, "ispravci arhive"},
 	{EntityBiljeske, "bilješke arhive"},
-	{"opozivi", "opozivi"},
+	{entitetOpozivi, "opozivi"},
 }
 
 // paketObnove je koliko zapisa ide u jednu transakciju površine i u jedan

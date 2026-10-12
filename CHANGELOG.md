@@ -16,6 +16,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ispravljen vodostaj ili potvrđeno dežurstvo, te za listove i upise
   dnevnika, dežurstva, bilješke i ispravke arhive. Razmjena koja se ne
   upiše do kraja sad se ponovi s idućom razmjenom.
+- **Opoziv čvora vrijedi i kad stigne zajedno s poništenjem.** Opoziv se ne
+  poništava, ali kad je čvor primio opoziv i njegovo poništenje u istoj
+  razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao
+  vjerodostojan.
+
 ## 0.0.36-alfa — 12. 10. 2026.
 
 - **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i
