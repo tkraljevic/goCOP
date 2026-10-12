@@ -28,14 +28,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Postavke iz gocop.toml i u Administraciji.** Dosad se `gocop.toml`
   mijenjao samo u uređivaču teksta, a na Unraidu i uz uslugu sustava za to
   treba pristup disku ili `sudo`. Sad dio postavki globalni administrator
-  mijenja na stranici kojoj pripadaju: javnu adresu i centar na stranici
-  prijave u kartici Ovaj čvor, razmak sinkronizacije pod Mreža, „Prati sve”
-  i povijest tuđih očitanja na stranici Što ovo računalo prati, izvor karte
-  pod Opcije. Održavanje baze pokazuje gdje je datoteka i njezine kopije.
-  Radi samo s ovog računala ili iz lokalne mreže, ne kroz tunel. Program
-  novu datoteku prije spremanja provjeri kao pri pokretanju, staru ostavi
-  kao kopiju (zadnjih pet), a ručni komentari ostaju. Ime čvora, portovi,
+  mijenja na stranici kojoj pripadaju. Na stranici Čvor, mreža i
+  sinkronizacija, u kartici Ovaj čvor, su javna adresa te centar i telefon
+  sa stranice prijave, a pod Mreža razmak sinkronizacije. „Prati sve” i
+  povijest tuđih očitanja su na stranici Što ovo računalo prati, do koje sad
+  vodi i kartica u Administraciji, a izvor karte pod Opcije. Održavanje baze
+  pokazuje gdje su baza, arhiva i datoteka postavki te njezine kopije. Radi
+  samo s ovog računala ili iz lokalne mreže, ne kroz tunel. Program novu
+  datoteku prije spremanja provjeri kao pri pokretanju, staru ostavi kao
+  kopiju (zadnjih pet), a ručni komentari ostaju. Naziv čvora, portovi,
   putanje i posrednici samo se prikazuju.
+- **Natpis o podrijetlu karte je običan tekst.** Karta ga sad uvijek
+  pokazuje kao tekst, i kad je u `gocop.toml` upisan s HTML oznakama, a iz
+  programa se znakovi `<` i `>` u natpisu ne mogu spremiti.
 - **Ponovno pokretanje čvora iz programa.** Gumb u kartici Ovaj čvor
   uredno ugasi čvor, a pokrene ga Postava, usluga sustava ili Docker (samo
   uz `--restart`). Ručno pokrenut čvor gumba nema, nego piše što napraviti.

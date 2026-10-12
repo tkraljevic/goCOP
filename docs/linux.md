@@ -328,14 +328,14 @@ Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
 `sudo systemctl restart gocop`. Zastavice u jedinici imaju prednost pred
 datotekom; jedinica zadaje samo `-db`.
 
-Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa,
-centar na stranici prijave, razmak sinkronizacije, `sve`,
-`povijest_mjeseci` i karta, svaka na stranici Administracije kojoj pripada
-(opis u [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u
-programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
+Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
+i centar sa stranice prijave te razmak sinkronizacije (*Čvor, mreža i
+sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
+karta (*Opcije*); do svih se dolazi iz Administracije (opis u
+[INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
 `/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
-komentare. Ime čvora, port weba i portove razmjene, putanje i posrednike
+komentare. Naziv čvora, port weba i portove razmjene, putanje i posrednike
 mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* uredno
 ugasi čvor, a systemd ga za pet sekundi pokrene, isto kao
 `sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi

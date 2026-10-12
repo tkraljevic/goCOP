@@ -627,21 +627,23 @@ imaju prednost pred datotekom.
 
 **Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
-pripada: javnu adresu i centar na stranici prijave u *Čvor, mreža i
-sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije pod *Mreža*,
-`sve` i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod
-*Opcije*. *Održavanje baze* pokazuje gdje je datoteka, kad je mijenjana i
-njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
+pripada: javnu adresu te centar i telefon sa stranice prijave u *Čvor, mreža
+i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije pod *Mreža*
+(na toj stranici obje stoje sklopljene), `sve` i `povijest_mjeseci` pod
+*Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
+pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
+mijenjana i njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
 računala na kojem je čvor ili iz lokalne mreže, nikad izvana ni kroz tunel.
 Program novu datoteku prije spremanja pročita i provjeri kao pri pokretanju;
 neispravno ne zapisuje, nego javi uz polje. Ručni komentari i ključevi koje
 program ne zna ostaju, jer se mijenja samo redak promijenjene postavke, a
 nova postavka dobije objašnjenje kao u primjeru. Staru datoteku spremi kao
 `gocop.toml.<datum-vrijeme>` (zadnjih pet) i u dnevnik upiše tko je što
-promijenio. Ime čvora, adresu weba i portove, putanje, pouzdane posrednike i
-`bootstrap` program pokazuje, ali ih mijenja samo datoteka: krivim portom ili
-putanjom čvor bi se zaključao izvan dosega, a posrednici određuju što je
-zahtjev izvana. Kad je zastavica pokretanja jača od datoteke (npr. u
+promijenio. Naziv čvora, adresu web sučelja i portove, putanje, pouzdane
+posrednike i `bootstrap` program pokazuje, ali ih mijenja samo datoteka:
+krivim portom ili putanjom čvor bi se zaključao izvan dosega, a posrednici
+određuju što je zahtjev izvana. Ime čvora u mreži (`[node] id`) poslije
+prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 
 Promjena vrijedi nakon ponovnog pokretanja; dok čeka, stranice s postavkama
