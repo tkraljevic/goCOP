@@ -476,7 +476,9 @@ i čvor, miče pokretanje pri prijavi i mapu iz PATH-a, briše program. Mapa
 Postava radi i na macOS-u i Linuxu (ikona u traci izbornika ili u području
 obavijesti, pokretanje pri prijavi kroz LaunchAgent ili `~/.config/autostart`,
 poveznica `~/.local/bin/gocop` umjesto PATH-a), ali instalacijski paketi za
-njih dolaze kasnije (docs/plan-instalacija.md).
+njih dolaze kasnije (docs/plan-instalacija.md). Na Linuxu, kad je čvor
+usluga sustava, Postavu postavlja instalacijska skripta, a Postava tada ne
+pokreće svoj čvor, nego radi s uslugom ([linux.md](linux.md), poglavlje 12).
 
 ### Ručno
 

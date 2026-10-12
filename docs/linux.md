@@ -54,6 +54,7 @@ dostupan … prelazim na :8080`), ili mu port zadajte u `gocop.toml`
 | korisnik sustava | `gocop` | bez prijave i bez lozinke |
 | mapa podataka | `/var/lib/gocop` | vlasnik `gocop`, `0750` |
 | usluga | `/etc/systemd/system/gocop.service` | `gocop.service` iz izdanja |
+| ikona u traci (Postava) | `/usr/local/bin/gocop-postava` | samo ako je uz program (poglavlje 12) |
 
 U mapi podataka su:
 
@@ -82,7 +83,7 @@ zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 ```sh
 IZDANJE=v0.0.35-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
-for f in gocop-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
+for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
 done
 ```
@@ -103,10 +104,12 @@ sha256sum -c --ignore-missing SHA256SUMS
 ```
 
 Ispravno izdanje ispiše `Signature Verified Successfully` te
-`gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK`. **Ako
-bilo koja provjera ne prođe, ništa od izdanja ne postavljajte.**
+`gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK` (uz
+Postavu i `gocop-postava-linux-amd64: OK`). **Ako bilo koja provjera ne
+prođe, ništa od izdanja ne postavljajte.**
 
-Skripta i jedinica stoje uz izdanja od prvog izdanja nakon 0.0.33-alfa.
+Skripta i jedinica stoje uz izdanja od prvog izdanja nakon 0.0.33-alfa, a
+Postava za Linux (`gocop-postava-linux-amd64`, poglavlje 12) od 0.0.36-alfa.
 Starija izdanja ih nemaju; za njih vrijedi ručni postupak na kraju
 poglavlja 3, a jedinica se uzima iz repozitorija za istu oznaku
 (`build/linux/gocop.service`), bez potpisa.
@@ -151,6 +154,9 @@ onda pokreće.
    bazu bez `gocop.toml` ne zapisuje ništa, nego javlja da datoteke nema;
 5. postavi jedinicu `gocop.service` iz izdanja, uključi je i pokrene;
 6. pričeka da čvor odgovori na `/zdravlje` i ispiše adresu.
+
+Kad je uz program i `gocop-postava-linux-amd64`, skripta prije čvora
+postavi i ikonu u traci (poglavlje 12). Bez te datoteke Postavu ne dira.
 
 **Ime čvora** (`-ime`) je jedinstveno ime u mreži: mala slova, brojke i
 crtica, 3–40 znakova (npr. `pperic-posluzitelj`). Ne mijenja se nakon prvog
@@ -449,6 +455,9 @@ nadzoru izvana. Ako je program prešao na 8080, adresa je
    `/var/lib/gocop/kopije`, zamijeni program, pokrene uslugu i pričeka
    `/zdravlje`. Ako je novo izdanje promijenilo jedinicu, postavi i nju.
 
+Uz ikonu u traci isto se radi iz njezina izbornika, *Nadogradi na …*
+(poglavlje 12).
+
 Napomene:
 
 - Stalni čvor ažurira se prvi, pa ostali (redoslijed je u INSTALACIJA.md).
@@ -459,7 +468,7 @@ Napomene:
 - Skripta kopira samo `gocop.db`; za ostale baze vrijedi sigurnosna
   kopija iz poglavlja 6.
 - `gocop` se ne nadograđuje sam i ništa ne preuzima; nadogradnja je uvijek
-  ovaj postupak.
+  ovaj postupak, ručno ili iz ikone u traci.
 
 ## 10. Deinstalacija
 
@@ -467,8 +476,9 @@ Napomene:
 sudo bash instaliraj.sh -ukloni
 ```
 
-Zaustavi i isključi uslugu, ukloni jedinicu i program. **Podatke i
-korisnika `gocop` ne briše.** Ako ih više ne trebate (nakon kopije):
+Zaustavi i isključi uslugu, ukloni jedinicu i program, a uz njih i
+Postavu, unos u izborniku i ikonu. **Podatke i korisnika `gocop` ne
+briše.** Ako ih više ne trebate (nakon kopije):
 
 ```sh
 sudo rm -rf /var/lib/gocop
@@ -483,29 +493,66 @@ Prije brisanja mape podataka imajte na umu da je u njoj ključ čvora: ako
 
 - Pri prvom pokretanju zapisani `gocop.toml` nosi zadane vrijednosti, ne
   zastavice s kojima je program pokrenut (osim imena čvora).
-- Postava (program za instalaciju i nadogradnju) zasad se izdaje samo za
-  Windows; na Linuxu je ovaj postupak njezina zamjena. Uz uslugu je ne
-  pokrećite ni kad je prevedete iz izvora: Postava pokreće vlastiti čvor u
-  mapi korisnika, pa bi na računalu radila dva čvora. Za brz ulaz u program
-  na radnoj površini dovoljan je pokretač koji otvara preglednik:
-
-  ```sh
-  mkdir -p ~/.local/share/icons ~/.local/share/applications
-  curl -s http://127.0.0.1/logo -o ~/.local/share/icons/gocop.png
-  cat > ~/.local/share/applications/gocop.desktop <<KRAJ
-  [Desktop Entry]
-  Type=Application
-  Name=goCOP
-  Comment=Otvori goCOP u pregledniku
-  Exec=xdg-open http://localhost
-  Icon=$HOME/.local/share/icons/gocop.png
-  Terminal=false
-  Categories=Network;
-  KRAJ
-  ```
-
-  goCOP se tada nalazi među programima i može se prikvačiti na traku
-  (desni klik → *Pin to Dash* / *Add to Favorites*).
+- Postava za Linux dolazi uz izdanje goCOP-a i postavlja je skripta
+  (poglavlje 12). Zasebna izdanja Postave (`postava-v…`), s instalacijskim
+  programom, su samo za Windows.
 - Program preveden iz izvora skripta ne postavlja jer nema potpisa
   izdanja; za njega vrijedi ručni postupak iz poglavlja 3 (prijevod s
   `CGO_ENABLED=0 go build -trimpath ./cmd/gocop`).
+
+## 12. Ikona u traci (Postava)
+
+Postava je mali program s ikonom goCOP-a u traci, isti kao na Windowsu i
+macOS-u. Uz izdanje stoji kao `gocop-postava-linux-amd64` (od
+0.0.36-alfa). Kad je u mapi uz program, `instaliraj.sh` je provjeri istim
+potpisom kao i program i postavi:
+
+| Što | Gdje |
+|---|---|
+| Postava | `/usr/local/bin/gocop-postava` |
+| unos u izborniku programa (goCOP) | `/usr/share/applications/gocop-postava.desktop` |
+| ikona | `/usr/share/icons/hicolor/256x256/apps/gocop.png` |
+
+U izborniku programa zove se **goCOP**. Pokreće se kao obični korisnik, ne
+kao root. Kad nađe uslugu `gocop`, ne pokreće drugi čvor, nego radi s
+uslugom. Pri prvom pokretanju sama uključi *Pokreni pri prijavi* (unos u
+`~/.config/autostart`), samo jednom: ako ga korisnik poslije isključi, ostaje
+isključeno. Svoj dnevnik piše u `~/.local/share/gocop/data/postava.log`.
+
+Izbornik ikone:
+
+- **Otvori goCOP** otvara goCOP u pregledniku (isto radi dvoklik na ikonu).
+- **Zaustavi** zaustavlja uslugu, nakon pitanja: dok usluga stoji, nema
+  razmjene s drugim čvorovima i nitko u uredu ne može otvoriti goCOP.
+  **Pokreni** je pokreće bez dodatnog pitanja.
+- **Nadogradi na …** preuzme novo izdanje s GitHuba u
+  `~/.local/share/gocop/data`, provjeri potpis i SHA-256 svake datoteke i
+  pokrene `instaliraj.sh` tog izdanja (poglavlje 9). Ispis skripte ide u
+  dnevnik Postave. **Provjeri nadogradnje** odmah pita GitHub; inače Postava
+  pita sama, svakih šest sati.
+- **Dnevnik čvora** otvara zadnjih 2000 redaka iz `journalctl -u gocop`.
+  Dnevnik sustava smiju čitati članovi grupe `adm` ili `systemd-journal`
+  (prvi korisnik na Ubuntuu je u grupi `adm`); za ostale je prazan.
+- **Pokreni pri prijavi** uključuje ili isključuje ikonu pri prijavi.
+- **O programu** pokazuje izdanje Postave i čvora.
+- **Izlaz** zatvara samo ikonu. Usluga radi dalje.
+
+*Otvori mapu s podacima* uz uslugu se ne nudi, jer `/var/lib/gocop` smije
+čitati samo korisnik `gocop`.
+
+**Lozinka administratora.** Zaustavi, Pokreni i Nadogradi mijenjaju uslugu
+sustava, pa sustav za njih traži lozinku administratora u svom prozoru
+(polkit). Nadogradnja pita jednom, za cijelu skriptu (`pkexec`). Kad usluga
+već radi, Postava pri prijavi ne pita ništa. Ako sustav nema `pkexec`-a ili
+se lozinka ne upiše, goCOP se nadograđuje ručno (poglavlje 9). Postavu koju
+je donijela nadogradnja ikona koristi od sljedećeg pokretanja, npr. nakon
+sljedeće prijave.
+
+**GNOME (Ubuntu).** Ubuntu ikonu pokazuje preko ugrađenog proširenja
+AppIndicator (*Ubuntu AppIndicators*), koje je uključeno samo od sebe. Na
+GNOME-u bez njega (npr. Fedora) treba uključiti proširenje *AppIndicator and
+KStatusNotifierItem Support*. KDE i većina drugih radnih okruženja ikonu
+pokazuju bez dodataka.
+
+Bez usluge (na računalu bez `gocop.service`) Postava na Linuxu radi kao na
+macOS-u: pokreće vlastiti čvor u `~/.local/share/gocop`.
