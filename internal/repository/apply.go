@@ -294,34 +294,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityIspravci:
-		var i models.ArhivaIspravak
-		if err := json.Unmarshal(v.Payload, &i); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO arhiva_ispravci (id, letva, velicina, korak, vrijeme, vrijednost, staro,
-				razlog, ispravio, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET vrijednost=excluded.vrijednost, staro=excluded.staro,
-				razlog=excluded.razlog, ispravio=excluded.ispravio, updated_at=excluded.updated_at`,
-			i.ID.String(), i.Letva, i.Velicina, i.Korak, i.Vrijeme.UTC(), i.Vrijednost, i.Staro,
-			i.Razlog, i.Ispravio, i.CreatedAt.UTC(), i.UpdatedAt.UTC())
-		return err
+		return primijeniIspravak(ctx, tx, v.Payload)
 
 	case EntityBiljeske:
-		var b models.ArhivaBiljeska
-		if err := json.Unmarshal(v.Payload, &b); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO arhiva_biljeske (id, letva, velicina, korak, vrijeme, vrsta, tekst, tko,
-				created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET vrsta=excluded.vrsta, tekst=excluded.tekst,
-				tko=excluded.tko, updated_at=excluded.updated_at`,
-			b.ID.String(), b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC(), b.Vrsta, b.Tekst, b.Tko,
-			b.CreatedAt.UTC(), b.UpdatedAt.UTC())
-		return err
+		return primijeniBiljesku(ctx, tx, v.Payload)
 
 	case EntityStations:
 		var st models.Station

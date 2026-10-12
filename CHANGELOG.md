@@ -12,6 +12,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   letve, objekta ili naselja o koje se oslanja, a starija tek poslije. Sad
   dionica dođe s najnovijom izmjenom čim stigne ono što joj treba. Epizode
   obrane program obnavlja i pri pokretanju, kao dionice.
+- **Bilješka ili ispravak arhive upisan dvaput za isti sat.** Na novom
+  čvoru druga bilješka za isti sat javljala je grešku pri svakoj razmjeni,
+  a čvorovi su mogli pokazivati različitu bilješku, ovisno o tome koja je
+  prva stigla. Sad svi pokazuju noviju od dviju. Isto vrijedi za ispravke
+  arhive.
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s
