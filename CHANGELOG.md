@@ -6,6 +6,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i
+  epizode obrane uz njih, nisu se pojavile na novom čvoru, a razmjena nije
+  javila grešku. Događalo se kad je novija izmjena dionice stigla prije
+  letve, objekta ili naselja o koje se oslanja, a starija tek poslije. Sad
+  dionica dođe s najnovijom izmjenom čim stigne ono što joj treba. Epizode
+  obrane program obnavlja i pri pokretanju, kao dionice.
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s
