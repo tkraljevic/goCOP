@@ -238,7 +238,7 @@ func TestTailscaleLokalno(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"tailscale_lokalno = true", "Na računalu bez Tailscalea ne\n# mijenja ništa."} {
+	for _, want := range []string{"tailscale_lokalno = true", "Na računalu bez Tailscalea ne\n# mijenja ništa.", "Uz false takav zahtjev vrijedi kao izvana i traži PIN."} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("primjer ne sadrži %q", want)
 		}

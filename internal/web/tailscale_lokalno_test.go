@@ -130,19 +130,29 @@ func TestTailscaleIzvorNaUredskuAdresuOstajeIzvana(t *testing.T) {
 	}
 }
 
-// [web] tailscale_lokalno = false: zahtjev na Tailscale adresu je izvana.
-// Sklopka vrijedi odmah, i dok poslužitelj radi.
+// [web] tailscale_lokalno = false: zahtjev na Tailscale adresu je izvana, i
+// preko IPv6, iako je Tailscaleova IPv6 adresa privatna (fc00::/7). Sklopka
+// vrijedi odmah, i dok poslužitelj radi.
 func TestTailscaleLokalnoIskljuceno(t *testing.T) {
 	o := novaOkolinaPIN(t)
 	o.osoba("ana", "anina-lozinka", "ana.anic@voda.hr", false)
-	s, citanja := o.sTailscaleom(tsOvo)
+	s, _ := o.sTailscaleom(tsOvo, tsOvo6)
+	poslano := o.posta.broj()
 
 	s.SetTailscaleLokalno(false)
-	if w := o.prijava(naAdresu(tsDrugi, tsOvo), "ana", "anina-lozinka"); !odbijenoKaoIzvana(w) {
-		t.Errorf("isključeno: %d %q", w.Code, w.Body.String())
+	for ime, porijeklo := range map[string]func(*http.Request) *http.Request{
+		"IPv4": naAdresu(tsDrugi, tsOvo),
+		"IPv6": naAdresu("fd7a:115c:a1e0::9", tsOvo6),
+	} {
+		if w := o.prijava(porijeklo, "ana", "anina-lozinka"); !odbijenoKaoIzvana(w) {
+			t.Errorf("isključeno, %s: %d %q", ime, w.Code, w.Body.String())
+		}
 	}
-	if citanja.Load() != 0 {
-		t.Error("isključeno pravilo ne čita kartice")
+	if w := o.prijava(naAdresu("192.168.1.50", lanOvo), "ana", "anina-lozinka"); !prijavljen(w) {
+		t.Errorf("isključeno, iz uredske mreže prijava ostaje bez PIN-a: %d %q", w.Code, w.Header().Get("Location"))
+	}
+	if o.posta.broj() != poslano {
+		t.Error("preko http-a PIN se ne šalje")
 	}
 	s.SetTailscaleLokalno(true)
 	if w := o.prijava(naAdresu(tsDrugi, tsOvo), "ana", "anina-lozinka"); !prijavljen(w) {

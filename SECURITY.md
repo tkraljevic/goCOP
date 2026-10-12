@@ -285,7 +285,10 @@ nepouzdano.
   uređaj iz iste Tailscale mreže prolazi kao iz ureda: prijava bez PIN-a,
   početna lozinka i postavljanje svježeg čvora. Tko je u toj mreži, određuju
   njezin račun i pravila pristupa. Isključuje se s `[web] tailscale_lokalno =
-  false` u `gocop.toml`.
+  false` u `gocop.toml`; tada takav zahtjev traži PIN kao izvana, i preko
+  IPv6. Na macOS-u se Tailscale prepozna samo kad njegova kartica ima i IPv6
+  adresu iz `fd7a:115c:a1e0::/48`: karticu `utun` i adresu 100.x imaju i
+  drugi VPN-ovi (npr. Cloudflare WARP), a oni nisu lokalna mreža.
 - **Sesije:** oznaka sesije je u bazi spremljena kao čisti tekst; sesija
   ne istječe zbog neaktivnosti; promjena lozinke ne gasi sesije na drugim
   čvorovima.

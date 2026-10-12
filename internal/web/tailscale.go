@@ -6,9 +6,13 @@ package web
 // iste Tailscale mreže. Odlučuje adresa na koju je veza stigla, ne adresa
 // pošiljatelja, jer 100.x s druge kartice može biti bilo tko kod mobilnog
 // operatera (CGNAT). Zahtjev kroz posrednika ostaje izvana (Klijent.Izvana).
+// Uz [web] tailscale_lokalno = false zahtjev na Tailscale adresu ovog
+// računala vrijedi kao izvana.
 //
-// Na računalu bez Tailscalea veza nikad ne stigne na adresu iz Tailscaleova
-// raspona, pa se kartice ne čitaju i sve radi kao prije.
+// Na računalu bez Tailscalea popis vlastitih Tailscale adresa je prazan, pa
+// sve radi kao prije. Kartice se čitaju tek kad veza stigne na adresu iz
+// Tailscaleova raspona, što se bez Tailscalea događa samo uz drugi VPN s
+// takvom adresom.
 
 import (
 	"net"
@@ -52,11 +56,9 @@ func (t *tailscaleVeze) vlastite() []netip.Addr {
 	return t.adrese
 }
 
-// stigloNa javlja je li veza zahtjeva stigla na Tailscale adresu ovog računala
+// stigloNa javlja je li veza zahtjeva stigla na Tailscale adresu ovog
+// računala; je li takav zahtjev lokalan, odlučuje sklopka (Klijent.Izvana)
 func (t *tailscaleVeze) stigloNa(r *http.Request) bool {
-	if t.iskljuceno.Load() {
-		return false
-	}
 	a := lokalnaAdresa(r)
 	return tailscale.JeTailscale(a) && slices.Contains(t.vlastite(), a)
 }
@@ -69,9 +71,9 @@ func lokalnaAdresa(r *http.Request) netip.Addr {
 	return netip.Addr{}
 }
 
-// SetTailscaleLokalno uključuje ili isključuje pravilo da je zahtjev na
-// Tailscale adresu ovog računala lokalan (gocop.toml [web] tailscale_lokalno).
-// Vrijedi odmah, pa se smije zvati i dok poslužitelj radi.
+// SetTailscaleLokalno odlučuje je li zahtjev na Tailscale adresu ovog
+// računala lokalan (uključeno) ili izvana (gocop.toml [web]
+// tailscale_lokalno). Vrijedi odmah, pa se smije zvati i dok poslužitelj radi.
 func (s *Server) SetTailscaleLokalno(ukljuceno bool) {
 	s.tailscaleIliZadani().iskljuceno.Store(!ukljuceno)
 }
