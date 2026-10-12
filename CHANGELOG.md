@@ -6,6 +6,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Dionice: isto ugroženo područje uz više nasipa.** Općina ili naselje
+  upisano uz jedan nasip nije se dalo upisati uz drugi nasip ni uz cijelu
+  poddionicu: obrazac je drugi upis tiho preskakao, i pri ručnom dodavanju
+  i pri prijepisu iz dokumentacije. Sad se odbija samo isto područje uz
+  isti nasip.
+- **Kartica dionice bez nasipa: ugroženo područje uz objekte.** Na
+  poddionici bez nasipa ugroženo područje stoji u retku uz objekte, po
+  županijama i općinama, kao i uz nasip na drugim dionicama, a ne više
+  iznad tablice; tako ga piše i izvoz kartice. Ugroženo područje bez nasipa
+  na poddionici koja nasipe ima ostaje iznad tablice.
 - **Dnevnik: istodobni upisi se ne gube.** Kad dvoje u isto vrijeme upiše
   bilješku ili naredbu na isti list, ili jedan upisuje dok drugi parafira,
   ovjerava ili objavljuje prijavu, ili dok vodočuvar sprema ili predaje
