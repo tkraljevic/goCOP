@@ -176,3 +176,30 @@ func TestVracanjeUnatragTraziRazlogIPamtiGa(t *testing.T) {
 		t.Error("nakon vraćanja je obično ugrađivanje starijeg prošlo")
 	}
 }
+
+// Ugradnja bez paketa javlja grešku umjesto da sruši program, i paket koji
+// je jednom vraćen unatrag ne ostaje označen: ista stara inačica običnom
+// ugradnjom i dalje se odbija.
+func TestUgradnjaBezPaketaIOznakaUnatrag(t *testing.T) {
+	db, put := prazniCvor(t)
+	defer db.Close()
+	if err := Ugradi(db, put, nil); err == nil || !strings.Contains(err.Error(), "nema što ugraditi") {
+		t.Errorf("ugradnja bez paketa: %v", err)
+	}
+	if err := UgradiUnatrag(db, put, nil, "razlog"); err == nil {
+		t.Error("vraćanje bez paketa je prošlo")
+	}
+	if err := Ugradi(db, put, paketLetve(t, 3, nil)); err != nil {
+		t.Fatal(err)
+	}
+	stariji := paketLetve(t, 2, nil)
+	if err := UgradiUnatrag(db, put, stariji, "v3 nosi krivu kotu nule"); err != nil {
+		t.Fatal(err)
+	}
+	if err := Ugradi(db, put, paketLetve(t, 3, nil)); err != nil {
+		t.Fatal(err)
+	}
+	if err := Ugradi(db, put, stariji); err == nil {
+		t.Error("paket vraćen unatrag ostao je označen pa ga obična ugradnja više ne provjerava")
+	}
+}
