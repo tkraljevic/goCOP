@@ -53,3 +53,26 @@ func TestZnackeNeBriseUsporedbomObjekata(t *testing.T) {
 		t.Error("značka područja ne zove makniPodrucje")
 	}
 }
+
+// Općina ili naselje upisano uz jedan nasip nije se dalo upisati uz drugi:
+// dodavanje i prijepis provjeravali su je li područje već upisano samo po
+// ključu, bez nasipa, pa je drugi upis tiho otpadao. Isto područje smije
+// stajati uz više nasipa; odbija se samo ponovljeno uz isti nasip.
+func TestPodrucjeUzViseNasipa(t *testing.T) {
+	b, err := webassets.Files.ReadFile("templates/section_form.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	izvor := string(b)
+	if !strings.Contains(izvor, "function istoPodrucje(") {
+		t.Fatal("nema istoPodrucje — područje se uspoređuje bez nasipa")
+	}
+	if n := strings.Count(izvor, "tr.some(x => istoPodrucje(x, t))"); n != 2 {
+		t.Errorf("dodavanje i prijepis područja moraju uspoređivati s nasipom (istoPodrucje), a takvih provjera je %d", n)
+	}
+	// provjera postojećeg područja samo po ključu, bez nasipa
+	bezNasipa := regexp.MustCompile(`tr\.some\(x => [^)]*(kljuc\w*\(x\)|\.settlement_id \?)`)
+	if m := bezNasipa.FindString(izvor); m != "" {
+		t.Errorf("područje se još uspoređuje bez nasipa: %s", m)
+	}
+}

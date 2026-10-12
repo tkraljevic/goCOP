@@ -314,6 +314,13 @@ function kljucPodrucja(t) {
     : t.county_id + '/' + t.municipality_id;
 }
 
+// istoPodrucje javlja jesu li dvije stavke isto područje uz isti nasip. Isto
+// naselje ili općina smije stajati uz više nasipa, kako ih Privitak i navodi,
+// pa ga dodavanje ne odbija samo zato što ga već ima drugi nasip.
+function istoPodrucje(a, b) {
+  return kljucPodrucja(a) === kljucPodrucja(b) && (a.on_embankment || '').toLowerCase() === (b.on_embankment || '').toLowerCase();
+}
+
 // makniPodrucje briše jedno ugroženo područje s poddionice.
 //
 // Uspoređuje se po ključu i nasipu, ne po objektu. JSON.parse svaki put stvara
@@ -322,12 +329,10 @@ function kljucPodrucja(t) {
 // nasipa, pa nasip ulazi u usporedbu, a briše se samo prvi pogodak — dvije
 // jednake stavke se miču jednu po jednu, kao što ih je čovjek i dodao.
 function makniPodrucje(el, t) {
-  const kljuc = kljucPodrucja(t);
-  const nasip = (t.on_embankment || '').toLowerCase();
   const preostalo = [];
   let maknuto = false;
   for (const x of JSON.parse(el.dataset.territories)) {
-    if (!maknuto && kljucPodrucja(x) === kljuc && (x.on_embankment || '').toLowerCase() === nasip) {
+    if (!maknuto && istoPodrucje(x, t)) {
       maknuto = true;
       continue;
     }
@@ -365,7 +370,6 @@ async function prepisiUgrozeno(btn) {
     if (!izvori.length) izvori.push({tekst: el.dataset.protectedText || '', nasip: ''});
 
     const tr = JSON.parse(el.dataset.territories);
-    const kljuc = t => t.settlement_id ? t.county_id + '/' + t.municipality_id + '/' + t.settlement_id : t.county_id + '/' + t.municipality_id;
     let dodano = 0; const ne = []; let poruka = '';
     for (const izvor of izvori) {
       const res = await fetch('/api/prijepis/ugrozeno?tekst=' + encodeURIComponent(izvor.tekst));
@@ -373,8 +377,8 @@ async function prepisiUgrozeno(btn) {
       const p = await res.json();
       (p.territories || []).forEach((t, i) => {
         if (izvor.nasip) t.on_embankment = izvor.nasip;
-        if (tr.some(x => kljuc(x) === kljuc(t))) return;
-        TERR_LABELS[kljuc(t)] = (p.labels || [])[i] || kljuc(t);
+        if (tr.some(x => istoPodrucje(x, t))) return;
+        TERR_LABELS[kljucPodrucja(t)] = (p.labels || [])[i] || kljucPodrucja(t);
         tr.push(t); dodano++;
       });
       for (const n of p.nerazrijeseno || []) if (!ne.includes(n)) ne.push(n);
@@ -428,7 +432,7 @@ function addTerritory(btn) {
   const nasip = el.querySelector('[data-role=terr-emb]').value;
   const checked = [...el.querySelectorAll('[data-role=settlements] input:checked')];
   const tr = JSON.parse(el.dataset.territories);
-  const push = (t, label) => { if (nasip) t.on_embankment = nasip; const key = t.settlement_id ? cid + '/' + mid + '/' + t.settlement_id : cid + '/' + mid; if (!tr.some(x => (x.settlement_id ? x.county_id + '/' + x.municipality_id + '/' + x.settlement_id : x.county_id + '/' + x.municipality_id) === key)) { TERR_LABELS[key] = label; tr.push(t); } };
+  const push = (t, label) => { if (nasip) t.on_embankment = nasip; if (!tr.some(x => istoPodrucje(x, t))) { TERR_LABELS[kljucPodrucja(t)] = label; tr.push(t); } };
   if (checked.length === 0) push({county_id: cid, municipality_id: mid}, muniLabel + ' (' + zup + ')');
   for (const c of checked) push({county_id: cid, municipality_id: mid, settlement_id: parseInt(c.value)}, c.dataset.name + ' (' + muniLabel.replace(/^(Grad|Općina)\s+/, '') + ', ' + zup + ')');
   el.dataset.territories = JSON.stringify(tr); el.querySelectorAll('[data-role=settlements] input').forEach(i => i.checked = false); renderChips(el);
