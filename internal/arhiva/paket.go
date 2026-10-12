@@ -708,6 +708,11 @@ type Sadrzaj struct {
 	// Izvori su postavke s kojima je paket složen. Paket inačice 1 ih nema, pa
 	// se ondje ne zna s čime je spojeni niz nastao.
 	Izvori []izvorUPaketu
+
+	// unatrag je uključen samo na kopiji koju ugrađuje UgradiUnatrag: takav
+	// paket smije biti stariji od onoga što čvor već ima. Nije zajednička
+	// varijabla, pa istodobna obična ugradnja ne preskače tu provjeru.
+	unatrag bool
 }
 
 // PostavkeIzvora vraća ono s čime je paket složen, za usporedbu s onim što
@@ -825,11 +830,6 @@ func (c *citac) ReadByte() (byte, error) {
 	return b, nil
 }
 
-// Ugradi upisuje paket u arhivu i pregrađuje spojeni niz. Sve u jednoj
-// transakciji: arhiva ne smije ostati s pola letve.
-// unatragNamjerno je uključen samo unutar UgradiUnatrag.
-var unatragNamjerno bool
-
 // UgradiUnatrag ugrađuje starije izdanje, na izričit zahtjev.
 //
 // Postoji jer se to zna morati: izdanje koje je otišlo sa zlim podatkom vraća
@@ -839,16 +839,24 @@ func UgradiUnatrag(db *sql.DB, baza string, s *Sadrzaj, razlog string) error {
 	if strings.TrimSpace(razlog) == "" {
 		return fmt.Errorf("vraćanje na starije izdanje traži razlog")
 	}
-	unatragNamjerno = true
-	defer func() { unatragNamjerno = false }()
-	if err := Ugradi(db, baza, s); err != nil {
+	if s == nil {
+		return fmt.Errorf("nema što ugraditi")
+	}
+	kopija := *s
+	kopija.unatrag = true
+	if err := Ugradi(db, baza, &kopija); err != nil {
 		return err
 	}
 	return zapisiPrimljeno(db, s.Manifest, len(s.PotpisaoKljuc) > 0,
 		"vraćeno unatrag: "+strings.TrimSpace(razlog))
 }
 
+// Ugradi upisuje paket u arhivu i pregrađuje spojeni niz. Sve u jednoj
+// transakciji: arhiva ne smije ostati s pola letve.
 func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
+	if s == nil {
+		return fmt.Errorf("nema što ugraditi")
+	}
 	// Ugradnja briše letvu pa upisuje njezine dijelove i gradi spoj — isti
 	// posao kao gradnja, pa ista brava.
 	brava, err := Uzmi(baza, "ugradnja paketa "+s.Manifest.Letva, s.Manifest.Izdao)
@@ -857,9 +865,6 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	}
 	defer brava.Pusti()
 
-	if s == nil {
-		return fmt.Errorf("nema što ugraditi")
-	}
 	if err := dopuniShemu(db); err != nil {
 		return err
 	}
@@ -867,7 +872,7 @@ func Ugradi(db *sql.DB, baza string, s *Sadrzaj) error {
 	// nitko ne uspoređuje s onim što čvor već ima. Ništa u njemu nije
 	// krivotvoreno — samo je staro, a letva bi tiho izgubila ono što je u
 	// međuvremenu stiglo.
-	if !unatragNamjerno {
+	if !s.unatrag {
 		if err := SmijeUgraditi(db, s.Manifest); err != nil {
 			return err
 		}
