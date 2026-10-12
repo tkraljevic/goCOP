@@ -831,11 +831,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	peersService.SetSpremiste(spremiste)
 	var razmjenaArh *razmjenaArhive // arhiva razmjenom; postavlja se kad je poznato gdje arhiva stoji
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
-		primateljPrognoze.primi(versions)
-		if razmjenaArh != nil {
-			razmjenaArh.primljeno(versions)
-		}
-		return primijeniPrimljeno(ctx, database, recorder, versions)
+		return primljeno(ctx, database, recorder, razmjenaArh, versions)
 	})
 	// Površina se pri pokretanju obnovi iz knjige, da zapela primjena s
 	// prethodne razmjene ne ostavi čvor sa starim stanjem

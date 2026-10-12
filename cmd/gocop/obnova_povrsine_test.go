@@ -15,10 +15,11 @@ import (
 	"gocop/internal/repository"
 )
 
-// Očitanje koje je u knjizi, a nema ga u tablici, vrati obnova uz iduću
-// primljenu razmjenu i to zapiše u dnevnik; kad nema što popraviti, ne piše
-// ništa, a grešku zapiše
-func TestObnovaPovrsinePiseUDnevnik(t *testing.T) {
+// Očitanje koje je u knjizi, a nema ga u tablici, vrati obnova pri
+// pokretanju i to zapiše u dnevnik. Primljena razmjena ne pokreće obnovu: ona
+// prolazi cijelu knjigu, a razmjena i uvoz idu u paketima. Kad nema što
+// popraviti, obnova ne piše ništa, a grešku zapiše.
+func TestObnovaPovrsineIdePriPokretanju(t *testing.T) {
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "obnova.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -39,17 +40,30 @@ func TestObnovaPovrsinePiseUDnevnik(t *testing.T) {
 	if _, err := baza.Exec(`DELETE FROM readings`); err != nil {
 		t.Fatal(err)
 	}
+	ocitanja := func() int {
+		t.Helper()
+		var n int
+		if err := baza.QueryRow(`SELECT count(*) FROM readings`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
 
 	var zapis bytes.Buffer
 	stari := log.Writer()
 	log.SetOutput(&zapis)
 	t.Cleanup(func() { log.SetOutput(stari) })
 
-	// iduća razmjena ne donosi ništa novo, a obnova vrati što je ostalo
-	if err := primijeniPrimljeno(ctx, baza, rec, nil); err != nil {
+	// razmjena koja ne donosi ništa za ovo očitanje ne prolazi cijelu knjigu
+	if err := primljeno(ctx, baza, rec, &razmjenaArhive{}, nil); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(zapis.String(), "Obnova površine: upisano što je bilo samo u knjizi: očitanja 1") {
+	if n := ocitanja(); n != 0 || zapis.Len() != 0 {
+		t.Fatalf("primljena razmjena je pokrenula obnovu: %d očitanja, dnevnik:\n%s", n, zapis.String())
+	}
+
+	obnoviPovrsinu(ctx, baza, rec)
+	if !strings.Contains(zapis.String(), "Obnova površine: upisano što je bilo samo u knjizi: očitanja 1") || ocitanja() != 1 {
 		t.Errorf("dnevnik ne kaže što je obnova upisala:\n%s", zapis.String())
 	}
 	zapis.Reset()

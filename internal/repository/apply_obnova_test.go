@@ -10,6 +10,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 )
 
 // Razmjena upiše primljene verzije u knjigu, a površinu osvježi u drugoj
@@ -277,7 +278,8 @@ func TestObnovaJavljaPaketKojiNijePotvrden(t *testing.T) {
 }
 
 // Dok jedna obnova traje, druga ne kreće; greška čitanja (ovdje tablice koje
-// nema) javlja se s nazivom onoga što se obnavljalo.
+// nema) javlja se s nazivom onoga što se obnavljalo i ne zaustavlja obnovu
+// ostalih entiteta.
 func TestObnovaJednaPoJednaIGreskaCitanja(t *testing.T) {
 	sNedovrsenima(t)
 	sPolitikomPovijesti(t, ReadingHistoryPolicy{})
@@ -285,7 +287,9 @@ func TestObnovaJednaPoJednaIGreskaCitanja(t *testing.T) {
 	ocitanjeNa(t, a, time.Now().UTC().Add(-time.Hour), 150)
 	sve, err := a.rec.Since(ctxRaz, "", 0)
 	nuzno(t, err)
-	samoUKnjigu(t, b, sve)
+	const opoziv = "01a00000-0000-7000-8000-00000000f002"
+	samoUKnjigu(t, b, append(sve, verzijaZa(t, peers.EntityOpozivi, opoziv, vid(1),
+		peers.Opoziv{ID: opoziv, Vrsta: peers.OpozivClanstva, NodeID: "cop-proba-opozvani"})))
 
 	obnovaTece.Lock()
 	o, err := ObnoviPovrsinu(ctxRaz, b.db, b.rec)
@@ -294,14 +298,17 @@ func TestObnovaJednaPoJednaIGreskaCitanja(t *testing.T) {
 		t.Errorf("obnova je krenula dok je druga trajala: %+v, %v", o, err)
 	}
 
-	_, err = b.db.Exec(`DROP TABLE opozivi`)
+	_, err = b.db.Exec(`DROP TABLE arhiva_ispravci`)
 	nuzno(t, err)
 	o, err = ObnoviPovrsinu(ctxRaz, b.db, b.rec)
-	if err == nil || !strings.Contains(err.Error(), "opozivi") {
+	if err == nil || !strings.Contains(err.Error(), "ispravci arhive") {
 		t.Errorf("greška čitanja ne kaže što se obnavljalo: %v", err)
 	}
 	if o.Upisano[EntityReadings] != 1 {
 		t.Errorf("očitanja obnovljena prije greške nisu izbrojena: %+v", o)
+	}
+	if o.Upisano[peers.EntityOpozivi] != 1 || !imaRedak(t, b, "opozivi", opoziv) {
+		t.Errorf("opoziv iza entiteta koji nije prošao nije obnovljen: %+v", o)
 	}
 }
 
@@ -358,5 +365,125 @@ func TestGreskaDjelomicnePrimjeneKazeStoCeka(t *testing.T) {
 	if want := "1 verzija nije primijenjeno na površinu"; !strings.HasPrefix(err.Error(), want) ||
 		!strings.Contains(err.Error(), EntityJournalEntries+"/"+upis) {
 		t.Errorf("greška %q ne kaže koliko verzija i koja čeka", err)
+	}
+}
+
+// dezurstvoNa upisuje dežurstvo izmišljene osobe u dnevnik iz oslonca
+func dezurstvoNa(t *testing.T, c *cvor) *models.Dezurstvo {
+	t.Helper()
+	od := time.Date(2026, 9, 21, 7, 0, 0, 0, time.UTC)
+	d := &models.Dezurstvo{JournalID: osnovaDnevnik, UserID: osnovaKorisnik.String(), UserName: "Proba Probić",
+		Od: od, Do: od.Add(12 * time.Hour), Opis: "dežurstvo u centru", Mjesto: models.MjestoUred}
+	nuzno(t, NewJournalRepository(c.db, c.rec).SaveDezurstvo(ctxRaz, d))
+	return d
+}
+
+func vodostajNa(t *testing.T, c *cvor, id uuid.UUID) int {
+	t.Helper()
+	var cm int
+	nuzno(t, c.db.QueryRow(`SELECT level_cm FROM readings WHERE id = ?`, id.String()).Scan(&cm))
+	return cm
+}
+
+// Izmjena koja je stigla samo u knjigu (paket nije potvrđen, a čvor je
+// ponovno pokrenut) obnovom dođe na površinu: zapis s više verzija može
+// imati stariju na površini, pa ga obnova ponovi i broji samo ako se redak
+// promijenio.
+func TestObnovaOsvjezavaIzmjenuKojaJeStiglaSamoUKnjigu(t *testing.T) {
+	sNedovrsenima(t)
+	sPolitikomPovijesti(t, ReadingHistoryPolicy{})
+	a, b := noviCvor(t, "cop-proba-a"), noviCvor(t, "cop-proba-b")
+	id := ocitanjeNa(t, a, time.Now().UTC().Add(-2*time.Hour), 150)
+	d := dezurstvoNa(t, a)
+	posalji(t, a, b)
+	granica := zadnjaVerzijaCvora(t, a)
+
+	rd, err := NewReadingRepository(a.db, a.rec).Get(ctxRaz, id)
+	nuzno(t, err)
+	cm := 175
+	rd.LevelCm = &cm
+	nuzno(t, NewReadingRepository(a.db, a.rec).Update(ctxRaz, rd))
+	sad := time.Now().UTC()
+	d.Potvrdio, d.PotvrdenoAt = "Proba Probić", &sad
+	nuzno(t, NewJournalRepository(a.db, a.rec).SaveDezurstvo(ctxRaz, d))
+	nove, err := a.rec.Since(ctxRaz, granica, 0)
+	nuzno(t, err)
+	samoUKnjigu(t, b, nove)
+
+	_, err = ReplaySurface(ctxRaz, b.db, b.rec)
+	nuzno(t, err)
+	o, err := ObnoviPovrsinu(ctxRaz, b.db, b.rec)
+	nuzno(t, err)
+	if got, want := o.String(), "osvježeno prema knjizi: očitanja 1, dežurstva 1"; got != want {
+		t.Errorf("opis obnove je %q, a treba %q", got, want)
+	}
+	if cm := vodostajNa(t, b, id); cm != 175 {
+		t.Errorf("očitanje na primatelju ima %d cm, a knjiga kaže 175", cm)
+	}
+	if bd, err := NewJournalRepository(b.db, b.rec).GetDezurstvo(ctxRaz, d.ID); err != nil || bd == nil || bd.Potvrdio != "Proba Probić" {
+		t.Errorf("dežurstvo na primatelju nije potvrđeno: %+v, %v", bd, err)
+	}
+	o, err = ObnoviPovrsinu(ctxRaz, b.db, b.rec)
+	nuzno(t, err)
+	if !praznaObnova(o) {
+		t.Errorf("drugi poziv je opet nešto popravio: %+v", o)
+	}
+}
+
+// Paket koji padne usred obnove ne briše iz brojanja ono što je prije njega
+// prošlo. Sljedeći krug (ponovno pokretanje) upiše ostatak i broji samo njega.
+func TestObnovaBrojiStoJeProsloPrijePrekida(t *testing.T) {
+	sNedovrsenima(t)
+	sPolitikomPovijesti(t, ReadingHistoryPolicy{})
+	paket := paketObnove
+	paketObnove = 2
+	t.Cleanup(func() { paketObnove = paket })
+	a, b := noviCvor(t, "cop-proba-a"), noviCvor(t, "cop-proba-b")
+	kad := time.Now().UTC().Truncate(time.Hour).Add(-24 * time.Hour)
+	for i := range 6 {
+		cm := 140 + i
+		if i == 2 {
+			cm = 999 // na ovom očitanju potvrda drugog paketa pada
+		}
+		ocitanjeNa(t, a, kad.Add(time.Duration(i)*time.Hour), cm)
+	}
+	sve, err := a.rec.Since(ctxRaz, "", 0)
+	nuzno(t, err)
+	samoUKnjigu(t, b, sve)
+	for _, q := range []string{
+		`CREATE TABLE kvar_roditelj (id INTEGER PRIMARY KEY)`,
+		`CREATE TABLE kvar_dijete (roditelj INTEGER REFERENCES kvar_roditelj(id) DEFERRABLE INITIALLY DEFERRED)`,
+		`CREATE TRIGGER kvar_commita AFTER INSERT ON readings WHEN NEW.level_cm = 999 BEGIN INSERT INTO kvar_dijete VALUES (1); END`,
+	} {
+		_, err := b.db.Exec(q)
+		nuzno(t, err)
+	}
+
+	o, err := ObnoviPovrsinu(ctxRaz, b.db, b.rec)
+	if err == nil || !strings.Contains(err.Error(), "očitanja") {
+		t.Fatalf("prekid usred obnove javlja %v", err)
+	}
+	if n := len(povrsinaOcitanja(t, b)); o.Upisano[EntityReadings] != n || n != 2 {
+		t.Errorf("prvi krug je upisao %d očitanja, a izbrojio %d; treba 2", n, o.Upisano[EntityReadings])
+	}
+
+	_, err = b.db.Exec(`DROP TRIGGER kvar_commita`)
+	nuzno(t, err)
+	sNedovrsenima(t) // ponovno pokretanje: popis nedovršenih je prazan
+	o, err = ObnoviPovrsinu(ctxRaz, b.db, b.rec)
+	nuzno(t, err)
+	if got, want := o.String(), "upisano što je bilo samo u knjizi: očitanja 4"; got != want {
+		t.Errorf("drugi krug: %q, a treba %q", got, want)
+	}
+	if n := len(povrsinaOcitanja(t, b)); n != 6 {
+		t.Errorf("na površini je %d očitanja, a treba 6", n)
+	}
+}
+
+// Snimka retka javlja grešku čitanja tablice
+func TestSnimkaJavljaGreskuCitanja(t *testing.T) {
+	c := noviCvor(t, "cop-proba")
+	if _, err := snimka(ctxRaz, c.db, "nema_tablice", []string{"x"}); err == nil {
+		t.Error("snimka tablice koje nema nije javila grešku")
 	}
 }

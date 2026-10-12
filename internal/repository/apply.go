@@ -82,7 +82,7 @@ func KeepVersion(v ledger.Version) bool {
 // SurfaceEntities su entiteti čija se površina pri pokretanju obnavlja iz
 // knjige primjenom zadnje verzije svakog zapisa. Očitanja, listove i upise
 // dnevnika i ostale s popisa obnovaPovrsine obnavlja ObnoviPovrsinu
-// (apply_obnova.go), samo za zapise kojima površina ne odgovara knjizi.
+// (apply_obnova.go), samo za zapise kojima površina možda ne odgovara knjizi.
 // Izvješća dionica i sektora su tu jer je njihov trag predaje (Odluke
 // (8. 10. 2026.), pitanje 12) nov stupac: čvor nadograđen s 0.0.34 drži trag
 // samo u knjizi, a obnova ga pri pokretanju vraća u tablicu.

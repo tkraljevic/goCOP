@@ -15,9 +15,11 @@ import (
 // primjena cijelog paketa padne ili se ne dovrši (SQLITE_BUSY dok dva čvora
 // šalju u isto vrijeme, čvor ugašen prije ponovnog pokušaja), verzije ostanu
 // samo u knjizi. Granica ih pokriva, pa ih nijedan čvor više ne šalje.
-// ReplaySurface to pri pokretanju popravi za SurfaceEntities; za entitete s
-// ovog popisa to radi ObnoviPovrsinu, koja ne prolazi sve verzije nego samo
-// zapise kojima površina ne odgovara knjizi.
+// Dok program radi, takav paket čeka među nedovršenima i ponavlja se s
+// idućom primjenom; popis je u memoriji, pa ga ponovno pokretanje izgubi.
+// ReplaySurface zato pri pokretanju ponovi zadnju verziju svakog zapisa iz
+// SurfaceEntities, a ObnoviPovrsinu za entitete s ovog popisa ponovi samo
+// zapise kojima površina možda ne odgovara knjizi.
 
 // obnovaPovrsine su entiteti kojima ObnoviPovrsinu vraća površinu iz knjige,
 // s nazivom za dnevnik. Nisu u SurfaceEntities: očitanja jer ih je previše za
@@ -35,115 +37,121 @@ var obnovaPovrsine = []struct{ entitet, naziv string }{
 	{"opozivi", "opozivi"},
 }
 
-// paketObnove je koliko zapisa ide u jednu transakciju površine: drugi
-// čvorovi u isto vrijeme šalju, a čekaju najviše pet sekundi (busy_timeout)
+// paketObnove je koliko zapisa ide u jednu transakciju površine i u jedan
+// upit za verzije. Obnova ide pri pokretanju, prije weba i razmjene, pa
+// nitko drugi ne čeka na bazu; paket samo drži transakciju i upit malima.
 var paketObnove = 500
 
-// obnovaTece drži da obnova ne ide dvaput u isto vrijeme, kad razmjena s dva
-// čvora završi zajedno
+// obnovaTece drži da obnova ne ide dvaput u isto vrijeme
 var obnovaTece sync.Mutex
 
-// Obnova kaže koliko je redaka ObnoviPovrsinu stvarno upisala i maknula, po
-// entitetu. Zapis koji je i poslije primjene ostao bez retka (upis obrisanog
-// dnevnika, bilješka koja je izgubila svoj trenutak, očitanje izvan
-// razdoblja koje čvor drži) nije popravak i ne broji se.
+// Obnova kaže koliko je zapisa ObnoviPovrsinu na površini stvarno upisala,
+// osvježila i maknula, po entitetu. Broji se usporedbom retka prije i poslije
+// primjene, pa zapis koji je ostao isti (upis obrisanog dnevnika, bilješka
+// koja je izgubila svoj trenutak, očitanje izvan razdoblja koje čvor drži,
+// zapis koji je već bio dobar) nije popravak i ne broji se.
 type Obnova struct {
-	Upisano map[string]int
-	Maknuto map[string]int
+	Upisano   map[string]int
+	Osvjezeno map[string]int
+	Maknuto   map[string]int
 }
 
-// ObnoviPovrsinu nalazi zapise entiteta iz obnovaPovrsine kojima površina ne
-// odgovara knjizi: zadnja verzija je živa, a retka nema, ili je zadnja verzija
-// brisanje, a redak još stoji. Primjenjuje ih kao primljene (ApplyVersions),
-// u paketima. Dok jedna obnova traje, druga se ne pokreće i vraća prazno.
+// ObnoviPovrsinu primijeni zadnju verziju zapisa entiteta iz obnovaPovrsine
+// kojima površina možda ne odgovara knjizi (zaObnovu), kao da su upravo
+// primljeni (ApplyVersions), u paketima. Entitet koji ne prođe ne zaustavlja
+// ostale; greške se vrate zajedno. Dok jedna obnova traje, druga se ne
+// pokreće i vraća prazno.
 func ObnoviPovrsinu(ctx context.Context, baza *sql.DB, rec *ledger.Recorder) (Obnova, error) {
-	o := Obnova{Upisano: map[string]int{}, Maknuto: map[string]int{}}
+	o := Obnova{Upisano: map[string]int{}, Osvjezeno: map[string]int{}, Maknuto: map[string]int{}}
 	if !obnovaTece.TryLock() {
 		return o, nil
 	}
 	defer obnovaTece.Unlock()
+	var greske []error
 	for _, e := range obnovaPovrsine {
 		if err := o.obnoviEntitet(ctx, baza, rec, e.entitet); err != nil {
-			return o, fmt.Errorf("obnova površine (%s): %w", e.naziv, err)
+			greske = append(greske, fmt.Errorf("obnova površine (%s): %w", e.naziv, err))
 		}
 	}
-	return o, nil
+	return o, errors.Join(greske...)
 }
 
-// obnoviEntitet primijeni zapise entiteta kojima površina ne odgovara, pa
-// ponovnom provjerom prebroji koji sad odgovaraju
+// obnoviEntitet primijeni zapise entiteta za obnovu po paketima; paket koji
+// padne cijeli zaustavi entitet, a što je prije njega prošlo, izbrojeno je
 func (o *Obnova) obnoviEntitet(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, entitet string) error {
-	ids, err := neuskladjeni(ctx, baza, entitet)
-	if err != nil || len(ids) == 0 {
-		return err
-	}
-	poslani, err := primijeniUPaketima(ctx, baza, rec, ids)
-	if err != nil || len(poslani) == 0 {
-		return err
-	}
-	ostali, err := neuskladjeni(ctx, baza, entitet)
-	if err == nil {
-		o.prebroji(poslani, ostali)
+	ids, err := zaObnovu(ctx, baza, entitet)
+	for err == nil && len(ids) > 0 {
+		n := min(paketObnove, len(ids))
+		err = o.primijeniPaket(ctx, baza, rec, entitet, ids[:n])
+		ids = ids[n:]
 	}
 	return err
 }
 
-// neuskladjeni su identiteti zadnjih verzija zapisa kojima površina ne
-// odgovara: živa verzija bez retka i brisanje čiji redak još stoji. Prvi dio
-// čita samo indeks (entity, entity_id, version_id) i ključ tablice, a verziju
-// tek za zapis bez retka; drugi dio ide po indeksu brisanja.
-func neuskladjeni(ctx context.Context, baza *sql.DB, entitet string) ([]string, error) {
+// zaObnovu su identiteti zadnjih verzija zapisa kojima površina možda ne
+// odgovara knjizi, redom nastanka:
+//   - zapis s više verzija: na površini može stajati starija (izmjena koja je
+//     stigla samo u knjigu, opoziv iza kojeg stoji arhivirana verzija);
+//   - zapis s jednom verzijom kojem redak postoji točno kad je ta verzija
+//     brisanje: živ zapis bez retka ili obrisan zapis s retkom.
+//
+// Upit čita samo indekse: (entity, entity_id, version_id), ključ tablice i
+// djelomični indeks brisanja; sadržaj verzije čita tek primjena.
+func zaObnovu(ctx context.Context, baza *sql.DB, entitet string) ([]string, error) {
 	return idsOf(ctx, baza, `
-		SELECT z.mv FROM (SELECT entity_id, MAX(version_id) AS mv FROM record_versions
+		SELECT z.mv FROM (SELECT entity_id, MAX(version_id) AS mv, COUNT(*) AS n FROM record_versions
 			WHERE entity = ? GROUP BY entity_id) z
-		JOIN record_versions v ON v.version_id = z.mv
-		WHERE v.archived = 0 AND NOT EXISTS (SELECT 1 FROM `+entitet+` p WHERE p.id = z.entity_id)
-		UNION ALL
-		SELECT a.version_id FROM record_versions a
-		WHERE a.entity = ? AND a.archived = 1
-			AND a.version_id = (SELECT MAX(w.version_id) FROM record_versions w
-				WHERE w.entity = a.entity AND w.entity_id = a.entity_id)
-			AND EXISTS (SELECT 1 FROM `+entitet+` p WHERE p.id = a.entity_id)
+		WHERE z.n > 1
+			OR EXISTS (SELECT 1 FROM `+entitet+` p WHERE p.id = z.entity_id) =
+				EXISTS (SELECT 1 FROM record_versions a INDEXED BY idx_versions_arhivirane
+					WHERE a.entity = ? AND a.entity_id = z.entity_id AND a.version_id = z.mv AND a.archived = 1)
 		ORDER BY 1`, entitet, entitet)
 }
 
-// primijeniUPaketima primijeni verzije redom nastanka, po paketObnove u
-// jednoj transakciji, i vrati one koje su išle na površinu
-func primijeniUPaketima(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, ids []string) (map[string]ledger.Version, error) {
-	poslani := map[string]ledger.Version{}
-	for len(ids) > 0 {
-		n := min(paketObnove, len(ids))
-		if err := primijeniPaket(ctx, baza, rec, ids[:n], poslani); err != nil {
-			return poslani, err
-		}
-		ids = ids[n:]
-	}
-	return poslani, nil
-}
-
-// primijeniPaket učita verzije paketa i preda ih ApplyVersions; zapis koji ne
-// prođe ne zaustavlja ostale, nego čeka među nedovršenima
-func primijeniPaket(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, ids []string, poslani map[string]ledger.Version) error {
+// primijeniPaket učita verzije paketa, preda ih ApplyVersions i prebroji
+// promjene na površini. Zapis koji pojedinačno ne prođe ne zaustavlja ostale,
+// nego čeka među nedovršenima; greška cijelog paketa vraća se, a paket se
+// tada ne broji jer ništa nije potvrđeno.
+func (o *Obnova) primijeniPaket(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, entitet string, ids []string) error {
 	verzije, err := rec.Verzije(ctx, ids)
-	verzije = zadrzive(verzije, poslani)
-	if err == nil && len(verzije) > 0 {
-		err = ApplyVersions(ctx, baza, rec, verzije)
+	verzije = zadrzive(verzije)
+	if err != nil || len(verzije) == 0 {
+		return err
 	}
-	return bezDjelomicnih(err)
+	zapisi := identitetiZapisa(verzije)
+	prije, err := snimka(ctx, baza, entitet, zapisi)
+	if err == nil {
+		err = bezDjelomicnih(ApplyVersions(ctx, baza, rec, verzije))
+	}
+	if err != nil {
+		return err
+	}
+	poslije, err := snimka(ctx, baza, entitet, zapisi)
+	if err == nil {
+		o.prebroji(entitet, zapisi, prije, poslije)
+	}
+	return err
 }
 
-// zadrzive su verzije koje obnova stavlja na površinu i bilježi u poslani:
-// očitanje izvan razdoblja koje čvor drži (KeepVersion) ostaje samo u
-// knjizi, kao i kad stigne razmjenom; brisanje ide uvijek, kao u applyOne
-func zadrzive(verzije []ledger.Version, poslani map[string]ledger.Version) []ledger.Version {
+// zadrzive su verzije koje obnova stavlja na površinu: očitanje izvan
+// razdoblja koje čvor drži (KeepVersion) ostaje samo u knjizi, kao i kad
+// stigne razmjenom; brisanje ide uvijek, kao u applyOne
+func zadrzive(verzije []ledger.Version) []ledger.Version {
 	out := verzije[:0]
 	for _, v := range verzije {
 		if v.Archived || KeepVersion(v) {
 			out = append(out, v)
-			poslani[v.VersionID] = v
 		}
 	}
 	return out
+}
+
+func identitetiZapisa(verzije []ledger.Version) []string {
+	ids := make([]string, len(verzije))
+	for i, v := range verzije {
+		ids[i] = v.EntityID
+	}
+	return ids
 }
 
 // bezDjelomicnih propušta samo grešku cijelog paketa; zapisi koji nisu prošli
@@ -156,28 +164,82 @@ func bezDjelomicnih(err error) error {
 	return err
 }
 
-// prebroji broji poslane verzije koje ponovna provjera više ne nalazi
-func (o *Obnova) prebroji(poslani map[string]ledger.Version, ostali []string) {
-	for _, id := range ostali {
-		delete(poslani, id)
+// snimka su redci površine zapisa s danim ključevima, svaki kao tekst svih
+// stupaca: usporedba prije i poslije primjene kaže što se promijenilo
+func snimka(ctx context.Context, baza *sql.DB, tablica string, ids []string) (map[string]string, error) {
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
 	}
-	for _, v := range poslani {
-		if v.Archived {
-			o.Maknuto[v.Entity]++
-		} else {
-			o.Upisano[v.Entity]++
+	rows, err := baza.QueryContext(ctx, `SELECT id, * FROM `+tablica+` WHERE id IN (?`+strings.Repeat(",?", len(ids)-1)+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	cols, err := rows.Columns()
+	redci := map[string]string{}
+	for err == nil && rows.Next() {
+		var id, redak string
+		id, redak, err = procitajRedak(rows, len(cols))
+		redci[id] = redak
+	}
+	if err == nil {
+		err = rows.Err()
+	}
+	return redci, err
+}
+
+// procitajRedak čita redak snimke: ključ iz prvog stupca, ostalo kao tekst;
+// uz grešku čitanja tekst ne vrijedi
+func procitajRedak(rows *sql.Rows, stupaca int) (string, string, error) {
+	vrijednosti := make([]any, stupaca)
+	adrese := make([]any, stupaca)
+	for i := range vrijednosti {
+		adrese[i] = &vrijednosti[i]
+	}
+	err := rows.Scan(adrese...)
+	return fmt.Sprint(vrijednosti[0]), fmt.Sprintf("%#v", vrijednosti[1:]), err
+}
+
+// prebroji broji zapise paketa kojima se redak na površini promijenio
+func (o *Obnova) prebroji(entitet string, ids []string, prije, poslije map[string]string) {
+	for _, id := range ids {
+		if broj := o.promjena(prije, poslije, id); broj != nil {
+			broj[entitet]++
 		}
 	}
+}
+
+// promjena je brojač u koji ide zapis: upisan, maknut ili osvježen; nil kad
+// je redak ostao isti
+func (o *Obnova) promjena(prije, poslije map[string]string, id string) map[string]int {
+	stari, bio := prije[id]
+	novi, jest := poslije[id]
+	switch {
+	case bio == jest && stari == novi:
+		return nil
+	case !bio:
+		return o.Upisano
+	case !jest:
+		return o.Maknuto
+	}
+	return o.Osvjezeno
 }
 
 // String je opis obnove za dnevnik; prazan kad obnova nije ništa promijenila
 func (o Obnova) String() string {
 	var dijelovi []string
-	if s := popisObnove(o.Upisano); s != "" {
-		dijelovi = append(dijelovi, "upisano što je bilo samo u knjizi: "+s)
-	}
-	if s := popisObnove(o.Maknuto); s != "" {
-		dijelovi = append(dijelovi, "maknuto što je u knjizi obrisano: "+s)
+	for _, d := range []struct {
+		opis string
+		broj map[string]int
+	}{
+		{"upisano što je bilo samo u knjizi: ", o.Upisano},
+		{"osvježeno prema knjizi: ", o.Osvjezeno},
+		{"maknuto što je u knjizi obrisano: ", o.Maknuto},
+	} {
+		if s := popisObnove(d.broj); s != "" {
+			dijelovi = append(dijelovi, d.opis+s)
+		}
 	}
 	return strings.Join(dijelovi, "; ")
 }

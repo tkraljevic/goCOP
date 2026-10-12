@@ -11,11 +11,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   znala su ostati spremljena, ali se nisu pokazivala, a razmjena ih više
   nije slala. Jednom su čvoru tako nedostajali cijeli dani za Osijek,
   Aljmaš, Belišće, Donji Miholjac i Terezino Polje, oko 21 000 očitanja.
-  Sad ih program vrati sam, pri pokretanju i nakon svake razmjene, i u
-  dnevnik zapiše koliko ih je vratio. Isto vrijedi za listove i upise
+  Sad ih program vrati sam pri pokretanju i u dnevnik zapiše koliko ih je
+  vratio. Isto vrijedi za izmjene koje su ostale samo spremljene, npr.
+  ispravljen vodostaj ili potvrđeno dežurstvo, te za listove i upise
   dnevnika, dežurstva, bilješke i ispravke arhive. Razmjena koja se ne
   upiše do kraja sad se ponovi s idućom razmjenom.
-
 ## 0.0.36-alfa — 12. 10. 2026.
 
 - **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i
