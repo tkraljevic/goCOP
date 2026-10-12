@@ -6,6 +6,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Očitanja iz prvog sata nove godine.** Takvo očitanje upisivalo se u
+  novu godinu, a kad bi ga netko ispravio ili obrisao, prelazilo je u
+  prethodnu. Čvor koji prati samo novu godinu tako nije vidio ni ispravak ni
+  brisanje. Godina se sad uvijek računa po hrvatskom vremenu.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
