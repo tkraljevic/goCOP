@@ -80,9 +80,9 @@ func TestDohvatiHidmet(t *testing.T) {
 			http.Error(w, "nema", http.StatusServiceUnavailable)
 		case "prekid":
 			w.Header().Set("Content-Length", "1000")
-			fmt.Fprint(w, ispisHidmet[:100])
+			_, _ = fmt.Fprint(w, ispisHidmet[:100])
 		default:
-			fmt.Fprint(w, ispisHidmet)
+			_, _ = fmt.Fprint(w, ispisHidmet)
 		}
 	}))
 	defer srv.Close()

@@ -233,8 +233,7 @@ func TestOborineRazmjenom(t *testing.T) {
 		t.Errorf("prognoza kiše %v, %v; želim novijih 1,5", mm, err)
 	}
 	var n int
-	primatelj.QueryRow(`SELECT count(*) FROM satne`).Scan(&n)
-	if n != 2 {
+	if err := primatelj.QueryRow(`SELECT count(*) FROM satne`).Scan(&n); err != nil || n != 2 {
 		t.Errorf("satnih kod primatelja %d, želim 2", n)
 	}
 }
@@ -258,8 +257,7 @@ func TestOborineRazmjenomGreske(t *testing.T) {
 		t.Error("satne bez ijednog poznatog stupca prošle su bez greške")
 	}
 	var n int
-	ob.QueryRow(`SELECT count(*) FROM izmjerene`).Scan(&n)
-	if n != 0 {
+	if err := ob.QueryRow(`SELECT count(*) FROM izmjerene`).Scan(&n); err != nil || n != 0 {
 		t.Errorf("nakon neuspjelog upisa ostalo je %d mjerenja", n)
 	}
 
@@ -340,8 +338,12 @@ func TestOmotnicaPokvarenogZapisa(t *testing.T) {
 	gz := func(b []byte) string {
 		var buf bytes.Buffer
 		w := gzip.NewWriter(&buf)
-		w.Write(b)
-		w.Close()
+		if _, err := w.Write(b); err != nil {
+			t.Fatal(err)
+		}
+		if err := w.Close(); err != nil {
+			t.Fatal(err)
+		}
 		return base64.StdEncoding.EncodeToString(buf.Bytes())
 	}
 	cijeli := gz([]byte(`{"tablice":{}}`))
