@@ -6,6 +6,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Dnevnik: istodobni upisi se ne gube.** Kad dvoje u isto vrijeme upiše
+  bilješku ili naredbu na isti list, ili jedan upisuje dok drugi parafira,
+  ovjerava ili objavljuje prijavu, ili dok vodočuvar sprema ili predaje
+  obrazac, list zadržava sve upisano. Dosad su oba spremanja javljala
+  uspjeh, a na listu je ostajalo samo zadnje; u knjizi verzija bilo je
+  zapisano oboje.
 - **Dnevni list otvoren prije ponoći sprema se na svoj dan** (Odluke (11.
   10. 2026.)). Obrazac otvoren prije ponoći, a prvi put spremljen poslije
   nje, više se ne odbija jer je dan prošao: upisano se sprema na list dana
