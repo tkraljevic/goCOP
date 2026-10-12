@@ -83,8 +83,10 @@ func pair(t *testing.T, ctx context.Context, a, b *node) {
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
+	// slušanje kreće u svojoj gorutini; pod punim opterećenjem stroja (svi
+	// paketi s race detectorom) zna trebati više od nekoliko sekundi
 	var err error
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 200; i++ {
 		err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair))
 		if err == nil {
 			break
