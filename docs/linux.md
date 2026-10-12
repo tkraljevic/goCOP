@@ -19,7 +19,32 @@ sustava (systemd). Opće upute (mreža, podaci, ograničenja alfa faze) su u
   Debian 12+ i noviji sustavi ga imaju): `openssl version`.
 
 Program je jedna izvršna datoteka bez drugih ovisnosti; bazu (SQLite) nosi
-u sebi.
+u sebi. Postupak je isproban na Ubuntu 24.04 LTS (uredski čvor u Osijeku).
+
+### Prije instalacije: slobodni portovi
+
+Čvor treba port 80 (web) i portove 4710–4712 (razmjena). Provjerite da ih
+ne drži neki drugi program:
+
+```sh
+sudo ss -ltnup | grep -E ':(80|8080|4710|4711|4712)\b'
+```
+
+Ako naredba ništa ne ispiše, portovi su slobodni. Na računalu koje je prije
+služilo kao poslužitelj port 80 često drži drugi web poslužitelj (nginx,
+Apache). Ako vam ne treba, spremite mu postavke i uklonite ga, npr. za nginx
+na Ubuntuu:
+
+```sh
+sudo tar czf ~/nginx-kopija.tgz /etc/nginx /var/www
+sudo systemctl disable --now nginx
+sudo apt purge -y nginx nginx-common nginx-core
+sudo apt autoremove -y
+```
+
+Ako vam treba, čvor će sam raditi na 8080 (u dnevniku piše `Port 80 nije
+dostupan … prelazim na :8080`), ili mu port zadajte u `gocop.toml`
+(poglavlje 6).
 
 ## 1. Što se postavlja
 
@@ -219,6 +244,65 @@ s postojećom mrežom.
 - **Iz lokalne mreže:** `http://<adresa poslužitelja>/postavljanje?kod=<kod iz dnevnika>`.
   Nakon 10 krivih kodova kod ne vrijedi do ponovnog pokretanja.
 
+### Pristup na daljinu (SSH)
+
+Ubuntu Desktop nema SSH poslužitelj. Ako se na računalo spajate s drugog
+računala:
+
+```sh
+sudo apt install -y openssh-server
+sudo systemctl enable --now ssh
+```
+
+Ako je na računalu Tailscale, umjesto toga se može uključiti Tailscale SSH
+(`sudo tailscale set --ssh`). Tada se prijavljujete Tailscale računom, bez
+lozinke i bez ključeva, preko adrese iz Tailscalea (`ssh korisnik@100.x.y.z`).
+Ovisno o pravilima vaše Tailscale mreže, povremeno se traži potvrda u
+pregledniku. Taj pristup radi samo preko Tailscalea, ne preko adrese u
+lokalnoj mreži.
+
+### Uključivanje u postojeću mrežu
+
+Na stranici `/postavljanje` novog čvora (npr. s laptopa u istoj mreži,
+`http://<adresa novog čvora>/postavljanje?kod=<kod>`) odaberite *Priključit
+ću se postojećoj mreži* → *Poveži ga s uredom* i uparite ga s računalom koje
+je već u mreži. Uparivanje ide preko porta 4711, koji poslije više ne treba
+(poglavlje 7). Nakon uparivanja čvor sam počne razmjenu sa svim čvorovima
+koje zna.
+
+### Uredski čvor: svi podaci
+
+Nov čvor prima samo ono što se u programu označi za praćenje. To odgovara
+laptopu, a uredski poslužitelj treba imati sve: očitanja i dnevnike svih
+područja i godina. Za to u `gocop.toml` u odjeljku `[sync]` stavite
+`sve = true` i ponovno pokrenite uslugu:
+
+```sh
+sudo sed -i 's/^sve = false$/sve = true/' /var/lib/gocop/gocop.toml
+sudo grep -n -E '^(sve|bootstrap)' /var/lib/gocop/gocop.toml
+sudo systemctl restart gocop
+```
+
+`grep` treba ispisati `sve = true`. Pod `bootstrap` su javni čvorovi preko
+kojih čvor nalazi ostale i izvan lokalne mreže (zadano `cop-osijek.com`).
+
+Što se vidi u dnevniku (`journalctl -u gocop -f`) dok se čvor puni:
+
+- `sinkronizacija s <čvor>: primljeno N, poslano M`. Prva razmjena ide u
+  paketima od po 5000 zapisa, pa se ovakvih redaka nakupi puno;
+- `arhiva: zatraženo N paketa od drugih čvorova`, a zatim po jedan redak
+  `… → spojeni niz …` za svaki niz hidrološke arhive. Arhiva ima desetak GB,
+  pa ovo traje dulje od ostalog;
+- `database is locked` ili `EOF` dok se čvor puni: dva čvora su istodobno slala
+  podatke. Ništa se ne gubi, razmjena se ponovi u sljedećem krugu (za 5
+  minuta);
+- `čvor … nije dostupan ni na jednoj adresi`: čvor na drugoj mreži (npr.
+  kućno računalo). To je očekivano.
+
+Ako uredski čvor treba primati nova računala u mrežu i kad računalo s
+ključem mreže nije u uredu, na tom računalu u *Administracija → Čvor, mreža
+i sinkronizacija* uz uredski čvor kliknite *Daj ovlast za primanje*.
+
 **Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Početni
 račun `admin` s lozinkom iz uputa postoji od prvog pokretanja, a čvor tu
 lozinku odbija samo za zahtjeve koji dolaze kroz posrednika (vidi
@@ -228,8 +312,12 @@ lozinku odbija samo za zahtjeve koji dolaze kroz posrednika (vidi
 
 Postavke su u `/var/lib/gocop/gocop.toml`. Pri prvom pokretanju program
 zapiše primjer sa zadanim vrijednostima i objašnjenjem svakog ključa.
-Nakon izmjene: `sudo systemctl restart gocop`. Zastavice u jedinici imaju
-prednost pred datotekom; jedinica zadaje samo `-db`.
+Mapu podataka smiju čitati samo `gocop` i `root`, pa i za čitanje datoteke
+treba `sudo` (`sudo grep …`, `sudo nano /var/lib/gocop/gocop.toml`).
+
+Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
+`sudo systemctl restart gocop`. Zastavice u jedinici imaju prednost pred
+datotekom; jedinica zadaje samo `-db`.
 
 Česte izmjene:
 
@@ -299,6 +387,19 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
 Web sučelje je obični HTTP. Pristup s interneta ide kroz tunel ili
 posrednika s HTTPS-om ispred čvora, nikad izravno na port 80. Čvorovi koji
 razmjenjuju kroz web tunel ne trebaju otvoren 4710.
+
+Najprije provjerite je li vatrozid uopće uključen:
+
+```sh
+sudo ufw status
+```
+
+Ako piše `Status: inactive` (zadano na Ubuntu Desktopu), portovi su već
+otvoreni prema mreži na kojoj je računalo, a pravila ispod nisu potrebna.
+Zato tada `ufw delete` javlja `Could not delete non-existent rule`. Ako
+vatrozid uključujete, **prvo dopustite pristup kojim ste spojeni**, inače
+će vas `ufw enable` izbaciti: `sudo ufw allow OpenSSH`, a za Tailscale
+`sudo ufw allow in on tailscale0`.
 
 Primjer s **ufw**, za lokalnu mrežu `192.168.1.0/24`:
 
@@ -383,7 +484,28 @@ Prije brisanja mape podataka imajte na umu da je u njoj ključ čvora: ako
 - Pri prvom pokretanju zapisani `gocop.toml` nosi zadane vrijednosti, ne
   zastavice s kojima je program pokrenut (osim imena čvora).
 - Postava (program za instalaciju i nadogradnju) zasad se izdaje samo za
-  Windows; na Linuxu je ovaj postupak njezina zamjena.
+  Windows; na Linuxu je ovaj postupak njezina zamjena. Uz uslugu je ne
+  pokrećite ni kad je prevedete iz izvora: Postava pokreće vlastiti čvor u
+  mapi korisnika, pa bi na računalu radila dva čvora. Za brz ulaz u program
+  na radnoj površini dovoljan je pokretač koji otvara preglednik:
+
+  ```sh
+  mkdir -p ~/.local/share/icons ~/.local/share/applications
+  curl -s http://127.0.0.1/logo -o ~/.local/share/icons/gocop.png
+  cat > ~/.local/share/applications/gocop.desktop <<KRAJ
+  [Desktop Entry]
+  Type=Application
+  Name=goCOP
+  Comment=Otvori goCOP u pregledniku
+  Exec=xdg-open http://localhost
+  Icon=$HOME/.local/share/icons/gocop.png
+  Terminal=false
+  Categories=Network;
+  KRAJ
+  ```
+
+  goCOP se tada nalazi među programima i može se prikvačiti na traku
+  (desni klik → *Pin to Dash* / *Add to Favorites*).
 - Program preveden iz izvora skripta ne postavlja jer nema potpisa
   izdanja; za njega vrijedi ručni postupak iz poglavlja 3 (prijevod s
   `CGO_ENABLED=0 go build -trimpath ./cmd/gocop`).
