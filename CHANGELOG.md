@@ -68,6 +68,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (npr. 00385 31 123 456).
 - **Uvoz niza** sam popunjava sliv postojeće letve i kad je letvu upisao
   korisnik, a ne naziv datoteke.
+- **Upute za Linux dopunjene iskustvom s prvim uredskim čvorom**
+  (docs/linux.md): što kad port 80 drži drugi web poslužitelj (nginx),
+  SSH na Ubuntu Desktopu i preko Tailscalea, uključivanje u postojeću
+  mrežu, `sve = true` za uredski čvor i što se tada vidi u dnevniku, `sudo`
+  i za čitanje `gocop.toml`, obavezan restart nakon izmjene te vatrozid
+  koji je na Ubuntuu zadano isključen.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 
