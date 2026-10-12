@@ -59,6 +59,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   područja i naselja program je tražio u mapi gledano od mjesta iz kojeg je
   pokrenut. Postava čvor pokreće iz same mape podataka, pa karta na takvom
   čvoru nije imala granica. Sad se granice traže uz bazu.
+- **Poveznica za poziv** sad ispravno pretvara broj upisan s prefiksom 00
+  (npr. 00385 31 123 456).
+- **Uvoz niza** sam popunjava sliv postojeće letve i kad je letvu upisao
+  korisnik, a ne naziv datoteke.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 
