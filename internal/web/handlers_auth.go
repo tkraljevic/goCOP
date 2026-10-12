@@ -125,10 +125,13 @@ func TelLink(s string) string {
 		}
 		return -1
 	}, s)
-	if digits == "" {
+	switch {
+	case digits == "":
 		return ""
-	}
-	if strings.HasPrefix(digits, "0") {
+	case strings.HasPrefix(digits, "00"):
+		// međunarodni prefiks: „00385 31…” je „+385 31…”
+		return "+" + digits[2:]
+	case strings.HasPrefix(digits, "0"):
 		return "+385" + digits[1:]
 	}
 	return "+" + digits

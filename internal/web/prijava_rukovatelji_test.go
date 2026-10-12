@@ -169,15 +169,18 @@ func TestStranicaPrijaveZaPrijavljenog(t *testing.T) {
 }
 
 // Telefon za poveznicu tel: zadržava samo znamenke, a domaći broj s nulom
-// dobiva pozivni broj Hrvatske.
+// dobiva pozivni broj Hrvatske. Broj s međunarodnim prefiksom 00 ostaje s
+// pozivnim brojem koji ima.
 func TestTelefonZaPoveznicu(t *testing.T) {
 	for upisano, zeli := range map[string]string{
-		"031 123 456":     "+38531123456",
-		"031/123-456":     "+38531123456",
-		"+385 31 123 456": "+38531123456",
-		"(098) 765 4321":  "+385987654321",
-		"":                "",
-		"nema telefona":   "",
+		"031 123 456":      "+38531123456",
+		"031/123-456":      "+38531123456",
+		"+385 31 123 456":  "+38531123456",
+		"(098) 765 4321":   "+385987654321",
+		"00385 31 123 456": "+38531123456",
+		"0036 72 123 456":  "+3672123456",
+		"":                 "",
+		"nema telefona":    "",
 	} {
 		if got := TelLink(upisano); got != zeli {
 			t.Errorf("%q: %q, očekivano %q", upisano, got, zeli)
