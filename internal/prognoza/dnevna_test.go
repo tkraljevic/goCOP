@@ -1,9 +1,12 @@
 package prognoza
 
 import (
+	"database/sql"
 	"errors"
 	"math"
+	"path/filepath"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -275,5 +278,220 @@ func TestDnevniSKisomImenujeSliv(t *testing.T) {
 	d, err := PrognozirajDnevno(m, satni, map[string]DnevniNiz{OborinaKljuc("sliv"): kisa}, sada)
 	if err != nil || len(d) != DnevniDosezi+1 || d[0].Model != ModelDnevniKisa {
 		t.Errorf("s kišom: %v, %+v", err, d)
+	}
+}
+
+// znacajkeSKisom slaže značajke dana 10 za cilj s ulazom i dva međusliva:
+// na A pada 1, 2, 3 … mm po danu (dan d ima d mm), na B dvostruko.
+func znacajkeSKisom(t *testing.T) (*DnevniModel, []float64) {
+	t.Helper()
+	c := DnevniCilj{Letva: "cilj", Ulazi: []string{"ulaz"}, Slivovi: []string{"A", "B"}}
+	nizovi := map[string]DnevniNiz{"cilj": {}, "ulaz": {}, OborinaKljuc("A"): {}, OborinaKljuc("B"): {}}
+	for d := int64(0); d <= 20; d++ {
+		nizovi["cilj"][d] = 200 + float64(d)
+		nizovi["ulaz"][d] = 100 + float64(d)
+		nizovi[OborinaKljuc("A")][d] = float64(d)
+		nizovi[OborinaKljuc("B")][d] = 2 * float64(d)
+	}
+	x, ok := DnevneZnacajke(c, nizovi, 10)
+	if !ok {
+		t.Fatal("dan 10 nema značajki")
+	}
+	return &DnevniModel{Cilj: c}, x
+}
+
+// Kišni dan mjeri se po svakom međuslivu zbrojem kiše zadnja tri dana i,
+// kad prognoza kiše ulazi u model, sljedeća četiri. Značajke koje ne sežu do
+// kiše ne daju ništa.
+func TestZbrojKiseKisnogDana(t *testing.T) {
+	m, x := znacajkeSKisom(t)
+	// A: palo 10+9+8 = 27, dolazi 11+12+13+14 = 50; B dvostruko.
+	if z := m.zbrojKise(x); z != 3*(27+50) {
+		t.Errorf("s prognozom kiše %g, želim %d", z, 3*(27+50))
+	}
+	if z := m.zbrojKise(x[:m.oborinaOd()+1]); z != 0 {
+		t.Errorf("značajke bez kiše dale su %g", z)
+	}
+
+	postavi(t, &OborinaUnaprijed, false)
+	m, x = znacajkeSKisom(t)
+	if z := m.zbrojKise(x); z != 3*27 {
+		t.Errorf("bez prognoze kiše %g, želim %d", z, 3*27)
+	}
+}
+
+// Režim dana: kišni kad zbroj kiše dosegne prag kiše, inače visoka voda kad
+// razina cilja dosegne prag, inače obični. Bez praga kiše kišnog režima nema.
+func TestRezimDnevnogModela(t *testing.T) {
+	m, x := znacajkeSKisom(t) // razina cilja 210, zbroj kiše 231
+	for _, s := range []struct {
+		prag, pragKise float64
+		want           int
+	}{
+		{prag: 300, pragKise: 231, want: 2},
+		{prag: 100, pragKise: 232, want: 1},
+		{prag: 210, pragKise: 0, want: 1},
+		{prag: 211, pragKise: 0, want: 0},
+	} {
+		m.prag, m.pragKise = s.prag, s.pragKise
+		if got := m.rezim(x); got != s.want {
+			t.Errorf("prag %g, prag kiše %g: režim %d, želim %d", s.prag, s.pragKise, got, s.want)
+		}
+	}
+}
+
+// Kvadrati kiše dolaze iza svih linearnih značajki: prvi je kvadrat prve
+// značajke kiše (podijeljen sa sto). Bez kvadrata granica je kraj značajki.
+func TestKvadratiKiseIzaLinearnih(t *testing.T) {
+	for _, unaprijed := range []bool{true, false} {
+		postavi(t, &OborinaUnaprijed, unaprijed)
+		m, x := znacajkeSKisom(t)
+		if od := m.kvadratiOd(); od != len(x) {
+			t.Errorf("unaprijed %v, bez kvadrata: granica %d, značajki %d", unaprijed, od, len(x))
+		}
+		postavi(t, &DnevneKvadratneKise, true)
+		m, x = znacajkeSKisom(t)
+		od := m.kvadratiOd()
+		prva := x[m.oborinaOd()]
+		if od >= len(x) || x[od] != prva*prva/100 {
+			t.Errorf("unaprijed %v: na granici %d stoji %v, želim %g", unaprijed, od, x, prva*prva/100)
+		}
+		postavi(t, &DnevneKvadratneKise, false)
+	}
+}
+
+// Dan od kojeg dnevni model daje vrijednost ovisi o vodi u satu izdavanja:
+// do praga visoke vode vrijedi granica za nisku vodu, iznad nje i kad
+// vodostaja nema granica s poplavnih valova.
+func TestDnevnaOdDanaZa(t *testing.T) {
+	postavi(t, &VisokaVoda, map[string]float64{"proba": 100, "bez-niske": 50})
+	postavi(t, &DnevnaOdDanaNiska, map[string]int{"proba": 1})
+	postavi(t, &DnevnaOdDana, map[string]int{"proba": 4, "bez-niske": 3})
+	for _, s := range []struct {
+		letva   string
+		sada    float64
+		imaSada bool
+		want    int
+	}{
+		{"proba", 80, true, 1},
+		{"proba", 100, true, 1},
+		{"proba", 120, true, 4},
+		{"proba", 80, false, 4},
+		{"bez-niske", 10, true, 3},
+		{"nepoznata", 10, true, 0},
+	} {
+		if got := DnevnaOdDanaZa(s.letva, s.sada, s.imaSada); got != s.want {
+			t.Errorf("%s pri %g (ima %v): od %d. dana, želim %d", s.letva, s.sada, s.imaSada, got, s.want)
+		}
+	}
+}
+
+// Točka ulazi u dnevnu prognozu samo kad je aktivna izvedena točka s težinom
+// u međuslivu čiju kišu model čita; inače se kaže zašto ne.
+func TestUlaziUPrognozu(t *testing.T) {
+	slivovi := map[string][]string{"A": {"botovo"}}
+	for _, s := range []struct {
+		ime     string
+		stvarni bool
+		aktivan bool
+		sliv    string
+		tezina  float64
+		ulazi   bool
+		razlog  string
+	}{
+		{"izvedena u A", false, true, "A", 0.3, true, ""},
+		{"pravi kišomjer", true, true, "A", 0.3, false, "pravi kišomjer služi za usporedbu; model čita izvedene točke"},
+		{"neaktivna", false, false, "A", 0.3, false, "točka nije aktivna"},
+		{"bez međusliva", false, true, "", 0.3, false, "točka nije u međuslivu"},
+		{"bez težine", false, true, "A", 0, false, "točka nema težinu u međuslivu"},
+		{"međusliv izvan prognoze", false, true, "Z", 0.3, false, "kiša međusliva Z ne ulazi u dnevnu prognozu"},
+	} {
+		ulazi, razlog := UlaziUPrognozu(s.stvarni, s.aktivan, s.sliv, s.tezina, slivovi)
+		if ulazi != s.ulazi || razlog != s.razlog {
+			t.Errorf("%s: %v %q, želim %v %q", s.ime, ulazi, razlog, s.ulazi, s.razlog)
+		}
+	}
+}
+
+// registarKisomjera je registar s tablicom kišomjera, samo sa stupcima koje
+// prognoza čita.
+func registarKisomjera(t *testing.T) *sql.DB {
+	t.Helper()
+	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { db.Close() })
+	if _, err := db.Exec(`CREATE TABLE kisomjeri (code TEXT PRIMARY KEY, sliv TEXT NOT NULL DEFAULT '',
+		tezina REAL, aktivan INTEGER NOT NULL DEFAULT 1, vrsta TEXT NOT NULL DEFAULT 'izvedeni')`); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+// Oborinske točke su aktivne izvedene točke u međuslivu; točka bez težine
+// dobiva nulu, a pravi kišomjeri, neaktivne točke i točke izvan međusliva
+// ne ulaze. Nečitljiv redak ili registar bez tablice je greška.
+func TestOborinskeTocke(t *testing.T) {
+	db := registarKisomjera(t)
+	if _, err := db.Exec(`INSERT INTO kisomjeri (code, sliv, tezina, aktivan, vrsta) VALUES
+		('a-1', 'A', 0.6, 1, 'izvedeni'), ('a-2', 'A', NULL, 1, 'izvedeni'),
+		('a-3', 'A', 0.4, 0, 'izvedeni'), ('a-4', 'A', 0.4, 1, 'stvarni'),
+		('x-1', '', 0.5, 1, 'izvedeni'), ('b-1', 'B', 1, 1, 'izvedeni')`); err != nil {
+		t.Fatal(err)
+	}
+	tocke, err := OborinskeTocke(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sort.Slice(tocke, func(i, j int) bool { return tocke[i].Code < tocke[j].Code })
+	want := []OborinskaTocka{{"a-1", "A", 0.6}, {"a-2", "A", 0}, {"b-1", "B", 1}}
+	if !reflect.DeepEqual(tocke, want) {
+		t.Errorf("točke %+v, želim %+v", tocke, want)
+	}
+
+	if _, err := db.Exec(`UPDATE kisomjeri SET tezina = 'x' WHERE code = 'b-1'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OborinskeTocke(db); err == nil {
+		t.Error("težina koja nije broj prošla je bez greške")
+	}
+	if _, err := db.Exec(`DROP TABLE kisomjeri`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := OborinskeTocke(db); err == nil {
+		t.Error("registar bez kišomjera bez greške")
+	}
+}
+
+// Broj dana učenja i polovina raspona dnevne prognoze.
+func TestUzorakaIRasponDnevne(t *testing.T) {
+	m := &DnevniModel{uzorci: make([]dnevniUzorak, 3)}
+	if m.Uzoraka() != 3 {
+		t.Errorf("uzoraka %d, želim 3", m.Uzoraka())
+	}
+	if r := (DnevnaIzdana{Vrijednost: 100, Dolje: 92, Gore: 110}).Raspon(); r != 9 {
+		t.Errorf("raspon %g, želim 9", r)
+	}
+}
+
+// Inačica bez oborine je ona kojoj glavni cilj ima oborinu, a ona sama ne.
+// Cilj koji i sam ima oborinu ili letva koja nije dnevni cilj to nisu.
+func TestBezOborine(t *testing.T) {
+	for _, s := range []struct {
+		c    DnevniCilj
+		want bool
+	}{
+		{DnevniCilj{Letva: "batina", Ulazi: []string{"mohacs"}}, true},
+		{DnevniCilj{Letva: "batina", Ulazi: []string{"mohacs"}, Slivovi: []string{"H"}}, false},
+		{DnevniCilj{Letva: "nepoznata", Ulazi: []string{"batina"}}, false},
+	} {
+		if got := s.c.BezOborine(); got != s.want {
+			t.Errorf("%+v: %v, želim %v", s.c, got, s.want)
+		}
+	}
+	postavi(t, &DnevniCiljevi, []DnevniCilj{{Letva: "batina", Ulazi: []string{"mohacs"}}})
+	if (DnevniCilj{Letva: "batina", Ulazi: []string{"bezdan"}}).BezOborine() {
+		t.Error("glavni cilj bez oborine: inačica nije „bez oborine”")
 	}
 }
