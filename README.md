@@ -5,7 +5,7 @@ i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
 dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
 lokalnim podacima i usklađuju se kada je mreža dostupna.
 
-> **0.0.35-alfa — 11. 10. 2026.** Za razvoj i testiranje, ne za operativnu
+> **0.0.36-alfa — 12. 10. 2026.** Za razvoj i testiranje, ne za operativnu
 > upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
 > prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
 
@@ -36,7 +36,7 @@ naredbe su pod „Dokumentacija i razvoj”), a postoji i spremnik. Pokrenuti
 obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
 čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
 
-Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.35-alfa`;
+Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.36-alfa`;
 web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
 biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
 kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).
@@ -65,7 +65,8 @@ Prije nadogradnje izraditi kopiju baza, sadržaja, postavki i ključeva;
 kopiju identiteta ne koristiti kao novi čvor. Za stanje obrane i storno svi
 čvorovi trebaju **0.0.34-alfa ili novije**; stariji poništen akt još broje.
 Na 0.0.35-alfa nadograditi sve čvorove odmah: nova pravila vrijede tek kad su
-svi na toj inačici.
+svi na toj inačici. 0.0.36-alfa radi uz 0.0.35-alfa; novi čvor u mrežu
+uključivati s 0.0.36-alfa ili novijim.
 
 ## Dokumentacija i razvoj
 

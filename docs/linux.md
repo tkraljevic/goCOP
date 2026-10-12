@@ -81,7 +81,7 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.35-alfa
+IZDANJE=v0.0.36-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
 for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"

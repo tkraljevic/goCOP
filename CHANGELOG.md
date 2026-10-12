@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.36-alfa — u pripremi
+## 0.0.36-alfa — 12. 10. 2026.
 
 - **Novi čvor nakon prve razmjene ima sve dionice.** Neke dionice, i
   epizode obrane uz njih, nisu se pojavile na novom čvoru, a razmjena nije
