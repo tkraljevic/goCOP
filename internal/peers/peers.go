@@ -163,6 +163,10 @@ type Service struct {
 	// tailscaleAdrese čita Tailscale adrese ovog računala; nil znači
 	// zadaneTailscaleAdrese. Test njime daje čvoru izmišljene adrese.
 	tailscaleAdrese func() []netip.Addr
+	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
+	upis       chan struct{}
+	upisJednom sync.Once
+
 	// bezTailscalea: [sync] tailscale = false (vidi PostaviTailscale)
 	bezTailscalea atomic.Bool
 	// čvorovi za koje je odbijena razmjena na Tailscale adresi već zapisana u dnevnik
@@ -758,7 +762,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
-	s.noteSync(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
+	s.zabiljezi(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -801,10 +805,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 			lastErr = err
 			continue
 		}
-		s.noteSync(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
+		s.zabiljezi(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 		return applied, sent, err
 	}
-	s.noteSync(ctx, peer, nil, syncOutcome{err: lastErr})
+	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
 }
 
@@ -1015,15 +1019,14 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 		wanted = append(wanted, v)
 	}
-	applied, err = s.rec.Apply(ctx, wanted)
+	// Upis ide pod bravom čvora (upis.go); što ne stigne na red, upiše se
+	// na kraju razgovora, kad druga strana više ne čeka
+	pr := &primitak{verzije: wanted, od: razmjena.PublicKeyString(c.PeerKey)}
+	applied, err = s.primijeniAkoStigne(ctx, pr)
 	if err != nil {
 		return 0, 0, theirs, err
 	}
-	if applied > 0 && s.onApplied != nil {
-		if err := s.onApplied(ctx, wanted); err != nil {
-			log.Printf("sinkronizacija: verzije primljene, ali površina nije osvježena: %v", err)
-		}
-	}
+	defer func() { applied += s.dovrsiPrimitak(ctx, pr) }()
 
 	// Sadržaj: svaka strana kaže koje otiske želi, druga da što od toga ima.
 	// Primjena verzija je već upisala želje, pa se ovdje traže i one koje su
@@ -1056,7 +1059,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindSadrzaj, &stigao); err != nil {
 			return applied, sent, theirs, err
 		}
-		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
+		s.primiSadrzajAkoStigne(ctx, pr, stigao.Stavke)
 	} else {
 		e, err := c.Receive()
 		if err != nil {
@@ -1078,7 +1081,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindSadrzaj, &stigao); err != nil {
 			return applied, sent, theirs, err
 		}
-		s.primiSadrzaj(ctx, razmjena.PublicKeyString(c.PeerKey), stigao.Stavke)
+		s.primiSadrzajAkoStigne(ctx, pr, stigao.Stavke)
 		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
 			return applied, sent, theirs, err
 		}

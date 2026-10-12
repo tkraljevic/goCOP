@@ -468,16 +468,10 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		if end > len(wanted) {
 			end = len(wanted)
 		}
-		batch := wanted[start:end]
-		applied, err := s.rec.Apply(ctx, batch)
+		applied, err := s.primijeniPodBravom(ctx, wanted[start:end])
+		rep.Novih += applied
 		if err != nil {
 			return rep, err
-		}
-		rep.Novih += applied
-		if applied > 0 && s.onApplied != nil {
-			if err := s.onApplied(ctx, batch); err != nil {
-				return rep, fmt.Errorf("površina nije osvježena: %w", err)
-			}
 		}
 	}
 	// sadržaj: uključeni se upišu (paket je namjerno donesen), ostali na popis
