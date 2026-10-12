@@ -229,11 +229,6 @@ func racunaloIzAdrese(a string) string {
 	return strings.Trim(a, "[]")
 }
 
-// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom
-type odbijenaRazmjena struct{ razlog string }
-
-func (e odbijenaRazmjena) Error() string { return "čvor odbio razmjenu: " + e.razlog }
-
 // odbioTailscale javlja da je drugi čvor odbio razmjenu na svojoj Tailscale
 // adresi jer mu je Tailscale isključen. Ovaj tada zaboravi njegove Tailscale
 // adrese i zove sljedeću adresu, kao da ih nikad nije znao.

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/razmjena"
 	"gocop/internal/sadrzaj"
 )
 
@@ -114,20 +115,129 @@ func TestDvijeRazmjeneIstodobnoNaIstiCvor(t *testing.T) {
 	}
 }
 
-// Dok drugi drži bravu upisa, razgovor ne čeka: mrežni dio završi, druga
-// strana dobije odgovor, a primljeno (verzije i sadržaj) upiše se kad se
-// brava oslobodi
-func TestBravaUpisaNeZadrzavaRazgovor(t *testing.T) {
+// uskladi: svaki čvor jednom razmijeni sa svakim, pa poslije nemaju što
+// upisati jedan od drugoga
+func uskladi(t *testing.T, cvorovi ...*Service) {
+	t.Helper()
+	for _, a := range cvorovi {
+		for _, b := range cvorovi {
+			if a == b {
+				continue
+			}
+			if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}
+
+// postaviRok zadaje koliko razgovor čeka bravu upisa dok test traje
+func postaviRok(t *testing.T, rok time.Duration) {
+	t.Helper()
 	stari := rokCekanjaUpisa
-	rokCekanjaUpisa = 50 * time.Millisecond
+	rokCekanjaUpisa = rok
 	t.Cleanup(func() { rokCekanjaUpisa = stari })
+}
+
+// Dok novi čvor dulje od roka drži bravu upisa (veliki upis, uvoz), razgovor
+// u kojem mu netko šalje verzije završi odbijenicom i ništa ne upiše, pa ga
+// pozivatelj ne ponavlja odmah. Razgovor ne drži mjesto razmjene nakon
+// kraja, pa treći čvor, kojem nema ništa za upis, razmijeni odmah, bez
+// čekanja brave. Kad se brava oslobodi, sljedeća razmjena upiše sve.
+func TestZauzetUpisOdbijaOstatakRazgovora(t *testing.T) {
+	c := clanovi(t, "novi-cvor", "ured-a", "ured-b")
+	novi, a, b := c[0], c[1], c[2]
+	uskladi(t, c...)
+	napuniKnjigu(t, a, 300)
+	if err := novi.uzmiBravu(ctxRub); err != nil {
+		t.Fatal(err)
+	}
+	postaviRok(t, 50*time.Millisecond)
+	for i := 0; i < 6; i++ {
+		_, _, err := a.SyncWith(ctxRub, novi.node.ID)
+		if !errors.Is(err, odbijenaRazmjena{razlogUpisZauzet}) {
+			t.Fatalf("razgovor %d dok je upis zauzet: %v", i+1, err)
+		}
+	}
+	if st := a.syncPeers(ctxRub, []Peer{{NodeID: novi.node.ID}}); !strings.Contains(st[novi.node.ID], razlogUpisZauzet) || strings.Contains(st[novi.node.ID], "razgovora") {
+		t.Errorf("krug razmjena dok je upis zauzet: %q", st[novi.node.ID])
+	}
+
+	postaviRok(t, 30*time.Second)
+	pocetak := time.Now()
+	if _, _, err := b.SyncWith(ctxRub, novi.node.ID); err != nil {
+		t.Fatalf("treći čvor dok je upis zauzet: %v", err)
+	}
+	if trajalo := time.Since(pocetak); trajalo > 10*time.Second {
+		t.Errorf("razgovor bez ičega za upis čekao je bravu: %v", trajalo)
+	}
+	if n := brojProbnih(t, novi); n != 0 {
+		t.Fatalf("upisano pod tuđom bravom: %d", n)
+	}
+	novi.pustiBravu()
+	cekajDa(t, "novi zabilježi razgovor s trećim čvorom kad se brava oslobodi", func() bool {
+		st, _ := novi.syncStates(ctxRub)
+		return st[b.node.ID].LastOK != nil
+	})
+	if _, _, err := a.SyncWith(ctxRub, novi.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n := brojProbnih(t, novi); n != 300 {
+		t.Errorf("nakon oslobađanja brave novi ima %d od 300", n)
+	}
+}
+
+// Pozivatelj koji ne dočeka svoju bravu upisa ne upiše primljeno: javi kraj
+// razgovora, druga strana ga zabilježi kao uspješan, a primljeno stigne
+// sljedećom razmjenom
+func TestZauzetUpisPozivatelja(t *testing.T) {
+	c := clanovi(t, "laptop-baranja", "ured-vukovar")
+	laptop, ured := c[0], c[1]
+	uskladi(t, c...)
+	napuniKnjigu(t, ured, 200)
+	if err := laptop.uzmiBravu(ctxRub); err != nil {
+		t.Fatal(err)
+	}
+	postaviRok(t, 50*time.Millisecond)
+	// i bilješka pozivatelja čeka njegovu bravu, pa se brava pusti kad ured
+	// zabilježi razgovor
+	gotovo := make(chan error, 1)
+	pocetak := time.Now().UTC()
+	go func() {
+		_, _, err := laptop.SyncWith(ctxRub, ured.node.ID)
+		gotovo <- err
+	}()
+	cekajDa(t, "ured zabilježi razgovor kao uspješan", func() bool {
+		st, _ := ured.syncStates(ctxRub)
+		ok := st[laptop.node.ID].LastOK
+		return ok != nil && !ok.Before(pocetak) && st[laptop.node.ID].LastError == ""
+	})
+	laptop.pustiBravu()
+	if err := <-gotovo; !errors.Is(err, errUpisZauzet) {
+		t.Fatalf("pozivatelj bez brave: %v", err)
+	}
+	if n := brojProbnih(t, laptop); n != 0 {
+		t.Fatalf("upisano bez brave: %d", n)
+	}
+	if _, _, err := laptop.SyncWith(ctxRub, ured.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	if n := brojProbnih(t, laptop); n != 200 {
+		t.Errorf("nakon oslobađanja brave laptop ima %d od 200", n)
+	}
+}
+
+// Sadržaj (PDF) koji stigne dok je upis zauzet ne upiše se, ali ostaje među
+// željama, pa ga sljedeća razmjena donese; razgovor bez verzija ne čeka
+// bravu i završi bez greške
+func TestZauzetUpisSadrzaja(t *testing.T) {
 	c := clanovi(t, "ured-vukovar", "laptop-baranja")
 	ured, laptop := c[0], c[1]
-	napuniKnjigu(t, laptop, 300)
 	spUred, spLaptop := otvoriSpremiste(t), otvoriSpremiste(t)
 	ured.SetSpremiste(spUred)
 	laptop.SetSpremiste(spLaptop)
 	ured.SetWantsAll(true)
+	uskladi(t, c...)
 	pdf := []byte("%PDF-1.4\nprijava s terena, nasip Draž")
 	otisak, err := spLaptop.Upisi(ctxRub, "application/pdf", pdf, "ovdje")
 	if err != nil {
@@ -136,30 +246,23 @@ func TestBravaUpisaNeZadrzavaRazgovor(t *testing.T) {
 	if err := spUred.Zeli(ctxRub, otisak, "application/pdf", len(pdf), "test", ""); err != nil {
 		t.Fatal(err)
 	}
-
+	dnevnik := brojiDnevnik(t, "primljeni sadržaj nije upisan")
 	if err := ured.uzmiBravu(ctxRub); err != nil {
 		t.Fatal(err)
 	}
-	gotovo := make(chan error, 1)
-	go func() {
-		_, _, err := laptop.SyncWith(ctxRub, ured.node.ID)
-		gotovo <- err
-	}()
-	select {
-	case err := <-gotovo:
-		if err != nil {
-			t.Fatalf("razmjena dok je brava zauzeta: %v", err)
-		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("razgovor je čekao bravu upisa")
+	postaviRok(t, 50*time.Millisecond)
+	if _, _, err := laptop.SyncWith(ctxRub, ured.node.ID); err != nil {
+		t.Fatalf("razmjena dok je upis zauzet: %v", err)
 	}
-	if n := brojProbnih(t, ured); n != 0 || spUred.Ima(ctxRub, otisak) {
-		t.Fatalf("upisano je pod tuđom bravom: %d verzija, sadržaj %v", n, spUred.Ima(ctxRub, otisak))
+	if spUred.Ima(ctxRub, otisak) {
+		t.Fatal("sadržaj je upisan pod tuđom bravom")
 	}
+	cekajDa(t, "dnevnik kaže da sadržaj nije upisan", func() bool { n, _ := dnevnik.broj(); return n == 1 })
 	ured.pustiBravu()
-	cekajDa(t, "ured upiše primljeno kad se brava oslobodi", func() bool {
-		return brojProbnih(t, ured) == 300 && spUred.Ima(ctxRub, otisak)
-	})
+	if _, _, err := laptop.SyncWith(ctxRub, ured.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	cekajDa(t, "ured upiše sadržaj sljedećom razmjenom", func() bool { return spUred.Ima(ctxRub, otisak) })
 }
 
 func otvoriSpremiste(t *testing.T) *sadrzaj.Spremiste {
@@ -201,42 +304,44 @@ func TestUvozCekaBravuUpisa(t *testing.T) {
 	}
 }
 
-// Kraj razgovora: ništa za upis ne čeka bravu; otkazan razgovor i kvar
-// knjige idu u dnevnik, a verzije stižu sljedećom razmjenom
-func TestDovrsetakPrimitkaRubovi(t *testing.T) {
+// Upis primljenog: ništa za upis ne čeka bravu, otkazan razgovor je ne
+// čeka, a kvar knjige i površine vrati se ili ide u dnevnik
+func TestUpisPrimljenogRubovi(t *testing.T) {
 	s := rubniCvor(t, "ured-vukovar")
 	if err := s.uzmiBravu(ctxRub); err != nil {
 		t.Fatal(err)
 	}
-	if n := s.dovrsiPrimitak(ctxRub, &primitak{}); n != 0 {
-		t.Errorf("prazan primitak: %d", n)
+	if n, err := s.primijeniAkoStigne(ctxRub, nil); n != 0 || err != nil {
+		t.Errorf("bez verzija: %d %v", n, err)
 	}
-	dnevnik := brojiDnevnik(t, "sinkronizacija:")
+	s.primiSadrzajAkoStigne(ctxRub, "laptop", nil)
 	otkazan, otkazi := context.WithCancel(ctxRub)
 	otkazi()
-	pr := &primitak{verzije: []ledger.Version{{VersionID: "019a0000-0000-7000-8000-000000000003", Entity: entitetProbe, EntityID: "z1"}}}
-	if n := s.dovrsiPrimitak(otkazan, pr); n != 0 {
-		t.Errorf("otkazan razgovor: %d", n)
-	}
-	if ok := s.uzmiBravuUnutar(otkazan, time.Minute); ok {
-		t.Error("otkazan razgovor je dobio zauzetu bravu")
+	v := []ledger.Version{{VersionID: "019a0000-0000-7000-8000-000000000003", Entity: entitetProbe, EntityID: "z1"}}
+	if n, err := s.primijeniAkoStigne(otkazan, v); n != 0 || !errors.Is(err, context.Canceled) {
+		t.Errorf("otkazan razgovor: %d %v", n, err)
 	}
 	s.zabiljezi(otkazan, &Peer{NodeID: "laptop-baranja"}, nil, syncOutcome{})
 	if st, _ := s.syncStates(ctxRub); len(st) != 0 {
 		t.Errorf("otkazan razgovor je upisao bilješku: %v", st)
 	}
+	s.zavrsiZauzet(nil, true, errors.New("kvar baze")) // druga greška: razgovor se samo prekida
 	s.pustiBravu()
-	pr.verzije[0].EntityID = "" // knjiga je odbije
-	if n := s.dovrsiPrimitak(ctxRub, pr); n != 0 {
-		t.Errorf("neispravna verzija: %d", n)
+
+	v[0].EntityID = "" // knjiga je odbije
+	if _, err := s.primijeniAkoStigne(ctxRub, v); err == nil {
+		t.Error("knjiga je primila neispravnu verziju")
 	}
+	dnevnik := brojiDnevnik(t, "površina nije osvježena")
 	s.OnApplied(func(context.Context, []ledger.Version) error { return sql.ErrConnDone })
-	pr.verzije[0].EntityID = "z1"
-	pr.verzije[0].NodeID, pr.verzije[0].Payload, pr.verzije[0].CreatedAt = "laptop-baranja", []byte(`{}`), time.Now()
-	if n := s.dovrsiPrimitak(ctxRub, pr); n != 1 {
-		t.Errorf("verzija uz kvar površine je u knjizi: %d", n)
+	v[0].EntityID, v[0].NodeID, v[0].Payload, v[0].CreatedAt = "z1", "laptop-baranja", []byte(`{}`), time.Now()
+	if n, err := s.primijeniAkoStigne(ctxRub, v); n != 1 || err != nil {
+		t.Errorf("verzija uz kvar površine je u knjizi: %d %v", n, err)
 	}
-	if n, _ := dnevnik.broj(); n != 3 {
+	if n, _ := dnevnik.broj(); n != 1 {
 		t.Errorf("dnevnik: %d redaka", n)
+	}
+	if got := neocekivanaPoruka(kindZelje, razmjena.Envelope{Kind: kindDone}); got.Error() != `očekivana poruka "zelje", stigla "done"` {
+		t.Errorf("neočekivana poruka: %v", got)
 	}
 }

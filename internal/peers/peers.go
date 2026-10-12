@@ -768,7 +768,8 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
-	s.zabiljezi(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
+	// bilješka čeka bravu upisa, a mjesto razmjene treba sljedećem
+	go s.zabiljezi(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -972,10 +973,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 			return err
 		}
 		if e.Kind != kind {
-			if e.Reason != "" {
-				return odbijenaRazmjena{e.Reason}
-			}
-			return fmt.Errorf("očekivana poruka %q, stigla %q", kind, e.Kind)
+			return neocekivanaPoruka(kind, e)
 		}
 		return e.Decode(v)
 	}
@@ -1047,14 +1045,14 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 		wanted = append(wanted, v)
 	}
-	// Upis ide pod bravom čvora (upis.go); što ne stigne na red, upiše se
-	// na kraju razgovora, kad druga strana više ne čeka
-	pr := &primitak{verzije: wanted, od: razmjena.PublicKeyString(c.PeerKey)}
-	applied, err = s.primijeniAkoStigne(ctx, pr)
+	// Upis ide pod bravom čvora (upis.go); kad je upis predugo zauzet,
+	// razgovor završi bez upisa, a primljeno stigne sljedećom razmjenom
+	applied, err = s.primijeniAkoStigne(ctx, wanted)
 	if err != nil {
+		s.zavrsiZauzet(c, initiator, err)
 		return 0, 0, theirs, err
 	}
-	defer func() { applied += s.dovrsiPrimitak(ctx, pr) }()
+	od := razmjena.PublicKeyString(c.PeerKey)
 
 	// Sadržaj: svaka strana kaže koje otiske želi, druga da što od toga ima.
 	// Primjena verzija je već upisala želje, pa se ovdje traže i one koje su
@@ -1077,7 +1075,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 			return applied, sent, theirs, nil
 		}
 		if e.Kind != kindZelje {
-			return applied, sent, theirs, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+			return applied, sent, theirs, neocekivanaPoruka(kindZelje, e)
 		}
 		_ = e.Decode(&njihoveZelje)
 		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
@@ -1087,7 +1085,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindSadrzaj, &stigao); err != nil {
 			return applied, sent, theirs, err
 		}
-		s.primiSadrzajAkoStigne(ctx, pr, stigao.Stavke)
+		s.primiSadrzajAkoStigne(ctx, od, stigao.Stavke)
 	} else {
 		e, err := c.Receive()
 		if err != nil {
@@ -1099,7 +1097,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 			return applied, sent, theirs, nil
 		}
 		if e.Kind != kindZelje {
-			return applied, sent, theirs, fmt.Errorf("očekivana poruka %q, stigla %q", kindZelje, e.Kind)
+			return applied, sent, theirs, neocekivanaPoruka(kindZelje, e)
 		}
 		_ = e.Decode(&njihoveZelje)
 		if err := send(kindZelje, mojeZelje); err != nil {
@@ -1109,7 +1107,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindSadrzaj, &stigao); err != nil {
 			return applied, sent, theirs, err
 		}
-		s.primiSadrzajAkoStigne(ctx, pr, stigao.Stavke)
+		s.primiSadrzajAkoStigne(ctx, od, stigao.Stavke)
 		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
 			return applied, sent, theirs, err
 		}
