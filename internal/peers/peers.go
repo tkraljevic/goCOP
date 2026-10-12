@@ -19,8 +19,8 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"net/netip"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -159,6 +159,10 @@ type Service struct {
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
 	wantsAll bool // prati sve kanale (uredski čvor)
+
+	// tailscaleAdrese čita Tailscale adrese ovog računala; nil znači
+	// zadaneTailscaleAdrese. Test njime daje čvoru izmišljene adrese.
+	tailscaleAdrese func() []netip.Addr
 }
 
 func (s *Service) autoSync() bool {
@@ -256,18 +260,8 @@ func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string)
 	}
 	add, remove = strings.TrimSpace(add), strings.TrimSpace(remove)
 	if add != "" {
-		if razmjena.JeAdresaTunela(add) {
-			// razmjena kroz web tunel (Cloudflare): https://domena
-			t, err := razmjena.NormalizirajTunel(add)
-			if err != nil {
-				return nil, err
-			}
-			p.Addresses = dedupe(append(p.Addresses, t))
-		} else {
-			if strings.ContainsAny(add, " /\\") {
-				return nil, fmt.Errorf("adresa je domena ili IP, po želji s portom (npr. cop-osijek.com ili 10.0.0.5:4710), ili https://domena za razmjenu kroz web tunel")
-			}
-			p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(p))))
+		if err := s.dodajAdresu(&p, add); err != nil {
+			return nil, err
 		}
 	}
 	if remove != "" {
@@ -286,6 +280,29 @@ func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string)
 		return nil, err
 	}
 	return &p, nil
+}
+
+// dodajAdresu dodaje čvoru adresu koju je upisao čovjek. Tailscale adresa
+// se ne prima: popis adresa dobivaju svi čvorovi mreže, a Tailscale je
+// osobna mreža, pa takve adrese čvorovi s Tailscaleom razmijene sami.
+func (s *Service) dodajAdresu(p *Peer, add string) error {
+	if jeTailscaleAdresa(add) {
+		return fmt.Errorf("Tailscale adresa se ne upisuje među adrese čvora: popis adresa dobivaju svi čvorovi mreže. Čvorovi koji imaju Tailscale sami razmijene te adrese kad razgovaraju izravno")
+	}
+	if razmjena.JeAdresaTunela(add) {
+		// razmjena kroz web tunel (Cloudflare): https://domena
+		t, err := razmjena.NormalizirajTunel(add)
+		if err != nil {
+			return err
+		}
+		p.Addresses = dedupe(append(p.Addresses, t))
+		return nil
+	}
+	if strings.ContainsAny(add, " /\\") {
+		return fmt.Errorf("adresa je domena ili IP, po želji s portom (npr. cop-osijek.com ili 10.0.0.5:4710), ili https://domena za razmjenu kroz web tunel")
+	}
+	p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(*p))))
+	return nil
 }
 
 // exchangePortOf je port razmjene čvora za adresu bez porta: vlastiti port
@@ -326,6 +343,9 @@ func scanPeer(scanner interface{ Scan(...any) error }) (Peer, error) {
 		return p, err
 	}
 	_ = json.Unmarshal([]byte(addrs), &p.Addresses)
+	// Tailscale adresu u zapis mogao je donijeti stariji program; ovaj je ne
+	// pokazuje, ne zove i ne prenosi dalje
+	p.Addresses = bezTailscalea(p.Addresses)
 	p.IsBootstrap = bootstrap != 0
 	if lastSeen.Valid {
 		t := lastSeen.Time
@@ -349,6 +369,9 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 	if p.CreatedAt.IsZero() {
 		p.CreatedAt = time.Now().UTC()
 	}
+	// Zapis čvora putuje knjigom svima, a Tailscale je osobna mreža: njegove
+	// adrese ne ulaze ni u zapis ni u knjigu (vidi tailscale.go)
+	p.Addresses = bezTailscalea(p.Addresses)
 	addrs, _ := json.Marshal(dedupe(p.Addresses))
 
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -683,6 +706,12 @@ type frontierMsg struct {
 	// od onoga koji je to uveo.
 	Program string `json:"program,omitempty"`
 	Gradnja string `json:"gradnja,omitempty"`
+	// Tailscale: pošiljatelj ima Tailscale i smije ga koristiti u razmjeni.
+	// Čvor bez Tailscalea polje ne šalje, pa mu je granica ista kao prije.
+	Tailscale bool `json:"tailscale,omitempty"`
+	// tailscale su Tailscale adrese koje je drugi čvor javio u delti; ne
+	// putuje, samo nosi primljeno do bilješke o razmjeni (noteSync)
+	tailscale []string
 }
 
 type deltaMsg struct {
@@ -690,6 +719,9 @@ type deltaMsg struct {
 	// Skraceno: pošiljatelj je deltu skratio zbog veličine poruke, pa ima
 	// još; pozivatelj tada nastavlja odmah. Stariji čvor polje ne šalje ni čita.
 	Skraceno bool `json:"skraceno,omitempty"`
+	// Tailscale su Tailscale adrese pošiljatelja s portom razmjene. Šalju se
+	// samo kad su obje granice javile Tailscale; nikad ne idu u knjigu.
+	Tailscale []string `json:"tailscale,omitempty"`
 }
 
 type doneMsg struct {
@@ -699,14 +731,7 @@ type doneMsg struct {
 // Serve prima razmjene od poznatih čvorova dok ctx traje: na portu
 // razmjene i, kad je web sučelje uključilo tunel, kroz njega
 func (s *Service) Serve(ctx context.Context) error {
-	primi := func(c *razmjena.Conn) {
-		defer c.Close()
-		peer, _ := s.peerByKey(ctx, c.PeerKey)
-		started := time.Now()
-		applied, sent, theirs, err := s.exchange(ctx, c, false)
-		s.skracene.Delete(c)
-		s.noteSync(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
-	}
+	primi := func(c *razmjena.Conn) { s.primiRazmjenu(ctx, c) }
 	// tunel ima svoju ogradu: kroz njega dolazi bilo tko s interneta, pa
 	// njegova rukovanja ne smiju zauzeti mjesta porta u lokalnoj mreži
 	port := razmjena.NovaOgrada()
@@ -716,6 +741,17 @@ func (s *Service) Serve(ctx context.Context) error {
 		}
 	}()
 	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, port)
+}
+
+// primiRazmjenu odradi razmjenu koju je započeo drugi čvor, na portu
+// razmjene ili kroz tunel, i zabilježi ishod
+func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
+	defer c.Close()
+	peer, _ := s.peerByKey(ctx, c.PeerKey)
+	started := time.Now()
+	applied, sent, theirs, err := s.exchange(ctx, c, false)
+	s.skracene.Delete(c)
+	s.noteSync(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -732,47 +768,18 @@ const najviseKrugovaZaRedom = 200
 
 // SyncWith obavi razmjenu s poznatim čvorom, na prvoj adresi koja odgovori
 func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent int, err error) {
-	peer, err := s.GetPeer(ctx, nodeID)
+	peer, expect, err := s.partnerZaRazmjenu(ctx, nodeID)
 	if err != nil {
 		return 0, 0, err
 	}
-	if peer == nil {
-		return 0, 0, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
-	}
-	expect, err := razmjena.ParsePublicKey(peer.PublicKey)
-	if err != nil {
-		return 0, 0, err
-	}
-	if !s.trusted(expect, nil) {
-		return 0, 0, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
-	}
-
-	addresses := peer.Addresses
-	// adrese kroz tunel idu zadnje: u istoj mreži port razmjene je brži
-	sort.SliceStable(addresses, func(i, j int) bool {
-		return !razmjena.JeAdresaTunela(addresses[i]) && razmjena.JeAdresaTunela(addresses[j])
-	})
-	if s.ports.Discovery > 0 {
-		if f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery); ok {
-			addresses = dedupe(append([]string{withPort(f.Addr, fmt.Sprint(f.ExchangePort))}, addresses...))
-		}
-	}
+	addresses := s.adreseZaSpajanje(ctx, peer)
 	if len(addresses) == 0 {
 		return 0, 0, fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
 	}
 
 	var lastErr error
 	for _, host := range addresses {
-		var conn *razmjena.Conn
-		var err error
-		dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
-		if razmjena.JeAdresaTunela(host) {
-			conn, err = razmjena.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
-		} else {
-			// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-			conn, err = razmjena.DialExchange(dialCtx, s.node.key, Protocol, s.vjerodajnice, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
-		}
-		cancel()
+		conn, err := s.nazovi(ctx, host, expect)
 		if err != nil {
 			lastErr = err
 			continue
@@ -788,6 +795,69 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	}
 	s.noteSync(ctx, peer, nil, syncOutcome{err: lastErr})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
+}
+
+// partnerZaRazmjenu je poznati čvor s kojim je razmjena dopuštena (član
+// mreže) i ključ koji mora dokazati
+func (s *Service) partnerZaRazmjenu(ctx context.Context, nodeID string) (*Peer, ed25519.PublicKey, error) {
+	peer, err := s.GetPeer(ctx, nodeID)
+	if err != nil {
+		return nil, nil, err
+	}
+	if peer == nil {
+		return nil, nil, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
+	}
+	expect, err := razmjena.ParsePublicKey(peer.PublicKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !s.trusted(expect, nil) {
+		return nil, nil, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
+	}
+	return peer, expect, nil
+}
+
+// adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
+// na kojoj se upravo javio u lokalnoj mreži, izravne adrese iz zapisa,
+// Tailscale adrese koje je čvor sam javio, a tunel zadnji. Tunel je
+// najsporiji, a u istoj mreži port razmjene je brži.
+func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []string {
+	var izravne, tuneli []string
+	for _, a := range bezTailscalea(peer.Addresses) {
+		if razmjena.JeAdresaTunela(a) {
+			tuneli = append(tuneli, a)
+		} else {
+			izravne = append(izravne, a)
+		}
+	}
+	izravne = append(s.uLokalnojMrezi(peer.NodeID), izravne...)
+	izravne = append(izravne, s.tailscaleZaSpajanje(ctx, peer.NodeID)...)
+	return dedupe(append(izravne, tuneli...))
+}
+
+// uLokalnojMrezi je adresa na kojoj se čvor javlja u lokalnoj mreži, kad
+// je pronalaženje uključeno i čvor se javi
+func (s *Service) uLokalnojMrezi(nodeID string) []string {
+	if s.ports.Discovery <= 0 {
+		return nil
+	}
+	f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
+	if !ok {
+		return nil
+	}
+	return []string{withPort(f.Addr, fmt.Sprint(f.ExchangePort))}
+}
+
+// nazovi otvara razmjenu na jednoj adresi: kroz tunel (https://domena) ili
+// na portu razmjene
+func (s *Service) nazovi(ctx context.Context, host string, expect ed25519.PublicKey) (*razmjena.Conn, error) {
+	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	if razmjena.JeAdresaTunela(host) {
+		return razmjena.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
+	}
+	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
+	return razmjena.DialExchange(dialCtx, s.node.key, Protocol, s.vjerodajnice, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
 }
 
 // najviseBajtovaDelte ograđuje jednu poruku delte (verzije kao JSON).
@@ -868,7 +938,8 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	}
 
 	program, gradnja := s.Program()
-	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja}
+	mojiTailscale := s.mojeTailscale()
+	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja, Tailscale: len(mojiTailscale) > 0}
 	if initiator {
 		if err := send(kindFrontier, moja); err != nil {
 			return 0, 0, theirs, err
@@ -894,9 +965,10 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	puna := len(delta)
 	delta = ogradiDeltu(delta, najviseBajtovaDelte)
 	skraceno := len(delta) < puna
+	mojaDelta := deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: s.tailscaleZaDrugoga(mojiTailscale, theirs)}
 	var incoming deltaMsg
 	if initiator {
-		if err := send(kindDelta, deltaMsg{delta, skraceno}); err != nil {
+		if err := send(kindDelta, mojaDelta); err != nil {
 			return 0, 0, theirs, err
 		}
 		if err := expect(kindDelta, &incoming); err != nil {
@@ -906,11 +978,12 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		if err := expect(kindDelta, &incoming); err != nil {
 			return 0, 0, theirs, err
 		}
-		if err := send(kindDelta, deltaMsg{delta, skraceno}); err != nil {
+		if err := send(kindDelta, mojaDelta); err != nil {
 			return 0, 0, theirs, err
 		}
 	}
 	sent = len(delta)
+	theirs.tailscale = incoming.Tailscale
 	// Bilo koja strana je skratila deltu: ima još, razgovor se ponavlja odmah
 	if skraceno || incoming.Skraceno {
 		s.skracene.Store(c, true)
@@ -1029,6 +1102,7 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	}
 	applied, sent, err := o.applied, o.sent, o.err
 	s.recordSyncState(ctx, peer.NodeID, o)
+	s.zapamtiTailscale(ctx, peer.NodeID, o)
 	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
 		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
 			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
