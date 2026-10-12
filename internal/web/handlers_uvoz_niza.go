@@ -497,6 +497,7 @@ func (h *UvozHandler) popuniPregled(d *UvozPageData, ime string, sadrzaj []byte,
 	// Prijedlog se prepisuje onim što je čovjek već ispravio, kad se pregled
 	// osvježava s promijenjenim izborom.
 	primiIzObrasca(&d.Prijedlg, r)
+	slivIzStabla(&d.Prijedlg, d.SlivZa)
 
 	// Čija je letva, zna se tek ovdje — prije toga je datoteka samo hrpa
 	// bajtova. Zato provjera stoji na ovom jednom mjestu kroz koje prolaze
@@ -616,6 +617,14 @@ func prijedlogIzNaziva(ime string, slivZa map[string]string) UvozNiza {
 		u.Sliv = s
 	}
 	return u
+}
+
+// slivIzStabla daje prijedlogu sliv postojeće letve iz stabla i kad je letvu
+// upisao čovjek u obrazac, a ne naziv datoteke; sliv koji je upisao ostaje
+func slivIzStabla(u *UvozNiza, slivZa map[string]string) {
+	if s, ima := slivZa[u.Letva]; ima && u.Sliv == "" {
+		u.Sliv = s
+	}
 }
 
 func primiIzObrasca(u *UvozNiza, r *http.Request) {
