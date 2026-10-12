@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,6 +30,7 @@ type TerritoriesHandler struct {
 	tmplCounty       *template.Template
 	userService      *service.UserService    // sektori i branjena područja za kartu
 	sectionService   *service.SectionService // broj dionica po području
+	podaci           string                  // mapa baze; granice su u njezinoj podmapi geometrija
 }
 
 func (h *TerritoriesHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
@@ -299,6 +301,7 @@ func (h *TerritoriesHandler) HandleGetSettlementsGeoJSON(w http.ResponseWriter, 
 
 	if !okRaw {
 		paths := []string{
+			filepath.Join(h.mapaGeometrije(), "naselja", fmt.Sprintf("zupanija_%d.geojson", countyID)),
 			fmt.Sprintf("data/geometrija/naselja/zupanija_%d.geojson", countyID),
 			fmt.Sprintf("../../data/geometrija/naselja/zupanija_%d.geojson", countyID),
 			fmt.Sprintf("internal/geometrija/naselja/zupanija_%d.geojson", countyID),

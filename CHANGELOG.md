@@ -55,6 +55,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   novu godinu, a kad bi ga netko ispravio ili obrisao, prelazilo je u
   prethodnu. Čvor koji prati samo novu godinu tako nije vidio ni ispravak ni
   brisanje. Godina se sad uvijek računa po hrvatskom vremenu.
+- **Karta na čvoru koji pokreće Postava.** Granice sektora, branjenih
+  područja i naselja program je tražio u mapi gledano od mjesta iz kojeg je
+  pokrenut. Postava čvor pokreće iz same mape podataka, pa karta na takvom
+  čvoru nije imala granica. Sad se granice traže uz bazu.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 
