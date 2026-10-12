@@ -645,7 +645,8 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			kodovi = append(kodovi, l.Letva)
 		}
 	}
-	krajnosti := h.krajnosti(kodovi)
+	krajnosti := h.krajnosti(append(kodovi, izvoriKrajnosti(kodovi)...))
+	dopuniPrenesenim(krajnosti, kodovi, popis)
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)

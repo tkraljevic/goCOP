@@ -6,6 +6,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
+  vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
+  zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s
+  istom kotom nule, uz oznaku „s letve Ilok”. Vlastito očitanje koje ih
+  nadmaši i dalje ima prednost.
 - **Dionice: isto ugroženo područje uz više nasipa.** Općina ili naselje
   upisano uz jedan nasip nije se dalo upisati uz drugi nasip ni uz cijelu
   poddionicu: obrazac je drugi upis tiho preskakao, i pri ručnom dodavanju
