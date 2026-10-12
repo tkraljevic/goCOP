@@ -69,7 +69,8 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `prognoze.db` (+ `-wal`, `-shm`) | lokalna i primljena izdanja prognoza, parametri i rezultati provjere |
   | `oborine.db` (+ `-wal`, `-shm`) | mjerenja i prognozirane oborine |
-  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju i poslije je ne dira |
+  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju, a poslije je mijenja samo kad administrator spremi postavke u programu |
+  | `gocop.toml.20261012-153000` | prethodne inačice `gocop.toml` koje program spremi prije svake izmjene; čuva zadnjih pet |
   | `gocop.toml.primjer` | opisi i primjeri svih postavki tekuće inačice; program ga piše pri svakom pokretanju i ne čita ga |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
   | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
@@ -624,6 +625,34 @@ Zastavice na naredbenom retku (`-addr`, `-db`, `-arhiva`, `-podaci`,
 `-sync-port`, `-pair-port`, `-discovery-port`, `-auto-sync`, `-config`)
 imaju prednost pred datotekom.
 
+**Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
+administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
+pripada: javnu adresu i centar na stranici prijave u *Čvor, mreža i
+sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije pod *Mreža*,
+`sve` i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod
+*Opcije*. *Održavanje baze* pokazuje gdje je datoteka, kad je mijenjana i
+njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
+računala na kojem je čvor ili iz lokalne mreže, nikad izvana ni kroz tunel.
+Program novu datoteku prije spremanja pročita i provjeri kao pri pokretanju;
+neispravno ne zapisuje, nego javi uz polje. Ručni komentari i ključevi koje
+program ne zna ostaju, jer se mijenja samo redak promijenjene postavke, a
+nova postavka dobije objašnjenje kao u primjeru. Staru datoteku spremi kao
+`gocop.toml.<datum-vrijeme>` (zadnjih pet) i u dnevnik upiše tko je što
+promijenio. Ime čvora, adresu weba i portove, putanje, pouzdane posrednike i
+`bootstrap` program pokazuje, ali ih mijenja samo datoteka: krivim portom ili
+putanjom čvor bi se zaključao izvan dosega, a posrednici određuju što je
+zahtjev izvana. Kad je zastavica pokretanja jača od datoteke (npr. u
+spremniku `-addr`, `-arhiva`), to piše uz postavku.
+
+Promjena vrijedi nakon ponovnog pokretanja; dok čeka, stranice s postavkama
+to javljaju. Gumb *Ponovno pokreni čvor* (kartica *Ovaj čvor*) uredno ugasi
+čvor i izađe s kodom 75, a podigne ga onaj tko ga je pokrenuo: Postava za
+nekoliko sekundi, usluga sustava za pet sekundi (`Restart=on-failure`),
+spremnik samo uz `--restart` (poglavlje 7). Postava odustaje kad se čvor
+ugasi tri puta u deset minuta; tada ga pokrenite u izborniku ikone. Čvor
+pokrenut ručno u terminalu gumba nema: zaustavite ga (Ctrl+C) i pokrenite
+istom naredbom.
+
 Uvoz evidencija radova iz vanjske evidencije kao **rekonstruiranih**
 dnevnika: `gocop -import-bp16-dnevnici` (bez `-upisi` samo izvješće). Po
 programu i godini nastaje jedan dnevnik, listovi se slažu po danu i po šest
@@ -736,6 +765,15 @@ jednom, pa zastavicu ukloniti (`docker run … ghcr.io/tkraljevic/gocop:<oznaka>
 -novi-kljuc-cvora` izvan Unraida). Ako se ni `gocop.toml` ne može vratiti,
 prije toga ga napisati u `/data` s dosadašnjim imenom čvora (redak
 `id = "…"` pod `[node]`), inače čvor kreće pod imenom `gocop-cvor`.
+
+Ponovno pokretanje iz programa (*Čvor, mreža i sinkronizacija → Ovaj čvor*)
+spremnik izlazi s kodom 75. Docker ga vraća samo kad je spremnik pokrenut s
+`--restart unless-stopped` (ili `always`, `on-failure`); na Unraidu se to
+upisuje u *Extra Parameters* predloška. Iznutra se to ne vidi, pa stranica
+upozori prije gašenja. Bez toga spremnik ostaje zaustavljen dok ga ne
+pokrenete u kartici Docker (`docker start gocop`). Slika zadaje `-addr`,
+`-arhiva`, `-podaci`, `-skenovi` i `-pakete`, pa te postavke iz `gocop.toml`
+u spremniku ne vrijede; stranice to pišu uz njih.
 
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi

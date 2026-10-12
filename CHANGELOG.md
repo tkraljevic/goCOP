@@ -25,6 +25,23 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   poništava, ali kad je čvor primio opoziv i njegovo poništenje u istoj
   razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao
   vjerodostojan.
+- **Postavke iz gocop.toml i u Administraciji.** Dosad se `gocop.toml`
+  mijenjao samo u uređivaču teksta, a na Unraidu i uz uslugu sustava za to
+  treba pristup disku ili `sudo`. Sad dio postavki globalni administrator
+  mijenja na stranici kojoj pripadaju: javnu adresu i centar na stranici
+  prijave u kartici Ovaj čvor, razmak sinkronizacije pod Mreža, „Prati sve”
+  i povijest tuđih očitanja na stranici Što ovo računalo prati, izvor karte
+  pod Opcije. Održavanje baze pokazuje gdje je datoteka i njezine kopije.
+  Radi samo s ovog računala ili iz lokalne mreže, ne kroz tunel. Program
+  novu datoteku prije spremanja provjeri kao pri pokretanju, staru ostavi
+  kao kopiju (zadnjih pet), a ručni komentari ostaju. Ime čvora, portovi,
+  putanje i posrednici samo se prikazuju.
+- **Ponovno pokretanje čvora iz programa.** Gumb u kartici Ovaj čvor
+  uredno ugasi čvor, a pokrene ga Postava, usluga sustava ili Docker (samo
+  uz `--restart`). Ručno pokrenut čvor gumba nema, nego piše što napraviti.
+  Dok spremljena promjena čeka, stranice s postavkama to javljaju na vrhu.
+  Usluga sustava i spremnik za to čvoru javljaju tko ga pokreće
+  (`GOCOP_NADZOR`).
 
 ## 0.0.36-alfa — 12. 10. 2026.
 
