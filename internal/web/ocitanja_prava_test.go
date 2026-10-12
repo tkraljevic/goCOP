@@ -34,6 +34,8 @@ type okolinaPrava struct {
 	anaOvl, peroOvl *models.UserPermissions
 	anino, perino   models.Reading
 	upisi           func(autor *models.User, cm int) models.Reading
+	h               *ReadingsHandler
+	ocitanja        *repository.ReadingRepository
 }
 
 func novaOkolinaPrava(t *testing.T) *okolinaPrava {
@@ -75,7 +77,7 @@ func novaOkolinaPrava(t *testing.T) *okolinaPrava {
 		service.NewStructureService(repository.NewStructureRepository(baza, rec)), users,
 		tmpl("readings.html"), tmpl("reading_history.html"), tmpl("reading_form.html"))
 	h.SetOcitanjaCSV(tmpl("ocitanja_ispravci.html"))
-	o := &okolinaPrava{mux: http.NewServeMux()}
+	o := &okolinaPrava{mux: http.NewServeMux(), h: h, ocitanja: readingRepo}
 	o.mux.HandleFunc("GET /readings/station/{id}", h.ShowHistory)
 	o.mux.HandleFunc("GET /readings/edit/{id}", h.ShowForm)
 	o.mux.HandleFunc("POST /readings/station/{id}/ocitanja/uvoz", h.HandleOcitanjaUvoz)
