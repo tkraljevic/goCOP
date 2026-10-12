@@ -15,6 +15,11 @@
 #   5. postavi jedinicu gocop.service iz izdanja, uključi je i pokrene;
 #   6. pričeka da čvor odgovori na /zdravlje.
 #
+# Ako uz program stoji i gocop-postava-linux-amd64 istog izdanja (ikona u
+# traci), skripta mu provjeri SHA-256 kao i programu i, prije čvora, postavi
+# ga u /usr/local/bin/gocop-postava, s unosom goCOP u izborniku programa i
+# ikonom. Bez te datoteke Postavu ne dira.
+#
 # Skripta se smije pokretati više puta: s istim programom ne mijenja ništa,
 # s novim programom je nadogradnja. Podatke u /var/lib/gocop nikad ne briše,
 # ni s -ukloni. Upute: docs/linux.md.
@@ -26,6 +31,10 @@ PODACI=/var/lib/gocop
 JEDINICA=/etc/systemd/system/gocop.service
 KORISNIK=gocop
 KOPIJA_ZADRZI=3
+IME_POSTAVE=gocop-postava-linux-amd64
+POSTAVA=/usr/local/bin/gocop-postava
+IZBORNIK=/usr/share/applications/gocop-postava.desktop
+IKONA=/usr/share/icons/hicolor/256x256/apps/gocop.png
 
 # Javni ključ izdanja (Ed25519), isti kao u internal/izdanje/izdanje.go
 # (qFBwYywODKstemglL46NTo1shJ8MeSzwkByRPoi+J8w=), u obliku za OpenSSL
@@ -101,12 +110,25 @@ if [ "$UKLONI" -eq 1 ]; then
 		poruka "uklanjam $PROGRAM"
 		rm -f "$PROGRAM"
 	fi
+	BILA_POSTAVA=0
+	for f in "$POSTAVA" "$IZBORNIK" "$IKONA"; do
+		if [ -f "$f" ]; then
+			poruka "uklanjam $f"
+			rm -f "$f"
+			BILA_POSTAVA=1
+		fi
+	done
 	echo
 	echo "goCOP je uklonjen. Podaci su ostali u $PODACI, a korisnik $KORISNIK u sustavu."
 	echo "U toj mapi je i ključ čvora (node-key): tko ga ima, predstavlja se kao ovaj čvor."
 	echo "Ako ih više ne trebate (nakon što ste napravili kopiju), uklonite ih ručno:"
 	echo "  sudo rm -rf $PODACI"
 	echo "  sudo userdel $KORISNIK"
+	if [ "$BILA_POSTAVA" -eq 1 ]; then
+		echo
+		echo "Ikona u traci radi do odjave. Unos za pokretanje pri prijavi"
+		echo "(~/.config/autostart/gocop-postava.desktop) svaki korisnik briše sam."
+	fi
 	exit 0
 fi
 
@@ -119,6 +141,7 @@ trebaju openssl sha256sum base64 runuser useradd
 
 MAPA_IZDANJA=$(cd "$(dirname "$IZVOR")" && pwd)
 IME_DATOTEKE=$(basename "$IZVOR")
+[ "$IME_DATOTEKE" != "$IME_POSTAVE" ] || greska "$IME_POSTAVE je ikona u traci, a ne program čvora; navedite gocop-linux-amd64"
 ZBROJEVI=$MAPA_IZDANJA/SHA256SUMS
 POTPIS=$MAPA_IZDANJA/SHA256SUMS.sig
 [ -f "$ZBROJEVI" ] || greska "uz program nema SHA256SUMS (preuzmite ga uz isto izdanje)"
@@ -139,6 +162,11 @@ ZBROJEVI=$PRIVREMENO/SHA256SUMS
 POTPIS=$PRIVREMENO/SHA256SUMS.sig
 IZVOR=$PRIVREMENO/$IME_DATOTEKE
 JEDINICA_IZDANJA=$PRIVREMENO/gocop.service
+POSTAVA_IZVOR=""
+if [ -f "$MAPA_IZDANJA/$IME_POSTAVE" ]; then
+	cp "$MAPA_IZDANJA/$IME_POSTAVE" "$PRIVREMENO/"
+	POSTAVA_IZVOR=$PRIVREMENO/$IME_POSTAVE
+fi
 
 poruka "provjeravam potpis izdanja"
 printf '%s\n' "$KLJUC_IZDANJA" >"$PRIVREMENO/kljuc.pem"
@@ -161,6 +189,42 @@ provjeri_zbroj() {
 }
 provjeri_zbroj "$IME_DATOTEKE" "ne preimenujte preuzeti program"
 provjeri_zbroj gocop.service "izdanje je starije od ove skripte, pa jedinicu ne nosi"
+[ -z "$POSTAVA_IZVOR" ] || provjeri_zbroj "$IME_POSTAVE" "ne miješajte datoteke različitih izdanja"
+
+# ---------- ikona u traci (Postava) ----------
+
+# Prije čvora: ako ovdje nešto ne uspije, čvor još nije dirnut.
+if [ -n "$POSTAVA_IZVOR" ]; then
+	if [ -f "$POSTAVA" ] && cmp -s "$POSTAVA_IZVOR" "$POSTAVA"; then
+		poruka "Postava je već postavljena ($("$POSTAVA" -version))"
+	else
+		poruka "postavljam $POSTAVA"
+		# preko privremenog imena: Postava koja upravo radi ostaje na
+		# starom programu do sljedeće prijave
+		install -o root -g root -m 0755 "$POSTAVA_IZVOR" "$POSTAVA.novi"
+		mv -f "$POSTAVA.novi" "$POSTAVA"
+	fi
+	poruka "postavljam unos goCOP u izborniku programa i ikonu"
+	"$POSTAVA" -ikona "$PRIVREMENO/gocop.png"
+	install -D -o root -g root -m 0644 "$PRIVREMENO/gocop.png" "$IKONA"
+	cat >"$PRIVREMENO/gocop-postava.desktop" <<UNOS
+[Desktop Entry]
+Type=Application
+Name=goCOP
+Comment=Ikona u traci: stanje, pokretanje i nadogradnja goCOP-a
+Exec=$POSTAVA
+Icon=gocop
+Terminal=false
+Categories=Network;Utility;
+UNOS
+	install -D -o root -g root -m 0644 "$PRIVREMENO/gocop-postava.desktop" "$IZBORNIK"
+	if command -v gtk-update-icon-cache >/dev/null 2>&1; then
+		gtk-update-icon-cache -q -t /usr/share/icons/hicolor || true
+	fi
+	if command -v update-desktop-database >/dev/null 2>&1; then
+		update-desktop-database -q /usr/share/applications || true
+	fi
+fi
 
 # ---------- korisnik i mapa podataka ----------
 
