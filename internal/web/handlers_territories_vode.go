@@ -21,9 +21,27 @@ import (
 // dodaje ono što vodi aplikacija — naziv područja, ispostava, podcentar i
 // broj dionica — da oznaka na karti vodi na dionice.
 
-// geometrijaVodaDir je mapa s pretvorenim granicama, u odnosu na radnu mapu
-// poslužitelja
+// geometrijaVodaDir je zadana mapa s pretvorenim granicama, u odnosu na radnu
+// mapu poslužitelja. Čvor koji zna svoju bazu granice traži najprije uz nju
+// (mapaGeometrije).
 const geometrijaVodaDir = "data/geometrija"
+
+// SetGeometrija zadaje mapu podataka čvora (mapu baze). Granice se traže u
+// njezinoj podmapi geometrija, jer Postava čvor pokreće iz same mape podataka,
+// pa put u odnosu na radnu mapu ondje ne vodi nikamo.
+func (h *TerritoriesHandler) SetGeometrija(podaci string) { h.podaci = podaci }
+
+// mapaGeometrije je mapa s granicama: geometrija uz bazu kad postoji, inače
+// zadana mapa u odnosu na radnu mapu
+func (h *TerritoriesHandler) mapaGeometrije() string {
+	if h.podaci != "" {
+		d := filepath.Join(h.podaci, "geometrija")
+		if fi, err := os.Stat(d); err == nil && fi.IsDir() {
+			return d
+		}
+	}
+	return geometrijaVodaDir
+}
 
 // SetVodnaPodrucja daje rukovatelju sektore, područja i dionice za oznake karte
 func (h *TerritoriesHandler) SetVodnaPodrucja(users *service.UserService, sections *service.SectionService) {
@@ -45,7 +63,7 @@ func (h *TerritoriesHandler) vodniIzbor() []VodniSektorIzbor {
 	if h.userService == nil {
 		return nil
 	}
-	if _, err := os.Stat(filepath.Join(geometrijaVodaDir, "sektori.geojson")); err != nil {
+	if _, err := os.Stat(filepath.Join(h.mapaGeometrije(), "sektori.geojson")); err != nil {
 		return nil
 	}
 	sektori, err := h.userService.ListSectors()
@@ -82,9 +100,10 @@ func (h *TerritoriesHandler) HandleGetBranjenaPodrucjaGeoJSON(w http.ResponseWri
 }
 
 func (h *TerritoriesHandler) vodnaGeoJSON(w http.ResponseWriter, r *http.Request, sifra string, dodaci map[string]map[string]any) {
-	raw, err := geom.Ucitaj(geometrijaVodaDir, sifra)
+	mapa := h.mapaGeometrije()
+	raw, err := geom.Ucitaj(mapa, sifra)
 	if err != nil || len(raw) == 0 {
-		http.Error(w, "Granice nisu učitane: nema datoteke "+geometrijaVodaDir+"/"+sifra+".geojson", http.StatusNotFound)
+		http.Error(w, "Granice nisu učitane: nema datoteke "+filepath.Join(mapa, sifra+".geojson"), http.StatusNotFound)
 		return
 	}
 	raw = dopuniGeoJSON(raw, dodaci)
