@@ -24,6 +24,7 @@
 {{if and .Moj (not $l.Zakljucen)}}
 <form method="POST" action="/vodocuvar/spremi" class="form-page vodocuvar-obrazac">
   <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
+  {{if .Otvoreno}}<input type="hidden" name="otvoreno" value="{{.Otvoreno}}">{{end}}
   <div class="form-row">
     <div class="form-group"><label class="form-label" for="od">Početak rada</label><input class="form-control" id="od" name="od" value="{{$l.Od}}" placeholder="07:30" inputmode="numeric" required></div>
     <div class="form-group"><label class="form-label" for="do">Svršetak rada</label><input class="form-control" id="do" name="do" value="{{$l.Do}}" placeholder="15:30" inputmode="numeric" required></div>
