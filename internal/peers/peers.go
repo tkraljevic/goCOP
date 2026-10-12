@@ -163,6 +163,10 @@ type Service struct {
 	// tailscaleAdrese čita Tailscale adrese ovog računala; nil znači
 	// zadaneTailscaleAdrese. Test njime daje čvoru izmišljene adrese.
 	tailscaleAdrese func() []netip.Addr
+	// bezTailscalea: [sync] tailscale = false (vidi PostaviTailscale)
+	bezTailscalea atomic.Bool
+	// čvorovi za koje je odbijena razmjena na Tailscale adresi već zapisana u dnevnik
+	javljenTailscale sync.Map
 }
 
 func (s *Service) autoSync() bool {
@@ -748,6 +752,9 @@ func (s *Service) Serve(ctx context.Context) error {
 func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	defer c.Close()
 	peer, _ := s.peerByKey(ctx, c.PeerKey)
+	if s.odbijTailscale(c, peer) {
+		return
+	}
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
@@ -790,6 +797,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 		_, skraceno := s.skracene.LoadAndDelete(conn)
 		s.josIma.Store(nodeID, skraceno && err == nil)
 		conn.Close()
+		if s.odbioTailscale(ctx, nodeID, err) {
+			lastErr = err
+			continue
+		}
 		s.noteSync(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
 		return applied, sent, err
 	}
@@ -930,7 +941,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 		if e.Kind != kind {
 			if e.Reason != "" {
-				return fmt.Errorf("čvor odbio razmjenu: %s", e.Reason)
+				return odbijenaRazmjena{e.Reason}
 			}
 			return fmt.Errorf("očekivana poruka %q, stigla %q", kind, e.Kind)
 		}

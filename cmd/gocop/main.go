@@ -828,6 +828,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		log.Printf("Uloge čvora nisu pročitane: %v", ulogeErr)
 	}
 	peersService.SetWantsAll(cfg.Sync.All)
+	// [sync] tailscale = false: razmjena radi kao da Tailscalea nema
+	peersService.PostaviTailscale(cfg.Sync.Tailscale)
 	peersService.SetSpremiste(spremiste)
 	var razmjenaArh *razmjenaArhive // arhiva razmjenom; postavlja se kad je poznato gdje arhiva stoji
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {

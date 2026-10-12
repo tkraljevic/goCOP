@@ -142,6 +142,10 @@ func (c *Conn) Close() error { return c.raw.Close() }
 // RemoteAddr is where the peer connected from.
 func (c *Conn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
 
+// LocalAddr je adresa ovog računala na koju je veza stigla (ili s koje je
+// otišla); kroz tunel je to put tunela, ne IP adresa
+func (c *Conn) LocalAddr() net.Addr { return c.raw.LocalAddr() }
+
 // KeyChecker answers whether a proven public key belongs to a member —
 // the application implements it over its memberships, and may accept a
 // membership the peer presents in its certificate (vjerodajnice).
@@ -287,16 +291,20 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 	}
 }
 
-// odbijZauzet javlja poznatom čvoru da je ovaj zauzet. Pozivatelj uvijek
-// prvi šalje svoju granicu; ona se pročita prije odbijenice, da zatvaranje
-// s nepročitanim podacima ne pošalje RST koji bi odbijenicu progutao.
-func odbijZauzet(c *Conn) {
+// odbijZauzet javlja poznatom čvoru da je ovaj zauzet
+func odbijZauzet(c *Conn) { Odbij(c, RazlogZauzet) }
+
+// Odbij odbija razmjenu s poznatim čvorom i zatvara vezu; druga strana
+// ispiše razlog. Pozivatelj uvijek prvi šalje svoju granicu; ona se pročita
+// prije odbijenice, da zatvaranje s nepročitanim podacima ne pošalje RST
+// koji bi odbijenicu progutao.
+func Odbij(c *Conn, razlog string) {
 	defer c.Close()
 	_ = c.raw.SetReadDeadline(time.Now().Add(10 * time.Second))
 	c.citac.postavi(1 << 20)
 	var prva Envelope
 	_ = c.dec.Decode(&prva)
-	_ = c.Send(Envelope{Kind: VrstaOdbijeno, Reason: RazlogZauzet})
+	_ = c.Send(Envelope{Kind: VrstaOdbijeno, Reason: razlog})
 }
 
 // DialExchange connects to a peer and refuses to proceed unless the key

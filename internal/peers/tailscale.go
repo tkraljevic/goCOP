@@ -13,6 +13,7 @@ package peers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log"
 	"net"
 	"net/netip"
@@ -27,6 +28,11 @@ import (
 // najviseTailscaleAdresa je koliko Tailscale adresa drugog čvora ovaj pamti
 const najviseTailscaleAdresa = 8
 
+// razlogBezTailscalea je odbijenica razmjene koja stigne na Tailscale
+// adresu čvora kojem je Tailscale u razmjeni isključen; pozivatelj tada
+// zaboravi njegove Tailscale adrese i zove sljedeću adresu
+const razlogBezTailscalea = "na ovom računalu razmjena preko Tailscalea je isključena ([sync] tailscale = false)"
+
 // zadaneTailscaleAdrese su Tailscale adrese ovog računala. Testovi paketa
 // ih isključuju, da ishod ne ovisi o tome ima li računalo s testovima
 // Tailscale; čvor u testu dobiva svoje (Service.tailscaleAdrese).
@@ -40,9 +46,21 @@ func (s *Service) vlastiteTailscale() []netip.Addr {
 	return zadaneTailscaleAdrese()
 }
 
+// PostaviTailscale uključuje ili isključuje Tailscale u razmjeni ([sync]
+// tailscale u gocop.toml). Vrijedi odmah, pa se smije mijenjati i dok čvor
+// radi. Isključen: čvor ne šalje svoje Tailscale adrese, ne prima tuđe, ne
+// zove ih i odbija razmjenu koja stigne na njegovu Tailscale adresu.
+func (s *Service) PostaviTailscale(ukljucen bool) { s.bezTailscalea.Store(!ukljucen) }
+
+// TailscaleUkljucen javlja smije li razmjena koristiti Tailscale
+func (s *Service) TailscaleUkljucen() bool { return !s.bezTailscalea.Load() }
+
 // mojeTailscale su Tailscale adrese koje razmjena smije koristiti; prazno
-// kad računalo nema Tailscale
+// kad računalo nema Tailscale ili je u razmjeni isključen
 func (s *Service) mojeTailscale() []netip.Addr {
+	if !s.TailscaleUkljucen() {
+		return nil
+	}
 	return s.vlastiteTailscale()
 }
 
@@ -157,4 +175,50 @@ func racunaloIzAdrese(a string) string {
 		return h
 	}
 	return strings.Trim(a, "[]")
+}
+
+// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom
+type odbijenaRazmjena struct{ razlog string }
+
+func (e odbijenaRazmjena) Error() string { return "čvor odbio razmjenu: " + e.razlog }
+
+// odbioTailscale javlja da je drugi čvor odbio razmjenu na svojoj Tailscale
+// adresi jer mu je Tailscale isključen. Ovaj tada zaboravi njegove Tailscale
+// adrese i zove sljedeću adresu, kao da ih nikad nije znao.
+func (s *Service) odbioTailscale(ctx context.Context, nodeID string, err error) bool {
+	var o odbijenaRazmjena
+	if !errors.As(err, &o) || o.razlog != razlogBezTailscalea {
+		return false
+	}
+	s.upisiTailscale(ctx, nodeID, nil)
+	return true
+}
+
+// naVlastitiTailscale javlja je li veza stigla na Tailscale adresu ovog
+// računala. Raspon sam nije dovoljan (100.64.0.0/10 daju i mobilni
+// operateri), pa adresa mora biti među adresama Tailscalea ovog računala.
+func (s *Service) naVlastitiTailscale(a net.Addr) bool {
+	ap, err := netip.ParseAddrPort(a.String())
+	if err != nil || !tailscale.JeTailscale(ap.Addr()) {
+		return false
+	}
+	return slices.Contains(s.vlastiteTailscale(), ap.Addr().Unmap())
+}
+
+// odbijTailscale odbija dolaznu razmjenu koja je stigla na Tailscale adresu
+// ovog računala dok je Tailscale u razmjeni isključen; dnevnik dobije jedan
+// redak po čvoru
+func (s *Service) odbijTailscale(c *razmjena.Conn, peer *Peer) bool {
+	if s.TailscaleUkljucen() || !s.naVlastitiTailscale(c.LocalAddr()) {
+		return false
+	}
+	tko := razmjena.PublicKeyString(c.PeerKey)
+	if peer != nil {
+		tko = label(*peer)
+	}
+	if _, vec := s.javljenTailscale.LoadOrStore(tko, true); !vec {
+		log.Printf("razmjena: %s je nazvao Tailscale adresu ovog računala (%s), a Tailscale je u razmjeni isključen ([sync] tailscale = false); razmjena je odbijena, a %s zove sljedeću adresu", tko, c.LocalAddr(), tko)
+	}
+	razmjena.Odbij(c, razlogBezTailscalea)
+	return true
 }
