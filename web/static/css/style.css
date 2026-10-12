@@ -6546,7 +6546,16 @@ h3.kis-podnaslov { margin:1rem 0 0.4rem; display:flex; align-items:center; gap:0
 @media (min-width: 900px) {
   .stranica-cvor .cards { max-width: 980px; display: grid; grid-template-columns: 1fr 1fr; align-items: start; }
   .stranica-cvor .card.wide { grid-column: 1 / -1; }
+  /* otvorene postavke čvora šire karticu, da desni stupac ne ostane prazan,
+     i stoje u dva stupca: što se mijenja i što se samo vidi */
+  .stranica-cvor .card:has(> .postavke-cvora[open]) { grid-column: 1 / -1; }
+  .postavke-cvora .postavke-stupci { display: grid; grid-template-columns: 1fr 1fr; gap: 0 2rem; align-items: start; }
 }
+/* Postavke iz gocop.toml (postavke_cvora.html): sklop na stranici Čvor i
+   mreža i kvačica s nazivom postavke */
+.postavke-cvora > summary { cursor: pointer; font-weight: 600; }
+.postavka-kvacica { display: flex; gap: 0.6rem; align-items: flex-start; cursor: pointer; }
+.postavka-kvacica input { margin-top: 0.25rem; }
 
 /* Sinkronizacija (sinkronizacija.html) */
 .stranica-sinkronizacija .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }

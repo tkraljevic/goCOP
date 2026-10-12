@@ -1025,6 +1025,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
 	server.SetPodPostavom(z.podPostavom)
+	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
+	ponovno := make(chan struct{}, 1)
+	server.SetPonovnoPokretanje(nacinRada(z.podPostavom, os.Getenv, postojiDatoteka, os.Getppid()), zatraziPonovno(ponovno))
 	skenovi := cfg.Skenovi
 	if skenovi == "" {
 		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
@@ -1047,6 +1050,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	server.SetPodaciDir(z.podaci)
 	server.SetPaketiDir(z.paketi)
+	// postavke iz gocop.toml u Administraciji, s putanjama koje čvor stvarno koristi
+	server.SetPostavkeCvora(postavkeZaPosluzitelj(cfg, cfgFrom, z, map[string]string{
+		"db": *dbPath, "arhiva": arhivaPut, "skenovi": skenovi, "podaci": z.podaci, "pakete": z.paketi}))
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {
@@ -1152,14 +1158,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-	case <-stop:
-	}
+	kod := cekajKraj(ctx, stop, ponovno)
 	fmt.Println("\nZaustavljanje goCOP poslužitelja...")
 	time.Sleep(500 * time.Millisecond)
 	fmt.Println("goCOP poslužitelj ugašen.")
-	return 0
+	return kod
 }
 
 // opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije

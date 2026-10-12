@@ -11,6 +11,13 @@ function escapeHtml(text) {
   });
 }
 
+// Natpis o podrijetlu karte (gocop.toml [karta] zasluge) je običan tekst.
+// Leaflet natpis upisuje kao HTML, pa ga treba prije pretvoriti, da oznaka
+// u natpisu ne postane dio stranice.
+function zaslugeKarte(okvir, zadano) {
+  return escapeHtml(okvir.dataset.zasluge || zadano || '');
+}
+
 function stationMapPopup(st, hideDetails) {
   var pragoviHtml = '';
   if (st.prep || st.regular || st.emergency || st.state) {
@@ -795,7 +802,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
-        attribution: okvir.dataset.zasluge || ''
+        attribution: zaslugeKarte(okvir)
       });
 
       // Ako pločice ne stignu, karta ostaje prazna — bolje je to reći nego
@@ -853,7 +860,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
-        attribution: okvir.dataset.zasluge || ''
+        attribution: zaslugeKarte(okvir)
       });
 
       var promasaja = 0;
@@ -1216,7 +1223,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajKontroleKarte(karta, platno);
       var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
-        attribution: okvir.dataset.zasluge || ''
+        attribution: zaslugeKarte(okvir)
       });
 
       var promasaja = 0;
@@ -1319,7 +1326,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajKontroleKarte(karta, platno, { lokacija: false });
       if (okvir.dataset.plocice) {
         var promasaja = 0;
-        var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+        var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: zaslugeKarte(okvir) });
         sloj.on('tileerror', function () {
           if (++promasaja < 3) return;
           var poruka = okvir.querySelector('.karta-bez-mreze');
@@ -1791,7 +1798,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var karta = L.map(platno, { scrollWheelZoom: true });
       dodajKontroleKarte(karta, platno);
       var promasaja = 0;
-      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: okvir.dataset.zasluge || '' });
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA, maxZoom: parseInt(okvir.dataset.najviseZ, 10) || 17, attribution: zaslugeKarte(okvir) });
       sloj.on('tileerror', function () {
         if (++promasaja < 3) return;
         var poruka = okvir.querySelector('.karta-bez-mreze');
@@ -1999,7 +2006,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var plociceUrl = okvir.dataset.plocice || 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
       var sloj = L.tileLayer(plociceUrl, { referrerPolicy: UPUCIVAC_PLOCICA,
         maxZoom: najvise,
-        attribution: okvir.dataset.zasluge || '© OpenStreetMap suradnici'
+        attribution: zaslugeKarte(okvir, '© OpenStreetMap suradnici')
       });
 
       var promasaja = 0;

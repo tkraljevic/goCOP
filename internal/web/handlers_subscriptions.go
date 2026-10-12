@@ -20,9 +20,10 @@ import (
 // više ne treba obriše. Uredski čvor prati sve (postavka sve = true).
 
 type SubscriptionsHandler struct {
-	peers *peers.Service
-	org   *service.OrgService
-	tmpl  *template.Template
+	peers         *peers.Service
+	org           *service.OrgService
+	tmpl          *template.Template
+	postavkeCvora izvorPostavki // gocop.toml: sve i povijest očitanja
 }
 
 func NewSubscriptionsHandler(peersSvc *peers.Service, org *service.OrgService, tmpl *template.Template) *SubscriptionsHandler {
@@ -39,6 +40,7 @@ type SubscriptionsPageData struct {
 	Areas          []models.Area
 	ThisYear       int
 	Predlog        *peers.Subscription // pravilo iz zaduženja korisnika, ako ga još nema
+	Postavke       *PostavkeStranice   // postavke ovog čvora iz gocop.toml; nil za ne-administratora
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -64,6 +66,7 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 	data.Sectors, _ = h.org.ListSectors(ctx)
 	data.Areas, _ = h.org.ListAreas(ctx, "")
 	data.Predlog = predlogPretplate(currUser, data.Rules, data.ThisYear)
+	data.Postavke = h.postavkeCvora.za(r, "/pretplate")
 	if err := h.tmpl.ExecuteTemplate(w, "pretplate.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

@@ -14,6 +14,8 @@
   </div>
 </div>
 
+{{template "trakaPonovnogPokretanja" .Postavke}}
+
 
 <div class="cards">
 
@@ -21,12 +23,13 @@
     <h2>Ovaj čvor</h2>
     <dl class="kv">
       <dt>Naziv</dt><dd>{{.NodeName}}</dd>
-      <dt>Identifikator</dt><dd class="mono">{{.NodeID}}</dd>
+      <dt>Ime čvora u mreži</dt><dd class="mono">{{.NodeID}}</dd>
       <dt>Javni ključ</dt><dd class="mono text-xs">{{.NodePublicKey}}</dd>
       <dt>Verzija</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
     <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
+    {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{end}}
   </div>
 
   <div class="card">
@@ -141,6 +144,7 @@
     </div>
     {{end}}
     {{end}}
+    {{with .Postavke}}{{template "postavkeCvora" (.Dio "mreza")}}{{end}}
   </div>
 
   {{if .Permissions.IsGlobalAdmin}}

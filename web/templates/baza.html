@@ -15,10 +15,11 @@
   </div>
 </div>
 
+{{template "trakaPonovnogPokretanja" .Postavke}}
 
 <div class="reg-card p-4">
   <dl class="reg-facts">
-    <div><dt>Datoteka</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
+    <div><dt>Datoteka baze</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
     <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
     <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
     <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>
@@ -32,6 +33,14 @@
   <div class="reading-meta mt-2">Po vrsti: {{range $k, $v := .Stats.ByEntity}}<span class="reg-chip">{{$k}} {{$v}}</span> {{end}}</div>
   {{end}}
 </div>
+
+{{with .Postavke}}
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Postavke ovog čvora (gocop.toml)</h2>
+  <p class="page-desc">Gdje su baza, arhiva i mape s datotekama, i gdje je sama datoteka postavki.</p>
+  {{template "postavkeCvora" (.Dio "baza")}}
+</section>
+{{end}}
 
 <section class="detail-section">
   <h2>{{icon "trash"}} Sažimanje knjige</h2>

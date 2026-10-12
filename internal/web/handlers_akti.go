@@ -28,6 +28,7 @@ type AktiHandler struct {
 	stations                                     *service.StationService
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
 	tmplSpranca                                  *template.Template
+	postavkeCvora                                izvorPostavki // gocop.toml na stranici Opcije (karta)
 	tmplPosta, tmplPostaAdmin                    *template.Template
 	tmplSanducic, tmplPismo, tmplNovoPismo       *template.Template
 	tmplImenik                                   *template.Template

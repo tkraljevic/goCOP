@@ -82,6 +82,9 @@ type Server struct {
 	prijave        *service.PrijavaService // prijave i obavijesti s terena
 	drugiKorak     *service.DrugiKorak     // drugi korak prijave izvana (PIN); nil dok se ne postavi
 	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
+	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
+	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
 	skenoviDir     string                  // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
@@ -632,6 +635,7 @@ func NewServer(
 		templates:          templates,
 		poslovi:            poslovi.NoviRegistar(),
 		mux:                http.NewServeMux(),
+		pokrenut:           time.Now(),
 	}
 
 	s.setupRoutes()
@@ -1233,6 +1237,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(http.HandlerFunc(subsH.HandleAdd)))
 	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
 	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
+	subsH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /pretplate/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/pretplate", http.HandlerFunc(subsH.ShowSubscriptions))))
 
 	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
 	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
@@ -1266,6 +1272,8 @@ func (s *Server) setupRoutes() {
 	aktiH.SetOpcije(s.templates["administracija_opcije.html"])
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
+	aktiH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/opcije/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/opcije", http.HandlerFunc(aktiH.ShowOpcije))))
 	aktiH.SetTema(s.templates["administracija_tema.html"])
 	s.mux.Handle("GET /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.ShowTema)))
 	s.mux.Handle("POST /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.HandleTema)))
@@ -1433,6 +1441,8 @@ func (s *Server) setupRoutes() {
 	dbH.SetOpcije(s.opcije)
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
+	dbH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/baza/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/baza", http.HandlerFunc(dbH.ShowMaintenance))))
 
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
@@ -1443,6 +1453,12 @@ func (s *Server) setupRoutes() {
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
 	s.mux.Handle("POST /settings/uloge", s.authMiddleware(http.HandlerFunc(settingsH.HandleUloge)))
+	// Postavke ovog čvora (gocop.toml) i ponovno pokretanje: samo
+	// administrator, izravno iz lokalne mreže (postavke_cvora.go)
+	settingsH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /settings/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/settings", http.HandlerFunc(settingsH.ShowSettings))))
+	s.mux.Handle("POST /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handlePonovnoPokretanje)))
+	s.mux.Handle("GET /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handleStanjePokretanja)))
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {
 			return nil
@@ -1509,6 +1525,8 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
+	case "settings.html", "pretplate.html", "baza.html", "administracija_opcije.html":
+		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}
 	return dijelovi
 }
@@ -1992,6 +2010,9 @@ func (s *Server) KatalogIzdanja() (arhiva.Katalog, error) {
 
 func (s *Server) SetAddr(addr string) {
 	s.addr = addr
+	if s.postavke != nil {
+		s.postavke.postaviAddr(addr)
+	}
 }
 
 // danTjednaHR piše dan riječju, kako stoji u naslovu lista dnevnika.

@@ -197,7 +197,10 @@ Jedinica `gocop.service`:
 - postavlja `TZ=Europe/Zagreb`, kao i spremnik: prikaz je uvijek u zoni
   Zagreba, ali neka vremena (unos epizode, vrijeme snimanja fotografije)
   čitaju se u mjesnoj zoni računala;
-- ponovno pokreće program ako padne (`Restart=on-failure`);
+- ponovno pokreće program ako padne (`Restart=on-failure`) i kad ga
+  administrator ponovno pokrene iz programa (izlazni kod 75);
+- javlja programu da je usluga sustava (`GOCOP_NADZOR=systemd`), pa
+  Administracija nudi gumb *Ponovno pokreni čvor*;
 - daje programu samo pravo vezanja na port 80
   (`CAP_NET_BIND_SERVICE`); bez njega bi program prešao na 8080;
 - ostatak sustava drži samo za čitanje (`ProtectSystem=strict`,
@@ -324,6 +327,19 @@ treba `sudo` (`sudo grep …`, `sudo nano /var/lib/gocop/gocop.toml`).
 Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
 `sudo systemctl restart gocop`. Zastavice u jedinici imaju prednost pred
 datotekom; jedinica zadaje samo `-db`.
+
+Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
+i centar sa stranice prijave te razmak sinkronizacije (*Čvor, mreža i
+sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
+karta (*Opcije*); do svih se dolazi iz Administracije (opis u
+[INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
+tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
+`/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
+komentare. Naziv čvora, port weba i portove razmjene, putanje i posrednike
+mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* uredno
+ugasi čvor, a systemd ga za pet sekundi pokrene, isto kao
+`sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi
+ga ugašenog.
 
 Česte izmjene:
 

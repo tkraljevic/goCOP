@@ -34,6 +34,9 @@ ExecStart=/usr/local/bin/gocop -db /var/lib/gocop/gocop.db
 # poslužitelji su često u UTC-u. Isto postavlja i spremnik (Dockerfile).
 Environment=TZ=Europe/Zagreb
 
+# Čvor zna da je usluga sustava, pa u Administraciji nudi ponovno
+# pokretanje: uredno se ugasi i izađe s kodom 75, a systemd ga podigne.
+Environment=GOCOP_NADZOR=systemd
 Restart=on-failure
 RestartSec=5s
 TimeoutStopSec=30s
