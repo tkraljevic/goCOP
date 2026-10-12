@@ -396,20 +396,10 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return err
 
 	case EntityJournalSheets:
-		var s models.JournalSheet
-		if err := json.Unmarshal(v.Payload, &s); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, sheetUpsert, sheetArgs(&s)...)
-		return err
+		return primijeniListDnevnika(ctx, tx, v.Payload)
 
 	case EntityJournalEntries:
-		var e models.JournalEntry
-		if err := json.Unmarshal(v.Payload, &e); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, entryUpsert, entryArgs(&e)...)
-		return err
+		return primijeniUpisDnevnika(ctx, tx, v.Payload)
 
 	case EntityDezurstva:
 		var d models.Dezurstvo

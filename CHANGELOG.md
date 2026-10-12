@@ -17,6 +17,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   a čvorovi su mogli pokazivati različitu bilješku, ovisno o tome koja je
   prva stigla. Sad svi pokazuju noviju od dviju. Isto vrijedi za ispravke
   arhive.
+- **Obrisan dnevnik ne ostavlja upise za sobom.** Upisi dnevnika obrisanog
+  ranije na novom su čvoru javljali grešku pri svakoj razmjeni. Sad se
+  preskaču, kao i na čvoru na kojem je dnevnik obrisan. Brisanje dnevnika
+  sad kao obrisan bilježi i upis koji to računalo nije imalo u dnevniku, pa
+  ga drugi čvorovi više ne primaju.
+
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s
