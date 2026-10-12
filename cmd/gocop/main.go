@@ -1025,6 +1025,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
 	server.SetPodPostavom(z.podPostavom)
+	// postavke iz gocop.toml u Administraciji i ponovno pokretanje odande
+	server.SetPostavkeCvora(postavkeZaPosluzitelj(cfg, cfgFrom, z))
+	ponovno := make(chan struct{}, 1)
+	server.SetPonovnoPokretanje(nacinRada(z.podPostavom, os.Getenv, postojiDatoteka, os.Getppid()), zatraziPonovno(ponovno))
 	skenovi := cfg.Skenovi
 	if skenovi == "" {
 		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
@@ -1152,14 +1156,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-	case <-stop:
-	}
+	kod := cekajKraj(ctx, stop, ponovno)
 	fmt.Println("\nZaustavljanje goCOP poslužitelja...")
 	time.Sleep(500 * time.Millisecond)
 	fmt.Println("goCOP poslužitelj ugašen.")
-	return 0
+	return kod
 }
 
 // opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije

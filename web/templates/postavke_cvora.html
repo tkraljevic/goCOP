@@ -1,0 +1,104 @@
+{{/* Postavke ovog čvora iz gocop.toml (internal/web/postavke_cvora.go):
+     blok na stranici kojoj postavka pripada, traka kad promjena čeka
+     ponovno pokretanje i gumb za ponovno pokretanje u kartici Ovaj čvor. */}}
+
+{{define "trakaPonovnogPokretanja"}}{{with .}}{{if .CekaPonovno}}
+<div class="alert alert-warning" role="status">{{icon "refresh-cw"}} Promjena vrijedi nakon ponovnog pokretanja. <a href="/settings#ponovno-pokretanje">Ponovno pokreni čvor</a></div>
+{{end}}{{end}}{{end}}
+
+{{define "postavkeCvora"}}{{with .}}
+<div id="{{.Sidro}}" class="mt-3 max-w-40">
+  {{if .Naslov}}<h3>{{.Naslov}}</h3>{{end}}
+  <p class="form-help mb-3">Vrijede samo na ovom čvoru. Program ih čita pri pokretanju, pa promjena vrijedi tek nakon ponovnog pokretanja.</p>
+  {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
+  {{with .Datoteka}}
+  <div class="form-group mb-4">
+    <label class="form-label">Datoteka postavki</label>
+    <div class="mono wrap-anywhere">{{.Put}}</div>
+    <div class="form-help">{{if .Postoji}}Mijenjana {{vrijemeHR .Mijenjano}}.{{else}}Datoteke nema, pa čvor radi sa zadanim postavkama i zastavicama pokretanja. Ako je premještena (na Unraidu zna je odnijeti mover), vratite je i ponovno pokrenite čvor. Kad se postavke spreme u programu, nastaje nova, s objašnjenjima.{{end}}</div>
+    {{if .Kopije}}<div class="form-help">Prethodne inačice stoje uz nju: {{range $i, $k := .Kopije}}{{if $i}}, {{end}}<span class="mono">{{$k.Ime}}</span>{{end}}. Čuva se zadnjih pet.</div>{{end}}
+    {{if .Greska}}<div class="form-help c-danger">Datoteka se ne da pročitati: {{.Greska}}</div>{{end}}
+  </div>
+  {{end}}
+  {{if and .Zabrana .ImaUredivih}}<p class="form-help">{{.Zabrana}}</p>{{end}}
+  {{if and .Uredivo .ImaUredivih}}
+  <form method="POST" action="{{.Akcija}}#{{.Sidro}}">
+    <input type="hidden" name="dio" value="{{.Dio}}">
+    <input type="hidden" name="otisak" value="{{.Otisak}}">
+    {{range .Promjenjive}}{{template "stavkaPostavke" .}}{{end}}
+    <div class="d-flex gap-2 mb-4"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi postavke čvora</button></div>
+  </form>
+  {{else}}{{range .Promjenjive}}{{template "stavkaPostavke" .}}{{end}}{{end}}
+  {{with .Ostale}}{{if $.ImaUredivih}}<p class="form-help mb-3"><b>Ove se mijenjaju samo u datoteci gocop.toml</b>, u uređivaču teksta, a vrijede nakon ponovnog pokretanja.</p>{{end}}
+  {{range .}}{{template "stavkaPostavke" .}}{{end}}{{end}}
+</div>
+{{end}}{{end}}
+
+{{define "stavkaPostavke"}}
+{{if .OpisOdjeljka}}<p class="form-help mb-2">{{.OpisOdjeljka}}</p>{{end}}
+<div class="form-group mb-4" data-postavka="{{.Kljuc}}">
+  <label class="form-label"{{if .Uredivo}} for="postavka-{{.Kljuc}}"{{end}}>{{.Naziv}}</label>
+  {{if .Uredivo}}
+    {{if eq .Vrsta "da-ne"}}
+    <input type="hidden" name="postavka.{{.Kljuc}}" value="0">
+    <label class="uloga-red"><input type="checkbox" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" value="1"{{if .Ukljuceno}} checked{{end}}> <span>da</span></label>
+    {{else if eq .Vrsta "popis"}}
+    <textarea class="form-control mono" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" rows="3">{{.Polje}}</textarea>
+    {{else}}
+    <input type="text" class="form-control{{if eq .Vrsta "broj"}} max-w-10{{end}}" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" value="{{.Polje}}"{{if eq .Vrsta "broj"}} inputmode="numeric"{{end}}>
+    {{end}}
+  {{else if .Tajno}}<div class="muted">skriveno</div>
+  {{else}}<div class="mono wrap-anywhere">{{if .Prikaz}}{{.Prikaz}}{{else}}<span class="muted">prazno</span>{{end}}</div>
+  {{end}}
+  {{if .Greska}}<div class="form-help c-danger">{{.Greska}}</div>{{end}}
+  {{if .Zastavica}}<div class="form-help">Vrijedi zastavica <span class="mono">{{.Zastavica}}</span> s kojom je čvor pokrenut{{if .UDatoteci}}; u datoteci je <span class="mono">{{.UDatoteci}}</span>{{end}}.</div>
+  {{else if .CekaPonovno}}<div class="form-help">U datoteci je <span class="mono">{{if .UDatoteci}}{{.UDatoteci}}{{else}}prazno{{end}}</span>, a čvor još radi s <span class="mono">{{if .Prikaz}}{{.Prikaz}}{{else}}praznim{{end}}</span>. Promjena vrijedi nakon ponovnog pokretanja.</div>{{end}}
+  <div class="form-help"><span class="mono">{{.Oznaka}}</span>{{if .Opis}} · {{.Opis}}{{end}}</div>
+  {{if and .Uredivo .Primjeri}}<div class="form-help mono">{{range .Primjeri}}{{.}}<br>{{end}}</div>{{end}}
+  {{if .Razlog}}<div class="form-help">{{.Razlog}}</div>{{end}}
+</div>
+{{end}}
+
+{{define "ponovnoPokretanje"}}{{with .}}
+<div id="ponovno-pokretanje" class="mt-3">
+  <h3>Ponovno pokretanje</h3>
+  <p class="form-help">{{.Opis}}</p>
+  {{if .Nudi}}
+  <div class="actions"><button type="button" class="btn btn-secondary" id="gumb-ponovno" data-potvrda="{{.Potvrda}}" data-nevraca="{{.Nevraca}}" data-pokrenut="{{.Pokrenut}}">{{icon "refresh-cw"}} Ponovno pokreni čvor</button></div>
+  <p id="ponovno-stanje" class="muted" role="status"></p>
+  <script>
+  (function () {
+    const gumb = document.getElementById('gumb-ponovno');
+    const stanje = document.getElementById('ponovno-stanje');
+    const oznaka = async () => {
+      const r = await fetch('/settings/ponovno-pokretanje', {headers: {'Accept': 'application/json'}, cache: 'no-store'});
+      if (!r.ok) throw new Error(String(r.status));
+      return (await r.json()).pokrenut;
+    };
+    gumb.addEventListener('click', async () => {
+      if (!confirm(gumb.dataset.potvrda)) return;
+      gumb.disabled = true;
+      try {
+        const r = await fetch('/settings/ponovno-pokretanje', {method: 'POST', headers: {'Accept': 'application/json'}});
+        const o = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(o.error || 'Čvor nije ponovno pokrenut.');
+      } catch (e) { stanje.textContent = e.message; gumb.disabled = false; return; }
+      stanje.textContent = 'Čvor se gasi i ponovno pokreće. Stranica će se sama osvježiti kad se vrati.';
+      const rok = Date.now() + 3 * 60 * 1000;
+      const cekaj = async () => {
+        try {
+          if (await oznaka() !== gumb.dataset.pokrenut) {
+            location.href = '/settings?success=' + encodeURIComponent('Čvor je ponovno pokrenut.') + '#ponovno-pokretanje';
+            return;
+          }
+        } catch (e) { /* čvor još ne odgovara */ }
+        if (Date.now() > rok) { stanje.textContent = gumb.dataset.nevraca; gumb.disabled = false; return; }
+        setTimeout(cekaj, 2000);
+      };
+      setTimeout(cekaj, 2000);
+    });
+  })();
+  </script>
+  {{else if .Zabrana}}<p class="form-help">{{.Zabrana}}</p>{{end}}
+</div>
+{{end}}{{end}}

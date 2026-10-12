@@ -14,6 +14,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+{{template "trakaPonovnogPokretanja" .Postavke}}
 
 <section class="detail-section" style="margin-top:0; max-width:48rem;">
   <form method="POST" action="/administracija/opcije">
@@ -97,4 +98,12 @@
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>
   </form>
 </section>
+
+{{with .Postavke}}
+<section class="detail-section" style="max-width:48rem;">
+  <h2>{{icon "map"}} Karta: postavke ovog čvora (gocop.toml)</h2>
+  <p class="page-desc">Odakle čvor uzima podlogu karte. Za razliku od prekidača iznad, ne vrijedi na drugim čvorovima.</p>
+  {{template "postavkeCvora" (.Dio "opcije")}}
+</section>
+{{end}}
 {{end}}

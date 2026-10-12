@@ -32,6 +32,8 @@ type DBMaintHandler struct {
 	dbPath func() string
 	tmpl   *template.Template
 	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+	// gocop.toml: gdje je, kopije i putanje
+	postavkeCvora izvorPostavki
 }
 
 // SetOpcije daje rukovatelju uvid u opće prekidače
@@ -80,6 +82,7 @@ type DBMaintPageData struct {
 	Journals          int
 	Sessions          int
 	Import            *peers.ImportReport
+	Postavke          *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -113,6 +116,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 		data.KeepDays = days
 	}
 	data.DBPath = h.dbPath()
+	data.Postavke = h.postavkeCvora.za(r, "/administracija/baza")
 	if fi, err := os.Stat(data.DBPath); err == nil {
 		data.SizeBytes = fi.Size()
 	}

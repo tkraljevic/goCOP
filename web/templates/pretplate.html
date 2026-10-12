@@ -17,6 +17,8 @@
 </div>
 
 
+{{template "trakaPonovnogPokretanja" .Postavke}}
+
 {{if .All}}
 <div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: sva očitanja, dnevnike i prijave svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.</div>
 {{end}}
@@ -151,4 +153,11 @@
   <div class="reg-empty">Računalo još ne drži ni očitanja ni dnevnike po područjima.</div>
   {{end}}
 </section>
+
+{{with .Postavke}}
+<section class="detail-section">
+  <h2>{{icon "settings"}} Postavke ovog čvora (gocop.toml)</h2>
+  {{template "postavkeCvora" (.Dio "pretplate")}}
+</section>
+{{end}}
 {{end}}

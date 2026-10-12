@@ -34,6 +34,9 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata && \
     mkdir -p /data /arhiva && chown 99:100 /data /arhiva
 ENV TZ=Europe/Zagreb
+# Čvor zna da radi u spremniku: ponovno pokretanje iz Administracije
+# izlazi s kodom 75, a spremnik se vraća samo uz --restart
+ENV GOCOP_NADZOR=docker
 
 COPY --from=gradnja /gocop /usr/local/bin/gocop
 

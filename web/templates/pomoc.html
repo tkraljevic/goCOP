@@ -1560,6 +1560,26 @@
         pokretanjem sa zastavicom <code>-novi-kljuc-cvora</code>. Postojeći čvor bez
         <code>gocop.toml</code> ime uzima iz baze i ne zapisuje novi primjer postavki, nego u
         dnevniku javlja da datoteke nema.</li>
+      <li id="postavke-cvora"><strong>Postavke ovog čvora (gocop.toml)</strong> — dio postavki iz
+        datoteke mijenja se i ovdje, svaka na stranici kojoj pripada: javna adresa i centar na
+        stranici prijave u kartici <em>Ovaj čvor</em>, razmak automatske sinkronizacije pod
+        <em>Mreža</em>, <em>Prati sve</em> i povijest tuđih očitanja na stranici <em>Što ovo
+        računalo prati</em>, izvor karte pod <em>Opcije</em>. <em>Održavanje baze</em> pokazuje
+        gdje je datoteka, kad je mijenjana i njezine prethodne inačice. Mijenja ih globalni
+        administrator, s računala na kojem je čvor ili iz lokalne mreže; izvana i kroz tunel samo
+        se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
+        uz polje što ne valja. Stara datoteka ostaje uz novu kao kopija, a ručni komentari u njoj
+        se ne gube.
+        <br>Ime čvora, adresa weba i portovi, putanje baze i arhive te pouzdani posrednici samo se
+        prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao nedostupan ili bi
+        drukčije prepoznavao zahtjeve izvana. Kad je čvor pokrenut sa zastavicom (npr.
+        <code>-addr</code> u spremniku), uz postavku piše da vrijedi zastavica.
+        <br>Program datoteku čita samo pri pokretanju, pa promjena vrijedi tek nakon ponovnog
+        pokretanja; dotad stranice to javljaju na vrhu. Gumb <em>Ponovno pokreni čvor</em> u kartici
+        <em>Ovaj čvor</em> uredno ga ugasi, a pokrene ga ono što ga je i pokrenulo: Postava, usluga
+        sustava ili Docker (samo uz <code>--restart</code>). Čvor pokrenut ručno u terminalu gumba
+        nema; zaustavite ga (Ctrl+C) i pokrenite istom naredbom. Postavke e-pošte vodi stranica
+        <em>E-pošta</em>.</li>
       <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
         (vlasnik napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
