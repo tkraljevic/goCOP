@@ -85,8 +85,12 @@ func TestMrtvaBravaSePreuzimaIJavlja(t *testing.T) {
 // oduzela. Bolje stati nego dvaput graditi.
 func TestBravaBezPidaSeNeOduzima(t *testing.T) {
 	uz := filepath.Join(t.TempDir(), "vodostaji.db")
-	os.WriteFile(uz, []byte("x"), 0o644)
-	os.WriteFile(uz+ImeBrave, []byte(`{"sto":"nepoznato","tko":"?"}`), 0o644)
+	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(uz+ImeBrave, []byte(`{"sto":"nepoznato","tko":"?"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	if _, err := Uzmi(uz, "gradnja", "ja"); err == nil {
 		t.Error("brava bez pida je oduzeta")
@@ -96,8 +100,12 @@ func TestBravaBezPidaSeNeOduzima(t *testing.T) {
 // Neupotrebljiv sadržaj brave ne smije zaključati arhivu zauvijek.
 func TestPokvarenaBravaSePreuzima(t *testing.T) {
 	uz := filepath.Join(t.TempDir(), "vodostaji.db")
-	os.WriteFile(uz, []byte("x"), 0o644)
-	os.WriteFile(uz+ImeBrave, []byte("ovo nije json"), 0o644)
+	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(uz+ImeBrave, []byte("ovo nije json"), 0o644); err != nil {
+		t.Fatal(err)
+	}
 
 	b, err := Uzmi(uz, "gradnja", "ja")
 	if err != nil {

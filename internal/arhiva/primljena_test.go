@@ -83,7 +83,9 @@ func TestIstiBrojSDrugimSadrzajemSeOdbija(t *testing.T) {
 		t.Fatal(err)
 	}
 	drugi := paketLetve(t, 3, func(d *sql.DB) {
-		d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`)
+		if _, err := d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`); err != nil {
+			t.Fatal(err)
+		}
 	})
 	err := Ugradi(db, put, drugi)
 	if err == nil {
@@ -116,7 +118,9 @@ func TestNovijeIzdanjeProlazi(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := Ugradi(db, put, paketLetve(t, 4, func(d *sql.DB) {
-		d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`)
+		if _, err := d.Exec(`UPDATE ocitanja SET vrijednost = vrijednost + 1`); err != nil {
+			t.Fatal(err)
+		}
 	})); err != nil {
 		t.Fatalf("novije izdanje odbijeno: %v", err)
 	}
