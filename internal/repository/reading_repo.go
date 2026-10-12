@@ -45,7 +45,7 @@ func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) strin
 		_ = q.QueryRowContext(ctx, `SELECT s.area_id FROM section_stations ss JOIN sections s ON s.code = ss.section_code
 			WHERE ss.station_id = ? ORDER BY s.code LIMIT 1`, rd.StationID).Scan(&area)
 	}
-	return ledger.ChannelFor(ledger.ChannelReadings, area, rd.MeasuredAt.Year())
+	return ledger.ChannelFor(ledger.ChannelReadings, area, rd.MeasuredAt.In(models.Zagreb).Year())
 }
 
 func readingArgs(rd *models.Reading) []any {

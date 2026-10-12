@@ -178,6 +178,12 @@ func (s *VodocuvarService) pripremiZa(ctx context.Context, u *models.User, dan t
 	if l, err := s.postojeciZaDan(ctx, u.ID.String(), dan); err != nil || l != nil {
 		return l, err
 	}
+	return s.noviList(ctx, u, d, dan)
+}
+
+// noviList slaže nov list vodočuvara u za dan, iz njegove terenske dužnosti
+// d: radno vrijeme, prilike, očitanja i otvoreni zadaci
+func (s *VodocuvarService) noviList(ctx context.Context, u *models.User, d *models.Duty, dan time.Time) (*models.VodocuvarskiList, error) {
 	l := &models.VodocuvarskiList{UserID: u.ID.String(), Ime: u.FullName, Datum: dan, Od: "07:30", Do: "15:30", Cvor: s.cvor}
 	if s.radnoVrijeme != nil {
 		if od, do := s.radnoVrijeme(ctx); od != "" && do != "" {
@@ -281,6 +287,10 @@ func (s *VodocuvarService) ocitanja(ctx context.Context, userID string, dan time
 type UnosLista struct {
 	Od, Do, Prilike, Naredbe, Opis, Zapazanja string
 	Zadaci                                    map[string]UnosZadatka // po ID-u zadatka
+	// Otvoreno je kad je vodočuvar otvorio obrazac lista, kako ga je web
+	// potvrdio potpisom; nula kad ga nema. Obrazac otvoren prije ponoći
+	// sprema se na svoj dan i poslije nje (pripremiZaSpremanje).
+	Otvoreno time.Time
 }
 
 // UnosZadatka je kako je vodočuvar označio zadatak na listu
@@ -341,7 +351,7 @@ func (s *VodocuvarService) Spremi(ctx context.Context, u *models.User, dan time.
 // vodočuvaru: pri predaji javlja zadatke koje je u evidenciji već zaključio
 // drugi list
 func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, dan time.Time, unos UnosLista, predaj bool) (*models.VodocuvarskiList, string, error) {
-	l, err := s.Pripremi(ctx, u, dan)
+	l, err := s.pripremiZaSpremanje(ctx, u, dan, unos.Otvoreno)
 	if err != nil {
 		return nil, "", err
 	}
@@ -387,6 +397,19 @@ func (s *VodocuvarService) SpremiSPorukom(ctx context.Context, u *models.User, d
 		return nil, "", err
 	}
 	return l, "", nil
+}
+
+// pripremiZaSpremanje je Pripremi za spremanje obrasca. List za dan koji je
+// prošao, a nema ga, otvara se samo kad je obrazac otvoren na taj dan: tko
+// ga je otvorio prije ponoći, a spremio poslije nje, list jest otvorio na
+// njegov dan, pa se upisano ne gubi (Odluke (11. 10. 2026.)). Broj dobiva
+// kao svaki list kojemu je dan počeo.
+func (s *VodocuvarService) pripremiZaSpremanje(ctx context.Context, u *models.User, dan, otvoreno time.Time) (*models.VodocuvarskiList, error) {
+	l, err := s.Pripremi(ctx, u, dan)
+	if !errors.Is(err, ErrProsliDan) || otvoreno.IsZero() || !istiDan(otvoreno, dan) {
+		return l, err
+	}
+	return s.noviList(ctx, u, terenskaDuznost(u), dan)
 }
 
 // spremi upisuje list bez predaje (nacrt, upis rukovoditelja). Nepredan

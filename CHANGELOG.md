@@ -6,6 +6,28 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Dionice: isto ugroženo područje uz više nasipa.** Općina ili naselje
+  upisano uz jedan nasip nije se dalo upisati uz drugi nasip ni uz cijelu
+  poddionicu: obrazac je drugi upis tiho preskakao, i pri ručnom dodavanju
+  i pri prijepisu iz dokumentacije. Sad se odbija samo isto područje uz
+  isti nasip.
+- **Kartica dionice bez nasipa: ugroženo područje uz objekte.** Na
+  poddionici bez nasipa ugroženo područje stoji u retku uz objekte, po
+  županijama i općinama, kao i uz nasip na drugim dionicama, a ne više
+  iznad tablice; tako ga piše i izvoz kartice. Ugroženo područje bez nasipa
+  na poddionici koja nasipe ima ostaje iznad tablice.
+- **Dnevnik: istodobni upisi se ne gube.** Kad dvoje u isto vrijeme upiše
+  bilješku ili naredbu na isti list, ili jedan upisuje dok drugi parafira,
+  ovjerava ili objavljuje prijavu, ili dok vodočuvar sprema ili predaje
+  obrazac, list zadržava sve upisano. Dosad su oba spremanja javljala
+  uspjeh, a na listu je ostajalo samo zadnje; u knjizi verzija bilo je
+  zapisano oboje.
+- **Dnevni list otvoren prije ponoći sprema se na svoj dan** (Odluke (11.
+  10. 2026.)). Obrazac otvoren prije ponoći, a prvi put spremljen poslije
+  nje, više se ne odbija jer je dan prošao: upisano se sprema na list dana
+  za koji je obrazac otvoren. Obrazac to dokazuje oznakom otvaranja koju
+  potpisuje program; nakon ponovnog pokretanja programa oznaka više ne
+  vrijedi i obrazac se otvara iznova.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
@@ -24,6 +46,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
     pa dnevna prognoza ostaje izdana, ali uz izdanje stoji upozorenje da
     točnost nije provjerena; dnevna koja iz nje računa i satna niz rijeku
     označene su upitnima.
+- **Očitanja iz prvog sata nove godine.** Takvo očitanje upisivalo se u
+  novu godinu, a kad bi ga netko ispravio ili obrisao, prelazilo je u
+  prethodnu. Čvor koji prati samo novu godinu tako nije vidio ni ispravak ni
+  brisanje. Godina se sad uvijek računa po hrvatskom vremenu.
 
 ## 0.0.35-alfa — 11. 10. 2026.
 
