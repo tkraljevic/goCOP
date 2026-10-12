@@ -339,6 +339,38 @@ func TestZapamtiUparivanje(t *testing.T) {
 	}
 }
 
+// Zaboravljen čvor ostaje u knjizi kao spomenik, koji putuje svima. U njemu
+// nema bilješke o razmjeni, pa ni adrese iz poruke o grešci (npr. Tailscale
+// adrese koja nije odgovorila).
+func TestZaboravljenCvorBezBiljeskeORazmjeni(t *testing.T) {
+	c := clanovi(t, "ured-vukovar", "laptop-baranja", "ured-firme")
+	ured, laptop, firma := c[0], c[1], c[2]
+	izmisljeniTailnet(t, ured)
+	upoznaj(t, ured, laptop)
+	ured.upisiTailscale(ctxRub, laptop.node.ID, []string{"100.101.0.9:1"})
+	if _, _, err := ured.SyncWith(ctxRub, laptop.node.ID); err == nil {
+		t.Fatal("razmjena s laptopom koji ne odgovara")
+	}
+	if p, _ := ured.GetPeer(ctxRub, laptop.node.ID); p == nil || !strings.Contains(p.LastSyncNote, "100.101.0.9") {
+		t.Fatalf("bilješka o grešci: %+v", p)
+	}
+	if err := ured.ForgetPeer(ctxRub, laptop.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	nemaTailscaleaUKnjizi(t, ured)
+	if _, _, err := ured.SyncWith(ctxRub, firma.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	nemaTailscaleaUKnjizi(t, firma)
+	var spomenik string
+	if err := firma.db.QueryRow(`SELECT payload FROM record_versions WHERE entity = ? AND entity_id = ? AND archived = 1`, EntityPeers, laptop.node.ID).Scan(&spomenik); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(spomenik, "last_sync_note") || strings.Contains(spomenik, "last_seen") {
+		t.Errorf("spomenik nosi bilješku o razmjeni: %s", spomenik)
+	}
+}
+
 // Veza koja stigne s Tailscale adrese ne upisuje tu adresu u zapis čvora:
 // viđena adresa ide u knjigu samo kad nije Tailscale
 func TestVidjenaTailscaleAdresaNeIdeUKnjigu(t *testing.T) {

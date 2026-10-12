@@ -479,6 +479,10 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
 		return err
 	}
+	// Spomenik putuje svima, kao i verzija iz SavePeer: bilješke o razmjeni
+	// opisuju odnos dvaju čvorova i ne putuju. U bilješci o grešci zna stajati
+	// i adresa koju svi ne smiju vidjeti (npr. Tailscale).
+	p.LastSeen, p.LastSync, p.LastSyncNote = nil, nil, ""
 	if _, err := s.rec.Archive(ctx, tx, EntityPeers, nodeID, p); err != nil {
 		return err
 	}
