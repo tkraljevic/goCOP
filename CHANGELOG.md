@@ -59,22 +59,34 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Tailscalea traži PIN, i preko IPv6.
 - **Razmjena preko Tailscalea.** Laptop kod kuće nije mogao izravno do
   uredskog čvora, iako ih Tailscale spaja; sve je išlo preko Unraida i
-  tunela. Sad dva čvora koja oba imaju Tailscale jave jedan drugome svoje
-  Tailscale adrese kad razgovaraju izravno, u istoj mreži ili kroz tunel, i
-  svaki ih pamti samo kod sebe. Razmjena ih zove iza adresa iz lokalne
-  mreže, a ispred tunela. Te adrese nikad ne ulaze u popis adresa čvora,
-  koji dobivaju svi čvorovi mreže, pa ih čvorovi bez Tailscalea ne vide i
-  ne zovu. Njima se razmjena ne mijenja.
+  tunela. Sad čvor s Tailscaleom zove i Tailscale adrese drugih vaših
+  čvorova, iza adresa iz lokalne mreže, a ispred tunela. Prvu adresu čvor
+  zapamti kad se dva čvora jednom upare preko Tailscale adrese, a ostale
+  adrese jave jedan drugome u razgovoru preko Tailscalea. Te adrese svaki
+  čvor pamti samo kod sebe. Nikad ne ulaze u popis adresa čvora, koji
+  dobivaju svi čvorovi mreže, i ne idu u razgovor koji ne ide preko
+  Tailscalea. Čvorovi bez Tailscalea ih zato ne vide i ne zovu, a razmjena
+  im je ista kao prije.
 - **Postavka `[sync] tailscale`.** Zadano je uključena. Uz `false` razmjena
   radi kao da Tailscalea nema, npr. za probu razmjene preko interneta, a
   razmjenu koja stigne na Tailscale adresu tog računala odbije. Na prijavu
   ne utječe.
+- **Mac s drugim VPN-om nije računalo s Tailscaleom.** Na macOS-u svaki VPN
+  dobiva karticu utunN, a Cloudflare WARP, NetBird i NordVPN Meshnet daju
+  adresu iz istog raspona kao Tailscale. Program sad utun karticu broji kao
+  Tailscale samo kad ima i Tailscaleovu IPv6 adresu. Mac u Tailscale mreži s
+  isključenim IPv6 zato radi kao računalo bez Tailscalea.
+- **Zaboravljen čvor u knjizi nema bilješke o razmjeni.** Kad administrator
+  zaboravi čvor, zapis u knjizi nosio je i zadnju poruku o grešci razmjene,
+  a u njoj zna stajati adresa koju ostali čvorovi ne trebaju vidjeti. Taj
+  zapis razmjena nosi svim čvorovima mreže. Sad ide bez bilješke.
 - **Istodobne razmjene bez „database is locked”.** Uredski čvor je pri
   istodobnom primanju s Unraida javio tu grešku i verzija nije ušla u
   knjigu. Na Windowsu je istodobni rad vjerojatno ostavio dio očitanja samo
   u knjizi. Sad primljeno upisuje jedna razmjena u isto vrijeme. Razgovor
-  pritom ne čeka: kad je upis zauzet dulje od pola minute, razgovor završi,
-  a primljeno se upiše odmah nakon njega.
+  koji nema ništa za upis ne čeka. Kad je upis zauzet dulje od pola minute,
+  razgovor završi bez upisa i primljeno stigne sljedećom razmjenom; ploča
+  razmjene to pokaže kao grešku s razlogom.
 
 ## 0.0.36-alfa — 12. 10. 2026.
 

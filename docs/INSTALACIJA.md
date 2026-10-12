@@ -112,15 +112,24 @@ se `https://<domena>`; u lokalnoj mreži prvo se pokušava izravna veza.
 Tunel nije automatsko otkrivanje čvorova niti zamjena za uparivanje.
 
 **Tailscale (od 0.0.37-alfa).** Na računalu s Tailscaleom razmjena koristi i
-Tailscale adrese drugih čvorova koji ga imaju, na istom portu 4710. Te adrese
-nikad ne ulaze u popis adresa čvora, jer taj popis dobivaju svi čvorovi
-mreže. Dva čvora s Tailscaleom jave ih jedan drugome kad razgovaraju izravno
-(u istoj lokalnoj mreži ili kroz tunel) i svaki ih pamti samo kod sebe. Do
-tog prvog izravnog razgovora razmjena ide kao i prije. Razmjena ih zove iza
-adresa iz lokalne mreže, a ispred tunela; ploča razmjene ih pokazuje uz
-oznaku „(Tailscale)”. Čvor bez Tailscalea ih ne šalje, ne prima i ne zove,
-pa mu je razgovor isti kao prije. Tailscale adresa ne može se upisati ni
-ručno među adrese čvora.
+Tailscale adrese drugih vaših čvorova, na istom portu 4710. Te adrese nikad ne
+ulaze u popis adresa čvora, jer taj popis dobivaju svi čvorovi mreže, i ne
+upisuju se ručno pod Domenske čvorove. Čvor ih javlja samo u razgovoru koji
+ide preko Tailscalea, pa ih čvor izvan vaše Tailscale mreže ne dobiva, ma što
+o sebi javio. Svaki čvor ih pamti samo kod sebe.
+
+Da dva vaša čvora počnu razmjenjivati preko Tailscalea, uparite ih jednom
+preko Tailscale adrese: na jednom kliknite **Čekaj drugi čvor**, a na drugom
+upišite Tailscale adresu prvoga (npr. `100.101.0.2`) i kliknite **Nazovi
+čvor**. Isto vrijedi za čvorove koji su već upareni. Nakon toga prvi
+razgovor preko Tailscalea donese i ostale adrese, u oba smjera. Razmjena ih
+zove iza adresa iz lokalne mreže, a ispred tunela; ploča razmjene ih pokazuje
+uz oznaku „(Tailscale)”. Čvor bez Tailscalea ih ne šalje, ne prima i ne zove,
+pa mu je razgovor isti kao prije.
+
+Na macOS-u program Tailscale prepoznaje po kartici utunN s Tailscaleovom IPv6
+adresom (`fd7a:115c:a1e0::/48`), jer utun karticu imaju i drugi VPN-ovi. Mac u
+Tailscale mreži u kojoj je IPv6 isključen radi kao računalo bez Tailscalea.
 
 `[sync] tailscale = false` u `gocop.toml` isključuje Tailscale u razmjeni,
 npr. za probu razmjene preko interneta. Čvor tada ne javlja svoje Tailscale
