@@ -162,17 +162,19 @@ func (j Journal) SmijePrepravakZapisa() bool { return j.Reconstruction }
 
 func (j Journal) IsDefense() bool { return j.Kind == JournalKindDefense }
 
-// VodiFirma javlja navodi li naslovnica dnevnika usluge firmu osobe u:
-// kao izvođača firmu s računa osobe (OrgName), ili osobu kao voditelja
-// usluga. Oba su slobodan upis, pa se uspoređuje naziv do pravnog oblika i
-// prvog zareza (jezgraNaziva), a on mora biti isti: „Primjer d.o.o.,
-// Primjerska 1” i „PRIMJER doo” jesu ista firma, a „Primjer” i „Primjer
-// Primjerica d.d.” nisu. Prazan upis ne navodi nikoga.
+// VodiFirma javlja navodi li naslovnica dnevnika usluge kao izvođača firmu
+// s računa osobe u (OrgName). Oba su slobodan upis, pa se uspoređuje naziv
+// do pravnog oblika i prvog zareza (jezgraNaziva), a on mora biti isti:
+// „Primjer d.o.o., Primjerska 1” i „PRIMJER doo” jesu ista firma, a
+// „Primjer” i „Primjer Primjerica d.d.” nisu. Prazan upis ne navodi nikoga.
+// Voditelj usluga s naslovnice ne veže dnevnik ni uz koga: ime osobe svatko
+// mijenja sam na svom profilu, a imenjaci rade i u drugim firmama (Odluke
+// (8. 10. 2026.), pitanje 1: poslovođa vidi samo dnevnik svoje firme).
 func (j Journal) VodiFirma(u *User) bool {
 	if u == nil {
 		return false
 	}
-	return istiNaziv(j.Contractor, u.OrgName) || istiNaziv(j.ContractorLead, u.FullName)
+	return istiNaziv(j.Contractor, u.OrgName)
 }
 
 // istiNaziv javlja navode li dva slobodna upisa isti naziv (jezgraNaziva);

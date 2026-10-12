@@ -47,6 +47,10 @@ type AktService struct {
 	// ovjeren akt u dnevnike. Bez oboje (u testu) pravilo ne vrijedi.
 	aktivna func(ctx context.Context, sektor string) *models.Journal
 	objavi  func(ctx context.Context, u *models.User, a *models.Akt, j *models.Journal) []string
+	// pocetak vraća najranije otvoren dnevnik COP-a sektora, čije je
+	// otvaranje donja granica „Vrijedi od”; bez njega granica je otvaranje
+	// dnevnika koji vraća aktivna
+	pocetak func(ctx context.Context, sektor string) *models.Journal
 	// povijest drži po jednu bravu po sektoru (sektor → *sync.Mutex):
 	// izvođenje povijesti obrane, od čitanja akata do upisa epizoda, jedan
 	// je kritični odsječak, pa se ovjera, storno i krug čvora ne preklapaju
@@ -62,6 +66,13 @@ func (s *AktService) bravaPovijesti(sektor string) *sync.Mutex {
 // SetObrana daje servisu pravilo aktivne obrane i objavu akata u dnevnike
 func (s *AktService) SetObrana(aktivna func(ctx context.Context, sektor string) *models.Journal, objavi func(ctx context.Context, u *models.User, a *models.Akt, j *models.Journal) []string) {
 	s.aktivna, s.objavi = aktivna, objavi
+}
+
+// SetPocetakObrane daje servisu najranije otvoren dnevnik COP-a sektora:
+// „Vrijedi od” ne smije biti prije otvaranja aktivne obrane, ni kad je u
+// sektoru otvoren i noviji dnevnik (Odluke (8. 10. 2026.), pitanje 17)
+func (s *AktService) SetPocetakObrane(pocetak func(ctx context.Context, sektor string) *models.Journal) {
+	s.pocetak = pocetak
 }
 
 // AktivnaObrana vraća otvoren dnevnik COP-a sektora, ili nil kad je obrana
@@ -680,7 +691,7 @@ func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) err
 	if err != nil {
 		return err
 	}
-	if err := vrijediZaOvjeru(a, dnevnik, time.Now()); err != nil {
+	if err := vrijediZaOvjeru(a, s.dnevnikGranice(ctx, a, dnevnik), time.Now()); err != nil {
 		return err
 	}
 	if err := s.uspostavaJosZaPrekid(ctx, a); err != nil {

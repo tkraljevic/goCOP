@@ -171,3 +171,64 @@ func TestSazimanjeCuvaNavedeneZapise(t *testing.T) {
 		t.Error("sažimanje zatvorene baze nije javilo grešku")
 	}
 }
+
+// Pravilo ZadrziPo: entitet zadržava i zadnju verziju svake vrijednosti
+// ključa u sadržaju (npr. svake ovjere akta), a ne samo zadnju verziju
+// zapisa; starije verzije iste vrijednosti i dalje nestaju, a ostali
+// entiteti sažimaju se kao prije.
+func TestSazimanjeZadrzavaZadnjuVerzijuPoKljucu(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "ured")
+	ctx := context.Background()
+	var akt []string
+	for _, sadrzaj := range []map[string]any{
+		{"status": "NACRT"},
+		{"status": "OVJEREN", "ovjera_kod": "K1"},
+		{"status": "OVJEREN", "ovjera_kod": "K1", "storno": true},
+		{"status": "OVJEREN", "ovjera_kod": "K2"},
+		{"status": "NACRT"},
+	} {
+		id, err := rec.Record(ctx, db, "akti", "a-1", sadrzaj)
+		if err != nil {
+			t.Fatal(err)
+		}
+		akt = append(akt, id)
+	}
+	for _, x := range []struct {
+		id   string
+		prag int
+	}{{"st-1", 600}, {"st-1", 610}, {"st-2", 500}} {
+		if _, err := rec.Record(ctx, db, "stations", x.id, probni{"Županja", x.prag}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := db.Exec(`UPDATE record_versions SET created_at = ?`, time.Now().AddDate(0, 0, -200)); err != nil {
+		t.Fatal(err)
+	}
+	rok := time.Now().AddDate(0, 0, -90)
+	pravila := []ZadrziPo{{Entity: "akti", Kljuc: "$.ovjera_kod"}}
+
+	if n, err := rec.Compactable(ctx, rok); err != nil || n != 5 {
+		t.Fatalf("bez pravila za brisanje su 4 verzije akta i 1 vodomjera, javljeno %d (%v)", n, err)
+	}
+	if n, err := rec.Compactable(ctx, rok, pravila...); err != nil || n != 3 {
+		t.Fatalf("uz pravilo za brisanje su prvi nacrt, prva verzija ovjere K1 i stari vodomjer, javljeno %d (%v)", n, err)
+	}
+	if n, err := rec.Compact(ctx, rok, pravila...); err != nil || n != 3 {
+		t.Fatalf("sažimanje uz pravilo: obrisano %d, %v", n, err)
+	}
+	hist, err := rec.History(ctx, "akti", "a-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ostale []string
+	for _, v := range hist {
+		ostale = append(ostale, v.VersionID)
+	}
+	if len(ostale) != 3 || ostale[0] != akt[4] || ostale[1] != akt[3] || ostale[2] != akt[2] {
+		t.Errorf("akt zadržava zadnji nacrt i zadnju verziju ovjera K2 i K1: %v (verzije %v)", ostale, akt)
+	}
+	if h, _ := rec.History(ctx, "stations", "st-1"); len(h) != 1 {
+		t.Errorf("ostali entiteti sažimaju se kao prije: %d verzija", len(h))
+	}
+}

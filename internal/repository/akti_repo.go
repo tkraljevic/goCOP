@@ -265,13 +265,33 @@ func (r *AktiRepository) OvjeriAkt(ctx context.Context, a *models.Akt, dovrsi fu
 	return tx.Commit()
 }
 
+// drugeOvjereAkata su verzije akata u knjizi koje nose drugu ovjeru od one
+// na površini: isti nacrt ovjeren je i na drugom čvoru, dok među njima nije
+// bilo veze. Kod ovjere nastaje pri svakoj ovjeri (zakljuciOvjeru), pa drugi
+// kod znači drugu ovjeru; kasnija verzija iste ovjere (npr. poništenje)
+// nosi isti kod. Na površini stoji jedna ovjera (aktNaPovrsini), a obje
+// ostaju valjane i potpisane (Odluke (8. 10. 2026.), pitanje 4).
+const drugeOvjereAkata = `SELECT v.version_id, v.entity_id, v.payload FROM record_versions v JOIN akti p ON p.id = v.entity_id
+	WHERE v.entity = '` + EntityAkti + `' AND json_extract(v.payload, '$.status') = '` + models.AktOvjeren + `'
+		AND COALESCE(json_extract(v.payload, '$.ovjera_kod'), '') <> p.ovjera_kod`
+
+// aktiIsteOznakeUpit: druge ovjere i oznake u sukobu slažu se jednom
+// (MATERIALIZED, GROUP BY), a ne posebno za svaki akt, pa vrijeme raste s
+// brojem akata i verzija u knjizi, a ne s njihovim umnoškom
+const aktiIsteOznakeUpit = `WITH druge AS MATERIALIZED (SELECT d.entity_id, json_extract(d.payload, '$.sektor') AS sektor,
+		json_extract(d.payload, '$.godina') AS godina, json_extract(d.payload, '$.broj') AS broj FROM (` + drugeOvjereAkata + `) d),
+	oznake AS MATERIALIZED (SELECT sektor, godina, broj FROM akti WHERE broj > 0 GROUP BY sektor, godina, broj HAVING COUNT(*) > 1
+		UNION SELECT sektor, godina, broj FROM druge)
+	SELECT ` + aktColumns + ` FROM akti a WHERE a.broj > 0 AND (a.id IN (SELECT entity_id FROM druge)
+		OR (a.sektor, a.godina, a.broj) IN (SELECT sektor, godina, broj FROM oznake))
+	ORDER BY a.sektor, a.godina, a.broj, a.created_at`
+
 // AktiIsteOznake su akti s brojem čiju oznaku (sektor, broj, godina) nosi
-// još koji akt: u pravilu akti dvaju čvorova ovjereni bez veze, koje je
-// razmjena spojila (Odluke (8. 10. 2026.), pitanje 4)
+// još koji akt ili druga ovjera drugog akta, i akti s drugom ovjerom: u
+// pravilu ovjere dvaju čvorova bez veze, koje je razmjena spojila (Odluke
+// (8. 10. 2026.), pitanje 4)
 func (r *AktiRepository) AktiIsteOznake(ctx context.Context) ([]models.Akt, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT `+aktColumns+` FROM akti a WHERE a.broj > 0 AND EXISTS (
-		SELECT 1 FROM akti b WHERE b.sektor = a.sektor AND b.godina = a.godina AND b.broj = a.broj AND b.id <> a.id)
-		ORDER BY a.sektor, a.godina, a.broj, a.created_at`)
+	rows, err := r.db.QueryContext(ctx, aktiIsteOznakeUpit)
 	if err != nil {
 		return nil, err
 	}
@@ -287,14 +307,41 @@ func (r *AktiRepository) AktiIsteOznake(ctx context.Context) ([]models.Akt, erro
 	return out, rows.Err()
 }
 
-const rjesenjeOznakeUpsert = `INSERT INTO akti_rjesenja_oznaka (id, sektor, oznaka, akti, napomena, rijesio_id, rijesio, kad)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, oznaka = excluded.oznaka, akti = excluded.akti,
+// DrugeOvjereAkata su druge ovjere akata iz knjige verzija (drugeOvjereAkata),
+// svaka u svojoj najnovijoj verziji, npr. poništena na čvoru koji ju je dao
+func (r *AktiRepository) DrugeOvjereAkata(ctx context.Context) ([]models.Akt, error) {
+	rows, err := r.db.QueryContext(ctx, drugeOvjereAkata+` ORDER BY v.version_id DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []models.Akt
+	vidjena := map[string]bool{}
+	for rows.Next() {
+		var verzija, id, payload string
+		var a models.Akt
+		if err := rows.Scan(&verzija, &id, &payload); err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal([]byte(payload), &a); err != nil {
+			return nil, fmt.Errorf("verzija %s akta %s: %w", verzija, id, err)
+		}
+		if k := a.ID + "|" + a.OvjeraKod; !vidjena[k] {
+			vidjena[k] = true
+			out = append(out, a)
+		}
+	}
+	return out, rows.Err()
+}
+
+const rjesenjeOznakeUpsert = `INSERT INTO akti_rjesenja_oznaka (id, sektor, oznaka, akti, kodovi, napomena, rijesio_id, rijesio, kad)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+	ON CONFLICT(id) DO UPDATE SET sektor = excluded.sektor, oznaka = excluded.oznaka, akti = excluded.akti, kodovi = excluded.kodovi,
 		napomena = excluded.napomena, rijesio_id = excluded.rijesio_id, rijesio = excluded.rijesio, kad = excluded.kad`
 
 func rjesenjeOznakeArgs(x *models.RjesenjeOznake) []any {
 	akti, _ := json.Marshal(x.Akti)
-	return []any{x.ID, x.Sektor, x.Oznaka, string(akti), x.Napomena, x.RijesioID, x.Rijesio, x.Kad.UTC()}
+	return []any{x.ID, x.Sektor, x.Oznaka, string(akti), jsonIliPrazno(x.Kodovi), x.Napomena, x.RijesioID, x.Rijesio, x.Kad.UTC()}
 }
 
 // SaveRjesenjeOznake upisuje rješenje sukoba oznake kao zaseban zapis s
@@ -325,7 +372,7 @@ func (r *AktiRepository) SaveRjesenjeOznake(ctx context.Context, x *models.Rjese
 
 // ListRjesenjaOznaka su sva rješenja sukoba oznaka, najstarije prvo
 func (r *AktiRepository) ListRjesenjaOznaka(ctx context.Context) ([]models.RjesenjeOznake, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT id, sektor, oznaka, akti, napomena, rijesio_id, rijesio, kad
+	rows, err := r.db.QueryContext(ctx, `SELECT id, sektor, oznaka, akti, kodovi, napomena, rijesio_id, rijesio, kad
 		FROM akti_rjesenja_oznaka ORDER BY kad, id`)
 	if err != nil {
 		return nil, err
@@ -334,11 +381,12 @@ func (r *AktiRepository) ListRjesenjaOznaka(ctx context.Context) ([]models.Rjese
 	var out []models.RjesenjeOznake
 	for rows.Next() {
 		var x models.RjesenjeOznake
-		var akti string
-		if err := rows.Scan(&x.ID, &x.Sektor, &x.Oznaka, &akti, &x.Napomena, &x.RijesioID, &x.Rijesio, &x.Kad); err != nil {
+		var akti, kodovi string
+		if err := rows.Scan(&x.ID, &x.Sektor, &x.Oznaka, &akti, &kodovi, &x.Napomena, &x.RijesioID, &x.Rijesio, &x.Kad); err != nil {
 			return nil, err
 		}
 		citajJSON(akti, &x.Akti)
+		citajJSON(kodovi, &x.Kodovi)
 		out = append(out, x)
 	}
 	return out, rows.Err()
@@ -396,8 +444,11 @@ func (r *AktiRepository) ListAkti(ctx context.Context, f FiltarAkata) ([]models.
 	}
 	if t := strings.TrimSpace(f.Trazi); t != "" {
 		like := "%" + t + "%"
-		where = append(where, "(station_name LIKE ? OR dionice LIKE ? OR napomena LIKE ? OR ovjerio LIKE ? OR izradio LIKE ? OR ovjera_kod LIKE ?)")
-		args = append(args, like, like, like, like, like, like)
+		// kod ovjere nalazi akt i po drugoj ovjeri, koja je samo u knjizi
+		// verzija (drugeOvjereAkata)
+		where = append(where, "(station_name LIKE ? OR dionice LIKE ? OR napomena LIKE ? OR ovjerio LIKE ? OR izradio LIKE ? OR ovjera_kod LIKE ?"+
+			" OR id IN (SELECT entity_id FROM record_versions WHERE entity = '"+EntityAkti+"' AND json_extract(payload, '$.ovjera_kod') LIKE ?))")
+		args = append(args, like, like, like, like, like, like, like)
 	}
 	q := `SELECT ` + aktColumns + ` FROM akti WHERE ` + strings.Join(where, " AND ") + ` ORDER BY vrijedi DESC, created_at DESC`
 	if f.Limit > 0 {

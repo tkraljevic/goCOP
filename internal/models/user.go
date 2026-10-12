@@ -381,13 +381,6 @@ func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
 	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
 }
 
-// CuvaIzricito javlja čuva li vodočuvar po ovom zaduženju dionicu na
-// branjenom području tako da je zaduženje izričito navodi; zaduženje
-// cijelog područja se ovdje ne broji
-func (d Duty) CuvaIzricito(areaID int, dionica string) bool {
-	return d.cuvaPodrucje(areaID) && d.navodiDionicu(dionica)
-}
-
 // cuvaPodrucje javlja je li ovo zaduženje vodočuvara na branjenom području
 func (d Duty) cuvaPodrucje(areaID int) bool {
 	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
@@ -405,7 +398,8 @@ type VerzijaZaduzenja struct {
 // Za svako zaduženje (stanje na površini, i opozvano i isteklo) idu njegove
 // ranije verzije iz knjige, redom nastanka, a kao zadnja stanje s površine,
 // od trenutka zadnje verzije u knjizi. Zaduženje bez verzija u knjizi stoji
-// u stanju s površine od svog nastanka.
+// u stanju s površine od svog nastanka. Zaduženje stoji od nastanka i kad
+// mu prva verzija u knjizi dolazi poslije (odNastanka).
 func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []VerzijaZaduzenja {
 	var out []VerzijaZaduzenja
 	for _, d := range zaduzenja {
@@ -413,9 +407,29 @@ func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []Verzi
 		if n := len(ranije); n > 0 {
 			ranije, od = ranije[:n-1], ranije[n-1].Od
 		}
-		out = append(append(out, ranije...), VerzijaZaduzenja{Duty: d, Od: od})
+		out = append(out, odNastanka(append(ranije, VerzijaZaduzenja{Duty: d, Od: od}), d.CreatedAt)...)
 	}
 	return out
+}
+
+// odNastanka produljuje povijest jednog zaduženja unatrag do njegova
+// nastanka. Zaduženje upisano mimo knjige verzija (imenik pri prvom
+// pokretanju, starija baza) dobiva prvu verziju tek pri prvoj izmjeni,
+// opozivu ili produljenju, a i verzija upisana uz nastanak nosi trenutak
+// malo kasniji. Do prve verzije zaduženje je stajalo u njezinu obliku i
+// aktivno, jer zaduženje nastaje aktivno, a tek opoziv ostavlja verziju:
+// prva verzija koja je opoziv dobiva ispred sebe aktivnu.
+func odNastanka(povijest []VerzijaZaduzenja, nastanak time.Time) []VerzijaZaduzenja {
+	prva := povijest[0]
+	if !nastanak.Before(prva.Od) {
+		return povijest
+	}
+	if prva.IsActive {
+		povijest[0].Od = nastanak
+		return povijest
+	}
+	prva.IsActive, prva.Od = true, nastanak
+	return append([]VerzijaZaduzenja{prva}, povijest...)
 }
 
 // verzijeZaduzenja su verzije iz knjige jednog zaduženja, redom kojim dolaze
@@ -450,6 +464,34 @@ func ZaduzenjaUDanu(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
 		}
 	}
 	return out
+}
+
+// ZaduzenjaZaZapis su zaduženja uz koja je vezan zapis (dnevni list,
+// prijava s terena) dana dan: ZaduzenjaUDanu. Zapis s dana prije nego što
+// je osoba u programu dobila ikoje zaduženje (list ili prijava preneseni iz
+// ranije evidencije, npr. uvozom iz BP16) vezan je uz zaduženja s kojima je
+// u program ušla: ona koja su vrijedila na dan nastanka njezina prvog
+// zaduženja. Zapis iz vremena između dvaju zaduženja nije vezan ni uz jedno.
+func ZaduzenjaZaZapis(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
+	if prvi, ima := pocetakPovijesti(povijest); ima && pocetakDana(dan).Before(pocetakDana(prvi)) {
+		dan = prvi
+	}
+	return ZaduzenjaUDanu(povijest, dan)
+}
+
+// pocetakPovijesti je najraniji trenutak od kojeg stoji ikoja verzija u
+// povijesti zaduženja; bez povijesti ga nema
+func pocetakPovijesti(povijest []VerzijaZaduzenja) (time.Time, bool) {
+	if len(povijest) == 0 {
+		return time.Time{}, false
+	}
+	prvi := povijest[0].Od
+	for _, v := range povijest[1:] {
+		if v.Od.Before(prvi) {
+			prvi = v.Od
+		}
+	}
+	return prvi, true
 }
 
 // vrijediIzmedu javlja vrijedi li verzija zaduženja u nekom trenutku od od

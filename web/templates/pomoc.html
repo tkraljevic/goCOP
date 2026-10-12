@@ -1123,11 +1123,18 @@
       Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
       zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
       koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
-      poslije isteklo, opozvano ili izmijenjeno; list s dana prije zaduženja nije vezan), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
+      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
+      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
       i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
       kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
-      upisuje bilješku, ali ne parafira i ne zadaje zadatke. Voditelj usluga / poslovođa
+      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
+      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
       izvođača, strojari i skladištari bez vodočuvarske dužnosti dnevnik ne vide.</p>
+    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
+      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
+      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
+      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
+      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
 
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
     <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
@@ -1138,11 +1145,13 @@
       list za dan događaja; kad za taj dan, koji je prošao, lista nema ili je list tog dana
       prenesen iz ranije evidencije, upisuje se na današnji list, uz dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
       rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena
-      njegova dionica ili objekt koji je u registru na njegovoj dionici; onu u kojoj nije navedena
+      njegova dionica ili objekt koji je u registru na njegovoj dionici; i onu u kojoj nije navedena
       ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan (vodočuvar
-      je tada čuvao njegovu dionicu ili cijelo područje); i onu vodočuvara kojemu je na dan
-      prijave njegova dionica bila upisana na zaduženju, osim kad prijava navodi drugu dionicu s
-      tog zaduženja. Dnevni list i njegov potpisani PDF nose
+      je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu ili objekt
+      s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva. U polju Dionica broje
+      se šifre dionica područja iz registra, bez obzira na velika slova i na to jesu li odvojene
+      zarezom, razmakom ili veznikom; ono što nije šifra dionice tog područja (npr. pogrešno
+      upisana šifra) ne navodi nijednu dionicu. Dnevni list i njegov potpisani PDF nose
       oznaku, vrstu i naslov svake prijave objavljene za taj dan, kao dio zapisa koji vodočuvar
       potpisuje: tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati.
       Uprava je nakon pregleda može označiti <strong>pregledanom i riješenom</strong>; to je stanje predmeta,
@@ -1174,8 +1183,8 @@
       Ovo provjerava računalo s novim izdanjem programa. Računalo sa starijom verzijom (0.0.34) i
       dalje pušta da nacrt sastavi ili mijenja i netko izvan centra, kao i dosad; takav nacrt ili
       izmjena stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše.</p>
-    <p>„Vrijedi od” ne smije biti prije otvaranja Dnevnika COP-a aktivne obrane u sektoru ni više
-      od 7 dana unaprijed: takav nacrt program ne sastavlja i ne ovjerava (npr. nacrt iz obrane čiji
+    <p>„Vrijedi od” ne smije biti prije otvaranja Dnevnika COP-a aktivne obrane u sektoru (kad je
+      otvoreno više dnevnika, onog otvorenog najranije) ni više od 7 dana unaprijed: takav nacrt program ne sastavlja i ne ovjerava (npr. nacrt iz obrane čiji
       je dnevnik u međuvremenu zatvoren; tada treba novi nacrt). Vrijeme više od 24 sata unatrag (akt
       unesen naknadno) ili više od 3 dana unaprijed (najava) prolazi tek kad potvrdite pitanje
       „Vrijedi od je … – jeste li sigurni?”; potvrda se bilježi uz akt. Nacrt koji tu potvrdu nema
@@ -1209,19 +1218,27 @@
       ispravkom oznake) i na stranici akta ga označava riješenim, s kratkom napomenom; rješenje
       razmjenom vide svi čvorovi. Akt ovjeren na jednom čvoru ostaje ovjeren i kad drugi čvor,
       koji ovjeru još nije primio, isti nacrt ispravi, ponovno mu složi primatelje ili ga obriše:
-      ta izmjena nacrta nakon razmjene ne vrijedi.</p>
+      ta izmjena nacrta nakon razmjene ne vrijedi. Ako ga drugi čvor i sam ovjeri, akt ima dvije
+      ovjere, svaku sa svojim brojem i kodom, i obje ostaju valjane i potpisane: u popisu akt stoji
+      s novijom, a uz njega crveno „isti nacrt ovjeren je i kao …”, s kodom i čvorom druge ovjere;
+      stranica akta pokazuje i njezin potpis. Upis koda bilo koje od njih u pretragu popisa nalazi akt. Ako oznaku druge
+      ovjere nosi drugi akt, i on stoji crveno. Svaki takav sukob rješava se kao sukob oznake.</p>
 
     <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
     <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
       voditeljem i nadzorom te dnevne listove s vremenskim prilikama, vodostajima, osobljem,
       strojevima, radovima, napomenama i nalozima. Svaka ekipa istog dana dobiva svoj list.
       Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području
-      na kojem ima dužnost: one na čijoj je naslovnici kao izvođač upisana firma s njegova računa
-      ili on kao voditelj usluga, i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao
-      zapis). Naziv firme uspoređuje se do pravnog oblika i prvog zareza, bez obzira na velika
-      slova i točke („Primjer d.o.o., Primjerica” i „PRIMJER DOO” su ista firma), i mora biti isti:
-      dio naziva nije ista firma. Dnevnike drugih firmi ne vidi, ni na svom ni na drugim
-      područjima, a ni dnevnik bez izvođača na naslovnici u kojem nije pisao.</p>
+      na kojem ima dužnost: one na čijoj je naslovnici kao izvođač upisana firma s njegova računa,
+      i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao zapis). Naziv firme
+      uspoređuje se do pravnog oblika i prvog zareza, bez obzira na velika slova i točke
+      („Primjer d.o.o., Primjerica” i „PRIMJER DOO” su ista firma), i mora biti isti: dio naziva
+      nije ista firma. Ime voditelja usluga na naslovnici ne otvara dnevnik, jer ime svatko mijenja
+      sam na svom profilu; firmu na računu izvođača upisuje i mijenja uprava, a ne on sam. Dnevnike
+      drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na
+      naslovnici u kojem nije pisao. Tako ostaje i kad mu se dužnost opozove, istekne ili
+      promijeni u ulogu izvan ustroja obrane (vodočuvar, gost i slično): tada ne vidi ni dnevnike
+      svoje firme na području na kojem više nema dužnost.</p>
     <p>Upisi imaju redne brojeve bez rupa i ne brišu se nego storniraju. Izvođač i nadzor
       potvrđuju list; nakon obje potvrde list se više ne mijenja. Gotov dnevnik ispisuje se u
       obliku obrasca za potpis.</p>

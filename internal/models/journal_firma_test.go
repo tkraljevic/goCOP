@@ -3,11 +3,12 @@ package models
 import "testing"
 
 // Dnevnik vodi firma osobe kad naslovnica kao izvođača navodi firmu s
-// računa osobe ili osobu kao voditelja usluga. Uspoređuje se naziv do
-// pravnog oblika (d.o.o., d.d., j.d.o.o., …) i do prvog zareza, bez obzira
-// na velika slova, interpunkciju i razmake, i mora biti isti: sjedište iza
-// njega se ne gleda, a dio naziva nije ista firma. Prazan upis ne navodi
-// nikoga. Podaci su izmišljeni.
+// računa osobe. Uspoređuje se naziv do pravnog oblika (d.o.o., d.d.,
+// j.d.o.o., …) i do prvog zareza, bez obzira na velika slova, interpunkciju
+// i razmake, i mora biti isti: sjedište iza njega se ne gleda, a dio naziva
+// nije ista firma. Prazan upis ne navodi nikoga. Osoba upisana kao
+// voditelj usluga ne čini dnevnik dnevnikom svoje firme: ime svatko mijenja
+// sam na profilu (Odluke (8. 10. 2026.), pitanje 1). Podaci su izmišljeni.
 func TestDnevnikVodiFirma(t *testing.T) {
 	marko := &User{FullName: "Marko Markić", OrgName: "Primjer d.o.o."}
 	slucajevi := []struct {
@@ -20,7 +21,9 @@ func TestDnevnikVodiFirma(t *testing.T) {
 		{"naziv i sjedište", Journal{Contractor: "PRIMJER  d.o.o., Primjerska 1, Primjerica"}, marko, true},
 		{"račun nosi i sjedište", Journal{Contractor: "Primjer"}, &User{OrgName: "Primjer d.o.o., Primjerska 1"}, true},
 		{"druga firma", Journal{Contractor: "Primjerak d.o.o."}, marko, false},
-		{"voditelj usluga", Journal{Contractor: "Drugi radovi d.o.o.", ContractorLead: "marko markić, ing."}, marko, true},
+		{"voditelj usluga u drugoj firmi", Journal{Contractor: "Drugi radovi d.o.o.", ContractorLead: "marko markić, ing."}, marko, false},
+		{"voditelj usluga bez firme na računu", Journal{Contractor: "Drugi radovi d.o.o.", ContractorLead: "Marko Markić"}, &User{FullName: "Marko Markić"}, false},
+		{"voditelj usluga u svojoj firmi", Journal{Contractor: "Primjer d.o.o.", ContractorLead: "Ivo Ivić"}, marko, true},
 		{"drugi voditelj", Journal{Contractor: "Drugi radovi d.o.o.", ContractorLead: "Ivo Ivić"}, marko, false},
 		{"prazna naslovnica", Journal{}, marko, false},
 		{"račun bez firme", Journal{Contractor: "Primjer d.o.o."}, &User{FullName: "Ana Anić"}, false},
@@ -36,8 +39,6 @@ func TestDnevnikVodiFirma(t *testing.T) {
 		{"račun nosi dio naziva", Journal{Contractor: "Primjer Primjerica d.d."}, &User{OrgName: "Primjer"}, false},
 		{"naslovnica nosi dio naziva", Journal{Contractor: "Primjer"}, &User{OrgName: "Primjer Primjerica d.d."}, false},
 		{"naslovnica nosi samo mjesto", Journal{Contractor: "Primjerica"}, &User{OrgName: "Primjer d.o.o., Primjerica"}, false},
-		{"samo prezime voditelja", Journal{ContractorLead: "Markić"}, &User{FullName: "Marko Markić"}, false},
-		{"račun s prezimenom", Journal{ContractorLead: "Marko Markić"}, &User{FullName: "Markić"}, false},
 	}
 	for _, s := range slucajevi {
 		if got := s.j.VodiFirma(s.u); got != s.ocekivano {

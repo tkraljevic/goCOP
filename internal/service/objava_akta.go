@@ -29,11 +29,46 @@ func (s *JournalService) AktivnaObrana(ctx context.Context, sektor string) *mode
 		return nil
 	}
 	for i := range dnevnici {
-		if dnevnici[i].EndedAt == nil && !dnevnici[i].Reconstruction && !dnevnici[i].Ovjeren() {
+		if otvorenDnevnikObrane(dnevnici[i]) {
 			return &dnevnici[i]
 		}
 	}
 	return nil
+}
+
+// otvorenDnevnikObrane javlja nosi li dnevnik COP-a aktivnu obranu: nije
+// zaključen, ovjeren ni prijepis
+func otvorenDnevnikObrane(j models.Journal) bool {
+	return j.EndedAt == nil && !j.Reconstruction && !j.Ovjeren()
+}
+
+// PocetakAktivneObrane vraća najranije otvoren dnevnik COP-a sektora, s
+// poznatim otvaranjem: od tada traje aktivna obrana i kad je u sektoru
+// otvoren još koji dnevnik (novi godišnji dok stari još nije zaključen, ili
+// po jedan na dva čvora). Njegovo je otvaranje donja granica „Vrijedi od”
+// u aktu (Odluke (8. 10. 2026.), pitanje 17). nil kad takvog nema.
+func (s *JournalService) PocetakAktivneObrane(ctx context.Context, sektor string) *models.Journal {
+	if s == nil || sektor == "" {
+		return nil
+	}
+	dnevnici, err := s.repo.ListCOPJournals(ctx, sektor)
+	if err != nil {
+		return nil
+	}
+	return najranijiOtvoren(dnevnici)
+}
+
+// najranijiOtvoren je otvoren dnevnik obrane (otvorenDnevnikObrane) s
+// najranijim poznatim otvaranjem, ili nil
+func najranijiOtvoren(dnevnici []models.Journal) *models.Journal {
+	var out *models.Journal
+	for i := range dnevnici {
+		j := &dnevnici[i]
+		if otvorenDnevnikObrane(*j) && j.StartedAt != nil && (out == nil || j.StartedAt.Before(*out.StartedAt)) {
+			out = j
+		}
+	}
+	return out
 }
 
 // ObjavaAkta upisuje ovjeren akt u dnevnike: obavijest u dnevnik COP-a,

@@ -104,6 +104,9 @@ type AktiPageData struct {
 	Sukobi              map[string]models.SukobOznake
 	Sukob               models.SukobOznake
 	SmijeRijesitiOznaku bool
+	// PotpisiOvjera su stanja elektroničkog potpisa drugih ovjera akta
+	// (isti nacrt ovjeren i na drugom čvoru), po kodu ovjere
+	PotpisiOvjera map[string]string
 	// Pregled je popis primatelja nacrta složen iznova, kakav bi akt dobio
 	// ovjerom (Odluke (8. 10. 2026.), pitanje 19); nil za ovjeren akt i za
 	// onoga tko s nacrtom ne radi
@@ -435,7 +438,17 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 func (h *AktiHandler) sukobAkta(ctx context.Context, s *service.AktService, perms *models.UserPermissions, a *models.Akt, data *AktiPageData) {
 	h.sukobiOznaka(ctx, s, data)
 	data.Sukob = data.Sukobi[a.ID]
-	data.SmijeRijesitiOznaku = len(data.Sukob.Drugi) > 0 && service.SmijeRijesitiOznaku(perms, a)
+	data.SmijeRijesitiOznaku = data.Sukob.Ima() && service.SmijeRijesitiOznaku(perms, a)
+	data.PotpisiOvjera = potpisiOvjera(data.Sukob.Ovjere)
+}
+
+// potpisiOvjera su stanja elektroničkog potpisa ovjera, po kodu ovjere
+func potpisiOvjera(ovjere []models.Akt) map[string]string {
+	out := map[string]string{}
+	for i := range ovjere {
+		out[ovjere[i].OvjeraKod] = service.ProvjeriPotpis(&ovjere[i])
+	}
+	return out
 }
 
 // pregledPrimatelja upisuje u stranicu nacrta ono što ovjera traži da se

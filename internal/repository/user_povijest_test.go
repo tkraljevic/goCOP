@@ -1,6 +1,9 @@
 package repository
 
 import (
+	"fmt"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,8 +21,8 @@ func vodocuvarDuznost(korisnik uuid.UUID, dionice string) *models.Duty {
 
 // Povijest zaduženja: svaka verzija iz knjige redom nastanka, a zadnje stanje
 // sa zapisa na površini, od trenutka zadnje verzije. Izmjena u mjestu i
-// opoziv tako ne brišu kako je zaduženje prije stajalo. Zaduženje bez
-// verzija u knjizi stoji od nastanka; tuđa zaduženja ne ulaze.
+// opoziv tako ne brišu kako je zaduženje prije stajalo. Zaduženje stoji od
+// nastanka, i kad nema verzija u knjizi; tuđa zaduženja ne ulaze.
 func TestPovijestZaduzenja(t *testing.T) {
 	n := noviCvor(t, "ured")
 	repo := NewUserRepository(n.db, n.rec)
@@ -56,7 +59,7 @@ func TestPovijestZaduzenja(t *testing.T) {
 		aktivno bool
 		od      time.Time
 	}{
-		{osnovaDionica, true, verzije[2].CreatedAt},
+		{osnovaDionica, true, d.CreatedAt},
 		{"B.16.2", true, verzije[1].CreatedAt},
 		{"B.16.2", false, verzije[0].CreatedAt},
 	}
@@ -93,5 +96,157 @@ func TestPovijestZaduzenjaGreske(t *testing.T) {
 				t.Errorf("bez greške: %+v", p)
 			}
 		})
+	}
+}
+
+// Zaduženje upisano mimo knjige verzija (imenik pri prvom pokretanju)
+// dobiva prvu verziju tek pri prvoj izmjeni ili opozivu; do nje stoji od
+// nastanka, aktivno, pa zapisi iz tog vremena ostaju vezani uz njega
+// (Odluke (8. 10. 2026.), pitanje 1). Podaci su izmišljeni.
+func TestPovijestZaduzenjaUpisanogMimoKnjige(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	nastanak := time.Date(2026, 1, 1, 8, 0, 0, 0, time.UTC)
+	mimoKnjige := func(dionice string) uuid.UUID {
+		t.Helper()
+		id := uuid.New()
+		if _, err := n.db.Exec(`INSERT INTO duties (id, user_id, title, role, scope_type, area_id, section_codes, created_at, is_active)
+			VALUES (?, ?, 'Vodočuvar', 'WATER_GUARD', 'SECTION', 16, ?, ?, 1)`, id.String(), osnovaKorisnik.String(), dionice, nastanak); err != nil {
+			t.Fatal(err)
+		}
+		return id
+	}
+	opozvano, izmijenjeno := mimoKnjige(osnovaDionica), mimoKnjige("B.16.2")
+	nuzno(t, repo.RevokeDuty(opozvano))
+	d, err := repo.GetDuty(izmijenjeno)
+	nuzno(t, err)
+	d.Title = "Vodočuvar dionice"
+	nuzno(t, repo.UpdateDuty(d))
+
+	povijest, err := repo.PovijestZaduzenja(osnovaKorisnik)
+	nuzno(t, err)
+	usred := time.Date(2026, 6, 1, 0, 0, 0, 0, models.Zagreb)
+	if got := models.ZaduzenjaUDanu(povijest, usred); len(got) != 2 {
+		t.Errorf("između nastanka i prve verzije: %+v", got)
+	}
+	if got := models.ZaduzenjaUDanu(povijest, time.Now().AddDate(0, 0, 1)); len(got) != 1 || got[0].ID != izmijenjeno || got[0].Title != "Vodočuvar dionice" {
+		t.Errorf("nakon opoziva i izmjene: %+v", got)
+	}
+}
+
+// Uloga koju je osoba ikad imala: na zapisu zaduženja i kad je opozvano, i
+// u ranijoj verziji zaduženja koje je poslije izmijenjeno u drugu ulogu.
+// Tuđa zaduženja ne ulaze, a knjiga koja se ne čita je greška (Odluke (8.
+// 10. 2026.), pitanje 1: poslovođa ne dobiva dnevnike drugih firmi
+// opozivom dužnosti). Podaci su izmišljeni.
+func TestImaoUlogu(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	poslovodja := func(korisnik uuid.UUID) *models.Duty {
+		sektor, podrucje := "B", 16
+		return &models.Duty{UserID: korisnik, Title: "Poslovođa", Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje}
+	}
+	osoba := func(korisnik, ime string, d *models.Duty) (uuid.UUID, *models.Duty) {
+		t.Helper()
+		u := &models.User{Username: korisnik, PasswordHash: "x", FullName: ime, OrgType: models.OrgPravnaOsoba, IsActive: true}
+		nuzno(t, repo.CreateUser(u, d))
+		return u.ID, d
+	}
+	opozvan, d := osoba("mmarkic", "Marko Markić", poslovodja(uuid.Nil))
+	nuzno(t, repo.RevokeDuty(d.ID))
+	izmijenjen, d := osoba("iivic", "Ivo Ivić", poslovodja(uuid.Nil))
+	d.Role, d.Title = models.RoleWaterGuard, "Vodočuvar"
+	nuzno(t, repo.UpdateDuty(d))
+	nikad, _ := osoba("pperic", "Pero Perić", vodocuvarDuznost(uuid.Nil, osnovaDionica))
+	osoba("aanic", "Ana Anić", poslovodja(uuid.Nil))
+	for _, s := range []struct {
+		ime     string
+		osoba   uuid.UUID
+		uloga   models.Role
+		ocekuje bool
+	}{
+		{"opozvana dužnost", opozvan, models.RoleServiceLeaderForeman, true},
+		{"izmijenjena u drugu ulogu", izmijenjen, models.RoleServiceLeaderForeman, true},
+		{"izmijenjena, nova uloga", izmijenjen, models.RoleWaterGuard, true},
+		{"nikad nije imao ulogu", nikad, models.RoleServiceLeaderForeman, false},
+		{"uloga drugoga", opozvan, models.RoleWaterGuard, false},
+	} {
+		got, err := repo.ImaoUlogu(s.osoba, s.uloga)
+		nuzno(t, err)
+		if got != s.ocekuje {
+			t.Errorf("%s: %v, očekivano %v", s.ime, got, s.ocekuje)
+		}
+	}
+	if _, err := n.db.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.ImaoUlogu(nikad, models.RoleServiceLeaderForeman); err == nil {
+		t.Error("knjiga verzija se ne čita, a nema greške")
+	}
+}
+
+// Mjesta vodočuvara: sektor i područje svakog zaduženja vodočuvara koje je
+// osoba ikad imala, i opozvanog, i iz ranije verzije zaduženja poslije
+// premještenog izmjenom u mjestu; zaduženja drugih uloga ne ulaze, a knjiga
+// koja se ne čita i nečitljivo mjesto su greška. Podaci su izmišljeni.
+func TestMjestaVodocuvara(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('C', 'Sektor C', 'VGO', 'COP')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (17, 'B', 'Područje 17', 'VGI')`,
+	} {
+		if _, err := n.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pero := &models.User{Username: "pperic", PasswordHash: "x", FullName: "Pero Perić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	d := vodocuvarDuznost(uuid.Nil, osnovaDionica)
+	nuzno(t, repo.CreateUser(pero, d))
+	premjesten := *d
+	podrucje := 17
+	premjesten.AreaID = &podrucje
+	nuzno(t, repo.UpdateDuty(&premjesten))
+	ispomoc := vodocuvarDuznost(pero.ID, "")
+	drugi := "C"
+	ispomoc.SectorID, ispomoc.AreaID = &drugi, nil
+	nuzno(t, repo.AddDuty(ispomoc))
+	nuzno(t, repo.RevokeDuty(ispomoc.ID))
+	ana := &models.User{Username: "aanic", PasswordHash: "x", FullName: "Ana Anić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	sektor, bp := "B", 16
+	nuzno(t, repo.CreateUser(ana, &models.Duty{Title: "Rukovoditelj", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &bp}))
+
+	mjesta, err := repo.MjestaVodocuvara()
+	nuzno(t, err)
+	var got []string
+	for _, m := range mjesta[pero.ID.String()] {
+		s, a := "", 0
+		if m.SectorID != nil {
+			s = *m.SectorID
+		}
+		if m.AreaID != nil {
+			a = *m.AreaID
+		}
+		if m.Role != models.RoleWaterGuard {
+			t.Errorf("mjesto uloge %s", m.Role)
+		}
+		got = append(got, fmt.Sprintf("%s/%d", s, a))
+	}
+	sort.Strings(got)
+	if strings.Join(got, " ") != "B/16 B/17 C/0" || len(mjesta[ana.ID.String()]) != 0 {
+		t.Errorf("mjesta: %v, Ana %v", got, mjesta[ana.ID.String()])
+	}
+
+	if _, err := n.db.Exec(`UPDATE record_versions SET payload = json_set(payload, '$.area_id', 'nije broj') WHERE entity = 'duties'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.MjestaVodocuvara(); err == nil {
+		t.Error("nečitljivo mjesto, a nema greške")
+	}
+	if _, err := n.db.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.MjestaVodocuvara(); err == nil {
+		t.Error("knjiga verzija se ne čita, a nema greške")
 	}
 }

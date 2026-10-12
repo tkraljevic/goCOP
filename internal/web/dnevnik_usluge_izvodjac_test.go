@@ -3,11 +3,13 @@ package web
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"html/template"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -63,10 +65,13 @@ func novaUslugeProba(t *testing.T) *uslugeProba {
 		}
 		return tp
 	}
-	h := NewJournalsHandler(service.NewJournalService(p.journalRepo, nil, nil), p.users, nil, nil, nil,
+	js := service.NewJournalService(p.journalRepo, nil, nil)
+	js.SetImaoUlogu(p.users.ImaoUlogu)
+	h := NewJournalsHandler(js, p.users, nil, nil, nil,
 		tmpl("dnevnici_izbor.html"), tmpl("dnevnici.html"), tmpl("dnevnik_form.html"), tmpl("dnevnik.html"),
 		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"), tmpl("dnevnik_dezurstva.html"), tmpl("dnevnik_iors.html"))
 	p.mux = http.NewServeMux()
+	p.mux.HandleFunc("GET /dnevnici", h.ShowJournalKinds)
 	p.mux.HandleFunc("GET /dnevnici/popis", h.ShowJournals)
 	p.mux.HandleFunc("GET /dnevnici/{id}", h.ShowJournal)
 	p.mux.HandleFunc("POST /dnevnici/{id}/listovi", h.HandleOpenSheet)
@@ -131,9 +136,11 @@ func (p *uslugeProba) zovi(t *testing.T, u *models.User, metoda, putanja string)
 // dnevnike drugih firmi, ni na drugim područjima ni na svom, ni na popisu
 // (ni kad područje zada u adresi), ni izravnom adresom (Odluke (8. 10.
 // 2026.), pitanje 1). Dnevnik je firmin kad naslovnica kao izvođača navodi
-// firmu s računa poslovođe ili njega kao voditelja usluga; dnevnik bez
-// izvođača na naslovnici u kojem nitko nije pisao nije ničiji. Rukovoditelj područja čita dnevnike
-// usluga kao i dosad. Podaci su izmišljeni.
+// firmu s računa poslovođe; voditelj usluga s naslovnice ga ne veže ni uz
+// koga, pa ni dnevnik druge firme u kojem je poslovođa upisan kao voditelj
+// nije njegov; dnevnik bez izvođača na naslovnici u kojem nitko nije pisao
+// nije ničiji. Rukovoditelj područja čita dnevnike usluga kao i dosad.
+// Podaci su izmišljeni.
 func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 	p := novaUslugeProba(t)
 	prvo, drugo := 1, 2
@@ -141,8 +148,8 @@ func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 	rukovoditelj := p.osoba(t, "iivic", "Ivo Ivić", "", models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
 	svoj := p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Primjer d.o.o.", "PRIMJER d.o.o., Primjerska 1, Primjerica", "", nil)
 	tudji := p.dnevnik(t, drugo, models.JournalKindMaintenanceA02, "A.02 Probni radovi d.o.o.", "Probni radovi d.o.o.", "", nil)
-	// na njegovu području: dnevnik druge firme, dnevnik u kojem je on
-	// voditelj usluga i dnevnik bez izvođača na naslovnici
+	// na njegovu području: dnevnik druge firme, dnevnik druge firme u kojem
+	// je on upisan kao voditelj usluga i dnevnik bez izvođača na naslovnici
 	drugaFirma := p.dnevnik(t, prvo, models.JournalKindMaintenanceA03, "A.03 Drugi radovi d.o.o.", "Drugi radovi d.o.o.", "Ivo Ivić", nil)
 	voditelj := p.dnevnik(t, prvo, models.JournalKindMaintenanceA03, "A.03 Treći radovi", "Treći radovi d.o.o.", "Marko Markić, ing.", nil)
 	bezIzvodjaca := p.dnevnik(t, prvo, models.JournalKindMaintenanceA03, "A.03 Bez naslovnice", "", "", nil)
@@ -166,19 +173,17 @@ func TestPoslovodjaVidiSamoSvojDnevnikUsluge(t *testing.T) {
 	if w := zovi(poslovodja, "/dnevnici/"+tudji.ID); w.Code != http.StatusForbidden || strings.Contains(w.Body.String(), "Probni radovi") {
 		t.Errorf("poslovođa na dnevniku druge firme: %d", w.Code)
 	}
-	// na svom području: druga firma i dnevnik bez izvođača zabranjeni, a
-	// dnevnik u kojem je voditelj usluga njegov
+	// na svom području: druga firma, i ona s njim kao voditeljem usluga, i
+	// dnevnik bez izvođača zabranjeni (Odluke (8. 10. 2026.), pitanje 1:
+	// voditelj usluga s naslovnice više ne otvara dnevnik druge firme)
 	popisA03 := zovi(poslovodja, "/dnevnici/popis?vrsta=ODRZAVANJE_A03").Body.String()
-	if strings.Contains(popisA03, "Drugi radovi") || strings.Contains(popisA03, "Bez naslovnice") || !strings.Contains(popisA03, "A.03 Treći radovi") {
-		t.Error("popis A.03 na području poslovođe: vidi tuđe ili ne vidi svoj dnevnik")
+	if strings.Contains(popisA03, "Drugi radovi") || strings.Contains(popisA03, "Bez naslovnice") || strings.Contains(popisA03, "A.03 Treći radovi") {
+		t.Error("popis A.03 na području poslovođe: vidi dnevnik druge firme")
 	}
-	for _, j := range []*models.Journal{drugaFirma, bezIzvodjaca} {
+	for _, j := range []*models.Journal{drugaFirma, voditelj, bezIzvodjaca} {
 		if w := zovi(poslovodja, "/dnevnici/"+j.ID); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "svoje firme") {
 			t.Errorf("poslovođa na dnevniku %s: %d %.120s", j.Title, w.Code, w.Body.String())
 		}
-	}
-	if w := zovi(poslovodja, "/dnevnici/"+voditelj.ID); w.Code != http.StatusOK {
-		t.Errorf("poslovođa na dnevniku u kojem je voditelj usluga: %d", w.Code)
 	}
 	if w := zovi(rukovoditelj, "/dnevnici/"+drugaFirma.ID); w.Code != http.StatusOK {
 		t.Errorf("rukovoditelj na dnevniku druge firme svog područja: %d", w.Code)
@@ -253,5 +258,123 @@ func TestVidljivaPodrucjaBezIjednog(t *testing.T) {
 	podrucja := []models.Area{{ID: 1, SectorID: "P"}}
 	if a, sva := h.vidljivaPodrucja(nil, &podrucja[0], podrucja); a != nil || len(sva) != 0 {
 		t.Errorf("bez ovlasti: %+v %+v", a, sva)
+	}
+}
+
+// Poslovođa ne otvara dnevnik usluge druge firme tako da na svom profilu
+// upiše ime voditelja usluga s njezine naslovnice, a ni njegov imenjak u
+// trećoj firmi ga ne otvara: ime osobe je slobodan upis koji osoba sama
+// mijenja, pa ne veže dnevnik ni uz koga. Firmu na svom računu poslovođa
+// ne mijenja sam (Odluke (8. 10. 2026.), pitanje 1: poslovođa vidi samo
+// dnevnik svoje firme). Podaci su izmišljeni.
+func TestPoslovodjaNeOtvaraTudjiDnevnikSvojimImenom(t *testing.T) {
+	p := novaUslugeProba(t)
+	prvo := 1
+	marko := p.poslovodja(t, "mmarkic", "Marko Markić", "Alfa d.o.o.")
+	imenjak := p.poslovodja(t, "iivic", "Ivo Ivić", "Gama d.o.o.")
+	beta := p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Beta d.o.o.", "Beta d.o.o.", "Ivo Ivić", nil)
+	zabranjen := func(stanje string, u *models.User) {
+		t.Helper()
+		if w := p.zovi(t, u, http.MethodGet, "/dnevnici/"+beta.ID); w.Code != http.StatusForbidden {
+			t.Errorf("%s: %s otvara dnevnik firme Beta: %d", stanje, u.FullName, w.Code)
+		}
+		if popis := p.zovi(t, u, http.MethodGet, "/dnevnici/popis?vrsta=ODRZAVANJE_A02").Body.String(); strings.Contains(popis, beta.Title) {
+			t.Errorf("%s: %s vidi dnevnik firme Beta na popisu", stanje, u.FullName)
+		}
+		if w := p.zovi(t, u, http.MethodPost, "/dnevnici/"+beta.ID+"/listovi"); w.Code != http.StatusForbidden {
+			t.Errorf("%s: %s otvara list u dnevniku firme Beta: %d", stanje, u.FullName, w.Code)
+		}
+	}
+	zabranjen("prije promjene imena", marko)
+	zabranjen("imenjak voditelja usluga", imenjak)
+
+	// promjena imena na profilu prolazi kao i dosad (isti zahtjev kao
+	// /profile/update), ali dnevnik ne otvara
+	perms, err := p.userRepo.GetUserPermissions(marko.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profil := service.UpdateUserRequest{ID: marko.ID, Username: marko.Username, FullName: "Ivo Ivić", OrgType: perms.User.OrgType,
+		OrgName: perms.User.OrgName, IsActive: true}
+	if _, err := p.users.UpdateUser(perms, profil); err != nil {
+		t.Fatalf("promjena imena na profilu: %v", err)
+	}
+	zabranjen("nakon promjene imena", marko)
+
+	// firmu na svom računu ne mijenja sam
+	perms, _ = p.userRepo.GetUserPermissions(marko.ID)
+	firma := profil
+	firma.OrgName = "Beta d.o.o."
+	if _, err := p.users.UpdateUser(perms, firma); !errors.Is(err, service.ErrUnauthorized) || !strings.Contains(err.Error(), "firmu") {
+		t.Errorf("poslovođa sam mijenja firmu na svom računu: %v", err)
+	}
+	if u, _ := p.userRepo.GetUserByID(marko.ID); u.OrgName != "Alfa d.o.o." {
+		t.Errorf("firma na računu: %q", u.OrgName)
+	}
+	zabranjen("nakon pokušaja promjene firme", marko)
+	// nepromijenjena firma iz obrasca ne smeta
+	isto := profil
+	isto.OrgName = " Alfa d.o.o. "
+	if _, err := p.users.UpdateUser(perms, isto); err != nil {
+		t.Errorf("izmjena s nepromijenjenom firmom: %v", err)
+	}
+}
+
+// brojDnevnikaNaKartici je broj na kartici vrste dnevnika na razdjelnici
+// Dokumentacija
+func brojDnevnikaNaKartici(t *testing.T, stranica, naslov string) string {
+	t.Helper()
+	m := regexp.MustCompile(`>(\d+)</span>\s*</div>\s*<div class="dash-card-body">\s*<h2 class="dash-card-title">` + regexp.QuoteMeta(naslov) + `<`).FindStringSubmatch(stranica)
+	if m == nil {
+		t.Fatalf("na razdjelnici nema kartice %q s brojem", naslov)
+	}
+	return m[1]
+}
+
+// Kartice dnevnika usluga A.02 i A.03 na razdjelnici Dokumentacija
+// poslovođi broje samo dnevnike koje smije čitati (dnevnike svoje firme na
+// području svoje dužnosti), a ne dnevnike svih firmi na svim područjima;
+// opozvanom poslovođi nijedan. Ostali vide broj svih (Odluke (8. 10.
+// 2026.), pitanje 1). Podaci su izmišljeni.
+func TestPoslovodjaNaRazdjelniciBrojiSamoSvojeDnevnike(t *testing.T) {
+	p := novaUslugeProba(t)
+	prvo, drugo := 1, 2
+	poslovodja := p.poslovodja(t, "mmarkic", "Marko Markić", "Alfa d.o.o.")
+	opozvani := p.poslovodja(t, "iivic", "Ivo Ivić", "Alfa d.o.o.")
+	rukovoditelj := p.osoba(t, "aanic", "Ana Anić", "", models.Duty{Title: "Rukovoditelj BP 1", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Alfa", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA02, "A.02 Beta", "Beta d.o.o.", "", nil)
+	p.dnevnik(t, drugo, models.JournalKindMaintenanceA02, "A.02 Alfa na drugom", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, prvo, models.JournalKindMaintenanceA03, "A.03 Alfa", "Alfa d.o.o.", "", nil)
+	p.dnevnik(t, drugo, models.JournalKindMaintenanceA03, "A.03 Gama", "Gama d.o.o.", "", nil)
+	cijeli, err := p.users.GetUserByID(opozvani.ID)
+	if err != nil || len(cijeli.Duties) != 1 {
+		t.Fatalf("dužnost opozvanog: %v", err)
+	}
+	if err := p.userRepo.RevokeDuty(cijeli.Duties[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	for _, x := range []struct {
+		u        *models.User
+		a02, a03 string
+	}{
+		{poslovodja, "1", "1"},
+		{opozvani, "0", "0"},
+		{rukovoditelj, "3", "2"},
+	} {
+		w := p.zovi(t, x.u, http.MethodGet, "/dnevnici")
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: %d", x.u.FullName, w.Code)
+		}
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.02"); got != x.a02 {
+			t.Errorf("%s: A.02 %s, očekivano %s", x.u.FullName, got, x.a02)
+		}
+		if got := brojDnevnikaNaKartici(t, w.Body.String(), "Dnevnici usluga A.03"); got != x.a03 {
+			t.Errorf("%s: A.03 %s, očekivano %s", x.u.FullName, got, x.a03)
+		}
+	}
+	// opozvanom poslovođi ne otvara se ni popis ni dnevnik druge firme
+	if popis := p.zovi(t, opozvani, http.MethodGet, "/dnevnici/popis?vrsta=ODRZAVANJE_A02&area=2").Body.String(); strings.Contains(popis, "A.02 Alfa") || strings.Contains(popis, "A.02 Beta") {
+		t.Error("opozvani poslovođa vidi dnevnike usluga na popisu")
 	}
 }

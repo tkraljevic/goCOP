@@ -152,9 +152,12 @@ type VodocuvarPageData struct {
 	SmijeOvjeriti   bool
 	SmijeParafirati bool
 	SmijeUpisati    bool // bilješka na tuđi list
-	Parafirao       bool
-	Podrucje        *models.Area
-	DrugiPredani    []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
+	// UpisNaredba: upis osobe na ovaj list stoji pod naredbama, jer ga smije
+	// parafirati; inače je bilješka pod posebnim zapažanjima
+	UpisNaredba  bool
+	Parafirao    bool
+	Podrucje     *models.Area
+	DrugiPredani []models.VodocuvarskiList // drugi predani listovi istog dana: dvostruki list
 }
 
 func (h *VodocuvarHandler) base(r *http.Request) (*models.User, *models.UserPermissions, VodocuvarPageData) {
@@ -226,12 +229,16 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 		d.Podrucja, _ = h.users.ListAreas(d.Filtar.Sektor)
 	}
 	d.Tudji, _ = s.Tudji(r.Context(), perms, d.Filtar)
+	// obrazac bilješke uz knjigu nudi današnji dan, pa se pokazuje po
+	// današnjem pravu, a ne po najnovijem listu u knjizi
+	zaBiljesku := s.VodocuvariZaBiljesku(r.Context(), perms)
+	smijeUpisati := poIdentitetu(zaBiljesku)
 	// po vodočuvaru: svaki ima svoju knjigu
 	poOsobi := map[string]*KnjigaVodocuvara{}
 	for _, l := range d.Tudji {
 		k := poOsobi[l.UserID]
 		if k == nil {
-			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: s.SmijeUpisati(perms, &l)}
+			k = &KnjigaVodocuvara{UserID: l.UserID, Ime: l.Ime, AreaID: l.AreaID, SmijeUpisati: smijeUpisati[l.UserID]}
 			poOsobi[l.UserID] = k
 			d.Knjige = append(d.Knjige, *k)
 		}
@@ -254,7 +261,7 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	// samo iz odabranog sektora i područja; tko prima bilješku ima svoju
 	// knjigu i kad je još prazna
 	d.Vodocuvari = uOdabiru(s.Vodocuvari(r.Context(), perms), d.Filtar)
-	for _, v := range uOdabiru(s.VodocuvariZaBiljesku(r.Context(), perms), d.Filtar) {
+	for _, v := range uOdabiru(zaBiljesku, d.Filtar) {
 		if v.ID.String() == u.ID.String() || poOsobi[v.ID.String()] != nil {
 			continue
 		}
@@ -285,19 +292,24 @@ func (h *VodocuvarHandler) ShowPopis(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// uOdabiru ostavlja vodočuvare čije je glavno zaduženje u odabranom sektoru
-// i području; prazan izbor ne miče nikoga
+// poIdentitetu je skup identifikatora osoba
+func poIdentitetu(osobe []models.User) map[string]bool {
+	out := make(map[string]bool, len(osobe))
+	for _, u := range osobe {
+		out[u.ID.String()] = true
+	}
+	return out
+}
+
+// uOdabiru ostavlja vodočuvare čije je glavno zaduženje, ili neko valjano
+// zaduženje vodočuvara (npr. privremena ispomoć na drugom području), u
+// odabranom sektoru i području; prazan izbor ne miče nikoga
 func uOdabiru(svi []models.User, f repository.FiltarListova) []models.User {
 	var out []models.User
 	for _, v := range svi {
-		pd := v.PrimaryDuty()
-		if f.Sektor != "" && (pd == nil || pd.SectorID == nil || *pd.SectorID != f.Sektor) {
-			continue
+		if f.Sektor == "" && f.AreaID == 0 || uOdabiruZaduzenje(v.PrimaryDuty(), f) || imaVodocuvarskoUOdabiru(v, f) {
+			out = append(out, v)
 		}
-		if f.AreaID > 0 && (pd == nil || pd.AreaID == nil || *pd.AreaID != f.AreaID) {
-			continue
-		}
-		out = append(out, v)
 	}
 	return out
 }
@@ -312,6 +324,28 @@ func godineKnjiga(sad time.Time, najstarija int) []int {
 		out = append(out, g)
 	}
 	return out
+}
+
+// imaVodocuvarskoUOdabiru javlja ima li osoba valjano zaduženje vodočuvara
+// u odabranom sektoru i području
+func imaVodocuvarskoUOdabiru(v models.User, f repository.FiltarListova) bool {
+	for _, d := range models.VazecaZaduzenja(v.Duties, time.Now()) {
+		if d.Role == models.RoleWaterGuard && uOdabiruZaduzenje(&d, f) {
+			return true
+		}
+	}
+	return false
+}
+
+// uOdabiruZaduzenje javlja je li zaduženje u odabranom sektoru i području
+func uOdabiruZaduzenje(d *models.Duty, f repository.FiltarListova) bool {
+	if d == nil {
+		return false
+	}
+	if f.Sektor != "" && (d.SectorID == nil || *d.SectorID != f.Sektor) {
+		return false
+	}
+	return f.AreaID <= 0 || d.AreaID != nil && *d.AreaID == f.AreaID
 }
 
 func danIzObrasca(s string) time.Time {
@@ -375,7 +409,8 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 	if l.ID != "" && l.Predan() {
 		d.Izvornik = h.provjeriIzvornik(r.Context(), s, perms, l.ID)
 	}
-	d.SmijeParafirati = s.SmijeParafirati(perms, l) && l.Predan() && !l.Rekonstrukcija
+	d.UpisNaredba = s.SmijeParafirati(perms, l)
+	d.SmijeParafirati = d.UpisNaredba && l.Predan() && !l.Rekonstrukcija
 	d.SmijeUpisati = s.SmijeUpisati(perms, l)
 	d.Parafirao = perms != nil && l.Parafirao(perms.User.ID.String())
 	d.DrugiPredani = s.DrugiPredani(r.Context(), l)

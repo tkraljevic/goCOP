@@ -21,6 +21,10 @@ func TestGraniceVrijediOd(t *testing.T) {
 	sad := zg(2026, 10, 6, 8, 0)
 	otvoren := zg(2026, 10, 1, 0, 0)
 	dnevnik := &models.Journal{CentarSektor: "B", StartedAt: &otvoren}
+	// dnevnik otvoren poslijepodne: isti dan ujutro je prije otvaranja, a
+	// poruka mora pokazati i sat otvaranja, inače se ne vidi zašto
+	poslijepodne := zg(2026, 10, 5, 14, 0)
+	odPoslijepodne := &models.Journal{CentarSektor: "B", StartedAt: &poslijepodne}
 	for _, c := range []struct {
 		opis    string
 		vrijedi time.Time
@@ -36,7 +40,10 @@ func TestGraniceVrijediOd(t *testing.T) {
 		{"točno 7 dana unaprijed", sad.Add(7 * 24 * time.Hour), dnevnik, "?"},
 		{"zamijenjene znamenke: 2062.", zg(2062, 10, 6, 2, 40), dnevnik, "više od 7 dana unaprijed"},
 		{"osam dana unaprijed", zg(2026, 10, 14, 8, 1), dnevnik, "više od 7 dana unaprijed"},
-		{"godina 1926.", zg(1926, 10, 6, 2, 40), dnevnik, "prije otvaranja Dnevnika COP-a (1. 10. 2026.)"},
+		{"godina 1926.", zg(1926, 10, 6, 2, 40), dnevnik, "prije otvaranja Dnevnika COP-a (1. 10. 2026. u 00:00)"},
+		{"isti dan prije sata otvaranja", zg(2026, 10, 5, 8, 0), odPoslijepodne,
+			"„Vrijedi od” (5. 10. 2026. u 08:00) je prije otvaranja Dnevnika COP-a (5. 10. 2026. u 14:00)"},
+		{"isti dan u sat otvaranja", zg(2026, 10, 5, 14, 0), odPoslijepodne, ""},
 		{"dan prije otvaranja dnevnika", zg(2026, 9, 30, 23, 59), dnevnik, "prije otvaranja Dnevnika COP-a"},
 		{"1926. bez pravila aktivne obrane", zg(1926, 10, 6, 2, 40), nil, "?"},
 		{"dnevnik bez početka", zg(1926, 10, 6, 2, 40), &models.Journal{CentarSektor: "B"}, "?"},

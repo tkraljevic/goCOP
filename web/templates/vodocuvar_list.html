@@ -46,7 +46,7 @@
     {{end}}
     </ul>
     {{end}}
-    {{if $l.Upisi}}<ul class="zadaci">{{range $l.Upisi}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}</div></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiNaredbe}}<ul class="zadaci">{{range $l.UpisiNaredbe}}<li class="zadatak"><div class="zadatak-tekst">{{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}</div></li>{{end}}</ul>{{end}}
     <textarea class="form-control" name="naredbe" rows="3" placeholder="ostale naredbe, kako su vam rečene">{{$l.Naredbe}}</textarea>
   </div>
   <div class="form-group"><label class="form-label" for="opis">Opis radnih aktivnosti *</label><textarea class="form-control" id="opis" name="opis" rows="6" placeholder="– obilazak deponije pijeska u Batini&#10;– obilazak vodotoka i vodograđevina na potezu …">{{$l.Opis}}</textarea></div>
@@ -55,6 +55,7 @@
     <textarea class="form-control" id="zapazanja" name="zapazanja" rows="4">{{$l.Zapazanja}}</textarea>
     {{if $l.Ocitanja}}<div class="form-help">Vodostaji koje ste danas očitali upisuju se sami: <span class="mono">{{$l.Ocitanja}}</span></div>{{else}}<div class="form-help">Vodostaji koje danas očitate na letvama upisuju se sami pri predaji.</div>{{end}}
     {{if $l.Prijave}}<ul class="zadaci">{{range $l.Prijave}}<li class="zadatak"><div class="zadatak-tekst">{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a></div><div class="form-help">objavljeno {{formatDate (localTime .Kad)}}; stoji na listu</div></li>{{end}}</ul>{{end}}
+    {{if $l.UpisiBiljeske}}<ul class="zadaci">{{range $l.UpisiBiljeske}}<li class="zadatak"><div class="zadatak-tekst">Bilješka: {{.Tekst}}</div><div class="form-help">upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}}; stoji na listu</div></li>{{end}}</ul>{{end}}
   </div>
   {{if .Simulacija}}<div class="alert alert-warning">Simulacija ključa: predajom se list potpisuje <strong>simuliranim ključem</strong> u ime {{$l.Ime}}, bez lozinke; potpis i PDF nose oznaku BEZVRIJEDNO.</div>
   {{else if .ImaKljuc}}
@@ -79,9 +80,9 @@
     <dt>Radno vrijeme</dt><dd>od {{$l.Od}} do {{$l.Do}}, ukupno {{$l.SatiTekst}} sati</dd>
     <dt>Vremenske prilike</dt><dd>{{if $l.Prilike}}{{$l.Prilike}}{{else}}—{{end}}</dd>
     <dt>Naredbe rukovoditelja</dt><dd>
-      {{if or $l.Zadaci $l.Upisi $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Obavljeno}}; {{.}}{{end}}</li>{{end}}{{range $l.Upisi}}<li>{{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
+      {{if or $l.Zadaci $l.UpisiNaredbe $l.NaredbeStavke}}<ol class="stavke">{{range $l.Zadaci}}<li><strong>{{.Tekst}}</strong> <span class="form-help">(zadao {{.Zadao}}, {{.ZadanoAt.Format "02.01."}})</span>: <span class="zadatak-oznaka {{.Status}}">{{.Oznaka}}</span>{{with .Obavljeno}}; {{.}}{{end}}</li>{{end}}{{range $l.UpisiNaredbe}}<li>{{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.NaredbeStavke}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
     <dt>Opis radnih aktivnosti</dt><dd>{{with $l.OpisStavke}}<ol class="stavke">{{range .}}<li>{{.}}</li>{{end}}</ol>{{else}}—{{end}}</dd>
-    <dt>Posebna zapažanja</dt><dd>{{if or $l.ZapazanjaStavke $l.Ocitanja $l.Prijave}}<ol class="stavke">{{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}{{range (stavke $l.Ocitanja)}}<li class="mono">{{.}}</li>{{end}}{{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a> <span class="form-help">({{formatDate (localTime .Kad)}})</span></li>{{end}}</ol>{{else}}—{{end}}</dd>
+    <dt>Posebna zapažanja</dt><dd>{{if or $l.ZapazanjaStavke $l.Ocitanja $l.Prijave $l.UpisiBiljeske}}<ol class="stavke">{{range $l.ZapazanjaStavke}}<li>{{.}}</li>{{end}}{{range (stavke $l.Ocitanja)}}<li class="mono">{{.}}</li>{{end}}{{range $l.Prijave}}<li>{{icon "file-text"}} <a href="/prijave/{{.ID}}">{{.Tekst}}</a> <span class="form-help">({{formatDate (localTime .Kad)}})</span></li>{{end}}{{range $l.UpisiBiljeske}}<li>Bilješka: {{.Tekst}} <span class="form-help">(upisao {{.Ime}}{{with .Funkcija}}, {{.}}{{end}}, {{formatDate (localTime .Kad)}})</span></li>{{end}}</ol>{{else}}—{{end}}</dd>
     <dt>Potpis vodočuvara</dt><dd>{{if $l.Predan}}{{$l.Ime}}, {{formatDate (localTime (derefTime $l.PredanoAt))}}{{else}}—{{end}}</dd>
     <dt>Ovjera rukovoditelja</dt><dd>{{if $l.Potvrden}}{{$l.Potvrdio}}, {{formatDate (localTime (derefTime $l.PotvrdenoAt))}}{{else}}čeka ovjeru{{end}}</dd>
     {{if $l.Parafe}}<dt>Parafe</dt><dd>{{range $i, $p := $l.Parafe}}{{if $i}}; {{end}}{{$p.Ime}}{{with $p.Funkcija}} ({{.}}){{end}}, {{formatDate (localTime $p.Kad)}}{{end}}</dd>{{end}}
@@ -102,10 +103,10 @@
     <input type="hidden" name="datum" value="{{$l.Datum.Format "2006-01-02"}}">
     <input type="hidden" name="list" value="{{$l.ID}}">
     <input type="hidden" name="natrag" value="/vodocuvar/{{$l.ID}}">
-    <input class="form-control" name="tekst" required placeholder="naredba, napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
+    <input class="form-control" name="tekst" required placeholder="napomena ili nalaz obilaska" style="min-width:20rem; flex:1;">
     <button type="submit" class="btn btn-primary btn-sm">{{icon "pencil"}} Upiši</button>
   </form>
-  <div class="form-help">Upis stoji na ovom listu pod naredbama, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
+  <div class="form-help">Upis stoji na ovom listu {{if .UpisNaredba}}pod naredbama{{else}}pod posebnim zapažanjima, kao bilješka, a ne pod naredbama{{end}}, s vašim imenom, funkcijom i vremenom, neovisno o zadacima; upisuje se i na predan list.</div>
 </section>
 {{end}}
 

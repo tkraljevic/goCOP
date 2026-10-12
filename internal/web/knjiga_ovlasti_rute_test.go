@@ -184,8 +184,9 @@ func TestKnjigaVodocuvaraKrozRutePoOdlukama(t *testing.T) {
 	}
 }
 
-// Izbor sektora i područja na knjigama ostavlja vodočuvare čije je glavno
-// zaduženje u njemu; prazan izbor ne miče nikoga.
+// Izbor sektora i područja na knjigama ostavlja vodočuvare koji imaju
+// valjano zaduženje vodočuvara u njemu, glavno ili privremenu ispomoć
+// (Odluke (8. 10. 2026.), pitanje 1); prazan izbor ne miče nikoga.
 func TestVodocuvariUOdabiru(t *testing.T) {
 	p, q := "P", "Q"
 	jedan, dva := 1, 2
@@ -200,6 +201,9 @@ func TestVodocuvariUOdabiru(t *testing.T) {
 		osoba("Ana Anić", models.Duty{Role: models.RoleWaterGuard, SectorID: &p, AreaID: &dva}),
 		osoba("Ivo Ivić", models.Duty{Role: models.RoleWaterGuard, SectorID: &q}),
 		osoba("Iva Ivić"),
+		osoba("Marko Markić", models.Duty{Role: models.RoleWaterGuard, SectorID: &q, AreaID: &jedan, IsPrimary: true},
+			models.Duty{Role: models.RoleWaterGuard, SectorID: &p, AreaID: &dva, IsTemporary: true},
+			models.Duty{Role: models.RoleSectionLeader, SectorID: &p, AreaID: &jedan}),
 	}
 	imena := func(us []models.User) string {
 		var out []string
@@ -213,10 +217,11 @@ func TestVodocuvariUOdabiru(t *testing.T) {
 		f     repository.FiltarListova
 		ime   string
 	}{
-		{"bez izbora", repository.FiltarListova{}, "Pero Perić, Ana Anić, Ivo Ivić, Iva Ivić"},
-		{"sektor P", repository.FiltarListova{Sektor: "P"}, "Pero Perić, Ana Anić"},
-		{"sektor P, područje 2", repository.FiltarListova{Sektor: "P", AreaID: 2}, "Ana Anić"},
-		{"područje 1", repository.FiltarListova{AreaID: 1}, "Pero Perić"},
+		{"bez izbora", repository.FiltarListova{}, "Pero Perić, Ana Anić, Ivo Ivić, Iva Ivić, Marko Markić"},
+		{"sektor P", repository.FiltarListova{Sektor: "P"}, "Pero Perić, Ana Anić, Marko Markić"},
+		{"sektor P, područje 2", repository.FiltarListova{Sektor: "P", AreaID: 2}, "Ana Anić, Marko Markić"},
+		{"sektor P, područje 1", repository.FiltarListova{Sektor: "P", AreaID: 1}, "Pero Perić"},
+		{"područje 1", repository.FiltarListova{AreaID: 1}, "Pero Perić, Marko Markić"},
 		{"sektor R", repository.FiltarListova{Sektor: "R"}, ""},
 	}
 	for _, s := range slucajevi {

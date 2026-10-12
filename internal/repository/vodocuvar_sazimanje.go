@@ -22,7 +22,8 @@ import (
 // verzija: ona je zadnja i nosi sve, pa sažimanje više ništa ne gubi.
 
 // SazmiKnjigu sažima knjigu (ledger.Recorder.CompactOsim) nakon što listove
-// vodočuvara složene iz povijesti upiše kao nove verzije. Zapis lista koji
+// vodočuvara složene iz povijesti upiše kao nove verzije; uz to čuva i
+// verzije koje traže pravilaSazimanja (ovjere akta). Zapis lista koji
 // drži dva potpisa (isti list predan na dva čvora) ne sažima se: oba
 // predana lista su potpisani dokumenti. Kad upis ne uspije, knjiga se ne
 // sažima.
@@ -31,7 +32,7 @@ func SazmiKnjigu(ctx context.Context, db *sql.DB, rec *ledger.Recorder, olderTha
 	if err != nil {
 		return 0, fmt.Errorf("dnevni listovi vodočuvara prije sažimanja: %w", err)
 	}
-	return rec.CompactOsim(ctx, olderThan, cuvaj)
+	return rec.CompactOsim(ctx, olderThan, cuvaj, pravilaSazimanja...)
 }
 
 // UpisiSlozeneListove upisuje kao novu verziju svaki dnevni list vodočuvara

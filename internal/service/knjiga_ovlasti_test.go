@@ -345,11 +345,12 @@ func TestPrijaveRukovoditeljaDionice(t *testing.T) {
 
 // Prijava je vezana uz dionicu rukovoditelja i kad je polje Dionica prazno
 // ili pogrešno upisano (uvoz iz BP16 ga ne puni), a objavio ju je vodočuvar
-// koji po zaduženju izričito čuva tu dionicu. Prijava koja navodi drugu
-// dionicu svog vodočuvara vezana je samo uz tu dionicu. Prijava vodočuvara
-// cijelog područja koja navodi dionicu vezana je samo uz nju, a ona bez
-// dionice uz svaku, kao i njegov list. Pero Perić čuva P.1.1, Iva Ivić
-// P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
+// koji po zaduženju čuva tu dionicu. Prijava koja navodi dionicu iz
+// registra vezana je samo uz nju, i kad je njezin vodočuvar ne čuva (dosad
+// i uz dionice koje čuva; Odluke (8. 10. 2026.), pitanje 1,
+// TestPrijavaPokazujeNaDioniceIzRegistra). Prijava vodočuvara cijelog
+// područja bez dionice vezana je uz svaku, kao i njegov list. Pero Perić
+// čuva P.1.1, Iva Ivić P.1.1 i P.1.2, a Ana Anić cijelo područje 1.
 func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	k := novaKnjigaProba(t)
 	iva := k.vodocuvar(t, "iivic", "Iva Ivić", "P.1.1, P.1.2")
@@ -366,7 +367,7 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	}{
 		{"Perina bez dionice", k.pero.ID.String(), "", true, false},
 		{"Perina s pogrešno upisanom dionicom", k.pero.ID.String(), "P11", true, false},
-		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", true, true},
+		{"Perina s dionicom koju ne čuva", k.pero.ID.String(), "P.1.2", false, true},
 		{"Ivina bez dionice", iva.ID.String(), "", true, true},
 		{"Ivina s drugom svojom dionicom", iva.ID.String(), "P.1.2", false, true},
 		{"Anina bez dionice", k.ana.ID.String(), "", true, true},
@@ -385,7 +386,10 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 			t.Errorf("%s: rukovoditelj svih dionica područja ne vidi prijavu", s.naziv)
 		}
 	}
-	drugdje := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Sektor: "P", AreaID: 2, Status: models.PrijavaObjavljena}
+	// prijava napisana na području 2 prije Perina zaduženja u programu (npr.
+	// uvoz iz BP16): na području 1 tada nije čuvao, pa nije u dosegu
+	// njegova područja (doseg po zaduženju na dan prijave, ispomoć)
+	drugdje := &models.PrijavaSTerena{UserID: k.pero.ID.String(), Sektor: "P", AreaID: 2, Datum: time.Date(2026, 1, 15, 9, 0, 0, 0, models.Zagreb), Status: models.PrijavaObjavljena}
 	if prijave.SmijeVidjeti(cijelo, drugdje) {
 		t.Error("rukovoditelj dionica područja 1 vidi prijavu područja 2")
 	}
@@ -396,10 +400,10 @@ func TestPrijavaVodocuvaraDionice(t *testing.T) {
 	prosla := sad.Add(-time.Hour)
 	pocetak := sad.AddDate(0, 0, -30)
 	bivsi := []models.VerzijaZaduzenja{{Duty: models.Duty{Role: models.RoleWaterGuard, AreaID: &k.p1, SectionCodes: "P.1.1", IsActive: true, ExpiresAt: &prosla, CreatedAt: pocetak}, Od: pocetak}}
-	if prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad.AddDate(0, 0, 1))) {
+	if cuvaKojuOd(models.ZaduzenjaUDanu(bivsi, sad.AddDate(0, 0, 1)), 1, []string{"P.1.1"}) {
 		t.Error("prijava nakon prestanka dužnosti vodočuvara vezana je uz dionicu")
 	}
-	if !prijavaVezana([]string{"P.1.1"}, nil, 1, models.ZaduzenjaUDanu(bivsi, sad)) {
+	if !cuvaKojuOd(models.ZaduzenjaUDanu(bivsi, sad), 1, []string{"P.1.1"}) {
 		t.Error("prijava s dana dok je dužnost vrijedila nije vezana uz dionicu")
 	}
 }
@@ -493,38 +497,33 @@ func TestKnjigaKrozServis(t *testing.T) {
 	}
 }
 
-// Vodočuvar lista čita se po listu kad ga pozivatelj nema; neispravna
-// oznaka, nepoznata osoba i servis bez korisnika ne daju nikoga.
+// Vodočuvar lista čita se po oznaci s lista kad ga pozivatelj nema, i to
+// jednom; neispravna oznaka, nepoznata osoba i servis bez korisnika ne daju
+// nikoga. Popis (poznati) pamti vodočuvara i drugi put ga ne čita.
 func TestVodocuvarLista(t *testing.T) {
 	k := novaKnjigaProba(t)
 	vs := k.o.vs
-	if v := vs.vodocuvarLista(k.listPere, nil); v == nil || v.ID != k.pero.ID {
+	if v := vs.osobaCuvara(cuvarLista(k.listPere, nil, nil)); v == nil || v.ID != k.pero.ID {
 		t.Errorf("vodočuvar lista: %+v", v)
 	}
-	if v := vs.vodocuvarLista(&models.VodocuvarskiList{UserID: "nije-oznaka"}, nil); v != nil {
-		t.Errorf("neispravna oznaka: %+v", v)
+	for _, oznaka := range []string{"nije-oznaka", uuid.NewString()} {
+		c := cuvarLista(&models.VodocuvarskiList{UserID: oznaka}, nil, nil)
+		if v := vs.osobaCuvara(c); v != nil || !c.ucitan {
+			t.Errorf("oznaka %s: %+v", oznaka, v)
+		}
 	}
-	if v := vs.vodocuvarLista(&models.VodocuvarskiList{UserID: uuid.NewString()}, nil); v != nil {
-		t.Errorf("nepoznata osoba: %+v", v)
+	if vs.osobaCuvara(nil) != nil {
+		t.Error("bez čuvara ima osobe")
 	}
-	// vodočuvar prijave: popis ga pamti i drugi put ne čita
-	p := &models.PrijavaSTerena{UserID: k.pero.ID.String()}
 	poznati := map[string]*cuvar{}
-	if c := vs.vodocuvarPrijave(p, poznati); c.v == nil || c.v.ID != k.pero.ID || poznati[p.UserID] != c {
-		t.Errorf("vodočuvar prijave: %+v, zapamćen %+v", c, poznati[p.UserID])
+	c := cuvarLista(k.listPere, nil, poznati)
+	if poznati[k.listPere.UserID] != c || cuvarLista(k.listPere, k.ana, poznati) != c {
+		t.Error("popis ne pamti vodočuvara lista")
 	}
-	ana := &cuvar{v: k.ana}
-	poznati[p.UserID] = ana
-	if c := vs.vodocuvarPrijave(p, poznati); c != ana {
-		t.Error("zapamćeni vodočuvar prijave čita se ponovno")
-	}
-	if c := vs.vodocuvarPrijave(p, nil); c.v == nil || c.v.ID != k.pero.ID {
-		t.Errorf("vodočuvar prijave bez pamćenja: %+v", c)
-	}
-	if v := (&VodocuvarService{}).vodocuvarLista(k.listPere, nil); v != nil {
+	if v := (&VodocuvarService{}).osobaCuvara(cuvarLista(k.listPere, nil, nil)); v != nil {
 		t.Errorf("bez korisnika: %+v", v)
 	}
-	if v := vs.vodocuvarLista(k.listPere, k.ana); v != k.ana {
+	if v := vs.osobaCuvara(cuvarLista(k.listPere, k.ana, nil)); v != k.ana {
 		t.Error("zadani vodočuvar se ne poštuje")
 	}
 }

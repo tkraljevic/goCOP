@@ -461,28 +461,17 @@ func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants fu
 // bi granica pala i drugi čvorovi bi je slali natrag svaku razmjenu). Čvor
 // koji je dugo šutio može staru verziju poslati natrag; ona uđe u knjigu
 // kao povijest, ne dira površinu, i nestane pri sljedećem sažimanju.
-func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, error) {
-	return r.CompactOsim(ctx, olderThan, nil)
+func (r *Recorder) Compact(ctx context.Context, olderThan time.Time, zadrzi ...ZadrziPo) (int64, error) {
+	return r.CompactOsim(ctx, olderThan, nil, zadrzi...)
 }
 
 // CompactOsim je Compact koji ne dira nijednu verziju zapisa s navedenim
 // oznakama (entity_id): njihova povijest ostaje cijela, npr. dnevni list
-// koji drži dva potpisa
-func (r *Recorder) CompactOsim(ctx context.Context, olderThan time.Time, cuvaj []string) (int64, error) {
-	q := `
-		DELETE FROM record_versions
-		WHERE created_at < ?
-		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
-		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)`
-	args := []any{olderThan.UTC()}
-	if len(cuvaj) > 0 {
-		q += ` AND entity_id NOT IN (?` + strings.Repeat(",?", len(cuvaj)-1) + `)`
-		for _, id := range cuvaj {
-			args = append(args, id)
-		}
-	}
-	res, err := r.db.ExecContext(ctx, q, args...)
+// koji drži dva potpisa. Pravila zadrzi čuvaju i druge verzije entiteta
+// (ZadrziPo).
+func (r *Recorder) CompactOsim(ctx context.Context, olderThan time.Time, cuvaj []string, zadrzi ...ZadrziPo) (int64, error) {
+	uvjet, args := sazimljive(olderThan, cuvaj, zadrzi)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE `+uvjet, args...)
 	if err != nil {
 		return 0, fmt.Errorf("sažimanje knjige: %w", err)
 	}
@@ -491,16 +480,43 @@ func (r *Recorder) CompactOsim(ctx context.Context, olderThan time.Time, cuvaj [
 }
 
 // Compactable broji verzije koje bi Compact obrisao, za pregled prije radnje
-func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time) (int, error) {
+func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time, zadrzi ...ZadrziPo) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM record_versions
-		WHERE created_at < ?
+	uvjet, args := sazimljive(olderThan, nil, zadrzi)
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions WHERE `+uvjet, args...).Scan(&n)
+	return n, err
+}
+
+// ZadrziPo je pravilo sažimanja za entitet kojem površina ne ovisi samo o
+// zadnjoj verziji: osim zadnje verzije zapisa ostaje i zadnja verzija svake
+// vrijednosti JSON puta Kljuc u sadržaju (npr. svake ovjere akta, "$.ovjera_kod")
+type ZadrziPo struct {
+	Entity string
+	Kljuc  string
+}
+
+// sazimljive je uvjet za verzije koje sažimanje briše, s argumentima: starije
+// od roka, nisu zadnja verzija zapisa ni zadnja verzija autora u kanalu, nisu
+// verzije zapisa koje se čuvaju cijele (cuvaj), ni zadnja verzija koju čuva
+// neko od pravila zadrzi
+func sazimljive(olderThan time.Time, cuvaj []string, zadrzi []ZadrziPo) (string, []any) {
+	uvjet := `created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, olderThan.UTC()).Scan(&n)
-	return n, err
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)`
+	args := []any{olderThan.UTC()}
+	if len(cuvaj) > 0 {
+		uvjet += ` AND entity_id NOT IN (?` + strings.Repeat(",?", len(cuvaj)-1) + `)`
+		for _, id := range cuvaj {
+			args = append(args, id)
+		}
+	}
+	for _, z := range zadrzi {
+		uvjet += `
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions WHERE entity = ? GROUP BY entity_id, json_extract(payload, ?))`
+		args = append(args, z.Entity, z.Kljuc)
+	}
+	return uvjet, args
 }
 
 // InChannels vraća sve verzije zadanih kanala, redom nastanka — za izvoz u datoteku
