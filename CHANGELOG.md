@@ -16,6 +16,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ispravljen vodostaj ili potvrđeno dežurstvo, te za listove i upise
   dnevnika, dežurstva, bilješke i ispravke arhive. Razmjena koja se ne
   upiše do kraja sad se ponovi s idućom razmjenom.
+- **Zapis o brisanju više se ne briše s oglasne ploče.** Kad bi uprava s
+  ploče obrisala zapis o brisanju, npr. „Maknuto dežurstvo”, obrisani zapis
+  vratio bi se pri idućem pokretanju programa, a dežurstvo i u plan i u
+  obračun sati. Program sad takvo brisanje odbije, kao i brisanje zadnje
+  verzije živog zapisa.
 - **Opoziv čvora vrijedi i kad stigne zajedno s poništenjem.** Opoziv se ne
   poništava, ali kad je čvor primio opoziv i njegovo poništenje u istoj
   razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao

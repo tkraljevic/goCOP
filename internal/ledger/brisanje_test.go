@@ -7,7 +7,8 @@ import (
 )
 
 // Brisanje pojedine verzije (zapis s oglasne ploče) i spomenika: zadnja
-// verzija živog zapisa ostaje, starija i spomenik odlaze.
+// verzija zapisa ostaje, i kad je spomenik; starija verzija odlazi, a
+// spomenike briše samo PurgeArchived.
 func TestBrisanjeVerzijeISpomenika(t *testing.T) {
 	db := openTestDB(t)
 	rec := New(db, "ured")
@@ -17,11 +18,19 @@ func TestBrisanjeVerzijeISpomenika(t *testing.T) {
 	if _, err := rec.Record(ctx, db, "stations", "st-2", probni{"Dalj", 500}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := rec.Archive(ctx, db, "stations", "st-2", probni{"Dalj", 500}); err != nil {
+	spomenik, err := rec.Archive(ctx, db, "stations", "st-2", probni{"Dalj", 500})
+	if err != nil {
 		t.Fatal(err)
 	}
 	if err := rec.DeleteVersion(ctx, druga); !errors.Is(err, ErrVazecaVerzija) {
 		t.Fatalf("zadnja verzija živog zapisa se ne briše: %v", err)
+	}
+	// bez spomenika bi zadnja bila živa verzija i obrisani zapis bi se vratio
+	if err := rec.DeleteVersion(ctx, spomenik); !errors.Is(err, ErrZapisOBrisanju) {
+		t.Fatalf("spomenik koji je zadnja verzija zapisa se ne briše: %v", err)
+	}
+	if l, _ := rec.Latest(ctx, "stations", "st-2"); l == nil || l.VersionID != spomenik || !l.Archived {
+		t.Fatal("zadnja verzija obrisanog zapisa mora ostati spomenik")
 	}
 	if err := rec.DeleteVersion(ctx, prva); err != nil {
 		t.Fatal(err)
