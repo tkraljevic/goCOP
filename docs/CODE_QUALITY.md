@@ -188,12 +188,19 @@ Početna snimka: [izvještaj](CODE_QUALITY_BASELINE.md), podaci u
 `f5adb84` (0.0.31), jer su u zajedničkoj radnoj kopiji istodobno nastajale
 nepovezane izmjene za 0.0.32. Ne predstavlja verifikaciju tih nezavršenih izmjena.
 
-**Od 11. 10. 2026. referentna točka je `e4441a01`** (master nakon 0.0.35 i
-rekonstrukcije iz susjeda), snimljena sa strožim granicama. Odluka je bila da
-strože granice vrijede za kod od sada: uz staru točku sve funkcije napisane
-između 4. i 11. 10., pod starim granicama, mjerile bi se kao nove. Sav taj kod
-prošao je provjeru na svom PR-u, pa pomak ništa ne skriva. Napredak od 4. 10.
-i dalje se uspoređuje s brojkama početne snimke.
+**Od 12. 10. 2026. referentna točka je `0da9ebb6`**, snimljena sa strožim
+granicama. To je master nakon drugog kruga dorada, testova kritičnih funkcija
+za sve pakete i ispravaka koje su ti testovi otkrili. Odluka je bila da strože
+granice vrijede za kod od sada: uz stariju točku sve funkcije napisane prije,
+pod starim granicama, mjerile bi se kao nove. Sav taj kod prošao je provjeru
+na svom PR-u, pa pomak ništa ne skriva. Napredak se i dalje uspoređuje s
+brojkama početne snimke od 4. 10.:
+
+| | 4. 10. | 11. 10. (`e4441a01`) | 12. 10. (`0da9ebb6`) |
+|---|---:|---:|---:|
+| pokrivenost | 51,8 % | 64,9 % | 69,5 % |
+| kritična pokrivenost | 50,4 % | 69,3 % | 84,0 % |
+| prosječni CRAP | 43,4 | 18,0 | 16,0 |
 
 Za namjerno pomicanje referentne točke, nakon pregleda:
 
