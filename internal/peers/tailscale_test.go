@@ -3,6 +3,7 @@ package peers
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"slices"
 	"strings"
@@ -196,24 +197,43 @@ func TestRucnaTailscaleAdresaSeOdbija(t *testing.T) {
 	nemaTailscaleaUKnjizi(t, s)
 }
 
-// Dva čvora s Tailscaleom razmijene svoje Tailscale adrese u razgovoru i
-// svaki ih pamti samo kod sebe; knjiga ih ne vidi, a sljedeće spajanje ih
-// zove iza izravne adrese
-func TestCvoroviSTailscaleomRazmijeneAdreseIzravno(t *testing.T) {
+// Dva čvora s Tailscaleom javljaju jedan drugome svoje Tailscale adrese
+// samo u razgovoru preko Tailscalea. Razgovor u lokalnoj mreži ih ne nosi,
+// a onaj preko Tailscalea donese ih u oba smjera. Svaki ih pamti samo kod
+// sebe; knjiga ih ne vidi, a spajanje ih zove iza izravne adrese.
+func TestTailscaleAdreseSamoPrekoTailscalea(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
-	a.ZadajTailscale(adresa("100.101.0.1"))
+	izmisljeniTailnet(t, a, b)
 	b.ZadajTailscale(adresa("100.101.0.2"), adresa("fd7a:115c:a1e0::2"))
+
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
 	}
-	odB := []string{fmt.Sprintf("100.101.0.2:%d", b.ports.Exchange), fmt.Sprintf("[fd7a:115c:a1e0::2]:%d", b.ports.Exchange)}
+	cekajDa(t, "B zabilježi razgovor u lokalnoj mreži", func() bool {
+		st, _ := b.syncStates(ctxRub)
+		return st[a.node.ID].LastOK != nil
+	})
+	if got, got2 := a.tailscaleOd(ctxRub, b.node.ID), b.tailscaleOd(ctxRub, a.node.ID); len(got) != 0 || len(got2) != 0 {
+		t.Fatalf("razgovor u lokalnoj mreži donio je Tailscale adrese: A zna %v, B zna %v", got, got2)
+	}
+
+	// A zna jednu B-ovu Tailscale adresu (npr. iz uparivanja), a lokalne
+	// adrese više nema: razgovor ide preko Tailscalea
+	b4 := fmt.Sprintf("100.101.0.2:%d", b.ports.Exchange)
+	a.upisiTailscale(ctxRub, b.node.ID, []string{b4})
+	upoznaj(t, a, b)
+	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	odB := []string{b4, fmt.Sprintf("[fd7a:115c:a1e0::2]:%d", b.ports.Exchange)}
 	if got := a.tailscaleOd(ctxRub, b.node.ID); !slices.Equal(got, odB) {
 		t.Errorf("A zna B-ove Tailscale adrese %v, očekivano %v", got, odB)
 	}
 	odA := []string{fmt.Sprintf("100.101.0.1:%d", a.ports.Exchange)}
 	cekajDa(t, "B zapamti A-ove Tailscale adrese", func() bool { return slices.Equal(b.tailscaleOd(ctxRub, a.node.ID), odA) })
 
+	upoznaj(t, a, b, adresaNaPetlji(b))
 	peerB, _ := a.GetPeer(ctxRub, b.node.ID)
 	if got := a.adreseZaSpajanje(ctxRub, peerB); !slices.Equal(got, append([]string{adresaNaPetlji(b)}, odB...)) {
 		t.Errorf("redoslijed spajanja: %v", got)
@@ -224,20 +244,98 @@ func TestCvoroviSTailscaleomRazmijeneAdreseIzravno(t *testing.T) {
 	nemaTailscaleaUKnjizi(t, a)
 	nemaTailscaleaUKnjizi(t, b)
 
-	// Drugi put B nazove A; A tada više nema Tailscale (isključen ili
-	// ugašen), pa B zaboravi njegove adrese
-	a.ZadajTailscale()
+	// razgovor u lokalnoj mreži zapamćeno ne dira
 	if _, _, err := b.SyncWith(ctxRub, a.node.ID); err != nil {
 		t.Fatal(err)
 	}
-	if got := b.tailscaleOd(ctxRub, a.node.ID); len(got) != 0 {
-		t.Errorf("B pamti Tailscale adrese čvora koji ga više nema: %v", got)
+	if got := b.tailscaleOd(ctxRub, a.node.ID); !slices.Equal(got, odA) {
+		t.Errorf("nakon razgovora u lokalnoj mreži B zna %v", got)
 	}
-	if got := a.tailscaleOd(ctxRub, b.node.ID); !slices.Equal(got, odB) {
-		t.Errorf("A bez Tailscalea ne prima ništa, a staro ne dira: %v", got)
+}
+
+// Razgovor ide preko Tailscalea samo kad je druga strana na Tailscale
+// adresi, a veza na Tailscale adresi ovog računala. Čvor koji kroz
+// Tailscale dođe do računala u uredskoj mreži (usmjerivač podmreže) nije
+// na Tailscale adresi, pa ne dobiva ništa.
+func TestPrekoTailscalea(t *testing.T) {
+	s := &Service{}
+	s.ZadajTailscale(adresa("100.101.0.1"), adresa("fd7a:115c:a1e0::1"))
+	for _, k := range []struct {
+		ova, druga string
+		ocekivano  bool
+	}{
+		{"100.101.0.1:50000", "100.101.0.2:4710", true},
+		{"[fd7a:115c:a1e0::1]:50000", "[fd7a:115c:a1e0::2]:4710", true},
+		{"[::ffff:100.101.0.1]:4710", "[::ffff:100.101.0.2]:50000", true},
+		{"100.101.0.1:50000", "192.168.24.80:4710", false}, // usmjerivač podmreže
+		{"192.168.1.20:50000", "100.101.0.2:4710", false},  // tuđa adresa iz raspona, ne preko Tailscalea
+		{"100.101.0.3:50000", "100.101.0.2:4710", false},   // nije adresa ovog računala
+		{"127.0.0.1:50000", "127.0.0.1:4710", false},
+	} {
+		if got := s.prekoTailscalea(tcpAdresa(t, k.ova), tcpAdresa(t, k.druga)); got != k.ocekivano {
+			t.Errorf("%s → %s: %v, očekivano %v", k.ova, k.druga, got, k.ocekivano)
+		}
 	}
-	if got := a.adreseZaSpajanje(ctxRub, peerB); !slices.Equal(got, []string{adresaNaPetlji(b)}) {
-		t.Errorf("A bez Tailscalea zove samo izravnu adresu: %v", got)
+	tunel := &net.UnixAddr{Name: "/razmjena/tunel", Net: "unix"}
+	if s.prekoTailscalea(tunel, tunel) || s.prekoTailscalea(tunel, tcpAdresa(t, "100.101.0.2:4710")) {
+		t.Error("razgovor kroz tunel nije preko Tailscalea")
+	}
+	s.PostaviTailscale(false)
+	if s.prekoTailscalea(tcpAdresa(t, "100.101.0.1:50000"), tcpAdresa(t, "100.101.0.2:4710")) {
+		t.Error("isključen Tailscale")
+	}
+}
+
+// Dva čvora koja se upare preko Tailscale adrese (npr. novi čvor kod kuće
+// i uredski) pamte tu adresu samo kod sebe i razmjenjuju preko nje; u
+// zapisu čvora je nema
+func TestUparivanjePrekoTailscalea(t *testing.T) {
+	c := clanovi(t, "laptop-baranja", "ured-vukovar")
+	a, b := c[0], c[1]
+	for _, par := range [][2]*Service{{a, b}, {b, a}} {
+		if err := par[0].ForgetPeer(ctxRub, par[1].node.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	b.ports.Pair = slobodanPort(t)
+	izmisljeniTailnet(t, a, b)
+	upari(t, a, b, fmt.Sprintf("100.101.0.2:%d", b.ports.Pair))
+
+	peerB, err := a.GetPeer(ctxRub, b.node.ID)
+	if err != nil || peerB == nil || len(peerB.Addresses) != 0 {
+		t.Fatalf("zapis čvora nakon uparivanja preko Tailscalea: %+v %v", peerB, err)
+	}
+	b4 := fmt.Sprintf("100.101.0.2:%d", b.ports.Exchange)
+	if got := a.tailscaleOd(ctxRub, b.node.ID); !slices.Equal(got, []string{b4}) {
+		t.Errorf("A pamti %v, očekivano %v", got, b4)
+	}
+	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
+		t.Fatalf("razmjena nakon uparivanja preko Tailscalea: %v", err)
+	}
+	cekajDa(t, "B zapamti A-ove Tailscale adrese", func() bool { return len(b.tailscaleOd(ctxRub, a.node.ID)) == 1 })
+	nemaTailscaleaUKnjizi(t, a)
+	nemaTailscaleaUKnjizi(t, b)
+}
+
+// Uparivanje pamti samo Tailscale adresu, i samo na čvoru koji ima
+// Tailscale; bez porta razmjene vrijedi zadani
+func TestZapamtiUparivanje(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	s.zapamtiUparivanje(ctxRub, "ured-vukovar", "100.101.0.2", "4720")
+	if got := s.tailscaleOd(ctxRub, "ured-vukovar"); len(got) != 0 {
+		t.Errorf("čvor bez Tailscalea zapamtio je %v", got)
+	}
+	s.ZadajTailscale(adresa("100.101.0.1"))
+	for _, host := range []string{"192.168.24.70", "", "nije-adresa"} {
+		s.zapamtiUparivanje(ctxRub, "ured-vukovar", host, "4720")
+	}
+	if got := s.tailscaleOd(ctxRub, "ured-vukovar"); len(got) != 0 {
+		t.Errorf("zapamćena adresa koja nije Tailscale: %v", got)
+	}
+	s.zapamtiUparivanje(ctxRub, "ured-vukovar", "100.101.0.2", "4720")
+	s.zapamtiUparivanje(ctxRub, "ured-vukovar", "fd7a:115c:a1e0::2", "")
+	if got, ocekivano := s.tailscaleOd(ctxRub, "ured-vukovar"), []string{fmt.Sprintf("[fd7a:115c:a1e0::2]:%d", DefaultExchangePort), "100.101.0.2:4720"}; !slices.Equal(got, ocekivano) {
+		t.Errorf("zapamćeno %v, očekivano %v", got, ocekivano)
 	}
 }
 
@@ -288,20 +386,26 @@ func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 	}
 }
 
-// Ovaj čvor javlja svoje adrese samo kad je i drugi javio Tailscale i kad
-// sam prima razmjene
+// Ovaj čvor javlja svoje adrese samo u razgovoru preko Tailscalea i kad
+// sam prima razmjene; primljene adrese vrijede samo iz takvog razgovora
 func TestTailscaleZaDrugoga(t *testing.T) {
 	s := &Service{ports: Ports{Exchange: 4710}}
-	moje := []netip.Addr{adresa("100.101.0.1"), adresa("fd7a:115c:a1e0::1")}
-	if got := s.tailscaleZaDrugoga(moje, frontierMsg{}); got != nil {
-		t.Errorf("drugi nema Tailscale: %v", got)
+	s.ZadajTailscale(adresa("100.101.0.1"), adresa("fd7a:115c:a1e0::1"))
+	if got := s.tailscaleZaDrugoga(false); got != nil {
+		t.Errorf("razgovor nije preko Tailscalea: %v", got)
 	}
-	if got := s.tailscaleZaDrugoga(moje, frontierMsg{Tailscale: true}); !slices.Equal(got, []string{"100.101.0.1:4710", "[fd7a:115c:a1e0::1]:4710"}) {
-		t.Errorf("oba imaju Tailscale: %v", got)
+	if got := s.tailscaleZaDrugoga(true); !slices.Equal(got, []string{"100.101.0.1:4710", "[fd7a:115c:a1e0::1]:4710"}) {
+		t.Errorf("razgovor preko Tailscalea: %v", got)
 	}
 	s.ports.Exchange = 0
-	if got := s.tailscaleZaDrugoga(moje, frontierMsg{Tailscale: true}); got != nil {
+	if got := s.tailscaleZaDrugoga(true); got != nil {
 		t.Errorf("čvor bez porta razmjene: %v", got)
+	}
+	if got := primljeniTailscale(false, []string{"100.101.0.2:4710"}); got != nil {
+		t.Errorf("primljeno izvan Tailscalea: %v", got)
+	}
+	if got := primljeniTailscale(true, []string{"100.101.0.2:4710", "192.168.1.2:4710"}); !slices.Equal(got, []string{"100.101.0.2:4710"}) {
+		t.Errorf("primljeno preko Tailscalea: %v", got)
 	}
 }
 

@@ -163,6 +163,9 @@ type Service struct {
 	// tailscaleAdrese čita Tailscale adrese ovog računala; nil znači
 	// zadaneTailscaleAdrese. Test njime daje čvoru izmišljene adrese.
 	tailscaleAdrese func() []netip.Addr
+	// dial otvara TCP vezu do drugog čvora (razmjena i uparivanje); nil je
+	// obična veza. Test njime vezu preruši, npr. u vezu preko Tailscalea.
+	dial func(ctx context.Context, adresa string) (net.Conn, error)
 	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
 	upis       chan struct{}
 	upisJednom sync.Once
@@ -292,10 +295,10 @@ func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string)
 
 // dodajAdresu dodaje čvoru adresu koju je upisao čovjek. Tailscale adresa
 // se ne prima: popis adresa dobivaju svi čvorovi mreže, a Tailscale je
-// osobna mreža, pa takve adrese čvorovi s Tailscaleom razmijene sami.
+// osobna mreža. Ovaj čvor je zapamti kad se preko nje upari (tailscale.go).
 func (s *Service) dodajAdresu(p *Peer, add string) error {
 	if jeTailscaleAdresa(add) {
-		return fmt.Errorf("Tailscale adresa se ne upisuje među adrese čvora: popis adresa dobivaju svi čvorovi mreže. Čvorovi koji imaju Tailscale sami razmijene te adrese kad razgovaraju izravno")
+		return fmt.Errorf("Tailscale adresa se ne upisuje među adrese čvora: popis adresa dobivaju svi čvorovi mreže. Da dva vaša čvora s Tailscaleom razmjenjuju preko njega, uparite ih jednom preko Tailscale adrese; adresa tada ostaje samo na ovom računalu")
 	}
 	if razmjena.JeAdresaTunela(add) {
 		// razmjena kroz web tunel (Cloudflare): https://domena
@@ -614,7 +617,7 @@ func (s *Service) DialPair(ctx context.Context, addr string) error {
 	if !strings.Contains(addr, ":") {
 		addr = fmt.Sprintf("%s:%d", addr, s.ports.Pair)
 	}
-	res, err := razmjena.Dial(ctx, s.node.key, s.identity(), addr)
+	res, err := s.nazoviUparivanje(ctx, addr)
 	if err != nil {
 		return err
 	}
@@ -688,6 +691,7 @@ func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOu
 	if err := s.SavePeer(ctx, peer); err != nil {
 		return PairOutcome{}, err
 	}
+	s.zapamtiUparivanje(ctx, peer.NodeID, res.PeerHost(), res.Peer.Meta["exchange_port"])
 
 	member, msg, err := s.acceptWelcome(ctx, theirs, res.Peer.DeviceID, res.PeerKey, given)
 	if err != nil {
@@ -714,11 +718,9 @@ type frontierMsg struct {
 	// od onoga koji je to uveo.
 	Program string `json:"program,omitempty"`
 	Gradnja string `json:"gradnja,omitempty"`
-	// Tailscale: pošiljatelj ima Tailscale i smije ga koristiti u razmjeni.
-	// Čvor bez Tailscalea polje ne šalje, pa mu je granica ista kao prije.
-	Tailscale bool `json:"tailscale,omitempty"`
-	// tailscale su Tailscale adrese koje je drugi čvor javio u delti; ne
-	// putuje, samo nosi primljeno do bilješke o razmjeni (noteSync)
+	// tailscale su Tailscale adrese koje je drugi čvor javio u delti
+	// razgovora preko Tailscalea; ne putuje, samo nosi primljeno do bilješke
+	// o razmjeni (noteSync)
 	tailscale []string
 }
 
@@ -728,7 +730,7 @@ type deltaMsg struct {
 	// još; pozivatelj tada nastavlja odmah. Stariji čvor polje ne šalje ni čita.
 	Skraceno bool `json:"skraceno,omitempty"`
 	// Tailscale su Tailscale adrese pošiljatelja s portom razmjene. Šalju se
-	// samo kad su obje granice javile Tailscale; nikad ne idu u knjigu.
+	// samo u razgovoru preko Tailscalea (tailscale.go); nikad ne idu u knjigu.
 	Tailscale []string `json:"tailscale,omitempty"`
 }
 
@@ -872,7 +874,29 @@ func (s *Service) nazovi(ctx context.Context, host string, expect ed25519.Public
 		return razmjena.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
 	}
 	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-	return razmjena.DialExchange(dialCtx, s.node.key, Protocol, s.vjerodajnice, withPort(host, fmt.Sprint(DefaultExchangePort)), expect)
+	adresa := withPort(host, fmt.Sprint(DefaultExchangePort))
+	raw, err := s.otvori(dialCtx, adresa)
+	if err != nil {
+		return nil, err
+	}
+	return razmjena.DialExchangeOn(dialCtx, raw, s.node.key, Protocol, s.vjerodajnice, adresa, expect)
+}
+
+// nazoviUparivanje otvara uparivanje s čvorom koji ga čeka na adresi
+func (s *Service) nazoviUparivanje(ctx context.Context, adresa string) (*razmjena.PairResult, error) {
+	raw, err := s.otvori(ctx, adresa)
+	if err != nil {
+		return nil, err
+	}
+	return razmjena.DialOn(raw, s.node.key, s.identity())
+}
+
+// otvori otvara TCP vezu do drugog čvora, ili je otvori test (s.dial)
+func (s *Service) otvori(ctx context.Context, adresa string) (net.Conn, error) {
+	if s.dial != nil {
+		return s.dial(ctx, adresa)
+	}
+	return (&net.Dialer{Timeout: 15 * time.Second}).DialContext(ctx, "tcp", adresa)
 }
 
 // najviseBajtovaDelte ograđuje jednu poruku delte (verzije kao JSON).
@@ -953,8 +977,8 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	}
 
 	program, gradnja := s.Program()
-	mojiTailscale := s.mojeTailscale()
-	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja, Tailscale: len(mojiTailscale) > 0}
+	prekoTailscalea := s.prekoTailscalea(c.LocalAddr(), c.RemoteAddr())
+	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja}
 	if initiator {
 		if err := send(kindFrontier, moja); err != nil {
 			return 0, 0, theirs, err
@@ -980,7 +1004,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	puna := len(delta)
 	delta = ogradiDeltu(delta, najviseBajtovaDelte)
 	skraceno := len(delta) < puna
-	mojaDelta := deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: s.tailscaleZaDrugoga(mojiTailscale, theirs)}
+	mojaDelta := deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: s.tailscaleZaDrugoga(prekoTailscalea)}
 	var incoming deltaMsg
 	if initiator {
 		if err := send(kindDelta, mojaDelta); err != nil {
@@ -998,7 +1022,7 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 		}
 	}
 	sent = len(delta)
-	theirs.tailscale = incoming.Tailscale
+	theirs.tailscale = primljeniTailscale(prekoTailscalea, incoming.Tailscale)
 	// Bilo koja strana je skratila deltu: ima još, razgovor se ponavlja odmah
 	if skraceno || incoming.Skraceno {
 		s.skracene.Store(c, true)

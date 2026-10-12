@@ -174,16 +174,22 @@ func Listen(ctx context.Context, priv ed25519.PrivateKey, id Identity, port int)
 
 // Dial connects to a listening device and returns the same judgment point.
 func Dial(ctx context.Context, priv ed25519.PrivateKey, id Identity, addr string) (*PairResult, error) {
+	conn, err := (&net.Dialer{Timeout: 15 * time.Second}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return DialOn(conn, priv, id)
+}
+
+// DialOn je Dial preko već otvorene veze do čvora koji čeka uparivanje
+// (npr. veza koju je otvorio test); veza se zatvara kad uparivanje ne krene
+func DialOn(raw net.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, error) {
 	cfg, err := tlsConfig(priv, id.Protocol)
 	if err != nil {
+		raw.Close()
 		return nil, err
 	}
-	d := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 15 * time.Second}, Config: cfg}
-	conn, err := d.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return nil, err
-	}
-	return completeHandshake(conn.(*tls.Conn), priv, id, true)
+	return completeHandshake(tls.Client(raw, cfg), priv, id, true)
 }
 
 // completeHandshake: pozivatelj je strana koja je nazvala (Dial); ona se u

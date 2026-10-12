@@ -184,3 +184,87 @@ func cekajDa(t *testing.T, opis string, uvjet func() bool) {
 	}
 	t.Fatalf("nije se dogodilo: %s", opis)
 }
+
+// izmisljeniTailnet spaja čvorove u izmišljenu Tailscale mrežu. Čvor i
+// dobije adresu 100.101.0.(i+1). Veza na Tailscale adresu drugog čvora ide
+// loopbackom, prerušena tako da obje strane vide Tailscale adrese, kao da je
+// stigla preko Tailscalea. Ostale adrese čvor zove kao i inače, a Tailscale
+// adresu izvan ove mreže ne može nazvati. Port uparivanja mora biti zadan
+// prije poziva.
+func izmisljeniTailnet(t *testing.T, cvorovi ...*Service) {
+	t.Helper()
+	ip := map[*Service]string{}
+	for i, s := range cvorovi {
+		ip[s] = fmt.Sprintf("100.101.0.%d", i+1)
+		s.ZadajTailscale(adresa(ip[s]))
+	}
+	for _, a := range cvorovi {
+		lokalna := tcpAdresa(t, ip[a]+":50000")
+		putevi := map[string]string{} // Tailscale adresa s portom → loopback
+		for _, b := range cvorovi {
+			if a == b {
+				continue
+			}
+			naB := fmt.Sprintf("%s:%d", ip[b], b.ports.Exchange)
+			putevi[naB] = prerusenaRazmjena(t, b, tcpAdresa(t, naB), lokalna)
+			if b.ports.Pair > 0 {
+				putevi[fmt.Sprintf("%s:%d", ip[b], b.ports.Pair)] = fmt.Sprintf("127.0.0.1:%d", b.ports.Pair)
+			}
+		}
+		a.dial = func(ctx context.Context, adresa string) (net.Conn, error) {
+			return nazoviUTailnetu(ctx, adresa, putevi, lokalna)
+		}
+	}
+}
+
+// nazoviUTailnetu otvara vezu za čvor u izmišljenoj Tailscale mreži
+func nazoviUTailnetu(ctx context.Context, adresa string, putevi map[string]string, lokalna net.Addr) (net.Conn, error) {
+	var d net.Dialer
+	cilj, ok := putevi[adresa]
+	if !ok && jeTailscaleAdresa(adresa) {
+		return nil, fmt.Errorf("dial tcp %s: i/o timeout", adresa)
+	}
+	if !ok {
+		return d.DialContext(ctx, "tcp", adresa)
+	}
+	c, err := d.DialContext(ctx, "tcp", cilj)
+	if err != nil {
+		return nil, err
+	}
+	udaljena, _ := net.ResolveTCPAddr("tcp", adresa)
+	return prerusenaVeza{Conn: c, lokalna: lokalna, udaljena: udaljena}, nil
+}
+
+// upari: a nazove b na adresi i oba čovjeka potvrde kod
+func upari(t *testing.T, a, b *Service, adresa string) {
+	t.Helper()
+	if err := b.StartListening(); err != nil {
+		t.Fatal(err)
+	}
+	var err error
+	for i := 0; i < 200; i++ {
+		if err = a.DialPair(ctxRub, adresa); err == nil {
+			break
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	if err != nil {
+		t.Fatalf("nazivanje uparivanja: %v", err)
+	}
+	cekajDa(t, "b vidi kod uparivanja", func() bool { return b.PairStatus().Pending })
+	ishodB := make(chan PairOutcome, 1)
+	go func() {
+		o, err := b.ConfirmPair(ctxRub, true, true)
+		if err != nil {
+			t.Error(err)
+		}
+		ishodB <- o
+	}()
+	o, err := a.ConfirmPair(ctxRub, true, true)
+	if err != nil || !o.Paired {
+		t.Fatalf("potvrda na %s: %+v %v", a.node.ID, o, err)
+	}
+	if o := <-ishodB; !o.Paired {
+		t.Fatalf("potvrda na %s: %+v", b.node.ID, o)
+	}
+}

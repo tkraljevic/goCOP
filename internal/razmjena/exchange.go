@@ -310,16 +310,31 @@ func Odbij(c *Conn, razlog string) {
 // DialExchange connects to a peer and refuses to proceed unless the key
 // it proves is the one expected.
 func DialExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*Conn, error) {
+	// rok vrijedi za spajanje i rukovanje zajedno, kao uz tls.Dialer
+	ctx, otkazi := context.WithTimeout(ctx, 15*time.Second)
+	defer otkazi()
+	raw, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return DialExchangeOn(ctx, raw, priv, protocol, vj, addr, expect)
+}
+
+// DialExchangeOn je DialExchange preko već otvorene veze do drugog čvora
+// (npr. veza koju je otvorio test); addr je samo za poruku o grešci. Veza se
+// zatvara kad razmjena ne može početi.
+func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, protocol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*Conn, error) {
 	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
+		raw.Close()
 		return nil, err
 	}
-	d := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 15 * time.Second}, Config: cfg}
-	raw, err := d.DialContext(ctx, "tcp", addr)
-	if err != nil {
+	tc := tls.Client(raw, cfg)
+	if err := tc.HandshakeContext(ctx); err != nil {
+		tc.Close()
 		return nil, err
 	}
-	conn, err := newConn(raw.(*tls.Conn))
+	conn, err := newConn(tc)
 	if err != nil {
 		return nil, err
 	}

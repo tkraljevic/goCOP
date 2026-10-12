@@ -3,17 +3,24 @@ package peers
 // Tailscale u razmjeni (Odluke (12. 10. 2026.)). Tailscale je osobna mreža
 // jednog korisnika i imaju ga samo neka računala. Zapis čvora (peers) putuje
 // knjigom svim čvorovima mreže, pa Tailscale adrese u njega ne ulaze nikad,
-// ni vlastite ni tuđe. Dva čvora koja oba imaju Tailscale razmijene svoje
-// adrese izravno, u razgovoru: granica kaže ima li ga čvor, a delta nosi
-// adrese samo kad ga imaju oba. Svaki ih čuva samo kod sebe, u
-// peer_sync.tailscale, i zove ih iza izravnih adresa, a ispred tunela.
-// Čvor bez Tailscalea ne šalje ni ne prima ništa novo: njegove su poruke
-// iste kao prije.
+// ni vlastite ni tuđe.
+//
+// Čvor svoje Tailscale adrese javlja samo u razgovoru koji ide preko
+// Tailscalea: veza je na Tailscale adresi ovog računala, a druga strana je
+// na Tailscale adresi. Takav razgovor može voditi samo računalo iz iste
+// Tailscale mreže, pa adrese ne dobije nijedan čvor izvan nje, ma što o
+// sebi javio. Prvu Tailscale adresu drugog čvora ovaj dobije kad se s njim
+// upari preko te adrese; prvi razgovor preko nje donese ostale, u oba
+// smjera. Svaki čvor ih čuva samo kod sebe, u peer_sync.tailscale, i zove
+// ih iza izravnih adresa, a ispred tunela. Čvor bez Tailscalea ne šalje ni
+// ne prima ništa novo: njegove su poruke iste kao prije.
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"net/netip"
@@ -64,17 +71,47 @@ func (s *Service) mojeTailscale() []netip.Addr {
 	return s.vlastiteTailscale()
 }
 
+// prekoTailscalea javlja ide li razgovor preko Tailscalea: druga strana je
+// na Tailscale adresi, a veza na Tailscale adresi ovog računala (dok je
+// Tailscale u razmjeni uključen). Do te adrese dolazi samo računalo iz iste
+// Tailscale mreže. Kartice se čitaju tek kad je druga strana na Tailscale
+// adresi, pa čvor bez Tailscalea ništa ne čita.
+func (s *Service) prekoTailscalea(ova, druga net.Addr) bool {
+	ip, ok := ipVeze(druga)
+	if !ok || !tailscale.JeTailscale(ip) {
+		return false
+	}
+	ip, _ = ipVeze(ova)
+	return slices.Contains(s.mojeTailscale(), ip)
+}
+
+// ipVeze je IP adresa jednog kraja veze; veza kroz tunel je nema
+func ipVeze(a net.Addr) (netip.Addr, bool) {
+	ap, err := netip.ParseAddrPort(a.String())
+	return ap.Addr().Unmap(), err == nil
+}
+
 // tailscaleZaDrugoga su adrese ovog čvora, s portom razmjene, koje javlja
-// drugome: samo kad su oba javila Tailscale i ovaj prima razmjene
-func (s *Service) tailscaleZaDrugoga(moje []netip.Addr, theirs frontierMsg) []string {
-	if !theirs.Tailscale || s.ports.Exchange <= 0 {
+// drugome: samo u razgovoru preko Tailscalea i kad ovaj prima razmjene
+func (s *Service) tailscaleZaDrugoga(prekoTailscalea bool) []string {
+	if !prekoTailscalea || s.ports.Exchange <= 0 {
 		return nil
 	}
+	moje := s.mojeTailscale()
 	out := make([]string, 0, len(moje))
 	for _, a := range moje {
 		out = append(out, netip.AddrPortFrom(a, uint16(s.ports.Exchange)).String())
 	}
 	return out
+}
+
+// primljeniTailscale su Tailscale adrese koje je drugi čvor javio u
+// delti; vrijede samo iz razgovora preko Tailscalea
+func primljeniTailscale(prekoTailscalea bool, adrese []string) []string {
+	if !prekoTailscalea {
+		return nil
+	}
+	return samoTailscale(adrese)
 }
 
 // tailscaleSPortom čita jednu primljenu adresu: Tailscale IP s portom
@@ -122,23 +159,38 @@ func (s *Service) tailscaleOd(ctx context.Context, nodeID string) []string {
 	return samoTailscale(adrese)
 }
 
-// zapamtiTailscale nakon uspješnog razgovora pamti što je drugi čvor javio
-// o svom Tailscaleu: adrese kad ga imaju oba, inače prazno (možda ga je
-// isključio). Čvor bez Tailscalea ne pamti ništa.
+// zapamtiTailscale nakon uspješnog razgovora preko Tailscalea pamti
+// Tailscale adrese koje je drugi čvor javio. Drugi razgovori ih ne nose, pa
+// zapamćeno ostaje; zaboravlja se kad drugi čvor odbije razmjenu na
+// Tailscale adresi (odbioTailscale).
 func (s *Service) zapamtiTailscale(ctx context.Context, nodeID string, o syncOutcome) {
-	if o.err != nil || len(s.mojeTailscale()) == 0 {
+	if o.err != nil || len(o.tailscale) == 0 {
 		return
 	}
 	s.upisiTailscale(ctx, nodeID, o.tailscale)
 }
 
+// zapamtiUparivanje: uparivanje preko Tailscale adrese drugog čvora pamti
+// tu adresu, s njegovim portom razmjene, samo na ovom računalu, jer u zapis
+// čvora ne ide. Bez toga čvorovi upareni samo preko Tailscalea ne bi
+// imali nijednu adresu jedan za drugoga.
+func (s *Service) zapamtiUparivanje(ctx context.Context, nodeID, host, port string) {
+	ip, err := netip.ParseAddr(host)
+	if err != nil || !tailscale.JeTailscale(ip) || len(s.mojeTailscale()) == 0 {
+		return
+	}
+	nova := withPort(host, cmp.Or(port, fmt.Sprint(DefaultExchangePort)))
+	s.upisiTailscale(ctx, nodeID, append([]string{nova}, s.tailscaleOd(ctx, nodeID)...))
+}
+
 // tailscaleZaSpajanje su spremljene Tailscale adrese čvora, kad ih ovaj
-// smije zvati
+// smije zvati. Kartice se čitaju samo kad ima spremljenih adresa.
 func (s *Service) tailscaleZaSpajanje(ctx context.Context, nodeID string) []string {
-	if len(s.mojeTailscale()) == 0 {
+	adrese := s.tailscaleOd(ctx, nodeID)
+	if len(adrese) == 0 || len(s.mojeTailscale()) == 0 {
 		return nil
 	}
-	return s.tailscaleOd(ctx, nodeID)
+	return adrese
 }
 
 // bezTailscalea izbacuje Tailscale adrese iz adresa zapisa čvora, koji
@@ -198,11 +250,11 @@ func (s *Service) odbioTailscale(ctx context.Context, nodeID string, err error) 
 // računala. Raspon sam nije dovoljan (100.64.0.0/10 daju i mobilni
 // operateri), pa adresa mora biti među adresama Tailscalea ovog računala.
 func (s *Service) naVlastitiTailscale(a net.Addr) bool {
-	ap, err := netip.ParseAddrPort(a.String())
-	if err != nil || !tailscale.JeTailscale(ap.Addr()) {
+	ip, ok := ipVeze(a)
+	if !ok || !tailscale.JeTailscale(ip) {
 		return false
 	}
-	return slices.Contains(s.vlastiteTailscale(), ap.Addr().Unmap())
+	return slices.Contains(s.vlastiteTailscale(), ip)
 }
 
 // odbijTailscale odbija dolaznu razmjenu koja je stigla na Tailscale adresu
