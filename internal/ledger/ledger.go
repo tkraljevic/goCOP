@@ -228,6 +228,20 @@ func (r *Recorder) LatestOf(ctx context.Context, entities []string) ([]Version, 
 	return r.query(ctx, q+` ORDER BY version_id`, args...)
 }
 
+// Verzije vraća verzije s navedenim identitetima, redom nastanka; identitet
+// kojeg nema u knjizi preskače
+func (r *Recorder) Verzije(ctx context.Context, versionIDs []string) ([]Version, error) {
+	if len(versionIDs) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(versionIDs))
+	for i, id := range versionIDs {
+		args[i] = id
+	}
+	return r.query(ctx, `SELECT `+columns+` FROM record_versions
+		WHERE version_id IN (?`+strings.Repeat(",?", len(versionIDs)-1)+`) ORDER BY version_id`, args...)
+}
+
 // History vraća sve verzije zapisa, od najnovije prema najstarijoj
 func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Version, error) {
 	return r.query(ctx, `

@@ -27,4 +27,7 @@ CREATE INDEX IF NOT EXISTS idx_versions_entity ON record_versions(entity, entity
 CREATE INDEX IF NOT EXISTS idx_versions_node ON record_versions(node_id, version_id);
 -- zapisi novije sheme su rijetki; djelomičan indeks ih nađe bez prolaska knjige
 CREATE INDEX IF NOT EXISTS idx_versions_shema ON record_versions(entity, schema_version) WHERE schema_version > 1;
+-- i brisanja su rijetka; obnova površine njime nađe obrisan zapis koji još
+-- stoji u tablici bez čitanja svih verzija očitanja
+CREATE INDEX IF NOT EXISTS idx_versions_arhivirane ON record_versions(entity, entity_id, version_id) WHERE archived = 1;
 `

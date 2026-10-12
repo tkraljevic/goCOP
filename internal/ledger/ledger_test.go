@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"testing"
 
@@ -191,5 +192,33 @@ func TestVerzijaBezIdentifikatoraSeOdbija(t *testing.T) {
 	}
 	if _, err := rec.Latest(context.Background(), "stations", "nema"); err != ErrNoVersion {
 		t.Errorf("zapis bez verzija mora vratiti ErrNoVersion, dobiveno %v", err)
+	}
+}
+
+// Verzije po identitetu dolaze redom nastanka, a identitet kojeg nema se
+// preskače
+func TestVerzijePoIdentitetu(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "cop-osijek")
+	ctx := context.Background()
+	var ids []string
+	for i, naziv := range []string{"A", "B", "C"} {
+		id, err := rec.Record(ctx, db, "readings", fmt.Sprintf("o-%d", i+1), probni{naziv, i + 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	v1, v3 := ids[0], ids[2]
+
+	if prazno, err := rec.Verzije(ctx, nil); err != nil || prazno != nil {
+		t.Errorf("bez identiteta: %v, %v", prazno, err)
+	}
+	got, err := rec.Verzije(ctx, []string{v3, "nema-je", v1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].VersionID != v1 || got[1].VersionID != v3 || got[1].EntityID != "o-3" {
+		t.Errorf("verzije po identitetu: %+v", got)
 	}
 }

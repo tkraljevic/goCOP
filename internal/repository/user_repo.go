@@ -182,8 +182,8 @@ func (r *UserRepository) recordDuties(ctx context.Context, tx *sql.Tx, ids []str
 	return nil
 }
 
-func idsOf(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]string, error) {
-	rows, err := tx.QueryContext(ctx, query, args...)
+func idsOf(ctx context.Context, q db.Execer, query string, args ...any) ([]string, error) {
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}

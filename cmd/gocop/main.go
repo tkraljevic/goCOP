@@ -835,13 +835,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		if razmjenaArh != nil {
 			razmjenaArh.primljeno(versions)
 		}
-		return repository.ApplyVersions(ctx, database, recorder, versions)
+		return primijeniPrimljeno(ctx, database, recorder, versions)
 	})
 	// Površina se pri pokretanju obnovi iz knjige, da zapela primjena s
 	// prethodne razmjene ne ostavi čvor sa starim stanjem
 	if n, err := repository.ReplaySurface(context.Background(), database, recorder); err != nil {
 		log.Printf("Obnova površine iz knjige (%d zapisa): %v", n, err)
 	}
+	obnoviPovrsinu(context.Background(), database, recorder)
 
 	userRepo := repository.NewUserRepository(database, recorder)
 	sessionRepo := repository.NewSessionRepository(database)
