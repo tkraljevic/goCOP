@@ -152,3 +152,27 @@ func TestBravaPrijasnjegZivotaIstogPida(t *testing.T) {
 	}
 	nova.Pusti()
 }
+
+// Zaključava prikaz posla u tijeku: bez brave nema posla, dok je brava uzeta
+// vidi se čime se posao bavi, a nakon puštanja opet ništa. Puštanje već
+// puštene ili nepostojeće brave ne radi ništa.
+func TestPosaoUTijekuPremaBravi(t *testing.T) {
+	baza := filepath.Join(t.TempDir(), "arhiva.db")
+	if p := PosaoUTijeku(baza); p != "" {
+		t.Errorf("bez brave javljen posao %q", p)
+	}
+	b, err := Uzmi(baza, "ugradnja paketa osijek", "cop-osijek")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := PosaoUTijeku(baza); p != "ugradnja paketa osijek" {
+		t.Errorf("posao u tijeku %q", p)
+	}
+	b.Pusti()
+	if p := PosaoUTijeku(baza); p != "" {
+		t.Errorf("nakon puštanja javljen posao %q", p)
+	}
+	b.Pusti()
+	var nema *Brava
+	nema.Pusti()
+}
