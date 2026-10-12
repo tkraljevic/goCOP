@@ -197,9 +197,9 @@ func TestNovaPostavkaBezRasporeda(t *testing.T) {
 		nacin         nacinPostavke
 	}{{"sync", "mreza", postavkaSamoCitanje}, {"web", "mreza", postavkaSamoCitanje}, {"posta", "posta", postavkaDrugdje},
 		{"nepoznato", "cvor", postavkaSamoCitanje}, {"", "cvor", postavkaSamoCitanje}} {
-		m := mjestoKljuca(config.Kljuc{Odjeljak: s.odjeljak, Ime: "tailscale"})
+		m := mjestoKljuca(config.Kljuc{Odjeljak: s.odjeljak, Ime: "nova_postavka"})
 		if m.dio != s.dio || m.nacin != s.nacin {
-			t.Errorf("[%s] tailscale: %+v", s.odjeljak, m)
+			t.Errorf("[%s] nova_postavka: %+v", s.odjeljak, m)
 		}
 	}
 }
