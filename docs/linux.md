@@ -542,8 +542,10 @@ Izbornik ikone:
 
 **Lozinka administratora.** Zaustavi, Pokreni i Nadogradi mijenjaju uslugu
 sustava, pa sustav za njih traži lozinku administratora u svom prozoru
-(polkit). Nadogradnja pita jednom, za cijelu skriptu (`pkexec`). Kad usluga
-već radi, Postava pri prijavi ne pita ništa. Ako sustav nema `pkexec`-a ili
+(polkit). Nadogradnja pita jednom, za cijelu skriptu (`pkexec`). Pri
+prijavi Postava ne pita ništa i uslugu ne pali: to radi systemd pri
+pokretanju računala, a uslugu koju je netko zaustavio pali samo *Pokreni*.
+Ako sustav nema `pkexec`-a ili
 se lozinka ne upiše, goCOP se nadograđuje ručno (poglavlje 9). Postavu koju
 je donijela nadogradnja ikona koristi od sljedećeg pokretanja, npr. nakon
 sljedeće prijave.

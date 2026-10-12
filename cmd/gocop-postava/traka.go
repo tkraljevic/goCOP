@@ -126,6 +126,12 @@ func (tr *traka) pocetak() {
 			}
 		}
 	}
+	if p.UslugaSustava() {
+		// uslugu pali systemd pri pokretanju računala; ako ju je netko
+		// zaustavio, to je bila njegova odluka, pa se pri prijavi ne pali
+		// i ne traži lozinka
+		return
+	}
 	if !p.Cvor.Instaliran() {
 		tr.preuzmi()
 		return
