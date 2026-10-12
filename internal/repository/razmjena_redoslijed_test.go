@@ -22,7 +22,9 @@ import (
 // oslanja, a starija poslije, pa dionice nije bilo bez ikakve greške; dvije
 // bilješke za isti sat rušile su razmjenu; upisi obrisanog dnevnika padali su
 // pri svakoj razmjeni, a epizode obrane obrisane dionice (do 13. 10. 2026.)
-// i pri svakom pokretanju.
+// i pri svakom pokretanju. Dionica koja je navodila obrisanu letvu ili objekt
+// (do 13. 10. 2026.) nije stizala ni sa svojim kazalima i epizodama, a obnova
+// pri pokretanju javljala je za nju grešku.
 //
 // Ovaj test na izvoru kroz repozitorije slaže skup zapisa koji se oslanjaju
 // jedni na druge i mijenjaju se, šalje ga svježem čvoru na više načina i
@@ -106,6 +108,7 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 
 	dnevniciRedoslijeda(t, a, prvi, drugi)
 	obrisaneDioniceRedoslijeda(t, a, prva.ID.String())
+	obrisaneLetveRedoslijeda(t, a, prva.ID.String())
 
 	druga := models.Station{Code: "R-2", Name: "Probna letva druga"}
 	nuzno(t, letve.CreateStation(ctxRaz, &druga))
@@ -250,6 +253,35 @@ func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) {
 	_, err = a.rec.Archive(ctxRaz, tx, EntitySections, stara.Code, stara)
 	nuzno(t, err)
 	nuzno(t, tx.Commit())
+}
+
+// obrisaneLetveRedoslijeda upisuje dionicu R.41.4 s epizodom obrane, letvom
+// i ustavom koje registar poslije briše, i mijenja je nakon brisanja: dionica
+// i dalje navodi obrisane zapise, a u kazalu ih nema
+func obrisaneLetveRedoslijeda(t *testing.T, a *cvor, letva string) {
+	t.Helper()
+	letve := NewStationRepository(a.db, a.rec)
+	treca := models.Station{Code: "R-3", Name: "Probna letva koja se briše"}
+	nuzno(t, letve.CreateStation(ctxRaz, &treca))
+	objekti := NewStructureRepository(a.db, a.rec)
+	ustava := models.Structure{Code: "R-US-1", Name: "Ustava Probna", Kind: "USTAVA",
+		SectorID: sektorRedoslijeda, AreaID: podrucjeRedoslijeda}
+	nuzno(t, objekti.CreateStructure(ctxRaz, &ustava))
+
+	dionice := NewSectionRepository(a.db, a.rec)
+	d := models.Section{Code: "R.41.4", AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
+		Description: "dionica s obrisanom letvom", DescriptionCustom: true,
+		Parts: []models.SectionPart{{StationIDs: []string{treca.ID.String(), letva},
+			Objects: []models.PartObject{{StructureID: ustava.ID.String(), Name: ustava.Name}}}}}
+	nuzno(t, dionice.SaveSection(ctxRaz, &d))
+	e := models.DefenseEpisode{SectionCode: d.Code, StationID: letva, StartedAt: danRedoslijeda.Add(6 * time.Hour),
+		Phase: models.PhasePrep, DeclaredBy: "Ana Probić"}
+	nuzno(t, NewEpisodeRepository(a.db, a.rec).SaveEpisode(ctxRaz, &e))
+
+	nuzno(t, letve.DeleteStation(ctxRaz, treca.ID))
+	nuzno(t, objekti.DeleteStructure(ctxRaz, ustava.ID))
+	d.Notes = "letva i ustava uklonjene iz registra"
+	nuzno(t, dionice.SaveSection(ctxRaz, &d))
 }
 
 // biljeskeRedoslijeda upisuje po dvije bilješke za isti sat s različitim

@@ -14,6 +14,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   kao obrisane bilježi i sve njezine epizode, a epizoda dionice obrisane
   ranije se preskače. Ne vraća se ni kad se dionica poslije ponovno upiše
   pod istom šifrom.
+- **Dionica s obrisanom letvom ili objektom stiže na druge čvorove.** Kad se
+  iz registra obriše letva ili objekt koji dionica još navodi, novi čvor tu
+  dionicu nije dobio, ni njezine epizode obrane. Pri svakom pokretanju
+  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
+  je letva obrisana, a ondje se dionica više nije dala ni spremiti. Sad se
+  obrisana letva ili objekt uz dionicu preskače. Letvu ili objekt koji na
+  čvor još nisu stigli dionica i dalje čeka.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

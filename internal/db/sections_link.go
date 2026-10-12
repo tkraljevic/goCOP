@@ -124,24 +124,56 @@ func RebuildSectionIndexes(ctx context.Context, tx Execer, sec *models.Section) 
 			return err
 		}
 	}
-	for _, id := range sec.AllStationIDs() {
-		linkID := StableID("section_station", sec.Code+"|"+id).String()
-		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_stations (id, section_code, station_id, created_at) VALUES (?, ?, ?, ?)`,
-			linkID, sec.Code, id, now); err != nil {
-			return err
-		}
+	if err := vezaLetve.upisi(ctx, tx, sec.Code, sec.AllStationIDs(), now); err != nil {
+		return err
 	}
-	for _, id := range sec.AllStructureIDs() {
-		linkID := StableID("section_structure", sec.Code+"|"+id).String()
-		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_structures (id, section_code, structure_id, created_at) VALUES (?, ?, ?, ?)`,
-			linkID, sec.Code, id, now); err != nil {
-			return err
-		}
+	if err := vezaObjekta.upisi(ctx, tx, sec.Code, sec.AllStructureIDs(), now); err != nil {
+		return err
 	}
 	for _, t := range sec.AllTerritories() {
 		linkID := StableID("section_territory", sec.Code+"|"+t.Key()).String()
 		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_territories (id, section_code, county_id, municipality_id, settlement_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
 			linkID, sec.Code, t.CountyID, t.MunicipalityID, t.SettlementID, now); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// vezaNaRegistar je kazalo dionice koje stranim ključem pokazuje na zapis
+// registra: letvu ili objekt.
+type vezaNaRegistar struct {
+	prostor  string // prostor stabilnog identiteta veze
+	registar string // tablica registra; entitet u knjizi verzija zove se isto
+	upis     string
+}
+
+var (
+	vezaLetve   = novaVeza("section_station", "section_stations", "station_id", "stations")
+	vezaObjekta = novaVeza("section_structure", "section_structures", "structure_id", "structures")
+)
+
+// novaVeza slaže upis veze dionice na zapis registra. Veza na zapis kojeg
+// nema na površini, a zadnja verzija u knjizi ga briše, ne upisuje se: zapis
+// je obrisan dok ga je dionica još navodila. Brisanje letve ili objekta miče
+// vezu iz kazala, ali ne i iz dionice, pa bi inače strani ključ srušio
+// dionicu na svakom čvoru koji je primi nakon brisanja i pri svakom
+// pokretanju. Zapis koji još nije stigao nije obrisan: upis pada na stranom
+// ključu, a dionica ga čeka među nedovršenima.
+func novaVeza(prostor, kazalo, stupac, registar string) vezaNaRegistar {
+	return vezaNaRegistar{prostor: prostor, registar: registar, upis: `INSERT OR IGNORE INTO ` + kazalo +
+		` (id, section_code, ` + stupac + `, created_at)
+		SELECT ?, ?, ?, ?
+		WHERE EXISTS (SELECT 1 FROM ` + registar + ` WHERE id = ?)
+			OR COALESCE((SELECT archived FROM record_versions WHERE entity = ? AND entity_id = ?
+				ORDER BY version_id DESC LIMIT 1), 0) = 0`}
+}
+
+// upisi upisuje veze dionice na zapise registra s danim identitetima
+func (v vezaNaRegistar) upisi(ctx context.Context, tx Execer, dionica string, ids []string, now time.Time) error {
+	for _, id := range ids {
+		linkID := StableID(v.prostor, dionica+"|"+id).String()
+		if _, err := tx.ExecContext(ctx, v.upis, linkID, dionica, id, now, id, v.registar, id); err != nil {
 			return err
 		}
 	}
