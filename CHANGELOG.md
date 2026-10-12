@@ -6,6 +6,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.36-alfa — u pripremi
 
+- **Dionice: isto ugroženo područje uz više nasipa.** Općina ili naselje
+  upisano uz jedan nasip nije se dalo upisati uz drugi nasip ni uz cijelu
+  poddionicu: obrazac je drugi upis tiho preskakao, i pri ručnom dodavanju
+  i pri prijepisu iz dokumentacije. Sad se odbija samo isto područje uz
+  isti nasip.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),

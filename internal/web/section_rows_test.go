@@ -106,6 +106,31 @@ func TestUgrozenoIdeUzSvojNasip(t *testing.T) {
 	}
 }
 
+// Isto naselje uz dva nasipa, i uz cijelu poddionicu: stoji na svakom od
+// njih, a ne samo uz prvi.
+func TestIstoNaseljeUzDvaNasipa(t *testing.T) {
+	t1, s1 := naselje(1, "Draž", "Nasip Državna granica -Draž")
+	t2, _ := naselje(1, "Draž", "Nasip za zaštitu Batine")
+	t3, _ := naselje(1, "Draž", "")
+	part := models.SectionPart{
+		Embankments: []models.PartEmbankment{
+			{Name: "Nasip Državna granica -Draž"},
+			{Name: "Nasip za zaštitu Batine"},
+		},
+		Territories: []models.PartTerritory{t1, t2, t3},
+	}
+	rows := embankmentRows(part)
+	ostalo := razvrstajUgrozeno(rows, part, map[string]models.SectionTerritory{t1.Key(): s1})
+	for i, r := range rows {
+		if len(r.Territories) != 1 || r.Territories[0].SettlementName != "Draž" {
+			t.Errorf("nasip %d ima %v", i+1, r.Territories)
+		}
+	}
+	if len(ostalo) != 1 {
+		t.Errorf("uz cijelu poddionicu: %v", ostalo)
+	}
+}
+
 // Dionica bez nasipa i dalje ima ugroženo područje — ono ostaje na poddionici.
 func TestDionicaBezNasipaZadrzavaUgrozeno(t *testing.T) {
 	t1, s1 := naselje(1, "Draž", "")
