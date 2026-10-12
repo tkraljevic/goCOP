@@ -141,3 +141,18 @@ func razvrstajUgrozeno(rows []EmbankmentRow, part models.SectionPart, poKljucu m
 	}
 	return ostalo
 }
+
+// ugrozenoBezNasipa: poddionica bez nasipa ugroženo područje pokazuje na
+// istom mjestu kao poddionica s nasipima, u retku uz objekte, a ne iznad
+// tablice. Bez objekata redak se dodaje samo radi ugroženog područja.
+// Poddionica s nasipima ostatak bez nasipa i dalje pokazuje iznad tablice.
+func ugrozenoBezNasipa(rows []EmbankmentRow, part models.SectionPart, ostalo []models.SectionTerritory) ([]EmbankmentRow, []models.SectionTerritory) {
+	if len(part.Embankments) > 0 || len(ostalo) == 0 {
+		return rows, ostalo
+	}
+	if len(rows) == 0 {
+		rows = append(rows, EmbankmentRow{})
+	}
+	rows[len(rows)-1].Territories = ostalo
+	return rows, nil
+}
