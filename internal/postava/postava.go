@@ -42,6 +42,7 @@ type Stanje struct {
 	Zauzeto         string // posao u tijeku (nadogradnja…)
 	GreskaProvjere  string
 	ZadnjaProvjera  time.Time
+	UslugaSustava   bool // čvor je usluga sustava (Linux), ne dijete Postave
 }
 
 // Postava povezuje nadzor čvora, provjeru izdanja i ugradnju
@@ -49,9 +50,10 @@ type Postava struct {
 	M        Mjesta
 	Exe      string // ova Postava
 	Verzija  string // izdanje Postave
-	Cvor     *Cvor
+	Cvor     Upravljac
 	Ugradnja Ugradnja
 	dnevnik  *log.Logger
+	usluga   *Usluga // kad je čvor usluga sustava; inače nil i Cvor je *Cvor
 
 	mu       sync.Mutex
 	ponuda   Ponuda
@@ -89,8 +91,26 @@ func Nova(exe, verzija string) *Postava {
 			Agent:   "goCOP-Postava/" + verzija,
 		},
 	}
+	if imaUsluge() {
+		p.KaoUsluga(NovaUsluga())
+	}
 	return p
 }
+
+// KaoUsluga: čvor je usluga sustava, pa njime upravlja systemd, a ne
+// Postava. Vlastiti čvor se ne pokreće ni ne preuzima; program je onaj
+// usluge (/usr/local/bin/gocop), a dnevnik, brava i oznake Postave ostaju
+// u korisnikovoj mapi.
+func (p *Postava) KaoUsluga(u *Usluga) {
+	p.usluga, p.Cvor = u, u
+	p.M.Program = filepath.Dir(u.Program)
+	p.Ugradnja.M, p.Ugradnja.Cvor = p.M, u
+	u.NaPromjenu(p.javi)
+	p.Pisi("goCOP radi kao usluga sustava (%s); Postava ne pokreće vlastiti čvor", u.Ime)
+}
+
+// UslugaSustava javlja je li čvor usluga sustava
+func (p *Postava) UslugaSustava() bool { return p.usluga != nil }
 
 // Pisi bilježi u data/postava.log
 func (p *Postava) Pisi(f string, a ...any) { p.dnevnik.Printf(f, a...) }
@@ -117,7 +137,8 @@ func (p *Postava) Stanje() Stanje {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	s := Stanje{Izdanje: p.izdanje, Port: p.port, Zauzeto: p.zauzeto, GreskaProvjere: p.greska,
-		ZadnjaProvjera: p.zadnja, NovijaPostava: p.ponuda.Postava, StranicaPostave: p.ponuda.PostavaStranica}
+		ZadnjaProvjera: p.zadnja, NovijaPostava: p.ponuda.Postava, StranicaPostave: p.ponuda.PostavaStranica,
+		UslugaSustava: p.usluga != nil}
 	switch {
 	case !p.Cvor.Instaliran():
 		s.Cvor = NijeInstaliran
@@ -206,6 +227,11 @@ func (p *Postava) Provjeri(ctx context.Context) error {
 	} else {
 		p.greska = ""
 		p.ponuda = ponuda
+		if p.usluga != nil {
+			// uz uslugu Postava dolazi s izdanjem goCOP-a; izdanja postava-v*
+			// su samo za Windows
+			p.ponuda.Postava, p.ponuda.PostavaStranica = "", ""
+		}
 	}
 	p.mu.Unlock()
 	p.javi()
@@ -242,6 +268,9 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 	}
 	defer p.oslobodi()
 	p.Pisi("Nadogradnja na %s (%s)", iz.Oznaka, iz.Stranica)
+	if p.usluga != nil {
+		return p.nadogradiUslugu(ctx, iz)
+	}
 	novi, err := p.Ugradnja.Pripremi(ctx, iz)
 	if err != nil {
 		p.Pisi("Nadogradnja odbijena: %v", err)
@@ -259,6 +288,48 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 		return "", err
 	}
 	return iz.Verzija.String(), nil
+}
+
+// Izlaz: Postava se gasi. Vlastiti čvor gasi se s njom, a usluga sustava
+// radi dalje, jer o njoj ovise i drugi u uredu.
+func (p *Postava) Izlaz() {
+	if p.usluga != nil {
+		p.Pisi("Izlaz: usluga %s radi dalje", p.usluga.Ime)
+		return
+	}
+	p.Pisi("Izlaz: gasim čvor")
+	_ = p.Cvor.Zaustavi(30 * time.Second)
+}
+
+// DnevnikCvora vraća datoteku s dnevnikom čvora. Usluga piše u dnevnik
+// sustava, pa se njegovi zadnji redci najprije zapišu u mapu Postave.
+func (p *Postava) DnevnikCvora(ctx context.Context) (string, error) {
+	if p.usluga == nil {
+		return p.M.DnevnikCvora(), nil
+	}
+	return p.M.DnevnikUsluge(), p.usluga.Dnevnik(ctx, p.M.DnevnikUsluge())
+}
+
+// ukljuciPriPrijavi je varijabla samo zato da je test zamijeni (na Windowsu
+// pravi upis ide u registar)
+var ukljuciPriPrijavi = UkljuciPriPrijavi
+
+// PrviPutUzUslugu: pri prvom pokretanju uz uslugu sustava Postava se sama
+// stavi u pokretanje pri prijavi, samo jednom. Oznaka u mapi Postave pamti
+// da je to učinjeno, pa kasnije isključivanje u izborniku ostaje.
+func (p *Postava) PrviPutUzUslugu() {
+	if p.usluga == nil {
+		return
+	}
+	if _, err := os.Stat(p.M.OznakaPriPrijavi()); err == nil {
+		return
+	}
+	if err := ukljuciPriPrijavi(p.Exe); err != nil {
+		p.Pisi("Pokretanje pri prijavi: %v", err)
+		return
+	}
+	_ = os.WriteFile(p.M.OznakaPriPrijavi(), []byte(p.Exe+"\n"), 0o644)
+	p.Pisi("Pokretanje pri prijavi uključeno (prvo pokretanje uz uslugu sustava)")
 }
 
 // Opcije instalacije (instalacijski program ih predaje Postavi)

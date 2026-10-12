@@ -31,7 +31,7 @@ const (
 type Ugradnja struct {
 	M        Mjesta
 	Izdanja  Izdanja
-	Cvor     *Cvor
+	Cvor     Upravljac
 	Kljucevi []ed25519.PublicKey // zadano: ugrađeni ključevi izdanja
 	GOOS     string
 	GOARCH   string
@@ -55,18 +55,12 @@ func (u Ugradnja) kljucevi() []ed25519.PublicKey {
 // SHA256SUMS ključem izdanja, SHA-256 programa i redak koji ispiše
 // -version. Kad išta ne valja, ništa postojeće nije dirnuto.
 func (u Ugradnja) Pripremi(ctx context.Context, iz Izdanje) (string, error) {
-	var zbrojevi, potpis bytes.Buffer
-	if err := u.Izdanja.preuzmi(ctx, iz.Zbrojevi.URL, najveciZbrojevi, &zbrojevi); err != nil {
+	zbrojevi, _, err := u.potpisaniZbrojevi(ctx, iz)
+	if err != nil {
 		return "", err
-	}
-	if err := u.Izdanja.preuzmi(ctx, iz.Potpis.URL, najveciPotpis, &potpis); err != nil {
-		return "", err
-	}
-	if err := izdanje.ProvjeriPotpis(zbrojevi.Bytes(), potpis.Bytes(), u.kljucevi()); err != nil {
-		return "", fmt.Errorf("izdanje %s odbijeno: %w", iz.Oznaka, err)
 	}
 	ime := izdanje.ImeDatoteke(u.GOOS, u.GOARCH)
-	zbroj, err := izdanje.Zbroj(zbrojevi.Bytes(), ime)
+	zbroj, err := izdanje.Zbroj(zbrojevi, ime)
 	if err != nil {
 		return "", err
 	}
@@ -75,27 +69,61 @@ func (u Ugradnja) Pripremi(ctx context.Context, iz Izdanje) (string, error) {
 		return "", err
 	}
 	dio := cilj + ".dio"
-	f, err := os.OpenFile(dio, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
-	if err != nil {
-		return "", err
-	}
-	h := sha256.New()
-	err = u.Izdanja.preuzmi(ctx, iz.Program.URL, najveciProgram, io.MultiWriter(f, h))
-	if cerr := f.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		os.Remove(dio)
-		return "", err
-	}
-	if got := hex.EncodeToString(h.Sum(nil)); got != zbroj {
-		os.Remove(dio)
-		return "", fmt.Errorf("izdanje %s odbijeno: preuzeti program ne odgovara potpisanom SHA-256", iz.Oznaka)
+	if err := u.preuzmiProvjereno(ctx, iz.Program.URL, dio, zbroj); err != nil {
+		return "", odbijeno(iz, "preuzeti program", err)
 	}
 	if err := zamijeni(dio, cilj); err != nil {
 		return "", err
 	}
 	return cilj, u.provjeriIzdanje(ctx, cilj, iz.Verzija.String())
+}
+
+// potpisaniZbrojevi preuzima SHA256SUMS i SHA256SUMS.sig i provjerava
+// potpis ključem izdanja
+func (u Ugradnja) potpisaniZbrojevi(ctx context.Context, iz Izdanje) (zbrojevi, potpis []byte, err error) {
+	var z, p bytes.Buffer
+	if err := u.Izdanja.preuzmi(ctx, iz.Zbrojevi.URL, najveciZbrojevi, &z); err != nil {
+		return nil, nil, err
+	}
+	if err := u.Izdanja.preuzmi(ctx, iz.Potpis.URL, najveciPotpis, &p); err != nil {
+		return nil, nil, err
+	}
+	if err := izdanje.ProvjeriPotpis(z.Bytes(), p.Bytes(), u.kljucevi()); err != nil {
+		return nil, nil, fmt.Errorf("izdanje %s odbijeno: %w", iz.Oznaka, err)
+	}
+	return z.Bytes(), p.Bytes(), nil
+}
+
+// preuzmiProvjereno preuzima datoteku izdanja u put i uspoređuje njezin
+// SHA-256 s potpisanim; kad ne valja, datoteke nema
+func (u Ugradnja) preuzmiProvjereno(ctx context.Context, url, put, zbroj string) error {
+	f, err := os.OpenFile(put, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
+	if err != nil {
+		return err
+	}
+	h := sha256.New()
+	err = u.Izdanja.preuzmi(ctx, url, najveciProgram, io.MultiWriter(f, h))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err == nil && hex.EncodeToString(h.Sum(nil)) != zbroj {
+		err = errZbroj
+	}
+	if err != nil {
+		os.Remove(put)
+	}
+	return err
+}
+
+var errZbroj = errors.New("ne odgovara potpisanom SHA-256")
+
+// odbijeno opisuje datoteku koja ne odgovara potpisanom SHA-256; ostale
+// greške (mreža, disk) ostaju kakve jesu
+func odbijeno(iz Izdanje, sto string, err error) error {
+	if !errors.Is(err, errZbroj) {
+		return err
+	}
+	return fmt.Errorf("izdanje %s odbijeno: %s %w", iz.Oznaka, sto, err)
 }
 
 // PripremiIzMape uzima izdanje bez interneta: mapa s programom za ovaj

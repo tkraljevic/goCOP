@@ -46,6 +46,17 @@ type Izdanje struct {
 	Program  ghDatoteka
 	Zbrojevi ghDatoteka
 	Potpis   ghDatoteka
+	Datoteke []ghDatoteka // sve datoteke izdanja (uz uslugu i skripta, jedinica, Postava za Linux)
+}
+
+// datoteka traži datoteku izdanja po imenu
+func (iz Izdanje) datoteka(ime string) (ghDatoteka, bool) {
+	for _, d := range iz.Datoteke {
+		if d.Ime == ime {
+			return d, true
+		}
+	}
+	return ghDatoteka{}, false
 }
 
 // Ponuda je ono što provjera nađe
@@ -106,7 +117,7 @@ func (iz Izdanja) Provjeri(ctx context.Context, goos, goarch, mojaPostava string
 		if !ok {
 			continue
 		}
-		kand := Izdanje{Oznaka: g.Oznaka, Verzija: v, Naslov: g.Naslov, Stranica: g.Stranica}
+		kand := Izdanje{Oznaka: g.Oznaka, Verzija: v, Naslov: g.Naslov, Stranica: g.Stranica, Datoteke: g.Datoteke}
 		for _, d := range g.Datoteke {
 			switch d.Ime {
 			case ime:

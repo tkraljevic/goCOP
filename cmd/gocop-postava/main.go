@@ -10,7 +10,11 @@
 //	gocop-postava -instaliraj [-pri-prijavi=false] [-iz-mape D:\goCOP] [-ime-cvora pperic-thinkpad] [-prvi nova|postojeca]
 //	gocop-postava -zaustavi             ugasi Postavu i čvor (prije zamjene datoteka)
 //	gocop-postava -ukloni               uz to makni pokretanje pri prijavi i PATH
+//	gocop-postava -ikona PUT            zapiši ikonu goCOP-a (PNG 256×256), za izbornik na Linuxu
 //	gocop-postava -version
+//
+// Na Linuxu, kad je čvor usluga sustava (build/linux/instaliraj.sh), Postava
+// ne pokreće vlastiti čvor, nego upravlja uslugom gocop (docs/linux.md).
 package main
 
 import (
@@ -20,11 +24,13 @@ import (
 	"os"
 	"path/filepath"
 
+	"gocop/internal/ikona"
 	"gocop/internal/postava"
 )
 
-// verzija Postave; CI je postavlja iz oznake postava-vX.Y.Z
-var verzija = "1.1.0"
+// verzija Postave; CI je postavlja iz oznake postava-vX.Y.Z, a Postavi za
+// Linux, koja ide uz izdanje goCOP-a, ovu zadanu
+var verzija = "1.2.0"
 
 const naslov = "goCOP Postava"
 
@@ -37,18 +43,21 @@ func main() {
 	prvi := flag.String("prvi", "", "uz -instaliraj: nova ili postojeca — što otvoriti pri prvom pokretanju svježeg čvora")
 	zaustavi := flag.Bool("zaustavi", false, "ugasi Postavu i čvor koji rade")
 	ukloni := flag.Bool("ukloni", false, "za deinstalaciju: ugasi, makni pokretanje pri prijavi i PATH")
+	ikonaU := flag.String("ikona", "", "zapiši ikonu goCOP-a (PNG 256×256) u zadanu datoteku i završi; za izbornik programa na Linuxu")
 	flag.Parse()
 
 	if *ispisi {
 		fmt.Println("goCOP Postava " + verzija)
 		return
 	}
-	exe, err := os.Executable()
-	if err == nil {
-		if p, err := filepath.EvalSymlinks(exe); err == nil {
-			exe = p
+	if *ikonaU != "" {
+		if err := zapisiIkonu(*ikonaU); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
 		}
+		return
 	}
+	exe, err := putPostave()
 	if err != nil {
 		postava.Poruka(naslov, "Ne znam gdje stojim: "+err.Error(), true)
 		os.Exit(1)
@@ -78,4 +87,21 @@ func main() {
 	default:
 		pokreniTraku(postava.Nova(exe, verzija))
 	}
+}
+
+// putPostave je stvarno mjesto ovog programa, bez poveznica
+func putPostave() (string, error) {
+	exe, err := os.Executable()
+	if err == nil {
+		if p, e := filepath.EvalSymlinks(exe); e == nil {
+			exe = p
+		}
+	}
+	return exe, err
+}
+
+// zapisiIkonu zapisuje znak goCOP-a za izbornik programa; instaliraj.sh ga
+// stavlja u /usr/share/icons/hicolor/256x256/apps/gocop.png
+func zapisiIkonu(put string) error {
+	return os.WriteFile(put, ikona.PNG(ikona.Slika(256, ikona.Radi, false)), 0o644)
 }

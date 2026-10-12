@@ -22,6 +22,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   preskaču, kao i na čvoru na kojem je dnevnik obrisan. Brisanje dnevnika
   sad kao obrisan bilježi i upis koji to računalo nije imalo u dnevniku, pa
   ga drugi čvorovi više ne primaju.
+- **Linux: ikona u traci uz uslugu sustava.** Uz izdanje sad stoji i
+  Postava za Linux, a `instaliraj.sh` je postavlja s unosom goCOP u
+  izborniku programa. Kad je čvor usluga sustava, Postava ne pokreće drugi
+  čvor, nego pokazuje stanje usluge, zaustavlja je i pokreće, otvara njezin
+  dnevnik i nadograđuje je na novo izdanje. Za to sustav traži lozinku
+  administratora. Izlaz iz ikone uslugu ne zaustavlja. Upute su u
+  docs/linux.md, poglavlje 12.
 - **Bačka Palanka: najviši i najniži vodostaj s Iloka.** Letva nema
   vlastiti dugi niz, pa su MAX i MIN na kartici bili samo ono što smo
   zabilježili od 14. 9. 2026. Sad ih preuzima s Iloka, letve nasuprot s

@@ -154,9 +154,10 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("PATH i pokretanje pri prijavi na Windowsu diraju registar korisnika")
 	}
-	staroRazmak := razmakPada
+	staroRazmak, staraUsluga := razmakPada, imaUsluge
 	razmakPada = 100 * time.Millisecond
-	defer func() { razmakPada = staroRazmak }()
+	imaUsluge = func() bool { return false }
+	defer func() { razmakPada, imaUsluge = staroRazmak, staraUsluga }()
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("XDG_CONFIG_HOME", "")
 
@@ -219,7 +220,7 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer p.Cvor.Zaustavi(10 * time.Second)
-	cekajIzdanje(t, p.Cvor, "0.0.27-alfa")
+	cekajIzdanje(t, p.Cvor.(*Cvor), "0.0.27-alfa")
 
 	// podmetnut program i tuđi ključ se odbijaju, postojeći ostaje
 	g.dodaj("v0.0.30-alfa", v28, kljuc, true)
@@ -237,7 +238,7 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	if _, err := p.Nadogradi(ctx); err == nil || !strings.Contains(err.Error(), "potpis") {
 		t.Fatalf("tuđi ključ: %v", err)
 	}
-	cekajIzdanje(t, p.Cvor, "0.0.27-alfa")
+	cekajIzdanje(t, p.Cvor.(*Cvor), "0.0.27-alfa")
 
 	// prava nadogradnja
 	g.mu.Lock()
@@ -253,7 +254,7 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	if izd, err := p.Nadogradi(ctx); err != nil || izd != "0.0.28-alfa" {
 		t.Fatalf("nadogradnja: %q %v", izd, err)
 	}
-	cekajIzdanje(t, p.Cvor, "0.0.28-alfa")
+	cekajIzdanje(t, p.Cvor.(*Cvor), "0.0.28-alfa")
 	if izd, _ := IzdanjeDatoteke(ctx, m.Prethodni()); izd != "0.0.27-alfa" {
 		t.Errorf("prethodni program: %q", izd)
 	}
@@ -271,7 +272,7 @@ func TestInstalacijaNadogradnjaIVracanje(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "vraćeno") {
 		t.Fatalf("izdanje koje pada: %v", err)
 	}
-	cekajIzdanje(t, p.Cvor, "0.0.28-alfa")
+	cekajIzdanje(t, p.Cvor.(*Cvor), "0.0.28-alfa")
 	if izd, _ := IzdanjeDatoteke(ctx, m.Gocop()); izd != "0.0.28-alfa" {
 		t.Errorf("nakon vraćanja program je %q", izd)
 	}
