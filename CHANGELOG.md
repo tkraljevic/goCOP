@@ -16,6 +16,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   županijama i općinama, kao i uz nasip na drugim dionicama, a ne više
   iznad tablice; tako ga piše i izvoz kartice. Ugroženo područje bez nasipa
   na poddionici koja nasipe ima ostaje iznad tablice.
+- **Dnevnik: istodobni upisi se ne gube.** Kad dvoje u isto vrijeme upiše
+  bilješku ili naredbu na isti list, ili jedan upisuje dok drugi parafira,
+  ovjerava ili objavljuje prijavu, ili dok vodočuvar sprema ili predaje
+  obrazac, list zadržava sve upisano. Dosad su oba spremanja javljala
+  uspjeh, a na listu je ostajalo samo zadnje; u knjizi verzija bilo je
+  zapisano oboje.
 - **Prognoza: rekonstrukcija iz susjeda.** Letvama bez letve na drugoj obali
   rupu dulju od šest sati u računu popunjavaju susjedi na istoj rijeci,
   pomaknuti za vrijeme putovanja vode: Szentborbás iz Barcsa (4 h uzvodno),
