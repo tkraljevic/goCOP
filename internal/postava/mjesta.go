@@ -26,6 +26,10 @@ import (
 //	<Baza>/postava/  gocop-postava(.exe)  — Postava, ne ide u PATH
 //	<Baza>/program/  gocop(.exe)          — mijenja ga Postava, u PATH-u
 //	<Baza>/data/     baza, postavke, dnevnici, kopije
+//
+// Kad je čvor na Linuxu usluga sustava, Program je /usr/local/bin, a baza i
+// postavke čvora su u /var/lib/gocop; u Podaci su tada samo datoteke
+// Postave (dnevnik, oznake, zadnji redci dnevnika usluge).
 type Mjesta struct {
 	Baza    string
 	Postava string
@@ -105,6 +109,13 @@ func (m Mjesta) DnevnikPostave() string {
 	return filepath.Join(m.Podaci, "postava.log")
 }
 func (m Mjesta) Kopije() string { return filepath.Join(m.Podaci, "kopije") }
+
+// DnevnikUsluge su zadnji redci dnevnika usluge sustava, za Dnevnik čvora
+func (m Mjesta) DnevnikUsluge() string { return filepath.Join(m.Podaci, "usluga.log") }
+
+// OznakaPriPrijavi: Postava je uz uslugu sustava jednom sama uključila
+// pokretanje pri prijavi
+func (m Mjesta) OznakaPriPrijavi() string { return filepath.Join(m.Podaci, "postava-pri-prijavi") }
 
 // PIDPostave i PIDCvora služe za -zaustavi i -ukloni (deinstalacija)
 func (m Mjesta) PIDPostave() string { return filepath.Join(m.Baza, "postava.pid") }

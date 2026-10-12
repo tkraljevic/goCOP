@@ -27,6 +27,11 @@ type traka struct {
 
 	status, otvori, prekidac, nadogradi, provjeri, priPrijavi *systray.MenuItem
 
+	// prozori i otvaranje datoteka; test ih zamijeni da se ništa ne otvara
+	poruka  func(naslov, tekst string, greska bool)
+	pitanje func(naslov, tekst string) bool
+	pokazi  func(cilj string) error
+
 	mu           sync.Mutex
 	ikonaZa      string // stanje za koje je ikona zadnji put nacrtana
 	javljeno     string // izdanje o kojem je već stigla obavijest
@@ -43,14 +48,15 @@ func pokreniTraku(p *postava.Postava) {
 		return
 	}
 	p.Pisi("goCOP Postava %s pokrenuta (%s)", verzija, p.Exe)
+	p.PrviPutUzUslugu()
 
 	ctx, cancel := context.WithCancel(context.Background())
-	tr := &traka{p: p, ctx: ctx, instaliran: filepath.Base(filepath.Dir(p.Exe)) == postava.ImeMapePostave}
+	tr := &traka{p: p, ctx: ctx, instaliran: filepath.Base(filepath.Dir(p.Exe)) == postava.ImeMapePostave,
+		poruka: postava.Poruka, pitanje: postava.Pitanje, pokazi: postava.Otvori}
 	var jednom sync.Once
 	tr.izadji = func() {
 		jednom.Do(func() {
-			p.Pisi("Izlaz: gasim čvor")
-			_ = p.Cvor.Zaustavi(30 * time.Second)
+			p.Izlaz()
 			cancel()
 			otkljucaj()
 			tr.t.Remove()
@@ -88,8 +94,11 @@ func (tr *traka) izbornik() *systray.Menu {
 	tr.nadogradi = m.Add("Nema novijeg izdanja", func() { go tr.nadogradiKlik() })
 	tr.provjeri = m.Add("Provjeri nadogradnje", func() { go tr.provjeriKlik() })
 	m.AddSeparator()
-	m.Add("Otvori mapu s podacima", func() { _ = postava.Otvori(tr.p.M.Podaci) })
-	m.Add("Dnevnik čvora", func() { _ = postava.Otvori(tr.p.M.DnevnikCvora()) })
+	if !tr.p.UslugaSustava() {
+		// mapu podataka usluge (/var/lib/gocop) smije čitati samo korisnik gocop
+		m.Add("Otvori mapu s podacima", func() { _ = postava.Otvori(tr.p.M.Podaci) })
+	}
+	m.Add("Dnevnik čvora", func() { go tr.dnevnikCvora() })
 	ukljuceno, _ := postava.PriPrijavi(tr.p.Exe)
 	tr.priPrijavi = m.AddCheckbox("Pokreni pri prijavi", ukljuceno, func() { go tr.priPrijaviKlik() })
 	m.Add("O programu", func() { go tr.oProgramu() })
@@ -170,10 +179,33 @@ func (tr *traka) prekidacKlik() {
 			postava.Poruka(naslov, "goCOP se ne može pokrenuti: "+err.Error(), true)
 		}
 	default:
-		if err := p.Cvor.Zaustavi(30 * time.Second); err != nil {
-			postava.Poruka(naslov, err.Error(), true)
-		}
+		tr.zaustavi()
 	}
+}
+
+// pitanjeZaustavi: usluga sustava radi za cijeli ured, pa se prije
+// zaustavljanja pita
+const pitanjeZaustavi = "Zaustaviti goCOP?\n\ngoCOP na ovom računalu radi kao usluga sustava. Dok je zaustavljen, ne razmjenjuje podatke s drugim čvorovima i nitko ga u uredu ne može otvoriti u pregledniku.\n\nZa zaustavljanje treba lozinka administratora."
+
+// zaustavi gasi čvor; uslugu sustava tek kad korisnik potvrdi
+func (tr *traka) zaustavi() {
+	if tr.p.UslugaSustava() && !tr.pitanje(naslov, pitanjeZaustavi) {
+		return
+	}
+	if err := tr.p.Cvor.Zaustavi(30 * time.Second); err != nil {
+		tr.poruka(naslov, err.Error(), true)
+	}
+}
+
+// dnevnikCvora otvara dnevnik čvora; uz uslugu sustava Postava najprije
+// zapiše zadnje redke dnevnika usluge
+func (tr *traka) dnevnikCvora() {
+	put, err := tr.p.DnevnikCvora(tr.ctx)
+	if err != nil {
+		tr.poruka(naslov, "Dnevnik čvora se ne može prikazati: "+err.Error(), true)
+		return
+	}
+	_ = tr.pokazi(put)
 }
 
 func (tr *traka) nadogradiKlik() {
@@ -182,12 +214,7 @@ func (tr *traka) nadogradiKlik() {
 	if s.Novije == nil || s.Zauzeto != "" {
 		return
 	}
-	staro := s.Izdanje
-	if staro == "" {
-		staro = "trenutnog"
-	}
-	pitanje := fmt.Sprintf("Nadograditi goCOP s %s na %s?\n\nČvor se nakratko zaustavlja, a baza se prije toga kopira u mapu data\\kopije. Ako novo izdanje ne krene, vraća se prethodno.", staro, s.Novije.Verzija)
-	if !postava.Pitanje(naslov, pitanje) {
+	if !postava.Pitanje(naslov, pitanjeNadogradnje(s)) {
 		return
 	}
 	izd, err := p.Nadogradi(tr.ctx)
@@ -196,6 +223,19 @@ func (tr *traka) nadogradiKlik() {
 		return
 	}
 	tr.t.ShowNotification("goCOP", "Nadograđeno na "+izd)
+}
+
+// pitanjeNadogradnje je pitanje prije nadogradnje na s.Novije
+func pitanjeNadogradnje(s postava.Stanje) string {
+	staro := s.Izdanje
+	if staro == "" {
+		staro = "trenutnog"
+	}
+	pitanje := fmt.Sprintf("Nadograditi goCOP s %s na %s?\n\n", staro, s.Novije.Verzija)
+	if s.UslugaSustava {
+		return pitanje + "goCOP radi kao usluga sustava, pa će se tražiti lozinka administratora. Usluga se nakratko zaustavlja, a baza se prije toga kopira u /var/lib/gocop/kopije."
+	}
+	return pitanje + "Čvor se nakratko zaustavlja, a baza se prije toga kopira u mapu data\\kopije. Ako novo izdanje ne krene, vraća se prethodno."
 }
 
 func (tr *traka) provjeriKlik() {
@@ -282,19 +322,29 @@ func opisStanja(s postava.Stanje) string {
 	return "nije preuzet"
 }
 
+// tekstStatusa je prvi redak izbornika i opis ikone, npr. „goCOP
+// 0.0.35-alfa radi (usluga sustava)”
+func tekstStatusa(s postava.Stanje) string {
+	if s.Zauzeto != "" {
+		return s.Zauzeto + "…"
+	}
+	status := "goCOP " + opisStanja(s)
+	if s.Izdanje != "" {
+		status = "goCOP " + s.Izdanje + " " + opisStanja(s)
+	}
+	if s.UslugaSustava {
+		status += " (usluga sustava)"
+	}
+	return status
+}
+
 // osvjezi slaže izbornik, opis i ikonu prema stanju
 func (tr *traka) osvjezi() {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 	s := tr.p.Stanje()
 
-	status := "goCOP " + opisStanja(s)
-	if s.Izdanje != "" {
-		status = "goCOP " + s.Izdanje + " " + opisStanja(s)
-	}
-	if s.Zauzeto != "" {
-		status = s.Zauzeto + "…"
-	}
+	status := tekstStatusa(s)
 	tr.status.SetLabel(status)
 	tr.t.SetTooltip(status)
 	tr.otvori.SetDisabled(s.Cvor != postava.Radi)
