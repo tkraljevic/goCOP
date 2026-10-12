@@ -6,14 +6,19 @@
 // tailscale0, na macOS-u utunN, a na Windowsima Tailscale.
 //
 // Raspon 100.64.0.0/10 nije samo Tailscaleov: istu adresu (CGNAT) daju i
-// mobilni operateri, npr. laptopu s ugrađenim modemom. Zato se kao vlastita
-// Tailscale adresa broji samo adresa iz raspona na kartici s Tailscaleovim
-// imenom. Na računalu bez Tailscalea VlastiteAdrese je prazan popis.
+// mobilni operateri, npr. laptopu s ugrađenim modemom, i drugi VPN-ovi
+// (Cloudflare WARP, NetBird, NordVPN Meshnet). Zato se kao vlastita Tailscale
+// adresa broji samo adresa iz raspona na Tailscaleovoj kartici. Na Linuxu i
+// Windowsima to se vidi po imenu. Na macOS-u ime utunN dobiva svaki VPN, pa je
+// utun kartica Tailscaleova tek kad ima i adresu iz fd7a:115c:a1e0::/48, koju
+// daje samo Tailscale. Na računalu bez Tailscalea VlastiteAdrese je prazan
+// popis.
 package tailscale
 
 import (
 	"net"
 	"net/netip"
+	"slices"
 	"strings"
 )
 
@@ -39,12 +44,12 @@ type Sucelje struct {
 var sucelja = citajSucelja
 
 // VlastiteAdrese vraća Tailscale adrese ovog računala: adrese iz
-// Tailscaleovih raspona na kartici s Tailscaleovim imenom. Čita kartice
-// svaki put iznova, jer se Tailscale može upaliti i nakon goCOP-a.
+// Tailscaleovih raspona na Tailscaleovoj kartici. Čita kartice svaki put
+// iznova, jer se Tailscale može upaliti i nakon goCOP-a.
 func VlastiteAdrese() []netip.Addr {
 	var out []netip.Addr
 	for _, s := range sucelja() {
-		if !karticaTailscalea(s.Ime) {
+		if !karticaTailscalea(s) {
 			continue
 		}
 		for _, a := range s.Adrese {
@@ -56,10 +61,16 @@ func VlastiteAdrese() []netip.Addr {
 	return out
 }
 
-// karticaTailscalea: tailscale0 (Linux), Tailscale (Windows), utunN (macOS)
-func karticaTailscalea(ime string) bool {
-	ime = strings.ToLower(ime)
-	return strings.HasPrefix(ime, "tailscale") || strings.HasPrefix(ime, "utun")
+// karticaTailscalea: tailscale0 (Linux) i Tailscale (Windows) po imenu;
+// utunN (macOS) samo uz adresu iz fd7a:115c:a1e0::/48, jer to ime dobiva
+// svaki VPN. Mac na kojem je u Tailscale mreži isključen IPv6 tako se ne
+// prepozna i radi kao računalo bez Tailscalea.
+func karticaTailscalea(s Sucelje) bool {
+	ime := strings.ToLower(s.Ime)
+	if strings.HasPrefix(ime, "tailscale") {
+		return true
+	}
+	return strings.HasPrefix(ime, "utun") && slices.ContainsFunc(s.Adrese, raspon6.Contains)
 }
 
 // citajSucelja vraća kartice ovog računala; bez popisa kartica nema ni

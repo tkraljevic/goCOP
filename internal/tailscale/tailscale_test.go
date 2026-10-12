@@ -52,13 +52,13 @@ func TestVlastiteAdrese(t *testing.T) {
 			{Ime: "eth0", Adrese: adrese("192.168.1.10", "100.70.0.9")}, // operater (CGNAT)
 			{Ime: "wwan0", Adrese: adrese("100.80.1.2")},
 			{Ime: "tailscale0", Adrese: adrese("100.101.102.103", "fd7a:115c:a1e0::5", "fe80::1")},
-			{Ime: "utun4", Adrese: adrese("::ffff:100.101.1.2")},
+			{Ime: "utun4", Adrese: adrese("::ffff:100.101.1.2", "fd7a:115c:a1e0::7")},
 			{Ime: "utun2", Adrese: adrese("10.8.0.2")}, // drugi VPN
 			{Ime: "Tailscale", Adrese: adrese("100.90.0.1")},
 		}
 	}
 	dobiveno := VlastiteAdrese()
-	ocekivano := adrese("100.101.102.103", "fd7a:115c:a1e0::5", "100.101.1.2", "100.90.0.1")
+	ocekivano := adrese("100.101.102.103", "fd7a:115c:a1e0::5", "100.101.1.2", "fd7a:115c:a1e0::7", "100.90.0.1")
 	if !slices.Equal(dobiveno, ocekivano) {
 		t.Errorf("vlastite adrese %v, očekivano %v", dobiveno, ocekivano)
 	}
@@ -66,6 +66,36 @@ func TestVlastiteAdrese(t *testing.T) {
 	sucelja = func() []Sucelje { return []Sucelje{{Ime: "en0", Adrese: adrese("192.168.1.10")}} }
 	if a := VlastiteAdrese(); len(a) != 0 {
 		t.Errorf("računalo bez Tailscalea nema Tailscale adresa: %v", a)
+	}
+}
+
+// Na macOS-u karticu utunN dobiva svaki VPN, a adresu iz 100.64.0.0/10 daju
+// i drugi (Cloudflare WARP 100.96.x.x, NetBird, NordVPN Meshnet). Takva
+// kartica nije Tailscale dok nema i adresu iz fd7a:115c:a1e0::/48.
+func TestUtunDrugogVPNaNijeTailscale(t *testing.T) {
+	stara := sucelja
+	t.Cleanup(func() { sucelja = stara })
+	sucelja = func() []Sucelje {
+		return []Sucelje{
+			{Ime: "en0", Adrese: adrese("192.168.1.50")},
+			{Ime: "utun5", Adrese: adrese("100.96.0.5", "fe80::5")},                  // WARP
+			{Ime: "utun100", Adrese: adrese("100.70.3.4", "2606:4700:110:8a::5")},    // drugi VPN s IPv6
+			{Ime: "utun3", Adrese: adrese("::ffff:100.80.0.2", "fd7a:115c:a1e1::2")}, // izvan Tailscaleova raspona
+		}
+	}
+	if a := VlastiteAdrese(); len(a) != 0 {
+		t.Errorf("Mac bez Tailscalea, s drugim VPN-om, nema Tailscale adresa: %v", a)
+	}
+
+	// Tailscale na macOS-u: ista kartica ima i IPv4 i IPv6 adresu
+	sucelja = func() []Sucelje {
+		return []Sucelje{
+			{Ime: "utun5", Adrese: adrese("100.96.0.5")},
+			{Ime: "utun8", Adrese: adrese("100.101.0.1", "fd7a:115c:a1e0::1", "fe80::8")},
+		}
+	}
+	if a, ocekivano := VlastiteAdrese(), adrese("100.101.0.1", "fd7a:115c:a1e0::1"); !slices.Equal(a, ocekivano) {
+		t.Errorf("Mac s Tailscaleom i WARP-om: %v, očekivano %v", a, ocekivano)
 	}
 }
 
