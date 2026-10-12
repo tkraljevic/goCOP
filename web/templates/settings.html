@@ -23,7 +23,7 @@
     <h2>Ovaj čvor</h2>
     <dl class="kv">
       <dt>Naziv</dt><dd>{{.NodeName}}</dd>
-      <dt>Identifikator</dt><dd class="mono">{{.NodeID}}</dd>
+      <dt>Ime čvora u mreži</dt><dd class="mono">{{.NodeID}}</dd>
       <dt>Javni ključ</dt><dd class="mono text-xs">{{.NodePublicKey}}</dd>
       <dt>Verzija</dt><dd>{{if .NodeVersion}}{{.NodeVersion}}{{else}}razvojna{{end}} · shema {{.SchemaVersion}}</dd>
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>

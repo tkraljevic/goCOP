@@ -12,6 +12,7 @@ package web
 // pri pokretanju, pa promjena vrijedi tek nakon ponovnog pokretanja.
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -29,6 +30,7 @@ import (
 
 	"gocop/internal/config"
 	"gocop/internal/models"
+	"gocop/internal/service"
 )
 
 // nacinPostavke kaže što se s postavkom smije u programu
@@ -53,10 +55,10 @@ type mjestoPostavke struct {
 // Zašto se postavka ne mijenja u programu
 const (
 	razlogAdrese     = "Krivom adresom ili portom čvor se više ne bi otvarao ni s ovog računala, pa se mijenja samo u datoteci."
-	razlogImena      = "Pod ovim imenom čvor upisuje zapise, a drugi ga čvorovi pamte uz ključ. Ne mijenja se."
-	razlogNaziva     = "Mijenja se samo u datoteci, kao i ime čvora; drugima stiže nakon ponovnog pokretanja."
+	razlogImena      = "Poslije prvog pokretanja ne mijenja se ni u datoteci: pod ovim imenom čvor upisuje zapise, a drugi ga čvorovi pamte uz njegov ključ."
+	razlogNaziva     = "Naziv vide drugi čvorovi, pa se ne mijenja u programu nego u datoteci gocop.toml. Novi naziv stiže im nakon ponovnog pokretanja."
 	razlogPosrednika = "O ovome ovisi koji zahtjev program smatra zahtjevom izvana, pa se mijenja samo u datoteci."
-	razlogBaze       = "Uz bazu moraju ići ključ čvora (node-key) i ova datoteka, pa se premješta samo ručno, dok čvor ne radi."
+	razlogBaze       = "Zato se baza premješta samo ručno, dok čvor ne radi."
 	razlogPutanje    = "Mijenja se samo u datoteci, dok čvor ne radi, jer uz novu putanju treba premjestiti i datoteke."
 	razlogNove       = "Nova postavka: zasad se mijenja samo u datoteci."
 	// [sync] bootstrap program zasad ne čita (docs/INSTALACIJA.md); dok ga ne
@@ -92,7 +94,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"sync.sve", mjestoPostavke{"pretplate", postavkaUrediva, "Prati sve", ""}},
 	{"vodostaji.povijest_mjeseci", mjestoPostavke{"pretplate", postavkaUrediva, "Povijest tuđih očitanja (mjeseci)", ""}},
 
-	{"db", mjestoPostavke{"baza", postavkaSamoCitanje, "Baza čvora", razlogBaze}},
+	{"db", mjestoPostavke{"baza", postavkaSamoCitanje, "Datoteka baze", razlogBaze}},
 	{"arhiva", mjestoPostavke{"baza", postavkaSamoCitanje, "Arhiva vodostaja", razlogPutanje}},
 	{"podaci", mjestoPostavke{"baza", postavkaSamoCitanje, "Izvorne datoteke arhive", razlogPutanje}},
 	{"skenovi", mjestoPostavke{"baza", postavkaSamoCitanje, "Skenovi i fotografije s terena", razlogPutanje}},
@@ -107,6 +109,16 @@ var rasporedPostavki = []redakRasporeda{
 	{"posta.domena", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
 	{"posta.port", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
 	{"posta.sigurnost", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
+}
+
+// opisNaStranici zamjenjuje objašnjenje iz datoteke kad ono govori o samoj
+// datoteci („upiše ovdje”, „ova datoteka”) ili riječima true i false, što na
+// stranici zbunjuje
+var opisNaStranici = map[string]string{
+	"node.id": "Mala slova, brojke i crtica. Zadaje se prije prvog pokretanja; ako ga nema, program ga sam izabere i upiše u gocop.toml.",
+	"db":      "Datoteka baze ovog čvora. Uz nju stoje ključ čvora (node-key) i gocop.toml, pa se premještaju i kopiraju uvijek zajedno.",
+	"sync.sve": "Uključeno: čvor prati sva očitanja i dnevnike svih područja i godina (uredski poslužitelj). " +
+		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 }
 
 // redRasporeda je redni broj ključa u rasporedu; ključ bez retka ide na kraj
@@ -147,11 +159,14 @@ type dioPostavki struct {
 	stranica string // putanja stranice; obrazac ide na stranica + "/postavke-cvora"
 	sidro    string
 	naslov   string // naslov u kartici; prazno kad ga daje stranica
+	// sklop: blok stoji sklopljen u kartici (Čvor i mreža), da kartice
+	// ispod ne siđu za cijeli ekran; otvori se sam kad spremanje ne uspije
+	sklop bool
 }
 
 var dijeloviPostavki = []dioPostavki{
-	{ime: "cvor", stranica: "/settings", sidro: "postavke-cvor", naslov: "Postavke ovog čvora (gocop.toml)"},
-	{ime: "mreza", stranica: "/settings", sidro: "postavke-mreza", naslov: "Postavke mreže ovog čvora (gocop.toml)"},
+	{ime: "cvor", stranica: "/settings", sidro: "postavke-cvor", naslov: "Postavke ovog čvora (gocop.toml)", sklop: true},
+	{ime: "mreza", stranica: "/settings", sidro: "postavke-mreza", naslov: "Postavke mreže ovog čvora (gocop.toml)", sklop: true},
 	{ime: "pretplate", stranica: "/pretplate", sidro: "postavke-cvora"},
 	{ime: "baza", stranica: "/administracija/baza", sidro: "postavke-cvora"},
 	{ime: "opcije", stranica: "/administracija/opcije", sidro: "postavke-cvora"},
@@ -172,6 +187,9 @@ type PostavkeCvora struct {
 	Vrijedi   config.Config     // s čime čvor radi: datoteka, zadano i zastavice pokretanja
 	Zastavice map[string]string // puni ključ → zastavica pokretanja jača od datoteke ("-addr")
 	Pocetna   config.Config     // od čega nastaje nova datoteka: zadano i ime čvora
+	Putanje   map[string]string // puni ključ → putanja koju čvor stvarno koristi (db, arhiva…)
+
+	addrPrije string // addr iz datoteke prije nego što je čvor sam prešao na 8080
 }
 
 // postavkeCvora čuva PostavkeCvora; mu drži i jedno spremanje u isto vrijeme
@@ -186,9 +204,13 @@ func (s *Server) SetPostavkeCvora(p PostavkeCvora) {
 	s.postavke = &postavkeCvora{p: p}
 }
 
-// postaviAddr: čvor je s porta 80 sam prešao na 8080
+// postaviAddr: čvor je s porta 80 sam prešao na 8080; to nije promjena koja
+// čeka ponovno pokretanje, nego će se ponoviti dok je port zauzet
 func (pc *postavkeCvora) postaviAddr(addr string) {
 	pc.mu.Lock()
+	if pc.p.addrPrije == "" && pc.p.Vrijedi.Addr != addr {
+		pc.p.addrPrije = pc.p.Vrijedi.Addr
+	}
 	pc.p.Vrijedi.Addr = addr
 	pc.mu.Unlock()
 }
@@ -203,6 +225,7 @@ func (pc *postavkeCvora) snimka() PostavkeCvora {
 type stanjeDatoteke struct {
 	tekst     []byte        // sadržaj; kad datoteke nema, primjer koji bi se zapisao
 	cfg       config.Config // pročitano; kad datoteke nema, početne postavke
+	nakon     config.Config // s čime bi čvor radio nakon ponovnog pokretanja (zatvoreni izvor karte zamijenjen)
 	postoji   bool
 	otisak    string
 	mijenjano time.Time
@@ -211,7 +234,7 @@ type stanjeDatoteke struct {
 
 // procitajGocopToml čita gocop.toml istim čitačem kao pri pokretanju
 func procitajGocopToml(p PostavkeCvora) stanjeDatoteke {
-	st := stanjeDatoteke{cfg: p.Pocetna, otisak: "nema"}
+	st := stanjeDatoteke{cfg: p.Pocetna, nakon: p.Pocetna, otisak: "nema"}
 	tekst, err := os.ReadFile(p.Put)
 	if errors.Is(err, os.ErrNotExist) {
 		st.tekst, st.greska = config.Primjer(p.Pocetna)
@@ -230,12 +253,14 @@ func procitajGocopToml(p PostavkeCvora) stanjeDatoteke {
 		st.greska = err
 		return st
 	}
-	// ono što program pri pokretanju sam dopuni nije razlika
-	cfg.ZamijeniZatvoreneIzvore()
+	// ime koje program pri pokretanju sam upiše nije razlika
 	if cfg.Node.ID == "" {
 		cfg.Node.ID = p.Vrijedi.Node.ID
 	}
-	st.cfg = cfg
+	// zatvoreni izvor karte program pri pokretanju zamijeni, ali u datoteci
+	// ostaje dok ga netko ne spremi: cfg je datoteka, nakon ono s čime čvor radi
+	st.cfg, st.nakon = cfg, cfg
+	st.nakon.ZamijeniZatvoreneIzvore()
 	return st
 }
 
@@ -248,6 +273,7 @@ func otisakTeksta(b []byte) string {
 type PostavkeStranice struct {
 	blokovi     map[string]*BlokPostavki
 	CekaPonovno bool                     // spremljena promjena čeka ponovno pokretanje
+	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Čvor i mreža
 }
 
@@ -264,6 +290,8 @@ type BlokPostavki struct {
 	Dio         string
 	Naslov      string
 	Sidro       string
+	Sklop       bool   // blok je sklopljen (<details>), otvara se klikom na naslov
+	Otvoren     bool   // sklop je otvoren: datoteka ili zadnje spremanje ne valja
 	Akcija      string // kamo ide obrazac
 	Stavke      []StavkaPostavke
 	Uredivo     bool   // obrazac: administrator, izravno iz lokalne mreže
@@ -299,20 +327,29 @@ type StavkaPostavke struct {
 	Oznaka       string // kako stoji u datoteci: [sync] auto_sync
 	Naziv        string
 	Opis         string
-	Primjeri     []string // retci s primjerima iz objašnjenja
-	OpisOdjeljka string   // objašnjenje odjeljka, uz prvu postavku odjeljka u bloku
-	Vrsta        string   // tekst, broj, da-ne, popis
-	Promjenjiva  bool     // mijenja se u programu (s ovog zahtjeva ili ne)
-	Uredivo      bool     // polje obrasca na ovom zahtjevu
+	Primjeri     []PrimjerPostavke // primjeri iz objašnjenja, kao vrijednosti za polje
+	OpisOdjeljka string            // objašnjenje odjeljka, uz prvu postavku odjeljka u bloku
+	Vrsta        string            // tekst, broj, da-ne, popis
+	Promjenjiva  bool              // mijenja se u programu (s ovog zahtjeva ili ne)
+	Uredivo      bool              // polje obrasca na ovom zahtjevu
 	Tajno        bool
 	Prikaz       string // vrijednost s kojom čvor radi
+	NaDisku      string // putanja koju čvor stvarno koristi, kad nije ista kao Prikaz
 	UDatoteci    string // vrijednost u datoteci, kad je drukčija
 	Zastavica    string // zastavica pokretanja koja vrijedi umjesto datoteke
+	Zamjena      string // zašto čvor sam radi s drugom vrijednošću nego u datoteci (ne čeka ponovno pokretanje)
 	CekaPonovno  bool   // spremljeno se razlikuje od onoga s čime čvor radi
 	Polje        string // vrijednost u obrascu
 	Ukljuceno    bool   // za da-ne
 	Greska       string
 	Razlog       string
+}
+
+// PrimjerPostavke je primjer iz objašnjenja: vrijednost kakvu se upisuje u
+// polje (bez navodnika) i napomena iza znaka #
+type PrimjerPostavke struct {
+	Vrijednost string
+	Napomena   string
 }
 
 // izvorPostavki daje rukovatelju stranice blokove postavki čvora
@@ -335,20 +372,42 @@ type pokusajPostavki struct {
 
 type kljucPokusaja struct{}
 
+// zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora
+// ni ponovno pokrenuti čvor, za svako od toga svojim riječima
+type zabranaCvora struct{ postavke, ponovno string }
+
+var (
+	zabranaNijeAdmin = &zabranaCvora{
+		postavke: "Postavke čvora mijenja samo administrator.",
+		ponovno:  "Čvor ponovno pokreće samo administrator.",
+	}
+	zabranaTudjimOcima = &zabranaCvora{
+		postavke: "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		ponovno:  "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+	}
+	zabranaIzvana = &zabranaCvora{
+		postavke: "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		ponovno:  "Čvor se ponovno pokreće samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+	}
+)
+
 // smijeMijenjatiCvor: globalni administrator, svojim očima, izravno s ovog
 // računala ili iz lokalne mreže. Kroz posrednika (tunel) nikad, ni kad je
-// posrednik na istom računalu.
-func smijeMijenjatiCvor(r *http.Request) error {
+// posrednik na istom računalu. Lokalno je samo ovo računalo i privatna
+// adresa (service.IzvanaAdresa), a ne i ono što ostatak programa smatra
+// lokalnim po drugim postavkama (npr. Tailscale): ovo je granica koja čuva
+// postavke i gašenje čvora. Vraća nil kad smije.
+func smijeMijenjatiCvor(r *http.Request) *zabranaCvora {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	if perms == nil || !perms.IsGlobalAdmin {
-		return errors.New("Postavke čvora mijenja samo administrator.")
+		return zabranaNijeAdmin
 	}
 	if gleda, _ := r.Context().Value(contextKeyViewing).(bool); gleda {
-		return errors.New("Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.")
+		return zabranaTudjimOcima
 	}
 	k := klijentIz(r)
-	if k.KrozPosrednika || !k.IzLokalneMreze() {
-		return errors.New("Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.")
+	if service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik) {
+		return zabranaIzvana
 	}
 	return nil
 }
@@ -367,7 +426,8 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	p := s.postavke.snimka()
 	sl := slagacBlokova{p: p, st: procitajGocopToml(p), zabrana: smijeMijenjatiCvor(r)}
 	sl.pokusaj, _ = r.Context().Value(kljucPokusaja{}).(*pokusajPostavki)
-	out := &PostavkeStranice{blokovi: map[string]*BlokPostavki{}, CekaPonovno: sl.cekaPonovno()}
+	out := &PostavkeStranice{blokovi: map[string]*BlokPostavki{}, CekaPonovno: sl.cekaPonovno(),
+		MozePonovno: sl.zabrana == nil && s.moguPonovno()}
 	for _, d := range dijeloviPostavki {
 		if d.stranica == stranica {
 			out.blokovi[d.ime] = sl.blok(d)
@@ -383,18 +443,21 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 type slagacBlokova struct {
 	p       PostavkeCvora
 	st      stanjeDatoteke
-	zabrana error
+	zabrana *zabranaCvora
 	pokusaj *pokusajPostavki
 }
 
 func (sl slagacBlokova) blok(d dioPostavki) *BlokPostavki {
-	b := &BlokPostavki{Dio: d.ime, Naslov: d.naslov, Sidro: d.sidro, Akcija: d.stranica + "/postavke-cvora", Otisak: sl.st.otisak}
+	b := &BlokPostavki{Dio: d.ime, Naslov: d.naslov, Sidro: d.sidro, Sklop: d.sklop, Akcija: d.stranica + "/postavke-cvora", Otisak: sl.st.otisak}
 	b.Uredivo = sl.zabrana == nil && sl.st.greska == nil
 	b.Zabrana, b.Greska = sl.porukeBloka(d)
 	sl.dodajStavke(b, d)
 	if d.ime == "baza" {
 		b.Datoteka = sl.datoteka()
 	}
+	// sklop se sam otvori samo kad nešto ne valja; da promjena čeka, javlja
+	// traka na vrhu, a gumb za ponovno pokretanje stoji izvan sklopa
+	b.Otvoren = b.Greska != "" || slices.ContainsFunc(b.Stavke, func(s StavkaPostavke) bool { return s.Greska != "" })
 	return b
 }
 
@@ -402,7 +465,7 @@ func (sl slagacBlokova) blok(d dioPostavki) *BlokPostavki {
 // zadnjim spremanjem
 func (sl slagacBlokova) porukeBloka(d dioPostavki) (zabrana, greska string) {
 	if sl.zabrana != nil {
-		zabrana = sl.zabrana.Error()
+		zabrana = sl.zabrana.postavke
 	}
 	if sl.st.greska != nil {
 		greska = "gocop.toml se ne da pročitati (" + sl.st.greska.Error() + "). S takvom datotekom čvor se ne bi pokrenuo; popravite je u uređivaču teksta."
@@ -458,23 +521,14 @@ func (sl slagacBlokova) datoteka() *DatotekaPostavki {
 
 // stavka slaže jednu postavku: što vrijedi, što je u datoteci i obrazac
 func (sl slagacBlokova) stavka(k config.Kljuc, m mjestoPostavke, blokUrediv bool) StavkaPostavke {
-	opis, primjeri := razdijeliOpis(k.Opis)
-	vrijedi, uDatoteci := sl.p.Vrijedi.Vrijednost(k), sl.st.cfg.Vrijednost(k)
-	st := StavkaPostavke{Kljuc: k.Puni(), Oznaka: k.Oznaka(), Naziv: m.naziv, Opis: opis, Primjeri: primjeri,
+	st := StavkaPostavke{Kljuc: k.Puni(), Oznaka: k.Oznaka(), Naziv: cmp.Or(m.naziv, k.Oznaka()),
 		Vrsta: vrstaPolja(k.Tip), Razlog: m.razlog, Zastavica: sl.p.Zastavice[k.Puni()],
 		Promjenjiva: m.nacin == postavkaUrediva, Uredivo: blokUrediv && m.nacin == postavkaUrediva, Tajno: m.nacin == postavkaTajna}
-	if st.Naziv == "" {
-		st.Naziv = k.Oznaka()
-	}
+	st.Opis, st.Primjeri = opisStavke(k, st.Vrsta)
 	if st.Tajno {
 		return st
 	}
-	st.Prikaz = prikaziVrijednost(vrijedi)
-	if !config.IstaVrijednost(vrijedi, uDatoteci) {
-		st.UDatoteci = prikaziVrijednost(uDatoteci)
-		st.CekaPonovno = st.Zastavica == ""
-	}
-	st.Polje, st.Ukljuceno = poljeVrijednosti(uDatoteci)
+	sl.usporedi(&st, k)
 	if sl.pokusaj != nil {
 		if upisano, ok := sl.pokusaj.upisano[k.Puni()]; ok {
 			st.Polje, st.Ukljuceno = upisano, upisano == "1"
@@ -482,6 +536,50 @@ func (sl slagacBlokova) stavka(k config.Kljuc, m mjestoPostavke, blokUrediv bool
 		st.Greska = sl.pokusaj.greske[k.Puni()]
 	}
 	return st
+}
+
+// opisStavke: objašnjenje za stranicu i primjeri kao vrijednosti za polje;
+// kvačica primjere ne treba
+func opisStavke(k config.Kljuc, vrsta string) (string, []PrimjerPostavke) {
+	opis, retci := razdijeliOpis(k.Opis)
+	if o, ok := opisNaStranici[k.Puni()]; ok {
+		opis = o
+	}
+	if vrsta == "da-ne" {
+		return opis, nil
+	}
+	var primjeri []PrimjerPostavke
+	for _, r := range retci {
+		primjeri = append(primjeri, primjerIzRetka(k.Ime, r))
+	}
+	return opis, primjeri
+}
+
+// usporedi: s čime čvor radi, što je u datoteci i čeka li razlika ponovno
+// pokretanje. Polje nudi ono s čime bi čvor radio nakon pokretanja, pa
+// spremanje upiše i zamjenu zatvorenog izvora karte.
+func (sl slagacBlokova) usporedi(st *StavkaPostavke, k config.Kljuc) {
+	vrijedi, uDatoteci, nakon := sl.p.Vrijedi.Vrijednost(k), sl.st.cfg.Vrijednost(k), sl.st.nakon.Vrijednost(k)
+	st.Prikaz = prikaziVrijednost(vrijedi)
+	if put := sl.p.Putanje[k.Puni()]; put != st.Prikaz {
+		st.NaDisku = put
+	}
+	st.Polje, st.Ukljuceno = poljeVrijednosti(nakon)
+	if config.IstaVrijednost(vrijedi, uDatoteci) {
+		return
+	}
+	st.UDatoteci = prikaziVrijednost(uDatoteci)
+	switch {
+	case st.Zastavica != "":
+	case !config.IstaVrijednost(uDatoteci, nakon): // jedina zamjena pri pokretanju: ZamijeniZatvoreneIzvore
+		st.Zamjena = "Wikimedijine pločice više ne rade, pa program to pri pokretanju sam zamijeni s " +
+			prikaziVrijednost(nakon) + ". Spremite da se zamjena upiše i u datoteku."
+		st.CekaPonovno = !config.IstaVrijednost(vrijedi, nakon)
+	case k.Puni() == "addr" && sl.p.addrPrije != "" && config.IstaVrijednost(uDatoteci, sl.p.addrPrije):
+		st.Zamjena = "Taj port bio je zauzet ili ga program ne smije otvoriti, pa je čvor sam prešao na " + st.Prikaz + "."
+	default:
+		st.CekaPonovno = true
+	}
 }
 
 // cekaPonovno: neka postavka koja se mijenja u programu spremljena je, a
@@ -494,11 +592,32 @@ func (sl slagacBlokova) cekaPonovno() bool {
 		if mjestoKljuca(k).nacin != postavkaUrediva || sl.p.Zastavice[k.Puni()] != "" {
 			continue
 		}
-		if !config.IstaVrijednost(sl.p.Vrijedi.Vrijednost(k), sl.st.cfg.Vrijednost(k)) {
+		if !config.IstaVrijednost(sl.p.Vrijedi.Vrijednost(k), sl.st.nakon.Vrijednost(k)) {
 			return true
 		}
 	}
 	return false
+}
+
+// primjerIzRetka pretvara primjer iz datoteke („centar = 'COP Osijek'   #
+// napomena”) u vrijednost kakvu se upisuje u polje, bez navodnika; redak
+// drugog oblika ostaje kakav jest
+func primjerIzRetka(ime, redak string) PrimjerPostavke {
+	ostatak, ok := strings.CutPrefix(redak, ime)
+	ostatak, jednako := strings.CutPrefix(strings.TrimSpace(ostatak), "=")
+	if !ok || !jednako {
+		return PrimjerPostavke{Vrijednost: redak}
+	}
+	vrijednost, napomena := strings.TrimSpace(ostatak), ""
+	if len(vrijednost) > 0 && (vrijednost[0] == '\'' || vrijednost[0] == '"') {
+		if kraj := strings.IndexByte(vrijednost[1:], vrijednost[0]); kraj >= 0 {
+			vrijednost, napomena = vrijednost[1:kraj+1], vrijednost[kraj+2:]
+		}
+	} else {
+		vrijednost, napomena, _ = strings.Cut(vrijednost, "#")
+	}
+	napomena = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(napomena), "#"))
+	return PrimjerPostavke{Vrijednost: strings.TrimSpace(vrijednost), Napomena: napomena}
 }
 
 // razdijeliOpis odvaja objašnjenje od redaka s primjerima (počinju s dva
@@ -528,15 +647,15 @@ func vrstaPolja(t reflect.Type) string {
 	return "tekst"
 }
 
-// prikaziVrijednost je vrijednost za čitanje; prazno ostaje prazno, a
-// stranica napiše „prazno”
+// prikaziVrijednost je vrijednost za čitanje, riječima a ne true i false;
+// prazno ostaje prazno, a stranica napiše „prazno”
 func prikaziVrijednost(v any) string {
 	switch x := v.(type) {
 	case bool:
 		if x {
-			return "da"
+			return "uključeno"
 		}
-		return "ne"
+		return "isključeno"
 	case []string:
 		return strings.Join(x, ", ")
 	}
@@ -597,8 +716,8 @@ func procitajPopis(s string) []string {
 // pokaže iznova (prikaz) s upisanim i porukama uz polja
 func (s *Server) spremiPostavkeCvora(stranica string, prikaz http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if err := smijeMijenjatiCvor(r); err != nil {
-			http.Error(w, err.Error(), http.StatusForbidden)
+		if z := smijeMijenjatiCvor(r); z != nil {
+			http.Error(w, z.postavke, http.StatusForbidden)
 			return
 		}
 		if s.postavke == nil {
@@ -626,7 +745,8 @@ func (s *Server) spremiPostavkeCvora(stranica string, prikaz http.Handler) http.
 			prikaz.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), kljucPokusaja{}, pokusaj)))
 			return
 		}
-		redirectWith(w, r, d.stranica+"#"+d.sidro, "success", poruka)
+		// bez sidra: poruka i traka o ponovnom pokretanju stoje na vrhu stranice
+		redirectWith(w, r, d.stranica, "success", poruka)
 	})
 }
 
@@ -697,6 +817,11 @@ func procitajIzmjene(r *http.Request, d dioPostavki, uDatoteci config.Config, po
 		}
 		upisano := vrijednosti[len(vrijednosti)-1] // da-ne: skriveno 0, pa kvačica 1
 		pokusaj.upisano[k.Puni()] = upisano
+		// polje koje nitko nije dirao: ostaje kako piše u datoteci, i s
+		// razmakom na početku ili kraju koji bi procitajPolje obrezao
+		if polje, _ := poljeVrijednosti(uDatoteci.Vrijednost(k)); upisano == polje && vrstaPolja(k.Tip) != "da-ne" {
+			continue
+		}
 		v, poruka := procitajPolje(k, upisano)
 		if poruka != "" {
 			pokusaj.greske[k.Puni()] = poruka

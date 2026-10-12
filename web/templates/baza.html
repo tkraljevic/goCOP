@@ -19,7 +19,7 @@
 
 <div class="reg-card p-4">
   <dl class="reg-facts">
-    <div><dt>Datoteka</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
+    <div><dt>Datoteka baze</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
     <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
     <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
     <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>

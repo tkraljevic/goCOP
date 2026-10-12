@@ -315,7 +315,7 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 	w := spremi(t, s, "/settings", obrazacBloka("cvor", otisakDatoteke(t, put), map[string]string{
 		"javna_adresa": "https://cop.primjer.hr", "kontakt.centar": "COP Primjer", "kontakt.centar_telefon": "",
 	}), kaoAdmin)
-	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "#postavke-cvor") {
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/settings?success=") {
 		t.Fatalf("spremanje: %d %s\n%s", w.Code, w.Header().Get("Location"), w.Body.String())
 	}
 	b, _ := os.ReadFile(put)
@@ -342,7 +342,7 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 	}
 	// traka na svim stranicama s blokom, a uz postavku što vrijedi do tada
 	for _, stranica := range []string{"/settings", "/pretplate", "/administracija/baza", "/administracija/opcije"} {
-		if !strings.Contains(iscrtajPostavke(t, s, stranica, kaoAdmin), "Promjena vrijedi nakon ponovnog pokretanja.") {
+		if !strings.Contains(iscrtajPostavke(t, s, stranica, kaoAdmin), "Spremljena promjena u gocop.toml vrijedi nakon ponovnog pokretanja čvora.") {
 			t.Errorf("%s: nema trake o ponovnom pokretanju", stranica)
 		}
 	}
@@ -648,7 +648,7 @@ func TestProcitajPolje(t *testing.T) {
 	if opis, primjeri := razdijeliOpis("Prvi redak\ndrugi redak.\n  x = 1   # primjer"); opis != "Prvi redak drugi redak." || len(primjeri) != 1 || primjeri[0] != "x = 1   # primjer" {
 		t.Errorf("opis: %q %q", opis, primjeri)
 	}
-	if prikaziVrijednost(false) != "ne" || prikaziVrijednost([]string{"a", "b"}) != "a, b" || prikaziVrijednost(4710) != "4710" {
+	if prikaziVrijednost(false) != "isključeno" || prikaziVrijednost([]string{"a", "b"}) != "a, b" || prikaziVrijednost(4710) != "4710" {
 		t.Error("prikaz vrijednosti")
 	}
 	if korisnikZahtjeva(httptest.NewRequest(http.MethodGet, "/", nil)) != "nepoznat korisnik" {
@@ -758,7 +758,7 @@ func TestSpremanjeRubovi(t *testing.T) {
 	if izvorPostavki(nil).za(r, "/settings") != nil || izvorPostavki(s.postavkeStranice).za(zahtjevPostavki(http.MethodGet, "/", nil, kaoAdmin), "/settings") == nil {
 		t.Error("izvor postavki rukovatelja")
 	}
-	if prikaziVrijednost(true) != "da" {
+	if prikaziVrijednost(true) != "uključeno" {
 		t.Error("da-ne")
 	}
 }

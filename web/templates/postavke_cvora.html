@@ -1,14 +1,21 @@
 {{/* Postavke ovog čvora iz gocop.toml (internal/web/postavke_cvora.go):
      blok na stranici kojoj postavka pripada, traka kad promjena čeka
-     ponovno pokretanje i gumb za ponovno pokretanje u kartici Ovaj čvor. */}}
+     ponovno pokretanje i gumb za ponovno pokretanje u kartici Ovaj čvor.
+     Na stranici Čvor i mreža blok je sklopljen (<details>), da kartice ispod
+     ne siđu za cijeli ekran; otvori se sam kad spremanje ne uspije. Otvoren
+     na širokom ekranu stoji u dva stupca: što se mijenja i što se samo vidi. */}}
 
 {{define "trakaPonovnogPokretanja"}}{{with .}}{{if .CekaPonovno}}
-<div class="alert alert-warning" role="status">{{icon "refresh-cw"}} Promjena vrijedi nakon ponovnog pokretanja. <a href="/settings#ponovno-pokretanje">Ponovno pokreni čvor</a></div>
+<div class="alert alert-warning" role="status">{{icon "refresh-cw"}} Spremljena promjena u gocop.toml vrijedi nakon ponovnog pokretanja čvora. <a href="/settings#ponovno-pokretanje">{{if .MozePonovno}}Ponovno pokreni čvor{{else}}Kako ponovno pokrenuti čvor{{end}}</a></div>
 {{end}}{{end}}{{end}}
 
 {{define "postavkeCvora"}}{{with .}}
-<div id="{{.Sidro}}" class="mt-3 max-w-40">
+{{if .Sklop}}<details id="{{.Sidro}}" class="postavke-cvora mt-3"{{if .Otvoren}} open{{end}}>
+  <summary>{{.Naslov}}</summary>
+  <div class="mt-2">
+{{else}}<div id="{{.Sidro}}" class="mt-3 max-w-40">
   {{if .Naslov}}<h3>{{.Naslov}}</h3>{{end}}
+{{end}}
   <p class="form-help mb-3">Vrijede samo na ovom čvoru. Program ih čita pri pokretanju, pa promjena vrijedi tek nakon ponovnog pokretanja.</p>
   {{if .Greska}}<div class="alert alert-error">{{.Greska}}</div>{{end}}
   {{with .Datoteka}}
@@ -21,6 +28,8 @@
   </div>
   {{end}}
   {{if and .Zabrana .ImaUredivih}}<p class="form-help">{{.Zabrana}}</p>{{end}}
+  <div class="postavke-stupci">
+  {{if .Promjenjive}}<div>{{end}}
   {{if and .Uredivo .ImaUredivih}}
   <form method="POST" action="{{.Akcija}}#{{.Sidro}}">
     <input type="hidden" name="dio" value="{{.Dio}}">
@@ -29,32 +38,39 @@
     <div class="d-flex gap-2 mb-4"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi postavke čvora</button></div>
   </form>
   {{else}}{{range .Promjenjive}}{{template "stavkaPostavke" .}}{{end}}{{end}}
-  {{with .Ostale}}{{if $.ImaUredivih}}<p class="form-help mb-3"><b>Ove se mijenjaju samo u datoteci gocop.toml</b>, u uređivaču teksta, a vrijede nakon ponovnog pokretanja.</p>{{end}}
-  {{range .}}{{template "stavkaPostavke" .}}{{end}}{{end}}
-</div>
+  {{if .Promjenjive}}</div>{{end}}
+  {{with .Ostale}}<div>{{if $.ImaUredivih}}<p class="form-help mb-3"><b>Ove se u programu samo prikazuju.</b> Mijenjaju se u datoteci gocop.toml, u uređivaču teksta, a vrijede nakon ponovnog pokretanja.</p>{{end}}
+  {{range .}}{{template "stavkaPostavke" .}}{{end}}</div>{{end}}
+  </div>
+{{if .Sklop}}  </div>
+</details>{{else}}</div>{{end}}
 {{end}}{{end}}
 
 {{define "stavkaPostavke"}}
 {{if .OpisOdjeljka}}<p class="form-help mb-2">{{.OpisOdjeljka}}</p>{{end}}
 <div class="form-group mb-4" data-postavka="{{.Kljuc}}">
+  {{if and .Uredivo (eq .Vrsta "da-ne")}}
+    <input type="hidden" name="postavka.{{.Kljuc}}" value="0">
+    <label class="postavka-kvacica"><input type="checkbox" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" value="1"{{if .Ukljuceno}} checked{{end}}> <span class="form-label mb-0">{{.Naziv}}</span></label>
+  {{else}}
   <label class="form-label"{{if .Uredivo}} for="postavka-{{.Kljuc}}"{{end}}>{{.Naziv}}</label>
   {{if .Uredivo}}
-    {{if eq .Vrsta "da-ne"}}
-    <input type="hidden" name="postavka.{{.Kljuc}}" value="0">
-    <label class="uloga-red"><input type="checkbox" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" value="1"{{if .Ukljuceno}} checked{{end}}> <span>da</span></label>
-    {{else if eq .Vrsta "popis"}}
+    {{if eq .Vrsta "popis"}}
     <textarea class="form-control mono" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" rows="3">{{.Polje}}</textarea>
     {{else}}
     <input type="text" class="form-control{{if eq .Vrsta "broj"}} max-w-10{{end}}" id="postavka-{{.Kljuc}}" name="postavka.{{.Kljuc}}" value="{{.Polje}}"{{if eq .Vrsta "broj"}} inputmode="numeric"{{end}}>
     {{end}}
-  {{else if .Tajno}}<div class="muted">skriveno</div>
-  {{else}}<div class="mono wrap-anywhere">{{if .Prikaz}}{{.Prikaz}}{{else}}<span class="muted">prazno</span>{{end}}</div>
+  {{else if .Tajno}}<div class="c-muted">skriveno</div>
+  {{else}}<div class="mono wrap-anywhere">{{if .Prikaz}}{{.Prikaz}}{{else}}<span class="c-muted">prazno</span>{{end}}</div>
   {{end}}
+  {{end}}
+  {{with .NaDisku}}<div class="form-help">Čvor koristi <span class="mono wrap-anywhere">{{.}}</span>.</div>{{end}}
   {{if .Greska}}<div class="form-help c-danger">{{.Greska}}</div>{{end}}
   {{if .Zastavica}}<div class="form-help">Vrijedi zastavica <span class="mono">{{.Zastavica}}</span> s kojom je čvor pokrenut{{if .UDatoteci}}; u datoteci je <span class="mono">{{.UDatoteci}}</span>{{end}}.</div>
-  {{else if .CekaPonovno}}<div class="form-help">U datoteci je <span class="mono">{{if .UDatoteci}}{{.UDatoteci}}{{else}}prazno{{end}}</span>, a čvor još radi s <span class="mono">{{if .Prikaz}}{{.Prikaz}}{{else}}praznim{{end}}</span>. Promjena vrijedi nakon ponovnog pokretanja.</div>{{end}}
+  {{else if .Zamjena}}<div class="form-help">U datoteci je <span class="mono wrap-anywhere">{{.UDatoteci}}</span>. {{.Zamjena}}</div>
+  {{else if .CekaPonovno}}<div class="form-help">Do ponovnog pokretanja vrijedi {{if .Prikaz}}<span class="mono wrap-anywhere">{{.Prikaz}}</span>{{else}}prazno{{end}}, a nakon njega {{if .UDatoteci}}<span class="mono wrap-anywhere">{{.UDatoteci}}</span>{{else}}prazno{{end}}.</div>{{end}}
   <div class="form-help"><span class="mono">{{.Oznaka}}</span>{{if .Opis}} · {{.Opis}}{{end}}</div>
-  {{if and .Uredivo .Primjeri}}<div class="form-help mono">{{range .Primjeri}}{{.}}<br>{{end}}</div>{{end}}
+  {{if and .Uredivo .Primjeri}}<div class="form-help">Npr. {{range $i, $p := .Primjeri}}{{if $i}} ili {{end}}{{if $p.Vrijednost}}<span class="mono">{{$p.Vrijednost}}</span>{{else}}prazno{{end}}{{with $p.Napomena}} ({{.}}){{end}}{{end}}</div>{{end}}
   {{if .Razlog}}<div class="form-help">{{.Razlog}}</div>{{end}}
 </div>
 {{end}}
@@ -65,7 +81,7 @@
   <p class="form-help">{{.Opis}}</p>
   {{if .Nudi}}
   <div class="actions"><button type="button" class="btn btn-secondary" id="gumb-ponovno" data-potvrda="{{.Potvrda}}" data-nevraca="{{.Nevraca}}" data-pokrenut="{{.Pokrenut}}">{{icon "refresh-cw"}} Ponovno pokreni čvor</button></div>
-  <p id="ponovno-stanje" class="muted" role="status"></p>
+  <p id="ponovno-stanje" class="c-muted" role="status"></p>
   <script>
   (function () {
     const gumb = document.getElementById('gumb-ponovno');

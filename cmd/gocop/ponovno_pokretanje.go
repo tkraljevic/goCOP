@@ -88,8 +88,9 @@ func jaceZastavice(z zastavice) map[string]string {
 }
 
 // postavkeZaPosluzitelj: koju datoteku čvor čita (ili bi čitao kad nastane),
-// s čime radi i od čega bi nastala nova datoteka
-func postavkeZaPosluzitelj(cfg config.Config, cfgFrom string, z zastavice) web.PostavkeCvora {
+// s čime radi, od čega bi nastala nova datoteka i gdje su na disku baza,
+// arhiva i mape (putanje: puni ključ → putanja koju čvor koristi)
+func postavkeZaPosluzitelj(cfg config.Config, cfgFrom string, z zastavice, putanje map[string]string) web.PostavkeCvora {
 	put := cfgFrom
 	if put == "" {
 		put = z.configPath
@@ -106,5 +107,21 @@ func postavkeZaPosluzitelj(cfg config.Config, cfgFrom string, z zastavice) web.P
 	}
 	pocetna := config.Default()
 	pocetna.Node.ID = cfg.Node.ID
-	return web.PostavkeCvora{Put: put, Vrijedi: vrijedi, Zastavice: jaceZastavice(z), Pocetna: pocetna}
+	return web.PostavkeCvora{Put: put, Vrijedi: vrijedi, Zastavice: jaceZastavice(z), Pocetna: pocetna, Putanje: punePutanje(putanje)}
+}
+
+// punePutanje: relativna putanja računa se od mape iz koje je čvor
+// pokrenut, pa je stranica pokazuje punu; prazna (isključeno) se preskače
+func punePutanje(putanje map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, put := range putanje {
+		if put == "" {
+			continue
+		}
+		if pun, err := filepath.Abs(put); err == nil {
+			put = pun
+		}
+		out[k] = put
+	}
+	return out
 }

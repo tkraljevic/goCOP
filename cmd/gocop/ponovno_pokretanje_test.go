@@ -122,15 +122,20 @@ func TestPostavkeZaPosluzitelj(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	p := postavkeZaPosluzitelj(cfg, "", z)
+	p := postavkeZaPosluzitelj(cfg, "", z, map[string]string{"arhiva": "/srv/vodostaji.db", "podaci": "vodostaji", "pakete": ""})
 	if p.Put != filepath.Join("/var/lib/gocop", config.FileName) || p.Pocetna.Node.ID != "ivic-laptop" || p.Vrijedi.Pakete != "/arhiva/pakete" || p.Pocetna.Pakete != "" {
 		t.Errorf("bez datoteke: %+v", p)
 	}
+	// putanje se pokazuju pune, a isključena (prazna) se ne pokazuje
+	radna, _ := os.Getwd()
+	if p.Putanje["arhiva"] != "/srv/vodostaji.db" || p.Putanje["podaci"] != filepath.Join(radna, "vodostaji") || len(p.Putanje) != 2 {
+		t.Errorf("putanje: %v", p.Putanje)
+	}
 	z.configPath = "/data/gocop.toml"
-	if p := postavkeZaPosluzitelj(cfg, "", z); p.Put != "/data/gocop.toml" {
+	if p := postavkeZaPosluzitelj(cfg, "", z, nil); p.Put != "/data/gocop.toml" {
 		t.Errorf("uz -config: %q", p.Put)
 	}
-	if p := postavkeZaPosluzitelj(cfg, "/drugdje/gocop.toml", z); p.Put != "/drugdje/gocop.toml" {
+	if p := postavkeZaPosluzitelj(cfg, "/drugdje/gocop.toml", z, nil); p.Put != "/drugdje/gocop.toml" {
 		t.Errorf("pročitana datoteka: %q", p.Put)
 	}
 }

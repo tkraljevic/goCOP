@@ -87,7 +87,7 @@ type PonovnoPokretanjePrikaz struct {
 	Pokrenut string // oznaka ovog pokretanja; nakon povratka je druga
 }
 
-func (s *Server) prikazPonovnog(zabrana error) *PonovnoPokretanjePrikaz {
+func (s *Server) prikazPonovnog(zabrana *zabranaCvora) *PonovnoPokretanjePrikaz {
 	nacin := s.ponovno.nacin
 	if s.ponovno.zatrazi == nil {
 		nacin = RucnoPokrenut
@@ -95,7 +95,7 @@ func (s *Server) prikazPonovnog(zabrana error) *PonovnoPokretanjePrikaz {
 	o := opisNacina[nacin]
 	p := &PonovnoPokretanjePrikaz{Opis: o.opis, Potvrda: o.potvrda, Nevraca: o.nevraca, Pokrenut: s.oznakaPokretanja()}
 	if zabrana != nil {
-		p.Zabrana = zabrana.Error()
+		p.Zabrana = zabrana.ponovno
 	}
 	p.Nudi = zabrana == nil && s.moguPonovno()
 	return p
@@ -108,8 +108,8 @@ func (s *Server) oznakaPokretanja() string {
 // handlePonovnoPokretanje: POST, samo administrator, izravno iz lokalne
 // mreže. Odgovori, pa traži od main da uredno ugasi čvor.
 func (s *Server) handlePonovnoPokretanje(w http.ResponseWriter, r *http.Request) {
-	if err := smijeMijenjatiCvor(r); err != nil {
-		jsonGreska(w, http.StatusForbidden, err.Error())
+	if z := smijeMijenjatiCvor(r); z != nil {
+		jsonGreska(w, http.StatusForbidden, z.ponovno)
 		return
 	}
 	if !s.moguPonovno() {
