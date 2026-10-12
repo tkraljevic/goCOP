@@ -270,6 +270,10 @@ Ovisno o pravilima vaše Tailscale mreže, povremeno se traži potvrda u
 pregledniku. Taj pristup radi samo preko Tailscalea, ne preko adrese u
 lokalnoj mreži.
 
+goCOP se preko Tailscalea otvara na `http://100.x.y.z` i prijava je ista
+kao iz ureda, bez PIN-a: zahtjev na Tailscale adresu računala vrijedi kao iz
+lokalne mreže (`[web] tailscale_lokalno` u `gocop.toml`, zadano uključeno).
+
 ### Uključivanje u postojeću mrežu
 
 Na stranici `/postavljanje` novog čvora (npr. s laptopa u istoj mreži,

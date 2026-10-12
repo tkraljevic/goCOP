@@ -213,7 +213,10 @@ nepouzdano.
   6 znamenki poslan e-poštom na službenu adresu. PIN vrijedi 10 minuta i
   jednom; dopušteno je 5 krivih unosa po prijavi i 10 na sat po osobi.
   „Izvana” znači: zahtjev sa zaglavljem posrednika ili s adrese koja nije
-  privatna, ovo računalo ni lokalna veza. Postoje i zapamćena računala
+  privatna, ovo računalo ni lokalna veza. Na računalu s Tailscaleom izravan
+  zahtjev na Tailscale adresu tog računala nije izvana (`[web]
+  tailscale_lokalno`, zadano uključeno). Odlučuje adresa na koju je veza
+  stigla, ne adresa pošiljatelja. Postoje i zapamćena računala
   (30 dana), rezervni kodovi i privremeni kod koji daje administrator.
   Sve to vrijedi samo na čvoru na kojem je nastalo i spremljeno je samo
   kao HMAC.
@@ -278,6 +281,11 @@ nepouzdano.
   vlastiti administrator, početnu lozinku i uparivanje bez prijave može
   iskoristiti svatko s privatne adrese u istoj mreži. Svjež čvor postavite
   odmah nakon prvog pokretanja.
+- **Tailscale mreža je lokalna mreža.** Na računalu s Tailscaleom svaki
+  uređaj iz iste Tailscale mreže prolazi kao iz ureda: prijava bez PIN-a,
+  početna lozinka i postavljanje svježeg čvora. Tko je u toj mreži, određuju
+  njezin račun i pravila pristupa. Isključuje se s `[web] tailscale_lokalno =
+  false` u `gocop.toml`.
 - **Sesije:** oznaka sesije je u bazi spremljena kao čisti tekst; sesija
   ne istječe zbog neaktivnosti; promjena lozinke ne gasi sesije na drugim
   čvorovima.

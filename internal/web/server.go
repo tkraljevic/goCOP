@@ -68,6 +68,7 @@ type Server struct {
 	podPostavom  atomic.Bool
 	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
 	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
+	tailscale    *tailscaleVeze                                    // veze na Tailscale adresu ovog računala; nil = zadano, tailscale.go
 	javni        *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
 	pricuvno     func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz

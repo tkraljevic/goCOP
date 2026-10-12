@@ -209,3 +209,38 @@ func TestZapisiPrimjer(t *testing.T) {
 		t.Errorf("primjer preko mape: %v %v", zapisan, err)
 	}
 }
+
+// [web] tailscale_lokalno: zadano uključeno, i u postojećoj datoteci bez
+// tog retka; false ga isključuje. Primjer postavki ga opisuje.
+func TestTailscaleLokalno(t *testing.T) {
+	dir := t.TempDir()
+	if !Default().Web.TailscaleLokalno {
+		t.Error("zadano mora biti uključeno")
+	}
+	bez := filepath.Join(dir, "bez.toml")
+	if err := os.WriteFile(bez, []byte("[web]\npouzdani_posrednici = ['127.0.0.1']\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _, err := Load([]string{bez}); err != nil || !cfg.Web.TailscaleLokalno {
+		t.Errorf("datoteka bez retka: %v, err %v", cfg.Web.TailscaleLokalno, err)
+	}
+	iskljuceno := filepath.Join(dir, "iskljuceno.toml")
+	if err := os.WriteFile(iskljuceno, []byte("[web]\ntailscale_lokalno = false\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if cfg, _, err := Load([]string{iskljuceno}); err != nil || cfg.Web.TailscaleLokalno {
+		t.Errorf("false mora isključiti: %v, err %v", cfg.Web.TailscaleLokalno, err)
+	}
+	if _, err := ZapisiPrimjer(dir); err != nil {
+		t.Fatal(err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, PrimjerFileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"tailscale_lokalno = true", "Na računalu bez Tailscalea ne\n# mijenja ništa."} {
+		if !strings.Contains(string(raw), want) {
+			t.Errorf("primjer ne sadrži %q", want)
+		}
+	}
+}

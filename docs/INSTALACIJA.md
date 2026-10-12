@@ -164,7 +164,12 @@ Portovi se mijenjaju u `gocop.toml`.
 - **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
   ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
   šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
-  lokalne mreže PIN nikad ne traži. PIN ide na adresu u dopuštenoj domeni
+  lokalne mreže PIN nikad ne traži. Na računalu s Tailscaleom lokalan je i
+  izravan zahtjev na Tailscale adresu tog računala, npr.
+  `http://100.x.y.z`; to isključuje `[web] tailscale_lokalno = false`.
+  Na računalu bez Tailscalea to ne mijenja ništa, a u Dockeru vrijedi samo
+  uz mrežu računala (host), jer kontejner s mostom ne vidi Tailscale adresu.
+  PIN ide na adresu u dopuštenoj domeni
   (zadano `voda.hr`) ili na adresu izvan nje koju je globalni administrator
   potvrdio na tuđem računu, svojim očima (Korisnici → Uredi → *Adresa je
   provjerena*, npr. za djelatnike tvrtke izvođača). Potvrda putuje razmjenom

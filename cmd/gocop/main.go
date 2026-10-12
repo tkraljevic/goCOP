@@ -1024,6 +1024,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	server.SetTailscaleLokalno(cfg.Web.TailscaleLokalno)
 	server.SetPodPostavom(z.podPostavom)
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
 	ponovno := make(chan struct{}, 1)
