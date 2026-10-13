@@ -47,6 +47,16 @@ func SetReadingHistoryPolicy(p ReadingHistoryPolicy) {
 	readingPolicy.Store(&p)
 }
 
+// MjeseciPovijestiOcitanja kaže koliko mjeseci tuđih očitanja čvor prima
+// za letve koje ne prati; 0 znači sva. Stranica pretplata njime kaže da se
+// obrisana starija očitanja razmjenom ne vraćaju.
+func MjeseciPovijestiOcitanja() int {
+	if p := readingPolicy.Load(); p != nil && p.Months > 0 {
+		return p.Months
+	}
+	return 0
+}
+
 // KeepReadingVersion javlja hoće li čvor uopće zadržati primljeno očitanje.
 // Koristi je i sloj razmjene, prije upisa u knjigu, pa odbačeno očitanje ne
 // zauzima mjesto ni u knjizi ni na površini.

@@ -11,10 +11,11 @@
     <p class="page-desc"><b>Ovo računalo: {{.Cvor}}</b></p>
     <p class="page-desc">
       Neki podaci stižu na svako računalo, npr. ustroj, registri, djelatnici, akti, dnevnik COP-a, prognoze i
-      očitanja letvi koje nisu u branjenom području. Očitanja, vodočuvarski dnevnik, prijave s terena i dnevnici
-      radova rastu godinama i tiču se jednog branjenog područja, pa ih računalo prima samo za područja i godine koje
-      ovdje označite. Što vam više ne treba, možete obrisati s ovog računala. Briše se samo ono što je stiglo s
-      drugih računala, a vraća se razmjenom čim ga opet počnete pratiti. Ono što je nastalo na ovom računalu ne briše se.
+      očitanja letvi koje nisu ni u jednom području. Očitanja, vodočuvarski dnevnik, prijave s terena i dnevnici
+      radova rastu godinama i vode se po području ({{terml "podrucje"}}), pa ih računalo prima samo za područja i
+      godine koje ovdje označite. Što vam više ne treba, možete obrisati s ovog računala. Briše se samo ono što je
+      stiglo s drugih računala, a vraća se razmjenom čim ga opet počnete pratiti. Ono što je nastalo na ovom računalu
+      ne briše se.{{if .PovijestMjeseci}} Tuđa očitanja starija od {{.PovijestMjeseci}} {{uzBroj .PovijestMjeseci "mjeseca" "mjeseca" "mjeseci"}} ne vraćaju se, osim za letve koje pratite, jer je tako postavljena povijest tuđih očitanja.{{end}}
     </p>
   </div>
 </div>
@@ -61,7 +62,7 @@
   {{with .Predlog}}
   <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
-    <span>Prijedlog iz vašeg zaduženja: pratiti <b>vodočuvarski dnevnik, očitanja, prijave s terena i dnevnike radova za BP {{.AreaID}}</b>, od godine {{.YearFrom}}. Uz zapise stižu slike, bez PDF-ova, a primljene slike ostaju na ovom računalu {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}}.</span>
+    <span>Prijedlog iz vašeg zaduženja, {{term "bp"}} {{.AreaID}}: pratiti <b>{{.Sto}}</b> od godine {{.YearFrom}}.{{if .SaSlikama}} Uz zapise stižu slike, bez PDF-ova, a primljene slike ostaju na ovom računalu {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}}.{{end}}</span>
     <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
   </form>
   {{end}}
@@ -74,7 +75,7 @@
         <select id="kind" name="kind" class="form-control">
           <option value="">Sve vrste: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnici radova i arhiva vodostaja</option>
           <option value="ocitanja">Samo očitanja vodostaja</option>
-          <option value="dnevnici">Samo dnevnici radova po branjenom području (dnevnik COP-a stiže svakom računalu)</option>
+          <option value="dnevnici">Samo dnevnici radova, po području ({{terml "podrucje"}}); dnevnik COP-a stiže svakom računalu</option>
           <option value="prijave">Samo prijave s terena</option>
           <option value="vodocuvarski">Samo vodočuvarski dnevnik</option>
           <option value="arhiva">Arhiva vodostaja (.cop paketi letvi, cijela povijest)</option>
@@ -133,7 +134,7 @@
   {{if .Channels}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th><th></th></tr></thead>
+      <thead><tr><th>Vrsta</th><th>{{term "bp"}}</th><th>Godina</th><th>Verzija</th><th>Pretplata</th><th></th></tr></thead>
       <tbody>
       {{range .Channels}}
       <tr>
@@ -144,7 +145,7 @@
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
         <td class="text-right">
           {{if not .Wanted}}
-          <div class="form-help">{{.BriseSe}} {{.Ostaje}}</div>
+          <div class="form-help">{{.BriseSe}} {{.Ostaje}} {{.OgradaPovratka}}</div>
           {{if .ImaZaBrisanje}}
           <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm({{.Potvrda}})">
             <input type="hidden" name="channel" value="{{.Channel}}">
