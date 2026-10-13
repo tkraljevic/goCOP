@@ -203,11 +203,13 @@ func TestProfiliKojiSeNeDajuUpisati(t *testing.T) {
 	}
 }
 
-// GREŠKA: snimka korita čija je datoteka maknuta iz stabla ostaje u arhivi i
-// nakon ponovne gradnje, isto kao krivulja. Ispravak datuma u imenu datoteke
-// tako ostavlja dvije snimke istog korita.
+// PITANJE za odluku: snimka korita čija je datoteka maknuta iz stabla ostaje
+// u arhivi i nakon ponovne gradnje. Ispravak datuma u imenu datoteke tako
+// ostavlja dvije snimke istog korita. Gradnja ipak namjerno ne briše ono čemu
+// u stablu nema datoteke (vidi nadiSirotane i MakniNiz), a snimke stižu i
+// paketom. Popravak ne smije brisati snimke primljene paketom.
 func TestMaknutaSnimkaNestajePriPonovnojGradnji(t *testing.T) {
-	t.Skip("GREŠKA: internal/arhiva/gradnja.go:929 — snimka maknuta iz stabla ostaje u profili nakon ponovne gradnje")
+	t.Skip("PITANJE: internal/arhiva/gradnja.go:929 — briše li gradnja snimku kojoj u stablu nema datoteke; snimke stižu i paketom")
 	db := praznaArhiva(t)
 	koren := t.TempDir()
 	staro := putProfila(koren, "dunav", "vodograd", "2010-03-22")

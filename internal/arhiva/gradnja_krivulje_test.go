@@ -149,12 +149,14 @@ func TestUklonjeniOdsjecakNeOstajePriPonovnojGradnji(t *testing.T) {
 	}
 }
 
-// GREŠKA: krivulja koja je cijela maknuta iz datoteke ostaje u arhivi i nakon
-// ponovne gradnje. Briše se samo krivulja čiji se početak valjanosti pojavi u
-// datoteci, pa ista mapa daje drukčiju arhivu ovisno o tome gradi li se
-// iznova ili preko stare.
+// PITANJE za odluku: krivulja koja je cijela maknuta iz datoteke ostaje u
+// arhivi i nakon ponovne gradnje. Briše se samo krivulja čiji se početak
+// valjanosti pojavi u datoteci, pa ista mapa daje drukčiju arhivu ovisno o
+// tome gradi li se iznova ili preko stare. Gradnja ipak namjerno ne briše
+// ono čemu u stablu nema datoteke, a krivulje letve stižu i paketom.
+// Popravak ne smije brisati krivulje primljene paketom.
 func TestMaknutaKrivuljaNestajePriPonovnojGradnji(t *testing.T) {
-	t.Skip("GREŠKA: internal/arhiva/gradnja.go:1094 — krivulja maknuta iz datoteke ostaje u hq_krivulje nakon ponovne gradnje")
+	t.Skip("PITANJE: internal/arhiva/gradnja.go:1094 — briše li gradnja krivulju koje više nema u datoteci; krivulje stižu i paketom")
 	db := praznaArhiva(t)
 	koren := t.TempDir()
 	put := putKrivulja(koren, "dunav", "vodograd")
