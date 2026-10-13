@@ -437,7 +437,8 @@ func TestPosaoUveziRazvrstava(t *testing.T) {
 		{"profil-a.csv", profil(3)},
 		{"profil-b.csv", profil(21)},
 		{"profil-c.csv", profil(22)},
-		{"profil-d.csv", profil(5)},
+		{"profil-d.csv", profil(3)},
+		{"profil-e.csv", profil(5)},
 		{"krivulje-1.csv", krivulje(1)},
 		{"krivulje-2.csv", krivulje(2)},
 		{"krivulje-3.csv", krivulje(1)},
@@ -461,7 +462,8 @@ func TestPosaoUveziRazvrstava(t *testing.T) {
 		"prazno.csv — izvoz je prošao za 2001.-2002., ali mjerenja nema nijednog",
 		"profil-a.csv (3 točke) — ista snimka korita kao profil-b.csv, koja ih ima 21",
 		"profil-b.csv (21 točka) — ista snimka korita kao profil-c.csv, koja ih ima 22",
-		"profil-d.csv (5 točaka) — ista snimka korita kao profil-c.csv, koja ih ima 22",
+		"profil-d.csv (3 točke) — ista snimka korita kao profil-c.csv, koja ih ima 22",
+		"profil-e.csv (5 točaka) — ista snimka korita kao profil-c.csv, koja ih ima 22",
 	}
 	if strings.Join(preskoceno, "\n") != strings.Join(ocekivano, "\n") {
 		t.Errorf("preskočeno:\n%s", strings.Join(preskoceno, "\n"))
