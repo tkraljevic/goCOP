@@ -15,7 +15,7 @@ func TestZeljeniKojePreskaceNeuzete(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Zatvori()
+	defer func() { _ = s.Zatvori() }()
 	ctx := context.Background()
 	for i := 0; i < 250; i++ {
 		o := Otisak([]byte(fmt.Sprintf("izvornik prijave br. %d", i)))
@@ -51,7 +51,9 @@ func TestZeljeniKojePreskaceNeuzete(t *testing.T) {
 	if _, err := s.ZeljeniKoje(ctx, 300, func(Zelja) bool { return true }); err == nil {
 		t.Error("nečitljiva želja bez greške")
 	}
-	s.Zatvori()
+	if err := s.Zatvori(); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := s.Zeljeni(ctx, 10); err == nil {
 		t.Error("zatvoreno spremište vraća želje bez greške")
 	}

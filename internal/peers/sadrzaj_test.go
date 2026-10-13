@@ -153,12 +153,12 @@ func TestNezeljeniSadrzajNeZadrzavaZeljeni(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer spA.Zatvori()
+	defer func() { _ = spA.Zatvori() }()
 	spB, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "b.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer spB.Zatvori()
+	defer func() { _ = spB.Zatvori() }()
 	a.svc.SetSpremiste(spA)
 	b.svc.SetSpremiste(spB)
 	a.svc.SetWantsAll(true)
