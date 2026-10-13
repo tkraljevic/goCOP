@@ -478,20 +478,9 @@ func dodajIzVlastitihMapa(db *sql.DB, nizovi map[string]*niz, samo string, zapis
 			}
 		}
 		fmt.Fprintf(zapisi, "  vlastita mapa %s: %d %s za %s\n", mapa, nadeno,
-			uzBrojNiz(nadeno), strings.Join(imena, ", "))
+			models.UzBrojHR(nadeno, "niz", "niza", "nizova"), strings.Join(imena, ", "))
 	}
 	return nedostupni, nil
-}
-
-func uzBrojNiz(n int) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return "niz"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		return "niza"
-	default:
-		return "nizova"
-	}
 }
 
 // popisi prolazi stablo i grupira datoteke u nizove. Jedan niz je jedna letva,
