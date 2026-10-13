@@ -73,7 +73,7 @@ func SpojiKrivulje(zateceno []byte, s *Sadrzaj) (SpojeneKrivulje, error) {
 		Krivulja:           len(spojeno),
 		Zatecenih:          len(stare),
 		ZatecenihOdsjecaka: brojRedaka(stare),
-		Razlikuju:          izmijenjena(stare, nove),
+		Razlikuju:          izmijenjena(stare, nove, spojeno),
 		Ostaju:             samoUZatecenima(stare, nove),
 	}, nil
 }
@@ -173,6 +173,8 @@ func (s stupci) odsjecak(r []string) []string {
 	return out
 }
 
+// razdobljaIzvoza su krivulje izvoza. Zadnjoj se kraj ne uzima: DHMZ joj
+// upiše kraj razdoblja izvoza, a ne kraj valjanosti (zatvoriKrajeve).
 func razdobljaIzvoza(s *Sadrzaj) []razdobljeKrivulje {
 	out := make([]razdobljeKrivulje, 0, len(s.Krivulje))
 	for _, k := range s.Krivulje {
@@ -183,14 +185,23 @@ func razdobljaIzvoza(s *Sadrzaj) []razdobljeKrivulje {
 		}
 		out = append(out, r)
 	}
+	if n := len(out); n > 0 {
+		out[n-1].do = ""
+	}
 	return out
 }
 
 // spoji slaže zatečena razdoblja i razdoblja izvoza po početku. Kad oboje
-// imaju isti početak, vrijedi izvoz.
+// imaju isti početak, vrijedi izvoz. Zadnja krivulja izvoza nema kraj, pa
+// zadrži kraj zatečene krivulje istog početka: inače bi stariji izvoz
+// uvezen poslije novijeg, ili isti izvoz uvezen ponovno, krivulji vratio
+// kraj razdoblja izvoza i iza nje ostavio rupu do sljedeće krivulje.
 func spoji(stare, nove []razdobljeKrivulje) []razdobljeKrivulje {
 	po := poPocetku(stare)
 	for _, r := range nove {
+		if r.do == "" {
+			r.do = po[r.od].do
+		}
 		po[r.od] = r
 	}
 	out := make([]razdobljeKrivulje, 0, len(po))
@@ -211,8 +222,8 @@ func poPocetku(razdoblja []razdobljeKrivulje) map[string]razdobljeKrivulje {
 
 // zatvoriKrajeve ostavlja otvoren kraj samo zadnjoj krivulji: DHMZ joj kraj
 // upiše na kraj tekuće godine, a vrijedi dok ne objave novu. Sa zapisanim
-// krajem protok bi na Silvestrovo prestao imati krivulju. Zatečena krivulja
-// otvorenog kraja koja više nije zadnja vrijedila je do dana prije sljedeće.
+// krajem protok bi na Silvestrovo prestao imati krivulju. Krivulja otvorenog
+// kraja koja nije zadnja vrijedi do dana prije sljedeće.
 func zatvoriKrajeve(r []razdobljeKrivulje) []razdobljeKrivulje {
 	for i := range r {
 		switch {
@@ -249,12 +260,13 @@ func brojRedaka(razdoblja []razdobljeKrivulje) int {
 	return n
 }
 
-// izmijenjena su počeci zatečenih krivulja koje izvoz donosi drukčije.
-func izmijenjena(stare, nove []razdobljeKrivulje) []string {
-	staro := poPocetku(stare)
+// izmijenjena su počeci zatečenih krivulja koje izvoz mijenja: nakon
+// spajanja krivulja tog početka nije ista kao zatečena.
+func izmijenjena(stare, nove, spojeno []razdobljeKrivulje) []string {
+	staro, konacno := poPocetku(stare), poPocetku(spojeno)
 	var out []string
 	for _, n := range nove {
-		if z, ima := staro[n.od]; ima && razlikuje(z, n) {
+		if z, ima := staro[n.od]; ima && razlikuje(z, konacno[n.od]) {
 			out = append(out, n.od)
 		}
 	}
@@ -262,13 +274,14 @@ func izmijenjena(stare, nove []razdobljeKrivulje) []string {
 	return out
 }
 
-// razlikuje javlja mijenja li izvoz zatečenu krivulju. Otvoren kraj zatečene
-// nije razlika: zadnja krivulja kraj dobije tek kad stigne novija.
-func razlikuje(zatecena, izvoz razdobljeKrivulje) bool {
-	if zatecena.do != "" && zatecena.do != izvoz.do {
+// razlikuje javlja je li krivulja nakon spajanja drukčija od zatečene.
+// Otvoren kraj zatečene nije razlika: zadnja krivulja kraj dobije tek kad
+// stigne novija.
+func razlikuje(zatecena, konacna razdobljeKrivulje) bool {
+	if zatecena.do != "" && zatecena.do != konacna.do {
 		return true
 	}
-	return !slices.EqualFunc(zatecena.redci, izvoz.redci, slices.Equal[[]string])
+	return !slices.EqualFunc(zatecena.redci, konacna.redci, slices.Equal[[]string])
 }
 
 // samoUZatecenima su počeci zatečenih krivulja kojih u izvozu nema.

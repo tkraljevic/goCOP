@@ -114,6 +114,11 @@ func TestPosaoKrivuljeSpajaSaStarijima(t *testing.T) {
 		!strings.Contains(dnevnik.String(), "ostaje iz zatečene datoteke: 1 krivulja koje u izvozu nema") {
 		t.Errorf("dnevnik probe:\n%s", dnevnik.String())
 	}
+	// Krivulja 2016. u starom izvozu je zadnja, pa joj kraj nije stvaran:
+	// ostaje kraj koji je donio novi izvoz.
+	if strings.Contains(dnevnik.String(), "razlikuje se: 2016-01-01") {
+		t.Errorf("kraj razdoblja starog izvoza javljen je kao razlika:\n%s", dnevnik.String())
+	}
 }
 
 // Datoteka koju je zapisao uvoz istog izvoza ostaje bajt za bajt ista, i
@@ -136,8 +141,8 @@ func TestSpojiKrivuljeIstiIzvozNeMijenjaDatoteku(t *testing.T) {
 
 // Zatečena krivulja otvorenog kraja koja više nije zadnja dobiva kraj dan
 // prije sljedeće. Kad izvoz donosi starije krivulje, zadnja zatečena ostaje
-// otvorena, a zadnja iz izvoza dobiva svoj kraj. Promijenjen zatvoren kraj
-// je razlika.
+// otvorena, a zadnja iz izvoza vrijedi do dana prije prve zatečene, kao da
+// je uvezena prva. Promijenjen zatvoren kraj je razlika.
 func TestSpojiKrivuljeKrajevi(t *testing.T) {
 	zateceno := ZaglavljeKrivulja + "\n" +
 		redakKrivulje("2005-01-01", "2008-12-31", "5") +
@@ -159,11 +164,49 @@ func TestSpojiKrivuljeKrajevi(t *testing.T) {
 		t.Fatal(err)
 	}
 	zeli = ZaglavljeKrivulja + "\n" +
-		redakKrivulje("1990-01-01", "2000-12-31", "1") +
+		redakKrivulje("1990-01-01", "2004-12-31", "1") +
 		redakKrivulje("2005-01-01", "2008-12-31", "5") +
 		redakKrivulje("2010-03-01", "", "10")
 	if string(sp.CSV) != zeli || sp.Razlikuju != nil || strings.Join(sp.Ostaju, ",") != "2005-01-01,2010-03-01" || sp.Krivulja != 3 {
 		t.Errorf("starija krivulja iz izvoza: %+v\n%s", sp, sp.CSV)
+	}
+}
+
+// Redoslijed uvoza nije važan. Zadnja krivulja izvoza nosi kraj razdoblja
+// izvoza, a ne kraj valjanosti, pa vrijedi do sljedeće krivulje u datoteci,
+// a zatečena krivulja istog početka zadrži svoj kraj. Stariji izvoz uvezen
+// poslije novijeg zato ne ostavlja rupu, a izvoz koji je već uvezen ne
+// mijenja datoteku i ne javlja razliku.
+func TestSpojiKrivuljeRedoslijedUvoza(t *testing.T) {
+	stari := izvozKrivulja("1", godina(2005, 2009, "5"), godina(2010, 2012, "10")) // izvoz iz 2012.
+	novi := izvozKrivulja("2", godina(2015, 2026, "15"))
+	uvezi := func(izvozi ...*Sadrzaj) []byte {
+		t.Helper()
+		var csv []byte
+		for _, s := range izvozi {
+			sp, err := SpojiKrivulje(csv, s)
+			if err != nil {
+				t.Fatal(err)
+			}
+			csv = sp.CSV
+		}
+		return csv
+	}
+	zeli := ZaglavljeKrivulja + "\n" +
+		redakKrivulje("2005-01-01", "2009-12-31", "5") +
+		redakKrivulje("2010-01-01", "2014-12-31", "10") +
+		redakKrivulje("2015-01-01", "", "15")
+	if got := string(uvezi(stari, novi)); got != zeli {
+		t.Errorf("stari pa novi:\n%s", got)
+	}
+	if got := string(uvezi(novi, stari)); got != zeli {
+		t.Errorf("novi pa stari:\n%s", got)
+	}
+	for _, s := range []*Sadrzaj{stari, novi} {
+		sp, err := SpojiKrivulje([]byte(zeli), s)
+		if err != nil || string(sp.CSV) != zeli || sp.Razlikuju != nil {
+			t.Errorf("ponovni uvoz %s: %v, razlikuju %v\n%s", s.Postaja.Sifra, err, sp.Razlikuju, sp.CSV)
+		}
 	}
 }
 

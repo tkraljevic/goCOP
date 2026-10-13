@@ -84,9 +84,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Miholjcu izvoz postaje 5150 ima krivulje 1993.–2026., pa bi odnio
   krivulje 1926.–1992. koje je donio izvoz spojene postaje 5555. Sad se
   krivulje spajaju po razdoblju: razdoblje iz izvoza dodaje se ili
-  zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju. Prije
-  upisa pregled kaže koje se zatečene krivulje razlikuju od izvoza i koliko
-  ih ostaje. Izvornik novog izvoza sprema se uz stari, pod drugim imenom.
+  zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju.
+  Redoslijed uvoza nije važan: stariji izvoz uvezen poslije novijeg daje
+  iste krivulje i ne ostavlja godine bez krivulje. Prije upisa pregled kaže
+  koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Izvornik
+  novog izvoza sprema se uz stari, pod drugim imenom.
   Kad zatečena datoteka ima redak koji se ne da pročitati, krivulje se ne
   spajaju, a poruka kaže koji je to redak.
 - **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
