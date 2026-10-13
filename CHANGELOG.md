@@ -47,6 +47,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Dok spremljena promjena čeka, stranice s postavkama to javljaju na vrhu.
   Usluga sustava i spremnik za to čvoru javljaju tko ga pokreće
   (`GOCOP_NADZOR`).
+- **Prijava preko Tailscalea bez PIN-a.** Na računalu s Tailscaleom
+  prijava na njegovu Tailscale adresu (npr. `http://100.x.y.z`) tražila je
+  PIN kao izvana. PIN radi samo preko HTTPS-a, pa se tako nije moglo
+  prijaviti. Sad zahtjev koji stigne izravno na Tailscale adresu računala
+  vrijedi kao iz lokalne mreže, a kroz posrednika i dalje kao izvana. Na
+  računalu bez Tailscalea ništa se ne mijenja. Na Macu se Tailscale
+  prepozna samo kad uz adresu 100.x ima i svoju IPv6 adresu, jer adresu
+  100.x daju i drugi VPN-ovi, npr. Cloudflare WARP. Isključuje se u
+  `gocop.toml` s `[web] tailscale_lokalno = false`; tada prijava preko
+  Tailscalea traži PIN, i preko IPv6.
 
 ## 0.0.36-alfa — 12. 10. 2026.
 

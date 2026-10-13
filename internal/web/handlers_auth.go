@@ -207,7 +207,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// čekanju; brojač imena ostaje dok ne prođe i PIN ili kod, inače bi
 	// ukradena lozinka brisala brojač pogađanja PIN-a. Zapamćeno računalo
 	// preskače samo PIN, lozinka je već provjerena.
-	if dk := h.dk(); dk.TrebaDrugiKorak(r.Context(), service.IzvanaAdresa(klijent.KrozPosrednika, klijent.Adresa)) &&
+	if dk := h.dk(); dk.TrebaDrugiKorak(r.Context(), klijent.Izvana()) &&
 		!dk.ProvjeriRacunalo(r.Context(), user, vrijednostKolacica(r, imeKolacicaRacunala), ip) {
 		h.zapocniDrugiKorak(w, r, dk, user, ip)
 		return

@@ -36,6 +36,10 @@ type Klijent struct {
 	Posrednik      netip.Addr // TCP druga strana (posrednik ili sam klijent)
 	KrozPosrednika bool       // zahtjev nosi zaglavlje posrednika: došao je izvana (tunel)
 	HTTPS          bool       // izvorni zahtjev bio je HTTPS (ovdje ili kod pouzdanog posrednika)
+	// NaTailscale: veza je stigla na Tailscale adresu ovog računala
+	// (tailscale.go); TailscaleLokalno: [web] tailscale_lokalno je uključen
+	NaTailscale      bool
+	TailscaleLokalno bool
 }
 
 // IzLokalneMreze: izravan zahtjev (bez posrednika) s ovog računala ili s
@@ -43,7 +47,20 @@ type Klijent struct {
 // lokalna ni kad do čvora dođe izravno, npr. kroz proslijeđen port, pa joj
 // ne vrijede početna lozinka ni uparivanje i postavljanje svježeg čvora.
 func (k Klijent) IzLokalneMreze() bool {
-	return !service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik)
+	return !k.Izvana()
+}
+
+// Izvana javlja dolazi li zahtjev izvana, za PIN, početnu lozinku i svjež
+// čvor: kroz posrednika ili s adrese koja nije lokalna (service.IzvanaAdresa).
+// Za izravan zahtjev na Tailscale adresu ovog računala odlučuje [web]
+// tailscale_lokalno. Uključen: zahtjev nije izvana, iako pošiljatelj ima
+// adresu 100.x, koja nije privatna. Isključen: zahtjev je izvana, i preko
+// IPv6, iako je Tailscaleova IPv6 adresa (fd7a:…) privatna.
+func (k Klijent) Izvana() bool {
+	if k.NaTailscale && !k.KrozPosrednika {
+		return !k.TailscaleLokalno
+	}
+	return service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik)
 }
 
 // String je adresa klijenta za ograničenje pokušaja i zapis sesije
@@ -225,9 +242,10 @@ func (s *Server) posredniciIliZadani() *Posrednici {
 
 // klijentSloj jednom odredi porijeklo zahtjeva i spremi ga u kontekst
 func (s *Server) klijentSloj(next http.Handler) http.Handler {
-	p := s.posredniciIliZadani()
+	p, ts := s.posredniciIliZadani(), s.tailscaleIliZadani()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		k := p.Klijent(r)
+		k.NaTailscale, k.TailscaleLokalno = ts.stigloNa(r), !ts.iskljuceno.Load()
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), kljucKlijenta{}, k)))
 	})
 }

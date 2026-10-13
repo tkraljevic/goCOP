@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -270,14 +271,31 @@ func TestPonovnoPokretanjeIzvanaKazeZasto(t *testing.T) {
 	}
 }
 
-// Postavke čvora ne mijenjaju se s Tailscale adrese (100.x) ni kad bi je
-// ostatak programa smatrao lokalnom: vrijedi samo ovo računalo i privatne
-// mreže.
-func TestPostavkeNeSTailscaleAdrese(t *testing.T) {
-	r := zahtjevPostavki(http.MethodGet, "/settings", nil, uvjetiZahtjeva{
-		perms: &models.UserPermissions{IsGlobalAdmin: true}, adresa: "100.101.102.103:51000", korisnik: adminIvic})
-	if smijeMijenjatiCvor(r) == nil {
-		t.Error("Tailscale adresa smije mijenjati postavke čvora")
+// Postavke čvora mijenjaju se preko Tailscalea samo kad je zahtjev stigao na
+// Tailscale adresu ovog računala, i dok je [web] tailscale_lokalno uključen
+// (Odluke (12. 10. 2026.)). Izvor 100.x koji stigne na drugu adresu ostaje
+// izvana.
+func TestPostavkePrekoTailscalea(t *testing.T) {
+	admin := uvjetiZahtjeva{perms: &models.UserPermissions{IsGlobalAdmin: true}, adresa: "100.90.1.2:51000", korisnik: adminIvic}
+	if smijeMijenjatiCvor(zahtjevPostavki(http.MethodGet, "/settings", nil, admin)) == nil {
+		t.Error("izvor 100.x na drugu adresu smije mijenjati postavke čvora")
+	}
+	saKlijentom := func(k Klijent) *http.Request {
+		r := zahtjevPostavki(http.MethodGet, "/settings", nil, admin)
+		return r.WithContext(context.WithValue(r.Context(), kljucKlijenta{}, k))
+	}
+	ts := ZadaniPosrednici().Klijent(zahtjevPostavki(http.MethodGet, "/settings", nil, admin))
+	ts.NaTailscale, ts.TailscaleLokalno = true, true
+	if z := smijeMijenjatiCvor(saKlijentom(ts)); z != nil {
+		t.Errorf("zahtjev na Tailscale adresu ovog računala odbijen: %v", z)
+	}
+	ts.TailscaleLokalno = false
+	if smijeMijenjatiCvor(saKlijentom(ts)) == nil {
+		t.Error("uz tailscale_lokalno = false Tailscale smije mijenjati postavke čvora")
+	}
+	ts.TailscaleLokalno, ts.KrozPosrednika = true, true
+	if smijeMijenjatiCvor(saKlijentom(ts)) == nil {
+		t.Error("kroz posrednika Tailscale smije mijenjati postavke čvora")
 	}
 }
 
