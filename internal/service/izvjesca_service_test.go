@@ -211,7 +211,7 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 		t.Fatalf("predložak: %+v", p)
 	}
 	if !strings.Contains(pr.Sadrzaj.Ostecenja, "Baranja — B.16.1 (Dunav): Procjeđivanje") || !strings.Contains(pr.Sadrzaj.Mjere, "[vreće 1 800]") ||
-		!strings.Contains(pr.Sadrzaj.Poplavljeno, "Zmajevac, 4 stambenih, 35 ha poljoprivrednih") {
+		!strings.Contains(pr.Sadrzaj.Poplavljeno, "Zmajevac, 4 stambena, 35 ha poljoprivrednih") {
 		t.Errorf("prijedlog teksta: %+v", pr.Sadrzaj)
 	}
 	if len(pr.Sadrzaj.Zapisi) != 1 || pr.Sadrzaj.Zapisi[0].Podrucje != "Baranja" || pr.Sadrzaj.Zapisi[0].Vrijeme != "07:15" || pr.Sadrzaj.Zapisi[0].Javio != "vodočuvar" {

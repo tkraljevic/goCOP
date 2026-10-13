@@ -162,7 +162,7 @@ func (h *SubscriptionsHandler) HandleRemove(w http.ResponseWriter, r *http.Reque
 		for _, c := range removed {
 			n += c
 		}
-		msg = "Pretplata je maknuta i s računala je obrisano " + strconv.FormatInt(n, 10) + " verzija."
+		msg = "Pretplata je maknuta. Obrisano s računala: " + strconv.FormatInt(n, 10) + " " + models.UzBrojHR(int(n), "verzija", "verzije", "verzija") + "."
 	}
 	redirectWith(w, r, "/pretplate", "success", msg)
 }
@@ -179,5 +179,5 @@ func (h *SubscriptionsHandler) HandlePurge(w http.ResponseWriter, r *http.Reques
 		redirectWith(w, r, "/pretplate", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/pretplate", "success", "Obrisano s računala: "+channel+" ("+strconv.FormatInt(n, 10)+" verzija)")
+	redirectWith(w, r, "/pretplate", "success", "Obrisano s računala: "+channel+" ("+strconv.FormatInt(n, 10)+" "+models.UzBrojHR(int(n), "verzija", "verzije", "verzija")+")")
 }

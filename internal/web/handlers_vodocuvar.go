@@ -805,7 +805,7 @@ func (h *VodocuvarHandler) HandleKoordinatePodrucja(w http.ResponseWriter, r *ht
 				time.Sleep(1100 * time.Millisecond) // OpenStreetMap traži najviše jedan upit u sekundi
 			}
 		}
-		poruka := fmt.Sprintf("Koordinate su nađene za %d područja po mjestu ispostave; provjerite ih na obrascu područja.", n)
+		poruka := fmt.Sprintf("Koordinate su nađene za %d %s po mjestu ispostave; provjerite ih na obrascu područja.", n, models.UzBrojHR(n, "područje", "područja", "područja"))
 		if len(greske) > 0 {
 			zad.Odrediste = "/organizacija?" + url.Values{"error": {poruka + " Nije nađeno za: " + strings.Join(greske, ", ")}}.Encode()
 		} else {

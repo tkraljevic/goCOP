@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 )
 
 // Pretplate: što ovo računalo prati. Zajednički kanal (ustroj, registri,
@@ -94,7 +95,7 @@ func (s Subscription) Label() string {
 		out += ", samo pregledi"
 	}
 	if s.DrziDana > 0 {
-		out += fmt.Sprintf(", sadržaj %d dana", s.DrziDana)
+		out += fmt.Sprintf(", sadržaj %d %s", s.DrziDana, models.UzBrojHR(s.DrziDana, "dan", "dana", "dana"))
 	}
 	return out
 }

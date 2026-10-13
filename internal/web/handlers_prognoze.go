@@ -447,8 +447,9 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()
 		data.Napredak = u.Napredak()
 		if k, ima := u.ZadnjiKrug(); ima {
-			data.ZadnjiKrug = fmt.Sprintf("%s: %d letvi, %d novih očitanja, %s",
-				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, k.Novih, trajanjeKruga(k.Trajanje))
+			data.ZadnjiKrug = fmt.Sprintf("%s: %d %s, %d %s, %s",
+				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, models.UzBrojHR(k.Letvi, "letva", "letve", "letvi"),
+				k.Novih, models.UzBrojHR(k.Novih, "novo očitanje", "nova očitanja", "novih očitanja"), trajanjeKruga(k.Trajanje))
 		}
 	}
 	return data

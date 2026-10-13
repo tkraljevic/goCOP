@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/sadrzaj"
 )
 
@@ -195,5 +196,5 @@ func opisSadrzaja(stavke []stavkaSadrzaja) string {
 	for _, s := range stavke {
 		b += s.Bajtova
 	}
-	return fmt.Sprintf("%d sadržaja, %.1f MB", len(stavke), float64(b)/1e6)
+	return fmt.Sprintf("%d %s, %.1f MB", len(stavke), models.UzBrojHR(len(stavke), "sadržaj", "sadržaja", "sadržaja"), float64(b)/1e6)
 }

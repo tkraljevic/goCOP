@@ -271,8 +271,8 @@ type greskaNedovrsenih struct {
 }
 
 func (g *greskaNedovrsenih) Error() string {
-	return fmt.Sprintf("%d verzija nije primijenjeno na površinu, ostale jesu i pokušat će se iznova sa sljedećom razmjenom; prva: %s/%s: %v",
-		g.broj, g.prva.Entity, g.prva.EntityID, g.err)
+	return fmt.Sprintf("%d %s na površinu, ostale jesu i pokušat će se iznova sa sljedećom razmjenom; prva: %s/%s: %v",
+		g.broj, models.UzBrojHR(g.broj, "verzija nije primijenjena", "verzije nisu primijenjene", "verzija nije primijenjeno"), g.prva.Entity, g.prva.EntityID, g.err)
 }
 
 // zadrziNepotvrdjeno stavlja cijeli paket među nedovršene kad transakcija

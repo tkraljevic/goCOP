@@ -143,8 +143,8 @@ func (s *WatercourseService) DeleteWatercourse(ctx context.Context, perms *model
 		return err
 	}
 	if sections+stations > 0 {
-		return fmt.Errorf("vodno tijelo se ne može obrisati jer je pridruženo: %d dionica, %d postaja — prvo ih prevežite na drugu vodu",
-			sections, stations)
+		return fmt.Errorf("vodno tijelo se ne može obrisati jer je pridruženo: %d %s, %d %s — prvo ih prevežite na drugu vodu",
+			sections, models.UzBrojHR(sections, "dionica", "dionice", "dionica"), stations, models.UzBrojHR(stations, "postaja", "postaje", "postaja"))
 	}
 
 	return s.repo.DeleteWatercourse(ctx, code)

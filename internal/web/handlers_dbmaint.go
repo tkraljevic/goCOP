@@ -58,7 +58,7 @@ func (h *DBMaintHandler) HandlePurgeTombstones(w http.ResponseWriter, r *http.Re
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano %d spomenika obrisanih zapisa.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano: %d %s.", n, models.UzBrojHR(int(n), "spomenik obrisanog zapisa", "spomenika obrisanih zapisa", "spomenika obrisanih zapisa")))
 }
 
 func NewDBMaintHandler(db func() *sql.DB, rec *ledger.Recorder, peersSvc *peers.Service, dbPath func() string, tmpl *template.Template) *DBMaintHandler {
@@ -162,7 +162,7 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta: obrisano %d starijih verzija, zadnje verzije i spomenici ostaju.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta. Obrisano: %d %s; zadnje verzije i spomenici ostaju.", n, models.UzBrojHR(int(n), "starija verzija", "starije verzije", "starijih verzija")))
 }
 
 // HandleReplay obnavlja površinu iz zadnjih verzija u knjizi
@@ -176,7 +176,7 @@ func (h *DBMaintHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/baza", "error", fmt.Sprintf("Površina obnovljena iz %d zapisa, uz preskočene: %v", n, err))
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d zapisa.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d %s.", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa")))
 }
 
 // HandleVacuum vraća prostor obrisanih redaka operacijskom sustavu
@@ -291,8 +291,9 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 			redirectWith(w, r, "/administracija/baza", "error", err.Error())
 			return
 		}
-		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d zapisa u paketu, %d novih; sadržaja upisano %d, za dohvat %d.",
-			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, rep.Novih, rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
+		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d %s u paketu, %d %s; sadržaja upisano %d, za dohvat %d.",
+			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, models.UzBrojHR(rep.Verzija, "zapis", "zapisa", "zapisa"),
+			rep.Novih, models.UzBrojHR(rep.Novih, "novi", "nova", "novih"), rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
 		if rep.Napomena != "" {
 			poruka += " " + rep.Napomena + "."
 		}
@@ -309,7 +310,8 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		parts = append(parts, fmt.Sprintf("%s: %d", ch, n))
 	}
 	redirectWith(w, r, "/administracija/baza", "success",
-		fmt.Sprintf("Uvezena arhiva čvora %s: %d verzija u datoteci, %d novih (%s).", rep.From, rep.Versions, rep.Applied, strings.Join(parts, "; ")))
+		fmt.Sprintf("Uvezena arhiva čvora %s: %d %s u datoteci, %d %s (%s).", rep.From, rep.Versions, models.UzBrojHR(rep.Versions, "verzija", "verzije", "verzija"),
+			rep.Applied, models.UzBrojHR(rep.Applied, "nova", "nove", "novih"), strings.Join(parts, "; ")))
 }
 
 // jeCop prepoznaje .cop paket po ZIP zaglavlju; stara arhiva je SQLite

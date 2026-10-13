@@ -518,11 +518,11 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 
 	if v := m.Valovi; v != nil {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
-		uvod := fmt.Sprintf("%d valova iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
+		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
 			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
 			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
-			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
+			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 		// Svaka skupina dobiva svoj naslov preko cijele širine (rijeka, model,
 		// broj valova), a ispod nje samo doseg i pogreške: u uskom prvom
@@ -535,7 +535,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		for _, sk := range v.Skupine {
 			rr := l.Redak()
 			red := make([]xlsxw.Celija, stupaca)
-			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, uzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
+			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, models.UzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
 			for i := 1; i < stupaca; i++ {
 				red[i] = T("", xlsxw.SazetakNaslov)
 			}

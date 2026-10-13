@@ -425,7 +425,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 			}
 		}
 	}
-	naslovZadnjeg := fmt.Sprintf("Za %d dana %s", zadnji+1, zadnjiDan)
+	naslovZadnjeg := fmt.Sprintf("Za %d %s %s", zadnji+1, models.UzBrojHR(zadnji+1, "dan", "dana", "dana"), zadnjiDan)
 	// zaglavlje u dva retka: termin preko dvaju stupaca, ispod cm i m³/s
 	r0 := l.Redak()
 	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Sada", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje),
@@ -568,7 +568,7 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 		// zaglavlje u dva retka: termin preko triju stupaca, ispod naša · HU · razlika
 		r0 := l.Redak()
 		l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Za 3 dana ("+tri+")", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje),
-			T(fmt.Sprintf("Za %d dana (%s)", zadnji+1, zadnjiDan), xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
+			T(fmt.Sprintf("Za %d %s (%s)", zadnji+1, models.UzBrojHR(zadnji+1, "dan", "dana", "dana"), zadnjiDan), xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje), T("", xlsxw.Zaglavlje))
 		l.Dodaj(T("", xlsxw.Zaglavlje), T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje),
 			T("naša", xlsxw.Zaglavlje), T("HU", xlsxw.Zaglavlje), T("razlika", xlsxw.Zaglavlje))
 		l.Spoji(0, r0, 0, r0+1)

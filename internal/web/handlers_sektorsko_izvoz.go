@@ -84,7 +84,7 @@ func KnjigaSektorskog(iz *models.SektorskoIzvjesce, z ZaglavljeIzvoza) *xlsxw.Kn
 	// Osnovno
 	r := red(map[int]xlsxw.Celija{0: B("ZA DAN", xlsxw.TablicaPod), 1: B(iz.Dan.Format("02.01.2006."), xlsxw.Tablica),
 		3: B("SEKTOR", xlsxw.TablicaPod), 4: B(iz.Sektor+" · "+z.Centar, xlsxw.Tablica),
-		8: B("IZVJEŠĆA DIONICA", xlsxw.TablicaPod), 10: B(fmt.Sprintf("%d uključeno, %d nepredano", p.Izvjesca, p.Nacrta), xlsxw.Tablica)}, [][2]int{{1, 2}, {4, 7}, {8, 9}, {10, 11}})
+		8: B("IZVJEŠĆA DIONICA", xlsxw.TablicaPod), 10: B(fmt.Sprintf("%d %s, %d %s", p.Izvjesca, models.UzBrojHR(p.Izvjesca, "uključeno", "uključena", "uključeno"), p.Nacrta, models.UzBrojHR(p.Nacrta, "nepredano", "nepredana", "nepredano")), xlsxw.Tablica)}, [][2]int{{1, 2}, {4, 7}, {8, 9}, {10, 11}})
 	l.Visina(r, 20)
 	tekst("Hidrometeorološki uvjeti na sektoru po branjenim područjima", s.Hidrometeo, 40)
 

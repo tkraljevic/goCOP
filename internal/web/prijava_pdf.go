@@ -412,10 +412,8 @@ func prilozi(p *models.PrijavaSTerena, pr prilogPrijave) string {
 	if len(pr.Karta) > 0 {
 		d = append(d, "karta")
 	}
-	if n := len(p.Slike); n == 1 {
-		d = append(d, "1 fotografija")
-	} else if n > 1 {
-		d = append(d, fmt.Sprintf("%d fotografija", n))
+	if n := len(p.Slike); n > 0 {
+		d = append(d, fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "fotografija", "fotografije", "fotografija")))
 	}
 	return strings.Join(d, ", ")
 }

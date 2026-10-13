@@ -902,25 +902,21 @@ func sazetakIzdanja(iz arhiva.IzvjestajIzdanja) string {
 		if iz.Promijenjenih == 0 {
 			return "Ništa se nije promijenilo — nema što izdati."
 		}
-		return fmt.Sprintf("%d %s bi dobilo novo izdanje; %d je nepromijenjeno.",
-			iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Istih)
+		return fmt.Sprintf("%d %s novo izdanje; %d %s.",
+			iz.Promijenjenih, models.UzBrojHR(iz.Promijenjenih, "letva bi dobila", "letve bi dobile", "letvi bi dobilo"),
+			iz.Istih, istihLetvi(iz.Istih))
 	}
 	if iz.Promijenjenih == 0 {
 		return "Katalog je osvježen; nijedna letva nije trebala novo izdanje."
 	}
-	return fmt.Sprintf("Izdano %d %s u %s; %d nepromijenjeno.",
-		iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Mapa, iz.Istih)
+	return fmt.Sprintf("%d %s novo izdanje u %s; %d %s.",
+		iz.Promijenjenih, models.UzBrojHR(iz.Promijenjenih, "letva je dobila", "letve su dobile", "letvi je dobilo"),
+		iz.Mapa, iz.Istih, istihLetvi(iz.Istih))
 }
 
-func uzBrojLetva(n int) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return "letva"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		return "letve"
-	default:
-		return "letvi"
-	}
+// istihLetvi je glagol uz broj letava kojima se izdanje nije promijenilo
+func istihLetvi(n int) string {
+	return models.UzBrojHR(n, "je nepromijenjena", "su nepromijenjene", "je nepromijenjeno")
 }
 
 func novIdUvoza() string {

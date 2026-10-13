@@ -247,7 +247,7 @@ func (iz IzvjesceLetve) proglaseneObrane(d *docx.Dokument) {
 			e.SectionCode,
 			e.StartedAt.In(models.Zagreb).Format("2.1.2006. 15:04"),
 			do,
-			fmt.Sprintf("%d dana", e.Days()),
+			fmt.Sprintf("%d %s", e.Days(), models.UzBrojHR(e.Days(), "dan", "dana", "dana")),
 			e.PeakLabel(),
 			e.Phase.Label(),
 		})
@@ -441,7 +441,7 @@ func (iz IzvjesceLetve) valoviObrane(d *docx.Dokument) {
 			v.VrhLabel() + "\n" + v.VrhKadHR(), v.NajviseDosegnuto().Label()}
 		redci = append(redci, append(r, celijeStupnjevaVala(v, iz.ValoviZbroj)...))
 	}
-	d.Odjeljak(fmt.Sprintf("Najviših %d valova", len(najvisi)))
+	d.Odjeljak(fmt.Sprintf("Najviši valovi (%d)", len(najvisi)))
 	d.Tablica(glave, redci)
 	d.Napomena("Prijelaz praga se traži pravocrtno između dva mjerenja, pa i dnevni niz daje " +
 		"trajanje točnije od dana. Pad ispod pripremnog stanja kraći od tri dana ne prekida val.")
@@ -460,7 +460,7 @@ func celijeStupnjevaVala(v models.Val, zbroj []models.ZbrojStupnja) []string {
 		}
 		c := fmt.Sprintf("%s h\n%s → %s", brojHR(s.Sati()), s.PoceloHR(), s.ZavrsiloHR())
 		if s.Prekidan() {
-			c += fmt.Sprintf("\nu %d navrata", s.Navrata)
+			c += fmt.Sprintf("\nu %d %s", s.Navrata, models.UzBrojHR(s.Navrata, "navrat", "navrata", "navrata"))
 		}
 		celije = append(celije, c)
 	}

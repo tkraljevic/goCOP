@@ -467,24 +467,14 @@ func TestSazetakIzdanja(t *testing.T) {
 		zeli string
 	}{
 		{arhiva.IzvjestajIzdanja{Probno: true}, "Ništa se nije promijenilo — nema što izdati."},
-		{arhiva.IzvjestajIzdanja{Probno: true, Promijenjenih: 3, Istih: 7}, "3 letve bi dobilo novo izdanje; 7 je nepromijenjeno."},
+		{arhiva.IzvjestajIzdanja{Probno: true, Promijenjenih: 3, Istih: 7}, "3 letve bi dobile novo izdanje; 7 je nepromijenjeno."},
 		{arhiva.IzvjestajIzdanja{}, "Katalog je osvježen; nijedna letva nije trebala novo izdanje."},
-		{arhiva.IzvjestajIzdanja{Promijenjenih: 21, Istih: 2, Mapa: "/paketi"}, "Izdano 21 letva u /paketi; 2 nepromijenjeno."},
+		{arhiva.IzvjestajIzdanja{Promijenjenih: 21, Istih: 2, Mapa: "/paketi"}, "21 letva je dobila novo izdanje u /paketi; 2 su nepromijenjene."},
+		{arhiva.IzvjestajIzdanja{Probno: true, Promijenjenih: 1, Istih: 1}, "1 letva bi dobila novo izdanje; 1 je nepromijenjena."},
+		{arhiva.IzvjestajIzdanja{Promijenjenih: 12, Istih: 25, Mapa: "/paketi"}, "12 letvi je dobilo novo izdanje u /paketi; 25 je nepromijenjeno."},
 	} {
 		if got := sazetakIzdanja(s.iz); got != s.zeli {
 			t.Errorf("%+v: %q, očekivano %q", s.iz, got, s.zeli)
-		}
-	}
-}
-
-// Letva se slaže s brojem po hrvatskom pravilu, i u drugoj desetici.
-func TestLetvaUzBroj(t *testing.T) {
-	for n, zeli := range map[int]string{
-		0: "letvi", 1: "letva", 2: "letve", 4: "letve", 5: "letvi", 11: "letvi", 12: "letvi", 14: "letvi",
-		21: "letva", 22: "letve", 101: "letva", 111: "letvi", 112: "letvi", 124: "letve",
-	} {
-		if got := uzBrojLetva(n); got != zeli {
-			t.Errorf("%d %s, očekivano %d %s", n, got, n, zeli)
 		}
 	}
 }

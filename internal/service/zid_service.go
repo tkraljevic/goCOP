@@ -532,7 +532,8 @@ func (c *opisivac) sektorskoIzvjesce(d *Dogadjaj, v ledger.Version, nova bool) b
 	default:
 		return false
 	}
-	d.Tekst = fmt.Sprintf("%s · %s · %d izvješća dionica", iz.Dan.Format("2.1.2006."), models.StadijKratica(iz.NajvisiStadij()), iz.Sadrzaj.Pregled.Izvjesca)
+	d.Tekst = fmt.Sprintf("%s · %s · %d %s", iz.Dan.Format("2.1.2006."), models.StadijKratica(iz.NajvisiStadij()), iz.Sadrzaj.Pregled.Izvjesca,
+		models.UzBrojHR(iz.Sadrzaj.Pregled.Izvjesca, "izvješće dionice", "izvješća dionica", "izvješća dionica"))
 	return true
 }
 
@@ -692,7 +693,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		if sk != nil {
 			naziv, d.AreaID = sk.Naziv, sk.AreaID
 		}
-		d.Naslov, d.Tekst = "Zaključena inventura", naziv+" · na dan "+p.Dan.Format("2.1.2006.")+fmt.Sprintf(" · %d redaka s razlikom", p.Razlika())
+		d.Naslov, d.Tekst = "Zaključena inventura", naziv+" · na dan "+p.Dan.Format("2.1.2006.")+fmt.Sprintf(" · %d %s s razlikom", p.Razlika(), models.UzBrojHR(p.Razlika(), "redak", "retka", "redaka"))
 
 	case repository.EntityMtsPotrebe:
 		var p models.Potreba
