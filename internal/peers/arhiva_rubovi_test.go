@@ -7,6 +7,7 @@ package peers
 import (
 	"context"
 	"database/sql"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -99,5 +100,48 @@ func TestUvozArhiveKadUpisPadne(t *testing.T) {
 	rep, err := laptop.ImportFile(ctxRub, put)
 	if err == nil || rep.Versions != 2 || rep.Applied != 0 || rep.From != "ured-vukovar" || rep.Channels["ocitanja/16/2026"] != 2 {
 		t.Errorf("uvoz koji padne: %+v %v", rep, err)
+	}
+}
+
+// Izvoz na mjesto gdje već stoji arhiva koja se ne da ni obrisati ni
+// pisati (npr. štapić zaštićen od pisanja) javlja grešku, s oznakom
+// arhive ili bez nje.
+func TestIzvozArhivePrekoZaticeneDatotekeSamoZaCitanje(t *testing.T) {
+	s := rubniCvor(t, "ured-vukovar")
+	upisiOcitanja(t, s, "ocitanja/16/2026", "r-1")
+	for _, sOznakom := range []bool{false, true} {
+		mapa := filepath.Join(t.TempDir(), "stapic")
+		if err := os.Mkdir(mapa, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		put := filepath.Join(mapa, "gocop-ocitanja-bp16-2026.db")
+		baza, err := sql.Open("sqlite", put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		upiti := []string{ledger.Schema}
+		if sOznakom {
+			upiti = append(upiti, `CREATE TABLE archive_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)`)
+		}
+		for _, u := range upiti {
+			if _, err := baza.Exec(u); err != nil {
+				t.Fatal(err)
+			}
+		}
+		baza.Close()
+		if err := os.Chmod(put, 0o444); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(mapa, 0o555); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.Chmod(mapa, 0o755) })
+		if f, err := os.Create(filepath.Join(mapa, "proba")); err == nil {
+			f.Close()
+			t.Skip("mapa samo za čitanje ipak prima datoteke (pokrenuto kao root?)")
+		}
+		if n, err := s.ExportFile(ctxRub, put, []string{"ocitanja/16/2026"}); err == nil || n != 0 || !strings.Contains(err.Error(), "readonly") {
+			t.Errorf("s oznakom %v: %d %v", sOznakom, n, err)
+		}
 	}
 }
