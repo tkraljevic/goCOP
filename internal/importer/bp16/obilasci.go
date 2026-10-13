@@ -273,27 +273,53 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 			}
 			rep.Listova++
 		}
-		z.ListID = l.ID
-		l.Zadaci = append(l.Zadaci, models.ZadatakNaListu{
-			ID: z.ID, Tekst: z.Tekst, Zadao: z.Zadao, ZadanoAt: z.ZadanoAt, Status: z.Status,
-			Obavljeno: z.Obavljeno, Od: z.Od, Do: z.Do, Udaljenost: z.Udaljenost, ImaObuhvat: z.Obuhvat != "",
-		})
-		l.Prilozi = append(l.Prilozi, prilozi...)
-		if err := deps.Vodocuvar.Save(ctx, l); err != nil {
-			return rep, fmt.Errorf("obilazak %d: list: %w", o.ID, err)
-		}
-		z.ListID = l.ID
-		if err := deps.Vodocuvar.SaveZadatak(ctx, z); err != nil {
-			return rep, fmt.Errorf("obilazak %d: zadatak: %w", o.ID, err)
-		}
-		for i, pr := range prilozi {
-			if err := deps.Vodocuvar.SavePrilog(ctx, l.ID, pr.ID, bajtovi[i]); err != nil {
-				return rep, fmt.Errorf("obilazak %d: prilog: %w", o.ID, err)
-			}
+		if err := upisiObilazak(ctx, deps.Vodocuvar, l, z, prilozi, bajtovi); err != nil {
+			return rep, fmt.Errorf("obilazak %d: %w", o.ID, err)
 		}
 		rep.Upisano++
 	}
 	return rep, nil
+}
+
+// upisiObilazak stavlja zadatak i fotografije obilaska na list dana i
+// sprema list, fotografije i zadatak, tim redom. Zadatak ide zadnji jer po
+// njemu ponovni uvoz zna da je obilazak prenesen: kad spremanje stane
+// prije njega, ponovni uvoz obilazak dovrši. Zadatak i fotografije koje je
+// takav prekinut uvoz već stavio na list zamijene se, pa ih na listu ne bude
+// dvaput.
+func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.VodocuvarskiList, z *models.Zadatak, prilozi []models.PrilogLista, bajtovi [][]byte) error {
+	l.Zadaci = zamijeniIliDodaj(l.Zadaci, models.ZadatakNaListu{
+		ID: z.ID, Tekst: z.Tekst, Zadao: z.Zadao, ZadanoAt: z.ZadanoAt, Status: z.Status,
+		Obavljeno: z.Obavljeno, Od: z.Od, Do: z.Do, Udaljenost: z.Udaljenost, ImaObuhvat: z.Obuhvat != "",
+	}, func(s models.ZadatakNaListu) string { return s.ID })
+	for _, pr := range prilozi {
+		l.Prilozi = zamijeniIliDodaj(l.Prilozi, pr, func(p models.PrilogLista) string { return p.ID })
+	}
+	if err := repo.Save(ctx, l); err != nil {
+		return fmt.Errorf("list: %w", err)
+	}
+	for i, pr := range prilozi {
+		if err := repo.SavePrilog(ctx, l.ID, pr.ID, bajtovi[i]); err != nil {
+			return fmt.Errorf("prilog: %w", err)
+		}
+	}
+	z.ListID = l.ID
+	if err := repo.SaveZadatak(ctx, z); err != nil {
+		return fmt.Errorf("zadatak: %w", err)
+	}
+	return nil
+}
+
+// zamijeniIliDodaj dodaje stavku na kraj popisa, a stavku iste oznake
+// zamijeni na njezinu mjestu
+func zamijeniIliDodaj[T any](popis []T, nova T, oznaka func(T) string) []T {
+	for i := range popis {
+		if oznaka(popis[i]) == oznaka(nova) {
+			popis[i] = nova
+			return popis
+		}
+	}
+	return append(popis, nova)
 }
 
 // vrijemeDana je ono što je stara evidencija imala o danu

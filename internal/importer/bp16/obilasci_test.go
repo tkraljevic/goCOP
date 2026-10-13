@@ -438,3 +438,86 @@ func TestUvozObilazakaGreske(t *testing.T) {
 		t.Errorf("zadatak bez korisnika u izvoru: %+v", d.zadaci)
 	}
 }
+
+// jedanObilazak je stara evidencija s jednim obilaskom Ane Anić 10. 5. 2025.
+// i jednom fotografijom
+func jedanObilazak() probniIzvor {
+	return probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Ana","last_name":"Anić"}`),
+		"evidencije_obilaska": raw(`{"id_obilasci":1,"status":"arhivirano","user_created":"u-1","dodijeljeno":"u-1",` +
+			`"datum":"2025-05-10","opis_aktivnosti":"Obilazak nasipa","foto_1":"f1"}`),
+	}}
+}
+
+// depsJednogObilaska su ovisnosti uvoza jednog obilaska nad zadanim dnevnikom
+func depsJednogObilaska(t *testing.T, repo ObilasciRepo) ObilasciDeps {
+	slika := probnaSlika(t, 8, 6)
+	return ObilasciDeps{
+		Vodocuvar: repo, Sektor: "B",
+		Korisnici: map[string]KorisnikUvoza{"Ana Anić": {ID: "g-ana", Ime: "Ana Anić", AreaID: 16}},
+		Datoteka:  func(context.Context, string, string) ([]byte, error) { return slika, nil },
+	}
+}
+
+// Fotografija koja se pri uvozu nije dala spremiti stiže ponovnim uvozom.
+// Zadatak se upisuje tek nakon fotografija, pa ga ponovni uvoz ne preskače,
+// a list ne dobiva isti zadatak ni istu fotografiju dvaput.
+func TestPonovniUvozDovrsavaObilazakBezFotografije(t *testing.T) {
+	repo := dnevnikObilazaka(t)
+	ctx := context.Background()
+	deps := depsJednogObilaska(t, repo)
+	dan := time.Date(2025, 5, 10, 0, 0, 0, 0, models.Zagreb)
+
+	spremiste := repository.Spremiste()
+	repository.SetSpremiste(nil)
+	_, err := RunObilasci(ctx, jedanObilazak(), deps)
+	repository.SetSpremiste(spremiste)
+	if err == nil || !strings.HasPrefix(err.Error(), "obilazak 1: prilog: ") {
+		t.Fatalf("uvoz bez spremišta: %v", err)
+	}
+	if z, err := repo.ZadatakPoIzvoru(ctx, "bp16:evidencije_obilaska:1"); err != nil || z != nil {
+		t.Fatalf("zadatak upisan prije fotografije: %+v, %v", z, err)
+	}
+
+	rep, err := RunObilasci(ctx, jedanObilazak(), deps)
+	if err != nil || rep.Upisano != 1 || rep.Postoje != 0 || rep.Listova != 0 || rep.Slika != 1 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	l, err := repo.ZaDan(ctx, "g-ana", dan)
+	if err != nil || l == nil || len(l.Zadaci) != 1 || len(l.Prilozi) != 1 {
+		t.Fatalf("list nakon ponovnog uvoza: %+v, %v", l, err)
+	}
+	if b, _ := repo.Prilog(ctx, l.Prilozi[0].ID); len(b) == 0 || sadrzaj.Otisak(b) != l.Prilozi[0].Sadrzaj {
+		t.Errorf("fotografija nije u spremištu: %d bajtova", len(b))
+	}
+	if z, _ := repo.ZadatakPoIzvoru(ctx, "bp16:evidencije_obilaska:1"); z == nil || z.ListID != l.ID {
+		t.Errorf("zadatak nakon ponovnog uvoza: %+v", z)
+	}
+
+	// dovršen obilazak treći uvoz preskače
+	if rep, err := RunObilasci(ctx, jedanObilazak(), deps); err != nil || rep.Postoje != 1 || rep.Upisano != 0 {
+		t.Errorf("treći uvoz: %+v, %v", rep, err)
+	}
+}
+
+// Zadatak koji se nije dao upisati ponovni uvoz upiše, a list zadrži jedan
+// zadatak i jednu fotografiju, iako ih je prvi uvoz već stavio na list.
+func TestPonovniUvozNeUdvostrucujeZadatakNaListu(t *testing.T) {
+	ctx := context.Background()
+	d := &lazniDnevnik{greska: "zadatak"}
+	deps := depsJednogObilaska(t, d)
+	if _, err := RunObilasci(ctx, jedanObilazak(), deps); err == nil || err.Error() != "obilazak 1: zadatak: disk pun" {
+		t.Fatalf("prvi uvoz: %v", err)
+	}
+	d.greska = ""
+	rep, err := RunObilasci(ctx, jedanObilazak(), deps)
+	if err != nil || rep.Upisano != 1 || rep.Listova != 0 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	if len(d.zadaci) != 1 || len(d.listovi) != 1 || len(d.listovi[0].Zadaci) != 1 || len(d.listovi[0].Prilozi) != 1 {
+		t.Errorf("nakon ponovnog uvoza: %d zadataka, list %+v", len(d.zadaci), d.listovi)
+	}
+	if d.zadaci[0].ListID != d.listovi[0].ID {
+		t.Errorf("zadatak nije vezan na list: %+v", d.zadaci[0])
+	}
+}

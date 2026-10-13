@@ -69,6 +69,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Fotografije obilaska stižu i nakon prekinutog uvoza.** Kad se
+  fotografija obilaska nije dala spremiti, uvoz je javio grešku, ali
+  zadatak je već bio upisan. Ponovni uvoz ga je zato preskočio, pa je na
+  listu ostao opis fotografije bez slike. Sad se zadatak upisuje tek nakon
+  fotografija, pa ponovni uvoz obilazak dovrši, a list ne dobije isti
+  zadatak dvaput.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
