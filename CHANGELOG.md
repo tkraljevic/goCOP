@@ -69,6 +69,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Historijat letve opet pokazuje proglašene obrane.** Odjeljak „Obrane
+  vođene po ovoj letvi” nije se pokazivao ni na jednoj letvi, a obrana nije
+  bilo ni u izvješću letve, iako su bile proglašene. Program je opis
+  dionice tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a
+  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve,
+  sa šifrom i opisom dionice. Ako se obrane ne daju pročitati, stranica se
+  i dalje otvori, a greška se zapiše u dnevnik programa.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
