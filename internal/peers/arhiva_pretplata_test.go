@@ -33,22 +33,22 @@ func TestPaketArhiveStizeUzPraviloSveVrste(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer spUred.Zatvori()
+	t.Cleanup(func() { _ = spUred.Zatvori() })
 	spLaptop, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "laptop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer spLaptop.Zatvori()
+	t.Cleanup(func() { _ = spLaptop.Zatvori() })
 	ured.svc.SetSpremiste(spUred)
 	laptop.svc.SetSpremiste(spLaptop)
 	ured.svc.SetWantsAll(true)
 
-	pakete := map[string][]byte{
+	paketi := map[string][]byte{
 		"arhiva/16/0": []byte("izmišljeni paket letve Primjerovo, cijela povijest"),
 		"arhiva/3/0":  []byte("izmišljeni paket letve Drugovo, cijela povijest"),
 	}
 	otisci := map[string]string{}
-	for kanal, b := range pakete {
+	for kanal, b := range paketi {
 		o, err := spUred.Upisi(ctx, vrstaPaketaArhive, b, "ovdje", sadrzaj.Veza{Entitet: "arhiva_paket", EntitetID: kanal, Uloga: "paket", Kanal: kanal})
 		if err != nil {
 			t.Fatal(err)
@@ -69,14 +69,14 @@ func TestPaketArhiveStizeUzPraviloSveVrste(t *testing.T) {
 	// obje želje upisane kao da ih je zatražio: razmjena svejedno ograđuje
 	// po pretplati, na obje strane
 	for kanal, o := range otisci {
-		if err := spLaptop.Zeli(ctx, o, vrstaPaketaArhive, len(pakete[kanal]), "arhiva", kanal); err != nil {
+		if err := spLaptop.Zeli(ctx, o, vrstaPaketaArhive, len(paketi[kanal]), "arhiva", kanal); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if _, _, err := laptop.svc.SyncWith(ctx, ured.id); err != nil {
 		t.Fatalf("razmjena: %v", err)
 	}
-	if got, _, err := spLaptop.Citaj(ctx, otisci["arhiva/16/0"]); err != nil || string(got) != string(pakete["arhiva/16/0"]) {
+	if got, _, err := spLaptop.Citaj(ctx, otisci["arhiva/16/0"]); err != nil || string(got) != string(paketi["arhiva/16/0"]) {
 		t.Fatalf("paket arhive BP 16 nije stigao: %v", err)
 	}
 	if spLaptop.Ima(ctx, otisci["arhiva/3/0"]) {
