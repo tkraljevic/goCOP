@@ -114,11 +114,18 @@ func (s Subscription) matches(kind string, areaID, year int, sectorOf func(int) 
 	if !s.pokrivaPodrucje(areaID, sectorOf) {
 		return false
 	}
-	// Paket arhive nosi cijelu povijest letve i kanal mu nema godine
-	// (arhiva/područje/0), pa godine ne vrijede ni uz pravilo „sve vrste”.
-	// Laptop s pravilom „sve vrste, BP 16, 2025.–2026.” inače nikad nije
-	// dobio arhivu svog područja (Odluke (13. 10. 2026.)).
-	return kind == ledger.ChannelArhiva || s.pokrivaGodinu(year)
+	return s.arhivaBezGodina(kind) || s.pokrivaGodinu(year)
+}
+
+// arhivaBezGodina: paket arhive nosi cijelu povijest letve i kanal mu nema
+// godine (arhiva/područje/0), pa godine ne vrijede za pravilo „arhiva” ni za
+// pravilo „sve vrste” za područje ili sektor. Laptop s pravilom „sve vrste,
+// BP 16, 2025.–2026.” inače nikad nije dobio arhivu svog područja (Odluke
+// (13. 10. 2026.)). Pravilo „sve vrste” za cijelu mrežu s godinama i dalje
+// ne donosi arhivu: zadani obrazac je upravo takav, a cijela arhiva svih
+// područja bila bi golem dohvat koji nitko nije tražio.
+func (s Subscription) arhivaBezGodina(kind string) bool {
+	return kind == ledger.ChannelArhiva && (s.Kind == ledger.ChannelArhiva || s.AreaID > 0 || s.SectorID != "")
 }
 
 // pokrivaPodrucje: područje pravila ima prednost pred sektorom, a pravilo

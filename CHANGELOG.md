@@ -74,10 +74,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   pakete arhive svog područja. Paket nosi cijelu povijest letve i nema
   godinu, a pretplata je gledala godine. Ni vrsta „Arhiva vodostaja” s
   popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
-  vrste za područje donosi i pakete arhive tog područja, bez obzira na
-  godine, a pretplata samo na arhivu se upisuje. Paket stiže kad je sadržaj
-  uz zapise „Sve”. Za očitanja, dnevnike i prijave godine vrijede kao i
-  dosad.
+  vrste za područje ili sektor donosi i pakete arhive tog područja, bez
+  obzira na godine, a pretplata samo na arhivu se upisuje. Paket stiže kad
+  je sadržaj uz zapise „Sve”, od računala koje ima 0.0.38 ili novije.
+  Pretplata na sve vrste za sva područja donosi arhivu i dalje samo bez
+  godine početka, da laptop ne povuče cijelu arhivu svih područja. Za
+  očitanja, dnevnike i prijave godine vrijede kao i dosad.
 - **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
   bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
   razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.

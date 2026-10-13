@@ -42,7 +42,8 @@ func TestOpisPretplate(t *testing.T) {
 }
 
 // Pravilo pokriva kanal kad se slažu vrsta, područje (ili sektor područja)
-// i godine; paket arhive nosi cijelu povijest, pa za njega godine ne vrijede.
+// i godine. Paket arhive nosi cijelu povijest, pa za njega godine ne vrijede
+// uz pravilo „arhiva” i uz pravilo „sve vrste” za područje ili sektor.
 func TestPraviloPokrivaKanal(t *testing.T) {
 	sektor := func(area int) string {
 		if area == 16 {
@@ -76,6 +77,12 @@ func TestPraviloPokrivaKanal(t *testing.T) {
 		{"sve vrste, arhiva drugog sektora", Subscription{SectorID: "D", YearFrom: 2025}, "arhiva/16/0", false},
 		{"druga vrsta, arhiva", Subscription{Kind: ledger.ChannelReadings, AreaID: 16}, "arhiva/16/0", false},
 		{"sve vrste s godinama i dalje ograđuju očitanja", Subscription{AreaID: 16, YearFrom: 2025, YearTo: 2025}, kanal, false},
+		// sve vrste za cijelu mrežu (zadani obrazac): godine i dalje vrijede,
+		// pa pravilo s godinom početka ne povlači cijelu arhivu svih područja
+		{"sve vrste za cijelu mrežu od godine, arhiva", Subscription{YearFrom: 2026}, "arhiva/16/0", false},
+		{"sve vrste za cijelu mrežu od godine, strana letva", Subscription{YearFrom: 2026}, "arhiva/0/0", false},
+		{"sve vrste za cijelu mrežu bez godina, strana letva", Subscription{}, "arhiva/0/0", true},
+		{"arhiva za cijelu mrežu s godinama", Subscription{Kind: ledger.ChannelArhiva, YearFrom: 2026}, "arhiva/0/0", true},
 	} {
 		w := Wants{Rules: []Subscription{p.pravilo}}
 		if got := w.Match(p.kanal, sektor); got != p.pokriva {
