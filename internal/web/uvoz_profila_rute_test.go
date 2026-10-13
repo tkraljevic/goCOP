@@ -341,6 +341,10 @@ func TestSnimkeKoritaPitajuSustav(t *testing.T) {
 	if !strings.Contains(obrazac, `name="sustav"`) {
 		t.Errorf("obrazac potvrde snimki ne pita za sustav:\n%s", obrazac)
 	}
+	// Izbor je obavezan: bez odgovora potvrda bi takvu snimku preskočila.
+	if !regexp.MustCompile(`<select name="sustav"[^>]*\brequired\b`).MatchString(obrazac) {
+		t.Errorf("izbor sustava nije obavezan:\n%s", obrazac)
+	}
 	if zeli := "1 snimka ne kaže u kojem su sustavu kote. U starom sustavu (TRST) letva ima kotu nule 100,000 m. " +
 		"U HVRS71 letva ima kotu nule 99,800 m. Kota nule te snimke ne odgovara nijednoj koju letva vodi. " +
 		"To je ili snimka s druge letve, ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa. " +
