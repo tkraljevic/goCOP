@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -40,6 +41,9 @@ type Redak struct {
 	// kao "datum", jer dan je dan bez obzira na zonu.
 	PoDanu     bool
 	Vrijednost float64
+	// izDatotekeDana javlja da je dopuna redak pročitala iz zatečene datoteke
+	// sa zaglavljem „datum”. Takav niz ostaje po danu i kad je u retku sat.
+	izDatotekeDana bool
 }
 
 // Letve vraća letve koje stablo već ima, sa slivom u kojem stoje. Nova letva
@@ -285,7 +289,7 @@ func redciIspodZaglavlja(cr *csv.Reader, ime string, zona *time.Location, poDanu
 // uRedak vraća pročitani redak u obliku za upis. Sat u nizu po danu ostaje
 // sat: zapisan kao sam datum, gradnja bi ga poslije pročitala u ponoć.
 func (rn redakNiza) uRedak(poDanu bool) Redak {
-	return Redak{Vrijeme: rn.t.UTC(), PoDanu: poDanu && !rn.imaSat, Vrijednost: rn.v}
+	return Redak{Vrijeme: rn.t.UTC(), PoDanu: poDanu && !rn.imaSat, Vrijednost: rn.v, izDatotekeDana: poDanu}
 }
 
 // bezStupcaViska javlja grešku kad iza vrijednosti nešto piše. Gradnja taj
@@ -302,9 +306,14 @@ func bezStupcaViska(r []string, ime string, i int) error {
 
 // zaglavlje bira prvi stupac po tome ima li niz sat. Gradnja po tome razlikuje
 // vrijednost vezanu uz trenutak od one vezane uz dan.
+//
+// Dopuna zadrži zaglavlje „datum” zatečene datoteke. Dok se gledao samo prvi
+// redak, niz po danu kojem je najraniji redak sa satom prepisan je kao satni,
+// pa ga je gradnja poslije drukčije spajala.
 func zaglavlje(velicina string, redci []Redak) string {
 	prvi := "vrijeme_utc"
-	if len(redci) > 0 && redci[0].PoDanu {
+	zatecenPoDanu := func(r Redak) bool { return r.izDatotekeDana }
+	if (len(redci) > 0 && redci[0].PoDanu) || slices.ContainsFunc(redci, zatecenPoDanu) {
 		prvi = "datum"
 	}
 	drugi := map[string]string{

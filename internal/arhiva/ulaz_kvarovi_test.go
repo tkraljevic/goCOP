@@ -175,6 +175,8 @@ func TestDopunaNeBriseRetkeKojeGradnjaCita(t *testing.T) {
 // Zaključava da dopuna zadrži sve što gradnja iz zatečene datoteke čita:
 // prazan treći stupac, polja u navodnicima, vrijeme bez sekundi i sat u nizu
 // po danu. Redak bez vrijednosti gradnja preskače, pa ga ni dopuna ne nosi.
+// Niz po danu ostaje po danu i kad mu je najraniji ili svaki redak sa satom:
+// zaglavlje se biralo po prvom retku, pa ga je dopuna prepisala kao satni.
 func TestDopunaCuvaRetkeKojeGradnjaCita(t *testing.T) {
 	for _, s := range []struct {
 		ime, vrsta, zateceno string
@@ -192,11 +194,18 @@ func TestDopunaCuvaRetkeKojeGradnjaCita(t *testing.T) {
 			"2024-03-01;120\n" +
 			"2024-03-04 07:00:00;130,5\n",
 			Redak{Vrijeme: time.Date(2024, 3, 2, 0, 0, 0, 0, time.UTC), PoDanu: true, Vrijednost: 121}},
+		{"po danu, najraniji redak sa satom", "jutarnji", "datum;vodostaj_cm\n" +
+			"2024-03-01 07:00:00;120\n" +
+			"2024-03-02;121\n",
+			Redak{Vrijeme: time.Date(2024, 3, 3, 0, 0, 0, 0, time.UTC), PoDanu: true, Vrijednost: 122}},
+		{"po danu, svaki redak sa satom", "jutarnji", "datum;vodostaj_cm\n" +
+			"2024-03-01 07:00:00;120\n",
+			Redak{Vrijeme: time.Date(2024, 3, 2, 6, 0, 0, 0, time.UTC), Vrijednost: 121}},
 	} {
 		koren := t.TempDir()
 		put := filepath.Join(koren, "dunav", "vodograd", "vodograd_cop_vodostaj_"+s.vrsta+"_2024.csv")
 		zapisiDatoteku(t, put, s.zateceno)
-		prije, _, err := citaj(put, zonaIzvora("cop"), "vodostaj")
+		prije, danPrije, err := citaj(put, zonaIzvora("cop"), "vodostaj")
 		if err != nil {
 			t.Fatalf("%s: gradnja ne čita zatečenu datoteku: %v", s.ime, err)
 		}
@@ -204,9 +213,12 @@ func TestDopunaCuvaRetkeKojeGradnjaCita(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: dopuna: %v", s.ime, err)
 		}
-		poslije, _, err := citaj(novo, zonaIzvora("cop"), "vodostaj")
+		poslije, danPoslije, err := citaj(novo, zonaIzvora("cop"), "vodostaj")
 		if err != nil {
 			t.Fatalf("%s: %v", s.ime, err)
+		}
+		if danPoslije != danPrije {
+			t.Errorf("%s: niz je prije dopune po danu: %v, a poslije: %v", s.ime, danPrije, danPoslije)
 		}
 		want := append(prije, zapis{t: s.novi.Vrijeme.Unix(), v: s.novi.Vrijednost})
 		ima := map[zapis]bool{}
