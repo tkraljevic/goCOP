@@ -82,6 +82,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   najčešće tek nakon izmjene naslovnice. Računalo koje prati samo novu
   godinu tada nije dobivalo nove listove tog dnevnika. Sad se godina
   računa po zagrebačkom vremenu.
+- **Paket izdanja pod tuđim imenom ne blokira prave pakete.** Član mreže
+  mogao je svojim ključem potpisati paket izdanja (.cop) pod imenom drugog
+  računala i s visokim brojem izdanja. Računalo koje ga je uvezlo zatim je
+  prave pakete tog računala odbijalo kao starija izdanja. Sad se paket
+  ugrađuje samo kad ga je potpisalo računalo koje je u njemu navedeno kao
+  izdavač.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
