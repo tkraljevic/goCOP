@@ -558,6 +558,9 @@ type ZatecenNiz struct {
 	IzvanNov int    // koliko zatečenih vrijednosti nova datoteka uopće ne pokriva
 	OdIzvan  string // razdoblje koje bi zamjena odnijela
 	DoIzvan  string
+	// Greska kaže zašto se zatečeni niz ne da pročitati do kraja. Dopuna ga
+	// tada odbije, pa čovjek mora vidjeti i razlog i mogućnost zamjene.
+	Greska string
 }
 
 // zateceno gleda što niz već ima i koliko bi toga zamjena odnijela.
@@ -566,7 +569,10 @@ func zateceno(koren string, u UvozNiza, novi []arhiva.Redak) *ZatecenNiz {
 		return nil
 	}
 	stare, err := arhiva.PostojeciRedci(koren, u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta)
-	if err != nil || len(stare) == 0 {
+	if err != nil {
+		return &ZatecenNiz{Greska: err.Error()}
+	}
+	if len(stare) == 0 {
 		return nil
 	}
 	imaNovi := make(map[int64]bool, len(novi))

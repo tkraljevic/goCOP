@@ -689,9 +689,16 @@
 {{if .Zatecen}}
     <div class="izvor-napomena">
       <span class="part-label">Niz već postoji</span>
+      {{if .Zatecen.Greska}}
+      <p class="reading-meta mt-0 mb-2">
+        Zatečeni niz u stablu ne da se pročitati do kraja, pa ga dopuna ne može spojiti s ovom datotekom.
+        Ispravi zatečenu datoteku ili odaberi zamjenu. Što ne valja: {{.Zatecen.Greska}}
+      </p>
+      {{else}}
       <p class="reading-meta mt-0 mb-2">
         U stablu već ima {{brojHR .Zatecen.Redaka}} {{uzBroj .Zatecen.Redaka "vrijednost" "vrijednosti" "vrijednosti"}}, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
       </p>
+      {{end}}
       <label class="uvoz-nacin">
         <input type="radio" name="nacin" value="dopuni" {{if ne $.Prijedlg.Nacin "zamijeni"}}checked{{end}}>
         <span><strong>Dopuni</strong> — zadržava se sve što niz već ima; gdje se isti trenutak pojavi u oboje,
