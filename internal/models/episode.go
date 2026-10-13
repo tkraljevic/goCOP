@@ -61,6 +61,10 @@ const (
 	EpisodeFromOperator = "OPERATER" // izvedena iz ovjerenih akata (ranije i upisana rukom)
 )
 
+// KratkiOpisDionice je opis dionice bez stacionaže i duljine, za popis
+// obrana uz šifru dionice.
+func (e DefenseEpisode) KratkiOpisDionice() string { return SkratiOpisDionice(e.SectionName) }
+
 // IsOpen govori traje li obrana još uvijek.
 func (e DefenseEpisode) IsOpen() bool { return e.EndedAt == nil }
 

@@ -73,9 +73,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   vođene po ovoj letvi” nije se pokazivao ni na jednoj letvi, a obrana nije
   bilo ni u izvješću letve, iako su bile proglašene. Program je opis
   dionice tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a
-  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve,
-  sa šifrom i opisom dionice. Ako se obrane ne daju pročitati, stranica se
-  i dalje otvori, a greška se zapiše u dnevnik programa.
+  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve.
+  Uz šifru dionice stoji kratki opis: voda, obala i obuhvat, npr. „rijeka
+  Dunav, d.o.; Zeleni otok – Ludaš”. Stacionaža i duljina dionice ne
+  pišu se, one su na stranici dionice. Ako se obrane ne daju pročitati,
+  stranica se i dalje otvori, a greška se zapiše u dnevnik programa.
 - **Drugo brisanje iste letve.** Kad se letva obrisala dvaput, npr. drugim
   klikom ili iz druge otvorene kartice, program je i drugi put javio da je
   obrisana. Pritom je zabilježio brisanje prazne letve, bez imena i šifre,

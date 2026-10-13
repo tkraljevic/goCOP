@@ -46,7 +46,7 @@ func novaOkolinaObranaLetve(t *testing.T) *okolinaObranaLetve {
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica')`,
-		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'lijeva obala Primjerice, Gornje Selo – Donje Selo', '2026-01-01', '2026-01-01')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica, l.o.; Gornje Selo – Donje Selo; rkm 12+500 - 30+000; (17,500 km)', '2026-01-01', '2026-01-01')`,
 		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.2', 1, 'P', 'kanal Probni', '2026-01-01', '2026-01-01')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
@@ -102,21 +102,27 @@ func (o *okolinaObranaLetve) historijat(t *testing.T) string {
 	return w.Body.String()
 }
 
-// Historijat letve pokazuje obrane vođene po njoj, sa šifrom i opisom
-// dionice. Do 13. 10. 2026. upit je opis dionice tražio u stupcu kojeg
-// nema, a stranica je grešku prešutjela, pa se obrane nisu vidjele ni na
-// jednoj letvi.
+// Historijat letve pokazuje obrane vođene po njoj, sa šifrom dionice i
+// kratkim opisom: voda, obala i obuhvat, bez stacionaže i duljine (Odluke
+// (13. 10. 2026.)). Do 13. 10. 2026. upit je opis dionice tražio u stupcu
+// kojeg nema, a stranica je grešku prešutjela, pa se obrane nisu vidjele ni
+// na jednoj letvi.
 func TestHistorijatLetvePokazujeObraneDionica(t *testing.T) {
 	o := novaOkolinaObranaLetve(t)
 	html := o.historijat(t)
 	for _, zeli := range []string{
 		"Obrane vođene po ovoj letvi",
 		`href="/sections/P.1.1#obrana"`,
-		"lijeva obala Primjerice, Gornje Selo – Donje Selo",
+		"rijeka Primjerica, l.o.; Gornje Selo – Donje Selo</div>",
 		models.PhaseRegular.Label(),
 	} {
 		if !strings.Contains(html, zeli) {
 			t.Errorf("u historijatu letve nema %q", zeli)
+		}
+	}
+	for _, nezeli := range []string{"Donje Selo; rkm 12", "17,500 km"} {
+		if strings.Contains(html, nezeli) {
+			t.Errorf("uz šifru dionice stoji i %q", nezeli)
 		}
 	}
 	if strings.Contains(html, "O ovoj letvi još nema zabilježene povijesti") {
