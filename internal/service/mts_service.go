@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -731,6 +732,93 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 	}
 	p.ZakljucenoAt = &sad
 	return s.repo.SavePopis(ctx, p)
+}
+
+// SmijeOtkljucati javlja smije li osoba zaključenu inventuru vratiti u nacrt
+func (s *MtsService) SmijeOtkljucati(perms *models.UserPermissions) bool {
+	return perms != nil && perms.IsGlobalAdmin
+}
+
+// OtkljucajPopis vraća zaključenu inventuru u nacrt i briše usklađenja koja
+// je zaključenje upisalo. Zaključena inventura ne vidi promet koji je
+// poslije upisan s danom prije nje; ponovno zaključenje razliku računa
+// iznova s knjižnim stanjem toga dana. Smije samo globalni administrator
+// (Odluke (13. 10. 2026.)), a u napomeni inventure ostaje tko je i kada
+// otključao.
+func (s *MtsService) OtkljucajPopis(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
+	if u == nil || !s.SmijeOtkljucati(perms) {
+		return errors.New("Inventuru otključava samo globalni administrator.")
+	}
+	p, err := s.popisZaOtkljucavanje(ctx, id)
+	if err != nil {
+		return err
+	}
+	uskladjenja, err := s.repo.UskladjenjaPopisa(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	p.Napomena = dopisiRecenicu(p.Napomena, biljeskaOtkljucavanja(u.FullName, time.Now(), len(uskladjenja)))
+	return s.repo.OtkljucajPopis(ctx, p, uskladjenja)
+}
+
+// popisZaOtkljucavanje čita inventuru koja se smije otključati: postoji,
+// zaključena je i zadnja je inventura svog skladišta
+func (s *MtsService) popisZaOtkljucavanje(ctx context.Context, id string) (*models.Popis, error) {
+	p, err := s.repo.GetPopis(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		return nil, errors.New("Inventura nije pronađena.")
+	}
+	if !p.Zakljucen() {
+		return nil, errors.New("Inventura nije zaključena, pa je nema potrebe otključavati.")
+	}
+	if err := s.nemaNovijeInventure(ctx, p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// nemaNovijeInventure odbija otključavanje kad skladište ima inventuru s
+// kasnijim danom. Ta je pri zaključenju knjižno stanje uzela s usklađenjima
+// ove; ponovno zaključenje ove promijenilo bi stanje ispod nje.
+func (s *MtsService) nemaNovijeInventure(ctx context.Context, p *models.Popis) error {
+	popisi, err := s.repo.ListPopisi(ctx, "", p.SkladisteID, 0)
+	if err != nil {
+		return err
+	}
+	// popisi su poredani od najnovijeg dana
+	if len(popisi) > 0 && popisi[0].Dan.After(p.Dan) {
+		return fmt.Errorf("Inventura na dan %s ne može se otključati: za isto skladište postoji novija inventura, na dan %s. Otključava se samo zadnja inventura skladišta.",
+			p.Dan.Format("2. 1. 2006."), popisi[0].Dan.Format("2. 1. 2006."))
+	}
+	return nil
+}
+
+// biljeskaOtkljucavanja je rečenica za napomenu inventure: tko ju je i
+// kada otključao, i koliko je usklađenja obrisano
+func biljeskaOtkljucavanja(ime string, kad time.Time, uskladjenja int) string {
+	kada := kad.In(models.Zagreb).Format("2. 1. 2006. u 15:04")
+	if uskladjenja == 0 {
+		return fmt.Sprintf("Otključao: %s, %s; usklađenja nije bilo.", ime, kada)
+	}
+	return fmt.Sprintf("Otključao: %s, %s; %d %s.", ime, kada, uskladjenja,
+		models.UzBrojHR(uskladjenja, "usklađenje je obrisano", "usklađenja su obrisana", "usklađenja je obrisano"))
+}
+
+// dopisiRecenicu dodaje rečenicu na kraj napomene. Napomeni koja ne
+// završava točkom, upitnikom ili uskličnikom dodaje točku, da se dvije
+// rečenice ne slijepe u jednu.
+func dopisiRecenicu(napomena, recenica string) string {
+	napomena = strings.TrimSpace(napomena)
+	if napomena == "" {
+		return recenica
+	}
+	if zadnji, _ := utf8.DecodeLastRuneInString(napomena); !strings.ContainsRune(".!?", zadnji) {
+		napomena += "."
+	}
+	return napomena + " " + recenica
 }
 
 func (s *MtsService) Popis(ctx context.Context, id string) (*models.Popis, error) {
