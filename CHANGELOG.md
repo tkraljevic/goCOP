@@ -12,8 +12,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   vidi. Kad se zatim s uredom upario preko Tailscalea, automatska razmjena
   ured i dalje nije zvala do kraja te stanke; radilo je samo „Sinkroniziraj
   sve”. Sad potvrda uparivanja briše raniji niz neuspjeha za to računalo, pa
-  razmjena s njim kreće odmah. Za ostala računala ništa se ne mijenja. Kad
-  je automatska razmjena isključena, razmjena i dalje ide samo na ručni
+  razmjena s njim kreće odmah. Pokreće je računalo koje je nazvalo, da isti
+  podaci ne idu dvaput. Za ostala računala ništa se ne mijenja. Kad je
+  automatska razmjena isključena, razmjena i dalje ide samo na ručni
   zahtjev.
 - **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
   dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa

@@ -123,6 +123,9 @@ type Service struct {
 
 	mu      sync.Mutex
 	pending *razmjena.PairResult // uparivanje koje čeka odluku čovjeka
+	// pozvao: uparivanje koje čeka odluku ovaj je čvor započeo pozivom
+	// (DialPair), a nije čekao poziv (StartListening)
+	pozvao  bool
 	pairErr error
 	waiting context.CancelFunc // aktivni Listen, ako čeka
 
@@ -599,7 +602,7 @@ func (s *Service) StartListening() error {
 			}
 			return
 		}
-		s.pending = res
+		s.pending, s.pozvao = res, false
 	}()
 	return nil
 }
@@ -631,7 +634,7 @@ func (s *Service) DialPair(ctx context.Context, addr string) error {
 		return err
 	}
 	s.mu.Lock()
-	s.pending = res
+	s.pending, s.pozvao = res, true
 	s.pairErr = nil
 	s.mu.Unlock()
 	return nil
@@ -653,7 +656,7 @@ type PairOutcome struct {
 // potvrda članstva ne izdaje ni kad ovaj čvor drži ključ mreže. Uspješno
 // uparivanje poništava odgodu razmjene s tim čvorom (nakon_uparivanja.go).
 func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOutcome, error) {
-	res := s.uzmiUparivanje()
+	res, pozvao := s.uzmiUparivanje()
 	if res == nil {
 		return PairOutcome{}, fmt.Errorf("nema uparivanja koje čeka odluku")
 	}
@@ -673,17 +676,18 @@ func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOu
 		return PairOutcome{}, err
 	}
 	out := s.primiDobrodoslicu(ctx, res, theirs, given)
-	s.nakonUparivanja(ctx, res.Peer.DeviceID, out.Member)
+	s.nakonUparivanja(ctx, res.Peer.DeviceID, out.Member, pozvao)
 	return out, nil
 }
 
-// uzmiUparivanje preuzima uparivanje koje čeka odluku; nil kad ga nema
-func (s *Service) uzmiUparivanje() *razmjena.PairResult {
+// uzmiUparivanje preuzima uparivanje koje čeka odluku (nil kad ga nema) i
+// kaže je li ga ovaj čvor započeo pozivom
+func (s *Service) uzmiUparivanje() (*razmjena.PairResult, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	res := s.pending
-	s.pending = nil
-	return res
+	res, pozvao := s.pending, s.pozvao
+	s.pending, s.pozvao = nil, false
+	return res, pozvao
 }
 
 // dobrodoslica je paket koji uz potvrdu ide drugoj strani; bez potvrde

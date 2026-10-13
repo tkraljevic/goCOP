@@ -10,6 +10,12 @@ package peers
 // ga zove već sljedeći krug, a dok automatska razmjena radi, razmjena s
 // njim kreće odmah, u pozadini.
 //
+// Uparivanje potvrđuju oba čvora, a odmah razmjenjuje samo onaj koji je
+// nazvao: razgovor ide u oba smjera, pa bi drugi s druge strane samo još
+// jednom poslao iste verzije, a svjež čvor dvaput primao cijeli početni
+// paket. Pozivatelj je upravo dokazao da drugi čvor može nazvati; onaj
+// koji je čekao poziv možda njega ne može (laptop iza kućnog usmjerivača).
+//
 // Niz neuspjeha drugih čvorova ostaje, a obična neuspjela razmjena broji
 // se kao i prije (recordSyncState). Stanje razmjene je lokalno
 // (peer_sync), pa u knjigu ne ide ništa.
@@ -20,12 +26,12 @@ import (
 )
 
 // nakonUparivanja: uparivanje s čvorom je uspjelo. Odgoda zbog prijašnjih
-// neuspjeha za njega više ne vrijedi, a kad je drugi čvor član mreže i
-// automatska razmjena radi, razmjena s njim kreće odmah.
-func (s *Service) nakonUparivanja(ctx context.Context, nodeID string, clan bool) {
+// neuspjeha za njega više ne vrijedi, a kad je ovaj čvor nazvao, drugi je
+// član mreže i automatska razmjena radi, razmjena s njim kreće odmah.
+func (s *Service) nakonUparivanja(ctx context.Context, nodeID string, clan, pozvao bool) {
 	s.ponistiOdgodu(ctx, nodeID)
 	auto := s.kontekstAutomatske()
-	if !clan || auto == nil {
+	if !clan || !pozvao || auto == nil {
 		return
 	}
 	s.nakonUparenja.Go(func() {

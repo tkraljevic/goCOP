@@ -39,10 +39,29 @@ func brojVerzija(t *testing.T, s *Service) int {
 	return n
 }
 
+// automatska uključuje automatsku razmjenu čvora dok test traje; prvi krug
+// ide tek za pola minute, pa ga test ne dočeka
+func automatska(t *testing.T, s *Service, razmak time.Duration) {
+	t.Helper()
+	ctx, otkazi := context.WithCancel(ctxRub)
+	gotovo := make(chan struct{})
+	go func() {
+		s.RunAutoSync(ctx, razmak)
+		close(gotovo)
+	}()
+	t.Cleanup(func() {
+		otkazi()
+		<-gotovo
+		s.nakonUparenja.Wait()
+	})
+	cekajDa(t, "automatska razmjena se uključi", s.autoSync)
+}
+
 // Laptop je od kuće 25 puta zaredom zvao uredsku adresu koja se izvana ne
 // vidi, pa ga automatska razmjena zove tek za osam razmaka. Zatim se s
 // uredom ponovno upari preko Tailscalea. Odgoda za ured tada prestaje i
 // ured zove već sljedeći krug; odgoda drugog čvora koji šuti ostaje.
+// Ured, koji je poziv čekao, briše odgodu za laptop.
 func TestUparivanjePonistavaOdgodu(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	laptop, ured := c[0], c[1]
@@ -51,6 +70,7 @@ func TestUparivanjePonistavaOdgodu(t *testing.T) {
 	}
 	sutio(t, laptop, ured.node.ID, 25)
 	sutio(t, laptop, "ured-osijek", 25)
+	sutio(t, ured, laptop.node.ID, 25)
 	if sazetak := laptop.SyncDue(ctxRub); len(sazetak) != 0 {
 		t.Fatalf("prije uparivanja krug zove čvorove koji šute: %v", sazetak)
 	}
@@ -63,6 +83,9 @@ func TestUparivanjePonistavaOdgodu(t *testing.T) {
 	}
 	if n := neuspjeha(t, laptop, "ured-osijek"); n != 25 {
 		t.Errorf("uparivanje s uredom u Vukovaru promijenilo je odgodu Osijeka: %d", n)
+	}
+	if n := neuspjeha(t, ured, laptop.node.ID); n != 0 {
+		t.Errorf("nakon uparivanja laptop kod ureda i dalje ima %d neuspjeha zaredom", n)
 	}
 	sazetak := laptop.SyncDue(ctxRub)
 	if ishod, ima := sazetak[ured.node.ID]; !ima || strings.HasPrefix(ishod, "greška") {
@@ -79,19 +102,7 @@ func TestRazmjenaKreceOdmahNakonUparivanja(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	laptop, ured := c[0], c[1]
 	sutio(t, laptop, ured.node.ID, 25)
-
-	ctx, otkazi := context.WithCancel(ctxRub)
-	gotovo := make(chan struct{})
-	go func() {
-		laptop.RunAutoSync(ctx, time.Hour)
-		close(gotovo)
-	}()
-	t.Cleanup(func() {
-		otkazi()
-		<-gotovo
-		laptop.nakonUparenja.Wait()
-	})
-	cekajDa(t, "automatska razmjena se uključi", laptop.autoSync)
+	automatska(t, laptop, time.Hour)
 
 	upari(t, laptop, ured, "127.0.0.1")
 	kraj := time.Now().Add(20 * time.Second)
@@ -110,10 +121,29 @@ func TestRazmjenaKreceOdmahNakonUparivanja(t *testing.T) {
 	}
 }
 
+// Uparivanje potvrđuju oba računala, ali razmjena odmah kreće samo na
+// onome koje je nazvalo; razgovor ide u oba smjera, pa bi drugi samo još
+// jednom poslao isto. Ured je poziv čekao, pa on laptop ne zove.
+func TestRazmjenuNakonUparivanjaPokrecePozivatelj(t *testing.T) {
+	c := clanovi(t, "laptop-baranja", "ured-vukovar")
+	laptop, ured := c[0], c[1]
+	for _, s := range c {
+		automatska(t, s, time.Hour)
+	}
+	dnevnik := brojiDnevnik(t, "nakon uparivanja")
+
+	upari(t, laptop, ured, "127.0.0.1")
+	laptop.nakonUparenja.Wait()
+	ured.nakonUparenja.Wait()
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "sinkronizacija s ured-vukovar nakon uparivanja: primljeno") {
+		t.Errorf("razmjena nakon uparivanja %d puta, zadnja: %q", n, zadnji)
+	}
+}
+
 // Bez automatske razmjene uparivanje samo poništi odgodu. S njom razmjena
-// kreće samo s čvorom koji je član mreže. Odgoda ostaje kad brava upisa
-// ne stigne ili se stanje razmjene ne da upisati. Poništena odgoda ne ide
-// u knjigu.
+// kreće samo s čvorom koji je član mreže, i samo kad je ovaj čvor nazvao.
+// Odgoda ostaje kad brava upisa ne stigne ili se stanje razmjene ne da
+// upisati. Poništena odgoda ne ide u knjigu.
 func TestNakonUparivanjaRubovi(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	sutio(t, s, "ured-vukovar", 25)
@@ -121,7 +151,7 @@ func TestNakonUparivanjaRubovi(t *testing.T) {
 	dnevnik := brojiDnevnik(t, "nakon uparivanja")
 
 	verzija := brojVerzija(t, s)
-	s.nakonUparivanja(ctxRub, "ured-vukovar", true)
+	s.nakonUparivanja(ctxRub, "ured-vukovar", true, true)
 	if n := neuspjeha(t, s, "ured-vukovar"); n != 0 {
 		t.Errorf("bez automatske razmjene odgoda nije poništena: %d", n)
 	}
@@ -135,7 +165,7 @@ func TestNakonUparivanjaRubovi(t *testing.T) {
 	s.mu.Lock()
 	s.autoCtx = ctxRub
 	s.mu.Unlock()
-	s.nakonUparivanja(ctxRub, "ured-osijek", false)
+	s.nakonUparivanja(ctxRub, "ured-osijek", false, true)
 	s.nakonUparenja.Wait()
 	if n, zadnji := dnevnik.broj(); n != 0 {
 		t.Errorf("razmjena s čvorom koji nije član: %q", zadnji)
@@ -143,7 +173,16 @@ func TestNakonUparivanjaRubovi(t *testing.T) {
 	if n := neuspjeha(t, s, "ured-osijek"); n != 0 {
 		t.Errorf("uparen čvor koji nije član zadržao je odgodu: %d", n)
 	}
-	s.nakonUparivanja(ctxRub, "ured-vukovar", true)
+	sutio(t, s, "ured-vukovar", 25)
+	s.nakonUparivanja(ctxRub, "ured-vukovar", true, false)
+	s.nakonUparenja.Wait()
+	if n, zadnji := dnevnik.broj(); n != 0 {
+		t.Errorf("razmjena na strani koja je čekala poziv: %q", zadnji)
+	}
+	if n := neuspjeha(t, s, "ured-vukovar"); n != 0 {
+		t.Errorf("strana koja je čekala poziv zadržala je odgodu: %d", n)
+	}
+	s.nakonUparivanja(ctxRub, "ured-vukovar", true, true)
 	s.nakonUparenja.Wait()
 	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "sinkronizacija s ured-vukovar nakon uparivanja: greška") {
 		t.Errorf("razmjena nakon uparivanja u dnevniku: %d %q", n, zadnji)
