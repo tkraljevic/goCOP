@@ -41,12 +41,7 @@ func registarLetvi(t *testing.T) (*sql.DB, Deps) {
 			t.Fatal(err)
 		}
 	}
-	rec := ledger.New(baza, "cvor-b")
-	deps := Deps{
-		Readings:   repository.NewReadingRepository(baza, rec),
-		Stations:   repository.NewStationRepository(baza, rec),
-		Structures: repository.NewStructureRepository(baza, rec),
-	}
+	deps := depsLetvi(baza)
 	ctx := context.Background()
 	for sifra, ime := range map[string]string{
 		"cs-probni-letva": "CS Probni",
@@ -75,6 +70,16 @@ func registarLetvi(t *testing.T) (*sql.DB, Deps) {
 		}
 	}
 	return baza, deps
+}
+
+// depsLetvi su spremišta uvoza nad zadanom bazom
+func depsLetvi(baza *sql.DB) Deps {
+	rec := ledger.New(baza, "cvor-b")
+	return Deps{
+		Readings:   repository.NewReadingRepository(baza, rec),
+		Stations:   repository.NewStationRepository(baza, rec),
+		Structures: repository.NewStructureRepository(baza, rec),
+	}
 }
 
 // evidencijaLetvi su šifrarnici i očitanja za registarLetvi
@@ -267,15 +272,16 @@ func TestUvozBP16PoTisucu(t *testing.T) {
 // Greška izvora ili baze prekida uvoz.
 func TestUvozBP16Greske(t *testing.T) {
 	ctx := context.Background()
+	predlozak, deps := registarLetvi(t)
+	// pregled ne piše, pa svi slučajevi izvora mogu na istu bazu
+	deps.DryRun = true
 	for _, zbirka := range []string{"crpne_stanice", "ustave", "vodomjerna_letva", "vodostaji_na_crpnim_stanicama", "vodostaji_na_ustavama", "ostali_vodostaji"} {
-		_, deps := registarLetvi(t)
 		_, err := Run(ctx, pokvareniIzvor{probniIzvor: evidencijaLetvi(), greske: map[string]error{zbirka: errors.New("Directus odgovorio 403")}}, deps)
 		if err == nil || err.Error() != "Directus odgovorio 403" {
 			t.Errorf("%s: %v", zbirka, err)
 		}
 	}
 	// zapis koji nije JSON ne da se ni prepisati
-	_, deps := registarLetvi(t)
 	src := evidencijaLetvi()
 	src.zbirke["ustave"] = raw(`{"id":`)
 	if _, err := Run(ctx, src, deps); err == nil || !strings.Contains(err.Error(), "MarshalJSON") {
@@ -283,17 +289,15 @@ func TestUvozBP16Greske(t *testing.T) {
 	}
 
 	// baza se ne da čitati
-	zatvorena, deps := registarLetvi(t)
-	zatvorena.Close()
-	if _, err := Run(ctx, evidencijaLetvi(), deps); err == nil {
+	if _, err := Run(ctx, evidencijaLetvi(), depsLetvi(zatvorenaBaza(t))); err == nil {
 		t.Error("zatvorena baza je prošla")
 	}
 	for _, tablica := range []string{"stations", "readings"} {
-		baza, deps := registarLetvi(t)
+		baza := kopijaBaze(t, predlozak)
 		if _, err := baza.Exec(`PRAGMA foreign_keys = OFF; DROP TABLE ` + tablica); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Run(ctx, evidencijaLetvi(), deps); err == nil || !strings.Contains(err.Error(), "no such table: "+tablica) {
+		if _, err := Run(ctx, evidencijaLetvi(), depsLetvi(baza)); err == nil || !strings.Contains(err.Error(), "no such table: "+tablica) {
 			t.Errorf("bez tablice %s: %v", tablica, err)
 		}
 	}
@@ -322,7 +326,8 @@ func TestUvozBP16Greske(t *testing.T) {
 		{"puna serija s ustavom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", skoroPuno},
 		{"puna serija s vodomjerom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", doVodomjera},
 	} {
-		baza, deps := registarLetvi(t)
+		baza := kopijaBaze(t, predlozak)
+		deps := depsLetvi(baza)
 		deps.StvoriObjekte = true
 		if _, err := baza.Exec(`CREATE TRIGGER pun_disk ` + s.okidac + ` BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
 			t.Fatal(err)

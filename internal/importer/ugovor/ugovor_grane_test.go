@@ -2,6 +2,7 @@ package ugovor
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -124,21 +125,17 @@ func TestUvozUgovoraGreskeBaze(t *testing.T) {
 		t.Fatal(err)
 	}
 	zatvorena.Close()
-	rec := ledger.New(zatvorena, "test")
-	d := Deps{
-		Waters: repository.NewWatercourseRepository(zatvorena, rec), Structures: repository.NewStructureRepository(zatvorena, rec),
-		Maintenance: repository.NewMaintenanceRepository(zatvorena, rec), Areas: []models.Area{podrucjePrimjerica},
-	}
-	if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), DryRun: true, Deps: d}); err == nil || !strings.Contains(err.Error(), "closed") {
+	if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), DryRun: true, Deps: depsUgovora(zatvorena)}); err == nil || !strings.Contains(err.Error(), "closed") {
 		t.Errorf("zatvorena baza: %v", err)
 	}
 
 	// bez tablice stavki radova ni probni prolaz ne zna što je novo
-	baza, d := registarUgovoraSBazom(t)
+	predlozak, _ := registarUgovoraSBazom(t)
+	baza := kopijaBaze(t, predlozak)
 	if _, err := baza.Exec(`DROP TABLE work_items`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), DryRun: true, Deps: d}); err == nil || !strings.Contains(err.Error(), "no such table: work_items") {
+	if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), DryRun: true, Deps: depsUgovora(baza)}); err == nil || !strings.Contains(err.Error(), "no such table: work_items") {
 		t.Errorf("bez stavki radova: %v", err)
 	}
 
@@ -149,12 +146,37 @@ func TestUvozUgovoraGreskeBaze(t *testing.T) {
 		"lokacija":      `BEFORE INSERT ON maintained_waters`,
 		"stavka radova": `BEFORE INSERT ON work_items`,
 	} {
-		baza, d := registarUgovoraSBazom(t)
+		baza := kopijaBaze(t, predlozak)
 		if _, err := baza.Exec(`CREATE TRIGGER pun_disk ` + okidac + ` BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), Deps: d}); err == nil || !strings.Contains(err.Error(), "disk pun") {
+		if _, err := Run(ctx, Options{Path: ugovorPrimjerice(t), Deps: depsUgovora(baza)}); err == nil || !strings.Contains(err.Error(), "disk pun") {
 			t.Errorf("%s: %v", ime, err)
 		}
 	}
+}
+
+// depsUgovora su spremišta uvoza nad zadanom bazom, za područje 1
+func depsUgovora(baza *sql.DB) Deps {
+	rec := ledger.New(baza, "test")
+	return Deps{
+		Waters: repository.NewWatercourseRepository(baza, rec), Structures: repository.NewStructureRepository(baza, rec),
+		Maintenance: repository.NewMaintenanceRepository(baza, rec), Areas: []models.Area{podrucjePrimjerica},
+	}
+}
+
+// kopijaBaze daje novu bazu s istim sadržajem kao predložak, bez sporog
+// dizanja sheme za svaki slučaj
+func kopijaBaze(t *testing.T, predlozak *sql.DB) *sql.DB {
+	t.Helper()
+	put := filepath.Join(t.TempDir(), "kopija.db")
+	if _, err := predlozak.Exec(`VACUUM INTO ?`, put); err != nil {
+		t.Fatal(err)
+	}
+	baza, err := db.OpenDB(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { baza.Close() })
+	return baza
 }

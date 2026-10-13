@@ -44,15 +44,7 @@ func bazaDnevnika(t *testing.T) (*sql.DB, JournalDeps) {
 			t.Fatal(err)
 		}
 	}
-	rec := ledger.New(baza, "cvor-b")
-	deps := JournalDeps{
-		Journals:    repository.NewJournalRepository(baza, rec),
-		Maintenance: repository.NewMaintenanceRepository(baza, rec),
-		Waters:      repository.NewWatercourseRepository(baza, rec),
-		Structures:  repository.NewStructureRepository(baza, rec),
-		Areas:       []models.Area{{ID: 3, SectorID: "A", Name: "Drugo područje"}, {ID: 16, SectorID: "B", Name: "Područje 16"}},
-		AreaID:      16,
-	}
+	deps := depsDnevnika(baza)
 	ctx := context.Background()
 	for _, ime := range []string{"Retencija Stara Drava - Bilje", "Kanal Postojeći"} {
 		if err := deps.Maintenance.UpsertWater(ctx, &models.MaintainedWater{AreaID: 16, Program: models.ProgramA02, Name: ime, Source: "ugovor"}); err != nil {
@@ -67,6 +59,19 @@ func bazaDnevnika(t *testing.T) (*sql.DB, JournalDeps) {
 		t.Fatal(err)
 	}
 	return baza, deps
+}
+
+// depsDnevnika su spremišta uvoza dnevnika nad zadanom bazom, za područje 16
+func depsDnevnika(baza *sql.DB) JournalDeps {
+	rec := ledger.New(baza, "cvor-b")
+	return JournalDeps{
+		Journals:    repository.NewJournalRepository(baza, rec),
+		Maintenance: repository.NewMaintenanceRepository(baza, rec),
+		Waters:      repository.NewWatercourseRepository(baza, rec),
+		Structures:  repository.NewStructureRepository(baza, rec),
+		Areas:       []models.Area{{ID: 3, SectorID: "A", Name: "Drugo područje"}, {ID: 16, SectorID: "B", Name: "Područje 16"}},
+		AreaID:      16,
+	}
 }
 
 // izvorRadova je evidencija radova s dvije godine A.02 i jednim upisom A.03
@@ -322,7 +327,7 @@ func TestUvozDnevnikaRadova(t *testing.T) {
 func TestUvozDnevnikaRadovaGreske(t *testing.T) {
 	ctx := context.Background()
 
-	_, deps := bazaDnevnika(t)
+	predlozak, deps := bazaDnevnika(t)
 	var zapisnik []string
 	deps.Log = func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) }
 	deps.DryRun = true
@@ -343,9 +348,7 @@ func TestUvozDnevnikaRadovaGreske(t *testing.T) {
 	}
 
 	// zatvorena baza: lokacije se ne mogu pročitati
-	zatvorena, deps2 := bazaDnevnika(t)
-	zatvorena.Close()
-	if _, err := RunJournals(ctx, izvorRadova(), deps2); err == nil {
+	if _, err := RunJournals(ctx, izvorRadova(), depsDnevnika(zatvorenaBaza(t))); err == nil {
 		t.Error("zatvorena baza je prošla")
 	}
 
@@ -359,11 +362,11 @@ func TestUvozDnevnikaRadovaGreske(t *testing.T) {
 		"voda":     `BEFORE INSERT ON watercourses`,
 		"lokacija": `BEFORE INSERT ON maintained_waters`,
 	} {
-		baza, deps := bazaDnevnika(t)
+		baza := kopijaBaze(t, predlozak)
 		if _, err := baza.Exec(`CREATE TRIGGER pun_disk ` + okidac + ` BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := RunJournals(ctx, izvorRadova(), deps); err == nil || !strings.Contains(err.Error(), "disk pun") {
+		if _, err := RunJournals(ctx, izvorRadova(), depsDnevnika(baza)); err == nil || !strings.Contains(err.Error(), "disk pun") {
 			t.Errorf("%s: %v", ime, err)
 		}
 	}

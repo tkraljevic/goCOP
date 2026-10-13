@@ -49,7 +49,12 @@ func bazaPrijava(t *testing.T) (*sql.DB, *repository.PrijavaRepository) {
 		repository.SetSpremiste(prijasnje)
 		spremiste.Zatvori()
 	})
-	return baza, repository.NewPrijavaRepository(baza, ledger.New(baza, "cvor-b"))
+	return baza, prijaveNa(baza)
+}
+
+// prijaveNa je spremište prijava nad zadanom bazom
+func prijaveNa(baza *sql.DB) *repository.PrijavaRepository {
+	return repository.NewPrijavaRepository(baza, ledger.New(baza, "cvor-b"))
 }
 
 // jpegSPolozajem je JPEG s EXIF-om kakav zapiše telefon: vrijeme snimanja
@@ -226,7 +231,8 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		}
 	}
 
-	_, repo := bazaPrijava(t)
+	// izvor puca prije ikakvog upisa, pa slučajevi mogu na predložak
+	predlozak, repo := bazaPrijava(t)
 	if _, err := RunPrijave(ctx, pokvareniIzvor{probniIzvor: jedna(), korisnici: errors.New("401")}, deps(repo)); err == nil || err.Error() != "korisnici: 401" {
 		t.Errorf("korisnici: %v", err)
 	}
@@ -238,24 +244,15 @@ func TestUvozObavijestiGreske(t *testing.T) {
 	if _, err := RunPrijave(ctx, pokvarena, deps(repo)); err == nil || !strings.HasPrefix(err.Error(), "obavijest: ") {
 		t.Errorf("nečitljiva obavijest: %v", err)
 	}
-	d := deps(repo)
+	d := deps(prijaveNa(kopijaBaze(t, predlozak)))
 	d.SpremiSken = func(*models.PrijavaSTerena, []byte) (string, error) { return "", errors.New("mapa nije zapisiva") }
 	if _, err := RunPrijave(ctx, jedna(), d); err == nil || err.Error() != "obavijest 30, sken: mapa nije zapisiva" {
 		t.Errorf("sken: %v", err)
 	}
 
 	// zatvorena baza: provjera prenesenog šuti, a broj prijave puca
-	zatvorena, repo := bazaPrijava(t)
-	zatvorena.Close()
-	if _, err := RunPrijave(ctx, jedna(), deps(repo)); err == nil || !strings.Contains(err.Error(), "closed") {
+	if _, err := RunPrijave(ctx, jedna(), deps(prijaveNa(zatvorenaBaza(t)))); err == nil || !strings.Contains(err.Error(), "closed") {
 		t.Errorf("zatvorena baza: %v", err)
-	}
-
-	// bez spremišta sadržaja slika se ne može spremiti
-	_, repo = bazaPrijava(t)
-	repository.SetSpremiste(nil)
-	if _, err := RunPrijave(ctx, jedna(), deps(repo)); err == nil || !strings.HasPrefix(err.Error(), "obavijest 30, slika: ") {
-		t.Errorf("bez spremišta: %v", err)
 	}
 
 	// baza odbija upis: okidač glumi pun disk
@@ -267,16 +264,24 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		{"prijava sa skenom", `BEFORE INSERT ON prijave WHEN COALESCE(json_extract(NEW.podaci, '$.sken'), '') <> ''`, "obavijest 30: upis prijave: ", true},
 		{"izvornik", `BEFORE INSERT ON prijave_izvornici`, "obavijest 30, izvornik: ", true},
 	} {
-		baza, repo := bazaPrijava(t)
+		baza := kopijaBaze(t, predlozak)
 		if _, err := baza.Exec(`CREATE TRIGGER pun_disk ` + s.okidac + ` BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
 			t.Fatal(err)
 		}
-		d := deps(repo)
+		d := deps(prijaveNa(baza))
 		spremljen := false
 		d.SpremiSken = func(p *models.PrijavaSTerena, _ []byte) (string, error) { spremljen = true; return p.ID + ".pdf", nil }
 		rep, err := RunPrijave(ctx, jedna(), d)
 		if err == nil || !strings.HasPrefix(err.Error(), s.poruka) || !strings.Contains(err.Error(), "disk pun") || rep.Upisano != 0 || spremljen != s.skenSpremljen {
 			t.Errorf("%s: %+v, %v, sken spremljen %v", s.ime, rep, err, spremljen)
 		}
+	}
+
+	// bez spremišta sadržaja slika se ne može spremiti
+	spremiste := repository.Spremiste()
+	repository.SetSpremiste(nil)
+	defer repository.SetSpremiste(spremiste)
+	if _, err := RunPrijave(ctx, jedna(), deps(prijaveNa(kopijaBaze(t, predlozak)))); err == nil || !strings.HasPrefix(err.Error(), "obavijest 30, slika: ") {
+		t.Errorf("bez spremišta: %v", err)
 	}
 }
