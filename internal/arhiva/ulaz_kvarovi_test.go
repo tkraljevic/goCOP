@@ -87,9 +87,11 @@ func TestProvjeraZapisanogNiza(t *testing.T) {
 	}
 }
 
-// Zaključava čitanje zatečenih redaka pri dopuni: retci koji se ne daju
-// pročitati se preskaču, sat se čita u zoni izvora, a niza bez datoteke nema.
-func TestPostojeciRedciPreskacuNecitljivo(t *testing.T) {
+// Zaključava čitanje zatečenih redaka pri dopuni: sat se čita u zoni izvora,
+// decimalni zarez vrijedi, prazan redak se ne broji, a niza bez datoteke nema.
+// Što se događa s retkom koji se ne da pročitati, ovdje se namjerno ne
+// zaključava (vidi TestDopunaNeBriseRetkeKojeGradnjaCita).
+func TestPostojeciRedciCitajuZatecenNiz(t *testing.T) {
 	koren := t.TempDir()
 	if r, err := PostojeciRedci(koren, "dunav", "vodograd", "cop", "vodostaj", "satni"); err != nil || r != nil {
 		t.Errorf("niz bez datoteke: %v, %v", r, err)
@@ -98,9 +100,6 @@ func TestPostojeciRedciPreskacuNecitljivo(t *testing.T) {
 		"vrijeme_utc;vodostaj_cm\n"+
 			"2024-03-01 07:00:00;212\n"+
 			"\n"+
-			"bez-tocke-zareza\n"+
-			"2024-13-01 07:00:00;5\n"+
-			"2024-03-02 07:00:00;sto\n"+
 			"2024-03-03 07:00:00;2,5\n")
 	r, err := PostojeciRedci(koren, "dunav", "vodograd", "cop", "vodostaj", "satni")
 	if err != nil {
@@ -126,5 +125,49 @@ func TestPostojeciRedciPreskacuNecitljivo(t *testing.T) {
 	}
 	if _, err := PostojeciRedci(koren, "dunav", "vodograd", "cop", "vodostaj", "jutarnji"); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("veza na datoteku koje nema: %v", err)
+	}
+}
+
+// GREŠKA: dopuna niza tiho briše zatečene retke koje gradnja čita bez
+// problema: redak s trećim stupcem, polja u navodnicima i vrijeme bez
+// sekundi. PostojeciRedci dijeli redak na prvoj točki-zarezu, a gradnja ga
+// čita kao CSV, pa Dopuni prepiše datoteku bez onoga što nije razumjela.
+// Popravak smije i odbiti dopunu, ali tada datoteka mora ostati kakva je bila.
+func TestDopunaNeBriseRetkeKojeGradnjaCita(t *testing.T) {
+	t.Skip("GREŠKA: internal/arhiva/ulaz.go:215 — Dopuni briše retke koje gradnja čita (treći stupac, navodnici, vrijeme bez sekundi)")
+	koren := t.TempDir()
+	put := filepath.Join(koren, "dunav", "vodograd", "vodograd_cop_vodostaj_satni_2024.csv")
+	zateceno := "vrijeme_utc;vodostaj_cm;napomena\n" +
+		"2024-03-01 07:00:00;120;\n" +
+		"2024-03-01 08:00:00;121;led\n" +
+		"\"2024-03-01 09:00:00\";\"122\"\n" +
+		"2024-03-01 10:00:00;123\n" +
+		"2024-03-02 07:00;125\n"
+	zapisiDatoteku(t, put, zateceno)
+	prije, _, err := citaj(put, zonaIzvora("cop"), "vodostaj")
+	if err != nil || len(prije) != 5 {
+		t.Fatalf("gradnja čita %v (%v), očekivano pet vrijednosti", prije, err)
+	}
+
+	novi := Redak{Vrijeme: time.Date(2024, 3, 1, 10, 0, 0, 0, time.UTC), Vrijednost: 124}
+	novo, err := Dopuni(koren, "dunav", "vodograd", "cop", "vodostaj", "satni", []Redak{novi})
+	if err != nil {
+		if b, _ := os.ReadFile(put); string(b) != zateceno {
+			t.Errorf("odbijena dopuna promijenila je datoteku:\n%s", b)
+		}
+		return
+	}
+	poslije, _, err := citaj(novo, zonaIzvora("cop"), "vodostaj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ima := map[zapis]bool{}
+	for _, z := range poslije {
+		ima[z] = true
+	}
+	for _, z := range append(prije, zapis{t: novi.Vrijeme.Unix(), v: novi.Vrijednost}) {
+		if !ima[z] {
+			t.Errorf("nakon dopune nema vrijednosti %v u %s; gradnja sad čita %v", z, filepath.Base(novo), poslije)
+		}
 	}
 }
