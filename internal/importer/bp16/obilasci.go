@@ -286,12 +286,20 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 }
 
 // upisiObilazak stavlja zadatak i fotografije obilaska na list dana i
-// sprema list, fotografije i zadatak, tim redom. Zadatak ide zadnji jer po
+// sprema fotografije, list i zadatak, tim redom. Fotografije idu prve, pa
+// list ne nosi opis fotografije koje nema: opis jednom upisan na prenesen
+// list ostaje na njemu i na drugim čvorovima. Zadatak ide zadnji jer po
 // njemu ponovni uvoz zna da je obilazak prenesen: kad spremanje stane
 // prije njega, ponovni uvoz obilazak dovrši. Zadatak i fotografije koje je
 // takav prekinut uvoz već stavio na list zamijene se, pa ih na listu ne bude
 // dvaput.
 func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.VodocuvarskiList, z *models.Zadatak, prilozi []models.PrilogLista, bajtovi [][]byte) error {
+	listID := oznakaLista(l)
+	for i, pr := range prilozi {
+		if err := repo.SavePrilog(ctx, listID, pr.ID, bajtovi[i]); err != nil {
+			return fmt.Errorf("prilog: %w", err)
+		}
+	}
 	l.Zadaci = zamijeniIliDodaj(l.Zadaci, models.ZadatakNaListu{
 		ID: z.ID, Tekst: z.Tekst, Zadao: z.Zadao, ZadanoAt: z.ZadanoAt, Status: z.Status,
 		Obavljeno: z.Obavljeno, Od: z.Od, Do: z.Do, Udaljenost: z.Udaljenost, ImaObuhvat: z.Obuhvat != "",
@@ -302,16 +310,20 @@ func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.Vodocuvarsk
 	if err := repo.Save(ctx, l); err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
-	for i, pr := range prilozi {
-		if err := repo.SavePrilog(ctx, l.ID, pr.ID, bajtovi[i]); err != nil {
-			return fmt.Errorf("prilog: %w", err)
-		}
-	}
 	z.ListID = l.ID
 	if err := repo.SaveZadatak(ctx, z); err != nil {
 		return fmt.Errorf("zadatak: %w", err)
 	}
 	return nil
+}
+
+// oznakaLista je oznaka lista u dnevniku; nov list je dobiva pri prvom
+// spremanju, iz osobe i dana
+func oznakaLista(l *models.VodocuvarskiList) string {
+	if l.ID != "" {
+		return l.ID
+	}
+	return models.IDListaVodocuvara(l.UserID, l.Datum)
 }
 
 // zamijeniIliDodaj dodaje stavku na kraj popisa, a stavku iste oznake

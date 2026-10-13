@@ -80,9 +80,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Fotografije obilaska stižu i nakon prekinutog uvoza.** Kad se
   fotografija obilaska nije dala spremiti, uvoz je javio grešku, ali
   zadatak je već bio upisan. Ponovni uvoz ga je zato preskočio, pa je na
-  listu ostao opis fotografije bez slike. Sad se zadatak upisuje tek nakon
-  fotografija, pa ponovni uvoz obilazak dovrši, a list ne dobije isti
-  zadatak dvaput.
+  listu ostao opis fotografije bez slike. Sad uvoz prvo spremi fotografije,
+  onda list, a zadatak tek na kraju. Ponovni uvoz zato obilazak dovrši, a
+  list ne dobije ni opis fotografije koje nema ni isti zadatak dvaput.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
