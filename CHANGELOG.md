@@ -81,6 +81,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
   poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad
   dobije isto što i globalni administrator: da letva nije zadana.
+- **Snimka korita s premalo točaka.** Poruka je pisala „snimka ima samo
+  2 točaka” i „1 točaka”. Sad piše „2 točke” i „1 točku”.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

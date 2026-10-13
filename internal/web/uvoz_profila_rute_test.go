@@ -359,8 +359,6 @@ func TestSnimkeKoritaPitajuSustav(t *testing.T) {
 
 // Snimka s premalo točaka javlja broj točaka u ispravnom obliku.
 func TestSnimkeKoritaPremaloTocaka(t *testing.T) {
-	t.Skip("GREŠKA: internal/uvoz/his2000/his.go:433 piše „snimka ima samo N točaka” i za 1 i 2 točke " +
-		"(„2 točaka” umjesto „2 točke”, „1 točaka” umjesto „1 točku”)")
 	o, _ := okolinaSnimki(t)
 	r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"},
 		datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("3/1/2020", "100,00", 120, 4)},
