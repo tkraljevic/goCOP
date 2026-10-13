@@ -2,6 +2,7 @@ package peers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -302,6 +303,9 @@ func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscrip
 		return r, err
 	}
 	r.SectorID = strings.ToUpper(strings.TrimSpace(r.SectorID))
+	if err = s.provjeriDvostruko(ctx, r); err != nil {
+		return r, err
+	}
 	res, err := s.db.ExecContext(ctx, `INSERT INTO subscriptions (kind, sector_id, area_id, year_from, year_to, razina, drzi_dana) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo, r.Razina, r.DrziDana)
 	if err != nil {
@@ -310,6 +314,25 @@ func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscrip
 	id, _ := res.LastInsertId()
 	r.ID = int(id)
 	return r, nil
+}
+
+// ErrIstoPravilo javlja da je isto pravilo već na popisu: drugo ne donosi
+// ništa novo, a popis čini nejasnim
+var ErrIstoPravilo = errors.New("Pretplata nije dodana: isto pravilo već postoji.")
+
+// provjeriDvostruko odbija pravilo koje se u svemu poklapa s postojećim
+func (s *Service) provjeriDvostruko(ctx context.Context, r Subscription) error {
+	var n int
+	err := s.db.QueryRowContext(ctx, `SELECT count(*) FROM subscriptions WHERE kind = ? AND sector_id = ? AND area_id = ?
+		AND year_from = ? AND year_to = ? AND razina = ? AND drzi_dana = ?`,
+		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo, r.Razina, r.DrziDana).Scan(&n)
+	switch {
+	case err != nil:
+		return fmt.Errorf("upis pretplate: %w", err)
+	case n > 0:
+		return ErrIstoPravilo
+	}
+	return nil
 }
 
 // RemoveSubscription briše pravilo; podaci ostaju dok ih korisnik ne obriše

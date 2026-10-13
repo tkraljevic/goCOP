@@ -8,11 +8,13 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "download"}} Što ovo računalo prati</h1>
+    <p class="page-desc"><b>Ovo računalo: {{.Cvor}}</b></p>
     <p class="page-desc">
-      Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici rastu godinama i tiču se jednog
-      područja, pa ih računalo prima samo za područja i godine koje ovdje označite. Što vam više ne treba, možete
-      obrisati s ovog računala. Briše se samo ono što je stiglo s drugih računala, a vraća se razmjenom čim ga opet
-      počnete pratiti. Ono što je nastalo na ovom računalu ne briše se.
+      Neki podaci stižu na svako računalo, npr. ustroj, registri, djelatnici, akti, dnevnik COP-a, prognoze i
+      očitanja letvi koje nisu u branjenom području. Očitanja, vodočuvarski dnevnik, prijave s terena i dnevnici
+      radova rastu godinama i tiču se jednog branjenog područja, pa ih računalo prima samo za područja i godine koje
+      ovdje označite. Što vam više ne treba, možete obrisati s ovog računala. Briše se samo ono što je stiglo s
+      drugih računala, a vraća se razmjenom čim ga opet počnete pratiti. Ono što je nastalo na ovom računalu ne briše se.
     </p>
   </div>
 </div>
@@ -21,7 +23,7 @@
 {{template "trakaPonovnogPokretanja" .Postavke}}
 
 {{if .All}}
-<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: sva očitanja, dnevnike i prijave svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.{{if .Postavke}} <a href="#postavke-cvora">Promijeni postavku Prati sve</a>{{end}}</div>
+<div class="alert alert-warning">Ovaj čvor prati <b>sve</b>: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnike radova i arhivu vodostaja svih područja i godina, s cijelim sadržajem (postavka <span class="mono">sve = true</span> u gocop.toml). Pravila ispod tada ne vrijede.{{if .Postavke}} <a href="#postavke-cvora">Promijeni postavku Prati sve</a>{{end}}</div>
 {{end}}
 
 {{with .Postavke}}
@@ -53,13 +55,13 @@
     </table>
   </div></div>
   {{else}}
-  <div class="reg-empty">Bez pretplate ovo računalo prima samo ustroj, registre i djelatnike.</div>
+  <div class="reg-empty">Bez pretplate ovo računalo prima samo ono što stiže svakom računalu.</div>
   {{end}}
 
   {{with .Predlog}}
   <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
-    <span>Prijedlog iz vašeg zaduženja: <b>dnevnici i prijave, BP {{.AreaID}}, od {{.YearFrom}}.</b>, pregledi uvijek, izvornici {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}} na ovom računalu.</span>
+    <span>Prijedlog iz vašeg zaduženja: pratiti <b>vodočuvarski dnevnik, očitanja, prijave s terena i dnevnike radova za BP {{.AreaID}}</b>, od godine {{.YearFrom}}. Uz zapise stižu slike, bez PDF-ova, a primljene slike ostaju na ovom računalu {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}}.</span>
     <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
   </form>
   {{end}}
@@ -70,9 +72,9 @@
       <div class="form-group">
         <label class="form-label" for="kind">Što</label>
         <select id="kind" name="kind" class="form-control">
-          <option value="">Sve vrste: očitanja, dnevnici, prijave, vodočuvarski dnevnik i arhiva vodostaja</option>
+          <option value="">Sve vrste: očitanja, vodočuvarski dnevnik, prijave s terena, dnevnici radova i arhiva vodostaja</option>
           <option value="ocitanja">Samo očitanja vodostaja</option>
-          <option value="dnevnici">Samo dnevnici (s dnevnim izvješćima)</option>
+          <option value="dnevnici">Samo dnevnici radova po branjenom području (dnevnik COP-a stiže svakom računalu)</option>
           <option value="prijave">Samo prijave s terena</option>
           <option value="vodocuvarski">Samo vodočuvarski dnevnik</option>
           <option value="arhiva">Arhiva vodostaja (.cop paketi letvi, cijela povijest)</option>
@@ -96,7 +98,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="year_from">Od godine</label>
-        <input type="text" inputmode="numeric" id="year_from" name="year_from" class="form-control" value="{{.ThisYear}}" placeholder="prazno = od početka">
+        <input type="text" inputmode="numeric" id="year_from" name="year_from" class="form-control" value="{{.OdGodine}}" placeholder="prazno = od početka">
       </div>
       <div class="form-group">
         <label class="form-label" for="year_to">Do godine</label>
@@ -108,7 +110,7 @@
         <label class="form-label" for="razina">Sadržaj uz zapise</label>
         <select id="razina" name="razina" class="form-control">
           <option value="sve">Sve: PDF-ovi i slike</option>
-          <option value="pregled">Samo pregledi (slike), PDF na zahtjev</option>
+          <option value="pregled">Samo pregledi: slike, bez PDF-ova</option>
           <option value="kazalo">Samo kazalo: zna da dokument postoji</option>
         </select>
       </div>
@@ -117,7 +119,7 @@
         <input type="text" inputmode="numeric" id="drzi_dana" name="drzi_dana" class="form-control" placeholder="prazno = trajno">
       </div>
     </div>
-    <div class="form-help">Za laptop na terenu dovoljno je vlastito područje od prošle godine, s pregledima, a izvornici 90 dana. Prazna godina znači bez ograde. Zapisi uvijek stižu cijeli. Razina vrijedi samo za PDF-ove i slike uz zapise, a rok i za pakete arhive vodostaja. Što je nastalo na ovom računalu ne otpušta se. Arhiva vodostaja nema godina: pravilo samo za arhivu i pravilo za sve vrste donose pakete letvi s cijelom poviješću, uz bilo koju razinu. Pravilo za sve vrste i sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama. Kad rok otpusti paket, arhiva na ovom računalu ostaje.</div>
+    <div class="form-help">Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan događaja prijave. Za laptop na terenu dovoljno je vlastito područje od prošle godine, s pregledima i rokom od 90 dana. Prazna godina znači bez ograde. Zapisi uvijek stižu cijeli. Razina vrijedi samo za PDF-ove i slike uz zapise, a rok i za pakete arhive vodostaja. Što je nastalo na ovom računalu ne otpušta se. Arhiva vodostaja nema godina: pravilo samo za arhivu i pravilo za sve vrste donose pakete letvi s cijelom poviješću, uz bilo koju razinu. Pravilo za sve vrste i sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama. Kad rok otpusti paket, arhiva na ovom računalu ostaje.</div>
     <div class="form-actions">
       <button type="submit" name="sync" value="1" class="btn btn-primary">{{icon "download"}} Dodaj i preuzmi sada</button>
       <button type="submit" class="btn btn-secondary">Samo dodaj</button>
@@ -157,7 +159,7 @@
     </table>
   </div></div>
   {{else}}
-  <div class="reg-empty">Računalo još ne drži ni očitanja ni dnevnike po područjima.</div>
+  <div class="reg-empty">Računalo još ne drži ništa od onoga što se prati po područjima.</div>
   {{end}}
 </section>
 

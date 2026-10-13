@@ -16,6 +16,18 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zapisa i dokumenata obrisati i koliko ih ostaje jer su nastali na tom
   računalu. Iste brojeve kaže potvrda prije brisanja, a poruka nakon
   brisanja kaže što je obrisano i što je ostalo.
+- **Pretplate: prijedlog iz zaduženja i stroži obrazac.** Prijedlog iz
+  zaduženja dodavao je samo dnevnike radova i prijave, pa vodočuvaru nisu
+  stizali njegovi dnevni listovi, zadaci iz ureda ni očitanja njegova
+  područja. Sad dodaje i vodočuvarski dnevnik i očitanja, a poruka nabroji
+  sva dodana pravila. Godina u obrascu upisivala se napamet: „2025.” s
+  točkom tiho je postajalo „sve godine”, a „90 dana” u roku „trajno”. Sad
+  takav upis javi što treba upisati, a isto pravilo ne može se dodati
+  dvaput. Zadana početna godina je prošla, jer vodočuvarski dnevnik i
+  zadaci prelaze preko Nove godine. Natpisi su ispravljeni: nema više
+  „PDF na zahtjev”, kojeg u programu nema, ni „ostaje u uredu”. Uz
+  dnevnike piše da su to dnevnici radova po branjenom području, a na vrhu
+  stranice piše ime računala.
 - **Zaključena inventura može se otključati.** Kad se poslije zaključenja
   upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
   zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno

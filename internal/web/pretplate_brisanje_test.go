@@ -15,6 +15,7 @@ import (
 
 	"gocop/internal/db"
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
@@ -100,8 +101,11 @@ func TestBrisanjeSRacunalaKazeBrojeve(t *testing.T) {
 
 	stranica := s.prikazi(t)
 	for _, tekst := range []string{
+		"Ovo računalo: Laptop Baranja (laptop-baranja)",
 		"Prijave s terena",
 		"Obrisat će se 1 zapis. Ostaje ono što je nastalo na ovom računalu: 1 zapis.",
+		`name="year_from" class="form-control" value="` + strconv.Itoa(time.Now().In(models.Zagreb).Year()-1) + `"`,
+		"Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan događaja prijave.",
 	} {
 		if !strings.Contains(stranica, tekst) {
 			t.Errorf("stranica nema %q", tekst)
@@ -111,7 +115,7 @@ func TestBrisanjeSRacunalaKazeBrojeve(t *testing.T) {
 	if !strings.Contains(stranica, potvrda) {
 		t.Errorf("potvrda nema iste brojeve:\n%s", stranica[strings.Index(stranica, "confirm("):][:300])
 	}
-	for _, nema := range []string{"Makni i obriši", "ostaje u uredu"} {
+	for _, nema := range []string{"Makni i obriši", "PDF na zahtjev", "ostaje u uredu"} {
 		if strings.Contains(stranica, nema) {
 			t.Errorf("stranica još piše %q", nema)
 		}
@@ -200,6 +204,120 @@ func TestMakniPraviloNistaNeBrise(t *testing.T) {
 	}
 }
 
+// Godina se upisuje s četiri znamenke i bez točke, rok kao cijeli broj
+// dana. Do 0.0.38 „2025.” je tiho postajalo „sve godine”, „25” „od 25.”, a
+// „90 dana” „trajno”. Isto pravilo ne dodaje se dvaput.
+func TestPretplataSeUpisujeStrogo(t *testing.T) {
+	s := novaStranicaPretplata(t)
+	for _, p := range []struct {
+		polje, vrijednost, poruka string
+	}{
+		{"year_from", "2025.", porukaOdGodine},
+		{"year_from", "25", porukaOdGodine},
+		{"year_from", "0999", porukaOdGodine},
+		{"year_to", "dvije tisuće", porukaDoGodine},
+		{"drzi_dana", "90 dana", porukaDana},
+		{"drzi_dana", "0", porukaDana},
+		{"drzi_dana", "99999999999999999999", porukaDana},
+	} {
+		q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", url.Values{"kind": {"prijave"}, "area_id": {"16"}, p.polje: {p.vrijednost}})
+		if q.Get("error") != p.poruka {
+			t.Errorf("%s = %q: %v", p.polje, p.vrijednost, q)
+		}
+	}
+	if l, _ := s.h.peers.ListSubscriptions(t.Context()); len(l) != 0 {
+		t.Fatalf("krivo upisano pravilo je dodano: %+v", l)
+	}
+
+	dobro := url.Values{"kind": {"prijave"}, "sector_id": {"B"}, "area_id": {"16"}, "year_from": {"2025"}, "year_to": {"2026"}, "drzi_dana": {"90"}, "sync": {"1"}}
+	if q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", dobro); q.Get("success") != "Pretplata je dodana: prijave s terena, BP 16, 2025.–2026., sadržaj 90 dana" {
+		t.Errorf("dobro upisano: %v", q)
+	}
+	if q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", dobro); q.Get("error") != "Pretplata nije dodana: isto pravilo već postoji." {
+		t.Errorf("isto pravilo drugi put: %v", q)
+	}
+	if q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", url.Values{"kind": {"prijave"}, "year_from": {"2026"}, "year_to": {"2024"}}); !strings.HasPrefix(q.Get("error"), "Pretplata nije dodana: godina u polju „Do godine”") {
+		t.Errorf("obrnute godine: %v", q)
+	}
+}
+
+// Prijedlog iz zaduženja vodočuvaru dodaje i njegov dnevnik i očitanja
+// BP-a, ne samo dnevnike radova i prijave, a poruka nabroji sva dodana
+// pravila. Što već postoji, preskače se.
+func TestPrijedlogIzZaduzenjaDodajeSvePotrebno(t *testing.T) {
+	s := novaStranicaPretplata(t)
+	if _, err := s.h.peers.AddSubscription(t.Context(), peers.Subscription{Kind: "prijave", AreaID: 16, YearFrom: 2025, Razina: peers.RazinaPregled, DrziDana: 90}); err != nil {
+		t.Fatal(err)
+	}
+	prijedlog := url.Values{"predlog": {"1"}, "area_id": {"16"}, "year_from": {"2025"}, "razina": {"pregled"}, "drzi_dana": {"90"}}
+	q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", prijedlog)
+	want := "Dodane su 3 pretplate: vodočuvarski dnevnik, BP 16, od 2025., samo pregledi, sadržaj 90 dana; očitanja, BP 16, od 2025.; dnevnici, BP 16, od 2025., samo pregledi, sadržaj 90 dana"
+	if q.Get("success") != want {
+		t.Errorf("poruka: %q", q.Get("success"))
+	}
+	l, err := s.h.peers.ListSubscriptions(t.Context())
+	if err != nil || len(l) != 4 {
+		t.Fatalf("pravila: %+v %v", l, err)
+	}
+	vrste := map[string]peers.Subscription{}
+	for _, p := range l {
+		vrste[p.Kind] = p
+	}
+	if o := vrste["ocitanja"]; o.AreaID != 16 || o.YearFrom != 2025 || o.Razina != peers.RazinaSve || o.DrziDana != 0 {
+		t.Errorf("očitanja: %+v", o)
+	}
+	if v := vrste["vodocuvarski"]; v.Razina != peers.RazinaPregled || v.DrziDana != 90 {
+		t.Errorf("vodočuvarski dnevnik: %+v", v)
+	}
+	if q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", prijedlog); q.Get("error") != "Pretplata nije dodana: isto pravilo već postoji." {
+		t.Errorf("prijedlog drugi put: %v", q)
+	}
+	if got := porukaDodano(l[:2]); !strings.HasPrefix(got, "Dodane su 2 pretplate: ") {
+		t.Errorf("dva pravila: %q", got)
+	}
+	pet := []peers.Subscription{{}, {}, {}, {}, {}}
+	if got := porukaDodano(pet); !strings.HasPrefix(got, "Dodano je 5 pretplata: sve vrste") {
+		t.Errorf("pet pravila: %q", got)
+	}
+	if _, err := s.baza.Exec(`DROP TABLE subscriptions`); err != nil {
+		t.Fatal(err)
+	}
+	if q := obrazacPretplata(t, s.h.HandleAdd, "/pretplate/dodaj", prijedlog); !strings.Contains(q.Get("error"), "upis pretplate") {
+		t.Errorf("prijedlog bez tablice pravila: %v", q)
+	}
+}
+
+// Prijedlog se slaže iz zaduženja: područje primarne dužnosti, inače prve
+// aktivne s područjem; nema ga bez područja ni kad pravilo za područje ili
+// sektor već postoji.
+func TestPrijedlogIzZaduzenja(t *testing.T) {
+	bp := func(n int) *int { return &n }
+	sektor := "B"
+	aktivna := models.Duty{IsActive: true, AreaID: bp(16), SectorID: &sektor}
+	for _, p := range []struct {
+		ime       string
+		u         *models.User
+		postojeca []peers.Subscription
+		area      int
+	}{
+		{"bez korisnika", nil, nil, 0},
+		{"bez dužnosti", &models.User{}, nil, 0},
+		{"primarna", &models.User{Duties: []models.Duty{{IsActive: true, AreaID: bp(17)}, {IsActive: true, IsPrimary: true, AreaID: bp(18)}}}, nil, 18},
+		{"prva aktivna s područjem", &models.User{Duties: []models.Duty{{IsActive: true, IsPrimary: true}, {AreaID: bp(15)}, aktivna}}, nil, 16},
+		{"područje već prati", &models.User{Duties: []models.Duty{aktivna}}, []peers.Subscription{{AreaID: 16}}, 0},
+		{"sektor već prati", &models.User{Duties: []models.Duty{aktivna}}, []peers.Subscription{{SectorID: "B"}}, 0},
+		{"drugo područje", &models.User{Duties: []models.Duty{aktivna}}, []peers.Subscription{{AreaID: 3}, {SectorID: "A"}}, 16},
+	} {
+		got := predlogPretplate(p.u, p.postojeca, 2026)
+		switch {
+		case p.area == 0 && got != nil:
+			t.Errorf("%s: prijedlog %+v", p.ime, got)
+		case p.area > 0 && (got == nil || *got != peers.Subscription{AreaID: p.area, YearFrom: 2025, Razina: peers.RazinaPregled, DrziDana: 90}):
+			t.Errorf("%s: prijedlog %+v", p.ime, got)
+		}
+	}
+}
+
 // Rečenice o brisanju za svaki slučaj: jedan, dva i pet zapisa, samo
 // dokumenti, samo povijest izmjena i ništa.
 func TestRecenicaOBrisanju(t *testing.T) {
@@ -249,6 +367,14 @@ func TestRecenicaOBrisanju(t *testing.T) {
 	}
 	if vrstaIz("prijave") != "prijava s terena" {
 		t.Error("vrsta u genitivu")
+	}
+	for _, p := range []struct {
+		n    *peers.Node
+		opis string
+	}{{nil, ""}, {&peers.Node{ID: "laptop-baranja"}, "laptop-baranja"}, {&peers.Node{ID: "ured", Name: "ured"}, "ured"}} {
+		if opisCvora(p.n) != p.opis {
+			t.Errorf("opis čvora %+v: %q", p.n, opisCvora(p.n))
+		}
 	}
 }
 

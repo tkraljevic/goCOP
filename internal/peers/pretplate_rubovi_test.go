@@ -6,6 +6,7 @@ package peers
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -229,6 +230,22 @@ func TestPretplataSeUpisujeSvedena(t *testing.T) {
 	}
 	if g := l[1]; g.Kind != ledger.ChannelVodocuvar || g.AreaID != 16 || g.YearFrom != 2026 || g.YearTo != 2026 || g.Razina != RazinaKazalo || g.DrziDana != 14 {
 		t.Errorf("pravilo s razinom kazala: %+v", g)
+	}
+
+	// isto pravilo drugi put se ne upisuje, ni kad je drukčije napisano;
+	// pravilo koje se razlikuje samo rokom upisuje se
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", SectorID: "p"}); !errors.Is(err, ErrIstoPravilo) || !strings.HasPrefix(err.Error(), "Pretplata nije dodana:") {
+		t.Errorf("isto pravilo: %v", err)
+	}
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", SectorID: "P", DrziDana: 30}); err != nil {
+		t.Errorf("pravilo s drugim rokom: %v", err)
+	}
+	if l, _ := s.ListSubscriptions(ctxRub); len(l) != 3 {
+		t.Errorf("pretplate nakon dvostrukog: %+v", l)
+	}
+	kvarUpisa(t, s, "INSERT", "subscriptions", "")
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "prijave"}); err == nil || !strings.Contains(err.Error(), "upis pretplate") {
+		t.Errorf("upis koji padne: %v", err)
 	}
 
 	// pravilo koje se ne može pročitati (stupac bez vrijednosti): popis javlja grešku
