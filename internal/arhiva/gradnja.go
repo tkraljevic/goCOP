@@ -239,6 +239,9 @@ type Izvjestaj struct {
 	Ocitanja int
 	Spojenih int
 	Sirotani []Sirotan
+	// MaknuteKrivulje su krivulje protoka kojih u datoteci krivulja letve
+	// više nema, pa ih je gradnja maknula iz arhive.
+	MaknuteKrivulje []MaknutaKrivulja
 }
 
 // Sirotan je niz koji stoji u arhivi, a datoteke iz koje je nastao više nema u
@@ -340,9 +343,10 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 	javi(zapisi, "čitam krivulje protoka", 0, 0)
-	if err := krivulje(db, koren, samo); err != nil {
+	if iz.MaknuteKrivulje, err = krivulje(db, koren, samo); err != nil {
 		return iz, err
 	}
+	javiMaknuteKrivulje(zapisi, iz.MaknuteKrivulje)
 
 	kljucevi := make([]string, 0, len(nizovi))
 	for k := range nizovi {
@@ -1083,11 +1087,17 @@ func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, sustavKo
 
 // krivulje učitava HQ krivulje s razdobljem valjanosti. Krivulja se povremeno
 // iznova postavlja jer se korito mijenja, pa ih letva ima više.
-func krivulje(db *sql.DB, koren, samo string) error {
+//
+// Krivulje letve prate njezinu datoteku: gradnja postavi točno krivulje iz
+// datoteke, a one kojih u datoteci više nema makne i vrati, da ih izvještaj
+// gradnje pokaže (Odluke (13. 10. 2026.)). Letvu bez datoteke krivulja, npr.
+// primljenu paketom, gradnja ne dira.
+func krivulje(db *sql.DB, koren, samo string) ([]MaknutaKrivulja, error) {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
 	if err != nil {
-		return err
+		return nil, err
 	}
+	var maknute []MaknutaKrivulja
 	for _, p := range puts {
 		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
 		if samo != "" && letva != samo {
@@ -1095,7 +1105,7 @@ func krivulje(db *sql.DB, koren, samo string) error {
 		}
 		f, err := os.Open(p)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		cr := csv.NewReader(f)
 		cr.Comma = ';'
@@ -1103,7 +1113,7 @@ func krivulje(db *sql.DB, koren, samo string) error {
 		sve, err := cr.ReadAll()
 		f.Close()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		br := func(x string) float64 {
 			v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(x), ",", "."), 64)
@@ -1122,10 +1132,7 @@ func krivulje(db *sql.DB, koren, samo string) error {
 				stupac[strings.ToLower(strings.TrimSpace(ime))] = i
 			}
 		}
-		imaP4 := false
-		if _, ok := stupac["p4"]; ok {
-			imaP4 = true
-		}
+		_, imaP4 := stupac["p4"]
 		polje := func(r []string, ime string) string {
 			i, ok := stupac[ime]
 			if !ok || i >= len(r) {
@@ -1146,12 +1153,12 @@ func krivulje(db *sql.DB, koren, samo string) error {
 			id, ima := vidjeno[od]
 			if !ima {
 				if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, od); err != nil {
-					return err
+					return nil, err
 				}
 				res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
 					VALUES (?,?,?,?,?)`, letva, od, do, polje(r, "izvor"), polje(r, "napomena"))
 				if err != nil {
-					return err
+					return nil, err
 				}
 				id, _ = res.LastInsertId()
 				vidjeno[od] = id
@@ -1169,12 +1176,96 @@ func krivulje(db *sql.DB, koren, samo string) error {
 				(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
 				id, cijeli(polje(r, "od_cm")), cijeli(polje(r, "do_cm")), oblik,
 				br(polje(r, "p1")), br(polje(r, "p2")), br(polje(r, "p3")), p4); err != nil {
-				return err
+				return nil, err
 			}
 		}
+		izvan, err := makniKrivuljeIzvanDatoteke(db, letva, vidjeno)
+		if err != nil {
+			return nil, err
+		}
+		maknute = append(maknute, izvan...)
 		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
 	}
-	return nil
+	return maknute, nil
+}
+
+// MaknutaKrivulja je krivulja protoka koju je gradnja maknula iz arhive, jer
+// je u datoteci krivulja letve više nema.
+type MaknutaKrivulja struct {
+	Letva     string
+	VrijediOd string
+	VrijediDo string // prazno: krivulja nije imala kraj valjanosti
+}
+
+// Opis je rečenica za izvještaj gradnje, s razdobljem valjanosti.
+func (k MaknutaKrivulja) Opis() string {
+	if k.VrijediDo == "" {
+		return fmt.Sprintf("Krivulja protoka koja vrijedi od %s maknuta je iz arhive, jer je u datoteci krivulja više nema.",
+			danHR(k.VrijediOd))
+	}
+	return fmt.Sprintf("Krivulja protoka koja je vrijedila od %s do %s maknuta je iz arhive, jer je u datoteci krivulja više nema.",
+		danHR(k.VrijediOd), danHR(k.VrijediDo))
+}
+
+// danHR piše datum iz datoteke („2001-01-01”) hrvatski („1. 1. 2001.”). Datum
+// koji se ne čita ostaje kako je zapisan, da se u datoteci može naći.
+func danHR(iso string) string {
+	t, err := time.Parse("2006-01-02", iso)
+	if err != nil {
+		return iso
+	}
+	return t.Format("2. 1. 2006.")
+}
+
+// krivuljeLetve vraća krivulje koje letva ima u arhivi.
+func krivuljeLetve(db *sql.DB, letva string) ([]MaknutaKrivulja, error) {
+	rows, err := db.Query(`SELECT vrijedi_od, vrijedi_do FROM hq_krivulje WHERE letva = ? ORDER BY vrijedi_od`, letva)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MaknutaKrivulja
+	for rows.Next() {
+		k := MaknutaKrivulja{Letva: letva}
+		if err := rows.Scan(&k.VrijediOd, &k.VrijediDo); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// makniKrivuljeIzvanDatoteke miče krivulje letve čiji se početak valjanosti
+// više ne pojavljuje u njezinoj datoteci, s odsječcima, i vraća ih. Odsječci
+// se brišu izrijekom, jer veza bez stranih ključeva ne briše djecu sama.
+func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]int64) ([]MaknutaKrivulja, error) {
+	sve, err := krivuljeLetve(db, letva)
+	if err != nil {
+		return nil, err
+	}
+	var maknute []MaknutaKrivulja
+	for _, k := range sve {
+		if _, ima := uDatoteci[k.VrijediOd]; ima {
+			continue
+		}
+		if _, err := db.Exec(`DELETE FROM hq_odsjecci WHERE krivulja IN
+			(SELECT id FROM hq_krivulje WHERE letva = ? AND vrijedi_od = ?)`, letva, k.VrijediOd); err != nil {
+			return nil, err
+		}
+		if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva = ? AND vrijedi_od = ?`, letva, k.VrijediOd); err != nil {
+			return nil, err
+		}
+		maknute = append(maknute, k)
+	}
+	return maknute, nil
+}
+
+// javiMaknuteKrivulje piše u izvještaj gradnje koje je krivulje gradnja
+// maknula i kad su vrijedile.
+func javiMaknuteKrivulje(zapisi io.Writer, maknute []MaknutaKrivulja) {
+	for _, k := range maknute {
+		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", k.Letva, k.Opis())
+	}
 }
 
 func nth(r []string, i int) string {

@@ -93,6 +93,15 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   pročitati i u dnevnik programa pisala grešku. Sad se takva letva samo
   preskoči, kao i kad ne uspije prvo sastavljanje paketa. To se događalo
   rijetko, npr. kad se zadnji niz letve makne usred izdavanja.
+- **Krivulje protoka prate svoju datoteku.** Krivulja protoka maknuta iz
+  datoteke krivulja letve ostajala je u arhivi i nakon ponovne gradnje.
+  Ista mapa tako je davala drukčiju arhivu, ovisno o tome gradi li se
+  iznova ili preko stare. Sad gradnja letve koja u stablu ima datoteku
+  krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
+  kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
+  krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
+  nestane iz arhive. Krivulje letve koja datoteke krivulja nema, npr.
+  primljene paketom, ostaju kakve jesu.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
