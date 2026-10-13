@@ -424,3 +424,20 @@ func TestBuducnostOperateraBilancaOmjerIstjecanja(t *testing.T) {
 		t.Errorf("+6 h: %v, želim %.2f (dotok 140 · omjer 120/%.2f, uz dopust od četvrtine)", v, zelim, ulaz7)
 	}
 }
+
+// Kad elektrani fali više od pola tjedna istjecanja, a dotok ima cijeli
+// tjedan, bilanca radi s omjerom 1: srednjak modela (250) spušta se na
+// dotok uz dopust, 100 + 30 = 130. Bez toga se bilanca preskočila i model je
+// ostao na 250, a to je voda koje nema.
+func TestBuducnostOperateraBilancaBezTjednaIstjecanja(t *testing.T) {
+	const sada = int64(5000)
+	m := konstantniModel("elektrana", []string{"dotok"}, 250, false)
+	nizovi := map[Izvor]Niz{
+		{Letva: "elektrana", Velicina: "protok"}: ravanNiz(sada-30, sada, 120, 0),
+		{Letva: "dotok", Velicina: "protok"}:     ravanNiz(sada-200, sada, 100, 0),
+	}
+	n := BuducnostOperatera(map[string]*OperaterModel{"elektrana": m}, nizovi, sada)[Izvor{Letva: "elektrana", Velicina: "protok"}]
+	if v, _ := n.U(sada + 6); math.Abs(v-130) > 1e-9 {
+		t.Errorf("+6 h: %v, želim 130 (dotok 100 uz omjer 1 i dopust 30)", v)
+	}
+}
