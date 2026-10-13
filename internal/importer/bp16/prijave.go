@@ -22,7 +22,8 @@ import (
 // Baranja (izvješća, prijave, obavijesti i zahtjevi vodočuvara, sa slikama i
 // skenom potpisanog ispisa) prenosi se u prijave s terena goCOP-a kao
 // rekonstrukcija: bez novog potpisa, sken je izvornik gdje ga ima, a slike se
-// smanjuju kao i u programu. Ponovni uvoz preskače što već ima, po izvoru.
+// smanjuju kao i u programu. Ponovni uvoz preskače što već ima, po izvoru,
+// osim fotografija koje ranije nisu stigle.
 
 // KorisnikUvoza je vodočuvar u goCOP-u kojem se prijave pripisuju
 type KorisnikUvoza struct {
@@ -55,6 +56,7 @@ type PrijaveDeps struct {
 type PrijaveReport struct {
 	Ukupno, Upisano, Postoje, BezKorisnika, BezPodrucja int
 	Slika, Skenova, Nacrta                              int
+	Dopunjeno                                           int // prenesene prijave kojima su stigle fotografije, broje se i pod Postoje
 	PoKorisniku, PoPodrucju, Nepoznati                  map[string]int
 	DryRun                                              bool
 }
@@ -245,8 +247,9 @@ func obavijestiPoVremenu(ctx context.Context, src Source) ([]obavijestRow, error
 	return redovi, nil
 }
 
-// uvezi prenosi jednu obavijest; preskače onu koja je već prenesena i onu
-// kojoj se ne zna vodočuvar ili područje
+// uvezi prenosi jednu obavijest. Prenesenoj dopuni fotografije koje joj
+// nedostaju, a preskače onu kojoj se ne zna vodočuvar, područje ili vrijeme
+// upisa.
 func (u *uvozPrijava) uvezi(ctx context.Context, o obavijestRow) error {
 	izvor := fmt.Sprintf("bp16:obavijesti_sa_terena:%d", o.ID)
 	prenesena, err := u.deps.Prijave.PoIzvoru(ctx, izvor)
@@ -254,8 +257,7 @@ func (u *uvozPrijava) uvezi(ctx context.Context, o obavijestRow) error {
 		return fmt.Errorf("obavijest %d: čitanje prenesene prijave: %w", o.ID, err)
 	}
 	if prenesena != nil {
-		u.rep.Postoje++
-		return nil
+		return u.dopuni(ctx, o, izvor, prenesena)
 	}
 	p := u.prijava(o, izvor)
 	if p == nil {
@@ -473,7 +475,7 @@ func (u *uvozPrijava) fotografija(ctx context.Context, oid int, izvor, sid strin
 		u.logf("  obavijest %d: slika %s: %v", oid, sid, err)
 		return slikaUvoza{}, false
 	}
-	sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
+	sl := models.SlikaPrijave{ID: oznakaSlike(izvor, sid), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
 	e := slike.Procitaj(b)
 	if !e.Snimljeno.IsZero() {
 		k := e.Snimljeno
@@ -483,6 +485,12 @@ func (u *uvozPrijava) fotografija(ctx context.Context, oid int, izvor, sid strin
 	otisak := sha256.Sum256(b)
 	sl.IzvornoBajtova, sl.Otisak = len(b), hex.EncodeToString(otisak[:])
 	return slikaUvoza{SlikaPrijave: sl, jpg: jpg}, true
+}
+
+// oznakaSlike je oznaka fotografije obavijesti, izvedena iz izvora, pa je
+// ista pri svakom uvozu
+func oznakaSlike(izvor, sid string) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String()
 }
 
 // staviSlike stavlja fotografije na prijavu; prijava bez ucrtanog mjesta
@@ -584,4 +592,88 @@ func (u *uvozPrijava) izvornik(p *models.PrijavaSTerena, slike []slikaUvoza, ske
 		return nil
 	}
 	return u.deps.IzradiPDF(p, bajtoviSlika(slike))
+}
+
+// dopuni dodaje prenesenoj prijavi fotografije koje Directus ranije nije dao
+// i iznova izradi izvornik iz podataka, jer izvornik nosi fotografije.
+// Zapis u zapisniku nije dovoljan, jer bi ponovni uvoz prenesenu prijavu
+// inače preskočio i fotografija ne bi stigla nikad (Odluke (13. 10. 2026.)).
+// Preuzimaju se sve fotografije: uz SlikeOdmah prijava svoje ne čuva, a novi
+// izvornik mora nositi i njih.
+func (u *uvozPrijava) dopuni(ctx context.Context, o obavijestRow, izvor string, p *models.PrijavaSTerena) error {
+	u.rep.Postoje++
+	if !u.trebaDopunu(o, izvor, p) {
+		return nil
+	}
+	if razlog := razlogBezDopune(p); razlog != "" {
+		u.logf(razlog, o.ID)
+		return nil
+	}
+	slike := u.fotografije(ctx, o, izvor)
+	if !dopunjuje(p, slike) {
+		return nil
+	}
+	dopunjena := *p
+	dopunjena.Slike = nil
+	staviSlike(&dopunjena, slike)
+	if err := u.spremi(ctx, o.ID, &dopunjena, slike, nil); err != nil {
+		return err
+	}
+	n := len(slike) - len(p.Slike)
+	u.rep.Slika += n
+	u.rep.Dopunjeno++
+	u.logf(models.UzBrojHR(n,
+		"  obavijest %d: dodana je %d fotografija koja ranije nije stigla",
+		"  obavijest %d: dodane su %d fotografije koje ranije nisu stigle",
+		"  obavijest %d: dodano je %d fotografija koje ranije nisu stigle"), o.ID, n)
+	return nil
+}
+
+// trebaDopunu javlja nedostaje li prenesenoj prijavi fotografija koju bi
+// uvoz mogao preuzeti; suhi prolaz ništa ne preuzima
+func (u *uvozPrijava) trebaDopunu(o obavijestRow, izvor string, p *models.PrijavaSTerena) bool {
+	return !u.deps.DryRun && u.deps.Datoteka != nil && nedostajeSlika(o, izvor, p)
+}
+
+// nedostajeSlika javlja navodi li obavijest fotografiju koje na prijavi nema
+func nedostajeSlika(o obavijestRow, izvor string, p *models.PrijavaSTerena) bool {
+	ima := map[string]bool{}
+	for _, sl := range p.Slike {
+		ima[sl.ID] = true
+	}
+	for _, sid := range slikeObavijesti(o) {
+		if !ima[oznakaSlike(izvor, sid)] {
+			return true
+		}
+	}
+	return false
+}
+
+// razlogBezDopune je poruka zapisnika kad uvoz prijavi ne smije dodati
+// fotografije, a prazno kad smije. Nacrtu je vodočuvar fotografiju možda sam
+// maknuo, a urudžbiranoj prijavi novi izvornik izgubio bi bilješku urudžbe.
+func razlogBezDopune(p *models.PrijavaSTerena) string {
+	switch {
+	case p.Status == models.PrijavaNacrt:
+		return "  obavijest %d: prijava je nacrt, pa joj uvoz ne dodaje fotografije koje ranije nisu stigle. Vodočuvar ih može dodati sam."
+	case p.Klasa != "" || p.Urbroj != "":
+		return "  obavijest %d: prijava je urudžbirana, pa joj uvoz ne dodaje fotografije koje ranije nisu stigle. Novi izvornik izgubio bi bilješku urudžbe."
+	}
+	return ""
+}
+
+// dopunjuje javlja donose li preuzete fotografije nešto novo, a da prijavi
+// ništa ne oduzmu: svaka fotografija koju prijava već ima mora stići i sad,
+// inače bi novi izvornik bio bez nje
+func dopunjuje(p *models.PrijavaSTerena, slike []slikaUvoza) bool {
+	stigle := map[string]bool{}
+	for _, s := range slike {
+		stigle[s.ID] = true
+	}
+	for _, sl := range p.Slike {
+		if !stigle[sl.ID] {
+			return false
+		}
+	}
+	return len(slike) > len(p.Slike)
 }

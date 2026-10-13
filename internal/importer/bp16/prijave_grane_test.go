@@ -491,3 +491,145 @@ func TestUvozObavijestiVrijemeIzmjene(t *testing.T) {
 		t.Errorf("zapisnik:\n%s", z)
 	}
 }
+
+// Fotografija koju Directus nije dao stiže ponovnim uvozom, a izvornik se
+// izradi iznova s njom. Prijava ostaje pod istim brojem. Nacrt i urudžbirana
+// prijava ne dopunjuju se, kao ni prijava kojoj ranije prenesena fotografija
+// sad ne stigne; suhi prolaz ništa ne preuzima.
+func TestPonovniUvozDohvacaFotografijuObavijesti(t *testing.T) {
+	baza, repo := bazaPrijava(t)
+	ctx := context.Background()
+	obavijest := func(id int, status, slike string) string {
+		return fmt.Sprintf(`{"id":%d,"status":"%s","date_created":"2024-07-%02dT08:00:00Z","user_created":"u-1","vodocuvarsko_podrucje":"KARAŠICA SEKTOR","naslov":"Obavijest %d"%s}`,
+			id, status, id-50, id, slike)
+	}
+	src := probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Marko","last_name":"Markić"}`),
+		"obavijesti_sa_terena": raw(
+			obavijest(60, "objavljeno", `,"slika_1":"s1","slika_2":"s2"`),
+			obavijest(61, "skica", `,"slika_1":"s3"`),
+			obavijest(62, "objavljeno", `,"slika_1":"s4"`),
+			obavijest(63, "objavljeno", `,"slika_1":"s5","slika_2":"s6"`),
+			obavijest(64, "objavljeno", `,"slika_1":"s7","slika_2":"s8"`),
+		),
+	}}
+	png := probnaSlika(t, 20, 10)
+	nema := map[string]bool{"s2": true, "s3": true, "s4": true, "s6": true, "s8": true}
+	var dohvaceno, zapisnik []string
+	deps := PrijaveDeps{
+		Prijave:   repo,
+		Korisnici: map[string]KorisnikUvoza{"Marko Markić": {ID: "g-1", Ime: "Marko Markić"}},
+		Podrucja:  map[string]int{"KARAŠICA SEKTOR": 16},
+		Sektor:    "B", SlikeOdmah: true,
+		Datoteka: func(_ context.Context, id, upit string) ([]byte, error) {
+			if upit == "" {
+				dohvaceno = append(dohvaceno, id)
+			}
+			if nema[id] {
+				return nil, errors.New("Directus odgovorio 404")
+			}
+			return png, nil
+		},
+		IzradiPDF: func(p *models.PrijavaSTerena, slike map[string][]byte) []byte {
+			return []byte(fmt.Sprintf("%%PDF-1.4\n%s, fotografija: %d", p.Oznaka(), len(slike)))
+		},
+		Log: func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) },
+	}
+	prijava := func(id int) *models.PrijavaSTerena {
+		p, err := repo.PoIzvoru(ctx, fmt.Sprintf("bp16:obavijesti_sa_terena:%d", id))
+		if err != nil || p == nil {
+			t.Fatalf("prijava %d: %+v, %v", id, p, err)
+		}
+		return p
+	}
+	izvornik := func(p *models.PrijavaSTerena) string {
+		iz, _ := repo.Izvornik(ctx, p.ID)
+		if iz == nil {
+			return ""
+		}
+		return string(iz.PDF)
+	}
+	if rep, err := RunPrijave(ctx, src, deps); err != nil || rep.Upisano != 5 || rep.Slika != 3 {
+		t.Fatalf("prvi uvoz: %+v, %v", rep, err)
+	}
+	if p := prijava(60); len(p.Slike) != 1 || izvornik(p) != "%PDF-1.4\nB-T-1/2024, fotografija: 1" {
+		t.Fatalf("prijava 60 nakon prvog uvoza: %+v, %q", p, izvornik(p))
+	}
+	urudzbirana := prijava(62)
+	urudzbirana.Klasa = "325-01/24-01/1"
+	if err := repo.Save(ctx, urudzbirana); err != nil {
+		t.Fatal(err)
+	}
+
+	// suhi prolaz i uvoz bez dohvata datoteka ne traže ništa
+	nema, dohvaceno = map[string]bool{"s5": true, "s8": true}, nil
+	deps.DryRun = true
+	rep, err := RunPrijave(ctx, src, deps)
+	deps.DryRun = false
+	if err != nil || rep.Postoje != 5 || rep.Dopunjeno != 0 || len(dohvaceno) != 0 {
+		t.Fatalf("suhi prolaz: %+v, %v, dohvaćeno %v", rep, err, dohvaceno)
+	}
+	bezDatoteka := deps
+	bezDatoteka.Datoteka = nil
+	if rep, err := RunPrijave(ctx, src, bezDatoteka); err != nil || rep.Postoje != 5 || rep.Dopunjeno != 0 {
+		t.Fatalf("bez dohvata datoteka: %+v, %v", rep, err)
+	}
+
+	zapisnik = nil
+	rep, err = RunPrijave(ctx, src, deps)
+	if err != nil || rep.Postoje != 5 || rep.Dopunjeno != 1 || rep.Slika != 1 || rep.Upisano != 0 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	p := prijava(60)
+	if p.Broj != 1 || len(p.Slike) != 2 || p.Slike[0].Naziv != "fotografija 1" || p.Slike[1].Naziv != "fotografija 2" ||
+		p.Slike[1].ID != oznakaSlike("bp16:obavijesti_sa_terena:60", "s2") {
+		t.Errorf("prijava 60 nakon ponovnog uvoza: %+v", p)
+	}
+	if got := izvornik(p); got != "%PDF-1.4\nB-T-1/2024, fotografija: 2" {
+		t.Errorf("izvornik prijave 60: %q", got)
+	}
+	for id, slika := range map[int]int{61: 0, 62: 0, 63: 1, 64: 1} {
+		if p := prijava(id); len(p.Slike) != slika {
+			t.Errorf("prijava %d ne smije biti dopunjena: %+v", id, p.Slike)
+		}
+	}
+	z := strings.Join(zapisnik, "\n")
+	for _, poruka := range []string{
+		"  obavijest 60: dodana je 1 fotografija koja ranije nije stigla",
+		"  obavijest 61: prijava je nacrt, pa joj uvoz ne dodaje fotografije koje ranije nisu stigle. Vodočuvar ih može dodati sam.",
+		"  obavijest 62: prijava je urudžbirana, pa joj uvoz ne dodaje fotografije koje ranije nisu stigle. Novi izvornik izgubio bi bilješku urudžbe.",
+		"  obavijest 63: slika s5: Directus odgovorio 404",
+		"  obavijest 64: slika s8: Directus odgovorio 404",
+	} {
+		if !strings.Contains(z, poruka) {
+			t.Errorf("u zapisniku nema %q:\n%s", poruka, z)
+		}
+	}
+
+	// dopuna koja se ne da upisati ostavlja prijavu kakva je bila
+	nema = nil
+	if _, err := baza.Exec(`CREATE TRIGGER pun_disk BEFORE UPDATE ON prijave BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := RunPrijave(ctx, src, deps); err == nil || !strings.HasPrefix(err.Error(), "obavijest 63: upis prijave: ") {
+		t.Fatalf("dopuna bez upisa: %v", err)
+	}
+	if p := prijava(63); len(p.Slike) != 1 || izvornik(p) != "%PDF-1.4\nB-T-3/2024, fotografija: 1" {
+		t.Fatalf("prijava 63 nakon neuspjele dopune: %+v, %q", p.Slike, izvornik(p))
+	}
+	if _, err := baza.Exec(`DROP TRIGGER pun_disk`); err != nil {
+		t.Fatal(err)
+	}
+
+	// kad stignu sve, dopuni se i prijava 63; potpuna prijava 60 ne traži ništa
+	dohvaceno = nil
+	if rep, err := RunPrijave(ctx, src, deps); err != nil || rep.Dopunjeno != 2 || rep.Slika != 2 {
+		t.Fatalf("treći uvoz: %+v, %v", rep, err)
+	}
+	if got := strings.Join(dohvaceno, " "); got != "s5 s6 s7 s8" {
+		t.Errorf("treći uvoz dohvatio: %s", got)
+	}
+	if p := prijava(63); len(p.Slike) != 2 || izvornik(p) != "%PDF-1.4\nB-T-3/2024, fotografija: 2" {
+		t.Errorf("prijava 63 nakon trećeg uvoza: %+v, %q", p.Slike, izvornik(p))
+	}
+}

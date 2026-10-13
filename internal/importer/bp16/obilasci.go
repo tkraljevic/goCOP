@@ -96,8 +96,9 @@ func (r ObilasciReport) Summary() string {
 }
 
 // RunObilasci prenosi obilaske u zadatke i rekonstruirane dnevne listove.
-// Ponovni uvoz preskače ono što je već preneseno, pa se smije ponavljati dok
-// se stara evidencija ne ugasi.
+// Ponovni uvoz preskače ono što je već preneseno, osim fotografija koje
+// ranije nisu stigle, pa se smije ponavljati dok se stara evidencija ne
+// ugasi.
 func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciReport, error) {
 	rep := ObilasciReport{Nepoznati: map[string]int{}, DryRun: deps.DryRun}
 	logf := zapisnik(deps.Log)
