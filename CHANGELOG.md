@@ -6,6 +6,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Zaključena inventura može se otključati.** Kad se poslije zaključenja
+  upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
+  zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno
+  otvoriti. Sad na stranici zaključene inventure globalni administrator
+  ima gumb „Otključaj inventuru”: inventura se vraća u nacrt, a
+  usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje
+  razliku računa iznova, s prometom upisanim unatrag. Gumb vidi samo
+  globalni administrator, a otključati se može samo zadnja inventura
+  skladišta. U napomeni inventure ostaje tko ju je i kada otključao, a na
+  zidu događanja piše „Inventura vraćena u nacrt”.
+- **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
+  izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
+  koja je nema.
 - **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
   dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa
   drugi čvorovi za to nisu znali. Novi čvor takvu je epizodu čekao pri
