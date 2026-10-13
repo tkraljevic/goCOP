@@ -86,8 +86,7 @@ func TestKrivuljePregledPaUpis(t *testing.T) {
 }
 
 // Stranica s pregledom krivulja mora se iscrtati do kraja, s gumbom za
-// potvrdu. Danas puca jer predložak u odjeljku krivulja čita .Profili, a uz
-// krivulje snimki nema.
+// potvrdu.
 func TestKrivuljePregledNaStranici(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	r := viseDijelni(t, "/administracija/uvoz-krivulja/pregled", map[string]string{"letva": "primjerovo"},
