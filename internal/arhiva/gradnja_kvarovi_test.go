@@ -378,6 +378,7 @@ func TestPokvarenaDatotekaNiza(t *testing.T) {
 		{"navodnik usred polja", "2024-03-01 07:00:00;1\n2024-03-01 08:00:00;1\"2\n", "vodograd.csv redak 3: "},
 		{"nemoguć datum", "2024-13-45 25:00:00;120\n", `vodograd.csv redak 2: vrijeme "2024-13-45 25:00:00"`},
 		{"vrijednost nije broj", "2024-03-01 07:00:00;sto\n", `vodograd.csv redak 2: vrijednost "sto"`},
+		{"sat bez minuta", "2024-03-01 07;120\n", `vodograd.csv redak 2: vrijeme "2024-03-01 07"`},
 	} {
 		put := filepath.Join(t.TempDir(), "vodograd.csv")
 		zapisiDatoteku(t, put, "vrijeme_utc;vodostaj_cm\n"+s.redci)
@@ -386,15 +387,44 @@ func TestPokvarenaDatotekaNiza(t *testing.T) {
 	}
 }
 
-// GREŠKA: datum kraći od deset znakova ruši gradnju. citaj reže s[:10] bez
-// provjere duljine, pa redak „2024-3-1;120” izazove panic umjesto greške s
-// imenom datoteke i retkom.
+// Zaključava da datum kraći od deset znakova ne ruši gradnju. citaj je rezao
+// s[:10] bez provjere duljine, pa je redak „2024-3-1;120” izazvao panic
+// umjesto greške s imenom datoteke i retkom.
 func TestKratakDatumNeRusiGradnju(t *testing.T) {
-	t.Skip("GREŠKA: internal/arhiva/gradnja.go:775 — datum kraći od 10 znakova izaziva panic (slice bounds out of range)")
 	put := filepath.Join(t.TempDir(), "vodograd.csv")
 	zapisiDatoteku(t, put, "datum;vodostaj_cm\n2024-3-1;120\n")
 	_, _, err := citaj(put, time.UTC, "vodostaj")
 	greskaSadrzi(t, "kratak datum", err, `vrijeme "2024-3-1"`)
+}
+
+// Zaključava da se vrijeme bez sekundi čita kao sat u zoni izvora. Prije se
+// čitalo kao sam datum, pa su se satne vrijednosti istog dana sažele u jednu.
+func TestVrijemeBezSekundiJeSat(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "vodograd.csv")
+	zapisiDatoteku(t, put, "vrijeme_utc;vodostaj_cm\n"+
+		"2024-03-01 07:00;120\n"+
+		"2024-03-01 8:30;121\n"+
+		"2024-03-01;119\n")
+	z, poDanu, err := citaj(put, Zagreb, "vodostaj")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poDanu {
+		t.Error("zaglavlje „vrijeme_utc” pročitano je kao niz po danu")
+	}
+	want := []zapis{
+		{t: time.Date(2024, 3, 1, 6, 0, 0, 0, time.UTC).Unix(), v: 120},
+		{t: time.Date(2024, 3, 1, 7, 30, 0, 0, time.UTC).Unix(), v: 121},
+		{t: time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC).Unix(), v: 119},
+	}
+	if len(z) != len(want) {
+		t.Fatalf("pročitano %+v, očekivano %+v", z, want)
+	}
+	for i := range want {
+		if z[i] != want[i] {
+			t.Errorf("redak %d: %+v, očekivano %+v", i+2, z[i], want[i])
+		}
+	}
 }
 
 // Zaključava da se pokvarena datoteka promjena kote nule javlja greškom s

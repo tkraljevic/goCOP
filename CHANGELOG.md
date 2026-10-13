@@ -69,6 +69,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Vrijeme bez sekundi u datoteci niza čita se kao sat.** Gradnja arhive
+  čitala je vrijeme bez sekundi, npr. „2024-03-01 07:00”, kao sam datum.
+  Satne vrijednosti istog dana tako su se sažele u jednu, a ostala je
+  zadnja. Datum kraći od deset znakova, npr. „2024-3-1”, srušio je gradnju.
+  Sad se vrijeme sa satom i minutama čita kao sat, a krivo zapisan datum
+  gradnja javi greškom s imenom datoteke i brojem retka. Datoteke koje
+  piše program uvijek imaju sekunde, pa se to događalo samo s ručno
+  složenim datotekama.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

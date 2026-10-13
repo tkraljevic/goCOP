@@ -766,14 +766,7 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 			continue
 		}
 		s := strings.TrimSpace(r[0])
-		var t time.Time
-		if len(s) >= 19 {
-			// sat postoji, pa zona ima smisla: čita se u zoni izvora
-			t, err = time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
-		} else {
-			// samo datum: dan je dan, bez obzira na zonu
-			t, err = time.Parse("2006-01-02", s[:10])
-		}
+		t, _, err := vrijemeNiza(s, zona)
 		if err != nil {
 			return nil, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", filepath.Base(put), i, s, err)
 		}
@@ -787,6 +780,26 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		out = append(out, zapis{t: t.UTC().Unix(), v: v})
 	}
 	return bezSiljaka(velicina, bezDalekih(velicina, out)), poDanu, nil
+}
+
+// vrijemeNiza čita prvi stupac retka niza i javlja ima li vrijeme sat. Sat se
+// čita u zoni izvora, a sam datum je dan, bez obzira na zonu.
+//
+// Vrijeme bez sekundi („2024-03-01 07:00”) prije se čitalo kao sam datum, pa
+// su se satne vrijednosti istog dana sažimale u jednu, a datum kraći od deset
+// znakova („2024-3-1”) rušio je gradnju. U stablu su 13. 10. 2026. bila samo
+// dva oblika, sa sekundama i sam datum; ostalo je ručno složeno.
+func vrijemeNiza(s string, zona *time.Location) (time.Time, bool, error) {
+	switch {
+	case len(s) >= 19:
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
+		return t, true, err
+	case len(s) > 10:
+		t, err := time.ParseInLocation("2006-01-02 15:04", s, zona)
+		return t, true, err
+	}
+	t, err := time.Parse("2006-01-02", s)
+	return t, false, err
 }
 
 // bezDalekih izbacuje kote vodnog lica koje su predaleko od uobičajene
