@@ -125,12 +125,12 @@ func TestBliskiPragUlaziUSliku(t *testing.T) {
 	if len(p.Pragovi) == 0 {
 		t.Fatal("pripremna je desetak centimetara iznad vode, a nije nacrtana")
 	}
-	if p.Pragovi[0].Naziv != "pripremna" {
+	if p.Pragovi[0].Naziv != "pripremno stanje" {
 		t.Errorf("prvi nacrtani prag je %q", p.Pragovi[0].Naziv)
 	}
 	// Izvanredna je i dalje dva metra iznad; nju ne treba crtati.
 	for _, pr := range p.Pragovi {
-		if pr.Naziv == "izvanredna" {
+		if pr.Class == "emerg" {
 			t.Error("izvanredna obrana nacrtana iako je dva metra iznad")
 		}
 	}

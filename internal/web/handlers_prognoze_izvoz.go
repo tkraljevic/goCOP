@@ -463,8 +463,8 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
 		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
 		"i srpske službe za isti termin, radi usporedbe; srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) nose našu prognozu prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
-	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
-		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
+	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremnog " +
+		"stanja, redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
 		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
 		"godinama iz arhive, s označenim rekordima.")
 	odjeljci := map[string]bool{"Ukratko o metodi": true, "Raspon i vjerojatnost": true, "Ograničenja": true}
