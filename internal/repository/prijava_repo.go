@@ -377,7 +377,8 @@ func (r *PrijavaRepository) SljedeciBroj(ctx context.Context, sektor string, god
 	return n, err
 }
 
-// Delete briše nacrt, sa spomenikom u knjizi; slike idu s njim
+// Delete briše nacrt, sa spomenikom u knjizi u kanalu prijave, kao i upis, i
+// u svakom drugom kanalu u kojem nacrt ima verzija; slike idu s njim
 func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 	p, err := r.Get(ctx, id)
 	if err != nil || p == nil {
@@ -394,10 +395,27 @@ func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 	for _, sl := range p.Slike {
 		_ = r.DeleteSlika(ctx, sl.ID)
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityPrijave, id, p); err != nil {
+	if err := arhivirajUKanalimaZapisa(ctx, tx, r.rec, prijavaChannel(p), EntityPrijave, id, p); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// arhivirajUKanalimaZapisa bilježi brisanje u kanalu u kojem je zapis sada i
+// u svakom drugom kanalu u kojem ima verzija. Nacrt prijave kojem je dan
+// događaja premješten u drugu godinu ima verzije u dva kanala, pa računalo
+// koje prati samo stari kanal inače ne bi dobilo brisanje.
+func arhivirajUKanalimaZapisa(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, kanal, entitet, id string, zapis any) error {
+	stari, err := idsOf(ctx, tx, `SELECT DISTINCT channel FROM record_versions WHERE entity = ? AND entity_id = ? AND channel <> ? ORDER BY channel`, entitet, id, kanal)
+	if err != nil {
+		return err
+	}
+	for _, k := range append(stari, kanal) {
+		if _, err := rec.ArchiveIn(ctx, tx, k, entitet, id, zapis); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ---- slike: lokalno, s rokom ----

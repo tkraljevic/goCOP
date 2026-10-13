@@ -441,11 +441,11 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	rep.PotpisValjan = true
-	rep.IzdavacClan = s.trusted(javni, nil)
+	rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni)
+	if err != nil {
+		return rep, err
+	}
 	if !rep.IzdavacClan {
-		if s.NetworkInfo() != nil {
-			return rep, fmt.Errorf("paket je potpisao čvor %s koji nije član naše mreže", m.Izdao)
-		}
 		rep.Napomena = "čvor još nije u mreži, pa se članstvo izdavača nije moglo provjeriti"
 	}
 	if err := s.shemaCopa(ctx); err != nil {
@@ -518,6 +518,29 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	return rep, nil
+}
+
+// izdavacClan javlja je li paket potpisao član naše mreže koji je u
+// manifestu naveden kao izdavač. Članstvo se traži po imenu izdavača, a ne
+// samo po ključu: član koji potpiše paket pod tuđim imenom i s visokim
+// izdanjem inače bi zauzeo mjesto tog čvora, pa bi se njegovi pravi paketi
+// odbijali kao starija izdanja. Dok čvor nema mrežu, članstvo se ne može
+// provjeriti; tada vraća false bez greške.
+func (s *Service) izdavacClan(ctx context.Context, izdao string, javni ed25519.PublicKey) (bool, error) {
+	s.mu.Lock()
+	network := s.network
+	s.mu.Unlock()
+	if network == nil {
+		return false, nil
+	}
+	if !s.trusted(javni, nil) {
+		return false, fmt.Errorf("paket je potpisao čvor %s koji nije član naše mreže", izdao)
+	}
+	m, err := scanMembership(s.db.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE node_id = ?`, izdao))
+	if err != nil || s.provjeriClanstvo(ctx, network.Public, m, javni) != nil {
+		return false, fmt.Errorf("paket kaže da ga je izdao čvor %s, a potpisao ga je drugi član mreže, pa se ne ugrađuje", izdao)
+	}
+	return true, nil
 }
 
 // CopIme je naziv datoteke paketa: gocop-dnevnici-bp16-2026_v3.cop

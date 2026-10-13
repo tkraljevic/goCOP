@@ -290,6 +290,32 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Prijava je dobije pod istim brojem, a izvornik se izradi iznova, s njom.
   Nacrt i urudžbirana prijava ne dopunjuju se, a u zapisniku uvoza piše
   zašto.
+- **Brisanje nacrta prijave i dnevnog lista ostaje u svom području.**
+  Nacrt prijave s terena i nacrt dnevnog lista vodočuvara idu samo na
+  računala koja prate to područje i godinu. Brisanje nacrta išlo je ipak na
+  sva računala, s cijelim tekstom nacrta, i ondje je ostajalo i kad
+  računalo prestane pratiti područje. Sad brisanje ide istim putem kao i
+  nacrt.
+- **Paket izdanja pod tuđim imenom ne blokira prave pakete.** Član mreže
+  mogao je svojim ključem potpisati paket izdanja (.cop) pod imenom drugog
+  računala i s visokim brojem izdanja. Računalo koje ga je uvezlo zatim je
+  prave pakete tog računala odbijalo kao starija izdanja. Sad se paket
+  ugrađuje samo kad ga je potpisalo računalo koje je u njemu navedeno kao
+  izdavač.
+- **Čekanje na uparivanje nakon prekida.** Kad se čekanje na uparivanje
+  prekine i odmah pokrene ponovno, prvo čekanje je pri gašenju brisalo
+  zapis o drugom. Stranica tada nije pokazivala da računalo čeka, a drugo
+  čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
+  čekanje ne dira novo. Računalo koje je nazvalo baš u trenutku prekida
+  dobije odmah poruku da je uparivanje odbijeno, pa može nazvati ponovno.
+- **Brisanje s oglasne ploče ne briše ono što bi razmjena vratila.** Uprava
+  je s ploče mogla obrisati objavu prijave poslanu s terenskog laptopa, a
+  objava se vratila već sljedećom razmjenom. To se događalo kad s laptopa
+  otad nije stigla nijedna nova prijava ni izmjena prijave za to područje i
+  godinu. Sad program takvo brisanje odbije i javi zašto. Zapis se može
+  obrisati kad to računalo upiše nešto novije iste vrste za isto područje i
+  godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je
+  bilo koji noviji upis tog računala u te podatke.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

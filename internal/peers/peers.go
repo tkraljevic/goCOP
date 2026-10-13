@@ -128,6 +128,9 @@ type Service struct {
 	pozvao  bool
 	pairErr error
 	waiting context.CancelFunc // aktivni Listen, ako čeka
+	// cekanje je redni broj zadnjeg čekanja (StartListening): po njemu
+	// prekinuto čekanje zna da je u međuvremenu počelo novo
+	cekanje uint64
 
 	// mreža kojoj čvor pripada; nil dok ga netko ne primi ili dok je ne osnuje
 	network  *razmjena.NetworkKey
@@ -177,6 +180,9 @@ type Service struct {
 	// dial otvara TCP vezu do drugog čvora (razmjena i uparivanje); nil je
 	// obična veza. Test njime vezu preruši, npr. u vezu preko Tailscalea.
 	dial func(ctx context.Context, adresa string) (net.Conn, error)
+	// slusaj čeka poziv za uparivanje (StartListening); nil je
+	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
+	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
 	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
 	upis       chan struct{}
 	upisJednom sync.Once
@@ -592,22 +598,55 @@ func (s *Service) StartListening() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	s.waiting = cancel
 	s.pairErr = nil
+	s.cekanje++
+	moje := s.cekanje
 	s.mu.Unlock()
 
 	go func() {
-		res, err := razmjena.Listen(ctx, s.node.key, s.identity(), s.ports.Pair)
-		s.mu.Lock()
-		defer s.mu.Unlock()
-		s.waiting = nil
-		if err != nil {
-			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-				s.pairErr = err
-			}
-			return
-		}
-		s.pending, s.pozvao = res, false
+		res, err := s.slusajUparivanje(ctx)
+		s.zavrsiCekanje(moje, res, err)
 	}()
 	return nil
+}
+
+// zavrsiCekanje bilježi kako je završilo čekanje s rednim brojem moje.
+// Prekinuto čekanje koje je u međuvremenu zamijenilo novo ne dira ništa:
+// inače bi obrisalo zapis novog čekanja, pa ga StopListening ne bi mogao
+// prekinuti, a čvor ne bi javljao da čeka. Poziv koji je takvo čekanje
+// dočekalo se odbija.
+func (s *Service) zavrsiCekanje(moje uint64, res *razmjena.PairResult, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if moje != s.cekanje {
+		odbijPoziv(res)
+		return
+	}
+	s.waiting = nil
+	if err != nil {
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+			s.pairErr = err
+		}
+		return
+	}
+	s.pending, s.pozvao = res, false
+}
+
+// odbijPoziv javlja računalu koje je nazvalo da je uparivanje odbijeno i
+// zatvara vezu; bez toga bi ono čekalo dvije minute da veza istekne. Finish
+// čeka i njegov odgovor, pa ide u svojoj gorutini.
+func odbijPoziv(res *razmjena.PairResult) {
+	if res != nil {
+		go func() { _, _, _ = res.Finish(false, nil) }()
+	}
+}
+
+// slusajUparivanje čeka poziv drugog čvora na portu uparivanja, ili ga
+// čeka test (s.slusaj)
+func (s *Service) slusajUparivanje(ctx context.Context) (*razmjena.PairResult, error) {
+	if s.slusaj != nil {
+		return s.slusaj(ctx)
+	}
+	return razmjena.Listen(ctx, s.node.key, s.identity(), s.ports.Pair)
 }
 
 // StopListening prekida čekanje
