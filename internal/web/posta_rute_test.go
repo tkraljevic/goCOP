@@ -411,7 +411,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Fatalf("kartice popisa:\n%.1500s", popis)
 	}
 	// skupne radnje: nepročitano, arhiva bez mape Arhiva, premještanje u korisnikovu mapu
-	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1", "AAMk/2=|ck1"}, "radnja": {"neprocitano"}, "mapa": {"inbox"}}); !strings.Contains(loc, "2 pisma") {
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1", "AAMk/2=|ck1"}, "radnja": {"neprocitano"}, "mapa": {"inbox"}}); !strings.Contains(loc, "2 pisma su označena kao nepročitana.") {
 		t.Errorf("skupno nepročitano: %s", loc)
 	}
 	if srv.Pisma[0].Procitano || srv.Pisma[1].Procitano {
@@ -421,10 +421,10 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Errorf("arhiva bez mape: %s", loc)
 	}
 	srv.ImaArhivu = true
-	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "Arhivu") {
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/1+=|ck1"}, "radnja": {"arhiviraj"}}); !strings.Contains(loc, "1 pismo je premješteno u Arhivu.") {
 		t.Errorf("arhiviranje: %s", loc)
 	}
-	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"premjesti"}, "mapa_u": {"AAMk/mapa-projekti="}}); !strings.Contains(loc, "premješteno") {
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"premjesti"}, "mapa_u": {"AAMk/mapa-projekti="}}); !strings.Contains(loc, "1 pismo je premješteno.") {
 		t.Errorf("premještanje: %s", loc)
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/posta?mapa="+url.QueryEscape("AAMk/mapa-projekti="), nil)); !strings.Contains(w.Body.String(), "Ručak") {
@@ -446,7 +446,7 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 		t.Error("u Obrisanom gumb mora biti Obriši trajno")
 	}
 	// trajno brisanje iz Obrisanog: pismo nestaje iz sandučića
-	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"obrisi"}, "mapa": {"deleteditems"}}); !strings.Contains(loc, "trajno obrisano") {
+	if loc := post("/posta/radnja", url.Values{"p": {"AAMk/2=|ck1"}, "radnja": {"obrisi"}, "mapa": {"deleteditems"}}); !strings.Contains(loc, "1 pismo je trajno obrisano.") {
 		t.Errorf("trajno brisanje: %s", loc)
 	}
 	for _, pi := range srv.Pisma {

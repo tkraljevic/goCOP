@@ -46,6 +46,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   obrisana pa ponovno upisana pod istom šifrom, epizoda koju je drugo
   računalo u međuvremenu otvorilo na njoj nije se pokazivala do ponovnog
   pokretanja programa. Sad dolazi odmah, s dionicom.
+- **Riječ uz broj i nazivi ustroja pišu se pravilno.** Na stranicama, u
+  porukama i izvozima pisalo je „21 očitanja”, „1 listova”, „2 ispravaka”
+  ili „2 pisma premješteno”. Program je uz broj razlikovao samo jedan i
+  sve ostalo, a ponegdje ni to. Sad se riječ uz broj, i glagol uz nju,
+  slaže po hrvatskom pravilu: 1 list, 2 lista, 5 listova, 21 list;
+  2 pisma su premještena. Na karticama dnevnika A.02 i A.03 pisalo je „Po
+  sektoru i podrucju.”, a uz izbor uloge „uloga branjeno područjea”; te i
+  slične rečenice s nazivima ustroja su prepravljene. Prvi prag letve na
+  prognozi zove se „pripremno stanje”, kao i drugdje u programu.
+- **Hrvatska slova u svojstvima PDF-a.** U svojstvima PDF-ova koje program
+  izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
+  npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
+  potpisani PDF-ovi ostaju bajt za bajt isti.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

@@ -358,7 +358,7 @@ func (h *OrgHandler) HandleImportCSV(w http.ResponseWriter, r *http.Request) {
 			errs = append(errs, fmt.Sprintf("redak %d: %s", i+1, err.Error()))
 		}
 	}
-	msg := fmt.Sprintf("Uvoz: %d novih, %d osvježenih.", added, updated)
+	msg := fmt.Sprintf("Uvoz: novih %d, osvježenih %d.", added, updated)
 	if len(errs) > 0 {
 		redirectWith(w, r, "/organizacija", "error", msg+" Preskočeno: "+strings.Join(errs, "; "))
 		return
@@ -491,7 +491,7 @@ func (h *OrgHandler) HandleImportContractorsCSV(w http.ResponseWriter, r *http.R
 			updated++
 		}
 	}
-	msg := fmt.Sprintf("Firme: %d novih, %d osvježenih.", added, updated)
+	msg := fmt.Sprintf("Firme: novih %d, osvježenih %d.", added, updated)
 	if len(errs) > 0 {
 		if len(errs) > 5 {
 			errs = append(errs[:5], fmt.Sprintf("… i još %d", len(errs)-5))

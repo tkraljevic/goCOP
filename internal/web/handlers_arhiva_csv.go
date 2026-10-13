@@ -352,13 +352,7 @@ func (h *ReadingsHandler) HandleArhivaPotvrda(w http.ResponseWriter, r *http.Req
 }
 
 func ispravaka(n int) string {
-	switch {
-	case n == 1:
-		return "1 ispravak"
-	case n < 5:
-		return fmt.Sprintf("%d ispravka", n)
-	}
-	return fmt.Sprintf("%d ispravaka", n)
+	return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "ispravak", "ispravka", "ispravaka"))
 }
 
 func nth(v []string, i int) string {

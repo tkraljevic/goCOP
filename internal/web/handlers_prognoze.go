@@ -155,8 +155,8 @@ func opisPrenesenog(zapis string, postaje map[string]models.Station) string {
 	rasap, _ := strconv.ParseFloat(d[1], 64)
 	dana, _ := strconv.Atoi(d[2])
 	pomak, _ := strconv.ParseFloat(d[3], 64)
-	s := fmt.Sprintf("prognoza prenesena s naše za %s · odnos ±%s cm (%s dana)", strings.Join(imena, " i "),
-		brojHRf(rasap, 0), brojHRf(float64(dana), 0))
+	s := fmt.Sprintf("prognoza prenesena s naše za %s · odnos ±%s cm (%s %s)", strings.Join(imena, " i "),
+		brojHRf(rasap, 0), brojHRf(float64(dana), 0), models.UzBrojHR(dana, "dan", "dana", "dana"))
 	if pomak != 0 {
 		s += fmt.Sprintf(" · pomak na startu %+.0f cm", pomak)
 	}
@@ -179,7 +179,7 @@ func pragoviKartice(st models.Station, min, max *Krajnost) []PragKartice {
 		oznaka, klasa, naslov string
 		prag                  models.Threshold
 	}{
-		{"P", "prep", "pripremna obrana", st.Prep},
+		{"P", "prep", "pripremno stanje", st.Prep},
 		{"R", "regular", "redovna obrana", st.Regular},
 		{"I", "emerg", "izvanredna obrana", st.Emergency},
 		{"IS", "crit", "izvanredno stanje", st.State},
@@ -447,8 +447,9 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()
 		data.Napredak = u.Napredak()
 		if k, ima := u.ZadnjiKrug(); ima {
-			data.ZadnjiKrug = fmt.Sprintf("%s: %d letvi, %d novih očitanja, %s",
-				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, k.Novih, trajanjeKruga(k.Trajanje))
+			data.ZadnjiKrug = fmt.Sprintf("%s: %d %s, %d %s, %s",
+				k.Kad.In(models.Zagreb).Format("2.1. u 15:04"), k.Letvi, models.UzBrojHR(k.Letvi, "letva", "letve", "letvi"),
+				k.Novih, models.UzBrojHR(k.Novih, "novo očitanje", "nova očitanja", "novih očitanja"), trajanjeKruga(k.Trajanje))
 		}
 	}
 	return data

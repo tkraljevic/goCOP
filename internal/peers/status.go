@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 )
 
 // Stanje sinkronizacije po čvoru. Za razliku od zapisa čvora (koji putuje),
@@ -192,7 +193,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			}
 			out[p.NodeID] = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
 			if krugova > 1 {
-				out[p.NodeID] += fmt.Sprintf(" u %d razgovora", krugova)
+				out[p.NodeID] += fmt.Sprintf(" u %d %s", krugova, models.UzBrojHR(krugova, "razgovoru", "razgovora", "razgovora"))
 			}
 		}(p)
 	}
@@ -393,7 +394,8 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 			if p.State.LastOK != nil {
 				since = "ne odgovara od " + p.State.LastOK.Local().Format("02.01. 15:04")
 			}
-			out = append(out, fmt.Sprintf("%s: %s (%d pokušaja zaredom): %s", label(p.Peer), since, p.State.Fails, p.State.LastError))
+			out = append(out, fmt.Sprintf("%s: %s (%d %s zaredom): %s", label(p.Peer), since, p.State.Fails,
+				models.UzBrojHR(p.State.Fails, "pokušaj", "pokušaja", "pokušaja"), p.State.LastError))
 		}
 		if len(p.Addresses) == 0 {
 			out = append(out, fmt.Sprintf("%s: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.", label(p.Peer)))

@@ -174,7 +174,7 @@ func templateFuncs() template.FuncMap {
 		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
-		"uzBroj":        uzBrojHR,
+		"uzBroj":        models.UzBrojHR,
 		"vrstaDnevnika": models.JournalKindLabel,
 		"danTjedna":     danTjednaHR,
 		"statika":       statickaAdresa,
@@ -429,32 +429,10 @@ func templateFuncs() template.FuncMap {
 		// dionice sklanja broj dionica po hrvatskoj gramatici (1 dionica,
 		// 2-4 dionice, 5+ dionica), uz iznimku za brojeve 11-14
 		"postaje": func(n int) string {
-			last2 := n % 100
-			last := n % 10
-			switch {
-			case last2 >= 11 && last2 <= 14:
-				return fmt.Sprintf("%d postaja", n)
-			case last == 1:
-				return fmt.Sprintf("%d postaja", n)
-			case last >= 2 && last <= 4:
-				return fmt.Sprintf("%d postaje", n)
-			default:
-				return fmt.Sprintf("%d postaja", n)
-			}
+			return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "postaja", "postaje", "postaja"))
 		},
 		"dionice": func(n int) string {
-			last2 := n % 100
-			last := n % 10
-			switch {
-			case last2 >= 11 && last2 <= 14:
-				return fmt.Sprintf("%d dionica", n)
-			case last == 1:
-				return fmt.Sprintf("%d dionica", n)
-			case last >= 2 && last <= 4:
-				return fmt.Sprintf("%d dionice", n)
-			default:
-				return fmt.Sprintf("%d dionica", n)
-			}
+			return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "dionica", "dionice", "dionica"))
 		},
 		"add":            func(a, b int) int { return a + b },
 		"kolicina":       kolicinaHR,
@@ -2020,24 +1998,6 @@ func (s *Server) SetAddr(addr string) {
 func danTjednaHR(t time.Time) string {
 	return [...]string{"Nedjelja", "Ponedjeljak", "Utorak", "Srijeda",
 		"Četvrtak", "Petak", "Subota"}[int(t.Weekday())]
-}
-
-// uzBrojHR bira oblik imenice uz broj po hrvatskoj sklonidbi: 1 vrijednost,
-// 2 vrijednosti, 5 vrijednosti — ali 11 vrijednosti i 21 vrijednost.
-func uzBrojHR(n int, jednina, dvojina, mnozina string) string {
-	if n < 0 {
-		n = -n
-	}
-	zadnje, zadnja2 := n%10, n%100
-	switch {
-	case zadnja2 >= 11 && zadnja2 <= 14:
-		return mnozina
-	case zadnje == 1:
-		return jednina
-	case zadnje >= 2 && zadnje <= 4:
-		return dvojina
-	}
-	return mnozina
 }
 
 // smijeUrediLetvu javlja smije li osoba dirati podatke letve zadane šifrom.

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -106,9 +107,57 @@ func TestIstiSadrzajIstiPDF(t *testing.T) {
 	if !bytes.Equal(a, b) {
 		t.Error("isti sadržaj dao je različit PDF")
 	}
-	if !bytes.Contains(a, []byte("/Subject (goCOP akt 1)")) {
-		t.Error("predmet nije u metapodacima")
+	if got := svojstvo(t, a, "/Subject"); got != "goCOP akt 1" {
+		t.Errorf("predmet u metapodacima: %q", got)
 	}
+}
+
+// Naslov, autor i predmet s hrvatskim slovima čitaju se natrag isti. Prije
+// su slova izvan ASCII-ja postajala upitnici, pa je u svojstvima PDF-a
+// stajalo „Rje?enje o uspostavi”.
+func TestSvojstvaPDFaSHrvatskimSlovima(t *testing.T) {
+	d := Novi("Rješenje o uspostavi — Đurđevac (B.16)", "Čačinci, Ćuprija \\ Žmini")
+	d.Predmet = "Dnevnik COP-a: Šećerana"
+	d.Odlomak("Tekst.", 10, false, Lijevo)
+	b := d.Bajtovi()
+	for kljuc, zeli := range map[string]string{
+		"/Title":   "Rješenje o uspostavi — Đurđevac (B.16)",
+		"/Author":  "Čačinci, Ćuprija \\ Žmini",
+		"/Subject": "Dnevnik COP-a: Šećerana",
+	} {
+		if got := svojstvo(t, b, kljuc); got != zeli {
+			t.Errorf("%s: %q, očekivano %q", kljuc, got, zeli)
+		}
+	}
+	if _, err := exec.LookPath("pdfinfo"); err != nil {
+		t.Skip("pdfinfo nije dostupan, svojstva ne čita drugi program")
+	}
+	put := filepath.Join(t.TempDir(), "svojstva.pdf")
+	_ = os.WriteFile(put, b, 0o644)
+	out, err := exec.Command("pdfinfo", put).Output()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, zeli := range []string{"Rješenje o uspostavi — Đurđevac (B.16)", "Čačinci, Ćuprija", "Dnevnik COP-a: Šećerana"} {
+		if !strings.Contains(string(out), zeli) {
+			t.Errorf("pdfinfo ne vidi %q:\n%s", zeli, out)
+		}
+	}
+}
+
+// svojstvo čita jedno svojstvo iz rječnika /Info na koji pokazuje trailer
+func svojstvo(t *testing.T, pdf []byte, kljuc string) string {
+	t.Helper()
+	m := reInfo.FindAllSubmatch(pdf, -1)
+	if len(m) == 0 {
+		t.Fatal("PDF nema /Info")
+	}
+	n, _ := strconv.Atoi(string(m[len(m)-1][1]))
+	info, err := objekt(pdf, n)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tekstIzRjecnika(info, kljuc)
 }
 
 // Sken poslan kao JPEG ili PNG postaje PDF od jedne stranice

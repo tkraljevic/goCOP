@@ -184,7 +184,7 @@ func TestMaxIzArhiveKadGaRegistarNema(t *testing.T) {
 	for _, p := range pragoviKartice(models.Station{Prep: models.Threshold{Cm: cm(300)}}, mn, mx) {
 		got = append(got, p.Oznaka+" "+p.Vrijednost+" · "+p.Naslov)
 	}
-	want := "P +300 cm · pripremna obrana|MAX +512 cm · najviši izmjereni vodostaj (2014.), iz arhive|MIN -94 cm · najniži izmjereni vodostaj (2022.), iz arhive"
+	want := "P +300 cm · pripremno stanje|MAX +512 cm · najviši izmjereni vodostaj (2014.), iz arhive|MIN -94 cm · najniži izmjereni vodostaj (2022.), iz arhive"
 	if strings.Join(got, "|") != want {
 		t.Errorf("pločice\n%v\nželim\n%s", strings.Join(got, "|"), want)
 	}

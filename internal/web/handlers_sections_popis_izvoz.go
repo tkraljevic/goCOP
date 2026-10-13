@@ -146,7 +146,7 @@ func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podruc
 	l := k.NoviList("Dionice")
 	l.Vodoravno = true
 	l.Sirine = []float64{9, 34, 12, 9, 15, 8, 8, 9, 30, 30, 16, 16}
-	podnaslov := fmt.Sprintf("%d %s · stanje na dan %s", len(redci), uzBrojHR(len(redci), "dionica", "dionice", "dionica"), z.Datum.Format("02.01.2006."))
+	podnaslov := fmt.Sprintf("%d %s · stanje na dan %s", len(redci), models.UzBrojHR(len(redci), "dionica", "dionice", "dionica"), z.Datum.Format("02.01.2006."))
 	if filtar != "" {
 		podnaslov += " · " + filtar
 	}
@@ -200,7 +200,7 @@ func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podruc
 		duljina, nas float64
 	}
 	zbrojRed := func(oznaka string, zb zbroj) {
-		red(map[int]xlsxw.Celija{0: B(oznaka, xlsxw.TablicaPod), 1: B(fmt.Sprintf("%d %s", zb.n, uzBrojHR(zb.n, "dionica", "dionice", "dionica")), xlsxw.TablicaPod),
+		red(map[int]xlsxw.Celija{0: B(oznaka, xlsxw.TablicaPod), 1: B(fmt.Sprintf("%d %s", zb.n, models.UzBrojHR(zb.n, "dionica", "dionice", "dionica")), xlsxw.TablicaPod),
 			5: xlsxw.N(zb.duljina, xlsxw.TablicaBrojPod), 6: xlsxw.N(zb.nas, xlsxw.TablicaBrojPod)}, xlsxw.TablicaPod, [][2]int{{1, 4}, {7, 11}})
 	}
 	var zbS, zbP zbroj

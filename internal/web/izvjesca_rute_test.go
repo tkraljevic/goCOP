@@ -290,7 +290,8 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	sec1, _ := sections.GetSectionByCode("B.16.1")
 	sec2, _ := sections.GetSectionByCode("B.16.2")
 	iz1 := &models.DnevnoIzvjesce{SectionCode: "B.16.1", Dan: dan, Stadij: models.PhaseEmergency, Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Dunav", Tendencija: models.TendencijaPorast,
-		Pregled: "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800", Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12}}}
+		Pregled: "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800", Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12},
+		Evakuacija: models.Evakuacija{Naselja: "Zmajevac", Ljudi: 1, Kucanstava: 1}}}
 	if err := svc.Spremi(ctx, voditelj, uprava, sec1, iz1); err != nil {
 		t.Fatal(err)
 	}
@@ -324,7 +325,8 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	}
 	id := strings.SplitN(strings.TrimPrefix(kamo, "/sektorsko-izvjesce/"), "?", 2)[0]
 	mora(zovi(http.MethodGet, "/sektorsko-izvjesce/"+id, nil), http.StatusOK, "dokument",
-		"Kiša na cijelom sektoru.", "Baranja", "B.16.1", "B.16.2", ">20<", ">12<", "Procjeđivanje kod Zmajevca.", "Izvanredna obrana", "Vodostaj raste", "nacrt", "Predaj GCOP-u")
+		"Kiša na cijelom sektoru.", "Baranja", "B.16.1", "B.16.2", ">20<", ">12<", "Procjeđivanje kod Zmajevca.", "Izvanredna obrana", "Vodostaj raste", "nacrt", "Predaj GCOP-u",
+		"Zmajevac: 1 čovjek, 1 kućanstvo", ">1 čovjek, 1 kućanstvo<")
 	w = zovi(http.MethodGet, "/sektorsko-izvjesce/novo?sektor=B&dan="+danas, nil)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/sektorsko-izvjesce/"+id+"/uredi" {
 		t.Errorf("ponovno novo: %d %s", w.Code, w.Header().Get("Location"))

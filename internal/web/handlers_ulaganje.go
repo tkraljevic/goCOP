@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/ulaganje"
 )
@@ -142,8 +143,9 @@ func (h *UvozHandler) UloziOcitanja(w http.ResponseWriter, r *http.Request) {
 					ishod.Izdanja = &pr
 				}
 			}
-			zad.Zavrsi(fmt.Sprintf("Uloženo %d vrijednosti; %s je ponovno izgrađena. "+
-				"Ništa još nije obrisano iz operative.", iz.Provjereno, letva), ishod)
+			zad.Zavrsi(fmt.Sprintf("%d %s; %s je ponovno izgrađena. "+
+				"Ništa još nije obrisano iz operative.", iz.Provjereno,
+				models.UzBrojHR(iz.Provjereno, "vrijednost je uložena", "vrijednosti su uložene", "vrijednosti je uloženo"), letva), ishod)
 			return nil
 		})
 	d.PosaoID, d.PosaoNaziv = posao.ID, posao.Naziv
@@ -180,9 +182,10 @@ func (h *UvozHandler) Pospremi(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
-			zad.Zavrsi(fmt.Sprintf("Obrisano %d očitanja i %d verzija za %s; "+
+			zad.Zavrsi(fmt.Sprintf("Obrisano za %s: %d %s i %d %s; "+
 				"prostor se vraća nakon VACUUM na Održavanju baze.",
-				iz.Obrisano, iz.Verzija, iz.Letva), nil)
+				iz.Letva, iz.Obrisano, models.UzBrojHR(iz.Obrisano, "očitanje", "očitanja", "očitanja"),
+				iz.Verzija, models.UzBrojHR(iz.Verzija, "verzija", "verzije", "verzija")), nil)
 			return nil
 		})
 	d.PosaoID, d.PosaoNaziv = posao.ID, posao.Naziv
@@ -229,6 +232,6 @@ func (h *UvozHandler) MakniSirotana(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/administracija/uvoz-niza", "success",
-		fmt.Sprintf("Maknut niz %s · %s · %s · %s (%d vrijednosti). U stablu ga ionako nema, "+
-			"pa se arhiva i dalje da izgraditi iznova.", letva, izvor, velicina, vrsta, n))
+		fmt.Sprintf("Maknut niz %s · %s · %s · %s (%d %s). U stablu ga ionako nema, "+
+			"pa se arhiva i dalje da izgraditi iznova.", letva, izvor, velicina, vrsta, n, models.UzBrojHR(n, "vrijednost", "vrijednosti", "vrijednosti")))
 }

@@ -19,7 +19,7 @@
     <span>novih <strong>{{brojHR .Novih}}</strong></span>
     <span>već upisanih <strong>{{brojHR .Istih}}</strong></span>
     <span>{{if .Razlicitih}}<strong style="color:var(--tint-orange-fg);">{{brojHR .Razlicitih}} s drugom vrijednošću</strong>{{else}}bez razlika{{end}}</span>
-    <span>{{if .Greske}}<strong class="c-danger">{{brojHR .Greske}} nečitljivih</strong>{{else}}sve čitljivo{{end}}</span>
+    <span>{{if .Greske}}<strong class="c-danger">{{brojHR .Greske}} {{uzBroj .Greske "nečitljiv" "nečitljiva" "nečitljivih"}}</strong>{{else}}sve čitljivo{{end}}</span>
   </div>
   <p class="page-desc mt-2 mb-0">
     Očitanja idu u operativni zapis — ono na čemu ured radi i što se sinkronizira na druge čvorove.
@@ -62,7 +62,7 @@
 
   <div class="d-flex gap-3 mt-4 items-center">
     <button type="submit" class="btn" {{if not .Novih}}disabled{{end}}>
-      {{icon "check"}} Upiši {{brojHR .Novih}} {{if eq .Novih 1}}očitanje{{else}}očitanja{{end}}
+      {{icon "check"}} Upiši {{brojHR .Novih}} {{uzBroj .Novih "očitanje" "očitanja" "očitanja"}}
     </button>
     <a href="/readings/station/{{.Station.ID}}" class="btn btn-secondary">Odustani</a>
   </div>

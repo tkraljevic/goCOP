@@ -62,7 +62,7 @@
 
 {{if .Chart}}
 <section class="detail-section">
-  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} prekid{{if gt .Chart.Praznina 1}}a{{end}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
+  <h2>{{icon "chart-column"}} Kretanje vodostaja <span class="reg-chip">{{.PogledOpis}}</span>{{if .Chart.Praznina}} <span class="reg-chip">{{.Chart.Praznina}} {{uzBroj .Chart.Praznina "prekid" "prekida" "prekida"}} u nizu</span>{{end}}{{if .Chart.ImaPrognozu}} <span class="reg-chip">s prognozom</span>{{end}}</h2>
   <div class="reg-card chart graf-niza graf-siroki" data-tocke="{{.Chart.Tocke}}" data-prognoza="{{.Chart.PrognozaTocke}}">
     {{template "grafNiza" .Chart}}
     <div class="graf-oblacic" hidden></div>
@@ -87,7 +87,7 @@
   {{end}}
   <div class="reg-card" style="padding:0.6rem 1rem; margin-top:-1px;">
     <p class="reg-card-sub" style="margin:0 0 0.35rem;">
-      {{if and $.Profil $.Profil.Spojen}}Presjek spojen iz {{len $.Profil.Sastav}} snimaka:
+      {{if and $.Profil $.Profil.Spojen}}Presjek spojen iz {{len $.Profil.Sastav}} {{uzBroj (len $.Profil.Sastav) "snimke" "snimke" "snimaka"}}:
         {{range $i, $d := $.Profil.Sastav}}{{if $i}}, {{end}}{{datumHR $d.Datum}} ({{brojHRf $d.OdM 0}}–{{brojHRf $d.DoM 0}} m){{end}}
       {{else}}Presjek snimljen {{.Datum}}{{end}} ·
       voda ucrtana po {{$.KoritoOpis}}{{if .Sustav}} · kote uz desni rub u sustavu {{.Sustav}}{{end}}</p>
@@ -163,7 +163,7 @@
       {{range .Years}}<option value="{{.}}" {{if eq $.Year .}}selected{{end}}>{{.}}.</option>{{end}}
       <option value="sve" {{if eq .Pogled "sve"}}selected{{end}}>sve</option>
     </select>
-    <span class="reg-card-sub">{{brojHR .Count}} očitanja</span>
+    <span class="reg-card-sub">{{brojHR .Count}} {{uzBroj .Count "očitanje" "očitanja" "očitanja"}}</span>
   </form>
   <div data-listanje="ocitanja">
   {{template "pager" .Pager}}

@@ -141,6 +141,20 @@ func TestObrazacIzvoraNemaFormeUTablici(t *testing.T) {
 	}
 }
 
+// Upozorenje o zapisima koji leže neiskorišteni slaže sve glagole s brojem.
+// Prije je za dva zapisa pisalo „2 zapisa leže u arhivi a ne ulazi”.
+func TestUpozorenjeONeiskoristenimSlazeGlagole(t *testing.T) {
+	for n, zeli := range map[int]string{
+		1: "1 zapis</strong> leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi.",
+		2: "2 zapisa</strong> leže u arhivi, a ne ulaze u spojeni niz, pa se nigdje ne vide.",
+		5: "5 zapisa</strong> leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi.",
+	} {
+		if html := iscrtaj(t, "izvori.html", IzvoriPageData{Zanemareno: n}); !strings.Contains(html, zeli) {
+			t.Errorf("%d: nema %q", n, zeli)
+		}
+	}
+}
+
 // Izvor mora znati gdje mu datoteke stoje. Bez toga se s ove stranice vidi da
 // izvor postoji, ali ne i je li mu išta novo stiglo — ni je li disk otkvačen.
 func TestIzvorZnaSvojuMapuNaDisku(t *testing.T) {

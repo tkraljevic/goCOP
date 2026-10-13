@@ -201,7 +201,7 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag+"#slanje", "error", err.Error())
 		return
 	}
-	poruka := fmt.Sprintf("Akt %s poslan je na %d %s.", a.Oznaka(), ishod.Poslano, adresaRijec(ishod.Poslano))
+	poruka := fmt.Sprintf("Akt %s poslan je na %d %s.", a.Oznaka(), ishod.Poslano, models.UzBrojHR(ishod.Poslano, "adresu", "adrese", "adresa"))
 	if r.FormValue("proba") == "1" {
 		poruka = "Probno pismo s aktom " + a.Oznaka() + " poslano je samo vama; primateljima nije otišlo ništa."
 	} else if ishod.Kopija {
@@ -216,16 +216,6 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, natrag+"#slanje", "success", poruka)
-}
-
-func adresaRijec(n int) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return "adresu"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		return "adrese"
-	}
-	return "adresa"
 }
 
 // PostaPageData je stranica računa e-pošte

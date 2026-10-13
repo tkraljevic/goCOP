@@ -69,7 +69,7 @@ func TestSazimanjeKnjigeURukovateljuCuvaOvjeruAkta(t *testing.T) {
 	}
 	w := httptest.NewRecorder()
 	h.HandleCompact(w, r)
-	if loc := w.Header().Get("Location"); !strings.Contains(loc, "success") || !strings.Contains(loc, "obrisano+1+") {
+	if loc := w.Header().Get("Location"); !strings.Contains(loc, "success") || !strings.Contains(loc, "Obrisano%3A+1+starija+verzija") {
 		t.Fatalf("sažimanje briše samo prvi nacrt: %d %s", w.Code, loc)
 	}
 	povijest, err := rec.History(ctx, repository.EntityAkti, akt.ID)

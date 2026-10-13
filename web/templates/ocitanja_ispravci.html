@@ -17,7 +17,7 @@
 <div class="d-flex gap-2 flex-wrap mb-5">
   <span class="stat-badge has-items">{{icon "pencil"}} {{brojHR .Izmjena}} za ispravak</span>
   {{if .Brisanja}}<span class="stat-badge">{{icon "trash"}} {{brojHR .Brisanja}} za brisanje</span>{{end}}
-  {{if .Netaknuto}}<span class="stat-badge">{{brojHR .Netaknuto}} nepromijenjeno</span>{{end}}
+  {{if .Netaknuto}}<span class="stat-badge">{{brojHR .Netaknuto}} {{uzBroj .Netaknuto "nepromijenjeno" "nepromijenjena" "nepromijenjeno"}}</span>{{end}}
   {{if .Greske}}<span class="stat-badge">{{icon "triangle-alert"}} {{brojHR .Greske}} s greškom</span>{{end}}
 </div>
 
@@ -68,9 +68,9 @@
 <div class="d-flex gap-3 mt-5 flex-wrap">
   {{if or .Izmjena .Brisanja}}
   <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši
-    {{if .Izmjena}}{{brojHR .Izmjena}} ispravak{{if ne .Izmjena 1}}a{{end}}{{end}}
+    {{if .Izmjena}}{{brojHR .Izmjena}} {{uzBroj .Izmjena "ispravak" "ispravka" "ispravaka"}}{{end}}
     {{if and .Izmjena .Brisanja}}i{{end}}
-    {{if .Brisanja}}{{brojHR .Brisanja}} brisanje{{if ne .Brisanja 1}}a{{end}}{{end}}</button>
+    {{if .Brisanja}}{{brojHR .Brisanja}} {{uzBroj .Brisanja "brisanje" "brisanja" "brisanja"}}{{end}}</button>
   {{end}}
   <a href="{{.BackURL}}" class="btn btn-secondary">Odustani</a>
 </div>

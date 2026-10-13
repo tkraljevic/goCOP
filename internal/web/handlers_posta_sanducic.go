@@ -348,30 +348,39 @@ func (h *AktiHandler) HandleSkupnaRadnja(w http.ResponseWriter, r *http.Request)
 		redirectWith(w, r, natrag, "error", "Označite barem jedno pismo")
 		return
 	}
-	n := strconv.Itoa(len(ids)) + " " + pismoRijec(len(ids))
+	// glagol se slaže s brojem: 1 pismo je premješteno, 2 pisma su premještena
+	k := len(ids)
+	n := strconv.Itoa(k) + " "
 	var err error
 	var poruka string
 	switch r.FormValue("radnja") {
 	case "obrisi":
 		if r.FormValue("mapa") == "deleteditems" {
 			// iz Obrisanog se briše trajno, kao u Outlooku
-			err, poruka = s.ObrisiTrajno(r.Context(), u, ids), n+" trajno obrisano. Exchange ih još neko vrijeme čuva u oporavljivim stavkama."
+			err, poruka = s.ObrisiTrajno(r.Context(), u, ids),
+				n+models.UzBrojHR(k, "pismo je trajno obrisano.", "pisma su trajno obrisana.", "pisama je trajno obrisano.")+
+					" Exchange obrisano još neko vrijeme čuva u oporavljivim stavkama."
 		} else {
-			err, poruka = s.PremjestiPisma(r.Context(), u, ids, "deleteditems"), n+" premješteno u Obrisano."
+			err, poruka = s.PremjestiPisma(r.Context(), u, ids, "deleteditems"),
+				n+models.UzBrojHR(k, "pismo je premješteno u Obrisano.", "pisma su premještena u Obrisano.", "pisama je premješteno u Obrisano.")
 		}
 	case "arhiviraj":
-		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "archive"), n+" premješteno u Arhivu."
+		err, poruka = s.PremjestiPisma(r.Context(), u, ids, "archive"),
+			n+models.UzBrojHR(k, "pismo je premješteno u Arhivu.", "pisma su premještena u Arhivu.", "pisama je premješteno u Arhivu.")
 	case "premjesti":
 		mapa := r.FormValue("mapa_u")
 		if mapa == "" {
 			redirectWith(w, r, natrag, "error", "Odaberite mapu u koju se pisma premještaju")
 			return
 		}
-		err, poruka = s.PremjestiPisma(r.Context(), u, ids, mapa), n+" premješteno."
+		err, poruka = s.PremjestiPisma(r.Context(), u, ids, mapa),
+			n+models.UzBrojHR(k, "pismo je premješteno.", "pisma su premještena.", "pisama je premješteno.")
 	case "procitano":
-		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, true), n+" označeno kao pročitano."
+		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, true),
+			n+models.UzBrojHR(k, "pismo je označeno kao pročitano.", "pisma su označena kao pročitana.", "pisama je označeno kao pročitano.")
 	case "neprocitano":
-		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, false), n+" označeno kao nepročitano."
+		err, poruka = s.OznaciProcitanoVise(r.Context(), u, stavke, false),
+			n+models.UzBrojHR(k, "pismo je označeno kao nepročitano.", "pisma su označena kao nepročitana.", "pisama je označeno kao nepročitano.")
 	default:
 		redirectWith(w, r, natrag, "error", "Nepoznata radnja")
 		return
@@ -381,16 +390,6 @@ func (h *AktiHandler) HandleSkupnaRadnja(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, natrag, "success", poruka)
-}
-
-func pismoRijec(n int) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return "pismo"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		return "pisma"
-	}
-	return "pisama"
 }
 
 // AdreseJSON daje prijedloge adresa za obrazac pisma

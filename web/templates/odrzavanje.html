@@ -29,10 +29,10 @@
 
 {{if .Area}}
 <div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "droplet"}} {{.WaterCount}} lokacija u popisu</span>
+  <span class="stat-badge has-items">{{icon "droplet"}} {{.WaterCount}} {{uzBroj .WaterCount "lokacija" "lokacije" "lokacija"}} u popisu</span>
   {{if .Unlinked}}<span class="stat-badge">{{icon "triangle-alert"}} {{.Unlinked}} bez veze na registar</span>{{end}}
-  <span class="stat-badge has-items">{{icon "list"}} {{len .Items}} stavki radova</span>
-  {{if .InactiveItems}}<a class="stat-badge" href="/odrzavanje?area={{.Area.ID}}{{if not .ShowAll}}&sve=1{{end}}#stavke">{{if .ShowAll}}sakrij isključene{{else}}+ {{.InactiveItems}} isključenih{{end}}</a>{{end}}
+  <span class="stat-badge has-items">{{icon "list"}} {{len .Items}} {{uzBroj (len .Items) "stavka radova" "stavke radova" "stavki radova"}}</span>
+  {{if .InactiveItems}}<a class="stat-badge" href="/odrzavanje?area={{.Area.ID}}{{if not .ShowAll}}&sve=1{{end}}#stavke">{{if .ShowAll}}sakrij isključene{{else}}+ {{.InactiveItems}} {{uzBroj .InactiveItems "isključena" "isključene" "isključenih"}}{{end}}</a>{{end}}
 </div>
 
 <section class="detail-section mt-0">
@@ -151,8 +151,8 @@
       <input type="hidden" name="token" value="{{.ImportToken}}">
       <input type="hidden" name="filename" value="{{.ImportFile}}">
       <div class="alert alert-success mb-3">
-        {{.ImportFile}} — BP {{$rep.Area}}: {{len $rep.Locations}} lokacija ({{$rep.Existing}} u registru, {{$rep.Created}} novih,
-        {{$rep.Suggested}} s prijedlogom, {{$rep.Ambiguous}} dvoznačnih), {{$rep.ItemsTotal}} stavki radova ({{$rep.ItemsNew}} novih, {{$rep.ItemsExisting}} već upisanih).
+        {{.ImportFile}} — BP {{$rep.Area}}: {{len $rep.Locations}} {{uzBroj (len $rep.Locations) "lokacija" "lokacije" "lokacija"}} ({{$rep.Existing}} u registru, {{$rep.Created}} {{uzBroj $rep.Created "nova" "nove" "novih"}},
+        {{$rep.Suggested}} s prijedlogom, {{$rep.Ambiguous}} {{uzBroj $rep.Ambiguous "dvoznačna" "dvoznačne" "dvoznačnih"}}), {{$rep.ItemsTotal}} {{uzBroj $rep.ItemsTotal "stavka radova" "stavke radova" "stavki radova"}} ({{$rep.ItemsNew}} {{uzBroj $rep.ItemsNew "nova" "nove" "novih"}}, {{$rep.ItemsExisting}} {{uzBroj $rep.ItemsExisting "već upisana" "već upisane" "već upisanih"}}).
       </div>
       <div class="table-responsive">
         <table class="data-table">

@@ -135,23 +135,6 @@ func TestSpajanjeBezPopisaIzvora(t *testing.T) {
 	}
 }
 
-// Zaključava riječ uz broj nizova u zapisu gradnje: 1, 21 i 101 niz, 2 do 4
-// niza osim 12 do 14, a ostalo nizova.
-func TestRijecUzBrojNizova(t *testing.T) {
-	for _, s := range []struct {
-		n    int
-		want string
-	}{
-		{1, "niz"}, {21, "niz"}, {101, "niz"},
-		{2, "niza"}, {4, "niza"}, {23, "niza"}, {104, "niza"},
-		{0, "nizova"}, {5, "nizova"}, {11, "nizova"}, {12, "nizova"}, {14, "nizova"}, {111, "nizova"}, {112, "nizova"},
-	} {
-		if got := uzBrojNiz(s.n); got != s.want {
-			t.Errorf("%d → %q, očekivano %q", s.n, got, s.want)
-		}
-	}
-}
-
 // biljeznik pamti korake koje mu gradnja javi.
 type biljeznik struct {
 	io.Writer

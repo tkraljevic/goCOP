@@ -150,8 +150,8 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 			snimka.Stanje = "dvojnik"
 			zadrzana := sve[najbolja[datum]]
 			p.Odbijeno = append(p.Odbijeno, fmt.Sprintf(
-				"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
-				c.ime, len(c.profil.Tocke), zadrzana.ime, len(zadrzana.profil.Tocke)))
+				"%s (%d %s) — ista snimka korita kao %s, koja ih ima %d",
+				c.ime, len(c.profil.Tocke), models.UzBrojHR(len(c.profil.Tocke), "točka", "točke", "točaka"), zadrzana.ime, len(zadrzana.profil.Tocke)))
 			p.Snimke = append(p.Snimke, snimka)
 			continue
 		}

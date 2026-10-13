@@ -519,7 +519,7 @@ type OfficerGroup struct {
 func (s Section) PersonnelByLevel() []OfficerGroup {
 	t := Terms()
 	znacenje := map[int]string{
-		1: t.Lower("org"),
+		1: t.Get("org"),
 		2: t.Lower("sektor"),
 		3: t.Lower("podrucje"),
 		4: "dionica",

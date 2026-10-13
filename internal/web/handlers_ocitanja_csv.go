@@ -584,7 +584,7 @@ func (h *ReadingsHandler) HandleOcitanjaPotvrda(w http.ResponseWriter, r *http.R
 	}
 	poruka += ". Svaka izmjena stoji u knjizi verzija s vašim imenom."
 	if len(greske) > 0 {
-		poruka += fmt.Sprintf(" %d redaka nije prošlo: %s", len(greske), greske[0])
+		poruka += fmt.Sprintf(" %d %s: %s", len(greske), models.UzBrojHR(len(greske), "redak nije prošao", "retka nisu prošla", "redaka nije prošlo"), greske[0])
 	}
 	redirectWith(w, r, back, "success", poruka)
 }
@@ -651,13 +651,7 @@ func cmIzObrasca(s string) *int {
 }
 
 func ocitanja(n int) string {
-	switch {
-	case n == 1:
-		return "1 očitanje"
-	case n < 5:
-		return fmt.Sprintf("%d očitanja", n)
-	}
-	return fmt.Sprintf("%d očitanja", n)
+	return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "očitanje", "očitanja", "očitanja"))
 }
 
 func istaDecimala(a, b *float64) bool {
