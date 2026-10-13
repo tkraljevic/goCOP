@@ -80,8 +80,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Pretplata na sve vrste za sva područja tako donosi cijelu arhivu, i
   strane i meteorološke letve. Rok držanja i dalje otpušta primljeni paket
   s računala, a arhiva ostaje. Kad pretplata na sve vrste ima godinu
-  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za očitanja,
-  dnevnike i prijave godine i sadržaj vrijede kao i dosad.
+  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za sve ostale
+  vrste godine i sadržaj vrijede kao i dosad.
 - **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
   bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
   razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
