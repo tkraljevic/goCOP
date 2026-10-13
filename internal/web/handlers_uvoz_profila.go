@@ -272,7 +272,7 @@ func (h *UvozHandler) UpisiProfile(w http.ResponseWriter, r *http.Request) {
 		// razlozi postoje, snimke i dalje čekaju i ponovno slanje ne pomaže.
 		d.ErrorMessage = "nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno"
 		if len(greske) > 0 {
-			d.ErrorMessage = "nijedna snimka nije zapisana: " + strings.Join(greske, "; ")
+			d.ErrorMessage = "Nijedna snimka nije zapisana. Razlozi: " + strings.Join(greske, "; ") + "."
 		}
 		h.pisi(w, d)
 		return

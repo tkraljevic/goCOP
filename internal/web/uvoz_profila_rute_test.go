@@ -297,7 +297,7 @@ func TestSnimkeKoritaUpisPreskaceIGradnjaPada(t *testing.T) {
 	g := porukaGreske(htmlUTekst(w.Body.String()))
 	// Što poruka kaže o isteklom odabiru, ne zaključava se: vidi
 	// TestSnimkeKoritaNezapisaneBezIsteklogOdabira.
-	if !strings.HasPrefix(g, "nijedna snimka nije zapisana") ||
+	if !strings.HasPrefix(g, "Nijedna snimka nije zapisana. Razlozi: ") ||
 		!strings.Contains(g, "pokvarena.csv — više se ne čita kao snimka korita; profil.csv — ") || !strings.Contains(g, "is a directory") {
 		t.Errorf("preskočene snimke: %q", g)
 	}
@@ -400,7 +400,8 @@ func TestSnimkeKoritaNezapisaneBezIsteklogOdabira(t *testing.T) {
 	uvozi.spremi(id+"-0", "profil.csv", []byte(snimkaKorita("3/1/2020", "100,00", 120, 4)), korisnik)
 	t.Cleanup(func() { uvozi.makni(id + "-0") })
 	w := odgovor(o.h.UpisiProfile, obicniObrazac("/", "letva=primjerovo&id="+id), o.pero, o.peroOvl)
-	if g := porukaGreske(w.Body.String()); strings.Contains(g, "istekao") || !strings.Contains(g, "profil.csv — ") {
+	if g := porukaGreske(w.Body.String()); strings.Contains(g, "istekao") ||
+		!strings.HasPrefix(g, "Nijedna snimka nije zapisana. Razlozi: profil.csv — ") || !strings.HasSuffix(g, ".") {
 		t.Errorf("snimka koja se ne da zapisati: %q", g)
 	}
 }
