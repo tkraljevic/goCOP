@@ -28,7 +28,7 @@
       {{range .Sektori}}<option value="{{.ID}}" {{if eq .ID $.Sektor}}selected{{end}}>{{.Name}}</option>{{end}}
     </select>
     <button type="submit" class="btn btn-secondary btn-sm">{{icon "refresh-cw"}} Usporedi imenik s adresarom</button>
-    <span class="form-help">Uspoređuje se samo ono što odaberete u izborniku. Sve odjednom značilo bi stotine prijava na poslužitelj e-pošte, koji ih odbija i zaključa račun.</span>
+    <span class="form-help">Uspoređuje se samo ono što odaberete u izborniku. Sve odjednom značilo bi stotine prijava na poslužitelj e-pošte, a on bi ih odbio i zaključao račun.</span>
   </form>
   {{end}}
 </div>

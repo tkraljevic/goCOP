@@ -956,7 +956,7 @@ func (s *MtsService) ObrisiVrstu(ctx context.Context, id string) error {
 		return err
 	}
 	if prometa > 0 || popisa > 0 {
-		return fmt.Errorf("vrsta „%s“ se ne može ukloniti: na nju pokazuju retci prometa (%d) i popisi (%d) — ugasite je umjesto toga", v.Naziv, prometa, popisa)
+		return fmt.Errorf("vrsta „%s“ se ne može ukloniti dok na nju pokazuju retci prometa ili popisi (redaka prometa: %d, popisa: %d) — ugasite je umjesto toga", v.Naziv, prometa, popisa)
 	}
 	return s.repo.ArhivirajVrstu(ctx, v)
 }
