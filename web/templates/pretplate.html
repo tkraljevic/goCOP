@@ -10,8 +10,9 @@
     <h1 class="page-title">{{icon "download"}} Što ovo računalo prati</h1>
     <p class="page-desc">
       Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici rastu godinama i tiču se jednog
-      područja, pa ih računalo prima samo za područja i godine koje ovdje označite. Što vam više ne treba, obrišite:
-      ostaje u uredu i vraća se čim ga opet zatražite.
+      područja, pa ih računalo prima samo za područja i godine koje ovdje označite. Što vam više ne treba, možete
+      obrisati s ovog računala. Briše se samo ono što je stiglo s drugih računala, a vraća se razmjenom čim ga opet
+      počnete pratiti. Ono što je nastalo na ovom računalu ne briše se.
     </p>
   </div>
 </div>
@@ -43,11 +44,7 @@
         <td class="nowrap text-right">
           <form method="POST" action="/pretplate/ukloni" class="d-inline">
             <input type="hidden" name="id" value="{{.ID}}">
-            <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo, podaci ostaju">Makni</button>
-          </form>
-          <form method="POST" action="/pretplate/ukloni" class="d-inline" onsubmit="return confirm('Maknuti pravilo i s ovog računala obrisati sve što više ništa ne pokriva? Podaci ostaju u uredu.')">
-            <input type="hidden" name="id" value="{{.ID}}"><input type="hidden" name="purge" value="1">
-            <button type="submit" class="btn btn-sm btn-secondary" title="Makni pravilo i obriši podatke">{{icon "trash"}} Makni i obriši</button>
+            <button type="submit" class="btn btn-sm btn-secondary" title="Pravilo prestaje vrijediti, a ništa se ne briše">Makni</button>
           </form>
         </td>
       </tr>
@@ -130,7 +127,7 @@
 
 <section class="detail-section">
   <h2>{{icon "activity"}} Što računalo drži <span class="reg-chip">{{len .Channels}}</span></h2>
-  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, može se obrisati; vraća se čim ga pretplata opet uključi.</p>
+  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, možete obrisati s ovog računala. Briše se samo ono što je stiglo s drugih računala; ono što je nastalo ovdje ostaje.</p>
   {{if .Channels}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
@@ -138,17 +135,20 @@
       <tbody>
       {{range .Channels}}
       <tr>
-        <td>{{if eq .Kind "ocitanja"}}Očitanja{{else if eq .Kind "dnevnici"}}Dnevnici{{else}}{{.Kind}}{{end}}</td>
+        <td>{{.Naziv}}</td>
         <td class="mono">{{.AreaID}}</td>
         <td class="mono">{{.Year}}</td>
         <td class="mono">{{.Versions}}</td>
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
         <td class="text-right">
           {{if not .Wanted}}
-          <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm('Obrisati {{.Channel}} s ovog računala?')">
+          <div class="form-help">{{.BriseSe}} {{.Ostaje}}</div>
+          {{if .ImaZaBrisanje}}
+          <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm({{.Potvrda}})">
             <input type="hidden" name="channel" value="{{.Channel}}">
             <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši s računala</button>
           </form>
+          {{end}}
           {{end}}
         </td>
       </tr>

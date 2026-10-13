@@ -398,19 +398,42 @@ func (r *Recorder) CountByChannel(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-// PurgeChannel briše sve verzije jednog kanala s ovog čvora. To nije
-// arhiviranje nego čišćenje mjesta: zapisi ostaju na čvorovima koji kanal
-// prate i vraćaju se razmjenom čim ga ovaj čvor opet zatraži.
-func (r *Recorder) PurgeChannel(ctx context.Context, tx Execer, channel string) (int64, error) {
+// PurgeChannel briše s ovog čvora verzije jednog kanala koje su napisali
+// drugi čvorovi. To nije arhiviranje nego čišćenje mjesta: tuđe verzije ima
+// čvor koji ih je napisao i vraćaju se razmjenom čim ovaj čvor kanal opet
+// zatraži. Vlastite verzije ostaju, jer ih možda još nijedan drugi čvor nije
+// primio (Odluke (13. 10. 2026.)). Tako u knjizi ostaje i najveća vlastita
+// verzija kanala, a drugom autoru kanal nestaje cijeli, pa njegova granica
+// nema rupu iz koje se obrisano ne bi vratilo.
+//
+// Uz obrisi=false verzije se samo prebroje, istim uvjetom: potvrda prije
+// brisanja tako kaže točno ono što brisanje učini. Vraća broj tuđih
+// (obrisanih) i vlastitih verzija kanala.
+func (r *Recorder) PurgeChannel(ctx context.Context, tx Execer, channel string, obrisi bool) (tudjih, vlastitih int, err error) {
 	if channel == "" {
-		return 0, fmt.Errorf("zajednički kanal se ne briše")
+		return 0, 0, fmt.Errorf("zajednički kanal se ne briše")
 	}
-	res, err := tx.ExecContext(ctx, `DELETE FROM record_versions WHERE channel = ?`, channel)
+	const tudje = ` FROM record_versions WHERE channel = ? AND node_id <> ?`
+	if obrisi {
+		tudjih, err = obrisiRetke(ctx, tx, `DELETE`+tudje, channel, r.nodeID)
+	} else {
+		err = tx.QueryRowContext(ctx, `SELECT count(*)`+tudje, channel, r.nodeID).Scan(&tudjih)
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	err = tx.QueryRowContext(ctx, `SELECT count(*) FROM record_versions WHERE channel = ? AND node_id = ?`, channel, r.nodeID).Scan(&vlastitih)
+	return tudjih, vlastitih, err
+}
+
+// obrisiRetke izvrši brisanje i vrati koliko je redaka obrisano
+func obrisiRetke(ctx context.Context, tx Execer, upit string, args ...any) (int, error) {
+	res, err := tx.ExecContext(ctx, upit, args...)
 	if err != nil {
 		return 0, err
 	}
-	n, _ := res.RowsAffected()
-	return n, nil
+	n, err := res.RowsAffected()
+	return int(n), err
 }
 
 // Since vraća verzije novije od zadane, redom nastanka — to je ono što se

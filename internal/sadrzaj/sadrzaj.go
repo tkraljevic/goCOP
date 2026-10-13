@@ -298,41 +298,85 @@ func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, uloga string) erro
 	return err
 }
 
-// ObrisiKanal miče s računala sav sadržaj jednog kanala i njegove veze; radi
-// se kad se kanal briše s čvora, pa sadržaj više nema tko tražiti
-func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (int, int64, error) {
-	if kanal == "" {
-		return 0, 0, nil
+// BrisanjeKanala kaže koliko sadržaja jednog kanala brisanje odnese s
+// ovog računala i koliko ostavi
+type BrisanjeKanala struct {
+	Obrisano int   // sadržaja s drugih čvorova
+	Bajtova  int64 // koliko su teški
+	Ostaje   int   // sadržaja nastalih ovdje
+}
+
+// PregledKanala kaže što bi ObrisiKanal obrisao, a ne briše ništa
+func (s *Spremiste) PregledKanala(ctx context.Context, kanal string) (BrisanjeKanala, error) {
+	_, b, err := s.zaBrisanjeKanala(ctx, kanal)
+	return b, err
+}
+
+// ObrisiKanal miče s računala sadržaj jednog kanala koji je stigao s drugih
+// čvorova, s njegovim vezama, i popis za dohvat tog kanala. Radi se kad se
+// kanal briše s čvora, pa taj sadržaj više nema tko tražiti. Sadržaj nastao
+// ovdje ostaje, kao i kod Otpusti: ovaj čvor možda je jedini koji ga ima
+// (Odluke (13. 10. 2026.)).
+func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (BrisanjeKanala, error) {
+	otisci, b, err := s.zaBrisanjeKanala(ctx, kanal)
+	if err != nil || kanal == "" {
+		return BrisanjeKanala{}, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT otisak, bajtova FROM sadrzaj WHERE kanal = ?`, kanal)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, 0, err
+		return BrisanjeKanala{}, err
 	}
+	defer tx.Rollback()
+	for _, o := range otisci {
+		if err := obrisiSadrzaj(ctx, tx, o); err != nil {
+			return BrisanjeKanala{}, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
+		return BrisanjeKanala{}, err
+	}
+	return b, tx.Commit()
+}
+
+// zaBrisanjeKanala vraća otiske sadržaja kanala koji su stigli s drugih
+// čvorova i pregled brisanja. Isti popis koriste pregled i brisanje, pa
+// potvrda prije brisanja kaže točno ono što se obriše.
+func (s *Spremiste) zaBrisanjeKanala(ctx context.Context, kanal string) ([]string, BrisanjeKanala, error) {
+	var b BrisanjeKanala
+	if kanal == "" {
+		return nil, b, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT otisak, bajtova, izvor = 'ovdje' FROM sadrzaj WHERE kanal = ?`, kanal)
+	if err != nil {
+		return nil, b, err
+	}
+	defer rows.Close()
 	var otisci []string
-	var bajtova int64
 	for rows.Next() {
 		var o string
-		var n int
-		if err := rows.Scan(&o, &n); err != nil {
-			rows.Close()
-			return 0, 0, err
+		var n int64
+		var ovdje bool
+		if err := rows.Scan(&o, &n, &ovdje); err != nil {
+			return nil, BrisanjeKanala{}, err
+		}
+		if ovdje {
+			b.Ostaje++
+			continue
 		}
 		otisci = append(otisci, o)
-		bajtova += int64(n)
+		b.Bajtova += n
 	}
-	rows.Close()
-	for _, o := range otisci {
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, o); err != nil {
-			return 0, 0, err
-		}
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ?`, o); err != nil {
-			return 0, 0, err
-		}
+	b.Obrisano = len(otisci)
+	return otisci, b, rows.Err()
+}
+
+// obrisiSadrzaj miče jedan sadržaj i sve njegove veze
+func obrisiSadrzaj(ctx context.Context, tx *sql.Tx, otisak string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, otisak); err != nil {
+		return err
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
-		return 0, 0, err
-	}
-	return len(otisci), bajtova, nil
+	_, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje'`, otisak)
+	return err
 }
 
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje

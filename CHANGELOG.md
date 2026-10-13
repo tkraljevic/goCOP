@@ -6,6 +6,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Brisanje s računala ne dira ono što je nastalo na njemu.** Na
+  stranici „Što ovo računalo prati” „Obriši s računala” i „Makni i
+  obriši” brisali su sve iz te vrste, područja i godine, i zapise, PDF-ove
+  i fotografije nastale na tom računalu. Laptop bez veze tako je mogao
+  izgubiti list koji još nije stigao u ured. Sad se briše samo ono što je
+  stiglo s drugih računala. „Makni” uz pravilo samo makne pravilo, a
+  „Makni i obriši” više nema. Uz „Obriši s računala” piše koliko će se
+  zapisa i dokumenata obrisati i koliko ih ostaje jer su nastali na tom
+  računalu. Iste brojeve kaže potvrda prije brisanja, a poruka nakon
+  brisanja kaže što je obrisano i što je ostalo.
 - **Zaključena inventura može se otključati.** Kad se poslije zaključenja
   upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
   zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno

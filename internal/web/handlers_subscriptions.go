@@ -35,7 +35,7 @@ type SubscriptionsPageData struct {
 	Permissions    *models.UserPermissions
 	All            bool // čvor prati sve, iz postavki
 	Rules          []peers.Subscription
-	Channels       []peers.ChannelStat
+	Channels       []KanalStranice
 	Sectors        []models.Sector
 	Areas          []models.Area
 	ThisYear       int
@@ -58,7 +58,7 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 		ActiveNav: "profile", ViewAsBanner: viewBanner(r),
 	}
 	data.Rules, _ = h.peers.ListSubscriptions(ctx)
-	if ch, err := h.peers.Channels(ctx); err == nil {
+	if ch, err := h.kanaliStranice(r); err == nil {
 		data.Channels = ch
 	} else {
 		data.ErrorMessage = err.Error()
@@ -70,6 +70,28 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 	if err := h.tmpl.ExecuteTemplate(w, "pretplate.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// kanaliStranice su kanali koje računalo drži; uz one koje pretplata više
+// ne pokriva ide pregled brisanja, isti koji brisanje poslije učini
+func (h *SubscriptionsHandler) kanaliStranice(r *http.Request) ([]KanalStranice, error) {
+	popis, err := h.peers.Channels(r.Context())
+	if err != nil {
+		return nil, err
+	}
+	out := make([]KanalStranice, 0, len(popis))
+	for _, c := range popis {
+		k := KanalStranice{ChannelStat: c, Naziv: nazivVrste(c.Kind)}
+		if !c.Wanted {
+			b, err := h.peers.PregledBrisanja(r.Context(), c.Channel)
+			if err != nil {
+				return nil, err
+			}
+			k.Brisanje = &b
+		}
+		out = append(out, k)
+	}
+	return out, nil
 }
 
 // HandleAdd dodaje pravilo i odmah pokrene razmjenu da podaci stignu
@@ -144,7 +166,10 @@ func predlogPretplate(u *models.User, postojeca []peers.Subscription, godina int
 	return &peers.Subscription{AreaID: area, YearFrom: godina - 1, Razina: peers.RazinaPregled, DrziDana: 90}
 }
 
-// HandleRemove miče pravilo; uz purge=1 briše i podatke koje više ništa ne pokriva
+// HandleRemove miče pravilo. Ništa se ne briše: što je pravilo donijelo
+// ostaje dok ga korisnik ne obriše u tablici „Što računalo drži”, gdje vidi
+// koliko se briše i što ostaje jer je nastalo ovdje. „Makni i obriši” je do
+// 0.0.38 jednim klikom brisao sve što više nijedno pravilo nije pokrivalo.
 func (h *SubscriptionsHandler) HandleRemove(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		redirectWith(w, r, "/pretplate", "error", "Neispravan zahtjev")
@@ -155,33 +180,20 @@ func (h *SubscriptionsHandler) HandleRemove(w http.ResponseWriter, r *http.Reque
 		redirectWith(w, r, "/pretplate", "error", err.Error())
 		return
 	}
-	msg := "Pretplata je maknuta; podaci ostaju dok ih ne obrišete."
-	if r.FormValue("purge") == "1" {
-		removed, err := h.peers.PurgeUnwanted(r.Context())
-		if err != nil {
-			redirectWith(w, r, "/pretplate", "error", err.Error())
-			return
-		}
-		var n int64
-		for _, c := range removed {
-			n += c
-		}
-		msg = "Pretplata je maknuta. Obrisano s računala: " + strconv.FormatInt(n, 10) + " " + models.UzBrojHR(int(n), "verzija", "verzije", "verzija") + "."
-	}
-	redirectWith(w, r, "/pretplate", "success", msg)
+	redirectWith(w, r, "/pretplate", "success", "Pretplata je maknuta. Što je već na ovom računalu, ostaje dok to ne obrišete u tablici „Što računalo drži”.")
 }
 
-// HandlePurge briše jedan kanal koji pretplata više ne pokriva
+// HandlePurge briše jedan kanal koji pretplata više ne pokriva i kaže što
+// je obrisano i što je ostalo jer je nastalo ovdje
 func (h *SubscriptionsHandler) HandlePurge(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		redirectWith(w, r, "/pretplate", "error", "Neispravan zahtjev")
 		return
 	}
-	channel := strings.TrimSpace(r.FormValue("channel"))
-	n, err := h.peers.PurgeChannel(r.Context(), channel)
+	b, err := h.peers.PurgeChannel(r.Context(), strings.TrimSpace(r.FormValue("channel")))
 	if err != nil {
 		redirectWith(w, r, "/pretplate", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/pretplate", "success", "Obrisano s računala: "+channel+" ("+strconv.FormatInt(n, 10)+" "+models.UzBrojHR(int(n), "verzija", "verzije", "verzija")+")")
+	redirectWith(w, r, "/pretplate", "success", porukaObrisano(b))
 }

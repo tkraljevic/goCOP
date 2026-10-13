@@ -60,9 +60,9 @@ func TestPretplataOgradjujeRazmjenu(t *testing.T) {
 	if err := laptop.svc.RemoveSubscription(ctx, rules[0].ID); err != nil {
 		t.Fatal(err)
 	}
-	removed, err := laptop.svc.PurgeUnwanted(ctx)
-	if err != nil || removed[ch1] != 1 {
-		t.Fatalf("brisanje s računala: %v %v", removed, err)
+	removed, err := laptop.svc.PurgeChannel(ctx, ch1)
+	if err != nil || removed.Verzija != 1 {
+		t.Fatalf("brisanje s računala: %+v %v", removed, err)
 	}
 	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{SectorID: "P"}); err != nil {
 		t.Fatal(err)
@@ -97,7 +97,8 @@ func TestBrisanjeKanalaBriseOdbaceneVrijednosti(t *testing.T) {
 			VALUES (?, ?, ?, 'vodostaj', 'hdv.voda.hr', '−1102 cm', ?)`, z.id, "station:"+z.id, sada, sada); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := n.rec.RecordIn(ctx, n.db, z.kanal, "odbacena_ocitanja", z.id, map[string]string{"id": z.id}); err != nil {
+		// odbačene vrijednosti zabilježio je ured, koji letve preuzima
+		if _, err := ledger.New(n.db, "cop-osijek-ured").RecordIn(ctx, n.db, z.kanal, "odbacena_ocitanja", z.id, map[string]string{"id": z.id}); err != nil {
 			t.Fatal(err)
 		}
 	}

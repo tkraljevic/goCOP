@@ -2,7 +2,6 @@ package peers
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"strings"
 	"sync"
@@ -313,7 +312,8 @@ func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscrip
 	return r, nil
 }
 
-// RemoveSubscription briše pravilo; podaci ostaju dok ih PurgeUnwanted ne makne
+// RemoveSubscription briše pravilo; podaci ostaju dok ih korisnik ne obriše
+// (PurgeChannel)
 func (s *Service) RemoveSubscription(ctx context.Context, id int) error {
 	_, err := s.db.ExecContext(ctx, `DELETE FROM subscriptions WHERE id = ?`, id)
 	return err
@@ -417,119 +417,6 @@ func channelLess(a, b ChannelStat) bool {
 	}
 	return a.Year > b.Year
 }
-
-// PurgeChannel briše jedan kanal s ovog računala: verzije iz knjige i
-// zapise s površine. Kanal koji pretplata još pokriva ne briše se, jer bi
-// se vratio prvom razmjenom; prvo se makne pretplata.
-func (s *Service) PurgeChannel(ctx context.Context, channel string) (int64, error) {
-	wants, err := s.CurrentWants(ctx)
-	if err != nil {
-		return 0, err
-	}
-	if wants.Match(channel, s.sectorLookup(ctx)) {
-		return 0, fmt.Errorf("kanal %s još je pod pretplatom; prvo maknite pretplatu", channel)
-	}
-	kind, _, _ := ledger.SplitChannel(channel)
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback()
-	switch kind {
-	case ledger.ChannelReadings:
-		if err := obrisiOcitanjaKanala(ctx, tx, channel); err != nil {
-			return 0, err
-		}
-	case ledger.ChannelJournals:
-		for _, stmt := range []string{
-			`DELETE FROM journal_entries WHERE journal_id IN (SELECT id FROM journals WHERE channel = ?)`,
-			`DELETE FROM journal_sheets WHERE journal_id IN (SELECT id FROM journals WHERE channel = ?)`,
-			`DELETE FROM journals WHERE channel = ?`,
-		} {
-			if _, err := tx.ExecContext(ctx, stmt, channel); err != nil {
-				return 0, err
-			}
-		}
-	case ledger.ChannelVodocuvar:
-		_, area, year := ledger.SplitChannel(channel)
-		for _, stmt := range []string{
-			`DELETE FROM vodocuvarski_izvornici WHERE list_id IN (SELECT id FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
-			`DELETE FROM vodocuvarski_zadaci WHERE list_id IN (SELECT id FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
-			`DELETE FROM vodocuvarski_listovi WHERE area_id = ? AND substr(datum, 1, 4) = ?`,
-		} {
-			if _, err := tx.ExecContext(ctx, stmt, area, fmt.Sprint(year)); err != nil {
-				return 0, err
-			}
-		}
-
-	case ledger.ChannelPrijave:
-		_, area, year := ledger.SplitChannel(channel)
-		for _, stmt := range []string{
-			`DELETE FROM prijave_izvornici WHERE prijava_id IN (SELECT id FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?)`,
-			`DELETE FROM prijave WHERE area_id = ? AND substr(datum, 1, 4) = ?`,
-		} {
-			if _, err := tx.ExecContext(ctx, stmt, area, fmt.Sprint(year)); err != nil {
-				return 0, err
-			}
-		}
-	default:
-		return 0, fmt.Errorf("nepoznata vrsta kanala %q", channel)
-	}
-	n, err := s.rec.PurgeChannel(ctx, tx, channel)
-	if err != nil {
-		return 0, err
-	}
-	if err := tx.Commit(); err != nil {
-		return 0, err
-	}
-	// sadržaj kanala (PDF-ovi, fotografije) više nema tko tražiti
-	if sp := s.spremisteSadrzaja(); sp != nil {
-		if _, _, err := sp.ObrisiKanal(ctx, channel); err != nil {
-			return n, err
-		}
-	}
-	return n, nil
-}
-
-// obrisiOcitanjaKanala briše s površine očitanja kanala i zapise o
-// vrijednostima odbačenima izvan raspona, koji putuju u istom kanalu
-// (Odluke (8. 10. 2026.), pitanje 21). Tablica odbačenih kanal ne pamti, pa
-// se njezin redak nalazi po verziji u knjizi; zato ide prije brisanja knjige.
-func obrisiOcitanjaKanala(ctx context.Context, tx *sql.Tx, channel string) error {
-	for _, stmt := range []string{
-		`DELETE FROM odbacena_ocitanja WHERE id IN (
-			SELECT entity_id FROM record_versions WHERE channel = ? AND entity = 'odbacena_ocitanja')`,
-		`DELETE FROM readings WHERE channel = ?`,
-	} {
-		if _, err := tx.ExecContext(ctx, stmt, channel); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// PurgeUnwanted briše sve kanale koje pretplata više ne pokriva
-func (s *Service) PurgeUnwanted(ctx context.Context) (map[string]int64, error) {
-	list, err := s.Channels(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := map[string]int64{}
-	for _, c := range list {
-		if c.Wanted {
-			continue
-		}
-		n, err := s.PurgeChannel(ctx, c.Channel)
-		if err != nil {
-			return out, err
-		}
-		out[c.Channel] = n
-	}
-	return out, nil
-}
-
-// unused guard so sql import stays meaningful when queries move
-var _ = sql.ErrNoRows
 
 // ZeliSadrzaj javlja hoće li ovaj čvor po svojim pretplatama dohvatiti
 // sadržaj kanala te vrste. Tko bilježi što treba dohvatiti, pita prije
