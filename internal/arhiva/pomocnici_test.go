@@ -105,7 +105,7 @@ func bezPrava(t *testing.T, mapa string, prava os.FileMode) {
 	if err := os.Chmod(mapa, prava); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { os.Chmod(mapa, 0o755) })
+	t.Cleanup(func() { _ = os.Chmod(mapa, 0o755) })
 }
 
 // greskaSadrzi javlja grešku testa kad err nije nastala ili ne kaže ono što

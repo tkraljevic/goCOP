@@ -25,7 +25,7 @@ func spremisteNaDisku(t *testing.T) (*sadrzaj.Spremiste, *sql.DB) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	veza, err := sql.Open("sqlite", put+"?_pragma=busy_timeout(5000)")
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestSadrzajNaZeljeDrugeStrane(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	s.SetSpremiste(sp)
 	upisi := func(kanal, tekst string) string {
 		t.Helper()
@@ -164,7 +164,7 @@ func TestPrimljeniSadrzajProlaziOtisak(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	s.SetSpremiste(sp)
 	if n := s.primiSadrzaj(ctxRub, "ured-vukovar", stavke); n != 1 {
 		t.Errorf("upisano %d, očekivan samo ispravan", n)

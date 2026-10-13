@@ -230,7 +230,9 @@ func TestDioKojiSeNeDaRaspakirati(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Write(manifest)
+	if _, err := w.Write(manifest); err != nil {
+		t.Fatal(err)
+	}
 	if err := z.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +247,9 @@ func TestDioKojiSeNeDaRaspakirati(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	w.Write(manifest)
+	if _, err := w.Write(manifest); err != nil {
+		t.Fatal(err)
+	}
 	if err := z.Close(); err != nil {
 		t.Fatal(err)
 	}

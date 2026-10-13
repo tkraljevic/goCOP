@@ -357,7 +357,7 @@ func TestUvozCopaSadrzaj(t *testing.T) {
 	a, b := izdavacIPrimatelj(t)
 	spA, _ := sadrzaj.Otvori("")
 	spB, _ := sadrzaj.Otvori("")
-	t.Cleanup(func() { spA.Zatvori(); spB.Zatvori() })
+	t.Cleanup(func() { _ = spA.Zatvori(); _ = spB.Zatvori() })
 	a.SetSpremiste(spA)
 	b.SetSpremiste(spB)
 	izvornik := func(kanal, id string, pdf []byte) string {
@@ -539,7 +539,7 @@ func nasumicno(n int) string {
 func TestIzvozCopaKadPisanjePadne(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	sp, _ := sadrzaj.Otvori("")
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	s.SetSpremiste(sp)
 	for i, p := range []struct {
 		ime        string
@@ -587,7 +587,7 @@ func TestIzvozCopaKadPisanjePadne(t *testing.T) {
 func TestIzvozCopaPopisSadrzaja(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	sp, _ := sadrzaj.Otvori("")
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	s.SetSpremiste(sp)
 	kanal := "dnevnici/16/2026"
 	upisi := func(id string, payload any) {

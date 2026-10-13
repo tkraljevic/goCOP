@@ -47,7 +47,7 @@ func bazaPrijava(t *testing.T) (*sql.DB, *repository.PrijavaRepository) {
 	repository.SetSpremiste(spremiste)
 	t.Cleanup(func() {
 		repository.SetSpremiste(prijasnje)
-		spremiste.Zatvori()
+		_ = spremiste.Zatvori()
 	})
 	return baza, prijaveNa(baza)
 }

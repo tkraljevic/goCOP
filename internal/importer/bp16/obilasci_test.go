@@ -62,7 +62,7 @@ func dnevnikObilazaka(t *testing.T) *repository.VodocuvarRepository {
 	repository.SetSpremiste(spremiste)
 	t.Cleanup(func() {
 		repository.SetSpremiste(prijasnje)
-		spremiste.Zatvori()
+		_ = spremiste.Zatvori()
 	})
 	return repository.NewVodocuvarRepository(baza, ledger.New(baza, "cvor-b"))
 }

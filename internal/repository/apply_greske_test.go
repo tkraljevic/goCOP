@@ -154,7 +154,7 @@ func TestPrimjenaIzvornikaSKrivimOtiskom(t *testing.T) {
 	t.Cleanup(func() { SetSpremiste(prije) })
 	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
-	t.Cleanup(func() { sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() })
 	SetSpremiste(sp)
 
 	c := noviCvor(t, "b")

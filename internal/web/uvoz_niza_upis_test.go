@@ -28,7 +28,7 @@ type izdavacVrata struct {
 
 func (z *izdavacVrata) izdaj(letva string, probno bool, w io.Writer) (arhiva.IzvjestajIzdanja, error) {
 	z.pozivi = append(z.pozivi, fmt.Sprintf("%s/%v", letva, probno))
-	fmt.Fprintf(w, "sastavljam %q\n", letva)
+	_, _ = fmt.Fprintf(w, "sastavljam %q\n", letva)
 	iz := z.iz
 	iz.Probno = probno
 	return iz, z.greska
@@ -43,7 +43,7 @@ type gradnjaVrata struct {
 
 func (g *gradnjaVrata) izgradi(letva string, w io.Writer) (arhiva.Izvjestaj, error) {
 	g.letve = append(g.letve, letva)
-	fmt.Fprintf(w, "gradim %s\n", letva)
+	_, _ = fmt.Fprintf(w, "gradim %s\n", letva)
 	return arhiva.Izvjestaj{Sirotani: g.sirotani}, g.greska
 }
 

@@ -284,9 +284,15 @@ func TestUvozBP16PoTisucu(t *testing.T) {
 	}
 	// prva serija je u bazi, a iz druge ništa: ni očitanje vodomjera uz pogrešno
 	var ukupno, prvih, vodomjera int
-	baza.QueryRow(`SELECT COUNT(*) FROM readings`).Scan(&ukupno)
-	baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref LIKE 'directus:vodostaji_na_crpnim_stanicama:%' AND CAST(substr(source_ref, 40) AS INTEGER) <= 1000`).Scan(&prvih)
-	baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref = 'directus:ostali_vodostaji:1'`).Scan(&vodomjera)
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM readings`).Scan(&ukupno); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref LIKE 'directus:vodostaji_na_crpnim_stanicama:%' AND CAST(substr(source_ref, 40) AS INTEGER) <= 1000`).Scan(&prvih); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref = 'directus:ostali_vodostaji:1'`).Scan(&vodomjera); err != nil {
+		t.Fatal(err)
+	}
 	if ukupno != 1000 || prvih != 1000 || vodomjera != 0 {
 		t.Errorf("u bazi %d očitanja, iz prve serije %d, vodomjera %d", ukupno, prvih, vodomjera)
 	}

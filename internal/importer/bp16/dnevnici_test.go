@@ -177,9 +177,15 @@ func TestUvozDnevnikaRadova(t *testing.T) {
 	}
 	provjeri(rep, true)
 	var dnevnika, lokacija, voda int
-	baza.QueryRow(`SELECT COUNT(*) FROM journals`).Scan(&dnevnika)
-	baza.QueryRow(`SELECT COUNT(*) FROM maintained_waters`).Scan(&lokacija)
-	baza.QueryRow(`SELECT COUNT(*) FROM watercourses`).Scan(&voda)
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM journals`).Scan(&dnevnika); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM maintained_waters`).Scan(&lokacija); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM watercourses`).Scan(&voda); err != nil {
+		t.Fatal(err)
+	}
 	if dnevnika != 0 || lokacija != 2 || voda != 1 {
 		t.Fatalf("suhi prolaz upisao: %d dnevnika, %d lokacija, %d voda", dnevnika, lokacija, voda)
 	}
@@ -319,8 +325,12 @@ func TestUvozDnevnikaRadova(t *testing.T) {
 		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
 	}
 	var upisa, nasipa int
-	baza.QueryRow(`SELECT COUNT(*) FROM journal_entries`).Scan(&upisa)
-	baza.QueryRow(`SELECT COUNT(*) FROM structures WHERE kind = ?`, models.StructureKindEmbankment).Scan(&nasipa)
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM journal_entries`).Scan(&upisa); err != nil {
+		t.Fatal(err)
+	}
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM structures WHERE kind = ?`, models.StructureKindEmbankment).Scan(&nasipa); err != nil {
+		t.Fatal(err)
+	}
 	if upisa != 23 || nasipa != 2 {
 		t.Errorf("nakon ponovnog uvoza: %d upisa, %d nasipa", upisa, nasipa)
 	}

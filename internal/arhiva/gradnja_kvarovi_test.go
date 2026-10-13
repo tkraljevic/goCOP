@@ -536,7 +536,9 @@ func TestNecitljivaMapaZaustavljaPopis(t *testing.T) {
 	if _, err := popisi(koren, ""); !errors.Is(err, fs.ErrPermission) {
 		t.Errorf("nečitljiva mapa letve: %v", err)
 	}
-	os.Chmod(letva, 0o755)
+	if err := os.Chmod(letva, 0o755); err != nil {
+		t.Fatal(err)
+	}
 
 	bezPrava(t, filepath.Join(koren, "dunav"), 0)
 	if _, err := popisi(koren, ""); !errors.Is(err, fs.ErrPermission) {
