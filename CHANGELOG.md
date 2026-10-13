@@ -69,6 +69,15 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Pretplata na sve vrste donosi i arhivu vodostaja svog područja.**
+  Laptop s pretplatom npr. „sve vrste, BP 16, 2025.–2026.” nikad nije dobio
+  pakete arhive svog područja. Paket nosi cijelu povijest letve i nema
+  godinu, a pretplata je gledala godine. Ni vrsta „Arhiva vodostaja” s
+  popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
+  vrste za područje donosi i pakete arhive tog područja, bez obzira na
+  godine, a pretplata samo na arhivu se upisuje. Paket stiže kad je sadržaj
+  uz zapise „Sve”. Za očitanja, dnevnike i prijave godine vrijede kao i
+  dosad.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

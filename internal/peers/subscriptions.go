@@ -111,22 +111,31 @@ func (s Subscription) matches(kind string, areaID, year int, sectorOf func(int) 
 	if s.Kind != "" && s.Kind != kind {
 		return false
 	}
-	if s.AreaID > 0 && s.AreaID != areaID {
+	if !s.pokrivaPodrucje(areaID, sectorOf) {
 		return false
 	}
-	if s.SectorID != "" && s.AreaID == 0 && sectorOf(areaID) != s.SectorID {
-		return false
-	}
-	if kind == ledger.ChannelArhiva && s.Kind == ledger.ChannelArhiva {
-		return true // paket arhive nosi cijelu povijest letve, godine ne vrijede
-	}
-	if s.YearFrom > 0 && year < s.YearFrom {
-		return false
-	}
-	if s.YearTo > 0 && year > s.YearTo {
-		return false
+	// Paket arhive nosi cijelu povijest letve i kanal mu nema godine
+	// (arhiva/područje/0), pa godine ne vrijede ni uz pravilo „sve vrste”.
+	// Laptop s pravilom „sve vrste, BP 16, 2025.–2026.” inače nikad nije
+	// dobio arhivu svog područja (Odluke (13. 10. 2026.)).
+	return kind == ledger.ChannelArhiva || s.pokrivaGodinu(year)
+}
+
+// pokrivaPodrucje: područje pravila ima prednost pred sektorom, a pravilo
+// bez njih pokriva svako područje
+func (s Subscription) pokrivaPodrucje(areaID int, sectorOf func(int) string) bool {
+	switch {
+	case s.AreaID > 0:
+		return s.AreaID == areaID
+	case s.AreaID == 0 && s.SectorID != "":
+		return sectorOf(areaID) == s.SectorID
 	}
 	return true
+}
+
+// pokrivaGodinu: godina 0 u pravilu znači bez ograde s te strane
+func (s Subscription) pokrivaGodinu(year int) bool {
+	return (s.YearFrom <= 0 || year >= s.YearFrom) && (s.YearTo <= 0 || year <= s.YearTo)
 }
 
 // Match javlja želi li čvor s ovim pretplatama taj kanal
@@ -235,12 +244,22 @@ func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 	return out, rows.Err()
 }
 
+// vrstaPretplate javlja smije li pretplata imati tu vrstu; prazna su sve
+// vrste. Arhiva je na popisu od 0.0.38: stranica pretplata nudila ju je od
+// 0.0.7, a upis ju je odbijao.
+func vrstaPretplate(kind string) bool {
+	switch kind {
+	case "", ledger.ChannelReadings, ledger.ChannelJournals, ledger.ChannelPrijave, ledger.ChannelVodocuvar, ledger.ChannelArhiva:
+		return true
+	}
+	return false
+}
+
 // AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
 func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
 	r.Kind = strings.TrimSpace(r.Kind)
-	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals &&
-		r.Kind != ledger.ChannelPrijave && r.Kind != ledger.ChannelVodocuvar {
-		return r, fmt.Errorf("vrsta je očitanja, dnevnici, prijave, vodočuvarski dnevnik ili sve")
+	if !vrstaPretplate(r.Kind) {
+		return r, fmt.Errorf("Pretplata nije dodana: vrsta mora biti očitanja, dnevnici, prijave s terena, vodočuvarski dnevnik, arhiva vodostaja ili sve vrste.")
 	}
 	switch r.Razina {
 	case "", RazinaSve:
