@@ -300,7 +300,7 @@ func (s pokvareniIzvor) Users(ctx context.Context) ([]json.RawMessage, error) {
 
 // lazniDnevnik je dnevnik vodočuvara u memoriji, s greškom na zadanom koraku
 type lazniDnevnik struct {
-	greska  string // "izvor", "zadan", "list", "zadatak", "prilog"
+	greska  string // "izvor", "zadan", "oznaka", "list", "zadatak", "prilog"
 	listovi []models.VodocuvarskiList
 	zadaci  []models.Zadatak
 	prilozi []string
@@ -332,6 +332,19 @@ func (d *lazniDnevnik) ZaDan(_ context.Context, userID string, dan time.Time) (*
 	}
 	for i := range d.listovi {
 		if d.listovi[i].UserID == userID && d.listovi[i].Datum.Equal(dan) {
+			l := d.listovi[i]
+			return &l, nil
+		}
+	}
+	return nil, nil
+}
+
+func (d *lazniDnevnik) Get(_ context.Context, id string) (*models.VodocuvarskiList, error) {
+	if d.greska == "oznaka" {
+		return nil, errors.New("baza zaključana")
+	}
+	for i := range d.listovi {
+		if d.listovi[i].ID == id {
 			l := d.listovi[i]
 			return &l, nil
 		}
@@ -676,7 +689,7 @@ func TestDopunaObilaskaGreske(t *testing.T) {
 		return d, deps
 	}
 	for greska, poruka := range map[string]string{
-		"zadan":  "obilazak 1: list dana: baza zaključana",
+		"oznaka": "obilazak 1: list obilaska: baza zaključana",
 		"prilog": "obilazak 1: prilog: nema spremišta",
 		"list":   "obilazak 1: list: list predan u međuvremenu",
 	} {
@@ -707,10 +720,71 @@ func TestDopunaObilaskaGreske(t *testing.T) {
 		"bez fotografija": func(*ObilasciDeps) probniIzvor { return bezFotografija },
 	} {
 		d, deps := prenesen(t)
-		d.greska = "zadan"
+		d.greska = "oznaka"
 		src := izmijeni(&deps)
 		if rep, err := RunObilasci(ctx, src, deps); err != nil || rep.Postoje != 1 || rep.Dopunjeno != 0 {
 			t.Errorf("%s: %+v, %v", ime, rep, err)
 		}
+	}
+}
+
+// Kad vodočuvar za dan obilaska ima dva lista, fotografija koja stigne
+// ponovnim uvozom ide na list na kojem zadatak stoji, a ne na prvi list
+// dana. Na list s kojeg je zadatak maknut i kad lista više nema ne dodaje
+// se ništa, a zapisnik kaže zašto.
+func TestDopunaObilaskaIdeNaListZadatka(t *testing.T) {
+	ctx := context.Background()
+	d := &lazniDnevnik{}
+	deps := depsJednogObilaska(t, d)
+	slika := deps.Datoteka
+	deps.Datoteka = func(context.Context, string, string) ([]byte, error) {
+		return nil, errors.New("Directus odgovorio 404")
+	}
+	if rep, err := RunObilasci(ctx, jedanObilazak(), deps); err != nil || rep.Upisano != 1 || len(d.listovi) != 1 {
+		t.Fatalf("prvi uvoz: %+v, %v", rep, err)
+	}
+	naListu := d.listovi[0].ID
+	// drugi list istog dana, npr. dvostruki list s drugog čvora, koji je
+	// sad prvi list dana
+	drugi := models.VodocuvarskiList{ID: "drugi-list", UserID: "g-ana", Ime: "Ana Anić", Datum: d.listovi[0].Datum}
+	d.listovi = append([]models.VodocuvarskiList{drugi}, d.listovi...)
+	var zapisnik []string
+	deps.Datoteka = slika
+	deps.Log = func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) }
+
+	rep, err := RunObilasci(ctx, jedanObilazak(), deps)
+	if err != nil || rep.Postoje != 1 || rep.Dopunjeno != 1 || rep.Slika != 1 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	if len(d.listovi[0].Prilozi) != 0 {
+		t.Errorf("fotografija je na listu bez zadatka: %+v", d.listovi[0].Prilozi)
+	}
+	l := d.listovi[1]
+	if l.ID != naListu || len(l.Prilozi) != 1 || l.Prilozi[0].ZadatakID != oznakaZadatka(1) || len(l.Zadaci) != 1 {
+		t.Fatalf("list obilaska: %+v", l)
+	}
+	if len(d.prilozi) != 1 || d.prilozi[0] != naListu+"/"+l.Prilozi[0].ID {
+		t.Errorf("fotografija u spremištu nije uz list obilaska: %v", d.prilozi)
+	}
+
+	// zadatak je maknut s lista: fotografija koja mu nedostaje ne ide nikamo
+	d.listovi[1].Zadaci, d.listovi[1].Prilozi, d.prilozi, zapisnik = nil, nil, nil, nil
+	rep, err = RunObilasci(ctx, jedanObilazak(), deps)
+	if err != nil || rep.Postoje != 1 || rep.Dopunjeno != 0 || rep.Slika != 0 || len(d.prilozi) != 0 ||
+		len(d.listovi[0].Prilozi)+len(d.listovi[1].Prilozi) != 0 {
+		t.Errorf("zadatak nije na listu: %+v, %v, prilozi %v", rep, err, d.prilozi)
+	}
+	if z := strings.Join(zapisnik, "\n"); z != "  obilazak 1: zadatak više nije na listu na koji je prenesen, pa fotografije koje nedostaju nisu dodane" {
+		t.Errorf("zapisnik bez zadatka na listu:\n%s", z)
+	}
+
+	// lista obilaska više nema: ni prvi list dana ne dobije fotografiju
+	d.listovi, zapisnik = d.listovi[:1], nil
+	rep, err = RunObilasci(ctx, jedanObilazak(), deps)
+	if err != nil || rep.Postoje != 1 || rep.Dopunjeno != 0 || len(d.prilozi) != 0 || len(d.listovi[0].Prilozi) != 0 {
+		t.Errorf("bez lista obilaska: %+v, %v, prilozi %v", rep, err, d.prilozi)
+	}
+	if z := strings.Join(zapisnik, "\n"); z != "  obilazak 1: list na koji je prenesen više ne postoji, pa fotografije koje nedostaju nisu dodane" {
+		t.Errorf("zapisnik bez lista:\n%s", z)
 	}
 }

@@ -100,9 +100,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   fotografiju, uvoz je to samo zapisao, a obilazak ili prijavu upisao bez
   nje. Ponovni uvoz preneseno preskače, pa fotografija nije stigla nikad.
   Sad ponovni uvoz fotografiju koja nedostaje traži opet. Obilazak je dobije
-  na list, a zadatak ostaje kakav je bio. Prijava je dobije pod istim
-  brojem, a izvornik se izradi iznova, s njom. Nacrt i urudžbirana prijava
-  ne dopunjuju se, a u zapisniku uvoza piše zašto.
+  na list na kojem stoji, a zadatak ostaje kakav je bio. Kad vodočuvar za
+  taj dan ima dva lista, fotografija ne ide na onaj na kojem obilaska nema.
+  Prijava je dobije pod istim brojem, a izvornik se izradi iznova, s njom.
+  Nacrt i urudžbirana prijava ne dopunjuju se, a u zapisniku uvoza piše
+  zašto.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

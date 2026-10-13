@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -56,6 +57,7 @@ type ObilasciRepo interface {
 	ZadatakPoIzvoru(ctx context.Context, izvor string) (*models.Zadatak, error)
 	SaveZadatak(ctx context.Context, z *models.Zadatak) error
 	ZaDan(ctx context.Context, userID string, dan time.Time) (*models.VodocuvarskiList, error)
+	Get(ctx context.Context, id string) (*models.VodocuvarskiList, error) // list po oznaci; nil kad ga nema
 	Save(ctx context.Context, l *models.VodocuvarskiList) error
 	SavePrilog(ctx context.Context, listID, prilogID string, b []byte) error
 }
@@ -400,18 +402,36 @@ func (u *uvozObilazaka) dopuni(ctx context.Context, o obilazakRow, izvor string,
 	return nil
 }
 
-// listObilaska je list dana na koji je obilazak prenesen. Čita se samo kad
-// obilazak ima fotografija i kad ih ima odakle preuzeti; suhi prolaz ga ne
-// čita, jer ništa ne dopunjuje.
+// listObilaska je list na koji je obilazak prenesen, a nil kad nema što
+// dopuniti. List se traži po oznaci iz zadatka, a ne po danu: kad
+// vodočuvar za taj dan ima dva lista (dvostruki list s dva čvora), prvi
+// list dana ne mora biti onaj na kojem zadatak stoji, pa bi fotografije
+// stajale uz zadatak kojeg na tom listu nema. Zato se ni na list s kojeg je
+// zadatak maknut ne dodaje ništa.
 func (u *uvozObilazaka) listObilaska(ctx context.Context, o obilazakRow, z *models.Zadatak) (*models.VodocuvarskiList, error) {
-	if u.deps.DryRun || u.deps.Datoteka == nil || o.Foto1+o.Foto2+o.Foto3 == "" {
+	if !u.imaStoDopuniti(o) {
 		return nil, nil
 	}
-	l, err := u.deps.Vodocuvar.ZaDan(ctx, z.UserID, z.Za)
+	l, err := u.deps.Vodocuvar.Get(ctx, z.ListID)
 	if err != nil {
-		return nil, fmt.Errorf("list dana: %w", err)
+		return nil, fmt.Errorf("list obilaska: %w", err)
+	}
+	switch {
+	case l == nil:
+		u.logf("  obilazak %d: list na koji je prenesen više ne postoji, pa fotografije koje nedostaju nisu dodane", o.ID)
+		return nil, nil
+	case !slices.ContainsFunc(l.Zadaci, func(s models.ZadatakNaListu) bool { return s.ID == z.ID }):
+		u.logf("  obilazak %d: zadatak više nije na listu na koji je prenesen, pa fotografije koje nedostaju nisu dodane", o.ID)
+		return nil, nil
 	}
 	return l, nil
+}
+
+// imaStoDopuniti javlja može li ponovni uvoz obilasku donijeti
+// fotografije: obilazak ih ima i ima ih odakle preuzeti. Suhi prolaz ništa
+// ne dopunjuje, pa ni list ne čita.
+func (u *uvozObilazaka) imaStoDopuniti(o obilazakRow) bool {
+	return !u.deps.DryRun && u.deps.Datoteka != nil && o.Foto1+o.Foto2+o.Foto3 != ""
 }
 
 // priloziZadatka su oznake fotografija koje zadatak već ima na listu
