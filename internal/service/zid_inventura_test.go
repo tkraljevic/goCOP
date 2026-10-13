@@ -84,6 +84,20 @@ func TestZidInventuraZakljucenaIVracenaUNacrt(t *testing.T) {
 	if r := inventure(); len(r) != 3 || r[0].Naslov != "Zaključena inventura" || r[1].Naslov != "Inventura vraćena u nacrt" {
 		t.Errorf("poslije ponovnog zaključenja: %+v", r)
 	}
+	// obrisani nacrt nije redak
+	drugi, err := s.PredlozakPopisa(ctx, sk.ID, dan.AddDate(0, 0, -2))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.SpremiPopis(ctx, u, uprava, drugi); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.repo.ArhivirajPopis(ctx, drugi); err != nil {
+		t.Fatal(err)
+	}
+	if r := inventure(); len(r) != 3 {
+		t.Errorf("obrisani nacrt na zidu: %+v", r)
+	}
 	// tuđi sektor ne vidi ni jedno ni drugo
 	tudji, _, err := zid.Zadnji(ctx, &models.UserPermissions{AllowedSectors: map[string]bool{"F": true}}, FiltarZida{Modul: ModulSredstva, Limit: 50})
 	if err != nil {

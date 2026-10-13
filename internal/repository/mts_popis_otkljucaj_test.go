@@ -130,6 +130,10 @@ func TestOtkljucajPopisSveIliNista(t *testing.T) {
 			_, err := n.db.Exec(`CREATE TRIGGER pukni BEFORE DELETE ON mts_promet BEGIN SELECT RAISE(ABORT, 'pukni'); END`)
 			nuzno(t, err)
 		}},
+		{"spomenik usklađenja u knjizi", func(t *testing.T, n *cvor, _ *models.Popis) {
+			_, err := n.db.Exec(`CREATE TRIGGER pukni BEFORE INSERT ON record_versions WHEN NEW.entity = 'mts_promet' BEGIN SELECT RAISE(ABORT, 'pukni'); END`)
+			nuzno(t, err)
+		}},
 		{"knjiga", func(t *testing.T, n *cvor, _ *models.Popis) {
 			_, err := n.db.Exec(`CREATE TRIGGER pukni BEFORE INSERT ON record_versions WHEN NEW.entity = 'mts_popisi' BEGIN SELECT RAISE(ABORT, 'pukni'); END`)
 			nuzno(t, err)
