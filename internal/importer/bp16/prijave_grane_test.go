@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
@@ -244,14 +246,41 @@ func TestUvozObavijestiGreske(t *testing.T) {
 	if _, err := RunPrijave(ctx, pokvarena, deps(repo)); err == nil || !strings.HasPrefix(err.Error(), "obavijest: ") {
 		t.Errorf("nečitljiva obavijest: %v", err)
 	}
+	// bez zbirke vode obavijest bi ostala bez vode, a ponovni uvoz je
+	// preskače, pa uvoz stane prije upisa
+	bezVoda := kopijaBaze(t, predlozak)
+	rep, err := RunPrijave(ctx, pokvareniIzvor{probniIzvor: jedna(), greske: map[string]error{"vode": errors.New("Directus odgovorio 403")}}, deps(prijaveNa(bezVoda)))
+	if err == nil || err.Error() != "vode: Directus odgovorio 403" || rep.Upisano != 0 {
+		t.Errorf("zbirka vode: %+v, %v", rep, err)
+	}
+
+	// prenesena prijava koja se ne da pročitati: uvoz stane, a ne upiše je
+	// ponovno pod novim brojem
+	necitljiva := kopijaBaze(t, predlozak)
+	id := uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/bp16:obavijesti_sa_terena:30")).String()
+	sad := time.Date(2024, 7, 2, 8, 0, 0, 0, time.UTC)
+	if _, err := necitljiva.Exec(`INSERT INTO prijave (id, user_id, sektor, area_id, broj, godina, status, podaci, created_at, updated_at)
+		VALUES (?, 'g-1', 'B', 'šesnaest', 7, 2024, ?, ?, ?, ?)`, id, models.PrijavaObjavljena, `{"izvor":"bp16:obavijesti_sa_terena:30"}`, sad, sad); err != nil {
+		t.Fatal(err)
+	}
+	rep, err = RunPrijave(ctx, jedna(), deps(prijaveNa(necitljiva)))
+	if err == nil || !strings.HasPrefix(err.Error(), "obavijest 30: čitanje prenesene prijave: ") || rep.Upisano != 0 {
+		t.Errorf("nečitljiva prenesena prijava: %+v, %v", rep, err)
+	}
+	var broj int
+	var podrucje string
+	if err := necitljiva.QueryRow(`SELECT broj, area_id FROM prijave WHERE id = ?`, id).Scan(&broj, &podrucje); err != nil || broj != 7 || podrucje != "šesnaest" {
+		t.Errorf("prenesena prijava prepisana: broj %d, područje %q, %v", broj, podrucje, err)
+	}
 	d := deps(prijaveNa(kopijaBaze(t, predlozak)))
 	d.SpremiSken = func(*models.PrijavaSTerena, []byte) (string, error) { return "", errors.New("mapa nije zapisiva") }
 	if _, err := RunPrijave(ctx, jedna(), d); err == nil || err.Error() != "obavijest 30, sken: mapa nije zapisiva" {
 		t.Errorf("sken: %v", err)
 	}
 
-	// zatvorena baza: provjera prenesenog šuti, a broj prijave puca
-	if _, err := RunPrijave(ctx, jedna(), deps(prijaveNa(zatvorenaBaza(t)))); err == nil || !strings.Contains(err.Error(), "closed") {
+	// zatvorena baza: uvoz stane već na provjeri prenesenog
+	if _, err := RunPrijave(ctx, jedna(), deps(prijaveNa(zatvorenaBaza(t)))); err == nil ||
+		!strings.HasPrefix(err.Error(), "obavijest 30: čitanje prenesene prijave: ") || !strings.Contains(err.Error(), "closed") {
 		t.Errorf("zatvorena baza: %v", err)
 	}
 

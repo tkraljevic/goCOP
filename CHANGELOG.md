@@ -69,6 +69,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Uvoz iz stare evidencije BP16 staje kad ne može pročitati ono što
+  već ima.** Prije upisa uvoz obilazaka, obavijesti s terena i evidencije
+  radova provjerava što je već preneseno i koje nasipe i vode registar ima.
+  Kad se to nije dalo pročitati, uvoz je išao dalje kao da nema ničega.
+  Obilazak je tako mogao doći na list dana dvaput, prenesena prijava dobiti
+  novi broj, a nasip ući u registar drugi put. Kad Directus nije dao popis
+  voda, obavijesti su ostale bez vode i nakon ponovnog uvoza. Sad uvoz u
+  takvom slučaju stane i kaže što nije mogao pročitati.
 - **Fotografije obilaska stižu i nakon prekinutog uvoza.** Kad se
   fotografija obilaska nije dala spremiti, uvoz je javio grešku, ali
   zadatak je već bio upisan. Ponovni uvoz ga je zato preskočio, pa je na

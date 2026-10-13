@@ -295,13 +295,16 @@ func (s pokvareniIzvor) Users(ctx context.Context) ([]json.RawMessage, error) {
 
 // lazniDnevnik je dnevnik vodočuvara u memoriji, s greškom na zadanom koraku
 type lazniDnevnik struct {
-	greska  string // "zadan", "list", "zadatak", "prilog"
+	greska  string // "izvor", "zadan", "list", "zadatak", "prilog"
 	listovi []models.VodocuvarskiList
 	zadaci  []models.Zadatak
 	prilozi []string
 }
 
 func (d *lazniDnevnik) ZadatakPoIzvoru(_ context.Context, izvor string) (*models.Zadatak, error) {
+	if d.greska == "izvor" {
+		return nil, errors.New("baza ne odgovara")
+	}
 	for i := range d.zadaci {
 		if d.zadaci[i].Izvor == izvor {
 			return &d.zadaci[i], nil
@@ -405,6 +408,7 @@ func TestUvozObilazakaGreske(t *testing.T) {
 	}
 
 	for greska, poruka := range map[string]string{
+		"izvor":   "obilazak 1: čitanje prenesenog zadatka: baza ne odgovara",
 		"zadan":   "obilazak 1: list dana: baza zaključana",
 		"list":    "obilazak 1: list: list predan u međuvremenu",
 		"zadatak": "obilazak 1: zadatak: disk pun",
@@ -456,6 +460,25 @@ func depsJednogObilaska(t *testing.T, repo ObilasciRepo) ObilasciDeps {
 		Vodocuvar: repo, Sektor: "B",
 		Korisnici: map[string]KorisnikUvoza{"Ana Anić": {ID: "g-ana", Ime: "Ana Anić", AreaID: 16}},
 		Datoteka:  func(context.Context, string, string) ([]byte, error) { return slika, nil },
+	}
+}
+
+// Kad se preneseni zadatak ne da pročitati, uvoz stane. Inače bi isti
+// obilazak upisao još jednom, preko zadatka koji je već prenesen.
+func TestUvozObilazakaStajeKadZadatakNijeProcitan(t *testing.T) {
+	ctx := context.Background()
+	d := &lazniDnevnik{}
+	deps := depsJednogObilaska(t, d)
+	if rep, err := RunObilasci(ctx, jedanObilazak(), deps); err != nil || rep.Upisano != 1 {
+		t.Fatalf("prvi uvoz: %+v, %v", rep, err)
+	}
+	d.greska = "izvor"
+	rep, err := RunObilasci(ctx, jedanObilazak(), deps)
+	if err == nil || err.Error() != "obilazak 1: čitanje prenesenog zadatka: baza ne odgovara" || rep.Upisano != 0 || rep.Postoje != 0 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	if len(d.zadaci) != 1 || len(d.listovi) != 1 || len(d.listovi[0].Zadaci) != 1 || len(d.listovi[0].Prilozi) != 1 {
+		t.Errorf("obilazak upisan još jednom: %d zadataka, list %+v", len(d.zadaci), d.listovi)
 	}
 }
 

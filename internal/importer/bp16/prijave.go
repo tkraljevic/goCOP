@@ -119,6 +119,27 @@ func vrstaPrijave(s string) string {
 	return models.PrijavaObavijest
 }
 
+// vodePoOznaci čita zbirku vode: naziv vode po oznaci kojom ga obavijest
+// navodi. Greška čitanja prekida uvoz, jer bi obavijest ostala bez vode, a
+// ponovni uvoz je preskače.
+func vodePoOznaci(ctx context.Context, src Source) (map[int]string, error) {
+	raw, err := src.Items(ctx, "vode")
+	if err != nil {
+		return nil, fmt.Errorf("vode: %w", err)
+	}
+	vode := map[int]string{}
+	for _, r := range raw {
+		var v struct {
+			ID   int    `json:"id"`
+			Voda string `json:"voda"`
+		}
+		if json.Unmarshal(r, &v) == nil {
+			vode[v.ID] = v.Voda
+		}
+	}
+	return vode, nil
+}
+
 // RunPrijave uvozi obavijesti s terena
 func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveReport, error) {
 	rep := PrijaveReport{DryRun: deps.DryRun, PoKorisniku: map[string]int{}, PoPodrucju: map[string]int{}, Nepoznati: map[string]int{}}
@@ -146,17 +167,9 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 			}
 		}
 	}
-	vode := map[int]string{}
-	if raw, err := src.Items(ctx, "vode"); err == nil {
-		for _, r := range raw {
-			var v struct {
-				ID   int    `json:"id"`
-				Voda string `json:"voda"`
-			}
-			if json.Unmarshal(r, &v) == nil {
-				vode[v.ID] = v.Voda
-			}
-		}
+	vode, err := vodePoOznaci(ctx, src)
+	if err != nil {
+		return rep, err
 	}
 	raw, err := src.Items(ctx, "obavijesti_sa_terena")
 	if err != nil {
@@ -176,7 +189,11 @@ func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveRepor
 	brojevi := map[int]int{} // sljedeći broj po godini
 	for _, o := range redovi {
 		izvor := fmt.Sprintf("bp16:obavijesti_sa_terena:%d", o.ID)
-		if p, _ := deps.Prijave.PoIzvoru(ctx, izvor); p != nil {
+		prenesena, err := deps.Prijave.PoIzvoru(ctx, izvor)
+		if err != nil {
+			return rep, fmt.Errorf("obavijest %d: čitanje prenesene prijave: %w", o.ID, err)
+		}
+		if prenesena != nil {
 			rep.Postoje++
 			continue
 		}

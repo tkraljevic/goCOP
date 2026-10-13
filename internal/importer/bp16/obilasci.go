@@ -164,7 +164,11 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 
 	for _, o := range redovi {
 		izvor := fmt.Sprintf("bp16:evidencije_obilaska:%d", o.ID)
-		if z, _ := deps.Vodocuvar.ZadatakPoIzvoru(ctx, izvor); z != nil {
+		prenesen, err := deps.Vodocuvar.ZadatakPoIzvoru(ctx, izvor)
+		if err != nil {
+			return rep, fmt.Errorf("obilazak %d: čitanje prenesenog zadatka: %w", o.ID, err)
+		}
+		if prenesen != nil {
 			rep.Postoje++
 			continue
 		}
