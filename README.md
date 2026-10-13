@@ -84,6 +84,8 @@ uključivati s 0.0.36-alfa ili novijim. 0.0.37-alfa radi uz 0.0.36-alfa;
 - [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)
   — izvedeno stanje i preostali razvojni planovi.
 - [Katalog alata](docs/katalog-alata.md) — pomoćni lokalni alati izvan aplikacije.
+- [Pojmovnik](docs/pojmovnik.md) — nacrt: koja se riječ piše za koji pojam,
+  za ispravke teksta i budući prijevod.
 - [Kvaliteta koda](docs/CODE_QUALITY.md) — `make quality`, referentno mjerenje
   i provjera regresija; [stabilizacija](docs/STABILIZACIJA.md) prati popravke.
 
