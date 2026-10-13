@@ -4,9 +4,13 @@ package main
 // arhivu (Uvozi → Izdavanje) za svaki paket iz kataloga zapiše u knjigu
 // kazalo — letva, izdanje, otisak, razdoblje, veličina — a sam paket stavi u
 // spremište sadržaja. Kazalo drže svi čvorovi; paket dohvaća samo čvor
-// kojemu ga pretplata pokriva (vrsta „arhiva”, po području letve, ili čvor
-// koji prati sve), i to od bilo kojeg čvora koji ga već ima. Kad paket stigne
-// i prođe provjeru otiska, ugradi se kao i paket učitan ručno.
+// kojemu ga pretplata pokriva (vrsta „arhiva” ili „sve vrste” za područje
+// ili sektor letve ili za sva područja, bez obzira na godine i na razinu
+// sadržaja, ili čvor koji prati sve; vidi peers.Subscription.matches i
+// peers.Wants.zeliSadrzaj), i to od bilo kojeg čvora koji ga već ima. Kad
+// paket stigne i prođe provjeru otiska, ugradi se kao i paket učitan ručno.
+// Rok držanja iz pretplate poslije otpusti primljeni paket sa spremišta, a
+// ugrađena arhiva ostaje i paket se ne traži ponovno.
 
 import (
 	"bytes"
@@ -23,6 +27,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/prognoza"
@@ -148,7 +153,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 	}
 	var ro *sql.DB
 	if _, err := os.Stat(r.arhivaPut); err == nil {
-		if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+		if ro, err = sql.Open("sqlite", db.SamoZaCitanje(r.arhivaPut)); err == nil {
 			defer ro.Close()
 		}
 	}
@@ -203,7 +208,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 		}
 		ugradjeno++
 		if ro == nil {
-			if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+			if ro, err = sql.Open("sqlite", db.SamoZaCitanje(r.arhivaPut)); err == nil {
 				defer ro.Close()
 			}
 		}
@@ -279,7 +284,7 @@ func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 	}
 	var ro *sql.DB
 	if _, err := os.Stat(r.arhivaPut); err == nil {
-		if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+		if ro, err = sql.Open("sqlite", db.SamoZaCitanje(r.arhivaPut)); err == nil {
 			defer ro.Close()
 		}
 	}

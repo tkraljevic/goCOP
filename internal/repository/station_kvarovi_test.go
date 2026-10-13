@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"math"
 	"strings"
 	"testing"
@@ -90,6 +91,48 @@ func TestBrisanjePostajeNeuspjeloNistaNeBrise(t *testing.T) {
 				t.Errorf("spomenika nakon neuspjelog brisanja: %d", n)
 			}
 		})
+	}
+}
+
+// Postaja koje nema ne briše se: brisanje to kaže i u knjigu ne upisuje
+// ništa. Do 13. 10. 2026. upisivalo je spomenik prazne postaje, koji je
+// razmjenom putovao na druge čvorove. Isto vrijedi za drugo brisanje iste
+// postaje, npr. iz dviju otvorenih kartica; prvo i dalje briše kao prije.
+func TestBrisanjePostajeKojeNema(t *testing.T) {
+	o := novaOkolinaPostaja(t)
+	ctx := context.Background()
+	verzija := func() int {
+		t.Helper()
+		var n int
+		nuzno(t, o.baza.QueryRow(`SELECT COUNT(*) FROM record_versions`).Scan(&n))
+		return n
+	}
+	prije := verzija()
+	if err := o.repo.DeleteStation(ctx, uuid.New()); !errors.Is(err, ErrPostajaNePostoji) {
+		t.Errorf("brisanje postaje koje nema: %v", err)
+	}
+	if n := verzija(); n != prije {
+		t.Errorf("verzija u knjizi nakon brisanja postaje koje nema: %d, prije %d", n, prije)
+	}
+
+	nuzno(t, o.repo.DeleteStation(ctx, o.primjerovo.ID))
+	id := o.primjerovo.ID.String()
+	var veze, spomenik int
+	var sadrzaj string
+	nuzno(t, o.baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE archived = 1 AND entity = ? AND entity_id LIKE ?`,
+		EntitySectionStations, "%|"+id).Scan(&veze))
+	nuzno(t, o.baza.QueryRow(`SELECT COUNT(*), MAX(payload) FROM record_versions WHERE archived = 1 AND entity = ? AND entity_id = ?`,
+		EntityStations, id).Scan(&spomenik, &sadrzaj))
+	if veze != 3 || spomenik != 1 || !strings.Contains(sadrzaj, id) || !strings.Contains(sadrzaj, `"Primjerovo"`) {
+		t.Errorf("brisanje postaje: %d spomenika veza, %d spomenika postaje %s", veze, spomenik, sadrzaj)
+	}
+
+	nakon := verzija()
+	if err := o.repo.DeleteStation(ctx, o.primjerovo.ID); !errors.Is(err, ErrPostajaNePostoji) {
+		t.Errorf("drugo brisanje iste postaje: %v", err)
+	}
+	if n := verzija(); n != nakon {
+		t.Errorf("verzija u knjizi nakon drugog brisanja iste postaje: %d, prije %d", n, nakon)
 	}
 }
 

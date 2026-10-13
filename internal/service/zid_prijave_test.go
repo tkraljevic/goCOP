@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -464,16 +465,14 @@ func razmijeni(t *testing.T, ctx context.Context, od, do *ledger.Recorder) int {
 
 // Brisanje s oglasne ploče briše verziju iz knjige samo na ovom čvoru
 // (Administracija › Opcije: „Briše samo na ovom čvoru”), i za redak prijave
-// s terena kao za svaki drugi redak. Test zaključava sadašnje ponašanje, a
-// ne obećava trajno brisanje:
-//   - prijavu objavi vodočuvar na terenskom čvoru, urudžbira je ured: kad
-//     ured obriše redak objave, redak nestaje. Brisanje tuđe verzije ne
-//     razlikuje se od sažimanja knjige (iza obrisane objave ne ostaje
-//     starija verzija ureda), a urudžba nije objava, pa redak objave ne
-//     nosi ni ona (Odluke (8. 10. 2026.), pitanje 20; prije te dorade
-//     nosila ga je, s vremenom urudžbe);
-//   - obrisana verzija koja je zadnji upis svog čvora u kanalu vraća se
-//     sljedećom razmjenom, pa je redak opet objava s terena;
+// s terena kao za svaki drugi redak:
+//   - prijavu objavi vodočuvar na terenskom čvoru, urudžbira je ured. Objava
+//     je zadnji upis terena u kanalu prijava, pa je ured ne briše: razmjena
+//     bi je vratila (Odluke (13. 10. 2026.), 1);
+//   - kad s terena stigne noviji upis u isti kanal, npr. nacrt druge
+//     prijave, objava se briše i redak nestaje. Urudžba nije objava, pa
+//     redak objave ne nosi ni ona (Odluke (8. 10. 2026.), pitanje 20; prije
+//     te dorade nosila ga je, s vremenom urudžbe). Razmjena ga ne vraća;
 //   - kad je sve verzije upisao ured, obrisani redak ne vraća ni razmjena.
 func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 	z := noviZidPrijava(t) // ured: čvor ovog zida
@@ -489,12 +488,17 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 	}
 	recT := ledger.New(bazaT, "teren")
 	teren := repository.NewPrijavaRepository(bazaT, recT)
-
-	pr := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
-		Naslov: "Procjeđivanje na nasipu", Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt, Vodotok: "Dunav"}
-	if err := teren.Save(z.ctx, pr); err != nil {
-		t.Fatal(err)
+	nacrtNaTerenu := func(naslov string) *models.PrijavaSTerena {
+		t.Helper()
+		p := &models.PrijavaSTerena{UserID: z.marko.ID.String(), Ime: z.marko.FullName, Sektor: "B", AreaID: 34, Vrsta: models.PrijavaPrijava,
+			Naslov: naslov, Opis: "Zatečeno pri obilasku.", Datum: time.Now().In(models.Zagreb), Status: models.PrijavaNacrt, Vodotok: "Dunav"}
+		if err := teren.Save(z.ctx, p); err != nil {
+			t.Fatal(err)
+		}
+		return p
 	}
+
+	pr := nacrtNaTerenu("Procjeđivanje na nasipu")
 	sad := time.Now()
 	pr.Broj, pr.Godina, pr.Status, pr.ObjavljenoAt = 42, sad.In(models.Zagreb).Year(), models.PrijavaObjavljena, &sad
 	if err := teren.Save(z.ctx, pr); err != nil {
@@ -520,18 +524,31 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 			t.Fatalf("%s: očekivan redak objave u verziji %s:\n%s", korak, verzija, naslovi(dog))
 		}
 	}
+	bezRedaka := func(korak string) {
+		t.Helper()
+		if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
+			t.Fatalf("%s: redak nosi verzija %s (urudžba %s):\n%s", korak, dog[0].VersionID, urudzba.VersionID, naslovi(dog))
+		}
+	}
 	redakObjave("prije brisanja", objava.VersionID)
 
+	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, objava.VersionID); !errors.Is(err, ledger.ErrZadnjiUpisCvora) {
+		t.Fatalf("zadnji upis terena u kanalu prijava se ne briše: %v", err)
+	}
+	redakObjave("odbijeno brisanje", objava.VersionID)
+
+	nacrtNaTerenu("Oštećena rampa")
+	if n := razmijeni(t, z.ctx, recT, z.rec); n != 1 {
+		t.Fatalf("razmjena s terena: %d verzija, očekivan nacrt", n)
+	}
 	if err := z.zid.ObrisiDogadjaj(z.ctx, ana, objava.VersionID); err != nil {
 		t.Fatal(err)
 	}
-	if dog := z.prijaveNaZidu(t, ana, FiltarZida{}); len(dog) != 0 {
-		t.Fatalf("nakon brisanja tuđe objave redak nosi verzija %s (urudžba %s):\n%s", dog[0].VersionID, urudzba.VersionID, naslovi(dog))
+	bezRedaka("nakon brisanja tuđe objave")
+	if n := razmijeni(t, z.ctx, recT, z.rec); n != 0 {
+		t.Fatalf("razmjena nakon brisanja vratila je %d verzija", n)
 	}
-	if n := razmijeni(t, z.ctx, recT, z.rec); n != 1 {
-		t.Fatalf("razmjena nakon brisanja: %d verzija, očekivana obrisana objava", n)
-	}
-	redakObjave("nakon razmjene", objava.VersionID)
+	bezRedaka("nakon razmjene")
 
 	// prijava koju je cijelu upisao ured: brisanje vrijedi i nakon razmjene
 	druga := z.nova(t, models.PrijavaObavijest, "Otpad u kanalu", 43)
@@ -550,7 +567,7 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 	if n := razmijeni(t, z.ctx, recT, z.rec); n != 0 {
 		t.Errorf("razmjena je vratila %d verzija", n)
 	}
-	redakObjave("obrisana obavijest ureda", objava.VersionID)
+	bezRedaka("obrisana obavijest ureda")
 }
 
 // Prijava objavljena prije deset dana i urudžbirana danas, pa sažimanje

@@ -10,6 +10,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -19,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
 )
 
@@ -413,7 +415,9 @@ func TestPutTunelaPrimaSamoWebSocket(t *testing.T) {
 }
 
 // Primanje zahtjeva javlja grešku kad popis čvorova za potvrdu ne može
-// složiti; potvrda se tada ne izdaje.
+// složiti; potvrda se tada ne izdaje, a novi čvor ne ostaje član ni u bazi
+// ni u knjizi. Do 0.0.38 članstvo se upisivalo prije čitanja popisa i
+// ostajalo bez potvrde. Kad se popis opet da pročitati, isti zahtjev prolazi.
 func TestPrimanjeKadSePopisCvorovaNeDaProcitati(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	f := rubniCvor(t, "pperic-thinkpad")
@@ -426,5 +430,26 @@ func TestPrimanjeKadSePopisCvorovaNeDaProcitati(t *testing.T) {
 	}
 	if potvrda, err := a.PrimiZahtjev(ctxRub, zahtjev, kod, false); err == nil || potvrda != nil {
 		t.Errorf("potvrda uz nečitljiv popis čvorova: %v", err)
+	}
+	bezClanstva(t, a, f.node.ID)
+	if _, err := a.db.Exec(`DELETE FROM peers WHERE node_id = 'pokvaren'`); err != nil {
+		t.Fatal(err)
+	}
+	if potvrda, err := a.PrimiZahtjev(ctxRub, zahtjev, kod, false); err != nil || potvrda == nil {
+		t.Errorf("isti zahtjev nakon popravka: %v", err)
+	}
+	if m, err := a.getMembership(ctxRub, f.node.ID); err != nil || m == nil {
+		t.Errorf("članstvo nakon primanja: %v", err)
+	}
+}
+
+// bezClanstva: čvor nije član ni na površini ni u knjizi primatelja
+func bezClanstva(t *testing.T, a *Service, id string) {
+	t.Helper()
+	if m, err := a.getMembership(ctxRub, id); err != nil || m != nil {
+		t.Errorf("odbijeni %s ostao je član: %+v %v", id, m, err)
+	}
+	if _, err := a.rec.Latest(ctxRub, EntityMemberships, id); !errors.Is(err, ledger.ErrNoVersion) {
+		t.Errorf("članstvo odbijenog %s je u knjizi: %v", id, err)
 	}
 }

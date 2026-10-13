@@ -5,6 +5,7 @@ import (
 	"math"
 	"time"
 
+	gocopdb "gocop/internal/db"
 	"gocop/internal/prognoza"
 )
 
@@ -111,7 +112,7 @@ func (c *CitacPrognoza) OpisIzdanja(izdano time.Time) (prognoza.OpisIzdanja, boo
 
 // OtvoriPrognoze otvara bazu prognoza za čitanje.
 func OtvoriPrognoze(put string) (*CitacPrognoza, error) {
-	db, err := sql.Open("sqlite", put+"?mode=ro&_pragma=busy_timeout(3000)")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, err
 	}

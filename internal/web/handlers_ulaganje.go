@@ -235,3 +235,72 @@ func (h *UvozHandler) MakniSirotana(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("Maknut niz %s · %s · %s · %s (%d %s). U stablu ga ionako nema, "+
 			"pa se arhiva i dalje da izgraditi iznova.", letva, izvor, velicina, vrsta, n, models.UzBrojHR(n, "vrijednost", "vrijednosti", "vrijednosti")))
 }
+
+// MakniSnimkuBezDatoteke briše snimku korita koja je ostala u arhivi iako joj
+// datoteke u stablu više nema. Kao i niz, ni snimku gradnja ne miče sama
+// (Odluke (13. 10. 2026.)), nego čovjek, s istog popisa.
+func (h *UvozHandler) MakniSnimkuBezDatoteke(w http.ResponseWriter, r *http.Request) {
+	d := h.pageData(r)
+	if !h.smije(d) {
+		http.Error(w, "Arhivu uređuje administrator", http.StatusForbidden)
+		return
+	}
+	if h.makniSnimku == nil {
+		d.ErrorMessage = "Ovaj čvor ne može uređivati arhivu."
+		h.pisi(w, d)
+		return
+	}
+	letva := strings.TrimSpace(r.FormValue("letva"))
+	datum := strings.TrimSpace(r.FormValue("datum"))
+	if letva == "" {
+		d.ErrorMessage = "Nije zadano koju snimku korita maknuti."
+		h.pisi(w, d)
+		return
+	}
+	n, err := h.makniSnimku(letva, datum)
+	if err != nil {
+		d.ErrorMessage = "Snimka korita nije maknuta: " + err.Error()
+		h.pisi(w, d)
+		return
+	}
+	redirectWith(w, r, "/administracija/uvoz-niza", "success",
+		fmt.Sprintf("Snimka korita %s od %s maknuta je iz arhive (%d %s). U stablu je ionako nema, "+
+			"pa se arhiva i dalje da izgraditi iznova.", letva, datum, n, models.UzBrojHR(n, "točka", "točke", "točaka")))
+}
+
+// MakniKrivuljeBezDatoteke briše krivulje protoka letve kojoj je iz stabla
+// nestala datoteka krivulja. Kao ni snimke, ni krivulje gradnja ne miče sama
+// (Odluke (13. 10. 2026.)), nego čovjek, s istog popisa.
+func (h *UvozHandler) MakniKrivuljeBezDatoteke(w http.ResponseWriter, r *http.Request) {
+	d := h.pageData(r)
+	if !h.smije(d) {
+		http.Error(w, "Arhivu uređuje administrator", http.StatusForbidden)
+		return
+	}
+	if h.makniKrivulje == nil {
+		d.ErrorMessage = "Ovaj čvor ne može uređivati arhivu."
+		h.pisi(w, d)
+		return
+	}
+	letva := strings.TrimSpace(r.FormValue("letva"))
+	if letva == "" {
+		d.ErrorMessage = "Nije zadano kojoj letvi maknuti krivulje protoka."
+		h.pisi(w, d)
+		return
+	}
+	n, err := h.makniKrivulje(letva)
+	if err != nil {
+		d.ErrorMessage = "Krivulje protoka nisu maknute: " + err.Error()
+		h.pisi(w, d)
+		return
+	}
+	redirectWith(w, r, "/administracija/uvoz-niza", "success", porukaMaknutihKrivulja(letva, n))
+}
+
+// porukaMaknutihKrivulja je poruka o uspjehu micanja krivulja, s glagolom i
+// riječju u obliku koji traži broj.
+func porukaMaknutihKrivulja(letva string, n int) string {
+	return fmt.Sprintf("Iz arhive %s %d %s protoka letve %s. Datoteke krivulja u stablu ionako nema, "+
+		"pa se arhiva i dalje da izgraditi iznova.", models.UzBrojHR(n, "je maknuta", "su maknute", "je maknuto"),
+		n, models.UzBrojHR(n, "krivulja", "krivulje", "krivulja"), letva)
+}

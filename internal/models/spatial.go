@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 )
 
@@ -270,6 +271,43 @@ func (s Section) EffectiveDescription() string {
 	}
 	return s.ComposeDescription()
 }
+
+// SkratiOpisDionice vraća opis dionice bez stacionaže i duljine, samo vodu,
+// obalu i obuhvat, kako ih historijat letve pokazuje uz šifru (Odluke
+// (13. 10. 2026.)). Opis se ne rastavlja po poljima, jer može biti upisan
+// rukom ili preuzet iz Privitka, a obuhvat u Privitku zna imati i
+// točku-zarez. Zato se skida samo ono što ComposeDescription dopisuje na kraj
+// svake poddionice i na kraj cijelog opisa.
+func SkratiOpisDionice(opis string) string {
+	opis = ukupnaDuljina.ReplaceAllString(strings.TrimSpace(opis), "")
+	var kratke []string
+	for _, p := range strings.Split(opis, " · ") {
+		if k := bezStacionaze(p); k != "" {
+			kratke = append(kratke, k)
+		}
+	}
+	return strings.Join(kratke, " · ")
+}
+
+// bezStacionaze skida s kraja poddionice dijelove koji su u cijelosti
+// stacionaža ili duljina, npr. "rkm 0+000 - 36+900" i "(36,900 km)".
+// Stacionaža usred obuhvata ostaje, jer je dio opisa mjesta.
+func bezStacionaze(poddionica string) string {
+	dijelovi := strings.Split(poddionica, ";")
+	n := len(dijelovi)
+	for n > 0 && stacionazaIliDuljina.MatchString(strings.TrimSpace(dijelovi[n-1])) {
+		n--
+	}
+	return strings.TrimSpace(strings.Join(dijelovi[:n], ";"))
+}
+
+// Oznake koje opis dionice nosi na kraju. Zapisi iz Privitka imaju i
+// crticu – umjesto -, razmak u zagradi ili stacionažu rastavljenu
+// točkom-zarezom ("rkm 29+300; 72+900"), pa ih izrazi primaju.
+var (
+	ukupnaDuljina        = regexp.MustCompile(`\s*\(\s*\d+(?:,\d+)?\s*km ukupno\)$`)
+	stacionazaIliDuljina = regexp.MustCompile(`^(?:\p{L}*\s*\d+\+\d{3}(?:\s*[-–]\s*(?:\d+\+\d{3})?)?|\(\s*\d+(?:,\d+)?\s*km\))$`)
+)
 
 // AllStationIDs su vodomjeri svih poddionica, bez ponavljanja
 func (s Section) AllStationIDs() []string {

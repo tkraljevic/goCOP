@@ -532,7 +532,7 @@
       <tbody>
       {{range .Episodes}}
       <tr>
-        <td><a href="/sections/{{.SectionCode}}#obrana" class="c-primary fw-600">{{.SectionCode}}</a>{{if .SectionName}}<div class="reg-card-sub">{{.SectionName}}</div>{{end}}</td>
+        <td><a href="/sections/{{.SectionCode}}#obrana" class="c-primary fw-600">{{.SectionCode}}</a>{{with .KratkiOpisDionice}}<div class="reg-card-sub">{{.}}</div>{{end}}</td>
         <td class="mono">{{formatDate (localTime .StartedAt)}}</td>
         <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
         <td class="nowrap">{{.Days}} {{uzBroj .Days "dan" "dana" "dana"}}</td>

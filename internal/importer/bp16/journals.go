@@ -315,17 +315,23 @@ func RunJournals(ctx context.Context, src Source, deps JournalDeps) (JournalRepo
 	for _, mw := range existing {
 		locByKey[ugovor.MatchKey(mw.Name)] = mw.ID
 	}
+	// bez popisa nasipa i voda uvoz bi upisao nasip drugi put, a vodi dao
+	// šifru koja je već zauzeta, pa greška čitanja prekida uvoz
 	embByKey := map[string]string{}
-	if embs, err := deps.Structures.ListStructures(ctx, "", deps.AreaID, models.StructureKindEmbankment, ""); err == nil {
-		for _, s := range embs {
-			embByKey[ugovor.MatchKey(s.Name)] = s.ID.String()
-		}
+	embs, err := deps.Structures.ListStructures(ctx, "", deps.AreaID, models.StructureKindEmbankment, "")
+	if err != nil {
+		return rep, fmt.Errorf("čitanje nasipa područja: %w", err)
+	}
+	for _, s := range embs {
+		embByKey[ugovor.MatchKey(s.Name)] = s.ID.String()
 	}
 	waterCodes := map[string]bool{}
-	if ws, err := deps.Waters.ListWatercourses(ctx, "", "", false); err == nil {
-		for _, w := range ws {
-			waterCodes[w.Code] = true
-		}
+	ws, err := deps.Waters.ListWatercourses(ctx, "", "", false)
+	if err != nil {
+		return rep, fmt.Errorf("čitanje voda: %w", err)
+	}
+	for _, w := range ws {
+		waterCodes[w.Code] = true
 	}
 	locFor := map[int]string{} // Directus id vode → maintained water ID
 	ensureLocation := func(id int) (string, error) {

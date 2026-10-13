@@ -15,15 +15,18 @@
 package arhiva
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -239,12 +242,30 @@ type Izvjestaj struct {
 	Ocitanja int
 	Spojenih int
 	Sirotani []Sirotan
+	// MaknuteKrivulje su krivulje protoka kojih u datoteci krivulja letve
+	// više nema, pa ih je gradnja maknula iz arhive.
+	MaknuteKrivulje []MaknutaKrivulja
+	// ZadrzaneKrivulje su krivulje protoka kojih u datoteci krivulja letve
+	// nema, a gradnja ih nije maknula, jer je letva stigla paketom s drugog
+	// čvora.
+	ZadrzaneKrivulje []MaknutaKrivulja
+	// NeupisaneKrivulje su krivulje protoka iz datoteke krivulja koje gradnja
+	// nije upisala, jer je letva stigla paketom s drugog čvora, a arhiva od
+	// istog dana ima drukčiju krivulju.
+	NeupisaneKrivulje []MaknutaKrivulja
 }
 
 // Sirotan je niz koji stoji u arhivi, a datoteke iz koje je nastao više nema u
 // stablu. Gradnja ga ne briše sama: izvor sa svojom mapom na vanjskom disku
 // izgleda isto tako kad disk nije priključen, a tiho brisanje bi tad odnijelo
 // godine podataka. Zato se samo javlja, a miče ga čovjek.
+//
+// Isto vrijedi za snimku korita kojoj je nestala datoteka (Odluke
+// (13. 10. 2026.)): tada je Snimka true, Datum je dan snimke, a Zapisa broj
+// njezinih točaka. Za krivulje protoka letve kojoj je nestala datoteka
+// krivulja Krivulje je true, Zapisa je broj krivulja, a Datum početak
+// valjanosti najstarije. Snimka čija se datoteka ne da pročitati ima Datoteku
+// i Gresku: takva se ne miče, nego popravlja.
 type Sirotan struct {
 	Letva    string
 	Izvor    string
@@ -252,6 +273,11 @@ type Sirotan struct {
 	Vrsta    string
 	Zapisa   int
 	USpoju   int
+	Snimka   bool
+	Krivulje bool
+	Datum    string
+	Datoteka string
+	Greska   string
 }
 
 // Izgradi čita datoteke iz koren/ i upisuje ih u arhivsku bazu. Prazna letva
@@ -340,9 +366,12 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 	javi(zapisi, "čitam krivulje protoka", 0, 0)
-	if err := krivulje(db, koren, samo); err != nil {
+	kg, err := krivulje(db, koren, samo)
+	if err != nil {
 		return iz, err
 	}
+	iz.MaknuteKrivulje, iz.ZadrzaneKrivulje, iz.NeupisaneKrivulje = kg.maknute, kg.zadrzane, kg.neupisane
+	javiKrivuljeGradnje(zapisi, kg)
 
 	kljucevi := make([]string, 0, len(nizovi))
 	for k := range nizovi {
@@ -376,19 +405,229 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 
-	iz.Sirotani, err = nadiSirotane(db, nizovi, samo, nedostupni)
+	iz.Sirotani, err = bezDatoteke(db, koren, nizovi, samo, nedostupni)
 	if err != nil {
 		return iz, err
 	}
-	for _, o := range iz.Sirotani {
-		fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s %8d  SIROTAN — datoteke nema u stablu",
-			"", o.Letva, o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
-		if o.USpoju > 0 {
-			fmt.Fprintf(zapisi, ", a %d vrijednosti je u spojenom nizu", o.USpoju)
-		}
-		fmt.Fprintln(zapisi)
-	}
+	javiBezDatoteke(zapisi, iz.Sirotani)
 	return iz, nil
+}
+
+// javiBezDatoteke piše u ispis gradnje nizove i snimke korita koji su ostali u
+// arhivi bez datoteke u stablu.
+func javiBezDatoteke(zapisi io.Writer, sirotani []Sirotan) {
+	for _, o := range sirotani {
+		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", o.Letva, o.redakIspisa())
+	}
+}
+
+// redakIspisa je redak ispisa gradnje za niz ili snimku bez datoteke, bez
+// letve na početku.
+func (o Sirotan) redakIspisa() string {
+	if o.Greska != "" {
+		return fmt.Sprintf("snimka korita u datoteci %s ne da se pročitati: %s", o.Datoteka, o.Greska)
+	}
+	if o.Krivulje {
+		return fmt.Sprintf("krivulje protoka od %s, %d %s  SIROTAN — datoteke nema u stablu",
+			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "krivulja", "krivulje", "krivulja"))
+	}
+	if o.Snimka {
+		return fmt.Sprintf("snimka korita %s, %d %s  SIROTAN — datoteke nema u stablu",
+			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "točka", "točke", "točaka"))
+	}
+	niz := fmt.Sprintf("%-22s %-12s %-10s %8d", o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
+	if o.USpoju == 0 {
+		return niz + "  SIROTAN — datoteke nema u stablu"
+	}
+	return fmt.Sprintf("%s  SIROTAN — datoteke nema u stablu, a %d %s %s u spojenom nizu", niz, o.USpoju,
+		models.UzBrojHR(o.USpoju, "vrijednost", "vrijednosti", "vrijednosti"), models.UzBrojHR(o.USpoju, "je", "su", "je"))
+}
+
+// bezDatoteke vraća nizove, snimke korita i krivulje protoka koji stoje u
+// arhivi bez datoteke u stablu. Snimke i krivulje idu na isti popis, jer i njih
+// miče čovjek, a ne gradnja.
+func bezDatoteke(db *sql.DB, koren string, nizovi map[string]*niz, samo string,
+	nedostupni map[string]bool) ([]Sirotan, error) {
+	out, err := nadiSirotane(db, nizovi, samo, nedostupni)
+	if err != nil {
+		return nil, err
+	}
+	snimke, err := snimkeBezDatoteke(db, koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	krivulje, err := krivuljeBezDatoteke(db, koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	return append(append(out, snimke...), krivulje...), nil
+}
+
+// krivuljeBezDatoteke traži letve kojima je iz stabla nestala datoteka
+// krivulja, a arhiva njihove krivulje još ima (Odluke (13. 10. 2026.)). Kao i
+// kod snimki, sudi samo o letvama koje u stablu imaju mapu. Letve koje su
+// stigle paketom preskače: njihove krivulje nisu nastale iz ovog stabla, pa
+// ni datoteka nije nestala.
+func krivuljeBezDatoteke(db Izvrsitelj, koren, samo string) ([]Sirotan, error) {
+	letve, err := Letve(koren)
+	if err != nil {
+		return nil, err
+	}
+	sDatotekom, err := letveSDatotekomKrivulja(koren)
+	if err != nil {
+		return nil, err
+	}
+	sve, err := krivuljeUArhivi(db, samo)
+	if err != nil {
+		return nil, err
+	}
+	var out []Sirotan
+	for _, o := range sve {
+		if letve[o.Letva] != "" && !sDatotekom[o.Letva] {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
+// letveSDatotekomKrivulja vraća letve koje u stablu imaju datoteku krivulja.
+func letveSDatotekomKrivulja(koren string) (map[string]bool, error) {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, p := range puts {
+		out[filepath.Base(filepath.Dir(filepath.Dir(p)))] = true
+	}
+	return out, nil
+}
+
+// krivuljeUArhivi vraća, po letvi, koliko krivulja protoka arhiva ima i od
+// kada vrijedi najstarija, bez letvi koje su stigle paketom.
+func krivuljeUArhivi(db Izvrsitelj, samo string) ([]Sirotan, error) {
+	q := `SELECT k.letva, count(*), min(k.vrijedi_od) FROM hq_krivulje k
+		WHERE NOT EXISTS (SELECT 1 FROM primljena_izdanja p WHERE p.letva = k.letva)`
+	var args []any
+	if samo != "" {
+		q += ` AND k.letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q+` GROUP BY k.letva ORDER BY k.letva`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Sirotan
+	for rows.Next() {
+		o := Sirotan{Krivulje: true}
+		if err := rows.Scan(&o.Letva, &o.Zapisa, &o.Datum); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// snimkeBezDatoteke traži snimke korita kojima u stablu nema datoteke. Sudi
+// samo o letvama koje u stablu imaju mapu: snimke letve primljene paketom,
+// bez mape u ovom stablu, ne javljaju se.
+//
+// Datoteka snimke koja se ne da pročitati ide na popis kao zaseban redak, a
+// snimke te letve iz arhive ne: ne zna se koju od njih ta datoteka drži, pa bi
+// gumb Makni mogao maknuti baš nju (Odluke (13. 10. 2026.)). Prije je takva
+// datoteka sakrila cijeli popis.
+func snimkeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
+	letve, err := Letve(koren)
+	if err != nil {
+		return nil, err
+	}
+	uStablu, necitljive, err := snimkeUStablu(koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	sve, err := snimkeUArhivi(db, samo)
+	if err != nil {
+		return nil, err
+	}
+	return append(snimkeBezSvojeDatoteke(sve, letve, uStablu, necitljive), necitljive...), nil
+}
+
+// snimkeBezSvojeDatoteke odabire snimke iz arhive kojima stablo nema
+// datoteku: letva ima mapu u stablu, nijedna njezina datoteka snimke nije
+// nečitljiva, a dana te snimke nema ni u jednoj.
+func snimkeBezSvojeDatoteke(sve []Sirotan, letve map[string]string, uStablu map[string]bool, necitljive []Sirotan) []Sirotan {
+	nejasne := map[string]bool{}
+	for _, o := range necitljive {
+		nejasne[o.Letva] = true
+	}
+	var out []Sirotan
+	for _, o := range sve {
+		if letve[o.Letva] != "" && !nejasne[o.Letva] && !uStablu[o.Letva+"|"+o.Datum] {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
+// snimkeUStablu vraća snimke korita koje stablo ima, kao „letva|datum”, i
+// datoteke snimki koje se ne daju pročitati. Dan snimke čita se iz datoteke,
+// kao i pri gradnji, a ne iz njezina imena.
+func snimkeUStablu(koren, samo string) (map[string]bool, []Sirotan, error) {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
+	if err != nil {
+		return nil, nil, err
+	}
+	out := map[string]bool{}
+	var necitljive []Sirotan
+	for _, p := range puts {
+		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
+		if samo != "" && letva != samo {
+			continue
+		}
+		datum, err := datumSnimke(p)
+		if err != nil {
+			necitljive = append(necitljive, Sirotan{Letva: letva, Snimka: true, Datoteka: filepath.Base(p), Greska: err.Error()})
+			continue
+		}
+		out[letva+"|"+datum] = true
+	}
+	return out, necitljive, nil
+}
+
+// datumSnimke čita dan snimke iz datoteke snimke korita.
+func datumSnimke(put string) (string, error) {
+	b, err := os.ReadFile(put)
+	if err != nil {
+		return "", err
+	}
+	datum, _, _, _, _, err := citajProfil(bytes.NewReader(b))
+	return datum, err
+}
+
+// snimkeUArhivi vraća snimke korita koje arhiva ima, s brojem točaka.
+func snimkeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
+	q := `SELECT p.letva, p.datum, count(t.profil) FROM profili p
+		LEFT JOIN profil_tocke t ON t.profil = p.id`
+	var args []any
+	if samo != "" {
+		q += ` WHERE p.letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q+` GROUP BY p.id ORDER BY p.letva, p.datum`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Sirotan
+	for rows.Next() {
+		o := Sirotan{Snimka: true}
+		if err := rows.Scan(&o.Letva, &o.Datum, &o.Zapisa); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
 }
 
 // nadiSirotane traži nizove koji su u arhivi a nemaju datoteku u stablu.
@@ -743,15 +982,13 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		return nil, false, err
 	}
 	defer f.Close()
-	cr := csv.NewReader(f)
-	cr.Comma = ';'
-	cr.FieldsPerRecord = -1
+	cr := csvNiza(f)
 
 	glava, err := cr.Read()
 	if err != nil {
 		return nil, false, err
 	}
-	poDanu := len(glava) > 0 && strings.EqualFold(strings.TrimPrefix(glava[0], "\ufeff"), "datum")
+	poDanu := jeZaglavljeDana(glava)
 
 	var out []zapis
 	for i := 2; ; i++ {
@@ -762,31 +999,78 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		if err != nil {
 			return nil, false, fmt.Errorf("%s redak %d: %w", filepath.Base(put), i, err)
 		}
-		if len(r) < 2 || strings.TrimSpace(r[1]) == "" {
+		rn, ima, err := procitajRedak(r, zona, filepath.Base(put), i)
+		if err != nil {
+			return nil, false, err
+		}
+		if !ima || !mogucaVrijednost(velicina, rn.v) {
 			continue
 		}
-		s := strings.TrimSpace(r[0])
-		var t time.Time
-		if len(s) >= 19 {
-			// sat postoji, pa zona ima smisla: čita se u zoni izvora
-			t, err = time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
-		} else {
-			// samo datum: dan je dan, bez obzira na zonu
-			t, err = time.Parse("2006-01-02", s[:10])
-		}
-		if err != nil {
-			return nil, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", filepath.Base(put), i, s, err)
-		}
-		v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[1]), ",", "."), 64)
-		if err != nil {
-			return nil, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", filepath.Base(put), i, r[1], err)
-		}
-		if !mogucaVrijednost(velicina, v) {
-			continue
-		}
-		out = append(out, zapis{t: t.UTC().Unix(), v: v})
+		out = append(out, zapis{t: rn.t.UTC().Unix(), v: rn.v})
 	}
 	return bezSiljaka(velicina, bezDalekih(velicina, out)), poDanu, nil
+}
+
+// csvNiza je čitač datoteke niza: točka-zarez, a redak smije imati i više
+// stupaca od zaglavlja.
+func csvNiza(r io.Reader) *csv.Reader {
+	cr := csv.NewReader(r)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+	return cr
+}
+
+// jeZaglavljeDana javlja je li niz po danu: prvi stupac zaglavlja je „datum”.
+func jeZaglavljeDana(glava []string) bool {
+	return len(glava) > 0 && strings.EqualFold(strings.TrimPrefix(glava[0], "\ufeff"), "datum")
+}
+
+// redakNiza je jedan pročitan redak datoteke niza.
+type redakNiza struct {
+	t      time.Time
+	imaSat bool
+	v      float64
+}
+
+// procitajRedak čita jedan redak datoteke niza. Isti je za gradnju i za
+// dopunu (PostojeciRedci): dok su čitali svaki na svoj način, dopuna je tiho
+// brisala retke koje je gradnja čitala bez problema. Redak bez vrijednosti
+// nije greška nego se preskače (ima = false); vrijeme ili vrijednost koji se
+// ne čitaju jesu, s imenom datoteke i brojem retka.
+func procitajRedak(r []string, zona *time.Location, ime string, i int) (redakNiza, bool, error) {
+	if len(r) < 2 || strings.TrimSpace(r[1]) == "" {
+		return redakNiza{}, false, nil
+	}
+	s := strings.TrimSpace(r[0])
+	t, imaSat, err := vrijemeNiza(s, zona)
+	if err != nil {
+		return redakNiza{}, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", ime, i, s, err)
+	}
+	v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[1]), ",", "."), 64)
+	if err != nil {
+		return redakNiza{}, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", ime, i, r[1], err)
+	}
+	return redakNiza{t: t, imaSat: imaSat, v: v}, true, nil
+}
+
+// vrijemeNiza čita prvi stupac retka niza i javlja ima li vrijeme sat. Sat se
+// čita u zoni izvora, a sam datum je dan, bez obzira na zonu.
+//
+// Vrijeme bez sekundi („2024-03-01 07:00”) prije se čitalo kao sam datum, pa
+// su se satne vrijednosti istog dana sažimale u jednu, a datum kraći od deset
+// znakova („2024-3-1”) rušio je gradnju. U stablu su 13. 10. 2026. bila samo
+// dva oblika, sa sekundama i sam datum; ostalo je ručno složeno.
+func vrijemeNiza(s string, zona *time.Location) (time.Time, bool, error) {
+	switch {
+	case len(s) >= 19:
+		t, err := time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
+		return t, true, err
+	case len(s) > 10:
+		t, err := time.ParseInLocation("2006-01-02 15:04", s, zona)
+		return t, true, err
+	}
+	t, err := time.Parse("2006-01-02", s)
+	return t, false, err
 }
 
 // bezDalekih izbacuje kote vodnog lica koje su predaleko od uobičajene
@@ -990,7 +1274,7 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 	return nil
 }
 
-func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, sustavKote string, tocke [][2]float64, err error) {
+func citajProfil(f io.Reader) (datum string, vodostaj int, kota float64, sustavKote string, tocke [][2]float64, err error) {
 	cr := csv.NewReader(f)
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
@@ -1038,98 +1322,216 @@ func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, sustavKo
 
 // krivulje učitava HQ krivulje s razdobljem valjanosti. Krivulja se povremeno
 // iznova postavlja jer se korito mijenja, pa ih letva ima više.
-func krivulje(db *sql.DB, koren, samo string) error {
+//
+// Krivulje letve prate njezinu datoteku: gradnja postavi točno krivulje iz
+// datoteke, a one kojih u datoteci više nema makne i vrati, da ih izvještaj
+// gradnje pokaže (Odluke (13. 10. 2026.)). Letvu bez datoteke krivulja gradnja
+// ne dira. Letvi koja je stigla paketom s drugog čvora krivulje iz datoteke se
+// upišu, ali se one kojih u datoteci nema ne miču, nego vraćaju kao zadržane,
+// a krivulja iz datoteke ne zamjenjuje drukčiju krivulju istog početka
+// valjanosti, nego se vraća kao neupisana.
+func krivulje(db *sql.DB, koren, samo string) (krivuljeGradnje, error) {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
 	if err != nil {
-		return err
+		return krivuljeGradnje{}, err
 	}
+	var kg krivuljeGradnje
+	uDatotekama := map[string]map[string]bool{}
+	zatecene := zateceneKrivulje{}
 	for _, p := range puts {
 		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
 		if samo != "" && letva != samo {
 			continue
 		}
-		f, err := os.Open(p)
+		uDatoteci, neupisane, err := upisiDatotekuKrivulja(db, p, letva, zatecene)
 		if err != nil {
-			return err
+			return krivuljeGradnje{}, err
 		}
-		cr := csv.NewReader(f)
-		cr.Comma = ';'
-		cr.FieldsPerRecord = -1
-		sve, err := cr.ReadAll()
-		f.Close()
-		if err != nil {
-			return err
-		}
-		br := func(x string) float64 {
-			v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(x), ",", "."), 64)
-			return v
-		}
-		cijeli := func(x string) int {
-			v, _ := strconv.Atoi(strings.TrimSpace(x))
-			return v
-		}
-		// Stupac p4 je došao naknadno, s potencijskim odsječcima. Zatečena
-		// datoteka bez njega mora se i dalje čitati, pa se stupci traže po
-		// zaglavlju umjesto da se broje.
-		stupac := map[string]int{}
-		if len(sve) > 0 {
-			for i, ime := range sve[0] {
-				stupac[strings.ToLower(strings.TrimSpace(ime))] = i
-			}
-		}
-		imaP4 := false
-		if _, ok := stupac["p4"]; ok {
-			imaP4 = true
-		}
-		polje := func(r []string, ime string) string {
-			i, ok := stupac[ime]
-			if !ok || i >= len(r) {
-				return ""
-			}
-			return strings.TrimSpace(r[i])
-		}
-		// Datoteka nosi po jedan redak za svaki odsječak; zaglavlje krivulje se
-		// ponavlja. Krivulja se prvo obriše pa iznova složi, da uklonjeni
-		// odsječak ne ostane visjeti.
-		vidjeno := map[string]int64{}
-		n := 0
-		for i, r := range sve {
-			if i == 0 || len(r) < 8 {
-				continue
-			}
-			od, do := strings.TrimSpace(r[0]), strings.TrimSpace(r[1])
-			id, ima := vidjeno[od]
-			if !ima {
-				if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, od); err != nil {
-					return err
-				}
-				res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
-					VALUES (?,?,?,?,?)`, letva, od, do, polje(r, "izvor"), polje(r, "napomena"))
-				if err != nil {
-					return err
-				}
-				id, _ = res.LastInsertId()
-				vidjeno[od] = id
-				n++
-			}
-			oblik := polje(r, "oblik")
-			if oblik != models.OblikPotencija {
-				oblik = models.OblikPolinom
-			}
-			p4 := 0.0
-			if imaP4 {
-				p4 = br(polje(r, "p4"))
-			}
-			if _, err := db.Exec(`INSERT OR REPLACE INTO hq_odsjecci
-				(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
-				id, cijeli(polje(r, "od_cm")), cijeli(polje(r, "do_cm")), oblik,
-				br(polje(r, "p1")), br(polje(r, "p2")), br(polje(r, "p3")), p4); err != nil {
-				return err
-			}
-		}
-		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
+		uDatotekama[letva] = dodajKrivulje(uDatotekama[letva], uDatoteci)
+		kg.neupisane = append(kg.neupisane, neupisane...)
+	}
+	kg.maknute, kg.zadrzane, err = makniIzvanDatoteka(db, uDatotekama)
+	return kg, err
+}
+
+// procitanoIzKrivulja javlja grešku kad se iz datoteke krivulja nije dala
+// pročitati nijedna krivulja, a datoteka nije samo zaglavlje: prazna datoteka,
+// npr. nakon prekinutog prijenosa, ili redci od kojih nijedan nema svih osam
+// stupaca, npr. sa zarezom umjesto točke-zareza. Gradnja miče krivulje kojih
+// u datoteci nema, pa bi takva datoteka iz arhive odnijela sve krivulje letve.
+// Samo zaglavlje znači da letva krivulja nema.
+func procitanoIzKrivulja(ime string, redaka, krivulja int) error {
+	const stala = "gradnja je stala, da ne makne sve krivulje letve: "
+	switch {
+	case redaka == 0:
+		return fmt.Errorf(stala+"datoteka krivulja %s je prazna, bez ijednog retka", ime)
+	case redaka > 1 && krivulja == 0:
+		return fmt.Errorf(stala+"u datoteci krivulja %s nijedan redak nema svih osam stupaca, a razdjelnik mora biti točka-zarez", ime)
 	}
 	return nil
+}
+
+// dodajKrivulje dodaje krivulje jedne datoteke onima koje su druge datoteke
+// iste letve već dale.
+func dodajKrivulje(dosad, vidjeno map[string]bool) map[string]bool {
+	if dosad == nil {
+		return vidjeno
+	}
+	maps.Copy(dosad, vidjeno)
+	return dosad
+}
+
+// makniIzvanDatoteka miče krivulje kojih nema ni u jednoj datoteci krivulja
+// letve i vraća ih, a uz njih i one koje su ostale jer je letva stigla
+// paketom. Letva u hq/ zna imati i dvije datoteke; dok se sudilo po svakoj
+// zasebno, gradnja je micala krivulje prve datoteke i javljala da ih u
+// datoteci više nema, iako je datoteka bila ondje.
+func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]bool) ([]MaknutaKrivulja, []MaknutaKrivulja, error) {
+	var maknute, zadrzane []MaknutaKrivulja
+	for _, letva := range slices.Sorted(maps.Keys(uDatotekama)) {
+		izvan, primljena, err := izvanDatotekaLetve(db, letva, uDatotekama[letva])
+		if err != nil {
+			return nil, nil, err
+		}
+		if primljena {
+			zadrzane = append(zadrzane, izvan...)
+		} else {
+			maknute = append(maknute, izvan...)
+		}
+	}
+	return maknute, zadrzane, nil
+}
+
+// izvanDatotekaLetve miče krivulje letve kojih u njezinim datotekama nema i
+// vraća ih. Letvu koja je stigla paketom s drugog čvora lokalna datoteka ne
+// dira (Odluke (13. 10. 2026.), „primljeno paketom se ne dira”): laptop i
+// Unraid znali su imati različite krivulje Donjeg Miholjca, pa bi starija
+// lokalna datoteka odnijela krivulje koje je donio paket. Tada se krivulje ne
+// miču, a vraćaju se s primljena true, da izvještaj gradnje kaže zašto su
+// ostale.
+func izvanDatotekaLetve(db *sql.DB, letva string, uDatoteci map[string]bool) (izvan []MaknutaKrivulja, primljena bool, err error) {
+	p, err := Primljeno(db, letva)
+	if err != nil {
+		return nil, false, fmt.Errorf("je li letva %s stigla paketom: %w", letva, err)
+	}
+	if p != nil {
+		izvan, err = krivuljeIzvanDatoteke(db, letva, uDatoteci)
+		return izvan, true, err
+	}
+	izvan, err = makniKrivuljeIzvanDatoteke(db, letva, uDatoteci)
+	return izvan, false, err
+}
+
+// MaknutaKrivulja je krivulja protoka koju je gradnja maknula iz arhive, jer
+// je u datoteci krivulja letve više nema.
+type MaknutaKrivulja struct {
+	Letva     string
+	VrijediOd string
+	VrijediDo string // prazno: krivulja nije imala kraj valjanosti
+}
+
+// Opis je rečenica za izvještaj gradnje, s razdobljem valjanosti.
+func (k MaknutaKrivulja) Opis() string {
+	if k.VrijediDo == "" {
+		return fmt.Sprintf("Krivulja protoka koja vrijedi od %s maknuta je iz arhive, jer je u datoteci krivulja više nema.",
+			danHR(k.VrijediOd))
+	}
+	return fmt.Sprintf("Krivulja protoka koja je vrijedila od %s do %s maknuta je iz arhive, jer je u datoteci krivulja više nema.",
+		danHR(k.VrijediOd), danHR(k.VrijediDo))
+}
+
+// danHR piše datum iz datoteke („2001-01-01”) hrvatski („1. 1. 2001.”). Datum
+// koji se ne čita ostaje kako je zapisan, da se u datoteci može naći.
+func danHR(iso string) string {
+	t, err := time.Parse("2006-01-02", iso)
+	if err != nil {
+		return iso
+	}
+	return t.Format("2. 1. 2006.")
+}
+
+// OpisZadrzane je rečenica za izvještaj gradnje o krivulji koja nije maknuta,
+// iako je u datoteci nema, jer je letva stigla paketom.
+func (k MaknutaKrivulja) OpisZadrzane() string {
+	if k.VrijediDo == "" {
+		return fmt.Sprintf("Krivulja protoka koja vrijedi od %s nije maknuta iz arhive, iako je u datoteci krivulja nema, jer je letva stigla paketom s drugog čvora.",
+			danHR(k.VrijediOd))
+	}
+	return fmt.Sprintf("Krivulja protoka koja je vrijedila od %s do %s nije maknuta iz arhive, iako je u datoteci krivulja nema, jer je letva stigla paketom s drugog čvora.",
+		danHR(k.VrijediOd), danHR(k.VrijediDo))
+}
+
+// krivuljeLetve vraća krivulje koje letva ima u arhivi.
+func krivuljeLetve(db *sql.DB, letva string) ([]MaknutaKrivulja, error) {
+	rows, err := db.Query(`SELECT vrijedi_od, vrijedi_do FROM hq_krivulje WHERE letva = ? ORDER BY vrijedi_od`, letva)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []MaknutaKrivulja
+	for rows.Next() {
+		k := MaknutaKrivulja{Letva: letva}
+		if err := rows.Scan(&k.VrijediOd, &k.VrijediDo); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// krivuljeIzvanDatoteke vraća krivulje letve čiji se početak valjanosti ne
+// pojavljuje u njezinim datotekama.
+func krivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]bool) ([]MaknutaKrivulja, error) {
+	sve, err := krivuljeLetve(db, letva)
+	if err != nil {
+		return nil, err
+	}
+	var izvan []MaknutaKrivulja
+	for _, k := range sve {
+		if _, ima := uDatoteci[k.VrijediOd]; !ima {
+			izvan = append(izvan, k)
+		}
+	}
+	return izvan, nil
+}
+
+// makniKrivuljeIzvanDatoteke miče krivulje letve čiji se početak valjanosti
+// više ne pojavljuje u njezinoj datoteci, s odsječcima, i vraća ih. Odsječci
+// se brišu izrijekom, jer veza bez stranih ključeva ne briše djecu sama.
+func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]bool) ([]MaknutaKrivulja, error) {
+	maknute, err := krivuljeIzvanDatoteke(db, letva, uDatoteci)
+	if err != nil {
+		return nil, err
+	}
+	for _, k := range maknute {
+		if _, err := db.Exec(`DELETE FROM hq_odsjecci WHERE krivulja IN
+			(SELECT id FROM hq_krivulje WHERE letva = ? AND vrijedi_od = ?)`, letva, k.VrijediOd); err != nil {
+			return nil, err
+		}
+		if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva = ? AND vrijedi_od = ?`, letva, k.VrijediOd); err != nil {
+			return nil, err
+		}
+	}
+	return maknute, nil
+}
+
+// javiKrivuljeGradnje piše u izvještaj gradnje koje je krivulje gradnja
+// maknula, koje je zadržala jer je letva stigla paketom, koje iz datoteke nije
+// upisala, i kad su vrijedile.
+func javiKrivuljeGradnje(zapisi io.Writer, kg krivuljeGradnje) {
+	redci := make([][2]string, 0, len(kg.maknute)+len(kg.zadrzane)+len(kg.neupisane))
+	for _, k := range kg.maknute {
+		redci = append(redci, [2]string{k.Letva, k.Opis()})
+	}
+	for _, k := range kg.zadrzane {
+		redci = append(redci, [2]string{k.Letva, k.OpisZadrzane()})
+	}
+	for _, k := range kg.neupisane {
+		redci = append(redci, [2]string{k.Letva, k.OpisNeupisane()})
+	}
+	for _, r := range redci {
+		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", r[0], r[1])
+	}
 }
 
 func nth(r []string, i int) string {
@@ -1686,8 +2088,11 @@ func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, erro
 // gradnje. Stranica ih tako može pokazati kad god se otvori, a ne samo odmah
 // nakon što se nešto gradilo.
 //
-// Prolazi se samo kroz nazive datoteka, ne kroz njihov sadržaj, pa je jeftino
-// dovoljno da stoji na svakom otvaranju stranice.
+// Nizovi se traže samo po nazivima datoteka. Snimke korita čitaju se cijele,
+// jer dan snimke piše u datoteci, a ne u imenu; na laptopu je to 13. 10. 2026.
+// bilo 245 malih datoteka, oko 1 MB, pa je i to dovoljno jeftino za svako
+// otvaranje stranice. Snimka koja se ne da pročitati javlja se zasebnim
+// retkom (snimkeBezDatoteke).
 func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 	nizovi, err := popisi(koren, "")
 	if err != nil {
@@ -1715,5 +2120,87 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 			}
 		}
 	}
-	return nadiSirotane(db, nizovi, "", nedostupni)
+	return bezDatoteke(db, koren, nizovi, "", nedostupni)
+}
+
+// MakniKrivulje briše iz arhive krivulje protoka letve kojoj datoteke krivulja
+// u stablu više nema i vraća koliko je krivulja maknuto. Kao ni snimke, ni
+// krivulje bez datoteke gradnja ne miče sama (Odluke (13. 10. 2026.)):
+// odlučuje čovjek, na popisu bez datoteke. Datoteke u stablu se ne diraju.
+func MakniKrivulje(db *sql.DB, baza, koren, letva string) (int, error) {
+	// Ista brava kao gradnja i ugradnja paketa: one istodobno brišu i upisuju
+	// krivulje.
+	brava, err := Uzmi(baza, "micanje krivulja protoka "+letva, "")
+	if err != nil {
+		return 0, err
+	}
+	defer brava.Pusti()
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	if err := krivuljeJosBezDatoteke(tx, koren, letva); err != nil {
+		return 0, err
+	}
+	// Odsječci se brišu izrijekom: veza bez stranih ključeva ne briše djecu sama.
+	if _, err := tx.Exec(`DELETE FROM hq_odsjecci WHERE krivulja IN
+		(SELECT id FROM hq_krivulje WHERE letva = ?)`, letva); err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec(`DELETE FROM hq_krivulje WHERE letva = ?`, letva)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), tx.Commit()
+}
+
+// krivuljeJosBezDatoteke provjerava, pod bravom, da je letva i dalje na popisu
+// krivulja bez datoteke. Stranica s gumbom Makni zna biti otvorena dugo: letva
+// je u međuvremenu mogla stići paketom ili dobiti datoteku krivulja, a klik
+// bi tada odnio sve krivulje koje je donio paket ili koje datoteka opet drži
+// (Odluke (13. 10. 2026.), „primljeno paketom se ne dira”).
+func krivuljeJosBezDatoteke(tx Izvrsitelj, koren, letva string) error {
+	bez, err := krivuljeBezDatoteke(tx, koren, letva)
+	if err != nil {
+		return fmt.Errorf("ne da se provjeriti jesu li krivulje letve %s još bez datoteke: %w", letva, err)
+	}
+	if len(bez) == 0 {
+		return fmt.Errorf("letva %s više nije na popisu krivulja bez datoteke, jer je u međuvremenu dobila "+
+			"datoteku krivulja, stigla je paketom s drugog čvora ili su joj krivulje već maknute", letva)
+	}
+	return nil
+}
+
+// MakniSnimku briše iz arhive snimku korita kojoj datoteke u stablu više nema
+// i vraća koliko je točaka maknuto. Kao ni niz, ni snimku gradnja ne miče sama
+// (Odluke (13. 10. 2026.)): odlučuje čovjek, na popisu bez datoteke. Datoteke
+// u stablu se ne diraju, pa se arhiva i dalje da izgraditi iznova.
+func MakniSnimku(db *sql.DB, baza, letva, datum string) (int, error) {
+	// Ista brava kao gradnja: gradnja istodobno briše i upisuje točke snimki.
+	brava, err := Uzmi(baza, "micanje snimke korita "+letva+" · "+datum, "")
+	if err != nil {
+		return 0, err
+	}
+	defer brava.Pusti()
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	// Točke se brišu izrijekom: veza bez stranih ključeva ne briše djecu sama.
+	res, err := tx.Exec(`DELETE FROM profil_tocke WHERE profil IN
+		(SELECT id FROM profili WHERE letva = ? AND datum = ?)`, letva, datum)
+	if err != nil {
+		return 0, err
+	}
+	tocaka, _ := res.RowsAffected()
+	if res, err = tx.Exec(`DELETE FROM profili WHERE letva = ? AND datum = ?`, letva, datum); err != nil {
+		return 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, fmt.Errorf("snimka korita %s od %s nije u arhivi", letva, datum)
+	}
+	return int(tocaka), tx.Commit()
 }

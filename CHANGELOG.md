@@ -19,6 +19,21 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
   izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
   koja je nema.
+- **Fotografije uz dnevne listove stižu i na druga računala.** Fotografije
+  uz dnevni list vodočuvara, npr. uz obilaske prenesene iz stare
+  evidencije, ostajale su samo na računalu na kojem su upisane. Drugo
+  računalo dobilo je list, ali fotografiju nije ni tražilo, ni kad prati
+  sve. Sad je traži prema praćenju vodočuvarskog dnevnika za to područje:
+  uz „samo kazalo” ne, uz preglede ili sve da. Isto vrijedi za listove
+  primljene ranije: program ih pri prvom pokretanju nove inačice pregleda
+  i zatraži fotografije koje nedostaju. Fotografije sad pripadaju području
+  i godini svog lista, pa na drugim računalima za njih vrijede razina i rok
+  iz praćenja, kao za fotografije prijava.
+- **Dohvat dokumenata i fotografija više ne zastaje.** Računalo u jednoj
+  razmjeni traži najviše 200 dokumenata i fotografija koje mu nedostaju.
+  Kad je na vrhu popisa stajalo 200 onih koje po praćenju ne dohvaća (npr.
+  PDF-ovi uz „samo pregledi”), ostali iza njih nisu stizali nikad. Sad se
+  takvi preskaču, pa se traže oni koje računalo zaista dohvaća.
 - **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
   ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
   minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne
@@ -82,6 +97,240 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Ispuštanje elektrana pri običnoj vodi uračunava vodu s međusliva.** Pri
+  običnoj vodi prognoza istjecanja HE Varaždin, Čakovec i Dubrava drži
+  dnevni srednjak uz dotok uzvodne elektrane, pomnožen omjerom istjecanja i
+  dotoka zadnjeg tjedna. Program je umjesto istjecanja uzimao sam dotok, pa
+  je omjer bio uvijek 1 i voda s međusliva se gubila. Sad se uzima pravo
+  istjecanje. Najviše se mijenja HE Varaždin. U provjeri za 2023.–2025., s
+  ispravkom koji vidi dežurni, prosječna pogreška na Dravi mijenja se
+  najviše 0,3 cm ili m³/s, a prognoza je u prosjeku do 1 cm ili m³/s viša.
+  Na poplavnim valovima od 2013. najavljeni vrh se gotovo ne mijenja,
+  najviše 7 cm na Novom Virju. Ispravak prognoze dosad je izmjeren uz ovu
+  grešku, pa nakon nadogradnje na 0.0.38 globalni administrator na čvoru
+  koji izdaje prognozu treba pokrenuti Prognoze → Postavke → *Pripremi
+  model* (Odluke (13. 10. 2026.)).
+- **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
+  međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
+  izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
+  Sad takav međusliv zadrži pragove jednog dana, a pragova triju dana
+  nema. Prag od 0 mm, kakav ispadne u takvom ili gotovo suhom nizu, sad
+  znači da praga nema; dosad je dizao razinu kiše i kad nije palo ništa. U
+  tablici kiše po međuslivovima umjesto njega stoji crtica (Odluke (13. 10.
+  2026.)). Pad je našao test; s nizovima iz arhive ni jedno ni drugo nije
+  primijećeno.
+- **Krivulje protoka opet se potvrđuju, a stranica pita za sustav snimke
+  korita.** Na stranici Unos podataka u arhivu pregled krivulja protoka iz
+  HIS-2000 prekidao se na pola, bez gumba „Upiši i izgradi”, pa se krivulje
+  nisu dale upisati. Kad program ne prepozna kotu nule snimke korita,
+  stranica nikad nije pitala u kojem je sustavu, pa se takva snimka uvijek
+  preskakala.
+  Uzrok je isti: pitanje o sustavu stajalo je u obrascu krivulja, a ne u
+  obrascu snimki. Sad stoji uz snimke, a pregled krivulja iscrta se do
+  kraja.
+- **Uvoz krivulja protoka ne briše starije krivulje.** Uvoz krivulja iz
+  HIS-2000 zamijenio je cijelu datoteku krivulja letve krivuljama iz
+  izvoza. Izvoz s manje godina tako je brisao starije krivulje. Na Donjem
+  Miholjcu izvoz postaje 5150 ima krivulje 1993.–2026., pa bi odnio
+  krivulje 1926.–1992. koje je donio izvoz spojene postaje 5555. Sad se
+  krivulje spajaju po razdoblju: razdoblje iz izvoza dodaje se ili
+  zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju.
+  Redoslijed uvoza nije važan: stariji izvoz uvezen poslije novijeg daje
+  iste krivulje i ne ostavlja godine bez krivulje. Prije upisa pregled kaže
+  koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Kad
+  zatečena krivulja počinje usred krivulje iz izvoza, pregled kaže i to, jer
+  od tog dana vrijedi zatečena krivulja. Izvornik novog izvoza sprema se uz
+  stari, pod drugim imenom.
+  Kad zatečena datoteka ima redak koji se ne da pročitati, krivulje se ne
+  spajaju, a poruka kaže koji je to redak.
+- **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
+  koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
+  poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad
+  dobije isto što i globalni administrator: da letva nije zadana.
+- **Broj točaka snimke korita.** Poruka o snimci s premalo točaka pisala
+  je „snimka ima samo 2 točaka” i „1 točaka”. Uvoz izvoza iz HIS-2000 uz
+  dvije snimke istog dana pisao je „(3 točaka)”. Sad piše „2 točke”,
+  „1 točku” i „3 točke”.
+- **Snimka korita koja se ne da zapisati.** Kad se nijedna snimka nije dala
+  zapisati, poruka je uvijek govorila da je odabir vjerojatno istekao i da
+  datoteke treba poslati ponovno, i kad su odmah iza stajali pravi razlozi.
+  Odabir tada nije istekao, a ponovno slanje ne pomaže. Sad poruka navodi
+  samo razloge, a o isteku govori samo kad snimki koje čekaju više nema.
+- **Vrijeme bez sekundi u datoteci niza čita se kao sat.** Gradnja arhive
+  čitala je vrijeme bez sekundi, npr. „2024-03-01 07:00”, kao sam datum.
+  Satne vrijednosti istog dana tako su se sažele u jednu, a ostala je
+  zadnja. Datum kraći od deset znakova, npr. „2024-3-1”, srušio je gradnju.
+  Sad se vrijeme sa satom i minutama čita kao sat, a krivo zapisan datum
+  gradnja javi greškom s imenom datoteke i brojem retka. Datoteke koje
+  piše program uvijek imaju sekunde, pa se to događalo samo s ručno
+  složenim datotekama.
+- **Dopuna niza više ne briše zatečene retke.** Kad se niz u arhivi
+  dopunjuje, kroz vrata arhive, ulaganjem očitanja, s kišomjera ili s
+  HydroViewa, program pročita što datoteka niza već ima i zapiše sve
+  zajedno. Retke s trećim stupcem, polja u navodnicima i vrijeme bez
+  sekundi pritom nije razumio, pa su tiho nestali iz datoteke, iako ih je
+  gradnja čitala. Isto se događalo s retkom u kojem je datum ili vrijednost
+  krivo upisana. Sad dopuna datoteku čita kao i gradnja. Kad neki redak ne
+  razumije, ili iza vrijednosti nešto piše, upis odbije i kaže koji je to
+  redak, a datoteka ostane kakva je bila. Pregled pod Unos u arhivu to kaže
+  već prije upisa, u okviru „Niz već postoji”, i nudi zamjenu.
+- **Katalog izdanja bez praznog retka.** Kad je čvor prvi put izdavao
+  letvu koju je primio paketom, a paket s novim brojem nije se dao složiti,
+  u katalog izdanja ušao je redak bez letve i bez datoteke. Taj je redak
+  prelazio u svako sljedeće izdavanje, a objava arhive pokušavala ga je
+  pročitati i u dnevnik programa pisala grešku. Sad se takva letva samo
+  preskoči, kao i kad ne uspije prvo sastavljanje paketa. To se događalo
+  rijetko, npr. kad se zadnji niz letve makne usred izdavanja.
+- **Krivulje protoka prate svoju datoteku.** Krivulja protoka maknuta iz
+  datoteke krivulja letve ostajala je u arhivi i nakon ponovne gradnje.
+  Ista mapa tako je davala drukčiju arhivu, ovisno o tome gradi li se
+  iznova ili preko stare. Sad gradnja letve koja u stablu ima datoteku
+  krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
+  kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
+  krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
+  nestane iz arhive. Krivulje letve koja u stablu nema datoteku krivulja
+  ostaju kakve jesu. Iznimka je letva koja je stigla paketom s drugog
+  čvora: krivulje koje ta letva već ima u arhivi ostaju i kad ih u datoteci
+  nema, a krivulja iz datoteke ne zamijeni krivulju koja u arhivi vrijedi od
+  istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema.
+  Ispis gradnje kaže koja krivulja nije maknuta ili nije upisana i zašto.
+  Prazna datoteka krivulja, ili
+  datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi gradnju,
+  da ne odnese sve krivulje letve.
+- **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
+  kojoj je datoteka maknuta iz stabla ostajala je u arhivi, a nigdje se nije
+  vidjelo da joj datoteke više nema. Ispravak dana snimke u datoteci tako
+  je ostavljao dvije snimke istog korita. Sad gradnja takvu snimku ne briše,
+  nego je pokaže pod Administracija → Unos u arhivu → Nizovi bez datoteke u
+  stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
+  Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
+  koju čvor samo prima paketom. Datoteke u stablu se ne diraju. Datoteka
+  snimke koja se ne da pročitati stoji na popisu kao zaseban redak, s
+  razlogom i bez gumba Makni, a ostatak popisa se i dalje vidi.
+- **Arhiva koje nema ne nastaje prazna.** Na čvoru bez arhive vodostaja
+  program je pri pokretanju i na stranicama arhive na njezinu mjestu
+  ostavljao praznu datoteku vodostaji.db. Veze koje su trebale samo čitati
+  arhivu, bazu očitanja i bazu prognoza mogle su i pisati. Sad se te baze
+  otvaraju samo za čitanje, pa prazna datoteka više ne nastaje, a kroz te
+  veze program ništa ne može upisati.
+- **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
+  nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
+  arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
+  stablu, s brojem krivulja i danom od kojeg vrijedi najstarija, a gumb
+  Makni ih miče iz arhive. Krivulje letve koja je stigla paketom s drugog
+  čvora na popis ne idu. Ako je letva otkad je stranica otvorena dobila
+  datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
+  miče, nego to javi.
+- **Prognoza bira krivulju protoka po hrvatskom danu.** Prognoza je dan za
+  izbor krivulje protoka računala po UTC-u, a stranice po hrvatskom
+  vremenu. Zato je u prvom satu dana kad počinje nova krivulja, ljeti u
+  prva dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem
+  Miholjcu od 2017. to su bile tri satne vrijednosti. Sad prognoza i
+  stranice biraju istu krivulju.
+- **Historijat letve opet pokazuje proglašene obrane.** Odjeljak „Obrane
+  vođene po ovoj letvi” nije se pokazivao ni na jednoj letvi, a obrana nije
+  bilo ni u izvješću letve, iako su bile proglašene. Program je opis
+  dionice tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a
+  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve.
+  Uz šifru dionice stoji kratki opis: voda, obala i obuhvat, npr. „rijeka
+  Dunav, d.o.; Zeleni otok – Ludaš”. Stacionaža i duljina dionice ne
+  pišu se, one su na stranici dionice. Ako se obrane ne daju pročitati,
+  stranica se i dalje otvori, a greška se zapiše u dnevnik programa.
+- **Drugo brisanje iste letve.** Kad se letva obrisala dvaput, npr. drugim
+  klikom ili iz druge otvorene kartice, program je i drugi put javio da je
+  obrisana. Pritom je zabilježio brisanje prazne letve, bez imena i šifre,
+  koje je razmjenom putovalo na druga računala. Sad javlja da letve više
+  nema u registru, vraća na popis letvi i ništa ne bilježi. Brisanje letve
+  koja postoji radi kao i prije.
+- **Pretplata na sve vrste donosi i arhivu vodostaja.** Laptop s
+  pretplatom npr. „sve vrste, BP 16, 2025.–2026.” nikad nije dobio pakete
+  arhive svog područja. Paket nosi cijelu povijest letve i nema godinu, a
+  pretplata je gledala godine. Paket nije stizao ni kad je sadržaj uz
+  zapise bio „Samo pregledi” ili „Samo kazalo”, a vrsta „Arhiva vodostaja”
+  s popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
+  vrste i pretplata samo na arhivu donose pakete arhive bez obzira na
+  godine i na sadržaj uz zapise, jer su u paketu podaci, a ne slike.
+  Pretplata na sve vrste za sva područja tako donosi cijelu arhivu, i
+  strane i meteorološke letve. Rok držanja i dalje otpušta primljeni paket
+  s računala, a arhiva ostaje. Kad pretplata na sve vrste ima godinu
+  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za sve ostale
+  vrste godine i sadržaj vrijede kao i dosad.
+- **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
+  bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
+  razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
+  Sad razmjena takav zapis preskoči, a ostalo pošalje. Zapis se jednom
+  upiše u dnevnik programa i stoji kao upozorenje na stranici
+  Sinkronizacija i na pločici razmjene na naslovnoj. Isto je s izdanjem
+  .cop paketa u Održavanju baze: takav zapis rušio je cijelo izdanje, a sad
+  se preskoči i ostali zapisi idu u paket.
+- **Primanje računala koje ne uspije ne ostavlja članstvo.** Kad je
+  primanje novog računala u mrežu zahtjevom s kodom puklo na popisu
+  računala za potvrdu ili na upisu ovlasti za primanje, računalo je ostalo
+  upisano kao član, iako potvrdu nije dobilo. Sad se popis složi prije
+  upisa, a članstvo i ovlast upisuju se zajedno. Računalo koje ne dobije
+  potvrdu ne ostaje član, a isti zahtjev može se poslije ponovno primiti.
+- **Uvoz iz stare evidencije BP16 staje kad ne može pročitati ono što
+  već ima.** Prije upisa uvoz obilazaka, obavijesti s terena i evidencije
+  radova provjerava što je već preneseno i koje nasipe i vode registar ima.
+  Kad se to nije dalo pročitati, uvoz je išao dalje kao da nema ničega.
+  Obilazak je tako mogao doći na list dana dvaput, prenesena prijava dobiti
+  novi broj, a nasip ući u registar drugi put. Kad Directus nije dao popis
+  voda, obavijesti su ostale bez vode i nakon ponovnog uvoza. Sad uvoz u
+  takvom slučaju stane i kaže što nije mogao pročitati.
+- **Fotografije obilaska stižu i nakon prekinutog uvoza.** Kad se
+  fotografija obilaska nije dala spremiti, uvoz je javio grešku, ali
+  zadatak je već bio upisan. Ponovni uvoz ga je zato preskočio, pa je na
+  listu ostao opis fotografije bez slike. Sad uvoz prvo spremi fotografije,
+  onda list, a zadatak tek na kraju. Ponovni uvoz zato obilazak dovrši, a
+  list ne dobije ni opis fotografije koje nema ni isti zadatak dvaput.
+- **Obavijest s terena bez vremena upisa uzima vrijeme izmjene.**
+  Obavijest iz stare evidencije BP16 kojoj nije zapisano kad je upisana
+  dobivala je dan uvoza. Objavljena bi tako dobila broj u tekućoj godini, a
+  ne u godini kad je nastala. Sad uvoz uzima vrijeme zadnje izmjene.
+  Obavijest kojoj nema ni njega ne uvozi se, nego se u izvješću uvoza broji
+  pod nepoznato.
+- **Obavijesti s terena dovršavaju se nakon prekinutog uvoza.** Kad se
+  fotografija, sken ili izvornik obavijesti iz BP16 nisu dali spremiti,
+  uvoz je javio grešku, ali prijava je već bila upisana. Ponovni uvoz ju je
+  zato preskočio, pa je ostala bez onoga što nije spremljeno. Sad uvoz prvo
+  spremi fotografije i sken, a prijavu zajedno s izvornikom tek na kraju.
+  Ponovni uvoz zato prijavu prenese cijelu.
+- **Fotografija koju Directus nije dao stiže ponovnim uvozom.** Kad
+  Directus pri uvozu obilazaka ili obavijesti s terena iz BP16 nije dao
+  fotografiju, uvoz je to samo zapisao, a obilazak ili prijavu upisao bez
+  nje. Ponovni uvoz preneseno preskače, pa fotografija nije stigla nikad.
+  Sad ponovni uvoz fotografiju koja nedostaje traži opet. Obilazak je dobije
+  na list na kojem stoji, a zadatak ostaje kakav je bio. Kad vodočuvar za
+  taj dan ima dva lista, fotografija ne ide na onaj na kojem obilaska nema.
+  Prijava je dobije pod istim brojem, a izvornik se izradi iznova, s njom.
+  Nacrt i urudžbirana prijava ne dopunjuju se, a u zapisniku uvoza piše
+  zašto.
+- **Brisanje nacrta prijave i dnevnog lista ostaje u svom području.**
+  Nacrt prijave s terena i nacrt dnevnog lista vodočuvara idu samo na
+  računala koja prate to područje i godinu. Brisanje nacrta išlo je ipak na
+  sva računala, s cijelim tekstom nacrta, i ondje je ostajalo i kad
+  računalo prestane pratiti područje. Sad brisanje ide istim putem kao i
+  nacrt.
+- **Paket izdanja pod tuđim imenom ne blokira prave pakete.** Član mreže
+  mogao je svojim ključem potpisati paket izdanja (.cop) pod imenom drugog
+  računala i s visokim brojem izdanja. Računalo koje ga je uvezlo zatim je
+  prave pakete tog računala odbijalo kao starija izdanja. Sad se paket
+  ugrađuje samo kad ga je potpisalo računalo koje je u njemu navedeno kao
+  izdavač.
+- **Čekanje na uparivanje nakon prekida.** Kad se čekanje na uparivanje
+  prekine i odmah pokrene ponovno, prvo čekanje je pri gašenju brisalo
+  zapis o drugom. Stranica tada nije pokazivala da računalo čeka, a drugo
+  čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
+  čekanje ne dira novo. Računalo koje je nazvalo baš u trenutku prekida
+  dobije odmah poruku da je uparivanje odbijeno, pa može nazvati ponovno.
+- **Brisanje s oglasne ploče ne briše ono što bi razmjena vratila.** Uprava
+  je s ploče mogla obrisati objavu prijave poslanu s terenskog laptopa, a
+  objava se vratila već sljedećom razmjenom. To se događalo kad s laptopa
+  otad nije stigla nijedna nova prijava ni izmjena prijave za to područje i
+  godinu. Sad program takvo brisanje odbije i javi zašto. Zapis se može
+  obrisati kad to računalo upiše nešto novije iste vrste za isto područje i
+  godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je
+  bilo koji noviji upis tog računala u te podatke.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -485,11 +486,7 @@ func (h *StationsHandler) HandleDeleteStationAPI(w http.ResponseWriter, r *http.
 	}
 
 	if err := h.stationService.DeleteStation(ctx, perms, stationIDs[0]); err != nil {
-		if wantsPage(r) {
-			redirectWith(w, r, "/stations/"+stationIDs[0].String(), "error", err.Error())
-			return
-		}
-		http.Error(w, err.Error(), http.StatusForbidden)
+		brisanjeNijeUspjelo(w, r, stationIDs[0], err)
 		return
 	}
 
@@ -499,6 +496,21 @@ func (h *StationsHandler) HandleDeleteStationAPI(w http.ResponseWriter, r *http.
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]any{"success": true})
+}
+
+// brisanjeNijeUspjelo kaže zašto postaja nije obrisana. Kad postaje više
+// nema, npr. nakon drugog klika ili iz druge otvorene kartice, poruka ide na
+// popis postaja, jer kartice obrisane postaje više nema.
+func brisanjeNijeUspjelo(w http.ResponseWriter, r *http.Request, id uuid.UUID, err error) {
+	natrag, status := "/stations/"+id.String(), http.StatusForbidden
+	if errors.Is(err, repository.ErrPostajaNePostoji) {
+		natrag, status = "/stations", http.StatusNotFound
+	}
+	if wantsPage(r) {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	http.Error(w, err.Error(), status)
 }
 
 func writeStationsJSON(w http.ResponseWriter, sectionCode string, stations []models.Station, criteria []models.GaugeItem) {

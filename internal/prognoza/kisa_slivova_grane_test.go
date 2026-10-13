@@ -22,11 +22,11 @@ func TestPragoviIzNizaSMaloTrodnevnih(t *testing.T) {
 	}
 }
 
-// GREŠKA: niz od barem 3650 dana bez ijedna tri uzastopna dana obori
-// PragoviIzNiza — prag triju dana posegne za zadnjim elementom praznog
-// popisa.
+// Niz od barem 3650 dana bez ijedna tri uzastopna dana daje pragove jednog
+// dana, a pragova triju dana nema (0 mm). Prije je PragoviIzNiza tada pala,
+// jer je prag triju dana posegnuo za zadnjim elementom praznog popisa, a
+// zatim je međusliv ostajao bez ikakvih pragova (Odluke (13. 10. 2026.)).
 func TestPragoviIzNizaBezTrodnevnih(t *testing.T) {
-	t.Skip("GREŠKA: PragoviIzNiza (kisa_slivova.go:72) pada s index out of range [-1] kad u nizu nema tri uzastopna dana; treba vratiti false ili ostaviti prag triju dana praznim")
 	n := DnevniNiz{}
 	for d := int64(0); d < 2*3650; d += 2 {
 		n[d] = 1
@@ -36,7 +36,11 @@ func TestPragoviIzNizaBezTrodnevnih(t *testing.T) {
 			t.Errorf("PragoviIzNiza je pala: %v", r)
 		}
 	}()
-	PragoviIzNiza(n)
+	p, ok := PragoviIzNiza(n)
+	want := PragoviKise{Dan1: [3]float64{1, 1, 1}, Godina: 10}
+	if !ok || p != want {
+		t.Errorf("pragovi %+v, %v; želim %+v, true", p, ok, want)
+	}
 }
 
 // Razina kiše međusliva: prvo se gleda 24 sata, pa 72 sata palo, pa palo s
@@ -89,6 +93,39 @@ func TestUcestalostKise(t *testing.T) {
 	} {
 		if got := ucestalostKise(s.puta); got != s.want {
 			t.Errorf("%g puta: %q, želim %q", s.puta, got, s.want)
+		}
+	}
+}
+
+// Prag od 0 mm znači da praga nema, za jedan i za tri dana (Odluke
+// (13. 10. 2026.)): suh ili nepotpun niz ne diže razinu kiše bez kiše, a
+// razina s pravim pragom radi i dalje.
+func TestStanjeSlivaPragOdNulaNijePrag(t *testing.T) {
+	for _, s := range []struct {
+		ime    string
+		p      PragoviKise
+		n      DnevniNiz
+		razina int
+		zasto  string
+	}{
+		{"bez pragova i bez kiše", PragoviKise{}, DnevniNiz{0: 0, -1: 0, -2: 0}, 0, ""},
+		{"samo pragovi jednog dana", PragoviKise{Dan1: [3]float64{20, 40, 80}}, DnevniNiz{0: 25, -1: 0, -2: 0},
+			1, "palo u zadnja 24 sata"},
+		{"samo pragovi triju dana", PragoviKise{Dan3: [3]float64{30, 60, 120}}, DnevniNiz{0: 10, -1: 30, -2: 30},
+			2, "palo u zadnja 72 sata"},
+		{"prag crvene razine od 0 mm", PragoviKise{Dan1: [3]float64{20, 40, 0}, Dan3: [3]float64{30, 60, 0}},
+			DnevniNiz{0: 1, -1: 0, -2: 0, 1: 1}, 0, ""},
+		{"mali prag vrijedi i kiša na pragu ga dosegne", PragoviKise{Dan1: [3]float64{0.5, 40, 80}},
+			DnevniNiz{0: 0.5, -1: 0, -2: 0}, 1, "palo u zadnja 24 sata"},
+	} {
+		var st StanjeSliva
+		for _, x := range StanjeSlivova(map[string]DnevniNiz{OborinaKljuc("A"): s.n}, map[string]PragoviKise{"A": s.p}) {
+			if x.Sliv == "A" {
+				st = x
+			}
+		}
+		if st.Razina != s.razina || st.Zasto != s.zasto {
+			t.Errorf("%s: razina %d, %q; želim %d, %q", s.ime, st.Razina, st.Zasto, s.razina, s.zasto)
 		}
 	}
 }

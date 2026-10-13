@@ -463,8 +463,50 @@ func TestUvozCopaKadBazaPadne(t *testing.T) {
 	}
 }
 
-// Izvoz bez verzija u kanalima, s pokvarenim zapisom u knjizi, nečitljivim
-// katalogom ili knjigom ne daje paket ni novo izdanje.
+// Verzija s neispravnim JSON-om u knjizi ne ruši izvoz paketa: preskoči se
+// kao u razmjeni, ostale verzije idu u paket, a u dnevnik ide jednom (bez
+// sadržaja) i stoji kao upozorenje na ploči. Ponovljeni izvoz istog stanja
+// isto je izdanje. Do 0.0.38 jedna takva verzija rušila je cijeli izvoz.
+func TestIzvozCopaPreskaceNeispravnuVerziju(t *testing.T) {
+	s := rubnaMreza(t, "cop-osijek")
+	dnevnik := brojiDnevnik(t, "nije ispravan JSON")
+	const kanal = "ocitanja/16/2026"
+	upisiRedakKnjige(t, s, "0190a000-0000-7000-8000-000000000001", kanal, `{"cm":120}`)
+	upisiRedakKnjige(t, s, "0190a000-0000-7000-8000-000000000002", kanal, "nije json, Pero Perić 121 cm")
+	upisiRedakKnjige(t, s, "0190a000-0000-7000-8000-000000000003", kanal, `{"cm":122}`)
+	obuhvat := CopObuhvat{Vrsta: "ocitanja", AreaID: 16}
+
+	var paket bytes.Buffer
+	m, err := s.IzveziCop(ctxRub, obuhvat, []string{kanal}, false, &paket)
+	if err != nil {
+		t.Fatalf("izvoz s neispravnom verzijom: %v", err)
+	}
+	_, verzije, _, _, err := citajCop(paket.Bytes())
+	if err != nil {
+		t.Fatalf("paket se ne da pročitati: %v", err)
+	}
+	if m.Zapisa != 2 || len(verzije) != 2 || verzije[0].VersionID != "0190a000-0000-7000-8000-000000000001" || verzije[1].VersionID != "0190a000-0000-7000-8000-000000000003" {
+		t.Errorf("u paketu %d zapisa: %+v", m.Zapisa, verzije)
+	}
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "(probni)") || strings.Contains(zadnji, "Perić") {
+		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
+	}
+	if u := s.upozorenjeNeispravnih(); len(u) != 1 || !strings.Contains(u[0], "1 zapis koji u bazi ovog računala nije ispravan") {
+		t.Errorf("upozorenje na ploči: %q", u)
+	}
+
+	paket.Reset()
+	m2, err := s.IzveziCop(ctxRub, obuhvat, []string{kanal}, false, &paket)
+	if err != nil || m2.Izdanje != m.Izdanje || m2.Otisak != m.Otisak {
+		t.Errorf("ponovljeni izvoz: izdanje %d (prije %d), %v", m2.Izdanje, m.Izdanje, err)
+	}
+	if n, _ := dnevnik.broj(); n != 1 {
+		t.Errorf("ponovljeni izvoz ponovio je dnevnik: %d redaka", n)
+	}
+}
+
+// Izvoz bez verzija u kanalima, samo s pokvarenim zapisom u knjizi,
+// nečitljivim katalogom ili knjigom ne daje paket ni novo izdanje.
 func TestIzvozCopaKadNemaIliNeMozeCitati(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	izvoz := func(ctx context.Context, kanal string) error {
@@ -492,7 +534,7 @@ func TestIzvozCopaKadNemaIliNeMozeCitati(t *testing.T) {
 		VALUES ('0190a000-0000-7000-8000-000000000009', 'probni', 'r-9', 'cop-osijek', '', 0, 'nije json', ?, 1, 'ocitanja/3/2026')`, time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
-	ocekuj("pokvaren zapis u knjizi", izvoz(ctxRub, "ocitanja/3/2026"), "invalid character")
+	ocekuj("samo pokvaren zapis u knjizi", izvoz(ctxRub, "ocitanja/3/2026"), "nijedan zapis na ovom računalu nije ispravan")
 
 	if _, err := s.db.Exec(`DROP TABLE cop_izdanja`); err != nil {
 		t.Fatal(err)

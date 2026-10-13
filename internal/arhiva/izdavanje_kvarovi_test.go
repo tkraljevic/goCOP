@@ -176,13 +176,12 @@ func TestIzdavanjeKadPaketSNovimBrojemNeUspije(t *testing.T) {
 	}
 }
 
-// GREŠKA: kad letvi primljenoj paketom, koje u katalogu još nema, ne uspije
-// paket s novim brojem, u katalog uđe redak bez letve i bez datoteke. Grana
-// na katalog.go:219 ne pita je li letva bila u katalogu, za razliku od iste
-// grane uz prvi izvoz (katalog.go:192). Petlja na kraju Izdaj taj redak poslije
-// prenosi u svako sljedeće izdavanje.
+// Zaključava da letva primljena paketom, koje u katalogu još nema, ne ostavi
+// u katalogu redak bez letve i bez datoteke kad ne uspije paket s novim
+// brojem. Grana nije pitala je li letva bila u katalogu, za razliku od iste
+// grane uz prvi izvoz, a petlja na kraju Izdaj taj je redak poslije
+// prenosila u svako sljedeće izdavanje.
 func TestIzdavanjePrimljeneLetveKadPaketSNovimBrojemNeUspije(t *testing.T) {
-	t.Skip("GREŠKA: internal/arhiva/katalog.go:219 — letvi primljenoj paketom neuspio drugi izvoz dodaje u katalog redak bez letve")
 	mapa := t.TempDir()
 	put := filepath.Join(t.TempDir(), "arhiva.db")
 	db := napraviArhivu(t, put)

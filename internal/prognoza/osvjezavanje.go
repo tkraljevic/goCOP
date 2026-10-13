@@ -1019,8 +1019,13 @@ func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
 }
 
 // KrivuljaZa bira krivulju koja vrijedi u zadanom trenutku.
+//
+// Dan valjanosti krivulje je zagrebački dan, kao i na stranicama: prognoza je
+// dosad dan računala po UTC-u, pa je u prvom satu dana kad počinje nova
+// krivulja (ljeti u prva dva sata) uzimala prethodnu. Na Donjem Miholjcu od
+// 2017. to su bile tri satne vrijednosti (mjereno 13. 10. 2026.).
 func KrivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja {
-	d := kad.Format("2006-01-02")
+	d := kad.In(models.Zagreb).Format("2006-01-02")
 	for i := range krivulje {
 		k := &krivulje[i]
 		if k.VrijediOd <= d && (k.VrijediDo == "" || d <= k.VrijediDo) {

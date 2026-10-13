@@ -92,9 +92,10 @@ func (r *EpisodeRepository) ListEpisodes(ctx context.Context, sectionCode string
 
 // EpisodesByStation vraća epizode svih dionica koje se vode po jednoj letvi.
 // Ista letva mjerodavna je za više dionica — Batina za cijelo BP 34 — pa se na
-// kartici postaje vidi tko je sve po njoj u obrani.
+// kartici postaje vidi tko je sve po njoj u obrani. Dionica nema naziv, pa
+// uz šifru stoji njezin opis.
 func (r *EpisodeRepository) EpisodesByStation(ctx context.Context, stationID string, limit int) ([]models.DefenseEpisode, error) {
-	q := `SELECT ` + episodeColumns + `, s.name FROM defense_episodes e
+	q := `SELECT ` + episodeColumns + `, s.description FROM defense_episodes e
 		LEFT JOIN sections s ON s.code = e.section_code
 		WHERE e.station_id = ? ORDER BY e.started_at DESC`
 	args := []any{stationID}

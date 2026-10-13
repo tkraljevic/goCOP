@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -27,7 +28,7 @@ type ArhivaRepository struct {
 
 // OpenArhiva otvara arhivu za čitanje. Vraća nil bez greške kad datoteke nema.
 func OpenArhiva(path string) (*ArhivaRepository, error) {
-	db, err := sql.Open("sqlite", path+"?mode=ro&_pragma=busy_timeout(3000)")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(path)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, err
 	}

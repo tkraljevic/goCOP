@@ -541,6 +541,8 @@ func TestTransakcijaKojaNePocneNistaNeRadi(t *testing.T) {
 	}
 }
 
+// Kad upis članstva ili ovlasti padne, primljeni čvor ne ostaje član:
+// članstvo i ovlast upisuju se zajedno ili nikako.
 func TestPrimanjeKadUpisPadne(t *testing.T) {
 	for ime, s := range map[string]struct {
 		kvar     [3]string
@@ -557,6 +559,7 @@ func TestPrimanjeKadUpisPadne(t *testing.T) {
 			if _, err := a.PrimiZahtjev(ctxRub, z, k, s.sOvlascu); err == nil {
 				t.Error("primanje je prošlo iako upis nije")
 			}
+			bezClanstva(t, a, f.node.ID)
 		})
 	}
 }

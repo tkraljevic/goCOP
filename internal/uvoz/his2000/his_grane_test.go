@@ -21,7 +21,8 @@ func TestProcitajOdbija(t *testing.T) {
 		"krivulje":           {"Krivulje protoka\r\nTip;H1;H2;A;B;C;D;\r\n1;100,0000;500,0000;43,2420;349,3200;700,0000;0,0000;\r\n", "u datoteci nema nijedne krivulje"},
 		"satni brzina":       {"Satni podaci postaje DALJ  za godinu 2001,  BRZINA  (m/s)\r\n 1. 1.2001  0;1;\r\n", `nepoznata veličina "BRZINA"`},
 		"dnevni brzina":      {"Dnevni podaci postaje DALJ - DUNAV,  BRZINA  (m/s)\r\n01.01.2001;1;\r\n", `nepoznata veličina "BRZINA"`},
-		"snimka dvije točke": {profil, "snimka ima samo 2 točaka"},
+		"snimka dvije točke": {profil, "snimka ima samo 2 točke"},
+		"snimka jedna točka": {strings.TrimSuffix(profil, "6,74;87,593;\r\n"), "snimka ima samo 1 točku"},
 	} {
 		if _, err := Procitaj(ime+".csv", cp(s.sadrzaj)); err == nil || err.Error() != s.greska {
 			t.Errorf("%s: %v", ime, err)

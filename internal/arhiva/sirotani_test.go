@@ -221,7 +221,7 @@ func TestRekonstrukcijaIzvanRasponaNeNadjacava(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	db, err := sql.Open("sqlite", baza+"?mode=ro")
+	db, err := sql.Open("sqlite", "file:"+baza+"?mode=ro")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -167,7 +167,7 @@ func TestSnimkeKoritaPregledPaUpis(t *testing.T) {
 
 	// Ista potvrda treći put nema što upisati.
 	html, _ = upis("id=" + id[1] + "&letva=primjerovo")
-	if g := porukaGreske(html); g != "nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno" ||
+	if g := porukaGreske(html); g != "Nijedna snimka nije zapisana. Odabir je istekao ili više ne postoji. Pošaljite datoteke ponovno." ||
 		rePosaoNaStranici.MatchString(html) {
 		t.Errorf("potrošena potvrda: %q", g)
 	}
@@ -247,7 +247,7 @@ func TestSnimkeKoritaUpisOdbija(t *testing.T) {
 		{"tuđa letva", o.ana, o.anaOvl, "letva=drugovo", http.StatusOK, "Letva drugovo nije na vašim dionicama."},
 		{"letve nema u stablu", o.pero, o.peroOvl, "letva=nepoznata", http.StatusOK, "letva nepoznata nije u stablu"},
 		{"istekao odabir", o.pero, o.peroOvl, "id=nema-ga&letva=primjerovo", http.StatusOK,
-			"nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno"},
+			"Nijedna snimka nije zapisana. Odabir je istekao ili više ne postoji. Pošaljite datoteke ponovno."},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			w := odgovor(o.h.UpisiProfile, obicniObrazac("/administracija/uvoz-profila/upisi", s.tijelo), s.u, s.p)
@@ -297,7 +297,7 @@ func TestSnimkeKoritaUpisPreskaceIGradnjaPada(t *testing.T) {
 	g := porukaGreske(htmlUTekst(w.Body.String()))
 	// Što poruka kaže o isteklom odabiru, ne zaključava se: vidi
 	// TestSnimkeKoritaNezapisaneBezIsteklogOdabira.
-	if !strings.HasPrefix(g, "nijedna snimka nije zapisana") ||
+	if !strings.HasPrefix(g, "Nijedna snimka nije zapisana. Razlozi: ") ||
 		!strings.Contains(g, "pokvarena.csv — više se ne čita kao snimka korita; profil.csv — ") || !strings.Contains(g, "is a directory") {
 		t.Errorf("preskočene snimke: %q", g)
 	}
@@ -323,25 +323,64 @@ func TestSnimkeKoritaUpisPreskaceIGradnjaPada(t *testing.T) {
 }
 
 // Kad se sustav snimke ne prepozna, stranica u obrascu potvrde snimki pita u
-// kojem je sustavu, jer potvrda bez odgovora takvu snimku preskače.
+// kojem je sustavu, jer potvrda bez odgovora takvu snimku preskače. Uz pitanje
+// stoje kote koje letva vodi, a bez njih rečenica kaže da kote nema.
 func TestSnimkeKoritaPitajuSustav(t *testing.T) {
-	t.Skip("GREŠKA: web/templates/uvoz_niza.html:553 izbor sustava („Sustav za te snimke”, name=sustav) stoji u " +
-		"obrascu krivulja, a ne u obrascu snimki; potvrda snimki ga nikad ne dobije, pa se neprepoznata snimka " +
-		"sa stranice ne da upisati")
 	o, _ := okolinaSnimki(t)
-	r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"},
-		datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)})
-	html := odgovor(o.h.PregledUvozaProfila, r, o.pero, o.peroOvl).Body.String()
-	obrazac := regexp.MustCompile(`(?s)<form method="POST" action="/administracija/uvoz-profila/upisi".*?</form>`).FindString(html)
+	obrazacSnimki := func(snimke ...datotekaObrasca) string {
+		r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"}, snimke...)
+		html := odgovor(o.h.PregledUvozaProfila, r, o.pero, o.peroOvl).Body.String()
+		return regexp.MustCompile(`(?s)<form method="POST" action="/administracija/uvoz-profila/upisi".*?</form>`).FindString(html)
+	}
+	// tekst obrasca bez oznaka i s jednim razmakom između riječi
+	tekst := func(obrazac string) string {
+		return strings.Join(strings.Fields(htmlUTekst(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(obrazac, ""))), " ")
+	}
+
+	obrazac := obrazacSnimki(datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)})
 	if !strings.Contains(obrazac, `name="sustav"`) {
 		t.Errorf("obrazac potvrde snimki ne pita za sustav:\n%s", obrazac)
+	}
+	// Izbor je obavezan: bez odgovora potvrda bi takvu snimku preskočila.
+	if !regexp.MustCompile(`<select name="sustav"[^>]*\brequired\b`).MatchString(obrazac) {
+		t.Errorf("izbor sustava nije obavezan:\n%s", obrazac)
+	}
+	if zeli := "1 snimka ne kaže u kojem su sustavu kote. U starom sustavu (TRST) letva ima kotu nule 100,000 m. " +
+		"U HVRS71 letva ima kotu nule 99,800 m. Kota nule te snimke ne odgovara nijednoj koju letva vodi. " +
+		"To je ili snimka s druge letve, ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa. " +
+		"Sustav za tu snimku odaberite…"; !strings.Contains(tekst(obrazac), zeli) {
+		t.Errorf("pitanje o sustavu uz kote letve:\n%s", tekst(obrazac))
+	}
+
+	// Uz 21 snimku broj traži jedninu („21 snimka”), ali „te” i „tih”
+	// upućuju na sve snimke, pa ostaju u množini.
+	var dvadesetJedna []datotekaObrasca
+	for d := 1; d <= 21; d++ {
+		dvadesetJedna = append(dvadesetJedna, datotekaObrasca{"datoteke", fmt.Sprintf("p%d.csv", d),
+			snimkaKorita(fmt.Sprintf("9/%d/2022", d), "50,00", 60, 3)})
+	}
+	if zeli := "21 snimka ne kaže u kojem su sustavu kote. U starom sustavu (TRST) letva ima kotu nule 100,000 m. " +
+		"U HVRS71 letva ima kotu nule 99,800 m. Kote nule tih snimki ne odgovaraju nijednoj koju letva vodi. " +
+		"To su ili snimke s druge letve, ili im je nula premještena, ili su kote prepisane krivo, pa se sustav ne nagađa. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazacSnimki(dvadesetJedna...)), zeli) {
+		t.Errorf("pitanje o sustavu uz 21 snimku:\n%s", tekst(obrazacSnimki(dvadesetJedna...)))
+	}
+
+	o.h.SetKoteLetve(nil)
+	obrazac = obrazacSnimki(datotekaObrasca{"datoteke", "a.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)},
+		datotekaObrasca{"datoteke", "b.csv", snimkaKorita("9/10/2022", "50,00", 60, 3)})
+	if zeli := "2 snimke ne kažu u kojem su sustavu kote. Letva nema upisanu kotu nule, pa se sustav ne može prepoznati. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazac), zeli) {
+		t.Errorf("pitanje o sustavu bez kota letve:\n%s", tekst(obrazac))
+	}
+	if zeli := "21 snimka ne kaže u kojem su sustavu kote. Letva nema upisanu kotu nule, pa se sustav ne može prepoznati. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazacSnimki(dvadesetJedna...)), zeli) {
+		t.Errorf("pitanje o sustavu bez kota letve uz 21 snimku:\n%s", tekst(obrazacSnimki(dvadesetJedna...)))
 	}
 }
 
 // Snimka s premalo točaka javlja broj točaka u ispravnom obliku.
 func TestSnimkeKoritaPremaloTocaka(t *testing.T) {
-	t.Skip("GREŠKA: internal/uvoz/his2000/his.go:433 piše „snimka ima samo N točaka” i za 1 i 2 točke " +
-		"(„2 točaka” umjesto „2 točke”, „1 točaka” umjesto „1 točku”)")
 	o, _ := okolinaSnimki(t)
 	r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"},
 		datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("3/1/2020", "100,00", 120, 4)},
@@ -355,8 +394,6 @@ func TestSnimkeKoritaPremaloTocaka(t *testing.T) {
 // Kad nijedna snimka nije zapisana zbog razloga koji su navedeni, poruka ne
 // kaže da je odabir istekao: nije, i ponovno slanje ne pomaže.
 func TestSnimkeKoritaNezapisaneBezIsteklogOdabira(t *testing.T) {
-	t.Skip("GREŠKA: internal/web/handlers_uvoz_profila.go:271 uvijek piše „odabir je vjerojatno istekao, pošaljite " +
-		"datoteke ponovno”, i kad snimka čeka, a nije se dala zapisati na disk")
 	o, _ := okolinaSnimki(t)
 	korisnik := o.pero.ID.String()
 	mapa := filepath.Join(o.koren, "primjerica", "primjerovo", "profil")
@@ -367,7 +404,8 @@ func TestSnimkeKoritaNezapisaneBezIsteklogOdabira(t *testing.T) {
 	uvozi.spremi(id+"-0", "profil.csv", []byte(snimkaKorita("3/1/2020", "100,00", 120, 4)), korisnik)
 	t.Cleanup(func() { uvozi.makni(id + "-0") })
 	w := odgovor(o.h.UpisiProfile, obicniObrazac("/", "letva=primjerovo&id="+id), o.pero, o.peroOvl)
-	if g := porukaGreske(w.Body.String()); strings.Contains(g, "istekao") || !strings.Contains(g, "profil.csv — ") {
+	if g := porukaGreske(w.Body.String()); strings.Contains(g, "istekao") ||
+		!strings.HasPrefix(g, "Nijedna snimka nije zapisana. Razlozi: profil.csv — ") || !strings.HasSuffix(g, ".") {
 		t.Errorf("snimka koja se ne da zapisati: %q", g)
 	}
 }

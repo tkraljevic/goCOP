@@ -111,22 +111,33 @@ func (s Subscription) matches(kind string, areaID, year int, sectorOf func(int) 
 	if s.Kind != "" && s.Kind != kind {
 		return false
 	}
-	if s.AreaID > 0 && s.AreaID != areaID {
+	if !s.pokrivaPodrucje(areaID, sectorOf) {
 		return false
 	}
-	if s.SectorID != "" && s.AreaID == 0 && sectorOf(areaID) != s.SectorID {
-		return false
-	}
-	if kind == ledger.ChannelArhiva && s.Kind == ledger.ChannelArhiva {
-		return true // paket arhive nosi cijelu povijest letve, godine ne vrijede
-	}
-	if s.YearFrom > 0 && year < s.YearFrom {
-		return false
-	}
-	if s.YearTo > 0 && year > s.YearTo {
-		return false
+	// Paket arhive nosi cijelu povijest letve i kanal mu nema godine
+	// (arhiva/područje/0), pa godine pravila za njega ne vrijede: ni uz
+	// pravilo „arhiva”, ni uz „sve vrste” za područje ili sektor, ni uz „sve
+	// vrste” za sva područja, koje tako donosi cijelu arhivu, sa stranim i
+	// meteorološkim letvama (Odluke (13. 10. 2026.)). Laptop s pravilom „sve
+	// vrste, BP 16, 2025.–2026.” do 0.0.38 nije dobio arhivu svog područja.
+	return kind == ledger.ChannelArhiva || s.pokrivaGodinu(year)
+}
+
+// pokrivaPodrucje: područje pravila ima prednost pred sektorom, a pravilo
+// bez njih pokriva svako područje
+func (s Subscription) pokrivaPodrucje(areaID int, sectorOf func(int) string) bool {
+	switch {
+	case s.AreaID > 0:
+		return s.AreaID == areaID
+	case s.AreaID == 0 && s.SectorID != "":
+		return sectorOf(areaID) == s.SectorID
 	}
 	return true
+}
+
+// pokrivaGodinu: godina 0 u pravilu znači bez ograde s te strane
+func (s Subscription) pokrivaGodinu(year int) bool {
+	return (s.YearFrom <= 0 || year >= s.YearFrom) && (s.YearTo <= 0 || year <= s.YearTo)
 }
 
 // Match javlja želi li čvor s ovim pretplatama taj kanal
@@ -190,8 +201,13 @@ func (w Wants) DrziDanaZa(channel string, sectorOf func(int) string) int {
 	return najdulje
 }
 
-// zeliSadrzaj javlja dohvaća li čvor s tim pretplatama taj sadržaj
+// zeliSadrzaj javlja dohvaća li čvor s tim pretplatama taj sadržaj. Paket
+// arhive stiže čim ga pravilo pokriva, bez obzira na razinu: to su podaci
+// vodostaja, a ne PDF ili slika uz zapis (Odluke (13. 10. 2026.)).
 func (w Wants) zeliSadrzaj(channel, vrsta string, sectorOf func(int) string) bool {
+	if kind, _, _ := ledger.SplitChannel(channel); kind == ledger.ChannelArhiva {
+		return w.Match(channel, sectorOf)
+	}
 	switch w.RazinaZa(channel, sectorOf) {
 	case RazinaSve:
 		return true
@@ -235,27 +251,58 @@ func (s *Service) ListSubscriptions(ctx context.Context) ([]Subscription, error)
 	return out, rows.Err()
 }
 
-// AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
-func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
-	r.Kind = strings.TrimSpace(r.Kind)
-	if r.Kind != "" && r.Kind != ledger.ChannelReadings && r.Kind != ledger.ChannelJournals &&
-		r.Kind != ledger.ChannelPrijave && r.Kind != ledger.ChannelVodocuvar {
-		return r, fmt.Errorf("vrsta je očitanja, dnevnici, prijave, vodočuvarski dnevnik ili sve")
+// vrstaPretplate javlja smije li pretplata imati tu vrstu; prazna su sve
+// vrste. Arhiva je na popisu od 0.0.38: stranica pretplata nudila ju je od
+// 0.0.7, a upis ju je odbijao.
+func vrstaPretplate(kind string) bool {
+	switch kind {
+	case "", ledger.ChannelReadings, ledger.ChannelJournals, ledger.ChannelPrijave, ledger.ChannelVodocuvar, ledger.ChannelArhiva:
+		return true
 	}
-	switch r.Razina {
-	case "", RazinaSve:
-		r.Razina = RazinaSve
-	case RazinaKazalo, RazinaPregled:
+	return false
+}
+
+// razinaPravila provjerava razinu sadržaja pravila; prazna je „sve”. Pravilo
+// samo za arhivu pamti se sa „sve”, jer paket arhive stiže bez obzira na
+// razinu (Odluke (13. 10. 2026.)), pa ga opis ne smije zvati „samo kazalo”.
+func razinaPravila(kind, razina string) (string, error) {
+	switch razina {
+	case "", RazinaSve, RazinaKazalo, RazinaPregled:
 	default:
-		return r, fmt.Errorf("razina sadržaja je kazalo, pregled ili sve")
+		return razina, fmt.Errorf("Pretplata nije dodana: sadržaj uz zapise mora biti sve, samo pregledi ili samo kazalo.")
+	}
+	if razina == "" || kind == ledger.ChannelArhiva {
+		return RazinaSve, nil
+	}
+	return razina, nil
+}
+
+// godineIRokPravila odbija godine obrnutim redom; rok manji od nule znači
+// trajno, kao i prazan rok
+func godineIRokPravila(r *Subscription) error {
+	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
+		return fmt.Errorf("Pretplata nije dodana: godina u polju „Do godine” je prije godine u polju „Od godine”.")
 	}
 	if r.DrziDana < 0 {
 		r.DrziDana = 0
 	}
-	r.SectorID = strings.ToUpper(strings.TrimSpace(r.SectorID))
-	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
-		return r, fmt.Errorf("godina do ne može biti prije godine od")
+	return nil
+}
+
+// AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
+func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
+	r.Kind = strings.TrimSpace(r.Kind)
+	if !vrstaPretplate(r.Kind) {
+		return r, fmt.Errorf("Pretplata nije dodana: vrsta mora biti očitanja, dnevnici, prijave s terena, vodočuvarski dnevnik, arhiva vodostaja ili sve vrste.")
 	}
+	var err error
+	if r.Razina, err = razinaPravila(r.Kind, r.Razina); err != nil {
+		return r, err
+	}
+	if err = godineIRokPravila(&r); err != nil {
+		return r, err
+	}
+	r.SectorID = strings.ToUpper(strings.TrimSpace(r.SectorID))
 	res, err := s.db.ExecContext(ctx, `INSERT INTO subscriptions (kind, sector_id, area_id, year_from, year_to, razina, drzi_dana) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo, r.Razina, r.DrziDana)
 	if err != nil {

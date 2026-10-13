@@ -366,6 +366,29 @@ func TestUvozDnevnikaRadovaGreske(t *testing.T) {
 		t.Error("zatvorena baza je prošla")
 	}
 
+	// nasip ili voda iz registra koji se ne da pročitati: uvoz stane s
+	// greškom čitanja, a ne upiše nasip drugi put ni padne na tuđoj šifri
+	for ime, s := range map[string]struct{ kvar, poruka string }{
+		"nasip": {`UPDATE structures SET start_cm = 'abc' WHERE code = 'nasip-draz'`, "čitanje nasipa područja: "},
+		"voda":  {`UPDATE watercourses SET length_km = 'abc' WHERE code = 'kanal-probni'`, "čitanje voda: "},
+	} {
+		baza := kopijaBaze(t, predlozak)
+		if _, err := baza.Exec(s.kvar); err != nil {
+			t.Fatal(err)
+		}
+		_, err := RunJournals(ctx, izvorRadova(), depsDnevnika(baza))
+		if err == nil || !strings.HasPrefix(err.Error(), s.poruka) {
+			t.Errorf("%s koji se ne da pročitati: %v", ime, err)
+		}
+		var nasipa, voda int
+		if err := baza.QueryRow(`SELECT (SELECT COUNT(*) FROM structures), (SELECT COUNT(*) FROM watercourses)`).Scan(&nasipa, &voda); err != nil {
+			t.Fatal(err)
+		}
+		if nasipa != 1 || voda != 1 {
+			t.Errorf("%s koji se ne da pročitati: upisano %d nasipa, %d voda", ime, nasipa, voda)
+		}
+	}
+
 	// baza odbija upis na zadanom mjestu: okidač glumi pun disk
 	for ime, okidac := range map[string]string{
 		"dnevnik":  `BEFORE INSERT ON journals`,

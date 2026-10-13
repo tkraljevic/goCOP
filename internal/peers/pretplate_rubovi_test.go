@@ -42,7 +42,9 @@ func TestOpisPretplate(t *testing.T) {
 }
 
 // Pravilo pokriva kanal kad se slažu vrsta, područje (ili sektor područja)
-// i godine; paket arhive nosi cijelu povijest, pa za njega godine ne vrijede.
+// i godine. Paket arhive nosi cijelu povijest, pa za njega godine ne vrijede
+// ni uz jedno pravilo koje ga pokriva: „arhiva”, „sve vrste” za područje ili
+// sektor i „sve vrste” za sva područja (Odluke (13. 10. 2026.)).
 func TestPraviloPokrivaKanal(t *testing.T) {
 	sektor := func(area int) string {
 		if area == 16 {
@@ -67,11 +69,94 @@ func TestPraviloPokrivaKanal(t *testing.T) {
 		{"poslije godine do", Subscription{YearTo: 2025}, kanal, false},
 		{"unutar godina", Subscription{YearFrom: 2026, YearTo: 2026}, kanal, true},
 		{"arhiva bez godina", Subscription{Kind: ledger.ChannelArhiva, YearFrom: 2030, YearTo: 2031}, "arhiva/16/0", true},
+		{"arhiva ne pokriva očitanja", Subscription{Kind: ledger.ChannelArhiva, AreaID: 16}, kanal, false},
+		// sve vrste za područje: arhiva tog područja bez obzira na godine
+		{"sve vrste s godinama, arhiva područja", Subscription{AreaID: 16, YearFrom: 2025, YearTo: 2026}, "arhiva/16/0", true},
+		{"sve vrste od godine, arhiva sektora", Subscription{SectorID: "P", YearFrom: 2025}, "arhiva/16/0", true},
+		{"sve vrste do godine, arhiva", Subscription{YearTo: 2020}, "arhiva/16/0", true},
+		{"sve vrste, arhiva drugog područja", Subscription{AreaID: 3, YearFrom: 2025}, "arhiva/16/0", false},
+		{"sve vrste, arhiva drugog sektora", Subscription{SectorID: "D", YearFrom: 2025}, "arhiva/16/0", false},
+		{"druga vrsta, arhiva", Subscription{Kind: ledger.ChannelReadings, AreaID: 16}, "arhiva/16/0", false},
+		{"sve vrste s godinama i dalje ograđuju očitanja", Subscription{AreaID: 16, YearFrom: 2025, YearTo: 2025}, kanal, false},
+		// sve vrste za sva područja (zadani obrazac, s godinom početka):
+		// cijela arhiva, i strane i meteorološke letve (područje 0)
+		{"sve vrste za sva područja od godine, arhiva", Subscription{YearFrom: 2026}, "arhiva/16/0", true},
+		{"sve vrste za sva područja od godine, strana letva", Subscription{YearFrom: 2026}, "arhiva/0/0", true},
+		{"sve vrste za sva područja s godinama, arhiva", Subscription{YearFrom: 2025, YearTo: 2026}, "arhiva/3/0", true},
+		{"sve vrste za sva područja bez godina, strana letva", Subscription{}, "arhiva/0/0", true},
+		{"sve vrste za sva područja od godine i dalje ograđuju očitanja", Subscription{YearFrom: 2027}, kanal, false},
+		{"arhiva za sva područja s godinama", Subscription{Kind: ledger.ChannelArhiva, YearFrom: 2026}, "arhiva/0/0", true},
+		{"sve vrste za područje, strana letva", Subscription{AreaID: 16, YearFrom: 2026}, "arhiva/0/0", false},
 	} {
 		w := Wants{Rules: []Subscription{p.pravilo}}
 		if got := w.Match(p.kanal, sektor); got != p.pokriva {
 			t.Errorf("%s: pokriva %v, očekivano %v", p.ime, got, p.pokriva)
 		}
+	}
+}
+
+// Paket arhive dohvaća se uz pravilo „sve vrste” za područje kao i uz
+// pravilo samo za arhivu, a godine pravila ne ograđuju ga. Razina sadržaja
+// za paket ne vrijedi: paket su podaci vodostaja, a ne PDF ili slika uz
+// zapis, pa stiže i uz „Samo pregledi” i „Samo kazalo” (Odluke
+// (13. 10. 2026.)). Rok držanja vrijedi kao za ostalo. Pravilo drugog
+// područja paket ne donosi, a PDF uz zapise i dalje prati razinu.
+func TestSveVrstePokrivajuPaketArhive(t *testing.T) {
+	sektor := func(int) string { return "P" }
+	const paket = "application/vnd.gocop.arhiva"
+	w := Wants{Rules: []Subscription{
+		{AreaID: 16, YearFrom: 2025, YearTo: 2026, Razina: RazinaSve, DrziDana: 30},
+		{AreaID: 3, YearFrom: 2025, Razina: RazinaKazalo},
+		{AreaID: 4, YearFrom: 2025, Razina: RazinaPregled},
+		{Kind: ledger.ChannelArhiva, AreaID: 7, Razina: RazinaKazalo},
+	}}
+	if got := w.RazinaZa("arhiva/16/0", sektor); got != RazinaSve {
+		t.Errorf("razina arhive BP 16: %q", got)
+	}
+	if got := w.DrziDanaZa("arhiva/16/0", sektor); got != 30 {
+		t.Errorf("rok sadržaja arhive BP 16: %d", got)
+	}
+	for _, p := range []struct {
+		kanal, vrsta string
+		zeli         bool
+	}{
+		{"arhiva/16/0", paket, true},
+		{"arhiva/3/0", paket, true}, // samo kazalo
+		{"arhiva/4/0", paket, true}, // samo pregledi
+		{"arhiva/7/0", paket, true}, // pravilo samo za arhivu, samo kazalo
+		{"arhiva/5/0", paket, false},
+		{"prijave/3/2026", "application/pdf", false},
+		{"prijave/4/2026", "application/pdf", false},
+		{"prijave/4/2026", "image/jpeg", true},
+	} {
+		if got := w.zeliSadrzaj(p.kanal, p.vrsta, sektor); got != p.zeli {
+			t.Errorf("%s, %s: dohvaća se %v, očekivano %v", p.kanal, p.vrsta, got, p.zeli)
+		}
+	}
+}
+
+// Stranica pretplata nudi arhivu vodostaja kao vrstu: pravilo se upisuje i
+// čita kao „arhiva vodostaja … cijela povijest”. Razina sadržaja za paket ne
+// vrijedi, pa se pravilo samo za arhivu pamti sa „Sve” i opis ne kaže
+// „samo kazalo”; rok držanja ostaje.
+func TestPretplataNaArhivuSeUpisuje(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	r, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 16, YearFrom: 2026, Razina: RazinaKazalo, DrziDana: 30})
+	if err != nil {
+		t.Fatalf("pretplata na arhivu: %v", err)
+	}
+	if got := r.Label(); got != "arhiva vodostaja, BP 16, cijela povijest, sadržaj 30 dana" {
+		t.Errorf("opis pravila: %q", got)
+	}
+	if l, err := s.ListSubscriptions(ctxRub); err != nil || len(l) != 1 || l[0].Razina != RazinaSve || l[0].DrziDana != 30 {
+		t.Errorf("upisano pravilo: %+v %v", l, err)
+	}
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, Razina: "puno"}); err == nil {
+		t.Error("pravilo samo za arhivu s nepoznatom razinom je upisano")
+	}
+	w, err := s.CurrentWants(ctxRub)
+	if err != nil || !w.Match("arhiva/16/0", s.sectorLookup(ctxRub)) || w.Match("ocitanja/16/2026", s.sectorLookup(ctxRub)) {
+		t.Errorf("pretplata na arhivu pokriva krivo: %+v %v", w, err)
 	}
 }
 
@@ -109,13 +194,17 @@ func TestRokDrzanjaSadrzaja(t *testing.T) {
 // velikim slovima, negativan rok je trajno).
 func TestPretplataSeUpisujeSvedena(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
-	for ime, r := range map[string]Subscription{
-		"vrsta":          {Kind: "vodostaji"},
-		"razina":         {Razina: "puno"},
-		"godine obrnuto": {YearFrom: 2026, YearTo: 2024},
+	// poruka ide korisniku na stranici pretplata, pa je cijela rečenica
+	for ime, p := range map[string]struct {
+		r      Subscription
+		poruka string
+	}{
+		"vrsta":          {Subscription{Kind: "vodostaji"}, "Pretplata nije dodana: vrsta mora biti"},
+		"razina":         {Subscription{Razina: "puno"}, "Pretplata nije dodana: sadržaj uz zapise"},
+		"godine obrnuto": {Subscription{YearFrom: 2026, YearTo: 2024, DrziDana: -5}, "Pretplata nije dodana: godina u polju „Do godine” je prije godine u polju „Od godine”."},
 	} {
-		if _, err := s.AddSubscription(ctxRub, r); err == nil {
-			t.Errorf("%s: pretplata je upisana", ime)
+		if _, err := s.AddSubscription(ctxRub, p.r); err == nil || !strings.HasPrefix(err.Error(), p.poruka) {
+			t.Errorf("%s: pretplata je upisana ili poruka nije rečenica: %v", ime, err)
 		}
 	}
 	if l, _ := s.ListSubscriptions(ctxRub); len(l) != 0 {

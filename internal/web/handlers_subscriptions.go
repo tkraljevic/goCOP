@@ -92,9 +92,13 @@ func (h *SubscriptionsHandler) HandleAdd(w http.ResponseWriter, r *http.Request)
 	if f("predlog") == "1" {
 		vrste = []string{ledger.ChannelJournals, ledger.ChannelPrijave}
 	}
+	var upisano peers.Subscription
 	for _, vrsta := range vrste {
 		rule.Kind = vrsta
-		if _, err := h.peers.AddSubscription(r.Context(), rule); err != nil {
+		var err error
+		// poruka opisuje pravilo kako je upisano: pravilo samo za arhivu
+		// pamti se sa „Sve” i kad je u obrascu izabrano „Samo kazalo”
+		if upisano, err = h.peers.AddSubscription(r.Context(), rule); err != nil {
 			redirectWith(w, r, "/pretplate", "error", err.Error())
 			return
 		}
@@ -104,7 +108,7 @@ func (h *SubscriptionsHandler) HandleAdd(w http.ResponseWriter, r *http.Request)
 		defer cancel()
 		h.peers.SyncAll(ctx)
 	}
-	redirectWith(w, r, "/pretplate", "success", "Pretplata je dodana: "+rule.Label())
+	redirectWith(w, r, "/pretplate", "success", "Pretplata je dodana: "+upisano.Label())
 }
 
 // predlogPretplate slaže pravilo iz zaduženja: vodočuvar ili djelatnik s

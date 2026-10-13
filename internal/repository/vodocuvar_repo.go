@@ -441,11 +441,11 @@ func (r *VodocuvarRepository) NajstarijaGodina(ctx context.Context) int {
 }
 
 // Delete briše nacrt i njegov izvornik, ako ga ima, u jednoj transakciji,
-// sa spomenikom u knjizi za oboje. List se briše samo dok nije predan: nacrt
-// koji je druga kartica predala nakon što je pročitan ne briše se, nego se
-// brisanje odbija s ErrListPredanNijeObrisan, bez brisanja i bez verzije u
-// knjizi. Nacrt koji je druga kartica u međuvremenu obrisala nema što
-// obrisati.
+// sa spomenikom u knjizi za oboje, u kanalu lista. List se briše samo dok
+// nije predan: nacrt koji je druga kartica predala nakon što je pročitan ne
+// briše se, nego se brisanje odbija s ErrListPredanNijeObrisan, bez brisanja
+// i bez verzije u knjizi. Nacrt koji je druga kartica u međuvremenu obrisala
+// nema što obrisati.
 func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 	l, err := r.Get(ctx, id)
 	if err != nil || l == nil {
@@ -469,7 +469,7 @@ func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 	if n, err := res.RowsAffected(); err != nil || n == 0 {
 		return nacrtNijeObrisan(ctx, tx, l, err)
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityVodocuvarski, id, l); err != nil {
+	if _, err := r.rec.ArchiveIn(ctx, tx, listChannel(l), EntityVodocuvarski, id, l); err != nil {
 		return err
 	}
 	if err := r.obrisiIzvornik(ctx, tx, l, iz); err != nil {
@@ -723,11 +723,22 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 // ---- prilozi lista ----
 
 // SavePrilog sprema prilog lista (fotografiju) u spremište sadržaja; opis
-// priloga stoji na samom listu, a bajtovi se nalaze po otisku
+// priloga stoji na samom listu, a bajtovi se nalaze po otisku. Fotografija
+// ide u kanal lista, pa na drugim čvorovima razina i rok pretplate vrijede
+// za nju kao za list.
 func (r *VodocuvarRepository) SavePrilog(ctx context.Context, listID, prilogID string, b []byte) error {
 	_, err := spremiSadrzaj(ctx, "image/jpeg", b, sadrzaj.Veza{
-		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID)})
+		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID), Kanal: r.kanalLista(ctx, listID)})
 	return err
+}
+
+// kanalLista je kanal lista s površine; prazan kad lista nema
+func (r *VodocuvarRepository) kanalLista(ctx context.Context, id string) string {
+	l, err := r.Get(ctx, id)
+	if err != nil || l == nil {
+		return ""
+	}
+	return listChannel(l)
 }
 
 // ulogaPriloga je oznaka veze pod kojom prilog stoji u spremištu

@@ -218,7 +218,7 @@ func TestPonovnaGradnjaNeMijenjaOtisak(t *testing.T) {
 		if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
 			t.Fatal(err)
 		}
-		db, err := sql.Open("sqlite", baza+"?mode=ro")
+		db, err := sql.Open("sqlite", "file:"+baza+"?mode=ro")
 		if err != nil {
 			t.Fatal(err)
 		}

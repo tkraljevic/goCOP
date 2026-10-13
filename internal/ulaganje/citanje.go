@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -75,7 +76,7 @@ func zatecenaVrsta(arhivaPut, letva, izvor string) string {
 	if arhivaPut == "" {
 		return ""
 	}
-	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(arhivaPut))
 	if err != nil {
 		return ""
 	}
@@ -223,7 +224,7 @@ type UNizu struct {
 // Zato se gleda sirova tablica ocitanja kroz identitet niza — letva, izvor,
 // veličina, vrsta — i traži se baš ta vrijednost.
 func ProvjeriUArhivi(put, letva string, nizovi []UNizu) (int, error) {
-	a, err := sql.Open("sqlite", put+"?mode=ro")
+	a, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put))
 	if err != nil {
 		return 0, err
 	}

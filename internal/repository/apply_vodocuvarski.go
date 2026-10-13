@@ -70,6 +70,7 @@ func primijeniListIzPovijesti(ctx context.Context, tx *sql.Tx, id string) error 
 	if err := upisiDvojnike(ctx, tx, id, s); err != nil {
 		return err
 	}
+	primiPrilogeSlozenih(ctx, s)
 	return izvorniciPotpisa(ctx, tx, id, s)
 }
 

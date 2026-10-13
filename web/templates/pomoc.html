@@ -746,6 +746,31 @@
     <p>Revidirana serija <strong>zamjenjuje</strong> staru na istom mjestu: promijeni se datoteka
       i arhiva se izgradi iznova. Ispravci upisani kroz sučelje stoje odvojeno od arhive, pa
       ponovna gradnja ne briše ono što je čovjek ispravio.</p>
+    <p>Krivulje protoka iz HIS-2000 ne zamjenjuju se cijele: izvoz dodaje nova razdoblja i zamjenjuje
+      ista, a zatečena razdoblja kojih u izvozu nema ostaju.</p>
+    <p>Sadržaj datoteke je istina. Krivulje protoka prate svoju datoteku: kad letva u stablu ima
+      datoteku krivulja, gradnja u arhivu postavi točno krivulje iz nje. Krivulju koje u datoteci
+      više nema gradnja makne, a u ispisu gradnje piše koja je to krivulja i kad je vrijedila.
+      Krivulje letve koja u stablu nema datoteku krivulja ostaju kakve jesu.</p>
+    <p>Iznimka je letva koja je stigla paketom s drugog čvora. Krivulje koje ta letva već ima u arhivi
+      gradnja ne dira. Ne miče ih ni kad ih u datoteci nema, a krivulja iz datoteke ne zamijeni krivulju
+      koja u arhivi vrijedi od istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema. U
+      ispisu gradnje tada piše koja krivulja nije maknuta ili nije upisana i zašto. Krivulju takve letve
+      treba ispraviti na čvoru koji letvu izdaje.</p>
+    <p>Prazna datoteka krivulja, ili datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi
+      gradnju, da ne odnese sve krivulje letve. Ispis gradnje kaže koja je to datoteka. Datoteka sa
+      samim zaglavljem znači da letva krivulja nema.</p>
+    <p>Kad iz stabla nestane cijela datoteka niza, snimke korita ili krivulja protoka, gradnja ih iz
+      arhive ne briše sama. Pojave se na stranici <strong>Administracija → Unos u arhivu</strong>, pod
+      <em>Nizovi bez datoteke u stablu</em>, a iz arhive ih makne gumb <strong>Makni</strong>. Tako
+      vanjski disk koji nije priključen ne odnese podatke. Snimke i krivulje letve koja u stablu nema
+      svoju mapu na taj popis ne idu, npr. letve koju čvor samo prima paketom. Ne idu ni krivulje letve
+      koja je stigla paketom s drugog čvora. Ako je letva otkad je stranica otvorena dobila datoteku
+      krivulja ili stigla paketom, gumb Makni njezine krivulje ne miče, nego to javi. Ni gradnja ni gumb
+      Makni datoteke u stablu nikad ne mijenjaju.</p>
+    <p>Datoteka snimke korita koja se ne da pročitati stoji na tom popisu kao zaseban redak, s razlogom i
+      bez gumba Makni. Takvu datoteku treba popraviti u stablu. Dok se ne popravi, popis za tu letvu ne
+      javlja snimke bez datoteke, jer se ne zna koju snimku ta datoteka drži.</p>
     <p class="reading-meta"><strong>Izvan aplikacije:</strong> administrator poslužitelja za masovnu početnu
       pripremu ima i alate naredbenog retka (<code>arhiva-vodostaja</code> gradi cijelu arhivu, ili jednu letvu
       s <code>-letva batina</code>). Nisu dio isporuke i za redovan rad ne trebaju.</p>
@@ -1736,9 +1761,14 @@
       samo kazalo, pregled ili puni sadržaj, te koliko se dana primljeni sadržaj lokalno drži.
       Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
       poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
-    <p>Pakete arhive vodostaja dohvaća čvor koji prati sve te čvor s pravilom <em>Sve vrste</em>
-      kojemu je polje <em>Od godine</em> prazno, a sadržaj <em>Sve</em>. Izbor <em>Arhiva
-      vodostaja</em> u popisu <em>Što</em> zasad se ne da spremiti.</p>
+    <p>Pakete arhive vodostaja dohvaća čvor koji prati sve, čvor s pravilom <em>Arhiva
+      vodostaja</em> i čvor s pravilom <em>Sve vrste</em>. Godine se tada ne gledaju, jer paket
+      nosi cijelu povijest letve. Ne gleda se ni sadržaj uz zapise: paket stiže i uz <em>Samo
+      pregledi</em> i <em>Samo kazalo</em>, jer su u njemu podaci, a ne slike. Pravilo <em>Sve
+      vrste</em> za sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama.
+      Rok držanja vrijedi i za pakete: kad istekne, paket se makne s računala, a arhiva ostaje
+      ugrađena. Kad pravilo <em>Sve vrste</em> ima popunjeno polje <em>Od godine</em>, paket
+      šalje samo računalo s izdanjem 0.0.38 ili novijim.</p>
 
     <h3 id="profil-prijava-izvana">Prijava izvana: PIN, zapamćena računala i rezervni kodovi</h3>
     <p><strong>Kad se traži PIN.</strong> Ako je administrator uključio prijavu izvana s
