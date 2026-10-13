@@ -308,7 +308,9 @@ type primjena struct {
 type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) error
 
 // skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
-// (TestPrimjenaJeUJednojSkupini)
+// (TestPrimjenaJeUJednojSkupini). Mape se pune pri pokretanju paketa, pa
+// radnja u njima ne smije, ni posredno, zvati applyOne, removeFromSurface
+// ni primijeniVerziju: Go to odbije kao initialization cycle.
 var skupinePrimjena = []map[string]primjena{
 	primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika,
 	primjeneAkata, primjeneObracuna, primjeneMreze,
@@ -345,10 +347,11 @@ func obrisiPoBroju(upit string) radnjaNaPovrsini {
 }
 
 // upisPoArgumentima je upis zapisa tipa T upitom upit, s argumentima koje iz
-// zapisa daju argumenti, za zapise čiji se dio upisuje kao JSON (izvješća,
-// vrste sredstava, popisi). Grešku argumenata iz sadržaja verzije nije
-// moguće izazvati (što je pročitano iz JSON-a, da se i zapisati), pa njezina
-// grana stoji ovdje jednom, s vlastitim testom.
+// zapisa daju argumenti, za zapise čija funkcija argumenata vraća i grešku,
+// jer dio zapisa pretvara u JSON (izvješća, vrste sredstava, popisi).
+// Grešku argumenata iz sadržaja verzije nije moguće izazvati (što je
+// pročitano iz JSON-a, da se i zapisati), pa njezina grana stoji ovdje
+// jednom, s vlastitim testom.
 func upisPoArgumentima[T any](upit string, argumenti func(*T) ([]any, error)) radnjaNaPovrsini {
 	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		var x T
