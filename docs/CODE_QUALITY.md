@@ -352,6 +352,17 @@ onome tko ga sutra mijenja, a ne samo proći provjeru.
    izraza.
 7. **Procjena nikad kao mjerenje.** Popunjen, preračunat ili rekonstruiran
    podatak nosi oznaku izvora i ne ulazi tamo gdje se mjerenje dokazuje.
+8. **Tekst koji korisnik čita piše se cijelim rečenicama** (Odluke
+   (13. 10. 2026.)). Rečenica se ne slaže od dijelova: bez `{{if}}` usred
+   rečenice i bez rečenice složene od izlaza dviju funkcija. Riječ uz broj
+   bira samo `uzBroj` u predlošku, a u Go kodu `models.UzBrojHR` (ili
+   postojeći `dan` i `sat` u `models`), uvijek sa sva tri oblika:
+   `{{uzBroj .N "list" "lista" "listova"}}`. Na `{{term}}` i `{{terml}}`
+   ne lijepi se nastavak („`{{terml "sektor"}}u`”), jer organizacija naziv
+   može promijeniti; rečenica se složi tako da naziv stoji u nominativu,
+   npr. iza dvotočke. Naziv razine ustroja (sektor, branjeno područje,
+   centar) uzima se iz `OrgTerms`, ne piše se rukom. Predloške čuvaju
+   `TestPredlosciTrazeNaziveKojiPostoje` i `TestUzBrojImaTriOblika`.
 
 Izvori: [golangci konfiguracija](https://golangci-lint.run/docs/configuration/file/),
 [gocyclo](https://github.com/fzipp/gocyclo),
