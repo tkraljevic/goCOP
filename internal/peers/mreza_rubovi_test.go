@@ -316,14 +316,16 @@ func TestJavljanjeNaLokalnojMrezi(t *testing.T) {
 	stalo := make(chan error, 1)
 	go func() { stalo <- s.Announce(ctx) }()
 
-	proba, err := net.ListenPacket("udp4", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer proba.Close()
 	kamo := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: s.ports.Discovery}
+	// svako pitanje ide s nove utičnice, da zakašnjeli odgovor na ranije
+	// pitanje ne stigne kao odgovor na ovo
 	pitaj := func(tekst string, pokusaja int) (razmjena.Beacon, bool) {
 		t.Helper()
+		proba, err := net.ListenPacket("udp4", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer proba.Close()
 		buf := make([]byte, 2048)
 		for i := 0; i < pokusaja; i++ {
 			if _, err := proba.WriteTo([]byte(tekst), kamo); err != nil {
