@@ -141,6 +141,77 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   datoteke treba poslati ponovno, i kad su odmah iza stajali pravi razlozi.
   Odabir tada nije istekao, a ponovno slanje ne pomaže. Sad poruka navodi
   samo razloge, a o isteku govori samo kad snimki koje čekaju više nema.
+- **Vrijeme bez sekundi u datoteci niza čita se kao sat.** Gradnja arhive
+  čitala je vrijeme bez sekundi, npr. „2024-03-01 07:00”, kao sam datum.
+  Satne vrijednosti istog dana tako su se sažele u jednu, a ostala je
+  zadnja. Datum kraći od deset znakova, npr. „2024-3-1”, srušio je gradnju.
+  Sad se vrijeme sa satom i minutama čita kao sat, a krivo zapisan datum
+  gradnja javi greškom s imenom datoteke i brojem retka. Datoteke koje
+  piše program uvijek imaju sekunde, pa se to događalo samo s ručno
+  složenim datotekama.
+- **Dopuna niza više ne briše zatečene retke.** Kad se niz u arhivi
+  dopunjuje, kroz vrata arhive, ulaganjem očitanja, s kišomjera ili s
+  HydroViewa, program pročita što datoteka niza već ima i zapiše sve
+  zajedno. Retke s trećim stupcem, polja u navodnicima i vrijeme bez
+  sekundi pritom nije razumio, pa su tiho nestali iz datoteke, iako ih je
+  gradnja čitala. Isto se događalo s retkom u kojem je datum ili vrijednost
+  krivo upisana. Sad dopuna datoteku čita kao i gradnja. Kad neki redak ne
+  razumije, ili iza vrijednosti nešto piše, upis odbije i kaže koji je to
+  redak, a datoteka ostane kakva je bila. Pregled pod Unos u arhivu to kaže
+  već prije upisa, u okviru „Niz već postoji”, i nudi zamjenu.
+- **Katalog izdanja bez praznog retka.** Kad je čvor prvi put izdavao
+  letvu koju je primio paketom, a paket s novim brojem nije se dao složiti,
+  u katalog izdanja ušao je redak bez letve i bez datoteke. Taj je redak
+  prelazio u svako sljedeće izdavanje, a objava arhive pokušavala ga je
+  pročitati i u dnevnik programa pisala grešku. Sad se takva letva samo
+  preskoči, kao i kad ne uspije prvo sastavljanje paketa. To se događalo
+  rijetko, npr. kad se zadnji niz letve makne usred izdavanja.
+- **Krivulje protoka prate svoju datoteku.** Krivulja protoka maknuta iz
+  datoteke krivulja letve ostajala je u arhivi i nakon ponovne gradnje.
+  Ista mapa tako je davala drukčiju arhivu, ovisno o tome gradi li se
+  iznova ili preko stare. Sad gradnja letve koja u stablu ima datoteku
+  krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
+  kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
+  krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
+  nestane iz arhive. Krivulje letve koja u stablu nema datoteku krivulja
+  ostaju kakve jesu. Iznimka je letva koja je stigla paketom s drugog
+  čvora: krivulje koje ta letva već ima u arhivi ostaju i kad ih u datoteci
+  nema, a krivulja iz datoteke ne zamijeni krivulju koja u arhivi vrijedi od
+  istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema.
+  Ispis gradnje kaže koja krivulja nije maknuta ili nije upisana i zašto.
+  Prazna datoteka krivulja, ili
+  datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi gradnju,
+  da ne odnese sve krivulje letve.
+- **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
+  kojoj je datoteka maknuta iz stabla ostajala je u arhivi, a nigdje se nije
+  vidjelo da joj datoteke više nema. Ispravak dana snimke u datoteci tako
+  je ostavljao dvije snimke istog korita. Sad gradnja takvu snimku ne briše,
+  nego je pokaže pod Administracija → Unos u arhivu → Nizovi bez datoteke u
+  stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
+  Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
+  koju čvor samo prima paketom. Datoteke u stablu se ne diraju. Datoteka
+  snimke koja se ne da pročitati stoji na popisu kao zaseban redak, s
+  razlogom i bez gumba Makni, a ostatak popisa se i dalje vidi.
+- **Arhiva koje nema ne nastaje prazna.** Na čvoru bez arhive vodostaja
+  program je pri pokretanju i na stranicama arhive na njezinu mjestu
+  ostavljao praznu datoteku vodostaji.db. Veze koje su trebale samo čitati
+  arhivu, bazu očitanja i bazu prognoza mogle su i pisati. Sad se te baze
+  otvaraju samo za čitanje, pa prazna datoteka više ne nastaje, a kroz te
+  veze program ništa ne može upisati.
+- **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
+  nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
+  arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
+  stablu, s brojem krivulja i danom od kojeg vrijedi najstarija, a gumb
+  Makni ih miče iz arhive. Krivulje letve koja je stigla paketom s drugog
+  čvora na popis ne idu. Ako je letva otkad je stranica otvorena dobila
+  datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
+  miče, nego to javi.
+- **Prognoza bira krivulju protoka po hrvatskom danu.** Prognoza je dan za
+  izbor krivulje protoka računala po UTC-u, a stranice po hrvatskom
+  vremenu. Zato je u prvom satu dana kad počinje nova krivulja, ljeti u
+  prva dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem
+  Miholjcu od 2017. to su bile tri satne vrijednosti. Sad prognoza i
+  stranice biraju istu krivulju.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

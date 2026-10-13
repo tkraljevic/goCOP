@@ -1038,12 +1038,6 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
 	prognozePut := filepath.Join(filepath.Dir(*dbPath), "prognoze.db")
-	if c, err := web.OtvoriPrognoze(prognozePut); err != nil {
-		log.Printf("Baza prognoza nije pronađena (%s) — grafovi rade bez prognoze", prognozePut)
-	} else {
-		server.SetPrognoze(c)
-		log.Printf("Baza prognoza: %s", prognozePut)
-	}
 
 	arhivaPut := cfg.Arhiva
 	if arhivaPut == "" {
@@ -1111,6 +1105,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		podaci: z.podaci, nazivCvora: nazivCvora,
 		ulogePostavljene: ulogePostavljene, ulogeErr: ulogeErr,
 	})
+	// Čitač prognoza dolazi tek sad: veza samo za čitanje bazu koje nema ne
+	// otvori, a pokreniPrognozu je napravi.
+	postaviCitacPrognoza(server, prognozePut)
 	// Letve na Geolux HydroViewu traže prijavu. Račun stoji na ovom čvoru,
 	// šifriran ključem čvora, i traži se pri svakom preuzimanju — tako
 	// promjena lozinke odmah vrijedi, bez ponovnog pokretanja. Letva može

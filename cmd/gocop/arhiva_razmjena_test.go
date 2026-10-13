@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/sadrzaj"
 )
@@ -91,7 +92,7 @@ func TestArhivaKrozRazmjenu(t *testing.T) {
 		t.Fatal(err)
 	}
 	b.primi(ctx)
-	arhB, _ := sql.Open("sqlite", putB+"?mode=ro")
+	arhB, _ := sql.Open("sqlite", db.SamoZaCitanje(putB))
 	defer arhB.Close()
 	var n int
 	arhB.QueryRow(`SELECT count(*) FROM ocitanja`).Scan(&n)

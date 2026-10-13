@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/hidroview"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/kisomjeri"
@@ -43,6 +44,19 @@ type ovisnostiPrognoze struct {
 	ulogeErr         error
 }
 
+// postaviCitacPrognoza daje poslužitelju bazu prognoza za čitanje. Veza je
+// samo za čitanje, pa baze koje nema ne otvori: zove se tek nakon
+// pokreniPrognozu, koja bazu napravi.
+func postaviCitacPrognoza(server *web.Server, put string) {
+	c, err := web.OtvoriPrognoze(put)
+	if err != nil {
+		log.Printf("Baza prognoza nije pronađena (%s) — grafovi rade bez prognoze", put)
+		return
+	}
+	server.SetPrognoze(c)
+	log.Printf("Baza prognoza: %s", put)
+}
+
 // pokreniPrognozu: prognoza se obnavlja čim stignu novi vodostaji, a ne po
 // vlastitom satu — inače bi pola vremena stajala na starim brojkama a
 // izgledala kao da je današnja. Kad baze prognoza nema ili je prazna,
@@ -57,12 +71,12 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		log.Printf("Prognoza se neće obnavljati: %v", err)
 		return nil
 	}
-	ocitanjaRO, err := sql.Open("sqlite", dbPath+"?mode=ro")
+	ocitanjaRO, err := sql.Open("sqlite", db.SamoZaCitanje(dbPath))
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)
 		return nil
 	}
-	arhivaRO, err := sql.Open("sqlite", o.arhivaPut+"?mode=ro")
+	arhivaRO, err := sql.Open("sqlite", db.SamoZaCitanje(o.arhivaPut))
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
 		return nil

@@ -172,6 +172,33 @@ func TestZatecenNizPoObrascu(t *testing.T) {
 	}
 }
 
+// Zatečeni niz koji se ne da pročitati do kraja i dalje daje okvir „Niz već
+// postoji”, s razlogom i s izborom zamjene. Okvir je prije nestao, pa čovjek
+// nije vidio da niz postoji ni zašto dopuna neće proći, a zamjenu nije mogao
+// ni odabrati.
+func TestZatecenNizKojiSeNeDaProcitati(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	put := filepath.Join(o.koren, "primjerica", "primjerovo", "primjerovo_probni_vodostaj_dnevni_2026.csv")
+	if err := os.WriteFile(put, []byte("datum;vodostaj_cm\n2026-02-28;118;led\n2026-03-01;119\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	id := o.posalji(t, o.pero, o.peroOvl, "satni.csv", dnevniPrimjerova)
+	niz := url.Values{"id": {id}, "sliv": {"primjerica"}, "letva": {"primjerovo"}, "izvor": {"probni"},
+		"velicina": {"vodostaj"}, "vrsta": {"dnevni"}}
+	html := o.zovi(o.h.Zatecen, o.pero, o.peroOvl, "/administracija/uvoz-niza/zatecen", niz).Body.String()
+	for _, treba := range []string{"Niz već postoji",
+		"Zatečeni niz u stablu ne da se pročitati do kraja, pa ga dopuna ne može spojiti s ovom datotekom.",
+		"primjerovo_probni_vodostaj_dnevni_2026.csv redak 2: iza vrijednosti piše još &#34;led&#34;",
+		`value="dopuni"`, `value="zamijeni"`} {
+		if !strings.Contains(html, treba) {
+			t.Errorf("okvir nema %q:\n%s", treba, html)
+		}
+	}
+	if strings.Contains(html, "U stablu već ima") {
+		t.Errorf("okvir broji vrijednosti niza koji se ne da pročitati:\n%s", html)
+	}
+}
+
 // Okvir zatečenog niza ne otvara ništa što stranica ne bi otvorila: bez
 // prava se odbija, istekao ili tuđi odabir i tuđa letva daju prazan odgovor,
 // a neispravan obrazac je loš zahtjev.

@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/repository"
@@ -95,6 +96,12 @@ type UvozHandler struct {
 	// HVRS71. Kad se ne poklopi ni s jednom, program stane i pita.
 	koteLetve func(letva string) (stara, nova float64, ok bool)
 
+	// makniSnimku briše snimku korita koja je ostala bez datoteke u stablu.
+	makniSnimku func(letva, datum string) (int, error)
+	// makniKrivulje briše krivulje protoka letve kojoj je iz stabla nestala
+	// datoteka krivulja.
+	makniKrivulje func(letva string) (int, error)
+
 	// Račun za HydroView i naziv letve, za preuzimanje povijesti s telemetrije.
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
@@ -113,6 +120,18 @@ func NewUvozHandler(arhivaPut, podaciDir func() string,
 // SetMakniNiz daje vratima način da maknu niz koji je ostao bez datoteke.
 func (h *UvozHandler) SetMakniNiz(f func(letva, izvor, velicina, vrsta string) (int, error)) {
 	h.makniNiz = f
+}
+
+// SetMakniSnimku daje vratima način da maknu snimku korita koja je ostala bez
+// datoteke.
+func (h *UvozHandler) SetMakniSnimku(f func(letva, datum string) (int, error)) {
+	h.makniSnimku = f
+}
+
+// SetMakniKrivulje daje vratima način da maknu krivulje protoka letve kojoj je
+// nestala datoteka krivulja.
+func (h *UvozHandler) SetMakniKrivulje(f func(letva string) (int, error)) {
+	h.makniKrivulje = f
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
@@ -282,7 +301,7 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 // sirotaniUArhivi otvara arhivu samo za čitanje i pita je za nizove kojima je
 // datoteka nestala iz stabla.
 func sirotaniUArhivi(arhivaPut, koren string) ([]arhiva.Sirotan, error) {
-	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(arhivaPut))
 	if err != nil {
 		return nil, err
 	}
@@ -549,6 +568,9 @@ type ZatecenNiz struct {
 	IzvanNov int    // koliko zatečenih vrijednosti nova datoteka uopće ne pokriva
 	OdIzvan  string // razdoblje koje bi zamjena odnijela
 	DoIzvan  string
+	// Greska kaže zašto se zatečeni niz ne da pročitati do kraja. Dopuna ga
+	// tada odbije, pa čovjek mora vidjeti i razlog i mogućnost zamjene.
+	Greska string
 }
 
 // zateceno gleda što niz već ima i koliko bi toga zamjena odnijela.
@@ -557,7 +579,10 @@ func zateceno(koren string, u UvozNiza, novi []arhiva.Redak) *ZatecenNiz {
 		return nil
 	}
 	stare, err := arhiva.PostojeciRedci(koren, u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta)
-	if err != nil || len(stare) == 0 {
+	if err != nil {
+		return &ZatecenNiz{Greska: err.Error()}
+	}
+	if len(stare) == 0 {
 		return nil
 	}
 	imaNovi := make(map[int64]bool, len(novi))
