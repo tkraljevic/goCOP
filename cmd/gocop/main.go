@@ -827,7 +827,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	if ulogeErr != nil {
 		log.Printf("Uloge čvora nisu pročitane: %v", ulogeErr)
 	}
-	peersService.SetWantsAll(cfg.Sync.All)
+	postaviRazmjenu(peersService, cfg)
 	peersService.SetSpremiste(spremiste)
 	var razmjenaArh *razmjenaArhive // arhiva razmjenom; postavlja se kad je poznato gdje arhiva stoji
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
@@ -1207,4 +1207,12 @@ func splitPairs(s string) map[string]string {
 		}
 	}
 	return out
+}
+
+// postaviRazmjenu prenosi postavke iz [sync] u razmjenu: prati li čvor sve
+// i smije li razmjena koristiti Tailscale ([sync] tailscale = false: radi
+// kao da Tailscalea nema)
+func postaviRazmjenu(s *peers.Service, cfg config.Config) {
+	s.SetWantsAll(cfg.Sync.All)
+	s.PostaviTailscale(cfg.Sync.Tailscale)
 }

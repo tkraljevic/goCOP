@@ -414,6 +414,11 @@ Web sučelje je obični HTTP. Pristup s interneta ide kroz tunel ili
 posrednika s HTTPS-om ispred čvora, nikad izravno na port 80. Čvorovi koji
 razmjenjuju kroz web tunel ne trebaju otvoren 4710.
 
+Razmjena s drugim vašim čvorovima preko Tailscalea ide na isti port 4710,
+a uparivanje preko Tailscale adrese na 4711, oboje na sučelju `tailscale0`.
+Pravilo `sudo ufw allow in on tailscale0` pokriva i njih. Isključuje se s `[sync] tailscale = false`; više u
+[INSTALACIJA.md](INSTALACIJA.md#2-mreža).
+
 Najprije provjerite je li vatrozid uopće uključen:
 
 ```sh

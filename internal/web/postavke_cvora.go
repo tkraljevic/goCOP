@@ -86,6 +86,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"sync.discovery_port", mjestoPostavke{"cvor", postavkaSamoCitanje, "Port pronalaženja", razlogAdrese}},
 
 	{"sync.auto_sync", mjestoPostavke{"mreza", postavkaUrediva, "Automatska sinkronizacija", ""}},
+	{"sync.tailscale", mjestoPostavke{"mreza", postavkaUrediva, "Razmjena preko Tailscalea", ""}},
 	{"sync.bootstrap", mjestoPostavke{"mreza", postavkaSamoCitanje, "Stalno dostupni čvorovi", razlogBootstrapa}},
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
@@ -115,6 +116,8 @@ var rasporedPostavki = []redakRasporeda{
 // datoteci („upiše ovdje”, „ova datoteka”) ili riječima true i false, što na
 // stranici zbunjuje
 var opisNaStranici = map[string]string{
+	"sync.tailscale": "Uključeno: na računalu s Tailscaleom razmjena koristi i Tailscale adrese drugih vaših čvorova. " +
+		"Isključeno: razmjena radi kao da Tailscalea nema, npr. za probu razmjene preko interneta. Na prijavu ne utječe.",
 	"web.tailscale_lokalno": "Uključeno: na računalu s Tailscaleom zahtjev na Tailscale adresu ovog računala vrijedi kao iz lokalne mreže, pa prijava ne traži PIN. " +
 		"Isključeno: takav zahtjev traži PIN kao izvana. Na računalu bez Tailscalea ne mijenja ništa.",
 	"node.id": "Mala slova, brojke i crtica. Zadaje se prije prvog pokretanja; ako ga nema, program ga sam izabere i upiše u gocop.toml.",

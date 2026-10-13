@@ -36,13 +36,17 @@ type SyncState struct {
 	// prazan Program znači da je drugi čvor ne javlja. Redak upisan prije
 	// toga (stariji program na ovom čvoru) o inačici ne govori ništa.
 	ProgramPoznat bool `json:"-"`
+	// Tailscale su adrese koje je drugi čvor javio u izravnom razgovoru;
+	// ostaju na ovom računalu (vidi tailscale.go)
+	Tailscale []string `json:"tailscale,omitempty"`
 }
 
 // syncOutcome je ishod jedne razmjene za bilješku
 type syncOutcome struct {
 	applied, sent    int
 	frontier         map[string]string
-	program, gradnja string // što je drugi čvor javio o svom programu
+	program, gradnja string   // što je drugi čvor javio o svom programu
+	tailscale        []string // Tailscale adrese koje je drugi čvor javio
 	took             time.Duration
 	err              error
 }
@@ -51,7 +55,7 @@ type syncOutcome struct {
 // programa vrijedi i kad je razgovor pukao nakon što je granica stigla
 func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
 	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
-		program: theirs.Program, gradnja: theirs.Gradnja, took: took, err: err}
+		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -93,17 +97,17 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat FROM peer_sync`)
+	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
 	for rows.Next() {
-		var id, frontier string
+		var id, frontier, ts string
 		var st SyncState
 		var attempt, ok sql.NullTime
-		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat); err != nil {
+		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts); err != nil {
 			return nil, err
 		}
 		if attempt.Valid {
@@ -115,6 +119,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 			st.LastOK = &t
 		}
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
+		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		out[id] = st
 	}
 	return out, rows.Err()

@@ -111,6 +111,33 @@ Unutar nje ostaje TLS s ključevima uparenih čvorova. U Domenske čvorove upisu
 se `https://<domena>`; u lokalnoj mreži prvo se pokušava izravna veza.
 Tunel nije automatsko otkrivanje čvorova niti zamjena za uparivanje.
 
+**Tailscale (od 0.0.37-alfa).** Na računalu s Tailscaleom razmjena koristi i
+Tailscale adrese drugih vaših čvorova, na istom portu 4710. Te adrese nikad ne
+ulaze u popis adresa čvora, jer taj popis dobivaju svi čvorovi mreže, i ne
+upisuju se ručno pod Domenske čvorove. Čvor ih javlja samo u razgovoru koji
+ide preko Tailscalea, pa ih čvor izvan vaše Tailscale mreže ne dobiva, ma što
+o sebi javio. Svaki čvor ih pamti samo kod sebe.
+
+Da dva vaša čvora počnu razmjenjivati preko Tailscalea, uparite ih jednom
+preko Tailscale adrese: na jednom kliknite **Čekaj drugi čvor**, a na drugom
+upišite Tailscale adresu prvoga (npr. `100.101.0.2`) i kliknite **Nazovi
+čvor**. Isto vrijedi za čvorove koji su već upareni. Nakon toga prvi
+razgovor preko Tailscalea donese i ostale adrese, u oba smjera. Razmjena ih
+zove iza adresa iz lokalne mreže, a ispred tunela; ploča razmjene ih pokazuje
+uz oznaku „(Tailscale)”. Čvor bez Tailscalea ih ne šalje, ne prima i ne zove,
+pa mu je razgovor isti kao prije.
+
+Na macOS-u program Tailscale prepoznaje po kartici utunN s Tailscaleovom IPv6
+adresom (`fd7a:115c:a1e0::/48`), jer utun karticu imaju i drugi VPN-ovi. Mac u
+Tailscale mreži u kojoj je IPv6 isključen radi kao računalo bez Tailscalea.
+
+`[sync] tailscale = false` u `gocop.toml` isključuje Tailscale u razmjeni,
+npr. za probu razmjene preko interneta. Čvor tada ne javlja svoje Tailscale
+adrese i ne zove tuđe, a razmjenu koja stigne na njegovu Tailscale adresu
+odbije; drugi čvor zove njegovu sljedeću adresu. Na prijavu ne utječe.
+U Dockeru (Unraid) program vidi Tailscale samo uz mrežu računala (host);
+uz most (bridge) čvor radi kao da Tailscalea nema.
+
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
 s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivanju),

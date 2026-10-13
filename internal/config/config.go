@@ -82,6 +82,7 @@ type Config struct {
 		AutoSync      string   `toml:"auto_sync" comment:"Koliko se često čvor sam sinkronizira s poznatim čvorovima. '0' isključuje.\n  auto_sync = '1h'"`
 		Bootstrap     []string `toml:"bootstrap" comment:"Stalno dostupni čvorovi preko kojih se pronalaze ostali. Svaki\ndodatni pomaže kad jedan padne.\n  bootstrap = ['cop-osijek.com', 'cop.voda.hr']"`
 		All           bool     `toml:"sve" comment:"true = čvor prati sve: očitanja i dnevnike svih područja i godina\n(uredski poslužitelj). false = samo ono što je označeno u programu\n(laptop, mobitel).\n  sve = true"`
+		Tailscale     bool     `toml:"tailscale" comment:"true = na računalu s Tailscaleom razmjena koristi i Tailscale adrese\ndrugih vaših čvorova; false = razmjena radi kao da Tailscalea nema\n(za probu razmjene preko interneta). Na prijavu ne utječe."`
 	} `toml:"sync"`
 }
 
@@ -98,6 +99,7 @@ func Default() Config {
 	c.Sync.DiscoveryPort = 4712
 	c.Sync.AutoSync = "5m"
 	c.Sync.Bootstrap = []string{"cop-osijek.com"}
+	c.Sync.Tailscale = true
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
 	c.Karta.NajviseZ = 17

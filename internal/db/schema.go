@@ -1621,6 +1621,9 @@ func migrateSchema(database *sql.DB) error {
 		// 1 kad je redak upisao program koji bilježi inačicu: tek tada
 		// prazna inačica znači da je drugi čvor ne javlja
 		{"peer_sync", "program_poznat", "INTEGER NOT NULL DEFAULT 0"},
+		// Tailscale adrese drugog čvora (JSON) koje je on sam javio u
+		// razmjeni; ostaju na ovom računalu i nikad ne idu u knjigu
+		{"peer_sync", "tailscale", "TEXT NOT NULL DEFAULT ''"},
 		// Račun sustava koji šalje e-poštu (PIN prijave izvana) treba i
 		// adresu pošiljatelja, jer ime za prijavu nije adresa; neispravan_od
 		// je trenutak kad je poslužitelj odbio lozinku, i do nove lozinke se

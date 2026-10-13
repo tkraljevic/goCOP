@@ -125,16 +125,10 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 		if end > len(versions) {
 			end = len(versions)
 		}
-		batch := versions[start:end]
-		applied, err := s.rec.Apply(ctx, batch)
+		applied, err := s.primijeniPodBravom(ctx, versions[start:end])
+		rep.Applied += applied
 		if err != nil {
 			return rep, err
-		}
-		rep.Applied += applied
-		if applied > 0 && s.onApplied != nil {
-			if err := s.onApplied(ctx, batch); err != nil {
-				return rep, fmt.Errorf("površina nije osvježena: %w", err)
-			}
 		}
 	}
 	return rep, nil
