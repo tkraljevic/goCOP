@@ -397,19 +397,30 @@ func TestBuducnostOperateraRubovi(t *testing.T) {
 }
 
 // Bilanca uzima omjer istjecanja elektrane i dotoka zadnjeg tjedna, pa se
-// doprinos međusliva ne gubi. Elektrana koja tjedan dana pušta 120 m³/s uz
-// dotok od 100 spušta srednjak modela (250) na dotok puta omjer uz dopust,
-// 100 · 1,2 + 30 = 150. Dok je bilanca umjesto istjecanja dobivala dotok,
-// omjer je bio uvijek 1 i ishod 100 + 30 = 130.
+// doprinos međusliva ne gubi. Elektrana tjedan dana pušta 120 m³/s. Dotok je
+// 100, a zadnja 24 sata 140, pa mu je srednjak tjedna 105,71. Srednjak modela
+// (250) spušta se na dotok zadnjeg dana puta omjer, uz dopust od četvrtine:
+// 140 · 120 / 105,71 · 1,25 = 198,65. Dok je bilanca umjesto istjecanja
+// dobivala dotok, omjer je bio uvijek 1 i ishod 140 · 1,25 = 175. Kad bi
+// istjecanje išlo i kao dotok, ishod bi bio 120 · 1,25 = 150.
 func TestBuducnostOperateraBilancaOmjerIstjecanja(t *testing.T) {
 	const sada = int64(5000)
 	m := konstantniModel("elektrana", []string{"dotok"}, 250, false)
+	dotok := map[int64]float64{}
+	for t := sada - 200; t <= sada; t++ {
+		dotok[t] = 100
+		if t > sada-24 {
+			dotok[t] = 140
+		}
+	}
 	nizovi := map[Izvor]Niz{
 		{Letva: "elektrana", Velicina: "protok"}: ravanNiz(sada-200, sada, 120, 0),
-		{Letva: "dotok", Velicina: "protok"}:     ravanNiz(sada-200, sada, 100, 0),
+		{Letva: "dotok", Velicina: "protok"}:     NoviNiz(dotok),
 	}
 	n := BuducnostOperatera(map[string]*OperaterModel{"elektrana": m}, nizovi, sada)[Izvor{Letva: "elektrana", Velicina: "protok"}]
-	if v, _ := n.U(sada + 6); math.Abs(v-150) > 1e-9 {
-		t.Errorf("+6 h: %v, želim 150 (dotok 100 · omjer 1,2 + dopust 30)", v)
+	ulaz7 := (144*100 + 24*140) / 168.0
+	zelim := 140 * 120 / ulaz7 * 1.25
+	if v, _ := n.U(sada + 6); math.Abs(v-zelim) > 1e-9 {
+		t.Errorf("+6 h: %v, želim %.2f (dotok 140 · omjer 120/%.2f, uz dopust od četvrtine)", v, zelim, ulaz7)
 	}
 }
