@@ -75,13 +75,6 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sva računala, s cijelim tekstom nacrta, i ondje je ostajalo i kad
   računalo prestane pratiti područje. Sad brisanje ide istim putem kao i
   nacrt.
-- **Dnevnik bez upisane godine ostaje u svojoj godini.** Takav dnevnik
-  pripada godini početka, a bez početka godini kad je upisan. Godina se
-  računala po svjetskom vremenu, pa je dnevnik koji počinje 1. siječnja,
-  ili je upisan u prvom satu nove godine, znao pripasti prethodnoj godini,
-  najčešće tek nakon izmjene naslovnice. Računalo koje prati samo novu
-  godinu tada nije dobivalo nove listove tog dnevnika. Sad se godina
-  računa po zagrebačkom vremenu.
 - **Paket izdanja pod tuđim imenom ne blokira prave pakete.** Član mreže
   mogao je svojim ključem potpisati paket izdanja (.cop) pod imenom drugog
   računala i s visokim brojem izdanja. Računalo koje ga je uvezlo zatim je
