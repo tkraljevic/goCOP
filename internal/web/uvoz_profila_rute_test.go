@@ -348,12 +348,30 @@ func TestSnimkeKoritaPitajuSustav(t *testing.T) {
 		t.Errorf("pitanje o sustavu uz kote letve:\n%s", tekst(obrazac))
 	}
 
+	// Uz 21 snimku broj traži jedninu („21 snimka”), ali „te” i „tih”
+	// upućuju na sve snimke, pa ostaju u množini.
+	var dvadesetJedna []datotekaObrasca
+	for d := 1; d <= 21; d++ {
+		dvadesetJedna = append(dvadesetJedna, datotekaObrasca{"datoteke", fmt.Sprintf("p%d.csv", d),
+			snimkaKorita(fmt.Sprintf("9/%d/2022", d), "50,00", 60, 3)})
+	}
+	if zeli := "21 snimka ne kaže u kojem su sustavu kote. U starom sustavu (TRST) letva ima kotu nule 100,000 m. " +
+		"U HVRS71 letva ima kotu nule 99,800 m. Kote nule tih snimki ne odgovaraju nijednoj koju letva vodi. " +
+		"To su ili snimke s druge letve, ili im je nula premještena, ili su kote prepisane krivo, pa se sustav ne nagađa. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazacSnimki(dvadesetJedna...)), zeli) {
+		t.Errorf("pitanje o sustavu uz 21 snimku:\n%s", tekst(obrazacSnimki(dvadesetJedna...)))
+	}
+
 	o.h.SetKoteLetve(nil)
 	obrazac = obrazacSnimki(datotekaObrasca{"datoteke", "a.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)},
 		datotekaObrasca{"datoteke", "b.csv", snimkaKorita("9/10/2022", "50,00", 60, 3)})
 	if zeli := "2 snimke ne kažu u kojem su sustavu kote. Letva nema upisanu kotu nule, pa se sustav ne može prepoznati. " +
 		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazac), zeli) {
 		t.Errorf("pitanje o sustavu bez kota letve:\n%s", tekst(obrazac))
+	}
+	if zeli := "21 snimka ne kaže u kojem su sustavu kote. Letva nema upisanu kotu nule, pa se sustav ne može prepoznati. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazacSnimki(dvadesetJedna...)), zeli) {
+		t.Errorf("pitanje o sustavu bez kota letve uz 21 snimku:\n%s", tekst(obrazacSnimki(dvadesetJedna...)))
 	}
 }
 

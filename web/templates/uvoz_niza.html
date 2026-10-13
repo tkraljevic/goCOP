@@ -507,13 +507,16 @@
       <strong>{{$n}} {{uzBroj $n "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
       {{if .Profili.KotaStara}}U starom sustavu (TRST) letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span>.{{end}}
       {{if .Profili.KotaNova}}U HVRS71 letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span>.{{end}}
-      {{if or .Profili.KotaStara .Profili.KotaNova}}Kota nule {{uzBroj $n "te snimke" "tih snimki" "tih snimki"}} ne odgovara
-      nijednoj koju letva vodi. To je ili snimka s druge letve, ili joj je nula premještena, ili je kota
-      prepisana krivo, pa se sustav ne nagađa.
+      {{/* „te” i „tih” upućuju na sve snimke, ne stoje uz broj, pa uzBroj ovdje ne vrijedi: uz 21 snimku bio bi jednina */}}
+      {{if or .Profili.KotaStara .Profili.KotaNova}}
+      {{if eq $n 1}}Kota nule te snimke ne odgovara nijednoj koju letva vodi. To je ili snimka s druge letve,
+      ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa.
+      {{else}}Kote nule tih snimki ne odgovaraju nijednoj koju letva vodi. To su ili snimke s druge letve,
+      ili im je nula premještena, ili su kote prepisane krivo, pa se sustav ne nagađa.{{end}}
       {{else}}Letva nema upisanu kotu nule, pa se sustav ne može prepoznati.{{end}}
     </p>
     <label class="izvor-napomena m-0">
-      <span class="part-label">{{uzBroj $n "Sustav za tu snimku" "Sustav za te snimke" "Sustav za te snimke"}}</span>
+      <span class="part-label">{{if eq $n 1}}Sustav za tu snimku{{else}}Sustav za te snimke{{end}}</span>
       <select name="sustav" class="form-control max-w-14" required>
         <option value="">odaberite…</option>
         <option value="TRST">TRST</option>
