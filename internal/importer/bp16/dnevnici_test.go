@@ -118,7 +118,8 @@ func izvorRadova() probniIzvor {
 			// 5. 3. 2024.: upisi bez lokacije
 			`{"id":20,"datum":"2024-03-05","naziv_vode":12,"upis":"Bez naziva kanala","user_created":"u-izv"}`,
 			`{"id":21,"datum":"2024-03-05","naziv_vode":10,"upis":"Stavka bez vode","user_created":"u-nepoznat"}`,
-			`{"id":22,"datum":"2024-03-05","naziv_vode":99,"upis":"Nepoznata stavka","user_created":"u-izv"}`,
+			// stavke 5 nema, a voda 5 (Nasip Draž) ima: upis ipak ostaje bez vode
+			`{"id":22,"datum":"2024-03-05","naziv_vode":5,"upis":"Nepoznata stavka","user_created":"u-izv"}`,
 			`{"id":23,"datum":"2024-03-05","naziv_vode":null,"upis":null,"user_created":null,"date_created":"jučer","lokacija":" Kanal 1+200 "}`,
 			// 2025.: nove lokacije
 			`{"id":30,"datum":"2025-01-02","naziv_vode":16,"upis":"Nasip novi","user_created":"u-izv","date_created":"2025-01-02T08:15:00Z"}`,
@@ -261,6 +262,9 @@ func TestUvozDnevnikaRadova(t *testing.T) {
 		if u.MaintainedWaterID != "" || u.Side != models.EntrySideContractor {
 			t.Errorf("upis bez lokacije: %+v", u)
 		}
+	}
+	if u := treci[3]; u.Text != "Nepoznata stavka" {
+		t.Errorf("upis s nepoznatom stavkom: %+v", u)
 	}
 	if u := treci[4]; u.Text != "" || u.Place != "Kanal 1+200" || u.UserName != "nepoznat upisivač" || !u.CreatedAt.Equal(time.Date(2024, 3, 5, 7, 0, 0, 0, models.Zagreb)) {
 		t.Errorf("upis bez upisivača: %+v", u)
