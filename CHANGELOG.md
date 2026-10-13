@@ -101,10 +101,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
   kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
   krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
-  nestane iz arhive. Vrijedi i za krivulje koje su stigle paketom s drugog
-  čvora: kad ih lokalna datoteka nema, gradnja ih makne, pa datoteku
-  krivulja prije gradnje treba osvježiti. Krivulje letve koja u stablu nema
-  datoteku krivulja ostaju kakve jesu. Prazna datoteka krivulja, ili
+  nestane iz arhive. Krivulje letve koja u stablu nema datoteku krivulja
+  ostaju kakve jesu. Iznimka je letva koja je stigla paketom s drugog
+  čvora: krivulje iz lokalne datoteke se upišu, ali one koje je donio paket
+  ostaju i kad ih u datoteci nema, a ispis gradnje kaže koja krivulja nije
+  maknuta i zašto. Prazna datoteka krivulja, ili
   datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi gradnju,
   da ne odnese sve krivulje letve.
 - **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
