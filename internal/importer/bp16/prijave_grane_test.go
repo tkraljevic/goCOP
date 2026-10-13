@@ -247,9 +247,9 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		t.Errorf("nečitljiva obavijest: %v", err)
 	}
 	// bez zbirke vode obavijest bi ostala bez vode, a ponovni uvoz je
-	// preskače, pa uvoz stane prije upisa
+	// preskače, pa uvoz stane prije upisa; ime zbirke u grešci daje izvor
 	bezVoda := kopijaBaze(t, predlozak)
-	rep, err := RunPrijave(ctx, pokvareniIzvor{probniIzvor: jedna(), greske: map[string]error{"vode": errors.New("Directus odgovorio 403")}}, deps(prijaveNa(bezVoda)))
+	rep, err := RunPrijave(ctx, pokvareniIzvor{probniIzvor: jedna(), greske: map[string]error{"vode": errors.New("vode: Directus odgovorio 403")}}, deps(prijaveNa(bezVoda)))
 	if err == nil || err.Error() != "vode: Directus odgovorio 403" || rep.Upisano != 0 {
 		t.Errorf("zbirka vode: %+v, %v", rep, err)
 	}

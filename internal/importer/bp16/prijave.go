@@ -121,11 +121,12 @@ func vrstaPrijave(s string) string {
 
 // vodePoOznaci čita zbirku vode: naziv vode po oznaci kojom ga obavijest
 // navodi. Greška čitanja prekida uvoz, jer bi obavijest ostala bez vode, a
-// ponovni uvoz je preskače.
+// ponovni uvoz je preskače. Ime zbirke u grešku stavlja izvor, kao i za
+// ostale zbirke.
 func vodePoOznaci(ctx context.Context, src Source) (map[int]string, error) {
 	raw, err := src.Items(ctx, "vode")
 	if err != nil {
-		return nil, fmt.Errorf("vode: %w", err)
+		return nil, err
 	}
 	vode := map[int]string{}
 	for _, r := range raw {
