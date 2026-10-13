@@ -633,8 +633,9 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 }
 
 // otvoriBazu otvori bazu (WAL) i shemu, spremište sadržaja uz nju (s
-// preseljenjem starog sadržaja) i upiše početne podatke. Kad vrati grešku uz
-// otvorenu bazu, pozivatelj je zatvara kao i inače.
+// preseljenjem starog sadržaja i fotografijama dnevnih listova) i upiše
+// početne podatke. Kad vrati grešku uz otvorenu bazu, pozivatelj je zatvara
+// kao i inače.
 func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	// 1. Otvaranje SQLite baze u WAL modu
 	database, err := db.OpenDB(dbPath)
@@ -661,6 +662,7 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	} else if n > 0 {
 		log.Printf("Preseljeno u spremište sadržaja: %d datoteka, %.1f MB", n, float64(bajtova)/1e6)
 	}
+	popraviPrilogeListova(context.Background(), database)
 	if st, err := spremiste.Stanje(context.Background()); err == nil {
 		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
 	}

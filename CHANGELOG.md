@@ -6,6 +6,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Fotografije uz dnevne listove stižu i na druga računala.** Fotografije
+  uz dnevni list vodočuvara, npr. uz obilaske prenesene iz stare
+  evidencije, ostajale su samo na računalu na kojem su upisane. Drugo
+  računalo dobilo je list, ali fotografiju nije ni tražilo, ni kad prati
+  sve. Sad je traži prema praćenju vodočuvarskog dnevnika za to područje:
+  uz „samo kazalo” ne, uz preglede ili sve da. Isto vrijedi za listove
+  primljene ranije: program ih pri prvom pokretanju nove inačice pregleda
+  i zatraži fotografije koje nedostaju. Na računalu na kojem su upisane
+  fotografije sad pripadaju području i godini svog lista, pa za njih
+  vrijedi i rok držanja iz praćenja.
 - **Dohvat dokumenata i fotografija više ne zastaje.** Računalo u jednoj
   razmjeni traži najviše 200 dokumenata i fotografija koje mu nedostaju.
   Kad je na vrhu popisa stajalo 200 onih koje po praćenju ne dohvaća (npr.

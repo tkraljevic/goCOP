@@ -258,6 +258,30 @@ func (s *Spremiste) Vezi(ctx context.Context, otisak string, v Veza) error {
 	return err
 }
 
+// ImaVezu javlja je li zapis u toj ulozi već vezan uz sadržaj
+func (s *Spremiste) ImaVezu(ctx context.Context, otisak string, v Veza) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_veze WHERE otisak = ? AND entitet = ? AND entitet_id = ? AND uloga = ?`,
+		otisak, v.Entitet, v.EntitetID, v.Uloga).Scan(&n)
+	return n > 0
+}
+
+// PostaviKanal upisuje kanal sadržaju koji ga još nema i javlja je li ga
+// upisao. Sadržaj spremljen prije nego što mu je zapis davao kanal tako
+// dobiva kanal po kojem pretplata odlučuje kome ide i koliko ostaje; kanal
+// koji sadržaj već ima ne mijenja se.
+func (s *Spremiste) PostaviKanal(ctx context.Context, otisak, kanal string) (bool, error) {
+	if kanal == "" {
+		return false, nil
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE sadrzaj SET kanal = ? WHERE otisak = ? AND kanal = ''`, kanal, otisak)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
 // OtisakPoUlozi vraća otisak sadržaja vezanog uz zapis u zadanoj ulozi;
 // prazno kad takve veze nema. Uloga fotografije nosi njezinu oznaku
 // ("slika:<id>"), pa se sadržaj nađe i bez znanja o otisku.
@@ -305,10 +329,21 @@ func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (int, int64, 
 			return 0, 0, err
 		}
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
+	if err := s.zaboraviZelje(ctx, kanal); err != nil {
 		return 0, 0, err
 	}
 	return len(otisci), bajtova, nil
+}
+
+// zaboraviZelje miče želje kanala i veze sadržaja koji je kanal tražio, a
+// još nije stigao. Zapis koji se poslije vrati u kanal tako ga ponovno veže
+// i traži, kao da ga vidi prvi put.
+func (s *Spremiste) zaboraviZelje(ctx context.Context, kanal string) error {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak IN (SELECT otisak FROM sadrzaj_zeljen WHERE kanal = ?)`, kanal); err != nil {
+		return err
+	}
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal)
+	return err
 }
 
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje
@@ -336,6 +371,13 @@ func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int,
 	_, err := s.db.ExecContext(ctx, `INSERT INTO sadrzaj_zeljen (otisak, vrsta, bajtova, razlog, kanal) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(otisak) DO UPDATE SET razlog = excluded.razlog, kanal = excluded.kanal`, otisak, vrsta, bajtova, razlog, kanal)
 	return err
+}
+
+// Zeljen javlja je li sadržaj već na popisu za dohvat
+func (s *Spremiste) Zeljen(ctx context.Context, otisak string) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_zeljen WHERE otisak = ?`, otisak).Scan(&n)
+	return n > 0
 }
 
 // Zeljeni vraća što čvor još treba dohvatiti, najstarije traženo prvo
