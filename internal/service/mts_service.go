@@ -761,7 +761,7 @@ func (s *MtsService) OtkljucajPopis(ctx context.Context, u *models.User, perms *
 }
 
 // popisZaOtkljucavanje čita inventuru koja se smije otključati: postoji,
-// zaključena je i zadnja je inventura svog skladišta
+// zaključena je i iza nje skladište nema zaključene inventure
 func (s *MtsService) popisZaOtkljucavanje(ctx context.Context, id string) (*models.Popis, error) {
 	p, err := s.repo.GetPopis(ctx, id)
 	if err != nil {
@@ -773,24 +773,31 @@ func (s *MtsService) popisZaOtkljucavanje(ctx context.Context, id string) (*mode
 	if !p.Zakljucen() {
 		return nil, errors.New("Inventura nije zaključena, pa je nema potrebe otključavati.")
 	}
-	if err := s.nemaNovijeInventure(ctx, p); err != nil {
+	if err := s.nemaNovijeZakljucene(ctx, p); err != nil {
 		return nil, err
 	}
 	return p, nil
 }
 
-// nemaNovijeInventure odbija otključavanje kad skladište ima inventuru s
-// kasnijim danom. Ta je pri zaključenju knjižno stanje uzela s usklađenjima
-// ove; ponovno zaključenje ove promijenilo bi stanje ispod nje.
-func (s *MtsService) nemaNovijeInventure(ctx context.Context, p *models.Popis) error {
+// nemaNovijeZakljucene odbija otključavanje kad skladište ima zaključenu
+// inventuru s kasnijim danom. Ta je pri zaključenju knjižno stanje uzela s
+// usklađenjima ove, pa bi ponovno zaključenje ove promijenilo stanje ispod
+// nje. Noviji nacrt ne smeta: knjižno stanje čita tek kad se zaključuje.
+// Nacrt se ne da obrisati, pa bi inače zauvijek priječio otključavanje.
+func (s *MtsService) nemaNovijeZakljucene(ctx context.Context, p *models.Popis) error {
 	popisi, err := s.repo.ListPopisi(ctx, "", p.SkladisteID, 0)
 	if err != nil {
 		return err
 	}
-	// popisi su poredani od najnovijeg dana
-	if len(popisi) > 0 && popisi[0].Dan.After(p.Dan) {
-		return fmt.Errorf("Inventura na dan %s ne može se otključati: za isto skladište postoji novija inventura, na dan %s. Otključava se samo zadnja inventura skladišta.",
-			p.Dan.Format("2. 1. 2006."), popisi[0].Dan.Format("2. 1. 2006."))
+	for _, q := range popisi { // od najnovijeg dana
+		if !q.Dan.After(p.Dan) {
+			break
+		}
+		if q.Zakljucen() {
+			// datum završava točkom, ona završava i rečenicu
+			return fmt.Errorf("Inventura na dan %s ne može se otključati: za isto skladište postoji novija zaključena inventura, na dan %s Najprije otključajte nju.",
+				p.Dan.Format("2. 1. 2006."), q.Dan.Format("2. 1. 2006."))
+		}
 	}
 	return nil
 }

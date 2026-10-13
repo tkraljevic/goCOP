@@ -13,9 +13,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ima gumb „Otključaj inventuru”: inventura se vraća u nacrt, a
   usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje
   razliku računa iznova, s prometom upisanim unatrag. Gumb vidi samo
-  globalni administrator, a otključati se može samo zadnja inventura
-  skladišta. U napomeni inventure ostaje tko ju je i kada otključao, a na
-  zidu događanja piše „Inventura vraćena u nacrt”.
+  globalni administrator. Kad skladište iza inventure ima noviju
+  zaključenu, najprije se otključava novija; noviji nacrt ne smeta. U
+  napomeni inventure ostaje tko ju je i kada otključao, a na zidu
+  događanja piše „Inventura vraćena u nacrt”.
 - **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
   izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
   koja je nema.

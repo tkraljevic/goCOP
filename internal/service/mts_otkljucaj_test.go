@@ -186,14 +186,22 @@ func TestMtsOtkljucavanjeOdbija(t *testing.T) {
 
 	nacrt := inventura(dan.AddDate(0, 0, 5), false)
 	mora("nacrt", s.OtkljucajPopis(ctx, admin, glavniAdmin, nacrt.ID), "nije zaključena")
-	mora("starija od nacrta", s.OtkljucajPopis(ctx, admin, glavniAdmin, stara.ID), "novija inventura, na dan "+nacrt.Dan.Format("2. 1. 2006."))
-	if err := s.ZakljuciPopis(ctx, u, uprava, nacrt.ID); err != nil {
-		t.Fatal(err)
+	// noviji nacrt ne smeta: knjižno stanje čita tek kad se zaključuje
+	if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, stara.ID); err != nil {
+		t.Fatalf("starija od nacrta: %v", err)
 	}
-	// noviji zaključeni smeta, a poruka kaže koji
+	for _, p := range []*models.Popis{stara, nacrt} {
+		if err := s.ZakljuciPopis(ctx, u, uprava, p.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// noviji zaključeni smeta, a poruka kaže koji i što učiniti
 	err := s.OtkljucajPopis(ctx, admin, glavniAdmin, stara.ID)
 	mora("starija od zaključene", err, "na dan "+stara.Dan.Format("2. 1. 2006.")+" ne može se otključati")
-	mora("starija od zaključene", err, "novija inventura, na dan "+nacrt.Dan.Format("2. 1. 2006.")+".")
+	mora("starija od zaključene", err, "novija zaključena inventura, na dan "+nacrt.Dan.Format("2. 1. 2006.")+" Najprije otključajte nju.")
+	if err != nil && strings.Contains(err.Error(), "..") {
+		t.Errorf("dvije točke u poruci: %v", err)
+	}
 	if p, _ := s.Popis(ctx, stara.ID); !p.Zakljucen() || len(uskladjenjaVrste(t, s, stara.ID, "lopata")) != 1 {
 		t.Errorf("odbijeno otključavanje promijenilo je staru inventuru: %+v", p)
 	}
@@ -201,7 +209,7 @@ func TestMtsOtkljucavanjeOdbija(t *testing.T) {
 	if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, nacrt.ID); err != nil {
 		t.Fatalf("zadnja inventura: %v", err)
 	}
-	// inventura drugog skladišta ne smeta
+	// zaključena inventura drugog skladišta ne smeta
 	drugo := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "Skladište Bilje", Aktivno: true}
 	if err := s.SpremiSkladiste(ctx, uprava, drugo); err != nil {
 		t.Fatal(err)
@@ -210,14 +218,85 @@ func TestMtsOtkljucavanjeOdbija(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	postaviPrebrojano(t, p, "lopata", models.OblikOsnovni, 1)
 	if err := s.SpremiPopis(ctx, u, uprava, p); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.ZakljuciPopis(ctx, u, uprava, nacrt.ID); err != nil {
-		t.Fatal(err)
+	for _, id := range []string{p.ID, nacrt.ID} {
+		if err := s.ZakljuciPopis(ctx, u, uprava, id); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, nacrt.ID); err != nil {
 		t.Errorf("inventura drugog skladišta smeta: %v", err)
+	}
+}
+
+// Dvije zaključene inventure istog skladišta, a promet upisan unatrag je
+// prije obje. Otključava se od novije prema starijoj, a ponovno zaključuje
+// od starije prema novijoj; obje tada razliku računaju s tim prometom.
+func TestMtsOtkljucavanjeDvijeInventure(t *testing.T) {
+	s, sk, ctx, u, uprava := pripremiMts(t)
+	admin := &models.User{ID: uuid.New(), FullName: "Marko Marić"}
+	lopata := "lopata"
+	dan := pocetakDana(time.Now().In(models.Zagreb))
+	bilje := &models.Skladiste{Sektor: "B", AreaID: 34, Naziv: "Skladište Bilje", Aktivno: true}
+	if err := s.SpremiSkladiste(ctx, uprava, bilje); err != nil {
+		t.Fatal(err)
+	}
+	for _, z := range []Zahvat{
+		{Vrsta: models.PrometPocetno, SkladisteID: sk.ID, VrstaID: lopata, Kolicina: 46, Datum: dan.AddDate(0, 0, -15)},
+		{Vrsta: models.PrometPocetno, SkladisteID: bilje.ID, VrstaID: lopata, Kolicina: 10, Datum: dan.AddDate(0, 0, -15)},
+	} {
+		if _, err := s.Provedi(ctx, u, uprava, z); err != nil {
+			t.Fatal(err)
+		}
+	}
+	inventura := func(dan time.Time, prebrojano float64) *models.Popis {
+		t.Helper()
+		p, err := s.PredlozakPopisa(ctx, sk.ID, dan)
+		if err != nil {
+			t.Fatal(err)
+		}
+		postaviPrebrojano(t, p, lopata, models.OblikOsnovni, prebrojano)
+		if err := s.SpremiPopis(ctx, u, uprava, p); err != nil {
+			t.Fatal(err)
+		}
+		if err := s.ZakljuciPopis(ctx, u, uprava, p.ID); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	stara := inventura(dan.AddDate(0, 0, -10), 45) // usklađenje −1
+	nova := inventura(dan.AddDate(0, 0, -5), 44)   // usklađenje −1
+	if _, err := s.Provedi(ctx, u, uprava, Zahvat{Vrsta: models.PrometPrijenos, SkladisteID: bilje.ID, NaSkladisteID: sk.ID,
+		VrstaID: lopata, Kolicina: 3, Datum: dan.AddDate(0, 0, -12)}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, stara.ID); err == nil || !strings.Contains(err.Error(), nova.Dan.Format("2. 1. 2006.")) {
+		t.Fatalf("starija prije novije: %v", err)
+	}
+	for _, p := range []*models.Popis{nova, stara} {
+		if err := s.OtkljucajPopis(ctx, admin, glavniAdmin, p.ID); err != nil {
+			t.Fatalf("otključavanje inventure na dan %s: %v", p.Dan.Format("2. 1. 2006."), err)
+		}
+	}
+	for _, p := range []*models.Popis{stara, nova} {
+		if err := s.ZakljuciPopis(ctx, u, uprava, p.ID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range []struct {
+		p    *models.Popis
+		want float64
+	}{{stara, -4}, {nova, -1}} {
+		if x := uskladjenjaVrste(t, s, c.p.ID, lopata); len(x) != 1 || x[0].Kolicina != c.want {
+			t.Errorf("usklađenje inventure na dan %s: %+v, a treba %v", c.p.Dan.Format("2. 1. 2006."), x, c.want)
+		}
+	}
+	if k := kolicinaU(t, s, ctx, sk.ID, lopata); k != 44 {
+		t.Errorf("stanje lopata: %v, a zadnje je prebrojano 44", k)
 	}
 }
 
