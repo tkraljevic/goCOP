@@ -102,8 +102,9 @@ func TestPrevelikSadrzajSeNeSalje(t *testing.T) {
 }
 
 // Upozorenje o verzijama koje razmjena ne šalje: broj i riječ uz njega
-// slažu se, popis ide redom i najviše pet, a svaka se verzija u dnevnik
-// zapiše samo jednom.
+// slažu se, a svaka se verzija u dnevnik zapiše samo jednom, s entitetom i
+// oznakom verzije. Upozorenje čita dežurni, pa u njemu nema imena tablice
+// ni oznake verzije, nego kaže što učiniti.
 func TestUpozorenjeONeispravnimVerzijama(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	dnevnik := brojiDnevnik(t, "nije ispravan JSON")
@@ -111,8 +112,11 @@ func TestUpozorenjeONeispravnimVerzijama(t *testing.T) {
 		t.Fatalf("upozorenje bez neispravnih verzija: %q", u)
 	}
 	s.zabiljeziNeispravne([]ledger.Version{{VersionID: "0002", Entity: "stations"}})
-	if u := s.upozorenjeNeispravnih(); len(u) != 1 || u[0] != "Razmjena drugim čvorovima ne šalje 1 zapis koji u bazi ovog računala nije ispravan (stations, verzija 0002). Ostali podaci razmjenjuju se normalno, a popis je i u dnevniku programa." {
+	if u := s.upozorenjeNeispravnih(); len(u) != 1 || u[0] != "Razmjena drugim računalima ne šalje 1 zapis koji u bazi ovog računala nije ispravan. Ostali podaci razmjenjuju se normalno. Javite administratoru: pojedinosti su u dnevniku programa." {
 		t.Errorf("jedna verzija: %q", u)
+	}
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "0002 (stations)") {
+		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
 	}
 	var vise []ledger.Version
 	for i := 1; i <= 7; i++ {
@@ -120,8 +124,8 @@ func TestUpozorenjeONeispravnimVerzijama(t *testing.T) {
 	}
 	s.zabiljeziNeispravne(vise)
 	u := s.upozorenjeNeispravnih()
-	if len(u) != 1 || !strings.HasPrefix(u[0], "Razmjena drugim čvorovima ne šalje 7 zapisa koji u bazi ovog računala nisu ispravni (stations, verzija 0001; ") ||
-		!strings.Contains(u[0], "stations, verzija 0005; …).") || strings.Contains(u[0], "0006") {
+	if len(u) != 1 || !strings.HasPrefix(u[0], "Razmjena drugim računalima ne šalje 7 zapisa koji u bazi ovog računala nisu ispravni. ") ||
+		strings.Contains(u[0], "stations") || strings.Contains(u[0], "0001") {
 		t.Errorf("sedam verzija: %q", u)
 	}
 	if n, _ := dnevnik.broj(); n != 7 {

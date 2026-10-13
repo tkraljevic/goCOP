@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -420,24 +419,19 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 }
 
 // upozorenjeNeispravnih je redak za ploču razmjene i pločicu na naslovnoj
-// kad razmjena neke verzije ne šalje; nil kad takvih nema
+// kad razmjena neke verzije ne šalje; nil kad takvih nema. Čita ga dežurni,
+// pa u njemu nema imena tablica ni oznaka verzija: one su u dnevniku.
 func (s *Service) upozorenjeNeispravnih() []string {
-	var popis []string
-	s.neispravne.Range(func(id, entitet any) bool {
-		popis = append(popis, fmt.Sprintf("%s, verzija %s", entitet, id))
+	n := 0
+	s.neispravne.Range(func(_, _ any) bool {
+		n++
 		return true
 	})
-	if len(popis) == 0 {
+	if n == 0 {
 		return nil
 	}
-	sort.Strings(popis)
-	n := len(popis)
-	if n > 5 {
-		popis = append(popis[:5], "…")
-	}
-	return []string{fmt.Sprintf("Razmjena drugim čvorovima ne šalje %d %s (%s). Ostali podaci razmjenjuju se normalno, a popis je i u dnevniku programa.",
-		n, models.UzBrojHR(n, "zapis koji u bazi ovog računala nije ispravan", "zapisa koji u bazi ovog računala nisu ispravni", "zapisa koji u bazi ovog računala nisu ispravni"),
-		strings.Join(popis, "; "))}
+	return []string{fmt.Sprintf("Razmjena drugim računalima ne šalje %d %s. Ostali podaci razmjenjuju se normalno. Javite administratoru: pojedinosti su u dnevniku programa.",
+		n, models.UzBrojHR(n, "zapis koji u bazi ovog računala nije ispravan", "zapisa koji u bazi ovog računala nisu ispravni", "zapisa koji u bazi ovog računala nisu ispravni"))}
 }
 
 func label(p Peer) string {

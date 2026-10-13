@@ -27,7 +27,7 @@ func TestPrekoNeispravnihCitaZapeleKljuceve(t *testing.T) {
 	delta := []ledger.Version{
 		losaVerzija("a", "01"), losaVerzija("a", "02"), // pun, zapeo; iza još jedna puna neispravnih
 		losaVerzija("b", "01"), losaVerzija("b", "02"), // pun, zapeo; iza kraj ključa
-		losaVerzija("c", "01"), // nije pun
+		losaVerzija("c", "01"),                          // nije pun
 		losaVerzija("d", "01"), dobraVerzija("d", "02"), // pun, ali ima ispravnu
 	}
 	iza := map[string][]ledger.Version{

@@ -158,8 +158,8 @@ type Service struct {
 	program, gradnja string
 	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
 	javljenaInacica sync.Map
-	// neispravne su verzije iz knjige koje razmjena ne šalje jer se ne
-	// daju zapisati kao JSON (version_id → entitet); vide se na ploči
+	// neispravne su version_id verzija iz knjige koje razmjena ne šalje jer
+	// se ne daju zapisati kao JSON; broj se vidi na ploči
 	neispravne sync.Map
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
@@ -1053,7 +1053,7 @@ func imaIspravnu(verzije []ledger.Version) bool {
 // razmjena ne šalje; sadržaj ne ide u dnevnik
 func (s *Service) zabiljeziNeispravne(neispravne []ledger.Version) {
 	for _, v := range neispravne {
-		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, v.Entity); !bilo {
+		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, struct{}{}); !bilo {
 			log.Printf("razmjena: verzija %s (%s) u knjizi nije ispravan JSON i ne šalje se drugim čvorovima", v.VersionID, v.Entity)
 		}
 	}

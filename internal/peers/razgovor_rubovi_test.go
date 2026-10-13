@@ -401,7 +401,7 @@ func TestRazgovorPreskaceNeispravnuVerziju(t *testing.T) {
 	if st.Peers[0].Backlog != 0 {
 		t.Errorf("ploča broji %d verzija koje čekaju", st.Peers[0].Backlog)
 	}
-	upozorenje := "Razmjena drugim čvorovima ne šalje 2 zapisa koji u bazi ovog računala nisu ispravni (probni, verzija " + k16los + "; probni, verzija " + k3los + ")."
+	upozorenje := "Razmjena drugim računalima ne šalje 2 zapisa koji u bazi ovog računala nisu ispravni."
 	if !strings.Contains(strings.Join(st.Alerts, "\n"), upozorenje) {
 		t.Errorf("upozorenje na ploči: %q", st.Alerts)
 	}
