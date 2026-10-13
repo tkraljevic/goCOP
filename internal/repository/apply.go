@@ -311,7 +311,7 @@ type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) er
 
 // skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
 // (TestPrimjenaJeUJednojSkupini)
-var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneMreze}
+var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika, primjeneMreze}
 
 // primjene su primjene svih entiteta koje površina zna, po entitetu
 var primjene = spojiPrimjene(skupinePrimjena)
@@ -343,6 +343,26 @@ func obrisiPoBroju(upit string) radnjaNaPovrsini {
 	}
 }
 
+// upisPoArgumentima je upis zapisa tipa T upitom upit, s argumentima koje iz
+// zapisa daju argumenti, za zapise čiji se dio upisuje kao JSON (izvješća,
+// vrste sredstava, popisi). Grešku argumenata iz sadržaja verzije nije
+// moguće izazvati (što je pročitano iz JSON-a, da se i zapisati), pa njezina
+// grana stoji ovdje jednom, s vlastitim testom.
+func upisPoArgumentima[T any](upit string, argumenti func(*T) ([]any, error)) radnjaNaPovrsini {
+	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+		var x T
+		if err := json.Unmarshal(v.Payload, &x); err != nil {
+			return err
+		}
+		args, err := argumenti(&x)
+		if err != nil {
+			return err
+		}
+		_, err = tx.ExecContext(ctx, upit, args...)
+		return err
+	}
+}
+
 // poSadrzaju je radnja koja od verzije treba samo sadržaj
 func poSadrzaju(f func(ctx context.Context, tx *sql.Tx, sadrzaj []byte) error) radnjaNaPovrsini {
 	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
@@ -366,55 +386,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	}
 
 	switch v.Entity {
-	case EntityJournals:
-		var j models.Journal
-		if err := json.Unmarshal(v.Payload, &j); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, journalUpsert, journalArgs(&j)...); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `UPDATE journals SET channel = ? WHERE id = ?`, v.Channel, j.ID)
-		return err
-
-	case EntityJournalSheets:
-		return primijeniListDnevnika(ctx, tx, v.Payload)
-
-	case EntityJournalEntries:
-		return primijeniUpisDnevnika(ctx, tx, v.Payload)
-
-	case EntityDezurstva:
-		var d models.Dezurstvo
-		if err := json.Unmarshal(v.Payload, &d); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, dezurstvoUpsert, dezurstvoArgs(&d)...)
-		return err
-
-	case EntityDnevnaIzvjesca:
-		var i models.DnevnoIzvjesce
-		if err := json.Unmarshal(v.Payload, &i); err != nil {
-			return err
-		}
-		args, err := izvjesceArgs(&i)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, izvjesceUpsert, args...)
-		return err
-
-	case EntitySektorskaIzvjesca:
-		var i models.SektorskoIzvjesce
-		if err := json.Unmarshal(v.Payload, &i); err != nil {
-			return err
-		}
-		args, err := sektorskoArgs(&i)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, sektorskoUpsert, args...)
-		return err
-
 	case EntityBlagdani:
 		var p obracun.Pravilo
 		if err := json.Unmarshal(v.Payload, &p); err != nil {
@@ -495,64 +466,12 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
 		return err
 
-	case EntityZadaci:
-		var z models.Zadatak
-		if err := json.Unmarshal(v.Payload, &z); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, zadatakUpsert, zadatakArgs(&z)...)
-		return err
-
-	case EntityVodocuvarski:
-		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
-
 	case EntityZigovi:
 		var z models.Zig
 		if err := json.Unmarshal(v.Payload, &z); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt.UTC())
-		return err
-
-	case EntityPrijave:
-		var p models.PrijavaSTerena
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(&p)...); err != nil {
-			return err
-		}
-		primiSlikePrijave(ctx, tx, &p, v.Channel)
-		return nil
-
-	case EntityPrijaveIzvornici:
-		var iz models.IzvornikLista
-		if err := json.Unmarshal(v.Payload, &iz); err != nil {
-			return err
-		}
-		if err := primiIzvornik(ctx, EntityPrijave, v.Channel, &iz); err != nil {
-			return err
-		}
-		if iz.Vrsta == "" {
-			iz.Vrsta = "application/pdf"
-		}
-		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
-		return err
-
-	case EntityVodocuvarskiIzvornici:
-		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
-
-	case EntityJournalIzvornici:
-		var iz models.IzvornikDnevnika
-		if err := json.Unmarshal(v.Payload, &iz); err != nil {
-			return err
-		}
-		popuniOpis(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, iz.PDF)
-		if err := primiSadrzajZapisa(ctx, iz.Otisak, iz.Vrsta, iz.Bajtova, iz.PDF,
-			sadrzaj.Veza{Entitet: EntityJournals, EntitetID: iz.JournalID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, journalIzvornikUpsert, iz.JournalID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 		return err
 
 	case EntityPotpisi:
@@ -636,18 +555,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	var arg any = v.EntityID
 
 	switch v.Entity {
-	case EntityJournals:
-		stmt = `DELETE FROM journals WHERE id = ?`
-	case EntityJournalSheets:
-		stmt = `DELETE FROM journal_sheets WHERE id = ?`
-	case EntityJournalEntries:
-		stmt = `DELETE FROM journal_entries WHERE id = ?`
-	case EntityDezurstva:
-		stmt = `DELETE FROM dezurstva WHERE id = ?`
-	case EntityDnevnaIzvjesca:
-		stmt = `DELETE FROM dnevna_izvjesca WHERE id = ?`
-	case EntitySektorskaIzvjesca:
-		stmt = `DELETE FROM sektorska_izvjesca WHERE id = ?`
 	case EntityBlagdani:
 		stmt = `DELETE FROM blagdani WHERE id = ?`
 	case EntityKoeficijenti:
@@ -690,20 +597,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`
 	case EntityZigovi:
 		stmt = `DELETE FROM zigovi WHERE sektor = ?`
-	case EntityVodocuvarski:
-		// brisanje nacrta ne miče list koji je predan na drugom čvoru
-		return primijeniListIzPovijesti(ctx, tx, v.EntityID)
-	case EntityZadaci:
-		stmt = `DELETE FROM vodocuvarski_zadaci WHERE id = ?`
-	case EntityPrijave:
-		stmt = `DELETE FROM prijave WHERE id = ?`
-	case EntityPrijaveIzvornici:
-		stmt = `DELETE FROM prijave_izvornici WHERE prijava_id = ?`
-	case EntityVodocuvarskiIzvornici:
-		// izvornik lista predanog na drugom čvoru ostaje uz svoj list
-		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
-	case EntityJournalIzvornici:
-		stmt = `DELETE FROM journal_izvornici WHERE journal_id = ?`
 	default:
 		return nil
 	}

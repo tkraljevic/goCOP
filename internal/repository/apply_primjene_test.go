@@ -45,3 +45,21 @@ func TestClanstvoSOvlascuKojaSeNeDaZapisati(t *testing.T) {
 		t.Errorf("na površini %d članstava", n)
 	}
 }
+
+// Kad se zapis ne da pretvoriti u argumente upita, upis po argumentima
+// vraća tu grešku i ne upisuje ništa.
+func TestUpisPoArgumentimaJavljaGreskuArgumenata(t *testing.T) {
+	c := noviCvor(t, "b")
+	kriva := errors.New("sadržaj izvješća se ne da zapisati")
+	upis := upisPoArgumentima(izvjesceUpsert, func(*struct{ ID string }) ([]any, error) { return nil, kriva })
+	tx, err := c.db.BeginTx(ctxRaz, nil)
+	nuzno(t, err)
+	defer tx.Rollback()
+	if err := upis(ctxRaz, tx, ledger.Version{Entity: EntityDnevnaIzvjesca, EntityID: "izvjesce-1", Payload: []byte(`{"ID": "izvjesce-1"}`)}); !errors.Is(err, kriva) {
+		t.Fatalf("%v, očekivana greška argumenata", err)
+	}
+	nuzno(t, tx.Commit())
+	if n := redakaNaPovrsini(t, c, "dnevna_izvjesca"); n != 0 {
+		t.Errorf("na površini %d izvješća", n)
+	}
+}
