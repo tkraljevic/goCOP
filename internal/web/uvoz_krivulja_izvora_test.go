@@ -29,20 +29,21 @@ const krivuljePrimjerova = "Krivulje protoka\r\n\x8aifra;Podsifra;Stare sifre;Na
 	"1;0,0000;300,0000;40,0000;300,0000;600,0000;0,0000;\r\n"
 
 // Pregled krivulja pokazuje razdoblje, odsječke s koeficijentima kao brojeve
-// i kotu nule iz izvoza, a uz to koliko krivulja i odsječaka letva već ima u
-// stablu — da se vidi mijenja li se išta.
+// i kotu nule iz izvoza, a uz to što letva već ima u stablu i kako se izvoz
+// s tim spaja: koje se zatečene krivulje razlikuju i koje ostaju.
 func TestPregledKrivuljaIZateceno(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
 	if err := os.MkdirAll(hq, 0o755); err != nil {
 		t.Fatal(err)
 	}
+	// 1990. izvoz nema, 2001. je ista, a 2010. ima drukčiji p1.
 	zateceno := "od;do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
-		"2001-01-01;2009-12-31;100;500;polinom;40;300;600;;DHMZ;\n" +
-		"2001-01-01;2009-12-31;0;100;polinom;1;2;3;;DHMZ;\n" +
+		"1990-01-01;2000-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n" +
+		"2001-01-01;2009-12-31;100;500;polinom;40;300;600;;DHMZ, HIS-2000;\n" +
+		"2001-01-01;2009-12-31;0;100;potencija;50;2;0,5;10;DHMZ, HIS-2000;\n" +
 		"\n" +
-		"kratak-redak\n" +
-		"2010-01-01;;0;300;polinom;40;300;600;;DHMZ;\n"
+		"2010-01-01;;0;300;polinom;41;300;600;;DHMZ, HIS-2000;\n"
 	if err := os.WriteFile(filepath.Join(hq, "primjerovo_hq_krivulje.csv"), []byte(zateceno), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -57,11 +58,17 @@ func TestPregledKrivuljaIZateceno(t *testing.T) {
 	if p.KotaNule != "100,00" || p.Sirina != "45 30 0" || p.Duzina != "18 30 0" || p.Letva != "primjerovo" {
 		t.Errorf("zaglavlje postaje: %+v", p)
 	}
-	if p.ZatecenihKrivulja != 2 || p.ZatecenihOdsjecaka != 3 {
-		t.Errorf("zatečeno %d krivulja i %d odsječaka, očekivano 2 i 3", p.ZatecenihKrivulja, p.ZatecenihOdsjecaka)
+	if p.ZatecenihKrivulja != 3 || p.ZatecenihOdsjecaka != 4 {
+		t.Errorf("zatečeno %d krivulja i %d odsječaka, očekivano 3 i 4", p.ZatecenihKrivulja, p.ZatecenihOdsjecaka)
+	}
+	if p.Ukupno != 3 || strings.Join(p.Razlikuju, ",") != "2010-01-01" || strings.Join(p.Ostaju, ",") != "1990-01-01" {
+		t.Errorf("spajanje: ukupno %d, razlikuju %v, ostaju %v", p.Ukupno, p.Razlikuju, p.Ostaju)
 	}
 	if len(p.Popis) != 2 || len(p.Popis[0].Odsjecci) != 2 || p.Popis[1].Od != "2010-01-01" {
 		t.Fatalf("popis krivulja: %+v", p.Popis)
+	}
+	if p.Popis[0].Razlikuje || !p.Popis[1].Razlikuje {
+		t.Errorf("oznaka razlike: 2001. %v, 2010. %v", p.Popis[0].Razlikuje, p.Popis[1].Razlikuje)
 	}
 	pol, pot := p.Popis[0].Odsjecci[0], p.Popis[0].Odsjecci[1]
 	if pol.Oblik != models.OblikPolinom || pol.OdCm != 100 || pol.DoCm != 500 || pol.P1 != 40 || pol.P2 != 300 || pol.P3 != 600 {
@@ -71,11 +78,36 @@ func TestPregledKrivuljaIZateceno(t *testing.T) {
 		t.Errorf("potencijski odsječak: %+v", pot)
 	}
 
-	// Letva bez datoteke krivulja i letva koje u stablu nema nemaju ništa zatečeno.
-	for _, letva := range []string{"drugovo", "nepoznata"} {
-		if k, n := zatecenoKrivulja(o.koren, letva); k != 0 || n != 0 {
-			t.Errorf("%s: zatečeno %d i %d", letva, k, n)
-		}
+	// Letva bez datoteke krivulja nema ništa zatečeno, a letva koje u
+	// stablu nema odbija se već u pregledu, jer krivulje ne bi imale kamo.
+	p, err = pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "drugovo", o.koren)
+	if err != nil || p.ZatecenihKrivulja != 0 || p.ZatecenihOdsjecaka != 0 || p.Ukupno != 2 || p.Razlikuju != nil || p.Ostaju != nil {
+		t.Errorf("letva bez krivulja: %+v, %v", p, err)
+	}
+	if _, err := pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "nepoznata", o.koren); err == nil ||
+		err.Error() != "letva nepoznata nije u stablu" {
+		t.Errorf("letva koje nema u stablu: %v", err)
+	}
+}
+
+// Zatečena datoteka krivulja s retkom koji gradnja ne bi pročitala ne spaja
+// se: spojena datoteka bi ga tiho izgubila. Poruka kaže koji je redak i u
+// kojoj datoteci.
+func TestPregledKrivuljaNecitljivoZateceno(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
+	if err := os.MkdirAll(hq, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	put := filepath.Join(hq, "primjerovo_hq_krivulje.csv")
+	if err := os.WriteFile(put, []byte("vrijedi_od;vrijedi_do\nkratak-redak\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	_, err := pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "primjerovo", o.koren)
+	if zeli := "Zatečena datoteka krivulja ne može se spojiti s izvozom: " + put +
+		": redak „kratak-redak” ima 1 stupac, a redak krivulje ih ima barem 8. " +
+		"Ispravite je, pa pošaljite izvoz ponovno."; err == nil || err.Error() != zeli {
+		t.Errorf("nečitljiva zatečena datoteka: %v", err)
 	}
 }
 

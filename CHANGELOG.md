@@ -78,6 +78,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Uzrok je isti: pitanje o sustavu stajalo je u obrascu krivulja, a ne u
   obrascu snimki. Sad stoji uz snimke, a pregled krivulja iscrta se do
   kraja.
+- **Uvoz krivulja protoka ne briše starije krivulje.** Uvoz krivulja iz
+  HIS-2000 zamijenio je cijelu datoteku krivulja letve krivuljama iz
+  izvoza. Izvoz s manje godina tako je brisao starije krivulje. Na Donjem
+  Miholjcu izvoz postaje 5150 ima krivulje 1993.–2026., pa bi odnio
+  krivulje 1926.–1992. koje je donio izvoz spojene postaje 5555. Sad se
+  krivulje spajaju po razdoblju: razdoblje iz izvoza dodaje se ili
+  zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju. Prije
+  upisa pregled kaže koje se zatečene krivulje razlikuju od izvoza i koliko
+  ih ostaje. Izvornik novog izvoza sprema se uz stari, pod drugim imenom.
+  Kad zatečena datoteka ima redak koji se ne da pročitati, krivulje se ne
+  spajaju, a poruka kaže koji je to redak.
 - **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
   koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
   poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad

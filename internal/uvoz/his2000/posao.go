@@ -209,35 +209,46 @@ func (p *Posao) Niz(s *Sadrzaj) error {
 	return nil
 }
 
-// Krivulje zapisuje odsječke u dogovoreni oblik i čuva izvornik.
+// Krivulje spaja krivulje izvoza sa zatečenom datotekom letve (SpojiKrivulje)
+// i čuva izvornik. Proba samo kaže što bi se promijenilo.
 func (p *Posao) Krivulje(s *Sadrzaj, izvornik []byte) error {
-	odsjecaka := 0
-	for _, k := range s.Krivulje {
-		odsjecaka += len(k.Odsjecci)
-	}
 	ime := fmt.Sprintf("hq/%s_hq_krivulje.csv", p.Letva)
-	p.pisi("%-12s %-9s %7d  %s .. %s\n              → %s\n", "krivulje", "protok", odsjecaka,
+	p.pisi("%-12s %-9s %7d  %s .. %s\n              → %s\n", "krivulje", "protok", BrojOdsjecaka(s),
 		s.Krivulje[0].Od.Format("2006"), s.Krivulje[len(s.Krivulje)-1].Do.Format("2006"), ime)
 	if s.Postaja.KotaNule != "" {
 		p.pisi("              uz krivulje stoji kota nule %s m i koordinate %s / %s\n",
 			s.Postaja.KotaNule, s.Postaja.Sirina, s.Postaja.Duzina)
 	}
+	put := filepath.Join(p.Cilj, ime)
+	sp, err := SpojiSDatotekom(put, s)
+	if err != nil {
+		return err
+	}
+	p.pisiSpajanje(sp)
 	if p.Probno {
 		p.Zapisano++
 		return nil
 	}
-	hq := filepath.Join(p.Cilj, "hq")
-	if err := os.MkdirAll(filepath.Join(hq, "izvornik"), 0o755); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(p.Cilj, ime), KrivuljeCSV(s), 0o644); err != nil {
-		return err
-	}
-	if err := os.WriteFile(filepath.Join(hq, "izvornik", filepath.Base(s.Ime)), izvornik, 0o644); err != nil {
+	if _, err := ZapisiKrivulje(put, sp.CSV, s, izvornik); err != nil {
 		return err
 	}
 	p.Zapisano++
 	return nil
+}
+
+// pisiSpajanje kaže u dnevniku što izvoz mijenja u zatečenoj datoteci.
+func (p *Posao) pisiSpajanje(sp SpojeneKrivulje) {
+	if sp.Zatecenih == 0 {
+		return
+	}
+	for _, od := range sp.Razlikuju {
+		p.pisi("              razlikuje se: %s, upisuje se krivulja iz izvoza\n", od)
+	}
+	if n := len(sp.Ostaju); n > 0 {
+		p.pisi("              ostaje iz zatečene datoteke: %d %s\n", n,
+			models.UzBrojHR(n, "krivulja koje u izvozu nema", "krivulje kojih u izvozu nema", "krivulja kojih u izvozu nema"))
+	}
+	p.pisi("              nakon spajanja: %d %s\n", sp.Krivulja, models.UzBrojHR(sp.Krivulja, "krivulja", "krivulje", "krivulja"))
 }
 
 // Profil zapisuje jednu snimku korita pod datumom mjerenja.

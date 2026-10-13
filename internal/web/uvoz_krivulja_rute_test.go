@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -161,7 +162,7 @@ func TestKrivuljeUpisOdbija(t *testing.T) {
 		{"neispravan obrazac", o.pero, o.peroOvl, "id=%zz", http.StatusOK, "invalid URL escape"},
 		{"tuđa letva", o.ana, o.anaOvl, "letva=drugovo&id=" + dobra, http.StatusOK, "Letva drugovo nije na vašim dionicama."},
 		{"istekao odabir", o.pero, o.peroOvl, "letva=primjerovo&id=nema-ga", http.StatusOK, "Odabir je istekao ili više ne postoji. Pošaljite datoteku ponovno."},
-		{"datoteka se više ne čita", o.pero, o.peroOvl, "letva=primjerovo&id=" + pokvarena, http.StatusOK, "datoteka se više ne čita kao krivulje"},
+		{"datoteka se više ne čita", o.pero, o.peroOvl, "letva=primjerovo&id=" + pokvarena, http.StatusOK, "datoteka se ne čita kao HIS-2000 izvoz"},
 		{"letve nema u stablu", o.pero, o.peroOvl, "letva=nepoznata&id=" + dobra, http.StatusOK, "letva nepoznata nije u stablu"},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
@@ -190,12 +191,13 @@ func TestKrivuljeUpisOdbija(t *testing.T) {
 		}
 		return porukaGreske(htmlUTekst(w.Body.String()))
 	}
-	// Na mjestu mape hq stoji datoteka: mapa izvornika se ne da napraviti.
+	// Na mjestu mape hq stoji datoteka: zatečene krivulje ne daju se
+	// pročitati, pa se nema s čim spojiti.
 	if err := os.WriteFile(hq, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if g := posalji(); !strings.Contains(g, hq) {
-		t.Errorf("mapa izvornika se ne da napraviti: %q", g)
+	if g := posalji(); !strings.HasPrefix(g, "Zatečena datoteka krivulja ne može se spojiti s izvozom: ") || !strings.Contains(g, hq) {
+		t.Errorf("mapa hq je datoteka: %q", g)
 	}
 	// Na mjestu datoteke krivulja stoji mapa.
 	if err := os.Remove(hq); err != nil {
@@ -204,8 +206,8 @@ func TestKrivuljeUpisOdbija(t *testing.T) {
 	if err := os.MkdirAll(put, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if g := posalji(); !strings.HasPrefix(g, "upis nije uspio: ") || !strings.Contains(g, put) {
-		t.Errorf("krivulje se ne daju zapisati: %q", g)
+	if g := posalji(); !strings.HasPrefix(g, "Zatečena datoteka krivulja ne može se spojiti s izvozom: ") || !strings.Contains(g, put) {
+		t.Errorf("datoteka krivulja je mapa: %q", g)
 	}
 	// Na mjestu izvornika stoji mapa.
 	if err := os.Remove(put); err != nil {
@@ -235,5 +237,102 @@ func TestKrivuljeGradnjaPada(t *testing.T) {
 	p := posaoSaStranice(t, o.h.poslovi, w.Body.String(), o.pero)
 	if p.Greska() != "arhiva je zaključana" || p.Stanje().Sazetak != "" {
 		t.Errorf("pad gradnje: %q %q", p.Greska(), p.Stanje().Sazetak)
+	}
+}
+
+// Krivulje iz izvoza spajaju se sa zatečenima po razdoblju: zatečena
+// krivulja kojeg izvoz nema ostaje, drukčiju istog početka zamijeni izvoz, a
+// pregled na stranici to kaže prije upisa. Izvornik drugog izvoza pod istim
+// imenom ostaje, a novi dobiva šifru postaje. Ista potvrda istog izvoza
+// drugi put ne mijenja ništa.
+func TestKrivuljeUpisSpajaSaZatecenima(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
+	put := filepath.Join(hq, "primjerovo_hq_krivulje.csv")
+	if err := os.MkdirAll(filepath.Join(hq, "izvornik"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	zateceno := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
+		"1990-01-01;2000-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n" +
+		"2010-01-01;;0;300;polinom;41;300;600;;DHMZ, HIS-2000;\n"
+	for ime, sadrzaj := range map[string]string{put: zateceno, filepath.Join(hq, "izvornik", "krivulje.csv"): "stari izvoz"} {
+		if err := os.WriteFile(ime, []byte(sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	tekst := func(html string) string {
+		return strings.Join(strings.Fields(htmlUTekst(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(html, " "))), " ")
+	}
+	pregled := func() string {
+		r := viseDijelni(t, "/administracija/uvoz-krivulja/pregled", map[string]string{"letva": "primjerovo"},
+			datotekaObrasca{"datoteka", "krivulje.csv", krivuljePrimjerova})
+		html := odgovor(o.h.PregledUvozaKrivulja, r, o.pero, o.peroOvl).Body.String()
+		m := regexp.MustCompile(`name="id" value="([^"]+)"`).FindStringSubmatch(html)
+		if m == nil {
+			t.Fatalf("pregled nema odabir za potvrdu: %s", porukeStranice(html))
+		}
+		for _, zeli := range []string{
+			"Izvoz se spaja sa zatečenim krivuljama po razdoblju. Novo razdoblje se dodaje, isto razdoblje uzima se iz izvoza, " +
+				"a zatečena razdoblja kojih u izvozu nema ostaju. 1 zatečena krivulja nije u izvozu i ostaje. " +
+				"Nakon upisa letva ima 3 krivulje.",
+			"1 zatečena krivulja razlikuje se od izvoza. Upis za to razdoblje uzima krivulju iz izvoza. 2010-01-01 .. 2012-12-31",
+			"2010-01-01 .. 2012-12-31 1 odsječak razlikuje se od zatečene",
+		} {
+			if !strings.Contains(tekst(html), zeli) {
+				t.Errorf("pregled ne kaže %q:\n%s", zeli, tekst(html))
+			}
+		}
+		if strings.Contains(tekst(html), "2001-01-01 .. 2009-12-31 2 odsječka razlikuje se") {
+			t.Error("nova krivulja označena je kao drukčija")
+		}
+		return m[1]
+	}
+	upisi := func(id string) {
+		w := odgovor(o.h.UpisiKrivulje, obicniObrazac("/", "letva=primjerovo&id="+id), o.pero, o.peroOvl)
+		if p := posaoSaStranice(t, o.h.poslovi, w.Body.String(), o.pero); p.Greska() != "" {
+			t.Fatalf("upis: %q", p.Greska())
+		}
+	}
+
+	upisi(pregled())
+	spojeno := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
+		"1990-01-01;2000-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n" +
+		"2001-01-01;2009-12-31;100;500;polinom;40;300;600;;DHMZ, HIS-2000;\n" +
+		"2001-01-01;2009-12-31;0;100;potencija;50;2;0,5;10;DHMZ, HIS-2000;\n" +
+		"2010-01-01;;0;300;polinom;40;300;600;;DHMZ, HIS-2000;\n"
+	if got := procitaj(t, put); got != spojeno {
+		t.Errorf("spojene krivulje:\n%s", got)
+	}
+	if procitaj(t, filepath.Join(hq, "izvornik", "krivulje.csv")) != "stari izvoz" ||
+		procitaj(t, filepath.Join(hq, "izvornik", "krivulje-9001.csv")) != krivuljePrimjerova {
+		t.Error("izvornik novog izvoza pregazio je stari ili nije spremljen pod šifrom postaje")
+	}
+
+	// Isti izvoz još jednom: pregled više nema razlika, a ništa se ne mijenja.
+	r := viseDijelni(t, "/administracija/uvoz-krivulja/pregled", map[string]string{"letva": "primjerovo"},
+		datotekaObrasca{"datoteka", "krivulje.csv", krivuljePrimjerova})
+	html := odgovor(o.h.PregledUvozaKrivulja, r, o.pero, o.peroOvl).Body.String()
+	if strings.Contains(tekst(html), "razlikuje se") || !strings.Contains(tekst(html), "Nakon upisa letva ima 3 krivulje.") {
+		t.Errorf("drugi pregled istog izvoza:\n%s", tekst(html))
+	}
+	upisi(regexp.MustCompile(`name="id" value="([^"]+)"`).FindStringSubmatch(html)[1])
+	if got := procitaj(t, put); got != spojeno {
+		t.Errorf("isti izvoz promijenio je datoteku:\n%s", got)
+	}
+	if stavke, _ := os.ReadDir(filepath.Join(hq, "izvornik")); len(stavke) != 2 {
+		t.Errorf("isti izvoz spremljen je dvaput: %d izvornika", len(stavke))
+	}
+}
+
+// Odabir čeka uz oznaku osobe; bez prijavljene osobe oznaka je prazna.
+func TestKorisnikUvoza(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	if got := korisnikUvoza(UvozPageData{}); got != "" {
+		t.Errorf("bez osobe: %q", got)
+	}
+	d := UvozPageData{}
+	d.CurrentUser = o.pero
+	if got := korisnikUvoza(d); got != o.pero.ID.String() {
+		t.Errorf("s osobom: %q", got)
 	}
 }

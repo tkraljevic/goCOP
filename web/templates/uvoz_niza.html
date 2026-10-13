@@ -549,6 +549,25 @@
       {{if .Krivulje.Sirina}}<span class="reg-card-sub">{{.Krivulje.Sirina}} / {{.Krivulje.Duzina}}</span>{{end}}</dd></div>
     {{end}}
   </dl>
+  {{if .Krivulje.ZatecenihKrivulja}}
+  <p class="page-desc mt-1 mb-2">
+    Izvoz se spaja sa zatečenim krivuljama po razdoblju. Novo razdoblje se dodaje, isto razdoblje uzima se iz izvoza,
+    a zatečena razdoblja kojih u izvozu nema ostaju.
+    {{with .Krivulje.Ostaju}}{{len .}} {{uzBroj (len .) "zatečena krivulja nije u izvozu i ostaje" "zatečene krivulje nisu u izvozu i ostaju" "zatečenih krivulja nije u izvozu i ostaje"}}.{{end}}
+    Nakon upisa letva ima {{.Krivulje.Ukupno}} {{uzBroj .Krivulje.Ukupno "krivulju" "krivulje" "krivulja"}}.
+  </p>
+  {{end}}
+  {{with .Krivulje.Razlikuju}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja razlikuje se od izvoza" "zatečene krivulje razlikuju se od izvoza" "zatečenih krivulja razlikuje se od izvoza"}}.</strong>
+      {{if eq $n 1}}Upis za to razdoblje uzima krivulju iz izvoza.{{else}}Upis za ta razdoblja uzima krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range $.Krivulje.Popis}}{{if .Razlikuje}}<li class="mono">{{.Od}} .. {{.Do}}</li>{{end}}{{end}}
+    </ul>
+  </div>
+  {{end}}
   <p class="page-desc mt-1 mb-3">
     Kota nule se <strong>ne upisuje</strong> u karticu letve — ovdje stoji samo da se vidi slaže li se s onom
     koju registar već vodi. Zadnjoj krivulji kraj ostaje otvoren jer vrijedi dok ne objave novu.
@@ -562,6 +581,7 @@
         <div class="hq-razdoblje">
           <span class="hq-godine mono">{{$k.Od}} .. {{$k.Do}}</span>
           <span class="reg-card-sub">{{len $k.Odsjecci}} {{uzBroj (len $k.Odsjecci) "odsječak" "odsječka" "odsječaka"}}</span>
+          {{if $k.Razlikuje}}<span class="reg-chip">razlikuje se od zatečene</span>{{end}}
         </div>
         {{range $i, $o := $k.Odsjecci}}
         <div class="hq-odsjecak">

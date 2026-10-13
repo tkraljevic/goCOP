@@ -1,10 +1,11 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -36,14 +37,21 @@ type PregledKrivulja struct {
 	// Što letva već ima, da se vidi mijenja li se išta.
 	ZatecenihKrivulja  int
 	ZatecenihOdsjecaka int
-	Popis              []KrivuljaZaPrikaz
+	// Izvoz se spaja sa zatečenim krivuljama po razdoblju: Ukupno je koliko
+	// ih letva ima nakon upisa, Razlikuju počeci zatečenih koje izvoz mijenja,
+	// a Ostaju počeci zatečenih kojih u izvozu nema.
+	Ukupno            int
+	Razlikuju, Ostaju []string
+	Popis             []KrivuljaZaPrikaz
 }
 
 // KrivuljaZaPrikaz je jedna krivulja ispisana onako kako je i DHMZ ispisuje:
-// razdoblje pa formule po rasponu vodostaja.
+// razdoblje pa formule po rasponu vodostaja. Razlikuje je true kad letva
+// krivulju istog početka već ima, ali drukčiju.
 type KrivuljaZaPrikaz struct {
-	Od, Do   string
-	Odsjecci []models.HQOdsjecak
+	Od, Do    string
+	Razlikuje bool
+	Odsjecci  []models.HQOdsjecak
 }
 
 // PregledUvozaKrivulja čita poslanu datoteku i pokazuje što bi ušlo.
@@ -96,13 +104,11 @@ func (h *UvozHandler) PregledUvozaKrivulja(w http.ResponseWriter, r *http.Reques
 
 // pregledKrivulja razlaže datoteku i slaže što bi se vidjelo.
 func pregledKrivulja(ime string, sadrzaj []byte, letva, koren string) (*PregledKrivulja, error) {
-	s, err := his2000.Procitaj(ime, sadrzaj)
+	k, err := krivuljeZaLetvu(koren, letva, ime, sadrzaj)
 	if err != nil {
-		return nil, fmt.Errorf("datoteka se ne čita kao HIS-2000 izvoz: %w", err)
+		return nil, err
 	}
-	if len(s.Krivulje) == 0 {
-		return nil, fmt.Errorf("u datoteci nema nijedne krivulje protoka — je li poslana krivulje.csv?")
-	}
+	s, sp := k.izvoz, k.spojeno
 	p := &PregledKrivulja{
 		Ime: ime, Letva: letva,
 		Krivulja:  len(s.Krivulje),
@@ -110,49 +116,70 @@ func pregledKrivulja(ime string, sadrzaj []byte, letva, koren string) (*PregledK
 		Od:        s.Krivulje[0].Od.Format("2006-01-02"),
 		Do:        s.Krivulje[len(s.Krivulje)-1].Do.Format("2006-01-02"),
 		KotaNule:  s.Postaja.KotaNule, Sirina: s.Postaja.Sirina, Duzina: s.Postaja.Duzina,
+
+		ZatecenihKrivulja: sp.Zatecenih, ZatecenihOdsjecaka: sp.ZatecenihOdsjecaka,
+		Ukupno: sp.Krivulja, Razlikuju: sp.Razlikuju, Ostaju: sp.Ostaju,
 	}
+	p.Popis, p.Potencija = popisKrivulja(s, sp.Razlikuju)
+	return p, nil
+}
+
+// popisKrivulja slaže krivulje izvoza za prikaz i broji potencijske
+// odsječke.
+func popisKrivulja(s *his2000.Sadrzaj, razlikuju []string) (popis []KrivuljaZaPrikaz, potencija int) {
 	for _, k := range s.Krivulje {
-		kp := KrivuljaZaPrikaz{Od: k.Od.Format("2006-01-02"), Do: k.Do.Format("2006-01-02")}
+		od := k.Od.Format("2006-01-02")
+		kp := KrivuljaZaPrikaz{Od: od, Do: k.Do.Format("2006-01-02"), Razlikuje: slices.Contains(razlikuju, od)}
 		for _, o := range k.Odsjecci {
 			if o.Oblik == models.OblikPotencija {
-				p.Potencija++
+				potencija++
 			}
 			kp.Odsjecci = append(kp.Odsjecci, models.HQOdsjecak{
 				OdCm: o.OdCm, DoCm: o.DoCm, Oblik: o.Oblik,
 				P1: uBroj(o.P1), P2: uBroj(o.P2), P3: uBroj(o.P3), P4: uBroj(o.P4),
 			})
 		}
-		p.Popis = append(p.Popis, kp)
+		popis = append(popis, kp)
 	}
-	p.ZatecenihKrivulja, p.ZatecenihOdsjecaka = zatecenoKrivulja(koren, letva)
-	return p, nil
+	return popis, potencija
 }
 
-// zatecenoKrivulja broji što letva već ima u stablu, da se vidi mijenja li se
-// išta. Čita se datoteka, ne arhiva: arhiva se gradi iz nje.
-func zatecenoKrivulja(koren, letva string) (krivulja, odsjecaka int) {
+// krivuljeLetve je izvoz krivulja spojen s onim što letva već ima u stablu.
+type krivuljeLetve struct {
+	izvoz   *his2000.Sadrzaj
+	put     string
+	spojeno his2000.SpojeneKrivulje
+}
+
+// krivuljeZaLetvu čita izvoz i spaja ga sa zatečenom datotekom krivulja.
+// Istim putem idu pregled i upis, pa upis zapiše ono što je pregled
+// pokazao. Čita se datoteka, ne arhiva: arhiva se gradi iz nje.
+func krivuljeZaLetvu(koren, letva, ime string, sadrzaj []byte) (krivuljeLetve, error) {
+	s, err := procitajKrivulje(ime, sadrzaj)
+	if err != nil {
+		return krivuljeLetve{}, err
+	}
 	put, err := putKrivulja(koren, letva)
 	if err != nil {
-		return 0, 0
+		return krivuljeLetve{}, err
 	}
-	b, err := os.ReadFile(put)
+	sp, err := his2000.SpojiSDatotekom(put, s)
 	if err != nil {
-		return 0, 0
+		return krivuljeLetve{}, fmt.Errorf("Zatečena datoteka krivulja ne može se spojiti s izvozom: %w. "+
+			"Ispravite je, pa pošaljite izvoz ponovno.", err)
 	}
-	razdoblja := map[string]bool{}
-	for i, red := range strings.Split(string(b), "\n") {
-		red = strings.TrimSpace(red)
-		if i == 0 || red == "" {
-			continue
-		}
-		dj := strings.Split(red, ";")
-		if len(dj) < 2 {
-			continue
-		}
-		razdoblja[dj[0]] = true
-		odsjecaka++
+	return krivuljeLetve{izvoz: s, put: put, spojeno: sp}, nil
+}
+
+func procitajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {
+	s, err := his2000.Procitaj(ime, sadrzaj)
+	if err != nil {
+		return nil, fmt.Errorf("datoteka se ne čita kao HIS-2000 izvoz: %w", err)
 	}
-	return len(razdoblja), odsjecaka
+	if len(s.Krivulje) == 0 {
+		return nil, fmt.Errorf("u datoteci nema nijedne krivulje protoka — je li poslana krivulje.csv?")
+	}
+	return s, nil
 }
 
 // putKrivulja je mjesto datoteke krivulja te letve u stablu.
@@ -168,69 +195,23 @@ func putKrivulja(koren, letva string) (string, error) {
 	return filepath.Join(koren, sliv, letva, "hq", letva+"_hq_krivulje.csv"), nil
 }
 
-// UpisiKrivulje zapisuje potvrđenu datoteku i ponovno gradi letvu.
+// UpisiKrivulje spaja potvrđene krivulje sa zatečenima i ponovno gradi
+// letvu.
 func (h *UvozHandler) UpisiKrivulje(w http.ResponseWriter, r *http.Request) {
 	d := h.pageData(r)
 	if !h.smije(d) {
 		http.Error(w, "Podatke u arhivu unosi administrator", http.StatusForbidden)
 		return
 	}
-	if err := r.ParseForm(); err != nil {
-		d.ErrorMessage = err.Error()
-		h.pisi(w, d)
-		return
-	}
-	letva := strings.TrimSpace(r.FormValue("letva"))
-	if !h.smijeZa(d.Permissions, letva) {
-		d.ErrorMessage = "Letva " + letva + " nije na vašim dionicama."
-		h.pisi(w, d)
-		return
-	}
-	korisnik := ""
-	if d.CurrentUser != nil {
-		korisnik = d.CurrentUser.ID.String()
-	}
-	ceka, ima := uvozi.uzmi(r.FormValue("id"), korisnik)
-	if !ima {
-		d.ErrorMessage = "Odabir je istekao ili više ne postoji. Pošaljite datoteku ponovno."
-		h.pisi(w, d)
-		return
-	}
-	s, err := his2000.Procitaj(ceka.ime, ceka.sadrzaj)
-	if err != nil || len(s.Krivulje) == 0 {
-		d.ErrorMessage = "datoteka se više ne čita kao krivulje"
-		h.pisi(w, d)
-		return
-	}
-	put, err := putKrivulja(h.podaciDir(), letva)
+	letva, put, err := h.upisiPotvrdjeneKrivulje(d, r)
 	if err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
 		return
 	}
-	// Izvornik se čuva uz datoteku: iz koeficijenata se poslije ne vidi
-	// odakle su, a DHMZ-ov ispis je dokument koji to kaže.
-	if err := os.MkdirAll(filepath.Join(filepath.Dir(put), "izvornik"), 0o755); err != nil {
-		d.ErrorMessage = err.Error()
-		h.pisi(w, d)
-		return
-	}
-	if err := os.WriteFile(put, his2000.KrivuljeCSV(s), 0o644); err != nil {
-		d.ErrorMessage = "upis nije uspio: " + err.Error()
-		h.pisi(w, d)
-		return
-	}
-	if err := os.WriteFile(filepath.Join(filepath.Dir(put), "izvornik", filepath.Base(ceka.ime)), ceka.sadrzaj, 0o644); err != nil {
-		d.ErrorMessage = "izvornik se nije spremio: " + err.Error()
-		h.pisi(w, d)
-		return
-	}
-	uvozi.makni(r.FormValue("id"))
-
-	p := h.poslovi.Pokreni("Izgradnja letve "+letva, korisnik,
+	p := h.poslovi.Pokreni("Izgradnja letve "+letva, korisnikUvoza(d),
 		"/administracija/uvoz-niza?posao={id}", func(p *poslovi.Posao) error {
-			_, err := h.izgradi(letva, p)
-			if err != nil {
+			if _, err := h.izgradi(letva, p); err != nil {
 				return err
 			}
 			p.Zavrsi(fmt.Sprintf("Krivulje su zapisane u %s; %s je ponovno izgrađena.",
@@ -239,6 +220,39 @@ func (h *UvozHandler) UpisiKrivulje(w http.ResponseWriter, r *http.Request) {
 		})
 	d.PosaoID, d.PosaoNaziv = p.ID, p.Naziv
 	h.pisi(w, d)
+}
+
+// upisiPotvrdjeneKrivulje zapisuje odabir koji čeka potvrdu. Odabir se troši
+// tek kad je zapisan, pa se neuspio upis može ponoviti.
+func (h *UvozHandler) upisiPotvrdjeneKrivulje(d UvozPageData, r *http.Request) (letva, put string, err error) {
+	if err := r.ParseForm(); err != nil {
+		return "", "", err
+	}
+	letva = strings.TrimSpace(r.FormValue("letva"))
+	if !h.smijeZa(d.Permissions, letva) {
+		return "", "", errors.New("Letva " + letva + " nije na vašim dionicama.")
+	}
+	ceka, ima := uvozi.uzmi(r.FormValue("id"), korisnikUvoza(d))
+	if !ima {
+		return "", "", errors.New("Odabir je istekao ili više ne postoji. Pošaljite datoteku ponovno.")
+	}
+	k, err := krivuljeZaLetvu(h.podaciDir(), letva, ceka.ime, ceka.sadrzaj)
+	if err != nil {
+		return "", "", err
+	}
+	if _, err := his2000.ZapisiKrivulje(k.put, k.spojeno.CSV, k.izvoz, ceka.sadrzaj); err != nil {
+		return "", "", err
+	}
+	uvozi.makni(r.FormValue("id"))
+	return letva, k.put, nil
+}
+
+// korisnikUvoza je oznaka osobe uz koju čeka odabir datoteke.
+func korisnikUvoza(d UvozPageData) string {
+	if d.CurrentUser == nil {
+		return ""
+	}
+	return d.CurrentUser.ID.String()
 }
 
 // uBroj čita broj s decimalnim zarezom, kako ga HIS i piše.
