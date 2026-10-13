@@ -377,7 +377,10 @@ func (d *Doc) Bajtovi() []byte {
 	for _, p := range pageIdx {
 		kids += fmt.Sprintf("%d 0 R ", p)
 	}
-	info := obj(fmt.Sprintf("<< /Title (%s) /Author (%s) /Subject (%s) /Producer (goCOP) >>", kodiraj(d.naslov), kodiraj(d.autor), kodiraj(d.Predmet)))
+	// Svojstva dokumenta (naslov, autor, predmet) idu u UTF-16 s oznakom
+	// poretka, kao ime i razlog potpisa. Prije su slova izvan ASCII-ja
+	// postajala upitnici, pa je u svojstvima stajalo „Rje?enje”.
+	info := obj(fmt.Sprintf("<< /Title %s /Author %s /Subject %s /Producer (goCOP) >>", tekstUTF16(d.naslov), tekstUTF16(d.autor), tekstUTF16(d.Predmet)))
 
 	// rezervirana mjesta (stranice, fontovi) zamjenjuju se pravim sadržajem;
 	// svaka zamjena pomiče pomake objekata iza sebe za razliku duljine
@@ -448,24 +451,6 @@ func fontDijelovi(p *pismo, naziv string, znakovi map[rune]bool, obj func(string
 		fmt.Sprintf("%d beginbfchar\n%sendbfchar\n", n, cmap.String()) + "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend"
 	toUni = obj(fmt.Sprintf("<< /Length %d >>\nstream\n%s\nendstream", len(tu), tu))
 	return desc, toUni
-}
-
-// kodiraj pretvara tekst u PDF niz za metapodatke, sa znakovima izvan
-// ASCII-ja zamijenjenima
-func kodiraj(s string) string {
-	var b strings.Builder
-	for _, r := range s {
-		switch {
-		case r == '(' || r == ')' || r == '\\':
-			b.WriteByte('\\')
-			b.WriteByte(byte(r))
-		case r < 0x80:
-			b.WriteByte(byte(r))
-		default:
-			b.WriteByte('?')
-		}
-	}
-	return b.String()
 }
 
 // nevidljiv javlja znak koji se u tekstu ne vidi (razmak nulte širine,
