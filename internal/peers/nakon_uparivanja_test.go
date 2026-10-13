@@ -2,7 +2,6 @@ package peers
 
 import (
 	"context"
-	"fmt"
 	"net"
 	"strings"
 	"testing"
@@ -56,9 +55,8 @@ func TestUparivanjePonistavaOdgodu(t *testing.T) {
 		t.Fatalf("prije uparivanja krug zove čvorove koji šute: %v", sazetak)
 	}
 
-	ured.ports.Pair = slobodanPort(t)
 	izmisljeniTailnet(t, laptop, ured)
-	upari(t, laptop, ured, fmt.Sprintf("100.101.0.2:%d", ured.ports.Pair))
+	upari(t, laptop, ured, "100.101.0.2")
 
 	if n := neuspjeha(t, laptop, ured.node.ID); n != 0 {
 		t.Errorf("nakon uparivanja ured i dalje ima %d neuspjeha zaredom", n)
@@ -95,8 +93,7 @@ func TestRazmjenaKreceOdmahNakonUparivanja(t *testing.T) {
 	})
 	cekajDa(t, "automatska razmjena se uključi", laptop.autoSync)
 
-	ured.ports.Pair = slobodanPort(t)
-	upari(t, laptop, ured, fmt.Sprintf("127.0.0.1:%d", ured.ports.Pair))
+	upari(t, laptop, ured, "127.0.0.1")
 	kraj := time.Now().Add(20 * time.Second)
 	for {
 		st, err := laptop.syncStates(ctxRub)
@@ -183,14 +180,13 @@ func TestPotvrdaBezUparivanja(t *testing.T) {
 func TestPotvrdaKadVezaPukne(t *testing.T) {
 	a := rubniCvor(t, "laptop-baranja")
 	b := rubniCvor(t, "ured-vukovar")
-	b.ports.Pair = slobodanPort(t)
 	var veza net.Conn
 	a.dial = func(ctx context.Context, adresa string) (net.Conn, error) {
 		c, err := (&net.Dialer{}).DialContext(ctx, "tcp", adresa)
 		veza = c
 		return c, err
 	}
-	zapocniUparivanje(t, a, b, fmt.Sprintf("127.0.0.1:%d", b.ports.Pair))
+	zapocniUparivanje(t, a, b, "127.0.0.1")
 	veza.Close()
 	if out, err := a.ConfirmPair(ctxRub, true, true); err == nil || out.Paired {
 		t.Errorf("potvrda preko prekinute veze: %+v %v", out, err)
@@ -207,9 +203,8 @@ func TestPotvrdaKadVezaPukne(t *testing.T) {
 func TestPotvrdaKadUpisCvoraPadne(t *testing.T) {
 	a := rubniCvor(t, "laptop-baranja")
 	b := rubniCvor(t, "ured-vukovar")
-	b.ports.Pair = slobodanPort(t)
 	kvarUpisa(t, a, "INSERT", "peers", "")
-	zapocniUparivanje(t, a, b, fmt.Sprintf("127.0.0.1:%d", b.ports.Pair))
+	zapocniUparivanje(t, a, b, "127.0.0.1")
 	ishodB := make(chan PairOutcome, 1)
 	go func() {
 		o, _ := b.ConfirmPair(ctxRub, true, true)
@@ -228,9 +223,8 @@ func TestPotvrdaKadUpisCvoraPadne(t *testing.T) {
 func TestOdbijenoUparivanjeNePonistavaOdgodu(t *testing.T) {
 	a := rubniCvor(t, "laptop-baranja")
 	b := rubniCvor(t, "ured-vukovar")
-	b.ports.Pair = slobodanPort(t)
 	sutio(t, a, b.node.ID, 25)
-	zapocniUparivanje(t, a, b, fmt.Sprintf("127.0.0.1:%d", b.ports.Pair))
+	zapocniUparivanje(t, a, b, "127.0.0.1")
 	ishodB := make(chan PairOutcome, 1)
 	go func() {
 		o, _ := b.ConfirmPair(ctxRub, false, true)
