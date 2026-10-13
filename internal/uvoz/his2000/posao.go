@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // Datoteka je jedna datoteka izvoza, kako je stigla: s diska ili kroz
@@ -80,13 +82,15 @@ func (p *Posao) Uvezi(datoteke []Datoteka) ([]string, error) {
 			if j, ima := vidjeniProfili[s.Profil.Datum]; ima {
 				if len(s.Profil.Tocke) <= len(profili[j].Profil.Tocke) {
 					preskoceno = append(preskoceno, fmt.Sprintf(
-						"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
-						ime, len(s.Profil.Tocke), profili[j].Ime, len(profili[j].Profil.Tocke)))
+						"%s (%d %s) — ista snimka korita kao %s, koja ih ima %d",
+						ime, len(s.Profil.Tocke), models.UzBrojHR(len(s.Profil.Tocke), "točka", "točke", "točaka"),
+						profili[j].Ime, len(profili[j].Profil.Tocke)))
 					continue
 				}
 				preskoceno = append(preskoceno, fmt.Sprintf(
-					"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
-					profili[j].Ime, len(profili[j].Profil.Tocke), ime, len(s.Profil.Tocke)))
+					"%s (%d %s) — ista snimka korita kao %s, koja ih ima %d",
+					profili[j].Ime, len(profili[j].Profil.Tocke), models.UzBrojHR(len(profili[j].Profil.Tocke), "točka", "točke", "točaka"),
+					ime, len(s.Profil.Tocke)))
 				profili[j] = s
 				continue
 			}

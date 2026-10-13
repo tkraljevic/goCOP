@@ -82,8 +82,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
   poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad
   dobije isto što i globalni administrator: da letva nije zadana.
-- **Snimka korita s premalo točaka.** Poruka je pisala „snimka ima samo
-  2 točaka” i „1 točaka”. Sad piše „2 točke” i „1 točku”.
+- **Broj točaka snimke korita.** Poruka o snimci s premalo točaka pisala
+  je „snimka ima samo 2 točaka” i „1 točaka”. Uvoz izvoza iz HIS-2000 uz
+  dvije snimke istog dana pisao je „(3 točaka)”. Sad piše „2 točke”,
+  „1 točku” i „3 točke”.
 - **Snimka korita koja se ne da zapisati.** Kad se nijedna snimka nije dala
   zapisati, poruka je uvijek govorila da je odabir vjerojatno istekao i da
   datoteke treba poslati ponovno, i kad su odmah iza stajali pravi razlozi.

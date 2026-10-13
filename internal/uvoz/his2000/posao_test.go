@@ -435,8 +435,9 @@ func TestPosaoUveziRazvrstava(t *testing.T) {
 		{"posve-prazno.csv", cp("Dnevni podaci postaje DALJ - DUNAV,  PROTOK  (m3/s)\r\n")},
 		{"nepoznato.TXT", cp("Nešto sasvim drugo\r\n")},
 		{"profil-a.csv", profil(3)},
-		{"profil-b.csv", profil(5)},
-		{"profil-c.csv", profil(4)},
+		{"profil-b.csv", profil(21)},
+		{"profil-c.csv", profil(22)},
+		{"profil-d.csv", profil(5)},
 		{"krivulje-1.csv", krivulje(1)},
 		{"krivulje-2.csv", krivulje(2)},
 		{"krivulje-3.csv", krivulje(1)},
@@ -458,8 +459,9 @@ func TestPosaoUveziRazvrstava(t *testing.T) {
 		"nepoznato.TXT — zaglavlje ne kaže što je u datoteci: \"Nešto sasvim drugo\"",
 		"posve-prazno.csv — izvoz je prošao, ali mjerenja nema nijednog",
 		"prazno.csv — izvoz je prošao za 2001.-2002., ali mjerenja nema nijednog",
-		"profil-a.csv (3 točaka) — ista snimka korita kao profil-b.csv, koja ih ima 5",
-		"profil-c.csv (4 točaka) — ista snimka korita kao profil-b.csv, koja ih ima 5",
+		"profil-a.csv (3 točke) — ista snimka korita kao profil-b.csv, koja ih ima 21",
+		"profil-b.csv (21 točka) — ista snimka korita kao profil-c.csv, koja ih ima 22",
+		"profil-d.csv (5 točaka) — ista snimka korita kao profil-c.csv, koja ih ima 22",
 	}
 	if strings.Join(preskoceno, "\n") != strings.Join(ocekivano, "\n") {
 		t.Errorf("preskočeno:\n%s", strings.Join(preskoceno, "\n"))
@@ -470,7 +472,7 @@ func TestPosaoUveziRazvrstava(t *testing.T) {
 	if got := procitajDatoteku(t, filepath.Join(cilj, "hq", "izvornik", "krivulje-2.csv")); got != string(krivulje(2)) {
 		t.Errorf("izvornik krivulja nije onaj s dva razdoblja:\n%s", got)
 	}
-	if got := procitajDatoteku(t, filepath.Join(cilj, "profil", "dalj_profil_2010-03-22.csv")); strings.Count(got, "\n") != 2+5 {
+	if got := procitajDatoteku(t, filepath.Join(cilj, "profil", "dalj_profil_2010-03-22.csv")); strings.Count(got, "\n") != 2+22 {
 		t.Errorf("snimka nije bogatija:\n%s", got)
 	}
 	if got := procitajDatoteku(t, filepath.Join(cilj, "hq", "dalj_vodomjerenja_2021-2021.csv")); got !=
