@@ -163,10 +163,15 @@ func arhivaSatnih(t *testing.T, nizovi map[string]map[int64]float64) *sql.DB {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
+	upis, err := tx.Prepare(`INSERT INTO spoj VALUES (?, ?, 'satni', ?, ?)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer upis.Close()
 	for kljuc, niz := range nizovi {
 		letva, velicina, _ := strings.Cut(kljuc, ":")
 		for sat, v := range niz {
-			if _, err := tx.Exec(`INSERT INTO spoj VALUES (?, ?, 'satni', ?, ?)`, letva, velicina, sat*3600, v); err != nil {
+			if _, err := upis.Exec(letva, velicina, sat*3600, v); err != nil {
 				t.Fatal(err)
 			}
 		}
