@@ -224,11 +224,10 @@ func TestPrimateljTraziUpravuINaziv(t *testing.T) {
 	}
 }
 
-// Epizode obrane svih dionica letve vide se na stranici letve
+// Epizode obrane svih dionica letve vide se na stranici letve, svaka s
+// opisom svoje dionice. Do 13. 10. 2026. upit je čitao naziv dionice iz
+// stupca kojeg nema, pa nije vraćao ništa.
 func TestEpizodeLetve(t *testing.T) {
-	t.Skip("GREŠKA: EpisodeRepository.EpisodesByStation (internal/repository/episode_repo.go:97) čita s.name, " +
-		"a tablica sections nema stupac name, pa ByStation uvijek vraća grešku „no such column: s.name”; " +
-		"stranica letve grešku preskače i nikad ne pokaže obrane")
 	o := novaOkolinaAkta(t)
 	ctx := context.Background()
 	if e, err := o.epizode.ByStation(ctx, o.letva.ID.String(), 10); err != nil || len(e) != 0 {
@@ -239,9 +238,10 @@ func TestEpizodeLetve(t *testing.T) {
 	if err != nil || len(e) != 2 {
 		t.Fatalf("epizode letve: %+v %v", e, err)
 	}
+	opisi := map[string]string{"P.1.1": "rijeka Primjerica", "P.1.2": "kanal Probni"}
 	for _, x := range e {
-		if x.Phase != models.PhasePrep || (x.SectionCode != "P.1.1" && x.SectionCode != "P.1.2") {
-			t.Errorf("epizoda letve: %+v", x)
+		if x.Phase != models.PhasePrep || x.SectionName == "" || x.SectionName != opisi[x.SectionCode] {
+			t.Errorf("epizoda letve: dionica %q (%q), stupanj %s", x.SectionCode, x.SectionName, x.Phase)
 		}
 	}
 }

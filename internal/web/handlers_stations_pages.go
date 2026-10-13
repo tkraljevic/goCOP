@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -428,11 +429,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			}
 		}
 	}
-	// Ista letva mjerodavna je za više dionica — Batina za cijelo BP 34 — pa
-	// se ovdje vide obrane svih njih, svaka sa svojim stupnjem.
-	if h.episodeService != nil {
-		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
-	}
+	data.Episodes = h.obraneLetve(ctx, *st)
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
 	// razići s podacima iz kojih su nastali.
@@ -517,6 +514,22 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	data.PragoviKote = sProtokom(pragoviUKotama(data.Station), data.PragoviQ)
 	data.ImaProtok = imaProtok(data.PragoviKote)
 	return data, true
+}
+
+// obraneLetve vraća obrane vođene po letvi. Ista letva mjerodavna je za više
+// dionica — Batina za cijelo BP 34 — pa se vide obrane svih njih, svaka sa
+// svojim stupnjem. Greška čitanja ne ruši stranicu letve, ali ide u dnevnik:
+// do 13. 10. 2026. stranica ju je prešutjela, pa se dugo nije vidjelo da upit
+// ne radi i da obrana nema ni na jednoj letvi.
+func (h *StationsHandler) obraneLetve(ctx context.Context, st models.Station) []models.DefenseEpisode {
+	if h.episodeService == nil {
+		return nil
+	}
+	obrane, err := h.episodeService.ByStation(ctx, st.ID.String(), 50)
+	if err != nil {
+		log.Printf("obrane letve %s nisu pročitane: %v", st.Name, err)
+	}
+	return obrane
 }
 
 // ShowStationForm prikazuje obrazac za novu postaju ili izmjenu postojeće

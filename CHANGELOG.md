@@ -212,6 +212,21 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   prva dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem
   Miholjcu od 2017. to su bile tri satne vrijednosti. Sad prognoza i
   stranice biraju istu krivulju.
+- **Historijat letve opet pokazuje proglašene obrane.** Odjeljak „Obrane
+  vođene po ovoj letvi” nije se pokazivao ni na jednoj letvi, a obrana nije
+  bilo ni u izvješću letve, iako su bile proglašene. Program je opis
+  dionice tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a
+  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve.
+  Uz šifru dionice stoji kratki opis: voda, obala i obuhvat, npr. „rijeka
+  Dunav, d.o.; Zeleni otok – Ludaš”. Stacionaža i duljina dionice ne
+  pišu se, one su na stranici dionice. Ako se obrane ne daju pročitati,
+  stranica se i dalje otvori, a greška se zapiše u dnevnik programa.
+- **Drugo brisanje iste letve.** Kad se letva obrisala dvaput, npr. drugim
+  klikom ili iz druge otvorene kartice, program je i drugi put javio da je
+  obrisana. Pritom je zabilježio brisanje prazne letve, bez imena i šifre,
+  koje je razmjenom putovalo na druga računala. Sad javlja da letve više
+  nema u registru, vraća na popis letvi i ništa ne bilježi. Brisanje letve
+  koja postoji radi kao i prije.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
