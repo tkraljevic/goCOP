@@ -53,10 +53,9 @@ func TestKanalIVezaSadrzaja(t *testing.T) {
 	}
 }
 
-// Brisanje kanala miče i veze sadržaja koji je kanal tražio, a nije stigao:
-// kad se kanal opet prati, zapis ga veže i traži kao nov. Veza sadržaja koji
-// je stigao drugim kanalom ostaje.
-func TestBrisanjeKanalaMiceVezeTrazenog(t *testing.T) {
+// Brisanje kanala miče sadržaj i želje tog kanala, a sadržaj drugog kanala
+// ostaje. Popis za dohvat javlja što je na njemu.
+func TestBrisanjeKanalaIPopisZaDohvat(t *testing.T) {
 	s, err := Otvori("")
 	if err != nil {
 		t.Fatal(err)
@@ -64,11 +63,7 @@ func TestBrisanjeKanalaMiceVezeTrazenog(t *testing.T) {
 	defer s.Zatvori()
 	ctx := context.Background()
 	trazena := Otisak([]byte("fotografija koja nije stigla"))
-	veza := Veza{"vodocuvarski_listovi", "l1", "prilog:p1", "vodocuvarski/16/2026"}
-	if err := s.Vezi(ctx, trazena, veza); err != nil {
-		t.Fatal(err)
-	}
-	if err := s.Zeli(ctx, trazena, "image/jpeg", 10, "pretplata", veza.Kanal); err != nil {
+	if err := s.Zeli(ctx, trazena, "image/jpeg", 10, "pretplata", "vodocuvarski/16/2026"); err != nil {
 		t.Fatal(err)
 	}
 	if !s.Zeljen(ctx, trazena) || s.Zeljen(ctx, Otisak([]byte("nije na popisu"))) {
@@ -92,20 +87,14 @@ func TestBrisanjeKanalaMiceVezeTrazenog(t *testing.T) {
 	if s.Ima(ctx, Otisak(dosla)) {
 		t.Error("sadržaj obrisanog kanala je ostao")
 	}
-	if s.ImaVezu(ctx, trazena, veza) {
-		t.Error("veza tražene fotografije ostala je nakon brisanja kanala")
-	}
-	if z, _ := s.Zeljeni(ctx, 10); len(z) != 0 {
-		t.Errorf("želje nakon brisanja kanala: %+v", z)
+	if s.Zeljen(ctx, trazena) {
+		t.Error("želja obrisanog kanala je ostala")
 	}
 	if !s.ImaVezu(ctx, stigla, drugi) || !s.Ima(ctx, stigla) {
 		t.Error("brisanje kanala dira drugi kanal")
 	}
 	s.Zatvori()
-	if err := s.zaboraviZelje(ctx, veza.Kanal); err == nil {
-		t.Error("zatvoreno spremište briše želje bez greške")
-	}
-	if _, _, err := s.ObrisiKanal(ctx, veza.Kanal); err == nil {
+	if _, _, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026"); err == nil {
 		t.Error("zatvoreno spremište briše kanal bez greške")
 	}
 }

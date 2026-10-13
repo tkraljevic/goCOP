@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"database/sql"
 	"path/filepath"
 	"testing"
 	"time"
@@ -82,7 +83,8 @@ func TestFotografijaListaIdeUKanalLista(t *testing.T) {
 // Ured primi list s laptopa: fotografiju veže uz list i stavi je na popis za
 // dohvat, u kanalu lista, bez ijedne verzije u knjizi. Ponovna primjena i
 // obnova površine je ne traže dvaput. Kad fotografija stigne i ured je
-// poslije otpusti, nova verzija lista je ne traži iznova.
+// poslije otpusti jer joj je prošao rok, traže je iznova i nova verzija
+// lista i obnova površine pri pokretanju, pa se ne gubi.
 func TestPrimljeniListTraziSvojuFotografiju(t *testing.T) {
 	spA, spB := dvaSpremista(t)
 	a, b := noviCvor(t, "laptop"), noviCvor(t, "ured")
@@ -108,16 +110,55 @@ func TestPrimljeniListTraziSvojuFotografiju(t *testing.T) {
 	nuzno(t, err)
 	jednaZelja(t, spB, otisak, "vodocuvarski/16/2026", len(foto))
 
-	nuzno(t, spB.UpisiProvjereno(ctxRaz, otisak, "image/jpeg", foto, "cvor:laptop"))
-	nuzno(t, spB.Otpusti(ctxRaz, otisak))
+	stigla := func() {
+		t.Helper()
+		nuzno(t, spB.UpisiProvjereno(ctxRaz, otisak, "image/jpeg", foto, "cvor:laptop"))
+		if z, _ := spB.Zeljeni(ctxRaz, 10); len(z) != 0 {
+			t.Fatalf("stigla fotografija ostala je na popisu za dohvat: %+v", z)
+		}
+		nuzno(t, spB.Otpusti(ctxRaz, otisak))
+	}
+	stigla()
 	SetSpremiste(spA)
 	l.Opis = "obilazak nasipa, dopunjeno"
 	nuzno(t, NewVodocuvarRepository(a.db, a.rec).Save(ctxRaz, l))
 	SetSpremiste(spB)
 	posalji(t, a, b)
-	if z, _ := spB.Zeljeni(ctxRaz, 10); len(z) != 0 {
-		t.Errorf("otpuštena fotografija tražena iznova: %+v", z)
+	jednaZelja(t, spB, otisak, "vodocuvarski/16/2026", len(foto))
+	stigla()
+	_, err = ReplaySurface(ctxRaz, b.db, b.rec)
+	nuzno(t, err)
+	jednaZelja(t, spB, otisak, "vodocuvarski/16/2026", len(foto))
+}
+
+// Ured primi list dok se popis za dohvat ne da upisati (npr. zaključana ili
+// puna datoteka spremišta): veza se upiše, želja ne. Korak pri pokretanju
+// želju upiše kad spremište opet radi, pa fotografija nije zaboravljena.
+func TestFotografijaListaKadPopisZaDohvatNeRadi(t *testing.T) {
+	_, spB := dvaSpremista(t)
+	spA := novoSpremiste(t)
+	a, b := noviCvor(t, "laptop"), noviCvor(t, "ured")
+	SetSpremiste(spA)
+	foto := fotografijaNaListu(t, a, listIve("obilazak nasipa"), "foto-1", "nasip kod ustave")
+	otisak := sadrzaj.Otisak(foto)
+
+	druga, err := sql.Open("sqlite", spB.Put())
+	nuzno(t, err)
+	defer druga.Close()
+	_, err = druga.Exec(`CREATE TRIGGER kvar BEFORE INSERT ON sadrzaj_zeljen BEGIN SELECT RAISE(ABORT, 'kvar'); END`)
+	nuzno(t, err)
+	SetSpremiste(spB)
+	posalji(t, a, b)
+	if spB.OtisakPoUlozi(ctxRaz, EntityVodocuvarski, ulogaPriloga("foto-1")) != otisak || spB.Zeljen(ctxRaz, otisak) {
+		t.Fatal("uz kvar popisa za dohvat očekivana je veza bez želje")
 	}
+
+	_, err = druga.Exec(`DROP TRIGGER kvar`)
+	nuzno(t, err)
+	if p, err := PopraviPrilogeListova(ctxRaz, b.db); p != (PopravakPriloga{Zelja: 1}) || err != nil {
+		t.Errorf("korak pri pokretanju: %+v %v", p, err)
+	}
+	jednaZelja(t, spB, otisak, "vodocuvarski/16/2026", len(foto))
 }
 
 // Isti list Ive predan na laptopu i na tabletu, svaki s drugom

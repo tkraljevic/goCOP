@@ -214,3 +214,58 @@ func TestDrugoPodrucjeNeTraziFotografijuLista(t *testing.T) {
 		t.Errorf("na popisu za dohvat: %+v", z)
 	}
 }
+
+// Ured prati BP 16 i fotografiju dobije, a poslije je otpusti jer joj je
+// prošao rok. Pri idućem pokretanju traži je iznova i dobije. Kad je opet
+// otpusti, makne praćenje i izbriše kanal, pa BP 16 počne opet pratiti,
+// list i fotografija stignu u istoj razmjeni.
+func TestOtpustenaFotografijaListaSeVraca(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+	a, b, spA, spB := cvoroviSFotografijama(t, ctx)
+	prilog, foto := listSFotografijom(t, ctx, a, spA, vodocuvarBP16, "Ivo Ivić", 16)
+	pratiBP16 := peers.Subscription{Kind: "vodocuvarski", AreaID: 16, Razina: peers.RazinaSve, DrziDana: 90}
+	pravilo, err := b.svc.AddSubscription(ctx, pratiBP16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository.SetSpremiste(spB)
+	razmijeni(t, ctx, b, a)
+	if got := fotografijaNaCvoru(t, ctx, b, spB, prilog); got != string(foto) {
+		t.Fatalf("fotografija nije stigla: %q", got)
+	}
+
+	if err := spB.Otpusti(ctx, sadrzaj.Otisak(foto)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.ReplaySurface(ctx, b.db, b.rec); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, b, a)
+	if got := fotografijaNaCvoru(t, ctx, b, spB, prilog); got != string(foto) {
+		t.Fatalf("otpuštena fotografija nije se vratila nakon pokretanja: %q", got)
+	}
+
+	if err := spB.Otpusti(ctx, sadrzaj.Otisak(foto)); err != nil {
+		t.Fatal(err)
+	}
+	if err := b.svc.RemoveSubscription(ctx, pravilo.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.svc.PurgeChannel(ctx, "vodocuvarski/16/2026"); err != nil {
+		t.Fatal(err)
+	}
+	if imaListVodocuvara(t, ctx, b, vodocuvarBP16) {
+		t.Fatal("list je ostao nakon brisanja kanala")
+	}
+	if _, err := b.svc.AddSubscription(ctx, pratiBP16); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, b, a)
+	if !imaListVodocuvara(t, ctx, b, vodocuvarBP16) {
+		t.Fatal("list se nije vratio")
+	}
+	if got := fotografijaNaCvoru(t, ctx, b, spB, prilog); got != string(foto) {
+		t.Fatalf("fotografija se nije vratila uz ponovno praćenje: %q", got)
+	}
+}

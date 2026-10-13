@@ -724,7 +724,8 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 
 // SavePrilog sprema prilog lista (fotografiju) u spremište sadržaja; opis
 // priloga stoji na samom listu, a bajtovi se nalaze po otisku. Fotografija
-// ide u kanal lista, pa razina i rok pretplate vrijede za nju kao za list.
+// ide u kanal lista, pa na drugim čvorovima razina i rok pretplate vrijede
+// za nju kao za list.
 func (r *VodocuvarRepository) SavePrilog(ctx context.Context, listID, prilogID string, b []byte) error {
 	_, err := spremiSadrzaj(ctx, "image/jpeg", b, sadrzaj.Veza{
 		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID), Kanal: r.kanalLista(ctx, listID)})

@@ -12,13 +12,14 @@ import (
 
 // Fotografije uz dnevni list (prilozi) putuju kao i ostali sadržaj: list
 // nosi otisak svake fotografije, a bajtovi su u spremištu sadržaja, u kanalu
-// lista (SavePrilog). Čvor koji list primi veže fotografiju uz list i, kad je
-// veza nova, a fotografije ovdje nema, stavlja je na popis za dohvat, kao
-// fotografije prijava (primiSlikePrijave). Koje će fotografije zaista
-// dohvatiti, odlučuje pretplata pri razmjeni: razina sadržaja i područje
-// kanala lista. Fotografiju za koju je čvor već znao ne traži iznova: možda
-// ju je otpustio jer joj je prošao rok iz pretplate, pa bi je razmjena inače
-// vraćala u krug. Primjena ne piše ništa u knjigu.
+// lista (SavePrilog). Čvor koji list primi veže fotografiju uz list i, kad
+// je ovdje nema, stavlja je na popis za dohvat, kao fotografije prijava
+// (primiSlikePrijave). Koje će fotografije zaista dohvatiti, odlučuje
+// pretplata pri razmjeni: razina sadržaja i područje kanala lista.
+// Fotografiju koju je čvor otpustio jer joj je prošao rok iz pretplate traži
+// iznova pri idućoj primjeni lista ili pokretanju, kao i ostali sadržaj;
+// tako se ne gubi ni kad se rok produži ili kanal opet prati. Primjena ne
+// piše ništa u knjigu.
 
 // PopravakPriloga kaže što je za fotografije dnevnih listova upisano u
 // spremište sadržaja
@@ -59,7 +60,8 @@ func brojFotografija(n int) string {
 // priloge, dobiva vezu uz list i, ako je ovdje nema, ide na popis za dohvat.
 // Listovi idu po danu, pa ista fotografija uz više listova dobiva kanal
 // najranijeg. Što je već upisano, ne dira i ne broji, pa nakon prvog
-// pokretanja ne upisuje ništa.
+// pokretanja ne upisuje ništa, osim želja za fotografijama koje je čvor u
+// međuvremenu otpustio.
 func PopraviPrilogeListova(ctx context.Context, baza *sql.DB) (PopravakPriloga, error) {
 	var p PopravakPriloga
 	if spremiste == nil {
@@ -97,11 +99,11 @@ func prilogeUSpremiste(ctx context.Context, l *models.VodocuvarskiList) Popravak
 	return p
 }
 
-// prilogUSpremiste daje sadržaju fotografije kanal lista, ako ga nema, i
-// veže fotografiju uz list. Kad je veza nova, a fotografije ovdje nema,
-// fotografija ide na popis za dohvat; želja se upisuje prije veze, pa prekid
-// između njih ne ostavlja vezu bez želje. Opis fotografije otprije spremišta
-// nema otiska, pa se fotografija ne da dohvatiti.
+// prilogUSpremiste daje sadržaju fotografije kanal lista, ako ga nema, veže
+// fotografiju uz list i, kad je ovdje nema, stavlja je na popis za dohvat.
+// Veza i želja upisuju se svaka za sebe, pa upis koji ne uspije pokuša se
+// iznova pri idućoj primjeni lista ili pokretanju. Opis fotografije otprije
+// spremišta nema otiska, pa se fotografija ne da dohvatiti.
 func prilogUSpremiste(ctx context.Context, listID, kanal string, pr models.PrilogLista) PopravakPriloga {
 	var p PopravakPriloga
 	if pr.Sadrzaj == "" {
@@ -111,13 +113,10 @@ func prilogUSpremiste(ctx context.Context, listID, kanal string, pr models.Prilo
 		p.Kanal = 1
 	}
 	veza := sadrzaj.Veza{Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(pr.ID), Kanal: kanal}
-	if spremiste.ImaVezu(ctx, pr.Sadrzaj, veza) {
-		return p
-	}
-	p.Zelja = zeliPrilog(ctx, pr, kanal)
-	if spremiste.Vezi(ctx, pr.Sadrzaj, veza) == nil {
+	if !spremiste.ImaVezu(ctx, pr.Sadrzaj, veza) && spremiste.Vezi(ctx, pr.Sadrzaj, veza) == nil {
 		p.Veza = 1
 	}
+	p.Zelja = zeliPrilog(ctx, pr, kanal)
 	return p
 }
 

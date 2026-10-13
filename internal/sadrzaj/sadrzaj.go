@@ -329,21 +329,10 @@ func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (int, int64, 
 			return 0, 0, err
 		}
 	}
-	if err := s.zaboraviZelje(ctx, kanal); err != nil {
+	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
 		return 0, 0, err
 	}
 	return len(otisci), bajtova, nil
-}
-
-// zaboraviZelje miče želje kanala i veze sadržaja koji je kanal tražio, a
-// još nije stigao. Zapis koji se poslije vrati u kanal tako ga ponovno veže
-// i traži, kao da ga vidi prvi put.
-func (s *Spremiste) zaboraviZelje(ctx context.Context, kanal string) error {
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak IN (SELECT otisak FROM sadrzaj_zeljen WHERE kanal = ?)`, kanal); err != nil {
-		return err
-	}
-	_, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal)
-	return err
 }
 
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje
