@@ -637,25 +637,38 @@ var ErrVazecaVerzija = errors.New("to je važeća verzija zapisa; obrišite sam 
 // svaki novi čvor obrisani zapis vratili.
 var ErrZapisOBrisanju = errors.New("ovo je zapis o brisanju i ne briše se: bez njega bi se obrisani zapis vratio u program")
 
+// ErrZadnjiUpisCvora: verzija nije zadnja verzija zapisa (noviju je upisao
+// drugi čvor ili je zapis prešao u drugi kanal), ali je najnovija koju njezin
+// autor ima u svom kanalu. Bez nje granica tog autora u kanalu padne, pa bi
+// druga strana obrisanu verziju poslala natrag već sljedećom razmjenom
+// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), 1).
+var ErrZadnjiUpisCvora = errors.New("ovo je zadnji upis jednog čvora u ovom kanalu i ne briše se: razmjena bi ga opet donijela s drugih čvorova. Obrisati se može tek kad od tog čvora stigne noviji upis u isti kanal")
+
+// stanjeZaBrisanje kaže je li verzija spomenik, zadnja verzija svog zapisa i
+// zadnja verzija svog autora u svom kanalu (granica razmjene)
+const stanjeZaBrisanje = `SELECT v.archived,
+	NOT EXISTS (SELECT 1 FROM record_versions z WHERE z.entity = v.entity AND z.entity_id = v.entity_id AND z.version_id > v.version_id),
+	NOT EXISTS (SELECT 1 FROM record_versions g WHERE g.node_id = v.node_id AND g.channel = v.channel AND g.version_id > v.version_id)
+	FROM record_versions v WHERE v.version_id = ?`
+
 // DeleteVersion briše jednu verziju iz knjige, npr. zapis s oglasne ploče.
 // Zadnja verzija zapisa ne briše se: kod živog zapisa površina i knjiga bi
-// ostale neusklađene, a bez spomenika bi se obrisani zapis vratio.
+// ostale neusklađene, a bez spomenika bi se obrisani zapis vratio. Ne briše
+// se ni zadnji upis autora u kanalu, jer bi ga razmjena vratila.
 func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
-	var entity, entityID string
-	var archived bool
-	err := r.db.QueryRowContext(ctx, `SELECT entity, entity_id, archived FROM record_versions WHERE version_id = ?`, versionID).Scan(&entity, &entityID, &archived)
+	var archived, zadnjaZapisa, zadnjaAutora bool
+	err := r.db.QueryRowContext(ctx, stanjeZaBrisanje, versionID).Scan(&archived, &zadnjaZapisa, &zadnjaAutora)
 	if err == sql.ErrNoRows {
 		return errors.New("zapis više ne postoji")
 	}
-	var zadnja string
-	if err == nil {
-		err = r.db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM record_versions WHERE entity = ? AND entity_id = ?`, entity, entityID).Scan(&zadnja)
-	}
 	if err != nil {
-		return err
+		return fmt.Errorf("čitanje verzije za brisanje: %w", err)
 	}
-	if zadnja == versionID {
+	if zadnjaZapisa {
 		return zadnjaVerzijaSeNeBrise(archived)
+	}
+	if zadnjaAutora {
+		return ErrZadnjiUpisCvora
 	}
 	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
 	return err
