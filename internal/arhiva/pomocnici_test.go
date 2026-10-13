@@ -1,12 +1,16 @@
 package arhiva
 
 import (
+	"context"
 	"database/sql"
+	"database/sql/driver"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 )
 
@@ -115,4 +119,88 @@ func greskaSadrzi(t *testing.T, sto string, err error, dio string) {
 	if !strings.Contains(err.Error(), dio) {
 		t.Errorf("%s: greška %q ne sadrži %q", sto, err, dio)
 	}
+}
+
+// kvarUpita otvara arhivu na putu tako da n-ti upit koji sadrži uzorak pukne s
+// „namjerni kvar”. Tako se slaže kvar koji inače nastaje samo kad se baza
+// promijeni usred posla, npr. drugo čitanje iste letve nakon uspjelog prvog.
+// Test pada ako do n-tog takvog upita nije ni došlo.
+func kvarUpita(t *testing.T, put, uzorak string, n int) *sql.DB {
+	t.Helper()
+	obicna, err := sql.Open("sqlite", put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k := &kvarniSpoj{unutra: obicna.Driver(), put: put, uzorak: uzorak, n: n}
+	obicna.Close()
+	db := sql.OpenDB(k)
+	t.Cleanup(func() {
+		db.Close()
+		k.mu.Lock()
+		defer k.mu.Unlock()
+		if k.vidjeno < n {
+			t.Errorf("upit s %q pojavio se %d puta, a kvar je trebao na %d.", uzorak, k.vidjeno, n)
+		}
+	})
+	return db
+}
+
+type kvarniSpoj struct {
+	unutra      driver.Driver
+	put, uzorak string
+	n           int
+
+	mu      sync.Mutex
+	vidjeno int
+}
+
+func (k *kvarniSpoj) Connect(context.Context) (driver.Conn, error) {
+	c, err := k.unutra.Open(k.put)
+	if err != nil {
+		return nil, err
+	}
+	return &kvarnaVeza{Conn: c, k: k}, nil
+}
+
+func (k *kvarniSpoj) Driver() driver.Driver { return k.unutra }
+
+// pukni broji upite s uzorkom i javlja je li ovo onaj koji treba pasti.
+func (k *kvarniSpoj) pukni(upit string) error {
+	if !strings.Contains(upit, k.uzorak) {
+		return nil
+	}
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	k.vidjeno++
+	if k.vidjeno == k.n {
+		return errors.New("namjerni kvar")
+	}
+	return nil
+}
+
+type kvarnaVeza struct {
+	driver.Conn
+	k *kvarniSpoj
+}
+
+func (v *kvarnaVeza) QueryContext(ctx context.Context, upit string, args []driver.NamedValue) (driver.Rows, error) {
+	if err := v.k.pukni(upit); err != nil {
+		return nil, err
+	}
+	return v.Conn.(driver.QueryerContext).QueryContext(ctx, upit, args)
+}
+
+func (v *kvarnaVeza) ExecContext(ctx context.Context, upit string, args []driver.NamedValue) (driver.Result, error) {
+	if err := v.k.pukni(upit); err != nil {
+		return nil, err
+	}
+	return v.Conn.(driver.ExecerContext).ExecContext(ctx, upit, args)
+}
+
+func (v *kvarnaVeza) PrepareContext(ctx context.Context, upit string) (driver.Stmt, error) {
+	return v.Conn.(driver.ConnPrepareContext).PrepareContext(ctx, upit)
+}
+
+func (v *kvarnaVeza) BeginTx(ctx context.Context, o driver.TxOptions) (driver.Tx, error) {
+	return v.Conn.(driver.ConnBeginTx).BeginTx(ctx, o)
 }

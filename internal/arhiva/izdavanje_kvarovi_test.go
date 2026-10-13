@@ -62,7 +62,9 @@ func TestNoviSadrzajDobivaSljedeceIzdanje(t *testing.T) {
 }
 
 // Zaključava da letva koja se ne da izvesti ne ruši izdavanje ostalih: javlja
-// se i preskače, a u katalogu ostaje ono što je od nje zadnje izdano.
+// se i preskače, a u katalogu ostaje ono što je od nje zadnje izdano. To drži
+// već petlja na kraju Izdaj koja vraća svaku letvu iz prijašnjeg kataloga, pa
+// grana uz preskakanje (katalog.go:192) sama za sebe ne mijenja ishod.
 func TestIzdavanjePreskaceLetvuKojaSeNeDaIzvesti(t *testing.T) {
 	mapa := t.TempDir()
 	db := napraviArhivu(t, filepath.Join(t.TempDir(), "arhiva.db"))
@@ -113,6 +115,112 @@ func TestIzdavanjePreskaceLetvuKojaSeNeDaIzvesti(t *testing.T) {
 	}
 	if _, ima := poslije["kamenjak"]; ima {
 		t.Error("letva koja nikad nije izdana ušla je u katalog")
+	}
+}
+
+// upitNizovaLetve je dio upita kojim izvoz čita nizove jedne letve. Izdavanje
+// ga pošalje jednom za svaki izvoz letve.
+const upitNizovaLetve = "FROM nizovi WHERE letva = ? ORDER BY id"
+
+// arhivaZaDrugoIzdanje slaže arhivu s letvom izdanom kao v1 i zatim
+// promijenjenom, pa izdavanje mora složiti paket s novim brojem.
+func arhivaZaDrugoIzdanje(t *testing.T, mapa string) string {
+	t.Helper()
+	put := filepath.Join(t.TempDir(), "arhiva.db")
+	db := napraviArhivu(t, put)
+	defer db.Close()
+	dodajNiz(t, db, "vodograd")
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost)
+		SELECT id, 4600, 104 FROM nizovi WHERE letva='vodograd'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`UPDATE nizovi SET zapisa = 2 WHERE letva='vodograd'`); err != nil {
+		t.Fatal(err)
+	}
+	return put
+}
+
+// Zaključava da izdavanje preskoči letvu kad prvi izvoz uspije, a paket s
+// novim brojem se ne da složiti: v2 se ne piše, a u katalogu ostaje v1.
+func TestIzdavanjeKadPaketSNovimBrojemNeUspije(t *testing.T) {
+	mapa := t.TempDir()
+	put := arhivaZaDrugoIzdanje(t, mapa)
+	prije, err := UcitajKatalog(mapa)
+	if err != nil || len(prije.Paketi) != 1 {
+		t.Fatalf("katalog prije: %+v, %v", prije, err)
+	}
+
+	var zapisi strings.Builder
+	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, &zapisi)
+	if err != nil {
+		t.Fatalf("izdavanje je palo umjesto da preskoči letvu: %v", err)
+	}
+	if iz.Preskocenih != 1 || iz.Promijenjenih != 0 || iz.Istih != 0 || len(iz.Redci) != 1 {
+		t.Fatalf("izvještaj: %+v", iz)
+	}
+	if r := iz.Redci[0]; r.Letva != "vodograd" || r.Prije != 1 || r.Izdanje != 0 || r.Greska != "namjerni kvar" {
+		t.Errorf("redak izvještaja: %+v", r)
+	}
+	if !strings.Contains(zapisi.String(), "preskačem: namjerni kvar") {
+		t.Errorf("preskakanje nije zapisano:\n%s", zapisi.String())
+	}
+	k, err := UcitajKatalog(mapa)
+	if err != nil || len(k.Paketi) != 1 || k.Paketi[0] != prije.Paketi[0] {
+		t.Errorf("katalog nakon preskakanja: %+v, %v", k.Paketi, err)
+	}
+	if _, err := os.Stat(filepath.Join(mapa, "vodograd_v2.cop")); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("paket v2 napisan je iako nije složen: %v", err)
+	}
+}
+
+// GREŠKA: kad letvi primljenoj paketom, koje u katalogu još nema, ne uspije
+// paket s novim brojem, u katalog uđe redak bez letve i bez datoteke. Grana
+// na katalog.go:219 ne pita je li letva bila u katalogu, za razliku od iste
+// grane uz prvi izvoz (katalog.go:192). Petlja na kraju Izdaj taj redak poslije
+// prenosi u svako sljedeće izdavanje.
+func TestIzdavanjePrimljeneLetveKadPaketSNovimBrojemNeUspije(t *testing.T) {
+	t.Skip("GREŠKA: internal/arhiva/katalog.go:219 — letvi primljenoj paketom neuspio drugi izvoz dodaje u katalog redak bez letve")
+	mapa := t.TempDir()
+	put := filepath.Join(t.TempDir(), "arhiva.db")
+	db := napraviArhivu(t, put)
+	dodajNiz(t, db, "vodograd")
+	primljeno := Manifest{Letva: "vodograd", Izdanje: 3, Otisak: "otisak-drugog-cvora", Izdao: "cvor-drugi"}
+	if err := zapisiPrimljeno(db, primljeno, true, ""); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, io.Discard)
+	if err != nil || iz.Preskocenih != 1 {
+		t.Fatalf("izdavanje: %+v, %v", iz, err)
+	}
+	k, err := UcitajKatalog(mapa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range k.Paketi {
+		if p.Letva == "" {
+			t.Errorf("u katalogu je redak bez letve: %+v", p)
+		}
+	}
+	if len(k.Paketi) != 0 {
+		t.Errorf("katalog mora ostati prazan, a ima %+v", k.Paketi)
+	}
+}
+
+// Zaključava da izvoz jedne letve s brojem iz kataloga ne napiše ništa kad
+// paket s novim brojem ne uspije.
+func TestSljedeceIzdanjeKadPaketSNovimBrojemNeUspije(t *testing.T) {
+	mapa := t.TempDir()
+	put := arhivaZaDrugoIzdanje(t, mapa)
+	var b bytes.Buffer
+	_, err := SljedeceIzdanje(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "vodograd", "cvor-proba", &b)
+	greskaSadrzi(t, "drugi izvoz", err, "namjerni kvar")
+	if b.Len() != 0 {
+		t.Errorf("napisano je %d bajtova paketa koji nije složen", b.Len())
 	}
 }
 
