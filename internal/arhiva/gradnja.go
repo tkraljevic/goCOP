@@ -22,9 +22,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -1219,7 +1221,7 @@ func krivulje(db *sql.DB, koren, samo string) ([]MaknutaKrivulja, error) {
 	if err != nil {
 		return nil, err
 	}
-	var maknute []MaknutaKrivulja
+	uDatotekama := map[string]map[string]int64{}
 	for _, p := range puts {
 		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
 		if samo != "" && letva != samo {
@@ -1301,12 +1303,34 @@ func krivulje(db *sql.DB, koren, samo string) ([]MaknutaKrivulja, error) {
 				return nil, err
 			}
 		}
-		izvan, err := makniKrivuljeIzvanDatoteke(db, letva, vidjeno)
+		uDatotekama[letva] = dodajKrivulje(uDatotekama[letva], vidjeno)
+		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
+	}
+	return makniIzvanDatoteka(db, uDatotekama)
+}
+
+// dodajKrivulje dodaje krivulje jedne datoteke onima koje su druge datoteke
+// iste letve već dale.
+func dodajKrivulje(dosad, vidjeno map[string]int64) map[string]int64 {
+	if dosad == nil {
+		return vidjeno
+	}
+	maps.Copy(dosad, vidjeno)
+	return dosad
+}
+
+// makniIzvanDatoteka miče krivulje kojih nema ni u jednoj datoteci krivulja
+// letve. Letva u hq/ zna imati i dvije datoteke; dok se sudilo po svakoj
+// zasebno, gradnja je micala krivulje prve datoteke i javljala da ih u
+// datoteci više nema, iako je datoteka bila ondje.
+func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]int64) ([]MaknutaKrivulja, error) {
+	var maknute []MaknutaKrivulja
+	for _, letva := range slices.Sorted(maps.Keys(uDatotekama)) {
+		izvan, err := makniKrivuljeIzvanDatoteke(db, letva, uDatotekama[letva])
 		if err != nil {
 			return nil, err
 		}
 		maknute = append(maknute, izvan...)
-		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
 	}
 	return maknute, nil
 }

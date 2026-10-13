@@ -400,3 +400,30 @@ func TestKrivuljeKojeSeNeDajuProcitati(t *testing.T) {
 		})
 	}
 }
+
+// Zaključava da se o krivuljama letve sudi po svim njezinim datotekama
+// krivulja zajedno. Kad je letva u hq/ imala dvije datoteke, svaka gradnja
+// maknula je krivulje prve i javila da ih u datoteci više nema, iako je
+// datoteka bila ondje.
+func TestDvijeDatotekeKrivuljaIsteLetve(t *testing.T) {
+	db := praznaArhiva(t)
+	koren := t.TempDir()
+	zaglavlje := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n"
+	hq := filepath.Dir(putKrivulja(koren, "dunav", "vodograd"))
+	zapisiDatoteku(t, filepath.Join(hq, "vodograd-stara_hq_krivulje.csv"),
+		zaglavlje+"2001-01-01;2010-12-31;-100;600;polinom;1;2;3;;DHMZ;\n")
+	zapisiDatoteku(t, filepath.Join(hq, "vodograd_hq_krivulje.csv"),
+		zaglavlje+"2011-01-01;;-100;600;polinom;4;5;6;;DHMZ;\n")
+	for i := 1; i <= 2; i++ {
+		var m []MaknutaKrivulja
+		var err error
+		uhvatiIspis(t, &os.Stdout, func() { m, err = krivulje(db, koren, "") })
+		if err != nil || len(m) != 0 {
+			t.Errorf("%d. gradnja: maknuto %+v (%v)", i, m, err)
+		}
+		if n := broj(t, db, `SELECT count(*) FROM hq_krivulje WHERE letva='vodograd'`); n != 2 {
+			t.Errorf("%d. gradnja: u arhivi je %d krivulja, a dvije datoteke imaju dvije", i, n)
+		}
+	}
+}
+
