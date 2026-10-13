@@ -83,6 +83,7 @@ type ObilasciReport struct {
 	Ukupno, Upisano, Postoje, Preskoceno, BezKorisnika  int
 	Listova, SOdgovorom, BezOdgovora, Slika, SObuhvatom int
 	VrijemeIzEvidencije, VrijemeIzArhive                int
+	Dopunjeno                                           int // preneseni obilasci kojima su stigle fotografije, broje se i pod Postoje
 	Nepoznati                                           map[string]int
 	DryRun                                              bool
 }
@@ -151,7 +152,9 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 			return rep, fmt.Errorf("obilazak %d: čitanje prenesenog zadatka: %w", o.ID, err)
 		}
 		if prenesen != nil {
-			rep.Postoje++
+			if err := dopuniObilazak(ctx, deps, o, izvor, prenesen, &rep, logf); err != nil {
+				return rep, fmt.Errorf("obilazak %d: %w", o.ID, err)
+			}
 			continue
 		}
 		if deps.SamoArhivirane && strings.ToLower(strings.TrimSpace(o.Status)) != "arhivirano" {
@@ -260,15 +263,86 @@ func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.Vodocuvarsk
 		ID: z.ID, Tekst: z.Tekst, Zadao: z.Zadao, ZadanoAt: z.ZadanoAt, Status: z.Status,
 		Obavljeno: z.Obavljeno, Od: z.Od, Do: z.Do, Udaljenost: z.Udaljenost, ImaObuhvat: z.Obuhvat != "",
 	}, func(s models.ZadatakNaListu) string { return s.ID })
-	for _, pr := range prilozi {
-		l.Prilozi = zamijeniIliDodaj(l.Prilozi, pr, func(p models.PrilogLista) string { return p.ID })
-	}
+	staviFotografije(l, prilozi)
 	if err := repo.Save(ctx, l); err != nil {
 		return fmt.Errorf("list: %w", err)
 	}
 	z.ListID = l.ID
 	if err := repo.SaveZadatak(ctx, z); err != nil {
 		return fmt.Errorf("zadatak: %w", err)
+	}
+	return nil
+}
+
+// staviFotografije stavlja fotografije obilaska na list; fotografiju koju
+// list već ima zamijeni, pa je na listu ne bude dvaput
+func staviFotografije(l *models.VodocuvarskiList, prilozi []models.PrilogLista) {
+	for _, pr := range prilozi {
+		l.Prilozi = zamijeniIliDodaj(l.Prilozi, pr, func(p models.PrilogLista) string { return p.ID })
+	}
+}
+
+// dopuniObilazak dodaje na list prenesenog obilaska fotografije koje
+// Directus ranije nije dao. Zapis u zapisniku nije dovoljan, jer bi ponovni
+// uvoz preneseni obilazak inače preskočio i fotografija ne bi stigla nikad
+// (Odluke (13. 10. 2026.)). Zadatak ostaje kakav jest.
+func dopuniObilazak(ctx context.Context, deps ObilasciDeps, o obilazakRow, izvor string, z *models.Zadatak, rep *ObilasciReport, logf func(string, ...any)) error {
+	rep.Postoje++
+	l, err := listObilaska(ctx, deps, o, z)
+	if err != nil || l == nil {
+		return err
+	}
+	prilozi, bajtovi := fotografijeObilaska(ctx, deps, o, izvor, z.ID, priloziZadatka(l, z.ID), logf)
+	if len(prilozi) == 0 {
+		return nil
+	}
+	if err := dodajFotografije(ctx, deps.Vodocuvar, l, prilozi, bajtovi); err != nil {
+		return err
+	}
+	rep.Slika += len(prilozi)
+	rep.Dopunjeno++
+	logf(models.UzBrojHR(len(prilozi),
+		"  obilazak %d: dodana je %d fotografija koja ranije nije stigla",
+		"  obilazak %d: dodane su %d fotografije koje ranije nisu stigle",
+		"  obilazak %d: dodano je %d fotografija koje ranije nisu stigle"), o.ID, len(prilozi))
+	return nil
+}
+
+// listObilaska je list dana na koji je obilazak prenesen. Čita se samo kad
+// obilazak ima fotografija i kad ih ima odakle preuzeti; suhi prolaz ga ne
+// čita, jer ništa ne dopunjuje.
+func listObilaska(ctx context.Context, deps ObilasciDeps, o obilazakRow, z *models.Zadatak) (*models.VodocuvarskiList, error) {
+	if deps.DryRun || deps.Datoteka == nil || o.Foto1+o.Foto2+o.Foto3 == "" {
+		return nil, nil
+	}
+	l, err := deps.Vodocuvar.ZaDan(ctx, z.UserID, z.Za)
+	if err != nil {
+		return nil, fmt.Errorf("list dana: %w", err)
+	}
+	return l, nil
+}
+
+// priloziZadatka su oznake fotografija koje zadatak već ima na listu
+func priloziZadatka(l *models.VodocuvarskiList, zadatakID string) map[string]bool {
+	ima := map[string]bool{}
+	for _, pr := range l.Prilozi {
+		if pr.ZadatakID == zadatakID {
+			ima[pr.ID] = true
+		}
+	}
+	return ima
+}
+
+// dodajFotografije sprema fotografije, a tek onda ih stavlja na list i
+// sprema list, kao i pri prvom upisu obilaska: list ne nosi opis fotografije
+// koje nema
+func dodajFotografije(ctx context.Context, repo ObilasciRepo, l *models.VodocuvarskiList, prilozi []models.PrilogLista, bajtovi [][]byte) error {
+	if err := spremiFotografije(ctx, repo, oznakaLista(l), prilozi, bajtovi); err != nil {
+		return err
+	}
+	staviFotografije(l, prilozi)
+	if err := repo.Save(ctx, l); err != nil {
+		return fmt.Errorf("list: %w", err)
 	}
 	return nil
 }

@@ -95,6 +95,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zato preskočio, pa je ostala bez onoga što nije spremljeno. Sad uvoz prvo
   spremi fotografije i sken, a prijavu zajedno s izvornikom tek na kraju.
   Ponovni uvoz zato prijavu prenese cijelu.
+- **Fotografija koju Directus nije dao stiže ponovnim uvozom.** Kad
+  Directus pri uvozu obilazaka iz BP16 nije dao fotografiju, uvoz je to
+  samo zapisao, a obilazak upisao bez nje. Ponovni uvoz preneseni obilazak
+  preskače, pa fotografija nije stigla nikad. Sad ponovni uvoz za obilazak
+  kojem fotografija nedostaje traži samo nju i dodaje je na list. Zadatak
+  ostaje kakav je bio.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

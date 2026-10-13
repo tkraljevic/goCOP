@@ -243,10 +243,15 @@ func TestUvozObilazaka(t *testing.T) {
 		}
 	}
 
-	// ponovni uvoz: sve upisano preskače, ostalo se broji kao prije
+	// ponovni uvoz: sve upisano preskače, ostalo se broji kao prije; samo
+	// fotografije koje nisu stigle traže se opet
+	dohvaceno = nil
 	rep, err = RunObilasci(ctx, izvorObilazaka(), deps)
-	if err != nil || rep.Postoje != 4 || rep.Upisano != 0 || rep.Listova != 0 || rep.Preskoceno != 1 || rep.BezKorisnika != 1 || rep.Slika != 0 {
+	if err != nil || rep.Postoje != 4 || rep.Upisano != 0 || rep.Listova != 0 || rep.Preskoceno != 1 || rep.BezKorisnika != 1 || rep.Slika != 0 || rep.Dopunjeno != 0 {
 		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	if strings.Join(dohvaceno, " ") != "f-nema? f-kriva?" {
+		t.Errorf("ponovni uvoz dohvatio: %v", dohvaceno)
 	}
 	if l, _ := repo.ZaDan(ctx, "g-ana", dan); l == nil || len(l.Zadaci) != 2 || len(l.Prilozi) != 1 {
 		t.Errorf("ponovni uvoz promijenio list: %+v", l)
@@ -579,5 +584,133 @@ func TestPonovniUvozNeUdvostrucujeZadatakNaListu(t *testing.T) {
 	}
 	if d.zadaci[0].ListID != d.listovi[0].ID {
 		t.Errorf("zadatak nije vezan na list: %+v", d.zadaci[0])
+	}
+}
+
+// dvaObilaska su obilazak 1 s dvije fotografije i obilazak 2 bez njih, oba
+// Ane Anić 10. 5. 2025.
+func dvaObilaska() probniIzvor {
+	return probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Ana","last_name":"Anić"}`),
+		"evidencije_obilaska": raw(
+			`{"id_obilasci":1,"status":"arhivirano","user_created":"u-1","dodijeljeno":"u-1","datum":"2025-05-10","opis_aktivnosti":"Obilazak nasipa","foto_1":"f1","foto_2":"f2"}`,
+			`{"id_obilasci":2,"status":"arhivirano","user_created":"u-1","dodijeljeno":"u-1","datum":"2025-05-10","opis_aktivnosti":"Obilazak kanala"}`,
+		),
+	}}
+}
+
+// Fotografija koju Directus nije dao stiže ponovnim uvozom: obilazak se ne
+// preskače dok mu fotografija nedostaje, a dobije samo ono što mu nedostaje.
+func TestPonovniUvozDohvacaFotografijuObilaska(t *testing.T) {
+	repo := dnevnikObilazaka(t)
+	ctx := context.Background()
+	slika := probnaSlika(t, 8, 6)
+	nema := map[string]bool{"f2": true}
+	var dohvaceno, zapisnik []string
+	deps := depsJednogObilaska(t, repo)
+	deps.Datoteka = func(_ context.Context, id, _ string) ([]byte, error) {
+		dohvaceno = append(dohvaceno, id)
+		if nema[id] {
+			return nil, errors.New("Directus odgovorio 404")
+		}
+		return slika, nil
+	}
+	deps.Log = func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) }
+	dan := time.Date(2025, 5, 10, 0, 0, 0, 0, models.Zagreb)
+
+	if rep, err := RunObilasci(ctx, dvaObilaska(), deps); err != nil || rep.Upisano != 2 || rep.Slika != 1 {
+		t.Fatalf("prvi uvoz: %+v, %v", rep, err)
+	}
+	prije, _ := repo.ZadatakPoIzvoru(ctx, "bp16:evidencije_obilaska:1")
+
+	nema, dohvaceno, zapisnik = nil, nil, nil
+	rep, err := RunObilasci(ctx, dvaObilaska(), deps)
+	if err != nil || rep.Postoje != 2 || rep.Dopunjeno != 1 || rep.Slika != 1 || rep.Upisano != 0 || rep.Listova != 0 {
+		t.Fatalf("ponovni uvoz: %+v, %v", rep, err)
+	}
+	if strings.Join(dohvaceno, " ") != "f2" {
+		t.Errorf("ponovni uvoz dohvatio: %v", dohvaceno)
+	}
+	l, err := repo.ZaDan(ctx, "g-ana", dan)
+	if err != nil || l == nil || len(l.Zadaci) != 2 || len(l.Prilozi) != 2 {
+		t.Fatalf("list nakon ponovnog uvoza: %+v, %v", l, err)
+	}
+	pr := l.Prilozi[1]
+	if pr.Naziv != "fotografija 2" || pr.ZadatakID != oznakaZadatka(1) ||
+		pr.ID != uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/bp16:evidencije_obilaska:1/f2")).String() {
+		t.Errorf("dodana fotografija: %+v", pr)
+	}
+	if b, _ := repo.Prilog(ctx, pr.ID); len(b) == 0 || sadrzaj.Otisak(b) != pr.Sadrzaj {
+		t.Errorf("dodana fotografija nije u spremištu: %d bajtova", len(b))
+	}
+	if z, _ := repo.ZadatakPoIzvoru(ctx, "bp16:evidencije_obilaska:1"); z == nil || !z.UpdatedAt.Equal(prije.UpdatedAt) || z.ListID != l.ID {
+		t.Errorf("zadatak se promijenio: %+v, prije %+v", z, prije)
+	}
+	if z := strings.Join(zapisnik, "\n"); z != "  obilazak 1: dodana je 1 fotografija koja ranije nije stigla" {
+		t.Errorf("zapisnik:\n%s", z)
+	}
+
+	// kad su sve fotografije stigle, ništa se više ne traži
+	dohvaceno = nil
+	if rep, err := RunObilasci(ctx, dvaObilaska(), deps); err != nil || rep.Postoje != 2 || rep.Dopunjeno != 0 || len(dohvaceno) != 0 {
+		t.Errorf("treći uvoz: %+v, %v, dohvaćeno %v", rep, err, dohvaceno)
+	}
+}
+
+// Greška dnevnika pri dopuni prekida uvoz i kaže gdje je stao, a list ne
+// dobije opis fotografije koja nije spremljena. Suhi prolaz, uvoz bez
+// dohvata datoteka i obilazak bez fotografija list ne čitaju.
+func TestDopunaObilaskaGreske(t *testing.T) {
+	ctx := context.Background()
+	prenesen := func(t *testing.T) (*lazniDnevnik, ObilasciDeps) {
+		d := &lazniDnevnik{}
+		deps := depsJednogObilaska(t, d)
+		slika := probnaSlika(t, 8, 6)
+		deps.Datoteka = func(context.Context, string, string) ([]byte, error) {
+			return nil, errors.New("Directus odgovorio 404")
+		}
+		if rep, err := RunObilasci(ctx, jedanObilazak(), deps); err != nil || rep.Upisano != 1 || len(d.listovi) != 1 || len(d.listovi[0].Prilozi) != 0 {
+			t.Fatalf("prvi uvoz: %+v, %v", rep, err)
+		}
+		deps.Datoteka = func(context.Context, string, string) ([]byte, error) { return slika, nil }
+		return d, deps
+	}
+	for greska, poruka := range map[string]string{
+		"zadan":  "obilazak 1: list dana: baza zaključana",
+		"prilog": "obilazak 1: prilog: nema spremišta",
+		"list":   "obilazak 1: list: list predan u međuvremenu",
+	} {
+		d, deps := prenesen(t)
+		d.greska = greska
+		rep, err := RunObilasci(ctx, jedanObilazak(), deps)
+		if err == nil || err.Error() != poruka || rep.Dopunjeno != 0 {
+			t.Errorf("%s: %+v, %v", greska, rep, err)
+		}
+		if len(d.listovi[0].Prilozi) != 0 {
+			t.Errorf("%s: na listu je opis fotografije: %+v", greska, d.listovi[0].Prilozi)
+		}
+	}
+
+	// list obilaska više ne postoji: nema na što dodati
+	d, deps := prenesen(t)
+	d.listovi = nil
+	if rep, err := RunObilasci(ctx, jedanObilazak(), deps); err != nil || rep.Postoje != 1 || rep.Dopunjeno != 0 || len(d.prilozi) != 0 {
+		t.Errorf("bez lista: %+v, %v", rep, err)
+	}
+
+	// suhi prolaz, bez dohvata datoteka i bez fotografija list se ne čita
+	bezFotografija := jedanObilazak()
+	bezFotografija.zbirke["evidencije_obilaska"] = raw(`{"id_obilasci":1,"status":"arhivirano","user_created":"u-1","dodijeljeno":"u-1","datum":"2025-05-10","opis_aktivnosti":"Obilazak nasipa"}`)
+	for ime, izmijeni := range map[string]func(*ObilasciDeps) probniIzvor{
+		"suhi prolaz":     func(d *ObilasciDeps) probniIzvor { d.DryRun = true; return jedanObilazak() },
+		"bez datoteka":    func(d *ObilasciDeps) probniIzvor { d.Datoteka = nil; return jedanObilazak() },
+		"bez fotografija": func(*ObilasciDeps) probniIzvor { return bezFotografija },
+	} {
+		d, deps := prenesen(t)
+		d.greska = "zadan"
+		src := izmijeni(&deps)
+		if rep, err := RunObilasci(ctx, src, deps); err != nil || rep.Postoje != 1 || rep.Dopunjeno != 0 {
+			t.Errorf("%s: %+v, %v", ime, rep, err)
+		}
 	}
 }
