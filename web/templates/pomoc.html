@@ -749,12 +749,18 @@
     <p>Sadržaj datoteke je istina. Krivulje protoka prate svoju datoteku: kad letva u stablu ima
       datoteku krivulja, gradnja u arhivu postavi točno krivulje iz nje. Krivulju koje u datoteci
       više nema gradnja makne, a u ispisu gradnje piše koja je to krivulja i kad je vrijedila.
-      Krivulje letve koja datoteke krivulja nema, npr. primljene paketom, ostaju kakve jesu.</p>
+      To vrijedi i za krivulje koje su stigle paketom s drugog čvora: kad ih lokalna datoteka nema,
+      gradnja ih makne. Zato datoteku krivulja prije gradnje treba osvježiti. Krivulje letve koja u
+      stablu nema datoteku krivulja ostaju kakve jesu.</p>
+    <p>Prazna datoteka krivulja, ili datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi
+      gradnju, da ne odnese sve krivulje letve. Ispis gradnje kaže koja je to datoteka. Datoteka sa
+      samim zaglavljem znači da letva krivulja nema.</p>
     <p>Kad iz stabla nestane cijela datoteka niza ili snimke korita, gradnja ih iz arhive ne briše sama.
       Pojave se na stranici <strong>Administracija → Unos u arhivu</strong>, pod <em>Nizovi bez datoteke
       u stablu</em>, a iz arhive ih makne gumb <strong>Makni</strong>. Tako vanjski disk koji nije
-      priključen ne odnese podatke. Snimke letve koja u stablu nema svoju mapu, npr. primljene paketom,
-      na taj popis ne idu. Ni gradnja ni gumb Makni datoteke u stablu nikad ne mijenjaju.</p>
+      priključen ne odnese podatke. Snimke letve koja u stablu nema svoju mapu na taj popis ne idu,
+      npr. letve koju čvor samo prima paketom. Ni gradnja ni gumb Makni datoteke u stablu nikad ne
+      mijenjaju.</p>
     <p class="reading-meta"><strong>Izvan aplikacije:</strong> administrator poslužitelja za masovnu početnu
       pripremu ima i alate naredbenog retka (<code>arhiva-vodostaja</code> gradi cijelu arhivu, ili jednu letvu
       s <code>-letva batina</code>). Nisu dio isporuke i za redovan rad ne trebaju.</p>

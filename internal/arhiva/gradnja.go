@@ -1989,8 +1989,12 @@ func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, erro
 // gradnje. Stranica ih tako može pokazati kad god se otvori, a ne samo odmah
 // nakon što se nešto gradilo.
 //
-// Prolazi se samo kroz nazive datoteka, ne kroz njihov sadržaj, pa je jeftino
-// dovoljno da stoji na svakom otvaranju stranice.
+// Nizovi se traže samo po nazivima datoteka. Snimke korita čitaju se cijele,
+// jer dan snimke piše u datoteci, a ne u imenu; na laptopu je to 13. 10. 2026.
+// bilo 245 malih datoteka, oko 1 MB, pa je i to dovoljno jeftino za svako
+// otvaranje stranice. Snimka koja se ne da pročitati javlja se greškom
+// cijelog popisa: na njoj bi stala i gradnja, a bez nje se ne zna koju snimku
+// letve datoteka drži.
 func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 	nizovi, err := popisi(koren, "")
 	if err != nil {

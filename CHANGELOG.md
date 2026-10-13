@@ -85,7 +85,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   gradnja čitala. Isto se događalo s retkom u kojem je datum ili vrijednost
   krivo upisana. Sad dopuna datoteku čita kao i gradnja. Kad neki redak ne
   razumije, ili iza vrijednosti nešto piše, upis odbije i kaže koji je to
-  redak, a datoteka ostane kakva je bila.
+  redak, a datoteka ostane kakva je bila. Pregled pod Unos u arhivu to kaže
+  već prije upisa, u okviru „Niz već postoji”, i nudi zamjenu.
 - **Katalog izdanja bez praznog retka.** Kad je čvor prvi put izdavao
   letvu koju je primio paketom, a paket s novim brojem nije se dao složiti,
   u katalog izdanja ušao je redak bez letve i bez datoteke. Taj je redak
@@ -100,16 +101,20 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
   kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
   krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
-  nestane iz arhive. Krivulje letve koja datoteke krivulja nema, npr.
-  primljene paketom, ostaju kakve jesu.
+  nestane iz arhive. Vrijedi i za krivulje koje su stigle paketom s drugog
+  čvora: kad ih lokalna datoteka nema, gradnja ih makne, pa datoteku
+  krivulja prije gradnje treba osvježiti. Krivulje letve koja u stablu nema
+  datoteku krivulja ostaju kakve jesu. Prazna datoteka krivulja, ili
+  datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi gradnju,
+  da ne odnese sve krivulje letve.
 - **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
   kojoj je datoteka maknuta iz stabla ostajala je u arhivi, a nigdje se nije
-  vidjelo da joj datoteke više nema. Ispravak datuma u imenu datoteke tako
+  vidjelo da joj datoteke više nema. Ispravak dana snimke u datoteci tako
   je ostavljao dvije snimke istog korita. Sad gradnja takvu snimku ne briše,
   nego je pokaže pod Administracija → Unos u arhivu → Nizovi bez datoteke u
   stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
-  Snimke letve koja u stablu nema svoju mapu, npr. primljene paketom, na
-  popis ne idu. Datoteke u stablu se ne diraju.
+  Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
+  koju čvor samo prima paketom. Datoteke u stablu se ne diraju.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
