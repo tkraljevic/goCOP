@@ -10,9 +10,9 @@
     <h1 class="page-title">{{icon "pencil"}} Nazivi</h1>
     <p class="page-desc">
       Naziv organizacije, znak, tekst na stranici prijave i riječi kojima program zove razine ustroja.
-      Hrvatske vode obranu dijele na {{terml "direkcija"}} s {{terml "gcop"}}, {{terml "vgo"}} sa {{terml "sektori"}} i
-      {{terml "vgi"}} s {{terml "podrucja"}}; druga organizacija istu podjelu zove drukčije. Šifre dionica i ovlasti se
-      ne mijenjaju. Vrijedi na svim čvorovima mreže.
+      Sada su to: {{terml "direkcija"}} i {{terml "gcop"}} na razini 1, {{terml "vgo"}} i {{terml "sektor"}} na
+      razini 2, {{terml "vgi"}} i {{terml "podrucje"}} na razini 3. Druga organizacija istu podjelu zove drukčije.
+      Šifre dionica i ovlasti se ne mijenjaju. Vrijedi na svim čvorovima mreže.
     </p>
   </div>
 </div>
@@ -53,7 +53,7 @@
       <div class="form-help">Stoji ispod obrasca prijave, iznad kontakta administratora. Prazno daje kratku zadanu uputu.</div>
     </div>
 
-    <h3 class="obrazac-podnaslov">Razina 2: ustrojstvena jedinica sa svojim {{terml "sektor"}}</h3>
+    <h3 class="obrazac-podnaslov">Razina 2: ustrojstvena jedinica i {{terml "sektor"}}</h3>
     <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-sector">Jednina</label><input type="text" id="t-sector" name="sector" class="form-control" value="{{.Terms.Sector}}" placeholder="Sektor"></div>
       <div class="form-group"><label class="form-label" for="t-sectors">Množina</label><input type="text" id="t-sectors" name="sectors" class="form-control" value="{{.Terms.Sectors}}" placeholder="Sektori"></div>
@@ -63,7 +63,7 @@
       <div class="form-group"><label class="form-label" for="t-center-short">Kratica centra</label><input type="text" id="t-center-short" name="center_short" class="form-control" value="{{.Terms.CenterShort}}" placeholder="COP"></div>
     </div>
 
-    <h3 class="obrazac-podnaslov">Razina 3: ustrojstvena jedinica sa svojim {{terml "podrucje"}}</h3>
+    <h3 class="obrazac-podnaslov">Razina 3: ustrojstvena jedinica i {{terml "podrucje"}}</h3>
     <div class="form-row">
       <div class="form-group"><label class="form-label" for="t-area">Jednina</label><input type="text" id="t-area" name="area" class="form-control" value="{{.Terms.Area}}" placeholder="Branjeno područje"></div>
       <div class="form-group"><label class="form-label" for="t-areas">Množina</label><input type="text" id="t-areas" name="areas" class="form-control" value="{{.Terms.Areas}}" placeholder="Branjena područja"></div>
