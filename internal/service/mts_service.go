@@ -752,7 +752,7 @@ func (s *MtsService) SmijeOtkljucati(perms *models.UserPermissions) bool {
 // je zaključenje upisalo. Zaključena inventura ne vidi promet koji je
 // poslije upisan s danom prije nje; ponovno zaključenje razliku računa
 // iznova s knjižnim stanjem toga dana. Smije samo globalni administrator
-// (Odluke (13. 10. 2026.)), a u napomeni inventure ostaje tko je i kada
+// (Odluke (13. 10. 2026.)), a u napomenu inventure upiše se tko je i kada
 // otključao.
 func (s *MtsService) OtkljucajPopis(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
 	if u == nil || !s.SmijeOtkljucati(perms) {
