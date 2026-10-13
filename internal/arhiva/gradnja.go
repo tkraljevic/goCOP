@@ -249,6 +249,10 @@ type Izvjestaj struct {
 	// nema, a gradnja ih nije maknula, jer je letva stigla paketom s drugog
 	// čvora.
 	ZadrzaneKrivulje []MaknutaKrivulja
+	// NeupisaneKrivulje su krivulje protoka iz datoteke krivulja koje gradnja
+	// nije upisala, jer je letva stigla paketom s drugog čvora, a arhiva od
+	// istog dana ima drukčiju krivulju.
+	NeupisaneKrivulje []MaknutaKrivulja
 }
 
 // Sirotan je niz koji stoji u arhivi, a datoteke iz koje je nastao više nema u
@@ -362,10 +366,12 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 	javi(zapisi, "čitam krivulje protoka", 0, 0)
-	if iz.MaknuteKrivulje, iz.ZadrzaneKrivulje, err = krivulje(db, koren, samo); err != nil {
+	kg, err := krivulje(db, koren, samo)
+	if err != nil {
 		return iz, err
 	}
-	javiKrivuljeIzvanDatoteka(zapisi, iz.MaknuteKrivulje, iz.ZadrzaneKrivulje)
+	iz.MaknuteKrivulje, iz.ZadrzaneKrivulje, iz.NeupisaneKrivulje = kg.maknute, kg.zadrzane, kg.neupisane
+	javiKrivuljeGradnje(zapisi, kg)
 
 	kljucevi := make([]string, 0, len(nizovi))
 	for k := range nizovi {
@@ -1321,101 +1327,31 @@ func citajProfil(f io.Reader) (datum string, vodostaj int, kota float64, sustavK
 // datoteke, a one kojih u datoteci više nema makne i vrati, da ih izvještaj
 // gradnje pokaže (Odluke (13. 10. 2026.)). Letvu bez datoteke krivulja gradnja
 // ne dira. Letvi koja je stigla paketom s drugog čvora krivulje iz datoteke se
-// upišu, ali se one kojih u datoteci nema ne miču, nego vraćaju kao zadržane.
-func krivulje(db *sql.DB, koren, samo string) ([]MaknutaKrivulja, []MaknutaKrivulja, error) {
+// upišu, ali se one kojih u datoteci nema ne miču, nego vraćaju kao zadržane,
+// a krivulja iz datoteke ne zamjenjuje drukčiju krivulju istog početka
+// valjanosti, nego se vraća kao neupisana.
+func krivulje(db *sql.DB, koren, samo string) (krivuljeGradnje, error) {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
 	if err != nil {
-		return nil, nil, err
+		return krivuljeGradnje{}, err
 	}
-	uDatotekama := map[string]map[string]int64{}
+	var kg krivuljeGradnje
+	uDatotekama := map[string]map[string]bool{}
+	zatecene := zateceneKrivulje{}
 	for _, p := range puts {
 		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
 		if samo != "" && letva != samo {
 			continue
 		}
-		f, err := os.Open(p)
+		uDatoteci, neupisane, err := upisiDatotekuKrivulja(db, p, letva, zatecene)
 		if err != nil {
-			return nil, nil, err
+			return krivuljeGradnje{}, err
 		}
-		cr := csv.NewReader(f)
-		cr.Comma = ';'
-		cr.FieldsPerRecord = -1
-		sve, err := cr.ReadAll()
-		f.Close()
-		if err != nil {
-			return nil, nil, err
-		}
-		br := func(x string) float64 {
-			v, _ := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(x), ",", "."), 64)
-			return v
-		}
-		cijeli := func(x string) int {
-			v, _ := strconv.Atoi(strings.TrimSpace(x))
-			return v
-		}
-		// Stupac p4 je došao naknadno, s potencijskim odsječcima. Zatečena
-		// datoteka bez njega mora se i dalje čitati, pa se stupci traže po
-		// zaglavlju umjesto da se broje.
-		stupac := map[string]int{}
-		if len(sve) > 0 {
-			for i, ime := range sve[0] {
-				stupac[strings.ToLower(strings.TrimSpace(ime))] = i
-			}
-		}
-		_, imaP4 := stupac["p4"]
-		polje := func(r []string, ime string) string {
-			i, ok := stupac[ime]
-			if !ok || i >= len(r) {
-				return ""
-			}
-			return strings.TrimSpace(r[i])
-		}
-		// Datoteka nosi po jedan redak za svaki odsječak; zaglavlje krivulje se
-		// ponavlja. Krivulja se prvo obriše pa iznova složi, da uklonjeni
-		// odsječak ne ostane visjeti.
-		vidjeno := map[string]int64{}
-		n := 0
-		for i, r := range sve {
-			if i == 0 || len(r) < 8 {
-				continue
-			}
-			od, do := strings.TrimSpace(r[0]), strings.TrimSpace(r[1])
-			id, ima := vidjeno[od]
-			if !ima {
-				if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, od); err != nil {
-					return nil, nil, err
-				}
-				res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
-					VALUES (?,?,?,?,?)`, letva, od, do, polje(r, "izvor"), polje(r, "napomena"))
-				if err != nil {
-					return nil, nil, err
-				}
-				id, _ = res.LastInsertId()
-				vidjeno[od] = id
-				n++
-			}
-			oblik := polje(r, "oblik")
-			if oblik != models.OblikPotencija {
-				oblik = models.OblikPolinom
-			}
-			p4 := 0.0
-			if imaP4 {
-				p4 = br(polje(r, "p4"))
-			}
-			if _, err := db.Exec(`INSERT OR REPLACE INTO hq_odsjecci
-				(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
-				id, cijeli(polje(r, "od_cm")), cijeli(polje(r, "do_cm")), oblik,
-				br(polje(r, "p1")), br(polje(r, "p2")), br(polje(r, "p3")), p4); err != nil {
-				return nil, nil, err
-			}
-		}
-		if err := procitanoIzKrivulja(filepath.Base(p), len(sve), n); err != nil {
-			return nil, nil, err
-		}
-		uDatotekama[letva] = dodajKrivulje(uDatotekama[letva], vidjeno)
-		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
+		uDatotekama[letva] = dodajKrivulje(uDatotekama[letva], uDatoteci)
+		kg.neupisane = append(kg.neupisane, neupisane...)
 	}
-	return makniIzvanDatoteka(db, uDatotekama)
+	kg.maknute, kg.zadrzane, err = makniIzvanDatoteka(db, uDatotekama)
+	return kg, err
 }
 
 // procitanoIzKrivulja javlja grešku kad se iz datoteke krivulja nije dala
@@ -1437,7 +1373,7 @@ func procitanoIzKrivulja(ime string, redaka, krivulja int) error {
 
 // dodajKrivulje dodaje krivulje jedne datoteke onima koje su druge datoteke
 // iste letve već dale.
-func dodajKrivulje(dosad, vidjeno map[string]int64) map[string]int64 {
+func dodajKrivulje(dosad, vidjeno map[string]bool) map[string]bool {
 	if dosad == nil {
 		return vidjeno
 	}
@@ -1450,7 +1386,7 @@ func dodajKrivulje(dosad, vidjeno map[string]int64) map[string]int64 {
 // paketom. Letva u hq/ zna imati i dvije datoteke; dok se sudilo po svakoj
 // zasebno, gradnja je micala krivulje prve datoteke i javljala da ih u
 // datoteci više nema, iako je datoteka bila ondje.
-func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]int64) ([]MaknutaKrivulja, []MaknutaKrivulja, error) {
+func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]bool) ([]MaknutaKrivulja, []MaknutaKrivulja, error) {
 	var maknute, zadrzane []MaknutaKrivulja
 	for _, letva := range slices.Sorted(maps.Keys(uDatotekama)) {
 		izvan, primljena, err := izvanDatotekaLetve(db, letva, uDatotekama[letva])
@@ -1473,7 +1409,7 @@ func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]int64) ([]
 // lokalna datoteka odnijela krivulje koje je donio paket. Tada se krivulje ne
 // miču, a vraćaju se s primljena true, da izvještaj gradnje kaže zašto su
 // ostale.
-func izvanDatotekaLetve(db *sql.DB, letva string, uDatoteci map[string]int64) (izvan []MaknutaKrivulja, primljena bool, err error) {
+func izvanDatotekaLetve(db *sql.DB, letva string, uDatoteci map[string]bool) (izvan []MaknutaKrivulja, primljena bool, err error) {
 	p, err := Primljeno(db, letva)
 	if err != nil {
 		return nil, false, fmt.Errorf("je li letva %s stigla paketom: %w", letva, err)
@@ -1545,7 +1481,7 @@ func krivuljeLetve(db *sql.DB, letva string) ([]MaknutaKrivulja, error) {
 
 // krivuljeIzvanDatoteke vraća krivulje letve čiji se početak valjanosti ne
 // pojavljuje u njezinim datotekama.
-func krivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]int64) ([]MaknutaKrivulja, error) {
+func krivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]bool) ([]MaknutaKrivulja, error) {
 	sve, err := krivuljeLetve(db, letva)
 	if err != nil {
 		return nil, err
@@ -1562,7 +1498,7 @@ func krivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]int64)
 // makniKrivuljeIzvanDatoteke miče krivulje letve čiji se početak valjanosti
 // više ne pojavljuje u njezinoj datoteci, s odsječcima, i vraća ih. Odsječci
 // se brišu izrijekom, jer veza bez stranih ključeva ne briše djecu sama.
-func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]int64) ([]MaknutaKrivulja, error) {
+func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]bool) ([]MaknutaKrivulja, error) {
 	maknute, err := krivuljeIzvanDatoteke(db, letva, uDatoteci)
 	if err != nil {
 		return nil, err
@@ -1579,15 +1515,19 @@ func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]i
 	return maknute, nil
 }
 
-// javiKrivuljeIzvanDatoteka piše u izvještaj gradnje koje je krivulje gradnja
-// maknula, koje je zadržala jer je letva stigla paketom, i kad su vrijedile.
-func javiKrivuljeIzvanDatoteka(zapisi io.Writer, maknute, zadrzane []MaknutaKrivulja) {
-	redci := make([][2]string, 0, len(maknute)+len(zadrzane))
-	for _, k := range maknute {
+// javiKrivuljeGradnje piše u izvještaj gradnje koje je krivulje gradnja
+// maknula, koje je zadržala jer je letva stigla paketom, koje iz datoteke nije
+// upisala, i kad su vrijedile.
+func javiKrivuljeGradnje(zapisi io.Writer, kg krivuljeGradnje) {
+	redci := make([][2]string, 0, len(kg.maknute)+len(kg.zadrzane)+len(kg.neupisane))
+	for _, k := range kg.maknute {
 		redci = append(redci, [2]string{k.Letva, k.Opis()})
 	}
-	for _, k := range zadrzane {
+	for _, k := range kg.zadrzane {
 		redci = append(redci, [2]string{k.Letva, k.OpisZadrzane()})
+	}
+	for _, k := range kg.neupisane {
+		redci = append(redci, [2]string{k.Letva, k.OpisNeupisane()})
 	}
 	for _, r := range redci {
 		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", r[0], r[1])

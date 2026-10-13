@@ -750,9 +750,11 @@
       datoteku krivulja, gradnja u arhivu postavi točno krivulje iz nje. Krivulju koje u datoteci
       više nema gradnja makne, a u ispisu gradnje piše koja je to krivulja i kad je vrijedila.
       Krivulje letve koja u stablu nema datoteku krivulja ostaju kakve jesu.</p>
-    <p>Iznimka je letva koja je stigla paketom s drugog čvora. Krivulje iz lokalne datoteke gradnja
-      upiše, ali one koje je donio paket ne miče, ni kad ih u datoteci nema. U ispisu gradnje tada
-      piše koja krivulja nije maknuta i zašto.</p>
+    <p>Iznimka je letva koja je stigla paketom s drugog čvora. Krivulje koje ta letva već ima u arhivi
+      gradnja ne dira. Ne miče ih ni kad ih u datoteci nema, a krivulja iz datoteke ne zamijeni krivulju
+      koja u arhivi vrijedi od istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema. U
+      ispisu gradnje tada piše koja krivulja nije maknuta ili nije upisana i zašto. Krivulju takve letve
+      treba ispraviti na čvoru koji letvu izdaje.</p>
     <p>Prazna datoteka krivulja, ili datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi
       gradnju, da ne odnese sve krivulje letve. Ispis gradnje kaže koja je to datoteka. Datoteka sa
       samim zaglavljem znači da letva krivulja nema.</p>
