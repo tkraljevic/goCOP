@@ -25,6 +25,8 @@ func TestCitajNeispravneIDvostruke(t *testing.T) {
   {"timestamp":"2026-08-21T00:00:00Z","value":253},
   {"timestamp":"2026-08-21T03:00:00+02:00","value":255},
   {"timestamp":"2026-08-21T01:00:00Z","value":256},
+  {"timestamp":"2026-08-21T04:00:00+02:00","value":254},
+  {"timestamp":"2026-08-21T02:00:00Z","value":254},
   {"timestamp":"21.08.2026 04:00","value":257},
   {"timestamp":"2026-08-21T05:00:00+02:00","value":2500}
 ]`)
@@ -33,11 +35,12 @@ func TestCitajNeispravneIDvostruke(t *testing.T) {
 		t.Fatal(err)
 	}
 	iz := r.Izvjestaj
-	if iz.Redaka != 6 || iz.Neispravnih != 2 || iz.Duplikata != 2 || iz.Sukoba != 1 || iz.IzvanPunogSata != 0 {
+	// tri sata zapisana dvaput, samo jedan s različitom vrijednošću
+	if iz.Redaka != 8 || iz.Neispravnih != 2 || iz.Duplikata != 3 || iz.Sukoba != 1 || iz.IzvanPunogSata != 0 {
 		t.Fatalf("izvještaj: %+v", iz)
 	}
 	// kod sukoba vrijedi zadnje očitanje
-	if len(r.Vodostaji) != 2 || r.Vodostaji[0].Vrijednost != 253 || r.Vodostaji[1].Vrijednost != 256 {
+	if len(r.Vodostaji) != 3 || r.Vodostaji[0].Vrijednost != 253 || r.Vodostaji[1].Vrijednost != 256 || r.Vodostaji[2].Vrijednost != 254 {
 		t.Errorf("vodostaji: %+v", r.Vodostaji)
 	}
 }
