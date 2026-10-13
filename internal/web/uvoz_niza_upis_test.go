@@ -223,9 +223,6 @@ func TestUpisNizaOdbija(t *testing.T) {
 // Potvrda bez letve kaže operateru isto što i globalnom administratoru: da
 // letva nije zadana.
 func TestUpisNizaBezLetveKodOperatera(t *testing.T) {
-	t.Skip("GREŠKA: internal/web/handlers_uvoz_niza.go:757 pravo se provjerava prije arhiva.ProvjeriDjelove, " +
-		"pa operater za potvrdu bez letve dobije „Nemate pravo uvoziti podatke letve  — …” s praznim imenom " +
-		"umjesto „letva nije zadana”")
 	o, _, _ := okolinaUpisa(t)
 	id := o.posalji(t, o.ana, o.anaOvl, "satni.csv", dnevniPrimjerova)
 	forma := url.Values{"id": {id}, "izvor": {"probni"}, "velicina": {"vodostaj"}, "vrsta": {"dnevni"}}

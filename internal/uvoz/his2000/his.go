@@ -430,7 +430,7 @@ func citajProfil(redci []string) (*Profil, error) {
 		return nil, fmt.Errorf("snimka nema datum mjerenja")
 	}
 	if len(p.Tocke) < 3 {
-		return nil, fmt.Errorf("snimka ima samo %d točaka", len(p.Tocke))
+		return nil, fmt.Errorf("snimka ima samo %d %s", len(p.Tocke), models.UzBrojHR(len(p.Tocke), "točku", "točke", "točaka"))
 	}
 	return p, nil
 }

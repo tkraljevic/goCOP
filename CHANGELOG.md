@@ -104,6 +104,43 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   tablici kiše po međuslivovima umjesto njega stoji crtica (Odluke (13. 10.
   2026.)). Pad je našao test; s nizovima iz arhive ni jedno ni drugo nije
   primijećeno.
+- **Krivulje protoka opet se potvrđuju, a stranica pita za sustav snimke
+  korita.** Na stranici Unos podataka u arhivu pregled krivulja protoka iz
+  HIS-2000 prekidao se na pola, bez gumba „Upiši i izgradi”, pa se krivulje
+  nisu dale upisati. Kad program ne prepozna kotu nule snimke korita,
+  stranica nikad nije pitala u kojem je sustavu, pa se takva snimka uvijek
+  preskakala.
+  Uzrok je isti: pitanje o sustavu stajalo je u obrascu krivulja, a ne u
+  obrascu snimki. Sad stoji uz snimke, a pregled krivulja iscrta se do
+  kraja.
+- **Uvoz krivulja protoka ne briše starije krivulje.** Uvoz krivulja iz
+  HIS-2000 zamijenio je cijelu datoteku krivulja letve krivuljama iz
+  izvoza. Izvoz s manje godina tako je brisao starije krivulje. Na Donjem
+  Miholjcu izvoz postaje 5150 ima krivulje 1993.–2026., pa bi odnio
+  krivulje 1926.–1992. koje je donio izvoz spojene postaje 5555. Sad se
+  krivulje spajaju po razdoblju: razdoblje iz izvoza dodaje se ili
+  zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju.
+  Redoslijed uvoza nije važan: stariji izvoz uvezen poslije novijeg daje
+  iste krivulje i ne ostavlja godine bez krivulje. Prije upisa pregled kaže
+  koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Kad
+  zatečena krivulja počinje usred krivulje iz izvoza, pregled kaže i to, jer
+  od tog dana vrijedi zatečena krivulja. Izvornik novog izvoza sprema se uz
+  stari, pod drugim imenom.
+  Kad zatečena datoteka ima redak koji se ne da pročitati, krivulje se ne
+  spajaju, a poruka kaže koji je to redak.
+- **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
+  koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
+  poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad
+  dobije isto što i globalni administrator: da letva nije zadana.
+- **Broj točaka snimke korita.** Poruka o snimci s premalo točaka pisala
+  je „snimka ima samo 2 točaka” i „1 točaka”. Uvoz izvoza iz HIS-2000 uz
+  dvije snimke istog dana pisao je „(3 točaka)”. Sad piše „2 točke”,
+  „1 točku” i „3 točke”.
+- **Snimka korita koja se ne da zapisati.** Kad se nijedna snimka nije dala
+  zapisati, poruka je uvijek govorila da je odabir vjerojatno istekao i da
+  datoteke treba poslati ponovno, i kad su odmah iza stajali pravi razlozi.
+  Odabir tada nije istekao, a ponovno slanje ne pomaže. Sad poruka navodi
+  samo razloge, a o isteku govori samo kad snimki koje čekaju više nema.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

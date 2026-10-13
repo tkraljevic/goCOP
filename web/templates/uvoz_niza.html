@@ -501,6 +501,30 @@
     {{range .Profili.Odbijeno}}<li class="mono">{{.}}</li>{{end}}
   </ul>
   {{end}}
+  {{if .Profili.Neprepoznatih}}{{$n := .Profili.Neprepoznatih}}
+  <div class="alert alert-warning mt-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
+      {{if .Profili.KotaStara}}U starom sustavu (TRST) letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span>.{{end}}
+      {{if .Profili.KotaNova}}U HVRS71 letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span>.{{end}}
+      {{/* „te” i „tih” upućuju na sve snimke, ne stoje uz broj, pa uzBroj ovdje ne vrijedi: uz 21 snimku bio bi jednina */}}
+      {{if or .Profili.KotaStara .Profili.KotaNova}}
+      {{if eq $n 1}}Kota nule te snimke ne odgovara nijednoj koju letva vodi. To je ili snimka s druge letve,
+      ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa.
+      {{else}}Kote nule tih snimki ne odgovaraju nijednoj koju letva vodi. To su ili snimke s druge letve,
+      ili im je nula premještena, ili su kote prepisane krivo, pa se sustav ne nagađa.{{end}}
+      {{else}}Letva nema upisanu kotu nule, pa se sustav ne može prepoznati.{{end}}
+    </p>
+    <label class="izvor-napomena m-0">
+      <span class="part-label">{{if eq $n 1}}Sustav za tu snimku{{else}}Sustav za te snimke{{end}}</span>
+      <select name="sustav" class="form-control max-w-14" required>
+        <option value="">odaberite…</option>
+        <option value="TRST">TRST</option>
+        <option value="HVRS71">HVRS71</option>
+      </select>
+    </label>
+  </div>
+  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>
@@ -525,6 +549,36 @@
       {{if .Krivulje.Sirina}}<span class="reg-card-sub">{{.Krivulje.Sirina}} / {{.Krivulje.Duzina}}</span>{{end}}</dd></div>
     {{end}}
   </dl>
+  {{if .Krivulje.ZatecenihKrivulja}}
+  <p class="page-desc mt-1 mb-2">
+    Izvoz se spaja sa zatečenim krivuljama po razdoblju. Novo razdoblje se dodaje, isto razdoblje uzima se iz izvoza,
+    a zatečena razdoblja kojih u izvozu nema ostaju.
+    {{with .Krivulje.Ostaju}}{{len .}} {{uzBroj (len .) "zatečena krivulja nije u izvozu i ostaje" "zatečene krivulje nisu u izvozu i ostaju" "zatečenih krivulja nije u izvozu i ostaje"}}.{{end}}
+    Nakon upisa letva ima {{.Krivulje.Ukupno}} {{uzBroj .Krivulje.Ukupno "krivulju" "krivulje" "krivulja"}}.
+  </p>
+  {{end}}
+  {{with .Krivulje.Razlikuju}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja razlikuje se od izvoza" "zatečene krivulje razlikuju se od izvoza" "zatečenih krivulja razlikuje se od izvoza"}}.</strong>
+      {{if eq $n 1}}Upis za to razdoblje uzima krivulju iz izvoza.{{else}}Upis za ta razdoblja uzima krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range $.Krivulje.Popis}}{{if .Razlikuje}}<li class="mono">{{.Od}} .. {{.Do}}</li>{{end}}{{end}}
+    </ul>
+  </div>
+  {{end}}
+  {{with .Krivulje.Usred}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja počinje usred krivulje iz izvoza" "zatečene krivulje počinju usred krivulja iz izvoza" "zatečenih krivulja počinje usred krivulja iz izvoza"}}.</strong>
+      {{if eq $n 1}}Ostaje u datoteci, pa od svog početka vrijedi umjesto krivulje iz izvoza.{{else}}Ostaju u datoteci, pa svaka od svog početka vrijedi umjesto krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range .}}<li class="mono">od {{.}}</li>{{end}}
+    </ul>
+  </div>
+  {{end}}
   <p class="page-desc mt-1 mb-3">
     Kota nule se <strong>ne upisuje</strong> u karticu letve — ovdje stoji samo da se vidi slaže li se s onom
     koju registar već vodi. Zadnjoj krivulji kraj ostaje otvoren jer vrijedi dok ne objave novu.
@@ -538,6 +592,7 @@
         <div class="hq-razdoblje">
           <span class="hq-godine mono">{{$k.Od}} .. {{$k.Do}}</span>
           <span class="reg-card-sub">{{len $k.Odsjecci}} {{uzBroj (len $k.Odsjecci) "odsječak" "odsječka" "odsječaka"}}</span>
+          {{if $k.Razlikuje}}<span class="reg-chip">razlikuje se od zatečene</span>{{end}}
         </div>
         {{range $i, $o := $k.Odsjecci}}
         <div class="hq-odsjecak">
@@ -550,25 +605,6 @@
     </div>
   </details>
 
-  {{if .Profili.Neprepoznatih}}
-  <div class="alert alert-warning mt-3">
-    <p class="mt-0 mb-2">
-      <strong>{{.Profili.Neprepoznatih}} {{uzBroj .Profili.Neprepoznatih "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
-      Letva vodi {{if .Profili.KotaStara}}<span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span> u starom{{end}}
-      {{if .Profili.KotaNova}}i <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span> u HVRS71{{end}},
-      a kota nule tih snimki ne odgovara nijednoj. To je ili snimka s druge letve, ili joj je nula premještena,
-      ili je kota prepisana krivo — pa se ne nagađa.
-    </p>
-    <label class="izvor-napomena m-0">
-      <span class="part-label">Sustav za te snimke</span>
-      <select name="sustav" class="form-control max-w-14" required>
-        <option value="">odaberite…</option>
-        <option value="TRST">TRST</option>
-        <option value="HVRS71">HVRS71</option>
-      </select>
-    </label>
-  </div>
-  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>
