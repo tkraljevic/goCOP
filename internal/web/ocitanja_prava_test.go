@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -36,6 +37,8 @@ type okolinaPrava struct {
 	upisi           func(autor *models.User, cm int) models.Reading
 	h               *ReadingsHandler
 	ocitanja        *repository.ReadingRepository
+	baza            *sql.DB
+	stanice         *repository.StationRepository
 }
 
 func novaOkolinaPrava(t *testing.T) *okolinaPrava {
@@ -77,7 +80,7 @@ func novaOkolinaPrava(t *testing.T) *okolinaPrava {
 		service.NewStructureService(repository.NewStructureRepository(baza, rec)), users,
 		tmpl("readings.html"), tmpl("reading_history.html"), tmpl("reading_form.html"))
 	h.SetOcitanjaCSV(tmpl("ocitanja_ispravci.html"))
-	o := &okolinaPrava{mux: http.NewServeMux(), h: h, ocitanja: readingRepo}
+	o := &okolinaPrava{mux: http.NewServeMux(), h: h, ocitanja: readingRepo, baza: baza, stanice: stationRepo}
 	o.mux.HandleFunc("GET /readings/station/{id}", h.ShowHistory)
 	o.mux.HandleFunc("GET /readings/edit/{id}", h.ShowForm)
 	o.mux.HandleFunc("POST /readings/station/{id}/ocitanja/uvoz", h.HandleOcitanjaUvoz)
