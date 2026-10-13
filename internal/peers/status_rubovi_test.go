@@ -92,8 +92,9 @@ func upisiStanje(t *testing.T, s *Service, id string, zadnjiPut time.Time, neusp
 }
 
 // Na ploči su prvo čvorovi na mreži, pa oni koji šute, pa oni s kojima
-// razmjene još nije bilo, unutar toga po imenu. Čvor s kojim je razmjena
-// nedavno uspjela na mreži je i kad ga ovaj ne može nazvati.
+// razmjene još nije bilo, unutar toga po imenu (i stalno izloženi čvor, koji
+// popis čvorova daje prvi). Čvor s kojim je razmjena nedavno uspjela na
+// mreži je i kad ga ovaj ne može nazvati.
 func TestPlocaRedoslijedIDostupnost(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	clan := izmisljeniKljuc(t)
@@ -108,13 +109,15 @@ func TestPlocaRedoslijedIDostupnost(t *testing.T) {
 	for _, p := range []struct {
 		id, ime string
 		kljuc   string
+		stalni  bool
 	}{
-		{"ured-vukovar", "Ured Vukovar", razmjena.PublicKeyString(clan)},
-		{"laptop-baranja", "Laptop Baranja", javniKljuc(t)},
-		{"novi-b", "Novi B", javniKljuc(t)},
-		{"novi-a", "Novi A", javniKljuc(t)},
+		{"ured-vukovar", "Ured Vukovar", razmjena.PublicKeyString(clan), false},
+		{"laptop-baranja", "Laptop Baranja", javniKljuc(t), false},
+		{"zeta-ured", "Zeta Ured", javniKljuc(t), true},
+		{"novi-b", "Novi B", javniKljuc(t), false},
+		{"novi-a", "Novi A", javniKljuc(t), false},
 	} {
-		if err := s.SavePeer(ctxRub, Peer{NodeID: p.id, Name: p.ime, PublicKey: p.kljuc, Addresses: []string{"192.0.2.20:4710"}}); err != nil {
+		if err := s.SavePeer(ctxRub, Peer{NodeID: p.id, Name: p.ime, PublicKey: p.kljuc, Addresses: []string{"192.0.2.20:4710"}, IsBootstrap: p.stalni}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -129,10 +132,10 @@ func TestPlocaRedoslijedIDostupnost(t *testing.T) {
 	for _, p := range st.Peers {
 		redom = append(redom, p.NodeID+" "+p.Reachability)
 	}
-	if want := []string{"ured-vukovar online", "laptop-baranja offline", "novi-a never", "novi-b never"}; !slices.Equal(redom, want) {
+	if want := []string{"ured-vukovar online", "laptop-baranja offline", "novi-a never", "novi-b never", "zeta-ured never"}; !slices.Equal(redom, want) {
 		t.Errorf("redoslijed %v, očekivano %v", redom, want)
 	}
-	if st.Online != 1 || st.Total != 4 || st.LastOK == nil || !st.Peers[0].SamoDolazi || st.Peers[1].SamoDolazi {
+	if st.Online != 1 || st.Total != 5 || st.LastOK == nil || !st.Peers[0].SamoDolazi || st.Peers[1].SamoDolazi {
 		t.Errorf("ploča: online %d, ukupno %d, zadnje %v, samo dolazi %v/%v", st.Online, st.Total, st.LastOK, st.Peers[0].SamoDolazi, st.Peers[1].SamoDolazi)
 	}
 	if !st.Peers[0].Member || st.Peers[1].Member || st.Peers[1].MemberProblem != "nema potvrde članstva" {
