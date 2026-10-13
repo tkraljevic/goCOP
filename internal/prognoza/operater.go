@@ -566,7 +566,7 @@ func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, 
 			if f, ima := out[ulaz]; ima {
 				buduci = &f
 			}
-			uravnotezi(tocke, t0, nizovi[ulaz], nizovi[ulaz], buduci)
+			uravnotezi(tocke, t0, q, nizovi[ulaz], buduci)
 		}
 		out[iz] = NizIzTocaka(tocke)
 	}

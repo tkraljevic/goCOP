@@ -69,6 +69,15 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Ispuštanje elektrana pri običnoj vodi uračunava vodu s međusliva.** Pri
+  običnoj vodi prognoza istjecanja HE Varaždin, Čakovec i Dubrava drži
+  dnevni srednjak uz dotok uzvodne elektrane, pomnožen omjerom istjecanja i
+  dotoka zadnjeg tjedna. Program je umjesto istjecanja uzimao sam dotok, pa
+  je omjer bio uvijek 1 i voda s međusliva se gubila. Sad se uzima pravo
+  istjecanje. Najviše se mijenja HE Varaždin. Prognoza na Dravi mijenja se
+  malo: u provjeri za 2023.–2025. pogreške su gotovo iste, a na većini
+  letvi prognoza je u prosjeku malo manje preniska. Na poplavnim valovima od
+  2013. najavljeni vrh se gotovo ne mijenja, najviše 7 cm na Novom Virju.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

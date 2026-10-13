@@ -396,13 +396,12 @@ func TestBuducnostOperateraRubovi(t *testing.T) {
 	}
 }
 
-// GREŠKA (operater.go:569): bilanca dobiva niz dotoka i kao istjecanje
-// elektrane, pa je omjer istjecanja i dotoka zadnjeg tjedna uvijek 1 i
-// doprinos međusliva se gubi. Elektrana koja tjedan dana pušta 120 m³/s uz
-// dotok od 100 trebala bi srednjak modela (250) spustiti na dotok puta
-// omjer uz dopust, 100 · 1,2 + 30 = 150, a spušta ga na 100 + 30 = 130.
+// Bilanca uzima omjer istjecanja elektrane i dotoka zadnjeg tjedna, pa se
+// doprinos međusliva ne gubi. Elektrana koja tjedan dana pušta 120 m³/s uz
+// dotok od 100 spušta srednjak modela (250) na dotok puta omjer uz dopust,
+// 100 · 1,2 + 30 = 150. Dok je bilanca umjesto istjecanja dobivala dotok,
+// omjer je bio uvijek 1 i ishod 100 + 30 = 130.
 func TestBuducnostOperateraBilancaOmjerIstjecanja(t *testing.T) {
-	t.Skip("GREŠKA: operater.go:569 zove uravnotezi(tocke, t0, nizovi[ulaz], nizovi[ulaz], …) umjesto s istjecanjem elektrane (q), pa je omjer uvijek 1")
 	const sada = int64(5000)
 	m := konstantniModel("elektrana", []string{"dotok"}, 250, false)
 	nizovi := map[Izvor]Niz{
