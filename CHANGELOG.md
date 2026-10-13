@@ -118,6 +118,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koju čvor samo prima paketom. Datoteke u stablu se ne diraju. Datoteka
   snimke koja se ne da pročitati stoji na popisu kao zaseban redak, s
   razlogom i bez gumba Makni, a ostatak popisa se i dalje vidi.
+- **Arhiva koje nema ne nastaje prazna.** Na čvoru bez arhive vodostaja
+  program je pri pokretanju i na stranicama arhive na njezinu mjestu
+  ostavljao praznu datoteku vodostaji.db. Veze koje su trebale samo čitati
+  arhivu, bazu očitanja i bazu prognoza mogle su i pisati. Sad se te baze
+  otvaraju samo za čitanje, pa prazna datoteka više ne nastaje, a kroz te
+  veze program ništa ne može upisati.
 - **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
   nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
   arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u

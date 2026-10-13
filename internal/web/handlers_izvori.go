@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -108,13 +109,13 @@ func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
 // Namjerno ne broji vrijednosti u spoju: to je prolaz kroz šest milijuna
 // redaka, a odgovor je ionako u stupcu "uključen".
 func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
-	db, err := sql.Open("sqlite", put+"?mode=ro&_pragma=busy_timeout(3000)")
+	ro, err := sql.Open("sqlite", db.SamoZaCitanje(put)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, 0, err
 	}
-	defer db.Close()
+	defer ro.Close()
 
-	izvori, err := arhiva.Izvori(db)
+	izvori, err := arhiva.Izvori(ro)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -123,7 +124,7 @@ func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
 		letve          []string
 	}
 	stanje := map[string]*stat{}
-	rows, err := db.Query(`SELECT izvor, letva, zapisa FROM nizovi`)
+	rows, err := ro.Query(`SELECT izvor, letva, zapisa FROM nizovi`)
 	if err != nil {
 		return nil, 0, err
 	}

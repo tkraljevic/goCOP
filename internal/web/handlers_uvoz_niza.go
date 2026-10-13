@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/repository"
@@ -300,12 +301,12 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 // sirotaniUArhivi otvara arhivu samo za čitanje i pita je za nizove kojima je
 // datoteka nestala iz stabla.
 func sirotaniUArhivi(arhivaPut, koren string) ([]arhiva.Sirotan, error) {
-	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	ro, err := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut))
 	if err != nil {
 		return nil, err
 	}
-	defer db.Close()
-	return arhiva.Sirotani(db, koren)
+	defer ro.Close()
+	return arhiva.Sirotani(ro, koren)
 }
 
 // imenaIzvora čita izvore iz arhive da se ime ne bi izmišljalo pri svakom

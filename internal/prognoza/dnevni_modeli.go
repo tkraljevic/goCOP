@@ -237,9 +237,10 @@ func oborineZaUcenje(arhiva *sql.DB, oborine *OborinskiIzvor) (map[string]Dnevni
 // arhivu u programu, SQLite prepiše zapisnik u bazu i obriše ga. Tada se
 // modeli uče iznova (desetak sekundi) iz istih podataka; pogrešnih modela
 // nema. Poslužitelj ne zatvara besposlene veze (database/sql bez ograničenja
-// trajanja veze), pa je to rijetko. Veze arhive otvorene s „?mode=ro” na
-// običnom putu nisu samo za čitanje — modernc to poštuje tek uz „file:” — pa
-// otisak ne smije računati na to da kroz njih nitko ne piše.
+// trajanja veze), pa je to rijetko. Program veze arhive za čitanje otvara
+// samo za čitanje (db.SamoZaCitanje), ali arhivu pišu i gradnja, ugradnja
+// paketa i alati izvan programa, pa otisak ne smije računati na to da nitko
+// ne piše.
 type zigArhive struct {
 	put       string
 	baza, wal stanjeDatoteke

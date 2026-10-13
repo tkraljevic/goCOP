@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	gocopdb "gocop/internal/db"
 )
 
 // Odluke (8. 10. 2026.), pitanje 15: dnevni modeli vrijede do zagrebačke
@@ -339,9 +341,8 @@ func TestOtisakArhive(t *testing.T) {
 		t.Error("čitanje je promijenilo otisak")
 	}
 
-	// Arhiva otvorena kao u poslužitelju (put s „?mode=ro”, što modernc na
-	// običnom putu ne poštuje, pa ta veza može i pisati) ima isti otisak.
-	ro, err := sql.Open("sqlite", put+"?mode=ro")
+	// Arhiva otvorena kao u poslužitelju, samo za čitanje, ima isti otisak.
+	ro, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put))
 	if err != nil {
 		t.Fatal(err)
 	}
