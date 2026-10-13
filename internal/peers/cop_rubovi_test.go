@@ -534,8 +534,8 @@ func nasumicno(n int) string {
 }
 
 // Kad pisanje paketa padne (na kraju, usred zapisa, nakon zapisa ili
-// usred sadržaja), izvoz javi grešku, a katalog ostane kakav je bio:
-// sljedeći izvoz istog sadržaja je opet prvo izdanje.
+// usred sadržaja), izvoz javi grešku, a u katalogu nema izdanja tog
+// obuhvata; sljedeći izvoz je prvo izdanje.
 func TestIzvozCopaKadPisanjePadne(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	sp, _ := sadrzaj.Otvori("")
@@ -568,6 +568,10 @@ func TestIzvozCopaKadPisanjePadne(t *testing.T) {
 		if _, err := s.IzveziCop(ctxRub, obuhvat, []string{kanal}, p.sSadrzajem, &pisacKojiPada{}); !errors.Is(err, errPisanje) {
 			t.Errorf("%s: pisanje koje padne: %v", p.ime, err)
 			continue
+		}
+		var upisano int
+		if err := s.db.QueryRow(`SELECT count(*) FROM cop_izdanja WHERE kljuc = ?`, obuhvat.Kljuc()).Scan(&upisano); err != nil || upisano != 0 {
+			t.Errorf("%s: nakon neuspjelog izvoza u katalogu je %d izdanja (%v)", p.ime, upisano, err)
 		}
 		var paket bytes.Buffer
 		m, err := s.IzveziCop(ctxRub, obuhvat, []string{kanal}, p.sSadrzajem, &paket)
