@@ -124,11 +124,9 @@ func primijeniIzvornikPrijave(ctx context.Context, tx *sql.Tx, v ledger.Version)
 	if err := json.Unmarshal(v.Payload, &iz); err != nil {
 		return err
 	}
+	// prazna vrsta je ovdje već application/pdf (primiIzvornik, popuniOpis)
 	if err := primiIzvornik(ctx, EntityPrijave, v.Channel, &iz); err != nil {
 		return err
-	}
-	if iz.Vrsta == "" {
-		iz.Vrsta = "application/pdf"
 	}
 	_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 	return err
