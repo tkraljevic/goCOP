@@ -39,10 +39,11 @@ type PregledKrivulja struct {
 	ZatecenihOdsjecaka int
 	// Izvoz se spaja sa zatečenim krivuljama po razdoblju: Ukupno je koliko
 	// ih letva ima nakon upisa, Razlikuju počeci zatečenih koje izvoz mijenja,
-	// a Ostaju počeci zatečenih kojih u izvozu nema.
-	Ukupno            int
-	Razlikuju, Ostaju []string
-	Popis             []KrivuljaZaPrikaz
+	// Ostaju počeci zatečenih kojih u izvozu nema, a Usred one od njih koje
+	// počinju usred krivulje iz izvoza.
+	Ukupno                   int
+	Razlikuju, Ostaju, Usred []string
+	Popis                    []KrivuljaZaPrikaz
 }
 
 // KrivuljaZaPrikaz je jedna krivulja ispisana onako kako je i DHMZ ispisuje:
@@ -118,7 +119,7 @@ func pregledKrivulja(ime string, sadrzaj []byte, letva, koren string) (*PregledK
 		KotaNule:  s.Postaja.KotaNule, Sirina: s.Postaja.Sirina, Duzina: s.Postaja.Duzina,
 
 		ZatecenihKrivulja: sp.Zatecenih, ZatecenihOdsjecaka: sp.ZatecenihOdsjecaka,
-		Ukupno: sp.Krivulja, Razlikuju: sp.Razlikuju, Ostaju: sp.Ostaju,
+		Ukupno: sp.Krivulja, Razlikuju: sp.Razlikuju, Ostaju: sp.Ostaju, Usred: sp.Usred,
 	}
 	p.Popis, p.Potencija = popisKrivulja(s, sp.Razlikuju)
 	return p, nil

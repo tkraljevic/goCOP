@@ -324,6 +324,38 @@ func TestKrivuljeUpisSpajaSaZatecenima(t *testing.T) {
 	}
 }
 
+// Zatečena krivulja koja počinje usred krivulje iz izvoza ostaje, a pregled
+// prije upisa kaže da od svog početka vrijedi ona.
+func TestPregledKrivuljaUsredIzvoza(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
+	if err := os.MkdirAll(hq, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	tekst := func(html string) string {
+		return strings.Join(strings.Fields(htmlUTekst(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(html, " "))), " ")
+	}
+	for _, sl := range []struct{ zateceno, zeli string }{
+		{"2005-01-01;2009-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n",
+			"1 zatečena krivulja počinje usred krivulje iz izvoza. " +
+				"Ostaje u datoteci, pa od svog početka vrijedi umjesto krivulje iz izvoza. od 2005-01-01"},
+		{"2003-01-01;2004-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n" +
+			"2011-01-01;;0;400;polinom;31;200;500;;DHMZ, HIS-2000;\n",
+			"2 zatečene krivulje počinju usred krivulja iz izvoza. " +
+				"Ostaju u datoteci, pa svaka od svog početka vrijedi umjesto krivulje iz izvoza. od 2003-01-01 od 2011-01-01"},
+	} {
+		zateceno := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" + sl.zateceno
+		if err := os.WriteFile(filepath.Join(hq, "primjerovo_hq_krivulje.csv"), []byte(zateceno), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		r := viseDijelni(t, "/administracija/uvoz-krivulja/pregled", map[string]string{"letva": "primjerovo"},
+			datotekaObrasca{"datoteka", "krivulje.csv", krivuljePrimjerova})
+		if got := tekst(odgovor(o.h.PregledUvozaKrivulja, r, o.pero, o.peroOvl).Body.String()); !strings.Contains(got, sl.zeli) {
+			t.Errorf("pregled ne kaže %q:\n%s", sl.zeli, got)
+		}
+	}
+}
+
 // Odabir čeka uz oznaku osobe; bez prijavljene osobe oznaka je prazna.
 func TestKorisnikUvoza(t *testing.T) {
 	o := novaOkolinaVrata(t)

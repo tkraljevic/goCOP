@@ -39,11 +39,12 @@ const (
 var stupciOdsjecka = strings.Split(ZaglavljeKrivulja, ";")[2:]
 
 // razdobljeKrivulje je jedna krivulja u datoteci: razdoblje valjanosti i po
-// redak za svaki odsječak, sa stupcima od od_cm do napomene.
+// redak za svaki odsječak, sa stupcima od od_cm do napomene. Krivulja iz
+// izvoza nosi i kraj koji joj je upisao DHMZ.
 type razdobljeKrivulje struct {
-	od, do  string
-	pocetak time.Time
-	redci   [][]string
+	od, do        string
+	pocetak, kraj time.Time
+	redci         [][]string
 }
 
 // SpojeneKrivulje je datoteka krivulja nakon uvoza, uz ono što pregled
@@ -54,8 +55,9 @@ type SpojeneKrivulje struct {
 	Zatecenih          int // koliko ih je imala prije
 	ZatecenihOdsjecaka int
 	// Razlikuju su počeci zatečenih krivulja koje izvoz donosi drukčije, a
-	// Ostaju počeci zatečenih krivulja kojih u izvozu nema.
-	Razlikuju, Ostaju []string
+	// Ostaju počeci zatečenih krivulja kojih u izvozu nema. Usred su one od
+	// njih koje počinju usred krivulje iz izvoza (usredIzvoza).
+	Razlikuju, Ostaju, Usred []string
 }
 
 // SpojiKrivulje spaja krivulje izvoza sa zatečenom datotekom krivulja.
@@ -75,6 +77,7 @@ func SpojiKrivulje(zateceno []byte, s *Sadrzaj) (SpojeneKrivulje, error) {
 		ZatecenihOdsjecaka: brojRedaka(stare),
 		Razlikuju:          izmijenjena(stare, nove, spojeno),
 		Ostaju:             samoUZatecenima(stare, nove),
+		Usred:              usredIzvoza(stare, nove),
 	}, nil
 }
 
@@ -111,7 +114,8 @@ func procitajZatecene(b []byte) ([]razdobljeKrivulje, error) {
 		if err != nil {
 			return nil, err
 		}
-		k.dodaj(strings.TrimSpace(r[0]), strings.TrimSpace(r[1]), pocetak, stupci.odsjecak(r))
+		k.dodaj(razdobljeKrivulje{od: strings.TrimSpace(r[0]), do: strings.TrimSpace(r[1]), pocetak: pocetak},
+			stupci.odsjecak(r))
 	}
 	return k.sve, nil
 }
@@ -127,12 +131,14 @@ func noveKrivulje() *krivuljePoPocetku {
 	return &krivuljePoPocetku{mjesto: map[string]int{}}
 }
 
-func (k *krivuljePoPocetku) dodaj(od, do string, pocetak time.Time, odsjecak []string) {
-	j, ima := k.mjesto[od]
+// dodaj dodaje odsječak krivulji početka r.od. Kad krivulje tog početka još
+// nema, r je njezino razdoblje.
+func (k *krivuljePoPocetku) dodaj(r razdobljeKrivulje, odsjecak []string) {
+	j, ima := k.mjesto[r.od]
 	if !ima {
 		j = len(k.sve)
-		k.mjesto[od] = j
-		k.sve = append(k.sve, razdobljeKrivulje{od: od, do: do, pocetak: pocetak})
+		k.mjesto[r.od] = j
+		k.sve = append(k.sve, r)
 	}
 	k.sve[j].redci = append(k.sve[j].redci, odsjecak)
 }
@@ -195,9 +201,10 @@ func (s stupci) odsjecak(r []string) []string {
 func razdobljaIzvoza(s *Sadrzaj) []razdobljeKrivulje {
 	k := noveKrivulje()
 	for _, kr := range s.Krivulje {
+		r := razdobljeKrivulje{od: kr.Od.Format(oblikDana), do: kr.Do.Format(oblikDana), pocetak: kr.Od, kraj: kr.Do}
 		for _, o := range kr.Odsjecci {
-			k.dodaj(kr.Od.Format(oblikDana), kr.Do.Format(oblikDana), kr.Od, []string{strconv.Itoa(o.OdCm),
-				strconv.Itoa(o.DoCm), o.Oblik, o.P1, o.P2, o.P3, o.P4, izvorKrivulja, ""})
+			k.dodaj(r, []string{strconv.Itoa(o.OdCm), strconv.Itoa(o.DoCm), o.Oblik,
+				o.P1, o.P2, o.P3, o.P4, izvorKrivulja, ""})
 		}
 	}
 	out := k.sve
@@ -312,6 +319,29 @@ func samoUZatecenima(stare, nove []razdobljeKrivulje) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// usredIzvoza su počeci zatečenih krivulja kojih u izvozu nema, a počinju
+// usred krivulje iz izvoza: poslije njezina početka, najkasnije na kraj koji
+// joj je upisao DHMZ. Takva krivulja ostaje, kao i svaka koje u izvozu nema.
+// Arhiva od dvije krivulje koje vrijede uzima onu kasnijeg početka, pa od
+// tog dana vrijedi zatečena krivulja, a ne krivulja iz izvoza. Pregled to
+// zato kaže prije upisa.
+func usredIzvoza(stare, nove []razdobljeKrivulje) []string {
+	novo := poPocetku(nove)
+	var out []string
+	for _, z := range stare {
+		if _, ima := novo[z.od]; !ima && slices.ContainsFunc(nove, z.pocinjeUsred) {
+			out = append(out, z.od)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// pocinjeUsred javlja počinje li krivulja usred krivulje iz izvoza n.
+func (r razdobljeKrivulje) pocinjeUsred(n razdobljeKrivulje) bool {
+	return n.pocetak.Before(r.pocetak) && !r.pocetak.After(n.kraj)
 }
 
 // ZapisiKrivulje sprema izvornik izvoza u mapu izvornik uz datoteku

@@ -210,6 +210,49 @@ func TestSpojiKrivuljeRedoslijedUvoza(t *testing.T) {
 	}
 }
 
+// Zatečena krivulja kojoj u izvozu nema početka, a počinje usred krivulje iz
+// izvoza, ostaje kao i ostale, ali se posebno javlja: od svog početka ona
+// vrijedi umjesto krivulje iz izvoza. Kraj usred kojeg se gleda je onaj koji
+// je upisao DHMZ, i kod zadnje krivulje izvoza. Dnevnik uvoza to kaže.
+func TestSpojiKrivuljeUsredIzvoza(t *testing.T) {
+	zateceno := ZaglavljeKrivulja + "\n" +
+		redakKrivulje("2005-01-01", "2009-12-31", "5") +
+		redakKrivulje("2011-01-01", "2013-12-31", "11") +
+		redakKrivulje("2013-12-31", "2013-12-31", "12") +
+		redakKrivulje("2014-01-01", "2016-12-31", "14") +
+		redakKrivulje("2020-01-01", "", "20") +
+		redakKrivulje("2021-01-01", "", "21")
+	izvoz := izvozKrivulja("1", godina(2010, 2013, "10"), godina(2014, 2020, "15"))
+	sp, err := SpojiKrivulje([]byte(zateceno), izvoz)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := strings.Join(sp.Usred, ","); got != "2011-01-01,2013-12-31,2020-01-01" {
+		t.Errorf("usred izvoza: %s", got)
+	}
+	if got := strings.Join(sp.Ostaju, ","); got != "2005-01-01,2011-01-01,2013-12-31,2020-01-01,2021-01-01" {
+		t.Errorf("ostaju: %s", got)
+	}
+
+	cilj := t.TempDir()
+	put := filepath.Join(cilj, "hq", "letva_hq_krivulje.csv")
+	if err := os.MkdirAll(filepath.Dir(put), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(put, []byte(zateceno), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var dnevnik strings.Builder
+	p := &Posao{Cilj: cilj, Letva: "letva", Probno: true, Dnevnik: &dnevnik}
+	if err := p.Krivulje(izvoz, nil); err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(dnevnik.String(), "počinje usred krivulje iz izvoza: 2011-01-01, od tog dana vrijedi zatečena krivulja\n") ||
+		strings.Count(dnevnik.String(), "počinje usred krivulje iz izvoza") != 3 {
+		t.Errorf("dnevnik:\n%s", dnevnik.String())
+	}
+}
+
 // Zatečena datoteka čita se kao u gradnji arhive: razdoblje iz prva dva
 // stupca, ostalo po zaglavlju, odsječci istog početka zajedno. Starija
 // datoteka bez stupca p4 prepiše se pod današnjim zaglavljem, a napomena s

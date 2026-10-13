@@ -568,6 +568,17 @@
     </ul>
   </div>
   {{end}}
+  {{with .Krivulje.Usred}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja počinje usred krivulje iz izvoza" "zatečene krivulje počinju usred krivulja iz izvoza" "zatečenih krivulja počinje usred krivulja iz izvoza"}}.</strong>
+      {{if eq $n 1}}Ostaje u datoteci, pa od svog početka vrijedi umjesto krivulje iz izvoza.{{else}}Ostaju u datoteci, pa svaka od svog početka vrijedi umjesto krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range .}}<li class="mono">od {{.}}</li>{{end}}
+    </ul>
+  </div>
+  {{end}}
   <p class="page-desc mt-1 mb-3">
     Kota nule se <strong>ne upisuje</strong> u karticu letve — ovdje stoji samo da se vidi slaže li se s onom
     koju registar već vodi. Zadnjoj krivulji kraj ostaje otvoren jer vrijedi dok ne objave novu.

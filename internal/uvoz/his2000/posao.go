@@ -244,6 +244,9 @@ func (p *Posao) pisiSpajanje(sp SpojeneKrivulje) {
 	for _, od := range sp.Razlikuju {
 		p.pisi("              razlikuje se: %s, upisuje se krivulja iz izvoza\n", od)
 	}
+	for _, od := range sp.Usred {
+		p.pisi("              počinje usred krivulje iz izvoza: %s, od tog dana vrijedi zatečena krivulja\n", od)
+	}
 	if n := len(sp.Ostaju); n > 0 {
 		p.pisi("              ostaje iz zatečene datoteke: %d %s\n", n,
 			models.UzBrojHR(n, "krivulja koje u izvozu nema", "krivulje kojih u izvozu nema", "krivulja kojih u izvozu nema"))

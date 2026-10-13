@@ -87,8 +87,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju.
   Redoslijed uvoza nije važan: stariji izvoz uvezen poslije novijeg daje
   iste krivulje i ne ostavlja godine bez krivulje. Prije upisa pregled kaže
-  koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Izvornik
-  novog izvoza sprema se uz stari, pod drugim imenom.
+  koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Kad
+  zatečena krivulja počinje usred krivulje iz izvoza, pregled kaže i to, jer
+  od tog dana vrijedi zatečena krivulja. Izvornik novog izvoza sprema se uz
+  stari, pod drugim imenom.
   Kad zatečena datoteka ima redak koji se ne da pročitati, krivulje se ne
   spajaju, a poruka kaže koji je to redak.
 - **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
