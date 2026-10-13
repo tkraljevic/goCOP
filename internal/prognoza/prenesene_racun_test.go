@@ -153,11 +153,19 @@ func TestPrijenosiZaDanasUceJednomNaDan(t *testing.T) {
 	prijenosi.Lock()
 	prijenosi.dan = ""
 	prijenosi.Unlock()
+	// Svih 30 dana imaju Batina, Bezdan, Aljmaš i Apatin; Dalja i Iloka
+	// nema, pa Bogojevo i Bačka Palanka nemaju zajedničkih dana.
 	arhiva := arhivaDnevnih(t, map[string]func(int) float64{
 		"batina": func(d int) float64 { return 200 + float64(d%5) },
 		"bezdan": func(d int) float64 { return 178 + float64(d%5) },
-		"aljmas": func(d int) float64 { return 150 },
+		"aljmas": func(d int) float64 { return 150 + float64(d%3) },
+		"apatin": func(d int) float64 { return 170 + float64(d%4) },
 	}, 30)
+	// Apatin ima dva izvora, a 30 dana je premalo za nagib: ne uči se.
+	if _, err := NamjestiPrijenos(context.Background(), arhiva, nil, "apatin", []string{"batina", "aljmas"}, time.Now()); err == nil ||
+		err.Error() != "apatin: za dva izvora treba barem 180 dana (30)" {
+		t.Errorf("Apatin na kratkom nizu: %v", err)
+	}
 	o := &Osvjezivac{Arhiva: arhiva}
 	odnosi := o.prijenosiZaDanas(context.Background())
 	b, ima := odnosi["bezdan"]

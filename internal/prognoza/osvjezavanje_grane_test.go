@@ -57,7 +57,8 @@ func TestOsvjeziGreskeBaza(t *testing.T) {
 
 // Izdanje u kojem vrh kasni: sat izdavanja čeka zakašnjeli vrh, kraj
 // Komároma dolazi s druge obale i to piše uz izdanje, srpska letva nosi
-// prenesenu prognozu, a pregledne letve svoje mjerenje.
+// prenesenu prognozu, a pregledne letve svoje mjerenje, ako ne kasne više
+// od ZaostatakVrha.
 func TestOsvjeziZamjenaCekanjeIPregledne(t *testing.T) {
 	bezIspravka(t)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
@@ -77,6 +78,10 @@ func TestOsvjeziZamjenaCekanjeIPregledne(t *testing.T) {
 	dodajSatnaOcitanja(t, ocitanja, "kasni", zadnji.Add(-48*time.Hour), zadnji.Add(-5*time.Hour), stalno(70))
 	dodajSatnaOcitanja(t, ocitanja, "bezdan", zadnji.Add(-48*time.Hour), zadnji, stalno(180))
 	dodajSatnaOcitanja(t, ocitanja, "bratislava", zadnji.Add(-48*time.Hour), zadnji, stalno(250))
+	// Pregledne letve koje kasne: Bogojevo tri sata za satom izdavanja
+	// (sat − 2), koliko smije, Bačka Palanka četiri.
+	dodajSatnaOcitanja(t, ocitanja, "bogojevo", zadnji.Add(-48*time.Hour), zadnji.Add(-5*time.Hour), stalno(120))
+	dodajSatnaOcitanja(t, ocitanja, "backa-palanka", zadnji.Add(-48*time.Hour), zadnji.Add(-6*time.Hour), stalno(90))
 	if _, err := ocitanja.Exec(`INSERT INTO stations VALUES ('apatin', 'apatin');
 		INSERT INTO readings (station_id, measured_at, level_cm) VALUES ('apatin', 'nije vrijeme', 1)`); err != nil {
 		t.Fatal(err)
@@ -119,7 +124,7 @@ func TestOsvjeziZamjenaCekanjeIPregledne(t *testing.T) {
 			mjerenja[i.Letva] = i
 		}
 	}
-	for letva, v := range map[string]float64{"bratislava": 250, "bezdan": 180, "komarno": 156, "komarom": 110, "kasni": 70} {
+	for letva, v := range map[string]float64{"bratislava": 250, "bezdan": 180, "komarno": 156, "komarom": 110, "kasni": 70, "bogojevo": 120} {
 		i, ima := mjerenja[letva]
 		if !ima || i.Vrijednost != v || i.Dolje != v || i.Gore != v || i.Model != ModelLanac {
 			t.Errorf("%s u satu izdavanja: %+v, želim mjerenje %v", letva, i, v)
@@ -127,6 +132,9 @@ func TestOsvjeziZamjenaCekanjeIPregledne(t *testing.T) {
 	}
 	if _, ima := mjerenja["apatin"]; ima {
 		t.Error("nečitljiva očitanja Apatina dala su mjerenje")
+	}
+	if i, ima := mjerenja["backa-palanka"]; ima {
+		t.Errorf("Bačka Palanka kasni četiri sata, a dobila je mjerenje: %+v", i)
 	}
 	// Donja se računa iz Komároma, kojemu je kraj s druge obale: tri sata
 	// poslije izdavanja stoji ondje gdje je Komárno, umanjeno za 46 cm.
