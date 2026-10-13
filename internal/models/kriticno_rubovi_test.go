@@ -31,7 +31,10 @@ func TestPisanjeNaDioniciDuznosti(t *testing.T) {
 }
 
 // Val koji prag samo dotakne jednim mjerenjem ima stupanj bez raspona:
-// početak i kraj su isti trenutak, trajanje je nula.
+// početak i kraj su isti trenutak, trajanje je nula. Isti trenutak vrate već
+// prijelazGore i prijelazDolje. Zaštita u sastaviVal koja raniji kraj svodi
+// na početak ovdje ništa ne mijenja, a s nizom složenim po vremenu kraj nikad
+// nije raniji od početka; test čuva ishod prijelaza, ne tu zaštitu.
 func TestValKojiPragSamoDotakne(t *testing.T) {
 	p := time.Date(2013, 6, 1, 0, 0, 0, 0, time.UTC)
 	pragovi := []PragObrane{{Faza: PhasePrep, Cm: 200}, {Faza: PhaseRegular, Cm: 400}}
