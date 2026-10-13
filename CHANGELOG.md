@@ -87,7 +87,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
   Sad razmjena takav zapis preskoči, a ostalo pošalje. Zapis se jednom
   upiše u dnevnik programa i stoji kao upozorenje na stranici
-  Sinkronizacija i na pločici razmjene na naslovnoj.
+  Sinkronizacija i na pločici razmjene na naslovnoj. Isto je s izdanjem
+  .cop paketa u Održavanju baze: takav zapis rušio je cijelo izdanje, a sad
+  se preskoči i ostali zapisi idu u paket.
 - **Primanje računala koje ne uspije ne ostavlja članstvo.** Kad je
   primanje novog računala u mrežu zahtjevom s kodom puklo na popisu
   računala za potvrdu ili na upisu ovlasti za primanje, računalo je ostalo
