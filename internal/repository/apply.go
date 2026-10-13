@@ -16,7 +16,6 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/obracun"
-	"gocop/internal/sadrzaj"
 )
 
 // ApplyVersions osvježava površinu (obične tablice) iz verzija primljenih
@@ -311,7 +310,7 @@ type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) er
 
 // skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
 // (TestPrimjenaJeUJednojSkupini)
-var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika, primjeneMreze}
+var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika, primjeneAkata, primjeneMreze}
 
 // primjene su primjene svih entiteta koje površina zna, po entitetu
 var primjene = spojiPrimjene(skupinePrimjena)
@@ -458,88 +457,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, potrebaUpsert, potrebaArgs(&x)...)
 		return err
 
-	case EntityAkti:
-		var a models.Akt
-		if err := json.Unmarshal(v.Payload, &a); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
-		return err
-
-	case EntityZigovi:
-		var z models.Zig
-		if err := json.Unmarshal(v.Payload, &z); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt.UTC())
-		return err
-
-	case EntityPotpisi:
-		var p PotpisPoste
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, v.CreatedAt.UTC())
-		return err
-
-	case EntityPostavke:
-		var p Postavka
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC()); err != nil {
-			return err
-		}
-		if p.ID == PostavkaTema {
-			models.SetTema(models.CitajTemu(p.Vrijednost))
-		}
-		return nil
-
-	case EntitySlanja:
-		var x models.SlanjeAkta
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, slanjeUpsert, slanjeArgs(&x)...)
-		return err
-
-	case EntityIzvornici:
-		var iz Izvornik
-		if err := json.Unmarshal(v.Payload, &iz); err != nil {
-			return err
-		}
-		popuniOpis(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, iz.PDF)
-		if err := primiSadrzajZapisa(ctx, iz.Otisak, iz.Vrsta, iz.Bajtova, iz.PDF,
-			sadrzaj.Veza{Entitet: EntityAkti, EntitetID: iz.AktID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.CreatedAt.UTC())
-		return err
-
-	case EntitySprance:
-		var sp models.Spranca
-		if err := json.Unmarshal(v.Payload, &sp); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, sprancaUpsert, sprancaArgs(&sp)...)
-		return err
-
-	case EntityPrimatelji:
-		var p models.Primatelj
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, primateljUpsert, primateljArgs(&p)...)
-		return err
-
-	case EntityRjesenjaOznaka:
-		var x models.RjesenjeOznake
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(&x)...)
-		return err
-
 	}
 
 	// nepoznat entitet — verzija ostaje u knjizi, površinu nema što osvježiti
@@ -571,32 +488,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM mts_popisi WHERE id = ?`
 	case EntityMtsPotrebe:
 		stmt = `DELETE FROM mts_potrebe WHERE id = ?`
-	case EntityAkti:
-		stmt = `DELETE FROM akti WHERE id = ?`
-	case EntityRjesenjaOznaka:
-		stmt = `DELETE FROM akti_rjesenja_oznaka WHERE id = ?`
-	case EntityPrimatelji:
-		stmt = `DELETE FROM primatelji WHERE id = ?`
-	case EntitySprance:
-		stmt = `DELETE FROM akti_sprance WHERE sektor = ?`
-	case EntityIzvornici:
-		stmt = `DELETE FROM akti_izvornici WHERE akt_id = ?`
-	case EntitySlanja:
-		stmt = `DELETE FROM akti_slanja WHERE id = ?`
-	case EntityPostavke:
-		if v.EntityID == PostavkaTema {
-			// bez zapisa vrijede zadane boje iz style.css
-			if _, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID); err != nil {
-				return err
-			}
-			models.SetTema(models.Tema{})
-			return nil
-		}
-		stmt = `DELETE FROM postavke WHERE id = ?`
-	case EntityPotpisi:
-		stmt = `DELETE FROM posta_potpisi WHERE user_id = ?`
-	case EntityZigovi:
-		stmt = `DELETE FROM zigovi WHERE sektor = ?`
 	default:
 		return nil
 	}
