@@ -193,7 +193,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			}
 			out[p.NodeID] = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
 			if krugova > 1 {
-				out[p.NodeID] += fmt.Sprintf(" u %d %s", krugova, models.UzBrojHR(krugova, "razgovor", "razgovora", "razgovora"))
+				out[p.NodeID] += fmt.Sprintf(" u %d %s", krugova, models.UzBrojHR(krugova, "razgovoru", "razgovora", "razgovora"))
 			}
 		}(p)
 	}

@@ -460,7 +460,7 @@ func celijeStupnjevaVala(v models.Val, zbroj []models.ZbrojStupnja) []string {
 		}
 		c := fmt.Sprintf("%s h\n%s → %s", brojHR(s.Sati()), s.PoceloHR(), s.ZavrsiloHR())
 		if s.Prekidan() {
-			c += fmt.Sprintf("\nu %d %s", s.Navrata, models.UzBrojHR(s.Navrata, "navrat", "navrata", "navrata"))
+			c += fmt.Sprintf("\nu %d %s", s.Navrata, models.UzBrojHR(s.Navrata, "navratu", "navrata", "navrata"))
 		}
 		celije = append(celije, c)
 	}

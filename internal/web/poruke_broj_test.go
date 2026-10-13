@@ -26,3 +26,18 @@ func TestPorukeUzBrojIspravakaIOcitanja(t *testing.T) {
 		}
 	}
 }
+
+// Opis prognoze prenesene na srpsku letvu imao je stalno „dana”, pa je za
+// odnos izmjeren na 21 danu pisalo „(21 dana)”.
+func TestOpisPrenesenogUzBrojDana(t *testing.T) {
+	for zapis, zeli := range map[string]string{
+		"batina|7|21|0":   "prognoza prenesena s naše za batinu · odnos ±7 cm (21 dan)",
+		"batina|7|1461|0": "prognoza prenesena s naše za batinu · odnos ±7 cm (1.461 dan)",
+		"batina|7|24|0":   "prognoza prenesena s naše za batinu · odnos ±7 cm (24 dana)",
+		"batina|7|3650|0": "prognoza prenesena s naše za batinu · odnos ±7 cm (3.650 dana)",
+	} {
+		if got := opisPrenesenog(zapis, nil); got != zeli {
+			t.Errorf("%s: %q, očekivano %q", zapis, got, zeli)
+		}
+	}
+}

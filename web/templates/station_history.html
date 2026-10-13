@@ -475,7 +475,7 @@
         {{with $v.StupanjZa .Faza}}
         <td class="mono celija-blok"><strong title="{{.TrajanjeHR}}">{{brojHR .Sati}} h</strong>{{if .NaRubu}} <span title="val dodiruje rub niza, trajanje je najmanje toliko">+</span>{{end}}
           <div class="reg-card-sub">{{.PoceloHR}} → {{.ZavrsiloHR}}</div>
-          {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} {{uzBroj .Navrata "navrat" "navrata" "navrata"}}</div>{{end}}</td>
+          {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} {{uzBroj .Navrata "navratu" "navrata" "navrata"}}</div>{{end}}</td>
         {{else}}<td class="mono c-muted">—</td>{{end}}
         {{end}}
       </tr>
@@ -496,7 +496,7 @@
         {{range .Stupnjevi}}
         <div><dt>{{.Stupanj.Label}}</dt>
           <dd><strong>{{brojHR .Sati}} h</strong>{{if .NaRubu}} +{{end}} <span class="ekstrem-nacin">{{.TrajanjeHR}}</span>
-            <span class="ekstrem-nacin">{{.PoceloHR}} → {{.ZavrsiloHR}}{{if .Prekidan}}, u {{.Navrata}} {{uzBroj .Navrata "navrat" "navrata" "navrata"}}{{end}}</span></dd></div>
+            <span class="ekstrem-nacin">{{.PoceloHR}} → {{.ZavrsiloHR}}{{if .Prekidan}}, u {{.Navrata}} {{uzBroj .Navrata "navratu" "navrata" "navrata"}}{{end}}</span></dd></div>
         {{end}}
       </dl>
     </li>

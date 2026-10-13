@@ -715,8 +715,8 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d %s)",
 			unatrag, unaprijed, len(o.Oborine.Tocke), models.UzBrojHR(len(o.Oborine.Tocke), "kišomjer", "kišomjera", "kišomjera"))}
 	case sKisom > 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d letvi, bez kiše na %d — %s",
-			sKisom, bezKise, razlogBezKise)}
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d %s, bez kiše na %d — %s",
+			sKisom, models.UzBrojHR(sKisom, "letvi", "letve", "letvi"), bezKise, razlogBezKise)}
 	case bezKise > 0:
 		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model računa bez kiše: " + razlogBezKise}
 	}

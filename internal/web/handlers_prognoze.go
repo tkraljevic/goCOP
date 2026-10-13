@@ -155,8 +155,8 @@ func opisPrenesenog(zapis string, postaje map[string]models.Station) string {
 	rasap, _ := strconv.ParseFloat(d[1], 64)
 	dana, _ := strconv.Atoi(d[2])
 	pomak, _ := strconv.ParseFloat(d[3], 64)
-	s := fmt.Sprintf("prognoza prenesena s naše za %s · odnos ±%s cm (%s dana)", strings.Join(imena, " i "),
-		brojHRf(rasap, 0), brojHRf(float64(dana), 0))
+	s := fmt.Sprintf("prognoza prenesena s naše za %s · odnos ±%s cm (%s %s)", strings.Join(imena, " i "),
+		brojHRf(rasap, 0), brojHRf(float64(dana), 0), models.UzBrojHR(dana, "dan", "dana", "dana"))
 	if pomak != 0 {
 		s += fmt.Sprintf(" · pomak na startu %+.0f cm", pomak)
 	}
