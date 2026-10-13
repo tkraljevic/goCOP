@@ -179,7 +179,7 @@ func pragoviKartice(st models.Station, min, max *Krajnost) []PragKartice {
 		oznaka, klasa, naslov string
 		prag                  models.Threshold
 	}{
-		{"P", "prep", "pripremna obrana", st.Prep},
+		{"P", "prep", "pripremno stanje", st.Prep},
 		{"R", "regular", "redovna obrana", st.Regular},
 		{"I", "emerg", "izvanredna obrana", st.Emergency},
 		{"IS", "crit", "izvanredno stanje", st.State},
