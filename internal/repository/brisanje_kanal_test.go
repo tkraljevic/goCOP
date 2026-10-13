@@ -77,3 +77,36 @@ func TestBrisanjeNacrtaListaUKanaluLista(t *testing.T) {
 	}
 	provjeriKanalBrisanja(t, a, drugdje, EntityVodocuvarski, nacrt.ID, kanal)
 }
+
+// Nacrt prijave upisan za 2. 1. 2027. dobije laptop koji prati 2027. Zatim
+// mu vodočuvar dan događaja premjesti na 31. 12. 2026., pa nacrt obriše.
+// Brisanje mora stići i na laptop koji prati 2027. i na laptop koji prati
+// 2026.: svaki ima svoju kopiju nacrta.
+func TestBrisanjePremjestenogNacrtaPrijave(t *testing.T) {
+	a, l2027, l2026 := noviCvor(t, "posluzitelj"), noviCvor(t, "laptop-2027"), noviCvor(t, "laptop-2026")
+	k2027, k2026 := ledger.ChannelFor(ledger.ChannelPrijave, 16, 2027), ledger.ChannelFor(ledger.ChannelPrijave, 16, 2026)
+	r := NewPrijavaRepository(a.db, a.rec)
+	p := &models.PrijavaSTerena{UserID: osnovaKorisnik.String(), Ime: "Ivo Ivić", Sektor: "B", AreaID: 16,
+		Datum: time.Date(2027, time.January, 2, 0, 0, 0, 0, models.Zagreb), Vrsta: models.PrijavaPrijava,
+		Status: models.PrijavaNacrt, Naslov: "procjeđivanje kod rkm 12"}
+	nuzno(t, r.Save(ctxRaz, p))
+	posaljiKanalom(t, a, l2027, k2027)
+	p.Datum = time.Date(2026, time.December, 31, 0, 0, 0, 0, models.Zagreb)
+	nuzno(t, r.Save(ctxRaz, p))
+	posaljiKanalom(t, a, l2026, k2026)
+
+	nuzno(t, r.Delete(ctxRaz, p.ID))
+	posaljiKanalom(t, a, l2027, k2027)
+	posaljiKanalom(t, a, l2026, k2026)
+	for ime, c := range map[string]*cvor{"laptop-2027": l2027, "laptop-2026": l2026} {
+		if x, err := NewPrijavaRepository(c.db, c.rec).Get(ctxRaz, p.ID); err != nil || x != nil {
+			t.Errorf("%s: brisanje nije stiglo, nacrt je još ondje (%v)", ime, err)
+		}
+	}
+	for _, kanal := range []string{k2027, k2026} {
+		upit := `SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = ? AND archived = 1 AND channel = ?`
+		if n := brojRedaka(t, a.db, upit, EntityPrijave, p.ID, kanal); n != 1 {
+			t.Errorf("spomenika u kanalu %s: %d, treba 1", kanal, n)
+		}
+	}
+}
