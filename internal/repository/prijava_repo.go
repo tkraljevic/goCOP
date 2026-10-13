@@ -324,7 +324,8 @@ func (r *PrijavaRepository) SljedeciBroj(ctx context.Context, sektor string, god
 	return n, err
 }
 
-// Delete briše nacrt, sa spomenikom u knjizi; slike idu s njim
+// Delete briše nacrt, sa spomenikom u knjizi u kanalu prijave, kao i upis;
+// slike idu s njim
 func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 	p, err := r.Get(ctx, id)
 	if err != nil || p == nil {
@@ -341,7 +342,7 @@ func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 	for _, sl := range p.Slike {
 		_ = r.DeleteSlika(ctx, sl.ID)
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityPrijave, id, p); err != nil {
+	if _, err := r.rec.ArchiveIn(ctx, tx, prijavaChannel(p), EntityPrijave, id, p); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -69,6 +69,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Brisanje nacrta prijave i dnevnog lista ostaje u svom području.**
+  Nacrt prijave s terena i nacrt dnevnog lista vodočuvara idu samo na
+  računala koja prate to područje i godinu. Brisanje nacrta išlo je ipak na
+  sva računala, s cijelim tekstom nacrta, i ondje je ostajalo i kad
+  računalo prestane pratiti područje. Sad brisanje ide istim putem kao i
+  nacrt.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
