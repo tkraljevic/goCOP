@@ -111,24 +111,53 @@ func TestStalniDioKadaGaNema(t *testing.T) {
 	}
 }
 
-// U protoku je mirna voda udio najmanjeg srednjaka u prozoru, pa stalna
-// pogreška ostaje cijelim dosegom.
+// U protoku je mirna voda udio najmanjeg srednjaka u prozoru, a ne
+// centimetri: porast od 100 m³/s na 1300 je mirna voda i stalna pogreška
+// ostaje cijelim dosegom, a porast od 300 je val i sav ispravak blijedi.
 func TestStalniDioUProtoku(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 24)
 	postavi(t, &StalniIspravakSati, 72)
+	postavi(t, &StalniSamoSkladan, true)
 	const sada = int64(1000)
 	gornja := Izvor{Letva: "gornja", Velicina: "protok"}
 	donja := Izvor{Letva: "donja", Velicina: "protok"}
 	pojasi := map[string][]Pojas{"donja": {{Letva: "donja", Velicina: "protok", Od: 0, Do: 10000, Rasap: 30,
 		Ulazi: []Ulaz{{Letva: "gornja", Velicina: "protok", PomakH: 5, Sirina: 1, Nagib: 1}}}}}
-	r := NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(800, sada, 1000, 0), donja: ravanNiz(800, sada, 1300, 0)}, sada)
-	izdane, err := r.Prognoziraj("donja", 96, "proba")
-	if err != nil || len(izdane) != 97 {
-		t.Fatalf("doseg %d, %v", len(izdane), err)
+	// Model donje je gornja, 1000 m³/s. Donja stoji na 1300, a zadnjih 21
+	// sat na 1300 + porast: u prozoru je pogreška devet puta 300 i triput
+	// 300 + porast, pa je stalni dio 300.
+	prognoza := func(porast float64) []Izdana {
+		t.Helper()
+		m := map[int64]float64{}
+		for tt := int64(800); tt <= sada; tt++ {
+			m[tt] = 1300
+			if tt >= sada-20 {
+				m[tt] += porast
+			}
+		}
+		r := NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(800, sada, 1000, 0), donja: NoviNiz(m)}, sada)
+		izdane, err := r.Prognoziraj("donja", 96, "proba")
+		if err != nil || len(izdane) != 97 {
+			t.Fatalf("doseg %d, %v", len(izdane), err)
+		}
+		return izdane
 	}
+	// Srednjak zadnjeg dana je 1387,5, 87,5 iznad najmanjeg: više od
+	// StalniMirnaVodaCm, a manje od 15 % od 1300.
+	izdane := prognoza(100)
 	for _, k := range []int{1, 48, 96} {
-		if x := izdane[k].Vrijednost; math.Abs(x-1300) > 1e-9 {
-			t.Errorf("stalna pogreška protoka na +%d h: %g, želim 1300", k, x)
+		want := 1000 + 300 + 100*math.Exp2(-float64(k)/24)
+		if x := izdane[k].Vrijednost; math.Abs(x-want) > 1e-9 {
+			t.Errorf("porast 100 m³/s na +%d h: %g, želim %g (stalni dio ostaje)", k, x, want)
+		}
+	}
+	// Srednjak zadnjeg dana je 262,5 iznad najmanjeg, više od 15 % od 1300:
+	// stalnog dijela nema.
+	izdane = prognoza(300)
+	for _, k := range []int{1, 48, 96} {
+		want := 1000 + 600*math.Exp2(-float64(k)/24)
+		if x := izdane[k].Vrijednost; math.Abs(x-want) > 1e-9 {
+			t.Errorf("porast 300 m³/s na +%d h: %g, želim %g (sav ispravak blijedi)", k, x, want)
 		}
 	}
 }
@@ -186,6 +215,19 @@ func TestIzracunSaSporednimUlazom(t *testing.T) {
 	v, ok := r.U(Izvor{Letva: "donja", Velicina: "vodostaj"}, sada+1)
 	if !ok || math.Abs(v.Iznos-(10+0.5*200+2*128)) > 1e-9 || math.Abs(v.Raspon-4) > 1e-9 || !v.Prognoza {
 		t.Errorf("+1 h: %+v %v, želim 366 ± 4", v, ok)
+	}
+	// Pritoka izmjerena do tri sata prije izdavanja, a dva sata prije
+	// računa se iz izvora (128 cm) s rasapom 3: raspon donje je
+	// √(4² + (2·3)²), a ne 4 + 2·3.
+	izvor := Izvor{Letva: "izvor", Velicina: "vodostaj"}
+	sPritokom := map[string][]Pojas{"donja": pojasi["donja"], "pritoka": {pojasIz("pritoka", "izvor", 1, -1000, 1000)}}
+	r = NovoRacunalo(sPritokom, map[Izvor]Niz{gornja: ravanNiz(900, sada, 200, 0), pritoka: ravanNiz(900, sada-3, 30, 1), izvor: ravanNiz(900, sada, 128, 0)}, sada)
+	if p, ok := r.U(pritoka, sada-2); !ok || p.Iznos != 128 || p.Raspon != 3 || !p.Prognoza {
+		t.Fatalf("pritoka dva sata prije izdavanja: %+v %v, želim izračunatih 128 ± 3", p, ok)
+	}
+	v, ok = r.U(Izvor{Letva: "donja", Velicina: "vodostaj"}, sada+1)
+	if want := math.Sqrt(4*4 + 6*6); !ok || math.Abs(v.Iznos-366) > 1e-9 || math.Abs(v.Raspon-want) > 1e-9 || !v.Prognoza {
+		t.Errorf("+1 h s izračunatom pritokom: %+v %v, želim 366 ± %g", v, ok, want)
 	}
 	// Pritoka koja nije javila ništa: vrijednosti nema.
 	bez := NovoRacunalo(pojasi, map[Izvor]Niz{gornja: ravanNiz(900, sada, 200, 0)}, sada)

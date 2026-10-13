@@ -61,9 +61,10 @@ func TestNamjestiOperateraGraniceUcenja(t *testing.T) {
 	const godina = 24 * 365
 	n := godina + 200
 	arhiva := arhivaOperatera(t, map[[2]string]map[int64]float64{
-		{"elektrana", "protok"}: satiOd(h0, n, func(i int) float64 { return float64(i) }),
+		// istjecanje ide 0, 100 … 900 m³/s u krugu od deset sati
+		{"elektrana", "protok"}: satiOd(h0, n, func(i int) float64 { return float64(100 * (i % 10)) }),
 		{"dotok", "protok"}:     satiOd(h0, n, func(i int) float64 { return 300 }),
-		{"kratki", "protok"}:    satiOd(h0, 1100, func(i int) float64 { return 300 }),
+		{"kratki", "protok"}:    satiOd(h0, 1324, func(i int) float64 { return 300 + float64(10*(i%7)) }),
 		{"razina-x", "kota"}:    satiOd(h0+200, godina, func(i int) float64 { return 15000 }),
 		{"kratka", "protok"}:    satiOd(h0, 10, func(i int) float64 { return 1 }),
 	})
@@ -79,29 +80,61 @@ func TestNamjestiOperateraGraniceUcenja(t *testing.T) {
 		t.Errorf("bez razine: %v", err)
 	}
 
-	// Granica -do: nijedan doseg ne smije vidjeti sate iza nje, pa ni ne
-	// uči; prag velike vode ipak je 90. percentil sati prije ocjene. Dotok
-	// ima 1100 sati, pa je uzoraka malo i test je brz.
-	postavi(t, &NamjestiDo, h0+1)
+	// Granica -do. Kratki dotok ima 1324 sata, pa su uzorci od 24. do
+	// 1323. sata: 1100 prije ocjene i 200 u njoj. Prag velike vode je 90.
+	// percentil istjecanja prije ocjene, 900, pa je svaki deseti sat velika
+	// voda: obična voda ima 990 sati učenja i 180 sati ocjene, velika samo
+	// 110 sati učenja i ne uči se.
 	o.Ulazi = []string{"kratki"}
-	m, err := NamjestiOperatera(arhiva, o, h0+5000)
-	if err != nil {
-		t.Fatal(err)
-	}
-	// istjecanje u satu h0+i je i, a uzorci su od 24. do 1099. sata
-	uzoraka := 1076
-	if m.Prag != 24+float64(int(float64(uzoraka)*OperaterVelikaVoda)) || m.Letva != "elektrana" || !reflect.DeepEqual(m.Ulazi, o.Ulazi) {
-		t.Errorf("model %s %v, prag %v", m.Letva, m.Ulazi, m.Prag)
-	}
-	for g := 0; g < 2; g++ {
+	ocjena := h0 + 1124
+	nauci := func(do int64) *OperaterModel {
+		t.Helper()
+		postavi(t, &NamjestiDo, do)
+		m, err := NamjestiOperatera(arhiva, o, ocjena)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if m.Prag != 900 || m.Letva != "elektrana" || !reflect.DeepEqual(m.Ulazi, o.Ulazi) {
+			t.Errorf("-do %d: model %s %v, prag %v, želim 900", do, m.Letva, m.Ulazi, m.Prag)
+		}
 		for k := 1; k <= OperaterDosezi; k++ {
-			if m.Koef[g][k] != nil || m.Koristi[g][k] {
-				t.Fatalf("režim %d, doseg %d naučen iza granice: %v", g, k, m.Koef[g][k])
+			if m.Koef[1][k] != nil {
+				t.Errorf("-do %d: velika voda naučena na dosegu %d iz 110 sati", do, k)
 			}
+		}
+		return m
+	}
+	nauceni := func(m *OperaterModel) (dosezi []int) {
+		for k := 1; k <= OperaterDosezi; k++ {
+			if m.Koef[0][k] != nil {
+				dosezi = append(dosezi, k)
+			}
+		}
+		return dosezi
+	}
+	// Granica u prvom satu: nijedan doseg ne vidi sate iza nje, pa se ništa
+	// ne uči, a prag ostaje iz sati prije ocjene.
+	m := nauci(h0 + 1)
+	if d := nauceni(m); len(d) != 0 {
+		t.Errorf("granica u prvom satu, a naučeni su dosezi %v", d)
+	}
+	for k := 1; k <= OperaterDosezi; k++ {
+		if m.Koristi[0][k] || m.Koristi[1][k] {
+			t.Errorf("doseg %d koristi se bez koeficijenata", k)
 		}
 	}
 	if m.imaRazinu() {
 		t.Error("model bez koeficijenata ima razinu")
+	}
+	// Granica 120 sati u ocjeni: doseg k vidi 120 − k sati ocjene, od kojih
+	// je svaki deseti velika voda. Sto sati obične vode ima još doseg 9, a
+	// doseg 10 ih ima 99. Bez granice naučili bi se svi dosezi.
+	m = nauci(ocjena + 120)
+	if d, want := nauceni(m), []int{1, 2, 3, 4, 5, 6, 7, 8, 9}; !reflect.DeepEqual(d, want) {
+		t.Errorf("granica u ocjeni: naučeni dosezi %v, želim %v", d, want)
+	}
+	if len(m.Koef[0][1]) != 13 || m.imaRazinu() {
+		t.Errorf("model bez razine: %d koeficijenata, razina %v", len(m.Koef[0][1]), m.imaRazinu())
 	}
 
 	if _, err := NamjestiOperatera(arhiva, Operater{Letva: "kratka"}, h0); err == nil || err.Error() != "kratka: samo 10 sati protoka u arhivi" {
