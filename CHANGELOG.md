@@ -69,17 +69,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
-- **Pretplata na sve vrste donosi i arhivu vodostaja svog područja.**
-  Laptop s pretplatom npr. „sve vrste, BP 16, 2025.–2026.” nikad nije dobio
-  pakete arhive svog područja. Paket nosi cijelu povijest letve i nema
-  godinu, a pretplata je gledala godine. Ni vrsta „Arhiva vodostaja” s
-  popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
-  vrste za područje ili sektor donosi i pakete arhive tog područja, bez
-  obzira na godine, a pretplata samo na arhivu se upisuje. Paket stiže kad
-  je sadržaj uz zapise „Sve”, od računala koje ima 0.0.38 ili novije.
-  Pretplata na sve vrste za sva područja donosi arhivu i dalje samo bez
-  godine početka, da laptop ne povuče cijelu arhivu svih područja. Za
-  očitanja, dnevnike i prijave godine vrijede kao i dosad.
+- **Pretplata na sve vrste donosi i arhivu vodostaja.** Laptop s
+  pretplatom npr. „sve vrste, BP 16, 2025.–2026.” nikad nije dobio pakete
+  arhive svog područja. Paket nosi cijelu povijest letve i nema godinu, a
+  pretplata je gledala godine. Paket nije stizao ni kad je sadržaj uz
+  zapise bio „Samo pregledi” ili „Samo kazalo”, a vrsta „Arhiva vodostaja”
+  s popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
+  vrste i pretplata samo na arhivu donose pakete arhive bez obzira na
+  godine i na sadržaj uz zapise, jer su u paketu podaci, a ne slike.
+  Pretplata na sve vrste za sva područja tako donosi cijelu arhivu, i
+  strane i meteorološke letve. Rok držanja i dalje otpušta primljeni paket
+  s računala, a arhiva ostaje. Kad pretplata na sve vrste ima godinu
+  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za očitanja,
+  dnevnike i prijave godine i sadržaj vrijede kao i dosad.
 - **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
   bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
   razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.

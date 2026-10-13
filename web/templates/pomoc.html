@@ -1731,11 +1731,13 @@
       Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
       poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
     <p>Pakete arhive vodostaja dohvaća čvor koji prati sve, čvor s pravilom <em>Arhiva
-      vodostaja</em> i čvor s pravilom <em>Sve vrste</em> za jedno područje ili sektor, ako je
-      sadržaj <em>Sve</em>. Godine se tada ne gledaju, jer paket nosi cijelu povijest letve.
-      Pravilo <em>Sve vrste</em> za sva područja donosi arhivu samo kad mu je polje
-      <em>Od godine</em> prazno. Uz pravilo <em>Sve vrste</em> paket šalje samo računalo s
-      izdanjem 0.0.38 ili novijim.</p>
+      vodostaja</em> i čvor s pravilom <em>Sve vrste</em>. Godine se tada ne gledaju, jer paket
+      nosi cijelu povijest letve. Ne gleda se ni sadržaj uz zapise: paket stiže i uz <em>Samo
+      pregledi</em> i <em>Samo kazalo</em>, jer su u njemu podaci, a ne slike. Pravilo <em>Sve
+      vrste</em> za sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama.
+      Rok držanja vrijedi i za pakete: kad istekne, paket se makne s računala, a arhiva ostaje
+      ugrađena. Kad pravilo <em>Sve vrste</em> ima popunjeno polje <em>Od godine</em>, paket
+      šalje samo računalo s izdanjem 0.0.38 ili novijim.</p>
 
     <h3 id="profil-prijava-izvana">Prijava izvana: PIN, zapamćena računala i rezervni kodovi</h3>
     <p><strong>Kad se traži PIN.</strong> Ako je administrator uključio prijavu izvana s
