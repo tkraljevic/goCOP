@@ -93,6 +93,11 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 			t.Errorf("konstanta %s (%q) nije u PoznatiEntiteti", ime, v)
 		}
 	}
+	for e := range primjene {
+		if !poznati[e] {
+			t.Errorf("entitet %q ima primjenu na površinu (primjene), a nije u PoznatiEntiteti", e)
+		}
+	}
 	for _, x := range grane {
 		var v string
 		switch x := x.(type) {

@@ -1787,6 +1787,12 @@ func TestRazmjenaSvihEntitetaPokrivenost(t *testing.T) {
 		}
 		return false
 	})
+	// i entiteti s upisom u primjenama po skupinama (apply_<skupina>.go)
+	for e, p := range primjene {
+		if p.upis != nil {
+			entiteti = append(entiteti, e)
+		}
+	}
 	if len(entiteti) < 40 {
 		t.Fatalf("u applyOne nađeno je samo %d entiteta — je li se switch promijenio?", len(entiteti))
 	}

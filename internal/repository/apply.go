@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/obracun"
-	"gocop/internal/razmjena"
 	"gocop/internal/sadrzaj"
 )
 
@@ -298,9 +298,72 @@ func primjenjujeSe(top *ledger.Version, v ledger.Version) bool {
 	return top.VersionID == v.VersionID || v.Entity == EntityVodocuvarski || v.Entity == EntityVodocuvarskiIzvornici
 }
 
+// primjena kaže kako verzija jednog entiteta ide na površinu: upis žive
+// verzije i brisanje kad stigne spomenik. Primjene su po skupinama entiteta,
+// u datotekama apply_<skupina>.go. Entitet bez primjene površina ne zna
+// (izdanja prognoze, arhivski paketi, entiteti novijeg programa): verzija
+// ostaje u knjizi, a primjena ne radi ništa.
+type primjena struct {
+	upis, brisanje radnjaNaPovrsini
+}
+
+// radnjaNaPovrsini mijenja površinu prema jednoj primljenoj verziji
+type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) error
+
+// skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
+// (TestPrimjenaJeUJednojSkupini)
+var skupinePrimjena = []map[string]primjena{primjeneMreze}
+
+// primjene su primjene svih entiteta koje površina zna, po entitetu
+var primjene = spojiPrimjene(skupinePrimjena)
+
+func spojiPrimjene(skupine []map[string]primjena) map[string]primjena {
+	sve := map[string]primjena{}
+	for _, s := range skupine {
+		maps.Copy(sve, s)
+	}
+	return sve
+}
+
+// obrisi je brisanje zapisa s površine upitom koji uzima identitet zapisa
+// iz knjige
+func obrisi(upit string) radnjaNaPovrsini {
+	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+		_, err := tx.ExecContext(ctx, upit, v.EntityID)
+		return err
+	}
+}
+
+// obrisiPoBroju je brisanje zapisa čiji je identitet na površini broj;
+// identitet koji nije broj briše zapis 0
+func obrisiPoBroju(upit string) radnjaNaPovrsini {
+	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+		id, _ := strconv.Atoi(v.EntityID)
+		_, err := tx.ExecContext(ctx, upit, id)
+		return err
+	}
+}
+
+// poSadrzaju je radnja koja od verzije treba samo sadržaj
+func poSadrzaju(f func(ctx context.Context, tx *sql.Tx, sadrzaj []byte) error) radnjaNaPovrsini {
+	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+		return f(ctx, tx, v.Payload)
+	}
+}
+
+// poIdentitetu je radnja koja od verzije treba samo identitet zapisa
+func poIdentitetu(f func(ctx context.Context, tx *sql.Tx, id string) error) radnjaNaPovrsini {
+	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+		return f(ctx, tx, v.EntityID)
+	}
+}
+
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if v.Archived {
 		return removeFromSurface(ctx, tx, v)
+	}
+	if upis := primjene[v.Entity].upis; upis != nil {
+		return upis(ctx, tx, v)
 	}
 
 	switch v.Entity {
@@ -923,116 +986,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		`, st.ID, st.MunicipalityID, st.CountyID, st.Name, st.PostalCode, st.Population)
 		return err
 
-	case "memberships":
-		var m struct {
-			Network   string           `json:"network"`
-			DeviceID  string           `json:"deviceId"`
-			DeviceKey string           `json:"deviceKey"`
-			IssuedBy  string           `json:"issuedBy"`
-			IssuedAt  time.Time        `json:"issuedAt"`
-			ExpiresAt time.Time        `json:"expiresAt"`
-			Signature string           `json:"signature"`
-			Primatelj *razmjena.Ovlast `json:"primatelj"`
-		}
-		if err := json.Unmarshal(v.Payload, &m); err != nil {
-			return err
-		}
-		// ovlast potpisnika u istom obliku kao kod izvora (peers), ma u
-		// kojoj zoni i kojim redom polja stigla
-		primatelj := ""
-		if m.Primatelj != nil {
-			b, err := json.Marshal(m.Primatelj.UTC())
-			if err != nil {
-				return err
-			}
-			primatelj = string(b)
-		}
-		// Potpis se ne provjerava ovdje nego na vratima razmjene — ovdje se
-		// samo pamti što je stiglo; tuđa ili kriva potvrda nikad ne prolazi
-		// provjeru i ne šteti time što postoji u tablici.
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(node_id) DO UPDATE SET
-				public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
-				issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature,
-				primatelj = excluded.primatelj
-		`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, v.CreatedAt.UTC(), primatelj)
-		return err
-
-	case "ovlasti":
-		var o struct {
-			Network   string    `json:"network"`
-			DeviceID  string    `json:"deviceId"`
-			DeviceKey string    `json:"deviceKey"`
-			IssuedBy  string    `json:"issuedBy"`
-			IssuedAt  time.Time `json:"issuedAt"`
-			ExpiresAt time.Time `json:"expiresAt"`
-			Signature string    `json:"signature"`
-		}
-		if err := json.Unmarshal(v.Payload, &o); err != nil {
-			return err
-		}
-		// kao članstva: potpis se provjerava pri upotrebi, ne ovdje
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO ovlasti (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(node_id) DO UPDATE SET
-				public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
-				issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
-		`, o.DeviceID, o.DeviceKey, o.Network, o.IssuedBy, o.IssuedAt.UTC(), o.ExpiresAt.UTC(), o.Signature, v.CreatedAt.UTC())
-		return err
-
-	case "opozivi":
-		var op struct {
-			ID         string    `json:"id"`
-			Vrsta      string    `json:"vrsta"`
-			NodeID     string    `json:"nodeId"`
-			PublicKey  string    `json:"publicKey"`
-			IssuedAt   time.Time `json:"issuedAt"`
-			OpozvanoAt time.Time `json:"opozvanoAt"`
-			Opozvao    string    `json:"opozvao"`
-			Potpisnik  string    `json:"potpisnik"`
-			Potpis     string    `json:"potpis"`
-		}
-		if err := json.Unmarshal(v.Payload, &op); err != nil {
-			return err
-		}
-		// potpis se provjerava pri upotrebi (peers.opozvano): nepotpisan ili
-		// tuđe potpisan opoziv stoji u tablici, ali ništa ne opoziva
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao, potpisnik, potpis)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO NOTHING
-		`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao, op.Potpisnik, op.Potpis)
-		return err
-
-	case "peers":
-		var p struct {
-			NodeID       string     `json:"node_id"`
-			Name         string     `json:"name"`
-			PublicKey    string     `json:"public_key"`
-			Addresses    []string   `json:"addresses"`
-			IsBootstrap  bool       `json:"is_bootstrap"`
-			LastSeen     *time.Time `json:"last_seen"`
-			LastSync     *time.Time `json:"last_sync"`
-			LastSyncNote string     `json:"last_sync_note"`
-			CreatedAt    time.Time  `json:"created_at"`
-		}
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		addrs, _ := json.Marshal(p.Addresses)
-		// bilješke o zadnjoj sinkronizaciji opisuju odnos dva čvora, ne čvor —
-		// ne prepisuju se tuđima
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO peers (node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at)
-			VALUES (?, ?, ?, ?, ?, ?, NULL, '', ?)
-			ON CONFLICT(node_id) DO UPDATE SET
-				name = excluded.name, public_key = excluded.public_key, addresses = excluded.addresses,
-				is_bootstrap = excluded.is_bootstrap
-		`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
-		return err
 	}
 
 	// nepoznat entitet — verzija ostaje u knjizi, površinu nema što osvježiti
@@ -1041,6 +994,9 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 
 // removeFromSurface uklanja arhivirani zapis s površine
 func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	if brisanje := primjene[v.Entity].brisanje; brisanje != nil {
+		return brisanje(ctx, tx, v)
+	}
 	var stmt string
 	var arg any = v.EntityID
 
@@ -1193,17 +1149,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntitySettlements:
 		stmt = `DELETE FROM settlements WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)
-	case "peers":
-		stmt = `DELETE FROM peers WHERE node_id = ?`
-	case "memberships":
-		stmt = `DELETE FROM memberships WHERE node_id = ?`
-	case "ovlasti":
-		stmt = `DELETE FROM ovlasti WHERE node_id = ?`
-	case "opozivi":
-		// opoziv se ne poništava: arhivirana verzija (koju bi mogao poslati i
-		// član s izmijenjenim programom) ga ne briše; ponovno primanje izdaje
-		// novo, kasnije članstvo
-		return nil
 	default:
 		return nil
 	}

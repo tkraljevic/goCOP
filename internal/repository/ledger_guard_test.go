@@ -26,9 +26,7 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 	}
 
 	for _, file := range files {
-		// apply.go primjenjuje verzije primljene s drugog čvora na površinu —
-		// verzije već postoje, stvaranje novih bi ih umnožilo među čvorovima
-		if strings.HasSuffix(file, "_test.go") || file == "apply.go" {
+		if strings.HasSuffix(file, "_test.go") || datotekePrimjene[file] {
 			continue
 		}
 		src, err := os.ReadFile(file)
@@ -47,4 +45,14 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 			}
 		}
 	}
+}
+
+// datotekePrimjene primjenjuju verzije primljene s drugog čvora na površinu
+// (applyOne, removeFromSurface i primjene po skupinama). Verzije već postoje
+// u knjizi, a stvaranje novih bi ih umnožilo među čvorovima, pa straže knjige
+// ove datoteke ne gledaju. Svaka druga datoteka koja piše u sinkroniziranu
+// tablicu mora bilježiti verziju.
+var datotekePrimjene = map[string]bool{
+	"apply.go":       true,
+	"apply_mreza.go": true,
 }

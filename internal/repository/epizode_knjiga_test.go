@@ -28,9 +28,9 @@ import (
 // doslovno u tijelu: iz paketne konstante, spajanjem s + i kroz
 // fmt.Sprintf. Ne vidi se samo naziv tablice koji stiže tek u radu (kao
 // parametar opće funkcije); takav upis imaju jedino apply.go i
-// apply_roditelji.go. Ne gledaju se apply.go, apply_epizode.go i
-// apply_roditelji.go, koji primjenjuju verzije što su već u knjizi drugog
-// čvora.
+// apply_roditelji.go. Ne gledaju se datoteke primjene (datotekePrimjene),
+// apply_epizode.go i apply_roditelji.go, koji primjenjuju verzije što su
+// već u knjizi drugog čvora.
 func TestEpizodeObraneSeMijenjajuSamoKrozKnjigu(t *testing.T) {
 	// Funkcije kojima je upis mimo Recordera dopušten, s razlogom. Iznimka
 	// koja više ne treba ruši test, da popis ne zastari.
@@ -41,7 +41,10 @@ func TestEpizodeObraneSeMijenjajuSamoKrozKnjigu(t *testing.T) {
 	nadeno := map[string]bool{}
 	for _, mapa := range []string{".", "../db"} {
 		izvori := izvoriPaketa(t, mapa)
-		delete(izvori, "apply.go") // verzije su već u knjizi drugog čvora
+		// verzije su već u knjizi drugog čvora
+		for d := range datotekePrimjene {
+			delete(izvori, d)
+		}
 		delete(izvori, "apply_epizode.go")
 		delete(izvori, "apply_roditelji.go")
 		for _, f := range funkcijeMimoKnjige(t, izvori) {
