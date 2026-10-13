@@ -145,13 +145,14 @@ func TestKrivuljePregledOdbija(t *testing.T) {
 func TestKrivuljeUpisOdbija(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	korisnik := o.pero.ID.String()
-	ceka := func(sadrzaj string) string {
-		id := novIdUvoza()
+	// stalni brojevi: dva poziva novIdUvoza u istoj mikrosekundi daju isti
+	ceka := func(ime, sadrzaj string) string {
+		id := "krivulje-" + ime + "-" + t.Name()
 		uvozi.spremi(id, "krivulje.csv", []byte(sadrzaj), korisnik)
 		t.Cleanup(func() { uvozi.makni(id) })
 		return id
 	}
-	pokvarena, dobra := ceka("datum;vodostaj\n"), ceka(krivuljePrimjerova)
+	pokvarena, dobra := ceka("pokvarena", "datum;vodostaj\n"), ceka("dobra", krivuljePrimjerova)
 	for _, s := range []struct {
 		opis   string
 		u      *models.User

@@ -29,7 +29,7 @@ func TestPrijavaNeispravanObrazac(t *testing.T) {
 
 // Promjena lozinke bez prijave vodi na prijavu; neispravan obrazac, ključ
 // koji se ne da prekljucati i promjena koja ne uspije vraćaju na profil s
-// greškom, a lozinka ostaje stara.
+// greškom. Dok se ključ ne prekljuca, lozinka ostaje stara.
 func TestPromjenaLozinkeGreske(t *testing.T) {
 	o := novaOkolinaPrijave(t)
 	ana := o.racun("ana", "anina-lozinka", false, false)
@@ -61,6 +61,9 @@ func TestPromjenaLozinkeGreske(t *testing.T) {
 	o.authH.SetPrekljucaj(func(context.Context, string, string, string) error { return errors.New("ključ je oštećen") })
 	if loc := zovi(ana, nova); loc != "/?error=potpisni ključ se ne da prekljucati: ključ je oštećen" {
 		t.Errorf("ključ se ne da prekljucati: %q", loc)
+	}
+	if err := o.auth.ProvjeriLozinku(ana.ID, "anina-lozinka"); err != nil {
+		t.Errorf("lozinka se promijenila iako ključ nije prekljucan: %v", err)
 	}
 	// Ključ se prekljuca, a promjena lozinke zatim padne: baza se zatvori
 	// između ta dva koraka.
@@ -117,14 +120,16 @@ func TestPINGreskePrijaveNaCekanju(t *testing.T) {
 	}
 }
 
-// Stranica PIN-a koja se ne da iscrtati ne ruši odgovor: ne sprema se i
-// ostaje prazna.
+// Stranica PIN-a koja se ne da iscrtati ne ruši odgovor: ne sprema se, a
+// zadani status ostaje. Što tada stoji u tijelu, test ne zaključava.
 func TestStranicaPINBezPredloska(t *testing.T) {
 	h := &AuthHandler{tmplPIN: template.Must(template.New("prazan").Parse(""))}
-	w := httptest.NewRecorder()
-	h.prikaziPIN(w, http.StatusOK, PINPageData{Error: "Krivi PIN."})
-	if w.Code != http.StatusOK || w.Body.Len() != 0 || w.Header().Get("Cache-Control") != "no-store" {
-		t.Errorf("stranica bez predloška: %d %q %v", w.Code, w.Body.String(), w.Header())
+	for _, status := range []int{http.StatusOK, http.StatusTooManyRequests} {
+		w := httptest.NewRecorder()
+		h.prikaziPIN(w, status, PINPageData{Error: "Krivi PIN."})
+		if w.Code != status || w.Header().Get("Cache-Control") != "no-store" {
+			t.Errorf("stranica bez predloška, status %d: %d %v", status, w.Code, w.Header())
+		}
 	}
 }
 
