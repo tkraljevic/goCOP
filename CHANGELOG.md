@@ -76,6 +76,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   stranica je grešku prešutjela. Sad se vide obrane svih dionica letve,
   sa šifrom i opisom dionice. Ako se obrane ne daju pročitati, stranica se
   i dalje otvori, a greška se zapiše u dnevnik programa.
+- **Drugo brisanje iste letve.** Kad se letva obrisala dvaput, npr. drugim
+  klikom ili iz druge otvorene kartice, program je i drugi put javio da je
+  obrisana. Pritom je zabilježio brisanje prazne letve, bez imena i šifre,
+  koje je razmjenom putovalo na druga računala. Sad javlja da letve više
+  nema u registru, vraća na popis letvi i ništa ne bilježi. Brisanje letve
+  koja postoji radi kao i prije.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

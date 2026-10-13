@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -491,8 +492,14 @@ func (r *StationRepository) BrojOcitanja(ctx context.Context, id uuid.UUID) int 
 	return n
 }
 
+// ErrPostajaNePostoji: postaje nema u registru, npr. jer ju je netko u
+// međuvremenu obrisao
+var ErrPostajaNePostoji = errors.New("Postaja nije obrisana jer je više nema u registru. Vjerojatno ju je netko već obrisao.")
+
 // DeleteStation uklanja postaju s površine i sve njezine veze s dionicama.
-// U knjizi verzija ostaje arhivirana i može se vratiti.
+// U knjizi verzija ostaje arhivirana i može se vratiti. Postaja koje nema
+// ne ostavlja spomenik: do 13. 10. 2026. upisivao se spomenik prazne
+// postaje i putovao razmjenom na druge čvorove.
 func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -501,42 +508,66 @@ func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) err
 	defer tx.Rollback()
 
 	current, err := getStationTx(ctx, tx, id.String())
-	if err != nil && err != sql.ErrNoRows {
-		return err
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrPostajaNePostoji
 	}
-
-	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_stations WHERE station_id = ?`, id.String())
 	if err != nil {
 		return err
 	}
+	links, err := vezeLetveTx(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := makniLetvuTx(ctx, tx, id); err != nil {
+		return err
+	}
+	if err := r.arhivirajLetvuTx(ctx, tx, current, links); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// vezeLetveTx vraća šifre dionica za koje je letva mjerodavna, unutar
+// transakcije brisanja
+func vezeLetveTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_stations WHERE station_id = ?`, id.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 	var links []string
 	for rows.Next() {
 		var code string
 		if err := rows.Scan(&code); err != nil {
-			rows.Close()
-			return err
+			return nil, err
 		}
 		links = append(links, code)
 	}
-	rows.Close()
+	return links, rows.Err()
+}
 
+// makniLetvuTx miče letvu i njezine veze s dionicama s površine
+func makniLetvuTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE station_id = ?`, id.String()); err != nil {
 		return fmt.Errorf("greška pri uklanjanju veza postaje: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM stations WHERE id = ?`, id.String()); err != nil {
 		return fmt.Errorf("greška pri brisanju vodomjerne postaje: %w", err)
 	}
+	return nil
+}
 
+// arhivirajLetvuTx bilježi spomenik svake veze letve i same letve, u istoj
+// transakciji u kojoj su maknute s površine
+func (r *StationRepository) arhivirajLetvuTx(ctx context.Context, tx *sql.Tx, st models.Station, links []string) error {
 	for _, code := range links {
-		if _, err := r.rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(code, id),
-			map[string]string{"section_code": code, "station_id": id.String()}); err != nil {
+		if _, err := r.rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(code, st.ID),
+			map[string]string{"section_code": code, "station_id": st.ID.String()}); err != nil {
 			return err
 		}
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityStations, id.String(), current); err != nil {
-		return err
-	}
-	return tx.Commit()
+	_, err := r.rec.Archive(ctx, tx, EntityStations, st.ID.String(), st)
+	return err
 }
 
 // CountStations vraća ukupan broj postaja, broj označenih za pregled i broj veza s dionicama
