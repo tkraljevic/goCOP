@@ -113,9 +113,9 @@ func TestOtvoriOdbacujeUlazeIPojaseZajedno(t *testing.T) {
 }
 
 // Otvaranje javlja grešku kad se baza ne da napraviti ili kad se zatečena
-// ne da dograditi, i tada je ne ostavlja otvorenu.
+// ne da dograditi, i tada ne vraća bazu.
 func TestOtvoriJavljaGresku(t *testing.T) {
-	if db, err := Otvori(filepath.Join(t.TempDir(), "nema-mape", "p.db")); err == nil || !strings.Contains(err.Error(), "shema baze prognoza") {
+	if db, err := Otvori(filepath.Join(t.TempDir(), "nema-mape", "p.db")); err == nil || db != nil || !strings.Contains(err.Error(), "shema baze prognoza") {
 		t.Errorf("baza u mapi koje nema: %v, %v", db, err)
 	}
 
@@ -127,7 +127,7 @@ func TestOtvoriJavljaGresku(t *testing.T) {
 	// Zapis o izdanjima kao pogled: stupac mu se ne da dodati.
 	izvrsi(t, stara, `CREATE VIEW izdanja AS SELECT 1 AS izdano, 1 AS verzija`)
 	stara.Close()
-	if db, err := Otvori(put); err == nil || !strings.Contains(err.Error(), "izdanja.cvor") {
+	if db, err := Otvori(put); err == nil || db != nil || !strings.Contains(err.Error(), "izdanja.cvor") {
 		t.Errorf("zapis o izdanjima koji se ne da dograditi: %v, %v", db, err)
 	}
 }
@@ -135,11 +135,12 @@ func TestOtvoriJavljaGresku(t *testing.T) {
 // Usklađivanje javlja koji korak nije prošao: čitanje stupaca, uklanjanje
 // stare tablice ili ponovna gradnja.
 func TestUskladiJavljaGresku(t *testing.T) {
+	// Greška dolazi već iz čitanja stupaca, a ne tek iz dodavanja stupca.
 	t.Run("zatvorena baza", func(t *testing.T) {
 		db := bazaSaShemom(t)
 		db.Close()
-		if err := uskladi(db); err == nil {
-			t.Error("bez greške")
+		if err := uskladi(db); err == nil || strings.HasPrefix(err.Error(), "izdanja.") || !strings.Contains(err.Error(), "database is closed") {
+			t.Errorf("greška %v, želim grešku čitanja stupaca zatvorene baze", err)
 		}
 	})
 	t.Run("stara tablica je pogled", func(t *testing.T) {

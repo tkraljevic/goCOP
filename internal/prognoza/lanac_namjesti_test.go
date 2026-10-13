@@ -44,7 +44,8 @@ func istjecanjeElektrane() map[int64]float64 {
 }
 
 // arhivaLanca je arhiva s izmišljenom vezom cilj ← ulaz (vidi
-// arhivaIzmisljeneVeze), drugim ulazom iste vode i izmišljenom elektranom.
+// arhivaIzmisljeneVeze), drugim ulazom iste vode i izmišljenom elektranom s
+// dvije uzvodne elektrane.
 func arhivaLanca(t *testing.T) *sql.DB {
 	t.Helper()
 	nizovi := arhivaIzmisljeneVeze(t)
@@ -54,6 +55,8 @@ func arhivaLanca(t *testing.T) *sql.DB {
 	}
 	nizovi["drugi:protok"] = drugi
 	nizovi["elektrana:protok"] = istjecanjeElektrane()
+	nizovi["gornja:protok"] = satniNiz(0, 1500, func(h int64) float64 { return 200 + 30*math.Sin(float64(h)/17) })
+	nizovi["srednja:protok"] = satniNiz(0, 1500, func(h int64) float64 { return 150 + 20*math.Cos(float64(h)/29) })
 	return arhivaSatnih(t, nizovi)
 }
 
@@ -69,7 +72,7 @@ func postaviLanacProbe(t *testing.T) {
 		Racun{Letva: "cilj:protok", Ulazi: []string{"ulaz:protok"}},
 		Racun{Letva: "nepoznata", Ulazi: []string{"ulaz:protok"}})
 	postavi(t, &Rezerve, map[string][][]string{})
-	postavi(t, &Operateri, []Operater{{Letva: "elektrana"}, {Letva: "bez-niza"}})
+	postavi(t, &Operateri, []Operater{{Letva: "elektrana", Ulazi: []string{"gornja", "srednja"}}, {Letva: "bez-niza"}})
 }
 
 // Namještanje lanca namjesti svaki račun i njegove rezerve, spremi sve
@@ -116,7 +119,7 @@ func TestNamjestiLanac(t *testing.T) {
 			"   rezerva 1:\n",
 			"   rezerva 2 (nema-niza:protok): cilj: nema-niza ima samo 0 satnih vrijednosti u protok",
 			fmt.Sprintf("\nspremljeno %d pojasa\n", n),
-			"\nmodel ispuštanja elektrana ← , prag velike vode",
+			"\nmodel ispuštanja elektrana ← gornja + srednja, prag velike vode ",
 			"  obična voda ",
 			"  velika voda ",
 			"model ispuštanja bez-niza: bez-niza: samo 0 sati protoka u arhivi",
@@ -138,7 +141,8 @@ func TestNamjestiLanac(t *testing.T) {
 		}
 
 		modeli, err := UcitajOperatere(baza)
-		if err != nil || len(modeli) != 1 || modeli["elektrana"] == nil || !modeli["elektrana"].Koristi[0][12] {
+		if err != nil || len(modeli) != 1 || modeli["elektrana"] == nil || !modeli["elektrana"].Koristi[0][12] ||
+			strings.Join(modeli["elektrana"].Ulazi, ",") != "gornja,srednja" {
 			t.Errorf("modeli ispuštanja iz baze: %+v, %v", modeli, err)
 		}
 

@@ -118,7 +118,7 @@ func TestNamjestiLetvuJavljaZastoNemaRacuna(t *testing.T) {
 			}
 			p, err := NamjestiLetvu(s.arhiva, s.cilj, "protok", izvori)
 			if err == nil || !strings.Contains(err.Error(), s.greska) {
-				t.Errorf("greška %v, želim %q (pojasi %+v)", err, s.greska, p)
+				t.Fatalf("greška %v, želim %q (pojasi %+v)", err, s.greska, p)
 			}
 			if s.ime == "malo zajedničkih sati" && !strings.HasSuffix(err.Error(), "zajedničkih sati") {
 				t.Errorf("greška %v", err)
@@ -127,13 +127,18 @@ func TestNamjestiLetvuJavljaZastoNemaRacuna(t *testing.T) {
 	}
 }
 
-// Kad se niz ulaza ne da pročitati, a cilj da, greška se vraća.
+// Kad se niz ulaza ne da pročitati, a cilj da, vraća se greška čitanja, a
+// ne da ulaz ima premalo sati.
 func TestNamjestiLetvuUlazSeNeDaProcitati(t *testing.T) {
 	arhiva := arhivaSatnih(t, map[string]map[int64]float64{
 		"cilj:protok": satniNiz(0, 6000, valUlaza), "ulaz:protok": satniNiz(0, 6000, valUlaza)})
 	zamijeniStupac(t, arhiva, "spoj", "vrijednost", pucaNa("letva = 'ulaz'", "vrijednost"))
-	if p, err := NamjestiLetvu(arhiva, "cilj", "protok", []Izvor{{Letva: "ulaz", Velicina: "protok"}}); err == nil {
-		t.Errorf("bez greške: %+v", p)
+	p, err := NamjestiLetvu(arhiva, "cilj", "protok", []Izvor{{Letva: "ulaz", Velicina: "protok"}})
+	if err == nil {
+		t.Fatalf("bez greške: %+v", p)
+	}
+	if !strings.Contains(err.Error(), "integer overflow") || strings.Contains(err.Error(), "satnih vrijednosti") {
+		t.Errorf("greška %q, želim grešku čitanja ulaza (integer overflow)", err)
 	}
 }
 
