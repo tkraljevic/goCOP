@@ -25,7 +25,7 @@ func TestPrimjenaJeUJednojSkupini(t *testing.T) {
 	}
 }
 
-// Članstvo čiju ovlast primatelja ne treba zapisati u UTC-u (vrijeme koje
+// Članstvo čija se ovlast primatelja ne da zapisati u UTC-u (vrijeme koje
 // preračunato u UTC pada izvan godina 0–9999) ne ide na površinu: primjena
 // vraća grešku i ne upisuje članstvo bez ovlasti.
 func TestClanstvoSOvlascuKojaSeNeDaZapisati(t *testing.T) {
