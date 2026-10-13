@@ -150,8 +150,8 @@ func TestZatecenNizPoObrascu(t *testing.T) {
 		!strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
 		t.Fatalf("okvir zatečenog niza: %d, zaglavlja %v", w.Code, w.Header())
 	}
-	for _, treba := range []string{"Niz već postoji", "U stablu stoji 2 vrijednosti, 28.02.2026. – 01.03.2026.",
-		"Zamjena bi odnijela <strong>1</strong> vrijednosti", "(28.02.2026. – 28.02.2026.)",
+	for _, treba := range []string{"Niz već postoji", "U stablu već ima 2 vrijednosti, 28.02.2026. – 01.03.2026.",
+		"Zamjena bi odnijela i vrijednosti kojih u ovoj datoteci nema: <strong>1</strong>", "(28.02.2026. – 28.02.2026.)",
 		`value="zamijeni" checked`} {
 		if !strings.Contains(html, treba) {
 			t.Errorf("okvir nema %q:\n%s", treba, html)

@@ -55,7 +55,7 @@
 {{if .ErrorMessage}}<div class="alert alert-danger">{{.ErrorMessage}}</div>{{end}}
 
 <div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} međuslivova</span>
+  <span class="stat-badge has-items">{{icon "map"}} {{len .Slivovi}} {{uzBroj (len .Slivovi) "međusliv" "međusliva" "međuslivova"}}</span>
   <span class="stat-badge has-items">{{icon "cloud-rain"}} {{.Izvedenih}} {{uzBroj .Izvedenih "izvedena točka" "izvedene točke" "izvedenih točaka"}}</span>
   <span class="stat-badge has-items">{{icon "gauge"}} {{.Stvarnih}} {{uzBroj .Stvarnih "pravi kišomjer" "prava kišomjera" "pravih kišomjera"}}</span>
   <span class="stat-badge has-items">{{icon "check"}} {{.UPrognozi}} u prognozi</span>

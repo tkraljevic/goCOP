@@ -11,7 +11,7 @@
     <h1 class="page-title">{{icon "file-text"}} Dnevno izvješće rukovoditelja sektora</h1>
     <p class="page-desc">{{.Centar}} · za dan <strong>{{danTjedna $iz.Dan}} {{$iz.Dan.Format "2.1.2006."}}</strong>
       · najviši stadij <span class="threshold-pill {{$iz.NajvisiStadij.PillClass}}">{{stadijKratica $iz.NajvisiStadij}} — {{$iz.NajvisiStadij.Label}}</span>
-      · {{$p.Izvjesca}} {{if eq $p.Izvjesca 1}}izvješće dionice{{else}}izvješća dionica{{end}}{{if $p.Nacrta}}, {{$p.Nacrta}} nepredano{{end}}
+      · {{$p.Izvjesca}} {{uzBroj $p.Izvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}{{if $p.Nacrta}}, {{$p.Nacrta}} {{uzBroj $p.Nacrta "nepredano" "nepredana" "nepredano"}}{{end}}
       {{/* Izmjena predanog izvješća vraća ga u nacrt; nova predaja ima novo
            vrijeme, a prvo ostaje uz nju zbog roka do 10:00. */}}
       {{if $iz.Predano}}· <span class="badge">{{$iz.OpisPredaje "GCOP-u" "2.1. 15:04"}}</span>{{else}}· <span class="badge badge-pending">nacrt</span>{{if $iz.BiloPredano}} <span class="reg-card-sub">{{$iz.OpisPredaje "GCOP-u" "2.1. 15:04"}}</span>{{end}}{{end}}</p>

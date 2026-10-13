@@ -163,7 +163,7 @@
   <div class="kisa-plocice mb-4">
     <div class="kisa-plocica"><div class="kisa-oznaka">{{.ArhGodina}}.</div>
       <div class="kisa-broj">{{brojHRf .GodinaZbroj 1}} <small>mm</small></div>
-      <div class="reg-card-sub">{{.GodinaDana}} dana s podatkom</div></div>
+      <div class="reg-card-sub">{{.GodinaDana}} {{uzBroj .GodinaDana "dan" "dana" "dana"}} s podatkom</div></div>
     {{if .PunihGodina}}<div class="kisa-plocica"><div class="kisa-oznaka">Prosječna godina</div>
       <div class="kisa-broj">{{brojHRf .ProsjekGodine 0}} <small>mm</small></div>
       <div class="reg-card-sub">iz {{.PunihGodina}} {{uzBroj .PunihGodina "pune godine" "punih godina" "punih godina"}}</div></div>{{end}}
@@ -180,7 +180,7 @@
       <tbody>
       {{range .Mjeseci}}
       <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{$.ArhGodina}}&mj={{.Mjesec}}#niz'" style="cursor:pointer;{{if eq .Mjesec $.ArhMjesec}} background:var(--tint-blue-bg);{{end}}">
-        <td class="naslov">{{mjesecIme .Mjesec}}{{if lt .Dana 28}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
+        <td class="naslov">{{mjesecIme .Mjesec}}{{if lt .Dana 28}} <span class="reg-card-sub">({{.Dana}} {{uzBroj .Dana "dan" "dana" "dana"}})</span>{{end}}</td>
         <td class="mono text-right" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
         <td class="mono text-right" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
         <td class="mono text-right" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>
@@ -229,7 +229,7 @@
       <tbody>
       {{range .Godine}}
       <tr onclick="location='?v={{$.ArhVelicina}}&korak=dnevni&god={{.Godina}}#niz'" style="cursor:pointer;{{if eq .Godina $.ArhGodina}} background:var(--tint-blue-bg);{{end}}">
-        <td class="naslov">{{.Godina}}.{{if lt .Dana 360}} <span class="reg-card-sub">({{.Dana}} dana)</span>{{end}}</td>
+        <td class="naslov">{{.Godina}}.{{if lt .Dana 360}} <span class="reg-card-sub">({{.Dana}} {{uzBroj .Dana "dan" "dana" "dana"}})</span>{{end}}</td>
         <td class="mono text-right" data-stupac="Zbroj (mm)"><strong>{{brojHRf .Mm 1}}</strong></td>
         <td class="mono text-right" data-stupac="Kišnih dana">{{.KisnihDana}}</td>
         <td class="mono text-right" data-stupac="Najviše u danu">{{brojHRf .NajviseDan 1}}</td>

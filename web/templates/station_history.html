@@ -154,11 +154,11 @@
       <option value="vrh" {{if eq .ArhRed "vrh"}}selected{{end}}>najviši prvo</option>
       <option value="dno" {{if eq .ArhRed "dno"}}selected{{end}}>najniži prvo</option>
     </select>
-    <span class="reg-card-sub">{{len .ArhGodine}} {{uzBroj (len .ArhGodine) "godina" "godine" "godina"}} u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} {{uzBroj .ArhPager.Total "vrijednost" "vrijednosti" "vrijednosti"}}{{if .ArhMjesec}} — {{mjesecIme .ArhMjesec}} {{.ArhGodina}}.{{else}} u {{.ArhGodina}}.{{end}}{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} ispravljeno</strong>{{end}}</span>
+    <span class="reg-card-sub">{{len .ArhGodine}} {{uzBroj (len .ArhGodine) "godina" "godine" "godina"}} u arhivi{{if .ArhPager.Total}} · {{brojHR .ArhPager.Total}} {{uzBroj .ArhPager.Total "vrijednost" "vrijednosti" "vrijednosti"}}{{if .ArhMjesec}} — {{mjesecIme .ArhMjesec}} {{.ArhGodina}}.{{else}} u {{.ArhGodina}}.{{end}}{{end}}{{if .ArhIspravaka}} · <strong>{{brojHR .ArhIspravaka}} {{uzBroj .ArhIspravaka "ispravljena" "ispravljene" "ispravljeno"}}</strong>{{end}}</span>
   </form>
 
   {{if .ArhChart}}
-  <h3 class="part-label podnaslov-tablice">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} prekid{{if gt .ArhChart.Praznina 1}}a{{end}}</span>{{end}}</h3>
+  <h3 class="part-label podnaslov-tablice">{{velicinaLabel .ArhVelicina}} <span class="reg-card-sub">{{.ArhJedinica}}</span> — {{if .ArhMjesec}}{{mjesecIme .ArhMjesec}} {{end}}{{.ArhGodina}}.{{if eq .ArhKorak "satni"}}, svaki sat{{else}}, dnevni srednjak{{end}}{{if .ArhChart.Praznina}} <span class="reg-chip">{{.ArhChart.Praznina}} {{uzBroj .ArhChart.Praznina "prekid" "prekida" "prekida"}}</span>{{end}}</h3>
   <div class="reg-card chart graf-niza graf-siroki mb-4"
        data-tocke="{{.ArhChart.Tocke}}" data-prognoza="{{.ArhChart.PrognozaTocke}}">
     {{template "grafNiza" .ArhChart}}
@@ -331,7 +331,7 @@
       <span>najniže <strong>{{brojHRf .Pregled.Min 0}} {{.Pregled.Niz.Jedinica}}</strong> {{.Pregled.MinNa}}</span>
       <span>srednjak razdoblja <strong>{{brojHRf .Pregled.Srednjak 1}} {{.Pregled.Niz.Jedinica}}</strong></span>
       {{if .Pregled.ZbrojIma}}<span>ukupno kroz razdoblje <strong>{{brojHRf .Pregled.Zbroj 0}} {{.Pregled.Niz.Jedinica}}</strong></span>{{end}}
-      <span class="reg-card-sub">{{len .Pregled.Godine}} godina</span>
+      <span class="reg-card-sub">{{len .Pregled.Godine}} {{uzBroj (len .Pregled.Godine) "godina" "godine" "godina"}}</span>
     </div>
   </div>
   <div class="table-card"><div class="table-responsive s-klizanjem">
@@ -358,7 +358,7 @@
   {{if and .Pregled .Pregled.Mjeseci}}
   <details class="mt-5">
     <summary class="cursor-pointer fw-600">Godišnji hod</summary>
-  <p class="page-desc">Isti mjesec kroz svih {{len .Pregled.Godine}} godina — kad voda redovito raste, a kad presuši.</p>
+  <p class="page-desc">Isti mjesec kroz {{len .Pregled.Godine}} {{uzBroj (len .Pregled.Godine) "godinu" "godine" "godina"}} — kad voda redovito raste, a kad presuši.</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Mjesec</th><th class="text-right">Srednjak</th><th class="text-right">Najniže</th><th class="text-right">Najviše</th><th></th></tr></thead>
@@ -405,7 +405,7 @@
     <div class="hq-krivulja">
       <div class="hq-razdoblje">
         <span class="hq-godine mono">{{slice $k.VrijediOd 0 4}}.{{if $k.VrijediDo}}{{if ne (slice $k.VrijediDo 0 4) (slice $k.VrijediOd 0 4)}} – {{slice $k.VrijediDo 0 4}}.{{end}}{{else}} – danas{{end}}</span>
-        <span class="reg-card-sub">{{len $k.Odsjecci}} odsječ{{if eq (len $k.Odsjecci) 1}}ak{{else}}ka{{end}}{{if $k.Izvor}} · {{$k.Izvor}}{{end}}{{if $k.Napomena}} · {{$k.Napomena}}{{end}}</span>
+        <span class="reg-card-sub">{{len $k.Odsjecci}} {{uzBroj (len $k.Odsjecci) "odsječak" "odsječka" "odsječaka"}}{{if $k.Izvor}} · {{$k.Izvor}}{{end}}{{if $k.Napomena}} · {{$k.Napomena}}{{end}}</span>
       </div>
       {{range $i, $o := $k.Odsjecci}}
       <div class="hq-odsjecak">
@@ -453,7 +453,7 @@
       </tbody>
     </table>
   </div></div>
-  <p class="reading-meta napomena-ispod">Zbroj za cijeli niz: {{brojHR .ValoviNiz.Zapisa}} mjerenja
+  <p class="reading-meta napomena-ispod">Zbroj za cijeli niz: {{brojHR .ValoviNiz.Zapisa}} {{uzBroj .ValoviNiz.Zapisa "mjerenje" "mjerenja" "mjerenja"}}
     od {{.ValoviNiz.Od.Year}}. do {{.ValoviNiz.Do.Year}}. <strong>U stanju</strong> se broji kao u obrascu obrane —
     stanja se ne preklapaju, pa dok traje redovna obrana pripremno stanje ne teče, a kad se redovna prekine
     pripremno se nastavlja. <strong>Iznad praga</strong> broji sve vrijeme iznad te kote, uključujući i više stupnjeve.</p>
@@ -475,7 +475,7 @@
         {{with $v.StupanjZa .Faza}}
         <td class="mono celija-blok"><strong title="{{.TrajanjeHR}}">{{brojHR .Sati}} h</strong>{{if .NaRubu}} <span title="val dodiruje rub niza, trajanje je najmanje toliko">+</span>{{end}}
           <div class="reg-card-sub">{{.PoceloHR}} → {{.ZavrsiloHR}}</div>
-          {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} navrata</div>{{end}}</td>
+          {{if .Prekidan}}<div class="ekstrem-nacin">u {{.Navrata}} {{uzBroj .Navrata "navrat" "navrata" "navrata"}}</div>{{end}}</td>
         {{else}}<td class="mono c-muted">—</td>{{end}}
         {{end}}
       </tr>
@@ -496,7 +496,7 @@
         {{range .Stupnjevi}}
         <div><dt>{{.Stupanj.Label}}</dt>
           <dd><strong>{{brojHR .Sati}} h</strong>{{if .NaRubu}} +{{end}} <span class="ekstrem-nacin">{{.TrajanjeHR}}</span>
-            <span class="ekstrem-nacin">{{.PoceloHR}} → {{.ZavrsiloHR}}{{if .Prekidan}}, u {{.Navrata}} navrata{{end}}</span></dd></div>
+            <span class="ekstrem-nacin">{{.PoceloHR}} → {{.ZavrsiloHR}}{{if .Prekidan}}, u {{.Navrata}} {{uzBroj .Navrata "navrat" "navrata" "navrata"}}{{end}}</span></dd></div>
         {{end}}
       </dl>
     </li>
@@ -535,7 +535,7 @@
         <td><a href="/sections/{{.SectionCode}}#obrana" class="c-primary fw-600">{{.SectionCode}}</a>{{if .SectionName}}<div class="reg-card-sub">{{.SectionName}}</div>{{end}}</td>
         <td class="mono">{{formatDate (localTime .StartedAt)}}</td>
         <td class="mono">{{if .EndedAt}}{{formatDate (localTime (derefTime .EndedAt))}}{{else}}<span class="badge badge-area-admin">traje</span>{{end}}</td>
-        <td class="nowrap">{{.Days}} dana</td>
+        <td class="nowrap">{{.Days}} {{uzBroj .Days "dan" "dana" "dana"}}</td>
         <td class="mono">{{.PeakLabel}}</td>
         <td><span class="threshold-pill {{.Phase.PillClass}}">{{.Phase.Label}}</span></td>
         <td>{{if .Basis}}{{.BasisLabel}}{{end}}{{if .DeclaredBeforeThreshold}} <small class="c-muted">(prije praga)</small>{{end}}</td>

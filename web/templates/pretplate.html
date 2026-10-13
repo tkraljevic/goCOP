@@ -62,7 +62,7 @@
   {{with .Predlog}}
   <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
-    <span>Prijedlog iz vašeg zaduženja: <b>dnevnici i prijave, BP {{.AreaID}}, od {{.YearFrom}}.</b>, pregledi uvijek, izvornici {{.DrziDana}} dana na ovom računalu.</span>
+    <span>Prijedlog iz vašeg zaduženja: <b>dnevnici i prijave, BP {{.AreaID}}, od {{.YearFrom}}.</b>, pregledi uvijek, izvornici {{.DrziDana}} {{uzBroj .DrziDana "dan" "dana" "dana"}} na ovom računalu.</span>
     <button type="submit" name="sync" value="1" class="btn btn-primary btn-sm">{{icon "download"}} Dodaj i preuzmi</button>
   </form>
   {{end}}

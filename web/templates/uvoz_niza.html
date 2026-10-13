@@ -49,7 +49,7 @@
   <div class="izdanje-red">
     <span class="izdanje-letva mono">{{.Letva}}</span>
     <span class="mono">{{.Izvor}} · {{.Velicina}} · {{.Vrsta}}</span>
-    <span>{{brojHR .Zapisa}} vrijednosti{{if .USpoju}}, od toga {{brojHR .USpoju}} u spojenom nizu{{end}}</span>
+    <span>{{brojHR .Zapisa}} {{uzBroj .Zapisa "vrijednost" "vrijednosti" "vrijednosti"}}{{if .USpoju}}, od toga {{brojHR .USpoju}} u spojenom nizu{{end}}</span>
     <form method="POST" action="/administracija/uvoz-niza/makni-niz" class="ml-auto"
           onsubmit="return confirm('Maknuti niz {{.Izvor}} · {{.Vrsta}} za {{.Letva}} iz arhive? U stablu ga nema, pa se ne može vratiti gradnjom.');">
       <input type="hidden" name="letva" value="{{.Letva}}">
@@ -97,7 +97,7 @@
       {{else if .Novo}}
         <span class="izdanje-skok">{{if .Prije}}v{{.Prije}} → v{{.Izdanje}}{{else}}novo · v{{.Izdanje}}{{end}}</span>
         <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
-        <span class="izdanje-isto">{{brojHR .Zapisa}} zapisa · {{.Od}} – {{.Do}}</span>
+        <span class="izdanje-isto">{{brojHR .Zapisa}} {{uzBroj .Zapisa "zapis" "zapisa" "zapisa"}} · {{.Od}} – {{.Do}}</span>
       {{else}}
         <span class="izdanje-isto">v{{.Izdanje}} nepromijenjeno</span>
         <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
@@ -176,7 +176,7 @@
   {{with .Ulaganje}}
   {{if .Ukupno}}
   <div class="izvor-napomena mt-4">
-    <span class="part-label">{{.Postaja.Name}} · {{.Ukupno}} očitanja koja još nisu uložena</span>
+    <span class="part-label">{{.Postaja.Name}} · {{.Ukupno}} {{uzBroj .Ukupno "očitanje koje još nije uloženo" "očitanja koja još nisu uložena" "očitanja koja još nisu uložena"}}</span>
     <div class="mt-2">
       <div class="izdanje-red">
         <span class="izdanje-letva">Dojavljeno</span>
@@ -250,10 +250,10 @@
     {{range .Pospremivo}}
     <div class="izdanje-red">
       <span class="izdanje-letva mono">{{.Letva}}</span>
-      <span>{{brojHR .Broj}} očitanja</span>
+      <span>{{brojHR .Broj}} {{uzBroj .Broj "očitanje" "očitanja" "očitanja"}}</span>
       <span class="izdanje-isto">izdanje {{.Oznake}}</span>
       <form method="POST" action="/administracija/ulaganje/pospremi" class="ml-auto"
-            onsubmit="return confirm('Obrisati {{.Broj}} uloženih očitanja za {{.Letva}} iz operativne baze? Arhiva ostaje.');">
+            onsubmit="return confirm('Obrisati {{.Broj}} {{uzBroj .Broj "uloženo očitanje" "uložena očitanja" "uloženih očitanja"}} za {{.Letva}} iz operativne baze? Arhiva ostaje.');">
         <input type="hidden" name="postaja" value="{{.StationID}}">
         <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Pospremi {{.Letva}}</button>
       </form>
@@ -472,7 +472,7 @@
   <input type="hidden" name="id" value="{{.Profili.Id}}">
   <input type="hidden" name="letva" value="{{.Profili.Letva}}">
   <h2 class="izvor-naziv">Koje su snimke prepoznate</h2>
-  <p class="izvor-obujam mono">{{.Profili.Letva}} — poslano {{.Profili.Poslano}} datoteka</p>
+  <p class="izvor-obujam mono">{{.Profili.Letva}} — {{.Profili.Poslano}} {{uzBroj .Profili.Poslano "datoteka poslana" "datoteke poslane" "datoteka poslano"}}</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Mjereno</th><th class="text-right">Točaka</th><th class="text-right">Vodostaj</th><th>Kota nule</th><th>Sustav</th><th>U stablu</th></tr></thead>
@@ -537,7 +537,7 @@
       <div class="hq-krivulja">
         <div class="hq-razdoblje">
           <span class="hq-godine mono">{{$k.Od}} .. {{$k.Do}}</span>
-          <span class="reg-card-sub">{{len $k.Odsjecci}} odsječ{{if eq (len $k.Odsjecci) 1}}ak{{else}}ka{{end}}</span>
+          <span class="reg-card-sub">{{len $k.Odsjecci}} {{uzBroj (len $k.Odsjecci) "odsječak" "odsječka" "odsječaka"}}</span>
         </div>
         {{range $i, $o := $k.Odsjecci}}
         <div class="hq-odsjecak">
@@ -553,7 +553,7 @@
   {{if .Profili.Neprepoznatih}}
   <div class="alert alert-warning mt-3">
     <p class="mt-0 mb-2">
-      <strong>{{.Profili.Neprepoznatih}} snimki ne kaže u kojem su sustavu kote.</strong>
+      <strong>{{.Profili.Neprepoznatih}} {{uzBroj .Profili.Neprepoznatih "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
       Letva vodi {{if .Profili.KotaStara}}<span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span> u starom{{end}}
       {{if .Profili.KotaNova}}i <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span> u HVRS71{{end}},
       a kota nule tih snimki ne odgovara nijednoj. To je ili snimka s druge letve, ili joj je nula premještena,
@@ -587,7 +587,7 @@
       </div>
     </div>
     <dl class="reg-facts m-0">
-      <div><dt>Redaka</dt><dd>{{brojHR .Redaka}}{{if .Preskoc}} <span class="reg-card-sub">({{brojHR .Preskoc}} preskočeno)</span>{{end}}</dd></div>
+      <div><dt>Redaka</dt><dd>{{brojHR .Redaka}}{{if .Preskoc}} <span class="reg-card-sub">({{brojHR .Preskoc}} {{uzBroj .Preskoc "preskočen" "preskočena" "preskočeno"}})</span>{{end}}</dd></div>
       <div><dt>Razdoblje</dt><dd>{{.Od}} – {{.Do}}</dd></div>
       <div><dt>Raspon</dt><dd class="mono">{{brojHRf .Najmanje 1}} – {{brojHRf .Najvise 1}}</dd></div>
       <div><dt>Razdjelnik</dt><dd class="mono">{{if eq .Pogodak.Razdjelnik ""}}Excel{{else if eq .Pogodak.Razdjelnik "\t"}}tabulator{{else}}{{.Pogodak.Razdjelnik}}{{end}}</dd></div>
@@ -676,7 +676,7 @@
     <div class="izvor-napomena">
       <span class="part-label">Niz već postoji</span>
       <p class="reading-meta mt-0 mb-2">
-        U stablu stoji {{brojHR .Zatecen.Redaka}} vrijednosti, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
+        U stablu već ima {{brojHR .Zatecen.Redaka}} {{uzBroj .Zatecen.Redaka "vrijednost" "vrijednosti" "vrijednosti"}}, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
       </p>
       <label class="uvoz-nacin">
         <input type="radio" name="nacin" value="dopuni" {{if ne $.Prijedlg.Nacin "zamijeni"}}checked{{end}}>
@@ -690,8 +690,8 @@
       </label>
       {{if .Zatecen.IzvanNov}}
       <div class="alert alert-warning mt-2 mb-0">
-        Zamjena bi odnijela <strong>{{brojHR .Zatecen.IzvanNov}}</strong> vrijednosti
-        ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}) koje u ovoj datoteci ne postoje.
+        Zamjena bi odnijela i vrijednosti kojih u ovoj datoteci nema: <strong>{{brojHR .Zatecen.IzvanNov}}</strong>
+        ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}).
       </div>
       {{end}}
     </div>

@@ -190,7 +190,7 @@
     {{end}}
     {{with .OpenEpisode}}
     {{if .DeclaredBeforeThreshold}}
-    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.LeadHours}} sati prije nego što je vodostaj prešao prag.</p>
+    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.LeadHours}} {{uzBroj .LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
     {{else if not .ThresholdAt}}
     <p class="page-desc mt-2 mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
     {{end}}
@@ -205,7 +205,7 @@
       {{if .OpenEpisode.DeclaredByName}}<span class="reg-card-sub">proglasio: {{.OpenEpisode.DeclaredByName}}</span>{{end}}
     </div>
     {{if .OpenEpisode.DeclaredBeforeThreshold}}
-    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.OpenEpisode.LeadHours}} sati prije nego što je vodostaj prešao prag.</p>
+    <p class="page-desc mt-2 mb-0">Obrana je proglašena {{.OpenEpisode.LeadHours}} {{uzBroj .OpenEpisode.LeadHours "sat" "sata" "sati"}} prije nego što je vodostaj prešao prag.</p>
     {{else if not .OpenEpisode.ThresholdAt}}
     <p class="page-desc mt-2 mb-0">Vodostaj još nije prešao prag pripremnog stanja.</p>
     {{end}}

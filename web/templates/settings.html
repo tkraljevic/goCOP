@@ -77,7 +77,7 @@
     <h2>Knjiga verzija</h2>
     <p class="desc">Svaka izmjena je nova verzija iznad prethodne; ništa se ne briše. Ovo je ono što se razmjenjuje.</p>
     <dl class="kv">
-      <dt>Ukupno</dt><dd><b>{{.TotalVersions}}</b> verzija</dd>
+      <dt>Ukupno</dt><dd><b>{{.TotalVersions}}</b> {{uzBroj .TotalVersions "verzija" "verzije" "verzija"}}</dd>
       {{range $entity, $n := .VersionCounts}}
       <dt>{{$entity}}</dt><dd>{{$n}}</dd>
       {{end}}

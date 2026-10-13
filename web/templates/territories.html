@@ -283,7 +283,7 @@
     </div>
     <div class="karta-podnozje">
       <div>
-        {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> županija · <strong>{{.TotalCities}}</strong> gradova · <strong>428</strong> općina (visoka OSM preciznost granica)
+        {{icon "landmark"}} <strong>{{.TotalCounties}}</strong> {{uzBroj .TotalCounties "županija" "županije" "županija"}} · <strong>{{.TotalCities}}</strong> {{uzBroj .TotalCities "grad" "grada" "gradova"}} · <strong>428</strong> općina (visoka OSM preciznost granica)
       </div>
       <div class="karta-legenda">
         <span class="sloj-zupanije"><i class="sloj-uzorak"></i> Županija</span>

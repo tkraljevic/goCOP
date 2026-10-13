@@ -90,7 +90,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Sinkronizacija</h2>
-        <p class="dash-card-desc">{{if .SyncAlerts}}{{.SyncAlerts}} upozorenja: nešto ne štima.{{else}}Tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje.{{end}}</p>
+        <p class="dash-card-desc">{{if .SyncAlerts}}{{.SyncAlerts}} {{uzBroj .SyncAlerts "upozorenje" "upozorenja" "upozorenja"}}: nešto ne štima.{{else}}Tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje.{{end}}</p>
       </div>
       <div class="dash-card-footer"><a href="/sinkronizacija" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
@@ -259,8 +259,8 @@
       <div class="dash-card-body">
         <h2 class="dash-card-title">Računi i lozinke</h2>
         <p class="dash-card-desc">
-          {{if .Locked}}{{.Locked}} računa čeka promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
-          {{if .Inactive}} {{.Inactive}} je deaktivirano.{{end}}
+          {{if .Locked}}{{.Locked}} {{uzBroj .Locked "račun čeka" "računa čekaju" "računa čeka"}} promjenu lozinke pri prvoj prijavi.{{else}}Nijedan račun ne čeka promjenu lozinke.{{end}}
+          {{if .Inactive}} {{.Inactive}} {{uzBroj .Inactive "je deaktiviran" "su deaktivirana" "je deaktivirano"}}.{{end}}
           Lozinku poništavate na stranici te osobe.
         </p>
       </div>
