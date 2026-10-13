@@ -83,6 +83,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dobije isto što i globalni administrator: da letva nije zadana.
 - **Snimka korita s premalo točaka.** Poruka je pisala „snimka ima samo
   2 točaka” i „1 točaka”. Sad piše „2 točke” i „1 točku”.
+- **Snimka korita koja se ne da zapisati.** Kad se nijedna snimka nije dala
+  zapisati, poruka je uvijek govorila da je odabir vjerojatno istekao i da
+  datoteke treba poslati ponovno, i kad su odmah iza stajali pravi razlozi.
+  Odabir tada nije istekao, a ponovno slanje ne pomaže. Sad poruka navodi
+  samo razloge, a o isteku govori samo kad snimki koje čekaju više nema.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

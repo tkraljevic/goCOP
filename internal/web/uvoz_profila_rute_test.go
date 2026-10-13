@@ -372,8 +372,6 @@ func TestSnimkeKoritaPremaloTocaka(t *testing.T) {
 // Kad nijedna snimka nije zapisana zbog razloga koji su navedeni, poruka ne
 // kaže da je odabir istekao: nije, i ponovno slanje ne pomaže.
 func TestSnimkeKoritaNezapisaneBezIsteklogOdabira(t *testing.T) {
-	t.Skip("GREŠKA: internal/web/handlers_uvoz_profila.go:271 uvijek piše „odabir je vjerojatno istekao, pošaljite " +
-		"datoteke ponovno”, i kad snimka čeka, a nije se dala zapisati na disk")
 	o, _ := okolinaSnimki(t)
 	korisnik := o.pero.ID.String()
 	mapa := filepath.Join(o.koren, "primjerica", "primjerovo", "profil")
