@@ -36,7 +36,7 @@ Ovo više ne traži nikakav alat:
 | Gradnja letve nakon uvoza | sama, u pozadini, nakon svakog upisa |
 | Ulaganje operativnih očitanja u arhivu i pospremanje | Administracija → Unos u arhivu → Očitanja iz programa |
 | Izdavanje paketa arhive | Administracija → Unos u arhivu → Izdanja arhive |
-| Dostava paketa arhive drugim čvorovima | sama, razmjenom: kazalo drže svi čvorovi, a paket dohvaća čvor koji prati sve ili ima pravilo „Sve vrste” bez godine početka i s punim sadržajem (pretplatu „Arhiva vodostaja” program zasad odbija spremiti) |
+| Dostava paketa arhive drugim čvorovima | sama, razmjenom: kazalo drže svi čvorovi, a paket s punim sadržajem dohvaća čvor koji prati sve, čvor s pravilom „Arhiva vodostaja” i čvor s pravilom „Sve vrste” za područje ili sektor, bez obzira na godine; pravilo „Sve vrste” za sva područja samo bez godine početka |
 | Skupljanje kiše sa stvarnih kišomjera (DHMZ s letva.voda.hr, pljusak.com), dnevno ulaganje u arhivu i izdavanje paketa promijenjenih kišomjera | samo, svaki krug, na čvoru koji izdaje prognozu (ostali kišu primaju razmjenom); u arhivu se ulaže samo na čvoru sa stablom izvornih datoteka |
 | Satno izdavanje prognoze | samo, svaki krug, na čvoru s ulogom „Izdaje prognozu” (Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora); ostali izdanje primaju razmjenom. Gumb Generiraj: Prognoze → Postavke |
 | Priprema modela: namještanje lanca, modeli ispuštanja elektrana, zapis promašaja, ponovno izdavanje | Prognoze → Postavke → Pripremi model (globalni administrator, na čvoru koji izdaje prognozu) |
