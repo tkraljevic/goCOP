@@ -60,8 +60,8 @@ func PragoviIzNiza(n DnevniNiz) (PragoviKise, bool) {
 			tri = append(tri, n[d]+a+b)
 		}
 	}
-	// Bez ijednog zbroja triju dana prag se ne da odrediti, a prazan prag
-	// (0 mm) bi dizao uzbunu na svakoj kiši: međusliv tada ostaje bez
+	// Bez ijednog zbroja triju dana prag se ne da odrediti. Prag od 0 mm
+	// dizao bi crvenu razinu i bez kiše, pa međusliv tada ostaje bez
 	// pragova, kao i s prekratkim nizom.
 	if len(tri) == 0 {
 		return PragoviKise{}, false
