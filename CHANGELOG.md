@@ -74,10 +74,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dnevni srednjak uz dotok uzvodne elektrane, pomnožen omjerom istjecanja i
   dotoka zadnjeg tjedna. Program je umjesto istjecanja uzimao sam dotok, pa
   je omjer bio uvijek 1 i voda s međusliva se gubila. Sad se uzima pravo
-  istjecanje. Najviše se mijenja HE Varaždin. Prognoza na Dravi mijenja se
-  malo: u provjeri za 2023.–2025. pogreške su gotovo iste, a na većini
-  letvi prognoza je u prosjeku malo manje preniska. Na poplavnim valovima od
-  2013. najavljeni vrh se gotovo ne mijenja, najviše 7 cm na Novom Virju.
+  istjecanje. Najviše se mijenja HE Varaždin. U provjeri za 2023.–2025., s
+  ispravkom koji vidi dežurni, prosječna pogreška na Dravi mijenja se
+  najviše 0,3 cm ili m³/s, a prognoza je u prosjeku do 1 cm ili m³/s viša.
+  Na poplavnim valovima od 2013. najavljeni vrh se gotovo ne mijenja,
+  najviše 7 cm na Novom Virju.
 - **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
   međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
   izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
