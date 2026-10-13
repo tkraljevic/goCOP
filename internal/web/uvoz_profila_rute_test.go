@@ -167,7 +167,7 @@ func TestSnimkeKoritaPregledPaUpis(t *testing.T) {
 
 	// Ista potvrda treći put nema što upisati.
 	html, _ = upis("id=" + id[1] + "&letva=primjerovo")
-	if g := porukaGreske(html); g != "nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno" ||
+	if g := porukaGreske(html); g != "Nijedna snimka nije zapisana. Odabir je istekao ili više ne postoji. Pošaljite datoteke ponovno." ||
 		rePosaoNaStranici.MatchString(html) {
 		t.Errorf("potrošena potvrda: %q", g)
 	}
@@ -247,7 +247,7 @@ func TestSnimkeKoritaUpisOdbija(t *testing.T) {
 		{"tuđa letva", o.ana, o.anaOvl, "letva=drugovo", http.StatusOK, "Letva drugovo nije na vašim dionicama."},
 		{"letve nema u stablu", o.pero, o.peroOvl, "letva=nepoznata", http.StatusOK, "letva nepoznata nije u stablu"},
 		{"istekao odabir", o.pero, o.peroOvl, "id=nema-ga&letva=primjerovo", http.StatusOK,
-			"nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno"},
+			"Nijedna snimka nije zapisana. Odabir je istekao ili više ne postoji. Pošaljite datoteke ponovno."},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			w := odgovor(o.h.UpisiProfile, obicniObrazac("/administracija/uvoz-profila/upisi", s.tijelo), s.u, s.p)
