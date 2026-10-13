@@ -115,6 +115,8 @@ func TestStanjeSlivaPragOdNulaNijePrag(t *testing.T) {
 			2, "palo u zadnja 72 sata"},
 		{"prag crvene razine od 0 mm", PragoviKise{Dan1: [3]float64{20, 40, 0}, Dan3: [3]float64{30, 60, 0}},
 			DnevniNiz{0: 1, -1: 0, -2: 0, 1: 1}, 0, ""},
+		{"mali prag vrijedi i kiša na pragu ga dosegne", PragoviKise{Dan1: [3]float64{0.5, 40, 80}},
+			DnevniNiz{0: 0.5, -1: 0, -2: 0}, 1, "palo u zadnja 24 sata"},
 	} {
 		var st StanjeSliva
 		for _, x := range StanjeSlivova(map[string]DnevniNiz{OborinaKljuc("A"): s.n}, map[string]PragoviKise{"A": s.p}) {
