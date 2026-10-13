@@ -127,7 +127,7 @@ func TestOtkljucajInventuruKrozRute(t *testing.T) {
 		t.Fatal("globalni administrator ne vidi gumb na zaključenoj inventuri")
 	}
 	tijelo := zovi(admin, glavni, http.MethodGet, stranica).Body.String()
-	for _, dio := range []string{`action="/sredstva/popisi/` + p.ID + `/otkljucaj"`, "Otključati inventuru?", "vraća u nacrt",
+	for _, dio := range []string{`<form method="POST" action="/sredstva/popisi/` + p.ID + `/otkljucaj"`, "Otključati inventuru?", "vraća u nacrt",
 		"usklađenja koja je zaključenje upisalo brišu se", "s knjižnim stanjem toga dana"} {
 		if !strings.Contains(tijelo, dio) {
 			t.Errorf("gumb nema %q", dio)
