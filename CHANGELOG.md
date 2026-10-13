@@ -87,12 +87,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
   čekanje ne dira novo. Računalo koje je nazvalo baš u trenutku prekida
   dobije odmah poruku da je uparivanje odbijeno, pa može nazvati ponovno.
-- **Zapis obrisan s oglasne ploče ne vraća se razmjenom.** Kad je uprava s
-  ploče obrisala objavu prijave poslanu s terenskog laptopa, a s laptopa za
-  to područje i godinu otad nije stiglo ništa novo, objava se vratila već
-  sljedećom razmjenom. Isto je vrijedilo za svaki zapis koji je bio zadnji
-  upis nekog računala. Sad program takvo brisanje odbije i javi zašto. Zapis
-  se može obrisati kad s tog računala stigne noviji upis.
+- **Brisanje s oglasne ploče ne briše ono što bi razmjena vratila.** Uprava
+  je s ploče mogla obrisati objavu prijave poslanu s terenskog laptopa, a
+  objava se vratila već sljedećom razmjenom. To se događalo kad s laptopa
+  otad nije stigla nijedna nova prijava ni izmjena prijave za to područje i
+  godinu. Sad program takvo brisanje odbije i javi zašto. Zapis se može
+  obrisati kad to računalo upiše nešto novije iste vrste za isto područje i
+  godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je
+  bilo koji noviji upis tog računala u te podatke.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

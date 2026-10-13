@@ -72,23 +72,7 @@ func TestBrisanjeNeDiraZadnjiUpisCvoraUKanalu(t *testing.T) {
 	if _, err := teren.RecordIn(ctx, dbT, ChannelFor(ChannelReadings, 34, 2026), "readings", "r-1", probni{"Donji Miholjac", 120}); err != nil {
 		t.Fatal(err)
 	}
-	razmijeni := func() int {
-		t.Helper()
-		granica, err := ured.Frontier(ctx)
-		if err != nil {
-			t.Fatal(err)
-		}
-		paket, err := teren.Delta(ctx, granica, nil, 100)
-		if err != nil {
-			t.Fatal(err)
-		}
-		n, err := ured.Apply(ctx, paket)
-		if err != nil {
-			t.Fatal(err)
-		}
-		return n
-	}
-	if n := razmijeni(); n != 3 {
+	if n := razmijeni(t, teren, ured); n != 3 {
 		t.Fatalf("ured je primio %d verzija, očekivane 3", n)
 	}
 	if _, err := ured.RecordIn(ctx, dbU, kanal, "prijave", "p-1", probni{"urudžba", 3}); err != nil {
@@ -101,12 +85,59 @@ func TestBrisanjeNeDiraZadnjiUpisCvoraUKanalu(t *testing.T) {
 	if err := ured.DeleteVersion(ctx, nacrt); err != nil {
 		t.Fatalf("starija verzija terena se briše: %v", err)
 	}
-	if n := razmijeni(); n != 0 {
+	if n := razmijeni(t, teren, ured); n != 0 {
 		t.Errorf("razmjena je vratila %d verzija", n)
 	}
 	if h, _ := ured.History(ctx, "prijave", "p-1"); len(h) != 2 || h[0].VersionID == nacrt || h[1].VersionID == nacrt {
 		t.Errorf("u knjizi ureda ostaju objava i urudžba: %+v", h)
 	}
+}
+
+// Isto vrijedi u zajedničkom kanalu (ustroj, registri), samo što poruka tada
+// ne govori o vrsti podataka, području i godini. Poruke čita uprava na
+// Događanjima, pa u njima nema unutarnjih pojmova „čvor” i „kanal”.
+func TestBrisanjeNeDiraZadnjiZajednickiUpisCvora(t *testing.T) {
+	ctx := context.Background()
+	dbT, dbU := openTestDB(t), openTestDB(t)
+	teren, ured := New(dbT, "teren"), New(dbU, "ured")
+	prva, err := teren.Record(ctx, dbT, "stations", "st-1", probni{"Donji Miholjac", 300})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n := razmijeni(t, teren, ured); n != 1 {
+		t.Fatalf("ured je primio %d verzija, očekivana 1", n)
+	}
+	if _, err := ured.Record(ctx, dbU, "stations", "st-1", probni{"Donji Miholjac", 310}); err != nil {
+		t.Fatal(err)
+	}
+	if err := ured.DeleteVersion(ctx, prva); !errors.Is(err, ErrZadnjiZajednickiUpisCvora) {
+		t.Fatalf("zadnji zajednički upis terena se ne briše: %v", err)
+	}
+	for _, e := range []error{ErrZadnjiUpisCvora, ErrZadnjiZajednickiUpisCvora} {
+		if p := e.Error(); strings.Contains(p, "čvor") || strings.Contains(p, "kanal") {
+			t.Errorf("poruka za upravu bez unutarnjih pojmova: %q", p)
+		}
+	}
+}
+
+// razmijeni šalje primatelju što pošiljatelj ima, a primatelj nema, kao
+// razmjena među čvorovima, i vraća broj primljenih verzija
+func razmijeni(t *testing.T, od, na *Recorder) int {
+	t.Helper()
+	ctx := context.Background()
+	granica, err := na.Frontier(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	paket, err := od.Delta(ctx, granica, nil, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	n, err := na.Apply(ctx, paket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return n
 }
 
 // Kad se knjiga ne da pročitati, brisanje to kaže, a ne javlja razlog

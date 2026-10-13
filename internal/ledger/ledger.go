@@ -641,12 +641,18 @@ var ErrZapisOBrisanju = errors.New("ovo je zapis o brisanju i ne briše se: bez 
 // drugi čvor ili je zapis prešao u drugi kanal), ali je najnovija koju njezin
 // autor ima u svom kanalu. Bez nje granica tog autora u kanalu padne, pa bi
 // druga strana obrisanu verziju poslala natrag već sljedećom razmjenom
-// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), 1).
-var ErrZadnjiUpisCvora = errors.New("ovo je zadnji upis jednog čvora u ovom kanalu i ne briše se: razmjena bi ga opet donijela s drugih čvorova. Obrisati se može tek kad od tog čvora stigne noviji upis u isti kanal")
+// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), 1). Poruku čita uprava
+// na Događanjima, pa kanal kaže riječima: vrsta podataka, područje i godina.
+var ErrZadnjiUpisCvora = errors.New("zapis nije obrisan: to je zadnje što je jedno računalo upisalo u ovu vrstu podataka za ovo područje i godinu, pa bi ga razmjena vratila. Obrisati se može kad to računalo upiše nešto novije iste vrste za isto područje i godinu")
 
-// stanjeZaBrisanje kaže je li verzija spomenik, zadnja verzija svog zapisa i
-// zadnja verzija svog autora u svom kanalu (granica razmjene)
-const stanjeZaBrisanje = `SELECT v.archived,
+// ErrZadnjiZajednickiUpisCvora je isti razlog za zajednički kanal, koji
+// nema vrstu, područje ni godinu
+var ErrZadnjiZajednickiUpisCvora = errors.New("zapis nije obrisan: to je zadnje što je jedno računalo upisalo u zajedničke podatke, npr. ustroj ili registre, pa bi ga razmjena vratila. Obrisati se može kad to računalo upiše bilo što novije u zajedničke podatke")
+
+// stanjeZaBrisanje kaže je li verzija spomenik, njezin kanal, je li zadnja
+// verzija svog zapisa i zadnja verzija svog autora u svom kanalu (granica
+// razmjene)
+const stanjeZaBrisanje = `SELECT v.archived, v.channel,
 	NOT EXISTS (SELECT 1 FROM record_versions z WHERE z.entity = v.entity AND z.entity_id = v.entity_id AND z.version_id > v.version_id),
 	NOT EXISTS (SELECT 1 FROM record_versions g WHERE g.node_id = v.node_id AND g.channel = v.channel AND g.version_id > v.version_id)
 	FROM record_versions v WHERE v.version_id = ?`
@@ -657,7 +663,8 @@ const stanjeZaBrisanje = `SELECT v.archived,
 // se ni zadnji upis autora u kanalu, jer bi ga razmjena vratila.
 func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
 	var archived, zadnjaZapisa, zadnjaAutora bool
-	err := r.db.QueryRowContext(ctx, stanjeZaBrisanje, versionID).Scan(&archived, &zadnjaZapisa, &zadnjaAutora)
+	var kanal string
+	err := r.db.QueryRowContext(ctx, stanjeZaBrisanje, versionID).Scan(&archived, &kanal, &zadnjaZapisa, &zadnjaAutora)
 	if err == sql.ErrNoRows {
 		return errors.New("zapis više ne postoji")
 	}
@@ -668,10 +675,20 @@ func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
 		return zadnjaVerzijaSeNeBrise(archived)
 	}
 	if zadnjaAutora {
-		return ErrZadnjiUpisCvora
+		return zadnjiUpisSeNeBrise(kanal)
 	}
 	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
 	return err
+}
+
+// zadnjiUpisSeNeBrise je razlog zašto DeleteVersion odbija zadnji upis
+// autora u kanalu: za zajednički kanal poruka je druga cijela rečenica, jer
+// se rečenica ne slaže od dijelova (pravilo 8 u docs/CODE_QUALITY.md)
+func zadnjiUpisSeNeBrise(kanal string) error {
+	if kanal == "" {
+		return ErrZadnjiZajednickiUpisCvora
+	}
+	return ErrZadnjiUpisCvora
 }
 
 // zadnjaVerzijaSeNeBrise je razlog zašto DeleteVersion odbija zadnju verziju
