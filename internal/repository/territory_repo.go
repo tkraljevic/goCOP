@@ -316,7 +316,7 @@ func (r *TerritoryRepository) CreateCounty(ctx context.Context, c *models.County
 	if id, err := res.LastInsertId(); err == nil {
 		c.ID = int(id)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityCounties, strconv.Itoa(c.ID), c); err != nil {
+	if err := zabiljeziSDjecom(ctx, tx, r.rec, EntityCounties, strconv.Itoa(c.ID), c); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -382,7 +382,7 @@ func (r *TerritoryRepository) CreateMunicipality(ctx context.Context, m *models.
 	if id, err := res.LastInsertId(); err == nil {
 		m.ID = int(id)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityMunicipalities, strconv.Itoa(m.ID), m); err != nil {
+	if err := zabiljeziSDjecom(ctx, tx, r.rec, EntityMunicipalities, strconv.Itoa(m.ID), m); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -426,19 +426,8 @@ func (r *TerritoryRepository) DeleteMunicipality(ctx context.Context, id int) er
 	if err := r.archiveSectionTerritories(ctx, tx, "municipality_id = ?", id); err != nil {
 		return err
 	}
-	settlementIDs, err := idsOf(ctx, tx, "SELECT id FROM settlements WHERE municipality_id = ?", id)
-	if err != nil {
+	if err := r.spomeniciNaselja(ctx, tx, id); err != nil {
 		return err
-	}
-	for _, sid := range settlementIDs {
-		n, _ := strconv.Atoi(sid)
-		st, err := getSettlementTx(ctx, tx, n)
-		if err != nil {
-			return err
-		}
-		if _, err := r.rec.Archive(ctx, tx, EntitySettlements, sid, st); err != nil {
-			return err
-		}
 	}
 
 	_, _ = tx.ExecContext(ctx, "DELETE FROM section_territories WHERE municipality_id = ?", id)
@@ -450,6 +439,27 @@ func (r *TerritoryRepository) DeleteMunicipality(ctx context.Context, id int) er
 		return err
 	}
 	return tx.Commit()
+}
+
+// spomeniciNaselja bilježi brisanje svih naselja općine: onih na površini, s
+// retkom s površine, i onih koja su u knjizi živa, a na površini ih nema, s
+// njihovom zadnjom verzijom
+func (r *TerritoryRepository) spomeniciNaselja(ctx context.Context, tx *sql.Tx, opcina int) error {
+	settlementIDs, err := idsOf(ctx, tx, "SELECT id FROM settlements WHERE municipality_id = ?", opcina)
+	for _, sid := range settlementIDs {
+		var st models.Settlement
+		n, _ := strconv.Atoi(sid)
+		if err == nil {
+			st, err = getSettlementTx(ctx, tx, n)
+		}
+		if err == nil {
+			_, err = r.rec.Archive(ctx, tx, EntitySettlements, sid, st)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return arhivirajSamoUKnjizi(ctx, tx, r.rec, vezaNaseljaOpcine, strconv.Itoa(opcina))
 }
 
 // CreateSettlement dodaje novo naselje

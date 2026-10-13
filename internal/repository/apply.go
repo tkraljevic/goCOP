@@ -196,8 +196,8 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	}
 	defer tx.Rollback()
 
-	// Jedna verzija koja se ne može primijeniti (npr. dužnost obrisanog
-	// korisnika) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
+	// Jedna verzija koja se ne može primijeniti (npr. naselje kojem općina
+	// još nije stigla) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
 	// neuspjele se preskoče i prijave, ostatak se potvrdi. Redoslijed
 	// nastanka ne jamči da je oslonac primijenjen prije (općina može biti
 	// upisana poslije svojih naselja), pa se neuspjele pokušavaju iznova dok
@@ -222,7 +222,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := applyOne(ctx, tx, naPovrsinu); err != nil {
+			if err := primijeniVerziju(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
@@ -305,27 +305,7 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 
 	switch v.Entity {
 	case EntityEpisodes:
-		var e models.DefenseEpisode
-		if err := json.Unmarshal(v.Payload, &e); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO defense_episodes (id, section_code, station_id, started_at, ended_at,
-				phase, peak_cm, peak_at, declared_by, basis, threshold_at, ended_by,
-				origin, note, created_at, updated_at)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				section_code = excluded.section_code, station_id = excluded.station_id,
-				started_at = excluded.started_at, ended_at = excluded.ended_at,
-				phase = excluded.phase, peak_cm = excluded.peak_cm, peak_at = excluded.peak_at,
-				declared_by = excluded.declared_by, basis = excluded.basis,
-				threshold_at = excluded.threshold_at, ended_by = excluded.ended_by,
-				origin = excluded.origin, note = excluded.note, updated_at = excluded.updated_at`,
-			e.ID.String(), e.SectionCode, e.StationID, e.StartedAt.UTC(), nullTime(e.EndedAt),
-			string(e.Phase), e.PeakCm, nullTime(e.PeakAt), e.DeclaredBy, e.Basis,
-			nullTime(e.ThresholdAt), e.EndedBy,
-			e.Origin, e.Note, e.CreatedAt.UTC(), e.UpdatedAt.UTC())
-		return err
+		return primijeniEpizodu(ctx, tx, v)
 
 	case EntityIspravci:
 		return primijeniIspravak(ctx, tx, v.Payload)
@@ -1083,9 +1063,10 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	case EntityEpisodes:
 		stmt = `DELETE FROM defense_episodes WHERE id = ?`
 	case EntityIspravci:
-		stmt = `DELETE FROM arhiva_ispravci WHERE id = ?`
+		// trenutak koji ostane prazan dobiva ispravak koji je u knjizi još živ
+		return makniSTrenutka(ctx, tx, "arhiva_ispravci", v, primijeniIspravak)
 	case EntityBiljeske:
-		stmt = `DELETE FROM arhiva_biljeske WHERE id = ?`
+		return makniSTrenutka(ctx, tx, "arhiva_biljeske", v, primijeniBiljesku)
 	case EntityOdbacena:
 		stmt = `DELETE FROM odbacena_ocitanja WHERE id = ?`
 	case EntityOrgTerms:

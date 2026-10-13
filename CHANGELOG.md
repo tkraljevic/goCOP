@@ -4,6 +4,49 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.38-alfa — u pripremi
+
+- **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
+  dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa
+  drugi čvorovi za to nisu znali. Novi čvor takvu je epizodu čekao pri
+  svakoj razmjeni, a pri svakom pokretanju programa u dnevniku je stajala
+  greška, i na računalu na kojem je dionica obrisana. Sad brisanje dionice
+  kao obrisane bilježi i sve njezine epizode, a epizoda dionice obrisane
+  ranije se preskače. Ne vraća se ni kad se dionica poslije ponovno upiše
+  pod istom šifrom.
+- **Dionica s obrisanom letvom ili objektom stiže na druge čvorove.** Kad se
+  iz registra obriše letva ili objekt koji dionica još navodi, novi čvor tu
+  dionicu nije dobio, ni njezine epizode obrane. Pri svakom pokretanju
+  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
+  je letva obrisana, a ondje se dionica više nije dala ni spremiti. Sad se
+  obrisana letva ili objekt uz dionicu preskače. Letvu ili objekt koji na
+  čvor još nisu stigli dionica i dalje čeka.
+- **Obrisana bilješka arhive ne vraća se.** Kad su za isti sat postojale
+  dvije bilješke, upisane na dva računala, brisanje je obrisalo samo onu
+  koja se vidjela. Druga se vratila pri idućem pokretanju programa, a novi
+  čvor ju je znao dobiti odmah. Sad brisanje bilješke briše sve bilješke tog
+  sata. Kad se obriše bilješka koja se vidi, a druga za isti sat ostane,
+  svi čvorovi odmah pokazuju tu drugu, ne tek nakon ponovnog pokretanja.
+  Isto vrijedi za ispravke arhive.
+- **Brisanje naselja ili općine koju navodi dionica stiže svuda.** Na
+  računalima koja imaju takvu dionicu naselje je ostajalo, a razmjena je
+  svaki put javljala grešku. Novi čvor dionicu nije dobio, a pri pokretanju
+  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
+  je naselje obrisano. Sad naselje nestane svuda, a dionica ostaje bez
+  veze s njim.
+- **Brisanje dok drugo računalo upisuje.** Jedno računalo obriše područje,
+  sektor, općinu, županiju ili korisnika, a drugo u isto vrijeme tome upiše
+  objekt, naselje ili dužnost. Računala su se tada trajno razišla: jedno je
+  novi zapis čekalo zauvijek, a drugo nije moglo obrisati ono što je
+  obrisano. Sad na svim računalima brisanje ima prednost, pa se takav zapis
+  ne pokazuje. Kad se područje ili sektor ponovno upiše pod istim brojem,
+  zapis se vraća s njim. Brisanje korisnika ili općine sad kao obrisane
+  bilježi i dužnosti i naselja koja to računalo nije imalo na popisu.
+- **Epizoda obrane dolazi s ponovno upisanom dionicom.** Kad je dionica
+  obrisana pa ponovno upisana pod istom šifrom, epizoda koju je drugo
+  računalo u međuvremenu otvorilo na njoj nije se pokazivala do ponovnog
+  pokretanja programa. Sad dolazi odmah, s dionicom.
+
 ## 0.0.37-alfa — 13. 10. 2026.
 
 - **Očitanja koja su stigla, a nisu bila upisana.** Kad dva čvora šalju u
