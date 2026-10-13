@@ -34,7 +34,7 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 	}
 
 	konstante := map[string]string{} // ime → vrijednost
-	var grane []ast.Expr             // izrazi iz SurfaceEntities
+	var povrsinski []ast.Expr        // izrazi iz SurfaceEntities
 	for _, f := range izvori {
 		for _, d := range f.Decls {
 			switch d := d.(type) {
@@ -53,7 +53,7 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 						}
 						if d.Tok == token.VAR && ime.Name == "SurfaceEntities" && i < len(vs.Values) {
 							if cl, ok := vs.Values[i].(*ast.CompositeLit); ok {
-								grane = append(grane, cl.Elts...)
+								povrsinski = append(povrsinski, cl.Elts...)
 							}
 						}
 					}
@@ -82,23 +82,23 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 			t.Errorf("entitet %q ima primjenu na površinu (primjene), a nije u PoznatiEntiteti", e)
 		}
 	}
-	for _, x := range grane {
+	for _, x := range povrsinski {
 		var v string
 		switch x := x.(type) {
 		case *ast.Ident:
 			var ok bool
 			if v, ok = konstante[x.Name]; !ok {
-				t.Errorf("%s: grana po entitetu %s nije konstanta Entity* ovog paketa", fset.Position(x.Pos()), x.Name)
+				t.Errorf("%s: element SurfaceEntities %s nije konstanta Entity* ovog paketa", fset.Position(x.Pos()), x.Name)
 				continue
 			}
 		case *ast.BasicLit:
 			v, _ = strconv.Unquote(x.Value)
 		default:
-			t.Errorf("%s: neočekivan izraz u grani po entitetu", fset.Position(x.Pos()))
+			t.Errorf("%s: neočekivan izraz u SurfaceEntities", fset.Position(x.Pos()))
 			continue
 		}
 		if !poznati[v] {
-			t.Errorf("%s: entitet %q se primjenjuje, a nije u PoznatiEntiteti", fset.Position(x.Pos()), v)
+			t.Errorf("%s: entitet %q je u SurfaceEntities, a nije u PoznatiEntiteti", fset.Position(x.Pos()), v)
 		}
 	}
 }
