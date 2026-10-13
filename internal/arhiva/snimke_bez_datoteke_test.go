@@ -12,17 +12,21 @@ import (
 
 // Zaključava ispis gradnje za ono što je ostalo bez datoteke: niz sa svojim
 // stupcima i brojem vrijednosti u spojenom nizu, snimka korita s danom i
-// brojem točaka.
+// brojem točaka. Riječ i glagol uz broj slažu se s brojem.
 func TestIspisBezDatoteke(t *testing.T) {
 	var b strings.Builder
 	javiBezDatoteke(&b, []Sirotan{
 		{Letva: "vodograd", Izvor: "cop-rucno", Velicina: "vodostaj", Vrsta: "jutarnji", Zapisa: 3, USpoju: 2},
+		{Letva: "vodograd", Izvor: "cop-rucno", Velicina: "vodostaj", Vrsta: "dnevni", Zapisa: 1, USpoju: 1},
+		{Letva: "vodograd", Izvor: "cop-rucno", Velicina: "vodostaj", Vrsta: "srednjak", Zapisa: 12, USpoju: 12},
 		{Letva: "vodograd", Izvor: "cop", Velicina: "vodostaj", Vrsta: "satni", Zapisa: 1},
 		{Letva: "vodograd", Snimka: true, Datum: "2010-03-22", Zapisa: 1},
 		{Letva: "vodograd", Snimka: true, Datum: "2011-04-01", Zapisa: 5},
 	})
 	for _, redak := range []string{
-		"vodograd         cop-rucno              vodostaj     jutarnji          3  SIROTAN — datoteke nema u stablu, a 2 vrijednosti je u spojenom nizu\n",
+		"vodograd         cop-rucno              vodostaj     jutarnji          3  SIROTAN — datoteke nema u stablu, a 2 vrijednosti su u spojenom nizu\n",
+		"vodograd         cop-rucno              vodostaj     dnevni            1  SIROTAN — datoteke nema u stablu, a 1 vrijednost je u spojenom nizu\n",
+		"vodograd         cop-rucno              vodostaj     srednjak         12  SIROTAN — datoteke nema u stablu, a 12 vrijednosti je u spojenom nizu\n",
 		"vodograd         cop                    vodostaj     satni             1  SIROTAN — datoteke nema u stablu\n",
 		"vodograd         snimka korita 2010-03-22, 1 točka  SIROTAN — datoteke nema u stablu\n",
 		"vodograd         snimka korita 2011-04-01, 5 točaka  SIROTAN — datoteke nema u stablu\n",

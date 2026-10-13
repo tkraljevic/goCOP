@@ -412,11 +412,12 @@ func (o Sirotan) redakIspisa() string {
 		return fmt.Sprintf("snimka korita %s, %d %s  SIROTAN — datoteke nema u stablu",
 			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "točka", "točke", "točaka"))
 	}
-	s := fmt.Sprintf("%-22s %-12s %-10s %8d  SIROTAN — datoteke nema u stablu", o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
-	if o.USpoju > 0 {
-		s += fmt.Sprintf(", a %d vrijednosti je u spojenom nizu", o.USpoju)
+	niz := fmt.Sprintf("%-22s %-12s %-10s %8d", o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
+	if o.USpoju == 0 {
+		return niz + "  SIROTAN — datoteke nema u stablu"
 	}
-	return s
+	return fmt.Sprintf("%s  SIROTAN — datoteke nema u stablu, a %d %s %s u spojenom nizu", niz, o.USpoju,
+		models.UzBrojHR(o.USpoju, "vrijednost", "vrijednosti", "vrijednosti"), models.UzBrojHR(o.USpoju, "je", "su", "je"))
 }
 
 // bezDatoteke vraća nizove i snimke korita koji stoje u arhivi bez datoteke u
