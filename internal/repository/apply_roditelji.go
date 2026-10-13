@@ -19,12 +19,14 @@ import (
 // na dva čvora davao različitu površinu (pravilo 5).
 //
 // Pravilo je ono koje je do 13. 10. 2026. vrijedilo samo za dnevnik i
-// dionicu: brisanje ima prednost. Dijete obrisanog roditelja ne ide na
-// površinu i ne čeka (roditeljObrisan), a spomenik roditelja s površine miče
-// i njegovu djecu (makniDjecu). Djeca ostaju živa u knjizi, pa se vraćaju
-// kad se roditelj vrati pod istim identitetom (vratiDjecu), kao što bi ih
-// vratila i obnova površine pri pokretanju. Primjena pritom ne stvara nove
-// verzije.
+// dionicu, a otad za sve veze (Odluke (13. 10. 2026.)): brisanje ima
+// prednost. Dijete obrisanog roditelja ne ide na površinu i ne čeka
+// (roditeljObrisan), a spomenik roditelja s površine miče i njegovu djecu
+// (makniDjecu). Djeca ostaju živa u knjizi, pa se vraćaju kad se roditelj
+// vrati pod istim identitetom (vratiDjecu), kao što bi ih vratila i obnova
+// površine pri pokretanju. Primjena pritom ne stvara nove verzije. Onaj
+// čiji upis tako ne ide na površinu zasad ne dobiva obavijest; može se
+// dodati poslije, za radnje kojima treba.
 
 // vezaNaRoditelja je strani ključ zapisa na roditelja. Tablica površine zove
 // se kao entitet u knjizi, a polje u sadržaju verzije kao stupac.
