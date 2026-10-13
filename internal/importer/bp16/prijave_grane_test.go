@@ -272,6 +272,21 @@ func TestUvozObavijestiGreske(t *testing.T) {
 	if err := necitljiva.QueryRow(`SELECT broj, area_id FROM prijave WHERE id = ?`, id).Scan(&broj, &podrucje); err != nil || broj != 7 || podrucje != "šesnaest" {
 		t.Errorf("prenesena prijava prepisana: broj %d, područje %q, %v", broj, podrucje, err)
 	}
+
+	// broj prijave u godini ne da se pročitati: uvoz stane prije upisa,
+	// a ne upiše prijavu bez broja
+	losBroj := kopijaBaze(t, predlozak)
+	if _, err := losBroj.Exec(`INSERT INTO prijave (id, user_id, sektor, area_id, broj, godina, status, podaci, created_at, updated_at)
+		VALUES ('druga', 'g-1', 'B', 16, 1e300, 2024, ?, ?, ?, ?)`, models.PrijavaObjavljena, `{"izvor":"drugo"}`, sad, sad); err != nil {
+		t.Fatal(err)
+	}
+	rep, err = RunPrijave(ctx, jedna(), deps(prijaveNa(losBroj)))
+	if err == nil || !strings.Contains(err.Error(), "1e+300") || rep.Upisano != 0 {
+		t.Errorf("nečitljiv broj prijave: %+v, %v", rep, err)
+	}
+	if p, err := prijaveNa(losBroj).PoIzvoru(ctx, "bp16:obavijesti_sa_terena:30"); err != nil || p != nil {
+		t.Errorf("prijava upisana bez broja: %+v, %v", p, err)
+	}
 	d := deps(prijaveNa(kopijaBaze(t, predlozak)))
 	d.SpremiSken = func(*models.PrijavaSTerena, []byte) (string, error) { return "", errors.New("mapa nije zapisiva") }
 	if _, err := RunPrijave(ctx, jedna(), d); err == nil || err.Error() != "obavijest 30, sken: mapa nije zapisiva" {
