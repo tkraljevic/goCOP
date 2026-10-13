@@ -33,6 +33,8 @@ import (
 	"math"
 	"sort"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // ParoviObala su letve jedna nasuprot drugoj; vrijedi u oba smjera.
@@ -77,8 +79,8 @@ type Zamjena struct {
 // Opis je rečenica za karticu; šifra letve stoji zasebno, da je stranica
 // zamijeni imenom.
 func (z Zamjena) Opis() string {
-	return fmt.Sprintf("zamjena: mjerenje kasni %d h; ti su sati uzeti s druge obale, s letve %s uz pomak %+d cm (razlika nula na %d zajedničkih sati)",
-		z.Sati, z.Iz, z.Pomak, z.Zajed)
+	return fmt.Sprintf("zamjena: mjerenje kasni %d h; ti su sati uzeti s druge obale, s letve %s uz pomak %+d cm (razlika nula na %d %s)",
+		z.Sati, z.Iz, z.Pomak, z.Zajed, models.UzBrojHR(z.Zajed, "zajedničkom satu", "zajednička sata", "zajedničkih sati"))
 }
 
 // pomakObala je medijan razlike letva − druga na satima koje imaju obje, u

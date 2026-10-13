@@ -131,9 +131,9 @@ func nazivDosega(d int) string {
 }
 
 var pragoviProfila = []struct{ kljuc, naziv, class string }{
-	{"prep", "pripremna", "prep"},
-	{"regular", "redovna", "regular"},
-	{"emerg", "izvanredna", "emerg"},
+	{"prep", "pripremno stanje", "prep"},
+	{"regular", "redovna obrana", "regular"},
+	{"emerg", "izvanredna obrana", "emerg"},
 }
 
 // NajmanjiRaspon drži mjerilo poštenim na mirnoj vodi: bez njega bi dva

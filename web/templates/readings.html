@@ -14,8 +14,8 @@
 </div>
 
 <div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "ruler"}} {{.WithReadings}} letvi s očitanjima</span>
-  <span class="stat-badge has-items">{{icon "history"}} {{.TotalCount}} očitanja</span>
+  <span class="stat-badge has-items">{{icon "ruler"}} {{.WithReadings}} {{uzBroj .WithReadings "letva" "letve" "letvi"}} s očitanjima</span>
+  <span class="stat-badge has-items">{{icon "history"}} {{.TotalCount}} {{uzBroj .TotalCount "očitanje" "očitanja" "očitanja"}}</span>
   {{if not .LastAt.IsZero}}<span class="stat-badge">{{icon "clock"}} zadnje {{ago .LastAt}}</span>{{end}}
 </div>
 
@@ -94,7 +94,7 @@
       <div class="reading-meta" style="margin-top:0.35rem; color:var(--text-muted);">Još nema očitanja.</div>
       {{end}}
       <div class="reg-card-foot">
-        <span class="reg-chip {{if eq .Count 0}}empty{{end}}">{{icon "history"}} {{.Count}} očitanja</span>
+        <span class="reg-chip {{if eq .Count 0}}empty{{end}}">{{icon "history"}} {{.Count}} {{uzBroj .Count "očitanje" "očitanja" "očitanja"}}</span>
         {{if .Latest}}<span class="reg-origin">{{.Latest.SourceLabel}}{{with .Latest.OriginLabel}} · {{.}}{{end}}</span>{{end}}
       </div>
     </a>

@@ -231,16 +231,16 @@ func (s *IzvjescaService) PrijedlogTekstova(sva []models.DnevnoIzvjesce, ukljuci
 					dij = append(dij, p.Naselja)
 				}
 				if p.Ljudi > 0 {
-					dij = append(dij, fmt.Sprintf("%d ljudi", p.Ljudi))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Ljudi, models.UzBrojHR(p.Ljudi, "čovjek", "čovjeka", "ljudi")))
 				}
 				if p.Stambeni > 0 {
-					dij = append(dij, fmt.Sprintf("%d stambenih", p.Stambeni))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Stambeni, models.UzBrojHR(p.Stambeni, "stambeni", "stambena", "stambenih")))
 				}
 				if p.Industrijski > 0 {
-					dij = append(dij, fmt.Sprintf("%d industrijskih", p.Industrijski))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Industrijski, models.UzBrojHR(p.Industrijski, "industrijski", "industrijska", "industrijskih")))
 				}
 				if p.Farme > 0 {
-					dij = append(dij, fmt.Sprintf("%d farmi", p.Farme))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Farme, models.UzBrojHR(p.Farme, "farma", "farme", "farmi")))
 				}
 				if p.Infrastruktura != "" {
 					dij = append(dij, p.Infrastruktura)
@@ -262,10 +262,10 @@ func (s *IzvjescaService) PrijedlogTekstova(sva []models.DnevnoIzvjesce, ukljuci
 					dij = append(dij, e.Naselja)
 				}
 				if e.Ljudi > 0 {
-					dij = append(dij, fmt.Sprintf("%d ljudi", e.Ljudi))
+					dij = append(dij, fmt.Sprintf("%d %s", e.Ljudi, models.UzBrojHR(e.Ljudi, "čovjek", "čovjeka", "ljudi")))
 				}
 				if e.Kucanstava > 0 {
-					dij = append(dij, fmt.Sprintf("%d kućanstava", e.Kucanstava))
+					dij = append(dij, fmt.Sprintf("%d %s", e.Kucanstava, models.UzBrojHR(e.Kucanstava, "kućanstvo", "kućanstva", "kućanstava")))
 				}
 				if e.Zivotinje != "" {
 					dij = append(dij, e.Zivotinje)

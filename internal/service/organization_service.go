@@ -102,7 +102,7 @@ func (s *OrgService) DeleteSector(ctx context.Context, perms *models.UserPermiss
 		return err
 	}
 	if n > 0 {
-		return fmt.Errorf("sektor %s se ne može obrisati: na njega se veže %d branjenih područja, dionica ili zaduženja", id, n)
+		return fmt.Errorf("sektor %s se ne može obrisati: na njega se još vežu branjena područja, dionice ili zaduženja (%d)", id, n)
 	}
 	if err := s.repo.DeleteSector(ctx, id); err != nil {
 		return err
@@ -159,7 +159,7 @@ func (s *OrgService) DeleteArea(ctx context.Context, perms *models.UserPermissio
 		return err
 	}
 	if n > 0 {
-		return fmt.Errorf("branjeno područje %d se ne može obrisati: na njega se veže %d dionica ili zaduženja", id, n)
+		return fmt.Errorf("branjeno područje %d se ne može obrisati: na njega se još vežu dionice ili zaduženja (%d)", id, n)
 	}
 	if err := s.repo.DeleteArea(ctx, id); err != nil {
 		return err

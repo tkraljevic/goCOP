@@ -2,6 +2,7 @@ package prognoza
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 )
 
@@ -95,5 +96,12 @@ func TestOpisZamjene(t *testing.T) {
 	want := "zamjena: mjerenje kasni 3 h; ti su sati uzeti s druge obale, s letve komarno uz pomak -46 cm (razlika nula na 120 zajedničkih sati)"
 	if got := z.Opis(); got != want {
 		t.Errorf("%q\nželim %q", got, want)
+	}
+	// najmanje je 24 zajednička sata, pa se taj oblik često vidi
+	for zajed, kraj := range map[int]string{24: "na 24 zajednička sata)", 31: "na 31 zajedničkom satu)", 35: "na 35 zajedničkih sati)"} {
+		z.Zajed = zajed
+		if got := z.Opis(); !strings.HasSuffix(got, kraj) {
+			t.Errorf("%d: %q", zajed, got)
+		}
 	}
 }

@@ -72,8 +72,8 @@ func KnjigaDionice(d SectionPageData, z ZaglavljeIzvoza) *xlsxw.Knjiga {
 	if sec.EmbankmentLength() > 0 {
 		mjere = append(mjere, "nasipa "+models.FormatKm(sec.EmbankmentLength())+" km")
 	}
-	mjere = append(mjere, fmt.Sprintf("%d %s, %d %s, %d %s", len(d.Parts), uzBrojHR(len(d.Parts), "poddionica", "poddionice", "poddionica"),
-		sec.GaugeCount(), uzBrojHR(sec.GaugeCount(), "vodomjer", "vodomjera", "vodomjera"), sec.ObjectCount(), uzBrojHR(sec.ObjectCount(), "objekt", "objekta", "objekata")))
+	mjere = append(mjere, fmt.Sprintf("%d %s, %d %s, %d %s", len(d.Parts), models.UzBrojHR(len(d.Parts), "poddionica", "poddionice", "poddionica"),
+		sec.GaugeCount(), models.UzBrojHR(sec.GaugeCount(), "vodomjer", "vodomjera", "vodomjera"), sec.ObjectCount(), models.UzBrojHR(sec.ObjectCount(), "objekt", "objekta", "objekata")))
 	polje("Mjere", strings.Join(mjere, " · "))
 	polje("Obrana koja traje", obranaUKnjizi(d))
 	if d.Gauge != nil {
@@ -166,7 +166,7 @@ func KnjigaDionice(d SectionPageData, z ZaglavljeIzvoza) *xlsxw.Knjiga {
 		}
 
 		// nasipi s objektima i ugroženim područjem
-		red(map[int]xlsxw.Celija{0: B(fmt.Sprintf("Nasipi i objekti — %d %s, %d %s", len(p.Embankments), uzBrojHR(len(p.Embankments), "nasip", "nasipa", "nasipa"), len(p.Objects), uzBrojHR(len(p.Objects), "objekt", "objekta", "objekata")), xlsxw.TablicaPod)}, [][2]int{{0, stupaca - 1}})
+		red(map[int]xlsxw.Celija{0: B(fmt.Sprintf("Nasipi i objekti — %d %s, %d %s", len(p.Embankments), models.UzBrojHR(len(p.Embankments), "nasip", "nasipa", "nasipa"), len(p.Objects), models.UzBrojHR(len(p.Objects), "objekt", "objekta", "objekata")), xlsxw.TablicaPod)}, [][2]int{{0, stupaca - 1}})
 		if len(p.Rows) == 0 {
 			polje("", "Dokumentacija ne navodi nasipe ni objekte.")
 		} else {

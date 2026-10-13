@@ -305,7 +305,9 @@ func (h *PrijaveHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 	}
 	poruka := "Nacrt je spremljen; pregledajte ga, pa objavite i potpišite."
 	if dodano > 0 {
-		poruka = "Nacrt je spremljen s " + strconv.Itoa(dodano) + " fotografija (smanjene za dokument); pregledajte ga, pa objavite i potpišite."
+		poruka = "Nacrt je spremljen s " + strconv.Itoa(dodano) + " " +
+			models.UzBrojHR(dodano, "fotografijom (smanjena je za dokument)", "fotografije (smanjene su za dokument)", "fotografija (smanjene su za dokument)") +
+			"; pregledajte ga, pa objavite i potpišite."
 	}
 	redirectWith(w, r, "/prijave/"+p.ID, "success", poruka)
 }

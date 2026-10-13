@@ -273,9 +273,10 @@ func (h *StationsHandler) UgradiPaket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, natrag, "success", fmt.Sprintf(
-		"Historijat letve %s, izdanje %d — ugrađeno %s zapisa u %d nizova.",
+		"Historijat letve %s, izdanje %d — %s %s u %d %s.",
 		sadrzaj.Manifest.Letva, sadrzaj.Manifest.Izdanje,
-		brojHR(sadrzaj.Manifest.Zapisa), sadrzaj.Manifest.Nizova))
+		brojHR(sadrzaj.Manifest.Zapisa), models.UzBrojHR(sadrzaj.Manifest.Zapisa, "zapis je ugrađen", "zapisa su ugrađena", "zapisa je ugrađeno"),
+		sadrzaj.Manifest.Nizova, models.UzBrojHR(sadrzaj.Manifest.Nizova, "niz", "niza", "nizova")))
 }
 
 func (h *StationsHandler) pisiPregled(w http.ResponseWriter, pd PaketData) {

@@ -852,7 +852,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 			storniranih++
 		}
 	}
-	osnovno("Zapisa", fmt.Sprintf("%d, u %d dana; storniranih %d", len(zapisi), len(dana), storniranih))
+	osnovno("Zapisa", fmt.Sprintf("%d, u %d %s; storniranih %d", len(zapisi), len(dana), models.UzBrojHR(len(dana), "dan", "dana", "dana"), storniranih))
 	if j.Reconstruction {
 		osnovno("Napomena", "Prijepis iz uveza. "+j.Notes)
 	} else if j.Notes != "" {

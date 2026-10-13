@@ -70,7 +70,7 @@
           <h3 class="reg-card-title">{{.DisplayTitle}}</h3>
           <div class="reg-card-sub">{{if .CentarSektor}}{{if .CentarNaziv}}{{.CentarNaziv}}{{else}}{{terml "sektor"}} {{.CentarSektor}}{{end}}{{else}}{{.KindLabel}}{{end}} · {{.Year}}.{{if .SectionCode}} · dionica {{.SectionCode}}{{end}}</div>
         </div>
-        <span>{{if .Reconstruction}}<span class="badge badge-inactive" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span> {{end}}{{if .OpenTasks}}<span class="badge badge-pending">{{.OpenTasks}} otvorenih naloga</span>{{end}}</span>
+        <span>{{if .Reconstruction}}<span class="badge badge-inactive" title="Upisi preneseni iz starije evidencije radi primjera; ovjereni listovi postoje zasebno">rekonstrukcija</span> {{end}}{{if .OpenTasks}}<span class="badge badge-pending">{{.OpenTasks}} {{uzBroj .OpenTasks "otvoren nalog" "otvorena naloga" "otvorenih naloga"}}</span>{{end}}</span>
       </div>
       <dl class="reg-facts">
         {{if .Contractor}}<div><dt>Izvođač</dt><dd>{{.Contractor}}</dd></div>{{end}}
@@ -83,7 +83,7 @@
         {{if .LastSheetOn}}<span class="reg-chip">{{icon "history"}} zadnji {{.LastSheetOn}}</span>{{end}}
         {{if .Reconstruction}}<span class="reg-chip">{{icon "notebook"}} prijepis iz uveza</span>{{end}}
         {{else}}
-        <span class="reg-chip {{if eq .SheetCount 0}}empty{{end}}">{{icon "file-text"}} {{.SheetCount}} listova</span>
+        <span class="reg-chip {{if eq .SheetCount 0}}empty{{end}}">{{icon "file-text"}} {{.SheetCount}} {{uzBroj .SheetCount "list" "lista" "listova"}}</span>
         {{if .LastSheetOn}}<span class="reg-chip">{{icon "history"}} zadnji list {{.LastSheetOn}}</span>{{end}}
         {{end}}
       </div>

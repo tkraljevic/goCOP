@@ -114,10 +114,10 @@ func TestStranicaLetvePokazujeOdbaceneVrijednosti(t *testing.T) {
 }
 
 func TestPorukaPreuzimanja(t *testing.T) {
-	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 3, Novih: 2}); p != "Preuzeto 3 očitanja s javne stranice, novih 2." {
+	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 3, Novih: 2}); p != "Preuzeto s javne stranice: 3 očitanja, novih 2." {
 		t.Errorf("bez odbačenih: %q", p)
 	}
-	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 3, Novih: 1, Odbaceno: 2}); p != "Preuzeto 3 očitanja s javne stranice, novih 1, odbačeno izvan raspona 2." {
+	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 3, Novih: 1, Odbaceno: 2}); p != "Preuzeto s javne stranice: 3 očitanja, novih 1, odbačeno izvan raspona 2." {
 		t.Errorf("s odbačenima: %q", p)
 	}
 }

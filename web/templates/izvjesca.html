@@ -39,7 +39,7 @@
         <td data-stupac="Dan"><a href="/sektorsko-izvjesce/{{.ID}}"><strong>{{danTjedna .Dan}} {{.Dan.Format "2.1.2006."}}</strong></a></td>
         <td data-stupac="Sektor">{{.Sektor}}</td>
         <td data-stupac="Stadij"><span class="threshold-pill {{.NajvisiStadij.PillClass}}">{{stadijKratica .NajvisiStadij}}</span></td>
-        <td data-stupac="Izvješća" class="mono">{{.Sadrzaj.Pregled.Izvjesca}}{{if .Sadrzaj.Pregled.Nacrta}} <span class="reg-card-sub">+{{.Sadrzaj.Pregled.Nacrta}} nepredano</span>{{end}}</td>
+        <td data-stupac="Izvješća" class="mono">{{.Sadrzaj.Pregled.Izvjesca}}{{if .Sadrzaj.Pregled.Nacrta}} <span class="reg-card-sub">+{{.Sadrzaj.Pregled.Nacrta}} {{uzBroj .Sadrzaj.Pregled.Nacrta "nepredano" "nepredana" "nepredano"}}</span>{{end}}</td>
         <td data-stupac="Zapisa" class="mono">{{len .Sadrzaj.Zapisi}}</td>
         <td data-stupac="Sastavio">{{.Izradio}} <span class="reg-card-sub">{{.IzradenoAt.Format "2.1. 15:04"}}</span></td>
         <td data-stupac="Stanje">{{if .Predano}}<span class="badge">{{.OpisPredaje "" "15:04"}}</span>{{else}}<span class="badge badge-pending">nacrt</span>{{if .BiloPredano}} <span class="reg-card-sub">čeka ponovnu predaju</span>{{end}}{{end}}{{with .IzmjeneZaIspis}} <span class="reg-card-sub">{{.}}</span>{{end}}</td>

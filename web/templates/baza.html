@@ -60,15 +60,15 @@
     </div>
     <button type="submit" class="btn btn-secondary">Preračunaj</button>
   </form>
-  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> verzija.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
+  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
   {{if .Permissions.IsGlobalAdmin}}
   <div class="d-flex gap-2 flex-wrap">
-    <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} starijih verzija? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
+    <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} {{uzBroj .Compactable "stariju verziju" "starije verzije" "starijih verzija"}}? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
       <input type="hidden" name="days" value="{{.KeepDays}}">
       <button type="submit" class="btn btn-primary" {{if not .Compactable}}disabled{{end}}>{{icon "trash"}} Sažmi knjigu</button>
     </form>
     {{if .BrisanjePovijesti}}
-    <form method="POST" action="/administracija/baza/spomenici" onsubmit="return confirm('Obrisati {{.Spomenika}} spomenika obrisanih zapisa? Zakašnjeli čvor tada može obrisani zapis vratiti; samo za testni čvor.')">
+    <form method="POST" action="/administracija/baza/spomenici" onsubmit="return confirm('Obrisati {{.Spomenika}} {{uzBroj .Spomenika "spomenik obrisanog zapisa" "spomenika obrisanih zapisa" "spomenika obrisanih zapisa"}}? Zakašnjeli čvor tada može obrisani zapis vratiti; samo za testni čvor.')">
       <button type="submit" class="btn btn-secondary btn-opasno" {{if not .Spomenika}}disabled{{end}}>{{icon "trash"}} Obriši spomenike ({{.Spomenika}})</button>
     </form>
     {{end}}

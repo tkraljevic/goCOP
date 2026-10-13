@@ -141,15 +141,15 @@
 
       <!-- Značke s brojem objekata, nasipa i vodomjera -->
       <div class="section-stats-row">
-        {{if gt (len .Parts) 1}}<span class="stat-badge has-items" title="Poddionice">{{len .Parts}} poddionice</span>{{end}}
+        {{if gt (len .Parts) 1}}<span class="stat-badge has-items" title="Poddionice">{{len .Parts}} {{uzBroj (len .Parts) "poddionica" "poddionice" "poddionica"}}</span>{{end}}
         <span class="stat-badge {{if gt .ObjectCount 0}}has-items{{end}}" title="Objekti na dionici">
-          {{icon "construction"}} {{.ObjectCount}} objekata
+          {{icon "construction"}} {{.ObjectCount}} {{uzBroj .ObjectCount "objekt" "objekta" "objekata"}}
         </span>
         <span class="stat-badge {{if gt .EmbankmentCount 0}}has-items{{end}}" title="Nasipi i brane">
-          {{icon "shield"}} {{.EmbankmentCount}} nasipa
+          {{icon "shield"}} {{.EmbankmentCount}} {{uzBroj .EmbankmentCount "nasip" "nasipa" "nasipa"}}
         </span>
         <span class="stat-badge {{if gt .GaugeCount 0}}has-items{{end}}" title="Mjerodavni vodomjeri">
-          {{icon "chart-column"}} {{.GaugeCount}} vodomjera
+          {{icon "chart-column"}} {{.GaugeCount}} {{uzBroj .GaugeCount "vodomjer" "vodomjera" "vodomjera"}}
         </span>
       </div>
     </div>

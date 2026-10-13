@@ -27,8 +27,8 @@
 
 {{if .Zanemareno}}
 <div class="alert alert-warning">
-  <strong>{{brojHR .Zanemareno}} {{uzBroj .Zanemareno "zapis" "zapisa" "zapisa"}}</strong> leži u arhivi a ne ulazi
-  u spojeni niz — nigdje se ne vidi. Ako je to namjera, upišite ju u napomenu da se poslije zna.
+  <strong>{{brojHR .Zanemareno}} {{uzBroj .Zanemareno "zapis" "zapisa" "zapisa"}}</strong> {{uzBroj .Zanemareno "leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi" "leže u arhivi, a ne ulaze u spojeni niz, pa se nigdje ne vide" "leži u arhivi, a ne ulazi u spojeni niz, pa se nigdje ne vidi"}}.
+  Ako je to namjera, upišite to u napomenu da se poslije zna.
 </div>
 {{end}}
 

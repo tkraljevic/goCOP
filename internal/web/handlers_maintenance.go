@@ -273,7 +273,8 @@ func (h *MaintenanceHandler) showImport(w http.ResponseWriter, r *http.Request, 
 	if write {
 		os.Remove(path)
 		redirectWith(w, r, h.back(area), "success",
-			"Ugovor je upisan: "+strconv.Itoa(len(rep.Locations))+" lokacija, "+strconv.Itoa(rep.ItemsNew)+" novih stavki radova.")
+			"Ugovor je upisan: "+strconv.Itoa(len(rep.Locations))+" "+models.UzBrojHR(len(rep.Locations), "lokacija", "lokacije", "lokacija")+", "+
+				strconv.Itoa(rep.ItemsNew)+" "+models.UzBrojHR(rep.ItemsNew, "nova stavka radova", "nove stavke radova", "novih stavki radova")+".")
 		return
 	}
 	// izvješće na istoj stranici, s poljima za ručne veze i gumbom za upis

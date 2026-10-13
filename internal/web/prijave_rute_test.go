@@ -194,7 +194,7 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	r := httptest.NewRequest(http.MethodPost, "/prijave", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
 	l := loc(zovi(ivic, r))
-	if !strings.Contains(l, "success") || !strings.Contains(l, "2 fotografija") {
+	if !strings.Contains(l, "success") || !strings.Contains(l, "2 fotografije") {
 		t.Fatalf("nacrt: %s", l)
 	}
 	id := strings.TrimPrefix(strings.SplitN(l, "?", 2)[0], "/prijave/")

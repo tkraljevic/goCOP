@@ -241,8 +241,8 @@ func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 	poruka := fmt.Sprintf("Izvor %s je spremljen.", naziv)
 	if n := len(letve); n > 0 {
 		poruka = fmt.Sprintf("Izvor %s je spremljen; ponovno %s %d %s: %s.",
-			naziv, uzBrojHR(n, "spojena", "spojene", "spojeno"), n,
-			uzBrojHR(n, "letva", "letve", "letava"), strings.Join(letve, ", "))
+			naziv, models.UzBrojHR(n, "spojena", "spojene", "spojeno"), n,
+			models.UzBrojHR(n, "letva", "letve", "letava"), strings.Join(letve, ", "))
 	}
 	redirectWith(w, r, "/administracija/izvori", "success", poruka)
 }

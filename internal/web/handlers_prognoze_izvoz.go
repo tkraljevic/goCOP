@@ -463,8 +463,8 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
 		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
 		"i srpske službe za isti termin, radi usporedbe; srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) nose našu prognozu prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
-	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
-		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
+	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremnog " +
+		"stanja, redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
 		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
 		"godinama iz arhive, s označenim rekordima.")
 	odjeljci := map[string]bool{"Ukratko o metodi": true, "Raspon i vjerojatnost": true, "Ograničenja": true}
@@ -518,11 +518,11 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 
 	if v := m.Valovi; v != nil {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
-		uvod := fmt.Sprintf("%d valova iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
+		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
 			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
 			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
-			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
+			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 		// Svaka skupina dobiva svoj naslov preko cijele širine (rijeka, model,
 		// broj valova), a ispod nje samo doseg i pogreške: u uskom prvom
@@ -535,7 +535,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		for _, sk := range v.Skupine {
 			rr := l.Redak()
 			red := make([]xlsxw.Celija, stupaca)
-			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, uzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
+			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, models.UzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
 			for i := 1; i < stupaca; i++ {
 				red[i] = T("", xlsxw.SazetakNaslov)
 			}

@@ -35,7 +35,7 @@
     <label>do <input type="date" name="do" value="{{.To}}"></label>
     <button type="submit">Prikaži</button>
   </form>
-  <span>{{len .PrintSheets}} listova</span>
+  <span>{{len .PrintSheets}} {{uzBroj (len .PrintSheets) "list" "lista" "listova"}}</span>
 </div>
 
 {{define "ispis-upis"}}

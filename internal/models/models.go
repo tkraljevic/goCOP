@@ -631,18 +631,7 @@ func (r StationReturnLevel) SansaLabel() string {
 }
 
 // godina bira oblik imenice uz broj: 1 godina, 2 godine, 5 godina.
-func godina(n int) string {
-	if n%100 >= 11 && n%100 <= 14 {
-		return "godina"
-	}
-	switch n % 10 {
-	case 1:
-		return "godina"
-	case 2, 3, 4:
-		return "godine"
-	}
-	return "godina"
-}
+func godina(n int) string { return UzBrojHR(n, "godina", "godine", "godina") }
 
 // PovratniVodostaji vraća povratne vodostaje složene po povratnom razdoblju,
 // od najčešćeg prema najrjeđem, kako se i čitaju.

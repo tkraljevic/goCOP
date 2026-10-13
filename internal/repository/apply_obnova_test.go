@@ -362,7 +362,7 @@ func TestGreskaDjelomicnePrimjeneKazeStoCeka(t *testing.T) {
 	if err == nil {
 		t.Fatal("upis dnevnika koji nije stigao prošao je strani ključ")
 	}
-	if want := "1 verzija nije primijenjeno na površinu"; !strings.HasPrefix(err.Error(), want) ||
+	if want := "1 verzija nije primijenjena na površinu"; !strings.HasPrefix(err.Error(), want) ||
 		!strings.Contains(err.Error(), EntityJournalEntries+"/"+upis) {
 		t.Errorf("greška %q ne kaže koliko verzija i koja čeka", err)
 	}

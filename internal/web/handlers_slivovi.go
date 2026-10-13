@@ -513,7 +513,7 @@ func (h *SlivoviHandler) HandlePolozaji(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "premjesteno": n,
-		"message": fmt.Sprintf("Spremljeno: %d premještenih točaka.", n)})
+		"message": fmt.Sprintf("Spremljeno: %d %s.", n, models.UzBrojHR(n, "premještena točka", "premještene točke", "premještenih točaka"))})
 }
 
 // HandleSliv upisuje ili mijenja sliv (oznaka, naziv, površina, poligon)

@@ -993,5 +993,5 @@ func (h *JournalsHandler) HandleObrisiDnevnik(w http.ResponseWriter, r *http.Req
 	if j.AreaID > 0 {
 		popis += "&area=" + strconv.Itoa(j.AreaID)
 	}
-	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d zapisa; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n))
+	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d %s; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n, models.UzBrojHR(n, "zapisom", "zapisa", "zapisa")))
 }

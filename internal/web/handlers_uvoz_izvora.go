@@ -365,8 +365,8 @@ func (h *UvozHandler) PreuzmiHidroView(w http.ResponseWriter, r *http.Request) {
 				return err
 			}
 			if z.Probno || len(ishod.Zapisano) == 0 {
-				p.Zavrsi(fmt.Sprintf("Na HydroViewu za %s ima %d vrijednosti u razdoblju; ništa nije zapisano.",
-					z.Letva, ishod.Vrijednosti), nil)
+				p.Zavrsi(fmt.Sprintf("Na HydroViewu za %s ima %d %s u razdoblju; ništa nije zapisano.",
+					z.Letva, ishod.Vrijednosti, models.UzBrojHR(ishod.Vrijednosti, "vrijednost", "vrijednosti", "vrijednosti")), nil)
 				return nil
 			}
 			return h.izgradiLetve(p, []string{z.Letva}, "")

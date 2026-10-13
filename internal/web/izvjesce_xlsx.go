@@ -255,7 +255,7 @@ func (x listLetve) historijat(iz IzvjesceLetve) {
 		x.tablica([]string{"Stanje", "Prag (cm)", "Valova", "Ukupno u stanju", "Iznad praga", "Udio", "Najdulje"}, rows)
 	}
 	if valovi := najvisiValovi(iz.Valovi, valovaUIzvjescu); len(valovi) > 0 {
-		x.naslov(fmt.Sprintf("Najviših %d valova", len(valovi)))
+		x.naslov(fmt.Sprintf("Najviši valovi (%d)", len(valovi)))
 		x.tablica(tablicaValova(valovi, iz.ValoviZbroj))
 	}
 	if len(iz.Episodes) > 0 {

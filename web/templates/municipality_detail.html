@@ -73,7 +73,7 @@
       </form>
       {{else}}
       <div class="reg-card-title" style="font-size:0.95rem;">{{.Name}}</div>
-      {{if or .PostalCode .Population}}<div class="reg-card-sub">{{if .PostalCode}}{{.PostalCode}}{{end}}{{if gt .Population 0}} · {{brojHR .Population}} stanovnika{{end}}</div>{{end}}
+      {{if or .PostalCode .Population}}<div class="reg-card-sub">{{if .PostalCode}}{{.PostalCode}}{{end}}{{if gt .Population 0}} · {{brojHR .Population}} {{uzBroj .Population "stanovnik" "stanovnika" "stanovnika"}}{{end}}</div>{{end}}
       {{end}}
     </article>
     {{else}}
