@@ -24,9 +24,11 @@ import (
 // gleda cijelu datoteku, a ovaj svaku funkciju.
 //
 // Gledaju se repozitorij i internal/db, a funkcija su i one zadane u
-// paketnoj varijabli (popravci podataka). SQL se vidi i kad nije napisan
-// doslovno u tijelu: iz paketne konstante, spajanjem s + i kroz
-// fmt.Sprintf. Ne vidi se samo naziv tablice koji stiže tek u radu (kao
+// paketnoj varijabli (popravci podataka). Gleda se i upit koji paketna
+// varijabla predaje pozivu, kao obrisi(`DELETE FROM …`) u mapi primjena
+// razmjene, jer poziv od njega složi radnju koja se izvodi poslije. SQL se
+// vidi i kad nije napisan doslovno u tijelu: iz paketne konstante,
+// spajanjem s + i kroz fmt.Sprintf. Ne vidi se samo naziv tablice koji stiže tek u radu (kao
 // parametar opće funkcije); takav upis imaju jedino apply.go i
 // apply_roditelji.go. Ne gledaju se datoteke primjene (datotekePrimjene),
 // apply_epizode.go i apply_roditelji.go, koji primjenjuju verzije što su
@@ -64,8 +66,10 @@ func TestEpizodeObraneSeMijenjajuSamoKrozKnjigu(t *testing.T) {
 // Straža mora vidjeti upis u epizode i kad SQL nije napisan doslovno u
 // tijelu funkcije: iz paketne konstante (i iz druge datoteke), sastavljen
 // spajanjem ili s fmt.Sprintf, kao INSERT OR REPLACE, u pomoćnoj funkciji
-// koja ga samo vraća i u funkciji zadanoj u paketnoj varijabli (popravci).
-// Čitanje i upis uz verziju u knjizi nisu prekršaj.
+// koja ga samo vraća, u funkciji zadanoj u paketnoj varijabli (popravci) i
+// u pozivu u paketnoj varijabli (brisanja), i kad je u istoj varijabli
+// funkcija koja bilježi verziju. Čitanje, upis uz verziju u knjizi i upit
+// u paketnoj varijabli koji se nikome ne predaje nisu prekršaj.
 func TestStrazaKnjigeVidiUpisUEpizodeIzvanDoslovnogSQL(t *testing.T) {
 	izvori := map[string][]byte{
 		"a.go": []byte(`package p
@@ -84,6 +88,12 @@ func (r *R) Cita() { r.db.Query("SELECT * FROM defense_episodes WHERE id = ?") }
 var popravci = []func(){
 	func() { db.Exec("UPDATE defense_episodes SET basis = ''") },
 }
+
+var brisanja = map[string]primjena{
+	"z": {upis: func() { r.rec.Record() }},
+	"e": {brisanje: obrisi("DELETE FROM " + tablica + " WHERE id = ?")},
+}
+var upitEpizode = "UPDATE defense_episodes SET basis = ''"
 `),
 		"b.go": []byte(`package p
 
@@ -96,6 +106,7 @@ func (r *R) Postotak() { r.db.Exec(fmt.Sprintf("UPDATE %s SET x = '100%%' WHERE 
 		"a.go: (*R).BrisiKonstantom",
 		"a.go: (*R).BrisiSastavljeno",
 		"a.go: (*R).Zamijeni",
+		"a.go: brisanja",
 		"a.go: funkcija u deklaraciji, redak 15",
 		"a.go: upitZatvaranja",
 		"b.go: (*R).BrisiIzDrugeDatoteke",
@@ -152,6 +163,11 @@ func funkcijeMimoKnjige(t *testing.T, izvori map[string][]byte) []string {
 				out = append(out, j.ime)
 			}
 		}
+		for _, v := range vrijednostiVarijabli(ime, f) {
+			if s.poziviPisu(v.izraz) {
+				out = append(out, v.ime)
+			}
+		}
 	}
 	sort.Strings(out)
 	return out
@@ -178,6 +194,29 @@ func jediniceDatoteke(fs *token.FileSet, ime string, f *ast.File) []jedinica {
 			}
 			return !ok
 		})
+	}
+	return out
+}
+
+// vrijednost je vrijednost jedne paketne varijable
+type vrijednost struct {
+	ime   string
+	izraz ast.Expr
+}
+
+func vrijednostiVarijabli(ime string, f *ast.File) []vrijednost {
+	var out []vrijednost
+	for _, d := range f.Decls {
+		g, ok := d.(*ast.GenDecl)
+		if !ok || g.Tok != token.VAR {
+			continue
+		}
+		for _, sp := range g.Specs {
+			vs := sp.(*ast.ValueSpec)
+			for i, v := range vs.Values {
+				out = append(out, vrijednost{ime + ": " + vs.Names[min(i, len(vs.Names)-1)].Name, v})
+			}
+		}
 	}
 	return out
 }
@@ -221,6 +260,29 @@ func (s sastavljac) pise(tijelo ast.Node) bool {
 	ast.Inspect(tijelo, func(n ast.Node) bool {
 		if e, ok := n.(ast.Expr); ok && !nadeno {
 			nadeno = pisanjeEpizoda.MatchString(s.tekst(e, 0))
+		}
+		return !nadeno
+	})
+	return nadeno
+}
+
+// poziviPisu kaže predaje li vrijednost paketne varijable nekom pozivu SQL
+// koji mijenja epizode obrane, kao obrisi(`DELETE FROM defense_episodes …`).
+// Takav poziv složi radnju koja upit izvodi poslije, a funkcija koja tu
+// radnju zove upit ne vidi. Funkcije u vrijednosti su svoje jedinice, a
+// ostatak vrijednosti izvodi se samo pri pokretanju paketa i verziju u
+// knjigu ne bilježi. Upit koji se nikome ne predaje ništa ne izvodi:
+// funkcija koja ga izvodi vidi ga kroz konstanteNiza.
+func (s sastavljac) poziviPisu(v ast.Expr) bool {
+	nadeno := false
+	ast.Inspect(v, func(n ast.Node) bool {
+		if _, ok := n.(*ast.FuncLit); ok {
+			return false
+		}
+		if c, ok := n.(*ast.CallExpr); ok {
+			for _, a := range c.Args {
+				nadeno = nadeno || pisanjeEpizoda.MatchString(s.tekst(a, 0))
+			}
 		}
 		return !nadeno
 	})
