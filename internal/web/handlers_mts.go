@@ -72,13 +72,14 @@ type MtsPageData struct {
 
 	GdjeIma []service.MjestoZalihe
 
-	Potvrda      string // veza zahvata koji je upravo upisan, za ispis potvrde
-	SmijePisati  bool
-	SmijeUrediti bool
-	IsEdit       bool
-	Danas        string
-	Od, Do       string
-	VrstaID      string
+	Potvrda         string // veza zahvata koji je upravo upisan, za ispis potvrde
+	SmijePisati     bool
+	SmijeUrediti    bool
+	SmijeOtkljucati bool // zaključenu inventuru vraća u nacrt
+	IsEdit          bool
+	Danas           string
+	Od, Do          string
+	VrstaID         string
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -531,6 +532,7 @@ func (h *MtsHandler) ucitajPopis(w http.ResponseWriter, r *http.Request, data *M
 	}
 	data.Popis, data.Skladiste, data.Sektor = p, sk, sk.Sektor
 	data.SmijePisati = h.svc().SmijePisati(data.Permissions, sk)
+	data.SmijeOtkljucati = h.svc().SmijeOtkljucati(data.Permissions)
 	return p, true
 }
 
@@ -609,6 +611,22 @@ func (h *MtsHandler) HandleZakljuciPopis(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je zaključena; razlike su proknjižene.")
+}
+
+// HandleOtkljucajPopis vraća zaključenu inventuru u nacrt; smije samo
+// globalni administrator
+func (h *MtsHandler) HandleOtkljucajPopis(w http.ResponseWriter, r *http.Request) {
+	data := h.pageData(r)
+	if !h.svc().SmijeOtkljucati(data.Permissions) {
+		http.Error(w, "Inventuru otključava samo globalni administrator.", http.StatusForbidden)
+		return
+	}
+	id := r.PathValue("id")
+	if err := h.svc().OtkljucajPopis(r.Context(), data.CurrentUser, data.Permissions, id); err != nil {
+		redirectWith(w, r, "/sredstva/popisi/"+id, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, "/sredstva/popisi/"+id, "success", "Inventura je vraćena u nacrt. Upišite prebrojano i zaključite je ponovno.")
 }
 
 // zadaniOblik: na teren idu napunjene vreće, u skladište stižu prazne
