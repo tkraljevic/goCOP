@@ -36,30 +36,6 @@
       "expires": "2027-01-04"
     },
     {
-      "key": "complexity:internal/repository/apply.go::applyOne",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
-      "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
-    },
-    {
-      "key": "crap:internal/repository/apply.go::applyOne",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
-      "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
-    },
-    {
-      "key": "complexity:internal/repository/apply.go::removeFromSurface",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
-      "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
-    },
-    {
-      "key": "crap:internal/repository/apply.go::removeFromSurface",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
-      "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
-    },
-    {
       "key": "complexity:internal/importer/bp16/bp16.go::(HTTPSource).Items",
       "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
       "owner": "održavatelj goCOP-a",
