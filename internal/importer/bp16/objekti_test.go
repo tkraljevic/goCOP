@@ -253,9 +253,10 @@ func TestUvozBP16BezStvaranjaObjekata(t *testing.T) {
 }
 
 // Očitanja se upisuju u serijama od tisuću: puna serija se upiše odmah, a
-// ostatak na kraju.
+// ostatak na kraju. Pala serija poništi samo sebe, ranije upisane ostaju.
 func TestUvozBP16PoTisucu(t *testing.T) {
-	_, deps := registarLetvi(t)
+	baza, deps := registarLetvi(t)
+	ctx := context.Background()
 	src := evidencijaLetvi()
 	var redci []string
 	for i := 1; i <= 1001; i++ {
@@ -263,9 +264,31 @@ func TestUvozBP16PoTisucu(t *testing.T) {
 	}
 	src.zbirke["vodostaji_na_crpnim_stanicama"] = raw(redci...)
 	deps.DryRun = true
-	rep, err := Run(context.Background(), src, deps)
+	rep, err := Run(ctx, src, deps)
 	if err != nil || rep.Fetched != 1002 || rep.Inserted != 1002 {
 		t.Errorf("pregled: %+v, %v", rep, err)
+	}
+
+	// baza odbije 1001. očitanje crpne stanice, koje je u drugoj seriji
+	if _, err := baza.Exec(`CREATE TRIGGER pun_disk BEFORE INSERT ON readings WHEN NEW.source_ref = 'directus:vodostaji_na_crpnim_stanicama:1001'
+		BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
+		t.Fatal(err)
+	}
+	deps.DryRun = false
+	rep, err = Run(ctx, src, deps)
+	if err == nil || !strings.Contains(err.Error(), "directus:vodostaji_na_crpnim_stanicama:1001: ") || !strings.Contains(err.Error(), "disk pun") {
+		t.Errorf("greška druge serije: %v", err)
+	}
+	if rep.Fetched != 1002 || rep.Inserted != 1000 {
+		t.Errorf("izvješće: %+v", rep)
+	}
+	// prva serija je u bazi, a iz druge ništa: ni očitanje vodomjera uz pogrešno
+	var ukupno, prvih, vodomjera int
+	baza.QueryRow(`SELECT COUNT(*) FROM readings`).Scan(&ukupno)
+	baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref LIKE 'directus:vodostaji_na_crpnim_stanicama:%' AND CAST(substr(source_ref, 40) AS INTEGER) <= 1000`).Scan(&prvih)
+	baza.QueryRow(`SELECT COUNT(*) FROM readings WHERE source_ref = 'directus:ostali_vodostaji:1'`).Scan(&vodomjera)
+	if ukupno != 1000 || prvih != 1000 || vodomjera != 0 {
+		t.Errorf("u bazi %d očitanja, iz prve serije %d, vodomjera %d", ukupno, prvih, vodomjera)
 	}
 }
 
@@ -313,18 +336,24 @@ func TestUvozBP16Greske(t *testing.T) {
 	skoroPuno.zbirke["vodostaji_na_crpnim_stanicama"] = raw(redci[:999]...)
 	doVodomjera := evidencijaLetvi()
 	doVodomjera.zbirke["vodostaji_na_crpnim_stanicama"] = raw(redci[:998]...)
+	// iza tisućitog očitanja ima još jedno, koje se više ne dohvati
+	doVodomjera.zbirke["ostali_vodostaji"] = append(doVodomjera.zbirke["ostali_vodostaji"],
+		raw(`{"id":4,"vodomjer":2,"datum":"2025-06-02","vrijeme":"06:00:00","vodostaj":403}`)...)
+	// dohvaceno: koliko je očitanja uvoz uzeo prije greške; puna serija
+	// prekida uvoz na tisućitom
 	for _, s := range []struct {
 		ime, okidac, poruka string
 		src                 probniIzvor
+		dohvaceno           int
 	}{
-		{"letve objekta", `BEFORE UPDATE ON structures`, "letve objekta CS Probni: ", evidencijaLetvi()},
-		{"novi objekt", `BEFORE INSERT ON structures`, "stvaranje objekta CS Zmajevac: ", evidencijaLetvi()},
-		{"nova ustava", `BEFORE INSERT ON structures WHEN NEW.kind = 'USTAVA'`, "stvaranje objekta Ustava Kopačevo: ", evidencijaLetvi()},
-		{"nova postaja", `BEFORE INSERT ON stations`, "stvaranje postaje budapest: ", evidencijaLetvi()},
-		{"zadnja serija", `BEFORE INSERT ON readings`, "greška pri uvozu očitanja", evidencijaLetvi()},
-		{"puna serija crpnih stanica", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", puno},
-		{"puna serija s ustavom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", skoroPuno},
-		{"puna serija s vodomjerom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", doVodomjera},
+		{"letve objekta", `BEFORE UPDATE ON structures`, "letve objekta CS Probni: ", evidencijaLetvi(), 0},
+		{"novi objekt", `BEFORE INSERT ON structures`, "stvaranje objekta CS Zmajevac: ", evidencijaLetvi(), 0},
+		{"nova ustava", `BEFORE INSERT ON structures WHEN NEW.kind = 'USTAVA'`, "stvaranje objekta Ustava Kopačevo: ", evidencijaLetvi(), 0},
+		{"nova postaja", `BEFORE INSERT ON stations`, "stvaranje postaje budapest: ", evidencijaLetvi(), 0},
+		{"zadnja serija", `BEFORE INSERT ON readings`, "greška pri uvozu očitanja", evidencijaLetvi(), 3},
+		{"puna serija crpnih stanica", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", puno, 1000},
+		{"puna serija s ustavom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", skoroPuno, 1000},
+		{"puna serija s vodomjerom", `BEFORE INSERT ON readings`, "directus:vodostaji_na_crpnim_stanicama:1:", doVodomjera, 1000},
 	} {
 		baza := kopijaBaze(t, predlozak)
 		deps := depsLetvi(baza)
@@ -336,8 +365,8 @@ func TestUvozBP16Greske(t *testing.T) {
 		if err == nil || !strings.Contains(err.Error(), s.poruka) || !strings.Contains(err.Error(), "disk pun") {
 			t.Errorf("%s: %v", s.ime, err)
 		}
-		if rep.Inserted != 0 {
-			t.Errorf("%s: upisano %d", s.ime, rep.Inserted)
+		if rep.Inserted != 0 || rep.Fetched != s.dohvaceno {
+			t.Errorf("%s: dohvaćeno %d, upisano %d", s.ime, rep.Fetched, rep.Inserted)
 		}
 	}
 }
