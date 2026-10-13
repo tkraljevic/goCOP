@@ -196,8 +196,8 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	}
 	defer tx.Rollback()
 
-	// Jedna verzija koja se ne može primijeniti (npr. dužnost obrisanog
-	// korisnika) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
+	// Jedna verzija koja se ne može primijeniti (npr. naselje kojem općina
+	// još nije stigla) ne smije zaustaviti ostale: svaka ide u svoj savepoint,
 	// neuspjele se preskoče i prijave, ostatak se potvrdi. Redoslijed
 	// nastanka ne jamči da je oslonac primijenjen prije (općina može biti
 	// upisana poslije svojih naselja), pa se neuspjele pokušavaju iznova dok
@@ -222,7 +222,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := applyOne(ctx, tx, naPovrsinu); err != nil {
+			if err := primijeniVerziju(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}

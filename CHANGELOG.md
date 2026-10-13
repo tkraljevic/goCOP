@@ -28,6 +28,24 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sata. Kad se obriše bilješka koja se vidi, a druga za isti sat ostane,
   svi čvorovi odmah pokazuju tu drugu, ne tek nakon ponovnog pokretanja.
   Isto vrijedi za ispravke arhive.
+- **Brisanje naselja ili općine koju navodi dionica stiže svuda.** Na
+  računalima koja imaju takvu dionicu naselje je ostajalo, a razmjena je
+  svaki put javljala grešku. Novi čvor dionicu nije dobio, a pri pokretanju
+  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
+  je naselje obrisano. Sad naselje nestane svuda, a dionica ostaje bez
+  veze s njim.
+- **Brisanje dok drugo računalo upisuje.** Jedno računalo obriše područje,
+  sektor, općinu, županiju ili korisnika, a drugo u isto vrijeme tome upiše
+  objekt, naselje ili dužnost. Računala su se tada trajno razišla: jedno je
+  novi zapis čekalo zauvijek, a drugo nije moglo obrisati ono što je
+  obrisano. Sad na svim računalima brisanje ima prednost, pa se takav zapis
+  ne pokazuje. Kad se područje ili sektor ponovno upiše pod istim brojem,
+  zapis se vraća s njim. Brisanje korisnika ili općine sad kao obrisane
+  bilježi i dužnosti i naselja koja to računalo nije imalo na popisu.
+- **Epizoda obrane dolazi s ponovno upisanom dionicom.** Kad je dionica
+  obrisana pa ponovno upisana pod istom šifrom, epizoda koju je drugo
+  računalo u međuvremenu otvorilo na njoj nije se pokazivala do ponovnog
+  pokretanja programa. Sad dolazi odmah, s dionicom.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

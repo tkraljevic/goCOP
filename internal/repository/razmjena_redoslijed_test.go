@@ -29,7 +29,10 @@ import (
 // pri pokretanju javljala je za nju grešku. Obrisana bilješka sata s dvije
 // bilješke (do 13. 10. 2026.) vraćala se na novom čvoru, a kad je bilješku s
 // prednošću obrisao čvor koji drugu nije znao, sat je na dijelu čvorova
-// ostajao prazan.
+// ostajao prazan. Isto do 13. 10. 2026.: dionica koja navodi obrisano naselje
+// nije stizala, dijete koje je drugi čvor upisao obrisanom području ili
+// korisniku čekalo je zauvijek, a epizoda dionice koja se vratila pod istom
+// šifrom dolazila je tek s ponovnim pokretanjem.
 //
 // Ovaj test na izvoru kroz repozitorije slaže skup zapisa koji se oslanjaju
 // jedni na druge i mijenjaju se, šalje ga svježem čvoru na više načina i
@@ -160,6 +163,7 @@ func izvorRedoslijeda(t *testing.T, predlozak *cvor) *cvor {
 	biljeskeRedoslijeda(t, a, teren, prva.Code)
 	aktRedoslijeda(t, a, prva.Name)
 	listoviRedoslijeda(t, a, teren)
+	ostavljeni = append(ostavljeni, brisanjaRoditeljaRedoslijeda(t, a, teren, opcina)...)
 
 	// svaki zapis koji je nestao s površine izvora ima spomenik, pa izvor pri
 	// ponovnom pokretanju nema što popraviti
@@ -420,6 +424,58 @@ func obrisaneLetveRedoslijeda(t *testing.T, a *cvor, letva string) {
 	if err := dionice.SaveSection(ctxRaz, &d); err != nil {
 		t.Fatalf("dionica koja navodi obrisanu letvu i ustavu ne da se spremiti: %v", err)
 	}
+}
+
+// brisanjaRoditeljaRedoslijeda: ured briše naselje koje navodi dionica
+// R.41.5, a briše i područje 44, korisnika Marka Markića i dionicu R.41.6.
+// Teren, koji za brisanja ne zna, upiše objekt u područje 44, dodijeli Marku
+// dužnost i otvori epizodu na R.41.6. Brisanje ima prednost, pa ured objekt
+// i dužnost ne stavlja na površinu i ne čeka. Ured zatim dionicu R.41.6
+// ponovno upiše, i terenova epizoda dolazi s njom. Vraća objekt i dužnost,
+// koji ostaju živi u knjizi (tablica|id).
+func brisanjaRoditeljaRedoslijeda(t *testing.T, a, teren *cvor, opcina models.Municipality) []string {
+	t.Helper()
+	ter := NewTerritoryRepository(a.db, a.rec)
+	naselje := models.Settlement{MunicipalityID: opcina.ID, CountyID: opcina.CountyID, Name: "Probno Selo Brisano"}
+	nuzno(t, ter.CreateSettlement(ctxRaz, &naselje))
+	dionice := NewSectionRepository(a.db, a.rec)
+	uNaselju := models.Section{Code: "R.41.5", AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
+		Description: "dionica u naselju koje se briše", DescriptionCustom: true,
+		Parts: []models.SectionPart{{Territories: []models.PartTerritory{
+			{CountyID: opcina.CountyID, MunicipalityID: opcina.ID, SettlementID: &naselje.ID}}}}}
+	nuzno(t, dionice.SaveSection(ctxRaz, &uNaselju))
+	org := NewOrgRepository(a.db, a.rec)
+	nuzno(t, org.SaveArea(ctxRaz, &models.Area{ID: 44, SectorID: sektorRedoslijeda, Name: "Područje 44", VgiName: "VGI 44"}))
+	korisnici := NewUserRepository(a.db, a.rec)
+	marko := &models.User{Username: "marko.markic", FullName: "Marko Markić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	nuzno(t, korisnici.CreateUser(marko, nil))
+	vraca := models.Section{Code: "R.41.6", AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
+		Description: "dionica koja se briše i vraća", DescriptionCustom: true}
+	nuzno(t, dionice.SaveSection(ctxRaz, &vraca))
+	razmijeni(t, a, teren)
+
+	nuzno(t, ter.DeleteSettlement(ctxRaz, naselje.ID))
+	nuzno(t, org.DeleteArea(ctxRaz, 44))
+	nuzno(t, korisnici.DeleteUser(marko.ID))
+	nuzno(t, dionice.ArhivirajSekciju(ctxRaz, vraca.Code))
+
+	objekt := models.Structure{Code: "R44-CS", Name: "CS Probna Nova", Kind: "CS", SectorID: sektorRedoslijeda, AreaID: 44}
+	nuzno(t, NewStructureRepository(teren.db, teren.rec).CreateStructure(ctxRaz, &objekt))
+	sektor, podrucje := sektorRedoslijeda, podrucjeRedoslijeda
+	duznost := models.Duty{UserID: marko.ID, Title: "Vodočuvar", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea,
+		SectorID: &sektor, AreaID: &podrucje}
+	nuzno(t, NewUserRepository(teren.db, teren.rec).AddDuty(&duznost))
+	epizoda := models.DefenseEpisode{SectionCode: vraca.Code, StartedAt: danRedoslijeda.Add(7 * time.Hour),
+		Phase: models.PhasePrep, DeclaredBy: "Ana Anić"}
+	nuzno(t, NewEpisodeRepository(teren.db, teren.rec).SaveEpisode(ctxRaz, &epizoda))
+	razmijeni(t, teren, a)
+
+	vraca.Description = "dionica ponovno upisana"
+	nuzno(t, dionice.SaveSection(ctxRaz, &vraca))
+	if brojRedaka(t, a.db, `SELECT count(*) FROM defense_episodes WHERE id = ?`, epizoda.ID.String()) != 1 {
+		t.Fatal("terenova epizoda nije se vratila s ponovno upisanom dionicom")
+	}
+	return []string{EntityStructures + "|" + objekt.ID.String(), EntityDuties + "|" + duznost.ID.String()}
 }
 
 // biljeskeRedoslijeda upisuje po dvije bilješke za isti sat s različitim

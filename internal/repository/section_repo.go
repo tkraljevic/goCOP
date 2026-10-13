@@ -255,7 +255,7 @@ func (r *SectionRepository) SaveSectionUzProvjeru(ctx context.Context, s *models
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntitySections, s.Code, saved); err != nil {
+	if err := zabiljeziSDjecom(ctx, tx, r.rec, EntitySections, s.Code, saved); err != nil {
 		return err
 	}
 	return tx.Commit()

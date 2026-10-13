@@ -14,9 +14,10 @@ import (
 // (ON DELETE CASCADE), pa epizoda ne ide na površinu kad je dionica obrisana
 // nakon te verzije epizode, i kad je poslije ponovno upisana pod istom
 // šifrom. Ne ide ni kad dionice nema na površini, a zadnja verzija u knjizi
-// ju arhivira: epizodu je mijenjao čvor koji za brisanje još nije znao.
-// Dionica koja još nije stigla nije obrisana: epizoda pada na stranom ključu
-// i čeka je među nedovršenima.
+// ju arhivira: epizodu je mijenjao čvor koji za brisanje još nije znao. Kad
+// se dionica poslije vrati pod istom šifrom, takva se epizoda vraća s njom
+// (vratiDjecu, apply_roditelji.go). Dionica koja još nije stigla nije
+// obrisana: epizoda pada na stranom ključu i čeka je među nedovršenima.
 func dionicaObrisana(ctx context.Context, tx *sql.Tx, code, versionID string) (bool, error) {
 	var obrisana bool
 	err := tx.QueryRowContext(ctx, `SELECT
