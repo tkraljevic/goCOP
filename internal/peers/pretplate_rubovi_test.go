@@ -194,13 +194,17 @@ func TestRokDrzanjaSadrzaja(t *testing.T) {
 // velikim slovima, negativan rok je trajno).
 func TestPretplataSeUpisujeSvedena(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
-	for ime, r := range map[string]Subscription{
-		"vrsta":          {Kind: "vodostaji"},
-		"razina":         {Razina: "puno"},
-		"godine obrnuto": {YearFrom: 2026, YearTo: 2024},
+	// poruka ide korisniku na stranici pretplata, pa je cijela rečenica
+	for ime, p := range map[string]struct {
+		r      Subscription
+		poruka string
+	}{
+		"vrsta":          {Subscription{Kind: "vodostaji"}, "Pretplata nije dodana: vrsta mora biti"},
+		"razina":         {Subscription{Razina: "puno"}, "Pretplata nije dodana: sadržaj uz zapise"},
+		"godine obrnuto": {Subscription{YearFrom: 2026, YearTo: 2024, DrziDana: -5}, "Pretplata nije dodana: godina u polju „Do godine” je prije godine u polju „Od godine”."},
 	} {
-		if _, err := s.AddSubscription(ctxRub, r); err == nil {
-			t.Errorf("%s: pretplata je upisana", ime)
+		if _, err := s.AddSubscription(ctxRub, p.r); err == nil || !strings.HasPrefix(err.Error(), p.poruka) {
+			t.Errorf("%s: pretplata je upisana ili poruka nije rečenica: %v", ime, err)
 		}
 	}
 	if l, _ := s.ListSubscriptions(ctxRub); len(l) != 0 {

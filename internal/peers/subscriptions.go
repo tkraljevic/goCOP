@@ -277,6 +277,18 @@ func razinaPravila(kind, razina string) (string, error) {
 	return razina, nil
 }
 
+// godineIRokPravila odbija godine obrnutim redom; rok manji od nule znači
+// trajno, kao i prazan rok
+func godineIRokPravila(r *Subscription) error {
+	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
+		return fmt.Errorf("Pretplata nije dodana: godina u polju „Do godine” je prije godine u polju „Od godine”.")
+	}
+	if r.DrziDana < 0 {
+		r.DrziDana = 0
+	}
+	return nil
+}
+
 // AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
 func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
 	r.Kind = strings.TrimSpace(r.Kind)
@@ -287,13 +299,10 @@ func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscrip
 	if r.Razina, err = razinaPravila(r.Kind, r.Razina); err != nil {
 		return r, err
 	}
-	if r.DrziDana < 0 {
-		r.DrziDana = 0
+	if err = godineIRokPravila(&r); err != nil {
+		return r, err
 	}
 	r.SectorID = strings.ToUpper(strings.TrimSpace(r.SectorID))
-	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
-		return r, fmt.Errorf("godina do ne može biti prije godine od")
-	}
 	res, err := s.db.ExecContext(ctx, `INSERT INTO subscriptions (kind, sector_id, area_id, year_from, year_to, razina, drzi_dana) VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		r.Kind, r.SectorID, r.AreaID, r.YearFrom, r.YearTo, r.Razina, r.DrziDana)
 	if err != nil {
