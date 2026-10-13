@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.37-alfa — u pripremi
+## 0.0.37-alfa — 13. 10. 2026.
 
 - **Očitanja koja su stigla, a nisu bila upisana.** Kad dva čvora šalju u
   isto vrijeme ili se računalo ugasi usred razmjene, primljena očitanja
@@ -20,7 +20,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ploče obrisala zapis o brisanju, npr. „Maknuto dežurstvo”, obrisani zapis
   vratio bi se pri idućem pokretanju programa, a dežurstvo i u plan i u
   obračun sati. Program sad takvo brisanje odbije, kao i brisanje zadnje
-  verzije živog zapisa.
+  verzije živog zapisa. Zapis obrisan s ploče još na 0.0.36-alfa ili
+  starijem ovo ne popravlja: takvo dežurstvo 0.0.37-alfa vrati pri prvom
+  pokretanju, a u dnevniku programa piše „Obnova površine: … dežurstva N”.
+  Treba ga opet maknuti.
 - **Opoziv čvora vrijedi i kad stigne zajedno s poništenjem.** Opoziv se ne
   poništava, ali kad je čvor primio opoziv i njegovo poništenje u istoj
   razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao
@@ -30,33 +33,37 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   treba pristup disku ili `sudo`. Sad dio postavki globalni administrator
   mijenja na stranici kojoj pripadaju. Na stranici Čvor, mreža i
   sinkronizacija, u kartici Ovaj čvor, su javna adresa te centar i telefon
-  sa stranice prijave, a pod Mreža razmak sinkronizacije. „Prati sve” i
-  povijest tuđih očitanja su na stranici Što ovo računalo prati, do koje sad
-  vodi i kartica u Administraciji, a izvor karte pod Opcije. Održavanje baze
-  pokazuje gdje su baza, arhiva i datoteka postavki te njezine kopije. Radi
-  samo s ovog računala ili iz lokalne mreže, ne kroz tunel. Program novu
-  datoteku prije spremanja provjeri kao pri pokretanju, staru ostavi kao
-  kopiju (zadnjih pet), a ručni komentari ostaju. Naziv čvora, portovi,
-  putanje i posrednici samo se prikazuju.
+  sa stranice prijave, a pod Mreža razmak sinkronizacije i razmjena preko
+  Tailscalea. „Prati sve” i povijest tuđih očitanja su na stranici Što ovo
+  računalo prati, do koje sad vodi i kartica u Administraciji, a izvor karte
+  pod Opcije. Održavanje baze pokazuje gdje su baza, arhiva i datoteka
+  postavki te njezine kopije. Radi samo s ovog računala ili iz lokalne
+  mreže, ne kroz tunel. Program novu datoteku prije spremanja provjeri kao
+  pri pokretanju, staru ostavi kao kopiju (zadnjih pet), a ručni komentari
+  ostaju. Naziv čvora, portovi, putanje i posrednici samo se prikazuju.
 - **Natpis o podrijetlu karte je običan tekst.** Karta ga sad uvijek
   pokazuje kao tekst, i kad je u `gocop.toml` upisan s HTML oznakama, a iz
   programa se znakovi `<` i `>` u natpisu ne mogu spremiti.
-- **Ponovno pokretanje čvora iz programa.** Gumb u kartici Ovaj čvor
-  uredno ugasi čvor, a pokrene ga Postava, usluga sustava ili Docker (samo
-  uz `--restart`). Ručno pokrenut čvor gumba nema, nego piše što napraviti.
+- **Ponovno pokretanje čvora iz programa.** Gumb u kartici Ovaj čvor uredno
+  ugasi čvor, a pokrene ga Postava, usluga sustava ili Docker (samo uz
+  `--restart`). Postava takvo gašenje zasad broji kao pad: kad se čvor ugasi
+  treći put u deset minuta, ostane ugašen dok ga ne pokrenete u izborniku
+  ikone u traci. Ručno pokrenut čvor gumba nema, nego piše što napraviti.
   Dok spremljena promjena čeka, stranice s postavkama to javljaju na vrhu.
   Usluga sustava i spremnik za to čvoru javljaju tko ga pokreće
   (`GOCOP_NADZOR`).
-- **Prijava preko Tailscalea bez PIN-a.** Na računalu s Tailscaleom
-  prijava na njegovu Tailscale adresu (npr. `http://100.x.y.z`) tražila je
-  PIN kao izvana. PIN radi samo preko HTTPS-a, pa se tako nije moglo
-  prijaviti. Sad zahtjev koji stigne izravno na Tailscale adresu računala
-  vrijedi kao iz lokalne mreže, a kroz posrednika i dalje kao izvana. Na
-  računalu bez Tailscalea ništa se ne mijenja. Na Macu se Tailscale
-  prepozna samo kad uz adresu 100.x ima i svoju IPv6 adresu, jer adresu
-  100.x daju i drugi VPN-ovi, npr. Cloudflare WARP. Isključuje se u
-  `gocop.toml` s `[web] tailscale_lokalno = false`; tada prijava preko
-  Tailscalea traži PIN, i preko IPv6.
+- **Prijava preko Tailscalea bez PIN-a.** Na računalu s Tailscaleom prijava
+  na njegovu Tailscale adresu (npr. `http://100.x.y.z`) tražila je PIN kao
+  izvana. PIN radi samo preko HTTPS-a, pa se tako nije moglo prijaviti. Sad
+  zahtjev koji stigne izravno na Tailscale adresu računala vrijedi kao iz
+  lokalne mreže, a kroz posrednika i dalje kao izvana. Na računalu bez
+  Tailscalea ništa se ne mijenja. Na Macu se Tailscale prepozna samo kad uz
+  adresu 100.x ima i svoju IPv6 adresu, jer adresu 100.x daju i drugi
+  VPN-ovi, npr. Cloudflare WARP, NetBird i NordVPN Meshnet. Mac u Tailscale
+  mreži s isključenim IPv6 zato radi kao računalo bez Tailscalea, i za
+  prijavu i za razmjenu. Isključuje se u `gocop.toml` s
+  `[web] tailscale_lokalno = false`; tada prijava preko Tailscalea traži
+  PIN, i preko IPv6.
 - **Razmjena preko Tailscalea.** Laptop kod kuće nije mogao izravno do
   uredskog čvora, iako ih Tailscale spaja; sve je išlo preko Unraida i
   tunela. Sad čvor s Tailscaleom zove i Tailscale adrese drugih vaših
@@ -66,16 +73,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   čvor pamti samo kod sebe. Nikad ne ulaze u popis adresa čvora, koji
   dobivaju svi čvorovi mreže, i ne idu u razgovor koji ne ide preko
   Tailscalea. Čvorovi bez Tailscalea ih zato ne vide i ne zovu, a razmjena
-  im je ista kao prije.
+  im je ista kao prije. Tailscale adresa se više ne upisuje ručno među
+  adrese čvora; program javi grešku. Tailscale adrese koje su već u popisu,
+  upisane ručno ili zapamćene pri uparivanju u 0.0.36-alfa, program više ne
+  pokazuje i ne zove. Zato i već uparene čvorove treba jednom upariti preko
+  Tailscale adrese.
 - **Postavka `[sync] tailscale`.** Zadano je uključena. Uz `false` razmjena
   radi kao da Tailscalea nema, npr. za probu razmjene preko interneta, a
   razmjenu koja stigne na Tailscale adresu tog računala odbije. Na prijavu
-  ne utječe.
-- **Mac s drugim VPN-om nije računalo s Tailscaleom.** Na macOS-u svaki VPN
-  dobiva karticu utunN, a Cloudflare WARP, NetBird i NordVPN Meshnet daju
-  adresu iz istog raspona kao Tailscale. Program sad utun karticu broji kao
-  Tailscale samo kad ima i Tailscaleovu IPv6 adresu. Mac u Tailscale mreži s
-  isključenim IPv6 zato radi kao računalo bez Tailscalea.
+  ne utječe. Mijenja se i u programu, na stranici Čvor, mreža i
+  sinkronizacija pod Mreža.
 - **Zaboravljen čvor u knjizi nema bilješke o razmjeni.** Kad administrator
   zaboravi čvor, zapis u knjizi nosio je i zadnju poruku o grešci razmjene,
   a u njoj zna stajati adresa koju ostali čvorovi ne trebaju vidjeti. Taj
@@ -87,6 +94,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koji nema ništa za upis ne čeka. Kad je upis zauzet dulje od pola minute,
   razgovor završi bez upisa i primljeno stigne sljedećom razmjenom; ploča
   razmjene to pokaže kao grešku s razlogom.
+- **Nadogradnja.** 0.0.37-alfa radi uz 0.0.36-alfa i nadograđuje se redom
+  (stalni čvor prvi). Čvorove s Tailscaleom treba nadograditi zajedno:
+  stariji program Tailscale adresu koju vidi upiše u popis adresa čvora, a
+  taj popis dobivaju svi čvorovi mreže.
 
 ## 0.0.36-alfa — 12. 10. 2026.
 

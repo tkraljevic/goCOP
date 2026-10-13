@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.36-alfa (12. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.37-alfa (13. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -438,7 +438,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.36-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.37-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -664,9 +664,9 @@ imaju prednost pred datotekom.
 **Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
 pripada: javnu adresu te centar i telefon sa stranice prijave u *Čvor, mreža
-i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije pod *Mreža*
-(na toj stranici obje stoje sklopljene), `sve` i `povijest_mjeseci` pod
-*Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
+i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
+preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), `sve`
+i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
 pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
 mijenjana i njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
 računala na kojem je čvor ili iz lokalne mreže, nikad izvana ni kroz tunel.
@@ -770,7 +770,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.36-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.37-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -840,6 +840,15 @@ i zaduženja, a novija ih ne diraju, pa bi isti zapis na dva čvora dobio
 različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
+
+0.0.37-alfa radi uz 0.0.36-alfa i nadograđuje se redom (stalni čvor prvi).
+Čvorove s Tailscaleom nadograditi zajedno: stariji program Tailscale adresu
+koju vidi upiše u popis adresa čvora, a taj popis dobivaju svi čvorovi mreže.
+Očitanja i druge izmjene koje su stigle, a nisu upisane, 0.0.37-alfa vrati
+sama pri prvom pokretanju; u dnevniku piše koliko ih je vratila. Iznimka je
+dežurstvo kojem je netko na 0.0.36-alfa ili starijem s oglasne ploče obrisao
+zapis „Maknuto dežurstvo”: ono se vrati u plan i u obračun sati, a dnevnik ga
+broji pod „Obnova površine: … dežurstva N”. Takvo dežurstvo treba opet maknuti.
 
 0.0.36-alfa radi uz 0.0.35-alfa: nema novih pravila koja traže da su svi
 čvorovi na istoj inačici, pa se nadograđuje redom (stalni čvor prvi). Novi
@@ -915,8 +924,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.36-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.36-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.37-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.37-alfa` i `:latest`.
 
 ## 9. Za razvoj
 
