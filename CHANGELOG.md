@@ -88,6 +88,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   prave pakete tog računala odbijalo kao starija izdanja. Sad se paket
   ugrađuje samo kad ga je potpisalo računalo koje je u njemu navedeno kao
   izdavač.
+- **Čekanje na uparivanje nakon prekida.** Kad se čekanje na uparivanje
+  prekine i odmah pokrene ponovno, prvo čekanje je pri gašenju brisalo
+  zapis o drugom. Stranica tada nije pokazivala da računalo čeka, a drugo
+  čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
+  čekanje ne dira novo.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
