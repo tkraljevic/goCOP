@@ -8,7 +8,11 @@
 //     procitajZastavice i uvjet s uveziBP16 u run;
 //   - web.PDFPrijaveRekonstrukcija (internal/web/prijava_pdf.go), jer ga zove
 //     samo uvoz prijava;
-//   - premještaji i iznimke za BP16 u quality/config.json.
+//   - iznimke za BP16 u quality/config.json.
+//
+// Premještaji iz main.go za BP16 u quality/config.json ne čekaju kraj BP16:
+// uklanjaju se pri prvom ponovnom snimanju baselinea (make quality-baseline),
+// jer u novom baselineu tih funkcija u main.go više nema i provjera bi pala.
 //
 // Ostaje, jer zapisi preneseni iz BP16 ostaju u bazi i u razmjeni:
 //   - internal/models/reading.go: podrijetlo ReadingOriginBP16
