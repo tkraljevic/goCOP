@@ -2,6 +2,7 @@ package peers
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -45,4 +46,60 @@ func TestNovoCekanjeNakonPrekida(t *testing.T) {
 			t.Errorf("prekid novog čekanja: završilo %d, %+v", len(prekinuto), st)
 		}
 	})
+}
+
+// Prekinuto čekanje baš je dočekalo poziv kad je novo čekanje već počelo.
+// Taj se poziv ne nudi na potvrdu, ali računalo koje je nazvalo odmah dobije
+// odbijanje i može nazvati ponovno; ne čeka dvije minute da veza istekne.
+// Veza je na loopbacku, a izmišljeno čekanje (s.slusaj) drži primljeni poziv
+// dok novo čekanje ne počne.
+func TestPozivPrekinutogCekanjaDobijeOdbijanje(t *testing.T) {
+	a, b := rubniCvor(t, "cop-osijek"), rubniCvor(t, "cop-vukovar")
+	port := slobodanPort(t)
+	prvo, pusti := make(chan struct{}, 1), make(chan struct{})
+	prvo <- struct{}{}
+	a.slusaj = func(ctx context.Context) (*razmjena.PairResult, error) {
+		select {
+		case <-prvo:
+			res, err := razmjena.Listen(context.Background(), a.node.key, a.identity(), port)
+			<-pusti // poziv je stigao, a čekanje se u međuvremenu prekida i počinje novo
+			return res, err
+		default:
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+	}
+	if err := a.StartListening(); err != nil {
+		t.Fatal(err)
+	}
+	cekajPort(t, port)
+	if err := b.DialPair(ctxRub, fmt.Sprintf("127.0.0.1:%d", port)); err != nil {
+		t.Fatalf("nazivanje: %v", err)
+	}
+	a.StopListening()
+	if err := a.StartListening(); err != nil {
+		t.Fatalf("novo čekanje nakon prekida: %v", err)
+	}
+	t.Cleanup(a.StopListening)
+	close(pusti)
+
+	gotovo := make(chan PairOutcome, 1)
+	go func() {
+		out, err := b.ConfirmPair(ctxRub, true, false)
+		if err != nil {
+			out.Message = err.Error()
+		}
+		gotovo <- out
+	}()
+	select {
+	case out := <-gotovo:
+		if out.Paired || out.Message != "Uparivanje odbijeno ili nepotvrđeno s druge strane." {
+			t.Errorf("računalo koje je nazvalo: %+v", out)
+		}
+	case <-time.After(30 * time.Second):
+		t.Fatal("računalo koje je nazvalo nije dobilo odbijanje")
+	}
+	if st := a.PairStatus(); !st.Waiting || st.Pending {
+		t.Errorf("novo čekanje: %+v", st)
+	}
 }

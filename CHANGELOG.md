@@ -92,7 +92,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   prekine i odmah pokrene ponovno, prvo čekanje je pri gašenju brisalo
   zapis o drugom. Stranica tada nije pokazivala da računalo čeka, a drugo
   čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
-  čekanje ne dira novo.
+  čekanje ne dira novo. Računalo koje je nazvalo baš u trenutku prekida
+  dobije odmah poruku da je uparivanje odbijeno, pa može nazvati ponovno.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

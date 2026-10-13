@@ -609,11 +609,13 @@ func (s *Service) StartListening() error {
 // zavrsiCekanje bilježi kako je završilo čekanje s rednim brojem moje.
 // Prekinuto čekanje koje je u međuvremenu zamijenilo novo ne dira ništa:
 // inače bi obrisalo zapis novog čekanja, pa ga StopListening ne bi mogao
-// prekinuti, a čvor ne bi javljao da čeka.
+// prekinuti, a čvor ne bi javljao da čeka. Poziv koji je takvo čekanje
+// dočekalo se odbija.
 func (s *Service) zavrsiCekanje(moje uint64, res *razmjena.PairResult, err error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if moje != s.cekanje {
+		odbijPoziv(res)
 		return
 	}
 	s.waiting = nil
@@ -624,6 +626,15 @@ func (s *Service) zavrsiCekanje(moje uint64, res *razmjena.PairResult, err error
 		return
 	}
 	s.pending, s.pozvao = res, false
+}
+
+// odbijPoziv javlja računalu koje je nazvalo da je uparivanje odbijeno i
+// zatvara vezu; bez toga bi ono čekalo dvije minute da veza istekne. Finish
+// čeka i njegov odgovor, pa ide u svojoj gorutini.
+func odbijPoziv(res *razmjena.PairResult) {
+	if res != nil {
+		go func() { _, _, _ = res.Finish(false, nil) }()
+	}
 }
 
 // slusajUparivanje čeka poziv drugog čvora na portu uparivanja, ili ga
