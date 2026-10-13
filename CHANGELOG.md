@@ -78,6 +78,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   godine, a pretplata samo na arhivu se upisuje. Paket stiže kad je sadržaj
   uz zapise „Sve”. Za očitanja, dnevnike i prijave godine vrijede kao i
   dosad.
+- **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
+  bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
+  razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
+  Sad razmjena takav zapis preskoči, a ostalo pošalje. Zapis se jednom
+  upiše u dnevnik programa i stoji kao upozorenje na stranici
+  Sinkronizacija i na pločici razmjene na naslovnoj.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

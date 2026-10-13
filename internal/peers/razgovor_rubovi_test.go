@@ -10,6 +10,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sort"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -303,26 +304,141 @@ func TestRazgovorKadBazaPadne(t *testing.T) {
 		t.Errorf("knjiga nestala nakon granice: %v", o.err)
 	}
 	sakrij("knjiga_skrivena", "record_versions")
+}
 
-	// verzija koja se ne da zapisati kao JSON: delta ne prolazi, i to se kaže
-	if _, err := b.db.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel)
-		VALUES ('0190a000-0000-7000-8000-00000000000f', 'probni', 'r-15', 'laptop-baranja', '', 0, 'nije json', ?, 1, '')`, time.Now().UTC()); err != nil {
+// upisiRedakKnjige upisuje verziju u knjigu mimo Recorder-a, sa zadanim
+// version_id i sadržajem, kao redak koji je u bazi već takav
+func upisiRedakKnjige(t *testing.T, s *Service, versionID, kanal, payload string) {
+	t.Helper()
+	if _, err := s.db.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel)
+		VALUES (?, 'probni', ?, ?, '', 0, ?, ?, 1, ?)`, versionID, "r-"+versionID, s.node.ID, payload, time.Now().UTC(), kanal); err != nil {
 		t.Fatal(err)
 	}
-	if o := nazoviSkriptu(t, b, a, false, func(t *testing.T, c *razmjena.Conn, _ func()) {
+}
+
+// primiDeltu glumi drugu stranu koja zove ili je pozvana s danom granicom i
+// pročita deltu čvora; razgovor završi bez sadržaja
+func primiDeltu(granica map[string]string, stiglo *deltaMsg) skripta {
+	return func(t *testing.T, c *razmjena.Conn, _ func()) {
 		primiPoruku(t, c, kindFrontier)
-		posaljiPoruku(t, c, kindFrontier, praznaGranica)
-		_, _ = c.Receive()
-	}); o.err == nil || !strings.Contains(o.err.Error(), "invalid character") {
-		t.Errorf("pokvarena verzija u delti: %v", o.err)
+		posaljiPoruku(t, c, kindFrontier, frontierMsg{Frontier: granica})
+		e := primiPoruku(t, c, kindDelta)
+		if err := e.Decode(stiglo); err != nil {
+			t.Errorf("delta se ne da pročitati: %v", err)
+		}
+		posaljiPoruku(t, c, kindDelta, deltaMsg{})
+		primiPoruku(t, c, kindZelje)
+		posaljiPoruku(t, c, kindDone, doneMsg{})
+		primiPoruku(t, c, kindDone)
 	}
-	if o := primiSkriptu(t, b, a, func(t *testing.T, c *razmjena.Conn, _ func()) {
-		posaljiPoruku(t, c, kindFrontier, praznaGranica)
+}
+
+func idoviVerzija(vv []ledger.Version) string {
+	var out []string
+	for _, v := range vv {
+		out = append(out, v.VersionID)
+	}
+	sort.Strings(out)
+	return strings.Join(out, ",")
+}
+
+// Verzija s neispravnim JSON-om u knjizi ne ruši razmjenu: preskoči se,
+// ostale verzije idu, u dnevnik ide jednom (entitet i version_id, bez
+// sadržaja), a ploča je pokazuje kao upozorenje i ne broji je kao da čeka.
+// Granica primatelja prijeđe preko nje čim stigne kasnija verzija istog
+// ključa, pa je sljedeća razmjena više ne nudi. Do 0.0.38 jedna takva
+// verzija rušila je svaku razmjenu s čvorom koji je nema.
+func TestRazgovorPreskaceNeispravnuVerziju(t *testing.T) {
+	a, b := izdavacIPrimatelj(t)
+	dnevnik := brojiDnevnik(t, "nije ispravan JSON")
+	const (
+		k16v1, k16los, k16v3 = "0190a000-0000-7000-8000-000000000001", "0190a000-0000-7000-8000-000000000002", "0190a000-0000-7000-8000-000000000003"
+		k3v1, k3los          = "0190a000-0000-7000-8000-000000000011", "0190a000-0000-7000-8000-000000000012"
+	)
+	upisiRedakKnjige(t, b, k16v1, "ocitanja/16/2026", `{"cm":120}`)
+	upisiRedakKnjige(t, b, k16los, "ocitanja/16/2026", "nije json, Pero Perić 120 cm")
+	upisiRedakKnjige(t, b, k16v3, "ocitanja/16/2026", `{"cm":122}`)
+	upisiRedakKnjige(t, b, k3v1, "ocitanja/3/2026", `{"cm":80}`)
+	upisiRedakKnjige(t, b, k3los, "ocitanja/3/2026", "nije json")
+	kljuc16 := ledger.FrontierKey(b.node.ID, "ocitanja/16/2026")
+	kljuc3 := ledger.FrontierKey(b.node.ID, "ocitanja/3/2026")
+	// druga strana ima sve osim očitanja; "~" je iza svakog version_id
+	mine, err := b.rec.Frontier(ctxRub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	samoOcitanja := map[string]string{}
+	for k := range mine {
+		if k != kljuc16 && k != kljuc3 {
+			samoOcitanja[k] = "~"
+		}
+	}
+
+	var stiglo deltaMsg
+	o := nazoviSkriptu(t, b, a, false, primiDeltu(samoOcitanja, &stiglo))
+	if o.err != nil {
+		t.Fatalf("razmjena s neispravnom verzijom: %v", o.err)
+	}
+	if got := idoviVerzija(stiglo.Versions); got != strings.Join([]string{k16v1, k16v3, k3v1}, ",") || stiglo.Skraceno {
+		t.Errorf("poslano %s (skraćeno %v)", got, stiglo.Skraceno)
+	}
+	if o.sent != 3 || o.theirs.Frontier[kljuc16] != k16v3 || o.theirs.Frontier[kljuc3] != k3los {
+		t.Errorf("poslano %d, zapamćena granica %v", o.sent, o.theirs.Frontier)
+	}
+	if n, zadnji := dnevnik.broj(); n != 2 || !strings.Contains(zadnji, "(probni)") || strings.Contains(zadnji, "Perić") || strings.Contains(zadnji, "nije json") {
+		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
+	}
+
+	// zapamćena granica: ploča ne broji neispravnu verziju kao da čeka
+	if err := b.SavePeer(ctxRub, Peer{NodeID: a.node.ID, Name: a.node.ID, PublicKey: a.node.PublicKey(), Addresses: []string{"192.168.1.20:4710"}}); err != nil {
+		t.Fatal(err)
+	}
+	b.recordSyncState(ctxRub, a.node.ID, ishodRazmjene(o.applied, o.sent, o.theirs, time.Millisecond, nil))
+	st, err := b.Status(ctxRub, false)
+	if err != nil || len(st.Peers) != 1 {
+		t.Fatalf("stanje: %+v %v", st, err)
+	}
+	if st.Peers[0].Backlog != 0 {
+		t.Errorf("ploča broji %d verzija koje čekaju", st.Peers[0].Backlog)
+	}
+	upozorenje := "Razmjena drugim čvorovima ne šalje 2 zapisa koji u bazi ovog računala nisu ispravni (probni, verzija " + k16los + "; probni, verzija " + k3los + ")."
+	if !strings.Contains(strings.Join(st.Alerts, "\n"), upozorenje) {
+		t.Errorf("upozorenje na ploči: %q", st.Alerts)
+	}
+
+	// primatelj sad ima k16v3 i k3v1: neispravne se više ne nude, nova
+	// verzija drugog ključa ide, a dnevnik se ne ponavlja
+	novi := "0190a000-0000-7000-8000-000000000013"
+	upisiRedakKnjige(t, b, novi, "ocitanja/3/2026", `{"cm":81}`)
+	stiglo = deltaMsg{}
+	sGranicom := map[string]string{kljuc16: k16v3, kljuc3: k3v1}
+	for k, v := range samoOcitanja {
+		sGranicom[k] = v
+	}
+	if o := primiSkriptu(t, b, a, pozivateljSGranicom(sGranicom, &stiglo)); o.err != nil || o.sent != 1 {
+		t.Fatalf("druga razmjena: poslano %d, %v", o.sent, o.err)
+	}
+	if got := idoviVerzija(stiglo.Versions); got != novi {
+		t.Errorf("u drugoj razmjeni poslano %s", got)
+	}
+	if n, _ := dnevnik.broj(); n != 2 {
+		t.Errorf("dnevnik se ponavlja: %d redaka", n)
+	}
+}
+
+// pozivateljSGranicom glumi stranu koja zove: pošalje granicu, pročita
+// deltu čvora i završi razgovor bez sadržaja
+func pozivateljSGranicom(granica map[string]string, stiglo *deltaMsg) skripta {
+	return func(t *testing.T, c *razmjena.Conn, _ func()) {
+		posaljiPoruku(t, c, kindFrontier, frontierMsg{Frontier: granica})
 		primiPoruku(t, c, kindFrontier)
 		posaljiPoruku(t, c, kindDelta, deltaMsg{})
-		_, _ = c.Receive()
-	}); o.err == nil || !strings.Contains(o.err.Error(), "invalid character") {
-		t.Errorf("pokvarena verzija u delti pozvanog: %v", o.err)
+		e := primiPoruku(t, c, kindDelta)
+		if err := e.Decode(stiglo); err != nil {
+			t.Errorf("delta se ne da pročitati: %v", err)
+		}
+		posaljiPoruku(t, c, kindDone, doneMsg{})
+		primiPoruku(t, c, kindDone)
 	}
 }
 

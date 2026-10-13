@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -358,7 +359,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		}
 	}
 
-	st.Alerts = s.alerts(st, every, now)
+	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
 	return st, nil
 }
 
@@ -416,6 +417,27 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 		out = append(out, "Nijedan čvor nema javnu adresu: razmjena radi samo unutar lokalne mreže.")
 	}
 	return out
+}
+
+// upozorenjeNeispravnih je redak za ploču razmjene i pločicu na naslovnoj
+// kad razmjena neke verzije ne šalje; nil kad takvih nema
+func (s *Service) upozorenjeNeispravnih() []string {
+	var popis []string
+	s.neispravne.Range(func(id, entitet any) bool {
+		popis = append(popis, fmt.Sprintf("%s, verzija %s", entitet, id))
+		return true
+	})
+	if len(popis) == 0 {
+		return nil
+	}
+	sort.Strings(popis)
+	n := len(popis)
+	if n > 5 {
+		popis = append(popis[:5], "…")
+	}
+	return []string{fmt.Sprintf("Razmjena drugim čvorovima ne šalje %d %s (%s). Ostali podaci razmjenjuju se normalno, a popis je i u dnevniku programa.",
+		n, models.UzBrojHR(n, "zapis koji u bazi ovog računala nije ispravan", "zapisa koji u bazi ovog računala nisu ispravni", "zapisa koji u bazi ovog računala nisu ispravni"),
+		strings.Join(popis, "; "))}
 }
 
 func label(p Peer) string {
