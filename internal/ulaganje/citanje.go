@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 	"gocop/internal/arhiva"
-	"gocop/internal/db"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -76,13 +76,13 @@ func zatecenaVrsta(arhivaPut, letva, izvor string) string {
 	if arhivaPut == "" {
 		return ""
 	}
-	ro, err := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut))
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(arhivaPut))
 	if err != nil {
 		return ""
 	}
-	defer ro.Close()
+	defer db.Close()
 	var v string
-	err = ro.QueryRow(`SELECT vrsta FROM nizovi WHERE letva=? AND izvor=? AND velicina='vodostaj'
+	err = db.QueryRow(`SELECT vrsta FROM nizovi WHERE letva=? AND izvor=? AND velicina='vodostaj'
 		ORDER BY zapisa DESC LIMIT 1`, letva, izvor).Scan(&v)
 	if err != nil {
 		return ""
@@ -224,7 +224,7 @@ type UNizu struct {
 // Zato se gleda sirova tablica ocitanja kroz identitet niza — letva, izvor,
 // veličina, vrsta — i traži se baš ta vrijednost.
 func ProvjeriUArhivi(put, letva string, nizovi []UNizu) (int, error) {
-	a, err := sql.Open("sqlite", db.SamoZaCitanje(put))
+	a, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put))
 	if err != nil {
 		return 0, err
 	}

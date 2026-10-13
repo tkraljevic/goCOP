@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gocop/internal/db"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -28,29 +28,29 @@ type ArhivaRepository struct {
 
 // OpenArhiva otvara arhivu za čitanje. Vraća nil bez greške kad datoteke nema.
 func OpenArhiva(path string) (*ArhivaRepository, error) {
-	ro, err := sql.Open("sqlite", db.SamoZaCitanje(path)+"&_pragma=busy_timeout(3000)")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(path)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, err
 	}
-	if err := ro.Ping(); err != nil {
-		ro.Close()
+	if err := db.Ping(); err != nil {
+		db.Close()
 		return nil, nil
 	}
 	var n int
-	if err := ro.QueryRow(`SELECT count(*) FROM nizovi`).Scan(&n); err != nil {
-		ro.Close()
+	if err := db.QueryRow(`SELECT count(*) FROM nizovi`).Scan(&n); err != nil {
+		db.Close()
 		return nil, nil
 	}
 	// Arhiva se otvara samo za čitanje, pa se ovdje ne može dopuniti. Starije
 	// arhive nemaju napomenu uz niz; čitanje mora raditi i s njima, jer čvor
 	// koji je preuzeo staro izdanje ne smije ostati bez povijesti.
-	r := &ArhivaRepository{db: ro}
+	r := &ArhivaRepository{db: db}
 	var ima int
-	if err := ro.QueryRow(
+	if err := db.QueryRow(
 		`SELECT count(*) FROM pragma_table_info('nizovi') WHERE name = 'napomena'`).Scan(&ima); err == nil {
 		r.imaNapomenu = ima > 0
 	}
-	if err := ro.QueryRow(
+	if err := db.QueryRow(
 		`SELECT count(*) FROM pragma_table_info('profili') WHERE name = 'crtaj'`).Scan(&ima); err == nil {
 		r.imaCrtaj = ima > 0
 	}

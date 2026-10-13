@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
-	"gocop/internal/db"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/dhmz"
 	"gocop/internal/hydro"
 	"gocop/internal/javnivodostaji"
@@ -2002,12 +2002,12 @@ func (s *Server) IzdajArhivu(letva string, probno bool, zapisi io.Writer) (arhiv
 	if s.paketiDir == "" {
 		return iz, fmt.Errorf("nije zadana mapa u koju se izdaje")
 	}
-	ro, err := sql.Open("sqlite", db.SamoZaCitanje(s.arhivaPut))
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(s.arhivaPut))
 	if err != nil {
 		return iz, err
 	}
-	defer ro.Close()
-	return arhiva.Izdaj(ro, s.paketiDir, s.recorder.Cvor(), letva, probno, zapisi)
+	defer db.Close()
+	return arhiva.Izdaj(db, s.paketiDir, s.recorder.Cvor(), letva, probno, zapisi)
 }
 
 // KatalogIzdanja čita što je dosad izdano. Mape koje nema nije greška: na ovom

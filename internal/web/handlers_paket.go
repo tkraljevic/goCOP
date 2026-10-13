@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
-	"gocop/internal/db"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 
 	_ "modernc.org/sqlite"
@@ -116,12 +116,12 @@ func (h *StationsHandler) IzveziPaket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nije poznato gdje arhiva stoji", http.StatusServiceUnavailable)
 		return
 	}
-	ro, err := sql.Open("sqlite", db.SamoZaCitanje(h.arhivaPutFn()))
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(h.arhivaPutFn()))
 	if err != nil {
 		http.Error(w, "arhiva se ne otvara: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer ro.Close()
+	defer db.Close()
 
 	// Broj izdanja daje katalog, ne čovjek: isti broj dok se sadržaj ne
 	// promijeni, sljedeći čim se promijeni.
@@ -130,7 +130,7 @@ func (h *StationsHandler) IzveziPaket(w http.ResponseWriter, r *http.Request) {
 		mapa = h.paketiDirFn()
 	}
 	var b bytes.Buffer
-	m, err := arhiva.SljedeceIzdanje(ro, mapa, data.Station.Code, h.cvorFn(), &b)
+	m, err := arhiva.SljedeceIzdanje(db, mapa, data.Station.Code, h.cvorFn(), &b)
 	if err != nil {
 		http.Error(w, "paket se nije dao sastaviti: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -224,9 +224,9 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 	}
 	pd.StariPaket = sadrzaj.Manifest.Inacica < 2
 	if put := h.arhivaPutFn(); put != "" {
-		if ro, err := sql.Open("sqlite", db.SamoZaCitanje(put)); err == nil {
-			pd.RazlikeIzvora, _ = arhiva.RazlikeIzvora(ro, sadrzaj)
-			ro.Close()
+		if db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put)); err == nil {
+			pd.RazlikeIzvora, _ = arhiva.RazlikeIzvora(db, sadrzaj)
+			db.Close()
 		}
 	}
 	pd.Kljuc = cekaju.spremi(privremena.Name(), sadrzaj.Manifest.Letva)

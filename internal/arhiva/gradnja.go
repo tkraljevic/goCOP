@@ -1582,11 +1582,15 @@ func makniKrivuljeIzvanDatoteke(db *sql.DB, letva string, uDatoteci map[string]i
 // javiKrivuljeIzvanDatoteka piše u izvještaj gradnje koje je krivulje gradnja
 // maknula, koje je zadržala jer je letva stigla paketom, i kad su vrijedile.
 func javiKrivuljeIzvanDatoteka(zapisi io.Writer, maknute, zadrzane []MaknutaKrivulja) {
+	redci := make([][2]string, 0, len(maknute)+len(zadrzane))
 	for _, k := range maknute {
-		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", k.Letva, k.Opis())
+		redci = append(redci, [2]string{k.Letva, k.Opis()})
 	}
 	for _, k := range zadrzane {
-		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", k.Letva, k.OpisZadrzane())
+		redci = append(redci, [2]string{k.Letva, k.OpisZadrzane()})
+	}
+	for _, r := range redci {
+		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", r[0], r[1])
 	}
 }
 
