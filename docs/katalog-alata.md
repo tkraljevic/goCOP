@@ -147,6 +147,7 @@ Tuđe prognoze za usporedbe čitaju se iz izvorne građe u
 | `tools/analysis` | Istraživačke analize (akumulacije) |
 | `tools/geo` | Priprema geometrije iz OSM-a i ENC-a |
 | `tools/internal/hvracun` | Otključavanje HydroView računa čvora za alate |
+| `tools/tekstovi` | Tablica svih tekstova koje korisnik vidi (Excel: Tekstovi, Pomoć, Sažetak), za pregled hrvatskog i kasniji prijevod; uz [pojmovnik](pojmovnik.md). `go run ./tools/tekstovi -korijen <stablo> -izlaz <datoteka.xlsx>`, samo čita kod |
 
 ## Izvorna građa
 

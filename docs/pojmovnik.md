@@ -18,7 +18,8 @@ Dok se ovaj nacrt ne pregleda, po njemu se u programu ništa ne mijenja.
 
 ## Kako se koristi
 
-- **Uz tablicu tekstova.** Svaki redak tablice u kojem se javlja pojam iz
+- **Uz tablicu tekstova** (lokalni alat `tools/tekstovi`, vidi
+  [katalog alata](katalog-alata.md)). Svaki redak tablice u kojem se javlja pojam iz
   pojmovnika usporedi se sa stupcem „Pravi oblik”. Redak s nepoželjnom
   inačicom označi se za ispravak.
 - **Novi tekst** piše se odmah pravim oblikom.
