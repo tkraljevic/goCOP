@@ -137,7 +137,9 @@ func TestSveVrstePokrivajuPaketArhive(t *testing.T) {
 // Stranica pretplata nudi arhivu vodostaja kao vrstu: pravilo se upisuje i
 // čita kao „arhiva vodostaja … cijela povijest”. Razina sadržaja za paket ne
 // vrijedi, pa se pravilo samo za arhivu pamti sa „Sve” i opis ne kaže
-// „samo kazalo”; rok držanja ostaje.
+// „samo kazalo”; rok držanja ostaje. Ne vrijede ni godine: pravilo ih ne
+// pamti, pa se ista arhiva s godinom i bez nje ne dodaje dvaput, a godine
+// obrnutim redom za arhivu nisu greška.
 func TestPretplataNaArhivuSeUpisuje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	r, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 16, YearFrom: 2026, Razina: RazinaKazalo, DrziDana: 30})
@@ -147,8 +149,14 @@ func TestPretplataNaArhivuSeUpisuje(t *testing.T) {
 	if got := r.Label(); got != "arhiva vodostaja, BP 16, cijela povijest, sadržaj 30 dana" {
 		t.Errorf("opis pravila: %q", got)
 	}
-	if l, err := s.ListSubscriptions(ctxRub); err != nil || len(l) != 1 || l[0].Razina != RazinaSve || l[0].DrziDana != 30 {
+	if l, err := s.ListSubscriptions(ctxRub); err != nil || len(l) != 1 || l[0].Razina != RazinaSve || l[0].DrziDana != 30 || l[0].YearFrom != 0 || l[0].YearTo != 0 {
 		t.Errorf("upisano pravilo: %+v %v", l, err)
+	}
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 16, DrziDana: 30}); !errors.Is(err, ErrIstoPravilo) {
+		t.Errorf("ista arhiva bez godine: %v", err)
+	}
+	if r, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 17, YearFrom: 2026, YearTo: 2024}); err != nil || r.YearFrom != 0 || r.YearTo != 0 {
+		t.Errorf("arhiva s godinama obrnutim redom: %+v %v", r, err)
 	}
 	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, Razina: "puno"}); err == nil {
 		t.Error("pravilo samo za arhivu s nepoznatom razinom je upisano")

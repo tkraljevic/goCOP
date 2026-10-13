@@ -278,8 +278,13 @@ func razinaPravila(kind, razina string) (string, error) {
 }
 
 // godineIRokPravila odbija godine obrnutim redom; rok manji od nule znači
-// trajno, kao i prazan rok
+// trajno, kao i prazan rok. Pravilo za arhivu vodostaja godine ne pamti:
+// paket nosi cijelu povijest letve, a obrazac sam upisuje početnu godinu,
+// pa bi se ista arhiva dala dodati dvaput, sa zadanom godinom i bez nje.
 func godineIRokPravila(r *Subscription) error {
+	if r.Kind == ledger.ChannelArhiva {
+		r.YearFrom, r.YearTo = 0, 0
+	}
 	if r.YearFrom > 0 && r.YearTo > 0 && r.YearTo < r.YearFrom {
 		return fmt.Errorf("Pretplata nije dodana: godina u polju „Do godine” je prije godine u polju „Od godine”.")
 	}
