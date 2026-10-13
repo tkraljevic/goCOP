@@ -56,4 +56,5 @@ var datotekePrimjene = map[string]bool{
 	"apply.go":              true,
 	"apply_mreza.go":        true,
 	"apply_organizacija.go": true,
+	"apply_registri.go":     true,
 }
