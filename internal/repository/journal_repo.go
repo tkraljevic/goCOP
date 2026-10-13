@@ -200,15 +200,17 @@ func (r *JournalRepository) GetJournal(ctx context.Context, id string) (*models.
 	return &j, nil
 }
 
-// SaveJournal upisuje novi dnevnik ili mijenja naslovnicu
-// journalChannel je kanal dnevnika: njegovo područje i godina
+// journalChannel je kanal dnevnika: njegovo područje i godina. Bez upisane
+// godine to je godina početka, a bez početka godina upisa, po zagrebačkom
+// vremenu: iz baze se vrijeme čita u UTC-u, pa bi dnevnik od 1. siječnja
+// nakon izmjene prešao u kanal prethodne godine.
 func journalChannel(j *models.Journal) string {
 	year := j.Year
 	if year == 0 && j.StartedAt != nil {
-		year = j.StartedAt.Year()
+		year = j.StartedAt.In(models.Zagreb).Year()
 	}
 	if year == 0 {
-		year = j.CreatedAt.Year()
+		year = j.CreatedAt.In(models.Zagreb).Year()
 	}
 	return ledger.ChannelFor(ledger.ChannelJournals, j.AreaID, year)
 }
@@ -220,6 +222,7 @@ func channelOfJournal(ctx context.Context, q rowQuerier, journalID string) strin
 	return ch
 }
 
+// SaveJournal upisuje novi dnevnik ili mijenja naslovnicu
 func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) error {
 	now := time.Now().UTC()
 	if j.ID == "" {
