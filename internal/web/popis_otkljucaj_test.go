@@ -159,7 +159,7 @@ func TestOtkljucajInventuruKrozRute(t *testing.T) {
 		t.Fatal("inventura je i dalje zaključena")
 	}
 	tijelo = zovi(admin, glavni, http.MethodGet, stranica).Body.String()
-	if strings.Contains(tijelo, "Otključaj inventuru") || !strings.Contains(tijelo, "nacrt") || !strings.Contains(tijelo, "Otključao: Marko Marić") {
+	if strings.Contains(tijelo, "Otključaj inventuru") || !strings.Contains(tijelo, "nacrt") || !strings.Contains(tijelo, "Otključao/la: Marko Marić") {
 		t.Errorf("stranica otključane inventure nema nacrt i napomenu ili ima gumb")
 	}
 	// drugi put: poruka da nije zaključena

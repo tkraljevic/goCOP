@@ -82,7 +82,7 @@ func TestOtkljucajPopisVracaNacrtIBriseUskladjenja(t *testing.T) {
 		t.Fatalf("promet skladišta: %d redaka", len(sve))
 	}
 
-	p.Napomena = "brojala Petra. Otključao: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."
+	p.Napomena = "brojala Petra. Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."
 	nuzno(t, repo.OtkljucajPopis(ctxRaz, p, uskladjenja))
 
 	nacrt, err := repo.GetPopis(ctxRaz, p.ID)
@@ -270,7 +270,7 @@ func TestOtkljucavanjeStizeDrugomCvoru(t *testing.T) {
 
 	uskladjenja, err := repo.UskladjenjaPopisa(ctxRaz, p.ID)
 	nuzno(t, err)
-	p.Napomena += " Otključao: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."
+	p.Napomena += " Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."
 	nuzno(t, repo.OtkljucajPopis(ctxRaz, p, uskladjenja))
 	posalji(t, ured, teren)
 

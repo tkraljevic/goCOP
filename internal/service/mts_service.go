@@ -837,9 +837,9 @@ func (s *MtsService) nemaNovijeZakljucene(ctx context.Context, p *models.Popis) 
 func biljeskaOtkljucavanja(ime string, kad time.Time, uskladjenja int) string {
 	kada := kad.In(models.Zagreb).Format("2. 1. 2006. u 15:04")
 	if uskladjenja == 0 {
-		return fmt.Sprintf("Otključao: %s, %s; usklađenja nije bilo.", ime, kada)
+		return fmt.Sprintf("Otključao/la: %s, %s; usklađenja nije bilo.", ime, kada)
 	}
-	return fmt.Sprintf("Otključao: %s, %s; %d %s.", ime, kada, uskladjenja,
+	return fmt.Sprintf("Otključao/la: %s, %s; %d %s.", ime, kada, uskladjenja,
 		models.UzBrojHR(uskladjenja, "usklađenje je obrisano", "usklađenja su obrisana", "usklađenja je obrisano"))
 }
 

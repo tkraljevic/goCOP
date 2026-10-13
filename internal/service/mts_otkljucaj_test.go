@@ -109,7 +109,7 @@ func TestMtsOtkljucanaInventuraRacunaRazlikuIznova(t *testing.T) {
 	if nacrt.Zakljucen() {
 		t.Fatal("inventura je i dalje zaključena")
 	}
-	if !strings.HasPrefix(nacrt.Napomena, "Otključao: Marko Marić, ") || !strings.HasSuffix(nacrt.Napomena, "; 1 usklađenje je obrisano.") {
+	if !strings.HasPrefix(nacrt.Napomena, "Otključao/la: Marko Marić, ") || !strings.HasSuffix(nacrt.Napomena, "; 1 usklađenje je obrisano.") {
 		t.Errorf("napomena: %q", nacrt.Napomena)
 	}
 	if ostala := uskladjenjaVrste(t, s, p.ID, lopata); len(ostala) != 0 {
@@ -368,11 +368,11 @@ func TestBiljeskaOtkljucavanja(t *testing.T) {
 		n    int
 		want string
 	}{
-		{0, "Otključao: Marko Marić, 13. 10. 2026. u 11:16; usklađenja nije bilo."},
-		{1, "Otključao: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."},
-		{3, "Otključao: Marko Marić, 13. 10. 2026. u 11:16; 3 usklađenja su obrisana."},
-		{5, "Otključao: Marko Marić, 13. 10. 2026. u 11:16; 5 usklađenja je obrisano."},
-		{21, "Otključao: Marko Marić, 13. 10. 2026. u 11:16; 21 usklađenje je obrisano."},
+		{0, "Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; usklađenja nije bilo."},
+		{1, "Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."},
+		{3, "Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 3 usklađenja su obrisana."},
+		{5, "Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 5 usklađenja je obrisano."},
+		{21, "Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 21 usklađenje je obrisano."},
 	} {
 		if got := biljeskaOtkljucavanja("Marko Marić", kad, c.n); got != c.want {
 			t.Errorf("%d usklađenja:\n%q\na treba\n%q", c.n, got, c.want)
@@ -381,7 +381,7 @@ func TestBiljeskaOtkljucavanja(t *testing.T) {
 }
 
 func TestDopisiRecenicu(t *testing.T) {
-	r := "Otključao: Marko Marić."
+	r := "Otključao/la: Marko Marić."
 	for _, c := range []struct{ napomena, want string }{
 		{"", r},
 		{"   ", r},

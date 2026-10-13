@@ -10,8 +10,8 @@ func TestNaznakaInventureBezDvijeTocke(t *testing.T) {
 		{"", ""},
 		{"  ", ""},
 		{"brojala Petra", " Napomena: brojala Petra."},
-		{"brojala Petra. Otključao: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano.",
-			" Napomena: brojala Petra. Otključao: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."},
+		{"brojala Petra. Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano.",
+			" Napomena: brojala Petra. Otključao/la: Marko Marić, 13. 10. 2026. u 11:16; 1 usklađenje je obrisano."},
 	} {
 		if got := naznaka(c.napomena); got != c.zeli {
 			t.Errorf("%q: %q", c.napomena, got)
