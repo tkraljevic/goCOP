@@ -752,15 +752,19 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := d.Prijedlg
-	// Letva se zna tek kad je datoteka pročitana, pa provjera prava stoji
-	// ovdje, a ne na vratima: dotad se ne zna ni čije se podatke dira.
-	if !h.smijeZa(d.Permissions, u.Letva) {
-		d.ErrorMessage = "Nemate pravo uvoziti podatke letve " + u.Letva + " — uvozi ih administrator njezina područja."
+	// Dijelovi naziva provjeravaju se prije prava: bez letve pravo nema na
+	// što se odnositi, pa bi poruka o pravu ostala bez imena letve.
+	if err := arhiva.ProvjeriDjelove(u.Letva, u.Izvor, u.Velicina, u.Vrsta); err != nil {
+		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
 		return
 	}
-	if err := arhiva.ProvjeriDjelove(u.Letva, u.Izvor, u.Velicina, u.Vrsta); err != nil {
-		d.ErrorMessage = err.Error()
+	// Letva se zna tek kad je datoteka pročitana, pa provjera prava stoji
+	// ovdje, a ne na vratima: dotad se ne zna ni čije se podatke dira.
+	// popuniPregled je istu letvu već provjerio; ovo je druga ograda
+	// neposredno prije upisa.
+	if !h.smijeZa(d.Permissions, u.Letva) {
+		d.ErrorMessage = "Nemate pravo uvoziti podatke letve " + u.Letva + " — uvozi ih administrator njezina područja."
 		h.pisi(w, d)
 		return
 	}

@@ -77,6 +77,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Uzrok je isti: pitanje o sustavu stajalo je u obrascu krivulja, a ne u
   obrascu snimki. Sad stoji uz snimke, a pregled krivulja iscrta se do
   kraja.
+- **Uvoz niza bez letve kaže da letva nije zadana.** Administrator područja
+  koji je potvrdio niz bez letve u nazivu datoteke i u obrascu dobio je
+  poruku „Nemate pravo uvoziti podatke letve  — …”, bez imena letve. Sad
+  dobije isto što i globalni administrator: da letva nije zadana.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
