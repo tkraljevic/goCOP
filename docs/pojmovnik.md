@@ -43,16 +43,20 @@ Dok se ovaj nacrt ne pregleda, po njemu se u programu ništa ne mijenja.
 - **Tekst akata**: zadana špranča i sve što ulazi u sažetak akta koji se
   potpisuje. Izmjena bi srušila provjeru potpisa starih akata.
 - **Nazivi uloga, vrsta dnevnika i službi**: spremaju se u bazu kao naziv
-  dužnosti, uspoređuju se i idu u certifikat potpisa.
-- **Zaglavlja CSV datoteka**, riječi koje program čita pri povratnom uvozu i
-  šifre u bazi.
+  dužnosti, uspoređuju se i idu u certifikat potpisa. Kad je takav naziv
+  niže u tablici (npr. vodočuvar), pravilo vrijedi samo za riječ u tekstu.
+- **Zaglavlja CSV datoteka**, riječi koje program čita pri povratnom uvozu,
+  šifre u bazi (npr. visinski sustav `TRST`, ključ `stadij` u izvješću) i
+  vrijednosti koje obrazac sprema (npr. jedinica „m n.m.” na dnevnom
+  izvješću). Smije se promijeniti samo natpis uz njih.
 
 ## Kako su brojke dobivene
 
 Brojano je u mapama `cmd`, `internal` i `web`, bez testova, mape `testdata`,
 CSS-a i vanjskih biblioteka (`web/static/vendor`). Broje se cijele riječi u
-svim padežima, bez obzira na veliko slovo. Pogoci u imenima iz koda
-(npr. `stadijKratica`) ne broje se, ali ime napisano kao obična riječ
+svim padežima, bez obzira na veliko slovo; samo su „Trst” i „TRST” brojani
+odvojeno. Pogoci koji izgledaju kao ime iz koda (malo slovo pa veliko, npr.
+`stadijKratica`, ili podvlaka) ne broje se, ali ime napisano kao obična riječ
 (npr. varijabla `letva`) ne da se odvojiti. U broj ulaze i komentari u kodu,
 pa je brojka putokaz, a ne popis mjesta; za česte riječi (letva, sektor, akt)
 veća je od stvarnog teksta.
@@ -61,9 +65,13 @@ Zapis „47 (17)” znači: 47 puta u programu, od toga 17 u mapi `web`
 (predlošci stranica i JavaScript), što korisnik najčešće izravno vidi.
 
 ```sh
-git grep -o -i -w -E 'stup(anj|nj)[a-zčćžšđ]* obrane' -- cmd internal web \
-  ':!*_test.go' ':!**/testdata/**' ':!web/static/vendor' ':!*.css' | wc -l
+git grep -I -h -o -i -w -E 'stup(anj|nj)[a-zčćžšđ]* obrane' -- cmd internal web \
+  ':!*_test.go' ':!**/testdata/**' ':!web/static/vendor' ':!*.css' \
+  | grep -v -E '[a-zčćžšđ][A-ZČĆŽŠĐ]|_' | wc -l    # 47
 ```
+
+Broj u zagradi daje ista naredba s `-- web` umjesto `-- cmd internal web`
+(17).
 
 ## Pojmovi
 
@@ -74,22 +82,22 @@ git grep -o -i -w -E 'stup(anj|nj)[a-zčćžšđ]* obrane' -- cmd internal web \
 | **čvor** | Jedno računalo s goCOP-om i vlastitom bazom, koje razmjenjuje zapise s drugim čvorovima. | 2.106 (398) | računalo 418 (159), u pomoći često „ovo računalo”; za odluku | Pojmovnik u pomoći („Čvor”) | ? |
 | **mreža** | Upareni čvorovi koji dijele isti ključ mreže. | 484 (133) | — | kako ga koristi program | ? |
 | **razmjena** | Prijenos zapisa, prognoza i kiše među uparenim čvorovima. | 655 (83) | sinkronizacija 145 (44), i u nazivu stranice „Čvor, mreža i sinkronizacija”; usklađivanje 3 (1) | kako ga koristi program | ? |
-| **globalni administrator** | Uloga s pravom na cijeli program: sve račune, sve sektore i postavke čvora. | 138 (36) | glavni administrator 5 (0), i zadani naziv dužnosti prvog računa, koji se sprema u bazu; administrator sustava 2 (1) | naziv uloge (`internal/models/roles.go`) | ? |
+| **globalni administrator** | Uloga s pravom na cijeli program: sve račune, sve sektore i postavke čvora. | 138 (36) | glavni administrator 5 (0), i zadani naziv dužnosti prvog računa (`internal/service/postavljanje.go`), koji se sprema u bazu i ide u certifikat potpisa; na postojećim računima ne ispravlja se; administrator sustava 2 (1) | naziv uloge (`Label()`, `internal/models/roles.go`); naziv uloge ne mijenja se i ne prevodi ovdje, pravilo vrijedi samo za riječ u tekstu | — |
 | **uloga** | Određuje što osoba u programu vidi i smije mijenjati. | 301 (83) | — | pomoć, „Djelatnici” | ? |
-| **dužnost** | Zaduženje osobe: uloga s dosegom (sektor, područje ili dionice), stalno ili kao privremena ispomoć. | 275 (49) | funkcija 155 (39), npr. stupac „Funkcija” na stranici osobe i „primarna funkcija”; zaduženje 208 (39); za odluku | pomoć, „Djelatnici” | ? |
+| **dužnost** | Uloga koju osoba ima u obrani, s dosegom (sektor, područje ili dionice), stalno ili kao privremena ispomoć. | 275 (49) | funkcija 155 (39), npr. stupac „Funkcija” na stranici osobe i „primarna funkcija”; zaduženje 208 (39); za odluku | pomoć, „Djelatnici” | ? |
 
 ### Vode i mjerenja
 
 | Pravi oblik | Što znači | Broj | Nepoželjne inačice (broj) | Izvor | Engleski |
 |---|---|---|---|---|---|
-| **letva** | Vodomjer na kojem se očitava vodostaj, ručno ili automatski. | 4.065 (490) | vodomjerna postaja 78 (37), npr. naslov poglavlja pomoći „Vodomjerne postaje”; vodomjer izvan izraza „mjerodavni vodomjer” 183 (48); vodokaz 6 (4); za odluku | Pojmovnik u pomoći („Letva”) | ? |
+| **letva** | Mjesto na kojem se mjeri vodostaj, ručno ili automatski; u izrazu „mjerodavni vodomjer” vodomjer je isto što i letva. | 4.065 (490) | vodomjerna postaja 78 (37), npr. naslov poglavlja pomoći „Vodomjerne postaje”; vodomjer izvan izraza „mjerodavni vodomjer” 183 (48); vodokaz 6 (4); za odluku | pomoć, „Vodomjerne postaje” („Letva je mjesto na kojem se mjeri vodostaj”); Pojmovnik u pomoći („Letva”) objašnjava je riječju „vodomjer” | ? |
 | **mjerodavni vodomjer** | Letva po čijem se vodostaju proglašava obrana na dionici. | 38 (13) | mjerodavna letva 8 (6) | tekst akata (`internal/models/akt.go`) | ? |
 | **vodostaj** | Visina vode na letvi u centimetrima, od nule letve. | 1.142 (253) | razina vode 2 (1) | kako ga koristi program | ? |
 | **protok** | Količina vode koja proteče u sekundi (m³/s); najčešće se računa iz vodostaja po krivulji protoka. | 549 (88) | ženski rod „protoka”, npr. „Vodostaji (protoke)”, 7 (4), na dnevnom i sektorskom izvješću; možda je preuzeto s obrasca, nije provjereno s izvornikom | kako ga koristi program | ? |
 | **očitanje** | Vodostaj, a po potrebi i protok ili temperatura, upisan za letvu u jednom trenutku. | 839 (217) | — | kako ga koristi program | ? |
 | **nula letve** | Točka na kojoj letva pokazuje 0 cm. | 27 (2) | nula vodomjera 10 (2) | kako ga koristi program | ? |
-| **kota nule** | Visina nule letve nad morem, u metrima; vodostaj + kota nule = kota vode. | 116 (38) | Kota „0” 9 (9), kao naslov stupca i polja; kota nula 1 (0) | Pojmovnik u pomoći („Kota nule”) | ? |
-| **kota** | Visina točke nad morem u metrima, uvijek s oznakom visinskog sustava (npr. TRST ili HVRS71). | 511 (134) | oznaka „m n.m.” 11 (3) prema „m n. m.” 40 (12); apsolutna visina 7 (2) prema apsolutna kota 21 (2); sustav „Trst” 18 (12) prema „TRST” 23 (7), za odluku | Pojmovnik u pomoći („TRST i HVRS71”) | ? |
+| **kota nule** | Visina nule letve nad morem, u metrima; vodostaj + kota nule = kota vode. | 116 (38) | Kota „0“ 9 (9), kao naslov stupca i polja; kota nula 1 (0) | Pojmovnik u pomoći („Kota nule”) | ? |
+| **kota** | Visina točke nad morem u metrima, uvijek s oznakom visinskog sustava (npr. TRST ili HVRS71). | 511 (134) | oznaka „m n.m.” 9 (3) prema „m n. m.” 16 (7), a „cm n.m.” 2 (0) prema „cm n. m.” 24 (5); na obrascu dnevnog izvješća (`web/templates/izvjesce_form.html:65`, `:74`) „m n.m.” je spremljena vrijednost jedinice (`Jedinica`, `internal/models/izvjesce.go:75`), pa se smije promijeniti samo natpis, a vrijednost ostaje; apsolutna visina 7 (2) prema apsolutna kota 21 (2); sustav „Trst” 18 (12) prema „TRST” 23 (7), za odluku. TRST je i šifra sustava u bazi (`zero_datum_system`) i ostaje takva. Kao tekst TRST piše 2 puta u `web/`, a Trst 12 puta; uz kotu vode program izravno pokazuje šifru TRST | Pojmovnik u pomoći („TRST i HVRS71”) | ? |
 | **krivulja protoka** | Veza vodostaja i protoka za jednu letvu, po odsječcima vodostaja; postavlja je DHMZ. | 42 (9) | HQ krivulja 15 (8), i u Pojmovniku pomoći; za odluku | Pojmovnik u pomoći („HQ krivulja”) | ? |
 
 ### Ustroj
@@ -104,7 +112,7 @@ git grep -o -i -w -E 'stup(anj|nj)[a-zčćžšđ]* obrane' -- cmd internal web \
 
 | Pravi oblik | Što znači | Broj | Nepoželjne inačice (broj) | Izvor | Engleski |
 |---|---|---|---|---|---|
-| **stupanj obrane** | Jedan od četiriju stupnjeva koje proglašava akt: pripremno stanje, redovna obrana, izvanredna obrana i izvanredno stanje. | 47 (17) | stadij obrane 10 (2), a riječ „stadij” sama 142 (38); faza obrane 29 (4); za odluku | Pojmovnik u pomoći („Stupnjevi obrane”); model akta (`internal/models/akt.go`); [NACRT-STADIJI-OBRANE.md](NACRT-STADIJI-OBRANE.md) piše „stadij” | ? |
+| **stupanj obrane** | Jedan od četiriju stupnjeva koje proglašava akt: pripremno stanje, redovna obrana, izvanredna obrana i izvanredno stanje. Riječ znači i stupanj koji vodostaj dosegne po pragovima letve, a nije proglašen (vidi niže). | 47 (17) | stadij obrane 10 (2), a riječ „stadij” sama 142 (38); faza obrane 29 (4); za odluku | Pojmovnik u pomoći („Stupnjevi obrane”); model akta (`internal/models/akt.go`); modeli izvješća (`internal/models/izvjesce.go`, `stanje_obrane.go`) i [NACRT-STADIJI-OBRANE.md](NACRT-STADIJI-OBRANE.md) pišu „stadij” | ? |
 | **pripremno stanje** | Najniži stupanj obrane; proglašava se obaviješću. | 45 (16) | pripremna obrana 3 (1): naslov praga na kartici prognoze, stranica o metodi prognoze i jedan komentar | Državni plan obrane od poplava (NN 84/10), čl. XXII., kako ga navodi stranica Špranča (`web/templates/spranca.html`) | ? |
 | **redovna obrana** | Drugi stupanj obrane; proglašava se rješenjem. | 25 (9) | redovita obrana 4 (2), samo gdje se navodi propis; za odluku | Državni plan obrane od poplava (NN 84/10), čl. XXIII., ondje „redovita obrana”, kako ga navodi stranica Špranča | ? |
 | **izvanredna obrana** | Treći stupanj obrane; proglašava se rješenjem. | 41 (9) | — | Državni plan obrane od poplava (NN 84/10), čl. XXIV., kako ga navodi stranica Špranča | ? |
@@ -118,8 +126,9 @@ git grep -o -i -w -E 'stup(anj|nj)[a-zčćžšđ]* obrane' -- cmd internal web \
 | **ovjera** | Potvrda ovlaštene osobe kojom akt, dnevni list ili dnevnik COP-a postaje službeni zapis. | 784 (196) | — | kako ga koristi program | ? |
 | **poništenje (storno)** | Akt ili zapis u dnevniku COP-a koji nije trebao nastati ostaje vidljiv uz razlog, ali više ne vrijedi. | 168 (63) | storno i stornirati 111 (34): akt se „poništava”, a zapis u dnevniku COP-a „stornira”; za odluku | [NACRT-STADIJI-OBRANE.md](NACRT-STADIJI-OBRANE.md), pravilo 6; pomoć, „Dnevnik COP-a” | ? |
 
-Broj uz „poništenje” uključuje i poništavanje lozinke i gumb „Poništi” na
-karti, a broj uz „prekid” i prekid mjerenja ili veze.
+Broj uz „poništenje” uključuje i poništavanje lozinke, gumb „Poništi” na
+karti i gumbe koji brišu filtre, a broj uz „prekid” i prekid mjerenja ili
+veze.
 
 ### Dnevnici i teren
 
@@ -127,7 +136,7 @@ karti, a broj uz „prekid” i prekid mjerenja ili veze.
 |---|---|---|---|---|---|
 | **dnevnik COP-a** | Kronološki zapisnik jednog centra obrane dok traje obrana. | 144 (42) | dnevnik centra 5 (0), i naslov PDF-a „Dnevnik centra obrane od poplava”; dnevnik obrane 4 (0), i u jednoj poruci o grešci; dnevnik dežurstva 1 (0); operativni dnevnik 1 (0) | pomoć, „Dnevnik COP-a” | ? |
 | **dežurstvo** | Razdoblje rada jedne osobe u obrani, od–do, s opisom i mjestom; iz njega se računa obračun sati. | 192 (57) | — | kako ga koristi program | ? |
-| **vodočuvar** | Djelatnik koji obilazi dionice i očitava letve. | 318 (53) | — | naziv uloge (`internal/models/roles.go`) | ? |
+| **vodočuvar** | Djelatnik koji obilazi dionice i očitava letve. | 318 (53) | — | naziv uloge (`Label()`, `internal/models/roles.go`); naziv uloge ne mijenja se i ne prevodi ovdje, pravilo vrijedi samo za riječ u tekstu | — |
 | **vodočuvarski dnevnik** | Godišnja knjiga jednog vodočuvara s jednim dnevnim listom po danu. | 39 (16) | dnevnik vodočuvara 6 (0); knjiga vodočuvara 3 (1); vodočuvarska knjiga 2 (2) | pomoć, „Vodočuvarski dnevnik” | ? |
 | **dnevni list** | Stranica vodočuvarskog dnevnika za jedan dan; kratko se piše i „list”. | 95 (32) | — („list vodočuvara”, 36 (8), dopušten je kratki oblik) | pomoć, „Vodočuvarski dnevnik” | ? |
 | **prijava s terena** | Dokument vodočuvara s opisom, mjestom na karti i fotografijama; vrsta je obavijest, prijava, izvješće ili zahtjev. | 56 (24) | obavijest s terena 12 (2), i naslov stranice „Prijave i obavijesti s terena”; za odluku | pomoć, „Prijave i obavijesti s terena” | ? |
@@ -136,11 +145,11 @@ karti, a broj uz „prekid” i prekid mjerenja ili veze.
 
 | Pravi oblik | Što znači | Broj | Nepoželjne inačice (broj) | Izvor | Engleski |
 |---|---|---|---|---|---|
-| **prognoza** | Procjena vodostaja i protoka za +6 i +12 sati i za idućih šest dana; pomoć stručnoj procjeni, ne službena prognoza. | 1.676 (280) | — | pomoć, „Prognoze” | ? |
+| **prognoza** | Procjena vodostaja i protoka za +6 i +12 sati i za idućih šest dana; operativno pomagalo, ne službeni hidraulički model ni zamjena za procjenu stručne osobe. | 1.676 (280) | — | pomoć, „Prognoze” | ? |
 | **uzdužni profil** | Crtež svih letvi jedne rijeke redom niz vodotok, na kojem se vidi kako val putuje. | 31 (8) | — | pomoć, „Uzdužni profil” | ? |
 | **hidrološka arhiva** (kratko: arhiva) | Zasebna baza starijih mjerenja (vodostaj, protok, temperatura vode, nanos), donesena izvana; ne uređuje se. | 13 (3); arhiva 1.010 (182) | arhiva vodostaja 23 (12), i naslov poglavlja pomoći; za odluku | kako ga koristi program (README, pomoć „Arhiva vodostaja”) | ? |
 | **ispravak arhive** | Nova vrijednost s obaveznim razlogom, koja stoji uz arhivsku vrijednost i ne briše je; može se povući. | 5 (1) | — | pomoć, „Izvoz i ispravci arhive” | ? |
-| **bilješka arhive** | Tekst uz arhivsku vrijednost koji ne mijenja broj nego kaže što on jest, npr. „očitan maksimum”. | bilješka 143 (20) | — („napomena” je slobodan tekst uz očitanje ili zapis; jedna vrsta bilješke zove se „obična napomena”) | model bilješke (`internal/models/biljeska.go`) | ? |
+| **bilješka arhive** | Tekst uz arhivsku vrijednost koji ne mijenja broj nego kaže što on jest, npr. „očitan maksimum”. | bilješka 143 (20), zajedno s bilješkom na dnevnom listu | — („napomena” je slobodan tekst uz očitanje ili zapis; jedna vrsta bilješke zove se „obična napomena”) | model bilješke (`internal/models/biljeska.go`) | ? |
 
 ## Riječi s više značenja
 
@@ -155,10 +164,12 @@ na kojem mjestu.
 | izvješće | dnevno izvješće rukovoditelja dionice; sektorsko izvješće; vrsta prijave s terena |
 | dojava | vrsta zapisa u dnevniku COP-a, ono što je netko javio; vrijednost s automatske postaje („dojave automatike”) |
 | uloga | uloga osobe; uloga čvora („Preuzima vodostaje s izvora”, „Izdaje prognozu”); izraz „uloga čvora” 4 (0) |
-| stanje | pripremno i izvanredno stanje su stupnjevi obrane; stanje obrane je najviši stupanj koji vrijedi |
+| stanje | pripremno i izvanredno stanje su stupnjevi obrane; stanje obrane je najviši stupanj koji vrijedi; stupac „Stanje” na popisima, npr. je li izvješće nacrt ili predano |
+| stupanj obrane | stupanj koji proglašava akt; stupanj koji vodostaj dosegne po pragovima letve, a nije proglašen (poglavlje pomoći „Pragovi i stupanj obrane”; „program iz pragova postaje predlaže fazu obrane”) |
 | arhiva | hidrološka arhiva; arhivska građa, tj. službeni zapisi za dugo ili trajno čuvanje |
-| mreža | mreža čvorova; mrežna veza („kad je mreža dostupna”) |
-| poništiti | poništenje akta; poništavanje lozinke; gumb „Poništi” na karti, koji vraća točke na spremljene položaje |
+| bilješka | bilješka uz arhivsku vrijednost; bilješka na dnevnom listu vodočuvara („Bilješka: …”) |
+| mreža | mreža čvorova; mrežna veza („kada je mreža dostupna”) |
+| poništiti | poništenje akta; poništavanje lozinke; gumb „Poništi” na karti, koji vraća točke na spremljene položaje; gumbi „Poništi filtre” i „Poništi”, koji brišu filtre |
 
 ## Za odluku
 
@@ -167,7 +178,10 @@ odluči.
 
 1. **Stupanj ili stadij obrane.** Prijedlog: *stupanj*. Češći je (47 prema 10),
    tako ga zovu model akta, obrazac akta i Pojmovnik u pomoći. „Faza” ostaje
-   samo u kodu.
+   samo u kodu. Dnevno i sektorsko izvješće (obrazac iz Privitka 4) pišu
+   „Stadij”; nije provjereno piše li tako sam obrazac. Dok se to ne provjeri,
+   obrasci izvješća ostaju kakvi jesu. Ključ `stadij` u izvješću je šifra i
+   ne mijenja se.
 2. **Redovna ili redovita obrana.** Prijedlog: *redovna*, kako program danas
    piše naziv stupnja; „redovita” samo gdje se doslovno navodi propis.
 3. **Poništenje ili storno.** Prijedlog: *poništiti* za akt i za zapis u
@@ -177,13 +191,18 @@ odluči.
    akata i na popisu akata *uspostava* i *prekid*; u pomoći i porukama smije
    „proglasiti” i „ukinuti”, ali ne u istoj rečenici s „prekidom”.
 5. **Dužnost ili funkcija.** Prijedlog: *dužnost*; „funkcija” samo za podatak
-   iz vanjskog imenika (Exchange).
+   iz vanjskog imenika (Exchange). Promjena zahvaća i naslov stranice
+   „Djelatnici i operativne funkcije”, oznaku polja „Naziv funkcije ili
+   dužnosti” i stupac „Funkcija” u popisu potpisnih certifikata. Potpisnik na
+   aktu ulazi u sažetak akta koji se potpisuje i ostaje kakav jest.
 6. **Čvor ili računalo.** Prijedlog: *čvor* u postavkama i razmjeni;
    *računalo* smije u pomoći kad se govori o samom uređaju („na ovom
    računalu”).
 7. **Letva ili vodomjer.** Prijedlog: *letva*; „vodomjer” samo u izrazu
    *mjerodavni vodomjer* i u tekstu akata; „vodomjerna postaja” zamijeniti
-   s „letva”.
+   s „letva”. To mijenja i stavku glavnog izbornika i naslov stranice
+   „Vodomjerne postaje” te naslove Excel izvoza kartice, historijata i
+   očitanja letve, koje provjerava test (`internal/web/izvjesce_xlsx_test.go`).
 8. **Krivulja protoka ili HQ krivulja.** Prijedlog: *krivulja protoka*;
    „HQ krivulja” jednom u Pojmovniku pomoći, kao drugi naziv.
 9. **Hidrološka arhiva ili arhiva vodostaja.** Prijedlog: *hidrološka
@@ -192,5 +211,9 @@ odluči.
     terena*, a vrsta (obavijest, prijava, izvješće, zahtjev) uz nju.
 11. **Razmjena ili sinkronizacija.** Prijedlog: *razmjena*, i u nazivu
     stranice („Čvor, mreža i razmjena”).
-12. **TRST ili Trst** za visinski sustav. Prijedlog: *TRST*, kao u Pojmovniku
-    pomoći i uz HVRS71.
+12. **TRST ili Trst** za visinski sustav. Prijedlog: *TRST*. TRST je i šifra
+    sustava u bazi (`zero_datum_system`) i ostaje takva, a program je uz kotu
+    vode ionako pokazuje izravno (kartica letve, povijest očitanja, objekt).
+    Kao tekst TRST piše 2 puta u `web/`, a Trst 12 puta; padajući izbor istu
+    šifru pokazuje kao „Trst”. Kad je tekst isti kao šifra, ne treba poseban
+    natpis.
