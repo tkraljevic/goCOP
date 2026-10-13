@@ -225,6 +225,59 @@ func (r *PrijavaRepository) PoIzvoru(ctx context.Context, izvor string) (*models
 	return p, err
 }
 
+// SpremiPrenesenu sprema prijavu prenesenu iz ranije evidencije, s
+// fotografijama (po oznaci) i izvornikom kad ga ima. Bajtovi idu prvi u
+// spremište, po otisku, pa se smiju upisati i više puta. Prijava i izvornik
+// zatim idu u jednoj transakciji. Kad upis stane, prijave nema, pa je
+// ponovni uvoz prenese cijelu, a ne preskoči je bez fotografije ili
+// izvornika (Odluke (13. 10. 2026.)). Kanal se zato računa iz same prijave,
+// a ne iz retka u bazi.
+func (r *PrijavaRepository) SpremiPrenesenu(ctx context.Context, p *models.PrijavaSTerena, slike map[string][]byte, izvornik []byte, sazetak string) error {
+	now := time.Now().UTC()
+	kanal := prijavaChannel(p)
+	for id, jpg := range slike {
+		if _, err := spremiSadrzaj(ctx, "image/jpeg", jpg, sadrzaj.Veza{
+			Entitet: EntityPrijave, EntitetID: p.ID, Uloga: ulogaSlike(id), Kanal: kanal}); err != nil {
+			return fmt.Errorf("slika: %w", err)
+		}
+	}
+	var iz *models.IzvornikLista
+	if len(izvornik) > 0 {
+		x, err := spremiPDF(ctx, EntityPrijave, p.ID, kanal, izvornik, sazetak, now)
+		if err != nil {
+			return fmt.Errorf("izvornik: %w", err)
+		}
+		iz = &x
+	}
+	p.UpdatedAt = now
+	return r.upisiPrenesenu(ctx, p, kanal, iz)
+}
+
+// upisiPrenesenu upisuje prenesenu prijavu i njezin izvornik, kad ga ima,
+// s verzijama u knjizi, u jednoj transakciji
+func (r *PrijavaRepository) upisiPrenesenu(ctx context.Context, p *models.PrijavaSTerena, kanal string, iz *models.IzvornikLista) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, prijavaUpsert, prijavaArgs(p)...); err != nil {
+		return fmt.Errorf("upis prijave: %w", err)
+	}
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityPrijave, p.ID, p); err != nil {
+		return err
+	}
+	if iz != nil {
+		if _, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, p.ID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt); err != nil {
+			return fmt.Errorf("upis izvornika: %w", err)
+		}
+		if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityPrijaveIzvornici, p.ID, iz); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
 // SpremiIzvornik sprema PDF kao izvornik prijave (sken potpisanog ispisa
 // pri uvozu), s verzijom u knjizi
 func (r *PrijavaRepository) SpremiIzvornik(ctx context.Context, id string, pdf []byte, sazetak string) error {

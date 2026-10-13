@@ -254,6 +254,42 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   upisano kao član, iako potvrdu nije dobilo. Sad se popis složi prije
   upisa, a članstvo i ovlast upisuju se zajedno. Računalo koje ne dobije
   potvrdu ne ostaje član, a isti zahtjev može se poslije ponovno primiti.
+- **Uvoz iz stare evidencije BP16 staje kad ne može pročitati ono što
+  već ima.** Prije upisa uvoz obilazaka, obavijesti s terena i evidencije
+  radova provjerava što je već preneseno i koje nasipe i vode registar ima.
+  Kad se to nije dalo pročitati, uvoz je išao dalje kao da nema ničega.
+  Obilazak je tako mogao doći na list dana dvaput, prenesena prijava dobiti
+  novi broj, a nasip ući u registar drugi put. Kad Directus nije dao popis
+  voda, obavijesti su ostale bez vode i nakon ponovnog uvoza. Sad uvoz u
+  takvom slučaju stane i kaže što nije mogao pročitati.
+- **Fotografije obilaska stižu i nakon prekinutog uvoza.** Kad se
+  fotografija obilaska nije dala spremiti, uvoz je javio grešku, ali
+  zadatak je već bio upisan. Ponovni uvoz ga je zato preskočio, pa je na
+  listu ostao opis fotografije bez slike. Sad uvoz prvo spremi fotografije,
+  onda list, a zadatak tek na kraju. Ponovni uvoz zato obilazak dovrši, a
+  list ne dobije ni opis fotografije koje nema ni isti zadatak dvaput.
+- **Obavijest s terena bez vremena upisa uzima vrijeme izmjene.**
+  Obavijest iz stare evidencije BP16 kojoj nije zapisano kad je upisana
+  dobivala je dan uvoza. Objavljena bi tako dobila broj u tekućoj godini, a
+  ne u godini kad je nastala. Sad uvoz uzima vrijeme zadnje izmjene.
+  Obavijest kojoj nema ni njega ne uvozi se, nego se u izvješću uvoza broji
+  pod nepoznato.
+- **Obavijesti s terena dovršavaju se nakon prekinutog uvoza.** Kad se
+  fotografija, sken ili izvornik obavijesti iz BP16 nisu dali spremiti,
+  uvoz je javio grešku, ali prijava je već bila upisana. Ponovni uvoz ju je
+  zato preskočio, pa je ostala bez onoga što nije spremljeno. Sad uvoz prvo
+  spremi fotografije i sken, a prijavu zajedno s izvornikom tek na kraju.
+  Ponovni uvoz zato prijavu prenese cijelu.
+- **Fotografija koju Directus nije dao stiže ponovnim uvozom.** Kad
+  Directus pri uvozu obilazaka ili obavijesti s terena iz BP16 nije dao
+  fotografiju, uvoz je to samo zapisao, a obilazak ili prijavu upisao bez
+  nje. Ponovni uvoz preneseno preskače, pa fotografija nije stigla nikad.
+  Sad ponovni uvoz fotografiju koja nedostaje traži opet. Obilazak je dobije
+  na list na kojem stoji, a zadatak ostaje kakav je bio. Kad vodočuvar za
+  taj dan ima dva lista, fotografija ne ide na onaj na kojem obilaska nema.
+  Prijava je dobije pod istim brojem, a izvornik se izradi iznova, s njom.
+  Nacrt i urudžbirana prijava ne dopunjuju se, a u zapisniku uvoza piše
+  zašto.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
