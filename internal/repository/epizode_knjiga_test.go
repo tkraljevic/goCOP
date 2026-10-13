@@ -30,23 +30,21 @@ import (
 // vidi i kad nije napisan doslovno u tijelu: iz paketne konstante,
 // spajanjem s + i kroz fmt.Sprintf. Ne vidi se samo naziv tablice koji stiže tek u radu (kao
 // parametar opće funkcije); takav upis imaju jedino apply.go i
-// apply_roditelji.go. Ne gledaju se datoteke primjene (datotekePrimjene),
-// apply_epizode.go i apply_roditelji.go, koji primjenjuju verzije što su
-// već u knjizi drugog čvora.
+// apply_roditelji.go. Ne gledaju se apply_epizode.go i apply_roditelji.go,
+// koji primjenjuju verzije što su već u knjizi drugog čvora.
 func TestEpizodeObraneSeMijenjajuSamoKrozKnjigu(t *testing.T) {
 	// Funkcije kojima je upis mimo Recordera dopušten, s razlogom. Iznimka
 	// koja više ne treba ruši test, da popis ne zastari.
 	dopusteno := map[string]string{
 		"../db/schema.go: rekeySeedIdentities": "migracija mijenja identitet postaje u svim tablicama i " +
 			"u istoj transakciji prepisuje identitet i u knjizi verzija (record_versions)",
+		"apply_hidrologija.go: primjeneHidrologije": "briše epizodu kad stigne spomenik s drugog čvora; " +
+			"verzija je već u knjizi",
 	}
 	nadeno := map[string]bool{}
 	for _, mapa := range []string{".", "../db"} {
 		izvori := izvoriPaketa(t, mapa)
 		// verzije su već u knjizi drugog čvora
-		for d := range datotekePrimjene {
-			delete(izvori, d)
-		}
 		delete(izvori, "apply_epizode.go")
 		delete(izvori, "apply_roditelji.go")
 		for _, f := range funkcijeMimoKnjige(t, izvori) {

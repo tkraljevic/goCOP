@@ -25,8 +25,9 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	primjenaPise := map[string]bool{}
 	for _, file := range files {
-		if strings.HasSuffix(file, "_test.go") || datotekePrimjene[file] {
+		if strings.HasSuffix(file, "_test.go") {
 			continue
 		}
 		src, err := os.ReadFile(file)
@@ -40,25 +41,33 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 			if !writes.MatchString(code) {
 				continue
 			}
+			if datotekePrimjene[file] {
+				primjenaPise[file] = true
+				continue
+			}
 			if !strings.Contains(code, "rec.Record") && !strings.Contains(code, "rec.Archive") {
 				t.Errorf("%s piše u tablicu %s, a nijednom ne poziva Recorder — verzija se ne bilježi", file, table)
 			}
 		}
 	}
+	// iznimka koja više ne treba ruši test, da popis ne zastari
+	for file := range datotekePrimjene {
+		if !primjenaPise[file] {
+			t.Errorf("%s ne piše u sinkronizirane tablice ili je nema: maknuti je s popisa datotekePrimjene", file)
+		}
+	}
 }
 
-// datotekePrimjene primjenjuju verzije primljene s drugog čvora na površinu
-// (applyOne, removeFromSurface i primjene po skupinama). Verzije već postoje
-// u knjizi, a stvaranje novih bi ih umnožilo među čvorovima, pa straže knjige
-// ove datoteke ne gledaju. Svaka druga datoteka koja piše u sinkroniziranu
-// tablicu mora bilježiti verziju.
+// datotekePrimjene su datoteke primjena po skupinama koje pišu u
+// sinkronizirane tablice verzijama primljenima s drugog čvora. Verzije već
+// postoje u knjizi, a stvaranje novih bi ih umnožilo među čvorovima, pa ih
+// test ne gleda. Ostale datoteke primjene (apply.go, apply_akti.go,
+// apply_obracun.go, apply_mreza.go) u te tablice ne pišu i test ih gleda kao
+// svaku drugu datoteku. Skupina koja počne pisati u sinkroniziranu tablicu
+// ide na ovaj popis, a datoteka koja prestane, s njega.
 var datotekePrimjene = map[string]bool{
-	"apply.go":              true,
-	"apply_mreza.go":        true,
 	"apply_organizacija.go": true,
 	"apply_registri.go":     true,
 	"apply_hidrologija.go":  true,
 	"apply_dnevnik.go":      true,
-	"apply_akti.go":         true,
-	"apply_obracun.go":      true,
 }
