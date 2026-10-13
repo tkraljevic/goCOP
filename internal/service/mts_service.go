@@ -703,15 +703,9 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 	}
 	// knjižno stanje se čita iznova u trenutku zaključenja: između sastavljanja
 	// i zaključenja mogao je netko upisati promet
-	stanje, err := s.StanjeSkladista(ctx, p.SkladisteID, &p.Dan)
+	knjizno, err := s.knjiznoNaDan(ctx, p)
 	if err != nil {
 		return err
-	}
-	knjizno := map[string]float64{}
-	for _, sv := range stanje {
-		for o, k := range sv.PoOblicima {
-			knjizno[sv.Vrsta.ID+"|"+o] = k
-		}
 	}
 	var redci []models.Promet
 	sad := time.Now().In(models.Zagreb)
@@ -731,6 +725,22 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 	}
 	p.ZakljucenoAt = &sad
 	return s.repo.SavePopis(ctx, p)
+}
+
+// knjiznoNaDan vraća knjižno stanje skladišta na dan popisa, po vrsti i
+// obliku (ključ "vrsta|oblik")
+func (s *MtsService) knjiznoNaDan(ctx context.Context, p *models.Popis) (map[string]float64, error) {
+	stanje, err := s.StanjeSkladista(ctx, p.SkladisteID, &p.Dan)
+	if err != nil {
+		return nil, err
+	}
+	knjizno := map[string]float64{}
+	for _, sv := range stanje {
+		for o, k := range sv.PoOblicima {
+			knjizno[sv.Vrsta.ID+"|"+o] = k
+		}
+	}
+	return knjizno, nil
 }
 
 // SmijeOtkljucati javlja smije li osoba zaključenu inventuru vratiti u nacrt
@@ -756,8 +766,28 @@ func (s *MtsService) OtkljucajPopis(ctx context.Context, u *models.User, perms *
 	if err != nil {
 		return err
 	}
+	if err := s.osvjeziKnjizno(ctx, p, uskladjenja); err != nil {
+		return err
+	}
 	p.Napomena = dopisiRecenicu(p.Napomena, biljeskaOtkljucavanja(u.FullName, time.Now(), len(uskladjenja)))
 	return s.repo.OtkljucajPopis(ctx, p, uskladjenja)
+}
+
+// osvjeziKnjizno upisuje u stavke knjižno stanje toga dana bez usklađenja
+// koja otključavanje briše. Nacrt tako pokazuje i promet upisan unatrag, a
+// razlika u nacrtu jednaka je onoj koju će ponovno zaključenje proknjižiti.
+func (s *MtsService) osvjeziKnjizno(ctx context.Context, p *models.Popis, uskladjenja []models.Promet) error {
+	knjizno, err := s.knjiznoNaDan(ctx, p)
+	if err != nil {
+		return err
+	}
+	for _, x := range uskladjenja {
+		knjizno[x.VrstaID+"|"+x.Oblik] -= x.Kolicina
+	}
+	for i := range p.Stavke {
+		p.Stavke[i].Knjizno = knjizno[p.Stavke[i].VrstaID+"|"+p.Stavke[i].Oblik]
+	}
+	return nil
 }
 
 // popisZaOtkljucavanje čita inventuru koja se smije otključati: postoji,

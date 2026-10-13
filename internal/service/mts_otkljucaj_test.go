@@ -118,11 +118,21 @@ func TestMtsOtkljucanaInventuraRacunaRazlikuIznova(t *testing.T) {
 	if k := kolicinaU(t, s, ctx, sk.ID, lopata); k != 46 {
 		t.Errorf("stanje lopata bez usklađenja: %v", k)
 	}
+	// nacrt pokazuje knjižno stanje toga dana, s premještajem i bez usklađenja
+	if st := nacrt.StavkaZa(vrece, models.OblikPrazno); st.Knjizno != 9000 {
+		t.Errorf("knjižno vreća u nacrtu: %v, a promet toga dana pokazuje 9000", st.Knjizno)
+	}
+	if st := nacrt.StavkaZa(lopata, models.OblikOsnovni); st.Knjizno != 46 || st.Utvrdjeno != 44 {
+		t.Errorf("lopate u nacrtu: %+v", st)
+	}
 
 	// skladištar upiše prebrojanih 9 000 vreća i zaključi ponovno
 	postaviPrebrojano(t, nacrt, vrece, models.OblikPrazno, 9000)
 	if err := s.SpremiPopis(ctx, u, uprava, nacrt); err != nil {
 		t.Fatal(err)
+	}
+	if spremljen, _ := s.Popis(ctx, p.ID); spremljen.Razlika() != 1 {
+		t.Errorf("nacrt pred zaključenje ima %d redaka s razlikom, a razliku imaju samo lopate", spremljen.Razlika())
 	}
 	if err := s.ZakljuciPopis(ctx, u, uprava, p.ID); err != nil {
 		t.Fatal(err)
@@ -342,6 +352,11 @@ func TestMtsOtkljucavanjeKadCitanjePadne(t *testing.T) {
 	exec(`ALTER TABLE mts_promet RENAME TO mts_promet_drugo`)
 	nepromijenjena("promet se ne da pročitati")
 	exec(`ALTER TABLE mts_promet_drugo RENAME TO mts_promet`)
+
+	// usklađenja se čitaju, a katalog za knjižno stanje ne
+	exec(`ALTER TABLE mts_vrste RENAME COLUMN napomena TO napomena_drugo`)
+	nepromijenjena("knjižno stanje se ne da pročitati")
+	exec(`ALTER TABLE mts_vrste RENAME COLUMN napomena_drugo TO napomena`)
 
 	exec(`ALTER TABLE mts_popisi RENAME TO mts_popisi_drugo`)
 	nepromijenjena("inventure se ne daju pročitati")
