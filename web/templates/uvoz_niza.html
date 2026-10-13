@@ -501,6 +501,27 @@
     {{range .Profili.Odbijeno}}<li class="mono">{{.}}</li>{{end}}
   </ul>
   {{end}}
+  {{if .Profili.Neprepoznatih}}{{$n := .Profili.Neprepoznatih}}
+  <div class="alert alert-warning mt-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
+      {{if .Profili.KotaStara}}U starom sustavu (TRST) letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span>.{{end}}
+      {{if .Profili.KotaNova}}U HVRS71 letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span>.{{end}}
+      {{if or .Profili.KotaStara .Profili.KotaNova}}Kota nule {{uzBroj $n "te snimke" "tih snimki" "tih snimki"}} ne odgovara
+      nijednoj koju letva vodi. To je ili snimka s druge letve, ili joj je nula premještena, ili je kota
+      prepisana krivo, pa se sustav ne nagađa.
+      {{else}}Letva nema upisanu kotu nule, pa se sustav ne može prepoznati.{{end}}
+    </p>
+    <label class="izvor-napomena m-0">
+      <span class="part-label">{{uzBroj $n "Sustav za tu snimku" "Sustav za te snimke" "Sustav za te snimke"}}</span>
+      <select name="sustav" class="form-control max-w-14" required>
+        <option value="">odaberite…</option>
+        <option value="TRST">TRST</option>
+        <option value="HVRS71">HVRS71</option>
+      </select>
+    </label>
+  </div>
+  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>
@@ -550,25 +571,6 @@
     </div>
   </details>
 
-  {{if .Profili.Neprepoznatih}}
-  <div class="alert alert-warning mt-3">
-    <p class="mt-0 mb-2">
-      <strong>{{.Profili.Neprepoznatih}} {{uzBroj .Profili.Neprepoznatih "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
-      Letva vodi {{if .Profili.KotaStara}}<span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span> u starom{{end}}
-      {{if .Profili.KotaNova}}i <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span> u HVRS71{{end}},
-      a kota nule tih snimki ne odgovara nijednoj. To je ili snimka s druge letve, ili joj je nula premještena,
-      ili je kota prepisana krivo — pa se ne nagađa.
-    </p>
-    <label class="izvor-napomena m-0">
-      <span class="part-label">Sustav za te snimke</span>
-      <select name="sustav" class="form-control max-w-14" required>
-        <option value="">odaberite…</option>
-        <option value="TRST">TRST</option>
-        <option value="HVRS71">HVRS71</option>
-      </select>
-    </label>
-  </div>
-  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>

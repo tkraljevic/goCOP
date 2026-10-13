@@ -69,6 +69,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Krivulje protoka i snimke korita opet se potvrđuju sa stranice.** Na
+  stranici Unos podataka u arhivu pregled krivulja protoka iz HIS-2000
+  prekidao se na pola, bez gumba „Upiši i izgradi”, pa se krivulje nisu
+  dale upisati. Kad program ne prepozna kotu nule snimke korita, stranica
+  nije pitala u kojem je sustavu, pa se takva snimka uvijek preskakala.
+  Uzrok je isti: pitanje o sustavu stajalo je u obrascu krivulja, a ne u
+  obrascu snimki. Sad stoji uz snimke, a pregled krivulja iscrta se do
+  kraja.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

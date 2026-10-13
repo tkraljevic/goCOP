@@ -89,9 +89,6 @@ func TestKrivuljePregledPaUpis(t *testing.T) {
 // potvrdu. Danas puca jer predložak u odjeljku krivulja čita .Profili, a uz
 // krivulje snimki nema.
 func TestKrivuljePregledNaStranici(t *testing.T) {
-	t.Skip("GREŠKA: web/templates/uvoz_niza.html:553 u obrascu krivulja čita {{.Profili.Neprepoznatih}}; " +
-		"uz pregled krivulja Profili je nil, predložak pukne (nil pointer evaluating *web.PregledProfila.Neprepoznatih) " +
-		"i stranica ostane bez gumba Upiši i izgradi")
 	o := novaOkolinaVrata(t)
 	r := viseDijelni(t, "/administracija/uvoz-krivulja/pregled", map[string]string{"letva": "primjerovo"},
 		datotekaObrasca{"datoteka", "krivulje.csv", krivuljePrimjerova})

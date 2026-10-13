@@ -323,18 +323,37 @@ func TestSnimkeKoritaUpisPreskaceIGradnjaPada(t *testing.T) {
 }
 
 // Kad se sustav snimke ne prepozna, stranica u obrascu potvrde snimki pita u
-// kojem je sustavu, jer potvrda bez odgovora takvu snimku preskače.
+// kojem je sustavu, jer potvrda bez odgovora takvu snimku preskače. Uz pitanje
+// stoje kote koje letva vodi, a bez njih rečenica kaže da kote nema.
 func TestSnimkeKoritaPitajuSustav(t *testing.T) {
-	t.Skip("GREŠKA: web/templates/uvoz_niza.html:553 izbor sustava („Sustav za te snimke”, name=sustav) stoji u " +
-		"obrascu krivulja, a ne u obrascu snimki; potvrda snimki ga nikad ne dobije, pa se neprepoznata snimka " +
-		"sa stranice ne da upisati")
 	o, _ := okolinaSnimki(t)
-	r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"},
-		datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)})
-	html := odgovor(o.h.PregledUvozaProfila, r, o.pero, o.peroOvl).Body.String()
-	obrazac := regexp.MustCompile(`(?s)<form method="POST" action="/administracija/uvoz-profila/upisi".*?</form>`).FindString(html)
+	obrazacSnimki := func(snimke ...datotekaObrasca) string {
+		r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"}, snimke...)
+		html := odgovor(o.h.PregledUvozaProfila, r, o.pero, o.peroOvl).Body.String()
+		return regexp.MustCompile(`(?s)<form method="POST" action="/administracija/uvoz-profila/upisi".*?</form>`).FindString(html)
+	}
+	// tekst obrasca bez oznaka i s jednim razmakom između riječi
+	tekst := func(obrazac string) string {
+		return strings.Join(strings.Fields(htmlUTekst(regexp.MustCompile(`<[^>]*>`).ReplaceAllString(obrazac, ""))), " ")
+	}
+
+	obrazac := obrazacSnimki(datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)})
 	if !strings.Contains(obrazac, `name="sustav"`) {
 		t.Errorf("obrazac potvrde snimki ne pita za sustav:\n%s", obrazac)
+	}
+	if zeli := "1 snimka ne kaže u kojem su sustavu kote. U starom sustavu (TRST) letva ima kotu nule 100,000 m. " +
+		"U HVRS71 letva ima kotu nule 99,800 m. Kota nule te snimke ne odgovara nijednoj koju letva vodi. " +
+		"To je ili snimka s druge letve, ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa. " +
+		"Sustav za tu snimku odaberite…"; !strings.Contains(tekst(obrazac), zeli) {
+		t.Errorf("pitanje o sustavu uz kote letve:\n%s", tekst(obrazac))
+	}
+
+	o.h.SetKoteLetve(nil)
+	obrazac = obrazacSnimki(datotekaObrasca{"datoteke", "a.csv", snimkaKorita("9/9/2022", "50,00", 60, 3)},
+		datotekaObrasca{"datoteke", "b.csv", snimkaKorita("9/10/2022", "50,00", 60, 3)})
+	if zeli := "2 snimke ne kažu u kojem su sustavu kote. Letva nema upisanu kotu nule, pa se sustav ne može prepoznati. " +
+		"Sustav za te snimke odaberite…"; !strings.Contains(tekst(obrazac), zeli) {
+		t.Errorf("pitanje o sustavu bez kota letve:\n%s", tekst(obrazac))
 	}
 }
 
