@@ -105,6 +105,41 @@ func TestOtpustanjeStarogSadrzaja(t *testing.T) {
 	}
 }
 
+// Rok držanja otpušta i primljene pakete arhive, kao ostali sadržaj: paket
+// je tada već ugrađen u arhivu, koja ostaje (Odluke (13. 10. 2026.)). Uz
+// pravilo „sve vrste” za sva područja s godinom početka rok vrijedi i za
+// pakete stranih i meteoroloških letvi, a razina „Samo kazalo” ga ne
+// mijenja.
+func TestRokDrzanjaOtpustaPaketeArhive(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	sp, veza := spremisteNaDisku(t)
+	s.SetSpremiste(sp)
+	paket := func(kanal, tekst string, dana int) string {
+		t.Helper()
+		o, err := sp.Upisi(ctxRub, "application/vnd.gocop.arhiva", []byte(tekst), "cvor:ured", sadrzaj.Veza{Entitet: "arhiva_paket", EntitetID: tekst, Uloga: "paket", Kanal: kanal})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := veza.Exec(`UPDATE sadrzaj SET primljeno = ? WHERE otisak = ?`, time.Now().UTC().AddDate(0, 0, -dana), o); err != nil {
+			t.Fatal(err)
+		}
+		return o
+	}
+	stariStrani := paket("arhiva/0/0", "paket strane letve", 40)
+	stari16 := paket("arhiva/16/0", "paket letve BP 16", 40)
+	novi3 := paket("arhiva/3/0", "paket letve BP 3", 10)
+	if _, err := s.AddSubscription(ctxRub, Subscription{YearFrom: 2025, Razina: RazinaKazalo, DrziDana: 30}); err != nil {
+		t.Fatal(err)
+	}
+	n, _, err := s.OtpustiStare(ctxRub)
+	if err != nil || n != 2 {
+		t.Fatalf("otpušteno %d paketa, %v", n, err)
+	}
+	if sp.Ima(ctxRub, stariStrani) || sp.Ima(ctxRub, stari16) || !sp.Ima(ctxRub, novi3) {
+		t.Errorf("nakon otpuštanja: strani %v, BP 16 %v, BP 3 u roku %v", sp.Ima(ctxRub, stariStrani), sp.Ima(ctxRub, stari16), sp.Ima(ctxRub, novi3))
+	}
+}
+
 // Na želje druge strane čvor šalje ono što drži i što druga strana po
 // svojim pretplatama smije dobiti, najviše 200 stavki jednom razmjenom.
 func TestSadrzajNaZeljeDrugeStrane(t *testing.T) {

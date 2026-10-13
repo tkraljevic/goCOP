@@ -241,8 +241,12 @@ func (s *Service) getMembership(ctx context.Context, nodeID string) (*razmjena.M
 // sinkroniziraju, pa i čvor koji nije bio prisutan pri primanju sazna za
 // novog člana
 func (s *Service) saveMembership(ctx context.Context, m razmjena.Membership) error {
-	return s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `
+	return s.uTransakciji(ctx, func(tx *sql.Tx) error { return s.upisiClanstvo(ctx, tx, m) })
+}
+
+// upisiClanstvo je saveMembership u transakciji koju vodi pozivatelj
+func (s *Service) upisiClanstvo(ctx context.Context, tx *sql.Tx, m razmjena.Membership) error {
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(node_id) DO UPDATE SET
@@ -250,11 +254,10 @@ func (s *Service) saveMembership(ctx context.Context, m razmjena.Membership) err
 			issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature,
 			primatelj = excluded.primatelj
 	`, m.DeviceID, m.DeviceKey, m.Network, m.IssuedBy, m.IssuedAt.UTC(), m.ExpiresAt.UTC(), m.Signature, time.Now().UTC(), primateljJSON(m)); err != nil {
-			return err
-		}
-		_, err := s.rec.Record(ctx, tx, EntityMemberships, m.DeviceID, m)
 		return err
-	})
+	}
+	_, err := s.rec.Record(ctx, tx, EntityMemberships, m.DeviceID, m)
+	return err
 }
 
 // uTransakciji izvede fn u jednoj transakciji: sve ili ništa

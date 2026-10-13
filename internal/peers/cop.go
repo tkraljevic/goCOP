@@ -190,17 +190,15 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		return m, fmt.Errorf("nema nijedne verzije u zadanim kanalima")
 	}
 	sort.Slice(versions, func(i, j int) bool { return versions[i].VersionID < versions[j].VersionID })
-	var zapisi bytes.Buffer
-	enc := json.NewEncoder(&zapisi)
-	for _, v := range versions {
-		if err := enc.Encode(v); err != nil {
-			return m, err
-		}
+	zapisi, versions, neispravne := zapisiZaCop(versions)
+	s.zabiljeziNeispravne(neispravne)
+	if len(versions) == 0 {
+		return m, fmt.Errorf("Paket nije izdan: za taj odabir nijedan zapis na ovom računalu nije ispravan. Pojedinosti su u dnevniku programa.")
 	}
 	// sadržaji koje zapisi navode: otisak iz zapisa izvornika
 	sadrzaji := s.sadrzajiUZapisima(ctx, versions)
 	m.Zapisa, m.Sadrzaja = len(versions), len(sadrzaji)
-	m.Otisak = otisakIzdanja(zapisi.Bytes(), sadrzaji)
+	m.Otisak = otisakIzdanja(zapisi, sadrzaji)
 
 	// katalog: isti otisak, isto izdanje; drukčiji, sljedeće
 	kljuc := obuhvat.Kljuc()
@@ -243,7 +241,7 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		m.Ukljuceno++
 	}
 	popis, _ := json.MarshalIndent(sadrzaji, "", " ")
-	if err := dodaj("zapisi.jsonl", zapisi.Bytes()); err != nil {
+	if err := dodaj("zapisi.jsonl", zapisi); err != nil {
 		return m, err
 	}
 	if err := dodaj("sadrzaji.json", popis); err != nil {
@@ -266,6 +264,27 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		return m, err
 	}
 	return m, nil
+}
+
+// zapisiZaCop slaže zapisi.jsonl, redak po verziji, od verzija koje se daju
+// zapisati kao JSON, i vraća ih s popisom onih koje se ne daju. Verzija s
+// neispravnim JSON-om (pokvaren redak u knjizi) ne ide u paket, kao ni u
+// razmjenu (ogradiDeltu): do 0.0.38 jedna takva verzija rušila je cijeli
+// izvoz. Redak je isti kao iz json.Encoder, pa ispravne verzije daju isti
+// otisak izdanja kao dosad.
+func zapisiZaCop(versions []ledger.Version) (zapisi []byte, ispravne, neispravne []ledger.Version) {
+	var b bytes.Buffer
+	for _, v := range versions {
+		redak, err := json.Marshal(v)
+		if err != nil {
+			neispravne = append(neispravne, v)
+			continue
+		}
+		b.Write(redak)
+		b.WriteByte('\n')
+		ispravne = append(ispravne, v)
+	}
+	return b.Bytes(), ispravne, neispravne
 }
 
 // sadrzajiUZapisima skuplja otiske sadržaja koje zapisi izvornika navode

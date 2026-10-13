@@ -358,7 +358,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		}
 	}
 
-	st.Alerts = s.alerts(st, every, now)
+	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
 	return st, nil
 }
 
@@ -416,6 +416,22 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 		out = append(out, "Nijedan čvor nema javnu adresu: razmjena radi samo unutar lokalne mreže.")
 	}
 	return out
+}
+
+// upozorenjeNeispravnih je redak za ploču razmjene i pločicu na naslovnoj
+// kad razmjena neke verzije ne šalje; nil kad takvih nema. Čita ga dežurni,
+// pa u njemu nema imena tablica ni oznaka verzija: one su u dnevniku.
+func (s *Service) upozorenjeNeispravnih() []string {
+	n := 0
+	s.neispravne.Range(func(_, _ any) bool {
+		n++
+		return true
+	})
+	if n == 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("Razmjena drugim računalima ne šalje %d %s. Ostali podaci razmjenjuju se normalno. Javite administratoru: pojedinosti su u dnevniku programa.",
+		n, models.UzBrojHR(n, "zapis koji u bazi ovog računala nije ispravan", "zapisa koji u bazi ovog računala nisu ispravni", "zapisa koji u bazi ovog računala nisu ispravni"))}
 }
 
 func label(p Peer) string {

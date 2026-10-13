@@ -227,6 +227,33 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koje je razmjenom putovalo na druga računala. Sad javlja da letve više
   nema u registru, vraća na popis letvi i ništa ne bilježi. Brisanje letve
   koja postoji radi kao i prije.
+- **Pretplata na sve vrste donosi i arhivu vodostaja.** Laptop s
+  pretplatom npr. „sve vrste, BP 16, 2025.–2026.” nikad nije dobio pakete
+  arhive svog područja. Paket nosi cijelu povijest letve i nema godinu, a
+  pretplata je gledala godine. Paket nije stizao ni kad je sadržaj uz
+  zapise bio „Samo pregledi” ili „Samo kazalo”, a vrsta „Arhiva vodostaja”
+  s popisa na stranici pretplata nije se dala dodati. Sad pretplata na sve
+  vrste i pretplata samo na arhivu donose pakete arhive bez obzira na
+  godine i na sadržaj uz zapise, jer su u paketu podaci, a ne slike.
+  Pretplata na sve vrste za sva područja tako donosi cijelu arhivu, i
+  strane i meteorološke letve. Rok držanja i dalje otpušta primljeni paket
+  s računala, a arhiva ostaje. Kad pretplata na sve vrste ima godinu
+  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za sve ostale
+  vrste godine i sadržaj vrijede kao i dosad.
+- **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
+  bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
+  razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
+  Sad razmjena takav zapis preskoči, a ostalo pošalje. Zapis se jednom
+  upiše u dnevnik programa i stoji kao upozorenje na stranici
+  Sinkronizacija i na pločici razmjene na naslovnoj. Isto je s izdanjem
+  .cop paketa u Održavanju baze: takav zapis rušio je cijelo izdanje, a sad
+  se preskoči i ostali zapisi idu u paket.
+- **Primanje računala koje ne uspije ne ostavlja članstvo.** Kad je
+  primanje novog računala u mrežu zahtjevom s kodom puklo na popisu
+  računala za potvrdu ili na upisu ovlasti za primanje, računalo je ostalo
+  upisano kao član, iako potvrdu nije dobilo. Sad se popis složi prije
+  upisa, a članstvo i ovlast upisuju se zajedno. Računalo koje ne dobije
+  potvrdu ne ostaje član, a isti zahtjev može se poslije ponovno primiti.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

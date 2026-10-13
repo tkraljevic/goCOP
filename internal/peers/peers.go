@@ -158,6 +158,9 @@ type Service struct {
 	program, gradnja string
 	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
 	javljenaInacica sync.Map
+	// neispravne su version_id verzija iz knjige koje razmjena ne šalje jer
+	// se ne daju zapisati kao JSON; broj se vidi na ploči
+	neispravne sync.Map
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
@@ -948,19 +951,112 @@ var najviseBajtovaDelte = 32 << 20
 // nastanka, pa je odrezani dio uvijek početak niza nekog ključa: granica
 // primatelja (najveći version_id po ključu) time ne preskače ništa. Prva
 // verzija ide uvijek, inače jedna golema ne bi prošla nikad.
-func ogradiDeltu(delta []ledger.Version, najvise int) []ledger.Version {
+//
+// Verzija koja se ne da zapisati kao JSON (pokvaren redak u knjizi) ne ide,
+// nego se vraća zasebno: do 0.0.38 je cijela poruka padala, pa je jedna
+// takva verzija rušila svaku razmjenu s čvorom koji je nema. Ostale verzije
+// istog ključa idu redom, pa granica primatelja prijeđe preko nje.
+func ogradiDeltu(delta []ledger.Version, najvise int) (poslati, neispravne []ledger.Version, skraceno bool) {
 	ukupno := 0
-	for i, v := range delta {
+	for _, v := range delta {
 		b, err := json.Marshal(v)
 		if err != nil {
-			return delta // poruka ionako neće proći NewEnvelope, kao i dosad
+			neispravne = append(neispravne, v)
+			continue
 		}
 		ukupno += len(b) + 1 // zarez među elementima
-		if ukupno > najvise && i > 0 {
-			return delta[:i]
+		if ukupno > najvise && len(poslati) > 0 {
+			return poslati, neispravne, true
+		}
+		poslati = append(poslati, v)
+	}
+	return poslati, neispravne, false
+}
+
+// najviseKrugovaPrekoNeispravnih ograđuje čitanje preko neispravnih verzija
+// jednog ključa: najviše toliko punih delti zaredom (uz 5000 po delti to je
+// 100.000 verzija)
+const najviseKrugovaPrekoNeispravnih = 20
+
+// deltaZa je ono što drugi čvor prema svojoj granici još nema, samo u
+// kanalima koje prati, s ključevima pročitanima preko neispravnih verzija
+func (s *Service) deltaZa(ctx context.Context, theirs frontierMsg) ([]ledger.Version, error) {
+	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), NajviseVerzijaPoRazmjeni)
+	if err != nil {
+		return nil, err
+	}
+	return prekoNeispravnih(ctx, delta, NajviseVerzijaPoRazmjeni, s.rec.SinceByNode)
+}
+
+// citacKljuca čita verzije jednog autora u jednom kanalu iza zadane, kao
+// ledger.Recorder.SinceByNode
+type citacKljuca func(ctx context.Context, nodeID, channel, afterVersionID string, limit int) ([]ledger.Version, error)
+
+// prekoNeispravnih čita dalje ključ kojemu je delta puna, a nijedna verzija
+// u njoj se ne da poslati. Ogradu po ključu (najvise) inače bi popunile same
+// neispravne verzije: primatelj ne bi dobio ništa, granica mu se u tom
+// ključu ne bi pomaknula, a ispravne verzije iza njih ne bi stigle nikad.
+// Ključ se čita do prve ispravne verzije ili do kraja, a dodano ide na kraj
+// delte, pa je unutar ključa i dalje redom nastanka.
+func prekoNeispravnih(ctx context.Context, delta []ledger.Version, najvise int, citaj citacKljuca) ([]ledger.Version, error) {
+	for _, zadnja := range zapeliKljucevi(delta, najvise) {
+		for krug := 0; krug < najviseKrugovaPrekoNeispravnih; krug++ {
+			dalje, err := citaj(ctx, zadnja.NodeID, zadnja.Channel, zadnja.VersionID, najvise)
+			if err != nil {
+				return nil, err
+			}
+			delta = append(delta, dalje...)
+			if len(dalje) < najvise || imaIspravnu(dalje) {
+				break
+			}
+			zadnja = dalje[len(dalje)-1]
 		}
 	}
-	return delta
+	return delta, nil
+}
+
+// zapeliKljucevi vraća zadnju verziju svakog ključa koji u delti ima punu
+// ogradu verzija, a nijednu ispravnu. Delta drži verzije istog ključa
+// zajedno (ledger.Recorder.Delta), pa se ključ prepoznaje po susjedima.
+func zapeliKljucevi(delta []ledger.Version, najvise int) []ledger.Version {
+	var out []ledger.Version
+	for i := 0; i < len(delta); {
+		j := krajKljuca(delta, i)
+		if j-i >= najvise && !imaIspravnu(delta[i:j]) {
+			out = append(out, delta[j-1])
+		}
+		i = j
+	}
+	return out
+}
+
+// krajKljuca je prvi indeks iza niza verzija istog ključa kao delta[i]
+func krajKljuca(delta []ledger.Version, i int) int {
+	j := i + 1
+	for j < len(delta) && delta[j].NodeID == delta[i].NodeID && delta[j].Channel == delta[i].Channel {
+		j++
+	}
+	return j
+}
+
+// imaIspravnu javlja da se barem jedna verzija da zapisati kao JSON
+func imaIspravnu(verzije []ledger.Version) bool {
+	for _, v := range verzije {
+		if _, err := json.Marshal(v); err == nil {
+			return true
+		}
+	}
+	return false
+}
+
+// zabiljeziNeispravne zapiše u dnevnik, jednom po verziji, verzije koje
+// razmjena ne šalje; sadržaj ne ide u dnevnik
+func (s *Service) zabiljeziNeispravne(neispravne []ledger.Version) {
+	for _, v := range neispravne {
+		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, struct{}{}); !bilo {
+			log.Printf("razmjena: verzija %s (%s) u knjizi nije ispravan JSON i ne šalje se drugim čvorovima", v.VersionID, v.Entity)
+		}
+	}
 }
 
 // pomakniGranicu vraća granicu uvećanu za poslane verzije
@@ -1033,13 +1129,12 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 
 	// šalje se samo što drugi prati; što ovaj čvor ne prati, ne prima ni
 	// omaškom, jer bi ostalo bez granice i vraćalo se svakom razmjenom
-	delta, err := s.rec.Delta(ctx, theirs.Frontier, s.wantsFunc(ctx, theirs.Wants), NajviseVerzijaPoRazmjeni)
+	delta, err := s.deltaZa(ctx, theirs)
 	if err != nil {
 		return 0, 0, theirs, err
 	}
-	puna := len(delta)
-	delta = ogradiDeltu(delta, najviseBajtovaDelte)
-	skraceno := len(delta) < puna
+	delta, neispravne, skraceno := ogradiDeltu(delta, najviseBajtovaDelte)
+	s.zabiljeziNeispravne(neispravne)
 	mojaDelta := deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: s.tailscaleZaDrugoga(prekoTailscalea)}
 	var incoming deltaMsg
 	if initiator {
@@ -1065,8 +1160,9 @@ func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool
 	}
 	// Zapamćena granica druge strane uključuje i ono što joj je upravo
 	// poslano; inače bi ploča do sljedeće razmjene brojala poslane verzije
-	// kao da još čekaju.
-	theirs.Frontier = pomakniGranicu(theirs.Frontier, delta)
+	// kao da još čekaju. Isto vrijedi za verzije koje se ne mogu poslati:
+	// one ne čekaju, nego stoje na ploči kao upozorenje.
+	theirs.Frontier = pomakniGranicu(pomakniGranicu(theirs.Frontier, delta), neispravne)
 
 	myFilter := s.wantsFunc(ctx, &myWants)
 	wanted := make([]ledger.Version, 0, len(incoming.Versions))

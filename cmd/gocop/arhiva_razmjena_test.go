@@ -102,6 +102,22 @@ func TestArhivaKrozRazmjenu(t *testing.T) {
 	if p, _ := arhiva.Primljeno(arhB, "batina"); p == nil || p.Izdanje != 1 {
 		t.Errorf("primljeno izdanje: %+v", p)
 	}
+	// Rok držanja otpusti primljeni paket sa spremišta (Odluke
+	// (13. 10. 2026.)): arhiva ostaje ugrađena, a paket se ne traži ponovno.
+	otpusten := z[0].Otisak
+	if err := spB.Otpusti(ctx, otpusten); err != nil || spB.Ima(ctx, otpusten) {
+		t.Fatalf("otpuštanje paketa: %v", err)
+	}
+	b.primi(ctx)
+	if z, _ := spB.Zeljeni(ctx, 10); len(z) != 0 {
+		t.Errorf("otpušteni paket ponovno se traži: %+v", z)
+	}
+	if err := arhB.QueryRow(`SELECT count(*) FROM ocitanja`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	if st := b.stanje(ctx); n != 2 || st.Ugradjeno != 1 || st.Ceka != 0 {
+		t.Errorf("nakon otpuštanja paketa: %d očitanja, stanje %+v", n, st)
+	}
 	// izvorni čvor svoj paket ne ugrađuje
 	a.zeli = func(context.Context, string, string) bool { return true }
 	a.primi(ctx)

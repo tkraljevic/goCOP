@@ -11,7 +11,9 @@ stanje razdvojeno je od prijedloga u odjeljku 6.
 Dopuna 2. 10. 2026. (0.0.23-alfa): kazalo hidrološke arhive sada putuje
 knjigom verzija, a pakete automatski dohvaća čvor koji prati sve ili ima
 pravilo „Sve vrste” bez godine početka i s punim sadržajem. Pretplatu „Arhiva vodostaja” obrazac
-nudi, ali je program zasad odbija spremiti. To nije isto što i buduće
+nudi, ali je program zasad odbija spremiti. Od 0.0.38 program tu pretplatu sprema, a paket
+donosi i pravilo „Sve vrste”, bez obzira na godine i na razinu sadržaja; „Sve vrste” za sva
+područja tako donosi cijelu arhivu (Odluke (13. 10. 2026.)). To nije isto što i buduće
 jedinstveno kazalo svih službenih zapisa. Detalji: [plan arhive](plan-arhiva-i-zaborav.md#podjela).
 
 ## Zašto sad
