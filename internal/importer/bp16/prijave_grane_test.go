@@ -136,16 +136,14 @@ func TestUvozObavijestiRubniSlucajevi(t *testing.T) {
 		},
 		Log: func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) },
 	}
-	prije := time.Now()
 	rep, err := RunPrijave(ctx, src, deps)
-	poslije := time.Now()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rep.Ukupno != 5 || rep.Upisano != 4 || rep.BezPodrucja != 1 || rep.Nacrta != 1 || rep.Skenova != 1 || rep.Slika != 2 {
+	if rep.Ukupno != 5 || rep.Upisano != 3 || rep.BezPodrucja != 1 || rep.Nacrta != 0 || rep.Skenova != 1 || rep.Slika != 2 {
 		t.Fatalf("izvješće: %+v", rep)
 	}
-	if rep.Nepoznati["područje Nepoznato"] != 1 || rep.PoPodrucju["BP 16 ( karašica sektor )"] != 1 || rep.PoPodrucju["BP 16 (KARAŠICA SEKTOR)"] != 3 {
+	if rep.Nepoznati["područje Nepoznato"] != 1 || rep.Nepoznati["vrijeme upisa"] != 1 || rep.PoPodrucju["BP 16 ( karašica sektor )"] != 1 || rep.PoPodrucju["BP 16 (KARAŠICA SEKTOR)"] != 2 {
 		t.Errorf("po području: %v, nepoznato %v", rep.PoPodrucju, rep.Nepoznati)
 	}
 	// smanjena slika traži se tek kad izvorne nema; sken se dohvaća jer
@@ -160,6 +158,7 @@ func TestUvozObavijestiRubniSlucajevi(t *testing.T) {
 		"  obavijest 21: slika s-kriva: slika nije čitljiv JPEG ili PNG",
 		"  obavijest 21: datoteka d-nije-pdf nije PDF, preskačem",
 		"  obavijest 24: datoteka d-greska: Directus odgovorio 404",
+		"  obavijest 23 nije uvezena: u evidenciji nema čitljivog vremena upisa ni izmjene",
 	} {
 		if !strings.Contains(z, poruka) {
 			t.Errorf("u zapisniku nema %q:\n%s", poruka, z)
@@ -194,11 +193,9 @@ func TestUvozObavijestiRubniSlucajevi(t *testing.T) {
 		t.Errorf("sken mora biti izvornik: %+v", iz)
 	}
 
-	// bez vremena upisa nacrt dobiva trenutak uvoza i ostaje bez broja
-	p23, _ := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:23")
-	if p23 == nil || p23.Status != models.PrijavaNacrt || p23.Broj != 0 || p23.ObjavljenoAt != nil ||
-		p23.CreatedAt.Before(prije.Truncate(time.Second)) || p23.CreatedAt.After(poslije) {
-		t.Errorf("obavijest 23: %+v (uvoz od %v do %v)", p23, prije, poslije)
+	// bez vremena upisa ne zna se dan prijave, pa se ne uvozi
+	if p23, err := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:23"); err != nil || p23 != nil {
+		t.Errorf("obavijest 23 bez vremena upisa: %+v, %v", p23, err)
 	}
 	if p24, _ := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:24"); p24 == nil || p24.Broj != 3 || p24.Sken != "" {
 		t.Errorf("obavijest 24: %+v", p24)
@@ -361,5 +358,55 @@ func TestUvozObavijestiBezDohvataDatoteka(t *testing.T) {
 	}
 	if iz, _ := repo.Izvornik(ctx, p.ID); iz == nil || string(iz.PDF) != "%PDF-1.4\niz podataka" {
 		t.Errorf("izvornik prijave iz mape: %+v", iz)
+	}
+}
+
+// Obavijest bez vremena upisa uzima vrijeme izmjene. Kad nema ni njega, ili
+// se nijedno ne da pročitati, ne zna se dan ni godina prijave, pa se ne
+// uvozi, nego broji pod nepoznato. Brojevi u godini idu redom tih vremena.
+func TestUvozObavijestiVrijemeIzmjene(t *testing.T) {
+	_, repo := bazaPrijava(t)
+	ctx := context.Background()
+	obavijest := func(id int, vremena string) string {
+		return fmt.Sprintf(`{"id":%d,"status":"objavljeno",%s"user_created":"u-1","vodocuvarsko_podrucje":"KARAŠICA SEKTOR","naslov":"Obavijest %d"}`, id, vremena, id)
+	}
+	src := probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Marko","last_name":"Markić"}`),
+		"obavijesti_sa_terena": raw(
+			obavijest(50, `"date_created":"2024-07-05T08:00:00Z","date_updated":"2024-07-09T08:00:00Z",`),
+			obavijest(51, `"date_created":"jučer","date_updated":"2024-07-01T08:00:00Z",`),
+			obavijest(52, `"date_updated":"2024-06-20T10:00:00.000Z",`),
+			obavijest(53, ``),
+			obavijest(54, `"date_created":"nečitljivo","date_updated":"također",`),
+		),
+	}}
+	var zapisnik []string
+	rep, err := RunPrijave(ctx, src, PrijaveDeps{
+		Prijave:   repo,
+		Korisnici: map[string]KorisnikUvoza{"Marko Markić": {ID: "g-1", Ime: "Marko Markić"}},
+		Podrucja:  map[string]int{"KARAŠICA SEKTOR": 16},
+		Sektor:    "B",
+		Log:       func(f string, a ...any) { zapisnik = append(zapisnik, fmt.Sprintf(f, a...)) },
+	})
+	if err != nil || rep.Ukupno != 5 || rep.Upisano != 3 || rep.Nepoznati["vrijeme upisa"] != 2 || len(rep.Nepoznati) != 1 {
+		t.Fatalf("uvoz: %+v, %v", rep, err)
+	}
+	for _, s := range []struct {
+		id, broj int
+		dan      string
+	}{{52, 1, "2024-06-20"}, {51, 2, "2024-07-01"}, {50, 3, "2024-07-05"}} {
+		p, _ := repo.PoIzvoru(ctx, fmt.Sprintf("bp16:obavijesti_sa_terena:%d", s.id))
+		if p == nil || p.Broj != s.broj || p.Godina != 2024 || p.Datum.Format("2006-01-02") != s.dan {
+			t.Errorf("obavijest %d: %+v", s.id, p)
+		}
+	}
+	for _, id := range []int{53, 54} {
+		if p, _ := repo.PoIzvoru(ctx, fmt.Sprintf("bp16:obavijesti_sa_terena:%d", id)); p != nil {
+			t.Errorf("obavijest %d bez vremena upisa je uvezena: %+v", id, p)
+		}
+	}
+	if z := strings.Join(zapisnik, "\n"); !strings.Contains(z, "  obavijest 53 nije uvezena: u evidenciji nema čitljivog vremena upisa ni izmjene") ||
+		!strings.Contains(z, "  obavijest 54 nije uvezena: ") {
+		t.Errorf("zapisnik:\n%s", z)
 	}
 }

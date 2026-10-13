@@ -83,6 +83,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   listu ostao opis fotografije bez slike. Sad uvoz prvo spremi fotografije,
   onda list, a zadatak tek na kraju. Ponovni uvoz zato obilazak dovrši, a
   list ne dobije ni opis fotografije koje nema ni isti zadatak dvaput.
+- **Obavijest s terena bez vremena upisa uzima vrijeme izmjene.**
+  Obavijest iz stare evidencije BP16 kojoj nije zapisano kad je upisana
+  dobivala je dan uvoza. Objavljena bi tako dobila broj u tekućoj godini, a
+  ne u godini kad je nastala. Sad uvoz uzima vrijeme zadnje izmjene.
+  Obavijest kojoj nema ni njega ne uvozi se, nego se u izvješću uvoza broji
+  pod nepoznato.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

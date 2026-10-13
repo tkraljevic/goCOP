@@ -70,6 +70,7 @@ type obavijestRow struct {
 	ID            int             `json:"id"`
 	Status        string          `json:"status"`
 	DateCreated   string          `json:"date_created"`
+	DateUpdated   string          `json:"date_updated"`
 	UserCreated   string          `json:"user_created"`
 	Podrucje      string          `json:"vodocuvarsko_podrucje"`
 	Cuvarnica     string          `json:"cuvarnica"`
@@ -87,6 +88,21 @@ type obavijestRow struct {
 		Type        string          `json:"type"`
 		Coordinates json.RawMessage `json:"coordinates"`
 	} `json:"lokacija"`
+
+	kad    time.Time // vrijemeUpisa, po zagrebačkom vremenu
+	imaKad bool
+}
+
+// vrijemeUpisa je kad je obavijest upisana u staroj evidenciji: date_created,
+// a kad njega nema ili se ne da pročitati, date_updated. Bez obaju se ne zna
+// ni dan ni godina prijave, pa se obavijest ne uvozi (Odluke (13. 10. 2026.)).
+func vrijemeUpisa(o obavijestRow) (time.Time, bool) {
+	for _, s := range []string{o.DateCreated, o.DateUpdated} {
+		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(s)); err == nil {
+			return t.In(models.Zagreb), true
+		}
+	}
+	return time.Time{}, false
 }
 
 // prvaTocka vadi prvi par koordinata iz GeoJSON geometrije: točku kako jest,
@@ -222,9 +238,10 @@ func obavijestiPoVremenu(ctx context.Context, src Source) ([]obavijestRow, error
 		if err := json.Unmarshal(r, &o); err != nil {
 			return nil, fmt.Errorf("obavijest: %w", err)
 		}
+		o.kad, o.imaKad = vrijemeUpisa(o)
 		redovi = append(redovi, o)
 	}
-	sort.SliceStable(redovi, func(i, j int) bool { return redovi[i].DateCreated < redovi[j].DateCreated })
+	sort.SliceStable(redovi, func(i, j int) bool { return redovi[i].kad.Before(redovi[j].kad) })
 	return redovi, nil
 }
 
@@ -256,18 +273,19 @@ func (u *uvozPrijava) uvezi(ctx context.Context, o obavijestRow) error {
 	return u.prenesi(ctx, o, izvor, p)
 }
 
-// prijava slaže prijavu iz obavijesti; nil kad se ne zna vodočuvar ili
-// područje, što izvješće broji
+// prijava slaže prijavu iz obavijesti; nil kad se ne zna vodočuvar,
+// područje ili vrijeme upisa, što izvješće broji
 func (u *uvozPrijava) prijava(o obavijestRow, izvor string) *models.PrijavaSTerena {
 	k, area, ok := u.osobaIPodrucje(o)
 	if !ok {
 		return nil
 	}
-	kad, err := time.Parse(time.RFC3339, o.DateCreated)
-	if err != nil {
-		kad = time.Now()
+	if !o.imaKad {
+		u.rep.Nepoznati["vrijeme upisa"]++
+		u.logf("  obavijest %d nije uvezena: u evidenciji nema čitljivog vremena upisa ni izmjene", o.ID)
+		return nil
 	}
-	p := novaPrijava(o, izvor, k, area, kad.In(models.Zagreb), u.deps)
+	p := novaPrijava(o, izvor, k, area, o.kad, u.deps)
 	p.Vodotok = vodotokObavijesti(o.NazivVodotoka, u.vode)
 	p.Latitude, p.Longitude = tockaObavijesti(o)
 	p.Status = statusObavijesti(o.Status)
