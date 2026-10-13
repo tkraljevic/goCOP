@@ -258,7 +258,9 @@ type Izvjestaj struct {
 //
 // Isto vrijedi za snimku korita kojoj je nestala datoteka (Odluke
 // (13. 10. 2026.)): tada je Snimka true, Datum je dan snimke, a Zapisa broj
-// njezinih točaka.
+// njezinih točaka. Za krivulje protoka letve kojoj je nestala datoteka
+// krivulja Krivulje je true, Zapisa je broj krivulja, a Datum početak
+// valjanosti najstarije.
 type Sirotan struct {
 	Letva    string
 	Izvor    string
@@ -267,6 +269,7 @@ type Sirotan struct {
 	Zapisa   int
 	USpoju   int
 	Snimka   bool
+	Krivulje bool
 	Datum    string
 }
 
@@ -412,6 +415,10 @@ func javiBezDatoteke(zapisi io.Writer, sirotani []Sirotan) {
 // redakIspisa je redak ispisa gradnje za niz ili snimku bez datoteke, bez
 // letve na početku.
 func (o Sirotan) redakIspisa() string {
+	if o.Krivulje {
+		return fmt.Sprintf("krivulje protoka od %s, %d %s  SIROTAN — datoteke nema u stablu",
+			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "krivulja", "krivulje", "krivulja"))
+	}
 	if o.Snimka {
 		return fmt.Sprintf("snimka korita %s, %d %s  SIROTAN — datoteke nema u stablu",
 			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "točka", "točke", "točaka"))
@@ -424,8 +431,9 @@ func (o Sirotan) redakIspisa() string {
 		models.UzBrojHR(o.USpoju, "vrijednost", "vrijednosti", "vrijednosti"), models.UzBrojHR(o.USpoju, "je", "su", "je"))
 }
 
-// bezDatoteke vraća nizove i snimke korita koji stoje u arhivi bez datoteke u
-// stablu. Snimke idu na isti popis, jer i njih miče čovjek, a ne gradnja.
+// bezDatoteke vraća nizove, snimke korita i krivulje protoka koji stoje u
+// arhivi bez datoteke u stablu. Snimke i krivulje idu na isti popis, jer i njih
+// miče čovjek, a ne gradnja.
 func bezDatoteke(db *sql.DB, koren string, nizovi map[string]*niz, samo string,
 	nedostupni map[string]bool) ([]Sirotan, error) {
 	out, err := nadiSirotane(db, nizovi, samo, nedostupni)
@@ -436,7 +444,77 @@ func bezDatoteke(db *sql.DB, koren string, nizovi map[string]*niz, samo string,
 	if err != nil {
 		return nil, err
 	}
-	return append(out, snimke...), nil
+	krivulje, err := krivuljeBezDatoteke(db, koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	return append(append(out, snimke...), krivulje...), nil
+}
+
+// krivuljeBezDatoteke traži letve kojima je iz stabla nestala datoteka
+// krivulja, a arhiva njihove krivulje još ima (Odluke (13. 10. 2026.)). Kao i
+// kod snimki, sudi samo o letvama koje u stablu imaju mapu. Letve koje su
+// stigle paketom preskače: njihove krivulje nisu nastale iz ovog stabla, pa
+// ni datoteka nije nestala.
+func krivuljeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
+	letve, err := Letve(koren)
+	if err != nil {
+		return nil, err
+	}
+	sDatotekom, err := letveSDatotekomKrivulja(koren)
+	if err != nil {
+		return nil, err
+	}
+	sve, err := krivuljeUArhivi(db, samo)
+	if err != nil {
+		return nil, err
+	}
+	var out []Sirotan
+	for _, o := range sve {
+		if letve[o.Letva] != "" && !sDatotekom[o.Letva] {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
+// letveSDatotekomKrivulja vraća letve koje u stablu imaju datoteku krivulja.
+func letveSDatotekomKrivulja(koren string) (map[string]bool, error) {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "hq", "*_hq_krivulje.csv"))
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, p := range puts {
+		out[filepath.Base(filepath.Dir(filepath.Dir(p)))] = true
+	}
+	return out, nil
+}
+
+// krivuljeUArhivi vraća, po letvi, koliko krivulja protoka arhiva ima i od
+// kada vrijedi najstarija, bez letvi koje su stigle paketom.
+func krivuljeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
+	q := `SELECT k.letva, count(*), min(k.vrijedi_od) FROM hq_krivulje k
+		WHERE NOT EXISTS (SELECT 1 FROM primljena_izdanja p WHERE p.letva = k.letva)`
+	var args []any
+	if samo != "" {
+		q += ` AND k.letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q+` GROUP BY k.letva ORDER BY k.letva`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Sirotan
+	for rows.Next() {
+		o := Sirotan{Krivulje: true}
+		if err := rows.Scan(&o.Letva, &o.Zapisa, &o.Datum); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
 }
 
 // snimkeBezDatoteke traži snimke korita kojima u stablu nema datoteke. Sudi
@@ -2078,6 +2156,38 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 		}
 	}
 	return bezDatoteke(db, koren, nizovi, "", nedostupni)
+}
+
+// MakniKrivulje briše iz arhive krivulje protoka letve kojoj datoteke krivulja
+// u stablu više nema i vraća koliko je krivulja maknuto. Kao ni snimke, ni
+// krivulje bez datoteke gradnja ne miče sama (Odluke (13. 10. 2026.)):
+// odlučuje čovjek, na popisu bez datoteke. Datoteke u stablu se ne diraju.
+func MakniKrivulje(db *sql.DB, baza, letva string) (int, error) {
+	// Ista brava kao gradnja: gradnja istodobno briše i upisuje krivulje.
+	brava, err := Uzmi(baza, "micanje krivulja protoka "+letva, "")
+	if err != nil {
+		return 0, err
+	}
+	defer brava.Pusti()
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	// Odsječci se brišu izrijekom: veza bez stranih ključeva ne briše djecu sama.
+	if _, err := tx.Exec(`DELETE FROM hq_odsjecci WHERE krivulja IN
+		(SELECT id FROM hq_krivulje WHERE letva = ?)`, letva); err != nil {
+		return 0, err
+	}
+	res, err := tx.Exec(`DELETE FROM hq_krivulje WHERE letva = ?`, letva)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return 0, fmt.Errorf("letva %s nema krivulja protoka u arhivi", letva)
+	}
+	return int(n), tx.Commit()
 }
 
 // MakniSnimku briše iz arhive snimku korita kojoj datoteke u stablu više nema

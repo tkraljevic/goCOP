@@ -1378,6 +1378,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
 	uvozH.SetMakniSnimku(s.MakniSnimku)
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-snimku", s.samoAdmin(http.HandlerFunc(uvozH.MakniSnimkuBezDatoteke)))
+	uvozH.SetMakniKrivulje(s.MakniKrivulje)
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-krivulje", s.samoAdmin(http.HandlerFunc(uvozH.MakniKrivuljeBezDatoteke)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	// Posebni izvori (ARSO, eHYD, GKD, PEGELONLINE, SEBA, HIS-2000, godišnjaci
@@ -1976,6 +1978,15 @@ func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error)
 func (s *Server) MakniSnimku(letva, datum string) (int, error) {
 	return s.urediArhivu(func(db *sql.DB) (int, error) {
 		return arhiva.MakniSnimku(db, s.arhivaPut, letva, datum)
+	})
+}
+
+// MakniKrivulje briše krivulje protoka letve kojoj je iz stabla nestala
+// datoteka krivulja, pa zatim otvara arhivu iznova da program odmah vidi novo
+// stanje.
+func (s *Server) MakniKrivulje(letva string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniKrivulje(db, s.arhivaPut, letva)
 	})
 }
 

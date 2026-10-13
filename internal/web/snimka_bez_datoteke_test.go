@@ -22,7 +22,7 @@ func TestSnimkaBezDatotekeSeVidiNaPopisu(t *testing.T) {
 		{Letva: "vodograd", Snimka: true, Datum: "2010-03-22", Zapisa: 2},
 	}
 	html := iscrtaj(t, "uvoz_niza.html", d)
-	for _, want := range []string{"Nizovi bez datoteke u stablu", "snimke korita kojima je datoteka maknuta",
+	for _, want := range []string{"Nizovi bez datoteke u stablu", "snimke korita i krivulje protoka kojima je",
 		"snimka korita 2010-03-22", "2 točke", "/administracija/uvoz-niza/makni-snimku",
 		`name="datum" value="2010-03-22"`, "Maknuti snimku korita 2010-03-22 za vodograd iz arhive?",
 		"/administracija/uvoz-niza/makni-niz", "cop-rucno"} {

@@ -116,6 +116,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
   Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
   koju čvor samo prima paketom. Datoteke u stablu se ne diraju.
+- **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
+  nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
+  arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
+  stablu, s brojem krivulja i danom od kojeg vrijedi najstarija, a gumb
+  Makni ih miče iz arhive. Krivulje letve koja je stigla paketom s drugog
+  čvora na popis ne idu.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

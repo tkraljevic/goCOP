@@ -97,6 +97,9 @@ type UvozHandler struct {
 
 	// makniSnimku briše snimku korita koja je ostala bez datoteke u stablu.
 	makniSnimku func(letva, datum string) (int, error)
+	// makniKrivulje briše krivulje protoka letve kojoj je iz stabla nestala
+	// datoteka krivulja.
+	makniKrivulje func(letva string) (int, error)
 
 	// Račun za HydroView i naziv letve, za preuzimanje povijesti s telemetrije.
 	hvRacuni   func() *repository.HidroViewRepository
@@ -122,6 +125,12 @@ func (h *UvozHandler) SetMakniNiz(f func(letva, izvor, velicina, vrsta string) (
 // datoteke.
 func (h *UvozHandler) SetMakniSnimku(f func(letva, datum string) (int, error)) {
 	h.makniSnimku = f
+}
+
+// SetMakniKrivulje daje vratima način da maknu krivulje protoka letve kojoj je
+// nestala datoteka krivulja.
+func (h *UvozHandler) SetMakniKrivulje(f func(letva string) (int, error)) {
+	h.makniKrivulje = f
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
