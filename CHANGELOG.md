@@ -78,7 +78,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ispravkom koji vidi dežurni, prosječna pogreška na Dravi mijenja se
   najviše 0,3 cm ili m³/s, a prognoza je u prosjeku do 1 cm ili m³/s viša.
   Na poplavnim valovima od 2013. najavljeni vrh se gotovo ne mijenja,
-  najviše 7 cm na Novom Virju.
+  najviše 7 cm na Novom Virju. Ispravak prognoze dosad je izmjeren uz ovu
+  grešku, pa nakon nadogradnje na 0.0.38 globalni administrator na čvoru
+  koji izdaje prognozu treba pokrenuti Prognoze → Postavke → *Pripremi
+  model* (Odluke (13. 10. 2026.)).
 - **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
   međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
   izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
