@@ -131,7 +131,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
   stablu, s brojem krivulja i danom od kojeg vrijedi najstarija, a gumb
   Makni ih miče iz arhive. Krivulje letve koja je stigla paketom s drugog
-  čvora na popis ne idu.
+  čvora na popis ne idu. Ako je letva otkad je stranica otvorena dobila
+  datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
+  miče, nego to javi.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

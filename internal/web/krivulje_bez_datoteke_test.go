@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -91,7 +92,7 @@ func TestPorukaMaknutihKrivulja(t *testing.T) {
 }
 
 // Poslužitelj krivulje miče iz prave arhive i odmah je otvara iznova; bez
-// arhive ili kad krivulja nema, javlja grešku.
+// arhive, bez stabla ili kad krivulja nema, javlja grešku.
 func TestPosluziteljMiceKrivulje(t *testing.T) {
 	put := filepath.Join(t.TempDir(), "arhiva.db")
 	db, err := sql.Open("sqlite", put)
@@ -110,7 +111,14 @@ func TestPosluziteljMiceKrivulje(t *testing.T) {
 	if _, err := (&Server{}).MakniKrivulje("vodograd"); err == nil {
 		t.Error("micanje bez arhive prošlo je")
 	}
-	s := &Server{arhivaPut: put}
+	koren := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "vodograd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&Server{arhivaPut: put}).MakniKrivulje("vodograd"); err == nil || !strings.Contains(err.Error(), "više nije na popisu krivulja bez datoteke") {
+		t.Errorf("micanje na čvoru bez stabla: %v", err)
+	}
+	s := &Server{arhivaPut: put, podaciDir: koren}
 	n, err := s.MakniKrivulje("vodograd")
 	if err != nil || n != 2 {
 		t.Fatalf("micanje: %d, %v", n, err)
@@ -123,7 +131,7 @@ func TestPosluziteljMiceKrivulje(t *testing.T) {
 	if err := db.QueryRow(`SELECT count(*) FROM hq_krivulje`).Scan(&ostalo); err != nil || ostalo != 0 {
 		t.Errorf("u arhivi je ostalo %d krivulja (%v)", ostalo, err)
 	}
-	if _, err := s.MakniKrivulje("vodograd"); err == nil || !strings.Contains(err.Error(), "nema krivulja protoka u arhivi") {
+	if _, err := s.MakniKrivulje("vodograd"); err == nil || !strings.Contains(err.Error(), "više nije na popisu krivulja bez datoteke") {
 		t.Errorf("micanje krivulja kojih nema: %v", err)
 	}
 }

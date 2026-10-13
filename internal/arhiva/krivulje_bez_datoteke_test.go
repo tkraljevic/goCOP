@@ -77,7 +77,7 @@ func TestKrivuljeBezDatotekeCekajuNaPopisu(t *testing.T) {
 		}
 	}
 
-	n, err := MakniKrivulje(db, baza, "vodograd")
+	n, err := MakniKrivulje(db, baza, koren, "vodograd")
 	if err != nil || n != 2 {
 		t.Fatalf("micanje krivulja: %d, %v", n, err)
 	}
@@ -93,7 +93,8 @@ func TestKrivuljeBezDatotekeCekajuNaPopisu(t *testing.T) {
 	if o, err := Sirotani(db, koren); err != nil || len(o) != 0 {
 		t.Errorf("nakon micanja popis bez datoteke: %+v, %v", o, err)
 	}
-	if _, err := MakniKrivulje(db, baza, "vodograd"); err == nil || err.Error() != "letva vodograd nema krivulja protoka u arhivi" {
+	if _, err := MakniKrivulje(db, baza, koren, "vodograd"); err == nil || err.Error() != "letva vodograd više nije na popisu "+
+		"krivulja bez datoteke, jer je u međuvremenu dobila datoteku krivulja, stigla je paketom s drugog čvora ili su joj krivulje već maknute" {
 		t.Errorf("micanje krivulja kojih nema: %v", err)
 	}
 }
@@ -163,6 +164,10 @@ func TestPopisKrivuljaBezDatotekeKojiSeNeDaSloziti(t *testing.T) {
 // arhiva ostane kakva je bila: arhivu drži drugi posao, veza je zatvorena, ili
 // brisanje odsječaka ili krivulja ne prođe.
 func TestKrivuljeKojeSeNeDajuMaknutiSPopisa(t *testing.T) {
+	koren := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "vodograd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	krivulja := func(t *testing.T) (*sql.DB, string) {
 		t.Helper()
 		put := filepath.Join(t.TempDir(), "arhiva.db")
@@ -185,7 +190,7 @@ func TestKrivuljeKojeSeNeDajuMaknutiSPopisa(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer drugi.Pusti()
-		_, err = MakniKrivulje(db, put, "vodograd")
+		_, err = MakniKrivulje(db, put, koren, "vodograd")
 		var z *Zauzeto
 		if !asZauzeto(err, &z) || z.Tko != "Ana Anić" {
 			t.Errorf("micanje uz zauzetu arhivu: %v", err)
@@ -195,7 +200,7 @@ func TestKrivuljeKojeSeNeDajuMaknutiSPopisa(t *testing.T) {
 	t.Run("zatvorena veza", func(t *testing.T) {
 		db, put := krivulja(t)
 		db.Close()
-		if _, err := MakniKrivulje(db, put, "vodograd"); err == nil {
+		if _, err := MakniKrivulje(db, put, koren, "vodograd"); err == nil {
 			t.Error("micanje kroz zatvorenu vezu prošlo je")
 		}
 	})
@@ -206,9 +211,61 @@ func TestKrivuljeKojeSeNeDajuMaknutiSPopisa(t *testing.T) {
 		t.Run(s.ime, func(t *testing.T) {
 			db, put := krivulja(t)
 			kvar(t, db, "DELETE", s.tablica, "")
-			_, err := MakniKrivulje(db, put, "vodograd")
+			_, err := MakniKrivulje(db, put, koren, "vodograd")
 			greskaSadrzi(t, s.ime, err, "namjerni kvar")
 			ostalo(t, db)
+		})
+	}
+}
+
+// Zaključava da gumb Makni ne odnese krivulje koje u međuvremenu više nisu bez
+// datoteke. Stranica je mogla biti otvorena prije nego što je letva stigla
+// paketom ili prije nego što joj je datoteka krivulja vraćena u stablo; tada
+// bi klik odnio sve krivulje iz paketa ili one koje datoteka opet drži. Ni
+// letvi bez mape u stablu krivulje se ne miču, a stablo koje se ne čita
+// zaustavi micanje.
+func TestMicanjeKrivuljaKojeViseNisuBezDatoteke(t *testing.T) {
+	zaglavlje := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n"
+	for _, s := range []struct {
+		ime      string
+		promjena func(t *testing.T, db *sql.DB, koren string)
+		greska   string
+	}{
+		{"letva je stigla paketom", func(t *testing.T, db *sql.DB, _ string) { oznaciPrimljenu(t, db, "vodograd") },
+			"letva vodograd više nije na popisu krivulja bez datoteke"},
+		{"datoteka je vraćena", func(t *testing.T, _ *sql.DB, koren string) {
+			zapisiDatoteku(t, putKrivulja(koren, "dunav", "vodograd"), zaglavlje+"2001-01-01;;0;100;polinom;1;1;1;;DHMZ;\n")
+		}, "letva vodograd više nije na popisu krivulja bez datoteke"},
+		{"mapa letve je maknuta", func(t *testing.T, _ *sql.DB, koren string) {
+			if err := os.RemoveAll(filepath.Join(koren, "dunav", "vodograd")); err != nil {
+				t.Fatal(err)
+			}
+		}, "letva vodograd više nije na popisu krivulja bez datoteke"},
+		{"stablo se ne čita", func(t *testing.T, _ *sql.DB, koren string) {
+			if err := os.RemoveAll(koren); err != nil {
+				t.Fatal(err)
+			}
+		}, "ne da se provjeriti jesu li krivulje letve vodograd još bez datoteke: "},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			koren := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(koren, "dunav", "vodograd"), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			put := filepath.Join(t.TempDir(), "arhiva.db")
+			db := napraviArhivu(t, put)
+			defer db.Close()
+			upisiKrivulju(t, db, "vodograd", "2001-01-01", "2010-12-31", 1)
+			upisiKrivulju(t, db, "vodograd", "2011-01-01", "", 2)
+			if o, err := krivuljeBezDatoteke(db, koren, "vodograd"); err != nil || len(o) != 1 {
+				t.Fatalf("prije promjene letva nije na popisu: %+v, %v", o, err)
+			}
+			s.promjena(t, db, koren)
+			_, err := MakniKrivulje(db, put, koren, "vodograd")
+			greskaSadrzi(t, s.ime, err, s.greska)
+			if n := broj(t, db, `SELECT count(*) FROM hq_krivulje WHERE letva = 'vodograd'`); n != 2 {
+				t.Errorf("maknute su krivulje koje više nisu bez datoteke, ostalo ih je %d", n)
+			}
 		})
 	}
 }

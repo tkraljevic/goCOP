@@ -1987,7 +1987,7 @@ func (s *Server) MakniSnimku(letva, datum string) (int, error) {
 // stanje.
 func (s *Server) MakniKrivulje(letva string) (int, error) {
 	return s.urediArhivu(func(db *sql.DB) (int, error) {
-		return arhiva.MakniKrivulje(db, s.arhivaPut, letva)
+		return arhiva.MakniKrivulje(db, s.arhivaPut, s.podaciDir, letva)
 	})
 }
 

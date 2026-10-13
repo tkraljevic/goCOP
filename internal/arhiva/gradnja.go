@@ -468,7 +468,7 @@ func bezDatoteke(db *sql.DB, koren string, nizovi map[string]*niz, samo string,
 // kod snimki, sudi samo o letvama koje u stablu imaju mapu. Letve koje su
 // stigle paketom preskače: njihove krivulje nisu nastale iz ovog stabla, pa
 // ni datoteka nije nestala.
-func krivuljeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
+func krivuljeBezDatoteke(db Izvrsitelj, koren, samo string) ([]Sirotan, error) {
 	letve, err := Letve(koren)
 	if err != nil {
 		return nil, err
@@ -505,7 +505,7 @@ func letveSDatotekomKrivulja(koren string) (map[string]bool, error) {
 
 // krivuljeUArhivi vraća, po letvi, koliko krivulja protoka arhiva ima i od
 // kada vrijedi najstarija, bez letvi koje su stigle paketom.
-func krivuljeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
+func krivuljeUArhivi(db Izvrsitelj, samo string) ([]Sirotan, error) {
 	q := `SELECT k.letva, count(*), min(k.vrijedi_od) FROM hq_krivulje k
 		WHERE NOT EXISTS (SELECT 1 FROM primljena_izdanja p WHERE p.letva = k.letva)`
 	var args []any
@@ -2127,8 +2127,9 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 // u stablu više nema i vraća koliko je krivulja maknuto. Kao ni snimke, ni
 // krivulje bez datoteke gradnja ne miče sama (Odluke (13. 10. 2026.)):
 // odlučuje čovjek, na popisu bez datoteke. Datoteke u stablu se ne diraju.
-func MakniKrivulje(db *sql.DB, baza, letva string) (int, error) {
-	// Ista brava kao gradnja: gradnja istodobno briše i upisuje krivulje.
+func MakniKrivulje(db *sql.DB, baza, koren, letva string) (int, error) {
+	// Ista brava kao gradnja i ugradnja paketa: one istodobno brišu i upisuju
+	// krivulje.
 	brava, err := Uzmi(baza, "micanje krivulja protoka "+letva, "")
 	if err != nil {
 		return 0, err
@@ -2139,6 +2140,9 @@ func MakniKrivulje(db *sql.DB, baza, letva string) (int, error) {
 		return 0, err
 	}
 	defer tx.Rollback()
+	if err := krivuljeJosBezDatoteke(tx, koren, letva); err != nil {
+		return 0, err
+	}
 	// Odsječci se brišu izrijekom: veza bez stranih ključeva ne briše djecu sama.
 	if _, err := tx.Exec(`DELETE FROM hq_odsjecci WHERE krivulja IN
 		(SELECT id FROM hq_krivulje WHERE letva = ?)`, letva); err != nil {
@@ -2149,10 +2153,24 @@ func MakniKrivulje(db *sql.DB, baza, letva string) (int, error) {
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
-	if n == 0 {
-		return 0, fmt.Errorf("letva %s nema krivulja protoka u arhivi", letva)
-	}
 	return int(n), tx.Commit()
+}
+
+// krivuljeJosBezDatoteke provjerava, pod bravom, da je letva i dalje na popisu
+// krivulja bez datoteke. Stranica s gumbom Makni zna biti otvorena dugo: letva
+// je u međuvremenu mogla stići paketom ili dobiti datoteku krivulja, a klik
+// bi tada odnio sve krivulje koje je donio paket ili koje datoteka opet drži
+// (Odluke (13. 10. 2026.), „primljeno paketom se ne dira”).
+func krivuljeJosBezDatoteke(tx Izvrsitelj, koren, letva string) error {
+	bez, err := krivuljeBezDatoteke(tx, koren, letva)
+	if err != nil {
+		return fmt.Errorf("ne da se provjeriti jesu li krivulje letve %s još bez datoteke: %w", letva, err)
+	}
+	if len(bez) == 0 {
+		return fmt.Errorf("letva %s više nije na popisu krivulja bez datoteke, jer je u međuvremenu dobila "+
+			"datoteku krivulja, stigla je paketom s drugog čvora ili su joj krivulje već maknute", letva)
+	}
+	return nil
 }
 
 // MakniSnimku briše iz arhive snimku korita kojoj datoteke u stablu više nema
