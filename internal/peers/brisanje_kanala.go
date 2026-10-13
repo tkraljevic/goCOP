@@ -3,6 +3,7 @@ package peers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 
 	"gocop/internal/ledger"
@@ -18,6 +19,13 @@ import (
 // Pregled prije brisanja i samo brisanje računa ista funkcija
 // (brisanjeKanala), istim uvjetima, pa potvrda ne može obećati drukčije od
 // onoga što se obriše.
+//
+// Zapis nastao ovdje koji je drugi čvor poslije mijenjao ili obrisao ostaje
+// onakav kakav je nastao ovdje: tuđa izmjena odlazi s površine zajedno s
+// tuđom verzijom, a tuđe brisanje ostaje kao vlastiti spomenik. Inače bi
+// površina pokazivala ono čega u knjizi više nema, a pokretanje programa
+// (ReplaySurface, ObnoviPovrsinu) vratilo bi zapis na zadnju vlastitu
+// verziju, i obrisani zapis vratilo u život.
 
 // Brisanje kaže što brisanje jednog kanala odnese s ovog računala i što
 // ostavi. Zapis je svaki redak koji se vidi u programu: očitanje, list,
@@ -49,16 +57,25 @@ func (s *Service) PurgeChannel(ctx context.Context, kanal string) (Brisanje, err
 }
 
 // brisanjeKanala prebroji ili obriše tuđe u kanalu, a vlastito prebroji.
-// Površina i knjiga mijenjaju se u jednoj transakciji; sadržaj je u svojoj
-// datoteci i briše se nakon njih.
+// Površina i knjiga mijenjaju se u jednoj transakciji. Zatim se zapisi
+// nastali ovdje kojima su obrisane tuđe izmjene obnove iz knjige, a sadržaj,
+// koji je u svojoj datoteci, briše se zadnji.
 func (s *Service) brisanjeKanala(ctx context.Context, kanal string, obrisi bool) (Brisanje, error) {
 	koraci, err := s.koraciZaKanal(ctx, kanal)
 	if err != nil {
 		return Brisanje{Kanal: kanal}, err
 	}
 	b := Brisanje{Kanal: kanal}
-	if err := s.uTransakciji(ctx, func(tx *sql.Tx) error { return s.brisanjeUBazi(ctx, tx, &b, koraci, obrisi) }); err != nil {
+	var obnova []zapisKnjige
+	err = s.uTransakciji(ctx, func(tx *sql.Tx) (err error) {
+		obnova, err = s.brisanjeUBazi(ctx, tx, &b, koraci, obrisi)
+		return err
+	})
+	if err != nil {
 		return Brisanje{Kanal: kanal}, err
+	}
+	if err := s.obnoviVlastite(ctx, obnova); err != nil {
+		return b, err
 	}
 	return b, s.brisanjeSadrzaja(ctx, &b, obrisi)
 }
@@ -82,21 +99,122 @@ func (s *Service) koraciZaKanal(ctx context.Context, kanal string) ([]korakBrisa
 }
 
 // brisanjeUBazi prođe tablice kanala pa knjigu. Knjiga ide zadnja, jer se
-// redak odbačenog očitanja nalazi po verziji u knjizi.
-func (s *Service) brisanjeUBazi(ctx context.Context, tx *sql.Tx, b *Brisanje, koraci []korakBrisanja, obrisi bool) error {
+// redak odbačenog očitanja nalazi po verziji u knjizi. Vraća zapise koje
+// nakon brisanja treba obnoviti iz knjige.
+func (s *Service) brisanjeUBazi(ctx context.Context, tx *sql.Tx, b *Brisanje, koraci []korakBrisanja, obrisi bool) ([]zapisKnjige, error) {
 	args := argumentiKanala(b.Kanal, s.rec.Cvor())
 	for _, k := range koraci {
 		obrisano, ostaje, err := k.izvedi(ctx, tx, args, obrisi)
 		if err != nil {
-			return fmt.Errorf("brisanje kanala %s iz %s: %w", b.Kanal, k.tablica, err)
+			return nil, fmt.Errorf("brisanje kanala %s iz %s: %w", b.Kanal, k.tablica, err)
 		}
 		b.Zapisa += obrisano
 		b.OstajeZapisa += ostaje
 	}
-	var err error
+	neupisanih, obnova, err := s.vlastitoUKnjizi(ctx, tx, b.Kanal, obrisi)
+	if err != nil {
+		return nil, err
+	}
 	b.Verzija, b.OstajeVerzija, err = s.rec.PurgeChannel(ctx, tx, b.Kanal, obrisi)
-	return err
+	b.OstajeVerzija += neupisanih
+	return obnova, err
 }
+
+// zapisKnjige je jedan zapis u knjizi: entitet i oznaka
+type zapisKnjige struct{ entitet, id string }
+
+// tudjiSpomeniciVlastitih su zapisi koji imaju vlastitu verziju, a zadnja im
+// je verzija tuđi spomenik u kanalu: drugi čvor obrisao je ono što je
+// nastalo ovdje
+const tudjiSpomeniciVlastitih = `SELECT z.entity, z.entity_id, z.payload FROM record_versions z
+	WHERE z.channel = @kanal AND z.archived = 1 AND z.node_id <> @cvor
+	  AND z.version_id = (SELECT MAX(m.version_id) FROM record_versions m WHERE m.entity = z.entity AND m.entity_id = z.entity_id)
+	  AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = z.entity AND o.entity_id = z.entity_id AND +o.node_id = @cvor)`
+
+// vlastiteSTudjimVerzijama su zapisi koji imaju vlastitu verziju i tuđu u
+// kanalu: brisanje im odnese tuđe izmjene
+const vlastiteSTudjimVerzijama = `SELECT DISTINCT t.entity, t.entity_id FROM record_versions t
+	WHERE t.channel = @kanal AND t.node_id <> @cvor
+	  AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = t.entity AND o.entity_id = t.entity_id AND +o.node_id = @cvor)`
+
+// vlastitoUKnjizi priprema knjigu za brisanje tuđih verzija kanala. Zapis
+// nastao ovdje koji je drugi čvor obrisao dobiva vlastiti spomenik u istom
+// kanalu, s istim sadržajem: tako ostaje obrisan i kad tuđi spomenik ode, a
+// najveća vlastita verzija kanala ostaje u knjizi. Uz obrisi=false spomenici
+// se samo prebroje i vraćaju kao neupisani, jer ih pregled broji među
+// verzijama koje ostaju. Uz obrisi=true upišu se, pa ih brojanje vlastitih
+// verzija već obuhvati, i vraćaju se zapisi kojima brisanje odnese tuđe
+// izmjene.
+func (s *Service) vlastitoUKnjizi(ctx context.Context, tx *sql.Tx, kanal string, obrisi bool) (neupisanih int, obnova []zapisKnjige, err error) {
+	args := []any{sql.Named("kanal", kanal), sql.Named("cvor", s.rec.Cvor())}
+	spomenici, err := citajZapise(ctx, tx, tudjiSpomeniciVlastitih, args, true)
+	if err != nil || !obrisi {
+		return len(spomenici), nil, err
+	}
+	for _, z := range spomenici {
+		if _, err := s.rec.ArchiveIn(ctx, tx, kanal, z.entitet, z.id, json.RawMessage(z.sadrzaj)); err != nil {
+			return 0, nil, err
+		}
+	}
+	zapisi, err := citajZapise(ctx, tx, vlastiteSTudjimVerzijama, args, false)
+	for _, z := range zapisi {
+		obnova = append(obnova, z.zapisKnjige)
+	}
+	return 0, obnova, err
+}
+
+// zapisSadrzajem je zapis knjige s pročitanim sadržajem verzije
+type zapisSadrzajem struct {
+	zapisKnjige
+	sadrzaj string
+}
+
+// citajZapise pročita zapise upita; sSadrzajem kaže da upit vraća i sadržaj
+func citajZapise(ctx context.Context, tx *sql.Tx, upit string, args []any, sSadrzajem bool) ([]zapisSadrzajem, error) {
+	rows, err := tx.QueryContext(ctx, upit, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []zapisSadrzajem
+	for rows.Next() {
+		var z zapisSadrzajem
+		polja := []any{&z.entitet, &z.id}
+		if sSadrzajem {
+			polja = append(polja, &z.sadrzaj)
+		}
+		if err := rows.Scan(polja...); err != nil {
+			return nil, err
+		}
+		out = append(out, z)
+	}
+	return out, rows.Err()
+}
+
+// obnoviVlastite vrati na površinu zadnju verziju zapisa kojima je brisanje
+// odnijelo tuđe izmjene: nakon brisanja to je vlastita verzija ili vlastiti
+// spomenik. Primjena je ista kao za primljeno (OnApplied), pa i isto što
+// pokretanje programa učini iz knjige, samo odmah.
+func (s *Service) obnoviVlastite(ctx context.Context, zapisi []zapisKnjige) error {
+	if len(zapisi) == 0 || s.onApplied == nil {
+		return nil
+	}
+	verzije := make([]ledger.Version, 0, len(zapisi))
+	for _, z := range zapisi {
+		v, err := s.rec.Latest(ctx, z.entitet, z.id)
+		if err != nil {
+			return fmt.Errorf(porukaObnove, err)
+		}
+		verzije = append(verzije, *v)
+	}
+	if err := s.onApplied(ctx, verzije); err != nil {
+		return fmt.Errorf(porukaObnove, err)
+	}
+	return nil
+}
+
+// porukaObnove: tuđe je obrisano, a površina se nije dala obnoviti
+const porukaObnove = "Obrisano je ono što je stiglo s drugih računala, ali zapisi nastali na ovom računalu nisu se mogli vratiti na stanje napisano ovdje. Ponovno pokrenite program, pa će se vratiti. (%w)"
 
 // brisanjeSadrzaja prebroji ili obriše dokumente kanala u spremištu
 func (s *Service) brisanjeSadrzaja(ctx context.Context, b *Brisanje, obrisi bool) error {
