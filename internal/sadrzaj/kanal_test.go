@@ -60,7 +60,7 @@ func TestBrisanjeKanalaIPopisZaDohvat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer s.Zatvori()
+	defer func() { _ = s.Zatvori() }()
 	ctx := context.Background()
 	trazena := Otisak([]byte("fotografija koja nije stigla"))
 	if err := s.Zeli(ctx, trazena, "image/jpeg", 10, "pretplata", "vodocuvarski/16/2026"); err != nil {
@@ -93,7 +93,9 @@ func TestBrisanjeKanalaIPopisZaDohvat(t *testing.T) {
 	if !s.ImaVezu(ctx, stigla, drugi) || !s.Ima(ctx, stigla) {
 		t.Error("brisanje kanala dira drugi kanal")
 	}
-	s.Zatvori()
+	if err := s.Zatvori(); err != nil {
+		t.Fatal(err)
+	}
 	if _, _, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026"); err == nil {
 		t.Error("zatvoreno spremište briše kanal bez greške")
 	}
