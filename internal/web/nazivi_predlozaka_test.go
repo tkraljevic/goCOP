@@ -5,6 +5,8 @@ import (
 	"io/fs"
 	"testing"
 	"text/template/parse"
+	"unicode"
+	"unicode/utf8"
 
 	"gocop/internal/models"
 	webassets "gocop/web"
@@ -66,6 +68,85 @@ func TestUzBrojImaTriOblika(t *testing.T) {
 	}
 }
 
+// Na naziv iz postavki ne lijepi se nastavak: „po {{terml "sektor"}}u” daje
+// „po sektoru”, ali s nazivom „branjeno područje” ispadne „po branjeno
+// područjeu”. Test javlja svako slovo odmah iza naziva ili odmah ispred njega.
+func TestNazivBezNastavka(t *testing.T) {
+	naziva := 0
+	obidiStabla(t, func(stablo *parse.Tree) {
+		obidiListe(stablo.Root, func(l *parse.ListNode) {
+			for i, n := range l.Nodes {
+				if !jeNaziv(n) {
+					continue
+				}
+				naziva++
+				mjesto, _ := stablo.ErrorContext(n)
+				if i+1 < len(l.Nodes) && tekstPocinjeSlovom(l.Nodes[i+1]) {
+					t.Errorf("%s: nastavak na naziv", mjesto)
+				}
+				if i > 0 && tekstZavrsavaSlovom(l.Nodes[i-1]) {
+					t.Errorf("%s: slovo zalijepljeno ispred naziva", mjesto)
+				}
+			}
+		})
+	})
+	if naziva < 100 {
+		t.Errorf("nađeno samo %d naziva; obilazak predložaka vjerojatno ne radi", naziva)
+	}
+}
+
+// jeNaziv: ispisuje li čvor naziv iz postavki ({{term …}} ili {{terml …}})
+func jeNaziv(n parse.Node) bool {
+	a, ok := n.(*parse.ActionNode)
+	if !ok || a.Pipe == nil || len(a.Pipe.Decl) > 0 || len(a.Pipe.Cmds) == 0 {
+		return false
+	}
+	zadnja := a.Pipe.Cmds[len(a.Pipe.Cmds)-1]
+	ident, ok := zadnja.Args[0].(*parse.IdentifierNode)
+	return ok && (ident.Ident == "term" || ident.Ident == "terml")
+}
+
+func tekstPocinjeSlovom(n parse.Node) bool {
+	x, ok := n.(*parse.TextNode)
+	if !ok || len(x.Text) == 0 {
+		return false
+	}
+	r, _ := utf8.DecodeRune(x.Text)
+	return unicode.IsLetter(r)
+}
+
+func tekstZavrsavaSlovom(n parse.Node) bool {
+	x, ok := n.(*parse.TextNode)
+	if !ok || len(x.Text) == 0 {
+		return false
+	}
+	r, _ := utf8.DecodeLastRune(x.Text)
+	return unicode.IsLetter(r)
+}
+
+// obidiListe zove f za svaki niz čvorova u stablu, i u granama if, range i with
+func obidiListe(n parse.Node, f func(*parse.ListNode)) {
+	switch x := n.(type) {
+	case *parse.ListNode:
+		if x == nil {
+			return
+		}
+		f(x)
+		for _, c := range x.Nodes {
+			obidiListe(c, f)
+		}
+	case *parse.IfNode:
+		obidiListe(x.List, f)
+		obidiListe(x.ElseList, f)
+	case *parse.RangeNode:
+		obidiListe(x.List, f)
+		obidiListe(x.ElseList, f)
+	case *parse.WithNode:
+		obidiListe(x.List, f)
+		obidiListe(x.ElseList, f)
+	}
+}
+
 // nazivPostoji: za nepoznat ključ Get vraća sam ključ
 func nazivPostoji(kljuc string) bool { return models.DefaultTerms().Get(kljuc) != kljuc }
 
@@ -75,6 +156,18 @@ func ulogaPostoji(sifra string) bool { return models.Role(sifra).DefaultLabel() 
 // obidiPredloske čita sve predloške i za svaku naredbu u njima zove f s
 // mjestom u obliku „templates/x.html:redak:stupac”
 func obidiPredloske(t *testing.T, f func(mjesto string, c *parse.CommandNode)) {
+	t.Helper()
+	obidiStabla(t, func(stablo *parse.Tree) {
+		obidiNaredbe(stablo.Root, func(c *parse.CommandNode) {
+			mjesto, _ := stablo.ErrorContext(c)
+			f(mjesto, c)
+		})
+	})
+}
+
+// obidiStabla čita sve predloške i zove f za stablo svakog dijela, i onog
+// iz {{define}}
+func obidiStabla(t *testing.T, f func(stablo *parse.Tree)) {
 	t.Helper()
 	predlosci, err := fs.Glob(webassets.Files, "templates/*.html")
 	if err != nil || len(predlosci) == 0 {
@@ -90,14 +183,9 @@ func obidiPredloske(t *testing.T, f func(mjesto string, c *parse.CommandNode)) {
 			t.Fatalf("%s: %v", ime, err)
 		}
 		for _, dio := range tp.Templates() {
-			if dio.Tree == nil {
-				continue
+			if dio.Tree != nil {
+				f(dio.Tree)
 			}
-			stablo := dio.Tree
-			obidiNaredbe(stablo.Root, func(c *parse.CommandNode) {
-				mjesto, _ := stablo.ErrorContext(c)
-				f(mjesto, c)
-			})
 		}
 	}
 }

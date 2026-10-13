@@ -48,9 +48,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   pokretanja programa. Sad dolazi odmah, s dionicom.
 - **Riječ uz broj i nazivi ustroja pišu se pravilno.** Na stranicama, u
   porukama i izvozima pisalo je „21 očitanja”, „1 listova”, „2 ispravaka”
-  ili „3 zapisa leži”. Program je uz broj razlikovao samo jedan i sve
-  ostalo, a ponegdje ni to. Sad se riječ uz broj slaže po hrvatskom
-  pravilu: 1 list, 2 lista, 5 listova, 21 list. Na karticama dnevnika A.02 i A.03 pisalo je „Po
+  ili „2 pisma premješteno”. Program je uz broj razlikovao samo jedan i
+  sve ostalo, a ponegdje ni to. Sad se riječ uz broj, i glagol uz nju,
+  slaže po hrvatskom pravilu: 1 list, 2 lista, 5 listova, 21 list;
+  2 pisma su premještena. Na karticama dnevnika A.02 i A.03 pisalo je „Po
   sektoru i podrucju.”, a uz izbor uloge „uloga branjeno područjea”; te i
   slične rečenice s nazivima ustroja su prepravljene. Prvi prag letve na
   prognozi zove se „pripremno stanje”, kao i drugdje u programu.

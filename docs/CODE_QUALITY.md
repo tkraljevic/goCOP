@@ -357,12 +357,19 @@ onome tko ga sutra mijenja, a ne samo proći provjeru.
    rečenice i bez rečenice složene od izlaza dviju funkcija. Riječ uz broj
    bira samo `uzBroj` u predlošku, a u Go kodu `models.UzBrojHR` (ili
    postojeći `dan` i `sat` u `models`), uvijek sa sva tri oblika:
-   `{{uzBroj .N "list" "lista" "listova"}}`. Na `{{term}}` i `{{terml}}`
-   ne lijepi se nastavak („`{{terml "sektor"}}u`”), jer organizacija naziv
-   može promijeniti; rečenica se složi tako da naziv stoji u nominativu,
-   npr. iza dvotočke. Naziv razine ustroja (sektor, branjeno područje,
-   centar) uzima se iz `OrgTerms`, ne piše se rukom. Predloške čuvaju
-   `TestPredlosciTrazeNaziveKojiPostoje` i `TestUzBrojImaTriOblika`.
+   `{{uzBroj .N "list" "lista" "listova"}}`. Glagol i pridjev koji se
+   slažu s brojem idu u isti oblik („pismo je premješteno”, „pisma su
+   premještena”, „pisama je premješteno”), a iza prijedloga oblik je u
+   padežu koji prijedlog traži („u 21 navratu”). Na `{{term}}` i
+   `{{terml}}` ne lijepi se nastavak („`{{terml "sektor"}}u`”), jer
+   organizacija naziv može promijeniti; rečenica se složi tako da naziv
+   stoji u nominativu, npr. iza dvotočke ili u zagradi, a ne iza
+   prijedloga. Naziv razine ustroja (sektor, branjeno područje, centar)
+   uzima se iz `OrgTerms`, ne piše se rukom. Predloške čuvaju
+   `TestPredlosciTrazeNaziveKojiPostoje` (naziv postoji),
+   `TestNazivBezNastavka` (nema slova odmah uz naziv) i
+   `TestUzBrojImaTriOblika` (tri napisana oblika). Jesu li oblici i
+   padež dobri, testovi ne vide; to se provjerava čitanjem.
 
 Izvori: [golangci konfiguracija](https://golangci-lint.run/docs/configuration/file/),
 [gocyclo](https://github.com/fzipp/gocyclo),
