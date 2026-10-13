@@ -19,6 +19,21 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
   izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
   koja je nema.
+- **Fotografije uz dnevne listove stižu i na druga računala.** Fotografije
+  uz dnevni list vodočuvara, npr. uz obilaske prenesene iz stare
+  evidencije, ostajale su samo na računalu na kojem su upisane. Drugo
+  računalo dobilo je list, ali fotografiju nije ni tražilo, ni kad prati
+  sve. Sad je traži prema praćenju vodočuvarskog dnevnika za to područje:
+  uz „samo kazalo” ne, uz preglede ili sve da. Isto vrijedi za listove
+  primljene ranije: program ih pri prvom pokretanju nove inačice pregleda
+  i zatraži fotografije koje nedostaju. Fotografije sad pripadaju području
+  i godini svog lista, pa na drugim računalima za njih vrijede razina i rok
+  iz praćenja, kao za fotografije prijava.
+- **Dohvat dokumenata i fotografija više ne zastaje.** Računalo u jednoj
+  razmjeni traži najviše 200 dokumenata i fotografija koje mu nedostaju.
+  Kad je na vrhu popisa stajalo 200 onih koje po praćenju ne dohvaća (npr.
+  PDF-ovi uz „samo pregledi”), ostali iza njih nisu stizali nikad. Sad se
+  takvi preskaču, pa se traže oni koje računalo zaista dohvaća.
 - **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
   ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
   minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne

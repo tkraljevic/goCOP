@@ -2,6 +2,7 @@ package peers_test
 
 import (
 	"context"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -133,5 +134,64 @@ func TestSadrzajPutujePremaRaziniPretplate(t *testing.T) {
 	// A ne traži ništa natrag (ima sve), i razmjena u drugom smjeru prolazi
 	if _, _, err := a.svc.SyncWith(ctx, b.id); err != nil {
 		t.Fatalf("razmjena A→B: %v", err)
+	}
+}
+
+// B je izvornik prijave BP 16 već tražio bez uspjeha, a ispred njega na
+// popisu za dohvat stoji 250 izvornika BP 3, koje B po pretplati ne
+// dohvaća. Izvornik ipak stigne u prvoj razmjeni: neželjeno ne zauzima
+// mjesta od 200 po razmjeni, a ostaje na popisu.
+func TestNezeljeniSadrzajNeZadrzavaZeljeni(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	a := startNodeBezRegistra(t, ctx, "cop-osijek")
+	b := startNodeBezRegistra(t, ctx, "laptop-baranja")
+	founder(t, ctx, a, "Hrvatske vode")
+	pair(t, ctx, a, b)
+	spA, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "a.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spA.Zatvori()
+	spB, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "b.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer spB.Zatvori()
+	a.svc.SetSpremiste(spA)
+	b.svc.SetSpremiste(spB)
+	a.svc.SetWantsAll(true)
+	if _, err := b.svc.AddSubscription(ctx, peers.Subscription{Kind: "prijave", AreaID: 16}); err != nil {
+		t.Fatal(err)
+	}
+
+	pdf := []byte("%PDF-1.4\nizvornik prijave BP 16")
+	kanal := "prijave/16/2026"
+	otisak, err := spA.Upisi(ctx, "application/pdf", pdf, "ovdje", sadrzaj.Veza{Entitet: repository.EntityPrijave, EntitetID: "p16", Uloga: "izvornik", Kanal: kanal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 250; i++ {
+		o := sadrzaj.Otisak([]byte(fmt.Sprintf("izvornik prijave BP 3 br. %d", i)))
+		if err := spB.Zeli(ctx, o, "application/pdf", 1000, "pretplata", "prijave/3/2026"); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := spB.Zeli(ctx, otisak, "application/pdf", len(pdf), "pretplata", kanal); err != nil {
+		t.Fatal(err)
+	}
+	if err := spB.Trazeno(ctx, otisak); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := b.svc.SyncWith(ctx, a.id); err != nil {
+		t.Fatalf("razmjena: %v", err)
+	}
+	if got, _, err := spB.Citaj(ctx, otisak); err != nil || string(got) != string(pdf) {
+		t.Fatalf("izvornik nije stigao u prvoj razmjeni: %v", err)
+	}
+	if z, _ := spB.Zeljeni(ctx, 300); len(z) != 250 {
+		t.Errorf("na popisu za dohvat %d, očekivano 250 neželjenih", len(z))
 	}
 }

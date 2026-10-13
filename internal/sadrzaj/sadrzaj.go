@@ -258,6 +258,30 @@ func (s *Spremiste) Vezi(ctx context.Context, otisak string, v Veza) error {
 	return err
 }
 
+// ImaVezu javlja je li zapis u toj ulozi već vezan uz sadržaj
+func (s *Spremiste) ImaVezu(ctx context.Context, otisak string, v Veza) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_veze WHERE otisak = ? AND entitet = ? AND entitet_id = ? AND uloga = ?`,
+		otisak, v.Entitet, v.EntitetID, v.Uloga).Scan(&n)
+	return n > 0
+}
+
+// PostaviKanal upisuje kanal sadržaju koji ga još nema i javlja je li ga
+// upisao. Sadržaj spremljen prije nego što mu je zapis davao kanal tako
+// dobiva kanal po kojem pretplata odlučuje kome ide i koliko ostaje; kanal
+// koji sadržaj već ima ne mijenja se.
+func (s *Spremiste) PostaviKanal(ctx context.Context, otisak, kanal string) (bool, error) {
+	if kanal == "" {
+		return false, nil
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE sadrzaj SET kanal = ? WHERE otisak = ? AND kanal = ''`, kanal, otisak)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
 // OtisakPoUlozi vraća otisak sadržaja vezanog uz zapis u zadanoj ulozi;
 // prazno kad takve veze nema. Uloga fotografije nosi njezinu oznaku
 // ("slika:<id>"), pa se sadržaj nađe i bez znanja o otisku.
@@ -338,27 +362,50 @@ func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int,
 	return err
 }
 
+// Zeljen javlja je li sadržaj već na popisu za dohvat
+func (s *Spremiste) Zeljen(ctx context.Context, otisak string) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_zeljen WHERE otisak = ?`, otisak).Scan(&n)
+	return n > 0
+}
+
 // Zeljeni vraća što čvor još treba dohvatiti, najstarije traženo prvo
 func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
+	return s.ZeljeniKoje(ctx, najvise, func(Zelja) bool { return true })
+}
+
+// ZeljeniKoje vraća do najvise želja koje uzmi prihvati, istim redom kao
+// Zeljeni. Ostale se preskaču, pa želje koje čvor po pretplati ne dohvaća ne
+// zauzimaju mjesta onima koje dohvaća.
+func (s *Spremiste) ZeljeniKoje(ctx context.Context, najvise int, uzmi func(Zelja) bool) ([]Zelja, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT otisak, vrsta, bajtova, razlog, kanal, trazeno FROM sadrzaj_zeljen
-		ORDER BY trazeno IS NOT NULL, trazeno LIMIT ?`, najvise)
+		ORDER BY trazeno IS NOT NULL, trazeno`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Zelja
-	for rows.Next() {
-		var z Zelja
-		var t sql.NullTime
-		if err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t); err != nil {
+	for len(out) < najvise && rows.Next() {
+		z, err := citajZelju(rows)
+		if err != nil {
 			return nil, err
 		}
-		if t.Valid {
-			z.Trazeno = &t.Time
+		if uzmi(z) {
+			out = append(out, z)
 		}
-		out = append(out, z)
 	}
 	return out, rows.Err()
+}
+
+// citajZelju čita jedan redak popisa za dohvat
+func citajZelju(rows *sql.Rows) (Zelja, error) {
+	var z Zelja
+	var t sql.NullTime
+	err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t)
+	if t.Valid {
+		z.Trazeno = &t.Time
+	}
+	return z, err
 }
 
 // Trazeno bilježi pokušaj dohvata, da se redoslijed pokušaja vrti
