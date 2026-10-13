@@ -101,40 +101,73 @@ func (r ObilasciReport) Summary() string {
 // ugasi.
 func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciReport, error) {
 	rep := ObilasciReport{Nepoznati: map[string]int{}, DryRun: deps.DryRun}
-	logf := zapisnik(deps.Log)
-	imena, err := imenaKorisnika(ctx, src)
+	u := &uvozObilazaka{deps: deps, rep: &rep, logf: zapisnik(deps.Log)}
+	var err error
+	if u.imena, err = imenaKorisnika(ctx, src); err != nil {
+		return rep, err
+	}
+	u.vrijeme = vrijemeZaList(ctx, src, u.logf)
+	redovi, err := obilasciPoDanu(ctx, src)
 	if err != nil {
 		return rep, err
 	}
-	// vrijeme i vodostaji kakve je vodočuvar tog dana imao pred sobom
-	vrijeme := map[string]vrijemeDana{}
-	if raw, err := src.Items(ctx, "vrijeme_za_list"); err == nil {
-		for _, r := range raw {
-			var v struct {
-				Datum     string `json:"datum"`
-				Opisno    string `json:"vrijeme_opisno"`
-				Vodostaji string `json:"vodostaji_opisno"`
-			}
-			if json.Unmarshal(r, &v) != nil || v.Datum == "" {
-				continue
-			}
-			if _, ima := vrijeme[v.Datum]; !ima {
-				vrijeme[v.Datum] = vrijemeDana{Prilike: sredi(v.Opisno), Vodostaji: sredi(v.Vodostaji)}
-			}
+	rep.Ukupno = len(redovi)
+	for _, o := range redovi {
+		if err := u.uvezi(ctx, o); err != nil {
+			return rep, fmt.Errorf("obilazak %d: %w", o.ID, err)
 		}
-	} else {
-		logf("vrijeme za list: %v", err)
 	}
+	return rep, nil
+}
 
+// uvozObilazaka je stanje jednog uvoza obilazaka: što uvoz treba od
+// programa, izvješće i ono što je pročitao prije prvog obilaska
+type uvozObilazaka struct {
+	deps    ObilasciDeps
+	rep     *ObilasciReport
+	logf    func(string, ...any)
+	imena   map[string]string      // korisnici Directusa po oznaci
+	vrijeme map[string]vrijemeDana // vrijeme i vodostaji iz stare evidencije, po danu
+}
+
+// vrijemeZaList čita vrijeme i vodostaje kakve je vodočuvar tog dana imao
+// pred sobom, po danu; od dva zapisa istog dana vrijedi prvi. Kad se zbirka
+// ne da pročitati, to se zapiše, a nov list vrijeme uzima iz arhive.
+func vrijemeZaList(ctx context.Context, src Source, logf func(string, ...any)) map[string]vrijemeDana {
+	vrijeme := map[string]vrijemeDana{}
+	raw, err := src.Items(ctx, "vrijeme_za_list")
+	if err != nil {
+		logf("vrijeme za list: %v", err)
+		return vrijeme
+	}
+	for _, r := range raw {
+		var v struct {
+			Datum     string `json:"datum"`
+			Opisno    string `json:"vrijeme_opisno"`
+			Vodostaji string `json:"vodostaji_opisno"`
+		}
+		if json.Unmarshal(r, &v) != nil || v.Datum == "" {
+			continue
+		}
+		if _, ima := vrijeme[v.Datum]; !ima {
+			vrijeme[v.Datum] = vrijemeDana{Prilike: sredi(v.Opisno), Vodostaji: sredi(v.Vodostaji)}
+		}
+	}
+	return vrijeme
+}
+
+// obilasciPoDanu čita zbirku obilazaka poredanu po danu, a unutar dana po
+// broju obilaska, jer tim redom zadaci stoje na listu dana
+func obilasciPoDanu(ctx context.Context, src Source) ([]obilazakRow, error) {
 	raw, err := src.Items(ctx, "evidencije_obilaska")
 	if err != nil {
-		return rep, err
+		return nil, err
 	}
-	var redovi []obilazakRow
+	redovi := make([]obilazakRow, 0, len(raw))
 	for _, r := range raw {
 		var o obilazakRow
 		if err := json.Unmarshal(r, &o); err != nil {
-			return rep, fmt.Errorf("obilazak: %w", err)
+			return nil, fmt.Errorf("obilazak: %w", err)
 		}
 		redovi = append(redovi, o)
 	}
@@ -144,108 +177,166 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 		}
 		return redovi[i].ID < redovi[j].ID
 	})
-	rep.Ukupno = len(redovi)
+	return redovi, nil
+}
 
-	for _, o := range redovi {
-		izvor := fmt.Sprintf("bp16:evidencije_obilaska:%d", o.ID)
-		prenesen, err := deps.Vodocuvar.ZadatakPoIzvoru(ctx, izvor)
-		if err != nil {
-			return rep, fmt.Errorf("obilazak %d: čitanje prenesenog zadatka: %w", o.ID, err)
-		}
-		if prenesen != nil {
-			if err := dopuniObilazak(ctx, deps, o, izvor, prenesen, &rep, logf); err != nil {
-				return rep, fmt.Errorf("obilazak %d: %w", o.ID, err)
-			}
-			continue
-		}
-		if deps.SamoArhivirane && strings.ToLower(strings.TrimSpace(o.Status)) != "arhivirano" {
-			rep.Preskoceno++
-			continue
-		}
-		ime := imena[o.Dodijeljeno]
-		k, ok := deps.Korisnici[ime]
-		if !ok {
-			rep.BezKorisnika++
-			rep.Nepoznati[ime]++
-			continue
-		}
-		dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(o.Datum), models.Zagreb)
-		if err != nil {
-			rep.Nepoznati["datum "+o.Datum]++
-			continue
-		}
-		zadao := imena[o.UserCreated]
-		zadano := dan
-		if t, err := time.Parse(time.RFC3339, o.DateCreated); err == nil {
-			zadano = t.In(models.Zagreb)
-		}
-		area := k.AreaID
-		if a, ok := deps.Podrucja[ime]; ok && a > 0 {
-			area = a
-		}
-		sektor := k.Sektor
-		if sektor == "" {
-			sektor = deps.Sektor
-		}
-
-		z := &models.Zadatak{
-			ID:     uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor)).String(),
-			UserID: k.ID, Sektor: sektor, AreaID: area,
-			Tekst: sredi(o.Opis), ZadaoID: "", Zadao: zadao, ZadanoAt: zadano, Za: dan,
-			Izvor: izvor, Cvor: deps.Cvor,
-			Od: sat(o.VrijemeOd), Do: sat(o.VrijemeDo), Udaljenost: broj(o.Udaljenost),
-		}
-		if odgovor := sredi(o.Napomena); odgovor != "" {
-			z.Status, z.Obavljeno = models.ZadatakObavljen, odgovor
-			kad := dan
-			z.ObavljenoAt = &kad
-			rep.SOdgovorom++
-		} else {
-			z.Status, z.Obavljeno = models.ZadatakBezOdgovora, ObjasnjenjeBezOdgovora
-			rep.BezOdgovora++
-		}
-		if g := geometrija(o.Lokacija); g != "" {
-			z.Obuhvat = g
-			rep.SObuhvatom++
-		}
-
-		// fotografije obilaska: smanjene, u spremište sadržaja, kao prilozi lista
-		prilozi, bajtovi := fotografijeObilaska(ctx, deps, o, izvor, z.ID, nil, logf)
-		rep.Slika += len(prilozi)
-
-		if deps.DryRun {
-			rep.Upisano++
-			continue
-		}
-
-		// list dana: postojeći ili nov, označen kao rekonstrukcija
-		l, err := deps.Vodocuvar.ZaDan(ctx, k.ID, dan)
-		if err != nil {
-			return rep, fmt.Errorf("obilazak %d: list dana: %w", o.ID, err)
-		}
-		if l == nil {
-			l = &models.VodocuvarskiList{
-				UserID: k.ID, Ime: k.Ime, Sektor: sektor, AreaID: area, Datum: dan,
-				Rekonstrukcija: true, Izvor: "bp16:evidencije_obilaska",
-				Cvor: deps.Cvor,
-			}
-			if v, ima := vrijeme[o.Datum]; ima && v.Prilike != "" {
-				l.Prilike, l.Ocitanja = v.Prilike, v.Vodostaji
-				rep.VrijemeIzEvidencije++
-			} else if deps.Meteo != nil {
-				if p := deps.Meteo(ctx, dan); p != "" {
-					l.Prilike = p
-					rep.VrijemeIzArhive++
-				}
-			}
-			rep.Listova++
-		}
-		if err := upisiObilazak(ctx, deps.Vodocuvar, l, z, prilozi, bajtovi); err != nil {
-			return rep, fmt.Errorf("obilazak %d: %w", o.ID, err)
-		}
-		rep.Upisano++
+// uvezi prenosi jedan obilazak. Prenesenom dopuni fotografije koje mu
+// nedostaju, a preskače obilazak koji je još u planu i onaj kojem se ne zna
+// vodočuvar ili dan.
+func (u *uvozObilazaka) uvezi(ctx context.Context, o obilazakRow) error {
+	izvor := fmt.Sprintf("bp16:evidencije_obilaska:%d", o.ID)
+	prenesen, err := u.deps.Vodocuvar.ZadatakPoIzvoru(ctx, izvor)
+	if err != nil {
+		return fmt.Errorf("čitanje prenesenog zadatka: %w", err)
 	}
-	return rep, nil
+	if prenesen != nil {
+		return u.dopuni(ctx, o, izvor, prenesen)
+	}
+	k, dan, ok := u.osobaIDan(o)
+	if !ok {
+		return nil
+	}
+	return u.prenesi(ctx, o, k, u.zadatak(o, izvor, k, dan))
+}
+
+// osobaIDan nalazi vodočuvara i dan obilaska. Obilazak koji je još u planu
+// (kad se uvoze samo arhivirani), obilazak nepoznatog vodočuvara i obilazak
+// nečitljivog dana izvješće broji, a uvoz ih preskače.
+func (u *uvozObilazaka) osobaIDan(o obilazakRow) (KorisnikUvoza, time.Time, bool) {
+	if u.deps.SamoArhivirane && strings.ToLower(strings.TrimSpace(o.Status)) != "arhivirano" {
+		u.rep.Preskoceno++
+		return KorisnikUvoza{}, time.Time{}, false
+	}
+	ime := u.imena[o.Dodijeljeno]
+	k, ok := u.deps.Korisnici[ime]
+	if !ok {
+		u.rep.BezKorisnika++
+		u.rep.Nepoznati[ime]++
+		return k, time.Time{}, false
+	}
+	dan, err := time.ParseInLocation("2006-01-02", strings.TrimSpace(o.Datum), models.Zagreb)
+	if err != nil {
+		u.rep.Nepoznati["datum "+o.Datum]++
+		return k, time.Time{}, false
+	}
+	return k, dan, true
+}
+
+// zadatak slaže zadatak iz obilaska; oznaka je izvedena iz izvora, pa je
+// ista pri svakom uvozu
+func (u *uvozObilazaka) zadatak(o obilazakRow, izvor string, k KorisnikUvoza, dan time.Time) *models.Zadatak {
+	area, sektor := u.podrucjeISektor(o, k)
+	z := &models.Zadatak{
+		ID:     uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor)).String(),
+		UserID: k.ID, Sektor: sektor, AreaID: area,
+		Tekst: sredi(o.Opis), ZadaoID: "", Zadao: u.imena[o.UserCreated], ZadanoAt: zadanoAt(o, dan), Za: dan,
+		Izvor: izvor, Cvor: u.deps.Cvor,
+		Od: sat(o.VrijemeOd), Do: sat(o.VrijemeDo), Udaljenost: broj(o.Udaljenost),
+	}
+	u.odgovor(z, o, dan)
+	if g := geometrija(o.Lokacija); g != "" {
+		z.Obuhvat = g
+		u.rep.SObuhvatom++
+	}
+	return z
+}
+
+// podrucjeISektor su branjeno područje i sektor zadatka. Područje je iz
+// popisa područja po vodočuvaru, a kad ga ondje nema ili je nula, iz
+// zaduženja. Sektor je iz zaduženja, a bez njega sektor uvoza.
+func (u *uvozObilazaka) podrucjeISektor(o obilazakRow, k KorisnikUvoza) (int, string) {
+	area := k.AreaID
+	if a, ok := u.deps.Podrucja[u.imena[o.Dodijeljeno]]; ok && a > 0 {
+		area = a
+	}
+	sektor := k.Sektor
+	if sektor == "" {
+		sektor = u.deps.Sektor
+	}
+	return area, sektor
+}
+
+// zadanoAt je kad je obilazak zadan; kad se vrijeme upisa ne da pročitati,
+// zadan je na dan obilaska
+func zadanoAt(o obilazakRow, dan time.Time) time.Time {
+	if t, err := time.Parse(time.RFC3339, o.DateCreated); err == nil {
+		return t.In(models.Zagreb)
+	}
+	return dan
+}
+
+// odgovor upisuje u zadatak ono što je vodočuvar zatekao. Bez upisa zadatak
+// ne stoji kao neobavljen, nego kao zadatak bez odgovora, s objašnjenjem
+// zašto ga nema.
+func (u *uvozObilazaka) odgovor(z *models.Zadatak, o obilazakRow, dan time.Time) {
+	odgovor := sredi(o.Napomena)
+	if odgovor == "" {
+		z.Status, z.Obavljeno = models.ZadatakBezOdgovora, ObjasnjenjeBezOdgovora
+		u.rep.BezOdgovora++
+		return
+	}
+	z.Status, z.Obavljeno = models.ZadatakObavljen, odgovor
+	kad := dan
+	z.ObavljenoAt = &kad
+	u.rep.SOdgovorom++
+}
+
+// prenesi upisuje nov obilazak: fotografije, list dana i zadatak. Suhi
+// prolaz samo broji.
+func (u *uvozObilazaka) prenesi(ctx context.Context, o obilazakRow, k KorisnikUvoza, z *models.Zadatak) error {
+	// fotografije obilaska: smanjene, u spremište sadržaja, kao prilozi lista
+	prilozi, bajtovi := fotografijeObilaska(ctx, u.deps, o, z.Izvor, z.ID, nil, u.logf)
+	u.rep.Slika += len(prilozi)
+	if u.deps.DryRun {
+		u.rep.Upisano++
+		return nil
+	}
+	l, err := u.listDana(ctx, o, k, z)
+	if err != nil {
+		return err
+	}
+	if err := upisiObilazak(ctx, u.deps.Vodocuvar, l, z, prilozi, bajtovi); err != nil {
+		return err
+	}
+	u.rep.Upisano++
+	return nil
+}
+
+// listDana je list vodočuvara za dan obilaska: postojeći, a bez njega nov,
+// označen kao rekonstrukcija
+func (u *uvozObilazaka) listDana(ctx context.Context, o obilazakRow, k KorisnikUvoza, z *models.Zadatak) (*models.VodocuvarskiList, error) {
+	l, err := u.deps.Vodocuvar.ZaDan(ctx, k.ID, z.Za)
+	if err != nil {
+		return nil, fmt.Errorf("list dana: %w", err)
+	}
+	if l != nil {
+		return l, nil
+	}
+	l = &models.VodocuvarskiList{
+		UserID: k.ID, Ime: k.Ime, Sektor: z.Sektor, AreaID: z.AreaID, Datum: z.Za,
+		Rekonstrukcija: true, Izvor: "bp16:evidencije_obilaska",
+		Cvor: u.deps.Cvor,
+	}
+	u.vrijemeNaList(ctx, l, o.Datum)
+	u.rep.Listova++
+	return l, nil
+}
+
+// vrijemeNaList upisuje na nov list vrijeme i vodostaje dana iz stare
+// evidencije, a kad vremena ondje nema, vrijeme iz arhive
+func (u *uvozObilazaka) vrijemeNaList(ctx context.Context, l *models.VodocuvarskiList, datum string) {
+	if v, ima := u.vrijeme[datum]; ima && v.Prilike != "" {
+		l.Prilike, l.Ocitanja = v.Prilike, v.Vodostaji
+		u.rep.VrijemeIzEvidencije++
+		return
+	}
+	if u.deps.Meteo == nil {
+		return
+	}
+	if p := u.deps.Meteo(ctx, l.Datum); p != "" {
+		l.Prilike = p
+		u.rep.VrijemeIzArhive++
+	}
 }
 
 // upisiObilazak stavlja zadatak i fotografije obilaska na list dana i
@@ -283,26 +374,26 @@ func staviFotografije(l *models.VodocuvarskiList, prilozi []models.PrilogLista) 
 	}
 }
 
-// dopuniObilazak dodaje na list prenesenog obilaska fotografije koje
+// dopuni dodaje na list prenesenog obilaska fotografije koje
 // Directus ranije nije dao. Zapis u zapisniku nije dovoljan, jer bi ponovni
 // uvoz preneseni obilazak inače preskočio i fotografija ne bi stigla nikad
 // (Odluke (13. 10. 2026.)). Zadatak ostaje kakav jest.
-func dopuniObilazak(ctx context.Context, deps ObilasciDeps, o obilazakRow, izvor string, z *models.Zadatak, rep *ObilasciReport, logf func(string, ...any)) error {
-	rep.Postoje++
-	l, err := listObilaska(ctx, deps, o, z)
+func (u *uvozObilazaka) dopuni(ctx context.Context, o obilazakRow, izvor string, z *models.Zadatak) error {
+	u.rep.Postoje++
+	l, err := u.listObilaska(ctx, o, z)
 	if err != nil || l == nil {
 		return err
 	}
-	prilozi, bajtovi := fotografijeObilaska(ctx, deps, o, izvor, z.ID, priloziZadatka(l, z.ID), logf)
+	prilozi, bajtovi := fotografijeObilaska(ctx, u.deps, o, izvor, z.ID, priloziZadatka(l, z.ID), u.logf)
 	if len(prilozi) == 0 {
 		return nil
 	}
-	if err := dodajFotografije(ctx, deps.Vodocuvar, l, prilozi, bajtovi); err != nil {
+	if err := dodajFotografije(ctx, u.deps.Vodocuvar, l, prilozi, bajtovi); err != nil {
 		return err
 	}
-	rep.Slika += len(prilozi)
-	rep.Dopunjeno++
-	logf(models.UzBrojHR(len(prilozi),
+	u.rep.Slika += len(prilozi)
+	u.rep.Dopunjeno++
+	u.logf(models.UzBrojHR(len(prilozi),
 		"  obilazak %d: dodana je %d fotografija koja ranije nije stigla",
 		"  obilazak %d: dodane su %d fotografije koje ranije nisu stigle",
 		"  obilazak %d: dodano je %d fotografija koje ranije nisu stigle"), o.ID, len(prilozi))
@@ -312,11 +403,11 @@ func dopuniObilazak(ctx context.Context, deps ObilasciDeps, o obilazakRow, izvor
 // listObilaska je list dana na koji je obilazak prenesen. Čita se samo kad
 // obilazak ima fotografija i kad ih ima odakle preuzeti; suhi prolaz ga ne
 // čita, jer ništa ne dopunjuje.
-func listObilaska(ctx context.Context, deps ObilasciDeps, o obilazakRow, z *models.Zadatak) (*models.VodocuvarskiList, error) {
-	if deps.DryRun || deps.Datoteka == nil || o.Foto1+o.Foto2+o.Foto3 == "" {
+func (u *uvozObilazaka) listObilaska(ctx context.Context, o obilazakRow, z *models.Zadatak) (*models.VodocuvarskiList, error) {
+	if u.deps.DryRun || u.deps.Datoteka == nil || o.Foto1+o.Foto2+o.Foto3 == "" {
 		return nil, nil
 	}
-	l, err := deps.Vodocuvar.ZaDan(ctx, z.UserID, z.Za)
+	l, err := u.deps.Vodocuvar.ZaDan(ctx, z.UserID, z.Za)
 	if err != nil {
 		return nil, fmt.Errorf("list dana: %w", err)
 	}
