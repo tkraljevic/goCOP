@@ -22,11 +22,10 @@ func TestPragoviIzNizaSMaloTrodnevnih(t *testing.T) {
 	}
 }
 
-// GREŠKA: niz od barem 3650 dana bez ijedna tri uzastopna dana obori
-// PragoviIzNiza — prag triju dana posegne za zadnjim elementom praznog
-// popisa.
+// Niz od barem 3650 dana bez ijedna tri uzastopna dana ne daje pragove,
+// kao ni prekratak niz. Prije je PragoviIzNiza tada pala, jer je prag
+// triju dana posegnuo za zadnjim elementom praznog popisa.
 func TestPragoviIzNizaBezTrodnevnih(t *testing.T) {
-	t.Skip("GREŠKA: PragoviIzNiza (kisa_slivova.go:72) pada s index out of range [-1] kad u nizu nema tri uzastopna dana; treba vratiti false ili ostaviti prag triju dana praznim")
 	n := DnevniNiz{}
 	for d := int64(0); d < 2*3650; d += 2 {
 		n[d] = 1
@@ -36,7 +35,9 @@ func TestPragoviIzNizaBezTrodnevnih(t *testing.T) {
 			t.Errorf("PragoviIzNiza je pala: %v", r)
 		}
 	}()
-	PragoviIzNiza(n)
+	if p, ok := PragoviIzNiza(n); ok || p != (PragoviKise{}) {
+		t.Errorf("pragovi %+v, %v; želim prazne pragove i false", p, ok)
+	}
 }
 
 // Razina kiše međusliva: prvo se gleda 24 sata, pa 72 sata palo, pa palo s

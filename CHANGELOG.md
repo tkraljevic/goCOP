@@ -78,6 +78,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   malo: u provjeri za 2023.–2025. pogreške su gotovo iste, a na većini
   letvi prognoza je u prosjeku malo manje preniska. Na poplavnim valovima od
   2013. najavljeni vrh se gotovo ne mijenja, najviše 7 cm na Novom Virju.
+- **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
+  međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
+  izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
+  Sad takav međusliv ostaje bez pragova, kao i onaj s prekratkim nizom.
+  Grešku je našao test; s nizovima iz arhive nije primijećena.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

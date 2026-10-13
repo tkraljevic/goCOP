@@ -60,15 +60,18 @@ func PragoviIzNiza(n DnevniNiz) (PragoviKise, bool) {
 			tri = append(tri, n[d]+a+b)
 		}
 	}
+	// Bez ijednog zbroja triju dana prag se ne da odrediti, a prazan prag
+	// (0 mm) bi dizao uzbunu na svakoj kiši: međusliv tada ostaje bez
+	// pragova, kao i s prekratkim nizom.
+	if len(tri) == 0 {
+		return PragoviKise{}, false
+	}
 	godina := float64(len(jedan)) / 365.25
 	p := PragoviKise{Godina: int(math.Round(godina))}
 	prag := func(v []float64, puta float64) float64 {
 		s := append([]float64(nil), v...)
 		sort.Float64s(s)
-		k := int(math.Round(puta * float64(len(s)) / 365.25))
-		if k < 1 {
-			k = 1
-		}
+		k := max(int(math.Round(puta*float64(len(s))/365.25)), 1)
 		return s[len(s)-k]
 	}
 	for i, r := range RazineKise {
