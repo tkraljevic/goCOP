@@ -173,11 +173,13 @@ func KnjigaInventure(p *models.Popis, sk *models.Skladiste, prosla *models.Popis
 	return k
 }
 
+// naznaka je napomena inventure kao rečenica na dnu izvoza. Napomena koja
+// završava točkom (i rečenica o otključavanju) ne dobiva drugu.
 func naznaka(s string) string {
 	if strings.TrimSpace(s) == "" {
 		return ""
 	}
-	return " Napomena: " + s + "."
+	return " Napomena: " + models.ZavrsenaRecenica(s)
 }
 
 // IzvoziPotvrdu piše potvrdu jednog zahvata: otpremnicu za izdavanje i

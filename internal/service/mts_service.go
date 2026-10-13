@@ -7,7 +7,6 @@ import (
 	"sort"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -807,18 +806,13 @@ func biljeskaOtkljucavanja(ime string, kad time.Time, uskladjenja int) string {
 		models.UzBrojHR(uskladjenja, "usklađenje je obrisano", "usklađenja su obrisana", "usklađenja je obrisano"))
 }
 
-// dopisiRecenicu dodaje rečenicu na kraj napomene. Napomeni koja ne
-// završava točkom, upitnikom ili uskličnikom dodaje točku, da se dvije
-// rečenice ne slijepe u jednu.
+// dopisiRecenicu dodaje rečenicu na kraj napomene, iza točke, da se dvije
+// rečenice ne slijepe u jednu
 func dopisiRecenicu(napomena, recenica string) string {
-	napomena = strings.TrimSpace(napomena)
-	if napomena == "" {
+	if strings.TrimSpace(napomena) == "" {
 		return recenica
 	}
-	if zadnji, _ := utf8.DecodeLastRuneInString(napomena); !strings.ContainsRune(".!?", zadnji) {
-		napomena += "."
-	}
-	return napomena + " " + recenica
+	return models.ZavrsenaRecenica(napomena) + " " + recenica
 }
 
 func (s *MtsService) Popis(ctx context.Context, id string) (*models.Popis, error) {
