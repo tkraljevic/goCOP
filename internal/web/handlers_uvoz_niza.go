@@ -95,6 +95,9 @@ type UvozHandler struct {
 	// HVRS71. Kad se ne poklopi ni s jednom, program stane i pita.
 	koteLetve func(letva string) (stara, nova float64, ok bool)
 
+	// makniSnimku briše snimku korita koja je ostala bez datoteke u stablu.
+	makniSnimku func(letva, datum string) (int, error)
+
 	// Račun za HydroView i naziv letve, za preuzimanje povijesti s telemetrije.
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
@@ -113,6 +116,12 @@ func NewUvozHandler(arhivaPut, podaciDir func() string,
 // SetMakniNiz daje vratima način da maknu niz koji je ostao bez datoteke.
 func (h *UvozHandler) SetMakniNiz(f func(letva, izvor, velicina, vrsta string) (int, error)) {
 	h.makniNiz = f
+}
+
+// SetMakniSnimku daje vratima način da maknu snimku korita koja je ostala bez
+// datoteke.
+func (h *UvozHandler) SetMakniSnimku(f func(letva, datum string) (int, error)) {
+	h.makniSnimku = f
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne

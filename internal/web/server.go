@@ -1376,6 +1376,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
 	uvozH.SetMakniNiz(s.MakniNiz)
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
+	uvozH.SetMakniSnimku(s.MakniSnimku)
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-snimku", s.samoAdmin(http.HandlerFunc(uvozH.MakniSnimkuBezDatoteke)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	// Posebni izvori (ARSO, eHYD, GKD, PEGELONLINE, SEBA, HIS-2000, godišnjaci
@@ -1941,6 +1943,15 @@ func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj,
 // MakniNiz briše niz koji je ostao u arhivi iako mu datoteke u stablu više
 // nema, pa zatim otvara arhivu iznova da program odmah vidi novo stanje.
 func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
+	})
+}
+
+// urediArhivu otvara arhivu za izmjenu koju zatraži čovjek, npr. micanje niza
+// ili snimke bez datoteke, a poslije je otvara iznova da program odmah vidi
+// novo stanje.
+func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error) {
 	if s.arhivaPut == "" {
 		return 0, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
@@ -1949,7 +1960,7 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		return 0, err
 	}
 	defer db.Close()
-	n, err := arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
+	n, err := izmjena(db)
 	if err != nil {
 		return 0, err
 	}
@@ -1957,6 +1968,15 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		s.zamijeniArhivu(novo)
 	}
 	return n, nil
+}
+
+// MakniSnimku briše snimku korita koja je ostala u arhivi iako joj datoteke u
+// stablu više nema, pa zatim otvara arhivu iznova da program odmah vidi novo
+// stanje.
+func (s *Server) MakniSnimku(letva, datum string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniSnimku(db, s.arhivaPut, letva, datum)
+	})
 }
 
 // IzdajArhivu sastavlja .cop pakete i osvježava katalog. Probno izdavanje sve

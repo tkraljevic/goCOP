@@ -1,7 +1,9 @@
 package arhiva
 
 import (
+	"database/sql"
 	"errors"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -203,29 +205,85 @@ func TestProfiliKojiSeNeDajuUpisati(t *testing.T) {
 	}
 }
 
-// PITANJE za odluku: snimka korita čija je datoteka maknuta iz stabla ostaje
-// u arhivi i nakon ponovne gradnje. Ispravak datuma u imenu datoteke tako
-// ostavlja dvije snimke istog korita. Gradnja ipak namjerno ne briše ono čemu
-// u stablu nema datoteke (vidi nadiSirotane i MakniNiz), a snimke stižu i
-// paketom. Popravak ne smije brisati snimke primljene paketom.
-func TestMaknutaSnimkaNestajePriPonovnojGradnji(t *testing.T) {
-	t.Skip("PITANJE: internal/arhiva/gradnja.go:929 — briše li gradnja snimku kojoj u stablu nema datoteke; snimke stižu i paketom")
-	db := praznaArhiva(t)
+// Zaključava pravilo iz Odluka (13. 10. 2026.): snimka korita kojoj je
+// datoteka maknuta iz stabla ne briše se sama, nego ostaje u arhivi i pojavi
+// se na popisu bez datoteke, kao i niz. Miče je čovjek (MakniSnimku), a
+// ponovna gradnja je poslije ne vraća. Snimka letve koja u stablu nema mapu,
+// npr. primljena paketom, na popis ne ide.
+func TestMaknutaSnimkaOstajeNaPopisuBezDatoteke(t *testing.T) {
 	koren := t.TempDir()
+	baza := filepath.Join(t.TempDir(), "arhiva.db")
+	zapisiDatoteku(t, filepath.Join(koren, "dunav", "vodograd", "vodograd_his2000_vodostaj_dnevni_2024.csv"),
+		"datum;vodostaj_cm\n2024-03-01;120\n")
 	staro := putProfila(koren, "dunav", "vodograd", "2010-03-22")
-	zapisiDatoteku(t, staro, "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule 80.45\n0;90\n")
-	if err := profili(db, koren, "", nil); err != nil {
+	zapisiDatoteku(t, staro, "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule 80.45\n0;90\n6;87\n")
+	gradi := func(zapisi io.Writer) Izvjestaj {
+		t.Helper()
+		var iz Izvjestaj
+		uhvatiIspis(t, &os.Stdout, func() {
+			var err error
+			if iz, err = Izgradi(koren, baza, "", zapisi); err != nil {
+				t.Fatal(err)
+			}
+		})
+		return iz
+	}
+	if iz := gradi(nil); len(iz.Sirotani) != 0 {
+		t.Fatalf("snimka s datotekom javljena je kao sirotan: %+v", iz.Sirotani)
+	}
+	db, err := sql.Open("sqlite", baza)
+	if err != nil {
 		t.Fatal(err)
 	}
+	defer db.Close()
+	// Snimka letve primljene paketom: u arhivi je, a mape u stablu nema.
+	if _, err := db.Exec(`INSERT INTO profili (letva, datum) VALUES ('rijecica', '2015-05-05')`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Ispravak datuma u imenu i zaglavlju: stara datoteka nestane, nova dođe.
 	if err := os.Remove(staro); err != nil {
 		t.Fatal(err)
 	}
 	zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-23"),
 		"# poprečni profil korita, mjereno 2010-03-23, vodostaj pri mjerenju 174 cm, kota nule 80.45\n0;90\n")
-	if err := profili(db, koren, "", nil); err != nil {
-		t.Fatal(err)
+	var ispis strings.Builder
+	iz := gradi(&ispis)
+	zeli := Sirotan{Letva: "vodograd", Snimka: true, Datum: "2010-03-22", Zapisa: 2}
+	if len(iz.Sirotani) != 1 || iz.Sirotani[0] != zeli {
+		t.Errorf("gradnja javlja %+v, očekivano %+v", iz.Sirotani, zeli)
+	}
+	if !strings.Contains(ispis.String(), "vodograd         snimka korita 2010-03-22, 2 točke  SIROTAN — datoteke nema u stablu") {
+		t.Errorf("ispis gradnje:\n%s", ispis.String())
+	}
+	if n := broj(t, db, `SELECT count(*) FROM profili WHERE letva='vodograd'`); n != 2 {
+		t.Errorf("u arhivi je %d snimki, a gradnja ne smije sama maknuti nijednu", n)
+	}
+	if o, err := Sirotani(db, koren); err != nil || len(o) != 1 || o[0] != zeli {
+		t.Errorf("popis bez gradnje: %+v, %v", o, err)
+	}
+
+	tocaka, err := MakniSnimku(db, baza, "vodograd", "2010-03-22")
+	if err != nil || tocaka != 2 {
+		t.Fatalf("micanje snimke: %d točaka, %v", tocaka, err)
 	}
 	if n := broj(t, db, `SELECT count(*) FROM profili WHERE letva='vodograd'`); n != 1 {
-		t.Errorf("u arhivi je %d snimki, a stablo ima jednu", n)
+		t.Errorf("nakon micanja u arhivi je %d snimki, a stablo ima jednu", n)
+	}
+	if n := broj(t, db, `SELECT count(*) FROM profil_tocke WHERE profil NOT IN (SELECT id FROM profili)`); n != 0 {
+		t.Errorf("iza maknute snimke ostalo je %d točaka", n)
+	}
+	if o, err := Sirotani(db, koren); err != nil || len(o) != 0 {
+		t.Errorf("nakon micanja popis bez datoteke: %+v, %v", o, err)
+	}
+	if iz := gradi(nil); len(iz.Sirotani) != 0 {
+		t.Errorf("ponovna gradnja vratila je maknutu snimku: %+v", iz.Sirotani)
+	}
+	if n := broj(t, db, `SELECT count(*) FROM profili WHERE letva='rijecica'`); n != 1 {
+		t.Errorf("snimka letve bez mape u stablu je dirana")
+	}
+	if _, err := MakniSnimku(db, baza, "vodograd", "2010-03-22"); err == nil ||
+		err.Error() != "snimka korita vodograd od 2010-03-22 nije u arhivi" {
+		t.Errorf("micanje snimke koje nema: %v", err)
 	}
 }

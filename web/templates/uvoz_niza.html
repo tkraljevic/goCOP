@@ -43,9 +43,22 @@
   <p class="mt-0 mb-2">
     <strong>Nizovi bez datoteke u stablu.</strong> Ovi stoje u arhivi, ali datoteke iz koje su nastali više nema.
     Gradnja ih ne briše sama — izvor sa svojom mapom na vanjskom disku izgleda isto tako kad disk nije priključen,
-    pa bi tiho brisanje odnijelo godine podataka.
+    pa bi tiho brisanje odnijelo godine podataka. Na popisu su i snimke korita kojima je datoteka maknuta.
   </p>
   {{range .Sirotani}}
+  {{if .Snimka}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span>snimka korita {{.Datum}}</span>
+    <span>{{brojHR .Zapisa}} {{uzBroj .Zapisa "točka" "točke" "točaka"}}</span>
+    <form method="POST" action="/administracija/uvoz-niza/makni-snimku" class="ml-auto"
+          onsubmit="return confirm('Maknuti snimku korita {{.Datum}} za {{.Letva}} iz arhive? U stablu je nema, pa se ne može vratiti gradnjom.');">
+      <input type="hidden" name="letva" value="{{.Letva}}">
+      <input type="hidden" name="datum" value="{{.Datum}}">
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
+    </form>
+  </div>
+  {{else}}
   <div class="izdanje-red">
     <span class="izdanje-letva mono">{{.Letva}}</span>
     <span class="mono">{{.Izvor}} · {{.Velicina}} · {{.Vrsta}}</span>
@@ -59,6 +72,7 @@
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
     </form>
   </div>
+  {{end}}
   {{end}}
 </div>
 {{end}}

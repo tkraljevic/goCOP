@@ -15,6 +15,7 @@
 package arhiva
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/csv"
@@ -248,6 +249,10 @@ type Izvjestaj struct {
 // stablu. Gradnja ga ne briše sama: izvor sa svojom mapom na vanjskom disku
 // izgleda isto tako kad disk nije priključen, a tiho brisanje bi tad odnijelo
 // godine podataka. Zato se samo javlja, a miče ga čovjek.
+//
+// Isto vrijedi za snimku korita kojoj je nestala datoteka (Odluke
+// (13. 10. 2026.)): tada je Snimka true, Datum je dan snimke, a Zapisa broj
+// njezinih točaka.
 type Sirotan struct {
 	Letva    string
 	Izvor    string
@@ -255,6 +260,8 @@ type Sirotan struct {
 	Vrsta    string
 	Zapisa   int
 	USpoju   int
+	Snimka   bool
+	Datum    string
 }
 
 // Izgradi čita datoteke iz koren/ i upisuje ih u arhivsku bazu. Prazna letva
@@ -380,19 +387,134 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 
-	iz.Sirotani, err = nadiSirotane(db, nizovi, samo, nedostupni)
+	iz.Sirotani, err = bezDatoteke(db, koren, nizovi, samo, nedostupni)
 	if err != nil {
 		return iz, err
 	}
-	for _, o := range iz.Sirotani {
-		fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s %8d  SIROTAN — datoteke nema u stablu",
-			"", o.Letva, o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
-		if o.USpoju > 0 {
-			fmt.Fprintf(zapisi, ", a %d vrijednosti je u spojenom nizu", o.USpoju)
-		}
-		fmt.Fprintln(zapisi)
-	}
+	javiBezDatoteke(zapisi, iz.Sirotani)
 	return iz, nil
+}
+
+// javiBezDatoteke piše u ispis gradnje nizove i snimke korita koji su ostali u
+// arhivi bez datoteke u stablu.
+func javiBezDatoteke(zapisi io.Writer, sirotani []Sirotan) {
+	for _, o := range sirotani {
+		fmt.Fprintf(zapisi, "%-8s %-16s %s\n", "", o.Letva, o.redakIspisa())
+	}
+}
+
+// redakIspisa je redak ispisa gradnje za niz ili snimku bez datoteke, bez
+// letve na početku.
+func (o Sirotan) redakIspisa() string {
+	if o.Snimka {
+		return fmt.Sprintf("snimka korita %s, %d %s  SIROTAN — datoteke nema u stablu",
+			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "točka", "točke", "točaka"))
+	}
+	s := fmt.Sprintf("%-22s %-12s %-10s %8d  SIROTAN — datoteke nema u stablu", o.Izvor, o.Velicina, o.Vrsta, o.Zapisa)
+	if o.USpoju > 0 {
+		s += fmt.Sprintf(", a %d vrijednosti je u spojenom nizu", o.USpoju)
+	}
+	return s
+}
+
+// bezDatoteke vraća nizove i snimke korita koji stoje u arhivi bez datoteke u
+// stablu. Snimke idu na isti popis, jer i njih miče čovjek, a ne gradnja.
+func bezDatoteke(db *sql.DB, koren string, nizovi map[string]*niz, samo string,
+	nedostupni map[string]bool) ([]Sirotan, error) {
+	out, err := nadiSirotane(db, nizovi, samo, nedostupni)
+	if err != nil {
+		return nil, err
+	}
+	snimke, err := snimkeBezDatoteke(db, koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	return append(out, snimke...), nil
+}
+
+// snimkeBezDatoteke traži snimke korita kojima u stablu nema datoteke. Sudi
+// samo o letvama koje u stablu imaju mapu: snimke letve primljene paketom,
+// bez mape u ovom stablu, ne javljaju se.
+func snimkeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
+	letve, err := Letve(koren)
+	if err != nil {
+		return nil, err
+	}
+	uStablu, err := snimkeUStablu(koren, samo)
+	if err != nil {
+		return nil, err
+	}
+	sve, err := snimkeUArhivi(db, samo)
+	if err != nil {
+		return nil, err
+	}
+	var out []Sirotan
+	for _, o := range sve {
+		if letve[o.Letva] != "" && !uStablu[o.Letva+"|"+o.Datum] {
+			out = append(out, o)
+		}
+	}
+	return out, nil
+}
+
+// snimkeUStablu vraća snimke korita koje stablo ima, kao „letva|datum”. Dan
+// snimke čita se iz datoteke, kao i pri gradnji, a ne iz njezina imena.
+func snimkeUStablu(koren, samo string) (map[string]bool, error) {
+	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]bool{}
+	for _, p := range puts {
+		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
+		if samo != "" && letva != samo {
+			continue
+		}
+		datum, err := datumSnimke(p)
+		if err != nil {
+			return nil, err
+		}
+		out[letva+"|"+datum] = true
+	}
+	return out, nil
+}
+
+// datumSnimke čita dan snimke iz datoteke snimke korita.
+func datumSnimke(put string) (string, error) {
+	b, err := os.ReadFile(put)
+	if err != nil {
+		return "", err
+	}
+	datum, _, _, _, _, err := citajProfil(bytes.NewReader(b))
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", filepath.Base(put), err)
+	}
+	return datum, nil
+}
+
+// snimkeUArhivi vraća snimke korita koje arhiva ima, s brojem točaka.
+func snimkeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
+	q := `SELECT p.letva, p.datum, count(t.profil) FROM profili p
+		LEFT JOIN profil_tocke t ON t.profil = p.id`
+	var args []any
+	if samo != "" {
+		q += ` WHERE p.letva = ?`
+		args = append(args, samo)
+	}
+	rows, err := db.Query(q+` GROUP BY p.id ORDER BY p.letva, p.datum`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []Sirotan
+	for rows.Next() {
+		o := Sirotan{Snimka: true}
+		if err := rows.Scan(&o.Letva, &o.Datum, &o.Zapisa); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
 }
 
 // nadiSirotane traži nizove koji su u arhivi a nemaju datoteku u stablu.
@@ -1039,7 +1161,7 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 	return nil
 }
 
-func citajProfil(f *os.File) (datum string, vodostaj int, kota float64, sustavKote string, tocke [][2]float64, err error) {
+func citajProfil(f io.Reader) (datum string, vodostaj int, kota float64, sustavKote string, tocke [][2]float64, err error) {
 	cr := csv.NewReader(f)
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
@@ -1851,5 +1973,37 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 			}
 		}
 	}
-	return nadiSirotane(db, nizovi, "", nedostupni)
+	return bezDatoteke(db, koren, nizovi, "", nedostupni)
+}
+
+// MakniSnimku briše iz arhive snimku korita kojoj datoteke u stablu više nema
+// i vraća koliko je točaka maknuto. Kao ni niz, ni snimku gradnja ne miče sama
+// (Odluke (13. 10. 2026.)): odlučuje čovjek, na popisu bez datoteke. Datoteke
+// u stablu se ne diraju, pa se arhiva i dalje da izgraditi iznova.
+func MakniSnimku(db *sql.DB, baza, letva, datum string) (int, error) {
+	// Ista brava kao gradnja: gradnja istodobno briše i upisuje točke snimki.
+	brava, err := Uzmi(baza, "micanje snimke korita "+letva+" · "+datum, "")
+	if err != nil {
+		return 0, err
+	}
+	defer brava.Pusti()
+	tx, err := db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	// Točke se brišu izrijekom: veza bez stranih ključeva ne briše djecu sama.
+	res, err := tx.Exec(`DELETE FROM profil_tocke WHERE profil IN
+		(SELECT id FROM profili WHERE letva = ? AND datum = ?)`, letva, datum)
+	if err != nil {
+		return 0, err
+	}
+	tocaka, _ := res.RowsAffected()
+	if res, err = tx.Exec(`DELETE FROM profili WHERE letva = ? AND datum = ?`, letva, datum); err != nil {
+		return 0, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return 0, fmt.Errorf("snimka korita %s od %s nije u arhivi", letva, datum)
+	}
+	return int(tocaka), tx.Commit()
 }

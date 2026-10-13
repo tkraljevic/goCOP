@@ -102,6 +102,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
   nestane iz arhive. Krivulje letve koja datoteke krivulja nema, npr.
   primljene paketom, ostaju kakve jesu.
+- **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
+  kojoj je datoteka maknuta iz stabla ostajala je u arhivi, a nigdje se nije
+  vidjelo da joj datoteke više nema. Ispravak datuma u imenu datoteke tako
+  je ostavljao dvije snimke istog korita. Sad gradnja takvu snimku ne briše,
+  nego je pokaže pod Administracija → Unos u arhivu → Nizovi bez datoteke u
+  stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
+  Snimke letve koja u stablu nema svoju mapu, npr. primljene paketom, na
+  popis ne idu. Datoteke u stablu se ne diraju.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
