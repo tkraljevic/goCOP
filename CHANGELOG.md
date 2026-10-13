@@ -82,6 +82,28 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izrađuje (naslov, autor, predmet) slova č, ć, đ, š i ž bila su upitnici,
   npr. „Rje?enje o uspostavi”. Sad se vide kako treba. Već spremljeni i
   potpisani PDF-ovi ostaju bajt za bajt isti.
+- **Ispuštanje elektrana pri običnoj vodi uračunava vodu s međusliva.** Pri
+  običnoj vodi prognoza istjecanja HE Varaždin, Čakovec i Dubrava drži
+  dnevni srednjak uz dotok uzvodne elektrane, pomnožen omjerom istjecanja i
+  dotoka zadnjeg tjedna. Program je umjesto istjecanja uzimao sam dotok, pa
+  je omjer bio uvijek 1 i voda s međusliva se gubila. Sad se uzima pravo
+  istjecanje. Najviše se mijenja HE Varaždin. U provjeri za 2023.–2025., s
+  ispravkom koji vidi dežurni, prosječna pogreška na Dravi mijenja se
+  najviše 0,3 cm ili m³/s, a prognoza je u prosjeku do 1 cm ili m³/s viša.
+  Na poplavnim valovima od 2013. najavljeni vrh se gotovo ne mijenja,
+  najviše 7 cm na Novom Virju. Ispravak prognoze dosad je izmjeren uz ovu
+  grešku, pa nakon nadogradnje na 0.0.38 globalni administrator na čvoru
+  koji izdaje prognozu treba pokrenuti Prognoze → Postavke → *Pripremi
+  model* (Odluke (13. 10. 2026.)).
+- **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
+  međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
+  izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
+  Sad takav međusliv zadrži pragove jednog dana, a pragova triju dana
+  nema. Prag od 0 mm, kakav ispadne u takvom ili gotovo suhom nizu, sad
+  znači da praga nema; dosad je dizao razinu kiše i kad nije palo ništa. U
+  tablici kiše po međuslivovima umjesto njega stoji crtica (Odluke (13. 10.
+  2026.)). Pad je našao test; s nizovima iz arhive ni jedno ni drugo nije
+  primijećeno.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

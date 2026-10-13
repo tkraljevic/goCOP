@@ -462,14 +462,18 @@ func srednjakDo(n Niz, od, do int64) (float64, bool) {
 }
 
 // uravnotezi pomiče svaki 24-satni blok budućnosti tako da mu srednjak bude
-// dotok puta omjer istjecanja i dotoka zadnjeg tjedna.
+// dotok puta omjer istjecanja i dotoka zadnjeg tjedna. Kad elektrani fali
+// više od pola tjedna istjecanja, omjer je 1: bolje dotok bez međusliva nego
+// model bez granice.
 func uravnotezi(tocke map[int64]float64, t0 int64, q, dotok Niz, dotokBuduci *Niz) {
-	izlaz7, ok1 := srednjakDo(q, t0-168, t0)
-	ulaz7, ok2 := srednjakDo(dotok, t0-168, t0)
-	if !ok1 || !ok2 || ulaz7 <= 0 {
+	ulaz7, ok := srednjakDo(dotok, t0-168, t0)
+	if !ok || ulaz7 <= 0 {
 		return
 	}
-	omjer := math.Min(math.Max(izlaz7/ulaz7, 0.8), 1.3)
+	omjer := 1.0
+	if izlaz7, ok := srednjakDo(q, t0-168, t0); ok {
+		omjer = math.Min(math.Max(izlaz7/ulaz7, 0.8), 1.3)
+	}
 	ulaz24, ok := srednjakDo(dotok, t0-24, t0)
 	if !ok {
 		return
@@ -566,7 +570,7 @@ func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, 
 			if f, ima := out[ulaz]; ima {
 				buduci = &f
 			}
-			uravnotezi(tocke, t0, nizovi[ulaz], nizovi[ulaz], buduci)
+			uravnotezi(tocke, t0, q, nizovi[ulaz], buduci)
 		}
 		out[iz] = NizIzTocaka(tocke)
 	}

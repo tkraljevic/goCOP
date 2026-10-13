@@ -40,18 +40,31 @@ type StanjeSliva struct {
 	Pragovi                  PragoviKise
 }
 
-// PragoviIzNiza računa pragove iz dnevnog niza međusliva.
+// PragoviIzNiza računa pragove iz dnevnog niza međusliva. Prag koji se iz
+// niza ne da odrediti ostaje 0 mm, a to znači da praga nema (vidi prijeden).
 func PragoviIzNiza(n DnevniNiz) (PragoviKise, bool) {
 	if len(n) < 3650 {
 		return PragoviKise{}, false
 	}
+	jedan, tri := zbrojeviKise(n)
+	p := PragoviKise{Godina: int(math.Round(float64(len(jedan)) / 365.25))}
+	for i, r := range RazineKise {
+		p.Dan1[i] = pragUcestalosti(jedan, r)
+		p.Dan3[i] = pragUcestalosti(tri, r)
+	}
+	return p, true
+}
+
+// zbrojeviKise vraća kišu svakog dana niza i zbroj triju dana za svaki dan
+// kojem niz ima i oba dana prije.
+func zbrojeviKise(n DnevniNiz) (jedan, tri []float64) {
 	dani := make([]int64, 0, len(n))
 	for d := range n {
 		dani = append(dani, d)
 	}
 	sort.Slice(dani, func(a, b int) bool { return dani[a] < dani[b] })
-	jedan := make([]float64, 0, len(dani))
-	tri := make([]float64, 0, len(dani))
+	jedan = make([]float64, 0, len(dani))
+	tri = make([]float64, 0, len(dani))
 	for _, d := range dani {
 		jedan = append(jedan, n[d])
 		a, ok1 := n[d-1]
@@ -60,22 +73,20 @@ func PragoviIzNiza(n DnevniNiz) (PragoviKise, bool) {
 			tri = append(tri, n[d]+a+b)
 		}
 	}
-	godina := float64(len(jedan)) / 365.25
-	p := PragoviKise{Godina: int(math.Round(godina))}
-	prag := func(v []float64, puta float64) float64 {
-		s := append([]float64(nil), v...)
-		sort.Float64s(s)
-		k := int(math.Round(puta * float64(len(s)) / 365.25))
-		if k < 1 {
-			k = 1
-		}
-		return s[len(s)-k]
+	return jedan, tri
+}
+
+// pragUcestalosti vraća kišu koju niz dosegne u prosjeku puta godišnje, a
+// najmanje jednom u cijelom nizu. Niz bez nijednog zbroja triju dana (npr.
+// kad fali svaki drugi dan) prag ne daje, pa ostaje 0 mm.
+func pragUcestalosti(v []float64, puta float64) float64 {
+	if len(v) == 0 {
+		return 0
 	}
-	for i, r := range RazineKise {
-		p.Dan1[i] = prag(jedan, r)
-		p.Dan3[i] = prag(tri, r)
-	}
-	return p, true
+	s := append([]float64(nil), v...)
+	sort.Float64s(s)
+	k := max(int(math.Round(puta*float64(len(s))/365.25)), 1)
+	return s[len(s)-k]
 }
 
 // pragoviPredmemorija drži pragove jedan dan: arhiva se mijenja rijetko.
@@ -122,45 +133,65 @@ func StanjeSlivova(oborine map[string]DnevniNiz, pragovi map[string]PragoviKise)
 	var out []StanjeSliva
 	for _, s := range slivovi {
 		p, imaP := pragovi[s]
-		st := StanjeSliva{Sliv: s, Letve: letve[s], Pragovi: p}
-		n := oborine[OborinaKljuc(s)]
-		v0, ok0 := n[0]
-		v1, ok1 := n[-1]
-		v2, ok2 := n[-2]
-		f1, okf1 := n[1]
-		f2, okf2 := n[2]
-		st.Ima = ok0
-		st.Palo24 = math.Round(v0*10) / 10
-		if ok0 && ok1 && ok2 {
-			st.Palo72 = math.Round((v0+v1+v2)*10) / 10
-		}
-		if okf1 {
-			st.Dolazi48 = f1
-			if okf2 {
-				st.Dolazi48 += f2
-			}
-			st.Dolazi48 = math.Round(st.Dolazi48*10) / 10
-		}
+		st := kisaSliva(oborine[OborinaKljuc(s)])
+		st.Sliv, st.Letve, st.Pragovi = s, letve[s], p
 		if imaP && st.Ima {
-			ukupno := st.Palo24 + st.Dolazi48
-			for i := 2; i >= 0; i-- {
-				switch {
-				case st.Palo24 >= p.Dan1[i]:
-					st.Razina, st.Zasto = i+1, "palo u zadnja 24 sata"
-				case st.Palo72 >= p.Dan3[i]:
-					st.Razina, st.Zasto = i+1, "palo u zadnja 72 sata"
-				case ukupno >= p.Dan3[i]:
-					st.Razina, st.Zasto = i+1, "palo i očekuje se u 72 sata"
-				default:
-					continue
-				}
-				st.Ucestalost = ucestalostKise(RazineKise[i])
-				break
-			}
+			st.Razina, st.Zasto, st.Ucestalost = razinaKise(p, st.Palo24, st.Palo72, st.Palo24+st.Dolazi48)
 		}
 		out = append(out, st)
 	}
 	return out
+}
+
+// kisaSliva vraća kišu međusliva oko sada: palo u zadnja 24 i 72 sata i što
+// se očekuje u sljedećih 48 sati, na desetinku milimetra.
+func kisaSliva(n DnevniNiz) StanjeSliva {
+	v0, ok0 := n[0]
+	v1, ok1 := n[-1]
+	v2, ok2 := n[-2]
+	f1, okf1 := n[1]
+	f2, okf2 := n[2]
+	st := StanjeSliva{Ima: ok0, Palo24: math.Round(v0*10) / 10}
+	if ok0 && ok1 && ok2 {
+		st.Palo72 = math.Round((v0+v1+v2)*10) / 10
+	}
+	if okf1 {
+		st.Dolazi48 = f1
+		if okf2 {
+			st.Dolazi48 += f2
+		}
+		st.Dolazi48 = math.Round(st.Dolazi48*10) / 10
+	}
+	return st
+}
+
+// razinaKise vraća najvišu razinu čiji je prag prijeđen (0 kad nijedan nije),
+// zašto i koliko je takva kiša rijetka. Prvo se gleda 24 sata, pa 72 sata
+// palo, pa palo s onim što dolazi.
+func razinaKise(p PragoviKise, palo24, palo72, ukupno float64) (int, string, string) {
+	for i := len(RazineKise) - 1; i >= 0; i-- {
+		var zasto string
+		switch {
+		case prijeden(palo24, p.Dan1[i]):
+			zasto = "palo u zadnja 24 sata"
+		case prijeden(palo72, p.Dan3[i]):
+			zasto = "palo u zadnja 72 sata"
+		case prijeden(ukupno, p.Dan3[i]):
+			zasto = "palo i očekuje se u 72 sata"
+		default:
+			continue
+		}
+		return i + 1, zasto, ucestalostKise(RazineKise[i])
+	}
+	return 0, "", ""
+}
+
+// prijeden kaže je li kiša dosegla prag. Prag od 0 mm znači da praga nema
+// (Odluke (13. 10. 2026.)): ispadne u suhom ili nepotpunom nizu, npr. prag
+// triju dana kad niz nema nijedna tri uzastopna dana, a dizao bi razinu i
+// kad nije palo ništa.
+func prijeden(kisa, prag float64) bool {
+	return prag > 0 && kisa >= prag
 }
 
 // ucestalostKise kaže riječima koliko je kiša rijetka

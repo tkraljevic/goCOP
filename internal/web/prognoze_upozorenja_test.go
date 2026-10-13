@@ -521,3 +521,31 @@ func TestKisaSlivovaBezDnevneZaDioLetvi(t *testing.T) {
 		t.Errorf("nijedna letva sliva nema dnevnu, a pločica to ne kaže:\n%s", s)
 	}
 }
+
+// Prag od 0 mm znači da praga nema (Odluke (13. 10. 2026.)), pa tablica
+// kiše po međuslivovima tada pokazuje crticu, a ne prag od 0,0 mm.
+func TestKisaSlivovaBezPragaTrijuDana(t *testing.T) {
+	prag := func(dan3 float64) string {
+		t.Helper()
+		sliv := SlivUKisi{StanjeSliva: prognoza.StanjeSliva{Sliv: "A", Ima: true, Palo24: 2,
+			Pragovi: prognoza.PragoviKise{Dan1: [3]float64{20, 40, 80}, Dan3: [3]float64{dan3}}}, Naziv: "Gornji sliv"}
+		var b strings.Builder
+		if err := kisaSlivovaTmpl.Execute(&b, kisaSlivovaPodaci{Slivovi: []SlivUKisi{sliv}}); err != nil {
+			t.Fatal(err)
+		}
+		const celija = `<td class="mono reg-card-sub" style="text-align:right;">`
+		s := b.String()
+		i := strings.Index(s, celija)
+		if i < 0 {
+			t.Fatalf("tablica nema stupca s pragom:\n%s", s)
+		}
+		s = s[i+len(celija):]
+		return s[:strings.Index(s, "</td>")]
+	}
+	if got := prag(0); got != "—" {
+		t.Errorf("bez praga triju dana stupac kaže %q, želim crticu", got)
+	}
+	if got := prag(31.5); got != "31,5" {
+		t.Errorf("prag triju dana %q, želim 31,5", got)
+	}
+}
