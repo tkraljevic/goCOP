@@ -43,8 +43,17 @@ func TestSastaviBezKise(t *testing.T) {
 	bez := dnevniSKoeficijentima(DnevniCilj{Letva: "proba"}, func(k int) float64 { return -5 * float64(k) })
 	bezUlaza := dnevniSKoeficijentima(DnevniCilj{Letva: "proba", Ulazi: []string{"nema-mjerenja"}}, func(int) float64 { return 50 })
 	modeli := []*DnevniModel{nil, dnevniSKoeficijentima(sKisom, func(int) float64 { return 70 }), bezUlaza, bez}
+	// Kiša za S postoji, pa inačica s kišom može računati: preskače se zato
+	// što je s kišom, a ne zato što ne radi.
+	oborine := map[string]DnevniNiz{OborinaKljuc("S"): {}}
+	for dan := int64(-20); dan <= 20; dan++ {
+		oborine[OborinaKljuc("S")][dan] = 0
+	}
+	if _, err := PrognozirajDnevno(modeli[1], satni, oborine, sada); err != nil {
+		t.Fatalf("inačica s kišom ne računa: %v", err)
+	}
 
-	got := SastaviBezKise(d, m, modeli, satni, nil, sada)
+	got := SastaviBezKise(d, m, modeli, satni, oborine, sada)
 	if !reflect.DeepEqual(d, zateceno) {
 		t.Errorf("zatečena prognoza promijenjena: %+v", d)
 	}
@@ -62,10 +71,10 @@ func TestSastaviBezKise(t *testing.T) {
 		}
 	}
 
-	if got := SastaviBezKise(d, m, modeli[:3], satni, nil, sada); !reflect.DeepEqual(got, d) {
+	if got := SastaviBezKise(d, m, modeli[:3], satni, oborine, sada); !reflect.DeepEqual(got, d) {
 		t.Errorf("bez inačice koja računa: %+v, želim zatečenu", got)
 	}
-	if got := SastaviBezKise(d, &DnevniModel{Cilj: DnevniCilj{Letva: "druga", Slivovi: []string{"S"}}}, modeli, satni, nil, sada); !reflect.DeepEqual(got, d) {
+	if got := SastaviBezKise(d, &DnevniModel{Cilj: DnevniCilj{Letva: "druga", Slivovi: []string{"S"}}}, modeli, satni, oborine, sada); !reflect.DeepEqual(got, d) {
 		t.Errorf("letva koja to ne traži: %+v", got)
 	}
 }
@@ -116,9 +125,10 @@ func TestDnevneZnacajkeKorijenIPrognozaKise(t *testing.T) {
 }
 
 // Kiša oko sada: svaka točka daje dan samo kad ima sva 24 sata, točka bez
-// težine ne ulazi, a međusliv dobiva dan kad ga ima barem polovica težine —
-// težinski srednjak dana prisutnih točaka. Satni nizovi traže se od prvog
-// sata najstarijeg dana do zadnjeg sata prognoze.
+// težine ne ulazi (međusliv samo s takvima nema kiše), a međusliv dobiva dan
+// kad ga ima barem polovica težine, i točno polovica je dosta. Dan je
+// težinski srednjak prisutnih točaka. Satni nizovi traže se od prvog sata
+// najstarijeg dana do zadnjeg sata prognoze.
 func TestOborineOkoSada(t *testing.T) {
 	const sada = int64(1000)
 	sati := func(od, do int64, mm float64, bez ...int64) map[int64]float64 {
@@ -139,6 +149,9 @@ func TestOborineOkoSada(t *testing.T) {
 			{Code: "a-3", Sliv: "S", Tezina: 0},
 			{Code: "a-4", Sliv: "S", Tezina: 1},
 			{Code: "b-1", Sliv: "T", Tezina: 2},
+			{Code: "u-1", Sliv: "U", Tezina: 1},
+			{Code: "u-2", Sliv: "U", Tezina: 1},
+			{Code: "z-1", Sliv: "Z", Tezina: 0},
 		},
 		Satne: func(a, b int64) (map[string]map[int64]float64, error) {
 			od, do = a, b
@@ -147,6 +160,9 @@ func TestOborineOkoSada(t *testing.T) {
 				"a-2": sati(953, 1024, 2, 1010), // sutra fali sat
 				"a-3": sati(953, 1024, 100),     // bez težine
 				"b-1": sati(977, 1000, 0.5),     // samo danas
+				"u-1": sati(953, 1024, 3),
+				"u-2": sati(953, 1024, 5, 1010), // sutra fali sat
+				"z-1": sati(953, 1024, 7),       // bez težine
 			}, nil
 		},
 	}
@@ -158,10 +174,18 @@ func TestOborineOkoSada(t *testing.T) {
 		t.Errorf("satni nizovi traženi za %d–%d, želim 953–1024", od, do)
 	}
 	// S: danas i jučer a-1 (24 mm) i a-2 (48 mm), dvije od tri težine;
-	// sutra samo a-1, trećina težine, premalo.
-	want := map[string]DnevniNiz{OborinaKljuc("S"): {-1: 36, 0: 36}, OborinaKljuc("T"): {0: 12}}
+	// sutra samo a-1, trećina težine, premalo. U: danas i jučer u-1 (72 mm)
+	// i u-2 (120 mm); sutra samo u-1, točno pola težine, i to je dosta.
+	want := map[string]DnevniNiz{
+		OborinaKljuc("S"): {-1: 36, 0: 36},
+		OborinaKljuc("T"): {0: 12},
+		OborinaKljuc("U"): {-1: 96, 0: 96, 1: 72},
+	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("kiša %v, želim %v", got, want)
+	}
+	if z, ima := got[OborinaKljuc("Z")]; ima {
+		t.Errorf("međusliv samo s točkom bez težine dobio je kišu %v", z)
 	}
 
 	for _, s := range []struct {
@@ -184,16 +208,26 @@ func TestOborineOkoSada(t *testing.T) {
 	}
 }
 
-// Dnevna kiša iz arhive: točka bez težine ne ulazi, a redak koji se ne da
-// pročitati ili upit koji pukne usred čitanja je greška.
+// Dnevna kiša iz arhive: točka bez težine ne ulazi (međusliv samo s takvima
+// nema kiše), dan s točno pola težine ulazi, a redak koji se ne da pročitati
+// ili upit koji pukne usred čitanja je greška.
 func TestDnevneOborineTezineIGreske(t *testing.T) {
 	arhiva, _ := arhivaUDatoteci(t)
 	upisiDnevne(t, arhiva, "tocka-a", "oborina", 3, func(d int64) float64 { return float64(d + 1) })
 	upisiDnevne(t, arhiva, "tocka-0", "oborina", 3, func(int64) float64 { return 100 })
-	tocke := []OborinskaTocka{{Code: "tocka-a", Sliv: "A", Tezina: 1}, {Code: "tocka-0", Sliv: "A", Tezina: 0}}
+	upisiDnevne(t, arhiva, "tocka-b1", "oborina", 3, func(int64) float64 { return 4 })
+	upisiDnevne(t, arhiva, "tocka-b2", "oborina", 2, func(int64) float64 { return 8 }) // bez dana 2
+	upisiDnevne(t, arhiva, "tocka-z", "oborina", 3, func(int64) float64 { return 7 })
+	tocke := []OborinskaTocka{{Code: "tocka-a", Sliv: "A", Tezina: 1}, {Code: "tocka-0", Sliv: "A", Tezina: 0},
+		{Code: "tocka-b1", Sliv: "B", Tezina: 1}, {Code: "tocka-b2", Sliv: "B", Tezina: 1},
+		{Code: "tocka-z", Sliv: "Z", Tezina: 0}}
 	got, err := DnevneOborine(arhiva, tocke)
-	if want := map[string]DnevniNiz{OborinaKljuc("A"): {0: 1, 1: 2, 2: 3}}; err != nil || !reflect.DeepEqual(got, want) {
-		t.Errorf("kiša %v, %v; želim %v — točka bez težine ne ulazi", got, err, want)
+	want := map[string]DnevniNiz{OborinaKljuc("A"): {0: 1, 1: 2, 2: 3}, OborinaKljuc("B"): {0: 6, 1: 6, 2: 4}}
+	if err != nil || !reflect.DeepEqual(got, want) {
+		t.Errorf("kiša %v, %v; želim %v", got, err, want)
+	}
+	if z, ima := got[OborinaKljuc("Z")]; ima {
+		t.Errorf("međusliv samo s točkom bez težine dobio je kišu %v", z)
 	}
 
 	t.Run("vrijednost nije broj", func(t *testing.T) {
