@@ -3,6 +3,7 @@ package web
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 	"slices"
@@ -166,10 +167,23 @@ func krivuljeZaLetvu(koren, letva, ime string, sadrzaj []byte) (krivuljeLetve, e
 	}
 	sp, err := his2000.SpojiSDatotekom(put, s)
 	if err != nil {
-		return krivuljeLetve{}, fmt.Errorf("Zatečena datoteka krivulja ne može se spojiti s izvozom: %w. "+
-			"Ispravite je, pa pošaljite izvoz ponovno.", err)
+		log.Printf("uvoz krivulja letve %s: zatečena datoteka krivulja ne spaja se s izvozom: %v", letva, err)
+		return krivuljeLetve{}, porukaZateceneDatoteke(letva, err)
 	}
 	return krivuljeLetve{izvoz: s, put: put, spojeno: sp}, nil
+}
+
+// porukaZateceneDatoteke kaže zašto se izvoz ne spaja sa zatečenom datotekom
+// krivulja. Put na poslužitelju i tekst greške idu u dnevnik čvora, a ne na
+// stranicu.
+func porukaZateceneDatoteke(letva string, err error) error {
+	var nr *his2000.NecitljivRedak
+	if errors.As(err, &nr) {
+		return fmt.Errorf("Datoteka krivulja letve %s ima redak koji se ne da pročitati (redak %d). "+
+			"Ispravite ga, pa pošaljite izvoz ponovno.", letva, nr.Redak)
+	}
+	return fmt.Errorf("Datoteka krivulja letve %s ne da se pročitati, pa se izvoz ne može spojiti s njom. "+
+		"Razlog je zapisan u dnevnik čvora.", letva)
 }
 
 func procitajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {

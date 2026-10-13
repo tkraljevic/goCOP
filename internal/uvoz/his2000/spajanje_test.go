@@ -1,6 +1,7 @@
 package his2000
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -308,19 +309,26 @@ func TestSpojiKrivuljeIzvozKaoGradnja(t *testing.T) {
 }
 
 // Redak koji gradnja ne bi pročitala, datum koji nije datum i datoteka koja
-// nije tablica zaustavljaju spajanje, a poruka kaže koji je redak. Kad se
-// zatečena datoteka ne da pročitati, greška nosi njezin put.
+// nije tablica zaustavljaju spajanje, a greška kaže koji je to redak u
+// datoteci, i kad su prije njega prazni retci, i zašto. Kad se zatečena
+// datoteka ne da pročitati, greška nosi njezin put.
 func TestSpojiKrivuljeOdbija(t *testing.T) {
 	s := izvozKrivulja("1", godina(2001, 2001, "7"))
-	for _, sl := range []struct{ opis, zateceno, greska string }{
+	for _, sl := range []struct {
+		opis, zateceno, greska string
+		redak                  int
+	}{
 		{"kratak redak", ZaglavljeKrivulja + "\nkratak-redak\n",
-			"redak „kratak-redak” ima 1 stupac, a redak krivulje ih ima barem 8"},
-		{"tri stupca", ZaglavljeKrivulja + "\na;b;c\n", "redak „a;b;c” ima 3 stupca, a redak krivulje ih ima barem 8"},
+			"redak 2: „kratak-redak” ima 1 stupac, a redak krivulje ih ima barem 8", 2},
+		{"tri stupca", ZaglavljeKrivulja + "\n" + redakKrivulje("2000-01-01", "", "1") + "\n\na;b;c\n",
+			"redak 5: „a;b;c” ima 3 stupca, a redak krivulje ih ima barem 8", 5},
 		{"datum", ZaglavljeKrivulja + "\n2001-1-1;;0;100;polinom;1;2;3;;DHMZ;\n",
-			"redak „2001-1-1;;0;100;polinom;1;2;3;;DHMZ;” ne počinje datumom oblika 2001-01-01"},
-		{"nije tablica", ZaglavljeKrivulja + "\n2001-01-01;\"x\"y;0\n", "ne čita se kao tablica: "},
+			"redak 2: „2001-1-1;;0;100;polinom;1;2;3;;DHMZ;” ne počinje datumom oblika 2001-01-01", 2},
+		{"nije tablica", ZaglavljeKrivulja + "\n\n2001-01-01;\"x\"y;0\n", "redak 3: ne čita se kao tablica: ", 3},
 	} {
-		if _, err := SpojiKrivulje([]byte(sl.zateceno), s); err == nil || !strings.HasPrefix(err.Error(), sl.greska) {
+		_, err := SpojiKrivulje([]byte(sl.zateceno), s)
+		var nr *NecitljivRedak
+		if !errors.As(err, &nr) || nr.Redak != sl.redak || !strings.HasPrefix(err.Error(), sl.greska) {
 			t.Errorf("%s: %v", sl.opis, err)
 		}
 	}
@@ -333,7 +341,7 @@ func TestSpojiKrivuljeOdbija(t *testing.T) {
 	if err := os.WriteFile(put, []byte(ZaglavljeKrivulja+"\nkratak-redak\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := SpojiSDatotekom(put, s); err == nil || !strings.HasPrefix(err.Error(), put+": redak „kratak-redak”") {
+	if _, err := SpojiSDatotekom(put, s); err == nil || !strings.HasPrefix(err.Error(), put+": redak 2: „kratak-redak”") {
 		t.Errorf("nečitljiv redak: %v", err)
 	}
 	if _, err := SpojiSDatotekom(mapa, s); err == nil || !strings.Contains(err.Error(), mapa) {

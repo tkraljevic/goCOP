@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -81,6 +82,17 @@ func SpojiKrivulje(zateceno []byte, s *Sadrzaj) (SpojeneKrivulje, error) {
 	}, nil
 }
 
+// NecitljivRedak je redak zatečene datoteke krivulja koji spajanje ne može
+// pročitati. Broj retka ide u poruku na stranici, a razlog u dnevnik.
+type NecitljivRedak struct {
+	Redak  int // od 1, a zaglavlje je prvi redak
+	Razlog string
+}
+
+func (e *NecitljivRedak) Error() string {
+	return fmt.Sprintf("redak %d: %s", e.Redak, e.Razlog)
+}
+
 // SpojiSDatotekom spaja izvoz s datotekom krivulja na putu. Kad datoteke
 // nema, letva krivulja dosad nije imala.
 func SpojiSDatotekom(put string, s *Sadrzaj) (SpojeneKrivulje, error) {
@@ -107,15 +119,15 @@ func procitajZatecene(b []byte) ([]razdobljeKrivulje, error) {
 	if len(sve) < 2 {
 		return nil, nil
 	}
-	stupci := stupciZaglavlja(sve[0])
+	stupci := stupciZaglavlja(sve[0].polja)
 	k := noveKrivulje()
 	for _, r := range sve[1:] {
-		pocetak, err := provjeriRedak(r)
+		pocetak, err := provjeriRedak(r.polja)
 		if err != nil {
-			return nil, err
+			return nil, &NecitljivRedak{Redak: r.broj, Razlog: err.Error()}
 		}
-		k.dodaj(razdobljeKrivulje{od: strings.TrimSpace(r[0]), do: strings.TrimSpace(r[1]), pocetak: pocetak},
-			stupci.odsjecak(r))
+		k.dodaj(razdobljeKrivulje{od: strings.TrimSpace(r.polja[0]), do: strings.TrimSpace(r.polja[1]), pocetak: pocetak},
+			stupci.odsjecak(r.polja))
 	}
 	return k.sve, nil
 }
@@ -143,15 +155,41 @@ func (k *krivuljePoPocetku) dodaj(r razdobljeKrivulje, odsjecak []string) {
 	k.sve[j].redci = append(k.sve[j].redci, odsjecak)
 }
 
-func citajTablicu(b []byte) ([][]string, error) {
+// redakTablice su polja jednog retka, uz broj retka u datoteci.
+type redakTablice struct {
+	broj  int
+	polja []string
+}
+
+// citajTablicu čita datoteku redak po redak, da se zna koji je redak:
+// prazne retke čitač preskače, pa se ne mogu brojati sami.
+func citajTablicu(b []byte) ([]redakTablice, error) {
 	cr := csv.NewReader(bytes.NewReader(b))
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
-	sve, err := cr.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("ne čita se kao tablica: %w", err)
+	var out []redakTablice
+	for {
+		polja, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, necitljivaTablica(err)
+		}
+		broj, _ := cr.FieldPos(0)
+		out = append(out, redakTablice{broj: broj, polja: polja})
 	}
-	return sve, nil
+}
+
+// necitljivaTablica je redak na kojem je čitanje tablice stalo. Čitač nad
+// nizom bajtova drugu grešku osim *csv.ParseError ne vraća.
+func necitljivaTablica(err error) *NecitljivRedak {
+	n := &NecitljivRedak{Razlog: "ne čita se kao tablica: " + err.Error()}
+	var pe *csv.ParseError
+	if errors.As(err, &pe) {
+		n.Redak = pe.Line
+	}
+	return n
 }
 
 // provjeriRedak vraća početak razdoblja retka, ili kaže zašto redak nije
@@ -159,12 +197,12 @@ func citajTablicu(b []byte) ([][]string, error) {
 func provjeriRedak(r []string) (time.Time, error) {
 	redak := strings.Join(r, ";")
 	if len(r) < najmanjeStupaca {
-		return time.Time{}, fmt.Errorf("redak „%s” ima %d %s, a redak krivulje ih ima barem %d",
+		return time.Time{}, fmt.Errorf("„%s” ima %d %s, a redak krivulje ih ima barem %d",
 			redak, len(r), models.UzBrojHR(len(r), "stupac", "stupca", "stupaca"), najmanjeStupaca)
 	}
 	pocetak, err := time.Parse(oblikDana, strings.TrimSpace(r[0]))
 	if err != nil {
-		return time.Time{}, fmt.Errorf("redak „%s” ne počinje datumom oblika 2001-01-01", redak)
+		return time.Time{}, fmt.Errorf("„%s” ne počinje datumom oblika 2001-01-01", redak)
 	}
 	return pocetak, nil
 }

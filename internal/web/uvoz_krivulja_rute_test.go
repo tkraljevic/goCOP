@@ -1,9 +1,11 @@
 package web
 
 import (
+	"bytes"
 	"errors"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -138,7 +140,9 @@ func TestKrivuljePregledOdbija(t *testing.T) {
 
 // Potvrda krivulja traži pravo i živ odabir; datoteka koja se više ne čita i
 // letva koje nema u stablu ne zapisuju ništa, a kad se krivulje ili izvornik
-// ne daju zapisati, poruka to kaže i gradnja ne kreće.
+// ne daju zapisati, poruka to kaže i gradnja ne kreće. Kad se zatečena
+// datoteka ne da pročitati, put i razlog idu u dnevnik čvora, a ne na
+// stranicu.
 func TestKrivuljeUpisOdbija(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	korisnik := o.pero.ID.String()
@@ -196,8 +200,13 @@ func TestKrivuljeUpisOdbija(t *testing.T) {
 	if err := os.WriteFile(hq, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if g := posalji(); !strings.HasPrefix(g, "Zatečena datoteka krivulja ne može se spojiti s izvozom: ") || !strings.Contains(g, hq) {
-		t.Errorf("mapa hq je datoteka: %q", g)
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	necitljiva := "Datoteka krivulja letve primjerovo ne da se pročitati, pa se izvoz ne može spojiti s njom. " +
+		"Razlog je zapisan u dnevnik čvora."
+	if g := posalji(); g != necitljiva || !strings.Contains(dnevnik.String(), put) {
+		t.Errorf("mapa hq je datoteka: %q, dnevnik %q", g, dnevnik.String())
 	}
 	// Na mjestu datoteke krivulja stoji mapa.
 	if err := os.Remove(hq); err != nil {
@@ -206,7 +215,7 @@ func TestKrivuljeUpisOdbija(t *testing.T) {
 	if err := os.MkdirAll(put, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if g := posalji(); !strings.HasPrefix(g, "Zatečena datoteka krivulja ne može se spojiti s izvozom: ") || !strings.Contains(g, put) {
+	if g := posalji(); g != necitljiva {
 		t.Errorf("datoteka krivulja je mapa: %q", g)
 	}
 	// Na mjestu izvornika stoji mapa.

@@ -1,7 +1,9 @@
 package web
 
 import (
+	"bytes"
 	"context"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -91,8 +93,8 @@ func TestPregledKrivuljaIZateceno(t *testing.T) {
 }
 
 // Zatečena datoteka krivulja s retkom koji gradnja ne bi pročitala ne spaja
-// se: spojena datoteka bi ga tiho izgubila. Poruka kaže koji je redak i u
-// kojoj datoteci.
+// se: spojena datoteka bi ga tiho izgubila. Poruka cijelim rečenicama kaže
+// koji je redak, a put datoteke i razlog idu u dnevnik čvora.
 func TestPregledKrivuljaNecitljivoZateceno(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
@@ -100,14 +102,19 @@ func TestPregledKrivuljaNecitljivoZateceno(t *testing.T) {
 		t.Fatal(err)
 	}
 	put := filepath.Join(hq, "primjerovo_hq_krivulje.csv")
-	if err := os.WriteFile(put, []byte("vrijedi_od;vrijedi_do\nkratak-redak\n"), 0o644); err != nil {
+	if err := os.WriteFile(put, []byte("vrijedi_od;vrijedi_do\n\nkratak-redak\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 	_, err := pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "primjerovo", o.koren)
-	if zeli := "Zatečena datoteka krivulja ne može se spojiti s izvozom: " + put +
-		": redak „kratak-redak” ima 1 stupac, a redak krivulje ih ima barem 8. " +
-		"Ispravite je, pa pošaljite izvoz ponovno."; err == nil || err.Error() != zeli {
+	if zeli := "Datoteka krivulja letve primjerovo ima redak koji se ne da pročitati (redak 3). " +
+		"Ispravite ga, pa pošaljite izvoz ponovno."; err == nil || err.Error() != zeli {
 		t.Errorf("nečitljiva zatečena datoteka: %v", err)
+	}
+	if !strings.Contains(dnevnik.String(), put+": redak 3: „kratak-redak” ima 1 stupac") {
+		t.Errorf("dnevnik čvora: %q", dnevnik.String())
 	}
 }
 
