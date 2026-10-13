@@ -235,8 +235,9 @@ func nazoviUTailnetu(ctx context.Context, adresa string, putevi map[string]strin
 	return prerusenaVeza{Conn: c, lokalna: lokalna, udaljena: udaljena}, nil
 }
 
-// upari: a nazove b na adresi i oba čovjeka potvrde kod
-func upari(t *testing.T, a, b *Service, adresa string) {
+// zapocniUparivanje: b čeka uparivanje, a ga nazove na adresi dok b ne
+// počne slušati, a zatim čeka da b vidi kod
+func zapocniUparivanje(t *testing.T, a, b *Service, adresa string) {
 	t.Helper()
 	if err := b.StartListening(); err != nil {
 		t.Fatal(err)
@@ -252,6 +253,12 @@ func upari(t *testing.T, a, b *Service, adresa string) {
 		t.Fatalf("nazivanje uparivanja: %v", err)
 	}
 	cekajDa(t, "b vidi kod uparivanja", func() bool { return b.PairStatus().Pending })
+}
+
+// upari: a nazove b na adresi i oba čovjeka potvrde kod
+func upari(t *testing.T, a, b *Service, adresa string) {
+	t.Helper()
+	zapocniUparivanje(t, a, b, adresa)
 	ishodB := make(chan PairOutcome, 1)
 	go func() {
 		o, err := b.ConfirmPair(ctxRub, true, true)

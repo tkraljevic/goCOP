@@ -159,6 +159,11 @@ type Service struct {
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
 	wantsAll bool // prati sve kanale (uredski čvor)
+	// autoCtx je kontekst automatske sinkronizacije (RunAutoSync); nil dok
+	// nije uključena. U njemu ide i razmjena odmah nakon uparivanja.
+	autoCtx context.Context
+	// nakonUparenja su razmjene koje je uparivanje pokrenulo u pozadini
+	nakonUparenja sync.WaitGroup
 
 	// tailscaleAdrese čita Tailscale adrese ovog računala; nil znači
 	// zadaneTailscaleAdrese. Test njime daje čvoru izmišljene adrese.
@@ -645,29 +650,17 @@ type PairOutcome struct {
 // Uparen čvor bez potvrde je poznat, ali ne i član: razmjena mu se odbija.
 // primi kaže smije li čovjek koji potvrđuje primiti drugi čvor u mrežu
 // (globalni administrator, ili izravan klijent svježeg čvora); bez toga se
-// potvrda članstva ne izdaje ni kad ovaj čvor drži ključ mreže.
+// potvrda članstva ne izdaje ni kad ovaj čvor drži ključ mreže. Uspješno
+// uparivanje poništava odgodu razmjene s tim čvorom (nakon_uparivanja.go).
 func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOutcome, error) {
-	s.mu.Lock()
-	res := s.pending
-	s.pending = nil
-	s.mu.Unlock()
+	res := s.uzmiUparivanje()
 	if res == nil {
 		return PairOutcome{}, fmt.Errorf("nema uparivanja koje čeka odluku")
 	}
-
-	// Dvojnik imena se odbija prije nego što išta stigne drugoj strani: dva
-	// čvora istog imena miješala bi zapise u knjizi, a drugi bi tiho
-	// prepisao ključ prvoga na svim čvorovima.
-	if approved {
-		if err := s.provjeriImeDrugog(ctx, res.Peer.DeviceID, res.PeerKey); err != nil {
-			_, _, _ = res.Finish(false, nil)
-			return PairOutcome{Message: err.Error()}, nil
-		}
-	}
-
-	var given *welcomePack
-	if approved {
-		given = s.welcomeFor(ctx, res.Peer.DeviceID, res.PeerKey, primi)
+	given, err := s.dobrodoslica(ctx, res, approved, primi)
+	if err != nil {
+		_, _, _ = res.Finish(false, nil)
+		return PairOutcome{Message: err.Error()}, nil
 	}
 	ok, theirs, err := res.Finish(approved, given)
 	if err != nil {
@@ -676,7 +669,40 @@ func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOu
 	if !ok {
 		return PairOutcome{Message: "Uparivanje odbijeno ili nepotvrđeno s druge strane."}, nil
 	}
+	if err := s.spremiUparenog(ctx, res); err != nil {
+		return PairOutcome{}, err
+	}
+	out := s.primiDobrodoslicu(ctx, res, theirs, given)
+	s.nakonUparivanja(ctx, res.Peer.DeviceID, out.Member)
+	return out, nil
+}
 
+// uzmiUparivanje preuzima uparivanje koje čeka odluku; nil kad ga nema
+func (s *Service) uzmiUparivanje() *razmjena.PairResult {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	res := s.pending
+	s.pending = nil
+	return res
+}
+
+// dobrodoslica je paket koji uz potvrdu ide drugoj strani; bez potvrde
+// nema paketa. Dvojnik imena se odbija prije nego što išta stigne drugoj
+// strani: dva čvora istog imena miješala bi zapise u knjizi, a drugi bi
+// tiho prepisao ključ prvoga na svim čvorovima.
+func (s *Service) dobrodoslica(ctx context.Context, res *razmjena.PairResult, approved, primi bool) (*welcomePack, error) {
+	if !approved {
+		return nil, nil
+	}
+	if err := s.provjeriImeDrugog(ctx, res.Peer.DeviceID, res.PeerKey); err != nil {
+		return nil, err
+	}
+	return s.welcomeFor(ctx, res.Peer.DeviceID, res.PeerKey, primi), nil
+}
+
+// spremiUparenog upisuje upareni čvor s adresom s koje se javio uz adrese
+// koje je ovaj već znao
+func (s *Service) spremiUparenog(ctx context.Context, res *razmjena.PairResult) error {
 	now := time.Now().UTC()
 	peer := Peer{
 		NodeID:    res.Peer.DeviceID,
@@ -693,15 +719,19 @@ func (s *Service) ConfirmPair(ctx context.Context, approved, primi bool) (PairOu
 		peer.CreatedAt = existing.CreatedAt
 	}
 	if err := s.SavePeer(ctx, peer); err != nil {
-		return PairOutcome{}, err
+		return err
 	}
 	s.zapamtiUparivanje(ctx, peer.NodeID, res.PeerHost(), res.Peer.Meta["exchange_port"])
+	return nil
+}
 
+// primiDobrodoslicu obrađuje paket druge strane i kaže ishod uparivanja
+func (s *Service) primiDobrodoslicu(ctx context.Context, res *razmjena.PairResult, theirs json.RawMessage, given *welcomePack) PairOutcome {
 	member, msg, err := s.acceptWelcome(ctx, theirs, res.Peer.DeviceID, res.PeerKey, given)
 	if err != nil {
-		return PairOutcome{Paired: true, Message: err.Error()}, nil
+		return PairOutcome{Paired: true, Message: err.Error()}
 	}
-	return PairOutcome{Paired: true, Member: member, Message: msg}, nil
+	return PairOutcome{Paired: true, Member: member, Message: msg}
 }
 
 // ---------- razmjena verzija ----------
@@ -1189,7 +1219,7 @@ func (s *Service) RunAutoSync(ctx context.Context, every time.Duration) {
 		return
 	}
 	s.mu.Lock()
-	s.every, s.autoOn = every, true
+	s.every, s.autoOn, s.autoCtx = every, true, ctx
 	s.mu.Unlock()
 	// Prva razmjena ide pola minute nakon pokretanja, ne nakon punog
 	// razmaka: ažuriranje ili ponovno pokretanje inače ostavi čvorove
