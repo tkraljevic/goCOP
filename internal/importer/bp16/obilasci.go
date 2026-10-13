@@ -99,28 +99,10 @@ func (r ObilasciReport) Summary() string {
 // se stara evidencija ne ugasi.
 func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciReport, error) {
 	rep := ObilasciReport{Nepoznati: map[string]int{}, DryRun: deps.DryRun}
-	logf := deps.Log
-	if logf == nil {
-		logf = func(string, ...any) {}
-	}
-	imena := map[string]string{}
-	if us, ok := src.(interface {
-		Users(ctx context.Context) ([]json.RawMessage, error)
-	}); ok {
-		raw, err := us.Users(ctx)
-		if err != nil {
-			return rep, fmt.Errorf("korisnici: %w", err)
-		}
-		for _, r := range raw {
-			var u struct {
-				ID        string `json:"id"`
-				FirstName string `json:"first_name"`
-				LastName  string `json:"last_name"`
-			}
-			if json.Unmarshal(r, &u) == nil {
-				imena[u.ID] = strings.TrimSpace(u.FirstName + " " + u.LastName)
-			}
-		}
+	logf := zapisnik(deps.Log)
+	imena, err := imenaKorisnika(ctx, src)
+	if err != nil {
+		return rep, err
 	}
 	// vrijeme i vodostaji kakve je vodočuvar tog dana imao pred sobom
 	vrijeme := map[string]vrijemeDana{}
@@ -224,31 +206,8 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 		}
 
 		// fotografije obilaska: smanjene, u spremište sadržaja, kao prilozi lista
-		var prilozi []models.PrilogLista
-		var bajtovi [][]byte
-		for _, fid := range []string{o.Foto1, o.Foto2, o.Foto3} {
-			if fid == "" || deps.Datoteka == nil {
-				continue
-			}
-			b, err := deps.Datoteka(ctx, fid, "")
-			if err != nil {
-				logf("  obilazak %d: fotografija %s: %v", o.ID, fid, err)
-				continue
-			}
-			jpg, w, h, err := slike.Smanji(b)
-			if err != nil {
-				logf("  obilazak %d: fotografija %s: %v", o.ID, fid, err)
-				continue
-			}
-			prilozi = append(prilozi, models.PrilogLista{
-				ID:    uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+fid)).String(),
-				Naziv: fmt.Sprintf("fotografija %d", len(prilozi)+1),
-				Vrsta: "image/jpeg", Bajtova: len(jpg), Sirina: w, Visina: h,
-				Sadrzaj: sadrzaj.Otisak(jpg), ZadatakID: z.ID,
-			})
-			bajtovi = append(bajtovi, jpg)
-			rep.Slika++
-		}
+		prilozi, bajtovi := fotografijeObilaska(ctx, deps, o, izvor, z.ID, nil, logf)
+		rep.Slika += len(prilozi)
 
 		if deps.DryRun {
 			rep.Upisano++
@@ -294,11 +253,8 @@ func RunObilasci(ctx context.Context, src Source, deps ObilasciDeps) (ObilasciRe
 // takav prekinut uvoz već stavio na list zamijene se, pa ih na listu ne bude
 // dvaput.
 func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.VodocuvarskiList, z *models.Zadatak, prilozi []models.PrilogLista, bajtovi [][]byte) error {
-	listID := oznakaLista(l)
-	for i, pr := range prilozi {
-		if err := repo.SavePrilog(ctx, listID, pr.ID, bajtovi[i]); err != nil {
-			return fmt.Errorf("prilog: %w", err)
-		}
+	if err := spremiFotografije(ctx, repo, oznakaLista(l), prilozi, bajtovi); err != nil {
+		return err
 	}
 	l.Zadaci = zamijeniIliDodaj(l.Zadaci, models.ZadatakNaListu{
 		ID: z.ID, Tekst: z.Tekst, Zadao: z.Zadao, ZadanoAt: z.ZadanoAt, Status: z.Status,
@@ -313,6 +269,62 @@ func upisiObilazak(ctx context.Context, repo ObilasciRepo, l *models.Vodocuvarsk
 	z.ListID = l.ID
 	if err := repo.SaveZadatak(ctx, z); err != nil {
 		return fmt.Errorf("zadatak: %w", err)
+	}
+	return nil
+}
+
+// fotografijeObilaska preuzima i smanjuje fotografije obilaska koje
+// zadatak na listu još nema (ima, po oznaci priloga); broj u nazivu
+// nastavlja se na fotografije koje već ima. Fotografija koju Directus ne da
+// ili koja nije slika samo se zapiše.
+func fotografijeObilaska(ctx context.Context, deps ObilasciDeps, o obilazakRow, izvor, zadatakID string, ima map[string]bool, logf func(string, ...any)) ([]models.PrilogLista, [][]byte) {
+	if deps.Datoteka == nil {
+		return nil, nil
+	}
+	var prilozi []models.PrilogLista
+	var bajtovi [][]byte
+	for _, fid := range []string{o.Foto1, o.Foto2, o.Foto3} {
+		id := uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+fid)).String()
+		if fid == "" || ima[id] {
+			continue
+		}
+		jpg, w, h, ok := smanjenaFotografija(ctx, deps.Datoteka, o.ID, fid, logf)
+		if !ok {
+			continue
+		}
+		prilozi = append(prilozi, models.PrilogLista{
+			ID:    id,
+			Naziv: fmt.Sprintf("fotografija %d", len(ima)+len(prilozi)+1),
+			Vrsta: "image/jpeg", Bajtova: len(jpg), Sirina: w, Visina: h,
+			Sadrzaj: sadrzaj.Otisak(jpg), ZadatakID: zadatakID,
+		})
+		bajtovi = append(bajtovi, jpg)
+	}
+	return prilozi, bajtovi
+}
+
+// smanjenaFotografija preuzima izvornu fotografiju obilaska i smanjuje je;
+// greška se zapiše, a fotografija preskoči
+func smanjenaFotografija(ctx context.Context, datoteka func(ctx context.Context, id, upit string) ([]byte, error), oid int, fid string, logf func(string, ...any)) ([]byte, int, int, bool) {
+	b, err := datoteka(ctx, fid, "")
+	if err != nil {
+		logf("  obilazak %d: fotografija %s: %v", oid, fid, err)
+		return nil, 0, 0, false
+	}
+	jpg, w, h, err := slike.Smanji(b)
+	if err != nil {
+		logf("  obilazak %d: fotografija %s: %v", oid, fid, err)
+		return nil, 0, 0, false
+	}
+	return jpg, w, h, true
+}
+
+// spremiFotografije sprema fotografije obilaska u spremište sadržaja, uz list
+func spremiFotografije(ctx context.Context, repo ObilasciRepo, listID string, prilozi []models.PrilogLista, bajtovi [][]byte) error {
+	for i, pr := range prilozi {
+		if err := repo.SavePrilog(ctx, listID, pr.ID, bajtovi[i]); err != nil {
+			return fmt.Errorf("prilog: %w", err)
+		}
 	}
 	return nil
 }

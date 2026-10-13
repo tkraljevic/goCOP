@@ -329,3 +329,37 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		t.Errorf("bez spremišta: %v", err)
 	}
 }
+
+// Uvoz iz mape s ranije skinutim zbirkama nema odakle preuzeti datoteke:
+// prijava se prenese bez fotografija i bez skena, a izvornik je PDF iz
+// podataka.
+func TestUvozObavijestiBezDohvataDatoteka(t *testing.T) {
+	_, repo := bazaPrijava(t)
+	ctx := context.Background()
+	src := probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Marko","last_name":"Markić"}`),
+		"obavijesti_sa_terena": raw(`{"id":40,"status":"objavljeno","date_created":"2024-07-02T08:00:00Z","user_created":"u-1",` +
+			`"vodocuvarsko_podrucje":"KARAŠICA SEKTOR","naslov":"Iz mape","slika_1":"s1","datoteka":"d1"}`),
+	}}
+	var slikeUPDF int
+	rep, err := RunPrijave(ctx, src, PrijaveDeps{
+		Prijave:   repo,
+		Korisnici: map[string]KorisnikUvoza{"Marko Markić": {ID: "g-1", Ime: "Marko Markić"}},
+		Podrucja:  map[string]int{"KARAŠICA SEKTOR": 16},
+		Sektor:    "B",
+		IzradiPDF: func(_ *models.PrijavaSTerena, slike map[string][]byte) []byte {
+			slikeUPDF = len(slike)
+			return []byte("%PDF-1.4\niz podataka")
+		},
+	})
+	if err != nil || rep.Upisano != 1 || rep.Slika != 0 || rep.Skenova != 0 {
+		t.Fatalf("uvoz iz mape: %+v, %v", rep, err)
+	}
+	p, _ := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:40")
+	if p == nil || len(p.Slike) != 0 || p.Sken != "" || slikeUPDF != 0 {
+		t.Fatalf("prijava iz mape: %+v, slika u PDF-u %d", p, slikeUPDF)
+	}
+	if iz, _ := repo.Izvornik(ctx, p.ID); iz == nil || string(iz.PDF) != "%PDF-1.4\niz podataka" {
+		t.Errorf("izvornik prijave iz mape: %+v", iz)
+	}
+}

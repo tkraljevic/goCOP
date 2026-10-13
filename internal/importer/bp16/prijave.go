@@ -144,238 +144,440 @@ func vodePoOznaci(ctx context.Context, src Source) (map[int]string, error) {
 // RunPrijave uvozi obavijesti s terena
 func RunPrijave(ctx context.Context, src Source, deps PrijaveDeps) (PrijaveReport, error) {
 	rep := PrijaveReport{DryRun: deps.DryRun, PoKorisniku: map[string]int{}, PoPodrucju: map[string]int{}, Nepoznati: map[string]int{}}
-	logf := deps.Log
-	if logf == nil {
-		logf = func(string, ...any) {}
+	u := &uvozPrijava{deps: deps, rep: &rep, logf: zapisnik(deps.Log), brojevi: map[int]int{}}
+	var err error
+	if u.imena, err = imenaKorisnika(ctx, src); err != nil {
+		return rep, err
 	}
-	// korisnici Directusa po oznaci, vode po oznaci
-	imena := map[string]string{}
-	if us, ok := src.(interface {
-		Users(ctx context.Context) ([]json.RawMessage, error)
-	}); ok {
-		raw, err := us.Users(ctx)
-		if err != nil {
-			return rep, fmt.Errorf("korisnici: %w", err)
-		}
-		for _, r := range raw {
-			var u struct {
-				ID        string `json:"id"`
-				FirstName string `json:"first_name"`
-				LastName  string `json:"last_name"`
-			}
-			if json.Unmarshal(r, &u) == nil {
-				imena[u.ID] = strings.TrimSpace(u.FirstName + " " + u.LastName)
-			}
-		}
+	if u.vode, err = vodePoOznaci(ctx, src); err != nil {
+		return rep, err
 	}
-	vode, err := vodePoOznaci(ctx, src)
+	redovi, err := obavijestiPoVremenu(ctx, src)
 	if err != nil {
 		return rep, err
 	}
+	rep.Ukupno = len(redovi)
+	for _, o := range redovi {
+		if err := u.uvezi(ctx, o); err != nil {
+			return rep, err
+		}
+	}
+	return rep, nil
+}
+
+// uvozPrijava je stanje jednog uvoza obavijesti: što uvoz treba od
+// programa, izvješće i ono što je pročitao prije prve obavijesti
+type uvozPrijava struct {
+	deps    PrijaveDeps
+	rep     *PrijaveReport
+	logf    func(string, ...any)
+	imena   map[string]string // korisnici Directusa po oznaci
+	vode    map[int]string    // vode po oznaci
+	brojevi map[int]int       // sljedeći broj prijave po godini
+}
+
+// zapisnik je zadani zapisnik uvoza, a bez njega zapisnik koji ništa ne piše
+func zapisnik(logf func(string, ...any)) func(string, ...any) {
+	if logf == nil {
+		return func(string, ...any) {}
+	}
+	return logf
+}
+
+// imenaKorisnika su imena i prezimena korisnika Directusa po oznaci; izvor
+// bez korisnika, npr. mapa bez directus_users, daje prazan popis
+func imenaKorisnika(ctx context.Context, src Source) (map[string]string, error) {
+	imena := map[string]string{}
+	us, ok := src.(UserSource)
+	if !ok {
+		return imena, nil
+	}
+	raw, err := us.Users(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("korisnici: %w", err)
+	}
+	for _, r := range raw {
+		var k struct {
+			ID        string `json:"id"`
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+		}
+		if json.Unmarshal(r, &k) == nil {
+			imena[k.ID] = strings.TrimSpace(k.FirstName + " " + k.LastName)
+		}
+	}
+	return imena, nil
+}
+
+// obavijestiPoVremenu čita zbirku obavijesti poredanu po vremenu upisa, jer
+// brojevi prijava u godini idu redom kojim su obavijesti nastale
+func obavijestiPoVremenu(ctx context.Context, src Source) ([]obavijestRow, error) {
 	raw, err := src.Items(ctx, "obavijesti_sa_terena")
 	if err != nil {
-		return rep, err
+		return nil, err
 	}
-	var redovi []obavijestRow
+	redovi := make([]obavijestRow, 0, len(raw))
 	for _, r := range raw {
 		var o obavijestRow
 		if err := json.Unmarshal(r, &o); err != nil {
-			return rep, fmt.Errorf("obavijest: %w", err)
+			return nil, fmt.Errorf("obavijest: %w", err)
 		}
 		redovi = append(redovi, o)
 	}
 	sort.SliceStable(redovi, func(i, j int) bool { return redovi[i].DateCreated < redovi[j].DateCreated })
-	rep.Ukupno = len(redovi)
+	return redovi, nil
+}
 
-	brojevi := map[int]int{} // sljedeći broj po godini
-	for _, o := range redovi {
-		izvor := fmt.Sprintf("bp16:obavijesti_sa_terena:%d", o.ID)
-		prenesena, err := deps.Prijave.PoIzvoru(ctx, izvor)
-		if err != nil {
-			return rep, fmt.Errorf("obavijest %d: čitanje prenesene prijave: %w", o.ID, err)
-		}
-		if prenesena != nil {
-			rep.Postoje++
-			continue
-		}
-		ime := imena[o.UserCreated]
-		k, ok := deps.Korisnici[ime]
-		if !ok {
-			rep.BezKorisnika++
-			rep.Nepoznati[ime]++
-			continue
-		}
-		area, ok := deps.Podrucja[strings.ToUpper(strings.TrimSpace(o.Podrucje))]
-		if !ok {
-			rep.BezPodrucja++
-			rep.Nepoznati["područje "+o.Podrucje]++
-			continue
-		}
-		kad, err := time.Parse(time.RFC3339, o.DateCreated)
-		if err != nil {
-			kad = time.Now()
-		}
-		kad = kad.In(models.Zagreb)
-		p := &models.PrijavaSTerena{
-			ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor)).String(), UserID: k.ID, Ime: k.Ime, Sektor: deps.Sektor, AreaID: area,
-			Vrsta: vrstaPrijave(o.Vrsta), Naslov: strings.TrimSpace(o.Naslov), Opis: strings.TrimSpace(o.Opis), Datum: kad,
-			Element: strings.TrimSpace(o.Element), Vaznost: strings.TrimSpace(o.Vaznost), Cvor: deps.Cvor,
-			Izvor: izvor, Rekonstrukcija: true, CreatedAt: kad, UpdatedAt: kad,
-		}
-		if p.Naslov == "" {
-			p.Naslov = "(bez naslova)"
-		}
-		if o.Cuvarnica != "" && o.Cuvarnica != "-" {
-			p.Objekt = "čuvarnica " + strings.Title(strings.ToLower(o.Cuvarnica))
-		}
-		if len(o.NazivVodotoka) > 0 {
-			var id int
-			if json.Unmarshal(o.NazivVodotoka, &id) == nil {
-				p.Vodotok = vode[id]
-			} else {
-				var v struct {
-					Voda string `json:"voda"`
-				}
-				if json.Unmarshal(o.NazivVodotoka, &v) == nil {
-					p.Vodotok = v.Voda
-				}
-			}
-		}
-		if o.Lokacija != nil {
-			if lon, lat, ok := prvaTocka(o.Lokacija.Coordinates); ok && lat > 40 && lat < 50 && lon > 13 && lon < 20 {
-				p.Latitude, p.Longitude = &lat, &lon
-			}
-		}
-		switch strings.ToLower(o.Status) {
-		case "objavljeno":
-			p.Status = models.PrijavaObjavljena
-		case "arhivirano":
-			p.Status = models.PrijavaRijesena
-		default:
-			p.Status = models.PrijavaNacrt
-			rep.Nacrta++
-		}
-		if p.Status != models.PrijavaNacrt {
-			t := kad
-			p.ObjavljenoAt = &t
-			p.Godina = kad.Year()
-			if brojevi[p.Godina] == 0 {
-				n, err := deps.Prijave.SljedeciBroj(ctx, deps.Sektor, p.Godina)
-				if err != nil {
-					return rep, err
-				}
-				brojevi[p.Godina] = n
-			}
-			p.Broj = brojevi[p.Godina]
-			brojevi[p.Godina]++
-		}
-		rep.PoKorisniku[k.Ime]++
-		rep.PoPodrucju[fmt.Sprintf("BP %d (%s)", area, o.Podrucje)]++
-
-		if deps.DryRun {
-			// bez preuzimanja: samo prebroji što bi se prenijelo
-			for _, sid := range []string{o.Slika1, o.Slika2, o.Slika3} {
-				if sid != "" {
-					rep.Slika++
-				}
-			}
-			if o.Datoteka != "" {
-				rep.Skenova++
-			}
-			rep.Upisano++
-			continue
-		}
-		// slike: smanjene JPEG kako ih Directus daje na traženu mjeru
-		var slikeBajtovi [][]byte
-		for _, sid := range []string{o.Slika1, o.Slika2, o.Slika3} {
-			if sid == "" || deps.Datoteka == nil {
-				continue
-			}
-			// Uzima se izvorna datoteka, jer samo ona nosi zapis fotoaparata
-			// (kad je snimljeno, čime); Directusova smanjena ga briše. Tek kad
-			// izvorne nema, uzme se smanjena.
-			b, err := deps.Datoteka(ctx, sid, "")
-			if err != nil {
-				b, err = deps.Datoteka(ctx, sid, "width=1600&height=1600&fit=inside&quality=82&format=jpg")
-			}
-			if err != nil {
-				logf("  obavijest %d: slika %s: %v", o.ID, sid, err)
-				continue
-			}
-			jpg, w, h, err := slike.Smanji(b)
-			if err != nil {
-				logf("  obavijest %d: slika %s: %v", o.ID, sid, err)
-				continue
-			}
-			sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Naziv: "fotografija " + fmt.Sprint(len(p.Slike)+1), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
-			if e := slike.Procitaj(b); true {
-				if !e.Snimljeno.IsZero() {
-					k := e.Snimljeno
-					sl.Snimljeno = &k
-				}
-				sl.Lat, sl.Lon, sl.Uredjaj = e.Lat, e.Lon, e.Uredjaj
-				otisak := sha256.Sum256(b)
-				sl.IzvornoBajtova, sl.Otisak = len(b), hex.EncodeToString(otisak[:])
-				if !p.ImaKoordinate() && sl.ImaPolozaj() {
-					lat, lon := e.Lat, e.Lon
-					p.Latitude, p.Longitude = &lat, &lon
-				}
-			}
-			p.Slike = append(p.Slike, sl)
-			slikeBajtovi = append(slikeBajtovi, jpg)
-			rep.Slika++
-		}
-		// sken potpisanog ispisa preuzima se samo kad ga ima kamo spremiti ili
-		// kad PDF iz podataka nije moguć; inače ostaje u staroj evidenciji
-		var sken []byte
-		if o.Datoteka != "" && deps.Datoteka != nil && (deps.SpremiSken != nil || deps.IzradiPDF == nil) {
-			b, err := deps.Datoteka(ctx, o.Datoteka, "")
-			if err != nil {
-				logf("  obavijest %d: datoteka %s: %v", o.ID, o.Datoteka, err)
-			} else if len(b) > 8 && string(b[:4]) == "%PDF" {
-				sken = b
-				rep.Skenova++
-			} else {
-				logf("  obavijest %d: datoteka %s nije PDF, preskačem", o.ID, o.Datoteka)
-			}
-		}
-		if err := deps.Prijave.Save(ctx, p); err != nil {
-			return rep, fmt.Errorf("obavijest %d: %w", o.ID, err)
-		}
-		slikeMapa := map[string][]byte{}
-		for i, sl := range p.Slike {
-			slikeMapa[sl.ID] = slikeBajtovi[i]
-			if deps.SlikeOdmah && p.Status != models.PrijavaNacrt {
-				continue
-			}
-			if err := deps.Prijave.SaveSlika(ctx, sl.ID, p.ID, slikeBajtovi[i]); err != nil {
-				return rep, fmt.Errorf("obavijest %d, slika: %w", o.ID, err)
-			}
-		}
-		if len(sken) > 0 && deps.SpremiSken != nil {
-			naziv, err := deps.SpremiSken(p, sken)
-			if err != nil {
-				return rep, fmt.Errorf("obavijest %d, sken: %w", o.ID, err)
-			}
-			p.Sken = naziv
-			if err := deps.Prijave.Save(ctx, p); err != nil {
-				return rep, fmt.Errorf("obavijest %d: %w", o.ID, err)
-			}
-		}
-		// izvornik u knjizi: sken kad nema kamo drugamo, inače PDF iz podataka
-		var izvornik []byte
-		if len(sken) > 0 && deps.SpremiSken == nil {
-			izvornik = sken
-		} else if deps.IzradiPDF != nil && p.Status != models.PrijavaNacrt {
-			izvornik = deps.IzradiPDF(p, slikeMapa)
-		}
-		if len(izvornik) > 0 {
-			h := sha256.Sum256(izvornik)
-			if err := deps.Prijave.SpremiIzvornik(ctx, p.ID, izvornik, hex.EncodeToString(h[:])); err != nil {
-				return rep, fmt.Errorf("obavijest %d, izvornik: %w", o.ID, err)
-			}
-		}
-		rep.Upisano++
+// uvezi prenosi jednu obavijest; preskače onu koja je već prenesena i onu
+// kojoj se ne zna vodočuvar ili područje
+func (u *uvozPrijava) uvezi(ctx context.Context, o obavijestRow) error {
+	izvor := fmt.Sprintf("bp16:obavijesti_sa_terena:%d", o.ID)
+	prenesena, err := u.deps.Prijave.PoIzvoru(ctx, izvor)
+	if err != nil {
+		return fmt.Errorf("obavijest %d: čitanje prenesene prijave: %w", o.ID, err)
 	}
-	return rep, nil
+	if prenesena != nil {
+		u.rep.Postoje++
+		return nil
+	}
+	p := u.prijava(o, izvor)
+	if p == nil {
+		return nil
+	}
+	if err := u.numeriraj(ctx, p); err != nil {
+		return err
+	}
+	u.rep.PoKorisniku[p.Ime]++
+	u.rep.PoPodrucju[fmt.Sprintf("BP %d (%s)", p.AreaID, o.Podrucje)]++
+	if u.deps.DryRun {
+		u.prebroji(o)
+		return nil
+	}
+	return u.prenesi(ctx, o, izvor, p)
+}
+
+// prijava slaže prijavu iz obavijesti; nil kad se ne zna vodočuvar ili
+// područje, što izvješće broji
+func (u *uvozPrijava) prijava(o obavijestRow, izvor string) *models.PrijavaSTerena {
+	k, area, ok := u.osobaIPodrucje(o)
+	if !ok {
+		return nil
+	}
+	kad, err := time.Parse(time.RFC3339, o.DateCreated)
+	if err != nil {
+		kad = time.Now()
+	}
+	p := novaPrijava(o, izvor, k, area, kad.In(models.Zagreb), u.deps)
+	p.Vodotok = vodotokObavijesti(o.NazivVodotoka, u.vode)
+	p.Latitude, p.Longitude = tockaObavijesti(o)
+	p.Status = statusObavijesti(o.Status)
+	if p.Status == models.PrijavaNacrt {
+		u.rep.Nacrta++
+	}
+	return p
+}
+
+// osobaIPodrucje nalazi vodočuvara i branjeno područje obavijesti; kad
+// jednog od njih nema, izvješće ga broji pod nepoznato
+func (u *uvozPrijava) osobaIPodrucje(o obavijestRow) (KorisnikUvoza, int, bool) {
+	ime := u.imena[o.UserCreated]
+	k, ok := u.deps.Korisnici[ime]
+	if !ok {
+		u.rep.BezKorisnika++
+		u.rep.Nepoznati[ime]++
+		return k, 0, false
+	}
+	area, ok := u.deps.Podrucja[strings.ToUpper(strings.TrimSpace(o.Podrucje))]
+	if !ok {
+		u.rep.BezPodrucja++
+		u.rep.Nepoznati["područje "+o.Podrucje]++
+		return k, 0, false
+	}
+	return k, area, true
+}
+
+// novaPrijava je rekonstruirana prijava s podacima obavijesti; oznaka je
+// izvedena iz izvora, pa je ista pri svakom uvozu
+func novaPrijava(o obavijestRow, izvor string, k KorisnikUvoza, area int, kad time.Time, deps PrijaveDeps) *models.PrijavaSTerena {
+	p := &models.PrijavaSTerena{
+		ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor)).String(), UserID: k.ID, Ime: k.Ime, Sektor: deps.Sektor, AreaID: area,
+		Vrsta: vrstaPrijave(o.Vrsta), Naslov: strings.TrimSpace(o.Naslov), Opis: strings.TrimSpace(o.Opis), Datum: kad,
+		Element: strings.TrimSpace(o.Element), Vaznost: strings.TrimSpace(o.Vaznost), Cvor: deps.Cvor,
+		Izvor: izvor, Rekonstrukcija: true, CreatedAt: kad, UpdatedAt: kad,
+	}
+	if p.Naslov == "" {
+		p.Naslov = "(bez naslova)"
+	}
+	if o.Cuvarnica != "" && o.Cuvarnica != "-" {
+		p.Objekt = "čuvarnica " + strings.Title(strings.ToLower(o.Cuvarnica))
+	}
+	return p
+}
+
+// vodotokObavijesti je naziv vode: obavijest je navodi oznakom iz zbirke
+// vode ili kao zapis s nazivom
+func vodotokObavijesti(raw json.RawMessage, vode map[int]string) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var id int
+	if json.Unmarshal(raw, &id) == nil {
+		return vode[id]
+	}
+	var v struct {
+		Voda string `json:"voda"`
+	}
+	_ = json.Unmarshal(raw, &v) // nečitljiv zapis ostavlja prijavu bez vode
+	return v.Voda
+}
+
+// tockaObavijesti je mjesto obavijesti kad je ucrtano u Hrvatskoj; točka
+// izvan nje je omaška pri ucrtavanju i ne uzima se
+func tockaObavijesti(o obavijestRow) (lat, lon *float64) {
+	if o.Lokacija == nil {
+		return nil, nil
+	}
+	if x, y, ok := prvaTocka(o.Lokacija.Coordinates); ok && uHrvatskoj(y, x) {
+		return &y, &x
+	}
+	return nil, nil
+}
+
+// uHrvatskoj je grub okvir oko Hrvatske, dovoljan da odbaci zamijenjene ili
+// izmišljene koordinate
+func uHrvatskoj(lat, lon float64) bool {
+	return lat > 40 && lat < 50 && lon > 13 && lon < 20
+}
+
+// statusObavijesti prevodi stanje zapisa u Directusu
+func statusObavijesti(s string) string {
+	switch strings.ToLower(s) {
+	case "objavljeno":
+		return models.PrijavaObjavljena
+	case "arhivirano":
+		return models.PrijavaRijesena
+	}
+	return models.PrijavaNacrt
+}
+
+// numeriraj daje objavljenoj prijavi broj u godini, nastavljajući na brojeve
+// koje sektor već ima; nacrt ostaje bez broja
+func (u *uvozPrijava) numeriraj(ctx context.Context, p *models.PrijavaSTerena) error {
+	if p.Status == models.PrijavaNacrt {
+		return nil
+	}
+	t := p.Datum
+	p.ObjavljenoAt = &t
+	p.Godina = p.Datum.Year()
+	if u.brojevi[p.Godina] == 0 {
+		n, err := u.deps.Prijave.SljedeciBroj(ctx, u.deps.Sektor, p.Godina)
+		if err != nil {
+			return err
+		}
+		u.brojevi[p.Godina] = n
+	}
+	p.Broj = u.brojevi[p.Godina]
+	u.brojevi[p.Godina]++
+	return nil
+}
+
+// prebroji broji što bi suhi prolaz prenio, bez preuzimanja
+func (u *uvozPrijava) prebroji(o obavijestRow) {
+	u.rep.Slika += len(slikeObavijesti(o))
+	if o.Datoteka != "" {
+		u.rep.Skenova++
+	}
+	u.rep.Upisano++
+}
+
+// slikeObavijesti su oznake fotografija obavijesti u Directusu, redom
+func slikeObavijesti(o obavijestRow) []string {
+	var out []string
+	for _, sid := range []string{o.Slika1, o.Slika2, o.Slika3} {
+		if sid != "" {
+			out = append(out, sid)
+		}
+	}
+	return out
+}
+
+// prenesi preuzima fotografije i sken obavijesti i sprema prijavu
+func (u *uvozPrijava) prenesi(ctx context.Context, o obavijestRow, izvor string, p *models.PrijavaSTerena) error {
+	slike := u.fotografije(ctx, o, izvor)
+	staviSlike(p, slike)
+	u.rep.Slika += len(slike)
+	sken := u.sken(ctx, o)
+	if err := u.spremi(ctx, o.ID, p, slike, sken); err != nil {
+		return err
+	}
+	u.rep.Upisano++
+	return nil
+}
+
+// slikaUvoza je fotografija obavijesti, opisana za prijavu, sa smanjenim
+// bajtovima
+type slikaUvoza struct {
+	models.SlikaPrijave
+	jpg []byte
+}
+
+// fotografije preuzima fotografije obavijesti redom kojim ih evidencija
+// navodi; fotografija koju Directus ne da ili koja nije slika samo se
+// zapiše
+func (u *uvozPrijava) fotografije(ctx context.Context, o obavijestRow, izvor string) []slikaUvoza {
+	if u.deps.Datoteka == nil {
+		return nil
+	}
+	var out []slikaUvoza
+	for _, sid := range slikeObavijesti(o) {
+		if s, ok := u.fotografija(ctx, o.ID, izvor, sid); ok {
+			s.Naziv = fmt.Sprintf("fotografija %d", len(out)+1)
+			out = append(out, s)
+		}
+	}
+	return out
+}
+
+// fotografija preuzima i smanjuje jednu fotografiju. Uzima se izvorna
+// datoteka, jer samo ona nosi zapis fotoaparata (kad je snimljeno, čime);
+// Directusova smanjena ga briše. Tek kad izvorne nema, uzme se smanjena.
+func (u *uvozPrijava) fotografija(ctx context.Context, oid int, izvor, sid string) (slikaUvoza, bool) {
+	b, err := u.deps.Datoteka(ctx, sid, "")
+	if err != nil {
+		b, err = u.deps.Datoteka(ctx, sid, "width=1600&height=1600&fit=inside&quality=82&format=jpg")
+	}
+	if err != nil {
+		u.logf("  obavijest %d: slika %s: %v", oid, sid, err)
+		return slikaUvoza{}, false
+	}
+	jpg, w, h, err := slike.Smanji(b)
+	if err != nil {
+		u.logf("  obavijest %d: slika %s: %v", oid, sid, err)
+		return slikaUvoza{}, false
+	}
+	sl := models.SlikaPrijave{ID: uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop/"+izvor+"/"+sid)).String(), Sirina: w, Visina: h, Bajtova: len(jpg), Sadrzaj: sadrzaj.Otisak(jpg)}
+	e := slike.Procitaj(b)
+	if !e.Snimljeno.IsZero() {
+		k := e.Snimljeno
+		sl.Snimljeno = &k
+	}
+	sl.Lat, sl.Lon, sl.Uredjaj = e.Lat, e.Lon, e.Uredjaj
+	otisak := sha256.Sum256(b)
+	sl.IzvornoBajtova, sl.Otisak = len(b), hex.EncodeToString(otisak[:])
+	return slikaUvoza{SlikaPrijave: sl, jpg: jpg}, true
+}
+
+// staviSlike stavlja fotografije na prijavu; prijava bez ucrtanog mjesta
+// uzme mjesto prve fotografije koja ga zna
+func staviSlike(p *models.PrijavaSTerena, slike []slikaUvoza) {
+	for _, s := range slike {
+		p.Slike = append(p.Slike, s.SlikaPrijave)
+		if !p.ImaKoordinate() && s.ImaPolozaj() {
+			lat, lon := s.Lat, s.Lon
+			p.Latitude, p.Longitude = &lat, &lon
+		}
+	}
+}
+
+// sken preuzima sken potpisanog ispisa kad ga ima kamo spremiti ili kad
+// PDF iz podataka nije moguć; inače ostaje u staroj evidenciji. Sken koji
+// se ne da preuzeti ili nije PDF samo se zapiše.
+func (u *uvozPrijava) sken(ctx context.Context, o obavijestRow) []byte {
+	if !u.trebaSken(o) {
+		return nil
+	}
+	b, err := u.deps.Datoteka(ctx, o.Datoteka, "")
+	if err != nil {
+		u.logf("  obavijest %d: datoteka %s: %v", o.ID, o.Datoteka, err)
+		return nil
+	}
+	if !jePDF(b) {
+		u.logf("  obavijest %d: datoteka %s nije PDF, preskačem", o.ID, o.Datoteka)
+		return nil
+	}
+	u.rep.Skenova++
+	return b
+}
+
+// trebaSken javlja treba li obavijesti preuzeti sken
+func (u *uvozPrijava) trebaSken(o obavijestRow) bool {
+	return o.Datoteka != "" && u.deps.Datoteka != nil && (u.deps.SpremiSken != nil || u.deps.IzradiPDF == nil)
+}
+
+// jePDF javlja počinju li bajtovi kao PDF
+func jePDF(b []byte) bool {
+	return len(b) > 8 && string(b[:4]) == "%PDF"
+}
+
+// spremi sprema prijavu, njezine fotografije, sken i izvornik
+func (u *uvozPrijava) spremi(ctx context.Context, oid int, p *models.PrijavaSTerena, slike []slikaUvoza, sken []byte) error {
+	if err := u.deps.Prijave.Save(ctx, p); err != nil {
+		return fmt.Errorf("obavijest %d: %w", oid, err)
+	}
+	for id, jpg := range u.zaSpremiste(p, slike) {
+		if err := u.deps.Prijave.SaveSlika(ctx, id, p.ID, jpg); err != nil {
+			return fmt.Errorf("obavijest %d, slika: %w", oid, err)
+		}
+	}
+	if err := u.spremiSken(p, sken); err != nil {
+		return fmt.Errorf("obavijest %d, sken: %w", oid, err)
+	}
+	if p.Sken != "" {
+		if err := u.deps.Prijave.Save(ctx, p); err != nil {
+			return fmt.Errorf("obavijest %d: %w", oid, err)
+		}
+	}
+	izvornik := u.izvornik(p, slike, sken)
+	if len(izvornik) == 0 {
+		return nil
+	}
+	h := sha256.Sum256(izvornik)
+	if err := u.deps.Prijave.SpremiIzvornik(ctx, p.ID, izvornik, hex.EncodeToString(h[:])); err != nil {
+		return fmt.Errorf("obavijest %d, izvornik: %w", oid, err)
+	}
+	return nil
+}
+
+// zaSpremiste su fotografije koje se čuvaju uz prijavu, po oznaci; uz
+// SlikeOdmah objavljena prijava ih ne čuva, jer ih nosi izvornik
+func (u *uvozPrijava) zaSpremiste(p *models.PrijavaSTerena, slike []slikaUvoza) map[string][]byte {
+	if u.deps.SlikeOdmah && p.Status != models.PrijavaNacrt {
+		return nil
+	}
+	return bajtoviSlika(slike)
+}
+
+// bajtoviSlika su smanjene fotografije po oznaci
+func bajtoviSlika(slike []slikaUvoza) map[string][]byte {
+	m := map[string][]byte{}
+	for _, s := range slike {
+		m[s.ID] = s.jpg
+	}
+	return m
+}
+
+// spremiSken sprema sken uz bazu kad ga ima kamo spremiti; sken ostaje
+// lokalni prilog, izvornik u knjizi je PDF iz podataka
+func (u *uvozPrijava) spremiSken(p *models.PrijavaSTerena, sken []byte) error {
+	if len(sken) == 0 || u.deps.SpremiSken == nil {
+		return nil
+	}
+	naziv, err := u.deps.SpremiSken(p, sken)
+	if err != nil {
+		return err
+	}
+	p.Sken = naziv
+	return nil
+}
+
+// izvornik je PDF koji ide u knjigu: sken kad ga nema kamo drugamo, inače
+// PDF iz podataka za objavljenu prijavu; nacrt izvornika nema
+func (u *uvozPrijava) izvornik(p *models.PrijavaSTerena, slike []slikaUvoza, sken []byte) []byte {
+	if len(sken) > 0 && u.deps.SpremiSken == nil {
+		return sken
+	}
+	if u.deps.IzradiPDF == nil || p.Status == models.PrijavaNacrt {
+		return nil
+	}
+	return u.deps.IzradiPDF(p, bajtoviSlika(slike))
 }
