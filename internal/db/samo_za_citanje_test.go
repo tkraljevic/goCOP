@@ -51,6 +51,22 @@ func TestSamoZaCitanjeNePise(t *testing.T) {
 	}
 }
 
+// Zaključava razlog zbog kojeg SamoZaCitanje postoji: „?mode=ro” iza običnog
+// puta driver odbaci, pa veza i piše. Kad ovaj test padne, driver je počeo
+// poštovati „?mode=ro” i na običnom putu, pa komentar uz SamoZaCitanje treba
+// ispraviti.
+func TestModeRoNaObicnomPutuNeBraniUpis(t *testing.T) {
+	put := bazaUMapi(t, filepath.Join(t.TempDir(), "podaci"))
+	veza, err := sql.Open("sqlite", put+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer veza.Close()
+	if _, err := veza.Exec(`INSERT INTO nizovi VALUES ('drugovo')`); err != nil {
+		t.Errorf("upis kroz „?mode=ro” na običnom putu odbijen je (%v): komentar uz SamoZaCitanje više ne vrijedi", err)
+	}
+}
+
 // bazaUMapi slaže malu bazu s jednim nizom u zadanoj mapi. Baza nastaje na
 // običnom putu pa se premjesti, jer bi običan put s „?” otvorio drugu
 // datoteku.

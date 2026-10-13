@@ -513,7 +513,8 @@ func TestOtisakArhivePoZatvaranjuSvihVeza(t *testing.T) {
 	if _, err := pise.Exec(`INSERT INTO spoj VALUES ('gornja', 'vodostaj', 'dnevni', 0, 1)`); err != nil {
 		t.Fatal(err)
 	}
-	cita, err := sql.Open("sqlite", put+"?mode=ro")
+	// Veza koja čita otvara se kao na poslužitelju, samo za čitanje.
+	cita, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -521,15 +522,14 @@ func TestOtisakArhivePoZatvaranjuSvihVeza(t *testing.T) {
 	if z := otisakArhive(cita); z.promijenjen(prije) || prije.wal.velicina == 0 {
 		t.Fatalf("čitanje je promijenilo otisak ili zapisnika nema: %+v, %+v", prije, z)
 	}
-	// „?mode=ro” na običnom putu ne brani upis.
-	if _, err := cita.Exec(`INSERT INTO spoj VALUES ('gornja', 'vodostaj', 'dnevni', 86400, 2)`); err != nil {
-		t.Errorf("upis kroz ?mode=ro odbijen (%v): komentar uz zigArhive više ne vrijedi", err)
+	if _, err := pise.Exec(`INSERT INTO spoj VALUES ('gornja', 'vodostaj', 'dnevni', 86400, 2)`); err != nil {
+		t.Fatal(err)
 	}
 	prije = otisakArhive(cita)
 	pise.Close()
 	cita.Close()
 
-	opet, err := sql.Open("sqlite", put+"?mode=ro")
+	opet, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put))
 	if err != nil {
 		t.Fatal(err)
 	}
