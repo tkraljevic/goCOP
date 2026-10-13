@@ -275,8 +275,11 @@ func TestRazmjenaOdbijaPozivateljaBezKljucaCvora(t *testing.T) {
 	}
 	defer c.Close()
 	_ = c.SetReadDeadline(time.Now().Add(5 * time.Second))
-	if _, err := c.Read(make([]byte, 1)); err == nil {
-		t.Error("veza pozivatelja bez ključa čvora nije zatvorena")
+	// istek roka znači da je slušalica vezu ostavila otvorenu
+	_, err = c.Read(make([]byte, 1))
+	var ne net.Error
+	if err == nil || (errors.As(err, &ne) && ne.Timeout()) {
+		t.Errorf("veza pozivatelja bez ključa čvora nije zatvorena: %v", err)
 	}
 	select {
 	case <-obradjeno:
