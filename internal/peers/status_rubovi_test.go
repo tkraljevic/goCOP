@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gocop/internal/razmjena"
 )
 
 // Ploča kaže što ne štima: čvor bez mreže i čvor bez poznatih čvorova samo
@@ -94,14 +96,20 @@ func upisiStanje(t *testing.T, s *Service, id string, zadnjiPut time.Time, neusp
 // nedavno uspjela na mreži je i kad ga ovaj ne može nazvati.
 func TestPlocaRedoslijedIDostupnost(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
-	clan := rubniCvor(t, "ured-vukovar")
-	primiIzravno(t, s, clan)
+	clan := izmisljeniKljuc(t)
+	m, err := s.izdajClanstvo(ctxRub, "ured-vukovar", clan)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.saveMembership(ctxRub, m); err != nil {
+		t.Fatal(err)
+	}
 	sada := time.Now().UTC()
 	for _, p := range []struct {
 		id, ime string
 		kljuc   string
 	}{
-		{"ured-vukovar", "Ured Vukovar", clan.node.PublicKey()},
+		{"ured-vukovar", "Ured Vukovar", razmjena.PublicKeyString(clan)},
 		{"laptop-baranja", "Laptop Baranja", javniKljuc(t)},
 		{"novi-b", "Novi B", javniKljuc(t)},
 		{"novi-a", "Novi A", javniKljuc(t)},

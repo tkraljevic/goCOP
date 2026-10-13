@@ -22,6 +22,16 @@ import (
 	"gocop/internal/razmjena"
 )
 
+// izmisljeniKljuc je javni ključ računala koje u testu ne treba vlastitu bazu
+func izmisljeniKljuc(t *testing.T) ed25519.PublicKey {
+	t.Helper()
+	k, err := razmjena.ParsePublicKey(javniKljuc(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
+}
+
 // Mreža se ne osniva dvaput, ni bez naziva, ni preko zatečene datoteke
 // ključa koja se ne da pročitati.
 func TestOsnivanjeMrezeOdbija(t *testing.T) {
@@ -102,8 +112,8 @@ func TestOsnivanjeMrezeKadSeKljucNeMozeZapisati(t *testing.T) {
 func TestPristupMreziOdbijaNeispravanPaket(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	b := rubniCvor(t, "ured-vukovar")
-	tudji := rubniCvor(t, "laptop-baranja")
-	m, err := a.izdajClanstvo(ctxRub, tudji.node.ID, tudji.javni())
+	tudji := izmisljeniKljuc(t)
+	m, err := a.izdajClanstvo(ctxRub, "laptop-baranja", tudji)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -157,8 +167,8 @@ func TestOpozivPrimateljaOpozivaINjegovePrimljene(t *testing.T) {
 	if err := b.saveOvlast(ctxRub, o); err != nil {
 		t.Fatal(err)
 	}
-	c := rubniCvor(t, "pperic-thinkpad")
-	mc, err := b.izdajClanstvo(ctxRub, c.node.ID, c.javni())
+	c := izmisljeniKljuc(t)
+	mc, err := b.izdajClanstvo(ctxRub, "pperic-thinkpad", c)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,12 +178,12 @@ func TestOpozivPrimateljaOpozivaINjegovePrimljene(t *testing.T) {
 	if err := a.saveMembership(ctxRub, mc); err != nil {
 		t.Fatal(err)
 	}
-	if !a.trusted(c.javni(), nil) {
+	if !a.trusted(c, nil) {
 		t.Fatal("član kojeg je primio primatelj nije pouzdan prije opoziva")
 	}
 
 	pogodjeni, err := a.RevokeMembership(ctxRub, b.node.ID)
-	if err != nil || len(pogodjeni) != 1 || pogodjeni[0] != c.node.ID {
+	if err != nil || len(pogodjeni) != 1 || pogodjeni[0] != "pperic-thinkpad" {
 		t.Fatalf("opoziv primatelja: %v %v", pogodjeni, err)
 	}
 	opozivi, err := a.ListOpozivi(ctxRub)
@@ -192,7 +202,7 @@ func TestOpozivPrimateljaOpozivaINjegovePrimljene(t *testing.T) {
 	if svi, _ := a.ListOvlasti(ctxRub); len(svi) != 0 {
 		t.Errorf("ovlast je ostala: %+v", svi)
 	}
-	if a.trusted(b.javni(), nil) || a.trusted(c.javni(), nil) {
+	if a.trusted(b.javni(), nil) || a.trusted(c, nil) {
 		t.Error("opozvani primatelj ili njegov primljeni i dalje su pouzdani")
 	}
 }
