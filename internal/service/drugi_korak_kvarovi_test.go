@@ -1,8 +1,10 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"log"
 	"strings"
 	"sync"
 	"testing"
@@ -280,8 +282,10 @@ func TestObavijestOPromjeniAdrese(t *testing.T) {
 	}
 }
 
-// Dok je red za slanje zauzet, slanje čiji je zahtjev prekinut odustaje i
-// ne čeka; slanje koje drži red završi normalno.
+// Dok je red za slanje zauzet, slanje čiji je zahtjev prekinut odustaje
+// zbog prekida i ne čeka istek reda; slanje koje drži red završi normalno.
+// Zapis mora reći da je razlog prekid: kad bi slanje čekalo istek, pisalo bi
+// da slanje nije došlo na red.
 func TestPrekinutoSlanjeNeCekaRed(t *testing.T) {
 	o := okolinaDrugogKoraka(t)
 	o.dk.SetIstekSlanja(time.Minute)
@@ -301,10 +305,19 @@ func TestPrekinutoSlanjeNeCekaRed(t *testing.T) {
 	<-unutra
 	prekinut, prekini := context.WithCancel(context.Background())
 	prekini()
+	var zapis bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&zapis)
+	t.Cleanup(func() { log.SetOutput(stari) })
 	o.dk.JaviPromjenuAdrese(prekinut, o.osoba, "pero.peric@voda.hr", "novi@voda.hr")
+	log.SetOutput(stari)
 	close(pusti)
 	if err := <-gotovo; err != nil {
 		t.Fatalf("probni PIN: %v", err)
+	}
+	if z := zapis.String(); !strings.Contains(z, "obavijest o promjeni adrese za pperic nije poslana") ||
+		!strings.Contains(z, context.Canceled.Error()) || strings.Contains(z, "nije došlo na red") {
+		t.Errorf("zapis o neposlanoj obavijesti: %q; očekivan prekid zahtjeva", z)
 	}
 	o.posta.mu.Lock()
 	defer o.posta.mu.Unlock()
