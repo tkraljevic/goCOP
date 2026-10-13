@@ -53,6 +53,7 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 // ove datoteke ne gledaju. Svaka druga datoteka koja piše u sinkroniziranu
 // tablicu mora bilježiti verziju.
 var datotekePrimjene = map[string]bool{
-	"apply.go":       true,
-	"apply_mreza.go": true,
+	"apply.go":              true,
+	"apply_mreza.go":        true,
+	"apply_organizacija.go": true,
 }

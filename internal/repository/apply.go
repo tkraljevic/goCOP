@@ -312,7 +312,7 @@ type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) er
 
 // skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
 // (TestPrimjenaJeUJednojSkupini)
-var skupinePrimjena = []map[string]primjena{primjeneMreze}
+var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneMreze}
 
 // primjene su primjene svih entiteta koje površina zna, po entitetu
 var primjene = spojiPrimjene(skupinePrimjena)
@@ -634,22 +634,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, prijavaIzvornikUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt.UTC())
 		return err
 
-	case EntityPotpisniKljucevi:
-		var k models.PotpisniKljuc
-		if err := json.Unmarshal(v.Payload, &k); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, potpisniKljucUpsert, k.UserID, k.Ime, k.Cert, k.Kljuc, k.Sol, k.Izdao, k.CreatedAt.UTC(), k.UpdatedAt.UTC())
-		return err
-
-	case EntityPotpisniIzdavatelji:
-		var i models.IzdavateljPotpisa
-		if err := json.Unmarshal(v.Payload, &i); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, izdavateljUpsert, i.Cvor, i.Cert, i.CreatedAt.UTC())
-		return err
-
 	case EntityVodocuvarskiIzvornici:
 		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
 
@@ -740,26 +724,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		_, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(&x)...)
 		return err
 
-	case EntityRoleModules:
-		var rm models.RoleModules
-		if err := json.Unmarshal(v.Payload, &rm); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO role_modules (role, modules, updated_at) VALUES (?, ?, ?)
-			ON CONFLICT(role) DO UPDATE SET modules = excluded.modules, updated_at = excluded.updated_at`,
-			rm.Role, models.JoinModules(rm.Modules), rm.UpdatedAt.UTC())
-		return err
-
-	case EntityUserModules:
-		var um models.UserModules
-		if err := json.Unmarshal(v.Payload, &um); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO user_modules (user_id, shown, hidden, updated_at) VALUES (?, ?, ?, ?)
-			ON CONFLICT(user_id) DO UPDATE SET shown = excluded.shown, hidden = excluded.hidden, updated_at = excluded.updated_at`,
-			um.UserID, models.JoinModules(um.Shown), models.JoinModules(um.Hidden), um.UpdatedAt.UTC())
-		return err
-
 	case EntityReadings:
 		if !KeepReadingVersion(v.Payload) {
 			return nil // izvan razdoblja koje ovaj čvor drži
@@ -811,134 +775,6 @@ func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		`, st.ID.String(), st.Code, st.Name, st.Kind, st.SectorID, st.AreaID, st.WatercourseCode, st.StationID,
 			st.ZeroDatum, st.ZeroDatumSystem, st.CapacityText, st.StartCm, st.StartText, st.StopCm, st.StopText,
 			st.Notes, st.Origin, st.Latitude, st.Longitude, st.CreatedAt.UTC(), st.UpdatedAt.UTC(), st.StationDownID)
-		return err
-
-	case EntityUsers:
-		var uv userVersion
-		if err := json.Unmarshal(v.Payload, &uv); err != nil {
-			return err
-		}
-		u := uv.User
-		u.PasswordHash = uv.PasswordHash
-		// Lozinka: verzije zapisane prije nego što je sažetak počeo putovati
-		// nemaju ga, pa se u tom slučaju čuva onaj koji na ovom čvoru već
-		// stoji — inače bi sinkronizacija zaključala korisnika.
-		// Prijava: uzima se kasnija od dviju, jer je svaki čvor vidio svoje.
-		// Potvrda adrese za PIN ide s verzijom kakva jest: verzija bez nje
-		// (zapisana prije nego što je postojala ili s uklonjenom potvrdom)
-		// ostavlja račun bez potvrde.
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO users (id, username, password_hash, full_name, title, is_global_admin,
-				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
-				is_active, last_login_at, created_at, updated_at,
-				pin_adresa_potvrdena, pin_adresa_potvrdio, pin_adresa_potvrdena_kad)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				username = excluded.username,
-				password_hash = CASE WHEN excluded.password_hash = '' THEN users.password_hash
-				                     ELSE excluded.password_hash END,
-				full_name = excluded.full_name, title = excluded.title, is_global_admin = excluded.is_global_admin,
-				must_change_password = excluded.must_change_password, org_type = excluded.org_type,
-				org_name = excluded.org_name, phone = excluded.phone, mobile_phone = excluded.mobile_phone,
-				short_phone = excluded.short_phone, short_mobile = excluded.short_mobile, email = excluded.email, is_active = excluded.is_active,
-				last_login_at = MAX(COALESCE(excluded.last_login_at, users.last_login_at),
-				                    COALESCE(users.last_login_at, excluded.last_login_at)),
-				updated_at = excluded.updated_at,
-				pin_adresa_potvrdena = excluded.pin_adresa_potvrdena, pin_adresa_potvrdio = excluded.pin_adresa_potvrdio,
-				pin_adresa_potvrdena_kad = excluded.pin_adresa_potvrdena_kad
-		`, u.ID.String(), u.Username, u.PasswordHash, u.FullName, u.Title, boolToInt(u.IsGlobalAdmin),
-			boolToInt(u.MustChangePassword), string(u.OrgType), u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
-			boolToInt(u.IsActive), nullTime(u.LastLoginAt), u.CreatedAt.UTC(), u.UpdatedAt.UTC(),
-			u.PINAdresaPotvrdena, u.PINAdresuPotvrdio, nullTime(u.PINAdresaPotvrdenaKad))
-		return err
-
-	case EntityDuties:
-		var d models.Duty
-		if err := json.Unmarshal(v.Payload, &d); err != nil {
-			return err
-		}
-		var assignedBy *string
-		if d.AssignedBy != nil {
-			s := d.AssignedBy.String()
-			assignedBy = &s
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO duties (id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-				is_primary, is_temporary, reason, assigned_by, created_at, expires_at, is_active,
-				rok, istece_s_obranom, ovisi_o)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET
-				user_id = excluded.user_id, title = excluded.title, role = excluded.role,
-				scope_type = excluded.scope_type, sector_id = excluded.sector_id, area_id = excluded.area_id,
-				section_codes = excluded.section_codes, is_primary = excluded.is_primary,
-				is_temporary = excluded.is_temporary, reason = excluded.reason, assigned_by = excluded.assigned_by,
-				expires_at = excluded.expires_at, is_active = excluded.is_active,
-				rok = excluded.rok, istece_s_obranom = excluded.istece_s_obranom, ovisi_o = excluded.ovisi_o
-		`, d.ID.String(), d.UserID.String(), d.Title, string(d.Role), string(d.ScopeType), d.SectorID, d.AreaID,
-			d.SectionCodes, boolToInt(d.IsPrimary), boolToInt(d.IsTemporary), d.Reason, assignedBy,
-			d.CreatedAt.UTC(), nullTime(d.ExpiresAt), boolToInt(d.IsActive),
-			nullTime(d.Rok), boolToInt(d.IsticeSObranom), ovisiOZapis(d.OvisiO))
-		return err
-
-	case EntitySectors:
-		var sec models.Sector
-		if err := json.Unmarshal(v.Payload, &sec); err != nil {
-			return err
-		}
-		if sec.Level == 0 {
-			sec.Level = 2 // verzija otprije razina: jedinica je sektor
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email, level, vgo_phone)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET name = excluded.name, vgo_name = excluded.vgo_name,
-				center_cop = excluded.center_cop, address = excluded.address, phone = excluded.phone,
-				email = excluded.email, level = excluded.level, vgo_phone = excluded.vgo_phone
-		`, sec.ID, sec.Name, sec.VgoName, sec.CenterCop, sec.Address, sec.Phone, sec.Email, sec.Level, sec.VgoPhone)
-		return err
-
-	case EntityOrgTerms:
-		var t models.OrgTerms
-		if err := json.Unmarshal(v.Payload, &t); err != nil {
-			return err
-		}
-		t = t.Filled()
-		if _, err := tx.ExecContext(ctx, termsUpsert, termsArgs(t)...); err != nil {
-			return err
-		}
-		models.SetTerms(t)
-		return nil
-
-	case EntityAreas:
-		var a models.Area
-		if err := json.Unmarshal(v.Payload, &a); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, `
-			INSERT INTO areas (id, sector_id, name, vgi_name, subcenter, contractor_name, direct_to_sector, latitude, longitude, vgi_phone)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-			ON CONFLICT(id) DO UPDATE SET sector_id = excluded.sector_id, name = excluded.name,
-				vgi_name = excluded.vgi_name, subcenter = excluded.subcenter, contractor_name = excluded.contractor_name,
-				direct_to_sector = excluded.direct_to_sector, latitude = excluded.latitude, longitude = excluded.longitude,
-				vgi_phone = excluded.vgi_phone
-		`, a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude, a.VgiPhone)
-		return err
-
-	case EntityContractors:
-		var c models.Contractor
-		if err := json.Unmarshal(v.Payload, &c); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, contractorUpsert, c.ID, c.Name, c.ShortName, c.OIB, c.Address, c.Phone, c.Email,
-			c.Contact, c.Notes, boolToInt(c.Active), c.UpdatedAt.UTC())
-		return err
-
-	case EntityContractorAssignments:
-		var a models.ContractorAssignment
-		if err := json.Unmarshal(v.Payload, &a); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, assignmentUpsert, a.ID, a.ContractorID, a.SectorID, a.AreaID, a.Note, a.UpdatedAt.UTC())
 		return err
 
 	case EntityCounties:
@@ -1025,13 +861,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		return makniSTrenutka(ctx, tx, "arhiva_biljeske", v, primijeniBiljesku)
 	case EntityOdbacena:
 		stmt = `DELETE FROM odbacena_ocitanja WHERE id = ?`
-	case EntityOrgTerms:
-		// bez zapisa vrijede zadani nazivi, kao i kad ih nitko nije upisao
-		if _, err := tx.ExecContext(ctx, `DELETE FROM org_terms WHERE id = ?`, v.EntityID); err != nil {
-			return err
-		}
-		models.SetTerms(models.DefaultTerms())
-		return nil
 	case EntitySections:
 		// s dionicom odlaze i njezina kazala, kao i pri arhiviranju na izvoru
 		return makniDionicuSPovrsine(ctx, tx, v.EntityID)
@@ -1041,10 +870,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM kisomjeri WHERE code = ?`
 	case EntitySlivovi:
 		stmt = `DELETE FROM slivovi WHERE oznaka = ?`
-	case EntityRoleModules:
-		stmt = `DELETE FROM role_modules WHERE role = ?`
-	case EntityUserModules:
-		stmt = `DELETE FROM user_modules WHERE user_id = ?`
 	case EntityReadings:
 		stmt = `DELETE FROM readings WHERE id = ?`
 	case EntityJournals:
@@ -1112,10 +937,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM prijave WHERE id = ?`
 	case EntityPrijaveIzvornici:
 		stmt = `DELETE FROM prijave_izvornici WHERE prijava_id = ?`
-	case EntityPotpisniKljucevi:
-		stmt = `DELETE FROM potpisni_kljucevi WHERE user_id = ?`
-	case EntityPotpisniIzdavatelji:
-		stmt = `DELETE FROM potpisni_izdavatelji WHERE cvor = ?`
 	case EntityVodocuvarskiIzvornici:
 		// izvornik lista predanog na drugom čvoru ostaje uz svoj list
 		return primijeniIzvornikeIzPovijesti(ctx, tx, v.EntityID)
@@ -1127,19 +948,6 @@ func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		stmt = `DELETE FROM work_items WHERE id = ?`
 	case EntityStructures:
 		stmt = `DELETE FROM structures WHERE id = ?`
-	case EntityUsers:
-		stmt = `DELETE FROM users WHERE id = ?`
-	case EntityDuties:
-		stmt = `DELETE FROM duties WHERE id = ?`
-	case EntitySectors:
-		stmt = `DELETE FROM sectors WHERE id = ?`
-	case EntityAreas:
-		stmt = `DELETE FROM areas WHERE id = ?`
-		arg, _ = strconv.Atoi(v.EntityID)
-	case EntityContractors:
-		stmt = `DELETE FROM contractors WHERE id = ?`
-	case EntityContractorAssignments:
-		stmt = `DELETE FROM contractor_assignments WHERE id = ?`
 	case EntityCounties:
 		stmt = `DELETE FROM counties WHERE id = ?`
 		arg, _ = strconv.Atoi(v.EntityID)
