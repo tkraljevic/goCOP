@@ -537,6 +537,51 @@ func (c *opisivac) sektorskoIzvjesce(d *Dogadjaj, v ledger.Version, nova bool) b
 	return true
 }
 
+// inventura opisuje inventuru: zaključenje, i vraćanje zaključene u nacrt
+// (otključavanje, Odluke (13. 10. 2026.)). Spremanje nacrta na zid ne ide.
+// Tko je otključao piše u napomeni inventure, a ne u verziji, pa redak
+// otključavanja nema osobu.
+func (c *opisivac) inventura(d *Dogadjaj, v ledger.Version) bool {
+	var p models.Popis
+	if json.Unmarshal(v.Payload, &p) != nil || v.Archived {
+		return false
+	}
+	d.Sektor, d.Link = p.Sektor, "/sredstva/popisi/"+p.ID
+	gdje := c.skladisteInventure(d, p)
+	switch {
+	case p.Zakljucen():
+		d.Naslov, d.Tko = "Zaključena inventura", p.Izradio
+		d.Tekst = gdje + fmt.Sprintf(" · %d %s s razlikom", p.Razlika(), models.UzBrojHR(p.Razlika(), "redak", "retka", "redaka"))
+	case c.bilaZakljucena(v.Supersedes):
+		d.Naslov, d.Tekst = "Inventura vraćena u nacrt", gdje
+	default:
+		return false
+	}
+	return true
+}
+
+// skladisteInventure je „skladište · na dan …” za redak inventure; redak
+// dobiva područje skladišta
+func (c *opisivac) skladisteInventure(d *Dogadjaj, p models.Popis) string {
+	naziv := p.SkladisteID
+	if sk := c.skladiste(p.SkladisteID); sk != nil {
+		naziv, d.AreaID = sk.Naziv, sk.AreaID
+	}
+	return naziv + " · na dan " + p.Dan.Format("2.1.2006.")
+}
+
+// bilaZakljucena javlja je li verzija popisa koju je ova zamijenila bila
+// zaključena. Verzija koje u knjizi nema (sažimanje) ili se ne da
+// pročitati ne zna se, pa nije.
+func (c *opisivac) bilaZakljucena(versionID string) bool {
+	prethodne, err := c.s.rec.Verzije(c.ctx, []string{versionID})
+	if err != nil || len(prethodne) == 0 {
+		return false
+	}
+	var p models.Popis
+	return json.Unmarshal(prethodne[0].Payload, &p) == nil && p.Zakljucen()
+}
+
 // opisi pretvara verziju u događaj; false kad verzija na zid ne ide
 func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 	d := Dogadjaj{VersionID: v.VersionID, Modul: modulEntiteta(v.Entity), Kad: v.CreatedAt, Cvor: v.NodeID}
@@ -683,17 +728,7 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 		d = c.prijenosIzDrugogSektora(p, d)
 
 	case repository.EntityMtsPopisi:
-		var p models.Popis
-		if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Zakljucen() {
-			return d, false
-		}
-		d.Sektor, d.Tko, d.Link = p.Sektor, p.Izradio, "/sredstva/popisi/"+p.ID
-		sk := c.skladiste(p.SkladisteID)
-		naziv := p.SkladisteID
-		if sk != nil {
-			naziv, d.AreaID = sk.Naziv, sk.AreaID
-		}
-		d.Naslov, d.Tekst = "Zaključena inventura", naziv+" · na dan "+p.Dan.Format("2.1.2006.")+fmt.Sprintf(" · %d %s s razlikom", p.Razlika(), models.UzBrojHR(p.Razlika(), "redak", "retka", "redaka"))
+		return d, c.inventura(&d, v)
 
 	case repository.EntityMtsPotrebe:
 		var p models.Potreba
