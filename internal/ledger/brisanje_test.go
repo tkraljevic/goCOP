@@ -56,7 +56,9 @@ func TestBrisanjeVerzijeISpomenika(t *testing.T) {
 // Zadnji upis jednog čvora u kanalu ne briše se s oglasne ploče, iako zapis
 // ima noviju verziju drugog čvora: bez njega granica tog čvora u kanalu
 // padne i razmjena ga vrati (Odluke (13. 10. 2026.), 1; pravilo sažimanja).
-// Starija verzija istog čvora briše se i ne vraća se.
+// Granica je po kanalu, pa noviji upis istog čvora u drugi kanal (očitanje za
+// isto područje i godinu) brisanje ne otključava. Starija verzija istog
+// čvora briše se i ne vraća se.
 func TestBrisanjeNeDiraZadnjiUpisCvoraUKanalu(t *testing.T) {
 	ctx := context.Background()
 	dbT, dbU := openTestDB(t), openTestDB(t)
@@ -65,6 +67,9 @@ func TestBrisanjeNeDiraZadnjiUpisCvoraUKanalu(t *testing.T) {
 	nacrt, _ := teren.RecordIn(ctx, dbT, kanal, "prijave", "p-1", probni{"nacrt", 1})
 	objava, err := teren.RecordIn(ctx, dbT, kanal, "prijave", "p-1", probni{"objava", 2})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := teren.RecordIn(ctx, dbT, ChannelFor(ChannelReadings, 34, 2026), "readings", "r-1", probni{"Donji Miholjac", 120}); err != nil {
 		t.Fatal(err)
 	}
 	razmijeni := func() int {
@@ -83,8 +88,8 @@ func TestBrisanjeNeDiraZadnjiUpisCvoraUKanalu(t *testing.T) {
 		}
 		return n
 	}
-	if n := razmijeni(); n != 2 {
-		t.Fatalf("ured je primio %d verzija, očekivane 2", n)
+	if n := razmijeni(); n != 3 {
+		t.Fatalf("ured je primio %d verzija, očekivane 3", n)
 	}
 	if _, err := ured.RecordIn(ctx, dbU, kanal, "prijave", "p-1", probni{"urudžba", 3}); err != nil {
 		t.Fatal(err)
