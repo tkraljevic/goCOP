@@ -57,12 +57,12 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		log.Printf("Prognoza se neće obnavljati: %v", err)
 		return nil
 	}
-	ocitanjaRO, err := sql.Open("sqlite", dbPath+"?mode=ro")
+	ocitanjaRO, err := sql.Open("sqlite", samoZaCitanje(dbPath))
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)
 		return nil
 	}
-	arhivaRO, err := sql.Open("sqlite", o.arhivaPut+"?mode=ro")
+	arhivaRO, err := sql.Open("sqlite", samoZaCitanje(o.arhivaPut))
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
 		return nil

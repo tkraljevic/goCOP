@@ -148,7 +148,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 	}
 	var ro *sql.DB
 	if _, err := os.Stat(r.arhivaPut); err == nil {
-		if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+		if ro, err = sql.Open("sqlite", samoZaCitanje(r.arhivaPut)); err == nil {
 			defer ro.Close()
 		}
 	}
@@ -203,7 +203,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 		}
 		ugradjeno++
 		if ro == nil {
-			if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+			if ro, err = sql.Open("sqlite", samoZaCitanje(r.arhivaPut)); err == nil {
 				defer ro.Close()
 			}
 		}
@@ -279,7 +279,7 @@ func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 	}
 	var ro *sql.DB
 	if _, err := os.Stat(r.arhivaPut); err == nil {
-		if ro, err = sql.Open("sqlite", r.arhivaPut+"?mode=ro"); err == nil {
+		if ro, err = sql.Open("sqlite", samoZaCitanje(r.arhivaPut)); err == nil {
 			defer ro.Close()
 		}
 	}
