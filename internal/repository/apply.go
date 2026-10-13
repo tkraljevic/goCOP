@@ -15,7 +15,6 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
-	"gocop/internal/obracun"
 )
 
 // ApplyVersions osvježava površinu (obične tablice) iz verzija primljenih
@@ -310,7 +309,10 @@ type radnjaNaPovrsini func(ctx context.Context, tx *sql.Tx, v ledger.Version) er
 
 // skupinePrimjena su primjene po skupinama; entitet je samo u jednoj
 // (TestPrimjenaJeUJednojSkupini)
-var skupinePrimjena = []map[string]primjena{primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika, primjeneAkata, primjeneMreze}
+var skupinePrimjena = []map[string]primjena{
+	primjeneOrganizacije, primjeneRegistara, primjeneHidrologije, primjeneDnevnika,
+	primjeneAkata, primjeneObracuna, primjeneMreze,
+}
 
 // primjene su primjene svih entiteta koje površina zna, po entitetu
 var primjene = spojiPrimjene(skupinePrimjena)
@@ -376,122 +378,25 @@ func poIdentitetu(f func(ctx context.Context, tx *sql.Tx, id string) error) radn
 	}
 }
 
+// applyOne stavlja primljenu verziju na površinu primjenom njezina
+// entiteta: živu verziju upisom, a spomenik brisanjem
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if v.Archived {
 		return removeFromSurface(ctx, tx, v)
 	}
-	if upis := primjene[v.Entity].upis; upis != nil {
-		return upis(ctx, tx, v)
+	upis := primjene[v.Entity].upis
+	if upis == nil {
+		// nepoznat entitet — verzija ostaje u knjizi, površinu nema što osvježiti
+		return nil
 	}
-
-	switch v.Entity {
-	case EntityBlagdani:
-		var p obracun.Pravilo
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, blagdanUpsert, blagdanArgs(p, v.CreatedAt)...)
-		return err
-
-	case EntityKoeficijenti:
-		var k Koeficijent
-		if err := json.Unmarshal(v.Payload, &k); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, koeficijentUpsert, k.ID, k.Mjesto, k.Razred, k.K, v.CreatedAt.UTC())
-		return err
-
-	case EntityObracunPostavke:
-		var p Postavka
-		if err := json.Unmarshal(v.Payload, &p); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, postavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC())
-		return err
-
-	case EntityMtsVrste:
-		var x models.VrstaSredstva
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		args, err := vrstaArgs(&x)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, vrstaUpsert, args...)
-		return err
-
-	case EntityMtsSkladista:
-		var x models.Skladiste
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, skladisteUpsert, skladisteArgs(&x)...)
-		return err
-
-	case EntityMtsPromet:
-		var x models.Promet
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, prometUpsert, prometArgs(&x)...)
-		return err
-
-	case EntityMtsPopisi:
-		var x models.Popis
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		args, err := popisArgs(&x)
-		if err != nil {
-			return err
-		}
-		_, err = tx.ExecContext(ctx, popisUpsert, args...)
-		return err
-
-	case EntityMtsPotrebe:
-		var x models.Potreba
-		if err := json.Unmarshal(v.Payload, &x); err != nil {
-			return err
-		}
-		_, err := tx.ExecContext(ctx, potrebaUpsert, potrebaArgs(&x)...)
-		return err
-
-	}
-
-	// nepoznat entitet — verzija ostaje u knjizi, površinu nema što osvježiti
-	return nil
+	return upis(ctx, tx, v)
 }
 
 // removeFromSurface uklanja arhivirani zapis s površine
 func removeFromSurface(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
-	if brisanje := primjene[v.Entity].brisanje; brisanje != nil {
-		return brisanje(ctx, tx, v)
+	brisanje := primjene[v.Entity].brisanje
+	if brisanje == nil {
+		return nil // nepoznat entitet, kao u applyOne
 	}
-	var stmt string
-	var arg any = v.EntityID
-
-	switch v.Entity {
-	case EntityBlagdani:
-		stmt = `DELETE FROM blagdani WHERE id = ?`
-	case EntityKoeficijenti:
-		stmt = `DELETE FROM koeficijenti WHERE id = ?`
-	case EntityObracunPostavke:
-		stmt = `DELETE FROM obracun_postavke WHERE id = ?`
-	case EntityMtsVrste:
-		stmt = `DELETE FROM mts_vrste WHERE id = ?`
-	case EntityMtsSkladista:
-		stmt = `DELETE FROM mts_skladista WHERE id = ?`
-	case EntityMtsPromet:
-		stmt = `DELETE FROM mts_promet WHERE id = ?`
-	case EntityMtsPopisi:
-		stmt = `DELETE FROM mts_popisi WHERE id = ?`
-	case EntityMtsPotrebe:
-		stmt = `DELETE FROM mts_potrebe WHERE id = ?`
-	default:
-		return nil
-	}
-
-	_, err := tx.ExecContext(ctx, stmt, arg)
-	return err
+	return brisanje(ctx, tx, v)
 }

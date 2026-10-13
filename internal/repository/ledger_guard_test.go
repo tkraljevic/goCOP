@@ -60,4 +60,5 @@ var datotekePrimjene = map[string]bool{
 	"apply_hidrologija.go":  true,
 	"apply_dnevnik.go":      true,
 	"apply_akti.go":         true,
+	"apply_obracun.go":      true,
 }
