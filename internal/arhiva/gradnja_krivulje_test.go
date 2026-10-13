@@ -427,3 +427,39 @@ func TestDvijeDatotekeKrivuljaIsteLetve(t *testing.T) {
 	}
 }
 
+// Zaključava da datoteka krivulja iz koje se ništa ne da pročitati ne odnese
+// krivulje letve: prazna datoteka, npr. nakon prekinutog prijenosa, i datoteka
+// sa zarezom umjesto točke-zareza zaustave gradnju, a krivulje ostanu. Samo
+// zaglavlje i dalje znači da letva krivulja nema.
+func TestDatotekaKrivuljaBezIjednogRetkaNeOdneseKrivulje(t *testing.T) {
+	ispravna := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
+		"2001-01-01;2010-12-31;-100;600;polinom;1;2;3;;DHMZ;\n" +
+		"2011-01-01;;-100;600;polinom;4;5;6;;DHMZ;\n"
+	for _, s := range []struct{ ime, sadrzaj, greska string }{
+		{"prazna datoteka", "", "datoteka krivulja vodograd_hq_krivulje.csv je prazna"},
+		{"zarez umjesto točke-zareza", strings.ReplaceAll(ispravna, ";", ","),
+			"u datoteci krivulja vodograd_hq_krivulje.csv nijedan redak nema svih osam stupaca"},
+	} {
+		db := praznaArhiva(t)
+		koren := t.TempDir()
+		put := putKrivulja(koren, "dunav", "vodograd")
+		zapisiDatoteku(t, put, ispravna)
+		uhvatiIspis(t, &os.Stdout, func() {
+			if _, err := krivulje(db, koren, ""); err != nil {
+				t.Fatal(err)
+			}
+		})
+		zapisiDatoteku(t, put, s.sadrzaj)
+		var m []MaknutaKrivulja
+		var err error
+		uhvatiIspis(t, &os.Stdout, func() { m, err = krivulje(db, koren, "") })
+		greskaSadrzi(t, s.ime, err, "gradnja je stala, da ne makne sve krivulje letve: "+s.greska)
+		if len(m) != 0 {
+			t.Errorf("%s: maknuto %+v", s.ime, m)
+		}
+		if n := broj(t, db, `SELECT count(*) FROM hq_odsjecci o JOIN hq_krivulje k ON k.id = o.krivulja
+			WHERE k.letva='vodograd'`); n != 2 {
+			t.Errorf("%s: broj odsječaka letve u arhivi je %d, a trebala su ostati dva", s.ime, n)
+		}
+	}
+}

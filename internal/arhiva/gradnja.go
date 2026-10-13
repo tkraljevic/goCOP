@@ -1303,10 +1303,30 @@ func krivulje(db *sql.DB, koren, samo string) ([]MaknutaKrivulja, error) {
 				return nil, err
 			}
 		}
+		if err := procitanoIzKrivulja(filepath.Base(p), len(sve), n); err != nil {
+			return nil, err
+		}
 		uDatotekama[letva] = dodajKrivulje(uDatotekama[letva], vidjeno)
 		fmt.Printf("%-8s %-16s HQ krivulje: %d\n", "", letva, n)
 	}
 	return makniIzvanDatoteka(db, uDatotekama)
+}
+
+// procitanoIzKrivulja javlja grešku kad se iz datoteke krivulja nije dala
+// pročitati nijedna krivulja, a datoteka nije samo zaglavlje: prazna datoteka,
+// npr. nakon prekinutog prijenosa, ili redci od kojih nijedan nema svih osam
+// stupaca, npr. sa zarezom umjesto točke-zareza. Gradnja miče krivulje kojih
+// u datoteci nema, pa bi takva datoteka iz arhive odnijela sve krivulje letve.
+// Samo zaglavlje znači da letva krivulja nema.
+func procitanoIzKrivulja(ime string, redaka, krivulja int) error {
+	const stala = "gradnja je stala, da ne makne sve krivulje letve: "
+	switch {
+	case redaka == 0:
+		return fmt.Errorf(stala+"datoteka krivulja %s je prazna, bez ijednog retka", ime)
+	case redaka > 1 && krivulja == 0:
+		return fmt.Errorf(stala+"u datoteci krivulja %s nijedan redak nema svih osam stupaca, a razdjelnik mora biti točka-zarez", ime)
+	}
+	return nil
 }
 
 // dodajKrivulje dodaje krivulje jedne datoteke onima koje su druge datoteke
