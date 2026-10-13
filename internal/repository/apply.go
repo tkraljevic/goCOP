@@ -99,7 +99,7 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 // PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
 // primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
 // prenosi, ali javlja da je stiglo nešto što ovaj program ne zna; zato novi
-// entitet mora ući ovamo (test to provjerava protiv konstanti i applyOne).
+// entitet mora ući ovamo (test to provjerava protiv konstanti i primjena).
 func PoznatiEntiteti() []string {
 	return []string{
 		EntitySectors, EntityAreas, EntityOrgTerms, EntityContractors, EntityContractorAssignments,

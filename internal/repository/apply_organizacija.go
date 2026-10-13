@@ -25,7 +25,8 @@ var primjeneOrganizacije = map[string]primjena{
 	EntityPotpisniIzdavatelji:   {upis: primijeniIzdavateljaPotpisa, brisanje: obrisi(`DELETE FROM potpisni_izdavatelji WHERE cvor = ?`)},
 }
 
-// primijeniSektor stavlja primljeni sektor (ili drugu ustrojstvenu jedinicu) na površinu
+// primijeniSektor stavlja primljeni sektor (ili drugu ustrojstvenu jedinicu)
+// na površinu
 func primijeniSektor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var sec models.Sector
 	if err := json.Unmarshal(v.Payload, &sec); err != nil {
@@ -61,7 +62,8 @@ func primijeniPodrucje(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	return err
 }
 
-// primijeniNazive stavlja primljene nazive ustroja na površinu i uzima ih u program
+// primijeniNazive stavlja primljene nazive ustroja na površinu i uzima ih u
+// program
 func primijeniNazive(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var t models.OrgTerms
 	if err := json.Unmarshal(v.Payload, &t); err != nil {
@@ -201,7 +203,8 @@ func primijeniModuleKorisnika(ctx context.Context, tx *sql.Tx, v ledger.Version)
 	return err
 }
 
-// primijeniPotpisniKljuc stavlja primljeni ključ za e-potpis osobe na površinu
+// primijeniPotpisniKljuc stavlja primljeni ključ za e-potpis osobe na
+// površinu
 func primijeniPotpisniKljuc(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var k models.PotpisniKljuc
 	if err := json.Unmarshal(v.Payload, &k); err != nil {
@@ -211,7 +214,8 @@ func primijeniPotpisniKljuc(ctx context.Context, tx *sql.Tx, v ledger.Version) e
 	return err
 }
 
-// primijeniIzdavateljaPotpisa stavlja primljenog izdavatelja potvrda za e-potpis na površinu
+// primijeniIzdavateljaPotpisa stavlja primljenog izdavatelja potvrda za
+// e-potpis na površinu
 func primijeniIzdavateljaPotpisa(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var i models.IzdavateljPotpisa
 	if err := json.Unmarshal(v.Payload, &i); err != nil {

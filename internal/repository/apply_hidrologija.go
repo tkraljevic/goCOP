@@ -87,7 +87,8 @@ func upsertStation(ctx context.Context, tx *sql.Tx, st models.Station) error {
 	return err
 }
 
-// primijeniOcitanje stavlja primljeno očitanje na površinu, ako je u razdoblju koje ovaj čvor drži
+// primijeniOcitanje stavlja primljeno očitanje na površinu, ako je u
+// razdoblju koje ovaj čvor drži
 func primijeniOcitanje(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if !KeepReadingVersion(v.Payload) {
 		return nil // izvan razdoblja koje ovaj čvor drži
@@ -144,7 +145,8 @@ func makniIspravak(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return makniSTrenutka(ctx, tx, "arhiva_ispravci", v, primijeniIspravak)
 }
 
-// makniBiljesku miče bilješku arhivske vrijednosti s površine; trenutak koji ostane prazan dobiva bilješku koja je u knjizi još živa
+// makniBiljesku miče bilješku arhivske vrijednosti s površine; trenutak koji
+// ostane prazan dobiva bilješku koja je u knjizi još živa
 func makniBiljesku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return makniSTrenutka(ctx, tx, "arhiva_biljeske", v, primijeniBiljesku)
 }

@@ -98,7 +98,8 @@ func primijeniAkt(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniIzvornikAkta stavlja primljeni izvornik akta na površinu, a PDF u spremište
+// primijeniIzvornikAkta stavlja primljeni izvornik akta na površinu, a PDF u
+// spremište
 func primijeniIzvornikAkta(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var iz Izvornik
 	if err := json.Unmarshal(v.Payload, &iz); err != nil {
@@ -173,7 +174,8 @@ func primijeniZig(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniPostavku stavlja primljenu opću postavku na površinu; tema se odmah uzima u program
+// primijeniPostavku stavlja primljenu opću postavku na površinu; tema se
+// odmah uzima u program
 func primijeniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var p Postavka
 	if err := json.Unmarshal(v.Payload, &p); err != nil {

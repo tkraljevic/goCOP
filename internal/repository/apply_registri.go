@@ -169,7 +169,8 @@ func makniVezuDioniceILetve(ctx context.Context, tx *sql.Tx, v ledger.Version) e
 	return err
 }
 
-// primijeniOdrzavanuVodu stavlja primljenu vodu u programu održavanja na površinu
+// primijeniOdrzavanuVodu stavlja primljenu vodu u programu održavanja na
+// površinu
 func primijeniOdrzavanuVodu(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var m models.MaintainedWater
 	if err := json.Unmarshal(v.Payload, &m); err != nil {
@@ -188,7 +189,8 @@ func primijeniOdrzavanuVodu(ctx context.Context, tx *sql.Tx, v ledger.Version) e
 	return err
 }
 
-// primijeniStavkuRadova stavlja primljenu stavku radova održavanja na površinu
+// primijeniStavkuRadova stavlja primljenu stavku radova održavanja na
+// površinu
 func primijeniStavkuRadova(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var w models.WorkItem
 	if err := json.Unmarshal(v.Payload, &w); err != nil {

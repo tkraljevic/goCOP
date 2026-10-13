@@ -12,8 +12,8 @@ import (
 
 // Svaki entitet koji repozitorij zapisuje ili primjenjuje mora biti na popisu
 // poznatih, inače bi ga čvor javljao kao nešto što ne razumije. Popis se
-// provjerava protiv izvornog koda: konstanti Entity* i grana applyOne,
-// removeFromSurface i SurfaceEntities.
+// provjerava protiv izvornog koda (konstante Entity* i SurfaceEntities) i
+// protiv primjena po skupinama (primjene).
 func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 	fset := token.NewFileSet()
 	datoteke, err := os.ReadDir(".")
@@ -34,7 +34,7 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 	}
 
 	konstante := map[string]string{} // ime → vrijednost
-	var grane []ast.Expr             // izrazi iz case grana i SurfaceEntities
+	var grane []ast.Expr             // izrazi iz SurfaceEntities
 	for _, f := range izvori {
 		for _, d := range f.Decls {
 			switch d := d.(type) {
@@ -58,22 +58,6 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 						}
 					}
 				}
-			case *ast.FuncDecl:
-				if d.Name.Name != "applyOne" && d.Name.Name != "removeFromSurface" {
-					continue
-				}
-				ast.Inspect(d.Body, func(n ast.Node) bool {
-					sw, ok := n.(*ast.SwitchStmt)
-					if !ok || !jePoEntitetu(sw.Tag) {
-						return true
-					}
-					for _, st := range sw.Body.List {
-						if cc, ok := st.(*ast.CaseClause); ok {
-							grane = append(grane, cc.List...)
-						}
-					}
-					return true
-				})
 			}
 		}
 	}
@@ -117,10 +101,4 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 			t.Errorf("%s: entitet %q se primjenjuje, a nije u PoznatiEntiteti", fset.Position(x.Pos()), v)
 		}
 	}
-}
-
-// jePoEntitetu: switch v.Entity
-func jePoEntitetu(tag ast.Expr) bool {
-	sel, ok := tag.(*ast.SelectorExpr)
-	return ok && sel.Sel.Name == "Entity"
 }

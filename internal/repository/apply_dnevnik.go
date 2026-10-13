@@ -70,7 +70,8 @@ func primijeniDnevnik(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniIzvornikDnevnika stavlja primljeni izvornik dnevnika na površinu, a PDF u spremište
+// primijeniIzvornikDnevnika stavlja primljeni izvornik dnevnika na površinu,
+// a PDF u spremište
 func primijeniIzvornikDnevnika(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var iz models.IzvornikDnevnika
 	if err := json.Unmarshal(v.Payload, &iz); err != nil {
@@ -105,7 +106,8 @@ func primijeniZadatak(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniPrijavu stavlja primljenu prijavu s terena na površinu, a njezine slike u spremište
+// primijeniPrijavu stavlja primljenu prijavu s terena na površinu, a njezine
+// slike u spremište
 func primijeniPrijavu(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var p models.PrijavaSTerena
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
@@ -118,7 +120,8 @@ func primijeniPrijavu(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return nil
 }
 
-// primijeniIzvornikPrijave stavlja primljeni izvornik prijave na površinu, a PDF u spremište
+// primijeniIzvornikPrijave stavlja primljeni izvornik prijave na površinu, a
+// PDF u spremište
 func primijeniIzvornikPrijave(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var iz models.IzvornikLista
 	if err := json.Unmarshal(v.Payload, &iz); err != nil {
