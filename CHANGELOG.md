@@ -6,6 +6,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Dohvat dokumenata i fotografija više ne zastaje.** Računalo u jednoj
+  razmjeni traži najviše 200 dokumenata i fotografija koje mu nedostaju.
+  Kad je na vrhu popisa stajalo 200 onih koje po praćenju ne dohvaća (npr.
+  PDF-ovi uz „samo pregledi”), ostali iza njih nisu stizali nikad. Sad se
+  takvi preskaču, pa se traže oni koje računalo zaista dohvaća.
 - **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
   ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
   minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne

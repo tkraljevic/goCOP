@@ -340,25 +340,41 @@ func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int,
 
 // Zeljeni vraća što čvor još treba dohvatiti, najstarije traženo prvo
 func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
+	return s.ZeljeniKoje(ctx, najvise, func(Zelja) bool { return true })
+}
+
+// ZeljeniKoje vraća do najvise želja koje uzmi prihvati, istim redom kao
+// Zeljeni. Ostale se preskaču, pa želje koje čvor po pretplati ne dohvaća ne
+// zauzimaju mjesta onima koje dohvaća.
+func (s *Spremiste) ZeljeniKoje(ctx context.Context, najvise int, uzmi func(Zelja) bool) ([]Zelja, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT otisak, vrsta, bajtova, razlog, kanal, trazeno FROM sadrzaj_zeljen
-		ORDER BY trazeno IS NOT NULL, trazeno LIMIT ?`, najvise)
+		ORDER BY trazeno IS NOT NULL, trazeno`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Zelja
-	for rows.Next() {
-		var z Zelja
-		var t sql.NullTime
-		if err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t); err != nil {
+	for len(out) < najvise && rows.Next() {
+		z, err := citajZelju(rows)
+		if err != nil {
 			return nil, err
 		}
-		if t.Valid {
-			z.Trazeno = &t.Time
+		if uzmi(z) {
+			out = append(out, z)
 		}
-		out = append(out, z)
 	}
 	return out, rows.Err()
+}
+
+// citajZelju čita jedan redak popisa za dohvat
+func citajZelju(rows *sql.Rows) (Zelja, error) {
+	var z Zelja
+	var t sql.NullTime
+	err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t)
+	if t.Valid {
+		z.Trazeno = &t.Time
+	}
+	return z, err
 }
 
 // Trazeno bilježi pokušaj dohvata, da se redoslijed pokušaja vrti
