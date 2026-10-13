@@ -38,24 +38,30 @@ func TestIspisBezDatoteke(t *testing.T) {
 }
 
 // Zaključava da se popis bez datoteke, kad ga se ne da složiti, javlja
-// greškom: stablo koje se ne čita, snimka koja se ne čita, arhiva bez
-// tablica i zatečena snimka bez dana.
+// greškom: stablo koje se ne čita, krivi uzorak putanje, arhiva bez tablica i
+// zatečena snimka bez dana. Snimka koja se ne čita ide u zaseban redak
+// (TestNecitljivaSnimkaJeZasebanRedak).
 func TestPopisBezDatotekeKojiSeNeDaSloziti(t *testing.T) {
 	db := praznaArhiva(t)
 	nema := filepath.Join(t.TempDir(), "nema")
 	if _, err := snimkeBezDatoteke(db, nema, ""); !errors.Is(err, fs.ErrNotExist) {
 		t.Errorf("stablo koje ne postoji: %v", err)
 	}
-	if _, err := snimkeUStablu(filepath.Join(t.TempDir(), "mapa["), ""); !errors.Is(err, filepath.ErrBadPattern) {
+	if _, _, err := snimkeUStablu(filepath.Join(t.TempDir(), "mapa["), ""); !errors.Is(err, filepath.ErrBadPattern) {
 		t.Errorf("krivi uzorak putanje: %v", err)
+	}
+	mapa := filepath.Join(t.TempDir(), "mapa[")
+	if err := os.MkdirAll(mapa, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := snimkeBezDatoteke(db, mapa, ""); !errors.Is(err, filepath.ErrBadPattern) {
+		t.Errorf("stablo s krivim uzorkom: %v", err)
 	}
 
 	koren := t.TempDir()
 	zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-22"), "stacionaza_m;visina_m\n0;9\"0\n")
-	_, err := snimkeBezDatoteke(db, koren, "")
-	greskaSadrzi(t, "snimka s navodnikom", err, "vodograd_profil_2010-03-22.csv: ")
-	if u, err := snimkeUStablu(koren, "rijecica"); err != nil || len(u) != 0 {
-		t.Errorf("snimke druge letve: %v, %v", u, err)
+	if u, n, err := snimkeUStablu(koren, "rijecica"); err != nil || len(u) != 0 || len(n) != 0 {
+		t.Errorf("snimke druge letve: %v, %v, %v", u, n, err)
 	}
 
 	veza := putProfila(t.TempDir(), "dunav", "vodograd", "2010-03-22")
@@ -152,5 +158,40 @@ func TestSnimkaKojaSeNeDaMaknuti(t *testing.T) {
 			greskaSadrzi(t, s.ime, err, "namjerni kvar")
 			ostalo(t, db)
 		})
+	}
+}
+
+// Zaključava pravilo iz Odluka (13. 10. 2026.): datoteka snimke korita koja se
+// ne da pročitati pokaže se kao zaseban redak, s imenom datoteke i razlogom, a
+// ostatak popisa ostaje. Snimke te letve iz arhive na popis ne idu, jer se ne
+// zna koju od njih ta datoteka drži. Prije je takva datoteka sakrila cijeli
+// popis greškom.
+func TestNecitljivaSnimkaJeZasebanRedak(t *testing.T) {
+	db := praznaArhiva(t)
+	koren := t.TempDir()
+	zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-22"), "stacionaza_m;visina_m\n0;9\"0\n")
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "rijecica"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO profili (letva, datum) VALUES ('vodograd', '2010-03-22'), ('vodograd', '2011-04-01'),
+		('rijecica', '2015-05-05')`); err != nil {
+		t.Fatal(err)
+	}
+	o, err := Sirotani(db, koren)
+	if err != nil {
+		t.Fatalf("popis bez datoteke: %v", err)
+	}
+	if len(o) != 2 || o[0] != (Sirotan{Letva: "rijecica", Snimka: true, Datum: "2015-05-05"}) {
+		t.Fatalf("popis: %+v", o)
+	}
+	n := o[1]
+	if n.Letva != "vodograd" || !n.Snimka || n.Datoteka != "vodograd_profil_2010-03-22.csv" || n.Datum != "" ||
+		!strings.Contains(n.Greska, `bare " in non-quoted-field`) {
+		t.Errorf("redak nečitljive snimke: %+v", n)
+	}
+	var b strings.Builder
+	javiBezDatoteke(&b, o[1:])
+	if !strings.Contains(b.String(), "vodograd         snimka korita u datoteci vodograd_profil_2010-03-22.csv ne da se pročitati: parse error") {
+		t.Errorf("ispis gradnje: %q", b.String())
 	}
 }

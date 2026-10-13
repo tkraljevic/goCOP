@@ -260,7 +260,8 @@ type Izvjestaj struct {
 // (13. 10. 2026.)): tada je Snimka true, Datum je dan snimke, a Zapisa broj
 // njezinih točaka. Za krivulje protoka letve kojoj je nestala datoteka
 // krivulja Krivulje je true, Zapisa je broj krivulja, a Datum početak
-// valjanosti najstarije.
+// valjanosti najstarije. Snimka čija se datoteka ne da pročitati ima Datoteku
+// i Gresku: takva se ne miče, nego popravlja.
 type Sirotan struct {
 	Letva    string
 	Izvor    string
@@ -271,6 +272,8 @@ type Sirotan struct {
 	Snimka   bool
 	Krivulje bool
 	Datum    string
+	Datoteka string
+	Greska   string
 }
 
 // Izgradi čita datoteke iz koren/ i upisuje ih u arhivsku bazu. Prazna letva
@@ -415,6 +418,9 @@ func javiBezDatoteke(zapisi io.Writer, sirotani []Sirotan) {
 // redakIspisa je redak ispisa gradnje za niz ili snimku bez datoteke, bez
 // letve na početku.
 func (o Sirotan) redakIspisa() string {
+	if o.Greska != "" {
+		return fmt.Sprintf("snimka korita u datoteci %s ne da se pročitati: %s", o.Datoteka, o.Greska)
+	}
 	if o.Krivulje {
 		return fmt.Sprintf("krivulje protoka od %s, %d %s  SIROTAN — datoteke nema u stablu",
 			o.Datum, o.Zapisa, models.UzBrojHR(o.Zapisa, "krivulja", "krivulje", "krivulja"))
@@ -520,12 +526,17 @@ func krivuljeUArhivi(db *sql.DB, samo string) ([]Sirotan, error) {
 // snimkeBezDatoteke traži snimke korita kojima u stablu nema datoteke. Sudi
 // samo o letvama koje u stablu imaju mapu: snimke letve primljene paketom,
 // bez mape u ovom stablu, ne javljaju se.
+//
+// Datoteka snimke koja se ne da pročitati ide na popis kao zaseban redak, a
+// snimke te letve iz arhive ne: ne zna se koju od njih ta datoteka drži, pa bi
+// gumb Makni mogao maknuti baš nju (Odluke (13. 10. 2026.)). Prije je takva
+// datoteka sakrila cijeli popis.
 func snimkeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
 	letve, err := Letve(koren)
 	if err != nil {
 		return nil, err
 	}
-	uStablu, err := snimkeUStablu(koren, samo)
+	uStablu, necitljive, err := snimkeUStablu(koren, samo)
 	if err != nil {
 		return nil, err
 	}
@@ -533,23 +544,36 @@ func snimkeBezDatoteke(db *sql.DB, koren, samo string) ([]Sirotan, error) {
 	if err != nil {
 		return nil, err
 	}
+	return append(snimkeBezSvojeDatoteke(sve, letve, uStablu, necitljive), necitljive...), nil
+}
+
+// snimkeBezSvojeDatoteke odabire snimke iz arhive kojima stablo nema
+// datoteku: letva ima mapu u stablu, nijedna njezina datoteka snimke nije
+// nečitljiva, a dana te snimke nema ni u jednoj.
+func snimkeBezSvojeDatoteke(sve []Sirotan, letve map[string]string, uStablu map[string]bool, necitljive []Sirotan) []Sirotan {
+	nejasne := map[string]bool{}
+	for _, o := range necitljive {
+		nejasne[o.Letva] = true
+	}
 	var out []Sirotan
 	for _, o := range sve {
-		if letve[o.Letva] != "" && !uStablu[o.Letva+"|"+o.Datum] {
+		if letve[o.Letva] != "" && !nejasne[o.Letva] && !uStablu[o.Letva+"|"+o.Datum] {
 			out = append(out, o)
 		}
 	}
-	return out, nil
+	return out
 }
 
-// snimkeUStablu vraća snimke korita koje stablo ima, kao „letva|datum”. Dan
-// snimke čita se iz datoteke, kao i pri gradnji, a ne iz njezina imena.
-func snimkeUStablu(koren, samo string) (map[string]bool, error) {
+// snimkeUStablu vraća snimke korita koje stablo ima, kao „letva|datum”, i
+// datoteke snimki koje se ne daju pročitati. Dan snimke čita se iz datoteke,
+// kao i pri gradnji, a ne iz njezina imena.
+func snimkeUStablu(koren, samo string) (map[string]bool, []Sirotan, error) {
 	puts, err := filepath.Glob(filepath.Join(koren, "*", "*", "profil", "*.csv"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	out := map[string]bool{}
+	var necitljive []Sirotan
 	for _, p := range puts {
 		letva := filepath.Base(filepath.Dir(filepath.Dir(p)))
 		if samo != "" && letva != samo {
@@ -557,11 +581,12 @@ func snimkeUStablu(koren, samo string) (map[string]bool, error) {
 		}
 		datum, err := datumSnimke(p)
 		if err != nil {
-			return nil, err
+			necitljive = append(necitljive, Sirotan{Letva: letva, Snimka: true, Datoteka: filepath.Base(p), Greska: err.Error()})
+			continue
 		}
 		out[letva+"|"+datum] = true
 	}
-	return out, nil
+	return out, necitljive, nil
 }
 
 // datumSnimke čita dan snimke iz datoteke snimke korita.
@@ -571,10 +596,7 @@ func datumSnimke(put string) (string, error) {
 		return "", err
 	}
 	datum, _, _, _, _, err := citajProfil(bytes.NewReader(b))
-	if err != nil {
-		return "", fmt.Errorf("%s: %w", filepath.Base(put), err)
-	}
-	return datum, nil
+	return datum, err
 }
 
 // snimkeUArhivi vraća snimke korita koje arhiva ima, s brojem točaka.
@@ -2125,9 +2147,8 @@ func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, erro
 // Nizovi se traže samo po nazivima datoteka. Snimke korita čitaju se cijele,
 // jer dan snimke piše u datoteci, a ne u imenu; na laptopu je to 13. 10. 2026.
 // bilo 245 malih datoteka, oko 1 MB, pa je i to dovoljno jeftino za svako
-// otvaranje stranice. Snimka koja se ne da pročitati javlja se greškom
-// cijelog popisa: na njoj bi stala i gradnja, a bez nje se ne zna koju snimku
-// letve datoteka drži.
+// otvaranje stranice. Snimka koja se ne da pročitati javlja se zasebnim
+// retkom (snimkeBezDatoteke).
 func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 	nizovi, err := popisi(koren, "")
 	if err != nil {

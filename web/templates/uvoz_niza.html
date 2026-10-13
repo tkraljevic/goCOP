@@ -47,7 +47,13 @@
     datoteka maknuta.
   </p>
   {{range .Sirotani}}
-  {{if .Snimka}}
+  {{if .Greska}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span>Datoteka snimke korita <span class="mono">{{.Datoteka}}</span> ne da se pročitati: {{.Greska}}. Dok se ne
+      popravi, ovdje se ne vidi koja snimka te letve nema datoteku.</span>
+  </div>
+  {{else if .Snimka}}
   <div class="izdanje-red">
     <span class="izdanje-letva mono">{{.Letva}}</span>
     <span>snimka korita {{.Datum}}</span>

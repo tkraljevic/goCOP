@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -115,5 +116,44 @@ func TestPosluziteljMiceSnimku(t *testing.T) {
 	// Niz ide istim putem kroz arhivu.
 	if _, err := s.MakniNiz("vodograd", "his2000", "vodostaj", "satni"); err == nil || !strings.Contains(err.Error(), "nije u arhivi") {
 		t.Errorf("micanje niza kojeg nema: %v", err)
+	}
+}
+
+// Datoteka snimke korita koja se ne da pročitati pokaže se kao zaseban redak,
+// s imenom datoteke i razlogom, bez gumba Makni, a ostatak popisa ostaje
+// (Odluke (13. 10. 2026.)). Prije je stranica umjesto popisa pisala samo
+// grešku.
+func TestNecitljivaSnimkaNaPopisuBezGumba(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	put := filepath.Join(o.koren, "primjerica", "primjerovo", "profil", "primjerovo_profil_2010-03-22.csv")
+	if err := os.MkdirAll(filepath.Dir(put), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(put, []byte("stacionaza_m;visina_m\n0;9\"0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", o.arhivaPut)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO profili (letva, datum) VALUES ('primjerovo', '2010-03-22'), ('drugovo', '2015-05-05')`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+
+	html := odgovor(o.h.ShowUvoz, httptestGet("/administracija/uvoz-niza"), o.pero, o.peroOvl).Body.String()
+	stranica := strings.Join(strings.Fields(htmlUTekst(html)), " ")
+	if g := porukaGreske(stranica); g != "" {
+		t.Errorf("stranica javlja grešku umjesto popisa: %q", g)
+	}
+	for _, treba := range []string{"Nizovi bez datoteke u stablu", "snimka korita 2015-05-05",
+		`Datoteka snimke korita <span class="mono">primjerovo_profil_2010-03-22.csv</span> ne da se pročitati: parse error`,
+		"Dok se ne popravi, ovdje se ne vidi koja snimka te letve nema datoteku."} {
+		if !strings.Contains(stranica, treba) {
+			t.Errorf("stranica nema %q: %s", treba, stranica)
+		}
+	}
+	if !strings.Contains(html, `name="letva" value="drugovo"`) || strings.Contains(html, `name="letva" value="primjerovo"`) {
+		t.Error("gumb Makni stoji uz pogrešnu letvu")
 	}
 }

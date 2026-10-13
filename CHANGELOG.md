@@ -115,7 +115,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   nego je pokaže pod Administracija → Unos u arhivu → Nizovi bez datoteke u
   stablu, s danom snimke i brojem točaka, a gumb Makni je miče iz arhive.
   Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
-  koju čvor samo prima paketom. Datoteke u stablu se ne diraju.
+  koju čvor samo prima paketom. Datoteke u stablu se ne diraju. Datoteka
+  snimke koja se ne da pročitati stoji na popisu kao zaseban redak, s
+  razlogom i bez gumba Makni, a ostatak popisa se i dalje vidi.
 - **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
   nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
   arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
