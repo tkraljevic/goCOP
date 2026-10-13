@@ -82,8 +82,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
   međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
   izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
-  Sad takav međusliv ostaje bez pragova, kao i onaj s prekratkim nizom.
-  Grešku je našao test; s nizovima iz arhive nije primijećena.
+  Sad takav međusliv zadrži pragove jednog dana, a pragova triju dana
+  nema. Prag od 0 mm, kakav ispadne u takvom ili gotovo suhom nizu, sad
+  znači da praga nema; dosad je dizao razinu kiše i kad nije palo ništa. U
+  tablici kiše po međuslivovima umjesto njega stoji crtica (Odluke (13. 10.
+  2026.)). Pad je našao test; s nizovima iz arhive ni jedno ni drugo nije
+  primijećeno.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

@@ -200,7 +200,7 @@ var kisaSlivovaTmpl = template.Must(template.New("kisa").Funcs(template.FuncMap{
         <td class="mono" style="text-align:right;">{{if .Ima}}{{mm .Palo24}}{{else}}—{{end}}</td>
         <td class="mono" style="text-align:right;">{{if .Ima}}{{mm .Palo72}}{{else}}—{{end}}</td>
         <td class="mono" style="text-align:right;">{{if .Ima}}{{mm .Dolazi48}}{{else}}—{{end}}</td>
-        <td class="mono reg-card-sub" style="text-align:right;">{{index .Pragovi.Dan3 0 | mm}}</td>
+        <td class="mono reg-card-sub" style="text-align:right;">{{with index .Pragovi.Dan3 0}}{{mm .}}{{else}}—{{end}}</td>
       </tr>{{end}}
       </tbody>
     </table></div>
