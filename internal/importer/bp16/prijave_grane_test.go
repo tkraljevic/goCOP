@@ -286,8 +286,11 @@ func TestUvozObavijestiGreske(t *testing.T) {
 	}
 	d := deps(prijaveNa(kopijaBaze(t, predlozak)))
 	d.SpremiSken = func(*models.PrijavaSTerena, []byte) (string, error) { return "", errors.New("mapa nije zapisiva") }
-	if _, err := RunPrijave(ctx, jedna(), d); err == nil || err.Error() != "obavijest 30, sken: mapa nije zapisiva" {
+	if _, err := RunPrijave(ctx, jedna(), d); err == nil || err.Error() != "obavijest 30: sken: mapa nije zapisiva" {
 		t.Errorf("sken: %v", err)
+	}
+	if p, _ := d.Prijave.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:30"); p != nil {
+		t.Errorf("prijava upisana bez skena: %+v", p)
 	}
 
 	// zatvorena baza: uvoz stane već na provjeri prenesenog
@@ -296,14 +299,13 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		t.Errorf("zatvorena baza: %v", err)
 	}
 
-	// baza odbija upis: okidač glumi pun disk
+	// baza odbija upis: okidač glumi pun disk. Sken se sprema prije
+	// prijave, a prijava i izvornik idu zajedno, pa nijedno ne ostane samo.
 	for _, s := range []struct {
 		ime, okidac, poruka string
-		skenSpremljen       bool
 	}{
-		{"prijava", `BEFORE INSERT ON prijave`, "obavijest 30: upis prijave: ", false},
-		{"prijava sa skenom", `BEFORE INSERT ON prijave WHEN COALESCE(json_extract(NEW.podaci, '$.sken'), '') <> ''`, "obavijest 30: upis prijave: ", true},
-		{"izvornik", `BEFORE INSERT ON prijave_izvornici`, "obavijest 30, izvornik: ", true},
+		{"prijava", `BEFORE INSERT ON prijave`, "obavijest 30: upis prijave: "},
+		{"izvornik", `BEFORE INSERT ON prijave_izvornici`, "obavijest 30: upis izvornika: "},
 	} {
 		baza := kopijaBaze(t, predlozak)
 		if _, err := baza.Exec(`CREATE TRIGGER pun_disk ` + s.okidac + ` BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
@@ -313,17 +315,96 @@ func TestUvozObavijestiGreske(t *testing.T) {
 		spremljen := false
 		d.SpremiSken = func(p *models.PrijavaSTerena, _ []byte) (string, error) { spremljen = true; return p.ID + ".pdf", nil }
 		rep, err := RunPrijave(ctx, jedna(), d)
-		if err == nil || !strings.HasPrefix(err.Error(), s.poruka) || !strings.Contains(err.Error(), "disk pun") || rep.Upisano != 0 || spremljen != s.skenSpremljen {
+		if err == nil || !strings.HasPrefix(err.Error(), s.poruka) || !strings.Contains(err.Error(), "disk pun") || rep.Upisano != 0 || !spremljen {
 			t.Errorf("%s: %+v, %v, sken spremljen %v", s.ime, rep, err, spremljen)
+		}
+		var prijava, izvornik int
+		_ = baza.QueryRow(`SELECT (SELECT count(*) FROM prijave), (SELECT count(*) FROM prijave_izvornici)`).Scan(&prijava, &izvornik)
+		if prijava != 0 || izvornik != 0 {
+			t.Errorf("%s: upisano je %d prijava i %d izvornika", s.ime, prijava, izvornik)
 		}
 	}
 
-	// bez spremišta sadržaja slika se ne može spremiti
+	// bez spremišta sadržaja slika se ne može spremiti, pa ni prijava
 	spremiste := repository.Spremiste()
 	repository.SetSpremiste(nil)
 	defer repository.SetSpremiste(spremiste)
-	if _, err := RunPrijave(ctx, jedna(), deps(prijaveNa(kopijaBaze(t, predlozak)))); err == nil || !strings.HasPrefix(err.Error(), "obavijest 30, slika: ") {
+	bezSpremista := deps(prijaveNa(kopijaBaze(t, predlozak)))
+	if _, err := RunPrijave(ctx, jedna(), bezSpremista); err == nil || !strings.HasPrefix(err.Error(), "obavijest 30: slika: ") {
 		t.Errorf("bez spremišta: %v", err)
+	}
+	if p, _ := bezSpremista.Prijave.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:30"); p != nil {
+		t.Errorf("prijava upisana bez fotografije: %+v", p)
+	}
+}
+
+// Kad uvoz obavijesti stane na fotografiji, skenu ili izvorniku, prijave još
+// nema, pa je ponovni uvoz prenese cijelu, a ne preskoči je bez onoga što
+// nedostaje.
+func TestPonovniUvozDovrsavaObavijest(t *testing.T) {
+	ctx := context.Background()
+	src := probniIzvor{zbirke: map[string][]json.RawMessage{
+		"users": raw(`{"id":"u-1","first_name":"Marko","last_name":"Markić"}`),
+		"obavijesti_sa_terena": raw(`{"id":31,"status":"objavljeno","date_created":"2024-07-02T08:00:00Z","user_created":"u-1",` +
+			`"vodocuvarsko_podrucje":"KARAŠICA SEKTOR","naslov":"Probna","slika_1":"s1","datoteka":"d1"}`),
+	}}
+	png := probnaSlika(t, 20, 10)
+	for _, kvar := range []string{"slika", "sken", "izvornik"} {
+		baza, repo := bazaPrijava(t)
+		skenOdbija := kvar == "sken"
+		deps := PrijaveDeps{
+			Prijave:   repo,
+			Korisnici: map[string]KorisnikUvoza{"Marko Markić": {ID: "g-1", Ime: "Marko Markić"}},
+			Podrucja:  map[string]int{"KARAŠICA SEKTOR": 16},
+			Sektor:    "B",
+			Datoteka: func(_ context.Context, id, _ string) ([]byte, error) {
+				if id == "d1" {
+					return []byte("%PDF-1.4\nsken"), nil
+				}
+				return png, nil
+			},
+			IzradiPDF: func(*models.PrijavaSTerena, map[string][]byte) []byte { return []byte("%PDF-1.4\niz podataka") },
+			SpremiSken: func(p *models.PrijavaSTerena, _ []byte) (string, error) {
+				if skenOdbija {
+					return "", errors.New("mapa nije zapisiva")
+				}
+				return p.ID + ".pdf", nil
+			},
+		}
+		spremiste := repository.Spremiste()
+		switch kvar {
+		case "slika":
+			repository.SetSpremiste(nil)
+		case "izvornik":
+			if _, err := baza.Exec(`CREATE TRIGGER pun_disk BEFORE INSERT ON prijave_izvornici BEGIN SELECT RAISE(ABORT, 'disk pun'); END`); err != nil {
+				t.Fatal(err)
+			}
+		}
+		_, err := RunPrijave(ctx, src, deps)
+		repository.SetSpremiste(spremiste)
+		if err == nil || !strings.HasPrefix(err.Error(), "obavijest 31: ") {
+			t.Fatalf("%s: prvi uvoz: %v", kvar, err)
+		}
+		if p, _ := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:31"); p != nil {
+			t.Fatalf("%s: prijava upisana prije onoga što nedostaje: %+v", kvar, p)
+		}
+
+		skenOdbija = false
+		_, _ = baza.Exec(`DROP TRIGGER IF EXISTS pun_disk`)
+		rep, err := RunPrijave(ctx, src, deps)
+		if err != nil || rep.Upisano != 1 || rep.Postoje != 0 {
+			t.Fatalf("%s: ponovni uvoz: %+v, %v", kvar, rep, err)
+		}
+		p, _ := repo.PoIzvoru(ctx, "bp16:obavijesti_sa_terena:31")
+		if p == nil || p.Broj != 1 || p.Sken != p.ID+".pdf" || len(p.Slike) != 1 {
+			t.Fatalf("%s: prijava nakon ponovnog uvoza: %+v", kvar, p)
+		}
+		if b, _ := repo.Slika(ctx, p.Slike[0].ID); len(b) == 0 {
+			t.Errorf("%s: fotografija nije spremljena", kvar)
+		}
+		if iz, _ := repo.Izvornik(ctx, p.ID); iz == nil || string(iz.PDF) != "%PDF-1.4\niz podataka" {
+			t.Errorf("%s: izvornik nakon ponovnog uvoza: %+v", kvar, iz)
+		}
 	}
 }
 

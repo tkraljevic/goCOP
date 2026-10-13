@@ -89,6 +89,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   ne u godini kad je nastala. Sad uvoz uzima vrijeme zadnje izmjene.
   Obavijest kojoj nema ni njega ne uvozi se, nego se u izvješću uvoza broji
   pod nepoznato.
+- **Obavijesti s terena dovršavaju se nakon prekinutog uvoza.** Kad se
+  fotografija, sken ili izvornik obavijesti iz BP16 nisu dali spremiti,
+  uvoz je javio grešku, ali prijava je već bila upisana. Ponovni uvoz ju je
+  zato preskočio, pa je ostala bez onoga što nije spremljeno. Sad uvoz prvo
+  spremi fotografije i sken, a prijavu zajedno s izvornikom tek na kraju.
+  Ponovni uvoz zato prijavu prenese cijelu.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

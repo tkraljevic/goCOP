@@ -527,31 +527,17 @@ func jePDF(b []byte) bool {
 	return len(b) > 8 && string(b[:4]) == "%PDF"
 }
 
-// spremi sprema prijavu, njezine fotografije, sken i izvornik
+// spremi sprema sken, pa fotografije i izvornik s prijavom. Prijava ide
+// zadnja, jer po njoj ponovni uvoz zna da je obavijest prenesena: uvoz koji
+// stane prije nje ponovni uvoz dovrši (Odluke (13. 10. 2026.)).
 func (u *uvozPrijava) spremi(ctx context.Context, oid int, p *models.PrijavaSTerena, slike []slikaUvoza, sken []byte) error {
-	if err := u.deps.Prijave.Save(ctx, p); err != nil {
-		return fmt.Errorf("obavijest %d: %w", oid, err)
-	}
-	for id, jpg := range u.zaSpremiste(p, slike) {
-		if err := u.deps.Prijave.SaveSlika(ctx, id, p.ID, jpg); err != nil {
-			return fmt.Errorf("obavijest %d, slika: %w", oid, err)
-		}
-	}
 	if err := u.spremiSken(p, sken); err != nil {
-		return fmt.Errorf("obavijest %d, sken: %w", oid, err)
-	}
-	if p.Sken != "" {
-		if err := u.deps.Prijave.Save(ctx, p); err != nil {
-			return fmt.Errorf("obavijest %d: %w", oid, err)
-		}
+		return fmt.Errorf("obavijest %d: sken: %w", oid, err)
 	}
 	izvornik := u.izvornik(p, slike, sken)
-	if len(izvornik) == 0 {
-		return nil
-	}
 	h := sha256.Sum256(izvornik)
-	if err := u.deps.Prijave.SpremiIzvornik(ctx, p.ID, izvornik, hex.EncodeToString(h[:])); err != nil {
-		return fmt.Errorf("obavijest %d, izvornik: %w", oid, err)
+	if err := u.deps.Prijave.SpremiPrenesenu(ctx, p, u.zaSpremiste(p, slike), izvornik, hex.EncodeToString(h[:])); err != nil {
+		return fmt.Errorf("obavijest %d: %w", oid, err)
 	}
 	return nil
 }
