@@ -297,9 +297,8 @@ func TestUparivanjePrekoTailscalea(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	b.ports.Pair = slobodanPort(t)
 	izmisljeniTailnet(t, a, b)
-	upari(t, a, b, fmt.Sprintf("100.101.0.2:%d", b.ports.Pair))
+	upari(t, a, b, "100.101.0.2")
 
 	peerB, err := a.GetPeer(ctxRub, b.node.ID)
 	if err != nil || peerB == nil || len(peerB.Addresses) != 0 {

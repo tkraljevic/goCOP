@@ -19,6 +19,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
   izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
   koja je nema.
+- **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
+  ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
+  minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne
+  vidi. Kad se zatim s uredom upario preko Tailscalea, automatska razmjena
+  ured i dalje nije zvala do kraja te stanke; radilo je samo „Sinkroniziraj
+  sve”. Sad potvrda uparivanja briše raniji niz neuspjeha za to računalo, pa
+  razmjena s njim kreće odmah. Pokreće je računalo koje je nazvalo, da isti
+  podaci ne idu dvaput. Za ostala računala ništa se ne mijenja. Kad je
+  automatska razmjena isključena, razmjena i dalje ide samo na ručni
+  zahtjev.
 - **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
   dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa
   drugi čvorovi za to nisu znali. Novi čvor takvu je epizodu čekao pri
