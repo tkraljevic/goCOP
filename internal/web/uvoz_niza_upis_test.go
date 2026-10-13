@@ -189,8 +189,8 @@ func TestUpisNizaOdbija(t *testing.T) {
 		{"istekao odabir", o.ana, o.anaOvl, niz("nema-ga"), http.StatusOK, "Odabir je istekao ili više ne postoji. Odaberite datoteku ponovno."},
 		{"tuđa letva", o.ana, o.anaOvl, niz(idAna, "letva", "drugovo"), http.StatusOK,
 			"letva drugovo nije na vašim dionicama — njezine podatke uvozi administrator njezina područja"},
-		{"letva se ne zna", o.ana, o.anaOvl, niz(idAna), http.StatusOK,
-			"Nemate pravo uvoziti podatke letve  — uvozi ih administrator njezina područja."},
+		// tekst se ne zaključava: vidi TestUpisNizaBezLetveKodOperatera
+		{"letva se ne zna", o.ana, o.anaOvl, niz(idAna), http.StatusOK, ""},
 		{"bez letve ni globalni", o.pero, o.peroOvl, niz(idPero), http.StatusOK, "letva nije zadana"},
 		{"nova letva bez sliva", o.pero, o.peroOvl, niz(idPero, "letva", "novovo"), http.StatusOK,
 			"Nije zadan sliv — nova letva mora doći sa slivom, inače nema gdje stati."},
@@ -201,6 +201,9 @@ func TestUpisNizaOdbija(t *testing.T) {
 			w := odgovor(o.h.UpisiUvoz, obicniObrazac("/administracija/uvoz-niza/upisi", s.tijelo), s.u, s.p)
 			if w.Code != s.status || !strings.Contains(htmlUTekst(w.Body.String()), s.poruka) {
 				t.Errorf("status %d, očekivan %d s porukom %q: %s", w.Code, s.status, s.poruka, porukeStranice(w.Body.String()))
+			}
+			if s.poruka == "" && porukaGreske(w.Body.String()) == "" {
+				t.Errorf("odbijena potvrda nema poruku o grešci: %s", porukeStranice(w.Body.String()))
 			}
 			if rePosaoNaStranici.MatchString(w.Body.String()) {
 				t.Error("odbijena potvrda pokrenula je gradnju")
@@ -214,6 +217,21 @@ func TestUpisNizaOdbija(t *testing.T) {
 	}
 	if d := o.datoteke(t); len(d) != 0 || len(g.letve) != 0 {
 		t.Errorf("odbijena potvrda zapisala je %v, gradila %v", d, g.letve)
+	}
+}
+
+// Potvrda bez letve kaže operateru isto što i globalnom administratoru: da
+// letva nije zadana.
+func TestUpisNizaBezLetveKodOperatera(t *testing.T) {
+	t.Skip("GREŠKA: internal/web/handlers_uvoz_niza.go:757 pravo se provjerava prije arhiva.ProvjeriDjelove, " +
+		"pa operater za potvrdu bez letve dobije „Nemate pravo uvoziti podatke letve  — …” s praznim imenom " +
+		"umjesto „letva nije zadana”")
+	o, _, _ := okolinaUpisa(t)
+	id := o.posalji(t, o.ana, o.anaOvl, "satni.csv", dnevniPrimjerova)
+	forma := url.Values{"id": {id}, "izvor": {"probni"}, "velicina": {"vodostaj"}, "vrsta": {"dnevni"}}
+	w := odgovor(o.h.UpisiUvoz, obicniObrazac("/administracija/uvoz-niza/upisi", forma.Encode()), o.ana, o.anaOvl)
+	if g := porukaGreske(w.Body.String()); !strings.Contains(g, "letva nije zadana") {
+		t.Errorf("potvrda bez letve kod operatera: %q", g)
 	}
 }
 

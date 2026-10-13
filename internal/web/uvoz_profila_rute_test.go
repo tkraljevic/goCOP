@@ -89,12 +89,15 @@ func TestSnimkeKoritaPregledPaUpis(t *testing.T) {
 		"profil-b.csv (3 točke) — ista snimka korita kao profil-a.csv, koja ih ima 5",
 		"krivulje.csv — nije snimka korita",
 		"nepoznato.csv — zaglavlje ne kaže što je u datoteci",
-		"bez-tocaka.csv — snimka ima samo 2 točaka",
+		"bez-tocaka.csv — snimka ima samo 2 ", // množina se ne zaključava: vidi TestSnimkeKoritaPremaloTocaka
 		"100,00 m", "50,00 m", "120 cm",
 	} {
 		if !strings.Contains(html, treba) {
 			t.Errorf("pregled nema %q", treba)
 		}
+	}
+	if strings.Contains(html, ">2023-07-07<") {
+		t.Error("snimka s premalo točaka ne smije biti među prepoznatima")
 	}
 	// redci idu po datumu mjerenja
 	if a, c, d := strings.Index(html, ">2020-03-01<"), strings.Index(html, ">2021-06-15<"), strings.Index(html, ">2022-09-09<"); a < 0 || !(a < c && c < d) {
@@ -292,8 +295,10 @@ func TestSnimkeKoritaUpisPreskaceIGradnjaPada(t *testing.T) {
 
 	w := odgovor(o.h.UpisiProfile, obicniObrazac("/", "letva=primjerovo&id="+id), o.pero, o.peroOvl)
 	g := porukaGreske(htmlUTekst(w.Body.String()))
-	if !strings.HasPrefix(g, "nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno: "+
-		"pokvarena.csv — više se ne čita kao snimka korita; profil.csv — ") || !strings.Contains(g, "is a directory") {
+	// Što poruka kaže o isteklom odabiru, ne zaključava se: vidi
+	// TestSnimkeKoritaNezapisaneBezIsteklogOdabira.
+	if !strings.HasPrefix(g, "nijedna snimka nije zapisana") ||
+		!strings.Contains(g, "pokvarena.csv — više se ne čita kao snimka korita; profil.csv — ") || !strings.Contains(g, "is a directory") {
 		t.Errorf("preskočene snimke: %q", g)
 	}
 	if _, ima := uvozi.uzmi(id+"-1", korisnik); !ima {
@@ -330,5 +335,39 @@ func TestSnimkeKoritaPitajuSustav(t *testing.T) {
 	obrazac := regexp.MustCompile(`(?s)<form method="POST" action="/administracija/uvoz-profila/upisi".*?</form>`).FindString(html)
 	if !strings.Contains(obrazac, `name="sustav"`) {
 		t.Errorf("obrazac potvrde snimki ne pita za sustav:\n%s", obrazac)
+	}
+}
+
+// Snimka s premalo točaka javlja broj točaka u ispravnom obliku.
+func TestSnimkeKoritaPremaloTocaka(t *testing.T) {
+	t.Skip("GREŠKA: internal/uvoz/his2000/his.go:433 piše „snimka ima samo N točaka” i za 1 i 2 točke " +
+		"(„2 točaka” umjesto „2 točke”, „1 točaka” umjesto „1 točku”)")
+	o, _ := okolinaSnimki(t)
+	r := viseDijelni(t, "/administracija/uvoz-profila/pregled", map[string]string{"letva": "primjerovo"},
+		datotekaObrasca{"datoteke", "profil.csv", snimkaKorita("3/1/2020", "100,00", 120, 4)},
+		datotekaObrasca{"datoteke", "bez-tocaka.csv", snimkaKorita("7/7/2023", "100,00", 90, 2)})
+	html := htmlUTekst(odgovor(o.h.PregledUvozaProfila, r, o.pero, o.peroOvl).Body.String())
+	if !strings.Contains(html, "bez-tocaka.csv — snimka ima samo 2 točke") {
+		t.Errorf("snimka s dvije točke: %s", porukeStranice(html))
+	}
+}
+
+// Kad nijedna snimka nije zapisana zbog razloga koji su navedeni, poruka ne
+// kaže da je odabir istekao: nije, i ponovno slanje ne pomaže.
+func TestSnimkeKoritaNezapisaneBezIsteklogOdabira(t *testing.T) {
+	t.Skip("GREŠKA: internal/web/handlers_uvoz_profila.go:271 uvijek piše „odabir je vjerojatno istekao, pošaljite " +
+		"datoteke ponovno”, i kad snimka čeka, a nije se dala zapisati na disk")
+	o, _ := okolinaSnimki(t)
+	korisnik := o.pero.ID.String()
+	mapa := filepath.Join(o.koren, "primjerica", "primjerovo", "profil")
+	if err := os.MkdirAll(filepath.Join(mapa, "primjerovo_profil_2020-03-01.csv"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	id := "snimke-" + t.Name()
+	uvozi.spremi(id+"-0", "profil.csv", []byte(snimkaKorita("3/1/2020", "100,00", 120, 4)), korisnik)
+	t.Cleanup(func() { uvozi.makni(id + "-0") })
+	w := odgovor(o.h.UpisiProfile, obicniObrazac("/", "letva=primjerovo&id="+id), o.pero, o.peroOvl)
+	if g := porukaGreske(w.Body.String()); strings.Contains(g, "istekao") || !strings.Contains(g, "profil.csv — ") {
+		t.Errorf("snimka koja se ne da zapisati: %q", g)
 	}
 }
