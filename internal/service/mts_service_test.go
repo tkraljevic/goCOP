@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -375,6 +376,13 @@ func TestMtsKatalogIPrava(t *testing.T) {
 // pripremiMts otvara bazu s katalogom, jednim sektorom, područjem i skladištem
 func pripremiMts(t *testing.T) (*MtsService, *models.Skladiste, context.Context, *models.User, *models.UserPermissions) {
 	t.Helper()
+	s, sk, ctx, u, uprava, _ := pripremiMtsIBazu(t)
+	return s, sk, ctx, u, uprava
+}
+
+// pripremiMtsIBazu je pripremiMts koji vraća i bazu, za test koji je kvari
+func pripremiMtsIBazu(t *testing.T) (*MtsService, *models.Skladiste, context.Context, *models.User, *models.UserPermissions, *sql.DB) {
+	t.Helper()
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "mts.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -409,7 +417,7 @@ func pripremiMts(t *testing.T) (*MtsService, *models.Skladiste, context.Context,
 	if err := s.SpremiSkladiste(ctx, uprava, sk); err != nil {
 		t.Fatal(err)
 	}
-	return s, sk, ctx, u, uprava
+	return s, sk, ctx, u, uprava, baza
 }
 
 // kolicinaU javlja koliko jedne vrste stoji u skladištu, preko svih oblika

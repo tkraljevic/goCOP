@@ -6,6 +6,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Zaključena inventura može se otključati.** Kad se poslije zaključenja
+  upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
+  zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno
+  otvoriti. Sad na stranici zaključene inventure postoji gumb „Otključaj
+  inventuru”: inventura se vraća u nacrt s knjižnim stanjem toga dana, a
+  usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje
+  razliku računa iznova. Gumb vidi samo globalni administrator. Kad
+  skladište iza inventure ima noviju zaključenu, najprije se otključava
+  novija; noviji nacrt ne smeta. U napomenu inventure upiše se tko ju je i
+  kada otključao, a na zidu događanja piše „Inventura vraćena u nacrt”.
+- **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
+  izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
+  koja je nema.
 - **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
   ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
   minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne

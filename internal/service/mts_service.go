@@ -703,15 +703,9 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 	}
 	// knjižno stanje se čita iznova u trenutku zaključenja: između sastavljanja
 	// i zaključenja mogao je netko upisati promet
-	stanje, err := s.StanjeSkladista(ctx, p.SkladisteID, &p.Dan)
+	knjizno, err := s.knjiznoNaDan(ctx, p)
 	if err != nil {
 		return err
-	}
-	knjizno := map[string]float64{}
-	for _, sv := range stanje {
-		for o, k := range sv.PoOblicima {
-			knjizno[sv.Vrsta.ID+"|"+o] = k
-		}
 	}
 	var redci []models.Promet
 	sad := time.Now().In(models.Zagreb)
@@ -731,6 +725,131 @@ func (s *MtsService) ZakljuciPopis(ctx context.Context, u *models.User, perms *m
 	}
 	p.ZakljucenoAt = &sad
 	return s.repo.SavePopis(ctx, p)
+}
+
+// knjiznoNaDan vraća knjižno stanje skladišta na dan popisa, po vrsti i
+// obliku (ključ "vrsta|oblik")
+func (s *MtsService) knjiznoNaDan(ctx context.Context, p *models.Popis) (map[string]float64, error) {
+	stanje, err := s.StanjeSkladista(ctx, p.SkladisteID, &p.Dan)
+	if err != nil {
+		return nil, err
+	}
+	knjizno := map[string]float64{}
+	for _, sv := range stanje {
+		for o, k := range sv.PoOblicima {
+			knjizno[sv.Vrsta.ID+"|"+o] = k
+		}
+	}
+	return knjizno, nil
+}
+
+// SmijeOtkljucati javlja smije li osoba zaključenu inventuru vratiti u nacrt
+func (s *MtsService) SmijeOtkljucati(perms *models.UserPermissions) bool {
+	return perms != nil && perms.IsGlobalAdmin
+}
+
+// OtkljucajPopis vraća zaključenu inventuru u nacrt i briše usklađenja koja
+// je zaključenje upisalo. Zaključena inventura ne vidi promet koji je
+// poslije upisan s danom prije nje; ponovno zaključenje razliku računa
+// iznova s knjižnim stanjem toga dana. Smije samo globalni administrator
+// (Odluke (13. 10. 2026.)), a u napomenu inventure upiše se tko je i kada
+// otključao.
+func (s *MtsService) OtkljucajPopis(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
+	if u == nil || !s.SmijeOtkljucati(perms) {
+		return errors.New("Inventuru otključava samo globalni administrator.")
+	}
+	p, err := s.popisZaOtkljucavanje(ctx, id)
+	if err != nil {
+		return err
+	}
+	uskladjenja, err := s.repo.UskladjenjaPopisa(ctx, p.ID)
+	if err != nil {
+		return err
+	}
+	if err := s.osvjeziKnjizno(ctx, p, uskladjenja); err != nil {
+		return err
+	}
+	p.Napomena = dopisiRecenicu(p.Napomena, biljeskaOtkljucavanja(u.FullName, time.Now(), len(uskladjenja)))
+	return s.repo.OtkljucajPopis(ctx, p, uskladjenja)
+}
+
+// osvjeziKnjizno upisuje u stavke knjižno stanje toga dana bez usklađenja
+// koja otključavanje briše. Nacrt tako pokazuje i promet upisan unatrag, a
+// razlika u nacrtu jednaka je onoj koju će ponovno zaključenje proknjižiti.
+func (s *MtsService) osvjeziKnjizno(ctx context.Context, p *models.Popis, uskladjenja []models.Promet) error {
+	knjizno, err := s.knjiznoNaDan(ctx, p)
+	if err != nil {
+		return err
+	}
+	for _, x := range uskladjenja {
+		knjizno[x.VrstaID+"|"+x.Oblik] -= x.Kolicina
+	}
+	for i := range p.Stavke {
+		p.Stavke[i].Knjizno = knjizno[p.Stavke[i].VrstaID+"|"+p.Stavke[i].Oblik]
+	}
+	return nil
+}
+
+// popisZaOtkljucavanje čita inventuru koja se smije otključati: postoji,
+// zaključena je i iza nje skladište nema zaključene inventure
+func (s *MtsService) popisZaOtkljucavanje(ctx context.Context, id string) (*models.Popis, error) {
+	p, err := s.repo.GetPopis(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if p == nil {
+		return nil, errors.New("Inventura nije pronađena.")
+	}
+	if !p.Zakljucen() {
+		return nil, errors.New("Inventura nije zaključena, pa je nema potrebe otključavati.")
+	}
+	if err := s.nemaNovijeZakljucene(ctx, p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// nemaNovijeZakljucene odbija otključavanje kad skladište ima zaključenu
+// inventuru s kasnijim danom. Ta je pri zaključenju knjižno stanje uzela s
+// usklađenjima ove, pa bi ponovno zaključenje ove promijenilo stanje ispod
+// nje. Noviji nacrt ne smeta: knjižno stanje čita tek kad se zaključuje.
+// Nacrt se ne da obrisati, pa bi inače zauvijek priječio otključavanje.
+func (s *MtsService) nemaNovijeZakljucene(ctx context.Context, p *models.Popis) error {
+	popisi, err := s.repo.ListPopisi(ctx, "", p.SkladisteID, 0)
+	if err != nil {
+		return err
+	}
+	for _, q := range popisi { // od najnovijeg dana
+		if !q.Dan.After(p.Dan) {
+			break
+		}
+		if q.Zakljucen() {
+			// datum završava točkom, ona završava i rečenicu
+			return fmt.Errorf("Inventura na dan %s ne može se otključati: za isto skladište postoji novija zaključena inventura, na dan %s Najprije otključajte nju.",
+				p.Dan.Format("2. 1. 2006."), q.Dan.Format("2. 1. 2006."))
+		}
+	}
+	return nil
+}
+
+// biljeskaOtkljucavanja je rečenica za napomenu inventure: tko ju je i
+// kada otključao, i koliko je usklađenja obrisano
+func biljeskaOtkljucavanja(ime string, kad time.Time, uskladjenja int) string {
+	kada := kad.In(models.Zagreb).Format("2. 1. 2006. u 15:04")
+	if uskladjenja == 0 {
+		return fmt.Sprintf("Otključao/la: %s, %s; usklađenja nije bilo.", ime, kada)
+	}
+	return fmt.Sprintf("Otključao/la: %s, %s; %d %s.", ime, kada, uskladjenja,
+		models.UzBrojHR(uskladjenja, "usklađenje je obrisano", "usklađenja su obrisana", "usklađenja je obrisano"))
+}
+
+// dopisiRecenicu dodaje rečenicu na kraj napomene, iza točke, da se dvije
+// rečenice ne slijepe u jednu
+func dopisiRecenicu(napomena, recenica string) string {
+	if strings.TrimSpace(napomena) == "" {
+		return recenica
+	}
+	return models.ZavrsenaRecenica(napomena) + " " + recenica
 }
 
 func (s *MtsService) Popis(ctx context.Context, id string) (*models.Popis, error) {

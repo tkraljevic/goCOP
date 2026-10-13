@@ -601,23 +601,30 @@ func (r *MtsRepository) SavePopis(ctx context.Context, p *models.Popis) error {
 	if p.CreatedAt.IsZero() {
 		p.CreatedAt = now
 	}
-	p.UpdatedAt = now
-	args, err := popisArgs(p)
-	if err != nil {
-		return err
-	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, popisUpsert, args...); err != nil {
-		return fmt.Errorf("upis popisa: %w", err)
-	}
-	if _, err := r.rec.Record(ctx, tx, EntityMtsPopisi, p.ID, p); err != nil {
+	if err := r.upisiPopis(ctx, tx, p); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// upisiPopis upisuje popis na površinu i bilježi verziju, u zadanoj
+// transakciji; popis već ima identitet
+func (r *MtsRepository) upisiPopis(ctx context.Context, tx *sql.Tx, p *models.Popis) error {
+	p.UpdatedAt = time.Now().UTC()
+	args, err := popisArgs(p)
+	if err != nil {
+		return fmt.Errorf("popis %s: %w", p.ID, err)
+	}
+	if _, err := tx.ExecContext(ctx, popisUpsert, args...); err != nil {
+		return fmt.Errorf("upis popisa: %w", err)
+	}
+	_, err = r.rec.Record(ctx, tx, EntityMtsPopisi, p.ID, p)
+	return err
 }
 
 // GetPopis čita popis; nil kad ga nema
@@ -733,15 +740,24 @@ func (r *MtsRepository) ArhivirajPromet(ctx context.Context, redci []models.Prom
 		return err
 	}
 	defer tx.Rollback()
+	if err := r.arhivirajRetke(ctx, tx, redci); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// arhivirajRetke miče retke prometa s površine i bilježi spomenik svakome,
+// u zadanoj transakciji
+func (r *MtsRepository) arhivirajRetke(ctx context.Context, tx *sql.Tx, redci []models.Promet) error {
 	for i := range redci {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM mts_promet WHERE id = ?`, redci[i].ID); err != nil {
-			return err
+			return fmt.Errorf("brisanje retka prometa %s: %w", redci[i].ID, err)
 		}
 		if _, err := r.rec.Archive(ctx, tx, EntityMtsPromet, redci[i].ID, &redci[i]); err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ArhivirajPopis miče popis s površine; u knjizi verzija ostaje arhiviran.
