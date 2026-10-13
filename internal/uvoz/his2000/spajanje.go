@@ -105,23 +105,36 @@ func procitajZatecene(b []byte) ([]razdobljeKrivulje, error) {
 		return nil, nil
 	}
 	stupci := stupciZaglavlja(sve[0])
-	mjesto := map[string]int{}
-	var out []razdobljeKrivulje
+	k := noveKrivulje()
 	for _, r := range sve[1:] {
 		pocetak, err := provjeriRedak(r)
 		if err != nil {
 			return nil, err
 		}
-		od := strings.TrimSpace(r[0])
-		j, ima := mjesto[od]
-		if !ima {
-			j = len(out)
-			mjesto[od] = j
-			out = append(out, razdobljeKrivulje{od: od, do: strings.TrimSpace(r[1]), pocetak: pocetak})
-		}
-		out[j].redci = append(out[j].redci, stupci.odsjecak(r))
+		k.dodaj(strings.TrimSpace(r[0]), strings.TrimSpace(r[1]), pocetak, stupci.odsjecak(r))
 	}
-	return out, nil
+	return k.sve, nil
+}
+
+// krivuljePoPocetku slaže odsječke u krivulje kao gradnja arhive: odsječci
+// istog početka čine jednu krivulju, a kraj je onaj uz prvi odsječak.
+type krivuljePoPocetku struct {
+	mjesto map[string]int
+	sve    []razdobljeKrivulje
+}
+
+func noveKrivulje() *krivuljePoPocetku {
+	return &krivuljePoPocetku{mjesto: map[string]int{}}
+}
+
+func (k *krivuljePoPocetku) dodaj(od, do string, pocetak time.Time, odsjecak []string) {
+	j, ima := k.mjesto[od]
+	if !ima {
+		j = len(k.sve)
+		k.mjesto[od] = j
+		k.sve = append(k.sve, razdobljeKrivulje{od: od, do: do, pocetak: pocetak})
+	}
+	k.sve[j].redci = append(k.sve[j].redci, odsjecak)
 }
 
 func citajTablicu(b []byte) ([][]string, error) {
@@ -173,18 +186,22 @@ func (s stupci) odsjecak(r []string) []string {
 	return out
 }
 
-// razdobljaIzvoza su krivulje izvoza. Zadnjoj se kraj ne uzima: DHMZ joj
-// upiše kraj razdoblja izvoza, a ne kraj valjanosti (zatvoriKrajeve).
+// razdobljaIzvoza su krivulje izvoza, pročitane kao i zatečena datoteka:
+// dvije krivulje istog početka su jedna, a razdoblje bez odsječaka nije
+// krivulja, pa ne zamjenjuje zatečenu. Stari zapis izvoza pisao je obje
+// krivulje istog početka, a gradnja ih je slila u jednu. Zadnjoj krivulji
+// kraj se ne uzima: DHMZ joj upiše kraj razdoblja izvoza, a ne kraj
+// valjanosti (zatvoriKrajeve).
 func razdobljaIzvoza(s *Sadrzaj) []razdobljeKrivulje {
-	out := make([]razdobljeKrivulje, 0, len(s.Krivulje))
-	for _, k := range s.Krivulje {
-		r := razdobljeKrivulje{od: k.Od.Format(oblikDana), do: k.Do.Format(oblikDana), pocetak: k.Od}
-		for _, o := range k.Odsjecci {
-			r.redci = append(r.redci, []string{strconv.Itoa(o.OdCm), strconv.Itoa(o.DoCm), o.Oblik,
-				o.P1, o.P2, o.P3, o.P4, izvorKrivulja, ""})
+	k := noveKrivulje()
+	for _, kr := range s.Krivulje {
+		for _, o := range kr.Odsjecci {
+			k.dodaj(kr.Od.Format(oblikDana), kr.Do.Format(oblikDana), kr.Od, []string{strconv.Itoa(o.OdCm),
+				strconv.Itoa(o.DoCm), o.Oblik, o.P1, o.P2, o.P3, o.P4, izvorKrivulja, ""})
 		}
-		out = append(out, r)
 	}
+	out := k.sve
+	sort.SliceStable(out, func(i, j int) bool { return out[i].pocetak.Before(out[j].pocetak) })
 	if n := len(out); n > 0 {
 		out[n-1].do = ""
 	}

@@ -233,6 +233,37 @@ func TestSpojiKrivuljeCitaKaoGradnja(t *testing.T) {
 	}
 }
 
+// Izvoz se čita kao i zatečena datoteka: dvije krivulje istog početka su
+// jedna, sa svim odsječcima i krajem prve, a razdoblje bez odsječaka nije
+// krivulja, pa zatečena krivulja istog početka ostaje. Otvorena ostaje
+// krivulja najkasnijeg početka, i kad izvoz nije poredan.
+func TestSpojiKrivuljeIzvozKaoGradnja(t *testing.T) {
+	odsjecak := func(od, do int, p1 string) []Odsjecak {
+		return []Odsjecak{{OdCm: od, DoCm: do, Oblik: models.OblikPolinom, P1: p1, P2: "200", P3: "300"}}
+	}
+	s := &Sadrzaj{Krivulje: []Krivulja{
+		{Od: dan(2004, 1, 1), Do: dan(2004, 12, 31), Odsjecci: odsjecak(100, 500, "7")},
+		{Od: dan(2001, 1, 1), Do: dan(2001, 12, 31), Odsjecci: odsjecak(-100, 100, "1")},
+		{Od: dan(2001, 1, 1), Do: dan(2003, 12, 31), Odsjecci: odsjecak(100, 500, "4")},
+		{Od: dan(1990, 1, 1), Do: dan(1990, 12, 31)},
+	}}
+	sp, err := SpojiKrivulje([]byte(ZaglavljeKrivulja+"\n"+redakKrivulje("1990-01-01", "2000-12-31", "9")), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeli := ZaglavljeKrivulja + "\n" +
+		redakKrivulje("1990-01-01", "2000-12-31", "9") +
+		"2001-01-01;2001-12-31;-100;100;polinom;1;200;300;;DHMZ, HIS-2000;\n" +
+		"2001-01-01;2001-12-31;100;500;polinom;4;200;300;;DHMZ, HIS-2000;\n" +
+		"2004-01-01;;100;500;polinom;7;200;300;;DHMZ, HIS-2000;\n"
+	if string(sp.CSV) != zeli || sp.Krivulja != 3 || sp.Razlikuju != nil || strings.Join(sp.Ostaju, ",") != "1990-01-01" {
+		t.Errorf("izvoz s dvostrukim i praznim razdobljem: %v %v\n%s", sp.Razlikuju, sp.Ostaju, sp.CSV)
+	}
+	if got := string(KrivuljeCSV(s)); got != strings.Replace(zeli, redakKrivulje("1990-01-01", "2000-12-31", "9"), "", 1) {
+		t.Errorf("KrivuljeCSV:\n%s", got)
+	}
+}
+
 // Redak koji gradnja ne bi pročitala, datum koji nije datum i datoteka koja
 // nije tablica zaustavljaju spajanje, a poruka kaže koji je redak. Kad se
 // zatečena datoteka ne da pročitati, greška nosi njezin put.
