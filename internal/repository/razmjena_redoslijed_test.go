@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"math/rand/v2"
+	"path/filepath"
 	"reflect"
 	"slices"
 	"strings"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 )
@@ -25,12 +27,19 @@ import (
 // i pri svakom pokretanju. Dionica koja je navodila obrisanu letvu ili objekt
 // (do 13. 10. 2026.) nije stizala ni sa svojim kazalima i epizodama, a obnova
 // pri pokretanju javljala je za nju grešku. Obrisana bilješka sata s dvije
-// bilješke (do 13. 10. 2026.) vraćala se na novom čvoru.
+// bilješke (do 13. 10. 2026.) vraćala se na novom čvoru, a kad je bilješku s
+// prednošću obrisao čvor koji drugu nije znao, sat je na dijelu čvorova
+// ostajao prazan.
 //
 // Ovaj test na izvoru kroz repozitorije slaže skup zapisa koji se oslanjaju
 // jedni na druge i mijenjaju se, šalje ga svježem čvoru na više načina i
 // traži da svaki put dobije istu površinu kao izvor: odmah nakon dostave i
-// nakon ponovnog pokretanja (ReplaySurface i ObnoviPovrsinu).
+// nakon ponovnog pokretanja (ReplaySurface i ObnoviPovrsinu). Dio zapisa
+// piše drugi čvor ("teren") i šalje ih izvoru razmjenom, pa razmjena po
+// autoru i kanalu sama donosi verzije onim redom kojim su se 12. 10. gubile
+// dionice. Izvor nakon slaganja nema živih zapisa kojih nema na površini
+// (siroteKnjige) i sam prolazi ponovno pokretanje, koje ne smije ništa
+// popraviti.
 
 const (
 	sektorRedoslijeda   = "R"
@@ -40,13 +49,14 @@ const (
 
 var danRedoslijeda = time.Date(2026, 9, 20, 0, 0, 0, 0, time.UTC)
 
-// izvorRedoslijeda upisuje skup na čvoru "ured" i vraća taj čvor. Redoslijed
-// upisa je namjeran: oslonci nastaju i mijenjaju se prije i poslije zapisa
-// koji ih trebaju, pa obrnut ili izmiješan redoslijed dostave daje zapise
-// prije njihovih oslonaca i novije verzije prije starijih.
-func izvorRedoslijeda(t *testing.T) *cvor {
+// izvorRedoslijeda upisuje skup na čvoru "ured" i vraća taj čvor; ured i
+// teren su kopije predloška. Redoslijed upisa je namjeran: oslonci nastaju i
+// mijenjaju se prije i poslije zapisa koji ih trebaju, pa obrnut ili
+// izmiješan redoslijed dostave daje zapise prije njihovih oslonaca i novije
+// verzije prije starijih.
+func izvorRedoslijeda(t *testing.T, predlozak *cvor) *cvor {
 	t.Helper()
-	a := noviCvor(t, "ured")
+	a, teren := kopijaCvora(t, predlozak, "ured"), kopijaCvora(t, predlozak, "teren")
 
 	org := NewOrgRepository(a.db, a.rec)
 	sektor := models.Sector{ID: sektorRedoslijeda, Name: "Sektor R", VgoName: "VGO R", CenterCop: "COP R", Level: 2}
@@ -67,11 +77,7 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 	nuzno(t, letve.CreateStation(ctxRaz, &prva))
 	// očitanje prije dionice ide u zajednički kanal, izmjena poslije u kanal područja
 	ocitanja := NewReadingRepository(a.db, a.rec)
-	mjeri := func(rd models.Reading, cm int) *models.Reading {
-		rd.LevelCm, rd.Source = &cm, models.ReadingSourceManual
-		nuzno(t, ocitanja.Create(ctxRaz, &rd))
-		return &rd
-	}
+	mjeri := func(rd models.Reading, cm int) *models.Reading { return mjeriNa(t, a, rd, cm) }
 	prijeDionice := mjeri(models.Reading{StationID: prva.ID.String(), MeasuredAt: danRedoslijeda.Add(5 * time.Hour)}, 210)
 
 	objekti := NewStructureRepository(a.db, a.rec)
@@ -79,7 +85,8 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 		AreaID: podrucjeRedoslijeda, StationID: prva.ID.String()}
 	nuzno(t, objekti.CreateStructure(ctxRaz, &crpka))
 
-	// dionica u tri verzije: letva, pa objekt i teritorij, pa letva koja nastaje tek poslije
+	// dionica u četiri verzije: letva, pa objekt i teritorij, pa terenova
+	// napomena, pa letva koja nastaje tek poslije
 	dionice := NewSectionRepository(a.db, a.rec)
 	dionica := models.Section{Code: dionicaRedoslijeda, AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
 		Description: "probna dionica", DescriptionCustom: true,
@@ -101,21 +108,31 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 	dionica.Parts[0].Territories = []models.PartTerritory{{CountyID: zupanija.ID, MunicipalityID: opcina.ID, SettlementID: &naselje.ID}}
 	nuzno(t, dionice.SaveSection(ctxRaz, &dionica))
 
+	// Teren primi dionicu i iza dvadeset jednog svog zapisa je izmijeni, pa
+	// upiše letvu R-2. Ured nakon razmjene dodaje R-2 u dionicu. Ta zadnja
+	// verzija dionice jedanaesta je uredova u zajedničkom kanalu, a terenova,
+	// starija, dvadeset druga terenova, odmah ispred letve. Razmjena po
+	// autoru i kanalu zato donosi zadnju verziju prije letve, a stariju
+	// zajedno s letvom ili prije nje (donosiKasnuStariju).
+	razmijeni(t, a, teren)
+	druga, prijeVeze := terenRedoslijeda(t, teren)
+	razmijeni(t, teren, a)
+	zadnja, err := dionice.GetSectionByCode(dionicaRedoslijeda)
+	nuzno(t, err)
+	if zadnja == nil || zadnja.Notes == "" {
+		t.Fatalf("ured nema terenovu izmjenu dionice: %+v", zadnja)
+	}
+	zadnja.Parts[0].StationIDs = append(zadnja.Parts[0].StationIDs, druga.ID.String())
+	nuzno(t, dionice.SaveSection(ctxRaz, zadnja))
+
 	prvi, drugi := korisniciRedoslijeda(t, a)
 	epizoda := models.DefenseEpisode{SectionCode: dionicaRedoslijeda, StationID: prva.ID.String(),
 		StartedAt: danRedoslijeda.Add(6 * time.Hour), Phase: models.PhaseRegular, DeclaredBy: prvi.FullName}
 	epizode := NewEpisodeRepository(a.db, a.rec)
 	nuzno(t, epizode.SaveEpisode(ctxRaz, &epizoda))
 
-	dnevniciRedoslijeda(t, a, prvi, drugi)
-	obrisaneDioniceRedoslijeda(t, a, prva.ID.String())
+	ostavljeni := append(dnevniciRedoslijeda(t, a, prvi, drugi), obrisaneDioniceRedoslijeda(t, a, prva.ID.String())...)
 	obrisaneLetveRedoslijeda(t, a, prva.ID.String())
-
-	druga := models.Station{Code: "R-2", Name: "Probna letva druga"}
-	nuzno(t, letve.CreateStation(ctxRaz, &druga))
-	prijeVeze := mjeri(models.Reading{StationID: druga.ID.String(), MeasuredAt: danRedoslijeda.Add(7 * time.Hour)}, 330)
-	dionica.Parts[0].StationIDs = append(dionica.Parts[0].StationIDs, druga.ID.String())
-	nuzno(t, dionice.SaveSection(ctxRaz, &dionica))
 
 	// izmjene oslonaca nakon zapisa koji ih trebaju
 	kraj := danRedoslijeda.Add(30 * time.Hour)
@@ -140,9 +157,123 @@ func izvorRedoslijeda(t *testing.T) *cvor {
 	ocitanjeNa(t, a, danRedoslijeda.Add(8*time.Hour), 140)
 	ocitanjeNa(t, a, danRedoslijeda.Add(9*time.Hour), 141)
 
-	biljeskeRedoslijeda(t, a, prva.Code)
+	biljeskeRedoslijeda(t, a, teren, prva.Code)
 	aktRedoslijeda(t, a, prva.Name)
+	listoviRedoslijeda(t, a, teren)
+
+	// svaki zapis koji je nestao s površine izvora ima spomenik, pa izvor pri
+	// ponovnom pokretanju nema što popraviti
+	if sirote := siroteKnjige(t, a, ostavljeni); len(sirote) > 0 {
+		t.Errorf("u knjizi izvora žive su, a na površini ih nema (brisanje bez spomenika): %v", sirote)
+	}
+	o, greska := ponovnoPokretanje(t, a)
+	if greska != nil {
+		t.Errorf("obnova površine pri pokretanju izvora: %v", greska)
+	}
+	if !praznaObnova(o) {
+		t.Errorf("obnova površine pri pokretanju izvora nešto je popravila: %s", o)
+	}
 	return a
+}
+
+// siroteKnjige su zapisi (tablica|id) koji su u knjizi čvora živi, a na
+// površini ih nema. Takav zapis ostaje iza brisanja koje mu nije dalo
+// spomenik (pravilo 5): obnova pri pokretanju ili drugi čvor ga vraća, ili
+// mu čeka oslonac. Ne broje se zapisi koje je skup namjerno ostavio
+// (ostavljeni) ni bilješke čiji trenutak drži novija.
+func siroteKnjige(t *testing.T, c *cvor, ostavljeni []string) []string {
+	t.Helper()
+	type ziv struct {
+		kljuc   string
+		sadrzaj []byte
+	}
+	var zivi []ziv
+	for _, tablica := range tablicePovrsine(t, c) {
+		kljuc := kljucTablice(t, c, tablica)
+		if kljuc == "" {
+			continue
+		}
+		rows, err := c.db.Query(`SELECT v.entity_id, v.payload FROM record_versions v
+			WHERE v.entity = ? AND v.archived = 0
+				AND v.version_id = (SELECT MAX(w.version_id) FROM record_versions w
+					WHERE w.entity = v.entity AND w.entity_id = v.entity_id)
+				AND NOT EXISTS (SELECT 1 FROM `+tablica+` p WHERE p.`+kljuc+` = v.entity_id)`, tablica)
+		nuzno(t, err)
+		for rows.Next() {
+			var id string
+			var sadrzaj []byte
+			nuzno(t, rows.Scan(&id, &sadrzaj))
+			zivi = append(zivi, ziv{tablica + "|" + id, sadrzaj})
+		}
+		nuzno(t, rows.Err())
+		rows.Close()
+	}
+	var sirote []string
+	for _, z := range zivi {
+		if !slices.Contains(ostavljeni, z.kljuc) && !izgubilaTrenutak(t, c, z.kljuc, z.sadrzaj) {
+			sirote = append(sirote, z.kljuc)
+		}
+	}
+	return sirote
+}
+
+// izgubilaTrenutak javlja je li zapis bilješka čiji trenutak drži druga
+// bilješka (mjestoNaTrenutku)
+func izgubilaTrenutak(t *testing.T, c *cvor, kljuc string, sadrzaj []byte) bool {
+	t.Helper()
+	if !strings.HasPrefix(kljuc, EntityBiljeske+"|") {
+		return false
+	}
+	b := teret[models.ArhivaBiljeska](t, sadrzaj)
+	return brojRedaka(t, c.db, `SELECT count(*) FROM arhiva_biljeske WHERE letva = ? AND velicina = ? AND korak = ? AND vrijeme = ?`,
+		b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC()) > 0
+}
+
+// mjeriNa upisuje na čvoru ručno očitanje u centimetrima
+func mjeriNa(t *testing.T, c *cvor, rd models.Reading, cm int) *models.Reading {
+	t.Helper()
+	rd.LevelCm, rd.Source = &cm, models.ReadingSourceManual
+	nuzno(t, NewReadingRepository(c.db, c.rec).Create(ctxRaz, &rd))
+	return &rd
+}
+
+// razmijeni radi što i jedna razmjena: primatelj b javi granicu, izvor a mu
+// pošalje sve što b nema, i tuđe verzije, i b to primi
+func razmijeni(t *testing.T, a, b *cvor) {
+	t.Helper()
+	granica, err := b.rec.Frontier(ctxRaz)
+	nuzno(t, err)
+	delta, err := a.rec.Delta(ctxRaz, granica, nil, 100000)
+	nuzno(t, err)
+	primi(t, b, slices.DeleteFunc(delta, func(v ledger.Version) bool { return !KeepVersion(v) }))
+}
+
+// terenRedoslijeda piše na terenu, koji je od ureda primio dionicu: letvu
+// uzvodno s dvadeset očitanja (zajednički kanal, jer letva nije ni na jednoj
+// dionici), izmjenu dionice, letvu R-2 i očitanje na njoj prije nego što
+// uđe u dionicu
+func terenRedoslijeda(t *testing.T, teren *cvor) (*models.Station, *models.Reading) {
+	t.Helper()
+	letve := NewStationRepository(teren.db, teren.rec)
+	uzvodno := models.Station{Code: "R-U", Name: "Probna letva uzvodno"}
+	nuzno(t, letve.CreateStation(ctxRaz, &uzvodno))
+	for i := range 20 {
+		mjeriNa(t, teren, models.Reading{StationID: uzvodno.ID.String(), MeasuredAt: danRedoslijeda.Add(time.Duration(i) * time.Hour)}, 400+i)
+	}
+
+	dionice := NewSectionRepository(teren.db, teren.rec)
+	dionica, err := dionice.GetSectionByCode(dionicaRedoslijeda)
+	nuzno(t, err)
+	if dionica == nil {
+		t.Fatal("teren nije primio dionicu")
+	}
+	dionica.Notes = "nasip pregledan s terena"
+	nuzno(t, dionice.SaveSection(ctxRaz, dionica))
+
+	druga := models.Station{Code: "R-2", Name: "Probna letva druga"}
+	nuzno(t, letve.CreateStation(ctxRaz, &druga))
+	prijeVeze := mjeriNa(t, teren, models.Reading{StationID: druga.ID.String(), MeasuredAt: danRedoslijeda.Add(7 * time.Hour)}, 330)
+	return &druga, prijeVeze
 }
 
 // korisniciRedoslijeda upisuje dvije izmišljene osobe; prvoj dužnost dodjeljuje
@@ -171,9 +302,10 @@ func korisniciRedoslijeda(t *testing.T, a *cvor) (prvi, drugi *models.User) {
 
 // dnevniciRedoslijeda upisuje tri dnevnika područja: jedan ostaje, jedan se
 // briše sa svim listovima, upisima i dežurstvima, a jedan se briše kao prije
-// ispravka iz PR-a #54 — spomenik dobiva samo dnevnik, a upisi ostaju živi u
-// knjizi (izravno u knjigu, jer repozitorij to više ne radi)
-func dnevniciRedoslijeda(t *testing.T, a *cvor, prvi, drugi *models.User) {
+// ispravka iz PR-a #54 — spomenik dobiva samo dnevnik, a list i upis ostaju
+// živi u knjizi (izravno u knjigu, jer repozitorij to više ne radi). Vraća
+// list i upis koji tako ostaju (tablica|id).
+func dnevniciRedoslijeda(t *testing.T, a *cvor, prvi, drugi *models.User) []string {
 	t.Helper()
 	repo := NewJournalRepository(a.db, a.rec)
 	dnevnik := func(naslov string) (*models.Journal, *models.JournalSheet) {
@@ -214,7 +346,7 @@ func dnevniciRedoslijeda(t *testing.T, a *cvor, prvi, drugi *models.User) {
 	nuzno(t, repo.SaveDezurstvo(ctxRaz, d))
 
 	stari, list := dnevnik("Dnevnik obrisan prije ispravka")
-	upis(stari, list, "upis koji ostaje živ u knjizi")
+	ostaje := upis(stari, list, "upis koji ostaje živ u knjizi")
 	tx, err := a.db.BeginTx(ctxRaz, nil)
 	nuzno(t, err)
 	defer tx.Rollback()
@@ -223,17 +355,19 @@ func dnevniciRedoslijeda(t *testing.T, a *cvor, prvi, drugi *models.User) {
 	_, err = a.rec.ArchiveIn(ctxRaz, tx, journalChannel(stari), EntityJournals, stari.ID, stari)
 	nuzno(t, err)
 	nuzno(t, tx.Commit())
+	return []string{EntityJournalSheets + "|" + list.ID, EntityJournalEntries + "|" + ostaje.ID}
 }
 
 // obrisaneDioniceRedoslijeda upisuje dvije dionice s epizodom obrane i briše
 // ih: jednu repozitorijem, a drugu kao prije ispravka od 13. 10. 2026. —
 // spomenik dobiva samo dionica, a epizoda ostaje živa u knjizi (izravno u
-// knjigu, jer repozitorij to više ne radi)
-func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) {
+// knjigu, jer repozitorij to više ne radi). Vraća epizodu koja tako ostaje
+// (tablica|id).
+func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) []string {
 	t.Helper()
 	dionice := NewSectionRepository(a.db, a.rec)
 	epizode := NewEpisodeRepository(a.db, a.rec)
-	upisi := func(kod string) *models.Section {
+	upisi := func(kod string) (*models.Section, *models.DefenseEpisode) {
 		d := &models.Section{Code: kod, AreaID: podrucjeRedoslijeda, SectorID: sektorRedoslijeda,
 			Description: "dionica koja se briše", DescriptionCustom: true,
 			Parts: []models.SectionPart{{StationIDs: []string{letva}}}}
@@ -241,12 +375,12 @@ func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) {
 		e := &models.DefenseEpisode{SectionCode: kod, StationID: letva, StartedAt: danRedoslijeda.Add(6 * time.Hour),
 			Phase: models.PhasePrep, DeclaredBy: "Ivo Probić"}
 		nuzno(t, epizode.SaveEpisode(ctxRaz, e))
-		return d
+		return d, e
 	}
 	upisi("R.41.2")
 	nuzno(t, dionice.ArhivirajSekciju(ctxRaz, "R.41.2"))
 
-	stara := upisi("R.41.3")
+	stara, ostaje := upisi("R.41.3")
 	tx, err := a.db.BeginTx(ctxRaz, nil)
 	nuzno(t, err)
 	defer tx.Rollback()
@@ -254,6 +388,7 @@ func obrisaneDioniceRedoslijeda(t *testing.T, a *cvor, letva string) {
 	_, err = a.rec.Archive(ctxRaz, tx, EntitySections, stara.Code, stara)
 	nuzno(t, err)
 	nuzno(t, tx.Commit())
+	return []string{EntityEpisodes + "|" + ostaje.ID.String()}
 }
 
 // obrisaneLetveRedoslijeda upisuje dionicu R.41.4 s epizodom obrane, letvom
@@ -282,16 +417,21 @@ func obrisaneLetveRedoslijeda(t *testing.T, a *cvor, letva string) {
 	nuzno(t, letve.DeleteStation(ctxRaz, treca.ID))
 	nuzno(t, objekti.DeleteStructure(ctxRaz, ustava.ID))
 	d.Notes = "letva i ustava uklonjene iz registra"
-	nuzno(t, dionice.SaveSection(ctxRaz, &d))
+	if err := dionice.SaveSection(ctxRaz, &d); err != nil {
+		t.Fatalf("dionica koja navodi obrisanu letvu i ustavu ne da se spremiti: %v", err)
+	}
 }
 
 // biljeskeRedoslijeda upisuje po dvije bilješke za isti sat s različitim
 // identitetom. Repozitorij na istom čvoru za isti sat uzima postojeći zapis,
-// pa drugu bilješku za prvi i treći sat upisuje čvor "teren", a za drugi sat
-// stiže izravno u knjigu s čvora "drugi-ured": starijom verzijom, istim
-// vremenom izmjene i većim identitetom, pa na satu ostaje ona. Bilješku
-// trećeg sata ured zatim briše, pa ondje ne smije ostati nijedna.
-func biljeskeRedoslijeda(t *testing.T, a *cvor, letva string) {
+// pa drugu bilješku za prvi, treći i četvrti sat upisuje teren, koji uredove
+// bilješke još nema; njegova je novija i ima prednost na satu. Za drugi sat
+// druga bilješka stiže izravno u knjigu s čvora "drugi-ured": starijom
+// verzijom, istim vremenom izmjene i većim identitetom, pa na satu ostaje
+// ona. Treći sat ured nakon razmjene briše, pa ondje ne smije ostati
+// nijedna. Na četvrtom satu teren briše svoju bilješku, onu s prednošću,
+// prije nego što je vidio uredovu: uredova je u knjizi živa i ostaje na satu.
+func biljeskeRedoslijeda(t *testing.T, a, teren *cvor, letva string) {
 	t.Helper()
 	sat := time.Date(2026, 9, 21, 5, 0, 0, 0, time.UTC)
 	biljeska := func(kad time.Time, tekst, tko string) models.ArhivaBiljeska {
@@ -300,16 +440,25 @@ func biljeskeRedoslijeda(t *testing.T, a *cvor, letva string) {
 	repo := NewBiljeskaRepository(a.db, a.rec)
 	_, err := repo.Spremi(ctxRaz, []models.ArhivaBiljeska{
 		biljeska(sat, "s ureda", "Ivo Probić"), biljeska(sat.Add(time.Hour), "s ureda, sat poslije", "Ivo Probić"),
-		biljeska(sat.Add(2*time.Hour), "s ureda, briše se", "Ivo Probić")})
+		biljeska(sat.Add(2*time.Hour), "s ureda, briše se", "Ivo Probić"),
+		biljeska(sat.Add(3*time.Hour), "s ureda, ostaje kad teren svoju obriše", "Ivo Probić")})
 	nuzno(t, err)
 
-	teren := noviCvor(t, "teren")
-	_, err = NewBiljeskaRepository(teren.db, teren.rec).Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat, "s terena", "Ana Probić"),
-		biljeska(sat.Add(2*time.Hour), "s terena, briše se", "Ana Probić")})
+	sTerena := NewBiljeskaRepository(teren.db, teren.rec)
+	_, err = sTerena.Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat, "s terena", "Ana Probić"),
+		biljeska(sat.Add(2*time.Hour), "s terena, briše se", "Ana Probić"),
+		biljeska(sat.Add(3*time.Hour), "s terena, teren je briše", "Ana Probić")})
 	nuzno(t, err)
-	posalji(t, teren, a)
+	_, err = sTerena.Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat.Add(3*time.Hour), "", "")})
+	nuzno(t, err)
+	razmijeni(t, teren, a)
 	_, err = repo.Spremi(ctxRaz, []models.ArhivaBiljeska{biljeska(sat.Add(2*time.Hour), "", "")})
 	nuzno(t, err)
+	var tekst string
+	nuzno(t, a.db.QueryRow(`SELECT tekst FROM arhiva_biljeske WHERE vrijeme = ?`, sat.Add(3*time.Hour)).Scan(&tekst))
+	if tekst != "s ureda, ostaje kad teren svoju obriše" {
+		t.Fatalf("na četvrtom satu izvora je %q, a treba ostati uredova bilješka", tekst)
+	}
 
 	var id string
 	nuzno(t, a.db.QueryRow(`SELECT id FROM arhiva_biljeske WHERE vrijeme = ?`, sat.Add(time.Hour)).Scan(&id))
@@ -343,13 +492,40 @@ func aktRedoslijeda(t *testing.T, a *cvor, letva string) {
 	}
 }
 
+// listoviRedoslijeda slaže dnevni list vodočuvara Ive Ivića: Ana na uredu
+// upiše bilješku na list i Ivo ga ondje preda; na terenu, koji za taj list
+// ne zna, Ivo isti dan list preda još jednom (drugi potpis s drugog čvora).
+// Nakon razmjene ured ima oba lista, drugi pod izvedenom oznakom, i Ana
+// prvi ovjeri.
+func listoviRedoslijeda(t *testing.T, a, teren *cvor) {
+	t.Helper()
+	nacrtSUpisom(t, a, "pojačati ophodnju nasipa", time.Date(2026, time.October, 14, 6, 0, 0, 0, models.Zagreb))
+	predajIvu(t, a, "obilazak nasipa R")
+	predajIvu(t, teren, "obilazak nasipa R, predan s terena")
+	razmijeni(t, teren, a)
+	x := models.IDListaVodocuvara(ivoIvic, danIve)
+	ovjeriIvu(t, a, x)
+	listovi := listoviIve(t, a)
+	if len(listovi) != 2 {
+		t.Fatalf("ured ima %d listova Ive za 14. 10., a treba dva", len(listovi))
+	}
+	for _, l := range listovi {
+		if l.ID == x && (!l.Potvrden() || !imaUpis(l, "pojačati ophodnju nasipa")) {
+			t.Fatalf("prvi list nema ovjeru ili bilješku: %+v", l)
+		}
+	}
+}
+
 // ---- dostava ----
 
-// dostava pamti koliko je paketa primatelj primio i koliko ih je ostavilo
-// zapise da čekaju oslonac
+// dostava pamti koliko je paketa primatelj primio, koliko ih je ostavilo
+// zapise da čekaju oslonac i koliko ih je donijelo stariju verziju zapisa
+// koji čeka. Kad je pokreniSvakih > 0, primatelj se ponovno pokreće nakon
+// svakih toliko paketa.
 type dostava struct {
-	b              *cvor
-	paketa, zapelo int
+	b                            *cvor
+	pokreniSvakih                int
+	paketa, zapelo, kasnaStarija int
 }
 
 // paket radi što i razmjena s jednim primljenim paketom: verzije u knjigu,
@@ -357,11 +533,49 @@ type dostava struct {
 func (d *dostava) paket(t *testing.T, verzije []ledger.Version) {
 	t.Helper()
 	d.paketa++
+	if d.donosiKasnuStariju(t, verzije) {
+		d.kasnaStarija++
+	}
 	err := primiPaket(t, d.b, verzije...)
 	if err != nil {
 		d.zapelo++
 	}
 	nuzno(t, bezDjelomicnih(err))
+	if d.pokreniSvakih > 0 && d.paketa%d.pokreniSvakih == 0 {
+		_, greska := ponovnoPokretanje(t, d.b)
+		nuzno(t, bezDjelomicnih(greska))
+	}
+}
+
+// donosiKasnuStariju javlja nosi li paket stariju verziju zapisa koji čeka
+// među nedovršenima, a čija je novija verzija već u knjizi primatelja. Tako
+// su 12. 10. 2026. nestajale dionice: starija se preskočila kao zastarjela,
+// a zapis je otišao s popisa nedovršenih.
+func (d *dostava) donosiKasnuStariju(t *testing.T, verzije []ledger.Version) bool {
+	t.Helper()
+	for _, v := range verzije {
+		if !nedovrsen(v.Entity + "|" + v.EntityID) {
+			continue
+		}
+		if top, err := d.b.rec.Latest(ctxRaz, v.Entity, v.EntityID); err == nil && top.VersionID > v.VersionID {
+			return true
+		}
+	}
+	return false
+}
+
+// kopijaCvora otvara svjež čvor iz kopije prazne baze predloška (noviCvor
+// koji ništa ne upisuje). Shema i oslonac već su u kopiji, pa je to nekoliko
+// puta brže od noviCvor, što pod -race čini veći dio trajanja testa.
+func kopijaCvora(t *testing.T, predlozak *cvor, ime string) *cvor {
+	t.Helper()
+	put := filepath.Join(t.TempDir(), "gocop.db")
+	_, err := predlozak.db.Exec(`VACUUM INTO ?`, put)
+	nuzno(t, err)
+	baza, err := db.OpenDB(put)
+	nuzno(t, err)
+	t.Cleanup(func() { baza.Close() })
+	return &cvor{ime: ime, db: baza, rec: ledger.New(baza, ime)}
 }
 
 // ponovnoPokretanje radi što i program pri pokretanju: popis nedovršenih je
@@ -384,7 +598,12 @@ type nacinDostave struct {
 	// zapinje: način sigurno donosi zapis prije njegova oslonca, pa bar
 	// jedan paket mora čekati; inače način ne ispituje ono što treba
 	zapinje bool
-	dostavi func(t *testing.T, d *dostava, a *cvor, sve []ledger.Version)
+	// kasniStarija: način sigurno donosi stariju verziju zapisa koji čeka
+	// (donosiKasnuStariju); inače ne ispituje grešku od 12. 10. 2026.
+	kasniStarija bool
+	// pokreniSvakih > 0: primatelj se ponovno pokreće nakon svakih toliko paketa
+	pokreniSvakih int
+	dostavi       func(t *testing.T, d *dostava, a *cvor, sve []ledger.Version)
 }
 
 // redom šalje verzije redom nastanka ili obrnuto, u paketima zadane veličine
@@ -425,21 +644,16 @@ func poAutoruIKanalu(poKljucu int) func(*testing.T, *dostava, *cvor, []ledger.Ve
 }
 
 // izmijesano šalje verzije u slučajnom redu i paketima od 1 do 6, uvijek istom
-// za isto sjeme; kadPokrenuti > 0 ponovno pokreće primatelja nakon svakih
-// toliko paketa
-func izmijesano(sjeme uint64, kadPokrenuti int) func(*testing.T, *dostava, *cvor, []ledger.Version) {
+// za isto sjeme
+func izmijesano(sjeme uint64) func(*testing.T, *dostava, *cvor, []ledger.Version) {
 	return func(t *testing.T, d *dostava, _ *cvor, sve []ledger.Version) {
 		r := rand.New(rand.NewPCG(sjeme, 41))
 		ostalo := slices.Clone(sve)
 		r.Shuffle(len(ostalo), func(i, j int) { ostalo[i], ostalo[j] = ostalo[j], ostalo[i] })
-		for paketa := 1; len(ostalo) > 0; paketa++ {
+		for len(ostalo) > 0 {
 			n := min(1+r.IntN(6), len(ostalo))
 			d.paket(t, ostalo[:n])
 			ostalo = ostalo[n:]
-			if kadPokrenuti > 0 && paketa%kadPokrenuti == 0 {
-				_, greska := ponovnoPokretanje(t, d.b)
-				nuzno(t, bezDjelomicnih(greska))
-			}
 		}
 	}
 }
@@ -449,19 +663,21 @@ func naciniDostave() []nacinDostave {
 		{ime: "redom nastanka, po jedna verzija", dostavi: redom(1, false)},
 		{ime: "redom nastanka, sve u jednom paketu", dostavi: redom(5000, false)},
 		{ime: "obrnutim redom, po jedna verzija", zapinje: true, dostavi: redom(1, true)},
+		{ime: "obrnutim redom, po jedna verzija, ponovno pokretanje nakon svakog paketa", zapinje: true,
+			pokreniSvakih: 1, dostavi: redom(1, true)},
 		{ime: "obrnutim redom, po pet verzija", zapinje: true, dostavi: redom(5, true)},
-		{ime: "po autoru i kanalu, po tri verzije", dostavi: poAutoruIKanalu(3)},
-		{ime: "po autoru i kanalu, po jedna verzija", zapinje: true, dostavi: poAutoruIKanalu(1)},
+		{ime: "po autoru i kanalu, po tri verzije", zapinje: true, kasniStarija: true, dostavi: poAutoruIKanalu(3)},
+		{ime: "po autoru i kanalu, po jedna verzija", zapinje: true, kasniStarija: true, dostavi: poAutoruIKanalu(1)},
 	}
 	for sjeme := uint64(1); sjeme <= 4; sjeme++ {
 		nacini = append(nacini, nacinDostave{ime: fmt.Sprintf("izmiješano, sjeme %d", sjeme), zapinje: true,
-			dostavi: izmijesano(sjeme, 0)})
+			dostavi: izmijesano(sjeme)})
 	}
-	for sjeme := uint64(5); sjeme <= 8; sjeme++ {
-		svakih := 2 + int(sjeme%3)
-		nacini = append(nacini, nacinDostave{ime: fmt.Sprintf("izmiješano, sjeme %d, ponovno pokretanje svakih %d paketa", sjeme, svakih),
-			zapinje: true, dostavi: izmijesano(sjeme, svakih)})
-	}
+	// ponovno pokretanje nakon svakog paketa ispituje i način obrnutim redom,
+	// pa je izmiješano s ponovnim pokretanjem samo jedno, da test pod -race
+	// ostane kratak
+	nacini = append(nacini, nacinDostave{ime: "izmiješano, sjeme 6, ponovno pokretanje svakih 2 paketa",
+		zapinje: true, pokreniSvakih: 2, dostavi: izmijesano(6)})
 	return nacini
 }
 
@@ -586,7 +802,8 @@ func nedovrseniSada() []string {
 func TestRazmjenaRedoslijedDajeIstuPovrsinu(t *testing.T) {
 	sNedovrsenima(t)
 	sPolitikomPovijesti(t, ReadingHistoryPolicy{})
-	a := izvorRedoslijeda(t)
+	predlozak := noviCvor(t, "predlozak")
+	a := izvorRedoslijeda(t, predlozak)
 	sve, err := a.rec.Since(ctxRaz, "", 100000)
 	nuzno(t, err)
 	if len(sve) < 60 {
@@ -596,11 +813,15 @@ func TestRazmjenaRedoslijedDajeIstuPovrsinu(t *testing.T) {
 	for _, n := range naciniDostave() {
 		t.Run(n.ime, func(t *testing.T) {
 			sNedovrsenima(t)
-			d := &dostava{b: noviCvor(t, "novi-ured")}
+			d := &dostava{b: kopijaCvora(t, predlozak, "novi-ured"), pokreniSvakih: n.pokreniSvakih}
 			n.dostavi(t, d, a, sve)
-			t.Logf("%d paketa, %d ih je čekalo oslonac", d.paketa, d.zapelo)
+			t.Logf("%d paketa, %d ih je čekalo oslonac, %d ih je donijelo stariju verziju zapisa koji čeka",
+				d.paketa, d.zapelo, d.kasnaStarija)
 			if n.zapinje && d.zapelo == 0 {
 				t.Error("nijedan paket nije čekao oslonac; način dostave ne ispituje redoslijed")
+			}
+			if n.kasniStarija && d.kasnaStarija == 0 {
+				t.Error("nijedan paket nije donio stariju verziju zapisa koji čeka; način ne ispituje grešku od 12. 10. 2026.")
 			}
 			if ceka := nedovrseniSada(); len(ceka) > 0 {
 				t.Errorf("nakon dostave čeka %d zapisa: %v", len(ceka), ceka)
