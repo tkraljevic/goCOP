@@ -215,8 +215,10 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 			}
 			b.Reset()
 			if m, err = Izvezi(db, letva, izdanje, izdao, &b); err != nil {
+				// Već izdanu letvu u katalog vraća petlja na kraju. Letva
+				// primljena paketom u katalogu još nema redak, a ovdje bi
+				// dobila prazan: bez letve, izdanja i datoteke.
 				fmt.Fprintf(zapisi, "  %-18s preskačem: %v\n", letva, err)
-				novi.Paketi = append(novi.Paketi, prije)
 				iz.Redci = append(iz.Redci, RedIzdanja{Letva: letva, Prije: prije.Izdanje, Greska: err.Error()})
 				iz.Preskocenih++
 				continue

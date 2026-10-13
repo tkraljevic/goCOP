@@ -86,6 +86,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   krivo upisana. Sad dopuna datoteku čita kao i gradnja. Kad neki redak ne
   razumije, ili iza vrijednosti nešto piše, upis odbije i kaže koji je to
   redak, a datoteka ostane kakva je bila.
+- **Katalog izdanja bez praznog retka.** Kad je čvor prvi put izdavao
+  letvu koju je primio paketom, a paket s novim brojem nije se dao složiti,
+  u katalog izdanja ušao je redak bez letve i bez datoteke. Taj je redak
+  prelazio u svako sljedeće izdavanje, a objava arhive pokušavala ga je
+  pročitati i u dnevnik programa pisala grešku. Sad se takva letva samo
+  preskoči, kao i kad ne uspije prvo sastavljanje paketa. To se događalo
+  rijetko, npr. kad se zadnji niz letve makne usred izdavanja.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
