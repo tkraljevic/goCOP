@@ -134,6 +134,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   čvora na popis ne idu. Ako je letva otkad je stranica otvorena dobila
   datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
   miče, nego to javi.
+- **Prognoza bira krivulju protoka po hrvatskom danu.** Prognoza je dan za
+  izbor krivulje protoka računala po UTC-u, a stranice po hrvatskom
+  vremenu. Zato je u prvom satu dana kad počinje nova krivulja, ljeti u
+  prva dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem
+  Miholjcu od 2017. to su bile tri satne vrijednosti. Sad prognoza i
+  stranice biraju istu krivulju.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 

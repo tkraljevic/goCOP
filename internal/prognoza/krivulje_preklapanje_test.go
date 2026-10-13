@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // Zaključava kako prognoza bira krivulju protoka kad se razdoblja valjanosti
@@ -41,14 +43,14 @@ func TestKrivuljaZaKadSeRazdobljaPreklapaju(t *testing.T) {
 		kad    time.Time
 		oznaka float64
 	}{
-		{time.Date(2015, 6, 1, 12, 0, 0, 0, time.UTC), 15},
-		{time.Date(2016, 6, 1, 12, 0, 0, 0, time.UTC), 16},
-		{time.Date(2017, 1, 1, 0, 0, 0, 0, time.UTC), 17},
-		{time.Date(2018, 12, 31, 23, 0, 0, 0, time.UTC), 17},
-		{time.Date(2019, 1, 1, 0, 0, 0, 0, time.UTC), 19},
-		{time.Date(2022, 6, 1, 12, 0, 0, 0, time.UTC), 19},
-		{time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 25},
-		{time.Date(2026, 10, 13, 12, 0, 0, 0, time.UTC), 25},
+		{time.Date(2015, 6, 1, 12, 0, 0, 0, models.Zagreb), 15},
+		{time.Date(2016, 6, 1, 12, 0, 0, 0, models.Zagreb), 16},
+		{time.Date(2017, 1, 1, 0, 0, 0, 0, models.Zagreb), 17},
+		{time.Date(2018, 12, 31, 23, 0, 0, 0, models.Zagreb), 17},
+		{time.Date(2019, 1, 1, 0, 0, 0, 0, models.Zagreb), 19},
+		{time.Date(2022, 6, 1, 12, 0, 0, 0, models.Zagreb), 19},
+		{time.Date(2025, 1, 1, 0, 0, 0, 0, models.Zagreb), 25},
+		{time.Date(2026, 10, 13, 12, 0, 0, 0, models.Zagreb), 25},
 	} {
 		k := KrivuljaZa(krivulje, s.kad)
 		if k == nil {
@@ -61,5 +63,31 @@ func TestKrivuljaZaKadSeRazdobljaPreklapaju(t *testing.T) {
 	}
 	if k := KrivuljaZa(krivulje, time.Date(2014, 6, 1, 12, 0, 0, 0, time.UTC)); k != nil {
 		t.Errorf("prije prve krivulje izabrana je krivulja od %s", k.VrijediOd)
+	}
+}
+
+// Zaključava da prognoza dan krivulje računa po zagrebačkom vremenu, kao i
+// stranice. Prognoza je trenutak pretvarala u UTC, pa je 1. 1. u 00:30 po
+// zagrebačkom vremenu (23:30 UTC prethodnog dana) i ljeti 1. 7. u 01:30 (23:30
+// UTC) uzimala prethodnu krivulju.
+func TestKrivuljaZaPoZagrebackomDanu(t *testing.T) {
+	krivulje := []models.HQKrivulja{
+		{VrijediOd: "2026-07-01"},
+		{VrijediOd: "2017-01-01", VrijediDo: "2026-06-30"},
+		{VrijediOd: "2016-01-01", VrijediDo: "2016-12-31"},
+	}
+	for _, s := range []struct {
+		kad  time.Time
+		zeli string
+	}{
+		{time.Date(2016, 12, 31, 23, 30, 0, 0, time.UTC), "2017-01-01"},
+		{time.Date(2016, 12, 31, 22, 30, 0, 0, time.UTC), "2016-01-01"},
+		{time.Date(2026, 6, 30, 23, 30, 0, 0, time.UTC), "2026-07-01"},
+		{time.Date(2026, 6, 30, 21, 30, 0, 0, time.UTC), "2017-01-01"},
+	} {
+		if k := KrivuljaZa(krivulje, s.kad); k == nil || k.VrijediOd != s.zeli {
+			t.Errorf("%s UTC (%s u Zagrebu): izabrana %+v, očekivana krivulja od %s", s.kad.Format(time.DateTime),
+				s.kad.In(models.Zagreb).Format(time.DateTime), k, s.zeli)
+		}
 	}
 }
