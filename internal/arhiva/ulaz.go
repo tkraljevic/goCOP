@@ -2,11 +2,12 @@ package arhiva
 
 import (
 	"bufio"
+	"encoding/csv"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -194,7 +195,7 @@ func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (s
 	}
 	stare, err := PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("niz nije dopunjen, jer se zatečeni niz u stablu ne da pročitati do kraja: %w", err)
 	}
 	po := map[int64]Redak{}
 	for _, r := range stare {
@@ -212,6 +213,12 @@ func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (s
 
 // PostojeciRedci čita ono što niz već ima u stablu. Niza može i ne biti — tada
 // se ulaže na prazno i to nije greška.
+//
+// Čita se kao u gradnji, istim čitačem i istim pravilom za redak. Prije se
+// redak dijelio na prvoj točki-zarezu, pa su redak s trećim stupcem, polje u
+// navodnicima i vrijeme bez sekundi tiho ispadali, a Dopuni je datoteku
+// prepisala bez njih. Redak koji se ne da pročitati sad je greška, pa dopuna
+// odbije upis i datoteka ostane kakva je bila.
 func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak, error) {
 	uzorak := filepath.Join(koren, sliv, letva,
 		strings.Join([]string{letva, izvor, velicina, vrsta}, "_")+"_*.csv")
@@ -222,53 +229,75 @@ func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak,
 	sort.Strings(puts)
 	var out []Redak
 	for _, p := range puts {
-		f, err := os.Open(p)
+		redci, err := redciDatoteke(p, zonaIzvora(izvor))
 		if err != nil {
 			return nil, err
 		}
-		sc := bufio.NewScanner(f)
-		sc.Buffer(make([]byte, 1<<20), 1<<20)
-		prvi := true
-		poDanu := false
-		for sc.Scan() {
-			redak := strings.TrimSpace(strings.TrimPrefix(sc.Text(), "\ufeff"))
-			if prvi {
-				poDanu = strings.HasPrefix(strings.ToLower(redak), "datum")
-				prvi = false
-				continue
-			}
-			if redak == "" {
-				continue
-			}
-			dj := strings.SplitN(redak, ";", 2)
-			if len(dj) != 2 {
-				continue
-			}
-			t, err := vrijemeIzCSV(dj[0], zonaIzvora(izvor))
-			if err != nil {
-				continue
-			}
-			v, err := strconv.ParseFloat(strings.TrimSpace(strings.ReplaceAll(dj[1], ",", ".")), 64)
-			if err != nil {
-				continue
-			}
-			out = append(out, Redak{Vrijeme: t, PoDanu: poDanu, Vrijednost: v})
-		}
-		f.Close()
-		if err := sc.Err(); err != nil {
-			return nil, err
-		}
+		out = append(out, redci...)
 	}
 	return out, nil
 }
 
-func vrijemeIzCSV(s string, zona *time.Location) (time.Time, error) {
-	s = strings.TrimSpace(s)
-	if len(s) >= 19 {
-		t, err := time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
-		return t.UTC(), err
+// redciDatoteke čita jednu datoteku niza za dopunu. Prazna datoteka nema
+// redaka; gradnja je ionako ne čita, pa dopuna nema što izgubiti.
+func redciDatoteke(put string, zona *time.Location) ([]Redak, error) {
+	f, err := os.Open(put)
+	if err != nil {
+		return nil, err
 	}
-	return time.Parse("2006-01-02", s)
+	defer f.Close()
+	cr := csvNiza(f)
+	glava, err := cr.Read()
+	if err == io.EOF {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("%s redak 1: %w", filepath.Base(put), err)
+	}
+	return redciIspodZaglavlja(cr, filepath.Base(put), zona, jeZaglavljeDana(glava))
+}
+
+// redciIspodZaglavlja čita retke datoteke niza. Redak bez vrijednosti gradnja
+// preskače, pa i dopuna.
+func redciIspodZaglavlja(cr *csv.Reader, ime string, zona *time.Location, poDanu bool) ([]Redak, error) {
+	var out []Redak
+	for i := 2; ; i++ {
+		r, err := cr.Read()
+		if err == io.EOF {
+			return out, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("%s redak %d: %w", ime, i, err)
+		}
+		if err := bezStupcaViska(r, ime, i); err != nil {
+			return nil, err
+		}
+		rn, ima, err := procitajRedak(r, zona, ime, i)
+		if err != nil {
+			return nil, err
+		}
+		if ima {
+			out = append(out, rn.uRedak(poDanu))
+		}
+	}
+}
+
+// uRedak vraća pročitani redak u obliku za upis. Sat u nizu po danu ostaje
+// sat: zapisan kao sam datum, gradnja bi ga poslije pročitala u ponoć.
+func (rn redakNiza) uRedak(poDanu bool) Redak {
+	return Redak{Vrijeme: rn.t.UTC(), PoDanu: poDanu && !rn.imaSat, Vrijednost: rn.v}
+}
+
+// bezStupcaViska javlja grešku kad iza vrijednosti nešto piše. Gradnja taj
+// stupac ne čita, ali dopuna datoteku piše iznova, samo s vremenom i
+// vrijednošću, pa bi se ono što u njemu piše izgubilo.
+func bezStupcaViska(r []string, ime string, i int) error {
+	for _, s := range r[min(len(r), 2):] {
+		if strings.TrimSpace(s) != "" {
+			return fmt.Errorf("%s redak %d: iza vrijednosti piše još %q, a dopuna zapisuje samo vrijeme i vrijednost, pa bi se to izgubilo", ime, i, s)
+		}
+	}
+	return nil
 }
 
 // zaglavlje bira prvi stupac po tome ima li niz sat. Gradnja po tome razlikuje

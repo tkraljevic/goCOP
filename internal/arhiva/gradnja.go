@@ -743,15 +743,13 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		return nil, false, err
 	}
 	defer f.Close()
-	cr := csv.NewReader(f)
-	cr.Comma = ';'
-	cr.FieldsPerRecord = -1
+	cr := csvNiza(f)
 
 	glava, err := cr.Read()
 	if err != nil {
 		return nil, false, err
 	}
-	poDanu := len(glava) > 0 && strings.EqualFold(strings.TrimPrefix(glava[0], "\ufeff"), "datum")
+	poDanu := jeZaglavljeDana(glava)
 
 	var out []zapis
 	for i := 2; ; i++ {
@@ -762,24 +760,58 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		if err != nil {
 			return nil, false, fmt.Errorf("%s redak %d: %w", filepath.Base(put), i, err)
 		}
-		if len(r) < 2 || strings.TrimSpace(r[1]) == "" {
+		rn, ima, err := procitajRedak(r, zona, filepath.Base(put), i)
+		if err != nil {
+			return nil, false, err
+		}
+		if !ima || !mogucaVrijednost(velicina, rn.v) {
 			continue
 		}
-		s := strings.TrimSpace(r[0])
-		t, _, err := vrijemeNiza(s, zona)
-		if err != nil {
-			return nil, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", filepath.Base(put), i, s, err)
-		}
-		v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[1]), ",", "."), 64)
-		if err != nil {
-			return nil, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", filepath.Base(put), i, r[1], err)
-		}
-		if !mogucaVrijednost(velicina, v) {
-			continue
-		}
-		out = append(out, zapis{t: t.UTC().Unix(), v: v})
+		out = append(out, zapis{t: rn.t.UTC().Unix(), v: rn.v})
 	}
 	return bezSiljaka(velicina, bezDalekih(velicina, out)), poDanu, nil
+}
+
+// csvNiza je čitač datoteke niza: točka-zarez, a redak smije imati i više
+// stupaca od zaglavlja.
+func csvNiza(r io.Reader) *csv.Reader {
+	cr := csv.NewReader(r)
+	cr.Comma = ';'
+	cr.FieldsPerRecord = -1
+	return cr
+}
+
+// jeZaglavljeDana javlja je li niz po danu: prvi stupac zaglavlja je „datum”.
+func jeZaglavljeDana(glava []string) bool {
+	return len(glava) > 0 && strings.EqualFold(strings.TrimPrefix(glava[0], "\ufeff"), "datum")
+}
+
+// redakNiza je jedan pročitan redak datoteke niza.
+type redakNiza struct {
+	t      time.Time
+	imaSat bool
+	v      float64
+}
+
+// procitajRedak čita jedan redak datoteke niza. Isti je za gradnju i za
+// dopunu (PostojeciRedci): dok su čitali svaki na svoj način, dopuna je tiho
+// brisala retke koje je gradnja čitala bez problema. Redak bez vrijednosti
+// nije greška nego se preskače (ima = false); vrijeme ili vrijednost koji se
+// ne čitaju jesu, s imenom datoteke i brojem retka.
+func procitajRedak(r []string, zona *time.Location, ime string, i int) (redakNiza, bool, error) {
+	if len(r) < 2 || strings.TrimSpace(r[1]) == "" {
+		return redakNiza{}, false, nil
+	}
+	s := strings.TrimSpace(r[0])
+	t, imaSat, err := vrijemeNiza(s, zona)
+	if err != nil {
+		return redakNiza{}, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", ime, i, s, err)
+	}
+	v, err := strconv.ParseFloat(strings.ReplaceAll(strings.TrimSpace(r[1]), ",", "."), 64)
+	if err != nil {
+		return redakNiza{}, false, fmt.Errorf("%s redak %d: vrijednost %q: %w", ime, i, r[1], err)
+	}
+	return redakNiza{t: t, imaSat: imaSat, v: v}, true, nil
 }
 
 // vrijemeNiza čita prvi stupac retka niza i javlja ima li vrijeme sat. Sat se

@@ -77,6 +77,15 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   gradnja javi greškom s imenom datoteke i brojem retka. Datoteke koje
   piše program uvijek imaju sekunde, pa se to događalo samo s ručno
   složenim datotekama.
+- **Dopuna niza više ne briše zatečene retke.** Kad se niz u arhivi
+  dopunjuje, kroz vrata arhive, ulaganjem očitanja, s kišomjera ili s
+  HydroViewa, program pročita što datoteka niza već ima i zapiše sve
+  zajedno. Retke s trećim stupcem, polja u navodnicima i vrijeme bez
+  sekundi pritom nije razumio, pa su tiho nestali iz datoteke, iako ih je
+  gradnja čitala. Isto se događalo s retkom u kojem je datum ili vrijednost
+  krivo upisana. Sad dopuna datoteku čita kao i gradnja. Kad neki redak ne
+  razumije, ili iza vrijednosti nešto piše, upis odbije i kaže koji je to
+  redak, a datoteka ostane kakva je bila.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
