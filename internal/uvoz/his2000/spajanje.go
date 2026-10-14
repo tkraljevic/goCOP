@@ -32,7 +32,7 @@ import (
 const (
 	oblikDana     = "2006-01-02"
 	izvorKrivulja = "DHMZ, HIS-2000"
-	// najmanjeStupaca je granica ispod koje gradnja arhive redak preskače.
+	// najmanjeStupaca je granica ispod koje gradnja arhive staje na retku.
 	najmanjeStupaca = 8
 )
 

@@ -1356,17 +1356,21 @@ func krivulje(db *sql.DB, koren, samo string) (krivuljeGradnje, error) {
 
 // procitanoIzKrivulja javlja grešku kad se iz datoteke krivulja nije dala
 // pročitati nijedna krivulja, a datoteka nije samo zaglavlje: prazna datoteka,
-// npr. nakon prekinutog prijenosa, ili redci od kojih nijedan nema svih osam
-// stupaca, npr. sa zarezom umjesto točke-zareza. Gradnja miče krivulje kojih
-// u datoteci nema, pa bi takva datoteka iz arhive odnijela sve krivulje letve.
-// Samo zaglavlje znači da letva krivulja nema.
+// npr. nakon prekinutog prijenosa, ili ispod zaglavlja samo prazni redci.
+// Redak s podacima koji se ne čita zaustavio je gradnju već prije
+// (neispravanRedakKrivulja). Gradnja miče krivulje kojih u datoteci nema, pa
+// bi takva datoteka iz arhive odnijela sve krivulje letve. Samo zaglavlje
+// znači da letva krivulja nema.
 func procitanoIzKrivulja(ime string, redaka, krivulja int) error {
-	const stala = "gradnja je stala, da ne makne sve krivulje letve: "
+	const (
+		stala     = "gradnja je stala i nije maknula nijednu krivulju protoka, jer "
+		ispravite = " Upišite krivulje u datoteku, ili samo zaglavlje ako letva krivulja nema, pa pokrenite gradnju ponovno."
+	)
 	switch {
 	case redaka == 0:
-		return fmt.Errorf(stala+"datoteka krivulja %s je prazna, bez ijednog retka", ime)
+		return fmt.Errorf(stala+"je datoteka krivulja %s prazna, bez ijednog retka."+ispravite, ime)
 	case redaka > 1 && krivulja == 0:
-		return fmt.Errorf(stala+"u datoteci krivulja %s nijedan redak nema svih osam stupaca, a razdjelnik mora biti točka-zarez", ime)
+		return fmt.Errorf(stala+"datoteka krivulja %s ispod zaglavlja ima samo prazne retke."+ispravite, ime)
 	}
 	return nil
 }

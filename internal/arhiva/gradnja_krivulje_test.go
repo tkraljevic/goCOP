@@ -48,7 +48,9 @@ func odsjecciIzBaze(t *testing.T, db *sql.DB, letva string) []odsjecakIzBaze {
 // Zaključava čitanje krivulja iz stabla: stupci se traže po zaglavlju, bez
 // obzira na velika slova i razmake; odsječci iste krivulje dolaze u svojim
 // retcima; oblik koji nije potencija čita se kao polinom, decimalni zarez kao
-// točka, a prekratak redak se preskače. Druga letva se ne dira.
+// točka, a datum se čita i s razmacima oko njega. Prazan redak, i onaj sa
+// samo razmacima i razdjelnicima, kratak ili pun, se preskače. Druga letva se
+// ne dira.
 func TestKrivuljeSeCitajuPoZaglavlju(t *testing.T) {
 	db := praznaArhiva(t)
 	koren := t.TempDir()
@@ -56,8 +58,11 @@ func TestKrivuljeSeCitajuPoZaglavlju(t *testing.T) {
 		"vrijedi_od;vrijedi_do;od_cm;do_cm;Oblik;p1;p2;p3; P4 ;izvor;napomena\n"+
 			"2001-01-01;2010-12-31;-100;150;polinom;0,1;2,5;30;;DHMZ;stara krivulja\n"+
 			"2001-01-01;2010-12-31;150;600;potencija;12,5;1,6;-50;3;DHMZ;stara krivulja\n"+
-			"2011-01-01;;-120;500;;1;2;3;;mjerenje 2011.;\n"+
-			"2012-01-01;;1\n")
+			"\n"+
+			" 2011-01-01 ;;-120;500;;1;2;3;;mjerenje 2011.;\n"+
+			"   \n"+
+			" ; ;\n"+
+			";;;;;;;;;;\n")
 	zapisiDatoteku(t, putKrivulja(koren, "dunav", "rijecica"),
 		"vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n"+
 			"2001-01-01;;0;100;polinom;1;1;1;;DHMZ;\n")
@@ -466,17 +471,28 @@ func TestDvijeDatotekeKrivuljaIsteLetve(t *testing.T) {
 }
 
 // Zaključava da datoteka krivulja iz koje se ništa ne da pročitati ne odnese
-// krivulje letve: prazna datoteka, npr. nakon prekinutog prijenosa, i datoteka
-// sa zarezom umjesto točke-zareza zaustave gradnju, a krivulje ostanu. Samo
-// zaglavlje i dalje znači da letva krivulja nema.
+// krivulje letve: prazna datoteka, npr. nakon prekinutog prijenosa, datoteka
+// sa samo praznim retcima ispod zaglavlja i datoteka sa zarezom umjesto
+// točke-zareza zaustave gradnju, a krivulje ostanu. Kad su svi redci kratki,
+// poruka kaže i prvi od njih. Samo zaglavlje i dalje znači da letva krivulja
+// nema.
 func TestDatotekaKrivuljaBezIjednogRetkaNeOdneseKrivulje(t *testing.T) {
-	ispravna := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
+	zaglavlje := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n"
+	ispravna := zaglavlje +
 		"2001-01-01;2010-12-31;-100;600;polinom;1;2;3;;DHMZ;\n" +
 		"2011-01-01;;-100;600;polinom;4;5;6;;DHMZ;\n"
+	const (
+		stala     = "gradnja je stala i nije maknula nijednu krivulju protoka, jer "
+		ispravite = " Upišite krivulje u datoteku, ili samo zaglavlje ako letva krivulja nema, pa pokrenite gradnju ponovno."
+	)
 	for _, s := range []struct{ ime, sadrzaj, greska string }{
-		{"prazna datoteka", "", "datoteka krivulja vodograd_hq_krivulje.csv je prazna"},
+		{"prazna datoteka", "", stala + "je datoteka krivulja vodograd_hq_krivulje.csv prazna, bez ijednog retka." + ispravite},
+		{"samo prazni redci", zaglavlje + "   \n;;;;;;;;;;\n",
+			stala + "datoteka krivulja vodograd_hq_krivulje.csv ispod zaglavlja ima samo prazne retke." + ispravite},
 		{"zarez umjesto točke-zareza", strings.ReplaceAll(ispravna, ";", ","),
-			"u datoteci krivulja vodograd_hq_krivulje.csv nijedan redak nema svih osam stupaca"},
+			stala + "datoteka krivulja vodograd_hq_krivulje.csv ima redak koji se ne da pročitati (redak 2). " +
+				"„2001-01-01,2010-12-31,-100,600,polinom,1,2,3,,DHMZ,” ima 1 stupac, a redak krivulje ih ima barem 8, " +
+				"odvojenih točkom-zarezom. Ispravite taj redak, pa pokrenite gradnju ponovno."},
 	} {
 		db := praznaArhiva(t)
 		koren := t.TempDir()
@@ -495,13 +511,83 @@ func TestDatotekaKrivuljaBezIjednogRetkaNeOdneseKrivulje(t *testing.T) {
 			kg, err = krivulje(db, koren, "")
 			m = kg.maknute
 		})
-		greskaSadrzi(t, s.ime, err, "gradnja je stala, da ne makne sve krivulje letve: "+s.greska)
+		greskaSadrzi(t, s.ime, err, s.greska)
 		if len(m) != 0 {
 			t.Errorf("%s: maknuto %+v", s.ime, m)
 		}
 		if n := broj(t, db, `SELECT count(*) FROM hq_odsjecci o JOIN hq_krivulje k ON k.id = o.krivulja
 			WHERE k.letva='vodograd'`); n != 2 {
 			t.Errorf("%s: broj odsječaka letve u arhivi je %d, a trebala su ostati dva", s.ime, n)
+		}
+	}
+}
+
+// Zaključava da jedan oštećen redak datoteke krivulja ne odnese krivulju iz
+// arhive. Redak sa zarezima umjesto točke-zareza gradnja je tiho preskakala,
+// a redak sa zarezom iza datuma čitala kao krivulju drugog početka. Zadnju
+// krivulju letve onda je maknula kao da je u datoteci više nema, a letva je
+// ostala bez protoka. Sad gradnja stane, kaže koji je redak, a obje krivulje
+// ostanu, bez ijedne nove. Broj retka je redak u datoteci, s praznim retkom
+// koji čitač preskače.
+func TestOstecenRedakKrivuljeNeOdneseKrivulju(t *testing.T) {
+	const (
+		zaglavlje = "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n\n"
+		stara     = "2001-01-01;2010-12-31;-100;600;polinom;1;2;3;;DHMZ;\n"
+		stala     = "gradnja je stala i nije maknula nijednu krivulju protoka, " +
+			"jer datoteka krivulja vodograd_hq_krivulje.csv ima redak koji se ne da pročitati (redak 4). "
+		ispravite = ". Ispravite taj redak, pa pokrenite gradnju ponovno."
+	)
+	for _, s := range []struct{ ime, redak, razlog string }{
+		{"zarezi umjesto točke-zareza", "2011-01-01;;-100,600,polinom,4,5,6,,DHMZ,",
+			"ima 3 stupca, a redak krivulje ih ima barem 8, odvojenih točkom-zarezom"},
+		{"zarez iza datuma", "2011-01-01,;-100;600;polinom;4;5;6;;DHMZ;", "ne počinje datumom oblika 2001-01-01"},
+		{"dva zareza iza datuma", "2011-01-01,,-100;600;polinom;4;5;6;;DHMZ;", "ne počinje datumom oblika 2001-01-01"},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			koren := t.TempDir()
+			baza := filepath.Join(t.TempDir(), "arhiva.db")
+			zapisiDatoteku(t, filepath.Join(koren, "dunav", "vodograd", "vodograd_his2000_vodostaj_dnevni_2024.csv"),
+				"datum;vodostaj_cm\n2024-03-01;120\n")
+			put := putKrivulja(koren, "dunav", "vodograd")
+			zapisiDatoteku(t, put, zaglavlje+stara+"2011-01-01;;-100;600;polinom;4;5;6;;DHMZ;\n")
+			uhvatiIspis(t, &os.Stdout, func() {
+				if _, err := Izgradi(koren, baza, "vodograd", nil); err != nil {
+					t.Fatal(err)
+				}
+			})
+			db, err := sql.Open("sqlite", baza)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer db.Close()
+			objeKrivuljeUArhivi(t, db, "prva gradnja")
+
+			zapisiDatoteku(t, put, zaglavlje+stara+s.redak+"\n")
+			var iz Izvjestaj
+			uhvatiIspis(t, &os.Stdout, func() {
+				iz, err = Izgradi(koren, baza, "vodograd", nil)
+			})
+			greskaSadrzi(t, s.ime, err, stala+"„"+s.redak+"” "+s.razlog+ispravite)
+			if len(iz.MaknuteKrivulje) != 0 {
+				t.Errorf("maknuto %+v", iz.MaknuteKrivulje)
+			}
+			objeKrivuljeUArhivi(t, db, "gradnja s oštećenim retkom")
+		})
+	}
+}
+
+// objeKrivuljeUArhivi javlja grešku testa kad letva vodograd u arhivi nema
+// točno dvije krivulje, od 1. 1. 2001. i od 1. 1. 2011., svaku s jednim
+// odsječkom.
+func objeKrivuljeUArhivi(t *testing.T, db *sql.DB, kada string) {
+	t.Helper()
+	if n := broj(t, db, `SELECT count(*) FROM hq_krivulje WHERE letva='vodograd'`); n != 2 {
+		t.Errorf("%s: u arhivi je %d krivulja letve, a trebaju biti dvije", kada, n)
+	}
+	for _, od := range []string{"2001-01-01", "2011-01-01"} {
+		if n := broj(t, db, `SELECT count(*) FROM hq_odsjecci o JOIN hq_krivulje k ON k.id = o.krivulja
+			WHERE k.letva='vodograd' AND k.vrijedi_od=?`, od); n != 1 {
+			t.Errorf("%s: krivulja od %s ima u arhivi %d odsječaka, a treba jedan", kada, od, n)
 		}
 	}
 }

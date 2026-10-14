@@ -5,12 +5,15 @@ import (
 	"cmp"
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -118,40 +121,110 @@ func postaviKrivulju(db *sql.DB, letva string, k krivuljaUPaketu) error {
 	return nil
 }
 
-// citajDatotekuKrivulja čita krivulje iz datoteke krivulja. Datoteka iz koje
-// se ništa ne da pročitati zaustavlja gradnju (procitanoIzKrivulja).
+// stupacaKrivulje je koliko stupaca redak datoteke krivulja mora imati.
+const stupacaKrivulje = 8
+
+// citajDatotekuKrivulja čita krivulje iz datoteke krivulja. Redak koji nije
+// redak krivulje zaustavlja gradnju (neispravanRedakKrivulja), a isto i
+// datoteka iz koje se ništa ne da pročitati (procitanoIzKrivulja). Redci se
+// provjeravaju prvi, da poruka kaže koji je redak i kad su oštećeni svi.
 func citajDatotekuKrivulja(put string) ([]krivuljaUPaketu, error) {
-	sve, err := redciDatotekeKrivulja(put)
+	ime := filepath.Base(put)
+	sve, brojevi, err := redciDatotekeKrivulja(put)
 	if err != nil {
 		return nil, err
 	}
+	if err := neispravanRedakKrivulja(ime, sve, brojevi); err != nil {
+		return nil, err
+	}
 	kriv := slozeneKrivulje(sve)
-	if err := procitanoIzKrivulja(filepath.Base(put), len(sve), len(kriv)); err != nil {
+	if err := procitanoIzKrivulja(ime, len(sve), len(kriv)); err != nil {
 		return nil, err
 	}
 	return kriv, nil
 }
 
-// redciDatotekeKrivulja čita sve retke datoteke krivulja, sa zaglavljem.
-func redciDatotekeKrivulja(put string) ([][]string, error) {
+// redciDatotekeKrivulja čita sve retke datoteke krivulja, sa zaglavljem, i uz
+// svaki broj retka u datoteci, od 1. Prazne retke čitač preskače, pa se
+// redci ne mogu brojati sami.
+func redciDatotekeKrivulja(put string) (sve [][]string, brojevi []int, err error) {
 	b, err := os.ReadFile(put)
 	if err != nil {
-		return nil, fmt.Errorf("datoteka krivulja %s: %w", filepath.Base(put), err)
+		return nil, nil, fmt.Errorf("datoteka krivulja %s: %w", filepath.Base(put), err)
 	}
 	cr := csv.NewReader(bytes.NewReader(b))
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
-	sve, err := cr.ReadAll()
-	if err != nil {
-		return nil, fmt.Errorf("datoteka krivulja %s: %w", filepath.Base(put), err)
+	for {
+		r, err := cr.Read()
+		if errors.Is(err, io.EOF) {
+			return sve, brojevi, nil
+		}
+		if err != nil {
+			return nil, nil, fmt.Errorf("datoteka krivulja %s: %w", filepath.Base(put), err)
+		}
+		broj, _ := cr.FieldPos(0)
+		sve = append(sve, r)
+		brojevi = append(brojevi, broj)
 	}
-	return sve, nil
+}
+
+// neispravanRedakKrivulja zaustavlja gradnju na prvom retku s podacima koji
+// nije redak krivulje: kraći je od osam stupaca ili ne počinje datumom, npr.
+// zbog zareza umjesto točke-zareza. Prije se kratak redak tiho preskakao, a
+// redak sa zarezom iza datuma čitao kao krivulja drugog početka. Gradnja je
+// onda pravu krivulju maknula iz arhive, jer je „u datoteci više nema”; bez
+// zadnje krivulje letva je ostala bez protoka. Uvoz izvoza HIS-2000 iste
+// retke odbija (his2000.provjeriRedak), pa poruka kaže isto. Redak bez
+// ičega osim razmaka i razdjelnika i dalje se preskače.
+func neispravanRedakKrivulja(ime string, sve [][]string, brojevi []int) error {
+	for i := 1; i < len(sve); i++ {
+		if razlog := zastoNijeRedakKrivulje(sve[i]); razlog != "" {
+			return fmt.Errorf("gradnja je stala i nije maknula nijednu krivulju protoka, "+
+				"jer datoteka krivulja %s ima redak koji se ne da pročitati (redak %d). %s. "+
+				"Ispravite taj redak, pa pokrenite gradnju ponovno.", ime, brojevi[i], razlog)
+		}
+	}
+	return nil
+}
+
+// zastoNijeRedakKrivulje kaže zašto redak nije redak krivulje. Za redak
+// krivulje i za prazan redak vraća prazno.
+func zastoNijeRedakKrivulje(r []string) string {
+	redak := strings.Join(r, ";")
+	switch {
+	case prazanRedak(r):
+		return ""
+	case len(r) < stupacaKrivulje:
+		return fmt.Sprintf("„%s” ima %d %s, a redak krivulje ih ima barem %d, odvojenih točkom-zarezom",
+			redak, len(r), models.UzBrojHR(len(r), "stupac", "stupca", "stupaca"), stupacaKrivulje)
+	case !jeDan(r[0]):
+		return fmt.Sprintf("„%s” ne počinje datumom oblika 2001-01-01", redak)
+	}
+	return ""
+}
+
+// jeDan javlja je li polje, bez razmaka oko njega, dan oblika 2001-01-01.
+func jeDan(polje string) bool {
+	_, err := time.Parse(time.DateOnly, strings.TrimSpace(polje))
+	return err == nil
+}
+
+// prazanRedak javlja je li redak bez ičega osim razmaka.
+func prazanRedak(r []string) bool {
+	for _, p := range r {
+		if strings.TrimSpace(p) != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // slozeneKrivulje slaže retke datoteke krivulja u krivulje, redom kako se
 // prvi put pojavljuju. Datoteka nosi po jedan redak za svaki odsječak, a
 // zaglavlje krivulje (početak i kraj valjanosti, izvor, napomena) ponavlja se
-// i vrijedi ono iz prvog retka. Redak kraći od osam stupaca se preskače.
+// i vrijedi ono iz prvog retka. Prazan redak se preskače, kao i prekratak,
+// zbog kojeg je gradnja već stala (neispravanRedakKrivulja).
 func slozeneKrivulje(sve [][]string) []krivuljaUPaketu {
 	if len(sve) == 0 {
 		return nil
@@ -160,7 +233,7 @@ func slozeneKrivulje(sve [][]string) []krivuljaUPaketu {
 	var out []krivuljaUPaketu
 	gdje := map[string]int{}
 	for _, r := range sve[1:] {
-		if len(r) < 8 {
+		if len(r) < stupacaKrivulje || prazanRedak(r) {
 			continue
 		}
 		od := strings.TrimSpace(r[0])
