@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
@@ -40,7 +41,7 @@ func TestPregledKrivuljaIZateceno(t *testing.T) {
 		t.Fatal(err)
 	}
 	// 1990. izvoz nema, 2001. je ista, a 2010. ima drukčiji p1.
-	zateceno := "od;do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
+	zateceno := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n" +
 		"1990-01-01;2000-12-31;0;400;polinom;30;200;500;;DHMZ, HIS-2000;\n" +
 		"2001-01-01;2009-12-31;100;500;polinom;40;300;600;;DHMZ, HIS-2000;\n" +
 		"2001-01-01;2009-12-31;0;100;potencija;50;2;0,5;10;DHMZ, HIS-2000;\n" +
@@ -94,7 +95,9 @@ func TestPregledKrivuljaIZateceno(t *testing.T) {
 
 // Zatečena datoteka krivulja s retkom koji gradnja ne bi pročitala ne spaja
 // se: spojena datoteka bi ga tiho izgubila. Poruka cijelim rečenicama kaže
-// koji je redak, a put datoteke i razlog idu u dnevnik čvora.
+// koji je redak, a put datoteke i razlog idu u dnevnik čvora. Prvi redak
+// koji nije zaglavlje, npr. kad datoteka retke dijeli samo znakom CR, je
+// redak 1.
 func TestPregledKrivuljaNecitljivoZateceno(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	hq := filepath.Join(o.koren, "primjerica", "primjerovo", "hq")
@@ -102,19 +105,29 @@ func TestPregledKrivuljaNecitljivoZateceno(t *testing.T) {
 		t.Fatal(err)
 	}
 	put := filepath.Join(hq, "primjerovo_hq_krivulje.csv")
-	if err := os.WriteFile(put, []byte("vrijedi_od;vrijedi_do\n\nkratak-redak\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	var dnevnik bytes.Buffer
-	log.SetOutput(&dnevnik)
-	t.Cleanup(func() { log.SetOutput(os.Stderr) })
-	_, err := pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "primjerovo", o.koren)
-	if zeli := "Datoteka krivulja letve primjerovo ima redak koji se ne da pročitati (redak 3). " +
-		"Ispravite ga, pa pošaljite izvoz ponovno."; err == nil || err.Error() != zeli {
-		t.Errorf("nečitljiva zatečena datoteka: %v", err)
-	}
-	if !strings.Contains(dnevnik.String(), put+": redak 3: „kratak-redak” ima 1 stupac") {
-		t.Errorf("dnevnik čvora: %q", dnevnik.String())
+	for _, s := range []struct {
+		sadrzaj, uDnevniku string
+		redak              int
+	}{
+		{"vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\n\nkratak-redak\n",
+			": redak 3: „kratak-redak” ima 1 stupac", 3},
+		{"vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena\r2001-01-01;;0;100;polinom;1;2;3;;DHMZ;\r",
+			": redak 1: nije zaglavlje kakvo treba", 1},
+	} {
+		if err := os.WriteFile(put, []byte(s.sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var dnevnik bytes.Buffer
+		log.SetOutput(&dnevnik)
+		t.Cleanup(func() { log.SetOutput(os.Stderr) })
+		_, err := pregledKrivulja("krivulje.csv", []byte(krivuljePrimjerova), "primjerovo", o.koren)
+		if zeli := fmt.Sprintf("Datoteka krivulja letve primjerovo ima redak koji se ne da pročitati (redak %d). "+
+			"Ispravite ga, pa pošaljite izvoz ponovno.", s.redak); err == nil || err.Error() != zeli {
+			t.Errorf("nečitljiva zatečena datoteka: %v", err)
+		}
+		if !strings.Contains(dnevnik.String(), put+s.uDnevniku) {
+			t.Errorf("dnevnik čvora: %q", dnevnik.String())
+		}
 	}
 }
 

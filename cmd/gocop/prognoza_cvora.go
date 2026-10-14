@@ -216,45 +216,69 @@ func pripremiOborine(database *sql.DB, dbPath string, node *peers.Node, server *
 // iznova; testovi ga zamjenjuju brojačem.
 var zaboraviDnevneModele = prognoza.ZaboraviDnevneModele
 
+// Namještanje lanca i provjera unatrag; testovi ih zamjenjuju, jer pravi
+// traže punu arhivu
+var (
+	namjestiLanac   = prognoza.NamjestiLanac
+	provjeriUnatrag = prognoza.ProvjeriUnatrag
+)
+
 // pripremaModela je priprema modela iz aplikacije (Prognoze → Pripremi
 // model): namjesti lanac iz arhive, provjerom unatrag zapiše promašaje i odmah
-// izda prognozu novim modelom. Ako satni krug upravo traje, novo izdanje
-// pričeka idući sat — dva izdavanja istog sata ne idu jedno preko drugog.
-// Dnevni modeli uče se iznova već idući krug, a ne tek iza zagrebačke ponoći.
+// izda prognozu novim modelom. Dnevni modeli uče se iznova već idući krug, a
+// ne tek iza zagrebačke ponoći.
 func pripremaModela(peersService *peers.Service, arhivaRO, pb *sql.DB, javniUvoznik *javnivodostaji.Uvoznik, osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(ctx context.Context, p *poslovi.Posao) error {
 	return func(ctx context.Context, p *poslovi.Posao) error {
 		if !peersService.TrenutneUloge().Izdaje {
-			return fmt.Errorf("model priprema čvor koji izdaje prognozu (Postavke → Čvor); ovaj ga prima razmjenom")
+			return fmt.Errorf("model nije pripremljen: ovaj čvor ne izdaje prognozu, pa model prima razmjenom. Model se priprema na čvoru kojemu je uključeno „Izdaje prognozu” (Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora)")
 		}
 		zaboraviDnevneModele()
-		n, err := prognoza.NamjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
+		n, m, err := namjestiIProvjeri(arhivaRO, pb, p)
 		if err != nil {
 			return err
 		}
-		p.Korak("provjera unatrag i zapis promašaja", 0, 0)
-		o := prognoza.ZadaneOpcijeProvjere()
-		o.Zapisi, o.Dnevnik = true, p
-		m, err := prognoza.ProvjeriUnatrag(arhivaRO, pb, o)
+		izdano, err := izdajNovimModelom(ctx, p, javniUvoznik.UTijeku(), osvjezivac, objaviIzdanje)
 		if err != nil {
 			return err
 		}
-		izdano := "novi model vrijedi od idućeg satnog kruga, jer krug upravo traje"
-		if !javniUvoznik.UTijeku() {
-			p.Korak("ponovno izdavanje prognoze", 0, 0)
-			iznova := *osvjezivac
-			iznova.Iznova = true
-			ishod, err := iznova.Osvjezi(ctx)
-			if err != nil {
-				return fmt.Errorf("model je spremljen, ali izdavanje nije uspjelo: %w", err)
-			}
-			if err := iznova.Zapisi(ishod); err != nil {
-				return fmt.Errorf("model je spremljen, ali zapis prognoze nije uspio: %w", err)
-			}
-			objaviIzdanje(ctx, ishod)
-			izdano = "prognoza je izdana novim modelom za " +
-				time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04")
-		}
-		p.Zavrsi(fmt.Sprintf("Namješteno %d pojasa, zapisano %d promašaja; %s.", n, m, izdano), nil)
+		p.Zavrsi(opisPripremeModela(n, m, izdano), nil)
 		return nil
 	}
+}
+
+// namjestiIProvjeri namjesti lanac iz arhive i provjerom unatrag zapiše
+// promašaje; vraća koliko je pojasa spremljeno i koliko promašaja zapisano
+func namjestiIProvjeri(arhivaRO, pb *sql.DB, p *poslovi.Posao) (pojasa, promasaja int, err error) {
+	pojasa, err = namjestiLanac(arhivaRO, pb, prognoza.OpcijeNamjestanja{Dnevnik: p, Korak: p.Korak})
+	if err != nil {
+		return 0, 0, err
+	}
+	p.Korak("provjera unatrag i zapis promašaja", 0, 0)
+	o := prognoza.ZadaneOpcijeProvjere()
+	o.Zapisi, o.Dnevnik = true, p
+	promasaja, err = provjeriUnatrag(arhivaRO, pb, o)
+	return pojasa, promasaja, err
+}
+
+// izdajNovimModelom izda prognozu novim modelom i vrati rečenicu o tome za
+// završnu poruku pripreme. Ako satni krug upravo traje, novo izdanje
+// pričeka idući sat: dva izdavanja istog sata ne idu jedno preko drugog.
+func izdajNovimModelom(ctx context.Context, p *poslovi.Posao, krugTraje bool, osvjezivac *prognoza.Osvjezivac,
+	objaviIzdanje func(context.Context, *prognoza.Ishod)) (string, error) {
+	if krugTraje {
+		return "novi model vrijedi od idućeg satnog kruga, jer krug upravo traje", nil
+	}
+	p.Korak("ponovno izdavanje prognoze", 0, 0)
+	iznova := *osvjezivac
+	iznova.Iznova = true
+	ishod, err := iznova.Osvjezi(ctx)
+	if err != nil {
+		return "", fmt.Errorf("model je spremljen, ali izdavanje nije uspjelo: %w", err)
+	}
+	if err := iznova.Zapisi(ishod); err != nil {
+		return "", fmt.Errorf("model je spremljen, ali zapis prognoze nije uspio: %w", err)
+	}
+	objaviIzdanje(ctx, ishod)
+	return "prognoza je izdana novim modelom za " +
+		time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), nil
 }

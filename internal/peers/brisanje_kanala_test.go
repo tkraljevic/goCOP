@@ -415,6 +415,40 @@ func TestKanalSamoSDokumentimaSeDaObrisati(t *testing.T) {
 	}
 }
 
+// Paket arhive vodostaja stigao je s ureda dok je laptop pratio sve vrste
+// za BP 16, a pravilo je poslije maknuto. Paket se s računala ne briše, pa
+// kanal arhiva/16/0 nije na popisu kanala ni kad ga pretplata ne pokriva;
+// kanal prijava u kojem su ostali samo dokumenti s ureda jest. S paketom na
+// popisu stranica pretplata nije mogla složiti tablicu „Što računalo drži”.
+func TestPaketArhiveNijeNaPopisuKanala(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	sp, err := sadrzaj.Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sp.Zatvori() })
+	s.SetSpremiste(sp)
+	for _, u := range []struct{ vrsta, podaci, kanal string }{
+		{"application/vnd.gocop.arhiva", "izmišljeni paket letve Primjerovo, cijela povijest", "arhiva/16/0"},
+		{"application/pdf", "%PDF-1.4 prijava Pere Perića", "prijave/16/2026"},
+	} {
+		if _, err := sp.Upisi(ctxRub, u.vrsta, []byte(u.podaci), "cvor:cop-osijek-ured", sadrzaj.Veza{Entitet: "probni", EntitetID: u.kanal, Uloga: "paket", Kanal: u.kanal}); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	popis, err := s.Channels(ctxRub)
+	if err != nil || len(popis) != 1 || popis[0].Channel != "prijave/16/2026" || popis[0].Wanted {
+		t.Fatalf("kanali %+v, %v", popis, err)
+	}
+	if _, err := s.PregledBrisanja(ctxRub, popis[0].Channel); err != nil {
+		t.Errorf("pregled brisanja kanala prijava: %v", err)
+	}
+	if za, err := s.ChannelsFor(ctxRub, "", 16, 0); err != nil || strings.Join(za, ",") != "prijave/16/2026" {
+		t.Errorf("kanali BP 16 za izvoz: %v %v", za, err)
+	}
+}
+
 // Dokument treba zapisu koji ostaje kad ga spominje vlastita verzija, a
 // zapis nakon brisanja ostaje: zadnja vlastita verzija je živa, a zadnja
 // verzija nije tuđe brisanje.

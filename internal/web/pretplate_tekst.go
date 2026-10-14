@@ -46,8 +46,25 @@ func (k KanalStranice) Ostaje() string {
 	return recenicaOstaje(*k.Brisanje)
 }
 
-// Potvrda je pitanje prije brisanja, s istim brojevima kao u tablici
+// porukaBezPregleda stoji uz kanal koji se ne prati, a pregled brisanja
+// nije se dao složiti, pa stranica brisanje tog kanala ne nudi
+const porukaBezPregleda = "Brisanje s računala nije ponuđeno: program nije mogao provjeriti što bi se obrisalo. Osvježite stranicu, a ako se ponovi, ponovno pokrenite program."
+
+// NijePonudjeno je rečenica uz kanal koji se ne prati, a pregleda brisanja
+// nema; prazna kad se kanal prati ili kad pregled ima
+func (k KanalStranice) NijePonudjeno() string {
+	if k.Wanted || k.Brisanje != nil {
+		return ""
+	}
+	return porukaBezPregleda
+}
+
+// Potvrda je pitanje prije brisanja, s istim brojevima kao u tablici;
+// prazna bez pregleda brisanja, jer se tada brisanje ne nudi
 func (k KanalStranice) Potvrda() string {
+	if k.Brisanje == nil {
+		return ""
+	}
 	povratak := "Ono što se briše stiglo je s drugih računala i vratit će se razmjenom kad to opet počnete pratiti."
 	if o := k.OgradaPovratka(); o != "" {
 		povratak = o
@@ -59,10 +76,10 @@ func (k KanalStranice) Potvrda() string {
 // OgradaPovratka je rečenica za kanal očitanja na računalu koje prima samo
 // zadnje mjesece tuđih očitanja: starija se razmjenom ne vraćaju, osim za
 // letve koje računalo prati (repository.KeepReadingVersion). Prazna je
-// kad toga nema.
+// kad toga nema i bez pregleda brisanja, jer se tada brisanje ne nudi.
 func (k KanalStranice) OgradaPovratka() string {
 	n := k.PovijestMjeseci
-	if n <= 0 || k.Kind != ledger.ChannelReadings {
+	if n <= 0 || k.Kind != ledger.ChannelReadings || k.Brisanje == nil {
 		return ""
 	}
 	return fmt.Sprintf(models.UzBrojHR(n,

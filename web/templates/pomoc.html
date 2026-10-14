@@ -757,9 +757,16 @@
       koja u arhivi vrijedi od istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema. U
       ispisu gradnje tada piše koja krivulja nije maknuta ili nije upisana i zašto. Krivulju takve letve
       treba ispraviti na čvoru koji letvu izdaje.</p>
-    <p>Prazna datoteka krivulja, ili datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi
-      gradnju, da ne odnese sve krivulje letve. Ispis gradnje kaže koja je to datoteka. Datoteka sa
-      samim zaglavljem znači da letva krivulja nema.</p>
+    <p>Datoteka krivulja koja se ne da pročitati zaustavi gradnju, a gradnja tada ne makne nijednu
+      krivulju letve. Prvi redak datoteke mora biti zaglavlje s imenima stupaca, npr.
+      <code>vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena</code>, a svaki redak
+      krivulje mora biti u svom retku. Gradnja stane i kad je datoteka prazna ili ispod zaglavlja ima
+      samo prazne retke. Stane i na retku koji nema svih osam stupaca odvojenih točkom-zarezom ili ne počinje datumom oblika 2001-01-01, i na retku u kojem stupac od_cm ili do_cm nema cijelog broja, u nekom od stupaca p1 do p4 piše nešto što nije broj ili u stupcu oblik piše nešto drugo nego polinom ili potencija, malim slovima. Najčešće je to zarez upisan umjesto točke-zareza. Ispis gradnje kaže koja je to datoteka,
+      a za takav redak i njegov broj.</p>
+    <p>Prazan redak gradnja preskače, a datoteka sa samim zaglavljem znači da letva krivulja nema. Prazno
+      polje u stupcu p1 do p4 gradnja čita kao nulu. Uvoz izvoza HIS-2000 prazan redak isto preskoči, a
+      datoteku kojoj ne valja zaglavlje ili neki redak ne spaja s izvozom, nego kaže koji redak treba
+      ispraviti.</p>
     <p>Kad iz stabla nestane cijela datoteka niza, snimke korita ili krivulja protoka, gradnja ih iz
       arhive ne briše sama. Pojave se na stranici <strong>Administracija → Unos u arhivu</strong>, pod
       <em>Nizovi bez datoteke u stablu</em>, a iz arhive ih makne gumb <strong>Makni</strong>. Tako

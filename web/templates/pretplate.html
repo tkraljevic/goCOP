@@ -145,7 +145,11 @@
         <td>{{if .Wanted}}<span class="badge badge-active">prati se</span>{{else}}<span class="badge badge-inactive">ne prati se</span>{{end}}</td>
         <td class="text-right">
           {{if not .Wanted}}
+          {{if .Brisanje}}
           <div class="form-help">{{.BriseSe}} {{.Ostaje}} {{.OgradaPovratka}}</div>
+          {{else}}
+          <div class="form-help">{{.NijePonudjeno}}</div>
+          {{end}}
           {{if .ImaZaBrisanje}}
           <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm({{.Potvrda}})">
             <input type="hidden" name="channel" value="{{.Channel}}">

@@ -1087,7 +1087,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
               riverPolyline.setLatLngs(pts);
               osvjeziRucice();
               if (editorStatus) {
-                editorStatus.textContent = 'Vraćeno na početno stanje (' + pts.length + ' točaka).';
+                editorStatus.textContent = 'Vraćeno na početno stanje (' + pts.length + ' ' + uzBroj(pts.length, 'točka', 'točke', 'točaka') + ').';
               }
             }
           });
@@ -1497,13 +1497,13 @@ function dodajKontroleKarte(karta, platno, opcije) {
       '  · pragovi obrane i kota nule',
       '  · zabilježene krajnosti i povratni vodostaji'];
     if (dionica > 0) {
-      posljedice.push('  · veza s ' + dionica + (dionica === 1 ? ' dionicom' : ' dionice') +
+      posljedice.push('  · veza s ' + dionica + ' ' + uzBroj(dionica, 'dionicom', 'dionice', 'dionica') +
         ' — ondje letva više neće biti mjerodavna');
     }
     if (ocitanja > 0) {
       posljedice.push('');
-      posljedice.push(ocitanja + ' očitanja upisanih na ovoj letvi NEĆE se obrisati,');
-      posljedice.push('ali ostaju bez letve i više se neće moći otvoriti.');
+      posljedice.push(ocitanja + ' ' + uzBroj(ocitanja, 'očitanje upisano', 'očitanja upisana', 'očitanja upisanih') + ' na ovoj letvi NEĆE se obrisati,');
+      posljedice.push(uzBroj(ocitanja, 'ali ostaje', 'ali ostaju', 'ali ostaju') + ' bez letve i više se neće moći otvoriti.');
     }
     posljedice.push('');
     posljedice.push('Zapis ostaje u povijesti verzija i može se vratiti.');
@@ -2170,7 +2170,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
               (p.ime && p.naziv ? '<br><small class="karta-popup-sitno">' + escapeHtml(p.naziv) + '</small>' : '') +
               (p.vgi ? '<br><small>' + escapeHtml(p.vgi) + (p.podcentar ? ' · ' + escapeHtml(p.podcentar) : '') + '</small>' : '');
           }
-          if (p.url && p.dionica) h += '<br><a href="' + escapeHtml(p.url) + '">' + p.dionica + ' dionica →</a>';
+          if (p.url && p.dionica) h += '<br><a href="' + escapeHtml(p.url) + '">' + p.dionica + ' ' + uzBroj(p.dionica, 'dionica', 'dionice', 'dionica') + ' →</a>';
           return h + '</div>';
         }
         // Granica i oznaka svakog sektora i područja, da se pale i gase
@@ -2337,8 +2337,9 @@ function dodajKontroleKarte(karta, platno, opcije) {
           if (vodne) {
             if (!spremljenNaslov && naslov && podnaslov) spremljenNaslov = [naslov.textContent, podnaslov.textContent];
             if (naslov) naslov.textContent = 'Sektori i branjena područja';
-            if (podnaslov) podnaslov.textContent = plocaVodne.querySelectorAll('.vodna-sektor').length + ' sektora · ' +
-              plocaVodne.querySelectorAll('.vodna-bp').length + ' branjenih područja · Hrvatske vode, Direkcija';
+            var sektora = plocaVodne.querySelectorAll('.vodna-sektor').length, bp = plocaVodne.querySelectorAll('.vodna-bp').length;
+            if (podnaslov) podnaslov.textContent = sektora + ' ' + uzBroj(sektora, 'sektor', 'sektora', 'sektora') + ' · ' +
+              bp + ' ' + uzBroj(bp, 'branjeno područje', 'branjena područja', 'branjenih područja') + ' · Hrvatske vode, Direkcija';
             osvjeziPlocu();
           } else if (spremljenNaslov) {
             if (naslov) naslov.textContent = spremljenNaslov[0];
@@ -3084,9 +3085,10 @@ function dodajKontroleKarte(karta, platno, opcije) {
         });
 
         if (plocaPodnaslov) {
-          var podnaslovTekst = gradovi.length + ' gradova · ' + opcine.length + ' općina';
+          var podnaslovTekst = gradovi.length + ' ' + uzBroj(gradovi.length, 'grad', 'grada', 'gradova') + ' · ' +
+            opcine.length + ' ' + uzBroj(opcine.length, 'općina', 'općine', 'općina');
           if (selVal && selVal !== 'sve') {
-            podnaslovTekst += ' · ' + naselja.length + ' naselja';
+            podnaslovTekst += ' · ' + naselja.length + ' ' + uzBroj(naselja.length, 'naselje', 'naselja', 'naselja');
           }
           plocaPodnaslov.textContent = podnaslovTekst;
         }

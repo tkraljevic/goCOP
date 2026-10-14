@@ -434,6 +434,9 @@ func (s *Service) Channels(ctx context.Context) ([]ChannelStat, error) {
 // dodajKanaleSadrzaja dodaje kanale u kojima su ostali samo dokumenti s
 // drugih čvorova, bez ijedne verzije: npr. kad brisanje kanala obriše
 // zapise, a dokumente ne uspije. Bez toga se brisanje ne bi dalo ponoviti.
+// Dodaju se samo kanali vrste koja se s računala briše (koraciBrisanja):
+// paket arhive vodostaja (arhiva/područje/0) se ne briše, a s njim na
+// popisu stranica pretplata nije mogla složiti tablicu kanala.
 func (s *Service) dodajKanaleSadrzaja(ctx context.Context, counts map[string]int) error {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
@@ -441,7 +444,8 @@ func (s *Service) dodajKanaleSadrzaja(ctx context.Context, counts map[string]int
 	}
 	kanali, err := sp.KanaliTudjegSadrzaja(ctx)
 	for _, k := range kanali {
-		if _, ima := counts[k]; !ima {
+		vrsta, _, _ := ledger.SplitChannel(k)
+		if _, ima := counts[k]; !ima && koraciBrisanja(vrsta) != nil {
 			counts[k] = 0
 		}
 	}

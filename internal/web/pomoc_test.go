@@ -169,6 +169,26 @@ func TestPomocOpisujePostupkeSArhivom(t *testing.T) {
 	}
 }
 
+// Datoteka krivulja koja se ne da pročitati zaustavi gradnju. Pomoć mora reći
+// koja je to datoteka i da je najčešći uzrok zarez umjesto točke-zareza, jer
+// čovjek inače ne zna što u datoteci traži.
+func TestPomocOpisujeDatotekuKrivulja(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, want := range []string{
+		"Prvi redak datoteke mora biti zaglavlje s imenima stupaca",
+		"<code>vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena</code>",
+		"stupac od_cm ili do_cm nema cijelog broja, u nekom od stupaca p1 do p4 piše nešto što nije broj",
+		"Najčešće je to zarez upisan umjesto točke-zareza.",
+		"Prazan redak gradnja preskače", "datoteka sa samim zaglavljem znači da letva krivulja nema",
+		"Prazno polje u stupcu p1 do p4 gradnja čita kao nulu.",
+		"Uvoz izvoza HIS-2000 prazan redak isto preskoči, a datoteku kojoj ne valja zaglavlje ili neki redak ne spaja s izvozom",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć o datoteci krivulja ne kaže %q", want)
+		}
+	}
+}
+
 // Dnevnici su prerasli jedan građevinski obrazac: pomoć mora objasniti cijeli
 // put od zapisnika centra preko plana do obračuna, jer se pogrešan unos sati
 // inače otkrije tek u računovodstvu.

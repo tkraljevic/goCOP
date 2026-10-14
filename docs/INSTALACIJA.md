@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.37-alfa (13. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.38-alfa (14. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -438,7 +438,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.37-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.38-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -770,7 +770,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.37-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.38-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -840,6 +840,86 @@ i zaduženja, a novija ih ne diraju, pa bi isti zapis na dva čvora dobio
 različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
+
+0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
+dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.
+Odmah nakon nadogradnje tog čvora, ne čekajući ostala računala, globalni
+administrator na njemu pokrene Prognoze → Postavke → *Pripremi model*, izvan
+poplavnog vala: ispravak prognoze izmjeren je uz grešku u ispuštanju
+elektrana koja je u 0.0.38-alfa ispravljena, pa se mijenja svaka prognoza.
+Traje desetak minuta i više. Na ostalim računalima to ne treba: gumb se
+ondje vidi, ali priprema javi da ovaj čvor ne izdaje prognozu i da se model
+priprema na čvoru koji je izdaje.
+
+Pri prvom pokretanju 0.0.38-alfa pregleda primljene dnevne listove i zatraži
+fotografije koje nedostaju; u dnevniku programa piše „Fotografije uz dnevne
+listove: …”, a koliko ukupno čeka, u retku „Spremište sadržaja: … za
+dohvat”. Te fotografije ima samo računalo na kojem su upisane, npr. laptop s
+kojeg je rađen uvoz iz BP16, pa neka bude uključeno i dohvatljivo dok ih
+stalni čvor ne preuzme. To se vidi na stalnom čvoru: na pločici „Razmjena s
+čvorovima” broj uz „Sadržaj čeka dohvat” padne za onoliko fotografija koliko
+ih dnevnik programa tog čvora navodi iza „na popisu za dohvat”, ili redak
+nestane. Na računalu koje fotografije ima taj se broj ne mijenja. U jednoj
+razmjeni, svakih pet minuta, stigne najviše 200 fotografija i dokumenata ili
+48 MB. Fotografija lista ima oko 130 kB, pa na sat stigne oko 2.400
+fotografija, a gigabajt traje oko tri sata; kad i stalni čvor može nazvati
+to računalo, otprilike upola kraće. Kad ih stalni čvor ima, ostala računala
+ih dobiju i od njega. Do nule broj ne mora pasti: u njemu je i ono što
+računalo po pretplati ne dohvaća, npr. PDF-ovi uz „Samo pregledi” ili
+fotografije uz „Samo kazalo”, te paketi arhive vodostaja dok se još
+dohvaćaju.
+
+Dok sva računala nisu na 0.0.38-alfa, ne brisati područja, sektore, općine,
+naselja, županije, korisnike ni dionice, ni letve i objekte koje neka
+dionica još navodi. Pravilo da brisanje ima prednost pred istodobnim upisom
+vrijedi samo na računalu s 0.0.38-alfa; računalo s 0.0.37-alfa i dalje čeka
+novi zapis ili ne može provesti brisanje. Računalo koje se tako razišlo
+prije nadogradnje pri prvom pokretanju 0.0.38-alfa makne obrisani zapis i
+sve što je uz njega upisano, i ono upisano poslije brisanja. Što je upisano
+uz područje ili sektor, vraća se kad se područje ponovno upiše pod istim
+brojem ili sektor pod istom oznakom. Što je upisano uz obrisanu općinu,
+županiju ili korisnika, u pravilu se ne vraća: ponovno upisana općina ili
+županija dobije novi broj, a korisnik novi identitet.
+
+Je li se računalo tako razišlo, vidi se prije nadogradnje u dnevniku
+programa: pri svakom pokretanju ponavlja se poruka „Obnova površine iz
+knjige (… zapisa): … verzija nije primijenjeno na površinu …; prva: …”. Iza
+„prva:” stoji vrsta i oznaka samo prvog zapisa koji nije prošao: areas
+(područje), sectors (sektor), counties (županija), municipalities (općina)
+ili users (korisnik), ili zapis upisan uz njih, npr. structures (objekt),
+settlements (naselje) ili duties (dužnost). Kad iza „prva:” stoji nešto
+drugo, npr. defense_episodes (epizoda obrane) ili sections (dionica), iz
+poruke se ne vidi je li se računalo razišlo i oko nekog od tih zapisa. Taj
+redak dnevnika treba prepisati prije nadogradnje: nakon nje taj zapis i ono
+upisano uz njega neće biti na popisu. Ono uz područje ili sektor vratit će
+se kad se područje ponovno upiše pod istim brojem ili sektor pod istom
+oznakom; ono uz općinu, županiju ili korisnika u pravilu se ne vraća, pa ga
+treba upisati iznova.
+
+Na računalu koje je još na 0.0.37-alfa na stranici „Što ovo računalo prati”
+ne koristiti ni „Obriši s računala” ni „Makni i obriši”: ondje brišu i ono
+što je nastalo na tom računalu, a što još nije stiglo na druga računala,
+nestaje zauvijek. Pravilo se na 0.0.37-alfa miče samo gumbom „Makni”.
+
+Pravilo „Sve vrste” za sva područja dosad nije donosilo arhivu vodostaja kad
+je imalo godinu početka, kakvu je upisivao zadani obrazac, ili sadržaj „Samo
+pregledi” ili „Samo kazalo”. Nakon nadogradnje takvo pravilo samo od sebe
+počne dohvaćati cijelu arhivu: oko 300 paketa i oko 50 MB razmjene, a
+ugrađena na računalu zauzima oko 10 GB. Na računalu s malo mjesta na disku
+prije nadogradnje dodati pravilo za svoje područje, a staro maknuti gumbom
+„Makni”, ne „Makni i obriši”. Tek nakon nadogradnje gumbom „Obriši s
+računala” obrisati ono što više ne treba. Pakete za pravilo s godinom
+početka računala razmjenjuju tek kad su oba na 0.0.38-alfa ili novijem.
+
+Na Windowsu nakon nadogradnje provjeriti da se na stranici letve i dalje
+vide historijat i graf prognoze, ako su se vidjeli i prije, i da se u
+dnevniku programa nije pojavila poruka „Arhiva vodostaja nije pronađena” ili
+„Baza prognoza nije pronađena” koje prije nadogradnje nije bilo. Poruku
+„Arhiva vodostaja nije pronađena” računalo koje arhive nema pisalo je i na
+0.0.37-alfa. Program sad arhivu, bazu očitanja i bazu prognoza, kad ih samo
+čita, otvara samo za čitanje, a to na Windowsu nije isprobano. Ako se poruka
+pojavi tek nakon nadogradnje, računalo radi bez historijata i prognoze, a
+ostali podaci i dalje se razmjenjuju; to treba prijaviti kao grešku.
 
 0.0.37-alfa radi uz 0.0.36-alfa i nadograđuje se redom (stalni čvor prvi).
 Čvorove s Tailscaleom nadograditi zajedno: stariji program Tailscale adresu
@@ -924,8 +1004,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.37-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.37-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.38-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.38-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

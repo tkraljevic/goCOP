@@ -672,12 +672,34 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 		u.zavrsiKrug(pocetak, 0, 0, "popis letvi nije uspio: "+err.Error())
 		return 0
 	}
+	letve = u.letveKruga(letve)
+	ukupno := u.preuzmiLetve(ctx, letve)
+	if len(letve) > 0 {
+		u.Zapisnik("javni vodostaji: %s", opisPreuzetih(len(letve), ukupno))
+	}
+	u.Korak("vodostaji preuzeti: "+opisPreuzetih(len(letve), ukupno), 90)
+	if u.NakonPreuzimanja != nil && ctx.Err() == nil {
+		u.NakonPreuzimanja(ctx)
+	}
+	u.zavrsiKrug(pocetak, len(letve), ukupno, "gotovo")
+	return ukupno
+}
+
+// letveKruga su letve koje ovaj krug preuzima: nijedna kad vodostaje s
+// izvora preuzima drugi čvor
+func (u *Uvoznik) letveKruga(letve []models.Station) []models.Station {
 	if u.Preuzima != nil && !u.Preuzima() {
 		// Vodostaje preuzima drugi čvor i stižu razmjenom; krug ide dalje
 		// zbog prognoze, ako je ovaj čvor izdaje.
-		letve = nil
 		u.Redak("vodostaje s izvora preuzima drugi čvor; stižu razmjenom")
+		return nil
 	}
+	return letve
+}
+
+// preuzmiLetve preuzme letve kruga redom, puni traku napretka i ispis, i
+// vraća koliko je novih očitanja upisano
+func (u *Uvoznik) preuzmiLetve(ctx context.Context, letve []models.Station) int {
 	u.mu.Lock()
 	u.napredak.Ukupno, u.napredak.Faza = len(letve), "preuzimanje vodostaja"
 	u.mu.Unlock()
@@ -695,28 +717,13 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 		u.mu.Lock()
 		u.napredak.Gotovo, u.napredak.Novih = i+1, ukupno
 		u.napredak.Postotak = 90 * (i + 1) / len(letve)
-		switch {
-		case s.Greska != "":
-			u.dodajRedak(letve[i].Name + ": " + s.Greska)
-		case s.Novih > 0:
-			u.dodajRedak(fmt.Sprintf("%s: %d novih", letve[i].Name, s.Novih))
-		default:
-			u.dodajRedak(letve[i].Name + ": ništa novo")
-		}
+		u.dodajRedak(redakLetve(letve[i].Name, s))
 		u.mu.Unlock()
 		if zaLetve.Err() != nil {
-			u.dodajRedak("preuzimanje letvi prekinuto: istekao rok, ostatak kruga ide dalje")
+			u.Redak("preuzimanje letvi prekinuto: istekao rok, ostatak kruga ide dalje")
 			break
 		}
 	}
-	if len(letve) > 0 {
-		u.Zapisnik("javni vodostaji: %d letvi, %d novih očitanja", len(letve), ukupno)
-	}
-	u.Korak(fmt.Sprintf("vodostaji preuzeti: %d letvi, %d novih očitanja", len(letve), ukupno), 90)
-	if u.NakonPreuzimanja != nil && ctx.Err() == nil {
-		u.NakonPreuzimanja(ctx)
-	}
-	u.zavrsiKrug(pocetak, len(letve), ukupno, "gotovo")
 	return ukupno
 }
 

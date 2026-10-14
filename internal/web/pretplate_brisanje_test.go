@@ -1,13 +1,16 @@
 package web
 
 import (
+	"bytes"
 	"database/sql"
 	"fmt"
 	"html"
 	"html/template"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -437,6 +440,9 @@ func TestRecenicaOBrisanju(t *testing.T) {
 		if k.ImaZaBrisanje() != (p.b.Zapisa+p.b.Dokumenata+p.b.Verzija > 0) {
 			t.Errorf("%+v: ima za brisanje %v", p.b, k.ImaZaBrisanje())
 		}
+		if k.NijePonudjeno() != "" {
+			t.Errorf("%+v: uz pregled brisanja piše %q", p.b, k.NijePonudjeno())
+		}
 		if !strings.Contains(recenicaOstalo(p.b), strings.TrimPrefix(p.ostaje, "Ostaje ono što je nastalo na ovom računalu: ")) {
 			t.Errorf("ostalo: %q", recenicaOstalo(p.b))
 		}
@@ -444,6 +450,16 @@ func TestRecenicaOBrisanju(t *testing.T) {
 	prazno := KanalStranice{}
 	if prazno.BriseSe() != "" || prazno.Ostaje() != "" || prazno.ImaZaBrisanje() {
 		t.Error("kanal pod pretplatom nema rečenica o brisanju")
+	}
+	// kanal koji se ne prati, a pregleda brisanja nema: samo rečenica da
+	// brisanje nije ponuđeno, bez potvrde i bez rečenice o povratku očitanja
+	bezPregleda := KanalStranice{ChannelStat: peers.ChannelStat{Channel: "ocitanja/16/2025", Kind: "ocitanja", AreaID: 16, Year: 2025}, Naziv: "Očitanja", PovijestMjeseci: 12}
+	if bezPregleda.NijePonudjeno() != porukaBezPregleda || bezPregleda.Potvrda() != "" || bezPregleda.OgradaPovratka() != "" || bezPregleda.ImaZaBrisanje() {
+		t.Errorf("kanal bez pregleda brisanja: %q %q %q", bezPregleda.NijePonudjeno(), bezPregleda.Potvrda(), bezPregleda.OgradaPovratka())
+	}
+	bezPregleda.Wanted = true
+	if bezPregleda.NijePonudjeno() != "" {
+		t.Error("kanal pod pretplatom kaže da brisanje nije ponuđeno")
 	}
 	for vrsta, naziv := range map[string]string{"ocitanja": "Očitanja", "dnevnici": "Dnevnici radova", "prijave": "Prijave s terena", "vodocuvarski": "Vodočuvarski dnevnik", "vodostaji": "vodostaji"} {
 		if nazivVrste(vrsta) != naziv {
@@ -552,5 +568,70 @@ func TestStranicaPretplataKadNestoNeRadi(t *testing.T) {
 	s.h.ShowSubscriptions(w, zahtjevPostavki(http.MethodGet, "/pretplate", nil, kaoAdmin))
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("stranica bez predloška: %d", w.Code)
+	}
+}
+
+// redakKanala je redak tablice „Što računalo drži” s nazivom vrste u prvom
+// stupcu; prazan kad ga nema
+func redakKanala(stranica, naziv string) string {
+	for _, r := range strings.Split(stranica, "<tr>") {
+		if strings.Contains(r, "<td>"+naziv+"</td>") {
+			return r
+		}
+	}
+	return ""
+}
+
+// Laptop drži paket arhive vodostaja BP 16 koji je stigao s ureda dok je
+// pratio sve vrste za BP 16, a to pravilo je maknuto. Tablica „Što računalo
+// drži” i dalje nudi brisanje prijave s ureda, a paketa u njoj nema, jer se
+// paket s računala ne briše. S paketom u tablici stranica nije nudila
+// brisanje ni za jedan redak.
+func TestTablicaKanalaUzPaketArhive(t *testing.T) {
+	s := novaStranicaPretplata(t)
+	s.prijava(t, "p-pero", "cop-osijek-ured")
+	sp, err := sadrzaj.Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sp.Zatvori() })
+	s.h.peers.SetSpremiste(sp)
+	if _, err := sp.Upisi(t.Context(), "application/vnd.gocop.arhiva", []byte("izmišljeni paket letve Primjerovo, cijela povijest"), "cvor:cop-osijek-ured",
+		sadrzaj.Veza{Entitet: "arhiva_paket", EntitetID: "arhiva/16/0", Uloga: "paket", Kanal: "arhiva/16/0"}); err != nil {
+		t.Fatal(err)
+	}
+	stranica := s.prikazi(t)
+	if strings.Contains(stranica, porukaTabliceKanala) || !strings.Contains(redakKanala(stranica, "Prijave s terena"), "Obriši s računala") {
+		t.Error("uz paket arhive tablica ne nudi brisanje prijave")
+	}
+	if redakKanala(stranica, "arhiva") != "" || !strings.Contains(stranica, `Što računalo drži <span class="reg-chip">1</span>`) {
+		t.Error("paket arhive je u tablici")
+	}
+}
+
+// Kad se pregled brisanja jednog kanala ne da složiti, tablica pokaže sve
+// kanale: taj redak kaže da brisanje nije ponuđeno i nema gumba, a prijava
+// s ureda briše se kao i prije. Tehnički razlog ide u dnevnik. Vrstu
+// „vodostaji” program s računala ne zna obrisati.
+func TestTablicaKanalaKadPregledNeUspije(t *testing.T) {
+	s := novaStranicaPretplata(t)
+	s.prijava(t, "p-pero", "cop-osijek-ured")
+	if _, err := ledger.New(s.baza, "cop-osijek-ured").RecordIn(t.Context(), s.baza, "vodostaji/16/2026", "probni", "v-1", map[string]string{"id": "v-1"}); err != nil {
+		t.Fatal(err)
+	}
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+
+	stranica := s.prikazi(t)
+	prijave, nepoznat := redakKanala(stranica, "Prijave s terena"), redakKanala(stranica, "vodostaji")
+	if strings.Contains(stranica, porukaTabliceKanala) || !strings.Contains(prijave, "Obrisat će se 1 zapis.") || !strings.Contains(prijave, "Obriši s računala") {
+		t.Errorf("tablica ne nudi brisanje prijave:\n%s", prijave)
+	}
+	if !strings.Contains(nepoznat, porukaBezPregleda) || strings.Contains(nepoznat, "Obriši s računala") || strings.Contains(nepoznat, "nepoznata vrsta") {
+		t.Errorf("redak bez pregleda brisanja:\n%s", nepoznat)
+	}
+	if !strings.Contains(dnevnik.String(), "pregled brisanja kanala vodostaji/16/2026 nije složen: Ništa nije obrisano: nepoznata vrsta kanala") {
+		t.Errorf("dnevnik: %q", dnevnik.String())
 	}
 }

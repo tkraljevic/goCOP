@@ -109,15 +109,23 @@ func (h *SubscriptionsHandler) kanaliStranice(r *http.Request, povijestMjeseci i
 	for _, c := range popis {
 		k := KanalStranice{ChannelStat: c, Naziv: nazivVrste(c.Kind), PovijestMjeseci: povijestMjeseci}
 		if !c.Wanted {
-			b, err := h.peers.PregledBrisanja(r.Context(), c.Channel)
-			if err != nil {
-				return nil, err
-			}
-			k.Brisanje = &b
+			k.Brisanje = h.pregledBrisanja(r, c.Channel)
 		}
 		out = append(out, k)
 	}
 	return out, nil
+}
+
+// pregledBrisanja je pregled brisanja jednog kanala; nil kad se nije dao
+// složiti, pa stranica brisanje tog kanala ne nudi, a ostale kanale
+// pokaže. Tehnički razlog ide u dnevnik.
+func (h *SubscriptionsHandler) pregledBrisanja(r *http.Request, kanal string) *peers.Brisanje {
+	b, err := h.peers.PregledBrisanja(r.Context(), kanal)
+	if err != nil {
+		log.Printf("Stranica pretplata: pregled brisanja kanala %s nije složen: %v", kanal, err)
+		return nil
+	}
+	return &b
 }
 
 // HandleAdd dodaje pravilo i odmah pokrene razmjenu da podaci stignu

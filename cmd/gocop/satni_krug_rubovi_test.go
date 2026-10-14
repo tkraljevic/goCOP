@@ -77,6 +77,29 @@ func TestOborineUKrugu(t *testing.T) {
 	}
 }
 
+// Oborinska točka koja se u registru pojavi između dva kruga ulazi u
+// izračun već idući krug
+func TestOborinskaTockaIzRegistraUlaziUIzracun(t *testing.T) {
+	k, uvoznik := okolinaKruga(t, true)
+	ob, err := oborine.Otvori(filepath.Join(t.TempDir(), "oborine.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ob.Close() })
+	k.oborine = &oborine.Uvoznik{DB: ob, Tocke: func() ([]oborine.Tocka, error) { return nil, nil }}
+	if _, err := k.baza.Exec(`INSERT INTO kisomjeri (code, naziv, sliv, latitude, longitude, tezina, created_at, updated_at)
+		VALUES ('ob-probna', 'Probna točka', 'sliv-proba', 45.5, 18.7, 1, datetime('now'), datetime('now'))`); err != nil {
+		t.Fatal(err)
+	}
+	k.preuzmiOborine(context.Background())
+	if o := k.osvjezivac.Oborine; o == nil || len(o.Tocke) != 1 || o.Tocke[0].Code != "ob-probna" {
+		t.Fatalf("izvor oborina: %+v", o)
+	}
+	if r := redciS(uvoznik.Napredak().Redci, "oborine:"); len(r) != 1 || r[0] != "oborine: 0 sati za kišomjere" {
+		t.Errorf("redci: %q", r)
+	}
+}
+
 // Baza oborina koja se ne da otvoriti: čvor radi bez oborina i kišomjera
 func TestOborineSeNeDajuOtvoriti(t *testing.T) {
 	dir := t.TempDir()

@@ -32,7 +32,7 @@ import (
 const (
 	oblikDana     = "2006-01-02"
 	izvorKrivulja = "DHMZ, HIS-2000"
-	// najmanjeStupaca je granica ispod koje gradnja arhive redak preskače.
+	// najmanjeStupaca je granica ispod koje gradnja arhive staje na retku.
 	najmanjeStupaca = 8
 )
 
@@ -109,20 +109,27 @@ func SpojiSDatotekom(put string, s *Sadrzaj) (SpojeneKrivulje, error) {
 
 // procitajZatecene čita datoteku krivulja kao gradnja arhive: razdoblje iz
 // prva dva stupca, ostalo po zaglavlju, a odsječci istog početka čine jednu
-// krivulju. Redak koji gradnja ne bi pročitala zaustavlja spajanje, jer bi
-// ga spojena datoteka inače tiho izgubila.
+// krivulju. Zaglavlje i redak koje gradnja ne bi pročitala zaustavljaju
+// spajanje, jer bi ih spojena datoteka inače tiho izgubila. Prazan redak
+// gradnja preskače, pa ga preskače i spajanje.
 func procitajZatecene(b []byte) ([]razdobljeKrivulje, error) {
 	sve, err := citajTablicu(b)
 	if err != nil {
 		return nil, err
 	}
-	if len(sve) < 2 {
+	if len(sve) == 0 {
 		return nil, nil
+	}
+	if razlog := models.ZastoNijeZaglavljeKrivulja(sve[0].polja); razlog != "" {
+		return nil, &NecitljivRedak{Redak: sve[0].broj, Razlog: razlog}
 	}
 	stupci := stupciZaglavlja(sve[0].polja)
 	k := noveKrivulje()
 	for _, r := range sve[1:] {
-		pocetak, err := provjeriRedak(r.polja)
+		if prazanRedak(r.polja) {
+			continue
+		}
+		pocetak, err := provjeriRedak(stupci, r.polja)
 		if err != nil {
 			return nil, &NecitljivRedak{Redak: r.broj, Razlog: err.Error()}
 		}
@@ -192,10 +199,16 @@ func necitljivaTablica(err error) *NecitljivRedak {
 	return n
 }
 
+// prazanRedak javlja je li redak bez ičega osim razmaka i razdjelnika. Isto
+// pravilo ima i gradnja arhive (arhiva.prazanRedak).
+func prazanRedak(r []string) bool {
+	return !slices.ContainsFunc(r, func(p string) bool { return strings.TrimSpace(p) != "" })
+}
+
 // provjeriRedak vraća početak razdoblja retka, ili kaže zašto redak nije
-// redak krivulje.
-func provjeriRedak(r []string) (time.Time, error) {
-	redak := strings.Join(r, ";")
+// redak krivulje. Stupci su mjesta stupaca po zaglavlju datoteke.
+func provjeriRedak(s stupci, r []string) (time.Time, error) {
+	redak := models.RedakKrivuljeZaPoruku(r)
 	if len(r) < najmanjeStupaca {
 		return time.Time{}, fmt.Errorf("„%s” ima %d %s, a redak krivulje ih ima barem %d",
 			redak, len(r), models.UzBrojHR(len(r), "stupac", "stupca", "stupaca"), najmanjeStupaca)
@@ -203,6 +216,9 @@ func provjeriRedak(r []string) (time.Time, error) {
 	pocetak, err := time.Parse(oblikDana, strings.TrimSpace(r[0]))
 	if err != nil {
 		return time.Time{}, fmt.Errorf("„%s” ne počinje datumom oblika 2001-01-01", redak)
+	}
+	if razlog := models.ZastoNijeOdsjecakKrivulje(s, r); razlog != "" {
+		return time.Time{}, fmt.Errorf("„%s” %s", redak, razlog)
 	}
 	return pocetak, nil
 }
@@ -215,7 +231,7 @@ type stupci map[string]int
 func stupciZaglavlja(zaglavlje []string) stupci {
 	s := stupci{}
 	for i, ime := range zaglavlje {
-		s[strings.ToLower(strings.TrimSpace(ime))] = i
+		s[models.ImeStupcaKrivulje(ime)] = i
 	}
 	return s
 }

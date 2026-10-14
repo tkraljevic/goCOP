@@ -6,10 +6,12 @@ package his2000
 import (
 	"bytes"
 	"fmt"
+
+	"gocop/internal/models"
 )
 
 // ZaglavljeKrivulja je prvi redak datoteke krivulja.
-const ZaglavljeKrivulja = "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena"
+const ZaglavljeKrivulja = models.ZaglavljeDatotekeKrivulja
 
 // KrivuljeCSV slaže datoteku krivulja iz pročitanog izvoza, kakva nastane
 // kad letva krivulja dosad nije imala. Zadnjoj krivulji kraj ostaje otvoren

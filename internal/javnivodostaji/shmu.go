@@ -106,7 +106,8 @@ func CitajSHMU(html string) ([]Redak, error) {
 	}
 	if len(out) == 0 {
 		if nadjeno > 0 {
-			return nil, fmt.Errorf("tablica ima %d redaka, ali nijedan na punom satu", nadjeno)
+			return nil, fmt.Errorf("slovačka stranica nema nijednog očitanja na punom satu (redaka u tablici: %d); "+
+				"ako se to ponavlja, stranica se vjerojatno promijenila, javite administratoru", nadjeno)
 		}
 		return nil, fmt.Errorf("na stranici nema tablice vodostaja — je li se stranica promijenila?")
 	}
