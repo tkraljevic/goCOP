@@ -1604,12 +1604,22 @@ var zadaniIzvori = []Izvor{
 	// 4.0. Na mađarskim letvama iste su brojke kao vituki (medijan razlike 0 cm,
 	// isti UTC sat), ali nose i protoke te satne vrijednosti koje vituki nema;
 	// stoje iza vitukija, pa ulaze samo ondje gdje njega nema.
+	//
+	// Datumi dnevnih vrijednosti na DanubeHIS-u su točni. Srpske i češke
+	// označava s 23:00 UTC prethodnog dana, a to je ponoć po UTC+1; mađarske
+	// s 00:00 UTC. Mi smo datum uzimali iz UTC oznake, pa su srpski dani
+	// ispadali dan raniji. Pravilo: datum dnevnog vodostaja i protoka s
+	// DanubeHIS-a uzima se iz oznake pomaknute na UTC+1. Kišomjeri imaju svoje
+	// pravilo (vidi kisomjer-danubehis). DanubeHIS-ove dnevne datoteke Bezdana
+	// i Bogojeva već su pomaknute za dan, što daje isto. Austrijske, slovenske
+	// i češke dnevne datoteke s DanubeHIS-a još nisu provjerene po tom pravilu.
 	{"danubehis", 5, 20, true, "", "ICPDR DanubeHIS: ovjereni dnevni vodostaji i protoci (1961.–2023.) i sirovi satni od 2020.; licenca CC BY-NC-SA 4.0, navesti izvor"},
 	// Republički hidrometeorološki zavod Republike Srbije poslao je izravno
-	// ovjerene dnevne vodostaje i protoke Bezdana, Apatina i Bogojeva
-	// 1960.–2022. Isti su brojevi kao DanubeHIS, ali DanubeHIS ih ima dan
-	// ranije (ispravljeno u datotekama) i tek od 2016.; ispred njega.
-	{"rhmz", 1, 10, true, "", "Republički hidrometeorološki zavod Republike Srbije (RHMZ): ovjereni dnevni vodostaji i protoci Bezdana, Apatina i Bogojeva 1960.–2022., poslani izravno"},
+	// ovjerene dnevne vodostaje Bezdana, Apatina, Bogojeva i Bačke Palanke
+	// 1960.–2025. te protoke Bezdana, Bogojeva i Bačke Palanke (Bačke Palanke
+	// 2023.–2025.). Na Bezdanu i Bogojevu 2016.–2022. brojevi su isti kao na
+	// DanubeHIS-u, koji ih ima tek od 2016.; zato RHMZ stoji ispred njega.
+	{"rhmz", 1, 10, true, "", "Republički hidrometeorološki zavod Republike Srbije (RHMZ): ovjereni dnevni vodostaji Bezdana, Apatina, Bogojeva i Bačke Palanke 1960.–2025. i protoci Bezdana i Bogojeva, a od 2023. i Bačke Palanke, poslani izravno"},
 	// Batina 1960.–2001. iz Bezdana, 740 m uzvodno na suprotnoj obali: odnos
 	// izmjeren 2001.–2022. drži na ±5 cm, dok preračun iz Mohácsa griješi
 	// ±13 cm; zato stoji ispred njega (manja točnost u cm znači prednost).
