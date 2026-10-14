@@ -88,6 +88,8 @@ func TestUvoznikUpisujeSamoNovo(t *testing.T) {
 	if !ok || s.Novih != 2 || s.Preuzeto != 3 || s.Greska != "" {
 		t.Errorf("stanje letve: %+v", s)
 	}
+	// ispis kruga na stranici postavki prognoze: riječ uz broj u pravom obliku
+	imaRetke(t, u, "Batina: 2 nova očitanja", "vodostaji preuzeti: 1 letva, 2 nova očitanja")
 	// isti identitet za isti trenutak: ponovno preuzimanje daje iste ID-eve
 	a := Ocitanje(&st, Redak{Kad: vecIma, LevelCm: intPtr(-121)}, Podrijetlo)
 	b := Ocitanje(&st, Redak{Kad: vecIma, LevelCm: intPtr(-121)}, Podrijetlo)

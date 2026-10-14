@@ -11,13 +11,8 @@
     return Number(n).toLocaleString('hr-HR', { minimumFractionDigits: dec || 0, maximumFractionDigits: dec || 0 });
   }
   function mjesto(b) { return b >= 1e9 ? broj(b / 1e9, 1) + ' GB' : broj(b / 1e6, 0) + ' MB'; }
-  // uzBroj bira oblik riječi uz broj: 1 kišomjer, 2–4 kišomjera, 5 kišomjera (21 kao 1, 12–14 kao 5)
-  function uzBroj(n, jedan, dva, pet) {
-    var z = n % 10, zz = n % 100;
-    if (z === 1 && zz !== 11) return jedan;
-    if (z >= 2 && z <= 4 && (zz < 12 || zz > 14)) return dva;
-    return pet;
-  }
+  // Oblik riječi uz broj („1 pravi kišomjer”, „2 prava kišomjera”) bira
+  // uzBroj iz js/uzbroj.js, koji stranica učita prije ove skripte.
   function kratko(n) {
     if (n >= 1e6) { return broj(n / 1e6, n >= 1e7 ? 0 : 1) + ' mil.'; }
     if (n >= 1e3) { return broj(n / 1e3, 0) + ' tis.'; }
@@ -68,7 +63,7 @@
       { k: 'prognoza', v: b.prognoza, n: 'vrijednosti izdanih prognoza', o: b.izdanja ? 'iz ' + broj(b.izdanja) + ' satnih izdanja' : '' },
       { k: 'provjera', v: b.provjera, n: 'prognoza provjerenih unatrag', o: 'satni lanac 2023.–2025. i poplavni valovi' },
       { k: 'ocitanja', v: b.ocitanja, n: 'očitanja u radnoj bazi', o: b.ocitanja24h ? '+' + broj(b.ocitanja24h) + ' u zadnja 24 h' : '' },
-      { k: 'profili', v: b.profili, n: 'poprečnih profila korita', o: (b.profilTocke ? broj(b.profilTocke) + ' točaka' : '') + (b.hq ? ', ' + broj(b.hq) + ' krivulja protoka' : '') }
+      { k: 'profili', v: b.profili, n: 'poprečnih profila korita', o: (b.profilTocke ? broj(b.profilTocke) + ' ' + uzBroj(b.profilTocke, 'točka', 'točke', 'točaka') : '') + (b.hq ? ', ' + broj(b.hq) + ' ' + uzBroj(b.hq, 'krivulja protoka', 'krivulje protoka', 'krivulja protoka') : '') }
     ];
     var rekordi = (b.rekordi || []).map(function (r, i) { return { k: 'rekord' + i, v: r.cm, r: r }; });
     return {

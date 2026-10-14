@@ -117,11 +117,11 @@ func TestSatniKrugCvorKojiIzdaje(t *testing.T) {
 	redci := uvoznik.Napredak().Redci
 	zelim := []string{
 		"mađarska prognoza (hydroinfo.hu)",
-		prognoza.Podrijetlo + ": 2 letvi, 3 novih vrijednosti", // Zalabér dva dana i jedna strana letva
+		prognoza.Podrijetlo + ": 2 letve, 3 nove vrijednosti", // Zalabér dva dana i jedna strana letva
 		"austrijska prognoza (noel.gv.at)",
 		prognoza.PodrijetloNOEL + ": noel.gv.at ne odgovara",
 		"srpska prognoza (hidmet.gov.rs)",
-		prognoza.PodrijetloHidmet + ": 1 letvi, 1 novih vrijednosti",
+		prognoza.PodrijetloHidmet + ": 1 letva, 1 nova vrijednost",
 		"izračun prognoze",
 	}
 	if len(redci) != len(zelim)+1 {
@@ -146,10 +146,10 @@ func TestSatniKrugCvorKojiIzdaje(t *testing.T) {
 		}
 		return ""
 	}
-	if r := nadji(prognoza.Podrijetlo + ":"); r != prognoza.Podrijetlo+": 2 letvi, 0 novih vrijednosti" {
+	if r := nadji(prognoza.Podrijetlo + ":"); r != prognoza.Podrijetlo+": 2 letve, 0 novih vrijednosti" {
 		t.Errorf("drugi krug, mađarska: %q", r)
 	}
-	if r := nadji(prognoza.PodrijetloHidmet + ":"); r != prognoza.PodrijetloHidmet+": 1 letvi, 0 novih vrijednosti" {
+	if r := nadji(prognoza.PodrijetloHidmet + ":"); r != prognoza.PodrijetloHidmet+": 1 letva, 0 novih vrijednosti" {
 		t.Errorf("drugi krug, srpska: %q", r)
 	}
 }

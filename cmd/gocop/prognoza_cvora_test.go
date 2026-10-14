@@ -2,11 +2,15 @@ package main
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"io"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 	"gocop/internal/web"
@@ -86,5 +90,94 @@ func TestKisaZaStanjeRanijegIzdanja(t *testing.T) {
 	// Izdanje bez zapisane kiše ne smije reći da kiše nije bilo.
 	if _, _, err := kisaZaStanje(ranije(staro-1), pb, ziva, true); err == nil {
 		t.Error("izdanje bez zapisane kiše bez greške")
+	}
+}
+
+// lazniModel zamijeni namještanje lanca i provjeru unatrag: namještanje
+// spremi dva pojasa, a provjera zapiše pet promašaja ili vrati zadanu
+// grešku. Obje provjere da pišu u dnevnik posla p, a provjera i da zapisuje.
+func lazniModel(t *testing.T, p *poslovi.Posao, greskaProvjere error) {
+	t.Helper()
+	staroN, staroP, staroZ := namjestiLanac, provjeriUnatrag, zaboraviDnevneModele
+	t.Cleanup(func() { namjestiLanac, provjeriUnatrag, zaboraviDnevneModele = staroN, staroP, staroZ })
+	zaboraviDnevneModele = func() {}
+	namjestiLanac = func(_, _ *sql.DB, o prognoza.OpcijeNamjestanja) (int, error) {
+		if o.Dnevnik != io.Writer(p) || o.Korak == nil || o.Probno {
+			t.Errorf("namještanje: %+v", o)
+		}
+		return 2, nil
+	}
+	provjeriUnatrag = func(_, _ *sql.DB, o prognoza.OpcijeProvjere) (int, error) {
+		if o.Dnevnik != io.Writer(p) || !o.Zapisi {
+			t.Errorf("provjera: dnevnik %v, zapisi %v", o.Dnevnik, o.Zapisi)
+		}
+		return 5, greskaProvjere
+	}
+}
+
+// pripremi pokrene pripremu modela na krugu k i vrati završnu poruku i grešku
+func pripremi(k *satniKrug, p *poslovi.Posao) (string, error) {
+	priprema := pripremaModela(k.mreza, k.osvjezivac.Arhiva, k.prognoze, k.uvoznik, k.osvjezivac, k.objavi)
+	err := priprema(context.Background(), p)
+	return p.Stanje().Sazetak, err
+}
+
+// Priprema modela izda prognozu novim modelom odmah i to kaže u završnoj
+// poruci, s riječima koje se slažu s brojem pojasa i promašaja.
+func TestPripremaModelaIzdajeNovimModelom(t *testing.T) {
+	k, objavljeno := izdavackiKrug(t)
+	p := &poslovi.Posao{}
+	lazniModel(t, p, nil)
+	sazetak, err := pripremi(k, p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(*objavljeno) != 1 {
+		t.Fatalf("objavljeno %d izdanja, želim 1", len(*objavljeno))
+	}
+	zelim := "Namještena 2 pojasa, zapisano 5 promašaja; prognoza je izdana novim modelom za " +
+		time.Unix((*objavljeno)[0].Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04") + "."
+	if sazetak != zelim {
+		t.Errorf("poruka %q, želim %q", sazetak, zelim)
+	}
+}
+
+// Svaki korak pripreme koji ne uspije zaustavi je i kaže što je zapelo;
+// završne poruke o uspjehu tada nema, a prognoza se ne objavi.
+func TestPripremaModelaKojaNijeUspjela(t *testing.T) {
+	p := &poslovi.Posao{}
+	lazniModel(t, p, errors.New("arhiva je prekratka za provjeru"))
+	k, objavljeno := izdavackiKrug(t)
+	if sazetak, err := pripremi(k, p); err == nil || err.Error() != "arhiva je prekratka za provjeru" || sazetak != "" {
+		t.Errorf("provjera unatrag: %v, poruka %q", err, sazetak)
+	}
+
+	p = &poslovi.Posao{}
+	lazniModel(t, p, nil)
+	bezModela, _ := okolinaKruga(t, true) // prazna baza prognoza; objava ruši test
+	if sazetak, err := pripremi(bezModela, p); err == nil ||
+		!strings.HasPrefix(err.Error(), "model je spremljen, ali izdavanje nije uspjelo: ") || sazetak != "" {
+		t.Errorf("izdavanje: %v, poruka %q", err, sazetak)
+	}
+
+	p = &poslovi.Posao{}
+	lazniModel(t, p, nil)
+	zabraniZapisIzdanja(t, k.prognoze)
+	if sazetak, err := pripremi(k, p); err == nil ||
+		!strings.HasPrefix(err.Error(), "model je spremljen, ali zapis prognoze nije uspio: ") || sazetak != "" {
+		t.Errorf("zapis: %v, poruka %q", err, sazetak)
+	}
+	if len(*objavljeno) != 0 {
+		t.Errorf("objavljeno %d izdanja, a priprema nije uspjela", len(*objavljeno))
+	}
+}
+
+// Dok satni krug traje, priprema ne izdaje prognozu: novi model vrijedi od
+// idućeg kruga.
+func TestPripremaModelaDokKrugTraje(t *testing.T) {
+	izdano, err := izdajNovimModelom(context.Background(), &poslovi.Posao{}, true, nil,
+		func(context.Context, *prognoza.Ishod) { t.Error("objava dok krug traje") })
+	if err != nil || izdano != "novi model vrijedi od idućeg satnog kruga, jer krug upravo traje" {
+		t.Errorf("%q, %v", izdano, err)
 	}
 }

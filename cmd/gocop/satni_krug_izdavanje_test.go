@@ -3,7 +3,9 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -108,5 +110,87 @@ func TestKrugIzdanjaJavljaUpozorenja(t *testing.T) {
 	redci := strings.Join(k.uvoznik.Napredak().Redci, "\n")
 	if zelim := "upozorenje: dnevni; nema naučenog dnevnog modela; upitno: donja dnevna"; !strings.Contains(redci, zelim) {
 		t.Errorf("redci:\n%s\nnema retka %q", redci, zelim)
+	}
+}
+
+// zabraniZapisIzdanja: baza prognoza odbije svaki upis izračunatih
+// vrijednosti, kao kad je disk pun
+func zabraniZapisIzdanja(t *testing.T, pb *sql.DB) {
+	t.Helper()
+	if _, err := pb.Exec(`CREATE TRIGGER izdane_odbij BEFORE INSERT ON izdane
+		BEGIN SELECT RAISE(ABORT, 'disk je pun'); END`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Prognoza koja se ne da izračunati ili zapisati javi se u retku kruga i u
+// dnevniku poslužitelja, a ne objavi se.
+func TestIzdanjeKojeNijeUspjelo(t *testing.T) {
+	dnevnik := dnevnikTesta(t)
+	bezModela, _ := okolinaKruga(t, true) // prazna baza prognoza; objava ruši test
+	bezModela.izracunajIIzdaj(context.Background())
+	if r := redciS(bezModela.uvoznik.Napredak().Redci, "prognoza:"); len(r) != 1 || !strings.HasPrefix(r[0], "prognoza: baza prognoza je prazna") {
+		t.Errorf("bez modela: %q", r)
+	}
+
+	k, objavljeno := izdavackiKrug(t)
+	zabraniZapisIzdanja(t, k.prognoze)
+	k.izracunajIIzdaj(context.Background())
+	if len(*objavljeno) != 0 {
+		t.Error("objavljeno izdanje koje se nije dalo zapisati")
+	}
+	if r := redciS(k.uvoznik.Napredak().Redci, "prognoza:"); len(r) != 1 || !strings.HasPrefix(r[0], "prognoza: zapis: ") || !strings.Contains(r[0], "disk je pun") {
+		t.Errorf("zapis: %q", r)
+	}
+	for _, z := range []string{"prognoza: baza prognoza je prazna", "prognoza: zapis: "} {
+		if !strings.Contains(dnevnik.String(), z) {
+			t.Errorf("dnevnik nema %q:\n%s", z, dnevnik)
+		}
+	}
+}
+
+// sat6UTC je 14. 10. 2026. u 6 h UTC, u Zagrebu 8 h
+var sat6UTC = time.Date(2026, 10, 14, 6, 0, 0, 0, time.UTC).Unix() / 3600
+
+// Krug koji nije izdao novu prognozu kaže zašto: vrh lanca kasni (s letvom i
+// zadnjim očitanjem) ili je ovaj sat već izdan.
+func TestKrugKazeZastoNijeIzdao(t *testing.T) {
+	_, uvoznik := okolinaKruga(t, true)
+	dnevnik := dnevnikTesta(t)
+	javiPreskoceno(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Preskoceno: true, Ceka: map[string]int64{"gornja": sat6UTC - 5}})
+	javiPreskoceno(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Preskoceno: true})
+	zelim := []string{"prognoza stoji na 14.10. u 08:00 jer kasni vrh lanca: gornja (zadnje 14.10. u 03:00)",
+		"prognoza: za ovaj sat već je izdana, ništa novo"}
+	if r := redciS(uvoznik.Napredak().Redci, "prognoza"); !reflect.DeepEqual(r, zelim) {
+		t.Errorf("redci:\n%q\nželim\n%q", r, zelim)
+	}
+	if !strings.Contains(dnevnik.String(), "prognoza: prognoza stoji na 14.10. u 08:00 jer kasni vrh lanca") {
+		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Izdana prognoza javi sat, broj letvi i vrijednosti s pravim oblikom riječi
+// i svaku letvu koja nije dala nijedan sat, s razlogom.
+func TestKrugJavljaIzdanje(t *testing.T) {
+	_, uvoznik := okolinaKruga(t, true)
+	dnevnik := dnevnikTesta(t)
+	izdane := []prognoza.Izdana{{Letva: "gornja"}, {Letva: "gornja"}, {Letva: "donja"}}
+	javiIzdanje(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Izdane: izdane,
+		BezPrognoze: map[string]error{"srednja": errors.New("nema svježeg ulaza")}})
+	javiIzdanje(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Izdane: izdane[:1]})
+	zelim := []string{"prognoza izdana za 14.10. u 08:00, 2 letve, 3 vrijednosti", "bez prognoze srednja: nema svježeg ulaza",
+		"prognoza izdana za 14.10. u 08:00, 1 letva, 1 vrijednost"}
+	var r []string
+	for _, x := range uvoznik.Napredak().Redci {
+		if strings.HasPrefix(x, "prognoza izdana") || strings.HasPrefix(x, "bez prognoze") {
+			r = append(r, x)
+		}
+	}
+	if !reflect.DeepEqual(r, zelim) {
+		t.Errorf("redci:\n%q\nželim\n%q", r, zelim)
+	}
+	if !strings.Contains(dnevnik.String(), "prognoza: izdana za 2026-10-14 06:00 UTC (") ||
+		!strings.Contains(dnevnik.String(), "h unatrag), 2 letve, 3 vrijednosti") {
+		t.Errorf("dnevnik: %s", dnevnik)
 	}
 }
