@@ -12,8 +12,8 @@ import (
 
 // Svaki entitet koji repozitorij zapisuje ili primjenjuje mora biti na popisu
 // poznatih, inače bi ga čvor javljao kao nešto što ne razumije. Popis se
-// provjerava protiv izvornog koda: konstanti Entity* i grana applyOne,
-// removeFromSurface i SurfaceEntities.
+// provjerava protiv izvornog koda (konstante Entity* i SurfaceEntities) i
+// protiv primjena po skupinama (primjene).
 func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 	fset := token.NewFileSet()
 	datoteke, err := os.ReadDir(".")
@@ -34,7 +34,7 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 	}
 
 	konstante := map[string]string{} // ime → vrijednost
-	var grane []ast.Expr             // izrazi iz case grana i SurfaceEntities
+	var povrsinski []ast.Expr        // izrazi iz SurfaceEntities
 	for _, f := range izvori {
 		for _, d := range f.Decls {
 			switch d := d.(type) {
@@ -53,27 +53,11 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 						}
 						if d.Tok == token.VAR && ime.Name == "SurfaceEntities" && i < len(vs.Values) {
 							if cl, ok := vs.Values[i].(*ast.CompositeLit); ok {
-								grane = append(grane, cl.Elts...)
+								povrsinski = append(povrsinski, cl.Elts...)
 							}
 						}
 					}
 				}
-			case *ast.FuncDecl:
-				if d.Name.Name != "applyOne" && d.Name.Name != "removeFromSurface" {
-					continue
-				}
-				ast.Inspect(d.Body, func(n ast.Node) bool {
-					sw, ok := n.(*ast.SwitchStmt)
-					if !ok || !jePoEntitetu(sw.Tag) {
-						return true
-					}
-					for _, st := range sw.Body.List {
-						if cc, ok := st.(*ast.CaseClause); ok {
-							grane = append(grane, cc.List...)
-						}
-					}
-					return true
-				})
 			}
 		}
 	}
@@ -93,29 +77,28 @@ func TestPoznatiEntitetiObuhvacajuSve(t *testing.T) {
 			t.Errorf("konstanta %s (%q) nije u PoznatiEntiteti", ime, v)
 		}
 	}
-	for _, x := range grane {
+	for e := range primjene {
+		if !poznati[e] {
+			t.Errorf("entitet %q ima primjenu na površinu (primjene), a nije u PoznatiEntiteti", e)
+		}
+	}
+	for _, x := range povrsinski {
 		var v string
 		switch x := x.(type) {
 		case *ast.Ident:
 			var ok bool
 			if v, ok = konstante[x.Name]; !ok {
-				t.Errorf("%s: grana po entitetu %s nije konstanta Entity* ovog paketa", fset.Position(x.Pos()), x.Name)
+				t.Errorf("%s: element SurfaceEntities %s nije konstanta Entity* ovog paketa", fset.Position(x.Pos()), x.Name)
 				continue
 			}
 		case *ast.BasicLit:
 			v, _ = strconv.Unquote(x.Value)
 		default:
-			t.Errorf("%s: neočekivan izraz u grani po entitetu", fset.Position(x.Pos()))
+			t.Errorf("%s: neočekivan izraz u SurfaceEntities", fset.Position(x.Pos()))
 			continue
 		}
 		if !poznati[v] {
-			t.Errorf("%s: entitet %q se primjenjuje, a nije u PoznatiEntiteti", fset.Position(x.Pos()), v)
+			t.Errorf("%s: entitet %q je u SurfaceEntities, a nije u PoznatiEntiteti", fset.Position(x.Pos()), v)
 		}
 	}
-}
-
-// jePoEntitetu: switch v.Entity
-func jePoEntitetu(tag ast.Expr) bool {
-	sel, ok := tag.(*ast.SelectorExpr)
-	return ok && sel.Sel.Name == "Entity"
 }

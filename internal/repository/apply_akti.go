@@ -2,11 +2,27 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
+
+// primjeneAkata su akti s izvornicima i slanjima, špance, oznake rješenja,
+// primatelji, potpisi e-pošte, žigovi sektora i opće postavke
+var primjeneAkata = map[string]primjena{
+	EntityAkti:           {upis: primijeniAkt, brisanje: obrisi(`DELETE FROM akti WHERE id = ?`)},
+	EntityIzvornici:      {upis: primijeniIzvornikAkta, brisanje: obrisi(`DELETE FROM akti_izvornici WHERE akt_id = ?`)},
+	EntitySlanja:         {upis: primijeniSlanje, brisanje: obrisi(`DELETE FROM akti_slanja WHERE id = ?`)},
+	EntitySprance:        {upis: primijeniSprancu, brisanje: obrisi(`DELETE FROM akti_sprance WHERE sektor = ?`)},
+	EntityRjesenjaOznaka: {upis: primijeniRjesenjeOznake, brisanje: obrisi(`DELETE FROM akti_rjesenja_oznaka WHERE id = ?`)},
+	EntityPrimatelji:     {upis: primijeniPrimatelja, brisanje: obrisi(`DELETE FROM primatelji WHERE id = ?`)},
+	EntityPotpisi:        {upis: primijeniPotpisPoste, brisanje: obrisi(`DELETE FROM posta_potpisi WHERE user_id = ?`)},
+	EntityZigovi:         {upis: primijeniZig, brisanje: obrisi(`DELETE FROM zigovi WHERE sektor = ?`)},
+	EntityPostavke:       {upis: primijeniPostavku, brisanje: makniPostavku},
+}
 
 // verzijaZaPovrsinu je verzija zapisa koja ide na površinu kad razmjena
 // donese v, i javlja treba li je primijeniti. Za većinu zapisa to je
@@ -70,4 +86,120 @@ func verzijaOvjerenogAkta(v ledger.Version) bool {
 		Status string `json:"status"`
 	}
 	return json.Unmarshal(v.Payload, &a) == nil && a.Status == models.AktOvjeren
+}
+
+// primijeniAkt stavlja primljeni akt na površinu
+func primijeniAkt(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var a models.Akt
+	if err := json.Unmarshal(v.Payload, &a); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, aktUpsert, aktArgs(&a)...)
+	return err
+}
+
+// primijeniIzvornikAkta stavlja primljeni izvornik akta na površinu, a PDF u
+// spremište
+func primijeniIzvornikAkta(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var iz Izvornik
+	if err := json.Unmarshal(v.Payload, &iz); err != nil {
+		return err
+	}
+	popuniOpis(&iz.Otisak, &iz.Bajtova, &iz.Vrsta, iz.PDF)
+	if err := primiSadrzajZapisa(ctx, iz.Otisak, iz.Vrsta, iz.Bajtova, iz.PDF,
+		sadrzaj.Veza{Entitet: EntityAkti, EntitetID: iz.AktID, Uloga: "izvornik", Kanal: v.Channel}); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, izvornikUpsert, iz.AktID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.CreatedAt.UTC())
+	return err
+}
+
+// primijeniSlanje stavlja primljeno slanje akta na površinu
+func primijeniSlanje(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var x models.SlanjeAkta
+	if err := json.Unmarshal(v.Payload, &x); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, slanjeUpsert, slanjeArgs(&x)...)
+	return err
+}
+
+// primijeniSprancu stavlja primljenu špancu sektora na površinu
+func primijeniSprancu(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var sp models.Spranca
+	if err := json.Unmarshal(v.Payload, &sp); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, sprancaUpsert, sprancaArgs(&sp)...)
+	return err
+}
+
+// primijeniRjesenjeOznake stavlja primljenu oznaku rješenja na površinu
+func primijeniRjesenjeOznake(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var x models.RjesenjeOznake
+	if err := json.Unmarshal(v.Payload, &x); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, rjesenjeOznakeUpsert, rjesenjeOznakeArgs(&x)...)
+	return err
+}
+
+// primijeniPrimatelja stavlja primljenog primatelja akata na površinu
+func primijeniPrimatelja(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var p models.Primatelj
+	if err := json.Unmarshal(v.Payload, &p); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, primateljUpsert, primateljArgs(&p)...)
+	return err
+}
+
+// primijeniPotpisPoste stavlja primljeni potpis e-pošte na površinu
+func primijeniPotpisPoste(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var p PotpisPoste
+	if err := json.Unmarshal(v.Payload, &p); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, v.CreatedAt.UTC())
+	return err
+}
+
+// primijeniZig stavlja primljeni žig sektora na površinu
+func primijeniZig(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var z models.Zig
+	if err := json.Unmarshal(v.Payload, &z); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, zigUpsert, z.Sektor, z.Mime, z.Slika, z.Uredio, v.CreatedAt.UTC())
+	return err
+}
+
+// primijeniPostavku stavlja primljenu opću postavku na površinu; tema se
+// odmah uzima u program
+func primijeniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	var p Postavka
+	if err := json.Unmarshal(v.Payload, &p); err != nil {
+		return err
+	}
+	if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC()); err != nil {
+		return err
+	}
+	if p.ID == PostavkaTema {
+		models.SetTema(models.CitajTemu(p.Vrijednost))
+	}
+	return nil
+}
+
+// makniPostavku miče opću postavku s površine
+func makniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	if v.EntityID == PostavkaTema {
+		// bez zapisa vrijede zadane boje iz style.css
+		if _, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID); err != nil {
+			return err
+		}
+		models.SetTema(models.Tema{})
+		return nil
+	}
+	_, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID)
+	return err
 }
