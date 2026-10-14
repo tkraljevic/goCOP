@@ -124,14 +124,18 @@ func postaviKrivulju(db *sql.DB, letva string, k krivuljaUPaketu) error {
 // stupacaKrivulje je koliko stupaca redak datoteke krivulja mora imati.
 const stupacaKrivulje = 8
 
-// citajDatotekuKrivulja čita krivulje iz datoteke krivulja. Redak koji nije
-// redak krivulje zaustavlja gradnju (neispravanRedakKrivulja), a isto i
-// datoteka iz koje se ništa ne da pročitati (procitanoIzKrivulja). Redci se
+// citajDatotekuKrivulja čita krivulje iz datoteke krivulja. Prvi redak koji
+// nije zaglavlje (neispravnoZaglavljeKrivulja) i redak koji nije redak
+// krivulje (neispravanRedakKrivulja) zaustavljaju gradnju, a isto i datoteka
+// iz koje se ništa ne da pročitati (procitanoIzKrivulja). Redci se
 // provjeravaju prvi, da poruka kaže koji je redak i kad su oštećeni svi.
 func citajDatotekuKrivulja(put string) ([]krivuljaUPaketu, error) {
 	ime := filepath.Base(put)
 	sve, brojevi, err := redciDatotekeKrivulja(put)
 	if err != nil {
+		return nil, err
+	}
+	if err := neispravnoZaglavljeKrivulja(ime, sve); err != nil {
 		return nil, err
 	}
 	if err := neispravanRedakKrivulja(ime, sve, brojevi); err != nil {
@@ -169,17 +173,39 @@ func redciDatotekeKrivulja(put string) (sve [][]string, brojevi []int, err error
 	}
 }
 
+// neispravnoZaglavljeKrivulja zaustavlja gradnju kad prvi redak datoteke
+// krivulja nije njezino zaglavlje (models.ZastoNijeZaglavljeKrivulja). Uvoz
+// izvoza HIS-2000 takvu datoteku odbija istom provjerom. Praznu datoteku
+// javlja procitanoIzKrivulja.
+func neispravnoZaglavljeKrivulja(ime string, sve [][]string) error {
+	if len(sve) == 0 {
+		return nil
+	}
+	if razlog := models.ZastoNijeZaglavljeKrivulja(sve[0]); razlog != "" {
+		return fmt.Errorf("gradnja je stala i nije maknula nijednu krivulju protoka, "+
+			"jer prvi redak datoteke krivulja %s %s. Ispravite datoteku, pa pokrenite gradnju ponovno.", ime, razlog)
+	}
+	return nil
+}
+
 // neispravanRedakKrivulja zaustavlja gradnju na prvom retku s podacima koji
-// nije redak krivulje: kraći je od osam stupaca ili ne počinje datumom, npr.
-// zbog zareza umjesto točke-zareza. Prije se kratak redak tiho preskakao, a
-// redak sa zarezom iza datuma čitao kao krivulja drugog početka. Gradnja je
-// onda pravu krivulju maknula iz arhive, jer je „u datoteci više nema”; bez
+// nije redak krivulje: kraći je od osam stupaca, ne počinje datumom, u
+// stupcu s brojem nema broja, npr. zbog zareza umjesto točke-zareza, ili je
+// u njemu i sljedeći redak, jer ga dijeli samo znak CR. Prije se kratak
+// redak tiho preskakao, a redak sa zarezom čitao kao krivulja drugog
+// početka ili s drugim brojevima. Gradnja je onda pravu krivulju maknula iz
+// arhive, jer je „u datoteci više nema”, ili je zamijenila krivom; bez
 // zadnje krivulje letva je ostala bez protoka. Uvoz izvoza HIS-2000 iste
 // retke odbija (his2000.provjeriRedak), pa poruka kaže isto. Redak bez
-// ičega osim razmaka i razdjelnika i dalje se preskače.
+// ičega osim razmaka i razdjelnika i dalje se preskače. Zaglavlje je već
+// provjereno (neispravnoZaglavljeKrivulja).
 func neispravanRedakKrivulja(ime string, sve [][]string, brojevi []int) error {
+	if len(sve) == 0 {
+		return nil
+	}
+	stupci := stupciIzZaglavlja(sve[0])
 	for i := 1; i < len(sve); i++ {
-		if razlog := zastoNijeRedakKrivulje(sve[i]); razlog != "" {
+		if razlog := zastoNijeRedakKrivulje(stupci, sve[i]); razlog != "" {
 			return fmt.Errorf("gradnja je stala i nije maknula nijednu krivulju protoka, "+
 				"jer datoteka krivulja %s ima redak koji se ne da pročitati (redak %d). %s. "+
 				"Ispravite taj redak, pa pokrenite gradnju ponovno.", ime, brojevi[i], razlog)
@@ -189,9 +215,10 @@ func neispravanRedakKrivulja(ime string, sve [][]string, brojevi []int) error {
 }
 
 // zastoNijeRedakKrivulje kaže zašto redak nije redak krivulje. Za redak
-// krivulje i za prazan redak vraća prazno.
-func zastoNijeRedakKrivulje(r []string) string {
-	redak := strings.Join(r, ";")
+// krivulje i za prazan redak vraća prazno. Stupci su mjesta stupaca po
+// zaglavlju datoteke.
+func zastoNijeRedakKrivulje(stupci stupciKrivulja, r []string) string {
+	redak := models.RedakKrivuljeZaPoruku(r)
 	switch {
 	case prazanRedak(r):
 		return ""
@@ -200,6 +227,9 @@ func zastoNijeRedakKrivulje(r []string) string {
 			redak, len(r), models.UzBrojHR(len(r), "stupac", "stupca", "stupaca"), stupacaKrivulje)
 	case !jeDan(r[0]):
 		return fmt.Sprintf("„%s” ne počinje datumom oblika 2001-01-01", redak)
+	}
+	if razlog := models.ZastoNijeOdsjecakKrivulje(stupci, r); razlog != "" {
+		return "„" + redak + "” " + razlog
 	}
 	return ""
 }
@@ -263,13 +293,13 @@ func dodajOdsjecak(odsjecci []odsjecakUPaketu, o odsjecakUPaketu) []odsjecakUPak
 // stupciKrivulja su mjesta stupaca datoteke krivulja po imenu iz zaglavlja.
 // Stupac p4 je došao naknadno, s potencijskim odsječcima. Zatečena datoteka
 // bez njega mora se i dalje čitati, pa se stupci traže po zaglavlju umjesto
-// da se broje, bez obzira na velika slova i razmake.
+// da se broje, bez obzira na velika slova, razmake i oznaku BOM.
 type stupciKrivulja map[string]int
 
 func stupciIzZaglavlja(zaglavlje []string) stupciKrivulja {
 	s := stupciKrivulja{}
 	for i, ime := range zaglavlje {
-		s[strings.ToLower(strings.TrimSpace(ime))] = i
+		s[models.ImeStupcaKrivulje(ime)] = i
 	}
 	return s
 }
@@ -291,15 +321,17 @@ func (s stupciKrivulja) krivulja(r []string) krivuljaUPaketu {
 		Izvor: s.polje(r, "izvor"), Napomena: s.polje(r, "napomena")}
 }
 
-// odsjecak je odsječak krivulje iz retka. Oblik koji nije potencija čita se
-// kao polinom, decimalni zarez kao točka, a broj koji se ne čita kao nula.
+// odsjecak je odsječak krivulje iz retka. Prazan oblik čita se kao polinom,
+// decimalni zarez kao točka, a prazan broj kao nula. Redak s brojem ili
+// oblikom koji se ne čita zaustavio je gradnju već prije
+// (zastoNijeRedakKrivulje).
 func (s stupciKrivulja) odsjecak(r []string) odsjecakUPaketu {
 	oblik := s.polje(r, "oblik")
 	if oblik != models.OblikPotencija {
 		oblik = models.OblikPolinom
 	}
 	broj := func(ime string) float64 {
-		v, _ := strconv.ParseFloat(strings.ReplaceAll(s.polje(r, ime), ",", "."), 64)
+		v, _ := models.BrojKrivulje(s.polje(r, ime))
 		return v
 	}
 	cijeli := func(ime string) int {

@@ -255,14 +255,19 @@ func TestSpojiKrivuljeUsredIzvoza(t *testing.T) {
 }
 
 // Zatečena datoteka čita se kao u gradnji arhive: razdoblje iz prva dva
-// stupca, ostalo po zaglavlju, odsječci istog početka zajedno. Starija
-// datoteka bez stupca p4 prepiše se pod današnjim zaglavljem, a napomena s
-// točkom-zarezom ostaje cijela.
+// stupca, ostalo po zaglavlju, i uz oznaku BOM, odsječci istog početka
+// zajedno. Starija datoteka bez stupca p4 prepiše se pod današnjim
+// zaglavljem, a napomena s točkom-zarezom ostaje cijela. Redak sa samo
+// razmacima i razdjelnicima gradnja preskače, pa ga preskače i spajanje;
+// prije je spajanje takvu datoteku odbilo.
 func TestSpojiKrivuljeCitaKaoGradnja(t *testing.T) {
-	zateceno := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;izvor;napomena\r\n" +
+	zateceno := "\ufeffvrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;izvor;napomena\r\n" +
 		"1976-01-01;1978-12-31;344;600;polinom;0;645,83;-892;DHMZ, HIS-2000;\r\n" +
+		"   \r\n" +
 		"1983-01-01;1983-12-31; -130 ;146;polinom;5,71;214,14;414,32;DHMZ;\"ručno; provjereno\"\r\n" +
-		"1976-01-01;1978-12-31;-50;344;polinom;1;2;3;DHMZ;\r\n"
+		" ; ;\r\n" +
+		"1976-01-01;1978-12-31;-50;344;polinom;1;2;3;DHMZ;\r\n" +
+		";;;;;;;;;;\r\n"
 	sp, err := SpojiKrivulje([]byte(zateceno), izvozKrivulja("1", godina(2001, 2001, "7")))
 	if err != nil {
 		t.Fatal(err)
@@ -274,6 +279,22 @@ func TestSpojiKrivuljeCitaKaoGradnja(t *testing.T) {
 		redakKrivulje("2001-01-01", "", "7")
 	if string(sp.CSV) != zeli || sp.Zatecenih != 2 || sp.ZatecenihOdsjecaka != 3 {
 		t.Errorf("starija datoteka:\n%s", sp.CSV)
+	}
+}
+
+// Točka-zarez na kraju zaglavlja i redaka, kakav zapišu Excel i
+// LibreOffice, ne mijenja spajanje, kao ni gradnju: prazno ime stupca nije
+// nepoznat stupac.
+func TestSpojiKrivuljeTockaZarezNaKrajuZaglavlja(t *testing.T) {
+	s := izvozKrivulja("1", godina(2001, 2001, "7"))
+	redci := redakKrivulje("1990-01-01", "2000-12-31", "9") + redakKrivulje("2001-01-01", "", "1")
+	ocekivano, err := SpojiKrivulje([]byte(ZaglavljeKrivulja+"\n"+redci), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp, err := SpojiKrivulje([]byte(ZaglavljeKrivulja+";\n"+strings.ReplaceAll(redci, ";\n", ";;\n")), s)
+	if err != nil || string(sp.CSV) != string(ocekivano.CSV) || sp.Zatecenih != 2 {
+		t.Errorf("zaglavlje sa ; na kraju: %v\n%s", err, sp.CSV)
 	}
 }
 
@@ -308,16 +329,46 @@ func TestSpojiKrivuljeIzvozKaoGradnja(t *testing.T) {
 	}
 }
 
-// Redak koji gradnja ne bi pročitala, datum koji nije datum i datoteka koja
-// nije tablica zaustavljaju spajanje, a greška kaže koji je to redak u
-// datoteci, i kad su prije njega prazni retci, i zašto. Kad se zatečena
-// datoteka ne da pročitati, greška nosi njezin put.
+// Redak koji gradnja ne bi pročitala, datum koji nije datum, broj koji nije
+// broj, prvi redak koji nije zaglavlje i datoteka koja nije tablica
+// zaustavljaju spajanje, a greška kaže koji je to redak u datoteci, i kad su
+// prije njega prazni retci, i zašto. Datoteka koja retke dijeli samo znakom
+// CR je jedan redak, pa poruka navodi samo njegov početak, i kad su ispod
+// zaglavlja samo prazni redci. Redak koji završi samim CR-om spojio bi se sa
+// sljedećim, pa i on zaustavlja spajanje. Kad se zatečena datoteka ne da
+// pročitati, greška nosi njezin put.
 func TestSpojiKrivuljeOdbija(t *testing.T) {
 	s := izvozKrivulja("1", godina(2001, 2001, "7"))
+	const (
+		nijeZaglavlje = "nije zaglavlje kakvo treba („"
+		moraImati     = "”). Prvi redak mora imati imena stupaca, npr. " + ZaglavljeKrivulja +
+			", a svaki redak mora biti u svom retku datoteke"
+		redak = "2000-01-01;;-100;600;polinom;1;200;300;;DHMZ, HIS-2000;"
+	)
 	for _, sl := range []struct {
 		opis, zateceno, greska string
 		redak                  int
 	}{
+		{"samo CR", strings.ReplaceAll(ZaglavljeKrivulja+"\n"+redakKrivulje("2000-01-01", "", "1"), "\n", "\r"),
+			"redak 1: " + nijeZaglavlje + ZaglavljeKrivulja + " 2000-01-01;;-…" + moraImati, 1},
+		{"samo CR, ispod samo prazni redci", strings.ReplaceAll(ZaglavljeKrivulja+"\n;;;;;;;;;;\n", "\n", "\r"),
+			"redak 1: " + nijeZaglavlje + ZaglavljeKrivulja + " ;;;;;;;;;;" + moraImati, 1},
+		{"redak sa samim CR-om", ZaglavljeKrivulja + "\n" + redak + "\r" + redakKrivulje("2001-01-01", "", "1"),
+			"redak 2: „" + redak + " 2001-01-01;;-100;600;polinom;1;200;300;;DHMZ, HIS-2000;” u sebi ima znak CR, " +
+				"pa je u jednom retku datoteke više redaka krivulje. Svaki redak mora biti u svom retku", 2},
+		{"bez zaglavlja", redakKrivulje("2000-01-01", "", "1"), "redak 1: " + nijeZaglavlje + redak + moraImati, 1},
+		{"nepoznat stupac", strings.Replace(ZaglavljeKrivulja, "izvor", "izvori", 1) + "\n" + redakKrivulje("2000-01-01", "", "1"),
+			"redak 1: " + nijeZaglavlje + strings.Replace(ZaglavljeKrivulja, "izvor", "izvori", 1) + moraImati, 1},
+		{"bez stupca p2", strings.Replace(ZaglavljeKrivulja, ";p2", "", 1) + "\n",
+			"redak 1: " + nijeZaglavlje + strings.Replace(ZaglavljeKrivulja, ";p2", "", 1) + moraImati, 1},
+		{"naslov iza praznog retka", "\nKrivulje protoka\n" + ZaglavljeKrivulja + "\n",
+			"redak 2: " + nijeZaglavlje + "Krivulje protoka" + moraImati, 2},
+		{"zarez među granicama", ZaglavljeKrivulja + "\n2001-01-01;;-100,600;polinom;4;5;6;;DHMZ;\n",
+			"redak 2: „2001-01-01;;-100,600;polinom;4;5;6;;DHMZ;” u stupcu od_cm nema cijelog broja, nego „-100,600”, " +
+				"npr. zbog zareza umjesto točke-zareza", 2},
+		{"zarez među p-stupcima", ZaglavljeKrivulja + "\n\n2001-01-01;;-100;600;polinom;4,5;6;;DHMZ;\n",
+			"redak 3: „2001-01-01;;-100;600;polinom;4,5;6;;DHMZ;” u stupcu p4 nema broja, nego „DHMZ”, " +
+				"npr. zbog zareza umjesto točke-zareza", 3},
 		{"kratak redak", ZaglavljeKrivulja + "\nkratak-redak\n",
 			"redak 2: „kratak-redak” ima 1 stupac, a redak krivulje ih ima barem 8", 2},
 		{"tri stupca", ZaglavljeKrivulja + "\n" + redakKrivulje("2000-01-01", "", "1") + "\n\na;b;c\n",
