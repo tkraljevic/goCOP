@@ -77,8 +77,10 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
 
   U `data/` je i `skenovi/` sa skenovima prijava s terena. Uz `data/`, u istoj
   radnoj mapi, zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
-  mapa izdanih `.cop` paketa s `katalog.json`. Putanje se mijenjaju u
-  `gocop.toml` (`db`, `arhiva`, `podaci`, `skenovi`, `pakete`) ili zastavicama.
+  mapa izdanih `.cop` paketa s `katalog.json`. Pod Postavom i kad je čvor
+  usluga sustava radna mapa je mapa baze, pa `vodostaji/` i `pakete/` nastaju
+  u njoj. Putanje se mijenjaju u `gocop.toml` (`db`, `arhiva`, `podaci`,
+  `skenovi`, `pakete`) ili zastavicama.
 
   U istu mapu administrator može staviti datoteke registara i imenika
   (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
@@ -481,6 +483,17 @@ traci i nadograđuje ga. Mijenja se rijetko i ima svoja izdanja (oznake
   program\   gocop.exe           (čvor; ova mapa je u korisničkom PATH-u)
   data\      gocop.db, gocop.toml, dnevnici gocop.log i postava.log, kopije\
 ```
+
+Na svakom sustavu Postava čvor pokreće iz mape `data`, pa se relativne
+putanje `podaci` i `pakete` iz `gocop.toml` (zadano `vodostaji` i `pakete`)
+računaju od nje. Na novom čvoru stablo arhive i paketi zato nastaju u mapi
+`data`. Stablo i paketi koji stoje drugdje, npr. uz mapu `data` jer se čvor
+prije pokretao ručno iz mape iznad nje, upisuju se punom putanjom
+(`podaci = 'D:\goCOP\vodostaji'` na Windowsu, `podaci = '/Users/…/goCOP/vodostaji'`
+na macOS-u). Čvor pri pokretanju u dnevnik upiše pune putanje. Kad relativne
+mape nema, a mapa istog imena stoji u mapi iznad, čvor ne počinje novo stablo
+ni novu mapu paketa: *Unos u arhivu* kaže koju je mapu tražio i predloži onu
+iznad.
 
 **Ikona u traci:** valovi u bojama znaka kad čvor radi, sivi kad je
 zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da

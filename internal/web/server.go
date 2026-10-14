@@ -1373,6 +1373,7 @@ func (s *Server) setupRoutes() {
 	// administratoru: njih doseg po dionici ne može ograničiti.
 	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
 	uvozH.SetKoteLetve(s.koteNuleLetve)
+	uvozH.SetMape(s.mapaArhive)
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))

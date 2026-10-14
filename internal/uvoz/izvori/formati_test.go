@@ -294,7 +294,7 @@ func TestUvezenoImeINepoznatFormat(t *testing.T) {
 		t.Errorf("zapisano %v", d)
 	}
 	if _, err := f.Uvezi([]Datoteka{{Ime: "a.csv"}}, Zadatak{Sliv: "drava", Letva: "ptuj"}, nil); err == nil ||
-		!strings.Contains(err.Error(), "stablo arhive") {
+		!strings.Contains(err.Error(), "nije zadano gdje stablo") {
 		t.Errorf("bez stabla: %v", err)
 	}
 	if _, ok := Nadji("nepoznat"); ok {

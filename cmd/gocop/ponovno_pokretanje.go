@@ -118,10 +118,7 @@ func punePutanje(putanje map[string]string) map[string]string {
 		if put == "" {
 			continue
 		}
-		if pun, err := filepath.Abs(put); err == nil {
-			put = pun
-		}
-		out[k] = put
+		out[k] = config.PunaPutanja(put)
 	}
 	return out
 }
