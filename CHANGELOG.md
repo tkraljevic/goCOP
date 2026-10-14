@@ -4,10 +4,10 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.38-alfa — u pripremi
+## 0.0.38-alfa — 14. 10. 2026.
 
 - **Brisanje s računala ne dira ono što je nastalo na njemu.** Na
-  stranici „Što ovo računalo prati” „Obriši s računala” i „Makni i
+  stranici „Što ovo računalo prati” gumbi „Obriši s računala” i „Makni i
   obriši” brisali su sve iz te vrste, područja i godine, i zapise, PDF-ove
   i fotografije nastale na tom računalu. Laptop bez veze tako je mogao
   izgubiti list koji još nije stigao u ured. Sad se briše samo ono što je
@@ -15,25 +15,30 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   „Makni i obriši” više nema. Uz „Obriši s računala” piše koliko će se
   zapisa i dokumenata obrisati i koliko ih ostaje jer su nastali na tom
   računalu. Iste brojeve kaže potvrda prije brisanja, a poruka nakon
-  brisanja kaže što je obrisano i što je ostalo. Zapis nastao na računalu
-  koji je ured poslije mijenjao brisanje vrati na stanje napisano na tom
-  računalu, a zapis koji je ured obrisao ostaje obrisan i nakon ponovnog
-  pokretanja. Ostaje i fotografija s ureda uz list koji je mijenjan na tom
-  računalu. Kad je upisana povijest tuđih očitanja u mjesecima, potvrda
-  kaže da se starija tuđa očitanja ne vraćaju.
+  brisanja kaže što je obrisano i što je ostalo. Ako je ured poslije
+  mijenjao zapis nastao na tom računalu, brisanje ga vrati na stanje kakvo
+  je napisano na računalu. Zapis koji je ured obrisao ostaje obrisan i
+  nakon ponovnog pokretanja. Ostaje i fotografija iz ureda uz list koji se
+  mijenjao na tom računalu. Kad je u postavci „Povijest tuđih očitanja
+  (mjeseci)” upisan broj mjeseci, potvrda kaže da se starija tuđa očitanja
+  ne vraćaju, osim za letve koje računalo prati. U tablici „Što računalo
+  drži” stoje i područje i godina u kojima su ostali samo dokumenti s
+  drugih računala, pa se brisanje može ponoviti. Gumb „Obriši s računala”
+  stoji samo uz ono što se ima obrisati, a vrste pišu imenom, npr.
+  Vodočuvarski dnevnik.
 - **Pretplate: prijedlog iz zaduženja i stroži obrazac.** Prijedlog iz
   zaduženja dodavao je samo dnevnike radova i prijave, pa vodočuvaru nisu
   stizali njegovi dnevni listovi, zadaci iz ureda ni očitanja njegova
-  područja. Sad dodaje i vodočuvarski dnevnik i očitanja, a poruka nabroji
-  sva dodana pravila. Tko je stari prijedlog već prihvatio, dobije ponudu
-  za ono što mu nedostaje. Godina u obrascu upisivala se napamet: „2025.” s
-  točkom tiho je postajalo „sve godine”, a „90 dana” u roku „trajno”. Sad
-  takav upis javi što treba upisati, a isto pravilo ne može se dodati
-  dvaput. Zadana početna godina je prošla, jer vodočuvarski dnevnik i
-  zadaci prelaze preko Nove godine. Natpisi su ispravljeni: nema više
-  „PDF na zahtjev”, kojeg u programu nema, ni „ostaje u uredu”. Uz
-  dnevnike piše da su to dnevnici radova po branjenom području, a na vrhu
-  stranice piše ime računala.
+  područja. Sad dodaje i vodočuvarski dnevnik i očitanja, a poruka nabroji sva
+  dodana pravila. Tko je stari prijedlog već prihvatio, dobije ponudu za ono
+  što mu nedostaje. Obrazac je primao godinu bez provjere: „2025.” s točkom
+  tiho je postajalo „sve godine”, a „90 dana” u roku „trajno”. Sad obrazac na
+  takav upis javi što treba upisati, a isto pravilo ne može se dodati dvaput.
+  Zadana početna godina sad je prošla godina, jer vodočuvarski dnevnik i
+  zadaci prelaze preko Nove godine. Natpisi su ispravljeni: nema više „PDF na
+  zahtjev”, kojeg u programu nema, ni „ostaje u uredu”. Uz dnevnike piše da su
+  to dnevnici radova po branjenom području, a na vrhu stranice piše ime
+  računala.
 - **Zaključena inventura može se otključati.** Kad se poslije zaključenja
   upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
   zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno
@@ -44,9 +49,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   skladište iza inventure ima noviju zaključenu, najprije se otključava
   novija; noviji nacrt ne smeta. U napomenu inventure upiše se tko ju je i
   kada otključao, a na zidu događanja piše „Inventura vraćena u nacrt”.
-- **Izvoz inventure bez dvije točke.** Napomena koja završava točkom u
-  izvozu inventure dobila je još jednu. Sad se točka dodaje samo napomeni
-  koja je nema.
+- **Izvoz inventure više ne piše dvije točke na kraju napomene.** Napomena
+  koja završava točkom u izvozu inventure dobila je još jednu. Sad se točka
+  dodaje samo napomeni koja je nema.
 - **Fotografije uz dnevne listove stižu i na druga računala.** Fotografije
   uz dnevni list vodočuvara, npr. uz obilaske prenesene iz stare
   evidencije, ostajale su samo na računalu na kojem su upisane. Drugo
@@ -62,56 +67,58 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Kad je na vrhu popisa stajalo 200 onih koje po praćenju ne dohvaća (npr.
   PDF-ovi uz „samo pregledi”), ostali iza njih nisu stizali nikad. Sad se
   takvi preskaču, pa se traže oni koje računalo zaista dohvaća.
-- **Nakon uparivanja razmjena s tim računalom kreće odmah.** Računalo koje
-  ne odgovara automatska razmjena zove sve rjeđe, na kraju jednom u 40
-  minuta. Laptop je tako od kuće dugo zvao uredsku adresu koja se izvana ne
-  vidi. Kad se zatim s uredom upario preko Tailscalea, automatska razmjena
-  ured i dalje nije zvala do kraja te stanke; radilo je samo „Sinkroniziraj
-  sve”. Sad potvrda uparivanja briše raniji niz neuspjeha za to računalo, pa
-  razmjena s njim kreće odmah. Pokreće je računalo koje je nazvalo, da isti
-  podaci ne idu dvaput. Za ostala računala ništa se ne mijenja. Kad je
-  automatska razmjena isključena, razmjena i dalje ide samo na ručni
-  zahtjev.
+- **Nakon uparivanja razmjena s tim računalom kreće odmah.** Kad računalo ne
+  odgovara, automatska razmjena zove ga sve rjeđe, na kraju tek svaki osmi
+  krug, uz zadani razmak od pet minuta jednom u 40 minuta. Laptop je tako od
+  kuće dugo zvao uredsku adresu koja se izvana ne vidi. Kad se zatim s uredom
+  upario preko Tailscalea, automatska razmjena ured i dalje nije zvala dok
+  nije prošlo tih 40 minuta; radilo je samo „Sinkroniziraj sa svima”. Sad
+  potvrda uparivanja briše raniji niz neuspjeha za to računalo, pa razmjena s
+  njim kreće odmah. Pokreće je računalo koje je nazvalo, da isti podaci ne idu
+  dvaput. Za ostala računala ništa se ne mijenja. Kad je automatska razmjena
+  isključena, razmjena i dalje ide samo na ručni zahtjev.
 - **Obrisana dionica ne ostavlja epizode obrane za sobom.** Brisanje
   dionice odnosilo je i njezine epizode obrane, ali to nije bilježilo, pa
   drugi čvorovi za to nisu znali. Novi čvor takvu je epizodu čekao pri
-  svakoj razmjeni, a pri svakom pokretanju programa u dnevniku je stajala
-  greška, i na računalu na kojem je dionica obrisana. Sad brisanje dionice
-  kao obrisane bilježi i sve njezine epizode, a epizoda dionice obrisane
-  ranije se preskače. Ne vraća se ni kad se dionica poslije ponovno upiše
-  pod istom šifrom.
+  svakoj razmjeni, a pri svakom pokretanju programa u dnevniku programa
+  stajala je greška, i na računalu na kojem je dionica obrisana. Sad
+  brisanje dionice kao obrisane bilježi i sve njezine epizode. Epizoda koja
+  je zadnji put mijenjana prije brisanja dionice preskače se i ne vraća ni
+  kad se dionica ponovno upiše pod istom šifrom. Epizoda koju je drugo
+  računalo otvorilo ili mijenjalo prije nego što je znalo za brisanje
+  vraća se s dionicom kad se ona ponovno upiše.
 - **Dionica s obrisanom letvom ili objektom stiže na druge čvorove.** Kad se
   iz registra obriše letva ili objekt koji dionica još navodi, novi čvor tu
   dionicu nije dobio, ni njezine epizode obrane. Pri svakom pokretanju
-  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
-  je letva obrisana, a ondje se dionica više nije dala ni spremiti. Sad se
+  programa u dnevniku programa stajala je greška za dionicu, i na računalu
+  na kojem je letva obrisana, a ondje se dionica više nije dala ni
+  spremiti. Sad se
   obrisana letva ili objekt uz dionicu preskače. Letvu ili objekt koji na
   čvor još nisu stigli dionica i dalje čeka.
 - **Obrisana bilješka arhive ne vraća se.** Kad su za isti sat postojale
   dvije bilješke, upisane na dva računala, brisanje je obrisalo samo onu
   koja se vidjela. Druga se vratila pri idućem pokretanju programa, a novi
   čvor ju je znao dobiti odmah. Sad brisanje bilješke briše sve bilješke tog
-  sata. Kad se obriše bilješka koja se vidi, a druga za isti sat ostane,
-  svi čvorovi odmah pokazuju tu drugu, ne tek nakon ponovnog pokretanja.
-  Isto vrijedi za ispravke arhive.
+  sata koje to računalo ima. Kad je drugo računalo za isti sat upisalo
+  bilješku za koju računalo koje briše još nije znalo, nakon brisanja sva
+  računala odmah pokazuju nju, ne tek nakon ponovnog pokretanja.
 - **Brisanje naselja ili općine koju navodi dionica stiže svuda.** Na
-  računalima koja imaju takvu dionicu naselje je ostajalo, a razmjena je
-  svaki put javljala grešku. Novi čvor dionicu nije dobio, a pri pokretanju
-  programa u dnevniku je stajala greška za dionicu, i na računalu na kojem
-  je naselje obrisano. Sad naselje nestane svuda, a dionica ostaje bez
-  veze s njim.
+  računalima koja imaju takvu dionicu obrisano naselje ili općina ostajali
+  su, a razmjena je svaki put javljala grešku. Novi čvor dionicu nije
+  dobio, a pri pokretanju programa u dnevniku programa stajala je greška za
+  dionicu, i na računalu na kojem je naselje ili općina obrisana. Sad
+  obrisano naselje ili općina nestane svuda, a dionica ostaje bez veze s
+  njim.
 - **Brisanje dok drugo računalo upisuje.** Jedno računalo obriše područje,
-  sektor, općinu, županiju ili korisnika, a drugo u isto vrijeme tome upiše
+  sektor, općinu, županiju ili korisnika, a drugo u isto vrijeme uz njih upiše
   objekt, naselje ili dužnost. Računala su se tada trajno razišla: jedno je
-  novi zapis čekalo zauvijek, a drugo nije moglo obrisati ono što je
-  obrisano. Sad na svim računalima brisanje ima prednost, pa se takav zapis
-  ne pokazuje. Kad se područje ili sektor ponovno upiše pod istim brojem,
-  zapis se vraća s njim. Brisanje korisnika ili općine sad kao obrisane
-  bilježi i dužnosti i naselja koja to računalo nije imalo na popisu.
-- **Epizoda obrane dolazi s ponovno upisanom dionicom.** Kad je dionica
-  obrisana pa ponovno upisana pod istom šifrom, epizoda koju je drugo
-  računalo u međuvremenu otvorilo na njoj nije se pokazivala do ponovnog
-  pokretanja programa. Sad dolazi odmah, s dionicom.
+  novi zapis čekalo zauvijek, a drugo nije moglo provesti brisanje. Sad
+  brisanje ima prednost, pa se takav zapis ne pokazuje. Kad se područje
+  ponovno upiše pod istim brojem ili sektor pod istom oznakom, zapis se vraća
+  s njim. Pravilo vrijedi na računalima s 0.0.38-alfa; što to znači dok se
+  mreža nadograđuje, piše pod Nadogradnja. Brisanje korisnika ili općine sad
+  kao obrisane bilježi i dužnosti i naselja koja to računalo nije imalo na
+  popisu.
 - **Riječ uz broj i nazivi ustroja pišu se pravilno.** Na stranicama, u
   porukama i izvozima pisalo je „21 očitanja”, „1 listova”, „2 ispravaka”
   ili „2 pisma premješteno”. Program je uz broj razlikovao samo jedan i
@@ -138,15 +145,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   grešku, pa nakon nadogradnje na 0.0.38 globalni administrator na čvoru
   koji izdaje prognozu treba pokrenuti Prognoze → Postavke → *Pripremi
   model* (Odluke (13. 10. 2026.)).
-- **Kiša po slivovima ne pada na nepotpunom nizu.** Kad u nizu kiše nekog
+- **Kiša po slivovima radi i s nepotpunim nizom.** Kad u nizu kiše nekog
   međusliva nema nijedna tri uzastopna dana, npr. jer fali svaki drugi dan,
-  izračun uobičajene kiše je pao, a s njim i kiša po slivovima na naslovnoj.
+  izračun uobičajene kiše se srušio, a s njim i kiša po slivovima na
+  naslovnoj.
   Sad takav međusliv zadrži pragove jednog dana, a pragova triju dana
   nema. Prag od 0 mm, kakav ispadne u takvom ili gotovo suhom nizu, sad
   znači da praga nema; dosad je dizao razinu kiše i kad nije palo ništa. U
   tablici kiše po međuslivovima umjesto njega stoji crtica (Odluke (13. 10.
-  2026.)). Pad je našao test; s nizovima iz arhive ni jedno ni drugo nije
-  primijećeno.
+  2026.)). Rušenje je našao test; s nizovima iz arhive nije primijećeno ni
+  jedno ni drugo.
 - **Krivulje protoka opet se potvrđuju, a stranica pita za sustav snimke
   korita.** Na stranici Unos podataka u arhivu pregled krivulja protoka iz
   HIS-2000 prekidao se na pola, bez gumba „Upiši i izgradi”, pa se krivulje
@@ -163,8 +171,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   krivulje 1926.–1992. koje je donio izvoz spojene postaje 5555. Sad se
   krivulje spajaju po razdoblju: razdoblje iz izvoza dodaje se ili
   zamjenjuje isto razdoblje, a razdoblja kojih u izvozu nema ostaju.
-  Redoslijed uvoza nije važan: stariji izvoz uvezen poslije novijeg daje
-  iste krivulje i ne ostavlja godine bez krivulje. Prije upisa pregled kaže
+  Stariji izvoz uvezen poslije novijeg ne odnosi krivulje koje ima samo
+  noviji, pa ne ostavlja godine bez krivulje. Kad oba izvoza imaju krivulju
+  koja počinje istog dana, vrijedi ona iz izvoza uvezenog zadnjeg. Prije
+  upisa pregled kaže
   koje se zatečene krivulje razlikuju od izvoza i koliko ih ostaje. Kad
   zatečena krivulja počinje usred krivulje iz izvoza, pregled kaže i to, jer
   od tog dana vrijedi zatečena krivulja. Izvornik novog izvoza sprema se uz
@@ -208,23 +218,26 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   prelazio u svako sljedeće izdavanje, a objava arhive pokušavala ga je
   pročitati i u dnevnik programa pisala grešku. Sad se takva letva samo
   preskoči, kao i kad ne uspije prvo sastavljanje paketa. To se događalo
-  rijetko, npr. kad se zadnji niz letve makne usred izdavanja.
+  rijetko, npr. kad se zadnji niz letve makne usred izdavanja. Prazan redak
+  koji je u katalog ušao prije 0.0.38 sljedeće izdavanje arhive izbaci i to
+  navede u ispisu, pa objava više ne puni dnevnik programa greškom.
 - **Krivulje protoka prate svoju datoteku.** Krivulja protoka maknuta iz
-  datoteke krivulja letve ostajala je u arhivi i nakon ponovne gradnje.
-  Ista mapa tako je davala drukčiju arhivu, ovisno o tome gradi li se
-  iznova ili preko stare. Sad gradnja letve koja u stablu ima datoteku
-  krivulja u arhivu postavi točno krivulje iz te datoteke, a ispis gradnje
-  kaže koja je krivulja maknuta i kad je vrijedila. To vrijedi i kad se
-  krivulje upišu iz izvoza HIS-2000: krivulja koje u novom izvozu nema
-  nestane iz arhive. Krivulje letve koja u stablu nema datoteku krivulja
-  ostaju kakve jesu. Iznimka je letva koja je stigla paketom s drugog
+  datoteke krivulja letve ostajala je u arhivi i nakon ponovne gradnje. Ista
+  mapa tako je davala drukčiju arhivu, ovisno o tome gradi li se iznova ili
+  preko stare. Sad gradnja letve koja u stablu ima datoteku krivulja u arhivu
+  postavi točno krivulje iz te datoteke, a ispis gradnje kaže koja je krivulja
+  maknuta i kad je vrijedila. Iznimka je letva koja je stigla paketom s drugog
   čvora: krivulje koje ta letva već ima u arhivi ostaju i kad ih u datoteci
   nema, a krivulja iz datoteke ne zamijeni krivulju koja u arhivi vrijedi od
   istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema.
-  Ispis gradnje kaže koja krivulja nije maknuta ili nije upisana i zašto.
-  Prazna datoteka krivulja, ili
-  datoteka u kojoj nijedan redak nema svih osam stupaca, zaustavi gradnju,
-  da ne odnese sve krivulje letve.
+  Ispis gradnje kaže koja krivulja nije maknuta ili nije upisana i zašto. Uvoz
+  iz HIS-2000 krivulje spaja s datotekom, pa krivulja koje u novom izvozu nema
+  ostaje i u datoteci i u arhivi. Krivulje letve koja u stablu nema datoteku
+  krivulja gradnja ne dira (vidi Krivulje protoka bez datoteke čekaju odluku).
+  Kad je datoteka krivulja prazna, ili neki njezin redak nema svih osam
+  stupaca ili ne počinje datumom, npr. zbog zareza umjesto točke-zareza,
+  gradnja stane i kaže datoteku i broj retka. Tada ne makne nijednu krivulju
+  letve.
 - **Snimka korita bez datoteke čeka odluku, kao i niz.** Snimka korita
   kojoj je datoteka maknuta iz stabla ostajala je u arhivi, a nigdje se nije
   vidjelo da joj datoteke više nema. Ispravak dana snimke u datoteci tako
@@ -234,36 +247,39 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Snimke letve koja u stablu nema svoju mapu na popis ne idu, npr. letve
   koju čvor samo prima paketom. Datoteke u stablu se ne diraju. Datoteka
   snimke koja se ne da pročitati stoji na popisu kao zaseban redak, s
-  razlogom i bez gumba Makni, a ostatak popisa se i dalje vidi.
+  razlogom i bez gumba Makni. Ostatak popisa se i dalje vidi, osim snimki
+  te letve bez datoteke: one dođu na popis tek kad se ta datoteka popravi,
+  jer se dotad ne zna koju snimku ona drži.
 - **Arhiva koje nema ne nastaje prazna.** Na čvoru bez arhive vodostaja
   program je pri pokretanju i na stranicama arhive na njezinu mjestu
-  ostavljao praznu datoteku vodostaji.db. Veze koje su trebale samo čitati
-  arhivu, bazu očitanja i bazu prognoza mogle su i pisati. Sad se te baze
-  otvaraju samo za čitanje, pa prazna datoteka više ne nastaje, a kroz te
-  veze program ništa ne može upisati.
-- **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla
-  nestala cijela datoteka krivulja letve, krivulje su tiho ostajale u
-  arhivi. Sad ih gradnja pokaže na istom popisu, pod Nizovi bez datoteke u
-  stablu, s brojem krivulja i danom od kojeg vrijedi najstarija, a gumb
-  Makni ih miče iz arhive. Krivulje letve koja je stigla paketom s drugog
-  čvora na popis ne idu. Ako je letva otkad je stranica otvorena dobila
-  datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
+  ostavljao praznu datoteku vodostaji.db. Program je arhivu vodostaja,
+  bazu očitanja i bazu prognoza i onda kad ih je samo čitao otvarao s
+  pravom upisa. Sad ih tada otvara samo za čitanje, pa prazna datoteka više
+  ne nastaje.
+- **Krivulje protoka bez datoteke čekaju odluku.** Kad je iz stabla nestala
+  cijela datoteka krivulja letve, krivulje su tiho ostajale u arhivi. Sad ih
+  gradnja pokaže na istom popisu, pod Nizovi bez datoteke u stablu, s brojem
+  krivulja i danom od kojeg vrijedi najstarija, a gumb Makni ih miče iz
+  arhive. Krivulje letve koja u stablu nema svoju mapu, ili je stigla paketom
+  s drugog čvora, na popis ne idu. Ako je letva otkad je stranica otvorena
+  dobila datoteku krivulja ili stigla paketom, gumb Makni njezine krivulje ne
   miče, nego to javi.
 - **Prognoza bira krivulju protoka po hrvatskom danu.** Prognoza je dan za
-  izbor krivulje protoka računala po UTC-u, a stranice po hrvatskom
-  vremenu. Zato je u prvom satu dana kad počinje nova krivulja, ljeti u
-  prva dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem
-  Miholjcu od 2017. to su bile tri satne vrijednosti. Sad prognoza i
-  stranice biraju istu krivulju.
+  izbor krivulje protoka određivala po svjetskom vremenu (UTC), a stranice po
+  hrvatskom. Zato je u prvom satu dana kad počinje nova krivulja, ljeti u prva
+  dva sata, prognoza računala protok iz prethodne krivulje. Na Donjem Miholjcu
+  od 2017. to su bile tri satne vrijednosti. Sad prognoza i stranice biraju
+  istu krivulju.
 - **Historijat letve opet pokazuje proglašene obrane.** Odjeljak „Obrane
   vođene po ovoj letvi” nije se pokazivao ni na jednoj letvi, a obrana nije
-  bilo ni u izvješću letve, iako su bile proglašene. Program je opis
-  dionice tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a
-  stranica je grešku prešutjela. Sad se vide obrane svih dionica letve.
-  Uz šifru dionice stoji kratki opis: voda, obala i obuhvat, npr. „rijeka
-  Dunav, d.o.; Zeleni otok – Ludaš”. Stacionaža i duljina dionice ne
-  pišu se, one su na stranici dionice. Ako se obrane ne daju pročitati,
-  stranica se i dalje otvori, a greška se zapiše u dnevnik programa.
+  bilo ni u izvješću letve, iako su bile proglašene. Program je opis dionice
+  tražio pod imenom kojeg u bazi nema, pa čitanje nije uspjelo, a stranica je
+  grešku prešutjela. Sad se vide obrane svih dionica letve. Na stranici letve
+  uz šifru dionice stoji kratki opis: voda, obala i obuhvat, npr. „rijeka
+  Dunav, d.o.; Zeleni otok – Ludaš”. Stacionaža i duljina dionice ne pišu se,
+  one su na stranici dionice. U izvješću letve, u Wordu i Excelu, stoji samo
+  šifra dionice. Ako se obrane ne daju pročitati, stranica se i dalje otvori,
+  a greška se zapiše u dnevnik programa.
 - **Drugo brisanje iste letve.** Kad se letva obrisala dvaput, npr. drugim
   klikom ili iz druge otvorene kartice, program je i drugi put javio da je
   obrisana. Pritom je zabilježio brisanje prazne letve, bez imena i šifre,
@@ -281,22 +297,25 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Pretplata na sve vrste za sva područja tako donosi cijelu arhivu, i
   strane i meteorološke letve. Rok držanja i dalje otpušta primljeni paket
   s računala, a arhiva ostaje. Kad pretplata na sve vrste ima godinu
-  početka, paket šalje samo računalo s 0.0.38 ili novijim. Za sve ostale
-  vrste godine i sadržaj vrijede kao i dosad.
+  početka, pakete računala razmjenjuju tek kad su oba na 0.0.38 ili
+  novijem. Cijela arhiva je oko 300 paketa i oko 50 MB razmjene, a
+  ugrađena na računalu zauzima oko 10 GB. Za sve ostale vrste godine i
+  sadržaj vrijede kao i dosad.
 - **Jedan neispravan zapis više ne ruši razmjenu.** Kad je u bazi računala
-  bio zapis koji se ne da poslati, jer nije ispravan JSON, pukla je svaka
+  bio zapis koji nije ispravan, pa se ne da poslati, pukla je svaka
   razmjena s računalom koje ga još nema, pa nisu stizali ni ostali podaci.
   Sad razmjena takav zapis preskoči, a ostalo pošalje. Zapis se jednom
   upiše u dnevnik programa i stoji kao upozorenje na stranici
   Sinkronizacija i na pločici razmjene na naslovnoj. Isto je s izdanjem
   .cop paketa u Održavanju baze: takav zapis rušio je cijelo izdanje, a sad
   se preskoči i ostali zapisi idu u paket.
-- **Primanje računala koje ne uspije ne ostavlja članstvo.** Kad je
-  primanje novog računala u mrežu zahtjevom s kodom puklo na popisu
-  računala za potvrdu ili na upisu ovlasti za primanje, računalo je ostalo
-  upisano kao član, iako potvrdu nije dobilo. Sad se popis složi prije
-  upisa, a članstvo i ovlast upisuju se zajedno. Računalo koje ne dobije
-  potvrdu ne ostaje član, a isti zahtjev može se poslije ponovno primiti.
+- **Primanje računala koje ne uspije ne ostavlja članstvo.** Kad se novo
+  računalo primalo u mrežu zahtjevom s kodom, a program zapeo pri čitanju
+  popisa računala koji ide uz potvrdu ili pri upisu ovlasti, računalo je
+  ostalo upisano kao član iako potvrdu nije dobilo. Sad program popis
+  pročita prije upisa, a članstvo i ovlast upiše zajedno. Računalo koje ne
+  dobije potvrdu ne ostaje član, a isti se zahtjev može poslije ponovno
+  primiti.
 - **Uvoz iz stare evidencije BP16 staje kad ne može pročitati ono što
   već ima.** Prije upisa uvoz obilazaka, obavijesti s terena i evidencije
   radova provjerava što je već preneseno i koje nasipe i vode registar ima.
@@ -342,15 +361,20 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Paket izdanja pod tuđim imenom ne blokira prave pakete.** Član mreže
   mogao je svojim ključem potpisati paket izdanja (.cop) pod imenom drugog
   računala i s visokim brojem izdanja. Računalo koje ga je uvezlo zatim je
-  prave pakete tog računala odbijalo kao starija izdanja. Sad se paket
-  ugrađuje samo kad ga je potpisalo računalo koje je u njemu navedeno kao
-  izdavač.
+  prave pakete tog računala odbijalo kao starija izdanja. Sad računalo
+  koje je u mreži ugrađuje paket samo kad ga je potpisalo računalo koje je
+  u njemu navedeno kao izdavač. Računalo koje još nije u mreži to ne može
+  provjeriti, pa paket ugradi kao i dosad, a u poruci nakon uvoza piše da
+  članstvo izdavača nije provjereno.
 - **Čekanje na uparivanje nakon prekida.** Kad se čekanje na uparivanje
   prekine i odmah pokrene ponovno, prvo čekanje je pri gašenju brisalo
   zapis o drugom. Stranica tada nije pokazivala da računalo čeka, a drugo
   čekanje nije se dalo prekinuti do isteka od deset minuta. Sad prekinuto
-  čekanje ne dira novo. Računalo koje je nazvalo baš u trenutku prekida
-  dobije odmah poruku da je uparivanje odbijeno, pa može nazvati ponovno.
+  čekanje ne dira novo. Kad se čekanje prekine i odmah pokrene ponovno,
+  računalo koje je nazvalo baš u trenutku prekida dobije odmah poruku da
+  je uparivanje odbijeno, pa može nazvati ponovno. Kad se čekanje samo
+  prekine, takav se poziv kao i dosad pokaže na stranici uparivanja za
+  potvrdu.
 - **Brisanje s oglasne ploče ne briše ono što bi razmjena vratila.** Uprava
   je s ploče mogla obrisati objavu prijave poslanu s terenskog laptopa, a
   objava se vratila već sljedećom razmjenom. To se događalo kad s laptopa
@@ -359,6 +383,19 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   obrisati kad to računalo upiše nešto novije iste vrste za isto područje i
   godinu. Kod zajedničkih podataka, npr. ustroja ili registara, dovoljan je
   bilo koji noviji upis tog računala u te podatke.
+- **Nadogradnja.** 0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom,
+  po mogućnosti istoga dana: najprije stalni čvor koji izdaje prognozu,
+  zatim ostala računala. Nakon nadogradnje globalni administrator na čvoru
+  koji izdaje prognozu, izvan poplavnog vala, pokrene Prognoze → Postavke
+  → *Pripremi model*. Pri prvom pokretanju program zatraži fotografije
+  dnevnih listova koje nedostaju; ima ih samo računalo na kojem su
+  upisane, pa neka bude uključeno dok ne odu. Dok sva računala nisu na
+  0.0.38-alfa, ne brišite područja, sektore, općine, županije, korisnike ni
+  dionice, a „Obriši s računala” ne koristite na računalu koje je još na
+  0.0.37-alfa. Pravilo „Sve vrste” za sva područja nakon nadogradnje može
+  samo početi dohvaćati cijelu arhivu vodostaja, oko 10 GB na disku. Sve
+  to s pojedinostima piše u administratorskim uputama, u odjeljku o
+  nadogradnji.
 
 ## 0.0.37-alfa — 13. 10. 2026.
 
