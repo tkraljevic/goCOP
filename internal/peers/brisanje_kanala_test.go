@@ -128,7 +128,9 @@ func TestBrisanjeKanalaSvakeVrste(t *testing.T) {
 	vodocuvarskiList(t, s, "v-16-lani", 16, "2025-05-04")
 	vodocuvarskiList(t, s, "v-3", 3, "2026-05-04")
 	tudjaVerzija(t, s, "vodocuvarski/16/2026", "vodocuvarski_listovi", "v-16")
-	if b := obrisiKanal(t, s, "vodocuvarski/16/2026"); b.Zapisa != 3 || b.Verzija != 1 || b.OstajeZapisa != 0 {
+	tudjaVerzija(t, s, "vodocuvarski/16/2026", "vodocuvarski_zadaci", "z-v-16")
+	tudjaVerzija(t, s, "vodocuvarski/16/2025", "vodocuvarski_zadaci", "z-v-16-lani")
+	if b := obrisiKanal(t, s, "vodocuvarski/16/2026"); b.Zapisa != 3 || b.Verzija != 2 || b.OstajeZapisa != 0 {
 		t.Errorf("brisanje vodočuvarskih listova: %+v", b)
 	}
 	if prebroji(t, s, `SELECT count(*) FROM vodocuvarski_listovi WHERE id = 'v-16'`) != 0 ||
@@ -194,7 +196,8 @@ func TestBrisanjeKanalaOstavljaNastaloOvdje(t *testing.T) {
 	vlastitaVerzija(t, s, vk, "vodocuvarski_zadaci", "z-v-ivo")
 	tudjaVerzija(t, s, vk, "vodocuvarski_izvornici", "v-ivo") // ured je ovjerio Ivin list
 	tudjaVerzija(t, s, vk, "vodocuvarski_listovi", "v-pero")
-	if b := obrisiKanal(t, s, vk); b != (Brisanje{Kanal: vk, Zapisa: 4, Verzija: 2, OstajeZapisa: 2, OstajeVerzija: 2}) {
+	tudjaVerzija(t, s, vk, "vodocuvarski_zadaci", "z-v-pero")
+	if b := obrisiKanal(t, s, vk); b != (Brisanje{Kanal: vk, Zapisa: 4, Verzija: 3, OstajeZapisa: 2, OstajeVerzija: 2}) {
 		t.Errorf("vodočuvarski dnevnik: %+v", b)
 	}
 	if prebroji(t, s, `SELECT count(*) FROM vodocuvarski_listovi WHERE id = 'v-ivo'`) != 1 || prebroji(t, s, `SELECT count(*) FROM vodocuvarski_zadaci WHERE id = 'z-v-ivo'`) != 1 ||
@@ -306,8 +309,11 @@ func TestBrisanjeKanalaISadrzaja(t *testing.T) {
 		t.Error("pregled uz zatvoreno spremište")
 	}
 	b, err := s.PurgeChannel(ctxRub, "prijave/17/2026")
-	if err == nil || b.Verzija != 1 {
+	if err == nil || b.Verzija != 1 || !strings.HasPrefix(err.Error(), "Obrisani su zapisi koji su stigli s drugih računala, ali njihovi dokumenti nisu.") {
 		t.Errorf("zatvoreno spremište: %+v %v", b, err)
+	}
+	if _, err := s.Channels(ctxRub); err == nil {
+		t.Error("popis kanala uz zatvoreno spremište")
 	}
 	if c, _ := s.rec.CountByChannel(ctxRub); c["prijave/17/2026"] != 0 {
 		t.Errorf("knjiga kanala nije obrisana: %v", c)
@@ -372,5 +378,90 @@ func TestBrisanjeNezeljenihKanala(t *testing.T) {
 	}
 	if _, err := s.PurgeChannel(ctxRub, "ocitanja/3/2026"); err == nil {
 		t.Error("brisanje kanala bez čitljivih pretplata")
+	}
+}
+
+// Kanal u kojem su ostali samo dokumenti s drugih računala, bez ijedne
+// verzije u knjizi, stoji u tablici „Što računalo drži”, pa se brisanje
+// dokumenata može ponoviti. Nakon brisanja ga više nema.
+func TestKanalSamoSDokumentimaSeDaObrisati(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	sp, err := sadrzaj.Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = sp.Zatvori() })
+	s.SetSpremiste(sp)
+	kanal := "prijave/16/2026"
+	tudji := []byte("%PDF-1.4 prijava Pere Perića")
+	otisak, err := sp.Upisi(ctxRub, "application/pdf", tudji, "cvor:ured", sadrzaj.Veza{Entitet: "prijave", EntitetID: "p-16", Uloga: "izvornik", Kanal: kanal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	tudjaVerzija(t, s, "prijave/3/2026", "prijave", "p-3")
+
+	popis, err := s.Channels(ctxRub)
+	if err != nil || len(popis) != 2 || popis[0].Channel != "prijave/3/2026" || popis[1].Channel != kanal || popis[1].Versions != 0 || popis[1].Wanted {
+		t.Fatalf("kanali %+v, %v", popis, err)
+	}
+	if b := obrisiKanal(t, s, kanal); b != (Brisanje{Kanal: kanal, Dokumenata: 1, Bajtova: int64(len(tudji))}) {
+		t.Errorf("brisanje: %+v", b)
+	}
+	if sp.Ima(ctxRub, otisak) {
+		t.Error("dokument je ostao")
+	}
+	if popis, err := s.Channels(ctxRub); err != nil || len(popis) != 1 {
+		t.Errorf("kanali nakon brisanja %+v, %v", popis, err)
+	}
+}
+
+// Dokument treba zapisu koji ostaje kad ga spominje vlastita verzija, a
+// zapis nakon brisanja ostaje: zadnja vlastita verzija je živa, a zadnja
+// verzija nije tuđe brisanje.
+func TestDokumentTrebaZapisuKojiOstaje(t *testing.T) {
+	s := rubniCvor(t, "laptop-baranja")
+	kanal := "prijave/16/2026"
+	ured := ledger.New(s.db, "cop-osijek-ured")
+	upis := func(rec *ledger.Recorder, id string, obrisano bool, otisak string) {
+		t.Helper()
+		zapis := map[string]string{"id": id, "otisak": otisak}
+		var err error
+		if obrisano {
+			_, err = rec.ArchiveIn(ctxRub, s.db, kanal, "prijave", id, zapis)
+		} else {
+			_, err = rec.RecordIn(ctxRub, s.db, kanal, "prijave", id, zapis)
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	upis(s.rec, "p-ziva", false, "fotografija-1")
+	upis(s.rec, "p-ured-obrisao", false, "fotografija-1")
+	upis(ured, "p-ured-obrisao", true, "fotografija-1")
+	upis(s.rec, "p-obrisana-ovdje", false, "fotografija-1")
+	upis(s.rec, "p-obrisana-ovdje", true, "")
+	upis(ured, "p-ureda", false, "fotografija-1")
+	upis(s.rec, "p-ured-ispravio", false, "fotografija-1")
+	upis(ured, "p-ured-ispravio", false, "fotografija-2")
+	for _, c := range []struct {
+		id, otisak string
+		treba      bool
+	}{
+		{"p-ziva", "fotografija-1", true},
+		{"p-ziva", "fotografija-2", false},
+		{"p-ured-obrisao", "fotografija-1", false},
+		{"p-obrisana-ovdje", "fotografija-1", false},
+		{"p-ureda", "fotografija-1", false},
+		{"p-ured-ispravio", "fotografija-1", true},
+		{"p-ured-ispravio", "fotografija-2", false},
+		{"p-nema", "fotografija-1", false},
+	} {
+		if treba, err := s.trebaZapisuKojiOstaje(ctxRub, c.otisak, "prijave", c.id); err != nil || treba != c.treba {
+			t.Errorf("%s, %s: treba %v, %v", c.id, c.otisak, treba, err)
+		}
+	}
+	pokvariTablicu(t, s, "record_versions")
+	if _, err := s.trebaZapisuKojiOstaje(ctxRub, "fotografija-1", "prijave", "p-ziva"); err == nil {
+		t.Error("provjera bez čitljive knjige")
 	}
 }

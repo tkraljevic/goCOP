@@ -2,6 +2,7 @@ package sadrzaj
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -78,10 +79,10 @@ func TestBrisanjeKanalaIPopisZaDohvat(t *testing.T) {
 	if _, err := s.Upisi(ctx, "image/jpeg", dosla, "cvor:laptop", Veza{"vodocuvarski_listovi", "l1", "prilog:p3", "vodocuvarski/16/2026"}); err != nil {
 		t.Fatal(err)
 	}
-	if b, err := s.ObrisiKanal(ctx, ""); b != (BrisanjeKanala{}) || err != nil {
+	if b, err := s.ObrisiKanal(ctx, "", nil); b != (BrisanjeKanala{}) || err != nil {
 		t.Errorf("zajednički kanal se ne briše: %+v %v", b, err)
 	}
-	if b, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026"); b != (BrisanjeKanala{Obrisano: 1, Bajtova: int64(len(dosla))}) || err != nil {
+	if b, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026", nil); b != (BrisanjeKanala{Obrisano: 1, Bajtova: int64(len(dosla))}) || err != nil {
 		t.Fatalf("obrisano %+v, %v", b, err)
 	}
 	if s.Ima(ctx, Otisak(dosla)) {
@@ -96,7 +97,7 @@ func TestBrisanjeKanalaIPopisZaDohvat(t *testing.T) {
 	if err := s.Zatvori(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026"); err == nil {
+	if _, err := s.ObrisiKanal(ctx, "vodocuvarski/16/2026", nil); err == nil {
 		t.Error("zatvoreno spremište briše kanal bez greške")
 	}
 }
@@ -123,21 +124,21 @@ func TestBrisanjeKanalaOstavljaSadrzajNastaoOvdje(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	pregled, err := s.PregledKanala(ctx, kanal)
+	pregled, err := s.PregledKanala(ctx, kanal, nil)
 	if want := (BrisanjeKanala{Obrisano: 1, Bajtova: int64(len(tudja)), Ostaje: 1}); pregled != want || err != nil {
 		t.Fatalf("pregled %+v, %v", pregled, err)
 	}
 	if !s.Ima(ctx, stigla) {
 		t.Fatal("pregled je obrisao sadržaj")
 	}
-	obrisano, err := s.ObrisiKanal(ctx, kanal)
+	obrisano, err := s.ObrisiKanal(ctx, kanal, nil)
 	if obrisano != pregled || err != nil {
 		t.Fatalf("obrisano %+v, pregled %+v, %v", obrisano, pregled, err)
 	}
 	if s.Ima(ctx, stigla) || !s.Ima(ctx, ovdje) || !s.ImaVezu(ctx, ovdje, nasa) {
 		t.Errorf("nakon brisanja: tuđi %v, naš %v, veza %v", s.Ima(ctx, stigla), s.Ima(ctx, ovdje), s.ImaVezu(ctx, ovdje, nasa))
 	}
-	if b, err := s.PregledKanala(ctx, kanal); b != (BrisanjeKanala{Ostaje: 1}) || err != nil {
+	if b, err := s.PregledKanala(ctx, kanal, nil); b != (BrisanjeKanala{Ostaje: 1}) || err != nil {
 		t.Errorf("pregled nakon brisanja: %+v %v", b, err)
 	}
 }
@@ -163,7 +164,7 @@ func TestBrisanjeKanalaKadSpremisteNeRadi(t *testing.T) {
 		if _, err := s.db.Exec(`CREATE TRIGGER kvar BEFORE DELETE ON ` + tablica + ` BEGIN SELECT RAISE(ABORT, 'namjerni kvar'); END`); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := s.ObrisiKanal(ctx, kanal); err == nil || !s.Ima(ctx, stigla) {
+		if _, err := s.ObrisiKanal(ctx, kanal, nil); err == nil || !s.Ima(ctx, stigla) {
 			t.Errorf("%s: brisanje koje padne: %v, sadržaj ostao %v", tablica, err, s.Ima(ctx, stigla))
 		}
 		if _, err := s.db.Exec(`DROP TRIGGER kvar`); err != nil {
@@ -173,7 +174,94 @@ func TestBrisanjeKanalaKadSpremisteNeRadi(t *testing.T) {
 	if _, err := s.db.Exec(`ALTER TABLE sadrzaj DROP COLUMN izvor`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := s.PregledKanala(ctx, kanal); err == nil {
+	if _, err := s.PregledKanala(ctx, kanal, nil); err == nil {
 		t.Error("pregled bez čitljivog spremišta")
+	}
+}
+
+// Fotografija s ureda na listu koji ostaje na računalu ne briše se s
+// kanalom, a PDF ureda koji nijednom zapisu koji ostaje ne treba briše se.
+// Pregled kaže isto, a greška provjere zapisa javlja se i ništa ne briše.
+func TestBrisanjeKanalaOstavljaSadrzajKojiTrebaZapisu(t *testing.T) {
+	s, err := Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Zatvori() })
+	ctx := context.Background()
+	kanal := "vodocuvarski/16/2026"
+	fotografija, err := s.Upisi(ctx, "image/jpeg", []byte("fotografija Pere Perića s obilaska"), "cvor:ured", Veza{"vodocuvarski_listovi", "l-pero", "prilog:p1", kanal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pdf := []byte("%PDF ovjera ureda")
+	ovjera, err := s.Upisi(ctx, "application/pdf", pdf, "cvor:ured", Veza{"vodocuvarski_izvornici", "l-pero", "izvornik", kanal})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Upisi(ctx, "application/pdf", []byte("%PDF bez zapisa"), "cvor:ured", Veza{Kanal: kanal}); err != nil {
+		t.Fatal(err)
+	}
+	var pitano []string
+	treba := func(_ context.Context, otisak, entitet, id string) (bool, error) {
+		pitano = append(pitano, entitet+"/"+id)
+		return otisak == fotografija && entitet == "vodocuvarski_listovi" && id == "l-pero", nil
+	}
+
+	pregled, err := s.PregledKanala(ctx, kanal, treba)
+	if want := (BrisanjeKanala{Obrisano: 2, Bajtova: int64(len(pdf) + len("%PDF bez zapisa")), Ostaje: 1}); pregled != want || err != nil {
+		t.Fatalf("pregled %+v, %v", pregled, err)
+	}
+	if obrisano, err := s.ObrisiKanal(ctx, kanal, treba); obrisano != pregled || err != nil {
+		t.Fatalf("obrisano %+v, pregled %+v, %v", obrisano, pregled, err)
+	}
+	if !s.Ima(ctx, fotografija) || s.Ima(ctx, ovjera) {
+		t.Errorf("nakon brisanja: fotografija %v, ovjera %v", s.Ima(ctx, fotografija), s.Ima(ctx, ovjera))
+	}
+	for _, p := range pitano {
+		if p == "/" {
+			t.Error("pitano je za vezu bez zapisa")
+		}
+	}
+
+	kvar := func(context.Context, string, string, string) (bool, error) { return false, errors.New("namjerni kvar") }
+	if _, err := s.ObrisiKanal(ctx, kanal, kvar); err == nil || !s.Ima(ctx, fotografija) {
+		t.Errorf("provjera zapisa koja padne: %v, fotografija ostala %v", err, s.Ima(ctx, fotografija))
+	}
+	if _, err := s.db.Exec(`ALTER TABLE sadrzaj_veze RENAME COLUMN entitet_id TO nema`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.PregledKanala(ctx, kanal, treba); err == nil {
+		t.Error("pregled bez čitljivih veza")
+	}
+}
+
+// Kanali s tuđim sadržajem su kanali u kojima je ostao sadržaj s drugih
+// čvorova; sadržaj nastao ovdje i sadržaj bez kanala ne broje se
+func TestKanaliTudjegSadrzaja(t *testing.T) {
+	s, err := Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Zatvori() })
+	ctx := context.Background()
+	for _, u := range []struct{ podaci, izvor, kanal string }{
+		{"s ureda 2026.", "cvor:ured", "prijave/16/2026"},
+		{"još s ureda 2026.", "cvor:ured", "prijave/16/2026"},
+		{"nastalo ovdje", "", "prijave/16/2025"},
+		{"bez kanala", "cvor:ured", ""},
+	} {
+		if _, err := s.Upisi(ctx, "image/jpeg", []byte(u.podaci), u.izvor, Veza{Kanal: u.kanal}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if k, err := s.KanaliTudjegSadrzaja(ctx); err != nil || len(k) != 1 || k[0] != "prijave/16/2026" {
+		t.Errorf("kanali %v, %v", k, err)
+	}
+	if _, err := s.db.Exec(`ALTER TABLE sadrzaj DROP COLUMN izvor`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.KanaliTudjegSadrzaja(ctx); err == nil {
+		t.Error("kanali bez čitljivog spremišta")
 	}
 }

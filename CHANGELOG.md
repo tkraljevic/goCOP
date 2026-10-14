@@ -18,7 +18,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   brisanja kaže što je obrisano i što je ostalo. Zapis nastao na računalu
   koji je ured poslije mijenjao brisanje vrati na stanje napisano na tom
   računalu, a zapis koji je ured obrisao ostaje obrisan i nakon ponovnog
-  pokretanja. Kad je upisana povijest tuđih očitanja u mjesecima, potvrda
+  pokretanja. Ostaje i fotografija s ureda uz list koji je mijenjan na tom
+  računalu. Kad je upisana povijest tuđih očitanja u mjesecima, potvrda
   kaže da se starija tuđa očitanja ne vraćaju.
 - **Pretplate: prijedlog iz zaduženja i stroži obrazac.** Prijedlog iz
   zaduženja dodavao je samo dnevnike radova i prijave, pa vodočuvaru nisu

@@ -411,6 +411,9 @@ func (s *Service) Channels(ctx context.Context) ([]ChannelStat, error) {
 	if err != nil {
 		return nil, err
 	}
+	if err := s.dodajKanaleSadrzaja(ctx, counts); err != nil {
+		return nil, err
+	}
 	wants, err := s.CurrentWants(ctx)
 	if err != nil {
 		return nil, err
@@ -426,6 +429,23 @@ func (s *Service) Channels(ctx context.Context) ([]ChannelStat, error) {
 	}
 	sortChannels(out)
 	return out, nil
+}
+
+// dodajKanaleSadrzaja dodaje kanale u kojima su ostali samo dokumenti s
+// drugih čvorova, bez ijedne verzije: npr. kad brisanje kanala obriše
+// zapise, a dokumente ne uspije. Bez toga se brisanje ne bi dalo ponoviti.
+func (s *Service) dodajKanaleSadrzaja(ctx context.Context, counts map[string]int) error {
+	sp := s.spremisteSadrzaja()
+	if sp == nil {
+		return nil
+	}
+	kanali, err := sp.KanaliTudjegSadrzaja(ctx)
+	for _, k := range kanali {
+		if _, ima := counts[k]; !ima {
+			counts[k] = 0
+		}
+	}
+	return err
 }
 
 func sortChannels(list []ChannelStat) {

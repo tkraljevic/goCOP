@@ -12,8 +12,24 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/ledger"
 )
+
+// vrijemeVerzije je vrijeme nastanka verzije u milisekundama, iz UUIDv7
+func vrijemeVerzije(t *testing.T, id string) int64 {
+	t.Helper()
+	u, err := uuid.Parse(id)
+	if err != nil || u.Version() != 7 {
+		t.Fatalf("oznaka verzije %s: %v", id, err)
+	}
+	var ms int64
+	for _, b := range u[:6] {
+		ms = ms<<8 | int64(b)
+	}
+	return ms
+}
 
 // tudjiSpomenik upisuje brisanje zapisa kakvo je ovaj čvor primio s ureda
 func tudjiSpomenik(t *testing.T, s *Service, kanal, entitet, id string) {
@@ -42,12 +58,21 @@ func TestBrisanjeKanalaObnavljaVlastitoIzKnjige(t *testing.T) {
 		return nil
 	})
 
+	uredovo, err := s.rec.Latest(ctxRub, "prijave", "p-nasa")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	if b := obrisiKanal(t, s, kanal); b != (Brisanje{Kanal: kanal, Verzija: 3, OstajeVerzija: 3}) {
 		t.Errorf("brisanje: %+v", b)
 	}
 	zadnja, err := s.rec.Latest(ctxRub, "prijave", "p-nasa")
 	if err != nil || !zadnja.Archived || zadnja.NodeID != "laptop-baranja" || zadnja.Channel != kanal || !strings.Contains(string(zadnja.Payload), `"obrisao":"ured"`) {
 		t.Fatalf("zadnja verzija obrisane prijave: %+v %v", zadnja, err)
+	}
+	// vlastiti spomenik stoji odmah iza uredova, ne s vremenom brisanja
+	if zadnja.VersionID <= uredovo.VersionID || vrijemeVerzije(t, zadnja.VersionID)-vrijemeVerzije(t, uredovo.VersionID) != 1 {
+		t.Errorf("vlastiti spomenik %s nije milisekundu iza uredova %s", zadnja.VersionID, uredovo.VersionID)
 	}
 	sort.Slice(primijenjeno, func(i, j int) bool { return primijenjeno[i].EntityID < primijenjeno[j].EntityID })
 	if len(primijenjeno) != 2 || primijenjeno[0].EntityID != "p-ispravljena" || primijenjeno[0].Archived || primijenjeno[0].NodeID != "laptop-baranja" ||
@@ -81,7 +106,7 @@ func TestBrisanjeKanalaKadObnovaPadne(t *testing.T) {
 	tudjaVerzija(t, drugi, kanal, "prijave", "p-ispravljena")
 	drugi.OnApplied(func(context.Context, []ledger.Version) error { return errors.New("namjerni kvar") })
 	b, err := drugi.PurgeChannel(ctxRub, kanal)
-	if err == nil || !strings.HasPrefix(err.Error(), "Obrisano je ono što je stiglo s drugih računala, ali") || b.Verzija != 1 {
+	if err == nil || !strings.HasPrefix(err.Error(), "Obrisani su zapisi koji su stigli s drugih računala, ali zapisi nastali") || b.Verzija != 1 {
 		t.Errorf("obnova koja padne: %+v %v", b, err)
 	}
 
@@ -108,10 +133,10 @@ func TestCitajZapiseKadUpitPadne(t *testing.T) {
 	if _, err := citajZapise(ctxRub, tx, `SELECT nema FROM nigdje`, nil, false); err == nil {
 		t.Error("upit nad nepostojećom tablicom")
 	}
-	if _, err := citajZapise(ctxRub, tx, `SELECT NULL, 'p-1', 'x'`, nil, true); err == nil {
+	if _, err := citajZapise(ctxRub, tx, `SELECT NULL, 'p-1', 'x', 'v-1'`, nil, true); err == nil {
 		t.Error("redak bez entiteta")
 	}
-	if z, err := citajZapise(ctxRub, tx, `SELECT 'prijave', 'p-1', '{}'`, nil, true); err != nil || len(z) != 1 || z[0].sadrzaj != "{}" {
+	if z, err := citajZapise(ctxRub, tx, `SELECT 'prijave', 'p-1', '{}', 'v-1'`, nil, true); err != nil || len(z) != 1 || z[0].sadrzaj != "{}" || z[0].verzija != "v-1" {
 		t.Errorf("redak sa sadržajem: %+v %v", z, err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"gocop/internal/ledger"
@@ -74,10 +75,9 @@ func (s *Service) brisanjeKanala(ctx context.Context, kanal string, obrisi bool)
 	if err != nil {
 		return Brisanje{Kanal: kanal}, err
 	}
-	if err := s.obnoviVlastite(ctx, obnova); err != nil {
-		return b, err
-	}
-	return b, s.brisanjeSadrzaja(ctx, &b, obrisi)
+	// dokumenti se brišu i kad obnova ne uspije: zapisi su već obrisani, a
+	// dokumenti tih zapisa više nemaju čemu služiti
+	return b, errors.Join(s.obnoviVlastite(ctx, obnova), s.brisanjeSadrzaja(ctx, &b, obrisi))
 }
 
 // koraciZaKanal vraća tablice površine za vrstu kanala; kanal pod
@@ -126,25 +126,35 @@ type zapisKnjige struct{ entitet, id string }
 // tudjiSpomeniciVlastitih su zapisi koji imaju vlastitu verziju, a zadnja im
 // je verzija tuđi spomenik u kanalu: drugi čvor obrisao je ono što je
 // nastalo ovdje
-const tudjiSpomeniciVlastitih = `SELECT z.entity, z.entity_id, z.payload FROM record_versions z
+const tudjiSpomeniciVlastitih = `SELECT z.entity, z.entity_id, z.payload, z.version_id FROM record_versions z
 	WHERE z.channel = @kanal AND z.archived = 1 AND z.node_id <> @cvor
 	  AND z.version_id = (SELECT MAX(m.version_id) FROM record_versions m WHERE m.entity = z.entity AND m.entity_id = z.entity_id)
 	  AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = z.entity AND o.entity_id = z.entity_id AND +o.node_id = @cvor)`
 
-// vlastiteSTudjimVerzijama su zapisi koji imaju vlastitu verziju i tuđu u
-// kanalu: brisanje im odnese tuđe izmjene
-const vlastiteSTudjimVerzijama = `SELECT DISTINCT t.entity, t.entity_id FROM record_versions t
-	WHERE t.channel = @kanal AND t.node_id <> @cvor
-	  AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = t.entity AND o.entity_id = t.entity_id AND +o.node_id = @cvor)`
+// zaObnovu su zapisi koje nakon brisanja treba vratiti iz knjige: zapisi s
+// vlastitom verzijom i tuđom u kanalu, kojima brisanje odnese tuđe
+// izmjene, i svi vlastiti dnevni listovi i izvornici u kanalu. List i
+// izvornik slažu se iz cijele povijesti zapisa, a list kasnijeg potpisa na
+// površini stoji pod drugom oznakom nego u knjizi (dvojnik,
+// apply_vodocuvarski_dvojnici.go), pa ga koraci brisanja ne prepoznaju kao
+// nastao ovdje.
+const zaObnovu = `SELECT DISTINCT t.entity, t.entity_id FROM record_versions t
+	WHERE t.channel = @kanal AND (
+	  (t.node_id <> @cvor AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = t.entity AND o.entity_id = t.entity_id AND +o.node_id = @cvor))
+	  OR (t.node_id = @cvor AND t.entity IN ('vodocuvarski_listovi', 'vodocuvarski_izvornici')))`
 
 // vlastitoUKnjizi priprema knjigu za brisanje tuđih verzija kanala. Zapis
 // nastao ovdje koji je drugi čvor obrisao dobiva vlastiti spomenik u istom
 // kanalu, s istim sadržajem: tako ostaje obrisan i kad tuđi spomenik ode, a
-// najveća vlastita verzija kanala ostaje u knjizi. Uz obrisi=false spomenici
-// se samo prebroje i vraćaju kao neupisani, jer ih pregled broji među
-// verzijama koje ostaju. Uz obrisi=true upišu se, pa ih brojanje vlastitih
-// verzija već obuhvati, i vraćaju se zapisi kojima brisanje odnese tuđe
-// izmjene.
+// najveća vlastita verzija kanala ostaje u knjizi. Spomenik stoji u poretku
+// odmah iza tuđeg (ArchiveNakon): s današnjim vremenom bio bi noviji od
+// onoga što je drugi čvor poslije napisao pod istom oznakom, npr. list istog
+// vodočuvara za isti dan, pa bi ga razmjenom obrisao i tamo.
+//
+// Uz obrisi=false spomenici se samo prebroje i vraćaju kao neupisani, jer
+// ih pregled broji među verzijama koje ostaju. Uz obrisi=true upišu se, pa
+// ih brojanje vlastitih verzija već obuhvati, i vraćaju se zapisi koje
+// nakon brisanja treba vratiti iz knjige (zaObnovu).
 func (s *Service) vlastitoUKnjizi(ctx context.Context, tx *sql.Tx, kanal string, obrisi bool) (neupisanih int, obnova []zapisKnjige, err error) {
 	args := []any{sql.Named("kanal", kanal), sql.Named("cvor", s.rec.Cvor())}
 	spomenici, err := citajZapise(ctx, tx, tudjiSpomeniciVlastitih, args, true)
@@ -152,24 +162,25 @@ func (s *Service) vlastitoUKnjizi(ctx context.Context, tx *sql.Tx, kanal string,
 		return len(spomenici), nil, err
 	}
 	for _, z := range spomenici {
-		if _, err := s.rec.ArchiveIn(ctx, tx, kanal, z.entitet, z.id, json.RawMessage(z.sadrzaj)); err != nil {
+		if _, err := s.rec.ArchiveNakon(ctx, tx, kanal, z.entitet, z.id, json.RawMessage(z.sadrzaj), z.verzija); err != nil {
 			return 0, nil, err
 		}
 	}
-	zapisi, err := citajZapise(ctx, tx, vlastiteSTudjimVerzijama, args, false)
+	zapisi, err := citajZapise(ctx, tx, zaObnovu, args, false)
 	for _, z := range zapisi {
 		obnova = append(obnova, z.zapisKnjige)
 	}
 	return 0, obnova, err
 }
 
-// zapisSadrzajem je zapis knjige s pročitanim sadržajem verzije
+// zapisSadrzajem je zapis knjige s pročitanim sadržajem i oznakom verzije
 type zapisSadrzajem struct {
 	zapisKnjige
-	sadrzaj string
+	sadrzaj, verzija string
 }
 
 // citajZapise pročita zapise upita; sSadrzajem kaže da upit vraća i sadržaj
+// i oznaku verzije
 func citajZapise(ctx context.Context, tx *sql.Tx, upit string, args []any, sSadrzajem bool) ([]zapisSadrzajem, error) {
 	rows, err := tx.QueryContext(ctx, upit, args...)
 	if err != nil {
@@ -181,7 +192,7 @@ func citajZapise(ctx context.Context, tx *sql.Tx, upit string, args []any, sSadr
 		var z zapisSadrzajem
 		polja := []any{&z.entitet, &z.id}
 		if sSadrzajem {
-			polja = append(polja, &z.sadrzaj)
+			polja = append(polja, &z.sadrzaj, &z.verzija)
 		}
 		if err := rows.Scan(polja...); err != nil {
 			return nil, err
@@ -213,10 +224,14 @@ func (s *Service) obnoviVlastite(ctx context.Context, zapisi []zapisKnjige) erro
 	return nil
 }
 
-// porukaObnove: tuđe je obrisano, a površina se nije dala obnoviti
-const porukaObnove = "Obrisano je ono što je stiglo s drugih računala, ali zapisi nastali na ovom računalu nisu se mogli vratiti na stanje napisano ovdje. Ponovno pokrenite program, pa će se vratiti. (%w)"
+// porukaObnove: tuđi zapisi su obrisani, a površina se nije dala obnoviti
+const porukaObnove = "Obrisani su zapisi koji su stigli s drugih računala, ali zapisi nastali na ovom računalu nisu se mogli vratiti na stanje napisano ovdje. Ponovno pokrenite program, pa će se vratiti. (%w)"
 
-// brisanjeSadrzaja prebroji ili obriše dokumente kanala u spremištu
+// porukaDokumenata: tuđi zapisi su obrisani, a dokumenti nisu
+const porukaDokumenata = "Obrisani su zapisi koji su stigli s drugih računala, ali njihovi dokumenti nisu. Pokušajte ponovno obrisati s računala. (%w)"
+
+// brisanjeSadrzaja prebroji ili obriše dokumente kanala u spremištu.
+// Dokument koji treba zapisu koji ostaje ne briše se (trebaZapisuKojiOstaje).
 func (s *Service) brisanjeSadrzaja(ctx context.Context, b *Brisanje, obrisi bool) error {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
@@ -226,10 +241,38 @@ func (s *Service) brisanjeSadrzaja(ctx context.Context, b *Brisanje, obrisi bool
 	if obrisi {
 		pregled = sp.ObrisiKanal
 	}
-	k, err := pregled(ctx, b.Kanal)
+	k, err := pregled(ctx, b.Kanal, s.trebaZapisuKojiOstaje)
 	b.Dokumenata, b.Bajtova, b.OstajeDokumenata = k.Obrisano, k.Bajtova, k.Ostaje
+	if err != nil && obrisi {
+		return fmt.Errorf(porukaDokumenata, err)
+	}
 	return err
 }
+
+// trebaZapisuKojiOstaje javlja treba li dokument zapisu koji nakon
+// brisanja kanala ostaje na ovom računalu. Nakon brisanja zapis stoji po
+// vlastitim verzijama, pa dokument treba ako ga spominje neka vlastita
+// verzija: npr. fotografiju s ureda na listu koji je ovdje parafiran, a ne
+// PDF ovjere iz ureda kad je ovdje napisan drugi izvornik. Zapis ostaje
+// kad mu je zadnja vlastita verzija živa, osim kad mu je zadnja verzija
+// tuđe brisanje, koje brisanje kanala ponovi vlastitim spomenikom
+// (vlastitoUKnjizi). Odgovor je isti prije i poslije brisanja, pa pregled i
+// brisanje broje iste dokumente.
+func (s *Service) trebaZapisuKojiOstaje(ctx context.Context, otisak, entitet, id string) (bool, error) {
+	var treba bool
+	err := s.db.QueryRowContext(ctx, dokumentZapisaKojiOstaje, sql.Named("otisak", otisak), sql.Named("entitet", entitet),
+		sql.Named("id", id), sql.Named("cvor", s.rec.Cvor())).Scan(&treba)
+	return treba, err
+}
+
+// dokumentZapisaKojiOstaje: vlastita verzija spominje otisak, zadnja
+// vlastita verzija je živa, a zadnja verzija nije tuđe brisanje
+const dokumentZapisaKojiOstaje = `SELECT EXISTS (SELECT 1 FROM record_versions
+	    WHERE entity = @entitet AND entity_id = @id AND +node_id = @cvor AND instr(payload, @otisak) > 0)
+	AND COALESCE((SELECT archived = 0 FROM record_versions
+	    WHERE entity = @entitet AND entity_id = @id AND +node_id = @cvor ORDER BY version_id DESC LIMIT 1), 0)
+	AND NOT COALESCE((SELECT archived = 1 AND node_id <> @cvor FROM record_versions
+	    WHERE entity = @entitet AND entity_id = @id ORDER BY version_id DESC LIMIT 1), 0)`
 
 // argumentiKanala su imenovani parametri uvjeta u koracima brisanja
 func argumentiKanala(kanal, cvor string) []any {
@@ -331,10 +374,18 @@ func koraciDnevnika() []korakBrisanja {
 // listoviKanala su dnevni listovi područja i godine kanala
 const listoviKanala = `SELECT id FROM vodocuvarski_listovi WHERE area_id = @podrucje AND substr(datum, 1, 4) = @godina`
 
+// zadaciKanala su zadaci čija je zadnja verzija u kanalu. Zadatak ne nosi
+// kanal, a list dobiva tek kad se zatvori (list_id je do tada prazan), i
+// to list dana zatvaranja, koji može biti u drugoj godini. Kanal zadatka
+// računa se iz dana za koji je planiran (zadatakChannel), pa se ovdje
+// čita iz knjige, kao za odbačena očitanja.
+const zadaciKanala = `SELECT z.entity_id FROM record_versions z WHERE z.channel = @kanal AND z.entity = 'vodocuvarski_zadaci'
+	AND z.version_id = (SELECT MAX(m.version_id) FROM record_versions m WHERE m.entity = z.entity AND m.entity_id = z.entity_id)`
+
 func koraciVodocuvara() []korakBrisanja {
 	return []korakBrisanja{
 		{"vodocuvarski_izvornici", `list_id IN (` + listoviKanala + `)`, vlastito("vodocuvarski_izvornici", "vodocuvarski_izvornici.list_id")},
-		{"vodocuvarski_zadaci", `list_id IN (` + listoviKanala + `)`, vlastito("vodocuvarski_zadaci", "vodocuvarski_zadaci.id")},
+		{"vodocuvarski_zadaci", `id IN (` + zadaciKanala + `)`, vlastito("vodocuvarski_zadaci", "vodocuvarski_zadaci.id")},
 		{"vodocuvarski_listovi", `area_id = @podrucje AND substr(datum, 1, 4) = @godina`, vlastito("vodocuvarski_listovi", "vodocuvarski_listovi.id")},
 	}
 }

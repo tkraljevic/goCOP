@@ -229,3 +229,165 @@ func TestBrisanjeKanalaVracaIzvornikNastaoNaLaptopu(t *testing.T) {
 		t.Fatalf("nakon ponovnog pokretanja izvornik je %+v, %v", iz, err)
 	}
 }
+
+// Ivin nacrt s laptopa ured obriše, laptop makne praćenje, a ured zatim
+// napiše Ivin list za isti dan, pod istom oznakom. Brisanje kanala na
+// laptopu ponovi brisanje ureda vlastitim spomenikom, ali taj spomenik ne
+// smije obrisati novi list u uredu, ni nakon razmjene. Kad laptop opet
+// prati područje, dobije novi list. Do ispravka je spomenik nosio vrijeme
+// brisanja, pa je bio noviji od lista ureda i obrisao ga.
+func TestBrisanjeKanalaNeBriseNoviListUreda(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ured, laptop, _, _, pravilo := laptopIUred(t, ctx)
+	kanal := ledger.ChannelFor(ledger.ChannelVodocuvar, 16, 2026)
+	ru := repository.NewVodocuvarRepository(ured.db, ured.rec)
+
+	l := listIve("nacrt s laptopa")
+	if err := repository.NewVodocuvarRepository(laptop.db, laptop.rec).Save(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	if err := ru.Delete(ctx, l.ID); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	if err := laptop.svc.RemoveSubscription(ctx, pravilo.ID); err != nil {
+		t.Fatal(err)
+	}
+	nov := listIve("novi list u uredu")
+	if err := ru.Save(ctx, nov); err != nil || nov.ID != l.ID {
+		t.Fatalf("novi list u uredu: %s (nacrt %s), %v", nov.ID, l.ID, err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+
+	if _, err := laptop.svc.PurgeChannel(ctx, kanal); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	if opisi := opisiListovaIve(t, ctx, ured); len(opisi) != 1 || opisi[0] != "novi list u uredu" {
+		t.Fatalf("u uredu su nakon brisanja na laptopu listovi %v", opisi)
+	}
+	if imaListVodocuvara(t, ctx, laptop, vodocuvarBP16) {
+		t.Error("na laptopu je ostao list koji ne prati")
+	}
+
+	if _, err := laptop.svc.AddSubscription(ctx, peers.Subscription{Kind: ledger.ChannelVodocuvar, AreaID: 16, Razina: peers.RazinaSve}); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	if opisi := opisiListovaIve(t, ctx, laptop); len(opisi) != 1 || opisi[0] != "novi list u uredu" {
+		t.Errorf("laptop koji opet prati područje ima listove %v", opisi)
+	}
+}
+
+// Zadatak koji je ured zadao Ivi, a Ivo ga još nije zatvorio, nema list.
+// Brisanje kanala ga odnese s laptopa, pregled ga broji, a ponovno
+// pokretanje ga ne vraća. Do ispravka je ostajao na laptopu bez ijedne
+// verzije u knjizi.
+func TestBrisanjeKanalaOdnosiOtvoreniZadatak(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ured, laptop, _, _, pravilo := laptopIUred(t, ctx)
+	kanal := ledger.ChannelFor(ledger.ChannelVodocuvar, 16, 2026)
+	z := &models.Zadatak{UserID: vodocuvarBP16, Sektor: "B", AreaID: 16, Tekst: "obići nasip Draž", ZadanoAt: danObilaska, Za: danObilaska, Status: models.ZadatakOtvoren}
+	if err := repository.NewVodocuvarRepository(ured.db, ured.rec).SaveZadatak(ctx, z); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	zadataka := func() int {
+		var n int
+		if err := laptop.db.QueryRow(`SELECT count(*) FROM vodocuvarski_zadaci WHERE id = ?`, z.ID).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	if zadataka() != 1 {
+		t.Fatal("zadatak iz ureda nije stigao na laptop")
+	}
+
+	if b := obrisiKanalNaLaptopu(t, ctx, laptop, pravilo, kanal); b.Zapisa != 1 {
+		t.Errorf("brisanje %+v: očekivan jedan obrisan zadatak", b)
+	}
+	if zadataka() != 0 {
+		t.Fatal("otvoreni zadatak ureda ostao je na laptopu")
+	}
+	ponovnoPokretanje(t, ctx, laptop)
+	if zadataka() != 0 {
+		t.Error("ponovno pokretanje vratilo je zadatak")
+	}
+}
+
+// Ivin list predan je u uredu bez PDF-a, a kasnije na laptopu s PDF-om, pa
+// je list s laptopa dvojnik. Nakon brisanja kanala list s laptopa odmah ima
+// svoj PDF, a ne tek nakon ponovnog pokretanja.
+func TestBrisanjeKanalaVracaPDFDvojnikaNastalogNaLaptopu(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ured, laptop, _, _, pravilo := laptopIUred(t, ctx)
+	kanal := ledger.ChannelFor(ledger.ChannelVodocuvar, 16, 2026)
+
+	u := listIve("predan u uredu")
+	kad := time.Now().UTC()
+	u.PredanoAt = &kad
+	if err := repository.NewVodocuvarRepository(ured.db, ured.rec).Predaj(ctx, u, nil); err != nil {
+		t.Fatal(err)
+	}
+	l := listIve("predan na laptopu")
+	kasnije := kad.Add(time.Minute)
+	l.PredanoAt = &kasnije
+	rl := repository.NewVodocuvarRepository(laptop.db, laptop.rec)
+	if err := rl.Predaj(ctx, l, nil); err != nil {
+		t.Fatal(err)
+	}
+	pdf := []byte("%PDF list s laptopa")
+	if err := rl.SaveIzvornik(ctx, &models.IzvornikLista{ListID: l.ID, PDF: pdf, Sazetak: "s"}); err != nil {
+		t.Fatal(err)
+	}
+	razmijeni(t, ctx, laptop, ured)
+	if opisi := opisiListovaIve(t, ctx, laptop); len(opisi) != 2 {
+		t.Fatalf("laptop ima listove %v, očekivana dva", opisi)
+	}
+
+	obrisiKanalNaLaptopu(t, ctx, laptop, pravilo, kanal)
+	listovi, err := rl.ListoviDana(ctx, vodocuvarBP16, danObilaska)
+	if err != nil || len(listovi) != 1 || listovi[0].Opis != "predan na laptopu" {
+		t.Fatalf("nakon brisanja listovi %+v, %v", listovi, err)
+	}
+	if iz, err := rl.GetIzvornik(ctx, listovi[0].ID); err != nil || iz == nil || string(iz.PDF) != string(pdf) {
+		t.Errorf("nakon brisanja list s laptopa ima izvornik %+v, %v", iz, err)
+	}
+}
+
+// Perin list s fotografijom stigao je iz ureda, a rukovoditelj je na
+// laptopu upisao zapažanje. List ostaje jer je mijenjan ovdje, a s njim i
+// fotografija. Do ispravka je fotografija obrisana, a list je na nju i
+// dalje pokazivao.
+func TestBrisanjeKanalaOstavljaFotografijuListaMijenjanogNaLaptopu(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	ured, laptop, spU, spL, pravilo := laptopIUred(t, ctx)
+	kanal := ledger.ChannelFor(ledger.ChannelVodocuvar, 16, 2026)
+	foto := listSFotografijomZa(t, ctx, ured, spU, vodocuvarPero, "Pero Perić", "foto-pero")
+	repository.SetSpremiste(spL)
+	razmijeni(t, ctx, laptop, ured)
+	if fotografijaNaCvoru(t, ctx, laptop, spL, "foto-pero") != string(foto) {
+		t.Fatal("fotografija nije stigla na laptop")
+	}
+	rl := repository.NewVodocuvarRepository(laptop.db, laptop.rec)
+	l, err := rl.ZaDan(ctx, vodocuvarPero, danObilaska)
+	if err != nil || l == nil {
+		t.Fatalf("Perin list na laptopu: %v", err)
+	}
+	l.Zapazanja = "rukovoditelj: nasip pregledan"
+	if err := rl.Save(ctx, l); err != nil {
+		t.Fatal(err)
+	}
+
+	if b := obrisiKanalNaLaptopu(t, ctx, laptop, pravilo, kanal); b.Dokumenata != 0 || b.OstajeDokumenata != 1 {
+		t.Errorf("brisanje %+v: fotografija lista koji ostaje mora ostati", b)
+	}
+	if fotografijaNaCvoru(t, ctx, laptop, spL, "foto-pero") != string(foto) {
+		t.Error("fotografija lista koji je ostao na laptopu obrisana je")
+	}
+}
