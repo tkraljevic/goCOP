@@ -1,11 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
+	"log"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"gocop/internal/arhiva"
@@ -277,4 +282,168 @@ func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
 	if p, _ := arhiva.Primljeno(arhB, "pljusak-kotoriba"); p == nil || p.Izdanje != 1 {
 		t.Errorf("primljeno izdanje kotoribe: %+v", p)
 	}
+}
+
+// izdanaMapa izda arhivu s jednom kišnom letvom u novu mapu paketa i vraća
+// tu mapu.
+func izdanaMapa(t *testing.T, izdao string) string {
+	t.Helper()
+	dir := t.TempDir()
+	arh, err := sql.Open("sqlite", filepath.Join(dir, "vodostaji.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arh.Close()
+	if err := arhiva.PripremiPraznu(arh); err != nil {
+		t.Fatal(err)
+	}
+	res, err := arh.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa) VALUES ('drava','pljusak-x','pljusak','oborina','satni',1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	niz, _ := res.LastInsertId()
+	if _, err := arh.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1000,1.5)`, niz); err != nil {
+		t.Fatal(err)
+	}
+	paketi := filepath.Join(dir, "pakete")
+	if _, err := arhiva.Izdaj(arh, paketi, izdao, "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	return paketi
+}
+
+// zapisDnevnika hvata dnevnik do kraja testa.
+func zapisDnevnika(t *testing.T) *bytes.Buffer {
+	t.Helper()
+	var zapis bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&zapis)
+	t.Cleanup(func() { log.SetOutput(stari) })
+	return &zapis
+}
+
+// Prazan redak koji je u katalogu ostavilo izdanje 0.0.37 objava preskače:
+// ne čita mapu paketa kao paket i ne javlja grešku u dnevnik svaki krug. Isto
+// vrijedi za redak s letvom, a bez datoteke. Pravi paket iz istog kataloga
+// objavi se kao i prije.
+func TestObjavaPreskaceRedakBezLetveIliDatoteke(t *testing.T) {
+	ctx := context.Background()
+	baza, rec, _ := cvorZaTest(t, "laptop")
+	paketi := izdanaMapa(t, rec.Cvor())
+	k, err := arhiva.UcitajKatalog(paketi)
+	if err != nil {
+		t.Fatal(err)
+	}
+	k.Paketi = append(k.Paketi, arhiva.UPaketu{}, arhiva.UPaketu{Letva: "pljusak-y", Izdanje: 1})
+	b, err := json.Marshal(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(paketi, arhiva.ImeKataloga), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	dnevnik := zapisDnevnika(t)
+	sp, _ := sadrzaj.Otvori("")
+	a := &razmjenaArhive{baza: baza, rec: rec, sp: sp, paketiDir: paketi, javljeno: map[string]bool{}}
+	for krug, ocekivano := range []int{1, 0} {
+		if n, err := a.objavi(ctx); err != nil || n != ocekivano {
+			t.Fatalf("krug %d: objavljeno %d (%v), očekivano %d", krug, n, err, ocekivano)
+		}
+	}
+	if dnevnik.Len() != 0 {
+		t.Errorf("objava je pisala u dnevnik:\n%s", dnevnik.String())
+	}
+	if _, err := rec.Latest(ctx, EntitetArhive, "pljusak-y"); !errors.Is(err, ledger.ErrNoVersion) {
+		t.Errorf("redak bez datoteke ušao je u kazalo: %v", err)
+	}
+}
+
+// Objava stane s greškom kad ne može pročitati katalog ili knjigu ili upisati
+// paket, a paket kojeg u mapi nema preskoči i javi u dnevnik. Bez mape
+// paketa, bez spremišta ili s katalogom drugog čvora nema što objaviti.
+func TestObjavaKojaNeUspije(t *testing.T) {
+	ctx := context.Background()
+	cvor := func(t *testing.T) (*razmjenaArhive, string) {
+		t.Helper()
+		baza, rec, _ := cvorZaTest(t, "laptop")
+		sp, err := sadrzaj.Otvori("")
+		if err != nil {
+			t.Fatal(err)
+		}
+		paketi := izdanaMapa(t, rec.Cvor())
+		return &razmjenaArhive{baza: baza, rec: rec, sp: sp, paketiDir: paketi, javljeno: map[string]bool{}}, paketi
+	}
+	nistaBezGreske := func(t *testing.T, a *razmjenaArhive) {
+		t.Helper()
+		if n, err := a.objavi(ctx); err != nil || n != 0 {
+			t.Errorf("objavljeno %d (%v), očekivano ništa bez greške", n, err)
+		}
+	}
+	greska := func(t *testing.T, a *razmjenaArhive, dio string) {
+		t.Helper()
+		n, err := a.objavi(ctx)
+		if err == nil || !strings.Contains(err.Error(), dio) || n != 0 {
+			t.Errorf("objavljeno %d, greška %v; očekivano 0 i greška s %q", n, err, dio)
+		}
+	}
+
+	t.Run("bez mape paketa", func(t *testing.T) {
+		a, _ := cvor(t)
+		a.paketiDir = ""
+		nistaBezGreske(t, a)
+	})
+	t.Run("bez spremišta", func(t *testing.T) {
+		a, _ := cvor(t)
+		a.sp = nil
+		nistaBezGreske(t, a)
+	})
+	t.Run("katalog drugog čvora", func(t *testing.T) {
+		a, _ := cvor(t)
+		a.rec = ledger.New(a.baza, "unraid")
+		nistaBezGreske(t, a)
+	})
+	t.Run("pokvaren katalog", func(t *testing.T) {
+		a, paketi := cvor(t)
+		if err := os.WriteFile(filepath.Join(paketi, arhiva.ImeKataloga), []byte("{"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		greska(t, a, "katalog se ne čita")
+	})
+	t.Run("knjiga se ne čita", func(t *testing.T) {
+		a, _ := cvor(t)
+		a.baza.Close()
+		greska(t, a, "database is closed")
+	})
+	t.Run("paketa nema u mapi", func(t *testing.T) {
+		a, paketi := cvor(t)
+		if err := os.Remove(filepath.Join(paketi, "pljusak-x_v1.cop")); err != nil {
+			t.Fatal(err)
+		}
+		dnevnik := zapisDnevnika(t)
+		nistaBezGreske(t, a)
+		if !strings.Contains(dnevnik.String(), "arhiva: paket pljusak-x_v1.cop nije pročitan") {
+			t.Errorf("dnevnik ne kaže da paket nije pročitan:\n%s", dnevnik.String())
+		}
+	})
+	t.Run("prazan paket", func(t *testing.T) {
+		a, paketi := cvor(t)
+		if err := os.WriteFile(filepath.Join(paketi, "pljusak-x_v1.cop"), nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		greska(t, a, "prazan sadržaj se ne sprema")
+	})
+	t.Run("kazalo se ne da upisati", func(t *testing.T) {
+		a, _ := cvor(t)
+		zatvorena, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "zatvorena.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		zatvorena.Close()
+		a.baza = zatvorena
+		greska(t, a, "database is closed")
+		if _, err := a.rec.Latest(ctx, EntitetArhive, "pljusak-x"); !errors.Is(err, ledger.ErrNoVersion) {
+			t.Errorf("kazalo je upisano iako upis nije uspio: %v", err)
+		}
+	})
 }

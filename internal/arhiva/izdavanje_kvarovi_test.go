@@ -210,6 +210,49 @@ func TestIzdavanjePrimljeneLetveKadPaketSNovimBrojemNeUspije(t *testing.T) {
 	}
 }
 
+// Zaključava da izdavanje izbaci iz kataloga prazan redak koji je ostavilo
+// izdanje 0.0.37 i to zapiše, a redak letve koju ovaj put ne izdaje zadrži
+// kakav jest. Prije se prazan redak prenosio u svako sljedeće izdavanje.
+func TestIzdavanjeIzbacujePrazanRedakIzKataloga(t *testing.T) {
+	mapa := t.TempDir()
+	db := napraviArhivu(t, filepath.Join(t.TempDir(), "arhiva.db"))
+	defer db.Close()
+	dodajNiz(t, db, "vodograd")
+	dodajNiz(t, db, "rijecica")
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, io.Discard); err != nil {
+		t.Fatal(err)
+	}
+	k, err := UcitajKatalog(mapa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rijecica := k.PoLetvi()["rijecica"]
+	k.Paketi = append(k.Paketi, UPaketu{})
+	if err := zapisiKatalog(mapa, k); err != nil {
+		t.Fatal(err)
+	}
+
+	var zapisi strings.Builder
+	if _, err := Izdaj(db, mapa, "cvor-proba", "vodograd", false, &zapisi); err != nil {
+		t.Fatal(err)
+	}
+	k, err = UcitajKatalog(mapa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, p := range k.Paketi {
+		if p.Letva == "" {
+			t.Errorf("prazan redak ostao je u katalogu: %+v", p)
+		}
+	}
+	if len(k.Paketi) != 2 || k.PoLetvi()["rijecica"] != rijecica {
+		t.Errorf("katalog nakon izdavanja: %+v", k.Paketi)
+	}
+	if !strings.Contains(zapisi.String(), "izbacujem iz kataloga prazan redak bez letve") {
+		t.Errorf("izbacivanje praznog retka nije zapisano:\n%s", zapisi.String())
+	}
+}
+
 // Zaključava da izvoz jedne letve s brojem iz kataloga ne napiše ništa kad
 // paket s novim brojem ne uspije.
 func TestSljedeceIzdanjeKadPaketSNovimBrojemNeUspije(t *testing.T) {

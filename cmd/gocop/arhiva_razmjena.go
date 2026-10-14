@@ -92,52 +92,91 @@ func kanalLetve(ctx context.Context, baza *sql.DB, letva string) string {
 // objavi zapisuje u knjigu kazalo svakog paketa iz kataloga ovog čvora
 // kojega knjiga još nema u tom izdanju. Paket ide u spremište sadržaja.
 func (r *razmjenaArhive) objavi(ctx context.Context) (int, error) {
-	if r.paketiDir == "" || r.sp == nil {
-		return 0, nil
-	}
-	k, err := arhiva.UcitajKatalog(r.paketiDir)
+	paketi, err := r.paketiZaObjavu()
 	if err != nil {
 		return 0, err
 	}
-	// Objavljuje samo onaj tko je katalog izdao: mapa paketa prenesena s
-	// drugog računala nije ovog čvora.
-	if k.Izdao != "" && k.Izdao != r.rec.Cvor() {
-		return 0, nil
-	}
 	n := 0
-	for _, p := range k.Paketi {
-		if v, err := r.rec.Latest(ctx, EntitetArhive, p.Letva); err == nil {
-			// Objavljuje se samo novije od onoga što kazalo već ima. Kad je
-			// drugi čvor izdao novije (Unraid noćas za kišomjere), ovaj čvor
-			// šuti: inače su se dva čvora svake dvije minute nadglasavala
-			// istim paketima i knjiga je rasla po 1.200 zapisa na sat.
-			var bio paketUKnjizi
-			if json.Unmarshal(v.Payload, &bio) == nil && (bio.Izdanje > p.Izdanje || (bio.Izdanje == p.Izdanje && bio.Otisak == p.Otisak)) {
-				continue
-			}
-		} else if !errors.Is(err, ledger.ErrNoVersion) {
-			return n, err
-		}
-		b, err := os.ReadFile(filepath.Join(r.paketiDir, p.Datoteka))
-		if err != nil {
-			log.Printf("arhiva: paket %s nije pročitan: %v", p.Datoteka, err)
-			continue
-		}
-		kanal := kanalLetve(ctx, r.baza, p.Letva)
-		otisak, err := r.sp.Upisi(ctx, VrstaPaketa, b, "ovdje",
-			sadrzaj.Veza{Entitet: EntitetArhive, EntitetID: p.Letva, Uloga: "paket", Kanal: kanal})
+	for _, p := range paketi {
+		objavljen, err := r.objaviPaket(ctx, p)
 		if err != nil {
 			return n, err
 		}
-		if _, err := r.rec.Record(ctx, r.baza, EntitetArhive, p.Letva, paketUKnjizi{
-			Letva: p.Letva, Izdanje: p.Izdanje, Otisak: p.Otisak, Sadrzaj: otisak, Bajtova: int64(len(b)),
-			Nizova: p.Nizova, Zapisa: p.Zapisa, Od: p.Od, Do: p.Do, Izdao: r.rec.Cvor(), Kanal: kanal,
-		}); err != nil {
-			return n, err
+		if objavljen {
+			n++
 		}
-		n++
 	}
 	return n, nil
+}
+
+// paketiZaObjavu daje retke kataloga ovog čvora. Objavljuje samo onaj tko je
+// katalog izdao: mapa paketa prenesena s drugog računala nije ovog čvora.
+func (r *razmjenaArhive) paketiZaObjavu() ([]arhiva.UPaketu, error) {
+	if r.paketiDir == "" || r.sp == nil {
+		return nil, nil
+	}
+	k, err := arhiva.UcitajKatalog(r.paketiDir)
+	if err != nil {
+		return nil, err
+	}
+	if k.Izdao != "" && k.Izdao != r.rec.Cvor() {
+		return nil, nil
+	}
+	return k.Paketi, nil
+}
+
+// objaviPaket upisuje kazalo jednog retka kataloga i kaže je li upisano.
+// Redak bez letve ili bez datoteke preskače bez traga: takve je zapisivalo
+// izdanje 0.0.37, paketa za njih nema, a pokušaj čitanja javljao je grešku u
+// dnevnik svake dvije minute.
+func (r *razmjenaArhive) objaviPaket(ctx context.Context, p arhiva.UPaketu) (bool, error) {
+	if p.Letva == "" || p.Datoteka == "" {
+		return false, nil
+	}
+	if vec, err := r.vecUKazalu(ctx, p); vec || err != nil {
+		return false, err
+	}
+	b, err := os.ReadFile(filepath.Join(r.paketiDir, p.Datoteka))
+	if err != nil {
+		log.Printf("arhiva: paket %s nije pročitan: %v", p.Datoteka, err)
+		return false, nil
+	}
+	err = r.upisiUKazalo(ctx, p, b)
+	return err == nil, err
+}
+
+// vecUKazalu kaže drži li kazalo u knjizi već to izdanje ili novije.
+// Objavljuje se samo novije od onoga što kazalo već ima. Kad je drugi čvor
+// izdao novije (Unraid noćas za kišomjere), ovaj čvor šuti: inače su se dva
+// čvora svake dvije minute nadglasavala istim paketima i knjiga je rasla po
+// 1.200 zapisa na sat.
+func (r *razmjenaArhive) vecUKazalu(ctx context.Context, p arhiva.UPaketu) (bool, error) {
+	v, err := r.rec.Latest(ctx, EntitetArhive, p.Letva)
+	if errors.Is(err, ledger.ErrNoVersion) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var bio paketUKnjizi
+	return json.Unmarshal(v.Payload, &bio) == nil &&
+		(bio.Izdanje > p.Izdanje || (bio.Izdanje == p.Izdanje && bio.Otisak == p.Otisak)), nil
+}
+
+// upisiUKazalo stavlja paket u spremište sadržaja i upisuje njegovo kazalo u
+// knjigu.
+func (r *razmjenaArhive) upisiUKazalo(ctx context.Context, p arhiva.UPaketu, b []byte) error {
+	kanal := kanalLetve(ctx, r.baza, p.Letva)
+	otisak, err := r.sp.Upisi(ctx, VrstaPaketa, b, "ovdje",
+		sadrzaj.Veza{Entitet: EntitetArhive, EntitetID: p.Letva, Uloga: "paket", Kanal: kanal})
+	if err != nil {
+		return err
+	}
+	_, err = r.rec.Record(ctx, r.baza, EntitetArhive, p.Letva, paketUKnjizi{
+		Letva: p.Letva, Izdanje: p.Izdanje, Otisak: p.Otisak, Sadrzaj: otisak, Bajtova: int64(len(b)),
+		Nizova: p.Nizova, Zapisa: p.Zapisa, Od: p.Od, Do: p.Do, Izdao: r.rec.Cvor(), Kanal: kanal,
+	})
+	return err
 }
 
 // primi prolazi kazalo u knjizi: što ovaj čvor prati, a nema u tom izdanju,
