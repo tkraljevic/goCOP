@@ -278,6 +278,17 @@
       se najprije stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
       <a href="#sync">Sinkronizacija</a>.</p>
+    <p>Na vrhu pločice stoji i upozorenje kad na disku ostane malo mjesta: manje od 10 GB ili
+      manje od 10 % diska. Program svakih deset minuta pogleda diskove na kojima su baza, arhiva
+      vodostaja, izvorne datoteke arhive i paketi. Upozorenje kaže na kojem je čvoru disk i koliko
+      je mjesta ostalo, na primjer „Na disku čvora COP Osijek s bazom i arhivom ostalo je 8,2 GB
+      (6 % diska)”. Upozorenje se vidi i kad čvor nije ni u jednoj mreži. Razmjena zbog toga ne staje.</p>
+    <p>Što učiniti vidi samo globalni administrator, a ostali uz upozorenje vide
+      „Javite administratoru”. Arhivu, izvorne datoteke i pakete administrator premješta na veći
+      disk tako da ugasi čvor, premjesti ih i upiše nove putanje u <code>gocop.toml</code>
+      (<code>arhiva</code>, <code>podaci</code>, <code>pakete</code>). U Dockeru se umjesto toga
+      mijenja montaža mape <code>/arhiva</code>. Gdje su sada, piše u Administraciji pod
+      <em>Održavanje baze</em>.</p>
 
     <h3 id="dashboard-dogadjanja">Zid događanja</h3>
     <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,

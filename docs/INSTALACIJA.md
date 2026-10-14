@@ -782,6 +782,12 @@ Obje mape moraju biti trajno montirane izvan spremnika. SQLite držati na
 lokalnom disku; na Unraidu koristiti izravnu putanju diska/poola, ne `/mnt/user/`
 ni mrežni disk. Ne brisati volumene pri zamjeni slike.
 
+Pločica razmjene upozori kad na disku s tim mapama ostane manje od 10 GB ili
+manje od 10 % diska. Disk se prepoznaje po uređaju, pa dva ZFS skupa podataka
+(dataseta) ili btrfs podsveska na istom poolu daju dva upozorenja s istim
+slobodnim mjestom, a postotak se računa od skupa podataka, ne od poola. Na
+ZFS-u zato gledati koliko je GB ostalo.
+
 Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
 spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
 datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i

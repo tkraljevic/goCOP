@@ -71,6 +71,18 @@ type RazmjenaStanje struct {
 	SadrzajCeka    int
 	SadrzajBajtova int64
 	Prognoza       PrognozaRazmjene
+	// Disk su upozorenja da na disku čvora ostaje malo mjesta; vide se i kad
+	// čvor nije u mreži, a na „sve je usklađeno” ne utječu
+	Disk []DiskRazmjene
+	// Administrator: pločicu gleda globalni administrator, pa uz upozorenje
+	// o disku vidi i što može učiniti
+	Administrator bool
+}
+
+// DiskRazmjene je disk čvora na kojem ostaje malo mjesta
+type DiskRazmjene struct {
+	Poruka string // na kojem je disku i koliko je mjesta ostalo
+	Savjet string // što može administrator; ostali vide „Javite administratoru.”
 }
 
 // Sredeno javlja je li sve usklađeno, pa pločica može biti jedan redak
@@ -109,6 +121,7 @@ func (s *Server) ShowRazmjena(w http.ResponseWriter, r *http.Request) {
 	ctx, otkazi := context.WithTimeout(r.Context(), 10*time.Second)
 	defer otkazi()
 	st := s.razmjena(ctx)
+	st.Administrator = requireAdmin(r) == nil
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	if err := razmjenaTmpl.Execute(w, st); err != nil {
@@ -159,6 +172,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     <h2 class="section-title">{{icon "refresh-cw"}} Razmjena s čvorovima</h2>
     <span class="reg-card-sub">{{if .Verzija}}ovaj čvor na {{.Verzija}} · {{end}}osvježava se sama · <a href="/sinkronizacija">Sinkronizacija</a></span>
   </div>
+  {{range .Disk}}<div class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Poruka}} {{if $.Administrator}}{{.Savjet}}{{else}}Javite administratoru.{{end}}</div>{{end}}
   {{if not .UMrezi}}
   <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Čvor, mreža i sinkronizacija</a></p>
   {{else if .Sredeno}}
