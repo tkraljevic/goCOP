@@ -64,13 +64,16 @@ provjerava se zasebno. Granice zaštite opisane su u [SECURITY.md](SECURITY.md).
 Prije nadogradnje izraditi kopiju baza, sadržaja, postavki i ključeva;
 kopiju identiteta ne koristiti kao novi čvor. Za stanje obrane i storno svi
 čvorovi trebaju **0.0.34-alfa ili novije**; stariji poništen akt još broje.
-Na 0.0.35-alfa nadograditi sve čvorove odmah: nova pravila vrijede tek kad su
-svi na toj inačici. 0.0.36-alfa radi uz 0.0.35-alfa; novi čvor u mrežu
+Na 0.0.35-alfa nadograditi sve čvorove odmah: nova pravila vrijede tek kad
+su svi na toj inačici. 0.0.36-alfa radi uz 0.0.35-alfa; novi čvor u mrežu
 uključivati s 0.0.36-alfa ili novijim. 0.0.37-alfa radi uz 0.0.36-alfa;
 čvorove s Tailscaleom nadograditi zajedno. 0.0.38-alfa radi uz 0.0.37-alfa;
 nakon nadogradnje globalni administrator na čvoru koji izdaje prognozu
 pokrene *Pripremi model*. Dok svi čvorovi nisu na 0.0.38-alfa, ne brisati
-područja, sektore, općine, županije, korisnike ni dionice.
+područja, sektore, općine, naselja, županije, korisnike ni dionice, ni letve
+i objekte koje navodi neka dionica. Na računalu koje je još na 0.0.37-alfa
+ne koristiti „Obriši s računala” ni „Makni i obriši”: ondje brišu i ono što
+je nastalo na tom računalu.
 
 ## Dokumentacija i razvoj
 

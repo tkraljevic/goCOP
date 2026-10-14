@@ -841,50 +841,85 @@ različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
 
-0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti
-istoga dana: najprije stalni čvor koji izdaje prognozu, zatim ostala
-računala. Nakon nadogradnje globalni administrator na čvoru koji izdaje
-prognozu pokrene Prognoze → Postavke → *Pripremi model*, izvan poplavnog
-vala: ispravak prognoze izmjeren je uz grešku u ispuštanju elektrana koja
-je u 0.0.38-alfa ispravljena, pa se mijenja svaka prognoza. Traje desetak
-minuta i više. Na ostalim računalima to ne treba.
+0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
+dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.
+Odmah nakon nadogradnje tog čvora, ne čekajući ostala računala, globalni
+administrator na njemu pokrene Prognoze → Postavke → *Pripremi model*, izvan
+poplavnog vala: ispravak prognoze izmjeren je uz grešku u ispuštanju
+elektrana koja je u 0.0.38-alfa ispravljena, pa se mijenja svaka prognoza.
+Traje desetak minuta i više. Na ostalim računalima to ne treba: gumb se
+ondje vidi, ali priprema javi da ovaj čvor ne izdaje prognozu i da se model
+priprema na čvoru koji je izdaje.
 
-Pri prvom pokretanju 0.0.38-alfa pregleda primljene dnevne listove i
-zatraži fotografije koje nedostaju; u dnevniku programa piše „Fotografije
-uz dnevne listove: …”. Te fotografije ima samo računalo na kojem su
-upisane, npr. laptop s kojeg je rađen uvoz iz BP16, pa neka bude uključeno
-i dohvatljivo dok broj „Sadržaj čeka dohvat” na pločici razmjene ne
-padne. Na računalu koje vodočuvarski dnevnik prati samo kazalom taj broj
-ostaje, i to je očekivano.
+Pri prvom pokretanju 0.0.38-alfa pregleda primljene dnevne listove i zatraži
+fotografije koje nedostaju; u dnevniku programa piše „Fotografije uz dnevne
+listove: …”, a koliko ukupno čeka, u retku „Spremište sadržaja: … za
+dohvat”. Te fotografije ima samo računalo na kojem su upisane, npr. laptop s
+kojeg je rađen uvoz iz BP16, pa neka bude uključeno i dohvatljivo dok ih
+stalni čvor ne preuzme. To se vidi na stalnom čvoru: na pločici „Razmjena s
+čvorovima” broj uz „Sadržaj čeka dohvat” padne za onoliko fotografija koliko
+ih dnevnik programa tog čvora navodi iza „na popisu za dohvat”, ili redak
+nestane. Na računalu koje fotografije ima taj se broj ne mijenja. U jednoj
+razmjeni, svakih pet minuta, stigne najviše 200 fotografija i dokumenata ili
+48 MB. Fotografija lista ima oko 130 kB, pa na sat stigne oko 2.400
+fotografija, a gigabajt traje oko tri sata; kad i stalni čvor može nazvati
+to računalo, otprilike upola kraće. Kad ih stalni čvor ima, ostala računala
+ih dobiju i od njega. Do nule broj ne mora pasti: u njemu je i ono što
+računalo po pretplati ne dohvaća, npr. PDF-ovi uz „Samo pregledi” ili
+fotografije uz „Samo kazalo”, te paketi arhive vodostaja dok se još
+dohvaćaju.
 
-Dok sva računala nisu na 0.0.38-alfa, ne brisati područja, sektore,
-općine, županije, korisnike ni dionice. Pravilo da brisanje ima prednost
-pred istodobnim upisom vrijedi samo na računalu s 0.0.38-alfa; računalo s
-0.0.37-alfa i dalje čeka novi zapis ili ne može provesti brisanje.
-Računalo koje se tako razišlo prije nadogradnje pri prvom pokretanju
-0.0.38-alfa makne obrisani zapis i sve što je uz njega upisano, i ono
-upisano poslije brisanja. Upisano se ne gubi: vraća se kad se područje
-ponovno upiše pod istim brojem ili sektor pod istom oznakom. Prije
-nadogradnje vrijedi pogledati dnevnik programa: ponavlja li se pri
-pokretanju poruka „Obnova površine iz knjige (… zapisa): …” s greškom za
-područje, sektor, općinu ili korisnika. Ni „Obriši s računala” ne koristiti na
-računalu koje je još na 0.0.37-alfa: ondje briše i ono što je nastalo na
-tom računalu.
+Dok sva računala nisu na 0.0.38-alfa, ne brisati područja, sektore, općine,
+naselja, županije, korisnike ni dionice, ni letve i objekte koje neka
+dionica još navodi. Pravilo da brisanje ima prednost pred istodobnim upisom
+vrijedi samo na računalu s 0.0.38-alfa; računalo s 0.0.37-alfa i dalje čeka
+novi zapis ili ne može provesti brisanje. Računalo koje se tako razišlo
+prije nadogradnje pri prvom pokretanju 0.0.38-alfa makne obrisani zapis i
+sve što je uz njega upisano, i ono upisano poslije brisanja. Što je upisano
+uz područje ili sektor, vraća se kad se područje ponovno upiše pod istim
+brojem ili sektor pod istom oznakom. Što je upisano uz obrisanu općinu,
+županiju ili korisnika, u pravilu se ne vraća: ponovno upisana općina ili
+županija dobije novi broj, a korisnik novi identitet.
 
-Pravilo „Sve vrste” za sva područja koje ima godinu početka, kakvo je
-davao zadani obrazac, ili sadržaj „Samo pregledi” ili „Samo kazalo”,
-arhivu vodostaja dosad nije donosilo. Nakon nadogradnje počne je dohvaćati
-samo: cijela arhiva je oko 300 paketa i oko 50 MB razmjene, a ugrađena na
-računalu zauzima oko 10 GB. Na računalu s malo mjesta na disku prije
-nadogradnje takvo pravilo zamijeniti pravilom za svoje područje. Pakete za
-pravilo s godinom početka računala razmjenjuju tek kad su oba na
-0.0.38-alfa ili novijem.
+Je li se računalo tako razišlo, vidi se prije nadogradnje u dnevniku
+programa: pri svakom pokretanju ponavlja se poruka „Obnova površine iz
+knjige (… zapisa): … verzija nije primijenjeno na površinu …; prva: …”. Iza
+„prva:” stoji vrsta i oznaka samo prvog zapisa koji nije prošao: areas
+(područje), sectors (sektor), counties (županija), municipalities (općina)
+ili users (korisnik), ili zapis upisan uz njih, npr. structures (objekt),
+settlements (naselje) ili duties (dužnost). Kad iza „prva:” stoji nešto
+drugo, npr. defense_episodes (epizoda obrane) ili sections (dionica), iz
+poruke se ne vidi je li se računalo razišlo i oko nekog od tih zapisa. Taj
+redak dnevnika treba prepisati prije nadogradnje: nakon nje taj zapis i ono
+upisano uz njega neće biti na popisu. Ono uz područje ili sektor vratit će
+se kad se područje ponovno upiše pod istim brojem ili sektor pod istom
+oznakom; ono uz općinu, županiju ili korisnika u pravilu se ne vraća, pa ga
+treba upisati iznova.
+
+Na računalu koje je još na 0.0.37-alfa na stranici „Što ovo računalo prati”
+ne koristiti ni „Obriši s računala” ni „Makni i obriši”: ondje brišu i ono
+što je nastalo na tom računalu, a što još nije stiglo na druga računala,
+nestaje zauvijek. Pravilo se na 0.0.37-alfa miče samo gumbom „Makni”.
+
+Pravilo „Sve vrste” za sva područja dosad nije donosilo arhivu vodostaja kad
+je imalo godinu početka, kakvu je upisivao zadani obrazac, ili sadržaj „Samo
+pregledi” ili „Samo kazalo”. Nakon nadogradnje takvo pravilo samo od sebe
+počne dohvaćati cijelu arhivu: oko 300 paketa i oko 50 MB razmjene, a
+ugrađena na računalu zauzima oko 10 GB. Na računalu s malo mjesta na disku
+prije nadogradnje dodati pravilo za svoje područje, a staro maknuti gumbom
+„Makni”, ne „Makni i obriši”. Tek nakon nadogradnje gumbom „Obriši s
+računala” obrisati ono što više ne treba. Pakete za pravilo s godinom
+početka računala razmjenjuju tek kad su oba na 0.0.38-alfa ili novijem.
 
 Na Windowsu nakon nadogradnje provjeriti da se na stranici letve i dalje
-vide historijat i graf prognoze, a u dnevniku programa da nema „Arhiva
-vodostaja nije pronađena” ni „Baza prognoza nije pronađena”: arhivu, bazu
-očitanja i bazu prognoza program sad otvara samo za čitanje, a to na
-Windowsu nije isprobano.
+vide historijat i graf prognoze, ako su se vidjeli i prije, i da se u
+dnevniku programa nije pojavila poruka „Arhiva vodostaja nije pronađena” ili
+„Baza prognoza nije pronađena” koje prije nadogradnje nije bilo. Poruku
+„Arhiva vodostaja nije pronađena” računalo koje arhive nema pisalo je i na
+0.0.37-alfa. Program sad arhivu, bazu očitanja i bazu prognoza, kad ih samo
+čita, otvara samo za čitanje, a to na Windowsu nije isprobano. Ako se poruka
+pojavi tek nakon nadogradnje, računalo radi bez historijata i prognoze, a
+ostali podaci i dalje se razmjenjuju; to treba prijaviti kao grešku.
 
 0.0.37-alfa radi uz 0.0.36-alfa i nadograđuje se redom (stalni čvor prvi).
 Čvorove s Tailscaleom nadograditi zajedno: stariji program Tailscale adresu

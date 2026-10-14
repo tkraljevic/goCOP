@@ -38,7 +38,7 @@ func TestPripremaModelaUciDnevneIznova(t *testing.T) {
 		want := 0
 		if izdaje {
 			want = 1
-		} else if !strings.Contains(err.Error(), "čvor koji izdaje") {
+		} else if !strings.Contains(err.Error(), "model nije pripremljen: ovaj čvor ne izdaje prognozu") {
 			t.Errorf("čvor koji ne izdaje: %v", err)
 		}
 		if zaboravljeno != want {

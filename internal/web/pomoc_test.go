@@ -177,7 +177,7 @@ func TestPomocOpisujeDatotekuKrivulja(t *testing.T) {
 	for _, want := range []string{
 		"Prvi redak datoteke mora biti zaglavlje s imenima stupaca",
 		"<code>vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena</code>",
-		"u stupcu od_cm ili do_cm nema cijelog broja, u stupcu p1 do p4 piše nešto što nije broj",
+		"stupac od_cm ili do_cm nema cijelog broja, u nekom od stupaca p1 do p4 piše nešto što nije broj",
 		"Najčešće je to zarez upisan umjesto točke-zareza.",
 		"Prazan redak gradnja preskače", "datoteka sa samim zaglavljem znači da letva krivulja nema",
 		"Prazno polje u stupcu p1 do p4 gradnja čita kao nulu.",
