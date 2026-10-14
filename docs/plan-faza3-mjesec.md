@@ -3,7 +3,11 @@
 Plan od 11. 10. 2026., za mjesec rada s većim limitom (od 12. 10. do 13. 11.
 2026.). Slijedi redoslijed iz Odluka (11. 10. 2026.): prvo čitljivost i
 pojednostavljenje (faza 3 iz [STABILIZACIJA.md](STABILIZACIJA.md)), zatim
-mreža, a tek onda proširenja. Polazište je mjerenje od 11. 10. 2026.:
+mreža, a tek onda proširenja. Odluke (14. 10. 2026.) mrežu pomiču naprijed:
+pravila razmjene na granici i WEB sync ([plan-web-sync.md](plan-web-sync.md))
+idu usporedo s koracima 1–5 faze 3, a TESTNA SIMULACIJA tek nakon WEB synca.
+Datumi u oba plana su okvirni redoslijed: korak kreće čim je spojen onaj o
+kojem ovisi, pa može i ranije. Polazište je mjerenje od 11. 10. 2026.:
 
 | | 4. 10. | 11. 10. |
 |---|---:|---:|
@@ -41,8 +45,8 @@ mreža, a tek onda proširenja. Polazište je mjerenje od 11. 10. 2026.:
 | dan | posao | ishod |
 |---|---|---|
 | 6 | Testovi koji zaključaju primjenu po entitetu: novija i starija verzija, spomenik, površina, sukobi. | testovi |
-| 7–8 | Razdvajanje `applyOne` i `removeFromSurface` po entitetu, bez promjene ponašanja. Usporedba iste baze nakon primjene istih verzija prije i poslije, na kopiji stvarne baze. | PR |
-| 9–10 | Protokol na toj granici: inačica entiteta, nepoznati entitet (prema odluci), zapis odbijenih i djelomično podržanih poruka, pločica razmjene to pokazuje. Dokumentacija protokola. | PR |
+| 7–8 | Razdvajanje `applyOne` i `removeFromSurface` po entitetu, bez promjene ponašanja. Usporedba iste baze nakon primjene istih verzija prije i poslije, na kopiji stvarne baze. G3 iz [plan-web-sync.md](plan-web-sync.md) u isto vrijeme mijenja `ledger.Apply` na istom putu primjene; spajaju se jedan za drugim. | PR |
+| 9–10 | Protokol na toj granici: inačica entiteta, nepoznati entitet (prema odluci), zapis odbijenih i djelomično podržanih poruka, pločica razmjene to pokazuje. Dokumentacija protokola. To su koraci G1–G7 iz [plan-web-sync.md](plan-web-sync.md) (§3); ondje traju 6,5–8,5 dana i idu usporedo s ostalim koracima. | PR po koraku |
 
 Rok za `applyOne` je 15. 11. 2026.; plan ga stavlja ranije, da ostane vremena.
 
@@ -53,28 +57,30 @@ Rok za `applyOne` je 15. 11. 2026.; plan ga stavlja ranije, da ostane vremena.
 | 11 | Korak 1: odluka po dionici pri ovjeri akta kao čista funkcija, provjerena cijelom tablicom (radnja × stupanj × stanje). | PR |
 | 12 | Korak 2: uvoz ugovora: provjera područja prije upisa, uparivanje odvojeno od upisa. | PR |
 | 13–14 | Korak 3: provjera unatrag: mjerenje odvojeno od ispisa i spremanja. Usporedba tablice promašaja prije i poslije na istoj arhivi. | PR |
-| 15 | Pregled 496 errcheck nalaza: stvarne greške se popravljaju, a namjerno zanemarene se označe. | PR |
+| 15 | Pregled 496 errcheck nalaza: stvarne greške se popravljaju, a namjerno zanemarene se označe. Nalazi u `internal/peers`, `internal/razmjena` i `internal/ledger` čekaju izdanje nakon F3 iz [plan-web-sync.md](plan-web-sync.md). Nalazi u `cmd/gocop`, `internal/db` i `internal/config` čekaju izdanje 1, a u datotekama `internal/web` koje dira WEB sync spoj F2a (isti plan, §5). | PR |
 
 ### 4. tjedan (2.–6. 11.): osvježavanje, lagana pojednostavljenja, ovlasti
 
 | dan | posao | ishod |
 |---|---|---|
 | 16–17 | Korak 4: osvježavanje: budućnost vrhova i primjena promašaja na jednom mjestu. Testna arhiva (`spoj`, `hq_krivulje`); usporedba izdanja prije i poslije. | PR |
-| 18 | 86 laganih pojednostavljenja (CC 11–15) u kritičnim paketima, usporedno po paketima. | PR po paketu |
-| 19–20 | Korak 5: ovlasti, prvi komadi: metode s imenom namjere, preseljenje izravnih čitanja datoteku po datoteku. | PR po komadu |
+| 18 | 86 laganih pojednostavljenja (CC 11–15) u kritičnim paketima, usporedno po paketima. `internal/peers`, `internal/razmjena` i `internal/ledger` čekaju izdanje nakon F3 iz [plan-web-sync.md](plan-web-sync.md). | PR po paketu |
+| 19–20 | Korak 5: ovlasti, prvi komadi: metode s imenom namjere, preseljenje izravnih čitanja datoteku po datoteku. Dio koji dira `internal/web` kreće tek kad je spojen F2a iz [plan-web-sync.md](plan-web-sync.md). | PR po komadu |
 
 ### Rezerva (9.–13. 11.): ovlasti, mjerenje, izdanje
 
 - Ovlasti, nastavak.
-- Srednja pojednostavljenja (CC 16–30) u kritičnim paketima.
+- Srednja pojednostavljenja (CC 16–30) u kritičnim paketima, osim `internal/peers`,
+  `internal/razmjena` i `internal/ledger` (čekaju izdanje nakon F3 WEB synca).
 - Novo mjerenje kvalitete i zapisane iznimke.
-- **Izdanje 0.0.36:** rekonstrukcija iz susjeda, drugi krug dorada, `applyOne` s protokolom. Nadogradnja svih čvorova, i Windowsa.
+- **Izdanje:** izdanja su zajednička. Svako nosi sve što je do tada spojeno, pa koraci faze 3 izlaze s izdanjima 0, 1 ili 2 iz [plan-web-sync.md](plan-web-sync.md) (§5). Pravila razmjene na granici izlaze s izdanjem 0. Rekonstrukcija iz susjeda izašla je već u 0.0.36-alfa (12. 10. 2026.). Izdanja nemaju unaprijed dodijeljene brojeve. Unraid se nadograđuje prvi, zatim ostala računala, i Windows.
 
 ## Poslije mjeseca
 
 - **Na manjem limitu:** srednja pojednostavljenja u webu, pokrivenost cijelog
   koda do 85 %, stare teške funkcije (`RunJournals`, `opisi`).
-- **Transport veza/1** ([plan-protokol-povezivanja.md](plan-protokol-povezivanja.md)).
+- **TESTNA SIMULACIJA**, tek nakon WEB synca (Odluke 14. 10. 2026.). WEB sync
+  više nije ovdje: ide usporedo, po [plan-web-sync.md](plan-web-sync.md).
 - **Tek onda proširenja:**
   - prognoza po branjenim područjima ([plan-prognoza-po-tokovima.md](plan-prognoza-po-tokovima.md));
   - karte: nasipi, objekti i obuhvati poplave, iz podloga karata opasnosti od
