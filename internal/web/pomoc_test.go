@@ -229,7 +229,7 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 		`id="prijave"`, "PDF izvornik s ugrađenim", `id="akti"`,
 		`id="sredstva"`, `id="posta"`, `id="potpisi"`,
 		"Simulirani potpis", `id="admin-test"`, "Repozitorij službenih zapisa",
-		"pregledanom i", "sadrzaj.db", "samo kazalo, pregled ili puni sadržaj",
+		"pregledanom i", "sadrzaj.db", "samo kazalo, samo pregledi (slike,",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne prati aktualni tok %q", want)

@@ -6,6 +6,34 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.38-alfa — u pripremi
 
+- **Brisanje s računala ne dira ono što je nastalo na njemu.** Na
+  stranici „Što ovo računalo prati” „Obriši s računala” i „Makni i
+  obriši” brisali su sve iz te vrste, područja i godine, i zapise, PDF-ove
+  i fotografije nastale na tom računalu. Laptop bez veze tako je mogao
+  izgubiti list koji još nije stigao u ured. Sad se briše samo ono što je
+  stiglo s drugih računala. „Makni” uz pravilo samo makne pravilo, a
+  „Makni i obriši” više nema. Uz „Obriši s računala” piše koliko će se
+  zapisa i dokumenata obrisati i koliko ih ostaje jer su nastali na tom
+  računalu. Iste brojeve kaže potvrda prije brisanja, a poruka nakon
+  brisanja kaže što je obrisano i što je ostalo. Zapis nastao na računalu
+  koji je ured poslije mijenjao brisanje vrati na stanje napisano na tom
+  računalu, a zapis koji je ured obrisao ostaje obrisan i nakon ponovnog
+  pokretanja. Ostaje i fotografija s ureda uz list koji je mijenjan na tom
+  računalu. Kad je upisana povijest tuđih očitanja u mjesecima, potvrda
+  kaže da se starija tuđa očitanja ne vraćaju.
+- **Pretplate: prijedlog iz zaduženja i stroži obrazac.** Prijedlog iz
+  zaduženja dodavao je samo dnevnike radova i prijave, pa vodočuvaru nisu
+  stizali njegovi dnevni listovi, zadaci iz ureda ni očitanja njegova
+  područja. Sad dodaje i vodočuvarski dnevnik i očitanja, a poruka nabroji
+  sva dodana pravila. Tko je stari prijedlog već prihvatio, dobije ponudu
+  za ono što mu nedostaje. Godina u obrascu upisivala se napamet: „2025.” s
+  točkom tiho je postajalo „sve godine”, a „90 dana” u roku „trajno”. Sad
+  takav upis javi što treba upisati, a isto pravilo ne može se dodati
+  dvaput. Zadana početna godina je prošla, jer vodočuvarski dnevnik i
+  zadaci prelaze preko Nove godine. Natpisi su ispravljeni: nema više
+  „PDF na zahtjev”, kojeg u programu nema, ni „ostaje u uredu”. Uz
+  dnevnike piše da su to dnevnici radova po branjenom području, a na vrhu
+  stranice piše ime računala.
 - **Zaključena inventura može se otključati.** Kad se poslije zaključenja
   upiše promet s danom prije inventure, stanje skladišta ga pokaže, a
   zaključena inventura i njezin izvoz ne. Inventura se nije dala ponovno

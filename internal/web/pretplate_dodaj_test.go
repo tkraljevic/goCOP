@@ -27,7 +27,7 @@ func TestDodanaPretplataNaArhivuBezRazine(t *testing.T) {
 		return kamo.Query()
 	}
 	q := posalji(url.Values{"kind": {"arhiva"}, "area_id": {"16"}, "year_from": {"2026"}, "razina": {"kazalo"}, "drzi_dana": {"30"}})
-	if got := q.Get("success"); got != "Pretplata je dodana: arhiva vodostaja, BP 16, cijela povijest, sadržaj 30 dana" {
+	if got := q.Get("success"); got != "Pretplata je dodana: arhiva vodostaja, BP 16, cijela povijest, sadržaj 30 dana." {
 		t.Errorf("poruka: %q", got)
 	}
 	q = posalji(url.Values{"kind": {"vodostaji"}})

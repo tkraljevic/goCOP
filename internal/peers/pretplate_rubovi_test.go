@@ -1,17 +1,16 @@
 package peers
 
 // Pretplate na jednom čvoru, bez mreže: opis pravila na ekranu, koji kanal
-// pravilo pokriva, koliko dugo sadržaj ostaje, što se ne može upisati i
-// brisanje kanala svake vrste s površine i iz knjige.
+// pravilo pokriva, koliko dugo sadržaj ostaje i što se ne može upisati.
+// Brisanje kanala je u brisanje_kanala_test.go.
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	"gocop/internal/ledger"
-	"gocop/internal/sadrzaj"
 )
 
 // Pravilo se na ekranu čita kao rečenica: vrsta, gdje, kada, razina i rok
@@ -138,7 +137,9 @@ func TestSveVrstePokrivajuPaketArhive(t *testing.T) {
 // Stranica pretplata nudi arhivu vodostaja kao vrstu: pravilo se upisuje i
 // čita kao „arhiva vodostaja … cijela povijest”. Razina sadržaja za paket ne
 // vrijedi, pa se pravilo samo za arhivu pamti sa „Sve” i opis ne kaže
-// „samo kazalo”; rok držanja ostaje.
+// „samo kazalo”; rok držanja ostaje. Ne vrijede ni godine: pravilo ih ne
+// pamti, pa se ista arhiva s godinom i bez nje ne dodaje dvaput, a godine
+// obrnutim redom za arhivu nisu greška.
 func TestPretplataNaArhivuSeUpisuje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	r, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 16, YearFrom: 2026, Razina: RazinaKazalo, DrziDana: 30})
@@ -148,8 +149,14 @@ func TestPretplataNaArhivuSeUpisuje(t *testing.T) {
 	if got := r.Label(); got != "arhiva vodostaja, BP 16, cijela povijest, sadržaj 30 dana" {
 		t.Errorf("opis pravila: %q", got)
 	}
-	if l, err := s.ListSubscriptions(ctxRub); err != nil || len(l) != 1 || l[0].Razina != RazinaSve || l[0].DrziDana != 30 {
+	if l, err := s.ListSubscriptions(ctxRub); err != nil || len(l) != 1 || l[0].Razina != RazinaSve || l[0].DrziDana != 30 || l[0].YearFrom != 0 || l[0].YearTo != 0 {
 		t.Errorf("upisano pravilo: %+v %v", l, err)
+	}
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 16, DrziDana: 30}); !errors.Is(err, ErrIstoPravilo) {
+		t.Errorf("ista arhiva bez godine: %v", err)
+	}
+	if r, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, AreaID: 17, YearFrom: 2026, YearTo: 2024}); err != nil || r.YearFrom != 0 || r.YearTo != 0 {
+		t.Errorf("arhiva s godinama obrnutim redom: %+v %v", r, err)
 	}
 	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: ledger.ChannelArhiva, Razina: "puno"}); err == nil {
 		t.Error("pravilo samo za arhivu s nepoznatom razinom je upisano")
@@ -233,6 +240,22 @@ func TestPretplataSeUpisujeSvedena(t *testing.T) {
 		t.Errorf("pravilo s razinom kazala: %+v", g)
 	}
 
+	// isto pravilo drugi put se ne upisuje, ni kad je drukčije napisano;
+	// pravilo koje se razlikuje samo rokom upisuje se
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", SectorID: "p"}); !errors.Is(err, ErrIstoPravilo) || !strings.HasPrefix(err.Error(), "Pretplata nije dodana:") {
+		t.Errorf("isto pravilo: %v", err)
+	}
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", SectorID: "P", DrziDana: 30}); err != nil {
+		t.Errorf("pravilo s drugim rokom: %v", err)
+	}
+	if l, _ := s.ListSubscriptions(ctxRub); len(l) != 3 {
+		t.Errorf("pretplate nakon dvostrukog: %+v", l)
+	}
+	kvarUpisa(t, s, "INSERT", "subscriptions", "")
+	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "prijave"}); err == nil || !strings.Contains(err.Error(), "upis pretplate") {
+		t.Errorf("upis koji padne: %v", err)
+	}
+
 	// pravilo koje se ne može pročitati (stupac bez vrijednosti): popis javlja grešku
 	pokvariTablicu(t, s, "subscriptions")
 	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "prijave"}); err == nil || !strings.Contains(err.Error(), "upis pretplate") {
@@ -248,260 +271,6 @@ func TestPretplataSeUpisujeSvedena(t *testing.T) {
 	}
 	if l, err := s.ListSubscriptions(ctxRub); err == nil {
 		t.Errorf("nečitljivo pravilo je pročitano: %+v", l)
-	}
-}
-
-// vodocuvarskiList upisuje dnevni list vodočuvara mimo knjige
-func vodocuvarskiList(t *testing.T, s *Service, id string, area int, datum string) {
-	t.Helper()
-	sada := time.Now().UTC()
-	if _, err := s.db.Exec(`INSERT INTO vodocuvarski_listovi (id, user_id, area_id, datum, created_at, updated_at) VALUES (?, 'u-1', ?, ?, ?, ?)`,
-		id, area, datum, sada, sada); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`INSERT INTO vodocuvarski_izvornici (list_id, otisak, updated_at) VALUES (?, ?, ?)`, id, "otisak-"+id, sada); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`INSERT INTO vodocuvarski_zadaci (id, user_id, area_id, tekst, zadano_at, list_id, updated_at) VALUES (?, 'u-1', ?, 'obići nasip', ?, ?, ?)`,
-		"z-"+id, area, sada, id, sada); err != nil {
-		t.Fatal(err)
-	}
-}
-
-// prijavaSIzvornikom upisuje prijavu s izvornikom mimo knjige
-func prijavaSIzvornikom(t *testing.T, s *Service, id string, area int, datum string) {
-	t.Helper()
-	sada := time.Now().UTC()
-	if _, err := s.db.Exec(`INSERT INTO prijave (id, user_id, area_id, datum, created_at, updated_at) VALUES (?, 'u-1', ?, ?, ?, ?)`, id, area, datum, sada, sada); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`INSERT INTO prijave_izvornici (prijava_id, otisak, updated_at) VALUES (?, ?, ?)`, id, "otisak-"+id, sada); err != nil {
-		t.Fatal(err)
-	}
-}
-
-func prebroji(t *testing.T, s *Service, upit string, args ...any) int {
-	t.Helper()
-	var n int
-	if err := s.db.QueryRow(upit, args...).Scan(&n); err != nil {
-		t.Fatal(err)
-	}
-	return n
-}
-
-// Brisanje kanala dnevnika, vodočuvarskih listova i prijava miče s
-// površine samo zapise tog područja i godine (s upisima, izvornicima i
-// zadacima), a iz knjige verzije kanala. Ostala područja i godine ostaju.
-func TestBrisanjeKanalaSvakeVrste(t *testing.T) {
-	s := rubniCvor(t, "laptop-baranja")
-	sada := time.Now().UTC()
-	upisi := func(kanal, entitet, id string) {
-		t.Helper()
-		if _, err := s.rec.RecordIn(ctxRub, s.db, kanal, entitet, id, map[string]string{"id": id}); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	// dnevnik BP 16 s upisom i listom, i dnevnik BP 3 koji ostaje
-	for _, d := range []struct{ id, kanal string }{{"d-16", "dnevnici/16/2026"}, {"d-3", "dnevnici/3/2026"}} {
-		if _, err := s.db.Exec(`INSERT INTO journals (id, kind, channel, created_at, updated_at) VALUES (?, 'A.01', ?, ?, ?)`, d.id, d.kanal, sada, sada); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.db.Exec(`INSERT INTO journal_entries (id, journal_id, date, kind, created_at, updated_at) VALUES (?, ?, '2026-03-02', 'rad', ?, ?)`, "e-"+d.id, d.id, sada, sada); err != nil {
-			t.Fatal(err)
-		}
-		if _, err := s.db.Exec(`INSERT INTO journal_sheets (id, journal_id, date, created_at, updated_at) VALUES (?, ?, '2026-03-02', ?, ?)`, "l-"+d.id, d.id, sada, sada); err != nil {
-			t.Fatal(err)
-		}
-		upisi(d.kanal, "journals", d.id)
-	}
-	n, err := s.PurgeChannel(ctxRub, "dnevnici/16/2026")
-	if err != nil || n != 1 {
-		t.Fatalf("brisanje dnevnika: %d %v", n, err)
-	}
-	if prebroji(t, s, `SELECT count(*) FROM journals`) != 1 || prebroji(t, s, `SELECT count(*) FROM journal_entries WHERE journal_id = 'd-16'`) != 0 ||
-		prebroji(t, s, `SELECT count(*) FROM journal_sheets WHERE journal_id = 'd-16'`) != 0 || prebroji(t, s, `SELECT count(*) FROM journal_entries`) != 1 {
-		t.Error("dnevnik BP 16 nije obrisan cijeli ili je obrisan i BP 3")
-	}
-
-	// vodočuvarski listovi: ista godina drugog područja i druga godina ostaju
-	vodocuvarskiList(t, s, "v-16", 16, "2026-05-04")
-	vodocuvarskiList(t, s, "v-16-lani", 16, "2025-05-04")
-	vodocuvarskiList(t, s, "v-3", 3, "2026-05-04")
-	upisi("vodocuvarski/16/2026", "vodocuvarski_listovi", "v-16")
-	if n, err := s.PurgeChannel(ctxRub, "vodocuvarski/16/2026"); err != nil || n != 1 {
-		t.Fatalf("brisanje vodočuvarskih listova: %d %v", n, err)
-	}
-	if prebroji(t, s, `SELECT count(*) FROM vodocuvarski_listovi WHERE id = 'v-16'`) != 0 ||
-		prebroji(t, s, `SELECT count(*) FROM vodocuvarski_izvornici WHERE list_id = 'v-16'`) != 0 ||
-		prebroji(t, s, `SELECT count(*) FROM vodocuvarski_zadaci WHERE list_id = 'v-16'`) != 0 {
-		t.Error("list BP 16 iz 2026. je ostao")
-	}
-	if prebroji(t, s, `SELECT count(*) FROM vodocuvarski_listovi`) != 2 || prebroji(t, s, `SELECT count(*) FROM vodocuvarski_zadaci`) != 2 {
-		t.Error("obrisani su i listovi drugog područja ili godine")
-	}
-
-	// prijave
-	prijavaSIzvornikom(t, s, "p-16", 16, "2026-07-01")
-	prijavaSIzvornikom(t, s, "p-3", 3, "2026-07-01")
-	upisi("prijave/16/2026", "prijave", "p-16")
-	if n, err := s.PurgeChannel(ctxRub, "prijave/16/2026"); err != nil || n != 1 {
-		t.Fatalf("brisanje prijava: %d %v", n, err)
-	}
-	if prebroji(t, s, `SELECT count(*) FROM prijave`) != 1 || prebroji(t, s, `SELECT count(*) FROM prijave_izvornici`) != 1 ||
-		prebroji(t, s, `SELECT count(*) FROM prijave WHERE id = 'p-3'`) != 1 {
-		t.Error("prijave: obrisano krivo područje ili ništa")
-	}
-	if c, _ := s.rec.CountByChannel(ctxRub); c["dnevnici/16/2026"]+c["vodocuvarski/16/2026"]+c["prijave/16/2026"] != 0 || c["dnevnici/3/2026"] != 1 {
-		t.Errorf("knjiga nakon brisanja: %v", c)
-	}
-
-	// kanal nepoznate vrste se ne briše
-	upisi("vodostaji/16/2026", "probni", "x")
-	if _, err := s.PurgeChannel(ctxRub, "vodostaji/16/2026"); err == nil || !strings.Contains(err.Error(), "nepoznata vrsta kanala") {
-		t.Errorf("nepoznata vrsta: %v", err)
-	}
-	if c, _ := s.rec.CountByChannel(ctxRub); c["vodostaji/16/2026"] != 1 {
-		t.Error("knjiga kanala nepoznate vrste je obrisana")
-	}
-}
-
-// Kad brisanje s površine ili iz knjige padne, ništa se ne briše: ni
-// površina ni knjiga kanala. Svaki kvar pogađa samo svoj kanal.
-func TestBrisanjeKanalaKadUpisPadne(t *testing.T) {
-	s := rubniCvor(t, "laptop-baranja")
-	sada := time.Now().UTC()
-	if _, err := s.db.Exec(`INSERT INTO journals (id, kind, channel, created_at, updated_at) VALUES ('d-16', 'A.01', 'dnevnici/16/2026', ?, ?)`, sada, sada); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := s.db.Exec(`INSERT INTO journal_entries (id, journal_id, date, kind, created_at, updated_at) VALUES ('e-1', 'd-16', '2026-03-02', 'rad', ?, ?)`, sada, sada); err != nil {
-		t.Fatal(err)
-	}
-	vodocuvarskiList(t, s, "v-17", 17, "2026-05-04")
-	prijavaSIzvornikom(t, s, "p-18", 18, "2026-07-01")
-	prijavaSIzvornikom(t, s, "p-19", 19, "2026-07-01")
-	for _, p := range []struct {
-		kanal, povrsina string
-		kvar            [3]string
-	}{
-		{"dnevnici/16/2026", `SELECT count(*) FROM journals WHERE id = 'd-16'`, [3]string{"DELETE", "journal_entries", "OLD.journal_id = 'd-16'"}},
-		{"vodocuvarski/17/2026", `SELECT count(*) FROM vodocuvarski_listovi WHERE id = 'v-17'`, [3]string{"DELETE", "vodocuvarski_izvornici", "OLD.list_id = 'v-17'"}},
-		{"prijave/18/2026", `SELECT count(*) FROM prijave WHERE id = 'p-18'`, [3]string{"DELETE", "prijave_izvornici", "OLD.prijava_id = 'p-18'"}},
-		{"prijave/19/2026", `SELECT count(*) FROM prijave WHERE id = 'p-19'`, [3]string{"DELETE", "record_versions", "OLD.channel = 'prijave/19/2026'"}},
-	} {
-		if _, err := s.rec.RecordIn(ctxRub, s.db, p.kanal, "probni", "r-"+p.kanal, map[string]int{"cm": 1}); err != nil {
-			t.Fatal(err)
-		}
-		kvarUpisa(t, s, p.kvar[0], p.kvar[1], p.kvar[2])
-		if _, err := s.PurgeChannel(ctxRub, p.kanal); err == nil {
-			t.Errorf("%s: brisanje je prošlo iako upis u %s nije", p.kanal, p.kvar[1])
-		}
-		if prebroji(t, s, p.povrsina) != 1 {
-			t.Errorf("%s: površina je obrisana", p.kanal)
-		}
-		if c, _ := s.rec.CountByChannel(ctxRub); c[p.kanal] != 1 {
-			t.Errorf("%s: knjiga kanala %v", p.kanal, c)
-		}
-	}
-}
-
-// Sadržaj kanala briše se sa spremišta nakon knjige; kad spremište ne
-// radi, brisanje javi grešku i broj obrisanih verzija (knjiga je već
-// obrisana).
-func TestBrisanjeKanalaISadrzaja(t *testing.T) {
-	s := rubniCvor(t, "laptop-baranja")
-	sp, err := sadrzaj.Otvori("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	s.SetSpremiste(sp)
-	kanal := "prijave/16/2026"
-	otisak, err := sp.Upisi(ctxRub, "application/pdf", []byte("%PDF-1.4 prijava Pere Perića"), "cvor:ured", sadrzaj.Veza{Entitet: "prijave", EntitetID: "p-16", Uloga: "izvornik", Kanal: kanal})
-	if err != nil {
-		t.Fatal(err)
-	}
-	drugi, _ := sp.Upisi(ctxRub, "application/pdf", []byte("%PDF-1.4 prijava BP 3"), "cvor:ured", sadrzaj.Veza{Entitet: "prijave", EntitetID: "p-3", Uloga: "izvornik", Kanal: "prijave/3/2026"})
-	for _, k := range []string{kanal, "prijave/17/2026"} {
-		if _, err := s.rec.RecordIn(ctxRub, s.db, k, "probni", "r-"+k, map[string]int{"cm": 1}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if n, err := s.PurgeChannel(ctxRub, kanal); err != nil || n != 1 {
-		t.Fatalf("brisanje: %d %v", n, err)
-	}
-	if sp.Ima(ctxRub, otisak) || !sp.Ima(ctxRub, drugi) {
-		t.Errorf("sadržaj nakon brisanja kanala: BP 16 %v, BP 3 %v", sp.Ima(ctxRub, otisak), sp.Ima(ctxRub, drugi))
-	}
-
-	if err := sp.Zatvori(); err != nil {
-		t.Fatal(err)
-	}
-	n, err := s.PurgeChannel(ctxRub, "prijave/17/2026")
-	if err == nil || n != 1 {
-		t.Errorf("zatvoreno spremište: %d %v", n, err)
-	}
-	if c, _ := s.rec.CountByChannel(ctxRub); c["prijave/17/2026"] != 0 {
-		t.Errorf("knjiga kanala nije obrisana: %v", c)
-	}
-}
-
-// Popis kanala i brisanje neželjenih: kanal pod pretplatom ostaje, ostali
-// se brišu; kad se knjiga ili pretplate ne mogu pročitati, ne briše se ništa.
-func TestBrisanjeNezeljenihKanala(t *testing.T) {
-	s := rubniCvor(t, "laptop-baranja")
-	for _, k := range []string{"ocitanja/16/2026", "ocitanja/3/2026", "ocitanja/16/2025"} {
-		if _, err := s.rec.RecordIn(ctxRub, s.db, k, "probni", "r-"+k, map[string]int{"cm": 1}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	if _, err := s.AddSubscription(ctxRub, Subscription{Kind: "ocitanja", AreaID: 16, YearFrom: 2026}); err != nil {
-		t.Fatal(err)
-	}
-	za, err := s.ChannelsFor(ctxRub, "ocitanja", 16, 0)
-	if err != nil || strings.Join(za, ",") != "ocitanja/16/2026,ocitanja/16/2025" {
-		t.Errorf("kanali BP 16: %v %v", za, err)
-	}
-	if za, _ := s.ChannelsFor(ctxRub, "", 0, 2025); strings.Join(za, ",") != "ocitanja/16/2025" {
-		t.Errorf("kanali 2025.: %v", za)
-	}
-	if za, _ := s.ChannelsFor(ctxRub, "dnevnici", 0, 0); len(za) != 0 {
-		t.Errorf("kanali dnevnika: %v", za)
-	}
-
-	obrisano, err := s.PurgeUnwanted(ctxRub)
-	if err != nil || len(obrisano) != 2 || obrisano["ocitanja/3/2026"] != 1 || obrisano["ocitanja/16/2025"] != 1 {
-		t.Fatalf("obrisano %v %v", obrisano, err)
-	}
-	if c, _ := s.rec.CountByChannel(ctxRub); c["ocitanja/16/2026"] != 1 || len(c) != 1 {
-		t.Errorf("ostalo u knjizi: %v", c)
-	}
-
-	// brisanje koje padne na pola vraća što je dotad obrisano i grešku
-	for _, k := range []string{"ocitanja/5/2026", "prijave/5/2026"} {
-		if _, err := s.rec.RecordIn(ctxRub, s.db, k, "probni", "r-"+k, map[string]int{"cm": 1}); err != nil {
-			t.Fatal(err)
-		}
-	}
-	prijavaSIzvornikom(t, s, "p-5", 5, "2026-07-01")
-	kvarUpisa(t, s, "DELETE", "prijave_izvornici", "")
-	obrisano, err = s.PurgeUnwanted(ctxRub)
-	if err == nil || obrisano["ocitanja/5/2026"] != 1 || len(obrisano) != 1 {
-		t.Errorf("brisanje koje padne: %v %v", obrisano, err)
-	}
-
-	pokvariTablicu(t, s, "subscriptions")
-	if _, err := s.Channels(ctxRub); err == nil {
-		t.Error("popis kanala bez čitljivih pretplata")
-	}
-	if _, err := s.ChannelsFor(ctxRub, "", 0, 0); err == nil {
-		t.Error("kanali za izvoz bez čitljivih pretplata")
-	}
-	if _, err := s.PurgeChannel(ctxRub, "prijave/5/2026"); err == nil {
-		t.Error("brisanje kanala bez čitljivih pretplata")
-	}
-	pokvariTablicu(t, s, "record_versions")
-	if _, err := s.PurgeUnwanted(ctxRub); err == nil {
-		t.Error("brisanje bez čitljive knjige")
 	}
 }
 

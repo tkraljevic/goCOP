@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/sadrzaj"
 )
@@ -108,17 +109,21 @@ func TestPaketArhiveStizeUzPraviloSveVrste(t *testing.T) {
 		t.Error("stigao je paket arhive BP 3, koji pretplata ne pokriva")
 	}
 
+	ured := ledger.New(laptop.db, "cop-osijek-ured") // očitanja su stigla s ureda
 	for _, k := range []string{"ocitanja/16/2026", "ocitanja/16/2024"} {
-		if _, err := laptop.rec.RecordIn(ctx, laptop.db, k, "probni", "r-"+k, map[string]int{"cm": 120}); err != nil {
+		if _, err := ured.RecordIn(ctx, laptop.db, k, "probni", "r-"+k, map[string]int{"cm": 120}); err != nil {
 			t.Fatal(err)
 		}
 	}
-	obrisano, err := laptop.svc.PurgeUnwanted(ctx)
-	if err != nil || len(obrisano) != 1 || obrisano["ocitanja/16/2024"] != 1 {
-		t.Fatalf("brisanje nepokrivenog: %v %v", obrisano, err)
+	if _, err := laptop.svc.PurgeChannel(ctx, "ocitanja/16/2026"); err == nil {
+		t.Error("obrisana su očitanja koja pretplata pokriva")
 	}
-	if c, _ := laptop.rec.CountByChannel(ctx); c["ocitanja/16/2026"] != 1 {
-		t.Errorf("obrisana su očitanja koja pretplata pokriva: %v", c)
+	obrisano, err := laptop.svc.PurgeChannel(ctx, "ocitanja/16/2024")
+	if err != nil || obrisano.Verzija != 1 {
+		t.Fatalf("brisanje nepokrivenog: %+v %v", obrisano, err)
+	}
+	if c, _ := laptop.rec.CountByChannel(ctx); c["ocitanja/16/2026"] != 1 || c["ocitanja/16/2024"] != 0 {
+		t.Errorf("knjiga nakon brisanja: %v", c)
 	}
 	if !u.spLaptop.Ima(ctx, u.otisci["arhiva/16/0"]) {
 		t.Error("brisanje nepokrivenog odnijelo je paket arhive BP 16")

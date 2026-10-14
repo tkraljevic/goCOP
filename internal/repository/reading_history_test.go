@@ -126,3 +126,15 @@ func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
 		t.Fatalf("čvor bez ograde je preuzeo %d očitanja, očekivana 2", n)
 	}
 }
+
+// Stranica pretplata pita koliko mjeseci tuđih očitanja čvor prima; bez
+// ograde je to 0
+func TestMjeseciPovijestiOcitanja(t *testing.T) {
+	t.Cleanup(func() { SetReadingHistoryPolicy(ReadingHistoryPolicy{}) })
+	for _, p := range []struct{ postavljeno, mjeseci int }{{12, 12}, {0, 0}, {-3, 0}} {
+		SetReadingHistoryPolicy(ReadingHistoryPolicy{Months: p.postavljeno})
+		if got := MjeseciPovijestiOcitanja(); got != p.mjeseci {
+			t.Errorf("postavljeno %d mjeseci, pročitano %d", p.postavljeno, got)
+		}
+	}
+}
