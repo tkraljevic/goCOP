@@ -203,6 +203,9 @@ CREATE TABLE IF NOT EXISTS ocitanja (
 type niz struct {
 	sliv, letva, izvor, velicina, vrsta string
 	datoteke                            []string
+	// odvojeni su zapisi koje je popis kvarova izdvojio iz izvornog niza;
+	// stoje samo uz niz -kvar i ulaze u njega uz ono što ima u datotekama
+	odvojeni []zapis
 }
 
 // Zagreb je vremenska zona hrvatskih izvora.
@@ -344,20 +347,20 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		return iz, err
 	}
 
-	kljucevi := make([]string, 0, len(nizovi))
-	for k := range nizovi {
-		kljucevi = append(kljucevi, k)
+	javi(zapisi, "čitam popis kvarova", 0, 0)
+	kvarovi, err := kvaroviGradnje(db, koren, nizovi, nedostupni)
+	if err != nil {
+		return iz, err
 	}
-	sort.Strings(kljucevi)
+
+	kljucevi := redGradnje(nizovi)
 	for i, k := range kljucevi {
 		n := nizovi[k]
 		javi(zapisi, "upisujem "+n.letva+" · "+n.izvor+" · "+n.velicina, i, len(kljucevi))
-		upisano, od, do, otisak, err := ubaci(db, n, promjene[n.letva])
+		upisano, err := gradiNiz(db, nizovi, k, kvarovi[n.letva], promjene[n.letva], zapisi)
 		if err != nil {
 			return iz, fmt.Errorf("%s: %w", k, err)
 		}
-		fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s %8d  %s .. %s  %s\n",
-			n.sliv, n.letva, n.izvor, n.velicina, n.vrsta, upisano, od, do, otisak[:8])
 		iz.Ocitanja += upisano
 	}
 	iz.Nizova = len(nizovi)
@@ -548,17 +551,56 @@ type zapis struct {
 	v float64
 }
 
-func ubaci(db *sql.DB, n *niz, promjene []promjena) (int, string, string, string, error) {
-	var zapisi []zapis
-	poDanu := false
+// procitajNiz čita sve datoteke niza. Iz izvornog niza odmah odvaja ono što
+// je u popisu kvarova, a niz -kvar dobiva uz svoje datoteke i ono što mu je
+// odvojeno iz izvornog.
+//
+// Kvarovi se odvajaju prije čišćenja ispada, ne poslije. Na Belišću ispad od
+// 1550 cm počinje satom na putu gore — 497, pa 1258, pa 1550. Dok cijeli ispad
+// stoji u nizu, taj sat izgleda kao njegov dio i ostaje; kad se ispad prvo
+// makne, ostane sam usred 40 cm i čišćenje ga prepozna.
+func procitajNiz(n *niz, kv []kvar) (dobri, losi []zapis, poDanu bool, err error) {
 	for _, p := range n.datoteke {
 		z, d, err := citaj(p, zonaIzvora(n.izvor), n.velicina)
 		if err != nil {
-			return 0, "", "", "", err
+			return nil, nil, false, err
 		}
 		poDanu = poDanu || d
-		zapisi = append(zapisi, z...)
+		if !jeKvar(n.izvor) {
+			var l []zapis
+			z, l = odvojiKvarove(z, n.izvor, n.velicina, kv)
+			losi = append(losi, l...)
+		}
+		dobri = append(dobri, ocisti(n.velicina, z)...)
 	}
+	if len(n.odvojeni) > 0 {
+		o := append([]zapis(nil), n.odvojeni...)
+		sort.SliceStable(o, func(i, j int) bool { return o[i].t < o[j].t })
+		dobri = append(dobri, ocisti(n.velicina, o)...)
+	}
+	return dobri, losi, poDanu, nil
+}
+
+// makniPrazanKvar briše niz -kvar koji nema ni datoteku ni ijedan odvojeni
+// zapis: popis kvarova u njemu više ništa ne pogađa, a takav niz nastaje samo
+// iz popisa, pa s njim i nestaje.
+func makniPrazanKvar(db *sql.DB, n *niz, zapisi io.Writer) error {
+	if len(n.datoteke) > 0 {
+		return fmt.Errorf("nijedan čitljiv redak")
+	}
+	res, err := db.Exec(`DELETE FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
+		n.letva, n.izvor, n.velicina, n.vrsta)
+	if err != nil {
+		return err
+	}
+	if b, _ := res.RowsAffected(); b > 0 {
+		_, _ = fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s maknut — popis kvarova u njemu više ništa ne pogađa\n",
+			n.sliv, n.letva, n.izvor, n.velicina, n.vrsta)
+	}
+	return nil
+}
+
+func ubaci(db *sql.DB, n *niz, zapisi []zapis, poDanu bool, promjene []promjena) (int, string, string, string, error) {
 	// Svođenje na današnju kotu nule prije svega ostaloga: sve dalje —
 	// spajanje, srednjaci, krajnosti — pretpostavlja jednu kotu kroz niz.
 	if n.velicina == "vodostaj" {
@@ -748,6 +790,8 @@ func mogucaVrijednost(velicina string, v float64) bool {
 	return true
 }
 
+// citaj vraća retke datoteke kakvi jesu, bez nemogućih vrijednosti; ispade
+// čisti procitajNiz, tek kad odvoji kvarove.
 func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, error) {
 	f, err := os.Open(put)
 	if err != nil {
@@ -783,7 +827,7 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 			t, err = time.ParseInLocation("2006-01-02 15:04:05", s[:19], zona)
 		} else {
 			// samo datum: dan je dan, bez obzira na zonu
-			t, err = time.Parse("2006-01-02", s[:10])
+			t, err = time.Parse("2006-01-02", s[:min(len(s), 10)])
 		}
 		if err != nil {
 			return nil, false, fmt.Errorf("%s redak %d: vrijeme %q: %w", filepath.Base(put), i, s, err)
@@ -797,7 +841,14 @@ func citaj(put string, zona *time.Location, velicina string) ([]zapis, bool, err
 		}
 		out = append(out, zapis{t: t.UTC().Unix(), v: v})
 	}
-	return bezSiljaka(velicina, bezDalekih(velicina, out)), poDanu, nil
+	return out, poDanu, nil
+}
+
+// ocisti izbacuje ono što mjerilo nije moglo izmjeriti: kotu daleko od
+// uobičajene i pojedinačne ispade telemetrije. Radi nad jednom datotekom,
+// odnosno nad onim što je iz nje ostalo kad su kvarovi odvojeni.
+func ocisti(velicina string, z []zapis) []zapis {
+	return bezSiljaka(velicina, bezDalekih(velicina, z))
 }
 
 // bezDalekih izbacuje kote vodnog lica koje su predaleko od uobičajene
@@ -1726,5 +1777,10 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 			}
 		}
 	}
+	kvarovi, err := citajKvarove(koren)
+	if err != nil {
+		return nil, err
+	}
+	predvidiKvarne(nizovi, kvarovi)
 	return nadiSirotane(db, nizovi, "", nedostupni)
 }
