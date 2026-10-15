@@ -13,11 +13,11 @@ import (
 )
 
 func losaVerzija(cvor, id string) ledger.Version {
-	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", Payload: json.RawMessage("nije json")}
+	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage("nije json")}
 }
 
 func dobraVerzija(cvor, id string) ledger.Version {
-	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", Payload: json.RawMessage(`{"cm":120}`)}
+	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage(`{"cm":120}`)}
 }
 
 // Ključ kojemu je delta puna samo neispravnih verzija čita se dalje, do
@@ -89,15 +89,32 @@ func TestPrekoNeispravnihOgradaIGreska(t *testing.T) {
 // Kad iza granice primatelja u jednom ključu stoji punih 5000 neispravnih
 // verzija, razmjena čita dalje i pošalje ispravnu iza njih, pa se granica
 // primatelja pomakne. Bez toga je delta tog ključa bila samo od neispravnih,
-// ništa se nije slalo i ključ je zapeo zauvijek.
+// ništa se nije slalo i ključ je zapeo zauvijek. Isto vrijedi za verziju
+// bez identifikatora zapisa (ispravan JSON): primatelj je od G3 preskoči bez
+// pomaka granice, pa bi je pošiljatelj slao svakom razmjenom, a krug
+// razmjena (syncPeers) išao bi do 200 razgovora zaredom s istih 5000.
 func TestNeispravneVerzijeNeZaustavljajuKljuc(t *testing.T) {
+	for _, p := range []struct{ ime, zapis, payload, dnevnik string }{
+		{"nije JSON", "r-%d", "nije json", "u knjizi nije ispravan JSON"},
+		{"bez identifikatora zapisa", "", `{"cm":120}`, "u knjizi nema oznaku, entitet ili identifikator zapisa"},
+	} {
+		t.Run(p.ime, func(t *testing.T) {
+			neispravneNeZaustavljajuKljuc(t, p.zapis, p.payload, p.dnevnik)
+		})
+	}
+}
+
+// neispravneNeZaustavljajuKljuc: pošiljatelj ima u jednom ključu punu deltu
+// neispravnih verzija (zapis je printf uzorak identifikatora zapisa) i iza
+// njih jednu ispravnu; druga strana ima sve osim tog ključa
+func neispravneNeZaustavljajuKljuc(t *testing.T, zapis, payload, uDnevniku string) {
 	a, b := izdavacIPrimatelj(t)
-	dnevnik := brojiDnevnik(t, "nije ispravan JSON")
+	dnevnik := brojiDnevnik(t, uDnevniku)
 	const kanal = "ocitanja/16/2026"
 	if _, err := b.db.Exec(`WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < ?)
 		INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel)
-		SELECT printf('0190a000-0000-7000-8000-%012d', i), 'probni', 'r-' || i, ?, '', 0, 'nije json', ?, 1, ? FROM n`,
-		NajviseVerzijaPoRazmjeni, b.node.ID, time.Now().UTC(), kanal); err != nil {
+		SELECT printf('0190a000-0000-7000-8000-%012d', i), 'probni', ifnull(printf(?, i), ''), ?, '', 0, ?, ?, 1, ? FROM n`,
+		NajviseVerzijaPoRazmjeni, zapis, b.node.ID, payload, time.Now().UTC(), kanal); err != nil {
 		t.Fatal(err)
 	}
 	ispravna := fmt.Sprintf("0190a000-0000-7000-8000-%012d", NajviseVerzijaPoRazmjeni+1)

@@ -18,7 +18,7 @@ import (
 func TestDeltaSeRezePoBajtovima(t *testing.T) {
 	var delta []ledger.Version
 	for i := 0; i < 10; i++ {
-		delta = append(delta, ledger.Version{VersionID: fmt.Sprintf("%04d", i), NodeID: "unraid", Entity: "stations",
+		delta = append(delta, ledger.Version{VersionID: fmt.Sprintf("%04d", i), NodeID: "unraid", Entity: "stations", EntityID: "s1",
 			Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)})
 	}
 	jedna, _ := json.Marshal(delta[0])
@@ -41,17 +41,20 @@ func TestDeltaSeRezePoBajtovima(t *testing.T) {
 	}
 }
 
-// Verzija koja se ne da zapisati kao JSON ne ide u deltu, nego se vraća
-// zasebno; ostale idu, i ona ne skraćuje deltu ni ne broji se u ogradu.
-// Kad je takva prva, prva ispravna i dalje ide i kad je sama veća od ograde.
+// Verzija koja se ne da zapisati kao JSON ili nema identifikator zapisa ne
+// ide u deltu, nego se vraća zasebno; ostale idu, i ona ne skraćuje deltu ni
+// ne broji se u ogradu. Kad je takva prva, prva ispravna i dalje ide i kad
+// je sama veća od ograde.
 func TestDeltaPreskaceNeispravnuVerziju(t *testing.T) {
 	ispravna := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)}
+		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)}
 	}
 	pokvarena := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", Payload: json.RawMessage("nije json")}
+		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage("nije json")}
 	}
-	delta := []ledger.Version{pokvarena("0000"), ispravna("0001"), pokvarena("0002"), ispravna("0003")}
+	bezZapisa := ispravna("0002")
+	bezZapisa.EntityID = ""
+	delta := []ledger.Version{pokvarena("0000"), ispravna("0001"), bezZapisa, ispravna("0003")}
 
 	rez, neispravne, skraceno := ogradiDeltu(delta, 1<<20)
 	if len(rez) != 2 || rez[0].VersionID != "0001" || rez[1].VersionID != "0003" || skraceno {
@@ -107,7 +110,7 @@ func TestPrevelikSadrzajSeNeSalje(t *testing.T) {
 // ni oznake verzije, nego kaže što učiniti.
 func TestUpozorenjeONeispravnimVerzijama(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
-	dnevnik := brojiDnevnik(t, "nije ispravan JSON")
+	dnevnik := brojiDnevnik(t, "ne šalje se drugim čvorovima")
 	if u := s.upozorenjeNeispravnih(); u != nil {
 		t.Fatalf("upozorenje bez neispravnih verzija: %q", u)
 	}
@@ -115,7 +118,7 @@ func TestUpozorenjeONeispravnimVerzijama(t *testing.T) {
 	if u := s.upozorenjeNeispravnih(); len(u) != 1 || u[0] != "Razmjena drugim računalima ne šalje 1 zapis koji u bazi ovog računala nije ispravan. Ostali podaci razmjenjuju se normalno. Javite administratoru: pojedinosti su u dnevniku programa." {
 		t.Errorf("jedna verzija: %q", u)
 	}
-	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "0002 (stations)") {
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "0002 (stations) u knjizi nema oznaku, entitet ili identifikator zapisa") {
 		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
 	}
 	var vise []ledger.Version

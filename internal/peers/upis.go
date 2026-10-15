@@ -89,13 +89,15 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 }
 
 // primijeniPodBravom upisuje verzije iz arhive ili COP paketa. Mreže tu
-// nema, pa bravu čeka koliko treba.
+// nema, pa bravu čeka koliko treba. Neispravne verzije preskoči kao i
+// razmjena (od G3; do tada je uvoz s njima padao), a vide se samo u
+// dnevniku.
 func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version) (int, error) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return 0, err
 	}
 	defer s.pustiBravu()
-	applied, povrsina, err := s.primijeni(ctx, verzije)
+	applied, povrsina, err := s.primijeni(ctx, s.preskociNeispravne("uvoz", verzije))
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
 	}
@@ -103,8 +105,10 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 }
 
 // primijeniAkoStigne upisuje verzije primljene u razgovoru, ako brava
-// stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka.
+// stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka,
+// pa ni kad su sve primljene neispravne.
 func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version) (int, error) {
+	verzije = s.preskociNeispravne("razmjena", verzije)
 	if len(verzije) == 0 {
 		return 0, nil
 	}
@@ -115,6 +119,24 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 	applied, povrsina, err := s.primijeni(ctx, verzije)
 	javiPovrsinu(povrsina)
 	return applied, err
+}
+
+// preskociNeispravne izostavi primljene verzije koje knjiga ne prima
+// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji, s putem kojim
+// su stigle (razmjena ili uvoz); ostale prođu. Izostavlja ih već ovdje, a ne
+// samo knjiga, jer površina smije dobiti samo ispravne: zbog jedne
+// neispravne pala bi za cijeli paket. Sadržaj ne ide u dnevnik, a autor je
+// pod navodnicima jer ga piše druga strana. To nisu neispravne verzije iz
+// vlastite knjige (zabiljeziNeispravne), pa se ne broje na ploči.
+func (s *Service) preskociNeispravne(put string, verzije []ledger.Version) []ledger.Version {
+	ispravne, neispravne := ledger.Ispravne(verzije)
+	for _, v := range neispravne {
+		kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
+		if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
+			log.Printf("%s: primljena verzija %q (entitet %q, zapis %q, autor %q) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID)
+		}
+	}
+	return ispravne
 }
 
 // primiSadrzajAkoStigne upisuje primljeni sadržaj, ako brava stigne unutar
@@ -134,10 +156,10 @@ func (s *Service) primiSadrzajAkoStigne(ctx context.Context, od string, stavke [
 
 // zavrsiZauzet završava razgovor u kojem primljene verzije nisu upisane jer
 // je upis zauzet: pozivatelj javi kraj, a pozvani odbije ostatak razgovora
-// razlogom. Druga strana tako dobije odgovor, a ne prekinutu vezu, i krug
-// razmjena s ovim čvorom stane. Pozvani najprije pročita sljedeću poruku
-// pozivatelja (želje ili kraj), koja stiže tek nakon njegova upisa, da
-// zatvaranje s nepročitanim podacima ne pošalje RST koji bi odbijenicu
+// kodom i razlogom. Druga strana tako dobije odgovor, a ne prekinutu vezu,
+// i krug razmjena s ovim čvorom stane. Pozvani najprije pročita sljedeću
+// poruku pozivatelja (želje ili kraj), koja stiže tek nakon njegova upisa,
+// da zatvaranje s nepročitanim podacima ne pošalje RST koji bi odbijenicu
 // progutao.
 func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 	switch {
@@ -149,7 +171,7 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 		_, _ = c.Receive()
 	default:
 		_, _ = c.Receive()
-		_ = c.Send(razmjena.Envelope{Kind: razmjena.VrstaOdbijeno, Reason: razlogUpisZauzet})
+		_ = c.Send(razmjena.Odbijenica(razmjena.KodUpisZauzet, razlogUpisZauzet))
 	}
 }
 
@@ -172,16 +194,38 @@ func javiPovrsinu(err error) {
 	}
 }
 
-// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom
-type odbijenaRazmjena struct{ razlog string }
+// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom i kodom
+// (kodOdbijenice). Program odlučuje po kodu, a korisnik vidi samo razlog.
+type odbijenaRazmjena struct {
+	razlog string
+	kod    razmjena.KodRazloga
+}
 
 func (e odbijenaRazmjena) Error() string { return "čvor odbio razmjenu: " + e.razlog }
 
 // neocekivanaPoruka je greška za poruku druge strane koja nije ona koju
-// razgovor čeka; odbijenica nosi razlog druge strane
+// razgovor čeka; odbijenica nosi razlog i kod druge strane
 func neocekivanaPoruka(kind string, e razmjena.Envelope) error {
 	if e.Reason != "" {
-		return odbijenaRazmjena{e.Reason}
+		return odbijenaRazmjena{razlog: e.Reason, kod: kodOdbijenice(e)}
 	}
 	return fmt.Errorf("očekivana poruka %q, stigla %q", kind, e.Kind)
+}
+
+// kodoviStarijih su kodovi odbijenica čvora 0.0.38, koji šalje samo razlog;
+// to su sva tri razloga koja on zna poslati. Tekstovi se zato ne mijenjaju
+// dok u mreži ima čvorova 0.0.38, a kad ih više nema, popis se briše.
+var kodoviStarijih = map[string]razmjena.KodRazloga{
+	razmjena.RazlogZauzet: razmjena.KodZauzet,
+	razlogUpisZauzet:      razmjena.KodUpisZauzet,
+	razlogBezTailscalea:   razmjena.KodBezTailscalea,
+}
+
+// kodOdbijenice je kod iz odbijenice; kad ga nema (čvor 0.0.38), kod
+// poznatog razloga, a za nepoznat razlog 0
+func kodOdbijenice(e razmjena.Envelope) razmjena.KodRazloga {
+	if e.Kod != 0 {
+		return e.Kod
+	}
+	return kodoviStarijih[e.Reason]
 }

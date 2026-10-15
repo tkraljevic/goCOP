@@ -37,7 +37,8 @@ const najviseTailscaleAdresa = 8
 
 // razlogBezTailscalea je odbijenica razmjene koja stigne na Tailscale
 // adresu čvora kojem je Tailscale u razmjeni isključen; pozivatelj tada
-// zaboravi njegove Tailscale adrese i zove sljedeću adresu
+// zaboravi njegove Tailscale adrese i zove sljedeću adresu. Čvor 0.0.38 to
+// prepozna samo po ovom tekstu, pa se tekst ne mijenja.
 const razlogBezTailscalea = "na ovom računalu razmjena preko Tailscalea je isključena ([sync] tailscale = false)"
 
 // zadaneTailscaleAdrese su Tailscale adrese ovog računala. Testovi paketa
@@ -230,11 +231,12 @@ func racunaloIzAdrese(a string) string {
 }
 
 // odbioTailscale javlja da je drugi čvor odbio razmjenu na svojoj Tailscale
-// adresi jer mu je Tailscale isključen. Ovaj tada zaboravi njegove Tailscale
+// adresi jer mu je Tailscale isključen (KodBezTailscalea; čvor 0.0.38 kod
+// ne šalje, pa se uzme iz razloga). Ovaj tada zaboravi njegove Tailscale
 // adrese i zove sljedeću adresu, kao da ih nikad nije znao.
 func (s *Service) odbioTailscale(ctx context.Context, nodeID string, err error) bool {
 	var o odbijenaRazmjena
-	if !errors.As(err, &o) || o.razlog != razlogBezTailscalea {
+	if !errors.As(err, &o) || o.kod != razmjena.KodBezTailscalea {
 		return false
 	}
 	s.upisiTailscale(ctx, nodeID, nil)
@@ -266,6 +268,6 @@ func (s *Service) odbijTailscale(c *razmjena.Conn, peer *Peer) bool {
 	if _, vec := s.javljenTailscale.LoadOrStore(tko, true); !vec {
 		log.Printf("razmjena: %s je nazvao Tailscale adresu ovog računala (%s), a Tailscale je u razmjeni isključen ([sync] tailscale = false); razmjena je odbijena, a %s zove sljedeću adresu", tko, c.LocalAddr(), tko)
 	}
-	razmjena.Odbij(c, razlogBezTailscalea)
+	razmjena.Odbij(c, razmjena.KodBezTailscalea, razlogBezTailscalea)
 	return true
 }

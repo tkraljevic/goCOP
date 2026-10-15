@@ -155,7 +155,7 @@ func TestZauzetUpisOdbijaOstatakRazgovora(t *testing.T) {
 	postaviRok(t, 50*time.Millisecond)
 	for i := 0; i < 6; i++ {
 		_, _, err := a.SyncWith(ctxRub, novi.node.ID)
-		if !errors.Is(err, odbijenaRazmjena{razlogUpisZauzet}) {
+		if !errors.Is(err, odbijenaRazmjena{razlogUpisZauzet, razmjena.KodUpisZauzet}) {
 			t.Fatalf("razgovor %d dok je upis zauzet: %v", i+1, err)
 		}
 	}
@@ -305,7 +305,7 @@ func TestUvozCekaBravuUpisa(t *testing.T) {
 }
 
 // Upis primljenog: ništa za upis ne čeka bravu, otkazan razgovor je ne
-// čeka, a kvar knjige i površine vrati se ili ide u dnevnik
+// čeka, neispravna verzija se preskoči, a kvar površine ide u dnevnik
 func TestUpisPrimljenogRubovi(t *testing.T) {
 	s := rubniCvor(t, "ured-vukovar")
 	if err := s.uzmiBravu(ctxRub); err != nil {
@@ -328,9 +328,15 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	s.zavrsiZauzet(nil, true, errors.New("kvar baze")) // druga greška: razgovor se samo prekida
 	s.pustiBravu()
 
-	v[0].EntityID = "" // knjiga je odbije
-	if _, err := s.primijeniAkoStigne(ctxRub, v); err == nil {
-		t.Error("knjiga je primila neispravnu verziju")
+	// namjerno promijenjeno: G3 (docs/plan-web-sync.md §3); neispravna
+	// verzija se preskoči i ne ruši upis
+	v[0].EntityID = ""
+	if n, err := s.primijeniAkoStigne(ctxRub, v); n != 0 || err != nil {
+		t.Errorf("neispravna verzija: %d %v", n, err)
+	}
+	var bezZapisa int
+	if err := s.db.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity_id = ''`).Scan(&bezZapisa); err != nil || bezZapisa != 0 {
+		t.Errorf("knjiga je primila neispravnu verziju: %d %v", bezZapisa, err)
 	}
 	dnevnik := brojiDnevnik(t, "površina nije osvježena")
 	s.OnApplied(func(context.Context, []ledger.Version) error { return sql.ErrConnDone })
@@ -343,5 +349,69 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	}
 	if got := neocekivanaPoruka(kindZelje, razmjena.Envelope{Kind: kindDone}); got.Error() != `očekivana poruka "zelje", stigla "done"` {
 		t.Errorf("neočekivana poruka: %v", got)
+	}
+}
+
+// Primljena verzija bez oznake, entiteta ili identifikatora zapisa se
+// preskoči, a ostale iz paketa se upišu i odu na površinu; površina
+// neispravnu ne vidi. Isto u razmjeni i pri uvozu arhive ili COP paketa. U
+// dnevnik ide jednom po verziji i bez sadržaja, a paket samo neispravnih ne
+// čeka bravu. G3 (docs/plan-web-sync.md §3); do tada je jedna takva odbila
+// cijeli paket.
+func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
+	s := rubniCvor(t, "ured-vukovar")
+	var povrsina []string
+	s.OnApplied(func(_ context.Context, vv []ledger.Version) error {
+		for _, v := range vv {
+			povrsina = append(povrsina, v.EntityID)
+		}
+		return nil
+	})
+	dnevnik := brojiDnevnik(t, "i ne upisuje se")
+	verzija := func(id, entitet, zapis string) ledger.Version {
+		return ledger.Version{VersionID: id, Entity: entitet, EntityID: zapis, NodeID: "laptop-baranja",
+			Payload: []byte(`{"dezurni":"Ivan Ivić"}`), CreatedAt: time.Now()}
+	}
+	paket := []ledger.Version{
+		verzija("019a0000-0000-7000-8000-000000000001", entitetProbe, "z1"),
+		verzija("", entitetProbe, "z2"),
+		verzija("019a0000-0000-7000-8000-000000000003", "", "z3"),
+		verzija("019a0000-0000-7000-8000-000000000004", entitetProbe, ""),
+	}
+	if n, err := s.primijeniAkoStigne(ctxRub, paket); n != 1 || err != nil {
+		t.Fatalf("razmjena: %d %v", n, err)
+	}
+	if n, err := s.primijeniAkoStigne(ctxRub, paket); n != 0 || err != nil {
+		t.Errorf("isti paket opet: %d %v", n, err)
+	}
+	paket[0] = verzija("019a0000-0000-7000-8000-000000000005", entitetProbe, "z5")
+	if n, err := s.primijeniPodBravom(ctxRub, paket); n != 1 || err != nil {
+		t.Errorf("uvoz: %d %v", n, err)
+	}
+	if got := strings.Join(povrsina, " "); got != "z1 z5" {
+		t.Errorf("površina je dobila %q", got)
+	}
+	if n, redak := dnevnik.broj(); n != 3 || strings.Contains(redak, "Ivan") {
+		t.Errorf("dnevnik: %d, %q", n, redak)
+	}
+	// uvoz je u dnevniku uvoz, ne razmjena; autora piše druga strana, pa
+	// prijelom retka u njemu ne daje novi redak dnevnika
+	uvoz := brojiDnevnik(t, "uvoz: primljena verzija")
+	lazniAutor := verzija("019a0000-0000-7000-8000-000000000006", entitetProbe, "")
+	lazniAutor.NodeID = "x\n2026/10/15 20:00:00 sinkronizacija: lažni redak"
+	if n, err := s.primijeniPodBravom(ctxRub, []ledger.Version{lazniAutor}); n != 0 || err != nil {
+		t.Errorf("uvoz samo neispravne: %d %v", n, err)
+	}
+	if n, redak := uvoz.broj(); n != 1 || strings.Count(redak, "\n") != 1 {
+		t.Errorf("dnevnik uvoza: %d, %q", n, redak)
+	}
+
+	if err := s.uzmiBravu(ctxRub); err != nil {
+		t.Fatal(err)
+	}
+	defer s.pustiBravu()
+	postaviRok(t, 20*time.Millisecond)
+	if n, err := s.primijeniAkoStigne(ctxRub, paket[1:]); n != 0 || err != nil {
+		t.Errorf("samo neispravne uz zauzet upis: %d %v", n, err)
 	}
 }

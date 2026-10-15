@@ -286,10 +286,33 @@ func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Vers
 	`, entity, entityID)
 }
 
+// Ispravna javlja da knjiga verziju prima. Neispravna je verzija bez oznake,
+// entiteta ili identifikatora zapisa: ne zna se ni što je ni kamo ide.
+// Razmjena takvu verziju iz svoje knjige ni ne šalje.
+func Ispravna(v Version) bool {
+	return v.VersionID != "" && v.Entity != "" && v.EntityID != ""
+}
+
+// Ispravne dijeli primljene verzije na one koje knjiga prima (Ispravna) i
+// neispravne, redom kojim su stigle.
+func Ispravne(versions []Version) (ispravne, neispravne []Version) {
+	for _, v := range versions {
+		if !Ispravna(v) {
+			neispravne = append(neispravne, v)
+			continue
+		}
+		ispravne = append(ispravne, v)
+	}
+	return ispravne, neispravne
+}
+
 // Apply prima verzije s drugog čvora i upisuje one koje ovaj čvor nema.
 // Idempotentno: isti paket primljen dvaput ne mijenja ništa. Površinu ne
-// dira — nju osvježava sloj koji zna što je koji entitet.
+// dira — nju osvježava sloj koji zna što je koji entitet. Neispravne
+// verzije (Ispravne) preskoči, a ostale upiše; greška baze vrati cijeli
+// paket.
 func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, err error) {
+	versions, _ = Ispravne(versions)
 	if len(versions) == 0 {
 		return 0, nil
 	}
@@ -313,9 +336,6 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 
 	var nove []Version
 	for _, v := range versions {
-		if v.VersionID == "" || v.Entity == "" || v.EntityID == "" {
-			return 0, fmt.Errorf("primljena verzija bez identifikatora ili entiteta")
-		}
 		res, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
 			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel)
 		if err != nil {

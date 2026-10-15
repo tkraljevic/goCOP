@@ -92,7 +92,7 @@ func (r *razgovorSCvorom) posalji(kind string, v any) error {
 }
 
 // ocekuj primi sljedeću poruku i dekodira je u v. Druga vrsta poruke je
-// greška; odbijenica tada nosi razlog druge strane (neocekivanaPoruka).
+// greška; odbijenica tada nosi razlog i kod druge strane (neocekivanaPoruka).
 func (r *razgovorSCvorom) ocekuj(kind string, v any) error {
 	e, err := r.c.Receive()
 	if err != nil {

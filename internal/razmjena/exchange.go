@@ -23,9 +23,13 @@ import (
 // only the frame; what the kinds mean and what the payload holds is the
 // application's protocol. Reason accompanies a refusal, sent before
 // closing so the other machine reads a sentence instead of EOF.
+//
+// Uz odbijenicu ide i Kod, broj razloga iz kodovi.go. Poruke bez njega
+// ostaju bajt po bajt iste kao u 0.0.38, a čvor 0.0.38 polje zanemari.
 type Envelope struct {
 	Kind     string          `json:"kind"`
 	Reason   string          `json:"reason,omitempty"`
+	Kod      KodRazloga      `json:"kod,omitempty"`
 	DeviceID string          `json:"deviceId,omitempty"`
 	Payload  json.RawMessage `json:"payload,omitempty"`
 }
@@ -292,19 +296,19 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 }
 
 // odbijZauzet javlja poznatom čvoru da je ovaj zauzet
-func odbijZauzet(c *Conn) { Odbij(c, RazlogZauzet) }
+func odbijZauzet(c *Conn) { Odbij(c, KodZauzet, RazlogZauzet) }
 
 // Odbij odbija razmjenu s poznatim čvorom i zatvara vezu; druga strana
-// ispiše razlog. Pozivatelj uvijek prvi šalje svoju granicu; ona se pročita
-// prije odbijenice, da zatvaranje s nepročitanim podacima ne pošalje RST
-// koji bi odbijenicu progutao.
-func Odbij(c *Conn, razlog string) {
+// prepozna kod i ispiše razlog. Pozivatelj uvijek prvi šalje svoju granicu;
+// ona se pročita prije odbijenice, da zatvaranje s nepročitanim podacima ne
+// pošalje RST koji bi odbijenicu progutao.
+func Odbij(c *Conn, kod KodRazloga, razlog string) {
 	defer c.Close()
 	_ = c.raw.SetReadDeadline(time.Now().Add(10 * time.Second))
 	c.citac.postavi(1 << 20)
 	var prva Envelope
 	_ = c.dec.Decode(&prva)
-	_ = c.Send(Envelope{Kind: VrstaOdbijeno, Reason: razlog})
+	_ = c.Send(Odbijenica(kod, razlog))
 }
 
 // DialExchange connects to a peer and refuses to proceed unless the key

@@ -453,7 +453,11 @@ Kanal koji druga strana nije navela u `kanali` se ne otvara. Tako se
 
 **Kodovi grešaka aplikacije:** `0x0100` opće, `0x0101` nepoznat kanal,
 `0x0102` zauzet, `0x0103` odbijeno, `0x0104` nije član / opozvan, `0x0105`
-proračun posrednika.
+proračun posrednika, `0x0106` upis zauzet (pozvani odbija ostatak
+razgovora), `0x0107` Tailscale isključen (pozivatelj zove sljedeću adresu).
+Isti popis vrijedi i za kod razloga u odbijenici razgovora (`Envelope.Kod`,
+od G3). Vodi se u `internal/razmjena/kodovi.go`, a novi kod upisuje se i
+ovdje. Kod se ne daje drugom razlogu ni kad se prestane slati.
 
 **Prilagodba `razmjena.Conn`:** `raw *tls.Conn` postaje sučelje `prijenos`
 (Read, Write, Close, dva rokova, RemoteAddr). Za QUIC tok `Close` = `Close` +
