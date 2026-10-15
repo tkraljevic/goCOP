@@ -249,3 +249,25 @@ func TestStanjeBezNadzora(t *testing.T) {
 		t.Errorf("stanje se mijenja izvana: %+v", d)
 	}
 }
+
+// Poslije svake provjere nadzor preda izmjerene diskove, i kad mjesta ima
+// dovoljno; promjena predanog ne dira zapamćeno stanje
+func TestNakonProvjere(t *testing.T) {
+	m := &lazniMjerac{mjere: map[string]Mjera{"/data": {Disk: "sda", Ukupno: 500e9, Slobodno: 9e9}}}
+	var d dnevnik
+	n := NoviNadzor(m, d.javi, Mjesto{Put: "/data", Naziv: "bazom"})
+	var predano [][]Disk
+	n.NakonProvjere(func(diskovi []Disk) {
+		predano = append(predano, diskovi)
+		diskovi[0].Slobodno = 0
+	})
+	n.Provjeri()
+	m.postavi("/data", Mjera{Disk: "sda", Ukupno: 500e9, Slobodno: 60e9})
+	n.Provjeri()
+	if len(predano) != 2 || len(predano[0]) != 1 || !predano[0][0].Malo() || len(predano[1]) != 1 || predano[1][0].Slobodno != 0 {
+		t.Fatalf("predano %+v", predano)
+	}
+	if st := n.Stanje(); len(st) != 1 || st[0].Slobodno != 60e9 {
+		t.Errorf("stanje nakon promjene predanog: %+v", st)
+	}
+}

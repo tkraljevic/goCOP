@@ -56,10 +56,11 @@ func TestPlocicaRazmjene(t *testing.T) {
 
 // Upozorenje da na disku ostaje malo mjesta stoji na vrhu pločice jednom,
 // i kad čvor nije ni u jednoj mreži, i kad je sve usklađeno, i kad nije.
-// Što učiniti vidi samo globalni administrator; ostali vide da mu jave.
+// Poruku i savjet vide svi, pa i osoba za tim računalom: ona javi
+// administratoru kad ne zna što učiniti (Odluke (15. 10. 2026.)).
 func TestPlocicaPokazujeMaloMjesta(t *testing.T) {
 	poruka := "Na disku čvora COP Osijek s bazom ostalo je 8,2 GB (6 % diska)."
-	savjet := "Oslobodite mjesto ili premjestite arhivu na drugi disk."
+	savjet := "Oslobodite mjesto ili premjestite arhivu na drugi disk. Ako ne znate kako, javite administratoru."
 	upozorenje := []DiskRazmjene{{Poruka: poruka, Savjet: savjet}}
 	malo := time.Now().Add(-2 * time.Minute)
 	for ime, slucaj := range map[string]struct {
@@ -86,16 +87,9 @@ func TestPlocicaPokazujeMaloMjesta(t *testing.T) {
 			if w.Code != http.StatusOK || w.Header().Get("Cache-Control") != "no-store" || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
 				t.Errorf("%s, %s: odgovor %d, zaglavlja %v", ime, tko, w.Code, w.Header())
 			}
-			dalje := "Javite administratoru."
-			if tko == "administrator" {
-				dalje = savjet
-			}
-			cijelo := poruka + " " + dalje
+			cijelo := poruka + " " + savjet
 			if strings.Count(tijelo, cijelo) != 1 || !strings.Contains(tijelo, slucaj.ocekuje) {
 				t.Errorf("%s, %s: %q %d puta, %q: %v u\n%s", ime, tko, cijelo, strings.Count(tijelo, cijelo), slucaj.ocekuje, strings.Contains(tijelo, slucaj.ocekuje), tijelo)
-			}
-			if tko != "administrator" && strings.Contains(tijelo, savjet) {
-				t.Errorf("%s, %s: savjet za administratora na pločici", ime, tko)
 			}
 		}
 	}

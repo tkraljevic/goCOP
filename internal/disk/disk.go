@@ -73,7 +73,7 @@ func (d Disk) Poruka(cvor string) string {
 	return gdje + spoji(d.Nazivi) + " ostalo je " + d.slobodno() + "."
 }
 
-// Savjet kaže administratoru što može učiniti
+// Savjet kaže osobi za računalom što može učiniti
 func (d Disk) Savjet() string {
 	if d.Premjesti == "" {
 		return "Oslobodite mjesto na tom disku."

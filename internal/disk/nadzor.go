@@ -16,6 +16,7 @@ type Nadzor struct {
 	mjerac Mjerac
 	mjesta []Mjesto
 	javi   func(format string, args ...any) // dnevnik
+	nakon  func([]Disk)                     // poslije svake provjere; nil = ništa
 
 	krug   sync.Mutex        // jedna provjera u isto vrijeme; čuva malo i greske
 	malo   map[string]bool   // disk → bilo je malo mjesta pri zadnjoj provjeri
@@ -29,6 +30,10 @@ type Nadzor struct {
 func NoviNadzor(m Mjerac, javi func(format string, args ...any), mjesta ...Mjesto) *Nadzor {
 	return &Nadzor{mjerac: m, javi: javi, mjesta: mjesta, malo: map[string]bool{}, greske: map[string]string{}}
 }
+
+// NakonProvjere zadaje što se radi s diskovima poslije svake provjere, npr.
+// e-pošta kad je mjesta malo. Zadaje se prije Vrti.
+func (n *Nadzor) NakonProvjere(f func([]Disk)) { n.nakon = f }
 
 // Vrti provjerava odmah i zatim svakih toliko, dok ctx ne završi
 func (n *Nadzor) Vrti(ctx context.Context, svakih time.Duration) {
@@ -59,6 +64,9 @@ func (n *Nadzor) Provjeri() {
 	n.mu.Lock()
 	n.zadnje = diskovi
 	n.mu.Unlock()
+	if n.nakon != nil {
+		n.nakon(slices.Clone(diskovi))
+	}
 }
 
 // Stanje su diskovi zadnje provjere, i oni na kojima mjesta ima dovoljno,

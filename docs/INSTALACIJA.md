@@ -801,6 +801,10 @@ manje od 10 % diska. Disk se prepoznaje po uređaju, pa dva ZFS skupa podataka
 slobodnim mjestom, a postotak se računa od skupa podataka, ne od poola. Na
 ZFS-u zato gledati koliko je GB ostalo.
 
+Isto upozorenje stiže e-poštom, jednom na dan, osobama koje su na tom čvoru
+spremile lozinku sandučića, svakoj sa svoje adrese na svoju. Vrijeme zadnje
+poruke čvor pamti u datoteci `obavijest-o-disku.txt` uz bazu.
+
 Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
 spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
 datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i

@@ -65,7 +65,8 @@ func TestPomocOpisujeStalniCvorITunelskuRazmjenu(t *testing.T) {
 		"zadnjih 48 sati", "broj zapisa", "docs/INSTALACIJA.md",
 		"sigurnosno učvršćivanje nije", "<code>x/net</code>",
 		"izdanje programa", "razumije do kraja", "Od godine",
-		"malo mjesta: manje od 10 GB ili", "manje od 10 % diska", "„Javite administratoru”",
+		"malo mjesta: manje od 10 GB ili", "manje od 10 % diska", "Ako ne znate kako, javite administratoru.",
+		"stiže i e-poštom, jednom na dan", "spremile lozinku sandučića",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje %q", want)

@@ -64,7 +64,7 @@ func nadzorMaloMjesta(t *testing.T) *disk.Nadzor {
 // upozorenjeDiska je disk iz nadzorMaloMjesta na pločici čvora „Probni”
 var upozorenjeDiska = web.DiskRazmjene{
 	Poruka: "Na disku čvora Probni s bazom i arhivom ostalo je 8,2 GB (6 % diska).",
-	Savjet: "Oslobodite mjesto ili premjestite arhivu na drugi disk.",
+	Savjet: "Oslobodite mjesto ili premjestite arhivu na drugi disk. Ako ne znate kako, javite administratoru.",
 }
 
 // Čvor bez mreže: pločica kaže da nije u mreži i ipak nosi upozorenje o disku
@@ -177,7 +177,7 @@ func TestUpozorenjaDiska(t *testing.T) {
 	n.Provjeri()
 	u := upozorenjaDiska(n, &peers.Node{ID: "pperic-thinkpad"})
 	if len(u) != 1 || u[0].Poruka != "Na disku čvora pperic-thinkpad s bazom ostalo je 8,2 GB (6 % diska)." ||
-		u[0].Savjet != "Oslobodite mjesto na tom disku." {
+		u[0].Savjet != "Oslobodite mjesto na tom disku. Ako ne znate kako, javite administratoru." {
 		t.Errorf("upozorenja: %+v", u)
 	}
 	if u := upozorenjaDiska(nil, &peers.Node{ID: "pperic-thinkpad"}); u != nil {

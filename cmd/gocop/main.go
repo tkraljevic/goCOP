@@ -831,7 +831,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	go razmjenaArh.vrti(syncCtx)
 	var pbRazmjena *sql.DB // baza prognoza, za pločicu razmjene; postavlja se niže
 	// slobodno mjesto na diskovima čvora; malo mjesta javlja pločica razmjene
-	nadzorDiska := pokreniNadzorDiska(syncCtx, *dbPath, arhivaPut, z.podaci, z.paketi)
+	// i e-pošta osobama koje su ovdje spremile lozinku sandučića
+	nadzorDiska := pokreniNadzorDiska(syncCtx, *dbPath, arhivaPut, z.podaci, z.paketi,
+		func() string { return imeCvora(peersService.Node()) }, aktService.ObavijestiSanducima)
 	server.SetRazmjena(func(ctx context.Context) web.RazmjenaStanje {
 		return stanjeRazmjene(ctx, peersService, recorder, spremiste, razmjenaArh, pbRazmjena, nadzorDiska)
 	})
