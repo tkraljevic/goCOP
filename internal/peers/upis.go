@@ -89,13 +89,15 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 }
 
 // primijeniPodBravom upisuje verzije iz arhive ili COP paketa. Mreže tu
-// nema, pa bravu čeka koliko treba.
+// nema, pa bravu čeka koliko treba. Neispravne verzije preskoči kao i
+// razmjena (od G3; do tada je uvoz s njima padao), a vide se samo u
+// dnevniku.
 func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version) (int, error) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return 0, err
 	}
 	defer s.pustiBravu()
-	applied, povrsina, err := s.primijeni(ctx, s.bezNeispravnih(verzije))
+	applied, povrsina, err := s.primijeni(ctx, s.preskociNeispravne("uvoz", verzije))
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
 	}
@@ -106,7 +108,7 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 // stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka,
 // pa ni kad su sve primljene neispravne.
 func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version) (int, error) {
-	verzije = s.bezNeispravnih(verzije)
+	verzije = s.preskociNeispravne("razmjena", verzije)
 	if len(verzije) == 0 {
 		return 0, nil
 	}
@@ -119,17 +121,19 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 	return applied, err
 }
 
-// bezNeispravnih izostavi primljene verzije koje knjiga ne prima
-// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji; ostale prođu.
-// Izostavlja ih već ovdje, a ne samo knjiga, jer površina smije dobiti samo
-// ispravne: zbog jedne neispravne pala bi za cijeli paket. Sadržaj ne ide
-// u dnevnik.
-func (s *Service) bezNeispravnih(verzije []ledger.Version) []ledger.Version {
+// preskociNeispravne izostavi primljene verzije koje knjiga ne prima
+// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji, s putem kojim
+// su stigle (razmjena ili uvoz); ostale prođu. Izostavlja ih već ovdje, a ne
+// samo knjiga, jer površina smije dobiti samo ispravne: zbog jedne
+// neispravne pala bi za cijeli paket. Sadržaj ne ide u dnevnik, a autor je
+// pod navodnicima jer ga piše druga strana. To nisu neispravne verzije iz
+// vlastite knjige (zabiljeziNeispravne), pa se ne broje na ploči.
+func (s *Service) preskociNeispravne(put string, verzije []ledger.Version) []ledger.Version {
 	ispravne, neispravne := ledger.Ispravne(verzije)
 	for _, v := range neispravne {
 		kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
 		if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
-			log.Printf("razmjena: primljena verzija %q (entitet %q, zapis %q, autor %s) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", v.VersionID, v.Entity, v.EntityID, v.NodeID)
+			log.Printf("%s: primljena verzija %q (entitet %q, zapis %q, autor %q) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID)
 		}
 	}
 	return ispravne

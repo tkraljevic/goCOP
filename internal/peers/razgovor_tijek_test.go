@@ -637,20 +637,21 @@ func TestTijekRazgovoraNeocekivanaPoruka(t *testing.T) {
 // neomotanom greškom odbijenaRazmjena s razlogom i kodom druge strane (po
 // kodu SyncWith prepoznaje i isključen Tailscale), a na kraju razgovora
 // odbijenica nije greška. Odbijenica čvora 0.0.38 nema kod, pa se kod uzme
-// iz poznatog razloga, a nepoznat razlog bez koda daje 0.
+// iz poznatog razloga (zamrznut tekst 0.0.38), a nepoznat razlog bez koda
+// daje 0.
 //
 // Namjerno promijenjeno: G3 (docs/plan-web-sync.md §3). Greška se bilježi s
 // kodom, a uz odbijenice bez koda dodane su odbijenice s kodom.
 func TestTijekRazgovoraOdbijenica(t *testing.T) {
 	a, b := cistiPar(t)
 	zauzet := func(string) string { return "odbijeno 0x0102: čvor je zauzet, pokušajte kasnije" }
-	zamjenaNaSvakomKoraku(t, a, b, odbija(razmjena.RazlogZauzet), zauzet)
+	zamjenaNaSvakomKoraku(t, a, b, odbija(zauzet0038), zauzet)
 	zamjenaNaSvakomKoraku(t, a, b, odbijaKodom(razmjena.KodZauzet, razmjena.RazlogZauzet), zauzet)
 	bezTailscalea := prijeGranice("odbijeno 0x0107: na ovom računalu razmjena preko Tailscalea je isključena ([sync] tailscale = false)")
 	nepoznat := "razmjena na ovim vratima nije dopuštena"
 	tok := tokPozivatelja()
 	provjeriSlucajeve(t, a, b, true, []slucaj{
-		{ime: "bez Tailscalea", potezi: do(tok, 1, odbija(razlogBezTailscalea), cita(krajVeze)), ishod: bezTailscalea},
+		{ime: "bez Tailscalea", potezi: do(tok, 1, odbija(bezTailscalea0038), cita(krajVeze)), ishod: bezTailscalea},
 		{ime: "bez Tailscalea, s kodom", potezi: do(tok, 1, odbijaKodom(razmjena.KodBezTailscalea, razlogBezTailscalea), cita(krajVeze)), ishod: bezTailscalea},
 		{ime: "nepoznat razlog", potezi: do(tok, 1, odbija(nepoznat), cita(krajVeze)), ishod: prijeGranice("odbijeno 0x0000: " + nepoznat)},
 		{ime: "nepoznat razlog, s kodom", potezi: do(tok, 1, odbijaKodom(razmjena.KodOdbijeno, nepoznat), cita(krajVeze)), ishod: prijeGranice("odbijeno 0x0103: " + nepoznat)},

@@ -161,11 +161,12 @@ type Service struct {
 	program, gradnja string
 	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
 	javljenaInacica sync.Map
-	// neispravne su version_id verzija iz knjige koje razmjena ne šalje jer
-	// se ne daju zapisati kao JSON; broj se vidi na ploči
+	// neispravne su version_id verzija iz vlastite knjige koje razmjena ne
+	// šalje (zaSlanje); broj se vidi na ploči. Primljene neispravne su u
+	// preskocene.
 	neispravne sync.Map
-	// preskocene su primljene verzije koje knjiga ne prima, a već su
-	// zapisane u dnevnik (bezNeispravnih)
+	// preskocene su primljene neispravne verzije (ledger.Ispravna) koje su
+	// već zapisane u dnevnik (preskociNeispravne); na ploči se ne broje
 	preskocene sync.Map
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
@@ -994,14 +995,14 @@ var najviseBajtovaDelte = 32 << 20
 // primatelja (najveći version_id po ključu) time ne preskače ništa. Prva
 // verzija ide uvijek, inače jedna golema ne bi prošla nikad.
 //
-// Verzija koja se ne da zapisati kao JSON (pokvaren redak u knjizi) ne ide,
-// nego se vraća zasebno: do 0.0.38 je cijela poruka padala, pa je jedna
-// takva verzija rušila svaku razmjenu s čvorom koji je nema. Ostale verzije
-// istog ključa idu redom, pa granica primatelja prijeđe preko nje.
+// Neispravna verzija (zaSlanje, pokvaren redak u knjizi) ne ide, nego se
+// vraća zasebno: do 0.0.38 je cijela poruka padala, pa je jedna takva
+// verzija rušila svaku razmjenu s čvorom koji je nema. Ostale verzije istog
+// ključa idu redom, pa granica primatelja prijeđe preko nje.
 func ogradiDeltu(delta []ledger.Version, najvise int) (poslati, neispravne []ledger.Version, skraceno bool) {
 	ukupno := 0
 	for _, v := range delta {
-		b, err := json.Marshal(v)
+		b, err := zaSlanje(v)
 		if err != nil {
 			neispravne = append(neispravne, v)
 			continue
@@ -1081,22 +1082,45 @@ func krajKljuca(delta []ledger.Version, i int) int {
 	return j
 }
 
-// imaIspravnu javlja da se barem jedna verzija da zapisati kao JSON
+// Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje)
+var (
+	errBezOznake = errors.New("nema oznaku, entitet ili identifikator zapisa")
+	errNijeJSON  = errors.New("nije ispravan JSON")
+)
+
+// zaSlanje je verzija zapisana kao JSON, ili greška kad je neispravna: kad
+// je knjiga primatelja ne prima (ledger.Ispravna) ili se ne da zapisati kao
+// JSON. Bez provjere oznake takvu bi verziju čvor slao svakom razmjenom:
+// primatelj je preskoči, pa mu se granica ne pomakne.
+func zaSlanje(v ledger.Version) ([]byte, error) {
+	if !ledger.Ispravna(v) {
+		return nil, errBezOznake
+	}
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, errNijeJSON
+	}
+	return b, nil
+}
+
+// imaIspravnu javlja da se barem jedna verzija smije poslati (zaSlanje)
 func imaIspravnu(verzije []ledger.Version) bool {
 	for _, v := range verzije {
-		if _, err := json.Marshal(v); err == nil {
+		if _, err := zaSlanje(v); err == nil {
 			return true
 		}
 	}
 	return false
 }
 
-// zabiljeziNeispravne zapiše u dnevnik, jednom po verziji, verzije koje
-// razmjena ne šalje; sadržaj ne ide u dnevnik
+// zabiljeziNeispravne zapiše u dnevnik, jednom po verziji, verzije iz
+// knjige koje razmjena ne šalje (zaSlanje), s razlogom; sadržaj ne ide u
+// dnevnik
 func (s *Service) zabiljeziNeispravne(neispravne []ledger.Version) {
 	for _, v := range neispravne {
 		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, struct{}{}); !bilo {
-			log.Printf("razmjena: verzija %s (%s) u knjizi nije ispravan JSON i ne šalje se drugim čvorovima", v.VersionID, v.Entity)
+			_, zasto := zaSlanje(v)
+			log.Printf("razmjena: verzija %s (%s) u knjizi %v i ne šalje se drugim čvorovima", v.VersionID, v.Entity, zasto)
 		}
 	}
 }

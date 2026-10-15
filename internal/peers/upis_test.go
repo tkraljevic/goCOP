@@ -394,6 +394,17 @@ func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
 	if n, redak := dnevnik.broj(); n != 3 || strings.Contains(redak, "Ivan") {
 		t.Errorf("dnevnik: %d, %q", n, redak)
 	}
+	// uvoz je u dnevniku uvoz, ne razmjena; autora piše druga strana, pa
+	// prijelom retka u njemu ne daje novi redak dnevnika
+	uvoz := brojiDnevnik(t, "uvoz: primljena verzija")
+	lazniAutor := verzija("019a0000-0000-7000-8000-000000000006", entitetProbe, "")
+	lazniAutor.NodeID = "x\n2026/10/15 20:00:00 sinkronizacija: lažni redak"
+	if n, err := s.primijeniPodBravom(ctxRub, []ledger.Version{lazniAutor}); n != 0 || err != nil {
+		t.Errorf("uvoz samo neispravne: %d %v", n, err)
+	}
+	if n, redak := uvoz.broj(); n != 1 || strings.Count(redak, "\n") != 1 {
+		t.Errorf("dnevnik uvoza: %d, %q", n, redak)
+	}
 
 	if err := s.uzmiBravu(ctxRub); err != nil {
 		t.Fatal(err)

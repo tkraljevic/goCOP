@@ -266,16 +266,15 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 	return m, nil
 }
 
-// zapisiZaCop slaže zapisi.jsonl, redak po verziji, od verzija koje se daju
-// zapisati kao JSON, i vraća ih s popisom onih koje se ne daju. Verzija s
-// neispravnim JSON-om (pokvaren redak u knjizi) ne ide u paket, kao ni u
-// razmjenu (ogradiDeltu): do 0.0.38 jedna takva verzija rušila je cijeli
-// izvoz. Redak je isti kao iz json.Encoder, pa ispravne verzije daju isti
-// otisak izdanja kao dosad.
+// zapisiZaCop slaže zapisi.jsonl, redak po verziji, od ispravnih verzija, i
+// vraća ih s popisom neispravnih. Neispravna verzija (zaSlanje, pokvaren
+// redak u knjizi) ne ide u paket, kao ni u razmjenu (ogradiDeltu): do 0.0.38
+// jedna takva verzija rušila je cijeli izvoz. Redak je isti kao iz
+// json.Encoder, pa ispravne verzije daju isti otisak izdanja kao dosad.
 func zapisiZaCop(versions []ledger.Version) (zapisi []byte, ispravne, neispravne []ledger.Version) {
 	var b bytes.Buffer
 	for _, v := range versions {
-		redak, err := json.Marshal(v)
+		redak, err := zaSlanje(v)
 		if err != nil {
 			neispravne = append(neispravne, v)
 			continue

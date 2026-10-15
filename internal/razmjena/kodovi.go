@@ -3,8 +3,8 @@ package razmjena
 // Kodovi razloga odbijanja. Isti broj znači isto na svakom putu: u
 // odbijenici razgovora (Envelope.Kod) na portu razmjene i kroz tunel, a
 // kasnije i kao kod greške QUIC toka ili veze (docs/plan-web-sync.md, F3).
-// Brojevi od 0x0100 do 0x0105 dodijeljeni su u
-// docs/plan-protokol-povezivanja.md §5.4.
+// Isti brojevi stoje u docs/plan-protokol-povezivanja.md §5.4, po kojem F3
+// dodjeljuje kodove, pa novi kod ide i ovdje i tamo.
 //
 // Popis je stalan: kod se ne mijenja, ne prenumerira i ne daje drugom
 // razlogu, ni kad ga program prestane slati. Na žici je uvijek cijeli broj
@@ -22,8 +22,8 @@ const (
 	KodZauzet KodRazloga = 0x0102
 	// KodOdbijeno je odbijanje bez točnijeg koda
 	KodOdbijeno KodRazloga = 0x0103
-	// KodNijeClan: druga strana nije član mreže ili je opozvana. Šalje ga
-	// samo QUIC; port i tunel takvu vezu zatvore bez odbijenice.
+	// KodNijeClan: druga strana nije član mreže ili je opozvana. Slat će ga
+	// QUIC (F3); port i tunel takvu vezu i dalje zatvore bez odbijenice.
 	KodNijeClan KodRazloga = 0x0104
 	// 0x0105 je zauzet za proračun posrednika; posrednik je odgođen, a kod
 	// se ne daje drugom razlogu

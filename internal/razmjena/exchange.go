@@ -22,9 +22,10 @@ import (
 // Envelope is one message of an exchange conversation. The package fixes
 // only the frame; what the kinds mean and what the payload holds is the
 // application's protocol. Reason accompanies a refusal, sent before
-// closing so the other machine reads a sentence instead of EOF. Kod je uz
-// odbijenicu kod razloga (kodovi.go); poruke bez njega ostaju iste kao u
-// 0.0.38, a čvor 0.0.38 ga zanemari.
+// closing so the other machine reads a sentence instead of EOF.
+//
+// Uz odbijenicu ide i Kod, broj razloga iz kodovi.go. Poruke bez njega
+// ostaju bajt po bajt iste kao u 0.0.38, a čvor 0.0.38 polje zanemari.
 type Envelope struct {
 	Kind     string          `json:"kind"`
 	Reason   string          `json:"reason,omitempty"`
