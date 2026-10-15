@@ -13,9 +13,9 @@
 // račun ne može podmetnuti program Postavi: potpis se ne može napraviti bez
 // ključa, a Postava uz javni ključ ugrađen u sebe ne prihvaća ništa drugo.
 //
-// Ovo je dio ugovora između Postave i goCOP-a (docs/plan-instalacija.md
-// §3.1a): Postava se ne mijenja s goCOP-om, pa imena datoteka, oblik
-// SHA256SUMS i potpis ostaju kakvi jesu.
+// Ovo je dio ugovora između Postave i goCOP-a (docs/postava.md): Postava
+// se ne mijenja s goCOP-om, pa imena datoteka, oblik SHA256SUMS i potpis
+// ostaju kakvi jesu.
 package izdanje
 
 import (

@@ -1,6 +1,6 @@
 package models
 
-// Stanje obrane iz ovjerenih akata (docs/NACRT-STADIJI-OBRANE.md). Stadiji se
+// Stanje obrane iz ovjerenih akata (docs/stadiji-obrane.md). Stadiji se
 // proglašavaju prema gore, a ukidaju obrnutim redom: viši ide preko nižeg, a
 // niži u pozadini vrijedi dok se ne ukine. Ukida se samo najviši stadij koji
 // traje, a niži se proglašava tek kad viši završi. Akt stupa na snagu kad u
