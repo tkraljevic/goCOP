@@ -95,7 +95,7 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 		return 0, err
 	}
 	defer s.pustiBravu()
-	applied, povrsina, err := s.primijeni(ctx, verzije)
+	applied, povrsina, err := s.primijeni(ctx, s.bezNeispravnih(verzije))
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
 	}
@@ -103,8 +103,10 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 }
 
 // primijeniAkoStigne upisuje verzije primljene u razgovoru, ako brava
-// stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka.
+// stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka,
+// pa ni kad su sve primljene neispravne.
 func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version) (int, error) {
+	verzije = s.bezNeispravnih(verzije)
 	if len(verzije) == 0 {
 		return 0, nil
 	}
@@ -115,6 +117,22 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 	applied, povrsina, err := s.primijeni(ctx, verzije)
 	javiPovrsinu(povrsina)
 	return applied, err
+}
+
+// bezNeispravnih izostavi primljene verzije koje knjiga ne prima
+// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji; ostale prođu.
+// Izostavlja ih već ovdje, a ne samo knjiga, jer površina smije dobiti samo
+// ispravne: zbog jedne neispravne pala bi za cijeli paket. Sadržaj ne ide
+// u dnevnik.
+func (s *Service) bezNeispravnih(verzije []ledger.Version) []ledger.Version {
+	ispravne, neispravne := ledger.Ispravne(verzije)
+	for _, v := range neispravne {
+		kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
+		if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
+			log.Printf("razmjena: primljena verzija %q (entitet %q, zapis %q, autor %s) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", v.VersionID, v.Entity, v.EntityID, v.NodeID)
+		}
+	}
+	return ispravne
 }
 
 // primiSadrzajAkoStigne upisuje primljeni sadržaj, ako brava stigne unutar

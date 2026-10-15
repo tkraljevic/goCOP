@@ -8,6 +8,7 @@ package peers
 // razgovor zapamćen kao skraćen i što je u knjizi. Testovi su napisani
 // 15. 10. 2026., prije podjele razgovora na korake (G1 u
 // docs/plan-web-sync.md): podjela ne smije promijeniti nijedan redak zapisa.
+// G3 (isti plan, §3) neke je retke namjerno promijenio, i uz svaki to piše.
 //
 // Zapis je isti od pokretanja do pokretanja: verzije imaju zadani
 // version_id i vrijeme, verzije članstava iz postave izbrisane su iz knjige,
@@ -46,9 +47,10 @@ const (
 	tijekD1 = "0190a000-0000-7000-8000-000000000101" // ocitanja/16/2026
 	tijekD2 = "0190a000-0000-7000-8000-000000000102" // ocitanja/16/2026, ograda je odbija
 	tijekD3 = "0190a000-0000-7000-8000-000000000103" // ocitanja/3/2026
+	tijekD4 = "0190a000-0000-7000-8000-000000000104" // ocitanja/16/2026, bez identifikatora zapisa
 )
 
-var imenaVerzija = map[string]string{tijekV1: "v1", tijekV2: "v2", tijekV3: "v3", tijekD1: "d1", tijekD2: "d2", tijekD3: "d3"}
+var imenaVerzija = map[string]string{tijekV1: "v1", tijekV2: "v2", tijekV3: "v3", tijekD1: "d1", tijekD2: "d2", tijekD3: "d3", tijekD4: "d4"}
 
 // verzije čvora kako idu žicom
 const (
@@ -975,16 +977,24 @@ func TestTijekRazgovoraZauzetUpis(t *testing.T) {
 	})
 }
 
-// Greška upisa koja nije zauzeta brava (knjiga odbije primljenu verziju,
-// kontekst čvora prestane dok čeka bravu): razgovor stane tom greškom,
-// neomotanom, bez done i bez odbijenice, s pomaknutom granicom i 0, 0.
+// Greška upisa koja nije zauzeta brava (baza ne primi verziju, kontekst
+// čvora prestane dok čeka bravu): razgovor stane tom greškom, neomotanom,
+// bez done i bez odbijenice, s pomaknutom granicom i 0, 0.
+//
+// Namjerno promijenjeno: G3 (docs/plan-web-sync.md §3). Do tada je ovdje
+// bio slučaj „knjiga odbije”: primljena verzija bez identifikatora zapisa
+// rušila je upis. Sad se preskoči (TestTijekRazgovoraNeispravnaPrimljena),
+// pa greška upisa nastaje samo u bazi ili kontekstu.
 func TestTijekRazgovoraGreskaUpisa(t *testing.T) {
 	a, b := cistiPar(t)
-	losa := deltaMsg{Versions: []ledger.Version{{VersionID: tijekD1, Entity: "probni", NodeID: "cop-osijek", Payload: json.RawMessage(`{"cm":1}`), CreatedAt: stalnoVrijeme, SchemaVersion: 1}}}
-	odbijena := []string{"ishod applied=0 sent=0 err=primljena verzija bez identifikatora ili entiteta", granicaDrugogSV1, obicno, "knjiga v1"}
+	nePrima := []string{"ishod applied=0 sent=0 err=greška pri primanju verzije " + tijekD1 + ": constraint failed: namjerni kvar (1811)", granicaDrugogSV1, obicno, "knjiga v1"}
 	pozivatelj, pozvani := tokPozivatelja(), tokPozvanog()
-	provjeriSlucajeve(t, a, b, true, []slucaj{{ime: "knjiga odbije", potezi: do(pozivatelj, 3, salje(kindDelta, losa), cita(krajVeze)), ishod: odbijena}})
-	provjeriSlucajeve(t, a, b, false, []slucaj{{ime: "knjiga odbije", potezi: do(pozvani, 2, salje(kindDelta, losa), pozvani[3], pozvani[4], cita(krajVeze)), ishod: odbijena}})
+	kvarUpisa(t, b, "INSERT", "record_versions", "NEW.node_id = 'cop-osijek'")
+	provjeriSlucajeve(t, a, b, true, []slucaj{{ime: "baza ne primi", potezi: do(pozivatelj, 4, cita(krajVeze)), ishod: nePrima}})
+	provjeriSlucajeve(t, a, b, false, []slucaj{{ime: "baza ne primi", potezi: do(pozvani, 5, cita(krajVeze)), ishod: nePrima}})
+	if _, err := b.db.Exec(fmt.Sprintf(`DROP TRIGGER kvar_%d`, brojKvarova)); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := b.uzmiBravu(ctxRub); err != nil {
 		t.Fatal(err)
@@ -995,6 +1005,57 @@ func TestTijekRazgovoraGreskaUpisa(t *testing.T) {
 	otkazan := []string{"ishod applied=0 sent=0 err=context canceled", granicaDrugogSV1, obicno, "knjiga v1"}
 	provjeriSlucajeve(t, a, b, true, []slucaj{{ime: "kontekst prestane", potezi: do(pozivatelj, 4, prekid, cita(krajVeze)), ishod: otkazan}})
 	provjeriSlucajeve(t, a, b, false, []slucaj{{ime: "kontekst prestane", potezi: do(pozvani, 4, prekid, cita(krajVeze)), ishod: otkazan}})
+}
+
+// Primljena verzija bez identifikatora zapisa (d4) se preskoči, a ostale
+// iz delte se upišu; razgovor ide do kraja i done javlja samo upisane. U
+// dnevnik ide jednom po verziji. Paket samo neispravnih ne čeka bravu, pa
+// razgovor uspije i kad je upis zauzet. G3 (docs/plan-web-sync.md §3): do
+// tada je jedna takva verzija odbila cijeli paket (TestTijekRazgovoraGreskaUpisa).
+func TestTijekRazgovoraNeispravnaPrimljena(t *testing.T) {
+	a, b := cistiPar(t)
+	neispravnaD4 := stalnaVerzija(tijekD4, "cop-osijek", "ocitanja/16/2026", "", `{"cm":132}`)
+	samoNeispravna := salje(kindDelta, deltaMsg{Versions: []ledger.Version{neispravnaD4}})
+	uzIspravnu := salje(kindDelta, deltaMsg{Versions: []ledger.Version{dolaznaD1, neispravnaD4}})
+	var dnevnik *brojacDnevnika
+	brojiIznova := func() {
+		b.preskocene.Clear()
+		dnevnik = brojiDnevnik(t, "ne upisuje se")
+	}
+	brojiDalje := func() { dnevnik = brojiDnevnik(t, "ne upisuje se") }
+	nakon := func() []string {
+		n, _ := dnevnik.broj()
+		return []string{fmt.Sprintf("u dnevniku %d", n)}
+	}
+	bezUpisa := []string{"ishod applied=0 sent=1 err=nil", granicaDrugogSV1, obicno, "knjiga v1", "u dnevniku 1"}
+	sUpisom := append(nakonDelte("nil"), "u dnevniku 1")
+	ponovljena := append(nakonDelte("nil"), "u dnevniku 0")
+	// pravilan razgovor u kojem druga strana pošalje zadanu deltu, a čvor u
+	// done javi koliko je upisao
+	sDeltom := func(pozivatelj bool, delta potez, upisano int) []potez {
+		tok, d, k := tokPozvanog(), 2, 9
+		if pozivatelj {
+			tok, d, k = tokPozivatelja(), 3, 8
+		}
+		return append(zamijeni(zamijeni(tok, d, delta), k, cita(krajCvora(upisano))), cita(krajVeze))
+	}
+	for _, pozivatelj := range []bool{true, false} {
+		provjeriSlucajeve(t, a, b, pozivatelj, []slucaj{
+			{ime: "samo neispravna", pripremi: brojiIznova, nakon: nakon, potezi: sDeltom(pozivatelj, samoNeispravna, 0), ishod: bezUpisa},
+			{ime: "uz ispravnu", pripremi: brojiIznova, nakon: nakon, potezi: sDeltom(pozivatelj, uzIspravnu, 1), ishod: sUpisom},
+			{ime: "ista neispravna opet", pripremi: brojiDalje, nakon: nakon, potezi: sDeltom(pozivatelj, uzIspravnu, 1), ishod: ponovljena},
+		})
+	}
+
+	if err := b.uzmiBravu(ctxRub); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(b.pustiBravu)
+	postaviRok(t, 20*time.Millisecond)
+	for _, pozivatelj := range []bool{true, false} {
+		provjeriSlucajeve(t, a, b, pozivatelj, []slucaj{{ime: "samo neispravna, upis zauzet", pripremi: brojiIznova, nakon: nakon,
+			potezi: sDeltom(pozivatelj, samoNeispravna, 0), ishod: bezUpisa}})
+	}
 }
 
 // Poruka ispravne vrste s payloadom koji se ne da pročitati: granica, delta i

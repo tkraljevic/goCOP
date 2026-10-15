@@ -164,6 +164,9 @@ type Service struct {
 	// neispravne su version_id verzija iz knjige koje razmjena ne šalje jer
 	// se ne daju zapisati kao JSON; broj se vidi na ploči
 	neispravne sync.Map
+	// preskocene su primljene verzije koje knjiga ne prima, a već su
+	// zapisane u dnevnik (bezNeispravnih)
+	preskocene sync.Map
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
