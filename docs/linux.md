@@ -69,8 +69,11 @@ U mapi podataka su:
 | `vodostaji/`, `pakete/`, `skenovi/` | izvorne datoteke arhive, `.cop` paketi, skenovi prijava |
 | `kopije/` | kopije baze koje skripta napravi prije nadogradnje |
 
-Program sve putanje računa od mape baze, pa je dovoljno da usluga dobije
-`-db /var/lib/gocop/gocop.db` i da joj je ta mapa radna mapa.
+Datoteke uz bazu (`gocop.toml`, `vodostaji.db`, `skenovi/`…) program traži
+uz bazu, a relativne mape `podaci` i `pakete` (zadano `vodostaji` i `pakete`)
+računa od radne mape usluge (`WorkingDirectory`). Zato je dovoljno da usluga
+dobije `-db /var/lib/gocop/gocop.db` i da joj je ta mapa radna mapa. Pri
+pokretanju čvor u dnevnik upiše pune putanje stabla i mape paketa.
 
 ## 2. Preuzimanje i provjera izdanja
 

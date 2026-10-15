@@ -106,6 +106,10 @@ type UvozHandler struct {
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
 	nazivLetve func(ctx context.Context, letva string) string
+
+	// mapa kaže gdje su stablo i mapa paketa na disku i što učiniti kad
+	// relativne nema (mape_arhive.go)
+	mapa func(kljuc, zadano string) MapaArhive
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -174,6 +178,10 @@ type UvozPageData struct {
 	Vrste     []string
 	Zone      []string
 
+	// Stablo i mapa paketa na disku: puna putanja i, kad relativne mape
+	// nema, obavijest umjesto upisa i izdavanja
+	Stablo, Paketi MapaArhive
+
 	// Nakon odabira datoteke
 	Id       string
 	Ime      string
@@ -219,7 +227,6 @@ type UvozPageData struct {
 
 	// Izdavanje paketa
 	IzdavanjeRadi  bool
-	PaketiDir      string
 	Katalog        arhiva.Katalog
 	KatalogNastalo string
 	Izdanja        *arhiva.IzvjestajIzdanja // prijedlog ili ishod izdavanja
@@ -242,6 +249,7 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 	}
+	d.Stablo, d.Paketi = h.mapeNaDisku()
 	if letve, err := arhiva.Letve(d.PodaciDir); err == nil {
 		d.SlivZa = letve
 		for l := range letve {
@@ -274,7 +282,9 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	// Nizovi bez datoteke u stablu gledaju se pri svakom otvaranju, ne samo
 	// odmah nakon gradnje: sirotan ne nastaje samo ovdje — datoteka se može
 	// maknuti i izravno iz stabla.
-	if d.PodaciDir != "" && h.arhivaPut() != "" && len(d.Sirotani) == 0 {
+	// Relativnog stabla koje još ne postoji ne gleda: ondje bi svaki niz bio
+	// bez datoteke, a gdje ga čvor traži kaže obavijest o stablu.
+	if d.Stablo.Pregledna() && h.arhivaPut() != "" && len(d.Sirotani) == 0 {
 		if o, err := sirotaniUArhivi(h.arhivaPut(), d.PodaciDir); err != nil {
 			d.ErrorMessage = "Nizovi bez datoteke se ne daju provjeriti: " + err.Error()
 		} else {
@@ -283,7 +293,6 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {
-		d.PaketiDir = h.paketiDir()
 		if k, err := h.katalog(); err != nil {
 			// Katalog koji se ne čita zaustavlja izdavanje, pa je bolje da to
 			// piše ovdje nego da čovjek klikne pa dobije grešku.

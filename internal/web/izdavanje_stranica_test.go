@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/config"
 	"gocop/internal/models"
 	"gocop/internal/ulaganje"
 )
@@ -40,7 +41,7 @@ func TestVrataCrtajuTrakuDokPosaoTraje(t *testing.T) {
 // ne vidi zašto bi broj uopće skočio.
 func TestPrijedlogIzdanjaPokazujeSkokIOtisak(t *testing.T) {
 	d := vrataZaTest()
-	d.IzdavanjeRadi, d.PaketiDir = true, "pakete"
+	d.IzdavanjeRadi = true
 	d.IzdanjeLetva = "vukovar"
 	d.Izdanja = &arhiva.IzvjestajIzdanja{
 		Probno: true, Mapa: "pakete", Promijenjenih: 1,
@@ -60,7 +61,7 @@ func TestPrijedlogIzdanjaPokazujeSkokIOtisak(t *testing.T) {
 // bez promjene sadržaja je isti paket pod novim brojem.
 func TestBezPromjeneNemaGumbaZaIzdavanje(t *testing.T) {
 	d := vrataZaTest()
-	d.IzdavanjeRadi, d.PaketiDir = true, "pakete"
+	d.IzdavanjeRadi = true
 	d.IzdanjeLetva = "vukovar"
 	d.Izdanja = &arhiva.IzvjestajIzdanja{
 		Probno: true, Mapa: "pakete", Istih: 1,
@@ -87,15 +88,42 @@ func TestCvorKojiNeIzdajeNemaOdjeljak(t *testing.T) {
 // Bez prijedloga se pokazuje što katalog već ima, da se vidi stanje prije klika.
 func TestKatalogSeVidiIBezProvjere(t *testing.T) {
 	d := vrataZaTest()
-	d.IzdavanjeRadi, d.PaketiDir = true, "pakete"
+	d.IzdavanjeRadi = true
 	d.Katalog = arhiva.Katalog{Inacica: 2, Izdao: "cop-osijek-node",
 		Nastalo: time.Date(2026, 9, 11, 9, 30, 0, 0, time.UTC),
 		Paketi:  []arhiva.UPaketu{{Letva: "vukovar", Izdanje: 2}, {Letva: "batina", Izdanje: 2}}}
 	d.KatalogNastalo = "11.09.2026. 11:30"
+	// stranica pokazuje punu putanju mape, onu koju čvor stvarno koristi
+	d.Paketi = MapaArhive{config.Mapa{Kljuc: "pakete", Zadano: "pakete", Puna: "/arhiva/pakete", Postoji: true}}
 	html := iscrtaj(t, "uvoz_niza.html", d)
-	for _, want := range []string{"Izdanja arhive", "cop-osijek-node", "11.09.2026. 11:30", "pakete"} {
+	for _, want := range []string{"Izdanja arhive", "cop-osijek-node", "11.09.2026. 11:30", "/arhiva/pakete"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
+		}
+	}
+}
+
+// Kad je mapa paketa drugdje, stranica to kaže i ne nudi ni provjeru ni
+// izdavanje. Pregled s praznim katalogom, npr. iz stare kartice, ne pokazuje
+// „novo · v1” za letve koje čvor odavno izdaje.
+func TestMapaPaketaDrugdjeNeNudiIzdavanje(t *testing.T) {
+	d := vrataZaTest()
+	d.IzdavanjeRadi = true
+	d.Izdanja = &arhiva.IzvjestajIzdanja{Probno: true, Mapa: "pakete", Promijenjenih: 1,
+		Redci: []arhiva.RedIzdanja{{Letva: "vukovar", Izdanje: 1, Novo: true, Otisak: "b2ed34cc"}}}
+	d.Paketi = MapaArhive{config.Mapa{Kljuc: "pakete", Zadano: "pakete", Puna: "/projekt/data/pakete",
+		Prijedlog: "/projekt/pakete", Postavke: "/projekt/data/gocop.toml"}}
+	html := htmlUTekst(iscrtaj(t, "uvoz_niza.html", d))
+	for _, want := range []string{"Mapa paketa nije pronađena.", "/projekt/data/pakete",
+		"Dok se to ne riješi, paketi se ne izdaju.",
+		"Ako je to mapa paketa ovog čvora, upišite pakete = '/projekt/pakete' u /projekt/data/gocop.toml"} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+	for _, ne := range []string{"novo · v1", "/administracija/izdavanje", "Provjeri sve letve"} {
+		if strings.Contains(html, ne) {
+			t.Errorf("stranica ipak ima %q", ne)
 		}
 	}
 }
