@@ -489,8 +489,8 @@ func krajnostiLetve(godisnje map[string][]repository.GodinaVodostaja, kod string
 
 // izvorKrajnosti je letva s koje letva bez vlastitog niza u arhivi preuzima
 // najviši i najniži vodostaj: jedini izvor njezine prenesene prognoze, letva
-// nasuprot na istoj vodi (Bačka Palanka ← Ilok, iste kote nule). Prazno kad
-// takve nema.
+// nasuprot na istoj vodi (za Bačku Palanku Ilok, iste kote nule). Prazno kad
+// takve nema. Vlastite krajnosti iz arhive imaju prednost (dopuniPrenesenim).
 func izvorKrajnosti(kod string) string {
 	for _, p := range prognoza.PreneseneLetve {
 		if p.Letva == kod && len(p.Izvori) == 1 {

@@ -10,9 +10,9 @@ import (
 
 func kota(v float64) *float64 { return &v }
 
-// Bačka Palanka nema vlastiti dugi niz u arhivi, pa najviši i najniži vodostaj
-// preuzima s Iloka, letve nasuprot s istom kotom nule. Letva s više izvora
-// prognoze (Apatin) i naša letva krajnosti ne preuzimaju.
+// Letva bez vlastitog dugog niza u arhivi preuzima najviši i najniži vodostaj
+// s letve nasuprot s istom kotom nule (Bačka Palanka s Iloka). Letva s više
+// izvora prognoze (Apatin) i naša letva krajnosti ne preuzimaju.
 func TestIzvorKrajnosti(t *testing.T) {
 	for kod, hoce := range map[string]string{"backa-palanka": "ilok", "apatin": "", "osijek": ""} {
 		if got := izvorKrajnosti(kod); got != hoce {

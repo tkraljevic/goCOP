@@ -41,12 +41,12 @@ var PreneseneLetve = []struct {
 const PrijenosGodina = 10
 
 // PrijenosNajmanjeDana je koliko zajedničkih dana odnos traži. Letva bez
-// arhive (Bačka Palanka) uči se iz evidencije očitanja, koja je kratka.
+// vlastitog niza u arhivi uči se iz evidencije očitanja, koja je kratka.
 const PrijenosNajmanjeDana = 7
 
 // PrijenosNagibDana je koliko dana treba da se uči i nagib: kraći niz pokriva
-// samo trenutnu vodu (Bačka Palanka, 11 dana male vode), pa bi nagib naučen na
-// njemu pri velikoj vodi odlutao. Tada se uči samo pomak, uz nagib 1 — za
+// samo trenutnu vodu (Bačka Palanka je prije niza RHMZ-a imala 11 dana male
+// vode), pa bi nagib naučen na njemu pri velikoj vodi odlutao. Tada se uči samo pomak, uz nagib 1 — za
 // letvu nasuprot našoj to je i fizikalno točno.
 const PrijenosNagibDana = 180
 

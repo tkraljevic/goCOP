@@ -261,9 +261,15 @@ Prije nego se niz produlji unatrag iz susjedne postaje:
 ## Batina 1960.–2001. iz Bezdana (RHMZ)
 
 Republički hidrometeorološki zavod Republike Srbije poslao je izravno ovjerene
-dnevne vodostaje i protoke Bezdana, Apatina i Bogojeva za 1960.–2022. (izvor
-`rhmz`). Bezdan stoji 740 m uzvodno od Batine, na suprotnoj obali, pa je za
-Batinu bolji susjed od Mohácsa na 22 km:
+dnevne vodostaje Bezdana, Apatina i Bogojeva te protoke Bezdana i Bogojeva za
+1960.–2022. (izvor `rhmz`). Odnos s Batinom niže izmjeren je na tim
+podacima. Zavod je 14. 10. 2026. poslao i 2023.–2025. te Bačku Palanku, pa
+izvor sad ima vodostaje Bezdana, Apatina, Bogojeva i Bačke Palanke
+1960.–2025. i protoke Bezdana, Bogojeva i Bačke Palanke (Bačke Palanke
+2023.–2025.).
+
+Bezdan stoji 740 m uzvodno od Batine, na suprotnoj obali, pa je za Batinu
+bolji susjed od Mohácsa na 22 km:
 
 | | Bezdan − Batina | rasap |
 |---|---|---|
@@ -284,7 +290,26 @@ se Bezdanov: u 2001.–2022. dvije se postaje slažu na −0,5 % (rasap 4,7 %),
 dok je dotadašnji preračun krivuljom Batine davao 15,6 % previše — današnja
 krivulja na starom koritu.
 
-Usput: DanubeHIS ima srpske dnevne vrijednosti (Bezdan, Bogojevo) dan ranije
-nego RHMZ — s pomakom od jednog dana svih 2.282 zajednička dana se poklapaju
-do centimetra, a Bezdan se s Batinom slaže bez pomaka. Datoteke su pomaknute.
-Mađarske postaje tu grešku nemaju, a satni srpski nizovi također ne.
+Usput: dnevne vrijednosti Bezdana i Bogojeva s DanubeHIS-a ispadale su dan
+ranije nego RHMZ-ove. S pomakom od jednog dana svih 2.282 zajednička dana
+poklapaju se do centimetra, a Bezdan se s Batinom slaže bez pomaka.
+DanubeHIS-ove dnevne datoteke Bezdana i Bogojeva tada su pomaknute za dan.
+
+Greška nije bila u DanubeHIS-u nego u našem čitanju (utvrđeno 14. 10. 2026.).
+DanubeHIS srpske i češke dnevne vrijednosti označava s 23:00 UTC prethodnog
+dana, a to je ponoć po UTC+1. Mađarske označava s 00:00 UTC. Mi smo datum
+uzimali iz UTC oznake, pa su srpski dani ispadali dan raniji. Pravilo je
+zato: datum dnevnog vodostaja i protoka s DanubeHIS-a uzima se iz oznake
+pomaknute na UTC+1. Za Bezdan i Bogojevo to daje isto što i pomak datoteka, a
+mađarske dane ne mijenja. Satnih nizova se to ne tiče. Kišomjeri s
+DanubeHIS-a imaju svoje pravilo: mađarski i slovenski dnevni zbroj nosi
+datum kraja razdoblja, a austrijski početka (provjereno prema ERA5), pa su
+mađarski i slovenski dani pomaknuti da stoje kao austrijski (izvor
+`kisomjer-danubehis`).
+
+Austrijske, slovenske i češke dnevne datoteke vodostaja i protoka s
+DanubeHIS-a još nisu provjerene po tom pravilu. Austrijska hidrografija vodi vrijeme u UTC+1 bez
+ljetnog pomaka, pa i austrijske dnevne vrijednosti vjerojatno nose oznaku
+23:00 UTC. Ondje gdje DanubeHIS popunjava rupe eHYD-a ili ARSO-a arhiva bi
+tada imala dan raniji. To se provjerava zasebno, jer ispravak mijenja brojke
+u arhivi.
