@@ -363,3 +363,43 @@ func TestKvarJavljaGreskuBaze(t *testing.T) {
 		t.Error("upis niza u zatvorenu bazu nije javio grešku")
 	}
 }
+
+// Popis kvarova dira samo izvor koji je u retku naveden. Ručno očitanje usred
+// razdoblja krive telemetrije ostaje, a u spojenom nizu ono stoji umjesto nje.
+func TestRucnoOcitanjeUKvaruOstaje(t *testing.T) {
+	koren, baza := stabloSKvarom(t, glavaKvarova+
+		"aljmas;letva-dhmz;vodostaj;2025-03-01;2025-03-01;;;cijeli dan\n")
+	d := filepath.Join(koren, "dunav", "aljmas")
+	if err := os.Remove(filepath.Join(d, "aljmas_his2000_vodostaj_satni_2025.csv")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(d, "aljmas_cop-rucno_vodostaj_satni_2025.csv"),
+		[]byte("vrijeme_utc;vodostaj_cm\n2025-03-01 03:00:00;74\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Izgradi(koren, baza, "aljmas", nil); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if v := vrijednostiNiza(t, db, "cop-rucno"); len(v) != 1 || v[0] != 74 {
+		t.Errorf("ručno očitanje je %v, a treba [74]", v)
+	}
+	var v float64
+	var izvor string
+	if err := db.QueryRow(`SELECT vrijednost, izvor FROM spoj WHERE letva='aljmas' AND korak='satni'
+		AND vrijeme = (SELECT min(vrijeme) FROM spoj WHERE izvor='cop-rucno')`).Scan(&v, &izvor); err != nil {
+		t.Fatalf("ručno očitanje nije u spojenom nizu: %v", err)
+	}
+	var iz1Ozujka int
+	if err := db.QueryRow(`SELECT count(*) FROM spoj WHERE letva='aljmas' AND korak='satni'
+		AND izvor='letva-dhmz' AND vrijeme < strftime('%s','2025-03-01 23:00')`).Scan(&iz1Ozujka); err != nil {
+		t.Fatal(err)
+	}
+	if v != 74 || izvor != "cop-rucno" || iz1Ozujka != 0 {
+		t.Errorf("spoj: %v iz %s, a telemetrije iz krivog dana %d", v, izvor, iz1Ozujka)
+	}
+}
