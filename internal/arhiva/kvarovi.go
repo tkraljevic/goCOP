@@ -43,48 +43,48 @@ func jeKvar(izvor string) bool { return strings.HasSuffix(izvor, nastavakKvara) 
 
 // pogada javlja pripada li zapis ovom kvaru.
 func (k pravilo) pogada(z zapis) bool {
-	if k.od != 0 && z.t < k.od {
-		return false
-	}
-	if k.do != 0 && z.t > k.do {
-		return false
-	}
-	if k.najmanje != nil && z.v < *k.najmanje {
-		return false
-	}
-	if k.najvise != nil && z.v > *k.najvise {
-		return false
-	}
-	return true
+	return uGranicama(k.od, z.t, k.do) && uRasponu(k.najmanje, z.v, k.najvise)
 }
 
-// odvojiKvarove dijeli zapise jednog niza na dobre i one iz popisa kvarova.
-func odvojiKvarove(z []zapis, izvor, velicina string, kv []pravilo) (dobri, losi []zapis) {
-	var moji []pravilo
-	for _, k := range kv {
-		if k.izvor == izvor && k.velicina == velicina {
-			moji = append(moji, k)
-		}
+// uGranicama: nula znači da s te strane granice nema.
+func uGranicama(od, t, do int64) bool {
+	return (od == 0 || t >= od) && (do == 0 || t <= do)
+}
+
+func uRasponu(najmanje *float64, v float64, najvise *float64) bool {
+	return (najmanje == nil || v >= *najmanje) && (najvise == nil || v <= *najvise)
+}
+
+// odvojiKvarove vraća zapise niza koji nisu u popisu kvarova, a one koji
+// jesu dodaje u n.losi. Niz -kvar se ne dijeli dalje.
+func odvojiKvarove(n *niz, z []zapis) []zapis {
+	moja := pravilaNiza(n)
+	if len(moja) == 0 {
+		return z
 	}
-	if len(moji) == 0 {
-		return z, nil
-	}
-	dobri = z[:0:0]
+	dobri := z[:0:0]
 	for _, x := range z {
-		los := false
-		for _, k := range moji {
-			if k.pogada(x) {
-				los = true
-				break
-			}
-		}
-		if los {
-			losi = append(losi, x)
+		if slices.ContainsFunc(moja, func(k pravilo) bool { return k.pogada(x) }) {
+			n.losi = append(n.losi, x)
 		} else {
 			dobri = append(dobri, x)
 		}
 	}
-	return dobri, losi
+	return dobri
+}
+
+// pravilaNiza izdvaja iz popisa letve retke koji se tiču baš ovog niza.
+func pravilaNiza(n *niz) []pravilo {
+	if jeKvar(n.izvor) {
+		return nil
+	}
+	var moja []pravilo
+	for _, k := range n.pravila {
+		if k.izvor == n.izvor && k.velicina == n.velicina {
+			moja = append(moja, k)
+		}
+	}
+	return moja
 }
 
 // citajKvarove čita popis kvarova i vraća ga po letvi. Datoteke ne mora biti.
@@ -303,27 +303,47 @@ func redGradnje(nizovi map[string]*niz) []string {
 // Vraća koliko je zapisa upisano.
 func gradiNiz(db *sql.DB, nizovi map[string]*niz, k string, kv []pravilo, promjene []promjena, zapisi io.Writer) (int, error) {
 	n := nizovi[k]
-	z, losi, poDanu, err := procitajNiz(n, kv)
-	if err != nil {
-		return 0, err
-	}
-	if jeKvar(n.izvor) && len(z) == 0 {
+	if jeKvar(n.izvor) && len(n.datoteke) == 0 && len(n.odvojeni) == 0 {
 		return 0, makniPrazanKvar(db, n, zapisi)
 	}
-	if len(losi) > 0 {
-		kk := kljucNiza(n.letva, n.izvor+nastavakKvara, n.velicina, n.vrsta)
-		nizovi[kk].odvojeni = append(nizovi[kk].odvojeni, losi...)
-		_, _ = fmt.Fprintf(zapisi, "%-8s %-16s %-22s odvojeno po popisu kvarova: %d zapisa\n",
-			"", n.letva, n.izvor, len(losi))
-		if len(z) == 0 {
-			return 0, fmt.Errorf("popis kvarova odvaja sve retke niza")
-		}
+	n.pravila = kv
+	upisano, od, do, otisak, err := ubaci(db, n, promjene)
+	if err != nil && len(n.losi) > 0 {
+		err = fmt.Errorf("popis kvarova odvaja sve retke niza: %w", err)
 	}
-	upisano, od, do, otisak, err := upisiZapise(db, n, z, poDanu, promjene)
+	predajKvaru(nizovi, n, zapisi)
 	if err != nil {
 		return 0, err
 	}
 	_, _ = fmt.Fprintf(zapisi, "%-8s %-16s %-22s %-12s %-10s %8d  %s .. %s  %s\n",
 		n.sliv, n.letva, n.izvor, n.velicina, n.vrsta, upisano, od, do, otisak[:8])
 	return upisano, nil
+}
+
+// predajKvaru seli ono što je čitanje izdvojilo iz niza u njegov niz -kvar.
+func predajKvaru(nizovi map[string]*niz, n *niz, zapisi io.Writer) {
+	if len(n.losi) == 0 {
+		return
+	}
+	kk := kljucNiza(n.letva, n.izvor+nastavakKvara, n.velicina, n.vrsta)
+	nizovi[kk].odvojeni = append(nizovi[kk].odvojeni, n.losi...)
+	_, _ = fmt.Fprintf(zapisi, "%-8s %-16s %-22s odvojeno po popisu kvarova: %d zapisa\n",
+		"", n.letva, n.izvor, len(n.losi))
+	n.losi = nil
+}
+
+// popisiSKvarovima popisuje datoteke stabla i dodaje nizove -kvar koji iz
+// popisa kvarova nastaju, da ih provjera bez gradnje ne proglasi nizovima
+// kojima je nestala datoteka.
+func popisiSKvarovima(koren string) (map[string]*niz, error) {
+	nizovi, err := popisi(koren, "")
+	if err != nil {
+		return nil, err
+	}
+	kvarovi, err := citajKvarove(koren)
+	if err != nil {
+		return nil, err
+	}
+	predvidiKvarne(nizovi, kvarovi)
+	return nizovi, nil
 }

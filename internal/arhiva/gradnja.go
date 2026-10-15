@@ -206,9 +206,11 @@ CREATE TABLE IF NOT EXISTS ocitanja (
 type niz struct {
 	sliv, letva, izvor, velicina, vrsta string
 	datoteke                            []string
-	// odvojeni su zapisi koje je popis kvarova izdvojio iz izvornog niza;
-	// stoje samo uz niz -kvar i ulaze u njega uz ono što ima u datotekama
-	odvojeni []zapis
+	// pravila su retci popisa kvarova za letvu ovog niza; losi su zapisi koje
+	// su pri čitanju izdvojili, a odvojeni ono što je niz -kvar od izvornog
+	// niza primio i upisuje uz svoje datoteke
+	pravila        []pravilo
+	losi, odvojeni []zapis
 }
 
 // Zagreb je vremenska zona hrvatskih izvora.
@@ -779,26 +781,22 @@ type zapis struct {
 	v float64
 }
 
-// procitajNiz čita sve datoteke niza. Iz izvornog niza odmah odvaja ono što
-// je u popisu kvarova, a niz -kvar dobiva uz svoje datoteke i ono što mu je
-// odvojeno iz izvornog.
+// procitajNiz čita sve datoteke niza. Iz izvornog niza odmah odvaja u n.losi
+// ono što je u popisu kvarova, a niz -kvar dobiva uz svoje datoteke i ono što
+// mu je odvojeno iz izvornog.
 //
 // Kvarovi se odvajaju prije čišćenja ispada, ne poslije. Na Belišću ispad od
 // 1550 cm počinje satom na putu gore — 497, pa 1258, pa 1550. Dok cijeli ispad
 // stoji u nizu, taj sat izgleda kao njegov dio i ostaje; kad se ispad prvo
 // makne, ostane sam usred 40 cm i čišćenje ga prepozna.
-func procitajNiz(n *niz, kv []pravilo) (dobri, losi []zapis, poDanu bool, err error) {
+func procitajNiz(n *niz) (dobri []zapis, poDanu bool, err error) {
 	for _, p := range n.datoteke {
 		z, d, err := citaj(p, zonaIzvora(n.izvor), n.velicina)
 		if err != nil {
-			return nil, nil, false, err
+			return nil, false, err
 		}
 		poDanu = poDanu || d
-		if !jeKvar(n.izvor) {
-			var l []zapis
-			z, l = odvojiKvarove(z, n.izvor, n.velicina, kv)
-			losi = append(losi, l...)
-		}
+		z = odvojiKvarove(n, z)
 		dobri = append(dobri, ocisti(n.velicina, z)...)
 	}
 	if len(n.odvojeni) > 0 {
@@ -806,16 +804,13 @@ func procitajNiz(n *niz, kv []pravilo) (dobri, losi []zapis, poDanu bool, err er
 		sort.SliceStable(o, func(i, j int) bool { return o[i].t < o[j].t })
 		dobri = append(dobri, ocisti(n.velicina, o)...)
 	}
-	return dobri, losi, poDanu, nil
+	return dobri, poDanu, nil
 }
 
 // makniPrazanKvar briše niz -kvar koji nema ni datoteku ni ijedan odvojeni
 // zapis: popis kvarova u njemu više ništa ne pogađa, a takav niz nastaje samo
 // iz popisa, pa s njim i nestaje.
 func makniPrazanKvar(db *sql.DB, n *niz, zapisi io.Writer) error {
-	if len(n.datoteke) > 0 {
-		return fmt.Errorf("nijedan čitljiv redak")
-	}
 	res, err := db.Exec(`DELETE FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
 		n.letva, n.izvor, n.velicina, n.vrsta)
 	if err != nil {
@@ -828,17 +823,11 @@ func makniPrazanKvar(db *sql.DB, n *niz, zapisi io.Writer) error {
 	return nil
 }
 
-// ubaci čita datoteke niza i upisuje ga, bez popisa kvarova.
 func ubaci(db *sql.DB, n *niz, promjene []promjena) (int, string, string, string, error) {
-	z, _, poDanu, err := procitajNiz(n, nil)
+	zapisi, poDanu, err := procitajNiz(n)
 	if err != nil {
 		return 0, "", "", "", err
 	}
-	return upisiZapise(db, n, z, poDanu, promjene)
-}
-
-// upisiZapise svodi pročitane zapise na današnju kotu i upisuje ih kao niz n.
-func upisiZapise(db *sql.DB, n *niz, zapisi []zapis, poDanu bool, promjene []promjena) (int, string, string, string, error) {
 	// Svođenje na današnju kotu nule prije svega ostaloga: sve dalje —
 	// spajanje, srednjaci, krajnosti — pretpostavlja jednu kotu kroz niz.
 	if n.velicina == "vodostaj" {
@@ -2169,7 +2158,7 @@ func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, erro
 // otvaranje stranice. Snimka koja se ne da pročitati javlja se zasebnim
 // retkom (snimkeBezDatoteke).
 func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
-	nizovi, err := popisi(koren, "")
+	nizovi, err := popisiSKvarovima(koren)
 	if err != nil {
 		return nil, err
 	}
@@ -2195,11 +2184,6 @@ func Sirotani(db *sql.DB, koren string) ([]Sirotan, error) {
 			}
 		}
 	}
-	kvarovi, err := citajKvarove(koren)
-	if err != nil {
-		return nil, err
-	}
-	predvidiKvarne(nizovi, kvarovi)
 	return bezDatoteke(db, koren, nizovi, "", nedostupni)
 }
 

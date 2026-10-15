@@ -354,4 +354,12 @@ func TestKvarJavljaGreskuBaze(t *testing.T) {
 	if err := dodajZateceneKvarne(db, map[string]*niz{}, nil); err == nil {
 		t.Error("traženje zatečenih na zatvorenoj bazi nije javilo grešku")
 	}
+
+	// i upis niza: datoteka se pročita, a baza ne prima
+	koren, _ := stabloSKvarom(t, "")
+	n.izvor = "his2000"
+	n.datoteke = []string{filepath.Join(koren, "dunav", "aljmas", "aljmas_his2000_vodostaj_satni_2025.csv")}
+	if _, _, _, _, err := ubaci(db, n, nil); err == nil {
+		t.Error("upis niza u zatvorenu bazu nije javio grešku")
+	}
 }
