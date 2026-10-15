@@ -155,7 +155,7 @@ func TestZauzetUpisOdbijaOstatakRazgovora(t *testing.T) {
 	postaviRok(t, 50*time.Millisecond)
 	for i := 0; i < 6; i++ {
 		_, _, err := a.SyncWith(ctxRub, novi.node.ID)
-		if !errors.Is(err, odbijenaRazmjena{razlogUpisZauzet}) {
+		if !errors.Is(err, odbijenaRazmjena{razlogUpisZauzet, razmjena.KodUpisZauzet}) {
 			t.Fatalf("razgovor %d dok je upis zauzet: %v", i+1, err)
 		}
 	}

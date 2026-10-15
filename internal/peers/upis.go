@@ -152,10 +152,10 @@ func (s *Service) primiSadrzajAkoStigne(ctx context.Context, od string, stavke [
 
 // zavrsiZauzet završava razgovor u kojem primljene verzije nisu upisane jer
 // je upis zauzet: pozivatelj javi kraj, a pozvani odbije ostatak razgovora
-// razlogom. Druga strana tako dobije odgovor, a ne prekinutu vezu, i krug
-// razmjena s ovim čvorom stane. Pozvani najprije pročita sljedeću poruku
-// pozivatelja (želje ili kraj), koja stiže tek nakon njegova upisa, da
-// zatvaranje s nepročitanim podacima ne pošalje RST koji bi odbijenicu
+// kodom i razlogom. Druga strana tako dobije odgovor, a ne prekinutu vezu,
+// i krug razmjena s ovim čvorom stane. Pozvani najprije pročita sljedeću
+// poruku pozivatelja (želje ili kraj), koja stiže tek nakon njegova upisa,
+// da zatvaranje s nepročitanim podacima ne pošalje RST koji bi odbijenicu
 // progutao.
 func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 	switch {
@@ -167,7 +167,7 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 		_, _ = c.Receive()
 	default:
 		_, _ = c.Receive()
-		_ = c.Send(razmjena.Envelope{Kind: razmjena.VrstaOdbijeno, Reason: razlogUpisZauzet})
+		_ = c.Send(razmjena.Odbijenica(razmjena.KodUpisZauzet, razlogUpisZauzet))
 	}
 }
 
@@ -190,16 +190,38 @@ func javiPovrsinu(err error) {
 	}
 }
 
-// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom
-type odbijenaRazmjena struct{ razlog string }
+// odbijenaRazmjena je odbijenica druge strane, s njezinim razlogom i kodom
+// (kodOdbijenice). Program odlučuje po kodu, a korisnik vidi samo razlog.
+type odbijenaRazmjena struct {
+	razlog string
+	kod    razmjena.KodRazloga
+}
 
 func (e odbijenaRazmjena) Error() string { return "čvor odbio razmjenu: " + e.razlog }
 
 // neocekivanaPoruka je greška za poruku druge strane koja nije ona koju
-// razgovor čeka; odbijenica nosi razlog druge strane
+// razgovor čeka; odbijenica nosi razlog i kod druge strane
 func neocekivanaPoruka(kind string, e razmjena.Envelope) error {
 	if e.Reason != "" {
-		return odbijenaRazmjena{e.Reason}
+		return odbijenaRazmjena{razlog: e.Reason, kod: kodOdbijenice(e)}
 	}
 	return fmt.Errorf("očekivana poruka %q, stigla %q", kind, e.Kind)
+}
+
+// kodoviStarijih su kodovi odbijenica čvora 0.0.38, koji šalje samo razlog;
+// to su sva tri razloga koja on zna poslati. Tekstovi se zato ne mijenjaju
+// dok u mreži ima čvorova 0.0.38, a kad ih više nema, popis se briše.
+var kodoviStarijih = map[string]razmjena.KodRazloga{
+	razmjena.RazlogZauzet: razmjena.KodZauzet,
+	razlogUpisZauzet:      razmjena.KodUpisZauzet,
+	razlogBezTailscalea:   razmjena.KodBezTailscalea,
+}
+
+// kodOdbijenice je kod iz odbijenice; kad ga nema (čvor 0.0.38), kod
+// poznatog razloga, a za nepoznat razlog 0
+func kodOdbijenice(e razmjena.Envelope) razmjena.KodRazloga {
+	if e.Kod != 0 {
+		return e.Kod
+	}
+	return kodoviStarijih[e.Reason]
 }

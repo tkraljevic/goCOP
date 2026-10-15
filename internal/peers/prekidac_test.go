@@ -3,6 +3,7 @@ package peers
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/json"
 	"fmt"
 	"log"
 	"net"
@@ -170,8 +171,12 @@ func TestOdbijenaTailscaleRazmjenaNepoznatogCvora(t *testing.T) {
 		t.Fatal(err)
 	}
 	e, err := conn.Receive()
-	if err != nil || e.Kind != razmjena.VrstaOdbijeno || e.Reason != razlogBezTailscalea {
+	if err != nil || e.Kind != razmjena.VrstaOdbijeno || e.Reason != razlogBezTailscalea || e.Kod != razmjena.KodBezTailscalea {
 		t.Fatalf("odbijenica: %+v %v", e, err)
+	}
+	// na žici kod ide iza razloga, bez deviceId (G3, docs/plan-web-sync.md §3)
+	if b, _ := json.Marshal(e); string(b) != `{"kind":"odbijeno","reason":"`+razlogBezTailscalea+`","kod":263}` {
+		t.Errorf("odbijenica na žici: %s", b)
 	}
 	if !<-odbijeno {
 		t.Error("razmjena nije odbijena")
@@ -180,10 +185,10 @@ func TestOdbijenaTailscaleRazmjenaNepoznatogCvora(t *testing.T) {
 		t.Errorf("dnevnik: %d, %q", n, redak)
 	}
 	// tekst odbijenice ostaje kakav je bio: „čvor odbio razmjenu: razlog”
-	if got := (odbijenaRazmjena{razmjena.RazlogZauzet}).Error(); got != "čvor odbio razmjenu: "+razmjena.RazlogZauzet {
+	if got := (odbijenaRazmjena{razmjena.RazlogZauzet, razmjena.KodZauzet}).Error(); got != "čvor odbio razmjenu: "+razmjena.RazlogZauzet {
 		t.Errorf("tekst odbijenice: %q", got)
 	}
-	if b.odbioTailscale(ctxRub, "tudji-laptop", fmt.Errorf("veza prekinuta")) || b.odbioTailscale(ctxRub, "tudji-laptop", odbijenaRazmjena{razmjena.RazlogZauzet}) {
+	if b.odbioTailscale(ctxRub, "tudji-laptop", fmt.Errorf("veza prekinuta")) || b.odbioTailscale(ctxRub, "tudji-laptop", odbijenaRazmjena{razmjena.RazlogZauzet, razmjena.KodZauzet}) {
 		t.Error("druge greške nisu odbijeni Tailscale")
 	}
 }

@@ -186,9 +186,15 @@ func saljeSirovo(oznaka string, e razmjena.Envelope) potez {
 	}}
 }
 
-// odbija: druga strana odbije razgovor razlogom, kao razmjena.Odbij
+// odbija: druga strana odbije razgovor razlogom bez koda, kao čvor 0.0.38
 func odbija(razlog string) potez {
 	return saljeSirovo("odbijeno: "+razlog, razmjena.Envelope{Kind: razmjena.VrstaOdbijeno, Reason: razlog})
+}
+
+// odbijaKodom: druga strana odbije razgovor kodom i razlogom, kao
+// razmjena.Odbij
+func odbijaKodom(kod razmjena.KodRazloga, razlog string) potez {
+	return saljeSirovo(fmt.Sprintf("odbijeno 0x%04x: %s", uint64(kod), razlog), razmjena.Odbijenica(kod, razlog))
 }
 
 // kvar: sljedeće pisanje čvora padne
@@ -397,7 +403,8 @@ func skracenoZa(s *Service, c *razmjena.Conn) string {
 // vrstaGreske bilježi grešku razgovora. Greške mreže idu kao vrsta (kraj
 // veze, veza pala), jer zatvorena veza javi EOF ili RST; ostale idu
 // tekstom. Vrsta se prepoznaje samo na neomotanoj grešci, pa bi omotanu
-// zapis uhvatio po tekstu.
+// zapis uhvatio po tekstu. Odbijenica ide s kodom razloga i razlogom
+// (namjerno promijenjeno: G3, docs/plan-web-sync.md §3; prije samo razlog).
 func vrstaGreske(err error) string {
 	odbijena, jeOdbijena := err.(odbijenaRazmjena)
 	_, mrezna := err.(*net.OpError)
@@ -409,7 +416,7 @@ func vrstaGreske(err error) string {
 	case err == io.EOF, err == io.ErrUnexpectedEOF, mrezna:
 		return "kraj veze"
 	case jeOdbijena:
-		return "odbijeno: " + odbijena.razlog
+		return fmt.Sprintf("odbijeno 0x%04x: %s", uint64(odbijena.kod), odbijena.razlog)
 	case err == errUpisZauzet:
 		return "errUpisZauzet"
 	}
@@ -627,19 +634,27 @@ func TestTijekRazgovoraNeocekivanaPoruka(t *testing.T) {
 }
 
 // Odbijenica s razlogom na svakom koraku i za obje strane: razgovor stane
-// neomotanom greškom odbijenaRazmjena s razlogom druge strane (po njoj
-// SyncWith prepoznaje i isključen Tailscale), a na kraju razgovora
-// odbijenica nije greška.
+// neomotanom greškom odbijenaRazmjena s razlogom i kodom druge strane (po
+// kodu SyncWith prepoznaje i isključen Tailscale), a na kraju razgovora
+// odbijenica nije greška. Odbijenica čvora 0.0.38 nema kod, pa se kod uzme
+// iz poznatog razloga, a nepoznat razlog bez koda daje 0.
+//
+// Namjerno promijenjeno: G3 (docs/plan-web-sync.md §3). Greška se bilježi s
+// kodom, a uz odbijenice bez koda dodane su odbijenice s kodom.
 func TestTijekRazgovoraOdbijenica(t *testing.T) {
 	a, b := cistiPar(t)
-	zamjenaNaSvakomKoraku(t, a, b, odbija(razmjena.RazlogZauzet), func(string) string {
-		return "odbijeno: čvor je zauzet, pokušajte kasnije"
+	zauzet := func(string) string { return "odbijeno 0x0102: čvor je zauzet, pokušajte kasnije" }
+	zamjenaNaSvakomKoraku(t, a, b, odbija(razmjena.RazlogZauzet), zauzet)
+	zamjenaNaSvakomKoraku(t, a, b, odbijaKodom(razmjena.KodZauzet, razmjena.RazlogZauzet), zauzet)
+	bezTailscalea := prijeGranice("odbijeno 0x0107: na ovom računalu razmjena preko Tailscalea je isključena ([sync] tailscale = false)")
+	nepoznat := "razmjena na ovim vratima nije dopuštena"
+	tok := tokPozivatelja()
+	provjeriSlucajeve(t, a, b, true, []slucaj{
+		{ime: "bez Tailscalea", potezi: do(tok, 1, odbija(razlogBezTailscalea), cita(krajVeze)), ishod: bezTailscalea},
+		{ime: "bez Tailscalea, s kodom", potezi: do(tok, 1, odbijaKodom(razmjena.KodBezTailscalea, razlogBezTailscalea), cita(krajVeze)), ishod: bezTailscalea},
+		{ime: "nepoznat razlog", potezi: do(tok, 1, odbija(nepoznat), cita(krajVeze)), ishod: prijeGranice("odbijeno 0x0000: " + nepoznat)},
+		{ime: "nepoznat razlog, s kodom", potezi: do(tok, 1, odbijaKodom(razmjena.KodOdbijeno, nepoznat), cita(krajVeze)), ishod: prijeGranice("odbijeno 0x0103: " + nepoznat)},
 	})
-	provjeriSlucajeve(t, a, b, true, []slucaj{{
-		ime:    "bez Tailscalea",
-		potezi: do(tokPozivatelja(), 1, odbija(razlogBezTailscalea), cita(krajVeze)),
-		ishod:  prijeGranice("odbijeno: na ovom računalu razmjena preko Tailscalea je isključena ([sync] tailscale = false)"),
-	}})
 }
 
 // Sadržaj u punom razgovoru: čvor nudi svoj PDF (otisakCvora) i traži tuđi
@@ -923,7 +938,7 @@ func TestTijekRazgovoraTailscale(t *testing.T) {
 
 // Zauzet upis (zavrsiZauzet): pozivatelj pošalje done{0} s deviceId,
 // pročita jednu poruku i vrati errUpisZauzet; pozvani pročita jednu poruku
-// (želje ili kraj) i pošalje odbijenicu bez deviceId i bez payloada. Obje
+// (želje ili kraj) i pošalje odbijenicu s kodom, bez deviceId i payloada. Obje
 // strane vrate 0 i 0, iako je delta otišla, s pomaknutom granicom. Bez
 // primljenih verzija razgovor bravu ne čeka, a primljeni sadržaj tada se
 // ne upiše i razgovor uspije.
@@ -934,7 +949,9 @@ func TestTijekRazgovoraZauzetUpis(t *testing.T) {
 	}
 	t.Cleanup(b.pustiBravu)
 	postaviRok(t, 20*time.Millisecond)
-	odbijenica := `{"kind":"odbijeno","reason":"čvor upravo upisuje ono što je primio od drugih; poslano stiže sljedećom razmjenom"}`
+	// namjerno promijenjeno: G3 (docs/plan-web-sync.md §3); odbijenica nosi
+	// kod razloga 0x0106 (262)
+	odbijenica := `{"kind":"odbijeno","reason":"čvor upravo upisuje ono što je primio od drugih; poslano stiže sljedećom razmjenom","kod":262}`
 	zauzet := []string{"ishod applied=0 sent=0 err=errUpisZauzet", granicaDrugogSV1, obicno, "knjiga v1"}
 	bezVerzija := []string{"ishod applied=0 sent=1 err=nil", granicaDrugogSV1, obicno, "knjiga v1"}
 	var sp *sadrzaj.Spremiste

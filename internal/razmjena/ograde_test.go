@@ -115,7 +115,7 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 	if err != nil {
 		t.Fatalf("zauzet čvor je prekinuo vezu bez odbijenice: %v", err)
 	}
-	if e.Kind != VrstaOdbijeno || e.Reason != RazlogZauzet {
+	if e.Kind != VrstaOdbijeno || e.Reason != RazlogZauzet || e.Kod != KodZauzet {
 		t.Fatalf("odbijenica: %+v", e)
 	}
 
