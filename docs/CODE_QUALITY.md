@@ -188,21 +188,23 @@ Početna snimka: [izvještaj](CODE_QUALITY_BASELINE.md), podaci u
 `f5adb84` (0.0.31), jer su u zajedničkoj radnoj kopiji istodobno nastajale
 nepovezane izmjene za 0.0.32. Ne predstavlja verifikaciju tih nezavršenih izmjena.
 
-**Od 14. 10. 2026. referentna točka je `c0162ca9`** (izdanje 0.0.38-alfa).
-Snimljena je prije prvog koraka plana WEB synca (`docs/plan-web-sync.md`, G0):
-uz staru točku od 12. 10. vrata bi i dalje mjerila funkcije `run`, `SyncWith` i
-`exchange` prema brojkama od prije razdvajanja primjene i testova kritičnog
-koda, pa bi propustila nove grane u njima. Sav kod između dviju točaka prošao
-je provjeru na svom PR-u, pa pomak ništa ne skriva. Prethodna točka bila je
-`0da9ebb6` (12. 10.), snimljena sa strožim granicama. Napredak se i dalje
+**Od 15. 10. 2026. referentna točka je `92322d58`**, master nakon koraka G1
+plana WEB synca (`docs/plan-web-sync.md`). G1 je razgovor razmjene
+(`exchange`, CC 40) podijelio na korake u `internal/peers/razgovor.go`. Uz
+točku od 14. 10. vrata bi `exchange` i dalje puštala do CC 40, pa bi nova
+grana u njemu prošla neopaženo; sad za njega vrijedi granica kritičnog
+koda, CC 7. Sav kod između
+dviju točaka prošao je provjeru na svom PR-u, pa pomak ništa ne skriva.
+Prethodne točke bile su `c0162ca9` (14. 10., izdanje 0.0.38-alfa, prije G1) i
+`0da9ebb6` (12. 10., snimljena sa strožim granicama). Napredak se i dalje
 uspoređuje s brojkama početne snimke od 4. 10.:
 
-| | 4. 10. | 11. 10. (`e4441a01`) | 12. 10. (`0da9ebb6`) | 14. 10. (`c0162ca9`) |
-|---|---:|---:|---:|---:|
-| pokrivenost | 51,8 % | 64,9 % | 69,5 % | 76,1 % |
-| kritična pokrivenost | 50,4 % | 69,3 % | 84,0 % | 99,2 % |
-| prosječni CRAP | 43,4 | 18,0 | 16,0 | 12,5 |
-| kritične funkcije iznad granice | 559 | 492 | 304 | 287 |
+| | 4. 10. | 11. 10. (`e4441a01`) | 12. 10. (`0da9ebb6`) | 14. 10. (`c0162ca9`) | 15. 10. (`92322d58`) |
+|---|---:|---:|---:|---:|---:|
+| pokrivenost | 51,8 % | 64,9 % | 69,5 % | 76,1 % | 76,2 % |
+| kritična pokrivenost | 50,4 % | 69,3 % | 84,0 % | 99,2 % | 99,2 % |
+| prosječni CRAP | 43,4 | 18,0 | 16,0 | 12,5 | 12,3 |
+| kritične funkcije iznad granice | 559 | 492 | 304 | 287 | 286 |
 
 Za namjerno pomicanje referentne točke, nakon pregleda:
 

@@ -1,28 +1,28 @@
 {
   "schema": 1,
   "analyzer": "2",
-  "timestamp": "2026-10-14T20:38:25Z",
-  "commit": "c0162ca9ab78660d8414924c6bb062be18f68fe5",
+  "timestamp": "2026-10-15T19:02:01Z",
+  "commit": "92322d58df05ceab355cae623cd86afc9f6d986a",
   "dirty": false,
   "platform": "darwin/arm64",
   "go_version": "go1.27.1",
   "config_hash": "f225f408e7575cea0650e472988e4ec58ff1a5a466fa7e829cc7a1dd2a013b60",
-  "source_hash": "ced04b33adfbc476c1431478b69cca35e403ac43e41594eac3c021a757c4a478",
+  "source_hash": "803029f326f57eb417adf4342d68481de6b1188e60dbc836a840e115f6d5c076",
   "tests": "PASS",
   "race": "PASS",
   "measurements_status": "PASS",
   "static_analysis": {
     "status": "PASS",
     "errors": 0,
-    "warnings": 944,
+    "warnings": 938,
     "counts": {
       "dupl": 4,
       "errcheck": 487,
-      "gocognit": 132,
-      "gocyclo": 201,
+      "gocognit": 131,
+      "gocyclo": 200,
       "ineffassign": 2,
-      "maintidx": 32,
-      "nestif": 67,
+      "maintidx": 31,
+      "nestif": 64,
       "revive": 1,
       "staticcheck": 8,
       "unused": 10
@@ -293,7 +293,6 @@
       "lint:gocognit:internal/pdfw/dodatak.go:cognitive complexity # of func `Dodaj` is high (\u003e #)": 1,
       "lint:gocognit:internal/peers/cop.go:cognitive complexity # of func `(*Service).UveziCop` is high (\u003e #)": 1,
       "lint:gocognit:internal/peers/cop.go:cognitive complexity # of func `CitajCop` is high (\u003e #)": 1,
-      "lint:gocognit:internal/peers/peers.go:cognitive complexity # of func `(*Service).exchange` is high (\u003e #)": 1,
       "lint:gocognit:internal/posta/proba.go:cognitive complexity # of func `(*ProbniPosluzitelj).razgovor` is high (\u003e #)": 1,
       "lint:gocognit:internal/posta/proba.go:cognitive complexity # of func `PokreniProbniEWS` is high (\u003e #)": 1,
       "lint:gocognit:internal/postava/postava.go:cognitive complexity # of func `(*Postava).Instaliraj` is high (\u003e #)": 1,
@@ -440,7 +439,6 @@
       "lint:gocyclo:internal/peers/cop.go:cyclomatic complexity # of func `(*Service).UveziCop` is high (\u003e #)": 1,
       "lint:gocyclo:internal/peers/cop.go:cyclomatic complexity # of func `CitajCop` is high (\u003e #)": 1,
       "lint:gocyclo:internal/peers/peers.go:cyclomatic complexity # of func `(*Service).SavePeer` is high (\u003e #)": 1,
-      "lint:gocyclo:internal/peers/peers.go:cyclomatic complexity # of func `(*Service).exchange` is high (\u003e #)": 1,
       "lint:gocyclo:internal/peers/status.go:cyclomatic complexity # of func `(*Service).Status` is high (\u003e #)": 1,
       "lint:gocyclo:internal/peers/status.go:cyclomatic complexity # of func `(*Service).alerts` is high (\u003e #)": 1,
       "lint:gocyclo:internal/peers/subscriptions.go:cyclomatic complexity # of func `(Subscription).Label` is high (\u003e #)": 1,
@@ -605,7 +603,6 @@
       "lint:maintidx:internal/importer/bp16/bp16.go:Function name: Run, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
       "lint:maintidx:internal/importer/bp16/journals.go:Function name: RunJournals, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
       "lint:maintidx:internal/pdfw/dodatak.go:Function name: Dodaj, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
-      "lint:maintidx:internal/peers/peers.go:Function name: exchange, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
       "lint:maintidx:internal/posta/proba.go:Function name: PokreniProbniEWS, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
       "lint:maintidx:internal/prognoza/osvjezavanje.go:Function name: Osvjezi, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
       "lint:maintidx:internal/prognoza/provjera.go:Function name: ProvjeriUnatrag, Cyclomatic Complexity: #, Halstead Volume: #, Maintainability Index: #": 1,
@@ -643,7 +640,6 @@
       "lint:nestif:internal/importer/seba/seba.go:`if s == \"\"` has complex nested blocks (complexity: #)": 1,
       "lint:nestif:internal/importer/ugovor/ugovor.go:`if m.Status == StatusNew` has complex nested blocks (complexity: #)": 1,
       "lint:nestif:internal/peers/cop.go:`if sp != nil` has complex nested blocks (complexity: #)": 1,
-      "lint:nestif:internal/peers/peers.go:`if initiator` has complex nested blocks (complexity: #)": 3,
       "lint:nestif:internal/postava/cvor.go:`if err == nil` has complex nested blocks (complexity: #)": 1,
       "lint:nestif:internal/postava/postava.go:`if errors.Is(err, os.ErrNotExist)` has complex nested blocks (complexity: #)": 1,
       "lint:nestif:internal/prognoza/osvjezavanje.go:`if err == nil` has complex nested blocks (complexity: #)": 1,
@@ -715,20 +711,20 @@
     }
   },
   "coverage": {
-    "statements": 71206,
-    "covered": 54157,
-    "percent": 76.05679296688481
+    "statements": 71500,
+    "covered": 54496,
+    "percent": 76.21818181818182
   },
   "critical_coverage": {
-    "statements": 20965,
-    "covered": 20786,
-    "percent": 99.14619604102074
+    "statements": 20986,
+    "covered": 20808,
+    "percent": 99.15181549604499
   },
   "packages": {
     "gocop/cmd/gocop": {
-      "statements": 1752,
-      "covered": 1378,
-      "percent": 78.65296803652969
+      "statements": 1817,
+      "covered": 1480,
+      "percent": 81.45294441386902
     },
     "gocop/cmd/gocop-postava": {
       "statements": 306,
@@ -736,14 +732,14 @@
       "percent": 19.934640522875817
     },
     "gocop/internal/arhiva": {
-      "statements": 2155,
-      "covered": 2116,
-      "percent": 98.19025522041764
+      "statements": 2172,
+      "covered": 2133,
+      "percent": 98.20441988950276
     },
     "gocop/internal/config": {
-      "statements": 376,
-      "covered": 364,
-      "percent": 96.80851063829788
+      "statements": 421,
+      "covered": 409,
+      "percent": 97.14964370546318
     },
     "gocop/internal/db": {
       "statements": 1160,
@@ -754,6 +750,11 @@
       "statements": 175,
       "covered": 153,
       "percent": 87.42857142857143
+    },
+    "gocop/internal/disk": {
+      "statements": 97,
+      "covered": 97,
+      "percent": 100
     },
     "gocop/internal/docx": {
       "statements": 220,
@@ -876,9 +877,9 @@
       "percent": 52.0353982300885
     },
     "gocop/internal/peers": {
-      "statements": 2608,
-      "covered": 2587,
-      "percent": 99.19478527607362
+      "statements": 2611,
+      "covered": 2591,
+      "percent": 99.23400995787055
     },
     "gocop/internal/poslovi": {
       "statements": 101,
@@ -926,9 +927,9 @@
       "percent": 85.76642335766424
     },
     "gocop/internal/service": {
-      "statements": 8451,
-      "covered": 6405,
-      "percent": 75.78984735534256
+      "statements": 8490,
+      "covered": 6441,
+      "percent": 75.86572438162544
     },
     "gocop/internal/slike": {
       "statements": 161,
@@ -971,9 +972,9 @@
       "percent": 62.32876712328767
     },
     "gocop/internal/web": {
-      "statements": 26344,
-      "covered": 18947,
-      "percent": 71.92150015183724
+      "statements": 26372,
+      "covered": 18985,
+      "percent": 71.98923100257849
     },
     "gocop/internal/xlsxw": {
       "statements": 277,
@@ -986,19 +987,19 @@
       "percent": null
     }
   },
-  "average_crap": 12.489613929606584,
+  "average_crap": 12.33693991917308,
   "crap_distribution": {
     "median": 4,
     "p90": 20,
     "p95": 42,
-    "do_10": 5164,
+    "do_10": 5248,
     "od_10_do_30": 819,
-    "od_30_do_100": 274,
-    "preko_100": 108
+    "od_30_do_100": 273,
+    "preko_100": 107
   },
   "max_crap": 2256,
   "worst_crap_function": "internal/pdfw/dodatak.go::Dodaj",
-  "average_complexity": 4.695727301288093,
+  "average_complexity": 4.662841191066997,
   "max_complexity": 107,
   "functions": [
     {
@@ -1373,8 +1374,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::novaRazmjenaArhive",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "novaRazmjenaArhive",
-      "line": 75,
-      "end_line": 79,
+      "line": 76,
+      "end_line": 80,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -1389,8 +1390,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::kanalLetve",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "kanalLetve",
-      "line": 83,
-      "end_line": 90,
+      "line": 84,
+      "end_line": 91,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -1405,8 +1406,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).objavi",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).objavi",
-      "line": 94,
-      "end_line": 110,
+      "line": 95,
+      "end_line": 111,
       "complexity": 5,
       "coverage": {
         "statements": 11,
@@ -1421,8 +1422,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).paketiZaObjavu",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).paketiZaObjavu",
-      "line": 114,
-      "end_line": 126,
+      "line": 115,
+      "end_line": 127,
       "complexity": 6,
       "coverage": {
         "statements": 8,
@@ -1437,8 +1438,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).objaviPaket",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).objaviPaket",
-      "line": 132,
-      "end_line": 146,
+      "line": 133,
+      "end_line": 147,
       "complexity": 6,
       "coverage": {
         "statements": 10,
@@ -1453,8 +1454,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).vecUKazalu",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).vecUKazalu",
-      "line": 153,
-      "end_line": 164,
+      "line": 154,
+      "end_line": 165,
       "complexity": 6,
       "coverage": {
         "statements": 7,
@@ -1469,8 +1470,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).upisiUKazalo",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).upisiUKazalo",
-      "line": 168,
-      "end_line": 180,
+      "line": 169,
+      "end_line": 181,
       "complexity": 2,
       "coverage": {
         "statements": 6,
@@ -1485,8 +1486,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).primi",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).primi",
-      "line": 184,
-      "end_line": 261,
+      "line": 185,
+      "end_line": 262,
       "complexity": 32,
       "coverage": {
         "statements": 53,
@@ -1501,8 +1502,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).ovdjeOstaje",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).ovdjeOstaje",
-      "line": 269,
-      "end_line": 284,
+      "line": 270,
+      "end_line": 285,
       "complexity": 6,
       "coverage": {
         "statements": 9,
@@ -1517,8 +1518,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).javiJednom",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).javiJednom",
-      "line": 286,
-      "end_line": 294,
+      "line": 287,
+      "end_line": 295,
       "complexity": 2,
       "coverage": {
         "statements": 6,
@@ -1533,8 +1534,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).jeJavljeno",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).jeJavljeno",
-      "line": 296,
-      "end_line": 300,
+      "line": 297,
+      "end_line": 301,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -1549,15 +1550,15 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).stanje",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).stanje",
-      "line": 315,
-      "end_line": 366,
+      "line": 316,
+      "end_line": 367,
       "complexity": 20,
       "coverage": {
         "statements": 37,
-        "covered": 27,
-        "percent": 72.97297297297297
+        "covered": 28,
+        "percent": 75.67567567567568
       },
-      "crap": 27.896866918050264,
+      "crap": 25.75681598325864,
       "critical": false,
       "tokens": 363
     },
@@ -1565,8 +1566,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).primljeno",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).primljeno",
-      "line": 369,
-      "end_line": 376,
+      "line": 370,
+      "end_line": 377,
       "complexity": 3,
       "coverage": {
         "statements": 4,
@@ -1581,8 +1582,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).potakniKrug",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).potakniKrug",
-      "line": 379,
-      "end_line": 384,
+      "line": 380,
+      "end_line": 385,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -1597,8 +1598,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::(*razmjenaArhive).vrti",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "(*razmjenaArhive).vrti",
-      "line": 388,
-      "end_line": 407,
+      "line": 389,
+      "end_line": 408,
       "complexity": 7,
       "coverage": {
         "statements": 12,
@@ -1613,8 +1614,8 @@
       "id": "cmd/gocop/arhiva_razmjena.go::imaStablo",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "imaStablo",
-      "line": 411,
-      "end_line": 425,
+      "line": 412,
+      "end_line": 426,
       "complexity": 6,
       "coverage": {
         "statements": 9,
@@ -1629,17 +1630,17 @@
       "id": "cmd/gocop/arhiva_razmjena.go::stanjeRazmjene",
       "file": "cmd/gocop/arhiva_razmjena.go",
       "name": "stanjeRazmjene",
-      "line": 429,
-      "end_line": 480,
+      "line": 431,
+      "end_line": 482,
       "complexity": 11,
       "coverage": {
         "statements": 37,
-        "covered": 0,
-        "percent": 0
+        "covered": 37,
+        "percent": 100
       },
-      "crap": 132,
+      "crap": 11,
       "critical": false,
-      "tokens": 518
+      "tokens": 532
     },
     {
       "id": "cmd/gocop/main.go::punaVerzija",
@@ -1838,23 +1839,23 @@
       "file": "cmd/gocop/main.go",
       "name": "run",
       "line": 448,
-      "end_line": 925,
+      "end_line": 931,
       "complexity": 59,
       "coverage": {
-        "statements": 541,
-        "covered": 474,
-        "percent": 87.61552680221811
+        "statements": 553,
+        "covered": 485,
+        "percent": 87.70343580470163
       },
-      "crap": 65.61205771961413,
+      "crap": 65.47225124155165,
       "critical": false,
-      "tokens": 3641
+      "tokens": 3704
     },
     {
       "id": "cmd/gocop/main.go::opisMreze",
       "file": "cmd/gocop/main.go",
       "name": "opisMreze",
-      "line": 929,
-      "end_line": 939,
+      "line": 935,
+      "end_line": 945,
       "complexity": 4,
       "coverage": {
         "statements": 5,
@@ -1869,8 +1870,8 @@
       "id": "cmd/gocop/main.go::supportContact",
       "file": "cmd/gocop/main.go",
       "name": "supportContact",
-      "line": 942,
-      "end_line": 946,
+      "line": 948,
+      "end_line": 952,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -1885,8 +1886,8 @@
       "id": "cmd/gocop/main.go::splitList",
       "file": "cmd/gocop/main.go",
       "name": "splitList",
-      "line": 949,
-      "end_line": 957,
+      "line": 955,
+      "end_line": 963,
       "complexity": 3,
       "coverage": {
         "statements": 5,
@@ -1901,8 +1902,8 @@
       "id": "cmd/gocop/main.go::splitPairs",
       "file": "cmd/gocop/main.go",
       "name": "splitPairs",
-      "line": 960,
-      "end_line": 968,
+      "line": 966,
+      "end_line": 974,
       "complexity": 3,
       "coverage": {
         "statements": 5,
@@ -1917,8 +1918,8 @@
       "id": "cmd/gocop/main.go::postaviRazmjenu",
       "file": "cmd/gocop/main.go",
       "name": "postaviRazmjenu",
-      "line": 973,
-      "end_line": 976,
+      "line": 979,
+      "end_line": 982,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -1928,6 +1929,182 @@
       "crap": 1,
       "critical": false,
       "tokens": 25
+    },
+    {
+      "id": "cmd/gocop/mape_arhive.go::javiMapeArhive",
+      "file": "cmd/gocop/mape_arhive.go",
+      "name": "javiMapeArhive",
+      "line": 15,
+      "end_line": 19,
+      "complexity": 1,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 65
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::mjestaDiska",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "mjestaDiska",
+      "line": 21,
+      "end_line": 28,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 86
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::apsolutna",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "apsolutna",
+      "line": 34,
+      "end_line": 39,
+      "complexity": 3,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 31
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::imeCvora",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "imeCvora",
+      "line": 42,
+      "end_line": 47,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 22
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::upozorenjaDiska",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "upozorenjaDiska",
+      "line": 56,
+      "end_line": 62,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 67
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::maloMjesta",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "maloMjesta",
+      "line": 65,
+      "end_line": 73,
+      "complexity": 3,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 42
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::(*obavijestDiska).nakonProvjere",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "(*obavijestDiska).nakonProvjere",
+      "line": 101,
+      "end_line": 127,
+      "complexity": 7,
+      "coverage": {
+        "statements": 16,
+        "covered": 16,
+        "percent": 100
+      },
+      "crap": 7,
+      "critical": false,
+      "tokens": 175
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::(*obavijestDiska).nedavno",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "(*obavijestDiska).nedavno",
+      "line": 131,
+      "end_line": 140,
+      "complexity": 5,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 5,
+      "critical": false,
+      "tokens": 92
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::(*obavijestDiska).zapisi",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "(*obavijestDiska).zapisi",
+      "line": 142,
+      "end_line": 147,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 64
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::tekstObavijestiDiska",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "tekstObavijestiDiska",
+      "line": 150,
+      "end_line": 159,
+      "complexity": 2,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 66
+    },
+    {
+      "id": "cmd/gocop/nadzor_diska.go::pokreniNadzorDiska",
+      "file": "cmd/gocop/nadzor_diska.go",
+      "name": "pokreniNadzorDiska",
+      "line": 164,
+      "end_line": 172,
+      "complexity": 1,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 102
     },
     {
       "id": "cmd/gocop/obnova_povrsine.go::primljeno",
@@ -2174,16 +2351,16 @@
       "file": "cmd/gocop/ponovno_pokretanje.go",
       "name": "punePutanje",
       "line": 115,
-      "end_line": 127,
-      "complexity": 4,
+      "end_line": 124,
+      "complexity": 3,
       "coverage": {
-        "statements": 8,
-        "covered": 8,
+        "statements": 6,
+        "covered": 6,
         "percent": 100
       },
-      "crap": 4,
+      "crap": 3,
       "critical": false,
-      "tokens": 64
+      "tokens": 47
     },
     {
       "id": "cmd/gocop/prilozi_listova.go::popraviPrilogeListova",
@@ -2525,8 +2702,8 @@
       "id": "cmd/gocop/satni_krug.go::stranePrognoze",
       "file": "cmd/gocop/satni_krug.go",
       "name": "stranePrognoze",
-      "line": 51,
-      "end_line": 57,
+      "line": 52,
+      "end_line": 58,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -2541,8 +2718,8 @@
       "id": "cmd/gocop/satni_krug.go::preuzmiStranuPrognozu",
       "file": "cmd/gocop/satni_krug.go",
       "name": "preuzmiStranuPrognozu",
-      "line": 60,
-      "end_line": 77,
+      "line": 61,
+      "end_line": 78,
       "complexity": 4,
       "coverage": {
         "statements": 13,
@@ -2557,8 +2734,8 @@
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).vrti",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).vrti",
-      "line": 109,
-      "end_line": 133,
+      "line": 110,
+      "end_line": 134,
       "complexity": 5,
       "coverage": {
         "statements": 15,
@@ -2573,8 +2750,8 @@
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).preuzmiOborine",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).preuzmiOborine",
-      "line": 136,
-      "end_line": 151,
+      "line": 137,
+      "end_line": 152,
       "complexity": 4,
       "coverage": {
         "statements": 12,
@@ -2589,8 +2766,8 @@
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).preuzmiKisomjere",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).preuzmiKisomjere",
-      "line": 155,
-      "end_line": 167,
+      "line": 156,
+      "end_line": 168,
       "complexity": 2,
       "coverage": {
         "statements": 10,
@@ -2605,8 +2782,8 @@
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).ulaziKisomjereJednomDnevno",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).ulaziKisomjereJednomDnevno",
-      "line": 173,
-      "end_line": 186,
+      "line": 174,
+      "end_line": 188,
       "complexity": 5,
       "coverage": {
         "statements": 9,
@@ -2615,14 +2792,14 @@
       },
       "crap": 5,
       "critical": false,
-      "tokens": 84
+      "tokens": 89
     },
     {
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).ulaziKisomjere",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).ulaziKisomjere",
-      "line": 191,
-      "end_line": 206,
+      "line": 193,
+      "end_line": 208,
       "complexity": 5,
       "coverage": {
         "statements": 11,
@@ -2637,8 +2814,8 @@
       "id": "cmd/gocop/satni_krug.go::izgradiIIzdaj",
       "file": "cmd/gocop/satni_krug.go",
       "name": "izgradiIIzdaj",
-      "line": 211,
-      "end_line": 226,
+      "line": 213,
+      "end_line": 228,
       "complexity": 4,
       "coverage": {
         "statements": 11,
@@ -2653,8 +2830,8 @@
       "id": "cmd/gocop/satni_krug.go::(*satniKrug).izracunajIIzdaj",
       "file": "cmd/gocop/satni_krug.go",
       "name": "(*satniKrug).izracunajIIzdaj",
-      "line": 230,
-      "end_line": 260,
+      "line": 232,
+      "end_line": 262,
       "complexity": 5,
       "coverage": {
         "statements": 24,
@@ -2669,8 +2846,8 @@
       "id": "cmd/gocop/satni_krug.go::javiPreskoceno",
       "file": "cmd/gocop/satni_krug.go",
       "name": "javiPreskoceno",
-      "line": 264,
-      "end_line": 274,
+      "line": 266,
+      "end_line": 276,
       "complexity": 2,
       "coverage": {
         "statements": 7,
@@ -2685,8 +2862,8 @@
       "id": "cmd/gocop/satni_krug.go::javiIzdanje",
       "file": "cmd/gocop/satni_krug.go",
       "name": "javiIzdanje",
-      "line": 278,
-      "end_line": 288,
+      "line": 280,
+      "end_line": 290,
       "complexity": 2,
       "coverage": {
         "statements": 6,
@@ -2701,8 +2878,8 @@
       "id": "cmd/gocop/satni_krug.go::javiUpozorenja",
       "file": "cmd/gocop/satni_krug.go",
       "name": "javiUpozorenja",
-      "line": 294,
-      "end_line": 318,
+      "line": 296,
+      "end_line": 320,
       "complexity": 7,
       "coverage": {
         "statements": 17,
@@ -3885,8 +4062,8 @@
       "id": "internal/arhiva/gradnja.go::zadanaTocnost",
       "file": "internal/arhiva/gradnja.go",
       "name": "zadanaTocnost",
-      "line": 1648,
-      "end_line": 1659,
+      "line": 1658,
+      "end_line": 1669,
       "complexity": 3,
       "coverage": {
         "statements": 5,
@@ -3901,8 +4078,8 @@
       "id": "internal/arhiva/gradnja.go::upisiZadaneIzvore",
       "file": "internal/arhiva/gradnja.go",
       "name": "upisiZadaneIzvore",
-      "line": 1664,
-      "end_line": 1675,
+      "line": 1674,
+      "end_line": 1685,
       "complexity": 3,
       "coverage": {
         "statements": 5,
@@ -3917,8 +4094,8 @@
       "id": "internal/arhiva/gradnja.go::Izvori",
       "file": "internal/arhiva/gradnja.go",
       "name": "Izvori",
-      "line": 1679,
-      "end_line": 1695,
+      "line": 1689,
+      "end_line": 1705,
       "complexity": 4,
       "coverage": {
         "statements": 11,
@@ -3933,8 +4110,8 @@
       "id": "internal/arhiva/gradnja.go::stupacMape",
       "file": "internal/arhiva/gradnja.go",
       "name": "stupacMape",
-      "line": 1701,
-      "end_line": 1708,
+      "line": 1711,
+      "end_line": 1718,
       "complexity": 3,
       "coverage": {
         "statements": 4,
@@ -3949,8 +4126,8 @@
       "id": "internal/arhiva/gradnja.go::PostaviIzvor",
       "file": "internal/arhiva/gradnja.go",
       "name": "PostaviIzvor",
-      "line": 1713,
-      "end_line": 1743,
+      "line": 1723,
+      "end_line": 1753,
       "complexity": 9,
       "coverage": {
         "statements": 19,
@@ -3965,8 +4142,8 @@
       "id": "internal/arhiva/gradnja.go::Spoji",
       "file": "internal/arhiva/gradnja.go",
       "name": "Spoji",
-      "line": 1748,
-      "end_line": 1748,
+      "line": 1758,
+      "end_line": 1758,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -3981,8 +4158,8 @@
       "id": "internal/arhiva/gradnja.go::citajIzvore",
       "file": "internal/arhiva/gradnja.go",
       "name": "citajIzvore",
-      "line": 1751,
-      "end_line": 1771,
+      "line": 1761,
+      "end_line": 1781,
       "complexity": 5,
       "coverage": {
         "statements": 15,
@@ -3997,8 +4174,8 @@
       "id": "internal/arhiva/gradnja.go::SpojiU",
       "file": "internal/arhiva/gradnja.go",
       "name": "SpojiU",
-      "line": 1793,
-      "end_line": 1795,
+      "line": 1803,
+      "end_line": 1805,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -4013,8 +4190,8 @@
       "id": "internal/arhiva/gradnja.go::spoji",
       "file": "internal/arhiva/gradnja.go",
       "name": "spoji",
-      "line": 1797,
-      "end_line": 1812,
+      "line": 1807,
+      "end_line": 1822,
       "complexity": 3,
       "coverage": {
         "statements": 8,
@@ -4029,8 +4206,8 @@
       "id": "internal/arhiva/gradnja.go::spojiSve",
       "file": "internal/arhiva/gradnja.go",
       "name": "spojiSve",
-      "line": 1816,
-      "end_line": 1866,
+      "line": 1826,
+      "end_line": 1876,
       "complexity": 9,
       "coverage": {
         "statements": 38,
@@ -4045,8 +4222,8 @@
       "id": "internal/arhiva/gradnja.go::spojiJedan",
       "file": "internal/arhiva/gradnja.go",
       "name": "spojiJedan",
-      "line": 1875,
-      "end_line": 2032,
+      "line": 1885,
+      "end_line": 2042,
       "complexity": 47,
       "coverage": {
         "statements": 106,
@@ -4061,8 +4238,8 @@
       "id": "internal/arhiva/gradnja.go::MakniNiz",
       "file": "internal/arhiva/gradnja.go",
       "name": "MakniNiz",
-      "line": 2041,
-      "end_line": 2089,
+      "line": 2051,
+      "end_line": 2099,
       "complexity": 9,
       "coverage": {
         "statements": 32,
@@ -4077,8 +4254,8 @@
       "id": "internal/arhiva/gradnja.go::Sirotani",
       "file": "internal/arhiva/gradnja.go",
       "name": "Sirotani",
-      "line": 2100,
-      "end_line": 2128,
+      "line": 2110,
+      "end_line": 2138,
       "complexity": 8,
       "coverage": {
         "statements": 19,
@@ -4093,8 +4270,8 @@
       "id": "internal/arhiva/gradnja.go::MakniKrivulje",
       "file": "internal/arhiva/gradnja.go",
       "name": "MakniKrivulje",
-      "line": 2134,
-      "end_line": 2161,
+      "line": 2144,
+      "end_line": 2171,
       "complexity": 6,
       "coverage": {
         "statements": 17,
@@ -4109,8 +4286,8 @@
       "id": "internal/arhiva/gradnja.go::krivuljeJosBezDatoteke",
       "file": "internal/arhiva/gradnja.go",
       "name": "krivuljeJosBezDatoteke",
-      "line": 2168,
-      "end_line": 2178,
+      "line": 2178,
+      "end_line": 2188,
       "complexity": 3,
       "coverage": {
         "statements": 6,
@@ -4125,8 +4302,8 @@
       "id": "internal/arhiva/gradnja.go::MakniSnimku",
       "file": "internal/arhiva/gradnja.go",
       "name": "MakniSnimku",
-      "line": 2184,
-      "end_line": 2210,
+      "line": 2194,
+      "end_line": 2220,
       "complexity": 6,
       "coverage": {
         "statements": 20,
@@ -4190,23 +4367,23 @@
       "file": "internal/arhiva/katalog.go",
       "name": "Izdaj",
       "line": 127,
-      "end_line": 267,
-      "complexity": 29,
+      "end_line": 265,
+      "complexity": 28,
       "coverage": {
-        "statements": 106,
-        "covered": 106,
+        "statements": 105,
+        "covered": 105,
         "percent": 100
       },
-      "crap": 29,
+      "crap": 28,
       "critical": true,
-      "tokens": 1066
+      "tokens": 1058
     },
     {
       "id": "internal/arhiva/katalog.go::zadrziPrijasnje",
       "file": "internal/arhiva/katalog.go",
       "name": "zadrziPrijasnje",
-      "line": 281,
-      "end_line": 295,
+      "line": 279,
+      "end_line": 293,
       "complexity": 5,
       "coverage": {
         "statements": 8,
@@ -4221,8 +4398,8 @@
       "id": "internal/arhiva/katalog.go::LetveUArhivi",
       "file": "internal/arhiva/katalog.go",
       "name": "LetveUArhivi",
-      "line": 298,
-      "end_line": 320,
+      "line": 296,
+      "end_line": 318,
       "complexity": 5,
       "coverage": {
         "statements": 17,
@@ -4237,8 +4414,8 @@
       "id": "internal/arhiva/katalog.go::ZapisiSaStrane",
       "file": "internal/arhiva/katalog.go",
       "name": "ZapisiSaStrane",
-      "line": 324,
-      "end_line": 330,
+      "line": 322,
+      "end_line": 328,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -4253,8 +4430,8 @@
       "id": "internal/arhiva/katalog.go::zapisiKatalog",
       "file": "internal/arhiva/katalog.go",
       "name": "zapisiKatalog",
-      "line": 332,
-      "end_line": 338,
+      "line": 330,
+      "end_line": 336,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -4269,24 +4446,40 @@
       "id": "internal/arhiva/katalog.go::SljedeceIzdanje",
       "file": "internal/arhiva/katalog.go",
       "name": "SljedeceIzdanje",
-      "line": 347,
-      "end_line": 376,
-      "complexity": 9,
+      "line": 345,
+      "end_line": 370,
+      "complexity": 8,
       "coverage": {
-        "statements": 20,
-        "covered": 20,
+        "statements": 17,
+        "covered": 17,
         "percent": 100
       },
-      "crap": 9,
+      "crap": 8,
       "critical": true,
-      "tokens": 186
+      "tokens": 168
+    },
+    {
+      "id": "internal/arhiva/katalog.go::izdanjeUKatalogu",
+      "file": "internal/arhiva/katalog.go",
+      "name": "izdanjeUKatalogu",
+      "line": 376,
+      "end_line": 388,
+      "complexity": 4,
+      "coverage": {
+        "statements": 8,
+        "covered": 8,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": true,
+      "tokens": 67
     },
     {
       "id": "internal/arhiva/katalog.go::poLetvi",
       "file": "internal/arhiva/katalog.go",
       "name": "poLetvi",
-      "line": 379,
-      "end_line": 390,
+      "line": 391,
+      "end_line": 402,
       "complexity": 4,
       "coverage": {
         "statements": 7,
@@ -4584,6 +4777,70 @@
       "crap": 2,
       "critical": true,
       "tokens": 49
+    },
+    {
+      "id": "internal/arhiva/mapa_upisa.go::(*NemaMape).Error",
+      "file": "internal/arhiva/mapa_upisa.go",
+      "name": "(*NemaMape).Error",
+      "line": 30,
+      "end_line": 36,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 50
+    },
+    {
+      "id": "internal/arhiva/mapa_upisa.go::provjeriMapu",
+      "file": "internal/arhiva/mapa_upisa.go",
+      "name": "provjeriMapu",
+      "line": 40,
+      "end_line": 45,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 35
+    },
+    {
+      "id": "internal/arhiva/mapa_upisa.go::ProvjeriKoren",
+      "file": "internal/arhiva/mapa_upisa.go",
+      "name": "ProvjeriKoren",
+      "line": 50,
+      "end_line": 55,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 26
+    },
+    {
+      "id": "internal/arhiva/mapa_upisa.go::pripremiMapuIzdanja",
+      "file": "internal/arhiva/mapa_upisa.go",
+      "name": "pripremiMapuIzdanja",
+      "line": 60,
+      "end_line": 65,
+      "complexity": 3,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 34
     },
     {
       "id": "internal/arhiva/paket.go::dopusteniDijelovi",
@@ -5229,8 +5486,8 @@
       "id": "internal/arhiva/ulaz.go::Upisi",
       "file": "internal/arhiva/ulaz.go",
       "name": "Upisi",
-      "line": 137,
-      "end_line": 186,
+      "line": 138,
+      "end_line": 187,
       "complexity": 12,
       "coverage": {
         "statements": 33,
@@ -5239,14 +5496,14 @@
       },
       "crap": 12.0320560981718,
       "critical": true,
-      "tokens": 373
+      "tokens": 375
     },
     {
       "id": "internal/arhiva/ulaz.go::Dopuni",
       "file": "internal/arhiva/ulaz.go",
       "name": "Dopuni",
-      "line": 196,
-      "end_line": 216,
+      "line": 197,
+      "end_line": 217,
       "complexity": 6,
       "coverage": {
         "statements": 14,
@@ -5261,8 +5518,8 @@
       "id": "internal/arhiva/ulaz.go::PostojeciRedci",
       "file": "internal/arhiva/ulaz.go",
       "name": "PostojeciRedci",
-      "line": 226,
-      "end_line": 243,
+      "line": 227,
+      "end_line": 244,
       "complexity": 5,
       "coverage": {
         "statements": 12,
@@ -5277,8 +5534,8 @@
       "id": "internal/arhiva/ulaz.go::redciDatoteke",
       "file": "internal/arhiva/ulaz.go",
       "name": "redciDatoteke",
-      "line": 247,
-      "end_line": 262,
+      "line": 248,
+      "end_line": 263,
       "complexity": 4,
       "coverage": {
         "statements": 11,
@@ -5293,8 +5550,8 @@
       "id": "internal/arhiva/ulaz.go::redciIspodZaglavlja",
       "file": "internal/arhiva/ulaz.go",
       "name": "redciIspodZaglavlja",
-      "line": 266,
-      "end_line": 287,
+      "line": 267,
+      "end_line": 288,
       "complexity": 7,
       "coverage": {
         "statements": 14,
@@ -5309,8 +5566,8 @@
       "id": "internal/arhiva/ulaz.go::(redakNiza).uRedak",
       "file": "internal/arhiva/ulaz.go",
       "name": "(redakNiza).uRedak",
-      "line": 291,
-      "end_line": 293,
+      "line": 292,
+      "end_line": 294,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -5325,8 +5582,8 @@
       "id": "internal/arhiva/ulaz.go::bezStupcaViska",
       "file": "internal/arhiva/ulaz.go",
       "name": "bezStupcaViska",
-      "line": 298,
-      "end_line": 305,
+      "line": 299,
+      "end_line": 306,
       "complexity": 3,
       "coverage": {
         "statements": 4,
@@ -5341,8 +5598,8 @@
       "id": "internal/arhiva/ulaz.go::zaglavlje",
       "file": "internal/arhiva/ulaz.go",
       "name": "zaglavlje",
-      "line": 313,
-      "end_line": 328,
+      "line": 314,
+      "end_line": 329,
       "complexity": 5,
       "coverage": {
         "statements": 9,
@@ -5357,8 +5614,8 @@
       "id": "internal/arhiva/ulaz.go::zapisiCSV",
       "file": "internal/arhiva/ulaz.go",
       "name": "zapisiCSV",
-      "line": 330,
-      "end_line": 351,
+      "line": 331,
+      "end_line": 352,
       "complexity": 6,
       "coverage": {
         "statements": 15,
@@ -5373,8 +5630,8 @@
       "id": "internal/arhiva/ulaz.go::vrijemeUCSV",
       "file": "internal/arhiva/ulaz.go",
       "name": "vrijemeUCSV",
-      "line": 355,
-      "end_line": 360,
+      "line": 356,
+      "end_line": 361,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -5389,8 +5646,8 @@
       "id": "internal/arhiva/ulaz.go::brojUCSV",
       "file": "internal/arhiva/ulaz.go",
       "name": "brojUCSV",
-      "line": 363,
-      "end_line": 367,
+      "line": 364,
+      "end_line": 368,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -5405,8 +5662,8 @@
       "id": "internal/arhiva/ulaz.go::provjeriZapisano",
       "file": "internal/arhiva/ulaz.go",
       "name": "provjeriZapisano",
-      "line": 372,
-      "end_line": 405,
+      "line": 373,
+      "end_line": 406,
       "complexity": 9,
       "coverage": {
         "statements": 24,
@@ -5992,6 +6249,230 @@
       "crap": 1,
       "critical": false,
       "tokens": 31
+    },
+    {
+      "id": "internal/config/mape.go::ZapamtiIzvorMapa",
+      "file": "internal/config/mape.go",
+      "name": "ZapamtiIzvorMapa",
+      "line": 51,
+      "end_line": 51,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 10
+    },
+    {
+      "id": "internal/config/mape.go::ProvjeriMapu",
+      "file": "internal/config/mape.go",
+      "name": "ProvjeriMapu",
+      "line": 55,
+      "end_line": 61,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 37
+    },
+    {
+      "id": "internal/config/mape.go::(IzvorMapa).Provjeri",
+      "file": "internal/config/mape.go",
+      "name": "(IzvorMapa).Provjeri",
+      "line": 64,
+      "end_line": 78,
+      "complexity": 4,
+      "coverage": {
+        "statements": 10,
+        "covered": 10,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": false,
+      "tokens": 96
+    },
+    {
+      "id": "internal/config/mape.go::Izricita",
+      "file": "internal/config/mape.go",
+      "name": "Izricita",
+      "line": 84,
+      "end_line": 86,
+      "complexity": 3,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 27
+    },
+    {
+      "id": "internal/config/mape.go::PunaPutanja",
+      "file": "internal/config/mape.go",
+      "name": "PunaPutanja",
+      "line": 96,
+      "end_line": 101,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 25
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).Relativna",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).Relativna",
+      "line": 104,
+      "end_line": 104,
+      "complexity": 2,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 17
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).Nedostaje",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).Nedostaje",
+      "line": 108,
+      "end_line": 108,
+      "complexity": 2,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 14
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).Drugdje",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).Drugdje",
+      "line": 113,
+      "end_line": 113,
+      "complexity": 2,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 15
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).Pregledna",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).Pregledna",
+      "line": 117,
+      "end_line": 117,
+      "complexity": 2,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 16
+    },
+    {
+      "id": "internal/config/mape.go::jeMapa",
+      "file": "internal/config/mape.go",
+      "name": "jeMapa",
+      "line": 119,
+      "end_line": 122,
+      "complexity": 2,
+      "coverage": {
+        "statements": 2,
+        "covered": 2,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 25
+    },
+    {
+      "id": "internal/config/mape.go::prijedlogMape",
+      "file": "internal/config/mape.go",
+      "name": "prijedlogMape",
+      "line": 127,
+      "end_line": 136,
+      "complexity": 3,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 52
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).Uputa",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).Uputa",
+      "line": 148,
+      "end_line": 156,
+      "complexity": 2,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 87
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).odakle",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).odakle",
+      "line": 159,
+      "end_line": 164,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 44
+    },
+    {
+      "id": "internal/config/mape.go::(Mapa).upisi",
+      "file": "internal/config/mape.go",
+      "name": "(Mapa).upisi",
+      "line": 168,
+      "end_line": 178,
+      "complexity": 3,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 65
     },
     {
       "id": "internal/config/zapis.go::Provjeri",
@@ -7320,6 +7801,342 @@
       "crap": 4,
       "critical": false,
       "tokens": 57
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).Malo",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).Malo",
+      "line": 57,
+      "end_line": 59,
+      "complexity": 2,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 22
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).Upozorenje",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).Upozorenje",
+      "line": 62,
+      "end_line": 64,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 19
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).Poruka",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).Poruka",
+      "line": 68,
+      "end_line": 74,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 42
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).Savjet",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).Savjet",
+      "line": 77,
+      "end_line": 82,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 24
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).dovoljno",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).dovoljno",
+      "line": 85,
+      "end_line": 87,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 23
+    },
+    {
+      "id": "internal/disk/disk.go::(*Disk).dodaj",
+      "file": "internal/disk/disk.go",
+      "name": "(*Disk).dodaj",
+      "line": 89,
+      "end_line": 94,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 35
+    },
+    {
+      "id": "internal/disk/disk.go::(Disk).slobodno",
+      "file": "internal/disk/disk.go",
+      "name": "(Disk).slobodno",
+      "line": 98,
+      "end_line": 105,
+      "complexity": 2,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 53
+    },
+    {
+      "id": "internal/disk/disk.go::Velicina",
+      "file": "internal/disk/disk.go",
+      "name": "Velicina",
+      "line": 110,
+      "end_line": 122,
+      "complexity": 5,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 5,
+      "critical": false,
+      "tokens": 89
+    },
+    {
+      "id": "internal/disk/disk.go::decimalno",
+      "file": "internal/disk/disk.go",
+      "name": "decimalno",
+      "line": 125,
+      "end_line": 128,
+      "complexity": 1,
+      "coverage": {
+        "statements": 2,
+        "covered": 2,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 38
+    },
+    {
+      "id": "internal/disk/disk.go::spoji",
+      "file": "internal/disk/disk.go",
+      "name": "spoji",
+      "line": 131,
+      "end_line": 136,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 54
+    },
+    {
+      "id": "internal/disk/nadzor.go::NoviNadzor",
+      "file": "internal/disk/nadzor.go",
+      "name": "NoviNadzor",
+      "line": 30,
+      "end_line": 32,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 40
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).NakonProvjere",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).NakonProvjere",
+      "line": 36,
+      "end_line": 36,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 8
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).Vrti",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).Vrti",
+      "line": 39,
+      "end_line": 50,
+      "complexity": 4,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": false,
+      "tokens": 49
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).Provjeri",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).Provjeri",
+      "line": 54,
+      "end_line": 70,
+      "complexity": 4,
+      "coverage": {
+        "statements": 12,
+        "covered": 12,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": false,
+      "tokens": 123
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).Stanje",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).Stanje",
+      "line": 75,
+      "end_line": 86,
+      "complexity": 3,
+      "coverage": {
+        "statements": 8,
+        "covered": 8,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 71
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).javiPrijelaz",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).javiPrijelaz",
+      "line": 88,
+      "end_line": 94,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 36
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).diskovi",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).diskovi",
+      "line": 98,
+      "end_line": 115,
+      "complexity": 4,
+      "coverage": {
+        "statements": 13,
+        "covered": 13,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": false,
+      "tokens": 112
+    },
+    {
+      "id": "internal/disk/nadzor.go::(*Nadzor).izmjeri",
+      "file": "internal/disk/nadzor.go",
+      "name": "(*Nadzor).izmjeri",
+      "line": 119,
+      "end_line": 133,
+      "complexity": 6,
+      "coverage": {
+        "statements": 10,
+        "covered": 10,
+        "percent": 100
+      },
+      "crap": 6,
+      "critical": false,
+      "tokens": 120
+    },
+    {
+      "id": "internal/disk/nadzor.go::bezPutanje",
+      "file": "internal/disk/nadzor.go",
+      "name": "bezPutanje",
+      "line": 136,
+      "end_line": 141,
+      "complexity": 2,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 33
+    },
+    {
+      "id": "internal/disk/sustav_darwin.go::velicinaBloka",
+      "file": "internal/disk/sustav_darwin.go",
+      "name": "velicinaBloka",
+      "line": 8,
+      "end_line": 10,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 11
+    },
+    {
+      "id": "internal/disk/sustav_unix.go::(Sustav).Izmjeri",
+      "file": "internal/disk/sustav_unix.go",
+      "name": "(Sustav).Izmjeri",
+      "line": 15,
+      "end_line": 27,
+      "complexity": 3,
+      "coverage": {
+        "statements": 9,
+        "covered": 9,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 122
     },
     {
       "id": "internal/docx/dijelovi.go::contentTypesSa",
@@ -29709,24 +30526,24 @@
       "id": "internal/peers/peers.go::(*Service).exchange",
       "file": "internal/peers/peers.go",
       "name": "(*Service).exchange",
-      "line": 1121,
-      "end_line": 1295,
-      "complexity": 40,
+      "line": 1126,
+      "end_line": 1143,
+      "complexity": 5,
       "coverage": {
-        "statements": 124,
-        "covered": 123,
-        "percent": 99.19354838709677
+        "statements": 12,
+        "covered": 12,
+        "percent": 100
       },
-      "crap": 40.000839179618005,
+      "crap": 5,
       "critical": true,
-      "tokens": 1240
+      "tokens": 144
     },
     {
       "id": "internal/peers/peers.go::(*Service).OnApplied",
       "file": "internal/peers/peers.go",
       "name": "(*Service).OnApplied",
-      "line": 1299,
-      "end_line": 1301,
+      "line": 1147,
+      "end_line": 1149,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -29741,8 +30558,8 @@
       "id": "internal/peers/peers.go::(*Service).Accept",
       "file": "internal/peers/peers.go",
       "name": "(*Service).Accept",
-      "line": 1304,
-      "end_line": 1306,
+      "line": 1152,
+      "end_line": 1154,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -29757,8 +30574,8 @@
       "id": "internal/peers/peers.go::(*Service).noteSync",
       "file": "internal/peers/peers.go",
       "name": "(*Service).noteSync",
-      "line": 1308,
-      "end_line": 1344,
+      "line": 1156,
+      "end_line": 1192,
       "complexity": 14,
       "coverage": {
         "statements": 22,
@@ -29773,8 +30590,8 @@
       "id": "internal/peers/peers.go::(*Service).SyncAll",
       "file": "internal/peers/peers.go",
       "name": "(*Service).SyncAll",
-      "line": 1347,
-      "end_line": 1353,
+      "line": 1195,
+      "end_line": 1201,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -29789,8 +30606,8 @@
       "id": "internal/peers/peers.go::(*Service).RunAutoSync",
       "file": "internal/peers/peers.go",
       "name": "(*Service).RunAutoSync",
-      "line": 1356,
-      "end_line": 1381,
+      "line": 1204,
+      "end_line": 1229,
       "complexity": 7,
       "coverage": {
         "statements": 22,
@@ -29805,8 +30622,8 @@
       "id": "internal/peers/peers.go::dedupe",
       "file": "internal/peers/peers.go",
       "name": "dedupe",
-      "line": 1383,
-      "end_line": 1398,
+      "line": 1231,
+      "end_line": 1246,
       "complexity": 5,
       "coverage": {
         "statements": 11,
@@ -29821,8 +30638,8 @@
       "id": "internal/peers/peers.go::utcIliNull",
       "file": "internal/peers/peers.go",
       "name": "utcIliNull",
-      "line": 1403,
-      "end_line": 1408,
+      "line": 1251,
+      "end_line": 1256,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -29837,8 +30654,8 @@
       "id": "internal/peers/peers.go::boolInt",
       "file": "internal/peers/peers.go",
       "name": "boolInt",
-      "line": 1410,
-      "end_line": 1415,
+      "line": 1258,
+      "end_line": 1263,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -29853,8 +30670,8 @@
       "id": "internal/peers/peers.go::withPort",
       "file": "internal/peers/peers.go",
       "name": "withPort",
-      "line": 1419,
-      "end_line": 1427,
+      "line": 1267,
+      "end_line": 1275,
       "complexity": 4,
       "coverage": {
         "statements": 5,
@@ -29869,8 +30686,8 @@
       "id": "internal/peers/peers.go::hasAddressForHost",
       "file": "internal/peers/peers.go",
       "name": "hasAddressForHost",
-      "line": 1429,
-      "end_line": 1440,
+      "line": 1277,
+      "end_line": 1288,
       "complexity": 4,
       "coverage": {
         "statements": 7,
@@ -29885,8 +30702,8 @@
       "id": "internal/peers/peers.go::(*Node).PrivateKey",
       "file": "internal/peers/peers.go",
       "name": "(*Node).PrivateKey",
-      "line": 1445,
-      "end_line": 1445,
+      "line": 1293,
+      "end_line": 1293,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -29896,6 +30713,294 @@
       "crap": 1,
       "critical": true,
       "tokens": 7
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*Service).zapocniRazgovor",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*Service).zapocniRazgovor",
+      "line": 61,
+      "end_line": 74,
+      "complexity": 3,
+      "coverage": {
+        "statements": 10,
+        "covered": 10,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 110
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).mojaGranica",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).mojaGranica",
+      "line": 78,
+      "end_line": 81,
+      "complexity": 1,
+      "coverage": {
+        "statements": 2,
+        "covered": 2,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": true,
+      "tokens": 38
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).posalji",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).posalji",
+      "line": 85,
+      "end_line": 92,
+      "complexity": 2,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 48
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).ocekuj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).ocekuj",
+      "line": 96,
+      "end_line": 105,
+      "complexity": 3,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 50
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).redom",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).redom",
+      "line": 109,
+      "end_line": 118,
+      "complexity": 3,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 48
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).razmijeni",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).razmijeni",
+      "line": 121,
+      "end_line": 126,
+      "complexity": 1,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": true,
+      "tokens": 42
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).granice",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).granice",
+      "line": 130,
+      "end_line": 132,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": true,
+      "tokens": 20
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).delte",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).delte",
+      "line": 136,
+      "end_line": 147,
+      "complexity": 3,
+      "coverage": {
+        "statements": 8,
+        "covered": 8,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 76
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).mojaDelta",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).mojaDelta",
+      "line": 153,
+      "end_line": 161,
+      "complexity": 2,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 87
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).zapamtiDelte",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).zapamtiDelte",
+      "line": 165,
+      "end_line": 177,
+      "complexity": 3,
+      "coverage": {
+        "statements": 8,
+        "covered": 8,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 81
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).upisiPrimljeno",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).upisiPrimljeno",
+      "line": 182,
+      "end_line": 190,
+      "complexity": 2,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 61
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).zaUpis",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).zaUpis",
+      "line": 195,
+      "end_line": 208,
+      "complexity": 6,
+      "coverage": {
+        "statements": 9,
+        "covered": 9,
+        "percent": 100
+      },
+      "crap": 6,
+      "critical": true,
+      "tokens": 99
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).sadrzajIKraj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).sadrzajIKraj",
+      "line": 215,
+      "end_line": 224,
+      "complexity": 4,
+      "coverage": {
+        "statements": 6,
+        "covered": 6,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": true,
+      "tokens": 56
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).zelje",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).zelje",
+      "line": 231,
+      "end_line": 244,
+      "complexity": 5,
+      "coverage": {
+        "statements": 9,
+        "covered": 9,
+        "percent": 100
+      },
+      "crap": 5,
+      "critical": true,
+      "tokens": 104
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).zeljeIliKraj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).zeljeIliKraj",
+      "line": 250,
+      "end_line": 270,
+      "complexity": 4,
+      "coverage": {
+        "statements": 13,
+        "covered": 13,
+        "percent": 100
+      },
+      "crap": 4,
+      "critical": true,
+      "tokens": 117
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).sadrzaj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).sadrzaj",
+      "line": 276,
+      "end_line": 283,
+      "complexity": 1,
+      "coverage": {
+        "statements": 3,
+        "covered": 3,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": true,
+      "tokens": 61
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).primiNjihovSadrzaj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).primiNjihovSadrzaj",
+      "line": 288,
+      "end_line": 295,
+      "complexity": 2,
+      "coverage": {
+        "statements": 5,
+        "covered": 5,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": true,
+      "tokens": 56
+    },
+    {
+      "id": "internal/peers/razgovor.go::(*razgovorSCvorom).kraj",
+      "file": "internal/peers/razgovor.go",
+      "name": "(*razgovorSCvorom).kraj",
+      "line": 300,
+      "end_line": 312,
+      "complexity": 3,
+      "coverage": {
+        "statements": 9,
+        "covered": 9,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": true,
+      "tokens": 86
     },
     {
       "id": "internal/peers/sadrzaj.go::(*Service).SetSpremiste",
@@ -56298,11 +57403,75 @@
       "tokens": 27
     },
     {
+      "id": "internal/service/akt_posta.go::(*AktService).ObavijestiSanducima",
+      "file": "internal/service/akt_posta.go",
+      "name": "(*AktService).ObavijestiSanducima",
+      "line": 273,
+      "end_line": 294,
+      "complexity": 6,
+      "coverage": {
+        "statements": 15,
+        "covered": 14,
+        "percent": 93.33333333333333
+      },
+      "crap": 6.010666666666666,
+      "critical": false,
+      "tokens": 135
+    },
+    {
+      "id": "internal/service/akt_posta.go::(*AktService).obavijestiSebe",
+      "file": "internal/service/akt_posta.go",
+      "name": "(*AktService).obavijestiSebe",
+      "line": 299,
+      "end_line": 317,
+      "complexity": 6,
+      "coverage": {
+        "statements": 13,
+        "covered": 12,
+        "percent": 92.3076923076923
+      },
+      "crap": 6.0163859808830225,
+      "critical": false,
+      "tokens": 143
+    },
+    {
+      "id": "internal/service/akt_posta.go::(*AktService).primateljObavijesti",
+      "file": "internal/service/akt_posta.go",
+      "name": "(*AktService).primateljObavijesti",
+      "line": 321,
+      "end_line": 331,
+      "complexity": 6,
+      "coverage": {
+        "statements": 7,
+        "covered": 6,
+        "percent": 85.71428571428571
+      },
+      "crap": 6.104956268221574,
+      "critical": false,
+      "tokens": 76
+    },
+    {
+      "id": "internal/service/akt_posta.go::posaljiJednu",
+      "file": "internal/service/akt_posta.go",
+      "name": "posaljiJednu",
+      "line": 334,
+      "end_line": 340,
+      "complexity": 3,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 51
+    },
+    {
       "id": "internal/service/akt_posta.go::(Adresat).Poslano",
       "file": "internal/service/akt_posta.go",
       "name": "(Adresat).Poslano",
-      "line": 275,
-      "end_line": 275,
+      "line": 349,
+      "end_line": 349,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -56317,8 +57486,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).AdresatiAkta",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).AdresatiAkta",
-      "line": 279,
-      "end_line": 305,
+      "line": 353,
+      "end_line": 379,
       "complexity": 7,
       "coverage": {
         "statements": 19,
@@ -56333,8 +57502,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).PosaljiNaZnanje",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).PosaljiNaZnanje",
-      "line": 322,
-      "end_line": 414,
+      "line": 396,
+      "end_line": 488,
       "complexity": 27,
       "coverage": {
         "statements": 63,
@@ -56349,8 +57518,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).racunKorisnika",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).racunKorisnika",
-      "line": 417,
-      "end_line": 439,
+      "line": 491,
+      "end_line": 513,
       "complexity": 7,
       "coverage": {
         "statements": 15,
@@ -56365,8 +57534,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).RacunPosteOtkljucan",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).RacunPosteOtkljucan",
-      "line": 444,
-      "end_line": 450,
+      "line": 518,
+      "end_line": 524,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56381,8 +57550,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).Sanducic",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).Sanducic",
-      "line": 456,
-      "end_line": 469,
+      "line": 530,
+      "end_line": 543,
       "complexity": 4,
       "coverage": {
         "statements": 9,
@@ -56397,8 +57566,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).MapeSanducica",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).MapeSanducica",
-      "line": 472,
-      "end_line": 478,
+      "line": 546,
+      "end_line": 552,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56413,8 +57582,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).PremjestiPisma",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).PremjestiPisma",
-      "line": 481,
-      "end_line": 487,
+      "line": 555,
+      "end_line": 561,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56429,8 +57598,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).ObrisiTrajno",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).ObrisiTrajno",
-      "line": 490,
-      "end_line": 496,
+      "line": 564,
+      "end_line": 570,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56445,8 +57614,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).OznaciProcitanoVise",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).OznaciProcitanoVise",
-      "line": 499,
-      "end_line": 505,
+      "line": 573,
+      "end_line": 579,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56461,8 +57630,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).OznaciProcitano",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).OznaciProcitano",
-      "line": 508,
-      "end_line": 514,
+      "line": 582,
+      "end_line": 588,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56477,8 +57646,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).ObrisiPismo",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).ObrisiPismo",
-      "line": 517,
-      "end_line": 523,
+      "line": 591,
+      "end_line": 597,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56493,8 +57662,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).PosaljiPismo",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).PosaljiPismo",
-      "line": 537,
-      "end_line": 587,
+      "line": 611,
+      "end_line": 661,
       "complexity": 15,
       "coverage": {
         "statements": 35,
@@ -56509,8 +57678,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).Pismo",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).Pismo",
-      "line": 590,
-      "end_line": 596,
+      "line": 664,
+      "end_line": 670,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56525,8 +57694,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).Privitak",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).Privitak",
-      "line": 599,
-      "end_line": 605,
+      "line": 673,
+      "end_line": 679,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56541,8 +57710,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).Imenik",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).Imenik",
-      "line": 610,
-      "end_line": 616,
+      "line": 684,
+      "end_line": 690,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -56557,8 +57726,8 @@
       "id": "internal/service/akt_posta.go::(RazlikaKontakta).Razlikuje",
       "file": "internal/service/akt_posta.go",
       "name": "(RazlikaKontakta).Razlikuje",
-      "line": 625,
-      "end_line": 625,
+      "line": 699,
+      "end_line": 699,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -56573,8 +57742,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).UsporediImenik",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).UsporediImenik",
-      "line": 640,
-      "end_line": 772,
+      "line": 714,
+      "end_line": 846,
       "complexity": 29,
       "coverage": {
         "statements": 87,
@@ -56589,8 +57758,8 @@
       "id": "internal/service/akt_posta.go::najboljiKontakt",
       "file": "internal/service/akt_posta.go",
       "name": "najboljiKontakt",
-      "line": 776,
-      "end_line": 795,
+      "line": 850,
+      "end_line": 869,
       "complexity": 9,
       "coverage": {
         "statements": 12,
@@ -56605,8 +57774,8 @@
       "id": "internal/service/akt_posta.go::poljaKontakta",
       "file": "internal/service/akt_posta.go",
       "name": "poljaKontakta",
-      "line": 797,
-      "end_line": 814,
+      "line": 871,
+      "end_line": 888,
       "complexity": 4,
       "coverage": {
         "statements": 7,
@@ -56621,8 +57790,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).PrimijeniKontakt",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).PrimijeniKontakt",
-      "line": 820,
-      "end_line": 848,
+      "line": 894,
+      "end_line": 922,
       "complexity": 12,
       "coverage": {
         "statements": 17,
@@ -56637,8 +57806,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).AdreseZaPismo",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).AdreseZaPismo",
-      "line": 860,
-      "end_line": 907,
+      "line": 934,
+      "end_line": 981,
       "complexity": 20,
       "coverage": {
         "statements": 30,
@@ -56653,8 +57822,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).Potpis",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).Potpis",
-      "line": 912,
-      "end_line": 915,
+      "line": 986,
+      "end_line": 989,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -56669,8 +57838,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).SpremiPotpis",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).SpremiPotpis",
-      "line": 918,
-      "end_line": 923,
+      "line": 992,
+      "end_line": 997,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -56685,8 +57854,8 @@
       "id": "internal/service/akt_posta.go::(*AktService).ZadaniPotpis",
       "file": "internal/service/akt_posta.go",
       "name": "(*AktService).ZadaniPotpis",
-      "line": 932,
-      "end_line": 993,
+      "line": 1006,
+      "end_line": 1067,
       "complexity": 22,
       "coverage": {
         "statements": 44,
@@ -56701,8 +57870,8 @@
       "id": "internal/service/akt_posta.go::ugradiSlike",
       "file": "internal/service/akt_posta.go",
       "name": "ugradiSlike",
-      "line": 997,
-      "end_line": 1018,
+      "line": 1071,
+      "end_line": 1092,
       "complexity": 5,
       "coverage": {
         "statements": 16,
@@ -56717,8 +57886,8 @@
       "id": "internal/service/akt_posta.go::nastavakSlike",
       "file": "internal/service/akt_posta.go",
       "name": "nastavakSlike",
-      "line": 1022,
-      "end_line": 1036,
+      "line": 1096,
+      "end_line": 1110,
       "complexity": 6,
       "coverage": {
         "statements": 7,
@@ -56733,8 +57902,8 @@
       "id": "internal/service/akt_posta.go::mjestoUloge",
       "file": "internal/service/akt_posta.go",
       "name": "mjestoUloge",
-      "line": 1046,
-      "end_line": 1053,
+      "line": 1120,
+      "end_line": 1127,
       "complexity": 3,
       "coverage": {
         "statements": 4,
@@ -56749,8 +57918,8 @@
       "id": "internal/service/akt_posta.go::najvisaDuznost",
       "file": "internal/service/akt_posta.go",
       "name": "najvisaDuznost",
-      "line": 1057,
-      "end_line": 1072,
+      "line": 1131,
+      "end_line": 1146,
       "complexity": 8,
       "coverage": {
         "statements": 10,
@@ -74190,7 +75359,7 @@
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "(Format).Uvezi",
       "line": 116,
-      "end_line": 189,
+      "end_line": 191,
       "complexity": 26,
       "coverage": {
         "statements": 47,
@@ -74199,14 +75368,14 @@
       },
       "crap": 26.052088650876975,
       "critical": true,
-      "tokens": 558
+      "tokens": 562
     },
     {
       "id": "internal/uvoz/izvori/izvori.go::uveziARSO",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziARSO",
-      "line": 191,
-      "end_line": 224,
+      "line": 193,
+      "end_line": 226,
       "complexity": 6,
       "coverage": {
         "statements": 20,
@@ -74221,8 +75390,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziEHYD",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziEHYD",
-      "line": 226,
-      "end_line": 250,
+      "line": 228,
+      "end_line": 252,
       "complexity": 5,
       "coverage": {
         "statements": 17,
@@ -74237,8 +75406,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziGKD",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziGKD",
-      "line": 252,
-      "end_line": 273,
+      "line": 254,
+      "end_line": 275,
       "complexity": 4,
       "coverage": {
         "statements": 15,
@@ -74253,8 +75422,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziPegel",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziPegel",
-      "line": 275,
-      "end_line": 295,
+      "line": 277,
+      "end_line": 297,
       "complexity": 4,
       "coverage": {
         "statements": 14,
@@ -74269,8 +75438,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziSEBA",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziSEBA",
-      "line": 297,
-      "end_line": 325,
+      "line": 299,
+      "end_line": 327,
       "complexity": 5,
       "coverage": {
         "statements": 20,
@@ -74285,8 +75454,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziHIS",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziHIS",
-      "line": 327,
-      "end_line": 350,
+      "line": 329,
+      "end_line": 352,
       "complexity": 6,
       "coverage": {
         "statements": 16,
@@ -74301,8 +75470,8 @@
       "id": "internal/uvoz/izvori/izvori.go::izZIP",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "izZIP",
-      "line": 354,
-      "end_line": 380,
+      "line": 356,
+      "end_line": 382,
       "complexity": 8,
       "coverage": {
         "statements": 18,
@@ -74317,8 +75486,8 @@
       "id": "internal/uvoz/izvori/izvori.go::uveziGodisnjak",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "uveziGodisnjak",
-      "line": 382,
-      "end_line": 390,
+      "line": 384,
+      "end_line": 392,
       "complexity": 2,
       "coverage": {
         "statements": 5,
@@ -74333,8 +75502,8 @@
       "id": "internal/uvoz/izvori/izvori.go::ParsirajPostaje",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "ParsirajPostaje",
-      "line": 393,
-      "end_line": 410,
+      "line": 395,
+      "end_line": 412,
       "complexity": 7,
       "coverage": {
         "statements": 12,
@@ -74349,8 +75518,8 @@
       "id": "internal/uvoz/izvori/izvori.go::(Format).LetveZadatka",
       "file": "internal/uvoz/izvori/izvori.go",
       "name": "(Format).LetveZadatka",
-      "line": 413,
-      "end_line": 427,
+      "line": 415,
+      "end_line": 429,
       "complexity": 4,
       "coverage": {
         "statements": 10,
@@ -91293,8 +92462,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::NewUvozHandler",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "NewUvozHandler",
-      "line": 111,
-      "end_line": 118,
+      "line": 115,
+      "end_line": 122,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91309,8 +92478,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetMakniNiz",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetMakniNiz",
-      "line": 121,
-      "end_line": 123,
+      "line": 125,
+      "end_line": 127,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91325,8 +92494,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetMakniSnimku",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetMakniSnimku",
-      "line": 127,
-      "end_line": 129,
+      "line": 131,
+      "end_line": 133,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91341,8 +92510,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetMakniKrivulje",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetMakniKrivulje",
-      "line": 133,
-      "end_line": 135,
+      "line": 137,
+      "end_line": 139,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91357,8 +92526,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetIzdavanje",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetIzdavanje",
-      "line": 139,
-      "end_line": 146,
+      "line": 143,
+      "end_line": 150,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -91373,8 +92542,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetOcitanja",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetOcitanja",
-      "line": 150,
-      "end_line": 152,
+      "line": 154,
+      "end_line": 156,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91389,8 +92558,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).ulaganjeRadi",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).ulaganjeRadi",
-      "line": 155,
-      "end_line": 157,
+      "line": 159,
+      "end_line": 161,
       "complexity": 4,
       "coverage": {
         "statements": 1,
@@ -91405,8 +92574,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).izdavanjeRadi",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).izdavanjeRadi",
-      "line": 160,
-      "end_line": 162,
+      "line": 164,
+      "end_line": 166,
       "complexity": 4,
       "coverage": {
         "statements": 1,
@@ -91421,24 +92590,24 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).pageData",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).pageData",
-      "line": 234,
-      "end_line": 299,
+      "line": 241,
+      "end_line": 308,
       "complexity": 14,
       "coverage": {
-        "statements": 40,
-        "covered": 40,
+        "statements": 41,
+        "covered": 41,
         "percent": 100
       },
       "crap": 14,
       "critical": true,
-      "tokens": 489
+      "tokens": 495
     },
     {
       "id": "internal/web/handlers_uvoz_niza.go::sirotaniUArhivi",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "sirotaniUArhivi",
-      "line": 303,
-      "end_line": 310,
+      "line": 312,
+      "end_line": 319,
       "complexity": 2,
       "coverage": {
         "statements": 5,
@@ -91453,8 +92622,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).imenaIzvora",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).imenaIzvora",
-      "line": 314,
-      "end_line": 328,
+      "line": 323,
+      "end_line": 337,
       "complexity": 4,
       "coverage": {
         "statements": 10,
@@ -91469,8 +92638,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).izvorUlaziUSpoj",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).izvorUlaziUSpoj",
-      "line": 332,
-      "end_line": 347,
+      "line": 341,
+      "end_line": 356,
       "complexity": 5,
       "coverage": {
         "statements": 10,
@@ -91485,8 +92654,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetKoteLetve",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetKoteLetve",
-      "line": 350,
-      "end_line": 352,
+      "line": 359,
+      "end_line": 361,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91501,8 +92670,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).SetOvlastiLetve",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).SetOvlastiLetve",
-      "line": 357,
-      "end_line": 359,
+      "line": 366,
+      "end_line": 368,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91517,8 +92686,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).smije",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).smije",
-      "line": 363,
-      "end_line": 371,
+      "line": 372,
+      "end_line": 380,
       "complexity": 3,
       "coverage": {
         "statements": 5,
@@ -91533,8 +92702,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).smijeZa",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).smijeZa",
-      "line": 375,
-      "end_line": 386,
+      "line": 384,
+      "end_line": 395,
       "complexity": 5,
       "coverage": {
         "statements": 7,
@@ -91549,8 +92718,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).samoGlobalni",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).samoGlobalni",
-      "line": 391,
-      "end_line": 393,
+      "line": 400,
+      "end_line": 402,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -91565,8 +92734,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).pisi",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).pisi",
-      "line": 395,
-      "end_line": 399,
+      "line": 404,
+      "end_line": 408,
       "complexity": 2,
       "coverage": {
         "statements": 2,
@@ -91581,8 +92750,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).ShowUvoz",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).ShowUvoz",
-      "line": 402,
-      "end_line": 414,
+      "line": 411,
+      "end_line": 423,
       "complexity": 3,
       "coverage": {
         "statements": 8,
@@ -91597,8 +92766,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).pogledajPosao",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).pogledajPosao",
-      "line": 418,
-      "end_line": 448,
+      "line": 427,
+      "end_line": 457,
       "complexity": 10,
       "coverage": {
         "statements": 20,
@@ -91613,8 +92782,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).PregledUvoza",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).PregledUvoza",
-      "line": 452,
-      "end_line": 495,
+      "line": 461,
+      "end_line": 504,
       "complexity": 8,
       "coverage": {
         "statements": 34,
@@ -91629,8 +92798,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).popuniPregled",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).popuniPregled",
-      "line": 498,
-      "end_line": 556,
+      "line": 507,
+      "end_line": 565,
       "complexity": 13,
       "coverage": {
         "statements": 37,
@@ -91645,8 +92814,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::zateceno",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "zateceno",
-      "line": 577,
-      "end_line": 626,
+      "line": 586,
+      "end_line": 635,
       "complexity": 16,
       "coverage": {
         "statements": 36,
@@ -91661,8 +92830,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::prijedlogIzNaziva",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "prijedlogIzNaziva",
-      "line": 630,
-      "end_line": 645,
+      "line": 639,
+      "end_line": 654,
       "complexity": 4,
       "coverage": {
         "statements": 11,
@@ -91677,8 +92846,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::slivIzStabla",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "slivIzStabla",
-      "line": 649,
-      "end_line": 653,
+      "line": 658,
+      "end_line": 662,
       "complexity": 3,
       "coverage": {
         "statements": 2,
@@ -91693,8 +92862,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::primiIzObrasca",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "primiIzObrasca",
-      "line": 655,
-      "end_line": 677,
+      "line": 664,
+      "end_line": 686,
       "complexity": 7,
       "coverage": {
         "statements": 16,
@@ -91709,8 +92878,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).Zatecen",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).Zatecen",
-      "line": 687,
-      "end_line": 716,
+      "line": 696,
+      "end_line": 725,
       "complexity": 7,
       "coverage": {
         "statements": 21,
@@ -91725,8 +92894,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).PonoviPregled",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).PonoviPregled",
-      "line": 720,
-      "end_line": 747,
+      "line": 729,
+      "end_line": 756,
       "complexity": 6,
       "coverage": {
         "statements": 21,
@@ -91741,8 +92910,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).UpisiUvoz",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).UpisiUvoz",
-      "line": 750,
-      "end_line": 857,
+      "line": 759,
+      "end_line": 866,
       "complexity": 16,
       "coverage": {
         "statements": 74,
@@ -91757,8 +92926,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).ProvjeriIzdanja",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).ProvjeriIzdanja",
-      "line": 871,
-      "end_line": 873,
+      "line": 880,
+      "end_line": 882,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91773,8 +92942,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).Izdaj",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).Izdaj",
-      "line": 876,
-      "end_line": 878,
+      "line": 885,
+      "end_line": 887,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91789,8 +92958,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::(*UvozHandler).izdavanje",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "(*UvozHandler).izdavanje",
-      "line": 880,
-      "end_line": 918,
+      "line": 889,
+      "end_line": 927,
       "complexity": 8,
       "coverage": {
         "statements": 27,
@@ -91805,8 +92974,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::sazetakIzdanja",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "sazetakIzdanja",
-      "line": 921,
-      "end_line": 936,
+      "line": 930,
+      "end_line": 945,
       "complexity": 4,
       "coverage": {
         "statements": 7,
@@ -91821,8 +92990,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::istihLetvi",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "istihLetvi",
-      "line": 939,
-      "end_line": 941,
+      "line": 948,
+      "end_line": 950,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -91837,8 +93006,8 @@
       "id": "internal/web/handlers_uvoz_niza.go::novIdUvoza",
       "file": "internal/web/handlers_uvoz_niza.go",
       "name": "novIdUvoza",
-      "line": 943,
-      "end_line": 945,
+      "line": 952,
+      "end_line": 954,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -94888,6 +96057,150 @@
       "crap": 4,
       "critical": false,
       "tokens": 52
+    },
+    {
+      "id": "internal/web/mape_arhive.go::NovaMapaArhive",
+      "file": "internal/web/mape_arhive.go",
+      "name": "NovaMapaArhive",
+      "line": 19,
+      "end_line": 21,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 31
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(*Server).mapaArhive",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(*Server).mapaArhive",
+      "line": 24,
+      "end_line": 30,
+      "complexity": 2,
+      "coverage": {
+        "statements": 4,
+        "covered": 4,
+        "percent": 100
+      },
+      "crap": 2,
+      "critical": false,
+      "tokens": 36
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(MapaArhive).rijeci",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(MapaArhive).rijeci",
+      "line": 46,
+      "end_line": 46,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 10
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(MapaArhive).Naziv",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(MapaArhive).Naziv",
+      "line": 49,
+      "end_line": 49,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 11
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(MapaArhive).Dok",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(MapaArhive).Dok",
+      "line": 52,
+      "end_line": 52,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 11
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(MapaArhive).Nastaje",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(MapaArhive).Nastaje",
+      "line": 55,
+      "end_line": 55,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 11
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(MapaArhive).Redak",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(MapaArhive).Redak",
+      "line": 59,
+      "end_line": 72,
+      "complexity": 5,
+      "coverage": {
+        "statements": 7,
+        "covered": 7,
+        "percent": 100
+      },
+      "crap": 5,
+      "critical": false,
+      "tokens": 135
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(*UvozHandler).SetMape",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(*UvozHandler).SetMape",
+      "line": 77,
+      "end_line": 77,
+      "complexity": 1,
+      "coverage": {
+        "statements": 1,
+        "covered": 1,
+        "percent": 100
+      },
+      "crap": 1,
+      "critical": false,
+      "tokens": 8
+    },
+    {
+      "id": "internal/web/mape_arhive.go::(*UvozHandler).mapeNaDisku",
+      "file": "internal/web/mape_arhive.go",
+      "name": "(*UvozHandler).mapeNaDisku",
+      "line": 80,
+      "end_line": 90,
+      "complexity": 3,
+      "coverage": {
+        "statements": 8,
+        "covered": 8,
+        "percent": 100
+      },
+      "crap": 3,
+      "critical": false,
+      "tokens": 80
     },
     {
       "id": "internal/web/ograda_tunela.go::kljucKlijentaTunela",
@@ -98738,10 +100051,10 @@
       "complexity": 1,
       "coverage": {
         "statements": 1,
-        "covered": 0,
-        "percent": 0
+        "covered": 1,
+        "percent": 100
       },
-      "crap": 2,
+      "crap": 1,
       "critical": false,
       "tokens": 8
     },
@@ -98749,8 +100062,8 @@
       "id": "internal/web/razmjena_plocica.go::(RazmjenaStanje).Sredeno",
       "file": "internal/web/razmjena_plocica.go",
       "name": "(RazmjenaStanje).Sredeno",
-      "line": 77,
-      "end_line": 87,
+      "line": 86,
+      "end_line": 96,
       "complexity": 12,
       "coverage": {
         "statements": 6,
@@ -98765,8 +100078,8 @@
       "id": "internal/web/razmjena_plocica.go::(RazmjenaStanje).PrognozaKasni",
       "file": "internal/web/razmjena_plocica.go",
       "name": "(RazmjenaStanje).PrognozaKasni",
-      "line": 90,
-      "end_line": 92,
+      "line": 99,
+      "end_line": 101,
       "complexity": 2,
       "coverage": {
         "statements": 1,
@@ -98781,8 +100094,8 @@
       "id": "internal/web/razmjena_plocica.go::(RazmjenaStanje).ArhivaPostotak",
       "file": "internal/web/razmjena_plocica.go",
       "name": "(RazmjenaStanje).ArhivaPostotak",
-      "line": 95,
-      "end_line": 101,
+      "line": 104,
+      "end_line": 110,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -98797,15 +100110,15 @@
       "id": "internal/web/razmjena_plocica.go::(*Server).ShowRazmjena",
       "file": "internal/web/razmjena_plocica.go",
       "name": "(*Server).ShowRazmjena",
-      "line": 104,
-      "end_line": 117,
+      "line": 113,
+      "end_line": 126,
       "complexity": 3,
       "coverage": {
         "statements": 10,
-        "covered": 0,
-        "percent": 0
+        "covered": 9,
+        "percent": 90
       },
-      "crap": 12,
+      "crap": 3.009,
       "critical": false,
       "tokens": 119
     },
@@ -98813,8 +100126,8 @@
       "id": "internal/web/razmjena_plocica.go::prije",
       "file": "internal/web/razmjena_plocica.go",
       "name": "prije",
-      "line": 120,
-      "end_line": 131,
+      "line": 129,
+      "end_line": 140,
       "complexity": 4,
       "coverage": {
         "statements": 6,
@@ -98829,8 +100142,8 @@
       "id": "internal/web/razmjena_plocica.go::megabajta",
       "file": "internal/web/razmjena_plocica.go",
       "name": "megabajta",
-      "line": 133,
-      "end_line": 139,
+      "line": 142,
+      "end_line": 148,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -99374,23 +100687,23 @@
       "file": "internal/web/server.go",
       "name": "(*Server).setupRoutes",
       "line": 625,
-      "end_line": 1490,
+      "end_line": 1491,
       "complexity": 42,
       "coverage": {
-        "statements": 2236,
-        "covered": 2090,
-        "percent": 93.47048300536673
+        "statements": 2238,
+        "covered": 2092,
+        "percent": 93.4763181411975
       },
-      "crap": 42.49106813100319,
+      "crap": 42.489752770638,
       "critical": false,
-      "tokens": 14168
+      "tokens": 14177
     },
     {
       "id": "internal/web/server.go::(*Server).opcije",
       "file": "internal/web/server.go",
       "name": "(*Server).opcije",
-      "line": 1499,
-      "end_line": 1504,
+      "line": 1500,
+      "end_line": 1505,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -99405,8 +100718,8 @@
       "id": "internal/web/server.go::DijeloviPredloska",
       "file": "internal/web/server.go",
       "name": "DijeloviPredloska",
-      "line": 1506,
-      "end_line": 1517,
+      "line": 1507,
+      "end_line": 1518,
       "complexity": 4,
       "coverage": {
         "statements": 6,
@@ -99421,8 +100734,8 @@
       "id": "internal/web/server.go::(*Server).samoAdmin",
       "file": "internal/web/server.go",
       "name": "(*Server).samoAdmin",
-      "line": 1529,
-      "end_line": 1531,
+      "line": 1530,
+      "end_line": 1532,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99437,8 +100750,8 @@
       "id": "internal/web/server.go::trebaAdmina",
       "file": "internal/web/server.go",
       "name": "trebaAdmina",
-      "line": 1535,
-      "end_line": 1544,
+      "line": 1536,
+      "end_line": 1545,
       "complexity": 3,
       "coverage": {
         "statements": 6,
@@ -99453,8 +100766,8 @@
       "id": "internal/web/server.go::(*Server).provjeriSesiju",
       "file": "internal/web/server.go",
       "name": "(*Server).provjeriSesiju",
-      "line": 1550,
-      "end_line": 1563,
+      "line": 1551,
+      "end_line": 1564,
       "complexity": 5,
       "coverage": {
         "statements": 9,
@@ -99469,8 +100782,8 @@
       "id": "internal/web/server.go::(*Server).authMiddleware",
       "file": "internal/web/server.go",
       "name": "(*Server).authMiddleware",
-      "line": 1566,
-      "end_line": 1637,
+      "line": 1567,
+      "end_line": 1638,
       "complexity": 16,
       "coverage": {
         "statements": 49,
@@ -99485,8 +100798,8 @@
       "id": "internal/web/server.go::vlastitiKarton",
       "file": "internal/web/server.go",
       "name": "vlastitiKarton",
-      "line": 1665,
-      "end_line": 1670,
+      "line": 1666,
+      "end_line": 1671,
       "complexity": 3,
       "coverage": {
         "statements": 3,
@@ -99501,8 +100814,8 @@
       "id": "internal/web/server.go::moduleForPath",
       "file": "internal/web/server.go",
       "name": "moduleForPath",
-      "line": 1672,
-      "end_line": 1679,
+      "line": 1673,
+      "end_line": 1680,
       "complexity": 4,
       "coverage": {
         "statements": 4,
@@ -99517,8 +100830,8 @@
       "id": "internal/web/server.go::tudjaPosta",
       "file": "internal/web/server.go",
       "name": "tudjaPosta",
-      "line": 1684,
-      "end_line": 1689,
+      "line": 1685,
+      "end_line": 1690,
       "complexity": 4,
       "coverage": {
         "statements": 3,
@@ -99533,8 +100846,8 @@
       "id": "internal/web/server.go::readOnlyRequest",
       "file": "internal/web/server.go",
       "name": "readOnlyRequest",
-      "line": 1691,
-      "end_line": 1697,
+      "line": 1692,
+      "end_line": 1698,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -99549,8 +100862,8 @@
       "id": "internal/web/server.go::bezPriruckeMemorije",
       "file": "internal/web/server.go",
       "name": "bezPriruckeMemorije",
-      "line": 1704,
-      "end_line": 1711,
+      "line": 1705,
+      "end_line": 1712,
       "complexity": 2,
       "coverage": {
         "statements": 4,
@@ -99565,8 +100878,8 @@
       "id": "internal/web/server.go::(*Server).SetDatabase",
       "file": "internal/web/server.go",
       "name": "(*Server).SetDatabase",
-      "line": 1715,
-      "end_line": 1717,
+      "line": 1716,
+      "end_line": 1718,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99581,8 +100894,8 @@
       "id": "internal/web/server.go::(*Server).SetKarta",
       "file": "internal/web/server.go",
       "name": "(*Server).SetKarta",
-      "line": 1722,
-      "end_line": 1724,
+      "line": 1723,
+      "end_line": 1725,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99597,8 +100910,8 @@
       "id": "internal/web/server.go::(*Server).SetObracun",
       "file": "internal/web/server.go",
       "name": "(*Server).SetObracun",
-      "line": 1729,
-      "end_line": 1729,
+      "line": 1730,
+      "end_line": 1730,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99613,8 +100926,8 @@
       "id": "internal/web/server.go::(*Server).SetIzvjesca",
       "file": "internal/web/server.go",
       "name": "(*Server).SetIzvjesca",
-      "line": 1732,
-      "end_line": 1732,
+      "line": 1733,
+      "end_line": 1733,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99629,8 +100942,8 @@
       "id": "internal/web/server.go::(*Server).SetMts",
       "file": "internal/web/server.go",
       "name": "(*Server).SetMts",
-      "line": 1735,
-      "end_line": 1735,
+      "line": 1736,
+      "end_line": 1736,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99645,8 +100958,8 @@
       "id": "internal/web/server.go::(*Server).SetKisomjeriMjerenja",
       "file": "internal/web/server.go",
       "name": "(*Server).SetKisomjeriMjerenja",
-      "line": 1739,
-      "end_line": 1739,
+      "line": 1740,
+      "end_line": 1740,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99661,8 +100974,8 @@
       "id": "internal/web/server.go::(*Server).SetKisomjeri",
       "file": "internal/web/server.go",
       "name": "(*Server).SetKisomjeri",
-      "line": 1742,
-      "end_line": 1742,
+      "line": 1743,
+      "end_line": 1743,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99677,8 +100990,8 @@
       "id": "internal/web/server.go::(*Server).SetAkti",
       "file": "internal/web/server.go",
       "name": "(*Server).SetAkti",
-      "line": 1745,
-      "end_line": 1745,
+      "line": 1746,
+      "end_line": 1746,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99693,8 +101006,8 @@
       "id": "internal/web/server.go::(*Server).stanjeObraneDionice",
       "file": "internal/web/server.go",
       "name": "(*Server).stanjeObraneDionice",
-      "line": 1749,
-      "end_line": 1754,
+      "line": 1750,
+      "end_line": 1755,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -99709,8 +101022,8 @@
       "id": "internal/web/server.go::(*Server).SetSkenovi",
       "file": "internal/web/server.go",
       "name": "(*Server).SetSkenovi",
-      "line": 1757,
-      "end_line": 1757,
+      "line": 1758,
+      "end_line": 1758,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99725,8 +101038,8 @@
       "id": "internal/web/server.go::(*Server).SetJavnaAdresa",
       "file": "internal/web/server.go",
       "name": "(*Server).SetJavnaAdresa",
-      "line": 1760,
-      "end_line": 1762,
+      "line": 1761,
+      "end_line": 1763,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99741,8 +101054,8 @@
       "id": "internal/web/server.go::(*Server).SetPrijave",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPrijave",
-      "line": 1765,
-      "end_line": 1765,
+      "line": 1766,
+      "end_line": 1766,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99757,8 +101070,8 @@
       "id": "internal/web/server.go::(*Server).SetDrugiKorak",
       "file": "internal/web/server.go",
       "name": "(*Server).SetDrugiKorak",
-      "line": 1769,
-      "end_line": 1769,
+      "line": 1770,
+      "end_line": 1770,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99773,8 +101086,8 @@
       "id": "internal/web/server.go::(*Server).SetPotpis",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPotpis",
-      "line": 1772,
-      "end_line": 1772,
+      "line": 1773,
+      "end_line": 1773,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99789,8 +101102,8 @@
       "id": "internal/web/server.go::(*Server).SetVodocuvar",
       "file": "internal/web/server.go",
       "name": "(*Server).SetVodocuvar",
-      "line": 1775,
-      "end_line": 1777,
+      "line": 1776,
+      "end_line": 1778,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99805,8 +101118,8 @@
       "id": "internal/web/server.go::(*Server).SetJavniUvoz",
       "file": "internal/web/server.go",
       "name": "(*Server).SetJavniUvoz",
-      "line": 1780,
-      "end_line": 1780,
+      "line": 1781,
+      "end_line": 1781,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99821,8 +101134,8 @@
       "id": "internal/web/server.go::(*Server).SetPricuvno",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPricuvno",
-      "line": 1784,
-      "end_line": 1784,
+      "line": 1785,
+      "end_line": 1785,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99837,8 +101150,8 @@
       "id": "internal/web/server.go::(*Server).SetHidroViewKljuc",
       "file": "internal/web/server.go",
       "name": "(*Server).SetHidroViewKljuc",
-      "line": 1789,
-      "end_line": 1789,
+      "line": 1790,
+      "end_line": 1790,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99853,8 +101166,8 @@
       "id": "internal/web/server.go::(*Server).SetZid",
       "file": "internal/web/server.go",
       "name": "(*Server).SetZid",
-      "line": 1792,
-      "end_line": 1792,
+      "line": 1793,
+      "end_line": 1793,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99869,8 +101182,8 @@
       "id": "internal/web/server.go::(*Server).SetArhiva",
       "file": "internal/web/server.go",
       "name": "(*Server).SetArhiva",
-      "line": 1794,
-      "end_line": 1796,
+      "line": 1795,
+      "end_line": 1797,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99885,8 +101198,8 @@
       "id": "internal/web/server.go::(*Server).SetArhivaPut",
       "file": "internal/web/server.go",
       "name": "(*Server).SetArhivaPut",
-      "line": 1801,
-      "end_line": 1803,
+      "line": 1802,
+      "end_line": 1804,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99901,8 +101214,8 @@
       "id": "internal/web/server.go::(*Server).Arhiva",
       "file": "internal/web/server.go",
       "name": "(*Server).Arhiva",
-      "line": 1807,
-      "end_line": 1811,
+      "line": 1808,
+      "end_line": 1812,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -99917,8 +101230,8 @@
       "id": "internal/web/server.go::(*Server).SetPripremaModela",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPripremaModela",
-      "line": 1817,
-      "end_line": 1817,
+      "line": 1818,
+      "end_line": 1818,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99933,8 +101246,8 @@
       "id": "internal/web/server.go::(*Server).Prognoze",
       "file": "internal/web/server.go",
       "name": "(*Server).Prognoze",
-      "line": 1819,
-      "end_line": 1823,
+      "line": 1820,
+      "end_line": 1824,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -99949,8 +101262,8 @@
       "id": "internal/web/server.go::(*Server).SetPrognoze",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPrognoze",
-      "line": 1826,
-      "end_line": 1830,
+      "line": 1827,
+      "end_line": 1831,
       "complexity": 1,
       "coverage": {
         "statements": 3,
@@ -99965,8 +101278,8 @@
       "id": "internal/web/server.go::(*Server).zamijeniArhivu",
       "file": "internal/web/server.go",
       "name": "(*Server).zamijeniArhivu",
-      "line": 1834,
-      "end_line": 1842,
+      "line": 1835,
+      "end_line": 1843,
       "complexity": 3,
       "coverage": {
         "statements": 6,
@@ -99981,8 +101294,8 @@
       "id": "internal/web/server.go::(*Server).SetPaketiDir",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPaketiDir",
-      "line": 1846,
-      "end_line": 1848,
+      "line": 1847,
+      "end_line": 1849,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -99997,8 +101310,8 @@
       "id": "internal/web/server.go::(*Server).SetPodaciDir",
       "file": "internal/web/server.go",
       "name": "(*Server).SetPodaciDir",
-      "line": 1852,
-      "end_line": 1854,
+      "line": 1853,
+      "end_line": 1855,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -100013,8 +101326,8 @@
       "id": "internal/web/server.go::(*Server).UgradiPaket",
       "file": "internal/web/server.go",
       "name": "(*Server).UgradiPaket",
-      "line": 1859,
-      "end_line": 1884,
+      "line": 1860,
+      "end_line": 1885,
       "complexity": 7,
       "coverage": {
         "statements": 18,
@@ -100029,8 +101342,8 @@
       "id": "internal/web/server.go::(*Server).PostaviIzvor",
       "file": "internal/web/server.go",
       "name": "(*Server).PostaviIzvor",
-      "line": 1890,
-      "end_line": 1917,
+      "line": 1891,
+      "end_line": 1918,
       "complexity": 8,
       "coverage": {
         "statements": 19,
@@ -100045,8 +101358,8 @@
       "id": "internal/web/server.go::(*Server).IzgradiLetvu",
       "file": "internal/web/server.go",
       "name": "(*Server).IzgradiLetvu",
-      "line": 1923,
-      "end_line": 1945,
+      "line": 1924,
+      "end_line": 1946,
       "complexity": 6,
       "coverage": {
         "statements": 16,
@@ -100061,8 +101374,8 @@
       "id": "internal/web/server.go::(*Server).MakniNiz",
       "file": "internal/web/server.go",
       "name": "(*Server).MakniNiz",
-      "line": 1949,
-      "end_line": 1953,
+      "line": 1950,
+      "end_line": 1954,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -100077,8 +101390,8 @@
       "id": "internal/web/server.go::(*Server).urediArhivu",
       "file": "internal/web/server.go",
       "name": "(*Server).urediArhivu",
-      "line": 1958,
-      "end_line": 1975,
+      "line": 1959,
+      "end_line": 1976,
       "complexity": 5,
       "coverage": {
         "statements": 12,
@@ -100093,8 +101406,8 @@
       "id": "internal/web/server.go::(*Server).MakniSnimku",
       "file": "internal/web/server.go",
       "name": "(*Server).MakniSnimku",
-      "line": 1980,
-      "end_line": 1984,
+      "line": 1981,
+      "end_line": 1985,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -100109,8 +101422,8 @@
       "id": "internal/web/server.go::(*Server).MakniKrivulje",
       "file": "internal/web/server.go",
       "name": "(*Server).MakniKrivulje",
-      "line": 1989,
-      "end_line": 1993,
+      "line": 1990,
+      "end_line": 1994,
       "complexity": 1,
       "coverage": {
         "statements": 2,
@@ -100125,8 +101438,8 @@
       "id": "internal/web/server.go::(*Server).IzdajArhivu",
       "file": "internal/web/server.go",
       "name": "(*Server).IzdajArhivu",
-      "line": 1998,
-      "end_line": 2012,
+      "line": 1999,
+      "end_line": 2013,
       "complexity": 4,
       "coverage": {
         "statements": 10,
@@ -100141,8 +101454,8 @@
       "id": "internal/web/server.go::(*Server).KatalogIzdanja",
       "file": "internal/web/server.go",
       "name": "(*Server).KatalogIzdanja",
-      "line": 2016,
-      "end_line": 2021,
+      "line": 2017,
+      "end_line": 2022,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -100157,8 +101470,8 @@
       "id": "internal/web/server.go::(*Server).SetAddr",
       "file": "internal/web/server.go",
       "name": "(*Server).SetAddr",
-      "line": 2023,
-      "end_line": 2028,
+      "line": 2024,
+      "end_line": 2029,
       "complexity": 2,
       "coverage": {
         "statements": 3,
@@ -100173,8 +101486,8 @@
       "id": "internal/web/server.go::danTjednaHR",
       "file": "internal/web/server.go",
       "name": "danTjednaHR",
-      "line": 2031,
-      "end_line": 2034,
+      "line": 2032,
+      "end_line": 2035,
       "complexity": 1,
       "coverage": {
         "statements": 1,
@@ -100189,8 +101502,8 @@
       "id": "internal/web/server.go::(*Server).smijeUrediLetvu",
       "file": "internal/web/server.go",
       "name": "(*Server).smijeUrediLetvu",
-      "line": 2044,
-      "end_line": 2064,
+      "line": 2045,
+      "end_line": 2065,
       "complexity": 9,
       "coverage": {
         "statements": 13,
@@ -100205,8 +101518,8 @@
       "id": "internal/web/server.go::(*Server).koteNuleLetve",
       "file": "internal/web/server.go",
       "name": "(*Server).koteNuleLetve",
-      "line": 2071,
-      "end_line": 2086,
+      "line": 2072,
+      "end_line": 2087,
       "complexity": 8,
       "coverage": {
         "statements": 10,
@@ -102859,9 +104172,9 @@
     }
   ],
   "exact_duplication": {
-    "percent": 0.8241186593781594,
-    "duplicated_tokens": 6733,
-    "total_tokens": 816994,
+    "percent": 0.7951363247519541,
+    "duplicated_tokens": 6525,
+    "total_tokens": 820614,
     "pairs": [
       {
         "a": "internal/arhiva/gradnja.go::popisi",
@@ -102878,12 +104191,6 @@
       {
         "a": "internal/javnivodostaji/hidmet.go::CitajHidmet",
         "b": "internal/javnivodostaji/javnivodostaji.go::CitajTablicu",
-        "similarity": 1,
-        "tokens": 100
-      },
-      {
-        "a": "internal/peers/peers.go::(*Service).exchange",
-        "b": "internal/peers/peers.go::(*Service).exchange",
         "similarity": 1,
         "tokens": 100
       },
@@ -103022,9 +104329,9 @@
     ]
   },
   "fuzzy_duplication": {
-    "percent": 0.5522684377119048,
+    "percent": 0.5498321988169834,
     "duplicated_tokens": 4512,
-    "total_tokens": 816994,
+    "total_tokens": 820614,
     "pairs": [
       {
         "a": "internal/web/handlers_admin.go::(*AdminHandler).pageData",
@@ -103171,8 +104478,8 @@
   "failures": null,
   "warnings": [
     "coverage ispod cilja 85%",
-    "1328 funkcija iznad CC/CRAP cilja",
-    "944 lint upozorenja"
+    "1326 funkcija iznad CC/CRAP cilja",
+    "938 lint upozorenja"
   ],
   "applied_exceptions": [
     "lint:staticcheck:internal/poslovi/poslovi_test.go:SA5000: assignment to nil map: TestPanikaUPosluNeRusiProgram namjerno izaziva paniku upisom u nil mapu kako bi provjerio oporavak pozadinskog posla; pregledano 2026-10-04.",
