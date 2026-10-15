@@ -28,6 +28,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/db"
+	"gocop/internal/disk"
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/prognoza"
@@ -425,9 +426,10 @@ func imaStablo(koren string) bool {
 }
 
 // stanjeRazmjene slaže pločicu razmjene za naslovnu: čvorove iz nadzorne
-// ploče sinkronizacije, napredak arhive, sadržaj koji čeka i izdavača prognoze.
-func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder, sp *sadrzaj.Spremiste, ra *razmjenaArhive, pb *sql.DB) web.RazmjenaStanje {
-	var out web.RazmjenaStanje
+// ploče sinkronizacije, napredak arhive, sadržaj koji čeka, izdavača
+// prognoze i upozorenje kad na disku ostaje malo mjesta.
+func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder, sp *sadrzaj.Spremiste, ra *razmjenaArhive, pb *sql.DB, nd *disk.Nadzor) web.RazmjenaStanje {
+	out := web.RazmjenaStanje{Disk: upozorenjaDiska(nd, p.Node())}
 	st, err := p.Status(ctx, false)
 	if err != nil {
 		out.Upozorenja = append(out.Upozorenja, "Stanje razmjene se ne da pročitati: "+err.Error())
