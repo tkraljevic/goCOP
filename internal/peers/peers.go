@@ -1116,182 +1116,29 @@ func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[str
 	return out
 }
 
-// exchange je jedan razgovor: frontier ↔ frontier, delta ↔ delta, done ↔ done.
-// Onaj tko je nazvao (initiator) prvi šalje; obje strane rade isto.
+// exchange je jedan razgovor s drugim čvorom (razgovor.go): granice, delte,
+// upis primljenog, želje, sadržaj i kraj. Onaj tko je nazvao (initiator) u
+// svakom koraku prvi šalje. Do upisa greška vraća 0 upisanih i 0 poslanih,
+// i kad je delta već otišla, a uz granicu druge strane kakvu razgovor dotad
+// ima (nakon delti već pomaknutu za poslano, s Tailscale adresama iz
+// njezine delte): bilješka o razmjeni i tada pamti izdanje druge strane.
 func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirs frontierMsg, err error) {
-	mine, err := s.rec.Frontier(ctx)
+	r, err := s.zapocniRazgovor(ctx, c, initiator)
 	if err != nil {
-		return 0, 0, theirs, err
+		return 0, 0, frontierMsg{}, err
 	}
-	myWants, err := s.CurrentWants(ctx)
+	if err = r.granice(); err != nil {
+		return 0, 0, r.theirs, err
+	}
+	stiglo, err := r.delte(ctx)
 	if err != nil {
-		return 0, 0, theirs, err
+		return 0, 0, r.theirs, err
 	}
-
-	send := func(kind string, v any) error {
-		e, err := razmjena.NewEnvelope(kind, v)
-		if err != nil {
-			return err
-		}
-		e.DeviceID = s.node.ID
-		return c.Send(e)
+	if err = r.upisiPrimljeno(ctx, stiglo); err != nil {
+		return 0, 0, r.theirs, err
 	}
-	expect := func(kind string, v any) error {
-		e, err := c.Receive()
-		if err != nil {
-			return err
-		}
-		if e.Kind != kind {
-			return neocekivanaPoruka(kind, e)
-		}
-		return e.Decode(v)
-	}
-
-	program, gradnja := s.Program()
-	prekoTailscalea := s.prekoTailscalea(c.LocalAddr(), c.RemoteAddr())
-	moja := frontierMsg{Frontier: mine, Wants: &myWants, Program: program, Gradnja: gradnja}
-	if initiator {
-		if err := send(kindFrontier, moja); err != nil {
-			return 0, 0, theirs, err
-		}
-		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, theirs, err
-		}
-	} else {
-		if err := expect(kindFrontier, &theirs); err != nil {
-			return 0, 0, theirs, err
-		}
-		if err := send(kindFrontier, moja); err != nil {
-			return 0, 0, theirs, err
-		}
-	}
-
-	// šalje se samo što drugi prati; što ovaj čvor ne prati, ne prima ni
-	// omaškom, jer bi ostalo bez granice i vraćalo se svakom razmjenom
-	delta, err := s.deltaZa(ctx, theirs)
-	if err != nil {
-		return 0, 0, theirs, err
-	}
-	delta, neispravne, skraceno := ogradiDeltu(delta, najviseBajtovaDelte)
-	s.zabiljeziNeispravne(neispravne)
-	mojaDelta := deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: s.tailscaleZaDrugoga(prekoTailscalea)}
-	var incoming deltaMsg
-	if initiator {
-		if err := send(kindDelta, mojaDelta); err != nil {
-			return 0, 0, theirs, err
-		}
-		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, theirs, err
-		}
-	} else {
-		if err := expect(kindDelta, &incoming); err != nil {
-			return 0, 0, theirs, err
-		}
-		if err := send(kindDelta, mojaDelta); err != nil {
-			return 0, 0, theirs, err
-		}
-	}
-	sent = len(delta)
-	theirs.tailscale = primljeniTailscale(prekoTailscalea, incoming.Tailscale)
-	// Bilo koja strana je skratila deltu: ima još, razgovor se ponavlja odmah
-	if skraceno || incoming.Skraceno {
-		s.skracene.Store(c, true)
-	}
-	// Zapamćena granica druge strane uključuje i ono što joj je upravo
-	// poslano; inače bi ploča do sljedeće razmjene brojala poslane verzije
-	// kao da još čekaju. Isto vrijedi za verzije koje se ne mogu poslati:
-	// one ne čekaju, nego stoje na ploči kao upozorenje.
-	theirs.Frontier = pomakniGranicu(pomakniGranicu(theirs.Frontier, delta), neispravne)
-
-	myFilter := s.wantsFunc(ctx, &myWants)
-	wanted := make([]ledger.Version, 0, len(incoming.Versions))
-	for _, v := range incoming.Versions {
-		if myFilter != nil && !myFilter(v.Channel) {
-			continue
-		}
-		if s.accept != nil && !s.accept(v) {
-			continue
-		}
-		wanted = append(wanted, v)
-	}
-	// Upis ide pod bravom čvora (upis.go); kad je upis predugo zauzet,
-	// razgovor završi bez upisa, a primljeno stigne sljedećom razmjenom
-	applied, err = s.primijeniAkoStigne(ctx, wanted)
-	if err != nil {
-		s.zavrsiZauzet(c, initiator, err)
-		return 0, 0, theirs, err
-	}
-	od := razmjena.PublicKeyString(c.PeerKey)
-
-	// Sadržaj: svaka strana kaže koje otiske želi, druga da što od toga ima.
-	// Primjena verzija je već upisala želje, pa se ovdje traže i one koje su
-	// upravo nastale. Stariji čvor bez sadržaja ovdje šalje done, i to je
-	// kraj razgovora bez sadržaja.
-	mojeZelje := zeljeMsg{s.zeljeniOtisci(ctx, myWants)}
-	var njihoveZelje zeljeMsg
-	var theirDone doneMsg
-	if initiator {
-		if err := send(kindZelje, mojeZelje); err != nil {
-			return applied, sent, theirs, err
-		}
-		e, err := c.Receive()
-		if err != nil {
-			return applied, sent, theirs, err
-		}
-		if e.Kind == kindDone {
-			_ = e.Decode(&theirDone)
-			_ = send(kindDone, doneMsg{applied})
-			return applied, sent, theirs, nil
-		}
-		if e.Kind != kindZelje {
-			return applied, sent, theirs, neocekivanaPoruka(kindZelje, e)
-		}
-		_ = e.Decode(&njihoveZelje)
-		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
-			return applied, sent, theirs, err
-		}
-		var stigao sadrzajMsg
-		if err := expect(kindSadrzaj, &stigao); err != nil {
-			return applied, sent, theirs, err
-		}
-		s.primiSadrzajAkoStigne(ctx, od, stigao.Stavke)
-	} else {
-		e, err := c.Receive()
-		if err != nil {
-			return applied, sent, theirs, err
-		}
-		if e.Kind == kindDone {
-			_ = e.Decode(&theirDone)
-			_ = send(kindDone, doneMsg{applied})
-			return applied, sent, theirs, nil
-		}
-		if e.Kind != kindZelje {
-			return applied, sent, theirs, neocekivanaPoruka(kindZelje, e)
-		}
-		_ = e.Decode(&njihoveZelje)
-		if err := send(kindZelje, mojeZelje); err != nil {
-			return applied, sent, theirs, err
-		}
-		var stigao sadrzajMsg
-		if err := expect(kindSadrzaj, &stigao); err != nil {
-			return applied, sent, theirs, err
-		}
-		s.primiSadrzajAkoStigne(ctx, od, stigao.Stavke)
-		if err := send(kindSadrzaj, sadrzajMsg{s.sadrzajZa(ctx, njihoveZelje.Otisci, theirs.Wants)}); err != nil {
-			return applied, sent, theirs, err
-		}
-	}
-
-	if initiator {
-		if err := send(kindDone, doneMsg{applied}); err != nil {
-			return applied, sent, theirs, err
-		}
-		_ = expect(kindDone, &theirDone)
-	} else {
-		_ = expect(kindDone, &theirDone)
-		_ = send(kindDone, doneMsg{applied})
-	}
-	return applied, sent, theirs, nil
+	err = r.sadrzajIKraj(ctx)
+	return r.applied, r.sent, r.theirs, err
 }
 
 // OnApplied postavlja što se radi s primljenim verzijama nakon upisa u
