@@ -3,7 +3,8 @@ package peers
 // Razgovor razmjene s drugim čvorom, korak po korak. Onaj tko je nazvao
 // (pozivatelj) u svakom koraku prvi šalje, a pozvani prvo prima:
 //
-//	granice  obje strane kažu dokle znaju, što prate i koje im je izdanje
+//	granice  obje strane kažu dokle znaju, što prate, koje im je izdanje
+//	         i što razumiju (razmjena/mogucnosti.go)
 //	delte    obje pošalju verzije koje druga prati, a nema
 //	upis     od primljenoga se pod bravom (upis.go) upiše ono što ovaj čvor prati
 //	želje    obje kažu koje otiske sadržaja traže
@@ -27,6 +28,7 @@ package peers
 
 import (
 	"context"
+	"log"
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
@@ -56,8 +58,9 @@ type razgovorSCvorom struct {
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu
-// i pretplate ovog čvora, izdanje programa i ide li veza preko Tailscalea.
-// Kad baza ne odgovori, druga strana ne dobije ništa.
+// i pretplate ovog čvora, izdanje programa, što čvor zna i ide li veza
+// preko Tailscalea. Kad granica ili pretplate ne odgovore, druga strana ne
+// dobije ništa.
 func (s *Service) zapocniRazgovor(ctx context.Context, c *razmjena.Conn, initiator bool) (*razgovorSCvorom, error) {
 	mine, err := s.rec.Frontier(ctx)
 	if err != nil {
@@ -68,16 +71,28 @@ func (s *Service) zapocniRazgovor(ctx context.Context, c *razmjena.Conn, initiat
 		return nil, err
 	}
 	r := &razgovorSCvorom{s: s, c: c, initiator: initiator, myWants: myWants}
-	r.moja = r.mojaGranica(mine)
+	r.moja = r.mojaGranica(mine, s.mojeZnanje(ctx))
 	r.prekoTailscalea = s.prekoTailscalea(c.LocalAddr(), c.RemoteAddr())
 	return r, nil
 }
 
 // mojaGranica je prva poruka ovog čvora. Wants ide uvijek, i kad čvor prati
 // sve: granica bez njega drugoj strani znači da se šalje sve.
-func (r *razgovorSCvorom) mojaGranica(mine map[string]string) frontierMsg {
+func (r *razgovorSCvorom) mojaGranica(mine map[string]string, znanje razmjena.Znanje) frontierMsg {
 	program, gradnja := r.s.Program()
-	return frontierMsg{Frontier: mine, Wants: &r.myWants, Program: program, Gradnja: gradnja}
+	return frontierMsg{Frontier: mine, Wants: &r.myWants, Program: program, Gradnja: gradnja, Znanje: znanje}
+}
+
+// mojeZnanje je ono što ovaj čvor javlja u granici: svoje oznake, vrste
+// zapisa koje razumije i koliko zapisa kod njega čeka nadogradnju. Broj je
+// samo obavijest, pa greška brojanja nije greška razgovora: broja tada nema,
+// a razlog ide u dnevnik.
+func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
+	ceka, err := s.rec.CekaNadogradnju(ctx)
+	if err != nil {
+		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
+	}
+	return razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: ledger.Katalog(), CekaNadogradnju: ceka}
 }
 
 // posalji pošalje poruku s oznakom ovog čvora (deviceId). Jedino odbijenica

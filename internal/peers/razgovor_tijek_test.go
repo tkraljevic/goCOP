@@ -9,6 +9,9 @@ package peers
 // 15. 10. 2026., prije podjele razgovora na korake (G1 u
 // docs/plan-web-sync.md): podjela ne smije promijeniti nijedan redak zapisa.
 // G3 (isti plan, §3) neke je retke namjerno promijenio, i uz svaki to piše.
+// G2 (isti plan, §3) promijenio je granicu čvora: nosi i njegove mogućnosti.
+// Granica druge strane ostala je ista, jer skripta glumi čvor koji ih ne
+// javlja (0.0.38), pa ostatak razgovora ide bajt po bajt kao prije.
 //
 // Zapis je isti od pokretanja do pokretanja: verzije imaju zadani
 // version_id i vrijeme, verzije članstava iz postave izbrisane su iz knjige,
@@ -84,9 +87,15 @@ const programCvora = `"program":"0.0.39-test","gradnja":"0.0.39-test (abc1234)"`
 
 // poruke čvora koje se ponavljaju
 var (
-	granicaPrazna = odCvora(kindFrontier, `{"frontier":{},"wants":{"all":true},`+programCvora+`}`)
-	granicaV1     = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`}`)
-	granicaV2     = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV2+`"},"wants":{"all":true},`+programCvora+`}`)
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica čvora nosi
+	// i njegove mogućnosti, ovdje samo razmjena/1 (katalog je u testovima
+	// paketa prazan, a ništa ne čeka nadogradnju)
+	granicaPrazna = odCvora(kindFrontier, `{"frontier":{},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3)
+	granicaV1 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3)
+	granicaV2 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV2+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
+
 	deltaPrazna   = odCvora(kindDelta, `{"versions":null}`)
 	deltaV1       = odCvora(kindDelta, `{"versions":[`+jsonV1+`]}`)
 	zeljePrazne   = odCvora(kindZelje, `{"otisci":null}`)
@@ -865,8 +874,9 @@ func TestTijekRazgovoraFiltriraPrimljeno(t *testing.T) {
 	}
 	b.Accept(func(v ledger.Version) bool { return v.EntityID != dolaznaD2.EntityID })
 	saV3 := func() { upisiStalno(t, b, vlastitaV3) }
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica nosi mogućnosti čvora
 	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`","laptop-baranja|ocitanja/3/2026":"`+tijekV3+`"},`+
-		`"wants":{"all":false,"rules":[{"id":1,"kind":"ocitanja","sector_id":"","area_id":16,"year_from":0,"year_to":0,"razina":"sve"}]},`+programCvora+`}`)
+		`"wants":{"all":false,"rules":[{"id":1,"kind":"ocitanja","sector_id":"","area_id":16,"year_from":0,"year_to":0,"razina":"sve"}]},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
 	delta := odCvora(kindDelta, `{"versions":[`+jsonV3+`]}`)
 	njihova := frontierMsg{Frontier: map[string]string{}, Wants: &Wants{Rules: []Subscription{{Kind: "ocitanja", AreaID: 3}}}}
 	dolazna := deltaMsg{Versions: []ledger.Version{dolaznaD1, dolaznaD2, dolaznaD3}}

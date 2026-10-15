@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"sort"
 	"sync"
 	"time"
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/razmjena"
 )
 
 // Stanje sinkronizacije po čvoru. Za razliku od zapisa čvora (koji putuje),
@@ -40,14 +42,24 @@ type SyncState struct {
 	// Tailscale su adrese koje je drugi čvor javio u izravnom razgovoru;
 	// ostaju na ovom računalu (vidi tailscale.go)
 	Tailscale []string `json:"tailscale,omitempty"`
+	// Mogucnosti, Vrste i CekaNadogradnju su ono što je drugi čvor javio da
+	// zna (razmjena/mogucnosti.go). Prazne Mogucnosti uz MogucnostiPoznate
+	// znače stariji program koji ih ne javlja, pa vrijedi razmjena/1; bez
+	// MogucnostiPoznate redak je upisan prije toga i ne govori ništa. Vrste
+	// su imena tablica, pa ne idu na ploču.
+	Mogucnosti        []string       `json:"mogucnosti,omitempty"`
+	Vrste             map[string]int `json:"-"`
+	CekaNadogradnju   int            `json:"ceka_nadogradnju,omitempty"` // broj zapisa, ne verzija
+	MogucnostiPoznate bool           `json:"-"`
 }
 
 // syncOutcome je ishod jedne razmjene za bilješku
 type syncOutcome struct {
 	applied, sent    int
 	frontier         map[string]string
-	program, gradnja string   // što je drugi čvor javio o svom programu
-	tailscale        []string // Tailscale adrese koje je drugi čvor javio
+	program, gradnja string          // što je drugi čvor javio o svom programu
+	tailscale        []string        // Tailscale adrese koje je drugi čvor javio
+	znanje           razmjena.Znanje // što je drugi čvor javio da zna
 	took             time.Duration
 	err              error
 }
@@ -56,7 +68,7 @@ type syncOutcome struct {
 // programa vrijedi i kad je razgovor pukao nakon što je granica stigla
 func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
 	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
-		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, took: took, err: err}
+		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, znanje: theirs.Znanje, took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -96,19 +108,55 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 	}
 }
 
+// zapamtiZnanje pamti što je drugi čvor javio da zna, samo na ovom
+// računalu: zapis čvora pišu i druga računala, pa tamo ne ide. Pamti se kad
+// je granica stigla, pa uspjeh s čvorom 0.0.38, koji ne javlja ništa,
+// ostavi prazno, a za njega tada vrijedi razmjena/1.
+func (s *Service) zapamtiZnanje(ctx context.Context, nodeID string, o syncOutcome) {
+	if !granicaStigla(o) {
+		return
+	}
+	z := o.znanje.Ocisceno()
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate) VALUES (?, ?, ?, ?, 1)
+		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, vrste = excluded.vrste,
+			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1`,
+		nodeID, uStupac(z.Mogucnosti, len(z.Mogucnosti) == 0), uStupac(z.Vrste, len(z.Vrste) == 0), z.CekaNadogradnju); err != nil {
+		log.Printf("razmjena: što zna čvor %s nije spremljeno: %v", nodeID, err)
+	}
+}
+
+// granicaStigla javlja je li granica druge strane stigla: razgovor je
+// uspio, ili je pukao nakon što je druga strana javila program. Isti uvjet
+// čuva inačicu programa u recordSyncState.
+func granicaStigla(o syncOutcome) bool {
+	return o.err == nil || o.program != ""
+}
+
+// uStupac je JSON za stupac peer_sync. Prazno ostaje prazan tekst: prazan
+// stupac znači da druga strana nije javila ništa.
+func uStupac(v any, prazno bool) string {
+	if prazno {
+		return ""
+	}
+	b, _ := json.Marshal(v) // popis teksta i mapa teksta na broj uvijek se daju zapisati
+	return string(b)
+}
+
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale FROM peer_sync`)
+	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
+		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
 	for rows.Next() {
-		var id, frontier, ts string
+		var id, frontier, ts, mogucnosti, vrste string
 		var st SyncState
 		var attempt, ok sql.NullTime
-		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts); err != nil {
+		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
+			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate); err != nil {
 			return nil, err
 		}
 		if attempt.Valid {
@@ -121,6 +169,8 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		}
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
+		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
+		_ = json.Unmarshal([]byte(vrste), &st.Vrste)
 		out[id] = st
 	}
 	return out, rows.Err()

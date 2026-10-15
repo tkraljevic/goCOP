@@ -230,7 +230,7 @@ WEB sync mijenja istu datoteku i isti razgovor kao pravila na granici. Zato prav
 - Oznake nikad ne sadrže „gocop”. ALPN je ime protokola plus oznaka.
 
 **Kompatibilnost s 0.0.38**, uz test za svaki korak:
-- G2: 0.0.38 ne šalje popis mogućnosti, pa za nju vrijedi `razmjena/1` i razmjena ide kao danas. Test provjerava da 0.0.38 nova polja zanemari.
+- G2: 0.0.38 ne šalje popis mogućnosti, pa za nju vrijedi `razmjena/1` i razmjena ide kao danas. Test provjerava da 0.0.38 nova polja zanemari (`TestCvor0038ZanemarujeZnanje`), a test tijeka razgovora da se uz sugovornika bez popisa mijenja samo vlastita granica. `cekaNadogradnju` je od prvog dana broj zapisa, ne verzija: zapisi entiteta koje program ne poznaje i zapisi s verzijom novije sheme, uključujući obrisane (`ledger.(*Recorder).CekaNadogradnju`). G5 ga samo prikaže.
 - G3: 0.0.38 ne poznaje kod razloga; test provjerava da ga zanemari. Odbijenice 0.0.38 prepoznaju se po tekstu, pa su tekstovi zamrznuti u testu (`TestOdbijeniceCvora0038`) i ne mijenjaju se dok u mreži ima čvorova 0.0.38. Novi čvor ne šalje verziju bez oznake, entiteta ili identifikatora zapisa, jer je primatelj preskoči bez pomaka granice. Čvor 0.0.38 takvu verziju i dalje šalje. Kad ih u jednom ključu ima 5000 ili više zaredom, njegov krug razmjena s novim čvorom ide do 200 razgovora i ispravne iza njih ne stignu, sve dok se ne nadogradi. goCOP takve retke sam ne stvara, pa to traži pokvarenu bazu.
 - G4: računalo s 0.0.38 nema oznaku, pa ne dobiva poruku o granici i i dalje prima stara očitanja kao danas.
 - Nakon izdanja 0 Windows ostaje na 0.0.38 do izdanja 1, da se mješovita mreža isproba na pravim računalima.
