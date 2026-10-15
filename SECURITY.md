@@ -264,7 +264,7 @@ nepouzdano.
   opozivi provjeravaju se potpisom pri uporabi, pa ih član ne može
   krivotvoriti, a opoziv ne može poništiti. Svaki član
   smije objaviti prognozu i arhivu. Potpisani zapisi i uloge izdavanja su
-  u planu ([plan-povezivost.md](docs/plan-povezivost.md)).
+  u [planu razvoja](docs/plan-razvoja.md).
 - **Opoziv nije trenutan.** Čvor prihvaća opozvanu potvrdu dok mu opoziv ne
   stigne razmjenom; drugog puta za opoziv nema.
 - **Ključ ovlaštenog primatelja** vrijedi koliko i ključ mreže za primanje:
