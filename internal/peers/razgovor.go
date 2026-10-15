@@ -1,8 +1,7 @@
 package peers
 
 // Razgovor razmjene s drugim čvorom, korak po korak. Onaj tko je nazvao
-// (pozivatelj) u svakom koraku prvi šalje, a pozvani prvo prima; poruke su u
-// obje uloge iste, osim kad je upis zauzet (zavrsiZauzet):
+// (pozivatelj) u svakom koraku prvi šalje, a pozvani prvo prima:
 //
 //	granice  obje strane kažu dokle znaju, što prate i koje im je izdanje
 //	delte    obje pošalju verzije koje druga prati, a nema
@@ -11,16 +10,20 @@ package peers
 //	sadržaj  obje daju što od traženoga imaju
 //	kraj     obje potvrde koliko su upisale
 //
-// Stariji čvor bez sadržaja umjesto želja pošalje kraj, i to je kraj
-// razgovora bez sadržaja. Isto pošalje pozivatelj kojem je upis zauzet.
+// Obje uloge šalju iste poruke, osim u dva slučaja. Prvi je kad druga
+// strana umjesto želja pošalje kraj: to radi stariji čvor bez sadržaja i
+// pozivatelj kojem je upis zauzet, i razgovor je tada gotov bez sadržaja.
+// Drugi je kad je upis zauzet ovom čvoru (zavrsiZauzet).
 //
 // Poruke, njihov redoslijed, povrat na svakom izlazu i greške zaključava
-// razgovor_tijek_test.go za obje uloge. Red čitanja baze unutar koraka drži
-// ono što ostaje zapisano dok drugi razgovori teku usporedo, a test ga ne
-// hvata u cijelosti (odluka o Tailscaleu prije granice iz baze prolazi), pa
-// ga pregled provjerava okom. Novo ponašanje dodaje se kao novi korak koji
-// exchange, ili nakon upisa sadrzajIKraj iza provjere kraja, zove bez
-// uvjeta, a ne kao grana u postojećem koraku.
+// razgovor_tijek_test.go za obje uloge. Redoslijed čitanja baze test ne
+// zaključava u cijelosti: granica i pretplate čitaju se prije prve poruke,
+// delta tek nakon granica, želje nakon upisa verzija, a sadržaj pozvanog
+// tek nakon upisa primljenog sadržaja. Premještanje toga pregled mora
+// uhvatiti okom.
+//
+// Novi korak dodaje se kao novi poziv u exchange (ili u sadrzajIKraj, iza
+// provjere gotovo), bez uvjeta, a ne kao grana u postojećem koraku.
 
 import (
 	"context"
@@ -30,7 +33,8 @@ import (
 )
 
 // razgovorSCvorom je stanje jednog razgovora i živi samo dok exchange traje.
-// Ne sprema se u Service, jer čvor istodobno vodi do osam razgovora.
+// Ne sprema se u Service, jer čvor istodobno vodi više razgovora, dolaznih
+// i odlaznih.
 type razgovorSCvorom struct {
 	s *Service
 	// c je baš veza koju je exchange dobio: s.skracene je ključan njome, a
@@ -206,8 +210,8 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 // sadrzajIKraj: svaka strana kaže koje otiske želi, druga da što od toga
 // ima, i obje potvrde kraj. Stariji čvor bez sadržaja umjesto želja pošalje
 // kraj; tada je razgovor gotov bez sadržaja. Novi korak nakon upisa ide
-// ovamo, iza provjere gotovo, jer druga strana koja je poslala kraj više
-// ništa ne prima.
+// ovamo, iza provjere gotovo, jer druga strana koja je poslala kraj čeka još
+// samo naš kraj.
 func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
 	njihove, gotovo, err := r.zelje(ctx)
 	if err != nil || gotovo {

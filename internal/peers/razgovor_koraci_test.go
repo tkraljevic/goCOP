@@ -2,7 +2,6 @@ package peers
 
 import (
 	"encoding/json"
-	"errors"
 	"testing"
 )
 
@@ -12,8 +11,9 @@ import (
 func TestPosaljiNeZapisivuPoruku(t *testing.T) {
 	r := &razgovorSCvorom{}
 	err := r.posalji(kindDone, func() {})
-	var nepodrzan *json.UnsupportedTypeError
-	if !errors.As(err, &nepodrzan) {
-		t.Fatalf("greška %v, a očekivana je greška zapisa JSON-a", err)
+	// tip se provjerava izravno, a ne s errors.As, jer errors.As prođe i
+	// kroz omotanu grešku
+	if _, ok := err.(*json.UnsupportedTypeError); !ok {
+		t.Fatalf("greška %v (%T), a očekivana je neomotana greška zapisa JSON-a", err, err)
 	}
 }

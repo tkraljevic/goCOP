@@ -1118,10 +1118,11 @@ func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[str
 
 // exchange je jedan razgovor s drugim čvorom (razgovor.go): granice, delte,
 // upis primljenog, želje, sadržaj i kraj. Onaj tko je nazvao (initiator) u
-// svakom koraku prvi šalje. Do upisa greška vraća 0 upisanih i 0 poslanih,
-// i kad je delta već otišla, a uz granicu druge strane kakvu razgovor dotad
-// ima (nakon delti već pomaknutu za poslano, s Tailscale adresama iz
-// njezine delte): bilješka o razmjeni i tada pamti izdanje druge strane.
+// svakom koraku prvi šalje. Dok upis ne prođe (i kad ne uspije), greška
+// vraća 0 upisanih i 0 poslanih, iako je delta možda već otišla. theirs je
+// granica druge strane kakvu razgovor dotad ima; nakon delti je pomaknuta
+// za poslano i neispravno i nosi Tailscale adrese iz njezine delte.
+// Bilješka o razmjeni zato i kod greške pamti izdanje druge strane.
 func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirs frontierMsg, err error) {
 	r, err := s.zapocniRazgovor(ctx, c, initiator)
 	if err != nil {
