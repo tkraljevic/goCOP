@@ -807,8 +807,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetPodaciDir(z.podaci)
 	server.SetPaketiDir(z.paketi)
 	// postavke iz gocop.toml u Administraciji, s putanjama koje čvor stvarno koristi
-	server.SetPostavkeCvora(postavkeZaPosluzitelj(cfg, cfgFrom, z, map[string]string{
-		"db": *dbPath, "arhiva": arhivaPut, "skenovi": skenovi, "podaci": z.podaci, "pakete": z.paketi}))
+	postavkeCvora := postavkeZaPosluzitelj(cfg, cfgFrom, z, map[string]string{
+		"db": *dbPath, "arhiva": arhivaPut, "skenovi": skenovi, "podaci": z.podaci, "pakete": z.paketi})
+	server.SetPostavkeCvora(postavkeCvora)
+	javiMapeArhive(postavkeCvora, z.podaci, z.paketi, log.Printf)
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {

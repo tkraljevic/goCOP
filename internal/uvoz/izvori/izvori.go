@@ -128,8 +128,10 @@ func (f Format) Uvezi(datoteke []Datoteka, z Zadatak, w io.Writer) (Ishod, error
 			return Ishod{}, fmt.Errorf("%s: %s ne prima datoteke s nastavkom %s", d.Ime, f.Naziv, filepath.Ext(d.Ime))
 		}
 	}
-	if z.Koren == "" {
-		return Ishod{}, fmt.Errorf("nije zadano stablo arhive")
+	// Isto pravilo kao upis niza: i uvozi koji u stablo pišu sami (HIS-2000,
+	// godišnjak) ne počinju novo stablo kad je pravo vjerojatno drugdje.
+	if err := arhiva.ProvjeriKoren(z.Koren); err != nil {
+		return Ishod{}, err
 	}
 	if z.Sliv == "" {
 		z.Sliv = f.ZadaniSliv

@@ -15,6 +15,24 @@
   </div>
 </div>
 
+{{if .Stablo.Drugdje}}
+<div class="alert alert-warning">
+  <p class="mt-0 mb-2">
+    <strong>Stablo arhive nije pronađeno.</strong> Čvor ga traži u <span class="mono">{{.Stablo.Puna}}</span>, a te
+    mape nema. {{.Stablo.Dok}}
+  </p>
+  <p class="m-0">{{.Stablo.Uputa}}</p>
+</div>
+{{else if .Stablo.Nedostaje}}
+<div class="alert alert-info">
+  <p class="mt-0 mb-2">
+    <strong>Stablo arhive još ne postoji.</strong> Čvor ga traži u <span class="mono">{{.Stablo.Puna}}</span>, a
+    mapa {{.Stablo.Nastaje}}.
+  </p>
+  <p class="m-0">{{.Stablo.Uputa}}</p>
+</div>
+{{end}}
+
 {{if .PosaoID}}
 <div class="posao" data-posao="{{.PosaoID}}">
   <p class="posao-naslov">{{icon "clock"}} {{.PosaoNaziv}}</p>
@@ -115,7 +133,15 @@
     </div>
   </div>
 
-  {{if .Izdanja}}
+  {{if .Paketi.Drugdje}}
+  <div class="alert alert-warning mt-2 mb-0">
+    <p class="mt-0 mb-2">
+      <strong>Mapa paketa nije pronađena.</strong> Čvor je traži u <span class="mono">{{.Paketi.Puna}}</span>, a te
+      mape nema. {{.Paketi.Dok}}
+    </p>
+    <p class="m-0">{{.Paketi.Uputa}}</p>
+  </div>
+  {{else if .Izdanja}}
   <div class="part-label mt-3 mb-1">
     {{if .Izdanja.Probno}}Što bi se izdalo{{else}}Što je izdano{{end}}
     {{if .IzdanjeLetva}}· {{.IzdanjeLetva}}{{end}}
@@ -142,14 +168,16 @@
     <div><dt>Izdano letvi</dt><dd>{{len .Katalog.Paketi}}</dd></div>
     <div><dt>Zadnje izdavanje</dt><dd>{{if .KatalogNastalo}}{{.KatalogNastalo}}{{else}}—{{end}}</dd></div>
     <div><dt>Izdao</dt><dd class="mono">{{.Katalog.Izdao}}</dd></div>
-    <div><dt>Mapa</dt><dd class="mono">{{.PaketiDir}}</dd></div>
+    <div><dt>Mapa</dt><dd class="mono">{{.Paketi.Puna}}</dd></div>
   </dl>
   {{else}}
   <p class="reading-meta mt-2 mb-0">
-    Na ovom čvoru još nije izdano nijedno izdanje. Mapa: <span class="mono">{{.PaketiDir}}</span>
+    Na ovom čvoru još nije izdano nijedno izdanje. Mapa: <span class="mono">{{.Paketi.Puna}}</span>{{if and .Paketi.Zadano (not .Paketi.Postoji)}}
+    (mape još nema, {{.Paketi.Nastaje}}){{end}}
   </p>
   {{end}}
 
+  {{if not .Paketi.Drugdje}}
   <div class="izvor-podnozje gap-2 mt-4">
     <form method="POST" action="/administracija/izdavanje/provjera">
       {{if .IzdanjeLetva}}<input type="hidden" name="letva" value="{{.IzdanjeLetva}}">{{end}}
@@ -170,10 +198,11 @@
     </form>
     {{end}}
   </div>
+  {{end}}
 </div>
 {{end}}
 
-{{if and .UlaganjeRadi (not .PosaoID)}}
+{{if and .UlaganjeRadi (not .PosaoID) (not .Stablo.Drugdje)}}
 <div class="table-card okvir mb-4">
   <div class="izvor-glava mb-2">
     <div>
@@ -296,13 +325,13 @@
 </div>
 {{end}}
 
-{{if .PodaciDir}}
+{{if and .PodaciDir (not .Stablo.Drugdje)}}
 <form method="POST" action="/administracija/uvoz-niza/pregled" enctype="multipart/form-data"
       class="reg-card p-4 mb-4">
   <label class="izvor-napomena m-0">
     <span class="part-label">Datoteka s diska</span>
     <input type="file" name="datoteka" accept=".csv,.txt,.xlsx" required class="form-control">
-    <small class="izvor-disk">Stablo arhive: <span class="mono">{{.PodaciDir}}</span></small>
+    <small class="izvor-disk">Stablo arhive: <span class="mono">{{.Stablo.Puna}}</span></small>
   </label>
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što je u njoj</button>

@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/config"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/kisomjeri"
 	"gocop/internal/models"
@@ -176,7 +177,8 @@ func (k *satniKrug) ulaziKisomjereJednomDnevno(sada time.Time) {
 		return
 	}
 	if !imaStablo(k.podaci) {
-		k.uvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu", k.podaci)
+		k.uvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu",
+			config.PunaPutanja(k.podaci))
 		k.kisUlozeno = dan
 		return
 	}

@@ -134,9 +134,10 @@ func sadrziNiz(s []string, x string) bool {
 // Upisi zapisuje niz u stablo pod kanonskim imenom i vraća putanju. Postojeća
 // datoteka istog niza zamjenjuje se, jer je ovo cjelovita izjava o razdoblju
 // koje pokriva — ali tek nakon što je nova pročitana natrag i provjerena.
+// Relativno stablo koje je vjerojatno drugdje ne počinje iznova (NemaMape).
 func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (string, error) {
-	if koren == "" {
-		return "", fmt.Errorf("nije zadano gdje stablo s podacima stoji")
+	if err := ProvjeriKoren(koren); err != nil {
+		return "", err
 	}
 	if err := ProvjeriDjelove(letva, izvor, velicina, vrsta); err != nil {
 		return "", err

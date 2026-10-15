@@ -30,9 +30,9 @@ type Config struct {
 	// poslužitelju baza ide na brzi disk (SSD), a arhiva, izvorne datoteke,
 	// skenovi i paketi na veliki (mehanički). Prazno znači uz bazu.
 	Arhiva  string `toml:"arhiva" comment:"Datoteka arhive vodostaja i meteorologije (vodostaji.db, desetak GB).\nPrazno = uz bazu. Smije na drugi, veći disk, ali ne na mrežnu ni FUSE\nmapu (na Unraidu /mnt/diskN, nikad /mnt/user).\n  arhiva = '/arhiva/vodostaji.db'   # disk montiran u Docker"`
-	Podaci  string `toml:"podaci" comment:"Mapa s izvornim datotekama arhive. Prazno = 'vodostaji'; relativna\nputanja računa se od mape iz koje se goCOP pokreće.\n  podaci = '/arhiva/vodostaji'"`
+	Podaci  string `toml:"podaci" comment:"Mapa s izvornim datotekama arhive. Prazno = 'vodostaji'; relativna\nputanja računa se od mape iz koje se goCOP pokreće (pod Postavom i kao\nusluga sustava to je mapa baze).\n  podaci = '/arhiva/vodostaji'"`
 	Skenovi string `toml:"skenovi" comment:"Mapa za skenove i fotografije prijava s terena (u podmapi prijave).\nPrazno = mapa skenovi uz bazu.\n  skenovi = '/arhiva/skenovi'"`
-	Pakete  string `toml:"pakete" comment:"Mapa u koju čvor izdaje .cop pakete arhive. Prazno = 'pakete'\n(od mape iz koje se goCOP pokreće).\n  pakete = '/arhiva/pakete'"`
+	Pakete  string `toml:"pakete" comment:"Mapa u koju čvor izdaje .cop pakete arhive. Prazno = 'pakete'\n(od mape iz koje se goCOP pokreće; pod Postavom i kao usluga sustava to je\nmapa baze).\n  pakete = '/arhiva/pakete'"`
 	// JavnaAdresa je adresa na kojoj je program dostupan izvana, npr.
 	// https://gocop.voda.hr; ide u QR kod na dokumentima. Prazno: QR nosi
 	// samo oznaku dokumenta.
