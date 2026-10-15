@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -43,10 +44,11 @@ type SyncState struct {
 	// ostaju na ovom računalu (vidi tailscale.go)
 	Tailscale []string `json:"tailscale,omitempty"`
 	// Mogucnosti, Vrste i CekaNadogradnju su ono što je drugi čvor javio da
-	// zna (razmjena/mogucnosti.go). Prazne Mogucnosti uz MogucnostiPoznate
-	// znače stariji program koji ih ne javlja, pa vrijedi razmjena/1; bez
-	// MogucnostiPoznate redak je upisan prije toga i ne govori ništa. Vrste
-	// su imena tablica, pa ne idu na ploču.
+	// zna (razmjena/mogucnosti.go), očišćeno (Znanje.Ocisceno). Prazne
+	// Mogucnosti uz MogucnostiPoznate znače da nije javio nijednu ispravnu
+	// oznaku (stariji program ih ne javlja), pa vrijedi razmjena/1, isto kao
+	// po živoj granici; bez MogucnostiPoznate redak je upisan prije toga i
+	// ne govori ništa. Vrste su imena tablica, pa ne idu na ploču.
 	Mogucnosti        []string       `json:"mogucnosti,omitempty"`
 	Vrste             map[string]int `json:"-"`
 	CekaNadogradnju   int            `json:"ceka_nadogradnju,omitempty"` // broj zapisa, ne verzija
@@ -120,7 +122,7 @@ func (s *Service) zapamtiZnanje(ctx context.Context, nodeID string, o syncOutcom
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate) VALUES (?, ?, ?, ?, 1)
 		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, vrste = excluded.vrste,
 			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1`,
-		nodeID, uStupac(z.Mogucnosti, len(z.Mogucnosti) == 0), uStupac(z.Vrste, len(z.Vrste) == 0), z.CekaNadogradnju); err != nil {
+		nodeID, uStupac(z.Mogucnosti), uStupac(z.Vrste), z.CekaNadogradnju); err != nil {
 		log.Printf("razmjena: što zna čvor %s nije spremljeno: %v", nodeID, err)
 	}
 }
@@ -132,14 +134,15 @@ func granicaStigla(o syncOutcome) bool {
 	return o.err == nil || o.program != ""
 }
 
-// uStupac je JSON za stupac peer_sync. Prazno ostaje prazan tekst: prazan
-// stupac znači da druga strana nije javila ništa.
-func uStupac(v any, prazno bool) string {
-	if prazno {
-		return ""
-	}
+// uStupac je JSON za stupac peer_sync. Prazno (nil, prazan popis ili
+// mapa) ostaje prazan tekst: prazan stupac znači da druga strana nije
+// javila ništa.
+func uStupac(v any) string {
 	b, _ := json.Marshal(v) // popis teksta i mapa teksta na broj uvijek se daju zapisati
-	return string(b)
+	if s := string(b); !slices.Contains([]string{"null", "[]", "{}"}, s) {
+		return s
+	}
+	return ""
 }
 
 // syncStates čita stanje razmjene za sve čvorove

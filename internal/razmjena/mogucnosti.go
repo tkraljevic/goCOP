@@ -10,8 +10,9 @@ package razmjena
 //   - Oznaka je ime/N. Ime su mala slova, znamenke i '-', N je cijeli broj
 //     od 1 naviše bez vodećih nula i predznaka; ime se odvaja na zadnjoj '/'.
 //   - Nepoznata ili neispravna oznaka se zanemaruje i nije greška razgovora.
-//   - Kad popisa nema (čvor 0.0.38, null ili prazan popis), vrijedi
-//     razmjena/1. Popis koji postoji je doslovan.
+//   - Kad popisa nema ili u njemu nema nijedne ispravne oznake (čvor
+//     0.0.38, null, prazan popis, samo neispravne), vrijedi razmjena/1.
+//     Popis s barem jednom ispravnom oznakom je doslovan.
 //   - Za isto ime vrijedi najviši ZAJEDNIČKI N (Dogovor), pa svaka strana
 //     navodi svaki N koji još govori.
 //   - Novo neobavezno polje ne treba oznaku. Nova vrsta poruke ili
@@ -65,16 +66,17 @@ func NaseMogucnosti() []string {
 }
 
 // Dogovor je za svako ime koje obje strane imaju najviši zajednički N.
-// Bez popisa druge strane vrijedi razmjena/1. Da obje strane imaju ime/N,
-// znači Dogovor(...)[ime] == N, a ne >=: viša verzija ne mora uključivati
-// nižu.
+// Bez ijedne ispravne oznake druge strane vrijedi razmjena/1. Da obje strane
+// imaju ime/N, znači Dogovor(...)[ime] == N, a ne >=: viša verzija ne mora
+// uključivati nižu.
 func Dogovor(moje, njihove []string) map[string]int {
-	if len(njihove) == 0 {
-		njihove = []string{OznakaRazmjena}
+	imaju := ispravne(njihove)
+	if len(imaju) == 0 {
+		imaju = map[string]bool{OznakaRazmjena: true}
 	}
 	imam := ispravne(moje)
 	out := map[string]int{}
-	for oznaka := range ispravne(njihove) {
+	for oznaka := range imaju {
 		if ime, n, _ := procitajOznaku(oznaka); imam[oznaka] && n > out[ime] {
 			out[ime] = n
 		}
@@ -86,6 +88,8 @@ func Dogovor(moje, njihove []string) map[string]int {
 // bez ponavljanja, poredane i ograđene, vrste s ispravnim imenom i shemom
 // od 1 naviše, i broj na čekanju ne manji od nule. Nepoznate oznake
 // ostaju, jer se po njima vidi što druga strana zna, a ovaj program ne.
+// Bez ijedne ispravne oznake ili vrste to polje je nil, pa spremljene
+// oznake daju isti Dogovor kao popis koji je stigao.
 func (z Znanje) Ocisceno() Znanje {
 	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0)}
 }
@@ -129,20 +133,47 @@ func ispravne(oznake []string) map[string]bool {
 }
 
 // ocisceneOznake su ispravne oznake, poredane i bez ponavljanja, najviše
-// najviseOznaka; bez ijedne nil
+// najviseOznaka; bez ijedne nil. Ograda prvo zadrži oznake koje ima i ovaj
+// program, a tek onda prve po abecedi, pa ne mijenja Dogovor.
 func ocisceneOznake(oznake []string) []string {
-	out := slices.Sorted(maps.Keys(ispravne(oznake)))
-	return out[:min(len(out), najviseOznaka)]
+	sve := ispravne(oznake)
+	out := zajednicke(sve)
+	for _, oznaka := range slices.Sorted(maps.Keys(sve)) {
+		if len(out) < najviseOznaka && !slices.Contains(out, oznaka) {
+			out = append(out, oznaka)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
-// ocisceneVrste su vrste s ispravnim imenom i shemom od 1 naviše, najviše
-// najviseVrsta, prve po abecedi
-func ocisceneVrste(vrste map[string]int) map[string]int {
-	out := map[string]int{}
-	for _, vrsta := range slices.Sorted(maps.Keys(vrste)) {
-		if len(out) < najviseVrsta && vrste[vrsta] >= 1 && samoZnakovi(vrsta, slovaVrste, najduljaVrsta) {
-			out[vrsta] = vrste[vrsta]
+// zajednicke su naše oznake koje ima i druga strana; bez ijedne nil
+func zajednicke(njihove map[string]bool) []string {
+	var out []string
+	for _, oznaka := range NaseMogucnosti() {
+		if njihove[oznaka] {
+			out = append(out, oznaka)
 		}
 	}
 	return out
+}
+
+// ocisceneVrste su vrste s ispravnim imenom i shemom od 1 naviše, najviše
+// najviseVrsta, prve po abecedi; bez ijedne nil
+func ocisceneVrste(vrste map[string]int) map[string]int {
+	out := map[string]int{}
+	for _, vrsta := range slices.Sorted(maps.Keys(vrste)) {
+		if len(out) < najviseVrsta && ispravnaVrsta(vrsta, vrste[vrsta]) {
+			out[vrsta] = vrste[vrsta]
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// ispravnaVrsta: ime entiteta od dopuštenih znakova i shema od 1 naviše
+func ispravnaVrsta(vrsta string, shema int) bool {
+	return shema >= 1 && samoZnakovi(vrsta, slovaVrste, najduljaVrsta)
 }

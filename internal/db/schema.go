@@ -1663,13 +1663,13 @@ func migrateSchema(database *sql.DB) error {
 		// Što je drugi čvor javio da razumije, kako je javio u granici
 		// razmjene (razmjena/mogucnosti.go): oznake mogućnosti (JSON), vrste
 		// zapisa sa shemama (JSON) i koliko zapisa kod njega čeka
-		// nadogradnju; prazno = stariji program koji to ne javlja, pa
-		// vrijedi razmjena/1
+		// nadogradnju; prazno = nije javio ništa ispravno (stariji program
+		// to ne javlja), pa vrijedi razmjena/1
 		{"peer_sync", "mogucnosti", "TEXT NOT NULL DEFAULT ''"},
 		{"peer_sync", "vrste", "TEXT NOT NULL DEFAULT ''"},
 		{"peer_sync", "ceka_nadogradnju", "INTEGER NOT NULL DEFAULT 0"},
 		// 1 kad je redak upisao program koji pamti mogućnosti, nakon što je
-		// granica stigla: tek tada prazne mogućnosti znače stariji program
+		// granica stigla: tek tada prazne mogućnosti znače razmjena/1
 		{"peer_sync", "mogucnosti_poznate", "INTEGER NOT NULL DEFAULT 0"},
 	}
 

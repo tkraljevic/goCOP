@@ -43,8 +43,8 @@ func TestProcitajOznaku(t *testing.T) {
 }
 
 // Dogovor: za isto ime najviši ZAJEDNIČKI N; nepoznate i neispravne
-// oznake se zanemaruju; bez popisa druge strane vrijedi razmjena/1, a
-// popis koji postoji je doslovan.
+// oznake se zanemaruju; bez ijedne ispravne oznake druge strane vrijedi
+// razmjena/1, a popis s ispravnom oznakom je doslovan.
 func TestDogovor(t *testing.T) {
 	slucajevi := []struct {
 		ime           string
@@ -61,7 +61,9 @@ func TestDogovor(t *testing.T) {
 		{"presjek, ne manji od najvećih", []string{"razmjena/1", "razmjena/3"}, []string{"razmjena/1", "razmjena/2"}, map[string]int{"razmjena": 1}},
 		{"više imena", []string{"razmjena/1", "web/1", "web/2"}, []string{"web/2", "razmjena/1", "web/1"}, map[string]int{"razmjena": 1, "web": 2}},
 		{"popis bez razmjene", NaseMogucnosti(), []string{"web/1"}, map[string]int{}},
-		{"samo neispravne", NaseMogucnosti(), []string{"razmjena/01"}, map[string]int{}},
+		// neispravne se zanemaruju, pa je to kao prazan popis
+		{"samo neispravne", NaseMogucnosti(), []string{"razmjena/01", "Razmjena/1"}, map[string]int{"razmjena": 1}},
+		{"neispravna uz ispravnu", NaseMogucnosti(), []string{"Razmjena/1", "web/1"}, map[string]int{}},
 		{"ništa zajedničko", []string{"razmjena/2"}, nil, map[string]int{}},
 	}
 	for _, c := range slucajevi {
@@ -86,6 +88,10 @@ func TestNaseMogucnosti(t *testing.T) {
 	}
 	if !slices.IsSorted(nase) || len(slices.Compact(slices.Clone(nase))) != len(nase) {
 		t.Errorf("popis nije poredan ili se ponavlja: %v", nase)
+	}
+	// ograda pamćenja mora zadržati sve naše oznake (ocisceneOznake)
+	if len(nase) > najviseOznaka {
+		t.Errorf("%d naših oznaka, a pamti se najviše %d", len(nase), najviseOznaka)
 	}
 	for _, oznaka := range nase {
 		if _, _, ok := procitajOznaku(oznaka); !ok {
@@ -151,8 +157,12 @@ func TestZnanjeOcisceno(t *testing.T) {
 	if o.CekaNadogradnju != 0 {
 		t.Errorf("na čekanju: %d", o.CekaNadogradnju)
 	}
-	if prazno := (Znanje{CekaNadogradnju: 7}).Ocisceno(); prazno.Mogucnosti != nil || len(prazno.Vrste) != 0 || prazno.CekaNadogradnju != 7 {
+	if prazno := (Znanje{CekaNadogradnju: 7}).Ocisceno(); prazno.Mogucnosti != nil || prazno.Vrste != nil || prazno.CekaNadogradnju != 7 {
 		t.Errorf("bez popisa: %+v", prazno)
+	}
+	neispravno := Znanje{Mogucnosti: []string{"Razmjena/1"}, Vrste: map[string]int{"Akti": 1, "nula": 0}}.Ocisceno()
+	if neispravno.Mogucnosti != nil || neispravno.Vrste != nil {
+		t.Errorf("bez ijedne ispravne: %+v", neispravno)
 	}
 
 	mnogo := Znanje{Vrste: map[string]int{}}
@@ -166,7 +176,35 @@ func TestZnanjeOcisceno(t *testing.T) {
 	if len(o.Mogucnosti) != najviseOznaka || o.Mogucnosti[0] != "oznaka-00/1" || o.Mogucnosti[najviseOznaka-1] != "oznaka-31/1" {
 		t.Errorf("ograda oznaka: %d %v", len(o.Mogucnosti), o.Mogucnosti)
 	}
+	// razmjena/1 je po abecedi iza ograde, a ostaje jer je ima i ovaj program
+	mnogo.Mogucnosti = append(mnogo.Mogucnosti, OznakaRazmjena)
+	o = mnogo.Ocisceno()
+	if len(o.Mogucnosti) != najviseOznaka || !slices.IsSorted(o.Mogucnosti) || !slices.Contains(o.Mogucnosti, OznakaRazmjena) ||
+		o.Mogucnosti[najviseOznaka-2] != "oznaka-30/1" {
+		t.Errorf("ograda uz našu oznaku: %d %v", len(o.Mogucnosti), o.Mogucnosti)
+	}
 	if len(o.Vrste) != najviseVrsta || o.Vrste["vrsta_1023"] != 1 || o.Vrste["vrsta_1024"] != 0 {
 		t.Errorf("ograda vrsta: %d", len(o.Vrste))
+	}
+}
+
+// Spremljeno znanje daje isti Dogovor kao popis koji je stigao: i kad u
+// popisu nema nijedne ispravne oznake, i kad je oznaka više nego što se
+// pamti, a razmjena/1 je po abecedi iza ograde.
+func TestDogovorIzSpremljenog(t *testing.T) {
+	var ispredRazmjene, bezRazmjene []string
+	for i := range najviseOznaka {
+		ispredRazmjene = append(ispredRazmjene, fmt.Sprintf("a%02d/1", i))
+	}
+	for i := range najviseOznaka + 8 {
+		bezRazmjene = append(bezRazmjene, fmt.Sprintf("web-%02d/1", i))
+	}
+	stigli := [][]string{nil, {}, NaseMogucnosti(), {"web/1"}, {"Razmjena/1"}, {"razmjena/01"},
+		{"granica_odbijenih/1", "Web/1"}, append(slices.Clone(ispredRazmjene), "razmjena/1"), bezRazmjene}
+	for _, stiglo := range stigli {
+		uzivo := Dogovor(NaseMogucnosti(), stiglo)
+		if spremljeno := Dogovor(NaseMogucnosti(), Znanje{Mogucnosti: stiglo}.Ocisceno().Mogucnosti); !maps.Equal(uzivo, spremljeno) {
+			t.Errorf("%v: uživo %v, iz spremljenog %v", stiglo, uzivo, spremljeno)
+		}
 	}
 }

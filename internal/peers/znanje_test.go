@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"reflect"
 	"slices"
@@ -125,6 +126,14 @@ func TestZapamcenoZnanje(t *testing.T) {
 	if !slices.Equal(st.Mogucnosti, []string{"razmjena/1", "web/1"}) || !maps.Equal(st.Vrste, map[string]int{"akti": 1}) || st.CekaNadogradnju != 120 || !st.MogucnostiPoznate {
 		t.Fatalf("nakon uspjeha: %+v", st)
 	}
+	// vrste su imena tablica, pa ih ploča ne pokazuje
+	ploca, err := json.Marshal(PeerStatus{State: st})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p := string(ploca); strings.Contains(p, "vrste") || strings.Contains(p, "akti") || !strings.Contains(p, `"mogucnosti":["razmjena/1","web/1"]`) {
+		t.Errorf("ploča: %s", ploca)
+	}
 
 	s.zapamtiZnanje(ctxRub, "laptop-baranja", syncOutcome{err: errors.New("veza prekinuta")})
 	if prije := procitaj(); !reflect.DeepEqual(prije, st) {
@@ -158,13 +167,19 @@ func TestZapamcenoZnanje(t *testing.T) {
 	}
 }
 
-// Čvor javlja svoje oznake, katalog (u testovima paketa prazan, pa ga
-// nema) i koliko zapisa kod njega čeka nadogradnju. Greška brojanja nije
-// greška razgovora: broja tada nema, a razlog je u dnevniku.
+// Čvor javlja svoje oznake, katalog vrsta zapisa i koliko zapisa kod njega
+// čeka nadogradnju. Greška brojanja nije greška razgovora: broja tada nema,
+// a razlog je u dnevniku.
 func TestMojeZnanje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
+	// bez popisa poznatih (testovi paketa) katalog je prazan i izostaje
 	if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z, razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti()}) {
 		t.Errorf("bez ičega na čekanju: %+v", z)
+	}
+	katalog := map[string]int{"akti": 1, "dnevna_izvjesca": 2}
+	s.katalog = func() map[string]int { return katalog }
+	if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z, razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: katalog}) {
+		t.Errorf("s katalogom: %+v", z)
 	}
 	// zapis novije sheme ovaj program sprema, a ne razumije do kraja
 	novija := stalnaVerzija("0190a000-0000-7000-8000-000000000201", "cop-osijek", "", "r-21", `{"cm":1}`)
@@ -177,7 +192,7 @@ func TestMojeZnanje(t *testing.T) {
 	}
 	dnevnik := zapisDnevnika(t)
 	pokvariTablicu(t, s, "record_versions")
-	if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z, razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti()}) {
+	if z := s.mojeZnanje(ctxRub); !reflect.DeepEqual(z, razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: katalog}) {
 		t.Errorf("kad brojanje ne uspije: %+v", z)
 	}
 	if !strings.Contains(dnevnik.String(), "koliko zapisa čeka nadogradnju nije izbrojeno") {
@@ -193,6 +208,55 @@ func TestOznakeBezImenaProtokola(t *testing.T) {
 			t.Errorf("oznaka %q sadrži ime protokola", oznaka)
 		}
 	}
+}
+
+// Isti čvor daje isti Dogovor iz žive granice i iz zapamćenog stanja: i kad
+// je javio samo neispravne oznake, i kad ih je javio više nego što se pamti
+func TestZapamcenoZnanjeDajeIstiDogovor(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	mnogo := []string{"razmjena/1"}
+	for i := range 40 {
+		mnogo = append(mnogo, fmt.Sprintf("a%02d/1", i))
+	}
+	for _, njihove := range [][]string{nil, {}, {"razmjena/1"}, {"web/1"}, {"granica_odbijenih/1", "Web/1"}, {"Razmjena/1", "web/1"}, mnogo} {
+		s.zapamtiZnanje(ctxRub, "laptop-baranja", syncOutcome{program: "0.0.40-alfa", znanje: razmjena.Znanje{Mogucnosti: njihove}})
+		states, err := s.syncStates(ctxRub)
+		if err != nil {
+			t.Fatal(err)
+		}
+		uzivo := razmjena.Dogovor(razmjena.NaseMogucnosti(), njihove)
+		if zapamceno := razmjena.Dogovor(razmjena.NaseMogucnosti(), states["laptop-baranja"].Mogucnosti); !maps.Equal(uzivo, zapamceno) {
+			t.Errorf("%v: uživo %v, iz zapamćenog %v", njihove, uzivo, zapamceno)
+		}
+	}
+}
+
+// Prazno ide u stupac kao prazan tekst, kojeg god oblika bilo
+func TestUStupac(t *testing.T) {
+	for _, v := range []any{nil, []string(nil), []string{}, map[string]int(nil), map[string]int{}} {
+		if s := uStupac(v); s != "" {
+			t.Errorf("%#v: %q", v, s)
+		}
+	}
+	if s := uStupac([]string{"razmjena/1"}); s != `["razmjena/1"]` {
+		t.Errorf("popis: %q", s)
+	}
+	if s := uStupac(map[string]int{"akti": 1}); s != `{"akti":1}` {
+		t.Errorf("mapa: %q", s)
+	}
+}
+
+// Čvor u granici šalje svoj katalog vrsta zapisa, za obje uloge; ostatak
+// razgovora ide kao inače
+func TestTijekRazgovoraKatalogCvora(t *testing.T) {
+	a, b := cistiPar(t)
+	b.katalog = func() map[string]int { return map[string]int{"probni": 1, "akti": 2} }
+	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+
+		`,"mogucnosti":["razmjena/1"],"vrste":{"akti":2,"probni":1}}`)
+	provjeriSlucajeve(t, a, b, true, []slucaj{{ime: "katalog čvora", ishod: nakonDelte("nil"),
+		potezi: do(zamijeni(tokPozivatelja(), 0, cita(granica)), 10, cita(krajVeze))}})
+	provjeriSlucajeve(t, a, b, false, []slucaj{{ime: "katalog čvora", ishod: nakonDelte("nil"),
+		potezi: do(zamijeni(tokPozvanog(), 1, cita(granica)), 10, cita(krajVeze))}})
 }
 
 // Druga strana koja javi što zna: exchange to vrati u granici druge strane,

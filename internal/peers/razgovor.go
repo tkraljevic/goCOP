@@ -92,7 +92,16 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	if err != nil {
 		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
 	}
-	return razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: ledger.Katalog(), CekaNadogradnju: ceka}
+	return razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka}
+}
+
+// mojKatalog su vrste zapisa sa shemama koje ovaj program razumije
+// (ledger.Katalog), ili katalog koji je čvoru dao test (s.katalog)
+func (s *Service) mojKatalog() map[string]int {
+	if s.katalog != nil {
+		return s.katalog()
+	}
+	return ledger.Katalog()
 }
 
 // posalji pošalje poruku s oznakom ovog čvora (deviceId). Jedino odbijenica

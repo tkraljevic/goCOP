@@ -13,7 +13,7 @@ import (
 
 // Na početku razgovora oba čvora kažu što znaju, a druga strana to zapamti
 // uz stanje razmjene i pokaže na ploči: i onaj tko je nazvao i onaj tko je
-// primio. Vrste zapisa su imena tablica, pa ih ploča ne šalje.
+// primio. Da ploča ne šalje vrste zapisa, provjerava TestZapamcenoZnanje.
 func TestRazmjenaNosiZnanje(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
@@ -43,7 +43,7 @@ func TestRazmjenaNosiZnanje(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(ploca), `"mogucnosti":["razmjena/1"]`) || strings.Contains(string(ploca), "vrste") {
+	if !strings.Contains(string(ploca), `"mogucnosti":["razmjena/1"]`) {
 		t.Errorf("ploča: %s", ploca)
 	}
 }

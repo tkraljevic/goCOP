@@ -187,6 +187,10 @@ type Service struct {
 	// slusaj čeka poziv za uparivanje (StartListening); nil je
 	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
 	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
+	// katalog su vrste zapisa koje čvor javlja u granici (mojKatalog); nil
+	// je ledger.Katalog. Popis poznatih entiteta u ledgeru zajednički je
+	// cijelom procesu i ne vraća se, pa test katalog daje ovuda.
+	katalog func() map[string]int
 	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
 	upis       chan struct{}
 	upisJednom sync.Once
