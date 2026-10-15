@@ -55,7 +55,8 @@ func TestBrisanjeVerzijeISpomenika(t *testing.T) {
 
 // Zadnji upis jednog čvora u kanalu ne briše se s oglasne ploče, iako zapis
 // ima noviju verziju drugog čvora: bez njega granica tog čvora u kanalu
-// padne i razmjena ga vrati (Odluke (13. 10. 2026.), 1; pravilo sažimanja).
+// padne i razmjena ga vrati (pravilo sažimanja; Odluke (13. 10. 2026.),
+// Brisanje u razmjeni).
 // Granica je po kanalu, pa noviji upis istog čvora u drugi kanal (očitanje za
 // isto područje i godinu) brisanje ne otključava. Starija verzija istog
 // čvora briše se i ne vraća se.
