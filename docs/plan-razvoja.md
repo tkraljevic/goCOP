@@ -77,9 +77,9 @@ valovima: simulacija se vrati na početak nekog vala i krene s tadašnjim
 vodostajima. Za to program mora znati raditi i s vremenom simulacije, a ne
 samo sa stvarnim satom.
 
-Zašto: probni akt u pravoj mreži danas troši pravi broj akta, stigne na sva
-računala i ima stvarne primatelje e-pošte. Simulacija dolazi nakon WEB
-synca.
+Zašto: da se može proći stvarna simulacija neke povijesne obrane od
+poplava, uvježbati osoblje i isprobati sučelje, a da se pravi i probni
+podaci ne miješaju, pa ni brojevi akata. Simulacija dolazi nakon WEB synca.
 
 ## 4. Proširenja
 
@@ -98,8 +98,9 @@ Tek kad su gotovi prethodni koraci, dolaze nove mogućnosti:
   nakon rada.
 - Mobilna aplikacija za teren, kao pojednostavljen goCOP za mobitel: svima
   prognoza, stanje letvi i upis očitanja, vodočuvaru dnevni zadaci i dnevni
-  list, rukovoditelju dionice dnevno izvješće. Opseg i izvedba još se
-  dogovaraju.
+  list, rukovoditelju dionice dnevno izvješće. Dolazi tek kad je goCOP
+  stabilan. Što će točno raditi i kako, još ne znamo; vjerojatno kao tanka
+  aplikacija koja s čvorom razgovara preko sučelja (API).
 - Akti: rješenje o privremenom imenovanju kao akt, čijom ovjerom privremena
   dužnost počinje, a stornom prestaje; QR kod na aktu za provjeru izvornika,
   kad program dobije javnu adresu; dopis županu uz proglašenje izvanrednog

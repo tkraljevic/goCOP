@@ -417,10 +417,11 @@ arhive).
   → Pripremi model, da se ispravak prognoze izmjeri iznova. Pripremi model
   ispravak danas mjeri samo na prognozama izdanima u 0 i 12 h. Mjerenje na
   prognozi svakog sata dolazi kao zasebna izmjena.
-- **Prag kiše od 0 mm znači da praga nema**, i za jedan i za tri dana.
-  Prag od 0 mm program izračuna kad je niz kiše suh ili nepotpun. Kad bi
-  takav prag vrijedio, razina kiše rasla bi i kad nije palo ništa. U tablici
-  kiše po međuslivovima tada stoji crtica.
+- **Kiša po međuslivovima:** kad iz povijesti kiše za neki međusliv ne može
+  izračunati uobičajenu kišu (niz je prazan ili nepotpun), program prag ne
+  postavlja i u tablici stoji crtica, i za jedan i za tri dana. Prije je
+  takav prag ispadao 0 mm, pa je program javljao pojačanu kišu i kad nije
+  palo ništa.
 
 ### Inventura
 
