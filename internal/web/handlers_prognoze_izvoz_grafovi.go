@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/prognoza"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 	"gocop/internal/xlsxw"
@@ -416,12 +417,16 @@ type Krajnost struct {
 	Najvisi      bool
 	IzEvidencije bool   // očitanje iz evidencije, novije od arhive ili bez nje
 	Od           string // „12. 9. 2026." kad letva nema niz u arhivi
+	Prema        string // letva s koje je krajnost prenesena (izvorKrajnosti)
 }
 
 // Label je krajnost za pločicu: „-160 cm", odnosno „-35 cm · od 12. 9. 2026.".
 func (k Krajnost) Label() string {
 	s := fmt.Sprintf("%+d cm", int(k.Cm))
-	if k.Od != "" {
+	switch {
+	case k.Prema != "":
+		s += " · s letve " + k.Prema
+	case k.Od != "":
 		s += " · od " + k.Od
 	}
 	return s
@@ -434,6 +439,8 @@ func (k Krajnost) Naslov() string {
 		vrsta = "najviši"
 	}
 	switch {
+	case k.Prema != "":
+		return fmt.Sprintf("%s izmjereni vodostaj na letvi %s (%d.), prenesen razlikom kota nule: ova letva nema vlastiti dugi niz u arhivi, a %s je na istoj vodi", vrsta, k.Prema, k.Godina, k.Prema)
 	case k.Od != "":
 		return fmt.Sprintf("%s očitani vodostaj u evidenciji (%d.); letva nema dugi niz u arhivi, evidencija ide od %s", vrsta, k.Godina, k.Od)
 	case k.IzEvidencije:
@@ -463,7 +470,79 @@ func krajnostiIzGodina(godine []repository.GodinaVodostaja) (min, max *Krajnost)
 // arhive, za stranicu očitanja; što danas nije u predmemoriji računa odmah
 // (desetinka).
 func (h *PrognozeHandler) KrajnostiLetve(ctx context.Context, kod string) (min, max *Krajnost) {
-	return krajnostiIzGodina(h.godisnje(ctx, []string{kod})[kod])
+	kodovi := append([]string{kod}, izvoriKrajnosti([]string{kod})...)
+	return krajnostiLetve(h.godisnje(ctx, kodovi), kod, h.postaje(ctx))
+}
+
+// krajnostiLetve su krajnosti letve iz godišnjih vrijednosti, a letvi bez
+// vlastitog niza u arhivi prenesene s njezina izvora (dopuniPrenesenim)
+func krajnostiLetve(godisnje map[string][]repository.GodinaVodostaja, kod string, popis map[string]models.Station) (min, max *Krajnost) {
+	k := map[string][2]*Krajnost{}
+	for l, godine := range godisnje {
+		if mn, mx := krajnostiIzGodina(godine); mn != nil || mx != nil {
+			k[l] = [2]*Krajnost{mn, mx}
+		}
+	}
+	dopuniPrenesenim(k, []string{kod}, popis)
+	return k[kod][0], k[kod][1]
+}
+
+// izvorKrajnosti je letva s koje letva bez vlastitog niza u arhivi preuzima
+// najviši i najniži vodostaj: jedini izvor njezine prenesene prognoze, letva
+// nasuprot na istoj vodi (za Bačku Palanku Ilok, iste kote nule). Prazno kad
+// takve nema. Vlastite krajnosti iz arhive imaju prednost (dopuniPrenesenim).
+func izvorKrajnosti(kod string) string {
+	for _, p := range prognoza.PreneseneLetve {
+		if p.Letva == kod && len(p.Izvori) == 1 {
+			return p.Izvori[0]
+		}
+	}
+	return ""
+}
+
+// izvoriKrajnosti su izvori krajnosti letava s popisa
+func izvoriKrajnosti(kodovi []string) []string {
+	var out []string
+	for _, kod := range kodovi {
+		if izvor := izvorKrajnosti(kod); izvor != "" {
+			out = append(out, izvor)
+		}
+	}
+	return out
+}
+
+// dopuniPrenesenim daje letvi s popisa koja nema krajnosti iz arhive
+// krajnosti njezina izvora, prenesene razlikom kota nule
+func dopuniPrenesenim(k map[string][2]*Krajnost, kodovi []string, popis map[string]models.Station) {
+	for _, kod := range kodovi {
+		izvor := izvorKrajnosti(kod)
+		ki, ima := k[izvor]
+		if _, svoje := k[kod]; svoje || !ima {
+			continue
+		}
+		if mn, mx := prenesiKrajnosti(ki[0], ki[1], popis[izvor], popis[kod]); mn != nil || mx != nil {
+			k[kod] = [2]*Krajnost{mn, mx}
+		}
+	}
+}
+
+// prenesiKrajnosti prenosi krajnosti izvora na letvu razlikom kota nule. Bez
+// kote nule na jednoj od letava ne prenosi ništa.
+func prenesiKrajnosti(min, max *Krajnost, izvor, letva models.Station) (*Krajnost, *Krajnost) {
+	if izvor.ZeroDatum == nil || letva.ZeroDatum == nil {
+		return nil, nil
+	}
+	pomak := (*izvor.ZeroDatum - *letva.ZeroDatum) * 100
+	ime, _ := imeIDrzava(izvor.Name)
+	prenesi := func(k *Krajnost) *Krajnost {
+		if k == nil {
+			return nil
+		}
+		c := *k
+		c.Cm, c.Prema = math.Round(k.Cm+pomak), ime
+		return &c
+	}
+	return prenesi(min), prenesi(max)
 }
 
 // uzEvidenciju dopunjuje krajnosti iz arhive evidencijom očitanja: očitanje

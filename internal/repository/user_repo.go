@@ -182,8 +182,8 @@ func (r *UserRepository) recordDuties(ctx context.Context, tx *sql.Tx, ids []str
 	return nil
 }
 
-func idsOf(ctx context.Context, tx *sql.Tx, query string, args ...any) ([]string, error) {
-	rows, err := tx.QueryContext(ctx, query, args...)
+func idsOf(ctx context.Context, q db.Execer, query string, args ...any) ([]string, error) {
+	rows, err := q.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -571,18 +571,8 @@ func (r *UserRepository) DeleteUser(id uuid.UUID) error {
 		return err
 	}
 
-	dutyIDs, err := idsOf(ctx, tx, "SELECT id FROM duties WHERE user_id = ?", id.String())
-	if err != nil {
+	if err := r.spomeniciDuznosti(ctx, tx, id.String()); err != nil {
 		return err
-	}
-	for _, dutyID := range dutyIDs {
-		d, err := getDutyTx(ctx, tx, dutyID)
-		if err != nil {
-			return err
-		}
-		if _, err := r.rec.Archive(ctx, tx, EntityDuties, dutyID, d); err != nil {
-			return err
-		}
 	}
 
 	_, _ = tx.Exec("DELETE FROM duties WHERE user_id = ?", id.String())
@@ -595,6 +585,28 @@ func (r *UserRepository) DeleteUser(id uuid.UUID) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// spomeniciDuznosti bilježi brisanje svih dužnosti korisnika: onih na
+// površini, s retkom s površine, i onih koje su u knjizi žive, a na površini
+// ih nema, s njihovom zadnjom verzijom. Inače bi dužnost koja je samo u
+// knjizi ostala živa, a drugi čvorovi i obnova površine čekali bi joj
+// korisnika zauvijek.
+func (r *UserRepository) spomeniciDuznosti(ctx context.Context, tx *sql.Tx, korisnik string) error {
+	dutyIDs, err := idsOf(ctx, tx, "SELECT id FROM duties WHERE user_id = ?", korisnik)
+	for _, dutyID := range dutyIDs {
+		var d models.Duty
+		if err == nil {
+			d, err = getDutyTx(ctx, tx, dutyID)
+		}
+		if err == nil {
+			_, err = r.rec.Archive(ctx, tx, EntityDuties, dutyID, d)
+		}
+	}
+	if err != nil {
+		return err
+	}
+	return arhivirajSamoUKnjizi(ctx, tx, r.rec, vezaDuznostiKorisnika, korisnik)
 }
 
 // AddDuty dodaje novu funkciju ili zaduženje (stalno ili privremena ispomoć)

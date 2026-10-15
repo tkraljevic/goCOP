@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -199,15 +200,17 @@ func (r *JournalRepository) GetJournal(ctx context.Context, id string) (*models.
 	return &j, nil
 }
 
-// SaveJournal upisuje novi dnevnik ili mijenja naslovnicu
-// journalChannel je kanal dnevnika: njegovo područje i godina
+// journalChannel je kanal dnevnika: njegovo područje i godina. Bez upisane
+// godine to je godina početka, a bez početka godina upisa, po zagrebačkom
+// vremenu: iz baze se vrijeme čita u UTC-u, pa bi dnevnik od 1. siječnja
+// nakon izmjene prešao u kanal prethodne godine.
 func journalChannel(j *models.Journal) string {
 	year := j.Year
 	if year == 0 && j.StartedAt != nil {
-		year = j.StartedAt.Year()
+		year = j.StartedAt.In(models.Zagreb).Year()
 	}
 	if year == 0 {
-		year = j.CreatedAt.Year()
+		year = j.CreatedAt.In(models.Zagreb).Year()
 	}
 	return ledger.ChannelFor(ledger.ChannelJournals, j.AreaID, year)
 }
@@ -219,6 +222,7 @@ func channelOfJournal(ctx context.Context, q rowQuerier, journalID string) strin
 	return ch
 }
 
+// SaveJournal upisuje novi dnevnik ili mijenja naslovnicu
 func (r *JournalRepository) SaveJournal(ctx context.Context, j *models.Journal) error {
 	now := time.Now().UTC()
 	if j.ID == "" {
@@ -583,6 +587,15 @@ func (r *JournalRepository) SaveEntry(ctx context.Context, e *models.JournalEntr
 	return tx.Commit()
 }
 
+// PisaoUDnevnik javlja je li osoba u dnevniku otvorila list ili upisala
+// zapis (i storniran upis je njezin). Samo čita.
+func (r *JournalRepository) PisaoUDnevnik(ctx context.Context, journalID, userID string) (bool, error) {
+	var pisao bool
+	err := r.db.QueryRowContext(ctx, `SELECT EXISTS (SELECT 1 FROM journal_sheets WHERE journal_id = ? AND created_by = ?)
+		OR EXISTS (SELECT 1 FROM journal_entries WHERE journal_id = ? AND user_id = ?)`, journalID, userID, journalID, userID).Scan(&pisao)
+	return pisao, err
+}
+
 // NumberGaps vraća redne brojeve koji u dnevniku nedostaju — kontrola da
 // nijedan upis nije nestao
 func (r *JournalRepository) NumberGaps(ctx context.Context, journalID string) ([]int, error) {
@@ -701,17 +714,13 @@ func (r *JournalRepository) ListCOPJournals(ctx context.Context, sektor string) 
 // ArhivirajDnevnik miče dnevnik s površine sa svime što nosi — listovima,
 // zapisima i dežurstvima — i svako od toga bilježi u knjizi kao arhivirano,
 // pa i drugi čvorovi znaju da ga više nema. Ništa se ne gubi iz knjige.
-// Vraća koliko je zapisa i dežurstava otišlo s njim.
+// Spomenik dobiva svaki zapis dnevnika koji je u knjizi živ, i onaj kojeg na
+// površini ovog čvora nema (npr. upis koji ovdje nije prošao primjenu):
+// inače bi ostao živ u knjizi, a čvor koji primi obrisan dnevnik pokušavao
+// bi ga upisati pri svakoj razmjeni. Spomenik nosi zadnju verziju zapisa, u
+// njezinom kanalu. Vraća koliko je zapisa i dežurstava otišlo s površine.
 func (r *JournalRepository) ArhivirajDnevnik(ctx context.Context, j *models.Journal) (int, error) {
-	zapisi, err := r.EntriesForJournal(ctx, j.ID)
-	if err != nil {
-		return 0, err
-	}
-	listovi, err := r.ListSheets(ctx, j.ID)
-	if err != nil {
-		return 0, err
-	}
-	dezurstva, err := r.ListDezurstva(ctx, j.ID)
+	zivi, err := r.rec.LatestOf(ctx, djecaDnevnika)
 	if err != nil {
 		return 0, err
 	}
@@ -721,27 +730,12 @@ func (r *JournalRepository) ArhivirajDnevnik(ctx context.Context, j *models.Jour
 	}
 	defer tx.Rollback()
 	channel := channelOfJournal(ctx, tx, j.ID)
-	for i := range zapisi {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM journal_entries WHERE id = ?`, zapisi[i].ID); err != nil {
-			return 0, err
-		}
-		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournalEntries, zapisi[i].ID, zapisi[i]); err != nil {
-			return 0, err
-		}
+	otislo, err := skiniDjecuDnevnika(ctx, tx, j.ID)
+	if err != nil {
+		return 0, err
 	}
-	for i := range listovi {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM journal_sheets WHERE id = ?`, listovi[i].ID); err != nil {
-			return 0, err
-		}
-		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournalSheets, listovi[i].ID, listovi[i]); err != nil {
-			return 0, err
-		}
-	}
-	for i := range dezurstva {
-		if _, err := tx.ExecContext(ctx, `DELETE FROM dezurstva WHERE id = ?`, dezurstva[i].ID); err != nil {
-			return 0, err
-		}
-		if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityDezurstva, dezurstva[i].ID, dezurstva[i]); err != nil {
+	for _, v := range zapisiDnevnika(zivi, j.ID) {
+		if _, err := r.rec.ArchiveIn(ctx, tx, v.Channel, v.Entity, v.EntityID, v.Payload); err != nil {
 			return 0, err
 		}
 	}
@@ -751,5 +745,41 @@ func (r *JournalRepository) ArhivirajDnevnik(ctx context.Context, j *models.Jour
 	if _, err := r.rec.ArchiveIn(ctx, tx, channel, EntityJournals, j.ID, j); err != nil {
 		return 0, err
 	}
-	return len(zapisi) + len(dezurstva), tx.Commit()
+	return otislo, tx.Commit()
+}
+
+// djecaDnevnika su zapisi koji pripadaju dnevniku i odlaze s njim
+var djecaDnevnika = []string{EntityJournalEntries, EntityJournalSheets, EntityDezurstva}
+
+// skiniDjecuDnevnika miče s površine listove, upise i dežurstva dnevnika i
+// vraća koliko je upisa i dežurstava otišlo
+func skiniDjecuDnevnika(ctx context.Context, tx *sql.Tx, journalID string) (int, error) {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM journal_sheets WHERE journal_id = ?`, journalID); err != nil {
+		return 0, err
+	}
+	otislo := 0
+	for _, tablica := range []string{"journal_entries", "dezurstva"} {
+		res, err := tx.ExecContext(ctx, `DELETE FROM `+tablica+` WHERE journal_id = ?`, journalID)
+		if err != nil {
+			return 0, err
+		}
+		n, _ := res.RowsAffected()
+		otislo += int(n)
+	}
+	return otislo, nil
+}
+
+// zapisiDnevnika su od zadnjih verzija upisa, listova i dežurstava one koje
+// su žive i pripadaju dnevniku
+func zapisiDnevnika(verzije []ledger.Version, journalID string) []ledger.Version {
+	var out []ledger.Version
+	for _, v := range verzije {
+		var z struct {
+			JournalID string `json:"journal_id"`
+		}
+		if !v.Archived && json.Unmarshal(v.Payload, &z) == nil && z.JournalID == journalID {
+			out = append(out, v)
+		}
+	}
+	return out
 }

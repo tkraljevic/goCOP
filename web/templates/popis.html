@@ -19,6 +19,9 @@
     <a href="/sredstva/popisi/{{$p.ID}}/uredi" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/sredstva/popisi/{{$p.ID}}/zakljuci" class="d-inline" onsubmit="return confirm('Zaključiti inventuru? Razlike prema knjizi bit će proknjižene.');"><button type="submit" class="btn btn-primary">{{icon "lock"}} Zaključi</button></form>
     {{end}}
+    {{if and .SmijeOtkljucati $p.Zakljucen}}
+    <form method="POST" action="/sredstva/popisi/{{$p.ID}}/otkljucaj" class="d-inline" onsubmit="return confirm('Otključati inventuru? Inventura se vraća u nacrt, a usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje razliku računa iznova s knjižnim stanjem toga dana.');"><button type="submit" class="btn btn-secondary" title="Za promet upisan unatrag, s danom prije inventure.">{{icon "history"}} Otključaj inventuru</button></form>
+    {{end}}
   </div>
 </div>
 

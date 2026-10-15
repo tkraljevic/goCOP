@@ -65,6 +65,8 @@ func TestPomocOpisujeStalniCvorITunelskuRazmjenu(t *testing.T) {
 		"zadnjih 48 sati", "broj zapisa", "docs/INSTALACIJA.md",
 		"sigurnosno učvršćivanje nije", "<code>x/net</code>",
 		"izdanje programa", "razumije do kraja", "Od godine",
+		"malo mjesta: manje od 10 GB ili", "manje od 10 % diska", "Ako ne znate kako, javite administratoru.",
+		"stiže i e-poštom, jednom na dan", "spremile lozinku sandučića",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne opisuje %q", want)
@@ -169,6 +171,26 @@ func TestPomocOpisujePostupkeSArhivom(t *testing.T) {
 	}
 }
 
+// Datoteka krivulja koja se ne da pročitati zaustavi gradnju. Pomoć mora reći
+// koja je to datoteka i da je najčešći uzrok zarez umjesto točke-zareza, jer
+// čovjek inače ne zna što u datoteci traži.
+func TestPomocOpisujeDatotekuKrivulja(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, want := range []string{
+		"Prvi redak datoteke mora biti zaglavlje s imenima stupaca",
+		"<code>vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena</code>",
+		"stupac od_cm ili do_cm nema cijelog broja, u nekom od stupaca p1 do p4 piše nešto što nije broj",
+		"Najčešće je to zarez upisan umjesto točke-zareza.",
+		"Prazan redak gradnja preskače", "datoteka sa samim zaglavljem znači da letva krivulja nema",
+		"Prazno polje u stupcu p1 do p4 gradnja čita kao nulu.",
+		"Uvoz izvoza HIS-2000 prazan redak isto preskoči, a datoteku kojoj ne valja zaglavlje ili neki redak ne spaja s izvozom",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć o datoteci krivulja ne kaže %q", want)
+		}
+	}
+}
+
 // Dnevnici su prerasli jedan građevinski obrazac: pomoć mora objasniti cijeli
 // put od zapisnika centra preko plana do obračuna, jer se pogrešan unos sati
 // inače otkrije tek u računovodstvu.
@@ -229,10 +251,123 @@ func TestPomocPratiOperativneTokove(t *testing.T) {
 		`id="prijave"`, "PDF izvornik s ugrađenim", `id="akti"`,
 		`id="sredstva"`, `id="posta"`, `id="potpisi"`,
 		"Simulirani potpis", `id="admin-test"`, "Repozitorij službenih zapisa",
-		"pregledanom i", "sadrzaj.db", "samo kazalo, pregled ili puni sadržaj",
+		"pregledanom i", "sadrzaj.db", "samo kazalo, samo pregledi (slike,",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("pomoć ne prati aktualni tok %q", want)
+		}
+	}
+}
+
+// Pomoć o dnevnom listu za budući dan (Odluke (8. 10. 2026.), pitanja 5 i
+// 6) ne obećava više od programa: redni broj nacrt dobiva prvim spremanjem
+// ili predajom kad njegov dan počne. Pomoć kaže i kako takav nacrt nastaje,
+// jer vodočuvar budući dan ne otvara sam. Do provedbe pitanja 6 pomoć nije
+// smjela reći da brojevi idu redom dana; sad to program jamči za nove
+// listove (nacrt ranijeg dana dobiva broj prije lista kasnijeg dana), a
+// postojeći brojevi se ne mijenjaju, pa pomoć to i kaže.
+func TestPomocOBuducemListuNeObecavaViseOdPrograma(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, ne := range []string{"vodočuvar u njega može upisati plan"} {
+		if strings.Contains(h, ne) {
+			t.Errorf("pomoć obećava %q", ne)
+		}
+	}
+	for _, da := range []string{"rukovoditeljev upis („Upiši”)", "prvim spremanjem ili predajom kad njegov dan počne",
+		"pa brojevi novih listova idu redom dana", "Brojevi koje listovi već imaju ne mijenjaju se"} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
+// Pomoć o listu prenesenom iz ranije evidencije i danu koji je prošao
+// (Odluke (8. 10. 2026.), pitanje 6): prenesen list nikad ne dobiva redni
+// broj, a akt i prijava za njegov dan idu na današnji list, kao za dan bez
+// lista; rukovoditeljeva bilješka za taj dan ide na prenesen list. Poruka
+// vodočuvaru koji otvori prošli dan navodi se kako je program javlja i ne
+// upućuje ga da list priprema unaprijed.
+func TestPomocOPrenesenomListuIProslomDanu(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if strings.Contains(h, "ili unaprijed kao nacrt") {
+		t.Error("pomoć upućuje vodočuvara da list priprema unaprijed")
+	}
+	for _, da := range []string{
+		"„za 09.10.2026. nema dnevnog lista, a list za dan koji je prošao više se ne otvara: dnevni list otvara se na svoj dan”",
+		"nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list",
+		"Listovi preneseni iz ranije evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj",
+		"rukovoditeljeva bilješka za taj dan upisuje se na prenesen list",
+		"lista nema ili je list tog dana prenesen iz ranije evidencije, upisuje se na današnji list",
+	} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
+// Pomoć kaže da list prenesen iz ranije evidencije pri razmjeni vrijedi kao
+// predan: nacrt s drugog čvora ga ne zamjenjuje, a preneseni obilasci
+// ostaju (Odluke (8. 10. 2026.), pitanje 7).
+func TestPomocOPrenesenomListuSDrugogCvora(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	if !strings.Contains(h, "list prenesen iz ranije evidencije: nacrt s drugog čvora ga ne zamjenjuje") {
+		t.Error("pomoć ne kaže da nacrt s drugog čvora ne zamjenjuje prenesen list")
+	}
+}
+
+// Nacrt akta sastavlja i ispravlja samo Centar obrane od poplava, ali to
+// provjerava tek računalo s novim izdanjem. Pomoć mora reći da računalo sa
+// starijom verzijom (0.0.34) i dalje pušta nacrt i izmjenu izvan centra, da
+// oni stižu razmjenom i zamjenjuju neovjereni nacrt, i da uz nacrt ne piše
+// tko ga je mijenjao (Odluke (8. 10. 2026.), pitanje 18).
+func TestPomocONacrtuAktaSaStarijegCvora(t *testing.T) {
+	h := strings.Join(strings.Fields(pomocHTML(t)), " ")
+	for _, da := range []string{
+		"Računalo sa starijom verzijom (0.0.34) i dalje pušta da nacrt sastavi ili mijenja i netko izvan centra",
+		"stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše",
+	} {
+		if !strings.Contains(h, da) {
+			t.Errorf("pomoć ne kaže %q", da)
+		}
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: mjesto rada program izvodi samo iz
+// opisa s popisa. Pomoć ne smije reći da ga izvodi iz opisa kojega na popisu
+// nema — upravo tada se mjesto ne zna i dežurstvo je za provjeru.
+func TestPomocMjestoRadaIzvodiSamoIzOpisaSPopisa(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{
+		"Mjesto rada slijedi iz opisa s popisa",
+		"Kad opisa nema na popisu",
+		"<strong>„mjesto nepoznato — za provjeru”</strong>",
+	} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje mjesto rada iz opisa: nema %q", want)
+		}
+	}
+	if strings.Contains(h, "s opisom kojega nema na popisu — program mjesto najprije izvede iz opisa") {
+		t.Error("pomoć kaže da program mjesto izvodi i iz opisa kojega nema na popisu")
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 10: bilješku o ispravku opisa dežurstva
+// upisuje samo program; pomoć to mora reći, jer se rukom upisana odbija.
+func TestPomocBiljeskuOIspravkuOpisaUpisujeProgram(t *testing.T) {
+	if !strings.Contains(pomocHTML(t), "Tu bilješku u napomenu upisuje samo program") {
+		t.Error("pomoć ne kaže da bilješku o ispravku opisa upisuje samo program")
+	}
+}
+
+// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora spremljeno bez
+// izmjene teksta i odabira ostaje predano s tablicama kakve su predane, i
+// kad je zapis koji je ušao u nj storniran; pomoć mora reći kako se
+// preuzimaju nove brojke.
+func TestPomocPredanoSektorskoINoveBrojke(t *testing.T) {
+	h := pomocHTML(t)
+	for _, want := range []string{"zapis koji je ušao u izvješće storniran", "Nove brojke preuzima izmjena izvješća sektora ili spremanje"} {
+		if !strings.Contains(h, want) {
+			t.Errorf("pomoć ne opisuje %q", want)
 		}
 	}
 }

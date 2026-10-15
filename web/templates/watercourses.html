@@ -17,11 +17,11 @@
 </div>
 
 <div class="d-flex gap-2 flex-wrap mb-5">
-  <span class="stat-badge has-items">{{icon "waves"}} {{.Total}} vodnih tijela</span>
+  <span class="stat-badge has-items">{{icon "waves"}} {{.Total}} {{uzBroj .Total "vodno tijelo" "vodna tijela" "vodnih tijela"}}</span>
   <span class="stat-badge has-items">{{icon "scale"}} {{.FirstOrder}} na popisu voda I. reda</span>
   <span class="stat-badge has-items">{{icon "link"}} {{.Used}} s dionicom ili postajom</span>
-  <span class="stat-badge {{if gt .UnlinkedSections 0}}has-items{{end}}">{{icon "file-text"}} {{.UnlinkedSections}} dionica bez veze</span>
-  <span class="stat-badge {{if gt .UnlinkedStations 0}}has-items{{end}}">{{icon "ruler"}} {{.UnlinkedStations}} postaja bez veze</span>
+  <span class="stat-badge {{if gt .UnlinkedSections 0}}has-items{{end}}">{{icon "file-text"}} {{.UnlinkedSections}} {{uzBroj .UnlinkedSections "dionica" "dionice" "dionica"}} bez veze</span>
+  <span class="stat-badge {{if gt .UnlinkedStations 0}}has-items{{end}}">{{icon "ruler"}} {{.UnlinkedStations}} {{uzBroj .UnlinkedStations "postaja" "postaje" "postaja"}} bez veze</span>
 </div>
 
 

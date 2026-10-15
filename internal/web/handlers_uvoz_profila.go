@@ -150,8 +150,8 @@ func (h *UvozHandler) PregledUvozaProfila(w http.ResponseWriter, r *http.Request
 			snimka.Stanje = "dvojnik"
 			zadrzana := sve[najbolja[datum]]
 			p.Odbijeno = append(p.Odbijeno, fmt.Sprintf(
-				"%s (%d točaka) — ista snimka korita kao %s, koja ih ima %d",
-				c.ime, len(c.profil.Tocke), zadrzana.ime, len(zadrzana.profil.Tocke)))
+				"%s (%d %s) — ista snimka korita kao %s, koja ih ima %d",
+				c.ime, len(c.profil.Tocke), models.UzBrojHR(len(c.profil.Tocke), "točka", "točke", "točaka"), zadrzana.ime, len(zadrzana.profil.Tocke)))
 			p.Snimke = append(p.Snimke, snimka)
 			continue
 		}
@@ -268,9 +268,11 @@ func (h *UvozHandler) UpisiProfile(w http.ResponseWriter, r *http.Request) {
 		zapisano++
 	}
 	if zapisano == 0 {
-		d.ErrorMessage = "nijedna snimka nije zapisana — odabir je vjerojatno istekao, pošaljite datoteke ponovno"
+		// O isteku se govori samo kad nijedna snimka nije ni čekala; kad
+		// razlozi postoje, snimke i dalje čekaju i ponovno slanje ne pomaže.
+		d.ErrorMessage = "Nijedna snimka nije zapisana. Odabir je istekao ili više ne postoji. Pošaljite datoteke ponovno."
 		if len(greske) > 0 {
-			d.ErrorMessage += ": " + strings.Join(greske, "; ")
+			d.ErrorMessage = "Nijedna snimka nije zapisana. Razlozi: " + strings.Join(greske, "; ") + "."
 		}
 		h.pisi(w, d)
 		return

@@ -2,10 +2,10 @@
   "schema": 1,
   "coverage_target": 85,
   "critical_coverage_target": 95,
-  "complexity_limit": 15,
-  "critical_complexity_limit": 10,
-  "crap_limit": 30,
-  "critical_crap_limit": 10,
+  "complexity_limit": 10,
+  "critical_complexity_limit": 7,
+  "crap_limit": 10,
+  "critical_crap_limit": 7,
   "coverage_drop_pp": 0.1,
   "crap_increase": 0.5,
   "duplication_increase_pp": 0.1,
@@ -36,55 +36,101 @@
       "expires": "2027-01-04"
     },
     {
-      "key": "complexity:internal/repository/apply.go::applyOne",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "key": "complexity:internal/importer/bp16/bp16.go::(HTTPSource).Items",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
       "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
+      "expires": "2027-04-13"
     },
     {
-      "key": "crap:internal/repository/apply.go::applyOne",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "key": "crap:internal/importer/bp16/bp16.go::(HTTPSource).Items",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
       "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
+      "expires": "2027-04-13"
     },
     {
-      "key": "complexity:internal/repository/apply.go::removeFromSurface",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "key": "complexity:internal/importer/bp16/bp16.go::LoadEnv",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
       "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
+      "expires": "2027-04-13"
     },
     {
-      "key": "crap:internal/repository/apply.go::removeFromSurface",
-      "reason": "0.0.32 dodaje sinkronizirane entitete ovlasti i opozivi te stupac primatelj članstva; svaki novi entitet povećava switch u applyOne i removeFromSurface. Prva stavka stabilizacije je razdvajanje primjene po entitetima (jedno mjesto po entitetu), nakon čega iznimka otpada; pregledano 2026-10-04.",
+      "key": "crap:internal/importer/bp16/bp16.go::LoadEnv",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
       "owner": "održavatelj goCOP-a",
-      "expires": "2026-11-15"
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/bp16.go::Run",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/bp16.go::Run",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/bp16.go::noviObjekt",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/bp16.go::noviObjekt",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/journals.go::classify",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/journals.go::classify",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/journals.go::RunJournals",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/journals.go::RunJournals",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/obilasci.go::RunObilasci",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/obilasci.go::RunObilasci",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "complexity:internal/importer/bp16/prijave.go::RunPrijave",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
+    },
+    {
+      "key": "crap:internal/importer/bp16/prijave.go::RunPrijave",
+      "reason": "Uvoz iz BP16 je privremen (Odluke (13. 10. 2026.)): ne pojednostavljuje se, briše se kad BP16 prestane.",
+      "owner": "održavatelj goCOP-a",
+      "expires": "2027-04-13"
     }
   ],
-  "premjestaji": [
-    {
-      "iz": "cmd/gocop/main.go::main",
-      "funkcije": [
-        "cmd/gocop/main.go::run",
-        "cmd/gocop/main.go::odrediPostavke",
-        "cmd/gocop/main.go::uveziTablicu",
-        "cmd/gocop/main.go::uveziUgovor",
-        "cmd/gocop/main.go::uveziBP16",
-        "cmd/gocop/main.go::izvorBP16",
-        "cmd/gocop/main.go::uveziPrijaveBP16",
-        "cmd/gocop/main.go::uveziObilaskeBP16",
-        "cmd/gocop/main.go::korisniciObilazaka",
-        "cmd/gocop/main.go::meteoObilazaka",
-        "cmd/gocop/main.go::uveziDnevnikeBP16",
-        "cmd/gocop/main.go::uveziLetveBP16",
-        "cmd/gocop/prognoza_cvora.go::pokreniPrognozu",
-        "cmd/gocop/prognoza_cvora.go::kisaSlivova",
-        "cmd/gocop/prognoza_cvora.go::pripremiOborine",
-        "cmd/gocop/prognoza_cvora.go::pripremaModela",
-        "cmd/gocop/satni_krug.go::(*satniKrug).preuzmiKisomjere",
-        "cmd/gocop/satni_krug.go::(*satniKrug).izracunajIIzdaj"
-      ],
-      "razlog": "Stabilizacija, faza 1: main (CC 219, bez testova) rastavljen na run i korake pokretanja, tijela premještena bez izmjena. Ove funkcije još nemaju 85 % testova (uvoz iz BP16, tablice i ugovora traži Directus ili datoteke; prognoza, kišomjeri i priprema modela traže arhivu); ostale izdvojene funkcije imaju testove i mjere se kao nov kod.",
-      "pregledano": "2026-10-04"
-    }
-  ]
+  "premjestaji": []
 }

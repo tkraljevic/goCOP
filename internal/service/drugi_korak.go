@@ -315,7 +315,9 @@ func ispravanToken(t string) bool {
 // IzvanaAdresa javlja dolazi li zahtjev izvana: kroz posrednika (bilo
 // kakvo zaglavlje posrednika, pouzdano ili ne) ili s adrese koja nije
 // privatna, ovo računalo ni lokalna veza. Lažno zaglavlje tako samo
-// nametne PIN, nikad ga ne preskoči; neispravna adresa je izvana.
+// nametne PIN, nikad ga ne preskoči; neispravna adresa je izvana. Web
+// sloj uz to izravan zahtjev na Tailscale adresu ovog računala smatra
+// lokalnim (web.Klijent.Izvana).
 func IzvanaAdresa(krozPosrednika bool, adresa netip.Addr) bool {
 	if krozPosrednika || !adresa.IsValid() {
 		return true

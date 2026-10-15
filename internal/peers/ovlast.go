@@ -240,19 +240,22 @@ func (s *Service) getOvlast(ctx context.Context, nodeID string) (*razmjena.Ovlas
 
 // saveOvlast upisuje ovlast i ostavlja verziju (ovlasti putuju kao članstva)
 func (s *Service) saveOvlast(ctx context.Context, o razmjena.Ovlast) error {
-	return s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		if _, err := tx.ExecContext(ctx, `
+	return s.uTransakciji(ctx, func(tx *sql.Tx) error { return s.upisiOvlast(ctx, tx, o) })
+}
+
+// upisiOvlast je saveOvlast u transakciji koju vodi pozivatelj
+func (s *Service) upisiOvlast(ctx context.Context, tx *sql.Tx, o razmjena.Ovlast) error {
+	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO ovlasti (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(node_id) DO UPDATE SET
 			public_key = excluded.public_key, network = excluded.network, issued_by = excluded.issued_by,
 			issued_at = excluded.issued_at, expires_at = excluded.expires_at, signature = excluded.signature
 	`, o.DeviceID, o.DeviceKey, o.Network, o.IssuedBy, o.IssuedAt.UTC(), o.ExpiresAt.UTC(), o.Signature, time.Now().UTC()); err != nil {
-			return err
-		}
-		_, err := s.rec.Record(ctx, tx, EntityOvlasti, o.DeviceID, o)
 		return err
-	})
+	}
+	_, err := s.rec.Record(ctx, tx, EntityOvlasti, o.DeviceID, o)
+	return err
 }
 
 // mojaOvlast je važeća ovlast ovog čvora za primanje, ili nil

@@ -29,6 +29,9 @@
     </div>
   </div>
 
+  <!-- Upozorenje vodočuvaru: dnevni listovi koje nije potpisao i predao -->
+  {{template "nepredaniListovi" .Nepredani}}
+
   <!-- Moduli: brzi pristup operativnim modulima -->
   <div class="moduli-red">
     {{if .Sees "teren"}}<a href="/teren" class="modul-gumb"><span class="modul-ikona success">{{icon "map-pin"}}</span><span>Teren</span></a>{{end}}
@@ -174,7 +177,7 @@
   <!-- Zid događanja -->
   <div class="section-title-wrap mt-6">
     <h2 class="section-title">Događanja</h2>
-    <p class="section-desc">Što se upravo upisuje u dnevnike, izvješća, skladišta i obranu. Cijela kronologija s filtrima i izvozom je na stranici <a href="/dogadjanja">Događanja</a>.</p>
+    <p class="section-desc">Što se upravo upisuje u dnevnike, izvješća, prijave s terena, skladišta i obranu. Cijela kronologija s filtrima i izvozom je na stranici <a href="/dogadjanja">Događanja</a>.</p>
   </div>
   <div class="zid-cipovi">
     <a href="/" class="btn btn-secondary btn-sm">sve</a>

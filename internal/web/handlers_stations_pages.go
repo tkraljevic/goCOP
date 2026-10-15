@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"html/template"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -75,6 +76,10 @@ type StationPageData struct {
 	CanRecord         bool   // smije li upisati očitanje
 	LetvaStranica     string // koja je stranica letve otvorena: kartica, ocitanja, historijat
 	HistorijatPrazan  bool   // letva još nema ništa od onoga što historijat pokazuje
+	// Sektori i područja koji letvu prate (Odluke (8. 10. 2026.), pitanje 8):
+	// izbor u obrascu i nazivi upisanih na kartici
+	IzborPracenja []SektorPracenja
+	Pracenje      []string
 	// KrajnostiIzNiza su najviše i najniže što program ima u podacima. Stoje uz
 	// zabilježene ekstreme, ne umjesto njih: zabilježeni je tvrdnja s
 	// podrijetlom, ovo je najveće što u nizu stoji.
@@ -210,6 +215,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	data.LetvaStranica = "kartica"
+	data.Pracenje = h.pracenjeLetve(data.Station)
 	if data.Station.ImaKoordinate() {
 		if b, err := json.Marshal(h.stationMapItem(r.Context(), data.Station)); err == nil {
 			data.MapStationJSON = template.JS(b)
@@ -423,11 +429,7 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 			}
 		}
 	}
-	// Ista letva mjerodavna je za više dionica — Batina za cijelo BP 34 — pa
-	// se ovdje vide obrane svih njih, svaka sa svojim stupnjem.
-	if h.episodeService != nil {
-		data.Episodes, _ = h.episodeService.ByStation(ctx, st.ID.String(), 50)
-	}
+	data.Episodes = h.obraneLetve(ctx, *st)
 	// Hidrološka arhiva: nizovi, karakteristične vrijednosti, korito i krivulje.
 	// Sve se računa pri čitanju, ništa se ne pamti — brojevi se tako ne mogu
 	// razići s podacima iz kojih su nastali.
@@ -514,6 +516,22 @@ func (h *StationsHandler) podaciLetve(w http.ResponseWriter, r *http.Request) (S
 	return data, true
 }
 
+// obraneLetve vraća obrane vođene po letvi. Ista letva mjerodavna je za više
+// dionica — Batina za cijelo BP 34 — pa se vide obrane svih njih, svaka sa
+// svojim stupnjem. Greška čitanja ne ruši stranicu letve, ali ide u dnevnik:
+// do 13. 10. 2026. stranica ju je prešutjela, pa se dugo nije vidjelo da upit
+// ne radi i da obrana nema ni na jednoj letvi.
+func (h *StationsHandler) obraneLetve(ctx context.Context, st models.Station) []models.DefenseEpisode {
+	if h.episodeService == nil {
+		return nil
+	}
+	obrane, err := h.episodeService.ByStation(ctx, st.ID.String(), 50)
+	if err != nil {
+		log.Printf("obrane letve %s nisu pročitane: %v", st.Name, err)
+	}
+	return obrane
+}
+
 // ShowStationForm prikazuje obrazac za novu postaju ili izmjenu postojeće
 func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
@@ -582,6 +600,7 @@ func (h *StationsHandler) ShowStationForm(w http.ResponseWriter, r *http.Request
 	}
 	data.TelemetrijaRacun = h.racunHidroView(r.Context(), data.Station.Code)
 	data.TelemetrijaMoguca = data.TelemetrijaRacun != ""
+	data.IzborPracenja = izborPracenja(h.sektoriIPodrucja())
 	if err := h.tmplForm.ExecuteTemplate(w, "station_form.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

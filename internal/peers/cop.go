@@ -190,17 +190,15 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		return m, fmt.Errorf("nema nijedne verzije u zadanim kanalima")
 	}
 	sort.Slice(versions, func(i, j int) bool { return versions[i].VersionID < versions[j].VersionID })
-	var zapisi bytes.Buffer
-	enc := json.NewEncoder(&zapisi)
-	for _, v := range versions {
-		if err := enc.Encode(v); err != nil {
-			return m, err
-		}
+	zapisi, versions, neispravne := zapisiZaCop(versions)
+	s.zabiljeziNeispravne(neispravne)
+	if len(versions) == 0 {
+		return m, fmt.Errorf("Paket nije izdan: za taj odabir nijedan zapis na ovom računalu nije ispravan. Pojedinosti su u dnevniku programa.")
 	}
 	// sadržaji koje zapisi navode: otisak iz zapisa izvornika
 	sadrzaji := s.sadrzajiUZapisima(ctx, versions)
 	m.Zapisa, m.Sadrzaja = len(versions), len(sadrzaji)
-	m.Otisak = otisakIzdanja(zapisi.Bytes(), sadrzaji)
+	m.Otisak = otisakIzdanja(zapisi, sadrzaji)
 
 	// katalog: isti otisak, isto izdanje; drukčiji, sljedeće
 	kljuc := obuhvat.Kljuc()
@@ -243,7 +241,7 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		m.Ukljuceno++
 	}
 	popis, _ := json.MarshalIndent(sadrzaji, "", " ")
-	if err := dodaj("zapisi.jsonl", zapisi.Bytes()); err != nil {
+	if err := dodaj("zapisi.jsonl", zapisi); err != nil {
 		return m, err
 	}
 	if err := dodaj("sadrzaji.json", popis); err != nil {
@@ -266,6 +264,26 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		return m, err
 	}
 	return m, nil
+}
+
+// zapisiZaCop slaže zapisi.jsonl, redak po verziji, od ispravnih verzija, i
+// vraća ih s popisom neispravnih. Neispravna verzija (zaSlanje, pokvaren
+// redak u knjizi) ne ide u paket, kao ni u razmjenu (ogradiDeltu): do 0.0.38
+// jedna takva verzija rušila je cijeli izvoz. Redak je isti kao iz
+// json.Encoder, pa ispravne verzije daju isti otisak izdanja kao dosad.
+func zapisiZaCop(versions []ledger.Version) (zapisi []byte, ispravne, neispravne []ledger.Version) {
+	var b bytes.Buffer
+	for _, v := range versions {
+		redak, err := zaSlanje(v)
+		if err != nil {
+			neispravne = append(neispravne, v)
+			continue
+		}
+		b.Write(redak)
+		b.WriteByte('\n')
+		ispravne = append(ispravne, v)
+	}
+	return b.Bytes(), ispravne, neispravne
 }
 
 // sadrzajiUZapisima skuplja otiske sadržaja koje zapisi izvornika navode
@@ -422,11 +440,11 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	rep.PotpisValjan = true
-	rep.IzdavacClan = s.trusted(javni, nil)
+	rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni)
+	if err != nil {
+		return rep, err
+	}
 	if !rep.IzdavacClan {
-		if s.NetworkInfo() != nil {
-			return rep, fmt.Errorf("paket je potpisao čvor %s koji nije član naše mreže", m.Izdao)
-		}
 		rep.Napomena = "čvor još nije u mreži, pa se članstvo izdavača nije moglo provjeriti"
 	}
 	if err := s.shemaCopa(ctx); err != nil {
@@ -468,16 +486,10 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		if end > len(wanted) {
 			end = len(wanted)
 		}
-		batch := wanted[start:end]
-		applied, err := s.rec.Apply(ctx, batch)
+		applied, err := s.primijeniPodBravom(ctx, wanted[start:end])
+		rep.Novih += applied
 		if err != nil {
 			return rep, err
-		}
-		rep.Novih += applied
-		if applied > 0 && s.onApplied != nil {
-			if err := s.onApplied(ctx, batch); err != nil {
-				return rep, fmt.Errorf("površina nije osvježena: %w", err)
-			}
 		}
 	}
 	// sadržaj: uključeni se upišu (paket je namjerno donesen), ostali na popis
@@ -505,6 +517,29 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	return rep, nil
+}
+
+// izdavacClan javlja je li paket potpisao član naše mreže koji je u
+// manifestu naveden kao izdavač. Članstvo se traži po imenu izdavača, a ne
+// samo po ključu: član koji potpiše paket pod tuđim imenom i s visokim
+// izdanjem inače bi zauzeo mjesto tog čvora, pa bi se njegovi pravi paketi
+// odbijali kao starija izdanja. Dok čvor nema mrežu, članstvo se ne može
+// provjeriti; tada vraća false bez greške.
+func (s *Service) izdavacClan(ctx context.Context, izdao string, javni ed25519.PublicKey) (bool, error) {
+	s.mu.Lock()
+	network := s.network
+	s.mu.Unlock()
+	if network == nil {
+		return false, nil
+	}
+	if !s.trusted(javni, nil) {
+		return false, fmt.Errorf("paket je potpisao čvor %s koji nije član naše mreže", izdao)
+	}
+	m, err := scanMembership(s.db.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE node_id = ?`, izdao))
+	if err != nil || s.provjeriClanstvo(ctx, network.Public, m, javni) != nil {
+		return false, fmt.Errorf("paket kaže da ga je izdao čvor %s, a potpisao ga je drugi član mreže, pa se ne ugrađuje", izdao)
+	}
+	return true, nil
 }
 
 // CopIme je naziv datoteke paketa: gocop-dnevnici-bp16-2026_v3.cop

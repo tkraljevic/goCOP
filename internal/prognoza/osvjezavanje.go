@@ -8,7 +8,6 @@ import (
 	"math"
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -121,6 +120,12 @@ type Ishod struct {
 	// ovoga je prognoza satima tiho stajala („za ovaj sat već je izdana”), a
 	// nije se vidjelo da čeka letvu kojoj je izvor zapeo.
 	Ceka map[string]int64
+	// Upozorenja kažu što pri izdavanju nije radilo i koji su rezultati
+	// zbog toga upitni (Upozori); zapisuju se s izdanjem i putuju s njim.
+	Upozorenja []Upozorenje
+	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
+	// zadnja četiri dana prije izdanja: letva → rupe redom.
+	Rekonstruirano map[string][]RekonstruiranaRupa
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -154,6 +159,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
+	ctx = uKrugu(ctx)
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -261,6 +267,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	if ishod.Izbor == nil {
 		ishod.Izbor = map[string]Izbor{}
 	}
+	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)
@@ -392,6 +399,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 				Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model})
 		}
 	}
+	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
 
@@ -454,66 +462,26 @@ func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
 	return n, err == nil && ima
 }
 
-// dnevniModeli drži naučene dnevne modele. Uče se iz arhive jednom dnevno:
-// arhiva se mijenja rijetko, a učenje traje sekundu-dvije.
-var dnevniModeli struct {
-	sync.Mutex
-	dan    string
-	modeli map[string][]*DnevniModel // po letvi: glavni pa rezerve; nil gdje učenje nije prošlo
-	greske map[string]error
+// dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna
+// inačica nije dala naučiti. Uče se iz arhive i vrijede do zagrebačke ponoći
+// ili do promjene arhive; neuspjelo se ponavlja idući sat (zalihaDnevnih).
+// U izdanju (kontekst iz uKrugu) zaliha se pita jednom, pa vrhovi lanca i
+// dnevna prognoza računaju istim modelima.
+func (o *Osvjezivac) dnevniModeliZaDanas(ctx context.Context) (map[string][]*DnevniModel, map[string]error) {
+	k, ima := ctx.Value(kljucKruga{}).(*krugDnevnih)
+	if !ima {
+		return o.dnevniIzZalihe()
+	}
+	k.Do(func() { k.modeli, k.greske = o.dnevniIzZalihe() })
+	return k.modeli, k.greske
 }
 
-func (o *Osvjezivac) dnevniModeliZaDanas() (map[string][]*DnevniModel, map[string]error) {
-	danas := time.Now().Format("2006-01-02")
+// dnevniIzZalihe osvježi zalihu naučenih modela i vraća ih.
+func (o *Osvjezivac) dnevniIzZalihe() (map[string][]*DnevniModel, map[string]error) {
 	dnevniModeli.Lock()
 	defer dnevniModeli.Unlock()
-	if dnevniModeli.dan == danas {
-		return dnevniModeli.modeli, dnevniModeli.greske
-	}
-	modeli, greske := map[string][]*DnevniModel{}, map[string]error{}
-	nizovi := map[string]DnevniNiz{}
-	if o.Oborine != nil && len(o.Oborine.Tocke) > 0 {
-		if ob, err := DnevneOborine(o.Arhiva, o.Oborine.Tocke); err != nil {
-			log.Printf("dnevni model: oborina iz arhive: %v", err)
-		} else {
-			for k, n := range ob {
-				nizovi[k] = n
-			}
-		}
-	}
-	for _, c := range DnevniCiljevi {
-		var in []*DnevniModel
-		for _, cilj := range c.Inacice() {
-			var m *DnevniModel
-			ok := true
-			for _, l := range cilj.letve() {
-				if _, ima := nizovi[l]; ima {
-					continue
-				}
-				n, err := DnevniIzArhive(o.Arhiva, l)
-				if err != nil {
-					greske[c.Letva] = err
-					ok = false
-					break
-				}
-				nizovi[l] = n
-			}
-			if ok {
-				var err error
-				if m, err = NamjestiDnevni(nizovi, cilj, 0); err != nil {
-					greske[c.Letva] = err
-					m = nil
-				}
-			}
-			in = append(in, m)
-		}
-		if in[0] != nil {
-			delete(greske, c.Letva) // glavni je prošao; greška rezerve nije greška letve
-		}
-		modeli[c.Letva] = in
-	}
-	dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = danas, modeli, greske
-	return modeli, greske
+	dnevniModeli.osvjezi(o.Arhiva, o.Oborine, sadaUcenja())
+	return dnevniModeli.modeli, dnevniModeli.greske
 }
 
 // oborinskiDosezi su koliko dana kiše unatrag i unaprijed dnevni model traži.
@@ -546,7 +514,7 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 	if len(velicina) == 0 {
 		return out
 	}
-	modeli, _ := o.dnevniModeliZaDanas()
+	modeli, _ := o.dnevniModeliZaDanas(ctx)
 	unatrag, unaprijed := oborinskiDosezi()
 	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
 	if err != nil {
@@ -633,7 +601,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	if o.Arhiva == nil {
 		return nil, nil, bez, izbor, nil
 	}
-	modeli, greske := o.dnevniModeliZaDanas()
+	modeli, greske := o.dnevniModeliZaDanas(ctx)
 	for l, err := range greske {
 		bez[l] = err
 	}
@@ -688,7 +656,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			if m == nil {
 				continue
 			}
-			if d, err = PrognozirajDnevno(m, satni, oborine, sada); err == nil {
+			if d, err = prognozirajInacicu(m, satni, oborine, sada, err); err == nil {
 				d = SastaviBezKise(d, m, in, satni, oborine, sada)
 				if len(c.Slivovi) > 0 {
 					if len(m.Cilj.Slivovi) > 0 {
@@ -744,11 +712,11 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 	// kad je sve u redu, ne samo kad je pao na inačicu bez nje.
 	switch {
 	case sKisom > 0 && bezKise == 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d kišomjera)",
-			unatrag, unaprijed, len(o.Oborine.Tocke))}
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom: pala kiša %d dana unatrag i prognoza %d dana unaprijed (Open-Meteo, %d %s)",
+			unatrag, unaprijed, len(o.Oborine.Tocke), models.UzBrojHR(len(o.Oborine.Tocke), "kišomjer", "kišomjera", "kišomjera"))}
 	case sKisom > 0:
-		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d letvi, bez kiše na %d — %s",
-			sKisom, bezKise, razlogBezKise)}
+		izbor["oborina"] = Izbor{Inacica: 1, Opis: fmt.Sprintf("dnevni model računa s kišom na %d %s, bez kiše na %d — %s",
+			sKisom, models.UzBrojHR(sKisom, "letvi", "letve", "letvi"), bezKise, razlogBezKise)}
 	case bezKise > 0:
 		izbor["oborina"] = Izbor{Inacica: 2, Opis: "dnevni model računa bez kiše: " + razlogBezKise}
 	}
@@ -794,8 +762,10 @@ func (o *Osvjezivac) Zapisi(ishod *Ishod) error {
 		return err
 	}
 	// Uz izdanje ide zapis za kalibraciju: kojim je modelom izdano, koje su
-	// tuđe prognoze tada bile u rukama i kakvu je kišu dnevni model imao.
-	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor})
+	// tuđe prognoze tada bile u rukama, kakvu je kišu dnevni model imao i
+	// što pri izdavanju nije radilo.
+	v, err := SpremiZapisIzdanja(o.Baza, ZapisIzdanja{Izdano: ishod.Sada, Izbor: ishod.Izbor, Kisa: ishod.Kisa, Cvor: o.Cvor,
+		Upozorenja: ishod.Upozorenja})
 	if err != nil {
 		return fmt.Errorf("zapis o izdanju: %w", err)
 	}
@@ -946,7 +916,7 @@ func ZadnjiZajednicki(nizovi map[Izvor]Niz, vrhovi map[Izvor]bool) (int64, bool)
 // ucitajNiz čita satni niz iz očitanja. Protok se uzima kako je izmjeren, a
 // gdje ga nema računa se iz krivulje — Terezino Polje šalje samo centimetre, a
 // model mu traži kubike. Sate koji letvi nedostaju popuni letva s druge obale
-// (Zamjenske), prije preračuna u protok.
+// (Zamjenske), a dulje rupe susjedi (Rekonstrukcije), prije preračuna u protok.
 func (o *Osvjezivac) ucitajNiz(ctx context.Context, iz Izvor, od time.Time) (Niz, error) {
 	return o.ucitajNizZ(ctx, iz, od, true)
 }
@@ -969,10 +939,8 @@ func (o *Osvjezivac) ucitajNizZ(ctx context.Context, iz Izvor, od time.Time, zam
 	if err != nil {
 		return Niz{}, err
 	}
-	if druga, ima := DrugaObala(iz.Letva); ima && zamjena {
-		if drugo, err := o.ucitajSirovo(ctx, druga, od); err == nil {
-			PopuniSirovo(sirovo, drugo)
-		}
+	if zamjena {
+		o.popuniRupe(ctx, iz.Letva, sirovo, od)
 	}
 	vrijednosti := map[int64]float64{}
 	for sat, s := range sirovo {
@@ -1051,8 +1019,13 @@ func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
 }
 
 // KrivuljaZa bira krivulju koja vrijedi u zadanom trenutku.
+//
+// Dan valjanosti krivulje je zagrebački dan, kao i na stranicama: prognoza je
+// dosad dan računala po UTC-u, pa je u prvom satu dana kad počinje nova
+// krivulja (ljeti u prva dva sata) uzimala prethodnu. Na Donjem Miholjcu od
+// 2017. to su bile tri satne vrijednosti (mjereno 13. 10. 2026.).
 func KrivuljaZa(krivulje []models.HQKrivulja, kad time.Time) *models.HQKrivulja {
-	d := kad.Format("2006-01-02")
+	d := kad.In(models.Zagreb).Format("2006-01-02")
 	for i := range krivulje {
 		k := &krivulje[i]
 		if k.VrijediOd <= d && (k.VrijediDo == "" || d <= k.VrijediDo) {

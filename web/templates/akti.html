@@ -8,13 +8,13 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "file-text"}} Rješenja i obavijesti</h1>
-    <p class="page-desc">Akti o uspostavi i prekidu stupnjeva obrane, po vodomjeru i branjenom području. Nacrt se sastavi u
-      programu, ovjeri ga tko ga po stupnju donosi, pa se ispiše kao PDF. Ovjerene akte vide svi.</p>
+    <p class="page-desc">Akti o uspostavi i prekidu stupnjeva obrane, po vodomjeru i branjenom području. Nacrt sastavlja
+      Centar obrane od poplava, ovjeri ga tko ga po stupnju donosi, pa se ispiše kao PDF. Ovjerene akte vide svi.</p>
   </div>
   <div class="page-actions">
     <a href="/akti/spranca{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-secondary">{{icon "file-text"}} Špranca</a>
     <a href="/akti/primatelji{{if .Filtar.Sektor}}?sektor={{.Filtar.Sektor}}{{end}}" class="btn btn-secondary">{{icon "users"}} Primatelji</a>
-    <a href="/akti/novi" class="btn btn-primary">{{icon "plus"}} Novi akt</a>
+    {{if .SmijeSastavljati}}<a href="/akti/novi" class="btn btn-primary">{{icon "plus"}} Novi akt</a>{{end}}
   </div>
 </div>
 
@@ -42,9 +42,12 @@
     <thead><tr><th>Oznaka</th><th>Akt</th><th>Vodomjer</th><th>BP</th><th>Dionice</th><th>Vrijedi od</th><th>Ovjera</th><th></th></tr></thead>
     <tbody>
     {{range .Akti}}
-    <tr{{if not .Ovjeren}} class="mts-prazno"{{end}}>
+    {{$sukob := index $.Sukobi .ID}}
+    <tr{{if and $sukob.Ima (not $sukob.Rijesen)}} class="akt-sukob"{{else if not .Ovjeren}} class="mts-prazno"{{end}}>
       <td class="mono">{{.Oznaka}}</td>
-      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a>{{if .IzvanSnage}}<div class="reg-card-sub">{{.IzvanSnage}}</div>{{end}}</td>
+      <td><a href="/akti/{{.ID}}"><strong>{{.Vrsta}}</strong> o {{.RadnjaLabel}} {{.Predmet}}</a>{{if .IzvanSnage}}<div class="reg-card-sub">{{.IzvanSnage}}</div>{{end}}
+        {{range $sukob.Drugi}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} ista oznaka kao akt <a href="/akti/{{.ID}}">{{.StationName}}, {{.Vrsta}} o {{.RadnjaLabel}} {{.Predmet}}</a>{{if $sukob.IzvanPopisa .}} u drugoj ovjeri{{end}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}
+        {{range $sukob.Ovjere}}<div class="{{if $sukob.Rijesen}}reg-card-sub{{else}}akt-sukob-tekst{{end}}">{{icon "triangle-alert"}} isti nacrt ovjeren je i kao {{.Oznaka}}, kod {{.OvjeraKod}}{{with .Cvor}}, čvor {{.}}{{end}}{{if .Storniran}}, poništen{{end}}{{if $sukob.Rijesen}} · riješeno{{else}} · čeka odluku{{end}}</div>{{end}}</td>
       <td>{{.StationName}}{{if .VodostajCm}} <span class="reg-card-sub">{{intOf .VodostajCm}} cm</span>{{end}}</td>
       <td>{{.AreaID}}</td>
       <td class="mono">{{join .Sifre ", "}}</td>
@@ -57,7 +60,7 @@
   </table>
 </div></div>
 {{else}}
-<div class="reg-empty">Nema akata za taj izbor. Novi akt sastavlja se s vodomjera: gumb "Novi akt" ili na stranici očitanja letve.</div>
+<div class="reg-empty">Nema akata za taj izbor. Nacrt akta sastavlja Centar obrane od poplava (voditelj, zamjenik ili dežurni operater), s vodomjera: gumb "Novi akt" ili "Proglasi / prekini" na stranici očitanja letve.</div>
 {{end}}
 {{end}}
 

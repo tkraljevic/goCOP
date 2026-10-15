@@ -24,7 +24,6 @@ import (
 	"gocop/internal/db"
 	"gocop/internal/hidroview"
 	"gocop/internal/imecvora"
-	"gocop/internal/importer/bp16"
 	"gocop/internal/importer/csvlevels"
 	"gocop/internal/importer/ugovor"
 	"gocop/internal/javnivodostaji"
@@ -37,13 +36,12 @@ import (
 	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/service"
-	"gocop/internal/weather"
 	"gocop/internal/web"
 )
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.34-alfa"
+const verzijaPrograma = "0.0.38-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -96,44 +94,39 @@ func cekajZatvaranjeUlaza(ulaz io.Reader, stop chan<- os.Signal) {
 // zastavice su zastavice naredbenog retka; zadane kaže koje su doista upisane
 // (za -podaci i -pakete zadano nije prazno, pa se samo tako zna)
 type zastavice struct {
-	configPath         string
-	addr               string
-	db                 string
-	arhiva             string
-	skenovi            string
-	podaci             string
-	paketi             string
-	node               string
-	name               string
-	syncPort           int
-	pairPort           int
-	discoveryPort      int
-	autoSync           string
-	bp16Objekti        bool
-	importBP16         bool
-	importBP16Journals bool
-	importBP16Obilasci bool
-	importBP16Prijave  bool
-	bp16Dir            string
-	directusEnv        string
-	csvFile            string
-	csvHour            int
-	csvOrigin          string
-	csvSkip            string
-	csvLinks           string
-	csvQuality         string
-	csvDerived         string
-	csvMethod          string
-	csvWrite           bool
-	contractFile       string
-	contractLinks      string
-	contractAllItems   bool
-	ponistiLozinku     string
-	aktivirajRacun     bool
-	ispisiIzdanje      bool
-	podPostavom        bool
-	pripremi           bool
-	zadane             map[string]bool
+	configPath       string
+	addr             string
+	db               string
+	arhiva           string
+	skenovi          string
+	podaci           string
+	paketi           string
+	node             string
+	name             string
+	syncPort         int
+	pairPort         int
+	discoveryPort    int
+	autoSync         string
+	zastaviceBP16    // privremeno, uvoz_bp16.go
+	csvFile          string
+	csvHour          int
+	csvOrigin        string
+	csvSkip          string
+	csvLinks         string
+	csvQuality       string
+	csvDerived       string
+	csvMethod        string
+	csvWrite         bool
+	contractFile     string
+	contractLinks    string
+	contractAllItems bool
+	ponistiLozinku   string
+	aktivirajRacun   bool
+	ispisiIzdanje    bool
+	podPostavom      bool
+	pripremi         bool
+	noviKljucCvora   bool
+	zadane           map[string]bool
 }
 
 // procitajZastavice čita zastavice naredbenog retka (bez imena programa)
@@ -155,13 +148,7 @@ func procitajZastavice(args []string) (zastavice, error) {
 	fs.IntVar(&z.pairPort, "pair-port", -1, "Port uparivanja")
 	fs.IntVar(&z.discoveryPort, "discovery-port", -1, "UDP port pronalaženja na lokalnoj mreži (0 isključuje)")
 	fs.StringVar(&z.autoSync, "auto-sync", "", "Razmak automatske sinkronizacije, npr. 5m (0 isključuje)")
-	fs.BoolVar(&z.bp16Objekti, "bp16-objekti", false, "Uvoz BP16: stvori crpne stanice i ustave koje registar nema i veži ih na letve istog imena")
-	fs.BoolVar(&z.importBP16, "import-bp16", false, "Uvezi očitanja vodostaja iz Directus evidencije VGI Baranja i završi")
-	fs.BoolVar(&z.importBP16Journals, "import-bp16-dnevnici", false, "Uvezi evidencije radova A.02 i A.03 iz Directusa kao rekonstruirane dnevnike (bez -upisi samo izvješće)")
-	fs.BoolVar(&z.importBP16Obilasci, "import-bp16-obilasci", false, "Uvezi obilaske terena iz Directusa kao zadatke vodočuvara i rekonstruirane dnevne listove (bez -upisi samo izvješće)")
-	fs.BoolVar(&z.importBP16Prijave, "import-bp16-prijave", false, "Uvezi obavijesti s terena (izvješća, prijave, obavijesti, zahtjevi vodočuvara) iz Directusa kao rekonstruirane prijave s terena (bez -upisi samo izvješće)")
-	fs.StringVar(&z.bp16Dir, "bp16-dir", "", "Uvoz iz ranije skinutih JSON datoteka umjesto iz Directusa")
-	fs.StringVar(&z.directusEnv, "directus-env", "", "Datoteka s DIRECTUS_URL i DIRECTUS_TOKEN (zadano ~/.config/gocop/directus.env)")
+	z.dodajZastaviceBP16(fs)
 	fs.StringVar(&z.csvFile, "tablica", "", "Tablica dnevnih vodostaja (CSV): stupci su postaje, redci datumi")
 	fs.IntVar(&z.csvHour, "tablica-sat", 7, "Sat jutarnjeg očitanja u tablici")
 	fs.StringVar(&z.csvOrigin, "tablica-izvor", "", "Odakle tablica potječe, npr. \"COP Osijek — dnevna tablica\"")
@@ -179,6 +166,7 @@ func procitajZastavice(args []string) (zastavice, error) {
 	fs.BoolVar(&z.ispisiIzdanje, "version", false, "Ispiši izdanje (\"goCOP 0.0.x-alfa\") i završi")
 	fs.BoolVar(&z.podPostavom, "upravitelj", false, "Čvor pod Postavom: uredno se gasi kad mu se zatvori standardni ulaz")
 	fs.BoolVar(&z.pripremi, "pripremi", false, "Zapiši gocop.toml uz bazu s imenom čvora (-node) prije prvog pokretanja i završi; postojeće ime se ne mijenja")
+	fs.BoolVar(&z.noviKljucCvora, peers.ZastavicaNovogKljuca, false, "Postojećoj bazi bez ključa čvora (node-key) izričito dopusti novi ključ, dakle novi identitet u mreži; samo za jedno pokretanje")
 	if err := fs.Parse(args); err != nil {
 		return z, err
 	}
@@ -248,12 +236,13 @@ func odrediPostavke(z *zastavice) (cfg config.Config, cfgFrom, imeIzDatoteke str
 
 // Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež
 // čvor izabere sam (ime računala i četiri nasumična znaka). Postojeća
-// baza bez upisanog imena zadržava dosadašnje zadano ime gocop-cvor:
-// pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
+// baza bez upisanog imena (npr. kad je gocop.toml premješten) uzima ime pod
+// kojim pamti ključ ovog čvora, a kad ga ne zna, dosadašnje zadano ime
+// gocop-cvor: pod njim su njezini zapisi. Ime se nikad ne mijenja samo.
 func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 	if cfg.Node.ID == "" {
 		if _, err := os.Stat(cfg.DB); err == nil {
-			cfg.Node.ID = imecvora.Stari
+			cfg.Node.ID = imeIzBaze(cfg.DB)
 		} else {
 			racunalo, _ := os.Hostname()
 			cfg.Node.ID = imecvora.Nasumicno(racunalo)
@@ -264,6 +253,21 @@ func odrediImeCvora(cfg *config.Config) (noviIme bool) {
 		log.Printf("Ime čvora %q: %v", cfg.Node.ID, err)
 	}
 	return noviIme
+}
+
+// imeIzBaze je ime postojećeg čvora kojemu postavke ime nemaju: ime pod
+// kojim baza pamti ključ iz node-key, a kad ga ne zna ili se ne da
+// pročitati, staro zadano gocop-cvor
+func imeIzBaze(dbPath string) string {
+	ime, err := peers.ImeIzBaze(dbPath)
+	if err != nil {
+		log.Printf("Ime čvora: u bazi %s ne može se pročitati pod kojim imenom zna ključ čvora: %v", dbPath, err)
+	}
+	if ime == "" {
+		return imecvora.Stari
+	}
+	log.Printf("Ime čvora %s pročitano iz baze: pod tim imenom baza zna ključ ovog čvora (%s)", ime, peers.KeyFileName)
+	return ime
 }
 
 // Uvoz tablice vodostaja. Bez -upisi je samo izvješće: koje su postaje
@@ -339,243 +343,25 @@ func uveziUgovor(z zastavice, users *service.UserService, deps ugovor.Deps) {
 	}
 }
 
-// ovisnostiUvozaBP16 su baza, knjiga, čvor i repozitoriji koje uvoz iz BP16
-// (Directus evidencija VGI Baranja) čita i piše
-type ovisnostiUvozaBP16 struct {
-	baza         *sql.DB
-	knjiga       *ledger.Recorder
-	cvor         *peers.Node
-	dnevnici     *repository.JournalRepository
-	odrzavanje   *repository.MaintenanceRepository
-	organizacija *repository.OrgRepository
-	ocitanja     *repository.ReadingRepository
-	postaje      *repository.StationRepository
-	objekti      *repository.StructureRepository
-	korisnici    *repository.UserRepository
-	djelatnici   *service.UserService
-	vode         *repository.WatercourseRepository
-	karta        web.KartaPostavke // za PDF rekonstruiranih prijava
-}
-
-// uveziBP16 je zaseban način rada: uveze iz Directusa (ili ranije skinutih
-// datoteka) i završi. Tijelo je premješteno iz main bez izmjena, pa ovisnosti
-// nose ista imena kao ondje.
-func uveziBP16(z zastavice, o ovisnostiUvozaBP16) int {
-	src := izvorBP16(z)
-	switch {
-	case z.importBP16Prijave:
-		return uveziPrijaveBP16(z, o, src)
-	case z.importBP16Obilasci:
-		return uveziObilaskeBP16(z, o, src)
-	case z.importBP16Journals:
-		return uveziDnevnikeBP16(z, o, src)
-	}
-	return uveziLetveBP16(z, o, src)
-}
-
-// izvorBP16 je Directus (adresa i ključ iz directus.env) ili mapa s ranije
-// skinutim datotekama (-bp16-mapa)
-func izvorBP16(z zastavice) bp16.Source {
-	var src bp16.Source
-	if z.bp16Dir != "" {
-		src = bp16.DirSource{Dir: z.bp16Dir}
-	} else {
-		envPath := z.directusEnv
-		if envPath == "" {
-			home, _ := os.UserHomeDir()
-			envPath = filepath.Join(home, ".config", "gocop", "directus.env")
-		}
-		httpSrc, err := bp16.LoadEnv(envPath)
-		if err != nil {
-			log.Fatalf("Uvoz BP16: %v", err)
-		}
-		src = httpSrc
-	}
-	return src
-}
-
-// uveziPrijaveBP16 rekonstruira prijave s terena iz stare evidencije
-func uveziPrijaveBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
-	database, recorder, node, orgRepo, userRepo, userService := o.baza, o.knjiga, o.cvor, o.organizacija, o.korisnici, o.djelatnici
-	httpSrc, _ := src.(bp16.HTTPSource)
-	korisnici := map[string]bp16.KorisnikUvoza{}
-	if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
-		for _, u := range svi {
-			k := bp16.KorisnikUvoza{ID: u.ID.String(), Ime: u.FullName, Sektor: "B"}
-			korisnici[u.FullName] = k
-		}
-	}
-	var datoteka func(ctx context.Context, id, upit string) ([]byte, error)
-	if httpSrc.URL != "" {
-		datoteka = httpSrc.Asset
-	}
-	rep, err := bp16.RunPrijave(context.Background(), src, bp16.PrijaveDeps{
-		Prijave: repository.NewPrijavaRepository(database, recorder), Korisnici: korisnici,
-		Podrucja: map[string]int{"KARAŠICA SEKTOR": 16, "DRAVSKI SEKTOR": 34, "DUNAVSKI SEKTOR - SJEVER": 34, "DUNAVSKI SEKTOR - JUG": 34},
-		Sektor:   "B", Cvor: node.ID, Datoteka: datoteka, DryRun: !z.csvWrite, Log: log.Printf,
-		// uvezene prijave: PDF iz podataka nosi slike, pa se izvorne ne čuvaju;
-		// skenovi potpisanih ispisa ostaju u staroj evidenciji
-		SlikeOdmah: true,
-		IzradiPDF: func(p *models.PrijavaSTerena, slike map[string][]byte) []byte {
-			var sek *models.Sector
-			if sektori, err := userService.ListSectors(); err == nil {
-				for i := range sektori {
-					if sektori[i].ID == p.Sektor {
-						sek = &sektori[i]
-					}
-				}
-			}
-			area, _ := orgRepo.GetArea(context.Background(), p.AreaID)
-			return web.PDFPrijaveRekonstrukcija(context.Background(), p, slike, sek, area, o.karta)
-		},
-	})
-	if err != nil {
-		log.Fatalf("Uvoz prijava nije uspio: %v (do greške %s)", err, rep.Summary())
-	}
-	log.Printf("Uvoz prijava s terena: %s", rep.Summary())
-	for k, n := range rep.PoKorisniku {
-		log.Printf("  %s: %d", k, n)
-	}
-	for k, n := range rep.PoPodrucju {
-		log.Printf("  %s: %d", k, n)
-	}
-	for k, n := range rep.Nepoznati {
-		log.Printf("  nepoznato %q: %d", k, n)
-	}
-	if rep.DryRun {
-		log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih prijava.")
-	}
-	return 0
-}
-
-// uveziObilaskeBP16 uveze zadatke i rekonstruirane listove obilazaka
-func uveziObilaskeBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
-	database, recorder, node, orgRepo, userRepo := o.baza, o.knjiga, o.cvor, o.organizacija, o.korisnici
-	httpSrc, _ := src.(bp16.HTTPSource)
-	korisnici := korisniciObilazaka(userRepo)
-	var datoteka func(ctx context.Context, id, upit string) ([]byte, error)
-	if httpSrc.URL != "" {
-		datoteka = httpSrc.Asset
-	}
-	meteo := meteoObilazaka(orgRepo)
-	rep, err := bp16.RunObilasci(context.Background(), src, bp16.ObilasciDeps{
-		Vodocuvar: repository.NewVodocuvarRepository(database, recorder),
-		Korisnici: korisnici, Sektor: "B", Cvor: node.ID, Datoteka: datoteka,
-		SamoArhivirane: true, Meteo: meteo, DryRun: !z.csvWrite, Log: log.Printf,
-	})
-	if err != nil {
-		log.Fatalf("Uvoz obilazaka nije uspio: %v (do greške %s)", err, rep.Summary())
-	}
-	log.Printf("Uvoz obilazaka: %s", rep.Summary())
-	for k, n := range rep.Nepoznati {
-		log.Printf("  nepoznato %q: %d", k, n)
-	}
-	if rep.DryRun {
-		log.Printf("Ništa nije upisano. Dodajte -upisi za upis zadataka i rekonstruiranih listova.")
-	}
-	return 0
-}
-
-// korisniciObilazaka su vodočuvari po imenu iz stare evidencije, s područjem
-// na kojem su obilazili
-func korisniciObilazaka(userRepo *repository.UserRepository) map[string]bp16.KorisnikUvoza {
-	korisnici := map[string]bp16.KorisnikUvoza{}
-	if svi, err := userRepo.ListUsers("", 0, "", "", ""); err == nil {
-		for _, u := range svi {
-			k := bp16.KorisnikUvoza{ID: u.ID.String(), Ime: u.FullName, Sektor: "B"}
-			// područje iz glavne dužnosti, pa iz bilo koje; i neaktivna
-			// vrijedi, jer umirovljeni vodočuvar ima povijest na području
-			// koje mu je zaduženje nosilo
-			for _, d := range u.Duties {
-				if d.IsPrimary && d.AreaID != nil && *d.AreaID > 0 {
-					k.AreaID = *d.AreaID
-					break
-				}
-			}
-			for _, d := range u.Duties {
-				if k.AreaID == 0 && d.AreaID != nil && *d.AreaID > 0 {
-					k.AreaID = *d.AreaID
-				}
-			}
-			if k.AreaID == 0 {
-				k.AreaID = userRepo.PodrucjeDuznosti(context.Background(), u.ID.String())
-			}
-			korisnici[u.FullName] = k
-		}
-	}
-	return korisnici
-}
-
-// meteoObilazaka je vrijeme za dane kojih stara evidencija nema: arhiva
-// Open-Meteo, po koordinatama branjenog područja
-func meteoObilazaka(orgRepo *repository.OrgRepository) func(ctx context.Context, dan time.Time) string {
-	return func(ctx context.Context, dan time.Time) string {
-		a, err := orgRepo.GetArea(ctx, 16)
-		if err != nil || a == nil || !a.ImaKoordinate() {
-			return ""
-		}
-		dnevno, err := (&weather.Client{}).Fetch(ctx, a.Latitude, a.Longitude, dan, 12)
-		if err != nil || dnevno == nil {
-			return ""
-		}
-		return strings.ReplaceAll(fmt.Sprintf("%.0f°C, vjetar %.0f–%.0f m/s, tlak %.0f hPa, oborine %.1f mm · Open-Meteo, naknadno",
-			dnevno.Temperature, dnevno.WindFrom, dnevno.WindTo, dnevno.Pressure, dnevno.Precipitation), ".", ",")
-	}
-}
-
-// uveziDnevnikeBP16 rekonstruira dnevnike iz stare evidencije
-func uveziDnevnikeBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
-	journalRepo, maintenanceRepo, structureRepo, userService, watercourseRepo := o.dnevnici, o.odrzavanje, o.objekti, o.djelatnici, o.vode
-	areas, err := userService.ListAreas("")
-	if err != nil {
-		log.Fatalf("Uvoz dnevnika: %v", err)
-	}
-	rep, err := bp16.RunJournals(context.Background(), src, bp16.JournalDeps{
-		Journals: journalRepo, Maintenance: maintenanceRepo, Waters: watercourseRepo, Structures: structureRepo,
-		Areas: areas, AreaID: 16, DryRun: !z.csvWrite, Log: log.Printf,
-	})
-	if err != nil {
-		log.Fatalf("Uvoz dnevnika nije uspio: %v (do greške %s)", err, rep.Summary())
-	}
-	log.Printf("Uvoz dnevnika: %s", rep.Summary())
-	for _, l := range rep.NewLocations {
-		log.Printf("  nova lokacija: %s", l)
-	}
-	for k, n := range rep.PerYear {
-		log.Printf("  %s: %d upisa", k, n)
-	}
-	if rep.NoUser > 0 {
-		log.Printf("  upisa bez poznatog upisivača: %d", rep.NoUser)
-	}
-	if rep.DryRun {
-		log.Printf("Ništa nije upisano. Dodajte -upisi za upis rekonstruiranih dnevnika.")
-	}
-	return 0
-}
-
-// uveziLetveBP16 uveze očitanja letvi (i po želji objekte) iz stare evidencije
-func uveziLetveBP16(z zastavice, o ovisnostiUvozaBP16, src bp16.Source) int {
-	readingRepo, stationRepo, structureRepo := o.ocitanja, o.postaje, o.objekti
-	rep, err := bp16.Run(context.Background(), src, bp16.Deps{
-		Readings: readingRepo, Stations: stationRepo, Structures: structureRepo, Log: log.Printf,
-		DryRun: !z.csvWrite, StvoriObjekte: z.bp16Objekti,
-	})
-	if err != nil {
-		log.Fatalf("Uvoz BP16 nije uspio: %v (do greške %s)", err, rep.Summary())
-	}
-	log.Printf("Uvoz BP16 gotov: %s", rep.Summary())
-	return 0
-}
-
 // zapisiPrimjerPostavki: pri prvom pokretanju zapiše gocop.toml s
-// komentarima; inače upiše ime čvora koje datoteka nije imala
+// komentarima; inače upiše ime čvora koje datoteka nije imala. Uz
+// postojeću bazu gocop.toml se ne zapisuje. Primjer gocop.toml.primjer, s
+// opisima ove inačice, zapiše se uvijek.
 func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, noviIme, imeIzZastavice bool) {
 	// Pri prvom pokretanju zapiši datoteku s komentarima da korisnik ima što urediti
 	// Primjer nosi ZADANE vrijednosti, ne one iz zastavica ovog pokretanja —
 	// zastavica je za jedan put, datoteka je za uvijek; jedino identifikator
 	// čvora ide iz pokretanja jer se nakon uparivanja ne smije mijenjati.
 	examplePath := filepath.Join(filepath.Dir(cfg.DB), config.FileName)
-	if cfgFrom == "" {
+	_, bazaPostoji := os.Stat(cfg.DB)
+	switch {
+	case cfgFrom == "" && bazaPostoji == nil:
+		// Postojeći čvor bez postavki: datoteka je premještena ili
+		// izgubljena (Unraid, 5. 10. 2026.). Primjer bi tiho zamijenio
+		// izvorne postavke, pa se ne zapisuje.
+		log.Printf("Postavke: nema %s, a baza %s već postoji. Primjer se ne zapisuje, da ne zamijeni izvorne postavke; čvor %s radi sa zadanim postavkama i zastavicama pokretanja. Vratite izvornu datoteku iz sigurnosne kopije ili s diska na koji je premještena pa ponovno pokrenite čvor.",
+			examplePath, cfg.DB, cfg.Node.ID)
+	case cfgFrom == "":
 		example := config.Default()
 		example.Node.ID = cfg.Node.ID
 		if written, err := config.WriteExample(examplePath, example); err != nil {
@@ -583,7 +369,7 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 		} else if written {
 			log.Printf("Postavke: zapisan primjer %s — uredite ga i ponovno pokrenite", examplePath)
 		}
-	} else {
+	default:
 		log.Printf("Postavke: čitane iz %s", cfgFrom)
 		// ime koje datoteka nije imala (izabrano sada ili zadano zastavicom)
 		// mora preživjeti ponovno pokretanje bez zastavice
@@ -596,11 +382,18 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 	if noviIme {
 		log.Printf("Novi čvor dobio je ime %s (upisano u postavke; ne mijenja se)", cfg.Node.ID)
 	}
+	// Primjer s opisima ove inačice ide uz bazu i kad gocop.toml postoji:
+	// postojeća datoteka se ne dira, pa bi nadograđeni čvor inače ostao sa
+	// starim opisima. Program ga ne čita.
+	if _, err := config.ZapisiPrimjer(filepath.Dir(cfg.DB)); err != nil {
+		log.Printf("Postavke: %s nije zapisan: %v", config.PrimjerFileName, err)
+	}
 }
 
 // otvoriBazu otvori bazu (WAL) i shemu, spremište sadržaja uz nju (s
-// preseljenjem starog sadržaja) i upiše početne podatke. Kad vrati grešku uz
-// otvorenu bazu, pozivatelj je zatvara kao i inače.
+// preseljenjem starog sadržaja i fotografijama dnevnih listova) i upiše
+// početne podatke. Kad vrati grešku uz otvorenu bazu, pozivatelj je zatvara
+// kao i inače.
 func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	// 1. Otvaranje SQLite baze u WAL modu
 	database, err := db.OpenDB(dbPath)
@@ -627,6 +420,7 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	} else if n > 0 {
 		log.Printf("Preseljeno u spremište sadržaja: %d datoteka, %.1f MB", n, float64(bajtova)/1e6)
 	}
+	popraviPrilogeListova(context.Background(), database)
 	if st, err := spremiste.Stanje(context.Background()); err == nil {
 		log.Printf("Spremište sadržaja: %d sadržaja, %.1f MB, %d za dohvat", st.Sadrzaja, float64(st.Bajtova)/1e6, st.Zeljenih)
 	}
@@ -700,6 +494,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	discoveryPort := &cfg.Sync.DiscoveryPort
 	autoSyncValue := cfg.AutoSyncDuration()
 	autoSync := &autoSyncValue
+
+	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
+	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
+	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
+	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
+	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {
+		return odbijPokretanje(ctx, z.podPostavom, cfg.Addr, err, ulaz)
+	}
 
 	zapisiPrimjerPostavki(cfg, cfgFrom, imeIzDatoteke, noviIme, z.node != "")
 
@@ -785,21 +587,18 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	if ulogeErr != nil {
 		log.Printf("Uloge čvora nisu pročitane: %v", ulogeErr)
 	}
-	peersService.SetWantsAll(cfg.Sync.All)
+	postaviRazmjenu(peersService, cfg)
 	peersService.SetSpremiste(spremiste)
 	var razmjenaArh *razmjenaArhive // arhiva razmjenom; postavlja se kad je poznato gdje arhiva stoji
 	peersService.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
-		primateljPrognoze.primi(versions)
-		if razmjenaArh != nil {
-			razmjenaArh.primljeno(versions)
-		}
-		return repository.ApplyVersions(ctx, database, recorder, versions)
+		return primljeno(ctx, database, recorder, razmjenaArh, versions)
 	})
 	// Površina se pri pokretanju obnovi iz knjige, da zapela primjena s
 	// prethodne razmjene ne ostavi čvor sa starim stanjem
 	if n, err := repository.ReplaySurface(context.Background(), database, recorder); err != nil {
 		log.Printf("Obnova površine iz knjige (%d zapisa): %v", n, err)
 	}
+	obnoviPovrsinu(context.Background(), database, recorder)
 
 	userRepo := repository.NewUserRepository(database, recorder)
 	sessionRepo := repository.NewSessionRepository(database)
@@ -832,6 +631,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	maintenanceService := service.NewMaintenanceService(maintenanceRepo, watercourseRepo, structureRepo)
 	journalRepo := repository.NewJournalRepository(database, recorder)
 	journalService := service.NewJournalService(journalRepo, stationRepo, readingRepo)
+	// tko je bio poslovođa izvođača, u dnevnicima usluga ostaje izvođač
+	journalService.SetImaoUlogu(userService.ImaoUlogu)
 	obracunRepo := repository.NewObracunRepository(database, recorder)
 	if err := obracunRepo.Osiguraj(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
 		log.Printf("Postavke obračuna sati nisu dopunjene: %v", err)
@@ -858,8 +659,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		return 0
 	}
 
-	// Uvoz iz Directusa je zaseban način rada: uveze i završi
-	if z.importBP16 || z.importBP16Journals || z.importBP16Prijave || z.importBP16Obilasci {
+	// Uvoz iz Directusa je zaseban način rada: uveze i završi (privremeno,
+	// uvoz_bp16.go)
+	if z.trazenUvozBP16() {
 		return uveziBP16(z, ovisnostiUvozaBP16{
 			baza: database, knjiga: recorder, cvor: node,
 			dnevnici: journalRepo, odrzavanje: maintenanceRepo, organizacija: orgRepo,
@@ -922,6 +724,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetDrugiKorak(drugiKorak)
 	vodocuvarService := service.NewVodocuvarService(repository.NewVodocuvarRepository(database, recorder), userService, node.ID)
 	vodocuvarService.SetOrg(orgRepo)
+	// rukovoditelj dionice zadaje zadatke vodočuvaru samo dok traje obrana
+	vodocuvarService.SetStanjaObrane(aktService.StanjaSektora)
+	vodocuvarService.SetDionice(sectionRepo)
+	// prijava pokazuje na dionice objekta koji navodi
+	vodocuvarService.SetObjekti(structureRepo)
 	vodocuvarService.SetRadnoVrijeme(func(ctx context.Context) (string, string) {
 		rv, err := obracunRepo.RadnoVrijeme(ctx)
 		if err != nil {
@@ -932,6 +739,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetVodocuvar(vodocuvarService, orgRepo)
 	// akti samo u aktivnoj obrani (otvoren dnevnik COP-a), a ovjereni idu u dnevnike
 	aktService.SetObrana(journalService.AktivnaObrana, service.NewObjavaAkta(journalService, vodocuvarService).Objavi)
+	aktService.SetPocetakObrane(journalService.PocetakAktivneObrane)
 	prijavaService := service.NewPrijavaService(repository.NewPrijavaRepository(database, recorder), userService, vodocuvarService, node.ID)
 	prijavaService.SetOpcije(aktService.Opcije)
 	server.SetPrijave(prijavaService)
@@ -966,7 +774,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPotpis(potpisService)
 	}
 	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
-	zid.SetStanjaSektora(aktService.StanjaSektora)
+	postaviZid(zid, aktService, prijavaService)
 	server.SetZid(zid)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže
@@ -977,7 +785,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	postaviTailscale(server, cfg)
 	server.SetPodPostavom(z.podPostavom)
+	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
+	ponovno := make(chan struct{}, 1)
+	server.SetPonovnoPokretanje(nacinRada(z.podPostavom, os.Getenv, postojiDatoteka, os.Getppid()), zatraziPonovno(ponovno))
 	skenovi := cfg.Skenovi
 	if skenovi == "" {
 		skenovi = filepath.Join(filepath.Dir(*dbPath), "skenovi")
@@ -987,12 +799,6 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Hidrološka arhiva stoji uz bazu, kao zasebna datoteka. Smije je ne biti:
 	// čvor koji je nije preuzeo radi bez povijesnih nizova, a ne pada.
 	prognozePut := filepath.Join(filepath.Dir(*dbPath), "prognoze.db")
-	if c, err := web.OtvoriPrognoze(prognozePut); err != nil {
-		log.Printf("Baza prognoza nije pronađena (%s) — grafovi rade bez prognoze", prognozePut)
-	} else {
-		server.SetPrognoze(c)
-		log.Printf("Baza prognoza: %s", prognozePut)
-	}
 
 	arhivaPut := cfg.Arhiva
 	if arhivaPut == "" {
@@ -1000,6 +806,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	server.SetPodaciDir(z.podaci)
 	server.SetPaketiDir(z.paketi)
+	// postavke iz gocop.toml u Administraciji, s putanjama koje čvor stvarno koristi
+	postavkeCvora := postavkeZaPosluzitelj(cfg, cfgFrom, z, map[string]string{
+		"db": *dbPath, "arhiva": arhivaPut, "skenovi": skenovi, "podaci": z.podaci, "pakete": z.paketi})
+	server.SetPostavkeCvora(postavkeCvora)
+	javiMapeArhive(postavkeCvora, z.podaci, z.paketi, log.Printf)
 	if arhiva, err := repository.OpenArhiva(arhivaPut); err != nil {
 		log.Printf("Arhiva vodostaja %s: %v", arhivaPut, err)
 	} else if arhiva == nil {
@@ -1019,8 +830,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, z.paketi)
 	go razmjenaArh.vrti(syncCtx)
 	var pbRazmjena *sql.DB // baza prognoza, za pločicu razmjene; postavlja se niže
+	// slobodno mjesto na diskovima čvora; malo mjesta javlja pločica razmjene
+	// i e-pošta osobama koje su ovdje spremile lozinku sandučića
+	nadzorDiska := pokreniNadzorDiska(syncCtx, *dbPath, arhivaPut, z.podaci, z.paketi,
+		func() string { return imeCvora(peersService.Node()) }, aktService.ObavijestiSanducima)
 	server.SetRazmjena(func(ctx context.Context) web.RazmjenaStanje {
-		return stanjeRazmjene(ctx, peersService, recorder, spremiste, razmjenaArh, pbRazmjena)
+		return stanjeRazmjene(ctx, peersService, recorder, spremiste, razmjenaArh, pbRazmjena, nadzorDiska)
 	})
 	if *syncPort > 0 {
 		go func() {
@@ -1057,6 +872,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		podaci: z.podaci, nazivCvora: nazivCvora,
 		ulogePostavljene: ulogePostavljene, ulogeErr: ulogeErr,
 	})
+	// Čitač prognoza dolazi tek sad: veza samo za čitanje bazu koje nema ne
+	// otvori, a pokreniPrognozu je napravi.
+	postaviCitacPrognoza(server, prognozePut)
 	// Letve na Geolux HydroViewu traže prijavu. Račun stoji na ovom čvoru,
 	// šifriran ključem čvora, i traži se pri svakom preuzimanju — tako
 	// promjena lozinke odmah vrijedi, bez ponovnog pokretanja. Letva može
@@ -1105,14 +923,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		}
 	}()
 
-	select {
-	case <-ctx.Done():
-	case <-stop:
-	}
+	kod := cekajKraj(ctx, stop, ponovno)
 	fmt.Println("\nZaustavljanje goCOP poslužitelja...")
 	time.Sleep(500 * time.Millisecond)
 	fmt.Println("goCOP poslužitelj ugašen.")
-	return 0
+	return kod
 }
 
 // opisMreze je redak dnevnika pri pokretanju: u kojoj je mreži čvor i smije
@@ -1156,4 +971,12 @@ func splitPairs(s string) map[string]string {
 		}
 	}
 	return out
+}
+
+// postaviRazmjenu prenosi postavke iz [sync] u razmjenu: prati li čvor sve
+// i smije li razmjena koristiti Tailscale ([sync] tailscale = false: radi
+// kao da Tailscalea nema)
+func postaviRazmjenu(s *peers.Service, cfg config.Config) {
+	s.SetWantsAll(cfg.Sync.All)
+	s.PostaviTailscale(cfg.Sync.Tailscale)
 }

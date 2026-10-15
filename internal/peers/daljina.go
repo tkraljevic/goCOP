@@ -24,6 +24,7 @@ import (
 	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -247,8 +248,11 @@ func kanonPotvrde(raw []byte) ([]byte, error) {
 // potvrdu (JSON za datoteku). sOvlascu mu daje i ovlast da sam prima druge
 // (samo nositelj ključa mreže).
 //
-// Sve provjere (kod, mreža, ovlast, ime) prolaze prije ikakvog upisa:
-// odbijen zahtjev ne ostavlja ni članstvo ni ovlast.
+// Sve provjere (kod, mreža, ovlast, ime) i čitanje popisa čvorova za
+// potvrdu prolaze prije ikakvog upisa, a članstvo i ovlast upisuju se u
+// jednoj transakciji: zahtjev koji ne prođe ne ostavlja ni članstvo ni
+// ovlast. Do 0.0.38 popis se čitao nakon upisa članstva, pa je greška
+// čitanja ostavljala članstvo bez potvrde.
 func (s *Service) PrimiZahtjev(ctx context.Context, raw []byte, kod string, sOvlascu bool) ([]byte, error) {
 	z, kljuc, err := procitajZahtjevSKodom(raw, kod)
 	if err != nil {
@@ -261,11 +265,8 @@ func (s *Service) PrimiZahtjev(ctx context.Context, raw []byte, kod string, sOvl
 		return nil, errors.New("ovaj čvor nije ni u jednoj mreži")
 	}
 	pub, _ := razmjena.ParsePublicKey(z.Kljuc) // ProcitajZahtjev ga je provjerio
-	ovlast, err := ovlastAkoJeTrazena(*network, z.Cvor, pub, s.node.ID, sOvlascu)
+	ovlast, cvorovi, err := s.prijeUpisaPrimljenog(ctx, *network, z.Cvor, pub, sOvlascu)
 	if err != nil {
-		return nil, err
-	}
-	if err := s.provjeriImeDrugog(ctx, z.Cvor, pub); err != nil {
 		return nil, err
 	}
 	m, err := s.izdajClanstvo(ctx, z.Cvor, pub)
@@ -275,16 +276,29 @@ func (s *Service) PrimiZahtjev(ctx context.Context, raw []byte, kod string, sOvl
 	if err := s.upisiPrimljenog(ctx, m, ovlast); err != nil {
 		return nil, err
 	}
-	cvorovi, err := s.cvoroviZaPotvrdu(ctx)
-	if err != nil {
-		return nil, err
-	}
 	p := Potvrda{
 		V: verzijaPotvrde, Mreza: network.Name, KljucMreze: razmjena.PublicKeyString(network.Public),
 		Clanstvo: m, Ovlast: ovlast, Izdao: s.node.ID, Izdano: time.Now().UTC().Truncate(time.Second),
 		Cvorovi: cvorovi, Sol: z.Sol,
 	}
 	return p.potpisanKodom(kljuc), nil
+}
+
+// prijeUpisaPrimljenog su provjere i čitanja koja primanje treba prije
+// upisa: ovlast ako je tražena, ime novog čvora i popis čvorova za potvrdu
+func (s *Service) prijeUpisaPrimljenog(ctx context.Context, network razmjena.NetworkKey, id string, pub ed25519.PublicKey, sOvlascu bool) (*razmjena.Ovlast, []CvorPotvrde, error) {
+	ovlast, err := ovlastAkoJeTrazena(network, id, pub, s.node.ID, sOvlascu)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := s.provjeriImeDrugog(ctx, id, pub); err != nil {
+		return nil, nil, err
+	}
+	cvorovi, err := s.cvoroviZaPotvrdu(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	return ovlast, cvorovi, nil
 }
 
 // procitajZahtjevSKodom je ProcitajZahtjev uz kod za primanje: vraća
@@ -311,15 +325,18 @@ func ovlastAkoJeTrazena(network razmjena.NetworkKey, id string, pub ed25519.Publ
 	return &o, nil
 }
 
-// upisiPrimljenog upisuje članstvo primljenog čvora i, ako je dana, ovlast
+// upisiPrimljenog upisuje članstvo primljenog čvora i, ako je dana, ovlast,
+// u jednoj transakciji: ovlast koja se ne da upisati ne ostavlja članstvo
 func (s *Service) upisiPrimljenog(ctx context.Context, m razmjena.Membership, o *razmjena.Ovlast) error {
-	if err := s.saveMembership(ctx, m); err != nil {
-		return err
-	}
-	if o == nil {
-		return nil
-	}
-	return s.saveOvlast(ctx, *o)
+	return s.uTransakciji(ctx, func(tx *sql.Tx) error {
+		if err := s.upisiClanstvo(ctx, tx, m); err != nil {
+			return err
+		}
+		if o == nil {
+			return nil
+		}
+		return s.upisiOvlast(ctx, tx, *o)
+	})
 }
 
 // kljucAkoKodOdgovara je ključ dokaza iz koda za primanje, ako kod odgovara

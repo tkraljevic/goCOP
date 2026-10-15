@@ -16,6 +16,7 @@ package ledger
 import (
 	"context"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -132,26 +133,60 @@ var ErrNoVersion = errors.New("zapis nema nijednu verziju")
 // Record upisuje novu verziju zapisa u zajednički kanal i vraća njezin
 // identifikator. Poziva se unutar transakcije u kojoj se mijenja i površina.
 func (r *Recorder) Record(ctx context.Context, tx Execer, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, "", entity, entityID, payload, false)
+	return r.write(ctx, tx, "", entity, entityID, payload, false, "")
 }
 
 // RecordIn upisuje novu verziju u zadani kanal
 func (r *Recorder) RecordIn(ctx context.Context, tx Execer, channel, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, channel, entity, entityID, payload, false)
+	return r.write(ctx, tx, channel, entity, entityID, payload, false, "")
 }
 
 // Archive upisuje verziju koja zapis uklanja s površine. Sadržaj se čuva —
 // arhivirani zapis se može vratiti kao i svaka starija verzija.
 func (r *Recorder) Archive(ctx context.Context, tx Execer, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, "", entity, entityID, payload, true)
+	return r.write(ctx, tx, "", entity, entityID, payload, true, "")
 }
 
 // ArchiveIn uklanja zapis s površine, u zadanom kanalu
 func (r *Recorder) ArchiveIn(ctx context.Context, tx Execer, channel, entity, entityID string, payload any) (string, error) {
-	return r.write(ctx, tx, channel, entity, entityID, payload, true)
+	return r.write(ctx, tx, channel, entity, entityID, payload, true, "")
 }
 
-func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entityID string, payload any, archived bool) (string, error) {
+// ArchiveNakon uklanja zapis s površine verzijom koja u poretku stoji odmah
+// iza zadane verzije, ne s današnjim vremenom. Za brisanje koje ponavlja
+// tuđe brisanje (brisanje kanala, Odluke (13. 10. 2026.)): verzija s
+// današnjim vremenom bila bi novija od svega što je drugi čvor u
+// međuvremenu napisao, a ovaj čvor nije primio, pa bi razmjenom obrisala i
+// to. Ovako ima prednost samo pred onim pred čim je prednost imalo i
+// brisanje koje ponavlja.
+func (r *Recorder) ArchiveNakon(ctx context.Context, tx Execer, channel, entity, entityID string, payload any, nakon string) (string, error) {
+	if nakon == "" {
+		return "", fmt.Errorf("brisanje %s/%s: nije zadana verzija iza koje se upisuje", entity, entityID)
+	}
+	return r.write(ctx, tx, channel, entity, entityID, payload, true, nakon)
+}
+
+// oznakaVerzije je oznaka nove verzije: UUIDv7 s današnjim vremenom, a kad
+// je zadana verzija nakon, UUIDv7 s vremenom milisekundu iza nje. Ostatak
+// oznake je slučajan, pa dva čvora koja upišu verziju iza iste verzije ne
+// dobiju istu oznaku.
+func oznakaVerzije(nakon string) (string, error) {
+	id, err := uuid.NewV7()
+	if err != nil || nakon == "" {
+		return id.String(), err
+	}
+	prije, err := uuid.Parse(nakon)
+	if err != nil || prije.Version() != 7 {
+		return "", fmt.Errorf("verzija %s ne nosi vrijeme nastanka, pa se iza nje ne može upisati nova", nakon)
+	}
+	var ms [8]byte
+	copy(ms[2:], prije[:6])
+	binary.BigEndian.PutUint64(ms[:], binary.BigEndian.Uint64(ms[:])+1)
+	copy(id[:6], ms[2:])
+	return id.String(), nil
+}
+
+func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entityID string, payload any, archived bool, nakon string) (string, error) {
 	if strings.TrimSpace(entity) == "" || strings.TrimSpace(entityID) == "" {
 		return "", fmt.Errorf("verzija bez entiteta ili identifikatora")
 	}
@@ -161,7 +196,7 @@ func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entity
 		return "", fmt.Errorf("sadržaj verzije se ne može zapisati: %w", err)
 	}
 
-	id, err := uuid.NewV7()
+	id, err := oznakaVerzije(nakon)
 	if err != nil {
 		return "", err
 	}
@@ -189,12 +224,12 @@ func (r *Recorder) write(ctx context.Context, tx Execer, channel, entity, entity
 		INSERT INTO record_versions (
 			version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel
 		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-	`, id.String(), entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), shema, channel)
+	`, id, entity, entityID, r.nodeID, supersedes, boolInt(archived), string(body), time.Now().UTC(), shema, channel)
 	if err != nil {
 		return "", fmt.Errorf("greška pri upisu verzije %s/%s: %w", entity, entityID, err)
 	}
 
-	return id.String(), nil
+	return id, nil
 }
 
 // Latest vraća verziju koja je na površini za zapis
@@ -228,6 +263,20 @@ func (r *Recorder) LatestOf(ctx context.Context, entities []string) ([]Version, 
 	return r.query(ctx, q+` ORDER BY version_id`, args...)
 }
 
+// Verzije vraća verzije s navedenim identitetima, redom nastanka; identitet
+// kojeg nema u knjizi preskače
+func (r *Recorder) Verzije(ctx context.Context, versionIDs []string) ([]Version, error) {
+	if len(versionIDs) == 0 {
+		return nil, nil
+	}
+	args := make([]any, len(versionIDs))
+	for i, id := range versionIDs {
+		args[i] = id
+	}
+	return r.query(ctx, `SELECT `+columns+` FROM record_versions
+		WHERE version_id IN (?`+strings.Repeat(",?", len(versionIDs)-1)+`) ORDER BY version_id`, args...)
+}
+
 // History vraća sve verzije zapisa, od najnovije prema najstarijoj
 func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Version, error) {
 	return r.query(ctx, `
@@ -237,10 +286,33 @@ func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Vers
 	`, entity, entityID)
 }
 
+// Ispravna javlja da knjiga verziju prima. Neispravna je verzija bez oznake,
+// entiteta ili identifikatora zapisa: ne zna se ni što je ni kamo ide.
+// Razmjena takvu verziju iz svoje knjige ni ne šalje.
+func Ispravna(v Version) bool {
+	return v.VersionID != "" && v.Entity != "" && v.EntityID != ""
+}
+
+// Ispravne dijeli primljene verzije na one koje knjiga prima (Ispravna) i
+// neispravne, redom kojim su stigle.
+func Ispravne(versions []Version) (ispravne, neispravne []Version) {
+	for _, v := range versions {
+		if !Ispravna(v) {
+			neispravne = append(neispravne, v)
+			continue
+		}
+		ispravne = append(ispravne, v)
+	}
+	return ispravne, neispravne
+}
+
 // Apply prima verzije s drugog čvora i upisuje one koje ovaj čvor nema.
 // Idempotentno: isti paket primljen dvaput ne mijenja ništa. Površinu ne
-// dira — nju osvježava sloj koji zna što je koji entitet.
+// dira — nju osvježava sloj koji zna što je koji entitet. Neispravne
+// verzije (Ispravne) preskoči, a ostale upiše; greška baze vrati cijeli
+// paket.
 func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, err error) {
+	versions, _ = Ispravne(versions)
 	if len(versions) == 0 {
 		return 0, nil
 	}
@@ -264,9 +336,6 @@ func (r *Recorder) Apply(ctx context.Context, versions []Version) (applied int, 
 
 	var nove []Version
 	for _, v := range versions {
-		if v.VersionID == "" || v.Entity == "" || v.EntityID == "" {
-			return 0, fmt.Errorf("primljena verzija bez identifikatora ili entiteta")
-		}
 		res, err := stmt.ExecContext(ctx, v.VersionID, v.Entity, v.EntityID, v.NodeID, v.Supersedes,
 			boolInt(v.Archived), string(v.Payload), v.CreatedAt.UTC(), v.SchemaVersion, v.Channel)
 		if err != nil {
@@ -384,19 +453,42 @@ func (r *Recorder) CountByChannel(ctx context.Context) (map[string]int, error) {
 	return out, rows.Err()
 }
 
-// PurgeChannel briše sve verzije jednog kanala s ovog čvora. To nije
-// arhiviranje nego čišćenje mjesta: zapisi ostaju na čvorovima koji kanal
-// prate i vraćaju se razmjenom čim ga ovaj čvor opet zatraži.
-func (r *Recorder) PurgeChannel(ctx context.Context, tx Execer, channel string) (int64, error) {
+// PurgeChannel briše s ovog čvora verzije jednog kanala koje su napisali
+// drugi čvorovi. To nije arhiviranje nego čišćenje mjesta: tuđe verzije ima
+// čvor koji ih je napisao i vraćaju se razmjenom čim ovaj čvor kanal opet
+// zatraži. Vlastite verzije ostaju, jer ih možda još nijedan drugi čvor nije
+// primio (Odluke (13. 10. 2026.)). Tako u knjizi ostaje i najveća vlastita
+// verzija kanala, a drugom autoru kanal nestaje cijeli, pa njegova granica
+// nema rupu iz koje se obrisano ne bi vratilo.
+//
+// Uz obrisi=false verzije se samo prebroje, istim uvjetom: potvrda prije
+// brisanja tako kaže točno ono što brisanje učini. Vraća broj tuđih
+// (obrisanih) i vlastitih verzija kanala.
+func (r *Recorder) PurgeChannel(ctx context.Context, tx Execer, channel string, obrisi bool) (tudjih, vlastitih int, err error) {
 	if channel == "" {
-		return 0, fmt.Errorf("zajednički kanal se ne briše")
+		return 0, 0, fmt.Errorf("zajednički kanal se ne briše")
 	}
-	res, err := tx.ExecContext(ctx, `DELETE FROM record_versions WHERE channel = ?`, channel)
+	const tudje = ` FROM record_versions WHERE channel = ? AND node_id <> ?`
+	if obrisi {
+		tudjih, err = obrisiRetke(ctx, tx, `DELETE`+tudje, channel, r.nodeID)
+	} else {
+		err = tx.QueryRowContext(ctx, `SELECT count(*)`+tudje, channel, r.nodeID).Scan(&tudjih)
+	}
+	if err != nil {
+		return 0, 0, err
+	}
+	err = tx.QueryRowContext(ctx, `SELECT count(*) FROM record_versions WHERE channel = ? AND node_id = ?`, channel, r.nodeID).Scan(&vlastitih)
+	return tudjih, vlastitih, err
+}
+
+// obrisiRetke izvrši brisanje i vrati koliko je redaka obrisano
+func obrisiRetke(ctx context.Context, tx Execer, upit string, args ...any) (int, error) {
+	res, err := tx.ExecContext(ctx, upit, args...)
 	if err != nil {
 		return 0, err
 	}
-	n, _ := res.RowsAffected()
-	return n, nil
+	n, err := res.RowsAffected()
+	return int(n), err
 }
 
 // Since vraća verzije novije od zadane, redom nastanka — to je ono što se
@@ -461,14 +553,17 @@ func (r *Recorder) Delta(ctx context.Context, theirs map[string]string, wants fu
 // bi granica pala i drugi čvorovi bi je slali natrag svaku razmjenu). Čvor
 // koji je dugo šutio može staru verziju poslati natrag; ona uđe u knjigu
 // kao povijest, ne dira površinu, i nestane pri sljedećem sažimanju.
-func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, error) {
-	res, err := r.db.ExecContext(ctx, `
-		DELETE FROM record_versions
-		WHERE created_at < ?
-		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
-		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, olderThan.UTC())
+func (r *Recorder) Compact(ctx context.Context, olderThan time.Time, zadrzi ...ZadrziPo) (int64, error) {
+	return r.CompactOsim(ctx, olderThan, nil, zadrzi...)
+}
+
+// CompactOsim je Compact koji ne dira nijednu verziju zapisa s navedenim
+// oznakama (entity_id): njihova povijest ostaje cijela, npr. dnevni list
+// koji drži dva potpisa. Pravila zadrzi čuvaju i druge verzije entiteta
+// (ZadrziPo).
+func (r *Recorder) CompactOsim(ctx context.Context, olderThan time.Time, cuvaj []string, zadrzi ...ZadrziPo) (int64, error) {
+	uvjet, args := sazimljive(olderThan, cuvaj, zadrzi)
+	res, err := r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE `+uvjet, args...)
 	if err != nil {
 		return 0, fmt.Errorf("sažimanje knjige: %w", err)
 	}
@@ -477,16 +572,43 @@ func (r *Recorder) Compact(ctx context.Context, olderThan time.Time) (int64, err
 }
 
 // Compactable broji verzije koje bi Compact obrisao, za pregled prije radnje
-func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time) (int, error) {
+func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time, zadrzi ...ZadrziPo) (int, error) {
 	var n int
-	err := r.db.QueryRowContext(ctx, `
-		SELECT COUNT(*) FROM record_versions
-		WHERE created_at < ?
+	uvjet, args := sazimljive(olderThan, nil, zadrzi)
+	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM record_versions WHERE `+uvjet, args...).Scan(&n)
+	return n, err
+}
+
+// ZadrziPo je pravilo sažimanja za entitet kojem površina ne ovisi samo o
+// zadnjoj verziji: osim zadnje verzije zapisa ostaje i zadnja verzija svake
+// vrijednosti JSON puta Kljuc u sadržaju (npr. svake ovjere akta, "$.ovjera_kod")
+type ZadrziPo struct {
+	Entity string
+	Kljuc  string
+}
+
+// sazimljive je uvjet za verzije koje sažimanje briše, s argumentima: starije
+// od roka, nisu zadnja verzija zapisa ni zadnja verzija autora u kanalu, nisu
+// verzije zapisa koje se čuvaju cijele (cuvaj), ni zadnja verzija koju čuva
+// neko od pravila zadrzi
+func sazimljive(olderThan time.Time, cuvaj []string, zadrzi []ZadrziPo) (string, []any) {
+	uvjet := `created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, olderThan.UTC()).Scan(&n)
-	return n, err
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)`
+	args := []any{olderThan.UTC()}
+	if len(cuvaj) > 0 {
+		uvjet += ` AND entity_id NOT IN (?` + strings.Repeat(",?", len(cuvaj)-1) + `)`
+		for _, id := range cuvaj {
+			args = append(args, id)
+		}
+	}
+	for _, z := range zadrzi {
+		uvjet += `
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions WHERE entity = ? GROUP BY entity_id, json_extract(payload, ?))`
+		args = append(args, z.Entity, z.Kljuc)
+	}
+	return uvjet, args
 }
 
 // InChannels vraća sve verzije zadanih kanala, redom nastanka — za izvoz u datoteku
@@ -588,27 +710,71 @@ func (r *Recorder) PurgeArchived(ctx context.Context) (int64, error) {
 // zasebno; briše se zapis
 var ErrVazecaVerzija = errors.New("to je važeća verzija zapisa; obrišite sam zapis, ne povijest")
 
+// ErrZapisOBrisanju: verzija je spomenik, zadnja verzija obrisanog zapisa.
+// Bez nje bi zadnja bila starija, živa verzija, pa bi obnova površine i
+// svaki novi čvor obrisani zapis vratili.
+var ErrZapisOBrisanju = errors.New("ovo je zapis o brisanju i ne briše se: bez njega bi se obrisani zapis vratio u program")
+
+// ErrZadnjiUpisCvora: verzija nije zadnja verzija zapisa (noviju je upisao
+// drugi čvor ili je zapis prešao u drugi kanal), ali je najnovija koju njezin
+// autor ima u svom kanalu. Bez nje granica tog autora u kanalu padne, pa bi
+// druga strana obrisanu verziju poslala natrag već sljedećom razmjenom
+// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), 1). Poruku čita uprava
+// na Događanjima, pa kanal kaže riječima: vrsta podataka, područje i godina.
+var ErrZadnjiUpisCvora = errors.New("zapis nije obrisan: to je zadnje što je jedno računalo upisalo u ovu vrstu podataka za ovo područje i godinu, pa bi ga razmjena vratila. Obrisati se može kad to računalo upiše nešto novije iste vrste za isto područje i godinu")
+
+// ErrZadnjiZajednickiUpisCvora je isti razlog za zajednički kanal, koji
+// nema vrstu, područje ni godinu
+var ErrZadnjiZajednickiUpisCvora = errors.New("zapis nije obrisan: to je zadnje što je jedno računalo upisalo u zajedničke podatke, npr. ustroj ili registre, pa bi ga razmjena vratila. Obrisati se može kad to računalo upiše bilo što novije u zajedničke podatke")
+
+// stanjeZaBrisanje kaže je li verzija spomenik, njezin kanal, je li zadnja
+// verzija svog zapisa i zadnja verzija svog autora u svom kanalu (granica
+// razmjene)
+const stanjeZaBrisanje = `SELECT v.archived, v.channel,
+	NOT EXISTS (SELECT 1 FROM record_versions z WHERE z.entity = v.entity AND z.entity_id = v.entity_id AND z.version_id > v.version_id),
+	NOT EXISTS (SELECT 1 FROM record_versions g WHERE g.node_id = v.node_id AND g.channel = v.channel AND g.version_id > v.version_id)
+	FROM record_versions v WHERE v.version_id = ?`
+
 // DeleteVersion briše jednu verziju iz knjige, npr. zapis s oglasne ploče.
-// Zadnja verzija živog zapisa ne briše se, jer bi površina i knjiga
-// ostale neusklađene.
+// Zadnja verzija zapisa ne briše se: kod živog zapisa površina i knjiga bi
+// ostale neusklađene, a bez spomenika bi se obrisani zapis vratio. Ne briše
+// se ni zadnji upis autora u kanalu, jer bi ga razmjena vratila.
 func (r *Recorder) DeleteVersion(ctx context.Context, versionID string) error {
-	var entity, entityID string
-	var archived int
-	err := r.db.QueryRowContext(ctx, `SELECT entity, entity_id, archived FROM record_versions WHERE version_id = ?`, versionID).Scan(&entity, &entityID, &archived)
+	var archived, zadnjaZapisa, zadnjaAutora bool
+	var kanal string
+	err := r.db.QueryRowContext(ctx, stanjeZaBrisanje, versionID).Scan(&archived, &kanal, &zadnjaZapisa, &zadnjaAutora)
 	if err == sql.ErrNoRows {
 		return errors.New("zapis više ne postoji")
 	}
 	if err != nil {
-		return err
+		return fmt.Errorf("čitanje verzije za brisanje: %w", err)
 	}
-	if archived == 0 {
-		var zadnja string
-		if err := r.db.QueryRowContext(ctx, `SELECT MAX(version_id) FROM record_versions WHERE entity = ? AND entity_id = ?`, entity, entityID).Scan(&zadnja); err == nil && zadnja == versionID {
-			return ErrVazecaVerzija
-		}
+	if zadnjaZapisa {
+		return zadnjaVerzijaSeNeBrise(archived)
+	}
+	if zadnjaAutora {
+		return zadnjiUpisSeNeBrise(kanal)
 	}
 	_, err = r.db.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, versionID)
 	return err
+}
+
+// zadnjiUpisSeNeBrise je razlog zašto DeleteVersion odbija zadnji upis
+// autora u kanalu: za zajednički kanal poruka je druga cijela rečenica, jer
+// se rečenica ne slaže od dijelova (pravilo 8 u docs/CODE_QUALITY.md)
+func zadnjiUpisSeNeBrise(kanal string) error {
+	if kanal == "" {
+		return ErrZadnjiZajednickiUpisCvora
+	}
+	return ErrZadnjiUpisCvora
+}
+
+// zadnjaVerzijaSeNeBrise je razlog zašto DeleteVersion odbija zadnju verziju
+func zadnjaVerzijaSeNeBrise(arhivirana bool) error {
+	if arhivirana {
+		return ErrZapisOBrisanju
+	}
+	return ErrVazecaVerzija
 }
 
 // Prorijedi briše verzije jednog entiteta nastale prije zadanog trenutka,

@@ -16,7 +16,6 @@ import (
 // Terenski uređaj drži zadnjih godinu dana: razmjena mu smije donijeti nova
 // očitanja, a povijest od stotinjak godina ne smije.
 func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "teren.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -125,5 +124,17 @@ func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
 	}
 	if n != 2 {
 		t.Fatalf("čvor bez ograde je preuzeo %d očitanja, očekivana 2", n)
+	}
+}
+
+// Stranica pretplata pita koliko mjeseci tuđih očitanja čvor prima; bez
+// ograde je to 0
+func TestMjeseciPovijestiOcitanja(t *testing.T) {
+	t.Cleanup(func() { SetReadingHistoryPolicy(ReadingHistoryPolicy{}) })
+	for _, p := range []struct{ postavljeno, mjeseci int }{{12, 12}, {0, 0}, {-3, 0}} {
+		SetReadingHistoryPolicy(ReadingHistoryPolicy{Months: p.postavljeno})
+		if got := MjeseciPovijestiOcitanja(); got != p.mjeseci {
+			t.Errorf("postavljeno %d mjeseci, pročitano %d", p.postavljeno, got)
+		}
 	}
 }

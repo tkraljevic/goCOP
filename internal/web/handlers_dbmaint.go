@@ -32,6 +32,8 @@ type DBMaintHandler struct {
 	dbPath func() string
 	tmpl   *template.Template
 	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+	// gocop.toml: gdje je, kopije i putanje
+	postavkeCvora izvorPostavki
 }
 
 // SetOpcije daje rukovatelju uvid u opće prekidače
@@ -56,7 +58,7 @@ func (h *DBMaintHandler) HandlePurgeTombstones(w http.ResponseWriter, r *http.Re
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano %d spomenika obrisanih zapisa.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Obrisano: %d %s.", n, models.UzBrojHR(int(n), "spomenik obrisanog zapisa", "spomenika obrisanih zapisa", "spomenika obrisanih zapisa")))
 }
 
 func NewDBMaintHandler(db func() *sql.DB, rec *ledger.Recorder, peersSvc *peers.Service, dbPath func() string, tmpl *template.Template) *DBMaintHandler {
@@ -80,6 +82,7 @@ type DBMaintPageData struct {
 	Journals          int
 	Sessions          int
 	Import            *peers.ImportReport
+	Postavke          *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -113,6 +116,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 		data.KeepDays = days
 	}
 	data.DBPath = h.dbPath()
+	data.Postavke = h.postavkeCvora.za(r, "/administracija/baza")
 	if fi, err := os.Stat(data.DBPath); err == nil {
 		data.SizeBytes = fi.Size()
 	}
@@ -125,7 +129,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 		data.ErrorMessage = err.Error()
 	}
 	data.Channels, _ = h.peers.Channels(ctx)
-	data.Compactable, _ = h.rec.Compactable(ctx, time.Now().AddDate(0, 0, -data.KeepDays))
+	data.Compactable, _ = repository.ZaSazimanje(ctx, h.rec, time.Now().AddDate(0, 0, -data.KeepDays))
 	if db := h.db(); db != nil {
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM readings`).Scan(&data.Readings)
 		_ = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM journals`).Scan(&data.Journals)
@@ -151,12 +155,14 @@ func (h *DBMaintHandler) HandleCompact(w http.ResponseWriter, r *http.Request) {
 	if days < 1 && !(r.FormValue("days") == "0" && h.brisanjePovijesti(r.Context())) {
 		days = DefaultKeepDays
 	}
-	n, err := h.rec.Compact(r.Context(), time.Now().AddDate(0, 0, -days))
+	// dnevni list vodočuvara složen iz povijesti prvo se upisuje kakav
+	// vrijedi, da sažimanje ne vrati nacrt preko predanog lista
+	n, err := repository.SazmiKnjigu(r.Context(), h.db(), h.rec, time.Now().AddDate(0, 0, -days))
 	if err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta: obrisano %d starijih verzija, zadnje verzije i spomenici ostaju.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Knjiga je sažeta. Obrisano: %d %s; zadnje verzije i spomenici ostaju.", n, models.UzBrojHR(int(n), "starija verzija", "starije verzije", "starijih verzija")))
 }
 
 // HandleReplay obnavlja površinu iz zadnjih verzija u knjizi
@@ -170,7 +176,7 @@ func (h *DBMaintHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/baza", "error", fmt.Sprintf("Površina obnovljena iz %d zapisa, uz preskočene: %v", n, err))
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d zapisa.", n))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d %s.", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa")))
 }
 
 // HandleVacuum vraća prostor obrisanih redaka operacijskom sustavu
@@ -285,8 +291,9 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 			redirectWith(w, r, "/administracija/baza", "error", err.Error())
 			return
 		}
-		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d zapisa u paketu, %d novih; sadržaja upisano %d, za dohvat %d.",
-			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, rep.Novih, rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
+		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d %s u paketu, %d %s; sadržaja upisano %d, za dohvat %d.",
+			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, models.UzBrojHR(rep.Verzija, "zapis", "zapisa", "zapisa"),
+			rep.Novih, models.UzBrojHR(rep.Novih, "novi", "nova", "novih"), rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
 		if rep.Napomena != "" {
 			poruka += " " + rep.Napomena + "."
 		}
@@ -303,7 +310,8 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		parts = append(parts, fmt.Sprintf("%s: %d", ch, n))
 	}
 	redirectWith(w, r, "/administracija/baza", "success",
-		fmt.Sprintf("Uvezena arhiva čvora %s: %d verzija u datoteci, %d novih (%s).", rep.From, rep.Versions, rep.Applied, strings.Join(parts, "; ")))
+		fmt.Sprintf("Uvezena arhiva čvora %s: %d %s u datoteci, %d %s (%s).", rep.From, rep.Versions, models.UzBrojHR(rep.Versions, "verzija", "verzije", "verzija"),
+			rep.Applied, models.UzBrojHR(rep.Applied, "nova", "nove", "novih"), strings.Join(parts, "; ")))
 }
 
 // jeCop prepoznaje .cop paket po ZIP zaglavlju; stara arhiva je SQLite

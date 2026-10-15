@@ -265,6 +265,80 @@ func (s *AktService) ObrisiRacunPoste(ctx context.Context, u *models.User) error
 	return err
 }
 
+// ObavijestiSanducima šalje istu obavijest svakoj osobi koja je na ovom
+// čvoru spremila lozinku sandučića, s njezina računa na njezinu adresu, npr.
+// da na disku računala ostaje malo mjesta (Odluke (15. 10. 2026.)). Ničija
+// lozinka tako ne šalje poštu drugome. Isključeni računi i računi bez adrese
+// preskaču se. Vraća koliko je poruka poslano i greške onih kojima nije.
+func (s *AktService) ObavijestiSanducima(ctx context.Context, predmet, tekst string) (int, error) {
+	pp := s.Posta(ctx)
+	if !pp.Podesena() {
+		return 0, nil
+	}
+	ids, err := s.repo.KorisniciSRacunomPoste(ctx)
+	if err != nil {
+		return 0, err
+	}
+	poslano := 0
+	var greske []error
+	for _, id := range ids {
+		ok, err := s.obavijestiSebe(ctx, pp, id, posta.Poruka{Predmet: predmet, Tekst: tekst})
+		if err != nil {
+			greske = append(greske, err)
+		}
+		if ok {
+			poslano++
+		}
+	}
+	return poslano, errors.Join(greske...)
+}
+
+// obavijestiSebe šalje poruku osobi s njezina računa na njezinu adresu;
+// ok=false kad je preskočena ili poruka nije prošla. Kopija ne ostaje u
+// mapi Poslano: poruka ionako stiže u ulaznu poštu.
+func (s *AktService) obavijestiSebe(ctx context.Context, pp posta.Postavke, id string, m posta.Poruka) (bool, error) {
+	u, err := s.primateljObavijesti(id)
+	if err != nil || u == nil {
+		return false, err
+	}
+	r, err := s.racunKorisnika(ctx, u)
+	if errors.Is(err, ErrNemaLozinkePoste) {
+		return false, nil
+	}
+	if err == nil {
+		m.Od = mail.Address{Name: u.FullName, Address: u.Email}
+		m.Za, m.BezKopije = m.Od, true
+		err = posaljiJednu(ctx, pp, r, m)
+	}
+	if err != nil {
+		return false, fmt.Errorf("%s: %w", u.Username, err)
+	}
+	return true, nil
+}
+
+// primateljObavijesti je račun sa spremljenim sandučićem; nil kad je
+// isključen ili nema adrese e-pošte
+func (s *AktService) primateljObavijesti(id string) (*models.User, error) {
+	uid, err := uuid.Parse(id)
+	if err != nil {
+		return nil, err
+	}
+	u, err := s.users.GetUserByID(uid)
+	if err != nil || u == nil || !u.IsActive || strings.TrimSpace(u.Email) == "" {
+		return nil, err
+	}
+	return u, nil
+}
+
+// posaljiJednu predaje jednu poruku; greška je i kad je poslužitelj odbije
+func posaljiJednu(ctx context.Context, pp posta.Postavke, r posta.Racun, m posta.Poruka) error {
+	greske, err := posta.Posalji(ctx, pp, r, []posta.Poruka{m})
+	if err == nil && len(greske) > 0 {
+		err = greske[0]
+	}
+	return err
+}
+
 // Adresat je jedna adresa primatelja "na znanje"
 type Adresat struct {
 	Naziv, Skupina, Adresa string

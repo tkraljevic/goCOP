@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -36,8 +37,11 @@ type node struct {
 	sections *repository.SectionRepository
 }
 
+// startNode diže čvor na izmišljenom skupu sektora P (testdata/sektor-p):
+// letva Primjerovo mjerodavna je za dionice P.1.1 i P.1.2
 func startNode(t *testing.T, ctx context.Context, id string) *node {
 	t.Helper()
+	db.KoristiIzmisljenePodatke(t)
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
 	database, err := db.OpenDB(dbPath)
@@ -47,9 +51,6 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	t.Cleanup(func() { database.Close() })
 	if err := db.InitSchema(database); err != nil {
 		t.Fatal(err)
-	}
-	if !db.UseRepoData() {
-		t.Skip("data/sections.json nije dostupan — registri stoje izvan repozitorija")
 	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
@@ -82,8 +83,10 @@ func pair(t *testing.T, ctx context.Context, a, b *node) {
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
+	// slušanje kreće u svojoj gorutini; pod punim opterećenjem stroja (svi
+	// paketi s race detectorom) zna trebati više od nekoliko sekundi
 	var err error
-	for i := 0; i < 50; i++ {
+	for i := 0; i < 200; i++ {
 		err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair))
 		if err == nil {
 			break
@@ -183,9 +186,9 @@ func TestDvaCvoraSeUpareISinkroniziraju(t *testing.T) {
 		t.Fatalf("nakon uparivanja svaki mora znati za drugoga: a=%+v b=%+v", pa, pb)
 	}
 
-	// A mijenja Županju; B to još ne zna
-	editStationNote(t, a, "Županja", "izmjena na Osijeku")
-	if got := stationNote(t, b, "Županja"); got == "izmjena na Osijeku" {
+	// A mijenja Primjerovo; B to još ne zna
+	editStationNote(t, a, "Primjerovo", "izmjena na Osijeku")
+	if got := stationNote(t, b, "Primjerovo"); got == "izmjena na Osijeku" {
 		t.Fatal("B ne bi smio znati za izmjenu prije razmjene")
 	}
 
@@ -197,7 +200,7 @@ func TestDvaCvoraSeUpareISinkroniziraju(t *testing.T) {
 	if applied == 0 {
 		t.Errorf("B je morao primiti barem jednu verziju, primio %d (poslao %d)", applied, sent)
 	}
-	if got := stationNote(t, b, "Županja"); got != "izmjena na Osijeku" {
+	if got := stationNote(t, b, "Primjerovo"); got != "izmjena na Osijeku" {
 		t.Errorf("površina na B nije osvježena: napomena %q", got)
 	}
 
@@ -232,19 +235,19 @@ func TestDvaCvoraSeUpareISinkroniziraju(t *testing.T) {
 	}
 
 	// obrnuti smjer: B mijenja, A nazove B
-	editStationNote(t, b, "Županja", "ispravak iz Vinkovaca")
+	editStationNote(t, b, "Primjerovo", "ispravak iz Vinkovaca")
 	if _, _, err := a.svc.SyncWith(ctx, b.id); err != nil {
 		t.Fatalf("razmjena A→B: %v", err)
 	}
-	if got := stationNote(t, a, "Županja"); got != "ispravak iz Vinkovaca" {
+	if got := stationNote(t, a, "Primjerovo"); got != "ispravak iz Vinkovaca" {
 		t.Errorf("površina na A nije osvježena: napomena %q", got)
 	}
 
 	// povijest na oba čvora nosi obje izmjene, s izvornim autorima
 	var stID string
-	list, _ := a.stations.ListStations(ctx, "Županja", "", "", false)
+	list, _ := a.stations.ListStations(ctx, "Primjerovo", "", "", false)
 	for _, s := range list {
-		if s.Name == "Županja" {
+		if s.Name == "Primjerovo" {
 			stID = s.ID.String()
 		}
 	}
@@ -273,12 +276,12 @@ func TestNeupareniCvorNeDobivaRazmjenu(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	editStationNote(t, a, "Županja", "tajna izmjena")
+	editStationNote(t, a, "Primjerovo", "tajna izmjena")
 
 	if _, _, err := stranger.svc.SyncWith(ctx, a.id); err == nil {
 		t.Error("neupareni čvor je dobio razmjenu — A ga je morao odbiti na vratima")
 	}
-	if got := stationNote(t, stranger, "Županja"); got == "tajna izmjena" {
+	if got := stationNote(t, stranger, "Primjerovo"); got == "tajna izmjena" {
 		t.Error("izmjena je procurila neuparenom čvoru")
 	}
 }
@@ -295,9 +298,9 @@ func TestArhiviranjePutujeMedjuCvorovima(t *testing.T) {
 	pair(t, ctx, a, b)
 
 	var st models.Station
-	list, _ := a.stations.ListStations(ctx, "Županja", "", "", false)
+	list, _ := a.stations.ListStations(ctx, "Primjerovo", "", "", false)
 	for _, s := range list {
-		if s.Name == "Županja" {
+		if s.Name == "Primjerovo" {
 			st = s
 		}
 	}
@@ -314,6 +317,15 @@ func TestArhiviranjePutujeMedjuCvorovima(t *testing.T) {
 			}
 		}
 		sec.Parts[i].StationIDs = keep
+		// vodomjer se uz dionicu veže i po nazivu iz dokumentacije, pa se
+		// s poddionice miče i njegov redak, inače ga upis veže natrag
+		var letve []models.GaugeItem
+		for _, g := range sec.Parts[i].Gauges {
+			if !strings.HasPrefix(g.StationName, st.Name) {
+				letve = append(letve, g)
+			}
+		}
+		sec.Parts[i].Gauges = letve
 	}
 	if err := a.sections.SaveSection(ctx, sec); err != nil {
 		t.Fatal(err)
@@ -387,14 +399,14 @@ func TestClanBezKljucaNeMozePrimitiOutsidera(t *testing.T) {
 	}
 
 	// razmjena je odbijena u oba smjera
-	editStationNote(t, b, "Županja", "povjerljivo")
+	editStationNote(t, b, "Primjerovo", "povjerljivo")
 	if _, _, err := outsider.svc.SyncWith(ctx, b.id); err == nil {
 		t.Error("outsider je dobio razmjenu od člana")
 	}
 	if _, _, err := b.svc.SyncWith(ctx, outsider.id); err == nil {
 		t.Error("član je razmijenio s outsiderom")
 	}
-	if got := stationNote(t, outsider, "Županja"); got == "povjerljivo" {
+	if got := stationNote(t, outsider, "Primjerovo"); got == "povjerljivo" {
 		t.Error("podatak je procurio outsideru")
 	}
 }

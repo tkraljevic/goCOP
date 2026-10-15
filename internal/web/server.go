@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/dhmz"
 	"gocop/internal/hydro"
 	"gocop/internal/javnivodostaji"
@@ -68,6 +69,7 @@ type Server struct {
 	podPostavom  atomic.Bool
 	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
 	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
+	tailscale    *tailscaleVeze                                    // veze na Tailscale adresu ovog računala; nil = zadano, tailscale.go
 	javni        *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
 	pricuvno     func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
@@ -82,6 +84,9 @@ type Server struct {
 	prijave        *service.PrijavaService // prijave i obavijesti s terena
 	drugiKorak     *service.DrugiKorak     // drugi korak prijave izvana (PIN); nil dok se ne postavi
 	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
+	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
+	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
 	skenoviDir     string                  // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
@@ -170,7 +175,7 @@ func templateFuncs() template.FuncMap {
 		// Hrvatski broj uz imenicu: 1 vrijednost, 2 vrijednosti, 5 vrijednosti,
 		// ali 11 vrijednosti i 21 vrijednost. Bez toga na stranici piše
 		// "31 vrijednosti", što odmah bode oko.
-		"uzBroj":        uzBrojHR,
+		"uzBroj":        models.UzBrojHR,
 		"vrstaDnevnika": models.JournalKindLabel,
 		"danTjedna":     danTjednaHR,
 		"statika":       statickaAdresa,
@@ -425,32 +430,10 @@ func templateFuncs() template.FuncMap {
 		// dionice sklanja broj dionica po hrvatskoj gramatici (1 dionica,
 		// 2-4 dionice, 5+ dionica), uz iznimku za brojeve 11-14
 		"postaje": func(n int) string {
-			last2 := n % 100
-			last := n % 10
-			switch {
-			case last2 >= 11 && last2 <= 14:
-				return fmt.Sprintf("%d postaja", n)
-			case last == 1:
-				return fmt.Sprintf("%d postaja", n)
-			case last >= 2 && last <= 4:
-				return fmt.Sprintf("%d postaje", n)
-			default:
-				return fmt.Sprintf("%d postaja", n)
-			}
+			return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "postaja", "postaje", "postaja"))
 		},
 		"dionice": func(n int) string {
-			last2 := n % 100
-			last := n % 10
-			switch {
-			case last2 >= 11 && last2 <= 14:
-				return fmt.Sprintf("%d dionica", n)
-			case last == 1:
-				return fmt.Sprintf("%d dionica", n)
-			case last >= 2 && last <= 4:
-				return fmt.Sprintf("%d dionice", n)
-			default:
-				return fmt.Sprintf("%d dionica", n)
-			}
+			return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "dionica", "dionice", "dionica"))
 		},
 		"add":            func(a, b int) int { return a + b },
 		"kolicina":       kolicinaHR,
@@ -632,6 +615,7 @@ func NewServer(
 		templates:          templates,
 		poslovi:            poslovi.NoviRegistar(),
 		mux:                http.NewServeMux(),
+		pokrenut:           time.Now(),
 	}
 
 	s.setupRoutes()
@@ -657,6 +641,7 @@ func (s *Server) setupRoutes() {
 	})
 	dashH := NewDashboardHandler(s.userService, s.templates["dashboard.html"], s.templates["registri.html"])
 	dashH.SetZid(func() *service.ZidService { return s.zidService }, func() *service.IzvjescaService { return s.izvjescaService }, func() *service.MtsService { return s.mtsService })
+	dashH.SetVodocuvar(func() *service.VodocuvarService { return s.vodocuvar })
 	dogH := NewDogadjanjaHandler(func() *service.ZidService { return s.zidService }, s.userService, s.templates["dogadjanja.html"])
 	s.mux.Handle("GET /dogadjanja", s.authMiddleware(http.HandlerFunc(dogH.ShowDogadjanja)))
 	s.mux.Handle("GET /dogadjanja.xlsx", s.authMiddleware(http.HandlerFunc(dogH.IzvoziDogadjanja)))
@@ -669,6 +654,7 @@ func (s *Server) setupRoutes() {
 	territoriesH := NewTerritoriesHandler(s.territoryService, s.templates["territories.html"])
 	territoriesH.SetPageTemplates(s.templates["county_form.html"], s.templates["municipality_form.html"], s.templates["municipality_detail.html"])
 	territoriesH.SetCountyTemplate(s.templates["county_detail.html"])
+	territoriesH.SetGeometrija(s.dbPath)
 	territoriesH.SetKarta(func() KartaPostavke { return s.karta })
 	territoriesH.SetVodnaPodrucja(s.userService, s.sectionService)
 	stationsH := NewStationsHandler(s.stationService, s.templates["stations.html"])
@@ -716,6 +702,7 @@ func (s *Server) setupRoutes() {
 		}
 		return sek
 	})
+	stationsH.SetUstroj(s.ustroj)
 	watercoursesH := NewWatercoursesHandler(s.watercourseService, s.sectionService, s.templates["watercourses.html"])
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
@@ -810,6 +797,7 @@ func (s *Server) setupRoutes() {
 	readingsH.SetFollow(s.followRepo, s.onFollowChange)
 	readingsH.SetArhiva(s.Arhiva)
 	readingsH.SetPrognoze(s.Prognoze)
+	readingsH.SetAkti(func() *service.AktService { return s.akti })
 	readingsH.SetSektorZaLetvu(func(ctx context.Context, st *models.Station) *models.Sector {
 		if st == nil || s.sectionService == nil || s.orgService == nil {
 			return nil
@@ -890,6 +878,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva", s.authMiddleware(http.HandlerFunc(journalsH.HandleSaveDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/potvrdi", s.authMiddleware(http.HandlerFunc(journalsH.HandlePotvrdiDezurstvo)))
 	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/makni", s.authMiddleware(http.HandlerFunc(journalsH.HandleMakniDezurstvo)))
+	s.mux.Handle("POST /dnevnici/{id}/dezurstva/{dez}/opis", s.authMiddleware(http.HandlerFunc(journalsH.HandleIspraviOpisDezurstva)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun.xlsx", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziObracun)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun/{user}/iors.xlsx", s.authMiddleware(http.HandlerFunc(journalsH.IzvoziIORS)))
 	s.mux.Handle("GET /dnevnici/{id}/obracun/{user}", s.authMiddleware(http.HandlerFunc(journalsH.ShowIORS)))
@@ -1228,6 +1217,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(http.HandlerFunc(subsH.HandleAdd)))
 	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
 	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
+	subsH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /pretplate/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/pretplate", http.HandlerFunc(subsH.ShowSubscriptions))))
 
 	// Održavanje baze: brojke, sažimanje, VACUUM, izvoz i uvoz kanala
 	dbH := NewDBMaintHandler(func() *sql.DB { return s.db }, s.recorder, s.peersService, func() string { return s.dbPath }, s.templates["baza.html"])
@@ -1261,6 +1252,8 @@ func (s *Server) setupRoutes() {
 	aktiH.SetOpcije(s.templates["administracija_opcije.html"])
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
+	aktiH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/opcije/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/opcije", http.HandlerFunc(aktiH.ShowOpcije))))
 	aktiH.SetTema(s.templates["administracija_tema.html"])
 	s.mux.Handle("GET /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.ShowTema)))
 	s.mux.Handle("POST /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.HandleTema)))
@@ -1304,6 +1297,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /akti/{id}/akt.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziPDF)))
 	s.mux.Handle("POST /akti/{id}/ovjeri", s.authMiddleware(http.HandlerFunc(aktiH.HandleOvjeri)))
 	s.mux.Handle("POST /akti/{id}/storno", s.authMiddleware(http.HandlerFunc(aktiH.HandleStorno)))
+	s.mux.Handle("POST /akti/{id}/oznaka", s.authMiddleware(http.HandlerFunc(aktiH.HandleRijesiOznaku)))
+	s.mux.Handle("POST /akti/{id}/slozi-primatelje", s.authMiddleware(http.HandlerFunc(aktiH.HandleSloziPrimatelje)))
 	s.mux.Handle("GET /akti/{id}/za-ispis.pdf", s.authMiddleware(http.HandlerFunc(aktiH.IzvoziZaIspis)))
 	s.mux.Handle("POST /akti/{id}/sken", s.authMiddleware(http.HandlerFunc(aktiH.HandleUcitajSken)))
 	s.mux.Handle("POST /akti/{id}/posalji", s.authMiddleware(http.HandlerFunc(aktiH.HandlePosalji)))
@@ -1341,6 +1336,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sredstva/popisi/{id}/uredi", s.authMiddleware(http.HandlerFunc(mtsH.ShowPopisUredi)))
 	s.mux.Handle("POST /sredstva/popisi/{id}", s.authMiddleware(http.HandlerFunc(mtsH.HandleSavePopis)))
 	s.mux.Handle("POST /sredstva/popisi/{id}/zakljuci", s.authMiddleware(http.HandlerFunc(mtsH.HandleZakljuciPopis)))
+	s.mux.Handle("POST /sredstva/popisi/{id}/otkljucaj", s.authMiddleware(http.HandlerFunc(mtsH.HandleOtkljucajPopis)))
 	s.mux.Handle("GET /sredstva/popisi/{id}/inventura.xlsx", s.authMiddleware(http.HandlerFunc(mtsH.IzvoziInventuru)))
 
 	izvjescaH := NewIzvjescaHandler(func() *service.IzvjescaService { return s.izvjescaService },
@@ -1361,6 +1357,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/uredi", s.authMiddleware(http.HandlerFunc(izvjescaH.ShowSektorskoUredi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoSpremi)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/predaj", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPredaj)))
+	s.mux.Handle("POST /sektorsko-izvjesce/{id}/povuci", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoPovuci)))
 	s.mux.Handle("POST /sektorsko-izvjesce/{id}/obrisi", s.authMiddleware(http.HandlerFunc(izvjescaH.HandleSektorskoObrisi)))
 	s.mux.Handle("GET /sektorsko-izvjesce/{id}/izvjesce.xlsx", s.authMiddleware(http.HandlerFunc(izvjescaH.IzvoziSektorsko)))
 	izvjescaH.SetZaglavlje(func(sektor string) ZaglavljeIzvoza {
@@ -1376,11 +1373,16 @@ func (s *Server) setupRoutes() {
 	// administratoru: njih doseg po dionici ne može ograničiti.
 	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
 	uvozH.SetKoteLetve(s.koteNuleLetve)
+	uvozH.SetMape(s.mapaArhive)
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
 	uvozH.SetMakniNiz(s.MakniNiz)
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
+	uvozH.SetMakniSnimku(s.MakniSnimku)
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-snimku", s.samoAdmin(http.HandlerFunc(uvozH.MakniSnimkuBezDatoteke)))
+	uvozH.SetMakniKrivulje(s.MakniKrivulje)
+	s.mux.Handle("POST /administracija/uvoz-niza/makni-krivulje", s.samoAdmin(http.HandlerFunc(uvozH.MakniKrivuljeBezDatoteke)))
 	s.mux.Handle("POST /administracija/uvoz-niza/zatecen", s.authMiddleware(http.HandlerFunc(uvozH.Zatecen)))
 	s.mux.Handle("POST /administracija/uvoz-niza/upisi", s.authMiddleware(http.HandlerFunc(uvozH.UpisiUvoz)))
 	// Posebni izvori (ARSO, eHYD, GKD, PEGELONLINE, SEBA, HIS-2000, godišnjaci
@@ -1425,6 +1427,8 @@ func (s *Server) setupRoutes() {
 	dbH.SetOpcije(s.opcije)
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
+	dbH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/baza/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/baza", http.HandlerFunc(dbH.ShowMaintenance))))
 
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
@@ -1435,6 +1439,12 @@ func (s *Server) setupRoutes() {
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
 	s.mux.Handle("POST /settings/uloge", s.authMiddleware(http.HandlerFunc(settingsH.HandleUloge)))
+	// Postavke ovog čvora (gocop.toml) i ponovno pokretanje: samo
+	// administrator, izravno iz lokalne mreže (postavke_cvora.go)
+	settingsH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /settings/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/settings", http.HandlerFunc(settingsH.ShowSettings))))
+	s.mux.Handle("POST /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handlePonovnoPokretanje)))
+	s.mux.Handle("GET /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handleStanjePokretanja)))
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {
 			return nil
@@ -1501,6 +1511,8 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
+	case "settings.html", "pretplate.html", "baza.html", "administracija_opcije.html":
+		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}
 	return dijelovi
 }
@@ -1581,10 +1593,11 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 
 		// Tuđim se očima samo gleda. Zapis pod tuđim imenom ne smije nastati
 		// ni omaškom, pa se zaustavlja ovdje, prije svakog rukovatelja.
-		upisiTudjim := view.Viewing && s.opcije(r.Context()).UpisTudjimOcima
+		// Isključen račun samo se čita i uz uključene upise.
+		upisiTudjim := s.upisiTudjimOcima(r, view)
 		if view.Viewing && !readOnlyRequest(r) {
 			if !upisiTudjim {
-				http.Error(w, "Dok gledaš tuđim očima program samo čita. Vrati se sebi pa ponovi, ili neka uprava uključi „Upisi tuđim očima” u Administraciji › Opcije.", http.StatusForbidden)
+				http.Error(w, porukaSamoCitanje(view), http.StatusForbidden)
 				return
 			}
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
@@ -1935,6 +1948,15 @@ func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj,
 // MakniNiz briše niz koji je ostao u arhivi iako mu datoteke u stablu više
 // nema, pa zatim otvara arhivu iznova da program odmah vidi novo stanje.
 func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
+	})
+}
+
+// urediArhivu otvara arhivu za izmjenu koju zatraži čovjek, npr. micanje niza
+// ili snimke bez datoteke, a poslije je otvara iznova da program odmah vidi
+// novo stanje.
+func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error) {
 	if s.arhivaPut == "" {
 		return 0, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
@@ -1943,7 +1965,7 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		return 0, err
 	}
 	defer db.Close()
-	n, err := arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
+	n, err := izmjena(db)
 	if err != nil {
 		return 0, err
 	}
@@ -1951,6 +1973,24 @@ func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 		s.zamijeniArhivu(novo)
 	}
 	return n, nil
+}
+
+// MakniSnimku briše snimku korita koja je ostala u arhivi iako joj datoteke u
+// stablu više nema, pa zatim otvara arhivu iznova da program odmah vidi novo
+// stanje.
+func (s *Server) MakniSnimku(letva, datum string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniSnimku(db, s.arhivaPut, letva, datum)
+	})
+}
+
+// MakniKrivulje briše krivulje protoka letve kojoj je iz stabla nestala
+// datoteka krivulja, pa zatim otvara arhivu iznova da program odmah vidi novo
+// stanje.
+func (s *Server) MakniKrivulje(letva string) (int, error) {
+	return s.urediArhivu(func(db *sql.DB) (int, error) {
+		return arhiva.MakniKrivulje(db, s.arhivaPut, s.podaciDir, letva)
+	})
 }
 
 // IzdajArhivu sastavlja .cop pakete i osvježava katalog. Probno izdavanje sve
@@ -1964,7 +2004,7 @@ func (s *Server) IzdajArhivu(letva string, probno bool, zapisi io.Writer) (arhiv
 	if s.paketiDir == "" {
 		return iz, fmt.Errorf("nije zadana mapa u koju se izdaje")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?mode=ro")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(s.arhivaPut))
 	if err != nil {
 		return iz, err
 	}
@@ -1983,30 +2023,15 @@ func (s *Server) KatalogIzdanja() (arhiva.Katalog, error) {
 
 func (s *Server) SetAddr(addr string) {
 	s.addr = addr
+	if s.postavke != nil {
+		s.postavke.postaviAddr(addr)
+	}
 }
 
 // danTjednaHR piše dan riječju, kako stoji u naslovu lista dnevnika.
 func danTjednaHR(t time.Time) string {
 	return [...]string{"Nedjelja", "Ponedjeljak", "Utorak", "Srijeda",
 		"Četvrtak", "Petak", "Subota"}[int(t.Weekday())]
-}
-
-// uzBrojHR bira oblik imenice uz broj po hrvatskoj sklonidbi: 1 vrijednost,
-// 2 vrijednosti, 5 vrijednosti — ali 11 vrijednosti i 21 vrijednost.
-func uzBrojHR(n int, jednina, dvojina, mnozina string) string {
-	if n < 0 {
-		n = -n
-	}
-	zadnje, zadnja2 := n%10, n%100
-	switch {
-	case zadnja2 >= 11 && zadnja2 <= 14:
-		return mnozina
-	case zadnje == 1:
-		return jednina
-	case zadnje >= 2 && zadnje <= 4:
-		return dvojina
-	}
-	return mnozina
 }
 
 // smijeUrediLetvu javlja smije li osoba dirati podatke letve zadane šifrom.

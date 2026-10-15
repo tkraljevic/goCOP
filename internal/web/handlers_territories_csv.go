@@ -154,7 +154,7 @@ func (h *TerritoriesHandler) HandleImportTerritoriesCSV(w http.ResponseWriter, r
 			added++
 		}
 	}
-	msg := fmt.Sprintf("Uvoz: %d novih, %d osvježenih.", added, updated)
+	msg := fmt.Sprintf("Uvoz: novih %d, osvježenih %d.", added, updated)
 	if len(errs) > 0 {
 		if len(errs) > 5 {
 			errs = append(errs[:5], fmt.Sprintf("… i još %d", len(errs)-5))

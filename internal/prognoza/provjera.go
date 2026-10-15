@@ -112,7 +112,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 		// Izdanje se ne smije osloniti na ono što tek dolazi: račun vidi samo
 		// ono do svojeg sata. NovoRacunalo to poštuje jer izmjereno uzima
 		// isključivo do sada.
-		odabrani, _ := OdaberiInacice(inacice, nizovi, t)
+		odabrani, izbor := OdaberiInacice(inacice, nizovi, t)
 		r := NovoRacunalo(odabrani, nizovi, t)
 		_, vrhovi := TrebaniIzvori(odabrani)
 		for iz, n := range BuducnostOperatera(operateri, nizovi, t) {
@@ -122,7 +122,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 		}
 		imalo := false
 		for letva, ps := range pojasi {
-			izdane, err := r.Prognoziraj(letva, o.Najdalje, "provjera")
+			izdane, err := prognozaGlavnog(r, izbor, letva, o.Najdalje)
 			if err != nil || len(izdane) == 0 {
 				continue
 			}
@@ -130,9 +130,10 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 			iz := Izvor{Letva: letva, Velicina: ps[0].Velicina}
 			sada, imaSad := nizovi[iz].U(t)
 			for _, i := range izdane {
-				if p, ima := zapisani[iz][int(i.Ciljni-t)]; ima {
+				if p, ima := ispravakNaDosegu(zapisani[iz], i.Ciljni-t); ima {
 					// Isto što radi živa prognoza: pomak se oduzme, a raspon
-					// je zapisani — pa „u rasponu” mjeri baš njega.
+					// je zapisani — pa „u rasponu” mjeri baš njega. Sat
+					// izdavanja je mjerenje i ne ispravlja se.
 					i.Vrijednost -= p.Pomak
 					i.Dolje, i.Gore = i.Vrijednost-p.Rasap, i.Vrijednost+p.Rasap
 				}
@@ -248,6 +249,18 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 	}
 	fmt.Fprintf(w, "\nzapisano %d izmjerenih promašaja\n", len(upis))
 	return len(upis), nil
+}
+
+// prognozaGlavnog je prognoza letve u izdanju kad je računa glavni ulaz.
+// Letva koju u tom izdanju računa rezerva, ili koja bez svježeg ulaza drži
+// zadnje mjerenje, ne daje ništa: živa prognoza promašaje oduzima samo
+// glavnom računu, pa se samo na njemu i mjere — inače bi promašaji rezerve
+// ušli u pomak i rasap glavnog. Odluke (8. 10. 2026.), pitanje 16.
+func prognozaGlavnog(r *Racunalo, izbor map[string]Izbor, letva string, najdalje int) ([]Izdana, error) {
+	if izbor[letva].Inacica != 0 {
+		return nil, nil
+	}
+	return r.Prognoziraj(letva, najdalje, "provjera")
 }
 
 // zagladiPromasaje izravnava ispravak po dosegu. Izmjereni pomak zna skočiti između

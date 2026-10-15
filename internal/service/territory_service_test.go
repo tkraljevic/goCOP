@@ -11,7 +11,10 @@ import (
 	"gocop/internal/repository"
 )
 
+// setupTestTerritoryService puni bazu iz izmišljenog skupa sektora P:
+// Primjerska županija s gradom Primjerovom i općinama Oglednica i Rubno
 func setupTestTerritoryService(t *testing.T) (*TerritoryService, *SectionService, *models.UserPermissions) {
+	db.KoristiIzmisljenePodatke(t)
 	database, err := db.OpenDB(":memory:")
 	if err != nil {
 		t.Fatalf("Greška pri otvaranju in-memory baze: %v", err)
@@ -21,9 +24,6 @@ func setupTestTerritoryService(t *testing.T) (*TerritoryService, *SectionService
 		t.Fatalf("Greška pri inicijalizaciji sheme: %v", err)
 	}
 
-	if !db.UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("Greška pri unosu početnih podataka: %v", err)
 	}
@@ -42,6 +42,10 @@ func setupTestTerritoryService(t *testing.T) (*TerritoryService, *SectionService
 	return territoryService, sectionService, adminPerms
 }
 
+// TestTerritorySeedingAndCounts broji teritorije izmišljenog skupa; brojke
+// stvarnog registra (21 županija, gradovi, općine, naselja) i ugroženo
+// područje dionice B.15.1 provjerava TestRegistarTeritorijaJeCjelovit u
+// internal/db, među provjerama registara
 func TestTerritorySeedingAndCounts(t *testing.T) {
 	ts, _, _ := setupTestTerritoryService(t)
 	ctx := context.Background()
@@ -51,40 +55,40 @@ func TestTerritorySeedingAndCounts(t *testing.T) {
 		t.Fatalf("GetTerritoryCounts error: %v", err)
 	}
 
-	if counties != 21 {
-		t.Errorf("Očekivano 21 županija, dobiveno: %d", counties)
+	if counties != 1 {
+		t.Errorf("Očekivana 1 županija, dobiveno: %d", counties)
 	}
-	if munis < 500 {
-		t.Errorf("Očekivano više od 500 gradova i općina, dobiveno: %d", munis)
+	if munis != 3 {
+		t.Errorf("Očekivana 3 grada i općine, dobiveno: %d", munis)
 	}
-	if settlements < 6000 {
-		t.Errorf("Očekivano više od 6000 naselja, dobiveno: %d", settlements)
+	if settlements != 4 {
+		t.Errorf("Očekivana 4 naselja, dobiveno: %d", settlements)
 	}
 
 	list, err := ts.ListCounties(ctx)
 	if err != nil {
 		t.Fatalf("ListCounties error: %v", err)
 	}
-	if len(list) != 21 {
-		t.Fatalf("ListCounties dužina: očekivano 21, dobiveno %d", len(list))
+	if len(list) != 1 {
+		t.Fatalf("ListCounties dužina: očekivano 1, dobiveno %d", len(list))
 	}
 
-	// Provjera Osječko-baranjske županije
-	var obz *models.County
+	// Provjera Primjerske županije
+	var pz *models.County
 	for _, c := range list {
-		if c.Code == "OB" {
-			obz = &c
+		if c.Code == "PR" {
+			pz = &c
 			break
 		}
 	}
-	if obz == nil {
-		t.Fatalf("Nije pronađena Osječko-baranjska županija (kod OB)")
+	if pz == nil {
+		t.Fatalf("Nije pronađena Primjerska županija (kod PR)")
 	}
-	if obz.Seat != "Osijek" {
-		t.Errorf("Sjedište OBŽ: očekivano Osijek, dobiveno %s", obz.Seat)
+	if pz.Seat != "Primjerovo" {
+		t.Errorf("Sjedište Primjerske županije: očekivano Primjerovo, dobiveno %s", pz.Seat)
 	}
-	if obz.Prefect != "Nataša Tramišak (županica)" {
-		t.Errorf("Županica OBŽ: očekivano Nataša Tramišak (županica), dobiveno %s", obz.Prefect)
+	if pz.Prefect != "Ana Anić (županica)" {
+		t.Errorf("Županica: očekivano Ana Anić (županica), dobiveno %s", pz.Prefect)
 	}
 }
 
@@ -92,8 +96,8 @@ func TestGenerateProtectedAreaText(t *testing.T) {
 	ts, _, _ := setupTestTerritoryService(t)
 	ctx := context.Background()
 
-	// Dohvati B.15.1 relacije
-	territories, err := ts.GetSectionTerritories(ctx, "B.15.1")
+	// Dohvati P.1.1 relacije
+	territories, err := ts.GetSectionTerritories(ctx, "P.1.1")
 	if err != nil {
 		t.Fatalf("GetSectionTerritories error: %v", err)
 	}
@@ -103,12 +107,12 @@ func TestGenerateProtectedAreaText(t *testing.T) {
 		t.Fatalf("Generirani tekst je prazan")
 	}
 
-	// Provjeri da sadrži Vukovarsko-srijemska, Bogdanovci, Vukovar, Trpinja
+	// Provjeri da sadrži Primjerska (bez „županija”), Primjerovo, Oglednica, Probno Selo
 	expectedSubstrings := []string{
-		"**Vukovarsko-srijemska**",
-		"Bogdanovci",
-		"Vukovar",
-		"Trpinja",
+		"**Primjerska**",
+		"Primjerovo",
+		"Oglednica",
+		"Probno Selo",
 	}
 
 	for _, sub := range expectedSubstrings {
@@ -122,14 +126,14 @@ func TestCreateAndUpdateMunicipality(t *testing.T) {
 	ts, _, adminPerms := setupTestTerritoryService(t)
 	ctx := context.Background()
 
-	// 1. Dodaj novi grad u županiju 14 (OBŽ)
+	// 1. Dodaj novi grad u županiju 1 (Primjerska)
 	newMuni := &models.Municipality{
-		CountyID:   14,
+		CountyID:   1,
 		Name:       "Novi Grad Test",
 		Type:       "GRAD",
 		HeadTitle:  "Gradonačelnik",
-		HeadName:   "Ivan Horvat",
-		PostalCode: "31999",
+		HeadName:   "Ivo Ivić",
+		PostalCode: "00099",
 	}
 
 	err := ts.CreateMunicipality(ctx, adminPerms, newMuni)
@@ -148,7 +152,7 @@ func TestCreateAndUpdateMunicipality(t *testing.T) {
 	}
 
 	// 3. Provjeri dohvatom
-	list, err := ts.ListMunicipalities(ctx, 14, "GRAD", "Ažurirani Grad Test")
+	list, err := ts.ListMunicipalities(ctx, 1, "GRAD", "Ažurirani Grad Test")
 	if err != nil {
 		t.Fatalf("ListMunicipalities error: %v", err)
 	}
@@ -167,10 +171,10 @@ func TestCreateRenameAndDeleteSettlement(t *testing.T) {
 	ts, _, adminPerms := setupTestTerritoryService(t)
 	ctx := context.Background()
 
-	// 1. Dodaj novo naselje u općinu Trpinja (ID 408)
+	// 1. Dodaj novo naselje u općinu Oglednica (ID 2)
 	newSett := &models.Settlement{
-		MunicipalityID: 408,
-		CountyID:       16,
+		MunicipalityID: 2,
+		CountyID:       1,
 		Name:           "Novo Test Selo",
 	}
 
@@ -190,7 +194,7 @@ func TestCreateRenameAndDeleteSettlement(t *testing.T) {
 	}
 
 	// 3. Provjeri dohvatom
-	settlements, err := ts.ListSettlements(ctx, 408, 16, "Preimenovano Test Selo")
+	settlements, err := ts.ListSettlements(ctx, 2, 1, "Preimenovano Test Selo")
 	if err != nil {
 		t.Fatalf("ListSettlements error: %v", err)
 	}
@@ -204,7 +208,7 @@ func TestCreateRenameAndDeleteSettlement(t *testing.T) {
 		t.Fatalf("DeleteSettlement error: %v", err)
 	}
 
-	settlementsAfter, _ := ts.ListSettlements(ctx, 408, 16, "Preimenovano Test Selo")
+	settlementsAfter, _ := ts.ListSettlements(ctx, 2, 1, "Preimenovano Test Selo")
 	if len(settlementsAfter) != 0 {
 		t.Fatalf("Naselje nije obrisano iz baze")
 	}

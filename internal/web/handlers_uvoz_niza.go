@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/poslovi"
 	"gocop/internal/repository"
@@ -95,10 +96,20 @@ type UvozHandler struct {
 	// HVRS71. Kad se ne poklopi ni s jednom, program stane i pita.
 	koteLetve func(letva string) (stara, nova float64, ok bool)
 
+	// makniSnimku briše snimku korita koja je ostala bez datoteke u stablu.
+	makniSnimku func(letva, datum string) (int, error)
+	// makniKrivulje briše krivulje protoka letve kojoj je iz stabla nestala
+	// datoteka krivulja.
+	makniKrivulje func(letva string) (int, error)
+
 	// Račun za HydroView i naziv letve, za preuzimanje povijesti s telemetrije.
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
 	nazivLetve func(ctx context.Context, letva string) string
+
+	// mapa kaže gdje su stablo i mapa paketa na disku i što učiniti kad
+	// relativne nema (mape_arhive.go)
+	mapa func(kljuc, zadano string) MapaArhive
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -113,6 +124,18 @@ func NewUvozHandler(arhivaPut, podaciDir func() string,
 // SetMakniNiz daje vratima način da maknu niz koji je ostao bez datoteke.
 func (h *UvozHandler) SetMakniNiz(f func(letva, izvor, velicina, vrsta string) (int, error)) {
 	h.makniNiz = f
+}
+
+// SetMakniSnimku daje vratima način da maknu snimku korita koja je ostala bez
+// datoteke.
+func (h *UvozHandler) SetMakniSnimku(f func(letva, datum string) (int, error)) {
+	h.makniSnimku = f
+}
+
+// SetMakniKrivulje daje vratima način da maknu krivulje protoka letve kojoj je
+// nestala datoteka krivulja.
+func (h *UvozHandler) SetMakniKrivulje(f func(letva string) (int, error)) {
+	h.makniKrivulje = f
 }
 
 // SetIzdavanje daje vratima ono što treba za izdavanje paketa. Čvor koji ne
@@ -154,6 +177,10 @@ type UvozPageData struct {
 	Velicine  []string
 	Vrste     []string
 	Zone      []string
+
+	// Stablo i mapa paketa na disku: puna putanja i, kad relativne mape
+	// nema, obavijest umjesto upisa i izdavanja
+	Stablo, Paketi MapaArhive
 
 	// Nakon odabira datoteke
 	Id       string
@@ -200,7 +227,6 @@ type UvozPageData struct {
 
 	// Izdavanje paketa
 	IzdavanjeRadi  bool
-	PaketiDir      string
 	Katalog        arhiva.Katalog
 	KatalogNastalo string
 	Izdanja        *arhiva.IzvjestajIzdanja // prijedlog ili ishod izdavanja
@@ -223,6 +249,7 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 	}
+	d.Stablo, d.Paketi = h.mapeNaDisku()
 	if letve, err := arhiva.Letve(d.PodaciDir); err == nil {
 		d.SlivZa = letve
 		for l := range letve {
@@ -255,7 +282,9 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	// Nizovi bez datoteke u stablu gledaju se pri svakom otvaranju, ne samo
 	// odmah nakon gradnje: sirotan ne nastaje samo ovdje — datoteka se može
 	// maknuti i izravno iz stabla.
-	if d.PodaciDir != "" && h.arhivaPut() != "" && len(d.Sirotani) == 0 {
+	// Relativnog stabla koje još ne postoji ne gleda: ondje bi svaki niz bio
+	// bez datoteke, a gdje ga čvor traži kaže obavijest o stablu.
+	if d.Stablo.Pregledna() && h.arhivaPut() != "" && len(d.Sirotani) == 0 {
 		if o, err := sirotaniUArhivi(h.arhivaPut(), d.PodaciDir); err != nil {
 			d.ErrorMessage = "Nizovi bez datoteke se ne daju provjeriti: " + err.Error()
 		} else {
@@ -264,7 +293,6 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {
-		d.PaketiDir = h.paketiDir()
 		if k, err := h.katalog(); err != nil {
 			// Katalog koji se ne čita zaustavlja izdavanje, pa je bolje da to
 			// piše ovdje nego da čovjek klikne pa dobije grešku.
@@ -282,7 +310,7 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 // sirotaniUArhivi otvara arhivu samo za čitanje i pita je za nizove kojima je
 // datoteka nestala iz stabla.
 func sirotaniUArhivi(arhivaPut, koren string) ([]arhiva.Sirotan, error) {
-	db, err := sql.Open("sqlite", arhivaPut+"?mode=ro")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(arhivaPut))
 	if err != nil {
 		return nil, err
 	}
@@ -497,6 +525,7 @@ func (h *UvozHandler) popuniPregled(d *UvozPageData, ime string, sadrzaj []byte,
 	// Prijedlog se prepisuje onim što je čovjek već ispravio, kad se pregled
 	// osvježava s promijenjenim izborom.
 	primiIzObrasca(&d.Prijedlg, r)
+	slivIzStabla(&d.Prijedlg, d.SlivZa)
 
 	// Čija je letva, zna se tek ovdje — prije toga je datoteka samo hrpa
 	// bajtova. Zato provjera stoji na ovom jednom mjestu kroz koje prolaze
@@ -548,6 +577,9 @@ type ZatecenNiz struct {
 	IzvanNov int    // koliko zatečenih vrijednosti nova datoteka uopće ne pokriva
 	OdIzvan  string // razdoblje koje bi zamjena odnijela
 	DoIzvan  string
+	// Greska kaže zašto se zatečeni niz ne da pročitati do kraja. Dopuna ga
+	// tada odbije, pa čovjek mora vidjeti i razlog i mogućnost zamjene.
+	Greska string
 }
 
 // zateceno gleda što niz već ima i koliko bi toga zamjena odnijela.
@@ -556,7 +588,10 @@ func zateceno(koren string, u UvozNiza, novi []arhiva.Redak) *ZatecenNiz {
 		return nil
 	}
 	stare, err := arhiva.PostojeciRedci(koren, u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta)
-	if err != nil || len(stare) == 0 {
+	if err != nil {
+		return &ZatecenNiz{Greska: err.Error()}
+	}
+	if len(stare) == 0 {
 		return nil
 	}
 	imaNovi := make(map[int64]bool, len(novi))
@@ -616,6 +651,14 @@ func prijedlogIzNaziva(ime string, slivZa map[string]string) UvozNiza {
 		u.Sliv = s
 	}
 	return u
+}
+
+// slivIzStabla daje prijedlogu sliv postojeće letve iz stabla i kad je letvu
+// upisao čovjek u obrazac, a ne naziv datoteke; sliv koji je upisao ostaje
+func slivIzStabla(u *UvozNiza, slivZa map[string]string) {
+	if s, ima := slivZa[u.Letva]; ima && u.Sliv == "" {
+		u.Sliv = s
+	}
 }
 
 func primiIzObrasca(u *UvozNiza, r *http.Request) {
@@ -743,13 +786,9 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u := d.Prijedlg
-	// Letva se zna tek kad je datoteka pročitana, pa provjera prava stoji
-	// ovdje, a ne na vratima: dotad se ne zna ni čije se podatke dira.
-	if !h.smijeZa(d.Permissions, u.Letva) {
-		d.ErrorMessage = "Nemate pravo uvoziti podatke letve " + u.Letva + " — uvozi ih administrator njezina područja."
-		h.pisi(w, d)
-		return
-	}
+	// Pravo na letvu provjerava popuniPregled čim se letva zna, pa i za upis.
+	// Prazna letva ondje prolazi jer još nema čiju provjeriti, a ovdje je
+	// odbija ProvjeriDjelove.
 	if err := arhiva.ProvjeriDjelove(u.Letva, u.Izvor, u.Velicina, u.Vrsta); err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
@@ -893,25 +932,21 @@ func sazetakIzdanja(iz arhiva.IzvjestajIzdanja) string {
 		if iz.Promijenjenih == 0 {
 			return "Ništa se nije promijenilo — nema što izdati."
 		}
-		return fmt.Sprintf("%d %s bi dobilo novo izdanje; %d je nepromijenjeno.",
-			iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Istih)
+		return fmt.Sprintf("%d %s novo izdanje; %d %s.",
+			iz.Promijenjenih, models.UzBrojHR(iz.Promijenjenih, "letva bi dobila", "letve bi dobile", "letvi bi dobilo"),
+			iz.Istih, istihLetvi(iz.Istih))
 	}
 	if iz.Promijenjenih == 0 {
 		return "Katalog je osvježen; nijedna letva nije trebala novo izdanje."
 	}
-	return fmt.Sprintf("Izdano %d %s u %s; %d nepromijenjeno.",
-		iz.Promijenjenih, uzBrojLetva(iz.Promijenjenih), iz.Mapa, iz.Istih)
+	return fmt.Sprintf("%d %s novo izdanje u %s; %d %s.",
+		iz.Promijenjenih, models.UzBrojHR(iz.Promijenjenih, "letva je dobila", "letve su dobile", "letvi je dobilo"),
+		iz.Mapa, iz.Istih, istihLetvi(iz.Istih))
 }
 
-func uzBrojLetva(n int) string {
-	switch {
-	case n%10 == 1 && n%100 != 11:
-		return "letva"
-	case n%10 >= 2 && n%10 <= 4 && (n%100 < 12 || n%100 > 14):
-		return "letve"
-	default:
-		return "letvi"
-	}
+// istihLetvi je glagol uz broj letava kojima se izdanje nije promijenilo
+func istihLetvi(n int) string {
+	return models.UzBrojHR(n, "je nepromijenjena", "su nepromijenjene", "je nepromijenjeno")
 }
 
 func novIdUvoza() string {

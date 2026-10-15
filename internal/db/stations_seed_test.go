@@ -13,9 +13,7 @@ import (
 
 func loadSections(t *testing.T) []seedSectionGauges {
 	t.Helper()
-	if !UseRepoData() {
-		t.Skip("data/sections.json nije dostupan — registri stoje izvan repozitorija")
-	}
+	registriIliPreskoci(t)
 	embedded, err := LoadSections()
 	if err != nil {
 		t.Fatalf("sections.json se ne može pročitati: %v", err)

@@ -3,7 +3,11 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"io/fs"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
@@ -68,5 +72,37 @@ func TestArhivaBezNapomeneSeIDaljeCita(t *testing.T) {
 				t.Errorf("napomena %q, očekivano %q", nizovi[0].Napomena, want)
 			}
 		})
+	}
+}
+
+// Arhiva na poslužitelju otvara se samo za čitanje: upis kroz tu vezu se
+// odbije, a arhiva koje nema ne nastane, nego čvor radi bez povijesti. Do
+// 13. 10. 2026. veza je mogla pisati, a na mjestu arhive koje nije bilo
+// ostajala je prazna datoteka.
+func TestArhivaSeOtvaraSamoZaCitanje(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "arhiva.db")
+	db, err := sql.Open("sqlite", put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE nizovi (id INTEGER PRIMARY KEY, letva TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	db.Close()
+	repo, err := OpenArhiva(put)
+	if err != nil || repo == nil {
+		t.Fatalf("arhiva se ne otvara: %v", err)
+	}
+	defer repo.Close()
+	if _, err := repo.db.Exec(`INSERT INTO nizovi (letva) VALUES ('batina')`); err == nil || !strings.Contains(err.Error(), "readonly") {
+		t.Errorf("upis kroz vezu za čitanje: %v", err)
+	}
+
+	nema := filepath.Join(t.TempDir(), "nema.db")
+	if repo, err := OpenArhiva(nema); err != nil || repo != nil {
+		t.Errorf("arhiva koje nema: %v, %v", repo, err)
+	}
+	if _, err := os.Stat(nema); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("otvaranje je napravilo arhivu koje nije bilo: %v", err)
 	}
 }

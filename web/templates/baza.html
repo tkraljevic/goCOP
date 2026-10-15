@@ -15,10 +15,11 @@
   </div>
 </div>
 
+{{template "trakaPonovnogPokretanja" .Postavke}}
 
 <div class="reg-card p-4">
   <dl class="reg-facts">
-    <div><dt>Datoteka</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
+    <div><dt>Datoteka baze</dt><dd class="mono wrap-anywhere">{{.DBPath}}</dd></div>
     <div><dt>Na disku</dt><dd>{{humanBytes .SizeBytes}}{{if .WALBytes}} + WAL {{humanBytes .WALBytes}}{{end}}</dd></div>
     <div><dt>Verzija u knjizi</dt><dd>{{.Stats.Versions}}</dd></div>
     <div><dt>Zapisa</dt><dd>{{.Stats.Records}}</dd></div>
@@ -33,12 +34,24 @@
   {{end}}
 </div>
 
+{{with .Postavke}}
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Postavke ovog čvora (gocop.toml)</h2>
+  <p class="page-desc">Gdje su baza, arhiva i mape s datotekama, i gdje je sama datoteka postavki.</p>
+  {{template "postavkeCvora" (.Dio "baza")}}
+</section>
+{{end}}
+
 <section class="detail-section">
   <h2>{{icon "trash"}} Sažimanje knjige</h2>
   <p class="page-desc">
     Svaki zapis zadržava svoju zadnju verziju, a obrisani zapisi svoj nadgrobni spomenik, da ih zakašnjeli čvor
     ne vrati. Starije verzije istog zapisa služe samo povijesti izmjena; sažimanje ih briše kad su starije od
-    zadanog roka. Razmjena s drugim čvorovima to ne osjeti.
+    zadanog roka. Akt zadržava i zadnju verziju svake svoje ovjere, da ovjera ne nestane kad je poslije nje stigao
+    nacrt s drugog čvora. Razmjena s drugim čvorovima to ne osjeti.
+    Iznimka je dnevni list vodočuvara koji su pisala dva čvora: on se slaže iz svih svojih verzija (predan list
+    ima prednost, bilješke rukovoditelja ostaju), pa se prije sažimanja upisuje kao nova verzija kakav vrijedi.
+    List koji je predan na dva čvora ne sažima se: oba potpisa ostaju u knjizi.
   </p>
   <form method="GET" action="/administracija/baza" class="form-page d-flex gap-2 items-end flex-wrap">
     <div class="form-group m-0">
@@ -47,15 +60,15 @@
     </div>
     <button type="submit" class="btn btn-secondary">Preračunaj</button>
   </form>
-  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> verzija.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
+  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
   {{if .Permissions.IsGlobalAdmin}}
   <div class="d-flex gap-2 flex-wrap">
-    <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} starijih verzija? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
+    <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} {{uzBroj .Compactable "stariju verziju" "starije verzije" "starijih verzija"}}? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
       <input type="hidden" name="days" value="{{.KeepDays}}">
       <button type="submit" class="btn btn-primary" {{if not .Compactable}}disabled{{end}}>{{icon "trash"}} Sažmi knjigu</button>
     </form>
     {{if .BrisanjePovijesti}}
-    <form method="POST" action="/administracija/baza/spomenici" onsubmit="return confirm('Obrisati {{.Spomenika}} spomenika obrisanih zapisa? Zakašnjeli čvor tada može obrisani zapis vratiti; samo za testni čvor.')">
+    <form method="POST" action="/administracija/baza/spomenici" onsubmit="return confirm('Obrisati {{.Spomenika}} {{uzBroj .Spomenika "spomenik obrisanog zapisa" "spomenika obrisanih zapisa" "spomenika obrisanih zapisa"}}? Zakašnjeli čvor tada može obrisani zapis vratiti; samo za testni čvor.')">
       <button type="submit" class="btn btn-secondary btn-opasno" {{if not .Spomenika}}disabled{{end}}>{{icon "trash"}} Obriši spomenike ({{.Spomenika}})</button>
     </form>
     {{end}}

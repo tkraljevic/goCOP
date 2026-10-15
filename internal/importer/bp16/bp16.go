@@ -189,12 +189,19 @@ type Deps struct {
 
 // Report je sažetak jednog uvoza
 type Report struct {
-	Fetched     int
-	Inserted    int
-	Skipped     int // već postojala
-	Unmapped    map[string]int
-	NewStations []string
-	NoviObjekti []string
+	Fetched  int
+	Inserted int
+	Skipped  int // već postojala
+	// IzvanRaspona su vrijednosti izvan raspona ručnog upisa (Odluke (8. 10.
+	// 2026.), pitanje 21). Zapis s vodostajem izvan raspona ne upisuje se
+	// cijeli, kao u ručnom upisu, pa ga uvoz upiše kad se u evidenciji
+	// ispravi. Odbaceno su zapisi koji zato nisu upisani. Pregled ih broji
+	// isto kao uvoz.
+	IzvanRaspona int
+	Odbaceno     int
+	Unmapped     map[string]int
+	NewStations  []string
+	NoviObjekti  []string
 	// DopunjeneVeze su postojeći objekti koji su dobili letvu koju nisu imali
 	DopunjeneVeze []string
 }
@@ -391,8 +398,10 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 		return rep, err
 	}
 	letvaPoImenu := map[string]string{}
+	kote := map[string]bool{}
 	for _, l := range letve {
 		letvaPoImenu[strings.ToLower(strings.TrimSpace(l.Name))] = l.ID.String()
+		kote[l.ID.String()] = l.KotaNM
 	}
 	resolveStructure := func(collection, vrsta string, rows []lookupRow) (map[int]string, error) {
 		out := map[int]string{}
@@ -507,7 +516,7 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 
 	var batch []models.Reading
 	flush := func() error {
-		err := upisiSeriju(ctx, deps, batch, &rep)
+		err := upisiSeriju(ctx, deps, batch, kote, &rep)
 		batch = batch[:0]
 		return err
 	}
@@ -620,13 +629,17 @@ func Run(ctx context.Context, src Source, deps Deps) (Report, error) {
 
 // upisiSeriju upisuje seriju očitanja i pribraja upisana izvješću. Serija je
 // jedna transakcija: pala je poništena cijela, pa se broji tek nakon
-// uspjelog upisa.
-func upisiSeriju(ctx context.Context, deps Deps, batch []models.Reading, rep *Report) error {
+// uspjelog upisa. Pregled ne upisuje ništa, ali broji kao da upisuje: bez
+// zapisa koje bi provjera raspona odbacila. kote su letve koje vode kotu u
+// cm n. m., po identifikatoru.
+func upisiSeriju(ctx context.Context, deps Deps, batch []models.Reading, kote map[string]bool, rep *Report) error {
 	if len(batch) == 0 {
 		return nil
 	}
+	izvan, odbaceno := procijeniRaspon(batch, kote, time.Now())
 	if deps.DryRun {
-		rep.Inserted += len(batch)
+		rep.Inserted += len(batch) - odbaceno
+		rep.dodajRaspon(izvan, odbaceno)
 		return nil
 	}
 	n, err := deps.Readings.ImportBatch(ctx, batch)
@@ -634,7 +647,38 @@ func upisiSeriju(ctx context.Context, deps Deps, batch []models.Reading, rep *Re
 		return err
 	}
 	rep.Inserted += n
+	rep.dodajRaspon(izvan, odbaceno)
 	return nil
+}
+
+// procijeniRaspon broji što će iz serije odbaciti zajednička provjera
+// raspona, ista koju serija prolazi pri upisu (models.OcistiOcitanje):
+// vrijednosti izvan raspona i zapise koji zato ne bi bili upisani. Serija
+// se ne dira.
+func procijeniRaspon(batch []models.Reading, kote map[string]bool, sada time.Time) (izvan, odbaceno int) {
+	for _, rd := range batch {
+		odbacene, upisati := models.OcistiOcitanje(&rd, kote[rd.StationID], sada)
+		izvan += len(odbacene)
+		if !upisati {
+			odbaceno++
+		}
+	}
+	return izvan, odbaceno
+}
+
+// dodajRaspon pribraja izvješću vrijednosti izvan raspona i zapise koji
+// zato nisu upisani
+func (r *Report) dodajRaspon(izvan, odbaceno int) {
+	r.IzvanRaspona += izvan
+	r.Odbaceno += odbaceno
+}
+
+// opisRaspona je dio sažetka o odbačenom izvan raspona; prazan kad ga nema
+func (r Report) opisRaspona() string {
+	if r.IzvanRaspona == 0 {
+		return ""
+	}
+	return fmt.Sprintf(", nije upisano zbog raspona %d (vrijednosti izvan raspona %d)", r.Odbaceno, r.IzvanRaspona)
 }
 
 func fetchInto(ctx context.Context, src Source, collection string, dst any) error {
@@ -651,7 +695,7 @@ func fetchInto(ctx context.Context, src Source, collection string, dst any) erro
 
 // Summary je jedan redak izvješća za dnevnik
 func (r Report) Summary() string {
-	s := fmt.Sprintf("pročitano %d, upisano %d, već postojalo %d", r.Fetched, r.Inserted, r.Skipped)
+	s := fmt.Sprintf("pročitano %d, upisano %d, već postojalo %d", r.Fetched, r.Inserted, r.Skipped) + r.opisRaspona()
 	if len(r.NewStations) > 0 {
 		s += ", nove postaje: " + strings.Join(r.NewStations, ", ")
 	}

@@ -19,7 +19,32 @@ sustava (systemd). Opće upute (mreža, podaci, ograničenja alfa faze) su u
   Debian 12+ i noviji sustavi ga imaju): `openssl version`.
 
 Program je jedna izvršna datoteka bez drugih ovisnosti; bazu (SQLite) nosi
-u sebi.
+u sebi. Postupak je isproban na Ubuntu 24.04 LTS (uredski čvor u Osijeku).
+
+### Prije instalacije: slobodni portovi
+
+Čvor treba port 80 (web) i portove 4710–4712 (razmjena). Provjerite da ih
+ne drži neki drugi program:
+
+```sh
+sudo ss -ltnup | grep -E ':(80|8080|4710|4711|4712)\b'
+```
+
+Ako naredba ništa ne ispiše, portovi su slobodni. Na računalu koje je prije
+služilo kao poslužitelj port 80 često drži drugi web poslužitelj (nginx,
+Apache). Ako vam ne treba, spremite mu postavke i uklonite ga, npr. za nginx
+na Ubuntuu:
+
+```sh
+sudo tar czf ~/nginx-kopija.tgz /etc/nginx /var/www
+sudo systemctl disable --now nginx
+sudo apt purge -y nginx nginx-common nginx-core
+sudo apt autoremove -y
+```
+
+Ako vam treba, čvor će sam raditi na 8080 (u dnevniku piše `Port 80 nije
+dostupan … prelazim na :8080`), ili mu port zadajte u `gocop.toml`
+(poglavlje 6).
 
 ## 1. Što se postavlja
 
@@ -29,6 +54,7 @@ u sebi.
 | korisnik sustava | `gocop` | bez prijave i bez lozinke |
 | mapa podataka | `/var/lib/gocop` | vlasnik `gocop`, `0750` |
 | usluga | `/etc/systemd/system/gocop.service` | `gocop.service` iz izdanja |
+| ikona u traci (Postava) | `/usr/local/bin/gocop-postava` | samo ako je uz program (poglavlje 12) |
 
 U mapi podataka su:
 
@@ -43,8 +69,11 @@ U mapi podataka su:
 | `vodostaji/`, `pakete/`, `skenovi/` | izvorne datoteke arhive, `.cop` paketi, skenovi prijava |
 | `kopije/` | kopije baze koje skripta napravi prije nadogradnje |
 
-Program sve putanje računa od mape baze, pa je dovoljno da usluga dobije
-`-db /var/lib/gocop/gocop.db` i da joj je ta mapa radna mapa.
+Datoteke uz bazu (`gocop.toml`, `vodostaji.db`, `skenovi/`…) program traži
+uz bazu, a relativne mape `podaci` i `pakete` (zadano `vodostaji` i `pakete`)
+računa od radne mape usluge (`WorkingDirectory`). Zato je dovoljno da usluga
+dobije `-db /var/lib/gocop/gocop.db` i da joj je ta mapa radna mapa. Pri
+pokretanju čvor u dnevnik upiše pune putanje stabla i mape paketa.
 
 ## 2. Preuzimanje i provjera izdanja
 
@@ -55,9 +84,9 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.34-alfa
+IZDANJE=v0.0.38-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
-for f in gocop-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
+for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
 done
 ```
@@ -78,10 +107,12 @@ sha256sum -c --ignore-missing SHA256SUMS
 ```
 
 Ispravno izdanje ispiše `Signature Verified Successfully` te
-`gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK`. **Ako
-bilo koja provjera ne prođe, ništa od izdanja ne postavljajte.**
+`gocop-linux-amd64: OK`, `gocop.service: OK` i `instaliraj.sh: OK` (uz
+Postavu i `gocop-postava-linux-amd64: OK`). **Ako bilo koja provjera ne
+prođe, ništa od izdanja ne postavljajte.**
 
-Skripta i jedinica stoje uz izdanja od prvog izdanja nakon 0.0.33-alfa.
+Skripta i jedinica stoje uz izdanja od prvog izdanja nakon 0.0.33-alfa, a
+Postava za Linux (`gocop-postava-linux-amd64`, poglavlje 12) od 0.0.36-alfa.
 Starija izdanja ih nemaju; za njih vrijedi ručni postupak na kraju
 poglavlja 3, a jedinica se uzima iz repozitorija za istu oznaku
 (`build/linux/gocop.service`), bez potpisa.
@@ -122,9 +153,13 @@ onda pokreće.
    najprije zaustavi uslugu i kopira `gocop.db` (i `gocop.db-wal`) u
    `/var/lib/gocop/kopije` (zadržava zadnje tri kopije);
 4. upiše ime čvora u `/var/lib/gocop/gocop.toml` naredbom
-   `gocop -pripremi` — ime koje je već upisano ne mijenja;
+   `gocop -pripremi` — ime koje je već upisano ne mijenja, a uz postojeću
+   bazu bez `gocop.toml` ne zapisuje ništa, nego javlja da datoteke nema;
 5. postavi jedinicu `gocop.service` iz izdanja, uključi je i pokrene;
 6. pričeka da čvor odgovori na `/zdravlje` i ispiše adresu.
+
+Kad je uz program i `gocop-postava-linux-amd64`, skripta prije čvora
+postavi i ikonu u traci (poglavlje 12). Bez te datoteke Postavu ne dira.
 
 **Ime čvora** (`-ime`) je jedinstveno ime u mreži: mala slova, brojke i
 crtica, 3–40 znakova (npr. `pperic-posluzitelj`). Ne mijenja se nakon prvog
@@ -149,9 +184,12 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now gocop
 ```
 
-`gocop -pripremi` samo zapiše `gocop.toml` s imenom čvora i ne otvara bazu;
-pokreće se iz mape podataka jer program `gocop.toml` traži i u radnoj
-mapi.
+`gocop -pripremi` samo zapiše `gocop.toml` s imenom čvora, a bazu najviše
+pročita; pokreće se iz mape podataka jer program `gocop.toml` traži i u
+radnoj mapi. Kad baza već postoji, a `gocop.toml` nema (premješten ili
+izgubljen), od 0.0.35-alfa ne zapisuje novi primjer, nego ispiše gdje se
+datoteka očekuje i pod kojim imenom čvor bez nje kreće (ime pod kojim baza
+zna ključ čvora); izvornu datoteku treba vratiti.
 
 ## 4. Usluga
 
@@ -162,7 +200,10 @@ Jedinica `gocop.service`:
 - postavlja `TZ=Europe/Zagreb`, kao i spremnik: prikaz je uvijek u zoni
   Zagreba, ali neka vremena (unos epizode, vrijeme snimanja fotografije)
   čitaju se u mjesnoj zoni računala;
-- ponovno pokreće program ako padne (`Restart=on-failure`);
+- ponovno pokreće program ako padne (`Restart=on-failure`) i kad ga
+  administrator ponovno pokrene iz programa (izlazni kod 75);
+- javlja programu da je usluga sustava (`GOCOP_NADZOR=systemd`), pa
+  Administracija nudi gumb *Ponovno pokreni čvor*;
 - daje programu samo pravo vezanja na port 80
   (`CAP_NET_BIND_SERVICE`); bez njega bi program prešao na 8080;
 - ostatak sustava drži samo za čitanje (`ProtectSystem=strict`,
@@ -215,6 +256,69 @@ s postojećom mrežom.
 - **Iz lokalne mreže:** `http://<adresa poslužitelja>/postavljanje?kod=<kod iz dnevnika>`.
   Nakon 10 krivih kodova kod ne vrijedi do ponovnog pokretanja.
 
+### Pristup na daljinu (SSH)
+
+Ubuntu Desktop nema SSH poslužitelj. Ako se na računalo spajate s drugog
+računala:
+
+```sh
+sudo apt install -y openssh-server
+sudo systemctl enable --now ssh
+```
+
+Ako je na računalu Tailscale, umjesto toga se može uključiti Tailscale SSH
+(`sudo tailscale set --ssh`). Tada se prijavljujete Tailscale računom, bez
+lozinke i bez ključeva, preko adrese iz Tailscalea (`ssh korisnik@100.x.y.z`).
+Ovisno o pravilima vaše Tailscale mreže, povremeno se traži potvrda u
+pregledniku. Taj pristup radi samo preko Tailscalea, ne preko adrese u
+lokalnoj mreži.
+
+goCOP se preko Tailscalea otvara na `http://100.x.y.z` i prijava je ista
+kao iz ureda, bez PIN-a: zahtjev na Tailscale adresu računala vrijedi kao iz
+lokalne mreže (`[web] tailscale_lokalno` u `gocop.toml`, zadano uključeno).
+
+### Uključivanje u postojeću mrežu
+
+Na stranici `/postavljanje` novog čvora (npr. s laptopa u istoj mreži,
+`http://<adresa novog čvora>/postavljanje?kod=<kod>`) odaberite *Priključit
+ću se postojećoj mreži* → *Poveži ga s uredom* i uparite ga s računalom koje
+je već u mreži. Uparivanje ide preko porta 4711, koji poslije više ne treba
+(poglavlje 7). Nakon uparivanja čvor sam počne razmjenu sa svim čvorovima
+koje zna.
+
+### Uredski čvor: svi podaci
+
+Nov čvor prima samo ono što se u programu označi za praćenje. To odgovara
+laptopu, a uredski poslužitelj treba imati sve: očitanja i dnevnike svih
+područja i godina. Za to u `gocop.toml` u odjeljku `[sync]` stavite
+`sve = true` i ponovno pokrenite uslugu:
+
+```sh
+sudo sed -i 's/^sve = false$/sve = true/' /var/lib/gocop/gocop.toml
+sudo grep -n -E '^(sve|bootstrap)' /var/lib/gocop/gocop.toml
+sudo systemctl restart gocop
+```
+
+`grep` treba ispisati `sve = true`. Pod `bootstrap` su javni čvorovi preko
+kojih čvor nalazi ostale i izvan lokalne mreže (zadano `cop-osijek.com`).
+
+Što se vidi u dnevniku (`journalctl -u gocop -f`) dok se čvor puni:
+
+- `sinkronizacija s <čvor>: primljeno N, poslano M`. Prva razmjena ide u
+  paketima od po 5000 zapisa, pa se ovakvih redaka nakupi puno;
+- `arhiva: zatraženo N paketa od drugih čvorova`, a zatim po jedan redak
+  `… → spojeni niz …` za svaki niz hidrološke arhive. Arhiva ima desetak GB,
+  pa ovo traje dulje od ostalog;
+- `database is locked` ili `EOF` dok se čvor puni: dva čvora su istodobno slala
+  podatke. Ništa se ne gubi, razmjena se ponovi u sljedećem krugu (za 5
+  minuta);
+- `čvor … nije dostupan ni na jednoj adresi`: čvor na drugoj mreži (npr.
+  kućno računalo). To je očekivano.
+
+Ako uredski čvor treba primati nova računala u mrežu i kad računalo s
+ključem mreže nije u uredu, na tom računalu u *Administracija → Čvor, mreža
+i sinkronizacija* uz uredski čvor kliknite *Daj ovlast za primanje*.
+
 **Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Početni
 račun `admin` s lozinkom iz uputa postoji od prvog pokretanja, a čvor tu
 lozinku odbija samo za zahtjeve koji dolaze kroz posrednika (vidi
@@ -224,8 +328,25 @@ lozinku odbija samo za zahtjeve koji dolaze kroz posrednika (vidi
 
 Postavke su u `/var/lib/gocop/gocop.toml`. Pri prvom pokretanju program
 zapiše primjer sa zadanim vrijednostima i objašnjenjem svakog ključa.
-Nakon izmjene: `sudo systemctl restart gocop`. Zastavice u jedinici imaju
-prednost pred datotekom; jedinica zadaje samo `-db`.
+Mapu podataka smiju čitati samo `gocop` i `root`, pa i za čitanje datoteke
+treba `sudo` (`sudo grep …`, `sudo nano /var/lib/gocop/gocop.toml`).
+
+Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
+`sudo systemctl restart gocop`. Zastavice u jedinici imaju prednost pred
+datotekom; jedinica zadaje samo `-db`.
+
+Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
+i centar sa stranice prijave te razmak sinkronizacije (*Čvor, mreža i
+sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
+karta (*Opcije*); do svih se dolazi iz Administracije (opis u
+[INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
+tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
+`/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
+komentare. Naziv čvora, port weba i portove razmjene, putanje i posrednike
+mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* uredno
+ugasi čvor, a systemd ga za pet sekundi pokrene, isto kao
+`sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi
+ga ugašenog.
 
 Česte izmjene:
 
@@ -265,6 +386,23 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
   zaštićeno: tko ih ima, predstavlja se kao ovaj čvor, odnosno prima
   članove u mrežu.
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
+- Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
+  0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka
+  nedostaje. Vratite izvornik iz kopije. Novi identitet samo izričito,
+  jednim pokretanjem sa zastavicom `-novi-kljuc-cvora`, kao korisnik
+  `gocop` i uz istu bazu (naredba pokrenuta kao `root` ostavila bi ključ
+  koji usluga ne može pročitati):
+
+  ```sh
+  sudo systemctl stop gocop
+  cd /var/lib/gocop && sudo runuser -u gocop -- /usr/local/bin/gocop \
+    -novi-kljuc-cvora -db /var/lib/gocop/gocop.db
+  # kad javi da je poslužitelj spreman (bez prava na port 80, na :8080): Ctrl+C
+  sudo systemctl start gocop
+  ```
+
+  Zatim ga čvor koji ga je primio u mrežu zaboravi, opozove mu članstvo i
+  ponovno ga primi (vidi [INSTALACIJA.md](INSTALACIJA.md), poglavlje 3).
 
 ## 7. Portovi i vatrozid
 
@@ -278,6 +416,24 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
 Web sučelje je obični HTTP. Pristup s interneta ide kroz tunel ili
 posrednika s HTTPS-om ispred čvora, nikad izravno na port 80. Čvorovi koji
 razmjenjuju kroz web tunel ne trebaju otvoren 4710.
+
+Razmjena s drugim vašim čvorovima preko Tailscalea ide na isti port 4710,
+a uparivanje preko Tailscale adrese na 4711, oboje na sučelju `tailscale0`.
+Pravilo `sudo ufw allow in on tailscale0` pokriva i njih. Isključuje se s `[sync] tailscale = false`; više u
+[INSTALACIJA.md](INSTALACIJA.md#2-mreža).
+
+Najprije provjerite je li vatrozid uopće uključen:
+
+```sh
+sudo ufw status
+```
+
+Ako piše `Status: inactive` (zadano na Ubuntu Desktopu), portovi su već
+otvoreni prema mreži na kojoj je računalo, a pravila ispod nisu potrebna.
+Zato tada `ufw delete` javlja `Could not delete non-existent rule`. Ako
+vatrozid uključujete, **prvo dopustite pristup kojim ste spojeni**, inače
+će vas `ufw enable` izbaciti: `sudo ufw allow OpenSSH`, a za Tailscale
+`sudo ufw allow in on tailscale0`.
 
 Primjer s **ufw**, za lokalnu mrežu `192.168.1.0/24`:
 
@@ -327,6 +483,9 @@ nadzoru izvana. Ako je program prešao na 8080, adresa je
    `/var/lib/gocop/kopije`, zamijeni program, pokrene uslugu i pričeka
    `/zdravlje`. Ako je novo izdanje promijenilo jedinicu, postavi i nju.
 
+Uz ikonu u traci isto se radi iz njezina izbornika, *Nadogradi na …*
+(poglavlje 12).
+
 Napomene:
 
 - Stalni čvor ažurira se prvi, pa ostali (redoslijed je u INSTALACIJA.md).
@@ -337,7 +496,7 @@ Napomene:
 - Skripta kopira samo `gocop.db`; za ostale baze vrijedi sigurnosna
   kopija iz poglavlja 6.
 - `gocop` se ne nadograđuje sam i ništa ne preuzima; nadogradnja je uvijek
-  ovaj postupak.
+  ovaj postupak, ručno ili iz ikone u traci.
 
 ## 10. Deinstalacija
 
@@ -345,8 +504,9 @@ Napomene:
 sudo bash instaliraj.sh -ukloni
 ```
 
-Zaustavi i isključi uslugu, ukloni jedinicu i program. **Podatke i
-korisnika `gocop` ne briše.** Ako ih više ne trebate (nakon kopije):
+Zaustavi i isključi uslugu, ukloni jedinicu i program, a uz njih i
+Postavu, unos u izborniku i ikonu. **Podatke i korisnika `gocop` ne
+briše.** Ako ih više ne trebate (nakon kopije):
 
 ```sh
 sudo rm -rf /var/lib/gocop
@@ -361,8 +521,68 @@ Prije brisanja mape podataka imajte na umu da je u njoj ključ čvora: ako
 
 - Pri prvom pokretanju zapisani `gocop.toml` nosi zadane vrijednosti, ne
   zastavice s kojima je program pokrenut (osim imena čvora).
-- Postava (program za instalaciju i nadogradnju) zasad se izdaje samo za
-  Windows; na Linuxu je ovaj postupak njezina zamjena.
+- Postava za Linux dolazi uz izdanje goCOP-a i postavlja je skripta
+  (poglavlje 12). Zasebna izdanja Postave (`postava-v…`), s instalacijskim
+  programom, su samo za Windows.
 - Program preveden iz izvora skripta ne postavlja jer nema potpisa
   izdanja; za njega vrijedi ručni postupak iz poglavlja 3 (prijevod s
   `CGO_ENABLED=0 go build -trimpath ./cmd/gocop`).
+
+## 12. Ikona u traci (Postava)
+
+Postava je mali program s ikonom goCOP-a u traci, isti kao na Windowsu i
+macOS-u. Uz izdanje stoji kao `gocop-postava-linux-amd64` (od
+0.0.36-alfa). Kad je u mapi uz program, `instaliraj.sh` je provjeri istim
+potpisom kao i program i postavi:
+
+| Što | Gdje |
+|---|---|
+| Postava | `/usr/local/bin/gocop-postava` |
+| unos u izborniku programa (goCOP) | `/usr/share/applications/gocop-postava.desktop` |
+| ikona | `/usr/share/icons/hicolor/256x256/apps/gocop.png` |
+
+U izborniku programa zove se **goCOP**. Pokreće se kao obični korisnik, ne
+kao root. Kad nađe uslugu `gocop`, ne pokreće drugi čvor, nego radi s
+uslugom. Pri prvom pokretanju sama uključi *Pokreni pri prijavi* (unos u
+`~/.config/autostart`), samo jednom: ako ga korisnik poslije isključi, ostaje
+isključeno. Svoj dnevnik piše u `~/.local/share/gocop/data/postava.log`.
+
+Izbornik ikone:
+
+- **Otvori goCOP** otvara goCOP u pregledniku (isto radi dvoklik na ikonu).
+- **Zaustavi** zaustavlja uslugu, nakon pitanja: dok usluga stoji, nema
+  razmjene s drugim čvorovima i nitko u uredu ne može otvoriti goCOP.
+  **Pokreni** je pokreće bez dodatnog pitanja.
+- **Nadogradi na …** preuzme novo izdanje s GitHuba u
+  `~/.local/share/gocop/data`, provjeri potpis i SHA-256 svake datoteke i
+  pokrene `instaliraj.sh` tog izdanja (poglavlje 9). Ispis skripte ide u
+  dnevnik Postave. **Provjeri nadogradnje** odmah pita GitHub; inače Postava
+  pita sama, svakih šest sati.
+- **Dnevnik čvora** otvara zadnjih 2000 redaka iz `journalctl -u gocop`.
+  Dnevnik sustava smiju čitati članovi grupe `adm` ili `systemd-journal`
+  (prvi korisnik na Ubuntuu je u grupi `adm`); za ostale je prazan.
+- **Pokreni pri prijavi** uključuje ili isključuje ikonu pri prijavi.
+- **O programu** pokazuje izdanje Postave i čvora.
+- **Izlaz** zatvara samo ikonu. Usluga radi dalje.
+
+*Otvori mapu s podacima* uz uslugu se ne nudi, jer `/var/lib/gocop` smije
+čitati samo korisnik `gocop`.
+
+**Lozinka administratora.** Zaustavi, Pokreni i Nadogradi mijenjaju uslugu
+sustava, pa sustav za njih traži lozinku administratora u svom prozoru
+(polkit). Nadogradnja pita jednom, za cijelu skriptu (`pkexec`). Pri
+prijavi Postava ne pita ništa i uslugu ne pali: to radi systemd pri
+pokretanju računala, a uslugu koju je netko zaustavio pali samo *Pokreni*.
+Ako sustav nema `pkexec`-a ili
+se lozinka ne upiše, goCOP se nadograđuje ručno (poglavlje 9). Postavu koju
+je donijela nadogradnja ikona koristi od sljedećeg pokretanja, npr. nakon
+sljedeće prijave.
+
+**GNOME (Ubuntu).** Ubuntu ikonu pokazuje preko ugrađenog proširenja
+AppIndicator (*Ubuntu AppIndicators*), koje je uključeno samo od sebe. Na
+GNOME-u bez njega (npr. Fedora) treba uključiti proširenje *AppIndicator and
+KStatusNotifierItem Support*. KDE i većina drugih radnih okruženja ikonu
+pokazuju bez dodataka.
+
+Bez usluge (na računalu bez `gocop.service`) Postava na Linuxu radi kao na
+macOS-u: pokreće vlastiti čvor u `~/.local/share/gocop`.

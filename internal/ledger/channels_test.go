@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"fmt"
 	"testing"
 )
 
@@ -55,12 +56,13 @@ func TestGranicaPoKanaluIDeltaPoPretplati(t *testing.T) {
 		t.Errorf("bez ograde očekivane 3 verzije, dobiveno %d", len(all))
 	}
 
-	// brisanje kanala s računala
-	n, err := rec.PurgeChannel(ctx, db, "ocitanja/15/2026")
-	if err != nil || n != 1 {
-		t.Fatalf("brisanje kanala: %d, %v", n, err)
+	// brisanje kanala s računala koje ga je primilo od ureda
+	laptop := New(db, "laptop")
+	n, vlastitih, err := laptop.PurgeChannel(ctx, db, "ocitanja/15/2026", true)
+	if err != nil || n != 1 || vlastitih != 0 {
+		t.Fatalf("brisanje kanala: %d, %d, %v", n, vlastitih, err)
 	}
-	if _, err := rec.PurgeChannel(ctx, db, ""); err == nil {
+	if _, _, err := laptop.PurgeChannel(ctx, db, "", true); err == nil {
 		t.Error("zajednički kanal se ne smije brisati")
 	}
 	counts, _ := rec.CountByChannel(ctx)
@@ -83,5 +85,72 @@ func TestKljucGraniceIKanal(t *testing.T) {
 	}
 	if ChannelFor(ChannelReadings, 0, 2024) != "" {
 		t.Error("bez područja nema kanala")
+	}
+}
+
+// Brisanje kanala s računala odnosi samo verzije koje su napisali drugi
+// čvorovi. Vlastite ostaju, s najvećom vlastitom verzijom kanala (pravilo
+// 7), a drugom autoru kanal nestaje cijeli, pa ga granica više ne spominje.
+// Prebrojavanje istim uvjetom ne briše ništa i daje iste brojeve.
+func TestBrisanjeKanalaOstavljaVlastiteVerzije(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	laptop, ured := New(db, "laptop"), New(db, "ured")
+	kanal := ChannelFor(ChannelVodocuvar, 16, 2026)
+	for i, r := range []*Recorder{ured, laptop, ured, laptop} {
+		if _, err := r.RecordIn(ctx, db, kanal, "vodocuvarski_listovi", fmt.Sprintf("l-%d", i), probni{"list", i}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := ured.RecordIn(ctx, db, ChannelFor(ChannelVodocuvar, 17, 2026), "vodocuvarski_listovi", "l-17", probni{"list", 17}); err != nil {
+		t.Fatal(err)
+	}
+	prije, err := laptop.Frontier(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tudjih, vlastitih, err := laptop.PurgeChannel(ctx, db, kanal, false)
+	if err != nil || tudjih != 2 || vlastitih != 2 {
+		t.Fatalf("prebrojavanje: %d tuđih, %d vlastitih, %v", tudjih, vlastitih, err)
+	}
+	if c, _ := laptop.CountByChannel(ctx); c[kanal] != 4 {
+		t.Fatalf("prebrojavanje je brisalo: %v", c)
+	}
+	obrisano, ostalo, err := laptop.PurgeChannel(ctx, db, kanal, true)
+	if err != nil || obrisano != tudjih || ostalo != vlastitih {
+		t.Fatalf("brisanje: %d obrisano, %d ostalo, %v", obrisano, ostalo, err)
+	}
+
+	poslije, err := laptop.Frontier(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if poslije[FrontierKey("laptop", kanal)] != prije[FrontierKey("laptop", kanal)] {
+		t.Errorf("najveća vlastita verzija kanala nije ostala: %v → %v", prije, poslije)
+	}
+	if _, ima := poslije[FrontierKey("ured", kanal)]; ima {
+		t.Errorf("kanal ureda ostao je u granici: %v", poslije)
+	}
+	if poslije[FrontierKey("ured", ChannelFor(ChannelVodocuvar, 17, 2026))] == "" {
+		t.Errorf("obrisan je i drugi kanal: %v", poslije)
+	}
+	if ponovno, _, err := laptop.PurgeChannel(ctx, db, kanal, true); err != nil || ponovno != 0 {
+		t.Errorf("drugo brisanje: %d, %v", ponovno, err)
+	}
+}
+
+// Kad se knjiga ne može pročitati ni obrisati, brisanje kanala javi grešku
+// i ne kaže da je išta obrisano.
+func TestBrisanjeKanalaBezKnjige(t *testing.T) {
+	db := openTestDB(t)
+	ctx := context.Background()
+	if _, err := db.Exec(`DROP TABLE record_versions`); err != nil {
+		t.Fatal(err)
+	}
+	for _, obrisi := range []bool{false, true} {
+		if n, v, err := New(db, "laptop").PurgeChannel(ctx, db, "prijave/16/2026", obrisi); err == nil || n != 0 || v != 0 {
+			t.Errorf("obrisi=%v: %d %d %v", obrisi, n, v, err)
+		}
 	}
 }

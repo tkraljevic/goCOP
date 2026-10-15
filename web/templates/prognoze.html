@@ -18,10 +18,28 @@
       title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
     {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary"
       title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
-    {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke" class="btn btn-secondary"
-      title="Generiranje prognoze i priprema modela">{{icon "settings"}} Postavke</a>{{end}}
+    {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-secondary"
+      title="Generiranje prognoze, priprema modela i izvoz ranije prognoze">{{icon "settings"}} Postavke</a>{{end}}
   </div>
 </div>
+
+{{if .Zastarjelo}}<div class="razmjena-upozorenje prog-zastarjelo" role="alert">{{icon "clock"}} {{.Zastarjelo}}</div>{{end}}
+{{if or .Upozorenja .Napomene}}
+<section class="prog-upozorenja"{{if .Upozorenja}} role="alert" aria-label="Upozorenja uz ovo izdanje"{{else}} aria-label="Napomene uz ovo izdanje"{{end}}>
+  {{if .Upozorenja}}<div class="razmjena-upozorenje">
+    <h2 class="prog-upozorenja-naslov">{{icon "triangle-alert"}} Upozorenja uz ovo izdanje</h2>
+    <ul class="prog-upozorenja-popis">{{range .Upozorenja}}
+      <li>{{.Sto}}{{if .Upitno}}<br><span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </div>{{end}}
+  {{if .Napomene}}<details class="prog-napomene">
+    <summary>Napomene uz ovo izdanje ({{len .Napomene}})</summary>
+    <ul class="prog-upozorenja-popis">{{range .Napomene}}
+      <li>{{.Sto}}{{if .Upitno}} <span class="prog-upitno">{{.Upitno}}</span>{{end}}</li>{{end}}
+    </ul>
+  </details>{{end}}
+</section>
+{{end}}
 
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
@@ -43,10 +61,10 @@
   </div>
   {{end}}
   {{range $i, $p := .Profili}}
-  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}"{{if ne $i 0}} hidden{{end}}>
+  <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}" data-nula="{{$p.NulaKratko}}"{{if ne $i 0}} hidden{{end}}>
     <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
       <span class="uzd-legenda-stavka"><span class="uzd-znak jutro"></span> {{$p.JutroOpis}}</span>
-      <span class="uzd-legenda-stavka" title="Medijan vode zadnjih 30 dana: nula crteža"><span class="uzd-znak nula"></span> voda zadnjih 30 dana</span>
+      <span class="uzd-legenda-stavka" title="Medijan vode istih dana na svim letvama toka, najviše 30 dana: nula crteža"><span class="uzd-znak nula"></span> {{$p.NulaNaziv}}</span>
       <span class="uzd-legenda-stavka" title="Medijan dnevnih vodostaja zadnjih deset godina"><span class="uzd-znak uobicajeno"></span> uobičajena voda (10 g.)</span>
       <span class="uzd-legenda-stavka" title="Srednji vodostaj (SV) zadnjih deset godina"><span class="uzd-znak srednjak"></span> srednji vodostaj</span>
       <span class="uzd-legenda-stavka" title="Crta klizača dok pokazuje mjerenja"><span class="uzd-znak mjereno"></span> klizač: mjereno</span>
@@ -55,7 +73,7 @@
       <button type="button" class="uzd-legenda-stavka uzd-legenda-gumb" data-doseg="{{.Doseg}}"
               title="Pokaži raspon prognoze za ovaj doseg"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</button>
       {{end}}
-      {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}} obrana</span>{{end}}
+      {{range $p.Pragovi}}<span class="uzd-legenda-stavka"><span class="uzd-znak {{.Class}}"></span> {{.Naziv}}</span>{{end}}
     </div>
     <div class="reg-card uzduzni">
       <div class="uzd-gumbi">
@@ -78,7 +96,7 @@
       <span class="uzd-klizac-natpis">sad</span>
     </div>
     <p class="graf-natpis">{{$p.Pad}}. Okomita os je vodostaj u centimetrima iznad ili ispod vode zadnjih
-      30 dana na svakoj letvi (medijan), a ne kota: u kotama se val ne bi vidio. Prema zadnjem mjesecu mirna
+      30 dana na svakoj letvi (medijan istih dana na svim letvama toka), a ne kota: u kotama se val ne bi vidio. Prema zadnjem mjesecu mirna
       voda je ravna crta, a val brijeg; prema dugogodišnjem prosjeku svaka bi letva na maloj vodi stajala na
       svojoj stepenici i izgledalo bi kao da svaka ima val. Uobičajena voda zadnjih deset godina (medijan,
       crtkano) i srednji vodostaj (točkasto) ucrtani su kad su blizu; inače u kutu piše da su iznad ili ispod.
@@ -90,6 +108,8 @@
       se njegove crte prekidaju ondje gdje vrijednosti nema. Letve su poredane redom niz tok, ali
       razmak među njima nije u mjerilu: gusto posađene naše letve dobiju mjesta za natpis. Klik na doseg u legendi pokazuje njegov raspon. Pragovi obrane ulaze u sliku tek kad
       se voda približi.</p>
+    {{if $p.Izostavljeno}}<p class="graf-natpis uzd-izostavljeno">Izostavljeno s profila:
+      {{range $k, $x := $p.Izostavljeno}}{{if $k}}; {{end}}{{$x}}{{end}}.</p>{{end}}
   </div>
   {{end}}
 </section>
@@ -126,6 +146,7 @@
     </header>
     {{if .Nepovezana}}<p class="prog-nepovezana">{{icon "info"}} {{.Nepovezana}}</p>{{end}}
     {{if .Rezerva}}<p class="prog-nepovezana prog-rezerva">{{icon "refresh-cw"}} {{.Rezerva}}</p>{{end}}
+    {{if .Upozorenje}}<p class="prog-nepovezana prog-upozorenje">{{icon "triangle-alert"}} {{.Upozorenje}}</p>{{end}}
     {{if .ImaTermina}}
     <div class="prog-termini">
       {{range .Vrijednosti}}
@@ -142,10 +163,10 @@
       <div class="prog-termin dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}"
            {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
         <div class="prog-termin-naslov">{{.Naslov}}</div>
-        {{if .Cm}}<div class="prog-vr">{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{end}}</div>
+        {{if .Cm}}<div class="prog-vr">{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{else if .IzSatne}}<sup class="prog-oznaka prog-oznaka-satna" title="satna prognoza — dnevni model za ovo izdanje nije računao">s</sup>{{end}}</div>
           {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}
           {{if .Q}}<div class="prog-druga"{{if .QRaspon}} title="protok {{.QRaspon}} m³/s"{{end}}>{{.Q}} m³/s</div>{{end}}
-        {{else}}<div class="prog-vr prog-nema">—</div>{{end}}
+        {{else}}<div class="prog-vr prog-nema"{{if .BezDnevne}} title="Dnevne prognoze za ovo izdanje nema, a satna seže do 96 h"{{end}}>—</div>{{end}}
         {{range .Tude}}<div class="prog-tuda prog-tuda-{{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Cm}}{{if .Raspon}} {{.Raspon}}{{end}}</div>{{end}}
       </div>
       {{end}}
@@ -411,7 +432,7 @@
       if (naj < 0 || najD > 120) { oblacic.hidden = true; return; }
       var jutro = niz.jutro[naj], uob = niz.uob[naj];
       var odJutra = function (cm) { var b = Math.round(cm - jutro); return (b > 0 ? '+' : (b < 0 ? '−' : '±')) + Math.abs(b) + ' od jutra'; };
-      var redci = ['<strong>' + niz.letve[naj] + '</strong> · zadnjih 30 dana ' + Math.round(uob) + ' cm',
+      var redci = ['<strong>' + niz.letve[naj] + '</strong> · ' + (panel.dataset.nula || 'zadnjih 30 dana') + ' ' + Math.round(uob) + ' cm',
         (niz.dugi && niz.dugi[naj] ? 'uobičajeno (10 g.) ' + Math.round(niz.dugi[naj]) + ' cm' : '') + (niz.sv && niz.sv[naj] ? ' · SV ' + Math.round(niz.sv[naj]) + ' cm' : ''),
         '<span class="uzd-znak jutro"></span> jutro ' + Math.round(jutro) + ' cm'];
       if (niz.sada[naj] !== null && niz.sada[naj] !== undefined) {
@@ -461,7 +482,9 @@
       daje koji dan određeno je provjerom i ovisi o vodostaju u satu izdanja: pri visokoj vodi na Dunavu dnevni
       od drugog dana, na Dravi od trećeg do petog, već prema postaji; pri niskoj i srednjoj vodi na Dunavu od
       drugog ili trećeg, na Dravi od prvog ili drugog. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav
-      slijedi mađarsku prognozu Komároma dok je svježa, inače austrijsku prognozu Wildungsmauera.</dd>
+      slijedi mađarsku prognozu Komároma dok je svježa, inače austrijsku prognozu Wildungsmauera.
+      Kad dnevni model za izdanje nije računao, ti dani pokazuju satnu prognozu u 07 h
+      (oznaka <sup class="prog-oznaka prog-oznaka-satna">s</sup>), a dani do kojih satna ne seže ostaju prazni.</dd>
 
     <dt>Raspon</dt>
     <dd>Interval koji obuhvaća {{.Udio}} % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz

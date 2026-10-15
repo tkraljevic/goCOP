@@ -7,6 +7,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/pdfw"
+	"gocop/internal/service"
 )
 
 // PDFVodocuvarskiList crta dnevni list kao papirnatu stranicu knjige:
@@ -161,11 +162,11 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 		d.TekstSredina(d.W/2, d.Y, 9, false, prvi.Datum.In(models.Zagreb).Format("02.01.2006.")+" – "+zadnji.Datum.In(models.Zagreb).Format("02.01.2006."))
 	}
 	d.TekstBoja(d.Lijevo, d.H-d.Dolje, 6.5, false, "Knjiga je zaključena istekom godine i čuva se u goCOP-u; ispis iz programa, listovi nose potpise kako su dani u programu.", sivaTekst)
-	// listovi od najstarijeg, po broju
+	// listovi od najstarijeg, po broju; nacrti bez broja na kraju
 	poredani := append([]models.VodocuvarskiList{}, listovi...)
 	for i := 0; i < len(poredani); i++ {
 		for j := i + 1; j < len(poredani); j++ {
-			if poredani[j].Broj < poredani[i].Broj || (poredani[j].Broj == poredani[i].Broj && poredani[j].Datum.Before(poredani[i].Datum)) {
+			if prijeUKnjizi(poredani[j], poredani[i]) {
 				poredani[i], poredani[j] = poredani[j], poredani[i]
 			}
 		}
@@ -173,16 +174,58 @@ func PDFVodocuvarskaKnjiga(listovi []models.VodocuvarskiList, ime string, godina
 	// knjiga nosi fotografije uz listove; karte obuhvata ne, jer se crtaju iz
 	// mreže i uvijek se mogu nacrtati iznova iz zapisa zadatka
 	pr := PrilogListaPDF{Slike: prilozi}
+	dvojnici := service.BrojeviDvostrukih(listovi)
 	for i := range poredani {
 		d.NovaStranica()
+		oznaciDvostrukiList(d, dvojnici[poredani[i].ID])
 		nacrtajList(d, &poredani[i], t, area, otisci, crtajOba)
 		nacrtajPriloge(d, &poredani[i], pr)
 	}
 	return d.Bajtovi()
 }
 
+// oznaciDvostrukiList upisuje u zaglavlje stranice knjige, desno, oznaku
+// „dvostruki list – vidi i list br. …” kad je za isti dan predano više
+// listova (Odluke (8. 10. 2026.), pitanje 7); stranica se ne pomiče, a
+// izvornik lista (potpisani PDF) se ne mijenja
+func oznaciDvostrukiList(d *pdfw.Doc, brojevi []int) {
+	if len(brojevi) == 0 {
+		return
+	}
+	b := make([]string, len(brojevi))
+	for i, n := range brojevi {
+		b[i] = fmt.Sprint(n)
+	}
+	tekst := "dvostruki list – vidi i list br. " + strings.Join(b, ", ")
+	d.TekstBoja(d.W-d.Desno-pdfw.SirinaTeksta(tekst, 7, true), d.Y, 7, true, tekst, crvena)
+}
+
+// prijeUKnjizi javlja ide li list a u ispisu knjige prije lista b: po
+// rednom broju (preneseni listovi bez broja prvi, kao i dosad), a od istog
+// broja raniji dan. Nacrt bez broja, za dan koji pri spremanju još nije
+// počeo, nije stranica knjige pa ide na kraj, po danu.
+func prijeUKnjizi(a, b models.VodocuvarskiList) bool {
+	if a.NacrtBezBroja() != b.NacrtBezBroja() {
+		return b.NacrtBezBroja()
+	}
+	return a.Broj < b.Broj || (a.Broj == b.Broj && a.Datum.Before(b.Datum))
+}
+
+// oznaciNacrtBezBroja upisuje u zaglavlje stranice, desno, oznaku „nacrt
+// bez broja” kad je list nacrt za dan koji pri spremanju još nije počeo
+// (Odluke (8. 10. 2026.), pitanja 5 i 6): takav list nije stranica knjige i
+// ne smije izgledati kao nepotpisana stranica s brojem
+func oznaciNacrtBezBroja(d *pdfw.Doc, l *models.VodocuvarskiList) {
+	if !l.NacrtBezBroja() {
+		return
+	}
+	const tekst = "nacrt bez broja"
+	d.TekstBoja(d.W-d.Desno-pdfw.SirinaTeksta(tekst, 7, true), d.Y, 7, true, tekst, crvena)
+}
+
 // nacrtajList crta jedan dnevni list na tekuću stranicu
 func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, area *models.Area, otisci models.OtisciLista, crtaj crtanjeBlokova) mjestaPotpisa {
+	oznaciNacrtBezBroja(d, l)
 	dan := l.Datum.In(models.Zagreb)
 	// zaglavlje: organizacija i područje, sitno
 	org := t.OrgName
@@ -302,9 +345,7 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 		}
 		ucinjeno = append(ucinjeno, red)
 	}
-	for _, up := range l.Upisi {
-		naredbe = append(naredbe, up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
-	}
+	naredbe = append(naredbe, stavkeUpisa(l.UpisiNaredbe(), "")...)
 	naredbe = append(naredbe, l.NaredbeStavke()...)
 	ucinjeno = append(ucinjeno, l.OpisStavke()...)
 	okvir("Naredbe rukovoditelja:", numerirano(naredbe), 120)
@@ -316,6 +357,8 @@ func nacrtajList(d *pdfw.Doc, l *models.VodocuvarskiList, t models.OrgTerms, are
 	for _, p := range l.Prijave {
 		zap = append(zap, p.Tekst()+" ("+p.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
 	}
+	// bilješka onoga tko vodočuvaru ne zadaje zadatke nije naredba
+	zap = append(zap, stavkeUpisa(l.UpisiBiljeske(), "Bilješka: ")...)
 	okvir("Posebna zapažanja:", numerirano(zap), 160)
 
 	// potpisi: lijevo vodočuvar, desno rukovoditelj branjenog područja; tko je
@@ -388,6 +431,16 @@ func crtajPotpisLista(d *pdfw.Doc, x, y, w float64, ime string, kad *time.Time, 
 		d.TekstSredina(x+w/2, crta+11, 9, false, ime)
 	}
 	d.Y = staro
+}
+
+// stavkeUpisa su upisi u list kao stavke obrasca: predznak, tekst, tko ga
+// je upisao i kada
+func stavkeUpisa(upisi []models.UpisRukovoditelja, predznak string) []string {
+	var out []string
+	for _, up := range upisi {
+		out = append(out, predznak+up.Tekst+" (upisao "+up.Ime+ifNe(up.Funkcija)+", "+up.Kad.In(models.Zagreb).Format("02.01. 15:04")+")")
+	}
+	return out
 }
 
 func ifNe(f string) string {

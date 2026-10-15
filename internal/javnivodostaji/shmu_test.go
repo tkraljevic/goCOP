@@ -1,6 +1,8 @@
 package javnivodostaji
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -36,6 +38,18 @@ func TestSHMUJavljaKadNemaPunihSati(t *testing.T) {
 	samoCetvrtine := `<td headers="h_datum_cas" >21.9.2026 07:15</td> <td headers="h_vodny_stav" >265</td>`
 	if _, err := CitajSHMU(samoCetvrtine); err == nil {
 		t.Error("tablica bez punih sati mora javiti grešku")
+	}
+	if _, err := CitajSHMU("<html><body>nešto drugo</body></html>"); err == nil || !strings.Contains(err.Error(), "nema tablice") {
+		t.Errorf("stranica bez tablice: %v", err)
+	}
+	// Greška se vidi u ispisu kruga: kaže što nedostaje i što učiniti, a broj
+	// redaka stoji iza dvotočke, pa mu riječ ne treba slagati.
+	for _, n := range []int{1, 2, 5, 11, 21, 22} {
+		zeli := fmt.Sprintf("slovačka stranica nema nijednog očitanja na punom satu (redaka u tablici: %d); "+
+			"ako se to ponavlja, stranica se vjerojatno promijenila, javite administratoru", n)
+		if _, err := CitajSHMU(strings.Repeat(samoCetvrtine+"\n", n)); err == nil || err.Error() != zeli {
+			t.Errorf("%d redaka: %v, želim %q", n, err, zeli)
+		}
 	}
 }
 

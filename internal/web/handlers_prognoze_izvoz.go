@@ -20,8 +20,15 @@ import (
 // vrijednost s rasponom, protokom i modelom, te mađarska i srpska prognoza
 // ispod. Vrijednosti su brojevi, da se s njima može računati.
 
-// IzvoziPrognoze šalje zadnje izdanje prognoze kao .xlsx.
+// IzvoziPrognoze šalje zadnje izdanje prognoze kao .xlsx, a uz dan i sat
+// u upitu izdanje toga sata (ili najbliže ranije).
 func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Has("dan") {
+		var ok bool
+		if r, ok = h.zahtjevRanijeg(w, r); !ok {
+			return
+		}
+	}
 	// Sažetak piše o najnižem i najvišem zabilježenom vodostaju, pa krajnosti
 	// iz arhive moraju biti izračunate prije nego se podaci slože; stranica ih
 	// računa u pozadini, a izvoz smije pričekati koju sekundu.
@@ -35,6 +42,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		http.Error(w, data.Razlog, http.StatusNotFound)
 		return
 	}
+	oznaciRanije(&data, r)
 	z := h.zaglavljeIzvoza(data.CurrentUser)
 	k := &xlsxw.Knjiga{LogoPNG: z.LogoPNG}
 	h.listSazetka(r.Context(), k, z, data)
@@ -52,7 +60,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 	listMetode(k, z, h.metoda(r))
 	// Skriveni list s podacima grafova ide na kraj knjige.
 	sort.SliceStable(k.Listovi, func(i, j int) bool { return !k.Listovi[i].Skriven && k.Listovi[j].Skriven })
-	posaljiXLSX(w, "prognoza_"+time.Now().In(models.Zagreb).Format("2006-01-02_15h")+".xlsx", k)
+	posaljiXLSX(w, imeIzvoza(r), k)
 }
 
 // listPrognoze piše jednu vodu.
@@ -190,16 +198,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		if ima(func(x LetvaPrognoze) bool { return dan(x).QV != nil }) {
 			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).QV, xlsxw.TablicaKurziv) })
 		}
-		redak("", "model", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija {
-			d := dan(x)
-			switch {
-			case d.CmV == nil:
-				return T("", xlsxw.TablicaSredina)
-			case d.Dnevna:
-				return T("dnevni", xlsxw.TablicaSredina)
-			}
-			return T("satni", xlsxw.TablicaSredina)
-		})
+		redak("", "model", xlsxw.Tablica, func(x LetvaPrognoze) xlsxw.Celija { return T(dan(x).Model(), xlsxw.TablicaSredina) })
 		l.SakrijRedak(l.Redak() - 1) // tko želi vidjeti model, otkrije ga
 		for _, iz := range tudiIzvori {
 			tuda := func(x LetvaPrognoze) *TudaCelija {
@@ -227,7 +226,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	if z.Centar != "" {
 		izdaje = z.Centar
 	}
-	napomena := "Prognoza " + izdaje + ". " +
+	napomena := upozorenjaIzvoza(data, letve) + "Prognoza " + izdaje + ". " +
 		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
@@ -262,6 +261,9 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 	if t.HasLogo() && t.LogoMime == "image/png" {
 		z.LogoPNG = t.Logo
 	}
+	// Potpis stoji i bez registra osoba (funkcija bez imena): listovi
+	// potpisnike dijele u stupce, pa bez ijednoga izvoz pada.
+	z.Potpisnici = []PotpisnikIzvoza{h.izdavac(u, sektor)}
 	if h.users == nil {
 		return z
 	}
@@ -273,7 +275,6 @@ func (h *PrognozeHandler) zaglavljeIzvoza(u *models.User) ZaglavljeIzvoza {
 		}
 	}
 	z.Mjesto = strings.TrimSpace(strings.TrimPrefix(z.Centar, t.CenterShort))
-	z.Potpisnici = []PotpisnikIzvoza{h.izdavac(u, sektor)}
 	return z
 }
 
@@ -462,8 +463,8 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
 		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže je li dan dao satni lanac ili dnevni model. HU i RS su prognoze mađarske "+
 		"i srpske službe za isti termin, radi usporedbe; srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) nose našu prognozu prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
-	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremne, " +
-		"redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
+	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremnog " +
+		"stanja, redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
 		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
 		"godinama iz arhive, s označenim rekordima.")
 	odjeljci := map[string]bool{"Ukratko o metodi": true, "Raspon i vjerojatnost": true, "Ograničenja": true}
@@ -517,11 +518,11 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 
 	if v := m.Valovi; v != nil {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
-		uvod := fmt.Sprintf("%d valova iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
+		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
 			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
 			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
-			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova)
+			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 		// Svaka skupina dobiva svoj naslov preko cijele širine (rijeka, model,
 		// broj valova), a ispod nje samo doseg i pogreške: u uskom prvom
@@ -534,7 +535,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		for _, sk := range v.Skupine {
 			rr := l.Redak()
 			red := make([]xlsxw.Celija, stupaca)
-			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, uzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
+			red[0] = T(fmt.Sprintf("%s · %s · %d %s", sk.Rijeka, sk.Model, sk.Valova, models.UzBrojHR(sk.Valova, "val", "vala", "valova")), xlsxw.SazetakNaslov)
 			for i := 1; i < stupaca; i++ {
 				red[i] = T("", xlsxw.SazetakNaslov)
 			}

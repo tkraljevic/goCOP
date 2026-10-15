@@ -7,6 +7,7 @@
   <meta name="color-scheme" content="light dark">
   <!-- Tema prije prvog crtanja, da stranica ne bljesne (tamna po izboru ili po sustavu) -->
   <script src="{{statika "js/tema.js"}}"></script>
+  <script src="{{statika "js/uzbroj.js"}}"></script>
   <link rel="stylesheet" href="{{statika "vendor/leaflet/leaflet.css"}}">
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
@@ -135,7 +136,7 @@
     <span class="viewas-eye">{{icon "eye"}} </span>
     <span class="viewas-text">
       Gledaš program očima djelatnika <strong>{{.ViewedName}}</strong>{{if .ViewedTitle}} ({{.ViewedTitle}}){{end}}.
-      Prijavljen je <strong>{{.RealName}}</strong>. {{if .UpisiDopusteni}}<strong>Upisi su dopušteni</strong> i nastaju pod imenom {{.ViewedName}} (Opcije).{{else}}U ovom pogledu program samo čita.{{end}}
+      Prijavljen je <strong>{{.RealName}}</strong>. {{if .RacunIskljucen}}<strong>Račun je isključen, samo čitanje</strong>, i kad su upisi tuđim očima uključeni.{{else if .UpisiDopusteni}}<strong>Upisi su dopušteni</strong> i nastaju pod imenom {{.ViewedName}} (Opcije).{{else}}U ovom pogledu program samo čita.{{end}}
     </span>
     <form method="POST" action="/view-as/stop" class="viewas-form">
       <input type="hidden" name="back" value="/users">
@@ -262,6 +263,14 @@
 </div>
 {{end}}
 
+{{/* Upozorenje vodočuvaru na dnevne listove koje nije potpisao i predao, a
+     dan im je prošao (Odluke (11. 10. 2026.)) — prima UpozorenjeNepredanih;
+     bez njega ništa. Stoji na početnoj stranici i u vodočuvarskom dnevniku.
+     Datum već završava točkom, pa je rečenica dobiva samo iza „i još N dana”. */}}
+{{define "nepredaniListovi"}}{{with .}}
+<div class="alert alert-warning nepredani-listovi" role="alert">{{icon "triangle-alert"}} Niste potpisali i predali {{if gt .Ukupno 1}}dnevne listove{{else}}dnevni list{{end}} za {{range .Dani}}{{.Prije}}<a href="/vodocuvar/{{.ID}}">{{.Dan}}</a>{{end}}{{with .Jos}} i još <a href="/vodocuvar">{{.}} {{uzBroj . "dan" "dana" "dana"}}</a>.{{end}} Otvorite list, provjerite ga i predajte.</div>
+{{end}}{{end}}
+
 {{define "pager"}}
 {{if gt .Total 0}}
 <nav class="pager" aria-label="Listanje">
@@ -341,7 +350,7 @@
   {{if .NulaUSlici}}
   <line class="uzd-nula" x1="{{printf "%.1f" .LijevoX}}" x2="{{printf "%.1f" .DesnoX}}"
         y1="{{printf "%.1f" .NulaY}}" y2="{{printf "%.1f" .NulaY}}"/>
-  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">voda zadnjih 30 dana (medijan)</text>
+  <text class="uzd-osnaziv" x="{{printf "%.1f" .DesnoX}}" y="{{printf "%.1f" .NulaY}}" dy="-5" text-anchor="end">{{.NulaNaziv}} (medijan)</text>
   {{end}}
   {{if .DugiPut}}<path class="uzd-dugi" d="{{.DugiPut}}"/>{{end}}
   {{if .SrednjakPut}}<path class="uzd-srednjak" d="{{.SrednjakPut}}"/>{{end}}

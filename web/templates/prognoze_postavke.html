@@ -6,8 +6,8 @@
 <div class="detail-head">
   <div>
     <h1>{{icon "settings"}} Postavke prognoze</h1>
-    <p class="reg-card-sub">{{if .Izdano}}Zadnje izdanje {{.Izdano}}. {{end}}Generiranje izdaje prognozu odmah, a priprema
-      modela iznova uči lanac iz arhive.</p>
+    <p class="reg-card-sub">{{if .Izdano}}Zadnje izdanje {{.Izdano}}. {{end}}Generiranje izdaje prognozu odmah, priprema
+      modela iznova uči lanac iz arhive, a ranija prognoza izvozi se za odabrani dan i sat.</p>
   </div>
   <div class="page-actions">
     <a href="/prognoze" class="btn btn-secondary">{{icon "trending-up"}} Prognoze</a>
@@ -58,7 +58,7 @@
   <div class="prog-napredak"{{if not .Generira}} hidden{{end}} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Napredak.Postotak}}">
     <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
     <div class="prog-napredak-tekst"><span class="prog-napredak-postotak">{{.Napredak.Postotak}} %</span> · <span class="prog-napredak-faza">{{.Napredak.Faza}}</span>
-      <span class="prog-napredak-brojka">{{if .Napredak.Ukupno}}· letva {{.Napredak.Gotovo}} od {{.Napredak.Ukupno}} · {{.Napredak.Novih}} novih{{end}}</span></div>
+      <span class="prog-napredak-brojka">{{if .Napredak.Ukupno}}· letva {{.Napredak.Gotovo}} od {{.Napredak.Ukupno}} · {{.Napredak.Novih}} {{uzBroj .Napredak.Novih "novo očitanje" "nova očitanja" "novih očitanja"}}{{end}}</span></div>
   </div>
   <details class="prog-napredak-detalji"{{if .Napredak.Redci}} open{{end}}{{if not .Napredak.Redci}} hidden{{end}}>
     <summary>Detalji postupka</summary>
@@ -68,12 +68,39 @@
 </section>
 {{end}}
 
+{{if .Ranije.Od}}
+<section class="detail-section" id="ranije">
+  <h2>{{icon "history"}} Ranija prognoza</h2>
+  <p class="reg-card-sub">Baza prognoza čuva svako izdanje; najstarije je od {{.Ranije.Od}}. Odaberite dan i sat:
+    izvoz u Excel isti je kao za zadnje izdanje, s brojkama, upozorenjima, dnevnom prognozom i kišom toga izdanja, a
+    mjerenja na grafovima sežu do sata izdanja. Koji dan daje satni, a koji dnevni model ide po odabiru „Izvoz u Excel”
+    gore. Kad u tom satu prognoza nije izdana, nudi se najbliže ranije izdanje;
+    kad je sat izdan više puta, izvozi se zadnje.{{with .Ranije.Ogranicenje}} {{.}} Što uz odabrano izdanje nije
+    zapisano, izvoz nema i to kaže.{{end}}</p>
+  <form method="GET" action="/prognoze/postavke#ranije" class="prog-ranije-obrazac">
+    <span class="prog-ranije-polje"><label for="ranije_dan">Dan</label>
+      <input type="date" name="dan" id="ranije_dan" class="form-control" value="{{.Ranije.Dan}}" min="{{.Ranije.OdDan}}" max="{{.Ranije.DoDan}}" required></span>
+    <span class="prog-ranije-polje"><label for="ranije_sat">Sat</label>
+      <select name="sat" id="ranije_sat" class="form-control">{{$sat := .Ranije.Sat}}{{range .Ranije.Sati}}
+        <option value="{{.}}"{{if eq . $sat}} selected{{end}}>{{printf "%02d" .}}:00</option>{{end}}
+      </select></span>
+    <button type="submit" class="btn btn-secondary">{{icon "search"}} Pronađi izdanje</button>
+  </form>
+  {{if .Ranije.Trazeno}}<div class="prog-ranije-ishod" role="status">
+    {{if .Ranije.URL}}<p>{{.Ranije.Poruka}}</p>
+    <a href="{{.Ranije.URL}}" class="btn btn-primary">{{icon "download"}} Izvoz u Excel</a>
+    {{else}}<p class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Ranije.Poruka}}</p>{{end}}
+    {{with .Ranije.Drugi}}{{if .URL}}<p>{{.Tekst}} <a href="{{.URL}}">{{.Poveznica}}</a></p>{{end}}{{end}}
+  </div>{{end}}
+</section>
+{{end}}
+
 {{if .MozePripremiti}}
 <section class="detail-section" id="priprema">
   <h2>{{icon "settings"}} Priprema modela</h2>
   <p class="reg-card-sub">Nakon promjene u arhivi ili lancu: iz cijele arhive iznova namjesti veze letvi i modele
-    ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, pa odmah
-    izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
+    ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon, nauči
+    dnevni model iznova, pa odmah izda prognozu novim modelom. Traje desetak minuta i vrti se na poslužitelju.</p>
   <form method="POST" action="/prognoze/pripremi-model"
         onsubmit="return confirm('Pripremiti model iznova? Mijenja brojke svih prognoza.');">
     <button type="submit" class="btn btn-secondary">{{icon "settings"}} Pripremi model</button>
@@ -95,7 +122,7 @@
     fetch('/prognoze/napredak', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (n) {
       ispuna.style.width = n.postotak + '%'; traka.setAttribute('aria-valuenow', n.postotak);
       post.textContent = n.postotak + ' %'; faza.textContent = n.faza || '';
-      brojka.textContent = n.ukupno ? '· letva ' + n.gotovo + ' od ' + n.ukupno + ' · ' + n.novih + ' novih' + (n.trajanje ? ' · ' + n.trajanje : '') : '';
+      brojka.textContent = n.ukupno ? '· letva ' + n.gotovo + ' od ' + n.ukupno + ' · ' + n.novih + ' ' + uzBroj(n.novih, 'novo očitanje', 'nova očitanja', 'novih očitanja') + (n.trajanje ? ' · ' + n.trajanje : '') : '';
       if (n.redci && n.redci.length) { detalji.hidden = false; detalji.open = true; ispis.textContent = n.redci.join('\n'); ispis.scrollTop = ispis.scrollHeight; }
       if (n.uTijeku) { setTimeout(pitaj, 2000); } else { setTimeout(function () { location.replace('/prognoze/postavke#generiraj'); }, 1200); }
     }).catch(function () { setTimeout(pitaj, 4000); });

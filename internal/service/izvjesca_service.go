@@ -190,7 +190,12 @@ func vodotokDionice(sec *models.Section) string {
 }
 
 // Spremi upisuje ili mijenja izvješće. Jedno po dionici i danu — drugog za
-// isti dan nema, pa predano mijenja samo tko ga je predao, ili uprava.
+// isti dan nema, pa predano mijenja samo tko ga je izradio, ili uprava.
+// Spremljeno izvješće je nacrt: izmjena predanog vraća ga u nacrt koji se
+// mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi koji su
+// ga mijenjali. Spremanje bez promjene predano izvješće ostavlja predanim.
+// Izvješće koje je bilo predano i dok čeka ponovnu predaju mijenja samo tko
+// ga je izradio, ili uprava.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -221,6 +226,7 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 	if postojece != nil && postojece.ID != iz.ID {
 		return fmt.Errorf("izvješće dionice %s za %s već postoji", sec.Code, iz.Dan.Format("2.1.2006."))
 	}
+	var prije *models.DnevnoIzvjesce // spremljena inačica; nil za novo izvješće
 	if iz.ID != "" {
 		cur, err := s.repo.Get(ctx, iz.ID)
 		if err != nil {
@@ -230,24 +236,35 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 		if !cur.IzDionice(sec.Code) {
 			return errors.New("izvješće nije pronađeno")
 		}
-		if cur.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
-			return errors.New("predano izvješće mijenja tko ga je predao, ili uprava")
+		if cur.BiloPredano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) && cur.IzradioID != u.ID.String() {
+			return errors.New("izvješće koje je bilo predano mijenja samo tko ga je izradio, ili uprava područja ili sektora")
 		}
-		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.PredanoAt = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.PredanoAt
+		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
+		prije = cur
 		if iz.IzradioID == "" {
 			iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
 		}
 	} else {
-		iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
+		iz.IzradioID, iz.Izradio, iz.TragPredaje = u.ID.String(), u.FullName, models.TragPredaje{}
 	}
 	if iz.Sadrzaj.Vodotok == "" {
 		iz.Sadrzaj.Vodotok = vodotokDionice(sec)
 	}
-	iz.IzradenoAt = time.Now().In(models.Zagreb)
+	return s.spremiDnevno(ctx, iz, prije, u)
+}
+
+// spremiDnevno upisuje izvješće dionice kao nacrt. Predano izvješće koje
+// spremanje ne mijenja ostaje predano i ništa se ne upisuje: u nacrt ga
+// vraća samo izmjena.
+func (s *IzvjescaService) spremiDnevno(ctx context.Context, iz, prije *models.DnevnoIzvjesce, u *models.User) error {
+	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb)) {
+		return nil
+	}
 	return s.repo.Save(ctx, iz)
 }
 
-// Predaj označava izvješće predanim u podcentar, s vremenom predaje
+// Predaj označava izvješće predanim u podcentar, s vremenom predaje i
+// imenom onoga tko predaje; nakon izmjene to je ponovna predaja
 func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, id string) error {
 	if u == nil || !s.SmijePisati(perms, sec) {
 		return errors.New("izvješće predaje tko ga smije pisati")
@@ -267,10 +284,20 @@ func (s *IzvjescaService) Predaj(ctx context.Context, u *models.User, perms *mod
 	}
 	sad := time.Now().In(models.Zagreb)
 	iz.PredanoAt = &sad
+	iz.ZabiljeziPredaju(sad, u)
 	return s.repo.Save(ctx, iz)
 }
 
-// Obrisi arhivira izvješće; nacrt briše tko ga je pisao, predano samo uprava
+// SmijeBrisati: nacrt koji nikad nije predan briše tko smije pisati
+// izvješće dionice; izvješće koje je bilo predano, i dok čeka ponovnu
+// predaju, samo uprava područja ili sektora
+func (s *IzvjescaService) SmijeBrisati(perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) bool {
+	return s.SmijePisati(perms, sec) && (!iz.BiloPredano() || perms.CanAdminister(sec.SectorID, sec.AreaID))
+}
+
+// Obrisi arhivira izvješće; nacrt briše tko ga je pisao, predano samo uprava.
+// Izvješće koje je bilo predano, a izmjenom vraćeno u nacrt, i dalje briše
+// samo uprava: izmjena nije put oko te zaštite.
 func (s *IzvjescaService) Obrisi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, id string) error {
 	if u == nil || !s.SmijePisati(perms, sec) {
 		return errors.New("izvješće briše tko ga smije pisati")
@@ -282,8 +309,8 @@ func (s *IzvjescaService) Obrisi(ctx context.Context, u *models.User, perms *mod
 	if iz == nil || iz.SectionCode != sec.Code {
 		return errors.New("izvješće nije pronađeno")
 	}
-	if iz.Predano() && !perms.CanAdminister(sec.SectorID, sec.AreaID) {
-		return errors.New("predano izvješće briše uprava područja ili sektora")
+	if !s.SmijeBrisati(perms, sec, iz) {
+		return errors.New("izvješće koje je bilo predano briše samo uprava područja ili sektora")
 	}
 	return s.repo.Arhiviraj(ctx, iz)
 }

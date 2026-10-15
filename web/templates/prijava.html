@@ -32,7 +32,7 @@
     {{if $p.Vaznost}}<dt>Važnost objekta</dt><dd>{{$p.Vaznost}}</dd>{{end}}
     <dt>Mjesto</dt><dd>{{with $p.Mjesto}}{{.}}{{else}}—{{end}}{{if $p.ImaKoordinate}}<br><span class="mono">{{.Lat}}, {{.Lon}}</span> · <a href="https://www.openstreetmap.org/?mlat={{.Lat}}&amp;mlon={{.Lon}}#map=16/{{.Lat}}/{{.Lon}}" target="_blank" rel="noopener">na OpenStreetMapu</a>{{end}}</dd>
     {{if $p.Urudzbirana}}<dt>Urudžbeni zapisnik</dt><dd>{{with $p.Klasa}}KLASA {{.}}{{end}}{{with $p.Urbroj}} · URBROJ {{.}}{{end}}{{if $p.PrimljenoAt}} · primljeno {{$p.PrimljenoAt.Format "02.01.2006."}}{{end}}</dd>{{end}}
-    {{if $p.Objavljena}}<dt>Dnevni list</dt><dd>{{if $p.ListID}}<a href="/vodocuvar/{{$p.ListID}}">list {{printf "%03d" $p.ListBroj}}/{{$p.Godina}}</a>{{else}}—{{end}}</dd>{{end}}
+    {{if $p.Objavljena}}<dt>Dnevni list</dt><dd>{{with .DnevniList}}<a href="/vodocuvar/{{.ID}}">{{if .Broj}}list {{printf "%03d" .Broj}}/{{.Datum.Year}}{{else}}nacrt bez broja od {{.Datum.Format "02.01.2006."}}{{end}}</a>{{else}}{{if $p.ListID}}<a href="/vodocuvar/{{$p.ListID}}">{{if $p.ListBroj}}list {{printf "%03d" $p.ListBroj}}/{{$p.Godina}}{{else}}nacrt bez broja{{end}}</a>{{else}}—{{end}}{{end}}</dd>{{end}}
     {{if .Izvornik.Ima}}<dt>Izvornik</dt><dd><a href="/prijave/{{$p.ID}}/prijava.pdf" target="_blank">{{icon "file-text"}} potpisani PDF</a>{{if .Izvornik.Potpisi}}<ul class="stavke" style="margin:0.25rem 0 0; padding-left:1rem;">{{range .Izvornik.Potpisi}}<li>{{if .Simulacija}}{{icon "x"}} <strong>SIMULIRANI potpis, bezvrijedan</strong> ({{.Ime}}){{else if .Valjan}}{{icon "lock"}} elektronički potpisao <strong>{{.Ime}}</strong>, {{formatDate (localTime .Kad)}} <span class="form-help">(potpis valjan{{if .Cijeli}}, pokriva cijeli dokument{{end}})</span>{{else}}{{icon "x"}} potpis {{.Ime}}: <strong>{{.Greska}}</strong>{{end}}</li>{{end}}</ul>{{else}} <span class="form-help">(bez elektroničkog potpisa)</span>{{end}}</dd>{{end}}
   </dl>
   {{if $p.ImaKoordinate}}
@@ -60,7 +60,7 @@
 {{if and .Moja (not $p.Objavljena)}}
 <section class="detail-section">
   <h2>{{icon "lock"}} Objavi i potpiši</h2>
-  <p class="page-desc">Objavom prijava dobiva broj, PDF s ugrađenim fotografijama postaje izvornik{{if .ImaKljuc}} potpisan vašim ključem{{end}}, a upis ide na vaš dnevni list za {{$p.Datum.Format "02.01.2006."}}. Poslije objave se ne mijenja.</p>
+  <p class="page-desc">Objavom prijava dobiva broj, PDF s ugrađenim fotografijama postaje izvornik{{if .ImaKljuc}} potpisan vašim ključem{{end}}, a upis ide na vaš dnevni list za {{$p.Datum.Format "02.01.2006."}} (ako za taj dan, koji je prošao, nemate lista ili je prenesen iz ranije evidencije, na današnji). Poslije objave se ne mijenja.</p>
   <form method="POST" action="/prijave/{{$p.ID}}/radnja" class="d-flex gap-2 items-end flex-wrap" onsubmit="return confirm('Objaviti i potpisati prijavu? Poslije se ne mijenja.')">
     <input type="hidden" name="radnja" value="objavi">
     {{if .Simulacija}}<span class="form-help">simulirani ključ, bez lozinke</span>{{else if .ImaKljuc}}<div class="form-group m-0"><label class="form-label" for="lozinka">Lozinka za potpis</label><input type="password" class="form-control" id="lozinka" name="lozinka" autocomplete="current-password" required></div>{{end}}

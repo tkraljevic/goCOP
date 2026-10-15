@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.34-alfa (4. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.38-alfa (14. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -69,14 +69,18 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | `vodostaji.db` (+ `-wal`, `-shm`) | obnovljiva hidrološka arhiva i evidencija primljenih izdanja |
   | `prognoze.db` (+ `-wal`, `-shm`) | lokalna i primljena izdanja prognoza, parametri i rezultati provjere |
   | `oborine.db` (+ `-wal`, `-shm`) | mjerenja i prognozirane oborine |
-  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju |
+  | `gocop.toml` | postavke, s komentarima; program je zapiše pri prvom pokretanju, a poslije je mijenja samo kad administrator spremi postavke u programu |
+  | `gocop.toml.20261012-153000` | prethodne inačice `gocop.toml` koje program spremi prije svake izmjene; čuva zadnjih pet |
+  | `gocop.toml.primjer` | opisi i primjeri svih postavki tekuće inačice; program ga piše pri svakom pokretanju i ne čita ga |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
   | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
 
   U `data/` je i `skenovi/` sa skenovima prijava s terena. Uz `data/`, u istoj
   radnoj mapi, zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
-  mapa izdanih `.cop` paketa s `katalog.json`. Putanje se mijenjaju u
-  `gocop.toml` (`db`, `arhiva`, `podaci`, `skenovi`, `pakete`) ili zastavicama.
+  mapa izdanih `.cop` paketa s `katalog.json`. Pod Postavom i kad je čvor
+  usluga sustava radna mapa je mapa baze, pa `vodostaji/` i `pakete/` nastaju
+  u njoj. Putanje se mijenjaju u `gocop.toml` (`db`, `arhiva`, `podaci`,
+  `skenovi`, `pakete`) ili zastavicama.
 
   U istu mapu administrator može staviti datoteke registara i imenika
   (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
@@ -108,6 +112,33 @@ Razmjena izvana može ići kroz `https://<domena>/razmjena/tunel` (WebSocket).
 Unutar nje ostaje TLS s ključevima uparenih čvorova. U Domenske čvorove upisuje
 se `https://<domena>`; u lokalnoj mreži prvo se pokušava izravna veza.
 Tunel nije automatsko otkrivanje čvorova niti zamjena za uparivanje.
+
+**Tailscale (od 0.0.37-alfa).** Na računalu s Tailscaleom razmjena koristi i
+Tailscale adrese drugih vaših čvorova, na istom portu 4710. Te adrese nikad ne
+ulaze u popis adresa čvora, jer taj popis dobivaju svi čvorovi mreže, i ne
+upisuju se ručno pod Domenske čvorove. Čvor ih javlja samo u razgovoru koji
+ide preko Tailscalea, pa ih čvor izvan vaše Tailscale mreže ne dobiva, ma što
+o sebi javio. Svaki čvor ih pamti samo kod sebe.
+
+Da dva vaša čvora počnu razmjenjivati preko Tailscalea, uparite ih jednom
+preko Tailscale adrese: na jednom kliknite **Čekaj drugi čvor**, a na drugom
+upišite Tailscale adresu prvoga (npr. `100.101.0.2`) i kliknite **Nazovi
+čvor**. Isto vrijedi za čvorove koji su već upareni. Nakon toga prvi
+razgovor preko Tailscalea donese i ostale adrese, u oba smjera. Razmjena ih
+zove iza adresa iz lokalne mreže, a ispred tunela; ploča razmjene ih pokazuje
+uz oznaku „(Tailscale)”. Čvor bez Tailscalea ih ne šalje, ne prima i ne zove,
+pa mu je razgovor isti kao prije.
+
+Na macOS-u program Tailscale prepoznaje po kartici utunN s Tailscaleovom IPv6
+adresom (`fd7a:115c:a1e0::/48`), jer utun karticu imaju i drugi VPN-ovi. Mac u
+Tailscale mreži u kojoj je IPv6 isključen radi kao računalo bez Tailscalea.
+
+`[sync] tailscale = false` u `gocop.toml` isključuje Tailscale u razmjeni,
+npr. za probu razmjene preko interneta. Čvor tada ne javlja svoje Tailscale
+adrese i ne zove tuđe, a razmjenu koja stigne na njegovu Tailscale adresu
+odbije; drugi čvor zove njegovu sljedeću adresu. Na prijavu ne utječe.
+U Dockeru (Unraid) program vidi Tailscale samo uz mrežu računala (host);
+uz most (bridge) čvor radi kao da Tailscalea nema.
 
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
@@ -162,7 +193,16 @@ Portovi se mijenjaju u `gocop.toml`.
 - **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
   ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
   šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
-  lokalne mreže PIN nikad ne traži. PIN ide na adresu u dopuštenoj domeni
+  lokalne mreže PIN nikad ne traži. Na računalu s Tailscaleom lokalan je i
+  izravan zahtjev na Tailscale adresu tog računala, npr.
+  `http://100.x.y.z`; to isključuje `[web] tailscale_lokalno = false`, i tada
+  takav zahtjev traži PIN, i preko IPv6. Na računalu bez Tailscalea to ne
+  mijenja ništa, a u Dockeru vrijedi samo uz mrežu računala (host), jer
+  kontejner s mostom ne vidi Tailscale adresu. Na macOS-u se Tailscale
+  prepozna samo uz njegovu IPv6 adresu (`fd7a:…`), jer adresu 100.x daju i
+  drugi VPN-ovi; ako je u Tailscale mreži IPv6 isključen, prijava na Macu
+  ide kao i prije.
+  PIN ide na adresu u dopuštenoj domeni
   (zadano `voda.hr`) ili na adresu izvan nje koju je globalni administrator
   potvrdio na tuđem računu, svojim očima (Korisnici → Uredi → *Adresa je
   provjerena*, npr. za djelatnike tvrtke izvođača). Potvrda putuje razmjenom
@@ -244,6 +284,39 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Ključ računala** (`node-key`) je njegov identitet. Kopija baze bez
   ključa nije to računalo. Ključ se ne sinkronizira. Čuvati ga u zaštićenoj
   sigurnosnoj kopiji za oporavak istog čvora; ne koristiti ga za osnivanje drugog.
+  Svjež čvor (baze još nema ili u njoj nema nijednog zapisa) ključ napravi
+  sam. Od 0.0.35-alfa čvor čija baza već ima zapise, a ključa uz nju nema,
+  **ne kreće**: u dnevnik ispiše koja datoteka nedostaje i gdje se očekuje.
+  Pod Postavom ne izlazi, nego ostaje upaljen dok ga ona ne zaustavi, a isti
+  razlog piše na ploči (`http://localhost/`) na tom računalu; ikona u traci
+  tada pokazuje da čvor radi.
+  Novi ključ dao bi mu novi identitet, a upareni čvorovi odbili bi razmjenu
+  („dokazao je drugi ključ od uparenog”); ni tajne šifrirane starim ključem
+  (lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
+  Izvornu datoteku treba vratiti iz sigurnosne kopije ili s diska na koji je
+  premještena; kad uz nju nema ni `gocop.toml` (u njemu je i ime čvora),
+  poruka to kaže, pa se vraćaju obje. Samo kad izvornog ključa više nema, a
+  novi identitet je namjeran, zaustavljeni čvor se pokrene **jednom** sa
+  zastavicom `-novi-kljuc-cvora`, uz istu bazu i kao korisnik pod kojim
+  inače radi, pa se zastavica ukloni:
+  - **pod Postavom:** u izborniku ikone *Zaustavi*, pa u naredbenom retku
+    (na Windowsu `cmd`) `cd /d "%LOCALAPPDATA%\goCOP\data"` i
+    `gocop -novi-kljuc-cvora -db "%LOCALAPPDATA%\goCOP\data\gocop.db"`
+    (na macOS-u i Linuxu isto, u mapi `data` instalacije i s programom iz
+    mape `program`); kad dnevnik javi da je poslužitelj spreman, Ctrl+C, pa
+    u Postavi *Pokreni*;
+  - **kao usluga sustava (Linux):** naredbe u [linux.md](linux.md),
+    poglavlje 6 (sigurnosna kopija);
+  - **u Dockeru i na Unraidu:** poglavlje 6 ovih uputa (bilješka za
+    Unraid).
+
+  Kad nema ni `gocop.toml`, a ni njega se ne može vratiti, prije toga ga
+  treba napisati uz bazu s dosadašnjim imenom čvora (redak `id = "…"` pod
+  `[node]`); bez njega čvor s novim ključem kreće pod zadanim imenom
+  `gocop-cvor` i to javlja u dnevniku. Zatim ga čvor koji ga je primio u
+  mrežu zaboravi, opozove mu članstvo i ponovno ga primi. Zastavica se ne
+  čita iz `gocop.toml` i nikad se ne podrazumijeva. Čvorovi na 0.0.34 i
+  starijim izdanjima ključ i dalje prave sami.
 - **Tajne i službeni izvornici.** Lozinka Exchangea i sken vlastoručnog potpisa
   šifrirani su ključem ovog čvora. Osobni potpisni ključ zaključan je lozinkom
   korisnika; kad lozinku postavi netko drugi (poništenje, lozinka upisana u
@@ -271,12 +344,14 @@ Portovi se mijenjaju u `gocop.toml`.
   ostale se brišu i upisuju ponovno.
 - **Ovlasti po dosegu.** Pravo pisanja ide po dosegu dužnosti: dužnost
   sektora piše u cijelom sektoru, dužnost područja u svom području, a dužnost
-  na dionicama na tim dionicama, njihovim objektima i aktima te u dnevnicima
-  svog područja i COP-a (terenska dužnost bez dionica u cijelom području;
-  samo uz sektor terenska se dužnost ne upisuje). Akt vodomjera piše tko
-  piše na bilo kojoj njegovoj dionici. Objekt drugog područja koji stoji na
-  dionici vodi njegovo područje, i vezu dionice na objekt ili vodomjer
-  drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
+  na dionicama na tim dionicama i njihovim objektima te u dnevnicima svog
+  područja i COP-a (terenska dužnost bez dionica u cijelom području; samo uz
+  sektor terenska se dužnost ne upisuje). Doseg dužnosti ne daje pravo na
+  akt o stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar
+  obrane od poplava sektora (voditelj centra, zamjenik i dežurni operater),
+  a ovjerava se kao i dosad (Pomoć › Rješenja i obavijesti). Objekt drugog
+  područja koji stoji na dionici vodi njegovo područje, i vezu dionice na
+  objekt ili vodomjer drugog područja upisuje samo tko ondje piše. Sektor upisan uz dužnost
   područja ili dionice ne daje pisanje po sektoru; popisi i zadani izbor
   sektora i dalje se ravnaju po svim dužnostima osobe. Račun bez aktivne
   dužnosti, isključen račun i globalnog administratora zadužuje samo
@@ -365,7 +440,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.34-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.38-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -409,6 +484,17 @@ traci i nadograđuje ga. Mijenja se rijetko i ima svoja izdanja (oznake
   data\      gocop.db, gocop.toml, dnevnici gocop.log i postava.log, kopije\
 ```
 
+Na svakom sustavu Postava čvor pokreće iz mape `data`, pa se relativne
+putanje `podaci` i `pakete` iz `gocop.toml` (zadano `vodostaji` i `pakete`)
+računaju od nje. Na novom čvoru stablo arhive i paketi zato nastaju u mapi
+`data`. Stablo i paketi koji stoje drugdje, npr. uz mapu `data` jer se čvor
+prije pokretao ručno iz mape iznad nje, upisuju se punom putanjom
+(`podaci = 'D:\goCOP\vodostaji'` na Windowsu, `podaci = '/Users/…/goCOP/vodostaji'`
+na macOS-u). Čvor pri pokretanju u dnevnik upiše pune putanje. Kad relativne
+mape nema, a mapa istog imena stoji u mapi iznad, čvor ne počinje novo stablo
+ni novu mapu paketa: *Unos u arhivu* kaže koju je mapu tražio i predloži onu
+iznad.
+
 **Ikona u traci:** valovi u bojama znaka kad čvor radi, sivi kad je
 zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da
 postoji novije izdanje. Dvoklik otvara goCOP u pregledniku. Desni klik: *Otvori
@@ -423,7 +509,9 @@ kopira bazu u `data\kopije\` (zadnje tri), zamijeni program, pokrene ga i
 čeka da odgovori s novim izdanjem. Ne odgovori li za 90 sekundi, vraća
 prethodni program i javlja grešku; bazu ne vraća sama, jer ju je novo izdanje
 možda već promijenilo. Prethodni program ostaje kao `gocop.prethodni.exe`,
-neuspjeli kao `gocop.neuspjeli.exe`.
+neuspjeli kao `gocop.neuspjeli.exe`. Čvor bez ključa uz postojeću bazu
+(poglavlje 3) od 0.0.35-alfa odgovori i ostane upaljen, pa se prethodni
+program ne vraća: on bi uz takvu bazu napravio novi ključ.
 
 **Ako čvor padne,** Postava ga podiže ponovno, uz rastući razmak; nakon tri
 pada u deset minuta odustaje, ikona je crvena, a razlog je u dnevniku čvora.
@@ -438,7 +526,9 @@ i čvor, miče pokretanje pri prijavi i mapu iz PATH-a, briše program. Mapa
 Postava radi i na macOS-u i Linuxu (ikona u traci izbornika ili u području
 obavijesti, pokretanje pri prijavi kroz LaunchAgent ili `~/.config/autostart`,
 poveznica `~/.local/bin/gocop` umjesto PATH-a), ali instalacijski paketi za
-njih dolaze kasnije (docs/plan-instalacija.md).
+njih dolaze kasnije (docs/plan-instalacija.md). Na Linuxu, kad je čvor
+usluga sustava, Postavu postavlja instalacijska skripta, a Postava tada ne
+pokreće svoj čvor, nego radi s uslugom ([linux.md](linux.md), poglavlje 12).
 
 ### Ručno
 
@@ -453,9 +543,16 @@ upisuje svoje zapise, a drugi ga pamte uz ključ. Ime se zadaje **prije prvog
 pokretanja**: u instalacijskom programu, u `gocop.toml` ili zastavicom
 `-node`. Bez toga svjež čvor sam izabere jedinstveno ime (ime računala i
 četiri nasumična znaka) i upiše ga u `gocop.toml`. Nakon prvog pokretanja ime
-se ne mijenja. Postojeća baza bez upisanog imena zadržava dosadašnje
-`gocop-cvor`. Uparivanje odbija računalo koje nosi ime ovog čvora ili ime
-poznatog čvora s drugim ključem (dvojnik), isto i primanje na daljinu i
+se ne mijenja. Postojeća baza bez upisanog imena (npr. kad je `gocop.toml`
+premješten) uzima ime pod kojim pamti ključ ovog čvora, iz članstva u mreži
+ili zapisa čvora; kad ga ne zna, zadržava dosadašnje `gocop-cvor`. Od
+0.0.35-alfa uz postojeću bazu bez `gocop.toml` program ne zapisuje novi
+primjer, koji bi tiho zamijenio izvorne postavke, nego pri svakom pokretanju
+u dnevniku javlja da datoteke nema i gdje se očekuje; isto i
+`gocop -pripremi`, koji instalacijska skripta na Linuxu pokreće pri svakoj
+instalaciji i nadogradnji. Uparivanje odbija
+računalo koje nosi ime ovog čvora ili ime poznatog čvora s drugim ključem
+(dvojnik), isto i primanje na daljinu i
 članstvo koje čvor pokaže pri spajanju; računalo koje je samo dobilo novi
 ključ najprije se zaboravi i opozove mu se članstvo.
 
@@ -555,7 +652,8 @@ koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 i od čega, sažima knjigu verzija (svaki zapis zadržava zadnju verziju, a
 obrisani svoj nadgrobni spomenik; starije verzije brišu se nakon zadanog
 roka; od 0.0.24-alfa čuva i zadnju verziju
-koju je svaki čvor upisao u kanal), vraća prostor na disku, te izdaje kanal
+koju je svaki čvor upisao u kanal, a akt i zadnju verziju svake svoje
+ovjere), vraća prostor na disku, te izdaje kanal
 kao potpisan `.cop` paket (npr. `gocop-ocitanja-bp16-2024_v1.cop`, po izboru s PDF-ovima i slikama;
 stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u bilo koji čvor:
 arhiva na disku ili prijenos bez mreže. Na stranici prijave stoji kontakt
@@ -575,6 +673,36 @@ Zastavice na naredbenom retku (`-addr`, `-db`, `-arhiva`, `-podaci`,
 `-skenovi`, `-pakete`, `-node`, `-name`,
 `-sync-port`, `-pair-port`, `-discovery-port`, `-auto-sync`, `-config`)
 imaju prednost pred datotekom.
+
+**Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
+administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
+pripada: javnu adresu te centar i telefon sa stranice prijave u *Čvor, mreža
+i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
+preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), `sve`
+i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
+pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
+mijenjana i njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
+računala na kojem je čvor ili iz lokalne mreže, nikad izvana ni kroz tunel.
+Program novu datoteku prije spremanja pročita i provjeri kao pri pokretanju;
+neispravno ne zapisuje, nego javi uz polje. Ručni komentari i ključevi koje
+program ne zna ostaju, jer se mijenja samo redak promijenjene postavke, a
+nova postavka dobije objašnjenje kao u primjeru. Staru datoteku spremi kao
+`gocop.toml.<datum-vrijeme>` (zadnjih pet) i u dnevnik upiše tko je što
+promijenio. Naziv čvora, adresu web sučelja i portove, putanje, pouzdane
+posrednike i `bootstrap` program pokazuje, ali ih mijenja samo datoteka:
+krivim portom ili putanjom čvor bi se zaključao izvan dosega, a posrednici
+određuju što je zahtjev izvana. Ime čvora u mreži (`[node] id`) poslije
+prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
+spremniku `-addr`, `-arhiva`), to piše uz postavku.
+
+Promjena vrijedi nakon ponovnog pokretanja; dok čeka, stranice s postavkama
+to javljaju. Gumb *Ponovno pokreni čvor* (kartica *Ovaj čvor*) uredno ugasi
+čvor i izađe s kodom 75, a podigne ga onaj tko ga je pokrenuo: Postava za
+nekoliko sekundi, usluga sustava za pet sekundi (`Restart=on-failure`),
+spremnik samo uz `--restart` (poglavlje 7). Postava odustaje kad se čvor
+ugasi tri puta u deset minuta; tada ga pokrenite u izborniku ikone. Čvor
+pokrenut ručno u terminalu gumba nema: zaustavite ga (Ctrl+C) i pokrenite
+istom naredbom.
 
 Uvoz evidencija radova iz vanjske evidencije kao **rekonstruiranih**
 dnevnika: `gocop -import-bp16-dnevnici` (bez `-upisi` samo izvješće). Po
@@ -655,7 +783,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.34-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.38-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
 mape moraju biti dostupne tom korisniku.
@@ -667,14 +795,46 @@ Obje mape moraju biti trajno montirane izvan spremnika. SQLite držati na
 lokalnom disku; na Unraidu koristiti izravnu putanju diska/poola, ne `/mnt/user/`
 ni mrežni disk. Ne brisati volumene pri zamjeni slike.
 
+Pločica razmjene upozori kad na disku s tim mapama ostane manje od 10 GB ili
+manje od 10 % diska. Disk se prepoznaje po uređaju, pa dva ZFS skupa podataka
+(dataseta) ili btrfs podsveska na istom poolu daju dva upozorenja s istim
+slobodnim mjestom, a postotak se računa od skupa podataka, ne od poola. Na
+ZFS-u zato gledati koliko je GB ostalo.
+
+Isto upozorenje stiže e-poštom, jednom na dan, osobama koje su na tom čvoru
+spremile lozinku sandučića, svakoj sa svoje adrese na svoju. Vrijeme zadnje
+poruke čvor pamti u datoteci `obavijest-o-disku.txt` uz bazu.
+
 Na Unraidu uskladiti i pravila premještanja dijeljene mape (*mover*): ako
 spremnik koristi izravnu putanju poola, mover ne smije odnijeti njezine
 datoteke na drugi disk dok spremnik i dalje gleda staru putanju. Prije i
 nakon nadogradnje provjeriti da montirani `/data` sadrži postojeće
-`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Ako se
-postojeći čvor iznenada prikaže kao nov ili s drugim ključem, zaustaviti ga
-i provjeriti montaže te vratiti originalni identitet iz kopije. Ponovnim
-osnivanjem mreže ne obnavlja se stari čvor.
+`gocop.toml`, `node-key` i bazu; osnivač mreže čuva i `network-key`. Tako je
+5. 10. 2026. mover premjestio `node-key` i `gocop.toml` s cachea na polje, a
+spremnik je uz postojeću bazu napravio novi ključ, pa su ga upareni čvorovi
+odbili. Od 0.0.35-alfa spremnik bez ključa uz postojeću bazu ne kreće, a u
+dnevniku spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Bez
+`gocop.toml`, a s ključem, kreće, ali ime uzima iz baze, ne zapisuje novi
+primjer i u dnevniku javlja da datoteke nema. U oba slučaja zaustaviti
+spremnik, provjeriti montaže (Shares → Browse pokazuje na kojem je disku
+datoteka) i vratiti izvornike u `/data`; isto i kad se postojeći čvor na
+izdanju prije 0.0.35 prikaže kao nov ili s drugim ključem.
+Ponovnim osnivanjem mreže ne obnavlja se stari čvor. Samo kad izvornog ključa
+više nema, a novi identitet je namjeran: u predlošku spremnika dodati
+`-novi-kljuc-cvora` u *Post Arguments* (Advanced View), pokrenuti spremnik
+jednom, pa zastavicu ukloniti (`docker run … ghcr.io/tkraljevic/gocop:<oznaka>
+-novi-kljuc-cvora` izvan Unraida). Ako se ni `gocop.toml` ne može vratiti,
+prije toga ga napisati u `/data` s dosadašnjim imenom čvora (redak
+`id = "…"` pod `[node]`), inače čvor kreće pod imenom `gocop-cvor`.
+
+Ponovno pokretanje iz programa (*Čvor, mreža i sinkronizacija → Ovaj čvor*)
+spremnik izlazi s kodom 75. Docker ga vraća samo kad je spremnik pokrenut s
+`--restart unless-stopped` (ili `always`, `on-failure`); na Unraidu se to
+upisuje u *Extra Parameters* predloška. Iznutra se to ne vidi, pa stranica
+upozori prije gašenja. Bez toga spremnik ostaje zaustavljen dok ga ne
+pokrenete u kartici Docker (`docker start gocop`). Slika zadaje `-addr`,
+`-arhiva`, `-podaci`, `-skenovi` i `-pakete`, pa te postavke iz `gocop.toml`
+u spremniku ne vrijede; stranice to pišu uz njih.
 
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi
@@ -704,6 +864,107 @@ različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
 
+0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
+dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.
+Odmah nakon nadogradnje tog čvora, ne čekajući ostala računala, globalni
+administrator na njemu pokrene Prognoze → Postavke → *Pripremi model*, izvan
+poplavnog vala: ispravak prognoze izmjeren je uz grešku u ispuštanju
+elektrana koja je u 0.0.38-alfa ispravljena, pa se mijenja svaka prognoza.
+Traje desetak minuta i više. Na ostalim računalima to ne treba: gumb se
+ondje vidi, ali priprema javi da ovaj čvor ne izdaje prognozu i da se model
+priprema na čvoru koji je izdaje.
+
+Pri prvom pokretanju 0.0.38-alfa pregleda primljene dnevne listove i zatraži
+fotografije koje nedostaju; u dnevniku programa piše „Fotografije uz dnevne
+listove: …”, a koliko ukupno čeka, u retku „Spremište sadržaja: … za
+dohvat”. Te fotografije ima samo računalo na kojem su upisane, npr. laptop s
+kojeg je rađen uvoz iz BP16, pa neka bude uključeno i dohvatljivo dok ih
+stalni čvor ne preuzme. To se vidi na stalnom čvoru: na pločici „Razmjena s
+čvorovima” broj uz „Sadržaj čeka dohvat” padne za onoliko fotografija koliko
+ih dnevnik programa tog čvora navodi iza „na popisu za dohvat”, ili redak
+nestane. Na računalu koje fotografije ima taj se broj ne mijenja. U jednoj
+razmjeni, svakih pet minuta, stigne najviše 200 fotografija i dokumenata ili
+48 MB. Fotografija lista ima oko 130 kB, pa na sat stigne oko 2.400
+fotografija, a gigabajt traje oko tri sata; kad i stalni čvor može nazvati
+to računalo, otprilike upola kraće. Kad ih stalni čvor ima, ostala računala
+ih dobiju i od njega. Do nule broj ne mora pasti: u njemu je i ono što
+računalo po pretplati ne dohvaća, npr. PDF-ovi uz „Samo pregledi” ili
+fotografije uz „Samo kazalo”, te paketi arhive vodostaja dok se još
+dohvaćaju.
+
+Dok sva računala nisu na 0.0.38-alfa, ne brisati područja, sektore, općine,
+naselja, županije, korisnike ni dionice, ni letve i objekte koje neka
+dionica još navodi. Pravilo da brisanje ima prednost pred istodobnim upisom
+vrijedi samo na računalu s 0.0.38-alfa; računalo s 0.0.37-alfa i dalje čeka
+novi zapis ili ne može provesti brisanje. Računalo koje se tako razišlo
+prije nadogradnje pri prvom pokretanju 0.0.38-alfa makne obrisani zapis i
+sve što je uz njega upisano, i ono upisano poslije brisanja. Što je upisano
+uz područje ili sektor, vraća se kad se područje ponovno upiše pod istim
+brojem ili sektor pod istom oznakom. Što je upisano uz obrisanu općinu,
+županiju ili korisnika, u pravilu se ne vraća: ponovno upisana općina ili
+županija dobije novi broj, a korisnik novi identitet.
+
+Je li se računalo tako razišlo, vidi se prije nadogradnje u dnevniku
+programa: pri svakom pokretanju ponavlja se poruka „Obnova površine iz
+knjige (… zapisa): … verzija nije primijenjeno na površinu …; prva: …”. Iza
+„prva:” stoji vrsta i oznaka samo prvog zapisa koji nije prošao: areas
+(područje), sectors (sektor), counties (županija), municipalities (općina)
+ili users (korisnik), ili zapis upisan uz njih, npr. structures (objekt),
+settlements (naselje) ili duties (dužnost). Kad iza „prva:” stoji nešto
+drugo, npr. defense_episodes (epizoda obrane) ili sections (dionica), iz
+poruke se ne vidi je li se računalo razišlo i oko nekog od tih zapisa. Taj
+redak dnevnika treba prepisati prije nadogradnje: nakon nje taj zapis i ono
+upisano uz njega neće biti na popisu. Ono uz područje ili sektor vratit će
+se kad se područje ponovno upiše pod istim brojem ili sektor pod istom
+oznakom; ono uz općinu, županiju ili korisnika u pravilu se ne vraća, pa ga
+treba upisati iznova.
+
+Na računalu koje je još na 0.0.37-alfa na stranici „Što ovo računalo prati”
+ne koristiti ni „Obriši s računala” ni „Makni i obriši”: ondje brišu i ono
+što je nastalo na tom računalu, a što još nije stiglo na druga računala,
+nestaje zauvijek. Pravilo se na 0.0.37-alfa miče samo gumbom „Makni”.
+
+Pravilo „Sve vrste” za sva područja dosad nije donosilo arhivu vodostaja kad
+je imalo godinu početka, kakvu je upisivao zadani obrazac, ili sadržaj „Samo
+pregledi” ili „Samo kazalo”. Nakon nadogradnje takvo pravilo samo od sebe
+počne dohvaćati cijelu arhivu: oko 300 paketa i oko 50 MB razmjene, a
+ugrađena na računalu zauzima oko 10 GB. Na računalu s malo mjesta na disku
+prije nadogradnje dodati pravilo za svoje područje, a staro maknuti gumbom
+„Makni”, ne „Makni i obriši”. Tek nakon nadogradnje gumbom „Obriši s
+računala” obrisati ono što više ne treba. Pakete za pravilo s godinom
+početka računala razmjenjuju tek kad su oba na 0.0.38-alfa ili novijem.
+
+Na Windowsu nakon nadogradnje provjeriti da se na stranici letve i dalje
+vide historijat i graf prognoze, ako su se vidjeli i prije, i da se u
+dnevniku programa nije pojavila poruka „Arhiva vodostaja nije pronađena” ili
+„Baza prognoza nije pronađena” koje prije nadogradnje nije bilo. Poruku
+„Arhiva vodostaja nije pronađena” računalo koje arhive nema pisalo je i na
+0.0.37-alfa. Program sad arhivu, bazu očitanja i bazu prognoza, kad ih samo
+čita, otvara samo za čitanje, a to na Windowsu nije isprobano. Ako se poruka
+pojavi tek nakon nadogradnje, računalo radi bez historijata i prognoze, a
+ostali podaci i dalje se razmjenjuju; to treba prijaviti kao grešku.
+
+0.0.37-alfa radi uz 0.0.36-alfa i nadograđuje se redom (stalni čvor prvi).
+Čvorove s Tailscaleom nadograditi zajedno: stariji program Tailscale adresu
+koju vidi upiše u popis adresa čvora, a taj popis dobivaju svi čvorovi mreže.
+Očitanja i druge izmjene koje su stigle, a nisu upisane, 0.0.37-alfa vrati
+sama pri prvom pokretanju; u dnevniku piše koliko ih je vratila. Iznimka je
+dežurstvo kojem je netko na 0.0.36-alfa ili starijem s oglasne ploče obrisao
+zapis „Maknuto dežurstvo”: ono se vrati u plan i u obračun sati, a dnevnik ga
+broji pod „Obnova površine: … dežurstva N”. Takvo dežurstvo treba opet maknuti.
+
+0.0.36-alfa radi uz 0.0.35-alfa: nema novih pravila koja traže da su svi
+čvorovi na istoj inačici, pa se nadograđuje redom (stalni čvor prvi). Novi
+čvor u mrežu uključivati s 0.0.36-alfa ili novijim: tek on pri prvoj razmjeni
+upiše sve primljeno (dionice, bilješke arhive, dnevnike), bez zapisa koji
+zapnu.
+
+Za prelazak na 0.0.35-alfa odmah nadograditi sve članove mreže, bez
+razdoblja u kojem stara i nova inačica rade jedna uz drugu. Nova pravila
+(upis očitanja po sektoru letve, listovi vodočuvara, upozorenja uz prognozu)
+vrijede tek kad su svi čvorovi na 0.0.35-alfa. Čvor na 0.0.34 nova polja ne
+ruše, ali on zadržava staro ponašanje.
+
 Za prelazak na 0.0.34-alfa odmah nadograditi sve članove mreže: stariji čvor
 ne razumije poništenje akta i uključio bi ga u stanje obrane. Dok se izdanja
 ne usklade, ne provoditi ovjere ni storno. Od 0.0.33 promijenjeno je i
@@ -730,8 +991,15 @@ na GitHubu označena su kao *pre-release*.
 
 Izdanje:
 
-1. promijeniti `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md),
-   commit i oznaka `v0.0.x-alfa`;
+1. na računalu s cijelim izvozom registara u `data/` (šest datoteka;
+   odakle je koja, piše u odjeljku
+   [Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju))
+   pokrenuti `make provjera-registara` (provjere registara GitHub ne može
+   izvesti). Bez izvoza provjera ne prolazi, pa se izvoz prije izdanja
+   vraća iz pričuve ili slaže iznova; ako se izvoz promijenio, brojke u
+   provjerama mijenjaju se svjesno, s razlogom u commitu. Zatim promijeniti
+   `verzijaPrograma`, upisati novo u [CHANGELOG.md](../CHANGELOG.md), commit
+   i oznaka `v0.0.x-alfa`;
 2. GitHub (`.github/workflows/izdanje.yml`) nakon provjere izgradi programe
    za sve sustave, `SHA256SUMS` i **nacrt** izdanja s tekstom iz popisa
    izmjena; oznaka mora odgovarati `verzijaPrograma`;
@@ -759,8 +1027,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.34-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.34-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.38-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.38-alfa` i `:latest`.
 
 ## 9. Za razvoj
 
@@ -813,8 +1081,47 @@ Razlozi su u komentarima `internal/ledger/shema.go` i
 
 Kote nule vodomjera vode se u sustavu Trst, a HVRS71 i baltičke kote zasebno
 (vidi [baltičke kote](balticke-kote.md)).
-Testovi koji trebaju stvarne registre i imenik preskaču se kad tih datoteka
-nema u mapi `data/`.
+Testovi djelatnika i ovlasti, uvoza i razmjene među čvorovima rade na
+izmišljenom skupu podataka [`testdata/sektor-p`](../testdata/sektor-p/README.md)
+(sektor P, pet izmišljenih djelatnika), pa se izvode svugdje, i na GitHubu.
+Samo 11 provjera registara u `internal/db` (Batina i Vukovar na Dunavu, kota
+nule iz elaborata, cjelovitost registara) treba stvarne registre. Dvije opće
+provjere prvog punjenja (drugo punjenje ništa ne udvostručuje, tekstovi su
+ispravan UTF-8) rade na izmišljenom skupu svugdje, a uz stvarne registre
+ponavljaju se i na njima. Tako i provjera registra teritorija (sve
+županije, gradovi i općine, naselja, sjedište županije, dionice sektora B i
+ugroženo područje dionice B.15.1): na izmišljenom skupu provjerava upite, a
+brojke izvoza tek na stvarnim registrima. Stvarni registri su izvoz registara u mapi
+`data/` u korijenu repozitorija (`sections.json`, `watercourses.json`,
+`territories.json`, `section_territories.json`, `objekti_bp16.json`,
+`organizacija.json`); odakle je koja, piše u odjeljku
+[Podaci koji nisu u repozitoriju](#podaci-koji-nisu-u-repozitoriju), a
+`sections.json` slaže administratorski alat `prijepis-dionica`, izvan
+repozitorija. Brojke u provjerama su brojke izvoza s kojim je napunjen
+prvi čvor; uz noviji izvoz razlike se pregledaju i brojke mijenjaju
+svjesno, s razlogom u commitu. Bez cijelog izvoza provjere se preskaču, uz
+poruku koje datoteke nema i što treba. `go test` bez `-v` preskakanje ne
+ispisuje, pa to na kraju kaže `make quality` (zasebno `make
+stanje-registara`), a na GitHubu stoji kao upozorenje u sažetku provjere.
+Pokreću se prije svakog izdanja
+naredbom `make provjera-registara`, koja ih bez cijelog izvoza ruši umjesto
+da ih preskoči.
+Kad je u `data/` i baza čvora (`gocop.db`), ista naredba pregleda testove
+i testne podatke prema imenima i korisničkim imenima iz nje (djelatnici,
+upisivači u dnevnike, dežurstva, vodočuvarske listove i prijave) i prema
+brojevima mobitela djelatnika: nijedan ne smije nositi stvarno ime ni broj,
+osim imena koja program sam prikazuje u pomoći, i to samo u testu koji
+pomoć čita. Pregled nalazi ime i prezime i u padežu i obrnutim redom, a
+korisničko ime i u složenici (naziv računala ili čvora, adresa e-pošte) i
+pisano velikim slovima. Ne nalazi samo prezime, samo ime, ime od tri slova
+u padežu ni ime i prezime pisano velikim slovima, pa ne zamjenjuje
+čitanje testa. Baza se otvara samo za čitanje; bez nje se pregled preskače.
+Stvarne baze čvora čitaju još samo dvije ručne probe, koje ništa ne
+provjeravaju: proba stranice kišomjera (`GOCOP_KISA_PROBA=<mapa>`) iscrta
+stranice iz baza u `data/` za pregled okom, a mjera veličine izdanja
+prognoze u `internal/prognoza` (`GOCOP_PROGNOZE=<put do prognoze.db>`)
+ispiše veličinu zadnjeg izdanja. Mjera bazu prognoza otvara kao program, ne
+samo za čitanje (shemu može doraditi), pa se pokreće na kopiji baze.
 
 Program razvija Tomislav Kraljević, uz pomoć kolega iz Hrvatskih voda.
 Kao i uređivač koda i drugi razvojni alati, u radu se koriste i alati

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -57,7 +58,8 @@ const stationColumns = `
 	s.notes, s.source_name, s.needs_review, s.review_note,
 	s.latitude, s.longitude, s.created_at, s.updated_at, s.javni_url, s.javni_uvoz,
 	s.telemetrija_site, s.telemetrija_uvoz,
-	s.povijest, s.opis_vodokaza, s.datum_osnivanja
+	s.povijest, s.opis_vodokaza, s.datum_osnivanja, s.kota_nm,
+	s.prate_sektori, s.prate_podrucja
 `
 
 // scanStation čita jedan redak registra postaja
@@ -82,6 +84,9 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		povratni   string
 		javniUvoz  int
 		telUvoz    int
+		kotaNM     int
+		prateSek   string
+		pratePod   string
 	)
 
 	err := scanner.Scan(
@@ -96,13 +101,16 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 		&st.Notes, &st.SourceName, &needsRev, &st.ReviewNote,
 		&lat, &lon, &st.CreatedAt, &st.UpdatedAt, &st.JavniURL, &javniUvoz,
 		&st.TelemetrijaSite, &telUvoz,
-		&st.Povijest, &st.OpisVodokaza, &st.DatumOsnivanja,
+		&st.Povijest, &st.OpisVodokaza, &st.DatumOsnivanja, &kotaNM,
+		&prateSek, &pratePod,
 	)
 	if err != nil {
 		return st, err
 	}
 	st.JavniUvoz = javniUvoz != 0
 	st.TelemetrijaUvoz = telUvoz != 0
+	st.KotaNM = vodiKotu(kotaNM, st.Code)
+	st.PrateSektori, st.PratePodrucja = sektoriIzTeksta(prateSek), podrucjaIzTeksta(pratePod)
 
 	parsedID, err := uuid.Parse(idStr)
 	if err != nil {
@@ -135,6 +143,16 @@ func scanStation(scanner interface{ Scan(...any) error }) (models.Station, error
 	st.Record.Cm = nullIntPtr(recordCm)
 
 	return st, nil
+}
+
+// vodiKotu javlja vodi li letva kotu u cm n. m.: ima li oznaku, ili je
+// jedna od letvi akumulacija HEP-a. Njima oznaku po odluci postavlja
+// program (Odluke (8. 10. 2026.), pitanje 21), pa vrijedi i kad ju je s
+// površine skinula novija verzija letve s čvora koji polje ne poznaje
+// (0.0.34). Izmjena takve letve na ovom čvoru oznaku ponovo upisuje u
+// knjigu.
+func vodiKotu(oznaka int, sifra string) bool {
+	return oznaka != 0 || models.JeLetvaAkumulacijeHEP(sifra)
 }
 
 func nullIntPtr(v sql.NullInt64) *int {
@@ -368,8 +386,8 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 			notes, source_name, needs_review, review_note,
 			latitude, longitude, created_at, updated_at, javni_url, javni_uvoz,
 			telemetrija_site, telemetrija_uvoz,
-			povijest, opis_vodokaza, datum_osnivanja
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+			povijest, opis_vodokaza, datum_osnivanja, kota_nm, prate_sektori, prate_podrucja
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		st.ID.String(), st.Code, st.Name, st.Watercourse, st.WatercourseCode, st.WatercourseSource, st.WaterArea, st.Stationing,
 		st.ZeroDatum, defaultSystem(st.ZeroDatumSystem, models.ZeroDatumSystemOld),
@@ -383,7 +401,8 @@ func (r *StationRepository) CreateStation(ctx context.Context, st *models.Statio
 		st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.CreatedAt, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
 		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
-		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja,
+		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, boolToInt(st.KotaNM),
+		sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri unosu vodomjerne postaje %q: %w", st.Name, err)
@@ -423,7 +442,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 			notes = ?, source_name = ?, needs_review = ?, review_note = ?,
 			latitude = ?, longitude = ?, updated_at = ?, javni_url = ?, javni_uvoz = ?,
 			telemetrija_site = ?, telemetrija_uvoz = ?,
-			povijest = ?, opis_vodokaza = ?, datum_osnivanja = ?
+			povijest = ?, opis_vodokaza = ?, datum_osnivanja = ?, kota_nm = ?,
+			prate_sektori = ?, prate_podrucja = ?
 		WHERE id = ?
 	`,
 		st.Code, st.Name, st.Watercourse, st.WatercourseSource,
@@ -439,7 +459,8 @@ func (r *StationRepository) UpdateStation(ctx context.Context, st *models.Statio
 		st.Notes, st.SourceName, boolToInt(st.NeedsReview), st.ReviewNote,
 		st.Latitude, st.Longitude, st.UpdatedAt, st.JavniURL, boolToInt(st.JavniUvoz),
 		st.TelemetrijaSite, boolToInt(st.TelemetrijaUvoz),
-		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, st.ID.String(),
+		st.Povijest, st.OpisVodokaza, st.DatumOsnivanja, boolToInt(st.KotaNM),
+		sektoriUTekst(st.PrateSektori), podrucjaUTekst(st.PratePodrucja), st.ID.String(),
 	)
 	if err != nil {
 		return fmt.Errorf("greška pri izmjeni vodomjerne postaje %q: %w", st.Name, err)
@@ -471,8 +492,14 @@ func (r *StationRepository) BrojOcitanja(ctx context.Context, id uuid.UUID) int 
 	return n
 }
 
+// ErrPostajaNePostoji: postaje nema u registru, npr. jer ju je netko u
+// međuvremenu obrisao
+var ErrPostajaNePostoji = errors.New("Postaja nije obrisana jer je više nema u registru. Vjerojatno ju je netko već obrisao.")
+
 // DeleteStation uklanja postaju s površine i sve njezine veze s dionicama.
-// U knjizi verzija ostaje arhivirana i može se vratiti.
+// U knjizi verzija ostaje arhivirana i može se vratiti. Postaja koje nema
+// ne ostavlja spomenik: do 13. 10. 2026. upisivao se spomenik prazne
+// postaje i putovao razmjenom na druge čvorove.
 func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -481,42 +508,66 @@ func (r *StationRepository) DeleteStation(ctx context.Context, id uuid.UUID) err
 	defer tx.Rollback()
 
 	current, err := getStationTx(ctx, tx, id.String())
-	if err != nil && err != sql.ErrNoRows {
-		return err
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrPostajaNePostoji
 	}
-
-	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_stations WHERE station_id = ?`, id.String())
 	if err != nil {
 		return err
 	}
+	links, err := vezeLetveTx(ctx, tx, id)
+	if err != nil {
+		return err
+	}
+	if err := makniLetvuTx(ctx, tx, id); err != nil {
+		return err
+	}
+	if err := r.arhivirajLetvuTx(ctx, tx, current, links); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// vezeLetveTx vraća šifre dionica za koje je letva mjerodavna, unutar
+// transakcije brisanja
+func vezeLetveTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) ([]string, error) {
+	rows, err := tx.QueryContext(ctx, `SELECT section_code FROM section_stations WHERE station_id = ?`, id.String())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 	var links []string
 	for rows.Next() {
 		var code string
 		if err := rows.Scan(&code); err != nil {
-			rows.Close()
-			return err
+			return nil, err
 		}
 		links = append(links, code)
 	}
-	rows.Close()
+	return links, rows.Err()
+}
 
+// makniLetvuTx miče letvu i njezine veze s dionicama s površine
+func makniLetvuTx(ctx context.Context, tx *sql.Tx, id uuid.UUID) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE station_id = ?`, id.String()); err != nil {
 		return fmt.Errorf("greška pri uklanjanju veza postaje: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `DELETE FROM stations WHERE id = ?`, id.String()); err != nil {
 		return fmt.Errorf("greška pri brisanju vodomjerne postaje: %w", err)
 	}
+	return nil
+}
 
+// arhivirajLetvuTx bilježi spomenik svake veze letve i same letve, u istoj
+// transakciji u kojoj su maknute s površine
+func (r *StationRepository) arhivirajLetvuTx(ctx context.Context, tx *sql.Tx, st models.Station, links []string) error {
 	for _, code := range links {
-		if _, err := r.rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(code, id),
-			map[string]string{"section_code": code, "station_id": id.String()}); err != nil {
+		if _, err := r.rec.Archive(ctx, tx, EntitySectionStations, sectionStationKey(code, st.ID),
+			map[string]string{"section_code": code, "station_id": st.ID.String()}); err != nil {
 			return err
 		}
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityStations, id.String(), current); err != nil {
-		return err
-	}
-	return tx.Commit()
+	_, err := r.rec.Archive(ctx, tx, EntityStations, st.ID.String(), st)
+	return err
 }
 
 // CountStations vraća ukupan broj postaja, broj označenih za pregled i broj veza s dionicama

@@ -17,7 +17,6 @@ import (
 // ImportBatch ne smije javiti da je išta upisao. Prije je vraćao broj redaka
 // obrađenih do greške, a pozivatelji su ih brojali kao upisane.
 func TestImportBatchGreskaUsredSerijeNeBrojiNista(t *testing.T) {
-	db.UseRepoImenik()
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
 	if err != nil {
 		t.Fatal(err)

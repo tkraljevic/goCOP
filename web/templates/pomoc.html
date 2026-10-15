@@ -88,6 +88,7 @@
     <a href="#ocitanja-zadnje">Zadnje očitanje</a>
     <a href="#ocitanja-graf">Kretanje vodostaja</a>
     <a href="#ocitanja-popis">Upis i popis očitanja</a>
+    <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
     <a href="#ocitanja-skupno">Unos više odjednom</a>
     <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
   </div>
@@ -104,6 +105,7 @@
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#prognoze">Prognoze</a>
     <a href="#prognoze-citanje">Kako čitati prognozu</a>
+    <a href="#prognoze-ranija">Ranija prognoza</a>
     <a href="#prognoze-profil">Uzdužni profil</a>
     <a href="#prognoze-metoda">Kako nastaje</a>
     <a href="#prognoze-ogranicenja">Ograničenja i provjera</a>
@@ -245,7 +247,9 @@
       (reanaliza ERA5 od 1990.): <strong>žuto</strong> kad je palo ili se očekuje koliko prosječno
       padne tri puta godišnje, <strong>narančasto</strong> jednom godišnje, <strong>crveno</strong>
       jednom u pet godina. Upozorenje kaže na kojim će letvama porasti voda, redom niz tok, s
-      najvećim porastom i danom iz zadnje dnevne prognoze. Gleda se i kiša koja tek dolazi, jer je
+      najvećim porastom i danom iz zadnje dnevne prognoze. Za letve kojima zadnje izdanje nema dnevne
+      prognoze (npr. kad uzvodna letva nema mjerenja) porasta nema, a uz upozorenje piše koje su to
+      letve, ili da dnevne prognoze nema. Gleda se i kiša koja tek dolazi, jer je
       za prognozu vodostaja ona najvažnija — upozorenje se zato može pojaviti dan-dva prije nego
       kiša padne. Kad ničeg neuobičajenog nema, stoji jedan redak, a na klik kiša po svim
       međuslivovima s uobičajenim pragom.</p>
@@ -274,14 +278,37 @@
       se najprije stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
       <a href="#sync">Sinkronizacija</a>.</p>
+    <p>Na vrhu pločice stoji i upozorenje kad na disku ostane malo mjesta: manje od 10 GB ili
+      manje od 10 % diska. Program svakih deset minuta pogleda diskove na kojima su baza, arhiva
+      vodostaja, izvorne datoteke arhive i paketi. Upozorenje kaže na kojem je čvoru disk i koliko
+      je mjesta ostalo, na primjer „Na disku čvora COP Osijek s bazom i arhivom ostalo je 8,2 GB
+      (6 % diska)”. Upozorenje se vidi i kad čvor nije ni u jednoj mreži. Razmjena zbog toga ne staje.</p>
+    <p>Uz upozorenje svi vide i što učiniti, na primjer „Oslobodite mjesto ili premjestite arhivu
+      na drugi disk. Ako ne znate kako, javite administratoru.”</p>
+    <p>Isto upozorenje stiže i e-poštom, jednom na dan dok mjesta bude malo. Primaju ga osobe koje su
+      na tom računalu spremile lozinku sandučića (Profil › E-pošta za slanje akata), svaka sa svoje
+      adrese na svoju. Tko nije spremio sandučić, upozorenje vidi samo na naslovnoj.</p>
+    <p>Arhivu, izvorne datoteke i pakete administrator premješta na veći
+      disk tako da ugasi čvor, premjesti ih i upiše nove putanje u <code>gocop.toml</code>
+      (<code>arhiva</code>, <code>podaci</code>, <code>pakete</code>). U Dockeru se umjesto toga
+      mijenja montaža mape <code>/arhiva</code>. Gdje su sada, piše u Administraciji pod
+      <em>Održavanje baze</em>.</p>
 
     <h3 id="dashboard-dogadjanja">Zid događanja</h3>
     <p>Zid spaja posljednje promjene iz različitih modula u jednu kronologiju: očitanja, dnevnike,
       akte, izvješća, sredstva i druge poslovne zapise. Naslov otvara izvorni zapis. Gumbi iznad
       zida (<em>sve</em>, <em>Obrana</em>, <em>Dnevnik COP-a</em>, <em>Dežurstva</em>,
-      <em>Izvješća</em>, <em>Sredstva</em>, <em>Očitanja</em>, <em>Registri</em>) suze ga na
-      jedan modul. Cijela kronologija s filtrima i Excel izvozom nalazi se pod <em>Dokumentacija →
-      Događanja</em>.</p>
+      <em>Izvješća</em>, <em>Prijave s terena</em>, <em>Sredstva</em>, <em>Očitanja</em>,
+      <em>Registri</em>) suze ga na jedan modul. Cijela kronologija s filtrima i Excel izvozom
+      nalazi se pod <em>Dokumentacija → Događanja</em>.</p>
+    <p>Prijave s terena na zidu su objava (obavijest, prijava, izvješće ili zahtjev; vrsta
+      <em>Prijava</em> je istaknuta) i rješenje, koje zatvara predmet i u naslovu nosi vrstu (npr.
+      <em>Riješen zahtjev s terena</em>). Redak prijave vidi samo onaj tko tu
+      prijavu smije čitati u <em>Dokumentacija → Prijave s terena</em>. Nacrti i prijave
+      prenesene iz ranije evidencije BP16 ne idu na zid.</p>
+    <p>Očitanje iznad praga ide na zid sektora letve, onog do kojeg se dolazi preko njezinih
+      dionica. Letva bez dionica (strana letva) ide na zid sektora koji je prate, upisanih u obrascu
+      letve; očitanje letve koju ne prati nijedan sektor vide svi.</p>
     <p>Iznad zida stoje i <strong>prečaci</strong> za ono što se u vašoj dužnosti radi svaki dan:
       <em>Dnevnik COP-a</em> i <em>Izvješće sektora</em> za upravu sektora, <em>Novo dnevno
       izvješće</em> za one koji pišu po dionicama i područjima, <em>Skladišta i sredstva</em>,
@@ -349,8 +376,9 @@
 
     <h3 id="dionica-obrana">Proglašavanje obrane</h3>
     <p>Obranu proglašava i prekida <strong>čovjek</strong>, aktom. Na stranici očitanja
-      mjerodavne letve gumb <em>Proglasi / prekini</em> otvara rješenje ili obavijest o stupnju
-      obrane (vidi <a href="#akti">Rješenja i obavijesti</a>). Stanje obrane dionice računa se iz
+      mjerodavne letve gumb <em>Proglasi / prekini</em> otvara nacrt rješenja ili obavijesti o stupnju
+      obrane; gumb vidi samo Centar obrane od poplava sektora, koji nacrt sastavlja (vidi
+      <a href="#akti">Rješenja i obavijesti</a>). Stanje obrane dionice računa se iz
       ovjerenih akata, a akt stupa na snagu kad u njemu piše. Sam program obranu ne proglašava.</p>
     <p>Stadiji se <strong>slažu</strong>: pripremno stanje, redovna i izvanredna obrana i
       izvanredno stanje proglašavaju se prema gore, a ukidaju obrnutim redom. Kad se ukine
@@ -390,6 +418,12 @@
     <p>U registru su i strane letve iz susjednih država, s državom na kartici. Mađarske i srpske
       letve iz njihovih prognoza nose našu šifru, pa se uz njih pamti i prognoza njihove službe.
       Popis se sužava izborom <em>Država</em>, a gumb <em>Karta</em> pokazuje postaje na karti.</p>
+    <p>U obrascu letve upisuju se i <strong>sektori i područja koji letvu prate</strong>. Domaća
+      letva je preko svojih dionica ionako u sektoru i branjenom području; stranoj letvi (Mohács,
+      Letenye, Barcs…) upisuje se sektor koji je prati, a može se dodati i još koji sektor ili
+      područje (područje donosi i svoj sektor). Upisuje ih onaj tko smije uređivati letvu, a kartica
+      ih pokazuje uz dionice. Po njima se zna tko na letvu upisuje očitanje
+      (<a href="#ocitanja-popis">Upis i popis očitanja</a>).</p>
 
     <h3 id="letva-kota">Kota nule i visinski sustavi</h3>
     <p>Letva mjeri od svoje nule; kota nule kaže koliko je ta nula visoka nad morem. Vodi se u
@@ -498,7 +532,8 @@
       stranici s koje je pokrenut, i ništa više. S kartice letve to su osnovni podaci, pragovi s
       kotama i protokom, kota nule, zabilježeni ekstremi i napomena. S historijata su to povratni
       vodostaji s metodom, promjene kote nule, doseg niza i odakle podaci dolaze, krivulje protoka,
-      valovi obrane sa zbrojem za cijeli niz i najviših dvadeset pet poimence, te proglašene obrane.</p>
+      valovi obrane sa zbrojem za cijeli niz i najviših dvadeset pet poimence — za svaki val i kada
+      bi po vodostaju počeo i završio svaki dosegnuti stupanj — te proglašene obrane.</p>
     <p>Dva dokumenta imaju različita imena, pa se u mapi preuzimanja ne prepisuju.</p>
     <p>Dokument izlazi na <strong>memorandumu</strong> centra: znak organizacije, ustanova,
       ustrojstvena jedinica i centar. Ništa od toga nije upisano u izvoz — uzima se iz
@@ -554,14 +589,59 @@
 
     <h3 id="ocitanja-popis">Upis i popis očitanja</h3>
     <p>Popis upisanih očitanja, novije prvo. Uz svako stoji odakle je došlo (ručno, uvoz,
-      telemetrija) i tko ga je upisao. Olovka otvara izmjenu. Na telefonu se očitanje upisuje
+      telemetrija) i tko ga je upisao. Olovka otvara izmjenu i stoji samo uz očitanja koja smijete
+      ispraviti. Na telefonu se očitanje upisuje
       velikim poljem za broj — na terenu se ne pogađa sitna tipka.</p>
+    <p>Očitanje na letvu upisuje svatko s dužnošću u sektoru koji letvu prati, i Dežurni operater
+      u COP-u; Gost i Preglednik ne upisuju. Sektor letve dolazi preko njezinih dionica, a stranoj
+      letvi upisuje se u obrascu letve (<a href="#stations">Vodomjerne postaje</a>). Letvu bez ijednog
+      sektora upisuje svatko tko igdje upisuje, dok joj se sektor ne upiše.</p>
+    <p>Svoje očitanje ispravljate dok imate dužnost u sektoru letve, a kad je izgubite, još 72 sata
+      od upisa. Brisati, i ispravljati tuđe, smije samo onaj tko odgovara za letvu: dužnost na
+      njezinoj dionici, uprava njezina branjenog područja ili sektora i razina 1; za letvu bez
+      dionica uprava sektora koji je prati. Obrisano očitanje ostaje u povijesti zapisa. Računalo sa
+      starijom verzijom programa (0.0.34) zadržava dosadašnje pravilo dok se ne ažurira.</p>
     <p>Svako očitanje može nositi vlastitu bilješku. Ako postaja ima adresu podržane javne
       stranice, čvor koji preuzima vodostaje jednom na sat preuzme objavljeno očitanje, a ostali
       ga čvorovi primaju razmjenom; javni podatak uvijek zadržava
       izvor i ne predstavlja se kao ručni upis vodočuvara.</p>
     <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
       ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.</p>
+
+    <h3 id="ocitanja-raspon">Vrijednosti izvan raspona</h3>
+    <p>Očitanje se prima samo u rasponu u kojem ima smisla: vodostaj od −500 do 3000 cm,
+      temperatura vode od −5 do 45 °C, protok od 0 do 100 000 m³/s, a vrijeme najviše sat
+      unaprijed i ne prije 1900. Raspon je isti za sve putove upisa: ručni upis i izmjenu,
+      lijepljenje, satno preuzimanje s javnih stranica i telemetrije (i rezervne izvore), uvoz iz
+      evidencije BP16 i uvoz tablice dnevnih vodostaja centra.</p>
+    <p>Ručni upis i lijepljenje takvu vrijednost odbiju s porukom, pa se ispravi. Preuzimanje i
+      uvoz je ne upisuju. Kad je izvan raspona vodostaj (uzvodni ili nizvodni) ili kota, ne upisuje se
+      cijelo očitanje, kao ni ručnim upisom: protok koji izvor računa iz vodostaja te sati rada agregata
+      i stanje crpne stanice iz istog zapisa BP16 pripadaju krivom zapisu. Sat tako ostaje slobodan, pa
+      ga popuni rezervni izvor ili ispravak koji izvor poslije pošalje, a zapis iz evidencije BP16 uvoz
+      upiše kad se ondje ispravi. Kad je izvan raspona samo temperatura ili protok, otpada samo ta
+      vrijednost, a ostale vrijednosti istog očitanja ostaju (pokvaren termometar ne odnosi dobar
+      vodostaj). Očitanje kojem ništa ne ostane ne upisuje se. Očitanje upisano bez odbačene temperature
+      ili protoka preuzimanje i uvoz poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
+      vrijednosti odbačeno i koja zadnja, npr.
+      <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. S preuzimanja je to obično znak da
+      je mjerilo u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu. Stranica
+      letve pokazuje samo broj i zadnju odbačenu vrijednost, s danom i satom zapisa, pa se taj zapis može
+      naći i ispraviti. Popisa svih odbačenih vrijednosti nema; uvoz iz BP16 i uvoz tablice centra u
+      sažetku kažu koliko su ih odbacili. Broj se
+      ne poništava: zadnja vrijednost nosi datum kad nije od danas, pa se vidi traje li to još. Iznimka je
+      očitanje odbačeno samo zato što je stiglo više od sat unaprijed: kad ga letva poslije ipak primi,
+      više se ne broji, a kad ga poslije odbaci zbog vrijednosti (npr. vodostaja −1102 cm), broji se
+      samo ta vrijednost. Zapis o odbačenoj vrijednosti putuje razmjenom kao i očitanja, pa broj vidi svako
+      računalo koje prati tu letvu, a ne samo ono koje je preuzima; ista vrijednost koju odbace dva
+      računala broji se jednom. Računalo sa starijom verzijom programa (0.0.34) raspon ne provjerava:
+      što ono preuzme, stiže razmjenom i upisuje se kao i dosad, a zapise o odbačenom čuva i prenosi,
+      ali ih ne pokazuje dok se ne ažurira.</p>
+    <p>Tri letve akumulacija HEP-a uz brane na Dravi (Varaždin, Čakovec, Dubrava) ne vode vodostaj nego
+      kotu vodnog lica nad morem. Imaju oznaku <strong>kota u cm n. m.</strong>, koja stoji uz naziv
+      letve na kartici, na stranici očitanja i u obrascu letve, i primaju vrijednosti
+      od 5000 do 40 000 cm umjesto od −500 do 3000 cm. Oznaku postavlja program; u obrascu letve se ne mijenja.
+      Očitanja upisana prije ove provjere ostaju kakva jesu.</p>
 
     <h3 id="ocitanja-skupno">Unos više odjednom</h3>
     <p>Umjesto upisa jednog po jednog, može se zalijepiti tablica s letva.voda.hr ili priložiti
@@ -575,7 +655,8 @@
     <p>Prvi stupac <em>id</em> govori koji je redak koji, zato se ne dira i zato se datoteci ne
       dodaju novi redci — za nova očitanja služi lijepljenje iznad. Mijenjaju se vrijeme,
       vodostaj, nizvodni vodostaj, tko je očitao i napomena; za brisanje se u stupac
-      <em>obrisi</em> upiše „da“.</p>
+      <em>obrisi</em> upiše „da“. Iz datoteke vrijede ista prava kao za pojedino očitanje: redak
+      koji ne smijete ispraviti ili obrisati pregled označi i ne upisuje.</p>
     <p>Ispravak očitanja nije isto što i ispravak arhive: očitanje je živ zapis ovog programa pa
       se stvarno mijenja, kroz istu knjigu verzija kao izmjena jednog po jednog. Poslije se zna
       tko je i kad što promijenio.</p>
@@ -680,6 +761,38 @@
     <p>Revidirana serija <strong>zamjenjuje</strong> staru na istom mjestu: promijeni se datoteka
       i arhiva se izgradi iznova. Ispravci upisani kroz sučelje stoje odvojeno od arhive, pa
       ponovna gradnja ne briše ono što je čovjek ispravio.</p>
+    <p>Krivulje protoka iz HIS-2000 ne zamjenjuju se cijele: izvoz dodaje nova razdoblja i zamjenjuje
+      ista, a zatečena razdoblja kojih u izvozu nema ostaju.</p>
+    <p>Sadržaj datoteke je istina. Krivulje protoka prate svoju datoteku: kad letva u stablu ima
+      datoteku krivulja, gradnja u arhivu postavi točno krivulje iz nje. Krivulju koje u datoteci
+      više nema gradnja makne, a u ispisu gradnje piše koja je to krivulja i kad je vrijedila.
+      Krivulje letve koja u stablu nema datoteku krivulja ostaju kakve jesu.</p>
+    <p>Iznimka je letva koja je stigla paketom s drugog čvora. Krivulje koje ta letva već ima u arhivi
+      gradnja ne dira. Ne miče ih ni kad ih u datoteci nema, a krivulja iz datoteke ne zamijeni krivulju
+      koja u arhivi vrijedi od istog dana. Iz datoteke se upišu samo krivulje kojih u arhivi još nema. U
+      ispisu gradnje tada piše koja krivulja nije maknuta ili nije upisana i zašto. Krivulju takve letve
+      treba ispraviti na čvoru koji letvu izdaje.</p>
+    <p>Datoteka krivulja koja se ne da pročitati zaustavi gradnju, a gradnja tada ne makne nijednu
+      krivulju letve. Prvi redak datoteke mora biti zaglavlje s imenima stupaca, npr.
+      <code>vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4;izvor;napomena</code>, a svaki redak
+      krivulje mora biti u svom retku. Gradnja stane i kad je datoteka prazna ili ispod zaglavlja ima
+      samo prazne retke. Stane i na retku koji nema svih osam stupaca odvojenih točkom-zarezom ili ne počinje datumom oblika 2001-01-01, i na retku u kojem stupac od_cm ili do_cm nema cijelog broja, u nekom od stupaca p1 do p4 piše nešto što nije broj ili u stupcu oblik piše nešto drugo nego polinom ili potencija, malim slovima. Najčešće je to zarez upisan umjesto točke-zareza. Ispis gradnje kaže koja je to datoteka,
+      a za takav redak i njegov broj.</p>
+    <p>Prazan redak gradnja preskače, a datoteka sa samim zaglavljem znači da letva krivulja nema. Prazno
+      polje u stupcu p1 do p4 gradnja čita kao nulu. Uvoz izvoza HIS-2000 prazan redak isto preskoči, a
+      datoteku kojoj ne valja zaglavlje ili neki redak ne spaja s izvozom, nego kaže koji redak treba
+      ispraviti.</p>
+    <p>Kad iz stabla nestane cijela datoteka niza, snimke korita ili krivulja protoka, gradnja ih iz
+      arhive ne briše sama. Pojave se na stranici <strong>Administracija → Unos u arhivu</strong>, pod
+      <em>Nizovi bez datoteke u stablu</em>, a iz arhive ih makne gumb <strong>Makni</strong>. Tako
+      vanjski disk koji nije priključen ne odnese podatke. Snimke i krivulje letve koja u stablu nema
+      svoju mapu na taj popis ne idu, npr. letve koju čvor samo prima paketom. Ne idu ni krivulje letve
+      koja je stigla paketom s drugog čvora. Ako je letva otkad je stranica otvorena dobila datoteku
+      krivulja ili stigla paketom, gumb Makni njezine krivulje ne miče, nego to javi. Ni gradnja ni gumb
+      Makni datoteke u stablu nikad ne mijenjaju.</p>
+    <p>Datoteka snimke korita koja se ne da pročitati stoji na tom popisu kao zaseban redak, s razlogom i
+      bez gumba Makni. Takvu datoteku treba popraviti u stablu. Dok se ne popravi, popis za tu letvu ne
+      javlja snimke bez datoteke, jer se ne zna koju snimku ta datoteka drži.</p>
     <p class="reading-meta"><strong>Izvan aplikacije:</strong> administrator poslužitelja za masovnu početnu
       pripremu ima i alate naredbenog retka (<code>arhiva-vodostaja</code> gradi cijelu arhivu, ili jednu letvu
       s <code>-letva batina</code>). Nisu dio isporuke i za redovan rad ne trebaju.</p>
@@ -727,12 +840,76 @@
       model, a takva vrijednost nosi oznaku <em>d</em>. Na stranici <em>Postavke prognoze</em>
       globalni administrator posebno za graf, tablicu i izvoz u Excel bira satni lanac, dnevni
       model ili kombinaciju.</p>
+    <p>Kad dnevni model za izdanje nije računao, dani od kojih bi ga tablica uzimala pokazuju satnu
+      prognozu u 07 h s oznakom <em>s</em>, a dani do kojih satni lanac ne seže (dalje od 96 sati)
+      ostaju prazni. Brojke su iste kao satne; vidi se samo da dnevne nema.</p>
+
+    <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
+    <p>Kad pri izdavanju nešto ne radi, iznad kartica stoji okvir <strong>Upozorenja uz ovo
+      izdanje</strong>. Svako upozorenje kaže što ne radi — npr. letva bez mjerenja, s izvorom i od
+      kada do kada, dnevni model koji nije računao, račun iz rezerve, vrh lanca bez svoje budućnosti
+      ili dnevni model bez kiše — i što je zbog toga upitno: satna prognoza po postajama od kojeg dosega
+      i dnevna prognoza koja nije izdana. Doseg je najraniji mogući („najranije od +7 h”): vrijednosti
+      prije njega ne ovise o onome što ne radi. Kartica takve postaje ima kratak redak s razlogom, a isto
+      stoji u izvozu u Excel, u sažetku i uz graf postaje.</p>
+    <p>Sitnije stvari — dnevni model iz rezerve, sati preuzeti s letve na drugoj obali, postaja bez
+      ijednog sata prognoze, vrh lanca koji kasni i vrijednosti izvan krivulje protoka — stoje
+      sklopljene pod <em>Napomene</em>. Upozorenja zapisuje čvor koji izdaje prognozu i ona putuju s
+      izdanjem, pa svi čvorovi pokazuju isto. Kad je izdanje starije od tri sata, stranica to javlja
+      sama, a uz izdanje čvora na starijoj inačici programa piše da upozorenja ne zapisuje.</p>
+    <p><strong>Rekonstrukcija iz susjeda.</strong> Neke letve nemaju letvu na drugoj obali, pa kad im
+      izvor stane na više od šest sati, rupu u računu prognoze popunjavaju susjedi na istoj rijeci: letvi se
+      dodaje ono što je susjed u isto vrijeme promijenio, pomaknuto za vrijeme koje voda putuje između
+      njih. Tako se računaju Szentborbás (iz Barcsa), Mohács i Dunaszekcső (iz Bezdana, Baje i jedan iz
+      drugoga), Siga, Aljmaš, Mohovo i Vukovar (iz Bezdana, Petreša, Sotina, Iloka i Bogojeva), Mursko
+      Središće (iz Goričana i Gornje Radgone) te Vízvár, Novo Virje, Vrbovka i Moslavina (iz susjeda na
+      Dravi). Rupa koja je završila može imati najviše 48 sati, a rupa koja
+      traje popunjava se najviše 24 sata iza zadnjeg mjerenja i nikad dalje od zadnjeg mjerenja susjeda;
+      preko toga ostaje upozorenje. Susjed koji danima stoji dok se letva miče rupu ne popunjava.
+      Rekonstruirani sati služe samo računu prognoze: ne pokazuju se kao mjerenje i ne upisuju se u
+      očitanja. Pod <em>Napomene</em> piše odakle su i koliko su točni: na arhivi je 95 % grešaka bilo
+      unutar ±1 do ±20 cm, ovisno o letvi i susjedu; na Dravi uz elektrane više nego na Dunavu.
+      Točnost vrijedi samo za razine na kojima je provjerena (arhiva od 2015.). Kad je letva izvan tog
+      raspona, kao na rekordno niskoj vodi u listopadu 2026., rekonstrukcija i dalje računa, ali uz izdanje
+      stoji upozorenje da točnost nije provjerena: dnevna prognoza koja iz nje računa označena je upitnom,
+      a za rupu koja traje i satna niz rijeku, kao kad mjerenja nema.</p>
+
+    <h3 id="prognoze-ranija">Ranija prognoza</h3>
+    <p>Baza prognoza čuva svako izdanje i ništa od toga ne briše. Na stranici <em>Postavke prognoze</em>
+      (gumb <em>Postavke</em> na stranici Prognoze), u odjeljku <strong>Ranija prognoza</strong>, odaberite dan
+      i sat po našem vremenu i pritisnite <em>Pronađi izdanje</em>. Stranica kaže koje će se izdanje izvesti, a
+      gumb <em>Izvoz u Excel</em> daje isti dokument kao za zadnje izdanje: sažetak, listove po vodama, grafove i
+      list „O prognozi”. Brojke, upozorenja, dnevna prognoza, kiša po međuslivovima i tuđe prognoze su one koje
+      je to izdanje imalo; mjerenja na grafovima sežu do sata izdanja, kao u izvozu napravljenom tada.
+      Koji dan daje satni, a koji dnevni model ide po današnjem odabiru <em>Izvoz u Excel</em> (uz kombinaciju i
+      po današnjoj provjeri), jer se uz izdanje ne pamti; godišnji vodostaji, zabilježene krajnosti i opis modela
+      slijede današnju arhivu i model. Prvi list izvoza to kaže.</p>
+    <p>Kad u odabranom satu prognoza nije izdana (čvor nije radio ili nije bilo novih mjerenja), nudi se
+      najbliže ranije izdanje i to piše i na stranici i na prvom listu izvoza, s time koliko je sati ranije;
+      takvo izdanje izvoz ne proglašava zastarjelim. Sat izdan više puta (npr. gumbom <em>Generiraj</em>)
+      izvozi se u zadnjoj verziji, a poruka kaže kad ju je izdavač izračunao. Gumb izvozi baš izdanje koje je
+      stranica najavila: ako se do preuzimanja promijeni (stigne izdanje za traženi sat ili se sat izda iznova),
+      izvoz se ne preuzima, nego se odjeljak otvori s novim nalazom i kaže zašto. Sat koji još nije došao ne
+      može se tražiti — zadnja prognoza izvozi se na stranici Prognoze. Iznimka je sat zadnjeg izdanja: izdanje
+      je označeno satom najnovijeg mjerenja, pa zna nastati i nešto prije tog punog sata; odjeljak ga tada
+      zadano nudi.</p>
+    <p>Uz najstarija izdanja nije zapisano sve: dnevna prognoza, zapis o izdanju (kiša po međuslivovima i
+      tuđe prognoze koje je izdavač imao) i upozorenja počinju kasnije od satnih vrijednosti, a upozorenja
+      bilježi tek novija inačica programa. Odjeljak kaže od kada baza ima koji dio, a poruka i prvi list
+      izvoza nabrajaju što uz odabrano izdanje nije zapisano; izvoz to nema. Čvor koji prognozu prima
+      razmjenom ima samo izdanja koja je primio, a nakon isključenja duljeg od tjedan dana starija mu ne
+      stignu. Izvoz ranije prognoze smije svatko tko smije izvoziti i zadnju.</p>
+    <p>Na proljetni prelazak na ljetno vrijeme sata 02:00 nema: stranica to kaže, a ne uzima 03:00 umjesto njega. Na jesenski
+      prelazak 02:00 dođe dvaput: izvozi se kasniji (zimsko vrijeme), a poveznica ispod vodi na raniji
+      (ljetno vrijeme); poruke uz taj sat kažu po kojem je vremenu.</p>
 
     <h3 id="prognoze-profil">Uzdužni profil</h3>
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
       naše. Okomita os nije kota nego vodostaj iznad ili ispod vode zadnjih 30 dana na svakoj letvi
-      (medijan satnih vodostaja mjeseca prije današnjeg jutra). Prema zadnjem mjesecu mirna voda je ravna
-      crta, a val brijeg. Prema dugogodišnjem prosjeku svaka letva na maloj vodi stoji na svojoj stepenici
+      (medijan satnih vodostaja mjeseca prije današnjeg jutra, istih dana na svim letvama toka). Prema
+      zadnjem mjesecu mirna voda je ravna crta, a val brijeg. Letva čije mjerilo danima stoji dok se susjedi
+      miču (voda je pala ispod mjerila) i letva koja nakon prekida mjerenja nastavi na drugoj razini ne
+      crtaju se; ispod crteža piše koje su i zašto. Prema dugogodišnjem prosjeku svaka letva na maloj vodi stoji na svojoj stepenici
       — pragovi i širina korita nisu isti posvuda — pa bi izgledalo kao da svaka ima val.
       Uobičajena voda zadnjih deset godina (medijan, crtkano) i srednji vodostaj (SV, točkasto) ucrtani su
       kad su blizu; inače u kutu piše da su iznad ili ispod crteža (više u <em>O prognozi</em>). Na toj nuli stoji jutarnja crta, ljubičasta: stanje u 7
@@ -777,7 +954,14 @@
       na stranici <em>Postavke prognoze</em> čvora koji izdaje prognozu pokreće <em>Pripremi
       model</em>: program iznova namjesti veze letvi i modele
       ispuštanja elektrana, provjerom unatrag zapiše promašaje iz kojih prognoza uzima ispravak i raspon,
-      i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se na poslužitelju.</p>
+      nauči dnevni model iznova i odmah izda prognozu novim modelom. Posao traje desetak minuta i vrti se
+      na poslužitelju. Promašaji se mjere samo na izdanjima koja je računao glavni ulaz, jer se samo
+      njemu i oduzimaju; postaja koja računa iz rezerve ostaje bez tog ispravka.</p>
+    <p>Dnevni model uči se iz arhive i bez toga: jednom na dan, iza ponoći po zagrebačkom vremenu, i
+      iznova čim se arhiva promijeni — uvoz, paket s drugog čvora, izdvojen kvar mjerila, kišomjeri.
+      Ako se neka njegova inačica ne da naučiti, program je pokušava opet idući sat. Dotle računa prva
+      inačica koja je naučena, bez kiše ili iz rezervnih ulaza; postaja kojoj se nijedna nije dala
+      naučiti nema dnevne prognoze. Čvor bez kišomjera inačicu s kišom ni ne pokušava.</p>
     <p>Stranica <em>O prognozi</em> pokazuje ulazne postaje, jednadžbe i rezultate provjere, a izvoz
       u Excel daje tablični pregled. <code>prognoze.db</code> čuva izvedene rezultate i parametre:
       nije službena knjiga ni <code>.cop</code> kanal. Izdanja i promjene modela prenose se
@@ -823,7 +1007,9 @@
       <li>U aktivnoj obrani vode se dežurstva, proglašavaju i prekidaju stupnjevi te nastaju
         dnevna izvješća.</li>
       <li>Ovjereni akt automatski se bilježi u dnevniku COP-a, dnevnim listovima vodočuvara
-        područja i otvorenim dnevnicima održavanja tog područja.</li>
+        područja (na list dana od kojeg vrijedi, a vodočuvaru koji za taj dan, koji je prošao,
+        nema lista ili mu je list tog dana prenesen iz ranije evidencije, na današnji list) i
+        otvorenim dnevnicima održavanja tog područja.</li>
       <li>Na završetku se predaju aktivna dežurstva, upisuje kraj dnevnika, provjerava obračun,
         a voditelj COP-a dnevnik zaključuje i elektronički ovjerava.</li>
     </ol>
@@ -858,6 +1044,13 @@
       unos potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
       i čeka zasebnu provjeru i potvrdu uprave. Nepotvrđeni vlastiti unos osoba može maknuti,
       a uprava upravlja cijelim planom.</p>
+    <p>Krivo izabran opis rada uprava centra ispravlja na mjestu (<em>ispravi opis</em>), bez
+      micanja i ponovnog upisa. Mjesto rada slijedi iz novog opisa, prijašnji opis i tko ga je
+      ispravio ostaju u napomeni i u knjizi verzija, a ispravljeno dežurstvo ponovno čeka potvrdu.
+      Tu bilješku u napomenu upisuje samo program: upis s rukom napisanom bilješkom o ispravku
+      opisa ne sprema se.
+      Opis koji je ispravila uprava osoba čije je dežurstvo poslije ne mijenja i takvo dežurstvo
+      ne miče; to radi uprava centra.</p>
     <p>Dežurstvo preko ponoći ima datum završetka. U ručnom obrascu plana pojedini razmak može
       trajati najviše 36 sati; dulji se upisuje u više dijelova. Predaja aktivnog dežurstva
       iz dnevnika COP-a čuva cijelo stvarno trajanje, i kad je dulje od 36 sati, te za sve
@@ -870,9 +1063,21 @@
       dnevnom ili noćnom pojasu te mjestu rada — ured ili teren. Nedjelja se obračunava kao
       blagdan. Koeficijente i kalendar blagdana održava globalni administrator; promjena vrijedi
       kao podatak organizacije, a ne kao tvrdo pravilo u programu.</p>
+    <p>Mjesto rada slijedi iz opisa s popisa (na primjer „Obilazak i pregled obrambenih objekata”
+      je teren), pa ga program zna i kad uz dežurstvo nije zapisano, kao kod starijeg zapisa ili
+      zapisa s drugog čvora. Kad opisa nema na popisu — na primjer kad je dežurstvo stiglo s drugog
+      čvora s opisom koji ovaj program ne poznaje — ne zna se je li rad bio u uredu ili na terenu,
+      pa je dežurstvo u planu, obračunu i IORS-u označeno
+      <strong>„mjesto nepoznato — za provjeru”</strong>: ne ulazi u zbroj i ne može se potvrditi
+      dok uprava centra ne izabere opis s popisa; osoba čije je dežurstvo opis ne mijenja ni
+      izmjenom vlastitog upisa, a takvo dežurstvo ne može ni maknuti pa upisati ponovno — miče
+      ga samo uprava centra. IORS u Excelu može se izvesti i tada, s
+      upozorenjem na vrhu, kao i za sate koji čekaju potvrdu. Obračun sati i obračun u Excelu
+      (u rekapitulaciji) navode koliko sati za provjeru nije u zbroju i čiji su.</p>
     <p>Obračunski sati zaokružuju se po razredu na pola sata, a točna sredina ide djelatniku.
       Sažetak prikazuje ljude po području, dok klik na osobu otvara njezin obrazac IORS s radom
-      po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>.
+      po danima i razredima. Osoba vlastiti plan i IORS nalazi i na stranici <em>Moj profil</em>,
+      gdje piše i koliko njezinih dežurstava čeka potvrdu, a koliko je za provjeru.
       Cijeli obračun može se izvesti u Excel u obliku za računovodstvo, s listovima
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
@@ -885,6 +1090,22 @@
     <p>Voditelj COP-a zatim slaže izvješće sektora iz predanih izvješća dionica i odabranih
       zapisa dnevnika COP-a. Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
       izvješća ne prepisuje već izrađeni sektorski dokument.</p>
+    <p>Predano izvješće (sektora prema Glavnom centru, dionice prema podcentru) ne mijenja se
+      potiho: spremljena izmjena vraća ga u nacrt koji treba ponovo predati, gumbom
+      <em>Spremi i ponovo predaj</em>. Nova predaja dobiva novo vrijeme, a prvo vrijeme predaje
+      ostaje zapisano i prikazuje se uz njega („prvi put predano 09:40, ponovno 14:20”), zbog
+      roka predaje. Spremanje bez ikakve promjene predano izvješće ostavlja predanim. Kod
+      izvješća sektora promjena je tekst ili odabir izvješća dionica i zapisa; izvješće dionice
+      popravljeno poslije predaje nije promjena sektorskog, pa ono ostaje predano s tablicama
+      kakve su predane. Isto vrijedi kad je zapis koji je ušao u izvješće storniran ili je
+      izvješće dionice obrisano. Nove brojke preuzima izmjena izvješća sektora ili spremanje
+      nakon povučene predaje. Svi koji su izvješće nakon predaje mijenjali pišu na dokumentu i u popisu
+      izvješća, a na dokumentu i tko ga je predao; zid događanja pokazuje „ponovno predano” s
+      imenom onoga tko je predao.
+      Predano izvješće sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa
+      je izvješće opet nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan.
+      Izvješće dionice koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga
+      je izradio ili uprava, a briše ga samo uprava područja ili sektora.</p>
 
     <h3 id="dogadjanja">Događanja</h3>
     <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.
@@ -897,14 +1118,74 @@
       radno vrijeme iz postavke obračuna, očitanja, stanje objekata, zadatke, bilješke i upise
       rukovoditelja ili ovlaštenika. Zadaci se mogu planirati do 30 dana unaprijed i pregledati
       u kalendaru.</p>
+    <p>List za dan koji još nije počeo smije postojati samo kao nacrt, najviše 30 dana
+      unaprijed. Takav nacrt nastaje kad se na taj dan nešto upiše: rukovoditeljev upis („Upiši”),
+      akt o obrani ili prijava s terena za sutrašnji dan. Vodočuvar ga zatim vidi u svom dnevniku
+      i može ga dopuniti. Nacrt nema redni broj (na popisu piše „Nacrt bez broja”); broj dobiva
+      prvim spremanjem ili predajom kad njegov dan počne, a najkasnije kad broj dobije list nekog
+      kasnijeg dana, i to prije njega, pa brojevi novih listova idu redom dana. Brojevi koje
+      listovi već imaju ne mijenjaju se. Potpisati i predati list može se tek od 00:00 toga dana,
+      a ovjeriti tek predan list, i to kad njegov dan počne.</p>
+    <p>List za dan koji je prošao (od 00:00 idućeg dana) više se ne otvara: tko list nije otvorio
+      na svoj dan, taj dan nije radio. Vodočuvar koji otvori takav dan, npr. jučerašnjim datumom u
+      adresi, vraća se na popis s porukom „za 09.10.2026. nema dnevnog lista, a list za dan koji je
+      prošao više se ne otvara: dnevni list otvara se na svoj dan”. Ni
+      rukovoditeljev „Upiši” za takav dan ne otvara list. List koji za prošli dan već postoji
+      (otvoren na svoj dan ili unaprijed) i dalje se dopunjuje, predaje, parafira i ovjerava.
+      Obrazac otvoren prije ponoći, a prvi put spremljen poslije nje, sprema se na svoj dan i
+      upisano se ne gubi: obrazac nosi potpisanu oznaku kad je otvoren, koju nitko ne može
+      prepraviti za drugi dan. Nakon ponovnog pokretanja programa takva oznaka više ne vrijedi,
+      pa obrazac koji je tada bio otvoren treba otvoriti iznova. Ni
+      program ne otvara list za prošli dan: ovjeren akt o obrani koji vrijedi od dana za koji
+      vodočuvar nema lista upisuje se na njegov današnji list, uz napomenu od kada akt vrijedi, a
+      prijava s terena za takav dan na današnji list, uz dan događaja. Listovi preneseni iz ranije
+      evidencije ostaju kakvi jesu i nikad ne dobivaju redni broj: akt ili prijava za dan s takvim
+      listom idu na današnji list, kao za dan bez lista, a rukovoditeljeva bilješka za taj dan
+      upisuje se na prenesen list.</p>
+    <p>Jedan vodočuvar za jedan dan ima jedan dnevni list, i kad ga pišu dva čvora bez veze
+      (npr. prijenosno računalo na terenu i poslužitelj sektora): nakon razmjene to je isti list.
+      Predan list ima prednost pred nacrtom s drugog čvora, a bilješke rukovoditelja s nacrta
+      ostaju na njemu. Isto vrijedi za list prenesen iz ranije evidencije: nacrt s drugog čvora
+      ga ne zamjenjuje, a preneseni obilasci s fotografijama ostaju na listu i kad je za taj dan
+      predan list. Od dva nacrta vrijedi tekst koji je vodočuvar zadnji spremio: bilješka
+      rukovoditelja, akt o obrani ili prijava upisani na čvoru koji vodočuvarov nacrt još nema
+      dodaju se listu, a njegov tekst ne brišu. Ako je isti list predan na dva čvora, ostaju oba
+      lista, svaki sa svojim potpisanim PDF-om i svojom ovjerom; „Upiši” na stranici jednog od njih
+      upisuje bilješku na taj list. Takvi listovi, kao i dva lista za
+      isti dan nastala ranije ili na čvoru sa starijim programom, ne brišu se: rukovoditelj
+      branjenog područja (i njegov zamjenik) i administrator vide ih pod „Dvostruki dnevni
+      listovi”, a kad su predana oba, svaki nosi oznaku „dvostruki list – vidi i list br. …”,
+      i na popisu i u ispisu cijele knjige.</p>
     <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
       ga zatim ovjerava svojim. Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
       uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
+      Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
+      stranici i u svom dnevniku vidi upozorenje „Niste potpisali i predali dnevni list za …”,
+      s poveznicom na svaki takav list. Upozorenja nema za današnji i budući nacrt, za list
+      prenesen iz ranije evidencije ni za list iz knjige prošle godine, jer se u arhiviranu
+      knjigu više ne upisuje. Nema ga ni za list koji je otvorio samo program (upis akta ili
+      „Upiši” rukovoditelja), a vodočuvar na njemu nije ništa upisao ni objavio prijavu: taj
+      dan nije radio.
       Potpisani PDF je izvornik; stranica provjerava svaki potpis i
       pokazuje pokriva li cijeli dokument. Istekom godine knjiga prelazi u arhivu samo za čitanje
-      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu; tuđe listove vide oni koji ih
-      ovjeravaju i parafiraju te uprava. Strojari i skladištari bez vodočuvarske dužnosti
-      dnevnik ne vide.</p>
+      i ispis cijele knjige. Vodočuvar vidi samo svoju knjigu.</p>
+    <p>Tuđe listove čitaju rukovoditelj branjenog područja, ovlaštenici za praćenje ugovora,
+      rukovoditelji dionica tog područja, uprava i dežurni operater u COP-u svog sektora.
+      Rukovoditelj branjenog područja, ovlaštenici i uprava parafiraju, upisuju bilješke i
+      zadaju zadatke. Rukovoditelj dionice parafira i upisuje bilješku samo na list vodočuvara
+      koji je na dan lista čuvao njegovu dionicu ili cijelo područje (i kad je to zaduženje
+      poslije isteklo, opozvano ili izmijenjeno; list s dana prije vodočuvarova prvog zaduženja u programu,
+      npr. prenesen iz BP16, vezan je uz zaduženje s kojim je vodočuvar ušao u program), a zadatak mu zadaje samo dok je vodočuvar na toj dionici
+      i na njoj traje redovna ili izvanredna obrana ili izvanredno stanje. Rukovoditelj dionice
+      kojemu na dužnosti nije upisana nijedna dionica vodi sve dionice svog područja. Dežurni operater
+      upisuje bilješku, ali ne parafira i ne zadaje zadatke; njegova bilješka nije naredba, pa na
+      listu i u njegovu PDF-u stoji pod posebnim zapažanjima, a ne pod naredbama rukovoditelja. Voditelj usluga / poslovođa
+      izvođača, strojari i skladištari bez vodočuvarske dužnosti dnevnik ne vide.</p>
+    <p>Vodočuvar na privremenoj ispomoći na drugom branjenom području ulazi i u doseg tog
+      područja: njegove listove i prijave iz vremena ispomoći čitaju, parafiraju i u njih upisuju
+      i tamošnji rukovoditelji, po istim pravilima (rukovoditelj dionice uz vezu sa svojom
+      dionicom), a zadatke mu zadaju dok ispomoć traje. Listovi od prije ispomoći ostaju samo
+      području na kojem su napisani, a ovjera ostaje rukovoditelju tog područja.</p>
 
     <h3 id="prijave">Prijave i obavijesti s terena</h3>
     <p>Vodočuvar s terena sastavlja obavijest, prijavu, izvješće ili zahtjev: opisuje što je
@@ -912,9 +1193,22 @@
       Nacrt se može uređivati i obrisati samo prije objave.</p>
     <p>Objavom prijava dobiva broj, osobni elektronički potpis i trajni PDF izvornik s ugrađenim
       fotografijama. Tada postaje službeni zapis i istodobno se upisuje na vodočuvarov dnevni
-      list za dan događaja. Uprava je nakon pregleda može označiti <strong>pregledanom i
-      riješenom</strong>; to je stanje predmeta, a ne naknadno arhiviranje. Objavljeni sadržaj
-      time se ne mijenja.</p>
+      list za dan događaja; kad za taj dan, koji je prošao, lista nema ili je list tog dana
+      prenesen iz ranije evidencije, upisuje se na današnji list, uz dan događaja. Objavljenu prijavu čita tko čita vodočuvarov dnevnik, a
+      rukovoditelj dionice samo prijavu vezanu uz svoju dionicu: onu u kojoj je navedena
+      njegova dionica ili objekt koji je u registru na njegovoj dionici; i onu u kojoj nije navedena
+      ni dionica ni objekt s dionicom, kad mu je vezan i vodočuvarov list za taj dan (vodočuvar
+      je tada čuvao njegovu dionicu ili cijelo područje). Prijava koja navodi dionicu ili objekt
+      s dionicom vezana je samo uz tu dionicu, i kad je vodočuvar ne čuva. U polju Dionica broje
+      se šifre dionica područja iz registra, bez obzira na velika slova i na to jesu li odvojene
+      zarezom, razmakom ili veznikom; ono što nije šifra dionice tog područja (npr. pogrešno
+      upisana šifra) ne navodi nijednu dionicu. Dnevni list i njegov potpisani PDF nose
+      oznaku, vrstu i naslov svake prijave objavljene za taj dan, kao dio zapisa koji vodočuvar
+      potpisuje: tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati.
+      Uprava je nakon pregleda može označiti <strong>pregledanom i riješenom</strong>; to je stanje predmeta,
+      a ne naknadno arhiviranje. Objavljeni sadržaj time se ne mijenja. Objava i rješenje
+      pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima koji
+      prijavu smiju čitati.</p>
     <p>Ispod svake fotografije, u dokumentu i na stranici, stoji što je fotoaparat zapisao —
       vrijeme snimanja, položaj i uređaj; u dokumentu ispod toga stoji i SHA-256 otisak izvorne
       datoteke. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
@@ -928,6 +1222,25 @@
       prognoza, dionice, vrijeme od kojeg vrijedi i primatelji. Nacrt se smije uređivati; nakon
       ovjere dobiva oznaku, izvornik i trag slanja. Akt o prekidu povezuje se s aktom koji stavlja
       izvan snage.</p>
+    <p>Akt se izdaje isključivo u <strong>Centru obrane od poplava</strong>. Nacrt sastavljaju samo
+      voditelj centra, njegov zamjenik i dežurni operater u COP-u sektora akta, dok im dužnost
+      vrijedi; samo njima se nude <em>Novi akt</em> i <em>Proglasi / prekini</em>. Nacrt ispravlja
+      (tekst, ponovno složeni primatelji) samo onaj tko ga je sastavio, i to dok smije sastavljati
+      nacrte. Nacrt koji je sastavio netko izvan centra (npr. prije nadogradnje programa) ne
+      ispravlja nitko: ovjerava se kakav jest, ili ga autor ili onaj tko ga ovjerava obriše pa
+      centar sastavi novi. Ovjerava ga kao i dosad rukovoditelj branjenog područja ili njegov zamjenik, odnosno
+      razina sektora prema stupnju, a razina 1 uvijek. Vodočuvari i rukovoditelji dionica
+      ovjeren akt vide na znanje; upisuje se i na dnevne listove vodočuvara i u dnevnike usluga.
+      Ovo provjerava računalo s novim izdanjem programa. Računalo sa starijom verzijom (0.0.34) i
+      dalje pušta da nacrt sastavi ili mijenja i netko izvan centra, kao i dosad; takav nacrt ili
+      izmjena stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše.</p>
+    <p>„Vrijedi od” ne smije biti prije otvaranja Dnevnika COP-a aktivne obrane u sektoru (kad je
+      otvoreno više dnevnika, onog otvorenog najranije) ni više od 7 dana unaprijed: takav nacrt program ne sastavlja i ne ovjerava (npr. nacrt iz obrane čiji
+      je dnevnik u međuvremenu zatvoren; tada treba novi nacrt). Vrijeme više od 24 sata unatrag (akt
+      unesen naknadno) ili više od 3 dana unaprijed (najava) prolazi tek kad potvrdite pitanje
+      „Vrijedi od je … – jeste li sigurni?”; potvrda se bilježi uz akt. Nacrt koji tu potvrdu nema
+      (sastavljen je dok je vrijeme bilo u uobičajenom rasponu) pitanje dobiva pri ovjeri, u goCOP-u
+      i skenom. Godina u oznaci je godina iz „Vrijedi od”.</p>
     <p>Postoje dva puta do izvornika. Gumb <em>Ovjeri u goCOP-u</em> daje aktu broj i kod ovjere
       i potpisuje ga ključem čvora; izvornik postaje PDF sa žigom centra i skeniranim potpisom
       onoga tko ovjerava, ako ga je spremio na profilu. Kad treba i papir, nacrt se ispiše,
@@ -935,11 +1248,48 @@
       izvornik. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na odabranu osobu i
       na onoga tko je sken učitao. Ovjereni izvornik šalje se označenim primateljima
       pojedinačno; za probu postoji radnja <em>Probno samo meni</em>.</p>
+    <p>Popis primatelja („O tome obavijest”) program slaže iz registara: primatelja sektora,
+      službi po županijama, licenciranih firmi i zaduženja. Firme i rukovoditelji idu za sva
+      branjena područja čije su dionice u aktu, ne samo za područje akta; isto vrijedi za ispostavu
+      i izvođača upisane u registar primatelja za ta područja. Kad se neki izvor ne da
+      pročitati ili dionica nema upisan teritorij (naselja i općine), nacrt se svejedno sastavi,
+      a na njegovoj stranici, pod <em>Primatelji pri ovjeri</em>, stoji upozorenje što nije
+      pročitano. Pri ovjeri u goCOP-u popis se slaže ponovno i takav ulazi u ovjereni akt;
+      razlika prema nacrtu vidi se na istom mjestu prije ovjere. Dok upozorenje stoji, ovjera
+      traži izričitu potvrdu, koja se bilježi uz akt; isto vrijedi za sken kad stoji upozorenje
+      nacrta ili upozorenje uz popis složen sada, ili bi popis složen sada bio drukčiji. Gumb <em>Ponovno složi
+      primatelje</em> nacrtu daje popis složen sada; ispis za vlastoručni potpis tada treba
+      ponoviti.</p>
+    <p>Oznaka akta (npr. B-7/2026) je sektor, redni broj i godina. Broj se dodjeljuje pri ovjeri,
+      u istom koraku u kojem se akt upisuje, pa isto računalo isti broj ne daje dvaput.
+      <strong>Pravilo rada: sektor akte objavljuje na jednom računalu (čvoru).</strong> Ako dva
+      čvora bez veze ipak ovjere dva akta iste oznake, nakon razmjene oba ostaju valjana i
+      potpisana, a u popisu akata stoje crveno, uz napomenu „ista oznaka kao akt …”. Sukob
+      rješava Voditelj Centra obrane od poplava ili zamjenik (npr. dopisom primateljima s
+      ispravkom oznake) i na stranici akta ga označava riješenim, s kratkom napomenom; rješenje
+      razmjenom vide svi čvorovi. Akt ovjeren na jednom čvoru ostaje ovjeren i kad drugi čvor,
+      koji ovjeru još nije primio, isti nacrt ispravi, ponovno mu složi primatelje ili ga obriše:
+      ta izmjena nacrta nakon razmjene ne vrijedi. Ako ga drugi čvor i sam ovjeri, akt ima dvije
+      ovjere, svaku sa svojim brojem i kodom, i obje ostaju valjane i potpisane: u popisu akt stoji
+      s novijom, a uz njega crveno „isti nacrt ovjeren je i kao …”, s kodom i čvorom druge ovjere;
+      stranica akta pokazuje i njezin potpis. Upis koda bilo koje od njih u pretragu popisa nalazi akt. Ako oznaku druge
+      ovjere nosi drugi akt, i on stoji crveno. Svaki takav sukob rješava se kao sukob oznake.</p>
 
     <h3 id="dnevnik-usluge">Dnevnici usluga A.02 i A.03</h3>
     <p>Dnevnici A.02 i A.03 vode se po području i ugovoru. Imaju naslovnicu s izvođačem,
       voditeljem i nadzorom te dnevne listove s vremenskim prilikama, vodostajima, osobljem,
-      strojevima, radovima, napomenama i nalozima. Svaka ekipa istog dana dobiva svoj list.</p>
+      strojevima, radovima, napomenama i nalozima. Svaka ekipa istog dana dobiva svoj list.
+      Voditelj usluga / poslovođa izvođača vidi samo dnevnike svoje firme na branjenom području
+      na kojem ima dužnost: one na čijoj je naslovnici kao izvođač upisana firma s njegova računa,
+      i one u kojima je već pisao (otvorio dnevnik ili list, ili upisao zapis). Naziv firme
+      uspoređuje se do pravnog oblika i prvog zareza, bez obzira na velika slova i točke
+      („Primjer d.o.o., Primjerica” i „PRIMJER DOO” su ista firma), i mora biti isti: dio naziva
+      nije ista firma. Ime voditelja usluga na naslovnici ne otvara dnevnik, jer ime svatko mijenja
+      sam na svom profilu; firmu na računu izvođača upisuje i mijenja uprava, a ne on sam. Dnevnike
+      drugih firmi ne vidi, ni na svom ni na drugim područjima, a ni dnevnik bez izvođača na
+      naslovnici u kojem nije pisao. Tako ostaje i kad mu se dužnost opozove, istekne ili
+      promijeni u ulogu izvan ustroja obrane (vodočuvar, gost i slično): tada ne vidi ni dnevnike
+      svoje firme na području na kojem više nema dužnost.</p>
     <p>Upisi imaju redne brojeve bez rupa i ne brišu se nego storniraju. Izvođač i nadzor
       potvrđuju list; nakon obje potvrde list se više ne mijenja. Gotov dnevnik ispisuje se u
       obliku obrasca za potpis.</p>
@@ -955,6 +1305,10 @@
       računa iz knjige prometa: početno stanje i primka povećavaju zalihu, a izdavanje, utrošak i
       otpis je smanjuju. Povrat vraća sredstvo, a prijenos stvara povezani izlaz iz jednog i ulaz
       u drugo skladište.</p>
+    <p>Prijenos upisuje strana koja šalje, i u skladište drugog sektora, bez potvrde primitka:
+      stanje ciljnog skladišta raste odmah, a ulaz nosi vezu na izvorno skladište. Ciljni sektor
+      na zidu događanja dobiva istaknutu obavijest <em>Prijenos iz Sektora …</em> s nazivom
+      izvornog skladišta.</p>
     <ul>
       <li><strong>Katalog vrsta</strong> određuje naziv, jedinicu i oblike sredstva. Korištena se
         vrsta ne briše nego gasi.</li>
@@ -962,7 +1316,13 @@
         dopremila i dokument. Potvrda ili otpremnica te cijela knjiga izvoze se u Excel.</li>
       <li><strong>Gdje ima</strong> pokazuje zalihu odabrane vrste kroz sva dostupna skladišta.</li>
       <li><strong>Inventura</strong> uspoređuje prebrojano s knjižnim stanjem. Zaključivanjem se
-        razlika knjiži i dokument se više ne mijenja.</li>
+        razlika knjiži i dokument se više ne mijenja.<br>
+        Promet koji se poslije upiše s danom prije inventure zaključena inventura ne vidi. Tada
+        je globalni administrator može otključati gumbom <em>Otključaj inventuru</em>: inventura
+        se vraća u nacrt, a usklađenja koja je zaključenje upisalo brišu se. Ponovno zaključenje
+        razliku računa iznova s knjižnim stanjem toga dana. U napomenu inventure upiše se tko ju je
+        i kada otključao. Kad skladište iza nje ima noviju zaključenu inventuru, najprije se
+        otključava novija. Ponovno ih zaključite redom, od starije prema novijoj.</li>
       <li><strong>Potrebe za nabavom</strong> vode se odvojeno po godini; nisu dio inventure.</li>
     </ul>
     <p>Skladištar piše za svoje područje, a uprava područja i sektora za svoj doseg. Excel za
@@ -1045,12 +1405,14 @@
       primarnost ostavljaju kakvi jesu ili ih uklanjaju. Terenska uloga traži dionice ili
       područje; samo uz sektor ne bi davala nikakvo pravo, pa se ne upisuje.</p>
     <p>Pravo pisanja ide po dosegu dužnosti: dužnost sektora piše u cijelom sektoru, dužnost
-      područja u svom području, a dužnost na dionicama na tim dionicama, njihovim objektima i
-      aktima te u dnevnicima svog područja i COP-a; terenska dužnost bez dionica piše u cijelom
+      područja u svom području, a dužnost na dionicama na tim dionicama i njihovim objektima te
+      u dnevnicima svog područja i COP-a; terenska dužnost bez dionica piše u cijelom
       području. Sektor upisan uz dužnost područja ili dionice ne daje pisanje po sektoru:
-      rukovoditelj dionice B.16.1 ne uređuje dionice, objekte, akte ni dnevnike područja 17, a
-      uprava područja 16 ne otvara dionice u području 17. Akt vodomjera piše tko piše na bilo
-      kojoj njegovoj dionici. Objekt drugog područja koji stoji i na dionici vodi njegovo
+      rukovoditelj dionice B.16.1 ne uređuje dionice, objekte ni dnevnike područja 17, a
+      uprava područja 16 ne otvara dionice u području 17. Doseg dužnosti ne daje pravo na akt o
+      stupnju obrane: nacrt rješenja ili obavijesti sastavlja samo Centar obrane od poplava
+      sektora, a ovjerava se kao i dosad (vidi <a href="#akti">Rješenja i obavijesti</a>).
+      Objekt drugog područja koji stoji i na dionici vodi njegovo
       područje, a novu vezu dionice na objekt ili vodomjer drugog područja upisuje samo tko
       ondje piše. Popisi i zadani izbor sektora i dalje se ravnaju po svim dužnostima osobe.</p>
     <p>Privremena uprava dužnosti koje daju upravu na istoj ili nižoj razini dodjeljuje kao
@@ -1070,7 +1432,9 @@
       vidi. Zadano je taj pogled samo za čitanje, a tuđi sandučić e-pošte ne otvara se ni tada. U testnom okruženju administrator može posebno
       uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
-      radu drže isključenima.</p>
+      radu drže isključenima. Isključen račun može se gledati tuđim očima, ali samo za čitanje,
+      i kad su upisi tuđim očima uključeni; traka na vrhu tada kaže da je račun isključen.
+      Isključi li se račun usred pregleda, pregled od idućeg koraka samo čita.</p>
 
     <h3 id="users-privremeno-imenovanje">Privremeno imenovanje</h3>
     <p>Dužnosti su stalne: vrijede dok ih uprava ne izmijeni ili opozove. Iznimka je privremeno
@@ -1103,7 +1467,10 @@
       ili područja samo onima kojima su sve dužnosti u njezinu dosegu i ispod njezine razine
       uprave. Ljude svoje razine uprave (npr. rukovoditelj sektora svog zamjenika) uprava uređuje
       i zadužuje, ali im lozinku i kod daje viša razina ili globalni administrator, jer poništenje
-      uklanja i potpisni ključ; isto vrijedi za rukovoditelja s ispomoći u vašem području. Razina
+      uklanja i potpisni ključ; isto vrijedi za rukovoditelja s ispomoći u vašem području.
+      Dužnost koja ničim ne upravlja nije razina uprave: Dežurnom operateru u COP-u svog sektora
+      lozinku i kod daje uprava sektora (rukovoditelj sektora i zamjenik, voditelj Centra obrane
+      od poplava i zamjenik). Razina
       uprave je razina s koje uloga upravlja računima: zamjenik glavnog rukovoditelja za sektor
       upravlja sektorom, a zamjenik rukovoditelja sektora za branjeno područje područjem.
       Privremena uprava (privremeno imenovanje ili dužnost s rokom) dužnost koja daje upravu na
@@ -1239,7 +1606,36 @@
         uparivanja sa svakim: pri spajanju pokaže svoju potvrdu članstva. Svjež čvor bez računa nudi čarobnjak samo iz
         lokalne mreže, ne kroz javni tunel. Ime čvora u mreži (<code>[node] id</code>) zadaje se
         prije prvog pokretanja i ne mijenja se; uparivanje odbija računalo s imenom koje u mreži
-        već ima drugo računalo.</li>
+        već ima drugo računalo. Identitet računala je ključ čvora, datoteka <code>node-key</code>
+        uz bazu. Svjež čvor ga napravi sam, a čvor čija baza već ima zapise bez njega se ne
+        pokreće: u dnevniku piše koju datoteku treba vratiti i gdje, jer bi novi ključ bio novi
+        identitet koji upareni čvorovi odbijaju. Pod Postavom isto piše i na ploči tog računala. Novi identitet dobiva samo izričito, jednim
+        pokretanjem sa zastavicom <code>-novi-kljuc-cvora</code>. Postojeći čvor bez
+        <code>gocop.toml</code> ime uzima iz baze i ne zapisuje novi primjer postavki, nego u
+        dnevniku javlja da datoteke nema.</li>
+      <li id="postavke-cvora"><strong>Postavke ovog čvora (gocop.toml)</strong> — dio postavki iz
+        datoteke mijenja se i u programu, svaka na stranici kojoj pripada. Na stranici <em>Čvor,
+        mreža i sinkronizacija</em> u kartici <em>Ovaj čvor</em> su javna adresa te centar i
+        telefon koji se vide na stranici prijave, a u kartici <em>Mreža</em> razmak automatske
+        sinkronizacije i razmjena preko Tailscalea; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
+        tuđih očitanja su na stranici <em>Što ovo računalo prati</em>, do koje vodi i kartica u
+        Administraciji, a izvor karte pod <em>Opcije</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
+        postavki, kad je datoteka mijenjana i njezine prethodne inačice. Mijenja ih globalni
+        administrator, s računala na kojem je čvor ili iz lokalne mreže; izvana i kroz tunel samo
+        se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
+        uz polje što ne valja. Stara datoteka ostaje uz novu kao kopija, a ručni komentari u njoj
+        se ne gube.
+        <br>Naziv čvora, adresa web sučelja i portovi, putanje baze i arhive te pouzdani posrednici
+        u programu se samo prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao
+        nedostupan ili bi drukčije prepoznavao zahtjeve izvana. Ime čvora u mreži poslije prvog
+        pokretanja ne mijenja se ni u datoteci. Kad je čvor pokrenut sa zastavicom (npr.
+        <code>-addr</code> u spremniku), uz postavku piše da vrijedi zastavica.
+        <br>Program datoteku čita samo pri pokretanju, pa promjena vrijedi tek nakon ponovnog
+        pokretanja; dotad stranice to javljaju na vrhu. Gumb <em>Ponovno pokreni čvor</em> u kartici
+        <em>Ovaj čvor</em> uredno ga ugasi, a pokrene ga ono što ga je i pokrenulo: Postava, usluga
+        sustava ili Docker (samo uz <code>--restart</code>). Čvor pokrenut ručno u terminalu gumba
+        nema; zaustavite ga (Ctrl+C) i pokrenite istom naredbom. Postavke e-pošte vodi stranica
+        <em>E-pošta</em>.</li>
       <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
         (vlasnik napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
@@ -1383,13 +1779,31 @@
     <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
       otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
     <p>Pod <strong>Što ovo računalo prati</strong> biraju se vrste zapisa, sektori, branjena
-      područja i godine koje ovaj čvor želi sinkronizirati. Za PDF-ove i slike bira se i razina:
-      samo kazalo, pregled ili puni sadržaj, te koliko se dana primljeni sadržaj lokalno drži.
-      Zapisi uvijek stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski
-      poslužitelj obično prati sve, a terenski laptop samo ono što njegovu korisniku treba.</p>
-    <p>Pakete arhive vodostaja dohvaća čvor koji prati sve te čvor s pravilom <em>Sve vrste</em>
-      kojemu je polje <em>Od godine</em> prazno, a sadržaj <em>Sve</em>. Izbor <em>Arhiva
-      vodostaja</em> u popisu <em>Što</em> zasad se ne da spremiti.</p>
+      područja i godine koje ovaj čvor želi sinkronizirati. Na vrhu stranice piše o kojem je
+      računalu riječ. Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan
+      događaja prijave. Za PDF-ove i slike bira se i razina: samo kazalo, samo pregledi (slike,
+      bez PDF-ova) ili sve, te koliko se dana primljeni sadržaj lokalno drži. Zapisi uvijek
+      stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski poslužitelj obično
+      prati sve, a terenski laptop samo ono što njegovu korisniku treba. Prijedlog iz zaduženja
+      nudi vodočuvarski dnevnik, očitanja, prijave s terena i dnevnike radova vašeg područja, i
+      to samo ono što računalo još ne prati.</p>
+    <p><em>Makni</em> uz pravilo samo ga makne: ništa se ne briše. Što pretplata više ne pokriva,
+      briše se u tablici <em>Što računalo drži</em>, gumbom <em>Obriši s računala</em>. Uz gumb
+      piše koliko će se zapisa i dokumenata obrisati i koliko ih ostaje. Briše se samo ono što je
+      stiglo s drugih računala. Ono što je nastalo na ovom računalu ostaje, jer ga možda još
+      nijedno drugo računalo nema: npr. list koji je vodočuvar napisao na laptopu bez veze, s
+      fotografijama. Ako je takav zapis drugo računalo poslije mijenjalo, ostaje onakav kakav je
+      napisan ovdje, a ako ga je obrisalo, ostaje obrisan. Obrisano se vraća razmjenom čim to
+      područje i godinu opet počnete pratiti. Iznimka su starija tuđa očitanja kad je u postavkama
+      upisana povijest tuđih očitanja u mjesecima: ona se ne vraćaju, osim za letve koje pratite.</p>
+    <p>Pakete arhive vodostaja dohvaća čvor koji prati sve, čvor s pravilom <em>Arhiva
+      vodostaja</em> i čvor s pravilom <em>Sve vrste</em>. Godine se tada ne gledaju, jer paket
+      nosi cijelu povijest letve. Ne gleda se ni sadržaj uz zapise: paket stiže i uz <em>Samo
+      pregledi</em> i <em>Samo kazalo</em>, jer su u njemu podaci, a ne slike. Pravilo <em>Sve
+      vrste</em> za sva područja tako donosi cijelu arhivu, sa stranim i meteorološkim letvama.
+      Rok držanja vrijedi i za pakete: kad istekne, paket se makne s računala, a arhiva ostaje
+      ugrađena. Kad pravilo <em>Sve vrste</em> ima popunjeno polje <em>Od godine</em>, paket
+      šalje samo računalo s izdanjem 0.0.38 ili novijim.</p>
 
     <h3 id="profil-prijava-izvana">Prijava izvana: PIN, zapamćena računala i rezervni kodovi</h3>
     <p><strong>Kad se traži PIN.</strong> Ako je administrator uključio prijavu izvana s
@@ -1519,7 +1933,8 @@
       koji djeluje na drugom čvoru kad mu stigne razmjenom. Potpisane ovlasti izdavatelja
       prognoza i arhiva te trenutačna dostava opoziva ostaju razvojni zadaci.
       Prije nadogradnje treba izraditi sigurnosnu kopiju i uskladiti izdanja svih čvorova:
-      stanje obrane s poništenim aktima zahtijeva 0.0.34-alfa ili novije. Instalacija i uvjeti
+      stanje obrane s poništenim aktima zahtijeva 0.0.34-alfa ili novije, a pravila iz
+      0.0.35-alfa vrijede tek kad su svi čvorovi na toj inačici. Instalacija i uvjeti
       izlaganja čvora mreži opisani su u <code>docs/INSTALACIJA.md</code> uz izvorni kod;
       verzija pokrenutog programa prikazana je u podnožju.</p>
     <p>Nositelj prava na program naveden u repozitoriju su <strong>Hrvatske vode</strong>.
@@ -1597,7 +2012,7 @@
       <li><strong>Damir Perić</strong> — pristup sustavu HydroView (Geolux) za područje cijele
         Hrvatske.</li>
     </ul>
-    <p>Za podršku u razvoju hvala: Mile Kunac, Pero Perić i Tomislav Novosel.</p>
+    <p>Za podršku u razvoju hvala: Mile Kunac, Mario Spajić i Tomislav Novosel.</p>
     <p>Hvala autorima i suradnicima svih projekata otvorenog koda na kojima goCOP počiva.</p>
     <p>Hvala i ustanovama koje javno objavljuju hidrološke, meteorološke, prostorne i druge
       stručne podatke, kao i suradnicima OpenStreetMapa i Wikipedije. Bez njihova rada ovakav

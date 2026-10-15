@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 )
 
 // Stanje sinkronizacije po čvoru. Za razliku od zapisa čvora (koji putuje),
@@ -36,13 +37,17 @@ type SyncState struct {
 	// prazan Program znači da je drugi čvor ne javlja. Redak upisan prije
 	// toga (stariji program na ovom čvoru) o inačici ne govori ništa.
 	ProgramPoznat bool `json:"-"`
+	// Tailscale su adrese koje je drugi čvor javio u izravnom razgovoru;
+	// ostaju na ovom računalu (vidi tailscale.go)
+	Tailscale []string `json:"tailscale,omitempty"`
 }
 
 // syncOutcome je ishod jedne razmjene za bilješku
 type syncOutcome struct {
 	applied, sent    int
 	frontier         map[string]string
-	program, gradnja string // što je drugi čvor javio o svom programu
+	program, gradnja string   // što je drugi čvor javio o svom programu
+	tailscale        []string // Tailscale adrese koje je drugi čvor javio
 	took             time.Duration
 	err              error
 }
@@ -51,7 +56,7 @@ type syncOutcome struct {
 // programa vrijedi i kad je razgovor pukao nakon što je granica stigla
 func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
 	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
-		program: theirs.Program, gradnja: theirs.Gradnja, took: took, err: err}
+		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -93,17 +98,17 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat FROM peer_sync`)
+	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
 	for rows.Next() {
-		var id, frontier string
+		var id, frontier, ts string
 		var st SyncState
 		var attempt, ok sql.NullTime
-		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat); err != nil {
+		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts); err != nil {
 			return nil, err
 		}
 		if attempt.Valid {
@@ -115,6 +120,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 			st.LastOK = &t
 		}
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
+		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		out[id] = st
 	}
 	return out, rows.Err()
@@ -187,7 +193,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			}
 			out[p.NodeID] = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
 			if krugova > 1 {
-				out[p.NodeID] += fmt.Sprintf(" u %d razgovora", krugova)
+				out[p.NodeID] += fmt.Sprintf(" u %d %s", krugova, models.UzBrojHR(krugova, "razgovoru", "razgovora", "razgovora"))
 			}
 		}(p)
 	}
@@ -352,7 +358,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		}
 	}
 
-	st.Alerts = s.alerts(st, every, now)
+	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
 	return st, nil
 }
 
@@ -388,7 +394,8 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 			if p.State.LastOK != nil {
 				since = "ne odgovara od " + p.State.LastOK.Local().Format("02.01. 15:04")
 			}
-			out = append(out, fmt.Sprintf("%s: %s (%d pokušaja zaredom): %s", label(p.Peer), since, p.State.Fails, p.State.LastError))
+			out = append(out, fmt.Sprintf("%s: %s (%d %s zaredom): %s", label(p.Peer), since, p.State.Fails,
+				models.UzBrojHR(p.State.Fails, "pokušaj", "pokušaja", "pokušaja"), p.State.LastError))
 		}
 		if len(p.Addresses) == 0 {
 			out = append(out, fmt.Sprintf("%s: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.", label(p.Peer)))
@@ -409,6 +416,22 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 		out = append(out, "Nijedan čvor nema javnu adresu: razmjena radi samo unutar lokalne mreže.")
 	}
 	return out
+}
+
+// upozorenjeNeispravnih je redak za ploču razmjene i pločicu na naslovnoj
+// kad razmjena neke verzije ne šalje; nil kad takvih nema. Čita ga dežurni,
+// pa u njemu nema imena tablica ni oznaka verzija: one su u dnevniku.
+func (s *Service) upozorenjeNeispravnih() []string {
+	n := 0
+	s.neispravne.Range(func(_, _ any) bool {
+		n++
+		return true
+	})
+	if n == 0 {
+		return nil
+	}
+	return []string{fmt.Sprintf("Razmjena drugim računalima ne šalje %d %s. Ostali podaci razmjenjuju se normalno. Javite administratoru: pojedinosti su u dnevniku programa.",
+		n, models.UzBrojHR(n, "zapis koji u bazi ovog računala nije ispravan", "zapisa koji u bazi ovog računala nisu ispravni", "zapisa koji u bazi ovog računala nisu ispravni"))}
 }
 
 func label(p Peer) string {

@@ -26,11 +26,11 @@ import (
 // tiho vratio. Popis vrijedi bez obzira na to koliko se puta podaci uvezu.
 const datotekaKvarova = "kvarovi.csv"
 
-// kvar je jedan redak popisa. Vremena su u sekundama UTC-a, uključivo; nula
+// pravilo je jedan redak popisa kvarova. Vremena su u sekundama UTC-a, uključivo; nula
 // znači da s te strane granice nema. Najmanje i najviše suzuju odsječak na
 // vrijednosti u tom rasponu — tako se hvata ispad poput 1550 cm na Belišću,
 // koji se ponavlja svake zime, a ne zna se unaprijed kada.
-type kvar struct {
+type pravilo struct {
 	izvor, velicina   string
 	od, do            int64
 	najmanje, najvise *float64
@@ -42,7 +42,7 @@ const nastavakKvara = "-kvar"
 func jeKvar(izvor string) bool { return strings.HasSuffix(izvor, nastavakKvara) }
 
 // pogada javlja pripada li zapis ovom kvaru.
-func (k kvar) pogada(z zapis) bool {
+func (k pravilo) pogada(z zapis) bool {
 	if k.od != 0 && z.t < k.od {
 		return false
 	}
@@ -59,8 +59,8 @@ func (k kvar) pogada(z zapis) bool {
 }
 
 // odvojiKvarove dijeli zapise jednog niza na dobre i one iz popisa kvarova.
-func odvojiKvarove(z []zapis, izvor, velicina string, kv []kvar) (dobri, losi []zapis) {
-	var moji []kvar
+func odvojiKvarove(z []zapis, izvor, velicina string, kv []pravilo) (dobri, losi []zapis) {
+	var moji []pravilo
 	for _, k := range kv {
 		if k.izvor == izvor && k.velicina == velicina {
 			moji = append(moji, k)
@@ -93,7 +93,7 @@ func odvojiKvarove(z []zapis, izvor, velicina string, kv []kvar) (dobri, losi []
 // datum ili datum sa satom, onako kako stoje u izvornoj datoteci — u lokalnom
 // satu za hrvatske izvore — a do uključuje cijeli dan kad sata nema. Prazno
 // polje znači da s te strane granice nema.
-func citajKvarove(koren string) (map[string][]kvar, error) {
+func citajKvarove(koren string) (map[string][]pravilo, error) {
 	b, err := os.ReadFile(filepath.Join(koren, datotekaKvarova))
 	if os.IsNotExist(err) {
 		return nil, nil
@@ -103,7 +103,7 @@ func citajKvarove(koren string) (map[string][]kvar, error) {
 	return procitajKvarove(bytes.NewReader(b))
 }
 
-func procitajKvarove(r io.Reader) (map[string][]kvar, error) {
+func procitajKvarove(r io.Reader) (map[string][]pravilo, error) {
 	cr := csv.NewReader(r)
 	cr.Comma = ';'
 	cr.FieldsPerRecord = -1
@@ -111,7 +111,7 @@ func procitajKvarove(r io.Reader) (map[string][]kvar, error) {
 	if err != nil {
 		return nil, fmt.Errorf("popis kvarova: %w", err)
 	}
-	out := map[string][]kvar{}
+	out := map[string][]pravilo{}
 	for i, r := range sve {
 		if i == 0 || strings.TrimSpace(strings.Join(r, "")) == "" {
 			continue
@@ -126,8 +126,8 @@ func procitajKvarove(r io.Reader) (map[string][]kvar, error) {
 }
 
 // procitajKvar čita jedan redak popisa.
-func procitajKvar(r []string) (string, kvar, error) {
-	var k kvar
+func procitajKvar(r []string) (string, pravilo, error) {
+	var k pravilo
 	if len(r) < 5 {
 		return "", k, fmt.Errorf("treba barem letva;izvor;velicina;od;do")
 	}
@@ -151,11 +151,11 @@ func procitajKvar(r []string) (string, kvar, error) {
 	return letva, k, nil
 }
 
-func (k kvar) bezGranica() bool {
+func (k pravilo) bezGranica() bool {
 	return k.od == 0 && k.do == 0 && k.najmanje == nil && k.najvise == nil
 }
 
-func (k *kvar) granice(od, do string) error {
+func (k *pravilo) granice(od, do string) error {
 	zona := zonaIzvora(k.izvor)
 	var err error
 	if k.od, err = granica(od, zona, false); err != nil {
@@ -170,12 +170,12 @@ func (k *kvar) granice(od, do string) error {
 	return nil
 }
 
-func (k *kvar) raspon(najmanje, najvise string) error {
+func (k *pravilo) raspon(najmanje, najvise string) error {
 	var err error
-	if k.najmanje, err = broj(najmanje); err != nil {
+	if k.najmanje, err = brojIliNista(najmanje); err != nil {
 		return fmt.Errorf("najmanje %q: %w", najmanje, err)
 	}
-	if k.najvise, err = broj(najvise); err != nil {
+	if k.najvise, err = brojIliNista(najvise); err != nil {
 		return fmt.Errorf("najvise %q: %w", najvise, err)
 	}
 	return nil
@@ -202,7 +202,7 @@ func granica(s string, zona *time.Location, kraj bool) (int64, error) {
 	return t.UTC().Unix(), nil
 }
 
-func broj(s string) (*float64, error) {
+func brojIliNista(s string) (*float64, error) {
 	s = strings.TrimSpace(s)
 	if s == "" {
 		return nil, nil
@@ -217,7 +217,7 @@ func broj(s string) (*float64, error) {
 // predvidiKvarne dodaje u popis nizova one koji nastaju iz popisa kvarova, a
 // datoteke nemaju. Bez toga bi ih provjera sirotana prijavila kao nizove kojima
 // je nestala datoteka.
-func predvidiKvarne(nizovi map[string]*niz, kvarovi map[string][]kvar) {
+func predvidiKvarne(nizovi map[string]*niz, kvarovi map[string][]pravilo) {
 	for _, n := range nizovi {
 		if jeKvar(n.izvor) {
 			continue
@@ -273,7 +273,7 @@ func zatecen(nizovi map[string]*niz, nedostupni map[string]bool, n niz) bool {
 
 // kvaroviGradnje čita popis kvarova i u popis nizova dodaje nizove -kvar koji
 // iz njega nastaju ili su iz njega prije nastali.
-func kvaroviGradnje(db *sql.DB, koren string, nizovi map[string]*niz, nedostupni map[string]bool) (map[string][]kvar, error) {
+func kvaroviGradnje(db *sql.DB, koren string, nizovi map[string]*niz, nedostupni map[string]bool) (map[string][]pravilo, error) {
 	kvarovi, err := citajKvarove(koren)
 	if err != nil {
 		return nil, err
@@ -301,7 +301,7 @@ func redGradnje(nizovi map[string]*niz) []string {
 
 // gradiNiz čita jedan niz, predaje kvarove njegovu nizu -kvar i upisuje ga.
 // Vraća koliko je zapisa upisano.
-func gradiNiz(db *sql.DB, nizovi map[string]*niz, k string, kv []kvar, promjene []promjena, zapisi io.Writer) (int, error) {
+func gradiNiz(db *sql.DB, nizovi map[string]*niz, k string, kv []pravilo, promjene []promjena, zapisi io.Writer) (int, error) {
 	n := nizovi[k]
 	z, losi, poDanu, err := procitajNiz(n, kv)
 	if err != nil {
@@ -319,7 +319,7 @@ func gradiNiz(db *sql.DB, nizovi map[string]*niz, k string, kv []kvar, promjene 
 			return 0, fmt.Errorf("popis kvarova odvaja sve retke niza")
 		}
 	}
-	upisano, od, do, otisak, err := ubaci(db, n, z, poDanu, promjene)
+	upisano, od, do, otisak, err := upisiZapise(db, n, z, poDanu, promjene)
 	if err != nil {
 		return 0, err
 	}

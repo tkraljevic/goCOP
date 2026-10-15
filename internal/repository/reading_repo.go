@@ -45,7 +45,7 @@ func readingChannel(ctx context.Context, q rowQuerier, rd *models.Reading) strin
 		_ = q.QueryRowContext(ctx, `SELECT s.area_id FROM section_stations ss JOIN sections s ON s.code = ss.section_code
 			WHERE ss.station_id = ? ORDER BY s.code LIMIT 1`, rd.StationID).Scan(&area)
 	}
-	return ledger.ChannelFor(ledger.ChannelReadings, area, rd.MeasuredAt.Year())
+	return ledger.ChannelFor(ledger.ChannelReadings, area, rd.MeasuredAt.In(models.Zagreb).Year())
 }
 
 func readingArgs(rd *models.Reading) []any {
@@ -323,6 +323,11 @@ func (r *ReadingRepository) ExistingIDs(ctx context.Context, origin string) (map
 // ImportBatch upisuje niz očitanja u jednoj transakciji, svako s verzijom.
 // Postojeći identifikatori se preskaču (identitet uvoza je stabilan). Pri
 // grešci je cijela serija poništena, pa vraća 0, a ne broj obrađenih do greške.
+//
+// Svako očitanje prije upisa prolazi zajedničku provjeru raspona (Odluke
+// (8. 10. 2026.), pitanje 21): vrijednost izvan raspona se ne upisuje nego
+// bilježi za stranicu letve; uz vrijeme ili vodostaj izvan raspona, i kad
+// očitanju ništa ne ostane, preskače se cijelo očitanje.
 func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.Reading) (int, error) {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -335,17 +340,20 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		return 0, err
 	}
 	defer stmt.Close()
+	raspon := novaProvjeraRaspona(tx, r.rec)
 	inserted := 0
 	for i := range readings {
 		rd := &readings[i]
 		if rd.ID == uuid.Nil {
 			return 0, fmt.Errorf("očitanje bez identifikatora")
 		}
-		if rd.CreatedAt.IsZero() {
-			rd.CreatedAt = time.Now().UTC()
+		popuniVrijemeUpisa(rd)
+		upisati, err := raspon.propusti(ctx, rd)
+		if err != nil {
+			return 0, err
 		}
-		if rd.UpdatedAt.IsZero() {
-			rd.UpdatedAt = rd.CreatedAt
+		if !upisati {
+			continue
 		}
 		res, err := stmt.ExecContext(ctx, readingArgs(rd)...)
 		if err != nil {
@@ -354,11 +362,7 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 		if n, _ := res.RowsAffected(); n == 0 {
 			continue
 		}
-		channel := readingChannel(ctx, tx, rd)
-		if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
-			return 0, err
-		}
-		if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
+		if err := r.zabiljeziUvezeno(ctx, tx, raspon, rd); err != nil {
 			return 0, err
 		}
 		inserted++
@@ -366,7 +370,32 @@ func (r *ReadingRepository) ImportBatch(ctx context.Context, readings []models.R
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}
+	raspon.javi()
 	return inserted, nil
+}
+
+// zabiljeziUvezeno daje upisanom uvezenom očitanju kanal i verziju u knjizi
+// te uklanja zapis o istom očitanju odbačenom jer je stiglo prerano (Odluke
+// (8. 10. 2026.), pitanje 21)
+func (r *ReadingRepository) zabiljeziUvezeno(ctx context.Context, tx *sql.Tx, raspon *provjeraRaspona, rd *models.Reading) error {
+	channel := readingChannel(ctx, tx, rd)
+	if _, err := tx.ExecContext(ctx, `UPDATE readings SET channel = ? WHERE id = ?`, channel, rd.ID.String()); err != nil {
+		return err
+	}
+	if _, err := r.rec.RecordIn(ctx, tx, channel, EntityReadings, rd.ID.String(), rd); err != nil {
+		return err
+	}
+	return raspon.primljeno(ctx, rd)
+}
+
+// popuniVrijemeUpisa daje uvezenom očitanju vrijeme upisa kad ga izvor nema
+func popuniVrijemeUpisa(rd *models.Reading) {
+	if rd.CreatedAt.IsZero() {
+		rd.CreatedAt = time.Now().UTC()
+	}
+	if rd.UpdatedAt.IsZero() {
+		rd.UpdatedAt = rd.CreatedAt
+	}
 }
 
 // Stats vraća ukupan broj očitanja i raspon vremena.

@@ -134,10 +134,8 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 	// pa oba zapišu, i jedno se izgubi; uz to oba pišu isto *.novo ime, pa
 	// jedan paket pregazi drugi usred pisanja. Probno ne piše ništa, ali i ono
 	// mora vidjeti cjelovitu arhivu, pa i ono uzima bravu.
-	if !probno {
-		if err := os.MkdirAll(uMapu, 0o755); err != nil {
-			return iz, err
-		}
+	if err := pripremiMapuIzdanja(uMapu, probno); err != nil {
+		return iz, err
 	}
 	brava, err := Uzmi(uMapu, "izdavanje arhive", izdao)
 	if err != nil {
@@ -215,8 +213,10 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 			}
 			b.Reset()
 			if m, err = Izvezi(db, letva, izdanje, izdao, &b); err != nil {
+				// Već izdanu letvu u katalog vraća zadrziPrijasnje. Letva
+				// primljena paketom u katalogu još nema redak, a ovdje bi
+				// dobila prazan: bez letve, izdanja i datoteke.
 				fmt.Fprintf(zapisi, "  %-18s preskačem: %v\n", letva, err)
-				novi.Paketi = append(novi.Paketi, prije)
 				iz.Redci = append(iz.Redci, RedIzdanja{Letva: letva, Prije: prije.Izdanje, Greska: err.Error()})
 				iz.Preskocenih++
 				continue
@@ -245,21 +245,7 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		iz.Promijenjenih++
 	}
 
-	// Katalog je popis onoga što je izdano, a ne onoga što arhiva trenutno
-	// ima. Redak se zato nikad ne briše: izdavanje jedne letve ne dira ostale,
-	// a letva koje u arhivi više nema i dalje leži kao paket u mapi i drže je
-	// drugi čvorovi. Da redak ispadne, sljedeće bi izdavanje tu letvu vidjelo
-	// kao novu i vratilo je na v1 — pod imenom pod kojim drugdje stoji nešto
-	// drugo.
-	imamo := map[string]bool{}
-	for _, p := range novi.Paketi {
-		imamo[p.Letva] = true
-	}
-	for _, p := range prijasnji.Paketi {
-		if !imamo[p.Letva] {
-			novi.Paketi = append(novi.Paketi, p)
-		}
-	}
+	novi.Paketi = zadrziPrijasnje(novi.Paketi, prijasnji.Paketi, zapisi)
 
 	sort.Slice(novi.Paketi, func(a, b int) bool { return novi.Paketi[a].Letva < novi.Paketi[b].Letva })
 	for _, p := range novi.Paketi {
@@ -276,6 +262,34 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		return iz, err
 	}
 	return iz, nil
+}
+
+// zadrziPrijasnje vraća u novi katalog retke prijašnjeg čije letve ovo
+// izdavanje nije izdalo.
+//
+// Katalog je popis onoga što je izdano, a ne onoga što arhiva trenutno ima.
+// Redak se zato ne briše: izdavanje jedne letve ne dira ostale, a letva koje
+// u arhivi više nema i dalje leži kao paket u mapi i drže je drugi čvorovi.
+// Da redak ispadne, sljedeće bi izdavanje tu letvu vidjelo kao novu i vratilo
+// je na v1 — pod imenom pod kojim drugdje stoji nešto drugo.
+//
+// Ispada samo redak bez letve. Takav je zapisivalo izdanje 0.0.37 kad letva
+// primljena paketom nije dala paket s novim brojem: ne kaže ništa o izdanom,
+// a objava ga je svaki krug pokušavala pročitati kao paket.
+func zadrziPrijasnje(novi, prijasnji []UPaketu, zapisi io.Writer) []UPaketu {
+	imamo := make(map[string]bool, len(novi))
+	for _, p := range novi {
+		imamo[p.Letva] = true
+	}
+	for _, p := range prijasnji {
+		switch {
+		case p.Letva == "":
+			_, _ = fmt.Fprintln(zapisi, "  izbacujem iz kataloga prazan redak bez letve")
+		case !imamo[p.Letva]:
+			novi = append(novi, p)
+		}
+	}
+	return novi
 }
 
 // LetveUArhivi vraća letve koje imaju barem jedan niz, poredane.
@@ -329,13 +343,9 @@ func zapisiKatalog(mapa string, k Katalog) error {
 // već drže pravi v1 pod tim imenom. Broj sad odlučuje otisak, isto pravilo kao
 // pri izdavanju cijele arhive, samo bez pisanja u mapu.
 func SljedeceIzdanje(db *sql.DB, mapa, letva, izdao string, w io.Writer) (Manifest, error) {
-	prije := 0
-	if mapa != "" {
-		k, err := UcitajKatalog(mapa)
-		if err != nil {
-			return Manifest{}, err
-		}
-		prije = k.IzdanjeZa(letva)
+	prije, err := izdanjeUKatalogu(mapa, letva)
+	if err != nil {
+		return Manifest{}, err
 	}
 	izdanje := prije
 	if izdanje < 1 {
@@ -357,6 +367,24 @@ func SljedeceIzdanje(db *sql.DB, mapa, letva, izdao string, w io.Writer) (Manife
 	}
 	_, err = w.Write(b.Bytes())
 	return m, err
+}
+
+// izdanjeUKatalogu je zadnje izdanje letve u katalogu mape paketa; 0 kad
+// mapa nije zadana ili letva još nije izdana. Mapa paketa koja je vjerojatno
+// drugdje odbija se kao pri izdavanju: prazan katalog dao bi paketu prvo
+// izdanje, a drugi čvorovi već drže v1 pod tim imenom.
+func izdanjeUKatalogu(mapa, letva string) (int, error) {
+	if mapa == "" {
+		return 0, nil
+	}
+	if err := provjeriMapu(mapa, "pakete"); err != nil {
+		return 0, err
+	}
+	k, err := UcitajKatalog(mapa)
+	if err != nil {
+		return 0, err
+	}
+	return k.IzdanjeZa(letva), nil
 }
 
 // poLetvi vraća zadnji izdani redak za letvu.

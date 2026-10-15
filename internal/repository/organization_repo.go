@@ -182,7 +182,7 @@ func (r *OrgRepository) SaveSector(ctx context.Context, s *models.Sector) error 
 		s.ID, s.Name, s.VgoName, s.CenterCop, s.Address, s.Phone, s.Email, s.Level, s.VgoPhone); err != nil {
 		return fmt.Errorf("upis sektora %s: %w", s.ID, err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntitySectors, s.ID, s); err != nil {
+	if err := zabiljeziSDjecom(ctx, tx, r.rec, EntitySectors, s.ID, s); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -270,7 +270,7 @@ func (r *OrgRepository) SaveArea(ctx context.Context, a *models.Area) error {
 		a.ID, a.SectorID, a.Name, a.VgiName, a.Subcenter, a.ContractorName, boolToInt(a.DirectToSector), a.Latitude, a.Longitude, a.VgiPhone); err != nil {
 		return fmt.Errorf("upis branjenog područja %d: %w", a.ID, err)
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityAreas, strconv.Itoa(a.ID), a); err != nil {
+	if err := zabiljeziSDjecom(ctx, tx, r.rec, EntityAreas, strconv.Itoa(a.ID), a); err != nil {
 		return err
 	}
 	return tx.Commit()

@@ -3,9 +3,11 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -47,6 +49,9 @@ type StationsHandler struct {
 	tmplHistObrazac    *template.Template // obrazac povijesnih podataka
 	tmplForm           *template.Template // obrazac
 	valovi             *valoviPamcenje    // izračunati valovi obrane, po letvi
+
+	// sektori i područja iz registra, za praćenje letve
+	ustroj func() ([]models.Sector, []models.Area)
 }
 
 func NewStationsHandler(stationService *service.StationService, tmpl *template.Template) *StationsHandler {
@@ -481,11 +486,7 @@ func (h *StationsHandler) HandleDeleteStationAPI(w http.ResponseWriter, r *http.
 	}
 
 	if err := h.stationService.DeleteStation(ctx, perms, stationIDs[0]); err != nil {
-		if wantsPage(r) {
-			redirectWith(w, r, "/stations/"+stationIDs[0].String(), "error", err.Error())
-			return
-		}
-		http.Error(w, err.Error(), http.StatusForbidden)
+		brisanjeNijeUspjelo(w, r, stationIDs[0], err)
 		return
 	}
 
@@ -495,6 +496,21 @@ func (h *StationsHandler) HandleDeleteStationAPI(w http.ResponseWriter, r *http.
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]any{"success": true})
+}
+
+// brisanjeNijeUspjelo kaže zašto postaja nije obrisana. Kad postaje više
+// nema, npr. nakon drugog klika ili iz druge otvorene kartice, poruka ide na
+// popis postaja, jer kartice obrisane postaje više nema.
+func brisanjeNijeUspjelo(w http.ResponseWriter, r *http.Request, id uuid.UUID, err error) {
+	natrag, status := "/stations/"+id.String(), http.StatusForbidden
+	if errors.Is(err, repository.ErrPostajaNePostoji) {
+		natrag, status = "/stations", http.StatusNotFound
+	}
+	if wantsPage(r) {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	http.Error(w, err.Error(), status)
 }
 
 func writeStationsJSON(w http.ResponseWriter, sectionCode string, stations []models.Station, criteria []models.GaugeItem) {
@@ -594,6 +610,12 @@ type stationForm struct {
 	JavniURL              string `json:"javni_url"`
 	TelemetrijaUvoz       string `json:"telemetrija_uvoz"`
 	JavniUvoz             string `json:"javni_uvoz"`
+
+	// Sektori i branjena područja koji letvu prate (Odluke (8. 10. 2026.),
+	// pitanje 8). Nil znači da ih zahtjev ne nosi — JSON klijent koji polja
+	// ne pošalje, obrazac historijata — pa ostaju kakvi jesu.
+	PrateSektori  *[]string `json:"prate_sektori"`
+	PratePodrucja *[]int    `json:"prate_podrucja"`
 }
 
 func decodeStationForm(r *http.Request) (stationForm, error) {
@@ -650,8 +672,38 @@ func decodeStationForm(r *http.Request) (stationForm, error) {
 	form.JavniURL = r.FormValue("javni_url")
 	form.JavniUvoz = r.FormValue("javni_uvoz")
 	form.TelemetrijaUvoz = r.FormValue("telemetrija_uvoz")
+	form.PrateSektori, form.PratePodrucja = pracenjeIzObrasca(r.Form)
 
 	return form, nil
+}
+
+// pracenjeIzObrasca čita sektore i područja koji letvu prate iz obrasca
+// kartice: kvačice prate_sektor i prate_podrucje, uz oznaku prate_obrazac
+// da obrazac ta polja nosi, pa i kad nijedna kvačica nije označena. Bez
+// oznake (drugi obrazac) vraća nil, nil.
+func pracenjeIzObrasca(forma url.Values) (*[]string, *[]int) {
+	if !forma.Has("prate_obrazac") {
+		return nil, nil
+	}
+	sektori := append([]string{}, forma["prate_sektor"]...)
+	podrucja := []int{}
+	for _, v := range forma["prate_podrucje"] {
+		if a, err := strconv.Atoi(strings.TrimSpace(v)); err == nil {
+			podrucja = append(podrucja, a)
+		}
+	}
+	return &sektori, &podrucja
+}
+
+// primijeniPracenje prenosi sektore i područja koji letvu prate, kad ih
+// zahtjev nosi
+func (f stationForm) primijeniPracenje(st *models.Station) {
+	if f.PrateSektori != nil {
+		st.PrateSektori = *f.PrateSektori
+	}
+	if f.PratePodrucja != nil {
+		st.PratePodrucja = *f.PratePodrucja
+	}
 }
 
 // Obrasci postaje. Kartica uređuje ono što na njoj piše — naziv, položaj,
@@ -705,6 +757,7 @@ func (f stationForm) primijeni(st *models.Station) {
 	st.NeedsReview = f.NeedsReview == "1" || f.NeedsReview == "on" || f.NeedsReview == "true"
 	st.ReviewNote = strings.TrimSpace(f.ReviewNote)
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
+	f.primijeniPracenje(st)
 }
 
 // namjestiTelemetriju uključuje ili gasi čitanje s telemetrije. Račun stoji
@@ -856,6 +909,7 @@ func (f stationForm) toStation() models.Station {
 		ReviewNote:            strings.TrimSpace(f.ReviewNote),
 	}
 	st.JavniURL, st.JavniUvoz = f.javnaVeza()
+	f.primijeniPracenje(&st)
 	return st
 }
 

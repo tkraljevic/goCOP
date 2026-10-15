@@ -8,6 +8,7 @@
 package config
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"os"
@@ -23,63 +24,65 @@ const FileName = "gocop.toml"
 
 // Config su sve postavke koje se mogu zadati prije pokretanja
 type Config struct {
-	Addr string `toml:"addr" comment:"Adresa i port web sučelja. :80 da nitko ne mora upisivati port;\nako je 80 zauzet ili nedostupan, aplikacija sama prelazi na :8080.\nPromijenite ovdje ako je na ovom računalu 80 trajno zauzet."`
-	DB   string `toml:"db" comment:"Putanja do SQLite baze. Uz nju žive ključ čvora (node-key) i ova datoteka."`
+	Addr string `toml:"addr" comment:"Adresa web sučelja. ':80' = port 80 na svim mrežnim karticama;\nkad je 80 zauzet, program sam prijeđe na 8080.\n  addr = ':8080'            # drugi port\n  addr = '127.0.0.1:8080'   # samo s ovog računala"`
+	DB   string `toml:"db" comment:"Baza čvora. Uz nju stoje ključ čvora (node-key) i ova datoteka:\npremještajte ih i kopirajte uvijek zajedno.\n  db = '/data/gocop.db'           # Docker, Unraid\n  db = 'C:\\goCOP\\data\\gocop.db'   # Windows"`
 	// Velike i rijetko pisane datoteke mogu stajati odvojeno od baze: na
 	// poslužitelju baza ide na brzi disk (SSD), a arhiva, izvorne datoteke,
 	// skenovi i paketi na veliki (mehanički). Prazno znači uz bazu.
-	Arhiva  string `toml:"arhiva" comment:"Arhiva vodostaja i meteorologije (vodostaji.db, oko 10 GB).\nPrazno = uz bazu. Na poslužitelju može na veliki disk; SQLite ne\nsmije ležati na mrežnoj ili FUSE mapi (na Unraidu /mnt/diskN, ne /mnt/user)."`
-	Podaci  string `toml:"podaci" comment:"Stablo s izvornim datotekama arhive (mapa vodostaji). Prazno = \"vodostaji\"."`
-	Skenovi string `toml:"skenovi" comment:"Mapa sa skenovima (prijave s terena). Prazno = mapa skenovi uz bazu."`
-	Pakete  string `toml:"pakete" comment:"Mapa u koju se izdaju .cop paketi. Prazno = \"pakete\"."`
+	Arhiva  string `toml:"arhiva" comment:"Datoteka arhive vodostaja i meteorologije (vodostaji.db, desetak GB).\nPrazno = uz bazu. Smije na drugi, veći disk, ali ne na mrežnu ni FUSE\nmapu (na Unraidu /mnt/diskN, nikad /mnt/user).\n  arhiva = '/arhiva/vodostaji.db'   # disk montiran u Docker"`
+	Podaci  string `toml:"podaci" comment:"Mapa s izvornim datotekama arhive. Prazno = 'vodostaji'; relativna\nputanja računa se od mape iz koje se goCOP pokreće (pod Postavom i kao\nusluga sustava to je mapa baze).\n  podaci = '/arhiva/vodostaji'"`
+	Skenovi string `toml:"skenovi" comment:"Mapa za skenove i fotografije prijava s terena (u podmapi prijave).\nPrazno = mapa skenovi uz bazu.\n  skenovi = '/arhiva/skenovi'"`
+	Pakete  string `toml:"pakete" comment:"Mapa u koju čvor izdaje .cop pakete arhive. Prazno = 'pakete'\n(od mape iz koje se goCOP pokreće; pod Postavom i kao usluga sustava to je\nmapa baze).\n  pakete = '/arhiva/pakete'"`
 	// JavnaAdresa je adresa na kojoj je program dostupan izvana, npr.
 	// https://gocop.voda.hr; ide u QR kod na dokumentima. Prazno: QR nosi
 	// samo oznaku dokumenta.
-	JavnaAdresa string `toml:"javna_adresa" comment:"Javna adresa programa za QR kodove na dokumentima, npr. https://gocop.voda.hr.\nPrazno dok je nema."`
+	JavnaAdresa string `toml:"javna_adresa" comment:"Adresa na kojoj se program otvara izvana; ide u QR kod na\ndokumentima. Prazno = QR nosi samo oznaku dokumenta.\n  javna_adresa = 'https://cop-osijek.com'"`
 
 	Web struct {
-		PouzdaniPosrednici []string `toml:"pouzdani_posrednici" comment:"Adrese ili mreže (CIDR) posrednika kojima se vjeruje zaglavlje s adresom\nklijenta, npr. [\"172.17.0.1\"] za cloudflared koji u Docker dolazi preko\nmosta. Prazno = ovo računalo i privatne mreže. Zahtjev sa zaglavljem\nposrednika uvijek se smatra vanjskim."`
-		ZaglavljeKlijenta  string   `toml:"zaglavlje_klijenta" comment:"Zaglavlje u kojem posrednik šalje adresu klijenta. Prazno = CF-Connecting-IP\n(Cloudflare tunel); iza nginxa X-Forwarded-For."`
+		PouzdaniPosrednici []string `toml:"pouzdani_posrednici" comment:"Posrednici (tunel, nginx) kojima se vjeruje adresa klijenta iz\nzaglavlja; zahtjev koji dođe preko njih uvijek je vanjski.\nPrazno = ovo računalo i privatne mreže.\n  pouzdani_posrednici = ['172.17.0.1']   # cloudflared u Dockeru, preko mosta\n  pouzdani_posrednici = ['127.0.0.1']    # nginx na istom računalu"`
+		ZaglavljeKlijenta  string   `toml:"zaglavlje_klijenta" comment:"Zaglavlje s adresom klijenta. Prazno = CF-Connecting-IP (Cloudflare tunel).\n  zaglavlje_klijenta = 'X-Forwarded-For'   # iza nginxa"`
+		TailscaleLokalno   bool     `toml:"tailscale_lokalno" comment:"Na računalu s Tailscaleom zahtjev koji stigne na Tailscale adresu ovog računala\nvrijedi kao iz lokalne mreže (prijava bez PIN-a). Na računalu bez Tailscalea ne\nmijenja ništa. Uz false takav zahtjev vrijedi kao izvana i traži PIN.\n  tailscale_lokalno = false"`
 	} `toml:"web"`
 
 	Node struct {
-		ID   string `toml:"id" comment:"Jedinstveno ime ovog čvora u mreži — npr. cop-osijek-unraid, pperic-thinkpad:\nmala slova, brojke i crtica. Ne mijenjajte nakon prvog pokretanja: pod njim\nčvor upisuje svoje zapise, a drugi čvorovi ga pamte uz ključ."`
-		Name string `toml:"name" comment:"Naziv koji vide drugi čvorovi pri uparivanju. Prazno = ime računala."`
+		ID   string `toml:"id" comment:"Ime čvora u mreži: mala slova, brojke i crtica. Prazno = program ga\nizabere sam i upiše ovdje. Ne mijenjajte ga nakon prvog pokretanja:\npod njim čvor upisuje zapise, a drugi ga čvorovi pamte uz ključ.\n  id = 'cop-osijek-unraid'\n  id = 'pperic-thinkpad'"`
+		Name string `toml:"name" comment:"Naziv koji drugi vide pri uparivanju. Prazno = ime računala.\n  name = 'COP Osijek (Unraid)'"`
 	} `toml:"node"`
 
 	Support struct {
-		Center      string `toml:"centar" comment:"Centar obrane od poplava ovog čvora, npr. \"COP Osijek\".\nPrazno = redak o dežurnom operateru se ne prikazuje."`
-		CenterPhone string `toml:"centar_telefon" comment:"Telefon tog centra; na njemu se javlja dežurni operater\nza vrijeme obrane od poplava."`
-	} `toml:"kontakt" comment:"Centar koji stoji na stranici prijave. Svaki čvor upisuje svoj:\nprogram vrijedi za cijelu Hrvatsku, pa Osijek nije zadano za sve.\nOsobu za pomoć oko prijave program uzima iz registra: glavnog\nadministratora s upisanim mobitelom ili e-poštom."`
+		Center      string `toml:"centar" comment:"Prazno = redak o dežurnom operateru se ne prikazuje.\n  centar = 'COP Osijek'"`
+		CenterPhone string `toml:"centar_telefon" comment:"Telefon na koji se javlja dežurni operater za vrijeme obrane.\n  centar_telefon = '031 123 456'"`
+	} `toml:"kontakt" comment:"Centar obrane od poplava ovog čvora, za stranicu prijave. Svaki čvor\nupisuje svoj; osobu za pomoć oko prijave program uzima iz registra."`
 
 	Readings struct {
-		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci očitanja ovaj čvor drži iz razmjene s drugima.\n0 = sve. Na terenskom uređaju stavite 12: povijest od stotinjak\ngodina ne stane na telefon, a na nasipu ne treba. Ograda ne dira\nočitanja koja čvor sam upiše ili uveze."`
+		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci tuđih očitanja čvor drži iz razmjene. 0 = sve.\nVlastita i uvezena očitanja čuvaju se uvijek.\n  povijest_mjeseci = 12   # terenski laptop ili mobitel"`
 	} `toml:"vodostaji"`
 
 	// Karta je izvor pločica za prikaz položaja letve. Zadano je Wikimedijin
 	// besplatni poslužitelj; kad se pločice jednom preuzmu za područje
 	// obrane, ovdje se upiše lokalna putanja i karta radi bez interneta.
 	Karta struct {
-		Plocice  string `toml:"plocice" comment:"Predložak URL-a pločica, s {z}/{x}/{y}. Prazno isključuje kartu.\nZadano je OpenStreetMap (tile.openstreetmap.org). Za rad bez interneta\nupišite lokalnu putanju, npr. \"/karta/{z}/{x}/{y}.png\"."`
-		Zasluge  string `toml:"zasluge" comment:"Natpis o podrijetlu karte. Obvezan je: pločice se koriste pod\nuvjetima onoga tko ih daje."`
-		NajviseZ int    `toml:"najvise_z" comment:"Najveće približavanje. Više od 17 rijetko treba, a povlači\nmnogo više pločica kad se jednom budu preuzimale."`
+		Plocice  string `toml:"plocice" comment:"Izvor pločica karte, s {z}/{x}/{y}. Prazno isključuje kartu.\n  plocice = '/karta/{z}/{x}/{y}.png'   # preuzete pločice, rad bez interneta\n  plocice = ''                         # bez karte"`
+		Zasluge  string `toml:"zasluge" comment:"Natpis o podrijetlu karte; obvezan po uvjetima izvora pločica."`
+		NajviseZ int    `toml:"najvise_z" comment:"Najveće približavanje (0–19). Iznad 17 rijetko treba, a pločica\nje tada mnogo više."`
 	} `toml:"karta"`
 
 	Posta struct {
-		Nacin       string `toml:"nacin" comment:"ews (zadano): Exchange Web Services, isto kao Outlook, prijava sustava\nWindows (NTLM), radi i izvan mreže tvrtke i sprema poruku u Poslano.\nsmtp: slanje na port 587/465, kad ga tvrtka otvori."`
-		Posluzitelj string `toml:"posluzitelj" comment:"Poslužitelj e-pošte tvrtke (Exchange) preko kojeg goCOP šalje ovjerene akte\nprimateljima \"na znanje\", npr. \"owa.voda.hr\". Prazno isključuje slanje.\nŠalje se s adrese prijavljenog korisnika; lozinku svaki korisnik upisuje\nu svom profilu i ona ostaje samo na ovom računalu, šifrirana."`
-		Domena      string `toml:"domena" comment:"Obično prazno: domenu sustava Windows (npr. VODA) Exchange sam objavi pa\ngoCOP, kad prijava upisanim imenom ne prođe, pokuša i DOMENA\\korisnik.\nUpišite samo ako ta automatika ne radi."`
-		Port        int    `toml:"port" comment:"Samo za smtp: 587 za STARTTLS (zadano), 465 za izravni TLS."`
-		Sigurnost   string `toml:"sigurnost" comment:"Samo za smtp: starttls (zadano) ili tls."`
+		Nacin       string `toml:"nacin" comment:"Kako goCOP šalje ovjerene akte primateljima „na znanje”:\n'ews' = kao Outlook, prijava sustava Windows; radi i izvan mreže\ntvrtke i sprema poruku u Poslano. 'smtp' = kad tvrtka otvori port.\n  nacin = 'smtp'"`
+		Posluzitelj string `toml:"posluzitelj" comment:"Poslužitelj e-pošte tvrtke. Prazno isključuje slanje. Šalje se s\nadrese prijavljenog korisnika; lozinku svatko upisuje u svom profilu.\n  posluzitelj = 'owa.voda.hr'       # uz nacin = 'ews'\n  posluzitelj = 'smtp.primjer.hr'   # uz nacin = 'smtp'"`
+		Domena      string `toml:"domena" comment:"Domena sustava Windows. Obično prazno: Exchange je javi sam.\n  domena = 'VODA'"`
+		Port        int    `toml:"port" comment:"Samo za smtp: 587 (STARTTLS) ili 465 (TLS)."`
+		Sigurnost   string `toml:"sigurnost" comment:"Samo za smtp: 'starttls' (uz 587) ili 'tls' (uz 465)."`
 	} `toml:"posta"`
 
 	Sync struct {
-		ExchangePort  int      `toml:"exchange_port" comment:"Port razmjene verzija s drugim čvorovima. 0 isključuje razmjenu."`
-		PairPort      int      `toml:"pair_port" comment:"Port uparivanja (samo dok uparivanje traje)."`
-		DiscoveryPort int      `toml:"discovery_port" comment:"UDP port pronalaženja na lokalnoj mreži. 0 isključuje."`
-		AutoSync      string   `toml:"auto_sync" comment:"Razmak automatske sinkronizacije sa svim poznatim čvorovima, npr. \"5m\", \"1h\". \"0\" isključuje."`
-		Bootstrap     []string `toml:"bootstrap" comment:"Stalno izloženi čvorovi (domene) preko kojih se pronalaze ostali,\nnpr. [\"cop-osijek.com\", \"cop.voda.hr\"]. Popis raste; svaki dodatni ubrzava\ni osigurava pronalaženje ako jedan padne."`
-		All           bool     `toml:"sve" comment:"true = ovaj čvor prati sve kanale: sva očitanja i dnevnike svih područja i\ngodina (uredski poslužitelj). false = prati samo što je označeno u\nprogramu (laptop, mobitel)."`
+		ExchangePort  int      `toml:"exchange_port" comment:"Port razmjene s drugim čvorovima (TCP). 0 isključuje razmjenu."`
+		PairPort      int      `toml:"pair_port" comment:"Port uparivanja; otvoren samo dok uparivanje traje."`
+		DiscoveryPort int      `toml:"discovery_port" comment:"Port pronalaženja čvorova na lokalnoj mreži (UDP). 0 isključuje."`
+		AutoSync      string   `toml:"auto_sync" comment:"Koliko se često čvor sam sinkronizira s poznatim čvorovima. '0' isključuje.\n  auto_sync = '1h'"`
+		Bootstrap     []string `toml:"bootstrap" comment:"Stalno dostupni čvorovi preko kojih se pronalaze ostali. Svaki\ndodatni pomaže kad jedan padne.\n  bootstrap = ['cop-osijek.com', 'cop.voda.hr']"`
+		All           bool     `toml:"sve" comment:"true = čvor prati sve: očitanja i dnevnike svih područja i godina\n(uredski poslužitelj). false = samo ono što je označeno u programu\n(laptop, mobitel).\n  sve = true"`
+		Tailscale     bool     `toml:"tailscale" comment:"true = na računalu s Tailscaleom razmjena koristi i Tailscale adrese\ndrugih vaših čvorova; false = razmjena radi kao da Tailscalea nema\n(za probu razmjene preko interneta). Na prijavu ne utječe."`
 	} `toml:"sync"`
 }
 
@@ -90,11 +93,13 @@ func Default() Config {
 	c.DB = "data/gocop.db"
 	// Node.ID namjerno prazan: ime čvora mora biti jedinstveno, pa ga čvor
 	// bez upisanog imena izabere sam pri prvom pokretanju (OdrediIme)
+	c.Web.TailscaleLokalno = true
 	c.Sync.ExchangePort = 4710
 	c.Sync.PairPort = 4711
 	c.Sync.DiscoveryPort = 4712
 	c.Sync.AutoSync = "5m"
 	c.Sync.Bootstrap = []string{"cop-osijek.com"}
+	c.Sync.Tailscale = true
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
 	c.Karta.NajviseZ = 17
@@ -134,21 +139,71 @@ func Candidates(explicit, dbPath string) []string {
 // Load čita prvu datoteku koja postoji. Vraća i putanju koja je pročitana;
 // prazna putanja znači da datoteke nema i vrijede zadane vrijednosti.
 func Load(candidates []string) (Config, string, error) {
-	cfg := Default()
 	for _, path := range candidates {
 		data, err := os.ReadFile(path)
 		if errors.Is(err, os.ErrNotExist) {
 			continue
 		}
 		if err != nil {
-			return cfg, path, err
+			return Default(), path, err
 		}
-		if err := toml.Unmarshal(data, &cfg); err != nil {
+		cfg, err := ProcitajTekst(data)
+		if err != nil {
 			return cfg, path, fmt.Errorf("%s: %w", path, err)
 		}
 		return cfg, path, nil
 	}
-	return cfg, "", nil
+	return Default(), "", nil
+}
+
+// zaglavlje je uvod datoteke postavki: kad se čita, što ima prednost, gdje
+// piše što znači prazna vrijednost i najčešće izmjene.
+const zaglavlje = "# goCOP — postavke čvora\n" +
+	"#\n" +
+	"# Program čita ovu datoteku samo pri pokretanju: nakon izmjene ponovno\n" +
+	"# pokrenite goCOP. Zastavica na naredbenom retku (npr. -addr :8080) ima\n" +
+	"# prednost pred datotekom.\n" +
+	"#\n" +
+	"# Uz svaku postavku piše što znači prazna vrijednost (''). Redak s #\n" +
+	"# je komentar; primjer uključite tako da maknete # ispred njega.\n" +
+	"#\n" +
+	"# Najčešće izmjene:\n" +
+	"#   uredski poslužitelj, stalno upaljen:  [sync] sve = true\n" +
+	"#   terenski laptop ili mobitel:           [vodostaji] povijest_mjeseci = 12\n" +
+	"#   port 80 je zauzet:                     addr = ':8080'\n" +
+	"#   slanje akata e-poštom:                 [posta] posluzitelj = 'owa.voda.hr'\n\n"
+
+// PrimjerFileName je primjer postavki koji program piše uz bazu pri svakom
+// pokretanju, s opisima i primjerima tekuće inačice. Program ga ne čita.
+// Postojeći gocop.toml nikad se ne prepisuje, pa bez ovoga čvor nadograđen
+// sa starije inačice ne bi vidio nove opise.
+const PrimjerFileName = "gocop.toml.primjer"
+
+// zaglavljePrimjera stoji iznad uvoda u primjeru postavki.
+const zaglavljePrimjera = "# Ovo je primjer: program ga ne čita i piše ga iznova sa svakom\n" +
+	"# inačicom. Postavke čvora su u gocop.toml; odavde prepišite ono što trebate.\n" +
+	"#\n"
+
+// ZapisiPrimjer zapisuje gocop.toml.primjer u mapu dir, sa zadanim
+// vrijednostima, opisima i primjerima; vraća je li ga zapisao. Isti sadržaj
+// ne piše se iznova, pa se datoteka mijenja samo s novom inačicom.
+func ZapisiPrimjer(dir string) (bool, error) {
+	data, err := toml.Marshal(Default())
+	if err != nil {
+		return false, err
+	}
+	sadrzaj := []byte(zaglavljePrimjera + zaglavlje + string(data))
+	put := filepath.Join(dir, PrimjerFileName)
+	if postojeci, err := os.ReadFile(put); err == nil && bytes.Equal(postojeci, sadrzaj) {
+		return false, nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(put, sadrzaj, 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // WriteExample zapisuje datoteku sa zadanim vrijednostima i komentarima —
@@ -157,17 +212,14 @@ func WriteExample(path string, cfg Config) (bool, error) {
 	if _, err := os.Stat(path); err == nil {
 		return false, nil
 	}
-	data, err := toml.Marshal(cfg)
+	data, err := Primjer(cfg)
 	if err != nil {
 		return false, err
 	}
-	header := "# goCOP — postavke\n" +
-		"# Uredite prije pokretanja. Zastavice na naredbenom retku imaju prednost\n" +
-		"# pred ovom datotekom. Nakon izmjene ponovno pokrenite aplikaciju.\n\n"
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return false, err
 	}
-	if err := os.WriteFile(path, []byte(header+string(data)), 0o644); err != nil {
+	if err := os.WriteFile(path, data, 0o644); err != nil {
 		return false, err
 	}
 	return true, nil

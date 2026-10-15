@@ -15,6 +15,24 @@
   </div>
 </div>
 
+{{if .Stablo.Drugdje}}
+<div class="alert alert-warning">
+  <p class="mt-0 mb-2">
+    <strong>Stablo arhive nije pronađeno.</strong> Čvor ga traži u <span class="mono">{{.Stablo.Puna}}</span>, a te
+    mape nema. {{.Stablo.Dok}}
+  </p>
+  <p class="m-0">{{.Stablo.Uputa}}</p>
+</div>
+{{else if .Stablo.Nedostaje}}
+<div class="alert alert-info">
+  <p class="mt-0 mb-2">
+    <strong>Stablo arhive još ne postoji.</strong> Čvor ga traži u <span class="mono">{{.Stablo.Puna}}</span>, a
+    mapa {{.Stablo.Nastaje}}.
+  </p>
+  <p class="m-0">{{.Stablo.Uputa}}</p>
+</div>
+{{end}}
+
 {{if .PosaoID}}
 <div class="posao" data-posao="{{.PosaoID}}">
   <p class="posao-naslov">{{icon "clock"}} {{.PosaoNaziv}}</p>
@@ -43,13 +61,44 @@
   <p class="mt-0 mb-2">
     <strong>Nizovi bez datoteke u stablu.</strong> Ovi stoje u arhivi, ali datoteke iz koje su nastali više nema.
     Gradnja ih ne briše sama — izvor sa svojom mapom na vanjskom disku izgleda isto tako kad disk nije priključen,
-    pa bi tiho brisanje odnijelo godine podataka.
+    pa bi tiho brisanje odnijelo godine podataka. Na popisu su i snimke korita i krivulje protoka kojima je
+    datoteka maknuta.
   </p>
   {{range .Sirotani}}
+  {{if .Greska}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span>Datoteka snimke korita <span class="mono">{{.Datoteka}}</span> ne da se pročitati: {{.Greska}}. Dok se ne
+      popravi, ovdje se ne vidi koja snimka te letve nema datoteku.</span>
+  </div>
+  {{else if .Snimka}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span>snimka korita {{.Datum}}</span>
+    <span>{{brojHR .Zapisa}} {{uzBroj .Zapisa "točka" "točke" "točaka"}}</span>
+    <form method="POST" action="/administracija/uvoz-niza/makni-snimku" class="ml-auto"
+          onsubmit="return confirm('Maknuti snimku korita {{.Datum}} za {{.Letva}} iz arhive? U stablu je nema, pa se ne može vratiti gradnjom.');">
+      <input type="hidden" name="letva" value="{{.Letva}}">
+      <input type="hidden" name="datum" value="{{.Datum}}">
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
+    </form>
+  </div>
+  {{else if .Krivulje}}
+  <div class="izdanje-red">
+    <span class="izdanje-letva mono">{{.Letva}}</span>
+    <span>krivulje protoka od {{datumHR .Datum}}</span>
+    <span>{{brojHR .Zapisa}} {{uzBroj .Zapisa "krivulja" "krivulje" "krivulja"}}</span>
+    <form method="POST" action="/administracija/uvoz-niza/makni-krivulje" class="ml-auto"
+          onsubmit="return confirm('Maknuti krivulje protoka za {{.Letva}} iz arhive? Datoteke krivulja u stablu nema, pa se ne mogu vratiti gradnjom.');">
+      <input type="hidden" name="letva" value="{{.Letva}}">
+      <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
+    </form>
+  </div>
+  {{else}}
   <div class="izdanje-red">
     <span class="izdanje-letva mono">{{.Letva}}</span>
     <span class="mono">{{.Izvor}} · {{.Velicina}} · {{.Vrsta}}</span>
-    <span>{{brojHR .Zapisa}} vrijednosti{{if .USpoju}}, od toga {{brojHR .USpoju}} u spojenom nizu{{end}}</span>
+    <span>{{brojHR .Zapisa}} {{uzBroj .Zapisa "vrijednost" "vrijednosti" "vrijednosti"}}{{if .USpoju}}, od toga {{brojHR .USpoju}} u spojenom nizu{{end}}</span>
     <form method="POST" action="/administracija/uvoz-niza/makni-niz" class="ml-auto"
           onsubmit="return confirm('Maknuti niz {{.Izvor}} · {{.Vrsta}} za {{.Letva}} iz arhive? U stablu ga nema, pa se ne može vratiti gradnjom.');">
       <input type="hidden" name="letva" value="{{.Letva}}">
@@ -59,6 +108,7 @@
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Makni</button>
     </form>
   </div>
+  {{end}}
   {{end}}
 </div>
 {{end}}
@@ -83,7 +133,15 @@
     </div>
   </div>
 
-  {{if .Izdanja}}
+  {{if .Paketi.Drugdje}}
+  <div class="alert alert-warning mt-2 mb-0">
+    <p class="mt-0 mb-2">
+      <strong>Mapa paketa nije pronađena.</strong> Čvor je traži u <span class="mono">{{.Paketi.Puna}}</span>, a te
+      mape nema. {{.Paketi.Dok}}
+    </p>
+    <p class="m-0">{{.Paketi.Uputa}}</p>
+  </div>
+  {{else if .Izdanja}}
   <div class="part-label mt-3 mb-1">
     {{if .Izdanja.Probno}}Što bi se izdalo{{else}}Što je izdano{{end}}
     {{if .IzdanjeLetva}}· {{.IzdanjeLetva}}{{end}}
@@ -97,7 +155,7 @@
       {{else if .Novo}}
         <span class="izdanje-skok">{{if .Prije}}v{{.Prije}} → v{{.Izdanje}}{{else}}novo · v{{.Izdanje}}{{end}}</span>
         <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
-        <span class="izdanje-isto">{{brojHR .Zapisa}} zapisa · {{.Od}} – {{.Do}}</span>
+        <span class="izdanje-isto">{{brojHR .Zapisa}} {{uzBroj .Zapisa "zapis" "zapisa" "zapisa"}} · {{.Od}} – {{.Do}}</span>
       {{else}}
         <span class="izdanje-isto">v{{.Izdanje}} nepromijenjeno</span>
         <span class="izdanje-otisak" title="{{.Otisak}}">{{slice .Otisak 0 8}}</span>
@@ -110,14 +168,16 @@
     <div><dt>Izdano letvi</dt><dd>{{len .Katalog.Paketi}}</dd></div>
     <div><dt>Zadnje izdavanje</dt><dd>{{if .KatalogNastalo}}{{.KatalogNastalo}}{{else}}—{{end}}</dd></div>
     <div><dt>Izdao</dt><dd class="mono">{{.Katalog.Izdao}}</dd></div>
-    <div><dt>Mapa</dt><dd class="mono">{{.PaketiDir}}</dd></div>
+    <div><dt>Mapa</dt><dd class="mono">{{.Paketi.Puna}}</dd></div>
   </dl>
   {{else}}
   <p class="reading-meta mt-2 mb-0">
-    Na ovom čvoru još nije izdano nijedno izdanje. Mapa: <span class="mono">{{.PaketiDir}}</span>
+    Na ovom čvoru još nije izdano nijedno izdanje. Mapa: <span class="mono">{{.Paketi.Puna}}</span>{{if and .Paketi.Zadano (not .Paketi.Postoji)}}
+    (mape još nema, {{.Paketi.Nastaje}}){{end}}
   </p>
   {{end}}
 
+  {{if not .Paketi.Drugdje}}
   <div class="izvor-podnozje gap-2 mt-4">
     <form method="POST" action="/administracija/izdavanje/provjera">
       {{if .IzdanjeLetva}}<input type="hidden" name="letva" value="{{.IzdanjeLetva}}">{{end}}
@@ -138,10 +198,11 @@
     </form>
     {{end}}
   </div>
+  {{end}}
 </div>
 {{end}}
 
-{{if and .UlaganjeRadi (not .PosaoID)}}
+{{if and .UlaganjeRadi (not .PosaoID) (not .Stablo.Drugdje)}}
 <div class="table-card okvir mb-4">
   <div class="izvor-glava mb-2">
     <div>
@@ -176,7 +237,7 @@
   {{with .Ulaganje}}
   {{if .Ukupno}}
   <div class="izvor-napomena mt-4">
-    <span class="part-label">{{.Postaja.Name}} · {{.Ukupno}} očitanja koja još nisu uložena</span>
+    <span class="part-label">{{.Postaja.Name}} · {{.Ukupno}} {{uzBroj .Ukupno "očitanje koje još nije uloženo" "očitanja koja još nisu uložena" "očitanja koja još nisu uložena"}}</span>
     <div class="mt-2">
       <div class="izdanje-red">
         <span class="izdanje-letva">Dojavljeno</span>
@@ -250,10 +311,10 @@
     {{range .Pospremivo}}
     <div class="izdanje-red">
       <span class="izdanje-letva mono">{{.Letva}}</span>
-      <span>{{brojHR .Broj}} očitanja</span>
+      <span>{{brojHR .Broj}} {{uzBroj .Broj "očitanje" "očitanja" "očitanja"}}</span>
       <span class="izdanje-isto">izdanje {{.Oznake}}</span>
       <form method="POST" action="/administracija/ulaganje/pospremi" class="ml-auto"
-            onsubmit="return confirm('Obrisati {{.Broj}} uloženih očitanja za {{.Letva}} iz operativne baze? Arhiva ostaje.');">
+            onsubmit="return confirm('Obrisati {{.Broj}} {{uzBroj .Broj "uloženo očitanje" "uložena očitanja" "uloženih očitanja"}} za {{.Letva}} iz operativne baze? Arhiva ostaje.');">
         <input type="hidden" name="postaja" value="{{.StationID}}">
         <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Pospremi {{.Letva}}</button>
       </form>
@@ -264,13 +325,13 @@
 </div>
 {{end}}
 
-{{if .PodaciDir}}
+{{if and .PodaciDir (not .Stablo.Drugdje)}}
 <form method="POST" action="/administracija/uvoz-niza/pregled" enctype="multipart/form-data"
       class="reg-card p-4 mb-4">
   <label class="izvor-napomena m-0">
     <span class="part-label">Datoteka s diska</span>
     <input type="file" name="datoteka" accept=".csv,.txt,.xlsx" required class="form-control">
-    <small class="izvor-disk">Stablo arhive: <span class="mono">{{.PodaciDir}}</span></small>
+    <small class="izvor-disk">Stablo arhive: <span class="mono">{{.Stablo.Puna}}</span></small>
   </label>
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj što je u njoj</button>
@@ -472,7 +533,7 @@
   <input type="hidden" name="id" value="{{.Profili.Id}}">
   <input type="hidden" name="letva" value="{{.Profili.Letva}}">
   <h2 class="izvor-naziv">Koje su snimke prepoznate</h2>
-  <p class="izvor-obujam mono">{{.Profili.Letva}} — poslano {{.Profili.Poslano}} datoteka</p>
+  <p class="izvor-obujam mono">{{.Profili.Letva}} — {{.Profili.Poslano}} {{uzBroj .Profili.Poslano "datoteka poslana" "datoteke poslane" "datoteka poslano"}}</p>
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Mjereno</th><th class="text-right">Točaka</th><th class="text-right">Vodostaj</th><th>Kota nule</th><th>Sustav</th><th>U stablu</th></tr></thead>
@@ -501,6 +562,30 @@
     {{range .Profili.Odbijeno}}<li class="mono">{{.}}</li>{{end}}
   </ul>
   {{end}}
+  {{if .Profili.Neprepoznatih}}{{$n := .Profili.Neprepoznatih}}
+  <div class="alert alert-warning mt-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "snimka ne kaže" "snimke ne kažu" "snimki ne kaže"}} u kojem su sustavu kote.</strong>
+      {{if .Profili.KotaStara}}U starom sustavu (TRST) letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span>.{{end}}
+      {{if .Profili.KotaNova}}U HVRS71 letva ima kotu nule <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span>.{{end}}
+      {{/* „te” i „tih” upućuju na sve snimke, ne stoje uz broj, pa uzBroj ovdje ne vrijedi: uz 21 snimku bio bi jednina */}}
+      {{if or .Profili.KotaStara .Profili.KotaNova}}
+      {{if eq $n 1}}Kota nule te snimke ne odgovara nijednoj koju letva vodi. To je ili snimka s druge letve,
+      ili joj je nula premještena, ili je kota prepisana krivo, pa se sustav ne nagađa.
+      {{else}}Kote nule tih snimki ne odgovaraju nijednoj koju letva vodi. To su ili snimke s druge letve,
+      ili im je nula premještena, ili su kote prepisane krivo, pa se sustav ne nagađa.{{end}}
+      {{else}}Letva nema upisanu kotu nule, pa se sustav ne može prepoznati.{{end}}
+    </p>
+    <label class="izvor-napomena m-0">
+      <span class="part-label">{{if eq $n 1}}Sustav za tu snimku{{else}}Sustav za te snimke{{end}}</span>
+      <select name="sustav" class="form-control max-w-14" required>
+        <option value="">odaberite…</option>
+        <option value="TRST">TRST</option>
+        <option value="HVRS71">HVRS71</option>
+      </select>
+    </label>
+  </div>
+  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>
@@ -525,6 +610,36 @@
       {{if .Krivulje.Sirina}}<span class="reg-card-sub">{{.Krivulje.Sirina}} / {{.Krivulje.Duzina}}</span>{{end}}</dd></div>
     {{end}}
   </dl>
+  {{if .Krivulje.ZatecenihKrivulja}}
+  <p class="page-desc mt-1 mb-2">
+    Izvoz se spaja sa zatečenim krivuljama po razdoblju. Novo razdoblje se dodaje, isto razdoblje uzima se iz izvoza,
+    a zatečena razdoblja kojih u izvozu nema ostaju.
+    {{with .Krivulje.Ostaju}}{{len .}} {{uzBroj (len .) "zatečena krivulja nije u izvozu i ostaje" "zatečene krivulje nisu u izvozu i ostaju" "zatečenih krivulja nije u izvozu i ostaje"}}.{{end}}
+    Nakon upisa letva ima {{.Krivulje.Ukupno}} {{uzBroj .Krivulje.Ukupno "krivulju" "krivulje" "krivulja"}}.
+  </p>
+  {{end}}
+  {{with .Krivulje.Razlikuju}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja razlikuje se od izvoza" "zatečene krivulje razlikuju se od izvoza" "zatečenih krivulja razlikuje se od izvoza"}}.</strong>
+      {{if eq $n 1}}Upis za to razdoblje uzima krivulju iz izvoza.{{else}}Upis za ta razdoblja uzima krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range $.Krivulje.Popis}}{{if .Razlikuje}}<li class="mono">{{.Od}} .. {{.Do}}</li>{{end}}{{end}}
+    </ul>
+  </div>
+  {{end}}
+  {{with .Krivulje.Usred}}{{$n := len .}}
+  <div class="alert alert-warning mt-2 mb-3">
+    <p class="mt-0 mb-2">
+      <strong>{{$n}} {{uzBroj $n "zatečena krivulja počinje usred krivulje iz izvoza" "zatečene krivulje počinju usred krivulja iz izvoza" "zatečenih krivulja počinje usred krivulja iz izvoza"}}.</strong>
+      {{if eq $n 1}}Ostaje u datoteci, pa od svog početka vrijedi umjesto krivulje iz izvoza.{{else}}Ostaju u datoteci, pa svaka od svog početka vrijedi umjesto krivulje iz izvoza.{{end}}
+    </p>
+    <ul class="page-desc popis-uvucen mb-0">
+      {{range .}}<li class="mono">od {{.}}</li>{{end}}
+    </ul>
+  </div>
+  {{end}}
   <p class="page-desc mt-1 mb-3">
     Kota nule se <strong>ne upisuje</strong> u karticu letve — ovdje stoji samo da se vidi slaže li se s onom
     koju registar već vodi. Zadnjoj krivulji kraj ostaje otvoren jer vrijedi dok ne objave novu.
@@ -537,7 +652,8 @@
       <div class="hq-krivulja">
         <div class="hq-razdoblje">
           <span class="hq-godine mono">{{$k.Od}} .. {{$k.Do}}</span>
-          <span class="reg-card-sub">{{len $k.Odsjecci}} odsječ{{if eq (len $k.Odsjecci) 1}}ak{{else}}ka{{end}}</span>
+          <span class="reg-card-sub">{{len $k.Odsjecci}} {{uzBroj (len $k.Odsjecci) "odsječak" "odsječka" "odsječaka"}}</span>
+          {{if $k.Razlikuje}}<span class="reg-chip">razlikuje se od zatečene</span>{{end}}
         </div>
         {{range $i, $o := $k.Odsjecci}}
         <div class="hq-odsjecak">
@@ -550,25 +666,6 @@
     </div>
   </details>
 
-  {{if .Profili.Neprepoznatih}}
-  <div class="alert alert-warning mt-3">
-    <p class="mt-0 mb-2">
-      <strong>{{.Profili.Neprepoznatih}} snimki ne kaže u kojem su sustavu kote.</strong>
-      Letva vodi {{if .Profili.KotaStara}}<span class="mono">{{brojHRf .Profili.KotaStara 3}} m</span> u starom{{end}}
-      {{if .Profili.KotaNova}}i <span class="mono">{{brojHRf .Profili.KotaNova 3}} m</span> u HVRS71{{end}},
-      a kota nule tih snimki ne odgovara nijednoj. To je ili snimka s druge letve, ili joj je nula premještena,
-      ili je kota prepisana krivo — pa se ne nagađa.
-    </p>
-    <label class="izvor-napomena m-0">
-      <span class="part-label">Sustav za te snimke</span>
-      <select name="sustav" class="form-control max-w-14" required>
-        <option value="">odaberite…</option>
-        <option value="TRST">TRST</option>
-        <option value="HVRS71">HVRS71</option>
-      </select>
-    </label>
-  </div>
-  {{end}}
   <div class="mt-3">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši i izgradi</button>
   </div>
@@ -587,7 +684,7 @@
       </div>
     </div>
     <dl class="reg-facts m-0">
-      <div><dt>Redaka</dt><dd>{{brojHR .Redaka}}{{if .Preskoc}} <span class="reg-card-sub">({{brojHR .Preskoc}} preskočeno)</span>{{end}}</dd></div>
+      <div><dt>Redaka</dt><dd>{{brojHR .Redaka}}{{if .Preskoc}} <span class="reg-card-sub">({{brojHR .Preskoc}} {{uzBroj .Preskoc "preskočen" "preskočena" "preskočeno"}})</span>{{end}}</dd></div>
       <div><dt>Razdoblje</dt><dd>{{.Od}} – {{.Do}}</dd></div>
       <div><dt>Raspon</dt><dd class="mono">{{brojHRf .Najmanje 1}} – {{brojHRf .Najvise 1}}</dd></div>
       <div><dt>Razdjelnik</dt><dd class="mono">{{if eq .Pogodak.Razdjelnik ""}}Excel{{else if eq .Pogodak.Razdjelnik "\t"}}tabulator{{else}}{{.Pogodak.Razdjelnik}}{{end}}</dd></div>
@@ -675,9 +772,16 @@
 {{if .Zatecen}}
     <div class="izvor-napomena">
       <span class="part-label">Niz već postoji</span>
+      {{if .Zatecen.Greska}}
       <p class="reading-meta mt-0 mb-2">
-        U stablu stoji {{brojHR .Zatecen.Redaka}} vrijednosti, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
+        Zatečeni niz u stablu ne da se pročitati do kraja, pa ga dopuna ne može spojiti s ovom datotekom.
+        Ispravi zatečenu datoteku ili odaberi zamjenu. Što ne valja: {{.Zatecen.Greska}}
       </p>
+      {{else}}
+      <p class="reading-meta mt-0 mb-2">
+        U stablu već ima {{brojHR .Zatecen.Redaka}} {{uzBroj .Zatecen.Redaka "vrijednost" "vrijednosti" "vrijednosti"}}, {{.Zatecen.Od}} – {{.Zatecen.Do}}.
+      </p>
+      {{end}}
       <label class="uvoz-nacin">
         <input type="radio" name="nacin" value="dopuni" {{if ne $.Prijedlg.Nacin "zamijeni"}}checked{{end}}>
         <span><strong>Dopuni</strong> — zadržava se sve što niz već ima; gdje se isti trenutak pojavi u oboje,
@@ -690,8 +794,8 @@
       </label>
       {{if .Zatecen.IzvanNov}}
       <div class="alert alert-warning mt-2 mb-0">
-        Zamjena bi odnijela <strong>{{brojHR .Zatecen.IzvanNov}}</strong> vrijednosti
-        ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}) koje u ovoj datoteci ne postoje.
+        Zamjena bi odnijela i vrijednosti kojih u ovoj datoteci nema: <strong>{{brojHR .Zatecen.IzvanNov}}</strong>
+        ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}).
       </div>
       {{end}}
     </div>

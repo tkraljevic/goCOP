@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/weather"
@@ -24,7 +26,14 @@ type JournalService struct {
 	stations *repository.StationRepository
 	readings *repository.ReadingRepository
 	weather  *weather.Client
+	// imaoUlogu javlja je li osoba ikad imala zaduženje s ulogom
+	// (UserService.ImaoUlogu), za izvođača u dnevnicima usluga
+	// (IzvodjacZaDnevnike); bez njega (nil) gleda se samo valjana dužnost
+	imaoUlogu func(uuid.UUID, models.Role) (bool, error)
 }
+
+// SetImaoUlogu daje servisu izvor uloga koje je osoba ikad imala
+func (s *JournalService) SetImaoUlogu(f func(uuid.UUID, models.Role) (bool, error)) { s.imaoUlogu = f }
 
 func NewJournalService(repo *repository.JournalRepository, stations *repository.StationRepository, readings *repository.ReadingRepository) *JournalService {
 	return &JournalService{repo: repo, stations: stations, readings: readings, weather: &weather.Client{}}
@@ -65,6 +74,84 @@ func (s *JournalService) CanWrite(perms *models.UserPermissions, o models.Opseg)
 		}
 	}
 	return false
+}
+
+// IzvodjacZaDnevnike javlja gleda li se osoba u dnevnicima usluga (A.02 i
+// A.03) kao izvođač: ima aktivnu dužnost voditelja usluga / poslovođe, ili
+// ju je imala (opozvanu, isteklu, izmijenjenu u drugu ulogu), a sada nema
+// valjanu dužnost u ustroju obrane (razine 1 do 4). Opoziv dužnosti tako
+// poslovođi ne otvara dnevnike drugih firmi (Odluke (8. 10. 2026.), pitanje
+// 1). Kad se ne da pročitati koje je uloge osoba imala, a nema dužnost u
+// ustroju, gleda se kao izvođač; bez izvora (nil) samo po aktivnoj dužnosti.
+func (s *JournalService) IzvodjacZaDnevnike(u *models.User) bool {
+	return izvodjacZaDnevnike(u, s.imaoUlogu)
+}
+
+// izvodjacZaDnevnike je pravilo IzvodjacZaDnevnike uz izvor uloga koje je
+// osoba ikad imala; bez izvora (nil) samo po aktivnoj dužnosti
+func izvodjacZaDnevnike(u *models.User, imaoUlogu func(uuid.UUID, models.Role) (bool, error)) bool {
+	if u == nil {
+		return false
+	}
+	if IsContractor(u) {
+		return true
+	}
+	if imaoUlogu == nil || imaDuznostUUstroju(u) {
+		return false
+	}
+	imao, err := imaoUlogu(u.ID, models.RoleServiceLeaderForeman)
+	return imao || err != nil
+}
+
+// imaDuznostUUstroju javlja ima li osoba sada valjanu dužnost u ustroju
+// obrane: uloga razine 1 do 4 (uprava, centri, područja, dionice), a ne
+// terensku, gostujuću ili izvođačevu
+func imaDuznostUUstroju(u *models.User) bool {
+	for _, d := range models.VazecaZaduzenja(u.Duties, time.Now()) {
+		if d.Role.Rank() <= 4 {
+			return true
+		}
+	}
+	return false
+}
+
+// VidiUslugePodrucja javlja smije li osoba na popisu dnevnika usluga (A.02
+// i A.03) vidjeti branjeno područje o: izvođač (IzvodjacZaDnevnike) samo
+// područja u koja po svojoj dužnosti piše, ostali svako; bez ovlasti nitko.
+func (s *JournalService) VidiUslugePodrucja(perms *models.UserPermissions, o models.Opseg) bool {
+	if perms == nil {
+		return false
+	}
+	return s.CanWrite(perms, o) || !s.IzvodjacZaDnevnike(&perms.User)
+}
+
+// VidiDnevnikUsluge javlja smije li osoba čitati dnevnik usluge j na
+// branjenom području o. Izvođač (IzvodjacZaDnevnike) vidi samo svoj dnevnik
+// (dnevnikIzvodjaca)
+// na području u koje po dužnosti piše, a ne dnevnike drugih firmi, ni na
+// drugim područjima ni na svom (Odluke (8. 10. 2026.), pitanje 1).
+// Administrator i ostali ih čitaju kao i dosad.
+func (s *JournalService) VidiDnevnikUsluge(ctx context.Context, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if !s.VidiUslugePodrucja(perms, o) {
+		return false
+	}
+	return perms.IsGlobalAdmin || !s.IzvodjacZaDnevnike(&perms.User) || s.dnevnikIzvodjaca(ctx, &perms.User, j)
+}
+
+// dnevnikIzvodjaca javlja je li dnevnik usluge izvođačev: naslovnica kao
+// izvođača navodi firmu s njegova računa ili njega kao voditelja usluga
+// (models.Journal.VodiFirma), ili je on dnevnik otvorio, ili je u njemu
+// već otvorio list ili upisao zapis. Bez dnevnika ili uz grešku čitanja
+// nije.
+func (s *JournalService) dnevnikIzvodjaca(ctx context.Context, u *models.User, j *models.Journal) bool {
+	if j == nil {
+		return false
+	}
+	if j.VodiFirma(u) || j.CreatedBy == u.ID.String() {
+		return true
+	}
+	pisao, err := s.repo.PisaoUDnevnik(ctx, j.ID, u.ID.String())
+	return err == nil && pisao
 }
 
 // CanSupervise: nadzor piše nalog i ocjenu i potvrđuje list za nadzor — HV

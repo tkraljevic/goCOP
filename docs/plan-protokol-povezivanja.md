@@ -1,18 +1,43 @@
-# Protokol povezivanja čvorova (goCOP veza/1)
+# Protokol povezivanja čvorova (goCOP veza/1, sada WEB sync)
 
-Prijedlog dizajna od 2. 10. 2026.; status pregledan 5. 10. prema 0.0.34-alfa.
-Transport `veza/1` (STUN, QUIC, sastajalište, posrednik) još nije ugrađen.
-Primanje na daljinu i ovlašteni primatelji već rade od 0.0.33 kroz postojeći
-transport; to nisu provedene faze ovog plana. Prvotno predviđene oznake
-0.0.29–0.0.33 iskorištene su za druga izdanja: faze niže nemaju dodijeljene
-buduće verzije. Aktualna izvedba je u [planu povezivosti](plan-povezivost.md).
-Nastavlja [plan-povezivost.md](plan-povezivost.md), korake 2, 6 i 8 te §9
-(politika releja). Kad se usvoji, korak 8 tablice plana („vlastiti
-transport — možda nikad") treba ažurirati.
+Prijedlog dizajna od 2. 10. 2026. Status 14. 10. 2026., prema 0.0.38-alfa:
+transport (STUN, QUIC, sastajalište) još nije ugrađen. Za faze, okvirni
+redoslijed, ispitivanje i odgovore na pitanja vrijedi
+[plan-web-sync.md](plan-web-sync.md). On zamjenjuje tablicu faza u §7,
+otvorena pitanja iz §10, procjenu rada (§11) i ispitivanje (§12); odgovori
+na pitanja su ondje, u Odlukama (14. 10. 2026.). Datumi u njemu su okvirni
+redoslijed, ne rokovi. Odjeljci §2–§6 i §8 niže i dalje opisuju protokol.
+Oni, §1 i dio §7 izvan tablice faza vrijede uz ispravke iz odjeljka 2.2 tog
+plana. §9 ostaje kao smjer za roj, bez novih polja u zapisu čvora.
+Posrednik (§4.4) je odgođen.
 
-Temelj je najmanja izvedba (sastajalište kroz postojeći tunel, UDP
-probijanje, posrednik). Na nju je od početka ucijepljen sloj sesije s
-kanalima, da se roj kasnije uključi bez nove verzije protokola.
+Od 14. 10. 2026. putovi se zovu LAN sync, WEB sync i SERVER sync, redom
+LAN → WEB → SERVER. `veza/1` iz ovog dokumenta je WEB sync: ALPN je
+`<protokol>-web/1` (danas `gocop-web/1`), signal `<protokol>-signal/1`, a
+oznaka mogućnosti `web/1`. Za postavke i putove iz §2 i §7 vrijedi:
+- `probijanje` zamjenjuju `web_sync_prijava` i `web_sync`;
+- `lan_kandidati`, `sucelja_iskljuci`, `sastajalista`,
+  `prioritet_sastajalista` i `posrednik*` otpadaju;
+- `sastajaliste` više nije prekidač, nego adresa sastajališta (na primjer
+  `https://cop-osijek.com`); posluživanje se uključuje s
+  `posluzi_sastajaliste`;
+- `Put` `izravno` sad je `adresa`, a `posrednik` otpada.
+
+Tailscale je od 0.0.37 zaseban put. Na pločici dobiva natpis „Tailscale” u
+F1 plana WEB synca (Odluke 14. 10. 2026., točka 5). U tablici putova u §2
+ga nema.
+
+Primanje na daljinu i ovlašteni primatelji rade od 0.0.33 kroz postojeći
+transport; to nisu faze ovog plana. Primanje na daljinu isključuje se dok
+se ne odluči kako ulaze ispostave (Odluke 14. 10. 2026., točka 4). Današnja
+izvedba povezivosti opisana je u [plan-povezivost.md](plan-povezivost.md).
+Ovaj dokument nastavlja njegove korake 2, 6 i 8 te §9 (politika releja);
+korak 8 („vlastiti transport — možda nikad”) ažurira se u F5 plana WEB
+synca.
+
+Temelj je najmanja izvedba: sastajalište kroz postojeći tunel i UDP
+probijanje. Na nju je od početka ucijepljen sloj sesije s kanalima, da se
+roj kasnije uključi bez nove verzije protokola.
 
 Oznake izvora: **[V]** provjereno u kodu ili primarnom izvoru, **[T]**
 isprobano u istraživanju, **[S]** samo sekundarni izvori, **[P]** prijedlog ili zaključak.
@@ -428,7 +453,11 @@ Kanal koji druga strana nije navela u `kanali` se ne otvara. Tako se
 
 **Kodovi grešaka aplikacije:** `0x0100` opće, `0x0101` nepoznat kanal,
 `0x0102` zauzet, `0x0103` odbijeno, `0x0104` nije član / opozvan, `0x0105`
-proračun posrednika.
+proračun posrednika, `0x0106` upis zauzet (pozvani odbija ostatak
+razgovora), `0x0107` Tailscale isključen (pozivatelj zove sljedeću adresu).
+Isti popis vrijedi i za kod razloga u odbijenici razgovora (`Envelope.Kod`,
+od G3). Vodi se u `internal/razmjena/kodovi.go`, a novi kod upisuje se i
+ovdje. Kod se ne daje drugom razlogu ni kad se prestane slati.
 
 **Prilagodba `razmjena.Conn`:** `raw *tls.Conn` postaje sučelje `prijenos`
 (Read, Write, Close, dva rokova, RemoteAddr). Za QUIC tok `Close` = `Close` +

@@ -5,8 +5,11 @@ import (
 	"database/sql"
 	"math"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // probneOcitanja slaže malu bazu očitanja s dvije letve.
@@ -447,17 +450,7 @@ func TestVrhIzDnevnogUzimaRezervuKadGlavniNeDaDvijeTocke(t *testing.T) {
 			glavni.koef[k][g] = []float64{1000}
 		}
 	}
-	dnevniModeli.Lock()
-	dan, modeli, greske := dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske
-	dnevniModeli.dan = time.Now().Format("2006-01-02")
-	dnevniModeli.modeli = map[string][]*DnevniModel{"gornja": {glavni, rezerva}}
-	dnevniModeli.greske = map[string]error{}
-	dnevniModeli.Unlock()
-	t.Cleanup(func() {
-		dnevniModeli.Lock()
-		dnevniModeli.dan, dnevniModeli.modeli, dnevniModeli.greske = dan, modeli, greske
-		dnevniModeli.Unlock()
-	})
+	podmetniDnevne(t, map[string][]*DnevniModel{"gornja": {glavni, rezerva}})
 
 	o := &Osvjezivac{Ocitanja: ocitanja, Arhiva: arhiva}
 	sada := zadnji.Unix() / 3600
@@ -471,5 +464,121 @@ func TestVrhIzDnevnogUzimaRezervuKadGlavniNeDaDvijeTocke(t *testing.T) {
 	v, ima := n.U(sada + 12)
 	if !ima || math.Abs(v-112) > 0.01 {
 		t.Errorf("prvi dan rezerve: %v (ima %v), očekivano 112 m³/s", v, ima)
+	}
+}
+
+// krivuljaProbe je krivulja protoka od 2000. nadalje: Q = 100·H + 50, H u
+// metrima, umjerena od 0 do 500 cm.
+func krivuljaProbe() models.HQKrivulja {
+	return models.HQKrivulja{Letva: "proba", VrijediOd: "2000-01-01",
+		Odsjecci: []models.HQOdsjecak{{OdCm: 0, DoCm: 500, Oblik: models.OblikPolinom, P2: 100, P3: 50}}}
+}
+
+// Očitanje u veličini računa: vodostaj i kota su centimetri; protok je
+// izmjereni protok, a kad ga nema, vodostaj kroz krivulju koja tada vrijedi.
+// Bez potrebnog mjerenja ili krivulje vrijednosti nema.
+func TestUVelicini(t *testing.T) {
+	krivulje := []models.HQKrivulja{krivuljaProbe()}
+	kad := time.Date(2026, 10, 1, 6, 0, 0, 0, time.UTC)
+	cm := func(v int64) sql.NullInt64 { return sql.NullInt64{Int64: v, Valid: true} }
+	q := func(v float64) sql.NullFloat64 { return sql.NullFloat64{Float64: v, Valid: true} }
+	for _, s := range []struct {
+		ime      string
+		velicina string
+		cm       sql.NullInt64
+		q        sql.NullFloat64
+		krivulje []models.HQKrivulja
+		kad      time.Time
+		want     float64
+		ima      bool
+	}{
+		{"vodostaj", "vodostaj", cm(150), q(900), krivulje, kad, 150, true},
+		{"kota", "kota", cm(14950), sql.NullFloat64{}, nil, kad, 14950, true},
+		{"vodostaj bez centimetara", "vodostaj", sql.NullInt64{}, q(900), krivulje, kad, 0, false},
+		{"izmjereni protok", "protok", cm(150), q(900), krivulje, kad, 900, true},
+		{"protok iz krivulje", "protok", cm(150), sql.NullFloat64{}, krivulje, kad, 200, true},
+		{"protok bez ičega", "protok", sql.NullInt64{}, sql.NullFloat64{}, krivulje, kad, 0, false},
+		{"krivulja još ne vrijedi", "protok", cm(150), sql.NullFloat64{}, krivulje, time.Date(1999, 1, 1, 0, 0, 0, 0, time.UTC), 0, false},
+		{"vodostaj daleko iznad krivulje", "protok", cm(900), sql.NullFloat64{}, krivulje, kad, 0, false},
+	} {
+		v, ima := uVelicini(s.velicina, s.cm, s.q, s.krivulje, s.kad)
+		if ima != s.ima || math.Abs(v-s.want) > 1e-9 {
+			t.Errorf("%s: %g %v, želim %g %v", s.ime, v, ima, s.want, s.ima)
+		}
+	}
+}
+
+// Pretvori vodi vrijednost kroz krivulju u traženu veličinu i javlja kad je
+// krivulja pritom produljena preko umjerenog raspona.
+func TestPretvori(t *testing.T) {
+	k := krivuljaProbe()
+	if v, izvan, ok := Pretvori(&k, "protok", 150); !ok || izvan || math.Abs(v-200) > 1e-9 {
+		t.Errorf("150 cm u protok: %g %v %v", v, izvan, ok)
+	}
+	if v, izvan, ok := Pretvori(&k, "protok", 510); !ok || !izvan || math.Abs(v-560) > 1e-9 {
+		t.Errorf("510 cm, iznad umjerenog: %g %v %v", v, izvan, ok)
+	}
+	if v, izvan, ok := Pretvori(&k, "vodostaj", 300); !ok || izvan || v != 250 {
+		t.Errorf("300 m³/s u vodostaj: %g %v %v", v, izvan, ok)
+	}
+	if _, _, ok := Pretvori(&k, "protok", 900); ok {
+		t.Error("900 cm, daleko iznad krivulje, dao je protok")
+	}
+}
+
+// Očitanja koja se ne daju pročitati javljaju grešku, a ne prazan niz.
+func TestUcitajNizBezOcitanja(t *testing.T) {
+	prazna, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "o.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prazna.Close()
+	o := &Osvjezivac{Ocitanja: prazna}
+	od := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
+	for _, zamjena := range []bool{true, false} {
+		if n, err := o.ucitajNizZ(context.Background(), Izvor{Letva: "gornja", Velicina: "vodostaj"}, od, zamjena); err == nil {
+			t.Errorf("zamjena %v: bez greške, niz %+v", zamjena, n)
+		}
+	}
+}
+
+// KoCeka nabraja vrhove koji drže sat izdanja, abecedno, sa zadnjim
+// očitanjem po zagrebačkom vremenu; kad nitko ne kasni, prazno je.
+func TestKoCeka(t *testing.T) {
+	sat := func(kad time.Time) int64 { return kad.Unix() / 3600 }
+	i := &Ishod{Ceka: map[string]int64{
+		"letenye":  sat(time.Date(2026, 1, 5, 23, 0, 0, 0, models.Zagreb)),
+		"kotoriba": sat(time.Date(2026, 9, 29, 4, 0, 0, 0, models.Zagreb)),
+	}}
+	if got, want := i.KoCeka(), "kotoriba (zadnje 29.9. u 04:00), letenye (zadnje 5.1. u 23:00)"; got != want {
+		t.Errorf("%q, želim %q", got, want)
+	}
+	if got := (&Ishod{}).KoCeka(); got != "" {
+		t.Errorf("nitko ne kasni, a piše %q", got)
+	}
+}
+
+// Mjerenje vrha u drugoj veličini zapisuje se samo za sat izdavanja, kao
+// mjerenje: bez raspona i bez modela. Letva koja u tom satu nema mjerenja
+// se preskače.
+func TestSidraDrugih(t *testing.T) {
+	const sada = int64(1000)
+	druge := map[Izvor]Niz{
+		{Letva: "donja-dubrava", Velicina: "vodostaj"}: ravanNiz(990, sada, 200, 1),
+		{Letva: "botovo", Velicina: "vodostaj"}:        ravanNiz(900, 950, 100, 1),
+	}
+	want := []Izdana{{Letva: "donja-dubrava", Velicina: "vodostaj", Izdano: sada, Ciljni: sada, Vrijednost: 210, Dolje: 210, Gore: 210}}
+	if got := sidraDrugih(druge, sada); !reflect.DeepEqual(got, want) {
+		t.Errorf("%+v\nželim %+v", got, want)
+	}
+}
+
+// Krug pokrenut sa SIznova računa i već izdan sat; obični krug ne.
+func TestSIznova(t *testing.T) {
+	if TraziIznova(context.Background()) {
+		t.Error("obični krug traži račun iznova")
+	}
+	if !TraziIznova(SIznova(context.Background())) {
+		t.Error("krug sa SIznova ne traži račun iznova")
 	}
 }

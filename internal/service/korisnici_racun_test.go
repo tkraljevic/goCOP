@@ -346,17 +346,29 @@ func TestLozinkaOperateraPriIzmjeni(t *testing.T) {
 	o := novaOkolinaOvlasti(t)
 	upravaB := korUprava(t, o, "uprava-b", service.AddDutyRequest{Role: models.RoleSectorLeader, SectorID: sektorP("B")})
 	operater := o.osoba(t, "pperic", service.AddDutyRequest{Role: models.RoleOperator, SectorID: sektorP("B")})
-	// uprava sektora uređuje operatera, ali mu lozinku ne postavlja
+	// uprava sektora uređuje operatera i postavlja mu lozinku: operater
+	// ničim ne upravlja, pa nije uprava iste razine (Odluke (8. 10. 2026.),
+	// pitanje 3)
 	req := korIzmjena(operater)
 	req.Phone = "000 000 002"
 	if _, err := o.users.UpdateUser(upravaB, req); err != nil {
 		t.Fatalf("izmjena operatera: %v", err)
 	}
 	req.Password = "lozinka-od-uprave"
-	if _, err := o.users.UpdateUser(upravaB, req); !errors.Is(err, service.ErrUnauthorized) {
+	if _, err := o.users.UpdateUser(upravaB, req); err != nil {
 		t.Errorf("lozinka operatera: %v", err)
 	}
-	if _, _, err := o.auth.Login("pperic", "lozinka-od-uprave", "192.168.1.5", "test"); err == nil {
+	if _, _, err := o.auth.Login("pperic", "lozinka-od-uprave", "192.168.1.5", "test"); err != nil {
+		t.Errorf("lozinka koju je upisala uprava sektora: %v", err)
+	}
+	// voditelju COP-a, upravi iste razine, lozinku i dalje ne postavlja
+	voditelj := o.osoba(t, "aanic", service.AddDutyRequest{Role: models.RoleCopLeader, SectorID: sektorP("B")})
+	req = korIzmjena(voditelj)
+	req.Password = "lozinka-od-uprave"
+	if _, err := o.users.UpdateUser(upravaB, req); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("lozinka voditelja COP-a: %v", err)
+	}
+	if _, _, err := o.auth.Login("aanic", "lozinka-od-uprave", "192.168.1.5", "test"); err == nil {
 		t.Error("odbijena lozinka je ipak upisana")
 	}
 }

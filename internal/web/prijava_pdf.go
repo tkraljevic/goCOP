@@ -54,6 +54,15 @@ const (
 
 func stambiljX() float64 { return pdfw.A4W - 56 - stambiljW }
 
+// listPrijave je oznaka dnevnog lista na koji je prijava upisana: broj u
+// knjizi, a za dan koji pri objavi još nije počeo nacrt bez broja
+func listPrijave(p *models.PrijavaSTerena) string {
+	if p.ListBroj == 0 {
+		return "od " + p.Datum.In(models.Zagreb).Format("02.01.2006.") + " (nacrt bez broja)"
+	}
+	return fmt.Sprintf("%03d/%d", p.ListBroj, p.Godina)
+}
+
 // sadrzajQR je što QR kod nosi: adresu prijave u programu kad je javna
 // adresa postavljena, inače oznaku i kod dokumenta
 func sadrzajQR(p *models.PrijavaSTerena, adresa string) string {
@@ -293,7 +302,7 @@ func pdfPrijave(p *models.PrijavaSTerena, pr prilogPrijave, t models.OrgTerms, c
 	case p.Rekonstrukcija && p.ObjavljenoAt != nil:
 		napomena = "Rekonstrukcija: prijava prenesena iz ranije evidencije VGI Baranja (app.bp16.xyz), složena iz podataka u goCOP-u; fotografije su smanjene i ugrađene."
 	case p.ObjavljenoAt != nil:
-		napomena = fmt.Sprintf("Upisano na dnevni list vodočuvara %03d/%d. Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene.", p.ListBroj, p.Godina)
+		napomena = "Upisano na dnevni list vodočuvara " + listPrijave(p) + ". Sastavljeno u goCOP-u; elektronički potpis je vremenska oznaka, a ispis se potpisuje i vlastoručno. Fotografije su smanjene i ugrađene."
 	}
 	qrTekst := sadrzajQR(p, pr.Adresa)
 	d.Podnozje = func(d *pdfw.Doc, stranica, ukupno int) {
@@ -403,10 +412,8 @@ func prilozi(p *models.PrijavaSTerena, pr prilogPrijave) string {
 	if len(pr.Karta) > 0 {
 		d = append(d, "karta")
 	}
-	if n := len(p.Slike); n == 1 {
-		d = append(d, "1 fotografija")
-	} else if n > 1 {
-		d = append(d, fmt.Sprintf("%d fotografija", n))
+	if n := len(p.Slike); n > 0 {
+		d = append(d, fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "fotografija", "fotografije", "fotografija")))
 	}
 	return strings.Join(d, ", ")
 }

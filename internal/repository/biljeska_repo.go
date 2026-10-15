@@ -107,7 +107,8 @@ func (r *BiljeskaRepository) Krajnosti(ctx context.Context, letva, velicina stri
 
 // Spremi upisuje bilješke i bilježi ih u knjigu verzija. Prazna bilješka —
 // bez teksta I bez vrste — briše se: ne govori ništa, a u listanju bi stajala
-// kao prazan znak. Vrsta bez teksta je i dalje tvrdnja i ostaje.
+// kao prazan znak. Vrsta bez teksta je i dalje tvrdnja i ostaje. Briše se
+// bilješka trenutka, sa svim bilješkama tog trenutka iz knjige (obrisiTrenutak).
 func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.ArhivaBiljeska) (int, error) {
 	if r == nil || r.db == nil {
 		return 0, fmt.Errorf("baza nije dostupna")
@@ -136,16 +137,11 @@ func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.Arhiv
 			return n, err
 		}
 		if b.Tekst == "" && b.Vrsta == "" {
-			if b.ID == uuid.Nil {
-				continue // nema što obrisati
-			}
-			if _, err := tx.ExecContext(ctx, `DELETE FROM arhiva_biljeske WHERE id=?`, b.ID.String()); err != nil {
+			obrisano, err := r.obrisiTrenutak(ctx, tx, b)
+			if err != nil {
 				return n, err
 			}
-			if _, err := r.rec.Archive(ctx, tx, EntityBiljeske, b.ID.String(), b); err != nil {
-				return n, err
-			}
-			n++
+			n += obrisano
 			continue
 		}
 		if b.ID == uuid.Nil {
@@ -175,4 +171,30 @@ func (r *BiljeskaRepository) Spremi(ctx context.Context, biljeske []models.Arhiv
 		n++
 	}
 	return n, tx.Commit()
+}
+
+// obrisiTrenutak briše bilješku trenutka iz b: miče je s površine i daje
+// spomenik svakoj bilješci tog trenutka koja je u knjizi živa, i onoj koje
+// na površini nema. Takva je bilješka istog trenutka s drugog čvora, koja je
+// izgubila mjesto od novije (mjestoNaTrenutku): bez spomenika bi ostala živa
+// u knjizi, pa bi je novi čvor dobio, a ovaj vratio pri ponovnom pokretanju,
+// iako je korisnik bilješku obrisao. Spomenik nosi zadnju verziju bilješke,
+// u njezinom kanalu. Vraća 1 kad je bilo što obrisati, inače 0.
+func (r *BiljeskaRepository) obrisiTrenutak(ctx context.Context, tx *sql.Tx, b *models.ArhivaBiljeska) (int, error) {
+	zivi, err := ziviNaTrenutku(ctx, tx, EntityBiljeske, trenutakNiza{b.Letva, b.Velicina, b.Korak, b.Vrijeme})
+	if err != nil {
+		return 0, err
+	}
+	res, err := tx.ExecContext(ctx, `DELETE FROM arhiva_biljeske WHERE letva=? AND velicina=? AND korak=? AND vrijeme=?`,
+		b.Letva, b.Velicina, b.Korak, b.Vrijeme.UTC())
+	if err != nil {
+		return 0, err
+	}
+	for _, z := range zivi {
+		if _, err := r.rec.ArchiveIn(ctx, tx, z.kanal, EntityBiljeske, z.id, z.sadrzaj); err != nil {
+			return 0, err
+		}
+	}
+	maknuto, _ := res.RowsAffected()
+	return min(1, int(maknuto)+len(zivi)), nil
 }

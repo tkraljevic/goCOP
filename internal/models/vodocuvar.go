@@ -7,6 +7,8 @@ import (
 	"math"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // VodocuvarskiList je jedan dnevni list vodočuvarskog dnevnika, po uzoru
@@ -32,8 +34,10 @@ type VodocuvarskiList struct {
 	// Zadaci su zadaci rukovoditelja koji su taj dan stajali na listu, sa
 	// stanjem kako ih je vodočuvar označio; neobavljeni prelaze na sljedeći list
 	Zadaci []ZadatakNaListu `json:"zadaci,omitempty"`
-	// Upisi su bilješke rukovoditelja i ovlaštenika upisane izravno u dnevnik,
-	// neovisno o zadacima: naredba, napomena, nalaz obilaska
+	// Upisi su bilješke rukovoditelja, ovlaštenika i dežurnog operatera
+	// upisane izravno u dnevnik, neovisno o zadacima: naredba, napomena,
+	// nalaz obilaska; bilješka dežurnog operatera nije naredba
+	// (UpisRukovoditelja.Biljeska)
 	Upisi []UpisRukovoditelja `json:"upisi,omitempty"`
 	// Prijave su prijave i obavijesti s terena koje je vodočuvar objavio taj
 	// dan; upis na listu je dokaz, dokument stoji uz prijavu
@@ -53,6 +57,12 @@ type VodocuvarskiList struct {
 	Rekonstrukcija bool   `json:"rekonstrukcija,omitempty"`
 	Izvor          string `json:"izvor,omitempty"` // oznaka zapisa u ranijoj evidenciji
 
+	// NapisanoAt je trenutak kad je vodočuvar zadnji put spremio ono što sam
+	// upisuje (obrazac lista): radno vrijeme, prilike, opis, zapažanja i
+	// stanje zadataka. Upis rukovoditelja, akta ili prijave ga prenosi kakav
+	// jest, pa nacrt koji je nastao bez vodočuvarova upisa (npr. „Upiši” na
+	// čvoru koji njegov list još nema) ne prepisuje njegov tekst pri razmjeni.
+	NapisanoAt  *time.Time `json:"napisano_at,omitempty"`
 	PredanoAt   *time.Time `json:"predano_at,omitempty"` // potpis vodočuvara
 	PotvrdioID  string     `json:"potvrdio_id,omitempty"`
 	Potvrdio    string     `json:"potvrdio,omitempty"`
@@ -60,6 +70,25 @@ type VodocuvarskiList struct {
 	Cvor        string     `json:"cvor,omitempty"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
+}
+
+// IDListaVodocuvara je unutarnja oznaka novog dnevnog lista, izvedena iz
+// osobe i dana (UUID v5): svaki čvor koji prvi put spremi list iste osobe
+// za isti dan daje mu istu oznaku, pa razmjena vidi jedan list u dvije
+// verzije, a ne dva lista (Odluke (8. 10. 2026.), pitanje 7). Oznaka se ne
+// smije mijenjati, jer je moraju jednako izvesti svi čvorovi.
+func IDListaVodocuvara(userID string, dan time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:"+userID+"|"+dan.In(Zagreb).Format("2006-01-02"))).String()
+}
+
+// IDDvostrukogLista je oznaka drugog predanog lista iste oznake: kad je
+// isti list predan na dva čvora bez veze, oba potpisa ostaju (Odluke
+// (8. 10. 2026.), pitanje 7). List prvog potpisa zadržava oznaku lista, a
+// list svakog kasnijeg stoji pod oznakom izvedenom iz oznake lista i
+// trenutka potpisa (UUID v5), jednakom na svim čvorovima. Oznaka se ne
+// smije mijenjati.
+func IDDvostrukogLista(listID string, predano time.Time) string {
+	return uuid.NewSHA1(uuid.NameSpaceURL, []byte("gocop:vodocuvarski_list:dvostruki:"+listID+"|"+predano.UTC().Format(time.RFC3339Nano))).String()
 }
 
 // PrilogLista je fotografija ili datoteka priložena listu, uz zadatak ili
@@ -150,6 +179,13 @@ func (l VodocuvarskiList) Stanje() string {
 		return "čeka potvrdu"
 	}
 	return "u pisanju"
+}
+
+// NacrtBezBroja javlja da je list spremljen, a još nema redni broj: nacrt
+// za dan koji tada nije počeo. Broj dobiva prvim spremanjem ili predajom
+// kad njegov dan počne; prenesen list nema broja i nije nacrt.
+func (l VodocuvarskiList) NacrtBezBroja() bool {
+	return l.ID != "" && l.Broj == 0 && !l.Rekonstrukcija
 }
 
 // Zakljucen javlja da se list više ne mijenja: predan je, ili je prenesen iz
@@ -308,6 +344,31 @@ type UpisRukovoditelja struct {
 	Funkcija string    `json:"funkcija,omitempty"`
 	Kad      time.Time `json:"kad"`
 	Tekst    string    `json:"tekst"`
+	// Biljeska: upisao ju je netko tko list nije smio parafirati ni ovjeriti
+	// (dežurni operater, koji ni zadatke ne zadaje), pa nije naredba
+	// rukovoditelja i ne stoji pod naredbama nego pod posebnim zapažanjima
+	// (Odluke (8. 10. 2026.), pitanje 1). Čvor sa starijom inačicom polje
+	// ne zna: takav upis pokazuje pod naredbama, a kad sam izmijeni list,
+	// polje se gubi.
+	Biljeska bool `json:"biljeska,omitempty"`
+}
+
+// UpisiNaredbe su upisi u list koji stoje pod naredbama rukovoditelja
+func (l VodocuvarskiList) UpisiNaredbe() []UpisRukovoditelja { return l.upisiVrste(false) }
+
+// UpisiBiljeske su upisi u list koji nisu naredbe (UpisRukovoditelja.Biljeska)
+// i stoje pod posebnim zapažanjima
+func (l VodocuvarskiList) UpisiBiljeske() []UpisRukovoditelja { return l.upisiVrste(true) }
+
+// upisiVrste su upisi u list koji jesu ili nisu bilješke, redom upisa
+func (l VodocuvarskiList) upisiVrste(biljeske bool) []UpisRukovoditelja {
+	var out []UpisRukovoditelja
+	for _, u := range l.Upisi {
+		if u.Biljeska == biljeske {
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 // sazetakLista je sadržaj lista koji potpisi pokrivaju: tekst i zadaci

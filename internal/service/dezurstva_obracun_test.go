@@ -372,13 +372,26 @@ func TestObracunDezurstava(t *testing.T) {
 		t.Errorf("ukupno %v / %v", ob.Stvarni, ob.Obracunski)
 	}
 
-	// Mjesto koje nije teren obračunava se kao ured, i kad nije ni ured.
+	// Odluke (8. 10. 2026.), pitanje 10: mjesto koje nije ni ured ni teren
+	// više se ne obračunava tiho kao ured. Prije je ovdje stajalo da se
+	// „NEPOZNATO” računa kao ured; sada se mjesto najprije izvodi iz opisa,
+	// a kad ni opis nije s popisa, dežurstvo je „za provjeru” i izvan zbroja.
 	if _, err := o.baza.Exec(`UPDATE dezurstva SET mjesto = 'NEPOZNATO' WHERE id = ?`, teren.ID); err != nil {
 		t.Fatal(err)
 	}
 	ob, _ = o.svc.Obracun(ctx, o.dnevnik, od, do, obracun.Hrvatski{}, obracun.IORS2026, nil)
-	if r := ob.Grupe[0].Redovi[0]; r.Mjesto != "URED" || r.Obracunski != 0 || r.Stvarni != 8*time.Hour {
-		t.Errorf("nepoznato mjesto: %+v", r)
+	if r := ob.Grupe[0].Redovi[0]; r.Mjesto != "TEREN" || r.Obracunski != 1.5 || r.Stvarni != 8*time.Hour || ob.ZaProvjeru != 0 {
+		t.Errorf("mjesto iz opisa: %+v, za provjeru %v", r, ob.ZaProvjeru)
+	}
+	if _, err := o.baza.Exec(`UPDATE dezurstva SET opis = 'Opis s drugog čvora' WHERE id = ?`, teren.ID); err != nil {
+		t.Fatal(err)
+	}
+	ob, _ = o.svc.Obracun(ctx, o.dnevnik, od, do, obracun.Hrvatski{}, obracun.IORS2026, nil)
+	if g := ob.Grupe[0]; len(g.Redovi) != 1 || g.Redovi[0].Mjesto != "URED" || g.Stvarni != 8*time.Hour {
+		t.Errorf("potvrđeno bez mjesta ušlo je u zbroj: %+v", g.Redovi)
+	}
+	if ob.ZaProvjeru != 8*time.Hour || ob.CekaPotvrdu != 2*time.Hour || ob.Stvarni != 26*time.Hour || ob.Obracunski != 37 {
+		t.Errorf("za provjeru %v, čeka %v, ukupno %v / %v", ob.ZaProvjeru, ob.CekaPotvrdu, ob.Stvarni, ob.Obracunski)
 	}
 
 	// prazno razdoblje: ništa

@@ -24,8 +24,7 @@ var errDrugiKorakNedostupan = errors.New("drugi korak prijave izvana nije dostup
 // dolaziIzvana javlja dolazi li zahtjev izvana (tunel ili javna adresa); isto
 // pravilo kao za PIN pri prijavi
 func dolaziIzvana(r *http.Request) bool {
-	k := klijentIz(r)
-	return service.IzvanaAdresa(k.KrozPosrednika, k.Adresa)
+	return klijentIz(r).Izvana()
 }
 
 // stvarnaOsoba vraća stvarno prijavljenu osobu i gleda li ona tuđim očima

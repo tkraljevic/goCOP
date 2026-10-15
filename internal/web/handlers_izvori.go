@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -108,7 +109,7 @@ func (h *IzvoriHandler) ShowIzvori(w http.ResponseWriter, r *http.Request) {
 // Namjerno ne broji vrijednosti u spoju: to je prolaz kroz šest milijuna
 // redaka, a odgovor je ionako u stupcu "uključen".
 func citajIzvoreZaStranicu(put, podaciDir string) ([]IzvorURedu, int, error) {
-	db, err := sql.Open("sqlite", put+"?mode=ro&_pragma=busy_timeout(3000)")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put)+"&_pragma=busy_timeout(3000)")
 	if err != nil {
 		return nil, 0, err
 	}
@@ -241,8 +242,8 @@ func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 	poruka := fmt.Sprintf("Izvor %s je spremljen.", naziv)
 	if n := len(letve); n > 0 {
 		poruka = fmt.Sprintf("Izvor %s je spremljen; ponovno %s %d %s: %s.",
-			naziv, uzBrojHR(n, "spojena", "spojene", "spojeno"), n,
-			uzBrojHR(n, "letva", "letve", "letava"), strings.Join(letve, ", "))
+			naziv, models.UzBrojHR(n, "spojena", "spojene", "spojeno"), n,
+			models.UzBrojHR(n, "letva", "letve", "letava"), strings.Join(letve, ", "))
 	}
 	redirectWith(w, r, "/administracija/izvori", "success", poruka)
 }

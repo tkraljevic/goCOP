@@ -473,6 +473,10 @@ func (h *ReadingsHandler) HandleOcitanjaUvoz(w http.ResponseWriter, r *http.Requ
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
+	ctx := r.Context()
+	oznaciRetkeBezPrava(redci,
+		func(rd *models.Reading) bool { return h.readingService.CanDelete(ctx, perms, rd) },
+		func(rd *models.Reading) bool { return h.readingService.CanEdit(ctx, perms, rd) })
 
 	ime, _ := gaugeNames(station, structure)
 	data := PregledOcitanja{
@@ -580,18 +584,38 @@ func (h *ReadingsHandler) HandleOcitanjaPotvrda(w http.ResponseWriter, r *http.R
 	}
 	poruka += ". Svaka izmjena stoji u knjizi verzija s vašim imenom."
 	if len(greske) > 0 {
-		poruka += fmt.Sprintf(" %d redaka nije prošlo: %s", len(greske), greske[0])
+		poruka += fmt.Sprintf(" %d %s: %s", len(greske), models.UzBrojHR(len(greske), "redak nije prošao", "retka nisu prošla", "redaka nije prošlo"), greske[0])
 	}
 	redirectWith(w, r, back, "success", poruka)
 }
 
-// smijeMijenjati je isto pravilo po kojem se očitanje smije i upisati.
+// smijeMijenjati otvara ispravak iz datoteke onome tko smije upisati
+// očitanje na letvu. Što smije u kojem retku odlučuje pravo ispravka i
+// brisanja pojedinog očitanja: u pregledu oznaciRetkeBezPrava, pri upisu
+// servis.
 func (h *ReadingsHandler) smijeMijenjati(perms *models.UserPermissions,
 	station *models.Station, structure *models.Structure) bool {
 	if structure != nil {
 		return h.readingService.CanRecordStructure(perms, structure)
 	}
 	return h.readingService.CanRecordStation(perms, station)
+}
+
+// oznaciRetkeBezPrava označava kao grešku redak koji osoba ne smije
+// promijeniti: brisanje po pravu brisanja, ispravak po pravu ispravka tog
+// očitanja (Odluke (8. 10. 2026.), pitanje 9). Servis to isto provjerava pri
+// upisu, ali pregled ne smije ponuditi ono što bi upis poslije odbio.
+func oznaciRetkeBezPrava(redci []RedakOcitanja, smijeObrisati, smijeIspraviti func(*models.Reading) bool) {
+	for i := range redci {
+		red := &redci[i]
+		switch {
+		case !red.Mijenja():
+		case red.Brisati && !smijeObrisati(&red.Staro):
+			red.Greska = "nemate pravo brisati ovo očitanje"
+		case !red.Brisati && !smijeIspraviti(&red.Staro):
+			red.Greska = "nemate pravo ispraviti ovo očitanje"
+		}
+	}
 }
 
 // ocitanjaLetve vraća sva očitanja letve po identifikatoru.
@@ -627,13 +651,7 @@ func cmIzObrasca(s string) *int {
 }
 
 func ocitanja(n int) string {
-	switch {
-	case n == 1:
-		return "1 očitanje"
-	case n < 5:
-		return fmt.Sprintf("%d očitanja", n)
-	}
-	return fmt.Sprintf("%d očitanja", n)
+	return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "očitanje", "očitanja", "očitanja"))
 }
 
 func istaDecimala(a, b *float64) bool {

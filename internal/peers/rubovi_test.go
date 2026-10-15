@@ -541,6 +541,8 @@ func TestTransakcijaKojaNePocneNistaNeRadi(t *testing.T) {
 	}
 }
 
+// Kad upis članstva ili ovlasti padne, primljeni čvor ne ostaje član:
+// članstvo i ovlast upisuju se zajedno ili nikako.
 func TestPrimanjeKadUpisPadne(t *testing.T) {
 	for ime, s := range map[string]struct {
 		kvar     [3]string
@@ -557,6 +559,7 @@ func TestPrimanjeKadUpisPadne(t *testing.T) {
 			if _, err := a.PrimiZahtjev(ctxRub, z, k, s.sOvlascu); err == nil {
 				t.Error("primanje je prošlo iako upis nije")
 			}
+			bezClanstva(t, a, f.node.ID)
 		})
 	}
 }
@@ -621,6 +624,21 @@ func TestCvoroviZaPotvrduPreskacuKrivKljuc(t *testing.T) {
 	c, err := a.cvoroviZaPotvrdu(ctxRub)
 	if err != nil || len(c) != 0 {
 		t.Errorf("čvor s krivim ključem u potvrdi: %+v %v", c, err)
+	}
+}
+
+// Zapis drugog čvora koji se ne da pročitati ruši popis čvorova za potvrdu,
+// iako se zapis ovog čvora čita
+func TestCvoroviZaPotvrduNecitljivDrugiCvor(t *testing.T) {
+	a := rubnaMreza(t, "cop-osijek")
+	if _, err := a.db.Exec(`INSERT INTO peers (node_id, public_key, created_at) VALUES ('los-datum', 'kljuc', 'nije vrijeme')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.SelfPeer(ctxRub); err != nil {
+		t.Fatalf("zapis ovog čvora: %v", err)
+	}
+	if c, err := a.cvoroviZaPotvrdu(ctxRub); err == nil {
+		t.Errorf("nečitljiv čvor prošao: %+v", c)
 	}
 }
 

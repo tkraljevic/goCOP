@@ -124,24 +124,83 @@ func RebuildSectionIndexes(ctx context.Context, tx Execer, sec *models.Section) 
 			return err
 		}
 	}
-	for _, id := range sec.AllStationIDs() {
-		linkID := StableID("section_station", sec.Code+"|"+id).String()
-		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_stations (id, section_code, station_id, created_at) VALUES (?, ?, ?, ?)`,
-			linkID, sec.Code, id, now); err != nil {
+	if err := vezaLetve.upisi(ctx, tx, sec.Code, sec.AllStationIDs(), now); err != nil {
+		return err
+	}
+	if err := vezaObjekta.upisi(ctx, tx, sec.Code, sec.AllStructureIDs(), now); err != nil {
+		return err
+	}
+	return upisiTeritorije(ctx, tx, sec, now)
+}
+
+// vezaNaRegistar je kazalo dionice koje stranim ključem pokazuje na zapis
+// registra: letvu ili objekt.
+type vezaNaRegistar struct {
+	prostor  string // prostor stabilnog identiteta veze
+	registar string // tablica registra; entitet u knjizi verzija zove se isto
+	upis     string
+}
+
+var (
+	vezaLetve   = novaVeza("section_station", "section_stations", "station_id", "stations")
+	vezaObjekta = novaVeza("section_structure", "section_structures", "structure_id", "structures")
+)
+
+// novaVeza slaže upis veze dionice na zapis registra
+func novaVeza(prostor, kazalo, stupac, registar string) vezaNaRegistar {
+	return vezaNaRegistar{prostor: prostor, registar: registar, upis: `INSERT OR IGNORE INTO ` + kazalo +
+		` (id, section_code, ` + stupac + `, created_at) VALUES (?, ?, ?, ?)`}
+}
+
+// upisi upisuje veze dionice na zapise registra s danim identitetima. Veza
+// na obrisan zapis preskače se (obrisanURegistru).
+func (v vezaNaRegistar) upisi(ctx context.Context, tx Execer, dionica string, ids []string, now time.Time) error {
+	for _, id := range ids {
+		linkID := StableID(v.prostor, dionica+"|"+id).String()
+		_, err := tx.ExecContext(ctx, v.upis, linkID, dionica, id, now)
+		if err != nil && !obrisanURegistru(ctx, tx, zivURegistru(v.registar), id, id) {
 			return err
 		}
 	}
-	for _, id := range sec.AllStructureIDs() {
-		linkID := StableID("section_structure", sec.Code+"|"+id).String()
-		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_structures (id, section_code, structure_id, created_at) VALUES (?, ?, ?, ?)`,
-			linkID, sec.Code, id, now); err != nil {
-			return err
-		}
-	}
-	for _, t := range sec.AllTerritories() {
-		linkID := StableID("section_territory", sec.Code+"|"+t.Key()).String()
-		if _, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_territories (id, section_code, county_id, municipality_id, settlement_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-			linkID, sec.Code, t.CountyID, t.MunicipalityID, t.SettlementID, now); err != nil {
+	return nil
+}
+
+// zivURegistru je uvjet da zapis registra nije obrisan: ima ga na površini,
+// ili zadnja verzija u knjizi nije spomenik. Identitet zapisa ide kao
+// parametar dvaput, a entitet u knjizi verzija zove se kao tablica registra.
+func zivURegistru(registar string) string {
+	return `(EXISTS (SELECT 1 FROM ` + registar + ` WHERE id = ?)
+		OR COALESCE((SELECT archived FROM record_versions WHERE entity = '` + registar + `' AND entity_id = ?
+			ORDER BY version_id DESC LIMIT 1), 0) = 0)`
+}
+
+// obrisanURegistru javlja je li veza pala jer je zapis registra obrisan
+// (uvjet zivURegistru ne vrijedi) dok ga je dionica još navodila. Brisanje
+// letve, objekta, naselja ili općine miče vezu iz kazala, ali ne i iz
+// dionice, pa bi inače strani ključ srušio dionicu na svakom čvoru koji je
+// primi nakon brisanja i pri svakom pokretanju. Zapis koji još nije stigao
+// nije obrisan: upis pada na stranom ključu, a dionica ga čeka među
+// nedovršenima. Kad se uvjet ne da pročitati, veza nije preskočena.
+func obrisanURegistru(ctx context.Context, tx Execer, uvjet string, args ...any) bool {
+	var ziv bool
+	err := tx.QueryRowContext(ctx, `SELECT `+uvjet, args...).Scan(&ziv)
+	return err == nil && !ziv
+}
+
+// zivTeritorij je uvjet da nijedna jedinica teritorija (županija, općina,
+// naselje) nije obrisana
+var zivTeritorij = zivURegistru("counties") + ` AND ` + zivURegistru("municipalities") + ` AND ` + zivURegistru("settlements")
+
+// upisiTeritorije upisuje veze dionice na teritorij njezinih poddionica;
+// veza na obrisanu jedinicu preskače se
+func upisiTeritorije(ctx context.Context, tx Execer, sec *models.Section, now time.Time) error {
+	for _, ter := range sec.AllTerritories() {
+		linkID := StableID("section_territory", sec.Code+"|"+ter.Key()).String()
+		_, err := tx.ExecContext(ctx, `INSERT OR IGNORE INTO section_territories
+			(id, section_code, county_id, municipality_id, settlement_id, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
+			linkID, sec.Code, ter.CountyID, ter.MunicipalityID, ter.SettlementID, now)
+		if err != nil && !obrisanURegistru(ctx, tx, zivTeritorij,
+			ter.CountyID, ter.CountyID, ter.MunicipalityID, ter.MunicipalityID, ter.SettlementID, ter.SettlementID) {
 			return err
 		}
 	}

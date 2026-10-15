@@ -2,6 +2,7 @@ package ugovor
 
 import (
 	"context"
+	"database/sql"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -20,6 +21,14 @@ import (
 var podrucjePrimjerica = models.Area{ID: 1, SectorID: "P", Name: "Mali sliv Primjerica", VgiName: "VGI Primjerica"}
 
 func registarUgovora(t *testing.T) Deps {
+	t.Helper()
+	_, d := registarUgovoraSBazom(t)
+	return d
+}
+
+// registarUgovoraSBazom je registarUgovora s bazom, za testove koji bazi
+// trebaju pokvariti tablicu
+func registarUgovoraSBazom(t *testing.T) (*sql.DB, Deps) {
 	t.Helper()
 	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ugovor.db"))
 	if err != nil {
@@ -66,7 +75,7 @@ func registarUgovora(t *testing.T) Deps {
 	if err := d.Structures.CreateStructure(ctx, &nasip); err != nil {
 		t.Fatal(err)
 	}
-	return d
+	return baza, d
 }
 
 func stavka(broj, opis, jed string) [3]string { return [3]string{broj, opis, jed} }

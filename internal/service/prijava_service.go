@@ -52,9 +52,11 @@ func NewPrijavaService(repo *repository.PrijavaRepository, users *UserService, v
 var ErrNijeNacrt = errors.New("objavljena prijava se ne mijenja; ispravak je nova prijava")
 
 // probni je list kojim se prava na prijavu provjeravaju kao na dnevniku
-// vodočuvara: tko vidi i parafira njegov list, vidi i njegove prijave
+// vodočuvara: tko čita njegov list, čita i njegove prijave, osim
+// rukovoditelja dionice, koji čita samo prijave vezane uz svoju dionicu
+// (knjiga_ovlasti.go)
 func probniList(p *models.PrijavaSTerena) *models.VodocuvarskiList {
-	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID}
+	return &models.VodocuvarskiList{UserID: p.UserID, Sektor: p.Sektor, AreaID: p.AreaID, Datum: p.Datum}
 }
 
 // SmijePisati javlja vodi li osoba vodočuvarski dnevnik, pa i prijave
@@ -62,6 +64,13 @@ func (s *PrijavaService) SmijePisati(u *models.User) bool { return VodiDnevnik(u
 
 // SmijeVidjeti javlja smije li osoba čitati prijavu
 func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
+	return s.smijeVidjeti(context.Background(), perms, p, nil)
+}
+
+// smijeVidjeti je SmijeVidjeti uz pamćenje vodočuvara već pročitanih za
+// popis (nil ne pamti) i onoga što je isto za cijeli popis (kontekst s
+// pamćenjem, sPamcenjem)
+func (s *PrijavaService) smijeVidjeti(ctx context.Context, perms *models.UserPermissions, p *models.PrijavaSTerena, poznati map[string]*cuvar) bool {
 	if perms == nil || p == nil {
 		return false
 	}
@@ -71,7 +80,7 @@ func (s *PrijavaService) SmijeVidjeti(perms *models.UserPermissions, p *models.P
 	if p.Status == models.PrijavaNacrt {
 		return false
 	}
-	return s.vodocuvar.SmijeVidjeti(perms, probniList(p))
+	return s.vodocuvar.cita(ctx, perms, probniList(p), p, poznati)
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
@@ -255,8 +264,9 @@ func (s *PrijavaService) Slike(ctx context.Context, p *models.PrijavaSTerena) ma
 }
 
 // Objavi objavljuje nacrt: dodijeli broj, upiše prijavu na dnevni list
-// vodočuvara za dan događaja i spremi potpisani PDF kao izvornik; PDF gradi
-// pozivatelj (crta i potpisuje) nad prijavom kakva će biti objavljena.
+// vodočuvara za dan događaja (za prošli dan bez lista ili s listom prenesenim
+// iz ranije evidencije na današnji) i spremi potpisani PDF kao izvornik; PDF
+// gradi pozivatelj (crta i potpisuje) nad prijavom kakva će biti objavljena.
 // Objava i izvornik su jedna transakcija; upis na list slijedi, a ako ne
 // uspije vraća se kao upozorenje uz objavljenu prijavu.
 func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, izradi func(p *models.PrijavaSTerena) ([]byte, error)) (*models.PrijavaSTerena, string, error) {
@@ -275,15 +285,17 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	if Arhivirana(dan.Year()) {
 		return nil, "", fmt.Errorf("knjiga za %d. je arhivirana", dan.Year())
 	}
-	// list dana: postojeći ili novi, s brojem
-	l, err := s.vodocuvar.pripremiZa(ctx, cijeli, dan)
+	// list dana: postojeći ili novi, s brojem; list za dan koji još nije
+	// počeo ostaje nacrt bez broja. Za dan koji je prošao list se više ne
+	// otvara: bez lista tog dana, ili kad je list tog dana prenesen iz
+	// ranije evidencije, prijava ide na današnji list (Odluke (8. 10. 2026.),
+	// pitanje 6).
+	l, _, err := s.vodocuvar.listZaUpisPrograma(ctx, cijeli, dan)
 	if err != nil {
 		return nil, "", err
 	}
-	if l.Broj == 0 {
-		if l.Broj, err = s.vodocuvar.repo.SljedeciBroj(ctx, cijeli.ID.String(), dan.Year()); err != nil {
-			return nil, "", err
-		}
+	if err := s.vodocuvar.dodijeliBroj(ctx, l); err != nil {
+		return nil, "", err
 	}
 	sad := time.Now()
 	p.Godina = dan.Year()
@@ -308,11 +320,36 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 		return nil, "", err
 	}
 	s.ObrisiSlikePoObjavi(ctx, p)
-	l.Prijave = append(l.Prijave, models.PrijavaNaListu{ID: p.ID, Oznaka: p.Oznaka(), Vrsta: p.Vrsta, Naslov: p.Naslov, Kad: sad})
+	l.Prijave = append(l.Prijave, prijavaNaListu(p, l, sad))
 	if err := s.vodocuvar.repo.Save(ctx, l); err != nil {
 		return p, "prijava je objavljena, ali upis na dnevni list nije uspio: " + err.Error(), nil
 	}
 	return p, "", nil
+}
+
+// prijavaNaListu je upis objavljene prijave na dnevni list vodočuvara. Kad
+// list nije list dana događaja (za taj dan, koji je prošao, nema lista, pa
+// je prijava upisana na današnji), uz naslov stoji dan događaja (Odluke
+// (8. 10. 2026.), pitanje 6).
+func prijavaNaListu(p *models.PrijavaSTerena, l *models.VodocuvarskiList, kad time.Time) models.PrijavaNaListu {
+	naslov := p.Naslov
+	if !istiDan(l.Datum, p.Datum) {
+		naslov += " (događaj od " + p.Datum.In(models.Zagreb).Format("02.01.2006.") + ")"
+	}
+	return models.PrijavaNaListu{ID: p.ID, Oznaka: p.Oznaka(), Vrsta: p.Vrsta, Naslov: naslov, Kad: kad}
+}
+
+// ErrTudjiNacrt: nacrt prijave postoji samo za vodočuvara koji ga piše, pa
+// ga drugi ne dobivaju kao da ga nema. I dalje je ErrUnauthorized, s istom
+// porukom.
+var ErrTudjiNacrt = fmt.Errorf("%w", ErrUnauthorized)
+
+// ListPrijave vraća dnevni list na kojem je prijava, s brojem kakav list
+// sada ima: nacrt za dan koji pri objavi još nije počeo broj dobiva tek
+// poslije, a list predan na dva čvora stoji pod oznakom svog potpisa
+// (Odluke (8. 10. 2026.), pitanja 5 i 7); nil kad ga čvor nema
+func (s *PrijavaService) ListPrijave(ctx context.Context, p *models.PrijavaSTerena) *models.VodocuvarskiList {
+	return s.vodocuvar.listVeze(ctx, p.ListID, func(l *models.VodocuvarskiList) bool { return imaPrijavu(l, p.ID) })
 }
 
 // Get čita prijavu ako je osoba smije vidjeti
@@ -322,9 +359,18 @@ func (s *PrijavaService) Get(ctx context.Context, perms *models.UserPermissions,
 		return nil, err
 	}
 	if !s.SmijeVidjeti(perms, p) {
-		return nil, ErrUnauthorized
+		return nil, zabranaPrijave(p)
 	}
 	return p, nil
+}
+
+// zabranaPrijave je greška za prijavu koju osoba ne smije čitati: za tuđi
+// nacrt ErrTudjiNacrt, inače ErrUnauthorized
+func zabranaPrijave(p *models.PrijavaSTerena) error {
+	if p.Status == models.PrijavaNacrt {
+		return ErrTudjiNacrt
+	}
+	return ErrUnauthorized
 }
 
 // List vraća prijave koje osoba smije vidjeti
@@ -334,8 +380,9 @@ func (s *PrijavaService) List(ctx context.Context, perms *models.UserPermissions
 		return nil, err
 	}
 	out := sve[:0]
+	poznati, popis := map[string]*cuvar{}, sPamcenjem(ctx)
 	for _, p := range sve {
-		if s.SmijeVidjeti(perms, &p) {
+		if s.smijeVidjeti(popis, perms, &p, poznati) {
 			out = append(out, p)
 		}
 	}

@@ -253,3 +253,36 @@ func TestTemperaturaIProtokUDatoteci(t *testing.T) {
 		t.Errorf("redak samo s temperaturom odbijen: %+v", redci)
 	}
 }
+
+// Pregled ispravaka pita za pravo samo kod retka koji se stvarno mijenja, a
+// redak koji već ima grešku zadržava je (Odluke (8. 10. 2026.), pitanje 9).
+func TestRetciBezPravaUPregledu(t *testing.T) {
+	kad := time.Date(2026, 9, 7, 8, 0, 0, 0, models.Zagreb)
+	miran, kriv := ocitanjeZaTest(kad, -118), ocitanjeZaTest(kad, -18)
+	redci := []RedakOcitanja{
+		{Redak: 2, ID: miran.ID, Staro: miran, Novo: miran},
+		{Redak: 3, Greska: "isto očitanje dolazi dvaput u datoteci", Brisati: true},
+		{Redak: 4, ID: kriv.ID, Staro: kriv, Izmjene: []Izmjena{{"vodostaj", "-18 cm", "-118 cm"}}},
+		{Redak: 5, ID: kriv.ID, Staro: kriv, Brisati: true},
+	}
+	pitano := 0
+	smije := func(odgovor bool) func(*models.Reading) bool {
+		return func(rd *models.Reading) bool {
+			pitano++
+			if rd.ID != kriv.ID {
+				t.Errorf("pitano za krivo očitanje %s", rd.ID)
+			}
+			return odgovor
+		}
+	}
+	oznaciRetkeBezPrava(redci, smije(true), smije(true))
+	if pitano != 2 || redci[0].Greska != "" || redci[2].Greska != "" || redci[3].Greska != "" ||
+		redci[1].Greska != "isto očitanje dolazi dvaput u datoteci" {
+		t.Errorf("uz pravo: pitano %d, %+v", pitano, redci)
+	}
+	oznaciRetkeBezPrava(redci, smije(false), smije(false))
+	if redci[2].Greska != "nemate pravo ispraviti ovo očitanje" || redci[3].Greska != "nemate pravo brisati ovo očitanje" ||
+		redci[0].Greska != "" || redci[2].Mijenja() || redci[3].Mijenja() {
+		t.Errorf("bez prava: %+v", redci)
+	}
+}

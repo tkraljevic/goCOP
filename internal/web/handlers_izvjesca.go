@@ -40,9 +40,11 @@ type IzvjescaPageData struct {
 	Tendencije  []struct{ Kod, Naziv string }
 	IsEdit      bool
 	SmijePisati bool
-	Danas       string
-	Dan         string // filtar popisa
-	Sifra       string // filtar popisa: dionica
+	// SmijeBrisati: izvješće koje je bilo predano briše samo uprava
+	SmijeBrisati bool
+	Danas        string
+	Dan          string // filtar popisa
+	Sifra        string // filtar popisa: dionica
 
 	// sektorska izvješća na popisu, za one koji ih slažu ili vide
 	Sektorska []models.SektorskoIzvjesce
@@ -175,6 +177,7 @@ func (h *IzvjescaHandler) ucitaj(w http.ResponseWriter, r *http.Request, data *I
 		return nil, nil, false
 	}
 	data.Izvjesce, data.Dionica, data.SmijePisati = iz, sec, svc.SmijePisati(data.Permissions, sec)
+	data.SmijeBrisati = svc.SmijeBrisati(data.Permissions, sec, iz)
 	return iz, sec, true
 }
 
@@ -234,10 +237,27 @@ func (h *IzvjescaHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 			redirectWith(w, r, "/izvjesca/"+iz.ID+"/uredi", "error", "Spremljeno kao nacrt; "+err.Error())
 			return
 		}
-		redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je predano.")
+		redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaSpremanjaIzvjesca(iz, true))
 		return
 	}
-	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je spremljeno kao nacrt.")
+	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaSpremanjaIzvjesca(iz, false))
+}
+
+// porukaSpremanjaIzvjesca kaže što je spremanje napravilo. Izmjena
+// izvješća koje je već bilo predano vraća ga u nacrt, pa se predaje ponovno;
+// predano izvješće spremljeno bez promjene ostaje predano.
+func porukaSpremanjaIzvjesca(iz *models.DnevnoIzvjesce, predano bool) string {
+	switch {
+	case iz.Predano():
+		return "Izvješće nije mijenjano i ostaje predano u podcentar."
+	case predano && iz.BiloPredano():
+		return "Izvješće je ponovno predano."
+	case predano:
+		return "Izvješće je predano."
+	case iz.BiloPredano():
+		return "Izmjena je spremljena; izvješće je sada nacrt i treba ga ponovo predati u podcentar."
+	}
+	return "Izvješće je spremljeno kao nacrt."
 }
 
 // SetZaglavlje daje rukovatelju ono što na izvozu stoji o organizaciji
@@ -268,7 +288,17 @@ func (h *IzvjescaHandler) HandlePredaj(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/izvjesca/"+iz.ID, "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", "Izvješće je predano.")
+	predano, _ := h.svc().Get(r.Context(), iz.ID)
+	redirectWith(w, r, "/izvjesca/"+iz.ID, "success", porukaPredajeIzvjesca(predano))
+}
+
+// porukaPredajeIzvjesca kaže je li izvješće predano prvi put ili ponovno,
+// nakon izmjene; nil je predano kao i prije
+func porukaPredajeIzvjesca(iz *models.DnevnoIzvjesce) string {
+	if iz != nil && iz.PonovnoPredano() {
+		return "Izvješće je ponovno predano."
+	}
+	return "Izvješće je predano."
 }
 
 // HandleObrisi arhivira izvješće
@@ -289,7 +319,9 @@ func (h *IzvjescaHandler) HandleObrisi(w http.ResponseWriter, r *http.Request) {
 func izvjesceIzObrasca(r *http.Request) *models.DnevnoIzvjesce {
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	broj := func(k string) int { n, _ := strconv.Atoi(strings.ReplaceAll(f(k), ",", ".")); return n }
-	dec := func(k string) float64 { v, _ := strconv.ParseFloat(strings.ReplaceAll(f(k), ",", "."), 64); return v }
+	// površina u hektarima: obrazac je piše točno, bez razdjelnika tisućica,
+	// a čita se i zapis s njima („1.500,0”), da se ne pretvori u nulu
+	dec := func(k string) float64 { return atof(f(k)) }
 	iz := &models.DnevnoIzvjesce{SectionCode: f("dionica"), Stadij: models.DefensePhase(f("stadij"))}
 	if t, err := time.ParseInLocation("2006-01-02", f("dan"), models.Zagreb); err == nil {
 		iz.Dan = t

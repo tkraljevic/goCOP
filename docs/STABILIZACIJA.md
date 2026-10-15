@@ -28,6 +28,10 @@ PR-ova #4–#11 i nalazi iz ovog plana koji su ostali nakon 0.0.34) ispravljeni
 su ili čekaju odluku. Popis je u odjeljku
 [Zaostaci faza 1 i 2](#zaostaci-faza-1-i-2-6-10-2026).
 
+**Stanje 8. 10. 2026.:** zaostaci su spojeni u master (PR #29), a 21 pitanje
+je odlučeno; odluke su u odjeljku
+[Odluke (8. 10. 2026.)](#odluke-8-10-2026) i provode se.
+
 ## Kako je izabrano
 
 Polazište je `.quality/code-health.json` mjerenja mastera na Linuxu (vidi „Brojke” niže), ali brojka nije presudila. Uz složenost (CC), pokrivenost i CRAP gledano je:
@@ -350,6 +354,11 @@ Sama ništa ne piše: zapis radi `Zapisi` (`:719`).
 - Odlučiti trebaju li greške izvora postati upozorenja na aktu.
 
 ## 7. `service.(*EpisodeService).Declare`, `Raise`, `End` i `izracunaj` — `internal/service/episode_service.go:44`, `:85`, `:109`, `:213`
+
+**Uklonjeno 10. 10. 2026.** (odluka 14): ove funkcije, `Rebuild` i
+`EpisodeRepository.DeleteEpisodesFrom` više ne postoje; stanje obrane dolazi
+samo iz ovjerenih akata (`EpisodeService.UskladiIzAkata`). Opis ispod ostaje
+kao zapis polazišta.
 
 **Odgovornost.** Proglašenje, podizanje i prestanak obrane na dionici (operaterske epizode), i izračun epizoda iz niza očitanja.
 
@@ -735,6 +744,192 @@ Najveća složenost i najveći churn u repozitoriju (19 commitova).
 - **Uvoz iz stare evidencije (BP16)** ostaje dok se ne pregleda, predviđen za brisanje (pod 13).
 - **Riješeno u 0.0.34:** izravne rute obrane (`POST /sections/{code}/obrana/*`) uklonjene su; doseg 0 više se ne ispravlja promašajima niti ulazi u glačanje susjednih dosega.
 
+## Odluke (8. 10. 2026.)
+
+Odgovori na 21 pitanje iz „Zaostaci faza 1 i 2 (6. 10. 2026.)” (niže); brojevi
+su brojevi tih pitanja, slovo u zagradi je izabrana opcija iz dokumenta s
+primjerima od 6. 10.
+
+1. **Knjiga vodočuvara i prijave s terena** (dnevni listovi vodočuvara i
+   objavljene prijave; ne Dnevnik COP-a ni dnevnici usluga A.02 i A.03):
+
+   | Uloga (doseg) | čita dnevne listove | čita prijave | parafira | upisuje bilješku | zadaje zadatak |
+   |---|---|---|---|---|---|
+   | Dežurni operater u COP-u (svoj sektor) | da | da | ne | da | ne |
+   | Voditelj usluga / Poslovođa | ne | ne | ne | ne | ne |
+   | Rukovoditelj branjenog područja (svoje područje) | da | da | da | da | da, svojim vodočuvarima |
+   | Rukovoditelj dionice na području vodočuvara (osobito u obrani, iznimno i izvan nje) | da | koje se tiču njegove dionice | ako se tiče njegove dionice | ako se tiče njegove dionice | samo u obrani i ako se tiče njegove dionice |
+   | Ovlaštenik za praćenje ugovora (svoje područje) | da | da | da | da | da |
+
+   Poslovođa u dnevnicima usluga A.02 i A.03 vidi samo dnevnik svoje firme, ne
+   dnevnike drugih firmi na drugim branjenim područjima. Time prestaje
+   privremeni pristup operatera i poslovođe iz R-1. Zamjenik ima ista prava
+   kao uloga koju zamjenjuje; uprava sektora i razina 1, vlastita knjiga
+   vodočuvara, ovjera lista i rješavanje prijave ostaju kao dosad.
+2. **Pregled tuđim očima isključenog računa** (C): dopušten samo za čitanje,
+   i kad su „Upisi tuđim očima” uključeni; traka kaže da je račun isključen.
+   Kad se račun isključi usred pregleda, pregled odmah prelazi na čitanje.
+3. **Lozinka Dežurnom operateru u COP-u** (B): uprava sektora smije operateru
+   svog sektora dati privremenu lozinku i kod za prijavu izvana; za istu razinu
+   broje se samo dužnosti koje upravljaju. Uprava iste razine i dalje ide višoj
+   razini.
+4. **Broj akta među čvorovima** (A): broj je jedinstven na čvoru i dodjeljuje
+   se u istom koraku s upisom. Ista oznaka s drugog čvora vidljivo se označi u
+   popisu akata, a sukob rješava voditelj Centra obrane od poplava ili njegov
+   zamjenik. Pravilo rada: akti se objavljuju na jednom čvoru.
+5. **List za dan koji nije počeo** (B): samo nacrt, najviše 30 dana unaprijed;
+   „Potpiši i predaj” tek od 00:00 tog dana; isto za upis rukovoditelja. Ne
+   ovjerava se i ne zaključuje ono što još nije počelo.
+6. **Redni broj lista:** list dobiva broj kad počne njegov dan; nacrti
+   unaprijed nemaju broj. List za dan koji je prošao ne može se naknadno
+   otvoriti: tko ga nije otvorio na svoj dan, taj dan nije radio. Već upisani
+   listovi zadržavaju svoje brojeve. Ni program ne otvara list za prošli dan:
+   ovjeren akt koji vrijedi od dana za koji vodočuvar nema lista upisuje se na
+   njegov današnji list, uz napomenu od kada akt vrijedi.
+7. **Dva lista za isti dan** (B): identitet novog lista izvodi se iz osobe i
+   dana, pa je na svim čvorovima to isti list. Predan list ima prednost pred
+   nacrtom, a bilješke rukovoditelja se ne gube. Postojeći dvojnici se
+   prijave, ne brišu.
+8. **Tko upisuje očitanje:** letva dobiva neobavezan podatak „sektori i
+   područja koji je prate” (može ih biti više). Očitanje upisuje svatko s
+   valjanom dužnošću u sektoru letve, i Dežurni operater u COP-u, a ne Gost ni
+   Preglednik. Svaka domaća letva je u nekom sektoru i branjenom području;
+   strane letve dobivaju sektor koji ih prati. Letva kojoj sektor još nije
+   upisan (ni preko dionica) zadržava dosadašnje pravilo dok se sektor ne
+   upiše, da noćni upis dežurnog ne zapne.
+9. **Ispravak vlastitog očitanja:** autor ispravlja svoje očitanje dok ima
+   dužnost u sektoru letve, a nakon toga još 72 h od upisa. Briše samo onaj tko
+   odgovara za letvu.
+10. **Nepoznato mjesto dežurstva** (B uz C): program prvo pokuša mjesto iz
+    opisa. Ako ne uspije, zapis je „za provjeru”, ne ulazi u zbroj i ne
+    potvrđuje se dok uprava centra ne izabere opis. Uprava centra smije
+    ispraviti opis postojećeg zapisa, uz trag u knjizi verzija. IORS se smije
+    predati uz upozorenje.
+11. **Prijenos u skladište drugog sektora** (A sada, C kasnije): ostaje
+    slobodan, uz obavijest ciljnom sektoru na zidu događanja; potvrda
+    primitka („na putu”) kasnije, ako zatreba.
+12. **Predano izvješće sektora** (C): izmjena ga vraća u nacrt i traži novu
+    predaju s novim vremenom. Pamti se i prvo vrijeme predaje i tko je
+    mijenjao. Isto vrijedi za dnevno izvješće dionice. Predano izvješće se ne
+    briše, nego povlači.
+13. **Testovi sa stvarnim podacima** (C): testovi djelatnika i ovlasti, uvoza
+    i razmjene čvorova prelaze na izmišljeni sektor P i izmišljene osobe.
+    Provjere registara ostaju na stvarnim podacima i obavezno se pokreću prije
+    izdanja. Povijest na GitHubu se ne čisti.
+14. **Mrtav kod ručnog proglašenja** (A): briše se sav; hitnog ručnog
+    proglašenja mimo akta nema. Ostaje ono što je korisno: na historijatu
+    letve vidi se kad bi prema vodostajima bio koji stadij („Valovi obrane u
+    nizu”, samo prikaz, nikad upis obrane).
+15. **Dnevni model prognoze** (C): neuspjelo učenje ponavlja se u idućem
+    satnom krugu, a modeli se uče iznova nakon uvoza u arhivu i nakon
+    „Pripremi model”; dan po zagrebačkom vremenu. Uz to: u postavkama prognoze
+    izvoz stare prognoze za odabrani dan i sat, isto kao za aktualnu.
+16. **Rezervna inačica prognoze** (A): ostaje bez ispravka promašaja; provjera
+    unatrag i alat za provjeru rade po istom pravilu; doseg 0 nigdje se ne
+    ispravlja.
+17. **„Vrijedi od” u aktu** (C + D): odbija se vrijeme prije otvaranja
+    Dnevnika COP-a aktivne obrane u sektoru i više od 7 dana unaprijed; za
+    više od 24 h unatrag ili 3 dana unaprijed traži se potvrda, koja se
+    bilježi uz akt. Godina oznake ostaje iz „Vrijedi od”.
+18. **Tko sastavlja akt o obrani:** akt se izdaje isključivo u Centru obrane
+    od poplava. Nacrt sastavljaju voditelj Centra obrane od poplava, njegov
+    zamjenik i Dežurni operater u COP-u; ovjerava (potpisuje) rukovoditelj
+    branjenog područja ili sektora. Vodočuvari i rukovoditelji dionica ne
+    sastavljaju akte, nego ih dobivaju na znanje kad su ovjereni.
+19. **Primatelji akta** (C + D + E): nacrt se sastavi i kad izvor zakaže, uz
+    vidljivo upozorenje; ovjera traži potvrdu dok upozorenje stoji; gumb
+    „Ponovno složi primatelje”; popis se ponovno složi pri ovjeri i pokaže se
+    razlika. Na popisu su firme i rukovoditelji svih područja čije su dionice u
+    aktu. Sve dionice dobit će teritorij.
+20. **Prijave s terena na zidu** (B): sve vrste objavljenih i riješenih
+    prijava, vidljive samo onima koji ih smiju čitati, bez prijava prenesenih
+    iz BP16.
+21. **Vrijednosti izvan raspona** (B sada, D kasnije): iste granice za sve
+    putove upisa; odbačene vrijednosti broje se i pokazuju na stranici letve;
+    tri akumulacije HEP-a dobivaju oznaku „kota u cm n. m.” (5000…40 000 cm).
+    Označavanje po letvi dolazi kasnije.
+
+**Provedba (10. 10. 2026.).** Odluke 1–5, 7, 10–17 i 19–21 provedene su na
+grani `odluke-8-10`. Svaka je imala neovisan kritički pregled i doradu.
+Svaka ima testove koji bez nje padaju, a zaključani testovi su okrenuti uz
+napomenu o odluci. Uz to, uzdužni profil računa nulu iz istih dana na cijelom
+toku i izostavlja mjerila koja stoje (Siga, Petreš, Vrbovka na rekordno niskoj
+vodi) te letve koje nakon prekida nastave na drugoj razini. Prognoza nosi
+upozorenja uz izdanje, a satna uskače kad dnevne nema. Ranija prognoza izvozi
+se za odabrani dan i sat. U drugom krugu, na istoj grani, provedene su
+odluke 6, 8, 9 i 18 te provjera ključa čvora pri pokretanju (plan izdanja). Sva nova pravila vrijede tek kad su svi čvorovi na 0.0.35;
+čvorovi na 0.0.34 zadržavaju staro ponašanje i ne ruše se na novim poljima.
+
+Otvoreno nakon pregleda, za odluku:
+- stare otvorene epizode obrane bez akta (izvor OPERATER ili OČITANJA iz
+  ranijih izdanja) i dalje se računaju kao trenutna obrana, a zatvoriti ih se
+  više nema čime;
+- provjere registara traže datoteke prvog punjenja, a njih nema nigdje, pa se
+  `make provjera-registara` ne može pokrenuti;
+- na zidu je istaknuta samo objava prijave vrste „Prijava”, ne i njezino
+  rješenje;
+- nacrt prijave prenesen iz BP16 koji vodočuvar dovrši u goCOP-u ne ide na zid;
+- 88 starih očitanja izvan raspona (hdv.voda.hr) ostaje dok se ne odluči;
+- list otvoren prije ponoći, a prvi put spremljen poslije nje, odbija se, a
+  upisani tekst se gubi;
+- sken ovjere i slanje ovjerenog akta i dalje smiju svi koji pišu na
+  dionicama akta, a ne samo Centar obrane od poplava.
+
+## Odluke (11. 10. 2026.)
+
+1. **Listovi unaprijed ostaju.** Vodočuvar smije otvoriti nacrt lista za
+   budući dan (najviše 30 dana unaprijed, bez broja, odluka 5) i dopisivati
+   ga sve dok ga ne potpiše i preda, i kad mu je dan prošao. Novi list za
+   prošli dan i dalje se ne otvara (odluka 6).
+2. **Upozorenje na nepredane listove.** Vodočuvar dobiva upozorenje za svaki
+   svoj list kojem je dan prošao, a nije ga potpisao i predao: na početnoj
+   stranici i u svom dnevniku, s poveznicom na list. Upozorava samo list na
+   koji je sam nešto upisao (spremljen obrazac, tekst ili objavljena
+   prijava). List koji je otvorio samo program, upisom ovjerenog akta ili
+   „Upiši” rukovoditelja, ne upozorava, jer taj dan nije radio. Ne upozoravaju
+   ni listovi iz BP16, dan na kojem je neki list predan, ni arhivirana knjiga.
+3. **Primjer postavki uz bazu.** Uz `gocop.toml` program pri svakom
+   pokretanju zapiše `gocop.toml.primjer` s kratkim opisima i komentiranim
+   primjerima svih postavki tekuće inačice. Postojeći `gocop.toml` ne dira, a
+   primjer ne čita.
+
+Provedeno na grani `odluke/11-10`, za izdanje 0.0.35.
+
+## Izdanje 0.0.35: konsolidacijsko (odluka 10. 10. 2026.)
+
+0.0.35 izlazi nakon drugog kruga odluka od 8. 10., prije faze 3. Ne mora biti
+gotova stabilizacija, nego konzistentna mrežna baza za sljedeći korak: nova
+pravila i polja vrijede tek kad su svi čvorovi na istoj inačici, a mješovite
+inačice traže kompatibilnost po značajki. To je veći rizik od toga da faza 3
+kasni.
+
+Redoslijed:
+1. zatvoriti zaostatke faza 1–2 i odluke od 8. 10.;
+2. provjeriti (kriterij niže);
+3. izdati 0.0.35;
+4. nadograditi sve aktivne čvorove, prvo stalne (Unraid);
+5. zatim mrežni protokol;
+6. fazu 3 raditi usporedo s protokolom, gdje se dotiču.
+
+Kriterij izdanja:
+- `make quality` zelen (testovi, race, statička analiza, vrata kvalitete) i
+  puni CI na PR-u;
+- svi aktivni čvorovi nadograđuju se na 0.0.35 odmah, bez probe stare i nove
+  inačice jedne uz drugu (odluka 10. 10. 2026.); razdoblje mješovitih
+  inačica je samo vrijeme same nadogradnje;
+- nakon nadogradnje glavni čvorovi vide isto stanje: isti broj zapisa po
+  sinkroniziranom entitetu, ista upozorenja uz isto izdanje prognoze, pločica
+  razmjene bez grešaka;
+- nema tihog gubitka podataka.
+
+Zatim: 0.0.34 je bila velika stabilizacija jezgre, 0.0.35 konsolidacija
+pravila i inačica čvorova, a dalje dolaze mrežni protokol i faza 3.
+Razdvajanje `applyOne` po entitetima nije samo smanjenje složenosti nego
+granica protokola. Ondje dolaze dogovor o inačicama, kompatibilnost sheme,
+postupak s nepoznatim entitetom, pravila nadogradnje, zapis odbijenih ili
+djelomično podržanih poruka i, gdje treba, pravilo kompatibilnosti po
+entitetu.
+
 ## Nestabilno mjerenje
 
 Coverage nekih funkcija mijenja se od pokretanja do pokretanja bez promjene koda i testova, pa `make quality` može javiti lažnu regresiju. Takav test treba učiniti determinističkim (grana se pogađa namjerno, a ne slučajno); baseline se zbog toga ne prihvaća.
@@ -773,7 +968,8 @@ F1-15 i F1-16 ispravljeni su u kodu koji od 0.0.34 nema proizvodnog
 pozivatelja (`EpisodeService.Declare`, `Raise`, `End`, `Rebuild`); vidi
 otvoreno pitanje 14.
 
-**Otvorena pitanja.** Kod nije mijenjan. Uz svako je preporuka.
+**Pitanja kako su postavljena 6. 10.** Odlučena su 8. 10. 2026. (vidi
+„Odluke (8. 10. 2026.)” gore); preporuke ispod ostaju kao zapis.
 
 1. *Operater i poslovođa* (F1-4): smiju li dežurni operater i poslovođa
    izvođača vidjeti vodočuvarski dnevnik i prijave s terena? Do odluke vide
@@ -836,7 +1032,9 @@ uvoz ugovora šalje novi trenutak nastanka vode u knjigu; MTS ne provjerava je
 li objekt u zadanom području ni je li ciljno skladište aktivno; sat uvoza
 tablice nema provjeru raspona; dvije istodobne parafe ili parafa i ovjera
 mogu jedna drugoj prepisati upis; `IsFieldUser` ne gleda istek; nestabilno mjerenje pokrivenosti u
-`drugi_korak.go`; dvije zatečeno neformatirane testne datoteke.
+`drugi_korak.go`; dvije zatečeno neformatirane testne datoteke; dvije
+kartice istog dnevnog lista vodočuvara prepisuju tekstna polja bez upozorenja
+(primjer 1 pitanja 7).
 
 ## Faza 3
 

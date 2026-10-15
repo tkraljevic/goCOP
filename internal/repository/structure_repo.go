@@ -151,6 +151,32 @@ func (r *StructureRepository) GetStructure(ctx context.Context, id uuid.UUID) (*
 	return &s, nil
 }
 
+// DioniceObjekta su šifre dionica objekta s branjenog područja areaID,
+// zadanog identifikatorom iz registra ili nazivom (bez obzira na razmake
+// oko njega i velika slova); prazan identifikator i prazan naziv ne
+// zadaju nijedan objekt. Samo čita.
+func (r *StructureRepository) DioniceObjekta(ctx context.Context, areaID int, id, naziv string) ([]string, error) {
+	id, naziv = strings.TrimSpace(id), strings.TrimSpace(naziv)
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT DISTINCT ss.section_code FROM section_structures ss
+		JOIN structures s ON s.id = ss.structure_id
+		WHERE s.area_id = ? AND ((? <> '' AND s.id = ?) OR (? <> '' AND trim(s.name) = ? COLLATE NOCASE))
+		ORDER BY ss.section_code`, areaID, id, id, naziv, naziv)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
 // GetByCode vraća objekt po šifri ili nil
 func (r *StructureRepository) GetByCode(ctx context.Context, code string) (*models.Structure, error) {
 	s, err := scanStructure(r.db.QueryRowContext(ctx, "SELECT "+structureColumns+" FROM structures WHERE code = ?", code))

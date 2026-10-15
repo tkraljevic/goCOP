@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/models"
 	"gocop/internal/sadrzaj"
 )
 
@@ -62,23 +63,24 @@ func (s *Service) spremisteSadrzaja() *sadrzaj.Spremiste {
 }
 
 // zeljeniOtisci slaže što ovaj čvor traži od drugoga: željeni sadržaji koje
-// pretplata pokriva na svojoj razini, do ograde po razmjeni
+// pretplata pokriva na svojoj razini, do ograde po razmjeni. Želje koje
+// pretplata ne pokriva preskaču se prije ograde od 200 stavki: ostaju na
+// popisu za dohvat, ali ne zauzimaju mjesta željenima iza sebe.
 func (s *Service) zeljeniOtisci(ctx context.Context, w Wants) []string {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
 		return nil
 	}
-	zelje, err := sp.Zeljeni(ctx, najviseSadrzajaPoRazmjeni)
+	sectorOf := s.sectorLookup(ctx)
+	zelje, err := sp.ZeljeniKoje(ctx, najviseSadrzajaPoRazmjeni, func(z sadrzaj.Zelja) bool {
+		return w.zeliSadrzaj(z.Kanal, z.Vrsta, sectorOf)
+	})
 	if err != nil {
 		return nil
 	}
-	sectorOf := s.sectorLookup(ctx)
 	var out []string
 	var ukupno int
 	for _, z := range zelje {
-		if !w.zeliSadrzaj(z.Kanal, z.Vrsta, sectorOf) {
-			continue
-		}
 		if ukupno+z.Bajtova > najviseBajtovaPoRazmjeni && len(out) > 0 {
 			break
 		}
@@ -195,5 +197,5 @@ func opisSadrzaja(stavke []stavkaSadrzaja) string {
 	for _, s := range stavke {
 		b += s.Bajtova
 	}
-	return fmt.Sprintf("%d sadržaja, %.1f MB", len(stavke), float64(b)/1e6)
+	return fmt.Sprintf("%d %s, %.1f MB", len(stavke), models.UzBrojHR(len(stavke), "sadržaj", "sadržaja", "sadržaja"), float64(b)/1e6)
 }

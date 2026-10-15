@@ -103,60 +103,60 @@ func pokreniNTLMProbni(t *testing.T, korisnik, lozinka string) (*httptest.Server
 // koja nikad nije bila prijavljena: inače već prijavljena veza istog imena
 // primi i krivu lozinku, a NTLM poruka tipa 3 se uopće ne pošalje.
 func TestProvjeraLozinkeNovomVezom(t *testing.T) {
-	srv, tip3 := pokreniNTLMProbni(t, "tkraljevic", "tajna")
+	srv, tip3 := pokreniNTLMProbni(t, "pperic", "tajna")
 	ctx := context.Background()
 	p := Postavke{Nacin: NacinEWS, Posluzitelj: srv.URL + "/EWS/Exchange.asmx",
 		TLS: srv.Client().Transport.(*http.Transport).TLSClientConfig, Istek: 10 * time.Second}
 
 	// osobni sandučić prijavi vezu
-	if err := Provjeri(ctx, p, Racun{Korisnik: "tkraljevic", Lozinka: "tajna"}); err != nil {
+	if err := Provjeri(ctx, p, Racun{Korisnik: "pperic", Lozinka: "tajna"}); err != nil {
 		t.Fatalf("točna lozinka: %v", err)
 	}
 	// ista lozinka ide već prijavljenom vezom, bez nove prijave
 	prije := tip3.Load()
-	if err := Provjeri(ctx, p, Racun{Korisnik: "tkraljevic", Lozinka: "tajna"}); err != nil || tip3.Load() != prije {
+	if err := Provjeri(ctx, p, Racun{Korisnik: "pperic", Lozinka: "tajna"}); err != nil || tip3.Load() != prije {
 		t.Fatalf("prijavljena veza ne bi smjela tražiti novu prijavu: %v (prijava %d)", err, tip3.Load()-prije)
 	}
 	// druga (kriva) lozinka istog imena ne dobiva tu vezu: skup je po imenu
 	// i lozinci, pa ide prijavom i poslužitelj je odbije
-	if err := Provjeri(ctx, p, Racun{Korisnik: "tkraljevic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) || tip3.Load() == prije {
+	if err := Provjeri(ctx, p, Racun{Korisnik: "pperic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) || tip3.Load() == prije {
 		t.Fatalf("kriva lozinka prošla je prijavljenom vezom: %v", err)
 	}
-	if _, ok := klijenti.Load(p.kljucEWSKlijenta(Racun{Korisnik: "tkraljevic", Lozinka: "kriva"})); ok {
+	if _, ok := klijenti.Load(p.kljucEWSKlijenta(Racun{Korisnik: "pperic", Lozinka: "kriva"})); ok {
 		t.Error("klijent odbijene prijave ostao je u skupu")
 	}
-	if _, ok := klijenti.Load(p.kljucEWSKlijenta(Racun{Korisnik: "tkraljevic", Lozinka: "tajna"})); !ok {
+	if _, ok := klijenti.Load(p.kljucEWSKlijenta(Racun{Korisnik: "pperic", Lozinka: "tajna"})); !ok {
 		t.Error("klijent prijavljene veze nestao je iz skupa")
 	}
 	// i tuđi sandučić: druga osoba s istim imenom i krivom lozinkom ne čita
 	// sandučić vlasnika kroz njegovu prijavljenu vezu
-	if _, _, err := Sanducic(ctx, p, Racun{Korisnik: "tkraljevic", Lozinka: "nije-moja"}, "inbox", "", 0, 10); !errors.Is(err, ErrPrijava) {
+	if _, _, err := Sanducic(ctx, p, Racun{Korisnik: "pperic", Lozinka: "nije-moja"}, "inbox", "", 0, 10); !errors.Is(err, ErrPrijava) {
 		t.Errorf("sandučić tuđom lozinkom: %v", err)
 	}
 
 	svjeza := p
 	svjeza.SvjezaVeza = true
-	if err := Provjeri(ctx, svjeza, Racun{Korisnik: "tkraljevic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
+	if err := Provjeri(ctx, svjeza, Racun{Korisnik: "pperic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
 		t.Errorf("provjera krive lozinke novom vezom: %v", err)
 	}
-	if _, err := Prijavi(ctx, svjeza, Racun{Korisnik: "tkraljevic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
+	if _, err := Prijavi(ctx, svjeza, Racun{Korisnik: "pperic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
 		t.Errorf("prijava krivom lozinkom novom vezom: %v", err)
 	}
-	m := Poruka{Od: mail.Address{Address: "tkraljevic@voda.hr"}, Za: mail.Address{Address: "a@voda.hr"}, Predmet: "x", Tekst: "y", BezKopije: true}
-	if _, err := Posalji(ctx, svjeza, Racun{Korisnik: "tkraljevic", Lozinka: "kriva"}, []Poruka{m}); !errors.Is(err, ErrPrijava) {
+	m := Poruka{Od: mail.Address{Address: "pperic@voda.hr"}, Za: mail.Address{Address: "a@voda.hr"}, Predmet: "x", Tekst: "y", BezKopije: true}
+	if _, err := Posalji(ctx, svjeza, Racun{Korisnik: "pperic", Lozinka: "kriva"}, []Poruka{m}); !errors.Is(err, ErrPrijava) {
 		t.Errorf("probno slanje krivom lozinkom novom vezom: %v", err)
 	}
-	if ime, err := Prijavi(ctx, svjeza, Racun{Korisnik: "tkraljevic", Lozinka: "tajna"}); err != nil || ime != "tkraljevic" {
+	if ime, err := Prijavi(ctx, svjeza, Racun{Korisnik: "pperic", Lozinka: "tajna"}); err != nil || ime != "pperic" {
 		t.Errorf("točna lozinka novom vezom: %q %v", ime, err)
 	}
 
 	// račun sustava ima svoj skup veza, odvojen od osobnog sandučića
 	pin := p
 	pin.Klijent = "posta-pin"
-	if err := Provjeri(ctx, pin, Racun{Korisnik: "tkraljevic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
+	if err := Provjeri(ctx, pin, Racun{Korisnik: "pperic", Lozinka: "kriva"}); !errors.Is(err, ErrPrijava) {
 		t.Errorf("račun sustava je pošao vezom osobnog sandučića: %v", err)
 	}
-	ja := Racun{Korisnik: "tkraljevic", Lozinka: "tajna"}
+	ja := Racun{Korisnik: "pperic", Lozinka: "tajna"}
 	if p.ewsKlijentZa(ja) == pin.ewsKlijentZa(ja) {
 		t.Error("račun sustava i osobni sandučić dijele klijent")
 	}

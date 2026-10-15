@@ -86,8 +86,8 @@ function render(st) {
       <td>${p.member ? '<span class="badge badge-active">član</span>' : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
       <td>${when(s.last_ok)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
       <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' : '—'}</td>
-      <td>${s.last_ok ? (p.backlog ? p.backlog + ' verzija' : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
-      <td class="muted mono">${(p.addresses || []).map(esc).join('<br>') || '—'}</td>
+      <td>${s.last_ok ? (p.backlog ? p.backlog + ' ' + uzBroj(p.backlog, 'verzija', 'verzije', 'verzija') : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
+      <td class="muted mono">${(p.addresses || []).concat((s.tailscale || []).map(a => a + ' (Tailscale)')).map(esc).join('<br>') || '—'}</td>
       <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" data-node="' + esc(p.node_id) + '" onclick="syncOne(this.dataset.node)">Razmijeni</button>' : ''}</td>
     </tr>`;
   });

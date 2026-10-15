@@ -429,3 +429,170 @@ func TestOsvjezavanjeRubniSlucajevi(t *testing.T) {
 		t.Errorf("ishod: bez prognoze %v, preskočeno %v, sat %d", ishod.BezPrognoze, ishod.Preskoceno, ishod.Sada)
 	}
 }
+
+// Odluke (8. 10. 2026.), pitanje 16: rezerva satnog lanca ostaje bez
+// ispravka promašajima, kao i uživo, pa ih ni provjera unatrag ne miješa:
+// promašaji se mjere samo na izdanjima koja je računao glavni račun, a
+// zapisani se primjenjuju samo ondje gdje bi ih primijenila živa prognoza —
+// na glavnom računu i nikad u satu izdavanja. Zaključavanje je zato namjerno
+// prošireno testovima ispod.
+//
+// Na probnoj arhivi donja ima rezervu iz pričuvne letve, koja stoji na 90
+// cm, pa rezerva promašuje za 15 cm, a glavni račun za 5. Gornja ne javlja
+// dva dana (od 48. do 95. sata), pa 45 izdanja (od 51. sata, kad gornja
+// prestane biti svježa, do 95.) računa rezerva.
+
+const stalnaPricuvna = 90.0
+
+// arhivaSRezervom je stalna arhiva uz pričuvnu letvu; gornja nema mjerenja
+// od rupa[0] do prije rupa[1].
+func arhivaSRezervom(t *testing.T, od, do time.Time, rupa [2]time.Time) *sql.DB {
+	t.Helper()
+	db := stalnaArhiva(t, od, do)
+	if _, err := db.Exec(`DELETE FROM spoj WHERE letva = 'gornja' AND vrijeme >= ? AND vrijeme < ?`,
+		rupa[0].Unix(), rupa[1].Unix()); err != nil {
+		t.Fatal(err)
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	for kad := od; !kad.After(do); kad = kad.Add(time.Hour) {
+		if _, err := tx.Exec(`INSERT INTO spoj VALUES ('pricuvna', 'vodostaj', 'satni', ?, ?)`, kad.Unix(), stalnaPricuvna); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	return db
+}
+
+// bazaSRezervom je probna baza prognoza uz rezervu donje iz pričuvne.
+func bazaSRezervom(t *testing.T) *sql.DB {
+	t.Helper()
+	baza := praznaBazaPrognoza(t)
+	ulaz := func(letva string) []Ulaz {
+		return []Ulaz{{Letva: letva, Velicina: "vodostaj", PomakH: 3, Sirina: 1, Nagib: 1}}
+	}
+	pojasi := []Pojas{
+		{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 3, Ulazi: ulaz("gornja")},
+		{Letva: "donja", Velicina: "vodostaj", Od: -1000, Do: 1000, Rasap: 4, Inacica: 1, Ulazi: ulaz("pricuvna")},
+	}
+	if err := Spremi(baza, pojasi, "proba"); err != nil {
+		t.Fatal(err)
+	}
+	return baza
+}
+
+// opcijeSRezervom su tjedan izdanja svaki sat (169) uz rupu gornje.
+func opcijeSRezervom(dnevnik *bytes.Buffer) (OpcijeProvjere, [2]time.Time) {
+	o := opcijeStalne(dnevnik)
+	o.Do = o.Od.Add(7 * 24 * time.Hour)
+	return o, [2]time.Time{o.Od.Add(48 * time.Hour), o.Od.Add(96 * time.Hour)}
+}
+
+// redoviCSV čita tablicu provjere bez zaglavlja.
+func redoviCSV(t *testing.T, tablica *bytes.Buffer) [][]string {
+	t.Helper()
+	r := csv.NewReader(strings.NewReader(strings.TrimPrefix(tablica.String(), "\ufeff")))
+	r.Comma = ';'
+	redovi, err := r.ReadAll()
+	if err != nil || len(redovi) == 0 {
+		t.Fatalf("CSV: %v, %v", redovi, err)
+	}
+	return redovi[1:]
+}
+
+func TestProvjeraUnatragMjeriSamoGlavniRacun(t *testing.T) {
+	bezIspravka(t)
+	var dnevnik, tablica bytes.Buffer
+	o, rupa := opcijeSRezervom(&dnevnik)
+	o.CSV = &tablica
+	baza := bazaSRezervom(t)
+	if _, err := ProvjeriUnatrag(arhivaSRezervom(t, o.Od.Add(-12*time.Hour), o.Do.Add(13*time.Hour), rupa), baza, o); err != nil {
+		t.Fatal(err)
+	}
+	zapisani, err := Promasaji(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(zapisani[donjaVodostaj]) != 13 {
+		t.Fatalf("zapisani promašaji: %v", zapisani)
+	}
+	// Glavni račun promašuje točno 5 cm; rezerva (−15) ne ulazi u zbroj.
+	// Prije je ulazila: na svakom dosegu 1–12 h pomak −7,7 cm uz rasap 2,7 i
+	// 167 slučaja, a u CSV-u 334 retka, i oni s prognozom 90.
+	for d, p := range zapisani[donjaVodostaj] {
+		ocekivano := -5.0
+		if d == 0 {
+			ocekivano = 0 // u satu izdavanja stoji mjerenje
+		}
+		if math.Abs(p.Pomak-ocekivano) > 1e-9 || p.Rasap != 0 || p.Slucaja != slucajaGlavnog(d) {
+			t.Errorf("doseg %d h: pomak %v, rasap %v, slučaja %d; želim %v, 0, %d",
+				d, p.Pomak, p.Rasap, p.Slucaja, ocekivano, slucajaGlavnog(d))
+		}
+	}
+	// U tablici su samo izdanja glavnog računa: prognoza 100, nikad 90.
+	redovi := redoviCSV(t, &tablica)
+	if len(redovi) != slucajaGlavnog(6)+slucajaGlavnog(12) {
+		t.Errorf("CSV ima %d redaka, želim %d", len(redovi), slucajaGlavnog(6)+slucajaGlavnog(12))
+	}
+	for _, red := range redovi {
+		if red[5] != "100" || red[8] != "105" {
+			t.Errorf("redak izdanja koje ne računa glavni: %v", red)
+			break
+		}
+	}
+}
+
+// slucajaGlavnog je broj izdanja glavnog računa koja na dosegu d imaju
+// prognozu: od 169 izdanja 45 računa rezerva, ostaje 124. Izdanja u 96. i
+// 97. satu imaju samo sat izdavanja, jer prvi sat unaprijed traži gornju iz
+// rupe; u 48.–50. satu gornja kasni najviše ZaostatakVrha, pa se drži njezino
+// zadnje mjerenje.
+func slucajaGlavnog(d int) int {
+	if d == 0 {
+		return 124
+	}
+	return 122
+}
+
+func TestProvjeraUnatragIspravljaKaoZivaPrognoza(t *testing.T) {
+	bezIspravka(t)
+	var dnevnik, tablica bytes.Buffer
+	o, rupa := opcijeSRezervom(&dnevnik)
+	o.CSV, o.Ispravi = &tablica, true
+	baza := bazaSRezervom(t)
+	// Zapisano: +7 cm u satu izdavanja (živa prognoza ga ne primjenjuje) i −5
+	// cm dalje, što točno poništi promašaj glavnog računa.
+	zapis := []Promasaj{{Letva: "donja", Velicina: "vodostaj", DosegH: 0, Pomak: 7, Rasap: 1, Slucaja: 500}}
+	for d := 1; d <= 12; d++ {
+		zapis = append(zapis, Promasaj{Letva: "donja", Velicina: "vodostaj", DosegH: d, Pomak: -5, Rasap: 2, Slucaja: 500})
+	}
+	if err := SpremiPromasaje(baza, zapis, "ranije"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ProvjeriUnatrag(arhivaSRezervom(t, o.Od.Add(-12*time.Hour), o.Do.Add(13*time.Hour), rupa), baza, o); err != nil {
+		t.Fatal(err)
+	}
+	// S ispravkom kao uživo provjera ne promašuje nigdje. Prije je sat
+	// izdavanja dobivao zapisanih +7 (98 prema izmjerenih 105: pomak −7), a
+	// rezerva ispravak glavnog (95 prema 105: pomak −2,7 na dosezima 1–12 h).
+	zapisani, err := Promasaji(baza)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for d, p := range zapisani[donjaVodostaj] {
+		if math.Abs(p.Pomak) > 1e-9 || p.Slucaja != slucajaGlavnog(d) {
+			t.Errorf("doseg %d h nakon ispravka: pomak %v, slučaja %d; želim 0, %d", d, p.Pomak, p.Slucaja, slucajaGlavnog(d))
+		}
+	}
+	for _, red := range redoviCSV(t, &tablica) {
+		if red[5] != "105" || red[6] != "103" || red[7] != "107" {
+			t.Errorf("provjera s ispravkom: %v, želim 105 (103–107)", red)
+			break
+		}
+	}
+}

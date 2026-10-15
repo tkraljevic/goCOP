@@ -18,6 +18,17 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
+// Upravljac pali, gasi i nadzire čvor. Cvor ga pokreće kao dijete Postave,
+// a Usluga preko systemd-a, kad je čvor na Linuxu usluga sustava.
+type Upravljac interface {
+	Instaliran() bool
+	Pokreni() error
+	Zaustavi(rok time.Duration) error
+	Proces() StanjeProcesa
+	Zdravlje(ctx context.Context) (izdanje string, port int)
+	NaPromjenu(f func())
+}
+
 // Cvor pali i gasi gocop kao dijete Postave i nadzire ga
 type Cvor struct {
 	m       Mjesta
@@ -218,12 +229,17 @@ func (c *Cvor) Proces() StanjeProcesa {
 // odgovara. Pokušava port iz gocop.toml; uz zadani 80 i 8080, na koji čvor
 // sam prijeđe kad je 80 zauzet.
 func (c *Cvor) Zdravlje(ctx context.Context) (izdanje string, port int) {
-	for _, p := range c.portovi() {
+	return zdravlje(ctx, c.klijent, portoviIz(c.m.PostavkeCvora()))
+}
+
+// zdravlje pita GET /zdravlje na 127.0.0.1, redom po portovima
+func zdravlje(ctx context.Context, klijent *http.Client, portovi []int) (izdanje string, port int) {
+	for _, p := range portovi {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/zdravlje", p), nil)
 		if err != nil {
 			continue
 		}
-		odg, err := c.klijent.Do(req)
+		odg, err := klijent.Do(req)
 		if err != nil {
 			continue
 		}
@@ -240,10 +256,12 @@ func (c *Cvor) Zdravlje(ctx context.Context) (izdanje string, port int) {
 	return "", 0
 }
 
-// portovi su port iz gocop.toml (zadano 80), uz 80 i rezervni 8080
-func (c *Cvor) portovi() []int {
+// portoviIz su port iz gocop.toml (zadano 80), uz 80 i rezervni 8080. Kad
+// se datoteka ne može pročitati (usluga sustava: /var/lib/gocop je samo
+// korisnika gocop), vrijede zadani.
+func portoviIz(postavke string) []int {
 	port := 80
-	if b, err := os.ReadFile(c.m.PostavkeCvora()); err == nil {
+	if b, err := os.ReadFile(postavke); err == nil {
 		var p struct {
 			Addr string `toml:"addr"`
 		}

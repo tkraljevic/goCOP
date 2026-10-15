@@ -141,7 +141,7 @@ func (s *StationService) canEditSection(perms *models.UserPermissions, sectionCo
 // CreateStation upisuje novu vodomjernu postaju u registar i, kad je zadana
 // dionica, odmah je proglašava njezinim mjerodavnim vodomjerom
 func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPermissions, station *models.Station, sectionCode string) error {
-	if err := s.validate(station); err != nil {
+	if err := s.provjeriNovu(ctx, station); err != nil {
 		return err
 	}
 	if sectionCode != "" {
@@ -205,7 +205,7 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 	if existing == nil {
 		return fmt.Errorf("vodomjerna postaja nije pronađena")
 	}
-	if err := s.requireAnySectionAccess(perms, existing.SectionCodes); err != nil {
+	if err := s.provjeriIzmjenu(ctx, perms, station, existing); err != nil {
 		return err
 	}
 	preispitajPregled(station)
@@ -221,15 +221,7 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 		station.Code = existing.Code // šifra je identitet i ne uređuje se
 	}
 
-	// Naziv vodotoka mijenja i podrijetlo podatka: ručni unos je potvrda
-	// operatera i raskida vezu na registar dok se ne uspostavi iznova
-	if strings.EqualFold(strings.TrimSpace(station.Watercourse), strings.TrimSpace(existing.Watercourse)) {
-		station.WatercourseSource = existing.WatercourseSource
-	} else if strings.TrimSpace(station.Watercourse) == "" {
-		station.WatercourseSource = models.WatercourseUndetermined
-	} else {
-		station.WatercourseSource = models.WatercourseFromOperator
-	}
+	podrijetloVode(station, existing)
 
 	// Letva bez ijednog praga u centimetrima traži pregled bez obzira na
 	// kvačicu: to nije mišljenje operatera nego stanje podatka. Ima li pragove,
@@ -256,6 +248,26 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 	return nil
 }
 
+// podrijetloVode namješta podrijetlo naziva vode i vezu na registar voda.
+// Naziv vodotoka mijenja i podrijetlo podatka: ručni unos je potvrda
+// operatera i raskida vezu na registar dok se ne uspostavi iznova. Obrazac
+// postaje polazi od zatečenog zapisa, pa uz novi naziv nosi staru šifru vode;
+// takva šifra pokazuje na vodu koje na postaji više nema i pada. Nova šifra
+// uz novi naziv (veza na vodu iz registra) ostaje.
+func podrijetloVode(station, existing *models.Station) {
+	if strings.EqualFold(strings.TrimSpace(station.Watercourse), strings.TrimSpace(existing.Watercourse)) {
+		station.WatercourseSource = existing.WatercourseSource
+		return
+	}
+	station.WatercourseSource = models.WatercourseFromOperator
+	if strings.TrimSpace(station.Watercourse) == "" {
+		station.WatercourseSource = models.WatercourseUndetermined
+	}
+	if station.WatercourseCode == existing.WatercourseCode {
+		station.WatercourseCode = ""
+	}
+}
+
 // DeleteStation briše postaju iz registra. Postaja mjerodavna za neku dionicu
 // briše se samo odlukom globalnog administratora, jer nestaje sa svih dionica.
 func (s *StationService) DeleteStation(ctx context.Context, perms *models.UserPermissions, id uuid.UUID) error {
@@ -263,6 +275,41 @@ func (s *StationService) DeleteStation(ctx context.Context, perms *models.UserPe
 		return fmt.Errorf("vodomjernu postaju iz registra može obrisati samo globalni administrator")
 	}
 	return s.stationRepo.DeleteStation(ctx, id)
+}
+
+// provjeriNovu provjerava podatke nove postaje i sektore i područja koji je
+// prate
+func (s *StationService) provjeriNovu(ctx context.Context, station *models.Station) error {
+	if err := s.validate(station); err != nil {
+		return err
+	}
+	return s.provjeriPracenje(ctx, station, nil)
+}
+
+// provjeriIzmjenu traži ovlast nad postajom i provjerava sektore i područja
+// koji je prate
+func (s *StationService) provjeriIzmjenu(ctx context.Context, perms *models.UserPermissions, station, existing *models.Station) error {
+	if err := s.requireAnySectionAccess(perms, existing.SectionCodes); err != nil {
+		return err
+	}
+	return s.provjeriPracenje(ctx, station, existing)
+}
+
+// provjeriPracenje sređuje sektore i branjena područja koji letvu prate i
+// traži da su u registru (Odluke (8. 10. 2026.), pitanje 8). Ono što je
+// letva već imala ne provjerava se ponovo: područje koje je u međuvremenu
+// nestalo iz registra ne smije zaustaviti svaku izmjenu letve.
+func (s *StationService) provjeriPracenje(ctx context.Context, station, staro *models.Station) error {
+	station.UrediPracenje()
+	sektori, podrucja := station.NovoPracenje(staro)
+	nepoznato, err := s.stationRepo.NepoznatoPracenje(ctx, sektori, podrucja)
+	if err != nil {
+		return err
+	}
+	if nepoznato != "" {
+		return fmt.Errorf("%s nije u registru, pa ne može pratiti letvu", nepoznato)
+	}
+	return nil
 }
 
 // requireAnySectionAccess traži ovlast nad barem jednom dionicom postaje

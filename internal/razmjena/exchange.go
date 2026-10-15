@@ -23,9 +23,13 @@ import (
 // only the frame; what the kinds mean and what the payload holds is the
 // application's protocol. Reason accompanies a refusal, sent before
 // closing so the other machine reads a sentence instead of EOF.
+//
+// Uz odbijenicu ide i Kod, broj razloga iz kodovi.go. Poruke bez njega
+// ostaju bajt po bajt iste kao u 0.0.38, a čvor 0.0.38 polje zanemari.
 type Envelope struct {
 	Kind     string          `json:"kind"`
 	Reason   string          `json:"reason,omitempty"`
+	Kod      KodRazloga      `json:"kod,omitempty"`
 	DeviceID string          `json:"deviceId,omitempty"`
 	Payload  json.RawMessage `json:"payload,omitempty"`
 }
@@ -141,6 +145,10 @@ func (c *Conn) Close() error { return c.raw.Close() }
 
 // RemoteAddr is where the peer connected from.
 func (c *Conn) RemoteAddr() net.Addr { return c.raw.RemoteAddr() }
+
+// LocalAddr je adresa ovog računala na koju je veza stigla (ili s koje je
+// otišla); kroz tunel je to put tunela, ne IP adresa
+func (c *Conn) LocalAddr() net.Addr { return c.raw.LocalAddr() }
 
 // KeyChecker answers whether a proven public key belongs to a member —
 // the application implements it over its memberships, and may accept a
@@ -287,31 +295,50 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 	}
 }
 
-// odbijZauzet javlja poznatom čvoru da je ovaj zauzet. Pozivatelj uvijek
-// prvi šalje svoju granicu; ona se pročita prije odbijenice, da zatvaranje
-// s nepročitanim podacima ne pošalje RST koji bi odbijenicu progutao.
-func odbijZauzet(c *Conn) {
+// odbijZauzet javlja poznatom čvoru da je ovaj zauzet
+func odbijZauzet(c *Conn) { Odbij(c, KodZauzet, RazlogZauzet) }
+
+// Odbij odbija razmjenu s poznatim čvorom i zatvara vezu; druga strana
+// prepozna kod i ispiše razlog. Pozivatelj uvijek prvi šalje svoju granicu;
+// ona se pročita prije odbijenice, da zatvaranje s nepročitanim podacima ne
+// pošalje RST koji bi odbijenicu progutao.
+func Odbij(c *Conn, kod KodRazloga, razlog string) {
 	defer c.Close()
 	_ = c.raw.SetReadDeadline(time.Now().Add(10 * time.Second))
 	c.citac.postavi(1 << 20)
 	var prva Envelope
 	_ = c.dec.Decode(&prva)
-	_ = c.Send(Envelope{Kind: VrstaOdbijeno, Reason: RazlogZauzet})
+	_ = c.Send(Odbijenica(kod, razlog))
 }
 
 // DialExchange connects to a peer and refuses to proceed unless the key
 // it proves is the one expected.
 func DialExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*Conn, error) {
+	// rok vrijedi za spajanje i rukovanje zajedno, kao uz tls.Dialer
+	ctx, otkazi := context.WithTimeout(ctx, 15*time.Second)
+	defer otkazi()
+	raw, err := (&net.Dialer{}).DialContext(ctx, "tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	return DialExchangeOn(ctx, raw, priv, protocol, vj, addr, expect)
+}
+
+// DialExchangeOn je DialExchange preko već otvorene veze do drugog čvora
+// (npr. veza koju je otvorio test); addr je samo za poruku o grešci. Veza se
+// zatvara kad razmjena ne može početi.
+func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, protocol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*Conn, error) {
 	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
+		raw.Close()
 		return nil, err
 	}
-	d := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 15 * time.Second}, Config: cfg}
-	raw, err := d.DialContext(ctx, "tcp", addr)
-	if err != nil {
+	tc := tls.Client(raw, cfg)
+	if err := tc.HandshakeContext(ctx); err != nil {
+		tc.Close()
 		return nil, err
 	}
-	conn, err := newConn(raw.(*tls.Conn))
+	conn, err := newConn(tc)
 	if err != nil {
 		return nil, err
 	}

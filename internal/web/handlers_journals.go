@@ -211,7 +211,42 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		http.Error(w, "dnevnik pokazuje na nepoznato područje", http.StatusInternalServerError)
 		return nil, nil, false
 	}
+	if !h.journals.VidiDnevnikUsluge(r.Context(), perms, models.OpsegPodrucja(*area), j) {
+		http.Error(w, "Izvođač vidi samo dnevnike usluga svoje firme na svom branjenom području: one na čijoj je naslovnici kao izvođač upisana firma s njegova računa, i one u kojima je već pisao.", http.StatusForbidden)
+		return nil, nil, false
+	}
 	return j, area, true
+}
+
+// vidljivaPodrucja ostavlja područja čije dnevnike usluga osoba smije
+// čitati; odabrano područje koje ne smije zamjenjuje prvo koje smije, a nil
+// je kad takvog nema
+func (h *JournalsHandler) vidljivaPodrucja(perms *models.UserPermissions, area *models.Area, areas []models.Area) (*models.Area, []models.Area) {
+	var out []models.Area
+	for _, a := range areas {
+		if h.journals.VidiUslugePodrucja(perms, models.OpsegPodrucja(a)) {
+			out = append(out, a)
+		}
+	}
+	if area != nil && h.journals.VidiUslugePodrucja(perms, models.OpsegPodrucja(*area)) {
+		return area, out
+	}
+	if len(out) > 0 {
+		return &out[0], out
+	}
+	return nil, out
+}
+
+// vidljiviDnevnici ostavlja dnevnike usluga područja koje osoba smije
+// čitati: izvođač samo dnevnike svoje firme
+func (h *JournalsHandler) vidljiviDnevnici(ctx context.Context, perms *models.UserPermissions, area models.Area, js []models.Journal) []models.Journal {
+	var out []models.Journal
+	for i := range js {
+		if h.journals.VidiDnevnikUsluge(ctx, perms, models.OpsegPodrucja(area), &js[i]) {
+			out = append(out, js[i])
+		}
+	}
+	return out
 }
 
 // opseg je doseg dnevnika: po centru za COP, po području za uslugu. Popis
@@ -259,10 +294,35 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 				data.BrojIzvjesca, _ = svc.Broj(r.Context())
 			}
 		}
-		data.BrojA02 = broj[models.JournalKindMaintenanceA02]
-		data.BrojA03 = broj[models.JournalKindMaintenanceA03]
+		data.BrojA02, data.BrojA03 = h.brojeviUsluga(r.Context(), data.Permissions, broj)
 	}
 	h.render(w, h.tmplIzbor, "dnevnici_izbor.html", data)
+}
+
+// brojeviUsluga su brojevi dnevnika usluga A.02 i A.03 na razdjelnici:
+// izvođaču (IzvodjacZaDnevnike) samo dnevnici koje smije čitati, svima
+// ostalima svi (sviPoVrsti)
+func (h *JournalsHandler) brojeviUsluga(ctx context.Context, perms *models.UserPermissions, sviPoVrsti map[string]int) (a02, a03 int) {
+	if perms != nil && !perms.IsGlobalAdmin && h.journals.IzvodjacZaDnevnike(&perms.User) {
+		sviPoVrsti = h.vidljiviPoVrsti(ctx, perms)
+	}
+	return sviPoVrsti[models.JournalKindMaintenanceA02], sviPoVrsti[models.JournalKindMaintenanceA03]
+}
+
+// vidljiviPoVrsti broji po vrsti dnevnike usluga koje osoba smije čitati,
+// na područjima koja smije vidjeti; područje čiji se dnevnici ne daju
+// pročitati ne broji se
+func (h *JournalsHandler) vidljiviPoVrsti(ctx context.Context, perms *models.UserPermissions) map[string]int {
+	out := map[string]int{}
+	sva, _ := h.users.ListAreas("")
+	_, vidljiva := h.vidljivaPodrucja(perms, nil, sva)
+	for _, a := range vidljiva {
+		js, _ := h.journals.ListJournals(ctx, a.ID)
+		for _, j := range h.vidljiviDnevnici(ctx, perms, a, js) {
+			out[j.Kind]++
+		}
+	}
+	return out
 }
 
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
@@ -290,6 +350,8 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 
 	want, _ := strconv.Atoi(r.URL.Query().Get("area"))
 	data.Area, data.Areas = h.areaOf(data.Permissions, want)
+	// izvođač vidi samo područja u koja piše, a na njima dnevnike svoje firme
+	data.Area, data.Areas = h.vidljivaPodrucja(data.Permissions, data.Area, data.Areas)
 	h.fillRights(&data)
 	if data.Area != nil {
 		js, err := h.journals.ListJournals(r.Context(), data.Area.ID)
@@ -307,7 +369,7 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 			}
 			js = samo
 		}
-		data.Journals = js
+		data.Journals = h.vidljiviDnevnici(r.Context(), data.Permissions, *data.Area, js)
 	}
 	h.render(w, h.tmplList, "dnevnici.html", data)
 }
@@ -931,5 +993,5 @@ func (h *JournalsHandler) HandleObrisiDnevnik(w http.ResponseWriter, r *http.Req
 	if j.AreaID > 0 {
 		popis += "&area=" + strconv.Itoa(j.AreaID)
 	}
-	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d zapisa; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n))
+	redirectWith(w, r, popis, "success", fmt.Sprintf("Dnevnik „%s“ je obrisan, s %d %s; u knjizi verzija ostaje arhiviran.", j.DisplayTitle(), n, models.UzBrojHR(n, "zapisom", "zapisa", "zapisa")))
 }

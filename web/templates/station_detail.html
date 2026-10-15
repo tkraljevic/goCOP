@@ -12,6 +12,7 @@
       {{if .Station.HasWatercourse}}{{if .Station.WatercourseCode}}<a href="/watercourses/{{.Station.WatercourseCode}}">{{.Station.Watercourse}}</a>{{else}}{{.Station.Watercourse}}{{end}}{{with .Station.PodrijetloVodotoka}} <span title="kako je utvrđeno na kojoj vodi letva stoji">({{.}})</span>{{end}}{{else}}vodotok nije određen{{end}}
       {{if .Station.Stationing}} · {{.Station.Stationing}}{{end}}
       {{if .Station.WaterArea}} · {{.Station.WaterArea}}{{end}}
+      {{if .Station.KotaNM}} · <span class="reg-chip" title="Letva vodi kotu vodnog lica nad morem, ne vodostaj; prima vrijednosti od 5000 do 40 000 cm">kota u cm n. m.</span>{{end}}
       {{if .Station.JeInozemna}} · <span title="Država">{{icon "map"}} {{.Station.Zemlja}}</span>{{end}}
       {{if .Station.NeedsReview}} · <span class="badge badge-inactive" title="{{.Station.ReviewNote}}">{{icon "triangle-alert"}} traži pregled</span>{{end}}
     </p>
@@ -99,6 +100,11 @@
     <div class="reg-empty">Postaja još nije dodijeljena nijednoj dionici. Dodaje se iz modula dionica.</div>
     {{end}}
   </div>
+  {{if .Pracenje}}
+  <p class="reg-card-sub mt-2" title="Sektori i branjena područja upisani u obrascu letve, uz one s dionica">
+    {{icon "users"}} Prate je: {{range $i, $p := .Pracenje}}{{if $i}}, {{end}}{{$p}}{{end}}
+  </p>
+  {{end}}
 </section>
 
 <div class="kartica-podnozje">

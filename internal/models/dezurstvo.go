@@ -1,6 +1,9 @@
 package models
 
-import "time"
+import (
+	"regexp"
+	"time"
+)
 
 // Dezurstvo je jedan razmak rada jedne osobe u obrani: od–do, što je radila
 // i gdje. Plan dežurstava je popis takvih razmaka unaprijed; kad prođu,
@@ -28,6 +31,7 @@ type Dezurstvo struct {
 
 	// Opis je jedan od OpisiRada; Mjesto se iz njega izvodi pri upisu i
 	// pohranjuje, da obračun ostane isti i ako se popis opisa promijeni.
+	// Zapis kojemu mjesto nije ni ured ni teren obračun čita kroz MjestoRada.
 	Opis     string `json:"opis"`
 	Mjesto   string `json:"mjesto"` // MjestoUred ili MjestoTeren
 	Napomena string `json:"napomena"`
@@ -79,6 +83,57 @@ func MjestoZaOpis(opis string) string {
 	return ""
 }
 
+// MjestoRada je mjesto rada za obračun: pohranjeno, kad je ured ili teren;
+// inače izvedeno iz opisa, kad je opis s popisa. Prazno kad ni opis nije s
+// popisa (zapis s drugog čvora ili stariji zapis bez mjesta): tada se ne zna
+// je li ured ili teren, pa se ništa ne pretpostavlja.
+func (d Dezurstvo) MjestoRada() string {
+	if d.Mjesto == MjestoUred || d.Mjesto == MjestoTeren {
+		return d.Mjesto
+	}
+	return MjestoZaOpis(d.Opis)
+}
+
+// ZaProvjeru javlja da se mjesto rada ne zna: takvo dežurstvo ne ulazi u
+// obračun i ne potvrđuje se dok uprava centra ne izabere opis s popisa
+func (d Dezurstvo) ZaProvjeru() bool { return d.MjestoRada() == "" }
+
+// reTragIspravka prepoznaje bilješku koju u napomeni ostavlja ispravak
+// opisa rada: „[opis ispravio Ana Anić 8.10.2026. 14:20; prije: „…”]”
+var reTragIspravka = regexp.MustCompile(`\[opis ispravio .*?; prije: „.*?”\]`)
+
+// TragoviIspravkaOpisa su bilješke o ispravku opisa rada iz napomene, redom
+func TragoviIspravkaOpisa(napomena string) []string {
+	return reTragIspravka.FindAllString(napomena, -1)
+}
+
+// OpisBiraUprava javlja da opis rada ovog dežurstva bira uprava centra:
+// kad se ne zna mjesto rada, i kad je opis već ispravila (u napomeni je
+// trag ispravka). Osoba čije je dežurstvo takav opis ne mijenja i zapis ne
+// miče — inače bi napomena upravi pripisala opis koji nije birala, a zapis
+// bi se dao maknuti i upisati ponovno bez traga (Odluke (8. 10. 2026.),
+// pitanje 10).
+func (d Dezurstvo) OpisBiraUprava() bool {
+	return d.ZaProvjeru() || reTragIspravka.MatchString(d.Napomena)
+}
+
+// OznakaZaProvjeru stoji umjesto mjesta rada kad se mjesto ne zna
+const OznakaZaProvjeru = "mjesto nepoznato — za provjeru"
+
+// NazivMjesta je mjesto rada kako ga plan, obračun i IORS ispisuju
+func NazivMjesta(mjesto string) string {
+	switch mjesto {
+	case MjestoTeren:
+		return "teren"
+	case MjestoUred:
+		return "ured"
+	}
+	return OznakaZaProvjeru
+}
+
+// MjestoTekst je mjesto rada dežurstva za ispis
+func (d Dezurstvo) MjestoTekst() string { return NazivMjesta(d.MjestoRada()) }
+
 // ZaPodrucje javlja je li dežurstvo vezano na jedno branjeno područje
 func (d Dezurstvo) ZaPodrucje() bool { return d.Podrucje != nil && *d.Podrucje > 0 }
 
@@ -115,7 +170,30 @@ type PlanOsobe struct {
 	Sektor       string
 	Zakljucen    bool
 	Dezurstava   int
-	CekaPotvrdu  int
+	CekaPotvrdu  int // nepotvrđena dežurstva s poznatim mjestom rada
+	ZaProvjeru   int // dežurstva kojima se ne zna mjesto rada, potvrđena ili ne
 	Sati         time.Duration
 	Prvo, Zadnje time.Time
+}
+
+// Dodaj pribraja dežurstvo planu: broj, sate te prvi i zadnji dan. Što nije
+// u obračunu broji se posebno, kao u obračunu i IORS-u: dežurstvo kojemu se
+// ne zna mjesto rada je „za provjeru” i kad je potvrđeno, a nepotvrđeno
+// takvo ne čeka potvrdu, jer se ne potvrđuje dok uprava centra ne izabere
+// opis (Odluke (8. 10. 2026.), pitanje 10).
+func (p *PlanOsobe) Dodaj(d Dezurstvo) {
+	if p.Dezurstava == 0 || d.Od.Before(p.Prvo) {
+		p.Prvo = d.Od
+	}
+	if p.Dezurstava == 0 || d.Do.After(p.Zadnje) {
+		p.Zadnje = d.Do
+	}
+	p.Dezurstava++
+	p.Sati += d.Trajanje()
+	switch {
+	case d.ZaProvjeru():
+		p.ZaProvjeru++
+	case !d.Potvrdeno():
+		p.CekaPotvrdu++
+	}
 }

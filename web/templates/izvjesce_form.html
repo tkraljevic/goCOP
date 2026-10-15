@@ -15,7 +15,10 @@
 </div>
 
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je predano {{.Izvjesce.PredanoAt.Format "2.1.2006. 15:04"}}. Izmjena ostaje zabilježena u knjizi verzija.</div>{{end}}
+{{if .Izvjesce.Predano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.
+  Spremljena izmjena vraća ga u nacrt koji treba ponovo predati, s novim vremenom predaje; prvo vrijeme predaje ostaje zapisano,
+  a uz izvješće piše tko ga je mijenjao. Spremanje bez promjene ostavlja ga predanim.</div>
+{{else if .Izvjesce.BiloPredano}}<div class="alert alert-warning">{{icon "triangle-alert"}} Izvješće je nacrt: {{.Izvjesce.OpisPredaje "u podcentar" "2.1.2006. 15:04"}}.</div>{{end}}
 
 <form class="form-page form-wide izvjesce-obrazac" method="POST" action="{{if .IsEdit}}/izvjesca/{{.Izvjesce.ID}}{{else}}/izvjesca{{end}}">
   {{/* Zaglavlje obrasca: dan, dionica, stadij, vodotok */}}
@@ -138,9 +141,9 @@
     <label>industrijski objekti <input type="number" name="popl_industrijski" class="form-control" min="0" value="{{if $pp.Industrijski}}{{$pp.Industrijski}}{{end}}"></label>
     <label>farme <input type="number" name="popl_farme" class="form-control" min="0" value="{{if $pp.Farme}}{{$pp.Farme}}{{end}}"></label>
     <label class="siroko">infrastrukturni objekti (ceste, mostovi…) <input type="text" name="popl_infrastruktura" class="form-control" value="{{$pp.Infrastruktura}}"></label>
-    <label>šumske površine (ha) <input type="text" name="popl_sumske" class="form-control" inputmode="decimal" value="{{if $pp.SumskeHa}}{{brojHRf $pp.SumskeHa 1}}{{end}}"></label>
-    <label>poljoprivredne (ha) <input type="text" name="popl_poljoprivredne" class="form-control" inputmode="decimal" value="{{if $pp.PoljoprivredneHa}}{{brojHRf $pp.PoljoprivredneHa 1}}{{end}}"></label>
-    <label>ostale površine (ha) <input type="text" name="popl_ostale" class="form-control" inputmode="decimal" value="{{if $pp.OstaleHa}}{{brojHRf $pp.OstaleHa 1}}{{end}}"></label>
+    <label>šumske površine (ha) <input type="text" name="popl_sumske" class="form-control" inputmode="decimal" value="{{if $pp.SumskeHa}}{{kolicinaPlain $pp.SumskeHa}}{{end}}"></label>
+    <label>poljoprivredne (ha) <input type="text" name="popl_poljoprivredne" class="form-control" inputmode="decimal" value="{{if $pp.PoljoprivredneHa}}{{kolicinaPlain $pp.PoljoprivredneHa}}{{end}}"></label>
+    <label>ostale površine (ha) <input type="text" name="popl_ostale" class="form-control" inputmode="decimal" value="{{if $pp.OstaleHa}}{{kolicinaPlain $pp.OstaleHa}}{{end}}"></label>
   </div>
   {{$e := .Izvjesce.Sadrzaj.Evakuacija}}
   <div class="form-group"><label class="form-label" for="evak_naselja">Evakuacija — naselja</label><input type="text" id="evak_naselja" name="evak_naselja" class="form-control" value="{{$e.Naselja}}"></div>
@@ -152,7 +155,7 @@
 
   <div class="form-actions">
     <button type="submit" class="btn btn-secondary">{{icon "check"}} Spremi nacrt</button>
-    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} Spremi i predaj</button>
+    <button type="submit" name="predaj" value="1" class="btn btn-primary">{{icon "arrow-right"}} {{if .Izvjesce.BiloPredano}}Spremi i ponovo predaj{{else}}Spremi i predaj{{end}}</button>
     <span class="reading-meta">Izrađuje {{.CurrentUser.FullName}}; datum i sat izrade upisuju se sami. Predano izvješće ostaje u knjizi verzija.</span>
   </div>
 </form>

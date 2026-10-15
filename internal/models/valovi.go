@@ -2,6 +2,7 @@ package models
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"time"
@@ -131,7 +132,7 @@ func (v Val) ZavrsiloHR() string { return trenutakHR(v.Zavrsilo, v.Korak) }
 func (v Val) VrhKadHR() string   { return trenutakHR(v.VrhKad, v.Korak) }
 
 // VrhLabel je vršni vodostaj vala, zaokružen na cijeli centimetar.
-func (v Val) VrhLabel() string { return fmt.Sprintf("%+d cm", int(v.VrhCm+0.5)) }
+func (v Val) VrhLabel() string { return fmt.Sprintf("%+d cm", int(math.Round(v.VrhCm))) }
 
 // Godina je hidrološka pripadnost vala — godina u kojoj je počeo.
 func (v Val) Godina() int { return v.Pocelo.Year() }
@@ -417,31 +418,9 @@ func grupiraj(n int) string {
 	return znak + string(b)
 }
 
-func sat(n int) string {
-	if n%100 >= 11 && n%100 <= 14 {
-		return "sati"
-	}
-	switch n % 10 {
-	case 1:
-		return "sat"
-	case 2, 3, 4:
-		return "sata"
-	}
-	return "sati"
-}
+func sat(n int) string { return UzBrojHR(n, "sat", "sata", "sati") }
 
-func dan(n int) string {
-	if n%100 >= 11 && n%100 <= 14 {
-		return "dana"
-	}
-	switch n % 10 {
-	case 1:
-		return "dan"
-	case 2, 3, 4:
-		return "dana"
-	}
-	return "dana"
-}
+func dan(n int) string { return UzBrojHR(n, "dan", "dana", "dana") }
 
 // ZbrojStupnja je koliko je jedan stupanj obrane ukupno bio na snazi kroz
 // cijeli niz: u koliko valova, koliko ukupno i koliko u najduljem.

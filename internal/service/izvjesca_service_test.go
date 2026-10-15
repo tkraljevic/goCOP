@@ -211,7 +211,7 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 		t.Fatalf("predložak: %+v", p)
 	}
 	if !strings.Contains(pr.Sadrzaj.Ostecenja, "Baranja — B.16.1 (Dunav): Procjeđivanje") || !strings.Contains(pr.Sadrzaj.Mjere, "[vreće 1 800]") ||
-		!strings.Contains(pr.Sadrzaj.Poplavljeno, "Zmajevac, 4 stambenih, 35 ha poljoprivrednih") {
+		!strings.Contains(pr.Sadrzaj.Poplavljeno, "Zmajevac, 4 stambena, 35 ha poljoprivrednih") {
 		t.Errorf("prijedlog teksta: %+v", pr.Sadrzaj)
 	}
 	if len(pr.Sadrzaj.Zapisi) != 1 || pr.Sadrzaj.Zapisi[0].Podrucje != "Baranja" || pr.Sadrzaj.Zapisi[0].Vrijeme != "07:15" || pr.Sadrzaj.Zapisi[0].Javio != "vodočuvar" {
@@ -255,7 +255,15 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 	if s.SmijeVidjetiSektor(rukovoditelj, "B") != true || s.SmijeVidjetiSektor(&models.UserPermissions{}, "B") {
 		t.Error("vidljivost")
 	}
-	if err := s.ObrisiSektorsko(ctx, voditelj, uprava, pr.ID); err != nil {
+	// Odluke (8. 10. 2026.), pitanje 12: predano izvješće sektora više se ne
+	// briše (prije je ovdje brisanje predanog prolazilo); predaja se povlači.
+	if err := s.ObrisiSektorsko(ctx, voditelj, uprava, pr.ID); err == nil || !strings.Contains(err.Error(), "ne briše se") {
+		t.Fatalf("brisanje predanog izvješća sektora: %v", err)
+	}
+	if err := s.PovuciPredajuSektorskog(ctx, voditelj, uprava, pr.ID); err != nil {
 		t.Fatal(err)
+	}
+	if povuceno, _ := s.GetSektorsko(ctx, pr.ID); povuceno.Predano() || !povuceno.BiloPredano() || povuceno.Sadrzaj.Pregled.Ukupno.Pravne.Ljudi != 20 {
+		t.Errorf("povučena predaja: %+v", povuceno)
 	}
 }

@@ -17,9 +17,10 @@ import (
 // SettingsHandler je stranica Postavke: ovaj čvor, poznati čvorovi,
 // uparivanje, pronalaženje i sinkronizacija
 type SettingsHandler struct {
-	peers *peers.Service
-	rec   *ledger.Recorder
-	tmpl  *template.Template
+	peers         *peers.Service
+	rec           *ledger.Recorder
+	tmpl          *template.Template
+	postavkeCvora izvorPostavki // gocop.toml: kartice Ovaj čvor i Mreža
 }
 
 func NewSettingsHandler(peersSvc *peers.Service, rec *ledger.Recorder, tmpl *template.Template) *SettingsHandler {
@@ -42,6 +43,7 @@ type SettingsPageData struct {
 	VersionCounts  map[string]int
 	TotalVersions  int
 	Uloge          peers.Uloge
+	Postavke       *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -66,6 +68,7 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 		ActiveNav:      "settings",
 		ViewAsBanner:   viewBanner(r),
 		Uloge:          h.peers.TrenutneUloge(),
+		Postavke:       h.postavkeCvora.za(r, "/settings"),
 		SuccessMessage: r.URL.Query().Get("success"),
 		ErrorMessage:   r.URL.Query().Get("error"),
 	}

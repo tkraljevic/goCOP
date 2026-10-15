@@ -45,6 +45,22 @@ type ReadingsHandler struct {
 	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
 	prognoze         func() *CitacPrognoza
+	akti             func() *service.AktService
+}
+
+// SetAkti daje rukovatelju servis akata: gumb „Proglasi / prekini” vidi samo
+// tko smije sastaviti nacrt akta po letvi
+func (h *ReadingsHandler) SetAkti(f func() *service.AktService) { h.akti = f }
+
+// smijeProglasiti javlja smije li osoba sastaviti nacrt akta po letvi: samo
+// Centar obrane od poplava njezina sektora (Odluke (8. 10. 2026.), pitanje
+// 18); bez servisa akata ne smije nitko
+func (h *ReadingsHandler) smijeProglasiti(ctx context.Context, perms *models.UserPermissions, st *models.Station) bool {
+	if h.akti == nil {
+		return false
+	}
+	s := h.akti()
+	return s != nil && s.SmijeAktZaLetvu(ctx, perms, st, models.PhasePrep)
 }
 
 // SetPrognoze daje rukovatelju čitač prognoza. Bez njega graf radi kao i dosad,
@@ -98,7 +114,17 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 		redirectWith(w, r, back, "error", "Preuzimanje s javne stranice nije uspjelo: "+s.Greska)
 		return
 	}
-	redirectWith(w, r, back, "success", fmt.Sprintf("Preuzeto %d očitanja s javne stranice, novih %d.", s.Preuzeto, s.Novih))
+	redirectWith(w, r, back, "success", porukaPreuzimanja(s))
+}
+
+// porukaPreuzimanja javlja ishod preuzimanja jedne letve; odbačene
+// vrijednosti izvan raspona spominje samo kad ih ima
+func porukaPreuzimanja(s javnivodostaji.StanjeLetve) string {
+	poruka := fmt.Sprintf("Preuzeto s javne stranice: %d %s, novih %d", s.Preuzeto, models.UzBrojHR(s.Preuzeto, "očitanje", "očitanja", "očitanja"), s.Novih)
+	if s.Odbaceno > 0 {
+		poruka += fmt.Sprintf(", odbačeno izvan raspona %d", s.Odbaceno)
+	}
+	return poruka + "."
 }
 
 // SetOcitanjaCSV daje rukovatelju predložak pregleda ispravaka iz CSV-a.
@@ -239,6 +265,16 @@ type ReadingHistoryData struct {
 	Profil    *models.ProfilKorita
 	CanRecord bool
 	CanEdit   bool
+	// Ispravlja su očitanja na stranici koja osoba smije ispraviti: olovka
+	// stoji samo uz njih (Odluke (8. 10. 2026.), pitanje 9)
+	Ispravlja map[uuid.UUID]bool
+	// BriseNaLetvi: osoba odgovara za letvu postaje pa briše i tuđa
+	// očitanja; po tome uputa za ispravak u tablici spominje brisanje
+	// (Odluke (8. 10. 2026.), pitanje 9)
+	BriseNaLetvi bool
+	// SmijeProglasiti: osoba smije sastaviti nacrt akta po letvi, pa vidi
+	// gumb „Proglasi / prekini” (Odluke (8. 10. 2026.), pitanje 18)
+	SmijeProglasiti bool
 	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
 	// stranica nije o letvi nego o vodnoj građevini.
 	LetvaStranica string
@@ -261,6 +297,12 @@ type ReadingHistoryData struct {
 	JavniIzvor       string // naziv čitača za adresu, prazno kad ga nema
 	JavniUvoz        bool
 	JavniStanje      *javnivodostaji.StanjeLetve
+	// Odbaceno je koliko vrijednosti ove letve nije upisano jer su izvan
+	// raspona, i koja zadnja: jedino upozorenje da je mjerilo u kvaru ili
+	// zapis u staroj evidenciji pogrešan (Odluke (8. 10. 2026.), pitanje
+	// 21). Broje se i one koje je odbacio čvor koji preuzima, jer zapis
+	// putuje razmjenom. Nil kad nijedna.
+	Odbaceno *models.SazetakOdbacenih
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -291,6 +333,9 @@ type ReadingFormData struct {
 	ProtokIzKrivulje string
 	ProtokIzvan      bool
 	ImaKrivulju      bool
+	// MozeObrisati: gumb za brisanje samo onome tko za letvu odgovara
+	// (Odluke (8. 10. 2026.), pitanje 9)
+	MozeObrisati bool
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -502,6 +547,10 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	data.Odbaceno, _ = h.readingService.SazetakOdbacenih(r.Context(), data.GaugeKey)
+	data.Ispravlja = h.ispravljiva(data.Permissions, station, data.CanRecord, data.Readings)
+	data.BriseNaLetvi = h.briseNaLetvi(data.Permissions, station)
+	data.SmijeProglasiti = h.smijeProglasiti(r.Context(), data.Permissions, station)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži
@@ -796,6 +845,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 		}
 		rd = existing
 		data.IsEdit = true
+		data.MozeObrisati = h.readingService.CanDelete(ctx, perms, existing)
 	} else {
 		q := r.URL.Query()
 		rd.StationID, rd.StructureID = q.Get("station"), q.Get("structure")
@@ -1303,4 +1353,30 @@ func (h *ReadingsHandler) HandleZalijepiPotvrda(w http.ResponseWriter, r *http.R
 		poruka += " Ostala su već bila upisana."
 	}
 	redirectWith(w, r, back, "success", poruka)
+}
+
+// ispravljiva su očitanja koja osoba smije ispraviti, po identifikatoru. Na
+// letvi postaje po pravu ispravka (autor dok upisuje na letvu, pa još 72 h;
+// tuđe tko odgovara za letvu), na objektu kao dosad: sva, kad osoba
+// upisuje na objekt.
+func (h *ReadingsHandler) ispravljiva(perms *models.UserPermissions, station *models.Station,
+	upisujeNaObjekt bool, ocitanja []models.Reading) map[uuid.UUID]bool {
+	out := make(map[uuid.UUID]bool, len(ocitanja))
+	if station == nil {
+		for _, rd := range ocitanja {
+			out[rd.ID] = upisujeNaObjekt
+		}
+		return out
+	}
+	prava, sad := h.readingService.PravaNaLetvu(perms, station), time.Now()
+	for i := range ocitanja {
+		out[ocitanja[i].ID] = prava.MozeIspraviti(&ocitanja[i], sad)
+	}
+	return out
+}
+
+// briseNaLetvi javlja odgovara li osoba za letvu postaje, pa briše i tuđa
+// očitanja; na vodnoj građevini ispravak u tablici se ne nudi
+func (h *ReadingsHandler) briseNaLetvi(perms *models.UserPermissions, station *models.Station) bool {
+	return station != nil && h.readingService.PravaNaLetvu(perms, station).MozeObrisati()
 }

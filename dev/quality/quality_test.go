@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -535,5 +536,56 @@ func TestPremjestajiNeMijenjajuPravilaIMorajuBitiIspravni(t *testing.T) {
 		if _, err := loadConfig(put); err == nil {
 			t.Errorf("%s: prihvaćen neispravan premještaj", ime)
 		}
+	}
+}
+
+// Odluke (11. 10. 2026.): nova kritična funkcija CRAP ≤ 7 (dakle CC ≤ 7),
+// nova ostala CRAP ≤ 10 i CC ≤ 10. Dirana ne smije postati gora: mala
+// ostaje ispod 7, a velika smije dobiti ispravak, ali ne smije narasti.
+func TestStrozeGraniceZaNoveIDiraneFunkcije(t *testing.T) {
+	c := testConfig()
+	c.CriticalComplexityLimit, c.CriticalCRAPLimit, c.ComplexityLimit, c.CRAPLimit = 7, 7, 10, 10
+	mala := function{ID: "mala", Critical: true, Complexity: 5, Coverage: cov(10, 10), CRAP: number(5), Tokens: 50}
+	velika := function{ID: "velika", Critical: true, Complexity: 30, Coverage: cov(100, 80), CRAP: number(37.2), Tokens: 900}
+	for _, tc := range []struct {
+		ime  string
+		f    function
+		pada bool
+	}{
+		{"nova kritična CC 7, puna pokrivenost", function{ID: "nova", Critical: true, Complexity: 7, Coverage: cov(10, 10), CRAP: number(7)}, false},
+		{"nova kritična CC 8", function{ID: "nova", Critical: true, Complexity: 8, Coverage: cov(10, 10), CRAP: number(8)}, true},
+		{"nova ostala CC 10", function{ID: "nova", Complexity: 10, Coverage: cov(10, 10), CRAP: number(10)}, false},
+		{"nova ostala CC 11", function{ID: "nova", Complexity: 11, Coverage: cov(10, 10), CRAP: number(11)}, true},
+		{"mala dirana ostaje mala", function{ID: "mala", Critical: true, Complexity: 6, Coverage: cov(12, 12), CRAP: number(6), Tokens: 60}, false},
+		{"mala dirana preraste 7", function{ID: "mala", Critical: true, Complexity: 8, Coverage: cov(14, 14), CRAP: number(8), Tokens: 70}, true},
+		{"velika dirana, ispravak bez rasta", function{ID: "velika", Critical: true, Complexity: 30, Coverage: cov(100, 80), CRAP: number(37.2), Tokens: 905}, false},
+		{"velika dirana naraste", function{ID: "velika", Critical: true, Complexity: 31, Coverage: cov(102, 82), CRAP: number(38.9), Tokens: 920}, true},
+	} {
+		base := cleanReport()
+		base.Functions = []function{mala, velika}
+		r := cleanReport()
+		r.Functions = []function{mala, velika}
+		if i := slices.IndexFunc(r.Functions, func(f function) bool { return f.ID == tc.f.ID }); i >= 0 {
+			r.Functions[i] = tc.f
+		} else {
+			r.Functions = append(r.Functions, tc.f)
+		}
+		evaluate(&r, &base, c, false)
+		palo := slices.ContainsFunc(r.Failures, func(s string) bool { return strings.Contains(s, ":"+tc.f.ID+":") })
+		if palo != tc.pada {
+			t.Errorf("%s: palo=%v, želim %v (%v)", tc.ime, palo, tc.pada, r.Failures)
+		}
+	}
+}
+
+// Granice u quality/config.json ne smiju popustiti bez nove odluke.
+func TestGraniceUKonfiguraciji(t *testing.T) {
+	c, err := loadConfig(filepath.Join("..", "..", "quality", "config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.CriticalComplexityLimit > 7 || c.CriticalCRAPLimit > 7 || c.ComplexityLimit > 10 || c.CRAPLimit > 10 {
+		t.Errorf("granice su popustile: kritične CC %d CRAP %.0f, ostale CC %d CRAP %.0f",
+			c.CriticalComplexityLimit, c.CriticalCRAPLimit, c.ComplexityLimit, c.CRAPLimit)
 	}
 }

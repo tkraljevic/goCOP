@@ -21,10 +21,10 @@ import (
 const EntityVodocuvarski = "vodocuvarski_listovi"
 
 const vodocuvarskiColumns = `id, user_id, ime, sektor, area_id, datum, broj, od, do_, prilike, naredbe, opis, zapazanja, ocitanja, zadaci, upisi, prijave, parafe,
-	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at, rekonstrukcija, izvor, prilozi`
+	predano_at, potvrdio_id, potvrdio, potvrdeno_at, cvor, created_at, updated_at, rekonstrukcija, izvor, prilozi, napisano_at`
 
 const vodocuvarskiUpsert = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
-	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+	VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	` + vodocuvarskiNaSukob
 
 // vodocuvarskiNaSukob je izmjena postojećeg lista u upisu
@@ -32,13 +32,13 @@ const vodocuvarskiNaSukob = `ON CONFLICT(id) DO UPDATE SET user_id = excluded.us
 	datum = excluded.datum, broj = excluded.broj, od = excluded.od, do_ = excluded.do_, prilike = excluded.prilike, naredbe = excluded.naredbe,
 	opis = excluded.opis, zapazanja = excluded.zapazanja, ocitanja = excluded.ocitanja, zadaci = excluded.zadaci, upisi = excluded.upisi, prijave = excluded.prijave, parafe = excluded.parafe, predano_at = excluded.predano_at,
 	potvrdio_id = excluded.potvrdio_id, potvrdio = excluded.potvrdio, potvrdeno_at = excluded.potvrdeno_at, cvor = excluded.cvor, updated_at = excluded.updated_at,
-	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi`
+	rekonstrukcija = excluded.rekonstrukcija, izvor = excluded.izvor, prilozi = excluded.prilozi, napisano_at = excluded.napisano_at`
 
 // vodocuvarskiPredaja je upis predaje i nacrta: list se upisuje samo dok ni on ni
 // drugi list vodočuvara za isti dan nije predan. Uz stupce lista traži još
 // user_id, datum i id lista za provjeru drugih listova dana.
 const vodocuvarskiPredaja = `INSERT INTO vodocuvarski_listovi (` + vodocuvarskiColumns + `)
-	SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+	SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
 	WHERE NOT EXISTS (SELECT 1 FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ? AND id <> ? AND predano_at IS NOT NULL)
 	` + vodocuvarskiNaSukob + `
 	WHERE vodocuvarski_listovi.predano_at IS NULL`
@@ -49,24 +49,34 @@ func vodocuvarskiArgs(l *models.VodocuvarskiList) []any {
 	zadaci, _ := json.Marshal(l.Zadaci)
 	upisi, _ := json.Marshal(l.Upisi)
 	prijave, _ := json.Marshal(l.Prijave)
-	var predano, potvrdeno any
-	if l.PredanoAt != nil {
-		predano = l.PredanoAt.UTC()
-	}
-	if l.PotvrdenoAt != nil {
-		potvrdeno = l.PotvrdenoAt.UTC()
-	}
 	return []any{l.ID, l.UserID, l.Ime, l.Sektor, l.AreaID, l.Datum.In(models.Zagreb).Format("2006-01-02"), l.Broj, l.Od, l.Do, l.Prilike, l.Naredbe, l.Opis, l.Zapazanja, l.Ocitanja, string(zadaci), string(upisi), string(prijave), string(parafe),
-		predano, l.PotvrdioID, l.Potvrdio, potvrdeno, l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC(), boolToInt(l.Rekonstrukcija), l.Izvor, string(prilozi)}
+		utcIliNil(l.PredanoAt), l.PotvrdioID, l.Potvrdio, utcIliNil(l.PotvrdenoAt), l.Cvor, l.CreatedAt.UTC(), l.UpdatedAt.UTC(), boolToInt(l.Rekonstrukcija), l.Izvor, string(prilozi), utcIliNil(l.NapisanoAt)}
+}
+
+// utcIliNil je vrijeme za upis u bazu: u UTC-u, a bez vremena NULL
+func utcIliNil(t *time.Time) any {
+	if t == nil {
+		return nil
+	}
+	return t.UTC()
+}
+
+// vrijemeIliNil je vrijeme pročitano iz baze; nil kad je NULL
+func vrijemeIliNil(t sql.NullTime) *time.Time {
+	if !t.Valid {
+		return nil
+	}
+	v := t.Time
+	return &v
 }
 
 func scanVodocuvarski(sc interface{ Scan(...any) error }) (models.VodocuvarskiList, error) {
 	var l models.VodocuvarskiList
 	var datum, parafe, zadaci, upisi, prijave, prilozi string
-	var predano, potvrdeno sql.NullTime
+	var predano, potvrdeno, napisano sql.NullTime
 	var rekonstrukcija int
 	err := sc.Scan(&l.ID, &l.UserID, &l.Ime, &l.Sektor, &l.AreaID, &datum, &l.Broj, &l.Od, &l.Do, &l.Prilike, &l.Naredbe, &l.Opis, &l.Zapazanja, &l.Ocitanja, &zadaci, &upisi, &prijave, &parafe,
-		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt, &rekonstrukcija, &l.Izvor, &prilozi)
+		&predano, &l.PotvrdioID, &l.Potvrdio, &potvrdeno, &l.Cvor, &l.CreatedAt, &l.UpdatedAt, &rekonstrukcija, &l.Izvor, &prilozi, &napisano)
 	if err != nil {
 		return l, err
 	}
@@ -77,14 +87,7 @@ func scanVodocuvarski(sc interface{ Scan(...any) error }) (models.VodocuvarskiLi
 	_ = json.Unmarshal([]byte(upisi), &l.Upisi)
 	_ = json.Unmarshal([]byte(prijave), &l.Prijave)
 	_ = json.Unmarshal([]byte(prilozi), &l.Prilozi)
-	if predano.Valid {
-		t := predano.Time
-		l.PredanoAt = &t
-	}
-	if potvrdeno.Valid {
-		t := potvrdeno.Time
-		l.PotvrdenoAt = &t
-	}
+	l.PredanoAt, l.PotvrdenoAt, l.NapisanoAt = vrijemeIliNil(predano), vrijemeIliNil(potvrdeno), vrijemeIliNil(napisano)
 	return l, nil
 }
 
@@ -115,15 +118,21 @@ func zadatakChannel(z *models.Zadatak) string {
 	return ledger.ChannelFor(ledger.ChannelVodocuvar, z.AreaID, dan.In(models.Zagreb).Year())
 }
 
-// kanalListaIz čita kanal lista iz tablice, za izvornike i seljenje
-func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
-	var area int
-	var datum string
-	if err := db.QueryRowContext(ctx, `SELECT area_id, datum FROM vodocuvarski_listovi WHERE id = ?`, listID).Scan(&area, &datum); err != nil || len(datum) < 4 {
-		return ""
+// zapisIzvornika daje kanal i zapis u knjizi za izvornik lista, iz lista u
+// tablici: izvornik ide u zapis lista (zapisLista), a kad nema potpis lista
+// (PredanoAt), dobiva potpis lista kakav je sada. Tako izvornik drugog
+// predanog lista iste oznake stoji uz potpis kojemu pripada
+// (apply_vodocuvarski_izvornici.go). Bez lista nema kanala, a zapis je
+// oznaka lista iz izvornika.
+func (r *VodocuvarRepository) zapisIzvornika(ctx context.Context, iz *models.IzvornikLista) (kanal, zapis string) {
+	l, err := r.Get(ctx, iz.ListID)
+	if err != nil || l == nil {
+		return "", iz.ListID
 	}
-	g, _ := strconv.Atoi(datum[:4])
-	return ledger.ChannelFor(ledger.ChannelVodocuvar, area, g)
+	if iz.PredanoAt == nil {
+		iz.PredanoAt = l.PredanoAt
+	}
+	return listChannel(l), zapisLista(ctx, r.db, EntityVodocuvarskiIzvornici, l)
 }
 
 // Save upisuje list, s verzijom u knjizi. Nepredan list (nacrt, upis
@@ -131,13 +140,18 @@ func kanalListaIz(ctx context.Context, db *sql.DB, listID string) string {
 // za isti dan nije predan: list koji je druga kartica predala nakon što je
 // ovaj pročitan ne vraća se u nacrt, nego se upis odbija s
 // ErrListPredanUMedjuvremenu, bez upisa i bez verzije u knjizi. Predan list
-// (ovjera, parafa, upis na predan list) upisuje se kako je pročitan.
+// (ovjera, parafa, upis na predan list) upisuje se kako je pročitan. Oba
+// zadržavaju ono što je na list u međuvremenu dodano mimo ove kopije
+// (dopuniSPovrsine).
 func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiList) error {
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if err := dopuniSPovrsine(ctx, tx, l); err != nil {
+		return err
+	}
 	if l.PredanoAt == nil {
 		err = r.upisiNepredan(ctx, tx, l, ErrListPredanUMedjuvremenu)
 	} else {
@@ -149,19 +163,43 @@ func (r *VodocuvarRepository) Save(ctx context.Context, l *models.VodocuvarskiLi
 	return tx.Commit()
 }
 
-// upisiList upisuje list i njegovu verziju u knjizi, unutar transakcije
+// upisiList upisuje list i njegovu verziju u knjizi, unutar transakcije.
+// Nov list dobiva oznaku izvedenu iz osobe i dana (models.IDListaVodocuvara).
 func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
-		l.ID = uuid.Must(uuid.NewV7()).String()
+		l.ID = models.IDListaVodocuvara(l.UserID, l.Datum)
 		l.CreatedAt = now
 	}
 	l.UpdatedAt = now
 	if _, err := tx.ExecContext(ctx, vodocuvarskiUpsert, vodocuvarskiArgs(l)...); err != nil {
 		return fmt.Errorf("upis lista: %w", err)
 	}
-	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
+	_, err := r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(ctx, tx, EntityVodocuvarski, l), l)
 	return err
+}
+
+// zapisLista je oznaka zapisa entiteta (list ili izvornik) u knjizi u koji
+// se list upisuje: drugi predani list iste oznake (models.IDDvostrukogLista)
+// upisuje se u zapis lista od kojeg je izveden, svaki drugi list u svoj
+// (apply_vodocuvarski_dvojnici.go). Iznimka je drugi list koji već ima svoj
+// zapis tog entiteta (upisao ga je čvor 0.0.34, koji drugi list prima kao
+// zadnju verziju zapisa lista): površina ga tada slaže iz tog zapisa
+// (upisiDvojnika, upisiIzvornikLista), pa i upis ide u njega.
+func zapisLista(ctx context.Context, q rowQuerier, entitet string, l *models.VodocuvarskiList) string {
+	x := models.IDListaVodocuvara(l.UserID, l.Datum)
+	if !l.Predan() || l.ID != models.IDDvostrukogLista(x, *l.PredanoAt) || imaVlastitiZapis(ctx, q, entitet, l.ID) {
+		return l.ID
+	}
+	return x
+}
+
+// imaVlastitiZapis javlja ima li zapis entiteta pod oznakom svoje verzije u
+// knjizi; kad se to ne može pročitati, javlja da nema
+func imaVlastitiZapis(ctx context.Context, q rowQuerier, entitet, id string) bool {
+	var vlastitih int
+	err := q.QueryRowContext(ctx, `SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = ?`, entitet, id).Scan(&vlastitih)
+	return err == nil && vlastitih > 0
 }
 
 // upisiNepredan je upisiList za predaju i nacrt: list se upisuje samo dok ni
@@ -172,7 +210,7 @@ func (r *VodocuvarRepository) upisiList(ctx context.Context, tx *sql.Tx, l *mode
 func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList, odbijeno error) error {
 	now := time.Now().UTC()
 	if l.ID == "" {
-		l.ID = uuid.Must(uuid.NewV7()).String()
+		l.ID = models.IDListaVodocuvara(l.UserID, l.Datum)
 		l.CreatedAt = now
 	}
 	l.UpdatedAt = now
@@ -188,8 +226,34 @@ func (r *VodocuvarRepository) upisiNepredan(ctx context.Context, tx *sql.Tx, l *
 	if n == 0 {
 		return fmt.Errorf("list od %s %w", l.Datum.In(models.Zagreb).Format("02.01.2006."), odbijeno)
 	}
-	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, l.ID, l)
+	_, err = r.rec.RecordIn(ctx, tx, listChannel(l), EntityVodocuvarski, zapisLista(ctx, tx, EntityVodocuvarski, l), l)
 	return err
+}
+
+// dopuniSPovrsine dopunjuje list koji se upisuje onim što je na njega u
+// bazi upisano mimo ove kopije: bilješkama i naredbama, prijavama, parafama
+// i ovjerom, istim pravilom kao pri razmjeni (spojiZive). Upis koji je druga
+// kartica spremila između čitanja ove kopije i njezina upisa tako se ne
+// gubi. List se čita naredbom upisa koja ga ne mijenja, pa transakcija od
+// tog čitanja drži bazu za upis i list do njezina kraja nitko ne mijenja.
+func dopuniSPovrsine(ctx context.Context, tx *sql.Tx, l *models.VodocuvarskiList) error {
+	id := l.ID
+	if id == "" {
+		id = models.IDListaVodocuvara(l.UserID, l.Datum)
+	}
+	p, err := scanVodocuvarski(tx.QueryRowContext(ctx, `UPDATE vodocuvarski_listovi SET upisi = upisi WHERE id = ? RETURNING `+vodocuvarskiColumns, id))
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("čitanje lista prije upisa: %w", err)
+	}
+	povrsina := []verzijaLista{{list: p}}
+	l.Upisi = spojiUpise(l.Upisi, p.Upisi)
+	l.Prijave = spojiPrijave(l.Prijave, p.Prijave)
+	l.Parafe = parafeVerzija(l.Parafe, povrsina)
+	ovjeraIzVerzija(l, povrsina)
+	return nil
 }
 
 // ErrListPredan: list je u međuvremenu predan (istodobna predaja iz druge
@@ -227,8 +291,12 @@ func (r *VodocuvarRepository) Predaj(ctx context.Context, l *models.Vodocuvarski
 		return err
 	}
 	defer tx.Rollback()
-	// upis lista prvi drži bazu za upis, pa stanje lista i zadataka
-	// pročitano nakon njega nitko više ne mijenja do kraja transakcije
+	// čitanje lista za dopunu prvo drži bazu za upis, pa stanje lista i
+	// zadataka pročitano nakon njega nitko više ne mijenja do kraja
+	// transakcije
+	if err := dopuniSPovrsine(ctx, tx, l); err != nil {
+		return err
+	}
 	if err := r.upisiNepredan(ctx, tx, l, ErrListPredan); err != nil {
 		return err
 	}
@@ -302,6 +370,11 @@ func (r *VodocuvarRepository) List(ctx context.Context, f FiltarListova) ([]mode
 	if f.Limit > 0 {
 		q += fmt.Sprintf(" LIMIT %d", f.Limit)
 	}
+	return r.upitListova(ctx, q, args...)
+}
+
+// upitListova čita listove koje vraća upit
+func (r *VodocuvarRepository) upitListova(ctx context.Context, q string, args ...any) ([]models.VodocuvarskiList, error) {
 	rows, err := r.db.QueryContext(ctx, q, args...)
 	if err != nil {
 		return nil, err
@@ -318,16 +391,36 @@ func (r *VodocuvarRepository) List(ctx context.Context, f FiltarListova) ([]mode
 	return out, rows.Err()
 }
 
-// ZaDan vraća list vodočuvara za zadani dan; nil kad ga nema
+// redDvojnika slaže listove iste osobe za isti dan: predan prvi, a od dva
+// jednaka stariji (Odluke (8. 10. 2026.), pitanje 7)
+const redDvojnika = `(predano_at IS NULL), created_at, id`
+
+// ListoviDana vraća sve listove vodočuvara za zadani dan: predan prvi, a od
+// dva jednaka stariji. Više od jednog ima samo dvostruki list, nastao na
+// dva čvora prije jedinstvene oznake lista ili na čvoru starijeg programa.
+func (r *VodocuvarRepository) ListoviDana(ctx context.Context, userID string, dan time.Time) ([]models.VodocuvarskiList, error) {
+	return r.upitListova(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ? ORDER BY `+redDvojnika,
+		userID, dan.In(models.Zagreb).Format("2006-01-02"))
+}
+
+// ZaDan vraća list vodočuvara za zadani dan; nil kad ga nema. Kad za dan
+// postoje dva lista, „Današnji list” i spremanje uzimaju predan, a od dva
+// jednaka stariji.
 func (r *VodocuvarRepository) ZaDan(ctx context.Context, userID string, dan time.Time) (*models.VodocuvarskiList, error) {
-	l, err := scanVodocuvarski(r.db.QueryRowContext(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi WHERE user_id = ? AND datum = ?`, userID, dan.In(models.Zagreb).Format("2006-01-02")))
-	if err == sql.ErrNoRows {
-		return nil, nil
-	}
-	if err != nil {
+	listovi, err := r.ListoviDana(ctx, userID, dan)
+	if err != nil || len(listovi) == 0 {
 		return nil, err
 	}
-	return &l, nil
+	return &listovi[0], nil
+}
+
+// Dvojnici vraća listove kojima za isti dan postoji još jedan list iste
+// osobe, po danu (najnoviji prvo) i osobi; unutar dana predan prvi, a od dva
+// jednaka stariji. Dvojnici se samo prijavljuju, ne brišu.
+func (r *VodocuvarRepository) Dvojnici(ctx context.Context) ([]models.VodocuvarskiList, error) {
+	return r.upitListova(ctx, `SELECT `+vodocuvarskiColumns+` FROM vodocuvarski_listovi l
+		WHERE EXISTS (SELECT 1 FROM vodocuvarski_listovi d WHERE d.user_id = l.user_id AND d.datum = l.datum AND d.id <> l.id)
+		ORDER BY datum DESC, user_id, `+redDvojnika)
 }
 
 // SljedeciBroj daje sljedeći redni broj lista vodočuvara u godini
@@ -348,11 +441,11 @@ func (r *VodocuvarRepository) NajstarijaGodina(ctx context.Context) int {
 }
 
 // Delete briše nacrt i njegov izvornik, ako ga ima, u jednoj transakciji,
-// sa spomenikom u knjizi za oboje. List se briše samo dok nije predan: nacrt
-// koji je druga kartica predala nakon što je pročitan ne briše se, nego se
-// brisanje odbija s ErrListPredanNijeObrisan, bez brisanja i bez verzije u
-// knjizi. Nacrt koji je druga kartica u međuvremenu obrisala nema što
-// obrisati.
+// sa spomenikom u knjizi za oboje, u kanalu lista. List se briše samo dok
+// nije predan: nacrt koji je druga kartica predala nakon što je pročitan ne
+// briše se, nego se brisanje odbija s ErrListPredanNijeObrisan, bez brisanja
+// i bez verzije u knjizi. Nacrt koji je druga kartica u međuvremenu obrisala
+// nema što obrisati.
 func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 	l, err := r.Get(ctx, id)
 	if err != nil || l == nil {
@@ -376,7 +469,7 @@ func (r *VodocuvarRepository) Delete(ctx context.Context, id string) error {
 	if n, err := res.RowsAffected(); err != nil || n == 0 {
 		return nacrtNijeObrisan(ctx, tx, l, err)
 	}
-	if _, err := r.rec.Archive(ctx, tx, EntityVodocuvarski, id, l); err != nil {
+	if _, err := r.rec.ArchiveIn(ctx, tx, listChannel(l), EntityVodocuvarski, id, l); err != nil {
 		return err
 	}
 	if err := r.obrisiIzvornik(ctx, tx, l, iz); err != nil {
@@ -630,11 +723,22 @@ func (r *VodocuvarRepository) ZadaciURazdoblju(ctx context.Context, userID strin
 // ---- prilozi lista ----
 
 // SavePrilog sprema prilog lista (fotografiju) u spremište sadržaja; opis
-// priloga stoji na samom listu, a bajtovi se nalaze po otisku
+// priloga stoji na samom listu, a bajtovi se nalaze po otisku. Fotografija
+// ide u kanal lista, pa na drugim čvorovima razina i rok pretplate vrijede
+// za nju kao za list.
 func (r *VodocuvarRepository) SavePrilog(ctx context.Context, listID, prilogID string, b []byte) error {
 	_, err := spremiSadrzaj(ctx, "image/jpeg", b, sadrzaj.Veza{
-		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID)})
+		Entitet: EntityVodocuvarski, EntitetID: listID, Uloga: ulogaPriloga(prilogID), Kanal: r.kanalLista(ctx, listID)})
 	return err
+}
+
+// kanalLista je kanal lista s površine; prazan kad lista nema
+func (r *VodocuvarRepository) kanalLista(ctx context.Context, id string) string {
+	l, err := r.Get(ctx, id)
+	if err != nil || l == nil {
+		return ""
+	}
+	return listChannel(l)
 }
 
 // ulogaPriloga je oznaka veze pod kojom prilog stoji u spremištu
@@ -673,7 +777,7 @@ func (r *VodocuvarRepository) GetIzvornik(ctx context.Context, listID string) (*
 func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.IzvornikLista) error {
 	iz.UpdatedAt = time.Now().UTC()
 	pdf := iz.PDF
-	kanal := kanalListaIz(ctx, r.db, iz.ListID)
+	kanal, zapis := r.zapisIzvornika(ctx, iz)
 	opis, err := spremiPDF(ctx, EntityVodocuvarski, iz.ListID, kanal, pdf, iz.Sazetak, iz.UpdatedAt)
 	if err != nil {
 		return err
@@ -687,7 +791,7 @@ func (r *VodocuvarRepository) SaveIzvornik(ctx context.Context, iz *models.Izvor
 	if _, err := tx.ExecContext(ctx, izvornikListaUpsert, iz.ListID, iz.Otisak, iz.Bajtova, iz.Vrsta, iz.Sazetak, iz.UpdatedAt); err != nil {
 		return err
 	}
-	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityVodocuvarskiIzvornici, iz.ListID, iz); err != nil {
+	if _, err := r.rec.RecordIn(ctx, tx, kanal, EntityVodocuvarskiIzvornici, zapis, iz); err != nil {
 		return err
 	}
 	if err := tx.Commit(); err != nil {

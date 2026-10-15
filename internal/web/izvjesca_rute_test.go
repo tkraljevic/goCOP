@@ -116,7 +116,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 		"vodostaj_vrijednost": {"551", ""}, "vodostaj_jedinica": {"cm", "cm"},
 		"pregled": {"Nasip pregledan, bez oštećenja."}, "radnje": {"Nadvišenje nasipa 120 m."}, "vrece": {"1500"},
 		"pravne_ljudi": {"12"}, "pravne_kamioni": {"2"}, "ostali_vatrogasci": {"8"},
-		"popl_naselja": {"Batina"}, "popl_ljudi": {"0"}, "popl_sumske": {"12,5"},
+		"popl_naselja": {"Batina"}, "popl_ljudi": {"0"}, "popl_sumske": {"12,5"}, "popl_poljoprivredne": {"1500"}, "popl_ostale": {"0,25"},
 	}
 	w := zovi(http.MethodPost, "/izvjesca", obrazac)
 	mora(w, http.StatusSeeOther, "spremanje")
@@ -141,6 +141,17 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 
 	mora(zovi(http.MethodPost, "/izvjesca/"+id+"/predaj", url.Values{}), http.StatusSeeOther, "predaja")
 	mora(zovi(http.MethodGet, "/izvjesca/"+id, nil), http.StatusOK, "predano", "predano u podcentar")
+	// Obrazac predanog izvješća poslan natrag bez ijedne izmjene ostavlja ga
+	// predanim (Odluke (8. 10. 2026.), pitanje 12): svako polje, i površina
+	// u hektarima, vraća se onakvo kakvo je spremljeno.
+	natrag := poljaObrasca(t, zovi(http.MethodGet, "/izvjesca/"+id+"/uredi", nil).Body.String(), "/izvjesca/"+id)
+	w = zovi(http.MethodPost, "/izvjesca/"+id, natrag)
+	if l, _ := url.QueryUnescape(w.Header().Get("Location")); !strings.Contains(l, "success=Izvješće nije mijenjano i ostaje predano") {
+		t.Errorf("obrazac predanog izvješća poslan natrag bez izmjene: %q\n%v", l, natrag)
+	}
+	if iz, _ := svc.Get(context.Background(), id); !iz.Predano() || iz.Sadrzaj.Poplavljeno.SumskeHa != 12.5 || iz.Sadrzaj.Poplavljeno.PoljoprivredneHa != 1500 || iz.Sadrzaj.Poplavljeno.OstaleHa != 0.25 {
+		t.Errorf("nakon obrasca poslanog natrag: predano %v, površine %+v", iz.Predano(), iz.Sadrzaj.Poplavljeno)
+	}
 	mora(zovi(http.MethodGet, "/izvjesca?dionica=B.16.3", nil), http.StatusOK, "popis poslije", "B.16.3", "Dunav", ">R<", "predano")
 
 	// Izvoz je valjana .xlsx datoteka s obrascem.
@@ -279,7 +290,8 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	sec1, _ := sections.GetSectionByCode("B.16.1")
 	sec2, _ := sections.GetSectionByCode("B.16.2")
 	iz1 := &models.DnevnoIzvjesce{SectionCode: "B.16.1", Dan: dan, Stadij: models.PhaseEmergency, Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Dunav", Tendencija: models.TendencijaPorast,
-		Pregled: "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800", Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12}}}
+		Pregled: "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800", Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12},
+		Evakuacija: models.Evakuacija{Naselja: "Zmajevac", Ljudi: 1, Kucanstava: 1}}}
 	if err := svc.Spremi(ctx, voditelj, uprava, sec1, iz1); err != nil {
 		t.Fatal(err)
 	}
@@ -313,7 +325,8 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	}
 	id := strings.SplitN(strings.TrimPrefix(kamo, "/sektorsko-izvjesce/"), "?", 2)[0]
 	mora(zovi(http.MethodGet, "/sektorsko-izvjesce/"+id, nil), http.StatusOK, "dokument",
-		"Kiša na cijelom sektoru.", "Baranja", "B.16.1", "B.16.2", ">20<", ">12<", "Procjeđivanje kod Zmajevca.", "Izvanredna obrana", "Vodostaj raste", "nacrt", "Predaj GCOP-u")
+		"Kiša na cijelom sektoru.", "Baranja", "B.16.1", "B.16.2", ">20<", ">12<", "Procjeđivanje kod Zmajevca.", "Izvanredna obrana", "Vodostaj raste", "nacrt", "Predaj GCOP-u",
+		"Zmajevac: 1 čovjek, 1 kućanstvo", ">1 čovjek, 1 kućanstvo<")
 	w = zovi(http.MethodGet, "/sektorsko-izvjesce/novo?sektor=B&dan="+danas, nil)
 	if w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/sektorsko-izvjesce/"+id+"/uredi" {
 		t.Errorf("ponovno novo: %d %s", w.Code, w.Header().Get("Location"))

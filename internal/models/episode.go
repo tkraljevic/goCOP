@@ -39,8 +39,10 @@ type DefenseEpisode struct {
 	ThresholdAt *time.Time `json:"threshold_at,omitempty"` // kad je prag prijeđen po očitanjima
 	EndedBy     string     `json:"ended_by,omitempty"`     // tko je prekinuo obranu
 
-	// Podrijetlo: epizoda utvrđena računom iz očitanja ili upisana rukom.
-	// Računom utvrđena epizoda smije se preračunati; upisanu ne dira se.
+	// Podrijetlo: OPERATER je epizoda izvedena iz ovjerenih akata (u ranijim
+	// izdanjima i upisana rukom), a OČITANJA epizoda koju su ranija izdanja
+	// utvrdila računom iz očitanja. Program epizode više ne računa iz
+	// vodostaja (Odluke (8. 10. 2026.), pitanje 14).
 	Origin string `json:"origin,omitempty"` // EpisodeFrom*
 	Note   string `json:"note,omitempty"`
 
@@ -55,9 +57,13 @@ type DefenseEpisode struct {
 }
 
 const (
-	EpisodeFromReadings = "OČITANJA" // utvrđena računom iz niza očitanja
-	EpisodeFromOperator = "OPERATER" // upisana rukom
+	EpisodeFromReadings = "OČITANJA" // utvrđena računom iz niza očitanja, samo u zapisima ranijih izdanja
+	EpisodeFromOperator = "OPERATER" // izvedena iz ovjerenih akata (ranije i upisana rukom)
 )
+
+// KratkiOpisDionice je opis dionice bez stacionaže i duljine, za popis
+// obrana uz šifru dionice.
+func (e DefenseEpisode) KratkiOpisDionice() string { return SkratiOpisDionice(e.SectionName) }
 
 // IsOpen govori traje li obrana još uvijek.
 func (e DefenseEpisode) IsOpen() bool { return e.EndedAt == nil }

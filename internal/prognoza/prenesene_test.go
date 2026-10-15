@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"math"
+	"reflect"
 	"testing"
 	"time"
 
@@ -64,5 +65,39 @@ func TestNamjestiPrijenos(t *testing.T) {
 	}
 	if _, err := NamjestiPrijenos(context.Background(), kratka, nil, "bp", []string{"ilok", "ilok"}, time.Now()); err == nil {
 		t.Errorf("dva izvora na kratkom nizu ne smiju proći")
+	}
+}
+
+// Opis prenesene prognoze imenuje izvore imenom kad ga ima, inače šifrom, i
+// kaže koliko odnos drži i na koliko dana.
+func TestOpisPrijenosa(t *testing.T) {
+	p := Prijenos{Letva: "apatin", Izvori: []string{"batina", "aljmas"}, Rasap: 6.6, Dana: 3650}
+	got := p.Opis(map[string]string{"batina": "Batina"})
+	if want := "prognoza prenesena s naše (Batina i aljmas), odnos ±7 cm na 3650 dana"; got != want {
+		t.Errorf("%q\nželim %q", got, want)
+	}
+}
+
+// PrijenosiZaDanas daje naučene odnose kao presliku: ono što stranica s njom
+// radi ne dira odnose iz kojih se računa.
+func TestPrijenosiZaDanasJePreslika(t *testing.T) {
+	want := map[string]Prijenos{"bezdan": {Letva: "bezdan", Izvori: []string{"batina"}, Koef: []float64{2, 1}, Rasap: 4, Dana: 300}}
+	prijenosi.Lock()
+	dan, odnosi := prijenosi.dan, prijenosi.odnosi
+	prijenosi.odnosi = want
+	prijenosi.Unlock()
+	t.Cleanup(func() {
+		prijenosi.Lock()
+		prijenosi.dan, prijenosi.odnosi = dan, odnosi
+		prijenosi.Unlock()
+	})
+
+	got := PrijenosiZaDanas()
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("%+v, želim %+v", got, want)
+	}
+	delete(got, "bezdan")
+	if _, ima := PrijenosiZaDanas()["bezdan"]; !ima {
+		t.Error("brisanje iz preslike izbrisalo je naučeni odnos")
 	}
 }

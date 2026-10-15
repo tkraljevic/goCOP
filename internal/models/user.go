@@ -272,12 +272,11 @@ func (u *User) IsFieldUser() bool {
 }
 
 // VidiVodocuvarskiDnevnik javlja smije li korisnik uopće u vodočuvarske
-// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici i uprava u tuđe,
-// sve s aktivnom i neisteklom dužnošću. Strojari, rukovatelji, terenski
-// radnici i skladištari nemaju što ondje tražiti; oni će imati svoje
-// dnevnike. Ne vide ih ni gost, preglednik i nepoznata uloga. Dežurni
-// operater i poslovođa izvođača vide ih kao prije (u svom dosegu, uz
-// neisteklu dužnost) dok se ne odluči treba li im dnevnik.
+// dnevnike: vodočuvar u svoj, rukovoditelji, ovlaštenici, uprava i dežurni
+// operater u tuđe, sve s aktivnom i neisteklom dužnošću. Strojari,
+// rukovatelji, terenski radnici i skladištari nemaju što ondje tražiti; oni
+// će imati svoje dnevnike. Ne vide ih ni gost, preglednik, nepoznata uloga
+// ni voditelj usluga / poslovođa izvođača (Odluke (8. 10. 2026.), pitanje 1).
 func (u *User) VidiVodocuvarskiDnevnik() bool {
 	if u == nil {
 		return false
@@ -303,15 +302,229 @@ func (d Duty) CitaVodocuvarskiDnevnik(sad time.Time) bool {
 	return d.vrijedi(sad) && d.Role.citaVodocuvarskiDnevnik()
 }
 
-// citaVodocuvarskiDnevnik: vodočuvar, rukovoditelj ili zamjenik dionice,
-// svaka uloga uprave (s ovlaštenicima za praćenje ugovora), te dežurni
-// operater i poslovođa izvođača, čije je pravilo još otvoreno pitanje
+// citaVodocuvarskiDnevnik: vodočuvar (svoju knjigu) i svaka uloga koja
+// nešto smije u tuđoj knjizi (OvlastKnjige)
 func (r Role) citaVodocuvarskiDnevnik() bool {
+	return r == RoleWaterGuard || r.OvlastKnjige() != KnjigaNe
+}
+
+// OvlastKnjige je ono što uloga smije u tuđoj knjizi vodočuvara (dnevni
+// listovi i objavljene prijave s terena), u dosegu dužnosti. Ovjera lista i
+// rješavanje prijave nisu ovdje: njih drži rukovoditelj branjenog područja i
+// uprava iznad njega.
+type OvlastKnjige int
+
+// Ovlasti u tuđoj knjizi vodočuvara (Odluke (8. 10. 2026.), pitanje 1)
+const (
+	// KnjigaNe: ne čita (gost, preglednik, terenske uloge, skladištar,
+	// voditelj usluga / poslovođa izvođača, nepoznata uloga)
+	KnjigaNe OvlastKnjige = iota
+	// KnjigaBiljeska: čita listove i prijave i upisuje bilješku, ali ne
+	// parafira i ne zadaje zadatke (dežurni operater u COP-u)
+	KnjigaBiljeska
+	// KnjigaDionica: čita listove; prijave, parafa i bilješka samo uz vezu s
+	// njegovom dionicom, a zadatak uz to samo dok na njoj traje obrana
+	// (rukovoditelj dionice i zamjenik)
+	KnjigaDionica
+	// KnjigaSve: čita, parafira, upisuje bilješku i zadaje zadatke (uprava
+	// razina 1 do 3, s ovlaštenicima za praćenje ugovora i zamjenicima)
+	KnjigaSve
+)
+
+// OvlastKnjige je ovlast uloge u tuđoj knjizi vodočuvara
+func (r Role) OvlastKnjige() OvlastKnjige {
 	switch r {
-	case RoleWaterGuard, RoleSectionLeader, RoleSectionDeputy, RoleOperator, RoleServiceLeaderForeman:
-		return true
+	case RoleOperator:
+		return KnjigaBiljeska
+	case RoleSectionLeader, RoleSectionDeputy:
+		return KnjigaDionica
 	}
-	return r.RazinaUprave() > 0
+	if r.RazinaUprave() > 0 {
+		return KnjigaSve
+	}
+	return KnjigaNe
+}
+
+// Dionice su šifre dionica upisane na dužnost, bez praznih
+func (d Duty) Dionice() []string {
+	var out []string
+	for _, k := range strings.Split(d.SectionCodes, ",") {
+		if k = strings.TrimSpace(k); k != "" {
+			out = append(out, k)
+		}
+	}
+	return out
+}
+
+// pokrivaDionicu javlja pokriva li dužnost dionicu: dužnost bez upisanih
+// dionica pokriva cijeli svoj doseg, a s dionicama samo upisane
+func (d Duty) pokrivaDionicu(dionica string) bool {
+	return len(d.Dionice()) == 0 || d.navodiDionicu(dionica)
+}
+
+// navodiDionicu javlja je li dionica među upisanima na dužnost, bez obzira
+// na velika slova
+func (d Duty) navodiDionicu(dionica string) bool {
+	for _, k := range d.Dionice() {
+		if strings.EqualFold(k, dionica) {
+			return true
+		}
+	}
+	return false
+}
+
+// CuvaDionicu javlja čuva li vodočuvar po ovom zaduženju dionicu na
+// branjenom području: zaduženje vodočuvara na tom području navodi dionicu,
+// ili ne navodi nijednu pa pokriva cijelo područje. Vrijeme se ovdje ne
+// gleda; koja zaduženja vrijede za koji dan daje ZaduzenjaUDanu.
+func (d Duty) CuvaDionicu(areaID int, dionica string) bool {
+	return d.cuvaPodrucje(areaID) && d.pokrivaDionicu(dionica)
+}
+
+// cuvaPodrucje javlja je li ovo zaduženje vodočuvara na branjenom području
+func (d Duty) cuvaPodrucje(areaID int) bool {
+	return d.Role == RoleWaterGuard && d.naPodrucju(areaID)
+}
+
+// VerzijaZaduzenja je zaduženje kako je stajalo od trenutka Od do sljedeće
+// verzije istog zaduženja (knjiga verzija): izmjena u mjestu, opoziv ili
+// produljenje daju novu verziju
+type VerzijaZaduzenja struct {
+	Duty
+	Od time.Time
+}
+
+// SloziPovijestZaduzenja slaže povijest zaduženja osobe za ZaduzenjaUDanu.
+// Za svako zaduženje (stanje na površini, i opozvano i isteklo) idu njegove
+// ranije verzije iz knjige, redom nastanka, a kao zadnja stanje s površine,
+// od trenutka zadnje verzije u knjizi. Zaduženje bez verzija u knjizi stoji
+// u stanju s površine od svog nastanka. Zaduženje stoji od nastanka i kad
+// mu prva verzija u knjizi dolazi poslije (odNastanka).
+func SloziPovijestZaduzenja(zaduzenja []Duty, knjiga []VerzijaZaduzenja) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, d := range zaduzenja {
+		ranije, od := verzijeZaduzenja(knjiga, d.ID), d.CreatedAt
+		if n := len(ranije); n > 0 {
+			ranije, od = ranije[:n-1], ranije[n-1].Od
+		}
+		out = append(out, odNastanka(append(ranije, VerzijaZaduzenja{Duty: d, Od: od}), d.CreatedAt)...)
+	}
+	return out
+}
+
+// odNastanka produljuje povijest jednog zaduženja unatrag do njegova
+// nastanka. Zaduženje upisano mimo knjige verzija (imenik pri prvom
+// pokretanju, starija baza) dobiva prvu verziju tek pri prvoj izmjeni,
+// opozivu ili produljenju, a i verzija upisana uz nastanak nosi trenutak
+// malo kasniji. Do prve verzije zaduženje je stajalo u njezinu obliku i
+// aktivno, jer zaduženje nastaje aktivno, a tek opoziv ostavlja verziju:
+// prva verzija koja je opoziv dobiva ispred sebe aktivnu.
+func odNastanka(povijest []VerzijaZaduzenja, nastanak time.Time) []VerzijaZaduzenja {
+	prva := povijest[0]
+	if !nastanak.Before(prva.Od) {
+		return povijest
+	}
+	if prva.IsActive {
+		povijest[0].Od = nastanak
+		return povijest
+	}
+	prva.IsActive, prva.Od = true, nastanak
+	return append([]VerzijaZaduzenja{prva}, povijest...)
+}
+
+// verzijeZaduzenja su verzije iz knjige jednog zaduženja, redom kojim dolaze
+func verzijeZaduzenja(knjiga []VerzijaZaduzenja, id uuid.UUID) []VerzijaZaduzenja {
+	var out []VerzijaZaduzenja
+	for _, v := range knjiga {
+		if v.ID == id {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// ZaduzenjaUDanu su zaduženja koja su vrijedila u nekom trenutku dana dan
+// po hrvatskom vremenu, svako u obliku u kojem je tada stajalo, iz povijesti
+// koju slaže SloziPovijestZaduzenja. Zapis toga dana (dnevni list, prijava
+// s terena) tako ostaje vezan uz zaduženje kakvo je tada bilo: i kad
+// zaduženje poslije istekne, bude opozvano ili izmijenjeno, a zaduženje
+// nastalo poslije ga ne dobiva. Zaduženje izmijenjeno toga dana daje obje
+// verzije.
+func ZaduzenjaUDanu(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
+	pocetak := pocetakDana(dan)
+	kraj := pocetak.AddDate(0, 0, 1)
+	var out []Duty
+	for i, v := range povijest {
+		do := kraj
+		if i+1 < len(povijest) && povijest[i+1].ID == v.ID && povijest[i+1].Od.Before(kraj) {
+			do = povijest[i+1].Od
+		}
+		if v.vrijediIzmedu(pocetak, do) {
+			out = append(out, v.Duty)
+		}
+	}
+	return out
+}
+
+// ZaduzenjaZaZapis su zaduženja uz koja je vezan zapis (dnevni list,
+// prijava s terena) dana dan: ZaduzenjaUDanu. Zapis s dana prije nego što
+// je osoba u programu dobila ikoje zaduženje (list ili prijava preneseni iz
+// ranije evidencije, npr. uvozom iz BP16) vezan je uz zaduženja s kojima je
+// u program ušla: ona koja su vrijedila na dan nastanka njezina prvog
+// zaduženja. Zapis iz vremena između dvaju zaduženja nije vezan ni uz jedno.
+func ZaduzenjaZaZapis(povijest []VerzijaZaduzenja, dan time.Time) []Duty {
+	if prvi, ima := pocetakPovijesti(povijest); ima && pocetakDana(dan).Before(pocetakDana(prvi)) {
+		dan = prvi
+	}
+	return ZaduzenjaUDanu(povijest, dan)
+}
+
+// pocetakPovijesti je najraniji trenutak od kojeg stoji ikoja verzija u
+// povijesti zaduženja; bez povijesti ga nema
+func pocetakPovijesti(povijest []VerzijaZaduzenja) (time.Time, bool) {
+	if len(povijest) == 0 {
+		return time.Time{}, false
+	}
+	prvi := povijest[0].Od
+	for _, v := range povijest[1:] {
+		if v.Od.Before(prvi) {
+			prvi = v.Od
+		}
+	}
+	return prvi, true
+}
+
+// vrijediIzmedu javlja vrijedi li verzija zaduženja u nekom trenutku od od
+// do do (bez do): tada stoji (od Od), aktivna je i neistekla. Prva verzija
+// stoji od nastanka zaduženja, pa zaduženje ne vrijedi prije nastanka.
+func (v VerzijaZaduzenja) vrijediIzmedu(od, do time.Time) bool {
+	if v.Od.After(od) {
+		od = v.Od
+	}
+	return v.IsActive && od.Before(do) && (v.ExpiresAt == nil || v.ExpiresAt.After(od))
+}
+
+// VazecaZaduzenja su zaduženja koja vrijede u trenutku sad: aktivna i
+// neistekla
+func VazecaZaduzenja(zaduzenja []Duty, sad time.Time) []Duty {
+	var out []Duty
+	for _, d := range zaduzenja {
+		if d.vrijedi(sad) {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// pocetakDana je ponoć dana t po hrvatskom vremenu
+func pocetakDana(t time.Time) time.Time {
+	g, m, d := t.In(Zagreb).Date()
+	return time.Date(g, m, d, 0, 0, 0, 0, Zagreb)
+}
+
+// naPodrucju javlja je li dužnost upisana na to branjeno područje
+func (d Duty) naPodrucju(areaID int) bool {
+	return d.AreaID != nil && *d.AreaID == areaID
 }
 
 // PrimaryRole je uloga koja se pokazuje uz ime: primarna dužnost, jer je
@@ -347,7 +560,8 @@ type Session struct {
 // dužnost područja u području, dužnost dionica na tim dionicama. Dužnost
 // područja ili dionice nosi i sektor (normalizeScope ga upiše iz područja),
 // ali on joj ne daje pisanje po sektoru; zato SektoriDuznosti i
-// PodrucjaDuznosti stoje odvojeno, samo za prikaz i zadani izbor.
+// PodrucjaDuznosti stoje odvojeno, za prikaz i zadani izbor, a sektor još
+// samo za upis očitanja na letvu koju prati (RadiUSektoru).
 type UserPermissions struct {
 	User            User
 	IsGlobalAdmin   bool
@@ -358,7 +572,8 @@ type UserPermissions struct {
 	AllowedSections map[string]bool // Pojedinačne dionice s pravom pisanja
 	// SektoriDuznosti i PodrucjaDuznosti su sektori i područja svih dužnosti
 	// s pravom upisa, bez obzira na doseg: koji sektor ili područje otvoriti,
-	// što pokazati. Pravo pisanja ne daju.
+	// što pokazati. Pravo pisanja po dosegu ne daju; sektor daje samo upis
+	// očitanja na letvu koju prati (RadiUSektoru).
 	SektoriDuznosti  map[string]bool
 	PodrucjaDuznosti map[int]bool
 	// PodrucjaDionica su područja u kojima osoba ima dužnost na dionicama
@@ -374,8 +589,27 @@ func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
 	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]
 }
 
+// RadiNaDionici javlja ima li osoba valjanu dužnost s pravom upisa na
+// dionici: dužnost dosega dionice (rukovoditelj dionice, vodočuvar, strojar…)
+// na njezinu području koja dionicu navodi, ili ne navodi nijednu pa pokriva
+// cijelo područje. Po tome se zna tko odgovara za letvu te dionice
+// (Odluke (8. 10. 2026.), pitanje 9).
+func (p *UserPermissions) RadiNaDionici(areaID int, dionica string) bool {
+	if p == nil || areaID <= 0 || dionica == "" {
+		return false
+	}
+	for _, d := range VazecaZaduzenja(p.User.Duties, time.Now()) {
+		if d.Role.Writes() && d.Doseg() == ScopeSection && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica) {
+			return true
+		}
+	}
+	return false
+}
+
 // RadiUSektoru javlja ima li osoba u sektoru ijednu dužnost s pravom upisa,
-// bilo kojeg dosega; za prikaz i izbor, ne za pravo pisanja
+// bilo kojeg dosega. Služi za prikaz i izbor, a daje i pravo upisa očitanja
+// na letvu koju sektor prati (Odluke (8. 10. 2026.), pitanje 8); ostalo
+// pisanje ide po dosegu dužnosti, ne po njoj.
 func (p *UserPermissions) RadiUSektoru(sektor string) bool {
 	return p != nil && sektor != "" && (p.AllowedSectors[sektor] || p.SektoriDuznosti[sektor])
 }

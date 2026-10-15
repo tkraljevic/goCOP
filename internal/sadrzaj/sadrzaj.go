@@ -258,6 +258,30 @@ func (s *Spremiste) Vezi(ctx context.Context, otisak string, v Veza) error {
 	return err
 }
 
+// ImaVezu javlja je li zapis u toj ulozi već vezan uz sadržaj
+func (s *Spremiste) ImaVezu(ctx context.Context, otisak string, v Veza) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_veze WHERE otisak = ? AND entitet = ? AND entitet_id = ? AND uloga = ?`,
+		otisak, v.Entitet, v.EntitetID, v.Uloga).Scan(&n)
+	return n > 0
+}
+
+// PostaviKanal upisuje kanal sadržaju koji ga još nema i javlja je li ga
+// upisao. Sadržaj spremljen prije nego što mu je zapis davao kanal tako
+// dobiva kanal po kojem pretplata odlučuje kome ide i koliko ostaje; kanal
+// koji sadržaj već ima ne mijenja se.
+func (s *Spremiste) PostaviKanal(ctx context.Context, otisak, kanal string) (bool, error) {
+	if kanal == "" {
+		return false, nil
+	}
+	res, err := s.db.ExecContext(ctx, `UPDATE sadrzaj SET kanal = ? WHERE otisak = ? AND kanal = ''`, kanal, otisak)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n > 0, err
+}
+
 // OtisakPoUlozi vraća otisak sadržaja vezanog uz zapis u zadanoj ulozi;
 // prazno kad takve veze nema. Uloga fotografije nosi njezinu oznaku
 // ("slika:<id>"), pa se sadržaj nađe i bez znanja o otisku.
@@ -274,41 +298,173 @@ func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, uloga string) erro
 	return err
 }
 
-// ObrisiKanal miče s računala sav sadržaj jednog kanala i njegove veze; radi
-// se kad se kanal briše s čvora, pa sadržaj više nema tko tražiti
-func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string) (int, int64, error) {
-	if kanal == "" {
-		return 0, 0, nil
+// BrisanjeKanala kaže koliko sadržaja jednog kanala brisanje odnese s
+// ovog računala i koliko ostavi
+type BrisanjeKanala struct {
+	Obrisano int   // sadržaja s drugih čvorova
+	Bajtova  int64 // koliko su teški
+	Ostaje   int   // sadržaja nastalih ovdje
+}
+
+// TrebaZapisu javlja treba li sadržaj (otisak) zapisu koji nakon brisanja
+// kanala ostaje na računalu. Takav sadržaj brisanje kanala ne miče, ni kad
+// je stigao s drugog čvora: inače bi zapis ostao, a njegova fotografija ne
+// bi, i više je nitko ne bi tražio.
+type TrebaZapisu func(ctx context.Context, otisak, entitet, id string) (bool, error)
+
+// PregledKanala kaže što bi ObrisiKanal obrisao, a ne briše ništa
+func (s *Spremiste) PregledKanala(ctx context.Context, kanal string, treba TrebaZapisu) (BrisanjeKanala, error) {
+	_, b, err := s.zaBrisanjeKanala(ctx, kanal, treba)
+	return b, err
+}
+
+// ObrisiKanal miče s računala sadržaj jednog kanala koji je stigao s drugih
+// čvorova, s njegovim vezama, i popis za dohvat tog kanala. Radi se kad se
+// kanal briše s čvora, pa taj sadržaj više nema tko tražiti. Sadržaj nastao
+// ovdje ostaje, kao i kod Otpusti: ovaj čvor možda je jedini koji ga ima
+// (Odluke (13. 10. 2026.)). Ostaje i sadržaj koji treba zapisu koji ostaje
+// (treba; nil kad ne ostaje nijedan zapis).
+func (s *Spremiste) ObrisiKanal(ctx context.Context, kanal string, treba TrebaZapisu) (BrisanjeKanala, error) {
+	otisci, b, err := s.zaBrisanjeKanala(ctx, kanal, treba)
+	if err != nil || kanal == "" {
+		return BrisanjeKanala{}, err
 	}
-	rows, err := s.db.QueryContext(ctx, `SELECT otisak, bajtova FROM sadrzaj WHERE kanal = ?`, kanal)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		return 0, 0, err
+		return BrisanjeKanala{}, err
+	}
+	defer tx.Rollback()
+	for _, o := range otisci {
+		if err := obrisiSadrzaj(ctx, tx, o); err != nil {
+			return BrisanjeKanala{}, err
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
+		return BrisanjeKanala{}, err
+	}
+	return b, tx.Commit()
+}
+
+// zaBrisanjeKanala vraća otiske sadržaja kanala koji su stigli s drugih
+// čvorova, a ne trebaju zapisu koji ostaje, i pregled brisanja. Isti popis
+// koriste pregled i brisanje, pa potvrda prije brisanja kaže točno ono što
+// se obriše.
+func (s *Spremiste) zaBrisanjeKanala(ctx context.Context, kanal string, treba TrebaZapisu) ([]string, BrisanjeKanala, error) {
+	tudji, b, err := s.sadrzajKanala(ctx, kanal)
+	if err != nil {
+		return nil, BrisanjeKanala{}, err
 	}
 	var otisci []string
-	var bajtova int64
+	for _, t := range tudji {
+		uzZapis, err := s.trebaZapisu(ctx, t.otisak, treba)
+		if err != nil {
+			return nil, BrisanjeKanala{}, err
+		}
+		if uzZapis {
+			b.Ostaje++
+			continue
+		}
+		otisci = append(otisci, t.otisak)
+		b.Bajtova += t.bajtova
+	}
+	b.Obrisano = len(otisci)
+	return otisci, b, nil
+}
+
+// sadrzajKanala je sadržaj kanala koji je stigao s drugih čvorova; sadržaj
+// nastao ovdje samo se prebroji (b.Ostaje)
+func (s *Spremiste) sadrzajKanala(ctx context.Context, kanal string) (tudji []sadrzajUKanalu, b BrisanjeKanala, err error) {
+	if kanal == "" {
+		return nil, b, nil
+	}
+	rows, err := s.db.QueryContext(ctx, `SELECT otisak, bajtova, izvor = 'ovdje' FROM sadrzaj WHERE kanal = ?`, kanal)
+	if err != nil {
+		return nil, b, err
+	}
+	defer rows.Close()
 	for rows.Next() {
-		var o string
-		var n int
-		if err := rows.Scan(&o, &n); err != nil {
-			rows.Close()
-			return 0, 0, err
+		var t sadrzajUKanalu
+		var ovdje bool
+		if err := rows.Scan(&t.otisak, &t.bajtova, &ovdje); err != nil {
+			return nil, BrisanjeKanala{}, err
 		}
-		otisci = append(otisci, o)
-		bajtova += int64(n)
-	}
-	rows.Close()
-	for _, o := range otisci {
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, o); err != nil {
-			return 0, 0, err
+		if ovdje {
+			b.Ostaje++
+			continue
 		}
-		if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ?`, o); err != nil {
-			return 0, 0, err
+		tudji = append(tudji, t)
+	}
+	return tudji, b, rows.Err()
+}
+
+// KanaliTudjegSadrzaja su kanali u kojima spremište drži sadržaj koji je
+// stigao s drugih čvorova
+func (s *Spremiste) KanaliTudjegSadrzaja(ctx context.Context) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT kanal FROM sadrzaj WHERE izvor <> 'ovdje' AND kanal <> ''`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var k string
+		if err := rows.Scan(&k); err != nil {
+			return nil, err
+		}
+		out = append(out, k)
+	}
+	return out, rows.Err()
+}
+
+// sadrzajUKanalu je jedan sadržaj kanala: otisak i težina
+type sadrzajUKanalu struct {
+	otisak  string
+	bajtova int64
+}
+
+// trebaZapisu javlja treba li sadržaj barem jednom zapisu uz koji je vezan,
+// a koji nakon brisanja kanala ostaje na računalu
+func (s *Spremiste) trebaZapisu(ctx context.Context, otisak string, treba TrebaZapisu) (bool, error) {
+	if treba == nil {
+		return false, nil
+	}
+	veze, err := s.zapisiSadrzaja(ctx, otisak)
+	if err != nil {
+		return false, err
+	}
+	for _, z := range veze {
+		if da, err := treba(ctx, otisak, z[0], z[1]); err != nil || da {
+			return da, err
 		}
 	}
-	if _, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_zeljen WHERE kanal = ?`, kanal); err != nil {
-		return 0, 0, err
+	return false, nil
+}
+
+// zapisiSadrzaja su zapisi (entitet, oznaka) uz koje je sadržaj vezan
+func (s *Spremiste) zapisiSadrzaja(ctx context.Context, otisak string) ([][2]string, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT entitet, entitet_id FROM sadrzaj_veze WHERE otisak = ? AND entitet <> ''`, otisak)
+	if err != nil {
+		return nil, err
 	}
-	return len(otisci), bajtova, nil
+	defer rows.Close()
+	var out [][2]string
+	for rows.Next() {
+		var z [2]string
+		if err := rows.Scan(&z[0], &z[1]); err != nil {
+			return nil, err
+		}
+		out = append(out, z)
+	}
+	return out, rows.Err()
+}
+
+// obrisiSadrzaj miče jedan sadržaj i sve njegove veze
+func obrisiSadrzaj(ctx context.Context, tx *sql.Tx, otisak string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE otisak = ?`, otisak); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `DELETE FROM sadrzaj WHERE otisak = ? AND izvor <> 'ovdje'`, otisak)
+	return err
 }
 
 // Odvezi miče sve veze jednog zapisa (kad zapis nestane); sadržaj ostaje
@@ -338,27 +494,50 @@ func (s *Spremiste) Zeli(ctx context.Context, otisak, vrsta string, bajtova int,
 	return err
 }
 
+// Zeljen javlja je li sadržaj već na popisu za dohvat
+func (s *Spremiste) Zeljen(ctx context.Context, otisak string) bool {
+	var n int
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM sadrzaj_zeljen WHERE otisak = ?`, otisak).Scan(&n)
+	return n > 0
+}
+
 // Zeljeni vraća što čvor još treba dohvatiti, najstarije traženo prvo
 func (s *Spremiste) Zeljeni(ctx context.Context, najvise int) ([]Zelja, error) {
+	return s.ZeljeniKoje(ctx, najvise, func(Zelja) bool { return true })
+}
+
+// ZeljeniKoje vraća do najvise želja koje uzmi prihvati, istim redom kao
+// Zeljeni. Ostale se preskaču, pa želje koje čvor po pretplati ne dohvaća ne
+// zauzimaju mjesta onima koje dohvaća.
+func (s *Spremiste) ZeljeniKoje(ctx context.Context, najvise int, uzmi func(Zelja) bool) ([]Zelja, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT otisak, vrsta, bajtova, razlog, kanal, trazeno FROM sadrzaj_zeljen
-		ORDER BY trazeno IS NOT NULL, trazeno LIMIT ?`, najvise)
+		ORDER BY trazeno IS NOT NULL, trazeno`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var out []Zelja
-	for rows.Next() {
-		var z Zelja
-		var t sql.NullTime
-		if err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t); err != nil {
+	for len(out) < najvise && rows.Next() {
+		z, err := citajZelju(rows)
+		if err != nil {
 			return nil, err
 		}
-		if t.Valid {
-			z.Trazeno = &t.Time
+		if uzmi(z) {
+			out = append(out, z)
 		}
-		out = append(out, z)
 	}
 	return out, rows.Err()
+}
+
+// citajZelju čita jedan redak popisa za dohvat
+func citajZelju(rows *sql.Rows) (Zelja, error) {
+	var z Zelja
+	var t sql.NullTime
+	err := rows.Scan(&z.Otisak, &z.Vrsta, &z.Bajtova, &z.Razlog, &z.Kanal, &t)
+	if t.Valid {
+		z.Trazeno = &t.Time
+	}
+	return z, err
 }
 
 // Trazeno bilježi pokušaj dohvata, da se redoslijed pokušaja vrti

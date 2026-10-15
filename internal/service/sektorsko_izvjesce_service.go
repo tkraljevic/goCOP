@@ -231,16 +231,16 @@ func (s *IzvjescaService) PrijedlogTekstova(sva []models.DnevnoIzvjesce, ukljuci
 					dij = append(dij, p.Naselja)
 				}
 				if p.Ljudi > 0 {
-					dij = append(dij, fmt.Sprintf("%d ljudi", p.Ljudi))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Ljudi, models.UzBrojHR(p.Ljudi, "čovjek", "čovjeka", "ljudi")))
 				}
 				if p.Stambeni > 0 {
-					dij = append(dij, fmt.Sprintf("%d stambenih", p.Stambeni))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Stambeni, models.UzBrojHR(p.Stambeni, "stambeni", "stambena", "stambenih")))
 				}
 				if p.Industrijski > 0 {
-					dij = append(dij, fmt.Sprintf("%d industrijskih", p.Industrijski))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Industrijski, models.UzBrojHR(p.Industrijski, "industrijski", "industrijska", "industrijskih")))
 				}
 				if p.Farme > 0 {
-					dij = append(dij, fmt.Sprintf("%d farmi", p.Farme))
+					dij = append(dij, fmt.Sprintf("%d %s", p.Farme, models.UzBrojHR(p.Farme, "farma", "farme", "farmi")))
 				}
 				if p.Infrastruktura != "" {
 					dij = append(dij, p.Infrastruktura)
@@ -262,10 +262,10 @@ func (s *IzvjescaService) PrijedlogTekstova(sva []models.DnevnoIzvjesce, ukljuci
 					dij = append(dij, e.Naselja)
 				}
 				if e.Ljudi > 0 {
-					dij = append(dij, fmt.Sprintf("%d ljudi", e.Ljudi))
+					dij = append(dij, fmt.Sprintf("%d %s", e.Ljudi, models.UzBrojHR(e.Ljudi, "čovjek", "čovjeka", "ljudi")))
 				}
 				if e.Kucanstava > 0 {
-					dij = append(dij, fmt.Sprintf("%d kućanstava", e.Kucanstava))
+					dij = append(dij, fmt.Sprintf("%d %s", e.Kucanstava, models.UzBrojHR(e.Kucanstava, "kućanstvo", "kućanstva", "kućanstava")))
 				}
 				if e.Zivotinje != "" {
 					dij = append(dij, e.Zivotinje)
@@ -368,7 +368,10 @@ func (s *IzvjescaService) PredlozakSektora(ctx context.Context, sektor string, d
 
 // SpremiSektorsko upisuje izvješće sektora: ponovno zbroji izabrana
 // izvješća dionica (po ID-u) i preuzme izabrane zapise, tekst ostaje
-// voditeljev. Jedno po sektoru i danu, ne unaprijed.
+// voditeljev. Jedno po sektoru i danu, ne unaprijed. Spremljeno izvješće
+// je nacrt: izmjena predanog vraća ga u nacrt koji se mora ponovo predati,
+// prvo vrijeme predaje ostaje, a pamte se svi koji su ga mijenjali.
+// Spremanje bez promjene predano izvješće ostavlja predanim.
 func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, perms *models.UserPermissions, iz *models.SektorskoIzvjesce, izvjesca, zapisi []string) error {
 	if s.sektorska == nil {
 		return errors.New("sektorska izvješća nisu uključena")
@@ -396,6 +399,7 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 	if postojece != nil && postojece.ID != iz.ID {
 		return fmt.Errorf("izvješće sektora %s za %s već postoji", iz.Sektor, iz.Dan.Format("2.1.2006."))
 	}
+	var prije *models.SektorskoIzvjesce // spremljena inačica; nil za novo izvješće
 	if iz.ID != "" {
 		cur, err := s.sektorska.Get(ctx, iz.ID)
 		if err != nil {
@@ -405,44 +409,72 @@ func (s *IzvjescaService) SpremiSektorsko(ctx context.Context, u *models.User, p
 		if !cur.IzSektora(iz.Sektor) {
 			return errors.New("izvješće nije pronađeno")
 		}
-		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.PredanoAt, iz.JournalID = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.PredanoAt, cur.JournalID
+		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.JournalID = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.JournalID
+		iz.TragPredaje, prije = cur.TragPredaje, cur
 	} else {
-		iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
+		iz.IzradioID, iz.Izradio, iz.TragPredaje = u.ID.String(), u.FullName, models.TragPredaje{}
 		if iz.JournalID == "" {
 			iz.JournalID = s.otvoreniDnevnik(ctx, iz.Sektor)
 		}
 	}
-	// snimka iz dionica i dnevnika
-	sva, err := s.IzvjescaDana(ctx, iz.Sektor, iz.Dan)
+	dostupno, err := s.snimiSektorsko(ctx, iz, izvjesca, zapisi)
 	if err != nil {
 		return err
 	}
-	ukljuci := map[string]bool{}
-	for _, id := range izvjesca {
-		ukljuci[id] = true
+	return s.spremiSektorsko(ctx, iz, prije, u, dostupno)
+}
+
+// snimiSektorsko snima u izvješće izabrana izvješća dionica (zbroj i
+// tablice) i izabrane zapise dnevnika COP-a, kakvi su sada. Vraća ID-ove
+// izvješća dionica i zapisa koji za taj dan postoje, dakle što obrazac nudi:
+// samo to onaj tko sprema može zadržati u odabiru ili ga maknuti.
+func (s *IzvjescaService) snimiSektorsko(ctx context.Context, iz *models.SektorskoIzvjesce, izvjesca, zapisi []string) (map[string]bool, error) {
+	sva, err := s.IzvjescaDana(ctx, iz.Sektor, iz.Dan)
+	if err != nil {
+		return nil, err
 	}
-	iz.Sadrzaj.Pregled = s.PregledSektora(sva, ukljuci)
+	dostupni, err := s.ZapisiDana(ctx, iz.JournalID, iz.Dan)
+	if err != nil {
+		return nil, err
+	}
+	dostupno := map[string]bool{}
+	for _, d := range sva {
+		dostupno[d.ID] = true
+	}
+	iz.Sadrzaj.Pregled = s.PregledSektora(sva, skupID(izvjesca))
 	iz.Sadrzaj.Zapisi = nil
-	if len(zapisi) > 0 {
-		zeli := map[string]bool{}
-		for _, id := range zapisi {
-			zeli[id] = true
-		}
-		dostupni, err := s.ZapisiDana(ctx, iz.JournalID, iz.Dan)
-		if err != nil {
-			return err
-		}
-		for _, z := range dostupni {
-			if zeli[z.ID] {
-				iz.Sadrzaj.Zapisi = append(iz.Sadrzaj.Zapisi, z)
-			}
+	zeli := skupID(zapisi)
+	for _, z := range dostupni {
+		dostupno[z.ID] = true
+		if zeli[z.ID] {
+			iz.Sadrzaj.Zapisi = append(iz.Sadrzaj.Zapisi, z)
 		}
 	}
-	iz.IzradenoAt = time.Now().In(models.Zagreb)
+	return dostupno, nil
+}
+
+// skupID je skup ID-ova iz popisa
+func skupID(ids []string) map[string]bool {
+	skup := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		skup[id] = true
+	}
+	return skup
+}
+
+// spremiSektorsko upisuje izvješće sektora kao nacrt. Predano izvješće koje
+// spremanje ne mijenja ostaje predano i ništa se ne upisuje: u nacrt ga
+// vraća samo izmjena. dostupno je što od izvješća dionica i zapisa za taj
+// dan postoji (snimiSektorsko).
+func (s *IzvjescaService) spremiSektorsko(ctx context.Context, iz, prije *models.SektorskoIzvjesce, u *models.User, dostupno map[string]bool) error {
+	if !iz.PripremiSpremanje(prije, u, time.Now().In(models.Zagreb), dostupno) {
+		return nil
+	}
 	return s.sektorska.Save(ctx, iz)
 }
 
-// PredajSektorsko označava izvješće predanim Glavnom centru
+// PredajSektorsko označava izvješće predanim Glavnom centru, s vremenom
+// predaje i imenom onoga tko predaje; nakon izmjene to je ponovna predaja
 func (s *IzvjescaService) PredajSektorsko(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
 	iz, err := s.GetSektorsko(ctx, id)
 	if err != nil {
@@ -462,10 +494,33 @@ func (s *IzvjescaService) PredajSektorsko(ctx context.Context, u *models.User, p
 	}
 	sad := time.Now().In(models.Zagreb)
 	iz.PredanoAt = &sad
+	iz.ZabiljeziPredaju(sad, u)
 	return s.sektorska.Save(ctx, iz)
 }
 
-// ObrisiSektorsko arhivira izvješće sektora
+// PovuciPredajuSektorskog vraća predano izvješće sektora u nacrt, bez
+// izmjene sadržaja: predano izvješće se ne briše nego povlači. Prvo
+// vrijeme predaje ostaje zapisano.
+func (s *IzvjescaService) PovuciPredajuSektorskog(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
+	iz, err := s.GetSektorsko(ctx, id)
+	if err != nil {
+		return err
+	}
+	if iz == nil {
+		return errors.New("izvješće nije pronađeno")
+	}
+	if u == nil || !s.UpravaSektora(perms, iz.Sektor) {
+		return errors.New("predaju izvješća sektora povlači voditelj centra ili rukovoditelj sektora")
+	}
+	if !iz.Predano() {
+		return errors.New("izvješće nije predano, nema se što povući")
+	}
+	iz.PovuciPredaju()
+	return s.sektorska.Save(ctx, iz)
+}
+
+// ObrisiSektorsko arhivira izvješće sektora. Izvješće koje je bilo predano
+// Glavnom centru ne briše se, ni kad je predaja povučena: ono je otišlo.
 func (s *IzvjescaService) ObrisiSektorsko(ctx context.Context, u *models.User, perms *models.UserPermissions, id string) error {
 	iz, err := s.GetSektorsko(ctx, id)
 	if err != nil {
@@ -476,6 +531,9 @@ func (s *IzvjescaService) ObrisiSektorsko(ctx context.Context, u *models.User, p
 	}
 	if u == nil || !s.UpravaSektora(perms, iz.Sektor) {
 		return errors.New("izvješće sektora briše voditelj centra ili rukovoditelj sektora")
+	}
+	if iz.BiloPredano() {
+		return errors.New("izvješće sektora koje je bilo predano Glavnom centru ne briše se: predaja se može povući, a izvješće ispraviti i ponovo predati")
 	}
 	return s.sektorska.Arhiviraj(ctx, iz)
 }

@@ -4,8 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -191,5 +194,108 @@ func TestVerzijaBezIdentifikatoraSeOdbija(t *testing.T) {
 	}
 	if _, err := rec.Latest(context.Background(), "stations", "nema"); err != ErrNoVersion {
 		t.Errorf("zapis bez verzija mora vratiti ErrNoVersion, dobiveno %v", err)
+	}
+}
+
+// Verzije po identitetu dolaze redom nastanka, a identitet kojeg nema se
+// preskače
+func TestVerzijePoIdentitetu(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "cop-osijek")
+	ctx := context.Background()
+	var ids []string
+	for i, naziv := range []string{"A", "B", "C"} {
+		id, err := rec.Record(ctx, db, "readings", fmt.Sprintf("o-%d", i+1), probni{naziv, i + 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ids = append(ids, id)
+	}
+	v1, v3 := ids[0], ids[2]
+
+	if prazno, err := rec.Verzije(ctx, nil); err != nil || prazno != nil {
+		t.Errorf("bez identiteta: %v, %v", prazno, err)
+	}
+	got, err := rec.Verzije(ctx, []string{v3, "nema-je", v1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 || got[0].VersionID != v1 || got[1].VersionID != v3 || got[1].EntityID != "o-3" {
+		t.Errorf("verzije po identitetu: %+v", got)
+	}
+}
+
+// primljena je verzija kakva stiže s drugog čvora
+func primljena(id, entitet, zapis string) Version {
+	return Version{VersionID: id, Entity: entitet, EntityID: zapis, NodeID: "cop-osijek",
+		Payload: json.RawMessage(`{}`), CreatedAt: time.Date(2026, 10, 15, 8, 0, 0, 0, time.UTC), SchemaVersion: 1}
+}
+
+// oznakeVerzija su oznaka i zapis svake verzije, redom
+func oznakeVerzija(vv []Version) string {
+	var out []string
+	for _, v := range vv {
+		out = append(out, v.VersionID+"/"+v.Entity+"/"+v.EntityID)
+	}
+	return strings.Join(out, " ")
+}
+
+// brojVerzija je broj redaka u knjizi
+func brojVerzija(t *testing.T, db *sql.DB) int {
+	t.Helper()
+	var n int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM record_versions`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	return n
+}
+
+// Primljena verzija bez oznake, entiteta ili identifikatora zapisa se
+// preskoči, a ostale iz paketa se upišu, redom kojim su stigle. Do G3
+// (docs/plan-web-sync.md §3) jedna takva odbila je cijeli paket.
+func TestApplyPreskaceNeispravne(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "laptop-baranja")
+	ctx := context.Background()
+	prva := primljena("0190a000-0000-7000-8000-000000000001", "stations", "st-1")
+	druga := primljena("0190a000-0000-7000-8000-000000000005", "stations", "st-5")
+	bezOznake := primljena("", "stations", "st-2")
+	bezEntiteta := primljena("0190a000-0000-7000-8000-000000000003", "", "st-3")
+	bezZapisa := primljena("0190a000-0000-7000-8000-000000000004", "stations", "")
+	paket := []Version{prva, bezOznake, bezEntiteta, bezZapisa, druga}
+
+	ispravne, neispravne := Ispravne(paket)
+	if oznakeVerzija(ispravne) != oznakeVerzija([]Version{prva, druga}) || oznakeVerzija(neispravne) != oznakeVerzija([]Version{bezOznake, bezEntiteta, bezZapisa}) {
+		t.Errorf("ispravne %q, neispravne %q", oznakeVerzija(ispravne), oznakeVerzija(neispravne))
+	}
+	if n, err := rec.Apply(ctx, paket); n != 2 || err != nil {
+		t.Fatalf("paket s neispravnima: %d %v", n, err)
+	}
+	if n, err := rec.Apply(ctx, []Version{bezOznake, bezZapisa}); n != 0 || err != nil {
+		t.Errorf("paket samo neispravnih: %d %v", n, err)
+	}
+	if n := brojVerzija(t, db); n != 2 {
+		t.Errorf("u knjizi %d verzija, očekivano 2", n)
+	}
+}
+
+// Greška baze pri upisu vrati cijeli paket: ništa iz njega ne ostane u
+// knjizi, ni verzija upisana prije one na kojoj je upis pao. Preskaču se
+// samo neispravne verzije, nikad verzije koje baza nije primila.
+func TestApplyGreskaBazeVracaCijeliPaket(t *testing.T) {
+	db := openTestDB(t)
+	rec := New(db, "laptop-baranja")
+	if _, err := db.Exec(`CREATE TRIGGER kvar BEFORE INSERT ON record_versions WHEN NEW.entity_id = 'st-2'
+		BEGIN SELECT RAISE(ABORT, 'namjerni kvar'); END`); err != nil {
+		t.Fatal(err)
+	}
+	prva := primljena("0190a000-0000-7000-8000-000000000001", "stations", "st-1")
+	druga := primljena("0190a000-0000-7000-8000-000000000002", "stations", "st-2")
+	n, err := rec.Apply(context.Background(), []Version{prva, druga})
+	if n != 0 || err == nil || !strings.Contains(err.Error(), "greška pri primanju verzije "+druga.VersionID) {
+		t.Errorf("greška baze: %d %v", n, err)
+	}
+	if n := brojVerzija(t, db); n != 0 {
+		t.Errorf("u knjizi je ostalo %d verzija iz paketa koji nije primljen", n)
 	}
 }

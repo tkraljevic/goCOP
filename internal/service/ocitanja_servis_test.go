@@ -207,7 +207,7 @@ func TestProvjeraOcitanja(t *testing.T) {
 		{"samo zapornica na postaji", func(r *models.Reading) { r.LevelCm, r.Gate = nil, models.GateClosed }, "samo na objektu"},
 	}
 	for _, s := range slucajevi {
-		err := o.rs.validate(osnovno(s.izmj))
+		err := o.rs.validate(osnovno(s.izmj), false)
 		switch {
 		case s.greska == "" && err != nil:
 			t.Errorf("%s: %v", s.ime, err)
@@ -219,7 +219,7 @@ func TestProvjeraOcitanja(t *testing.T) {
 	// provjera i mijenja očitanje: prazan način postaje ručni, a napomena i
 	// očitao se obrežu
 	rd := osnovno(func(r *models.Reading) { r.Note, r.Observer = "  mutna voda \n", "  Pero Perić " })
-	if err := o.rs.validate(rd); err != nil {
+	if err := o.rs.validate(rd, false); err != nil {
 		t.Fatal(err)
 	}
 	if rd.Source != models.ReadingSourceManual || rd.Note != "mutna voda" || rd.Observer != "Pero Perić" {
@@ -263,7 +263,12 @@ func TestUpisOcitanjaIPrava(t *testing.T) {
 			t.Errorf("%s: očekivano „%s”, dobiveno %v", ime, poruka, err)
 		}
 	}
-	odbijeno("tuđa dionica", ovl, novo(o.probno), "nemate pravo upisivati očitanja na Probno")
+	// Odluke (8. 10. 2026.), pitanje 8: tuđa dionica istog sektora više nije
+	// prepreka — upisuje svatko s dužnošću u sektoru letve (drugi sektor:
+	// ocitanja_prava_test.go)
+	if err := o.rs.Create(ctx, ovl, novo(o.probno)); err != nil {
+		t.Errorf("letva druge dionice istog sektora: %v", err)
+	}
 	odbijeno("gost", gost, novo(o.primjerovo), "nemate pravo")
 	odbijeno("bez ovlasti", nil, novo(o.primjerovo), "nemate pravo")
 	odbijeno("neispravna letva", ovl, &models.Reading{StationID: "nije-uuid", MeasuredAt: sad, LevelCm: cmP(1)}, "neispravna postaja")
@@ -357,7 +362,8 @@ func TestIzmjenaIBrisanjeOcitanja(t *testing.T) {
 		t.Errorf("nakon izmjene: %+v", sada)
 	}
 
-	// autor smije mijenjati svoje očitanje i kad više nema prava na letvi
+	// autor smije mijenjati svoje očitanje i kad više nema prava na letvi,
+	// još 72 h od upisa (Odluke (8. 10. 2026.), pitanje 9)
 	if _, err := o.baza.Exec(`UPDATE duties SET is_active = 0 WHERE user_id = ?`, pp.ID.String()); err != nil {
 		t.Fatal(err)
 	}
@@ -382,18 +388,24 @@ func TestIzmjenaIBrisanjeOcitanja(t *testing.T) {
 		t.Errorf("izmjena nepostojećeg: %v", err)
 	}
 
-	// brisanje: tuđe ne, svoje da, i vrati obrisano
+	// brisanje: tuđe ne; ni svoje, odkad briše samo onaj tko odgovara za
+	// letvu (Odluke (8. 10. 2026.), pitanje 9); rukovoditelj dionice letve
+	// briše i vrati obrisano
 	if _, err := o.rs.Delete(ctx, drugi, rd.ID); err == nil || !strings.Contains(err.Error(), "nemate pravo brisati") {
 		t.Errorf("tuđe brisanje: %v", err)
 	}
-	obrisano, err := o.rs.Delete(ctx, autorOvl, rd.ID)
+	if _, err := o.rs.Delete(ctx, autorOvl, rd.ID); err == nil || !strings.Contains(err.Error(), "nemate pravo brisati") {
+		t.Errorf("autor briše svoje: %v", err)
+	}
+	_, rukovoditelj := o.pperic(t, "pperic-p11", dionicaDuznost("P.1.1", 1))
+	obrisano, err := o.rs.Delete(ctx, rukovoditelj, rd.ID)
 	if err != nil || obrisano == nil || obrisano.ID != rd.ID {
 		t.Fatalf("brisanje: %v %v", obrisano, err)
 	}
 	if ostalo, _ := o.readings.Get(ctx, rd.ID); ostalo != nil {
 		t.Error("očitanje je i dalje tu")
 	}
-	if _, err := o.rs.Delete(ctx, autorOvl, rd.ID); err == nil || !strings.Contains(err.Error(), "ne postoji") {
+	if _, err := o.rs.Delete(ctx, rukovoditelj, rd.ID); err == nil || !strings.Contains(err.Error(), "ne postoji") {
 		t.Errorf("drugo brisanje: %v", err)
 	}
 
@@ -434,8 +446,11 @@ func TestZalijepljenaOcitanja(t *testing.T) {
 	if _, err := o.rs.UveziZalijepljena(ctx, ovl, o.primjerovo, los); err == nil || !strings.HasPrefix(err.Error(), "2.3.2026. 07:00:") {
 		t.Errorf("neispravan niz: %v", err)
 	}
-	if _, err := o.rs.UveziZalijepljena(ctx, ovl, o.probno, niz()); err == nil || !strings.Contains(err.Error(), "nemate pravo") {
-		t.Errorf("tuđa letva: %v", err)
+	// letva druge dionice istog sektora nije tuđa (Odluke (8. 10. 2026.),
+	// pitanje 8); Gost ne upisuje nigdje
+	_, gost := o.pperic(t, "pperic-gost", &models.Duty{Title: "Gost", Role: models.RoleGuest, ScopeType: models.ScopeAll})
+	if _, err := o.rs.UveziZalijepljena(ctx, gost, o.probno, niz()); err == nil || !strings.Contains(err.Error(), "nemate pravo") {
+		t.Errorf("gost: %v", err)
 	}
 	if _, err := o.rs.UveziZalijepljena(ctx, ovl, nil, niz()); err == nil {
 		t.Error("bez letve")
@@ -649,9 +664,9 @@ func TestPravoUpisaPrekoDionice(t *testing.T) {
 	sektor, podrucje := "P", 1
 	_, uprava := o.pperic(t, "pperic", &models.Duty{Title: "Rukovoditelj područja", Role: models.RoleAreaLeader,
 		ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsPrimary: true})
-	// uprava područja 1 upisuje na letvu dionice svog područja, ne i
-	// drugog, a letva na dionicama oba područja je njezina
-	if !o.rs.CanRecordStation(uprava, o.primjerovo) || o.rs.CanRecordStation(uprava, o.probno) || !o.rs.CanRecordStation(uprava, o.dvije) {
+	// uprava područja 1 upisuje na letvu dionice svog područja, a od
+	// Odluka (8. 10. 2026.), pitanje 8, i drugog područja istog sektora
+	if !o.rs.CanRecordStation(uprava, o.primjerovo) || !o.rs.CanRecordStation(uprava, o.probno) || !o.rs.CanRecordStation(uprava, o.dvije) {
 		t.Error("uprava područja i letve dionica")
 	}
 	// dionica letve koje nema u registru ne daje pravo

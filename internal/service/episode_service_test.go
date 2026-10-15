@@ -13,111 +13,25 @@ func letvaBatina() models.Station {
 	return models.Station{Name: "Batina", Prep: prag(300), Regular: prag(500), Emergency: prag(650), State: prag(800)}
 }
 
-func dan(g, m, d int) time.Time { return time.Date(g, time.Month(m), d, 7, 0, 0, 0, time.UTC) }
+// Epizode se više ne računaju iz niza očitanja (Odluke (8. 10. 2026.),
+// pitanje 14): kada bi po vodostaju bio koji stupanj prikazuje se samo kao
+// „Valovi obrane u nizu” na historijatu letve (models.Valovi) i nikad se ne
+// upisuje kao obrana. Uz epizodu iz akta bilježi se samo kad je vodostaj
+// prešao pripremno stanje, pa se vidi je li obrana proglašena unaprijed.
+func TestObranaAktomPrijePrelaskaPraga(t *testing.T) {
+	o := novaOkolinaObrane(t)
+	sad := time.Now().UTC().Truncate(time.Minute)
+	pocetak := sad.Add(-3 * 24 * time.Hour)
+	o.ocitanje(t, sad.Add(-2*24*time.Hour), 280)
+	prijelaz := sad.Add(-24 * time.Hour)
+	o.ocitanje(t, prijelaz, 340)
 
-// Epizoda počinje prelaskom pripremnog stanja i traje dok se vodostaj ne vrati
-// ispod njega; nosi najviši dosegnuti stupanj i vrh vala, ne zadnju vrijednost.
-func TestEpizodaNosiVrhINajvisiStupanj(t *testing.T) {
-	niz := []ocitanje{
-		{dan(2024, 9, 15), 280}, // ispod praga
-		{dan(2024, 9, 16), 340}, // počinje
-		{dan(2024, 9, 17), 520},
-		{dan(2024, 9, 18), 708}, // vrh, izvanredna obrana
-		{dan(2024, 9, 19), 610},
-		{dan(2024, 9, 20), 290}, // završava
-		{dan(2024, 9, 21), 250},
+	o.ovjeriAkt(t, o.letva.ID.String(), models.AktUspostava, models.PhasePrep, pocetak, "P.1.1")
+	e := o.otvorena(t, "P.1.1")
+	if e.ThresholdAt == nil || !e.ThresholdAt.Equal(prijelaz) {
+		t.Fatalf("prag prijeđen: %v, očekivano %v", e.ThresholdAt, prijelaz)
 	}
-	epi := izracunaj(niz, letvaBatina())
-	if len(epi) != 1 {
-		t.Fatalf("epizoda %d, očekivano 1", len(epi))
-	}
-	e := epi[0]
-	if !e.StartedAt.Equal(dan(2024, 9, 16)) {
-		t.Errorf("počinje %s", e.StartedAt)
-	}
-	if e.EndedAt == nil || !e.EndedAt.Equal(dan(2024, 9, 19)) {
-		t.Errorf("završava %v, očekivano 19.09.", e.EndedAt)
-	}
-	if e.PeakCm == nil || *e.PeakCm != 708 {
-		t.Errorf("vrh %v, očekivano 708", e.PeakCm)
-	}
-	if e.PeakAt == nil || !e.PeakAt.Equal(dan(2024, 9, 18)) {
-		t.Errorf("vrh nastupio %v, očekivano 18.09.", e.PeakAt)
-	}
-	if e.Phase != models.PhaseEmergency {
-		t.Errorf("stupanj %q, očekivano izvanrednu obranu", e.Phase)
-	}
-	if e.Days() != 4 {
-		t.Errorf("trajanje %d dana, očekivano 4", e.Days())
-	}
-}
-
-// Dva odvojena vala daju dvije epizode, a ne jednu dugu.
-func TestDvaValaDvijeEpizode(t *testing.T) {
-	niz := []ocitanje{
-		{dan(2013, 2, 14), 417}, {dan(2013, 2, 18), 310},
-		{dan(2013, 2, 19), 180},
-		{dan(2013, 3, 2), 332}, {dan(2013, 3, 8), 305},
-		{dan(2013, 3, 9), 120},
-	}
-	epi := izracunaj(niz, letvaBatina())
-	if len(epi) != 2 {
-		t.Fatalf("epizoda %d, očekivano 2", len(epi))
-	}
-	if *epi[0].PeakCm != 417 || *epi[1].PeakCm != 332 {
-		t.Errorf("vrhovi %d i %d", *epi[0].PeakCm, *epi[1].PeakCm)
-	}
-}
-
-// Epizoda koja traje na kraju niza ostaje otvorena — obrana još nije gotova.
-func TestEpizodaNaKrajuNizaOstajeOtvorena(t *testing.T) {
-	niz := []ocitanje{{dan(2023, 12, 30), 520}, {dan(2023, 12, 31), 631}}
-	epi := izracunaj(niz, letvaBatina())
-	if len(epi) != 1 {
-		t.Fatalf("epizoda %d", len(epi))
-	}
-	// epizodu zatvara tek pad ispod praga; dotad nema kraja, a stupanj je
-	// najviši dosegnuti
-	if epi[0].EndedAt != nil || !epi[0].IsOpen() {
-		t.Errorf("epizoda bez pada ispod praga zatvorena: kraj %v", epi[0].EndedAt)
-	}
-	if epi[0].Phase != models.PhaseRegular {
-		t.Errorf("stupanj %q, očekivano redovnu obranu", epi[0].Phase)
-	}
-	if *epi[0].PeakCm != 631 {
-		t.Errorf("vrh %d", *epi[0].PeakCm)
-	}
-}
-
-// Vodostaj koji nikad ne prijeđe prag ne daje epizodu.
-func TestBezPrelaskaPragaNemaEpizode(t *testing.T) {
-	niz := []ocitanje{{dan(2022, 1, 4), 280}, {dan(2022, 1, 5), 299}, {dan(2022, 1, 6), 150}}
-	if epi := izracunaj(niz, letvaBatina()); len(epi) != 0 {
-		t.Errorf("epizoda %d, očekivano nijednu", len(epi))
-	}
-}
-
-// Epizoda utvrđena računom počinje upravo prelaskom praga, pa mora nositi i
-// zabilježen trenutak prelaska — inače se poslije ne bi razlikovala od one
-// koju je čovjek proglasio unaprijed.
-func TestRacunataEpizodaBiljeziPrelazakPraga(t *testing.T) {
-	niz := []ocitanje{
-		{dan(2024, 9, 15), 280},
-		{dan(2024, 9, 16), 340},
-		{dan(2024, 9, 17), 250},
-	}
-	epi := izracunaj(niz, letvaBatina())
-	if len(epi) != 1 {
-		t.Fatalf("epizoda %d", len(epi))
-	}
-	e := epi[0]
-	if e.ThresholdAt == nil || !e.ThresholdAt.Equal(e.StartedAt) {
-		t.Errorf("prelazak praga %v, očekivano isti trenutak kao početak %v", e.ThresholdAt, e.StartedAt)
-	}
-	if e.Basis != models.BasisThreshold {
-		t.Errorf("osnova %q, očekivano prijeđen prag", e.Basis)
-	}
-	if e.DeclaredBeforeThreshold() {
-		t.Error("računata epizoda ne može biti proglašena prije praga")
+	if !e.DeclaredBeforeThreshold() || e.LeadHours() != 48 {
+		t.Errorf("obrana proglašena dva dana prije prelaska praga: unaprijed %v, %d h", e.DeclaredBeforeThreshold(), e.LeadHours())
 	}
 }

@@ -7,9 +7,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"go/ast"
-	"go/parser"
-	"go/token"
 	"path/filepath"
 	"reflect"
 	"sort"
@@ -729,6 +726,23 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 		},
 		{
+			entitet: EntityRjesenjaOznaka, tablica: "akti_rjesenja_oznaka", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var x models.RjesenjeOznake
+				puni(&x)
+				x.Sektor = "B"
+				nuzno(t, NewAktiRepository(a.db, a.rec).SaveRjesenjeOznake(ctxRaz, &x))
+			},
+			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
+				x := teret[models.RjesenjeOznake](t, p)
+				x.Napomena += " (izmjena)"
+				nuzno(t, NewAktiRepository(b.db, b.rec).SaveRjesenjeOznake(ctxRaz, x))
+			},
+			procitaj: func(_ *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				return NewAktiRepository(n.db, n.rec).ListRjesenjaOznaka(ctxRaz)
+			},
+		},
+		{
 			entitet: EntityZadaci, tablica: "vodocuvarski_zadaci", kljuc: "id",
 			napravi: func(t *testing.T, a *cvor) {
 				var z models.Zadatak
@@ -1043,6 +1057,19 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 			procitaj: func(_ *testing.T, n *cvor, id string, _ []byte) (any, error) {
 				return NewReadingRepository(n.db, n.rec).Get(ctxRaz, uuid.MustParse(id))
+			},
+		},
+		{
+			entitet: EntityOdbacena, tablica: "odbacena_ocitanja", kljuc: "id",
+			napravi: func(t *testing.T, a *cvor) {
+				var o models.OdbacenaVrijednost
+				puni(&o)
+				o.Letva = "station:" + letva
+				nuzno(t, NewReadingRepository(a.db, a.rec).ZabiljeziOdbacene(ctxRaz, []models.OdbacenaVrijednost{o}))
+			},
+			bezUredjivanja: "odbačena vrijednost se zapisuje jednom i ne mijenja se",
+			procitaj: func(t *testing.T, n *cvor, _ string, p []byte) (any, error) {
+				return NewReadingRepository(n.db, n.rec).SazetakOdbacenih(ctxRaz, teret[models.OdbacenaVrijednost](t, p).Letva)
 			},
 		},
 		{
@@ -1678,87 +1705,18 @@ func prazno(x any) bool {
 
 // ---- pokrivenost ----
 
-// Svaki entitet koji applyOne zna upisati mora imati slučaj u tablici, pa
-// novi entitet bez provjere razmjene ruši test.
+// Svaki entitet koji primjena razmjene zna upisati (upis u primjenama po
+// skupinama, apply_<skupina>.go) mora imati slučaj u tablici, pa novi
+// entitet bez provjere razmjene ruši test.
 func TestRazmjenaSvihEntitetaPokrivenost(t *testing.T) {
-	fset := token.NewFileSet()
-	datoteke, err := filepath.Glob("*.go")
-	nuzno(t, err)
-	var stabla []*ast.File
-	for _, d := range datoteke {
-		if strings.HasSuffix(d, "_test.go") {
-			continue
-		}
-		f, err := parser.ParseFile(fset, d, nil, 0)
-		nuzno(t, err)
-		stabla = append(stabla, f)
-	}
-
-	// vrijednosti tekstualnih konstanti paketa: EntityStations = "stations"…
-	konstante := map[string]string{}
-	var applyOne *ast.FuncDecl
-	for _, f := range stabla {
-		for _, d := range f.Decls {
-			switch d := d.(type) {
-			case *ast.GenDecl:
-				if d.Tok != token.CONST {
-					continue
-				}
-				for _, sp := range d.Specs {
-					vs := sp.(*ast.ValueSpec)
-					for i, ime := range vs.Names {
-						if i >= len(vs.Values) {
-							continue
-						}
-						if lit, ok := vs.Values[i].(*ast.BasicLit); ok && lit.Kind == token.STRING {
-							if v, err := strconv.Unquote(lit.Value); err == nil {
-								konstante[ime.Name] = v
-							}
-						}
-					}
-				}
-			case *ast.FuncDecl:
-				if d.Name.Name == "applyOne" && d.Recv == nil {
-					applyOne = d
-				}
-			}
-		}
-	}
-	if applyOne == nil {
-		t.Fatal("applyOne nije nađen")
-	}
-
 	var entiteti []string
-	ast.Inspect(applyOne.Body, func(n ast.Node) bool {
-		sw, ok := n.(*ast.SwitchStmt)
-		if !ok {
-			return true
+	for e, p := range primjene {
+		if p.upis != nil {
+			entiteti = append(entiteti, e)
 		}
-		if sel, ok := sw.Tag.(*ast.SelectorExpr); !ok || sel.Sel.Name != "Entity" {
-			return true
-		}
-		for _, st := range sw.Body.List {
-			for _, e := range st.(*ast.CaseClause).List {
-				switch e := e.(type) {
-				case *ast.BasicLit:
-					v, _ := strconv.Unquote(e.Value)
-					entiteti = append(entiteti, v)
-				case *ast.Ident:
-					v, ok := konstante[e.Name]
-					if !ok {
-						t.Errorf("konstanta %s iz applyOne nema tekstualnu vrijednost u paketu", e.Name)
-						continue
-					}
-					entiteti = append(entiteti, v)
-				case *ast.SelectorExpr:
-					t.Errorf("entitet %s.%s iz drugog paketa: dodaj ga u pokrivenost", e.X, e.Sel.Name)
-				}
-			}
-		}
-		return false
-	})
+	}
 	if len(entiteti) < 40 {
-		t.Fatalf("u applyOne nađeno je samo %d entiteta — je li se switch promijenio?", len(entiteti))
+		t.Fatalf("u primjenama je nađeno samo %d entiteta s upisom — jesu li se primjene promijenile?", len(entiteti))
 	}
 
 	imaSlucaj := map[string]bool{}
@@ -1771,16 +1729,16 @@ func TestRazmjenaSvihEntitetaPokrivenost(t *testing.T) {
 			t.Errorf("slučaj %s nema procitaj: zapis se mora pročitati čitačem repozitorija", s.entitet)
 		}
 	}
-	uSwitchu := map[string]bool{}
+	sUpisom := map[string]bool{}
 	for _, e := range entiteti {
-		uSwitchu[e] = true
+		sUpisom[e] = true
 		if !imaSlucaj[e] {
-			t.Errorf("entitet %s primjenjuje se razmjenom (applyOne), a nema slučaj u slucajeviRazmjene", e)
+			t.Errorf("entitet %s primjenjuje se razmjenom (primjene), a nema slučaj u slucajeviRazmjene", e)
 		}
 	}
 	for e := range imaSlucaj {
-		if !uSwitchu[e] {
-			t.Errorf("slučaj za %s, a applyOne ga ne poznaje", e)
+		if !sUpisom[e] {
+			t.Errorf("slučaj za %s, a primjene ga ne poznaju", e)
 		}
 	}
 	for k := range poznateGreske {

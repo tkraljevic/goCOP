@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 
 	_ "modernc.org/sqlite"
@@ -115,7 +116,7 @@ func (h *StationsHandler) IzveziPaket(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "nije poznato gdje arhiva stoji", http.StatusServiceUnavailable)
 		return
 	}
-	db, err := sql.Open("sqlite", h.arhivaPutFn()+"?mode=ro")
+	db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(h.arhivaPutFn()))
 	if err != nil {
 		http.Error(w, "arhiva se ne otvara: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -223,7 +224,7 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 	}
 	pd.StariPaket = sadrzaj.Manifest.Inacica < 2
 	if put := h.arhivaPutFn(); put != "" {
-		if db, err := sql.Open("sqlite", put+"?mode=ro"); err == nil {
+		if db, err := sql.Open("sqlite", gocopdb.SamoZaCitanje(put)); err == nil {
 			pd.RazlikeIzvora, _ = arhiva.RazlikeIzvora(db, sadrzaj)
 			db.Close()
 		}
@@ -273,9 +274,10 @@ func (h *StationsHandler) UgradiPaket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, natrag, "success", fmt.Sprintf(
-		"Historijat letve %s, izdanje %d — ugrađeno %s zapisa u %d nizova.",
+		"Historijat letve %s, izdanje %d — %s %s u %d %s.",
 		sadrzaj.Manifest.Letva, sadrzaj.Manifest.Izdanje,
-		brojHR(sadrzaj.Manifest.Zapisa), sadrzaj.Manifest.Nizova))
+		brojHR(sadrzaj.Manifest.Zapisa), models.UzBrojHR(sadrzaj.Manifest.Zapisa, "zapis je ugrađen", "zapisa su ugrađena", "zapisa je ugrađeno"),
+		sadrzaj.Manifest.Nizova, models.UzBrojHR(sadrzaj.Manifest.Nizova, "niz", "niza", "nizova")))
 }
 
 func (h *StationsHandler) pisiPregled(w http.ResponseWriter, pd PaketData) {

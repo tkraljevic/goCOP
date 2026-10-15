@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -407,6 +408,20 @@ func (r *MtsRepository) SavePromet(ctx context.Context, redci []models.Promet) e
 	return tx.Commit()
 }
 
+// izvorPotezaSQL traži izlaz poteza po indeksu veze, bez spajanja tablica
+const izvorPotezaSQL = `SELECT sektor, skladiste_id FROM mts_promet WHERE veza_id = ? AND kolicina < 0 LIMIT 1`
+
+// IzvorPoteza vraća sektor i skladište retka koji u potezu skida (izlaz
+// prijenosa); prazno kad potez nema izlaza ili ga ovaj čvor nema. Zid
+// događanja ga zove za svaki ulaz prijenosa koji pročita.
+func (r *MtsRepository) IzvorPoteza(ctx context.Context, veza string) (sektor, skladisteID string, err error) {
+	err = r.db.QueryRowContext(ctx, izvorPotezaSQL, veza).Scan(&sektor, &skladisteID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", "", nil
+	}
+	return sektor, skladisteID, err
+}
+
 // FiltarPrometa sužava knjigu prometa; prazna polja ne sužavaju
 type FiltarPrometa struct {
 	SkladisteID string
@@ -586,23 +601,30 @@ func (r *MtsRepository) SavePopis(ctx context.Context, p *models.Popis) error {
 	if p.CreatedAt.IsZero() {
 		p.CreatedAt = now
 	}
-	p.UpdatedAt = now
-	args, err := popisArgs(p)
-	if err != nil {
-		return err
-	}
 	tx, err := r.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, popisUpsert, args...); err != nil {
-		return fmt.Errorf("upis popisa: %w", err)
-	}
-	if _, err := r.rec.Record(ctx, tx, EntityMtsPopisi, p.ID, p); err != nil {
+	if err := r.upisiPopis(ctx, tx, p); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// upisiPopis upisuje popis na površinu i bilježi verziju, u zadanoj
+// transakciji; popis već ima identitet
+func (r *MtsRepository) upisiPopis(ctx context.Context, tx *sql.Tx, p *models.Popis) error {
+	p.UpdatedAt = time.Now().UTC()
+	args, err := popisArgs(p)
+	if err != nil {
+		return fmt.Errorf("popis %s: %w", p.ID, err)
+	}
+	if _, err := tx.ExecContext(ctx, popisUpsert, args...); err != nil {
+		return fmt.Errorf("upis popisa: %w", err)
+	}
+	_, err = r.rec.Record(ctx, tx, EntityMtsPopisi, p.ID, p)
+	return err
 }
 
 // GetPopis čita popis; nil kad ga nema
@@ -718,15 +740,24 @@ func (r *MtsRepository) ArhivirajPromet(ctx context.Context, redci []models.Prom
 		return err
 	}
 	defer tx.Rollback()
+	if err := r.arhivirajRetke(ctx, tx, redci); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// arhivirajRetke miče retke prometa s površine i bilježi spomenik svakome,
+// u zadanoj transakciji
+func (r *MtsRepository) arhivirajRetke(ctx context.Context, tx *sql.Tx, redci []models.Promet) error {
 	for i := range redci {
 		if _, err := tx.ExecContext(ctx, `DELETE FROM mts_promet WHERE id = ?`, redci[i].ID); err != nil {
-			return err
+			return fmt.Errorf("brisanje retka prometa %s: %w", redci[i].ID, err)
 		}
 		if _, err := r.rec.Archive(ctx, tx, EntityMtsPromet, redci[i].ID, &redci[i]); err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
+	return nil
 }
 
 // ArhivirajPopis miče popis s površine; u knjizi verzija ostaje arhiviran.

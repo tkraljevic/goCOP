@@ -20,7 +20,7 @@ func TestOblikImena(t *testing.T) {
 
 func TestOcistiIPredlozi(t *testing.T) {
 	slucajevi := map[string]string{
-		"Pero Perić — ThinkPad":    "pero-peric-thinkpad",
+		"Pero Perić — ThinkPad":      "pero-peric-thinkpad",
 		"  ŠTEFICA_Žižić-laptop!!  ": "stefica-zizic-laptop",
 		"DESKTOP-7Q2ĐAB":             "desktop-7q2dab",
 		"---":                        "",

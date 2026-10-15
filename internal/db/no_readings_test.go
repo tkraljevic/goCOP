@@ -26,9 +26,7 @@ func TestUInternalDbNemaPodatkovnihDatoteka(t *testing.T) {
 // kao registre: to su mjerenja Hrvatskih voda, koja na letvama očitavaju
 // vodočuvari i strojari. Uvoze se zasebno, naredbom iz datoteke uz bazu.
 func TestRegistriUzBazuNemajuOcitanja(t *testing.T) {
-	if !UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan")
-	}
+	registriIliPreskoci(t)
 	tragovi := []string{"measured_at", "vodostaj_uzvodni", "vodostaj_nizvodni", "level_cm", "\"vodostaji\"", "stanje_cs"}
 	for _, name := range []string{"sections.json", "watercourses.json", "territories.json", "section_territories.json", "objekti_bp16.json"} {
 		raw, err := readDataFile(name)

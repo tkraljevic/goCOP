@@ -1,0 +1,353 @@
+package models
+
+import (
+	"bytes"
+	"encoding/json"
+	"sort"
+	"strings"
+	"time"
+)
+
+// TragPredaje je trag predaje dnevnog izvješća — izvješća sektora Glavnom
+// centru i izvješća dionice podcentru obrane. Predano izvješće ne mijenja se
+// potiho: spremljena izmjena vraća ga u nacrt, a nova predaja dobiva novo
+// vrijeme predaje. Prvo vrijeme predaje ostaje zapisano, jer se po njemu
+// gleda rok (sektor do 10:00, dionica do 08:00), uz imena svih koji su
+// izvješće mijenjali nakon predaje i onoga tko ga je predao.
+//
+// Čvor sa starijim programom (0.0.34) izvješće koje je zadnji zapisao ovaj
+// program ne uređuje, jer izvješća nose višu shemu (repository.ShemaIzvjesca).
+// Izvješće koje je zadnji zapisao stariji program on i dalje mijenja: ova
+// polja ne poznaje, ali ih knjiga verzija pri njegovoj izmjeni prepiše iz
+// prethodne inačice, a izmjena na takvom čvoru predano izvješće ostavlja
+// predanim. Predaju na takvom čvoru program ne pripisuje onome tko je
+// predao prije: PredaoAt kaže za koju je predaju zapisano tko je predao.
+type TragPredaje struct {
+	PrvoPredanoAt *time.Time `json:"prvo_predano_at,omitempty"`
+	PredaoID      string     `json:"predao_id,omitempty"` // tko je predao zadnji put
+	Predao        string     `json:"predao,omitempty"`
+	PredaoAt      *time.Time `json:"predao_at,omitempty"` // vrijeme predaje za koju su zapisani PredaoID i Predao
+	// svi koji su izvješće mijenjali nakon prve predaje, redom prve izmjene
+	Izmijenili []Izmjenitelj `json:"izmijenili,omitempty"`
+}
+
+// Izmjenitelj je onaj tko je izvješće mijenjao nakon predaje
+type Izmjenitelj struct {
+	ID  string `json:"id"`
+	Ime string `json:"ime"`
+}
+
+// prvo je vrijeme prve predaje. Izvješće predano prije nego što se prvo
+// vrijeme pamtilo nosi samo vrijeme predaje, i ono je ujedno prvo.
+func (t TragPredaje) prvo(predano *time.Time) *time.Time {
+	if t.PrvoPredanoAt != nil {
+		return t.PrvoPredanoAt
+	}
+	return predano
+}
+
+// ponovno javlja da je izvješće predano, i to ne prvi put
+func (t TragPredaje) ponovno(predano *time.Time) bool {
+	return predano != nil && t.PrvoPredanoAt != nil && !predano.Equal(*t.PrvoPredanoAt)
+}
+
+// IzmjenaPoslijePredaje bilježi spremanje izvješća koje je već bilo
+// predano (sada ili prije): prvo vrijeme predaje ostaje, a kad je spremanje
+// izvješće stvarno promijenilo, onaj tko sprema dodaje se onima koji su ga
+// mijenjali — uz njih, ne umjesto njih. Spremanje bez promjene ne dodaje
+// nikoga. Za izvješće koje nikad nije predano nema što bilježiti. Da
+// izmjena izvješće vraća u nacrt, brine onaj tko sprema.
+func (t *TragPredaje) IzmjenaPoslijePredaje(predano *time.Time, u *User, promijenjeno bool) {
+	prvo := t.prvo(predano)
+	if prvo == nil {
+		return
+	}
+	t.PrvoPredanoAt = prvo
+	if promijenjeno {
+		t.dodajIzmjenitelja(u)
+	}
+}
+
+// dodajIzmjenitelja dodaje osobu onima koji su izvješće mijenjali, jednom
+func (t *TragPredaje) dodajIzmjenitelja(u *User) {
+	if u == nil {
+		return
+	}
+	id := u.ID.String()
+	for _, i := range t.Izmijenili {
+		if i.ID == id {
+			return
+		}
+	}
+	t.Izmijenili = append(t.Izmijenili, Izmjenitelj{ID: id, Ime: u.FullName})
+}
+
+// TkoJeMijenjao su imena svih koji su izvješće mijenjali nakon predaje,
+// redom prve izmjene („Ivo Ivić, Marko Markić”); prazno kad nitko
+func (t TragPredaje) TkoJeMijenjao() string {
+	imena := make([]string, len(t.Izmijenili))
+	for k, i := range t.Izmijenili {
+		imena[k] = i.Ime
+	}
+	return strings.Join(imena, ", ")
+}
+
+// IzmjeneZaIspis: „izmijenio poslije predaje: Ivo Ivić”, a kad ih je više
+// „izmijenili poslije predaje: Ivo Ivić, Marko Markić”; prazno kad nitko.
+// Tako piše na dokumentu, u izvozu i u popisu izvješća.
+func (t TragPredaje) IzmjeneZaIspis() string {
+	switch len(t.Izmijenili) {
+	case 0:
+		return ""
+	case 1:
+		return "izmijenio poslije predaje: " + t.TkoJeMijenjao()
+	}
+	return "izmijenili poslije predaje: " + t.TkoJeMijenjao()
+}
+
+// istiJSON: dvije vrijednosti su iste kad se jednako zapisuju; što se ne da
+// zapisati, nije isto
+func istiJSON(a, b any) bool {
+	ja, ea := json.Marshal(a)
+	jb, eb := json.Marshal(b)
+	return ea == nil && eb == nil && bytes.Equal(ja, jb)
+}
+
+// ZabiljeziPredaju pamti tko predaje, a kod prve predaje i njezino vrijeme
+func (t *TragPredaje) ZabiljeziPredaju(kad time.Time, u *User) {
+	if t.PrvoPredanoAt == nil {
+		t.PrvoPredanoAt = &kad
+	}
+	if u != nil {
+		t.PredaoID, t.Predao, t.PredaoAt = u.ID.String(), u.FullName, &kad
+	}
+}
+
+// opisPredaje: „predano GCOP-u 7.10. 09:40”; nakon ponovne predaje „prvi put
+// predano GCOP-u 7.10. 09:40, ponovno 7.10. 14:20”; dok izmijenjeno čeka
+// novu predaju „prvi put predano GCOP-u 7.10. 09:40, čeka ponovnu predaju”.
+// Prazno dok izvješće nije predano nijednom.
+func (t TragPredaje) opisPredaje(predano *time.Time, kome, format string) string {
+	prvo := t.prvo(predano)
+	if prvo == nil {
+		return ""
+	}
+	glagol := strings.TrimSpace("predano " + kome)
+	switch {
+	case predano == nil:
+		return "prvi put " + glagol + " " + prvo.In(Zagreb).Format(format) + ", čeka ponovnu predaju"
+	case t.ponovno(predano):
+		return "prvi put " + glagol + " " + prvo.In(Zagreb).Format(format) + ", ponovno " + predano.In(Zagreb).Format(format)
+	}
+	return glagol + " " + predano.In(Zagreb).Format(format)
+}
+
+// trag je nastavak retka o izradi dokumenta („Datum i sat izrade … ·
+// Sastavio …”): tko je sve izvješće mijenjao nakon predaje, kad je predano i,
+// kad se zna i nije onaj tko ga je sastavio, tko ga je predao
+func (t TragPredaje) trag(predano *time.Time, izradio, kome, format string) string {
+	var dijelovi []string
+	if iz := t.IzmjeneZaIspis(); iz != "" {
+		dijelovi = append(dijelovi, iz)
+	}
+	if o := t.opisPredaje(predano, kome, format); o != "" {
+		if p := t.predaoIli(predano, izradio); predano != nil && p != "" && p != izradio {
+			o += " (predao " + p + ")"
+		}
+		dijelovi = append(dijelovi, o)
+	}
+	if len(dijelovi) == 0 {
+		return ""
+	}
+	return " · " + strings.Join(dijelovi, " · ")
+}
+
+// predaoIli je tko je izvješće predao u predaji s vremenom predano.
+// Zapisani predavatelj vrijedi samo za predaju za koju je zapisan. Ponovnu
+// predaju na čvoru sa starijim programom (0.0.34), koji predavatelja ne
+// pamti, nije predao onaj tko je predao prije, pa se tada ne zna tko ju je
+// predao (prazno). Za izvješće predano prije nego što se to pamtilo, onaj
+// tko ga je sastavio.
+func (t TragPredaje) predaoIli(predano *time.Time, izradio string) string {
+	switch {
+	case t.predaoZa(predano):
+		return t.Predao
+	case t.ponovno(predano):
+		return ""
+	}
+	return izradio
+}
+
+// predaoZa javlja je li zapisani predavatelj predao baš predaju s vremenom predano
+func (t TragPredaje) predaoZa(predano *time.Time) bool {
+	return t.Predao != "" && predano != nil && t.PredaoAt != nil && predano.Equal(*t.PredaoAt)
+}
+
+// PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom
+func (i SektorskoIzvjesce) PrviPutPredano() *time.Time { return i.prvo(i.PredanoAt) }
+
+// BiloPredano javlja je li izvješće bilo predano barem jednom
+func (i SektorskoIzvjesce) BiloPredano() bool { return i.PrviPutPredano() != nil }
+
+// PonovnoPredano javlja je li predano nakon izmjene, ne prvi put
+func (i SektorskoIzvjesce) PonovnoPredano() bool { return i.ponovno(i.PredanoAt) }
+
+// OpisPredaje je predaja za ispis, npr. „prvi put predano GCOP-u 09:40, ponovno 14:20”
+func (i SektorskoIzvjesce) OpisPredaje(kome, format string) string {
+	return i.opisPredaje(i.PredanoAt, kome, format)
+}
+
+// TragUDokumentu je nastavak retka o izradi na dokumentu i u izvozu
+func (i SektorskoIzvjesce) TragUDokumentu(kome, format string) string {
+	return i.trag(i.PredanoAt, i.Izradio, kome, format)
+}
+
+// TkoJePredao je tko je izvješće predao zadnji put; prazno kad se ne zna
+func (i SektorskoIzvjesce) TkoJePredao() string { return i.predaoIli(i.PredanoAt, i.Izradio) }
+
+// PovuciPredaju vraća predano izvješće u nacrt bez izmjene sadržaja; prvo
+// vrijeme predaje ostaje
+func (i *SektorskoIzvjesce) PovuciPredaju() {
+	i.PrvoPredanoAt, i.PredanoAt = i.PrviPutPredano(), nil
+}
+
+// ZabiljeziSpremanje bilježi u trag spremanje izvješća koje je već bilo
+// predano: prvo vrijeme predaje ostaje, a onaj tko sprema pamti se među
+// onima koji su ga mijenjali samo kad je promijenio dan ili sadržaj. prije
+// je spremljena inačica (trag je već prepisan iz nje); nil za novo izvješće.
+// Vraća je li spremanje izvješće promijenilo; novo izvješće jest promjena.
+func (i *SektorskoIzvjesce) ZabiljeziSpremanje(prije *SektorskoIzvjesce, u *User) bool {
+	if prije == nil {
+		return true
+	}
+	promijenjeno := prije.DanKey() != i.DanKey() || !istiJSON(prije.Sadrzaj, i.Sadrzaj)
+	i.IzmjenaPoslijePredaje(prije.PredanoAt, u, promijenjeno)
+	return promijenjeno
+}
+
+// PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena onoga
+// tko sprema (ostajePredano): predano izvješće koje on nije mijenjao ostaje
+// kakvo je bilo, predano, s istim vremenima i tablicama kakve su predane,
+// a odgovor je false — nema se što spremiti. dostupno su ID-ovi izvješća
+// dionica i zapisa dnevnika koji za taj dan još postoje; nil kad se to ne
+// zna, pa se ništa ne izuzima.
+func (i *SektorskoIzvjesce) PripremiSpremanje(prije *SektorskoIzvjesce, u *User, sad time.Time, dostupno map[string]bool) bool {
+	if i.ostajePredano(prije, dostupno) {
+		*i = *prije
+		return false
+	}
+	i.ZabiljeziSpremanje(prije, u)
+	i.IzradenoAt, i.PredanoAt = sad, nil
+	return true
+}
+
+// ostajePredano javlja da spremanje predano izvješće sektora ne vraća u
+// nacrt: onaj tko sprema nije promijenio ni dan, ni tekst, ni odabir
+// izvješća dionica i zapisa dnevnika. Tablice i reci koji se pri spremanju
+// snimaju iznova nisu njegova izmjena — izvješće dionice popravljeno
+// poslije predaje i novi nacrt dionice za isti dan predano izvješće sektora
+// ostavljaju kakvo je predano. Nije njegova izmjena ni što iz odabira
+// predanog izvješća više ne postoji (storniran zapis, obrisano izvješće
+// dionice): to u obrascu ne vidi i ne može zadržati.
+func (i SektorskoIzvjesce) ostajePredano(prije *SektorskoIzvjesce, dostupno map[string]bool) bool {
+	return prije != nil && prije.Predano() && prije.DanKey() == i.DanKey() &&
+		istiJSON(prije.Sadrzaj.izbor().samoDostupno(dostupno), i.Sadrzaj.izbor().samoDostupno(dostupno))
+}
+
+// izborSektorskog je ono što u izvješću sektora piše i bira onaj tko ga
+// slaže: tekstovi te koja izvješća dionica i koji zapisi dnevnika ulaze
+type izborSektorskog struct {
+	Tekst    SektorskiSadrzaj `json:"tekst"` // bez snimke iz dionica i dnevnika
+	Izvjesca []string         `json:"izvjesca"`
+	Zapisi   []string         `json:"zapisi"`
+}
+
+// samoDostupno ostavlja u odabiru samo izvješća dionica i zapise dnevnika
+// koji još postoje; nil znači da se to ne zna, pa ostaje cijeli odabir
+func (iz izborSektorskog) samoDostupno(dostupno map[string]bool) izborSektorskog {
+	if dostupno == nil {
+		return iz
+	}
+	iz.Izvjesca, iz.Zapisi = samoUSkupu(iz.Izvjesca, dostupno), samoUSkupu(iz.Zapisi, dostupno)
+	return iz
+}
+
+// samoUSkupu su ID-ovi iz popisa koji su u skupu, istim redom
+func samoUSkupu(ids []string, skup map[string]bool) []string {
+	var out []string
+	for _, id := range ids {
+		if skup[id] {
+			out = append(out, id)
+		}
+	}
+	return out
+}
+
+// izbor vadi iz sadržaja ono što bira i piše onaj tko izvješće slaže, bez
+// snimke iz dionica i dnevnika. Odabrano je skup: redoslijed nije bitan.
+func (s SektorskiSadrzaj) izbor() izborSektorskog {
+	iz := izborSektorskog{Tekst: s}
+	iz.Tekst.Pregled, iz.Tekst.Zapisi = SektorskiPregled{}, nil
+	for _, pod := range s.Pregled.Podrucja {
+		for _, d := range pod.Dionice {
+			iz.Izvjesca = append(iz.Izvjesca, d.IzvjesceID)
+		}
+	}
+	for _, z := range s.Zapisi {
+		iz.Zapisi = append(iz.Zapisi, z.ID)
+	}
+	sort.Strings(iz.Izvjesca)
+	sort.Strings(iz.Zapisi)
+	return iz
+}
+
+// PrviPutPredano je vrijeme prve predaje; nil dok nije predano nijednom
+func (i DnevnoIzvjesce) PrviPutPredano() *time.Time { return i.prvo(i.PredanoAt) }
+
+// BiloPredano javlja je li izvješće bilo predano barem jednom
+func (i DnevnoIzvjesce) BiloPredano() bool { return i.PrviPutPredano() != nil }
+
+// PonovnoPredano javlja je li predano nakon izmjene, ne prvi put
+func (i DnevnoIzvjesce) PonovnoPredano() bool { return i.ponovno(i.PredanoAt) }
+
+// OpisPredaje je predaja za ispis, npr. „prvi put predano 07:40, ponovno 11:05”
+func (i DnevnoIzvjesce) OpisPredaje(kome, format string) string {
+	return i.opisPredaje(i.PredanoAt, kome, format)
+}
+
+// TragUDokumentu je nastavak retka o izradi na dokumentu i u izvozu
+func (i DnevnoIzvjesce) TragUDokumentu(kome, format string) string {
+	return i.trag(i.PredanoAt, i.Izradio, kome, format)
+}
+
+// TkoJePredao je tko je izvješće predao zadnji put; prazno kad se ne zna
+func (i DnevnoIzvjesce) TkoJePredao() string { return i.predaoIli(i.PredanoAt, i.Izradio) }
+
+// ZabiljeziSpremanje bilježi u trag spremanje izvješća koje je već bilo
+// predano: prvo vrijeme predaje ostaje, a onaj tko sprema pamti se među
+// onima koji su ga mijenjali samo kad je promijenio dan, stadij ili
+// sadržaj. prije je spremljena inačica (trag je već prepisan iz nje); nil
+// za novo izvješće. Vraća je li spremanje izvješće promijenilo; novo
+// izvješće jest promjena.
+func (i *DnevnoIzvjesce) ZabiljeziSpremanje(prije *DnevnoIzvjesce, u *User) bool {
+	if prije == nil {
+		return true
+	}
+	promijenjeno := prije.DanKey() != i.DanKey() || prije.Stadij != i.Stadij || !istiJSON(prije.Sadrzaj, i.Sadrzaj)
+	i.IzmjenaPoslijePredaje(prije.PredanoAt, u, promijenjeno)
+	return promijenjeno
+}
+
+// PripremiSpremanje bilježi spremanje u trag i izvješće vraća u nacrt s
+// vremenom izrade sad. U nacrt predano izvješće vraća samo izmjena: predano
+// izvješće koje spremanje ne mijenja ostaje kakvo je bilo, predano i s
+// istim vremenima, a odgovor je false — nema se što spremiti.
+func (i *DnevnoIzvjesce) PripremiSpremanje(prije *DnevnoIzvjesce, u *User, sad time.Time) bool {
+	if !i.ZabiljeziSpremanje(prije, u) && prije.Predano() {
+		*i = *prije
+		return false
+	}
+	i.IzradenoAt, i.PredanoAt = sad, nil
+	return true
+}

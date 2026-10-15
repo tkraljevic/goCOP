@@ -13,11 +13,11 @@ import (
 	"gocop/internal/repository"
 )
 
+// pripremi puni bazu iz izmišljenog skupa sektora P: letve Primjerovo i
+// Rubno te crpna stanica CS Probni s letvom istog imena
 func pripremi(t *testing.T) (Deps, *repository.ReadingRepository) {
 	t.Helper()
-	if !db.UseRepoData() {
-		t.Skip("data/ s registrima nije dostupan — registri stoje izvan repozitorija")
-	}
+	db.KoristiIzmisljenePodatke(t)
 	database, err := db.OpenDB(filepath.Join(t.TempDir(), "tablica.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -56,7 +56,7 @@ func TestTablicaDnevnihVodostaja(t *testing.T) {
 	ctx := context.Background()
 
 	path := napisi(t, []string{
-		"Datum;Dunav - Batina;Drava - Osijek;CS Draž;Nepoznata letva",
+		"Datum;Primjerica - Primjerovo;Rubnica - Rubno;CS Probni;Nepoznata letva",
 		"01.09.2026.;-118;-176;158;5",
 		"02.09.2026.;-114;;159;5",
 		"03.09.2026.;-117;-168,4;160;5",
@@ -64,7 +64,7 @@ func TestTablicaDnevnihVodostaja(t *testing.T) {
 		"nešto krivo;1;1;1;1",
 	})
 
-	o := Options{Path: path, Origin: "COP Osijek — dnevna tablica", DryRun: true, Deps: deps}
+	o := Options{Path: path, Origin: "COP Primjerovo — dnevna tablica", DryRun: true, Deps: deps}
 	rep, err := Run(ctx, o)
 	if err != nil {
 		t.Fatalf("izvješće: %v", err)
@@ -81,7 +81,7 @@ func TestTablicaDnevnihVodostaja(t *testing.T) {
 	if rep.BadValues != 0 {
 		t.Errorf("prazna ćelija i crtica nisu greška, a prijavljeno ih je %d", rep.BadValues)
 	}
-	// Batina 4, Osijek 2 (jedno prazno, jedna crtica), CS Draž 4
+	// Primjerovo 4, Rubno 2 (jedno prazno, jedna crtica), CS Probni 4
 	if rep.Inserted != 10 {
 		t.Errorf("novih očitanja %d, očekivano 10", rep.Inserted)
 	}
@@ -93,14 +93,14 @@ func TestTablicaDnevnihVodostaja(t *testing.T) {
 
 	// Objekt i njegov vodomjer nose isto ime; očitanje ide na objekt, jer
 	// ondje stoje i očitanja iz Baranje
-	var draz *Column
+	var cs *Column
 	for i := range rep.Matched {
-		if rep.Matched[i].Header == "CS Draž" {
-			draz = &rep.Matched[i]
+		if rep.Matched[i].Header == "CS Probni" {
+			cs = &rep.Matched[i]
 		}
 	}
-	if draz == nil || draz.Key[:10] != "structure:" {
-		t.Errorf("CS Draž nije vezan na objekt: %+v", draz)
+	if cs == nil || cs.Key[:10] != "structure:" {
+		t.Errorf("CS Probni nije vezan na objekt: %+v", cs)
 	}
 
 	// pravi uvoz
@@ -140,13 +140,13 @@ func TestPreklapanjePoDanuBezObziraNaSat(t *testing.T) {
 	deps, readings := pripremi(t)
 	ctx := context.Background()
 
-	batina, err := deps.Stations.GetStationByCode(ctx, "batina")
-	if err != nil || batina == nil {
-		t.Fatal("nema postaje batina")
+	letva, err := deps.Stations.GetStationByCode(ctx, "primjerovo")
+	if err != nil || letva == nil {
+		t.Fatal("nema postaje primjerovo")
 	}
 	cm := 120
 	teren := models.Reading{
-		StationID: batina.ID.String(), Source: models.ReadingSourceManual, Origin: models.ReadingOriginGoCOP,
+		StationID: letva.ID.String(), Source: models.ReadingSourceManual, Origin: models.ReadingOriginGoCOP,
 		MeasuredAt: time.Date(2026, 9, 1, 7, 43, 0, 0, models.Zagreb).UTC(), LevelCm: &cm,
 	}
 	if err := readings.Create(ctx, &teren); err != nil {
@@ -154,7 +154,7 @@ func TestPreklapanjePoDanuBezObziraNaSat(t *testing.T) {
 	}
 
 	path := napisi(t, []string{
-		"Datum;Dunav - Batina",
+		"Datum;Primjerica - Primjerovo",
 		"01.09.2026.;125",
 		"02.09.2026.;126",
 	})

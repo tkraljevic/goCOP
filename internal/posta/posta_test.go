@@ -13,7 +13,7 @@ import (
 )
 
 func TestSlanjePrekoExchangea(t *testing.T) {
-	srv, err := PokreniProbni("VODA\\tkraljevic", "tajna")
+	srv, err := PokreniProbni("VODA\\pperic", "tajna")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -22,20 +22,20 @@ func TestSlanjePrekoExchangea(t *testing.T) {
 	ctx := context.Background()
 	p := srv.Postavke()
 
-	if err := Provjeri(ctx, p, Racun{"VODA\\tkraljevic", "stara"}); !errors.Is(err, ErrPrijava) {
+	if err := Provjeri(ctx, p, Racun{"VODA\\pperic", "stara"}); !errors.Is(err, ErrPrijava) {
 		t.Fatalf("kriva lozinka: %v", err)
 	}
-	if err := Provjeri(ctx, p, Racun{"VODA\\tkraljevic", "tajna"}); err != nil {
+	if err := Provjeri(ctx, p, Racun{"VODA\\pperic", "tajna"}); err != nil {
 		t.Fatal(err)
 	}
 
-	od := mail.Address{Name: "Tomislav Kraljević", Address: "tomislav@voda.hr"}
+	od := mail.Address{Name: "Pero Perić", Address: "pero.peric@voda.hr"}
 	pdf := []byte("%PDF-1.4 izvornik")
 	poruka := func(za string) Poruka {
 		return Poruka{Od: od, Za: mail.Address{Address: za}, Predmet: "Obavijest o proglašenju pripremnog stanja B-1/2026",
 			Tekst: "Poštovani,\nu privitku je obavijest.", Privitci: []Privitak{{Ime: "Batina_uspostava_PS.pdf", Vrsta: "application/pdf", Podaci: pdf}}}
 	}
-	greske, err := Posalji(ctx, p, Racun{"VODA\\tkraljevic", "tajna"}, []Poruka{poruka("a@primjer.hr"), poruka("nema@primjer.hr"), poruka("b@primjer.hr")})
+	greske, err := Posalji(ctx, p, Racun{"VODA\\pperic", "tajna"}, []Poruka{poruka("a@primjer.hr"), poruka("nema@primjer.hr"), poruka("b@primjer.hr")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -43,7 +43,7 @@ func TestSlanjePrekoExchangea(t *testing.T) {
 		t.Fatalf("ishodi: %v", greske)
 	}
 	prim := srv.Poruke()
-	if len(prim) != 2 || prim[0].Za != "a@primjer.hr" || prim[1].Za != "b@primjer.hr" || prim[0].Od != "tomislav@voda.hr" {
+	if len(prim) != 2 || prim[0].Za != "a@primjer.hr" || prim[1].Za != "b@primjer.hr" || prim[0].Od != "pero.peric@voda.hr" {
 		t.Fatalf("primljeno: %+v", prim)
 	}
 
@@ -89,7 +89,7 @@ func TestAdrese(t *testing.T) {
 }
 
 func TestSlanjePrekoEWS(t *testing.T) {
-	srv, err := PokreniProbniEWS("VODA\\tkraljevic", "tajna")
+	srv, err := PokreniProbniEWS("VODA\\pperic", "tajna")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,18 +100,18 @@ func TestSlanjePrekoEWS(t *testing.T) {
 	if !p.SpremaPoslano() {
 		t.Error("EWS sprema poslano")
 	}
-	if err := Provjeri(ctx, p, Racun{"VODA\\tkraljevic", "stara"}); !errors.Is(err, ErrPrijava) {
+	if err := Provjeri(ctx, p, Racun{"VODA\\pperic", "stara"}); !errors.Is(err, ErrPrijava) {
 		t.Fatalf("kriva lozinka: %v", err)
 	}
-	if err := Provjeri(ctx, p, Racun{"VODA\\tkraljevic", "tajna"}); err != nil {
+	if err := Provjeri(ctx, p, Racun{"VODA\\pperic", "tajna"}); err != nil {
 		t.Fatal(err)
 	}
-	od := mail.Address{Name: "Tomislav Kraljević", Address: "tomislav@voda.hr"}
+	od := mail.Address{Name: "Pero Perić", Address: "pero.peric@voda.hr"}
 	poruka := func(za string) Poruka {
 		return Poruka{Od: od, Za: mail.Address{Address: za}, Predmet: "Obavijest", Tekst: "Poštovani",
 			Privitci: []Privitak{{Ime: "akt.pdf", Vrsta: "application/pdf", Podaci: []byte("%PDF")}}}
 	}
-	greske, err := Posalji(ctx, p, Racun{"VODA\\tkraljevic", "tajna"}, []Poruka{poruka("a@primjer.hr"), poruka("nema@primjer.hr")})
+	greske, err := Posalji(ctx, p, Racun{"VODA\\pperic", "tajna"}, []Poruka{poruka("a@primjer.hr"), poruka("nema@primjer.hr")})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -125,24 +125,25 @@ func TestSlanjePrekoEWS(t *testing.T) {
 
 func TestImenaZaPrijavu(t *testing.T) {
 	p := Postavke{Domena: "voda.int"}
-	if got := strings.Join(p.Imena("tkraljevic@voda.hr"), "|"); got != `tkraljevic@voda.hr|voda.int\tkraljevic` {
+	if got := strings.Join(p.Imena("pperic@voda.hr"), "|"); got != `pperic@voda.hr|voda.int\pperic` {
 		t.Errorf("%s", got)
 	}
-	if got := strings.Join(p.Imena(`VODA\tkraljevic`), "|"); got != `VODA\tkraljevic` {
+	if got := strings.Join(p.Imena(`VODA\pperic`), "|"); got != `VODA\pperic` {
 		t.Errorf("%s", got)
 	}
 }
 
+// Brojevi su izmišljeni (Odluke (8. 10. 2026.), pitanje 13)
 func TestUsporedbaTelefona(t *testing.T) {
-	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031/252-802", "031 252 802"}, {"031 632052, 031 285676", "031-632-052"}, {"00385 31 252 852", "031-252-852"}} {
+	for _, c := range [][2]string{{"+385 91 000 001", "091-000-001"}, {"031/000-002", "031 000 002"}, {"031 000003, 031 000004", "031-000-003"}, {"00385 31 000 005", "031-000-005"}} {
 		if SamoZnamenke(c[0]) != SamoZnamenke(c[1]) {
 			t.Errorf("%q i %q moraju biti isti broj (%s, %s)", c[0], c[1], SamoZnamenke(c[0]), SamoZnamenke(c[1]))
 		}
 	}
-	if SamoZnamenke("098-404-497") == SamoZnamenke("098-404-499") {
+	if SamoZnamenke("091-000-001") == SamoZnamenke("091-000-009") {
 		t.Error("različiti brojevi")
 	}
-	for _, c := range [][2]string{{"+385 98 404 497", "098-404-497"}, {"031 252 886", "031-252-886"}, {"031 632052, 031 285676", "031-632-052"}, {"099 346 3075", "099-346-3075"}, {"+43 1 234", "+431234"}} {
+	for _, c := range [][2]string{{"+385 91 000 001", "091-000-001"}, {"031 000 006", "031-000-006"}, {"031 000003, 031 000004", "031-000-003"}, {"099 000 0007", "099-000-0007"}, {"+43 1 234", "+431234"}} {
 		if got := FormatirajTelefon(c[0]); got != c[1] {
 			t.Errorf("FormatirajTelefon(%q) = %q, očekivano %q", c[0], got, c[1])
 		}

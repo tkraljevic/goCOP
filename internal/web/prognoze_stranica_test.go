@@ -211,12 +211,36 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 	}
 	osnova.Generira = true
 	osnova.Napredak = javnivodostaji.Napredak{UTijeku: true, Faza: "preuzimanje vodostaja", Gotovo: 7, Ukupno: 113, Novih: 12, Postotak: 5,
-		Redci: []string{"Batina: 3 novih", "Aljmaš: ništa novo"}}
+		Redci: []string{"Batina: 3 nova očitanja", "Aljmaš: ništa novo"}}
 	html = iscrtaj(t, "prognoze_postavke.html", osnova)
-	for _, want := range []string{"Generiranje u tijeku", "disabled", `data-u-tijeku="1"`, "width:5%", "5 %", "letva 7 od 113", "Batina: 3 novih", "/prognoze/napredak", "/prognoze/postavke#generiraj"} {
+	for _, want := range []string{"Generiranje u tijeku", "disabled", `data-u-tijeku="1"`, "width:5%", "5 %", "letva 7 od 113 · 12 novih očitanja",
+		"Batina: 3 nova očitanja", "/prognoze/napredak", "/prognoze/postavke#generiraj"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("dok krug traje stranica nema %q", want)
 		}
+	}
+}
+
+// Traka napretka pisala je „· 21 novih”, i kad je broj stigao iz skripte.
+// Predložak i skripta sad biraju oblik istim pravilom, a pravilo za skriptu
+// stranica učita prije nje.
+func TestTrakaNapretkaRijecUzBroj(t *testing.T) {
+	osnova := PrognozePageData{
+		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", MozeGenerirati: true, Generira: true,
+		Napredak: javnivodostaji.Napredak{UTijeku: true, Gotovo: 7, Ukupno: 113},
+	}
+	for novih, want := range map[int]string{1: "· 1 novo očitanje", 2: "· 2 nova očitanja", 5: "· 5 novih očitanja",
+		11: "· 11 novih očitanja", 21: "· 21 novo očitanje", 22: "· 22 nova očitanja"} {
+		osnova.Napredak.Novih = novih
+		if html := iscrtaj(t, "prognoze_postavke.html", osnova); !strings.Contains(html, want) {
+			t.Errorf("%d novih: traka nema %q", novih, want)
+		}
+	}
+	html := iscrtaj(t, "prognoze_postavke.html", osnova)
+	if !strings.Contains(html, "uzBroj(n.novih, 'novo očitanje', 'nova očitanja', 'novih očitanja')") ||
+		!strings.Contains(html, `src="/static/js/uzbroj.js`) {
+		t.Error("skripta trake ne bira oblik riječi uz broj novih očitanja")
 	}
 }
 
@@ -245,6 +269,9 @@ func TestStranicaPrognozaRezerva(t *testing.T) {
 	postaje["varazdin"], postaje["borl-i"] = models.Station{Name: "Varaždin"}, models.Station{Name: "Borl I (Slovenija)"}
 	if d := opisRezerve("dnevni model: mursko-sredisce + varazdin umjesto mursko-sredisce + borl-i", postaje); d != "Dnevna prognoza iz rezerve: mursko-sredisce + Varaždin umjesto mursko-sredisce + Borl I (Slovenija)." {
 		t.Errorf("opis dnevne rezerve: %q", d)
+	}
+	if d := opisRezerve("rekonstrukcija: rupa od 7.10. u 11:00 do 8.10. u 09:00 (21 h) procijenjena iz letve bezdan 5 h nizvodno; na arhivi 95 % unutar ±2 cm", postaje); d != "Rekonstruirano iz susjeda: rupa od 7.10. u 11:00 do 8.10. u 09:00 (21 h) procijenjena iz letve Bezdan (Srbija) 5 h nizvodno; na arhivi 95 % unutar ±2 cm." {
+		t.Errorf("opis rekonstrukcije: %q", d)
 	}
 	html := iscrtaj(t, "prognoze.html", PrognozePageData{
 		CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},

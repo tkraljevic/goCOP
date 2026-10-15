@@ -70,7 +70,7 @@
 
   <div class="d-flex gap-3 mt-4 items-center">
     <button type="submit" class="btn" {{if not .Promjena}}disabled{{end}}>
-      {{icon "check"}} Upiši {{brojHR .Promjena}} {{if eq .Promjena 1}}ispravak{{else}}ispravaka{{end}}
+      {{icon "check"}} Upiši {{brojHR .Promjena}} {{uzBroj .Promjena "ispravak" "ispravka" "ispravaka"}}
     </button>
     <a href="/readings/station/{{.Station.ID}}#arhiva" class="btn btn-secondary">Odustani</a>
   </div>

@@ -125,10 +125,13 @@ func TelLink(s string) string {
 		}
 		return -1
 	}, s)
-	if digits == "" {
+	switch {
+	case digits == "":
 		return ""
-	}
-	if strings.HasPrefix(digits, "0") {
+	case strings.HasPrefix(digits, "00"):
+		// međunarodni prefiks: „00385 31…” je „+385 31…”
+		return "+" + digits[2:]
+	case strings.HasPrefix(digits, "0"):
 		return "+385" + digits[1:]
 	}
 	return "+" + digits
@@ -204,7 +207,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// čekanju; brojač imena ostaje dok ne prođe i PIN ili kod, inače bi
 	// ukradena lozinka brisala brojač pogađanja PIN-a. Zapamćeno računalo
 	// preskače samo PIN, lozinka je već provjerena.
-	if dk := h.dk(); dk.TrebaDrugiKorak(r.Context(), service.IzvanaAdresa(klijent.KrozPosrednika, klijent.Adresa)) &&
+	if dk := h.dk(); dk.TrebaDrugiKorak(r.Context(), klijent.Izvana()) &&
 		!dk.ProvjeriRacunalo(r.Context(), user, vrijednostKolacica(r, imeKolacicaRacunala), ip) {
 		h.zapocniDrugiKorak(w, r, dk, user, ip)
 		return

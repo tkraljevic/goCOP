@@ -10,17 +10,21 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"sort"
+	"strings"
 	"time"
 
+	"gocop/internal/arhiva"
+	"gocop/internal/config"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/kisomjeri"
 	"gocop/internal/models"
 	"gocop/internal/oborine"
 	"gocop/internal/peers"
 	"gocop/internal/prognoza"
-	"gocop/internal/web"
 )
 
 // Dohvati stranih prognoza; testovi ih zamjenjuju, jer pravi idu na internet
@@ -70,7 +74,18 @@ func preuzmiStranuPrognozu(ctx context.Context, uvoznik *javnivodostaji.Uvoznik,
 	if n > 0 {
 		log.Printf("%s: zapisano %d novih vrijednosti", iz.podrijetlo, n)
 	}
-	uvoznik.Redak("%s: %d letvi, %d novih vrijednosti", iz.podrijetlo, len(letve), n)
+	uvoznik.Redak("%s: %s", iz.podrijetlo, opisStranePrognoze(len(letve), n))
+}
+
+// uloziKisomjere uloži mjerenja kišomjera u arhivsko stablo; testovi ga
+// zamjenjuju
+var uloziKisomjere = kisomjeri.Ulozi
+
+// arhivaKisomjera gradi letve kišomjera u arhivi i izdaje njihove pakete; na
+// čvoru je to poslužitelj, a u testovima zamjena
+type arhivaKisomjera interface {
+	IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj, error)
+	IzdajArhivu(letva string, probno bool, zapisi io.Writer) (arhiva.IzvjestajIzdanja, error)
 }
 
 // satniKrug drži ono o čemu krug ovisi i dan zadnjeg ulaganja kišomjera
@@ -82,7 +97,7 @@ type satniKrug struct {
 	osvjezivac  *prognoza.Osvjezivac
 	oborine     *oborine.Uvoznik   // nil kad oborine nisu uključene
 	kisomjeri   *kisomjeri.Uvoznik // nil kad stvarni kišomjeri nisu uključeni
-	posluzitelj *web.Server
+	posluzitelj arhivaKisomjera
 	razmjenaArh *razmjenaArhive // nil bez arhive
 	podaci      string          // stablo izvornih datoteka arhive; prazno bez njega
 	objavi      func(context.Context, *prognoza.Ishod)
@@ -127,7 +142,7 @@ func (k *satniKrug) preuzmiOborine(ctx context.Context) {
 		log.Printf("oborine: %v", err)
 		javniUvoznik.Redak("oborine: %v", err)
 	} else {
-		javniUvoznik.Redak("oborine: %d sati za kišomjere", n)
+		javniUvoznik.Redak("%s", opisOborina(n))
 	}
 	otkazi()
 	// registar se mogao promijeniti (nova ili premještena točka)
@@ -139,7 +154,7 @@ func (k *satniKrug) preuzmiOborine(ctx context.Context) {
 // preuzmiKisomjere preuzme mjerenja stvarnih kišomjera i jednom dnevno
 // završene dane uloži u arhivu i izda pakete
 func (k *satniKrug) preuzmiKisomjere(ctx context.Context) {
-	javniUvoznik, kisUvoznik, server, razmjenaArh := k.uvoznik, k.kisomjeri, k.posluzitelj, k.razmjenaArh
+	javniUvoznik, kisUvoznik := k.uvoznik, k.kisomjeri
 	javniUvoznik.Korak("stvarni kišomjeri", 95)
 	kc, otkazi := context.WithTimeout(ctx, 2*time.Minute)
 	n, err := kisUvoznik.Preuzmi(kc)
@@ -148,43 +163,68 @@ func (k *satniKrug) preuzmiKisomjere(ctx context.Context) {
 		log.Printf("stvarni kišomjeri: %v", err)
 		javniUvoznik.Redak("stvarni kišomjeri: %v", err)
 	}
-	javniUvoznik.Redak("stvarni kišomjeri: %d mjerenja", n)
-	// Jednom dnevno, nakon ponoći, završeni dani idu u arhivu:
-	// zadnja četiri dana, da krug koji je ispao ne ostavi rupu.
-	sada := time.Now()
-	if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != k.kisUlozeno && k.podaci != "" && !imaStablo(k.podaci) {
-		// Gradnja letvu slaže iz stabla, pa bi čvoru koji je arhivu
-		// dobio paketima povijest kišomjera svela na zadnje dane.
-		javniUvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu", k.podaci)
+	javniUvoznik.Redak("%s", opisMjerenjaKisomjera(n))
+	k.ulaziKisomjereJednomDnevno(time.Now())
+}
+
+// ulaziKisomjereJednomDnevno: jednom dnevno, nakon ponoći, završeni dani
+// idu u arhivu. Čvor bez stabla izvornih datoteka ih ne ulaže: gradnja
+// letvu slaže iz stabla, pa bi čvoru koji je arhivu dobio paketima
+// povijest kišomjera svela na zadnje dane.
+func (k *satniKrug) ulaziKisomjereJednomDnevno(sada time.Time) {
+	dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02")
+	if dan == k.kisUlozeno || k.podaci == "" {
+		return
+	}
+	if !imaStablo(k.podaci) {
+		k.uvoznik.Redak("stvarni kišomjeri: na ovom čvoru nema stabla izvornih datoteka (%s), pa se ne ulažu u arhivu",
+			config.PunaPutanja(k.podaci))
+		k.kisUlozeno = dan
+		return
+	}
+	if k.ulaziKisomjere(sada) {
 		k.kisUlozeno = dan
 	}
-	if dan := sada.In(kisomjeri.Zagreb).Format("2006-01-02"); dan != k.kisUlozeno && k.podaci != "" {
-		if postaje, err := kisUvoznik.Postaje(); err == nil {
-			letve, err := kisomjeri.Ulozi(k.podaci, kisUvoznik.Spremiste, postaje, sada.Add(-96*time.Hour), sada)
-			if err != nil {
-				log.Printf("stvarni kišomjeri, ulaganje: %v", err)
-			}
-			izdano := 0
-			for _, l := range letve {
-				if _, err := server.IzgradiLetvu(l, nil); err != nil {
-					log.Printf("stvarni kišomjeri, gradnja %s: %v", l, err)
-					continue
-				}
-				// Paket izlazi odmah, pa arhiva kiše raste i na
-				// ostalim čvorovima bez ručnog izdavanja.
-				if iz, err := server.IzdajArhivu(l, false, nil); err != nil {
-					log.Printf("stvarni kišomjeri, izdavanje %s: %v", l, err)
-				} else {
-					izdano += iz.Promijenjenih
-				}
-			}
-			if izdano > 0 && razmjenaArh != nil {
-				razmjenaArh.potakniKrug() // kazalo novih paketa ide u razmjenu odmah
-			}
-			javniUvoznik.Redak("stvarni kišomjeri: uloženo u arhivu za %d postaja, izdano %d paketa", len(letve), izdano)
-			k.kisUlozeno = dan
-		}
+}
+
+// ulaziKisomjere uloži u arhivu zadnja četiri dana mjerenja, da krug koji
+// je ispao ne ostavi rupu, i izda pakete promijenjenih letvi. Bez popisa
+// postaja ne uloži ništa i vrati netočno, pa ulaganje pokuša idući krug.
+func (k *satniKrug) ulaziKisomjere(sada time.Time) bool {
+	postaje, err := k.kisomjeri.Postaje()
+	if err != nil {
+		return false
 	}
+	letve, err := uloziKisomjere(k.podaci, k.kisomjeri.Spremiste, postaje, sada.Add(-96*time.Hour), sada)
+	if err != nil {
+		log.Printf("stvarni kišomjeri, ulaganje: %v", err)
+	}
+	izdano := izgradiIIzdaj(k.posluzitelj, letve)
+	if izdano > 0 && k.razmjenaArh != nil {
+		k.razmjenaArh.potakniKrug() // kazalo novih paketa ide u razmjenu odmah
+	}
+	k.uvoznik.Redak("%s", opisUlaganjaKisomjera(len(letve), izdano))
+	return true
+}
+
+// izgradiIIzdaj izgradi svaku promijenjenu letvu kišomjera iz stabla i
+// odmah izda njen paket, pa arhiva kiše raste i na ostalim čvorovima bez
+// ručnog izdavanja; vraća koliko je paketa izdano
+func izgradiIIzdaj(arh arhivaKisomjera, letve []string) int {
+	izdano := 0
+	for _, l := range letve {
+		if _, err := arh.IzgradiLetvu(l, nil); err != nil {
+			log.Printf("stvarni kišomjeri, gradnja %s: %v", l, err)
+			continue
+		}
+		iz, err := arh.IzdajArhivu(l, false, nil)
+		if err != nil {
+			log.Printf("stvarni kišomjeri, izdavanje %s: %v", l, err)
+			continue
+		}
+		izdano += iz.Promijenjenih
+	}
+	return izdano
 }
 
 // izracunajIIzdaj izračuna prognozu za ovaj sat (ili iznova, kad je
@@ -206,16 +246,7 @@ func (k *satniKrug) izracunajIIzdaj(ctx context.Context) {
 		return
 	}
 	if ishod.Preskoceno {
-		if ceka := ishod.KoCeka(); ceka != "" {
-			// Prognoza stoji jer vrh lanca kasni: to se mora vidjeti, a ne
-			// izgledati kao da je sve u redu.
-			poruka := fmt.Sprintf("prognoza stoji na %s jer kasni vrh lanca: %s",
-				time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), ceka)
-			log.Printf("prognoza: %s", poruka)
-			javniUvoznik.Redak("%s", poruka)
-			return
-		}
-		javniUvoznik.Redak("prognoza: za ovaj sat već je izdana, ništa novo")
+		javiPreskoceno(javniUvoznik, ishod)
 		return
 	}
 	javniUvoznik.Korak("zapis prognoze", 98)
@@ -227,12 +258,63 @@ func (k *satniKrug) izracunajIIzdaj(ctx context.Context) {
 		return
 	}
 	objaviIzdanje(ctx, ishod)
-	log.Printf("prognoza: izdana za %s UTC (%.0f h unatrag), %d letvi, %d vrijednosti",
-		time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"),
-		ishod.Zaostatak(time.Now()).Hours(), ishod.Letvi(), len(ishod.Izdane))
-	javniUvoznik.Redak("prognoza izdana za %s, %d letvi, %d vrijednosti",
-		time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), ishod.Letvi(), len(ishod.Izdane))
+	javiIzdanje(javniUvoznik, ishod)
+}
+
+// javiPreskoceno kaže zašto krug nije izdao novu prognozu. Kad stoji jer
+// vrh lanca kasni, to se mora vidjeti, a ne izgledati kao da je sve u redu.
+func javiPreskoceno(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
+	ceka := ishod.KoCeka()
+	if ceka == "" {
+		uvoznik.Redak("prognoza: za ovaj sat već je izdana, ništa novo")
+		return
+	}
+	poruka := fmt.Sprintf("prognoza stoji na %s jer kasni vrh lanca: %s",
+		time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), ceka)
+	log.Printf("prognoza: %s", poruka)
+	uvoznik.Redak("%s", poruka)
+}
+
+// javiIzdanje upisuje u dnevnik kruga za koji je sat prognoza izdana, s
+// koliko letvi i vrijednosti, letve bez prognoze i upozorenja izdanja
+func javiIzdanje(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
+	koliko := letveIVrijednosti(ishod.Letvi(), len(ishod.Izdane))
+	log.Printf("prognoza: izdana za %s UTC (%.0f h unatrag), %s",
+		time.Unix(ishod.Sada*3600, 0).UTC().Format("2006-01-02 15:04"), ishod.Zaostatak(time.Now()).Hours(), koliko)
+	uvoznik.Redak("prognoza izdana za %s, %s",
+		time.Unix(ishod.Sada*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"), koliko)
 	for letva, zasto := range ishod.BezPrognoze {
-		javniUvoznik.Redak("bez prognoze %s: %v", letva, zasto)
+		uvoznik.Redak("bez prognoze %s: %v", letva, zasto)
+	}
+	javiUpozorenja(uvoznik, ishod)
+}
+
+// javiUpozorenja upisuje u dnevnik kruga dnevne ciljeve koji u izdanju
+// nemaju dnevnu prognozu, s razlogom, i otvorena upozorenja izdanja.
+// Cilj kojem je glavni model pao, a rezerva računala, ovdje se ne javlja:
+// dnevnu ima.
+func javiUpozorenja(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
+	ima := map[string]bool{}
+	for _, d := range ishod.Dnevne {
+		ima[d.Letva] = true
+	}
+	var bez []string
+	for letva := range ishod.BezDnevne {
+		if !ima[letva] {
+			bez = append(bez, letva)
+		}
+	}
+	sort.Strings(bez)
+	for _, letva := range bez {
+		zasto := strings.TrimPrefix(ishod.BezDnevne[letva].Error(), letva+": ")
+		log.Printf("prognoza: bez dnevne prognoze %s: %s", letva, zasto)
+		uvoznik.Redak("bez dnevne prognoze %s: %s", letva, zasto)
+	}
+	for _, u := range ishod.Upozorenja {
+		if u.Tezina < prognoza.TezinaUpozorenje {
+			continue
+		}
+		log.Printf("prognoza: upozorenje: %s", u)
+		uvoznik.Redak("upozorenje: %s", u)
 	}
 }

@@ -98,6 +98,16 @@ type UzduzniProfil struct {
 	Brane                   []BranaProfila
 	SatOd, SatDo            int // raspon klizača, sati prema izdanju
 	Niz                     template.JS
+	NulaKratko              string   // razdoblje nule: „zadnjih 30 dana” ili „od 20. 9.”
+	Izostavljeno            []string // letve koje nisu na crtežu i zašto: „Siga — mjerilo stoji …”
+}
+
+// NulaNaziv je natpis crte nule: „voda zadnjih 30 dana”.
+func (p *UzduzniProfil) NulaNaziv() string {
+	if p.NulaKratko == "" {
+		return fmt.Sprintf("voda zadnjih %d dana", MjesecDana)
+	}
+	return "voda " + p.NulaKratko
 }
 
 func (p *UzduzniProfil) LijevoX() float64 { return p.Lijevo }
@@ -121,9 +131,9 @@ func nazivDosega(d int) string {
 }
 
 var pragoviProfila = []struct{ kljuc, naziv, class string }{
-	{"prep", "pripremna", "prep"},
-	{"regular", "redovna", "regular"},
-	{"emerg", "izvanredna", "emerg"},
+	{"prep", "pripremno stanje", "prep"},
+	{"regular", "redovna obrana", "regular"},
+	{"emerg", "izvanredna obrana", "emerg"},
 }
 
 // NajmanjiRaspon drži mjerilo poštenim na mirnoj vodi: bez njega bi dva

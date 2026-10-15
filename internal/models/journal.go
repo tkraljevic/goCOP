@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 )
 
 // Građevinski dnevnik: onaj koji izvođač vodi svaki dan, a Hrvatske vode
@@ -160,6 +161,65 @@ func (j Journal) Ovjeren() bool { return j.ZakljucenoAt != nil }
 func (j Journal) SmijePrepravakZapisa() bool { return j.Reconstruction }
 
 func (j Journal) IsDefense() bool { return j.Kind == JournalKindDefense }
+
+// VodiFirma javlja navodi li naslovnica dnevnika usluge kao izvođača firmu
+// s računa osobe u (OrgName). Oba su slobodan upis, pa se uspoređuje naziv
+// do pravnog oblika i prvog zareza (jezgraNaziva), a on mora biti isti:
+// „Primjer d.o.o., Primjerska 1” i „PRIMJER doo” jesu ista firma, a
+// „Primjer” i „Primjer Primjerica d.d.” nisu. Prazan upis ne navodi nikoga.
+// Voditelj usluga s naslovnice ne veže dnevnik ni uz koga: ime osobe svatko
+// mijenja sam na svom profilu, a imenjaci rade i u drugim firmama (Odluke
+// (8. 10. 2026.), pitanje 1: poslovođa vidi samo dnevnik svoje firme).
+func (j Journal) VodiFirma(u *User) bool {
+	if u == nil {
+		return false
+	}
+	return istiNaziv(j.Contractor, u.OrgName)
+}
+
+// istiNaziv javlja navode li dva slobodna upisa isti naziv (jezgraNaziva);
+// prazan upis ne navodi ništa
+func istiNaziv(a, b string) bool {
+	a, b = jezgraNaziva(a), jezgraNaziva(b)
+	return a != "" && a == b
+}
+
+// jezgraNaziva je naziv firme ili osobe bez onoga što ga ne razlikuje:
+// riječi do prvog zareza, malim slovima i bez interpunkcije, i bez pravnog
+// oblika i svega iza njega (najčešće sjedište). „Primjer d. o. o.
+// Primjerica”, „PRIMJER DOO” i „Primjer d.o.o., Primjerska 1” daju
+// „primjer”; „Marko Markić, ing.” daje „marko markić”.
+func jezgraNaziva(s string) string {
+	s, _, _ = strings.Cut(s, ",")
+	rijeci := strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+	})
+	for i := 1; i < len(rijeci); i++ {
+		if pocinjePravniOblik(rijeci[i:]) {
+			return strings.Join(rijeci[:i], " ")
+		}
+	}
+	return strings.Join(rijeci, " ")
+}
+
+// pravniOblici su pravni oblici firmi, napisani bez točaka
+var pravniOblici = map[string]bool{"doo": true, "dd": true, "jdoo": true, "jtd": true, "kd": true}
+
+// pocinjePravniOblik javlja počinju li riječi pravnim oblikom, napisanim
+// skupa („doo”) ili slovo po slovo („d.o.o.”, „d. o. o.”)
+func pocinjePravniOblik(rijeci []string) bool {
+	spojeno := ""
+	for _, r := range rijeci {
+		spojeno += r
+		if pravniOblici[spojeno] {
+			return true
+		}
+		if len(r) > 1 || len(spojeno) >= 4 {
+			return false
+		}
+	}
+	return false
+}
 
 // Program vraća program radova kojem dnevnik pripada
 func (j Journal) Program() string {
