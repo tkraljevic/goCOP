@@ -1,11 +1,14 @@
 package web
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 func TestPlocicaRazmjene(t *testing.T) {
@@ -48,6 +51,53 @@ func TestPlocicaRazmjene(t *testing.T) {
 				t.Errorf("%s: nema %q u\n%s", slucaj.ime, o, b.String())
 			}
 		}
+	}
+}
+
+// Upozorenje da na disku ostaje malo mjesta stoji na vrhu pločice jednom,
+// i kad čvor nije ni u jednoj mreži, i kad je sve usklađeno, i kad nije.
+// Poruku i savjet vide svi, pa i osoba za tim računalom: ona javi
+// administratoru kad ne zna što učiniti (Odluke (15. 10. 2026.)).
+func TestPlocicaPokazujeMaloMjesta(t *testing.T) {
+	poruka := "Na disku čvora COP Osijek s bazom ostalo je 8,2 GB (6 % diska)."
+	savjet := "Oslobodite mjesto ili premjestite arhivu na drugi disk. Ako ne znate kako, javite administratoru."
+	upozorenje := []DiskRazmjene{{Poruka: poruka, Savjet: savjet}}
+	malo := time.Now().Add(-2 * time.Minute)
+	for ime, slucaj := range map[string]struct {
+		st      RazmjenaStanje
+		ocekuje string
+	}{
+		"bez mreže": {RazmjenaStanje{Disk: upozorenje}, "nije ni u jednoj mreži"},
+		"usklađeno": {RazmjenaStanje{UMrezi: true, Disk: upozorenje,
+			Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo}}}, "Sve je usklađeno s 1 čvorom"},
+		"ne odgovara": {RazmjenaStanje{UMrezi: true, Disk: upozorenje,
+			Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "offline", Zadnja: &malo}}}, "ne odgovara"},
+	} {
+		s := &Server{}
+		s.SetRazmjena(func(context.Context) RazmjenaStanje { return slucaj.st })
+		for tko, prava := range map[string]*models.UserPermissions{
+			"administrator": {IsGlobalAdmin: true}, "vodočuvar": {}, "bez prava": nil} {
+			r := httptest.NewRequest("GET", "/razmjena/plocica", nil)
+			if prava != nil {
+				r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, prava))
+			}
+			w := httptest.NewRecorder()
+			s.ShowRazmjena(w, r)
+			tijelo := w.Body.String()
+			if w.Code != http.StatusOK || w.Header().Get("Cache-Control") != "no-store" || !strings.HasPrefix(w.Header().Get("Content-Type"), "text/html") {
+				t.Errorf("%s, %s: odgovor %d, zaglavlja %v", ime, tko, w.Code, w.Header())
+			}
+			cijelo := poruka + " " + savjet
+			if strings.Count(tijelo, cijelo) != 1 || !strings.Contains(tijelo, slucaj.ocekuje) {
+				t.Errorf("%s, %s: %q %d puta, %q: %v u\n%s", ime, tko, cijelo, strings.Count(tijelo, cijelo), slucaj.ocekuje, strings.Contains(tijelo, slucaj.ocekuje), tijelo)
+			}
+		}
+	}
+	// čvor bez pločice razmjene ne vraća ništa, pa je naslovna ne prikaže
+	w := httptest.NewRecorder()
+	(&Server{}).ShowRazmjena(w, httptest.NewRequest("GET", "/razmjena/plocica", nil))
+	if w.Code != http.StatusNoContent || w.Body.Len() != 0 {
+		t.Errorf("bez pločice: %d %q", w.Code, w.Body.String())
 	}
 }
 
