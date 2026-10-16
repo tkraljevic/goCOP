@@ -43,7 +43,7 @@ func TestCvorPoKljucuIzClanstva(t *testing.T) {
 		"tuđi ključ":    {rubniCvor(t, "tudji-laptop").javni(), ""},
 		"samo u zapisu": {d.javni(), ""},
 	} {
-		p, err := a.peerByKey(ctxRub, sl.kljuc)
+		p, err := a.peerByKey(ctxRub, sl.kljuc, nil)
 		if err != nil {
 			t.Fatalf("%s: %v", ime, err)
 		}
@@ -61,11 +61,11 @@ func TestCvorPoKljucuIzClanstva(t *testing.T) {
 		VALUES (NULL, ?, 'x', 'x', ?, ?, 'x', ?)`, b.node.PublicKey(), time.Now().UTC(), time.Now().UTC(), time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.peerByKey(ctxRub, b.javni()); err == nil {
+	if _, err := a.peerByKey(ctxRub, b.javni(), nil); err == nil {
 		t.Error("red članstva bez oznake")
 	}
 	pokvariTablicu(t, a, "memberships")
-	if p, err := a.peerByKey(ctxRub, c.javni()); err == nil {
+	if p, err := a.peerByKey(ctxRub, c.javni(), nil); err == nil {
 		t.Errorf("bez tablice članstava: %+v", p)
 	}
 }

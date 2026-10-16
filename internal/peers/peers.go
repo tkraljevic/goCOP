@@ -164,6 +164,9 @@ type Service struct {
 	// zapisi čvorova čiji je ključ drukčiji od članstva već zapisani u
 	// dnevnik (javiDrugiKljuc)
 	javljenKljuc sync.Map
+	// dva računala s valjanim članstvom pod istim imenom, već zapisana u
+	// dnevnik (javiSukob)
+	javljenSukob sync.Map
 	// neispravne su version_id verzija iz vlastite knjige koje razmjena ne
 	// šalje (zaSlanje); broj se vidi na ploči. Primljene neispravne su u
 	// preskocene.
@@ -464,7 +467,9 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 var ErrIstoImeDrugiKljuc = errors.New("ime već ima drugo računalo u mreži (drugi ključ)")
 
 // provjeriImeDrugog odbija uparivanje s čvorom koji nosi ime ovog čvora ili
-// ime poznatog čvora, odnosno člana mreže, s drugim ključem
+// ime poznatog čvora, odnosno člana mreže, s drugim ključem. Ključ člana je
+// iz članstva koje za to ime vrijedi (kljucClana): krivotvoreno, isteklo ili
+// opozvano članstvo ime ne zauzima.
 func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed25519.PublicKey) error {
 	if id == s.node.ID {
 		return fmt.Errorf("drugo računalo nosi isto ime kao ovo (%s); svaki čvor treba svoje ime: drugo računalo instalirajte ponovno s drugim imenom", id)
@@ -479,12 +484,11 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 	if p != nil && p.PublicKey != k {
 		return poruka
 	}
-	var clan string
-	err = s.db.QueryRowContext(ctx, `SELECT public_key FROM memberships WHERE node_id = ?`, id).Scan(&clan)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	clanski, err := s.kljucClana(ctx, id)
+	if err != nil && !errors.Is(err, errNijeClan) {
 		return fmt.Errorf("ime %s se ne može provjeriti: %w", id, err)
 	}
-	if err == nil && clan != k {
+	if err == nil && !clanski.Equal(kljuc) {
 		return poruka
 	}
 	return nil
@@ -517,13 +521,15 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	return tx.Commit()
 }
 
-// peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub: onaj čije
-// članstvo s tim ključem vrijedi. Ključ u zapisu čvora to ne kaže, jer
-// zapis piše i šalje bilo koji član (dva zapisa mogu nositi isti ključ).
-// Bez valjanog članstva nil, kao za nepoznat ključ.
-func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey) (*Peer, error) {
+// peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub, po istoj
+// odluci po kojoj su ga vrata razmjene pustila (oznakaDokazanog): po
+// članstvu, ili po potvrdi iz certifikata (vj) dok članstvo ovdje još
+// nije. Ključ u zapisu čvora to ne kaže, jer zapis piše i šalje bilo koji
+// član (dva zapisa mogu nositi isti ključ). nil kad računalo nije član ili
+// ovaj čvor nema njegov zapis.
+func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey, vj []byte) (*Peer, error) {
 	// uz grešku je oznaka prazna
-	id, err := s.clanSKljucem(ctx, pub)
+	id, err := s.oznakaDokazanog(ctx, pub, vj)
 	if id == "" {
 		return nil, err
 	}
@@ -855,7 +861,7 @@ func (s *Service) Serve(ctx context.Context) error {
 // razmjene ili kroz tunel, i zabilježi ishod
 func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	defer c.Close()
-	peer, _ := s.peerByKey(ctx, c.PeerKey)
+	peer, _ := s.peerByKey(ctx, c.PeerKey, c.Vjerodajnice)
 	if s.odbijTailscale(c, peer) {
 		return
 	}

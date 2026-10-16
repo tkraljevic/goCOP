@@ -439,100 +439,12 @@ func (s *Service) sveOvlasti(ctx context.Context) ([]razmjena.Ovlast, error) {
 }
 
 // trusted je provjera na vratima razmjene: ključ mora imati važeću,
-// neopozvanu potvrdu NAŠE mreže. "Postoji u popisu" nije dovoljno — popis
-// putuje. Kad potvrde tog ključa još nemamo (primio ga je ovlašteni
-// primatelj, a knjiga od njega još nije stigla), vrijedi potvrda koju čvor
-// pokaže u certifikatu, ako lanac do ključa mreže štima i ime nije tuđe.
+// neopozvanu potvrdu NAŠE mreže, i to onu koja za njegovo ime vrijedi
+// (oznakaDokazanog). "Postoji u popisu" nije dovoljno — popis putuje. Kad
+// potvrde tog ključa još nemamo (primio ga je ovlašteni primatelj, a knjiga
+// od njega još nije stigla), vrijedi potvrda koju čvor pokaže u
+// certifikatu, ako lanac do ključa mreže štima i ime nije tuđe.
 func (s *Service) trusted(pub ed25519.PublicKey, vj []byte) bool {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-	if network == nil {
-		return false
-	}
-	ctx := context.Background()
-	row := s.db.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE public_key = ?`, razmjena.PublicKeyString(pub))
-	if m, err := scanMembership(row); err == nil && s.provjeriClanstvo(ctx, network.Public, m, pub) == nil {
-		return true
-	}
-	if len(vj) == 0 {
-		return false
-	}
-	var v vjerodajniceCvora
-	if json.Unmarshal(vj, &v) != nil || v.Clanstvo == nil {
-		return false
-	}
-	if s.provjeriClanstvo(ctx, network.Public, *v.Clanstvo, pub) != nil {
-		return false
-	}
-	return s.provjeriImeDrugog(ctx, v.Clanstvo.DeviceID, pub) == nil
-}
-
-// errNijeClan: računalo nema valjano članstvo u našoj mreži (ili ovaj čvor
-// nije ni u jednoj mreži)
-var errNijeClan = errors.New("nije član naše mreže")
-
-// kljucClana je ključ koji računalo nodeID mora dokazati u razmjeni: ključ
-// iz njegova članstva u našoj mreži, koje je potpisao ključ mreže ili
-// ovlašteni primatelj. Potpis veže oznaku računala i ključ zajedno. Zapis
-// čvora (peers) za to ne vrijedi, jer ga piše i šalje bilo koji član.
-// Greška čitanja baze nije presuda „nije član”.
-func (s *Service) kljucClana(ctx context.Context, nodeID string) (ed25519.PublicKey, error) {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-	if network == nil {
-		return nil, errNijeClan
-	}
-	m, err := s.getMembership(ctx, nodeID)
-	if err != nil {
-		return nil, err
-	}
-	if m == nil {
-		return nil, errNijeClan
-	}
-	pub, err := razmjena.ParsePublicKey(m.DeviceKey)
-	if err != nil {
-		return nil, fmt.Errorf("ključ u članstvu čvora %s: %w", nodeID, err)
-	}
-	if err := s.provjeriClanstvo(ctx, network.Public, *m, pub); err != nil {
-		return nil, fmt.Errorf("%w: %w", errNijeClan, err)
-	}
-	return pub, nil
-}
-
-// clanSKljucem je oznaka računala čije članstvo s ključem pub vrijedi, ili
-// "" kad takvog nema. Ključ u tablici članstava nije jedinstven (članstvo
-// putuje knjigom bez provjere), pa vrijedi prvi red koji prođe provjeru,
-// najnovije izdan prvi.
-func (s *Service) clanSKljucem(ctx context.Context, pub ed25519.PublicKey) (string, error) {
-	oznake, err := s.oznakeSKljucem(ctx, pub)
-	if err != nil {
-		return "", err
-	}
-	for _, id := range oznake {
-		if k, err := s.kljucClana(ctx, id); err == nil && k.Equal(pub) {
-			return id, nil
-		}
-	}
-	return "", nil
-}
-
-// oznakeSKljucem su oznake računala čija članstva nose ključ pub; čitaju
-// se do kraja prije provjere, jer provjera čita iz iste baze
-func (s *Service) oznakeSKljucem(ctx context.Context, pub ed25519.PublicKey) ([]string, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT node_id FROM memberships WHERE public_key = ? ORDER BY issued_at DESC, node_id`, razmjena.PublicKeyString(pub))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var oznake []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		oznake = append(oznake, id)
-	}
-	return oznake, rows.Err()
+	id, err := s.oznakaDokazanog(context.Background(), pub, vj)
+	return err == nil && id != ""
 }

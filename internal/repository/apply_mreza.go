@@ -83,8 +83,9 @@ func primijeniClanstvo(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		primatelj = string(b)
 	}
 	// Potpis se ne provjerava ovdje nego na vratima razmjene — ovdje se
-	// samo pamti što je stiglo; tuđa ili kriva potvrda nikad ne prolazi
-	// provjeru i ne šteti time što postoji u tablici.
+	// samo pamti što je stiglo. Tuđa ili kriva potvrda prepiše red tog
+	// imena, ali razmjena ključ računala bira iz svih članstava u knjizi,
+	// samo iz onih koja vrijede (peers.kljucClana).
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)

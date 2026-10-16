@@ -6,13 +6,15 @@ import (
 	"log"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/razmjena"
 )
 
 // Ključ za razmjenu daje samo valjano članstvo za tu oznaku računala.
-// Čvor bez mreže, računalo bez članstva i krivotvoreno članstvo daju „nije
-// član”; greška baze i ključ koji se ne da pročitati nisu ta presuda.
+// Čvor bez mreže i računalo bez valjanog članstva daju „nije član”.
+// Prepisan red u tablici članstava ne mijenja ključ, jer vrijedi članstvo
+// iz knjige; greška baze nije presuda „nije član”.
 func TestKljucClana(t *testing.T) {
 	if _, err := rubniCvor(t, "samotnjak").kljucClana(ctxRub, "ured-vukovar"); !errors.Is(err, errNijeClan) {
 		t.Errorf("čvor bez mreže: %v", err)
@@ -28,18 +30,24 @@ func TestKljucClana(t *testing.T) {
 	if _, err := a.kljucClana(ctxRub, "nepoznati-cvor"); !errors.Is(err, errNijeClan) {
 		t.Errorf("bez članstva: %v", err)
 	}
-	// B-ovo članstvo s C-ovim ključem: potpis ne štima
-	if _, err := a.db.Exec(`UPDATE memberships SET public_key = ? WHERE node_id = ?`, c.node.PublicKey(), b.node.ID); err != nil {
+	// namjerno promijenjeno: red B-a s C-ovim ključem, pa s ključem koji se
+	// ne da pročitati, kao nakon krivotvorene verzije; prije je to bila
+	// presuda „nije član”, odnosno greška
+	for _, kljuc := range []string{c.node.PublicKey(), "nije-kljuc"} {
+		if _, err := a.db.Exec(`UPDATE memberships SET public_key = ? WHERE node_id = ?`, kljuc, b.node.ID); err != nil {
+			t.Fatal(err)
+		}
+		if k, err := a.kljucClana(ctxRub, b.node.ID); err != nil || !k.Equal(b.javni()) {
+			t.Errorf("red s ključem %.8s: %v %v", kljuc, k, err)
+		}
+	}
+	// samo krivotvoren red: nije član
+	if _, err := a.db.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
+		VALUES ('podmetnut', ?, 'x', 'x', ?, ?, 'x', ?)`, c.node.PublicKey(), time.Now().UTC(), time.Now().UTC().Add(time.Hour), time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.kljucClana(ctxRub, b.node.ID); !errors.Is(err, errNijeClan) {
+	if _, err := a.kljucClana(ctxRub, "podmetnut"); !errors.Is(err, errNijeClan) {
 		t.Errorf("krivotvoreno članstvo: %v", err)
-	}
-	if _, err := a.db.Exec(`UPDATE memberships SET public_key = 'nije-kljuc' WHERE node_id = ?`, b.node.ID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := a.kljucClana(ctxRub, b.node.ID); err == nil || errors.Is(err, errNijeClan) {
-		t.Errorf("ključ koji se ne da pročitati: %v", err)
 	}
 	pokvariTablicu(t, a, "memberships")
 	if _, err := a.kljucClana(ctxRub, c.node.ID); err == nil || errors.Is(err, errNijeClan) {
