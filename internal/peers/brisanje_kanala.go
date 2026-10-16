@@ -52,8 +52,11 @@ func (s *Service) PregledBrisanja(ctx context.Context, kanal string) (Brisanje, 
 // PurgeChannel briše s ovog računala kanal koji pretplata više ne pokriva:
 // zapise i verzije koji su stigli s drugih čvorova i dokumente koji su
 // stigli uz njih. Kanal pod pretplatom ne briše se, jer bi se vratio prvom
-// razmjenom; prvo se makne pretplata.
+// razmjenom; prvo se makne pretplata. Nakon brisanja granica knjige u
+// kanalu padne, pa se granica odbijenih zaboravi (i kad brisanje ne uspije),
+// inače bi obrisano ispod nje izostalo kad se kanal opet zaprati.
 func (s *Service) PurgeChannel(ctx context.Context, kanal string) (Brisanje, error) {
+	defer s.zaboraviOdbijene()
 	return s.brisanjeKanala(ctx, kanal, true)
 }
 

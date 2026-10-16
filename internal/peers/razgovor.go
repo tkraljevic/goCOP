@@ -4,7 +4,8 @@ package peers
 // (pozivatelj) u svakom koraku prvi šalje, a pozvani prvo prima:
 //
 //	granice  obje strane kažu dokle znaju, što prate, koje im je izdanje
-//	         i što razumiju (razmjena/mogucnosti.go)
+//	         i što razumiju (razmjena/mogucnosti.go), a uz zajedničku
+//	         oznaku i dokle su odbile poslano (granica_odbijenih.go)
 //	delte    obje pošalju verzije koje druga prati, a nema
 //	upis     od primljenoga se pod bravom (upis.go) upiše ono što ovaj čvor prati
 //	želje    obje kažu koje otiske sadržaja traže
@@ -24,7 +25,10 @@ package peers
 // uhvatiti okom.
 //
 // Novi korak dodaje se kao novi poziv u exchange (ili u sadrzajIKraj, iza
-// provjere gotovo), bez uvjeta, a ne kao grana u postojećem koraku.
+// provjere gotovo), bez uvjeta, a ne kao grana u postojećem koraku. Granica
+// odbijenih (G4) je dio koraka granica, a ne novi poziv u exchange: ide
+// odmah iza njih i samo uz oznaku koju objave obje strane, pa razgovor sa
+// starijim čvorom ostaje isti.
 
 import (
 	"context"
@@ -55,12 +59,18 @@ type razgovorSCvorom struct {
 	// applied je upisano, sent poslano; exchange ih vraća tek kad je upis
 	// prošao, a do tada 0, 0
 	applied, sent int
+	// odbijene je granica odbijenih uzeta prije prve poruke, njihoveOdbijene
+	// ono što je druga strana javila da je od ovog čvora odbila, a odbijeno
+	// ono što je ovaj čvor odbio u ovom razgovoru (granica_odbijenih.go)
+	odbijene        pocetakOdbijenih
+	njihoveOdbijene map[string]string
+	odbijeno        map[string]string
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu
-// i pretplate ovog čvora, izdanje programa, što čvor zna i ide li veza
-// preko Tailscalea. Kad granica ili pretplate ne odgovore, druga strana ne
-// dobije ništa.
+// i pretplate ovog čvora, izdanje programa, što čvor zna, ide li veza
+// preko Tailscalea i granicu odbijenih od druge strane. Kad granica ili
+// pretplate ne odgovore, druga strana ne dobije ništa.
 func (s *Service) zapocniRazgovor(ctx context.Context, c *razmjena.Conn, initiator bool) (*razgovorSCvorom, error) {
 	mine, err := s.rec.Frontier(ctx)
 	if err != nil {
@@ -73,6 +83,7 @@ func (s *Service) zapocniRazgovor(ctx context.Context, c *razmjena.Conn, initiat
 	r := &razgovorSCvorom{s: s, c: c, initiator: initiator, myWants: myWants}
 	r.moja = r.mojaGranica(mine, s.mojeZnanje(ctx))
 	r.prekoTailscalea = s.prekoTailscalea(c.LocalAddr(), c.RemoteAddr())
+	r.odbijene = s.pocetakOdbijenih(razmjena.PublicKeyString(c.PeerKey), mine)
 	return r, nil
 }
 
@@ -92,7 +103,16 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	if err != nil {
 		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
 	}
-	return razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka}
+	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka}
+}
+
+// mojeMogucnosti su oznake koje ovaj program objavljuje
+// (razmjena.NaseMogucnosti), ili oznake koje je čvoru dao test (s.mogucnosti)
+func (s *Service) mojeMogucnosti() []string {
+	if s.mogucnosti != nil {
+		return s.mogucnosti()
+	}
+	return razmjena.NaseMogucnosti()
 }
 
 // mojKatalog su vrste zapisa sa shemama koje ovaj program razumije
@@ -149,10 +169,14 @@ func (r *razgovorSCvorom) razmijeni(kind string, moja, njihova any) error {
 	)
 }
 
-// granice: obje strane kažu dokle znaju. Tuđa granica dekodira se ravno u
-// theirs, pa i djelomično dekodirana ide u bilješku o razmjeni.
+// granice: obje strane kažu dokle znaju, a uz zajedničku oznaku odmah zatim
+// i dokle su odbile poslano (razmijeniOdbijene). Tuđa granica dekodira se
+// ravno u theirs, pa i djelomično dekodirana ide u bilješku o razmjeni.
 func (r *razgovorSCvorom) granice() error {
-	return r.razmijeni(kindFrontier, r.moja, &r.theirs)
+	if err := r.razmijeni(kindFrontier, r.moja, &r.theirs); err != nil {
+		return err
+	}
+	return r.razmijeniOdbijene()
 }
 
 // delte: svaka strana pošalje ono što druga prati, a nema, i vrati primljene
@@ -174,8 +198,9 @@ func (r *razgovorSCvorom) delte(ctx context.Context) ([]ledger.Version, error) {
 // stigne tuđa: neispravne verzije zabilježe se i kad razmjena delti padne.
 // Šalje se samo što drugi prati; što ovaj čvor ne prati, ne prima ni
 // omaškom (zaUpis), jer bi ostalo bez granice i vraćalo se svakom razmjenom.
+// Ne šalje se ni ono što je druga strana javila da je odbila (granicaZaDeltu).
 func (r *razgovorSCvorom) mojaDelta(ctx context.Context) (deltaMsg, []ledger.Version, error) {
-	delta, err := r.s.deltaZa(ctx, r.theirs)
+	delta, err := r.s.deltaZa(ctx, r.granicaZaDeltu())
 	if err != nil {
 		return deltaMsg{}, nil, err
 	}
@@ -198,11 +223,17 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 	// kao da još čekaju. Isto vrijedi za verzije koje se ne mogu poslati:
 	// one ne čekaju, nego stoje na ploči kao upozorenje.
 	r.theirs.Frontier = pomakniGranicu(pomakniGranicu(r.theirs.Frontier, moja.Versions), neispravne)
+	// Ne čeka ni ono što je druga strana javila da je odbila, ali samo do
+	// vlastite granice (doVlastite). To je samo za ploču: u knjigu i
+	// drugima ne ide.
+	r.theirs.Frontier = spojiGranice(r.theirs.Frontier, doVlastite(r.njihoveOdbijene, r.moja.Frontier))
 }
 
 // upisiPrimljeno upiše primljene verzije pod bravom čvora (upis.go). Kad je
 // upis predugo zauzet, razgovor završi bez upisa (zavrsiZauzet), a primljeno
-// stigne sljedećom razmjenom.
+// stigne sljedećom razmjenom. Tek kad je upis prošao, ovaj čvor zapamti što
+// je odbio (zapamtiOdbijene), i to prije kraja razgovora, pa ga već sljedeći
+// razgovor javlja.
 func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Version) error {
 	applied, err := r.s.primijeniAkoStigne(ctx, r.zaUpis(ctx, stiglo))
 	if err != nil {
@@ -210,12 +241,14 @@ func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Ve
 		return err
 	}
 	r.applied = applied
+	r.s.zapamtiOdbijene(r.odbijene, r.odbijeno)
 	return nil
 }
 
 // zaUpis su primljene verzije čiji kanal ovaj čvor prati i koje prihvaća
 // (Accept). Odabire se prije upisa, jer razgovor bez ičega za upis ne čeka
-// bravu.
+// bravu. Što odbije Accept, zapamti se za granicu odbijenih (odbaci); što
+// otpadne na pretplatama, ne: kanal koji se počne pratiti mora dobiti sve.
 func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) []ledger.Version {
 	myFilter := r.s.wantsFunc(ctx, &r.myWants)
 	wanted := make([]ledger.Version, 0, len(stiglo))
@@ -224,6 +257,7 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 			continue
 		}
 		if r.s.accept != nil && !r.s.accept(v) {
+			r.odbaci(v)
 			continue
 		}
 		wanted = append(wanted, v)

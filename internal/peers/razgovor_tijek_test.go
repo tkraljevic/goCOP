@@ -12,6 +12,10 @@ package peers
 // G2 (isti plan, §3) promijenio je granicu čvora: nosi i njegove mogućnosti.
 // Granica druge strane ostala je ista, jer skripta glumi čvor koji ih ne
 // javlja (0.0.38), pa ostatak razgovora ide bajt po bajt kao prije.
+// G4 (isti plan, §3) dodao je čvoru oznaku granica-odbijenih/1, pa se opet
+// promijenila samo granica čvora: poruka granice odbijenih ide samo kad
+// oznaku ima i druga strana, a skripta je nema. Razgovor sa stranom koja je
+// ima je u granica_odbijenih_tijek_test.go.
 //
 // Zapis je isti od pokretanja do pokretanja: verzije imaju zadani
 // version_id i vrijeme, verzije članstava iz postave izbrisane su iz knjige,
@@ -85,16 +89,23 @@ func krajCvora(applied int) string { return odCvora(kindDone, fmt.Sprintf(`{"app
 
 const programCvora = `"program":"0.0.39-test","gradnja":"0.0.39-test (abc1234)"`
 
+// naseOznake su mogućnosti čvora kako idu žicom. namjerno promijenjeno: G4
+// (docs/plan-web-sync.md §3); do G4 samo ["razmjena/1"]
+const naseOznake = `["granica-odbijenih/1","razmjena/1"]`
+
 // poruke čvora koje se ponavljaju
 var (
 	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica čvora nosi
-	// i njegove mogućnosti, ovdje samo razmjena/1 (katalog je u testovima
-	// paketa prazan, a ništa ne čeka nadogradnju)
-	granicaPrazna = odCvora(kindFrontier, `{"frontier":{},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3)
-	granicaV1 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3)
-	granicaV2 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV2+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
+	// i njegove mogućnosti (katalog je u testovima paketa prazan, a ništa ne
+	// čeka nadogradnju). namjerno promijenjeno: G4 (docs/plan-web-sync.md §3);
+	// uz razmjena/1 i granica-odbijenih/1
+	granicaPrazna = odCvora(kindFrontier, `{"frontier":{},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); namjerno
+	// promijenjeno: G4 (docs/plan-web-sync.md §3)
+	granicaV1 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); namjerno
+	// promijenjeno: G4 (docs/plan-web-sync.md §3)
+	granicaV2 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV2+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
 
 	deltaPrazna   = odCvora(kindDelta, `{"versions":null}`)
 	deltaV1       = odCvora(kindDelta, `{"versions":[`+jsonV1+`]}`)
@@ -874,9 +885,10 @@ func TestTijekRazgovoraFiltriraPrimljeno(t *testing.T) {
 	}
 	b.Accept(func(v ledger.Version) bool { return v.EntityID != dolaznaD2.EntityID })
 	saV3 := func() { upisiStalno(t, b, vlastitaV3) }
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica nosi mogućnosti čvora
+	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica nosi mogućnosti čvora.
+	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); i granica-odbijenih/1
 	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`","laptop-baranja|ocitanja/3/2026":"`+tijekV3+`"},`+
-		`"wants":{"all":false,"rules":[{"id":1,"kind":"ocitanja","sector_id":"","area_id":16,"year_from":0,"year_to":0,"razina":"sve"}]},`+programCvora+`,"mogucnosti":["razmjena/1"]}`)
+		`"wants":{"all":false,"rules":[{"id":1,"kind":"ocitanja","sector_id":"","area_id":16,"year_from":0,"year_to":0,"razina":"sve"}]},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
 	delta := odCvora(kindDelta, `{"versions":[`+jsonV3+`]}`)
 	njihova := frontierMsg{Frontier: map[string]string{}, Wants: &Wants{Rules: []Subscription{{Kind: "ocitanja", AreaID: 3}}}}
 	dolazna := deltaMsg{Versions: []ledger.Version{dolaznaD1, dolaznaD2, dolaznaD3}}

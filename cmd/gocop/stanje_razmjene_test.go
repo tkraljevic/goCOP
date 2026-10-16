@@ -150,6 +150,42 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 	}
 }
 
+// „Prima se još” piše samo za kanal koji ovaj čvor prati: zajednički uvijek,
+// a ostali po pretplatama. Za kanal koji ne prati druga strana mu ne šalje
+// ništa, pa ne piše (G4, docs/plan-web-sync.md §3); do G4 pisalo je za svaki
+// ključ tuđe granice.
+func TestStanjeRazmjeneJosPrimaSamoZaPraceno(t *testing.T) {
+	ctx := context.Background()
+	baza, rec, mreza, _ := cvorPlocice(t)
+	if err := mreza.CreateNetwork(ctx, "Proba"); err != nil {
+		t.Fatal(err)
+	}
+	sad := time.Now().UTC()
+	if _, err := baza.Exec(`INSERT INTO peers (node_id, name, public_key, created_at) VALUES ('laptop-ana', '', 'k1', ?), ('cop-ured', '', 'k2', ?)`, sad, sad); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := baza.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_ok, last_error, applied, sent, fails)
+		VALUES ('laptop-ana', '{"treci-cvor|ocitanja/3/2026":"v-zzz"}', ?, '', 0, 0, 0), ('cop-ured', '{"treci-cvor":"v-zzz"}', ?, '', 0, 0, 0)`, sad, sad); err != nil {
+		t.Fatal(err)
+	}
+	josPrima := func() map[string]bool {
+		out := map[string]bool{}
+		for _, c := range stanjeRazmjene(ctx, mreza, rec, nil, nil, nil, nil).Cvorovi {
+			out[c.Naziv] = c.JosPrima
+		}
+		return out
+	}
+	if j := josPrima(); j["laptop-ana"] || !j["cop-ured"] {
+		t.Errorf("bez pretplata: %v", j)
+	}
+	if _, err := mreza.AddSubscription(ctx, peers.Subscription{Kind: "ocitanja", AreaID: 3}); err != nil {
+		t.Fatal(err)
+	}
+	if j := josPrima(); !j["laptop-ana"] || !j["cop-ured"] {
+		t.Errorf("uz pretplatu na područje 3: %v", j)
+	}
+}
+
 // Kad se stanje razmjene ne da pročitati, pločica to kaže, a upozorenje o
 // disku ostaje
 func TestStanjeRazmjeneKojeSeNeCita(t *testing.T) {
