@@ -39,7 +39,14 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	}
 	addrs, _ := json.Marshal(p.Addresses)
 	// bilješke o zadnjoj sinkronizaciji opisuju odnos dva čvora, ne čvor —
-	// ne prepisuju se tuđima
+	// ne prepisuju se tuđima.
+	// Ključ se upisuje kakav je u zapisu, i kad mijenja ključ poznatog
+	// računala. Zapis piše i šalje bilo koji član, pa mu razmjena ne
+	// vjeruje: ključ koji druga strana mora dokazati dolazi iz potpisanog
+	// članstva (peers.kljucClana). Da se ključ ovdje zadržava, računalo
+	// koje je dobilo novi ključ (zaborav i ponovno uparivanje) ostalo bi
+	// trećem čvoru sa starim, ovisno o tome stigne li zaborav istom
+	// razmjenom kao novi zapis.
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO peers (node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, NULL, '', ?)

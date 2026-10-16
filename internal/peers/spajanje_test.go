@@ -9,7 +9,8 @@ import (
 )
 
 // Razmjena se ne pokreće s nepoznatim čvorom, s čvorom koji nije član ni
-// s čvorom čiji se ključ ne da pročitati; greška baze nije "nepoznat čvor"
+// s čvorom čiji se ključ u članstvu ne da pročitati; greška baze nije
+// "nepoznat čvor"
 func TestRazmjenaSamoSPoznatimClanom(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	if _, _, err := s.SyncWith(ctxRub, "nepoznati-cvor"); err == nil || !strings.Contains(err.Error(), "nije poznat") {
@@ -21,7 +22,11 @@ func TestRazmjenaSamoSPoznatimClanom(t *testing.T) {
 	if _, _, err := s.SyncWith(ctxRub, "tudji-laptop"); err == nil || !strings.Contains(err.Error(), "nije član") {
 		t.Errorf("čvor izvan mreže: %v", err)
 	}
-	if _, err := s.db.Exec(`UPDATE peers SET public_key = 'nije-kljuc' WHERE node_id = 'tudji-laptop'`); err != nil {
+	// namjerno promijenjeno: sigurnosni popravak podmetnutog ključa
+	// (docs/plan-web-sync.md r. 87). Razmjena ključ više ne čita iz zapisa
+	// čvora nego iz članstva, pa se kvari ključ u članstvu.
+	if _, err := s.db.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
+		VALUES ('tudji-laptop', 'nije-kljuc', 'x', 'x', ?, ?, 'x', ?)`, time.Now().UTC(), time.Now().UTC(), time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
 	if _, _, err := s.SyncWith(ctxRub, "tudji-laptop"); err == nil || strings.Contains(err.Error(), "nije član") {

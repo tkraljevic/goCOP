@@ -161,6 +161,9 @@ type Service struct {
 	program, gradnja string
 	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
 	javljenaInacica sync.Map
+	// zapisi čvorova čiji je ključ drukčiji od članstva već zapisani u
+	// dnevnik (javiDrugiKljuc)
+	javljenKljuc sync.Map
 	// neispravne su version_id verzija iz vlastite knjige koje razmjena ne
 	// šalje (zaSlanje); broj se vidi na ploči. Primljene neispravne su u
 	// preskocene.
@@ -514,15 +517,17 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	return tx.Commit()
 }
 
+// peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub: onaj čije
+// članstvo s tim ključem vrijedi. Ključ u zapisu čvora to ne kaže, jer
+// zapis piše i šalje bilo koji član (dva zapisa mogu nositi isti ključ).
+// Bez valjanog članstva nil, kao za nepoznat ključ.
 func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey) (*Peer, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at
-		FROM peers WHERE public_key = ?`, razmjena.PublicKeyString(pub))
-	p, err := scanPeer(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+	// uz grešku je oznaka prazna
+	id, err := s.clanSKljucem(ctx, pub)
+	if id == "" {
+		return nil, err
 	}
-	return &p, err
+	return s.GetPeer(ctx, id)
 }
 
 // ---------- pronalaženje na lokalnoj mreži ----------
@@ -909,7 +914,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 }
 
 // partnerZaRazmjenu je poznati čvor s kojim je razmjena dopuštena (član
-// mreže) i ključ koji mora dokazati
+// mreže) i ključ koji mora dokazati. Ključ dolazi iz članstva, ne iz zapisa
+// čvora: zapis piše i šalje bilo koji član, pa bi inače mogao podmetnuti
+// ključ drugog člana, a razmjena bi išla s njim (na svim adresama, i kroz
+// tunel).
 func (s *Service) partnerZaRazmjenu(ctx context.Context, nodeID string) (*Peer, ed25519.PublicKey, error) {
 	peer, err := s.GetPeer(ctx, nodeID)
 	if err != nil {
@@ -918,14 +926,29 @@ func (s *Service) partnerZaRazmjenu(ctx context.Context, nodeID string) (*Peer, 
 	if peer == nil {
 		return nil, nil, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
 	}
-	expect, err := razmjena.ParsePublicKey(peer.PublicKey)
+	expect, err := s.kljucClana(ctx, nodeID)
+	if errors.Is(err, errNijeClan) {
+		return nil, nil, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if !s.trusted(expect, nil) {
-		return nil, nil, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
-	}
+	s.javiDrugiKljuc(peer, expect)
 	return peer, expect, nil
+}
+
+// javiDrugiKljuc zapisuje u dnevnik, jednom po računalu i ključu, kad
+// zapis računala nosi drugi ključ od onoga u njegovu članstvu. Takav zapis
+// je zastario ili ga je netko podmetnuo; razmjena ionako traži ključ iz
+// članstva, a zapis se ovdje ne ispravlja (nova verzija bi putovala svima).
+func (s *Service) javiDrugiKljuc(p *Peer, clanski ed25519.PublicKey) {
+	k := razmjena.PublicKeyString(clanski)
+	if p.PublicKey == k {
+		return
+	}
+	if _, vec := s.javljenKljuc.LoadOrStore(p.NodeID+"\x00"+p.PublicKey, true); !vec {
+		log.Printf("razmjena: računalo %s u popisu računala ima drugi ključ (%.8s…) od onoga u potvrdi članstva (%.8s…); razmjena traži ključ iz potvrde", label(*p), p.PublicKey, k)
+	}
 }
 
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
