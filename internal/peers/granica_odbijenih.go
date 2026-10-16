@@ -32,8 +32,12 @@ package peers
 // (narastaj iz stanjePrihvata), pretplate, praćenje svega, brisanje kanala i
 // zaboravljeno računalo. Zapis jednog pošiljatelja ne vrijedi ni kad taj
 // više ne javlja oznaku, kad rub razdoblja ode unatrag (sat vraćen, kraj
-// mjeseca) i kad prođe najduljeOdbijene. Zaboraviti previše košta jedno
-// ponovno slanje, a zaboraviti premalo gubi podatke.
+// mjeseca), kad je sat vraćen iza nastanka zapisa i kad prođe
+// najduljeOdbijene. Razgovor ne upisuje ništa kad se išta od toga dogodi
+// usred njega (zapamtiOdbijene), a kad je usred njega ograda popustila, ne
+// upisuje ni primljeno u ključevima koje je druga strana preskočila
+// (bezPreskocenog). Zaboraviti previše košta jedno ponovno slanje, a
+// zaboraviti premalo gubi podatke.
 
 import (
 	"context"
@@ -76,6 +80,9 @@ type stanjeOgrade struct {
 type odbijenoOd struct {
 	ograda  stanjeOgrade // stanje ograde pri zadnjem upisu
 	nastalo time.Time
+	// broj je redni broj zapisa: po njemu razgovor zna da je zapis s
+	// početka razgovora još isti (smijeUpisati)
+	broj    uint64
 	granica map[string]string
 }
 
@@ -85,16 +92,20 @@ type pamcenjeOdbijenih struct {
 	// zaborava raste sa svakim zaboravom svega: razgovor koji je počeo
 	// prije zaborava ne upisuje ništa
 	zaborava uint64
+	zapisa   uint64                // broj zadnjeg novog zapisa (odbijenoOd.broj)
 	odCvora  map[string]odbijenoOd // javni ključ pošiljatelja → odbijeno
 }
 
 // pocetakOdbijenih je ono što razgovor uzme prije prve poruke: s kim
-// razgovara, dokle je zaborav stigao, stanje ograde i što drugoj strani
-// javlja da je od nje odbio
+// razgovara, dokle je zaborav stigao, stanje ograde, iz kojeg je zapisa
+// (broj, 0 bez važećeg) i što drugoj strani javlja da je od nje odbio. Kad
+// druga strana nema oznaku, moje se isprazni (razmijeniOdbijene), jer nije
+// poslano.
 type pocetakOdbijenih struct {
 	kljuc    string
 	zaborava uint64
 	ograda   stanjeOgrade
+	broj     uint64
 	moje     map[string]string
 }
 
@@ -114,12 +125,14 @@ func (s *Service) ogradaSada() stanjeOgrade {
 	return stanjeOgrade{narastaj: narastaj, rub: rub}
 }
 
-// sadOdbijenih je sat granice odbijenih
+// sadOdbijenih je sat granice odbijenih. Zidni je, bez monotonog: monotoni
+// sat na macOS-u stoji dok računalo spava, pa bi 24 sata (najduljeOdbijene)
+// na laptopu koji noću spava trajala danima.
 func (s *Service) sadOdbijenih() time.Time {
 	if s.satOdbijenih != nil {
 		return s.satOdbijenih()
 	}
-	return time.Now()
+	return time.Now().Round(0)
 }
 
 // zaboraviOdbijene zaboravi sve što je ovaj čvor odbio od drugih. Zove se
@@ -138,35 +151,44 @@ func (s *Service) zaboraviOdbijeneOd(kljuc string) {
 	delete(s.odbijene.odCvora, kljuc)
 }
 
-// vrijedi javlja da se zapisu još smije vjerovati: nastao je pod istim
-// pravilom ograde, rub razdoblja nije otišao unatrag (sat vraćen, AddDate
-// na kraju mjeseca), pa bi odbijeno i sada bilo odbijeno, i nije stariji od
-// najduljeOdbijene. Prazan zapis ne vrijedi nikad.
-func (z odbijenoOd) vrijedi(ograda stanjeOgrade, sad time.Time) bool {
-	return z.ograda.narastaj == ograda.narastaj && !ograda.rub.Before(z.ograda.rub) && sad.Sub(z.nastalo) < najduljeOdbijene
+// josOdbija javlja da bi ono što je ograda odbila u stanju o odbila i u
+// stanju sada: pravilo je isto (narastaj), a rub razdoblja nije otišao
+// unatrag (sat vraćen, AddDate na kraju mjeseca)
+func (o stanjeOgrade) josOdbija(sada stanjeOgrade) bool {
+	return o.narastaj == sada.narastaj && !sada.rub.Before(o.rub)
 }
 
-// odbijeneOd je dokle je zaborav stigao i važeća granica odbijenih od
-// pošiljatelja kljuc (bez nje nil), oboje pod istom bravom: razgovor koji
-// pročita granicu iz vremena prije zaborava ne smije poslije upisati novu
-func (s *Service) odbijeneOd(kljuc string, ograda stanjeOgrade, sad time.Time) (uint64, map[string]string) {
+// vrijedi javlja da se zapisu još smije vjerovati: odbijeno bi i sada bilo
+// odbijeno (josOdbija), a zapis nije stariji od najduljeOdbijene ni nastao
+// iza sadašnjeg trenutka (sat vraćen). Prazan zapis ne vrijedi nikad.
+func (z odbijenoOd) vrijedi(ograda stanjeOgrade, sad time.Time) bool {
+	dob := sad.Sub(z.nastalo)
+	return z.ograda.josOdbija(ograda) && dob >= 0 && dob < najduljeOdbijene
+}
+
+// odbijeneOd je dokle je zaborav stigao i važeći zapis odbijenih od
+// pošiljatelja kljuc (bez njega prazan), oboje pod istom bravom: razgovor
+// koji pročita granicu iz vremena prije zaborava ne smije poslije upisati
+// novu. Granica zapisa je kopija.
+func (s *Service) odbijeneOd(kljuc string, ograda stanjeOgrade, sad time.Time) (uint64, odbijenoOd) {
 	s.odbijene.mu.Lock()
 	defer s.odbijene.mu.Unlock()
 	if z := s.odbijene.odCvora[kljuc]; z.vrijedi(ograda, sad) {
-		return s.odbijene.zaborava, maps.Clone(z.granica)
+		z.granica = maps.Clone(z.granica)
+		return s.odbijene.zaborava, z
 	}
-	return s.odbijene.zaborava, nil
+	return s.odbijene.zaborava, odbijenoOd{}
 }
 
 // pocetakOdbijenih uzme, prije prve poruke razgovora s pošiljateljem kljuc,
-// stanje ograde, dokle je zaborav stigao i važeću granicu odbijenih od
-// njega. Drugoj strani ide samo ono iznad vlastite granice knjige (mine):
-// ostalo ionako ne šalje.
+// stanje ograde, dokle je zaborav stigao i važeći zapis odbijenih od njega.
+// Drugoj strani ide samo ono iznad vlastite granice knjige (mine): ostalo
+// ionako ne šalje.
 func (s *Service) pocetakOdbijenih(kljuc string, mine map[string]string) pocetakOdbijenih {
 	ograda := s.ogradaSada()
-	zaborava, granica := s.odbijeneOd(kljuc, ograda, s.sadOdbijenih())
-	p := pocetakOdbijenih{kljuc: kljuc, zaborava: zaborava, ograda: ograda, moje: map[string]string{}}
-	for k, v := range granica {
+	zaborava, z := s.odbijeneOd(kljuc, ograda, s.sadOdbijenih())
+	p := pocetakOdbijenih{kljuc: kljuc, zaborava: zaborava, ograda: ograda, broj: z.broj, moje: map[string]string{}}
+	for k, v := range z.granica {
 		if v > mine[k] {
 			p.moje[k] = v
 		}
@@ -177,25 +199,41 @@ func (s *Service) pocetakOdbijenih(kljuc string, mine map[string]string) pocetak
 // zapamtiOdbijene upiše što je ovaj čvor u razgovoru odbio od pošiljatelja.
 // Zove se tek kad je upis primljenog prošao (i kad nije bilo ničega za
 // upis): kod zauzetog ili palog upisa zadržane verzije nisu u knjizi, pa ih
-// granica ne smije pokriti. Ne upisuje ništa kad je od početka razgovora
-// nešto zaboravljeno ili se pravilo ograde promijenilo, jer je accept možda
-// sudio po drugom pravilu. Rub se uzima sada, nakon svih odluka accepta.
+// granica ne smije pokriti. Kad ne smije (smijeUpisati), ne upisuje ništa,
+// pa sljedeći razgovor donese sve. Rub se uzima sada, nakon svih odluka
+// accepta, a vrijedi jer nije pao od početka razgovora.
 func (s *Service) zapamtiOdbijene(p pocetakOdbijenih, odbijeno map[string]string) {
 	ograda, sad := s.ogradaSada(), s.sadOdbijenih()
 	s.odbijene.mu.Lock()
 	defer s.odbijene.mu.Unlock()
-	if len(odbijeno) == 0 || s.odbijene.zaborava != p.zaborava || ograda.narastaj != p.ograda.narastaj {
+	if len(odbijeno) == 0 || !p.smijeUpisati(&s.odbijene, ograda, sad) {
 		return
 	}
 	s.odbijene.upisi(p.kljuc, ograda, sad, odbijeno)
 }
 
+// smijeUpisati javlja da razgovor na kraju smije upisati što je odbio: od
+// početka razgovora ništa nije zaboravljeno, a ograda nije popustila
+// (josOdbija), jer je accept možda sudio po drugom pravilu ili višem rubu.
+// Kad je druga strana dobila granicu odbijenih (moje), preskočila je sve
+// ispod nje, pa zapis s početka razgovora mora biti isti i još vrijediti.
+// Inače bi novi zapis, izgrađen od onoga što je odbijeno iznad nje, pokrio
+// i preskočeno. Zove se pod bravom.
+func (p pocetakOdbijenih) smijeUpisati(o *pamcenjeOdbijenih, ograda stanjeOgrade, sad time.Time) bool {
+	if o.zaborava != p.zaborava || !p.ograda.josOdbija(ograda) {
+		return false
+	}
+	z := o.odCvora[p.kljuc]
+	return len(p.moje) == 0 || z.broj == p.broj && z.vrijedi(ograda, sad)
+}
+
 // upisi spoji odbijeno u zapis pošiljatelja; zapis koji više ne vrijedi
-// počinje iznova. Zove se pod bravom.
+// počinje iznova, s novim brojem. Zove se pod bravom.
 func (o *pamcenjeOdbijenih) upisi(kljuc string, ograda stanjeOgrade, sad time.Time, odbijeno map[string]string) {
 	z := o.odCvora[kljuc]
 	if !z.vrijedi(ograda, sad) {
-		z = odbijenoOd{nastalo: sad}
+		o.zapisa++
+		z = odbijenoOd{nastalo: sad, broj: o.zapisa}
 	}
 	z.ograda = ograda
 	z.granica = spojiGranice(z.granica, odbijeno)
@@ -219,14 +257,40 @@ func (r *razgovorSCvorom) odbaci(v ledger.Version) {
 	r.odbijeno[k] = max(r.odbijeno[k], v.VersionID)
 }
 
+// bezPreskocenog makne iz upisa verzije u ključevima u kojima je druga
+// strana preskočila ono ispod granice odbijenih (moje), kad je ograda
+// prihvata od početka razgovora popustila: pravilo čuvanja prošireno (npr.
+// zapraćena letva) ili rub otišao unatrag. Preskočeno ovaj čvor sad možda
+// drži, a novija verzija istog ključa pomaknula bi granicu knjige preko
+// njega, pa ne bi stiglo nikad. Ovako ključ ostane gdje je bio, a sljedeći
+// razgovor donese i preskočeno i maknuto. Razgovor tada ne pamti ni što je
+// odbio: da ograda do kraja razgovora opet ne stegne (rub natrag naprijed),
+// zapis bi pokrio i maknuto. Ograda se čita nakon svih odluka accepta
+// (zaUpis).
+func (r *razgovorSCvorom) bezPreskocenog(wanted []ledger.Version) []ledger.Version {
+	if len(r.odbijene.moje) == 0 || r.odbijene.ograda.josOdbija(r.s.ogradaSada()) {
+		return wanted
+	}
+	r.odbijeno = nil
+	out := make([]ledger.Version, 0, len(wanted))
+	for _, v := range wanted {
+		if _, preskoceno := r.odbijene.moje[ledger.FrontierKey(v.NodeID, v.Channel)]; !preskoceno {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // razmijeniOdbijene: kad obje strane imaju oznaku granica-odbijenih/1
 // (Dogovor nad živim granicama, pa obje odluče isto), svaka javi dokle je
 // odbila ono što joj je druga poslala, redom uloge. Bez oznake druga strana
 // ne dobije ništa i razgovor ide bajt po bajt kao prije, a ovaj čvor
-// zaboravi što je od nje odbio i zapamti iznova iz njezine delte.
+// zaboravi što je od nje odbio i zapamti iznova iz njezine delte; granica
+// odbijenih tada nije poslana, pa je razgovor ne pamti (moje).
 func (r *razgovorSCvorom) razmijeniOdbijene() error {
 	if razmjena.Dogovor(r.moja.Mogucnosti, r.theirs.Mogucnosti)[razmjena.ImeGranicaOdbijenih] != 1 {
 		r.s.zaboraviOdbijeneOd(r.odbijene.kljuc)
+		r.odbijene.moje = nil
 		return nil
 	}
 	return r.redom(
@@ -252,7 +316,8 @@ func (r *razgovorSCvorom) primiOdbijene() error {
 
 // granicaZaDeltu je tuđa granica po kojoj se slaže delta: po ključu veće od
 // granice knjige druge strane i onoga što je javila da je od ovog čvora
-// odbila. Zapamćena tuđa granica (theirs) ostaje granica knjige.
+// odbila. Zapamćena tuđa granica (theirs) se ovdje ne mijenja: do
+// zapamtiDelte ostaje granica knjige druge strane.
 func (r *razgovorSCvorom) granicaZaDeltu() frontierMsg {
 	g := r.theirs
 	g.Frontier = spojiGranice(r.theirs.Frontier, r.njihoveOdbijene)
@@ -305,7 +370,7 @@ func (s *Service) PrimaJos(ctx context.Context) func(PeerStatus) bool {
 	ograda, sad := s.ogradaSada(), s.sadOdbijenih()
 	return func(ps PeerStatus) bool {
 		_, odbijene := s.odbijeneOd(ps.PublicKey, ograda, sad)
-		return josPrima(ps.State.Frontier, moja, odbijene, prati)
+		return josPrima(ps.State.Frontier, moja, odbijene.granica, prati)
 	}
 }
 

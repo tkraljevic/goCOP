@@ -8,6 +8,7 @@ package peers
 import (
 	"errors"
 	"maps"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -234,34 +235,41 @@ func TestBrisanjeKanalaZaboraviOdbijene(t *testing.T) {
 	b := rubniCvor(t, "laptop-baranja")
 	b.SetWantsAll(false)
 	b.zapamtiOdbijene(b.pocetakOdbijenih("kljuc-unraida", nil), map[string]string{"cop-osijek|ocitanja/3/2026": "v-1"})
-	if _, g := b.odbijeneOd("kljuc-unraida", b.ogradaSada(), b.sadOdbijenih()); len(g) != 1 {
-		t.Fatalf("zapamćeno: %v", g)
+	if _, z := b.odbijeneOd("kljuc-unraida", b.ogradaSada(), b.sadOdbijenih()); len(z.granica) != 1 {
+		t.Fatalf("zapamćeno: %v", z.granica)
 	}
 	if _, err := b.PurgeChannel(ctxRub, "ocitanja/3/2026"); err != nil {
 		t.Fatal(err)
 	}
-	if _, g := b.odbijeneOd("kljuc-unraida", b.ogradaSada(), b.sadOdbijenih()); g != nil {
-		t.Errorf("nakon brisanja kanala ostalo: %v", g)
+	if _, z := b.odbijeneOd("kljuc-unraida", b.ogradaSada(), b.sadOdbijenih()); z.granica != nil {
+		t.Errorf("nakon brisanja kanala ostalo: %v", z.granica)
 	}
 }
 
-// Druga strana koja ne javlja oznaku ne dobije granicu odbijenih, a ovaj
-// čvor zaboravi što je od nje odbio; od drugih pamti dalje
+// Druga strana koja ne javlja oznaku ne dobije granicu odbijenih, pa je
+// razgovor ne pamti kao poslanu, a ovaj čvor zaboravi što je od nje odbio;
+// od drugih pamti dalje
 func TestBezOznakeZaboraviOdbijeneOdNje(t *testing.T) {
 	b := rubniCvor(t, "laptop-baranja")
 	for _, k := range []string{"stari", "novi"} {
 		b.zapamtiOdbijene(b.pocetakOdbijenih(k, nil), map[string]string{"x|ocitanja/16/2024": "v-1"})
 	}
-	r := &razgovorSCvorom{s: b, moja: frontierMsg{Znanje: razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti()}}, odbijene: pocetakOdbijenih{kljuc: "stari"}}
+	r := &razgovorSCvorom{s: b, moja: frontierMsg{Znanje: razmjena.Znanje{Mogucnosti: razmjena.NaseMogucnosti()}}, odbijene: b.pocetakOdbijenih("stari", nil)}
+	if len(r.odbijene.moje) != 1 {
+		t.Fatalf("granica odbijenih za čvor bez oznake: %v", r.odbijene.moje)
+	}
 	if err := r.razmijeniOdbijene(); err != nil {
 		t.Fatal(err)
 	}
 	ograda, sad := b.ogradaSada(), b.sadOdbijenih()
-	if _, g := b.odbijeneOd("stari", ograda, sad); g != nil {
-		t.Errorf("od čvora bez oznake ostalo: %v", g)
+	if _, z := b.odbijeneOd("stari", ograda, sad); z.granica != nil {
+		t.Errorf("od čvora bez oznake ostalo: %v", z.granica)
 	}
-	if _, g := b.odbijeneOd("novi", ograda, sad); len(g) != 1 {
-		t.Errorf("od drugog čvora: %v", g)
+	if _, z := b.odbijeneOd("novi", ograda, sad); len(z.granica) != 1 {
+		t.Errorf("od drugog čvora: %v", z.granica)
+	}
+	if r.odbijene.moje != nil {
+		t.Errorf("granica odbijenih nije poslana, a razgovor je pamti: %v", r.odbijene.moje)
 	}
 }
 
@@ -377,6 +385,7 @@ func TestZapisOdbijenihVrijedi(t *testing.T) {
 		{"drugo pravilo", z, stanjeOgrade{narastaj: 4, rub: ograda.rub}, t0, false},
 		{"skoro 24 sata", z, ograda, t0.Add(najduljeOdbijene - time.Nanosecond), true},
 		{"24 sata", z, ograda, t0.Add(najduljeOdbijene), false},
+		{"sat vraćen", z, ograda, t0.Add(-time.Nanosecond), false},
 		{"prazan", odbijenoOd{}, stanjeOgrade{}, t0, false},
 	}
 	for _, c := range slucajevi {
@@ -418,5 +427,219 @@ func TestGraniceOdbijenihPoKljucu(t *testing.T) {
 		if got := josPrima(njihova, c.moja, c.odbijene, c.prati); got != c.jos {
 			t.Errorf("%s: prima se još %v", c.ime, got)
 		}
+	}
+}
+
+// Rub razdoblja ode unatrag usred razgovora, nakon odluka accepta (sat
+// vraćen, ili ponoć 29. 2. → 1. 3. uz 12 mjeseci): accept je odbijao po
+// višem rubu, a odbijeno između dvaju rubova sad bi prošlo. Razgovor zato ne
+// upiše granicu odbijenih, pa sljedeći donese i upiše stara. Za obje uloge.
+func TestRubUnatragUsredRazgovora(t *testing.T) {
+	for _, laptopZove := range []bool{true, false} {
+		a, b := unraidILaptop(t)
+		ograda := &laznoPravilo{}
+		visok := time.Now().AddDate(0, -12, 0).UnixNano()
+		ograda.rub.Store(visok)
+		b.PostaviStanjePrihvata(ograda.stanje)
+		var odluka atomic.Int64
+		// stara su izmjerena između dvaju rubova: odbijaju se samo uz visok rub
+		b.Accept(func(v ledger.Version) bool {
+			drzi := odbijaStaro(v) || ograda.rub.Load() != visok
+			if odluka.Add(1) == 2 {
+				ograda.rub.Store(visok - int64(24*time.Hour))
+			}
+			return drzi
+		})
+		upisiStalno(t, a, ocitanjeStaro1, ocitanjeStaro2)
+		pozivatelj, pozvani := a, b
+		if laptopZove {
+			pozivatelj, pozvani = b, a
+		}
+		for krug, ocekivano := range []int{0, 2} {
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 2 || upisaoLaptop(b, pozivatelj, p, z) != ocekivano {
+				t.Errorf("laptop zove %v, razgovor %d: Unraid poslao %d (očekivano 2), laptop upisao %d (očekivano %d)",
+					laptopZove, krug+1, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z), ocekivano)
+			}
+		}
+	}
+}
+
+// Zapis odbijenih istekne (24 sata) usred razgovora koji je drugoj strani
+// javio granicu iz njega: ona je preskočila sve ispod nje, pa razgovor ne
+// smije izgraditi novi zapis od onoga što je odbio iznad nje. Inače novi
+// zapis pokrije i preskočeno još 24 sata, a verzija koju je druga strana u
+// međuvremenu dobila ispod granice (kasno) ne stigne ni nakon isteka. Za
+// obje uloge.
+func TestIstekUsredRazgovora(t *testing.T) {
+	const kanal = "ocitanja/16/2024"
+	verzija := func(id, zapis string) ledger.Version {
+		return stalnaVerzija("0190a000-0000-7000-8000-000000000"+id, "cop-osijek", kanal, zapis, `{"cm":1}`)
+	}
+	for _, laptopZove := range []bool{true, false} {
+		a, b := unraidILaptop(t)
+		s := &lazniSat{}
+		s.sad.Store(time.Now().UnixNano())
+		b.satOdbijenih = s.vrijeme
+		pozivatelj, pozvani := a, b
+		if laptopZove {
+			pozivatelj, pozvani = b, a
+		}
+		upisiStalno(t, a, verzija("210", "novo"), verzija("230", "staro-a"), verzija("240", "staro-b"))
+		razgovaraj(t, pozivatelj, pozvani)
+		// Unraid poslije dobije verziju ispod granice odbijenih koju laptop
+		// drži i još jedno staro očitanje iza nje
+		upisiStalno(t, a, verzija("220", "kasno"), verzija("250", "staro-c"))
+		s.pomakni(najduljeOdbijene - time.Second)
+		b.Accept(func(v ledger.Version) bool {
+			if v.EntityID == "staro-c" {
+				s.pomakni(2 * time.Second)
+			}
+			return odbijaStaro(v)
+		})
+		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 1 {
+			t.Fatalf("laptop zove %v: razgovor preko isteka poslao %d, očekivano samo staro-c", laptopZove, poslaoUnraid(a, pozivatelj, p, z))
+		}
+		s.pomakni(time.Minute)
+		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
+			t.Errorf("laptop zove %v: nakon isteka Unraid poslao %d (očekivano 4), laptop upisao %d (očekivano kasno)",
+				laptopZove, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		}
+		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 0 {
+			t.Errorf("laptop zove %v: zatim Unraid poslao %d", laptopZove, poslaoUnraid(a, pozivatelj, p, z))
+		}
+	}
+}
+
+// Ograda prihvata popusti usred razgovora, nakon što je laptop Unraidu
+// javio granicu odbijenih, a prije prve odluke accepta: pravilo čuvanja se
+// proširi (zapraćena letva) ili rub razdoblja ode unatrag. Laptop sad drži
+// i stara očitanja koja je prije odbio, pa moraju stići. Novija verzija
+// istog ključa iz tog razgovora zato se ne upiše (inače bi granica knjige
+// prešla preko preskočenoga), nego stigne sa starima u sljedećem; ostali
+// ključevi upišu se odmah. Za obje uloge, i kad Unraid nema oznaku (tada
+// granice nema, pa je svejedno kako je ograda popustila).
+func TestOgradaPopustiUsredRazgovora(t *testing.T) {
+	staro3 := stalnaVerzija("0190a000-0000-7000-8000-000000000204", "cop-osijek", "ocitanja/16/2024", "staro-3", `{"cm":4}`)
+	drugiKljuc := stalnaVerzija("0190a000-0000-7000-8000-000000000205", "cop-osijek", "ocitanja/16/2025", "staro-4", `{"cm":5}`)
+	rub := time.Now().AddDate(0, -12, 0).UnixNano()
+	pravilo := func(p *laznoPravilo) { p.narastaj.Add(1) }
+	rubUnatrag := func(p *laznoPravilo) { p.rub.Store(rub - int64(24*time.Hour)) }
+	for _, c := range []struct {
+		ime                   string
+		popusti               func(p *laznoPravilo)
+		laptopZove, bezOznake bool
+	}{
+		{"pravilo prošireno", pravilo, true, false}, {"pravilo prošireno", pravilo, false, false},
+		{"rub unatrag", rubUnatrag, true, false}, {"rub unatrag", rubUnatrag, false, false},
+		{"pravilo prošireno", pravilo, true, true}, {"pravilo prošireno", pravilo, false, true},
+	} {
+		a, b := unraidILaptop(t)
+		if c.bezOznake {
+			a.mogucnosti = func() []string { return []string{razmjena.OznakaRazmjena} }
+		}
+		ograda := &laznoPravilo{}
+		ograda.rub.Store(rub)
+		b.PostaviStanjePrihvata(ograda.stanje)
+		var drziSve, naPrvoj atomic.Bool
+		b.Accept(func(v ledger.Version) bool {
+			if naPrvoj.CompareAndSwap(true, false) {
+				c.popusti(ograda)
+				drziSve.Store(true)
+			}
+			return drziSve.Load() || odbijaStaro(v)
+		})
+		upisiStalno(t, a, ocitanjeStaro1, ocitanjeStaro2)
+		pozivatelj, pozvani := a, b
+		if c.laptopZove {
+			pozivatelj, pozvani = b, a
+		}
+		razgovaraj(t, pozivatelj, pozvani)
+		upisiStalno(t, a, staro3, drugiKljuc)
+		naPrvoj.Store(true)
+		upisano := []int{1, 3}
+		if c.bezOznake {
+			upisano = []int{4, 0}
+		}
+		for krug, ocekivano := range upisano {
+			if p, z := razgovaraj(t, pozivatelj, pozvani); upisaoLaptop(b, pozivatelj, p, z) != ocekivano {
+				t.Errorf("%s, laptop zove %v, Unraid bez oznake %v, razgovor %d: laptop upisao %d, očekivano %d",
+					c.ime, c.laptopZove, c.bezOznake, krug+1, upisaoLaptop(b, pozivatelj, p, z), ocekivano)
+			}
+		}
+		for _, id := range []string{"staro-1", "staro-2", "staro-3", "staro-4"} {
+			if _, err := b.rec.Latest(ctxRub, "probni", id); err != nil {
+				t.Errorf("%s, laptop zove %v, Unraid bez oznake %v: laptop drži sve, a %s nije stiglo: %v", c.ime, c.laptopZove, c.bezOznake, id, err)
+			}
+		}
+	}
+}
+
+// Kad ograda popusti usred razgovora koji je drugoj strani javio granicu
+// odbijenih, iz upisa ispadnu ključevi koje je ona preskočila, a razgovor
+// zaboravi i što je odbio: ograda koja do kraja razgovora opet stegne ne
+// smije dati zapis koji pokriva ispalo
+func TestBezPreskocenogNePamtiOdbijeno(t *testing.T) {
+	b := rubniCvor(t, "laptop-baranja")
+	p := &laznoPravilo{}
+	b.PostaviStanjePrihvata(p.stanje)
+	r := &razgovorSCvorom{s: b, odbijene: pocetakOdbijenih{moje: map[string]string{kljucStarih: ocitanjeStaro1.VersionID}},
+		odbijeno: map[string]string{kljucStarih: ocitanjeStaro2.VersionID}}
+	drugi := stalnaVerzija("0190a000-0000-7000-8000-000000000205", "cop-osijek", "ocitanja/16/2025", "drugi", `{"cm":5}`)
+	if upis := r.bezPreskocenog([]ledger.Version{ocitanjeNovo, drugi}); len(upis) != 2 || r.odbijeno == nil {
+		t.Fatalf("ograda ista: upis %v, odbijeno %v", upis, r.odbijeno)
+	}
+	p.narastaj.Add(1)
+	if upis := r.bezPreskocenog([]ledger.Version{ocitanjeNovo, drugi}); len(upis) != 1 || upis[0].EntityID != "drugi" || r.odbijeno != nil {
+		t.Errorf("ograda popustila: upis %v, odbijeno %v", upis, r.odbijeno)
+	}
+}
+
+// Razgovor koji je drugoj strani javio granicu iz zapisa upisuje samo dok je
+// zapis s početka razgovora isti i vrijedi. Kad ga je drugi razgovor u
+// međuvremenu zamijenio (zaborav od tog pošiljatelja, pa novi zapis) ili je
+// istekao, ne upisuje ništa. Razgovor koji granicu nije javio upisuje i u
+// zapis nastao usred njega.
+func TestZapisSPocetkaRazgovora(t *testing.T) {
+	b := rubniCvor(t, "laptop-baranja")
+	s := &lazniSat{}
+	s.sad.Store(time.Now().UnixNano())
+	b.satOdbijenih = s.vrijeme
+	granica := func() map[string]string { return b.odbijene.odCvora["unraid"].granica }
+	b.zapamtiOdbijene(b.pocetakOdbijenih("unraid", nil), map[string]string{"k": "v-1"})
+	b.zapamtiOdbijene(b.pocetakOdbijenih("unraid", nil), map[string]string{"k": "v-2"})
+	if !maps.Equal(granica(), map[string]string{"k": "v-2"}) {
+		t.Fatalf("isti zapis: %v", granica())
+	}
+	javljeno := b.pocetakOdbijenih("unraid", nil)
+	b.zaboraviOdbijeneOd("unraid")
+	b.zapamtiOdbijene(b.pocetakOdbijenih("unraid", nil), map[string]string{"l": "w-1"})
+	b.zapamtiOdbijene(javljeno, map[string]string{"k": "v-3"})
+	if !maps.Equal(granica(), map[string]string{"l": "w-1"}) {
+		t.Errorf("zapis zamijenjen usred razgovora: %v", granica())
+	}
+	javljeno = b.pocetakOdbijenih("unraid", nil)
+	nije := b.pocetakOdbijenih("unraid", map[string]string{"l": "w-1"})
+	s.pomakni(najduljeOdbijene)
+	b.zapamtiOdbijene(javljeno, map[string]string{"l": "w-2"})
+	if !maps.Equal(granica(), map[string]string{"l": "w-1"}) {
+		t.Errorf("zapis istekao usred razgovora: %v", granica())
+	}
+	b.zapamtiOdbijene(nije, map[string]string{"m": "x-1"})
+	if !maps.Equal(granica(), map[string]string{"m": "x-1"}) {
+		t.Errorf("razgovor bez javljene granice: %v", granica())
+	}
+}
+
+// Sat granice odbijenih je zidni: monotoni sat na macOS-u stoji dok računalo
+// spava, pa bi zapis laptopa koji noću spava vrijedio danima. Zapis s
+// vremenom iza sadašnjeg (sat vraćen) ne vrijedi.
+func TestSatOdbijenihJeZidni(t *testing.T) {
+	sad := rubniCvor(t, "laptop-baranja").sadOdbijenih()
+	if strings.Contains(sad.String(), "m=") {
+		t.Errorf("sat granice odbijenih nosi monotoni sat: %v", sad)
+	}
+	z := odbijenoOd{nastalo: sad, granica: map[string]string{"k": "v"}}
+	if z.vrijedi(stanjeOgrade{}, sad.Add(-time.Second)) {
+		t.Error("zapis iz budućnosti vrijedi")
 	}
 }

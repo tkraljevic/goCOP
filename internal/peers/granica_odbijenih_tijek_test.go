@@ -77,9 +77,9 @@ func tokSOznakomPozvanog() []potez {
 // strane a
 func odbijenoOdDrugog(a, b *Service) func() []string {
 	return func() []string {
-		_, g := b.odbijeneOd(a.node.PublicKey(), b.ogradaSada(), b.sadOdbijenih())
-		b, _ := json.Marshal(g)
-		return []string{"odbijeno od drugog " + string(b)}
+		_, z := b.odbijeneOd(a.node.PublicKey(), b.ogradaSada(), b.sadOdbijenih())
+		zapis, _ := json.Marshal(z.granica)
+		return []string{"odbijeno od drugog " + string(zapis)}
 	}
 }
 

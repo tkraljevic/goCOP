@@ -54,7 +54,9 @@ type razgovorSCvorom struct {
 	// prekoTailscalea se odluči jednom, prije prve poruke
 	prekoTailscalea bool
 	// theirs je granica druge strane; nakon delti pomaknuta za poslano i
-	// neispravno, uz Tailscale adrese iz njezine delte
+	// neispravno i za ono što je druga strana javila da je od ovog čvora
+	// odbila, najviše do vlastite granice (doVlastite), uz Tailscale adrese
+	// iz njezine delte
 	theirs frontierMsg
 	// applied je upisano, sent poslano; exchange ih vraća tek kad je upis
 	// prošao, a do tada 0, 0
@@ -231,11 +233,13 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 
 // upisiPrimljeno upiše primljene verzije pod bravom čvora (upis.go). Kad je
 // upis predugo zauzet, razgovor završi bez upisa (zavrsiZauzet), a primljeno
-// stigne sljedećom razmjenom. Tek kad je upis prošao, ovaj čvor zapamti što
-// je odbio (zapamtiOdbijene), i to prije kraja razgovora, pa ga već sljedeći
-// razgovor javlja.
+// stigne sljedećom razmjenom. Ne upisuje se ni ono što bi granicu knjige
+// pomaknulo preko verzija koje je druga strana preskočila po granici
+// odbijenih, a ovaj čvor ih sad možda drži (bezPreskocenog). Tek kad je upis
+// prošao, ovaj čvor zapamti što je odbio (zapamtiOdbijene), i to prije kraja
+// razgovora, pa ga već sljedeći razgovor javlja.
 func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Version) error {
-	applied, err := r.s.primijeniAkoStigne(ctx, r.zaUpis(ctx, stiglo))
+	applied, err := r.s.primijeniAkoStigne(ctx, r.bezPreskocenog(r.zaUpis(ctx, stiglo)))
 	if err != nil {
 		r.s.zavrsiZauzet(r.c, r.initiator, err)
 		return err
