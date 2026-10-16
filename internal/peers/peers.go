@@ -187,6 +187,10 @@ type Service struct {
 	// slusaj čeka poziv za uparivanje (StartListening); nil je
 	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
 	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
+	// katalog su vrste zapisa koje čvor javlja u granici (mojKatalog); nil
+	// je ledger.Katalog. Popis poznatih entiteta u ledgeru zajednički je
+	// cijelom procesu i ne vraća se, pa test katalog daje ovuda.
+	katalog func() map[string]int
 	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
 	upis       chan struct{}
 	upisJednom sync.Once
@@ -802,6 +806,11 @@ type frontierMsg struct {
 	// od onoga koji je to uveo.
 	Program string `json:"program,omitempty"`
 	Gradnja string `json:"gradnja,omitempty"`
+	// Znanje je što pošiljatelj zna: oznake mogućnosti, vrste zapisa sa
+	// shemama i koliko zapisa kod njega čeka nadogradnju
+	// (razmjena/mogucnosti.go). Ugrađeno je iza Gradnja, pa ključevi idu
+	// iza "gradnja"; prazno izostaje, a čvor 0.0.38 ga ne šalje i zanemari.
+	razmjena.Znanje
 	// tailscale su Tailscale adrese koje je drugi čvor javio u delti
 	// razgovora preko Tailscalea; ne putuje, samo nosi primljeno do bilješke
 	// o razmjeni (noteSync)
@@ -1187,6 +1196,7 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	applied, sent, err := o.applied, o.sent, o.err
 	s.recordSyncState(ctx, peer.NodeID, o)
 	s.zapamtiTailscale(ctx, peer.NodeID, o)
+	s.zapamtiZnanje(ctx, peer.NodeID, o)
 	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
 		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
 			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))

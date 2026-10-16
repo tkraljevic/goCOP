@@ -49,6 +49,12 @@ func PostaviShemu(entity string, shema int) {
 func ShemaEntiteta(entity string) int {
 	shemeMu.RLock()
 	defer shemeMu.RUnlock()
+	return shemaZa(entity)
+}
+
+// shemaZa je ShemaEntiteta za onoga tko već drži shemeMu: drugo RLock iste
+// gorutine zastane čim neki upis čeka bravu
+func shemaZa(entity string) int {
 	if n, ok := sheme[entity]; ok {
 		return n
 	}
@@ -88,6 +94,23 @@ func PoznatiEntiteti(entities ...string) {
 	for _, e := range entities {
 		poznatiEnt[e] = true
 	}
+}
+
+// Katalog je ono što ovaj program razumije: za svaki entitet s popisa
+// poznatih najviša shema koju zna. Zapis entiteta izvan kataloga program ne
+// poznaje, a zapis više sheme ne smije uređivati. Bez popisa poznatih
+// (testovi) poznati su svi, a ne mogu se nabrojati, pa je katalog nil.
+func Katalog() map[string]int {
+	shemeMu.RLock()
+	defer shemeMu.RUnlock()
+	if len(poznatiEnt) == 0 {
+		return nil
+	}
+	out := make(map[string]int, len(poznatiEnt))
+	for e := range poznatiEnt {
+		out[e] = shemaZa(e)
+	}
+	return out
 }
 
 func poznatEntitet(entity string) bool {
@@ -277,6 +300,42 @@ func (r *Recorder) Novosti() []Novost {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Entity < out[j].Entity })
 	return out
+}
+
+// Upiti za CekaNadogradnju broje zapise (entity_id), ne verzije. Uvjet
+// schema_version > 1 stoji doslovno: SQLite djelomični indeks
+// idx_versions_shema uzima samo kad uvjet upita doslovno slijedi iz uvjeta
+// indeksa.
+const (
+	zapisaNepoznatog  = `SELECT COUNT(DISTINCT entity_id) FROM record_versions WHERE entity = ?`
+	zapisaNovijeSheme = `SELECT COUNT(DISTINCT entity_id) FROM record_versions WHERE entity = ? AND schema_version > 1 AND schema_version > ?`
+)
+
+// CekaNadogradnju broji zapise u knjizi koje ovaj program ne razumije do
+// kraja (Novosti): zapise entiteta koje ne poznaje i zapise koji imaju
+// verziju novije sheme. Broje se zapisi, ne verzije (Novost.Verzija), jer
+// se tim brojem ljudima kaže koliko čeka nadogradnju; obrisani se ne
+// izdvajaju. Bez novosti, što je uobičajeno, ne ide nijedan upit.
+func (r *Recorder) CekaNadogradnju(ctx context.Context) (int, error) {
+	ukupno := 0
+	for _, n := range r.Novosti() {
+		upit, args := upitCekanja(n)
+		var zapisa int
+		if err := r.db.QueryRowContext(ctx, upit, args...).Scan(&zapisa); err != nil {
+			return 0, err
+		}
+		ukupno += zapisa
+	}
+	return ukupno, nil
+}
+
+// upitCekanja: nepoznatom entitetu čekaju svi zapisi, poznatom samo oni s
+// verzijom sheme više od one koju program zna
+func upitCekanja(n Novost) (string, []any) {
+	if n.Nepoznat {
+		return zapisaNepoznatog, []any{n.Entity}
+	}
+	return zapisaNovijeSheme, []any{n.Entity, n.Lokalna}
 }
 
 // UcitajNovosti pregleda knjigu pri pokretanju: zapise novije sheme (po

@@ -158,7 +158,8 @@ func TestPlocaKadBazaNeRadi(t *testing.T) {
 		t.Error("ploča bez stanja razmjene")
 	}
 	if _, err := s.db.Exec(`CREATE TABLE peer_sync (node_id TEXT, their_frontier TEXT, last_attempt DATETIME, last_ok DATETIME, last_error TEXT,
-		applied INTEGER, sent INTEGER, duration_ms INTEGER, fails INTEGER, program TEXT, gradnja TEXT, program_poznat INTEGER, tailscale TEXT)`); err != nil {
+		applied INTEGER, sent INTEGER, duration_ms INTEGER, fails INTEGER, program TEXT, gradnja TEXT, program_poznat INTEGER, tailscale TEXT,
+		mogucnosti TEXT, vrste TEXT, ceka_nadogradnju INTEGER, mogucnosti_poznate INTEGER)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.db.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_error) VALUES ('ured-vukovar', '{}', NULL)`); err != nil {
