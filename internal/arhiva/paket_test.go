@@ -286,9 +286,7 @@ func TestUgradnjaPodnosiOstatkeBezRoditelja(t *testing.T) {
 	}
 
 	// ostaci su pospremljeni, a ugrađeno je ono iz paketa
-	var sirotih int
-	db2.QueryRow(`SELECT count(*) FROM hq_odsjecci WHERE krivulja NOT IN (SELECT id FROM hq_krivulje)`).Scan(&sirotih)
-	if sirotih != 0 {
+	if sirotih := broj(t, db2, `SELECT count(*) FROM hq_odsjecci WHERE krivulja NOT IN (SELECT id FROM hq_krivulje)`); sirotih != 0 {
 		t.Errorf("ostalo je %d odsječaka bez krivulje", sirotih)
 	}
 	var p1 float64
