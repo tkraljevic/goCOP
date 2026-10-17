@@ -324,7 +324,8 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 		fmt.Fprintf(zapisi, "preuzeta brava prekinutog posla: %s — provjeriti je li ostao nered\n", opis)
 	}
 	// Gradnja piše ravno u arhivu koju čvor koristi. Bez trajnog upisa
-	// nestanak struje usred gradnje mogao je pokvariti cijelu arhivu.
+	// nestanak struje usred gradnje mogao je pokvariti cijelu arhivu; na
+	// Macu to ni sad nije sasvim isključeno (vidi TrajniUpis).
 	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&"+gocopdb.TrajniUpis)
 	if err != nil {
 		return iz, err
