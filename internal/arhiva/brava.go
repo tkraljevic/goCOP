@@ -16,6 +16,7 @@ package arhiva
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -99,11 +100,20 @@ func Uzmi(uz, sto, tko string) (*Brava, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
+	stanje := stanjeBrave{Sto: sto, Tko: tko, PID: os.Getpid(), Od: time.Now(), Pokretanje: pokretanje}
+	return b, zapisiBravu(f, stanje)
+}
 
-	return b, json.NewEncoder(f).Encode(stanjeBrave{
-		Sto: sto, Tko: tko, PID: os.Getpid(), Od: time.Now(), Pokretanje: pokretanje,
-	})
+// zapisiBravu upisuje tko drži bravu i zatvara datoteku. Brava koja se nije
+// dala zapisati miče se: posao se tada ne pokreće, pa je nitko ne bi pustio,
+// a s brojem procesa koji živi držala bi arhivu zauzetom do ponovnog
+// pokretanja programa.
+func zapisiBravu(f *os.File, s stanjeBrave) error {
+	err := errors.Join(json.NewEncoder(f).Encode(s), f.Close())
+	if err != nil {
+		return errors.Join(fmt.Errorf("brava posla nije zapisana: %w", err), os.Remove(f.Name()))
+	}
+	return nil
 }
 
 // Pusti otpušta bravu. Puštanje brave koje nema nije greška: posao je gotov
