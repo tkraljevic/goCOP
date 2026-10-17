@@ -280,7 +280,7 @@ const natragPIN = "/administracija/posta#pin"
 // porukaUkljuciBezHTTPS: posrednik ne javlja HTTPS, pa bi se uz uključen
 // PIN svaka prijava izvana odbila
 const porukaUkljuciBezHTTPS = "PIN se ne uključuje: ova stranica nije stigla preko HTTPS-a (ni izravno, ni kroz posrednika koji to javlja zaglavljem X-Forwarded-Proto: https), " +
-	"pa bi se svaka prijava izvana s PIN-om odbila. Otvorite stranicu preko HTTPS-a, na adresi vašeg poslužitelja, ili podesite posrednika."
+	"pa bi se svaka prijava izvana s PIN-om odbila. Otvorite stranicu na adresi koja počinje s https:// ili podesite posrednika."
 
 // pinRadnja vraća servis i ovlasti za radnju nad PIN-om, ili javi grešku:
 // tuđim očima ništa (probni PIN išao bi na tuđu adresu, a „iz moje pošte”
