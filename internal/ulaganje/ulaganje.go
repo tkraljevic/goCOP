@@ -229,7 +229,7 @@ func (p *Pregled) Ulozi(ctx context.Context, z Zahtjev, zapisi io.Writer) (*Isho
 			return nil
 		}
 		put, err := arhiva.Dopuni(z.Koren, p.Sliv, p.Postaja.Code, izvor, velicina, vrsta, redci)
-		if err != nil {
+		if err = arhiva.JaviOstatak(err, zapisi); err != nil {
 			return fmt.Errorf("ulaganje u %s: %w", izvor, err)
 		}
 		fmt.Fprintf(zapisi, "zapisano: %s (%d)\n", put, len(redci))
