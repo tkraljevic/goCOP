@@ -11,9 +11,10 @@ import (
 )
 
 // Dok radi drugi golangci-lint (make quality u drugoj radnoj kopiji, editor),
-// njegova brava stoji u privremenoj mapi. Test s pravim lintom mora ga
-// pričekati, a ne pasti kao da u kodu nešto ne valja. Bez
-// --allow-serial-runners lint čeka bravu samo 5 s, a ovdje je drži 6 s.
+// njegova brava stoji u privremenoj mapi. make quality i test s pravim lintom
+// moraju ga pričekati, a ne pasti kao da u kodu nešto ne valja. Oba pokreću
+// lint s lintArgumenti; bez --allow-serial-runners lint čeka bravu samo 5 s,
+// a ovdje je drži 6 s.
 func TestPraviLintCekaDrugiLint(t *testing.T) {
 	alat, pravila := praviAlat(t)
 	dir, err := filepath.EvalSymlinks(t.TempDir())

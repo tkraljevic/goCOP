@@ -343,9 +343,8 @@ func run(f func()) error { f(); return nil }
 func praviLint(t *testing.T, alat, pravila, dir string, r *report) {
 	t.Helper()
 	izlaz := filepath.Join(t.TempDir(), "lint.json")
-	// Drugi golangci-lint (make quality u drugoj kopiji, editor) drži bravu
-	// za cijelog korisnika; bez --allow-serial-runners test bi tada pao
-	cmd := exec.Command(alat, "run", "--allow-serial-runners", "--config", pravila, "--issues-exit-code", "0", "--output.json.path", izlaz, "./...")
+	// isti argumenti kao u make quality
+	cmd := exec.Command(alat, lintArgumenti(pravila, izlaz, "./...")...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	if out, err := cmd.CombinedOutput(); err != nil {
