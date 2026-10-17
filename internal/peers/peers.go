@@ -205,6 +205,20 @@ type Service struct {
 	bezTailscalea atomic.Bool
 	// čvorovi za koje je odbijena razmjena na Tailscale adresi već zapisana u dnevnik
 	javljenTailscale sync.Map
+
+	// odbijene je ono što je ovaj čvor odbio od drugih, po pošiljatelju
+	// (granica_odbijenih.go); stanjePrihvata kaže o čemu ovisi što accept
+	// odbija (PostaviStanjePrihvata), a satOdbijenih je njezin sat: nil je
+	// time.Now, test njime pomiče vrijeme
+	odbijene       pamcenjeOdbijenih
+	stanjePrihvata func() (narastaj uint64, rub time.Time)
+	satOdbijenih   func() time.Time
+	// uvozi su narastaj uvoza i što su druga računala nakon uvoza dobila
+	// (granica_nakon_uvoza.go)
+	uvozi pamcenjeUvoza
+	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
+	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
+	mogucnosti func() []string
 }
 
 func (s *Service) autoSync() bool {
@@ -496,6 +510,9 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 
 // ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
+	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
+	// zaboraviti previše košta samo jedno ponovno slanje
+	defer s.zaboraviOdbijene()
 	p, err := s.GetPeer(ctx, nodeID)
 	if err != nil {
 		return err

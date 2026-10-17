@@ -87,7 +87,9 @@ func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
 		t.Errorf("preuzeto je krivo očitanje: %s", id)
 	}
 
-	// verzije ostaju u knjizi, pa čvor zna dokle je stigao i ne traži ih ponovno
+	// u knjigu ide samo zadržano: odbijeno očitanje ne zauzima mjesto. Granica
+	// knjige zato ne prelazi preko njega, pa ga druga strana šalje opet dok joj
+	// ovaj čvor ne javi da ga je odbio (granica odbijenih, G4)
 	var verzijaN int
 	if err := teren.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = 'readings'`).Scan(&verzijaN); err != nil {
 		t.Fatal(err)

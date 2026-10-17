@@ -45,8 +45,9 @@ func TestCvor0038ZanemarujeZnanje(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); mogućnosti nose i granica-odbijenih/1
 	const payload = `{"frontier":{"laptop-baranja|ocitanja/16/2026":"` + tijekV1 + `"},"wants":{"all":true},` + programCvora +
-		`,"mogucnosti":["razmjena/1"],"vrste":{"akti":1,"dnevna_izvjesca":2},"cekaNadogradnju":120}`
+		`,"mogucnosti":` + naseOznake + `,"vrste":{"akti":1,"dnevna_izvjesca":2},"cekaNadogradnju":120}`
 	if string(e.Payload) != payload {
 		t.Fatalf("granica na žici:\n%s\nočekivano\n%s", e.Payload, payload)
 	}
@@ -251,8 +252,9 @@ func TestUStupac(t *testing.T) {
 func TestTijekRazgovoraKatalogCvora(t *testing.T) {
 	a, b := cistiPar(t)
 	b.katalog = func() map[string]int { return map[string]int{"probni": 1, "akti": 2} }
+	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); mogućnosti nose i granica-odbijenih/1
 	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+
-		`,"mogucnosti":["razmjena/1"],"vrste":{"akti":2,"probni":1}}`)
+		`,"mogucnosti":`+naseOznake+`,"vrste":{"akti":2,"probni":1}}`)
 	provjeriSlucajeve(t, a, b, true, []slucaj{{ime: "katalog čvora", ishod: nakonDelte("nil"),
 		potezi: do(zamijeni(tokPozivatelja(), 0, cita(granica)), 10, cita(krajVeze))}})
 	provjeriSlucajeve(t, a, b, false, []slucaj{{ime: "katalog čvora", ishod: nakonDelte("nil"),

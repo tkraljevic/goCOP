@@ -14,7 +14,12 @@ import (
 // Na početku razgovora oba čvora kažu što znaju, a druga strana to zapamti
 // uz stanje razmjene i pokaže na ploči: i onaj tko je nazvao i onaj tko je
 // primio. Da ploča ne šalje vrste zapisa, provjerava TestZapamcenoZnanje.
+//
+// Namjerno promijenjeno: G4 (docs/plan-web-sync.md §3). Čvor javlja i
+// granica-odbijenih/1, pa razgovor dvaju novih čvorova nosi i granicu
+// odbijenih; do G4 javljao je samo razmjena/1.
 func TestRazmjenaNosiZnanje(t *testing.T) {
+	oznake := []string{"granica-odbijenih/1", "razmjena/1"}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	a := startNodeBezRegistra(t, ctx, "cop-osijek")
@@ -26,7 +31,7 @@ func TestRazmjenaNosiZnanje(t *testing.T) {
 	}
 
 	_, pa := statusCvora(t, ctx, b, a.id)
-	if !slices.Equal(pa.State.Mogucnosti, []string{"razmjena/1"}) || !pa.State.MogucnostiPoznate || pa.State.CekaNadogradnju != 0 {
+	if !slices.Equal(pa.State.Mogucnosti, oznake) || !pa.State.MogucnostiPoznate || pa.State.CekaNadogradnju != 0 {
 		t.Fatalf("B o A: %+v", pa.State)
 	}
 	// A je primio: bilješka nastaje nakon razgovora, na strani posluživanja
@@ -36,14 +41,14 @@ func TestRazmjenaNosiZnanje(t *testing.T) {
 			time.Sleep(50 * time.Millisecond)
 		}
 	}
-	if !slices.Equal(pb.State.Mogucnosti, []string{"razmjena/1"}) || !pb.State.MogucnostiPoznate {
+	if !slices.Equal(pb.State.Mogucnosti, oznake) || !pb.State.MogucnostiPoznate {
 		t.Fatalf("A o B: %+v", pb.State)
 	}
 	ploca, err := json.Marshal(pb)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(ploca), `"mogucnosti":["razmjena/1"]`) {
+	if !strings.Contains(string(ploca), `"mogucnosti":["granica-odbijenih/1","razmjena/1"]`) {
 		t.Errorf("ploča: %s", ploca)
 	}
 }

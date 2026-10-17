@@ -182,6 +182,7 @@ func (h *UvozHandler) Pospremi(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return err
 			}
+			h.nakonPospremanja(iz.Verzija)
 			zad.Zavrsi(fmt.Sprintf("Obrisano za %s: %d %s i %d %s; "+
 				"prostor se vraća nakon VACUUM na Održavanju baze.",
 				iz.Letva, iz.Obrisano, models.UzBrojHR(iz.Obrisano, "očitanje", "očitanja", "očitanja"),

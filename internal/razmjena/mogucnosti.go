@@ -39,6 +39,16 @@ import (
 // ovamo i ne zove se sadrzaj/1.
 const OznakaRazmjena = "razmjena/1"
 
+// ImeGranicaOdbijenih je ime oznake granice odbijenih (G4 u
+// docs/plan-web-sync.md §3): odmah iza granica računalo javi dokle je
+// odbilo ono što mu je druga strana poslala, a druga strana šalje tek iza
+// toga (internal/peers/granica_odbijenih.go). Nova je vrsta poruke, pa ide
+// samo kad Dogovor kaže da je obje strane imaju.
+const ImeGranicaOdbijenih = "granica-odbijenih"
+
+// OznakaGranicaOdbijenih je prva inačica granice odbijenih
+const OznakaGranicaOdbijenih = ImeGranicaOdbijenih + "/1"
+
 // Ograde onoga što se od druge strane pamti: popis i mapa idu u bazu
 const (
 	najduljeIme   = 32   // znakova u imenu oznake
@@ -62,7 +72,7 @@ type Znanje struct {
 // NaseMogucnosti su oznake koje ovaj program objavljuje, poredane i bez
 // ponavljanja. Svaki poziv daje novi popis.
 func NaseMogucnosti() []string {
-	return []string{OznakaRazmjena}
+	return []string{OznakaGranicaOdbijenih, OznakaRazmjena}
 }
 
 // Dogovor je za svako ime koje obje strane imaju najviši zajednički N.

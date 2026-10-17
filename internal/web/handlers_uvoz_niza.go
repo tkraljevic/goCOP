@@ -110,6 +110,10 @@ type UvozHandler struct {
 	// mapa kaže gdje su stablo i mapa paketa na disku i što učiniti kad
 	// relativne nema (mape_arhive.go)
 	mapa func(kljuc, zadano string) MapaArhive
+
+	// nakonPospremanja javlja razmjeni koliko je verzija pospremanje
+	// obrisalo iz knjige (peers.ObrisanoIzKnjige)
+	nakonPospremanja func(obrisano int)
 }
 
 func NewUvozHandler(arhivaPut, podaciDir func() string,
@@ -118,7 +122,14 @@ func NewUvozHandler(arhivaPut, podaciDir func() string,
 	// (u testovima). Gradnja bez registra nema kamo javljati, a stranica bi na
 	// upisu pukla.
 	return &UvozHandler{arhivaPut: arhivaPut, podaciDir: podaciDir, izgradi: izgradi,
-		poslovi: poslovi.NoviRegistar(), tmpl: tmpl}
+		poslovi: poslovi.NoviRegistar(), tmpl: tmpl, nakonPospremanja: func(int) {}}
+}
+
+// SetNakonPospremanja daje vratima što javiti kad pospremanje obriše verzije
+// iz knjige. Razmjena ih mora brojati kao uvoz, inače bi očitanje koje
+// poslije stigne moglo ostati ispod granice odbijenih nekog računala.
+func (h *UvozHandler) SetNakonPospremanja(f func(obrisano int)) {
+	h.nakonPospremanja = f
 }
 
 // SetMakniNiz daje vratima način da maknu niz koji je ostao bez datoteke.

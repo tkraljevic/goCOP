@@ -541,18 +541,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Koliko povijesti očitanja ovaj čvor prima razmjenom
 	followRepo := repository.NewFollowRepository(database)
 	applyReadingPolicy := func() {
-		followed, err := followRepo.Keys(context.Background())
-		if err != nil {
-			log.Printf("Vodostaji: praćene letve nisu pročitane: %v", err)
-			followed = map[string]bool{}
-		}
-		repository.SetReadingHistoryPolicy(repository.ReadingHistoryPolicy{
-			Months: cfg.Readings.HistoryMonths, Followed: followed,
-		})
-		if cfg.Readings.HistoryMonths > 0 {
-			log.Printf("Vodostaji: razmjenom se preuzimaju očitanja zadnjih %d mjeseci, a za %d praćenih letvi cijela povijest",
-				cfg.Readings.HistoryMonths, len(followed))
-		}
+		postaviPraviloCuvanja(context.Background(), followRepo.Keys, cfg.Readings.HistoryMonths)
 	}
 	applyReadingPolicy()
 
@@ -579,6 +568,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// jer se onaj koji je već otišao ne da naknadno potpisati.
 	arhiva.PostaviKljucIzdavaca(node.PrivateKey())
 	peersService.Accept(repository.KeepVersion)
+	// po njemu razmjena zna kad je pravilo čuvanja promijenjeno (granica odbijenih)
+	peersService.PostaviStanjePrihvata(repository.StanjeOgradePovijesti)
 	if err := peersService.OsvjeziSebe(context.Background()); err != nil {
 		log.Printf("Zapis ovog čvora nije osvježen: %v", err)
 	}

@@ -53,7 +53,9 @@ func TestDogovor(t *testing.T) {
 	}{
 		{"bez popisa (0.0.38)", NaseMogucnosti(), nil, map[string]int{"razmjena": 1}},
 		{"prazan popis", NaseMogucnosti(), []string{}, map[string]int{"razmjena": 1}},
-		{"isti popis", NaseMogucnosti(), NaseMogucnosti(), map[string]int{"razmjena": 1}},
+		// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); i granica-odbijenih
+		{"isti popis", NaseMogucnosti(), NaseMogucnosti(), map[string]int{"granica-odbijenih": 1, "razmjena": 1}},
+		{"druga strana bez granice odbijenih", NaseMogucnosti(), []string{"razmjena/1"}, map[string]int{"razmjena": 1}},
 		{"nepoznate se zanemaruju", NaseMogucnosti(), []string{"razmjena/1", "web/1", "gocop-veza/1", "roj/3"}, map[string]int{"razmjena": 1}},
 		{"neispravne se zanemaruju", []string{"razmjena/1", "web/01"}, []string{"razmjena/01", "razmjena/1", "web/01"}, map[string]int{"razmjena": 1}},
 		{"najviši zajednički", []string{"razmjena/1", "razmjena/2", "razmjena/3"}, []string{"razmjena/4", "razmjena/2", "razmjena/1"}, map[string]int{"razmjena": 2}},
@@ -77,13 +79,17 @@ func TestDogovor(t *testing.T) {
 	}
 }
 
-// Naš popis: samo razmjena/1, ispravne oznake, poredan i bez ponavljanja.
-// Oznake nikad ne nose ime protokola (ALPN je ime protokola, '-' i
-// oznaka), a imena koja pripadaju kasnijim fazama ili rezervirana ne
-// objavljuju se.
+// Naš popis: granica-odbijenih/1 i razmjena/1, ispravne oznake, poredan i
+// bez ponavljanja. Oznake nikad ne nose ime protokola (ALPN je ime
+// protokola, '-' i oznaka), a imena koja pripadaju kasnijim fazama ili
+// rezervirana ne objavljuju se.
+//
+// Namjerno promijenjeno: G4 (docs/plan-web-sync.md §3). Do G4 popis je bio
+// samo razmjena/1, a dijeljenje popisa provjeravalo se na prvoj oznaci.
 func TestNaseMogucnosti(t *testing.T) {
 	nase := NaseMogucnosti()
-	if !slices.Equal(nase, []string{OznakaRazmjena}) || OznakaRazmjena != "razmjena/1" {
+	ocekivano := []string{"granica-odbijenih/1", "razmjena/1"}
+	if !slices.Equal(nase, ocekivano) || OznakaRazmjena != "razmjena/1" || OznakaGranicaOdbijenih != "granica-odbijenih/1" {
 		t.Fatalf("naše mogućnosti: %v", nase)
 	}
 	if !slices.IsSorted(nase) || len(slices.Compact(slices.Clone(nase))) != len(nase) {
@@ -104,7 +110,7 @@ func TestNaseMogucnosti(t *testing.T) {
 		}
 	}
 	nase[0] = "promijenjeno/1"
-	if NaseMogucnosti()[0] != OznakaRazmjena {
+	if !slices.Equal(NaseMogucnosti(), ocekivano) {
 		t.Error("pozivatelj je promijenio popis za sve")
 	}
 }
