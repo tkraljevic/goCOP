@@ -1,12 +1,12 @@
 {
   "schema": 1,
   "analyzer": "2",
-  "timestamp": "2026-10-17T13:00:07Z",
+  "timestamp": "2026-10-17T15:44:28Z",
   "commit": "eb04afede33b15e700d9eeb28c2ad7499d1b4d41",
   "dirty": false,
   "platform": "darwin/arm64",
   "go_version": "go1.27.1",
-  "config_hash": "9d374a0d5a2dc57cbc8a9a1ff15837e78dbd765a0b9536c96da424a50c11f4b7",
+  "config_hash": "9d1b58e7cffeb53f5e217f3c9cdb2d709fac055e55ff8af665f75e9658a59eb3",
   "source_hash": "59de6c3da2ca72fc3ac3302d71bcf8f1b5113662915af308d9bfb9df69d8828d",
   "tests": "PASS",
   "race": "PASS",
@@ -14,10 +14,10 @@
   "static_analysis": {
     "status": "PASS",
     "errors": 0,
-    "warnings": 3123,
+    "warnings": 3117,
     "counts": {
       "dupl": 4,
-      "errcheck": 2672,
+      "errcheck": 2666,
       "gocognit": 131,
       "gocyclo": 200,
       "ineffassign": 2,
@@ -472,7 +472,6 @@
       "lint:errcheck:internal/peers/upis_test.go:Error return value of `sp.Zatvori` is not checked": 1,
       "lint:errcheck:internal/peers/upis_test.go:Error return value of `ured.syncStates` is not checked": 1,
       "lint:errcheck:internal/peers/znanje_test.go:Error return value of `s.syncStates` is not checked": 1,
-      "lint:errcheck:internal/poslovi/poslovi_test.go:Error return value of `fmt.Fprintf` is not checked": 3,
       "lint:errcheck:internal/posta/ews.go:Error return value is not checked": 1,
       "lint:errcheck:internal/posta/ews.go:Error return value of `http.NewRequestWithContext` is not checked": 1,
       "lint:errcheck:internal/posta/ews.go:Error return value of `io.ReadAll` is not checked": 1,
@@ -1273,9 +1272,7 @@
       "lint:errcheck:internal/web/handlers_users_pages.go:Error return value of `h.userService.PastDuties` is not checked": 1,
       "lint:errcheck:internal/web/handlers_uvoz_krivulja.go:Error return value of `strconv.ParseFloat` is not checked": 1,
       "lint:errcheck:internal/web/handlers_uvoz_niza.go:Error return value of `db.Close` is not checked": 1,
-      "lint:errcheck:internal/web/handlers_uvoz_niza.go:Error return value of `fmt.Fprintf` is not checked": 1,
       "lint:errcheck:internal/web/handlers_vodocuvar.go:Error return value of `(*encoding/json.Encoder).Encode` is not checked": 2,
-      "lint:errcheck:internal/web/handlers_vodocuvar.go:Error return value of `fmt.Fprintf` is not checked": 2,
       "lint:errcheck:internal/web/handlers_vodocuvar.go:Error return value of `h.users.GetUserByID` is not checked": 1,
       "lint:errcheck:internal/web/handlers_vodocuvar.go:Error return value of `h.users.ListAreas` is not checked": 1,
       "lint:errcheck:internal/web/handlers_vodocuvar.go:Error return value of `h.users.ListSectors` is not checked": 1,
@@ -106914,7 +106911,7 @@
   "warnings": [
     "coverage ispod cilja 85%",
     "1322 funkcija iznad CC/CRAP cilja",
-    "3123 lint upozorenja"
+    "3117 lint upozorenja"
   ],
   "applied_exceptions": [
     "lint:staticcheck:internal/poslovi/poslovi_test.go:SA5000: assignment to nil map: TestPanikaUPosluNeRusiProgram namjerno izaziva paniku upisom u nil mapu kako bi provjerio oporavak pozadinskog posla; pregledano 2026-10-04.",
