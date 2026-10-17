@@ -206,6 +206,9 @@ type report struct {
 	// premještaj (puni ih compareFunctions)
 	lintMjesta  map[string][]lintMjesto
 	premjestene []function
+	// noviRetciOd daje nove i promijenjene retke od commita; puni ga
+	// measureLint, koji zna koje je stablo mjereno
+	noviRetciOd func(od string) (map[string]map[int]bool, error)
 }
 
 // lintMjesto je datoteka (relativno, kosim crtama) i redak jednog lint nalaza
