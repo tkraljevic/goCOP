@@ -117,31 +117,46 @@ func (r *SectionRepository) GetSectionByCode(code string) (*models.Section, erro
 	if err != nil {
 		return nil, fmt.Errorf("greška pri dohvatu dionice %s: %w", code, err)
 	}
-	r.decorate(&sec)
+	if err := r.decorate(&sec); err != nil {
+		return nil, fmt.Errorf("greška pri dohvatu dionice %s iz registara: %w", code, err)
+	}
 	return &sec, nil
 }
 
-// decorate puni nazive iz registara uz poddionice: vode, objekte
-func (r *SectionRepository) decorate(sec *models.Section) {
+// decorate puni nazive iz registara uz poddionice: vode, objekte. Zapis
+// kojeg u registru nema ostaje bez naziva, a druga greška baze se vraća:
+// inače bi vrsta objekta ostala prazna, pa bi brana u izvozu dionica izašla
+// kao nasip.
+func (r *SectionRepository) decorate(sec *models.Section) error {
+	var err error
 	for i := range sec.Parts {
 		p := &sec.Parts[i]
 		if p.WatercourseCode != "" {
-			r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, p.WatercourseCode).Scan(&p.WatercourseName)
+			err = errors.Join(err, izRegistra(r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, p.WatercourseCode), &p.WatercourseName))
 		}
 		for j := range p.Objects {
 			if id := p.Objects[j].StructureID; id != "" {
-				r.db.QueryRow(`SELECT name, kind FROM structures WHERE id = ?`, id).Scan(&p.Objects[j].StructureName, &p.Objects[j].StructureKind)
+				err = errors.Join(err, izRegistra(r.db.QueryRow(`SELECT name, kind FROM structures WHERE id = ?`, id), &p.Objects[j].StructureName, &p.Objects[j].StructureKind))
 			}
 			if code := p.Objects[j].WatercourseCode; code != "" {
-				r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, code).Scan(&p.Objects[j].WatercourseName)
+				err = errors.Join(err, izRegistra(r.db.QueryRow(`SELECT official_name FROM watercourses WHERE code = ?`, code), &p.Objects[j].WatercourseName))
 			}
 		}
 		for j := range p.Embankments {
 			if id := p.Embankments[j].StructureID; id != "" {
-				r.db.QueryRow(`SELECT kind FROM structures WHERE id = ?`, id).Scan(&p.Embankments[j].StructureKind)
+				err = errors.Join(err, izRegistra(r.db.QueryRow(`SELECT kind FROM structures WHERE id = ?`, id), &p.Embankments[j].StructureKind))
 			}
 		}
 	}
+	return err
+}
+
+// izRegistra čita jedan zapis registra; zapisa kojeg nema nije greška
+func izRegistra(red *sql.Row, u ...any) error {
+	if err := red.Scan(u...); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	return nil
 }
 
 // SektorPodrucja vraća sektor branjenog područja; nepostojeće područje javlja
