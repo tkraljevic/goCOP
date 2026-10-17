@@ -22,7 +22,6 @@ import (
 	"log"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 	"time"
 
@@ -428,7 +427,8 @@ func imaStablo(koren string) bool {
 
 // stanjeRazmjene slaže pločicu razmjene za naslovnu: čvorove iz nadzorne
 // ploče sinkronizacije, napredak arhive, sadržaj koji čeka, izdavača
-// prognoze i upozorenje kad na disku ostaje malo mjesta.
+// prognoze, zapise koji čekaju nadogradnju i upozorenje kad na disku
+// ostaje malo mjesta.
 func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder, sp *sadrzaj.Spremiste, ra *razmjenaArhive, pb *sql.DB, nd *disk.Nadzor) web.RazmjenaStanje {
 	out := web.RazmjenaStanje{Disk: upozorenjaDiska(nd, p.Node())}
 	st, err := p.Status(ctx, false)
@@ -443,15 +443,9 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	// predugo traži (rupe u nizu, internal/peers/rupe.go)
 	out.Upozorenja = append(out.Upozorenja, upozorenjeOgrade(repository.MjeseciPovijestiOcitanja(), st.Peers)...)
 	out.Upozorenja = append(out.Upozorenja, p.NedostajeDulje(ctx)...)
-	// Stiglo je što ovaj program ne razumije do kraja (noviji drugi čvor):
-	// čuva se i prosljeđuje, ali ovdje se ne prikazuje ni ne uređuje.
-	if nov := rec.Novosti(); len(nov) > 0 {
-		opisi := make([]string, len(nov))
-		for i, n := range nov {
-			opisi[i] = n.String()
-		}
-		out.Upozorenja = append(out.Upozorenja, "Stigli su zapisi koje ovaj program ne razumije do kraja ("+strings.Join(opisi, "; ")+") — ažurirajte goCOP.")
-	}
+	// zapisi koje je poslao noviji program, ovdje i na drugim računalima:
+	// čuvaju se i prosljeđuju, a primijene nakon nadogradnje
+	out.Upozorenja = append(out.Upozorenja, upozorenjaNadogradnje(ctx, rec, st.Peers)...)
 	// drugi čvor zna za verzije koje ovaj prati, a još nema (bez onih koje
 	// je ovaj od njega odbio)
 	josPrima := p.PrimaJos(ctx)

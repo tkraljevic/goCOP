@@ -89,13 +89,24 @@ func upoznaj(t *testing.T, a, b *Service, adrese ...string) {
 // drugoga, a razmjene primaju na loopbacku
 func clanovi(t *testing.T, ids ...string) []*Service {
 	t.Helper()
+	return clanoviMreze(t, true, ids...)
+}
+
+// clanoviMreze su čvorovi iste mreže koji znaju jedan za drugoga i za
+// članstvo drugoga. Uz slusaju razmjene primaju na loopbacku; bez toga ne
+// slušaju nigdje i razgovaraju samo kroz razgovaraj, a adresa drugoga je
+// izmišljena.
+func clanoviMreze(t *testing.T, slusaju bool, ids ...string) []*Service {
+	t.Helper()
 	osnivac := rubnaMreza(t, "osnivac-mreze")
 	var out []*Service
 	var clanstva []razmjena.Membership
 	for _, id := range ids {
 		s := rubniCvor(t, id)
 		clanstva = append(clanstva, primiIzravno(t, osnivac, s))
-		naPetlji(t, s)
+		if slusaju {
+			naPetlji(t, s)
+		}
 		out = append(out, s)
 	}
 	for i, a := range out {

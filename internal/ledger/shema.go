@@ -1,8 +1,8 @@
 package ledger
 
-// Čvorovi ne rade uvijek na istoj verziji programa: Unraid se ažurira slikom,
-// laptop binarkom, uredski čvor kad stigne. Knjiga zato mora podnijeti zapis
-// koji je napisao noviji program, a da ga stariji ne pokvari.
+// Čvorovi ne rade uvijek na istoj verziji programa: Unraid se nadograđuje
+// slikom, laptop binarkom, uredski čvor kad stigne. Knjiga zato mora
+// podnijeti zapis koji je napisao noviji program, a da ga stariji ne pokvari.
 //
 // Tri pravila:
 //
@@ -17,7 +17,7 @@ package ledger
 //     polja), ne za svako novo polje, jer nova polja čuva pravilo 1. Zapis
 //     novije sheme stariji čvor sprema, prenosi i prikazuje, ali ga ne uređuje.
 //  3. Što čvor ne razumije, javlja: zapise novije sheme i entitete kojih nema
-//     u programu, da se zna da treba ažurirati.
+//     u programu, da se zna da treba nadogradnja.
 
 import (
 	"context"
@@ -120,14 +120,14 @@ func poznatEntitet(entity string) bool {
 }
 
 // NovijaShemaError: zapis je zadnji izmijenio noviji program, a ovaj ga ne
-// smije prepisati dok se ne ažurira
+// smije prepisati dok se ne nadogradi
 type NovijaShemaError struct {
 	Entity, EntityID string
 	Shema, Lokalna   int
 }
 
 func (e *NovijaShemaError) Error() string {
-	return fmt.Sprintf("zapis %s/%s izmijenio je noviji program (shema %d, ovaj program zna %d) — ažurirajte goCOP prije uređivanja",
+	return fmt.Sprintf("zapis %s/%s izmijenio je noviji program (shema %d, ovaj program zna %d) — nadogradite goCOP prije uređivanja",
 		e.Entity, e.EntityID, e.Shema, e.Lokalna)
 }
 

@@ -64,7 +64,7 @@ func TestPomocOpisujeStalniCvorITunelskuRazmjenu(t *testing.T) {
 		"Razmjena s čvorovima", "javlja se sam", "30 sekundi",
 		"zadnjih 48 sati", "broj zapisa", "docs/INSTALACIJA.md",
 		"sigurnosno učvršćivanje nije", "<code>x/net</code>",
-		"izdanje programa", "razumije do kraja", "Od godine",
+		"izdanje programa", "stariji program još ne razumije", "Računalo s izdanjem 0.0.38 ili starijim taj broj ne javlja", "Od godine",
 		"malo mjesta: manje od 10 GB ili", "manje od 10 % diska", "Ako ne znate kako, javite administratoru.",
 		"stiže i e-poštom, jednom na dan", "spremile lozinku sandučića",
 	} {

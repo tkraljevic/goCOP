@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 )
@@ -159,6 +160,9 @@ func TestZapisNovijeShemeSeNeUredjuje(t *testing.T) {
 	if !errors.As(err, &ns) || !errors.Is(err, ErrNovijaShema) || ns.Shema != 3 || ns.Lokalna != SchemaVersion {
 		t.Fatalf("očekivana NovijaShemaError, dobiveno %v", err)
 	}
+	if !strings.HasSuffix(err.Error(), "— nadogradite goCOP prije uređivanja") {
+		t.Errorf("poruka ne kaže što učiniti: %q", err)
+	}
 	if _, err := rec.Archive(ctx, db, "shema_a", "z-1", stariZapis{}); !errors.Is(err, ErrNovijaShema) {
 		t.Errorf("ni arhivirati se ne smije: %v", err)
 	}
@@ -166,7 +170,7 @@ func TestZapisNovijeShemeSeNeUredjuje(t *testing.T) {
 		t.Errorf("novost nije javljena: %+v", javljeno)
 	}
 
-	// Kad se program ažurira i zna shemu 3, uređuje i piše shemu 3
+	// Kad se program nadogradi i zna shemu 3, uređuje i piše shemu 3
 	PostaviShemu("shema_a", 3)
 	if _, err := rec.Record(ctx, db, "shema_a", "z-1", stariZapis{Naziv: "y"}); err != nil {
 		t.Fatal(err)

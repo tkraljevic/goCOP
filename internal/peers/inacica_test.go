@@ -107,8 +107,8 @@ func TestUpozorenjaZaInacicuPrograma(t *testing.T) {
 	st.Total = len(st.Peers)
 	sve := strings.Join(s.alerts(st, 5*time.Minute, now), "\n")
 	for _, treba := range []string{
-		"Čvor Stari laptop radi na 0.0.23-alfa, ovaj na 0.0.24-alfa — ažurirajte stariji čvor.",
-		"Čvor Prastari radi na verziji starijoj od 0.0.24-alfa (ne javlja verziju) — ažurirajte ga.",
+		"Čvor Stari laptop radi na 0.0.23-alfa, ovaj na 0.0.24-alfa — nadogradite stariji čvor.",
+		"Čvor Prastari radi na verziji starijoj od 0.0.24-alfa (ne javlja verziju) — nadogradite ga.",
 	} {
 		if !strings.Contains(sve, treba) {
 			t.Errorf("nema upozorenja %q u:\n%s", treba, sve)

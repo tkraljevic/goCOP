@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -83,8 +84,8 @@ func TestStanjeRazmjeneBezMreze(t *testing.T) {
 }
 
 // Čvor u mreži: upareni čvorovi s nazivom ili imenom, dostupnost, zaostatak,
-// zapisi koje program ne razumije, izdavač prognoze; bez nadzora diska nema
-// upozorenja o disku
+// zapisi koje program ne razumije (ovdje i na drugom računalu), izdavač
+// prognoze; bez nadzora diska nema upozorenja o disku
 func TestStanjeRazmjeneUMrezi(t *testing.T) {
 	ctx := context.Background()
 	baza, rec, mreza, pb := cvorPlocice(t)
@@ -98,8 +99,8 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 	if _, err := baza.Exec(`INSERT INTO peers (node_id, name, public_key, created_at) VALUES ('laptop-ana', '', 'k1', ?), ('cop-ured', 'COP Ured', 'k2', ?)`, sad, sad); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := baza.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_ok, last_error, applied, sent, fails)
-		VALUES ('laptop-ana', '{"treci-cvor":"v-zzz"}', ?, 'dial tcp: no route to host', 3, 2, 1)`, sad); err != nil {
+	if _, err := baza.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_ok, last_error, applied, sent, fails, mogucnosti, ceka_nadogradnju, mogucnosti_poznate)
+		VALUES ('laptop-ana', '{"treci-cvor":"v-zzz"}', ?, 'dial tcp: no route to host', 3, 2, 1, '["razmjena/1"]', 120, 1)`, sad); err != nil {
 		t.Fatal(err)
 	}
 	// zapis novije sheme, kakav šalje noviji program
@@ -135,12 +136,14 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 		laptop.Neuspjelih != 1 || !laptop.SamoDolazi || laptop.Greska == "" || laptop.Zadnja == nil {
 		t.Errorf("laptop: %+v", laptop)
 	}
-	nerazumljivo := false
-	for _, u := range st.Upozorenja {
-		nerazumljivo = nerazumljivo || strings.Contains(u, "ne razumije do kraja (proba_novije_sheme")
+	for _, u := range []string{"Stigao je 1 zapis koji ovaj program još ne razumije. Primijenit će ga nakon nadogradnje goCOP-a.",
+		"laptop-ana čuva 120 zapisa koje će primijeniti nakon nadogradnje."} {
+		if !slices.Contains(st.Upozorenja, u) {
+			t.Errorf("upozorenja bez %q: %q", u, st.Upozorenja)
+		}
 	}
-	if !nerazumljivo {
-		t.Errorf("upozorenja bez zapisa novije sheme: %q", st.Upozorenja)
+	if strings.Contains(strings.Join(st.Upozorenja, "\n"), "proba_novije_sheme") {
+		t.Errorf("upozorenje nosi ime tablice: %q", st.Upozorenja)
 	}
 	if p := st.Prognoza; !p.Izdaje || !p.Ima || p.Izdavac != "cop-osijek" || p.Primljeno || p.Nastalo.Unix() != sad.Unix() {
 		t.Errorf("prognoza: %+v", p)
