@@ -21,6 +21,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	gocopdb "gocop/internal/db"
 	_ "modernc.org/sqlite"
 )
 
@@ -60,7 +61,9 @@ func Otvori(put string) (*Spremiste, error) {
 				return nil, err
 			}
 		}
-		dsn = put + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=synchronous(NORMAL)"
+		// Skenovi i PDF-ovi moraju na disk prije zapisa u glavnoj bazi koji ih
+		// navodi, inače nakon nestanka struje može ostati akt bez skena.
+		dsn = put + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&" + gocopdb.TrajniUpis
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

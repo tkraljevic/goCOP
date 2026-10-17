@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	gocopdb "gocop/internal/db"
 	"gocop/internal/hydro"
 	"gocop/internal/models"
 	"sort"
@@ -244,7 +245,7 @@ CREATE TABLE IF NOT EXISTS dnevne_ranije (
 
 // Otvori otvara bazu prognoza i slaže shemu ako je nema.
 func Otvori(put string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", put+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	db, err := sql.Open("sqlite", put+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis)
 	if err != nil {
 		return nil, err
 	}
