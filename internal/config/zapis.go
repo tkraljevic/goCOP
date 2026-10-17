@@ -54,7 +54,7 @@ func provjeriJavnuAdresu(s string) string {
 	}
 	u, err := url.Parse(s)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || strings.ContainsAny(s, " \t") {
-		return "Upišite punu adresu, npr. https://cop-osijek.com, ili ostavite prazno."
+		return "Upišite punu adresu, npr. https://cop.primjer.hr, ili ostavite prazno."
 	}
 	return ""
 }

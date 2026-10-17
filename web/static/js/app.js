@@ -1,7 +1,7 @@
 // OpenStreetMapovi poslužitelji pločica odbijaju zahtjev preglednika koji ne
 // kaže s koje stranice dolazi (osm.wiki/Blocked), a stranice goCOP-a imaju
 // Referrer-Policy: same-origin, pa preglednik adresu prema van ne šalje.
-// Pločice zato šalju samo ishodište (npr. https://cop-osijek.com), bez putanje
+// Pločice zato šalju samo ishodište (npr. https://cop.primjer.hr), bez putanje
 // i upita; ostali zahtjevi stranice i dalje ne odaju ništa.
 var UPUCIVAC_PLOCICA = 'strict-origin-when-cross-origin';
 

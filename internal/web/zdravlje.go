@@ -63,7 +63,7 @@ func odgovoriZdravlje(w http.ResponseWriter, r *http.Request, z Zdravlje) {
 // novi, dakle novi identitet. Zato /zdravlje odgovara kao i inače (izdanje,
 // radi), uz razlog u polju odbijeno, a svaka druga stranica kaže da čvor ne
 // radi: s ovog računala cijeli razlog i što učiniti, kroz posrednika samo
-// da ne radi, bez putanja.
+// da ne radi, bez putanja. I takav je čvor skriven od tražilica.
 func OdbijenoPokretanje(razlog string) http.Handler {
 	prvi, _, _ := strings.Cut(razlog, "\n")
 	mux := http.NewServeMux()
@@ -80,5 +80,5 @@ func OdbijenoPokretanje(razlog string) http.Handler {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = io.WriteString(w, tekst)
 	})
-	return mux
+	return skrivenoOdTrazilica(mux)
 }

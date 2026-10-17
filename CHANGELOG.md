@@ -857,7 +857,7 @@ Nadograditi izravno na 0.0.33.
   stranice vraća pločicu „Access blocked” (osm.wiki/Blocked). Stranice
   goCOP-a imaju `Referrer-Policy: same-origin`, pa adresa nikad nije išla
   van. Karte sada pločicama šalju samo ishodište (npr.
-  `https://cop-osijek.com`), bez putanje i upita; ostali zahtjevi stranice i
+  `https://cop.primjer.hr`), bez putanje i upita; ostali zahtjevi stranice i
   dalje ne odaju ništa. Pločice koje poslužitelj slaže u PDF već su prolazile.
 - Slika za Unraid je klasični Docker manifest: od ovog izdanja Unraid sam
   javlja nadogradnju (za prelazak na ovu još jednom *Force update*).
@@ -1217,7 +1217,7 @@ staro nasumično dobije prvi slobodan broj.
 `Cache-Control: private, no-store`. Cloudflare je izvoz prognoze (`.xlsx`)
 prema nastavku čuvao do 4 sata i davao ga svakome, i bez prijave: drugi
 korisnik dobivao je staru prognozu, a izvoz se dao preuzeti bez računa. Uz
-ovo je na Cloudflareu dodano pravilo da se za cop-osijek.com ništa ne sprema.
+ovo je na Cloudflareu dodano pravilo da se za domenu poslužitelja ništa ne sprema.
 
 ## 0.0.15-alfa — 2. 10. 2026.
 

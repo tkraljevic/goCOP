@@ -75,17 +75,17 @@ func TestKljuceviIzStrukture(t *testing.T) {
 // samo vrijednost.
 func TestIzmjenaNaMjestu(t *testing.T) {
 	stari := "# moj komentar o čvoru\naddr = ':80'\nnepoznato = 'iz novijeg izdanja'\n\n[sync]\n" +
-		"# razmak koji sam izabrao\nauto_sync = '5m'   # dogovor s uredom\nbootstrap = [\n  'cop-osijek.com',\n]\n\n[buducnost]\nnesto = 1\n"
+		"# razmak koji sam izabrao\nauto_sync = '5m'   # dogovor s uredom\nbootstrap = [\n  'cop.primjer.hr',\n]\n\n[buducnost]\nnesto = 1\n"
 	novi, cfg, err := Izmijeni([]byte(stari), map[string]any{
 		"sync.auto_sync": "1h",
-		"sync.bootstrap": []string{"cop-osijek.com", "cop.voda.hr"},
+		"sync.bootstrap": []string{"cop.primjer.hr", "cop.voda.hr"},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	s := string(novi)
 	for _, mora := range []string{"# moj komentar o čvoru", "nepoznato = 'iz novijeg izdanja'", "# razmak koji sam izabrao",
-		"auto_sync = '1h'   # dogovor s uredom", "bootstrap = ['cop-osijek.com', 'cop.voda.hr']", "[buducnost]\nnesto = 1"} {
+		"auto_sync = '1h'   # dogovor s uredom", "bootstrap = ['cop.primjer.hr', 'cop.voda.hr']", "[buducnost]\nnesto = 1"} {
 		if !strings.Contains(s, mora) {
 			t.Errorf("nema %q:\n%s", mora, s)
 		}

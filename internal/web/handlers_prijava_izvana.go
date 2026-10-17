@@ -192,7 +192,7 @@ func (h *UsersHandler) HandleRezervniKodoviTxt(w http.ResponseWriter, r *http.Re
 	b.WriteString("\r\nSvaki kod vrijedi za jednu prijavu, kad PIN ne stigne e-poštom.\r\n" +
 		"Kodovi vrijede samo na čvoru " + cvor + " na kojem su napravljeni; na drugom čvoru\r\n" +
 		"broje se kao krivi kod. Za prijavu izvana napravite ih na javnom čvoru,\r\n" +
-		"kroz koji se prijavljujete izvana (npr. https://cop-osijek.com).\r\n" +
+		"kroz koji se prijavljujete izvana.\r\n" +
 		"Iskorišteni kod prekrižite. Novi niz poništava ovaj.\r\n" +
 		"Čuvajte ih kao lozinku: zajedno s lozinkom otvaraju vaš račun izvana.\r\n")
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
@@ -280,7 +280,7 @@ const natragPIN = "/administracija/posta#pin"
 // porukaUkljuciBezHTTPS: posrednik ne javlja HTTPS, pa bi se uz uključen
 // PIN svaka prijava izvana odbila
 const porukaUkljuciBezHTTPS = "PIN se ne uključuje: ova stranica nije stigla preko HTTPS-a (ni izravno, ni kroz posrednika koji to javlja zaglavljem X-Forwarded-Proto: https), " +
-	"pa bi se svaka prijava izvana s PIN-om odbila. Otvorite stranicu preko HTTPS-a (npr. https://cop-osijek.com) ili podesite posrednika."
+	"pa bi se svaka prijava izvana s PIN-om odbila. Otvorite stranicu na adresi koja počinje s https:// ili podesite posrednika."
 
 // pinRadnja vraća servis i ovlasti za radnju nad PIN-om, ili javi grešku:
 // tuđim očima ništa (probni PIN išao bi na tuđu adresu, a „iz moje pošte”
