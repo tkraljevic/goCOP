@@ -858,6 +858,11 @@ type deltaMsg struct {
 	// Tailscale su Tailscale adrese pošiljatelja s portom razmjene. Šalju se
 	// samo u razgovoru preko Tailscalea (tailscale.go); nikad ne idu u knjigu.
 	Tailscale []string `json:"tailscale,omitempty"`
+	// Rupe i Popuna idu samo uz oznaku rupe/1 (rupe.go). Rupe su, po ključu
+	// u delti, dio poslanoga za koji pošiljatelj ne jamči da ga ima cijelog,
+	// a Popuna dio tražene rupe koji je ključ pokrio od njezina početka.
+	Rupe   map[string]raspon `json:"rupe,omitempty"`
+	Popuna map[string]raspon `json:"popuna,omitempty"`
 }
 
 type doneMsg struct {
