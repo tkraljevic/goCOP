@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"gocop/internal/ledger"
-	"gocop/internal/models"
 )
 
 // PostaviPraviloPrihvata daje razmjeni pravilo čuvanja (u programu
@@ -364,15 +363,14 @@ func (s *Service) NedostajeDulje(ctx context.Context) []string {
 		var ime string
 		var n int
 		if rows.Scan(&ime, &n) == nil {
-			out = append(out, tekstNedostaje(ime, n))
+			out = append(out, tekstNedostaje(ime))
 		}
 	}
 	return out
 }
 
 // tekstNedostaje je upozorenje pločice za jednog autora
-func tekstNedostaje(ime string, n int) string {
-	return fmt.Sprintf("Od računala %s možda nedostaju neki stariji zapisi (%d %s po području i godini). "+
-		"Njegovi zapisi stigli su preko računala koje ne čuva sve, pa program ono što nedostaje traži od ostalih računala i dobit će to kad se javi računalo koje ga ima.",
-		ime, n, models.UzBrojHR(n, "skupina", "skupine", "skupina"))
+func tekstNedostaje(ime string) string {
+	return fmt.Sprintf("Od računala %s možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve. "+
+		"Program ih sam traži od ostalih računala i dobit će ih kad se javi računalo koje ih ima.", ime)
 }

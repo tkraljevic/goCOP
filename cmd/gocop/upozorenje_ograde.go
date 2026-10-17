@@ -37,12 +37,12 @@ func upozorenjeOgrade(mjeseci int, cvorovi []peers.PeerStatus) []string {
 func tekstOgrade(mjeseci int, stari []string) string {
 	razdoblje := fmt.Sprintf("%d %s", mjeseci, models.UzBrojHR(mjeseci, "mjeseca", "mjeseca", "mjeseci"))
 	if len(stari) == 1 {
-		return fmt.Sprintf("Ovo računalo ne prima tuđa očitanja starija od %s, a računalo %s ima stariji program. "+
-			"Ono ne zna koja su stara očitanja ovdje izostavljena, pa ih preko ovog računala može izgubiti. "+
-			"Dok se ne nadogradi, uklonite povijest_mjeseci iz postavki ovog računala.", razdoblje, stari[0])
+		return fmt.Sprintf("Ovo računalo ne čuva tuđa očitanja starija od %s, a računalo %s ima stariji program koji to ne zna, "+
+			"pa bi stara očitanja moglo izgubiti. Dok se %s ne nadogradi, isključite ograničenje povijesti (povijest_mjeseci) "+
+			"u postavkama ovog računala.", razdoblje, stari[0], stari[0])
 	}
-	return fmt.Sprintf("Ovo računalo ne prima tuđa očitanja starija od %s, a računala %s i %s imaju stariji program. "+
-		"Ona ne znaju koja su stara očitanja ovdje izostavljena, pa ih preko ovog računala mogu izgubiti. "+
-		"Dok se ne nadograde, uklonite povijest_mjeseci iz postavki ovog računala.",
+	return fmt.Sprintf("Ovo računalo ne čuva tuđa očitanja starija od %s, a računala %s i %s imaju stariji program koji to ne zna, "+
+		"pa bi stara očitanja mogla izgubiti. Dok se ne nadograde, isključite ograničenje povijesti (povijest_mjeseci) "+
+		"u postavkama ovog računala.",
 		razdoblje, strings.Join(stari[:len(stari)-1], ", "), stari[len(stari)-1])
 }

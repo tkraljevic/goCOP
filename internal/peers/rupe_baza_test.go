@@ -443,8 +443,9 @@ func TestNedostajeDulje(t *testing.T) {
 	}
 	s.satOdbijenih = func() time.Time { return stalnoVrijeme.Add(najduljeTrazi) }
 	got := s.NedostajeDulje(ctxRub)
-	if len(got) != 2 || !strings.HasPrefix(got[0], "Od računala Uredsko računalo možda nedostaju neki stariji zapisi (2 skupine") ||
-		!strings.HasPrefix(got[1], "Od računala laptop-drugi možda nedostaju neki stariji zapisi (1 skupina") {
+	if len(got) != 2 || got[0] != "Od računala Uredsko računalo možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve. "+
+		"Program ih sam traži od ostalih računala i dobit će ih kad se javi računalo koje ih ima." ||
+		!strings.HasPrefix(got[1], "Od računala laptop-drugi možda nedostaju neka starija očitanja") {
 		t.Errorf("nakon dana: %q", got)
 	}
 	kvarCitanjaRupa(t, s)

@@ -25,14 +25,14 @@ func TestUpozorenjeOgrade(t *testing.T) {
 		t.Errorf("svi novi: %q", got)
 	}
 	jedno := upozorenjeOgrade(1, []peers.PeerStatus{novo, staro})
-	if len(jedno) != 1 || jedno[0] != "Ovo računalo ne prima tuđa očitanja starija od 1 mjeseca, a računalo Kućni Windows ima stariji program. "+
-		"Ono ne zna koja su stara očitanja ovdje izostavljena, pa ih preko ovog računala može izgubiti. "+
-		"Dok se ne nadogradi, uklonite povijest_mjeseci iz postavki ovog računala." {
+	if len(jedno) != 1 || jedno[0] != "Ovo računalo ne čuva tuđa očitanja starija od 1 mjeseca, a računalo Kućni Windows ima stariji program koji to ne zna, "+
+		"pa bi stara očitanja moglo izgubiti. Dok se Kućni Windows ne nadogradi, isključite ograničenje povijesti (povijest_mjeseci) "+
+		"u postavkama ovog računala." {
 		t.Errorf("jedno računalo: %q", jedno)
 	}
 	tri := upozorenjeOgrade(12, []peers.PeerStatus{staro, novo, nepoznato, {Peer: peers.Peer{NodeID: "laptop-ivo"}}})
-	if len(tri) != 1 || !strings.HasPrefix(tri[0], "Ovo računalo ne prima tuđa očitanja starija od 12 mjeseci, a računala Kućni Windows, laptop-ana i laptop-ivo imaju stariji program. Ona ne znaju") ||
-		!strings.HasSuffix(tri[0], "Dok se ne nadograde, uklonite povijest_mjeseci iz postavki ovog računala.") {
+	if len(tri) != 1 || !strings.HasPrefix(tri[0], "Ovo računalo ne čuva tuđa očitanja starija od 12 mjeseci, a računala Kućni Windows, laptop-ana i laptop-ivo imaju stariji program koji to ne zna, pa bi stara očitanja mogla izgubiti.") ||
+		!strings.HasSuffix(tri[0], "Dok se ne nadograde, isključite ograničenje povijesti (povijest_mjeseci) u postavkama ovog računala.") {
 		t.Errorf("više računala: %q", tri)
 	}
 }
@@ -58,7 +58,7 @@ func TestStanjeRazmjeneRupe(t *testing.T) {
 	var ograda, nedostaje bool
 	for _, u := range st.Upozorenja {
 		ograda = ograda || strings.Contains(u, "a računalo laptop-ana ima stariji program")
-		nedostaje = nedostaje || strings.HasPrefix(u, "Od računala laptop-ana možda nedostaju neki stariji zapisi (1 skupina po području i godini).")
+		nedostaje = nedostaje || strings.HasPrefix(u, "Od računala laptop-ana možda nedostaju neka starija očitanja, jer su stigla preko računala koje ne čuva sve.")
 	}
 	if !ograda || !nedostaje {
 		t.Errorf("upozorenja: %q", st.Upozorenja)
