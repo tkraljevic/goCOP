@@ -162,7 +162,7 @@
       <p class="form-help">{{if .RezervniOd}}Neiskorištenih kodova: <strong>{{.Rezervnih}}</strong> od 10, napravljeni {{vrijemeHR (derefTime .RezervniOd)}}.{{else}}Još niste napravili rezervne kodove.{{end}}
         Rezervni kod zamjenjuje PIN kad e-pošta ne stigne ili je nemate. Napravite ih prije nego što krenete na teren; novi niz poništava stari.</p>
       <p class="form-help" id="kodovi-cvor"><strong>Kodovi vrijede samo na čvoru {{if .Cvor}}<span class="mono">{{.Cvor}}</span>{{else}}na kojem ih napravite{{end}}</strong>; na drugom čvoru broje se kao krivi kod.
-        {{if .Izvana}}Ovaj profil otvorili ste izvana, pa kodovi napravljeni ovdje vrijede za prijavu izvana kroz ovaj čvor.{{else}}Za prijavu izvana napravite ih na javnom čvoru, kroz koji se prijavljujete izvana (npr. <span class="mono">https://cop-osijek.com</span>), a ne iz lokalne mreže na drugom računalu.{{end}}</p>
+        {{if .Izvana}}Ovaj profil otvorili ste izvana, pa kodovi napravljeni ovdje vrijede za prijavu izvana kroz ovaj čvor.{{else}}Za prijavu izvana napravite ih na javnom čvoru, kroz koji se prijavljujete izvana, a ne iz lokalne mreže na drugom računalu.{{end}}</p>
       <form method="POST" action="/profile/rezervni-kodovi" class="form-page" autocomplete="off">
         <div class="form-group">
           <label class="form-label" for="rezervni-lozinka">Lozinka računa</label>

@@ -20,7 +20,7 @@ func TestPrimjerSeZapiseIProcita(t *testing.T) {
 	}
 
 	raw, _ := os.ReadFile(path)
-	for _, want := range []string{"addr", "[node]", "[sync]", "bootstrap", "cop-osijek.com", "# goCOP"} {
+	for _, want := range []string{"addr", "[node]", "[sync]", "bootstrap", "cop.primjer.hr", "# goCOP"} {
 		if !strings.Contains(string(raw), want) {
 			t.Errorf("primjer ne sadrži %q", want)
 		}
@@ -43,7 +43,7 @@ addr = ":9090"
 id = "laptop-vinkovci"
 [sync]
 auto_sync = "0"
-bootstrap = ["cop-osijek.com", "cop.voda.hr"]
+bootstrap = ["cop.primjer.hr", "cop.voda.hr"]
 `), 0o644)
 
 	cfg, _, err := Load([]string{path})

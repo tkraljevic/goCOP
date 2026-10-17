@@ -13,7 +13,7 @@ import (
 //
 // Što prolazi:
 //   - GET, HEAD i OPTIONS uvijek (tunel razmjene i tok događaja su GET);
-//   - zahtjev s iste stranice: https://cop-osijek.com kroz tunel (cloudflared
+//   - zahtjev s iste stranice: https://cop.primjer.hr kroz tunel (cloudflared
 //     čuva Host), http://localhost:8080 i adresa u lokalnoj mreži, gdje
 //     preglednik ne šalje Sec-Fetch-Site, ali Origin odgovara Hostu;
 //   - zahtjev bez obaju zaglavlja: ne šalje ga preglednik (alati, drugi

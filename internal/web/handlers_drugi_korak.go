@@ -94,7 +94,7 @@ func porukaRazloga(oznaka string) (string, bool) {
 
 // porukaSamoHTTPS je odgovor na prijavu izvana preko nešifriranog http-a:
 // preglednik kolačić prijave na čekanju (__Host-, Secure) ondje ne prima
-const porukaSamoHTTPS = "Prijava izvana s PIN-om radi samo preko HTTPS-a (npr. https://cop-osijek.com); iz lokalne mreže prijavite se izravno."
+const porukaSamoHTTPS = "Prijava izvana s PIN-om radi samo preko HTTPS-a, na adresi koja počinje s https://; iz lokalne mreže prijavite se izravno."
 
 // zapocniDrugiKorak otvara prijavu na čekanju (i šalje PIN) za osobu kojoj
 // je lozinka točna, postavlja kolačić i vodi na upis PIN-a. Izvana preko
