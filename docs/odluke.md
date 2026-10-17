@@ -547,3 +547,6 @@ je gotov onaj o kojem ovisi.
   vodostaju i slično.
 - Nakon simulacije slijedi još jedno poliranje, prema onome što simulacija
   pokaže.
+- Kad je sve ispolirano, slijede prezentacija i priručnici za korištenje
+  po vrstama korisnika: digitalni priručnik s videom, ugrađen u program.
+  To je uvjet za betu. Za stabilnu inačicu dolazi digitalni pomoćnik.

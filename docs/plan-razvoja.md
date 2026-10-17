@@ -118,9 +118,21 @@ poplava, uvježbati osoblje i isprobati sučelje, a da se pravi i probni
 podaci ne miješaju, pa ni brojevi akata. Simulacija dolazi kad je sve
 ispolirano. Ono što simulacija pokaže dorađuje se poslije nje.
 
+## 6. Priručnici i beta
+
+Kad je sve ispolirano, slijede prezentacija programa i priručnici za
+korištenje, posebno za svaku vrstu korisnika (vidi [Uloge](uloge.md)).
+Priručnik je digitalan, s videom, i ugrađen u program. S priručnicima
+program izlazi kao beta.
+
+## Za stabilnu inačicu
+
+Digitalni pomoćnik u programu, naučen na priručnicima, koji korisniku
+odgovara kako se što radi.
+
 ## Prije bete
 
-Ovi poslovi nisu vezani uz redoslijed koraka 1–5, ali svi moraju biti
+Ovi poslovi nisu vezani uz redoslijed koraka 1–6, ali svi moraju biti
 gotovi prije nego program izađe iz alfa faze:
 
 - Uredno gašenje. Program pri gašenju danas samo kratko pričeka. Treba
