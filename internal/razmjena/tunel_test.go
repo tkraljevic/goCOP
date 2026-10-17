@@ -80,9 +80,9 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 
 func TestAdresaTunela(t *testing.T) {
 	for ulaz, ocekivano := range map[string]string{
-		"https://cop-osijek.com":                 "https://cop-osijek.com",
-		"https://COP-Osijek.com/razmjena/tunel/": "https://cop-osijek.com",
-		"wss://cop-osijek.com:8443":              "https://cop-osijek.com:8443",
+		"https://cop.primjer.hr":                 "https://cop.primjer.hr",
+		"https://COP.Primjer.hr/razmjena/tunel/": "https://cop.primjer.hr",
+		"wss://cop.primjer.hr:8443":              "https://cop.primjer.hr:8443",
 	} {
 		if !JeAdresaTunela(ulaz) {
 			t.Errorf("%s nije prepoznata kao tunel", ulaz)
@@ -91,7 +91,7 @@ func TestAdresaTunela(t *testing.T) {
 			t.Errorf("%s → %q (%v), očekivano %q", ulaz, n, err, ocekivano)
 		}
 	}
-	if JeAdresaTunela("cop-osijek.com:4710") {
+	if JeAdresaTunela("cop.primjer.hr:4710") {
 		t.Error("obična adresa prepoznata kao tunel")
 	}
 }

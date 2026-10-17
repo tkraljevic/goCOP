@@ -21,10 +21,8 @@ import (
 // slovima. Test traži otisak, a ne samu domenu, da je ne bi i sam objavio.
 const otisakAdresePosluzitelja = "417118e0da4c187f5c405b66dcad77573af9dc6d1d3df33a20b8724dc2622e52"
 
-// izuzeteMape smiju još nositi domenu: docs/ seli u privatni repozitorij, a
-// internal/peers i internal/razmjena čekaju završetak rada koji je u tijeku
-// (17. 10. 2026.); kad se očiste, izbacuju se s popisa
-var izuzeteMape = []string{"docs/", "internal/peers/", "internal/razmjena/"}
+// izuzeteMape smiju još nositi domenu: docs/ seli u privatni repozitorij
+var izuzeteMape = []string{"docs/"}
 
 // javneDatoteke su datoteke koje odlaze na GitHub: praćene u gitu i nove
 // koje .gitignore ne skriva, u bilo kojoj mapi, bez izuzetih mapa. Ono što

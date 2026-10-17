@@ -272,7 +272,7 @@ func TestPotvrdaRubovi(t *testing.T) {
 	sCvorovima := potvrdaSKodom(t, f, potvrda, func(p *Potvrda) {
 		ma, _ := a.getMembership(ctxRub, a.node.ID)
 		p.Cvorovi = []CvorPotvrde{
-			{Peer: Peer{NodeID: a.node.ID, PublicKey: a.node.PublicKey(), Addresses: []string{"https://cop-osijek.com"}, IsBootstrap: true}, Clanstvo: ma},
+			{Peer: Peer{NodeID: a.node.ID, PublicKey: a.node.PublicKey(), Addresses: []string{"https://cop.primjer.hr"}, IsBootstrap: true}, Clanstvo: ma},
 			{Peer: Peer{NodeID: f.node.ID, PublicKey: f.node.PublicKey()}, Clanstvo: &mf},
 			{Peer: Peer{NodeID: "bez-clanstva", PublicKey: g.node.PublicKey()}},
 			{Peer: Peer{NodeID: g.node.ID, PublicKey: "nije-kljuc"}, Clanstvo: &mg},

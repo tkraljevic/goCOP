@@ -144,7 +144,7 @@ func TestVjerodajniceIzTudjegCertifikataSeOgradjuju(t *testing.T) {
 	for ime, certs := range map[string][][]byte{
 		"bez certifikata": nil,
 		"nije certifikat": {[]byte("smeće")},
-		"drugi URI":       certSURI(t, &url.URL{Scheme: "https", Host: "cop-osijek.com"}),
+		"drugi URI":       certSURI(t, &url.URL{Scheme: "https", Host: "cop.primjer.hr"}),
 		"drugi urn":       certSURI(t, &url.URL{Scheme: "urn", Opaque: "isbn:953"}),
 		"nije base64":     certSURI(t, &url.URL{Scheme: "urn", Opaque: prefiksVjerodajnica + "***"}),
 		"preduge":         certSURI(t, &url.URL{Scheme: "urn", Opaque: prefiksVjerodajnica + strings.Repeat("A", najveceVjerodajnice*2)}),
