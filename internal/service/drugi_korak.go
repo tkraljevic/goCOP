@@ -118,7 +118,7 @@ var (
 
 // Greške uključivanja PIN-a i promjene adrese; poruke su za korisnika
 var (
-	ErrUkljuciIzvana            = errors.New("PIN se uključuje s čvora kroz koji se ljudi prijavljuju izvana (npr. https://cop-osijek.com), nakon probnog PIN-a na tom čvoru")
+	ErrUkljuciIzvana            = errors.New("PIN se uključuje s čvora kroz koji se ljudi prijavljuju izvana (na adresi vašeg poslužitelja), nakon probnog PIN-a na tom čvoru")
 	ErrVlastitaAdresaIzAdresara = errors.New("svoju adresu e-pošte ne mijenjate iz adresara: promijenite je na svom profilu (iz ureda, uz trenutnu lozinku)")
 	ErrAdresaZauzeta            = errors.New("tu adresu e-pošte već ima drugi djelatnik; javite administratoru")
 )

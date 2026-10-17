@@ -36,7 +36,7 @@ type Config struct {
 	// JavnaAdresa je adresa na kojoj je program dostupan izvana, npr.
 	// https://gocop.voda.hr; ide u QR kod na dokumentima. Prazno: QR nosi
 	// samo oznaku dokumenta.
-	JavnaAdresa string `toml:"javna_adresa" comment:"Adresa na kojoj se program otvara izvana; ide u QR kod na\ndokumentima. Prazno = QR nosi samo oznaku dokumenta.\n  javna_adresa = 'https://cop-osijek.com'"`
+	JavnaAdresa string `toml:"javna_adresa" comment:"Adresa na kojoj se program otvara izvana; ide u QR kod na\ndokumentima. Prazno = QR nosi samo oznaku dokumenta.\n  javna_adresa = 'https://cop.primjer.hr'"`
 
 	Web struct {
 		PouzdaniPosrednici []string `toml:"pouzdani_posrednici" comment:"Posrednici (tunel, nginx) kojima se vjeruje adresa klijenta iz\nzaglavlja; zahtjev koji dođe preko njih uvijek je vanjski.\nPrazno = ovo računalo i privatne mreže.\n  pouzdani_posrednici = ['172.17.0.1']   # cloudflared u Dockeru, preko mosta\n  pouzdani_posrednici = ['127.0.0.1']    # nginx na istom računalu"`
@@ -80,7 +80,7 @@ type Config struct {
 		PairPort      int      `toml:"pair_port" comment:"Port uparivanja; otvoren samo dok uparivanje traje."`
 		DiscoveryPort int      `toml:"discovery_port" comment:"Port pronalaženja čvorova na lokalnoj mreži (UDP). 0 isključuje."`
 		AutoSync      string   `toml:"auto_sync" comment:"Koliko se često čvor sam sinkronizira s poznatim čvorovima. '0' isključuje.\n  auto_sync = '1h'"`
-		Bootstrap     []string `toml:"bootstrap" comment:"Stalno dostupni čvorovi preko kojih se pronalaze ostali. Svaki\ndodatni pomaže kad jedan padne.\n  bootstrap = ['cop-osijek.com', 'cop.voda.hr']"`
+		Bootstrap     []string `toml:"bootstrap" comment:"Stalno dostupni čvorovi preko kojih se pronalaze ostali. Svaki\ndodatni pomaže kad jedan padne.\n  bootstrap = ['cop.primjer.hr', 'cop.voda.hr']"`
 		All           bool     `toml:"sve" comment:"true = čvor prati sve: očitanja i dnevnike svih područja i godina\n(uredski poslužitelj). false = samo ono što je označeno u programu\n(laptop, mobitel).\n  sve = true"`
 		Tailscale     bool     `toml:"tailscale" comment:"true = na računalu s Tailscaleom razmjena koristi i Tailscale adrese\ndrugih vaših čvorova; false = razmjena radi kao da Tailscalea nema\n(za probu razmjene preko interneta). Na prijavu ne utječe."`
 	} `toml:"sync"`
@@ -98,7 +98,8 @@ func Default() Config {
 	c.Sync.PairPort = 4711
 	c.Sync.DiscoveryPort = 4712
 	c.Sync.AutoSync = "5m"
-	c.Sync.Bootstrap = []string{"cop-osijek.com"}
+	// Sync.Bootstrap ostaje prazan: program ga zasad ne čita, a domena
+	// poslužitelja ne ide u javni kod, da je tražilice ne nađu
 	c.Sync.Tailscale = true
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
