@@ -32,6 +32,7 @@ import (
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
 	"gocop/internal/prognoza"
+	"gocop/internal/repository"
 	"gocop/internal/sadrzaj"
 	"gocop/internal/web"
 )
@@ -438,6 +439,10 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	out.UMrezi = st.Network != nil
 	out.Verzija = st.Program
 	out.Upozorenja = append(out.Upozorenja, st.Alerts...)
+	// ograda povijesti uz računala sa starijim programom, i ono što se
+	// predugo traži (rupe u nizu, internal/peers/rupe.go)
+	out.Upozorenja = append(out.Upozorenja, upozorenjeOgrade(repository.MjeseciPovijestiOcitanja(), st.Peers)...)
+	out.Upozorenja = append(out.Upozorenja, p.NedostajeDulje(ctx)...)
 	// Stiglo je što ovaj program ne razumije do kraja (noviji drugi čvor):
 	// čuva se i prosljeđuje, ali ovdje se ne prikazuje ni ne uređuje.
 	if nov := rec.Novosti(); len(nov) > 0 {

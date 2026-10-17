@@ -76,8 +76,10 @@ func runTests(o options, r *report) error {
 // traje oko 3,5 minute, a na sporijem stroju CI-ja i uz ostale pakete
 // usporedo prelazio je 10 minuta. 11. 10. 2026. internal/service (372 testa,
 // gotovo svaki s vlastitom bazom i shemom) lokalno s race traje oko 10
-// minuta, a na CI-ju prešao je 30.
-const rokPaketa = "60m"
+// minuta, a na CI-ju prešao je 30. 17. 10. 2026. na masteru su na CI-ju
+// internal/peers i internal/repository trajali 3517 i 3575 s, minutu ispod
+// roka od 60 minuta, pa su ga testovi rupa u nizu (G4b) prešli.
+const rokPaketa = "120m"
 
 // sazetakPada su retci zapisa testova koji kažu što je palo (test, panika,
 // istek roka, utrka), da se vide u ispisu i kad zapis nije priložen

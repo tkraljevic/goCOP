@@ -3,6 +3,7 @@ package peers
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -20,8 +21,15 @@ import (
 // knjigu, a površina se osvježi iz najnovijih. Tako se godina jednog
 // područja odloži na disk ili prenese štapićem bez mreže.
 
-// ExportFile piše verzije zadanih kanala u novu SQLite datoteku
+// upravljacArhive je upravljački program kojim se arhiva otvara (SQLite).
+// Za upisan program sql.Open ne vraća grešku, pa ga test zamijeni
+// nepostojećim da vidi što izvoz i uvoz rade kad se arhiva ne da otvoriti.
+var upravljacArhive = "sqlite"
+
+// ExportFile piše verzije zadanih kanala u novu SQLite datoteku, zajedno
+// s rupama koje ovaj čvor u njima ima (rupe_uvoz.go)
 func (s *Service) ExportFile(ctx context.Context, path string, channels []string) (int, error) {
+	rupe := s.pocetakRupa(ctx)
 	versions, err := s.rec.InChannels(ctx, channels)
 	if err != nil {
 		return 0, err
@@ -29,8 +37,9 @@ func (s *Service) ExportFile(ctx context.Context, path string, channels []string
 	if len(versions) == 0 {
 		return 0, fmt.Errorf("nema nijedne verzije u zadanim kanalima")
 	}
+	jamstvo, _ := json.Marshal(rupe.zaIzvoz(s.rupeMijenja.Load(), versions))
 	_ = os.Remove(path)
-	out, err := sql.Open("sqlite", path)
+	out, err := sql.Open(upravljacArhive, path)
 	if err != nil {
 		return 0, err
 	}
@@ -44,6 +53,7 @@ func (s *Service) ExportFile(ctx context.Context, path string, channels []string
 	for k, v := range map[string]string{
 		"program": "goCOP", "node_id": s.node.ID, "exported_at": time.Now().UTC().Format(time.RFC3339),
 		"channels": strings.Join(channels, ","), "schema_version": fmt.Sprint(ledger.SchemaVersion),
+		"rupe": string(jamstvo),
 	} {
 		if _, err := out.ExecContext(ctx, `INSERT INTO archive_meta (key, value) VALUES (?, ?)`, k, v); err != nil {
 			return 0, err
@@ -81,10 +91,11 @@ type ImportReport struct {
 	From     string         `json:"from"`     // čvor koji je izvezao
 }
 
-// ImportFile čita arhivu i primjenjuje verzije kao da su stigle razmjenom
+// ImportFile čita arhivu i primjenjuje verzije kao da su stigle razmjenom,
+// uz rupe izvoznika (rupeIzArhive)
 func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, error) {
 	rep := ImportReport{Channels: map[string]int{}}
-	in, err := sql.Open("sqlite", path)
+	in, err := sql.Open(upravljacArhive, path)
 	if err != nil {
 		return rep, err
 	}
@@ -119,19 +130,10 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	if len(versions) == 0 {
 		return rep, fmt.Errorf("arhiva je prazna")
 	}
-	// isto kao razmjena: u knjigu, pa na površinu
-	for start := 0; start < len(versions); start += 2000 {
-		end := start + 2000
-		if end > len(versions) {
-			end = len(versions)
-		}
-		applied, err := s.primijeniPodBravom(ctx, versions[start:end])
-		rep.Applied += applied
-		if err != nil {
-			return rep, err
-		}
-	}
-	return rep, nil
+	// isto kao razmjena: rupe, u knjigu, pa na površinu; arhiva knjige ne
+	// prolazi kroz Accept, pa odbijenoga nema
+	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
+	return rep, err
 }
 
 // ArchiveFileName je naziv datoteke za izvoz: gocop-ocitanja-bp16-2024.db

@@ -49,6 +49,16 @@ const ImeGranicaOdbijenih = "granica-odbijenih"
 // OznakaGranicaOdbijenih je prva inačica granice odbijenih
 const OznakaGranicaOdbijenih = ImeGranicaOdbijenih + "/1"
 
+// ImeRupe je ime oznake rupa u nizu (G4b u docs/plan-web-sync.md §3): iza
+// granice odbijenih računalo javi gdje mu u nizu možda nešto nedostaje, a
+// uz deltu za koji dio poslanoga ne jamči da ga ima cijelog i koji je dio
+// tuđe rupe popunilo (internal/peers/rupe.go). Nova je vrsta poruke i novo
+// značenje delte, pa ide samo kad Dogovor kaže da je obje strane imaju.
+const ImeRupe = "rupe"
+
+// OznakaRupe je prva inačica rupa u nizu
+const OznakaRupe = ImeRupe + "/1"
+
 // Ograde onoga što se od druge strane pamti: popis i mapa idu u bazu
 const (
 	najduljeIme   = 32   // znakova u imenu oznake
@@ -72,7 +82,7 @@ type Znanje struct {
 // NaseMogucnosti su oznake koje ovaj program objavljuje, poredane i bez
 // ponavljanja. Svaki poziv daje novi popis.
 func NaseMogucnosti() []string {
-	return []string{OznakaGranicaOdbijenih, OznakaRazmjena}
+	return []string{OznakaGranicaOdbijenih, OznakaRazmjena, OznakaRupe}
 }
 
 // Dogovor je za svako ime koje obje strane imaju najviši zajednički N.

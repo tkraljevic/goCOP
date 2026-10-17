@@ -570,6 +570,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	peersService.Accept(repository.KeepVersion)
 	// po njemu razmjena zna kad je pravilo čuvanja promijenjeno (granica odbijenih)
 	peersService.PostaviStanjePrihvata(repository.StanjeOgradePovijesti)
+	// po njemu razmjena i nakon ponovnog pokretanja zna da je pravilo
+	// čuvanja prošireno (rupe u nizu); pri prvom pokretanju s ogradom jednom
+	// zapiše da za tuđa očitanja ispod svoje granice ne jamči
+	peersService.PostaviPraviloPrihvata(repository.PraviloCuvanjaOcitanja)
+	peersService.PripremiRupe(context.Background())
 	if err := peersService.OsvjeziSebe(context.Background()); err != nil {
 		log.Printf("Zapis ovog čvora nije osvježen: %v", err)
 	}

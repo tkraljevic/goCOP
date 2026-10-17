@@ -107,12 +107,13 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 }
 
 // primijeniAkoStigne upisuje verzije primljene u razgovoru, ako brava
-// stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka,
-// pa ni kad su sve primljene neispravne. Upis koji popuni rupu u nizu broji
-// se kao uvoz (popunjavaRupu, zabiljeziUvoz).
-func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version) (int, error) {
+// stigne unutar roka; inače vraća errUpisZauzet. Kad ne mijenja ni knjigu
+// ni zapis rupa (promjenaRupa.nista), bravu ne čeka, pa ni kad su sve
+// primljene neispravne. Upis koji popuni rupu u nizu broji se kao uvoz
+// (popunjavaRupu, zabiljeziUvoz).
+func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version, p promjenaRupa) (int, error) {
 	verzije = s.preskociNeispravne("razmjena", verzije)
-	if len(verzije) == 0 {
+	if p.nista(verzije) {
 		return 0, nil
 	}
 	if err := s.uzmiBravuUnutar(ctx, rokCekanjaUpisa); err != nil {
@@ -120,10 +121,36 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 	}
 	defer s.pustiBravu()
 	rupa := s.popunjavaRupu(ctx, verzije)
-	applied, povrsina, err := s.primijeni(ctx, verzije)
+	applied, povrsina, err := s.primijeniSRupama(ctx, verzije, p)
 	s.zabiljeziUvoz(applied, rupa)
 	javiPovrsinu(povrsina)
 	return applied, err
+}
+
+// primijeniSRupama upiše primljeno pod bravom (rupe.go): najprije trajno
+// ono što je odbijeno i stiglo s rupom, zatim verzije, a tek nakon
+// uspješnog upisa makne ono što je pokriveno. Kad se rupe ne daju zapisati,
+// ne upisuje ni verzije, pa sve stigne sljedećim razgovorom. Kad se ne da
+// zapisati smanjenje, rupa ostane veća, a to košta jedno ponovno slanje.
+func (s *Service) primijeniSRupama(ctx context.Context, verzije []ledger.Version, p promjenaRupa) (applied int, povrsina, err error) {
+	if err := s.promijeniRupe(ctx, &p, promjenaKljuca.prosiri); err != nil {
+		return 0, nil, err
+	}
+	applied, povrsina, err = s.primijeni(ctx, verzije)
+	p.pravilo = false
+	s.suziNakonUpisa(ctx, p, err)
+	return applied, povrsina, err
+}
+
+// suziNakonUpisa makne iz zapisa rupa ono što je upis pokrio, kad je upis
+// prošao; greška ide samo u dnevnik
+func (s *Service) suziNakonUpisa(ctx context.Context, p promjenaRupa, upis error) {
+	if upis != nil {
+		return
+	}
+	if err := s.promijeniRupe(ctx, &p, promjenaKljuca.suzi); err != nil {
+		log.Printf("razmjena: zapis rupa nije smanjen, pokriveno se traži još jednom: %v", err)
+	}
 }
 
 // preskociNeispravne izostavi primljene verzije koje knjiga ne prima
