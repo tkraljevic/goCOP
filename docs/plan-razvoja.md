@@ -71,10 +71,12 @@ podatke kroz jedno računalo.
 
 Kad je WEB sync gotov, dolaze nove mogućnosti:
 
-- Prognoza po branjenim područjima. Model prognoze vodi se po branjenom
-  području, a administrator sam uređuje od kojih se letvi računa koja
-  letva. Danas je to upisano u program, pa svaka promjena traži novo
-  izdanje.
+- Prognoza po branjenim područjima i vodotocima. Model prognoze vodi se po
+  branjenom području, a gleda se i po vodotoku. Administrator ga mijenja u
+  postavkama, bez novog izdanja programa: od kojih se letvi računa koja
+  letva, rezervne letve, računa li se letva u protoku ili u vodostaju,
+  brzinu putovanja vala za nisku i za visoku vodu i ostalo što je danas
+  upisano u program. Promjena se prije primjene isproba na arhivi.
 - Ustave i crpne stanice. Ustava povezuje uzvodni i nizvodni vodostaj i
   bilježi je li zapornica otvorena ili zatvorena. Crpna stanica bilježi
   početak i kraj rada svakog agregata posebno. Strojar upisuje vodostaje
@@ -114,7 +116,7 @@ samo sa stvarnim satom.
 Zašto: da se može proći stvarna simulacija neke povijesne obrane od
 poplava, uvježbati osoblje i isprobati sučelje, a da se pravi i probni
 podaci ne miješaju, pa ni brojevi akata. Simulacija dolazi kad je sve
-ispolirano.
+ispolirano. Ono što simulacija pokaže dorađuje se poslije nje.
 
 ## Prije bete
 

@@ -541,3 +541,9 @@ je gotov onaj o kojem ovisi.
   upisuje vodostaje na početku, tijekom i na kraju rada, uz dnevnik
   strojara. Svaki objekt, od vodotoka do crpne stanice, ima mjesto na
   karti, a modul Karte sve povezuje u slojeve.
+- Model prognoze dijeli se po branjenim područjima i vodotocima. Mijenja se
+  u postavkama, bez vrijednosti upisanih u program: rezervna letva, brzina
+  putovanja vala za nisku i za visoku vodu, račun u protoku ili u
+  vodostaju i slično.
+- Nakon simulacije slijedi još jedno poliranje, prema onome što simulacija
+  pokaže.
