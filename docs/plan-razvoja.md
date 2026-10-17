@@ -105,7 +105,16 @@ Kad je WEB sync gotov, dolaze nove mogućnosti:
 ## 4. Poliranje i unos podataka
 
 Kad su proširenja gotova, slijedi poliranje onoga što postoji i unos
-podataka.
+podataka. Uz to dvije stvari za izvore podataka, jer će ih biti još, a
+postojeći mijenjaju svoje stranice:
+
+- upozorenje kad izvor šuti, na primjer „ARSO ne javlja nove podatke od 6
+  sati”, s rokom prema tome koliko često taj izvor inače javlja;
+- kratak opis svakog izvora na jednom mjestu: odakle dolazi, koliko
+  često, pod kojom licencom i tko je kontakt.
+
+Novi izvor i dalje ulazi kao zaseban dio programa i isključen, dok ga netko
+ne pogleda.
 
 ## 5. Testna simulacija
 

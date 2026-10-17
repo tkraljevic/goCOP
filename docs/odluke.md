@@ -559,3 +559,6 @@ je gotov onaj o kojem ovisi.
   iz dnevnika i izvješća rukovoditelja i administratoru sažima dnevnik
   programa. Upozorenja daju pravila u programu, a sažetak ne zamjenjuje
   službeno izvješće.
+- Izvora podataka bit će još, a postojeći se mijenjaju. Uz poliranje dolaze
+  upozorenje kad izvor šuti i kratak opis svakog izvora: odakle, koliko
+  često, licenca i kontakt.
