@@ -162,6 +162,10 @@ Pravila:
 Prije učenja slaže se ispit s pitanjima iz stvarnog rada, i pomoćnik ide u
 program tek kad ga prođe.
 
+Pomoćnik ima lik, Letvicu: malu crveno-bijelu vodomjernu letvu s očima.
+Javlja se samo kad je netko pozove ili kad program da upozorenje, za
+vrijeme obrane miruje, a svatko je može isključiti.
+
 ## Prije bete
 
 Ovi poslovi nisu vezani uz redoslijed koraka 1–6, ali svi moraju biti
