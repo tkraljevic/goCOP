@@ -404,3 +404,35 @@ func TestObrisiRupeKanala(t *testing.T) {
 		t.Errorf("nakon brisanja: %+v", rupe)
 	}
 }
+
+// Pločica: po autoru koliko ključeva traži dulje od dana, s imenom
+// računala kad ga ima; kad se zapis ne da pročitati, ništa
+func TestNedostajeDulje(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	if _, err := s.db.Exec(`INSERT INTO peers (node_id, name, public_key, created_at) VALUES ('windows-ured', 'Uredsko računalo', 'k', ?)`, stalnoVrijeme); err != nil {
+		t.Fatal(err)
+	}
+	s.satOdbijenih = func() time.Time { return stalnoVrijeme }
+	upisiRupuTrazi(t, s, "windows-ured|ocitanja/16/2024", r("a", "b"))
+	upisiRupuTrazi(t, s, "windows-ured|ocitanja/16/2025", r("a", "b"))
+	upisiRupuTrazi(t, s, "laptop-drugi|ocitanja/3/2024", r("a", "b"))
+	if got := s.NedostajeDulje(ctxRub); len(got) != 0 {
+		t.Errorf("prije dana: %v", got)
+	}
+	s.satOdbijenih = func() time.Time { return stalnoVrijeme.Add(najduljeTrazi) }
+	got := s.NedostajeDulje(ctxRub)
+	if len(got) != 2 || !strings.HasPrefix(got[0], "Od računala Uredsko računalo možda nedostaju neki stariji zapisi (2 skupine") ||
+		!strings.HasPrefix(got[1], "Od računala laptop-drugi možda nedostaju neki stariji zapisi (1 skupina") {
+		t.Errorf("nakon dana: %q", got)
+	}
+	kvarCitanjaRupa(t, s)
+	if got := s.NedostajeDulje(ctxRub); len(got) != 0 {
+		t.Errorf("pokvaren redak: %v", got)
+	}
+	if _, err := s.db.Exec(`DROP VIEW rupe_knjige`); err != nil {
+		t.Fatal(err)
+	}
+	if got := s.NedostajeDulje(ctxRub); got != nil {
+		t.Errorf("bez tablice: %v", got)
+	}
+}

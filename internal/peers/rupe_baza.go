@@ -10,12 +10,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"maps"
 	"slices"
 	"time"
 
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 )
 
 // PostaviPraviloPrihvata daje razmjeni pravilo čuvanja (u programu
@@ -324,4 +326,38 @@ func obrisiRupeKanala(ctx context.Context, tx *sql.Tx, kanal, ja string, obrisi 
 	}
 	_, err := tx.ExecContext(ctx, `DELETE FROM rupe_knjige WHERE channel = ? AND node_id <> ?`, kanal, ja)
 	return err
+}
+
+// najduljeTrazi je koliko ključ smije tražiti prije nego što ode na pločicu
+const najduljeTrazi = 24 * time.Hour
+
+const nedostajeDuljeSQL = `SELECT coalesce(nullif(p.name, ''), r.node_id), count(*) FROM rupe_knjige r
+	LEFT JOIN peers p ON p.node_id = r.node_id
+	WHERE r.trazi_do <> '' AND r.trazi_nastalo <= ? GROUP BY r.node_id ORDER BY 1`
+
+// NedostajeDulje su upozorenja za pločicu razmjene: po autoru, koliko
+// njegovih ključeva (područje i godina) traži dulje od najduljeTrazi. Kad se
+// zapis ne da pročitati, upozorenja nema.
+func (s *Service) NedostajeDulje(ctx context.Context) []string {
+	rows, err := s.db.QueryContext(ctx, nedostajeDuljeSQL, s.sadRupa().Add(-najduljeTrazi))
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var ime string
+		var n int
+		if rows.Scan(&ime, &n) == nil {
+			out = append(out, tekstNedostaje(ime, n))
+		}
+	}
+	return out
+}
+
+// tekstNedostaje je upozorenje pločice za jednog autora
+func tekstNedostaje(ime string, n int) string {
+	return fmt.Sprintf("Od računala %s možda nedostaju neki stariji zapisi (%d %s po području i godini). "+
+		"Njegovi zapisi stigli su preko računala koje ne čuva sve, pa program ono što nedostaje traži od ostalih računala i dobit će to kad se javi računalo koje ga ima.",
+		ime, n, models.UzBrojHR(n, "skupina", "skupine", "skupina"))
 }
