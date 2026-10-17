@@ -76,7 +76,11 @@ Kad je WEB sync gotov, dolaze nove mogućnosti:
   postavkama, bez novog izdanja programa: od kojih se letvi računa koja
   letva, rezervne letve, računa li se letva u protoku ili u vodostaju,
   brzinu putovanja vala za nisku i za visoku vodu i ostalo što je danas
-  upisano u program. Promjena se prije primjene isproba na arhivi.
+  upisano u program. Promjena se prije primjene isproba na arhivi. Uz to
+  dolazi ispravak prognoze koji uči koliko model griješi pri kojem stanju
+  vode. Danas je ispravak jedan broj po letvi, pa ne vidi da model na
+  vrlo niskoj vodi griješi drukčije nego na srednjoj. Ispravak se uči na
+  jednim valovima, a ispituje na drugima, koje nije vidio.
 - Ustave i crpne stanice. Ustava povezuje uzvodni i nizvodni vodostaj i
   bilježi je li zapornica otvorena ili zatvorena. Crpna stanica bilježi
   početak i kraj rada svakog agregata posebno. Strojar upisuje vodostaje
@@ -122,13 +126,17 @@ ispolirano. Ono što simulacija pokaže dorađuje se poslije nje.
 
 Kad je sve ispolirano, slijede prezentacija programa i priručnici za
 korištenje, posebno za svaku vrstu korisnika (vidi [Uloge](uloge.md)).
-Priručnik je digitalan, s videom, i ugrađen u program. S priručnicima
-program izlazi kao beta.
+Priručnik je digitalan, s videom, i ugrađen u program. Uz njega dolazi
+bolja tražilica Pomoći, koja nalazi odgovor i kad je pitanje drukčije
+sročeno od teksta. S priručnicima program izlazi kao beta.
 
 ## Za stabilnu inačicu
 
 Digitalni pomoćnik u programu, naučen na priručnicima, koji korisniku
-odgovara kako se što radi.
+odgovara kako se što radi. Odgovara samo iz priručnika i uz odgovor daje
+poveznicu na odjeljak, a kad odgovora nema, kaže da ne zna. Prije učenja
+slaže se ispit s pitanjima iz stvarnog rada, i pomoćnik ide u program tek
+kad ga prođe.
 
 ## Prije bete
 

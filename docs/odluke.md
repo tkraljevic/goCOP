@@ -550,3 +550,7 @@ je gotov onaj o kojem ovisi.
 - Kad je sve ispolirano, slijede prezentacija i priručnici za korištenje
   po vrstama korisnika: digitalni priručnik s videom, ugrađen u program.
   To je uvjet za betu. Za stabilnu inačicu dolazi digitalni pomoćnik.
+- Uz prognozu po područjima dolazi ispravak prognoze koji ovisi o stanju
+  vode, ispitan na valovima koje nije vidio. Uz priručnike za betu dolazi
+  bolja tražilica Pomoći. Digitalni pomoćnik odgovara samo iz priručnika i
+  ide u program tek kad prođe ispit.
