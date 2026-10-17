@@ -78,7 +78,7 @@ func LoadOrCreateKey(path string) (ed25519.PrivateKey, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return nil, err
 	}
-	if err := os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600); err != nil {
+	if err := zapisiKljuc(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})); err != nil {
 		return nil, err
 	}
 	return priv, nil
@@ -98,7 +98,39 @@ func SaveKey(path string, priv ed25519.PrivateKey) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return err
 	}
-	return os.WriteFile(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}), 0o600)
+	return zapisiKljuc(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
+}
+
+// zapisiKljuc zapisuje datoteku ključa kao os.WriteFile, s pravima 0600, ali
+// je prije povratka spusti na disk, zajedno s mapom u kojoj je. Ključ se
+// počne koristiti čim se vrati, pa bi bez toga nestanak struje u prvim
+// sekundama mogao ostaviti praznu datoteku ključa koji drugi čvorovi već
+// poznaju.
+func zapisiKljuc(path string, sadrzaj []byte) error {
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write(sadrzaj)
+	if err == nil {
+		err = f.Sync()
+	}
+	if errZ := f.Close(); err == nil {
+		err = errZ
+	}
+	if err == nil {
+		spustiMapu(filepath.Dir(path))
+	}
+	return err
+}
+
+// spustiMapu spušta mapu na disk, da novo ime datoteke u njoj preživi
+// nestanak struje. Windows mapu ne da spustiti, pa se greška ne javlja.
+func spustiMapu(mapa string) {
+	if d, err := os.Open(mapa); err == nil {
+		_ = d.Sync()
+		_ = d.Close()
+	}
 }
 
 // LoadKey reads a private key written by SaveKey or LoadOrCreateKey, and
