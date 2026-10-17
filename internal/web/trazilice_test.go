@@ -48,8 +48,9 @@ func posluziteljZaTrazilice(t *testing.T) *Server {
 }
 
 // robots.txt vide i tražilice, koje se nikad ne prijavljuju: odgovor je
-// izravan, bez preusmjeravanja na prijavu, i zabranjuje sve. Isto vrijedi
-// izvana, kroz tunel.
+// izravan, bez preusmjeravanja na prijavu, i zabranjuje sve osim ulaza i
+// prijave. Isto vrijedi izvana, kroz tunel, gdje nosi i sigurnosna
+// zaglavlja kao svaki drugi odgovor.
 func TestRobotsTxtBezPrijave(t *testing.T) {
 	h := posluziteljZaTrazilice(t).Handler()
 	for ime, zag := range map[string]map[string]string{
@@ -70,9 +71,66 @@ func TestRobotsTxtBezPrijave(t *testing.T) {
 			if v := w.Header().Get("Content-Type"); v != "text/plain; charset=utf-8" {
 				t.Errorf("%s, %s: vrsta %q", ime, metoda, v)
 			}
-			if metoda == http.MethodGet && w.Body.String() != "User-agent: *\nDisallow: /\n" {
+			if metoda == http.MethodGet && w.Body.String() != "User-agent: *\nAllow: /$\nAllow: /login$\nDisallow: /\n" {
 				t.Errorf("%s: robots.txt = %q", ime, w.Body.String())
 			}
+			if w.Header().Get("X-Content-Type-Options") != "nosniff" || w.Header().Get("X-Frame-Options") != "DENY" {
+				t.Errorf("%s, %s: bez sigurnosnih zaglavlja", ime, metoda)
+			}
+			if hsts := w.Header().Get("Strict-Transport-Security"); (hsts != "") != (zag != nil) {
+				t.Errorf("%s, %s: HSTS %q", ime, metoda, hsts)
+			}
+		}
+	}
+}
+
+// dopustenoTrazilici čita robots.txt kao Google i Bing: od pravila koja se
+// poklapaju s početkom puta vrijedi najdulje, a $ na kraju traži cijeli put
+func dopustenoTrazilici(robots, put string) bool {
+	dopusteno, najdulje := true, 0
+	for _, redak := range strings.Split(robots, "\n") {
+		pravilo, uzorak, _ := strings.Cut(redak, ":")
+		uzorak = strings.TrimSpace(uzorak)
+		poklapa := uzorak != "" && strings.HasPrefix(put, uzorak)
+		if bez, cijeli := strings.CutSuffix(uzorak, "$"); cijeli {
+			poklapa = put == bez
+		}
+		if poklapa && (pravilo == "Allow" || pravilo == "Disallow") && len(uzorak) > najdulje {
+			dopusteno, najdulje = pravilo == "Allow", len(uzorak)
+		}
+	}
+	return dopusteno
+}
+
+// Tražilica koja poštuje robots.txt stranicu koju on zabrani ne otvara, pa
+// ne vidi ni noindex, a adresu s tuđe poveznice ipak smije upisati, bez
+// sadržaja. Zato ulaz i prijavu, kamo vodi svaka adresa bez prijave, smije
+// otvoriti i ondje vidi noindex; ostalo joj je zabranjeno.
+func TestTrazilicaNaUlazuVidiNoindex(t *testing.T) {
+	h := posluziteljZaTrazilice(t).Handler()
+	zovi := func(put string) *httptest.ResponseRecorder {
+		r := httptest.NewRequest(http.MethodGet, put, nil)
+		r.RemoteAddr = "127.0.0.1:5000"
+		r.Header.Set("CF-Connecting-IP", "203.0.113.9")
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		return w
+	}
+	robots := zovi("/robots.txt").Body.String()
+	if w := zovi("/"); w.Header().Get("Location") != "/login" {
+		t.Fatalf("ulaz bez prijave: %d %q", w.Code, w.Header().Get("Location"))
+	}
+	for _, put := range []string{"/", "/login"} {
+		if !dopustenoTrazilici(robots, put) {
+			t.Errorf("tražilica ne smije otvoriti %q, pa ne vidi noindex", put)
+		}
+		if v := zovi(put).Header().Get("X-Robots-Tag"); !strings.Contains(v, "noindex") {
+			t.Errorf("%q: X-Robots-Tag = %q", put, v)
+		}
+	}
+	for _, put := range []string{"/pomoc", "/login/pin", "/login?x=1", "/static/css/style.css", "/razmjena/tunel", "/profile"} {
+		if dopustenoTrazilici(robots, put) {
+			t.Errorf("tražilica smije otvoriti %q", put)
 		}
 	}
 }

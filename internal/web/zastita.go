@@ -6,17 +6,17 @@ import (
 )
 
 // Handler je cijeli web poslužitelj sa zaštitnim slojevima, izvana prema
-// unutra: skrivanje od tražilica, porijeklo zahtjeva, sigurnosna zaglavlja,
-// zaštita od tuđih stranica (CSRF), rokovi i veličine, priručna memorija,
-// pa rute.
+// unutra: porijeklo zahtjeva, sigurnosna zaglavlja, skrivanje od tražilica
+// (i robots.txt, koji tako nosi sigurnosna zaglavlja), zaštita od tuđih
+// stranica (CSRF), rokovi i veličine, priručna memorija, pa rute.
 func (s *Server) Handler() http.Handler {
 	var h http.Handler = s.mux
 	h = bezPriruckeMemorije(h)
 	h = s.rokovi(h)
 	h = s.zastitaOdTudjihStranica(h)
+	h = skrivenoOdTrazilica(h)
 	h = zaglavlja(h)
-	h = s.klijentSloj(h)
-	return skrivenoOdTrazilica(h)
+	return s.klijentSloj(h)
 }
 
 // Start pokreće web poslužitelj. Rokovi čitanja i pisanja nisu zajednički

@@ -7,12 +7,18 @@ import (
 
 // Nijedan goCOP ne smije biti na tražilicama. Čvor iza tunela dostupan je s
 // interneta, a ni stranica za prijavu ni Pomoć ne smiju se naći pretragom.
-// Zato svaki odgovor nosi X-Robots-Tag, a /robots.txt zabranjuje sve.
-// Postavke za to nema: skriveno je uvijek. Predlošci stranica uz to nose
-// <meta name="robots">, za slučaj da posrednik zaglavlje izgubi.
+// Zato svaki odgovor nosi X-Robots-Tag, a predlošci stranica uz to
+// <meta name="robots">, za slučaj da posrednik zaglavlje izgubi. Postavke
+// za to nema: skriveno je uvijek.
+//
+// robots.txt tražilici pušta samo ulaz i prijavu, kamo vodi svaka adresa
+// bez prijave. Stranicu koju robots.txt zabrani tražilica ne otvara, pa ne
+// vidi ni noindex, a adresu s tuđe poveznice ipak smije upisati, bez
+// sadržaja. Na ulazu i prijavi noindex vidi i izbaci adresu; ostalo joj je
+// zabranjeno.
 const (
 	oznakaZaTrazilice = "noindex, nofollow, noarchive, nosnippet, noimageindex"
-	robotsTxt         = "User-agent: *\nDisallow: /\n"
+	robotsTxt         = "User-agent: *\nAllow: /$\nAllow: /login$\nDisallow: /\n"
 )
 
 // skrivenoOdTrazilica označava svaki odgovor i na /robots.txt odgovara
