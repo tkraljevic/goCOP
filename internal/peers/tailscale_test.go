@@ -169,7 +169,7 @@ func TestRucnaTailscaleAdresaSeOdbija(t *testing.T) {
 			t.Errorf("%s: %v", a, err)
 		}
 	}
-	for _, a := range []string{"https://", "cop osijek.com"} {
+	for _, a := range []string{"https://", "cop primjer.hr"} {
 		if _, err := s.PublicAddress(ctxRub, "ured-vukovar", a, ""); err == nil || strings.Contains(err.Error(), "Tailscale") {
 			t.Errorf("neispravna adresa %q: %v", a, err)
 		}

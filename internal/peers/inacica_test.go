@@ -153,7 +153,7 @@ func copZaTest(t *testing.T, inacica int) []byte {
 }
 
 // Paket starije inačice se čita, noviji se odbija s porukom da treba
-// ažurirati program
+// nadograditi program
 func TestCitajCopInacice(t *testing.T) {
 	for _, inacica := range []int{CopInacica - 1, CopInacica} {
 		b := copZaTest(t, inacica)
@@ -163,7 +163,7 @@ func TestCitajCopInacice(t *testing.T) {
 	}
 	b := copZaTest(t, CopInacica+1)
 	_, _, _, _, err := CitajCop(bytes.NewReader(b), int64(len(b)))
-	if err == nil || !strings.Contains(err.Error(), "noviji program") || !strings.Contains(err.Error(), "ažurirajte goCOP") {
+	if err == nil || !strings.Contains(err.Error(), "noviji program") || !strings.HasSuffix(err.Error(), "— nadogradite goCOP") {
 		t.Fatalf("noviji paket: %v", err)
 	}
 }

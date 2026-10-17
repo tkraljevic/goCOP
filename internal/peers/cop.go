@@ -376,7 +376,7 @@ func CitajCop(r io.ReaderAt, size int64) (CopManifest, []ledger.Version, []CopSa
 	// Stariji oblik se čita (novi program zna stare pakete); noviji ne, jer
 	// ovaj program ne zna što je u njemu dodano.
 	if m.Inacica > CopInacica {
-		return m, nil, nil, nil, fmt.Errorf("paket je izdao noviji program (inačica %d, ovaj čita do %d) — ažurirajte goCOP", m.Inacica, CopInacica)
+		return m, nil, nil, nil, fmt.Errorf("paket je izdao noviji program (inačica %d, ovaj čita do %d) — nadogradite goCOP", m.Inacica, CopInacica)
 	}
 	zb, err := citaj("zapisi.jsonl")
 	if err != nil {

@@ -445,7 +445,7 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	out.Upozorenja = append(out.Upozorenja, p.NedostajeDulje(ctx)...)
 	// zapisi koje je poslao noviji program, ovdje i na drugim računalima:
 	// čuvaju se i prosljeđuju, a primijene nakon nadogradnje
-	out.Upozorenja = append(out.Upozorenja, upozorenjaNadogradnje(ctx, rec, st.Peers)...)
+	out.Upozorenja = append(out.Upozorenja, upozorenjaNadogradnje(ctx, rec, st.Peers, time.Now())...)
 	// drugi čvor zna za verzije koje ovaj prati, a još nema (bez onih koje
 	// je ovaj od njega odbio)
 	josPrima := p.PrimaJos(ctx)

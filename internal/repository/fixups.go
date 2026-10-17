@@ -423,7 +423,7 @@ func RunFixups(ctx context.Context, db *sql.DB, rec *ledger.Recorder) error {
 			if err := tx.Commit(); err != nil {
 				return err
 			}
-			log.Printf("Popravak podataka %s nije dovršen: promijenjeno %d zapisa, %v — ažurirajte goCOP", f.name, changed, err)
+			log.Printf("Popravak podataka %s nije dovršen: promijenjeno %d zapisa, %v — nadogradite goCOP", f.name, changed, err)
 			continue
 		case errors.Is(err, ledger.ErrNovijaShema):
 			tx.Rollback()

@@ -305,17 +305,24 @@ func (r *Recorder) Novosti() []Novost {
 // Upiti za CekaNadogradnju broje zapise (entity_id), ne verzije. Uvjet
 // schema_version > 1 stoji doslovno: SQLite djelomični indeks
 // idx_versions_shema uzima samo kad uvjet upita doslovno slijedi iz uvjeta
-// indeksa.
+// indeksa. Kandidate poznatog entiteta daje taj indeks, a zadnju verziju
+// svakoga idx_versions_entity.
 const (
 	zapisaNepoznatog  = `SELECT COUNT(DISTINCT entity_id) FROM record_versions WHERE entity = ?`
-	zapisaNovijeSheme = `SELECT COUNT(DISTINCT entity_id) FROM record_versions WHERE entity = ? AND schema_version > 1 AND schema_version > ?`
+	zapisaNovijeSheme = `SELECT COUNT(*) FROM (SELECT DISTINCT entity_id FROM record_versions
+		WHERE entity = ?1 AND schema_version > 1 AND schema_version > ?2) k
+		WHERE (SELECT g.schema_version > ?2 AND g.archived = 0 FROM record_versions g
+			WHERE g.entity = ?1 AND g.entity_id = k.entity_id ORDER BY g.version_id DESC LIMIT 1)`
 )
 
 // CekaNadogradnju broji zapise u knjizi koje ovaj program ne razumije do
-// kraja (Novosti): zapise entiteta koje ne poznaje i zapise koji imaju
-// verziju novije sheme. Broje se zapisi, ne verzije (Novost.Verzija), jer
-// se tim brojem ljudima kaže koliko čeka nadogradnju; obrisani se ne
-// izdvajaju. Bez novosti, što je uobičajeno, ne ide nijedan upit.
+// kraja (Novosti). Broje se zapisi, ne verzije (Novost.Verzija), jer se tim
+// brojem ljudima kaže koliko čeka nadogradnju. Od entiteta koji program ne
+// poznaje čekaju svi zapisi, i obrisani: ni brisanje nije primijenio. Od
+// poznatog čekaju zapisi kojima je zadnja verzija živa i novije sheme.
+// Brisanje novijeg programa poznat entitet odmah makne s površine, a zapis
+// čiju je zadnju verziju napisao program stare sheme ovaj smije uređivati,
+// pa ni jedan ne čeka. Bez novosti, što je uobičajeno, ne ide nijedan upit.
 func (r *Recorder) CekaNadogradnju(ctx context.Context) (int, error) {
 	ukupno := 0
 	for _, n := range r.Novosti() {
@@ -329,8 +336,8 @@ func (r *Recorder) CekaNadogradnju(ctx context.Context) (int, error) {
 	return ukupno, nil
 }
 
-// upitCekanja: nepoznatom entitetu čekaju svi zapisi, poznatom samo oni s
-// verzijom sheme više od one koju program zna
+// upitCekanja: nepoznatom entitetu čekaju svi zapisi, poznatom samo oni
+// kojima je zadnja verzija živa i sheme više od one koju program zna
 func upitCekanja(n Novost) (string, []any) {
 	if n.Nepoznat {
 		return zapisaNepoznatog, []any{n.Entity}

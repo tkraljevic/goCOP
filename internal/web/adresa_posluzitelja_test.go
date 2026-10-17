@@ -74,6 +74,22 @@ func pocetakNaziva(t string) int {
 	return j + n
 }
 
+// naziviIspred su nazivi domene na kraju teksta: naziv iza zadnjeg znaka
+// koji nije znak naziva i, kad ga od prethodne riječi dijeli razmak ili
+// podvlaka, obje spojene crticom. Tražilica crticu, razmak i podvlaku dijeli
+// na riječi jednako, pa „cop primjer.com” odaje isto što i „cop-primjer.com”.
+func naziviIspred(t string) []string {
+	p := pocetakNaziva(t)
+	out := []string{t[p:]}
+	if p == 0 || !strings.ContainsRune(" _", rune(t[p-1])) {
+		return out
+	}
+	if q := pocetakNaziva(t[:p-1]); q < p-1 {
+		out = append(out, t[q:p-1]+"-"+t[p:])
+	}
+	return out
+}
+
 // sadrziDomenu traži domenu po otisku: svaki naziv ispred „.com”, bez
 // poddomena, malim slovima
 func sadrziDomenu(tekst, otisak string) bool {
@@ -83,8 +99,10 @@ func sadrziDomenu(tekst, otisak string) bool {
 		if i < 0 {
 			return false
 		}
-		if otisakNaziva(t[pocetakNaziva(t[:i]):i+4]) == otisak {
-			return true
+		for _, naziv := range naziviIspred(t[:i]) {
+			if otisakNaziva(naziv+".com") == otisak {
+				return true
+			}
 		}
 		t = t[i+4:]
 	}
@@ -121,6 +139,18 @@ func TestPretragaPrepoznajeDomenu(t *testing.T) {
 	}
 	if sadrziDomenu("https://example.org, https://cop-example.com, „example.hr”", probni) {
 		t.Error("pretraga prepoznaje drugu domenu")
+	}
+	// naziv s crticom i kad je crtica razmak ili podvlaka
+	sCrticom := otisakNaziva("cop-example.com")
+	for _, s := range []string{"https://cop-example.com", "Otvorite cop example.com.", "adresa „cop_EXAMPLE.com”"} {
+		if !sadrziDomenu(s, sCrticom) {
+			t.Errorf("pretraga ne prepoznaje domenu s crticom u %q", s)
+		}
+	}
+	for _, s := range []string{"example.com", "cop: example.com", "cop  example.com", "cop example.org"} {
+		if sadrziDomenu(s, sCrticom) {
+			t.Errorf("pretraga u %q prepoznaje domenu s crticom", s)
+		}
 	}
 }
 
