@@ -9,17 +9,19 @@ package peers
 // primatelj drži, njegova granica knjige prijeđe preko kasnog, pa ono ne
 // stigne nikad.
 //
-// Pošiljatelj takvu verziju dobije na tri načina: uvozom (arhiva knjige,
+// Pošiljatelj takvu verziju dobije na četiri načina: uvozom (arhiva knjige,
 // ImportFile, i COP paket, UveziCop), razmjenom kad primljeno popuni rupu u
 // nizu (dva istodobna razgovora donesu isti ključ, a prvi se upiše onaj
-// kojemu nedostaje verzija iz sredine) i ponovnim praćenjem kanala nakon
+// kojemu nedostaje verzija iz sredine), ponovnim praćenjem kanala nakon
 // brisanja kanala (PurgeChannel), kad se niz popuni iznova, i s onim čega
-// prije nije bilo.
+// prije nije bilo, i razmjenom nakon pospremanja uloženih očitanja
+// (ulaganje.Zaboravi), koje verzije briše mimo razmjene pa granica knjige
+// može pasti.
 //
 // Zato pošiljatelj broji takve upise: narastaj uvoza raste sa svakim uvozom
 // koji upiše barem jednu verziju, s upisom razmjene koji popuni rupu
-// (popunjavaRupu) i s brisanjem kanala koje obriše barem jednu verziju
-// (zabiljeziUvoz). Za svako računalo kojem šalje pamti, po ključu granice,
+// (popunjavaRupu) i s brisanjem kanala ili pospremanjem koje obriše barem
+// jednu verziju (zabiljeziUvoz, ObrisanoIzKnjige). Za svako računalo kojem šalje pamti, po ključu granice,
 // dokle mu je u tom narastaju poslao (dosad). Granicu odbijenih tog
 // računala poštuje najviše do toga, a ključ u kojem mu u tom narastaju nije
 // poslao ništa šalje od njegove granice knjige. Unutar narastaja pošiljatelj
@@ -39,10 +41,6 @@ package peers
 // pokretanja ne može sakriti ono što ponovno praćenje donese. Narastaj
 // razgovor uzme prije prve poruke (pocetakOdbijenih), pa uvoz usred
 // razgovora vrijedi za sljedeći.
-//
-// Ovo ne pokriva pospremanje uloženih očitanja (ulaganje.Zaboravi): ono
-// briše verzije mimo razmjene, pa granica knjige može pasti, a narastaj ne
-// raste (docs/plan-web-sync.md, G4).
 
 import (
 	"context"
@@ -80,6 +78,17 @@ func (s *Service) zabiljeziUvoz(upisano int, broji bool) {
 	s.uvozi.mu.Lock()
 	defer s.uvozi.mu.Unlock()
 	s.uvozi.narastaj++
+}
+
+// ObrisanoIzKnjige javlja da je ovaj čvor mimo razmjene obrisao verzije iz
+// knjige (pospremanje uloženih očitanja, ulaganje.Zaboravi). Granica knjige
+// tada može pasti, pa razmjena poslije donese i ono čega prije nije bilo;
+// broji se kao uvoz. Čvor bez mreže (nil) nema kome slati.
+func (s *Service) ObrisanoIzKnjige(obrisano int) {
+	if s == nil {
+		return
+	}
+	s.zabiljeziUvoz(obrisano, true)
 }
 
 // rupaUNizu: neka od verzija (json_each, polja oznaka, autor i kanal) nije u

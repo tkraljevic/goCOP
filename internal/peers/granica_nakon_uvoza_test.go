@@ -517,6 +517,31 @@ func TestPamcenjeUvoza(t *testing.T) {
 	}
 }
 
+// Pospremanje uloženih očitanja briše verzije mimo razmjene, pa se broji
+// kao uvoz: granica odbijenih zatim se ne poštuje dok drugo računalo opet ne
+// dobije poslano. Pospremanje bez obrisanih verzija ne mijenja ništa, a
+// čvor bez mreže nema što brojati.
+func TestObrisanoIzKnjigeBrojiKaoUvoz(t *testing.T) {
+	var bezMreze *Service
+	bezMreze.ObrisanoIzKnjige(3)
+
+	s := rubniCvor(t, "cop-osijek")
+	njihove := map[string]string{"k": "v-5"}
+	s.zapamtiUvoz(s.pocetakOdbijenih("laptop", nil), map[string]string{"k": "v-9"})
+	preskok := func() map[string]string { return s.pocetakOdbijenih("laptop", nil).preskok(njihove) }
+	if g := preskok(); !maps.Equal(g, njihove) {
+		t.Fatalf("prije pospremanja preskok %v, očekivano %v", g, njihove)
+	}
+	s.ObrisanoIzKnjige(0)
+	if g := preskok(); !maps.Equal(g, njihove) {
+		t.Errorf("pospremanje bez obrisanih verzija promijenilo preskok u %v", g)
+	}
+	s.ObrisanoIzKnjige(2)
+	if g := preskok(); g != nil {
+		t.Errorf("nakon pospremanja preskok %v, očekivano ništa", g)
+	}
+}
+
 // pokriveno je najveća poslana ili neispravna verzija po ključu
 func TestPokrivenoDeltom(t *testing.T) {
 	neispravna := stalnaVerzija("0190a000-0000-7000-8000-000000000299", "cop-osijek", kanalUvoza, "", `{}`)
