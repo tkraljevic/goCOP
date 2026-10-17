@@ -1,6 +1,9 @@
 package repository
 
-import "time"
+import (
+	"slices"
+	"time"
+)
 
 // StanjeOgradePovijesti je, za razmjenu (peers.Service.PostaviStanjePrihvata),
 // ono o čemu ovisi što KeepVersion odbija: narastaj pravila, koji je drugi
@@ -19,4 +22,24 @@ func StanjeOgradePovijesti() (narastaj uint64, rub time.Time) {
 		rub = time.Now().AddDate(0, -p.Months, 0)
 	}
 	return p.narastaj, rub
+}
+
+// PraviloCuvanjaOcitanja je, za razmjenu (peers.Service.PostaviPraviloPrihvata),
+// pravilo po kojem KeepVersion odbija: koliko mjeseci tuđih očitanja čvor
+// prima (0: sva) i letve koje prati u cijelosti, poredane. Razmjena ga
+// sprema uz zapis rupa i po njemu, i nakon ponovnog pokretanja, vidi da je
+// pravilo prošireno (dulje razdoblje, nova praćena letva), pa traži ono što
+// je dotad odbijala.
+func PraviloCuvanjaOcitanja() (mjeseci int, pracene []string) {
+	p := readingPolicy.Load()
+	if p == nil {
+		return 0, nil
+	}
+	for letva, prati := range p.Followed {
+		if prati {
+			pracene = append(pracene, letva)
+		}
+	}
+	slices.Sort(pracene)
+	return max(p.Months, 0), pracene
 }

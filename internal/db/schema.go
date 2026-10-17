@@ -898,6 +898,37 @@ func InitSchema(database *sql.DB) error {
 			fails INTEGER NOT NULL DEFAULT 0
 		);`,
 
+		// Rupe u nizu knjige (G4b, peers/rupe.go): po autoru i kanalu dva
+		// raspona version_id (od, do]. U odbijeno ovo računalo verzije samo
+		// odbija, pa ih ne traži; u trazi ih možda nema, a treba ih, pa ih
+		// traži od drugih. Ni za jedno ne jamči drugima. Prazan raspon je
+		// '' i '', a retka bez ijedne rupe nema. trazi_nastalo je kad je
+		// trazi postao neprazan (pločica). Lokalno: ne ide u knjigu, zapis
+		// čvora ni peer_sync, pa 0.0.38 tablicu ne čita.
+		`CREATE TABLE IF NOT EXISTS rupe_knjige (
+			node_id TEXT NOT NULL,
+			channel TEXT NOT NULL,
+			odbijeno_od TEXT NOT NULL DEFAULT '',
+			odbijeno_do TEXT NOT NULL DEFAULT '',
+			trazi_od TEXT NOT NULL DEFAULT '',
+			trazi_do TEXT NOT NULL DEFAULT '',
+			trazi_nastalo DATETIME,
+			PRIMARY KEY (node_id, channel)
+		);`,
+
+		// Pravilo čuvanja pod kojim su zapisani odbijeni rasponi u
+		// rupe_knjige: mjeseci, poredane praćene letve (JSON) i najveći rub
+		// ograde (RFC3339 UTC). Po njemu se vidi da je pravilo prošireno, pa
+		// se odbijeno traži. Bez retka jednokratni korak pri prvom pokretanju
+		// (peers.prviKorak) još nije napravljen. Lokalno, kao i rupe_knjige.
+		`CREATE TABLE IF NOT EXISTS rupe_pravilo (
+			id INTEGER PRIMARY KEY CHECK (id = 1),
+			mjeseci INTEGER NOT NULL,
+			pracene TEXT NOT NULL DEFAULT '[]',
+			rub TEXT NOT NULL DEFAULT '',
+			zapisano DATETIME NOT NULL
+		);`,
+
 		// Poznati čvorovi. Identitet čvora je njegov javni ključ; adresa je
 		// promjenjiva. Popis se sinkronizira kao i sve drugo.
 		`CREATE TABLE IF NOT EXISTS peers (

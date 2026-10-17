@@ -45,7 +45,6 @@ package peers
 
 import (
 	"context"
-	"encoding/json"
 	"maps"
 	"sync"
 	"time"
@@ -263,6 +262,7 @@ func (r *razgovorSCvorom) odbaci(v ledger.Version) {
 	}
 	k := ledger.FrontierKey(v.NodeID, v.Channel)
 	r.odbijeno[k] = max(r.odbijeno[k], v.VersionID)
+	r.zapamtiBaceno(k, v.VersionID)
 }
 
 // bezPreskocenog makne iz upisa verzije u ključevima u kojima je druga
@@ -283,6 +283,7 @@ func (r *razgovorSCvorom) bezPreskocenog(wanted []ledger.Version) []ledger.Versi
 		return wanted
 	}
 	r.odbijeno = nil
+	r.preskoceni = r.odbijene.moje
 	r.s.zaboraviOdbijeneOd(r.odbijene.kljuc)
 	out := make([]ledger.Version, 0, len(wanted))
 	for _, v := range wanted {
@@ -313,17 +314,12 @@ func (r *razgovorSCvorom) razmijeniOdbijene() error {
 
 // primiOdbijene prima granicu odbijenih druge strane. Druga vrsta poruke je
 // greška, kao u ocekuj. Pokvaren sadržaj nije: zanemari se i šalje se sve,
-// kao bez oznake, jer djelomično pročitanoj granici ne može se vjerovati.
+// kao bez oznake, jer djelomično pročitanoj granici ne može se vjerovati
+// (ocekujIliNista).
 func (r *razgovorSCvorom) primiOdbijene() error {
-	var sirovo json.RawMessage
-	if err := r.ocekuj(kindGranicaOdbijenih, &sirovo); err != nil {
-		return err
-	}
-	var stigla odbijeneMsg
-	if json.Unmarshal(sirovo, &stigla) == nil {
-		r.njihoveOdbijene = stigla.Granica
-	}
-	return nil
+	stigla, err := ocekujIliNista[odbijeneMsg](r, kindGranicaOdbijenih)
+	r.njihoveOdbijene = stigla.Granica
+	return err
 }
 
 // granicaZaDeltu je tuđa granica po kojoj se slaže delta: po ključu veće od
