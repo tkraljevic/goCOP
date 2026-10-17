@@ -130,8 +130,9 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	if len(versions) == 0 {
 		return rep, fmt.Errorf("arhiva je prazna")
 	}
-	// isto kao razmjena: rupe, u knjigu, pa na površinu
-	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, nil, rupeIzArhive(ctx, in, versions)))
+	// isto kao razmjena: rupe, u knjigu, pa na površinu; arhiva knjige ne
+	// prolazi kroz Accept, pa odbijenoga nema
+	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
 	return rep, err
 }
 

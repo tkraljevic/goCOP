@@ -37,8 +37,19 @@ func TestPlanPopune(t *testing.T) {
 	if p, vv := planPopune("a", "d", procitano); p != (popunaKljuca{od: "a", granica: "d", procitano: "d", broj: 2}) || len(vv) != 2 {
 		t.Errorf("do granice: %+v %d", p, len(vv))
 	}
-	if p, vv := planPopune("a", "d", nil); p != (popunaKljuca{od: "a", granica: "d", procitano: "d"}) || len(vv) != 0 {
-		t.Errorf("ništa: %+v %d", p, len(vv))
+	if p, vv := planPopune("a", "d", procitano[2:]); p != (popunaKljuca{od: "a", granica: "d", procitano: "d"}) || len(vv) != 0 {
+		t.Errorf("prazna popuna, pročitano iza granice: %+v %d", p, len(vv))
+	}
+	if p, _ := planPopune("a", "c", procitano[:2]); p != (popunaKljuca{od: "a", granica: "c", procitano: "c", broj: 2}) {
+		t.Errorf("pročitano točno do granice: %+v", p)
+	}
+	// knjiga je od početka razgovora izgubila verzije (brisanje kanala):
+	// jamči se samo do zadnje pročitane, a bez ijedne ništa
+	if p, vv := planPopune("a", "d", nil); p != (popunaKljuca{od: "a", granica: "d", procitano: "a"}) || len(vv) != 0 {
+		t.Errorf("ništa pročitano: %+v %d", p, len(vv))
+	}
+	if p, vv := planPopune("a", "d", procitano[:1]); p != (popunaKljuca{od: "a", granica: "d", procitano: "b", broj: 1}) || len(vv) != 1 {
+		t.Errorf("pročitano manje od granice: %+v %d", p, len(vv))
 	}
 	puno := make([]ledger.Version, NajviseVerzijaPoRazmjeni)
 	for i := range puno {
@@ -140,6 +151,12 @@ func TestJamstvoDelte(t *testing.T) {
 	if _, popuna = rz.jamstvoDelte([]ledger.Version{v("ured", "ocitanja/16/2024", "e")}, []ledger.Version{v("ured", "ocitanja/16/2024", "d")}); popuna[k] != r("b", "e") {
 		t.Errorf("neispravna ispred poslane: %v", popuna)
 	}
+	// ključ kojemu se ništa nije dalo pročitati (procitano = od) ne javlja popunu
+	rz.popunjavam.kljucevi[m] = popunaKljuca{od: "b", granica: "g", procitano: "b"}
+	if _, popuna = rz.jamstvoDelte(poslano, neispravne); fmt.Sprint(popuna) != fmt.Sprint(map[string]raspon{k: r("b", "e")}) {
+		t.Errorf("popuna bez pročitanoga: %v", popuna)
+	}
+	rz.popunjavam.kljucevi[m] = popunaKljuca{od: "b", granica: "g", procitano: "g"}
 	rz.popunjavam.kljucevi[k] = popunaKljuca{od: "b", granica: "g", procitano: "g", broj: 2}
 	rz.s.rupeMijenja.Add(1)
 	if rupe, _ = rz.jamstvoDelte(poslano, neispravne); fmt.Sprint(rupe) != fmt.Sprint(map[string]raspon{k: r("c", "i")}) {
@@ -197,11 +214,12 @@ func TestPromjenaRupaPrimatelja(t *testing.T) {
 	if fmt.Sprint(p.kljucevi) != fmt.Sprint(ocekivano) {
 		t.Errorf("ključevi:\n%+v\nočekivano\n%+v", p.kljucevi, ocekivano)
 	}
-	// ograda popustila: odbijeno se traži
-	rz.s.PostaviStanjePrihvata(func() (uint64, time.Time) { return 1, time.Time{} })
-	rz.odbijene.ograda = stanjeOgrade{narastaj: 0}
-	if pk := rz.promjenaRupa(wanted).kljucevi[k]; !pk.odbijeno.prazan() || pk.uTrazi != r("d", "h") {
-		t.Errorf("ograda popustila: %+v", pk)
+	// ograda s početka razgovora ide uz promjenu, a popuštanje se gleda tek
+	// pod bravom (podOgradom), pa promjenaRupa ograde ne čita
+	rz.s.PostaviStanjePrihvata(func() (uint64, time.Time) { t.Error("ograda pročitana prije brave"); return 1, time.Time{} })
+	rz.odbijene.ograda = stanjeOgrade{narastaj: 7}
+	if p := rz.promjenaRupa(wanted); p.ograda != rz.odbijene.ograda || p.kljucevi[k].odbijeno != r("d", "h") || !p.kljucevi[k].uTrazi.prazan() {
+		t.Errorf("ograda uz promjenu: %+v", p)
 	}
 }
 

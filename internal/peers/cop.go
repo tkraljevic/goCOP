@@ -481,8 +481,8 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	filter := s.wantsFunc(ctx, &myWants)
-	wanted, baceno := s.zaUvoz(versions, filter)
-	rep.Novih, err = s.uveziSRupama(ctx, wanted, s.promjenaUvoza(ctx, wanted, baceno, rupeIzPaketa(m, versions)))
+	wanted, odluke := s.zaUvoz(versions, filter)
+	rep.Novih, err = s.uveziSRupama(ctx, wanted, s.promjenaUvoza(ctx, wanted, odluke, rupeIzPaketa(m, versions)))
 	if err != nil {
 		return rep, err
 	}

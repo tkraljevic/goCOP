@@ -13,8 +13,8 @@ package peers
 //
 // Testovi u ovoj datoteci služe se samo API-jem koji je postojao i prije
 // G4b (oznaka "rupe/1" je samo niz), pa se prevode i na 3356a3ab, gdje
-// padaju. Isto vrijedi za TestNamjernoIzostavljenoNijeRupa, koji tamo
-// prolazi, jer čuva ponašanje koje se ne mijenja.
+// padaju. Tamo prolaze samo kontrole, TestNamjernoIzostavljenoNijeRupa i
+// TestPretplataNijeIzvorRupe, jer čuvaju ponašanje koje se ne mijenja.
 
 import (
 	"context"

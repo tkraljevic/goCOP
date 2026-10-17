@@ -17,24 +17,29 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/ledger"
 )
 
-// Uvoz uzima kanale koje čvor prati, a što ograda odbije, vraća zasebno
+// Uvoz uzima kanale koje čvor prati, a što ograda odbije, vraća zasebno,
+// uz stanje ograde pročitano prije prve odluke
 func TestZaUvoz(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
-	s.Accept(odbijaStaro)
+	narastaj := uint64(1)
+	s.PostaviStanjePrihvata(func() (uint64, time.Time) { return narastaj, stalnoVrijeme })
+	s.Accept(func(v ledger.Version) bool { narastaj = 2; return odbijaStaro(v) })
 	verzije := []ledger.Version{v("ured", "ocitanja/16/2024", "a"), v("ured", "ocitanja/3/2024", "b"), v("ured", "ocitanja/16/2024", "c")}
 	verzije[2].EntityID = "staro-c"
 	samo16 := func(kanal string) bool { return kanal == "ocitanja/16/2024" }
-	wanted, bacio := s.zaUvoz(verzije, samo16)
-	if len(wanted) != 1 || wanted[0].VersionID != "a" || bacio["ured|ocitanja/16/2024"] != (baceno{najmanja: "c", najveca: "c"}) || len(bacio) != 1 {
-		t.Errorf("uz filtar: %v %+v", wanted, bacio)
+	wanted, odluke := s.zaUvoz(verzije, samo16)
+	if len(wanted) != 1 || wanted[0].VersionID != "a" || odluke.bacio["ured|ocitanja/16/2024"] != (baceno{najmanja: "c", najveca: "c"}) || len(odluke.bacio) != 1 ||
+		odluke.ograda != (stanjeOgrade{narastaj: 1, rub: stalnoVrijeme}) {
+		t.Errorf("uz filtar: %v %+v", wanted, odluke)
 	}
 	s.Accept(nil)
-	if wanted, bacio = s.zaUvoz(verzije, nil); len(wanted) != 3 || bacio != nil {
-		t.Errorf("bez filtra: %v %+v", wanted, bacio)
+	if wanted, odluke = s.zaUvoz(verzije, nil); len(wanted) != 3 || odluke.bacio != nil || odluke.ograda.narastaj != 2 {
+		t.Errorf("bez filtra: %v %+v", wanted, odluke)
 	}
 }
 
@@ -45,15 +50,16 @@ func TestPromjenaUvoza(t *testing.T) {
 	upisiStalno(t, s, verzijaRupe("301", "novo-1"))
 	k := kljucRupe
 	wanted := []ledger.Version{verzijaRupe("302", "x"), v("cop-osijek", "ocitanja/16/2024", "z")}
-	bacio := map[string]baceno{k: {najmanja: "0190a000-0000-7000-8000-000000000303", najveca: "0190a000-0000-7000-8000-000000000304"}}
+	odluke := odlukeUvoza{bacio: map[string]baceno{k: {najmanja: "0190a000-0000-7000-8000-000000000303", najveca: "0190a000-0000-7000-8000-000000000304"}},
+		ograda: stanjeOgrade{narastaj: 3}}
 	rupe := map[string]raspon{k: r("", "0190a000-0000-7000-8000-000000000310")}
-	p := s.promjenaUvoza(ctxRub, wanted, bacio, rupe)
+	p := s.promjenaUvoza(ctxRub, wanted, odluke, rupe)
 	ocekivano := promjenaKljuca{fs: rupaNovo1.VersionID, nesigurno: rupe[k], odbijeno: r("0190a000-0000-7000-8000-000000000302", "0190a000-0000-7000-8000-000000000304")}
-	if len(p.kljucevi) != 1 || fmt.Sprint(p.kljucevi[k]) != fmt.Sprint(ocekivano) || p.prije != nil || p.pravilo {
+	if len(p.kljucevi) != 1 || fmt.Sprint(p.kljucevi[k]) != fmt.Sprint(ocekivano) || p.prije != nil || p.pravilo || p.ograda != odluke.ograda {
 		t.Errorf("uvoz: %+v", p)
 	}
 	pokvariTablicu(t, s, "record_versions")
-	if p := s.promjenaUvoza(ctxRub, wanted, nil, rupe); p.kljucevi[k].fs != "" {
+	if p := s.promjenaUvoza(ctxRub, wanted, odlukeUvoza{}, rupe); p.kljucevi[k].fs != "" {
 		t.Errorf("bez granice: %+v", p)
 	}
 }

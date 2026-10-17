@@ -260,6 +260,29 @@ func TestPromjenaRupa(t *testing.T) {
 	}
 }
 
+// Ograda od odluka accepta: dok jednako odbija, promjena ostaje ista; kad
+// je pravilo promijenjeno ili rub otišao unatrag, odbijeno se traži, a
+// izvorna promjena se ne mijenja (smanjenje nakon upisa koristi vraćenu)
+func TestUzOgradu(t *testing.T) {
+	p := promjenaRupa{ograda: stanjeOgrade{narastaj: 1, rub: stalnoVrijeme}, kljucevi: map[string]promjenaKljuca{
+		"k": {odbijeno: r("c", "d"), uTrazi: r("a", "b"), fs: "c"},
+		"m": {nesigurno: r("a", "b")},
+	}}
+	if got := p.uzOgradu(stanjeOgrade{narastaj: 1, rub: stalnoVrijeme.Add(time.Hour)}); fmt.Sprint(got) != fmt.Sprint(p) {
+		t.Errorf("ograda jednako odbija: %+v", got)
+	}
+	for _, sada := range []stanjeOgrade{{narastaj: 2, rub: stalnoVrijeme}, {narastaj: 1, rub: stalnoVrijeme.Add(-time.Hour)}} {
+		got := p.uzOgradu(sada)
+		ocekivano := map[string]promjenaKljuca{"k": {uTrazi: r("a", "d"), fs: "c"}, "m": {nesigurno: r("a", "b")}}
+		if fmt.Sprint(got.kljucevi) != fmt.Sprint(ocekivano) || got.ograda != p.ograda {
+			t.Errorf("ograda popustila (%+v): %+v", sada, got)
+		}
+	}
+	if p.kljucevi["k"].odbijeno != r("c", "d") {
+		t.Errorf("izvorna promjena izmijenjena: %+v", p.kljucevi["k"])
+	}
+}
+
 func TestUzBaceno(t *testing.T) {
 	m := uzBaceno(nil, "k", "c")
 	m = uzBaceno(m, "k", "a")

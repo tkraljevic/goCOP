@@ -195,23 +195,23 @@ func TestPromijeniRupe(t *testing.T) {
 	s := rubniCvor(t, "laptop-drugi")
 	upisiStalno(t, s, verzijaUreda("a"), verzijaUreda("b"))
 	pokvariTablicu(t, s, "rupe_pravilo")
-	if err := s.promijeniRupe(ctxRub, promjenaRupa{}, promjenaKljuca.prosiri); err != nil {
+	if err := s.promijeniRupe(ctxRub, &promjenaRupa{}, promjenaKljuca.prosiri); err != nil {
 		t.Errorf("bez promjene otvorena transakcija: %v", err)
 	}
 	obnoviTablicuRupa(t, s)
 	postaviPravilo(s, 12)
-	if err := s.promijeniRupe(ctxRub, promjenaRupa{pravilo: true}, promjenaKljuca.prosiri); err != nil || s.rupeMijenja.Load() != 1 {
+	if err := s.promijeniRupe(ctxRub, &promjenaRupa{pravilo: true}, promjenaKljuca.prosiri); err != nil || s.rupeMijenja.Load() != 1 {
 		t.Fatalf("prvi korak: %v, brojač %d", err, s.rupeMijenja.Load())
 	}
 	if rupe := rupeCvora(t, s); rupe[kljucUreda].odbijeno != r("", "b") {
 		t.Errorf("prvi korak: %+v", rupe)
 	}
 	raste := promjenaRupa{kljucevi: map[string]promjenaKljuca{"ured|ocitanja/3/2024": {nesigurno: r("a", "b")}}}
-	if err := s.promijeniRupe(ctxRub, raste, promjenaKljuca.prosiri); err != nil || s.rupeMijenja.Load() != 2 {
+	if err := s.promijeniRupe(ctxRub, &raste, promjenaKljuca.prosiri); err != nil || s.rupeMijenja.Load() != 2 {
 		t.Errorf("rast: %v, brojač %d", err, s.rupeMijenja.Load())
 	}
 	suzi := promjenaRupa{kljucevi: map[string]promjenaKljuca{"ured|ocitanja/3/2024": {pokriveno: []raspon{r("", "z")}, fs: "z"}}, prije: map[string]rupaKljuca{"ured|ocitanja/3/2024": {trazi: r("a", "b")}}}
-	if err := s.promijeniRupe(ctxRub, suzi, promjenaKljuca.suzi); err != nil || s.rupeMijenja.Load() != 2 {
+	if err := s.promijeniRupe(ctxRub, &suzi, promjenaKljuca.suzi); err != nil || s.rupeMijenja.Load() != 2 {
 		t.Errorf("smanjenje: %v, brojač %d", err, s.rupeMijenja.Load())
 	}
 	if _, ima := rupeCvora(t, s)["ured|ocitanja/3/2024"]; ima {
@@ -219,8 +219,30 @@ func TestPromijeniRupe(t *testing.T) {
 	}
 	otkazan, otkazi := context.WithCancel(ctxRub)
 	otkazi()
-	if err := s.promijeniRupe(otkazan, raste, promjenaKljuca.prosiri); err == nil || s.rupeMijenja.Load() != 2 {
+	if err := s.promijeniRupe(otkazan, &raste, promjenaKljuca.prosiri); err == nil || s.rupeMijenja.Load() != 2 {
 		t.Errorf("otkazana transakcija: %v, brojač %d", err, s.rupeMijenja.Load())
+	}
+}
+
+// Pod bravom se pravilo čita prije ograde: kad se pravilo promijeni dok se
+// čita (narastaj poraste), ograda je popustila i odbijeno se traži, a uz
+// zapis ide pročitano pravilo
+func TestPodOgradom(t *testing.T) {
+	s := rubniCvor(t, "laptop-drugi")
+	var narastaj atomic.Uint64
+	narastaj.Store(1)
+	s.PostaviStanjePrihvata(func() (uint64, time.Time) { return narastaj.Load(), stalnoVrijeme })
+	s.PostaviPraviloPrihvata(func() (int, []string) { narastaj.Store(2); return 24, []string{"station:a"} })
+	p := promjenaRupa{ograda: stanjeOgrade{narastaj: 1, rub: stalnoVrijeme}, kljucevi: map[string]promjenaKljuca{kljucUreda: {odbijeno: r("a", "b")}}}
+	got := s.podOgradom(p)
+	if got.sada.mjeseci != 24 || len(got.sada.pracene) != 1 || !got.sada.rub.Equal(stalnoVrijeme) ||
+		got.kljucevi[kljucUreda].uTrazi != r("a", "b") || !got.kljucevi[kljucUreda].odbijeno.prazan() {
+		t.Errorf("pravilo promijenjeno pri čitanju: %+v", got)
+	}
+	s.PostaviPraviloPrihvata(func() (int, []string) { return 24, nil })
+	p.ograda.narastaj = 2
+	if got := s.podOgradom(p); got.kljucevi[kljucUreda].odbijeno != r("a", "b") || got.sada.mjeseci != 24 {
+		t.Errorf("isto pravilo: %+v", got)
 	}
 }
 
@@ -261,7 +283,7 @@ func TestRupeUTransakcijiGreske(t *testing.T) {
 				korak = promjenaKljuca.suzi
 				p.kljucevi["ured|ocitanja/3/2024"] = promjenaKljuca{pokriveno: []raspon{r("", "z")}}
 			}
-			if err := s.promijeniRupe(ctxRub, p, korak); err == nil || s.rupeMijenja.Load() != 0 {
+			if err := s.promijeniRupe(ctxRub, &p, korak); err == nil || s.rupeMijenja.Load() != 0 {
 				t.Errorf("greška %v, brojač %d", err, s.rupeMijenja.Load())
 			}
 		})
@@ -291,7 +313,7 @@ func TestProsiriOdbijeno(t *testing.T) {
 	}
 	p.mjeseci.Store(24)
 	s.satOdbijenih = func() time.Time { return stalnoVrijeme }
-	if err := s.promijeniRupe(ctxRub, promjenaRupa{pravilo: true}, promjenaKljuca.prosiri); err != nil {
+	if err := s.promijeniRupe(ctxRub, &promjenaRupa{pravilo: true}, promjenaKljuca.prosiri); err != nil {
 		t.Fatal(err)
 	}
 	rupe := rupeCvora(t, s)

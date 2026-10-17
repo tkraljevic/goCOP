@@ -7,7 +7,9 @@ package peers
 
 import (
 	"fmt"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
@@ -390,5 +392,110 @@ func TestVlastitiKljucBezRupe(t *testing.T) {
 	upisaoPrimatelj(t, a, c, true)
 	if rupe := rupeCvora(t, a); len(rupe) != 0 {
 		t.Errorf("Unraid ima rupu od ureda: %+v", rupe)
+	}
+}
+
+// Brisanje kanala usred razgovora: laptop-baranja zapis rupa i granicu uzme
+// prije brisanja, a popunu čita poslije. Za ono čega više nema ne jamči, pa
+// Unraid rupu ne zatvori i staro-a dobije od ureda. Ni novo računalo koje
+// niz ima od uskog laptopa od Unraida ne dobije lažno zatvorenu rupu.
+func TestBrisanjeKanalaUsredPopune(t *testing.T) {
+	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured", "laptop-baranja", "laptop-novi")
+	a, d, c, b, n := cv[0], cv[1], cv[2], cv[3], cv[4]
+	d.Accept(odbijaStaro)
+	upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
+	upisaoPrimatelj(t, d, c, true)
+	if got := upisaoPrimatelj(t, b, c, true); got != 3 {
+		t.Fatalf("laptop-baranja od ureda upisao %d", got)
+	}
+	upisaoPrimatelj(t, a, d, true)
+	p, z := razgovarajUzZastoj(t, b, a, func() {
+		b.SetWantsAll(false)
+		if _, err := b.PurgeChannel(ctxRub, kanalRupe); err != nil {
+			t.Fatal(err)
+		}
+	})
+	if p.sent != 0 || z.applied != 0 || rupeCvora(t, a)[kljucRupe].trazi.prazan() {
+		t.Fatalf("laptop-baranja poslao %d, Unraid upisao %d, a rupe Unraida su %+v", p.sent, z.applied, rupeCvora(t, a))
+	}
+	upisaoPrimatelj(t, n, d, true)
+	upisaoPrimatelj(t, n, a, true)
+	if rk := rupeCvora(t, n)[kljucRupe]; rk.trazi.prazan() {
+		t.Errorf("novo računalo nakon Unraida ne traži: %+v", rk)
+	}
+	for _, s := range []*Service{a, n} {
+		if got := upisaoPrimatelj(t, s, c, true); got != 1 || !imaVerziju(t, s, rupaStaroA.VersionID) {
+			t.Errorf("%s od ureda upisao %d, a staro-a ima: %v", s.node.ID, got, imaVerziju(t, s, rupaStaroA.VersionID))
+		}
+	}
+}
+
+// siriNakonOdbijanja daje laptopu uže pravilo (12 mjeseci), po kojem odbija
+// staro-a. Prvo čitanje pravila nakon prvog odbijanja proširi ga novom
+// praćenom letvom: narastaj ograde poraste, a Accept odsad prima sve. To
+// čitanje je pod bravom upisa, prije zapisa rupa, kao kad korisnik zaprati
+// letvu dok razgovor ili uvoz čeka bravu.
+func siriNakonOdbijanja(s *Service) *atomic.Bool {
+	var odbio, siroko atomic.Bool
+	rub := stalnoVrijeme.AddDate(0, -12, 0)
+	s.Accept(func(v ledger.Version) bool {
+		ok := siroko.Load() || odbijaStaro(v)
+		if !ok {
+			odbio.Store(true)
+		}
+		return ok
+	})
+	s.PostaviPraviloPrihvata(func() (int, []string) {
+		if odbio.Load() {
+			siroko.Store(true)
+			return 12, []string{"station:nova"}
+		}
+		return 12, nil
+	})
+	s.PostaviStanjePrihvata(func() (uint64, time.Time) {
+		if siroko.Load() {
+			return 2, rub
+		}
+		return 1, rub
+	})
+	return &siroko
+}
+
+// Pravilo prošireno nakon odluka accepta, a prije zapisa rupa: šire
+// pravilo zapiše se u istom koraku, pa ga sljedeći razgovor ne vidi kao
+// novo. Ono što je laptop odbio po užem pravilu ipak se traži i stigne.
+func TestOgradaPopustiPrijeZapisaRupa(t *testing.T) {
+	cv := mrezaRupe(t, nil, "laptop-drugi", "windows-ured")
+	d, c := cv[0], cv[1]
+	siroko := siriNakonOdbijanja(d)
+	d.PripremiRupe(ctxRub)
+	upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
+	if got := upisaoPrimatelj(t, d, c, true); got != 2 || !siroko.Load() {
+		t.Fatalf("laptop od ureda upisao %d, pravilo prošireno: %v", got, siroko.Load())
+	}
+	if rk := rupeCvora(t, d)[kljucRupe]; rk.trazi != (raspon{Od: rupaNovo1.VersionID, Do: rupaStaroA.VersionID}) || !rk.odbijeno.prazan() {
+		t.Errorf("laptop ne traži odbijeno: %+v", rk)
+	}
+	if got := upisaoPrimatelj(t, d, c, false); got != 1 || !imaVerziju(t, d, rupaStaroA.VersionID) {
+		t.Errorf("laptop nakon proširenja upisao %d, a staro-a ima: %v", got, imaVerziju(t, d, rupaStaroA.VersionID))
+	}
+}
+
+// Isto uz uvoz COP paketa: korisnik zaprati letvu dok uvoz čeka bravu, a
+// paket nosi i njezina stara očitanja. Što je uvoz odbio, traži se.
+func TestOgradaPopustiUsredUvoza(t *testing.T) {
+	cv := mrezaRupe(t, nil, "laptop-drugi", "windows-ured")
+	d, c := cv[0], cv[1]
+	siroko := siriNakonOdbijanja(d)
+	d.PripremiRupe(ctxRub)
+	upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
+	if n, err := putoviUvoza[1].uvezi(d, c, kanalRupe, t.TempDir()); n != 2 || err != nil || !siroko.Load() {
+		t.Fatalf("uvezeno %d, %v, pravilo prošireno: %v", n, err, siroko.Load())
+	}
+	if rk := rupeCvora(t, d)[kljucRupe]; rk.trazi != (raspon{Od: rupaNovo1.VersionID, Do: rupaStaroA.VersionID}) || !rk.odbijeno.prazan() {
+		t.Errorf("laptop ne traži odbijeno: %+v", rk)
+	}
+	if got := upisaoPrimatelj(t, d, c, true); got != 1 || !imaVerziju(t, d, rupaStaroA.VersionID) {
+		t.Errorf("laptop nakon uvoza od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, d, rupaStaroA.VersionID))
 	}
 }

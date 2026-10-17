@@ -138,24 +138,39 @@ func zapisRuba(rub time.Time) string {
 // transakciji: uskladi pravilo, pa svaki ključ iz promjene. Kad je ijedan
 // raspon za koji ovo računalo ne jamči narastao, nakon transakcije digne
 // brojač rupeMijenja. Bez promjene ključa i pravila transakciju ne otvara,
-// pa kvar tablice rupa ne zaustavlja dostavu u mreži bez rupa.
-func (s *Service) promijeniRupe(ctx context.Context, p promjenaRupa, korak korakRupa) error {
+// pa kvar tablice rupa ne zaustavlja dostavu u mreži bez rupa. Prije
+// transakcije pročita pravilo i ogradu (podOgradom) i to ostavi u p, pa
+// smanjenje nakon upisa traži isto odbijeno kao i zapis prije njega.
+func (s *Service) promijeniRupe(ctx context.Context, p *promjenaRupa, korak korakRupa) error {
 	if !p.pravilo && !p.ima() {
 		return nil
 	}
+	*p = s.podOgradom(*p)
 	var naraslo bool
 	err := s.uTransakciji(ctx, func(tx *sql.Tx) (err error) {
-		naraslo, err = s.rupeUTransakciji(ctx, tx, p, korak)
+		naraslo, err = s.rupeUTransakciji(ctx, tx, *p, korak)
 		return err
 	})
 	s.javiRast(naraslo, err)
 	return err
 }
 
+// podOgradom pročita, pod bravom upisa, pravilo čuvanja (sada) pa stanje
+// ograde. Narastaj ograde mijenja se sa svakom promjenom pravila, pa kad je
+// isti kao prije odluka accepta, pravilo pročitano prije njega je ono po
+// kojem je accept odbijao i smije se uz odbijeno zapisati. Inače je ograda
+// od tada popustila i odbijeno se traži (uzOgradu); pravilo se može
+// proširiti i dok razgovor ili uvoz čeka bravu, a šire pravilo može prije
+// zapisati i drugi razgovor, pa usporedba sa spremljenim nije dovoljna.
+func (s *Service) podOgradom(p promjenaRupa) promjenaRupa {
+	p.sada = s.praviloSada()
+	return p.uzOgradu(s.ogradaSada())
+}
+
 // rupeUTransakciji uskladi pravilo i promijeni ključeve; javlja je li koji
 // raspon narastao
 func (s *Service) rupeUTransakciji(ctx context.Context, tx *sql.Tx, p promjenaRupa, korak korakRupa) (bool, error) {
-	prvi, err := s.uskladiPravilo(ctx, tx)
+	prvi, err := s.uskladiPravilo(ctx, tx, p.sada)
 	if err != nil {
 		return false, err
 	}
@@ -171,15 +186,15 @@ func (s *Service) javiRast(naraslo bool, err error) {
 }
 
 // uskladiPravilo pročita spremljeno pravilo čuvanja i usporedi ga sa
-// sadašnjim. Bez spremljenoga napravi jednokratni korak (prviKorak), a uz
-// prošireno pravilo odbijeno prebaci u trazi (prosiriOdbijeno). Zatim
-// zapiše sadašnje pravilo. Javlja je li prvi korak dodao rupe.
-func (s *Service) uskladiPravilo(ctx context.Context, tx *sql.Tx) (bool, error) {
+// sadašnjim (sada, podOgradom). Bez spremljenoga napravi jednokratni korak
+// (prviKorak), a uz prošireno pravilo odbijeno prebaci u trazi
+// (prosiriOdbijeno). Zatim zapiše sadašnje pravilo. Javlja je li prvi
+// korak dodao rupe.
+func (s *Service) uskladiPravilo(ctx context.Context, tx *sql.Tx, sada praviloCuvanja) (bool, error) {
 	staro, zapisano, err := citajPravilo(ctx, tx)
 	if err != nil {
 		return false, err
 	}
-	sada := s.praviloSada()
 	prvi, err := s.prviKorak(ctx, tx, zapisano, sada.mjeseci)
 	if err != nil {
 		return false, err

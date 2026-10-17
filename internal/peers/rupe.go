@@ -30,7 +30,10 @@ package peers
 //   - primatelj prije upisa trajno zapiše što je odbio i što mu je stiglo s
 //     rupom (prosiri), a tek nakon uspješnog upisa makne ono što mu je
 //     pokriveno (suzi). Pad između ostavi rupu veću nego što jest, a to
-//     košta samo jedno ponovno slanje.
+//     košta samo jedno ponovno slanje. Je li ograda od odluka accepta
+//     popustila, gleda tek pod bravom, nakon pravila koje zapisuje
+//     (podOgradom): pravilo se može proširiti dok razgovor ili uvoz čeka
+//     bravu, a što je odbijeno po užem pravilu, tada se traži.
 //
 // Raspon je jedan po vrsti i ključu: spajanje uzima najmanji raspon koji
 // drži oba, pa je veći nego što treba. To isto košta samo ponovno slanje.
@@ -279,7 +282,7 @@ func (p pocetakRupa) zaIzvoz(broj uint64, verzije []ledger.Version) map[string]r
 // promjenaKljuca je ono što upis primljenog mijenja u rupama jednog ključa
 type promjenaKljuca struct {
 	odbijeno  raspon   // što je ovo računalo odbilo
-	uTrazi    raspon   // odbijeno kad je ograda od početka razgovora popustila: traži se
+	uTrazi    raspon   // odbijeno kad je ograda od odluka accepta popustila: traži se (uzOgradu)
 	nesigurno raspon   // dio primljenoga za koji druga strana ne jamči
 	pokriveno []raspon // dijelovi za koje druga strana jamči da je dala sve što ima
 	fs        string   // granica knjige ovog računala prije upisa
@@ -356,11 +359,32 @@ func rasponOdbijenog(b baceno, fs, ispod string) raspon {
 type korakRupa func(promjenaKljuca, rupaKljuca) rupaKljuca
 
 // promjenaRupa je promjena zapisa rupa po ključu, uz zapis s početka
-// razgovora (prije; kod uvoza ga nema) i treba li zapisati pravilo
+// razgovora (prije; kod uvoza ga nema) i treba li zapisati pravilo. ograda
+// je stanje ograde prihvata prije odluka accepta, a sada pravilo čuvanja
+// uz koje se promjena zapisuje (podOgradom, pod bravom upisa).
 type promjenaRupa struct {
 	kljucevi map[string]promjenaKljuca
 	prije    map[string]rupaKljuca
 	pravilo  bool
+	ograda   stanjeOgrade
+	sada     praviloCuvanja
+}
+
+// uzOgradu: kad ograda od odluka accepta (p.ograda) više ne odbija isto
+// (sada: pravilo promijenjeno ili rub otišao unatrag), odbijeno bi sad možda
+// prošlo, pa se traži (uTrazi), a ne samo bilježi. Mapa ključeva je nova,
+// jer istu promjenu poslije upisa koristi i smanjenje (suzi).
+func (p promjenaRupa) uzOgradu(sada stanjeOgrade) promjenaRupa {
+	if p.ograda.josOdbija(sada) {
+		return p
+	}
+	kljucevi := make(map[string]promjenaKljuca, len(p.kljucevi))
+	for k, pk := range p.kljucevi {
+		pk.uTrazi, pk.odbijeno = pk.uTrazi.uz(pk.odbijeno), raspon{}
+		kljucevi[k] = pk
+	}
+	p.kljucevi = kljucevi
+	return p
 }
 
 // ima: promjena mijenja zapis nekog ključa, pa treba transakciju

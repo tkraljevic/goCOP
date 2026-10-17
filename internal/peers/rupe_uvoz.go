@@ -18,38 +18,46 @@ import (
 	"gocop/internal/ledger"
 )
 
+// odlukeUvoza su odluke accepta pri uvozu: po ključu najmanja i najveća
+// odbijena verzija (bacio) i stanje ograde pročitano prije prve odluke, po
+// kojem se pod bravom vidi je li ograda u međuvremenu popustila (podOgradom)
+type odlukeUvoza struct {
+	bacio  map[string]baceno
+	ograda stanjeOgrade
+}
+
 // zaUvoz su verzije paketa koje ovaj čvor uzima: kanal koji prati i ono
 // što prihvaća (Accept), kao razmjenom. Odbijeno se vraća zasebno, za
 // zapis rupa; što otpadne na pretplatama, ne.
-func (s *Service) zaUvoz(versions []ledger.Version, filter func(string) bool) ([]ledger.Version, map[string]baceno) {
+func (s *Service) zaUvoz(versions []ledger.Version, filter func(string) bool) ([]ledger.Version, odlukeUvoza) {
 	var wanted []ledger.Version
-	var bacio map[string]baceno
+	odluke := odlukeUvoza{ograda: s.ogradaSada()}
 	for _, v := range versions {
 		switch {
 		case filter != nil && !filter(v.Channel):
 		case s.accept != nil && !s.accept(v):
-			bacio = uzBaceno(bacio, ledger.FrontierKey(v.NodeID, v.Channel), v.VersionID)
+			odluke.bacio = uzBaceno(odluke.bacio, ledger.FrontierKey(v.NodeID, v.Channel), v.VersionID)
 		default:
 			wanted = append(wanted, v)
 		}
 	}
-	return wanted, bacio
+	return wanted, odluke
 }
 
 // promjenaUvoza je promjena rupa uz uvoz: po tuđem ključu odbijeno (kao u
 // razgovoru) i rupe izvoznika iznad granice knjige ovog čvora (nesigurno).
 // Pokrivenoga nema, pa uvoz trazi ne smanjuje. Kad se granica ne da
 // pročitati, uzima se prazna, što je na sigurnu stranu.
-func (s *Service) promjenaUvoza(ctx context.Context, wanted []ledger.Version, bacio map[string]baceno, rupe map[string]raspon) promjenaRupa {
+func (s *Service) promjenaUvoza(ctx context.Context, wanted []ledger.Version, odluke odlukeUvoza, rupe map[string]raspon) promjenaRupa {
 	moja, err := s.rec.Frontier(ctx)
 	if err != nil {
 		moja = nil
 	}
-	ispod := ispodOdbijenih(wanted, bacio)
-	p := promjenaRupa{kljucevi: map[string]promjenaKljuca{}}
-	for _, k := range skupKljuceva(maps.Keys(pomakniGranicu(nil, wanted)), maps.Keys(bacio)) {
+	ispod := ispodOdbijenih(wanted, odluke.bacio)
+	p := promjenaRupa{kljucevi: map[string]promjenaKljuca{}, ograda: odluke.ograda}
+	for _, k := range skupKljuceva(maps.Keys(pomakniGranicu(nil, wanted)), maps.Keys(odluke.bacio)) {
 		if autor, _ := ledger.SplitFrontierKey(k); autor != s.node.ID {
-			p.kljucevi[k] = promjenaKljuca{fs: moja[k], nesigurno: rupe[k], odbijeno: rasponOdbijenog(bacio[k], moja[k], ispod[k])}
+			p.kljucevi[k] = promjenaKljuca{fs: moja[k], nesigurno: rupe[k], odbijeno: rasponOdbijenog(odluke.bacio[k], moja[k], ispod[k])}
 		}
 	}
 	return p
@@ -79,7 +87,7 @@ func (s *Service) rupePodBravom(ctx context.Context, p promjenaRupa, korak korak
 		return err
 	}
 	defer s.pustiBravu()
-	return s.promijeniRupe(ctx, p, korak)
+	return s.promijeniRupe(ctx, &p, korak)
 }
 
 // rupeIzArhive su rupe izvoznika iz arhive knjige (archive_meta 'rupe').

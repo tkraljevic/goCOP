@@ -133,7 +133,7 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 // ne upisuje ni verzije, pa sve stigne sljedećim razgovorom. Kad se ne da
 // zapisati smanjenje, rupa ostane veća, a to košta jedno ponovno slanje.
 func (s *Service) primijeniSRupama(ctx context.Context, verzije []ledger.Version, p promjenaRupa) (applied int, povrsina, err error) {
-	if err := s.promijeniRupe(ctx, p, promjenaKljuca.prosiri); err != nil {
+	if err := s.promijeniRupe(ctx, &p, promjenaKljuca.prosiri); err != nil {
 		return 0, nil, err
 	}
 	applied, povrsina, err = s.primijeni(ctx, verzije)
@@ -148,7 +148,7 @@ func (s *Service) suziNakonUpisa(ctx context.Context, p promjenaRupa, upis error
 	if upis != nil {
 		return
 	}
-	if err := s.promijeniRupe(ctx, p, promjenaKljuca.suzi); err != nil {
+	if err := s.promijeniRupe(ctx, &p, promjenaKljuca.suzi); err != nil {
 		log.Printf("razmjena: zapis rupa nije smanjen, pokriveno se traži još jednom: %v", err)
 	}
 }

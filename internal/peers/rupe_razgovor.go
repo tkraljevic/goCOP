@@ -147,19 +147,32 @@ func (r *razgovorSCvorom) granicaPopune(k string, t raspon, g map[string]string,
 	return granica, (prati == nil || prati(kanal)) && r.rupe.jamciIza(k, t.Od) && granica > t.Od
 }
 
-// planPopune: od pročitanoga iza od popunjava se ono do granice. Pročitano
-// je do granice, osim kad je pročitana puna ograda (NajviseVerzijaPoRazmjeni)
-// i sve je do granice: tada samo do zadnje pročitane.
+// planPopune: od pročitanoga iza od popunjava se ono do granice, a dokle se
+// za to jamči, kaže dokleProcitano
 func planPopune(od, granica string, procitano []ledger.Version) (popunaKljuca, []ledger.Version) {
 	n := 0
 	for n < len(procitano) && procitano[n].VersionID <= granica {
 		n++
 	}
-	p := popunaKljuca{od: od, granica: granica, procitano: granica, broj: n}
-	if n == NajviseVerzijaPoRazmjeni {
-		p.procitano = procitano[n-1].VersionID
+	return popunaKljuca{od: od, granica: granica, procitano: dokleProcitano(od, granica, procitano[:n], n < len(procitano)), broj: n}, procitano[:n]
+}
+
+// dokleProcitano je dokle je ključ stvarno pročitan: do granice samo kad je
+// pročitana i verzija iza nje (iza), a inače do zadnje pročitane, bez
+// ijedne nigdje (od). Granica nije veća od vlastite granice s početka
+// razgovora, a zadnju verziju ključa sažimanje i prorjeđivanje ostavljaju u
+// knjizi, pa čitanje kraće od pune ograde (NajviseVerzijaPoRazmjeni) inače
+// dođe do granice. Kad ne dođe, knjiga je od početka razgovora izgubila
+// verzije (npr. brisanje kanala usred razgovora), a za ono čega više nema
+// ovo računalo ne smije jamčiti.
+func dokleProcitano(od, granica string, popuna []ledger.Version, iza bool) string {
+	switch {
+	case iza:
+		return granica
+	case len(popuna) > 0:
+		return popuna[len(popuna)-1].VersionID
 	}
-	return p, procitano[:n]
+	return od
 }
 
 // jamstvoDelte je ono što pošiljatelj s oznakom rupe/1 javi uz deltu: po
@@ -199,21 +212,29 @@ func (p popunaDelte) rasporedi(obradjeno []ledger.Version) (map[string]string, m
 	return redovno, popunjeno
 }
 
-// jamstvo je Popuna u delti: po ključu (od, e], gdje je e dokle je ključ
-// pročitan kad je obrađena sva njegova popuna, a inače zadnja obrađena
-// verzija popune. Ključ kojemu nije obrađeno ništa, a popuna nije prazna,
-// ne javlja se.
+// jamstvo je Popuna u delti: po ključu ono što popuna pokriva (pokriva).
+// Ključ s praznim rasponom ne javlja se.
 func (p popunaDelte) jamstvo(popunjeno map[string]obradjenaPopuna) map[string]raspon {
 	out := map[string]raspon{}
 	for k, plan := range p.kljucevi {
-		switch o := popunjeno[k]; {
-		case o.broj == plan.broj:
-			out[k] = raspon{Od: plan.od, Do: plan.procitano}
-		case o.broj > 0:
-			out[k] = raspon{Od: plan.od, Do: o.zadnja}
+		if r := plan.pokriva(popunjeno[k]); !r.prazan() {
+			out[k] = r
 		}
 	}
 	return out
+}
+
+// pokriva je (od, e]: e je dokle je ključ pročitan (dokleProcitano) kad je
+// obrađena sva njegova popuna, a inače zadnja obrađena verzija popune. Kad
+// nije obrađeno ništa, a popuna nije prazna, ne pokriva ništa.
+func (plan popunaKljuca) pokriva(o obradjenaPopuna) raspon {
+	switch {
+	case o.broj == plan.broj:
+		return raspon{Od: plan.od, Do: plan.procitano}
+	case o.broj > 0:
+		return raspon{Od: plan.od, Do: o.zadnja}
+	}
+	return raspon{}
 }
 
 // rupeDelte su Rupe u delti: po ključu dio omotača poslanoga (redovni dio od
@@ -265,31 +286,24 @@ func (r *razgovorSCvorom) zapamtiBaceno(k, id string) {
 // promjenaRupa složi, prije upisa, što upis mijenja u rupama: za svaki
 // ključ u koji je stiglo nešto što ovo računalo prati (wanted, poslije
 // bezPreskocenog), koji je odbilo ili koji je druga strana popunila. Bez
-// vlastitog ključa i bez ključeva koje bezPreskocenog nije upisao.
+// vlastitog ključa i bez ključeva koje bezPreskocenog nije upisao. Uz
+// promjenu ide stanje ograde s početka razgovora: ako je ograda od tada
+// popustila, odbijeno se traži, a to se gleda tek pod bravom (podOgradom).
 func (r *razgovorSCvorom) promjenaRupa(wanted []ledger.Version) promjenaRupa {
-	p := promjenaRupa{kljucevi: map[string]promjenaKljuca{}, prije: r.rupe.kljucevi, pravilo: r.rupe.zapisati}
+	p := promjenaRupa{kljucevi: map[string]promjenaKljuca{}, prije: r.rupe.kljucevi, pravilo: r.rupe.zapisati, ograda: r.odbijene.ograda}
 	vrh, ispod := pomakniGranicu(nil, wanted), ispodOdbijenih(wanted, r.bacio)
-	popustila := !r.odbijene.ograda.josOdbija(r.s.ogradaSada())
 	for _, k := range skupKljuceva(maps.Keys(vrh), maps.Keys(r.bacio), maps.Keys(r.njihovaPopuna)) {
 		if _, preskocen := r.preskoceni[k]; !preskocen && !r.rupe.vlastiti(k) {
-			p.kljucevi[k] = r.promjenaKljuca(k, max(vrh[k], r.bacio[k].najveca), ispod[k], popustila)
+			p.kljucevi[k] = r.promjenaKljuca(k, max(vrh[k], r.bacio[k].najveca), ispod[k])
 		}
 	}
 	return p
 }
 
 // promjenaKljuca je promjena ključa k, u koji je stiglo sve do m
-// (prihvaćeno, odbijeno ili neispravno). Kad je ograda od početka
-// razgovora popustila, odbijeno se traži, jer bi ga sad možda primila.
-func (r *razgovorSCvorom) promjenaKljuca(k, m, ispod string, popustila bool) promjenaKljuca {
-	pk := promjenaKljuca{fs: r.moja.Frontier[k], nesigurno: r.nesigurnoKljuca(k, m), pokriveno: r.pokrivenoKljuca(k, m)}
-	odbijeno := r.odbijenoKljuca(k, ispod)
-	if popustila {
-		pk.uTrazi = odbijeno
-	} else {
-		pk.odbijeno = odbijeno
-	}
-	return pk
+// (prihvaćeno, odbijeno ili neispravno)
+func (r *razgovorSCvorom) promjenaKljuca(k, m, ispod string) promjenaKljuca {
+	return promjenaKljuca{fs: r.moja.Frontier[k], odbijeno: r.odbijenoKljuca(k, ispod), nesigurno: r.nesigurnoKljuca(k, m), pokriveno: r.pokrivenoKljuca(k, m)}
 }
 
 // odbijenoKljuca je raspon koji ovo računalo u ključu k samo odbija: što
