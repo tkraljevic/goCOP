@@ -1,13 +1,13 @@
 // Package postava je jezgra goCOP Postave: malog, stabilnog programa koji
 // instalira goCOP, nadograđuje ga, pali i gasi čvor, drži ga u PATH-u i u
-// pokretanju pri prijavi (docs/plan-instalacija.md).
+// pokretanju pri prijavi (docs/postava.md).
 //
 // Postava nikad ne mijenja samu sebe. Mijenja samo gocop(.exe), koji je
 // njezino dijete: zaustavi ga, zamijeni datoteku i ponovno pokrene. Zato na
 // Windowsu ne treba prepisivati program koji radi.
 //
-// S čvorom razgovara samo kroz ugovor (§3.1a): gocop -version, gocop
-// -upravitelj (gasi se kad se zatvori standardni ulaz), GET /zdravlje i
+// S čvorom razgovara samo kroz ugovor (docs/postava.md): gocop -version,
+// gocop -upravitelj (gasi se kad se zatvori standardni ulaz), GET /zdravlje i
 // izdanja na GitHubu potpisana ključem izdanja (internal/izdanje). Ništa
 // drugo iz goCOP-a ne uvozi, pa izdanja goCOP-a ne mogu pokvariti Postavu.
 //

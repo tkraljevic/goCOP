@@ -1,341 +1,95 @@
-# Code Health & Quality Gate
-
-Razvojna provjera, odvojena od goCOP aplikacije. Ne pokreće poslužitelj, ne čita
-živu bazu, ne uvozi podatke i ne refaktorira kod. Mjeri stanje i uspoređuje ga s
-verzioniranim baselineom. Brojke su signal za pregled, ne dokaz operativne sigurnosti.
-
-## Pokretanje
-
-Potreban je Go iz `go.mod`, Git, `make` i okruženje koje podržava Go race detector
-(na Linuxu i C prevoditelj). Prva instalacija razvojnih alata treba internet:
-
-```sh
-make quality-tools
-make quality
-```
-
-`make quality` provjerava i testove samog mjernog alata, zatim pokreće:
-
-```sh
-go test -race -covermode=atomic -coverprofile=… -count=1 -timeout=10m <paketi>
-```
-
-`<paketi>` su paketi glavnog modula koje git vidi (praćene ili nove datoteke,
-ne ignorirane): lokalne mape iz `.gitignore`, npr. `tools/`, ne ulaze ni u
-testove, ni u lint, ni u mjerenje, pa lokalna provjera mjeri isto što i CI.
-
-Slijede golangci-lint, funkcijski CC/CRAP, exact/fuzzy analiza i regresijski gate.
-Kombinirana naredba istodobno provjerava izgradnju testiranih paketa, testove,
-race i coverage. Nije provjera svih OS/build-tag kombinacija. Prvi prolaz većeg
-projekta traje nekoliko minuta; izlaz testova postupno dolazi u `.quality/tests.log`.
-Na kraju `make quality` pokreće `make stanje-registara`, koji kaže jesu li
-provjere registara izvedene: bez izvoza registara u `data/` one se preskaču, a
-`go test` bez `-v` to ne ispisuje. Na GitHubu poruka stoji i kao upozorenje u
-sažetku provjere; vidi `make provjera-registara` u [INSTALACIJA.md](INSTALACIJA.md).
-
-- `make quality-report`: isti izvještaji; regresije ne određuju izlazni kod,
-  ali neuspjelo mjerenje/test/race/ozbiljna statika i dalje vraćaju grešku.
-- `make quality-test`: brzi testovi i race samog mjernog alata.
-- `make quality-deep`: zasebna, opcionalna mutation provjera; vidi niže.
-- Bez `make`: iz `dev/quality` pokrenuti `go run . -root ../..`.
-
-Izlaz u `.quality/` nije za Git:
-
-| Datoteka | Namjena |
-|---|---|
-| `code-health.md` | Sažetak, top 10 CC/CRAP, paketi, duplikacije, blokade |
-| `code-health.json` | Sve funkcije, kritični odabir, sirove metrike i regresije |
-| `coverage.out`, `coverage-functions.txt`, `coverage.html` | Standardni Go profil, funkcije, nepokriveni retci |
-| `lint.json`, `lint.log`, `tests.log` | Izvorni dokazi i dijagnostika |
-| `test-evidence.json` | Otisci izvora/profila/loga za izričitu ponovnu analizu |
-
-`HEALTHY` znači da nema nalaza ove konfiguracije; `BASELINE_DEBT` znači da gate
-prolazi, ali postoje zatečena odstupanja od ciljeva; `FAIL` znači blokadu.
-`measurements_status != PASS` znači da brojčane metrike nisu valjane — nule u
-nedovršenom izvještaju nisu izmjereni rezultati. Mutation koji nije izvršen ima
-`mutation_score: null`, ne 0 ili 100.
-
-## Alati i opseg
-
-- **golangci-lint v2.14.0**, konfiguracija u `.golangci.yml`: govet,
-  staticcheck (SA provjere), errcheck, ineffassign, unused, odabrani revive,
-  gocyclo, gocognit, dupl, maintidx i nestif. Testovi nisu isključeni iz
-  provjera ispravnosti; samo njihove metrike složenosti/duplikacije nisu lint dug.
-  errcheck ne traži provjeru čišćenja čija greška nema što reći: `Rollback`
-  nakon `Commit`, `Rows.Close` (greške iteracije javlja `rows.Err`),
-  `Stmt.Close`, zatvaranje mrežne veze i učitane datoteke iz obrasca, te `Close`
-  na kraju testa. Upisi, `Commit`, `Flush` i zatvaranje zapisane datoteke i dalje
-  se provjeravaju.
-- **gocyclo v0.6.0**: jedna izravna ovisnost zasebnog `dev/quality/go.mod`.
-  Glavni `go.mod`/`go.sum` i aplikacijska arhitektura nisu mijenjani.
-- Go parser/scanner i mali lokalni analizator daju coverage/CRAP, exact blokove,
-  fuzzy kandidate i JSON. Nema Node/npm/jscpd ovisnosti.
-- **Gremlins v0.6.0** samo za izričiti `quality-deep`, ne obični build.
-
-`dev/quality/` je verzionirana razvojna infrastruktura, za razliku od lokalnih
-administratorskih/uvoznih skripti u ignoriranom `tools/`. `go test ./...` glavnog
-modula ne uključuje odvojeni quality modul; zato ga `make quality` zasebno testira.
-
-## Metrike i pragovi
-
-| Metrika | Cilj / kategorije |
-|---|---|
-| Coverage | Ukupno ≥85%; kritično ≥95% |
-| CC | ≤6 GOOD; 7–10 WARNING; 11–15 HIGH; >15 zahtijeva pregled |
-| CRAP | ≤6 EXCELLENT; (6,10] GOOD; (10,15] WARNING; (15,30] HIGH; >30 FAIL cilj |
-| Nova funkcija u kritičnom kodu | CC ≤7 i CRAP ≤7, coverage ≥95 %; bez statičkih grešaka |
-| Nova funkcija drugdje | CC ≤10 i CRAP ≤10, coverage ≥85 % |
-| Exact duplikacija | <2% GOOD; [2,5)% WARNING; ≥5% HIGH |
-| Mutation efficacy | Kritični odabrani paket ≥80%, početno upozorenje |
-
-CRAP je:
-
-```text
-CRAP = CC² × (1 − coverage)³ + CC
-coverage je u toj formuli udio 0–1, a ne postotak 0–100.
-```
-
-Primjer: CC=10 uz coverage=50% daje CRAP=22,5; uz 100% daje 10.
-Visok CC ostaje vidljiv čak i kada se svi retci izvrše u testu.
-
-Granice za novi kod pooštrene su Odlukama (11. 10. 2026.): kritično CRAP ≤7,
-ostalo ≤10 (prije 10 i 30). CRAP ≤7 praktički znači CC ≤7: CC 5 traži barem
-57 % coveragea, CC 6 barem 70 %, CC 7 punih 100 %, a CC 8 ne prolazi nikako.
-U Go-u svaki `if err != nil` diže CC za 1, pa je granica stroga, ali izvediva
-malim funkcijama s imenom koje kaže što rade.
-
-Coverage je **statement coverage**, ne branch coverage. Ukupni i paketni rezultat
-ponderirani su brojem naredbi, a ne prosjekom postotaka funkcija. Zadano Go
-mjerenje pripisuje coverage testiranom paketu (bez `-coverpkg=./...`).
-Funkcijski coverage dobiva se pridruživanjem Go blokova rasponu funkcije; tijela
-anonimnih funkcija ulaze u roditeljsku funkciju, kao i u gocyclo. Funkcije bez
-izvršivih naredbi imaju coverage/CRAP `null`, a ne izmišljenu stopostotnu pokrivenost.
-
-CC i klonovi obuhvaćaju imenovane funkcije/metode aktivne platforme iz `go list`,
-bez testova i standardno označenog generiranog koda. Generirani kod ostaje u
-standardnom ukupnom Go coverageu. Globalni inicijalizatori nisu zasebne funkcije.
-Identitet funkcije je `relativna/datoteka.go::(*Tip).Metoda`, ne broj retka.
-Premještanje/preimenovanje zato se konzervativno smatra novom funkcijom; pregledom
-se odlučuje treba li obrazložena iznimka.
-
-## Kritični kod
-
-`quality/config.json` sadrži regex popis `critical` koji odgovara identitetima
-funkcija. Može obuhvatiti paket, datoteku ili jednu metodu. Početni odabir pokriva
-arhivu/sinkronizaciju, uvoze, prognozu, obradu očitanja i pragova, autentikaciju,
-korisničke ovlasti i zajednički `authMiddleware`. Nije tvrdnja da su time pronađeni
-svi sigurnosno važni tokovi; popis se proširuje s novim odgovornostima.
-
-Primjeri dodatnog unosa u JSON-u:
-
-```json
-"^internal/novi_kriticni_paket/"
-"^internal/models/models\\.go::\\(Station\\)\\.CalculateDefensePhase$"
-```
-
-Sve odabrane funkcije označene su `critical: true` u JSON-u. Njihov zajednički
-coverage ponderiran je naredbama; stroži prag vrijedi i za svaku novu funkciju,
-ne samo za prosjek skupine.
-
-## Regresija nije isto što i apsolutni cilj
-
-Odmah blokiraju neuspjela izgradnja/testovi, utrka, nedostupni alati, nevaljani
-izvještaji, neusporediv baseline te govet/typecheck i staticcheck SA problemi.
-SA1019 (zastarjeli API) ostaje vidljivo upozorenje; nova uporaba takvog API-ja
-ipak je novi lint nalaz i regresija. Informativne lokacije istog SA nalaza ne
-broje se kao dodatne greške. Test ne dokazuje odsutnost svih mogućih utrka.
-
-Za postojeći dug dopušten je **samo zatečeni opseg**:
-
-- Ukupni, kritični i coverage pojedine postojeće funkcije smije pasti najviše
-  **0,1 postotni bod** (podesivo). Nova funkcija cilja 85%, kritična 95%.
-- CC ne smije prijeći `max(stari CC, cilj)`; CRAP ne smije prijeći
-  `max(cilj, stari CRAP + 0,5)`. Prate se pojedine funkcije, tako da mnogo novih
-  jednostavnih funkcija ne može sakriti pogoršanje jedne velike.
-- Dirana funkcija tako ne smije postati gora. Mala funkcija ostaje ispod cilja
-  (u kritičnom kodu 7), a velika stara smije dobiti ispravak greške bez
-  obaveznog preuređenja, ali ne smije narasti. Hitan ispravak nikad ne čeka
-  refaktor; preuređenje velikih ide kroz fazu 3 (STABILIZACIJA.md).
-- Nepromijenjena funkcija (isti broj tokena, naredbi i CC kao u baselineu)
-  ne uspoređuje se po coverageu ni CRAP-u: razlika tada dolazi od testova koji
-  ovise o vremenu, a ne od promjene. Ukupni i kritični coverage i dalje se
-  uspoređuju, a nestabilan test treba popraviti (npr. test koji grane pogađa
-  namjerno, a ne slučajno).
-- Exact udio ne smije narasti za više od **0,1 postotni bod**.
-- Novi/dodatni lint nalaz blokira i kada je riječ o linteru kategorije warning;
-  ključ je linter + datoteka + poruka, s brojem pojavljivanja, bez broja retka.
-  Metrički linteri (gocyclo, gocognit, maintidx, nestif) u poruku upišu izmjerenu
-  vrijednost; u ključu je ona zamijenjena znakom `#`, pa smanjenje složenosti
-  iste funkcije nije „novi nalaz”, a rast hvata usporedba CC/CRAP po funkciji.
-- Iznimke iz `quality/config.json` ne ulaze u otisak konfiguracije: mijenjaju
-  propusnicu, ne mjerenje, pa nova iznimka ne čini baseline neusporedivim.
-  Istekla iznimka i dalje ruši provjeru.
-- Fuzzy je samo izvještaj/upozorenje, nikada hard gate.
-
-Prosjeci i maksimumi ostaju u JSON-u za kasnije trendove. Uz prosjek CRAP-a
-izvještaj daje medijan, P90, P95 i broj funkcija po razredima (≤ 10, 10–30,
-30–100, > 100): prosjek podigne i jedna golema funkcija, a medijan i percentili
-pokazuju je li loš cijeli kod ili rep netestiranih funkcija. To je samo
-izvještaj, ne prag. Nema automatskog
-refaktoriranja ni automatskog ažuriranja baselinea nakon crvene provjere.
-Mali/nedeterministični testovi mogu uzrokovati promjenu coveragea: prvo ponoviti
-iste izvore i popraviti nestabilan test, ne proizvoljno sniziti cilj.
-
-## Baseline i iznimke
-
-Početna snimka: [izvještaj](CODE_QUALITY_BASELINE.md), podaci u
-[`quality/baseline.json`](../quality/baseline.json). Izmjerena je čista verzija
-`f5adb84` (0.0.31), jer su u zajedničkoj radnoj kopiji istodobno nastajale
-nepovezane izmjene za 0.0.32. Ne predstavlja verifikaciju tih nezavršenih izmjena.
-
-**Od 15. 10. 2026. referentna točka je `92322d58`**, master nakon koraka G1
-plana WEB synca (`docs/plan-web-sync.md`). G1 je razgovor razmjene
-(`exchange`, CC 40) podijelio na korake u `internal/peers/razgovor.go`. Uz
-točku od 14. 10. vrata bi `exchange` i dalje puštala do CC 40, pa bi nova
-grana u njemu prošla neopaženo; sad za njega vrijedi granica kritičnog
-koda, CC 7. Sav kod između
-dviju točaka prošao je provjeru na svom PR-u, pa pomak ništa ne skriva.
-Prethodne točke bile su `c0162ca9` (14. 10., izdanje 0.0.38-alfa, prije G1) i
-`0da9ebb6` (12. 10., snimljena sa strožim granicama). Napredak se i dalje
-uspoređuje s brojkama početne snimke od 4. 10.:
-
-| | 4. 10. | 11. 10. (`e4441a01`) | 12. 10. (`0da9ebb6`) | 14. 10. (`c0162ca9`) | 15. 10. (`92322d58`) |
-|---|---:|---:|---:|---:|---:|
-| pokrivenost | 51,8 % | 64,9 % | 69,5 % | 76,1 % | 76,2 % |
-| kritična pokrivenost | 50,4 % | 69,3 % | 84,0 % | 99,2 % | 99,2 % |
-| prosječni CRAP | 43,4 | 18,0 | 16,0 | 12,5 | 12,3 |
-| kritične funkcije iznad granice | 559 | 492 | 304 | 287 | 286 |
-
-Za namjerno pomicanje referentne točke, nakon pregleda:
-
-```sh
-make quality-baseline ACCEPT_BASELINE=yes
-git diff -- quality/baseline.json
-```
-
-Potrebna je čista verzionirana kopija. Baseline je **zapis mjerenja, ne potvrda da
-je aplikacija bez grešaka**: može sadržavati postojeće SA greške i status FAIL.
-Snimanje takvog baselinea ne daje im amnestiju; normalni `make quality` i dalje
-vraća grešku. Neuspjele testove/race ili nepotpuno mjerenje nije moguće snimiti
-kao valjan baseline. Svaku obnovu opisati i pregledati u PR-u, zajedno s promjenom
-top funkcija i razloga zbog kojeg je obnova opravdana.
-
-Neusporedivi su različiti OS/arhitektura, Go verzija, verzija analizatora i hash
-konfiguracije. Pooštrenje granica 11. 10. 2026. zato je referentni commit
-izmjerilo novim pravilima (macOS, go1.27.1). CI to radi sam pri svakom
-pokretanju s novom konfiguracijom. Nakon promjene pravila ili alata **ponovno izmjeriti prethodni
-baseline commit novim pravilima**, pa usporediti novi kod. Ne prihvatiti novi kod
-kao vlastiti baseline. Za mjerenje čiste odvojene kopije:
-
-```sh
-cd dev/quality
-go run . -root /put/do/ciste/kopije -policy ../.. \
-  -out /put/do/izvjestaja -baseline /put/do/baseline.json -record-baseline
-```
-
-Samo za ponovnu analizu istog uspješnog lokalnog testa može se dodati
-`-reuse-tests`. Alat provjerava otiske izvora, profila, loga, Go i platforme;
-jasno ispisuje da testovi nisu ponovno pokrenuti. Obični `make quality` i CI
-ne koriste tu opciju. Nije potpisani dokaz protiv zlonamjerne izmjene artefakta.
-
-Iznimke su u `exceptions`: točan ključ iz izvještaja, razlog, odgovorna osoba i
-datum isteka. Nema wildcarda. Istekla iznimka blokira. Početno su izuzeta samo
-dva namjerna testna obrasca: izazivanje panike nil mapom i usporedba dva poziva
-tvorničke metode koja mora vratiti različite HTTP klijente. Ne dodavati iznimku
-samo da bi CI bio zelen; posebno ne za stvarne greške autorizacije/uvoza.
-
-### Premještaji: rastavljanje postojeće funkcije
-
-Funkcija izdvojena iz postojeće funkcije bez izmjene ponašanja (npr. dijelovi
-`main` premješteni u `run` i korake pokretanja) nije nov kod, a bez ovoga bi se
-mjerila kao nov: cilj 85 % i CC 10, iako je isti kod u izvoru bio bez testova.
-Rastavljanje bi tako bilo skuplje od ostavljanja jedne goleme funkcije.
-
-Premještaji su u `premjestaji`: izvor (`iz`, funkcija koja postoji u
-baselineu), popis izdvojenih funkcija, razlog i datum pregleda. Premještena
-funkcija kojoj u baselineu nema zapisa nasljeđuje izvor: CC do `max(cilj, CC
-izvora)`, CRAP do `max(cilj, CRAP izvora + 0,5)`, coverage ne niži od izvorovog.
-Metrički lint nalaz (gocyclo, gocognit, maintidx, nestif…) unutar nje nije nov,
-jer njezinu složenost drži usporedba po funkciji; ostali linteri (npr. errcheck)
-i dalje jesu.
-
-Da se nov kod ne bi sakrio kao premješten, zbroj `CC − 1` premještenih funkcija
-ne smije biti veći od onoga što je izvor izgubio; izvor mora postojati u
-baselineu, a svaka navedena funkcija postojati sada. U popis idu samo funkcije
-koje bez nasljeđivanja ne bi prošle; izdvojena funkcija s testovima mjeri se kao
-nov kod. Premještaji ne ulaze u otisak konfiguracije. Kad se baseline ponovno
-snimi, premještene funkcije u njemu postoje i mjere se kao svaka druga, a
-premještaj se može ukloniti. Izvještaj ih navodi u zasebnom odjeljku.
-
-## Duplikacija: što točno mjerimo
-
-Tri različita signala, koji se ne zbrajaju:
-
-1. **Exact**: identični leksički blokovi od najmanje 100 Go tokena unutar tijela
-   funkcija; imena i literali se čuvaju, komentari/razmaci zanemaruju. Postotak
-   je unija svih ponovljenih tokena, uključujući originale, podijeljena svim
-   tokenima tijela funkcija. Preklapanja se ne broje dvaput. Nije postotak redaka
-   cijelog repozitorija, tablica podataka, predložaka ili testova.
-2. **dupl**: normalizirani AST blokovi (prag 150), prikazani kao lint nalazi.
-   To nije potpuno tekstualna jednakost pa ga ne nazivamo exact postotkom.
-3. **Fuzzy**: tijela funkcija s najmanje 80 tokena; lokalni identifikatori
-   normalizirani po prvom pojavljivanju, selektori i literali sačuvani; Jaccard
-   sličnost skupova od 5 uzastopnih tokena ≥0,85. Postotak je udio tokena u
-   cijelim funkcijama označenim kao kandidati. Ne mjeri identične fragmente
-   kraćih funkcija niti dokazuje da dva algoritma imaju istu semantiku.
-
-Exact i fuzzy imaju različite jedinice obuhvata, pa fuzzy može biti manji od
-exacta. JSON čuva do 200 primjera parova po vrsti; postotak obuhvaća sve pronađene
-kandidate. Prije spajanja koda provjeriti zajedničku odgovornost, ne samo izgled.
-
-## Mutation testing (opcijski, pripremljen)
-
-Gremlins može vrlo dugo raditi na velikom modulu. Ne ulazi u uobičajeni CI.
-Naredba zahtijeva **odvojenu čistu Git kopiju**, izvan živog projekta, te jedan
-paket (`MUTATION_PACKAGE`). Ne pokretati u radnoj kopiji drugih agenata.
-
-```sh
-# Prvo make quality nad istim čistim commitom, zatim pripremiti zasebnu kopiju.
-make quality-deep MUTATION_ROOT=/put/do/odvojene/ciste/kopije \
-  MUTATION_PACKAGE=internal/models
-```
-
-Rezultat: `mutation.json`, `mutation.log`, te `mutation_score` u postojećem
-`code-health.json` samo ako commit odgovara mjerenju. `mutation_score` označava
-Gremlins **test efficacy = KILLED/(KILLED+LIVED)** za taj paket, ne za cijelu
-aplikaciju. Nepokrivene/neizvedive mutante treba dodatno pregledati u sirovom
-izvještaju; 80% efficacy nije isto što i 80% ukupne pokrivenosti mutanata.
-
-Ova integracija je pripremljena, **nije potvrđena izvršenim mutation prolazom**.
-Lokalno je preuzimanje Gremlinsa zapelo na provjeri TLS certifikata Go proxyja;
-provjera certifikata nije isključivana. Treba potvrditi njegov rad s Go 1.27.1
-prije obveznog uključivanja. Početni score zato ostaje `null / NOT_RUN`.
-
-## CI
-
-`.github/workflows/provjera.yml` zadržava postojeći govulncheck, a testni posao
-pokreće quality gate. Linux ponovno mjeri isti prihvaćeni commit sa svojim Go
-toolchainom i konfiguracijom, te kešira taj referentni JSON. Ključ keša uključuje
-platformu, Go, baseline i izvore analizatora. Tek zatim uspoređuje aktualni kod.
-Prvi prolaz traje dulje jer testira dvije verzije. Izvještaji se prilažu i pri
-padu provjere; nemaju pristup lokalnim produkcijskim bazama.
-
-Workflow je pripremljen u repozitoriju; njegovo izvršavanje na GitHub runneru
-treba potvrditi nakon slanja. Ne treba vanjska usluga ni slanje izvora trećem
-pružatelju analize. Artefakti i povijest baselinea omogućuju kasnije trendove;
-grafički dashboard i automatski trend storage nisu dio ove prve faze.
-
-## Pravilo za ljude i AI agente
-
-Mijenjati najmanji smisleni dio, dodati test koji provjerava ponašanje, pokrenuti
-gate i pregledati razliku prema baselineu. Ne dijeliti funkcije radi same brojke,
-ne gasiti lintere, ne smanjivati pragove i ne osvježavati baseline bez objašnjenja.
-Kod obrane od poplava važniji su ispravna odluka, audit i čitljivost nego prosjek.
-
-### Pravila pisanja koda
-
-Jednaka za čovjeka i agenta (Odluke 11. 10. 2026.). Kod mora biti čitljiv
-onome tko ga sutra mijenja, a ne samo proći provjeru.
+# Kvaliteta koda
+
+goCOP služi obrani od poplava, pa kod mora ostati takav da ga se može
+sigurno mijenjati. Ovdje piše koji je cilj, kakvo je stanje danas, po kojim
+se pravilima piše kod i kako se provjerava.
+
+## Cilj i stanje
+
+### Cilj
+
+Svaka izmjena provjerava se prije nego što uđe u program, i nijedna ne
+smije pogoršati izmjereno stanje. Dijelovi o kojima ovisi obrana trebaju
+biti gotovo potpuno pokriveni testovima: razmjena među računalima, prijava
+i ovlasti, akti i stanje obrane, uvoz, arhiva vodostaja i prognoza. Za njih
+je cilj 95 % naredbi, a za cijeli kod 85 %.
+
+### Što se mjeri i zašto
+
+- Pokrivenost testovima: koliki se dio naredbi izvrši barem jednom u
+  testovima. Kod koji nijedan test ne izvrši nitko nije provjerio.
+- Složenost funkcije: broj različitih putova kroz funkciju. Svaki uvjet,
+  petlja ili grana dodaje jedan. Funkciju s mnogo putova teško je pročitati
+  i potpuno ispitati.
+- Rizik izmjene spaja složenost i pokrivenost. Jednostavna i testirana
+  funkcija ima mali rizik, a složena funkcija bez testova velik. Kad su sve
+  naredbe funkcije pokrivene, rizik je jednak njezinoj složenosti. U struci
+  se ta mjera zove CRAP.
+- Uz to se gleda što nađe statička analiza (npr. greška koju kod ne
+  provjeri), ponovljeni kod i istodobni pristup istim podacima iz više
+  dretvi u testovima.
+
+Nova funkcija u dijelovima o kojima ovisi obrana smije imati složenost i
+rizik izmjene najviše 7, a drugdje 10 (Odluke (11. 10. 2026.)). Postojeća
+funkcija iznad granice smije se mijenjati ako joj složenost ne naraste, a
+rizik ne naraste više od 0,5.
+
+### Stanje
+
+Zadnje referentno mjerenje je od 15. 10. 2026. Uz njega su brojke prvog
+mjerenja:
+
+| | 4. 10. 2026. | 15. 10. 2026. |
+|---|---:|---:|
+| pokrivenost cijelog koda | 51,8 % | 76,2 % |
+| pokrivenost dijelova o kojima ovisi obrana | 50,4 % | 99,2 % |
+| prosječna složenost funkcije | 5,4 | 4,7 |
+| prosječni rizik izmjene | 43,4 | 12,3 |
+| funkcije iznad granice u dijelovima o kojima ovisi obrana | 559 | 286 |
+
+Prosječna funkcija ima oko pet putova, a tri od četiri funkcije imaju pet
+ili manje. Polovica funkcija ima rizik 4 ili manji. Prosječni rizik od 12,3
+podiže oko 380 funkcija s rizikom iznad 30. Većina njih ima malo testova, a
+samo 13 ih je u dijelovima o kojima ovisi obrana.
+
+U dijelovima o kojima ovisi obrana je 2.018 funkcija, a 286 ih prelazi
+granicu. Gotovo sve su dobro pokrivene testovima, ali su prevelike: imaju
+previše grananja. Najviše ih je u prognozi i uvozu. Takve se
+funkcije ne dijele odjednom. Izmjena ih ne smije pogoršati, a dijele se
+postupno, uz iste testove prije i poslije. Uvoz iz stare evidencije BP16 je
+privremen, pa se ne preuređuje: njegove su složene funkcije izuzete do
+13. 4. 2027. (Odluke (13. 10. 2026.)).
+
+Statička analiza ne nalazi nijednu grešku. Ostaje 938 upozorenja, od toga
+487 mjesta na kojima kod ne provjerava vraćenu grešku. Još nije pokrenuto
+mutacijsko testiranje, koje provjerava bi li testovi primijetili namjerno
+ubačenu grešku.
+
+Brojke pokazuju gdje treba pogledati, a ne dokazuju da je program bez
+grešaka. Pokrivenost kaže da se naredba izvršila u testu, a ne da je test
+provjerio pravu stvar.
+
+### Prvo mjerenje
+
+Napravljeno je 4. 10. 2026. na izdanju 0.0.31-alfa
+(commit `f5adb84`, macOS, Go 1.27.1), na 4.687 funkcija. Provjera je tada
+pala zbog tri nalaza statičke analize. Sva tri uklonjena su istog dana
+(`4382ef4`), bez promjene ponašanja. Istog dana mjerenje je prestalo brojati
+zatvaranje datoteka i veza kao neprovjerenu grešku, pa je takvih mjesta od
+1.199 ostalo 498. Cijeli izvještaj prvog mjerenja i njegovi podaci čuvaju se
+u povijesti repozitorija.
+
+## Pravila pisanja koda
+
+Pravila vrijede za svakoga tko mijenja kod (Odluke (11. 10. 2026.)). Kod
+mora biti čitljiv onome tko ga sutra mijenja, a ne samo proći provjeru.
+
+Mijenja se najmanji smisleni dio, uz test koji provjerava ponašanje, a
+zatim se pokrene provjera i pregleda razlika prema referentnom mjerenju.
+Funkcije se ne dijele radi same brojke. Provjere se ne gase, granice se ne
+snižavaju, a referentno mjerenje ne pomiče se bez objašnjenja. U obrani od
+poplava ispravna odluka, trag o tome tko je što napravio i čitljivost
+važniji su od prosjeka.
 
 1. **Prvo test.** Ponašanje koje se mijenja najprije se zaključa testom.
    Preuređenje bez promjene ponašanja dokazuje se istim testovima prije i
@@ -344,12 +98,12 @@ onome tko ga sutra mijenja, a ne samo proći provjeru.
    korak. Ako se dio može nazvati („provjeri pravo”, „složi primatelje”),
    to je zasebna funkcija. Funkcija se ne dijeli radi brojke kad to otežava
    čitanje; tada ide zapisana iznimka.
-3. **Greška se ne guta.** Svaka greška se vraća s kontekstom (`fmt.Errorf("…:
-   %w", err)`) ili se izričito zabilježi i objasni zašto se ide dalje.
-   Nova uporaba bez provjere je lint nalaz.
-4. **Nema globalnih tablica konfiguracije.** Što se mijenja ili razlikuje po
-   čvoru, toku ili sektoru predaje se kao parametar, a ne čita iz globalne
-   varijable koju testovi podmeću.
+3. **Greška se ne guta.** Svaka greška se vraća s opisom gdje je nastala
+   (`fmt.Errorf("…: %w", err)`) ili se izričito zabilježi uz objašnjenje
+   zašto se ide dalje. Nova neprovjerena greška ruši provjeru.
+4. **Nema globalnih tablica postavki.** Što se mijenja ili razlikuje po
+   računalu, toku ili sektoru predaje se kao parametar, a ne čita iz
+   globalne varijable koju testovi podmeću.
 5. **Komentar kaže zašto, a ne što.** Odluka, izvor podatka, mjerenje ili
    slučaj iz prakse koji je pravilo uveo, s datumom. Što kod radi kaže kod.
 6. **Imena na hrvatskom**, kao i dosad, osim ustaljenih Go i tehničkih
@@ -361,21 +115,74 @@ onome tko ga sutra mijenja, a ne samo proći provjeru.
    rečenice i bez rečenice složene od izlaza dviju funkcija. Riječ uz broj
    bira samo `uzBroj` u predlošku, a u Go kodu `models.UzBrojHR` (ili
    postojeći `dan` i `sat` u `models`), uvijek sa sva tri oblika:
-   `{{uzBroj .N "list" "lista" "listova"}}`. Glagol i pridjev koji se
-   slažu s brojem idu u isti oblik („pismo je premješteno”, „pisma su
+   `{{uzBroj .N "list" "lista" "listova"}}`. Glagol i pridjev koji se slažu
+   s brojem idu u isti oblik („pismo je premješteno”, „pisma su
    premještena”, „pisama je premješteno”), a iza prijedloga oblik je u
-   padežu koji prijedlog traži („u 21 navratu”). Na `{{term}}` i
-   `{{terml}}` ne lijepi se nastavak („`{{terml "sektor"}}u`”), jer
-   organizacija naziv može promijeniti; rečenica se složi tako da naziv
-   stoji u nominativu, npr. iza dvotočke ili u zagradi, a ne iza
-   prijedloga. Naziv razine ustroja (sektor, branjeno područje, centar)
-   uzima se iz `OrgTerms`, ne piše se rukom. Predloške čuvaju
-   `TestPredlosciTrazeNaziveKojiPostoje` (naziv postoji),
-   `TestNazivBezNastavka` (nema slova odmah uz naziv) i
-   `TestUzBrojImaTriOblika` (tri napisana oblika). Jesu li oblici i
-   padež dobri, testovi ne vide; to se provjerava čitanjem.
+   padežu koji prijedlog traži („u 21 navratu”). Na `{{term}}` i `{{terml}}`
+   ne lijepi se nastavak („`{{terml "sektor"}}u`”), jer organizacija naziv
+   može promijeniti. Rečenica se složi tako da naziv stoji u nominativu, npr.
+   iza dvotočke ili u zagradi, a ne iza prijedloga. Naziv razine ustroja
+   (sektor, branjeno područje, centar) uzima se iz nazivlja organizacije
+   (`OrgTerms`), ne piše se rukom. Testovi provjeravaju da naziv u predlošku
+   postoji, da uz njega nema slova i da su napisana sva tri oblika. Jesu li
+   oblici i padež dobri, testovi ne vide; to se provjerava čitanjem.
 
-Izvori: [golangci konfiguracija](https://golangci-lint.run/docs/configuration/file/),
-[gocyclo](https://github.com/fzipp/gocyclo),
-[Gremlins naredbe i JSON](https://gremlins.dev/latest/usage/commands/unleash/),
-[Gremlins ograničenja](https://github.com/go-gremlins/gremlins/tree/v0.6.0).
+## Kako provjeriti (make quality)
+
+Potrebni su Go iz `go.mod`, Git i `make`, a na Linuxu i C prevoditelj (za
+provjeru istodobnog pristupa). Prvi put alati se preuzimaju s interneta:
+
+```sh
+make quality-tools
+make quality
+```
+
+`make quality` pokreće sve testove s mjerenjem pokrivenosti i provjerom
+istodobnog pristupa, statičku analizu (postavke u `.golangci.yml`) i mjeri
+svaku funkciju. Rezultat uspoređuje s referentnim mjerenjem u
+`quality/baseline.json`. Provjera pada kad padne test, kad statička analiza
+nađe grešku ili kad izmjena pogorša neku funkciju ili ukupnu pokrivenost.
+Nova funkcija mora odmah biti unutar granica. Granice i popis dijelova o
+kojima ovisi obrana su u `quality/config.json`, a alat u `dev/quality/`.
+
+Sažetak je u `.quality/code-health.md`, a naredbe koje nijedan test ne
+izvrši vide se u `.quality/coverage.html`. Na kraju `make quality` kaže jesu
+li izvedene i provjere registara na stvarnim podacima (vidi
+`make provjera-registara` u [INSTALACIJA.md](INSTALACIJA.md)).
+
+Ista provjera radi na GitHubu, na svakom pull requestu, na svakom slanju u
+glavnu granu i jednom tjedno, uz provjeru poznatih ranjivosti. Ne treba
+vanjska usluga, a izvorni kod ne šalje se nikome na analizu.
+
+Referentno mjerenje pomiče se samo namjerno, nakon pregleda
+(`make quality-baseline ACCEPT_BASELINE=yes`), u zasebnom pull requestu koji
+riječima kaže što se promijenilo i zašto.
+
+Iznimke su u `quality/config.json`, svaka s razlogom i rokom. Istekla
+iznimka ruši provjeru. Iznimka se ne dodaje samo da bi provjera prošla, a
+posebno ne za stvarnu grešku u ovlastima ili uvozu.
+
+Mutacijsko testiranje traje dugo i ne ide u običnu provjeru. Alat mijenja
+izvorne datoteke, pa treba zasebnu čistu kopiju repozitorija i jedan paket:
+`make quality-deep MUTATION_ROOT=/put/do/kopije MUTATION_PACKAGE=internal/models`.
+Pripremljeno je, ali još nije pokrenuto.
+
+### Što piše u izvještaju
+
+Izvještaj je na engleskom, jer su to nazivi alata. Ovo su riječi koje se u
+njemu ponavljaju:
+
+- STATUS je `HEALTHY` kad je sve unutar granica i ciljeva, `BASELINE_DEBT`
+  kad izmjena ništa nije pogoršala, ali ostaje stari dug (funkcije iznad
+  granice, pokrivenost ispod cilja, upozorenja statičke analize), a `FAIL`
+  kad je izmjena nešto pogoršala ili je pao test.
+- CRAP je rizik izmjene, opisan gore. Funkcije se broje po razredima rizika:
+  do 10, od 10 do 30, od 30 do 100 i iznad 100.
+- Exact duplication je udio koda koji se doslovno ponavlja u tijelima
+  funkcija. Fuzzy candidates su funkcije koje su samo slične. To je popis za
+  pregled, a ne dokaz da rade isti posao, pa samo upozorava.
+- Premještene funkcije su dijelovi izdvojeni iz postojeće funkcije pri
+  preuređenju. Upisuju se u `quality/config.json` uz funkciju iz koje su
+  izdvojeni. Zajedno smiju nositi najviše onoliko složenosti koliko je ta
+  funkcija izgubila, da se nov kod ne sakrije kao premješten.
+- Mutation kaže je li pokrenuto mutacijsko testiranje i s kojim ishodom.

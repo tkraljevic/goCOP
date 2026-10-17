@@ -18,7 +18,7 @@ import (
 	"gocop/internal/web"
 )
 
-// Postava se ne mijenja s goCOP-om (docs/plan-instalacija.md §3.1a), pa
+// Postava se ne mijenja s goCOP-om (ugovor u docs/postava.md), pa
 // izdanje goCOP-a ne smije promijeniti ono na što se ona oslanja: redak
 // koji ispiše -version, -pripremi (ime čvora prije prvog pokretanja),
 // /zdravlje i gašenje pod -upravitelj kad se zatvori standardni ulaz. Test prevodi pravi program i razgovara s njim kao Postava.

@@ -16,7 +16,7 @@ import (
 // najava unaprijed ispravna su praksa. Tvrde granice provjeravaju se
 // ponovno pri ovjeri (vrijediZaOvjeru), a potvrda se pri ovjeri traži kad je
 // akt još nema (potvrdiVrijediPriOvjeri). Godina oznake i dalje je godina iz
-// „Vrijedi od” (odluka od 4. 10. 2026.).
+// „Vrijedi od” (Odluke (8. 10. 2026.), pitanje 17).
 const (
 	vrijediNajviseUnaprijed = 7 * 24 * time.Hour
 	vrijediPotvrdaUnatrag   = 24 * time.Hour

@@ -3,8 +3,8 @@
 *Ukratko na hrvatskom:* Windows programi goCOP-a (`gocop.exe`, Postava i
 instalacijski program) potpisivat će se besplatnim certifikatom SignPath
 Foundationa. Ovdje piše što se potpisuje, tko odobrava potpis i što program
-šalje u mrežu. Potpisivanje još nije uključeno; ova stranica je uvjet za
-prijavu.
+šalje u mrežu. Potpisivanje još nije uključeno: prijava je poslana
+12. 10. 2026. i čeka odgovor, a ova stranica je uvjet za prijavu.
 
 Free code signing provided by [SignPath.io](https://signpath.io), certificate
 by [SignPath Foundation](https://signpath.org).
@@ -22,10 +22,12 @@ Product name and version are written into the executables at build time
 (`rsrc_windows_amd64.syso`). Nothing built outside CI is signed, and no
 third-party binaries are signed.
 
-Independently of the operating system signature, every release also carries
-`SHA256SUMS` and `SHA256SUMS.sig`, signed with the project's release key;
-Postava checks that signature before it installs or updates the node (see
-[INSTALACIJA.md](INSTALACIJA.md), chapter 8).
+Independently of the operating system signature, every release of the goCOP
+node (tag `v*`) also carries `SHA256SUMS` and `SHA256SUMS.sig`, signed with
+the project's release key; Postava checks that signature before it installs
+or updates the node (see [INSTALACIJA.md](INSTALACIJA.md), chapter 8).
+Releases of Postava itself (tag `postava-v*`) carry their checksums in
+`SHA256SUMS-postava`, without a release key signature.
 
 ## Team and roles
 
@@ -35,7 +37,7 @@ Postava checks that signature before it installs or updates the node (see
 | reviewers (review every pull request from others) | [Tomislav Kraljević](https://github.com/tkraljevic) |
 | approvers (approve every signing request) | [Tomislav Kraljević](https://github.com/tkraljevic) |
 
-The same person develops and maintains the project and owns the repository
+The same person develops and maintains the project and the repository
 [tkraljevic/goCOP](https://github.com/tkraljevic/goCOP). Every release is
 approved manually before signing: the release draft is published only after
 `SHA256SUMS` has been signed by hand with the release key, which never leaves
@@ -44,34 +46,67 @@ GitHub and SignPath.
 
 ## Privacy policy
 
-This program will not transfer any information to other networked systems
-unless specifically requested by the user or the person installing or
-operating it.
+This program transfers information to other networked systems only as
+listed below. A few public downloads are on by default; everything else
+happens only when a user asks for it or an administrator sets it up.
 
 goCOP is a flood defence system run by the organisation that installs it.
-What it sends over the network is set up by that organisation's
-administrator:
+This is everything it sends over the network, and who turns it on. The same
+list, in Croatian, is in [INSTALACIJA.md](INSTALACIJA.md), chapter 2.
+
+On by default, without any setting:
+
+- **Weather.** The node downloads public weather and warnings of DHMZ, the
+  Croatian meteorological service (meteo.hr, vrijeme.hr, prognoza.hr,
+  hidro.hr), for the dashboard, and weather from Open-Meteo for a new daily
+  logbook sheet. The Open-Meteo request carries the coordinates of the
+  logbook's place or of the defended area, and the date. These downloads
+  cannot be switched off yet.
+- **Map background.** The user's browser loads map tiles from the tile server
+  set in `[karta] plocice`, by default OpenStreetMap
+  (tile.openstreetmap.org). The tile server sees only the address of the
+  goCOP site, without the page path. The node itself loads the same tiles
+  when it draws a map into a PDF. An empty setting turns map backgrounds
+  off, except on the map of territorial units, which still loads
+  OpenStreetMap tiles.
+- **Updates.** Postava asks GitHub for the list of releases when it starts
+  and every six hours. It sends nothing but the request. This check cannot be
+  switched off yet; a setting for it is planned.
+
+Only when a user or an administrator asks for it:
+
+- **Water gauges.** The gauge form loads the public list of stations from
+  vodostaji.voda.hr (Hrvatske vode), and a manual download on a gauge page
+  reads that gauge's source.
+- **Place lookup.** When a global administrator looks up the coordinates of a
+  defended area, the place name or address is sent to OpenStreetMap
+  Nominatim.
+
+Only when the administrator sets it up:
 
 - **Other goCOP nodes of the same organisation.** Records are exchanged only
   with computers that an administrator has paired into the organisation's
-  network, encrypted with the nodes' own keys (TLS), directly or through the
-  organisation's own public node (HTTPS tunnel).
-- **Public hydrological and meteorological sources** chosen by the
-  administrator (for example Hrvatske vode, DHMZ and neighbouring national
-  services): the program downloads published water levels, discharges and
-  rainfall. It sends nothing but the request.
-- **E-mail** through the organisation's own Exchange server, only when the
-  administrator enables it (sign-in PIN, notifications, acts).
-- **Map background**: the user's browser loads map tiles from OpenStreetMap
-  or Wikimedia when a map is shown.
-- **Updates**: Postava asks GitHub for the latest release when it starts and
-  every six hours. It sends nothing but the request.
+  network, encrypted with the nodes' own keys (TLS 1.3): directly in the
+  local network, through the organisation's own public node (HTTPS tunnel),
+  or over Tailscale when both computers have it. goCOP itself only connects to
+  the Tailscale addresses of the organisation's own nodes.
+- **E-mail** through the organisation's own Exchange server (sign-in PIN,
+  notifications, acts, company address book), only when the administrator
+  sets up the server.
+- **Water level, rainfall and forecast sources**, only on a node to which the
+  administrator gives the role of downloading water levels or issuing the
+  forecast: public services (Hrvatske vode, DHMZ, Open-Meteo, pljusak.com,
+  ICPDR DanubeHIS and national services of neighbouring countries, for
+  example Hungary, Serbia, Slovenia, Slovakia, Austria and Germany) and
+  systems of Hrvatske vode that need the organisation's sign-in (HydroView,
+  mLetva, letva.voda.hr). The program downloads published values and sends
+  nothing but the request and, where needed, that sign-in.
 
 No data is ever sent to the authors of the program, and there is no
-telemetry. The administrator can switch off exchange with other nodes
-(`[sync] auto_sync = '0'`), downloads from public sources (node roles) and
-e-mail. The update check cannot be switched off yet; a setting for it is
-planned.
+telemetry. The administrator can switch off automatic exchange with other
+nodes (`[sync] auto_sync = '0'`), exchange over Tailscale
+(`[sync] tailscale = false`), downloads from sources (node roles) and
+e-mail. Weather downloads and the update check cannot be switched off yet.
 
 ## Reporting
 

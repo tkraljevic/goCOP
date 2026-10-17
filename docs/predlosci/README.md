@@ -9,25 +9,25 @@ ide na `example.com`.
 Program ne nosi podatke u sebi. U prazan čvor ulaze na tri načina: razmjenom s
 uparenim čvorom, ručnim upisom ili uvozom iz datoteke. Uvoz treba samo prvom
 čvoru u mreži. Ostali čvorovi podatke dobiju sinkronizacijom. Pregled svih
-uvoza u programu nalazi se na stranici **Administracija › Uvozi podataka**.
+uvoza u programu nalazi se na stranici **Administracija → Uvozi podataka**.
 
 Svaki predložak provjerava test, kroz isti kod kojim se uvozi. Kad se uvoz
 promijeni, a predložak ne, test padne.
 
 | Predložak | Kamo ide | Test |
 |---|---|---|
-| [`registri/sektori.csv`](registri/sektori.csv) | Administracija › Uvozi podataka › CSV | `internal/web/predlosci_uvoza_test.go` |
+| [`registri/sektori.csv`](registri/sektori.csv) | Administracija → Uvozi podataka → CSV | `internal/web/predlosci_uvoza_test.go` |
 | [`registri/branjena-podrucja.csv`](registri/branjena-podrucja.csv) | isto | isto |
 | [`registri/licencirane-firme.csv`](registri/licencirane-firme.csv) | isto | isto |
 | [`registri/zupanije.csv`](registri/zupanije.csv) | isto | isto |
 | [`registri/gradovi-i-opcine.csv`](registri/gradovi-i-opcine.csv) | isto | isto |
 | [`registri/naselja.csv`](registri/naselja.csv) | isto | isto |
 | [`prvo-pokretanje/*.json`](prvo-pokretanje/) | mapa uz bazu, pri prvom pokretanju | `internal/db/predlosci_test.go` |
-| [`ocitanja/ocitanja-letve.csv`](ocitanja/ocitanja-letve.csv) | stranica letve › Zalijepi očitanja | `internal/web/predlosci_uvoza_test.go` |
-| [`ocitanja/niz-za-arhivu.csv`](ocitanja/niz-za-arhivu.csv) | Administracija › Unos u arhivu | isto |
+| [`ocitanja/ocitanja-letve.csv`](ocitanja/ocitanja-letve.csv) | stranica letve → Zalijepi očitanja | `internal/web/predlosci_uvoza_test.go` |
+| [`ocitanja/niz-za-arhivu.csv`](ocitanja/niz-za-arhivu.csv) | Administracija → Unos u arhivu | isto |
 | [`ocitanja/tablica-dnevnih-vodostaja.csv`](ocitanja/tablica-dnevnih-vodostaja.csv) | naredba `gocop -tablica` | `internal/importer/csvlevels/predlozak_test.go` |
-| [`odrzavanje/ugovor-a02.xlsx`](odrzavanje/ugovor-a02.xlsx) | Održavanje › uvoz ugovora, ili `gocop -ugovor` | `internal/importer/ugovor/predlozak_test.go` |
-| [`geometrija/tok-vodotoka.geojson`](geometrija/tok-vodotoka.geojson) | Registri › vodotok › Učitaj GeoJSON | `internal/service/predlozak_geometrije_test.go` |
+| [`odrzavanje/ugovor-a02.xlsx`](odrzavanje/ugovor-a02.xlsx) | Održavanje → uvoz ugovora, ili `gocop -ugovor` | `internal/importer/ugovor/predlozak_test.go` |
+| [`geometrija/tok-vodotoka.geojson`](geometrija/tok-vodotoka.geojson) | Registri → vodotok → Učitaj GeoJSON | `internal/service/predlozak_geometrije_test.go` |
 
 Predlošci se međusobno slažu. Tablica vodostaja i ugovor pozivaju se na
 postaju, objekt i vode iz predložaka prvog pokretanja, a test ih uvozi upravo
@@ -49,7 +49,7 @@ na bazu napunjenu iz tih predložaka.
 
 ## Registri (CSV)
 
-Uvoze se na stranici **Administracija › Uvozi podataka**, u odjeljku „CSV:
+Uvoze se na stranici **Administracija → Uvozi podataka**, u odjeljku „CSV:
 izvoz i uvoz registara”. Uvoz sektora i branjenih područja nalazi se i na
 stranici Organizacija. Za sve treba globalni administrator. Licencirane firme
 smije uvoziti i ovlaštenik za praćenje ugovora, za svoje područje.
@@ -78,7 +78,7 @@ i pošaljite istu datoteku ponovno. Redak koji je već ušao samo se osvježi.
 - Krovnoj jedinici dajte oznaku `DIREKCIJA`. Program je na nekoliko mjesta
   prepoznaje po toj oznaci (popisi sektora, zid, račun `admin`).
 - Nazivi trećeg i četvrtog stupca mijenjaju se s nazivljem organizacije
-  (Administracija › Nazivi). Izvoz piše nazive koje organizacija koristi.
+  (Administracija → Nazivi). Izvoz piše nazive koje organizacija koristi.
 
 ### branjena-podrucja.csv
 
@@ -202,7 +202,7 @@ očitanja na toj letvi.
 
 ### niz-za-arhivu.csv: niz za hidrološku arhivu
 
-**Administracija › Unos u arhivu.** Program sam pogodi razdjelnik (`;`, tab,
+**Administracija → Unos u arhivu.** Program sam pogodi razdjelnik (`;`, tab,
 `,` ili `|`), stupac vremena i stupac vrijednosti, a čovjek to prije upisa
 potvrdi ili ispravi.
 
@@ -296,7 +296,7 @@ goCOP:
   trenutku iz izvoza.
 - **Izvozi drugih sustava** na stranici Unos u arhivu: HIS-2000 (nizovi,
   krivulje protoka, poprečni profili), ARSO, eHYD, GKD, PEGELONLINE, SEBA,
-  godišnjaci DHMZ-a i HydroView.
+  hidrološki godišnjaci RHMZ-a Srbije (PDF) i HydroView.
 - **Paketi `.cop`** hidrološke arhive, koje potpisuje izdavač.
 - **Ranije evidencije BP16** iz Directusa (`gocop -import-bp16…`).
 - Slike žiga i potpisa, skenovi akata i arhiva baze (vraćanje kopije).
