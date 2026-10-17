@@ -110,17 +110,26 @@ func (r *SectionRepository) ListSections(sectorID string, areaID int, search str
 
 // GetSectionByCode dohvaća pojedinačnu dionicu sa svim detaljima
 func (r *SectionRepository) GetSectionByCode(code string) (*models.Section, error) {
-	sec, err := scanSection(r.db.QueryRow(sectionSelect+` WHERE s.code = ?`, code))
+	sec, err := r.dionica(code)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, fmt.Errorf("greška pri dohvatu dionice %s: %w", code, err)
 	}
-	if err := r.decorate(&sec); err != nil {
-		return nil, fmt.Errorf("greška pri dohvatu dionice %s iz registara: %w", code, err)
-	}
 	return &sec, nil
+}
+
+// dionica čita dionicu i puni joj nazive iz registara (decorate)
+func (r *SectionRepository) dionica(code string) (models.Section, error) {
+	sec, err := scanSection(r.db.QueryRow(sectionSelect+` WHERE s.code = ?`, code))
+	if err != nil {
+		return sec, err
+	}
+	if err := r.decorate(&sec); err != nil {
+		return sec, fmt.Errorf("nazivi iz registara: %w", err)
+	}
+	return sec, nil
 }
 
 // decorate puni nazive iz registara uz poddionice: vode, objekte. Zapis

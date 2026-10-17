@@ -156,9 +156,7 @@ func (h *AuthHandler) prikaziPIN(w http.ResponseWriter, status int, p PINPageDat
 		fmt.Fprintln(w, p.Error)
 		return
 	}
-	if err := h.tmplPIN.ExecuteTemplate(w, "login_pin.html", p); err != nil {
-		log.Printf("prijava izvana: stranica PIN-a: %v", err)
-	}
+	iscrtajPrijavu(h.tmplPIN, w, "login_pin.html", p, "prijava izvana: stranica PIN-a")
 }
 
 // prijavaPrekinuta briše kolačić prijave na čekanju i vraća na prijavu:

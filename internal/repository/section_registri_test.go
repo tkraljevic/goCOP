@@ -59,7 +59,7 @@ func TestDionicaJavljaGreskuRegistra(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err = repo.GetSectionByCode("B.34.9")
-	if err == nil || got != nil || !strings.Contains(err.Error(), "B.34.9 iz registara") {
+	if err == nil || got != nil || !strings.Contains(err.Error(), "B.34.9: nazivi iz registara") {
 		t.Errorf("greška registra: %+v, %v", got, err)
 	}
 }
