@@ -528,3 +528,16 @@ je gotov onaj o kojem ovisi.
   lozinku svog sandučića, sa svog računa na svoju adresu. Ničija lozinka
   tako ne šalje poštu drugome. Isključeni računi i računi bez adrese
   preskaču se. Poruka ide najviše jednom dnevno dok je mjesta malo.
+
+## Odluke (17. 10. 2026.)
+
+- Redoslijed rada: najprije pravila razmjene i WEB sync, zatim proširenja,
+  zatim poliranje postojećeg i unos podataka. Testna simulacija dolazi kad
+  je sve ispolirano. Time se mijenja redoslijed iz Odluka (14. 10. 2026.),
+  po kojem je simulacija dolazila odmah nakon WEB synca.
+- Proširenja su ustave, crpne stanice i karte. Ustava povezuje uzvodni i
+  nizvodni vodostaj i bilježi je li zapornica otvorena ili zatvorena. Crpna
+  stanica bilježi početak i kraj rada svakog agregata posebno, a strojar
+  upisuje vodostaje na početku, tijekom i na kraju rada, uz dnevnik
+  strojara. Svaki objekt, od vodotoka do crpne stanice, ima mjesto na
+  karti, a modul Karte sve povezuje u slojeve.

@@ -67,23 +67,9 @@ Zašto: razmjena je temelj svemu što radi na više računala. Pravila idu prva
 jer WEB sync mijenja isti dio programa. WEB sync zatim daje put koji ne vodi
 podatke kroz jedno računalo.
 
-## 3. Testna simulacija
+## 3. Proširenja
 
-Simulacija je odvojeni goCOP za probu i vježbu, s vlastitim bazama,
-dokumentima i vlastitom mrežom. Arhivu vodostaja samo čita. Na svakoj
-stranici, PDF-u i aktu piše „TESTNA SIMULACIJA”. Služi za probu novog
-izdanja prije nadogradnje pravih računala i za vježbu osoblja na povijesnim
-valovima: simulacija se vrati na početak nekog vala i krene s tadašnjim
-vodostajima. Za to program mora znati raditi i s vremenom simulacije, a ne
-samo sa stvarnim satom.
-
-Zašto: da se može proći stvarna simulacija neke povijesne obrane od
-poplava, uvježbati osoblje i isprobati sučelje, a da se pravi i probni
-podaci ne miješaju, pa ni brojevi akata. Simulacija dolazi nakon WEB synca.
-
-## 4. Proširenja
-
-Tek kad su gotovi prethodni koraci, dolaze nove mogućnosti:
+Kad je WEB sync gotov, dolaze nove mogućnosti:
 
 - Prognoza po branjenim područjima. Model prognoze vodi se po branjenom
   području, a administrator sam uređuje od kojih se letvi računa koja
@@ -110,12 +96,29 @@ Tek kad su gotovi prethodni koraci, dolaze nove mogućnosti:
   kad program dobije javnu adresu; dopis županu uz proglašenje izvanrednog
   stanja.
 
+## 4. Poliranje i unos podataka
+
 Kad su proširenja gotova, slijedi poliranje onoga što postoji i unos
 podataka.
 
+## 5. Testna simulacija
+
+Simulacija je odvojeni goCOP za probu i vježbu, s vlastitim bazama,
+dokumentima i vlastitom mrežom. Arhivu vodostaja samo čita. Na svakoj
+stranici, PDF-u i aktu piše „TESTNA SIMULACIJA”. Služi za probu novog
+izdanja prije nadogradnje pravih računala i za vježbu osoblja na povijesnim
+valovima: simulacija se vrati na početak nekog vala i krene s tadašnjim
+vodostajima. Za to program mora znati raditi i s vremenom simulacije, a ne
+samo sa stvarnim satom.
+
+Zašto: da se može proći stvarna simulacija neke povijesne obrane od
+poplava, uvježbati osoblje i isprobati sučelje, a da se pravi i probni
+podaci ne miješaju, pa ni brojevi akata. Simulacija dolazi kad je sve
+ispolirano.
+
 ## Prije bete
 
-Ovi poslovi nisu vezani uz redoslijed koraka 1–4, ali svi moraju biti
+Ovi poslovi nisu vezani uz redoslijed koraka 1–5, ali svi moraju biti
 gotovi prije nego program izađe iz alfa faze:
 
 - Uredno gašenje. Program pri gašenju danas samo kratko pričeka. Treba
