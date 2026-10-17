@@ -215,11 +215,12 @@ func (s *Service) clanPremaVjerodajnicama(ctx context.Context, mreza, pub ed2551
 }
 
 // javiSukob zapisuje u dnevnik, jednom po imenu i ključu, kad pod istim
-// imenom vrijede članstva dva računala; razmjena ide s prvim primljenim
-// (izabrano)
+// imenom vrijede članstva dva računala; razmjena ide s ključem iz prvog
+// izdanog (izabrano). Opoziv imena ukida oba (zaOpoziv), pa savjet kaže da
+// se ono koje zadržava ime primi ponovno.
 func (s *Service) javiSukob(prvo, drugo razmjena.Membership) {
 	if _, vec := s.javljenSukob.LoadOrStore(drugo.DeviceID+"\x00"+drugo.DeviceKey, true); !vec {
-		log.Printf("razmjena: pod imenom %s valjano članstvo imaju dva računala: ključ %.8s… (primio %s) i ključ %.8s… (primio %s); razmjena ide s prvim primljenim, a drugome treba opozvati članstvo i primiti ga pod drugim imenom",
+		log.Printf("razmjena: pod imenom %s valjano članstvo imaju dva računala: ključ %.8s… (primio %s) i ključ %.8s… (primio %s); razmjena ide s onim čije je članstvo prvo izdano. Opoziv tog imena ukida članstvo obaju računala, pa nakon opoziva ponovno primite računalo koje zadržava ime, a drugo pod drugim imenom",
 			prvo.DeviceID, prvo.DeviceKey, prvo.IssuedBy, drugo.DeviceKey, drugo.IssuedBy)
 	}
 }
