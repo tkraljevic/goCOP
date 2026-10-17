@@ -68,7 +68,14 @@ func TestOvjeraAktaBezLetve(t *testing.T) {
 	pero := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić"}
 	uprava := &models.UserPermissions{IsGlobalAdmin: true, User: *pero}
 
-	for kod, letva := range map[string]string{"P.1.1": "", "P.1.2": "nije-uuid"} {
+	// Redom, ne mapom: oba akta ovjeravaju se u istoj bazi, pa drugi zatekne
+	// prvi ovjeren akt i njegovu obranu. Mapu Go svaki put obilazi drugim
+	// redom, pa bi svako pokretanje ispitalo drugi slijed.
+	for _, sl := range []struct{ kod, letva string }{
+		{"P.1.1", ""},
+		{"P.1.2", "nije-uuid"},
+	} {
+		kod, letva := sl.kod, sl.letva
 		a := &models.Akt{ID: uuid.NewString(), Sektor: "P", AreaID: 1, Radnja: models.AktUspostava, Stupanj: models.PhaseRegular,
 			Vrijedi: time.Now().Add(-time.Minute), StationID: letva, StationName: "Primjerovo", Dionice: []models.AktDionica{{Code: kod}}}
 		// ovjera dodjeljuje broj spremljenom nacrtu, u istom koraku s upisom
