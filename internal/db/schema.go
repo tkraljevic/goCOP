@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -1334,18 +1335,39 @@ func InitSchema(database *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_watercourses_name ON watercourses(name);`,
 	}
 
-	for _, query := range queries {
-		if _, err := database.Exec(query); err != nil {
-			return fmt.Errorf("greška pri shemi (%s): %w", query, err)
-		}
-	}
-
-	// Knjiga verzija — svaki upis u sinkroniziranu tablicu ostavlja verziju
-	if _, err := database.Exec(ledger.Schema); err != nil {
-		return fmt.Errorf("greška pri shemi knjige verzija: %w", err)
+	// Tablice i knjiga verzija (svaki upis u sinkroniziranu tablicu ostavlja
+	// verziju) nastaju u jednoj transakciji
+	if err := izvediShemu(database, append(queries, ledger.Schema)); err != nil {
+		return err
 	}
 
 	return migrateSchema(database)
+}
+
+// izvediShemu izvodi naredbe sheme u jednoj transakciji. Nova baza ima
+// dvjestotinjak naredbi, a uz trajni upis (TrajniUpis) svaka zasebna
+// transakcija je jedno spuštanje na disk, na Linuxu i Windowsu po nekoliko
+// milisekundi. BEGIN IMMEDIATE odmah traži pravo pisanja, pa drugi program
+// koji u isto vrijeme piše u bazu pričeka (busy_timeout). Obična transakcija
+// koja je već čitala shemu pala bi tada usred nadogradnje.
+func izvediShemu(database *sql.DB, naredbe []string) error {
+	ctx := context.Background()
+	veza, err := database.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = veza.Close() }()
+	if _, err := veza.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
+		return err
+	}
+	for _, q := range naredbe {
+		if _, err := veza.ExecContext(ctx, q); err != nil {
+			_, _ = veza.ExecContext(ctx, `ROLLBACK`)
+			return fmt.Errorf("greška pri shemi (%s): %w", q, err)
+		}
+	}
+	_, err = veza.ExecContext(ctx, `COMMIT`)
+	return err
 }
 
 // renamedColumns su stupci preimenovani nakon što su baze već postojale
