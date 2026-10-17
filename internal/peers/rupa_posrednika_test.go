@@ -283,6 +283,27 @@ func TestPrivremenaRupaPosrednika(t *testing.T) {
 	}
 }
 
+// Uvoz od posrednika: uski laptop izveze kanal (arhiva knjige ili COP
+// paket), Unraid ga uveze, pa od ureda dobije staro-a
+func TestRupaUvozOdPosrednika(t *testing.T) {
+	for _, put := range putoviUvoza {
+		t.Run(put.ime, func(t *testing.T) {
+			cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured")
+			a, d, c := cv[0], cv[1], cv[2]
+			d.Accept(odbijaStaro)
+			upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
+			upisaoPrimatelj(t, d, c, true)
+			n, err := put.uvezi(a, d, kanalRupe, t.TempDir())
+			if err != nil || n != 2 {
+				t.Fatalf("uvezeno %d, %v", n, err)
+			}
+			if got := upisaoPrimatelj(t, a, c, false); got != 1 || !imaVerziju(t, a, rupaStaroA.VersionID) {
+				t.Errorf("Unraid od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
+			}
+		})
+	}
+}
+
 // Novo računalo koje niz prvo dobije od uskog laptopa, a zatim razmijeni s
 // Unraidom (koji ima sve), dobije staro-a od Unraida
 func TestRupaNoviCvorPrekoUskog(t *testing.T) {
