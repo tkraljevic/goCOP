@@ -25,7 +25,8 @@ package peers
 // Granica odbijenih nikad ne ide u knjigu, u granicu koju ovo računalo
 // šalje ni u deltu prema trećima: treće računalo dobiva sve kao i prije.
 // Pošiljatelj je koristi samo za deltu tog razgovora i, ograđenu vlastitom
-// granicom, za ploču (zapamtiDelte).
+// granicom, za ploču (zapamtiDelte). Nakon uvoza je zanemari dok drugoj
+// strani ne pošalje sve (granica_nakon_uvoza.go).
 //
 // Pamti se samo u memoriji, pa je ponovno pokretanje zaboravi. Cijela se
 // zaboravi i kad se promijeni što računalo drži ili prati: pravilo čuvanja
@@ -100,13 +101,16 @@ type pamcenjeOdbijenih struct {
 // razgovara, dokle je zaborav stigao, stanje ograde, iz kojeg je zapisa
 // (broj, 0 bez važećeg) i što drugoj strani javlja da je od nje odbio. Kad
 // druga strana nema oznaku, moje se isprazni (razmijeniOdbijene), jer nije
-// poslano.
+// poslano. Za slanje uzme i narastaj uvoza i što je druga strana nakon
+// uvoza dobila (granica_nakon_uvoza.go).
 type pocetakOdbijenih struct {
-	kljuc    string
-	zaborava uint64
-	ograda   stanjeOgrade
-	broj     uint64
-	moje     map[string]string
+	kljuc      string
+	zaborava   uint64
+	ograda     stanjeOgrade
+	broj       uint64
+	moje       map[string]string
+	uvoz       uint64
+	nakonUvoza nakonUvoza
 }
 
 // PostaviStanjePrihvata daje razmjeni stanje ograde prihvata (Accept), u
@@ -181,13 +185,14 @@ func (s *Service) odbijeneOd(kljuc string, ograda stanjeOgrade, sad time.Time) (
 }
 
 // pocetakOdbijenih uzme, prije prve poruke razgovora s pošiljateljem kljuc,
-// stanje ograde, dokle je zaborav stigao i važeći zapis odbijenih od njega.
-// Drugoj strani ide samo ono iznad vlastite granice knjige (mine): ostalo
-// ionako ne šalje.
+// stanje ograde, dokle je zaborav stigao i važeći zapis odbijenih od njega,
+// a za slanje njemu narastaj uvoza (uvozNaPocetku). Drugoj strani ide samo
+// ono iznad vlastite granice knjige (mine): ostalo ionako ne šalje.
 func (s *Service) pocetakOdbijenih(kljuc string, mine map[string]string) pocetakOdbijenih {
 	ograda := s.ogradaSada()
 	zaborava, z := s.odbijeneOd(kljuc, ograda, s.sadOdbijenih())
 	p := pocetakOdbijenih{kljuc: kljuc, zaborava: zaborava, ograda: ograda, broj: z.broj, moje: map[string]string{}}
+	p.uvoz, p.nakonUvoza = s.uvozNaPocetku(kljuc)
 	for k, v := range z.granica {
 		if v > mine[k] {
 			p.moje[k] = v
@@ -316,11 +321,12 @@ func (r *razgovorSCvorom) primiOdbijene() error {
 
 // granicaZaDeltu je tuđa granica po kojoj se slaže delta: po ključu veće od
 // granice knjige druge strane i onoga što je javila da je od ovog čvora
-// odbila. Zapamćena tuđa granica (theirs) se ovdje ne mijenja: do
-// zapamtiDelte ostaje granica knjige druge strane.
+// odbila, a nakon uvoza najviše do onoga što je otada dobila (preskok).
+// Zapamćena tuđa granica (theirs) se ovdje ne mijenja: do zapamtiDelte
+// ostaje granica knjige druge strane.
 func (r *razgovorSCvorom) granicaZaDeltu() frontierMsg {
 	g := r.theirs
-	g.Frontier = spojiGranice(r.theirs.Frontier, r.njihoveOdbijene)
+	g.Frontier = spojiGranice(r.theirs.Frontier, r.odbijene.preskok(r.njihoveOdbijene))
 	return g
 }
 

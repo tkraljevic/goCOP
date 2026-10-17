@@ -63,10 +63,12 @@ type razgovorSCvorom struct {
 	applied, sent int
 	// odbijene je granica odbijenih uzeta prije prve poruke, njihoveOdbijene
 	// ono što je druga strana javila da je od ovog čvora odbila, a odbijeno
-	// ono što je ovaj čvor odbio u ovom razgovoru (granica_odbijenih.go)
+	// ono što je ovaj čvor odbio u ovom razgovoru (granica_odbijenih.go);
+	// pokriveno je ono što je delta ovog čvora nosila (granica_nakon_uvoza.go)
 	odbijene        pocetakOdbijenih
 	njihoveOdbijene map[string]string
 	odbijeno        map[string]string
+	pokriveno       pokrivenoDeltom
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu
@@ -215,6 +217,7 @@ func (r *razgovorSCvorom) mojaDelta(ctx context.Context) (deltaMsg, []ledger.Ver
 // kojem upis ne uspije vraća pomaknutu granicu i Tailscale adrese.
 func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledger.Version) {
 	r.sent = len(moja.Versions)
+	r.pokriveno = pokriveno(moja, neispravne)
 	r.theirs.tailscale = primljeniTailscale(r.prekoTailscalea, stigla.Tailscale)
 	// Bilo koja strana je skratila deltu: ima još, razgovor se ponavlja odmah
 	if moja.Skraceno || stigla.Skraceno {
@@ -273,12 +276,14 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 // ima, i obje potvrde kraj. Stariji čvor bez sadržaja umjesto želja pošalje
 // kraj; tada je razgovor gotov bez sadržaja. Novi korak nakon upisa ide
 // ovamo, iza provjere gotovo, jer druga strana koja je poslala kraj čeka još
-// samo naš kraj.
+// samo naš kraj. Želje druga strana šalje tek kad je upisala primljeno, pa
+// se tek tada pamti što je nakon uvoza dobila (zapamtiUvoz).
 func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
 	njihove, gotovo, err := r.zelje(ctx)
 	if err != nil || gotovo {
 		return err
 	}
+	r.s.zapamtiUvoz(r.odbijene, r.pokriveno)
 	if err = r.sadrzaj(ctx, njihove); err != nil {
 		return err
 	}

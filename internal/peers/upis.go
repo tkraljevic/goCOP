@@ -91,13 +91,15 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 // primijeniPodBravom upisuje verzije iz arhive ili COP paketa. Mreže tu
 // nema, pa bravu čeka koliko treba. Neispravne verzije preskoči kao i
 // razmjena (od G3; do tada je uvoz s njima padao), a vide se samo u
-// dnevniku.
+// dnevniku. Uvezeno može biti ispod granice odbijenih drugih računala, pa
+// se uvoz broji (zabiljeziUvoz).
 func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version) (int, error) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return 0, err
 	}
 	defer s.pustiBravu()
 	applied, povrsina, err := s.primijeni(ctx, s.preskociNeispravne("uvoz", verzije))
+	s.zabiljeziUvoz(applied)
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
 	}

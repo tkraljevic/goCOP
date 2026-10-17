@@ -207,6 +207,9 @@ type Service struct {
 	odbijene       pamcenjeOdbijenih
 	stanjePrihvata func() (narastaj uint64, rub time.Time)
 	satOdbijenih   func() time.Time
+	// uvozi su narastaj uvoza i što su druga računala nakon uvoza dobila
+	// (granica_nakon_uvoza.go)
+	uvozi pamcenjeUvoza
 	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
 	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
 	mogucnosti func() []string
