@@ -864,6 +864,78 @@ različit identifikator. Na kojem izdanju radi koji čvor, pokazuju pločica
 „Razmjena s čvorovima” i stranica Sinkronizacija (od 0.0.24-alfa; čvor koji
 izdanje ne javlja radi na starijem).
 
+0.0.39-alfa radi uz 0.0.38-alfa. Nove poruke razmjene idu samo između dva
+računala s 0.0.39-alfa, a 0.0.38-alfa nova polja zanemari, pa razmjena s
+njom ide kao i dosad. Ispravak ključa (član mreže više ne može podmetnuti
+ključ drugog računala) štiti samo računalo s 0.0.39-alfa, pa stalna računala
+nadograditi odmah, a ostala čim mogu. *Pripremi model* ne treba ponovno
+pokretati; računalo koje preskače s 0.0.37-alfa i dalje treba korake za
+0.0.38-alfa opisane niže.
+
+Dok u mreži ima računala na 0.0.38-alfa, nijedno računalo ne smije imati
+upisanu postavku „Povijest tuđih očitanja (mjeseci)” (`[vodostaji]
+povijest_mjeseci` u `gocop.toml`). Računalo s tom postavkom tuđa očitanja
+starija od zadanog broja mjeseci ne čuva, a novija predaje dalje. 0.0.38-alfa
+ne zna koja su izostavljena, pa takav niz primi kao cijeli i preda ga dalje,
+a ono što nedostaje više ne traži. To vrijedi i za novi terenski laptop, iako
+mu program uz polje i u zaglavlju `gocop.toml` nudi 12 mjeseci. Postavku
+isključuje globalni administrator upisom 0 na stranici „Što ovo računalo
+prati”, s tog računala ili iz lokalne mreže, i zatim ponovno pokrene program;
+do tada postavka i dalje vrijedi. Je li uključena, vidi se u dnevniku
+programa pri pokretanju, u retku „Vodostaji: razmjenom se preuzimaju
+očitanja zadnjih … mjeseci”. Nadograđeno računalo s tom postavkom na pločici
+razmjene navodi računala sa starijim programom i ona s kojima od nadogradnje
+još nije razmijenilo podatke.
+
+Računalo koje tu postavku već ima ne isključivati prije nadogradnje.
+0.0.38-alfa nije bilježila što je odbila, pa 0.0.39-alfa pri prvom pokretanju
+s još upisanom postavkom zapiše da za tuđa očitanja koja je dotad primilo ne
+jamči. Zato ga nadograditi nakon stalnih računala, s još upisanom postavkom,
+i pokrenuti.
+Zatim upisati 0 i ponovno pokrenuti program: računalo tada od računala s
+0.0.39-alfa koja niz imaju cijeli zatraži starija očitanja koja prati, a dotad
+ih je izostavljalo. Isključi li se postavka još na 0.0.38-alfa, prvo
+pokretanje 0.0.39-alfa to ne zapiše. Tada tom računalu ono što je dotad
+izostavilo trajno nedostaje, a da to nigdje ne piše, i taj niz drugima predaje
+kao cijeli.
+
+Kad .cop paket kanala nosi rupe u nizu, inačice je 4, pa ga 0.0.38-alfa
+odbije porukom da je paket izdao noviji program i da treba ažurirati goCOP;
+paket bez rupa i dalje je inačice 3. Staru .db arhivu 0.0.38-alfa uveze i
+kad nosi zapis o rupama, ali ga ne pročita, pa niz primi kao cijeli.
+Računalu na 0.0.38-alfa zato slati .cop paket, a ne staru .db arhivu.
+Paketi arhive vodostaja nisu se promijenili.
+
+Ako nakon nadogradnje dnevnik programa javi da pod nekim imenom valjano
+članstvo imaju dva računala, razmjena ide s onim čije je članstvo prvo
+izdano. Opoziv tog imena ukida članstvo obaju računala. Zato poslije opoziva
+ponovno primiti računalo koje zadržava to ime, a drugo pod drugim imenom.
+Opoziv može napraviti računalo s ključem mreže, a ovlašteni primatelj samo
+kad je oba članstva izdao on.
+
+Na računalu koje gradi arhivu ili izdaje pakete nakon nadogradnje pogledati u
+dnevniku programa retke „Stablo arhive: …” i „Mapa paketa: …”. Kad relativne
+mape nema, a mapa istog imena stoji jednu razinu iznad mape iz koje je goCOP
+pokrenut, uvoz u stablo ne zapisuje ništa i paketi se ne izdaju dok se to
+ne riješi. Redak kaže kako: upisati punu putanju u postavke ili napraviti
+mapu.
+
+Povratak na 0.0.38-alfa je moguć bez kopije baze: nove tablice i stupci u
+bazi služe samo računalu s 0.0.39-alfa, a 0.0.38-alfa ih ne čita. Postava ne
+ugrađuje starije izdanje, pa se povratak radi ručno: zaustaviti goCOP, na
+mjesto programa vratiti potpisani program 0.0.38-alfa i pokrenuti ga. Kad je
+nadogradnju na Windowsu napravila Postava, prethodni program stoji u mapi
+programa kao `gocop.prethodni.exe`. U spremniku se vraća oznaka slike
+`:0.0.38-alfa`. Postava sama vrati prethodni program samo kad novo izdanje ne
+odgovori za 90 sekundi. Vraćeno računalo opet je računalo na 0.0.38-alfa, pa
+vrijedi isto pravilo o postavci „Povijest tuđih očitanja (mjeseci)”. Što mu
+nedostaje, ostaje zapisano u bazi, ali 0.0.38-alfa to ne čita i takav niz
+drugima predaje kao cijeli. Ako vraćeno računalo ipak ima tu postavku, ni
+nakon ponovne nadogradnje neće znati koja je očitanja dotad izostavilo, pa ih
+ni ono ni računala koja od njega primaju neće tražiti. 0.0.38-alfa ne čita ni
+popis kvarova, pa bi gradnja arhive na njoj kriva očitanja koja su ostala u
+izvornim datotekama vratila u niz.
+
 0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
 dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.
 Odmah nakon nadogradnje tog čvora, ne čekajući ostala računala, globalni

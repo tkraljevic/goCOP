@@ -76,9 +76,13 @@ ne koristiti „Obriši s računala” ni „Makni i obriši”: ondje brišu i 
 je nastalo na tom računalu. 0.0.39-alfa radi uz 0.0.38-alfa; stalna računala
 nadograditi odmah, jer sigurnosni ispravak razmjene štiti samo nadograđeno
 računalo. Dok u mreži ima računala na 0.0.38-alfa, nijedno računalo ne smije
-imati upisanu postavku „Povijest tuđih očitanja (mjeseci)” (`povijest_mjeseci`):
-stari program ne zna koja su očitanja izostavljena, pa bi se mogla izgubiti.
-Nadograđeno računalo s tom postavkom na to upozorava na pločici razmjene.
+imati upisanu postavku „Povijest tuđih očitanja (mjeseci)” (`povijest_mjeseci`),
+ni novi terenski laptop: stari program ne zna koja su očitanja izostavljena,
+pa bi se mogla izgubiti. Isključuje se upisom 0 i ponovnim pokretanjem
+programa. Računalo koje tu postavku već ima isključiti tek nakon nadogradnje
+na 0.0.39-alfa, inače mu izostavljena očitanja trajno nedostaju. Nadograđeno
+računalo s tom postavkom na pločici razmjene navodi računala sa starijim
+programom i ona s kojima od nadogradnje još nije razmijenilo podatke.
 
 ## Dokumentacija i razvoj
 
