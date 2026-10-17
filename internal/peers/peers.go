@@ -161,6 +161,12 @@ type Service struct {
 	program, gradnja string
 	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
 	javljenaInacica sync.Map
+	// zapisi čvorova čiji je ključ drukčiji od članstva već zapisani u
+	// dnevnik (javiDrugiKljuc)
+	javljenKljuc sync.Map
+	// dva računala s valjanim članstvom pod istim imenom, već zapisana u
+	// dnevnik (javiSukob)
+	javljenSukob sync.Map
 	// neispravne su version_id verzija iz vlastite knjige koje razmjena ne
 	// šalje (zaSlanje); broj se vidi na ploči. Primljene neispravne su u
 	// preskocene.
@@ -187,6 +193,10 @@ type Service struct {
 	// slusaj čeka poziv za uparivanje (StartListening); nil je
 	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
 	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
+	// katalog su vrste zapisa koje čvor javlja u granici (mojKatalog); nil
+	// je ledger.Katalog. Popis poznatih entiteta u ledgeru zajednički je
+	// cijelom procesu i ne vraća se, pa test katalog daje ovuda.
+	katalog func() map[string]int
 	// brava upisa primljenog (upis.go); nastaje pri prvoj upotrebi
 	upis       chan struct{}
 	upisJednom sync.Once
@@ -195,6 +205,20 @@ type Service struct {
 	bezTailscalea atomic.Bool
 	// čvorovi za koje je odbijena razmjena na Tailscale adresi već zapisana u dnevnik
 	javljenTailscale sync.Map
+
+	// odbijene je ono što je ovaj čvor odbio od drugih, po pošiljatelju
+	// (granica_odbijenih.go); stanjePrihvata kaže o čemu ovisi što accept
+	// odbija (PostaviStanjePrihvata), a satOdbijenih je njezin sat: nil je
+	// time.Now, test njime pomiče vrijeme
+	odbijene       pamcenjeOdbijenih
+	stanjePrihvata func() (narastaj uint64, rub time.Time)
+	satOdbijenih   func() time.Time
+	// uvozi su narastaj uvoza i što su druga računala nakon uvoza dobila
+	// (granica_nakon_uvoza.go)
+	uvozi pamcenjeUvoza
+	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
+	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
+	mogucnosti func() []string
 }
 
 func (s *Service) autoSync() bool {
@@ -457,7 +481,9 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 var ErrIstoImeDrugiKljuc = errors.New("ime već ima drugo računalo u mreži (drugi ključ)")
 
 // provjeriImeDrugog odbija uparivanje s čvorom koji nosi ime ovog čvora ili
-// ime poznatog čvora, odnosno člana mreže, s drugim ključem
+// ime poznatog čvora, odnosno člana mreže, s drugim ključem. Ključ člana je
+// iz članstva koje za to ime vrijedi (kljucClana): krivotvoreno, isteklo ili
+// opozvano članstvo ime ne zauzima.
 func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed25519.PublicKey) error {
 	if id == s.node.ID {
 		return fmt.Errorf("drugo računalo nosi isto ime kao ovo (%s); svaki čvor treba svoje ime: drugo računalo instalirajte ponovno s drugim imenom", id)
@@ -472,12 +498,11 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 	if p != nil && p.PublicKey != k {
 		return poruka
 	}
-	var clan string
-	err = s.db.QueryRowContext(ctx, `SELECT public_key FROM memberships WHERE node_id = ?`, id).Scan(&clan)
-	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+	clanski, err := s.kljucClana(ctx, id)
+	if err != nil && !errors.Is(err, errNijeClan) {
 		return fmt.Errorf("ime %s se ne može provjeriti: %w", id, err)
 	}
-	if err == nil && clan != k {
+	if err == nil && !clanski.Equal(kljuc) {
 		return poruka
 	}
 	return nil
@@ -485,6 +510,9 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 
 // ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
+	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
+	// zaboraviti previše košta samo jedno ponovno slanje
+	defer s.zaboraviOdbijene()
 	p, err := s.GetPeer(ctx, nodeID)
 	if err != nil {
 		return err
@@ -510,15 +538,19 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	return tx.Commit()
 }
 
-func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey) (*Peer, error) {
-	row := s.db.QueryRowContext(ctx, `
-		SELECT node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at
-		FROM peers WHERE public_key = ?`, razmjena.PublicKeyString(pub))
-	p, err := scanPeer(row)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+// peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub, po istoj
+// odluci po kojoj su ga vrata razmjene pustila (oznakaDokazanog): po
+// članstvu, ili po potvrdi iz certifikata (vj) dok članstvo ovdje još
+// nije. Ključ u zapisu čvora to ne kaže, jer zapis piše i šalje bilo koji
+// član (dva zapisa mogu nositi isti ključ). nil kad računalo nije član ili
+// ovaj čvor nema njegov zapis.
+func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey, vj []byte) (*Peer, error) {
+	// uz grešku je oznaka prazna
+	id, err := s.oznakaDokazanog(ctx, pub, vj)
+	if id == "" {
+		return nil, err
 	}
-	return &p, err
+	return s.GetPeer(ctx, id)
 }
 
 // ---------- pronalaženje na lokalnoj mreži ----------
@@ -802,6 +834,11 @@ type frontierMsg struct {
 	// od onoga koji je to uveo.
 	Program string `json:"program,omitempty"`
 	Gradnja string `json:"gradnja,omitempty"`
+	// Znanje je što pošiljatelj zna: oznake mogućnosti, vrste zapisa sa
+	// shemama i koliko zapisa kod njega čeka nadogradnju
+	// (razmjena/mogucnosti.go). Ugrađeno je iza Gradnja, pa ključevi idu
+	// iza "gradnja"; prazno izostaje, a čvor 0.0.38 ga ne šalje i zanemari.
+	razmjena.Znanje
 	// tailscale su Tailscale adrese koje je drugi čvor javio u delti
 	// razgovora preko Tailscalea; ne putuje, samo nosi primljeno do bilješke
 	// o razmjeni (noteSync)
@@ -841,7 +878,7 @@ func (s *Service) Serve(ctx context.Context) error {
 // razmjene ili kroz tunel, i zabilježi ishod
 func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	defer c.Close()
-	peer, _ := s.peerByKey(ctx, c.PeerKey)
+	peer, _ := s.peerByKey(ctx, c.PeerKey, c.Vjerodajnice)
 	if s.odbijTailscale(c, peer) {
 		return
 	}
@@ -900,7 +937,10 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 }
 
 // partnerZaRazmjenu je poznati čvor s kojim je razmjena dopuštena (član
-// mreže) i ključ koji mora dokazati
+// mreže) i ključ koji mora dokazati. Ključ dolazi iz članstva, ne iz zapisa
+// čvora: zapis piše i šalje bilo koji član, pa bi inače mogao podmetnuti
+// ključ drugog člana, a razmjena bi išla s njim (na svim adresama, i kroz
+// tunel).
 func (s *Service) partnerZaRazmjenu(ctx context.Context, nodeID string) (*Peer, ed25519.PublicKey, error) {
 	peer, err := s.GetPeer(ctx, nodeID)
 	if err != nil {
@@ -909,14 +949,29 @@ func (s *Service) partnerZaRazmjenu(ctx context.Context, nodeID string) (*Peer, 
 	if peer == nil {
 		return nil, nil, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
 	}
-	expect, err := razmjena.ParsePublicKey(peer.PublicKey)
+	expect, err := s.kljucClana(ctx, nodeID)
+	if errors.Is(err, errNijeClan) {
+		return nil, nil, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
+	}
 	if err != nil {
 		return nil, nil, err
 	}
-	if !s.trusted(expect, nil) {
-		return nil, nil, fmt.Errorf("čvor %s nije član naše mreže — razmjena nije dopuštena dok ga nositelj mrežnog ključa ili ovlašteni primatelj ne primi", nodeID)
-	}
+	s.javiDrugiKljuc(peer, expect)
 	return peer, expect, nil
+}
+
+// javiDrugiKljuc zapisuje u dnevnik, jednom po računalu i ključu, kad
+// zapis računala nosi drugi ključ od onoga u njegovu članstvu. Takav zapis
+// je zastario ili ga je netko podmetnuo; razmjena ionako traži ključ iz
+// članstva, a zapis se ovdje ne ispravlja (nova verzija bi putovala svima).
+func (s *Service) javiDrugiKljuc(p *Peer, clanski ed25519.PublicKey) {
+	k := razmjena.PublicKeyString(clanski)
+	if p.PublicKey == k {
+		return
+	}
+	if _, vec := s.javljenKljuc.LoadOrStore(p.NodeID+"\x00"+p.PublicKey, true); !vec {
+		log.Printf("razmjena: računalo %s u popisu računala ima drugi ključ (%.8s…) od onoga u potvrdi članstva (%.8s…); razmjena traži ključ iz potvrde", label(*p), p.PublicKey, k)
+	}
 }
 
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
@@ -1187,6 +1242,7 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	applied, sent, err := o.applied, o.sent, o.err
 	s.recordSyncState(ctx, peer.NodeID, o)
 	s.zapamtiTailscale(ctx, peer.NodeID, o)
+	s.zapamtiZnanje(ctx, peer.NodeID, o)
 	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
 		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
 			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))

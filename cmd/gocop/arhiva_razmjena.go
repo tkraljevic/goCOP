@@ -447,21 +447,16 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 		}
 		out.Upozorenja = append(out.Upozorenja, "Stigli su zapisi koje ovaj program ne razumije do kraja ("+strings.Join(opisi, "; ")+") — ažurirajte goCOP.")
 	}
-	moja, _ := rec.Frontier(ctx)
+	// drugi čvor zna za verzije koje ovaj prati, a još nema (bez onih koje
+	// je ovaj od njega odbio)
+	josPrima := p.PrimaJos(ctx)
 	for _, ps := range st.Peers {
 		c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
 			Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
 			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
-			Verzija: ps.Program, Razlicita: ps.RazlicitProgram}
+			Verzija: ps.Program, Razlicita: ps.RazlicitProgram, JosPrima: josPrima(ps)}
 		if c.Naziv == "" {
 			c.Naziv = ps.NodeID
-		}
-		// drugi čvor zna za verzije koje ovaj još nema
-		for k, njihova := range ps.State.Frontier {
-			if njihova > moja[k] {
-				c.JosPrima = true
-				break
-			}
 		}
 		out.Cvorovi = append(out.Cvorovi, c)
 	}

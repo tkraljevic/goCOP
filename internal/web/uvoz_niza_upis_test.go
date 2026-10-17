@@ -399,3 +399,16 @@ func TestVrataUlaganjaIProvjereArhive(t *testing.T) {
 		t.Errorf("arhiva koja nije baza: %q", g)
 	}
 }
+
+// Vrata po zadanom ništa ne javljaju nakon pospremanja, a poslužitelj im daje
+// brojanje u razmjeni (peers.ObrisanoIzKnjige).
+func TestNakonPospremanjaJavljaRazmjeni(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	o.h.nakonPospremanja(5)
+	var javljeno []int
+	o.h.SetNakonPospremanja(func(n int) { javljeno = append(javljeno, n) })
+	o.h.nakonPospremanja(5)
+	if len(javljeno) != 1 || javljeno[0] != 5 {
+		t.Errorf("javljeno %v, očekivano [5]", javljeno)
+	}
+}

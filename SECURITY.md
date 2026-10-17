@@ -238,6 +238,11 @@ nepouzdano.
   pješčaniku (`sandbox`); u pregledniku se prikazuju samo PNG, JPEG, GIF i
   WebP, a sve ostalo (SVG, HTML…) se preuzima.
 - **Primljena e-pošta** prikazuje se u okviru bez skripti, s vlastitim CSP-om.
+- **Tražilice:** svaki odgovor nosi `X-Robots-Tag: noindex, nofollow,
+  noarchive, nosnippet, noimageindex`, a stranice i `<meta name="robots">`.
+  `robots.txt` tražilici dopušta samo ulaz i prijavu, da na njima vidi
+  oznaku „ne indeksiraj”, a sve ostalo zabranjuje. goCOP nije namijenjen
+  javnosti, pa se ne nudi tražilicama. To ne zamjenjuje prijavu.
 - **Ograničenja veličine i rokova** za svaku vrstu zahtjeva (zadano 2 MiB),
   ograničena zaglavlja i rokovi veze.
 

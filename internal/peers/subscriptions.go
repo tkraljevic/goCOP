@@ -219,11 +219,13 @@ func (w Wants) zeliSadrzaj(channel, vrsta string, sectorOf func(int) string) boo
 
 // ---------- što ovaj čvor prati ----------
 
-// SetWantsAll postavlja čvor da prati sve kanale (uredski čvor)
+// SetWantsAll postavlja čvor da prati sve kanale (uredski čvor). Mijenja što
+// čvor prati, pa zaboravi granicu odbijenih (granica_odbijenih.go).
 func (s *Service) SetWantsAll(all bool) {
 	s.mu.Lock()
 	s.wantsAll = all
 	s.mu.Unlock()
+	s.zaboraviOdbijene()
 }
 
 // WantsAll javlja prati li čvor sve
@@ -294,8 +296,10 @@ func godineIRokPravila(r *Subscription) error {
 	return nil
 }
 
-// AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada
+// AddSubscription upisuje pravilo; sljedeća razmjena donosi što mu pripada.
+// Granica odbijenih zaboravi se i kad pravilo nije upisano.
 func (s *Service) AddSubscription(ctx context.Context, r Subscription) (Subscription, error) {
+	defer s.zaboraviOdbijene()
 	r.Kind = strings.TrimSpace(r.Kind)
 	if !vrstaPretplate(r.Kind) {
 		return r, fmt.Errorf("Pretplata nije dodana: vrsta mora biti očitanja, dnevnici, prijave s terena, vodočuvarski dnevnik, arhiva vodostaja ili sve vrste.")
@@ -341,8 +345,9 @@ func (s *Service) provjeriDvostruko(ctx context.Context, r Subscription) error {
 }
 
 // RemoveSubscription briše pravilo; podaci ostaju dok ih korisnik ne obriše
-// (PurgeChannel)
+// (PurgeChannel). Granica odbijenih zaboravi se i kad brisanje ne uspije.
 func (s *Service) RemoveSubscription(ctx context.Context, id int) error {
+	defer s.zaboraviOdbijene()
 	_, err := s.db.ExecContext(ctx, `DELETE FROM subscriptions WHERE id = ?`, id)
 	return err
 }

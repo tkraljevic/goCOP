@@ -46,28 +46,28 @@ func TestZastitaOdTudjihStranica(t *testing.T) {
 		zag     map[string]string
 		kod     int
 	}{
-		{"tuđa stranica (Sec-Fetch-Site)", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000",
+		{"tuđa stranica (Sec-Fetch-Site)", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000",
 			map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://zlo.hr", "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-Proto": "https"}, 403},
 		{"ista lokacija, drugi poslužitelj (Sec-Fetch-Site)", "POST", "/promjena", "192.168.1.2:1160", "192.168.1.10:5000",
 			map[string]string{"Sec-Fetch-Site": "same-site"}, 403},
-		{"tuđi Origin bez Sec-Fetch-Site", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000",
+		{"tuđi Origin bez Sec-Fetch-Site", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000",
 			map[string]string{"Origin": "https://zlo.hr"}, 403},
 		{"drugi poslužitelj na localhostu", "POST", "/promjena", "localhost:8080", "127.0.0.1:5000",
 			map[string]string{"Origin": "http://localhost:3000"}, 403},
-		{"tunel, ista stranica", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000",
-			map[string]string{"Sec-Fetch-Site": "same-origin", "Origin": "https://cop-osijek.com", "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-Proto": "https"}, 200},
-		{"tunel, stari preglednik bez Sec-Fetch-Site", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000",
-			map[string]string{"Origin": "https://cop-osijek.com", "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-Proto": "https"}, 200},
+		{"tunel, ista stranica", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000",
+			map[string]string{"Sec-Fetch-Site": "same-origin", "Origin": "https://cop.primjer.hr", "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-Proto": "https"}, 200},
+		{"tunel, stari preglednik bez Sec-Fetch-Site", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000",
+			map[string]string{"Origin": "https://cop.primjer.hr", "CF-Connecting-IP": "203.0.113.9", "X-Forwarded-Proto": "https"}, 200},
 		{"localhost:8080", "POST", "/promjena", "localhost:8080", "127.0.0.1:5000",
 			map[string]string{"Sec-Fetch-Site": "same-origin", "Origin": "http://localhost:8080"}, 200},
 		{"lokalna mreža preko HTTP-a (bez Sec-Fetch-Site)", "POST", "/promjena", "192.168.1.2:1160", "192.168.1.10:5000",
 			map[string]string{"Origin": "http://192.168.1.2:1160"}, 200},
-		{"adresa upisana ručno (Sec-Fetch-Site: none)", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000",
+		{"adresa upisana ručno (Sec-Fetch-Site: none)", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000",
 			map[string]string{"Sec-Fetch-Site": "none"}, 200},
-		{"alat bez zaglavlja preglednika", "POST", "/promjena", "cop-osijek.com", "127.0.0.1:5000", nil, 200},
-		{"čitanje s tuđe stranice", "GET", "/citanje", "cop-osijek.com", "127.0.0.1:5000",
+		{"alat bez zaglavlja preglednika", "POST", "/promjena", "cop.primjer.hr", "127.0.0.1:5000", nil, 200},
+		{"čitanje s tuđe stranice", "GET", "/citanje", "cop.primjer.hr", "127.0.0.1:5000",
 			map[string]string{"Sec-Fetch-Site": "cross-site", "Origin": "https://zlo.hr"}, 200},
-		{"tunel razmjene: GET s Originom druge domene", "GET", "/citanje", "cop-osijek.com", "127.0.0.1:5000",
+		{"tunel razmjene: GET s Originom druge domene", "GET", "/citanje", "cop.primjer.hr", "127.0.0.1:5000",
 			map[string]string{"Origin": "https://drugi-cvor.hr"}, 200},
 	}
 	for _, c := range slucajevi {
@@ -89,7 +89,7 @@ func TestZastitaOdTudjihStranica(t *testing.T) {
 	}
 
 	// skripta koja čeka JSON dobije JSON
-	r := httptest.NewRequest("POST", "http://cop-osijek.com/promjena", strings.NewReader(`{"approved":true}`))
+	r := httptest.NewRequest("POST", "http://cop.primjer.hr/promjena", strings.NewReader(`{"approved":true}`))
 	r.Header.Set("Content-Type", "application/json")
 	r.Header.Set("Sec-Fetch-Site", "cross-site")
 	w := httptest.NewRecorder()
@@ -108,7 +108,7 @@ func TestZastitaOdTudjihStranica(t *testing.T) {
 func TestSigurnosnaZaglavlja(t *testing.T) {
 	h := probniPosluzitelj()
 	zovi := func(udaljen string, zag map[string]string, put string) http.Header {
-		r := httptest.NewRequest("GET", "http://cop-osijek.com"+put, nil)
+		r := httptest.NewRequest("GET", "http://cop.primjer.hr"+put, nil)
 		r.RemoteAddr = udaljen
 		for k, v := range zag {
 			r.Header.Set(k, v)
@@ -318,21 +318,21 @@ func TestSigurnaPovratnaAdresa(t *testing.T) {
 		"javascript:alert(1)":     false,
 		"zlo.hr":                  false,
 		"/a\\b":                   false,
-		"http://cop-osijek.com/x": false,
+		"http://cop.primjer.hr/x": false,
 	} {
 		if sigurnaPutanja(v) != ok {
 			t.Errorf("sigurnaPutanja(%q) = %v", v, !ok)
 		}
 	}
 	ref := func(v string) *http.Request {
-		r := httptest.NewRequest("POST", "http://cop-osijek.com/profile", nil)
+		r := httptest.NewRequest("POST", "http://cop.primjer.hr/profile", nil)
 		r.Header.Set("Referer", v)
 		return r
 	}
 	for v, want := range map[string]string{
-		"https://cop-osijek.com/users/5/edit?error=x": "/users/5/edit",
+		"https://cop.primjer.hr/users/5/edit?error=x": "/users/5/edit",
 		"https://zlo.hr/users":                        "/",
-		"https://cop-osijek.com//zlo.hr":              "/",
+		"https://cop.primjer.hr//zlo.hr":              "/",
 		"https://zlo.hr/territories/municipalities/3": "/",
 		"": "/",
 	} {
@@ -343,7 +343,7 @@ func TestSigurnaPovratnaAdresa(t *testing.T) {
 	if got := backToMunicipality(ref("https://zlo.hr/territories/municipalities/3")); got != "/territories?tab=municipalities" {
 		t.Errorf("povratak na općinu s tuđeg Referera: %q", got)
 	}
-	if got := backToMunicipality(ref("https://cop-osijek.com/territories/municipalities/3?x=1")); got != "/territories/municipalities/3" {
+	if got := backToMunicipality(ref("https://cop.primjer.hr/territories/municipalities/3?x=1")); got != "/territories/municipalities/3" {
 		t.Errorf("povratak na općinu: %q", got)
 	}
 	if got := povratnaPutanja("//zlo.hr", "/vodocuvar"); got != "/vodocuvar" {

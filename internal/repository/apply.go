@@ -35,12 +35,20 @@ import (
 type ReadingHistoryPolicy struct {
 	Months   int
 	Followed map[string]bool
+	// narastaj je redni broj postavljanja: razmjena po njemu zna da se
+	// pravilo promijenilo (StanjeOgradePovijesti)
+	narastaj uint64
 }
 
 var readingPolicy atomic.Pointer[ReadingHistoryPolicy]
 
-// SetReadingHistoryPolicy postavlja politiku ovog čvora
+// narastajPravila broji postavljanja pravila (SetReadingHistoryPolicy)
+var narastajPravila atomic.Uint64
+
+// SetReadingHistoryPolicy postavlja politiku ovog čvora. Svako postavljanje
+// dobije novi narastaj, i kad je pravilo isto kao prije.
 func SetReadingHistoryPolicy(p ReadingHistoryPolicy) {
+	p.narastaj = narastajPravila.Add(1)
 	readingPolicy.Store(&p)
 }
 

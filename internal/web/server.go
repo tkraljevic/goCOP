@@ -1378,6 +1378,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled", s.authMiddleware(http.HandlerFunc(uvozH.PregledUvoza)))
 	s.mux.Handle("POST /administracija/uvoz-niza/pregled-opet", s.authMiddleware(http.HandlerFunc(uvozH.PonoviPregled)))
 	uvozH.SetMakniNiz(s.MakniNiz)
+	uvozH.SetNakonPospremanja(func(obrisano int) { s.peersService.ObrisanoIzKnjige(obrisano) })
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-niz", s.samoAdmin(http.HandlerFunc(uvozH.MakniSirotana)))
 	uvozH.SetMakniSnimku(s.MakniSnimku)
 	s.mux.Handle("POST /administracija/uvoz-niza/makni-snimku", s.samoAdmin(http.HandlerFunc(uvozH.MakniSnimkuBezDatoteke)))

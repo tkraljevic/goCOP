@@ -446,10 +446,11 @@ func TestPokazanaPotvrda(t *testing.T) {
 			t.Errorf("%s: prihvaćeno", ime)
 		}
 	}
-	// ispravna potvrda za tuđi ključ
+	// ispravna potvrda za tuđi ključ; članstvo D-a A još nema ni u knjizi
 	d := rubniCvor(t, "pperic-laptop")
 	md := primiIzravno(t, a, d)
 	_, _ = a.db.Exec(`DELETE FROM memberships WHERE node_id = ?`, d.node.ID)
+	_, _ = a.db.Exec(`DELETE FROM record_versions WHERE entity = ? AND entity_id = ?`, EntityMemberships, d.node.ID)
 	vjd, _ := json.Marshal(vjerodajniceCvora{Clanstvo: &md})
 	if a.trusted(c.javni(), vjd) {
 		t.Error("potvrda tuđeg ključa prihvaćena")

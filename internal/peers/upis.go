@@ -91,13 +91,15 @@ func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (appl
 // primijeniPodBravom upisuje verzije iz arhive ili COP paketa. Mreže tu
 // nema, pa bravu čeka koliko treba. Neispravne verzije preskoči kao i
 // razmjena (od G3; do tada je uvoz s njima padao), a vide se samo u
-// dnevniku.
+// dnevniku. Uvezeno može biti ispod granice odbijenih drugih računala, pa
+// se uvoz broji (zabiljeziUvoz, granica_nakon_uvoza.go).
 func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Version) (int, error) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return 0, err
 	}
 	defer s.pustiBravu()
 	applied, povrsina, err := s.primijeni(ctx, s.preskociNeispravne("uvoz", verzije))
+	s.zabiljeziUvoz(applied, true)
 	if povrsina != nil {
 		return applied, fmt.Errorf("površina nije osvježena: %w", povrsina)
 	}
@@ -106,7 +108,8 @@ func (s *Service) primijeniPodBravom(ctx context.Context, verzije []ledger.Versi
 
 // primijeniAkoStigne upisuje verzije primljene u razgovoru, ako brava
 // stigne unutar roka; inače vraća errUpisZauzet. Bez verzija bravu ne čeka,
-// pa ni kad su sve primljene neispravne.
+// pa ni kad su sve primljene neispravne. Upis koji popuni rupu u nizu broji
+// se kao uvoz (popunjavaRupu, zabiljeziUvoz).
 func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Version) (int, error) {
 	verzije = s.preskociNeispravne("razmjena", verzije)
 	if len(verzije) == 0 {
@@ -116,7 +119,9 @@ func (s *Service) primijeniAkoStigne(ctx context.Context, verzije []ledger.Versi
 		return 0, err
 	}
 	defer s.pustiBravu()
+	rupa := s.popunjavaRupu(ctx, verzije)
 	applied, povrsina, err := s.primijeni(ctx, verzije)
+	s.zabiljeziUvoz(applied, rupa)
 	javiPovrsinu(povrsina)
 	return applied, err
 }

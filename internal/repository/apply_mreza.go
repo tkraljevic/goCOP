@@ -39,7 +39,14 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	}
 	addrs, _ := json.Marshal(p.Addresses)
 	// bilješke o zadnjoj sinkronizaciji opisuju odnos dva čvora, ne čvor —
-	// ne prepisuju se tuđima
+	// ne prepisuju se tuđima.
+	// Ključ se upisuje kakav je u zapisu, i kad mijenja ključ poznatog
+	// računala. Zapis piše i šalje bilo koji član, pa mu razmjena ne
+	// vjeruje: ključ koji druga strana mora dokazati dolazi iz potpisanog
+	// članstva (peers.kljucClana). Da se ključ ovdje zadržava, računalo
+	// koje je dobilo novi ključ (zaborav i ponovno uparivanje) ostalo bi
+	// trećem čvoru sa starim, ovisno o tome stigne li zaborav istom
+	// razmjenom kao novi zapis.
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO peers (node_id, name, public_key, addresses, is_bootstrap, last_seen, last_sync, last_sync_note, created_at)
 		VALUES (?, ?, ?, ?, ?, ?, NULL, '', ?)
@@ -76,8 +83,9 @@ func primijeniClanstvo(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 		primatelj = string(b)
 	}
 	// Potpis se ne provjerava ovdje nego na vratima razmjene — ovdje se
-	// samo pamti što je stiglo; tuđa ili kriva potvrda nikad ne prolazi
-	// provjeru i ne šteti time što postoji u tablici.
+	// samo pamti što je stiglo. Tuđa ili kriva potvrda prepiše red tog
+	// imena, ali razmjena ključ računala bira iz svih članstava u knjizi,
+	// samo iz onih koja vrijede (peers.kljucClana).
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at, primatelj)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)

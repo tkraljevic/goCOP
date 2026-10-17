@@ -439,31 +439,12 @@ func (s *Service) sveOvlasti(ctx context.Context) ([]razmjena.Ovlast, error) {
 }
 
 // trusted je provjera na vratima razmjene: ključ mora imati važeću,
-// neopozvanu potvrdu NAŠE mreže. "Postoji u popisu" nije dovoljno — popis
-// putuje. Kad potvrde tog ključa još nemamo (primio ga je ovlašteni
-// primatelj, a knjiga od njega još nije stigla), vrijedi potvrda koju čvor
-// pokaže u certifikatu, ako lanac do ključa mreže štima i ime nije tuđe.
+// neopozvanu potvrdu NAŠE mreže, i to onu koja za njegovo ime vrijedi
+// (oznakaDokazanog). "Postoji u popisu" nije dovoljno — popis putuje. Kad
+// potvrde tog ključa još nemamo (primio ga je ovlašteni primatelj, a knjiga
+// od njega još nije stigla), vrijedi potvrda koju čvor pokaže u
+// certifikatu, ako lanac do ključa mreže štima i ime nije tuđe.
 func (s *Service) trusted(pub ed25519.PublicKey, vj []byte) bool {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-	if network == nil {
-		return false
-	}
-	ctx := context.Background()
-	row := s.db.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE public_key = ?`, razmjena.PublicKeyString(pub))
-	if m, err := scanMembership(row); err == nil && s.provjeriClanstvo(ctx, network.Public, m, pub) == nil {
-		return true
-	}
-	if len(vj) == 0 {
-		return false
-	}
-	var v vjerodajniceCvora
-	if json.Unmarshal(vj, &v) != nil || v.Clanstvo == nil {
-		return false
-	}
-	if s.provjeriClanstvo(ctx, network.Public, *v.Clanstvo, pub) != nil {
-		return false
-	}
-	return s.provjeriImeDrugog(ctx, v.Clanstvo.DeviceID, pub) == nil
+	id, err := s.oznakaDokazanog(context.Background(), pub, vj)
+	return err == nil && id != ""
 }

@@ -52,9 +52,18 @@ func (s *Service) PregledBrisanja(ctx context.Context, kanal string) (Brisanje, 
 // PurgeChannel briše s ovog računala kanal koji pretplata više ne pokriva:
 // zapise i verzije koji su stigli s drugih čvorova i dokumente koji su
 // stigli uz njih. Kanal pod pretplatom ne briše se, jer bi se vratio prvom
-// razmjenom; prvo se makne pretplata.
+// razmjenom; prvo se makne pretplata. Nakon brisanja granica knjige u
+// kanalu padne, pa se granica odbijenih zaboravi (i kad brisanje ne uspije),
+// inače bi obrisano ispod nje izostalo kad se kanal opet zaprati. Brisanje
+// koje je obrisalo verzije broji se i kao uvoz (zabiljeziUvoz): vlastiti
+// spomenici (vlastitoUKnjizi) upišu se ispod granice knjige, a ponovno
+// praćenje donese i verzije koje ovaj čvor prije nije imao, ispod granice
+// odbijenih računala kojima šalje (granica_nakon_uvoza.go).
 func (s *Service) PurgeChannel(ctx context.Context, kanal string) (Brisanje, error) {
-	return s.brisanjeKanala(ctx, kanal, true)
+	defer s.zaboraviOdbijene()
+	b, err := s.brisanjeKanala(ctx, kanal, true)
+	s.zabiljeziUvoz(b.Verzija, true)
+	return b, err
 }
 
 // brisanjeKanala prebroji ili obriše tuđe u kanalu, a vlastito prebroji.
