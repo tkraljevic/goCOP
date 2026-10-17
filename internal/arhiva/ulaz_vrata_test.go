@@ -148,6 +148,25 @@ func TestNeuspjeliUpisCuvaStaruDatoteku(t *testing.T) {
 	}
 }
 
+// Zaključava da upis javlja stari niz koji se nije dao maknuti. Novi je
+// zapisan, ali bi gradnja stari pročitala uz njega kao dodatne godine istog
+// niza; prije je to prolazilo bez ikakve poruke.
+func TestStariNizKojiOstajeSeJavlja(t *testing.T) {
+	koren := t.TempDir()
+	// Na mjestu starog niza stoji mapa s datotekom, pa je brisanje ne miče.
+	stari := filepath.Join(koren, "drava", "osijek", "osijek_cop_vodostaj_jutarnji_2023.csv")
+	zapisiDatoteku(t, filepath.Join(stari, "unutra.txt"), "x")
+	redci := []Redak{{Vrijeme: time.Date(2024, 3, 1, 7, 0, 0, 0, time.UTC), Vrijednost: 212}}
+	put, err := Upisi(koren, "drava", "osijek", "cop", "vodostaj", "jutarnji", redci)
+	greskaSadrzi(t, "stari niz", err, "stari osijek_cop_vodostaj_jutarnji_2023.csv nije maknut")
+	if _, e := os.Stat(put); put == "" || e != nil {
+		t.Errorf("novi niz nije zapisan: %q, %v", put, e)
+	}
+	if err := makniStari(filepath.Join(koren, "nema.csv"), put); err != nil {
+		t.Errorf("niz kojeg više nema javljen je kao greška: %v", err)
+	}
+}
+
 // Zaključava da dopuna odbija neispravan naziv prije nego išta dira, i da
 // zatečeni niz koji se ne da pročitati zaustavlja dopunu umjesto da se
 // prepiše kao da ga nema.

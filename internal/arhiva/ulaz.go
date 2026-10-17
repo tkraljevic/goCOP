@@ -3,8 +3,10 @@ package arhiva
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -134,6 +136,8 @@ func sadrziNiz(s []string, x string) bool {
 // Upisi zapisuje niz u stablo pod kanonskim imenom i vraća putanju. Postojeća
 // datoteka istog niza zamjenjuje se, jer je ovo cjelovita izjava o razdoblju
 // koje pokriva — ali tek nakon što je nova pročitana natrag i provjerena.
+// Stari niz pod drugim razdobljem koji se ne da maknuti vraća grešku uz
+// putanju novoga, koji je zapisan.
 // Relativno stablo koje je vjerojatno drugdje ne počinje iznova (NemaMape).
 func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (string, error) {
 	if err := ProvjeriKoren(koren); err != nil {
@@ -178,12 +182,26 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 	if err := os.Rename(privremeno, put); err != nil {
 		return "", err
 	}
+	var ostali error
 	for _, s := range stare {
 		if s != put {
-			os.Remove(s)
+			ostali = errors.Join(ostali, makniStari(s, put))
 		}
 	}
-	return put, nil
+	return put, ostali
+}
+
+// makniStari miče niz koji je ostao pod starim razdobljem u nazivu. Ako se
+// ne da maknuti, to se javlja: novi niz je zapisan, ali bi gradnja stari
+// pročitala uz njega kao dodatne godine istog niza. Niz koji je već nestao
+// nije greška.
+func makniStari(stari, novi string) error {
+	err := os.Remove(stari)
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return fmt.Errorf("novi niz %s je zapisan, ali stari %s nije maknut, pa bi ga gradnja pročitala uz novi; maknite ga iz mape: %w",
+		filepath.Base(novi), filepath.Base(stari), err)
 }
 
 // Dopuni spaja nove retke s onim što niz već ima u stablu i zapisuje sve.
