@@ -132,11 +132,35 @@ sročeno od teksta. S priručnicima program izlazi kao beta.
 
 ## Za stabilnu inačicu
 
-Digitalni pomoćnik u programu, naučen na priručnicima, koji korisniku
-odgovara kako se što radi. Odgovara samo iz priručnika i uz odgovor daje
-poveznicu na odjeljak, a kad odgovora nema, kaže da ne zna. Prije učenja
-slaže se ispit s pitanjima iz stvarnog rada, i pomoćnik ide u program tek
-kad ga prođe.
+Digitalni pomoćnik u programu. Pomaže na četiri načina:
+
+- odgovara kako se što radi, samo iz priručnika, uz poveznicu na odjeljak,
+  a kad odgovora nema, kaže da ne zna;
+- objašnjava upozorenje koje je dao program: što se dogodilo, zašto i što
+  učiniti;
+- sažima stanje iz dnevnika i izvješća, na primjer jutarnji pregled za
+  voditelja centra iz dnevnih izvješća rukovoditelja, dnevnih listova i
+  dnevnika COP-a, uz popis onoga što nije predano;
+- administratoru sažima dnevnik programa, na primjer zašto razmjena s
+  nekim računalom ne prolazi.
+
+Pravila:
+
+- Pomoćnik samo čita. Ne mijenja zapise, ne ovjerava i ne šalje; može
+  predložiti radnju, a nju napravi čovjek.
+- Vidi samo ono što smije vidjeti osoba koja pita.
+- Upozorenja daju pravila u programu, uvijek ista. Pomoćnik ih ne
+  odlučuje, nego objašnjava.
+- Svaki broj dolazi iz baze, a uz odgovor ide poveznica na izvor: akt,
+  list, izvješće ili redak dnevnika.
+- Sažetak je pomoć, a ne službeno izvješće. Službeno izvješće i dalje
+  piše i ovjerava čovjek.
+- Pregled toga tko je što radio smiju tražiti samo uloge koje to i danas
+  vide, a upiti pomoćnika se bilježe.
+- Stvarni podaci ne ulaze u učenje. Pomoćnik ih čita u trenutku pitanja.
+
+Prije učenja slaže se ispit s pitanjima iz stvarnog rada, i pomoćnik ide u
+program tek kad ga prođe.
 
 ## Prije bete
 

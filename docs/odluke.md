@@ -554,3 +554,8 @@ je gotov onaj o kojem ovisi.
   vode, ispitan na valovima koje nije vidio. Uz priručnike za betu dolazi
   bolja tražilica Pomoći. Digitalni pomoćnik odgovara samo iz priručnika i
   ide u program tek kad prođe ispit.
+- Pomoćnik osim priručnika čita i bazu, samo za čitanje i u granicama
+  ovlasti osobe koja pita: objašnjava upozorenja programa, sažima stanje
+  iz dnevnika i izvješća rukovoditelja i administratoru sažima dnevnik
+  programa. Upozorenja daju pravila u programu, a sažetak ne zamjenjuje
+  službeno izvješće.
