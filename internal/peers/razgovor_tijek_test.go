@@ -27,6 +27,7 @@ package peers
 import (
 	"cmp"
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -379,8 +380,12 @@ func primiZaZapis(ctx, ctxCvora context.Context, t *testing.T, s, drugi *Service
 		skraceno string
 	}
 	ishod := make(chan rezultat, 1)
+	// namjerno promijenjeno: vrata puštaju drugoga po ključu, bez s.trusted.
+	// Vrata članstva čitaju i iz knjige (clanstvo_oznake.go), pa razgovor s
+	// pokvarenom knjigom inače ne bi ni počeo; vrata imaju svoje testove.
+	vrata := func(pub ed25519.PublicKey, _ []byte) bool { return pub.Equal(drugi.javni()) }
 	go func() {
-		_ = razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, kvarnaSlusalica{Listener: sl, pada: pada}, s.trusted, func(c *razmjena.Conn) {
+		_ = razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, kvarnaSlusalica{Listener: sl, pada: pada}, vrata, func(c *razmjena.Conn) {
 			defer c.Close()
 			var r rezultat
 			r.o.applied, r.o.sent, r.o.theirs, r.o.err = s.exchange(ctxCvora, c, false)
