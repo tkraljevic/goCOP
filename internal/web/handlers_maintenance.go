@@ -3,7 +3,6 @@ package web
 import (
 	"fmt"
 	"html/template"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -221,12 +220,10 @@ func (h *MaintenanceHandler) HandleImportUpload(w http.ResponseWriter, r *http.R
 		redirectWith(w, r, h.back(area)+"#uvoz", "error", "Datoteka se ne može spremiti: "+err.Error())
 		return
 	}
-	if _, err := io.Copy(out, f); err != nil {
-		out.Close()
+	if _, err := spremiUcitano(out, f); err != nil {
 		redirectWith(w, r, h.back(area)+"#uvoz", "error", "Datoteka se ne može spremiti: "+err.Error())
 		return
 	}
-	out.Close()
 	h.showImport(w, r, u, perms, area, token, hdr.Filename, false)
 }
 
