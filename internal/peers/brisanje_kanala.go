@@ -107,9 +107,9 @@ func (s *Service) koraciZaKanal(ctx context.Context, kanal string) ([]korakBrisa
 	return koraci, nil
 }
 
-// brisanjeUBazi prođe tablice kanala pa knjigu. Knjiga ide zadnja, jer se
-// redak odbačenog očitanja nalazi po verziji u knjizi. Vraća zapise koje
-// nakon brisanja treba obnoviti iz knjige.
+// brisanjeUBazi prođe tablice kanala pa knjigu i zapis rupa. Knjiga ide
+// zadnja, jer se redak odbačenog očitanja nalazi po verziji u knjizi. Vraća
+// zapise koje nakon brisanja treba obnoviti iz knjige.
 func (s *Service) brisanjeUBazi(ctx context.Context, tx *sql.Tx, b *Brisanje, koraci []korakBrisanja, obrisi bool) ([]zapisKnjige, error) {
 	args := argumentiKanala(b.Kanal, s.rec.Cvor())
 	for _, k := range koraci {
@@ -126,7 +126,7 @@ func (s *Service) brisanjeUBazi(ctx context.Context, tx *sql.Tx, b *Brisanje, ko
 	}
 	b.Verzija, b.OstajeVerzija, err = s.rec.PurgeChannel(ctx, tx, b.Kanal, obrisi)
 	b.OstajeVerzija += neupisanih
-	return obnova, err
+	return obnova, errors.Join(err, obrisiRupeKanala(ctx, tx, b.Kanal, s.rec.Cvor(), obrisi))
 }
 
 // zapisKnjige je jedan zapis u knjizi: entitet i oznaka

@@ -1,8 +1,10 @@
 package peers
 
-// .cop inačica 3: potpisano izdanje jednog ili više kanala knjige verzija, s
-// pripadajućim sadržajem po otisku. Isti oblik koji mreža prenosi među
-// čvorovima, samo u datoteci: za USB, e-poštu ili računalo bez stalne veze.
+// .cop inačica 3 i 4: potpisano izdanje jednog ili više kanala knjige
+// verzija, s pripadajućim sadržajem po otisku. Isti oblik koji mreža
+// prenosi među čvorovima, samo u datoteci: za USB, e-poštu ili računalo bez
+// stalne veze. Inačica 4 nosi i rupe u nizu (rupe_uvoz.go), pa je stariji
+// program ne uvozi.
 //
 // Unutra je ZIP:
 //   manifest.json   što je unutra, tko je izdao, otisak i potpis
@@ -39,8 +41,9 @@ import (
 	"gocop/internal/sadrzaj"
 )
 
-// CopInacica je inačica oblika paketa kanala
-const CopInacica = 3
+// CopInacica je najveća inačica oblika paketa kanala koju ovaj program
+// čita. Paket bez rupa izlazi kao inačica 3, a s rupama kao 4 (inacicaCopa).
+const CopInacica = 4
 
 // najveciCop ograđuje raspakirano: paket kanala nosi i sadržaj
 const najveciCop = 2 << 30
@@ -108,6 +111,9 @@ type CopManifest struct {
 	Sadrzaja  int        `json:"sadrzaja"`
 	Ukljuceno int        `json:"ukljuceno"` // koliko sadržaja nosi bajtove
 	Potpis    *CopPotpis `json:"potpis,omitempty"`
+	// Rupe su, po ključu, dio niza za koji izdavač ne jamči da ga ima
+	// cijelog (rupe_uvoz.go); samo u inačici 4 i u potpisu (redRupa)
+	Rupe map[string]raspon `json:"rupe,omitempty"`
 }
 
 // kanonskiCop je ono što se potpisuje: jedan redak po podatku, uvijek istim
@@ -126,6 +132,7 @@ func kanonskiCop(m CopManifest) []byte {
 	red("otisak", m.Otisak)
 	red("zapisa", strconv.Itoa(m.Zapisa))
 	red("sadrzaja", strconv.Itoa(m.Sadrzaja))
+	b.WriteString(redRupa(m.Rupe))
 	return []byte(b.String())
 }
 
@@ -182,6 +189,7 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 	if err := s.shemaCopa(ctx); err != nil {
 		return m, err
 	}
+	rupe := s.pocetakRupa(ctx)
 	versions, err := s.rec.InChannels(ctx, channels)
 	if err != nil {
 		return m, err
@@ -198,6 +206,8 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 	// sadržaji koje zapisi navode: otisak iz zapisa izvornika
 	sadrzaji := s.sadrzajiUZapisima(ctx, versions)
 	m.Zapisa, m.Sadrzaja = len(versions), len(sadrzaji)
+	m.Rupe = rupe.zaIzvoz(s.rupeMijenja.Load(), versions)
+	m.Inacica = inacicaCopa(m.Rupe)
 	m.Otisak = otisakIzdanja(zapisi, sadrzaji)
 
 	// katalog: isti otisak, isto izdanje; drukčiji, sljedeće
@@ -471,26 +481,10 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	filter := s.wantsFunc(ctx, &myWants)
-	var wanted []ledger.Version
-	for _, v := range versions {
-		if filter != nil && !filter(v.Channel) {
-			continue
-		}
-		if s.accept != nil && !s.accept(v) {
-			continue
-		}
-		wanted = append(wanted, v)
-	}
-	for start := 0; start < len(wanted); start += 2000 {
-		end := start + 2000
-		if end > len(wanted) {
-			end = len(wanted)
-		}
-		applied, err := s.primijeniPodBravom(ctx, wanted[start:end])
-		rep.Novih += applied
-		if err != nil {
-			return rep, err
-		}
+	wanted, odluke := s.zaUvoz(versions, filter)
+	rep.Novih, err = s.uveziSRupama(ctx, wanted, s.promjenaUvoza(ctx, wanted, odluke, rupeIzPaketa(m, versions)))
+	if err != nil {
+		return rep, err
 	}
 	// sadržaj: uključeni se upišu (paket je namjerno donesen), ostali na popis
 	if sp := s.spremisteSadrzaja(); sp != nil {

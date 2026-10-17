@@ -91,8 +91,9 @@ func krajCvora(applied int) string { return odCvora(kindDone, fmt.Sprintf(`{"app
 const programCvora = `"program":"0.0.39-test","gradnja":"0.0.39-test (abc1234)"`
 
 // naseOznake su mogućnosti čvora kako idu žicom. namjerno promijenjeno: G4
-// (docs/plan-web-sync.md §3); do G4 samo ["razmjena/1"]
-const naseOznake = `["granica-odbijenih/1","razmjena/1"]`
+// (docs/plan-web-sync.md §3); do G4 samo ["razmjena/1"]. namjerno
+// promijenjeno: G4b; i rupe/1
+const naseOznake = `["granica-odbijenih/1","razmjena/1","rupe/1"]`
 
 // poruke čvora koje se ponavljaju
 var (

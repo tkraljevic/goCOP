@@ -219,6 +219,11 @@ type Service struct {
 	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
 	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
 	mogucnosti func() []string
+	// rupeMijenja raste kad nekom ključu u zapisu rupa naraste raspon za
+	// koji ovo računalo ne jamči (rupe.go); praviloPrihvata je pravilo
+	// čuvanja (PostaviPraviloPrihvata)
+	rupeMijenja     atomic.Uint64
+	praviloPrihvata func() (mjeseci int, pracene []string)
 }
 
 func (s *Service) autoSync() bool {
@@ -853,6 +858,11 @@ type deltaMsg struct {
 	// Tailscale su Tailscale adrese pošiljatelja s portom razmjene. Šalju se
 	// samo u razgovoru preko Tailscalea (tailscale.go); nikad ne idu u knjigu.
 	Tailscale []string `json:"tailscale,omitempty"`
+	// Rupe i Popuna idu samo uz oznaku rupe/1 (rupe.go). Rupe su, po ključu
+	// u delti, dio poslanoga za koji pošiljatelj ne jamči da ga ima cijelog,
+	// a Popuna dio tražene rupe koji je ključ pokrio od njezina početka.
+	Rupe   map[string]raspon `json:"rupe,omitempty"`
+	Popuna map[string]raspon `json:"popuna,omitempty"`
 }
 
 type doneMsg struct {

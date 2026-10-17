@@ -41,7 +41,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.38-alfa"
+const verzijaPrograma = "0.0.39-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -570,6 +570,11 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	peersService.Accept(repository.KeepVersion)
 	// po njemu razmjena zna kad je pravilo čuvanja promijenjeno (granica odbijenih)
 	peersService.PostaviStanjePrihvata(repository.StanjeOgradePovijesti)
+	// po njemu razmjena i nakon ponovnog pokretanja zna da je pravilo
+	// čuvanja prošireno (rupe u nizu); pri prvom pokretanju s ogradom jednom
+	// zapiše da za tuđa očitanja ispod svoje granice ne jamči
+	peersService.PostaviPraviloPrihvata(repository.PraviloCuvanjaOcitanja)
+	peersService.PripremiRupe(context.Background())
 	if err := peersService.OsvjeziSebe(context.Background()); err != nil {
 		log.Printf("Zapis ovog čvora nije osvježen: %v", err)
 	}

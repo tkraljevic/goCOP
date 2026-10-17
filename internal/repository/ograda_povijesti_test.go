@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -43,5 +44,24 @@ func TestStanjeOgradePovijesti(t *testing.T) {
 	}
 	if !KeepVersion(ocitanje("pracena", rub.Add(-time.Minute))) {
 		t.Error("praćena letva ne prolazi ispod ruba")
+	}
+}
+
+// Pravilo čuvanja za zapis rupa u razmjeni: bez pravila ništa, inače
+// mjeseci (negativni kao 0) i samo praćene letve, poredane
+func TestPraviloCuvanjaOcitanja(t *testing.T) {
+	prije := readingPolicy.Load()
+	t.Cleanup(func() { readingPolicy.Store(prije) })
+	readingPolicy.Store(nil)
+	if m, pracene := PraviloCuvanjaOcitanja(); m != 0 || pracene != nil {
+		t.Errorf("bez pravila: %d %v", m, pracene)
+	}
+	SetReadingHistoryPolicy(ReadingHistoryPolicy{Months: 12, Followed: map[string]bool{"station:zadnja": true, "station:prva": true, "station:ne": false}})
+	if m, pracene := PraviloCuvanjaOcitanja(); m != 12 || strings.Join(pracene, ",") != "station:prva,station:zadnja" {
+		t.Errorf("12 mjeseci: %d %v", m, pracene)
+	}
+	SetReadingHistoryPolicy(ReadingHistoryPolicy{Months: -3})
+	if m, pracene := PraviloCuvanjaOcitanja(); m != 0 || len(pracene) != 0 {
+		t.Errorf("negativno razdoblje: %d %v", m, pracene)
 	}
 }
