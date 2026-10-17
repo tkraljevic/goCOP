@@ -89,13 +89,17 @@ Tek kad su gotovi prethodni koraci, dolaze nove mogućnosti:
   području, a administrator sam uređuje od kojih se letvi računa koja
   letva. Danas je to upisano u program, pa svaka promjena traži novo
   izdanje.
-- Karte s nasipima, objektima i obuhvatima poplave, iz podloga karata
-  opasnosti od poplava. Uz to karta bez interneta, iz vlastite zalihe
-  pločica za područje, jer javni poslužitelj OpenStreetMapa ne dopušta
-  skupno preuzimanje.
-- Registar crpnih stanica i ustava: ustave s uzvodnim i nizvodnim
-  vodomjerom, crpne stanice s radom agregata i vodostajima prije, tijekom i
-  nakon rada.
+- Ustave i crpne stanice. Ustava povezuje uzvodni i nizvodni vodostaj i
+  bilježi je li zapornica otvorena ili zatvorena. Crpna stanica bilježi
+  početak i kraj rada svakog agregata posebno. Strojar upisuje vodostaje
+  na početku rada, tijekom rada i na kraju, a sve to ulazi u dnevnik
+  strojara.
+- Karte. Svaki objekt, od vodotoka do crpne stanice, ima svoje mjesto na
+  karti. Modul Karte sve to povezuje u slojeve: vodotoci, nasipi i
+  dionice, objekti, letve i obuhvati poplave iz karata opasnosti od
+  poplava. Uz to karta bez interneta, iz vlastite zalihe pločica za
+  područje, jer javni poslužitelj OpenStreetMapa ne dopušta skupno
+  preuzimanje.
 - Mobilna aplikacija za teren, kao pojednostavljen goCOP za mobitel: svima
   prognoza, stanje letvi i upis očitanja, vodočuvaru dnevni zadaci i dnevni
   list, rukovoditelju dionice dnevno izvješće. Dolazi tek kad je goCOP
@@ -105,6 +109,9 @@ Tek kad su gotovi prethodni koraci, dolaze nove mogućnosti:
   dužnost počinje, a stornom prestaje; QR kod na aktu za provjeru izvornika,
   kad program dobije javnu adresu; dopis županu uz proglašenje izvanrednog
   stanja.
+
+Kad su proširenja gotova, slijedi poliranje onoga što postoji i unos
+podataka.
 
 ## Prije bete
 
