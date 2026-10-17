@@ -275,36 +275,68 @@ func (s *Service) uTransakciji(ctx context.Context, fn func(tx *sql.Tx) error) e
 
 // RevokeMembership opoziva člana: potvrda se arhivira, uz zapis opoziva, i
 // to putuje na sve čvorove; od tada mu nitko ne odgovara na razmjenu, ni
-// kad potvrdu pokaže sam. Ako je bio ovlašteni primatelj, opoziva mu se i
-// ovlast, a time i članstva koja je potpisao; vraća te čvorove.
+// kad potvrdu pokaže sam. Opoziva se svako valjano članstvo tog imena
+// (clanstvaZaOpoziv), ne red u tablici, koji je mogao prepisati bilo koji
+// član. Ako je bio ovlašteni primatelj, opoziva mu se i ovlast, a time i
+// članstva koja je potpisao; vraća te čvorove.
 func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string, error) {
 	if nodeID == s.node.ID {
 		return nil, fmt.Errorf("čvor ne može opozvati sam sebe")
 	}
-	m, err := s.getMembership(ctx, nodeID)
+	clanstva, err := s.clanstvaZaOpoziv(ctx, nodeID)
 	if err != nil {
 		return nil, err
-	}
-	if m == nil {
-		return nil, fmt.Errorf("čvor %s nije član", nodeID)
 	}
 	o, err := s.getOvlast(ctx, nodeID)
 	if err != nil {
 		return nil, err
 	}
-	priv, err := s.potpisnikOpozivaClanstva(*m, o)
+	priv, err := s.potpisnikOpoziva(clanstva, o)
 	if err != nil {
 		return nil, err
 	}
 	var pogodjeni []string
 	err = s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		if err := s.opozoviClanstvoTx(ctx, tx, *m, priv); err != nil || o == nil {
+		if err := s.opozoviClanstvaTx(ctx, tx, clanstva, priv); err != nil || o == nil {
 			return err
 		}
 		pogodjeni, err = s.opozoviOvlastTx(ctx, tx, *o, priv)
 		return err
 	})
 	return pogodjeni, err
+}
+
+// clanstvaZaOpoziv su valjana članstva računala nodeID (zaOpoziv); bez
+// ijednog čvor nije član
+func (s *Service) clanstvaZaOpoziv(ctx context.Context, nodeID string) ([]razmjena.Membership, error) {
+	p, err := s.ucitajClanstva(ctx)
+	if errors.Is(err, errNijeClan) {
+		return nil, fmt.Errorf("ovaj čvor nije ni u jednoj mreži")
+	}
+	if err != nil {
+		return nil, err
+	}
+	clanstva := p.zaOpoziv(ctx, nodeID)
+	if len(clanstva) == 0 {
+		return nil, fmt.Errorf("čvor %s nije član", nodeID)
+	}
+	return clanstva, nil
+}
+
+// potpisnikOpoziva je ključ kojim ovaj čvor smije opozvati sva zadana
+// članstva (potpisnikOpozivaClanstva). Jedno koje ne smije odbija cijeli
+// opoziv: primatelj ne opoziva ime čije je drugo valjano članstvo izdao
+// ključ mreže ili drugi primatelj.
+func (s *Service) potpisnikOpoziva(clanstva []razmjena.Membership, o *razmjena.Ovlast) (ed25519.PrivateKey, error) {
+	var priv ed25519.PrivateKey
+	for _, m := range clanstva {
+		k, err := s.potpisnikOpozivaClanstva(m, o)
+		if err != nil {
+			return nil, err
+		}
+		priv = k
+	}
+	return priv, nil
 }
 
 // potpisnikOpozivaClanstva je ključ kojim ovaj čvor smije opozvati
@@ -324,6 +356,16 @@ func (s *Service) potpisnikOpozivaClanstva(m razmjena.Membership, o *razmjena.Ov
 		return s.node.key, nil
 	}
 	return nil, fmt.Errorf("članstvo čvora %s opoziva nositelj ključa mreže ili primatelj koji ga je izdao", m.DeviceID)
+}
+
+// opozoviClanstvaTx opoziva svako od zadanih članstava (opozoviClanstvoTx)
+func (s *Service) opozoviClanstvaTx(ctx context.Context, tx *sql.Tx, clanstva []razmjena.Membership, priv ed25519.PrivateKey) error {
+	for _, m := range clanstva {
+		if err := s.opozoviClanstvoTx(ctx, tx, m, priv); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // opozoviClanstvoTx briše članstvo s površine, arhivira ga u knjizi i
