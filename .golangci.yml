@@ -67,6 +67,12 @@ linters:
         - fmt.Fprint(*bufio.Writer)
         - fmt.Fprintf(*bufio.Writer)
         - fmt.Fprintln(*bufio.Writer)
+        # dnevnik pozadinskog posla: Posao.Write samo dodaje retke u memoriju
+        # i nikad ne vraća grešku
+        - (*gocop/internal/poslovi.Posao).Write
+        - fmt.Fprint(*gocop/internal/poslovi.Posao)
+        - fmt.Fprintf(*gocop/internal/poslovi.Posao)
+        - fmt.Fprintln(*gocop/internal/poslovi.Posao)
         # pisanje u sažetak (sha256 i sl.) nikad ne vraća grešku
         - fmt.Fprint(hash.Hash)
         - fmt.Fprintf(hash.Hash)
@@ -112,9 +118,13 @@ linters:
       #   _ = f.Close() // samo čitano
       #   n, _ := strconv.Atoi(s) // provjereno regexom gore
       # Bez komentara ili s praznim // javlja se kao neprovjerena. Komentar
-      # mora biti u retku s _ (prvom retku naredbe), iza razmaka.
+      # mora biti u retku s _ (prvom retku naredbe), iza razmaka. Redak mora
+      # počinjati zanemarivanjem i nositi samo tu naredbu: iza ; ili unutar
+      # funkcije u istom retku (func() { … }) razlog bi sakrio i drugi,
+      # neprovjeren poziv, a // unutar niza u navodnicima nije komentar.
+      # Uz defer i u jednorednoj funkciji: //nolint:errcheck // razlog.
       - linters: [errcheck]
-        source: '(^|[^[:alnum:]_])_[[:space:]]*(,[^=]*)?:?=[^=].*[[:space:]]//[[:space:]]*[^[:space:]]'
+        source: '^[[:space:]]*([^[:space:],:=;]+[[:space:]]*,[[:space:]]*)*_([[:space:]]*,[[:space:]]*[^[:space:],:=;]+)*[[:space:]]*:?=([^"''`;/{]|[^[:space:]"''`;/{]\{|"([^"\\]|\\.)*"|''([^''\\]|\\.)*''|`[^`]*`|/[^/"''`;{])*[[:space:]]//[[:space:]]*[^[:space:]]'
 issues:
   uniq-by-line: false
   max-issues-per-linter: 0

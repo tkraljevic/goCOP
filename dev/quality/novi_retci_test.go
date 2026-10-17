@@ -176,7 +176,7 @@ func TestPorukaNoveGreskeKazeGdjeIStoUciniti(t *testing.T) {
 	if len(poruke) != 2 {
 		t.Fatalf("%v", r.Failures)
 	}
-	for i, ima := range [][]string{{"izvoz.go:42: `f.Close` vraća grešku", "_ = … // razlog"}, {"izvoz.go:43: Poziv vraća grešku"}} {
+	for i, ima := range [][]string{{"izvoz.go:42: `f.Close` vraća grešku", "_ = … // razlog", "defer … //nolint:errcheck // razlog"}, {"izvoz.go:43: Poziv vraća grešku"}} {
 		for _, dio := range ima {
 			if !strings.Contains(poruke[i], dio) {
 				t.Errorf("poruka %q nema %q", poruke[i], dio)
@@ -218,10 +218,10 @@ func TestNoveGreskeBezGitaNeProlazeSutke(t *testing.T) {
 	}
 }
 
-// Pravi golangci-lint s .golangci.yml projekta nad malim repozitorijem: nova
-// i promijenjena neprovjerena greška ruše, stara ne, a bezopasni pozivi i
-// zanemarivanje s razlogom u istom retku prolaze
-func TestPraviLintNoveGreske(t *testing.T) {
+// praviAlat vraća golangci-lint i .golangci.yml projekta; bez alata test se
+// preskače, osim u CI-ju
+func praviAlat(t *testing.T) (alat, pravila string) {
+	t.Helper()
 	alat, err := filepath.Abs("../../bin/quality/golangci-lint")
 	if err != nil {
 		t.Fatal(err)
@@ -232,10 +232,19 @@ func TestPraviLintNoveGreske(t *testing.T) {
 		}
 		t.Skipf("nema golangci-lint, pokrenite make quality-tools: %v", err)
 	}
-	pravila, err := filepath.Abs("../../.golangci.yml")
+	pravila, err = filepath.Abs("../../.golangci.yml")
 	if err != nil {
 		t.Fatal(err)
 	}
+	return alat, pravila
+}
+
+// Pravi golangci-lint s .golangci.yml projekta nad malim repozitorijem: nova
+// i promijenjena neprovjerena greška ruše, stara ne, a bezopasni pozivi i
+// zanemarivanje s razlogom u istom retku prolaze. Razlog ne smije sakriti
+// drugi poziv u istom retku ni // unutar niza u navodnicima.
+func TestPraviLintNoveGreske(t *testing.T) {
+	alat, pravila := praviAlat(t)
 	dir, err := filepath.EvalSymlinks(t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -294,10 +303,38 @@ func Rukovatelj(w http.ResponseWriter, r *http.Request, f *os.File) {
 	f.Sync()
 }
 `)
+	pisi(t, dir, "razlog.go", `package proba
+
+import (
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+)
+
+// Razlog ima zanemarivanja s razlogom koja prolaze i retke u kojima razlog
+// ne smije sakriti drugi poziv
+func Razlog(f, g *os.File, fs []*os.File, w io.Writer) {
+	n, _ := strconv.Atoi("1") // regex gore propušta samo znamenke
+	_, _ = fmt.Fprintf(w, "%s;%s\n", "a", strconv.Itoa(n)) // dnevnik
+	_ = json.NewEncoder(w).Encode(map[string]int{"a": 1}) // razlog
+	_ = fmt.Errorf("a // b") // razlog
+	defer g.Close() //nolint:errcheck // samo čitano
+	_ = fmt.Errorf("a // b")
+	defer func() { _ = f.Close(); g.Close() }() // razlog
+	_ = f.Close(); g.Close() // razlog
+	for _, x := range fs { x.Close() } // zatvori
+	_ = run(func() { g.Close() }) // razlog
+}
+
+func run(f func()) error { f(); return nil }
+`)
 	r := cleanReport()
 	praviLint(t, alat, pravila, dir, &r)
 	evaluate(&r, &base, testConfig(), false)
-	want := []string{"novi.go:14", "novi.go:15", "stari.go:13", "stari.go:8"}
+	want := []string{"novi.go:14", "novi.go:15", "razlog.go:19", "razlog.go:20", "razlog.go:20", "razlog.go:21", "razlog.go:21",
+		"razlog.go:22", "razlog.go:23", "razlog.go:23", "stari.go:13", "stari.go:8"}
 	if got := mjestaNovihGresaka(r.Failures); !slices.Equal(got, want) {
 		t.Fatalf("blokade %v, želim %v:\n%s", got, want, strings.Join(r.Failures, "\n"))
 	}
@@ -306,7 +343,9 @@ func Rukovatelj(w http.ResponseWriter, r *http.Request, f *os.File) {
 func praviLint(t *testing.T, alat, pravila, dir string, r *report) {
 	t.Helper()
 	izlaz := filepath.Join(t.TempDir(), "lint.json")
-	cmd := exec.Command(alat, "run", "--config", pravila, "--issues-exit-code", "0", "--output.json.path", izlaz, "./...")
+	// Drugi golangci-lint (make quality u drugoj kopiji, editor) drži bravu
+	// za cijelog korisnika; bez --allow-serial-runners test bi tada pao
+	cmd := exec.Command(alat, "run", "--allow-serial-runners", "--config", pravila, "--issues-exit-code", "0", "--output.json.path", izlaz, "./...")
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off")
 	if out, err := cmd.CombinedOutput(); err != nil {

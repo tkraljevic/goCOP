@@ -135,7 +135,7 @@ func provjeriNoveGreske(r *report, od string) {
 	}
 	for g := range nalazi {
 		if novRedak(retci, g.datoteka, g.redak) {
-			r.Failures = append(r.Failures, fmt.Sprintf("%s:%d: %s vraća grešku koju nitko ne gleda, a redak je nov ili promijenjen. Obradite grešku ili je zanemarite s razlogom u istom retku: _ = … // razlog", g.datoteka, g.redak, g.poziv))
+			r.Failures = append(r.Failures, fmt.Sprintf("%s:%d: %s vraća grešku koju nitko ne gleda, a redak je nov ili promijenjen. Obradite grešku ili je zanemarite s razlogom u istom retku: _ = … // razlog, a uz defer … //nolint:errcheck // razlog", g.datoteka, g.redak, g.poziv))
 		}
 	}
 }
