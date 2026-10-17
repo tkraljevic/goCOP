@@ -140,7 +140,7 @@ func TestPretragaAdreseGledaCijeliRepozitorij(t *testing.T) {
 		"deploy/cloudflared.yml":  "hostname: example.com\n",
 		"web/static/img/znak.svg": "<svg><text>https://example.com</text></svg>",
 		"data/gocop.toml":         "javna_adresa = 'https://example.com'\n",
-		"docs/plan.md":            "https://example.com\n",
+		"docs/radni-plan.txt":     "https://example.com\n",
 		"slika.png":               "\x89PNG\x00 example.com",
 		"bez-domene.txt":          "https://example.org\n",
 	} {
