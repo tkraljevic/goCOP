@@ -219,6 +219,11 @@ type Service struct {
 	// mogucnosti su oznake koje čvor javlja u granici (mojeMogucnosti); nil
 	// je razmjena.NaseMogucnosti. Test njime glumi čvor bez neke oznake.
 	mogucnosti func() []string
+	// rupeMijenja raste kad nekom ključu u zapisu rupa naraste raspon za
+	// koji ovo računalo ne jamči (rupe.go); praviloPrihvata je pravilo
+	// čuvanja (PostaviPraviloPrihvata)
+	rupeMijenja     atomic.Uint64
+	praviloPrihvata func() (mjeseci int, pracene []string)
 }
 
 func (s *Service) autoSync() bool {
