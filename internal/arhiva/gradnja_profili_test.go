@@ -205,6 +205,28 @@ func TestProfiliKojiSeNeDajuUpisati(t *testing.T) {
 	}
 }
 
+// Zaključava da nečitljiv broj u zaglavlju snimke korita ruši gradnju s
+// imenom datoteke. Prije se upisivalo 0 cm ili 0 m, a to su stvarne
+// vrijednosti, pa se po njima nije vidjelo da zaglavlje ne valja.
+func TestZaglavljeSnimkeSNecitljivimBrojem(t *testing.T) {
+	for _, s := range []struct{ ime, zaglavlje string }{
+		{"vodostaj", "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju ? cm, kota nule 80.45"},
+		{"kota nule", "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule n. p. TRST"},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			db := praznaArhiva(t)
+			koren := t.TempDir()
+			zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-22"),
+				s.zaglavlje+"\nstacionaza_m;visina_m\n0;90\n6;87\n")
+			greskaSadrzi(t, s.ime, profili(db, koren, "", nil),
+				"vodograd_profil_2010-03-22.csv: u zaglavlju snimke nije broj: „"+s.ime)
+			if n := broj(t, db, `SELECT count(*) FROM profili`); n != 0 {
+				t.Errorf("%s: snimka s nečitljivim zaglavljem je upisana", s.ime)
+			}
+		})
+	}
+}
+
 // Zaključava pravilo iz Odluka (13. 10. 2026.): snimka korita kojoj je
 // datoteka maknuta iz stabla ne briše se sama, nego ostaje u arhivi i pojavi
 // se na popisu bez datoteke, kao i niz. Miče je čovjek (MakniSnimku), a
