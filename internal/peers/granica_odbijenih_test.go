@@ -577,20 +577,25 @@ func TestOgradaPopustiUsredRazgovora(t *testing.T) {
 // Kad ograda popusti usred razgovora koji je drugoj strani javio granicu
 // odbijenih, iz upisa ispadnu ključevi koje je ona preskočila, a razgovor
 // zaboravi i što je odbio: ograda koja do kraja razgovora opet stegne ne
-// smije dati zapis koji pokriva ispalo
+// smije dati zapis koji pokriva ispalo. Zaboravi se i dosadašnji zapis od
+// te strane, jer je ona granicu možda zanemarila i ispalo poslala.
 func TestBezPreskocenogNePamtiOdbijeno(t *testing.T) {
 	b := rubniCvor(t, "laptop-baranja")
 	p := &laznoPravilo{}
 	b.PostaviStanjePrihvata(p.stanje)
-	r := &razgovorSCvorom{s: b, odbijene: pocetakOdbijenih{moje: map[string]string{kljucStarih: ocitanjeStaro1.VersionID}},
+	b.zapamtiOdbijene(b.pocetakOdbijenih("unraid", nil), map[string]string{kljucStarih: ocitanjeStaro1.VersionID})
+	r := &razgovorSCvorom{s: b, odbijene: pocetakOdbijenih{kljuc: "unraid", moje: map[string]string{kljucStarih: ocitanjeStaro1.VersionID}},
 		odbijeno: map[string]string{kljucStarih: ocitanjeStaro2.VersionID}}
 	drugi := stalnaVerzija("0190a000-0000-7000-8000-000000000205", "cop-osijek", "ocitanja/16/2025", "drugi", `{"cm":5}`)
-	if upis := r.bezPreskocenog([]ledger.Version{ocitanjeNovo, drugi}); len(upis) != 2 || r.odbijeno == nil {
-		t.Fatalf("ograda ista: upis %v, odbijeno %v", upis, r.odbijeno)
+	if upis := r.bezPreskocenog([]ledger.Version{ocitanjeNovo, drugi}); len(upis) != 2 || r.odbijeno == nil || len(b.odbijene.odCvora) != 1 {
+		t.Fatalf("ograda ista: upis %v, odbijeno %v, zapisi %v", upis, r.odbijeno, b.odbijene.odCvora)
 	}
 	p.narastaj.Add(1)
 	if upis := r.bezPreskocenog([]ledger.Version{ocitanjeNovo, drugi}); len(upis) != 1 || upis[0].EntityID != "drugi" || r.odbijeno != nil {
 		t.Errorf("ograda popustila: upis %v, odbijeno %v", upis, r.odbijeno)
+	}
+	if len(b.odbijene.odCvora) != 0 {
+		t.Errorf("ograda popustila, a zapis od druge strane ostao: %v", b.odbijene.odCvora)
 	}
 }
 

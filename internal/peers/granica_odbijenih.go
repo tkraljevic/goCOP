@@ -20,13 +20,16 @@ package peers
 // baš tog pošiljatelja, pa se granica vodi po pošiljatelju, po javnom
 // ključu iz veze (ne po imenu, koje druga strana sama tvrdi). Zajednička
 // granica sakrila bi verziju koju jedan pošiljatelj nije imao, a drugi bi
-// je donio.
+// je donio. I to vrijedi samo za niz koji je pošiljatelj imao kad je slao;
+// verziju koju poslije dobije ispod granice (uvoz, rupa u nizu, ponovno
+// praćenje obrisanog kanala) pokriva granica_nakon_uvoza.go.
 //
 // Granica odbijenih nikad ne ide u knjigu, u granicu koju ovo računalo
 // šalje ni u deltu prema trećima: treće računalo dobiva sve kao i prije.
 // Pošiljatelj je koristi samo za deltu tog razgovora i, ograđenu vlastitom
-// granicom, za ploču (zapamtiDelte). Nakon uvoza je zanemari dok drugoj
-// strani ne pošalje sve (granica_nakon_uvoza.go).
+// granicom, za ploču (zapamtiDelte). Za deltu je poštuje najviše do onoga
+// što je drugoj strani poslao od zadnjeg uvoza ili ponovnog pokretanja
+// (preskok, granica_nakon_uvoza.go); ploča je i tada koristi cijelu.
 //
 // Pamti se samo u memoriji, pa je ponovno pokretanje zaboravi. Cijela se
 // zaboravi i kad se promijeni što računalo drži ili prati: pravilo čuvanja
@@ -36,9 +39,9 @@ package peers
 // mjeseca), kad je sat vraćen iza nastanka zapisa i kad prođe
 // najduljeOdbijene. Razgovor ne upisuje ništa kad se išta od toga dogodi
 // usred njega (zapamtiOdbijene), a kad je usred njega ograda popustila, ne
-// upisuje ni primljeno u ključevima koje je druga strana preskočila
-// (bezPreskocenog). Zaboraviti previše košta jedno ponovno slanje, a
-// zaboraviti premalo gubi podatke.
+// upisuje ni primljeno u ključevima koje je druga strana preskočila, a zapis
+// od nje zaboravi (bezPreskocenog). Zaboraviti previše košta jedno ponovno
+// slanje, a zaboraviti premalo gubi podatke.
 
 import (
 	"context"
@@ -56,10 +59,10 @@ import (
 const kindGranicaOdbijenih = "granica-odbijenih"
 
 // najduljeOdbijene je koliko zapis od jednog pošiljatelja vrijedi; zatim se
-// izgradi iznova, uz jedno ponovno slanje. Pošiljatelj može poslije dobiti
-// verziju ispod granice koju prije nije imao (npr. od posrednika s užim
-// pravilom čuvanja), a ona bi inače ovamo stigla tek nakon ponovnog
-// pokretanja.
+// izgradi iznova, uz jedno ponovno slanje. Ograničava samo koliko star zapis
+// smije biti. Verziju koju pošiljatelj poslije dobije ispod granice ne
+// vraća: kad u međuvremenu u istom ključu stigne novija, granica knjige
+// prijeđe preko nje. Takve verzije pokriva granica_nakon_uvoza.go.
 const najduljeOdbijene = 24 * time.Hour
 
 // odbijeneMsg je poruka granice odbijenih: ključ granice → najveći
@@ -270,13 +273,17 @@ func (r *razgovorSCvorom) odbaci(v ledger.Version) {
 // njega, pa ne bi stiglo nikad. Ovako ključ ostane gdje je bio, a sljedeći
 // razgovor donese i preskočeno i maknuto. Razgovor tada ne pamti ni što je
 // odbio: da ograda do kraja razgovora opet ne stegne (rub natrag naprijed),
-// zapis bi pokrio i maknuto. Ograda se čita nakon svih odluka accepta
-// (zaUpis).
+// zapis bi pokrio i maknuto. Zaboravi i dosadašnji zapis od tog
+// pošiljatelja: pošiljatelj je granicu možda zanemario
+// (granica_nakon_uvoza.go) i maknuto poslao, pa misli da je stiglo
+// (zapamtiUvoz), a zapis koji opet vrijedi (rub opet stigne) sakrio bi ga.
+// Ograda se čita nakon svih odluka accepta (zaUpis).
 func (r *razgovorSCvorom) bezPreskocenog(wanted []ledger.Version) []ledger.Version {
 	if len(r.odbijene.moje) == 0 || r.odbijene.ograda.josOdbija(r.s.ogradaSada()) {
 		return wanted
 	}
 	r.odbijeno = nil
+	r.s.zaboraviOdbijeneOd(r.odbijene.kljuc)
 	out := make([]ledger.Version, 0, len(wanted))
 	for _, v := range wanted {
 		if _, preskoceno := r.odbijene.moje[ledger.FrontierKey(v.NodeID, v.Channel)]; !preskoceno {

@@ -100,11 +100,11 @@ func TestTijekGranicaOdbijenihPrazna(t *testing.T) {
 func TestTijekGranicaOdbijenihDrugeStrane(t *testing.T) {
 	a, b := cistiPar(t)
 	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3), granica
-	// odbijenih nakon uvoza; čvor je poštuje tek kad zna da je druga strana
-	// nakon zadnjeg uvoza dobila sve (granica_nakon_uvoza.go)
+	// odbijenih nakon uvoza; čvor je poštuje najviše do onoga što je drugoj
+	// strani poslao od zadnjeg uvoza (granica_nakon_uvoza.go)
 	saV2 := func() {
 		upisiStalno(t, b, vlastitaV2)
-		sustigla(b, a)
+		sustigla(t, b, a)
 	}
 	doV1 := odbijeneDrugog(map[string]string{kljucCvora: tijekV1})
 	prekoSvega := odbijeneDrugog(map[string]string{kljucCvora: tijekVIza, "tudji-cvor|ocitanja/16/2026": tijekVIza})

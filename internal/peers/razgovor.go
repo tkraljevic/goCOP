@@ -68,7 +68,7 @@ type razgovorSCvorom struct {
 	odbijene        pocetakOdbijenih
 	njihoveOdbijene map[string]string
 	odbijeno        map[string]string
-	pokriveno       pokrivenoDeltom
+	pokriveno       map[string]string
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu

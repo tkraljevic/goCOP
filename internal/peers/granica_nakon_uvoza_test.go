@@ -12,11 +12,14 @@ package peers
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -283,65 +286,257 @@ func TestUvozIzaPunogKljuca(t *testing.T) {
 	}
 }
 
-// Narastaj uvoza raste samo kad uvoz upiše barem jednu verziju; razgovor
-// pamti narastaj sa svog početka i ono što je delta pokrila, a zapis
-// starijeg narastaja počinje iznova
+// Rupa u nizu koju popuni razmjena, ne uvoz. Unraid (a) zove ured (c), koji
+// ima cijeli niz, dok u ključu ima samo novo. Dok taj razgovor stoji prije
+// upisa (Unraidov Accept na kasnom), drugi laptop (d), kojemu kasno
+// nedostaje, donese staro-a i staro-b, a Unraid ih pošalje laptopu (b),
+// koji ih odbije. Tek tada se upiše ono što je donio ured, s kasnim, ispod
+// granice odbijenih laptopa. Takav upis broji se kao uvoz, pa kasno stigne
+// sljedećim razgovorom, prije novijeg u istom ključu.
+func TestRupaUNizuIzRazmjeneStigne(t *testing.T) {
+	cv := clanovi(t, "cop-osijek", "laptop-baranja", "windows-ured", "laptop-drugi")
+	a, b, c, d := cv[0], cv[1], cv[2], cv[3]
+	for _, s := range cv {
+		s.SetWantsAll(true)
+	}
+	for _, druga := range []*Service{b, c, d, b} {
+		izjednaci(t, a, druga)
+	}
+	b.Accept(odbijaStaro)
+	upisiStalno(t, a, uvozNovo)
+	upisiStalno(t, c, uvozNovo, uvozKasno, uvozStaroA, uvozStaroB)
+	upisiStalno(t, d, uvozNovo, uvozStaroA, uvozStaroB)
+	if _, z := razgovaraj(t, a, b); z.applied != 1 {
+		t.Fatalf("laptop nije upisao novo: %d", z.applied)
+	}
+	var jednom sync.Once
+	a.Accept(func(v ledger.Version) bool {
+		if v.EntityID == uvozKasno.EntityID {
+			jednom.Do(func() {
+				if _, z := razgovaraj(t, d, a); z.applied != 2 {
+					t.Fatalf("Unraid od drugog laptopa upisao %d", z.applied)
+				}
+				if p, z := razgovaraj(t, a, b); p.sent != 2 || z.applied != 0 {
+					t.Fatalf("istodobno: Unraid poslao %d, laptop upisao %d", p.sent, z.applied)
+				}
+			})
+		}
+		return true
+	})
+	if p, _ := razgovaraj(t, a, c); p.applied != 1 {
+		t.Fatalf("Unraid od ureda upisao %d", p.applied)
+	}
+	if p, z := razgovaraj(t, a, b); p.sent != 3 || z.applied != 1 {
+		t.Errorf("nakon rupe Unraid poslao %d (očekivano 3), laptop upisao %d (očekivano 1)", p.sent, z.applied)
+	}
+	upisiStalno(t, a, uvozNovo2)
+	razgovaraj(t, a, b)
+	if _, err := b.rec.Latest(ctxRub, "probni", "kasno"); err != nil {
+		t.Errorf("laptop nema kasno: %v", err)
+	}
+}
+
+// Brisanje kanala pa ponovno praćenje. Posrednik (a) odbija kasno, a novo,
+// staro-a i staro-b dobije od Unraida (c) i pošalje laptopu (b), koji stara
+// odbije. Zatim posrednik proširi pravilo čuvanja, obriše kanal i opet ga
+// zaprati, pa s Unraida dobije i kasno, koje prije nije imao, ispod granice
+// odbijenih laptopa. Laptop razmjenjuje samo s posrednikom. Kasno stigne i
+// kad se posrednik nakon brisanja ponovno pokrene: tada ne zna ni za
+// brisanje ni za ono što je laptop prije dobio.
+func TestPonovnoPracenjeNakonBrisanjaKanala(t *testing.T) {
+	for _, pokretanje := range []bool{false, true} {
+		cv := clanovi(t, "laptop-drugi", "laptop-baranja", "cop-osijek")
+		a, b, c := cv[0], cv[1], cv[2]
+		for _, s := range cv {
+			s.SetWantsAll(true)
+		}
+		for _, druga := range []*Service{b, c, b} {
+			izjednaci(t, a, druga)
+		}
+		b.Accept(odbijaStaro)
+		a.Accept(func(v ledger.Version) bool { return v.EntityID != uvozKasno.EntityID })
+		upisiStalno(t, c, uvozNovo, uvozKasno, uvozStaroA, uvozStaroB)
+		if p, _ := razgovaraj(t, a, c); p.applied != 3 {
+			t.Fatalf("posrednik upisao %d", p.applied)
+		}
+		if p, z := razgovaraj(t, a, b); p.sent != 3 || z.applied != 1 {
+			t.Fatalf("posrednik poslao %d, laptop upisao %d", p.sent, z.applied)
+		}
+		// u programu prošireno pravilo zaboravi granicu odbijenih (narastaj
+		// ograde); praćenje se makne, kanal obriše i opet zaprati
+		a.Accept(nil)
+		a.zaboraviOdbijene()
+		a.SetWantsAll(false)
+		if _, err := a.PurgeChannel(ctxRub, kanalUvoza); err != nil {
+			t.Fatal(err)
+		}
+		if pokretanje {
+			novi, err := NewService(a.db, a.rec, a.node, a.ports)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a = novi
+		}
+		a.SetWantsAll(true)
+		// laptop posredniku vrati novo, a posrednik nema što poslati
+		if p, z := razgovaraj(t, a, b); p.sent != 0 || p.applied != 1 || z.applied != 0 {
+			t.Fatalf("pokretanje %v, nakon brisanja: posrednik poslao %d, upisao %d, laptop upisao %d", pokretanje, p.sent, p.applied, z.applied)
+		}
+		if p, _ := razgovaraj(t, a, c); p.applied != 3 {
+			t.Fatalf("pokretanje %v: posrednik nakon ponovnog praćenja upisao %d", pokretanje, p.applied)
+		}
+		if p, z := razgovaraj(t, a, b); p.sent != 3 || z.applied != 1 {
+			t.Errorf("pokretanje %v, nakon ponovnog praćenja: posrednik poslao %d (očekivano 3), laptop upisao %d (očekivano 1)", pokretanje, p.sent, z.applied)
+		}
+		upisiStalno(t, c, uvozNovo2)
+		razgovaraj(t, a, c)
+		razgovaraj(t, a, b)
+		if _, err := b.rec.Latest(ctxRub, "probni", "kasno"); err != nil {
+			t.Errorf("pokretanje %v: laptop nema kasno: %v", pokretanje, err)
+		}
+	}
+}
+
+// Nakon uvoza laptopu usred razgovora sat ode minutu unatrag: rub razdoblja
+// padne ispod ruba s početka razgovora, ali ne ispod ruba zapisa odbijenih.
+// Unraid je granicu odbijenih zanemario i poslao i kasno, a laptop iz upisa
+// izbaci cijeli ključ (bezPreskocenog) i ipak pošalje želje, pa Unraid
+// zapamti da je kasno poslao. Laptop zato zaboravi zapis od Unraida, pa
+// sljedeći razgovor donese sve iznova. Za obje uloge.
+func TestSatUnatragNakonUvoza(t *testing.T) {
+	for _, u := range ulogeRazgovora {
+		cv := clanovi(t, "cop-osijek", "laptop-baranja", "windows-ured")
+		a, b, c := cv[0], cv[1], cv[2]
+		a.SetWantsAll(true)
+		b.SetWantsAll(true)
+		izjednaci(t, a, b)
+		ograda := &laznoPravilo{}
+		rub := time.Now().AddDate(0, -12, 0).UnixNano()
+		ograda.rub.Store(rub)
+		b.PostaviStanjePrihvata(ograda.stanje)
+		var naPrvoj atomic.Bool
+		b.Accept(func(v ledger.Version) bool {
+			if naPrvoj.CompareAndSwap(true, false) {
+				ograda.rub.Add(-int64(time.Minute))
+			}
+			return odbijaStaro(v)
+		})
+		pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
+		upisiStalno(t, a, uvozNovo, uvozStaroA, uvozStaroB)
+		for krug, poslano := range []int{3, 0} {
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != poslano {
+				t.Fatalf("%s: razgovor %d prije uvoza: Unraid poslao %d, očekivano %d", u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), poslano)
+			}
+		}
+		ograda.rub.Add(int64(5 * time.Minute))
+		uveziOd(t, putoviUvoza[0], a, c, 1, uvozKasno)
+		upisiStalno(t, a, uvozNovo2)
+		naPrvoj.Store(true)
+		for krug, ocekivano := range [][2]int{{4, 0}, {4, 2}, {0, 0}} {
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != ocekivano[0] || upisaoLaptop(b, pozivatelj, p, z) != ocekivano[1] {
+				t.Errorf("%s, razgovor %d nakon uvoza: Unraid poslao %d, laptop upisao %d, očekivano %v",
+					u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z), ocekivano)
+			}
+		}
+		for _, id := range []string{"kasno", "novo-2"} {
+			if _, err := b.rec.Latest(ctxRub, "probni", id); err != nil {
+				t.Errorf("%s: laptop nema %s: %v", u.ime, id, err)
+			}
+		}
+	}
+}
+
+// popunjavaRupu: nova verzija ispod najveće u svom ključu popunjava rupu;
+// ona koja je već u knjizi, ona iznad najveće i ona u ključu kojega knjiga
+// nema ne popunjavaju. Kad se ne da pročitati, popunjava.
+func TestPopunjavaRupu(t *testing.T) {
+	s := rubniCvor(t, "laptop-drugi")
+	upisiStalno(t, s, uvozNovo, uvozStaroB)
+	drugiKljuc := stalnaVerzija("0190a000-0000-7000-8000-000000000221", "windows-ured", kanalUvoza, "kasno-ureda", `{"cm":1}`)
+	for _, c := range []struct {
+		ime       string
+		verzije   []ledger.Version
+		popunjava bool
+	}{
+		{"ništa", nil, false},
+		{"već u knjizi", []ledger.Version{uvozNovo, uvozStaroB}, false},
+		{"iznad najveće", []ledger.Version{uvozNovo2}, false},
+		{"ključ kojega nema", []ledger.Version{drugiKljuc}, false},
+		{"ispod najveće", []ledger.Version{uvozNovo2, uvozKasno}, true},
+	} {
+		if got := s.popunjavaRupu(ctxRub, c.verzije); got != c.popunjava {
+			t.Errorf("%s: popunjava %v, očekivano %v", c.ime, got, c.popunjava)
+		}
+	}
+	otkazan, otkazi := context.WithCancel(ctxRub)
+	otkazi()
+	if !s.popunjavaRupu(otkazan, []ledger.Version{uvozNovo2}) {
+		t.Error("nepročitano ne popunjava rupu")
+	}
+}
+
+// Narastaj uvoza raste samo kad upis doda barem jednu verziju. Razgovor
+// pamti narastaj sa svog početka i ono što je delta pokrila; granica
+// odbijenih poštuje se najviše do toga, a zapis starijeg narastaja počinje
+// iznova.
 func TestPamcenjeUvoza(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
-	s.zabiljeziUvoz(0)
+	s.zabiljeziUvoz(0, true)
+	s.zabiljeziUvoz(1, false)
 	if n, _ := s.uvozNaPocetku("laptop"); n != 0 {
-		t.Fatalf("uvoz bez novih digao narastaj na %d", n)
+		t.Fatalf("upis bez novih ili koji se ne broji digao narastaj na %d", n)
 	}
 	njihove := map[string]string{"k": "v-5", "l": "w-5"}
 	p := s.pocetakOdbijenih("laptop", nil)
+	preskok := func() map[string]string { return s.pocetakOdbijenih("laptop", nil).preskok(njihove) }
 	if g := p.preskok(njihove); len(g) != 0 {
 		t.Errorf("bez zapisa preskok %v", g)
 	}
-	s.zapamtiUvoz(p, pokrivenoDeltom{granica: map[string]string{"k": "v-3"}})
-	if g := s.pocetakOdbijenih("laptop", nil).preskok(njihove); len(g) != 1 || g["k"] != "v-3" {
-		t.Errorf("skraćena delta: preskok %v, očekivano k do v-3", g)
+	s.zapamtiUvoz(p, map[string]string{"k": "v-3"})
+	if g := preskok(); !maps.Equal(g, map[string]string{"k": "v-3"}) {
+		t.Errorf("poslano do v-3: preskok %v, očekivano k do v-3", g)
 	}
-	s.zapamtiUvoz(p, pokrivenoDeltom{sve: true})
-	if g := s.pocetakOdbijenih("laptop", nil).preskok(njihove); len(g) != 2 {
-		t.Errorf("sve dobiveno: preskok %v, očekivana granica odbijenih", g)
+	s.zapamtiUvoz(p, map[string]string{"k": "v-9", "l": "w-1"})
+	s.zapamtiUvoz(p, map[string]string{"k": "v-4"})
+	if g := preskok(); !maps.Equal(g, map[string]string{"k": "v-5", "l": "w-1"}) {
+		t.Errorf("poslano preko granice odbijenih: preskok %v, očekivano k do v-5 i l do w-1", g)
 	}
-	s.zabiljeziUvoz(1)
-	if g := s.pocetakOdbijenih("laptop", nil).preskok(njihove); g != nil {
+	s.zabiljeziUvoz(1, true)
+	if g := preskok(); g != nil {
 		t.Errorf("nakon uvoza preskok %v", g)
 	}
 	// razgovor s početka prije uvoza zapamti stari narastaj, pa sljedeći
 	// granicu i dalje ne poštuje
-	s.zapamtiUvoz(p, pokrivenoDeltom{sve: true})
-	if g := s.pocetakOdbijenih("laptop", nil).preskok(njihove); g != nil {
+	s.zapamtiUvoz(p, map[string]string{"k": "v-9", "l": "w-9"})
+	if g := preskok(); g != nil {
 		t.Errorf("razgovor iz vremena prije uvoza: preskok %v", g)
 	}
+	s.zapamtiUvoz(s.pocetakOdbijenih("laptop", nil), map[string]string{"l": "w-9"})
+	if g := preskok(); !maps.Equal(g, map[string]string{"l": "w-5"}) {
+		t.Errorf("novi narastaj: preskok %v, očekivano samo l do w-5", g)
+	}
 }
 
-// pokriveno: granica je najveća poslana ili neispravna verzija po ključu, a
-// sve je delta nosila samo neskraćena i s manje od NajviseVerzijaPoRazmjeni
-// verzija
+// pokriveno je najveća poslana ili neispravna verzija po ključu
 func TestPokrivenoDeltom(t *testing.T) {
 	neispravna := stalnaVerzija("0190a000-0000-7000-8000-000000000299", "cop-osijek", kanalUvoza, "", `{}`)
-	d := pokriveno(deltaMsg{Versions: []ledger.Version{uvozNovo, uvozKasno}}, []ledger.Version{neispravna})
-	if !d.sve || len(d.granica) != 1 || d.granica[kljucStarih] != neispravna.VersionID {
-		t.Errorf("neskraćena delta: %+v", d)
+	if d := pokriveno(deltaMsg{Versions: []ledger.Version{uvozKasno, uvozNovo}}, nil); len(d) != 1 || d[kljucStarih] != uvozKasno.VersionID {
+		t.Errorf("delta: %v", d)
 	}
-	if d := pokriveno(deltaMsg{Versions: []ledger.Version{uvozNovo}, Skraceno: true}, nil); d.sve {
-		t.Error("delta skraćena po bajtovima nosi sve")
-	}
-	puna := make([]ledger.Version, NajviseVerzijaPoRazmjeni)
-	for i := range puna {
-		puna[i] = uvozNovo
-	}
-	if d := pokriveno(deltaMsg{Versions: puna}, nil); d.sve {
-		t.Error("puna delta nosi sve")
+	if d := pokriveno(deltaMsg{Versions: []ledger.Version{uvozNovo, uvozKasno}}, []ledger.Version{neispravna}); len(d) != 1 || d[kljucStarih] != neispravna.VersionID {
+		t.Errorf("delta s neispravnom: %v", d)
 	}
 }
 
-// sustigla: čvor s zapamti da je druga strana dobila sve nakon zadnjeg
-// uvoza, kao nakon potvrđenog razgovora s neskraćenom deltom
-func sustigla(s, druga *Service) {
-	s.zapamtiUvoz(s.pocetakOdbijenih(druga.node.PublicKey(), nil), pokrivenoDeltom{sve: true})
+// sustigla: čvor s zapamti da je druga strana nakon zadnjeg uvoza dobila
+// sve što s ima, kao nakon potvrđenog razgovora
+func sustigla(t *testing.T, s, druga *Service) {
+	t.Helper()
+	moja, err := s.rec.Frontier(ctxRub)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.zapamtiUvoz(s.pocetakOdbijenih(druga.node.PublicKey(), nil), moja)
 }
 
 // delte čvora s v1 i v2 i samo s v2
@@ -362,8 +557,8 @@ func TestTijekGranicaOdbijenihNakonUvoza(t *testing.T) {
 	saV2 := func() { upisiStalno(t, b, vlastitaV2) }
 	uvoz := func() {
 		saV2()
-		sustigla(b, a)
-		b.zabiljeziUvoz(1)
+		sustigla(t, b, a)
+		b.zabiljeziUvoz(1, true)
 	}
 	ishod := func(applied, sent int, greska, granica, knjiga string) []string {
 		return []string{fmt.Sprintf("ishod applied=%d sent=%d err=%s", applied, sent, greska), granica, obicno, knjiga}

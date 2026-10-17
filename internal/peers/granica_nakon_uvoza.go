@@ -2,38 +2,51 @@ package peers
 
 // Granica odbijenih nakon uvoza (G4 u docs/plan-web-sync.md §3). Granica
 // odbijenih vrijedi jer pošiljatelj u svakom ključu šalje neprekinut niz
-// svojih verzija iznad granice primatelja (granica_odbijenih.go). Uvozom
-// (arhiva knjige, ImportFile, i COP paket, UveziCop) pošiljatelj može
-// dobiti i verziju ispod granice odbijenih koju prije nije imao (kasno).
-// Primatelj je nije ni vidio ni odbio, a po granici odbijenih ona se
-// preskoči. Kad u istom ključu stigne i novija verzija koju primatelj drži,
-// njegova granica knjige prijeđe preko kasnog, pa ono ne stigne nikad.
+// svojih verzija iznad granice primatelja (granica_odbijenih.go), ali samo
+// za niz koji je imao kad je slao. Verziju koju poslije dobije ispod
+// granice odbijenih (kasno) primatelj nije ni vidio ni odbio, a po granici
+// odbijenih ona se preskoči. Kad u istom ključu stigne i novija verzija koju
+// primatelj drži, njegova granica knjige prijeđe preko kasnog, pa ono ne
+// stigne nikad.
 //
-// Zato pošiljatelj broji uvoze: narastaj uvoza raste sa svakim uvozom koji
-// upiše barem jednu verziju (zabiljeziUvoz). Za svako računalo kojem šalje
-// pamti je li ono dobilo sve što je pošiljatelj imao nakon zadnjeg uvoza.
-// Dok nije, delta ide od granice knjige tog računala, a preskače samo ono
-// što je ono i odbilo i nakon uvoza već dobilo (dosad), da ključ s tisućama
-// odbijenih ne zapne kao prije G4. Računalo je dobilo sve kad je delta
-// prošla neskraćena (pokriveno) i kad je stigla njegova poruka želja: šalje
-// je tek nakon što je primljeno upisalo i zapamtilo što je odbilo
-// (zapamtiUvoz). Razgovor koji je pao ili u kojem je upis druge strane bio
-// zauzet tako se ne broji.
+// Pošiljatelj takvu verziju dobije na tri načina: uvozom (arhiva knjige,
+// ImportFile, i COP paket, UveziCop), razmjenom kad primljeno popuni rupu u
+// nizu (dva istodobna razgovora donesu isti ključ, a prvi se upiše onaj
+// kojemu nedostaje verzija iz sredine) i ponovnim praćenjem kanala nakon
+// brisanja kanala (PurgeChannel), kad se niz popuni iznova, i s onim čega
+// prije nije bilo.
+//
+// Zato pošiljatelj broji takve upise: narastaj uvoza raste sa svakim uvozom
+// koji upiše barem jednu verziju, s upisom razmjene koji popuni rupu
+// (popunjavaRupu) i s brisanjem kanala koje obriše barem jednu verziju
+// (zabiljeziUvoz). Za svako računalo kojem šalje pamti, po ključu granice,
+// dokle mu je u tom narastaju poslao (dosad). Granicu odbijenih tog
+// računala poštuje najviše do toga, a ključ u kojem mu u tom narastaju nije
+// poslao ništa šalje od njegove granice knjige. Unutar narastaja pošiljatelj
+// ispod onoga što je poslao ne dobiva ništa novo (granica knjige mu ne pada,
+// a popunjenu rupu bi brojao), pa je preskok siguran, a ključ s tisućama
+// odbijenih ne zapne kao prije G4. Pamti se tek kad stigne
+// poruka želja druge strane: šalje je tek nakon što je primljeno upisala i
+// zapamtila što je odbila (zapamtiUvoz). Razgovor koji je pao ili u kojem
+// je upis druge strane bio zauzet tako se ne broji. Kad druga strana
+// primljeno namjerno ne upiše (bezPreskocenog), zaboravi svoj zapis
+// odbijenih od ovog čvora, pa ga sljedeći razgovor i ne javlja.
 //
 // Pamti se samo u memoriji, po javnom ključu druge strane, kao i granica
-// odbijenih. Nakon ponovnog pokretanja ništa nije zapamćeno, pa prvi
-// razgovor sa svakim računalom granicu zanemari: to je jedno ponovno slanje,
-// kao kad se ponovno pokrene primatelj. Narastaj razgovor uzme prije prve
-// poruke (pocetakOdbijenih), pa uvoz usred razgovora vrijedi za sljedeći.
+// odbijenih. Nakon ponovnog pokretanja ništa nije zapamćeno, pa je prvi
+// razgovor sa svakim računalom kao nakon uvoza: jedno ponovno slanje, kao
+// kad se ponovno pokrene primatelj. Zato ni brisanje kanala prije ponovnog
+// pokretanja ne može sakriti ono što ponovno praćenje donese. Narastaj
+// razgovor uzme prije prve poruke (pocetakOdbijenih), pa uvoz usred
+// razgovora vrijedi za sljedeći.
 //
-// Razmjenom pošiljatelj dobiva verzije iznad svoje granice knjige s početka
-// razgovora, pa ispod granice odbijenih samo kad je prije imao niz s rupom
-// (izvor nije imao verziju iz sredine niza), a rupu sad popuni drugi izvor.
-// To može kad dva istodobna razgovora donesu isti ključ i kad se kanal
-// obrisan brisanjem kanala (PurgeChannel) opet počne pratiti. Ovo to ne
-// pokriva.
+// Ovo ne pokriva pospremanje uloženih očitanja (ulaganje.Zaboravi): ono
+// briše verzije mimo razmjene, pa granica knjige može pasti, a narastaj ne
+// raste (docs/plan-web-sync.md, G4).
 
 import (
+	"context"
+	"encoding/json"
 	"sync"
 
 	"gocop/internal/ledger"
@@ -48,31 +61,48 @@ type pamcenjeUvoza struct {
 	zaCvor   map[string]nakonUvoza
 }
 
-// nakonUvoza je ono što je jedno računalo dobilo nakon uvoza narastaja
-// narastaj: sve, ili po ključu granice dosad, do koje verzije je dobilo sve
+// nakonUvoza je ono što je jedno računalo dobilo u narastaju uvoza
+// narastaj: po ključu granice najveća poslana ili neispravna verzija (dosad)
 type nakonUvoza struct {
 	narastaj uint64
-	sve      bool
 	dosad    map[string]string
 }
 
-// pokrivenoDeltom je ono što je delta jednog razgovora pokrila: po ključu
-// granice najveća poslana ili neispravna verzija, i je li nosila sve
-type pokrivenoDeltom struct {
-	granica map[string]string
-	sve     bool
-}
-
-// zabiljeziUvoz digne narastaj uvoza kad je uvoz upisao barem jednu
-// verziju. Zove se bez uvjeta, tek nakon upisa (primijeniPodBravom), pa
-// razgovor koji vidi novi narastaj u delti vidi i uvezeno.
-func (s *Service) zabiljeziUvoz(upisano int) {
-	if upisano == 0 {
+// zabiljeziUvoz digne narastaj uvoza kad je upis koji se broji (broji)
+// dodao ili obrisao barem jednu verziju. Uvoz i brisanje kanala broje se
+// uvijek, a upis razmjene kad popuni rupu (popunjavaRupu). Zove se bez
+// uvjeta, tek nakon upisa (primijeniPodBravom, primijeniAkoStigne,
+// PurgeChannel), pa razgovor koji vidi novi narastaj u delti vidi i upisano.
+func (s *Service) zabiljeziUvoz(upisano int, broji bool) {
+	if upisano == 0 || !broji {
 		return
 	}
 	s.uvozi.mu.Lock()
 	defer s.uvozi.mu.Unlock()
 	s.uvozi.narastaj++
+}
+
+// rupaUNizu: neka od verzija (json_each, polja oznaka, autor i kanal) nije u
+// knjizi, a u knjizi je novija verzija istog autora u istom kanalu
+const rupaUNizu = `SELECT EXISTS (SELECT 1 FROM json_each(?) j
+	WHERE NOT EXISTS (SELECT 1 FROM record_versions r WHERE r.version_id = j.value ->> 0)
+	  AND EXISTS (SELECT 1 FROM record_versions g WHERE g.node_id = j.value ->> 1 AND g.channel = j.value ->> 2 AND g.version_id > j.value ->> 0))`
+
+// popunjavaRupu javlja da primljeno popunjava rupu u nizu: neka verzija još
+// nije u knjizi, a ispod je najveće verzije svog ključa (ledger.FrontierKey).
+// Verzija koja je već u knjizi se ne broji, inače bi narastaj rastao svakim
+// razgovorom koji ponovi poslano. Kad se ne da pročitati, javlja da
+// popunjava: zaboraviti previše košta jedno ponovno slanje. Zove se pod
+// bravom upisa, prije upisa.
+func (s *Service) popunjavaRupu(ctx context.Context, verzije []ledger.Version) bool {
+	polja := make([][3]string, len(verzije))
+	for i, v := range verzije {
+		polja[i] = [3]string{v.VersionID, v.NodeID, v.Channel}
+	}
+	sirovo, _ := json.Marshal(polja)
+	var popunjava bool
+	err := s.db.QueryRowContext(ctx, rupaUNizu, string(sirovo)).Scan(&popunjava)
+	return popunjava || err != nil
 }
 
 // uvozNaPocetku je narastaj uvoza i ono što je računalo kljuc nakon uvoza
@@ -84,44 +114,35 @@ func (s *Service) uvozNaPocetku(kljuc string) (uint64, nakonUvoza) {
 }
 
 // preskok je ono preko čega delta za drugu stranu smije preskočiti, po
-// ključu granice. Kad je druga strana dobila sve nakon zadnjeg uvoza, to je
-// njezina granica odbijenih (njihove). Dok nije, to je ta granica najviše do
-// onoga što je nakon uvoza već dobila (ograđeno kao u doVlastite), a nakon
-// novog uvoza ništa, pa delta ide od njezine granice knjige.
+// ključu granice: njezina granica odbijenih (njihove) najviše do onoga što
+// je u ovom narastaju uvoza već dobila (ograđeno kao u doVlastite). Nakon
+// novog uvoza to je ništa, pa delta ide od njezine granice knjige.
 func (p pocetakOdbijenih) preskok(njihove map[string]string) map[string]string {
-	switch {
-	case p.nakonUvoza.narastaj != p.uvoz:
+	if p.nakonUvoza.narastaj != p.uvoz {
 		return nil
-	case p.nakonUvoza.sve:
-		return njihove
 	}
 	return doVlastite(njihove, p.nakonUvoza.dosad)
 }
 
-// pokriveno je ono što je delta pokrila. Sve je nosila kad nije skraćena po
-// bajtovima (Skraceno) ni po broju verzija u ključu: uz manje od
-// NajviseVerzijaPoRazmjeni verzija ukupno nijedan ključ nije pun.
-func pokriveno(moja deltaMsg, neispravne []ledger.Version) pokrivenoDeltom {
-	return pokrivenoDeltom{
-		granica: pomakniGranicu(pomakniGranicu(nil, moja.Versions), neispravne),
-		sve:     !moja.Skraceno && len(moja.Versions)+len(neispravne) < NajviseVerzijaPoRazmjeni,
-	}
+// pokriveno je ono što je delta pokrila: po ključu granice najveća poslana
+// ili neispravna verzija
+func pokriveno(moja deltaMsg, neispravne []ledger.Version) map[string]string {
+	return pomakniGranicu(pomakniGranicu(nil, moja.Versions), neispravne)
 }
 
-// zapamtiUvoz zapamti što je druga strana u razgovoru dobila. Zove se tek
-// kad je stigla njezina poruka želja, jer je šalje tek nakon što je
-// primljeno upisala. Razgovor koji je počeo prije zadnjeg uvoza zapamti
-// svoj narastaj, pa sljedeći razgovor granicu odbijenih opet zanemari.
-func (s *Service) zapamtiUvoz(p pocetakOdbijenih, d pokrivenoDeltom) {
+// zapamtiUvoz zapamti što je druga strana u razgovoru dobila (poslano).
+// Zove se tek kad je stigla njezina poruka želja, jer je šalje tek nakon
+// što je primljeno upisala. Razgovor koji je počeo prije zadnjeg uvoza
+// zapamti svoj narastaj, pa sljedeći razgovor granicu odbijenih opet
+// zanemari.
+func (s *Service) zapamtiUvoz(p pocetakOdbijenih, poslano map[string]string) {
 	s.uvozi.mu.Lock()
 	defer s.uvozi.mu.Unlock()
 	z := s.uvozi.zaCvor[p.kljuc]
 	if z.narastaj != p.uvoz {
 		z = nakonUvoza{narastaj: p.uvoz}
 	}
-	if !z.sve {
-		z = nakonUvoza{narastaj: p.uvoz, sve: d.sve, dosad: spojiGranice(z.dosad, d.granica)}
-	}
+	z.dosad = spojiGranice(z.dosad, poslano)
 	if s.uvozi.zaCvor == nil {
 		s.uvozi.zaCvor = map[string]nakonUvoza{}
 	}
