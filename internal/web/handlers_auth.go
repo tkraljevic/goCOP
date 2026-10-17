@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -91,7 +92,9 @@ func (h *AuthHandler) prikaziPrijavu(w http.ResponseWriter, r *http.Request, sta
 	if status != http.StatusOK {
 		w.WriteHeader(status)
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)})
+	if err := h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)}); err != nil {
+		log.Printf("prijava: stranica prijave: %v", err)
+	}
 }
 
 // porukaZadaneLozinkeIzMreze odbija početnu lozinku iz mreže na čvoru pod Postavom
