@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
 
 	_ "modernc.org/sqlite"
@@ -322,7 +323,9 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	if bila, opis := brava.Preuzeta(); bila {
 		fmt.Fprintf(zapisi, "preuzeta brava prekinutog posla: %s — provjeriti je li ostao nered\n", opis)
 	}
-	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&_pragma=synchronous(OFF)")
+	// Gradnja piše ravno u arhivu koju čvor koristi. Bez trajnog upisa
+	// nestanak struje usred gradnje mogao je pokvariti cijelu arhivu.
+	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&"+gocopdb.TrajniUpis)
 	if err != nil {
 		return iz, err
 	}
