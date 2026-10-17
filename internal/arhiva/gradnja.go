@@ -939,6 +939,7 @@ func promjeneKote(db *sql.DB, koren string, zapisi io.Writer) (map[string][]prom
 		return nil, fmt.Errorf("promjene kote: %w", err)
 	}
 	out := map[string][]promjena{}
+	var upisi [][]any
 	for i, r := range sve {
 		if i == 0 || len(r) < 3 {
 			continue
@@ -953,16 +954,32 @@ func promjeneKote(db *sql.DB, koren string, zapisi io.Writer) (map[string][]prom
 		if err != nil {
 			return nil, fmt.Errorf("promjene kote, redak %d: datum %q", i+1, datum)
 		}
-		if _, err := db.Exec(`INSERT OR REPLACE INTO promjene_kote (letva, datum, pomak_cm, izvor, napomena)
-			VALUES (?,?,?,?,?)`, letva, datum, cm, nth(r, 3), nth(r, 4)); err != nil {
-			return nil, err
-		}
+		upisi = append(upisi, []any{letva, datum, cm, nth(r, 3), nth(r, 4)})
 		out[letva] = append(out[letva], promjena{do: t.UTC().Unix(), pomak: float64(cm)})
+	}
+	if err := upisiPromjeneKote(db, upisi); err != nil {
+		return nil, err
 	}
 	if len(out) > 0 {
 		fmt.Fprintf(zapisi, "%-8s %-16s promjene kote nule: %d letvi\n", "", "", len(out))
 	}
 	return out, nil
+}
+
+// upisiPromjeneKote upisuje sve promjene kote nule iz datoteke u jednoj
+// transakciji. Svaki redak su vrijednosti letva, datum, pomak u cm, izvor i
+// napomena. Redak datoteke koji se ne da pročitati tako ne ostavi upisane
+// one prije sebe.
+func upisiPromjeneKote(db *sql.DB, upisi [][]any) error {
+	return uTransakciji(db, func(q Izvrsitelj) error {
+		for _, u := range upisi {
+			if _, err := q.Exec(`INSERT OR REPLACE INTO promjene_kote (letva, datum, pomak_cm, izvor, napomena)
+				VALUES (?,?,?,?,?)`, u...); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
 
 // promjena je jedno premještanje nule: vrijednostima prije "do" dodaje se pomak.
@@ -1285,36 +1302,13 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 		if len(tocke) == 0 {
 			continue
 		}
-		// Id se traži kroz RETURNING, ne kroz LastInsertId. Kad upsert ode u
-		// UPDATE, SQLite ne dira last_insert_rowid nego vraća onaj od prošlog
-		// upisa na toj vezi — a to je ovdje bila promjena kote nule, iz druge
-		// tablice. Točke korita tako su odlazile pod tuđi broj: bez provjere
-		// stranih ključeva tiho, u siročad, a s provjerom gradnja padne.
 		por, imaPor := poravnanja[letva+"|"+datum]
 		if !imaPor {
 			por = Poravnanje{Crtaj: true}
 		}
-		crtaj := 1
-		if !por.Crtaj {
-			crtaj = 0
-		}
-		var id int64
-		if err := db.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj, sustav_kote) VALUES (?,?,?,?,?,?,?)
-			ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
-			sustav_kote=excluded.sustav_kote,
-				pomak_m=excluded.pomak_m, crtaj=excluded.crtaj
-			RETURNING id`,
-			letva, datum, vod, kota, por.PomakM, crtaj, sustavKote).Scan(&id); err != nil {
-			return fmt.Errorf("profil %s %s: %w", letva, datum, err)
-		}
-		if _, err := db.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
+		s := snimkaKorita{letva: letva, datum: datum, sustavKote: sustavKote, vodostaj: vod, kota: kota, por: por, tocke: tocke}
+		if err := uTransakciji(db, s.upisi); err != nil {
 			return err
-		}
-		for _, t := range tocke {
-			if _, err := db.Exec(`INSERT OR REPLACE INTO profil_tocke (profil, stacionaza, visina) VALUES (?,?,?)`,
-				id, t[0], t[1]); err != nil {
-				return err
-			}
 		}
 		oznaka := ""
 		if !por.Crtaj {
@@ -1323,6 +1317,48 @@ func profili(db *sql.DB, koren, samo string, poravnanja map[string]Poravnanje) e
 			oznaka = fmt.Sprintf("  — pomak %+.1f m", por.PomakM)
 		}
 		fmt.Printf("%-8s %-16s profil korita %s   %d točaka, vodostaj %d cm%s\n", "", letva, datum, len(tocke), vod, oznaka)
+	}
+	return nil
+}
+
+// snimkaKorita je jedna snimka poprečnog profila iz datoteke, s točkama.
+type snimkaKorita struct {
+	letva, datum, sustavKote string
+	vodostaj                 int
+	kota                     float64
+	por                      Poravnanje
+	tocke                    [][2]float64
+}
+
+// upisi upisuje snimku i njezine točke. Profil ima i stotinjak točaka, pa
+// ga gradnja upisuje u jednoj transakciji (uTransakciji), a ne točku po točku.
+func (s snimkaKorita) upisi(q Izvrsitelj) error {
+	crtaj := 1
+	if !s.por.Crtaj {
+		crtaj = 0
+	}
+	// Id se traži kroz RETURNING, ne kroz LastInsertId. Kad upsert ode u
+	// UPDATE, SQLite ne dira last_insert_rowid nego vraća onaj od prošlog
+	// upisa na toj vezi — a to je ovdje bila promjena kote nule, iz druge
+	// tablice. Točke korita tako su odlazile pod tuđi broj: bez provjere
+	// stranih ključeva tiho, u siročad, a s provjerom gradnja padne.
+	var id int64
+	if err := q.QueryRow(`INSERT INTO profili (letva, datum, vodostaj, kota_nule, pomak_m, crtaj, sustav_kote) VALUES (?,?,?,?,?,?,?)
+		ON CONFLICT(letva, datum) DO UPDATE SET vodostaj=excluded.vodostaj, kota_nule=excluded.kota_nule,
+		sustav_kote=excluded.sustav_kote,
+			pomak_m=excluded.pomak_m, crtaj=excluded.crtaj
+		RETURNING id`,
+		s.letva, s.datum, s.vodostaj, s.kota, s.por.PomakM, crtaj, s.sustavKote).Scan(&id); err != nil {
+		return fmt.Errorf("profil %s %s: %w", s.letva, s.datum, err)
+	}
+	if _, err := q.Exec(`DELETE FROM profil_tocke WHERE profil = ?`, id); err != nil {
+		return err
+	}
+	for _, t := range s.tocke {
+		if _, err := q.Exec(`INSERT OR REPLACE INTO profil_tocke (profil, stacionaza, visina) VALUES (?,?,?)`,
+			id, t[0], t[1]); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -1861,17 +1897,23 @@ func spoji(db *sql.DB, samo string) (int, error) {
 	// Svaka letva i veličina dobiva svoju transakciju: puna gradnja spaja
 	// preko deset milijuna vrijednosti, a to u jednoj transakciji napuhne
 	// dnevnik pisanja preko svake mjere.
-	return spojiSve(db, samo, func(f func(Izvrsitelj) error) error {
-		tx, err := db.Begin()
-		if err != nil {
-			return err
-		}
-		if err := f(tx); err != nil {
-			tx.Rollback()
-			return err
-		}
-		return tx.Commit()
-	})
+	return spojiSve(db, samo, func(f func(Izvrsitelj) error) error { return uTransakciji(db, f) })
+}
+
+// uTransakciji izvodi f u jednoj transakciji: upiše se sve ili ništa, i to
+// jednim spuštanjem na disk. Gradnja piše s trajnim upisom (TrajniUpis), pa
+// bi svaki upis izvan transakcije bio po jedno spuštanje na disk, na Linuxu
+// i Windowsu po nekoliko milisekundi.
+func uTransakciji(db *sql.DB, f func(Izvrsitelj) error) error {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	if err := f(tx); err != nil {
+		tx.Rollback()
+		return err
+	}
+	return tx.Commit()
 }
 
 // spojiSve spaja letvu ili sve letve. Kad je zadan omotac, svaki par letva i
