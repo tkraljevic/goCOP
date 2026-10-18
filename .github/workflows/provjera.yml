@@ -1,7 +1,8 @@
 # Provjera koda na svako slanje i jednom tjedno: quality gate (uključuje vet,
 # testove, race, coverage, statiku i regresije) te
 # govulncheck (poznate ranjivosti u Go-u i ovisnostima koje kod stvarno
-# poziva). Tjedna provjera hvata ranjivosti objavljene nakon izdanja.
+# poziva). Tjedna provjera hvata ranjivosti objavljene nakon izdanja, a
+# tjedno idu i testovi pod punim race nadzorom (posao puni-race).
 name: Provjera
 
 on:
@@ -75,6 +76,35 @@ jobs:
             ${{ runner.temp }}/gocop-quality-baseline.json
             ${{ runner.temp }}/gocop-quality-baseline-output/code-health.md
             ${{ runner.temp }}/gocop-quality-baseline-output/tests.log
+
+  # Testovi pod race nadzorom i u tuđim paketima (SQLite, bcrypt), koje
+  # quality gate preskače jer s njima testovi traju višestruko dulje (Odluke
+  # (18. 10. 2026.), docs/CODE_QUALITY.md). Samo tjedno i na ručno pokretanje
+  # same Provjere: kad je zovu Izdanje, Postava ili Slika (workflow_call),
+  # github.workflow i github.event_name su od pozivatelja, a Postava i Slika
+  # imaju i workflow_dispatch. Bez usporedbe s baselineom. S punim race
+  # testovi su na GitHubu trajali do 77 minuta, a uz predložak baze procjena
+  # je oko 25. Rok paketa (rokPaketa, 120 min) istječe prije roka posla, pa
+  # zapis pokaže gdje je zapelo.
+  puni-race:
+    if: github.workflow == 'Provjera' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.27.x"
+          check-latest: true
+      - run: make quality-puni-race
+      - name: Zapis testova (i kada padnu)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: puni-race-${{ runner.os }}-${{ runner.arch }}
+          include-hidden-files: true
+          retention-days: 30
+          path: .quality/puni-race.log
 
   ranjivosti:
     runs-on: ubuntu-latest

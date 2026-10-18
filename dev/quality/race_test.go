@@ -72,3 +72,21 @@ func TestRaceIznimkeSamoZaTudjePakete(t *testing.T) {
 		}
 	}
 }
+
+// Tjedni puni race ide bez ijedne iznimke i bez coveragea, nad istim
+// paketima kao provjera, i ne miješa se s drugim mjerenjima
+func TestPuniRaceBezIznimaka(t *testing.T) {
+	paketi := []string{"./internal/web", "./internal/db"}
+	args := argumentiPunogRacea(paketi)
+	if !slices.Contains(args, "-race") || !slices.Equal(args[len(args)-len(paketi):], paketi) {
+		t.Fatalf("argumenti: %v", args)
+	}
+	for _, a := range args {
+		if strings.HasPrefix(a, "-gcflags") || strings.HasPrefix(a, "-cover") {
+			t.Errorf("puni race s %q", a)
+		}
+	}
+	if _, err := normalize(options{root: t.TempDir(), out: t.TempDir(), puniRace: true, record: true}); err == nil {
+		t.Error("puni race uz snimanje baselinea")
+	}
+}

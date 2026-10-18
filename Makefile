@@ -4,7 +4,7 @@ QUALITY_ROOT := $(CURDIR)
 QUALITY_OUT ?= $(QUALITY_ROOT)/.quality
 QUALITY_BASELINE ?= $(QUALITY_ROOT)/quality/baseline.json
 
-.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep provjera-registara stanje-registara
+.PHONY: quality quality-tools quality-report quality-test quality-baseline quality-deep quality-puni-race provjera-registara stanje-registara
 
 quality-tools:
 	GOBIN="$(QUALITY_ROOT)/bin/quality" go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_VERSION)
@@ -23,6 +23,12 @@ quality-report: quality-test
 quality-baseline:
 	@test "$(ACCEPT_BASELINE)" = "yes" || (echo 'Potrebno: make quality-baseline ACCEPT_BASELINE=yes'; exit 1)
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -baseline "$(QUALITY_BASELINE)" -record-baseline
+
+# Jednom tjedno na GitHubu (posao puni-race u provjera.yml): svi testovi pod
+# race nadzorom i u tuđim paketima (SQLite, bcrypt), bez coveragea i bez
+# usporedbe s baselineom. Traje dulje od testova u make quality.
+quality-puni-race:
+	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -puni-race
 
 # Isključivo zasebna čista kopija: Gremlins mijenja izvorne datoteke.
 quality-deep:

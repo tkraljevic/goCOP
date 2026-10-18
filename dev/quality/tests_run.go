@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -104,6 +105,35 @@ func raceIznimke() []string {
 		a = append(a, "-gcflags="+uzorak+"=-race=false -d=checkptr=0")
 	}
 	return a
+}
+
+// puniRace pokreće sve testove pod race nadzorom i u tuđim paketima, bez
+// iznimaka iz tudjiBezRacea, bez coveragea i bez usporedbe s baselineom.
+// Jednom tjedno na GitHubu tako se vidi i utrka koja prolazi kroz kod
+// SQLite-a ili bcrypta, a obična provjera je ne vidi (Odluke (18. 10. 2026.)).
+func puniRace(o options) error {
+	paketi, err := goPaketi(o.root)
+	if err != nil {
+		return err
+	}
+	zapis := filepath.Join(o.out, "puni-race.log")
+	fmt.Printf("Testovi pod punim race nadzorom, bez iznimaka za tuđe pakete… (log: %s)\n", zapis)
+	runErr := logged(o.root, zapis, "go", argumentiPunogRacea(paketi)...)
+	log, err := os.ReadFile(zapis)
+	if err != nil {
+		return errors.Join(runErr, err)
+	}
+	if runErr != nil {
+		fmt.Print(sazetakPada(log))
+		return runErr
+	}
+	// bez -v zapis je redak po paketu s trajanjem, pa se vidi u ispisu posla
+	fmt.Print(string(log))
+	return nil
+}
+
+func argumentiPunogRacea(paketi []string) []string {
+	return append([]string{"test", "-race", "-count=1", "-timeout=" + rokPaketa}, paketi...)
 }
 
 // rokPaketa je rok jednog testnog paketa. Race i atomski coverage zajedno

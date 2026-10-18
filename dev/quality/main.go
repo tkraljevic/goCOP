@@ -18,7 +18,7 @@ import (
 
 type options struct {
 	root, policy, out, baseline, mutationRoot, mutationPackage string
-	record, reportOnly, reuseTests                             bool
+	record, reportOnly, reuseTests, puniRace                   bool
 }
 
 func main() {
@@ -32,6 +32,7 @@ func main() {
 	flag.BoolVar(&o.reuseTests, "reuse-tests", false, "ponovno analiziraj prethodno uspješne testove, samo uz identične izvore/Go/platformu")
 	flag.StringVar(&o.mutationRoot, "mutation-root", "", "zasebna čista kopija za Gremlins")
 	flag.StringVar(&o.mutationPackage, "mutation-package", "", "npr. internal/models")
+	flag.BoolVar(&o.puniRace, "puni-race", false, "samo testovi, pod race nadzorom i u tuđim paketima, bez coveragea i baselinea (tjedno na GitHubu)")
 	flag.Parse()
 	if err := run(o); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -113,6 +114,9 @@ func normalize(o options) (options, error) {
 	if o.record && o.reportOnly {
 		return o, fmt.Errorf("record-baseline i report-only ne mogu zajedno")
 	}
+	if o.puniRace && (o.record || o.reportOnly || o.reuseTests || o.mutationRoot != "") {
+		return o, fmt.Errorf("puni-race pokreće samo testove i ne ide uz druga mjerenja")
+	}
 	return o, os.MkdirAll(o.out, 0755)
 }
 
@@ -120,6 +124,9 @@ func run(o options) error {
 	o, err := normalize(o)
 	if err != nil {
 		return err
+	}
+	if o.puniRace {
+		return puniRace(o)
 	}
 	if o.mutationRoot != "" {
 		return mutation(o)
