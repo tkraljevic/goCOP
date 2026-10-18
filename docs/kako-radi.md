@@ -103,17 +103,20 @@ nije upisalo. Računalo koje ne čuva stara tuđa očitanja javi dokle ih je
 odbacilo, pa mu ih drugo više ne šalje svaki put iznova. Kad računalu
 nešto možda nedostaje, jer je podatke dobilo preko računala koje nije
 čuvalo sve, javi i to, pa mu taj dio pošalje računalo koje ga ima.
-Primljeno računalo upiše, zatim zatraži dokumente i slike uz zapise koje
-prati, a na kraju oba potvrde koliko su upisala. Jedan razgovor nosi
-ograničenu količinu. Kad ima više, odmah ide sljedeći.
+Računalo zatim upiše ono što je primilo i zatraži dokumente i slike uz
+zapise koje prati, a na kraju oba potvrde koliko su upisala. Jedan razgovor
+nosi ograničenu količinu. Kad ima više, odmah ide sljedeći.
 
 Kad računala nemaju isto izdanje programa, novi dio razgovora ide samo ako
-ga znaju oba. Podatak koji starije izdanje ne poznaje ono preskoči, pa s
-njim razmjena ide kao i prije, a novo u razgovoru počne raditi kad se i ono
-nadogradi. Kad računalo odbije razgovor, na primjer jer je zauzeto, javi
-razlog, a razmjena se ponovi u sljedećem krugu. Pločica „Razmjena s
-čvorovima” pokazuje koliko je stiglo zapisa koje ovaj program još ne
-razumije i koliko ih čuva svako drugo računalo koje je to javilo.
+ga znaju oba. Novi dio poruke koji starije izdanje ne poznaje ono zanemari,
+pa s njim razmjena ide kao i prije, a novo počne raditi kad se i ono
+nadogradi. Zapise koje ne razumije ne baca, nego ih čuva i šalje dalje.
+Kad računalo odbije razgovor, na primjer jer je zauzeto, javi razlog, a
+razmjena se ponovi malo kasnije. Računalo koje redom odbija ili ne odgovara
+zove se sve rjeđe. Pločica „Razmjena s čvorovima” pokazuje koliko je
+stiglo zapisa koje ovaj program još ne razumije. Za svako drugo računalo
+koje to javi pokazuje i koliko zapisa kod njega čeka nadogradnju, ako ih
+ima.
 
 ## Zašto nijedan poslužitelj nije nužan
 
