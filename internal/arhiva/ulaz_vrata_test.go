@@ -1,6 +1,8 @@
 package arhiva
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -145,6 +147,64 @@ func TestNeuspjeliUpisCuvaStaruDatoteku(t *testing.T) {
 	}
 	if string(poslije) != string(prije) {
 		t.Errorf("stara datoteka promijenjena:\n%q\numjesto\n%q", poslije, prije)
+	}
+}
+
+// Zaključava da upis javlja stari niz koji se nije dao maknuti. Novi je
+// zapisan, ali bi gradnja stari pročitala uz njega kao dodatne godine istog
+// niza; prije je to prolazilo bez ikakve poruke. Poruka kaže samo imena
+// datoteka, bez mape i bez teksta sustava, koji ostaje u izvornoj grešci.
+func TestStariNizKojiOstajeSeJavlja(t *testing.T) {
+	koren := t.TempDir()
+	// Na mjestu starog niza stoji mapa s datotekom, pa je brisanje ne miče.
+	stari := filepath.Join(koren, "drava", "osijek", "osijek_cop_vodostaj_jutarnji_2023.csv")
+	zapisiDatoteku(t, filepath.Join(stari, "unutra.txt"), "x")
+	redci := []Redak{{Vrijeme: time.Date(2024, 3, 1, 7, 0, 0, 0, time.UTC), Vrijednost: 212}}
+	put, err := Upisi(koren, "drava", "osijek", "cop", "vodostaj", "jutarnji", redci)
+	greskaSadrzi(t, "stari niz", err, "stari osijek_cop_vodostaj_jutarnji_2023.csv nije se dao maknuti")
+	var o *StariNizOstao
+	if !errors.As(err, &o) || o.Err == nil {
+		t.Fatalf("greška %v nije StariNizOstao s razlogom sustava", err)
+	}
+	if strings.Contains(err.Error(), koren) || strings.Contains(err.Error(), o.Err.Error()) {
+		t.Errorf("poruka nosi mapu ili tekst sustava: %q", err)
+	}
+	if _, e := os.Stat(put); put == "" || e != nil {
+		t.Errorf("novi niz nije zapisan: %q, %v", put, e)
+	}
+	if err := makniStari(filepath.Join(koren, "nema.csv"), put); err != nil {
+		t.Errorf("niz kojeg više nema javljen je kao greška: %v", err)
+	}
+}
+
+// Zaključava da stari niz koji je ostao ne zaustavlja posao: JaviOstatak ga
+// ispiše kao upozorenje, SkupiOstatak ga skupi, a obje vrate nil. Svaka
+// druga greška upisa vraća se kakva jest.
+func TestOstatakNijeNeuspjehUpisa(t *testing.T) {
+	ostao := errors.Join(&StariNizOstao{Novi: "b_2024.csv", Stari: "b_2023.csv", Err: fs.ErrPermission},
+		&StariNizOstao{Novi: "b_2024.csv", Stari: "b_2022.csv", Err: fs.ErrPermission})
+	kvar := errors.New("disk je pun")
+	var dnevnik strings.Builder
+	if err := JaviOstatak(ostao, &dnevnik); err != nil {
+		t.Errorf("stari niz koji je ostao zaustavio je posao: %v", err)
+	}
+	if d := dnevnik.String(); !strings.HasPrefix(d, "upozorenje: novi niz b_2024.csv je zapisan") || !strings.Contains(d, "b_2022.csv") {
+		t.Errorf("upozorenje u dnevniku: %q", d)
+	}
+	if err := JaviOstatak(ostao, nil); err != nil {
+		t.Errorf("bez dnevnika: %v", err)
+	}
+	var ostaci error
+	if err := SkupiOstatak(ostao, &ostaci); err != nil || !errors.Is(ostaci, fs.ErrPermission) {
+		t.Errorf("skupljeno %v, vraćeno %v", ostaci, err)
+	}
+	for _, err := range []error{nil, kvar} {
+		if got := JaviOstatak(err, &dnevnik); got != err {
+			t.Errorf("JaviOstatak(%v) = %v", err, got)
+		}
+		if got := SkupiOstatak(err, &ostaci); got != err {
+			t.Errorf("SkupiOstatak(%v) = %v", err, got)
+		}
 	}
 }
 

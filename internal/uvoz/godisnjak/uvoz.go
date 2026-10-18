@@ -1,6 +1,8 @@
 package godisnjak
 
 import (
+	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -124,15 +126,7 @@ func Uvezi(z Zadatak) (Ishod, error) {
 		if err := os.MkdirAll(filepath.Dir(put), 0o755); err != nil {
 			return ishod, err
 		}
-		f, err := os.Create(put)
-		if err != nil {
-			return ishod, err
-		}
-		fmt.Fprintln(f, "datum;vodostaj_cm")
-		for _, d := range popis {
-			fmt.Fprintf(f, "%04d-%02d-%02d;%d\n", d.Godina, d.Mjesec, d.Dan, dani[d])
-		}
-		if err := f.Close(); err != nil {
+		if err := zapisiNiz(put, popis, dani); err != nil {
 			return ishod, err
 		}
 		ishod.Zapisano = append(ishod.Zapisano, put)
@@ -143,6 +137,33 @@ func Uvezi(z Zadatak) (Ishod, error) {
 	}
 	pisi("\nzapisano %d nizova\n", len(ishod.Zapisano))
 	return ishod, nil
+}
+
+// zapisiNiz zapisuje dnevni niz letve u CSV.
+func zapisiNiz(put string, popis []Dan2, dani map[Dan2]int) error {
+	f, err := os.Create(put)
+	if err != nil {
+		return err
+	}
+	return upisiNiz(f, popis, dani)
+}
+
+// upisiNiz piše zaglavlje i dane u otvorenu datoteku i zatvara je. Greška
+// pisanja se gleda: os.File je ne pamti, pa bi pun disk ostavio niz bez
+// dijela dana, a uvoz bi ga javio kao zapisan (bufio.Writer prvu grešku
+// pamti i vraća iz Flush). Nepotpun niz miče se iz stabla, jer bi ga
+// gradnja pročitala kao cijeli.
+func upisiNiz(f *os.File, popis []Dan2, dani map[Dan2]int) error {
+	w := bufio.NewWriter(f)
+	fmt.Fprintln(w, "datum;vodostaj_cm")
+	for _, d := range popis {
+		fmt.Fprintf(w, "%04d-%02d-%02d;%d\n", d.Godina, d.Mjesec, d.Dan, dani[d])
+	}
+	err := errors.Join(w.Flush(), f.Close())
+	if err != nil {
+		return errors.Join(fmt.Errorf("niz %s nije zapisan do kraja: %w", filepath.Base(f.Name()), err), os.Remove(f.Name()))
+	}
+	return nil
 }
 
 func akoGreske(g []string) string {

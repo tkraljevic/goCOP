@@ -279,12 +279,10 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	if _, err := io.Copy(out, file); err != nil {
-		out.Close()
+	if _, err := spremiUcitano(out, file); err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", err.Error())
 		return
 	}
-	out.Close()
 	if jeCop(tmp) {
 		rep, err := h.peers.UveziCop(r.Context(), tmp)
 		if err != nil {

@@ -5,10 +5,14 @@ import (
 	"errors"
 	"io"
 	"io/fs"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
+
+	"gocop/internal/uvoz/his2000"
 )
 
 func putProfila(koren, sliv, letva, datum string) string {
@@ -201,6 +205,68 @@ func TestProfiliKojiSeNeDajuUpisati(t *testing.T) {
 				greskaSadrzi(t, s.ime, err, s.greska)
 				greskaSadrzi(t, s.ime, err, "namjerni kvar")
 			})
+		})
+	}
+}
+
+// Zaključava da nečitljiv broj u zaglavlju snimke korita ruši gradnju s
+// imenom datoteke. Prije se upisivalo 0 cm ili 0 m, a to su stvarne
+// vrijednosti, pa se po njima nije vidjelo da zaglavlje ne valja.
+func TestZaglavljeSnimkeSNecitljivimBrojem(t *testing.T) {
+	for _, s := range []struct{ ime, zaglavlje string }{
+		{"vodostaj", "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju ? cm, kota nule 80.45"},
+		{"kota nule", "# poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule n. p. TRST"},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			db := praznaArhiva(t)
+			koren := t.TempDir()
+			zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-22"),
+				s.zaglavlje+"\nstacionaza_m;visina_m\n0;90\n6;87\n")
+			greskaSadrzi(t, s.ime, profili(db, koren, "", nil),
+				"vodograd_profil_2010-03-22.csv: u zaglavlju snimke nije broj: „"+s.ime)
+			if n := broj(t, db, `SELECT count(*) FROM profili`); n != 0 {
+				t.Errorf("%s: snimka s nečitljivim zaglavljem je upisana", s.ime)
+			}
+		})
+	}
+}
+
+// Zaključava da gradnja snimku pročita kako ju je goCOP zapisao uvozom iz
+// HIS-a. HIS kotu nule piše i decimalnim zarezom, pa je rezanje zaglavlja po
+// zarezu davalo 85 m bez sustava. Snimka bez kote, uz sustav odabran pri
+// uvozu, zaustavljala je cijelu gradnju; sad joj kota ostaje 0, kao i prije,
+// a sustav se pamti.
+func TestSnimkaKakvuJeZapisaoUvoz(t *testing.T) {
+	for _, s := range []struct {
+		ime, kota, sustav string
+		kotaNule          float64
+	}{
+		{"decimalni zarez", "85,21", "HVRS71", 85.21},
+		{"decimalni zarez bez sustava", "80,45", "", 80.45},
+		{"točka", "121.55", "TRST", 121.55},
+		{"bez kote, sustav odabran", "", "HVRS71", 0},
+		{"bez kote i sustava", "", "", 0},
+	} {
+		t.Run(s.ime, func(t *testing.T) {
+			db := praznaArhiva(t)
+			koren := t.TempDir()
+			p := &his2000.Profil{Datum: time.Date(2010, 3, 22, 0, 0, 0, 0, time.UTC), Vodostaj: 174, KotaNule: s.kota, Sustav: s.sustav,
+				Tocke: []his2000.Tocka{{Stacionaza: "0", Visina: "90,5"}, {Stacionaza: "6,7", Visina: "87"}}}
+			zapisiDatoteku(t, putProfila(koren, "dunav", "vodograd", "2010-03-22"), string(his2000.ProfilCSV(p)))
+			uhvatiIspis(t, &os.Stdout, func() {
+				if err := profili(db, koren, "", nil); err != nil {
+					t.Fatal(err)
+				}
+			})
+			var vodostaj int
+			var kota float64
+			var sustav string
+			if err := db.QueryRow(`SELECT vodostaj, kota_nule, sustav_kote FROM profili WHERE letva = 'vodograd'`).Scan(&vodostaj, &kota, &sustav); err != nil {
+				t.Fatal(err)
+			}
+			if vodostaj != 174 || math.Abs(kota-s.kotaNule) > 1e-9 || sustav != s.sustav {
+				t.Errorf("vodostaj %d, kota %v %q; želim 174, %v %q", vodostaj, kota, sustav, s.kotaNule, s.sustav)
+			}
 		})
 	}
 }

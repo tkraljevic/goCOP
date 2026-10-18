@@ -216,7 +216,7 @@ func uveziARSO(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 			continue
 		}
 		put, err := arhiva.Dopuni(z.Koren, z.Sliv, z.Letva, z.Izvor, n.velicina, "srednjak", n.redci)
-		if err != nil {
+		if err = arhiva.JaviOstatak(err, w); err != nil {
 			return ishod, err
 		}
 		fmt.Fprintln(w, put)
@@ -243,7 +243,7 @@ func uveziEHYD(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 		return ishod, nil
 	}
 	put, err := arhiva.Upisi(z.Koren, z.Sliv, z.Letva, z.Izvor, z.Velicina, "srednjak", r.Redci)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, w); err != nil {
 		return ishod, err
 	}
 	fmt.Fprintln(w, put)
@@ -266,7 +266,7 @@ func uveziGKD(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 		return ishod, nil
 	}
 	put, err := arhiva.Upisi(z.Koren, z.Sliv, z.Letva, z.Izvor, "protok", "srednjak", r.Protoci)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, w); err != nil {
 		return ishod, err
 	}
 	fmt.Fprintln(w, put)
@@ -288,7 +288,7 @@ func uveziPegel(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 		return ishod, nil
 	}
 	put, err := arhiva.Upisi(z.Koren, z.Sliv, z.Letva, z.Izvor, "vodostaj", "satni", r.Vodostaji)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, w); err != nil {
 		return ishod, err
 	}
 	fmt.Fprintln(w, put)
@@ -313,11 +313,11 @@ func uveziSEBA(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 		return ishod, nil
 	}
 	v, err := arhiva.Upisi(z.Koren, z.Sliv, z.Letva, z.Izvor, "vodostaj", "satni", r.Vodostaji)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, w); err != nil {
 		return ishod, err
 	}
 	t, err := arhiva.Upisi(z.Koren, z.Sliv, z.Letva, z.Izvor, "temperatura", "satni", r.Temperature)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, w); err != nil {
 		return ishod, err
 	}
 	fmt.Fprintln(w, v)
