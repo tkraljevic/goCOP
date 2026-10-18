@@ -36,16 +36,15 @@ Cilj i sadašnje stanje su u dokumentu [Kvaliteta koda](CODE_QUALITY.md).
 
 Ovo je glavni posao sada, usporedo s prvim korakom.
 
-Najprije pravila razmjene. Računala će na početku razgovora reći jedno
-drugome što razumiju, pa novo izdanje može dodati novu vrstu poruke, a
-starije je zanemari bez greške. Računalo koje ne drži stara očitanja više
-ih neće dobivati svakom razmjenom iznova. Pločica razmjene već javlja
-zapise koje program ne razumije. Nova poruka reći će jednostavnim riječima
-koliko ih čeka nadogradnju, a uz drugo računalo koliko ih ono čuva. Program
-će bilježiti poruke koje je odbio ili nije do kraja razumio, bez njihova
-sadržaja. Dio je već
-napravljen i izlazi sa sljedećim izdanjem: jedan neispravan zapis više ne
-odbija cijeli primljeni paket.
+Najprije pravila razmjene. Veći dio je izašao u izdanju 0.0.39-alfa.
+Računala na početku razgovora kažu jedno drugome što razumiju, pa novo
+izdanje može dodati novu vrstu poruke, a starije je zanemari bez greške.
+Računalo koje ne drži stara očitanja više ih ne dobiva svakom razmjenom
+iznova. Jedan neispravan zapis više ne odbija cijeli primljeni paket.
+Pločica razmjene kaže koliko je stiglo zapisa koje program još ne razumije,
+a za drugo računalo koje to javi koliko zapisa kod njega čeka nadogradnju.
+Još dolazi: program će bilježiti poruke koje je odbio ili nije do kraja
+razumio, bez njihova sadržaja.
 
 Zatim WEB sync: izravna šifrirana veza dvaju računala preko interneta, i kad
 su oba iza usmjerivača, kod kuće ili u uredu. Danas takva računala
