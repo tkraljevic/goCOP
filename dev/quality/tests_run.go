@@ -87,7 +87,8 @@ func argumentiTestova(profil string, paketi []string) []string {
 // 18. 10. 2026. (macOS, 14 jezgri) go test iz dev/quality trajao je 367 s,
 // a s ovim iznimkama 210 s; internal/service 351 s prema 43 s, uz istu
 // pokrivenost. Utrke u tom kodu ne tražimo mi. Sav kod goCOP-a i
-// standardna biblioteka, pa i database/sql, ostaju pod nadzorom.
+// standardna biblioteka, pa i database/sql, ostaju pod nadzorom; to
+// provjerava TestRaceNadzireNasKod.
 var tudjiBezRacea = []string{"modernc.org/...", "golang.org/x/crypto/..."}
 
 // raceIznimke su argumenti -gcflags koji paketima iz tudjiBezRacea gase race
@@ -96,7 +97,7 @@ var tudjiBezRacea = []string{"modernc.org/...", "golang.org/x/crypto/..."}
 // 1.27.1). Kad se više uzoraka -gcflags poklapa s istim paketom, vrijedi
 // zadnji na naredbenom retku (go help build). -d=checkptr=0 je dokumentiran,
 // a -race=false po paketu nije: ako ga neka nova verzija Go-a prestane
-// poštovati, testovi su samo sporiji.
+// poštovati, testovi su samo sporiji, a TestRaceNadzireNasKod to javi.
 func raceIznimke() []string {
 	var a []string
 	for _, uzorak := range tudjiBezRacea {
