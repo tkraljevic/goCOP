@@ -56,6 +56,9 @@ type Config struct {
 
 	Readings struct {
 		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci tuđih očitanja čvor drži iz razmjene. 0 = sve.\nVlastita i uvezena očitanja čuvaju se uvijek.\n  povijest_mjeseci = 12   # terenski laptop ili mobitel"`
+		// MinutaPreuzimanja: krug preuzimanja ide po satu, a ne od
+		// pokretanja, pa prognoza izlazi uvijek u isto vrijeme
+		MinutaPreuzimanja int `toml:"minuta_preuzimanja" comment:"Minuta svakog sata (0–59) u kojoj čvor preuzima vodostaje s izvora;\nčvor koji izdaje prognozu izdaje je odmah potom. Hrvatske vode prvi dio\nvrijednosti punog sata objave za minutu, a letve DHMZ-a tek oko 40 minuta\niza sata, pa one stignu u idućem krugu.\n  minuta_preuzimanja = 45   # prognoza tek kad objavi i DHMZ"`
 	} `toml:"vodostaji"`
 
 	// Karta je izvor pločica za prikaz položaja letve. Zadano je Wikimedijin
@@ -101,6 +104,7 @@ func Default() Config {
 	// Sync.Bootstrap ostaje prazan: program ga zasad ne čita, a domena
 	// poslužitelja ne ide u javni kod, da je tražilice ne nađu
 	c.Sync.Tailscale = true
+	c.Readings.MinutaPreuzimanja = 2
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
 	c.Karta.NajviseZ = 17
@@ -118,6 +122,17 @@ func (c Config) AutoSyncDuration() time.Duration {
 		return 0
 	}
 	return d
+}
+
+// MinutaPreuzimanja je minuta svakog sata u kojoj počinje krug preuzimanja.
+// Broj izvan 0–59 pri pokretanju ne ruši program: vrijedi zadana minuta, a
+// drugi rezultat kaže što ne valja, za dnevnik.
+func (c Config) MinutaPreuzimanja() (int, string) {
+	m := c.Readings.MinutaPreuzimanja
+	if poruka := provjeriMinutu(m); poruka != "" {
+		return Default().Readings.MinutaPreuzimanja, poruka
+	}
+	return m, ""
 }
 
 // Candidates su mjesta gdje se datoteka traži, redom: izričito zadana,

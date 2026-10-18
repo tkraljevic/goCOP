@@ -27,16 +27,17 @@ func Provjeri(c Config) map[string]string {
 }
 
 var pravila = map[string]func(Config) string{
-	"javna_adresa":               func(c Config) string { return provjeriJavnuAdresu(c.JavnaAdresa) },
-	"sync.auto_sync":             func(c Config) string { return provjeriRazmak(c.Sync.AutoSync) },
-	"sync.bootstrap":             func(c Config) string { return provjeriPopisCvorova(c.Sync.Bootstrap) },
-	"sync.exchange_port":         func(c Config) string { return provjeriPort(c.Sync.ExchangePort) },
-	"sync.pair_port":             func(c Config) string { return provjeriPort(c.Sync.PairPort) },
-	"sync.discovery_port":        func(c Config) string { return provjeriPort(c.Sync.DiscoveryPort) },
-	"vodostaji.povijest_mjeseci": func(c Config) string { return provjeriMjesece(c.Readings.HistoryMonths) },
-	"karta.plocice":              func(c Config) string { return provjeriPlocice(c.Karta.Plocice) },
-	"karta.zasluge":              func(c Config) string { return provjeriNatpis(c.Karta.Zasluge) },
-	"karta.najvise_z":            func(c Config) string { return provjeriPriblizavanje(c.Karta.NajviseZ) },
+	"javna_adresa":                 func(c Config) string { return provjeriJavnuAdresu(c.JavnaAdresa) },
+	"sync.auto_sync":               func(c Config) string { return provjeriRazmak(c.Sync.AutoSync) },
+	"sync.bootstrap":               func(c Config) string { return provjeriPopisCvorova(c.Sync.Bootstrap) },
+	"sync.exchange_port":           func(c Config) string { return provjeriPort(c.Sync.ExchangePort) },
+	"sync.pair_port":               func(c Config) string { return provjeriPort(c.Sync.PairPort) },
+	"sync.discovery_port":          func(c Config) string { return provjeriPort(c.Sync.DiscoveryPort) },
+	"vodostaji.povijest_mjeseci":   func(c Config) string { return provjeriMjesece(c.Readings.HistoryMonths) },
+	"vodostaji.minuta_preuzimanja": func(c Config) string { return provjeriMinutu(c.Readings.MinutaPreuzimanja) },
+	"karta.plocice":                func(c Config) string { return provjeriPlocice(c.Karta.Plocice) },
+	"karta.zasluge":                func(c Config) string { return provjeriNatpis(c.Karta.Zasluge) },
+	"karta.najvise_z":              func(c Config) string { return provjeriPriblizavanje(c.Karta.NajviseZ) },
 }
 
 // provjeriNatpis: natpis o podrijetlu karte stranice upisuju u kartu kao
@@ -85,6 +86,13 @@ func provjeriPort(p int) string {
 func provjeriMjesece(n int) string {
 	if n < 0 {
 		return "Upišite 0 (sve) ili broj mjeseci."
+	}
+	return ""
+}
+
+func provjeriMinutu(m int) string {
+	if m < 0 || m > 59 {
+		return "Upišite minutu od 0 do 59."
 	}
 	return ""
 }

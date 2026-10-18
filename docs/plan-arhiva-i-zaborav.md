@@ -118,8 +118,10 @@ nakon zatvaranja godine još nije uvedeno.
 ### 4. Automatsko preuzimanje javnih vodostaja  *(napravljeno)*
 
 Vodomjerna postaja može biti povezana s javnim izvorom i označena za
-automatsko preuzimanje. Program prvi put pokušava minutu nakon pokretanja, a
-zatim svaki sat. Preuzima samo nova očitanja, bilježi izvor i ponovljenim
+automatsko preuzimanje. Program preuzima svaki sat u istoj minuti (zadano
+:02, `[vodostaji] minuta_preuzimanja`), pa i prognoza izlazi uvijek u isto
+vrijeme. Pri pokretanju preuzme odmah samo kad krug tog sata nije prošao ili
+prognoza za taj sat nije izdana. Preuzima samo nova očitanja, bilježi izvor i ponovljenim
 preuzimanjem ne stvara duplikate. Od 0.0.7-alfa to radi samo čvor s
 uključenom ulogom „Preuzima vodostaje s izvora” (Administracija → Čvor, mreža
 i sinkronizacija → Uloge ovog čvora); ostali čvorovi očitanja primaju razmjenom.

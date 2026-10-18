@@ -419,13 +419,25 @@ type Uvoznik struct {
 	Client    *Client // Hrvatske vode; i popis postaja za obrazac
 	Izvori    []Izvor // čitači po adresi; Client je uvijek među njima
 	Spremiste Spremiste
-	Svakih    time.Duration
 	Zapisnik  func(format string, args ...any)
+
+	// Minuta je minuta svakog sata u kojoj počinje krug (Pokreni).
+	Minuta int
+	// Biljeg je datoteka u kojoj se pamti kad su letve zadnji put
+	// preuzete, da ponovno pokretanje zna je li krug ovog sata već prošao.
+	// Prazno: ne pamti se, pa krug pri pokretanju ide odmah.
+	Biljeg string
 
 	// NakonPreuzimanja se zove kad prođe jedan krug. Prognoza se time obnavlja
 	// čim stignu novi vodostaji, a ne po vlastitom satu — inače bi pola
 	// vremena stajala na starim brojkama a izgledala kao da je današnja.
 	NakonPreuzimanja func(context.Context)
+
+	// Nedovrseno javlja da za zadani pun sat još nije gotovo ono što radi
+	// NakonPreuzimanja (na čvoru koji izdaje prognozu: izdanje tog sata).
+	// Tada krug pri pokretanju ide odmah, i kad su letve u tom satu već
+	// preuzete. Nil znači da je gotovo.
+	Nedovrseno func(sat time.Time) bool
 
 	// Preuzima javlja preuzima li ovaj čvor vodostaje s izvora; nil znači da.
 	// Vodostaje za mrežu dovoljno je da preuzima jedan čvor.
@@ -441,7 +453,7 @@ type Uvoznik struct {
 	popisOd    time.Time
 }
 
-// NoviUvoznik sastavlja uvoznika s javnom stranicom i satnim korakom
+// NoviUvoznik sastavlja uvoznika s javnom stranicom i svim čitačima
 func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	if zapisnik == nil {
 		zapisnik = func(string, ...any) {}
@@ -452,7 +464,6 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
 			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, DanubeHIS{Client: c}, &HidroView{}, &MLetva{}},
 		Spremiste: s,
-		Svakih:    time.Hour,
 		Zapisnik:  zapisnik,
 		stanja:    map[string]StanjeLetve{},
 	}
@@ -563,33 +574,6 @@ func (u *Uvoznik) Postaje(ctx context.Context) []Postaja {
 	return p
 }
 
-// Pokreni vrti preuzimanje dok se ctx ne ugasi: prvi put minutu nakon
-// pokretanja, pa svaki sat. Sat je i korak stranice, pa češće nema smisla.
-func (u *Uvoznik) Pokreni(ctx context.Context) {
-	svakih := u.Svakih
-	if svakih <= 0 {
-		svakih = time.Hour
-	}
-	prvi := time.NewTimer(time.Minute)
-	defer prvi.Stop()
-	select {
-	case <-ctx.Done():
-		return
-	case <-prvi.C:
-	}
-	u.PreuzmiSve(ctx)
-	t := time.NewTicker(svakih)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-t.C:
-			u.PreuzmiSve(ctx)
-		}
-	}
-}
-
 // Krug je ishod jednog prolaza kroz sve letve.
 type Krug struct {
 	Kad      time.Time // kad je krug završio
@@ -662,6 +646,11 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 		return 0
 	}
 	defer u.krug.Unlock()
+	return u.preuzmiSve(ctx)
+}
+
+// preuzmiSve je jedan krug; zove se uz zaključan u.krug
+func (u *Uvoznik) preuzmiSve(ctx context.Context) int {
 	pocetak := time.Now()
 	u.mu.Lock()
 	u.napredak = Napredak{UTijeku: true, Faza: "popis letvi", pocetak: pocetak}
@@ -673,7 +662,10 @@ func (u *Uvoznik) PreuzmiSve(ctx context.Context) int {
 		return 0
 	}
 	letve = u.letveKruga(letve)
-	ukupno := u.preuzmiLetve(ctx, letve)
+	ukupno, sve := u.preuzmiLetve(ctx, letve)
+	if sve {
+		u.zapamtiPreuzimanje(pocetak)
+	}
 	if len(letve) > 0 {
 		u.Zapisnik("javni vodostaji: %s", opisPreuzetih(len(letve), ukupno))
 	}
@@ -698,8 +690,8 @@ func (u *Uvoznik) letveKruga(letve []models.Station) []models.Station {
 }
 
 // preuzmiLetve preuzme letve kruga redom, puni traku napretka i ispis, i
-// vraća koliko je novih očitanja upisano
-func (u *Uvoznik) preuzmiLetve(ctx context.Context, letve []models.Station) int {
+// vraća koliko je novih očitanja upisano i je li došla na red svaka letva
+func (u *Uvoznik) preuzmiLetve(ctx context.Context, letve []models.Station) (int, bool) {
 	u.mu.Lock()
 	u.napredak.Ukupno, u.napredak.Faza = len(letve), "preuzimanje vodostaja"
 	u.mu.Unlock()
@@ -721,10 +713,10 @@ func (u *Uvoznik) preuzmiLetve(ctx context.Context, letve []models.Station) int 
 		u.mu.Unlock()
 		if zaLetve.Err() != nil {
 			u.Redak("preuzimanje letvi prekinuto: istekao rok, ostatak kruga ide dalje")
-			break
+			return ukupno, false
 		}
 	}
-	return ukupno
+	return ukupno, true
 }
 
 func (u *Uvoznik) zavrsiKrug(pocetak time.Time, letvi, novih int, zavrsni string) {

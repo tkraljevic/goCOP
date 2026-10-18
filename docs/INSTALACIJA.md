@@ -670,7 +670,9 @@ glavnog administratora iz registra (mobitel, e-pošta) i centar iz
 `gocop.toml` — adresa web sučelja; putanje baze, arhive vodostaja, izvornog
 stabla, skenova i paketa; identifikator i naziv računala; portovi i razmak
 automatske sinkronizacije; prati li čvor sve (`sve`) i koliko mjeseci
-očitanja drži iz razmjene (`povijest_mjeseci`); javna adresa za QR kod;
+očitanja drži iz razmjene (`povijest_mjeseci`); u kojoj minuti svakog sata
+preuzima vodostaje s izvora (`minuta_preuzimanja`, zadano 2); javna adresa
+za QR kod;
 centar na stranici prijave (`[kontakt]`); izvor pločica karte (`[karta]`);
 zadani poslužitelj e-pošte (`[posta]`; postavke spremljene u Administraciji →
 E-pošta imaju prednost). Ključ `bootstrap` program zasad ne čita; domenski
@@ -683,8 +685,8 @@ imaju prednost pred datotekom.
 
 **Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
-pripada: javnu adresu te centar i telefon sa stranice prijave u *Čvor, mreža
-i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
+pripada: javnu adresu, centar i telefon sa stranice prijave te minutu
+preuzimanja vodostaja u *Čvor, mreža i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
 preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), `sve`
 i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
 pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
