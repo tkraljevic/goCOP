@@ -213,10 +213,10 @@ vrijede tri pravila:
 2. **Shema je po entitetu.** Verzija nosi shemu svog entiteta (zadano 1).
    Zapis koji je zadnji izmijenio program s novijom shemom stariji program
    sprema, prenosi i prikazuje. Ne smije ga izmijeniti ni obrisati, nego
-   javlja da treba ažurirati goCOP.
+   javlja da treba nadograditi goCOP.
 3. **Što program ne razumije, javlja.** Primljene zapise novije sheme i
    entitete kojih nema u programu javi u ispisu programa i kao upozorenje na
-   pločici razmjene, uz poruku da treba ažurirati goCOP.
+   pločici razmjene, uz poruku da treba nadograditi goCOP.
 
 Uz to razmjena nosi izdanje programa. Pločica razmjene i stranica
 Sinkronizacija pokazuju na kojem izdanju radi koji čvor i upozore kad se

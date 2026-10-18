@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -109,8 +110,12 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 		`aria-controls="kartica-vodostaj"`, "Temperatura", "Protok", `name="temp_c"`, `name="flow_m3s"`, "nema krivulju protoka",
 		`name="temp_note"`, `name="flow_method"`, `name="flow_note"`, "Napomena uz vodostaj")
 
+	// Očitanje je od jučer: povijest letve zadano pokazuje zadnjih 30 dana,
+	// pa bi stalan datum s vremenom ispao iz nje.
+	jucer := time.Now().In(models.Zagreb).AddDate(0, 0, -1).Format(time.DateOnly)
+
 	// upis s decimalnim zarezom
-	w := zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"12,5"}, "flow_m3s": {"1250"}, "measured_at": {"2026-09-18T07:00"},
+	w := zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"12,5"}, "flow_m3s": {"1250"}, "measured_at": {jucer + "T07:00"},
 		"temp_note": {"led uz obalu"}, "flow_method": {"ADCP"}, "flow_note": {"profil kod mosta"}, "note": {"letva oštećena"}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("upis: %d %s", w.Code, w.Header().Get("Location"))
@@ -128,12 +133,12 @@ func TestTemperaturaIProtokKrozRute(t *testing.T) {
 	mora(zovi(http.MethodGet, "/readings", nil), "pregled", "1.250 m³/s", "12,5 °C")
 
 	// samo temperatura, bez vodostaja, je valjano očitanje
-	w = zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "temp_c": {"8"}, "measured_at": {"2026-09-18T08:00"}})
+	w = zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "temp_c": {"8"}, "measured_at": {jucer + "T08:00"}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("upis samo temperature: %d %s", w.Code, w.Header().Get("Location"))
 	}
 	// krivi broj ne prolazi tiho
-	w = zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"toplo"}, "measured_at": {"2026-09-18T09:00"}})
+	w = zovi(http.MethodPost, "/readings/create", url.Values{"station_id": {st.ID.String()}, "level_cm": {"300"}, "temp_c": {"toplo"}, "measured_at": {jucer + "T09:00"}})
 	if !strings.Contains(w.Header().Get("Location"), "error") {
 		t.Errorf("neispravna temperatura bi trebala vratiti grešku, dobiveno %s", w.Header().Get("Location"))
 	}
