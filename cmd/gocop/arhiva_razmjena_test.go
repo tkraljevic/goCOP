@@ -25,7 +25,7 @@ import (
 func TestArhivaKrozRazmjenu(t *testing.T) {
 	ctx := context.Background()
 	bazaA, recA, _ := cvorZaTest(t, "osijek")
-	bazaB, recB, _ := cvorZaTest(t, "unraid")
+	bazaB, recB, _ := cvorZaTest(t, "server")
 	dirA, dirB := t.TempDir(), t.TempDir()
 
 	putA := filepath.Join(dirA, "vodostaji.db")
@@ -158,9 +158,9 @@ func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
 		t.Fatalf("prva objava: %d", n)
 	}
 	// drugi čvor izdao je v2 iste letve; stiže razmjenom
-	novije, _ := json.Marshal(paketUKnjizi{Letva: "pljusak-x", Izdanje: 2, Otisak: "drugi", Sadrzaj: "x", Izdao: "unraid"})
+	novije, _ := json.Marshal(paketUKnjizi{Letva: "pljusak-x", Izdanje: 2, Otisak: "drugi", Sadrzaj: "x", Izdao: "server"})
 	if _, err := rec.Apply(ctx, []ledger.Version{{VersionID: "ffffffff-0000-7000-8000-000000000001", Entity: EntitetArhive, EntityID: "pljusak-x",
-		NodeID: "unraid", Payload: novije, SchemaVersion: ledger.SchemaVersion}}); err != nil {
+		NodeID: "server", Payload: novije, SchemaVersion: ledger.SchemaVersion}}); err != nil {
 		t.Fatal(err)
 	}
 	for i := 0; i < 3; i++ {
@@ -171,12 +171,12 @@ func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
 }
 
 // Letvu sagrađenu na ovom čvoru paket ne gazi dok čvor sam preuzima
-// vodostaje. Kad uloga prijeđe na drugi čvor (laptop → Unraid), novije
+// vodostaje. Kad uloga prijeđe na drugi čvor (laptop → server), novije
 // izdanje koje nosi sve što lokalna letva ima zamjenjuje je; paket koji
 // seže kraće ne zamjenjuje.
 func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
 	ctx := context.Background()
-	bazaA, recA, _ := cvorZaTest(t, "unraid")
+	bazaA, recA, _ := cvorZaTest(t, "server")
 	bazaB, recB, _ := cvorZaTest(t, "laptop")
 	niz := func(arh *sql.DB, letva, od, do string, zapisa int) {
 		t.Helper()
@@ -204,7 +204,7 @@ func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
 		return arh
 	}
 
-	// Unraid: kotoriba seže dan dalje od laptopove, tvrdja kraće
+	// Server: kotoriba seže dan dalje od laptopove, tvrdja kraće
 	putA := filepath.Join(t.TempDir(), "vodostaji.db")
 	arhA := otvori(putA)
 	niz(arhA, "pljusak-kotoriba", "2026-09-26", "2026-10-02", 3)
@@ -238,7 +238,7 @@ func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err := spB.UpisiProvjereno(ctx, p.Sadrzaj, vrsta, b, "unraid"); err != nil {
+		if err := spB.UpisiProvjereno(ctx, p.Sadrzaj, vrsta, b, "server"); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -400,7 +400,7 @@ func TestObjavaKojaNeUspije(t *testing.T) {
 	})
 	t.Run("katalog drugog čvora", func(t *testing.T) {
 		a, _ := cvor(t)
-		a.rec = ledger.New(a.baza, "unraid")
+		a.rec = ledger.New(a.baza, "server")
 		nistaBezGreske(t, a)
 	})
 	t.Run("pokvaren katalog", func(t *testing.T) {

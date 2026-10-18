@@ -15,7 +15,7 @@ import (
 // samo za računala bez oznake rupe/1 ili s još nepoznatim mogućnostima,
 // imenom kad ga ima
 func TestUpozorenjeOgrade(t *testing.T) {
-	novo := peers.PeerStatus{Peer: peers.Peer{NodeID: "cop-osijek", Name: "Unraid"}, State: peers.SyncState{Mogucnosti: razmjena.NaseMogucnosti(), MogucnostiPoznate: true}}
+	novo := peers.PeerStatus{Peer: peers.Peer{NodeID: "cop-osijek", Name: "Server"}, State: peers.SyncState{Mogucnosti: razmjena.NaseMogucnosti(), MogucnostiPoznate: true}}
 	staro := peers.PeerStatus{Peer: peers.Peer{NodeID: "windows-ured", Name: "Kućni Windows"}, State: peers.SyncState{Mogucnosti: []string{"razmjena/1"}, MogucnostiPoznate: true}}
 	nepoznato := peers.PeerStatus{Peer: peers.Peer{NodeID: "laptop-ana"}}
 	if got := upozorenjeOgrade(0, []peers.PeerStatus{staro}); got != nil {

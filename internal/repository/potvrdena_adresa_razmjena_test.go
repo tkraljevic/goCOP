@@ -43,7 +43,7 @@ func korisnikNa(t *testing.T, n *cvor, id uuid.UUID) *models.User {
 // (e) Potvrda je u verziji i primjena na drugom čvoru je postavlja;
 // uklonjena potvrda putuje jednako.
 func TestPotvrdaAdresePutujeRazmjenom(t *testing.T) {
-	a, b := noviCvor(t, "ured"), noviCvor(t, "unraid")
+	a, b := noviCvor(t, "ured"), noviCvor(t, "server")
 	kad := time.Date(2026, 10, 3, 9, 15, 0, 0, time.UTC)
 	u := &models.User{Username: "ivo", PasswordHash: "x", FullName: "Ivo Ivić", OrgType: models.OrgPravnaOsoba,
 		Email: "ivo@bistra.hr", IsActive: true,
@@ -81,7 +81,7 @@ func TestPotvrdaAdresePutujeRazmjenom(t *testing.T) {
 // (f) Zapis bez polja potvrde, kakav piše 0.0.26-alfa, primjenjuje se bez
 // greške i bez potvrde: na novom čvoru i preko računa koji ju je imao.
 func TestStariZapisKorisnikaBezPotvrde(t *testing.T) {
-	b := noviCvor(t, "unraid")
+	b := noviCvor(t, "server")
 	id := uuid.Must(uuid.NewV7())
 	kad := time.Date(2026, 9, 30, 8, 0, 0, 0, time.UTC)
 	// verzija bez polja potvrde, kao iz programa koji ih ne zna

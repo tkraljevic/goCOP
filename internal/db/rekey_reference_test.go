@@ -125,7 +125,7 @@ func imaStupac(t *testing.T, baza *sql.DB, tablica, stupac string) bool {
 
 // Zaduženja istog korisnika razmjena upiše kako stignu, pa im redoslijed
 // redaka na drugom čvoru nije isti. Prekodiranje je brojalo po redoslijedu,
-// zamijenilo dva zaduženja i palo na jedinstvenosti — Unraid se 2.10.2026.
+// zamijenilo dva zaduženja i palo na jedinstvenosti — server se 2.10.2026.
 // nije dao pokrenuti. Zaduženja se otad ne prekodiraju uopće: ni stalna iz
 // seeda ni nasumična, kojim god redom stajala, i ni u knjizi verzija.
 func TestPrekodiranjeNeDiraZaduzenja(t *testing.T) {
