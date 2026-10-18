@@ -128,8 +128,8 @@ func zapisiKljuc(path string, sadrzaj []byte) error {
 // nestanak struje. Windows mapu ne da spustiti, pa se greška ne javlja.
 func spustiMapu(mapa string) {
 	if d, err := os.Open(mapa); err == nil {
-		_ = d.Sync()
-		_ = d.Close()
+		_ = d.Sync()  // Windows mapu ne da spustiti, a datoteka je već na disku
+		_ = d.Close() // mapa je otvorena samo za čitanje
 	}
 }
 

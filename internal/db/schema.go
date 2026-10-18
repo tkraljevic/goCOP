@@ -1356,13 +1356,13 @@ func izvediShemu(database *sql.DB, naredbe []string) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = veza.Close() }()
+	defer func() { _ = veza.Close() }() //nolint:errcheck // veza se samo vraća u bazen; ishod sheme već je javljen
 	if _, err := veza.ExecContext(ctx, `BEGIN IMMEDIATE`); err != nil {
 		return err
 	}
 	for _, q := range naredbe {
 		if _, err := veza.ExecContext(ctx, q); err != nil {
-			_, _ = veza.ExecContext(ctx, `ROLLBACK`)
+			_, _ = veza.ExecContext(ctx, `ROLLBACK`) // javlja se greška naredbe sheme, koja je uzrok
 			return fmt.Errorf("greška pri shemi (%s): %w", q, err)
 		}
 	}
