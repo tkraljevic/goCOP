@@ -2,7 +2,7 @@ package peers
 
 // Ključ čvora uz postojeću bazu. Ključ je identitet računala u mreži: drugi
 // čvorovi pamte ga uz ime čvora i razmjenjuju samo s onim tko ga dokaže.
-// Na Unraidu je 5. 10. 2026. premještanje dijeljene mape (mover) odnijelo
+// Na kućnom serveru je 5. 10. 2026. premještanje dijeljene mape (mover) odnijelo
 // node-key i gocop.toml s diska na kojem je baza, a čvor je pri sljedećem
 // pokretanju tiho napravio novi ključ — novi identitet — pa su ga upareni
 // čvorovi odbili („dokazao je drugi ključ od uparenog”). Zato postojeći čvor
@@ -47,8 +47,8 @@ func (e *KljucNedostaje) Error() string {
 	return fmt.Sprintf(`Čvor se ne pokreće: nema ključa čvora %s, a baza %s već ima podatke.%s
 Ključ čvora (datoteka %s uz bazu) identitet je ovog računala u mreži. Novi ključ dao bi čvoru novi identitet: upareni čvorovi odbili bi razmjenu s njim („dokazao je drugi ključ od uparenog”), a tajne šifrirane starim ključem (npr. lozinka Exchangea, pristupni računi izvora) više se ne bi dale pročitati.
 Što učiniti:
-  1. Vratite %s u %s, iz sigurnosne kopije ili s mjesta na koje je premještena (na Unraidu i u Dockeru provjerite montaže i nije li je mover odnio na drugi disk), pa ponovno pokrenite čvor.
-  2. Samo ako izvornog ključa više nema, a novi identitet je namjeran: zaustavite čvor i pokrenite ga jednom sa zastavicom -%s uz ovu bazu (-db %s), kao korisnik pod kojim inače radi, pa zastavicu uklonite (za Postavu, uslugu sustava, Docker i Unraid vidi docs/INSTALACIJA.md, poglavlje 3).%s Zatim ga na čvoru koji ga je primio u mrežu zaboravite, opozovite mu članstvo i ponovno ga primite.`,
+  1. Vratite %s u %s, iz sigurnosne kopije ili s mjesta na koje je premještena (u Dockeru i na NAS-u provjerite montaže i nije li je NAS premjestio na drugi disk), pa ponovno pokrenite čvor.
+  2. Samo ako izvornog ključa više nema, a novi identitet je namjeran: zaustavite čvor i pokrenite ga jednom sa zastavicom -%s uz ovu bazu (-db %s), kao korisnik pod kojim inače radi, pa zastavicu uklonite (za Postavu, uslugu sustava, Docker i NAS vidi docs/INSTALACIJA.md, poglavlje 3).%s Zatim ga na čvoru koji ga je primio u mrežu zaboravite, opozovite mu članstvo i ponovno ga primite.`,
 		e.Kljuc, e.Baza, bezPostavki, KeyFileName, vratite, filepath.Dir(e.Kljuc), ZastavicaNovogKljuca, e.Baza, ime)
 }
 

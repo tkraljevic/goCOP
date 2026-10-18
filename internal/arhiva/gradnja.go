@@ -1526,7 +1526,7 @@ func makniIzvanDatoteka(db *sql.DB, uDatotekama map[string]map[string]bool) ([]M
 // izvanDatotekaLetve miče krivulje letve kojih u njezinim datotekama nema i
 // vraća ih. Letvu koja je stigla paketom s drugog čvora lokalna datoteka ne
 // dira (Odluke (13. 10. 2026.), „primljeno paketom se ne dira”): laptop i
-// Unraid znali su imati različite krivulje Donjeg Miholjca, pa bi starija
+// kućni server znali su imati različite krivulje Donjeg Miholjca, pa bi starija
 // lokalna datoteka odnijela krivulje koje je donio paket. Tada se krivulje ne
 // miču, a vraćaju se s primljena true, da izvještaj gradnje kaže zašto su
 // ostale.

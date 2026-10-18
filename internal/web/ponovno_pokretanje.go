@@ -52,11 +52,11 @@ var opisNacina = map[NacinRada]struct{ opis, potvrda, nevraca string }{
 	},
 	USpremniku: {
 		opis: "Čvor radi u spremniku (Docker). Iznutra se ne vidi hoće li ga Docker pokrenuti ponovno: to radi samo kad je spremnik " +
-			"pokrenut s --restart unless-stopped, always ili on-failure (na Unraidu u polju Extra Parameters). " +
+			"pokrenut s --restart unless-stopped, always ili on-failure (u grafičkom sučelju NAS-a u dodatnim parametrima predloška spremnika). " +
 			"Bez toga spremnik ostaje zaustavljen dok ga ne pokrenete.",
 		potvrda: "Ponovno pokrenuti čvor? Ako spremnik nema --restart, ostat će zaustavljen dok ga ne pokrenete " +
-			"(na Unraidu u kartici Docker, inače docker start).",
-		nevraca: "Čvor se nije vratio. Spremnik vjerojatno nema --restart: pokrenite ga u kartici Docker na Unraidu ili naredbom docker start.",
+			"(na NAS-u u kartici Docker, inače docker start).",
+		nevraca: "Čvor se nije vratio. Spremnik vjerojatno nema --restart: pokrenite ga u kartici Docker na NAS-u ili naredbom docker start.",
 	},
 }
 

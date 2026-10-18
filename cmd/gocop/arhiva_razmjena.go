@@ -148,7 +148,7 @@ func (r *razmjenaArhive) objaviPaket(ctx context.Context, p arhiva.UPaketu) (boo
 
 // vecUKazalu kaže drži li kazalo u knjizi već to izdanje ili novije.
 // Objavljuje se samo novije od onoga što kazalo već ima. Kad je drugi čvor
-// izdao novije (Unraid noćas za kišomjere), ovaj čvor šuti: inače su se dva
+// izdao novije (kućni server noćas za kišomjere), ovaj čvor šuti: inače su se dva
 // čvora svake dvije minute nadglasavala istim paketima i knjiga je rasla po
 // 1.200 zapisa na sat.
 func (r *razmjenaArhive) vecUKazalu(ctx context.Context, p arhiva.UPaketu) (bool, error) {
@@ -266,7 +266,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 // preuzima vodostaje drži svoje letve. Čvor koji ne preuzima sagradio ih je
 // dok je još preuzimao, pa mu stoje: paket ih zamjenjuje kad nosi sve što
 // one imaju — do istog ili kasnijeg dana i barem jednako zapisa. Inače je
-// laptop, otkad Unraid preuzima, ostao bez novih kiša Pljuska.
+// laptop, otkad kućni server preuzima, ostao bez novih kiša Pljuska.
 func (r *razmjenaArhive) ovdjeOstaje(ro *sql.DB, p paketUKnjizi) (bool, string) {
 	var nizova, zapisa int
 	var do sql.NullString

@@ -8,10 +8,10 @@
 #
 # Dvije mape preživljavaju ponovno pokretanje:
 #   /data    baza, ključ čvora, ključ mreže, postavke, baze prognoza i
-#            oborina — malo i često pisano, na SSD (na Unraidu appdata)
+#            oborina — malo i često pisano, na SSD (na NAS-u mapa appdata)
 #   /arhiva  arhiva vodostaja (vodostaji.db, oko 10 GB), izvorno stablo,
 #            skenovi i .cop paketi — veliko, na HDD. SQLite ne smije na
-#            mrežnu ni FUSE mapu: na Unraidu /mnt/diskN/…, ne /mnt/user/…
+#            mrežnu ni FUSE mapu: na NAS-u npr. /mnt/diskN/…, ne /mnt/user/…
 
 FROM golang:1.27-alpine AS gradnja
 WORKDIR /src
@@ -40,13 +40,13 @@ ENV GOCOP_NADZOR=docker
 
 COPY --from=gradnja /gocop /usr/local/bin/gocop
 
-# Unraid: ikona (valovi) i poveznica na web sučelje u popisu spremnika
+# Ikona (valovi) i poveznica na web sučelje u popisu spremnika na NAS-u
 LABEL net.unraid.docker.icon="https://raw.githubusercontent.com/tkraljevic/goCOP/master/web/static/img/gocop-256.png" \
       net.unraid.docker.webui="http://[IP]:[PORT:8080]/"
 
 VOLUME ["/data", "/arhiva"]
 WORKDIR /data
-# Unraidov korisnik nobody:users, da appdata i dijeljene mape ostanu čitljive
+# Korisnik nobody:users, kao na NAS-u, da appdata i dijeljene mape ostanu čitljive
 USER 99:100
 
 # Web 8080; razmjena 4710, uparivanje 4711 (samo dok traje), pronalaženje

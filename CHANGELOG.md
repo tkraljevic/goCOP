@@ -620,7 +620,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   razmjeni, opoziv nije upisao, pa je opozvani čvor za njega ostao
   vjerodostojan.
 - **Postavke iz gocop.toml i u Administraciji.** Dosad se `gocop.toml`
-  mijenjao samo u uređivaču teksta, a na Unraidu i uz uslugu sustava za to
+  mijenjao samo u uređivaču teksta, a na NAS-u i uz uslugu sustava za to
   treba pristup disku ili `sudo`. Sad dio postavki globalni administrator
   mijenja na stranici kojoj pripadaju. Na stranici Čvor, mreža i
   sinkronizacija, u kartici Ovaj čvor, su javna adresa te centar i telefon
@@ -656,7 +656,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   `[web] tailscale_lokalno = false`; tada prijava preko Tailscalea traži
   PIN, i preko IPv6.
 - **Razmjena preko Tailscalea.** Laptop kod kuće nije mogao izravno do
-  uredskog čvora, iako ih Tailscale spaja; sve je išlo preko Unraida i
+  uredskog čvora, iako ih Tailscale spaja; sve je išlo preko kućnog servera i
   tunela. Sad čvor s Tailscaleom zove i Tailscale adrese drugih vaših
   čvorova, iza adresa iz lokalne mreže, a ispred tunela. Prvu adresu čvor
   zapamti kad se dva čvora jednom upare preko Tailscale adrese, a ostale
@@ -679,7 +679,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   a u njoj zna stajati adresa koju ostali čvorovi ne trebaju vidjeti. Taj
   zapis razmjena nosi svim čvorovima mreže. Sad ide bez bilješke.
 - **Istodobne razmjene bez „database is locked”.** Uredski čvor je pri
-  istodobnom primanju s Unraida javio tu grešku i verzija nije ušla u
+  istodobnom primanju s kućnog servera javio tu grešku i verzija nije ušla u
   knjigu. Na Windowsu je istodobni rad vjerojatno ostavio dio očitanja samo
   u knjizi. Sad primljeno upisuje jedna razmjena u isto vrijeme. Razgovor
   koji nema ništa za upis ne čeka. Kad je upis zauzet dulje od pola minute,
@@ -1048,12 +1048,12 @@ Nadograditi izravno na 0.0.33.
   van. Karte sada pločicama šalju samo ishodište (npr.
   `https://cop.primjer.hr`), bez putanje i upita; ostali zahtjevi stranice i
   dalje ne odaju ništa. Pločice koje poslužitelj slaže u PDF već su prolazile.
-- Slika za Unraid je klasični Docker manifest: od ovog izdanja Unraid sam
+- Slika za spremnik je klasični Docker manifest: od ovog izdanja NAS sam
   javlja nadogradnju (za prelazak na ovu još jednom *Force update*).
 
 ## 0.0.30-alfa — 4. 10. 2026.
 
-**Karte ponovno rade; Unraid sam javlja nadogradnju.**
+**Karte ponovno rade; NAS sam javlja nadogradnju.**
 
 - **Pločice karte s OpenStreetMapa.** Wikimedia je svoje pločice zatvorila
   za sve osim vlastitih stranica (403), pa karte nisu radile ni na jednom
@@ -1062,12 +1062,12 @@ Nadograditi izravno na 0.0.33.
   Wikimedijin izvor sam prelazi na OpenStreetMap i to zapiše u dnevnik.
   Vidi docs/karta.md (pravila korištenja; za stotine računala vlastiti
   poslužitelj pločica ili podloge DGU-a).
-- **Slika za Unraid bez potvrde podrijetla.** S njom je registar davao OCI
-  indeks, a Unraidova provjera nadogradnje traži klasični Docker manifest,
+- **Slika za spremnik bez potvrde podrijetla.** S njom je registar davao OCI
+  indeks, a provjera nadogradnje na NAS-u traži klasični Docker manifest,
   pa nikad nije javljala novo izdanje (trebao je *Force update*). Od ove
-  slike Unraid sam pokaže nadogradnju; za prelazak na nju još jednom
+  slike NAS sam pokaže nadogradnju; za prelazak na nju još jednom
   *Force update*.
-- Slika nosi Unraidovu ikonu (valovi) i poveznicu *WebUI*.
+- Slika nosi ikonu (valovi) i poveznicu *WebUI* za popis spremnika na NAS-u.
 
 ## 0.0.29-alfa — 4. 10. 2026.
 
@@ -1087,7 +1087,7 @@ Nadograditi izravno na 0.0.33.
   računom globalnog administratora (početni `admin` se isključuje), uz
   izričitu potvrdu da je to prvo računalo nove mreže, ili put do uparivanja
   s postojećom. Radi samo s tog računala ili uz jednokratni kod iz dnevnika
-  (poslužitelji, npr. Unraid); kroz tunel ne.
+  (poslužitelji, npr. NAS s Dockerom); kroz tunel ne.
 - **Početna lozinka pod Postavom samo s tog računala**: čvor sluša za cijelu
   lokalnu mrežu, pa u uredu javnu lozinku iz uputa više ne može upotrijebiti
   nitko osim vlasnika.
@@ -1139,7 +1139,7 @@ lozinku e-pošte (vidi Sandučić), a pravo pisanja suženo je na doseg dužnost
   čvorove i vrijedi samo za tu adresu; vlastita promjena adrese je briše.
   Adresu koju ima još netko PIN ne dobiva ni potvrđenu.
 - **Oporavak lozinke s konzole.** `gocop -ponisti-lozinku ime` na računalu na
-  kojem čvor radi (na Unraidu kroz `docker exec`, vidi upute) postavlja
+  kojem čvor radi (u Dockeru kroz `docker exec`, vidi upute) postavlja
   privremenu lozinku i ispiše je jednom; gasi prijave, zapamćena računala,
   prijave na čekanju i privremene kodove, uklanja potpisni ključ i spremljenu
   lozinku e-pošte. Prava računa ne mijenja; isključen račun uključuje tek
@@ -1280,7 +1280,7 @@ Exchange i gašenje prijava uz lozinku od administratora (stavke ispod).
   rukovanja, a razmjena najviše 4 odjednom (višak dobije „čvor je zauzet”).
 - **`/api/areas`** samo prijavljenima; sigurne povratne adrese.
 - **GitHub provjera.** `go vet`, testovi i `govulncheck` na svako slanje i
-  tjedno; slika za Unraid gradi se tek kad provjera prođe.
+  tjedno; slika za spremnik gradi se tek kad provjera prođe.
 - **Vremena dnevnika iz razmjene** čitljiva su i na čvoru čija zona nije
   hrvatska.
 
@@ -1341,7 +1341,7 @@ kanal, ni kad je zapis poslije izmijenio drugi čvor. Bez nje bi granica tog
 
 **Arhiva kiše raste i na čvoru koji ne preuzima** — čvor nije primao pakete
 za letve koje je nekad sam sagradio iz svog stabla, pa je laptop, otkad
-vodostaje i kišu preuzima Unraid, ostao bez novih zapisa 35 Pljuskovih i 6
+vodostaje i kišu preuzima kućni server, ostao bez novih zapisa 35 Pljuskovih i 6
 DHMZ-ovih kišomjera. Čvor koji sam preuzima i dalje čuva svoje letve; čvor
 koji ne preuzima ugrađuje paket kad on nosi sve što lokalna letva ima (do
 istog ili kasnijeg dana i barem jednako zapisa). Paket koji seže kraće se ne
@@ -1352,7 +1352,7 @@ ugrađuje, pa se ništa ne gubi.
 **Ploča razmjene više ne broji poslano kao neposlano** — čvor je pamtio dokle
 drugi čvor zna onako kako mu je ovaj javio na početku razmjene, pa je ono što
 mu je u istoj razmjeni poslao do sljedeće razmjene brojao kao da još čeka
-(Unraid je laptopu stalno „slao još 101 verziju”, a laptop je bio usklađen).
+(kućni server je laptopu stalno „slao još 101 verziju”, a laptop je bio usklađen).
 Zapamćena granica sada uključuje i poslane verzije.
 
 ## 0.0.21-alfa — 2. 10. 2026.
@@ -1480,7 +1480,7 @@ treba li ih ovaj čvor: računi trebaju samo čvoru koji preuzima vodostaje.
 
 ## 0.0.9-alfa — 2. 10. 2026.
 
-Popravci koje je pokazao prvi stalni čvor (Unraid) pri prvoj razmjeni.
+Popravci koje je pokazao prvi stalni čvor (kućni server) pri prvoj razmjeni.
 
 **Prva razmjena bez rupa na površini** — novi čvor registar prima u paketima
 po 5000 verzija, pa je naselje znalo stići prije svoje općine i ostati samo u

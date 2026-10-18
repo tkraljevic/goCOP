@@ -357,7 +357,7 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 	switch {
 	case cfgFrom == "" && bazaPostoji == nil:
 		// Postojeći čvor bez postavki: datoteka je premještena ili
-		// izgubljena (Unraid, 5. 10. 2026.). Primjer bi tiho zamijenio
+		// izgubljena (kućni server, 5. 10. 2026.). Primjer bi tiho zamijenio
 		// izvorne postavke, pa se ne zapisuje.
 		log.Printf("Postavke: nema %s, a baza %s već postoji. Primjer se ne zapisuje, da ne zamijeni izvorne postavke; čvor %s radi sa zadanim postavkama i zastavicama pokretanja. Vratite izvornu datoteku iz sigurnosne kopije ili s diska na koji je premještena pa ponovno pokrenite čvor.",
 			examplePath, cfg.DB, cfg.Node.ID)
@@ -496,7 +496,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	autoSync := &autoSyncValue
 
 	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
-	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
+	// koji upareni čvorovi odbijaju (kućni server, 5. 10. 2026.). Provjera samo
 	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
 	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
 	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {

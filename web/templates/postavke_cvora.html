@@ -22,7 +22,7 @@
   <div class="form-group mb-4">
     <label class="form-label">Datoteka postavki</label>
     <div class="mono wrap-anywhere">{{.Put}}</div>
-    <div class="form-help">{{if .Postoji}}Mijenjana {{vrijemeHR .Mijenjano}}.{{else}}Datoteke nema, pa čvor radi sa zadanim postavkama i zastavicama pokretanja. Ako je premještena (na Unraidu zna je odnijeti mover), vratite je i ponovno pokrenite čvor. Kad se postavke spreme u programu, nastaje nova, s objašnjenjima.{{end}}</div>
+    <div class="form-help">{{if .Postoji}}Mijenjana {{vrijemeHR .Mijenjano}}.{{else}}Datoteke nema, pa čvor radi sa zadanim postavkama i zastavicama pokretanja. Ako je premještena (NAS koji sam premješta datoteke zna je odnijeti na drugi disk), vratite je i ponovno pokrenite čvor. Kad se postavke spreme u programu, nastaje nova, s objašnjenjima.{{end}}</div>
     {{if .Kopije}}<div class="form-help">Prethodne inačice stoje uz nju: {{range $i, $k := .Kopije}}{{if $i}}, {{end}}<span class="mono">{{$k.Ime}}</span>{{end}}. Čuva se zadnjih pet.</div>{{end}}
     {{if .Greska}}<div class="form-help c-danger">Datoteka se ne da pročitati: {{.Greska}}</div>{{end}}
   </div>
