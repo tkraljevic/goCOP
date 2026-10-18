@@ -116,3 +116,24 @@ func TestHidroViewOsiguracNakonMrezneGreske(t *testing.T) {
 		t.Fatalf("nakon predaha opet se pokušava: %v", err)
 	}
 }
+
+// Krug u 13:02: radarski zapisivač javlja svakih petnaest minuta, a zadnje
+// je javio u 12:45. Sat 13 h tada ostaje prazan, jer zapisivač do 13:05 još
+// može javiti, a upisan sat se više ne mijenja; vrijednost iz 12:45 sat
+// dobije tek kad prozor prođe. Vrijednost javljena oko punog sata vrijedi
+// odmah.
+func TestPuniSatiNeDrziDokProzorTraje(t *testing.T) {
+	sat := time.Date(2000, 1, 3, 13, 0, 0, 0, time.UTC)
+	u := func(min int) time.Time { return sat.Add(time.Duration(min) * time.Minute) }
+	do1245 := []hidroview.Vrijednost{{Kad: u(-30), Vrijednost: 1.10}, {Kad: u(-15), Vrijednost: 1.12}}
+	if v, ima := puniSati(do1245, u(-60), u(2))[sat.Unix()]; ima {
+		t.Errorf("u 13:02 sat 13 h ima %.2f iz 12:45, a prozor još traje", v)
+	}
+	if v := puniSati(do1245, u(-60), u(5))[sat.Unix()]; v != 1.12 {
+		t.Errorf("u 13:05 sat 13 h ima %.2f, želim 1.12 iz 12:45", v)
+	}
+	naSat := append(do1245, hidroview.Vrijednost{Kad: u(0), Vrijednost: 1.15})
+	if v := puniSati(naSat, u(-60), u(2))[sat.Unix()]; v != 1.15 {
+		t.Errorf("u 13:02 sat 13 h ima %.2f, želim 1.15 javljeno u 13:00", v)
+	}
+}
