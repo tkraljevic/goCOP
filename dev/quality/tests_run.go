@@ -45,7 +45,7 @@ func runTests(o options, r *report) error {
 	if err != nil {
 		return err
 	}
-	if err := logged(o.root, filepath.Join(o.out, "tests.log"), "go", append([]string{"test", "-race", "-covermode=atomic", "-coverprofile=" + profile, "-count=1", "-timeout=" + rokPaketa}, paketi...)...); err != nil {
+	if err := logged(o.root, filepath.Join(o.out, "tests.log"), "go", argumentiTestova(profile, paketi)...); err != nil {
 		r.Tests = "FAIL"
 		log, readErr := os.ReadFile(filepath.Join(o.out, "tests.log"))
 		if readErr == nil && bytes.Contains(log, []byte("DATA RACE")) {
@@ -69,6 +69,40 @@ func runTests(o options, r *report) error {
 		return err
 	}
 	return writeJSON(receipt, e)
+}
+
+// argumentiTestova su argumenti naredbe go test u provjeri kvalitete: svi
+// paketi pod race nadzorom i s atomskim coverageom, osim tuđih paketa iz
+// tudjiBezRacea
+func argumentiTestova(profil string, paketi []string) []string {
+	a := append([]string{"test", "-race"}, raceIznimke()...)
+	a = append(a, "-covermode=atomic", "-coverprofile="+profil, "-count=1", "-timeout="+rokPaketa)
+	return append(a, paketi...)
+}
+
+// tudjiBezRacea su tuđi paketi koje race i checkptr ne nadziru (Odluke
+// (18. 10. 2026.)). Pogonski program SQLite-a (modernc.org/sqlite, C
+// preveden u Go, s libc) i bcrypt (golang.org/x/crypto) pod race nadzorom
+// rade višestruko sporije: bcrypt 567 ms prema 52 ms bez nadzora. Lokalno
+// 18. 10. 2026. (macOS, 14 jezgri) go test iz dev/quality trajao je 367 s,
+// a s ovim iznimkama 210 s; internal/service 351 s prema 43 s, uz istu
+// pokrivenost. Utrke u tom kodu ne tražimo mi. Sav kod goCOP-a i
+// standardna biblioteka, pa i database/sql, ostaju pod nadzorom.
+var tudjiBezRacea = []string{"modernc.org/...", "golang.org/x/crypto/..."}
+
+// raceIznimke su argumenti -gcflags koji paketima iz tudjiBezRacea gase race
+// i checkptr. go test sam daje prevoditelju -race, a ovi argumenti dolaze iza
+// njega; kod istog parametra vrijedi zadnji (provjereno go build -n s Go
+// 1.27.1). Kad se više uzoraka -gcflags poklapa s istim paketom, vrijedi
+// zadnji na naredbenom retku (go help build). -d=checkptr=0 je dokumentiran,
+// a -race=false po paketu nije: ako ga neka nova verzija Go-a prestane
+// poštovati, testovi su samo sporiji.
+func raceIznimke() []string {
+	var a []string
+	for _, uzorak := range tudjiBezRacea {
+		a = append(a, "-gcflags="+uzorak+"=-race=false -d=checkptr=0")
+	}
+	return a
 }
 
 // rokPaketa je rok jednog testnog paketa. Race i atomski coverage zajedno
