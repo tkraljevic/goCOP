@@ -10,7 +10,7 @@ import (
 )
 
 // shemaBaze su svi objekti baze (tablice, indeksi, okidači) s tekstom
-// naredbe kojom su nastali i popis tablica koje nisu prazne
+// naredbe kojom su nastali; tablica koja nije prazna je greška testa
 func shemaBaze(t *testing.T, baza *sql.DB) string {
 	t.Helper()
 	redovi, err := baza.Query(`SELECT type, name, tbl_name, coalesce(sql, '') FROM sqlite_master ORDER BY type, name`)
@@ -38,8 +38,10 @@ func shemaBaze(t *testing.T, baza *sql.DB) string {
 		if err := baza.QueryRow(`SELECT count(*) FROM "` + tablica + `"`).Scan(&n); err != nil {
 			t.Fatal(err)
 		}
+		// Redak u novoj bazi (slučajni id, vrijeme, ključ) predložak bi
+		// smrznuo i dao istim svim bazama jednog testnog procesa
 		if n != 0 {
-			b.WriteString(tablica + " ima redaka\n")
+			t.Errorf("tablica %s nove baze ima %d redaka; predložak smije nositi samo shemu", tablica, n)
 		}
 	}
 	return b.String()
