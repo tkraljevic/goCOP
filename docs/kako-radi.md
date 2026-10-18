@@ -6,7 +6,7 @@ Kako se program koristi, piše u samom programu, na stranici **Pomoć**. Kako
 se postavlja, piše u [uputama administratoru](INSTALACIJA.md).
 
 Program je u alfa fazi. Ovdje je opisano ono što radi danas, u izdanju
-0.0.38-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
+0.0.39-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
 
 ## Što je goCOP
 
@@ -86,6 +86,34 @@ obično prati sve, a prijenosno samo svoje područje i zadnje godine.
 Granica je u razmjeni, ne u prikazu. Računalo ne dobiva ono što ne prati,
 pa izgubljeno prijenosno računalo nosi samo zajedničke registre i svoj dio
 ostalih podataka.
+
+### Kako računala razgovaraju
+
+Kad se dva računala spoje, najprije dokažu tko su. Svako pokaže svoj ključ
+i potpisano članstvo u mreži, a s računalom koje nije član razgovor ni ne
+počne. Zatim jedno drugome kažu dokle imaju podatke od svakog računala koje
+ih je upisalo, a očitanja, dnevnike i ostalo što se prati po izboru još i
+po području i godini. Uz to kažu što prate, koje izdanje programa imaju i
+što od razmjene znaju.
+
+Iz toga svako računalo samo vidi što drugome nedostaje i pošalje samo to:
+novije verzije od onih koje drugo ima, i to samo ono što drugo prati. Šalje
+i ono što je dobilo od trećih, pa podatak stigne i preko računala koje ga
+nije upisalo. Računalo koje ne čuva stara tuđa očitanja javi dokle ih je
+odbacilo, pa mu ih drugo više ne šalje svaki put iznova. Kad računalu
+nešto možda nedostaje, jer je podatke dobilo preko računala koje nije
+čuvalo sve, javi i to, pa mu taj dio pošalje računalo koje ga ima.
+Primljeno računalo upiše, zatim zatraži dokumente i slike uz zapise koje
+prati, a na kraju oba potvrde koliko su upisala. Jedan razgovor nosi
+ograničenu količinu. Kad ima više, odmah ide sljedeći.
+
+Kad računala nemaju isto izdanje programa, novi dio razgovora ide samo ako
+ga znaju oba. Podatak koji starije izdanje ne poznaje ono preskoči, pa s
+njim razmjena ide kao i prije, a novo u razgovoru počne raditi kad se i ono
+nadogradi. Kad računalo odbije razgovor, na primjer jer je zauzeto, javi
+razlog, a razmjena se ponovi u sljedećem krugu. Pločica „Razmjena s
+čvorovima” pokazuje koliko je stiglo zapisa koje ovaj program još ne
+razumije i koliko ih čuva svako drugo računalo koje je to javilo.
 
 ## Zašto nijedan poslužitelj nije nužan
 
