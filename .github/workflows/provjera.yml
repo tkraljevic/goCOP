@@ -3,6 +3,8 @@
 # govulncheck (poznate ranjivosti u Go-u i ovisnostima koje kod stvarno
 # poziva). Tjedna provjera hvata ranjivosti objavljene nakon izdanja, a
 # tjedno idu i testovi pod punim race nadzorom (posao puni-race).
+# O imenu ovisi uvjet posla puni-race (github.workflow == 'Provjera'): ako se
+# ime promijeni, treba promijeniti i uvjet, inače tjedni puni race tiho stane.
 name: Provjera
 
 on:
@@ -84,12 +86,13 @@ jobs:
   # ili Slika (workflow_call), github.workflow i github.event_name su od
   # pozivatelja, a Postava i Slika imaju i workflow_dispatch. Bez usporedbe s
   # baselineom. S punim race testovi su na GitHubu trajali do 77 minuta, a uz
-  # predložak baze procjena je oko 25. Rok paketa (rokPaketa, 120 min) istječe
-  # prije roka posla, pa zapis pokaže gdje je zapelo.
+  # predložak baze procjena je oko 25. Rok posla je 20 minuta iznad roka
+  # naredbe u dev/quality (rokNaredbe, 150 min), pa i kad testovi zapnu,
+  # dev/quality stigne upisati PREKINUTO u zapis, a zapis se priloži.
   puni-race:
     if: github.workflow == 'Provjera' && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 170
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
