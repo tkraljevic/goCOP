@@ -202,6 +202,8 @@ njemu ponavljaju:
   kad izmjena ništa nije pogoršala, ali ostaje stari dug (funkcije iznad
   granice, pokrivenost ispod cilja, upozorenja statičke analize), a `FAIL`
   kad je izmjena nešto pogoršala ili je pao test.
+- Race kaže je li prošla provjera istodobnog pristupa. U zagradi su tuđi
+  paketi koje ta provjera ne nadzire (vidi gore).
 - CRAP je rizik izmjene, opisan gore. Funkcije se broje po razredima rizika:
   do 10, od 10 do 30, od 30 do 100 i iznad 100.
 - Exact duplication je udio koda koji se doslovno ponavlja u tijelima

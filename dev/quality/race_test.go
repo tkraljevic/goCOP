@@ -142,3 +142,15 @@ func TestPuniRaceVidiITudjiKod(t *testing.T) {
 		}
 	}
 }
+
+// Izvještaj uz ishod race navodi tuđe pakete bez nadzora, a nedovršeno
+// mjerenje ostavlja kako jest
+func TestIzvjestajNavodiPaketeBezRacea(t *testing.T) {
+	md := string(markdown(cleanReport()))
+	if !strings.Contains(md, "| Race | PASS (bez nadzora: modernc.org/..., golang.org/x/crypto/...) |") {
+		t.Errorf("izvještaj ne kaže koji paketi nisu pod race nadzorom:\n%s", md)
+	}
+	if got := raceOpis("INCOMPLETE"); got != "INCOMPLETE" {
+		t.Errorf("raceOpis(INCOMPLETE) = %q", got)
+	}
+}
