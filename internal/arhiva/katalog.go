@@ -318,13 +318,40 @@ func LetveUArhivi(db *sql.DB, samo string) ([]string, error) {
 }
 
 // ZapisiSaStrane piše sa strane pa preimenuje: prekid usred pisanja ne smije
-// ostaviti pola paketa pod imenom koje izgleda cjelovito.
+// ostaviti pola paketa pod imenom koje izgleda cjelovito. Datoteka se prije
+// preimenovanja spusti na disk, a mapa poslije njega. Bez toga je nestanak
+// struje nakon izdavanja mogao vratiti stari katalog, pa bi sljedeće
+// izdavanje istim brojem izdanja nazvalo drukčiji sadržaj, a čvorovi koji
+// već imaju taj broj ne bi ga uzeli.
 func ZapisiSaStrane(put string, sadrzaj []byte) error {
 	privremeno := put + ".novo"
-	if err := os.WriteFile(privremeno, sadrzaj, 0o644); err != nil {
+	f, err := os.OpenFile(privremeno, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+	if err != nil {
 		return err
 	}
-	return os.Rename(privremeno, put)
+	_, err = f.Write(sadrzaj)
+	if err == nil {
+		err = f.Sync()
+	}
+	if errZ := f.Close(); err == nil {
+		err = errZ
+	}
+	if err == nil {
+		err = os.Rename(privremeno, put)
+	}
+	if err == nil {
+		spustiMapu(filepath.Dir(put))
+	}
+	return err
+}
+
+// spustiMapu spušta mapu na disk, da novo ime datoteke u njoj preživi
+// nestanak struje. Windows mapu ne da spustiti, pa se greška ne javlja.
+func spustiMapu(mapa string) {
+	if d, err := os.Open(mapa); err == nil {
+		_ = d.Sync()  // Windows mapu ne da spustiti, a datoteka je već na disku
+		_ = d.Close() // mapa je otvorena samo za čitanje
+	}
 }
 
 func zapisiKatalog(mapa string, k Katalog) error {

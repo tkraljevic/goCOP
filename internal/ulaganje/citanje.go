@@ -131,7 +131,7 @@ func biljeskeZa(letva, vrsta string, o []sBiljeskom) []models.ArhivaBiljeska {
 // Nepoznat izvor inače ulazi isključen i čeka odluku — ali za ono što je naš
 // čovjek očitao na letvi odluka je već donesena time što je upisano.
 func upisiIzvorRucnog(arhivaPut, naziv string) error {
-	db, err := sql.Open("sqlite", arhivaPut)
+	db, err := sql.Open("sqlite", arhivaPut+"?"+gocopdb.TrajniUpis)
 	if err != nil {
 		return err
 	}

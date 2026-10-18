@@ -100,25 +100,29 @@ func isteKrivulje(a, b krivuljaUPaketu) bool {
 
 // postaviKrivulju postavlja krivulju iz datoteke u arhivu. Stara krivulja istog
 // početka valjanosti briše se s odsječcima, pa se nova upisuje iznova, da
-// odsječak maknut iz datoteke ne ostane visjeti.
+// odsječak maknut iz datoteke ne ostane visjeti. Sve to ide u jednoj
+// transakciji: kvar usred upisa ne ostavlja letvu bez krivulje, a odsječci se
+// ne spuštaju na disk jedan po jedan.
 func postaviKrivulju(db *sql.DB, letva string, k krivuljaUPaketu) error {
-	if _, err := db.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, k.VrijediOd); err != nil {
-		return fmt.Errorf("brisanje stare krivulje %s letve %s: %w", k.VrijediOd, letva, err)
-	}
-	res, err := db.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
-		VALUES (?,?,?,?,?)`, letva, k.VrijediOd, k.VrijediDo, k.Izvor, k.Napomena)
-	if err != nil {
-		return fmt.Errorf("upis krivulje %s letve %s: %w", k.VrijediOd, letva, err)
-	}
-	id, _ := res.LastInsertId()
-	for _, o := range k.Odsjecci {
-		if _, err := db.Exec(`INSERT OR REPLACE INTO hq_odsjecci
-			(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
-			id, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3, o.P4); err != nil {
-			return fmt.Errorf("upis odsječka krivulje %s letve %s: %w", k.VrijediOd, letva, err)
+	return uTransakciji(db, func(q Izvrsitelj) error {
+		if _, err := q.Exec(`DELETE FROM hq_krivulje WHERE letva=? AND vrijedi_od=?`, letva, k.VrijediOd); err != nil {
+			return fmt.Errorf("brisanje stare krivulje %s letve %s: %w", k.VrijediOd, letva, err)
 		}
-	}
-	return nil
+		res, err := q.Exec(`INSERT INTO hq_krivulje (letva, vrijedi_od, vrijedi_do, izvor, napomena)
+			VALUES (?,?,?,?,?)`, letva, k.VrijediOd, k.VrijediDo, k.Izvor, k.Napomena)
+		if err != nil {
+			return fmt.Errorf("upis krivulje %s letve %s: %w", k.VrijediOd, letva, err)
+		}
+		id, _ := res.LastInsertId()
+		for _, o := range k.Odsjecci {
+			if _, err := q.Exec(`INSERT OR REPLACE INTO hq_odsjecci
+				(krivulja, od_cm, do_cm, oblik, p1, p2, p3, p4) VALUES (?,?,?,?,?,?,?,?)`,
+				id, o.OdCm, o.DoCm, o.Oblik, o.P1, o.P2, o.P3, o.P4); err != nil {
+				return fmt.Errorf("upis odsječka krivulje %s letve %s: %w", k.VrijediOd, letva, err)
+			}
+		}
+		return nil
+	})
 }
 
 // stupacaKrivulje je koliko stupaca redak datoteke krivulja mora imati.
