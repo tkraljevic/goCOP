@@ -1,6 +1,6 @@
 # goCOP Postava i instalacijski program za Windows: na oznaku postava-v*
 # (npr. postava-v1.0.0). Rijetko: Postava se mijenja samo kad treba
-# (docs/plan-instalacija.md), a instalacijski program uvijek preuzme
+# (docs/postava.md), a instalacijski program uvijek preuzme
 # najnovije izdanje goCOP-a. Rezultat je nacrt izdanja; objavljuje se ručno.
 name: Postava
 

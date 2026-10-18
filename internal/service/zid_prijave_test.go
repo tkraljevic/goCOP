@@ -468,7 +468,8 @@ func razmijeni(t *testing.T, ctx context.Context, od, do *ledger.Recorder) int {
 // s terena kao za svaki drugi redak:
 //   - prijavu objavi vodočuvar na terenskom čvoru, urudžbira je ured. Objava
 //     je zadnji upis terena u kanalu prijava, pa je ured ne briše: razmjena
-//     bi je vratila (Odluke (13. 10. 2026.), 1);
+//     bi je vratila (pravilo sažimanja; Odluke (13. 10. 2026.), Brisanje u
+//     razmjeni);
 //   - kad s terena stigne noviji upis u isti kanal, npr. nacrt druge
 //     prijave, objava se briše i redak nestaje. Urudžba nije objava, pa
 //     redak objave ne nosi ni ona (Odluke (8. 10. 2026.), pitanje 20; prije

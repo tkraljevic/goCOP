@@ -1638,7 +1638,7 @@
         <em>E-pošta</em>.</li>
       <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
-        (vlasnik napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
+        (administrator napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se
         kasnije ne može spojiti s drugima) ili <em>postojeća mreža</em> za svako sljedeće računalo
         (uparivanje s računalom koje je već u mreži, ili na daljinu: napraviti zahtjev, poslati
         datoteku primatelju, a kod za primanje mu pročitati telefonom, pa učitati vraćenu
@@ -1724,11 +1724,11 @@
       prijavu izvana. Čvor samo u lokalnoj mreži pošiljatelja ne treba i uzbune nema. Svaki čvor dostupan kroz tunel mora imati 0.0.26-alfa ili
       novije izdanje, jer starije PIN ne traži.</p>
     <p>Kad Exchange odbije lozinku pošiljatelja, slanje staje dok administrator ponovno ne upiše
-      lozinku. Tako se vlasnikov račun u domeni ne zaključa zbog ponovljenih prijava. Iz istog
+      lozinku. Tako se račun pošiljatelja u domeni ne zaključa zbog ponovljenih prijava. Iz istog
       razloga program broji prijave računa u domeni koje upisuje ista osoba, zajedno za lozinku
       osobnog sandučića i za račun koji šalje PIN: najviše tri u pola sata. Prijava koju
-      poslužitelj primi briše brojač tog računa, a tuđi krivi upisi vlasniku ne zatvaraju
-      obrasce. Uz to svaka osoba ima najviše tri upisa lozinke u 15 minuta po obrascu; upis koji
+      poslužitelj primi briše brojač tog računa, a tuđi krivi upisi ne zatvaraju obrasce osobi
+      čiji je račun. Uz to svaka osoba ima najviše tri upisa lozinke u 15 minuta po obrascu; upis koji
       poslužitelj primi ne broji se. Ime bez domene troši više prijava: dvije za račun koji
       šalje PIN, a do tri za osobni sandučić (program pokuša i <code>DOMENA\ime</code>), pa je
       bolje odmah upisati ime s domenom. Kad

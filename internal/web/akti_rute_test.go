@@ -407,7 +407,7 @@ func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
 		t.Error("redovitu obranu uređuje članak XXIII Državnog plana")
 	}
 	// prekid pripremnog stanja koje nije proglašeno ne ovjerava se: traje
-	// izvanredna obrana (docs/NACRT-STADIJI-OBRANE.md)
+	// izvanredna obrana (docs/stadiji-obrane.md)
 	w = ovjeriSaStranice("/akti/" + id2)
 	if b, _ = akti.Get(ctx, id2); b.Ovjeren() || !strings.Contains(w.Header().Get("Location"), "error=") {
 		t.Errorf("prekid pripremnog stanja koje ne traje je ovjeren: %+v (%s)", b, w.Header().Get("Location"))

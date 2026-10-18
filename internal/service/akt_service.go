@@ -660,7 +660,7 @@ func (s *AktService) letvaAkta(ctx context.Context, a *models.Akt) *models.Stati
 }
 
 // StanjeObrane je stanje obrane dionice u trenutku t iz ovjerenih akata
-// sektora (docs/NACRT-STADIJI-OBRANE.md) i ovjereni akti dionice koji tada još
+// sektora (docs/stadiji-obrane.md) i ovjereni akti dionice koji tada još
 // nisu stupili na snagu
 func (s *AktService) StanjeObrane(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error) {
 	akti, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: sektor, Status: models.AktOvjeren})
@@ -685,7 +685,7 @@ func (s *AktService) StanjaSektora(ctx context.Context, sektor string, t time.Ti
 // potpisanog akta): aktivna obrana u sektoru, „Vrijedi od” u tvrdim
 // granicama (Odluke (8. 10. 2026.), pitanje 17), prekid vezan na uspostavu
 // koja se još smije prekinuti i slijed stadija na dionicama akta uz već
-// ovjerene (docs/NACRT-STADIJI-OBRANE.md)
+// ovjerene (docs/stadiji-obrane.md)
 func (s *AktService) provjeriPrijeOvjere(ctx context.Context, a *models.Akt) error {
 	dnevnik, err := s.trebaAktivnu(ctx, a)
 	if err != nil {

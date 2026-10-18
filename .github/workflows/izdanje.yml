@@ -5,7 +5,7 @@
 # istim SHA256SUMS i potpisom. Potpis SHA256SUMS.sig
 # stavlja se ručno, ključem izdanja koji ne odlazi na GitHub
 # (tools/admin/potpis-izdanja), i tek onda se nacrt objavljuje; Postava
-# nepotpisano izdanje ne vidi (docs/plan-instalacija.md).
+# nepotpisano izdanje ne vidi (docs/postava.md).
 name: Izdanje
 
 on:

@@ -719,8 +719,9 @@ var ErrZapisOBrisanju = errors.New("ovo je zapis o brisanju i ne briše se: bez 
 // drugi čvor ili je zapis prešao u drugi kanal), ali je najnovija koju njezin
 // autor ima u svom kanalu. Bez nje granica tog autora u kanalu padne, pa bi
 // druga strana obrisanu verziju poslala natrag već sljedećom razmjenom
-// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), 1). Poruku čita uprava
-// na Događanjima, pa kanal kaže riječima: vrsta podataka, područje i godina.
+// (pravilo kao kod sažimanja; Odluke (13. 10. 2026.), Brisanje u razmjeni).
+// Poruku čita uprava na Događanjima, pa kanal kaže riječima: vrsta podataka,
+// područje i godina.
 var ErrZadnjiUpisCvora = errors.New("zapis nije obrisan: to je zadnje što je jedno računalo upisalo u ovu vrstu podataka za ovo područje i godinu, pa bi ga razmjena vratila. Obrisati se može kad to računalo upiše nešto novije iste vrste za isto područje i godinu")
 
 // ErrZadnjiZajednickiUpisCvora je isti razlog za zajednički kanal, koji
