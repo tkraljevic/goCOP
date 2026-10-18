@@ -158,7 +158,10 @@ func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
 		t.Fatalf("prva objava: %d", n)
 	}
 	// drugi čvor izdao je v2 iste letve; stiže razmjenom
-	novije, _ := json.Marshal(paketUKnjizi{Letva: "pljusak-x", Izdanje: 2, Otisak: "drugi", Sadrzaj: "x", Izdao: "server"})
+	novije, err := json.Marshal(paketUKnjizi{Letva: "pljusak-x", Izdanje: 2, Otisak: "drugi", Sadrzaj: "x", Izdao: "server"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if _, err := rec.Apply(ctx, []ledger.Version{{VersionID: "ffffffff-0000-7000-8000-000000000001", Entity: EntitetArhive, EntityID: "pljusak-x",
 		NodeID: "server", Payload: novije, SchemaVersion: ledger.SchemaVersion}}); err != nil {
 		t.Fatal(err)

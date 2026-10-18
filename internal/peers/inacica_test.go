@@ -83,7 +83,11 @@ func TestStanjeRazmjenePamtiProgram(t *testing.T) {
 
 	// prvi zapis o čvoru može biti i greška nakon granice
 	s.recordSyncState(ctx, "server", syncOutcome{program: "0.0.24-alfa", err: errors.New("x")})
-	if states, _ := s.syncStates(ctx); states["server"].Program != "0.0.24-alfa" {
+	states, err := s.syncStates(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if states["server"].Program != "0.0.24-alfa" {
 		t.Fatalf("novi čvor s greškom: %+v", states["server"])
 	}
 }
