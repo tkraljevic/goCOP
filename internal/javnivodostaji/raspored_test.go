@@ -2,6 +2,7 @@ package javnivodostaji
 
 import (
 	"context"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -10,6 +11,10 @@ import (
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"github.com/google/uuid"
+
+	"gocop/internal/models"
 )
 
 // Raspored kruga: svaki sat u istoj minuti, a pri pokretanju odmah samo
@@ -260,4 +265,50 @@ func TestBiljegTekKadSuLetvePreuzete(t *testing.T) {
 	if !slices.ContainsFunc(dnevnik, func(r string) bool { return strings.Contains(r, "vrijeme preuzimanja nije zapamćeno") }) {
 		t.Errorf("dnevnik: %q", dnevnik)
 	}
+}
+
+// izvorSNajavom daje retke koje mu test zada, kao stranica postaje
+type izvorSNajavom struct{ redci []Redak }
+
+func (*izvorSNajavom) Naziv() string          { return "proba" }
+func (*izvorSNajavom) Prepoznaje(string) bool { return true }
+func (i *izvorSNajavom) Ocitanja(context.Context, string) ([]Redak, error) {
+	return slices.Clone(i.redci), nil
+}
+
+// Hrvatske vode oko :49 objave vrijednost idućeg punog sata, pa je poslije
+// isprave. Krug u 17:50 zato ne upisuje 18 h, nego ga uzme krug u 18:45,
+// ispravljenog; upisan sat se više ne bi promijenio.
+func TestKrugNeUpisujeRetkeIzBuducnosti(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		sp := &probnoSpremiste{postojeca: map[int64]bool{}}
+		iz := &izvorSNajavom{}
+		uv := NoviUvoznik(sp, nil)
+		uv.Izvori = []Izvor{iz}
+		st := models.Station{ID: uuid.New(), Name: "Sava - Gajna", JavniUvoz: true, JavniURL: "https://vodostaji.voda.hr/proba"}
+		cm := func(v int) *int { return &v }
+
+		time.Sleep(time.Until(u(17, 50)))
+		// izvor koji ima samo najavu: ništa za upis, a ni greške na letvi
+		iz.redci = []Redak{{Kad: u(18, 0), LevelCm: cm(57)}}
+		if s := uv.Preuzmi(context.Background(), &st); s.Greska != "" || s.Novih != 0 || s.Preuzeto != 1 || len(sp.upisano) != 0 {
+			t.Errorf("samo najava u 17:50: %+v, upisano %d", s, len(sp.upisano))
+		}
+		iz.redci = []Redak{{Kad: u(16, 0), LevelCm: cm(56)}, {Kad: u(17, 0), LevelCm: cm(57)}, {Kad: u(18, 0), LevelCm: cm(57)}}
+		if s := uv.Preuzmi(context.Background(), &st); s.Greska != "" || s.Novih != 2 || !s.ZadnjeKad.Equal(u(17, 0)) {
+			t.Errorf("u 17:50: %+v", s)
+		}
+		time.Sleep(time.Until(u(18, 45)))
+		iz.redci[2].LevelCm = cm(58)
+		uv.Preuzmi(context.Background(), &st)
+
+		upisano := map[string]int{}
+		for _, r := range sp.upisano {
+			upisano[r.MeasuredAt.UTC().Format("15:04")] = *r.LevelCm
+		}
+		zeli := map[string]int{"16:00": 56, "17:00": 57, "18:00": 58}
+		if len(sp.upisano) != 3 || !maps.Equal(upisano, zeli) {
+			t.Errorf("upisano %v (%d), želim %v", upisano, len(sp.upisano), zeli)
+		}
+	})
 }

@@ -813,14 +813,11 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		s.Greska = "izvor trenutačno nema valjano očitanje"
 		return s
 	}
-	var svi []izRedak
-	for _, r := range redci {
-		svi = append(svi, izRedak{r, izvor.Naziv()})
+	s.Preuzeto = len(redci) + len(rezerva)
+	svi := retciZaUpis(redci, izvor.Naziv(), rezerva, s.Kad)
+	if len(svi) == 0 {
+		return s
 	}
-	for _, r := range rezerva {
-		svi = append(svi, izRedak{r, PodrijetloDanubeHIS})
-	}
-	s.Preuzeto = len(svi)
 	od, do := svi[0].r.Kad, svi[0].r.Kad
 	for _, x := range svi {
 		if x.r.Kad.Before(od) {
@@ -856,6 +853,25 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 type izRedak struct {
 	r     Redak
 	izvor string
+}
+
+// retciZaUpis su retci izvora i rezerve, svaki uz svoje podrijetlo, bez
+// onih s vremenom iza sada. Takav redak nije konačan: Hrvatske vode oko :49
+// objave vrijednost idućeg punog sata, pa je poslije isprave (18. 10. 2026.
+// osam od 75 postaja, za 1–3 cm). Upisan sat se više ne mijenja, zato ga
+// uzme idući krug.
+func retciZaUpis(redci []Redak, izvor string, rezerva []Redak, sada time.Time) []izRedak {
+	var svi []izRedak
+	dodaj := func(rr []Redak, podrijetlo string) {
+		for _, r := range rr {
+			if !r.Kad.After(sada) {
+				svi = append(svi, izRedak{r, podrijetlo})
+			}
+		}
+	}
+	dodaj(redci, izvor)
+	dodaj(rezerva, PodrijetloDanubeHIS)
+	return svi
 }
 
 // novaOcitanja slaže očitanja za trenutke koje letva još nema i broji
