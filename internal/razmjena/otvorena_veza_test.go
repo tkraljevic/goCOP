@@ -140,3 +140,58 @@ func TestUparivanjePrekoOtvoreneVezePokvarenimKljucem(t *testing.T) {
 		t.Errorf("pokvaren ključ: %v, veza zatvorena %v", err, v.zatvorena)
 	}
 }
+
+// Strana koja čeka uparivanje nad vezom koju je primila tuđa slušalica
+// (AcceptOn) dogovori isti kod i dozna isti ključ kao uz Listen. Pokvaren
+// ključ zatvori vezu, a veza koja se zatvori bez TLS rukovanja nije čvor.
+func TestUparivanjeNadPrimljenomVezom(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	primljena := func() *pracenaVeza {
+		c, err := ln.Accept()
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { c.Close() })
+		return &pracenaVeza{Conn: c}
+	}
+	a, b := newKey(t), newKey(t)
+	idA := Identity{Protocol: "testproto", DeviceID: "A"}
+	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
+	defer otkazi()
+
+	nazvao := make(chan *PairResult, 1)
+	go func() {
+		res, err := Dial(ctx, b, Identity{Protocol: "testproto", DeviceID: "B"}, ln.Addr().String())
+		if err != nil {
+			t.Errorf("nazivanje: %v", err)
+		}
+		nazvao <- res
+	}()
+	res, err := AcceptOn(primljena(), a, idA)
+	if err != nil {
+		t.Fatal(err)
+	}
+	d := <-nazvao
+	if d == nil || d.SAS != res.SAS {
+		t.Fatalf("dva ekrana s različitim kodom: %+v %+v", res, d)
+	}
+	if !res.PeerKey.Equal(b.Public().(ed25519.PublicKey)) || !d.PeerKey.Equal(a.Public().(ed25519.PublicKey)) || res.Peer.DeviceID != "B" {
+		t.Errorf("ključ ili ime druge strane: %+v", res.Peer)
+	}
+	res.conn.Close()
+	d.conn.Close()
+
+	otvori(t, ln.Addr().String())
+	p := primljena()
+	if _, err := AcceptOn(p, pokvarenKljuc(t), idA); err == nil || !p.zatvorena {
+		t.Errorf("pokvaren ključ: %v, veza zatvorena %v", err, p.zatvorena)
+	}
+	otvori(t, ln.Addr().String()).Close()
+	if _, err := AcceptOn(primljena(), a, idA); !errors.Is(err, ErrNotAPeer) {
+		t.Errorf("veza bez rukovanja: %v", err)
+	}
+}

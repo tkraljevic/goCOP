@@ -2,7 +2,6 @@ package peers_test
 
 import (
 	"context"
-	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
@@ -27,11 +26,8 @@ func prazanCvor(t *testing.T, ctx context.Context, id string) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := peers.NewService(database, rec, n, peers.Ports{Exchange: freePort(t), Pair: freePort(t)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	go svc.Serve(ctx)
+	svc := noviServis(t, database, rec, n)
+	posluzi(t, ctx, svc)
 	return &node{id: id, db: database, svc: svc, rec: rec}
 }
 
@@ -41,16 +37,7 @@ func uparenUz(t *testing.T, ctx context.Context, a, b *node, primi bool) (outA, 
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	var err error
-	for i := 0; i < 50; i++ {
-		if err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatalf("nazivanje: %v", err)
-	}
+	nazovi(t, ctx, b, a)
 	for i := 0; i < 50 && !a.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -62,7 +49,7 @@ func uparenUz(t *testing.T, ctx context.Context, a, b *node, primi bool) (outA, 
 		}
 		done <- out
 	}()
-	outB, err = b.svc.ConfirmPair(ctx, true, true)
+	outB, err := b.svc.ConfirmPair(ctx, true, true)
 	if err != nil {
 		t.Fatalf("potvrda na %s: %v", b.id, err)
 	}
