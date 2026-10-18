@@ -267,7 +267,10 @@ const puniSatiZadrzavanje = 6 * time.Hour
 // vrijednost. Sat dobiva vrijednost javljenu unutar pet minuta oko njega;
 // kad takve nema, zadnju javljenu prije njega, ako nije starija od
 // zadržavanja. Vrijednost koja se od tada nije promijenila i jest vodostaj u
-// tom satu — zapisivač ju zato nije ni ponovio.
+// tom satu — zapisivač ju zato nije ni ponovio. Dok tih pet minuta iza sata
+// još traju (krug ide u istoj minuti svakog sata, možda i u njima),
+// zapisivač tek može javiti, pa se stara vrijednost ne drži: upisan sat se
+// više ne mijenja, a idući krug ga popuni.
 func puniSati(v []hidroview.Vrijednost, od, do time.Time) map[int64]float64 {
 	out := map[int64]float64{}
 	if len(v) == 0 {
@@ -288,7 +291,9 @@ func puniSati(v []hidroview.Vrijednost, od, do time.Time) map[int64]float64 {
 			continue
 		}
 		x := v[i-1] // zadnja javljena do pet minuta iza punog sata
-		if !x.Kad.Before(h.Add(-5*time.Minute)) || h.Sub(x.Kad) <= puniSatiZadrzavanje {
+		uProzoru := !x.Kad.Before(h.Add(-5 * time.Minute))
+		prozorProsao := !do.Before(h.Add(5 * time.Minute))
+		if uProzoru || prozorProsao && h.Sub(x.Kad) <= puniSatiZadrzavanje {
 			out[h.Unix()] = x.Vrijednost
 		}
 	}

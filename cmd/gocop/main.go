@@ -849,11 +849,13 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	go peersService.RunAutoSync(syncCtx, *autoSync)
 
-	// Javni vodostaji: svaki sat preuzmi očitanja letvi koje su povezane s
-	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
-	// grešku na letvi i pokuša za sat.
+	// Javni vodostaji: svaki sat u istoj minuti preuzmi očitanja letvi koje
+	// su povezane s javnim izvorom i označene za preuzimanje. Bez interneta
+	// samo javi grešku na letvi i pokuša idući sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
 	javniUvoznik.Preuzima = func() bool { return peersService.TrenutneUloge().Preuzima }
+	javniUvoznik.Minuta = minutaPreuzimanja(cfg, log.Printf)
+	javniUvoznik.Biljeg = filepath.Join(filepath.Dir(*dbPath), biljegPreuzimanja)
 	nazivCvora := node.Name
 	if nazivCvora == "" {
 		nazivCvora = node.ID
@@ -884,8 +886,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetJavniUvoz(javniUvoznik)
 	server.SetHidroViewKljuc(hidroviewKljuc)
 	u := peersService.TrenutneUloge()
-	log.Printf("Uloge čvora: vodostaje s izvora %s, prognozu %s", map[bool]string{true: "preuzima", false: "ne preuzima (stižu razmjenom)"}[u.Preuzima],
-		map[bool]string{true: "izdaje", false: "ne izdaje (stiže razmjenom)"}[u.Izdaje])
+	log.Printf("Uloge čvora: vodostaje s izvora %s, prognozu %s; krug svaki sat u :%02d", map[bool]string{true: "preuzima", false: "ne preuzima (stižu razmjenom)"}[u.Preuzima],
+		map[bool]string{true: "izdaje", false: "ne izdaje (stiže razmjenom)"}[u.Izdaje], javniUvoznik.Minuta)
 	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)
