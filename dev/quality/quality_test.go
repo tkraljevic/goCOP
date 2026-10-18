@@ -266,6 +266,29 @@ func TestEvidenceRejectsChangedReport(t *testing.T) {
 	}
 }
 
+// Potvrda snimljena s drukčijim zastavicama testova, npr. prije iznimaka za
+// race, ne smije proći kao da su testovi izvedeni s današnjim
+func TestEvidenceRejectsOtherTestArgs(t *testing.T) {
+	o := options{out: t.TempDir(), reuseTests: true}
+	r := cleanReport()
+	for _, name := range []string{"coverage.out", "tests.log"} {
+		if err := os.WriteFile(filepath.Join(o.out, name), []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e, err := evidence(o, &r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.TestArgs = "test -race -covermode=atomic"
+	if err := writeJSON(filepath.Join(o.out, "test-evidence.json"), e); err != nil {
+		t.Fatal(err)
+	}
+	if err := runTests(o, &r); err == nil {
+		t.Fatal("potvrda s drugim zastavicama prihvaćena")
+	}
+}
+
 func TestCheckedInConfig(t *testing.T) {
 	c, err := loadConfig("../../quality/config.json")
 	if err != nil {

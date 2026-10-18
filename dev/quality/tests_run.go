@@ -9,7 +9,10 @@ import (
 	"strings"
 )
 
-type testEvidence struct{ Source, Platform, GoVersion, ProfileHash, LogHash string }
+// testEvidence je potvrda za -reuse-tests. TestArgs su zastavice naredbe go
+// test, da potvrda snimljena s drukčijim iznimkama za race ne vrijedi: izvor
+// dev/quality ne ulazi u SourceHash.
+type testEvidence struct{ Source, Platform, GoVersion, ProfileHash, LogHash, TestArgs string }
 
 func evidence(o options, r *report) (testEvidence, error) {
 	p, err := os.ReadFile(filepath.Join(o.out, "coverage.out"))
@@ -20,7 +23,7 @@ func evidence(o options, r *report) (testEvidence, error) {
 	if err != nil {
 		return testEvidence{}, err
 	}
-	return testEvidence{r.SourceHash, r.Platform, r.GoVersion, digest(p), digest(l)}, nil
+	return testEvidence{r.SourceHash, r.Platform, r.GoVersion, digest(p), digest(l), strings.Join(argumentiTestova("coverage.out", nil), " ")}, nil
 }
 
 func runTests(o options, r *report) error {
@@ -35,7 +38,7 @@ func runTests(o options, r *report) error {
 			return err
 		}
 		if saved != current {
-			return fmt.Errorf("test evidence nije za iste izvore/Go/platformu ili su izvještaji promijenjeni")
+			return fmt.Errorf("test evidence nije za iste izvore/Go/platformu/zastavice testova ili su izvještaji promijenjeni")
 		}
 		fmt.Println("Ponovna analiza provjerenog testnog izvještaja (testovi nisu ponovno pokrenuti).")
 		r.Tests, r.Race = "PASS", "PASS"
