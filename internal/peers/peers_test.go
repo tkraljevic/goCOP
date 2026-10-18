@@ -30,11 +30,13 @@ func freePort(t *testing.T) int {
 	return ln.Addr().(*net.TCPAddr).Port
 }
 
-// slusalica je TCP slušalica na portu koji bira sustav, otvorena do kraja
-// testa
+// slusalica je TCP slušalica na loopbacku, na portu koji bira sustav,
+// otvorena do kraja testa. Sluša baš na 127.0.0.1, adresi koju testovi
+// zovu: na macOS-u netko drugi smije otvoriti 127.0.0.1 na portu na kojem
+// već sluša :port, pa bi veze na 127.0.0.1 išle njemu.
 func slusalica(t *testing.T) net.Listener {
 	t.Helper()
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
