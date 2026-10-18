@@ -22,7 +22,7 @@ Stanje i namjena svakog alata u [katalogu alata](katalog-alata.md).
     0.0.7-alfa GitHub za svaku oznaku gradi sliku `ghcr.io/tkraljevic/gocop`
     (`.github/workflows/slika.yml`). Slika nosi samo program `gocop`, bez
     izvornog koda, alata i Pythona.
-  - Stalni čvor (Unraid) od 2. 10. radi iz te slike i krenuo je s praznom
+  - Stalni čvor (kućni server) od 2. 10. radi iz te slike i krenuo je s praznom
     bazom. Popravke koje je pokazao donose izdanja od 0.0.8-alfa.
   - U `tools/` su nakon razdvajanja dodana 4 administratorska alata, 15
     migracija i 15 dijagnostičkih alata; upisani su u katalog alata.

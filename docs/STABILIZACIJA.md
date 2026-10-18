@@ -907,7 +907,7 @@ Redoslijed:
 1. zatvoriti zaostatke faza 1–2 i odluke od 8. 10.;
 2. provjeriti (kriterij niže);
 3. izdati 0.0.35;
-4. nadograditi sve aktivne čvorove, prvo stalne (Unraid);
+4. nadograditi sve aktivne čvorove, prvo stalne (kućni server);
 5. zatim mrežni protokol;
 6. fazu 3 raditi usporedo s protokolom, gdje se dotiču.
 
