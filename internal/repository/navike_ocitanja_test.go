@@ -16,14 +16,11 @@ import (
 // noveNavike otvara bazu s očitanjima i vraća spremište i upis očitanja
 func noveNavike(t *testing.T) (*ReadingRepository, func(stanica, korisnik, ocitao string, kad time.Time)) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "navike.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "navike.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewReadingRepository(baza, ledger.New(baza, "cvor"))
 	cm := 100
 	upisi := func(stanica, korisnik, ocitao string, kad time.Time) {

@@ -29,12 +29,9 @@ type cvor struct {
 func noviCvor(t *testing.T, nodeID string) *cvor {
 	t.Helper()
 	db.KoristiIzmisljenePodatke(t)
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), nodeID+".db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), nodeID+".db"))
 	if err != nil {
 		t.Fatalf("baza čvora %s: %v", nodeID, err)
-	}
-	if err := db.InitSchema(database); err != nil {
-		t.Fatalf("shema čvora %s: %v", nodeID, err)
 	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("sjeme čvora %s: %v", nodeID, err)

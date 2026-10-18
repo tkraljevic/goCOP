@@ -20,14 +20,11 @@ import (
 func letveSektoraP(t *testing.T) (*service.StationService, *repository.StationRepository, *sql.DB) {
 	t.Helper()
 	db.KoristiIzmisljenePodatke(t)
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "pracenje.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "pracenje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SeedInitialData(baza); err != nil {
 		t.Fatal(err)
 	}

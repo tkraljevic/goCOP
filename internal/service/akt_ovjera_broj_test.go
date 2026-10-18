@@ -47,14 +47,11 @@ func TestPotpisnikOvjere(t *testing.T) {
 // Ovjera akta koji nije spremljen kao nacrt ne prolazi i ne objavljuje se;
 // spremljen nacrt dobiva broj i ide u dnevnike aktivne obrane
 func TestZakljucenjeOvjereDodjeljujeBrojSpremljenomNacrtu(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akt.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akt.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	repo := repository.NewAktiRepository(baza, ledger.New(baza, "test"))
 	svc := NewAktService(repo, nil, nil, nil, nil, nil, nil, "cvor-probni")

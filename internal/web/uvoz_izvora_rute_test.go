@@ -175,14 +175,11 @@ var hvKljuc = posta.Kljuc([]byte("tajna-probnog-cvora"))
 // a ostale letve čitaju se računom čvora koji poslužitelj odbija
 func (o *okolinaVrata) saHydroViewom(t *testing.T, adresa string) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "hv.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "hv.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewHidroViewRepository(baza)
 	for _, r := range []repository.RacunHidroView{
 		{Letva: "", Adresa: adresa, Korisnik: "odbijen", Lozinka: zakljucanaLozinka(t, "lozinka-cvora")},

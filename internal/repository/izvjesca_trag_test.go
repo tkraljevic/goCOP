@@ -17,14 +17,11 @@ import (
 // otvoriCvorIzvjesca je prazna baza jednog čvora s repozitorijima izvješća
 func otvoriCvorIzvjesca(t *testing.T, ime string) (*IzvjescaRepository, *SektorskaIzvjescaRepository, *ledger.Recorder) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, ime)
 	return NewIzvjescaRepository(baza, rec), NewSektorskaIzvjescaRepository(baza, rec), rec
 }

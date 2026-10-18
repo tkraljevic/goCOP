@@ -19,14 +19,11 @@ import (
 func bazaZaKljuc(t *testing.T, sVerzijom bool) string {
 	t.Helper()
 	put := filepath.Join(t.TempDir(), "gocop.db")
-	baza, err := db.OpenDB(put)
+	baza, err := db.BazaIzPredloska(put)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if sVerzijom {
 		if _, err := baza.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, payload, created_at)
 			VALUES ('0192', 'peers', 'pperic-thinkpad', 'pperic-thinkpad', '{}', '2026-10-05T06:34:00Z')`); err != nil {

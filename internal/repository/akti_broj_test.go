@@ -21,14 +21,11 @@ import (
 
 func bazaAkata(t *testing.T) (*sql.DB, *AktiRepository) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	return baza, NewAktiRepository(baza, ledger.New(baza, "cop-osijek"))
 }
 

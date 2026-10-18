@@ -25,14 +25,11 @@ import (
 // obnova površine pri pokretanju ne smije izgubiti (Odluke (8. 10. 2026.),
 // pitanje 4). Prvi nacrt i dalje se briše, a pregled prije radnje broji isto.
 func TestSazimanjeKnjigeURukovateljuCuvaOvjeruAkta(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "baza.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "baza.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "cop-osijek")
 	ctx := context.Background()
 	akt := models.Akt{ID: "akt-1", Sektor: "B", Godina: 2026, Status: models.AktNacrt}

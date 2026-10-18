@@ -31,14 +31,11 @@ type prazanCvorPrijave struct {
 
 func noviCvorPrijave(t *testing.T) *prazanCvorPrijave {
 	t.Helper()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "prijava.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prijava.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, "test")
 	repo := repository.NewUserRepository(database, rec)
 	sessions := repository.NewSessionRepository(database)

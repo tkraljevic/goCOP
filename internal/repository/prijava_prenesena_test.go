@@ -20,14 +20,11 @@ import (
 // bazaPrenesenih diže bazu prijava sa spremištem sadržaja
 func bazaPrenesenih(t *testing.T) (*sql.DB, *PrijavaRepository) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prijave.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prijave.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	if err != nil {
 		t.Fatal(err)

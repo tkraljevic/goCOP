@@ -24,14 +24,11 @@ import (
 // Profil djelatnika ima tablicu zaduženja s gumbima Uredi i Opozovi;
 // izmjena vrijedi odmah, a opozvano zaduženje ostaje u povijesti profila.
 func TestZaduzenjaNaProfiluKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zad.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zad.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,

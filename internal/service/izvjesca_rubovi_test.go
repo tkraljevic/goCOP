@@ -37,14 +37,11 @@ type okolinaIzvjesca struct {
 
 func novaOkolinaIzvjesca(t *testing.T) *okolinaIzvjesca {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "izvjesca.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "izvjesca.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo'), ('Q', 'Sektor Q', 'VGO Drugdje', 'COP Drugdje')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', ''), (2, 'P', 'Mali sliv Probni', 'VGI Probni', '')`,

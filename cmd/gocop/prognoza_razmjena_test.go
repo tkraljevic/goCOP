@@ -18,11 +18,11 @@ import (
 func cvorZaTest(t *testing.T, ime string) (*sql.DB, *ledger.Recorder, *sql.DB) {
 	t.Helper()
 	dir := t.TempDir()
-	baza, err := sql.Open("sqlite", filepath.Join(dir, "gocop.db"))
-	if err != nil {
+	if err := db.UpisiPredlozak(filepath.Join(dir, "gocop.db")); err != nil {
 		t.Fatal(err)
 	}
-	if err := db.InitSchema(baza); err != nil {
+	baza, err := sql.Open("sqlite", filepath.Join(dir, "gocop.db"))
+	if err != nil {
 		t.Fatal(err)
 	}
 	pb, err := prognoza.Otvori(filepath.Join(dir, "prognoze.db"))

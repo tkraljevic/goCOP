@@ -88,14 +88,11 @@ func TestDosegDuznostiNepoznateRazine(t *testing.T) {
 // Satno čišćenje drugog koraka briše istekla zaključavanja unosa koda, a
 // ona koja još traju ostavlja
 func TestCiscenjeZakljucavanjaDrugogKoraka(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "drugi-korak.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "drugi-korak.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "cvor-a")
 	d := NewDrugiKorak(repository.NewDrugiKorakRepository(baza), repository.NewRacuniSustavaRepository(baza),
 		repository.NewUserRepository(baza, rec), repository.NewAktiRepository(baza, rec))

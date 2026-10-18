@@ -17,14 +17,11 @@ import (
 // je bio otvoren bez prijave, a s izmjenom djelatnika slao mu je telefon i
 // e-poštu.
 func TestDogadajiNeNoseOsobnePodatke(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewUserRepository(database, ledger.New(database, "cvor-a"))
 	glavni := &models.User{Username: "uprava", PasswordHash: "x", FullName: "Uprava", IsGlobalAdmin: true, IsActive: true}
 	if err := repo.CreateUser(glavni, nil); err != nil {

@@ -30,14 +30,11 @@ type okolinaDionica struct {
 
 func novaOkolinaDionica(t *testing.T) *okolinaDionica {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "dionice.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "dionice.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('F', 'Sektor F', 'VGO Primjerovo', 'COP Primjerovo'), ('E', 'Sektor E', 'VGO Drugdje', 'COP Drugdje')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (41, 'F', 'Mali sliv Primjerica', 'VGI Primjerica', ''),

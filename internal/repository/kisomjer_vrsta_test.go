@@ -13,14 +13,11 @@ import (
 // Zapis iz knjige otprije vrste (drugi čvor sa starijim programom) na
 // površini postaje izvedena točka.
 func TestKisomjerIzKnjigeBezVrste(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "vrsta.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "vrsta.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	tx, err := baza.BeginTx(ctx, nil)
 	if err != nil {

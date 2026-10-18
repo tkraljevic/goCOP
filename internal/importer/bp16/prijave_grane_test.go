@@ -33,14 +33,11 @@ import (
 // bazaPrijava diže bazu prijava i spremište sadržaja za slike i izvornike
 func bazaPrijava(t *testing.T) (*sql.DB, *repository.PrijavaRepository) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prijave.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prijave.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	spremiste, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	if err != nil {
 		t.Fatal(err)

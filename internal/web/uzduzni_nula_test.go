@@ -286,14 +286,11 @@ func probnaArhivaNula(t *testing.T, vrijednosti map[string]map[string]map[time.T
 // akumulacija se čita kao kota, letva izvan registra nema niza, a niz se
 // čita jednom na dan.
 func TestMjesecniNiziIzArhiveIOcitanja(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "nula.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "nula.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	stanice := repository.NewStationRepository(baza, rec)
 	ocitanja := repository.NewReadingRepository(baza, rec)

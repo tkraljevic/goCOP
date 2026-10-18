@@ -24,14 +24,11 @@ func okolinaKruga(t *testing.T, izdaje bool) (*satniKrug, *javnivodostaji.Uvozni
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	baza, err := db.OpenDB(dbPath)
+	baza, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "pperic-thinkpad")
 	cvor, err := peers.LoadNode(dbPath, "pperic-thinkpad", "Probni", "test")
 	if err != nil {

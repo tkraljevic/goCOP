@@ -14,14 +14,11 @@ import (
 // smjera
 func TestPostavkeRazmjeneIzDatoteke(t *testing.T) {
 	dbPath := filepath.Join(t.TempDir(), "gocop.db")
-	baza, err := db.OpenDB(dbPath)
+	baza, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	cvor, err := peers.LoadNode(dbPath, "pperic-thinkpad", "Probni", "test")
 	if err != nil {
 		t.Fatal(err)

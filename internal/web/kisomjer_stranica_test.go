@@ -48,14 +48,11 @@ func kisomjerZahtjev(h http.HandlerFunc, put, code string) string {
 // najbliže izvedene točke i to piše; historijat zbraja godine i mjesece.
 func TestStranicaKisomjera(t *testing.T) {
 	dir := t.TempDir()
-	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(dir, "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	svc := service.NewKisomjerService(repository.NewKisomjerRepository(baza, ledger.New(baza, "test")))
 	ctx := context.Background()
 	admin := &models.UserPermissions{IsGlobalAdmin: true}

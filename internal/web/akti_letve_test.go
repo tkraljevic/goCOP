@@ -27,14 +27,11 @@ import (
 // nacrt sastavlja samo Centar obrane od poplava, pa rukovoditelja područja
 // obrazac vraća na popis akata s objašnjenjem.
 func TestObrazacAktaNudiSamoLetveKojeSmije(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti-letve.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti-letve.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo'), ('R', 'Sektor R', 'VGO Drugovo', 'COP Drugovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica'), (2, 'R', 'Mali sliv Drugovo', 'VGI Drugovo')`,

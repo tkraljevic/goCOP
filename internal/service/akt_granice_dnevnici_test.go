@@ -21,14 +21,11 @@ import (
 // pomiču granicu; objava akta i dalje ide u noviji dnevnik (Odluke
 // (8. 10. 2026.), pitanje 17).
 func TestDonjaGranicaVrijediOdJeNajranijiOtvorenDnevnik(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "cop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "cop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, sektor := range []string{"B", "D"} {
 		if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES (?, ?, 'VGO', 'COP')`, sektor, "Sektor "+sektor); err != nil {
 			t.Fatal(err)

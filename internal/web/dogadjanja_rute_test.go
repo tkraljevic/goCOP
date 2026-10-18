@@ -25,14 +25,11 @@ import (
 // Naslovna pokazuje traku stanja, prečace i zid; Događanja isti zid s
 // filtrima i izvozom u Excel.
 func TestNaslovnaIDogadjanjaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,

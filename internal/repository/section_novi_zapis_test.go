@@ -14,14 +14,11 @@ import (
 // se pri spremanju dionice, u knjigu verzija, a redak ostaje vezan na njih.
 // Objekt drugog područja veže se bez premještanja — CS Budžak ostaje u BP 16.
 func TestNoviZapisIzRetkaObjekta(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Mali sliv Baranja', 'VGI')`,

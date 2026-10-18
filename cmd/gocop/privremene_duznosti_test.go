@@ -18,11 +18,8 @@ import (
 // Krug privremenih imenovanja radi odmah i zatim u razmaku, grešku baze
 // zapiše u dnevnik i ide dalje, a staje kad stane čvor
 func TestKrugPrivremenihDuznosti(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "krug.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "krug.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	repo := repository.NewUserRepository(baza, ledger.New(baza, "test"))

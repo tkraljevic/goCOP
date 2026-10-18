@@ -22,14 +22,11 @@ import (
 // daju pročitati, obrazac to kaže i ne predlaže prvi broj, jer takva dionica
 // možda već postoji.
 func TestObrazacDionicePredlazeSifruIliJavljaGresku(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "obrazac.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "obrazac.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('F', 'Sektor F', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (41, 'F', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,

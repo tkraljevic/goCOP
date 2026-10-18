@@ -19,14 +19,11 @@ import (
 // postaje na telemetriji), a kad ga letva nema, vrijedi račun čvora; lozinka
 // koja se ne da otključati ne daje prijavu.
 func TestRacunHidroView(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "racuni.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "racuni.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO stations (id, code, name, javni_url, telemetrija_site, created_at, updated_at) VALUES
 		('s1', 'ZAL', 'Zalabér', 'https://primjer.hr/zal', '', datetime('now'), datetime('now')),
 		('s2', 'TEL', 'Telemetrija', '', 'site-42', datetime('now'), datetime('now'))`); err != nil {
@@ -81,14 +78,11 @@ func TestRacunHidroView(t *testing.T) {
 // Jedan račun čvora vrijedi za mletva.voda.hr i letva.voda.hr; oznaka je
 // samo ime u dnevniku.
 func TestRacunSustava(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "racuni.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "racuni.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	kljuc := hidroview.Kljuc([]byte("tajna čvora"))
 	racuni := repository.NewRacuniSustavaRepository(baza)
 	trazi := racunSustava(racuni, kljuc, "letva.voda.hr")

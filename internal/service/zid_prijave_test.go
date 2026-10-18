@@ -32,14 +32,11 @@ type zidPrijava struct {
 
 func noviZidPrijava(t *testing.T) *zidPrijava {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,
@@ -479,14 +476,11 @@ func TestZidBrisanjePrijaveSPloceNaDvaCvora(t *testing.T) {
 	z := noviZidPrijava(t) // ured: čvor ovog zida
 	z.zid.SetVidiPrijavu(z.prijave.SmijeVidjeti)
 	ana := &models.UserPermissions{IsGlobalAdmin: true, User: models.User{ID: uuid.New(), FullName: "Ana Anić", IsGlobalAdmin: true}}
-	bazaT, err := db.OpenDB(filepath.Join(t.TempDir(), "teren.db"))
+	bazaT, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "teren.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { bazaT.Close() })
-	if err := db.InitSchema(bazaT); err != nil {
-		t.Fatal(err)
-	}
 	recT := ledger.New(bazaT, "teren")
 	teren := repository.NewPrijavaRepository(bazaT, recT)
 	nacrtNaTerenu := func(naslov string) *models.PrijavaSTerena {

@@ -43,14 +43,11 @@ func TestPredlozakUgovora(t *testing.T) {
 	db.DataDir = filepath.Join(predlosci, "prvo-pokretanje")
 	db.ImenikPath = filepath.Join(db.DataDir, "imenik.json")
 
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ugovor.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ugovor.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SeedInitialData(baza); err != nil {
 		t.Fatal(err)
 	}

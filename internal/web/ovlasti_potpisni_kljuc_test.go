@@ -25,14 +25,11 @@ import (
 // ni ne uklanja.
 func TestPotpisniKljucSeUklanjaSamoUzLozinku(t *testing.T) {
 	ctx := context.Background()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "k.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "k.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "cvor")
 	repo := repository.NewUserRepository(baza, rec)
 	auth := service.NewAuthService(repo, repository.NewSessionRepository(baza))

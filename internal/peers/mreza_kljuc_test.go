@@ -17,14 +17,11 @@ func TestOsnivanjePreuzimaZateceniKljuc(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	stari, err := razmjena.NewNetwork("stara")
 	if err != nil {
 		t.Fatal(err)
@@ -61,14 +58,11 @@ func TestOsvjeziSebeMijenjaSamoNaziv(t *testing.T) {
 	ctx := context.Background()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	n, err := peers.LoadNode(dbPath, "laptop", "iivic-laptop", "test")
 	if err != nil {
 		t.Fatal(err)

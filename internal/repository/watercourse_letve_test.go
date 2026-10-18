@@ -16,11 +16,8 @@ import (
 func TestDodatneLetveVode(t *testing.T) {
 	ctx := context.Background()
 	otvori := func(ime string) (*WatercourseRepository, *ledger.Recorder, func()) {
-		d, err := db.OpenDB(filepath.Join(t.TempDir(), ime+".db"))
+		d, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), ime+".db"))
 		if err != nil {
-			t.Fatal(err)
-		}
-		if err := db.InitSchema(d); err != nil {
 			t.Fatal(err)
 		}
 		rec := ledger.New(d, ime)

@@ -35,14 +35,11 @@ type okolinaCitanja struct {
 
 func novaOkolinaCitanja(t *testing.T) *okolinaCitanja {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "citanja.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "citanja.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo'), ('Q', 'Sektor Q', 'VGO Drugdje', 'COP Drugdje')`,
 		// bez podcentra: stupac ostaje NULL, a popis područja ga čita kao prazan

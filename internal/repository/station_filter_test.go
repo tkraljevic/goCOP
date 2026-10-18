@@ -11,15 +11,11 @@ import (
 )
 
 func TestStationCountryFilterAndListCountries(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop_filter.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop_filter.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 
 	repo := NewStationRepository(baza, ledger.New(baza, "test-node"))
 	ctx := context.Background()

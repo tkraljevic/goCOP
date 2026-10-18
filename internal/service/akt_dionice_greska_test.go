@@ -17,14 +17,11 @@ import (
 // Dionice akta: letva bez dionica nije mjerodavna, a greška čitanja
 // registra dionica vraća se, ne preskače dionicu
 func TestDioniceAktaGreske(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "dionice.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "dionice.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	s := &AktService{stations: repository.NewStationRepository(baza, rec), sections: repository.NewSectionRepository(baza, rec)}
 	ctx := context.Background()

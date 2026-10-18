@@ -17,14 +17,11 @@ import (
 // prijenosa koji pročita, a cijela knjiga prometa raste svake obrane.
 func TestIzvorPoteza(t *testing.T) {
 	ctx := context.Background()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewMtsRepository(baza, ledger.New(baza, "test"))
 	if err := repo.SavePromet(ctx, []models.Promet{
 		{VrstaID: "lopata", Vrsta: models.PrometPrijenos, Sektor: "B", SkladisteID: "osijek", Kolicina: -3, VezaID: "veza-1"},

@@ -37,14 +37,11 @@ func raw(v ...string) []json.RawMessage {
 // po imenu, područje po vodočuvarskom sektoru, vrsta, voda, točka, slike
 // smanjene, sken kao izvornik ili PDF iz podataka; ponovni uvoz preskače.
 func TestUvozObavijestiSTerena(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "p.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "p.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	spremiste, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	if err != nil {
 		t.Fatal(err)

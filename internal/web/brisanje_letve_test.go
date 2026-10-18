@@ -37,14 +37,11 @@ func obrisiLetvu(t *testing.T, h *StationsHandler, perms *models.UserPermissions
 // kartice, vraća na popis letvi s porukom zašto nije obrisana. Prije je
 // javljalo da je obrisana, a u knjigu upisalo praznu obrisanu letvu.
 func TestBrisanjeLetveKojeViseNema(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "brisanje.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "brisanje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	stationRepo := repository.NewStationRepository(baza, rec)
 	stations := service.NewStationService(stationRepo,

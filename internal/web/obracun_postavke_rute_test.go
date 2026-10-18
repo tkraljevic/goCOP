@@ -26,14 +26,11 @@ import (
 // zakonom i obrascem, dan žalosti se doda, koeficijent promijeni, i oboje
 // se odmah vidi.
 func TestPostavkeObracunaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "p.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "p.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewObracunRepository(baza, ledger.New(baza, "test"))
 	if err := repo.Osiguraj(context.Background()); err != nil {
 		t.Fatal(err)

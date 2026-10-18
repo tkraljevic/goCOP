@@ -172,14 +172,11 @@ func TestDecodeBodySamoPraviJSON(t *testing.T) {
 
 func bazaVoda(t *testing.T) (*service.WatercourseService, *repository.WatercourseRepository, *WatercoursesHandler) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "voda.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "voda.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test-node")
 	repo := repository.NewWatercourseRepository(baza, rec)
 	svc := service.NewWatercourseService(repo)

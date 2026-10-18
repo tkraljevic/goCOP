@@ -39,14 +39,11 @@ type stranicaPretplata struct {
 func novaStranicaPretplata(t *testing.T) stranicaPretplata {
 	t.Helper()
 	put := filepath.Join(t.TempDir(), "gocop.db")
-	baza, err := db.OpenDB(put)
+	baza, err := db.BazaIzPredloska(put)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	cvor, err := peers.LoadNode(put, "laptop-baranja", "Laptop Baranja", "test")
 	if err != nil {
 		t.Fatal(err)

@@ -16,14 +16,11 @@ import (
 )
 
 func TestWatercourseGeometryAPI(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "web_watercourse_geo.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "web_watercourse_geo.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 
 	rec := ledger.New(baza, "test-node")
 	waterRepo := repository.NewWatercourseRepository(baza, rec)
@@ -115,14 +112,11 @@ func TestWatercourseGeometryAPI(t *testing.T) {
 // Obrazac vode mijenja napomenu uz tok na karti i dodatne letve, a ostatak
 // geometrije i popis letvi ne dira kad ih ne šalje.
 func TestObrazacVodeNapomenaTokaILetve(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "web_voda_napomena.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "web_voda_napomena.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test-node")
 	waterRepo := repository.NewWatercourseRepository(baza, rec)
 	waterSvc := service.NewWatercourseService(waterRepo)

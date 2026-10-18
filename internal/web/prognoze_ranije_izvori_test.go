@@ -103,14 +103,11 @@ func TestRanijeIzdanjeTudePrognozeIzZapisa(t *testing.T) {
 // očitanja se čitaju do sata izdanja.
 func TestJutroRanijegIzdanja(t *testing.T) {
 	h := rukovateljRanijih(t)
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "op.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "op.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	stanice := repository.NewStationRepository(baza, rec)
 	ocitanja := repository.NewReadingRepository(baza, rec)

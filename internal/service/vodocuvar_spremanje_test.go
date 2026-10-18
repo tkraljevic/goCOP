@@ -32,14 +32,11 @@ type okolinaVodocuvara struct {
 
 func novaOkolinaVodocuvara(t *testing.T) *okolinaVodocuvara {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "vodocuvar.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "vodocuvar.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', ''),

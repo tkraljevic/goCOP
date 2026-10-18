@@ -20,15 +20,12 @@ func setupStationTestServices(t *testing.T) (*service.StationService, *repositor
 	t.Helper()
 	db.KoristiIzmisljenePodatke(t)
 
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "test_stations_gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "test_stations_gocop.db"))
 	if err != nil {
 		t.Fatalf("baza: %v", err)
 	}
 	t.Cleanup(func() { database.Close() })
 
-	if err := db.InitSchema(database); err != nil {
-		t.Fatalf("shema: %v", err)
-	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -156,14 +153,11 @@ func TestIzmjenaOdbijaKriviRedoslijedPragova(t *testing.T) {
 // sinkronizacije, pa nije stvar dobre volje repozitorija
 func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 	db.KoristiIzmisljenePodatke(t)
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "verzije.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "verzije.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
@@ -203,14 +197,11 @@ func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 // preskočen test ne dokazuje ništa.
 func letvaZaIzmjenu(t *testing.T) (*service.StationService, *repository.StationRepository, *models.Station) {
 	t.Helper()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "letva.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "letva.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, "test-node")
 	repo := repository.NewStationRepository(database, rec)
 	svc := service.NewStationService(repo,
@@ -318,15 +309,11 @@ func TestKvacicaZaProvjeruImaUcinak(t *testing.T) {
 }
 
 func TestFilterPostajaPoDrzavi(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "test_svc_stations.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "test_svc_stations.db"))
 	if err != nil {
 		t.Fatalf("baza: %v", err)
 	}
 	defer database.Close()
-
-	if err := db.InitSchema(database); err != nil {
-		t.Fatalf("shema: %v", err)
-	}
 
 	sse := service.NewSSEBroker()
 	rec := ledger.New(database, "test-node")

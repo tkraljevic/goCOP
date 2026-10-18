@@ -26,14 +26,11 @@ import (
 func TestSazimanjeKnjigeCuvaPredanList(t *testing.T) {
 	cvor := func(ime string) (*sql.DB, *ledger.Recorder) {
 		t.Helper()
-		baza, err := db.OpenDB(filepath.Join(t.TempDir(), ime+".db"))
+		baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), ime+".db"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { baza.Close() })
-		if err := db.InitSchema(baza); err != nil {
-			t.Fatal(err)
-		}
 		return baza, ledger.New(baza, ime)
 	}
 	nuzno := func(err error) {

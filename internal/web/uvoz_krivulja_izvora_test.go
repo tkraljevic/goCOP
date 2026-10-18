@@ -196,14 +196,11 @@ func TestSnimkaTraziOdgovorINova(t *testing.T) {
 // upisuje, lozinka zaključana drugim ključem se ne otključava, a letva bez
 // svog računa čita se računom čvora.
 func TestRacunZaHydroView(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "hv.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "hv.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	kljuc := posta.Kljuc([]byte("tajna-probnog-cvora"))
 	repo := repository.NewHidroViewRepository(baza)

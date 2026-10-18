@@ -67,14 +67,11 @@ type okolinaIzvana struct {
 
 func novaOkolinaIzvana(t *testing.T) *okolinaIzvana {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "izvana.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "izvana.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	repo := repository.NewUserRepository(baza, rec)
 	auth := service.NewAuthService(repo, repository.NewSessionRepository(baza))

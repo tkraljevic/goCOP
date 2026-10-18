@@ -24,14 +24,11 @@ import (
 func bazaZaOporavak(t *testing.T) string {
 	t.Helper()
 	put := filepath.Join(t.TempDir(), "gocop.db")
-	baza, err := db.OpenDB(put)
+	baza, err := db.BazaIzPredloska(put)
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	hash, err := bcrypt.GenerateFromPassword([]byte("stara-lozinka"), bcrypt.MinCost)
 	if err != nil {
 		t.Fatal(err)

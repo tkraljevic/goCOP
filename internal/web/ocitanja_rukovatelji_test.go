@@ -167,14 +167,11 @@ func TestStranicaNepostojeceLetve(t *testing.T) {
 // uključenje i isključenje zapisuju se i javljaju poslužitelju, povratak
 // ide samo na stranicu ovog programa.
 func TestPracenjeLetveNaCvoru(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "pracenje.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "pracenje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewFollowRepository(baza)
 	javljeno := 0
 	h := &ReadingsHandler{}

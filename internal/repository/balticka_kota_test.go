@@ -11,14 +11,11 @@ import (
 )
 
 func TestBaltickaKotaPohranaIzmjenaIRazmjena(t *testing.T) {
-	b, err := db.OpenDB(filepath.Join(t.TempDir(), "kote.db"))
+	b, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "kote.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer b.Close()
-	if err = db.InitSchema(b); err != nil {
-		t.Fatal(err)
-	}
 	r := NewStationRepository(b, ledger.New(b, "test-kote"))
 	ctx := context.Background()
 	v, trst := 85.380, 86.055

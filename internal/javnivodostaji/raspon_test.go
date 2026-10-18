@@ -37,14 +37,11 @@ type preuzimanjeUBazu struct {
 func novoPreuzimanjeUBazu(t *testing.T) *preuzimanjeUBazu {
 	t.Helper()
 	db.UseRepoImenik()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "preuzimanje.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "preuzimanje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "cvor-p")
 	st := &models.Station{ID: uuid.New(), Name: "Pivnica Probna", Code: "pivnica-probna",
 		JavniURL: "https://mvodostaji.voda.hr/Home/PregledVodostajaPostaje?sektorID=2&bpID=34&postajaID=424", JavniUvoz: true}

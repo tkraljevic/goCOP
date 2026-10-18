@@ -18,14 +18,11 @@ import (
 // dana u hrvatskom vremenu, i kad se sat pomiče: u listopadu dan ima 25
 // sati, u ožujku 23. Podaci su izmišljeni: letva Primjerovo.
 func TestVodostajiListaKadSeSatPomice(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "vodostaji.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "vodostaji.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	rec := ledger.New(baza, "test")
 	stations := repository.NewStationRepository(baza, rec)

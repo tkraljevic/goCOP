@@ -24,14 +24,11 @@ import (
 // Stranica županije ima službe: dodavanje, izmjena i brisanje, a grad ih
 // pokazuje uz svoje naselje
 func TestSluzbeUzZupanijuKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "sl.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "sl.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO counties (id, code, name, seat) VALUES (14, 'OB', 'Osječko-baranjska županija', 'Osijek')`,
 		`INSERT INTO municipalities (id, county_id, name, type) VALUES (302, 14, 'Beli Manastir', 'GRAD')`,

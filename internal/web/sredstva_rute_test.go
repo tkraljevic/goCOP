@@ -27,14 +27,11 @@ import (
 // punjenje prođu obrascem, kartica pokazuje stanje i knjigu, popis se
 // otvori s knjižnim stanjem, spremi i zaključi, a „gdje ima“ nađe skladište.
 func TestSredstvaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "mts.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "mts.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,

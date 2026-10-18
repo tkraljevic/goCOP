@@ -17,14 +17,11 @@ import (
 // ostane gola brojka koja izgleda kao mjerenje — zato se traži cijeli zapis
 // natrag, i nakon upisa i nakon izmjene.
 func TestPovratniVodostajiPrezivePohranu(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "postaje.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "postaje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewStationRepository(database, ledger.New(database, "cop-osijek"))
 	ctx := context.Background()
 

@@ -29,14 +29,11 @@ import (
 // bez prijave
 func posluziteljZaTrazilice(t *testing.T) *Server {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "trazilice.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "trazilice.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	userRepo := repository.NewUserRepository(baza, ledger.New(baza, "test"))
 	auth := service.NewAuthService(userRepo, repository.NewSessionRepository(baza))
 	users := service.NewUserService(userRepo, auth, service.NewSSEBroker())

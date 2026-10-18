@@ -41,14 +41,11 @@ func otisakSaStranice(t *testing.T, stranica string) string {
 // kvačicu, pri ovjeri se popis slaže ponovno i razlika se pokaže prije
 // potvrde, a gumb „Ponovno složi primatelje” daje nacrtu novi popis.
 func TestPrimateljiNacrtaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "primatelji.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "primatelji.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (34, 'B', 'Primjerica', 'VGI Primjerica')`,

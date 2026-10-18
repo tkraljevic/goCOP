@@ -21,14 +21,11 @@ func startNodeBezRegistra(t *testing.T, ctx context.Context, id string) *node {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, id)
 	n, err := peers.LoadNode(dbPath, id, "test-"+id, "test")
 	if err != nil {

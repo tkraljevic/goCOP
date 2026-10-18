@@ -11,15 +11,11 @@ import (
 )
 
 func TestWatercourseRepository_Geometry(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "test_watercourses.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "test_watercourses.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 
 	rec := ledger.New(baza, "test-node")
 	repo := NewWatercourseRepository(baza, rec)

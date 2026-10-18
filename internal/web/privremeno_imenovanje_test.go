@@ -27,14 +27,11 @@ import (
 // vremenu, profil kaže kad prestaje, a obrazac izmjene nudi zadani dan, ne
 // raniji stvarni istek (kraj obrane)
 func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "imenovanje.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "imenovanje.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'Drava i Dunav', 'COP', 'Osijek')`,

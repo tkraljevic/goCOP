@@ -20,11 +20,8 @@ import (
 // prolazi cijelu knjigu, a razmjena i uvoz idu u paketima. Kad nema što
 // popraviti, obnova ne piše ništa, a grešku zapiše.
 func TestObnovaPovrsineIdePriPokretanju(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "obnova.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "obnova.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	ctx := context.Background()

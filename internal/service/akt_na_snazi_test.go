@@ -18,14 +18,11 @@ import (
 // izvođenje ne dodaje verzije, a akt izvan razdoblja, budući i poništen akt
 // se ne izvode
 func TestPovijestObraneZaAktKojiJeStupioNaSnagu(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "na-snazi.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "na-snazi.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01'),

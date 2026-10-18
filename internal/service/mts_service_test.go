@@ -383,14 +383,11 @@ func pripremiMts(t *testing.T) (*MtsService, *models.Skladiste, context.Context,
 // pripremiMtsIBazu je pripremiMts koji vraća i bazu, za test koji je kvari
 func pripremiMtsIBazu(t *testing.T) (*MtsService, *models.Skladiste, context.Context, *models.User, *models.UserPermissions, *sql.DB) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "mts.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "mts.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('F', 'Sektor F', 'VGO Split', 'COP Split')`,

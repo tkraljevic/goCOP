@@ -17,14 +17,11 @@ import (
 // ImportBatch ne smije javiti da je išta upisao. Prije je vraćao broj redaka
 // obrađenih do greške, a pozivatelji su ih brojali kao upisane.
 func TestImportBatchGreskaUsredSerijeNeBrojiNista(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "primjerica.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewReadingRepository(database, ledger.New(database, "cvor-p"))
 	ctx := context.Background()
 
