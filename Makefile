@@ -25,7 +25,7 @@ quality-baseline:
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -baseline "$(QUALITY_BASELINE)" -record-baseline
 
 # Jednom tjedno na GitHubu (posao puni-race u provjera.yml): svi testovi pod
-# race nadzorom i u tuđim paketima (SQLite, bcrypt), bez coveragea i bez
+# race nadzorom i u tuđim paketima (SQLite, x/crypto), bez coveragea i bez
 # usporedbe s baselineom. Traje dulje od testova u make quality.
 quality-puni-race:
 	cd dev/quality && go run . -root "$(QUALITY_ROOT)" -out "$(QUALITY_OUT)" -puni-race

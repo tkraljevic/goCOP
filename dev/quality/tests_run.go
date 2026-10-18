@@ -83,11 +83,14 @@ func argumentiTestova(profil string, paketi []string) []string {
 
 // tudjiBezRacea su tuđi paketi koje race i checkptr ne nadziru (Odluke
 // (18. 10. 2026.)). Pogonski program SQLite-a (modernc.org/sqlite, C
-// preveden u Go, s libc) i bcrypt (golang.org/x/crypto) pod race nadzorom
-// rade višestruko sporije: bcrypt 567 ms prema 52 ms bez nadzora. Lokalno
-// 18. 10. 2026. (macOS, 14 jezgri) go test iz dev/quality trajao je 367 s,
-// a s ovim iznimkama 210 s; internal/service 351 s prema 43 s, uz istu
-// pokrivenost. Utrke u tom kodu ne tražimo mi. Sav kod goCOP-a i
+// preveden u Go, s libc) i bcrypt (golang.org/x/crypto/bcrypt) pod race
+// nadzorom rade višestruko sporije: bcrypt 567 ms prema 52 ms bez nadzora.
+// Uzorak golang.org/x/crypto/... gasi nadzor i za ostale pakete x/crypto
+// koje goCOP koristi: scrypt, hkdf, md4 i pbkdf2 (e-potpis, kod za
+// primanje, drugi korak prijave, NTLM za poštu). Lokalno 18. 10. 2026.
+// (macOS, 14 jezgri) go test iz dev/quality trajao je 367 s, a s ovim
+// iznimkama 210 s; internal/service 351 s prema 43 s, uz istu pokrivenost.
+// Utrke u tom kodu ne tražimo mi. Sav kod goCOP-a i
 // standardna biblioteka, pa i database/sql, ostaju pod nadzorom; to
 // provjerava TestRaceNadzireNasKod.
 var tudjiBezRacea = []string{"modernc.org/...", "golang.org/x/crypto/..."}
@@ -110,7 +113,8 @@ func raceIznimke() []string {
 // puniRace pokreće sve testove pod race nadzorom i u tuđim paketima, bez
 // iznimaka iz tudjiBezRacea, bez coveragea i bez usporedbe s baselineom.
 // Jednom tjedno na GitHubu tako se vidi i utrka koja prolazi kroz kod
-// SQLite-a ili bcrypta, a obična provjera je ne vidi (Odluke (18. 10. 2026.)).
+// SQLite-a ili golang.org/x/crypto, a obična provjera je ne vidi (Odluke
+// (18. 10. 2026.)).
 func puniRace(o options) error {
 	paketi, err := goPaketi(o.root)
 	if err != nil {
