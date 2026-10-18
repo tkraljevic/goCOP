@@ -9,7 +9,7 @@ package web
 //
 //   - izravan zahtjev s ovog računala (preglednik koji otvori Postava), ili
 //   - zahtjev iz lokalne mreže s jednokratnim kodom koji čvor pri pokretanju
-//     ispiše u dnevnik (poslužitelj bez zaslona, npr. Unraid).
+//     ispiše u dnevnik (poslužitelj bez zaslona, npr. NAS s Dockerom).
 //
 // Kroz tunel ni s javne adrese je nema ni s kodom: javni čvor se postavlja
 // iz lokalne mreže.

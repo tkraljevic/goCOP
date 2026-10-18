@@ -89,7 +89,7 @@ func bazaPoznatogCvora(t *testing.T, ime string) string {
 // izdanja 0.0.35, stavka 6). Isto i kad skripta zada -node.
 func TestPripremiUzPostojecuBazuBezPostavki(t *testing.T) {
 	for _, zastavice := range [][]string{nil, {"-node", "drugo-ime"}} {
-		put := bazaPoznatogCvora(t, "pperic-unraid")
+		put := bazaPoznatogCvora(t, "pperic-server")
 		dnevnikTesta(t)
 		if kod := run(context.Background(), append([]string{"-pripremi", "-db", put}, zastavice...), strings.NewReader("")); kod != 0 {
 			t.Fatalf("%v: izlazni kod %d", zastavice, kod)
@@ -105,7 +105,7 @@ func TestPripremiUzPostojecuBazuBezPostavki(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if odrediImeCvora(&cfg); cfg.Node.ID != "pperic-unraid" {
+		if odrediImeCvora(&cfg); cfg.Node.ID != "pperic-server" {
 			t.Errorf("%v: nakon -pripremi čvor kreće pod imenom %q", zastavice, cfg.Node.ID)
 		}
 	}
@@ -114,7 +114,7 @@ func TestPripremiUzPostojecuBazuBezPostavki(t *testing.T) {
 // -pripremi kaže da postavki nema, gdje se očekuju i pod kojim imenom baza
 // zna ovaj čvor
 func TestPripremiJavljaDaPostavkiNema(t *testing.T) {
-	put := bazaPoznatogCvora(t, "pperic-unraid")
+	put := bazaPoznatogCvora(t, "pperic-server")
 	dnevnikTesta(t)
 	cfg := config.Default()
 	cfg.DB = put
@@ -123,7 +123,7 @@ func TestPripremiJavljaDaPostavkiNema(t *testing.T) {
 	if kod := pripremiPostavke(cfg, "", "", &out); kod != 0 {
 		t.Fatalf("izlazni kod %d: %s", kod, out.String())
 	}
-	for _, mora := range []string{"nema " + filepath.Join(filepath.Dir(put), config.FileName), "Primjer se ne zapisuje", "pperic-unraid", "Vratite izvornu datoteku"} {
+	for _, mora := range []string{"nema " + filepath.Join(filepath.Dir(put), config.FileName), "Primjer se ne zapisuje", "pperic-server", "Vratite izvornu datoteku"} {
 		if !strings.Contains(out.String(), mora) {
 			t.Errorf("u ispisu nema %q:\n%s", mora, out.String())
 		}
@@ -136,7 +136,7 @@ func TestPripremiJavljaDaPostavkiNema(t *testing.T) {
 // Postavke bez imena uz bazu koja zna ključ čvora: -pripremi ne upisuje
 // ništa i kaže ime pod kojim će čvor krenuti, ono iz baze
 func TestPripremiPostavkeBezImenaUzPoznatuBazu(t *testing.T) {
-	put := bazaPoznatogCvora(t, "pperic-unraid")
+	put := bazaPoznatogCvora(t, "pperic-server")
 	dnevnikTesta(t)
 	postavke := filepath.Join(filepath.Dir(put), config.FileName)
 	if err := os.WriteFile(postavke, []byte("addr = \":80\"\n"), 0o644); err != nil {
@@ -146,7 +146,7 @@ func TestPripremiPostavkeBezImenaUzPoznatuBazu(t *testing.T) {
 	cfg.DB = put
 	cfg.Node.ID = "drugo-ime"
 	var out bytes.Buffer
-	if kod := pripremiPostavke(cfg, postavke, "", &out); kod != 0 || !strings.Contains(out.String(), "Ime čvora ostaje pperic-unraid") {
+	if kod := pripremiPostavke(cfg, postavke, "", &out); kod != 0 || !strings.Contains(out.String(), "Ime čvora ostaje pperic-server") {
 		t.Errorf("izlazni kod %d: %s", kod, out.String())
 	}
 	if b, _ := os.ReadFile(postavke); string(b) != "addr = \":80\"\n" {

@@ -7,7 +7,7 @@ kasnije i za protokol povezivanja (0.0.29–0.0.33) i Postavu.
 
 | čvor | gdje | mreža | pretplata | uloga u probi |
 |---|---|---|---|---|
-| **U** Unraid (`cop-osijek-unraid`) | kuća, Docker | LAN + tunel `cop-osijek.com` | sve (`[sync] sve = true`) | sastajalište, jedini dohvatljiv izvana |
+| **U** kućni server | kuća, Docker | LAN + tunel na javnu adresu | sve (`[sync] sve = true`) | sastajalište, jedini dohvatljiv izvana |
 | **L** laptop (macOS) | kuća ili hotspot mobitela | LAN / mobilna mreža | kako je sada | putujući čvor |
 | **W** Windows PC (Intel, 64-bit) | kuća | LAN | **uska**, `[sync] sve = false` | ograničeni čvor, kasnije Postava |
 

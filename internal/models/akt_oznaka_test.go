@@ -11,9 +11,9 @@ func TestSukobiOznaka(t *testing.T) {
 	akt := func(id, sektor string, broj, godina int) Akt {
 		return Akt{ID: id, Sektor: sektor, Broj: broj, Godina: godina, Status: AktOvjeren, OvjeraKod: "K-" + id}
 	}
-	osijek, unraid := akt("osijek", "B", 7, 2026), akt("unraid", "B", 7, 2026)
+	osijek, server := akt("osijek", "B", 7, 2026), akt("server", "B", 7, 2026)
 	akti := []Akt{
-		osijek, unraid,
+		osijek, server,
 		akt("druga-godina", "B", 7, 2027), // B-7/2027 nije B-7/2026
 		akt("drugi-sektor", "D", 7, 2026),
 		akt("nacrt-1", "B", 0, 2026), akt("nacrt-2", "B", 0, 2026), // nacrti nemaju oznaku
@@ -22,20 +22,20 @@ func TestSukobiOznaka(t *testing.T) {
 	if len(s) != 2 {
 		t.Fatalf("u sukobu su samo dva akta B-7/2026, a dobiveno: %v", s)
 	}
-	if d := s["osijek"].Drugi; len(d) != 1 || d[0].ID != "unraid" || s["osijek"].Rijesen() {
+	if d := s["osijek"].Drugi; len(d) != 1 || d[0].ID != "server" || s["osijek"].Rijesen() {
 		t.Errorf("sukob akta s laptopa: %+v", s["osijek"])
 	}
-	if d := s["unraid"].Drugi; len(d) != 1 || d[0].ID != "osijek" {
-		t.Errorf("sukob akta s poslužitelja: %+v", s["unraid"])
+	if d := s["server"].Drugi; len(d) != 1 || d[0].ID != "osijek" {
+		t.Errorf("sukob akta s poslužitelja: %+v", s["server"])
 	}
 
 	// rješenje obuhvaća oba akta; rješenje druge oznake ne rješava ovu
 	rjesenja := []RjesenjeOznake{
 		{Oznaka: "B-3/2026", Akti: []string{"neki", "drugi"}, Kodovi: []string{"K-neki", "K-drugi"}, Napomena: "druga oznaka"},
-		{Oznaka: "B-7/2026", Akti: []string{"osijek", "unraid"}, Kodovi: []string{"K-osijek", "K-unraid"}, Napomena: "dopis primateljima", Kad: time.Now()},
+		{Oznaka: "B-7/2026", Akti: []string{"osijek", "server"}, Kodovi: []string{"K-osijek", "K-server"}, Napomena: "dopis primateljima", Kad: time.Now()},
 	}
 	s = SukobiOznaka(akti, nil, rjesenja)
-	if !s["osijek"].Rijesen() || !s["unraid"].Rijesen() || s["osijek"].Rjesenje.Napomena != "dopis primateljima" {
+	if !s["osijek"].Rijesen() || !s["server"].Rijesen() || s["osijek"].Rjesenje.Napomena != "dopis primateljima" {
 		t.Errorf("rješenje sukoba: %+v", s)
 	}
 	if s = SukobiOznaka(akti, nil, rjesenja[:1]); s["osijek"].Rijesen() {
@@ -75,10 +75,10 @@ func TestSukobiOznaka(t *testing.T) {
 // poslužitelja B-1 uz ovjeru laptopa. Svaki sukob rješava se zasebno
 // (Odluke (8. 10. 2026.), pitanje 4).
 func TestDrugaOvjeraIstogNacrta(t *testing.T) {
-	x := Akt{ID: "x", Sektor: "B", Broj: 2, Godina: 2026, Status: AktOvjeren, OvjeraKod: "806A", Cvor: "unraid"}
+	x := Akt{ID: "x", Sektor: "B", Broj: 2, Godina: 2026, Status: AktOvjeren, OvjeraKod: "806A", Cvor: "server"}
 	xLaptop := Akt{ID: "x", Sektor: "B", Broj: 1, Godina: 2026, Status: AktOvjeren, OvjeraKod: "CCA9", Cvor: "laptop"}
-	y := Akt{ID: "y", Sektor: "B", Broj: 1, Godina: 2026, Status: AktOvjeren, OvjeraKod: "77B0", Cvor: "unraid"}
-	z := Akt{ID: "z", Sektor: "B", Broj: 3, Godina: 2026, Status: AktOvjeren, OvjeraKod: "1234", Cvor: "unraid"}
+	y := Akt{ID: "y", Sektor: "B", Broj: 1, Godina: 2026, Status: AktOvjeren, OvjeraKod: "77B0", Cvor: "server"}
+	z := Akt{ID: "z", Sektor: "B", Broj: 3, Godina: 2026, Status: AktOvjeren, OvjeraKod: "1234", Cvor: "server"}
 	druge := []Akt{xLaptop}
 	s := SukobiOznaka([]Akt{x, y, z}, druge, nil)
 	if len(s) != 2 {
@@ -135,11 +135,11 @@ func TestCvoroviSukobaOznake(t *testing.T) {
 		drugi []Akt
 		hoce  string
 	}{
-		{"dva čvora", akt("laptop"), []Akt{akt("unraid")}, SukobRazlicitiCvorovi},
-		{"jedan od trojice s drugog čvora", akt("laptop"), []Akt{akt(""), akt("unraid")}, SukobRazlicitiCvorovi},
+		{"dva čvora", akt("laptop"), []Akt{akt("server")}, SukobRazlicitiCvorovi},
+		{"jedan od trojice s drugog čvora", akt("laptop"), []Akt{akt(""), akt("server")}, SukobRazlicitiCvorovi},
 		{"isti čvor", akt("laptop"), []Akt{akt("laptop")}, SukobIstiCvor},
 		{"čvor drugog akta nije upisan", akt("laptop"), []Akt{akt("laptop"), akt("")}, ""},
-		{"čvor akta nije upisan", akt(""), []Akt{akt("unraid")}, ""},
+		{"čvor akta nije upisan", akt(""), []Akt{akt("server")}, ""},
 	} {
 		if got := (SukobOznake{Drugi: c.drugi}).Cvorovi(c.a); got != c.hoce {
 			t.Errorf("%s: %q, očekivano %q", c.opis, got, c.hoce)

@@ -16,7 +16,7 @@ import (
 
 // Letva primljena razmjenom mora na drugom čvoru biti ista kao na izvornom,
 // polje po polje. Polja koja razmjena nije prenosila (HydroView, ograde
-// niza, povijest…) ostala su na Unraidu prazna i prognoza je stala jer dva
+// niza, povijest…) ostala su na serveru prazna i prognoza je stala jer dva
 // vrha lanca nitko nije preuzimao. Test popuni svako jednostavno polje, pa
 // pada i kad letva dobije novo polje koje primjena ne upisuje.
 func TestLetvaKrozRazmjenuSvaPolja(t *testing.T) {
@@ -34,7 +34,7 @@ func TestLetvaKrozRazmjenuSvaPolja(t *testing.T) {
 		return NewStationRepository(baza, rec), rec, nil
 	}
 	repoA, recA, _ := otvori("ured")
-	repoB, recB, _ := otvori("unraid")
+	repoB, recB, _ := otvori("server")
 	bazaB := repoB.db
 
 	st := &models.Station{ID: uuid.New(), Code: "proba-letva", Name: "Proba"}

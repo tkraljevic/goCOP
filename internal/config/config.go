@@ -25,11 +25,11 @@ const FileName = "gocop.toml"
 // Config su sve postavke koje se mogu zadati prije pokretanja
 type Config struct {
 	Addr string `toml:"addr" comment:"Adresa web sučelja. ':80' = port 80 na svim mrežnim karticama;\nkad je 80 zauzet, program sam prijeđe na 8080.\n  addr = ':8080'            # drugi port\n  addr = '127.0.0.1:8080'   # samo s ovog računala"`
-	DB   string `toml:"db" comment:"Baza čvora. Uz nju stoje ključ čvora (node-key) i ova datoteka:\npremještajte ih i kopirajte uvijek zajedno.\n  db = '/data/gocop.db'           # Docker, Unraid\n  db = 'C:\\goCOP\\data\\gocop.db'   # Windows"`
+	DB   string `toml:"db" comment:"Baza čvora. Uz nju stoje ključ čvora (node-key) i ova datoteka:\npremještajte ih i kopirajte uvijek zajedno.\n  db = '/data/gocop.db'           # Docker, NAS\n  db = 'C:\\goCOP\\data\\gocop.db'   # Windows"`
 	// Velike i rijetko pisane datoteke mogu stajati odvojeno od baze: na
 	// poslužitelju baza ide na brzi disk (SSD), a arhiva, izvorne datoteke,
 	// skenovi i paketi na veliki (mehanički). Prazno znači uz bazu.
-	Arhiva  string `toml:"arhiva" comment:"Datoteka arhive vodostaja i meteorologije (vodostaji.db, desetak GB).\nPrazno = uz bazu. Smije na drugi, veći disk, ali ne na mrežnu ni FUSE\nmapu (na Unraidu /mnt/diskN, nikad /mnt/user).\n  arhiva = '/arhiva/vodostaji.db'   # disk montiran u Docker"`
+	Arhiva  string `toml:"arhiva" comment:"Datoteka arhive vodostaja i meteorologije (vodostaji.db, desetak GB).\nPrazno = uz bazu. Smije na drugi, veći disk, ali ne na mrežnu ni FUSE\nmapu (na NAS-u npr. /mnt/diskN, nikad /mnt/user).\n  arhiva = '/arhiva/vodostaji.db'   # disk montiran u Docker"`
 	Podaci  string `toml:"podaci" comment:"Mapa s izvornim datotekama arhive. Prazno = 'vodostaji'; relativna\nputanja računa se od mape iz koje se goCOP pokreće (pod Postavom i kao\nusluga sustava to je mapa baze).\n  podaci = '/arhiva/vodostaji'"`
 	Skenovi string `toml:"skenovi" comment:"Mapa za skenove i fotografije prijava s terena (u podmapi prijave).\nPrazno = mapa skenovi uz bazu.\n  skenovi = '/arhiva/skenovi'"`
 	Pakete  string `toml:"pakete" comment:"Mapa u koju čvor izdaje .cop pakete arhive. Prazno = 'pakete'\n(od mape iz koje se goCOP pokreće; pod Postavom i kao usluga sustava to je\nmapa baze).\n  pakete = '/arhiva/pakete'"`
@@ -45,8 +45,8 @@ type Config struct {
 	} `toml:"web"`
 
 	Node struct {
-		ID   string `toml:"id" comment:"Ime čvora u mreži: mala slova, brojke i crtica. Prazno = program ga\nizabere sam i upiše ovdje. Ne mijenjajte ga nakon prvog pokretanja:\npod njim čvor upisuje zapise, a drugi ga čvorovi pamte uz ključ.\n  id = 'cop-osijek-unraid'\n  id = 'pperic-thinkpad'"`
-		Name string `toml:"name" comment:"Naziv koji drugi vide pri uparivanju. Prazno = ime računala.\n  name = 'COP Osijek (Unraid)'"`
+		ID   string `toml:"id" comment:"Ime čvora u mreži: mala slova, brojke i crtica. Prazno = program ga\nizabere sam i upiše ovdje. Ne mijenjajte ga nakon prvog pokretanja:\npod njim čvor upisuje zapise, a drugi ga čvorovi pamte uz ključ.\n  id = 'cop-osijek-server'\n  id = 'pperic-thinkpad'"`
+		Name string `toml:"name" comment:"Naziv koji drugi vide pri uparivanju. Prazno = ime računala.\n  name = 'COP Osijek (kućni server)'"`
 	} `toml:"node"`
 
 	Support struct {

@@ -5,7 +5,7 @@ package peers
 // svaka razmjena primljeno upisuje u knjigu, na površinu i u spremište
 // sadržaja. Istodobni upisi u istu bazu čekali su jedan drugoga dulje nego
 // što SQLite čeka (5 s), pa je upis padao s „database is locked” (uredski
-// čvor 12. 10. 2026., dok je istodobno primao s Unraida). Sad primljeno
+// čvor 12. 10. 2026., dok je istodobno primao s kućnog servera). Sad primljeno
 // upisuje jedna razmjena u isto vrijeme, pod bravom čvora; isto i uvoz
 // arhive i COP paketa.
 //

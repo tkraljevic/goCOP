@@ -218,7 +218,7 @@ begin
   if (CurPageID = StranicaMreze.ID) and (StranicaMreze.SelectedValueIndex = 1) then
     Result := MsgBox('Ovo računalo bit će PRVO računalo NOVE mreže.' + #13#10#13#10 +
       'To se radi samo jednom po mreži, npr. za prvi čvor centra. Ono drži ključ mreže i prima sva ostala računala.' + #13#10#13#10 +
-      'Nova mreža je zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s njima. Ako ovo računalo treba raditi s postojećim računalima (ured, Unraid, drugi laptopi), izaberite postojeću mrežu.' + #13#10#13#10 +
+      'Nova mreža je zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s njima. Ako ovo računalo treba raditi s postojećim računalima (ured, poslužitelj, drugi laptopi), izaberite postojeću mrežu.' + #13#10#13#10 +
       'Je li ovo doista prvo računalo nove mreže?', mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES;
   if CurPageID = StranicaImena.ID then
   begin

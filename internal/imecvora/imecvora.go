@@ -9,7 +9,7 @@
 // nakon toga: prvi zapisi već nose to ime.
 //
 // Oblik: mala slova, brojke i crtica, 3–40 znakova, bez crtice na početku i
-// kraju (npr. pperic-thinkpad, cop-osijek-unraid).
+// kraju (npr. pperic-thinkpad, cop-osijek-server).
 package imecvora
 
 import (

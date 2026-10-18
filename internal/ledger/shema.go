@@ -1,6 +1,6 @@
 package ledger
 
-// Čvorovi ne rade uvijek na istoj verziji programa: Unraid se nadograđuje
+// Čvorovi ne rade uvijek na istoj verziji programa: kućni server se nadograđuje
 // slikom, laptop binarkom, uredski čvor kad stigne. Knjiga zato mora
 // podnijeti zapis koji je napisao noviji program, a da ga stariji ne pokvari.
 //

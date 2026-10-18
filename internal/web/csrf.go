@@ -20,7 +20,7 @@ import (
 //     čvorovi), pa ga ni tuđa stranica ne može podmetnuti.
 //
 // Druga stranica na istom računalu ili istoj adresi s drugim vratima
-// (druga aplikacija na Unraidu, drugi razvojni poslužitelj na localhostu)
+// (druga aplikacija na istom NAS-u, drugi razvojni poslužitelj na localhostu)
 // također je tuđa: SameSite=Lax je takvima kolačić slao, ova zaštita ne.
 
 // porukaTudjaStranica je razlog odbijanja koji vidi korisnik

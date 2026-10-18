@@ -12,7 +12,7 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Novi čvor (Docker, Unraid) kreće s praznom bazom: registar stiže tek
+// Novi čvor (Docker, NAS) kreće s praznom bazom: registar stiže tek
 // razmjenom, pa popravci podataka moraju proći i bez njega.
 func TestPopravciNaPraznojBazi(t *testing.T) {
 	baza, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "gocop.db"))

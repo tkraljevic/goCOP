@@ -11,12 +11,12 @@ import (
 )
 
 // Delta skraćena zbog veličine poruke nastavlja se odmah, i kad ju je
-// skratio čvor koji prima poziv (laptop zove Unraid kroz tunel, pa je
-// Unraid uvijek ta strana). Prije je ostatak čekao sljedeći krug.
+// skratio čvor koji prima poziv (laptop zove server kroz tunel, pa je
+// server uvijek ta strana). Prije je ostatak čekao sljedeći krug.
 func TestSkracenaDeltaSNazvaneStraneNastavljaOdmah(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
-	a := startNodeBezRegistra(t, ctx, "unraid")
+	a := startNodeBezRegistra(t, ctx, "server")
 	b := startNodeBezRegistra(t, ctx, "laptop")
 	founder(t, ctx, a, "Hrvatske vode")
 	pair(t, ctx, a, b)

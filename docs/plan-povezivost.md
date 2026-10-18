@@ -373,7 +373,7 @@ do stotine. Zato: bez pune mreže, ograničen broj aktivnih susjeda, gossip, i
 
 ### Uloga se ne dodjeljuje nego proizlazi
 
-Netko ima unraid koji je stalno gore. Netko drugi mini-računalo u uredu.
+Netko ima NAS koji je stalno gore. Netko drugi mini-računalo u uredu.
 Netko treći ništa osim prijenosnika.
 
 **To se ne konfigurira.** Čvor objavljuje činjenice o sebi — koliko je
@@ -461,7 +461,7 @@ Tri načina koji uvjet zadovoljavaju:
 - **povlačenje izvana** — backup domaćin sam povlači, a izvor mu ne može ni
   pisati ni brisati
 
-Stalno upaljen čvor (unraid, mini-računalo) dobro je odredište **samo** ako su
+Stalno upaljen čvor (NAS, mini-računalo) dobro je odredište **samo** ako su
 kopije snimke koje sustav u pogonu ne može prepisati. „Stalno gore i na mreži"
 znači i „dohvatljiv napadaču".
 

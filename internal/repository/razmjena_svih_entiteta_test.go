@@ -1430,7 +1430,7 @@ func razmjenaSvihEntiteta(t *testing.T) {
 }
 
 func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {
-	a, b := noviCvor(t, "ured"), noviCvor(t, "unraid")
+	a, b := noviCvor(t, "ured"), noviCvor(t, "server")
 	s.napravi(t, a)
 	id := jedinoIzKnjige(t, a, s.entitet)
 	posalji(t, a, b)

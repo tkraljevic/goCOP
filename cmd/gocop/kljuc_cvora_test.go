@@ -91,16 +91,16 @@ func TestImeCvoraIzBaze(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, err = baza.Exec(`INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-unraid', ?, '2026-10-02T06:00:00Z')`, cvor.PublicKey())
+	_, err = baza.Exec(`INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-server', ?, '2026-10-02T06:00:00Z')`, cvor.PublicKey())
 	baza.Close()
 	if err != nil {
 		t.Fatal(err)
 	}
 	cfg.Node.ID = ""
-	if odrediImeCvora(&cfg) || cfg.Node.ID != "pperic-unraid" {
+	if odrediImeCvora(&cfg) || cfg.Node.ID != "pperic-server" {
 		t.Errorf("ime iz baze: %q", cfg.Node.ID)
 	}
-	if !strings.Contains(dnevnik.String(), "Ime čvora pperic-unraid pročitano iz baze") {
+	if !strings.Contains(dnevnik.String(), "Ime čvora pperic-server pročitano iz baze") {
 		t.Errorf("dnevnik: %s", dnevnik)
 	}
 }
@@ -132,7 +132,7 @@ func TestPrimjerPostavkiUzPostojecuBazu(t *testing.T) {
 	put := bazaZaOporavak(t)
 	cfg := config.Default()
 	cfg.DB = put
-	cfg.Node.ID = "pperic-unraid"
+	cfg.Node.ID = "pperic-server"
 	dnevnik := dnevnikTesta(t)
 	zapisiPrimjerPostavki(cfg, "", "", false, false)
 	primjer := filepath.Join(filepath.Dir(put), config.FileName)
@@ -144,14 +144,14 @@ func TestPrimjerPostavkiUzPostojecuBazu(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(filepath.Dir(put), config.PrimjerFileName)); err != nil {
 		t.Errorf("uz postojeću bazu nema %s: %v", config.PrimjerFileName, err)
 	}
-	for _, mora := range []string{"nema " + primjer, "Primjer se ne zapisuje", "pperic-unraid", "Vratite izvornu datoteku"} {
+	for _, mora := range []string{"nema " + primjer, "Primjer se ne zapisuje", "pperic-server", "Vratite izvornu datoteku"} {
 		if !strings.Contains(dnevnik.String(), mora) {
 			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
 		}
 	}
 }
 
-// Kad uz ključ nema ni gocop.toml (Unraid, 5. 10. 2026.: mover je odnio
+// Kad uz ključ nema ni gocop.toml (kućni server, 5. 10. 2026.: mover je odnio
 // oboje), odbijanje kaže i za postavke, a novi identitet uz zastavicu javlja
 // pod kojim imenom čvor kreće i kako zadržati dosadašnje. Kad su postavke
 // pročitane, o njima se ne govori.

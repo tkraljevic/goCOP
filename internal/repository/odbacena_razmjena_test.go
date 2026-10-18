@@ -11,7 +11,7 @@ import (
 )
 
 // Dorada (Odluke (8. 10. 2026.), pitanje 21): odbačene vrijednosti broje se
-// i pokazuju na stranici letve. Preuzima samo jedan čvor (Unraid), a laptop
+// i pokazuju na stranici letve. Preuzima samo jedan čvor (server), a laptop
 // očitanja dobiva razmjenom, pa zapis o odbačenoj vrijednosti mora putovati
 // kao i očitanje — inače laptop ne vidi da je mjerilo u kvaru, nego samo
 // rupu u nizu.
@@ -34,22 +34,22 @@ func letvaUPodrucju(t *testing.T, c *cvorZaRazmjenu, sifra string) *models.Stati
 }
 
 func TestOdbaceneVrijednostiPutujuRazmjenom(t *testing.T) {
-	unraid := noviCvorZaRazmjenu(t, "unraid")
+	server := noviCvorZaRazmjenu(t, "server")
 	laptop := noviCvorZaRazmjenu(t, "laptop")
 	ctx := context.Background()
-	pivnica := letvaUPodrucju(t, unraid, "pivnica-probna")
-	unraid.posalji(t, laptop, "")
+	pivnica := letvaUPodrucju(t, server, "pivnica-probna")
+	server.posalji(t, laptop, "")
 
 	sat := time.Now().Truncate(time.Hour).Add(-3 * time.Hour)
 	zaglavljeno := uvezeno(pivnica, sat.Add(time.Hour), -1102)
-	if _, err := NewReadingRepository(unraid.db, unraid.rec).ImportBatch(ctx,
+	if _, err := NewReadingRepository(server.db, server.rec).ImportBatch(ctx,
 		[]models.Reading{uvezeno(pivnica, sat, 120), zaglavljeno}); err != nil {
 		t.Fatal(err)
 	}
 
 	// zapis o odbačenoj vrijednosti je u knjizi, u kanalu očitanja letve
 	id := idOdbacene(models.OdbaceneVrijednosti(zaglavljeno, models.VrijednostiIzvanRaspona(zaglavljeno, false))[0])
-	v, err := unraid.rec.Latest(ctx, EntityOdbacena, id)
+	v, err := server.rec.Latest(ctx, EntityOdbacena, id)
 	if err != nil {
 		t.Fatalf("odbačena vrijednost nije u knjizi: %v", err)
 	}
@@ -57,7 +57,7 @@ func TestOdbaceneVrijednostiPutujuRazmjenom(t *testing.T) {
 		t.Errorf("kanal %q, očekivan %q (kao očitanje letve)", v.Channel, ocekivan)
 	}
 
-	unraid.posalji(t, laptop, "")
+	server.posalji(t, laptop, "")
 	s, err := NewReadingRepository(laptop.db, laptop.rec).SazetakOdbacenih(ctx, "station:"+pivnica.ID.String())
 	if err != nil || s == nil {
 		t.Fatalf("laptop ne vidi odbačenu vrijednost: %+v, %v", s, err)
@@ -73,8 +73,8 @@ func TestOdbaceneVrijednostiPutujuRazmjenom(t *testing.T) {
 	// drugi čvor koji preuzima istu letvu (cop-osijek-node) i dobije istu
 	// vrijednost ne dodaje novu: broji se jednom u cijeloj mreži
 	ured := noviCvorZaRazmjenu(t, "ured")
-	unraid.do = ""
-	unraid.posalji(t, ured, "")
+	server.do = ""
+	server.posalji(t, ured, "")
 	ponovo := zaglavljeno
 	ponovo.ID = uuid.New()
 	if _, err := NewReadingRepository(ured.db, ured.rec).ImportBatch(ctx, []models.Reading{ponovo}); err != nil {

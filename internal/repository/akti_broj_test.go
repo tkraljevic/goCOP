@@ -141,7 +141,7 @@ func TestAktiIsteOznakeINastavakNiza(t *testing.T) {
 	// razmjena donese akt drugog čvora: ista oznaka B-1/2026, i B-4/2026
 	for _, broj := range []int{1, 4} {
 		tudi := &models.Akt{Sektor: "B", AreaID: 15, Broj: broj, Godina: 2026, Radnja: models.AktUspostava, Stupanj: models.PhaseRegular,
-			StationName: "Vukovar", Status: models.AktOvjeren, Cvor: "unraid", Vrijedi: time.Date(2026, 10, 6, 3, 0, 0, 0, models.Zagreb)}
+			StationName: "Vukovar", Status: models.AktOvjeren, Cvor: "server", Vrijedi: time.Date(2026, 10, 6, 3, 0, 0, 0, models.Zagreb)}
 		if err := repo.SaveAkt(ctx, tudi); err != nil {
 			t.Fatal(err)
 		}

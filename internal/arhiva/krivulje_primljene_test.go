@@ -26,7 +26,7 @@ func upisiKrivulju(t *testing.T, db *sql.DB, letva, od, do string, p1 float64) {
 // oznaciPrimljenu bilježi da je letva stigla paketom s drugog čvora.
 func oznaciPrimljenu(t *testing.T, db *sql.DB, letva string) {
 	t.Helper()
-	if err := zapisiPrimljeno(db, Manifest{Letva: letva, Izdanje: 6, Otisak: "otisak", Izdao: "cop-osijek-unraid"}, true, ""); err != nil {
+	if err := zapisiPrimljeno(db, Manifest{Letva: letva, Izdanje: 6, Otisak: "otisak", Izdao: "cop-osijek-server"}, true, ""); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -36,7 +36,7 @@ func oznaciPrimljenu(t *testing.T, db *sql.DB, letva string) {
 // datoteka nema, a izvještaj ih vrati kao zadržane. Krivulje iz datoteke kojih
 // u arhivi nema se upišu. Krivulja iz datoteke ne zamijeni krivulju istog
 // početka valjanosti koju je donio paket: ista se preskače, a drukčija se
-// vraća kao neupisana. Laptop i Unraid znali su imati različite krivulje
+// vraća kao neupisana. Laptop i server znali su imati različite krivulje
 // Donjeg Miholjca, pa bi starija lokalna datoteka odnijela krivulje iz paketa
 // ili vratila staru preko ispravka pod istim datumom. Letva koja nije stigla
 // paketom i dalje prati svoju datoteku.

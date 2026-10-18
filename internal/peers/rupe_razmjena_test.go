@@ -3,7 +3,7 @@ package peers
 // Rupe u nizu (rupe.go) između pravih čvorova na loopbacku: pravilo čuvanja
 // i njegove promjene, jednokratni korak, mješovita mreža s čvorovima bez
 // oznake rupe/1, popuna, brisanje kanala, kvar zapisa rupa i vlastiti
-// ključ. Ured, laptop i Unraid su kao u rupa_posrednika_test.go.
+// ključ. Ured, laptop i server su kao u rupa_posrednika_test.go.
 
 import (
 	"fmt"
@@ -105,7 +105,7 @@ func TestRupaRubUnatrag(t *testing.T) {
 // Jednokratni korak (Odluke (17. 10. 2026.), 3): laptop koji je staro-a
 // odbio prije nadogradnje (u knjizi ga nema, a zapisa o tome nema) s
 // uključenom ogradom jednom zapiše da za tuđa očitanja ne jamči, pa ga
-// Unraid traži od ureda. Bez ograde ne zapiše ništa, drugi poziv ne mijenja
+// server traži od ureda. Bez ograde ne zapiše ništa, drugi poziv ne mijenja
 // ništa, a kanali dnevnika i prijava i vlastiti ključ se ne označavaju. Dok
 // korak nije zapisan, laptop ne jamči kao da jest (virtualno).
 func TestRupaPrvoPokretanje(t *testing.T) {
@@ -138,7 +138,7 @@ func TestRupaPrvoPokretanje(t *testing.T) {
 			}
 			upisaoPrimatelj(t, a, d, true)
 			if got := upisaoPrimatelj(t, a, c, true); got != 1 || !imaVerziju(t, a, rupaStaroA.VersionID) {
-				t.Errorf("Unraid od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
+				t.Errorf("Server od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
 			}
 		})
 	}
@@ -169,11 +169,11 @@ func TestRupaMjesovitaMreza(t *testing.T) {
 		upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
 		upisaoPrimatelj(t, d, c, true)
 		if got := upisaoPrimatelj(t, a, d, true); got != 2 {
-			t.Errorf("stari Unraid od laptopa upisao %d, očekivano 2", got)
+			t.Errorf("stari server od laptopa upisao %d, očekivano 2", got)
 		}
 		mirno(t, [2]*Service{a, d}, [2]*Service{a, c})
 		if imaVerziju(t, a, rupaStaroA.VersionID) || len(rupeCvora(t, a)) != 0 {
-			t.Errorf("stari Unraid ima staro-a ili rupe")
+			t.Errorf("stari server ima staro-a ili rupe")
 		}
 	})
 	t.Run("stari posrednik", func(t *testing.T) {
@@ -185,11 +185,11 @@ func TestRupaMjesovitaMreza(t *testing.T) {
 		upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
 		upisaoPrimatelj(t, d, c, true)
 		if got := upisaoPrimatelj(t, a, d, true); got != 2 {
-			t.Errorf("Unraid od starog laptopa upisao %d", got)
+			t.Errorf("Server od starog laptopa upisao %d", got)
 		}
 		mirno(t, [2]*Service{a, c})
 		if imaVerziju(t, a, rupaStaroA.VersionID) || len(rupeCvora(t, a)) != 0 {
-			t.Errorf("Unraid ima staro-a ili rupe")
+			t.Errorf("Server ima staro-a ili rupe")
 		}
 	})
 	t.Run("stari autor", func(t *testing.T) {
@@ -205,7 +205,7 @@ func TestRupaMjesovitaMreza(t *testing.T) {
 			mirno(t, [2]*Service{a, c})
 		}
 		if rk := rupeCvora(t, a)[kljucRupe]; rk.trazi.prazan() {
-			t.Fatalf("Unraid nema rupu dok je ured star: %+v", rk)
+			t.Fatalf("Server nema rupu dok je ured star: %+v", rk)
 		}
 		c.mogucnosti = nil
 		if got := upisaoPrimatelj(t, a, c, true); got != 1 || len(rupeCvora(t, a)) != 0 {
@@ -254,7 +254,7 @@ func TestPopunaOgradjena(t *testing.T) {
 	}
 	t.Log(ishod)
 	if rupe := rupeCvora(t, a); len(rupe) != 0 {
-		t.Errorf("Unraid i dalje traži: %+v", rupe)
+		t.Errorf("Server i dalje traži: %+v", rupe)
 	}
 	st, err := a.Status(ctxRub, false)
 	if err != nil {
@@ -288,7 +288,7 @@ func TestPopunaNePotiskujeRedovnu(t *testing.T) {
 		t.Errorf("drugi razgovor: upisano %d", p.applied)
 	}
 	if rupe := rupeCvora(t, a); len(rupe) != 0 {
-		t.Errorf("Unraid i dalje traži: %+v", rupe)
+		t.Errorf("Server i dalje traži: %+v", rupe)
 	}
 }
 
@@ -302,7 +302,7 @@ func TestRupaPurgeChannel(t *testing.T) {
 	upisaoPrimatelj(t, d, c, true)
 	upisaoPrimatelj(t, a, d, true)
 	if len(rupeCvora(t, a)) != 1 {
-		t.Fatalf("Unraid nema rupu: %+v", rupeCvora(t, a))
+		t.Fatalf("Server nema rupu: %+v", rupeCvora(t, a))
 	}
 	a.SetWantsAll(false)
 	if _, err := a.PurgeChannel(ctxRub, kanalRupe); err != nil {
@@ -347,7 +347,7 @@ func TestRupeSeNeDajuProcitati(t *testing.T) {
 	upisaoPrimatelj(t, a, c, true)
 	pokvariTablicu(t, a, "rupe_knjige")
 	if got := upisaoPrimatelj(t, n, a, true); got != 3 {
-		t.Fatalf("novo računalo od Unraida upisalo %d", got)
+		t.Fatalf("novo računalo od servera upisalo %d", got)
 	}
 	if rk := rupeCvora(t, n)[kljucRupe]; rk.trazi != (raspon{Do: rupaNovo2.VersionID}) {
 		t.Errorf("novo računalo ne traži: %+v", rk)
@@ -366,7 +366,7 @@ func TestRupaUMrezieBezRupaBezTransakcije(t *testing.T) {
 	upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
 	for _, zove := range []bool{true, false} {
 		if got := upisaoPrimatelj(t, a, c, zove); got != 3 && zove || got != 0 && !zove {
-			t.Errorf("Unraid zove %v: upisano %d", zove, got)
+			t.Errorf("Server zove %v: upisano %d", zove, got)
 		}
 	}
 }
@@ -391,14 +391,14 @@ func TestVlastitiKljucBezRupe(t *testing.T) {
 	upisiStalno(t, c, rupaStaroA)
 	upisaoPrimatelj(t, a, c, true)
 	if rupe := rupeCvora(t, a); len(rupe) != 0 {
-		t.Errorf("Unraid ima rupu od ureda: %+v", rupe)
+		t.Errorf("Server ima rupu od ureda: %+v", rupe)
 	}
 }
 
 // Brisanje kanala usred razgovora: laptop-baranja zapis rupa i granicu uzme
 // prije brisanja, a popunu čita poslije. Za ono čega više nema ne jamči, pa
-// Unraid rupu ne zatvori i staro-a dobije od ureda. Ni novo računalo koje
-// niz ima od uskog laptopa od Unraida ne dobije lažno zatvorenu rupu.
+// server rupu ne zatvori i staro-a dobije od ureda. Ni novo računalo koje
+// niz ima od uskog laptopa od servera ne dobije lažno zatvorenu rupu.
 func TestBrisanjeKanalaUsredPopune(t *testing.T) {
 	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured", "laptop-baranja", "laptop-novi")
 	a, d, c, b, n := cv[0], cv[1], cv[2], cv[3], cv[4]
@@ -416,12 +416,12 @@ func TestBrisanjeKanalaUsredPopune(t *testing.T) {
 		}
 	})
 	if p.sent != 0 || z.applied != 0 || rupeCvora(t, a)[kljucRupe].trazi.prazan() {
-		t.Fatalf("laptop-baranja poslao %d, Unraid upisao %d, a rupe Unraida su %+v", p.sent, z.applied, rupeCvora(t, a))
+		t.Fatalf("laptop-baranja poslao %d, server upisao %d, a rupe servera su %+v", p.sent, z.applied, rupeCvora(t, a))
 	}
 	upisaoPrimatelj(t, n, d, true)
 	upisaoPrimatelj(t, n, a, true)
 	if rk := rupeCvora(t, n)[kljucRupe]; rk.trazi.prazan() {
-		t.Errorf("novo računalo nakon Unraida ne traži: %+v", rk)
+		t.Errorf("novo računalo nakon servera ne traži: %+v", rk)
 	}
 	for _, s := range []*Service{a, n} {
 		if got := upisaoPrimatelj(t, s, c, true); got != 1 || !imaVerziju(t, s, rupaStaroA.VersionID) {

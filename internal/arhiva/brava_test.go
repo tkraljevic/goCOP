@@ -168,19 +168,19 @@ func TestBravaPrijasnjegZivotaIstogPida(t *testing.T) {
 	if err := os.WriteFile(uz, []byte("x"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	stara := stanjeBrave{Sto: "ugradnja paketa botovo", Tko: "cop-osijek-unraid", PID: os.Getpid(), Od: time.Now().Add(-time.Minute)}
+	stara := stanjeBrave{Sto: "ugradnja paketa botovo", Tko: "cop-osijek-server", PID: os.Getpid(), Od: time.Now().Add(-time.Minute)}
 	b, _ := json.Marshal(stara) // bez oznake pokretanja, kao 0.0.8-alfa
 	if err := os.WriteFile(uz+ImeBrave, b, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	nova, err := Uzmi(uz, "ugradnja paketa botovo", "cop-osijek-unraid")
+	nova, err := Uzmi(uz, "ugradnja paketa botovo", "cop-osijek-server")
 	if err != nil {
 		t.Fatalf("brava prijašnjeg života nije preuzeta: %v", err)
 	}
 	if preuzeta, _ := nova.Preuzeta(); !preuzeta {
 		t.Error("preuzimanje se ne javlja")
 	}
-	if _, err := Uzmi(uz, "izdavanje", "cop-osijek-unraid"); err == nil {
+	if _, err := Uzmi(uz, "izdavanje", "cop-osijek-server"); err == nil {
 		t.Error("brava ovog života je preuzeta usred posla")
 	}
 	nova.Pusti()
