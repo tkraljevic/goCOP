@@ -6,7 +6,7 @@ import (
 )
 
 func TestOblikImena(t *testing.T) {
-	for _, dobro := range []string{"pperic-thinkpad", "cop-osijek-unraid", "cop-osijek-node", Stari, "w10", "a1b"} {
+	for _, dobro := range []string{"pperic-thinkpad", "cop-osijek-server", "cop-osijek-node", Stari, "w10", "a1b"} {
 		if err := Provjeri(dobro); err != nil {
 			t.Errorf("%q odbijeno: %v", dobro, err)
 		}

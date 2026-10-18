@@ -1,4 +1,4 @@
-# Slika za spremnik (Docker, Unraid) za svako izdanje: oznaka v0.0.7-alfa
+# Slika za spremnik (Docker, NAS) za svako izdanje: oznaka v0.0.7-alfa
 # daje ghcr.io/tkraljevic/gocop:0.0.7-alfa i :latest. Može se pokrenuti i
 # ručno (Actions → Slika → Run workflow) za trenutno stanje grane.
 name: Slika
@@ -52,7 +52,7 @@ jobs:
           platforms: linux/amd64
           tags: ${{ steps.oznake.outputs.oznake }}
           # Klasični Docker manifest (schema 2), bez potvrde podrijetla i popisa
-          # sastojaka. Unraidova provjera nadogradnje traži samo popis
+          # sastojaka. Provjera nadogradnje na NAS-u traži samo popis
           # manifesta, Docker manifest ili OCI indeks; jedan OCI manifest
           # (zadano kod buildx-a) ne prima, pa nikad ne bi javila novo izdanje.
           provenance: false

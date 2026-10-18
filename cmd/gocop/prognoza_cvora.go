@@ -115,6 +115,7 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		posluzitelj: server, razmjenaArh: razmjenaArh, podaci: o.podaci, objavi: objaviIzdanje,
 	}
 	javniUvoznik.NakonPreuzimanja = krug.vrti
+	javniUvoznik.Nedovrseno = krug.bezIzdanja
 	server.SetPripremaModela(pripremaModela(peersService, arhivaRO, pb, javniUvoznik, osvjezivac, objaviIzdanje))
 	return pb
 }

@@ -105,6 +105,36 @@ type satniKrug struct {
 	kisUlozeno string // dan zadnjeg ulaganja mjerenja u arhivu
 }
 
+// biljegPreuzimanja je datoteka uz bazu s vremenom zadnjeg preuzimanja
+// letvi, da ponovno pokretanje zna je li krug ovog sata već prošao
+const biljegPreuzimanja = "zadnje-preuzimanje.txt"
+
+// minutaPreuzimanja je minuta svakog sata u kojoj počinje krug, iz
+// gocop.toml; neispravna se javi u dnevnik i vrijedi zadana
+func minutaPreuzimanja(cfg config.Config, javi func(string, ...any)) int {
+	minuta, poruka := cfg.MinutaPreuzimanja()
+	if poruka != "" {
+		javi("gocop.toml [vodostaji] minuta_preuzimanja = %d ne vrijedi (%s); krug ide u :%02d",
+			cfg.Readings.MinutaPreuzimanja, poruka, minuta)
+	}
+	return minuta
+}
+
+// bezIzdanja javlja da na čvoru koji izdaje prognozu za zadani sat još nema
+// izdanja; tada krug pri pokretanju ide odmah. Čvor koji ne izdaje izdanje
+// prima razmjenom, pa za njega krug ne žuri.
+func (k *satniKrug) bezIzdanja(sat time.Time) bool {
+	if !k.mreza.TrenutneUloge().Izdaje {
+		return false
+	}
+	zadnje, ima, err := prognoza.ZadnjeIzdanje(k.prognoze)
+	if err != nil {
+		log.Printf("prognoza: zadnje izdanje: %v", err)
+		return true
+	}
+	return !ima || zadnje < sat.Unix()/3600
+}
+
 // vrti je jedan krug. Tijelo je premješteno iz main bez izmjena, pa
 // ovisnosti nose ista imena kao ondje.
 func (k *satniKrug) vrti(ctx context.Context) {

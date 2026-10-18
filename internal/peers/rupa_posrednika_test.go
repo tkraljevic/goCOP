@@ -4,11 +4,11 @@ package peers
 // docs/plan-web-sync.md §3). Ured (windows-ured) napiše tri verzije u jednom
 // ključu granice (autor windows-ured, kanal ocitanja/16/2024): novo-1,
 // staro-a i novo-2. Laptop (laptop-drugi) drži manje i staro-a odbije
-// (Accept, kao repository.KeepVersion). Unraid (cop-osijek) drži sve. Laptop
-// prvo razmijeni s uredom, Unraid s laptopom, pa Unraid s uredom. Do G4b je
-// Unraid od laptopa dobio novo-1 i novo-2, granica mu je prešla preko
+// (Accept, kao repository.KeepVersion). Server (cop-osijek) drži sve. Laptop
+// prvo razmijeni s uredom, server s laptopom, pa server s uredom. Do G4b je
+// server od laptopa dobio novo-1 i novo-2, granica mu je prešla preko
 // staro-a, a ured mu je zatim slao tek iznad nje, pa staro-a nije stiglo
-// nikad. Sad laptop uz deltu javi da za staro-a ne jamči, a Unraid to
+// nikad. Sad laptop uz deltu javi da za staro-a ne jamči, a server to
 // zapamti i zatraži od ureda (rupe.go).
 //
 // Testovi u ovoj datoteci služe se samo API-jem koji je postojao i prije
@@ -121,12 +121,12 @@ func mirno(t *testing.T, parovi ...[2]*Service) {
 }
 
 // Glavni slučaj, za svih osam rasporeda uloga u tri razgovora, sa svim
-// oznakama i bez granice odbijenih. Unraid od ureda dobije samo staro-a, a
+// oznakama i bez granice odbijenih. Server od ureda dobije samo staro-a, a
 // sljedeći razgovori ne nose ništa.
 func TestRupaPrekoPosrednika(t *testing.T) {
 	for _, oznake := range [][]string{nil, oznakeRupaBezG4} {
 		for uloge := range 8 {
-			ime := fmt.Sprintf("%s/laptopZoveUred=%v,UnraidZoveLaptop=%v,UnraidZoveUred=%v", opisOznaka(oznake), uloge&1 != 0, uloge&2 != 0, uloge&4 != 0)
+			ime := fmt.Sprintf("%s/laptopZoveUred=%v,serverZoveLaptop=%v,serverZoveUred=%v", opisOznaka(oznake), uloge&1 != 0, uloge&2 != 0, uloge&4 != 0)
 			t.Run(ime, func(t *testing.T) {
 				cv := mrezaRupe(t, oznake, "cop-osijek", "laptop-drugi", "windows-ured")
 				a, d, c := cv[0], cv[1], cv[2]
@@ -136,13 +136,13 @@ func TestRupaPrekoPosrednika(t *testing.T) {
 					t.Fatalf("laptop od ureda upisao %d, očekivano 2", got)
 				}
 				if got := upisaoPrimatelj(t, a, d, uloge&2 != 0); got != 2 {
-					t.Fatalf("Unraid od laptopa upisao %d, očekivano 2", got)
+					t.Fatalf("Server od laptopa upisao %d, očekivano 2", got)
 				}
 				if got := upisaoPrimatelj(t, a, c, uloge&4 != 0); got != 1 {
-					t.Errorf("Unraid od ureda upisao %d, očekivano 1 (staro-a)", got)
+					t.Errorf("Server od ureda upisao %d, očekivano 1 (staro-a)", got)
 				}
 				if !imaVerziju(t, a, rupaStaroA.VersionID) {
-					t.Errorf("Unraid nema staro-a")
+					t.Errorf("Server nema staro-a")
 				}
 				mirno(t, [2]*Service{d, c}, [2]*Service{a, d}, [2]*Service{a, c})
 			})
@@ -151,7 +151,7 @@ func TestRupaPrekoPosrednika(t *testing.T) {
 }
 
 // Rupa se nasljeđuje: drugi laptop (laptop-baranja), koji ništa ne odbija,
-// niz dobije od uskog laptopa, a Unraid od njega (drugi skok). Oba zatim od
+// niz dobije od uskog laptopa, a server od njega (drugi skok). Oba zatim od
 // ureda dobiju staro-a.
 func TestRupaDrugiSkok(t *testing.T) {
 	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured", "laptop-baranja")
@@ -163,7 +163,7 @@ func TestRupaDrugiSkok(t *testing.T) {
 		t.Fatalf("drugi laptop od uskog upisao %d", got)
 	}
 	if got := upisaoPrimatelj(t, a, m, false); got != 2 {
-		t.Fatalf("Unraid od drugog laptopa upisao %d", got)
+		t.Fatalf("Server od drugog laptopa upisao %d", got)
 	}
 	for _, s := range []*Service{m, a} {
 		if got := upisaoPrimatelj(t, s, c, true); got != 1 || !imaVerziju(t, s, rupaStaroA.VersionID) {
@@ -255,10 +255,10 @@ func razgovarajUzZastoj(t *testing.T, pozivatelj, pozvani *Service, usput func()
 	return p, z
 }
 
-// Privremena rupa kod posrednika: Unraid uzme granicu i zapis rupa za
+// Privremena rupa kod posrednika: server uzme granicu i zapis rupa za
 // razgovor s laptopom-baranja, a dok taj razgovor stoji, od uskog laptopa
 // upiše niz s rupom (kasno je laptop odbio). Delta laptopu-baranja nosi taj
-// niz, iako ga zapis s početka razgovora ne pokriva: Unraid tada za nj ne
+// niz, iako ga zapis s početka razgovora ne pokriva: server tada za nj ne
 // jamči (brojač rupeMijenja), pa laptop-baranja kasno zatraži od ureda.
 func TestPrivremenaRupaPosrednika(t *testing.T) {
 	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-baranja", "windows-ured", "laptop-drugi")
@@ -271,11 +271,11 @@ func TestPrivremenaRupaPosrednika(t *testing.T) {
 	}
 	p, z := razgovarajUzZastoj(t, a, b, func() {
 		if got := upisaoPrimatelj(t, a, d, true); got != 2 {
-			t.Errorf("Unraid od uskog laptopa upisao %d", got)
+			t.Errorf("Server od uskog laptopa upisao %d", got)
 		}
 	})
 	if p.sent != 2 || z.applied != 2 {
-		t.Fatalf("Unraid laptopu-baranja poslao %d, a on upisao %d", p.sent, z.applied)
+		t.Fatalf("Server laptopu-baranja poslao %d, a on upisao %d", p.sent, z.applied)
 	}
 	q, _ := razgovaraj(t, b, c)
 	if !imaVerziju(t, b, kasno.VersionID) {
@@ -284,7 +284,7 @@ func TestPrivremenaRupaPosrednika(t *testing.T) {
 }
 
 // Uvoz od posrednika: uski laptop izveze kanal (arhiva knjige ili COP
-// paket), Unraid ga uveze, pa od ureda dobije staro-a
+// paket), server ga uveze, pa od ureda dobije staro-a
 func TestRupaUvozOdPosrednika(t *testing.T) {
 	for _, put := range putoviUvoza {
 		t.Run(put.ime, func(t *testing.T) {
@@ -298,14 +298,14 @@ func TestRupaUvozOdPosrednika(t *testing.T) {
 				t.Fatalf("uvezeno %d, %v", n, err)
 			}
 			if got := upisaoPrimatelj(t, a, c, false); got != 1 || !imaVerziju(t, a, rupaStaroA.VersionID) {
-				t.Errorf("Unraid od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
+				t.Errorf("Server od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
 			}
 		})
 	}
 }
 
-// Novo računalo koje niz prvo dobije od uskog laptopa, a zatim razmijeni s
-// Unraidom (koji ima sve), dobije staro-a od Unraida
+// Novo računalo koje niz prvo dobije od uskog laptopa, a zatim razmijeni sa
+// serverom (koji ima sve), dobije staro-a od servera
 func TestRupaNoviCvorPrekoUskog(t *testing.T) {
 	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured", "laptop-novi")
 	a, d, c, n := cv[0], cv[1], cv[2], cv[3]
@@ -313,18 +313,18 @@ func TestRupaNoviCvorPrekoUskog(t *testing.T) {
 	upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
 	upisaoPrimatelj(t, d, c, true)
 	if got := upisaoPrimatelj(t, a, c, true); got != 3 {
-		t.Fatalf("Unraid od ureda upisao %d", got)
+		t.Fatalf("Server od ureda upisao %d", got)
 	}
 	if got := upisaoPrimatelj(t, n, d, true); got != 2 {
 		t.Fatalf("novo računalo od uskog laptopa upisao %d", got)
 	}
 	if got := upisaoPrimatelj(t, n, a, true); got != 1 || !imaVerziju(t, n, rupaStaroA.VersionID) {
-		t.Errorf("novo računalo od Unraida upisalo %d, a staro-a ima: %v", got, imaVerziju(t, n, rupaStaroA.VersionID))
+		t.Errorf("novo računalo od servera upisalo %d, a staro-a ima: %v", got, imaVerziju(t, n, rupaStaroA.VersionID))
 	}
 	mirno(t, [2]*Service{n, a}, [2]*Service{n, d}, [2]*Service{n, c})
 }
 
-// Jedini put: dok je ured nedostupan, novo-3 stiže Unraidu samo preko uskog
+// Jedini put: dok je ured nedostupan, novo-3 stiže serveru samo preko uskog
 // laptopa, kao i prije G4b (dostava preko posrednika ne smije pasti; taj dio
 // prolazi i na 3356a3ab). Kad se ured javi, staro-a stigne.
 func TestRupaJediniPut(t *testing.T) {
@@ -336,15 +336,15 @@ func TestRupaJediniPut(t *testing.T) {
 			upisiStalno(t, c, rupaNovo1, rupaStaroA, rupaNovo2)
 			upisaoPrimatelj(t, d, c, true)
 			if got := upisaoPrimatelj(t, a, d, true); got != 2 {
-				t.Fatalf("Unraid od laptopa upisao %d", got)
+				t.Fatalf("Server od laptopa upisao %d", got)
 			}
 			upisiStalno(t, c, rupaNovo3)
 			upisaoPrimatelj(t, d, c, false)
 			if got := upisaoPrimatelj(t, a, d, false); got != 1 || !imaVerziju(t, a, rupaNovo3.VersionID) {
-				t.Fatalf("novo-3 nije stiglo Unraidu preko laptopa: upisao %d", got)
+				t.Fatalf("novo-3 nije stiglo serveru preko laptopa: upisao %d", got)
 			}
 			if got := upisaoPrimatelj(t, a, c, true); got != 1 || !imaVerziju(t, a, rupaStaroA.VersionID) {
-				t.Errorf("Unraid od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
+				t.Errorf("Server od ureda upisao %d, a staro-a ima: %v", got, imaVerziju(t, a, rupaStaroA.VersionID))
 			}
 		})
 	}
@@ -354,7 +354,7 @@ func TestRupaJediniPut(t *testing.T) {
 // arhivi. Sažimanje knjige, brisanje verzije sa zida, pospremanje uloženih
 // očitanja i prorjeđivanje nisu rupa: laptop koji je verziju obrisao ne
 // javlja da za nju ne jamči, nijedno računalo nema redak u zapisu rupa,
-// Unraid obrisano od laptopa ne dobije, a ured mu ga ne šalje.
+// server obrisano od laptopa ne dobije, a ured mu ga ne šalje.
 func TestNamjernoIzostavljenoNijeRupa(t *testing.T) {
 	zV1 := verzijaRupe("311", "zapis-z")
 	zV2 := stalnaVerzija("0190a000-0000-7000-8000-000000000312", "windows-ured", kanalRupe, "zapis-z", `{"cm":2}`)
@@ -400,7 +400,7 @@ func TestNamjernoIzostavljenoNijeRupa(t *testing.T) {
 			upisaoPrimatelj(t, a, d, true)
 			upisaoPrimatelj(t, a, c, true)
 			if imaVerziju(t, a, sl.izostao.VersionID) {
-				t.Errorf("Unraid ima izostavljeno %s", sl.izostao.EntityID)
+				t.Errorf("Server ima izostavljeno %s", sl.izostao.EntityID)
 			}
 			for _, s := range cv {
 				if n := redakaRupa(s); n != 0 {
@@ -413,7 +413,7 @@ func TestNamjernoIzostavljenoNijeRupa(t *testing.T) {
 }
 
 // Kontrola: pretplata nije izvor rupe. Laptop koji kanal neko vrijeme ne
-// prati ima samo početak niza; Unraid od njega dobije taj početak, a ostatak
+// prati ima samo početak niza; server od njega dobije taj početak, a ostatak
 // od ureda. Ključ granice nosi kanal, pa filtar kanala reže cijeli ključ.
 func TestPretplataNijeIzvorRupe(t *testing.T) {
 	cv := mrezaRupe(t, nil, "cop-osijek", "laptop-drugi", "windows-ured")
@@ -430,10 +430,10 @@ func TestPretplataNijeIzvorRupe(t *testing.T) {
 	d.SetWantsAll(true)
 	upisiStalno(t, c, rupaNovo2)
 	if got := upisaoPrimatelj(t, a, d, true); got != 1 {
-		t.Errorf("Unraid od laptopa upisao %d, očekivano 1 (novo-1)", got)
+		t.Errorf("Server od laptopa upisao %d, očekivano 1 (novo-1)", got)
 	}
 	if got := upisaoPrimatelj(t, a, c, true); got != 2 {
-		t.Errorf("Unraid od ureda upisao %d, očekivano 2", got)
+		t.Errorf("Server od ureda upisao %d, očekivano 2", got)
 	}
 	if got := upisaoPrimatelj(t, d, c, true); got != 2 {
 		t.Errorf("laptop nakon ponovnog praćenja upisao %d, očekivano 2", got)

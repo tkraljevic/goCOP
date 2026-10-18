@@ -1,10 +1,10 @@
 package peers
 
 // Granica odbijenih (G4 u docs/plan-web-sync.md §3) između pravih čvorova na
-// loopbacku, za obje uloge. Unraid (cop-osijek) drži stara očitanja, a laptop
+// loopbacku, za obje uloge. Server (cop-osijek) drži stara očitanja, a laptop
 // (laptop-baranja) ih odbija (Accept, kao repository.KeepVersion). Prije G4
-// Unraid ih je slao svakim razgovorom iznova, ključ s 5000 takvih zaredom
-// zapeo je zauvijek, a krug razmjena s Unraida išao je do 200 razgovora.
+// server ih je slao svakim razgovorom iznova, ključ s 5000 takvih zaredom
+// zapeo je zauvijek, a krug razmjena sa servera išao je do 200 razgovora.
 // Testovi gledaju ishod (što stigne, koliko razgovora), ne broje pakete.
 
 import (
@@ -70,8 +70,8 @@ func razgovarajIzravno(t *testing.T, pozivatelj, pozvani *Service) (p, z ishodRa
 	return p, z
 }
 
-// poslaoUnraid je ono što je u razgovoru poslao Unraid (a), kojoj god je ulozi
-func poslaoUnraid(a, pozivatelj *Service, p, z ishodRazgovora) int {
+// poslaoServer je ono što je u razgovoru poslao server (a), kojoj god je ulozi
+func poslaoServer(a, pozivatelj *Service, p, z ishodRazgovora) int {
 	if pozivatelj == a {
 		return p.sent
 	}
@@ -86,11 +86,11 @@ func upisaoLaptop(b, pozivatelj *Service, p, z ishodRazgovora) int {
 	return z.applied
 }
 
-// unraidILaptop su članovi iste mreže koji prate sve i već su razmijenili
+// serverILaptop su članovi iste mreže koji prate sve i već su razmijenili
 // ono što postava upiše (članstva, zapise čvorova); laptop odbija svako
 // očitanje čiji zapis počinje sa „staro”, kao repository.KeepVersion stara
 // očitanja
-func unraidILaptop(t *testing.T) (a, b *Service) {
+func serverILaptop(t *testing.T) (a, b *Service) {
 	t.Helper()
 	cv := clanovi(t, "cop-osijek", "laptop-baranja")
 	a, b = cv[0], cv[1]
@@ -114,7 +114,7 @@ func izjednaci(t *testing.T, a, b *Service) {
 	t.Fatalf("%s i %s se nisu uskladili", a.node.ID, b.node.ID)
 }
 
-// Verzije Unraida u kanalu ocitanja/16/2024: laptop prima novo, a stara dva odbija
+// Verzije servera u kanalu ocitanja/16/2024: laptop prima novo, a stara dva odbija
 var (
 	ocitanjeNovo   = stalnaVerzija("0190a000-0000-7000-8000-000000000201", "cop-osijek", "ocitanja/16/2024", "novo", `{"cm":1}`)
 	ocitanjeStaro1 = stalnaVerzija("0190a000-0000-7000-8000-000000000202", "cop-osijek", "ocitanja/16/2024", "staro-1", `{"cm":2}`)
@@ -127,25 +127,25 @@ const kljucStarih = "cop-osijek|ocitanja/16/2024"
 // očitanje iza odbijenih i dalje stiže. Za obje uloge.
 func TestOdbijenoSeNeSaljeIznova(t *testing.T) {
 	for _, laptopZove := range []bool{true, false} {
-		a, b := unraidILaptop(t)
+		a, b := serverILaptop(t)
 		upisiStalno(t, a, ocitanjeNovo, ocitanjeStaro1, ocitanjeStaro2)
 		pozivatelj, pozvani := a, b
 		if laptopZove {
 			pozivatelj, pozvani = b, a
 		}
 		p, z := razgovaraj(t, pozivatelj, pozvani)
-		if poslaoUnraid(a, pozivatelj, p, z) != 3 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
-			t.Fatalf("laptop zove %v, prvi razgovor: Unraid poslao %d, laptop upisao %d", laptopZove, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		if poslaoServer(a, pozivatelj, p, z) != 3 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
+			t.Fatalf("laptop zove %v, prvi razgovor: server poslao %d, laptop upisao %d", laptopZove, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 		}
 		for krug := 2; krug <= 3; krug++ {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 0 {
-				t.Errorf("laptop zove %v, razgovor %d: Unraid opet poslao %d", laptopZove, krug, poslaoUnraid(a, pozivatelj, p, z))
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 0 {
+				t.Errorf("laptop zove %v, razgovor %d: server opet poslao %d", laptopZove, krug, poslaoServer(a, pozivatelj, p, z))
 			}
 		}
 		novije := stalnaVerzija("0190a000-0000-7000-8000-000000000204", "cop-osijek", "ocitanja/16/2024", "novije", `{"cm":4}`)
 		upisiStalno(t, a, novije)
-		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 1 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
-			t.Errorf("laptop zove %v: novije iza odbijenih poslano %d, upisano %d", laptopZove, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 1 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
+			t.Errorf("laptop zove %v: novije iza odbijenih poslano %d, upisano %d", laptopZove, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 		}
 		if _, err := b.rec.Latest(ctxRub, "probni", "staro-1"); err == nil {
 			t.Errorf("laptop zove %v: odbijeno je u knjizi", laptopZove)
@@ -153,7 +153,7 @@ func TestOdbijenoSeNeSaljeIznova(t *testing.T) {
 	}
 }
 
-// upisiOdbijene upiše Unraidu n verzija koje laptop odbija, zaredom u istom
+// upisiOdbijene upiše serveru n verzija koje laptop odbija, zaredom u istom
 // ključu (autor cop-osijek, zadani kanal). Oznake počinju s „f”, pa su iza
 // verzija koje je postava upisala u zajednički kanal (zapisi čvorova,
 // članstva).
@@ -180,7 +180,7 @@ func upisiOdbijene(t *testing.T, a *Service, kanal string, n int) {
 // ustroj) stigne u drugom razgovoru. Za obje uloge.
 func TestIzaOdbijenihKljucNeZapne(t *testing.T) {
 	for _, laptopZove := range []bool{true, false} {
-		a, b := unraidILaptop(t)
+		a, b := serverILaptop(t)
 		upisiOdbijene(t, a, "", NajviseVerzijaPoRazmjeni)
 		upisiStalno(t, a, stalnaVerzija("f190a000-0000-7000-8000-000099999999", "cop-osijek", "", "akt-novi", `{"cm":9}`))
 		pozivatelj, pozvani := a, b
@@ -188,12 +188,12 @@ func TestIzaOdbijenihKljucNeZapne(t *testing.T) {
 			pozivatelj, pozvani = b, a
 		}
 		p, z := razgovaraj(t, pozivatelj, pozvani)
-		if poslaoUnraid(a, pozivatelj, p, z) != NajviseVerzijaPoRazmjeni || upisaoLaptop(b, pozivatelj, p, z) != 0 {
-			t.Fatalf("laptop zove %v, prvi razgovor: poslano %d, upisano %d", laptopZove, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		if poslaoServer(a, pozivatelj, p, z) != NajviseVerzijaPoRazmjeni || upisaoLaptop(b, pozivatelj, p, z) != 0 {
+			t.Fatalf("laptop zove %v, prvi razgovor: poslano %d, upisano %d", laptopZove, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 		}
 		p, z = razgovaraj(t, pozivatelj, pozvani)
-		if poslaoUnraid(a, pozivatelj, p, z) != 1 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
-			t.Errorf("laptop zove %v, drugi razgovor: poslano %d, upisano %d", laptopZove, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		if poslaoServer(a, pozivatelj, p, z) != 1 || upisaoLaptop(b, pozivatelj, p, z) != 1 {
+			t.Errorf("laptop zove %v, drugi razgovor: poslano %d, upisano %d", laptopZove, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 		}
 		if _, err := b.rec.Latest(ctxRub, "probni", "akt-novi"); err != nil {
 			t.Errorf("laptop zove %v: zapis iza odbijenih nije stigao: %v", laptopZove, err)
@@ -201,27 +201,27 @@ func TestIzaOdbijenihKljucNeZapne(t *testing.T) {
 	}
 }
 
-// Krug automatske razmjene s Unraida (syncPeers) dok je razgovor pun ide
+// Krug automatske razmjene sa servera (syncPeers) dok je razgovor pun ide
 // dalje, ali sad svakim razgovorom napreduje: 5000 odbijenih stigne
 // jednom, a drugi razgovor nema što poslati. Prije G4 krug je išao do 200
 // razgovora s istih 5000.
 func TestKrugRazmjenaPrekoOdbijenihZavrsi(t *testing.T) {
-	a, b := unraidILaptop(t)
+	a, b := serverILaptop(t)
 	upisiOdbijene(t, a, "ocitanja/16/2020", NajviseVerzijaPoRazmjeni)
 	peer, err := a.GetPeer(ctxRub, b.node.ID)
 	if err != nil || peer == nil {
-		t.Fatalf("laptop u popisu Unraida: %v", err)
+		t.Fatalf("laptop u popisu servera: %v", err)
 	}
 	out := a.syncPeers(ctxRub, []Peer{*peer})
 	if got, want := out[b.node.ID], fmt.Sprintf("primljeno 0, poslano %d u 2 razgovora", NajviseVerzijaPoRazmjeni); got != want {
-		t.Errorf("krug s Unraida: %q, očekivano %q", got, want)
+		t.Errorf("krug sa servera: %q, očekivano %q", got, want)
 	}
 }
 
 // Treće računalo (Windows) koje drži sva očitanja dobije sve, i kad laptop,
 // koji ih odbija, razgovara s njim: granica odbijenih laptopa nije u
 // njegovoj granici ni u onome što šalje dalje, pa Windows stara očitanja
-// dobije od Unraida.
+// dobije od servera.
 func TestTreceRacunaloDobivaOdbijeno(t *testing.T) {
 	cv := clanovi(t, "cop-osijek", "laptop-baranja", "windows-ured")
 	a, b, c := cv[0], cv[1], cv[2]
@@ -235,7 +235,7 @@ func TestTreceRacunaloDobivaOdbijeno(t *testing.T) {
 	upisiStalno(t, a, ocitanjeNovo, ocitanjeStaro1, ocitanjeStaro2)
 	razgovaraj(t, b, a)
 	if _, z := razgovaraj(t, b, a); z.sent != 0 {
-		t.Fatalf("Unraid laptopu opet šalje %d", z.sent)
+		t.Fatalf("Server laptopu opet šalje %d", z.sent)
 	}
 	// Windows od laptopa dobije ono što laptop ima, a granica laptopa koju
 	// Windows dobije granica je njegove knjige
@@ -244,7 +244,7 @@ func TestTreceRacunaloDobivaOdbijeno(t *testing.T) {
 		t.Errorf("Windows od laptopa: upisano %d, granica laptopa %q", p.applied, p.theirs.Frontier[kljucStarih])
 	}
 	if p, _ := razgovaraj(t, c, a); p.applied != 2 {
-		t.Errorf("Windows od Unraida upisao %d, očekivana dva stara očitanja", p.applied)
+		t.Errorf("Windows od servera upisao %d, očekivana dva stara očitanja", p.applied)
 	}
 	for _, id := range []string{"novo", "staro-1", "staro-2"} {
 		if _, err := c.rec.Latest(ctxRub, "probni", id); err != nil {
@@ -252,32 +252,32 @@ func TestTreceRacunaloDobivaOdbijeno(t *testing.T) {
 		}
 	}
 	// Windows sad ima stara očitanja i laptopu ih pošalje jednom: granica
-	// odbijenih vodi se po pošiljatelju, pa ona od Unraida ovdje ne vrijedi
+	// odbijenih vodi se po pošiljatelju, pa ona od servera ovdje ne vrijedi
 	for krug, poslano := range []int{2, 0} {
 		if _, z := razgovaraj(t, b, c); z.sent != poslano {
 			t.Errorf("razgovor %d: Windows laptopu šalje %d, očekivano %d", krug+1, z.sent, poslano)
 		}
 	}
 	if _, z := razgovaraj(t, b, a); z.sent != 0 {
-		t.Errorf("Unraid laptopu opet šalje %d", z.sent)
+		t.Errorf("Server laptopu opet šalje %d", z.sent)
 	}
 }
 
 // Granica i potvrda ostaju točne: kraj razgovora javlja samo upisano,
-// laptopova knjiga nosi samo upisano, a granica laptopa koju Unraid zapamti
-// za ploču ide najviše do Unraidove vlastite verzije
+// laptopova knjiga nosi samo upisano, a granica laptopa koju server zapamti
+// za ploču ide najviše do serverove vlastite verzije
 func TestOdbijenoNijePotvrdjenoKaoPrimljeno(t *testing.T) {
-	a, b := unraidILaptop(t)
+	a, b := serverILaptop(t)
 	upisiStalno(t, a, ocitanjeNovo, ocitanjeStaro1, ocitanjeStaro2)
 	for krug, upisano := range []int{1, 0} {
 		p, z := razgovaraj(t, a, b)
 		if z.applied != upisano {
 			t.Errorf("razgovor %d: laptop javio upisano %d, očekivano %d", krug+1, z.applied, upisano)
 		}
-		// Unraid je laptopu poslao, ili mu laptop javlja da je odbio, sve do
-		// staro-2, a to je i Unraidova najveća verzija
+		// Server je laptopu poslao, ili mu laptop javlja da je odbio, sve do
+		// staro-2, a to je i serverova najveća verzija
 		if g := p.theirs.Frontier[kljucStarih]; g != ocitanjeStaro2.VersionID {
-			t.Errorf("razgovor %d: Unraid za ploču pamti granicu laptopa %q", krug+1, g)
+			t.Errorf("razgovor %d: server za ploču pamti granicu laptopa %q", krug+1, g)
 		}
 	}
 	mine, err := b.rec.Frontier(ctxRub)
@@ -289,10 +289,10 @@ func TestOdbijenoNijePotvrdjenoKaoPrimljeno(t *testing.T) {
 	}
 }
 
-// Ploča Unraida ne piše da laptopu „šalje se još” ono što mu više ne šalje,
+// Ploča servera ne piše da laptopu „šalje se još” ono što mu više ne šalje,
 // jer ga je laptop odbio
 func TestPlocaPosiljateljaBezZaostatka(t *testing.T) {
-	a, b := unraidILaptop(t)
+	a, b := serverILaptop(t)
 	upisiStalno(t, a, ocitanjeNovo, ocitanjeStaro1, ocitanjeStaro2)
 	for krug := 1; krug <= 2; krug++ {
 		if _, sent, err := a.SyncWith(ctxRub, b.node.ID); err != nil || sent != map[int]int{1: 3, 2: 0}[krug] {
@@ -304,7 +304,7 @@ func TestPlocaPosiljateljaBezZaostatka(t *testing.T) {
 		}
 		for _, ps := range st.Peers {
 			if ps.NodeID == b.node.ID && ps.Backlog != 0 {
-				t.Errorf("razgovor %d: Unraid laptopu „šalje se još” %d", krug, ps.Backlog)
+				t.Errorf("razgovor %d: server laptopu „šalje se još” %d", krug, ps.Backlog)
 			}
 		}
 	}

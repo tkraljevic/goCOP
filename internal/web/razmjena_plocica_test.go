@@ -21,9 +21,9 @@ func TestPlocicaRazmjene(t *testing.T) {
 	}{
 		{"bez mreže", RazmjenaStanje{}, []string{"nije ni u jednoj mreži"}},
 		{"usklađeno", RazmjenaStanje{UMrezi: true, Verzija: "0.0.24-alfa",
-			Cvorovi:  []CvorRazmjene{{Naziv: "COP Osijek (Unraid)", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.24-alfa"}},
-			Prognoza: PrognozaRazmjene{Ima: true, Izdavac: "cop-osijek-unraid", Primljeno: true, Izdano: sad, Nastalo: sad}},
-			[]string{"Sve je usklađeno s 1 čvorom", "COP Osijek (Unraid) na 0.0.24-alfa: zadnja razmjena prije 2 min", "s čvora cop-osijek-unraid", "ovaj čvor na 0.0.24-alfa"}},
+			Cvorovi:  []CvorRazmjene{{Naziv: "COP Osijek (kućni server)", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.24-alfa"}},
+			Prognoza: PrognozaRazmjene{Ima: true, Izdavac: "cop-osijek-server", Primljeno: true, Izdano: sad, Nastalo: sad}},
+			[]string{"Sve je usklađeno s 1 čvorom", "COP Osijek (kućni server) na 0.0.24-alfa: zadnja razmjena prije 2 min", "s čvora cop-osijek-server", "ovaj čvor na 0.0.24-alfa"}},
 		{"stariji program", RazmjenaStanje{UMrezi: true, Verzija: "0.0.24-alfa",
 			Cvorovi: []CvorRazmjene{
 				{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.23-alfa", Razlicita: true},

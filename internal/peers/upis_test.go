@@ -81,17 +81,17 @@ func (m *mjeracUpisa) primjena(context.Context, []ledger.Version) error {
 // Dvije razmjene istodobno šalju velike pakete istom čvoru: sve se upiše,
 // bez „database is locked”, a upis primljenog teče jedan po jedan
 func TestDvijeRazmjeneIstodobnoNaIstiCvor(t *testing.T) {
-	c := clanovi(t, "ured-vukovar", "laptop-baranja", "unraid-osijek")
-	ured, laptop, unraid := c[0], c[1], c[2]
+	c := clanovi(t, "ured-vukovar", "laptop-baranja", "server-osijek")
+	ured, laptop, server := c[0], c[1], c[2]
 	napuniKnjigu(t, laptop, 2500)
-	napuniKnjigu(t, unraid, 2500)
+	napuniKnjigu(t, server, 2500)
 	m := &mjeracUpisa{druga: make(chan struct{})}
 	ured.OnApplied(m.primjena)
 	zakljucano := brojiDnevnik(t, "database is locked")
 
 	var wg sync.WaitGroup
 	greske := make(chan error, 2)
-	for _, s := range []*Service{laptop, unraid} {
+	for _, s := range []*Service{laptop, server} {
 		wg.Add(1)
 		go func(s *Service) {
 			defer wg.Done()

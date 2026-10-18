@@ -198,7 +198,7 @@ func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
 		t.Fatal(err)
 	}
 	mapa := t.TempDir()
-	iz, err := Izdaj(db, mapa, "unraid", "pljusak-x", false, io.Discard)
+	iz, err := Izdaj(db, mapa, "server", "pljusak-x", false, io.Discard)
 	if err != nil || iz.Redci[0].Izdanje != 3 {
 		t.Fatalf("isti sadržaj: izdanje %+v (%v), očekivano 3", iz.Redci, err)
 	}
@@ -207,7 +207,7 @@ func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1001,0.4)`, niz); err != nil {
 		t.Fatal(err)
 	}
-	iz, err = Izdaj(db, t.TempDir(), "unraid", "pljusak-x", false, io.Discard)
+	iz, err = Izdaj(db, t.TempDir(), "server", "pljusak-x", false, io.Discard)
 	if err != nil || iz.Redci[0].Izdanje != 4 {
 		t.Fatalf("novi sadržaj: izdanje %+v (%v), očekivano 4", iz.Redci, err)
 	}

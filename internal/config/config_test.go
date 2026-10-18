@@ -244,3 +244,33 @@ func TestTailscaleLokalno(t *testing.T) {
 		}
 	}
 }
+
+// Minuta kruga preuzimanja: bez ključa vrijedi zadana, nula je pun sat (ne
+// „nije upisano”), a broj izvan 0–59 ne ruši pokretanje nego vrijedi zadana
+// uz poruku za dnevnik.
+func TestMinutaPreuzimanja(t *testing.T) {
+	zadana := Default().Readings.MinutaPreuzimanja
+	for _, s := range []struct {
+		tekst  string
+		minuta int
+		greska bool
+	}{
+		{"", zadana, false},
+		{"[vodostaji]\nminuta_preuzimanja = 0\n", 0, false},
+		{"[vodostaji]\nminuta_preuzimanja = 7\n", 7, false},
+		{"[vodostaji]\nminuta_preuzimanja = 75\n", zadana, true},
+		{"[vodostaji]\nminuta_preuzimanja = -1\n", zadana, true},
+	} {
+		c, err := ProcitajTekst([]byte(s.tekst))
+		if err != nil {
+			t.Fatalf("%q: %v", s.tekst, err)
+		}
+		m, poruka := c.MinutaPreuzimanja()
+		if m != s.minuta || (poruka != "") != s.greska {
+			t.Errorf("%q: minuta %d, poruka %q; želim %d, greška %v", s.tekst, m, poruka, s.minuta, s.greska)
+		}
+	}
+	if zadana < 0 || zadana > 59 {
+		t.Errorf("zadana minuta %d nije minuta", zadana)
+	}
+}

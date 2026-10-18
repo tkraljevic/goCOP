@@ -78,6 +78,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"javna_adresa", mjestoPostavke{"cvor", postavkaUrediva, "Javna adresa", ""}},
 	{"kontakt.centar", mjestoPostavke{"cvor", postavkaUrediva, "Centar obrane od poplava", ""}},
 	{"kontakt.centar_telefon", mjestoPostavke{"cvor", postavkaUrediva, "Telefon centra", ""}},
+	{"vodostaji.minuta_preuzimanja", mjestoPostavke{"cvor", postavkaUrediva, "Minuta preuzimanja vodostaja", ""}},
 	{"node.id", mjestoPostavke{"cvor", postavkaSamoCitanje, "Ime čvora u mreži", razlogImena}},
 	{"node.name", mjestoPostavke{"cvor", postavkaSamoCitanje, "Naziv čvora", razlogNaziva}},
 	{"addr", mjestoPostavke{"cvor", postavkaSamoCitanje, "Adresa web sučelja", razlogAdrese}},

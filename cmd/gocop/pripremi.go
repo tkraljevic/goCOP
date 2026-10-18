@@ -25,7 +25,7 @@ func pripremiPostavke(cfg config.Config, cfgFrom, imeIzDatoteke string, out io.W
 	switch {
 	case cfgFrom == "" && bazaPostoji == nil:
 		// Postojeća baza bez postavki: datoteka je premještena ili izgubljena
-		// (Unraid, 5. 10. 2026.). Primjer se ne zapisuje, kao ni pri
+		// (kućni server, 5. 10. 2026.). Primjer se ne zapisuje, kao ni pri
 		// pokretanju: zamijenio bi izvorne postavke, a ime u njemu nadjačalo
 		// bi ime koje baza zna. Instalacijska skripta se zato ne prekida.
 		fmt.Fprintf(out, "Postavke: nema %s, a baza %s već postoji. Primjer se ne zapisuje, da ne zamijeni izvorne postavke; bez njih čvor kreće pod imenom %s. Vratite izvornu datoteku iz sigurnosne kopije ili s diska na koji je premještena.\n",

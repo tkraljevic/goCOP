@@ -1,8 +1,10 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"html/template"
+	"log"
 	"net/http"
 
 	"gocop/internal/models"
@@ -119,10 +121,17 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	data.Precaci = precaciZa(perms)
 	data.Nepredani = h.nepredani(r.Context(), user)
 
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	if err := h.tmpl.ExecuteTemplate(w, "dashboard.html", data); err != nil {
+	// Stranica se prvo iscrta cijela, pa tek onda šalje. Predložak koji
+	// padne usred iscrtavanja tako dobije pravu grešku, a ne pola stranice s
+	// porukom na dnu i drugo zaglavlje („superfluous WriteHeader”).
+	var b bytes.Buffer
+	if err := h.tmpl.ExecuteTemplate(&b, "dashboard.html", data); err != nil {
+		log.Printf("početna stranica: %v", err)
 		http.Error(w, "Greška pri renderiranju početne stranice: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = b.WriteTo(w) // greška znači samo da je preglednik otišao; drugog odgovora nema
 }
 
 // Precac je gumb na naslovnoj za ono što se u toj ulozi radi svaki dan

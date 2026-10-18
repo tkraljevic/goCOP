@@ -18,7 +18,7 @@ import (
 
 // provjeriKljuc je provjera ključa čvora pri pokretanju
 // (peers.ProvjeriKljucCvora) uz ono što zna samo pokretanje: nedostaje li
-// uz bazu i gocop.toml, a s njim i ime čvora (Unraid, 5. 10. 2026.: mover
+// uz bazu i gocop.toml, a s njim i ime čvora (kućni server, 5. 10. 2026.: mover
 // je odnio oboje). Tada odbijanje kaže i za postavke, a novi identitet uz
 // zastavicu javlja pod kojim imenom čvor kreće.
 func provjeriKljuc(cfg config.Config, cfgFrom string, dopustiNovi bool) error {

@@ -357,7 +357,7 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 	switch {
 	case cfgFrom == "" && bazaPostoji == nil:
 		// Postojeći čvor bez postavki: datoteka je premještena ili
-		// izgubljena (Unraid, 5. 10. 2026.). Primjer bi tiho zamijenio
+		// izgubljena (kućni server, 5. 10. 2026.). Primjer bi tiho zamijenio
 		// izvorne postavke, pa se ne zapisuje.
 		log.Printf("Postavke: nema %s, a baza %s već postoji. Primjer se ne zapisuje, da ne zamijeni izvorne postavke; čvor %s radi sa zadanim postavkama i zastavicama pokretanja. Vratite izvornu datoteku iz sigurnosne kopije ili s diska na koji je premještena pa ponovno pokrenite čvor.",
 			examplePath, cfg.DB, cfg.Node.ID)
@@ -496,7 +496,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	autoSync := &autoSyncValue
 
 	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
-	// koji upareni čvorovi odbijaju (Unraid, 5. 10. 2026.). Provjera samo
+	// koji upareni čvorovi odbijaju (kućni server, 5. 10. 2026.). Provjera samo
 	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
 	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
 	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {
@@ -849,11 +849,13 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	go peersService.RunAutoSync(syncCtx, *autoSync)
 
-	// Javni vodostaji: svaki sat preuzmi očitanja letvi koje su povezane s
-	// vodostaji.voda.hr i označene za preuzimanje. Bez interneta samo javi
-	// grešku na letvi i pokuša za sat.
+	// Javni vodostaji: svaki sat u istoj minuti preuzmi očitanja letvi koje
+	// su povezane s javnim izvorom i označene za preuzimanje. Bez interneta
+	// samo javi grešku na letvi i pokuša idući sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
 	javniUvoznik.Preuzima = func() bool { return peersService.TrenutneUloge().Preuzima }
+	javniUvoznik.Minuta = minutaPreuzimanja(cfg, log.Printf)
+	javniUvoznik.Biljeg = filepath.Join(filepath.Dir(*dbPath), biljegPreuzimanja)
 	nazivCvora := node.Name
 	if nazivCvora == "" {
 		nazivCvora = node.ID
@@ -884,8 +886,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetJavniUvoz(javniUvoznik)
 	server.SetHidroViewKljuc(hidroviewKljuc)
 	u := peersService.TrenutneUloge()
-	log.Printf("Uloge čvora: vodostaje s izvora %s, prognozu %s", map[bool]string{true: "preuzima", false: "ne preuzima (stižu razmjenom)"}[u.Preuzima],
-		map[bool]string{true: "izdaje", false: "ne izdaje (stiže razmjenom)"}[u.Izdaje])
+	log.Printf("Uloge čvora: vodostaje s izvora %s, prognozu %s; krug svaki sat u :%02d", map[bool]string{true: "preuzima", false: "ne preuzima (stižu razmjenom)"}[u.Preuzima],
+		map[bool]string{true: "izdaje", false: "ne izdaje (stiže razmjenom)"}[u.Izdaje], javniUvoznik.Minuta)
 	go javniUvoznik.Pokreni(syncCtx)
 	log.Printf("Čvor %s (ključ %.12s…) — razmjena :%d, uparivanje :%d, pronalaženje :%d",
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)

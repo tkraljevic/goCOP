@@ -76,7 +76,7 @@ func TestPostojeciCvorBezKljucaNeKrece(t *testing.T) {
 	}
 }
 
-// Kad uz ključ nema ni postavki (Unraid, 5. 10. 2026.: mover je odnio
+// Kad uz ključ nema ni postavki (kućni server, 5. 10. 2026.: mover je odnio
 // oboje), odbijanje kaže i za njih: treba vratiti obje datoteke, a ako
 // postavki više nema, napisati ih s dosadašnjim imenom prije novog ključa,
 // jer bi čvor inače s novim ključem krenuo pod zadanim imenom
@@ -246,18 +246,18 @@ func TestImeIzBaze(t *testing.T) {
 		t.Errorf("baza ne zna ključ: %q %v", ime, err)
 	}
 
-	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-unraid', ?, '2026-10-02T06:00:00Z')`, javni)
+	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('pperic-server', ?, '2026-10-02T06:00:00Z')`, javni)
 	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('aanic-laptop', 'drugi-kljuc', '2026-10-02T06:00:00Z')`)
-	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+	if ime, err := ImeIzBaze(put); ime != "pperic-server" || err != nil {
 		t.Errorf("zapis čvora: %q %v", ime, err)
 	}
 	upisiUBazu(t, put, `INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)
-		VALUES ('pperic-unraid', ?, 'Probna mreža', 'aanic-laptop', '2026-10-02T06:00:00Z', '2027-10-02T06:00:00Z', 'potpis', '2026-10-02T06:00:00Z')`, javni)
-	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+		VALUES ('pperic-server', ?, 'Probna mreža', 'aanic-laptop', '2026-10-02T06:00:00Z', '2027-10-02T06:00:00Z', 'potpis', '2026-10-02T06:00:00Z')`, javni)
+	if ime, err := ImeIzBaze(put); ime != "pperic-server" || err != nil {
 		t.Errorf("zapis čvora i članstvo: %q %v", ime, err)
 	}
 	upisiUBazu(t, put, `DELETE FROM peers`)
-	if ime, err := ImeIzBaze(put); ime != "pperic-unraid" || err != nil {
+	if ime, err := ImeIzBaze(put); ime != "pperic-server" || err != nil {
 		t.Errorf("samo članstvo: %q %v", ime, err)
 	}
 	upisiUBazu(t, put, `INSERT INTO peers (node_id, public_key, created_at) VALUES ('ivic-stari', ?, '2026-10-02T06:00:00Z')`, javni)

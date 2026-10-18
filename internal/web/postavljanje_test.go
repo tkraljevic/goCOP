@@ -194,7 +194,7 @@ func TestPocetnaLozinkaPodPostavomSamoLokalno(t *testing.T) {
 	if w := o.prijava(lokalno, "admin", db.ZadanaLozinka); kolacicSesije(w) == nil {
 		t.Errorf("s ovog računala pod Postavom: %d %q", w.Code, w.Body.String())
 	}
-	// bez Postave (Unraid, ručno pokretanje) iz lokalne mreže kao dosad
+	// bez Postave (NAS, ručno pokretanje) iz lokalne mreže kao dosad
 	podPostavom = false
 	ponovnaLozinka = newLoginLimiter()
 	if w := o.prijava(izravno, "admin", db.ZadanaLozinka); kolacicSesije(w) == nil {

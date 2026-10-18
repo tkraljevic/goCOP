@@ -73,7 +73,7 @@ Rok za `applyOne` je 15. 11. 2026.; plan ga stavlja ranije, da ostane vremena.
 - Srednja pojednostavljenja (CC 16–30) u kritičnim paketima, osim `internal/peers`,
   `internal/razmjena` i `internal/ledger` (čekaju izdanje nakon F3 WEB synca).
 - Novo mjerenje kvalitete i zapisane iznimke.
-- **Izdanje:** izdanja su zajednička. Svako nosi sve što je do tada spojeno, pa koraci faze 3 izlaze s izdanjima 0, 1 ili 2 iz [plan-web-sync.md](plan-web-sync.md) (§5). Pravila razmjene na granici izlaze s izdanjem 0. Rekonstrukcija iz susjeda izašla je već u 0.0.36-alfa (12. 10. 2026.). Izdanja nemaju unaprijed dodijeljene brojeve. Unraid se nadograđuje prvi, zatim ostala računala, i Windows.
+- **Izdanje:** izdanja su zajednička. Svako nosi sve što je do tada spojeno, pa koraci faze 3 izlaze s izdanjima 0, 1 ili 2 iz [plan-web-sync.md](plan-web-sync.md) (§5). Pravila razmjene na granici izlaze s izdanjem 0. Rekonstrukcija iz susjeda izašla je već u 0.0.36-alfa (12. 10. 2026.). Izdanja nemaju unaprijed dodijeljene brojeve. Kućni server se nadograđuje prvi, zatim ostala računala, i Windows.
 
 ## Poslije mjeseca
 

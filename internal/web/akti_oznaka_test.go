@@ -143,7 +143,7 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 
 	// isti broj na dva čvora: B-7/2026 s laptopa i s poslužitelja
 	batina := o.akt(t, "Batina", "laptop", "3FA9C21B0D", models.PhasePrep)
-	vukovar := o.akt(t, "Vukovar", "unraid", "7C11E0A2B4", models.PhaseRegular)
+	vukovar := o.akt(t, "Vukovar", "server", "7C11E0A2B4", models.PhaseRegular)
 	// isti broj dvaput na istom čvoru (npr. prije brojača akata)
 	aljmas, dalj := o.akt(t, "Aljmaš", "laptop", "11AA22BB33", models.PhaseEmergency), o.akt(t, "Dalj", "laptop", "44CC55DD66", models.PhaseState)
 	aljmas.Broj, dalj.Broj = 8, 8
@@ -154,7 +154,7 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 	}
 
 	popis := zovi(operater, oOvl, http.MethodGet, "/akti", nil)
-	ima(popis, "popis sa sukobom", `class="akt-sukob"`, "ista oznaka kao akt", "Vukovar, RJEŠENJE o uspostavi", "kod 7C11E0A2B4", "čvor unraid", "čeka odluku")
+	ima(popis, "popis sa sukobom", `class="akt-sukob"`, "ista oznaka kao akt", "Vukovar, RJEŠENJE o uspostavi", "kod 7C11E0A2B4", "čvor server", "čeka odluku")
 	if n := strings.Count(popis.Body.String(), `class="akt-sukob"`); n != 4 {
 		t.Errorf("akti iste oznake (dva para) moraju biti crveni, a crvenih redaka je %d", n)
 	}
@@ -198,8 +198,8 @@ func TestIstaOznakaUPopisuIRjesenjeKrozRute(t *testing.T) {
 func TestDrugaOvjeraIstogNacrtaKrozRute(t *testing.T) {
 	o := novaOkolinaOznake(t)
 	ctx := context.Background()
-	vukovar := o.akt(t, "Vukovar", "unraid", "806A521E9D", models.PhasePrep)
-	batina := o.akt(t, "Batina", "unraid", "77B0AA11CC", models.PhasePrep)
+	vukovar := o.akt(t, "Vukovar", "server", "806A521E9D", models.PhasePrep)
+	batina := o.akt(t, "Batina", "server", "77B0AA11CC", models.PhasePrep)
 	batina.Broj = 6
 	if err := o.aktiRepo.SaveAkt(ctx, batina); err != nil {
 		t.Fatal(err)
@@ -228,7 +228,7 @@ func TestDrugaOvjeraIstogNacrtaKrozRute(t *testing.T) {
 	stranica := o.zovi(t, o.voditelj, o.vOvl, http.MethodGet, "/akti/"+vukovar.ID, nil)
 	imaNaStranici(t, stranica, "akt s drugom ovjerom", "ovjeren i na drugom čvoru", "Isti nacrt ovjeren je i na drugom čvoru",
 		"B-6/2026, kod <span class=\"mono\">CCA9623B58</span>, čvor laptop, ovjerio Iva Ivić, 06.10.2026 02:50; elektronički potpis vrijedi",
-		"Ovdje stoji ovjera B-7/2026 (kod 806A521E9D, čvor unraid)", "Označi riješenim")
+		"Ovdje stoji ovjera B-7/2026 (kod 806A521E9D, čvor server)", "Označi riješenim")
 	if l := o.zovi(t, o.voditelj, o.vOvl, http.MethodPost, "/akti/"+vukovar.ID+"/oznaka", url.Values{"napomena": {"Primateljima javljeno da vrijedi B-7/2026."}}).Header().Get("Location"); !strings.Contains(l, "success=") {
 		t.Fatalf("rješenje druge ovjere: %s", l)
 	}

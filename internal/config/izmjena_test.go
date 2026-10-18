@@ -215,11 +215,12 @@ func TestProvjeriPostavke(t *testing.T) {
 	c.Sync.Bootstrap = []string{"a.primjer.hr", "dva čvora"}
 	c.Sync.ExchangePort = 70000
 	c.Readings.HistoryMonths = -1
+	c.Readings.MinutaPreuzimanja = 60
 	c.Karta.Plocice = "https://plocice.primjer.hr/karta.png"
 	c.Karta.NajviseZ = 25
 	c.Karta.Zasluge = `<img src=x onerror="alert(1)">`
 	g := Provjeri(c)
-	for _, k := range []string{"javna_adresa", "sync.auto_sync", "sync.bootstrap", "sync.exchange_port", "vodostaji.povijest_mjeseci", "karta.plocice", "karta.najvise_z", "karta.zasluge"} {
+	for _, k := range []string{"javna_adresa", "sync.auto_sync", "sync.bootstrap", "sync.exchange_port", "vodostaji.povijest_mjeseci", "vodostaji.minuta_preuzimanja", "karta.plocice", "karta.najvise_z", "karta.zasluge"} {
 		if g[k] == "" {
 			t.Errorf("%s: nema poruke (%v)", k, g)
 		}

@@ -53,7 +53,7 @@ func TestMigracijaPamtiZnanjeDrugogCvora(t *testing.T) {
 		VALUES (?, '{}', ?, ?, '', 0, 0, 1, 0, '0.0.38-alfa', '', 1)`, "laptop-baranja", now, now); err != nil {
 		t.Errorf("upis kao 0.0.38: %v", err)
 	}
-	if _, err := database.Exec(`INSERT INTO peer_sync (node_id, tailscale) VALUES ('unraid', '[]')`); err != nil {
+	if _, err := database.Exec(`INSERT INTO peer_sync (node_id, tailscale) VALUES ('server', '[]')`); err != nil {
 		t.Errorf("upis Tailscale adresa kao 0.0.38: %v", err)
 	}
 }

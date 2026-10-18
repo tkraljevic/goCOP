@@ -29,7 +29,7 @@ func TestAktiIsteOznakeUMjesovitimPodacima(t *testing.T) {
 		return a
 	}
 	prvi := akt("B", 2026, 1, "A1", "cop-osijek")
-	tudi := akt("B", 2026, 1, "U1", "unraid")
+	tudi := akt("B", 2026, 1, "U1", "server")
 	drugi := akt("B", 2026, 2, "A2", "cop-osijek")
 	akt("B", 2026, 4, "A4", "cop-osijek")
 	akt("D", 2026, 1, "D1", "cop-osijek")

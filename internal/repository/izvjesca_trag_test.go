@@ -34,7 +34,7 @@ func otvoriCvorIzvjesca(t *testing.T, ime string) (*IzvjescaRepository, *Sektors
 func TestTragPredajeIzvjescaKrozBazuIRazmjenu(t *testing.T) {
 	ctx := context.Background()
 	dionA, sektA, recA := otvoriCvorIzvjesca(t, "cop")
-	dionB, sektB, recB := otvoriCvorIzvjesca(t, "unraid")
+	dionB, sektB, recB := otvoriCvorIzvjesca(t, "server")
 
 	prvi := time.Date(2026, 10, 7, 9, 40, 0, 0, models.Zagreb)
 	drugi := time.Date(2026, 10, 7, 14, 20, 0, 0, models.Zagreb)

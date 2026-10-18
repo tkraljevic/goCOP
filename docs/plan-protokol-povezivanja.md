@@ -19,7 +19,7 @@ oznaka mogućnosti `web/1`. Za postavke i putove iz §2 i §7 vrijedi:
 - `lan_kandidati`, `sucelja_iskljuci`, `sastajalista`,
   `prioritet_sastajalista` i `posrednik*` otpadaju;
 - `sastajaliste` više nije prekidač, nego adresa sastajališta (na primjer
-  `https://cop-osijek.com`); posluživanje se uključuje s
+  `https://cop.primjer.hr`); posluživanje se uključuje s
   `posluzi_sastajaliste`;
 - `Put` `izravno` sad je `adresa`, a `posrednik` otpada.
 
@@ -48,7 +48,7 @@ isprobano u istraživanju, **[S]** samo sekundarni izvori, **[P]** prijedlog ili
 
 **Problem.** Dva čvora iza NAT-a (laptop izvan kuće, uredski čvor, laptop
 na mobilnoj mreži) danas se ne mogu izravno spojiti. Sve ide kroz jedini
-dohvatljiv čvor, Unraid, preko Cloudflare tunela. Unraid je zato usko grlo i
+dohvatljiv čvor, kućni server, preko Cloudflare tunela. Kućni server je zato usko grlo i
 jedina točka kvara za sve izvan LAN-a.
 
 **Cilj ovog koraka.** Svaka dva člana mreže dobiju izravan, šifriran UDP put
@@ -60,7 +60,7 @@ sesijama.
 
 | ograničenje | posljedica |
 |---|---|
-| kod kuće nema otvorenih portova | Unraid je za UDP i sam iza NAT-a; i do njega se dolazi probijanjem |
+| kod kuće nema otvorenih portova | Kućni server je za UDP i sam iza NAT-a; i do njega se dolazi probijanjem |
 | Cloudflare Tunnel nosi samo HTTP/HTTPS/WebSocket, ne UDP | signalizacija i posrednik idu WebSocketom; sastajalište ne može izmjeriti UDP |
 | uvjeti Cloudflarea: zabrana „VPN or other similar proxy services" (§2.2.1(j)) i pravilo o velikim datotekama [V] | kroz posrednika samo knjiga i mali sadržaj, uz tvrdi dnevni proračun |
 | uredski vatrozid (Hrvatske vode) nepoznat | uredski čvorovi se ionako sinkroniziraju u LAN-u; put ured ↔ vani možda samo preko posrednika |
@@ -69,10 +69,10 @@ sesijama.
 | Go 1.27.1, bez CGO-a, jedna statička binarka | jedna nova ovisnost: `github.com/quic-go/quic-go` (MIT, bez CGO-a, prikvačena v0.63.0) |
 
 **Odluke korisnika:** vlastiti protokol po uzoru na WebRTC; signalizacija
-kroz postojeći tunel, Unraid kao sastajalište; javni STUN Google
+kroz postojeći tunel, kućni server kao sastajalište; javni STUN Google
 (`stun.l.google.com:19302`) i Cloudflare (`stun.cloudflare.com:3478`),
 nasumično izabran, drugi kao rezerva; istodobno probijanje; šifriranje
-ključevima čvorova; WebSocket posrednik preko Unraida kao zadnji izlaz.
+ključevima čvorova; WebSocket posrednik preko kućnog servera kao zadnji izlaz.
 copB.voda.hr ili VPS kasnije ulaze kao još jedno sastajalište bez promjene
 protokola.
 
@@ -93,7 +93,7 @@ radi [T]. Binarka raste za oko +1,6–1,8 MiB [T].
       ▼                                             ▼
  ┌─────────┐   poziv / odziv / sinkro      ┌──────────────────┐
  │ čvor A  │◄─────────────────────────────►│  SASTAJALIŠTE R  │
- │ laptop  │                               │  (Unraid danas;  │
+ │ laptop  │                               │  (kućni server;  │
  └────┬────┘                               │   copB/VPS sutra)│
       │  UDP 4713: STUN ─► Google / Cloudflare (nasumično, drugi rezerva)
       │                                    └────────┬─────────┘
@@ -142,11 +142,11 @@ probijanje se ne pokušava.
 - prijavljen je kod najviše 3 sastajališta.
 
 **Sastajalište (R).** Čvor s javnom HTTPS adresom (`[povezivost]
-sastajaliste = true`): danas samo Unraid. Poslužuje `/razmjena/signal`.
+sastajaliste = true`): danas samo kućni server. Poslužuje `/razmjena/signal`.
 Registar prijavljenih, prosljeđivanje potpisanih poruka, izdavanje žetona za
 posrednika. Ne vidi otiske, kanale, pretplate ni sadržaj. Sastajalište je i
 običan čvor: poziv kojem je cilj on sam obradi lokalno, pa laptop izvan kuće
-dobije izravan UDP put do Unraida.
+dobije izravan UDP put do kućnog servera.
 
 **Posrednik.** Obično isti čvor kao sastajalište (`posrednik = true`).
 Poslužuje `/razmjena/spoj`: spaja dvije WebSocket noge bajt za bajtom. Kroz
@@ -173,7 +173,7 @@ Javne IP adrese, NAT preslikavanja i „tko s kim" **ne ulaze** u knjigu.
 Čvor bez `veza/1` ide starim `SyncWith` putem. Ako polje još nije stiglo,
 404 na `/razmjena/signal` znači „nije sastajalište", nalaz se pamti 6 h.
 Redoslijed sastajališta za poziv: `prioritetSastajalista` (copB npr. 10,
-kućni Unraid 50), zatim RTT kontrolne veze.
+kućni server 50), zatim RTT kontrolne veze.
 
 **Adresar.** Lokalna tablica `veza_adresar` (nije u knjizi): čvor, vrsta
 (lan, javni, probijeni, tcp, https), adresa, izvor, zadnji uspjeh/neuspjeh,
@@ -212,7 +212,7 @@ ID čvora sastajalište izvodi iz ključa dokazanog u TLS-u i redka u
   ili kroz korporativni proxy s drugim izlazom. Uspoređuje se samo ista
   obitelj adresa, i samo za natpis „više izlaza" na pločici.
 - **Izmjereno [T]:** laptop na HT-u ima EIM i čuva port (najbolji slučaj).
-  Ured, mobilna mreža i Unraid u Dockeru nisu izmjereni.
+  Ured, mobilna mreža i kućni server u Dockeru nisu izmjereni.
 
 ### 4.2 Signalna veza prema sastajalištu
 
@@ -274,7 +274,7 @@ put, ne iznimka.
 
 **Rokovi (usklađeni):** STUN ≤ 2 s + signalizacija ≤ 5 s + 3 × (3 s + 1 s)
 + QUIC 5 s ≈ 24 s; posrednik ≤ 10 s. Ukupni rok novog puta u `SyncWith`
-je **45 s**. Kad je cilj sam sastajalište (Unraid), probijanje ima rok 8 s,
+je **45 s**. Kad je cilj sam sastajalište (kućni server), probijanje ima rok 8 s,
 a onda ide stari tunel.
 
 **Negativna pričuva:** nakon 3 neuspjeha zaredom prema B, 30 min ravno na
@@ -316,8 +316,8 @@ normalno. Sadržaj: samo stavke ≤ 1 MiB, ukupno ≤ 8 MiB po razgovoru;
 prilozi čekaju LAN, izravni ili probijeni put.
 
 **Iskreno ograničenje:** za knjigu verzija posrednik daje malo više od
-današnje razmjene s Unraidom, koji je ionako punopravni član. Vrijedi kad A
-treba sadržaj koji Unraid po pretplati ne drži, i za svježinu (bez dva kruga
+današnje razmjene s kućnim serverom, koji je ionako punopravni član. Vrijedi kad A
+treba sadržaj koji kućni server po pretplati ne drži, i za svježinu (bez dva kruga
 od 5 min). Zato je zadnja faza i može se odgoditi.
 
 ---
@@ -388,7 +388,7 @@ Tijelo odziva: isto (`od` = B, `za` = A), uz `"odluka":"probaj"│"posrednik"│
 - `lokalna`: adrese sučelja (RFC 1918), bez loopbacka i link-locala, bez
   sučelja `docker*`, `br-*`, `veth*`, `utun*`, `tailscale*`; isključivo
   postavkom `lan_kandidati = false`;
-- Unraid u Dockeru objavljuje `lan_adresa` (npr. `192.168.1.2`) umjesto
+- Kućni server u Dockeru objavljuje `lan_adresa` (npr. `192.168.1.2`) umjesto
   `172.17.x`;
 - najviše 8; odbacuju se multicast, broadcast, nespecificirane i loopback
   adrese te port 0.
@@ -581,16 +581,16 @@ odmah zatim ostali; numeraciju izdanja odrediti tek pri izvedbi.
 
 | faza | sadržaj | zadano |
 |---|---|---|
-| **F0 + F1** | prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na Unraidu i laptopu; ostali samo na gumb |
-| **F2** | `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na Unraidu; `probijanje = false` |
-| **F3** | QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na Unraidu, zatim laptopu |
-| **F4** | posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na Unraidu |
+| **F0 + F1** | prerada `Conn`, `Put`, ispravak `noteSync`; UDP utičnica, STUN, netcheck, blok „Dohvatljivost", gumb „Provjeri vezu". Bez promjene ponašanja razmjene. | utičnica uključena, periodični netcheck uključen samo na kućnom serveru i laptopu; ostali samo na gumb |
+| **F2** | `/razmjena/signal`, prijava, puls, potpisani poziv/odziv, `mogucnosti` u zapisu čvora | `sastajaliste = true` samo na kućnom serveru; `probijanje = false` |
+| **F3** | QUIC sesija, kanali, udarci, sinkro, vrata, novi redoslijed u `SyncWith`, LAN QUIC | `probijanje = false`; ručno uključiti na kućnom serveru, zatim laptopu |
+| **F4** | posrednik, žetoni, proračuni, pravilo sadržaja | `posrednik = true` samo na kućnom serveru |
 | **F5** | terenska ugađanja | `probijanje = true` zadano, kad pločica dva tjedna nema grešaka |
 
 Uredski čvorovi dolaze zadnji i tek nakon dogovora s IT-om Hrvatskih voda
 (§10).
 
-**Unraid (Docker):** host mreža ili `-p 4713:4713/udp`; `lan_adresa =
+**Kućni server (Docker):** host mreža ili `-p 4713:4713/udp`; `lan_adresa =
 "192.168.1.2"`; `QUIC_GO_DISABLE_RECEIVE_BUFFER_WARNING=1` ili veći
 `net.core.rmem_max`/`wmem_max`. Na kućnom usmjerivaču se **ništa ne
 otvara**.
@@ -631,7 +631,7 @@ posrednik_sadrzaj_mib = 8
 - „više izlaza" kad se STUN IPv4 i `vidjenaIP` IPv4 razlikuju (samo
   natpis);
 - pomak sata prema sastajalištu, upozorenje iznad 2 min;
-- sastajalište: „prijavljen kod cop-osijek.com od 12:01" / „nije dostupno
+- sastajalište: „prijavljen kod cop.primjer.hr od 12:01" / „nije dostupno
   (razlog)" / „nijedno";
 - na sastajalištu: broj prijavljenih, poziva u zadnjem satu, sesija
   posrednika, MiB danas prema proračunu.
@@ -688,7 +688,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
 - „tko što ima" samo u sesiji: Bloom sažetak na početku (oko 1,5 KB za 1225
   stavki), poruke `ima`, kratka negativna pričuva za `nemam`;
 - ovlast iz ključa sesije i članstva, ne iz samoprijavljenih `Wants`;
-- izbor najmanje zauzetog izvora; Unraid se javlja kao zadnji izbor; LAN bez
+- izbor najmanje zauzetog izvora; kućni server se javlja kao zadnji izbor; LAN bez
   ograde slanja;
 - otisak koji dohvaća `sadrzaj/1` ne ide u stari `zelje`.
 - Ako roj zatraži kanale i preko posrednika: QUIC paketi kao WebSocket
@@ -720,7 +720,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    - izravno, EIM → probijanje ured ↔ vani vrijedi, redoslijed faza ostaje;
    - DERP ili simetrično → ured ↔ vani ide preko posrednika; F4 dobiva
      važnost, a veliki paketi za ured idu samo LAN-om dok ne bude copB.
-     Probijanje i dalje vrijedi za laptop ↔ Unraid i laptop ↔ laptop.
+     Probijanje i dalje vrijedi za laptop ↔ kućni server i laptop ↔ laptop.
    - UDP potpuno blokiran → isto, a `probijanje` u uredu ostaje isključeno.
 2. **HTTP proxy u uredu.** `x/net/websocket` dialer ne poštuje
    `HTTPS_PROXY` [V, tunel.go:157–161]. Ako tunel iz ureda danas radi,
@@ -731,7 +731,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
    službenih računala može izgledati kao zaobilaženje vatrozida (NIS2).
    Prije `probijanje = true` na službenim laptopima treba dogovor; do tada
    samo posrednik i LAN.
-4. **Unraid u Dockeru.** Host mreža ili mapiranje 4713/udp; čuva li
+4. **Kućni server u Dockeru.** Host mreža ili mapiranje 4713/udp; čuva li
    Dockerov MASQUERADE i kućni usmjerivač EIM — mjeri se u fazi F1.
 5. **quic-go detalji prije F3:** redoslijed `VerifySourceAddress` →
    `ConnContext` i `AddrVerified` nakon Retryja; ponašanje
@@ -757,7 +757,7 @@ medijan vremena do veze, MiB kroz posrednika dnevno.
 | faza | sadržaj | dani | samostalno isporučivo |
 |---|---|---|---|
 | **F0 prerada** | sučelje `prijenos` u `Conn`, `newConnKljuc`, `primiVezu`, zajednički rep `DialExchange`/`DialTunel`, `Put`/`RTT`, ispravak `noteSync` s testom | 1–1,5 | da, bez promjene ponašanja |
-| **F1 STUN i netcheck** | utičnica s `quic.Transport` (još bez QUIC slušalice), stalni čitač, vlastiti STUN, netcheck, blok „Dohvatljivost", gumb | 2–3 | da: stvarni podaci iz ureda, s mobilne mreže i Unraida |
+| **F1 STUN i netcheck** | utičnica s `quic.Transport` (još bez QUIC slušalice), stalni čitač, vlastiti STUN, netcheck, blok „Dohvatljivost", gumb | 2–3 | da: stvarni podaci iz ureda, s mobilne mreže i kućnog servera |
 | **F2 signalizacija** | `/razmjena/signal`, ograde, registar, prijava/puls/backoff, potpisani poziv/odziv/sinkro, pričuva sesija, `mogucnosti` u zapisu čvora | 3–4 | da: pločica pokazuje tko je „na vezi" |
 | **F3 sesija i probijanje** | quic-go, sesija s kanalima 0x00/0x01, pozdrav, udarci, sinkro, vrata (Retry + ConnContext), strojevi stanja, adresar, `SyncWith` redoslijed, LAN QUIC, ponovna provjera `trusted()`, NAT simulator | 6–7 | da: glavni dobitak |
 | **F4 posrednik** | `/razmjena/spoj`, žetoni, spajanje, proračuni, pravilo sadržaja, ping | 2–3 | da; može se odgoditi |
@@ -832,13 +832,13 @@ lokalni kandidat; cilj je sam sastajalište → probijeno ili stari tunel za 8 s
 - ALPN `gocop-signal/1` prema čvoru bez `NextProtos` → stari put.
 
 **Teren:**
-1. laptop doma ↔ Unraid: mora ostati LAN;
-2. laptop na mobilnoj mreži (CGNAT) ↔ Unraid;
+1. laptop doma ↔ kućni server: mora ostati LAN;
+2. laptop na mobilnoj mreži (CGNAT) ↔ kućni server;
 3. laptop na mobilnoj mreži ↔ laptop doma;
-4. ured ↔ Unraid i ured ↔ laptop izvan ureda (uz `tailscale netcheck`);
-5. Unraid u bridge i host načinu;
+4. ured ↔ kućni server i ured ↔ laptop izvan ureda (uz `tailscale netcheck`);
+5. Kućni server u bridge i host načinu;
 6. 24 h signalizacije kroz Cloudflare uz brojanje prekida;
-7. redovita provjera iz plana: isključi Unraid — dva laptopa u istoj
+7. redovita provjera iz plana: isključi kućni server — dva laptopa u istoj
    prostoriji moraju raditi LAN-om, bez ičega u sredini.
 
 Mjeri se: vrijeme do prve razmjene, udio probijenih veza po vrsti NAT-a,

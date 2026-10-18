@@ -54,7 +54,7 @@ func TestTekstUpozorenja(t *testing.T) {
 // ga vidi samo administrator
 func TestPorukaISavjet(t *testing.T) {
 	d := Disk{Mjera: Mjera{Ukupno: 128e9, Slobodno: 8_290_000_000}, Nazivi: []string{"bazom", "arhivom"}, Premjesti: "arhivu"}
-	if got, o := d.Poruka("COP Osijek (Unraid)"), "Na disku čvora COP Osijek (Unraid) s bazom i arhivom ostalo je 8,2 GB (6 % diska)."; got != o {
+	if got, o := d.Poruka("COP Osijek (kućni server)"), "Na disku čvora COP Osijek (kućni server) s bazom i arhivom ostalo je 8,2 GB (6 % diska)."; got != o {
 		t.Errorf("poruka %q, očekivano %q", got, o)
 	}
 	if got, o := d.Poruka(""), "Na disku s bazom i arhivom ostalo je 8,2 GB (6 % diska)."; got != o {

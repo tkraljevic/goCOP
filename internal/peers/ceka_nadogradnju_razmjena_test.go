@@ -1,7 +1,7 @@
 package peers
 
 // Zapis koji stariji program još ne razumije, od kraja do kraja (G5 u
-// docs/plan-web-sync.md §3; Odluke (11. 10. 2026.), 1): Unraid s novijim
+// docs/plan-web-sync.md §3; Odluke (11. 10. 2026.), 1): server s novijim
 // programom upiše blagdan, Windows sa starijim ga primi, sačuva i
 // proslijedi laptopu. Koliko kod njega čeka, Windows javlja u granici, pa
 // laptop to zna. Pločica na naslovnoj (upozorenjaNadogradnje u cmd/gocop)
@@ -116,41 +116,41 @@ func cekaIPovrsina(t *testing.T, s *Service, rec *ledger.Recorder, ceka int, naz
 	}
 }
 
-// danObrane je blagdan koji upiše Unraid s novijim programom
+// danObrane je blagdan koji upiše server s novijim programom
 var danObrane = obracun.Pravilo{ID: "dan-obrane", Naziv: "Dan obrane", Vrsta: obracun.Stalni, Mjesec: 8, Dan: 5}
 
-// unraidWindowsLaptop su Unraid, Windows i laptop iste mreže koji prate
-// sve i već su razmijenili ono što postava upiše. Unraid ima noviji
+// serverWindowsLaptop su server, Windows i laptop iste mreže koji prate
+// sve i već su razmijenili ono što postava upiše. Server ima noviji
 // program, a stari zada pozivatelj.
-func unraidWindowsLaptop(t *testing.T, stari func(*Service)) (unraid, windows, laptop *Service) {
+func serverWindowsLaptop(t *testing.T, stari func(*Service)) (server, windows, laptop *Service) {
 	t.Helper()
 	cv := clanoviMreze(t, false, "cop-osijek", "windows-ured", "laptop-baranja")
-	unraid, windows, laptop = cv[0], cv[1], cv[2]
-	sPovrsinom(unraid)
+	server, windows, laptop = cv[0], cv[1], cv[2]
+	sPovrsinom(server)
 	stari(windows)
 	stari(laptop)
 	for _, s := range cv {
 		s.SetWantsAll(true)
 	}
-	izjednaci(t, unraid, windows)
+	izjednaci(t, server, windows)
 	izjednaci(t, windows, laptop)
-	return unraid, windows, laptop
+	return server, windows, laptop
 }
 
 func TestZapisCekaNadogradnjuOdKrajaDoKraja(t *testing.T) {
-	unraid, windows, laptop := unraidWindowsLaptop(t, sPovrsinom)
+	server, windows, laptop := serverWindowsLaptop(t, sPovrsinom)
 
-	// noviji program na Unraidu piše blagdane shemom 2, koju stariji ne smije
+	// noviji program na serveru piše blagdane shemom 2, koju stariji ne smije
 	// uređivati; Windows i laptop imaju stariji program
 	t.Cleanup(func() { ledger.PostaviShemu(repository.EntityBlagdani, ledger.SchemaVersion) })
 	ledger.PostaviShemu(repository.EntityBlagdani, 2)
-	if err := repository.NewObracunRepository(unraid.db, unraid.rec).SaveBlagdan(ctxRub, danObrane); err != nil {
+	if err := repository.NewObracunRepository(server.db, server.rec).SaveBlagdan(ctxRub, danObrane); err != nil {
 		t.Fatal(err)
 	}
 	ledger.PostaviShemu(repository.EntityBlagdani, ledger.SchemaVersion)
 
 	// Windows ga primi, sačuva i prikaže, ali ga ne smije uređivati
-	razgovaraj(t, windows, unraid)
+	razgovaraj(t, windows, server)
 	cekaIPovrsina(t, windows, windows.rec, 1, danObrane.Naziv)
 	izmjena := danObrane
 	izmjena.Naziv = "Dan obrane (izmjena)"
@@ -162,8 +162,8 @@ func TestZapisCekaNadogradnjuOdKrajaDoKraja(t *testing.T) {
 	if st := cekaKodDrugog(t, laptop, windows); st.CekaNadogradnju != 1 || !st.MogucnostiPoznate {
 		t.Fatalf("laptop o Windowsu: čeka %d, mogućnosti poznate %v", st.CekaNadogradnju, st.MogucnostiPoznate)
 	}
-	if v, err := laptop.rec.Latest(ctxRub, repository.EntityBlagdani, danObrane.ID); err != nil || v == nil || v.NodeID != unraid.node.ID || v.SchemaVersion != 2 {
-		t.Fatalf("laptop nema Unraidov zapis novije sheme: %+v %v", v, err)
+	if v, err := laptop.rec.Latest(ctxRub, repository.EntityBlagdani, danObrane.ID); err != nil || v == nil || v.NodeID != server.node.ID || v.SchemaVersion != 2 {
+		t.Fatalf("laptop nema serverov zapis novije sheme: %+v %v", v, err)
 	}
 	cekaIPovrsina(t, laptop, laptop.rec, 1, danObrane.Naziv)
 
@@ -213,21 +213,21 @@ func TestNepoznatZapisPrimijeniSeNakonNadogradnje(t *testing.T) {
 	}
 	// stari program blagdane ne poznaje
 	ledger.PoznatiEntiteti(slices.DeleteFunc(repository.PoznatiEntiteti(), func(e string) bool { return e == repository.EntityBlagdani })...)
-	unraid, windows, laptop := unraidWindowsLaptop(t, stariProgram)
-	if err := repository.NewObracunRepository(unraid.db, unraid.rec).SaveBlagdan(ctxRub, danObrane); err != nil {
+	server, windows, laptop := serverWindowsLaptop(t, stariProgram)
+	if err := repository.NewObracunRepository(server.db, server.rec).SaveBlagdan(ctxRub, danObrane); err != nil {
 		t.Fatal(err)
 	}
 
 	// Windows ga sačuva, a ne primijeni
-	razgovaraj(t, windows, unraid)
+	razgovaraj(t, windows, server)
 	cekaIPovrsina(t, windows, windows.rec, 1)
 
 	// Windows ga proslijedi laptopu i javi koliko kod njega čeka
 	if st := cekaKodDrugog(t, laptop, windows); st.CekaNadogradnju != 1 {
 		t.Fatalf("laptop o Windowsu: čeka %d", st.CekaNadogradnju)
 	}
-	if v, err := laptop.rec.Latest(ctxRub, repository.EntityBlagdani, danObrane.ID); err != nil || v == nil || v.NodeID != unraid.node.ID {
-		t.Fatalf("laptop nema Unraidov zapis: %+v %v", v, err)
+	if v, err := laptop.rec.Latest(ctxRub, repository.EntityBlagdani, danObrane.ID); err != nil || v == nil || v.NodeID != server.node.ID {
+		t.Fatalf("laptop nema serverov zapis: %+v %v", v, err)
 	}
 	cekaIPovrsina(t, laptop, laptop.rec, 1)
 

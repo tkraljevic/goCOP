@@ -562,3 +562,10 @@ je gotov onaj o kojem ovisi.
 - Izvora podataka bit će još, a postojeći se mijenjaju. Uz poliranje dolaze
   upozorenje kad izvor šuti i kratak opis svakog izvora: odakle, koliko
   često, licenca i kontakt.
+
+## Odluke (18. 10. 2026.)
+
+- Cijeli tehnički opis razmjene među računalima, od koraka razgovora do
+  pravila za njezine izmjene, vodi se u zasebnom repozitoriju, izvan
+  GitHuba. Na stranici [Kako goCOP radi](kako-radi.md) stoji samo kratak
+  sažetak za korisnike i administratore, bez imena funkcija.

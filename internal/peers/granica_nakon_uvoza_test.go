@@ -1,8 +1,8 @@
 package peers
 
-// Granica odbijenih nakon uvoza (granica_nakon_uvoza.go). Unraid (cop-osijek)
+// Granica odbijenih nakon uvoza (granica_nakon_uvoza.go). Server (cop-osijek)
 // uvozom dobije očitanje ispod granice odbijenih laptopa (laptop-baranja),
-// koje laptop drži: kasno. Prije popravka Unraid ga je po granici odbijenih
+// koje laptop drži: kasno. Prije popravka server ga je po granici odbijenih
 // preskakao, a kad je u istom ključu stiglo novije, laptopova granica knjige
 // prešla je preko njega i kasno nije stiglo nikad. Uvoz ide pravim putem,
 // arhivom knjige (ImportFile) ili COP paketom (UveziCop), s trećeg člana
@@ -26,7 +26,7 @@ import (
 	"gocop/internal/ledger"
 )
 
-// Verzije Unraida u jednom ključu (cop-osijek, ocitanja/16/2024): laptop drži
+// Verzije servera u jednom ključu (cop-osijek, ocitanja/16/2024): laptop drži
 // novo, kasno i novo-2, a stara odbija. Kasno je ispod granice odbijenih.
 var (
 	uvozNovo   = verzijaUvoza("210", "novo")
@@ -42,7 +42,7 @@ func verzijaUvoza(id, zapis string) ledger.Version {
 	return stalnaVerzija("0190a000-0000-7000-8000-000000000"+id, "cop-osijek", kanalUvoza, zapis, `{"cm":1}`)
 }
 
-// putUvoza je put kojim Unraid (a) dobije verzije mimo razmjene: kanal se
+// putUvoza je put kojim server (a) dobije verzije mimo razmjene: kanal se
 // izveze s trećeg člana mreže (c) i uveze. Vraća broj novih verzija; greška
 // se vraća, a ne ruši test, jer se uvoz zove i iz razgovora (Accept).
 type putUvoza struct {
@@ -74,7 +74,7 @@ var putoviUvoza = []putUvoza{
 	}},
 }
 
-// uveziOd: c dobije verzije vv, a Unraid ih uveze putem put; očekuje se
+// uveziOd: c dobije verzije vv, a server ih uveze putem put; očekuje se
 // toliko novih
 func uveziOd(t *testing.T, put putUvoza, a, c *Service, novih int, vv ...ledger.Version) {
 	t.Helper()
@@ -84,10 +84,10 @@ func uveziOd(t *testing.T, put putUvoza, a, c *Service, novih int, vv ...ledger.
 	}
 }
 
-// unraidLaptopIUred su Unraid i laptop kao u unraidILaptop i treći član
+// serverLaptopIUred su server i laptop kao u serverILaptop i treći član
 // mreže, ured, koji izdaje arhive i pakete; laptop već odbija stara
-// očitanja ključa i Unraid mu ih više ne šalje
-func unraidLaptopIUred(t *testing.T, pozivatelj, pozvani func(a, b *Service) *Service) (a, b, c *Service) {
+// očitanja ključa i server mu ih više ne šalje
+func serverLaptopIUred(t *testing.T, pozivatelj, pozvani func(a, b *Service) *Service) (a, b, c *Service) {
 	t.Helper()
 	cv := clanovi(t, "cop-osijek", "laptop-baranja", "windows-ured")
 	a, b, c = cv[0], cv[1], cv[2]
@@ -98,23 +98,23 @@ func unraidLaptopIUred(t *testing.T, pozivatelj, pozvani func(a, b *Service) *Se
 	upisiStalno(t, a, uvozNovo, uvozStaroA, uvozStaroB)
 	for krug, poslano := range []int{3, 0} {
 		p, z := razgovaraj(t, pozivatelj(a, b), pozvani(a, b))
-		if got := poslaoUnraid(a, pozivatelj(a, b), p, z); got != poslano {
-			t.Fatalf("razgovor %d prije uvoza: Unraid poslao %d, očekivano %d", krug+1, got, poslano)
+		if got := poslaoServer(a, pozivatelj(a, b), p, z); got != poslano {
+			t.Fatalf("razgovor %d prije uvoza: server poslao %d, očekivano %d", krug+1, got, poslano)
 		}
 	}
 	return a, b, c
 }
 
-// ulogeRazgovora su obje uloge: laptop zove Unraid, i Unraid zove laptop
+// ulogeRazgovora su obje uloge: laptop zove server, i server zove laptop
 var ulogeRazgovora = []struct {
 	ime                 string
 	pozivatelj, pozvani func(a, b *Service) *Service
 }{
 	{"laptop zove", func(_, b *Service) *Service { return b }, func(a, _ *Service) *Service { return a }},
-	{"Unraid zove", func(a, _ *Service) *Service { return a }, func(_, b *Service) *Service { return b }},
+	{"Server zove", func(a, _ *Service) *Service { return a }, func(_, b *Service) *Service { return b }},
 }
 
-// Glavni slučaj: Unraid uveze kasno, a zatim u istom ključu dobije novo-2.
+// Glavni slučaj: server uveze kasno, a zatim u istom ključu dobije novo-2.
 // Sljedeći razgovor zanemari granicu odbijenih i donese i kasno, pa ga laptop
 // ima i nakon isteka zapisa odbijenih; razgovor iza toga opet je poštuje i
 // stara ne šalje. Za obje uloge i oba puta uvoza.
@@ -122,7 +122,7 @@ func TestUvozIspodGraniceOdbijenihStigne(t *testing.T) {
 	for _, put := range putoviUvoza {
 		for _, u := range ulogeRazgovora {
 			ime := put.ime + ", " + u.ime
-			a, b, c := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+			a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 			sat := &lazniSat{}
 			sat.sad.Store(time.Now().UnixNano())
 			b.satOdbijenih = sat.vrijeme
@@ -130,12 +130,12 @@ func TestUvozIspodGraniceOdbijenihStigne(t *testing.T) {
 			uveziOd(t, put, a, c, 1, uvozKasno)
 			upisiStalno(t, a, uvozNovo2)
 			// kasno, staro-a, staro-b i novo-2; laptop upiše kasno i novo-2
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
-				t.Errorf("%s: nakon uvoza Unraid poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
-					ime, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
+				t.Errorf("%s: nakon uvoza server poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
+					ime, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 			}
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 0 {
-				t.Errorf("%s: zatim Unraid poslao %d", ime, poslaoUnraid(a, pozivatelj, p, z))
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 0 {
+				t.Errorf("%s: zatim server poslao %d", ime, poslaoServer(a, pozivatelj, p, z))
 			}
 			sat.pomakni(najduljeOdbijene)
 			razgovaraj(t, pozivatelj, pozvani)
@@ -148,14 +148,14 @@ func TestUvozIspodGraniceOdbijenihStigne(t *testing.T) {
 
 // Uvoz usred razgovora: narastaj uvoza razgovor uzme na početku, pa
 // sljedeći razgovor zanemari granicu odbijenih i kasno stigne. Uvoz pokrene
-// laptopov Accept, kad Unraid deltu već ima, a razgovor nije gotov. Za obje
+// laptopov Accept, kad server deltu već ima, a razgovor nije gotov. Za obje
 // uloge i oba puta uvoza.
 func TestUvozUsredRazgovora(t *testing.T) {
 	okidac := stalnaVerzija("0190a000-0000-7000-8000-000000000250", "cop-osijek", "ocitanja/16/2025", "okidac", `{"cm":1}`)
 	for _, put := range putoviUvoza {
 		for _, u := range ulogeRazgovora {
 			ime := put.ime + ", " + u.ime
-			a, b, c := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+			a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 			pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
 			upisiStalno(t, c, uvozKasno)
 			var jednom sync.Once
@@ -168,13 +168,13 @@ func TestUvozUsredRazgovora(t *testing.T) {
 				return odbijaStaro(v)
 			})
 			upisiStalno(t, a, okidac)
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 1 || uvoz != nil {
-				t.Fatalf("%s: razgovor s uvozom poslao %d, uvoz %v", ime, poslaoUnraid(a, pozivatelj, p, z), uvoz)
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 1 || uvoz != nil {
+				t.Fatalf("%s: razgovor s uvozom poslao %d, uvoz %v", ime, poslaoServer(a, pozivatelj, p, z), uvoz)
 			}
 			upisiStalno(t, a, uvozNovo2)
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
-				t.Errorf("%s: nakon uvoza usred razgovora Unraid poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
-					ime, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
+				t.Errorf("%s: nakon uvoza usred razgovora server poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
+					ime, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 			}
 			if _, err := b.rec.Latest(ctxRub, "probni", "kasno"); err != nil {
 				t.Errorf("%s: laptop nema kasno: %v", ime, err)
@@ -183,12 +183,12 @@ func TestUvozUsredRazgovora(t *testing.T) {
 	}
 }
 
-// Nakon ponovnog pokretanja Unraid ne zna što su druga računala dobila
+// Nakon ponovnog pokretanja server ne zna što su druga računala dobila
 // nakon uvoza, pa prvi razgovor granicu odbijenih zanemari i stara pošalje
 // opet; drugi je opet poštuje. Za obje uloge.
 func TestPonovnoPokretanjeZanemariGranicu(t *testing.T) {
 	for _, u := range ulogeRazgovora {
-		a, b, _ := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+		a, b, _ := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 		novi, err := NewService(a.db, a.rec, a.node, a.ports)
 		if err != nil {
 			t.Fatal(err)
@@ -196,9 +196,9 @@ func TestPonovnoPokretanjeZanemariGranicu(t *testing.T) {
 		novi.SetWantsAll(true)
 		pozivatelj, pozvani := u.pozivatelj(novi, b), u.pozvani(novi, b)
 		for krug, poslano := range []int{2, 0} {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(novi, pozivatelj, p, z) != poslano || upisaoLaptop(b, pozivatelj, p, z) != 0 {
-				t.Errorf("%s, razgovor %d nakon pokretanja: Unraid poslao %d (očekivano %d), laptop upisao %d",
-					u.ime, krug+1, poslaoUnraid(novi, pozivatelj, p, z), poslano, upisaoLaptop(b, pozivatelj, p, z))
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(novi, pozivatelj, p, z) != poslano || upisaoLaptop(b, pozivatelj, p, z) != 0 {
+				t.Errorf("%s, razgovor %d nakon pokretanja: server poslao %d (očekivano %d), laptop upisao %d",
+					u.ime, krug+1, poslaoServer(novi, pozivatelj, p, z), poslano, upisaoLaptop(b, pozivatelj, p, z))
 			}
 		}
 	}
@@ -209,23 +209,23 @@ func TestPonovnoPokretanjeZanemariGranicu(t *testing.T) {
 func TestUvozBezNovihVerzija(t *testing.T) {
 	for _, put := range putoviUvoza {
 		u := ulogeRazgovora[0]
-		a, b, c := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+		a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 		uveziOd(t, put, a, c, 0, uvozNovo, uvozStaroA)
 		if _, z := razgovaraj(t, b, a); z.sent != 0 {
-			t.Errorf("%s: nakon uvoza bez novih Unraid poslao %d", put.ime, z.sent)
+			t.Errorf("%s: nakon uvoza bez novih server poslao %d", put.ime, z.sent)
 		}
 	}
 }
 
 // Razgovor u kojem laptop nije upisao primljeno, jer mu je upis bio zauzet,
 // ne broji se: sljedeći razgovor opet zanemari granicu odbijenih i kasno
-// stigne. Kad laptop zove, on umjesto želja javi kraj i Unraidu razgovor
-// uspije; kad Unraid zove, laptop odbije ostatak razgovora. Za obje uloge.
+// stigne. Kad laptop zove, on umjesto želja javi kraj i serveru razgovor
+// uspije; kad server zove, laptop odbije ostatak razgovora. Za obje uloge.
 func TestZauzetUpisNakonUvoza(t *testing.T) {
 	postaviRok(t, 20*time.Millisecond)
 	put := putoviUvoza[0]
 	for _, u := range ulogeRazgovora {
-		a, b, c := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+		a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 		pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
 		uveziOd(t, put, a, c, 1, uvozKasno)
 		upisiStalno(t, a, uvozNovo2)
@@ -241,9 +241,9 @@ func TestZauzetUpisNakonUvoza(t *testing.T) {
 		if !errors.Is(laptop.err, errUpisZauzet) || laptop.applied != 0 {
 			t.Fatalf("%s: uz zauzet upis laptop upisao %d, %v", u.ime, laptop.applied, laptop.err)
 		}
-		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
-			t.Errorf("%s: nakon zauzetog upisa Unraid poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
-				u.ime, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
+		if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != 4 || upisaoLaptop(b, pozivatelj, p, z) != 2 {
+			t.Errorf("%s: nakon zauzetog upisa server poslao %d (očekivano 4), laptop upisao %d (očekivano 2)",
+				u.ime, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z))
 		}
 	}
 }
@@ -260,13 +260,13 @@ func TestUvozIzaPunogKljuca(t *testing.T) {
 	}
 	put := putoviUvoza[1]
 	for _, u := range ulogeRazgovora {
-		a, b, c := unraidLaptopIUred(t, u.pozivatelj, u.pozvani)
+		a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 		pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
 		upisiOdbijene(t, a, kanal, NajviseVerzijaPoRazmjeni)
 		upisiStalno(t, a, verzija("9000", "staro-kraj"))
 		for krug, poslano := range []int{NajviseVerzijaPoRazmjeni, 1, 0} {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != poslano {
-				t.Fatalf("%s, razgovor %d prije uvoza: Unraid poslao %d, očekivano %d", u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), poslano)
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != poslano {
+				t.Fatalf("%s, razgovor %d prije uvoza: server poslao %d, očekivano %d", u.ime, krug+1, poslaoServer(a, pozivatelj, p, z), poslano)
 			}
 		}
 		uveziOd(t, put, a, c, 1, verzija("7000", "kasno"))
@@ -274,8 +274,8 @@ func TestUvozIzaPunogKljuca(t *testing.T) {
 		// prvo opet 5000 odbijenih i dva stara iz drugog ključa, zatim kasno,
 		// staro-kraj i novo-2, pa ništa
 		for krug, poslano := range []int{NajviseVerzijaPoRazmjeni + 2, 3, 0} {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != poslano {
-				t.Errorf("%s, razgovor %d nakon uvoza: Unraid poslao %d, očekivano %d", u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), poslano)
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != poslano {
+				t.Errorf("%s, razgovor %d nakon uvoza: server poslao %d, očekivano %d", u.ime, krug+1, poslaoServer(a, pozivatelj, p, z), poslano)
 			}
 		}
 		for _, id := range []string{"kasno", "novo-2"} {
@@ -286,10 +286,10 @@ func TestUvozIzaPunogKljuca(t *testing.T) {
 	}
 }
 
-// Rupa u nizu koju popuni razmjena, ne uvoz. Unraid (a) zove ured (c), koji
+// Rupa u nizu koju popuni razmjena, ne uvoz. Server (a) zove ured (c), koji
 // ima cijeli niz, dok u ključu ima samo novo. Dok taj razgovor stoji prije
-// upisa (Unraidov Accept na kasnom), drugi laptop (d), kojemu kasno
-// nedostaje, donese staro-a i staro-b, a Unraid ih pošalje laptopu (b),
+// upisa (serverov Accept na kasnom), drugi laptop (d), kojemu kasno
+// nedostaje, donese staro-a i staro-b, a server ih pošalje laptopu (b),
 // koji ih odbije. Tek tada se upiše ono što je donio ured, s kasnim, ispod
 // granice odbijenih laptopa. Takav upis broji se kao uvoz, pa kasno stigne
 // sljedećim razgovorom, prije novijeg u istom ključu.
@@ -314,20 +314,20 @@ func TestRupaUNizuIzRazmjeneStigne(t *testing.T) {
 		if v.EntityID == uvozKasno.EntityID {
 			jednom.Do(func() {
 				if _, z := razgovaraj(t, d, a); z.applied != 2 {
-					t.Fatalf("Unraid od drugog laptopa upisao %d", z.applied)
+					t.Fatalf("Server od drugog laptopa upisao %d", z.applied)
 				}
 				if p, z := razgovaraj(t, a, b); p.sent != 2 || z.applied != 0 {
-					t.Fatalf("istodobno: Unraid poslao %d, laptop upisao %d", p.sent, z.applied)
+					t.Fatalf("istodobno: server poslao %d, laptop upisao %d", p.sent, z.applied)
 				}
 			})
 		}
 		return true
 	})
 	if p, _ := razgovaraj(t, a, c); p.applied != 1 {
-		t.Fatalf("Unraid od ureda upisao %d", p.applied)
+		t.Fatalf("Server od ureda upisao %d", p.applied)
 	}
 	if p, z := razgovaraj(t, a, b); p.sent != 3 || z.applied != 1 {
-		t.Errorf("nakon rupe Unraid poslao %d (očekivano 3), laptop upisao %d (očekivano 1)", p.sent, z.applied)
+		t.Errorf("nakon rupe server poslao %d (očekivano 3), laptop upisao %d (očekivano 1)", p.sent, z.applied)
 	}
 	upisiStalno(t, a, uvozNovo2)
 	razgovaraj(t, a, b)
@@ -337,9 +337,9 @@ func TestRupaUNizuIzRazmjeneStigne(t *testing.T) {
 }
 
 // Brisanje kanala pa ponovno praćenje. Posrednik (a) odbija kasno, a novo,
-// staro-a i staro-b dobije od Unraida (c) i pošalje laptopu (b), koji stara
+// staro-a i staro-b dobije od servera (c) i pošalje laptopu (b), koji stara
 // odbije. Zatim posrednik proširi pravilo čuvanja, obriše kanal i opet ga
-// zaprati, pa s Unraida dobije i kasno, koje prije nije imao, ispod granice
+// zaprati, pa sa servera dobije i kasno, koje prije nije imao, ispod granice
 // odbijenih laptopa. Laptop razmjenjuje samo s posrednikom. Kasno stigne i
 // kad se posrednik nakon brisanja ponovno pokrene: tada ne zna ni za
 // brisanje ni za ono što je laptop prije dobio.
@@ -399,9 +399,9 @@ func TestPonovnoPracenjeNakonBrisanjaKanala(t *testing.T) {
 
 // Nakon uvoza laptopu usred razgovora sat ode minutu unatrag: rub razdoblja
 // padne ispod ruba s početka razgovora, ali ne ispod ruba zapisa odbijenih.
-// Unraid je granicu odbijenih zanemario i poslao i kasno, a laptop iz upisa
-// izbaci cijeli ključ (bezPreskocenog) i ipak pošalje želje, pa Unraid
-// zapamti da je kasno poslao. Laptop zato zaboravi zapis od Unraida, pa
+// Server je granicu odbijenih zanemario i poslao i kasno, a laptop iz upisa
+// izbaci cijeli ključ (bezPreskocenog) i ipak pošalje želje, pa server
+// zapamti da je kasno poslao. Laptop zato zaboravi zapis od servera, pa
 // sljedeći razgovor donese sve iznova. Za obje uloge.
 func TestSatUnatragNakonUvoza(t *testing.T) {
 	for _, u := range ulogeRazgovora {
@@ -424,8 +424,8 @@ func TestSatUnatragNakonUvoza(t *testing.T) {
 		pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
 		upisiStalno(t, a, uvozNovo, uvozStaroA, uvozStaroB)
 		for krug, poslano := range []int{3, 0} {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != poslano {
-				t.Fatalf("%s: razgovor %d prije uvoza: Unraid poslao %d, očekivano %d", u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), poslano)
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != poslano {
+				t.Fatalf("%s: razgovor %d prije uvoza: server poslao %d, očekivano %d", u.ime, krug+1, poslaoServer(a, pozivatelj, p, z), poslano)
 			}
 		}
 		ograda.rub.Add(int64(5 * time.Minute))
@@ -433,9 +433,9 @@ func TestSatUnatragNakonUvoza(t *testing.T) {
 		upisiStalno(t, a, uvozNovo2)
 		naPrvoj.Store(true)
 		for krug, ocekivano := range [][2]int{{4, 0}, {4, 2}, {0, 0}} {
-			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoUnraid(a, pozivatelj, p, z) != ocekivano[0] || upisaoLaptop(b, pozivatelj, p, z) != ocekivano[1] {
-				t.Errorf("%s, razgovor %d nakon uvoza: Unraid poslao %d, laptop upisao %d, očekivano %v",
-					u.ime, krug+1, poslaoUnraid(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z), ocekivano)
+			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != ocekivano[0] || upisaoLaptop(b, pozivatelj, p, z) != ocekivano[1] {
+				t.Errorf("%s, razgovor %d nakon uvoza: server poslao %d, laptop upisao %d, očekivano %v",
+					u.ime, krug+1, poslaoServer(a, pozivatelj, p, z), upisaoLaptop(b, pozivatelj, p, z), ocekivano)
 			}
 		}
 		for _, id := range []string{"kasno", "novo-2"} {

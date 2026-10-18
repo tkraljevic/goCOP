@@ -1877,7 +1877,7 @@ func migrateSchema(database *sql.DB) error {
 // identifikator već pri stvaranju, a zaduženje je nova činjenica i nosi
 // svoj. Prepisivanje sinkroniziranih verzija na mjestu davalo je istom
 // version_id različit sadržaj na različitim čvorovima, a brojanje
-// zaduženja po redoslijedu redaka srušilo je Unraid (2.10.2026.).
+// zaduženja po redoslijedu redaka srušilo je kućni server (2.10.2026.).
 // Preimenovani korisnik zadržava svoj identifikator.
 func rekeySeedIdentities(database *sql.DB) error {
 	type rename struct{ old, new string }

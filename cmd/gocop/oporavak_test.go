@@ -57,7 +57,7 @@ func TestNaredbaPonistiLozinku(t *testing.T) {
 	put := bazaZaOporavak(t)
 	dnevnik := dnevnikTesta(t)
 	var izlaz bytes.Buffer
-	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-unraid", "GlavniAdmin", false, &izlaz); kod != 0 {
+	if kod := ponistiLozinkuSKonzole(put, "cop-osijek-server", "GlavniAdmin", false, &izlaz); kod != 0 {
 		t.Fatalf("izlazni kod %d, dnevnik: %s", kod, dnevnik)
 	}
 	m := regexp.MustCompile(`[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}-[a-z2-9]{4}`).FindAllString(izlaz.String(), -1)

@@ -18,7 +18,7 @@ import (
 func TestDeltaSeRezePoBajtovima(t *testing.T) {
 	var delta []ledger.Version
 	for i := 0; i < 10; i++ {
-		delta = append(delta, ledger.Version{VersionID: fmt.Sprintf("%04d", i), NodeID: "unraid", Entity: "stations", EntityID: "s1",
+		delta = append(delta, ledger.Version{VersionID: fmt.Sprintf("%04d", i), NodeID: "server", Entity: "stations", EntityID: "s1",
 			Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)})
 	}
 	jedna, _ := json.Marshal(delta[0])
@@ -30,7 +30,7 @@ func TestDeltaSeRezePoBajtovima(t *testing.T) {
 	if b, _ := json.Marshal(deltaMsg{Versions: rez}); len(b) > ograda+100 {
 		t.Errorf("poruka %d B prelazi ogradu %d B", len(b), ograda)
 	}
-	if g := pomakniGranicu(nil, rez); g["unraid"] != "0002" {
+	if g := pomakniGranicu(nil, rez); g["server"] != "0002" {
 		t.Errorf("granica nakon odrezane delte: %v", g)
 	}
 	if rez, _, skraceno := ogradiDeltu(delta, 10); len(rez) != 1 || !skraceno {
@@ -47,10 +47,10 @@ func TestDeltaSeRezePoBajtovima(t *testing.T) {
 // je sama veća od ograde.
 func TestDeltaPreskaceNeispravnuVerziju(t *testing.T) {
 	ispravna := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)}
+		return ledger.Version{VersionID: id, NodeID: "server", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage(`"` + strings.Repeat("x", 1000) + `"`)}
 	}
 	pokvarena := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, NodeID: "unraid", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage("nije json")}
+		return ledger.Version{VersionID: id, NodeID: "server", Entity: "stations", EntityID: "s" + id, Payload: json.RawMessage("nije json")}
 	}
 	bezZapisa := ispravna("0002")
 	bezZapisa.EntityID = ""
