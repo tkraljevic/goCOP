@@ -58,7 +58,7 @@ type Config struct {
 		HistoryMonths int `toml:"povijest_mjeseci" comment:"Koliko mjeseci tuđih očitanja čvor drži iz razmjene. 0 = sve.\nVlastita i uvezena očitanja čuvaju se uvijek.\n  povijest_mjeseci = 12   # terenski laptop ili mobitel"`
 		// MinutaPreuzimanja: krug preuzimanja ide po satu, a ne od
 		// pokretanja, pa prognoza izlazi uvijek u isto vrijeme
-		MinutaPreuzimanja int `toml:"minuta_preuzimanja" comment:"Minuta svakog sata (0–59) u kojoj čvor preuzima vodostaje s izvora;\nčvor koji izdaje prognozu izdaje je odmah potom. Hrvatske vode prvi dio\nvrijednosti punog sata objave za minutu, a letve DHMZ-a tek oko 40 minuta\niza sata, pa one stignu u idućem krugu.\n  minuta_preuzimanja = 45   # prognoza tek kad objavi i DHMZ"`
+		MinutaPreuzimanja int `toml:"minuta_preuzimanja" comment:"Minuta svakog sata (0–59) u kojoj čvor preuzima vodostaje s izvora;\nčvor koji izdaje prognozu izdaje je odmah potom. Hrvatske vode većinu\nvrijednosti punog sata objave u prvih deset minuta, a letve DHMZ-a tek\noko 40 minuta iza sata, pa je zadano 45: prognoza ide kad objavi i DHMZ.\n  minuta_preuzimanja = 2   # prognoza odmah, letve DHMZ-a stignu sat kasnije"`
 	} `toml:"vodostaji"`
 
 	// Karta je izvor pločica za prikaz položaja letve. Zadano je Wikimedijin
@@ -104,7 +104,7 @@ func Default() Config {
 	// Sync.Bootstrap ostaje prazan: program ga zasad ne čita, a domena
 	// poslužitelja ne ide u javni kod, da je tražilice ne nađu
 	c.Sync.Tailscale = true
-	c.Readings.MinutaPreuzimanja = 2
+	c.Readings.MinutaPreuzimanja = 45
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
 	c.Karta.NajviseZ = 17

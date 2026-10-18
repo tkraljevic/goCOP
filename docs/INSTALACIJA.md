@@ -671,8 +671,8 @@ glavnog administratora iz registra (mobitel, e-pošta) i centar iz
 stabla, skenova i paketa; identifikator i naziv računala; portovi i razmak
 automatske sinkronizacije; prati li čvor sve (`sve`) i koliko mjeseci
 očitanja drži iz razmjene (`povijest_mjeseci`); u kojoj minuti svakog sata
-preuzima vodostaje s izvora (`minuta_preuzimanja`, zadano 2); javna adresa
-za QR kod;
+preuzima vodostaje s izvora (`minuta_preuzimanja`, zadano 45, kad objavi i
+DHMZ); javna adresa za QR kod;
 centar na stranici prijave (`[kontakt]`); izvor pločica karte (`[karta]`);
 zadani poslužitelj e-pošte (`[posta]`; postavke spremljene u Administraciji →
 E-pošta imaju prednost). Ključ `bootstrap` program zasad ne čita; domenski
