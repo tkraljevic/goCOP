@@ -390,6 +390,21 @@ func TestOnlyPackagesGitSeesAreMeasured(t *testing.T) {
 	}
 }
 
+// Dugi paketi idu prvi, redom s popisa; ostali ostaju abecedno. Svaki
+// paket s popisa mora postojati, da preimenovani ne ispadne tiho s početka.
+func TestDugiPaketiKrecuPrvi(t *testing.T) {
+	got := poTrajanju([]string{".", "./internal/a", dugiPaketi[1], dugiPaketi[0], "./internal/z"})
+	want := []string{dugiPaketi[0], dugiPaketi[1], ".", "./internal/a", "./internal/z"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("redoslijed: %v, želim %v", got, want)
+	}
+	for _, p := range dugiPaketi {
+		if datoteke, err := filepath.Glob(filepath.Join("..", "..", p, "*_test.go")); err != nil || len(datoteke) == 0 {
+			t.Errorf("%s s popisa dugiPaketi nema testova (greška: %v)", p, err)
+		}
+	}
+}
+
 func TestExceptionsDoNotChangePolicyHash(t *testing.T) {
 	osnova := []byte(`{"schema":1,"complexity_limit":15,"exceptions":[]}`)
 	sIznimkom := []byte(`{"schema":1,"complexity_limit":15,"exceptions":[{"key":"complexity:x::y","reason":"r","owner":"o","expires":"2026-12-01"}]}`)
