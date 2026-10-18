@@ -25,7 +25,13 @@ func (s *Service) SlusajNa(razmjene, uparivanje net.Listener) {
 		for {
 			v, err := uparivanje.Accept()
 			if err != nil {
-				return // test je zatvorio slušalicu
+				// Inače (npr. previše otvorenih datoteka) slušalica ostane
+				// otvorena bez ikoga tko prima, pa bi svaki poziv visio do
+				// roka rukovanja; zatvorena daje odbijanje odmah
+				if !errors.Is(err, net.ErrClosed) {
+					_ = uparivanje.Close() // greška zatvaranja ne mijenja ishod: nitko više ne prima
+				}
+				return
 			}
 			select {
 			case veze <- v:

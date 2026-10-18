@@ -193,9 +193,10 @@ func DialOn(raw net.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, er
 }
 
 // AcceptOn je strana koja čeka (Listen) nad vezom koju je primila tuđa
-// slušalica (npr. slušalica koju test drži otvorenu); veza se zatvara kad
-// uparivanje ne krene. Veza bez TLS rukovanja vraća ErrNotAPeer, kao u
-// Listen.
+// slušalica; veza se zatvara kad uparivanje ne krene. Program je ne koristi:
+// služi testovima paketa peers (SlusajNa), koji slušalicu drže otvorenom do
+// kraja testa. Veza bez TLS rukovanja vraća ErrNotAPeer; Listen takvu vezu
+// preskoči i čeka sljedeću, pa pozivatelj treba učiniti isto.
 func AcceptOn(raw net.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, error) {
 	cfg, err := tlsConfig(priv, id.Protocol)
 	if err != nil {

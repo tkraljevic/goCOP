@@ -116,7 +116,7 @@ func TestNazivanjeRadiUparivanja(t *testing.T) {
 	b := startCvor(t, ctx, "pperic-thinkpad")
 
 	if err := b.svc.DialPair(ctx, "127.0.0.1"); err == nil {
-		t.Error("nazivanje adrese na kojoj nitko ne sluša (port uparivanja) je prošlo")
+		t.Error("nazivanje adrese bez porta (b-ov port uparivanja, a b ne čeka uparivanje) je prošlo")
 	}
 	if err := b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", freePort(t))); err == nil {
 		t.Error("nazivanje zatvorenog porta je prošlo")

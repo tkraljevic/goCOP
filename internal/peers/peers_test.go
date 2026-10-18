@@ -79,18 +79,25 @@ func posluzi(t *testing.T, ctx context.Context, svc *peers.Service) {
 
 // nazovi: tko nazove čvor koga, koji je upravo počeo čekati uparivanje.
 // Čekanje kreće u svojoj gorutini; pod punim opterećenjem stroja (svi
-// paketi s race detectorom) zna trebati više od nekoliko sekundi. Kad ne
-// uspije, ispis kaže i zašto koga ne čeka.
+// paketi s race detectorom) zna trebati više od nekoliko sekundi. Kad koga
+// prestane čekati, zvati dalje nema smisla. Kad ne uspije, ispis kaže prvu
+// grešku poziva i zašto koga ne čeka.
 func nazovi(t *testing.T, ctx context.Context, tko, koga *node) {
 	t.Helper()
-	var err error
+	var prva, err error
 	for i := 0; i < 200; i++ {
 		if err = tko.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", koga.svc.Ports().Pair)); err == nil {
 			return
 		}
+		if prva == nil {
+			prva = err
+		}
+		if st := koga.svc.PairStatus(); !st.Waiting && !st.Pending {
+			t.Fatalf("nazivanje: %v; %s više ne čeka: %+v", prva, koga.id, st)
+		}
 		time.Sleep(50 * time.Millisecond)
 	}
-	t.Fatalf("nazivanje: %v; %s: %+v", err, koga.id, koga.svc.PairStatus())
+	t.Fatalf("nazivanje: %v (zadnja: %v); %s: %+v", prva, err, koga.id, koga.svc.PairStatus())
 }
 
 // node je jedan goCOP čvor u testu: vlastita baza, ključ, portovi
