@@ -192,6 +192,20 @@ func DialOn(raw net.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, er
 	return completeHandshake(tls.Client(raw, cfg), priv, id, true)
 }
 
+// AcceptOn je strana koja čeka (Listen) nad vezom koju je primila tuđa
+// slušalica; veza se zatvara kad uparivanje ne krene. Program je ne koristi:
+// služi testovima paketa peers (SlusajNa), koji slušalicu drže otvorenom do
+// kraja testa. Veza bez TLS rukovanja vraća ErrNotAPeer; Listen takvu vezu
+// preskoči i čeka sljedeću, pa pozivatelj treba učiniti isto.
+func AcceptOn(raw net.Conn, priv ed25519.PrivateKey, id Identity) (*PairResult, error) {
+	cfg, err := tlsConfig(priv, id.Protocol)
+	if err != nil {
+		raw.Close()
+		return nil, err
+	}
+	return completeHandshake(tls.Server(raw, cfg), priv, id, false)
+}
+
 // completeHandshake: pozivatelj je strana koja je nazvala (Dial); ona se u
 // dogovoru koda obvezuje prva
 func completeHandshake(conn *tls.Conn, priv ed25519.PrivateKey, id Identity, pozivatelj bool) (*PairResult, error) {

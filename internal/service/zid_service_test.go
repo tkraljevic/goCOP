@@ -19,14 +19,11 @@ import (
 // zaključena inventura postaju po jedan redak, najnoviji prvi; dva retka
 // jednog poteza su jedan događaj; tuđi sektor se ne vidi.
 func TestZidIzKnjige(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('C', 'Sektor C', 'VGO Zagreb', 'COP Zagreb')`,

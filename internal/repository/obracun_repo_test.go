@@ -15,14 +15,11 @@ import (
 // Prazan čvor dobiva hrvatski zakon i koeficijente obrasca; drugo punjenje
 // ne prepisuje ono što je administrator u međuvremenu promijenio.
 func TestObracunPostavkeSePuneJednom(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "o.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "o.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	r := NewObracunRepository(baza, ledger.New(baza, "test"))
 	if err := r.Osiguraj(ctx); err != nil {

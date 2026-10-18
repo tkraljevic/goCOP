@@ -16,14 +16,11 @@ import (
 // Otvorene obrane sektora nose identitet epizode (kao OpenEpisode), a
 // zatvorene i one s dionica drugog sektora ne ulaze
 func TestOtvoreneObraneSektoraSIdentitetom(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "epizode.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "epizode.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO', 'COP'), ('R', 'Sektor R', 'VGO', 'COP');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Područje', 'VGI', ''), (2, 'R', 'Područje', 'VGI', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES

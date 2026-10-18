@@ -28,14 +28,11 @@ var ctxRub = context.Background()
 func rubniCvor(t *testing.T, id string) *Service {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "gocop.db")
-	baza, err := db.OpenDB(dbPath)
+	baza, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	n, err := LoadNode(dbPath, id, id, "test")
 	if err != nil {
 		t.Fatal(err)

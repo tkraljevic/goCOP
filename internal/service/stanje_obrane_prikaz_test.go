@@ -22,14 +22,11 @@ import (
 // pripremnog stanja na P.1.3 (zatečena, bez akata)
 func soEpizode(t *testing.T) *repository.EpisodeRepository {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "so.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "so.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,
@@ -110,14 +107,11 @@ func TestObranaSektoraNaZidu(t *testing.T) {
 // vraća grešku, a usklađivanje povijesti obrane javlja upozorenje i ne
 // ruši ovjeru
 func TestOvjeraKadSeAktiIliEpizodeNeDajuProcitati(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ovjera.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ovjera.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	s := &AktService{repo: repository.NewAktiRepository(baza, rec)}
 	ctx := context.Background()
@@ -174,14 +168,11 @@ func TestSmijePonistiti(t *testing.T) {
 // Storno potpisan ključem čvora; greške čitanja akta, akata sektora i upisa
 // javljaju se, a epizode kojih se ne da upisati ni obrisati daju upozorenje
 func TestStornoPotpisIGreske(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "storno.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "storno.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO', 'COP');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Područje', 'VGI', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'a', '2026-01-01', '2026-01-01')`); err != nil {

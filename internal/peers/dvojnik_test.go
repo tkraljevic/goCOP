@@ -18,27 +18,21 @@ import (
 func startCvor(t *testing.T, ctx context.Context, id string) *node {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, id)
 	n, err := peers.LoadNode(dbPath, id, "test-"+id, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	svc, err := peers.NewService(database, rec, n, peers.Ports{Exchange: freePort(t), Pair: freePort(t)})
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := noviServis(t, database, rec, n)
 	svc.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, rec, versions)
 	})
-	go svc.Serve(ctx)
+	posluzi(t, ctx, svc)
 	return &node{id: id, db: database, svc: svc, rec: rec}
 }
 
@@ -49,16 +43,7 @@ func pokusajUparivanja(t *testing.T, ctx context.Context, a, b *node) (peers.Pai
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	var err error
-	for i := 0; i < 50; i++ {
-		if err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatalf("nazivanje: %v", err)
-	}
+	nazovi(t, ctx, b, a)
 	for i := 0; i < 50 && !a.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -131,7 +116,7 @@ func TestNazivanjeRadiUparivanja(t *testing.T) {
 	b := startCvor(t, ctx, "pperic-thinkpad")
 
 	if err := b.svc.DialPair(ctx, "127.0.0.1"); err == nil {
-		t.Error("nazivanje adrese na kojoj nitko ne sluša (port uparivanja) je prošlo")
+		t.Error("nazivanje adrese bez porta (b-ov port uparivanja, a b ne čeka uparivanje) je prošlo")
 	}
 	if err := b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", freePort(t))); err == nil {
 		t.Error("nazivanje zatvorenog porta je prošlo")
@@ -139,16 +124,7 @@ func TestNazivanjeRadiUparivanja(t *testing.T) {
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	var err error
-	for i := 0; i < 50; i++ {
-		if err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	nazovi(t, ctx, b, a)
 	if err := b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair)); err == nil || !strings.Contains(err.Error(), "već čeka") {
 		t.Errorf("drugo nazivanje dok prvo čeka odluku: %v", err)
 	}

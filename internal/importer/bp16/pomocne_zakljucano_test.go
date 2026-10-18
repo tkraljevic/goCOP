@@ -199,14 +199,11 @@ func TestRazvrstavanjeVodeIzEvidencije(t *testing.T) {
 }
 
 func TestUvozDnevnikaBezDatumaPada(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "dnevnici.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "dnevnici.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	deps := JournalDeps{
 		Journals:    repository.NewJournalRepository(baza, rec),

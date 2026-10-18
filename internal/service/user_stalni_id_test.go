@@ -16,14 +16,11 @@ import (
 // otvara račune; ne ovisi o imeniku izvan repozitorija
 func praznaUprava(t *testing.T) (*sql.DB, *service.UserService, *repository.UserRepository, *models.UserPermissions) {
 	t.Helper()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewUserRepository(database, ledger.New(database, "cvor-a"))
 	auth := service.NewAuthService(repo, repository.NewSessionRepository(database))
 	// uprava je stvaran račun: zaduženje pamti tko ga je dodijelio

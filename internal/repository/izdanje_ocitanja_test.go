@@ -18,14 +18,11 @@ import (
 // Mehanizam ulaganja dolazi kasnije, ali zapis ga mora moći izraziti — dodati
 // stupac naknadno znači prepisati svako očitanje na svakom čvoru.
 func TestIzdanjeOcitanjaPrezivljavaUpisICitanje(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "proba.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "proba.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewReadingRepository(database, ledger.New(database, "cvor"))
 	ctx := context.Background()
 

@@ -19,14 +19,11 @@ import (
 func servisZaTest(t *testing.T) *Service {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	n, err := LoadNode(dbPath, "ured", "ured", "test")
 	if err != nil {
 		t.Fatal(err)

@@ -41,14 +41,11 @@ func TestPrestanakObraneNeUnaprijed(t *testing.T) {
 // razmjenom) ne pada: akt je već spremljen kao ovjeren, pa bi pad ostavio
 // ovjeren akt bez promjene stanja obrane.
 func TestOvjeraAktaBezLetve(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akt.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akt.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,
@@ -94,14 +91,11 @@ func TestOvjeraAktaBezLetve(t *testing.T) {
 }
 
 func TestLetvaAkta(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "letva.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "letva.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	stanice := repository.NewStationRepository(baza, ledger.New(baza, "test"))
 	letva := &models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo", Watercourse: "Primjerica"}

@@ -65,14 +65,11 @@ func (o *okolinaOporavka) racun(t *testing.T, ime, lozinka, email string, global
 
 func novaOkolinaOporavka(t *testing.T) *okolinaOporavka {
 	t.Helper()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	o := &okolinaOporavka{db: database, rec: ledger.New(database, "cvor-web"), posta: &laznaPosta{},
 		sad: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)}
 	o.repo = repository.NewUserRepository(database, o.rec)

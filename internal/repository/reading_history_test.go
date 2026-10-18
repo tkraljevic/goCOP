@@ -16,14 +16,11 @@ import (
 // Terenski uređaj drži zadnjih godinu dana: razmjena mu smije donijeti nova
 // očitanja, a povijest od stotinjak godina ne smije.
 func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "teren.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "teren.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, "izvorni-cvor")
 	repo := NewReadingRepository(database, rec)
 	ctx := context.Background()
@@ -46,14 +43,11 @@ func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
 	}
 
 	// drugi čvor, terenski: drži zadnjih 12 mjeseci
-	teren, err := db.OpenDB(filepath.Join(t.TempDir(), "teren2.db"))
+	teren, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "teren2.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer teren.Close()
-	if err := db.InitSchema(teren); err != nil {
-		t.Fatal(err)
-	}
 	terenRec := ledger.New(teren, "terenski-cvor")
 	SetReadingHistoryPolicy(ReadingHistoryPolicy{Months: 12})
 	defer SetReadingHistoryPolicy(ReadingHistoryPolicy{})
@@ -106,14 +100,11 @@ func TestRazmjenaPostujeRazdobljePovijesti(t *testing.T) {
 
 	// bez ograde čvor preuzima sve
 	SetReadingHistoryPolicy(ReadingHistoryPolicy{})
-	puni, err := db.OpenDB(filepath.Join(t.TempDir(), "cop.db"))
+	puni, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "cop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer puni.Close()
-	if err := db.InitSchema(puni); err != nil {
-		t.Fatal(err)
-	}
 	puniRec := ledger.New(puni, "cop-cvor")
 	if _, err := puniRec.Apply(ctx, verzije); err != nil {
 		t.Fatal(err)

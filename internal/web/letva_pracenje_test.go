@@ -100,14 +100,11 @@ func TestUstrojIzRegistra(t *testing.T) {
 	if s, a := (&Server{}).ustroj(); s != nil || a != nil {
 		t.Error("bez servisa korisnika nema ustroja")
 	}
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ustroj.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ustroj.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO', 'COP')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI')`,

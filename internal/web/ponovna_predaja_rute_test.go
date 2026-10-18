@@ -29,14 +29,11 @@ import (
 // izvješće sektora ne briše se, nego se predaja povlači. Isto pravilo
 // vrijedi za izvješće dionice Pere Perića prema podcentru.
 func TestPonovnaPredajaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "predaja.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "predaja.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,

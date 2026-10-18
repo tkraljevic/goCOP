@@ -374,14 +374,11 @@ func TestVrataPokazujuKatalog(t *testing.T) {
 // čita kaže da se nizovi bez datoteke ne daju provjeriti.
 func TestVrataUlaganjaIProvjereArhive(t *testing.T) {
 	o := novaOkolinaVrata(t)
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "operativna.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "operativna.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO stations (id, code, name, created_at, updated_at) VALUES ('s-primjer', 'primjerovo', 'Primjerovo', '2026-01-01', '2026-01-01')`,
 		`INSERT INTO readings (id, station_id, measured_at, level_cm, source, user_id, created_at, updated_at, izdanje)

@@ -14,14 +14,11 @@ import (
 // Izvorni naziv upisan u obrascu mora se i spremiti: služi za prepoznavanje
 // pri uvozu iz starijih evidencija, a izmjena postaje ga je preskakala.
 func TestIzmjenaPostajeCuvaIzvorniNaziv(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewStationRepository(baza, ledger.New(baza, "cvor"))
 	ctx := context.Background()
 	st := &models.Station{Code: "proba", Name: "Proba", Watercourse: "Dunav"}
@@ -64,14 +61,11 @@ func TestIzmjenaPostajeCuvaIzvorniNaziv(t *testing.T) {
 // trag u podacima, a razlog ostane izvan njih. Mora preživjeti i upis i
 // čitanje, inače se gubi tiho — brojke ostaju, objašnjenje nestane.
 func TestPostajaCuvaPovijestIOpisVodokaza(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := NewStationRepository(baza, ledger.New(baza, "cvor"))
 	ctx := context.Background()
 	st := &models.Station{Code: "proba", Name: "Proba", Watercourse: "Drava"}

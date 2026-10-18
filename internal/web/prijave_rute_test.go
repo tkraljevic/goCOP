@@ -48,14 +48,11 @@ func probnaSlika(w, h int, boja color.RGBA) []byte {
 // rukovoditelj je vidi tek objavljenu i označi riješenom; izvorne slike se brišu
 // nakon roka, a PDF ih zadrži; strojar u prijave ne ulazi.
 func TestPrijaveSTerenaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prijave.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prijave.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	spremiste, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	if err != nil {
 		t.Fatal(err)

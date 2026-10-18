@@ -18,14 +18,11 @@ import (
 
 // Registar kišomjera: upis obrascem, premještanje s karte, ovlasti i JSON popis.
 func TestSlivoviAPI(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "web_kisomjeri.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "web_kisomjeri.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test-node")
 	svc := service.NewKisomjerService(repository.NewKisomjerRepository(baza, rec))
 	h := NewSlivoviHandler(func() *service.KisomjerService { return svc }, nil, nil, nil, nil)

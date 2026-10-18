@@ -26,13 +26,9 @@ func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_gocop.db")
 
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatalf("Greška pri otvaranju test baze: %v", err)
-	}
-
-	if err := db.InitSchema(database); err != nil {
-		t.Fatalf("Greška pri shemi: %v", err)
 	}
 
 	if err := db.SeedInitialData(database); err != nil {

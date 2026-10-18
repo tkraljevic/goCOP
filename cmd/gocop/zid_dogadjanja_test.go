@@ -19,14 +19,11 @@ import (
 // Marka Markića vidi on sam, a Pero Perić, vodočuvar istog područja, ne
 // vidi, iako zid sektora vidi (Odluke (8. 10. 2026.), pitanje 20)
 func TestZidCvoraCitaPrijavePoPraviluPrijava(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)

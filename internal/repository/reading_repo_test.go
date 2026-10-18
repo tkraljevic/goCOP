@@ -38,14 +38,11 @@ type okolinaOcitanja struct {
 
 func novaOkolinaOcitanja(t *testing.T) *okolinaOcitanja {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ocitanja.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ocitanja.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	const kad = "'2026-01-01 00:00:00'"
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,

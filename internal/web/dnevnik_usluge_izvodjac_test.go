@@ -36,14 +36,11 @@ type uslugeProba struct {
 
 func novaUslugeProba(t *testing.T) *uslugeProba {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "usluge.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "usluge.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerica', 'COP Primjerica')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Primjerica', 'VGI Primjerica', 'Primjerica'),

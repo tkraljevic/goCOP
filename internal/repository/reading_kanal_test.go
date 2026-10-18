@@ -19,14 +19,11 @@ import (
 // u kanal prethodne godine, pa ga čvor koji prati samo novu godinu nije
 // vidio izmijenjeno ni obrisano.
 func TestKanalOcitanjaPoGodiniZagreba(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "kanal.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "kanal.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	// letva Primjerovo mjerodavna je za dionicu P.1.1 u području 1; letva
 	// bez područja nema kanala, pa godina ne bi ništa mijenjala

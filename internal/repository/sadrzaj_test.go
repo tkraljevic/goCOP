@@ -19,14 +19,11 @@ import (
 // nakon toga vraća isti PDF.
 func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 	dir := t.TempDir()
-	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(dir, "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	// stara tablica s bajtovima, kakvu je imala baza prije spremišta
 	for _, q := range []string{
 		`DROP TABLE prijave_izvornici`,
@@ -100,14 +97,11 @@ func TestSeljenjeIzvornikaPrijavaUSpremiste(t *testing.T) {
 // veže, a sadržaj ide na popis za dohvat.
 func TestPrimljeniIzvornikSaIBezBajtova(t *testing.T) {
 	dir := t.TempDir()
-	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(dir, "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	spremiste, _ := sadrzaj.Otvori("")
 	defer spremiste.Zatvori()
 	SetSpremiste(spremiste)
@@ -146,14 +140,11 @@ func TestPrimljeniIzvornikSaIBezBajtova(t *testing.T) {
 // spremište, a zapis i verzija zadrže samo otisak.
 func TestSeljenjeSvihIzvornikaUSpremiste(t *testing.T) {
 	dir := t.TempDir()
-	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(dir, "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	kad := time.Date(2026, 9, 20, 8, 0, 0, 0, time.UTC)
 	tablice := []struct{ tablica, kljuc, vrijeme, entitet string }{
 		{"vodocuvarski_izvornici", "list_id", "updated_at", EntityVodocuvarskiIzvornici},
@@ -235,14 +226,11 @@ func TestSeljenjeSvihIzvornikaUSpremiste(t *testing.T) {
 // čitaju se natrag, po roku se otpuštaju, a stara tablica se preseli.
 func TestFotografijePrijavaUSpremistu(t *testing.T) {
 	dir := t.TempDir()
-	baza, err := db.OpenDB(filepath.Join(dir, "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(dir, "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	// tablica fotografija kakvu je baza imala prije spremišta
 	if _, err := baza.Exec(`CREATE TABLE prijave_slike (id TEXT PRIMARY KEY, prijava_id TEXT NOT NULL, slika BLOB NOT NULL, created_at DATETIME NOT NULL)`); err != nil {
 		t.Fatal(err)

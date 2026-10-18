@@ -14,14 +14,11 @@ import (
 // biti cijela stavka popisa: "B.34.1" je prije nalazio i rukovoditelje
 // susjednih B.34.10 i B.34.12, pa je kartica pokazivala tuđe ljude.
 func TestOsobljeDioniceIdeOdozgoIBezSusjednihDionica(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 
 	for _, stmt := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
@@ -118,14 +115,11 @@ func sqlNullable(v string) string {
 // brojem. Rukovoditelj sektora Pero Perić abecedno je iza nje, pa redoslijed
 // mora doći od uloge, ne od imena.
 func TestUnutarRazineTezinaUlogeIJedanZapisPoOsobi(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 
 	for _, stmt := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,

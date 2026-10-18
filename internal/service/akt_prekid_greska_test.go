@@ -14,14 +14,11 @@ import (
 // Akt koji se prekida ne bira se kad se akti ne daju pročitati: greška se
 // vraća, a ne prekid bez akta izvan snage
 func TestAktKojiSePrekidaGreskaCitanja(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prekid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prekid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`ALTER TABLE akti RENAME TO nema_akata`); err != nil {
 		t.Fatal(err)
 	}

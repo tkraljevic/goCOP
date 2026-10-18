@@ -19,14 +19,11 @@ import (
 )
 
 func TestShowStationsCountryFilter(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "web_stations.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "web_stations.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 
 	rec := ledger.New(baza, "test-node")
 	secRepo := repository.NewSectionRepository(baza, rec)

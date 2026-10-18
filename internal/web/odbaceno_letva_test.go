@@ -27,14 +27,11 @@ import (
 // upisuje, nego se broji i pokazuje na stranici letve; letva akumulacije nosi
 // oznaku „kota u cm n. m.”.
 func TestStranicaLetvePokazujeOdbaceneVrijednosti(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "odbaceno.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "odbaceno.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())

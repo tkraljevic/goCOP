@@ -94,14 +94,11 @@ func TestZidPrijenosUDrugiSektorJavljaCiljnomSektoru(t *testing.T) {
 // može naći, ostaje redak kakav jest; bez izvornog skladišta obavijest
 // ostaje, samo bez naziva izvora. Stari redak prometa bez veze nije par.
 func TestZidPrijenosIzDrugogSektoraRubovi(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	ctx := context.Background()
 	rec := ledger.New(baza, "test")
 	mtsRepo := repository.NewMtsRepository(baza, rec)
@@ -169,14 +166,11 @@ type zidPrijenosa struct {
 
 func noviZidPrijenosa(t *testing.T) *zidPrijenosa {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zid.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zid.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('D', 'Sektor D', 'VGO Sava', 'COP Sava')`,

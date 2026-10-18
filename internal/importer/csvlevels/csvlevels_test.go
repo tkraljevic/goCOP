@@ -18,14 +18,11 @@ import (
 func pripremi(t *testing.T) (Deps, *repository.ReadingRepository) {
 	t.Helper()
 	db.KoristiIzmisljenePodatke(t)
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "tablica.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "tablica.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}

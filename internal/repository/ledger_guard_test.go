@@ -25,6 +25,9 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 		t.Fatal(err)
 	}
 
+	// jedan prolaz kroz datoteku za sve tablice: izraz po tablici bio je
+	// dvadesetak prolaza po datoteci, a uz race detector to su sekunde
+	writes := regexp.MustCompile(`(?i)(?:INSERT INTO|UPDATE|DELETE FROM)\s+(` + strings.Join(synced, "|") + `)\b`)
 	primjenaPise := map[string]bool{}
 	for _, file := range files {
 		if strings.HasSuffix(file, "_test.go") {
@@ -35,10 +38,13 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 			t.Fatal(err)
 		}
 		code := string(src)
+		pise := map[string]bool{}
+		for _, m := range writes.FindAllStringSubmatch(code, -1) {
+			pise[strings.ToLower(m[1])] = true
+		}
 
 		for _, table := range synced {
-			writes := regexp.MustCompile(`(?i)(INSERT INTO|UPDATE|DELETE FROM)\s+` + table + `\b`)
-			if !writes.MatchString(code) {
+			if !pise[table] {
 				continue
 			}
 			if datotekePrimjene[file] {

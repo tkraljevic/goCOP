@@ -28,14 +28,11 @@ import (
 // lokacije održavanja, nasip Draž i vodu sa šifrom kanal-probni
 func bazaDnevnika(t *testing.T) (*sql.DB, JournalDeps) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "dnevnici.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "dnevnici.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Područje 16', 'VGI')`,

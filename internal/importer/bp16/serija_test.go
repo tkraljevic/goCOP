@@ -13,14 +13,11 @@ import (
 // Serija koja padne poništena je cijela, pa izvješće uvoza ne smije njezina
 // očitanja brojati kao upisana; broji se tek nakon uspjelog upisa.
 func TestPalaSerijaSeNeBrojiKaoUpisana(t *testing.T) {
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "primjerica.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	// uvoz BP16 stvara objekte u sektoru B, području 16
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`,

@@ -30,14 +30,11 @@ func registarUgovora(t *testing.T) Deps {
 // trebaju pokvariti tablicu
 func registarUgovoraSBazom(t *testing.T) (*sql.DB, Deps) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "ugovor.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "ugovor.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica')`,

@@ -29,14 +29,11 @@ import (
 // koja nije vodočuvareva čita list, ali na njemu nema ni parafe ni upisa.
 // Podaci su izmišljeni: sektor P, područje 1.
 func TestKnjigaVodocuvaraKrozRutePoOdlukama(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "knjiga.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "knjiga.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop, address, phone, email) VALUES ('P', 'Sektor P', 'VGO Primjerica', 'COP Primjerica', 'Primjerska 1', '01/000-000', 'cop@primjer.hr')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Primjerica', 'VGI Primjerica', 'Primjerica')`,

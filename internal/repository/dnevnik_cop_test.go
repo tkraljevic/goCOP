@@ -15,11 +15,8 @@ import (
 
 func probnaBazaDnevnika(t *testing.T) *sql.DB {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "g.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "g.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	// Dnevnik mora postojati prije zapisa, a područje prije dnevnika.

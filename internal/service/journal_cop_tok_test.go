@@ -18,14 +18,11 @@ import (
 // dežurni s područja u njemu piše, zapis se stornira i ostaje s razlogom,
 // a poslije zaključenja u njega više ništa ne ulazi.
 func TestTokDnevnikaCOPa(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "cop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "cop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (15, 'B', 'Vuka', 'VGI Vuka', 'Osijek')`,

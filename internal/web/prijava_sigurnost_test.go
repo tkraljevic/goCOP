@@ -44,14 +44,11 @@ type okolinaPrijave struct {
 
 func novaOkolinaPrijave(t *testing.T) *okolinaPrijave {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prijava.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prijava.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewUserRepository(baza, ledger.New(baza, "test"))
 	sessions := repository.NewSessionRepository(baza)
 	auth := service.NewAuthService(repo, sessions)

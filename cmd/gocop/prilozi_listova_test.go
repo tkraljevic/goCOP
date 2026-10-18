@@ -20,11 +20,8 @@ import (
 // veže uz list, stavi je na popis za dohvat i to zapiše u dnevnik. Drugi put
 // ne piše ništa, a grešku zapiše. Vodočuvar Ivo Ivić je izmišljen.
 func TestFotografijeListovaPriPokretanju(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "prilozi.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "prilozi.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))

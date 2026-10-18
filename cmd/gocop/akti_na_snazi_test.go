@@ -20,11 +20,8 @@ import (
 // Krug akata koji stupaju na snagu radi odmah i zatim u razmaku, grešku
 // zapiše u dnevnik i ide dalje, a staje kad stane čvor
 func TestKrugAkataNaSnazi(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "krug-akata.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "krug-akata.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	rec := ledger.New(baza, "test")
@@ -59,14 +56,11 @@ func TestKrugAkataNaSnazi(t *testing.T) {
 // koji je stupio na snagu u tom razdoblju ulazi u povijest u idućem čistom
 // prolazu, a ne tek s novom ovjerom ili stornom u sektoru
 func TestKrugAkataNaSnaziGranicaSamoNakonCistogProlaza(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "granica-akata.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "granica-akata.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01')`); err != nil {
@@ -115,14 +109,11 @@ func TestKrugAkataNaSnaziGranicaSamoNakonCistogProlaza(t *testing.T) {
 // korisnici (privremena imenovanja) zadani
 func bazaKrugaAkata(t *testing.T, korisnici *service.UserService) (*repository.AktiRepository, *service.AktService) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "krug.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "krug.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'rijeka Primjerica', '2026-01-01', '2026-01-01')`); err != nil {
@@ -195,11 +186,8 @@ func TestKrugAkataNaSnaziGranicaNeZaostajeViseOdDana(t *testing.T) {
 // Upozorenje privremenih imenovanja nije vezano uz akte razdoblja: zapiše se
 // u dnevnik, ali samo ne zadržava granicu akata
 func TestKrugAkataNaSnaziPrivremenaNeZadrzavajuGranicu(t *testing.T) {
-	zatvorena, err := db.OpenDB(filepath.Join(t.TempDir(), "korisnici.db"))
+	zatvorena, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "korisnici.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(zatvorena); err != nil {
 		t.Fatal(err)
 	}
 	korisnici := service.NewUserService(repository.NewUserRepository(zatvorena, ledger.New(zatvorena, "test")), nil, service.NewSSEBroker())

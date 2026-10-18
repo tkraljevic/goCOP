@@ -26,14 +26,11 @@ func TestPrijaveRacunaUDomeniZajednickeObrascima(t *testing.T) {
 	ja := zahtjevIzvana{stvarni: admin, izvana: true}
 
 	// osobni sandučić: pravi AktService s probnim Exchangeom
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
 	// račun mora postojati i u ovoj bazi: uz lozinku sandučića sprema se

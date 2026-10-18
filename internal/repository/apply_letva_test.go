@@ -22,14 +22,11 @@ import (
 func TestLetvaKrozRazmjenuSvaPolja(t *testing.T) {
 	ctx := context.Background()
 	otvori := func(ime string) (*StationRepository, *ledger.Recorder, func(ledger.Version) error) {
-		baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+		baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 		if err != nil {
 			t.Fatal(err)
 		}
 		t.Cleanup(func() { baza.Close() })
-		if err := db.InitSchema(baza); err != nil {
-			t.Fatal(err)
-		}
 		rec := ledger.New(baza, ime)
 		return NewStationRepository(baza, rec), rec, nil
 	}

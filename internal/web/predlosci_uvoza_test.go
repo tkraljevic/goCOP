@@ -74,14 +74,11 @@ func prebroji(t *testing.T, baza *sql.DB, tablica string) int {
 }
 
 func TestPredlosciRegistaraProlazeUvoz(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "predlosci.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "predlosci.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	sse := service.NewSSEBroker()
 	org := service.NewOrgService(repository.NewOrgRepository(baza, rec), sse)

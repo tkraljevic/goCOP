@@ -29,14 +29,11 @@ import (
 // primatelji dođu sami; ovjera dodijeli broj i kod, proglasi obranu na
 // dionicama i akt se više ne briše; PDF nosi tekst akta.
 func TestAktOdVodomjeraDoOvjereKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop, address, email) VALUES ('B', 'Sektor B', 'VGO za Dunav i donju Dravu', 'COP Osijek', 'Splavarska 2a, Osijek', 'copos@voda.hr')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (34, 'B', 'međudržavne rijeke Drava i Dunav', 'COP', 'Osijek')`,

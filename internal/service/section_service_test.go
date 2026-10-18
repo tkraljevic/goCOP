@@ -20,13 +20,9 @@ func setupSectionTestServices(t *testing.T) (*service.SectionService, *service.U
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_sections_gocop.db")
 
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatalf("Greška pri otvaranju test baze: %v", err)
-	}
-
-	if err := db.InitSchema(database); err != nil {
-		t.Fatalf("Greška pri shemi: %v", err)
 	}
 
 	if err := db.SeedInitialData(database); err != nil {

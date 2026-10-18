@@ -13,14 +13,11 @@ import (
 // Ustava ima letvu s obje strane. Nizvodna se mora spremiti pri upisu i
 // izmjeni i vratiti s imenom, jer je objekt ono što dvije letve spaja.
 func TestUstavaCuvaNizvodnuLetvu(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'B', 'VGO', 'COP');
 		INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Baranja', 'VGI');`); err != nil {
 		t.Fatal(err)

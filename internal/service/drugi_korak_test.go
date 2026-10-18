@@ -138,14 +138,11 @@ func (o *okolinaPIN) korisnik(t *testing.T, ime, email string) *models.User {
 // upisanim pošiljateljem PIN-a; PIN još nije uključen
 func okolinaDrugogKoraka(t *testing.T) *okolinaPIN {
 	t.Helper()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, "cvor-a")
 	o := &okolinaPIN{baza: database, posta: &laznaPosta{}, sad: time.Date(2026, 10, 3, 10, 0, 0, 0, time.UTC)}
 	o.repo = repository.NewUserRepository(database, rec)

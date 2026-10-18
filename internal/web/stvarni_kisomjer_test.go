@@ -21,14 +21,11 @@ import (
 // težinu, mora imati izvor i ne ulazi ni u preuzimanje s Open-Meteo ni u
 // oborinu sliva.
 func TestStvarniKisomjer(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "stvarni.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "stvarni.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	svc := service.NewKisomjerService(repository.NewKisomjerRepository(baza, ledger.New(baza, "test-node")))
 	h := NewSlivoviHandler(func() *service.KisomjerService { return svc }, nil, nil, nil, nil)
 	ctx := context.Background()

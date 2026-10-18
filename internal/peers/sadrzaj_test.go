@@ -21,28 +21,21 @@ func startNodeBezRegistra(t *testing.T, ctx context.Context, id string) *node {
 	t.Helper()
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(database, id)
 	n, err := peers.LoadNode(dbPath, id, "test-"+id, "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	ports := peers.Ports{Exchange: freePort(t), Pair: freePort(t), Discovery: 0}
-	svc, err := peers.NewService(database, rec, n, ports)
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := noviServis(t, database, rec, n)
 	svc.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, rec, versions)
 	})
-	go svc.Serve(ctx)
+	posluzi(t, ctx, svc)
 	return &node{id: id, db: database, svc: svc, rec: rec}
 }
 

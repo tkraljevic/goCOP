@@ -16,14 +16,11 @@ import (
 // Veza letve s javnom stranicom prolazi kroz bazu, a uvoznik vidi samo
 // letve s uključenim preuzimanjem i zna što na njima već ima
 func TestJavnaVezaLetveIPostojecaOcitanja(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "javni.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "javni.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	stations := NewStationRepository(baza, rec)
 	readings := NewReadingRepository(baza, rec)

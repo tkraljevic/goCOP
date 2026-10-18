@@ -27,14 +27,11 @@ import (
 // vodotokom iz dionice, spremanje nacrta, dokument, predaja, pa isti dan
 // vodi na uređivanje umjesto na novi obrazac.
 func TestDnevnaIzvjescaKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "izv.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "izv.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (16, 'B', 'Baranja', 'VGI Baranja', 'Osijek')`,
@@ -188,14 +185,11 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 // izvješća dionica i zapise dnevnika, spremi se sa snimkom, dokument i
 // izvoz nose zbrojeve; isti dan vodi na uređivanje.
 func TestSektorskoIzvjesceKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "sekt.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "sekt.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (16, 'B', 'Baranja', 'VGI Baranja', 'Darda')`,

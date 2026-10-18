@@ -27,14 +27,11 @@ import (
 // vremenom i pitanjem, a nacrt nastaje tek uz izričitu potvrdu
 // (Odluke (8. 10. 2026.), pitanje 17)
 func TestPotvrdaVrijediOdKrozObrazac(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "vrijedi.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "vrijedi.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (34, 'B', 'Primjerica', 'VGI Primjerica')`,

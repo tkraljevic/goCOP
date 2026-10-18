@@ -26,14 +26,11 @@ type primjerica struct {
 func novaPrimjerica(t *testing.T) *primjerica {
 	t.Helper()
 	db.UseRepoImenik()
-	database, err := db.OpenDB(filepath.Join(t.TempDir(), "primjerica.db"))
+	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "primjerica.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO', 'COP')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (16, 'B', 'Područje 16', 'VGI')`,

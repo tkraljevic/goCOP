@@ -75,14 +75,11 @@ func TestStanjeObraneDionicePosluzitelja(t *testing.T) {
 	if st, n, err := s.stanjeObraneDionice(context.Background(), "P", "P.1.1"); st.Traje() || n != nil || err != nil {
 		t.Errorf("bez servisa akata: %+v %v %v", st, n, err)
 	}
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	repo := repository.NewAktiRepository(baza, ledger.New(baza, "test"))
 	a := &models.Akt{ID: "akt-1", Sektor: "P", Radnja: models.AktUspostava, Stupanj: models.PhasePrep, Status: models.AktOvjeren,
 		Vrijedi: time.Now().Add(-time.Hour), Dionice: []models.AktDionica{{Code: "P.1.1"}}}

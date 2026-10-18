@@ -46,14 +46,11 @@ var idDezurnog = uuid.MustParse("6f1c0a4e-1d2b-4c3d-9e8f-a0b1c2d3e4f5")
 
 func novaOkolinaAkta(t *testing.T) *okolinaAkta {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "akti.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "akti.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	for _, q := range []string{
 		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica')`,

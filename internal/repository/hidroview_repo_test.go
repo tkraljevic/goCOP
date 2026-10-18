@@ -13,14 +13,15 @@ import (
 
 func bazaRacuna(t *testing.T) *sql.DB {
 	t.Helper()
-	baza, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "r.db"))
+	put := filepath.Join(t.TempDir(), "r.db")
+	if err := db.UpisiPredlozak(put); err != nil {
+		t.Fatal(err)
+	}
+	baza, err := sql.Open("sqlite", put)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	return baza
 }
 

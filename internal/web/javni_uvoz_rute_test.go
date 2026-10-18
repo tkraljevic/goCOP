@@ -31,14 +31,11 @@ func (p javniPrijenos) RoundTrip(*http.Request) (*http.Response, error) {
 // Letva povezana s javnom stranicom ima gumb za preuzimanje; preuzimanje
 // upiše što još nema i stranica pokaže stanje zadnjeg preuzimanja
 func TestPreuzimanjeSJavneStraniceKrozRute(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "javni.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "javni.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())

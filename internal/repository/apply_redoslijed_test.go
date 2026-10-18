@@ -17,14 +17,11 @@ import (
 // stigne — u istom paketu ili u sljedećem.
 func TestPovrsinaCekaOslonac(t *testing.T) {
 	ctx := context.Background()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer baza.Close()
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	rec := ledger.New(baza, "primatelj")
 
 	verzija := func(entity string, id int, payload any, vid string) ledger.Version {

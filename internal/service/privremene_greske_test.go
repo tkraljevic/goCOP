@@ -18,11 +18,8 @@ import (
 // zatvorenaBaza je baza sa shemom koja je zatvorena: svaki upit vraća grešku
 func zatvorenaBaza(t *testing.T) (*sql.DB, *ledger.Recorder) {
 	t.Helper()
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "zatvorena.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "zatvorena.db"))
 	if err != nil {
-		t.Fatal(err)
-	}
-	if err := db.InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
 	rec := ledger.New(baza, "test")

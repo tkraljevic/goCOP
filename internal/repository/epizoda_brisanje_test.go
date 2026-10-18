@@ -16,14 +16,11 @@ import (
 // Brisanje epizode (npr. razdoblja iz poništenog akta) bilježi se u knjigu
 // kao arhivirana verzija, pa nestaje i na ostalim čvorovima
 func TestBrisanjeEpizode(t *testing.T) {
-	baza, err := db.OpenDB(filepath.Join(t.TempDir(), "epizode.db"))
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "epizode.db"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.InitSchema(baza); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO', 'COP');
 		INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Područje', 'VGI', '');
 		INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'a', '2026-01-01', '2026-01-01')`); err != nil {

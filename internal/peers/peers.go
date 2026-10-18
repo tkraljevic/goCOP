@@ -193,6 +193,10 @@ type Service struct {
 	// slusaj čeka poziv za uparivanje (StartListening); nil je
 	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
 	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
+	// slusalica prima razmjene (Serve); nil je TCP port razmjene iz Ports.
+	// Test njome daje slušalicu koju je sam otvorio, pa port od izbora do
+	// kraja testa ne može uzeti nitko drugi.
+	slusalica net.Listener
 	// katalog su vrste zapisa koje čvor javlja u granici (mojKatalog); nil
 	// je ledger.Katalog. Popis poznatih entiteta u ledgeru zajednički je
 	// cijelom procesu i ne vraća se, pa test katalog daje ovuda.
@@ -881,6 +885,9 @@ func (s *Service) Serve(ctx context.Context) error {
 			log.Printf("razmjena kroz tunel: %v", err)
 		}
 	}()
+	if s.slusalica != nil {
+		return razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.slusalica, s.trusted, primi, port)
+	}
 	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, port)
 }
 

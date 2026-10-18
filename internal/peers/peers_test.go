@@ -17,6 +17,9 @@ import (
 	"gocop/internal/repository"
 )
 
+// freePort je port na kojem nitko ne sluša: upravo je bio slobodan i
+// zatvoren je. Za čvor koji sluša je noviServis, jer zatvoren port do
+// pokretanja čvora zna uzeti netko drugi.
 func freePort(t *testing.T) int {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
@@ -25,6 +28,76 @@ func freePort(t *testing.T) int {
 	}
 	defer ln.Close()
 	return ln.Addr().(*net.TCPAddr).Port
+}
+
+// slusalica je TCP slušalica na loopbacku, na portu koji bira sustav,
+// otvorena do kraja testa. Sluša baš na 127.0.0.1, adresi koju testovi
+// zovu: na macOS-u netko drugi smije otvoriti 127.0.0.1 na portu na kojem
+// već sluša :port, pa bi veze na 127.0.0.1 išle njemu.
+func slusalica(t *testing.T) net.Listener {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	return ln
+}
+
+// noviServis je peers.NewService čiji portovi razmjene i uparivanja ostaju
+// otvoreni od izbora do kraja testa (SlusajNa), pa ih nitko drugi ne može
+// uzeti
+func noviServis(t *testing.T, database *sql.DB, rec *ledger.Recorder, n *peers.Node) *peers.Service {
+	t.Helper()
+	razmjene, uparivanje := slusalica(t), slusalica(t)
+	ports := peers.Ports{Exchange: razmjene.Addr().(*net.TCPAddr).Port, Pair: uparivanje.Addr().(*net.TCPAddr).Port}
+	svc, err := peers.NewService(database, rec, n, ports)
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc.SlusajNa(razmjene, uparivanje)
+	return svc
+}
+
+// posluzi prima razmjene čvora dok traje ctx. Ako razmjena stane s greškom
+// dok test traje, greška ide u ispis testa: bez nje bi test pao tek kasnije,
+// kao da se čvor ne javlja.
+func posluzi(t *testing.T, ctx context.Context, svc *peers.Service) {
+	t.Helper()
+	stala := make(chan error, 1)
+	go func() { stala <- svc.Serve(ctx) }()
+	t.Cleanup(func() {
+		select {
+		case err := <-stala:
+			if err != nil {
+				t.Errorf("razmjena čvora %s je stala: %v", svc.Node().ID, err)
+			}
+		default:
+		}
+	})
+}
+
+// nazovi: tko nazove čvor koga, koji je upravo počeo čekati uparivanje.
+// Čekanje kreće u svojoj gorutini; pod punim opterećenjem stroja (svi
+// paketi s race detectorom) zna trebati više od nekoliko sekundi. Kad koga
+// prestane čekati, zvati dalje nema smisla. Kad ne uspije, ispis kaže prvu
+// grešku poziva i zašto koga ne čeka.
+func nazovi(t *testing.T, ctx context.Context, tko, koga *node) {
+	t.Helper()
+	var prva, err error
+	for i := 0; i < 200; i++ {
+		if err = tko.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", koga.svc.Ports().Pair)); err == nil {
+			return
+		}
+		if prva == nil {
+			prva = err
+		}
+		if st := koga.svc.PairStatus(); !st.Waiting && !st.Pending {
+			t.Fatalf("nazivanje: %v; %s više ne čeka: %+v", prva, koga.id, st)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	t.Fatalf("nazivanje: %v (zadnja: %v); %s: %+v", prva, err, koga.id, koga.svc.PairStatus())
 }
 
 // node je jedan goCOP čvor u testu: vlastita baza, ključ, portovi
@@ -44,14 +117,11 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	db.KoristiIzmisljenePodatke(t)
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "gocop.db")
-	database, err := db.OpenDB(dbPath)
+	database, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.InitSchema(database); err != nil {
-		t.Fatal(err)
-	}
 	if err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
@@ -61,15 +131,11 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ports := peers.Ports{Exchange: freePort(t), Pair: freePort(t), Discovery: 0}
-	svc, err := peers.NewService(database, rec, n, ports)
-	if err != nil {
-		t.Fatal(err)
-	}
+	svc := noviServis(t, database, rec, n)
 	svc.OnApplied(func(ctx context.Context, versions []ledger.Version) error {
 		return repository.ApplyVersions(ctx, database, rec, versions)
 	})
-	go svc.Serve(ctx)
+	posluzi(t, ctx, svc)
 
 	return &node{id: id, db: database, svc: svc, rec: rec,
 		stations: repository.NewStationRepository(database, rec),
@@ -83,19 +149,7 @@ func pair(t *testing.T, ctx context.Context, a, b *node) {
 	if err := a.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	// slušanje kreće u svojoj gorutini; pod punim opterećenjem stroja (svi
-	// paketi s race detectorom) zna trebati više od nekoliko sekundi
-	var err error
-	for i := 0; i < 200; i++ {
-		err = b.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", a.svc.Ports().Pair))
-		if err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatalf("nazivanje: %v", err)
-	}
+	nazovi(t, ctx, b, a)
 	for i := 0; i < 50 && !a.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -370,16 +424,7 @@ func TestClanBezKljucaNeMozePrimitiOutsidera(t *testing.T) {
 	if err := b.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	var err error
-	for i := 0; i < 50; i++ {
-		if err = outsider.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", b.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	nazovi(t, ctx, outsider, b)
 	for i := 0; i < 50 && !b.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -425,16 +470,7 @@ func TestDvijeMrezeNemajuNistaZajednicko(t *testing.T) {
 	if err := hv.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	var err error
-	for i := 0; i < 50; i++ {
-		if err = hu.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", hv.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	nazovi(t, ctx, hu, hv)
 	for i := 0; i < 50 && !hv.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
@@ -474,12 +510,7 @@ func TestOpozivClanstvaPutuje(t *testing.T) {
 	if err := b.svc.StartListening(); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 50; i++ {
-		if err := c.svc.DialPair(ctx, fmt.Sprintf("127.0.0.1:%d", b.svc.Ports().Pair)); err == nil {
-			break
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
+	nazovi(t, ctx, c, b)
 	for i := 0; i < 50 && !b.svc.PairStatus().Pending; i++ {
 		time.Sleep(50 * time.Millisecond)
 	}
