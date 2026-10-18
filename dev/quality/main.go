@@ -111,13 +111,21 @@ func normalize(o options) (options, error) {
 	if err != nil {
 		return o, err
 	}
-	if o.record && o.reportOnly {
-		return o, fmt.Errorf("record-baseline i report-only ne mogu zajedno")
-	}
-	if o.puniRace && (o.record || o.reportOnly || o.reuseTests || o.mutationRoot != "") {
-		return o, fmt.Errorf("puni-race pokreće samo testove i ne ide uz druga mjerenja")
+	if err := provjeriZastavice(o); err != nil {
+		return o, err
 	}
 	return o, os.MkdirAll(o.out, 0755)
+}
+
+// provjeriZastavice odbija zastavice koje ne idu zajedno
+func provjeriZastavice(o options) error {
+	if o.record && o.reportOnly {
+		return fmt.Errorf("record-baseline i report-only ne mogu zajedno")
+	}
+	if o.puniRace && (o.record || o.reportOnly || o.reuseTests || o.mutationRoot != "") {
+		return fmt.Errorf("puni-race pokreće samo testove i ne ide uz druga mjerenja")
+	}
+	return nil
 }
 
 func run(o options) error {

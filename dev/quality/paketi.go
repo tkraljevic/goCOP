@@ -28,8 +28,8 @@ func goPaketi(root string) ([]string, error) {
 // testne binarke redom kojim su paketi navedeni (izmjereno 18. 10. 2026.,
 // go test -json s -p 2 i popisom naprijed i natrag), pa ovi kreću prvi.
 // Abecedno je internal/prognoza, najdulja, tek 37. od 53 paketa: lokalno uz
-// četiri testa usporedo (-p 4, kao na stroju CI-ja s malo jezgri) testovi su
-// tako trajali 225 s, a s njom na početku 200 s, koliko traje sama.
+// četiri paketa usporedo (-p 4, kao na stroju CI-ja s malo jezgri) testovi
+// su tako trajali 225 s, a s njom na početku 200 s, koliko traje sama.
 // Trajanja su iz go test koji pokreće dev/quality (race uz iznimke, atomski
 // coverage), 18. 10. 2026., macOS, 14 jezgri: prognoza 200 s, peers 72, web
 // 59, service 43, repository 21, db 17, cmd/gocop 15; ostali do 14 s,
