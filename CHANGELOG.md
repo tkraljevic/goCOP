@@ -4,6 +4,134 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.39-alfa — 17. 10. 2026.
+
+- **Član mreže više ne može podmetnuti ključ drugog računala.** Član mreže
+  mogao je drugim računalima poslati zapis o trećem računalu sa svojim
+  ključem i adresom. Razmjena je tada išla s njim kao da je on to treće
+  računalo, i izravno i kroz tunel. Slično je bilo s članstvom: obični član
+  mogao je krivotvorenim članstvom isključiti drugo računalo iz razmjene, a
+  ovlašteni primatelj članstvom pod tuđim imenom preuzeti to ime. Za to je
+  trebao izmijenjen program ili ručni upis u bazu. Sad program ključ
+  računala uzima samo iz članstva koje vrijedi: s ispravnim potpisom, bez
+  isteklog roka i bez opoziva. Kad pod istim imenom vrijede dva članstva s
+  različitim ključem, vrijedi prvo izdano, a dnevnik programa javi da pod
+  tim imenom valjano članstvo imaju dva računala. Ovlašteni primatelj s
+  izmijenjenim programom i dalje može preuzeti ime računala koje je
+  primljeno nakon što je on dobio ovlast; protiv toga pomaže samo
+  oduzimanje ovlasti za primanje. Opoziv imena ukida sva članstva pod tim
+  imenom. Podmetnut zapis računala još može promijeniti adrese i tako
+  usporiti vezu s pravim računalom, ali razmjena više ne ide s krivim.
+  Zaštićeno je samo računalo s 0.0.39-alfa.
+- **Računalo koje ne čuva sva tuđa očitanja više ih ne dobiva iznova.**
+  Računalo s upisanom postavkom „Povijest tuđih očitanja (mjeseci)”, npr.
+  terenski laptop, starija tuđa očitanja ne čuva. Svakom razmjenom ipak ih
+  je dobivalo iznova i odmah bacalo. Kad ih je od istog računala za isto
+  područje i godinu bilo 5000 ili više zaredom, razmjena je ondje zapela, pa
+  nije stizalo ni ono iza njih, a pločica razmjene stalno je pisala „prima
+  se još”. Sad računalo pošiljatelju javi dokle je odbacilo ono što mu je
+  poslao, pa mu pošiljatelj šalje samo novije. To se pamti samo dok program
+  radi. Nakon ponovnog pokretanja, kad se promijeni što računalo čuva ili
+  prati, ili kad pošiljatelj poslije dobije starije očitanje, npr. ugradnjom
+  .cop paketa ili stare .db arhive, stara očitanja stignu još jednom. Isto
+  se dogodi jednom na dan, kad zapamćeno istekne, i katkad na prijelazu
+  mjeseca. „Šalje se još” na računalu pošiljatelja više ne broji ono što je
+  drugo računalo javilo da je odbilo. „Prima se još” na svakom računalu
+  gleda samo ono što ono prati. Od računala na 0.0.38-alfa stara očitanja i
+  dalje stižu svakom razmjenom, dok se ono ne nadogradi.
+- **Očitanje se više ne gubi kad putuje preko računala koje ne čuva sve.**
+  Računalo s upisanom postavkom „Povijest tuđih očitanja (mjeseci)” drugima
+  je predavalo niz s rupom: starija tuđa očitanja nije imalo, a novija jest.
+  Računalo koje je od njega primilo takav niz mislilo je da ima sve, pa mu
+  autor ono što nedostaje više nije slao, a rupa je išla dalje. Isto je bilo
+  s nizom primljenim ugradnjom .cop paketa ili stare .db arhive. Sad svako
+  računalo trajno pamti koja je tuđa očitanja izostavilo i što mu nedostaje,
+  a uz poslane podatke javi za koji dio ne jamči. Isti zapis ide i u .cop
+  paket kanala i u staru .db arhivu. Primatelj taj dio traži od računala
+  koje ga ima cijelog. Kad računalo poslije zaprati letvu ili produlji
+  razdoblje, zatraži i starija očitanja koja je dotad izostavljalo. Pločica
+  razmjene upozorava u dva slučaja: kad je postavka upisana, a neko računalo
+  u mreži ima stariji program ili s njim ovo računalo od nadogradnje još
+  nije razmijenilo podatke, i kad od nekog računala dulje od dana možda
+  nedostaju starija očitanja. Niz s rupom koji je neko računalo primilo
+  prije nadogradnje ostaje takav.
+- **goCOP se skriva od tražilica.** Ništa nije priječilo tražilici da
+  stranicu za prijavu uvrsti u rezultate čim negdje nađe adresu čvora. Sad
+  svaki odgovor programa nosi oznaku da ga tražilica ne uvrsti, ne prati
+  poveznice i ne čuva kopiju. `robots.txt` tražilici dopušta samo ulaz i
+  prijavu, gdje tu oznaku vidi, a sve ostalo zabranjuje. Postavke za to
+  nema, skriveno je uvijek. Prijavu to ne zamjenjuje. Razmjena kroz tunel
+  radi kao i prije.
+- **Upozorenje kad na disku ostane malo mjesta.** Program nije javljao kad
+  se puni disk s bazom, arhivom, stablom izvornih datoteka ili paketima. Sad
+  te diskove pogleda svakih deset minuta. Kad na nekom ostane manje od 10 GB
+  ili manje od 10 % diska, pločica razmjene na naslovnoj kaže na kojem
+  računalu, koliko je mjesta ostalo i što učiniti. Isto upozorenje stiže
+  e-poštom, jednom na dan dok mjesta bude malo. Primaju ga osobe koje su na
+  tom računalu spremile lozinku sandučića, svaka sa svog računa na svoju
+  adresu. Kad slanje ne uspije, program ga ne ponavlja u sljedeća 24 sata,
+  da poslužitelj e-pošte ne zaključa račun zbog krive lozinke. Razmjena zbog
+  malo mjesta ne staje.
+- **Stablo izvornih datoteka i paketi ne počinju iznova kad program radi iz
+  druge mape.** Relativne putanje u postavkama `podaci` i `pakete` računaju
+  se od mape iz koje je goCOP pokrenut. Pod Postavom je to mapa baze, pa
+  računalo koje se prije pokretalo iz druge mape više nije vidjelo ni
+  stablo ni izdane pakete. Uvoz bi tada pisao u novo, prazno stablo, a
+  izdavanje bi krenulo od prvog broja. Jedini trag bila je sitna poruka na
+  stranici Unos u arhivu. Sad dnevnik programa pri pokretanju upiše pune
+  putanje stabla i paketa, a Unos u arhivu kaže koja se mapa traži, da je
+  nema i što upisati u postavke. Upis u stablo, uvoz izvora i izdavanje
+  odbiju se kad relativne mape nema, a mapa istog imena stoji jednu razinu
+  iznad mape iz koje je goCOP pokrenut. U svim ostalim slučajevima mapa
+  nastaje kao i prije.
+- **Kriva očitanja s popisa kvarova ne vraćaju se novim uvozom.** Kriva
+  očitanja telemetrije, npr. kad mjerilo zapne ili nasjedne pri maloj vodi,
+  dosad su se ručno selila u zasebne datoteke s nastavkom `-kvar`. Svaki novi
+  uvoz telemetrije napiše izvornu datoteku iznova, pa bi se kvar tiho vratio
+  u spojeni niz i u prognozu. Sad gradnja arhive čita popis kvarova, datoteku
+  `kvarovi.csv` u stablu izvornih datoteka: letva, izvor, veličina, od i do
+  te po želji raspon vrijednosti. Takve retke gradnja sama odvoji u
+  isključeni niz s nastavkom `-kvar`, a ispis gradnje kaže koliko ih je
+  odvojeno. Kad se redak makne s popisa, očitanja se vraćaju u svoj niz.
+  Redak popisa koji se ne da pročitati zaustavi gradnju, a poruka kaže koji
+  je to redak.
+- **Jedan neispravan zapis više ne odbija sve što je stiglo.** Kad je među
+  primljenim zapisima bio jedan bez oznake, vrste ili identifikatora,
+  računalo je odbilo sve što je u toj razmjeni stiglo, i tako svakom
+  razmjenom. Ugradnja .cop paketa ili stare .db arhive s takvim zapisom
+  pala je. Sad se takav zapis preskoči i upiše u dnevnik programa, a ostali
+  se upišu. Računalo s 0.0.39-alfa takav zapis ni ne šalje.
+- **Računala na početku razmjene javljaju što razumiju.** Zato nove poruke
+  iz ovog izdanja idu samo između računala koja ih oba razumiju, a s
+  0.0.38-alfa razmjena ide kao i prije.
+- **Napomena uz izvor RHMZ-a navodi i Bačku Palanku.** Napomena uz izvor
+  `rhmz` govorila je o Bezdanu, Apatinu i Bogojevu do 2022. Sad navodi i
+  Bačku Palanku i godine do 2025. Brojke u arhivi se ne mijenjaju. Računalo
+  koje arhivu već ima zadržava staru napomenu. Novu može upisati globalni
+  administrator u polje Napomena na stranici Izvori arhive.
+- **Nadogradnja.** 0.0.39-alfa radi uz 0.0.38-alfa: nove poruke razmjene
+  idu samo između računala koja ih oba razumiju, a 0.0.38-alfa nova polja
+  zanemari, pa je razmjena s njom kakva je i bila. Ispravak ključa iz prve
+  stavke štiti samo nadograđeno računalo, pa stalna računala nadogradite
+  odmah, a ostala čim mogu. Dok u mreži ima računala na 0.0.38-alfa,
+  nijedno računalo ne smije imati upisanu postavku „Povijest tuđih očitanja
+  (mjeseci)” (`[vodostaji] povijest_mjeseci` u `gocop.toml`), ni novi
+  terenski laptop, iako mu program uz polje nudi 12 mjeseci. Stari program
+  ne zna koja su očitanja izostavljena, pa bi se mogla izgubiti. Postavku
+  isključuje globalni administrator upisom 0 na stranici „Što ovo računalo
+  prati”, s tog računala ili iz lokalne mreže, i zatim ponovno pokrene
+  program; do tada postavka i dalje vrijedi. Računalo koje tu postavku već
+  ima ne isključujte prije nadogradnje: nadogradite ga nakon stalnih
+  računala, s još upisanom postavkom, i pokrenite. Zatim upišite 0 i
+  ponovno ga pokrenite, pa od stalnih računala zatraži starija očitanja koja
+  je dotad izostavljalo. Isključi li se postavka još na 0.0.38-alfa, tom
+  računalu ta očitanja trajno nedostaju, a da to nigdje ne piše. Računalu
+  na 0.0.38-alfa ne šaljite staru .db arhivu, nego .cop paket: arhivu
+  uveze, ali ne vidi što u njoj nedostaje. Na računalu koje gradi arhivu
+  ili izdaje pakete nakon nadogradnje pogledajte u dnevniku programa retke
+  „Stablo arhive” i „Mapa paketa”. Pojedinosti i povratak na 0.0.38-alfa
+  opisani su u administratorskim uputama, u odjeljku o nadogradnji.
+
 ## 0.0.38-alfa — 14. 10. 2026.
 
 - **Brisanje s računala ne dira ono što je nastalo na njemu.** Na

@@ -20,7 +20,7 @@ import (
 
 // Kako ovjera akta o obrani mijenja stanje obrane na dionicama: akt
 // ovlašćuje promjenu na svojim dionicama, bez obzira na prava onoga tko
-// ovjerava. Stadiji se slažu (docs/NACRT-STADIJI-OBRANE.md): ovjera pušta
+// ovjerava. Stadiji se slažu (docs/stadiji-obrane.md): ovjera pušta
 // samo moguć slijed, a epizoda kao povijest razdoblja prati stanje iz akata.
 
 type okolinaAkta struct {
@@ -183,7 +183,7 @@ func TestOvjeraAktaMijenjaStanjeObrane(t *testing.T) {
 	}
 
 	// viši stupanj podiže obranu; stadij koji već traje ne ovjerava se
-	// (docs/NACRT-STADIJI-OBRANE.md)
+	// (docs/stadiji-obrane.md)
 	a2, upozorenja := o.ovjeri(t, models.AktUspostava, models.PhaseRegular, sat.Add(10*time.Minute))
 	if len(upozorenja) != 0 || a2.Broj != 2 {
 		t.Errorf("uspostava redovne: upozorenja %v, broj %d", upozorenja, a2.Broj)

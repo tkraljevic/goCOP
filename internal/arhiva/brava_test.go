@@ -9,6 +9,31 @@ import (
 	"time"
 )
 
+// Zaključava da se brava koja se nije dala zapisati ne ostavlja. Posao se
+// tada ne pokreće, pa je nitko ne bi pustio, a s brojem živog procesa
+// držala bi arhivu zauzetom do ponovnog pokretanja.
+func TestNezapisanaBravaNeOstaje(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "vodostaji.db"+ImeBrave)
+	f, err := os.Create(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	err = zapisiBravu(f, stanjeBrave{Sto: "gradnja letve batina", PID: os.Getpid()})
+	if err == nil || !strings.Contains(err.Error(), "brava posla nije zapisana") {
+		t.Errorf("greška %v, očekivano da brava nije zapisana", err)
+	}
+	if _, err := os.Stat(put); !os.IsNotExist(err) {
+		t.Errorf("nezapisana brava je ostala: %v", err)
+	}
+	// Ni u mapi koje nema brava ne nastaje, i to se javlja.
+	if _, err := Uzmi(filepath.Join(t.TempDir(), "nema", "vodostaji.db"), "gradnja letve batina", ""); err == nil {
+		t.Error("brava u mapi koje nema javljena je kao uzeta")
+	}
+}
+
 // Dvoje istodobno nad arhivom može izgubiti katalog, pregaziti privremenu
 // datoteku ili izdati otisak polovične gradnje. Druga brava ne prolazi.
 func TestDrugaBravaNeProlaziIKazeTkoDrzi(t *testing.T) {

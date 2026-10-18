@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"math"
 	"path/filepath"
 	"strings"
@@ -198,6 +199,42 @@ func TestProvjeraUnatragNaStalnojVodi(t *testing.T) {
 	prvi := redovi[1]
 	if prvi[0] != "2025-03-01 00:00" || prvi[1] != "donja" || prvi[4] != "6" || prvi[5] != "100" || prvi[8] != "105" || prvi[9] != "105" {
 		t.Errorf("prvi redak CSV-a: %v", prvi)
+	}
+}
+
+// pisacKojiPuca prima prvih n bajtova, a onda javlja grešku, kao pun disk
+type pisacKojiPuca struct{ n int }
+
+func (p *pisacKojiPuca) Write(b []byte) (int, error) {
+	if len(b) > p.n {
+		k := p.n
+		p.n = 0
+		return k, errors.New("namjerni kvar pisanja")
+	}
+	p.n -= len(b)
+	return len(b), nil
+}
+
+// CSV provjere koji se nije dao zapisati do kraja javlja se greškom, a
+// promašaji se svejedno upišu. Prije je provjera završila kao da je CSV
+// cijeli, bez BOM-a, zaglavlja ili dijela redaka.
+func TestProvjeraUnatragJavljaNezapisanCSV(t *testing.T) {
+	bezIspravka(t)
+	for _, s := range []struct {
+		ime string
+		n   int
+	}{{"BOM", 0}, {"redci", 200}} {
+		var dnevnik bytes.Buffer
+		o := opcijeStalne(&dnevnik)
+		o.CSV = &pisacKojiPuca{n: s.n}
+		arhiva := stalnaArhiva(t, o.Od.Add(-12*time.Hour), o.Do.Add(13*time.Hour))
+		n, err := ProvjeriUnatrag(arhiva, probnaBazaPrognoza(t), o)
+		if err == nil || !strings.Contains(err.Error(), "CSV provjere unatrag nije zapisan do kraja: namjerni kvar pisanja") {
+			t.Errorf("%s: greška %v, očekivano da CSV nije zapisan", s.ime, err)
+		}
+		if n != 13 {
+			t.Errorf("%s: zapisano %d promašaja, očekivano 13 i kad CSV ne uspije", s.ime, n)
+		}
 	}
 }
 

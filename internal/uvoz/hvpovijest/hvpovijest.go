@@ -147,7 +147,7 @@ func Preuzmi(ctx context.Context, k *hidroview.Klijent, z Zadatak) (Ishod, error
 				continue
 			}
 			put, err := arhiva.Dopuni(z.Koren, z.Sliv, z.Letva, oznaka, u.Velicina, vrsta, redci)
-			if err != nil {
+			if err = arhiva.JaviOstatak(err, z.Dnevnik); err != nil {
 				return ishod, err
 			}
 			ishod.Zapisano = append(ishod.Zapisano, put)

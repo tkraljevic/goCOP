@@ -3,8 +3,10 @@ package arhiva
 import (
 	"bufio"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -134,6 +136,9 @@ func sadrziNiz(s []string, x string) bool {
 // Upisi zapisuje niz u stablo pod kanonskim imenom i vraća putanju. Postojeća
 // datoteka istog niza zamjenjuje se, jer je ovo cjelovita izjava o razdoblju
 // koje pokriva — ali tek nakon što je nova pročitana natrag i provjerena.
+// Stari niz pod drugim razdobljem koji se ne da maknuti vraća se kao
+// StariNizOstao uz putanju novoga, koji je zapisan; to nije neuspjeh upisa
+// (JaviOstatak).
 // Relativno stablo koje je vjerojatno drugdje ne počinje iznova (NemaMape).
 func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (string, error) {
 	if err := ProvjeriKoren(koren); err != nil {
@@ -178,12 +183,67 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 	if err := os.Rename(privremeno, put); err != nil {
 		return "", err
 	}
+	var ostali error
 	for _, s := range stare {
 		if s != put {
-			os.Remove(s)
+			ostali = errors.Join(ostali, makniStari(s, put))
 		}
 	}
-	return put, nil
+	return put, ostali
+}
+
+// makniStari miče niz koji je ostao pod starim razdobljem u nazivu. Ako se
+// ne da maknuti, to se javlja (StariNizOstao). Niz koji je već nestao nije
+// greška.
+func makniStari(stari, novi string) error {
+	err := os.Remove(stari)
+	if err == nil || errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	return &StariNizOstao{Novi: filepath.Base(novi), Stari: filepath.Base(stari), Err: err}
+}
+
+// StariNizOstao je upozorenje uz upis koji je uspio: novi niz je zapisan, ali
+// stari pod drugim razdobljem u nazivu nije se dao maknuti, pa bi ga gradnja
+// pročitala uz novi kao dodatne godine istog niza. Posao zato ide dalje, a
+// stari niz treba maknuti ručno. Poruka kaže samo imena datoteka; razlog koji
+// je dao sustav ostaje u Err, za dnevnik.
+type StariNizOstao struct {
+	Novi, Stari string
+	Err         error
+}
+
+func (e *StariNizOstao) Error() string {
+	return fmt.Sprintf("novi niz %s je zapisan, ali stari %s nije se dao maknuti iz mape, pa bi ga gradnja pročitala uz novi. "+
+		"Maknite ga ručno; ako je otvoren u drugom programu, npr. u Excelu, prvo ga zatvorite", e.Novi, e.Stari)
+}
+
+func (e *StariNizOstao) Unwrap() error { return e.Err }
+
+// JaviOstatak odvaja stari niz koji je ostao od prave greške upisa. Kad je
+// upis vratio samo to, a Upisi i Dopuni ga vraćaju samo kad je sve ostalo
+// uspjelo, ispiše upozorenje u w i vrati nil, da posao ide na sljedeći niz.
+// Svaku drugu grešku vrati kakva jest. Bez w upozorenje se ne ispisuje.
+func JaviOstatak(err error, w io.Writer) error {
+	var o *StariNizOstao
+	if !errors.As(err, &o) {
+		return err
+	}
+	if w != nil {
+		_, _ = fmt.Fprintf(w, "upozorenje: %v\n", err) // dnevnik posla; posao ne staje zbog retka koji se nije ispisao
+	}
+	return nil
+}
+
+// SkupiOstatak je JaviOstatak za posao bez dnevnika: stari niz koji je ostao
+// doda u ostaci, koje posao na kraju vrati uz sve što je napravio.
+func SkupiOstatak(err error, ostaci *error) error {
+	var o *StariNizOstao
+	if !errors.As(err, &o) {
+		return err
+	}
+	*ostaci = errors.Join(*ostaci, err)
+	return nil
 }
 
 // Dopuni spaja nove retke s onim što niz već ima u stablu i zapisuje sve.

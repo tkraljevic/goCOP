@@ -41,7 +41,7 @@ import (
 
 // verzijaPrograma je izdanje goCOP-a. Alfa traje dok se ne zaokruže
 // funkcionalnosti koje program treba imati; mijenja se pri izdavanju.
-const verzijaPrograma = "0.0.38-alfa"
+const verzijaPrograma = "0.0.39-alfa"
 
 // version se može zadati pri prevođenju (-ldflags "-X main.version=…");
 // prazno znači verzijaPrograma, s oznakom commita iz kojega je prevedeno.
@@ -454,7 +454,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		return 2
 	}
 	if z.ispisiIzdanje {
-		// Ugovor s Postavom (docs/plan-instalacija.md §3.1a): Postava ovim
+		// Ugovor s Postavom (docs/postava.md): Postava ovim
 		// provjerava preuzetu datoteku prije zamjene, pa redak ostaje točno
 		// ovakav i ništa se prije njega ne ispisuje.
 		fmt.Println(redakIzdanja())
@@ -700,7 +700,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetMts(mtsService)
 	server.SetKisomjeri(service.NewKisomjerService(repository.NewKisomjerRepository(database, recorder)))
 	aktService := service.NewAktService(repository.NewAktiRepository(database, recorder), stationRepo, sectionRepo, territoryRepo, readingRepo, userService, episodeService, node.ID)
-	// stanje obrane računa se iz ovjerenih akata (docs/NACRT-STADIJI-OBRANE.md)
+	// stanje obrane računa se iz ovjerenih akata (docs/stadiji-obrane.md)
 	izvjescaService.SetStanjeObrane(aktService.StanjeObrane)
 	// privremeno imenovanje ističe s krajem redovne i izvanredne obrane
 	userService.SetPrestanakObrane(aktService.PrestanakObraneDuznosti)

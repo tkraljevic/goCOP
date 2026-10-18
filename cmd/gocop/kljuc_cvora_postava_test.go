@@ -1,8 +1,8 @@
 package main
 
 // Čvor bez ključa pod Postavom (Odluke (8. 10. 2026.), plan izdanja 0.0.35,
-// stavka 6). Postava se ne mijenja s goCOP-om (docs/plan-instalacija.md
-// §3.1a): pri nadogradnji vraća prethodno izdanje kad novo ne odgovori na
+// stavka 6). Postava se ne mijenja s goCOP-om (ugovor u docs/postava.md):
+// pri nadogradnji vraća prethodno izdanje kad novo ne odgovori na
 // /zdravlje ili tri puta padne, a izdanja prije 0.0.35 uz postojeću bazu bez
 // ključa tiho naprave novi ključ, dakle novi identitet. Zato čvor koji
 // odbije pokretanje pod Postavom ne izlazi, nego čeka da ga ona zaustavi.

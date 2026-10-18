@@ -26,6 +26,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -1339,20 +1340,23 @@ func citajProfil(f io.Reader) (datum string, vodostaj int, kota float64, sustavK
 		}
 		if strings.HasPrefix(r[0], "#") {
 			// # poprečni profil korita, mjereno 2010-03-22, vodostaj pri mjerenju 174 cm, kota nule 80.45
-			for _, d := range strings.Split(r[0], ",") {
+			// Broj koji se ne da pročitati je greška: 0 cm i 0 m su stvarne
+			// vrijednosti, pa bi se nečitljivo zaglavlje upisalo kao mjereno.
+			// Decimalni zarez (HIS piše kotu i kao 85,21) postaje točka prije
+			// rezanja po zarezu, inače bi kota bila 85 m, a sustav bi nestao.
+			for _, d := range strings.Split(decimalniZarez.ReplaceAllString(r[0], "$1.$2"), ",") {
 				d = strings.TrimSpace(d)
+				var nijeBroj error
 				switch {
 				case strings.HasPrefix(d, "mjereno "):
 					datum = strings.TrimSpace(strings.TrimPrefix(d, "mjereno "))
 				case strings.HasPrefix(d, "vodostaj pri mjerenju "):
-					fmt.Sscanf(strings.TrimPrefix(d, "vodostaj pri mjerenju "), "%d", &vodostaj)
+					_, nijeBroj = fmt.Sscanf(strings.TrimPrefix(d, "vodostaj pri mjerenju "), "%d", &vodostaj)
 				case strings.HasPrefix(d, "kota nule "):
-					// iza broja zna stajati sustav: „121.55 TRST"
-					ostatak := strings.TrimPrefix(d, "kota nule ")
-					fmt.Sscanf(ostatak, "%f", &kota)
-					if dj := strings.Fields(ostatak); len(dj) > 1 {
-						sustavKote = dj[1]
-					}
+					kota, sustavKote, nijeBroj = kotaNule(strings.TrimPrefix(d, "kota nule "))
+				}
+				if nijeBroj != nil {
+					return "", 0, 0, "", nil, fmt.Errorf("u zaglavlju snimke nije broj: „%s”", d)
 				}
 			}
 			continue
@@ -1368,6 +1372,29 @@ func citajProfil(f io.Reader) (datum string, vodostaj int, kota float64, sustavK
 		tocke = append(tocke, [2]float64{s, v})
 	}
 	return datum, vodostaj, kota, sustavKote, tocke, nil
+}
+
+// decimalniZarez je zarez između dviju znamenki; dijelove zaglavlja snimke
+// odvaja zarez iza kojeg ne stoji znamenka
+var decimalniZarez = regexp.MustCompile(`([0-9]),([0-9])`)
+
+// kotaNule čita kotu nule iz zaglavlja snimke korita; iza broja zna stajati
+// sustav: „121.55 TRST". Snimci bez kote goCOP uz odabrani sustav piše prazno
+// mjesto za broj („kota nule  HVRS71”). Takva kota ostaje 0, kao i dosad, a
+// sustav se pamti.
+func kotaNule(ostatak string) (float64, string, error) {
+	if dj := strings.Fields(ostatak); strings.HasPrefix(ostatak, " ") && len(dj) > 0 {
+		return 0, dj[0], nil
+	}
+	var kota float64
+	if _, err := fmt.Sscanf(ostatak, "%f", &kota); err != nil {
+		return 0, "", err
+	}
+	sustav := ""
+	if dj := strings.Fields(ostatak); len(dj) > 1 {
+		sustav = dj[1]
+	}
+	return kota, sustav, nil
 }
 
 // krivulje učitava HQ krivulje s razdobljem valjanosti. Krivulja se povremeno

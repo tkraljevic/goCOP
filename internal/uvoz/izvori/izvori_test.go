@@ -124,3 +124,27 @@ func TestParsirajPostaje(t *testing.T) {
 		t.Errorf("letve godišnjaka: %v %v", l, err)
 	}
 }
+
+// Stari niz koji se nije dao maknuti ne zaustavlja uvoz: vodostaj je
+// zapisan, ide se i na temperaturu, a dnevnik uvoza nosi upozorenje. Prije
+// je uvoz stao bez temperature i javio da ništa nije zapisano.
+func TestSEBAStariNizNeZaustavljaUvoz(t *testing.T) {
+	f, _ := Nadji("seba")
+	koren := t.TempDir()
+	// Na mjestu starog niza stoji mapa s datotekom, pa je brisanje ne miče.
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "tikves", "tikves_geolux-seba_vodostaj_satni_2020.csv", "unutra"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	dat := []Datoteka{{Ime: "prva.csv", Sadrzaj: []byte(sebaGlava + "2025-01-01 12:00,5,1.234,8.2\n")}}
+	var dnevnik strings.Builder
+	ishod, err := f.Uvezi(dat, Zadatak{Koren: koren, Sliv: "dunav", Letva: "tikves"}, &dnevnik)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ishod.Zapisano) != 2 || !strings.Contains(ishod.Zapisano[1], "tikves_geolux-seba_temperatura_satni_2025.csv") {
+		t.Errorf("zapisano: %v", ishod.Zapisano)
+	}
+	if !strings.Contains(dnevnik.String(), "upozorenje: novi niz tikves_geolux-seba_vodostaj_satni_2025.csv je zapisan, ali stari tikves_geolux-seba_vodostaj_satni_2020.csv nije se dao maknuti") {
+		t.Errorf("dnevnik: %s", dnevnik.String())
+	}
+}

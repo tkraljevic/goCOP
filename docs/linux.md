@@ -19,7 +19,7 @@ sustava (systemd). Opće upute (mreža, podaci, ograničenja alfa faze) su u
   Debian 12+ i noviji sustavi ga imaju): `openssl version`.
 
 Program je jedna izvršna datoteka bez drugih ovisnosti; bazu (SQLite) nosi
-u sebi. Postupak je isproban na Ubuntu 24.04 LTS (uredski čvor u Osijeku).
+u sebi. Postupak je isproban na Ubuntu 24.04 LTS.
 
 ### Prije instalacije: slobodni portovi
 
@@ -50,9 +50,9 @@ dostupan … prelazim na :8080`), ili mu port zadajte u `gocop.toml`
 
 | Što | Gdje | Napomena |
 |---|---|---|
-| program | `/usr/local/bin/gocop` | vlasnik root, `0755` |
+| program | `/usr/local/bin/gocop` | pripada korisniku root, `0755` |
 | korisnik sustava | `gocop` | bez prijave i bez lozinke |
-| mapa podataka | `/var/lib/gocop` | vlasnik `gocop`, `0750` |
+| mapa podataka | `/var/lib/gocop` | pripada korisniku `gocop`, `0750` |
 | usluga | `/etc/systemd/system/gocop.service` | `gocop.service` iz izdanja |
 | ikona u traci (Postava) | `/usr/local/bin/gocop-postava` | samo ako je uz program (poglavlje 12) |
 
@@ -84,7 +84,7 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.38-alfa
+IZDANJE=v0.0.39-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
 for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
@@ -295,12 +295,13 @@ područja i godina. Za to u `gocop.toml` u odjeljku `[sync]` stavite
 
 ```sh
 sudo sed -i 's/^sve = false$/sve = true/' /var/lib/gocop/gocop.toml
-sudo grep -n -E '^(sve|bootstrap)' /var/lib/gocop/gocop.toml
+sudo grep -n '^sve' /var/lib/gocop/gocop.toml
 sudo systemctl restart gocop
 ```
 
-`grep` treba ispisati `sve = true`. Pod `bootstrap` su javni čvorovi preko
-kojih čvor nalazi ostale i izvan lokalne mreže (zadano `cop-osijek.com`).
+`grep` treba ispisati `sve = true`. Postavku `bootstrap` program zasad ne
+čita. Čvorove sa stalnom adresom upišite u Administracija → Čvor, mreža i
+sinkronizacija → Domenski čvorovi.
 
 Što se vidi u dnevniku (`journalctl -u gocop -f`) dok se čvor puni:
 
@@ -343,8 +344,8 @@ karta (*Opcije*); do svih se dolazi iz Administracije (opis u
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
 `/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
 komentare. Naziv čvora, port weba i portove razmjene, putanje i posrednike
-mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* uredno
-ugasi čvor, a systemd ga za pet sekundi pokrene, isto kao
+mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* ugasi
+čvor, a systemd ga za pet sekundi pokrene, isto kao
 `sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi
 ga ugašenog.
 
@@ -463,9 +464,9 @@ gocop -version
 curl -s http://127.0.0.1/zdravlje
 ```
 
-`gocop -version` ispiše npr. `goCOP 0.0.33-alfa`. `/zdravlje` vrati
-`{"izdanje":"0.0.33-alfa","radi":true}`, ali **samo za zahtjev s istog
-računala** (127.0.0.1 ili ::1) koji ne dolazi kroz posrednika; za sve
+`gocop -version` ispiše `goCOP <izdanje>`, npr. `goCOP 0.0.38-alfa`.
+`/zdravlje` vrati `{"izdanje":"0.0.38-alfa","radi":true}`, ali **samo za
+zahtjev s istog računala** (127.0.0.1 ili ::1) koji ne dolazi kroz posrednika; za sve
 ostale vrati 404. To je namjerno: služi provjeri na samom računalu, ne
 nadzoru izvana. Ako je program prešao na 8080, adresa je
 `http://127.0.0.1:8080/zdravlje`.

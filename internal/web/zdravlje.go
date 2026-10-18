@@ -1,6 +1,6 @@
 package web
 
-// Zdravlje čvora za Postavu (docs/plan-instalacija.md §3.1a): Postava na
+// Zdravlje čvora za Postavu (ugovor u docs/postava.md): Postava na
 // istom računalu svakih nekoliko sekundi pita radi li čvor i koje je
 // izdanje, a nakon nadogradnje po tome zna je li novi program stvarno
 // krenuo.

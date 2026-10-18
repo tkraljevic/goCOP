@@ -226,9 +226,17 @@ func TestClanstvaIzKnjigeRubovi(t *testing.T) {
 	if _, err := a.db.Exec(`INSERT INTO record_versions VALUES ('v-1', ?, NULL)`, EntityMemberships); err != nil {
 		t.Fatal(err)
 	}
-	for ime, kvar := range map[string]string{"nečitljiv redak": "", "bez knjige": `DROP TABLE record_versions`, "bez tablice članstava": `DROP TABLE memberships`} {
-		if kvar != "" {
-			if _, err := a.db.Exec(kvar); err != nil {
+	// Redom, ne mapom: slučajevi se nadograđuju (nečitljiv redak traži
+	// knjigu koju idući slučaj briše), a mapu Go svaki put obilazi drugim
+	// redom, pa bi nečitljiv redak ponekad ostao neispitan.
+	for _, sl := range []struct{ ime, kvar string }{
+		{"nečitljiv redak", ""},
+		{"bez knjige", `DROP TABLE record_versions`},
+		{"bez tablice članstava", `DROP TABLE memberships`},
+	} {
+		ime := sl.ime
+		if sl.kvar != "" {
+			if _, err := a.db.Exec(sl.kvar); err != nil {
 				t.Fatal(err)
 			}
 		}

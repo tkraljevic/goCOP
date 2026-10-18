@@ -187,8 +187,7 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 		h.pisiPregled(w, pd)
 		return
 	}
-	n, err := privremena.ReadFrom(f)
-	privremena.Close()
+	n, err := spremiUcitano(privremena, f)
 	if err != nil {
 		os.Remove(privremena.Name())
 		pd.Greska = "datoteka se nije dala spremiti: " + err.Error()

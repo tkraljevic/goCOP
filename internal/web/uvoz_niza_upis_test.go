@@ -162,6 +162,28 @@ func TestUpisNizaZamjenjujeINoviIzvorCeka(t *testing.T) {
 	}
 }
 
+// Stari niz pod drugim razdobljem koji se nije dao maknuti ne zaustavlja
+// upis: novi niz je zapisan, letva se gradi, a dnevnik posla nosi upozorenje
+// s imenima datoteka. Prije je upis javio da nije uspio, a letva se nije
+// gradila iako je novi niz već stajao u stablu.
+func TestUpisNizaStariNizNeZaustavljaGradnju(t *testing.T) {
+	o, g, _ := okolinaUpisa(t)
+	// Na mjestu starog niza stoji mapa s datotekom, pa je brisanje ne miče.
+	stari := filepath.Join(o.koren, "primjerica", "primjerovo", "primjerovo_probni_vodostaj_dnevni_2020.csv")
+	if err := os.MkdirAll(filepath.Join(stari, "unutra"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	id := o.posalji(t, o.pero, o.peroOvl, "primjerovo_probni_vodostaj_dnevni.csv", dnevniPrimjerova)
+	w := odgovor(o.h.UpisiUvoz, obicniObrazac("/", "id="+id+"&nacin=zamijeni"), o.pero, o.peroOvl)
+	p := posaoSaStranice(t, o.h.poslovi, w.Body.String(), o.pero)
+	if p.Greska() != "" || len(g.letve) != 1 {
+		t.Fatalf("posao upisa: %q, građeno %v", p.Greska(), g.letve)
+	}
+	if !strings.Contains(p.Dnevnik(), "upozorenje: novi niz primjerovo_probni_vodostaj_dnevni_2026.csv je zapisan, ali stari primjerovo_probni_vodostaj_dnevni_2020.csv nije se dao maknuti") {
+		t.Errorf("dnevnik posla: %q", p.Dnevnik())
+	}
+}
+
 // Potvrda niza ne prolazi bez prava, s isteklim odabirom ni s tuđom letvom;
 // letva koja se ne zna, neupotrebljiv dio naziva, nova letva bez sliva i sliv
 // koji ne može biti mapa vraćaju poruku, a odabir i dalje čeka.

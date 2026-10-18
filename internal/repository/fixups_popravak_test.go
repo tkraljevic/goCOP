@@ -255,7 +255,9 @@ func TestRunFixupsPreskaceZapisNovijeSheme(t *testing.T) {
 		t.Errorf("zapis novije sheme je prepisan: %d verzija", n)
 	}
 	var izveden int
-	c.db.QueryRow(`SELECT COUNT(*) FROM data_fixups WHERE name = 'epizode-osnova-prag'`).Scan(&izveden)
+	if err := c.db.QueryRow(`SELECT COUNT(*) FROM data_fixups WHERE name = 'epizode-osnova-prag'`).Scan(&izveden); err != nil {
+		t.Fatal(err)
+	}
 	if izveden != 0 {
 		t.Error("popravak s preskočenim zapisom zabilježen je kao izveden")
 	}

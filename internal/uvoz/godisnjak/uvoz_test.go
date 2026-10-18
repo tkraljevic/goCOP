@@ -218,6 +218,28 @@ func TestUveziGreske(t *testing.T) {
 	}
 }
 
+// Niz koji se nije dao zapisati do kraja javlja se i ne ostaje u stablu.
+// Prije je uvoz javio datoteku kao zapisanu, a gradnja bi je pročitala bez
+// dana koji nedostaju.
+func TestNezapisanNizNeOstaje(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "bezdan_hidmet_vodostaj_srednjak_2020-2020.csv")
+	f, err := os.Create(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dan := Dan2{2020, 1, 1}
+	err = upisiNiz(f, []Dan2{dan}, map[Dan2]int{dan: 111})
+	if err == nil || !strings.Contains(err.Error(), "niz bezdan_hidmet_vodostaj_srednjak_2020-2020.csv nije zapisan do kraja") {
+		t.Errorf("greška %v, očekivano da niz nije zapisan", err)
+	}
+	if _, err := os.Stat(put); !os.IsNotExist(err) {
+		t.Errorf("nepotpun niz ostao je u stablu: %v", err)
+	}
+}
+
 // Dan prije drugoga ide po godini, pa mjesecu, pa danu.
 func TestDanPrije(t *testing.T) {
 	slucajevi := []struct {

@@ -82,13 +82,17 @@ func TestIzdanjeKrozKnjigu(t *testing.T) {
 	p := &primateljIzdanja{pb: pbB, ob: obB, rec: recB, izdaje: func() bool { return izdaje }}
 	p.upisi(verzije)
 	var n int
-	pbB.QueryRow(`SELECT count(*) FROM izdane`).Scan(&n)
+	if err := pbB.QueryRow(`SELECT count(*) FROM izdane`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 0 {
 		t.Fatalf("čvor koji izdaje upisao je tuđe izdanje (%d)", n)
 	}
 	izdaje = false
 	p.nadoknadi()
-	pbB.QueryRow(`SELECT count(*) FROM izdane`).Scan(&n)
+	if err := pbB.QueryRow(`SELECT count(*) FROM izdane`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
 	if n != 2 {
 		t.Errorf("primljeno %d vrijednosti, očekivane 2", n)
 	}

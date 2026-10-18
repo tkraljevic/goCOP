@@ -1,99 +1,77 @@
 # goCOP — Centar obrane od poplava
 
-Otvoreni, neprofitni program za obranu od poplava, namijenjen Hrvatskim vodama
-i drugim vodoprivrednim organizacijama. Povezuje teren, vodostaje, prognoze,
-dnevnike, službene dokumente, registre, ljude i sredstva. Računala rade s
-lokalnim podacima i usklađuju se kada je mreža dostupna.
+goCOP je program za obranu od poplava. Namijenjen je Hrvatskim vodama i
+drugim vodoprivrednim organizacijama. Na jednom mjestu drži teren,
+vodostaje, prognozu, dnevnike, akte, registre, ljude i sredstva. Kod je
+otvoren, a program je neprofitan.
 
-> **0.0.38-alfa — 14. 10. 2026.** Za razvoj i testiranje, ne za operativnu
-> upotrebu. Prognoze su pomoć stručnoj procjeni, ne zamjena za službene
-> prognoze i odluke odgovornih osoba. [Popis izmjena](CHANGELOG.md).
+Svako računalo s goCOP-om radi sa svojim podacima, pa radi i bez interneta.
+Kad ima veze, računala iste mreže međusobno se usklađuju.
 
-## Što administrator postavlja
+> **Alfa: zadnje izdanje je 0.0.39-alfa, od 17. 10. 2026.** Program je za
+> razvoj i testiranje, ne za operativni rad. Prognoza pomaže stručnoj
+> procjeni. Ne zamjenjuje službene prognoze ni odluke odgovornih osoba. Što
+> je u kojem izdanju, piše u [popisu izmjena](CHANGELOG.md).
 
-- Samostalnu Go aplikaciju s ugrađenim web-sučeljem i lokalnim SQLite bazama.
-  Repozitorij ne sadrži poslovne baze, imenik ni pristupne podatke.
-- Stanje obrane dionica izvodi se iz ovjerenih akata, prema vremenu stupanja
-  na snagu; poništeni akti ostaju u evidenciji, ali ne određuju stanje.
-- Stalni čvor može preuzimati vodostaje i izdavati prognoze; ostala računala,
-  npr. laptopi, obično primaju gotova izdanja. Novi čvor nema nijednu ulogu
-  dok mu se ne uključi u Administraciji → Čvor, mreža i sinkronizacija.
-- Upareni čvorovi razmjenjuju zapise, prognoze i kišu. Kazalo hidrološke arhive
-  putuje razmjenom, a potpisani `.cop` paketi dohvaćaju se prema pretplati.
-- Osnovni lokalni rad moguć je bez interneta. Novi vanjski podaci, mrežne karte,
-  e-pošta i razmjena zahtijevaju mrežnu vezu.
+## Što goCOP radi
 
-## Pokretanje
+- Obrana: akti o stupnjevima obrane, rješenja i obavijesti, dnevnik COP-a,
+  dežurstva, dnevna izvješća i događanja. Stanje obrane dionice program
+  računa iz ovjerenih akata.
+- Teren: vodočuvarski dnevnik, prijave s terena s fotografijama i očitanja
+  letvi.
+- Vodostaji i prognoza: arhiva vodostaja, satna i dnevna prognoza s
+  rasponom i uzdužni profil vala.
+- Dokumenti: PDF i Excel obrasci, ovjera, osobni potpis i žig, slanje
+  e-poštom.
+- Registri i sredstva: ustroj, dionice, letve, objekti, vodotoci,
+  djelatnici, održavanje s dnevnicima usluga A.02 i A.03, skladišta i
+  inventura.
 
-Na Windowsu goCOP instalira **goCOP Postava** (`goCOP-postava-….exe` s
-GitHub stranice izdanja): bez administratorskih prava preuzme najnovije
-potpisano izdanje, drži ikonu u traci za pokretanje, zaustavljanje i
-nadogradnju te stavlja `gocop` u PATH. Ručno: od 0.0.28-alfa uz svako izdanje
-stoje programi za Windows, Linux i macOS (ili se `gocop` prevodi iz izvora,
-naredbe su pod „Dokumentacija i razvoj”), a postoji i spremnik. Pokrenuti
-`gocop.exe` na Windowsu ili `./gocop` na Linuxu/macOS-u i otvoriti
-`http://localhost` (ili port 8080 ako 80 nije dostupan). Pri prvoj prijavi
-obvezno promijeniti zadanu lozinku. Novi čvor povezati s postojećom mrežom
-čarobnjakom na prijavi; prvi čvor zahtijeva osnivanje mreže i punjenje registara.
+Kako se što radi, piše u samom programu, na stranici **Pomoć**.
 
-Za Linux amd64 dostupan je spremnik `ghcr.io/tkraljevic/gocop:0.0.38-alfa`;
-web u njemu sluša na 8080. Trajno montirati `/data` i `/arhiva`; SQLite mora
-biti na lokalnom disku. Postavljanje, portovi, uparivanje, uloge i sigurnosne
-kopije opisani su u [uputama administratoru](docs/INSTALACIJA.md).
+## Kako početi
 
-## Mreža i sigurnost
+Program se preuzima sa [stranice izdanja](https://github.com/tkraljevic/goCOP/releases).
 
-Razmjena koristi TLS i ključeve uparenih čvorova: izravno na portu 4710 (u
-lokalnoj mreži ili na adresi domenskog čvora) ili kroz HTTPS/WebSocket tunel na
-`/razmjena/tunel`. Uparivanje na portu 4711 otvara se samo po potrebi;
-pronalaženje na 4712/UDP ostaje lokalno.
+- Windows: preuzmite `goCOP-postava-….exe` i pokrenite ga. Administratorska
+  prava ne trebaju. Postava preuzme zadnje potpisano izdanje, drži ikonu u
+  traci i nudi nadogradnju.
+- Linux: skripta iz izdanja postavi goCOP kao uslugu sustava, a uz nju i
+  Postavu. Upute su u dokumentu [goCOP na Linuxu](docs/linux.md).
+- macOS i ručno pokretanje: uz svako izdanje stoji program za Windows,
+  Linux i macOS. Pokrenite ga i otvorite `http://localhost`. Kad port 80
+  nije slobodan, program radi na `http://localhost:8080`.
+- Spremnik za Linux (Docker): `ghcr.io/tkraljevic/gocop`, s oznakom izdanja
+  ili `latest`. Mape `/data` i `/arhiva` montirajte trajno, na lokalni disk.
 
-Javni čvor treba HTTPS, ograničen pristup izvornom poslužitelju i isključen
-cache aplikacijskih odgovora. Ugrađeni su CSRF zaštita, sigurni sesijski
-kolačići iza HTTPS-a i ograničenja zahtjeva. Pouzdane posrednike treba suziti
-na njihove stvarne adrese; prijava izvana može tražiti PIN e-poštom (zadano
-isključeno). Početno postavljanje i zadana lozinka dostupni su samo lokalno.
+Kako se postavlja prvo računalo i kako mu se pridružuju ostala, piše u
+uputi [Prvo pokretanje](docs/prvo-pokretanje.md). Portovi, vatrozid, uloge
+računala, sigurnosna kopija i nadogradnja opisani su u
+[uputama administratoru](docs/INSTALACIJA.md).
 
-Članove prima nositelj ključa mreže ili ovlašteni primatelj, uparivanjem ili
-zahtjevom i potvrdom na daljinu. Članstva, ovlasti za primanje i opozivi su
-potpisani; opoziv vrijedi na drugom čvoru kad mu stigne. Potpisane ovlasti za
-izdavanje prognoza/arhiva i trenutačni opoziv ostaju razvojni zadaci.
-Izvršne datoteke još nemaju potpis operacijskog sustava; potpis izdanja
-provjerava se zasebno. Granice zaštite opisane su u [SECURITY.md](SECURITY.md).
+Prije nadogradnje napravite kopiju podataka. Kad je redoslijed nadogradnje
+računala važan, piše u popisu izmjena, uz izdanje na koje se nadograđuje.
 
-Prije nadogradnje izraditi kopiju baza, sadržaja, postavki i ključeva;
-kopiju identiteta ne koristiti kao novi čvor. Za stanje obrane i storno svi
-čvorovi trebaju **0.0.34-alfa ili novije**; stariji poništen akt još broje.
-Na 0.0.35-alfa nadograditi sve čvorove odmah: nova pravila vrijede tek kad
-su svi na toj inačici. 0.0.36-alfa radi uz 0.0.35-alfa; novi čvor u mrežu
-uključivati s 0.0.36-alfa ili novijim. 0.0.37-alfa radi uz 0.0.36-alfa;
-čvorove s Tailscaleom nadograditi zajedno. 0.0.38-alfa radi uz 0.0.37-alfa;
-nakon nadogradnje globalni administrator na čvoru koji izdaje prognozu
-pokrene *Pripremi model*. Dok svi čvorovi nisu na 0.0.38-alfa, ne brisati
-područja, sektore, općine, naselja, županije, korisnike ni dionice, ni letve
-i objekte koje navodi neka dionica. Na računalu koje je još na 0.0.37-alfa
-ne koristiti „Obriši s računala” ni „Makni i obriši”: ondje brišu i ono što
-je nastalo na tom računalu.
+## Kako se računala usklađuju
 
-## Dokumentacija i razvoj
+Računala dijele podatke samo s uparenim članovima iste mreže, i to
+šifrirano. Danas to ide u istoj lokalnoj mreži (LAN sync), preko stalnog
+računala s javnom adresom (SERVER sync) ili preko Tailscalea, kad ga imaju
+oba računala. Izravna veza dvaju računala preko interneta (WEB sync) je u
+izradi. Kad bude gotova, ostat će isključena dok se ne isproba.
 
-- **Pomoć u aplikaciji** — korisnički postupci, ovlasti, pojmovnik i „O programu”.
-- [Administratorske upute](docs/INSTALACIJA.md) — instalacija i održavanje.
-- [Linux poslužitelj](docs/linux.md) — izdanje s provjerom potpisa, usluga
-  systemd, vatrozid, ažuriranje i deinstalacija.
-- [Sigurnost](SECURITY.md) — prijava ranjivosti, podržane verzije, model
-  povjerenja i što nije zaštićeno.
-- [Code signing policy](docs/CODE_SIGNING.md) — što se potpisuje za Windows,
-  tko odobrava potpis i što program šalje u mrežu.
-- [Predlošci uvoza](docs/predlosci/README.md) — oblik datoteka za registre,
-  prvo pokretanje, očitanja, ugovor A.02 i tok vodotoka.
-- [Povezivost](docs/plan-povezivost.md) i [arhiva](docs/plan-arhiva-i-zaborav.md)
-  — izvedeno stanje i preostali razvojni planovi.
-- [Katalog alata](docs/katalog-alata.md) — pomoćni lokalni alati izvan aplikacije.
-- [Kvaliteta koda](docs/CODE_QUALITY.md) — `make quality`, referentno mjerenje
-  i provjera regresija; [stabilizacija](docs/STABILIZACIJA.md) prati popravke.
+Kako to radi i zašto nijedan poslužitelj nije nužan, piše u dokumentu
+[Kako goCOP radi](docs/kako-radi.md).
 
-Go verzija određena je u `go.mod`; aplikacija ne zahtijeva CGO.
+## Plan razvoja i kvaliteta koda
+
+Što dolazi, kojim redom i zašto, piše u [planu razvoja](docs/plan-razvoja.md).
+Koji je cilj kvalitete koda i gdje smo danas, piše u dokumentu
+[Kvaliteta koda](docs/CODE_QUALITY.md).
+
+Program se prevodi iz izvora. Verzija Go-a zadana je u `go.mod`, a C
+prevoditelj ne treba:
 
 ```sh
 go build -o bin/gocop ./cmd/gocop
@@ -101,10 +79,28 @@ go test ./...
 go vet ./...
 ```
 
-## Licenca i zasluge
+## Sigurnost
 
-[EUPL-1.2](LICENSE); posebne obavijesti i prava nad resursima su u [NOTICE](NOTICE).
-Nositelj autorskih prava naveden u projektu: Hrvatske vode.
-Program je osmislio i izgradio Tomislav Kraljević.
-Licence ovisnosti i podataka opisane su u „O programu”, a doprinosi u
-[ZAHVALE.md](ZAHVALE.md). Licenca programa ne prenosi prava nad poslovnim podacima.
+Ranjivost prijavite privatno, kako piše u [SECURITY.md](SECURITY.md). Ondje
+piše i što program štiti, a što ne. Izdanja su potpisana ključem izdanja, a
+Postava taj potpis provjerava. Potpisa za Windows još nema. Kako će raditi,
+piše u [pravilima potpisivanja](docs/CODE_SIGNING.md), na engleskom.
+
+## Dokumentacija
+
+Svi dokumenti, složeni po temama, navedeni su u
+[kazalu dokumentacije](docs/README.md).
+
+## Licenca i zahvale
+
+Program je pod licencom EUPL-1.2 ([LICENSE](LICENSE); hrvatski tekst je u
+[LICENSE_hr.txt](LICENSE_hr.txt)). Nositelj prava su Hrvatske vode. Program
+je osmislio i izgradio Tomislav Kraljević. Prava nad podacima i znakovima
+te iznimke od licence navedene su u [NOTICE](NOTICE). Licenca programa ne
+daje prava nad poslovnim podacima. Licence korištenog otvorenog koda i
+podataka navedene su u Pomoći, u poglavlju „O programu”. Tko je pomogao,
+piše u [zahvalama](ZAHVALE.md).
+
+Dijelovi programa razvijeni su uz pomoć alata umjetne inteligencije. Sav
+kod prije ulaska u program prolazi ručni pregled i automatske testove, a
+odgovornost za njega je isključivo ljudska.
