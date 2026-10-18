@@ -524,7 +524,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Knjiga verzija: svaki upis ostavlja verziju u ime ovog čvora
 	recorder := ledger.New(database, *nodeID)
 	// Što ovaj program zna: verzija nepoznatog entiteta ili novije sheme se
-	// sprema i prenosi dalje, ali se javlja da treba ažurirati. Potvrdama
+	// sprema i prenosi dalje, ali se javlja da treba nadogradnja. Potvrdama
 	// članstva i paketima prognoze polja se ne prenose iz starih verzija
 	// (potpis pokriva samo ono što je potpisano, paket je neproziran).
 	ledger.PoznatiEntiteti(append(repository.PoznatiEntiteti(),
@@ -532,7 +532,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		prognoza.EntitetIzdanja, prognoza.EntitetModela, EntitetArhive)...)
 	ledger.BezPrijenosaPolja(peers.EntityMemberships, prognoza.EntitetIzdanja, prognoza.EntitetModela)
 	recorder.NaNovost(func(n ledger.Novost) {
-		log.Printf("razmjena: %s — ažurirajte goCOP", n)
+		log.Printf("razmjena: %s — nadogradite goCOP", n)
 	})
 	if err := recorder.UcitajNovosti(context.Background()); err != nil {
 		log.Printf("Knjiga verzija: pregled novijih zapisa nije uspio: %v", err)

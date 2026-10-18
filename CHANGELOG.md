@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.39-alfa — 17. 10. 2026.
+## 0.0.39-alfa — 18. 10. 2026.
 
 - **Član mreže više ne može podmetnuti ključ drugog računala.** Član mreže
   mogao je drugim računalima poslati zapis o trećem računalu sa svojim
@@ -23,6 +23,22 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   imenom. Podmetnut zapis računala još može promijeniti adrese i tako
   usporiti vezu s pravim računalom, ali razmjena više ne ide s krivim.
   Zaštićeno je samo računalo s 0.0.39-alfa.
+- **Potvrđen upis ostaje i kad se računalo sruši.** Kad se računalo
+  srušilo ili mu je nestalo struje, mogli su nestati zadnji upisi koje je
+  program već potvrdio. Ovjeren akt koji je već poslan e-poštom ili
+  ispisan vratio bi se u nacrt, a njegov broj dobio bi sljedeći ovjereni
+  akt. Gradnja arhive vodostaja pisala je ravno u arhivu i nije čekala
+  disk, pa je nestanak struje usred gradnje mogao pokvariti cijelu arhivu.
+  Popis izdanih paketa arhive mogao se vratiti na stariji, pa bi sljedeće
+  izdanje pod istim brojem imalo drukčiji sadržaj, a računala koja taj
+  broj već imaju ne bi ga uzela. Novi ključ računala ili mreže mogao je
+  ostati prazna datoteka, iako su ga druga računala već upoznala. Sad
+  program svaki upis u svoje baze potvrdi tek kad ga disk zapiše, a
+  ključeve, pakete i popis izdanih paketa spremi na disk prije nego ih
+  upotrijebi. Na Linuxu i Windowsu to vrijedi i kad nestane struje. Na
+  Macu štiti samo od pada sustava: nestanak struje ili prisilno gašenje i
+  dalje mogu odnijeti zadnje upise, pa i pokvariti bazu, jer Mac pri
+  zapisu ne prazni predmemoriju samog diska.
 - **Računalo koje ne čuva sva tuđa očitanja više ih ne dobiva iznova.**
   Računalo s upisanom postavkom „Povijest tuđih očitanja (mjeseci)”, npr.
   terenski laptop, starija tuđa očitanja ne čuva. Svakom razmjenom ipak ih
@@ -55,6 +71,27 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   nije razmijenilo podatke, i kad od nekog računala dulje od dana možda
   nedostaju starija očitanja. Niz s rupom koji je neko računalo primilo
   prije nadogradnje ostaje takav.
+- **Kota nule snimke korita više ne gubi decimale.** HIS-2000 kotu nule
+  letve zna pisati decimalnim zarezom, npr. 85,21. Gradnja arhive čitala
+  je takvu kotu kao 85 m, pa su na crtežu korita na stranici letve voda i
+  crte stupnjeva obrane stajale prenisko, za decimalni dio kote, do gotovo
+  jednog metra. Sad gradnja čita i decimalni zarez. Snimke koje su već u
+  arhivi ispravljaju se tek kad se njihova letva ponovno izgradi, kako
+  piše pod Nadogradnjom. Snimka u čijem zaglavlju vodostaj ili kota nule
+  nije broj sad zaustavi gradnju, a poruka kaže koja je to datoteka. Dosad
+  se tada upisivala nula, kao da je izmjerena.
+- **Greška pri zapisu više ne prolazi tiho.** Na nekoliko mjesta program
+  nije gledao je li zapis uspio, pa je javio da je posao gotov, a podaci
+  su ostali nepotpuni ili krivi. Uvoz hidrološkog godišnjaka RHMZ Srbije
+  koji nije mogao zapisati cijeli niz, npr. jer je disk pun, javio je da
+  je niz zapisan, a gradnja ga je poslije čitala kao cijeli. Sad uvoz javi
+  grešku i nepotpun niz makne. Kad čitanje naziva iz registara uz dionicu
+  nije uspjelo, dionica se prikazala bez njih, a brana bi u izvozu
+  dionica izašla kao nasip. Sad program javi grešku. Kad se pri upisu
+  novog niza u stablo starija datoteka istog niza nije dala maknuti, npr.
+  jer je bila otvorena u Excelu, gradnja je obje čitala kao jedan niz. Sad
+  program upozori koju datoteku treba maknuti ručno, a posao ide dalje.
+  Provjera kvalitete koda više ne pušta novu neprovjerenu grešku.
 - **goCOP se skriva od tražilica.** Ništa nije priječilo tražilici da
   stranicu za prijavu uvrsti u rezultate čim negdje nađe adresu čvora. Sad
   svaki odgovor programa nosi oznaku da ga tražilica ne uvrsti, ne prati
@@ -104,11 +141,24 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Računala na početku razmjene javljaju što razumiju.** Zato nove poruke
   iz ovog izdanja idu samo između računala koja ih oba razumiju, a s
   0.0.38-alfa razmjena ide kao i prije.
+- **Pločica razmjene kaže koliko zapisa čeka nadogradnju.** Kad stignu
+  zapisi koje ovaj program još ne razumije, pločica razmjene pisala je
+  imena tablica i broj verzija, a o drugim računalima ništa. Sad kaže
+  koliko je zapisa stiglo, npr. „Stiglo je 120 zapisa koje ovaj program
+  još ne razumije. Primijenit će ih nakon nadogradnje goCOP-a.” Kaže i
+  koliko ih čuva svako drugo računalo, npr. „Windows čuva 120 zapisa koje
+  će primijeniti nakon nadogradnje.” Kad taj broj nije javljen danas,
+  redak kaže kad je javljen. Računalo na 0.0.38-alfa broj ne javlja, pa uz
+  njega toga retka nema. Upozorenja, poruke i Pomoć sad govore o
+  nadogradnji, a ne o ažuriranju.
 - **Napomena uz izvor RHMZ-a navodi i Bačku Palanku.** Napomena uz izvor
   `rhmz` govorila je o Bezdanu, Apatinu i Bogojevu do 2022. Sad navodi i
   Bačku Palanku i godine do 2025. Brojke u arhivi se ne mijenjaju. Računalo
   koje arhivu već ima zadržava staru napomenu. Novu može upisati globalni
   administrator u polje Napomena na stranici Izvori arhive.
+- **Upute su sređene.** README je kraći. Upute u mapi `docs` imaju kazalo
+  i četiri dijela: o aplikaciji, instalacija, plan razvoja i kvaliteta
+  koda. Nove su upute za prvo pokretanje i opis uloga u programu.
 - **Nadogradnja.** 0.0.39-alfa radi uz 0.0.38-alfa: nove poruke razmjene
   idu samo između računala koja ih oba razumiju, a 0.0.38-alfa nova polja
   zanemari, pa je razmjena s njom kakva je i bila. Ispravak ključa iz prve
@@ -129,8 +179,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   na 0.0.38-alfa ne šaljite staru .db arhivu, nego .cop paket: arhivu
   uveze, ali ne vidi što u njoj nedostaje. Na računalu koje gradi arhivu
   ili izdaje pakete nakon nadogradnje pogledajte u dnevniku programa retke
-  „Stablo arhive” i „Mapa paketa”. Pojedinosti i povratak na 0.0.38-alfa
-  opisani su u administratorskim uputama, u odjeljku o nadogradnji.
+  „Stablo arhive” i „Mapa paketa”. Snimke korita s kotom nule pisanom
+  zarezom ostaju u arhivi krive dok se njihova letva ponovno ne izgradi.
+  Na računalu koje gradi arhivu zato nakon nadogradnje ponovno izgradite
+  takve letve, npr. ponovnim uvozom njihovih snimki korita pod Unos u
+  arhivu, i izdajte im nove pakete, da ispravak stigne i na druga
+  računala. Pojedinosti i povratak na 0.0.38-alfa opisani su u
+  administratorskim uputama, u odjeljku o nadogradnji.
 
 ## 0.0.38-alfa — 14. 10. 2026.
 

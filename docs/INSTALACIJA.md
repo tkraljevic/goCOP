@@ -1,6 +1,6 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.38-alfa, pregledane 15. 10. 2026.
+Administratorske upute za izdanje 0.0.39-alfa, pregledane 15. 10. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -9,7 +9,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.39-alfa (17. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.39-alfa (18. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -919,6 +919,31 @@ pokrenut, uvoz u stablo ne zapisuje ništa i paketi se ne izdaju dok se to
 ne riješi. Redak kaže kako: upisati punu putanju u postavke ili napraviti
 mapu.
 
+HIS-2000 kotu nule letve zna pisati decimalnim zarezom, npr. 85,21. Gradnja
+arhive na 0.0.38-alfa i starijima takvu je kotu snimke korita upisivala bez
+decimala, pa su na crtežu korita voda i stupnjevi obrane stajali prenisko.
+Takve snimke prepoznaju se po prvom retku datoteke u mapi `profil` letve u
+stablu: iza „kota nule” stoji broj sa zarezom. 0.0.39-alfa kotu čita ispravno,
+ali snimke koje su već u arhivi ostaju krive dok se njihova letva ponovno ne
+izgradi. Na računalu koje gradi arhivu zato nakon nadogradnje ponovno izgraditi
+letve s takvim snimkama. Zaseban gumb za to ne postoji: letvu ponovno izgradi
+svaki upis za nju pod Administracija → Unos u arhivu, npr. ponovni uvoz
+njezinih snimki korita iz HIS-2000. Zatim tim letvama izdati nove pakete, da
+ispravak stigne i na računala koja ih primaju paketom. Gradnja sad stane i na
+snimci u čijem zaglavlju vodostaj ili kota nule nije broj, a poruka kaže koja
+je to datoteka; dosad se tada upisivala nula. Takvo zaglavlje treba ispraviti,
+inače se letva ne gradi.
+
+Od 0.0.39-alfa svaki upis u bazu čeka da ga disk zapiše, pa potvrđen upis
+ostaje i kad se računalo sruši. Na Linuxu i Windowsu to vrijedi i kad nestane
+struje. Na Macu ne vrijedi za nestanak struje ni prisilno gašenje: tada i dalje
+mogu nestati zadnji upisi, a baza se može i pokvariti, jer Mac pri zapisu ne
+prazni predmemoriju samog diska. Izmjereno na jednom Macu, pojedinačni upis sad
+traje 0,07 ms umjesto 0,05 ms. Na Linuxu i Windowsu to nije izmjereno, a za
+Linux se procjenjuje 1 do 3 ms po upisu. Gradnja arhive i nova baza upisuju
+odjednom, pa ni gradnja ni prvo pokretanje ne bi trebali biti primjetno
+sporiji. Ništa od toga ne treba uključivati.
+
 Povratak na 0.0.38-alfa je moguć bez kopije baze: nove tablice i stupci u
 bazi služe samo računalu s 0.0.39-alfa, a 0.0.38-alfa ih ne čita. Postava ne
 ugrađuje starije izdanje, pa se povratak radi ručno: zaustaviti goCOP, na
@@ -933,7 +958,8 @@ drugima predaje kao cijeli. Ako vraćeno računalo ipak ima tu postavku, ni
 nakon ponovne nadogradnje neće znati koja je očitanja dotad izostavilo, pa ih
 ni ono ni računala koja od njega primaju neće tražiti. 0.0.38-alfa ne čita ni
 popis kvarova, pa bi gradnja arhive na njoj kriva očitanja koja su ostala u
-izvornim datotekama vratila u niz.
+izvornim datotekama vratila u niz, a snimkama korita s kotom nule pisanom
+zarezom opet upisala kotu bez decimala.
 
 0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
 dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.
