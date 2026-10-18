@@ -1,6 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.39-alfa, pregledane 15. 10. 2026.
+Administratorske upute za izdanje 0.0.39-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 18. 10. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -930,19 +931,27 @@ letve s takvim snimkama. Zaseban gumb za to ne postoji: letvu ponovno izgradi
 svaki upis za nju pod Administracija → Unos u arhivu, npr. ponovni uvoz
 njezinih snimki korita iz HIS-2000. Zatim tim letvama izdati nove pakete, da
 ispravak stigne i na računala koja ih primaju paketom. Gradnja sad stane i na
-snimci u čijem zaglavlju vodostaj ili kota nule nije broj, a poruka kaže koja
-je to datoteka; dosad se tada upisivala nula. Takvo zaglavlje treba ispraviti,
-inače se letva ne gradi.
+snimci u čijem se zaglavlju vodostaj ili kota nule ne da pročitati kao broj, a
+poruka kaže koja je to datoteka; dosad se tada upisivala nula. Takvo zaglavlje
+treba ispraviti, inače se letva ne gradi i u arhivu joj ne ulaze novi podaci.
+Zato je prve retke snimki korita najbolje pregledati prije nadogradnje.
 
 Od 0.0.39-alfa svaki upis u bazu čeka da ga disk zapiše, pa potvrđen upis
-ostaje i kad se računalo sruši. Na Linuxu i Windowsu to vrijedi i kad nestane
-struje. Na Macu ne vrijedi za nestanak struje ni prisilno gašenje: tada i dalje
-mogu nestati zadnji upisi, a baza se može i pokvariti, jer Mac pri zapisu ne
-prazni predmemoriju samog diska. Izmjereno na jednom Macu, pojedinačni upis sad
-traje 0,07 ms umjesto 0,05 ms. Na Linuxu i Windowsu to nije izmjereno, a za
-Linux se procjenjuje 1 do 3 ms po upisu. Gradnja arhive i nova baza upisuju
-odjednom, pa ni gradnja ni prvo pokretanje ne bi trebali biti primjetno
-sporiji. Ništa od toga ne treba uključivati.
+ostaje i kad se računalo sruši. Na Linuxu i Windowsu baza bi tako trebala
+podnijeti i nestanak struje, ako disk zapisuje odmah kad to program traži;
+nestankom struje to nije ispitano. Na Macu baza ne podnosi nestanak struje ni
+prisilno gašenje: tada i dalje mogu nestati zadnji upisi, a baza se može i
+pokvariti, jer Mac pri zapisu baze ne prazni predmemoriju samog diska. Mac
+zato gasiti uredno, iz izbornika, a ne držanjem tipke za gašenje. Ključeve
+računala i mreže, pakete i popis izdanih paketa program spremi na disk prije
+nego ih upotrijebi. Na Windowsu to nije sasvim zajamčeno: nestanak struje
+odmah nakon izdavanja još može vratiti stari popis izdanih paketa.
+
+Na Linuxu i Windowsu pojedinačni upis u bazu zato traje dulje; koliko, nije
+izmjereno. Na Macu se razlika jedva osjeti, jer se predmemorija diska ne
+prazni. Gradnja arhive upisuje u velikim skupinama, a shemu nove baze program
+upisuje odjednom, pa ni gradnja ni stvaranje nove baze ne bi trebali biti
+primjetno sporiji; ni to nije izmjereno. Ništa od toga ne treba uključivati.
 
 Povratak na 0.0.38-alfa je moguć bez kopije baze: nove tablice i stupci u
 bazi služe samo računalu s 0.0.39-alfa, a 0.0.38-alfa ih ne čita. Postava ne
@@ -959,7 +968,9 @@ nakon ponovne nadogradnje neće znati koja je očitanja dotad izostavilo, pa ih
 ni ono ni računala koja od njega primaju neće tražiti. 0.0.38-alfa ne čita ni
 popis kvarova, pa bi gradnja arhive na njoj kriva očitanja koja su ostala u
 izvornim datotekama vratila u niz, a snimkama korita s kotom nule pisanom
-zarezom opet upisala kotu bez decimala.
+zarezom opet upisala kotu bez decimala. Paketi koje bi tada izdala odnijeli bi
+to i na računala koja su ispravak već primila. 0.0.38-alfa ni upis u bazu ne
+potvrđuje tek kad ga disk zapiše.
 
 0.0.38-alfa radi uz 0.0.37-alfa i nadograđuje se redom, po mogućnosti istoga
 dana: najprije stalni čvor koji izdaje prognozu, zatim ostala računala.

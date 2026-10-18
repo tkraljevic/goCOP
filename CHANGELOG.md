@@ -27,18 +27,20 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   srušilo ili mu je nestalo struje, mogli su nestati zadnji upisi koje je
   program već potvrdio. Ovjeren akt koji je već poslan e-poštom ili
   ispisan vratio bi se u nacrt, a njegov broj dobio bi sljedeći ovjereni
-  akt. Gradnja arhive vodostaja pisala je ravno u arhivu i nije čekala
-  disk, pa je nestanak struje usred gradnje mogao pokvariti cijelu arhivu.
-  Popis izdanih paketa arhive mogao se vratiti na stariji, pa bi sljedeće
-  izdanje pod istim brojem imalo drukčiji sadržaj, a računala koja taj
-  broj već imaju ne bi ga uzela. Novi ključ računala ili mreže mogao je
-  ostati prazna datoteka, iako su ga druga računala već upoznala. Sad
-  program svaki upis u svoje baze potvrdi tek kad ga disk zapiše, a
-  ključeve, pakete i popis izdanih paketa spremi na disk prije nego ih
-  upotrijebi. Na Linuxu i Windowsu to vrijedi i kad nestane struje. Na
-  Macu štiti samo od pada sustava: nestanak struje ili prisilno gašenje i
-  dalje mogu odnijeti zadnje upise, pa i pokvariti bazu, jer Mac pri
-  zapisu ne prazni predmemoriju samog diska.
+  akt. Gradnja arhive vodostaja nije čekala disk, pa je nestanak struje
+  usred gradnje mogao pokvariti cijelu arhivu. Popis izdanih paketa arhive
+  mogao se vratiti na stariji, pa bi sljedeće izdanje pod istim brojem
+  imalo drukčiji sadržaj, a računala koja taj broj već imaju ne bi ga
+  uzela. Novi ključ računala ili mreže mogao je ostati prazna datoteka,
+  iako su ga druga računala već upoznala. Sad program svaki upis u svoje
+  baze potvrdi tek kad ga disk zapiše. Na Linuxu i Windowsu baza bi tako
+  trebala podnijeti i nestanak struje, ali to nije ispitano. Na Macu baza
+  podnosi samo pad sustava: nestanak struje ili prisilno gašenje i dalje
+  mogu odnijeti zadnje upise, pa i pokvariti bazu, jer Mac pri zapisu baze
+  ne prazni predmemoriju samog diska. Ključeve, pakete i popis izdanih
+  paketa program sad spremi na disk prije nego ih upotrijebi. Na Windowsu
+  to nije sasvim zajamčeno: nestanak struje odmah nakon izdavanja još može
+  vratiti stari popis izdanih paketa.
 - **Računalo koje ne čuva sva tuđa očitanja više ih ne dobiva iznova.**
   Računalo s upisanom postavkom „Povijest tuđih očitanja (mjeseci)”, npr.
   terenski laptop, starija tuđa očitanja ne čuva. Svakom razmjenom ipak ih
@@ -77,21 +79,22 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   crte stupnjeva obrane stajale prenisko, za decimalni dio kote, do gotovo
   jednog metra. Sad gradnja čita i decimalni zarez. Snimke koje su već u
   arhivi ispravljaju se tek kad se njihova letva ponovno izgradi, kako
-  piše pod Nadogradnjom. Snimka u čijem zaglavlju vodostaj ili kota nule
-  nije broj sad zaustavi gradnju, a poruka kaže koja je to datoteka. Dosad
-  se tada upisivala nula, kao da je izmjerena.
-- **Greška pri zapisu više ne prolazi tiho.** Na nekoliko mjesta program
-  nije gledao je li zapis uspio, pa je javio da je posao gotov, a podaci
-  su ostali nepotpuni ili krivi. Uvoz hidrološkog godišnjaka RHMZ Srbije
-  koji nije mogao zapisati cijeli niz, npr. jer je disk pun, javio je da
-  je niz zapisan, a gradnja ga je poslije čitala kao cijeli. Sad uvoz javi
+  piše pod Nadogradnjom. Snimka u čijem se zaglavlju vodostaj ili kota
+  nule ne da pročitati kao broj sad zaustavi gradnju, a poruka kaže koja je
+  to datoteka. Dosad se tada upisivala nula, kao da je izmjerena.
+- **Greška pri zapisu ili čitanju više ne prolazi tiho.** Na nekoliko mjesta
+  program nije gledao je li zapis ili čitanje uspjelo, pa je radio dalje s
+  nepotpunim ili krivim podacima. Uvoz hidrološkog godišnjaka RHMZ Srbije
+  koji nije mogao zapisati cijeli niz, npr. jer je disk pun, javio je da je
+  niz zapisan, a gradnja ga je poslije čitala kao cijeli. Sad uvoz javi
   grešku i nepotpun niz makne. Kad čitanje naziva iz registara uz dionicu
-  nije uspjelo, dionica se prikazala bez njih, a brana bi u izvozu
-  dionica izašla kao nasip. Sad program javi grešku. Kad se pri upisu
-  novog niza u stablo starija datoteka istog niza nije dala maknuti, npr.
-  jer je bila otvorena u Excelu, gradnja je obje čitala kao jedan niz. Sad
-  program upozori koju datoteku treba maknuti ručno, a posao ide dalje.
-  Provjera kvalitete koda više ne pušta novu neprovjerenu grešku.
+  nije uspjelo, dionica se prikazala bez njih, a brana bi u izvozu dionica
+  izašla kao nasip. Sad program javi grešku. Kad se pri upisu novog niza u
+  stablo starija datoteka istog niza nije dala maknuti, npr. jer je bila
+  otvorena u Excelu, gradnja je obje čitala kao jedan niz. Sad program
+  upozori koju datoteku treba maknuti ručno, a posao ide dalje. Dok je ne
+  maknete, gradnja i dalje čita obje. Kod kišomjera, čija mjerenja program
+  sam ulaže u arhivu, upozorenje je samo u dnevniku programa.
 - **goCOP se skriva od tražilica.** Ništa nije priječilo tražilici da
   stranicu za prijavu uvrsti u rezultate čim negdje nađe adresu čvora. Sad
   svaki odgovor programa nosi oznaku da ga tražilica ne uvrsti, ne prati
@@ -142,15 +145,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   iz ovog izdanja idu samo između računala koja ih oba razumiju, a s
   0.0.38-alfa razmjena ide kao i prije.
 - **Pločica razmjene kaže koliko zapisa čeka nadogradnju.** Kad stignu
-  zapisi koje ovaj program još ne razumije, pločica razmjene pisala je
-  imena tablica i broj verzija, a o drugim računalima ništa. Sad kaže
-  koliko je zapisa stiglo, npr. „Stiglo je 120 zapisa koje ovaj program
-  još ne razumije. Primijenit će ih nakon nadogradnje goCOP-a.” Kaže i
-  koliko ih čuva svako drugo računalo, npr. „Windows čuva 120 zapisa koje
-  će primijeniti nakon nadogradnje.” Kad taj broj nije javljen danas,
-  redak kaže kad je javljen. Računalo na 0.0.38-alfa broj ne javlja, pa uz
-  njega toga retka nema. Upozorenja, poruke i Pomoć sad govore o
-  nadogradnji, a ne o ažuriranju.
+  zapisi koje ovaj program još ne razumije, pločica razmjene pisala je imena
+  tablica i broj verzija, a o drugim računalima ništa. Sad kaže koliko je
+  zapisa stiglo, npr. „Stiglo je 120 zapisa koje ovaj program još ne
+  razumije. Primijenit će ih nakon nadogradnje goCOP-a.” Kaže i koliko ih
+  čuva svako računalo s kojim ovo izravno razmjenjuje podatke, npr. „Windows
+  čuva 120 zapisa koje će primijeniti nakon nadogradnje.” Kad taj broj nije
+  javljen danas, redak kaže kad je javljen. Računalo na 0.0.38-alfa broj ne
+  javlja, pa uz njega toga retka nema. Između 0.0.38-alfa i 0.0.39-alfa
+  takvih zapisa nema, pa se ti redci prvi put mogu pojaviti uz sljedeće
+  izdanje. Upozorenja, poruke i Pomoć sad govore o nadogradnji, a ne o
+  ažuriranju.
 - **Napomena uz izvor RHMZ-a navodi i Bačku Palanku.** Napomena uz izvor
   `rhmz` govorila je o Bezdanu, Apatinu i Bogojevu do 2022. Sad navodi i
   Bačku Palanku i godine do 2025. Brojke u arhivi se ne mijenjaju. Računalo
@@ -182,10 +187,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   „Stablo arhive” i „Mapa paketa”. Snimke korita s kotom nule pisanom
   zarezom ostaju u arhivi krive dok se njihova letva ponovno ne izgradi.
   Na računalu koje gradi arhivu zato nakon nadogradnje ponovno izgradite
-  takve letve, npr. ponovnim uvozom njihovih snimki korita pod Unos u
-  arhivu, i izdajte im nove pakete, da ispravak stigne i na druga
-  računala. Pojedinosti i povratak na 0.0.38-alfa opisani su u
-  administratorskim uputama, u odjeljku o nadogradnji.
+  takve letve: letvu izgradi svaki upis za nju pod Unos u arhivu, npr.
+  ponovni uvoz njezinih snimki korita. Zatim im izdajte nove pakete, da
+  ispravak stigne i na druga računala. Kako se takve snimke prepoznaju i
+  kako se vratiti na 0.0.38-alfa, piše u administratorskim uputama, u
+  odjeljku o nadogradnji.
 
 ## 0.0.38-alfa — 14. 10. 2026.
 
