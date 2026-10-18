@@ -82,9 +82,9 @@ func TestJeTailscaleAdresa(t *testing.T) {
 		"192.168.24.70:4710":                   false,
 		"192.168.1.175":                        false,
 		"100.128.0.1:4710":                     false,
-		"https://cop-osijek.com":               false,
-		"cop-osijek.com":                       false,
-		"cop-osijek.com:4710":                  false,
+		"https://cop.primjer.hr":               false,
+		"cop.primjer.hr":                       false,
+		"cop.primjer.hr:4710":                  false,
 		"[fd00::1]:4710":                       false,
 		"":                                     false,
 	} {
@@ -117,7 +117,7 @@ func TestTailscaleAdreseNeIduUZapisCvora(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	p := Peer{NodeID: "ured-vukovar", Name: "Ured Vukovar", PublicKey: javniKljuc(t), Addresses: []string{
 		"192.168.24.70:4710", "100.101.102.103:4710", "100.101.102.103", "[fd7a:115c:a1e0::5]:4710",
-		"https://100.112.136.99", "ured.tail1a2b.ts.net:4710", "https://cop-osijek.com"}}
+		"https://100.112.136.99", "ured.tail1a2b.ts.net:4710", "https://cop.primjer.hr"}}
 	if err := s.SavePeer(ctxRub, p); err != nil {
 		t.Fatal(err)
 	}
@@ -125,7 +125,7 @@ func TestTailscaleAdreseNeIduUZapisCvora(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(got.Addresses, []string{"192.168.24.70:4710", "https://cop-osijek.com"}) {
+	if !slices.Equal(got.Addresses, []string{"192.168.24.70:4710", "https://cop.primjer.hr"}) {
 		t.Errorf("adrese čvora: %v", got.Addresses)
 	}
 	nemaTailscaleaUKnjizi(t, s)
@@ -169,7 +169,7 @@ func TestRucnaTailscaleAdresaSeOdbija(t *testing.T) {
 			t.Errorf("%s: %v", a, err)
 		}
 	}
-	for _, a := range []string{"https://", "cop osijek.com"} {
+	for _, a := range []string{"https://", "cop primjer.hr"} {
 		if _, err := s.PublicAddress(ctxRub, "ured-vukovar", a, ""); err == nil || strings.Contains(err.Error(), "Tailscale") {
 			t.Errorf("neispravna adresa %q: %v", a, err)
 		}
@@ -398,13 +398,13 @@ func TestVidjenaTailscaleAdresaNeIdeUKnjigu(t *testing.T) {
 // se ne zove.
 func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
-	p := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop-osijek.com", "192.168.24.70:4710", "100.101.0.9:4710", "cop-vukovar.example.hr:4710"}}
+	p := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr", "192.168.24.70:4710", "100.101.0.9:4710", "cop-vukovar.example.hr:4710"}}
 	s.upisiTailscale(ctxRub, "ured-vukovar", []string{"100.101.0.2:4710"})
-	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "https://cop-osijek.com"}) {
+	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "https://cop.primjer.hr"}) {
 		t.Errorf("bez Tailscalea: %v", got)
 	}
 	s.ZadajTailscale(adresa("100.101.0.1"))
-	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "100.101.0.2:4710", "https://cop-osijek.com"}) {
+	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "100.101.0.2:4710", "https://cop.primjer.hr"}) {
 		t.Errorf("s Tailscaleom: %v", got)
 	}
 	s.ports.Discovery = lazniGlasnik(t, razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4711})

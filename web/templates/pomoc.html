@@ -273,11 +273,19 @@
     <p>Pločica pokazuje s kojim se čvorovima ovo računalo usklađuje, kada je bila zadnja
       razmjena, koliko još treba poslati ili primiti, dokle je stigla ugradnja arhive vodostaja i
       koji čvor izdaje prognozu. Uz svaki čvor stoji izdanje programa na kojem radi. Kad drugi
-      čvor radi na drukčijem ili starijem izdanju, ili kad stignu zapisi koje ovaj program ne
-      razumije do kraja, pločica to javlja upozorenjem i savjetuje da se goCOP ažurira. Ažurira
-      se najprije stalni čvor, a odmah zatim ostala računala. Kad je
+      čvor radi na drukčijem ili starijem izdanju, pločica to javlja upozorenjem i savjetuje
+      nadogradnju. Najprije se nadograđuje stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
       <a href="#sync">Sinkronizacija</a>.</p>
+    <p>Noviji goCOP može poslati zapise koje stariji program još ne razumije. Računalo ih čuva i
+      šalje dalje, a primijeni ih nakon nadogradnje. Pločica kaže koliko ih je, na primjer
+      „Stiglo je 120 zapisa koje ovaj program još ne razumije. Primijenit će ih nakon nadogradnje
+      goCOP-a.” Isto kaže i za druga računala, na primjer „Windows čuva 120 zapisa koje će
+      primijeniti nakon nadogradnje.” Računalo s izdanjem 0.0.38 ili starijim taj broj ne javlja,
+      pa uz njega toga retka nema. Broj drugog računala je iz zadnje razmjene s njim; kad ona nije
+      od danas, piše i kad ga je javilo.</p>
+    <p>Zapis koji stariji program već poznaje, a promijenio ga je noviji, vidi se odmah, ali se ne
+      može mijenjati dok se goCOP ne nadogradi.</p>
     <p>Na vrhu pločice stoji i upozorenje kad na disku ostane malo mjesta: manje od 10 GB ili
       manje od 10 % diska. Program svakih deset minuta pogleda diskove na kojima su baza, arhiva
       vodostaja, izvorne datoteke arhive i paketi. Upozorenje kaže na kojem je čvoru disk i koliko
@@ -600,7 +608,7 @@
       od upisa. Brisati, i ispravljati tuđe, smije samo onaj tko odgovara za letvu: dužnost na
       njezinoj dionici, uprava njezina branjenog područja ili sektora i razina 1; za letvu bez
       dionica uprava sektora koji je prati. Obrisano očitanje ostaje u povijesti zapisa. Računalo sa
-      starijom verzijom programa (0.0.34) zadržava dosadašnje pravilo dok se ne ažurira.</p>
+      starijom verzijom programa (0.0.34) zadržava dosadašnje pravilo dok se ne nadogradi.</p>
     <p>Svako očitanje može nositi vlastitu bilješku. Ako postaja ima adresu podržane javne
       stranice, čvor koji preuzima vodostaje jednom na sat preuzme objavljeno očitanje, a ostali
       ga čvorovi primaju razmjenom; javni podatak uvijek zadržava
@@ -636,7 +644,7 @@
       računalo koje prati tu letvu, a ne samo ono koje je preuzima; ista vrijednost koju odbace dva
       računala broji se jednom. Računalo sa starijom verzijom programa (0.0.34) raspon ne provjerava:
       što ono preuzme, stiže razmjenom i upisuje se kao i dosad, a zapise o odbačenom čuva i prenosi,
-      ali ih ne pokazuje dok se ne ažurira.</p>
+      ali ih ne pokazuje dok se ne nadogradi.</p>
     <p>Tri letve akumulacija HEP-a uz brane na Dravi (Varaždin, Čakovec, Dubrava) ne vode vodostaj nego
       kotu vodnog lica nad morem. Imaju oznaku <strong>kota u cm n. m.</strong>, koja stoji uz naziv
       letve na kartici, na stranici očitanja i u obrascu letve, i primaju vrijednosti

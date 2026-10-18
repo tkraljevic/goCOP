@@ -70,9 +70,9 @@ func TestRazmjenaNosiInacicuPrograma(t *testing.T) {
 	}
 	stA, pb = statusCvora(t, ctx, a, b.id)
 	if pb.Program != "0.0.24-alfa" || pb.RazlicitProgram {
-		t.Fatalf("A o B nakon ažuriranja: %+v", pb)
+		t.Fatalf("A o B nakon nadogradnje: %+v", pb)
 	}
-	if strings.Contains(strings.Join(stA.Alerts, "\n"), "ažurirajte") {
+	if strings.Contains(strings.Join(stA.Alerts, "\n"), "nadogradite") {
 		t.Errorf("suvišno upozorenje: %v", stA.Alerts)
 	}
 

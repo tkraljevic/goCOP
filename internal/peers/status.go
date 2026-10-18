@@ -456,9 +456,9 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 		if st.Program != "" {
 			switch {
 			case p.State.Program != "" && p.State.Program != st.Program:
-				out = append(out, fmt.Sprintf("Čvor %s radi na %s, ovaj na %s — ažurirajte stariji čvor.", label(p.Peer), p.State.Program, st.Program))
+				out = append(out, fmt.Sprintf("Čvor %s radi na %s, ovaj na %s — nadogradite stariji čvor.", label(p.Peer), p.State.Program, st.Program))
 			case p.State.Program == "" && p.State.ProgramPoznat && p.State.LastOK != nil:
-				out = append(out, fmt.Sprintf("Čvor %s radi na verziji starijoj od %s (ne javlja verziju) — ažurirajte ga.", label(p.Peer), st.Program))
+				out = append(out, fmt.Sprintf("Čvor %s radi na verziji starijoj od %s (ne javlja verziju) — nadogradite ga.", label(p.Peer), st.Program))
 			}
 		}
 	}

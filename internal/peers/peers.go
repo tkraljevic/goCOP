@@ -360,7 +360,7 @@ func (s *Service) dodajAdresu(p *Peer, add string) error {
 		return nil
 	}
 	if strings.ContainsAny(add, " /\\") {
-		return fmt.Errorf("adresa je domena ili IP, po želji s portom (npr. cop-osijek.com ili 10.0.0.5:4710), ili https://domena za razmjenu kroz web tunel")
+		return fmt.Errorf("adresa je naziv ili IP računala, po želji s portom (npr. 10.0.0.5:4710), ili javna adresa čvora koja počinje s https://, za razmjenu kroz web tunel")
 	}
 	p.Addresses = dedupe(append(p.Addresses, withPort(add, s.exchangePortOf(*p))))
 	return nil

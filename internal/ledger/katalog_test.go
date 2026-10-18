@@ -3,8 +3,10 @@ package ledger
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"maps"
 	"testing"
+	"time"
 )
 
 // samoPoznati zada popis poznatih entiteta i sheme za jedan test, a na kraju
@@ -46,8 +48,23 @@ func TestKatalog(t *testing.T) {
 	}
 }
 
-// Na čekanju su zapisi, ne verzije: zapisi entiteta koje program ne
-// poznaje i zapisi s verzijom sheme novije od one koju program zna.
+// novijeBrisanje upisuje brisanje kakvo bi napisao noviji program na drugom
+// čvoru
+func novijeBrisanje(t *testing.T, rec *Recorder, entity, id string, shema int) {
+	t.Helper()
+	brojac++
+	vid := fmt.Sprintf("01990000-0000-7000-8000-%012d", brojac)
+	if _, err := rec.Apply(context.Background(), []Version{{VersionID: vid, Entity: entity, EntityID: id, NodeID: "noviji",
+		Archived: true, Payload: json.RawMessage(`{}`), CreatedAt: time.Now(), SchemaVersion: shema}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Na čekanju su zapisi, ne verzije: svi zapisi entiteta koje program ne
+// poznaje, i obrisani, jer ni brisanje nije primijenio, a od poznatog
+// entiteta zapisi kojima je zadnja verzija živa i novije sheme. Brisanje
+// novijeg programa poznat entitet odmah makne, a zapis čija je zadnja
+// verzija stare sheme stariji program smije uređivati: ni jedan ne čeka.
 func TestCekaNadogradnju(t *testing.T) {
 	ctx := context.Background()
 	db := openTestDB(t)
@@ -65,11 +82,20 @@ func TestCekaNadogradnju(t *testing.T) {
 	novijaVerzija(t, rec, "kat_poznat", "p-1", `{}`, 3)
 	novijaVerzija(t, rec, "kat_poznat", "p-1", `{}`, 3)
 	novijaVerzija(t, rec, "kat_poznat", "p-2", `{}`, 1)
+	// poznat entitet: brisanje novijeg programa i zadnja verzija stare sheme
+	// ne čekaju
+	novijaVerzija(t, rec, "kat_poznat", "p-3", `{}`, 1)
+	novijeBrisanje(t, rec, "kat_poznat", "p-3", 3)
+	novijaVerzija(t, rec, "kat_poznat", "p-4", `{}`, 3)
+	novijaVerzija(t, rec, "kat_poznat", "p-4", `{}`, 1)
+	// nepoznat entitet: čeka i obrisan zapis
+	novijaVerzija(t, rec, "kat_buduci", "b-3", `{}`, 1)
+	novijeBrisanje(t, rec, "kat_buduci", "b-3", 1)
 	// shemu 2 program zna, shemu 3 ne
 	novijaVerzija(t, rec, "kat_shema", "s-1", `{}`, 2)
 	novijaVerzija(t, rec, "kat_shema", "s-2", `{}`, 3)
-	if n, err := rec.CekaNadogradnju(ctx); err != nil || n != 4 {
-		t.Errorf("na čekanju %d %v, očekivano b-1, b-2, p-1 i s-2", n, err)
+	if n, err := rec.CekaNadogradnju(ctx); err != nil || n != 5 {
+		t.Errorf("na čekanju %d %v, očekivano b-1, b-2, b-3, p-1 i s-2", n, err)
 	}
 
 	if _, err := db.Exec(`DROP TABLE record_versions`); err != nil {

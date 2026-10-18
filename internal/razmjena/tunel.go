@@ -40,7 +40,7 @@ func JeAdresaTunela(adresa string) bool {
 func NormalizirajTunel(adresa string) (string, error) {
 	u, err := url.Parse(strings.TrimSpace(adresa))
 	if err != nil || u.Host == "" {
-		return "", fmt.Errorf("adresa tunela je oblika https://domena, npr. https://cop-osijek.com")
+		return "", fmt.Errorf("adresa tunela je javna adresa čvora, oblika https://domena")
 	}
 	return "https://" + strings.ToLower(u.Host), nil
 }

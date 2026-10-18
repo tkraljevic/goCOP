@@ -107,8 +107,8 @@ func TestUpozorenjaZaInacicuPrograma(t *testing.T) {
 	st.Total = len(st.Peers)
 	sve := strings.Join(s.alerts(st, 5*time.Minute, now), "\n")
 	for _, treba := range []string{
-		"Čvor Stari laptop radi na 0.0.23-alfa, ovaj na 0.0.24-alfa — ažurirajte stariji čvor.",
-		"Čvor Prastari radi na verziji starijoj od 0.0.24-alfa (ne javlja verziju) — ažurirajte ga.",
+		"Čvor Stari laptop radi na 0.0.23-alfa, ovaj na 0.0.24-alfa — nadogradite stariji čvor.",
+		"Čvor Prastari radi na verziji starijoj od 0.0.24-alfa (ne javlja verziju) — nadogradite ga.",
 	} {
 		if !strings.Contains(sve, treba) {
 			t.Errorf("nema upozorenja %q u:\n%s", treba, sve)
@@ -153,7 +153,7 @@ func copZaTest(t *testing.T, inacica int) []byte {
 }
 
 // Paket starije inačice se čita, noviji se odbija s porukom da treba
-// ažurirati program
+// nadograditi program
 func TestCitajCopInacice(t *testing.T) {
 	for _, inacica := range []int{CopInacica - 1, CopInacica} {
 		b := copZaTest(t, inacica)
@@ -163,7 +163,7 @@ func TestCitajCopInacice(t *testing.T) {
 	}
 	b := copZaTest(t, CopInacica+1)
 	_, _, _, _, err := CitajCop(bytes.NewReader(b), int64(len(b)))
-	if err == nil || !strings.Contains(err.Error(), "noviji program") || !strings.Contains(err.Error(), "ažurirajte goCOP") {
+	if err == nil || !strings.Contains(err.Error(), "noviji program") || !strings.HasSuffix(err.Error(), "— nadogradite goCOP") {
 		t.Fatalf("noviji paket: %v", err)
 	}
 }

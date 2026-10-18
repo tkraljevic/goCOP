@@ -1,8 +1,11 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"log"
+	"strings"
 	"testing"
 	"time"
 
@@ -215,9 +218,14 @@ func TestPopravakOsnovePragaJednaVerzijaUMrezi(t *testing.T) {
 }
 
 // Zapis koji je zadnji izmijenio noviji program popravak preskače: ostali
-// se poprave, pokretanje ne pada, a popravak se ne bilježi kao izveden
+// se poprave, pokretanje ne pada, a popravak se ne bilježi kao izveden.
+// Dnevnik kaže da treba nadogradnja, istom riječju kao pločica.
 func TestRunFixupsPreskaceZapisNovijeSheme(t *testing.T) {
 	ctx := context.Background()
+	var dnevnik bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(stari) })
 	c, e := cvorSEpizodom(t, "a")
 	novija := novaEpizoda(t, c)
 
@@ -234,6 +242,9 @@ func TestRunFixupsPreskaceZapisNovijeSheme(t *testing.T) {
 
 	if err := RunFixups(ctx, c.db, c.rec); err != nil {
 		t.Fatalf("pokretanje palo na zapisu novije sheme: %v", err)
+	}
+	if z := dnevnik.String(); !strings.Contains(z, "nije dovršen: promijenjeno 1 zapisa") || !strings.Contains(z, ") — nadogradite goCOP\n") || strings.Contains(z, "ažurirajte") {
+		t.Errorf("dnevnik: %q", z)
 	}
 	var basis string
 	c.db.QueryRow(`SELECT basis FROM defense_episodes WHERE id = ?`, e.ID.String()).Scan(&basis)
