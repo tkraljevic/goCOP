@@ -266,10 +266,17 @@ func runLint(o options, c config, r *report) error {
 	if err != nil {
 		return err
 	}
-	if err := logged(o.root, filepath.Join(o.out, "lint.log"), tool, append([]string{"run", "--config", filepath.Join(o.policy, ".golangci.yml"), "--issues-exit-code", "0", "--output.json.path", path}, paketi...)...); err != nil {
+	if err := logged(o.root, filepath.Join(o.out, "lint.log"), tool, lintArgumenti(filepath.Join(o.policy, ".golangci.yml"), path, paketi...)...); err != nil {
 		return err
 	}
 	return measureLint(path, o.root, c, r)
+}
+
+// lintArgumenti su argumenti za golangci-lint run. Drugi golangci-lint (make
+// quality u drugoj radnoj kopiji, editor) drži bravu za cijelog korisnika;
+// bez --allow-serial-runners lint je čeka samo 5 s i padne.
+func lintArgumenti(pravila, izlaz string, paketi ...string) []string {
+	return append([]string{"run", "--allow-serial-runners", "--config", pravila, "--issues-exit-code", "0", "--output.json.path", izlaz}, paketi...)
 }
 
 func runMeasurements(o options, c config, r *report) error {

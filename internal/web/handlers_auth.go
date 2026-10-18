@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -91,7 +92,17 @@ func (h *AuthHandler) prikaziPrijavu(w http.ResponseWriter, r *http.Request, sta
 	if status != http.StatusOK {
 		w.WriteHeader(status)
 	}
-	h.tmpl.ExecuteTemplate(w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)})
+	iscrtajPrijavu(h.tmpl, w, "login.html", LoginPageData{Error: poruka, Support: h.supportNow(), Fresh: h.svjezLokalno(r)}, "prijava: stranica prijave")
+}
+
+// iscrtajPrijavu iscrtava stranicu prijave ili PIN-a. Predložak koji se ne da
+// iscrtati zapisuje se u dnevnik pod opisom: zaglavlja su već poslana, pa
+// drugog odgovora nema, a bez retka u dnevniku prazna stranica ne bi ostavila
+// traga.
+func iscrtajPrijavu(t *template.Template, w http.ResponseWriter, ime string, podaci any, opis string) {
+	if err := t.ExecuteTemplate(w, ime, podaci); err != nil {
+		log.Printf("%s: %v", opis, err)
+	}
 }
 
 // porukaZadaneLozinkeIzMreze odbija početnu lozinku iz mreže na čvoru pod Postavom

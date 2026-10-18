@@ -9,6 +9,7 @@ package prognoza
 import (
 	"database/sql"
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -41,8 +42,9 @@ func ZadaneOpcijeProvjere() OpcijeProvjere {
 }
 
 // ProvjeriUnatrag pušta prognozu po arhivi od Od do Do i ispiše promašaje; s
-// Zapisi ih upiše u bazu prognoza i vrati koliko ih je zapisano.
-func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
+// Zapisi ih upiše u bazu prognoza i vrati koliko ih je zapisano. CSV koji se
+// nije dao zapisati do kraja vraća grešku, a promašaji se svejedno upišu.
+func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (zapisano int, err error) {
 	w := o.Dnevnik
 	if w == nil {
 		w = io.Discard
@@ -94,14 +96,8 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 		nizovi[iz] = NoviNiz(v)
 	}
 
-	var csvW *csv.Writer
-	if o.CSV != nil {
-		io.WriteString(o.CSV, "\ufeff")
-		csvW = csv.NewWriter(o.CSV)
-		csvW.Comma = ';'
-		csvW.Write([]string{"izdano_utc", "letva", "velicina", "ciljni_utc", "doseg_h", "prognoza", "dolje", "gore", "izmjereno", "postojanost"})
-		defer csvW.Flush()
-	}
+	csvW := noviCSVProvjere(o.CSV)
+	defer csvW.zakljuci(&err)
 	uDosezima := map[int]bool{}
 	for _, d := range DoseziProvjere {
 		uDosezima[d] = true
@@ -158,7 +154,7 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 					if imaSad {
 						post = strconv.FormatFloat(math.Round(sada*10)/10, 'f', -1, 64)
 					}
-					csvW.Write([]string{
+					csvW.redak([]string{
 						time.Unix(t*3600, 0).UTC().Format("2006-01-02 15:04"), letva, iz.Velicina,
 						time.Unix(i.Ciljni*3600, 0).UTC().Format("2006-01-02 15:04"), strconv.Itoa(d),
 						strconv.FormatFloat(math.Round(i.Vrijednost*10)/10, 'f', -1, 64),
@@ -249,6 +245,43 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (int, error) {
 	}
 	fmt.Fprintf(w, "\nzapisano %d izmjerenih promašaja\n", len(upis))
 	return len(upis), nil
+}
+
+// csvProvjere je CSV provjere unatrag: svaki par prognoza–mjerenje na
+// dosezima iz tablice. csv.Writer grešku pisanja pamti i vraća je iz Error
+// nakon Flush, pa se ona ne gleda po retku nego jednom, na kraju.
+type csvProvjere struct {
+	w   *csv.Writer
+	bom error // BOM ide mimo csv.Writera
+}
+
+// noviCSVProvjere počinje CSV BOM-om i zaglavljem; bez pisača CSV-a nema
+// (nil).
+func noviCSVProvjere(out io.Writer) *csvProvjere {
+	if out == nil {
+		return nil
+	}
+	c := &csvProvjere{w: csv.NewWriter(out)}
+	c.w.Comma = ';'
+	_, c.bom = io.WriteString(out, "\ufeff")
+	c.redak([]string{"izdano_utc", "letva", "velicina", "ciljni_utc", "doseg_h", "prognoza", "dolje", "gore", "izmjereno", "postojanost"})
+	return c
+}
+
+func (c *csvProvjere) redak(r []string) {
+	_ = c.w.Write(r) // greška ostaje u csv.Writeru, javlja je zakljuci
+}
+
+// zakljuci ispiše ostatak CSV-a i u err stavi prvu grešku pisanja, ako
+// provjera nije već vratila svoju.
+func (c *csvProvjere) zakljuci(err *error) {
+	if c == nil {
+		return
+	}
+	c.w.Flush()
+	if e := errors.Join(c.bom, c.w.Error()); e != nil && *err == nil {
+		*err = fmt.Errorf("CSV provjere unatrag nije zapisan do kraja: %w", e)
+	}
 }
 
 // prognozaGlavnog je prognoza letve u izdanju kad je računa glavni ulaz.

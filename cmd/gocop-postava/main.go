@@ -1,5 +1,5 @@
 // goCOP Postava: instalira goCOP, nadograđuje ga, pali i gasi čvor i drži
-// ikonu u traci (docs/plan-instalacija.md).
+// ikonu u traci (docs/postava.md).
 //
 // Mali, stabilan program s vlastitim izdanjima (oznake postava-v*). Mijenja
 // samo gocop(.exe), nikad sebe, pa na Windowsu ne mora prepisivati program

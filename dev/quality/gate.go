@@ -67,6 +67,7 @@ func measureLint(path, root string, c config, r *report) error {
 		return err
 	}
 	r.Static = lintSummary{Status: "PASS", Counts: map[string]int{}, Findings: map[string]int{}}
+	r.noviRetciOd = func(od string) (map[string]map[int]bool, error) { return noviRetci(root, od) }
 	exempted := map[string]bool{}
 	for _, i := range output.Issues {
 		// Staticcheck emits these as locations attached to the primary diagnostic.
@@ -278,6 +279,7 @@ func evaluate(r, base *report, c config, record bool) {
 		compareCoverage("coverage:overall", r.Coverage, base.Coverage, c, r)
 		compareCoverage("coverage:critical", r.CriticalCoverage, base.CriticalCoverage, c, r)
 		compareFunctions(r, base, c)
+		provjeriNoveGreske(r, base.Commit)
 		if r.Exact.Percent-base.Exact.Percent > c.DuplicationIncrease+1e-9 {
 			checkRegression("duplication:exact", fmt.Sprintf("%.3f%% → %.3f%%", base.Exact.Percent, r.Exact.Percent), c, r)
 		}

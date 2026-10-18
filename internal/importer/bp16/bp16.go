@@ -7,9 +7,9 @@
 // Directus identifikatora, pa ponovni uvoz preskače što već ima i donosi
 // samo nova jutarnja očitanja dok stari sustav još radi.
 //
-// Predviđeno za uklanjanje: uvoz ostaje dok se stara evidencija ne pregleda
-// do kraja (odluka 4. 10. 2026., docs/STABILIZACIJA.md pod 13), a potom se
-// briše zajedno sa zastavicama -import-bp16* u cmd/gocop.
+// Uvoz je privremen i drži se izdvojen: briše se kad BP16 prestane, zajedno
+// sa zastavicama -import-bp16* u cmd/gocop (Odluke (13. 10. 2026.), Uvoz iz
+// BP16, u docs/odluke.md).
 package bp16
 
 import (

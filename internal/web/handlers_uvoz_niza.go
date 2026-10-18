@@ -825,13 +825,15 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 	}
 	// Dopuna zadržava ono što niz već ima; zamjena ga baca. Upisi briše
 	// stariju datoteku istog niza, pa datoteka koja pokriva uže razdoblje pri
-	// zamjeni odnese ostatak — zato je dopuna zadano.
+	// zamjeni odnese ostatak — zato je dopuna zadano. Stari niz koji se nije
+	// dao maknuti ne zaustavlja gradnju: upozorenje ide u dnevnik posla.
 	upis := arhiva.Dopuni
 	if u.Nacin == "zamijeni" {
 		upis = arhiva.Upisi
 	}
+	var ostatak strings.Builder
 	put, err := upis(h.podaciDir(), u.Sliv, u.Letva, u.Izvor, u.Velicina, u.Vrsta, redci)
-	if err != nil {
+	if err = arhiva.JaviOstatak(err, &ostatak); err != nil {
 		d.ErrorMessage = "upis nije uspio: " + err.Error()
 		h.pisi(w, d)
 		return
@@ -846,6 +848,7 @@ func (h *UvozHandler) UpisiUvoz(w http.ResponseWriter, r *http.Request) {
 	d = h.pageData(r)
 	p := h.poslovi.Pokreni("Izgradnja letve "+u.Letva, korisnik,
 		"/administracija/uvoz-niza?posao={id}", func(p *poslovi.Posao) error {
+			fmt.Fprint(p, ostatak.String())
 			izvj, err := h.izgradi(u.Letva, p)
 			if err != nil {
 				return fmt.Errorf("datoteka je zapisana u %s, ali gradnja letve nije uspjela: %w", put, err)

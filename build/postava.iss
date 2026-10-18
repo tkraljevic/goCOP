@@ -1,7 +1,7 @@
 ﻿; goCOP Postava — instalacijski program za Windows (Inno Setup 6)
 ;
 ; Ne nosi goCOP u sebi: instalira samo Postavu, a ona pri instalaciji s
-; GitHuba preuzme najnovije potpisano izdanje goCOP-a (docs/plan-instalacija.md).
+; GitHuba preuzme najnovije potpisano izdanje goCOP-a (docs/postava.md).
 ; Zato se gradi rijetko, uz novu Postavu (oznaka postava-v*), a ne uz svako
 ; izdanje goCOP-a. Bez interneta: uz instalacijski program stavite
 ; gocop-windows-amd64.exe, SHA256SUMS i SHA256SUMS.sig iz izdanja, pa ih

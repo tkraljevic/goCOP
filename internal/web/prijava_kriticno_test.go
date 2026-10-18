@@ -1,12 +1,15 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"html/template"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
@@ -130,6 +133,23 @@ func TestStranicaPINBezPredloska(t *testing.T) {
 		if w.Code != status || w.Header().Get("Cache-Control") != "no-store" {
 			t.Errorf("stranica bez predloška, status %d: %d %v", status, w.Code, w.Header())
 		}
+	}
+}
+
+// Stranica prijave koja se ne da iscrtati zapisuje se u dnevnik. Prije je
+// prijava ostala prazna, a u dnevniku nije bilo ništa.
+func TestStranicaPrijaveBezPredloska(t *testing.T) {
+	var dnevnik bytes.Buffer
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(os.Stderr) })
+	h := &AuthHandler{tmpl: template.Must(template.New("prazan").Parse(""))}
+	w := httptest.NewRecorder()
+	h.prikaziPrijavu(w, httptest.NewRequest(http.MethodGet, "/login", nil), http.StatusUnauthorized, "Kriva lozinka.")
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status %d, očekivan zadani", w.Code)
+	}
+	if !strings.Contains(dnevnik.String(), "prijava: stranica prijave:") || !strings.Contains(dnevnik.String(), "login.html") {
+		t.Errorf("greška predloška nije zapisana u dnevnik: %q", dnevnik.String())
 	}
 }
 

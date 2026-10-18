@@ -4,7 +4,8 @@ package web
 // administratorom, ili put do uparivanja s postojećom mrežom.
 //
 // Stranica postoji samo dok je čvor svjež (nijedan djelatnik osim početnog
-// računa admin). Smije joj samo onaj tko je doista vlasnik računala:
+// računa admin). Smije joj samo onaj tko doista sjedi za tim računalom ili
+// vidi njegov dnevnik:
 //
 //   - izravan zahtjev s ovog računala (preglednik koji otvori Postava), ili
 //   - zahtjev iz lokalne mreže s jednokratnim kodom koji čvor pri pokretanju
@@ -15,9 +16,9 @@ package web
 // Kod vrijedi dok čvor radi, a nakon deset promašaja više ne vrijedi.
 //
 // Postojeća mreža na daljinu: čvor napravi zahtjev (ime i ključ, potpisan) i
-// pokaže tajni kod za primanje, koji vlasnik telefonom pročita primatelju;
-// primatelj ga primi u Postavkama i vrati potvrdu, a ovdje se potvrda učita
-// (provjerena istim kodom). Djelatnici zatim stižu sinkronizacijom.
+// pokaže tajni kod za primanje, koji osoba uz čvor telefonom pročita
+// primatelju; primatelj ga primi u Postavkama i vrati potvrdu, a ovdje se
+// potvrda učita (provjerena istim kodom). Djelatnici zatim stižu sinkronizacijom.
 
 import (
 	"context"
@@ -80,7 +81,8 @@ func (h *PostavljanjeHandler) KodPostavljanja() string { return h.kod }
 // Svjez javlja treba li čvoru postavljanje
 func (h *PostavljanjeHandler) Svjez() bool { return h.svjez != nil && h.svjez() }
 
-// dopusteno: svjež čvor i vlasnik (ovo računalo ili točan kod iz mreže)
+// dopusteno: svjež čvor i osoba za tim računalom (ovo računalo ili točan kod
+// iz mreže)
 func (h *PostavljanjeHandler) dopusteno(r *http.Request, kod string) bool {
 	k := klijentIz(r)
 	if !k.IzLokalneMreze() {

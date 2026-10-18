@@ -1,6 +1,7 @@
 package kisomjeri
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -15,15 +16,18 @@ const SlivStabla = "drava"
 // Ulozi dopunjuje arhivsko stablo mjerenjima od zadanog trenutka. Satna
 // mjerenja idu u satni niz, dnevni zbrojevi u dnevni — ali samo dani koji su
 // završili, jer se dnevni zbroj mijenja dok dan traje. Vraća letve kojima se
-// niz promijenio, da se mogu izgraditi.
+// niz promijenio, da se mogu izgraditi. Stari niz koji se nije dao maknuti
+// (arhiva.StariNizOstao) ne zaustavlja ulaganje: novi je zapisan, pa se ide
+// dalje, a upozorenje se vrati kao greška uz sve promijenjene letve.
 func Ulozi(koren string, s *Spremiste, postaje []Postaja, od, sada time.Time) ([]string, error) {
 	var promijenjene []string
+	var ostaci error
 	l := sada.In(Zagreb)
 	ponoc := time.Date(l.Year(), l.Month(), l.Day(), 0, 0, 0, 0, Zagreb)
 	for _, p := range postaje {
 		m, err := s.Od(p.Code, od)
 		if err != nil {
-			return promijenjene, err
+			return promijenjene, errors.Join(ostaci, err)
 		}
 		type kljuc struct {
 			izvor, vrsta string
@@ -76,13 +80,14 @@ func Ulozi(koren string, s *Spremiste, postaje []Postaja, od, sada time.Time) ([
 		}
 		sort.Slice(kljucevi, func(a, b int) bool { return kljucevi[a].vrsta < kljucevi[b].vrsta })
 		for _, k := range kljucevi {
-			if _, err := arhiva.Dopuni(koren, SlivStabla, p.Code, k.izvor, "oborina", k.vrsta, nizovi[k]); err != nil {
-				return promijenjene, fmt.Errorf("%s: %w", p.Code, err)
+			_, err := arhiva.Dopuni(koren, SlivStabla, p.Code, k.izvor, "oborina", k.vrsta, nizovi[k])
+			if err = arhiva.SkupiOstatak(err, &ostaci); err != nil {
+				return promijenjene, errors.Join(ostaci, fmt.Errorf("%s: %w", p.Code, err))
 			}
 		}
 		if len(nizovi) > 0 {
 			promijenjene = append(promijenjene, p.Code)
 		}
 	}
-	return promijenjene, nil
+	return promijenjene, ostaci
 }

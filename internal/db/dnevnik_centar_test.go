@@ -103,13 +103,17 @@ func TestSelidbaCuvaZatecenoIVeze(t *testing.T) {
 		t.Errorf("naslov %q", naslov)
 	}
 	var zapisa int
-	baza.QueryRow(`SELECT count(*) FROM journal_entries WHERE journal_id='dn-1'`).Scan(&zapisa)
+	if err := baza.QueryRow(`SELECT count(*) FROM journal_entries WHERE journal_id='dn-1'`).Scan(&zapisa); err != nil {
+		t.Fatal(err)
+	}
 	if zapisa != 1 {
 		t.Errorf("zapisa uz dnevnik: %d", zapisa)
 	}
 	// Cjelovitost veza nakon zamjene tablice.
 	var loše int
-	baza.QueryRow(`SELECT count(*) FROM pragma_foreign_key_check`).Scan(&loše)
+	if err := baza.QueryRow(`SELECT count(*) FROM pragma_foreign_key_check`).Scan(&loše); err != nil {
+		t.Fatal(err)
+	}
 	if loše != 0 {
 		t.Errorf("nakon selidbe %d pokvarenih veza", loše)
 	}

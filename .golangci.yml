@@ -17,20 +17,71 @@ linters:
     - dupl
     - maintidx
     - nestif
+    - nolintlint
   settings:
     errcheck:
-      # Samo čišćenje čija greška nema što reći: Rollback nakon Commita
-      # (ErrTxDone), Rows.Close (greške iteracije javlja rows.Err), zatvaranje
-      # mrežne veze i učitane datoteke iz obrasca. Upisi, Commit, Flush i
-      # zatvaranje zapisane datoteke i dalje se provjeravaju.
+      # Odluke (17. 10. 2026.): grešku koju poziv vrati treba pogledati. Javlja
+      # se i izričito zanemarena (_ = f(), v, _ := f()); ona prolazi samo s
+      # razlogom u istom retku (pravilo pod exclusions). Vrata kvalitete
+      # (dev/quality) ruše svaku takvu grešku u novom ili promijenjenom retku.
+      check-blank: true
+      # Pozivi čija greška nema što reći, za stari i za nov kod. errcheck sam
+      # već propušta pisanje u bytes.Buffer i strings.Builder, fmt.Print*,
+      # fmt.Fprint* u njih i u os.Stderr te hash.Hash.Write. Upisi, Commit,
+      # Flush, zatvaranje datoteke (*os.File, i kad je samo čitana), DB.Close
+      # i json.Encoder.Encode i dalje se provjeravaju.
       exclude-functions:
+        # Rollback nakon Commita vraća samo ErrTxDone
         - (*database/sql.Tx).Rollback
+        # greške čitanja redova javlja rows.Err, a pripremljeni upit ne nosi
+        # podatke
         - (*database/sql.Rows).Close
         - (*database/sql.Stmt).Close
+        # zatvaranje mrežne veze: što je poslano, potvrdio je sam razgovor
         - (net.Conn).Close
         - (*crypto/tls.Conn).Close
         - (net.Listener).Close
+        - (*golang.org/x/net/websocket.Conn).Close
+        - (*gocop/internal/razmjena.Conn).Close
+        # SMTP: primitak poruke javlja zatvaranje pisača poruke (w.Close),
+        # koje se provjerava; Close samo prekida vezu
+        - (*net/smtp.Client).Close
+        # zatvaranje onoga što se samo čita (tijelo HTTP odgovora, stavka i
+        # cijeli ZIP, datoteka učitana iz obrasca) ne može izgubiti upisano
+        - (io.ReadCloser).Close
+        - (*archive/zip.ReadCloser).Close
         - (mime/multipart.File).Close
+        # odgovor pregledniku: greška znači samo da je klijent otišao, a
+        # zaglavlja su već poslana, pa se drugi odgovor ionako ne može dati
+        - (net/http.ResponseWriter).Write
+        - fmt.Fprint(net/http.ResponseWriter)
+        - fmt.Fprintf(net/http.ResponseWriter)
+        - fmt.Fprintln(net/http.ResponseWriter)
+        - io.WriteString(net/http.ResponseWriter)
+        # bufio.Writer pamti prvu grešku pisanja i vraća je iz Flush, koji se
+        # provjerava
+        - (*bufio.Writer).Write
+        - (*bufio.Writer).WriteString
+        - (*bufio.Writer).WriteByte
+        - (*bufio.Writer).WriteRune
+        - fmt.Fprint(*bufio.Writer)
+        - fmt.Fprintf(*bufio.Writer)
+        - fmt.Fprintln(*bufio.Writer)
+        # dnevnik pozadinskog posla: Posao.Write samo dodaje retke u memoriju
+        # i nikad ne vraća grešku
+        - (*gocop/internal/poslovi.Posao).Write
+        - fmt.Fprint(*gocop/internal/poslovi.Posao)
+        - fmt.Fprintf(*gocop/internal/poslovi.Posao)
+        - fmt.Fprintln(*gocop/internal/poslovi.Posao)
+        # pisanje u sažetak (sha256 i sl.) nikad ne vraća grešku
+        - fmt.Fprint(hash.Hash)
+        - fmt.Fprintf(hash.Hash)
+        - fmt.Fprintln(hash.Hash)
+    nolintlint:
+      # //nolint bi zaobišao i pravilo o razlogu, pa smije samo s imenom
+      # lintera i s razlogom: f.Close() //nolint:errcheck // samo čitano
+      require-explanation: true
+      require-specific: true
     staticcheck:
       checks: ["SA*"]
     gocyclo:
@@ -52,8 +103,9 @@ linters:
         - name: identical-branches
         - name: unreachable-code
   exclusions:
-    # Bez prešutnih isključenja: osim čišćenja iz errcheck gore, u testovima
-    # se ne provjerava samo zatvaranje (Close) na kraju testa.
+    # Bez prešutnih isključenja. Uz popis iz errcheck gore propušta se još
+    # zanemarivanje s razlogom (zadnje pravilo), a u testovima zatvaranje
+    # (Close) na kraju testa.
     presets: []
     generated: strict
     rules:
@@ -62,6 +114,17 @@ linters:
       - path: _test\.go$
         linters: [errcheck]
         text: "\\.Close` is not checked"
+      # Izričito zanemarena greška s razlogom u istom retku prolazi:
+      #   _ = f.Close() // samo čitano
+      #   n, _ := strconv.Atoi(s) // provjereno regexom gore
+      # Bez komentara ili s praznim // javlja se kao neprovjerena. Komentar
+      # mora biti u retku s _ (prvom retku naredbe), iza razmaka. Redak mora
+      # počinjati zanemarivanjem i nositi samo tu naredbu: iza ; ili unutar
+      # funkcije u istom retku (func() { … }) razlog bi sakrio i drugi,
+      # neprovjeren poziv, a // unutar niza u navodnicima nije komentar.
+      # Uz defer i u jednorednoj funkciji: //nolint:errcheck // razlog.
+      - linters: [errcheck]
+        source: '^[[:space:]]*([^[:space:],:=;]+[[:space:]]*,[[:space:]]*)*_([[:space:]]*,[[:space:]]*[^[:space:],:=;]+)*[[:space:]]*:?=([^"''`;/{]|[^[:space:]"''`;/{]\{|"([^"\\]|\\.)*"|''([^''\\]|\\.)*''|`[^`]*`|/[^/"''`;{])*[[:space:]]//[[:space:]]*[^[:space:]]'
 issues:
   uniq-by-line: false
   max-issues-per-linter: 0
