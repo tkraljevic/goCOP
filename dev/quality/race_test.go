@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,7 +19,7 @@ import (
 func TestRaceNadzireNasKod(t *testing.T) {
 	args := argumentiTestova(filepath.Join(t.TempDir(), "coverage.out"), []string{"./..."})
 	cmd := exec.Command("go", args...)
-	cmd.Dir = filepath.Join("testdata", "utrka")
+	cmd.Dir = procitajProbniModul(t)
 	// probni modul ne smije ovisiti o go.work ni o GOFLAGS onoga tko testira
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=")
 	out, err := cmd.CombinedOutput()
@@ -30,8 +31,28 @@ func TestRaceNadzireNasKod(t *testing.T) {
 		t.Errorf("izvještaj o utrci ne pokazuje na kod goCOP-a:\n%s", ispis)
 	}
 	if !imaRedak(ispis, "ok  \tgocop/kroztudji") || strings.Count(ispis, "WARNING: DATA RACE") != 1 {
-		t.Errorf("race je javio utrku u tuđem paketu; iznimke iz tudjiBezRacea ne rade s ovom verzijom Go-a:\n%s", ispis)
+		t.Errorf("race je javio utrku u tuđem paketu; iznimaka u tudjiBezRacea nema ili ih ova verzija Go-a ne poštuje:\n%s", ispis)
 	}
+}
+
+// procitajProbniModul čita sve datoteke probnog modula i vraća njegovu mapu.
+// Go pamti ishod testa po datotekama koje otvori sam testni proces, a probni
+// modul čita tek naredba go koju test pokrene. Bez ovoga izmjena u
+// testdata/utrka ne bi poništila zapamćeni „ok (cached)”.
+func procitajProbniModul(t *testing.T) string {
+	t.Helper()
+	dir := filepath.Join("testdata", "utrka")
+	err := filepath.WalkDir(dir, func(put string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		_, err = os.ReadFile(put)
+		return err
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dir
 }
 
 func imaRedak(ispis, pocetak string) bool {
@@ -44,10 +65,13 @@ func imaRedak(ispis, pocetak string) bool {
 }
 
 // Iznimke smiju pokrivati samo tuđe pakete: nikad gocop/..., ./..., all ni
-// std. Prvi dio uzorka mora biti adresa (s točkom), a uzorak jedan od
-// odobrenih (Odluke (18. 10. 2026.)).
+// std. Prvi dio uzorka mora biti adresa (s točkom), a popis točno odobreni
+// (Odluke (18. 10. 2026.)), da ni prazan popis ne prođe tiho.
 func TestRaceIznimkeSamoZaTudjePakete(t *testing.T) {
 	odobreni := []string{"modernc.org/...", "golang.org/x/crypto/..."}
+	if !slices.Equal(tudjiBezRacea, odobreni) {
+		t.Fatalf("tudjiBezRacea je %v, a odlučeno je %v", tudjiBezRacea, odobreni)
+	}
 	args := argumentiTestova("coverage.out", []string{"./..."})
 	if !slices.Contains(args, "-race") {
 		t.Fatalf("go test bez -race: %v", args)
@@ -88,5 +112,33 @@ func TestPuniRaceBezIznimaka(t *testing.T) {
 	}
 	if _, err := normalize(options{root: t.TempDir(), out: t.TempDir(), puniRace: true, record: true}); err == nil {
 		t.Error("puni race uz snimanje baselinea")
+	}
+}
+
+// Na probnom modulu puni race mora javiti utrku i u tuđem kodu, koju obična
+// provjera preskače, pa pada i gocop/kroztudji
+func TestPuniRaceVidiITudjiKod(t *testing.T) {
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOFLAGS", "")
+	root, err := filepath.Abs(procitajProbniModul(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := t.TempDir()
+	if err := puniRace(options{root: root, out: out}); err == nil {
+		t.Fatal("puni race nije javio utrku")
+	}
+	zapis, err := os.ReadFile(filepath.Join(out, "puni-race.log"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ispis := string(zapis)
+	if !imaRedak(ispis, "FAIL\tgocop/nas") || !imaRedak(ispis, "FAIL\tgocop/kroztudji") {
+		t.Errorf("puni race nije oborio oba paketa:\n%s", ispis)
+	}
+	for _, tudji := range []string{"modernc.org/utrka.Utrka", "golang.org/x/crypto/utrka.Utrka"} {
+		if !strings.Contains(ispis, tudji) {
+			t.Errorf("puni race ne pokazuje utrku u %s:\n%s", tudji, ispis)
+		}
 	}
 }
