@@ -177,11 +177,12 @@ mreže ili s onim kojem je ono dalo ovlast za primanje. Uparivanje traži
 čovjeka na oba ekrana. Oba računala pokažu isti šesteroznamenkasti kod i
 oba ga potvrde.
 
-Računalo koje nije u istoj lokalnoj mreži s računalom koje ga prima ulazi
-primanjem na daljinu. Novo računalo pokaže kod za primanje i napravi
+Računalo koje nije u istoj lokalnoj mreži s računalom koje ga prima može
+ući primanjem na daljinu. Novo računalo pokaže kod za primanje i napravi
 datoteku zahtjeva. Datoteka ide administratoru koji ga prima, na primjer
-e-poštom, a kod mu čovjek javi telefonom. Administrator vrati datoteku
-potvrde, a novo računalo je učita i time ulazi u mrežu. Primanje na daljinu ostaje i u beti (Odluke (19. 10. 2026.)).
+e-poštom, a kod mu čovjek javi telefonom. Administrator učita zahtjev,
+upiše kod i vrati datoteku potvrde. Novo računalo je učita i time ulazi u
+mrežu. Primanje na daljinu ostaje i u beti (Odluke (19. 10. 2026.)).
 
 Primljeno računalo dobije potpisano članstvo, koje vrijedi godinu dana. Pri
 svakoj vezi računalo dokazuje svoj ključ, a računalo bez važećeg članstva

@@ -499,7 +499,8 @@ je gotov onaj o kojem ovisi.
 
 - Pravila razmjene i WEB sync idu usporedo s pojednostavljenjem koda.
 - Testna simulacija, odvojena mreža za vježbu i probu nadogradnje, dolazi
-  nakon WEB synca.
+  nakon WEB synca. Ovo su promijenile Odluke (17. 10. 2026.): testna
+  simulacija dolazi kad je sve ispolirano.
 
 ### Slobodno mjesto na disku
 
@@ -574,8 +575,8 @@ je gotov onaj o kojem ovisi.
 ## Odluke (19. 10. 2026.)
 
 - Primanje na daljinu ostaje uključeno, i u beti. Novo računalo pokaže kod
-  za primanje, a čovjek ga telefonom javi primatelju. Datoteka zahtjeva ide
-  drugim putem, na primjer e-poštom. Kod ne putuje s datotekom, nego ga
-  jedna osoba drugoj kaže telefonom, i to je dovoljno.
+  za primanje, a osoba uz njega javi ga primatelju telefonom; to je
+  dovoljno. Datoteka zahtjeva ide drugim putem, na primjer e-poštom. Kod
+  nikad ne ide s datotekom.
 - Time se mijenja točka 4b Odluka (14. 10. 2026.).
 - Kako u mrežu ulaze ispostave, odlučuje se posebno.
