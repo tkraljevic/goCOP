@@ -474,7 +474,8 @@ Tailscale je dodatni put kad ga imaju oba računala.
      mreži.
    - (b) Primanje na daljinu isključuje se dok se ne odluči kako u mrežu
      ulaze ispostave. Kod ostaje u programu. Za ispostave će trebati ulazak
-     bez putovanja, a to traži posebnu odluku.
+     bez putovanja, a to traži posebnu odluku. Ovo su promijenile Odluke
+     (19. 10. 2026.): primanje na daljinu ostaje uključeno, i u beti.
 5. Natpisi na pločici razmjene:
    - (a) Tailscale ima svoj natpis „Tailscale”.
    - (b) Za zapise koji čekaju nadogradnju: „Stiglo je N zapisa koje ovaj
@@ -569,3 +570,12 @@ je gotov onaj o kojem ovisi.
   pravila za njezine izmjene, vodi se u zasebnom repozitoriju, izvan
   GitHuba. Na stranici [Kako goCOP radi](kako-radi.md) stoji samo kratak
   sažetak za korisnike i administratore, bez imena funkcija.
+
+## Odluke (19. 10. 2026.)
+
+- Primanje na daljinu ostaje uključeno, i u beti. Novo računalo pokaže kod
+  za primanje, a čovjek ga telefonom javi primatelju. Datoteka zahtjeva ide
+  drugim putem, na primjer e-poštom. Kod ne putuje s datotekom, nego ga
+  jedna osoba drugoj kaže telefonom, i to je dovoljno.
+- Time se mijenja točka 4b Odluka (14. 10. 2026.).
+- Kako u mrežu ulaze ispostave, odlučuje se posebno.
