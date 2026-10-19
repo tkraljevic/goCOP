@@ -322,8 +322,8 @@ i sinkronizacija* uz uredski čvor kliknite *Daj ovlast za primanje*.
 
 **Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Početni
 račun `admin` s lozinkom iz uputa postoji od prvog pokretanja, a čvor tu
-lozinku odbija samo za zahtjeve koji dolaze kroz posrednika (vidi
-[SECURITY.md](../SECURITY.md)).
+lozinku prima samo iz lokalne mreže, ne kroz posrednika, tunel ni s javne
+adrese (vidi [SECURITY.md](../SECURITY.md)).
 
 ## 6. Postavke i mapa podataka
 
@@ -496,8 +496,8 @@ Napomene:
   kopije se gube).
 - Skripta kopira samo `gocop.db`; za ostale baze vrijedi sigurnosna
   kopija iz poglavlja 6.
-- `gocop` se ne nadograđuje sam i ništa ne preuzima; nadogradnja je uvijek
-  ovaj postupak, ručno ili iz ikone u traci.
+- `gocop` se ne nadograđuje sam i ne preuzima nova izdanja; nadogradnja je
+  uvijek ovaj postupak, ručno ili iz ikone u traci.
 
 ## 10. Deinstalacija
 

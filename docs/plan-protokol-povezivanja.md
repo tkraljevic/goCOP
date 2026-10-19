@@ -28,8 +28,8 @@ F1 plana WEB synca (Odluke 14. 10. 2026., točka 5). U tablici putova u §2
 ga nema.
 
 Primanje na daljinu i ovlašteni primatelji rade od 0.0.33 kroz postojeći
-transport; to nisu faze ovog plana. Primanje na daljinu isključuje se dok
-se ne odluči kako ulaze ispostave (Odluke 14. 10. 2026., točka 4). Današnja
+transport; to nisu faze ovog plana. Primanje na daljinu ostaje i u beti
+(Odluke 19. 10. 2026.), a kako ulaze ispostave, odlučuje se posebno. Današnja
 izvedba povezivosti opisana je u [plan-povezivost.md](plan-povezivost.md).
 Ovaj dokument nastavlja njegove korake 2, 6 i 8 te §9 (politika releja);
 korak 8 („vlastiti transport — možda nikad”) ažurira se u F5 plana WEB

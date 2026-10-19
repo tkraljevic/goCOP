@@ -187,8 +187,8 @@ Dunavske letve, prema VITUKI (1976), na dan 1. 1. 1943.:
 | Budimpešta, Dunaföldvár | +100 cm |
 | Paks, Baja, Dunaszekcső, Mohács | +200 cm |
 
-Te su promjene ispravile 107.193 zapisa. Uz dunavske stoje Orahovica
-1. 5. 2002. (−20 cm, HIS-2000, historijat postaje) i osam austrijskih
+Te su promjene ispravile 107.193 zapisa. Uz dunavske stoje
+Orahovica 1. 5. 2002. (−20 cm, HIS-2000, historijat postaje) i osam austrijskih
 letava iz matičnih podataka eHYD-a: Angern (1976. i 2001.), Mureck, Graz,
 Rabland, St. Georgen (Mura), Zeltweg, Lienz-Peggetz i Oberdrauburg. Uz
 austrijske u napomeni piše je li ih potvrdio skok dnevnog niza. Promjene iz

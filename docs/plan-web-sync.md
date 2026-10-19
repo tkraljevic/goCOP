@@ -41,11 +41,11 @@ WEB sync ne zamjenjuje kućni server. Kućni server i dalje upoznaje računala k
 - Kućni server prvi put može sam započeti razmjenu s ThinkCentreom. Danas ThinkCentre zove kućni server, a obrnuto ne ide, jer vatrozid Hrvatskih voda ne pušta poziv izvana.
 - Razmjena nikad ne čeka probijanje. Dok se WEB sync priprema, taj krug ide putem koji radi, a WEB sync se koristi čim je spreman (Odluke 14. 10. 2026.).
 - Pločica razmjene uz svako računalo kaže kojim je putem prošla zadnja razmjena i, kad put ne radi, zašto. Tailscale ondje ima svoj natpis, „Tailscale”. To stiže već u F1, prije samog WEB synca.
-- Primanje na daljinu zasad je isključeno. Računalo se uparuje u lokalnoj mreži ili preko Tailscalea, oba puta sa šesteroznamenkastim kodom na oba ekrana (točka 4).
 - Na usmjerivačima i na vatrozidu Hrvatskih voda ne otvara se ništa. Na samom računalu možda treba dopustiti UDP 4713: ufw na ThinkCentreu, vatrozid na Windowsu, predložak spremnika na kućnom serveru. goCOP sam ne mijenja pravila vatrozida.
 
 **Što ostaje kako jest:**
 - Računalo smije razmjenjivati preko interneta tek kad je upareno u mreži, a svaki put preko interneta prima samo člana mreže (Odluke 14. 10. 2026.).
+- Računalo ulazi u mrežu kao i danas: uparivanjem u lokalnoj mreži ili preko Tailscalea, sa šesteroznamenkastim kodom na oba ekrana (točka 4), ili primanjem na daljinu. Primanje na daljinu ostaje i u beti (Odluke 19. 10. 2026.).
 - Kućni server je jedino sastajalište. Dok je ugašen, nova WEB sync veza ne može se dogovoriti. LAN sync i Tailscale tada rade kao danas.
 - Tailscale ostaje mogućnost, uz LAN, WEB i SERVER sync. Rijetko tko će ga koristiti. Sad ga koristi testno okruženje, a informatičari Hrvatskih voda možda ga žele za neka računala, sa svojim računom. Tailscale adrese ni tada ne ulaze u knjigu.
 - Opoziv članstva putuje razmjenom, kao danas. Novo je samo to da računalo, kad opoziv stigne, odmah zatvori WEB sync veze s opozvanim računalom.
@@ -482,8 +482,7 @@ Natpisi za F2 i F3. Svaki kaže što se nije dogodilo, zašto i što učiniti. I
 - „Na još jednom računalu radi kopija ovog goCOP-a. Ugasi kopiju; WEB sync ovdje pokušava ponovno za 10 minuta.” (na odbijenom računalu; na drugom samo prva rečenica i „Ugasi kopiju.”)
 - „Sat ovog računala odstupa 3 min od poslužitelja. Uključi automatsko podešavanje sata.” (kad je odstupanje veće od 2 min)
 
-**Dva mala PR-a prije F2b** (nisu u danima F2):
-- **Primanje na daljinu se isključuje** (0,5 dana; točka 4). Ostaje isključeno dok se ne odluči kako ulaze ispostave. PR skriva korak „Postojeća mreža na daljinu” u Postavljanju (`handlers_postavljanje.go`) i isključuje uvoz potvrde. Kod ostaje. Uvoz potvrde javlja: „Primanje na daljinu zasad je isključeno. Računalo se uparuje u lokalnoj mreži ili preko Tailscalea.” Test: korak se ne vidi, a uvoz potvrde se odbija.
+**Mali PR prije F2b** (nije u danima F2). Ovdje je bio i PR koji isključuje primanje na daljinu. On otpada, jer primanje na daljinu ostaje i u beti (Odluke 19. 10. 2026.).
 - **Ispravak zapisa čvora** (gotovo; 0,5–1 dan [P]). Primljeni zapis čvora i dalje prepisuje javni ključ i adrese poznatog računala (`primijeniCvor`), ali `SyncWith` očekivani ključ više ne uzima iz tog zapisa (`partnerZaRazmjenu`). Očekivani ključ za TCP i tunel dolazi iz `memberships` (potpisano ključem mreže ili ovlaštenog primatelja), po oznaci računala: `peers.kljucClana`. Bira se iz svih članstava u knjizi koja vrijede, ne iz reda u tablici, koji prepisuje svaka primljena verzija; kad pod istim imenom vrijede dva ključa, vrijedi prvo izdano. Po istoj odluci vrata puštaju dolaznu razmjenu i bilježe je računalu (`oznakaDokazanog`). Istu funkciju F2b i F3b koriste za WEB sync. Adrese iz zapisa i dalje može promijeniti bilo koji član: razmjena tada ne dođe do računala dok se ono samo ne javi, ali ne ide s drugim. Testovi: član pošalje zapis čvora s ključem drugog člana (`TestPodmetnutiKljucUZapisuCvora`), krivotvoreno članstvo (`TestKrivotvorenoClanstvoNeIskljucujeClana`) i članstvo pod tuđim imenom koje potpiše primatelj (`TestPrimateljNePreuzimaTudjeIme`).
 
 **F2b, ostatak (okvirno 5.–10. 11.):**
@@ -762,7 +761,7 @@ Taj plan treba uzeti ova pravila iz uzora:
 - Kandidat „javna adresa : 4713” kad NAT nije lak (Tailscale i iroh ga imaju). Svi izmjereni NAT-ovi su laki, a kandidat se može dodati kasnije bez promjene protokola.
 - Obavijesti sustava o promjeni mreže (macOS AF_ROUTE, Linux netlink, Windows). Umjesto njih adrese sučelja gledaju se svakih 10 s, uz razmak sata i grešku slanja. Kod samo za jedan sustav u kritičnom paketu ne bi imao pokrivenost u CI-ju na Linuxu.
 - Nova polja u zapisu čvora.
-- Polje u članstvu o tome kako je računalo ušlo u mrežu. Ne treba: primanje na daljinu je isključeno, a uparivanje u LAN-u i preko Tailscalea ide istim kodom (točka 4).
+- Polje u članstvu o tome kako je računalo ušlo u mrežu. Plan je govorio da ne treba, jer se primanje na daljinu isključuje. Ono sad ostaje (Odluke 19. 10. 2026.), pa je pitanje ponovno otvoreno i čeka odluku.
 - Sesije dulje od 6 min i ograničenje broja susjeda. To treba tek za 34 ispostave.
 - Tajne udaraca koje sastajalište ne zna (po Magic Wormholeu: tajne šifrirane ključem druge strane). To treba prije nego copB ili VPS postane sastajalište; kućni server je član mreže.
 - PAKE za primanje na daljinu (po Magic Wormholeu). To bi značilo razgovor preko sastajališta s računalom koje još nije član, pa traži zasebnu odluku, uz odluku o tome kako ulaze ispostave.
@@ -780,17 +779,17 @@ Taj plan treba uzeti ova pravila iz uzora:
 | LAN1, pronalaženje i glasnik | 0,5–1 |
 | F1 (s prekidačem pri padu) | 5–5,5 |
 | F2 (F2a i F2b) | 4,5–5,5 |
-| dva mala PR-a prije F2b: primanje na daljinu (0,5) i ispravak zapisa čvora (0,5–1) | 1–1,5 |
+| mali PR prije F2b: ispravak zapisa čvora | 0,5–1 |
 | F3 (F3a jezgra 4,5–5,5 i F3b redoslijed 3–3,5) | 7,5–9 |
 | F5 | 1,5–2 |
 | alat za fazu M | 1 |
 | izdanja, 4 × 0,5 (provjera registara, kućni server prvi, zatim L, T i W) | 2 |
-| **ukupno** | **33–40,5** |
+| **ukupno** | **32,5–40** |
 | od toga sam WEB sync (F0, proba, F1–F3, F5) | 22–26,5 |
 
 G0 traje sat-dva i ne broji se.
 
-Stari plan imao je za F0–F5 16–21,5 dana, s posrednikom (2–3 dana) i QUIC-om u LAN-u. Novi ih nema, a ipak je veći. Dodani su simulator NAT-a, proba prije F1, zaštite iz pregleda (dva ključa udarca, prekidač pri padu, sastajalište samo iz lokalne postavke, baza vezana uz protokol), brojači po putu, provjera stvarnog puta i buđenje laptopa. Prva inačica ovog plana imala je 29,5–36 dana. Uzori dodaju 2,5–3 dana: razmjena koja ne čeka probijanje, pauza po paru i ritam pokušaja (F3), promjena mreže i buđenje (F2), histereza i greška po adresi (F1) i novi korak LAN1. Prekidač pri padu prešao je iz F3a u F1, pa se zbroj nije promijenio. Odluke (14. 10. 2026.) dodaju 0,5 dana za PR koji isključuje primanje na daljinu; pola dana za točku 2 bilo je u F0 već u prvoj inačici. Ispravak zapisa čvora dodaje 0,5–1 dan.
+Stari plan imao je za F0–F5 16–21,5 dana, s posrednikom (2–3 dana) i QUIC-om u LAN-u. Novi ih nema, a ipak je veći. Dodani su simulator NAT-a, proba prije F1, zaštite iz pregleda (dva ključa udarca, prekidač pri padu, sastajalište samo iz lokalne postavke, baza vezana uz protokol), brojači po putu, provjera stvarnog puta i buđenje laptopa. Prva inačica ovog plana imala je 29,5–36 dana. Uzori dodaju 2,5–3 dana: razmjena koja ne čeka probijanje, pauza po paru i ritam pokušaja (F3), promjena mreže i buđenje (F2), histereza i greška po adresi (F1) i novi korak LAN1. Prekidač pri padu prešao je iz F3a u F1, pa se zbroj nije promijenio. Odluke (14. 10. 2026.) dodale su 0,5 dana za PR koji isključuje primanje na daljinu. Odluke (19. 10. 2026.) taj PR ukidaju, pa tih pola dana više nema. Pola dana za točku 2 bilo je u F0 već u prvoj inačici. Ispravak zapisa čvora dodaje 0,5–1 dan.
 
 Od 15. 10. do 30. 11. ima 32 radna dana; 18. 11. je blagdan. Uz mrežni posao idu koraci 1–5 faze 3, oko 10 dana. To stane samo uz četiri usporedna radna stabla: granica, WEB sync, jezgra F3 i faza 3. Svaka faza kreće čim je spojena faza o kojoj ovisi, pa sve može završiti i ranije. Kad nešto kasni, prvo se odgađaju F5 dokumentacija i G7, zatim uključivanje Windowsa. Ako jezgra F3 ne stigne usporedo, F3b, izdanje 3 i teren idu u prosinac.
 
@@ -804,13 +803,13 @@ Datumi u ovom odjeljku su okvirni redoslijed, ne rokovi (Odluke 14. 10. 2026.). 
 - proba QUIC-a nakon F0, a prije F1 i jezgre F3;
 - LAN1 prije kandidata u F1;
 - F2a nakon spoja F1, a spojen prije nego korak 5 faze 3 počne mijenjati `internal/web`;
-- oba mala PR-a (primanje na daljinu, ispravak zapisa čvora) prije F2b;
+- mali PR s ispravkom zapisa čvora prije F2b;
 - razdvajanje `applyOne` (faza 3) i G3 jedan za drugim, jer rade na istom putu primjene;
 - F3b nakon spoja F2b i F3a;
 - za svako izdanje kućni server se nadograđuje prvi.
 
 **Pravilo bez preklapanja:**
-- **Granica, LAN1 i WEB sync diraju:** `internal/peers`, `internal/razmjena`, `internal/ledger`, `internal/config`, `internal/db/schema.go`, `cmd/gocop` (`main.go`, `arhiva_razmjena.go`) i `Dockerfile`. U `internal/web` diraju `server.go` (nova funkcija za rute povezivosti), `rokovi.go`, novi `ograda_signala.go`, `razmjena_plocica.go`, `handlers_sync.go`, `postavke_cvora.go` i predloške pločice, Sinkronizacije i Administracije. Uz to i `handlers_postavljanje.go`, za PR koji isključuje primanje na daljinu. U `internal/repository` diraju samo `apply_mreza.go` (ispravak zapisa čvora) i novu `apply_nadogradnja.go` (G8, prosinac).
+- **Granica, LAN1 i WEB sync diraju:** `internal/peers`, `internal/razmjena`, `internal/ledger`, `internal/config`, `internal/db/schema.go`, `cmd/gocop` (`main.go`, `arhiva_razmjena.go`) i `Dockerfile`. U `internal/web` diraju `server.go` (nova funkcija za rute povezivosti), `rokovi.go`, novi `ograda_signala.go`, `razmjena_plocica.go`, `handlers_sync.go`, `postavke_cvora.go` i predloške pločice, Sinkronizacije i Administracije. U `internal/repository` diraju samo `apply_mreza.go` (ispravak zapisa čvora) i novu `apply_nadogradnja.go` (G8, prosinac).
 - **Jezgra F3 dira samo nove datoteke:** `sesija.go`, `udarac.go`, `probijanje.go`, `quic_slusalica.go` i `kandidati_druge.go` u `internal/razmjena`, te `internal/natsim`. `quic.go` i `kandidati.go` iz F1 ne dira, nego koristi njihova sučelja. Kreće od grane s probom i nakon spoja F1 presloži se na glavnu granu. Nova utičnica nakon promjene mreže je u zasebnoj datoteci (`nova_uticnica.go`, F2b), da se jezgra i F2b ne sudare.
 - **LAN1 ide prije kandidata iz F1**, jer donosi `sucelja.go`. F1 prvih dana radi utičnicu, STUN i provjeru mreže, a kandidate nakon spoja LAN1.
 - **Faza 3 dira:** `internal/repository/apply.go` (`applyOne` i `removeFromSurface`, dani 6–8), `internal/service`, `internal/importer/ugovor`, `internal/prognoza` i `internal/models`, a korak 5 i `internal/web`. Razdvajanje `applyOne` i G3 rade na istom putu primjene, ali u različitim datotekama: `applyOne` u `internal/repository`, G3 u `internal/ledger` i `internal/peers`. Spajaju se jedan za drugim, a drugi se presloži na glavnu granu i ponovno prođe testove primjene.
@@ -823,7 +822,7 @@ Datumi u ovom odjeljku su okvirni redoslijed, ne rokovi (Odluke 14. 10. 2026.). 
 | 15.–16. 10. | Prvo PR upozorenja o malo mjesta na disku: dira istu pločicu i donosi testove za `stanjeRazmjene`. PR dokumentacije s ovim planom. G0, zatim G1 od 16. | — | dani 4–5: testovi za kritične funkcije, po paketima | alat za fazu M; M: ThinkCentre, uz probu pronalaženja kroz ufw |
 | 19.–23. 10. | G1 16.–19.; G3 20.; G2 20.–21.; G4 22.–23. (G4 i G4b napravljeni 17.); F0 21.–23. (zasebno stablo, nakon G1 i G3) | — | dani 6–8: testovi i razdvajanje `applyOne` i `removeFromSurface` (`internal/repository`), jedan za drugim s G3; dani 9–10 su koraci G iz lijevog stupca | M: kućni server (probni spremnici), Windows, laptop, parovi; ishod faze M kaže ostaje li kućni server u mostu |
 | 26.–30. 10. | proba QUIC-a 26.; G5 26.; G6 27. (napravljen 18.); LAN1 27.–28.; **izdanje 0** 28. (G1–G6, F0); G7 29.–30.; F1 od 27. (kandidati nakon spoja LAN1) | od 27., od grane s probom: `natsim`, udarci, stroj probijanja | dani 11–15: koraci 1–3 (`internal/service`, `internal/importer/ugovor`, `internal/prognoza`); errcheck izvan mrežnih paketa i izvan datoteka s popisa | Windows ostaje na 0.0.38 do izdanja 1 |
-| 2.–6. 11. | F1 27. 10.–3. 11.; **izdanje 1** 4. (F1, G7, LAN1); F2a 3.–5., nakon spoja F1; prije F2b dva mala PR-a (primanje na daljinu, zapis čvora); F2b od 5. | QUIC slušalica, sesija i kanali, kandidati druge strane; preslaganje na glavnu granu nakon spoja F1 | dani 16–20: korak 4 (`internal/prognoza`, osvježavanje); lagana pojednostavljenja izvan mrežnih paketa; korak 5, prvi komadi, a u `internal/web` tek nakon spoja F2a | „Provjeri vezu” na svim testnim računalima; laptop: Wi-Fi → hotspot bez ponovnog pokretanja; 24 h dnevnik bez tuđih adresa |
+| 2.–6. 11. | F1 27. 10.–3. 11.; **izdanje 1** 4. (F1, G7, LAN1); F2a 3.–5., nakon spoja F1; prije F2b mali PR za zapis čvora; F2b od 5. | QUIC slušalica, sesija i kanali, kandidati druge strane; preslaganje na glavnu granu nakon spoja F1 | dani 16–20: korak 4 (`internal/prognoza`, osvježavanje); lagana pojednostavljenja izvan mrežnih paketa; korak 5, prvi komadi, a u `internal/web` tek nakon spoja F2a | „Provjeri vezu” na svim testnim računalima; laptop: Wi-Fi → hotspot bez ponovnog pokretanja; 24 h dnevnik bez tuđih adresa |
 | 9.–13. 11. | F2b 5.–10.; **izdanje 2** 11.; F3b od 11. (samo `internal/peers`) | spaja se oko 9.; `-count=20`; ispravci | rezerva faze 3: korak 5, nastavak (`internal/web`, `internal/service`, `internal/models`); srednja pojednostavljenja izvan mrežnih paketa; novo mjerenje kvalitete | signalizacija 24–72 h od 11.; laptop: spavanje i buđenje |
 | 16.–20. 11. (18. 11. je blagdan) | F3b 11.–17.; **izdanje 3** 19. | — | poslije mjeseca faze 3 (plan faze 3) | 20.: korak 1 uključivanja (kućni server i laptop na hotspotu) |
 | 23.–27. 11. | ispravci s terena; F5 od 25. | — | — | korak 2 od 23.; korak 3 od 25.; koraci 4 i 5 od 27. |
@@ -1000,7 +999,7 @@ Na šest pitanja iz prve inačice plana odgovoreno je 14. 10. 2026., svuda po pr
 3. **Posrednik preko kućnog servera se odgađa.** Bez WEB synca par razmjenjuje preko poslužitelja (SERVER sync), kao danas. Za par bez tunela, kao laptop i ThinkCentre, podaci čekaju na poslužitelju do idućeg kruga, do 10 min. Ništa se ne gubi, jer kućni server drži sve.
 4. **Ulazak u mrežu:**
    - (a) Uparivanje preko Tailscalea, s istim šesteroznamenkastim kodom na oba ekrana, vrijedi kao ulazak u mrežu, kao i uparivanje u LAN-u.
-   - (b) Primanje na daljinu isključuje se dok se ne odluči kako ulaze ispostave. Kod ostaje. Zaseban mali PR prije F2b skriva korak „Postojeća mreža na daljinu” u Postavljanju i isključuje uvoz potvrde; oko pola dana. Za 34 ispostave trebat će ulazak bez putovanja, na primjer s PAKE-om preko sastajališta, a to traži zasebnu odluku. Računala koja informatičari stave u Tailscale mogu se upariti njime već sada (4a), pa bi PAKE trebao samo za računala bez Tailscalea. Provjera članstva iz certifikata ostaje, jer je trebaju i računala tek uparena u LAN-u.
+   - (b) Primanje na daljinu isključuje se dok se ne odluči kako ulaze ispostave. Kod ostaje. Zaseban mali PR prije F2b skriva korak „Postojeća mreža na daljinu” u Postavljanju i isključuje uvoz potvrde; oko pola dana. Za 34 ispostave trebat će ulazak bez putovanja, na primjer s PAKE-om preko sastajališta, a to traži zasebnu odluku. Računala koja informatičari stave u Tailscale mogu se upariti njime već sada (4a), pa bi PAKE trebao samo za računala bez Tailscalea. Provjera članstva iz certifikata ostaje, jer je trebaju i računala tek uparena u LAN-u. Ovo su promijenile Odluke (19. 10. 2026.): primanje na daljinu ostaje uključeno, i u beti, pa PR koji ga isključuje otpada.
 5. **Natpisi na pločici:**
    - (a) Tailscale ima zaseban natpis „Tailscale”.
    - (b) Zapisi koji čekaju nadogradnju: „Stiglo je N zapisa koje ovaj program još ne razumije. Primijenit će ih nakon nadogradnje goCOP-a.” Uz drugo računalo: „Windows čuva N zapisa koje će primijeniti nakon nadogradnje.” Svuda piše „nadogradnja”, pa postojeći tekst gubi „ažurirajte”.
