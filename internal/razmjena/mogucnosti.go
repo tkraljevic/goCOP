@@ -1,6 +1,6 @@
 package razmjena
 
-// Što računalo zna, javljeno na početku razgovora (docs/plan-web-sync.md §3,
+// Što računalo zna, javljeno na početku razgovora (plan WEB synca, §3,
 // G2): oznake mogućnosti, vrste zapisa sa shemama koje razumije i koliko
 // zapisa kod njega čeka nadogradnju. Nosi ga granica razgovora, pa ide
 // svakim putem (port razmjene, Tailscale, tunel), a isti tip kasnije
@@ -40,7 +40,7 @@ import (
 const OznakaRazmjena = "razmjena/1"
 
 // ImeGranicaOdbijenih je ime oznake granice odbijenih (G4 u
-// docs/plan-web-sync.md §3): odmah iza granica računalo javi dokle je
+// planu WEB synca, §3): odmah iza granica računalo javi dokle je
 // odbilo ono što mu je druga strana poslala, a druga strana šalje tek iza
 // toga (internal/peers/granica_odbijenih.go). Nova je vrsta poruke, pa ide
 // samo kad Dogovor kaže da je obje strane imaju.
@@ -49,7 +49,7 @@ const ImeGranicaOdbijenih = "granica-odbijenih"
 // OznakaGranicaOdbijenih je prva inačica granice odbijenih
 const OznakaGranicaOdbijenih = ImeGranicaOdbijenih + "/1"
 
-// ImeRupe je ime oznake rupa u nizu (G4b u docs/plan-web-sync.md §3): iza
+// ImeRupe je ime oznake rupa u nizu (G4b u planu WEB synca, §3): iza
 // granice odbijenih računalo javi gdje mu u nizu možda nešto nedostaje, a
 // uz deltu za koji dio poslanoga ne jamči da ga ima cijelog i koji je dio
 // tuđe rupe popunilo (internal/peers/rupe.go). Nova je vrsta poruke i novo

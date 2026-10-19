@@ -1592,7 +1592,7 @@ rujnu 2024. (crveno na Dravi i Muri dva dana prije vrha kiše).
 
 ## 0.0.1-alfa — 1. 10. 2026.
 
-Prvo označeno izdanje. Program se koristi i provjerava u COP-u Osijek, ali
+Prvo označeno izdanje. Program se koristi i provjerava, ali
 nije za operativnu upotrebu bez nadzora: sve se još mijenja.
 
 **Operativa obrane** — teren i očitanja, pragovi i akti o stupnjevima obrane,

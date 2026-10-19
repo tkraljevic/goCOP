@@ -330,7 +330,7 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 	s.zavrsiZauzet(nil, true, errors.New("kvar baze")) // druga greška: razgovor se samo prekida
 	s.pustiBravu()
 
-	// namjerno promijenjeno: G3 (docs/plan-web-sync.md §3); neispravna
+	// namjerno promijenjeno: G3 (plan WEB synca, §3); neispravna
 	// verzija se preskoči i ne ruši upis
 	v[0].EntityID = ""
 	if n, err := s.primijeniAkoStigne(ctxRub, v, promjenaRupa{}); n != 0 || err != nil {
@@ -358,7 +358,7 @@ func TestUpisPrimljenogRubovi(t *testing.T) {
 // preskoči, a ostale iz paketa se upišu i odu na površinu; površina
 // neispravnu ne vidi. Isto u razmjeni i pri uvozu arhive ili COP paketa. U
 // dnevnik ide jednom po verziji i bez sadržaja, a paket samo neispravnih ne
-// čeka bravu. G3 (docs/plan-web-sync.md §3); do tada je jedna takva odbila
+// čeka bravu. G3 (plan WEB synca, §3); do tada je jedna takva odbila
 // cijeli paket. Namjerno promijenjeno: G4b; uz praznu promjenu rupa.
 func TestUpisPreskaceNeispravnePrimljene(t *testing.T) {
 	s := rubniCvor(t, "ured-vukovar")

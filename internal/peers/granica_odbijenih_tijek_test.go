@@ -1,6 +1,6 @@
 package peers
 
-// Tijek razgovora s granicom odbijenih (G4 u docs/plan-web-sync.md §3),
+// Tijek razgovora s granicom odbijenih (G4 u planu WEB synca, §3),
 // poruku po poruku i za obje uloge, kao u razgovor_tijek_test.go. Druga
 // strana (skripta) ovdje javlja oznaku granica-odbijenih/1, pa odmah iza
 // granica obje strane pošalju granicu odbijenih, redom uloge. Bez oznake
@@ -99,7 +99,7 @@ func TestTijekGranicaOdbijenihPrazna(t *testing.T) {
 // najveće verzije. Za obje uloge.
 func TestTijekGranicaOdbijenihDrugeStrane(t *testing.T) {
 	a, b := cistiPar(t)
-	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3), granica
+	// namjerno promijenjeno: G4 (plan WEB synca, §3), granica
 	// odbijenih nakon uvoza; čvor je poštuje najviše do onoga što je drugoj
 	// strani poslao od zadnjeg uvoza (granica_nakon_uvoza.go)
 	saV2 := func() {

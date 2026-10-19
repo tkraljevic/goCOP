@@ -53,7 +53,7 @@ func TestDogovor(t *testing.T) {
 	}{
 		{"bez popisa (0.0.38)", NaseMogucnosti(), nil, map[string]int{"razmjena": 1}},
 		{"prazan popis", NaseMogucnosti(), []string{}, map[string]int{"razmjena": 1}},
-		// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); i granica-odbijenih.
+		// namjerno promijenjeno: G4 (plan WEB synca, §3); i granica-odbijenih.
 		// namjerno promijenjeno: G4b; i rupe
 		{"isti popis", NaseMogucnosti(), NaseMogucnosti(), map[string]int{"granica-odbijenih": 1, "razmjena": 1, "rupe": 1}},
 		{"druga strana bez granice odbijenih", NaseMogucnosti(), []string{"razmjena/1"}, map[string]int{"razmjena": 1}},
@@ -85,7 +85,7 @@ func TestDogovor(t *testing.T) {
 // protokola, '-' i oznaka), a imena koja pripadaju kasnijim fazama ili
 // rezervirana ne objavljuju se.
 //
-// Namjerno promijenjeno: G4 (docs/plan-web-sync.md §3). Do G4 popis je bio
+// Namjerno promijenjeno: G4 (plan WEB synca, §3). Do G4 popis je bio
 // samo razmjena/1, a dijeljenje popisa provjeravalo se na prvoj oznaci.
 // Namjerno promijenjeno: G4b; uz rupe/1.
 func TestNaseMogucnosti(t *testing.T) {

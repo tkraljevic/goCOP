@@ -1,6 +1,6 @@
 package peers
 
-// Granica odbijenih (G4 u docs/plan-web-sync.md §3). Računalo koje ne drži
+// Granica odbijenih (G4 u planu WEB synca, §3). Računalo koje ne drži
 // stara očitanja (Accept, u programu repository.KeepVersion) primljena
 // odbije prije upisa, pa mu se granica knjige ne pomakne. Druga strana mu
 // ih je zato slala svakim razgovorom iznova, a ključ s 5000 takvih zaredom

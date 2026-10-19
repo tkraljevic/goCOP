@@ -55,7 +55,7 @@ func podmetniZapisCvora(t *testing.T, ctx context.Context) (a, b, c *node) {
 
 // Član mreže ne smije drugom računalu podmetnuti ključ drugog člana. A pri
 // razmjeni s B i dalje mora tražiti B-ov ključ iz članstva: C-ova adresa
-// odbije se na ključu, a podaci stignu s pravog B (docs/plan-web-sync.md,
+// odbije se na ključu, a podaci stignu s pravog B (plan WEB synca,
 // „Ispravak zapisa čvora”).
 func TestPodmetnutiKljucUZapisuCvora(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)

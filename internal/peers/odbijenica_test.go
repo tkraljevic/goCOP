@@ -49,7 +49,7 @@ func TestOdbijeniceCvora0038(t *testing.T) {
 // Odbijenica čvora 0.0.38 nema kod, pa ga novi čvor uzme iz poznatog
 // razloga: tako i od starijeg čvora prepozna isključen Tailscale. Nepoznat
 // razlog bez koda daje kod 0, a s kodom odlučuje kod. Tekst greške za
-// korisnika je isti s kodom i bez njega. G3 (docs/plan-web-sync.md §3).
+// korisnika je isti s kodom i bez njega. G3 (plan WEB synca, §3).
 func TestOdbijenicaBezKodaOdStarijegCvora(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	for _, p := range []struct {

@@ -252,7 +252,7 @@ func brojVerzija(t *testing.T, db *sql.DB) int {
 
 // Primljena verzija bez oznake, entiteta ili identifikatora zapisa se
 // preskoči, a ostale iz paketa se upišu, redom kojim su stigle. Do G3
-// (docs/plan-web-sync.md §3) jedna takva odbila je cijeli paket.
+// (plan WEB synca, §3) jedna takva odbila je cijeli paket.
 func TestApplyPreskaceNeispravne(t *testing.T) {
 	db := openTestDB(t)
 	rec := New(db, "laptop-baranja")

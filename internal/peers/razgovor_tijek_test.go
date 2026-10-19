@@ -7,7 +7,7 @@ package peers
 // kojim je stigla. Na kraju se bilježi što je exchange vratio, je li
 // razgovor zapamćen kao skraćen i što je u knjizi. Testovi su napisani
 // 15. 10. 2026., prije podjele razgovora na korake (G1 u
-// docs/plan-web-sync.md): podjela ne smije promijeniti nijedan redak zapisa.
+// planu WEB synca): podjela ne smije promijeniti nijedan redak zapisa.
 // G3 (isti plan, §3) neke je retke namjerno promijenio, i uz svaki to piše.
 // G2 (isti plan, §3) promijenio je granicu čvora: nosi i njegove mogućnosti.
 // Granica druge strane ostala je ista, jer skripta glumi čvor koji ih ne
@@ -91,22 +91,22 @@ func krajCvora(applied int) string { return odCvora(kindDone, fmt.Sprintf(`{"app
 const programCvora = `"program":"0.0.39-test","gradnja":"0.0.39-test (abc1234)"`
 
 // naseOznake su mogućnosti čvora kako idu žicom. namjerno promijenjeno: G4
-// (docs/plan-web-sync.md §3); do G4 samo ["razmjena/1"]. namjerno
+// (plan WEB synca, §3); do G4 samo ["razmjena/1"]. namjerno
 // promijenjeno: G4b; i rupe/1
 const naseOznake = `["granica-odbijenih/1","razmjena/1","rupe/1"]`
 
 // poruke čvora koje se ponavljaju
 var (
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica čvora nosi
+	// namjerno promijenjeno: G2 (plan WEB synca, §3); granica čvora nosi
 	// i njegove mogućnosti (katalog je u testovima paketa prazan, a ništa ne
-	// čeka nadogradnju). namjerno promijenjeno: G4 (docs/plan-web-sync.md §3);
+	// čeka nadogradnju). namjerno promijenjeno: G4 (plan WEB synca, §3);
 	// uz razmjena/1 i granica-odbijenih/1
 	granicaPrazna = odCvora(kindFrontier, `{"frontier":{},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); namjerno
-	// promijenjeno: G4 (docs/plan-web-sync.md §3)
+	// namjerno promijenjeno: G2 (plan WEB synca, §3); namjerno
+	// promijenjeno: G4 (plan WEB synca, §3)
 	granicaV1 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); namjerno
-	// promijenjeno: G4 (docs/plan-web-sync.md §3)
+	// namjerno promijenjeno: G2 (plan WEB synca, §3); namjerno
+	// promijenjeno: G4 (plan WEB synca, §3)
 	granicaV2 = odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV2+`"},"wants":{"all":true},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
 
 	deltaPrazna   = odCvora(kindDelta, `{"versions":null}`)
@@ -430,7 +430,7 @@ func skracenoZa(s *Service, c *razmjena.Conn) string {
 // veze, veza pala), jer zatvorena veza javi EOF ili RST; ostale idu
 // tekstom. Vrsta se prepoznaje samo na neomotanoj grešci, pa bi omotanu
 // zapis uhvatio po tekstu. Odbijenica ide s kodom razloga i razlogom
-// (namjerno promijenjeno: G3, docs/plan-web-sync.md §3; prije samo razlog).
+// (namjerno promijenjeno: G3, plan WEB synca, §3; prije samo razlog).
 func vrstaGreske(err error) string {
 	odbijena, jeOdbijena := err.(odbijenaRazmjena)
 	_, mrezna := err.(*net.OpError)
@@ -666,7 +666,7 @@ func TestTijekRazgovoraNeocekivanaPoruka(t *testing.T) {
 // iz poznatog razloga (zamrznut tekst 0.0.38), a nepoznat razlog bez koda
 // daje 0.
 //
-// Namjerno promijenjeno: G3 (docs/plan-web-sync.md §3). Greška se bilježi s
+// Namjerno promijenjeno: G3 (plan WEB synca, §3). Greška se bilježi s
 // kodom, a uz odbijenice bez koda dodane su odbijenice s kodom.
 func TestTijekRazgovoraOdbijenica(t *testing.T) {
 	a, b := cistiPar(t)
@@ -891,8 +891,8 @@ func TestTijekRazgovoraFiltriraPrimljeno(t *testing.T) {
 	}
 	b.Accept(func(v ledger.Version) bool { return v.EntityID != dolaznaD2.EntityID })
 	saV3 := func() { upisiStalno(t, b, vlastitaV3) }
-	// namjerno promijenjeno: G2 (docs/plan-web-sync.md §3); granica nosi mogućnosti čvora.
-	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); i granica-odbijenih/1
+	// namjerno promijenjeno: G2 (plan WEB synca, §3); granica nosi mogućnosti čvora.
+	// namjerno promijenjeno: G4 (plan WEB synca, §3); i granica-odbijenih/1
 	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`","laptop-baranja|ocitanja/3/2026":"`+tijekV3+`"},`+
 		`"wants":{"all":false,"rules":[{"id":1,"kind":"ocitanja","sector_id":"","area_id":16,"year_from":0,"year_to":0,"razina":"sve"}]},`+programCvora+`,"mogucnosti":`+naseOznake+`}`)
 	delta := odCvora(kindDelta, `{"versions":[`+jsonV3+`]}`)
@@ -978,7 +978,7 @@ func TestTijekRazgovoraZauzetUpis(t *testing.T) {
 	}
 	t.Cleanup(b.pustiBravu)
 	postaviRok(t, 20*time.Millisecond)
-	// namjerno promijenjeno: G3 (docs/plan-web-sync.md §3); odbijenica nosi
+	// namjerno promijenjeno: G3 (plan WEB synca, §3); odbijenica nosi
 	// kod razloga 0x0106 (262)
 	odbijenica := `{"kind":"odbijeno","reason":"čvor upravo upisuje ono što je primio od drugih; poslano stiže sljedećom razmjenom","kod":262}`
 	zauzet := []string{"ishod applied=0 sent=0 err=errUpisZauzet", granicaDrugogSV1, obicno, "knjiga v1"}
@@ -1027,7 +1027,7 @@ func TestTijekRazgovoraZauzetUpis(t *testing.T) {
 // čvora prestane dok čeka bravu): razgovor stane tom greškom, neomotanom,
 // bez done i bez odbijenice, s pomaknutom granicom i 0, 0.
 //
-// Namjerno promijenjeno: G3 (docs/plan-web-sync.md §3). Do tada je ovdje
+// Namjerno promijenjeno: G3 (plan WEB synca, §3). Do tada je ovdje
 // bio slučaj „knjiga odbije”: primljena verzija bez identifikatora zapisa
 // rušila je upis. Sad se preskoči (TestTijekRazgovoraNeispravnaPrimljena),
 // pa greška upisa nastaje samo u bazi ili kontekstu.
@@ -1056,7 +1056,7 @@ func TestTijekRazgovoraGreskaUpisa(t *testing.T) {
 // Primljena verzija bez identifikatora zapisa (d4) se preskoči, a ostale
 // iz delte se upišu; razgovor ide do kraja i done javlja samo upisane. U
 // dnevnik ide jednom po verziji. Paket samo neispravnih ne čeka bravu, pa
-// razgovor uspije i kad je upis zauzet. G3 (docs/plan-web-sync.md §3): do
+// razgovor uspije i kad je upis zauzet. G3 (plan WEB synca, §3): do
 // tada je jedna takva verzija odbila cijeli paket (TestTijekRazgovoraGreskaUpisa).
 func TestTijekRazgovoraNeispravnaPrimljena(t *testing.T) {
 	a, b := cistiPar(t)
