@@ -174,7 +174,7 @@ func TestOdbijenaTailscaleRazmjenaNepoznatogCvora(t *testing.T) {
 	if err != nil || e.Kind != razmjena.VrstaOdbijeno || e.Reason != razlogBezTailscalea || e.Kod != razmjena.KodBezTailscalea {
 		t.Fatalf("odbijenica: %+v %v", e, err)
 	}
-	// na žici kod ide iza razloga, bez deviceId (G3, docs/plan-web-sync.md §3)
+	// na žici kod ide iza razloga, bez deviceId (G3, plan WEB synca, §3)
 	if b, _ := json.Marshal(e); string(b) != `{"kind":"odbijeno","reason":"`+razlogBezTailscalea+`","kod":263}` {
 		t.Errorf("odbijenica na žici: %s", b)
 	}

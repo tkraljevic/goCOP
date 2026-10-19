@@ -152,7 +152,7 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 
 // „Prima se još” piše samo za kanal koji ovaj čvor prati: zajednički uvijek,
 // a ostali po pretplatama. Za kanal koji ne prati druga strana mu ne šalje
-// ništa, pa ne piše (G4, docs/plan-web-sync.md §3); do G4 pisalo je za svaki
+// ništa, pa ne piše (G4, plan WEB synca, §3); do G4 pisalo je za svaki
 // ključ tuđe granice.
 func TestStanjeRazmjeneJosPrimaSamoZaPraceno(t *testing.T) {
 	ctx := context.Background()

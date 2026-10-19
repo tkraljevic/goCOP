@@ -168,7 +168,7 @@ func (s *Service) izabranoClanstvo(ctx context.Context, nodeID string) (*razmjen
 // kljucClana je ključ koji računalo nodeID mora dokazati u razmjeni: ključ
 // iz članstva koje za njega vrijedi (izabranoClanstvo). Zapis čvora
 // (peers) za to ne vrijedi, jer ga piše i šalje bilo koji član. Istu
-// funkciju trebaju i ključevi za WEB sync (docs/plan-web-sync.md, F2b i
+// funkciju trebaju i ključevi za WEB sync (plan WEB synca, F2b i
 // F3b).
 func (s *Service) kljucClana(ctx context.Context, nodeID string) (ed25519.PublicKey, error) {
 	m, err := s.izabranoClanstvo(ctx, nodeID)

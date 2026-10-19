@@ -30,34 +30,6 @@ const (
 	readmePredlozaka = "docs/predlosci/README.md"
 )
 
-// odlazeUPrivatniRepozitorij su radni planovi i povijesne snimke koji još
-// stoje u docs/, a kazalo ih ne navodi. Kopije su već u privatnom
-// repozitoriju. Iz docs/ odlaze jednim commitom kad bude spojena izmjena
-// razmjene koja još mijenja plan WEB synca, jer se do tada planovi
-// međusobno povezuju i koriste ih i druge grane.
-//
-// PRIVREMENO: kad dokument ode iz docs/, makni ga s popisa (test
-// TestPrivremeniPopisDokumenataJeTocan to traži). Kad odu svi, izbriši popis
-// i taj test.
-var odlazeUPrivatniRepozitorij = []string{
-	"docs/CODE_QUALITY_BASELINE.md",
-	"docs/NACRT-PRIVREMENO-IMENOVANJE.md",
-	"docs/STABILIZACIJA-faza3.md",
-	"docs/STABILIZACIJA.md",
-	"docs/analiza-2026-09-18.md",
-	"docs/dubinska-analiza-2026-09-11.md",
-	"docs/katalog-alata.md",
-	"docs/plan-arhiva-i-zaborav.md",
-	"docs/plan-faza3-mjesec.md",
-	"docs/plan-povezivost.md",
-	"docs/plan-prognoza-po-tokovima.md",
-	"docs/plan-protokol-povezivanja.md",
-	"docs/plan-razdvajanje-aplikacije-i-alata.md",
-	"docs/plan-sadrzaj-i-cop.md",
-	"docs/plan-testiranja-mreze.md",
-	"docs/plan-web-sync.md",
-}
-
 // Cilj poveznice u Markdownu: [tekst](cilj) ili [tekst](cilj "naslov"), te
 // poveznica s oznakom u zasebnom retku, [oznaka]: cilj.
 var (
@@ -78,13 +50,11 @@ var (
 	imenaSPutovima    = []string{"Makefile", "Dockerfile", "NOTICE", ".gitignore", ".dockerignore"}
 )
 
-// Svaki dokument iz docs/ naveden je u kazalu, osim onih s privremenog
-// popisa.
+// Svaki dokument iz docs/ naveden je u kazalu.
 func TestKazaloNavodiSvakiDokumentIzDocs(t *testing.T) {
 	uKazalu := lokalnePoveznice(t, kazaloDokumentacije)
 	for _, dokument := range dokumentiUDocs(t) {
 		switch {
-		case slices.Contains(odlazeUPrivatniRepozitorij, dokument):
 		case strings.HasPrefix(dokument, mapaPredlozaka) && dokument != readmePredlozaka:
 			t.Errorf("%s: u %s su samo README.md i datoteke za uvoz. Dokument za čitatelje ide u docs/ i "+
 				"u kazalo, a radni plan ili bilješka u privatni repozitorij.", dokument, mapaPredlozaka)
@@ -97,9 +67,8 @@ func TestKazaloNavodiSvakiDokumentIzDocs(t *testing.T) {
 }
 
 // Javni dokumenti upućuju samo na datoteke koje postoje, s imenom napisanim
-// točno kao na disku, i ne upućuju na dokumente koji odlaze u privatni
-// repozitorij. Javni su README.md i SECURITY.md u korijenu, kazalo i svaki
-// dokument iz docs/ koji kazalo navodi.
+// točno kao na disku. Javni su README.md i SECURITY.md u korijenu, kazalo i
+// svaki dokument iz docs/ koji kazalo navodi.
 func TestKazaloIReadmeUpucujuNaDatotekeKojePostoje(t *testing.T) {
 	korijen := filepath.Join("..", "..")
 	for _, dokument := range javniDokumenti(t) {
@@ -110,9 +79,6 @@ func TestKazaloIReadmeUpucujuNaDatotekeKojePostoje(t *testing.T) {
 			case !postojiTocnoIme(korijen, put):
 				t.Errorf("%s upućuje na %s, a te datoteke nema (ili joj se ime razlikuje u velikim i malim slovima)",
 					dokument, put)
-			case slices.Contains(odlazeUPrivatniRepozitorij, put):
-				t.Errorf("%s upućuje na %s, a taj dokument odlazi u privatni repozitorij. "+
-					"Uputi na plan razvoja, odluke ili drugi javni dokument.", dokument, put)
 			}
 		}
 	}
@@ -120,9 +86,7 @@ func TestKazaloIReadmeUpucujuNaDatotekeKojePostoje(t *testing.T) {
 
 // Kod, postavke, radni tokovi i skripte upućuju samo na dokumente koji
 // postoje. Komentar ili poruka koja vodi na premješten dokument ne vodi
-// nikamo, a čitatelj to ne vidi dok ga ne potraži. Dokumenti s privremenog
-// popisa još postoje, pa ih ova provjera propušta. Kad odu, ona pokaže svako
-// mjesto koje treba prepisati.
+// nikamo, a čitatelj to ne vidi dok ga ne potraži.
 func TestKodUpucujeNaDokumenteKojiPostoje(t *testing.T) {
 	korijen := filepath.Join("..", "..")
 	for _, datoteka := range praceneDatoteke(t) {
@@ -140,25 +104,6 @@ func TestKodUpucujeNaDokumenteKojiPostoje(t *testing.T) {
 						"malim slovima). Uputi na javni dokument ili napiši razlog riječima.", datoteka, broj+1, m[1])
 				}
 			}
-		}
-	}
-}
-
-// Privremeni popis ne smije ostati kao trajna iznimka. Ostane li na njemu
-// dokument koji je već otišao u privatni repozitorij, grana stvorena prije
-// premještanja mogla bi ga tiho vratiti u docs/, a test bi ga i dalje
-// propuštao. Kazalo te dokumente ne navodi, jer ne ostaju na GitHubu.
-func TestPrivremeniPopisDokumenataJeTocan(t *testing.T) {
-	korijen := filepath.Join("..", "..")
-	uKazalu := lokalnePoveznice(t, kazaloDokumentacije)
-	for _, dokument := range odlazeUPrivatniRepozitorij {
-		if !postojiTocnoIme(korijen, dokument) {
-			t.Errorf("%s više nije u docs/: makni ga s popisa odlazeUPrivatniRepozitorij. "+
-				"Kad popis ostane prazan, izbriši ga zajedno s ovim testom.", dokument)
-		}
-		if slices.Contains(uKazalu, dokument) {
-			t.Errorf("kazalo %s navodi %s, a taj dokument odlazi u privatni repozitorij",
-				kazaloDokumentacije, dokument)
 		}
 	}
 }

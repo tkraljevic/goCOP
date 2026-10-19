@@ -1,7 +1,7 @@
 package peers
 
 // Zapis koji stariji program još ne razumije, od kraja do kraja (G5 u
-// docs/plan-web-sync.md §3; Odluke (11. 10. 2026.), 1): server s novijim
+// planu WEB synca, §3; Odluke (11. 10. 2026.), 1): server s novijim
 // programom upiše blagdan, Windows sa starijim ga primi, sačuva i
 // proslijedi laptopu. Koliko kod njega čeka, Windows javlja u granici, pa
 // laptop to zna. Pločica na naslovnoj (upozorenjaNadogradnje u cmd/gocop)
