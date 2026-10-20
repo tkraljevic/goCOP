@@ -23,7 +23,7 @@ func TestRazmjenaSamoSPoznatimClanom(t *testing.T) {
 		t.Errorf("čvor izvan mreže: %v", err)
 	}
 	// namjerno promijenjeno: sigurnosni popravak podmetnutog ključa
-	// (docs/plan-web-sync.md, „Ispravak zapisa čvora”). Ključ za razmjenu
+	// (plan WEB synca, „Ispravak zapisa čvora”). Ključ za razmjenu
 	// dolazi iz članstva koje vrijedi, pa red s ključem koji se ne da
 	// pročitati (prije greška) znači samo da čvor nije član.
 	if _, err := s.db.Exec(`INSERT INTO memberships (node_id, public_key, network, issued_by, issued_at, expires_at, signature, created_at)

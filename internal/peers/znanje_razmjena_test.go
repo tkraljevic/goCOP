@@ -15,7 +15,7 @@ import (
 // uz stanje razmjene i pokaže na ploči: i onaj tko je nazvao i onaj tko je
 // primio. Da ploča ne šalje vrste zapisa, provjerava TestZapamcenoZnanje.
 //
-// Namjerno promijenjeno: G4 (docs/plan-web-sync.md §3). Čvor javlja i
+// Namjerno promijenjeno: G4 (plan WEB synca, §3). Čvor javlja i
 // granica-odbijenih/1, pa razgovor dvaju novih čvorova nosi i granicu
 // odbijenih; do G4 javljao je samo razmjena/1. Namjerno promijenjeno: G4b;
 // čvor javlja i rupe/1, pa razgovor dvaju novih čvorova nosi i poruku rupa.

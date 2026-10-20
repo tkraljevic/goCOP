@@ -1,6 +1,6 @@
 package peers
 
-// Tijek razgovora s rupama u nizu (G4b u docs/plan-web-sync.md §3), poruku
+// Tijek razgovora s rupama u nizu (G4b u planu WEB synca, §3), poruku
 // po poruku i za obje uloge, kao u granica_odbijenih_tijek_test.go. Druga
 // strana (skripta) ovdje javlja i oznaku rupe/1, pa iza granice odbijenih
 // obje strane pošalju poruku rupa, redom uloge, i prazne. Bez oznake

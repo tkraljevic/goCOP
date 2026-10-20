@@ -1,6 +1,6 @@
 package peers
 
-// Granica odbijenih (G4 u docs/plan-web-sync.md §3) između pravih čvorova na
+// Granica odbijenih (G4 u planu WEB synca, §3) između pravih čvorova na
 // loopbacku, za obje uloge. Server (cop-osijek) drži stara očitanja, a laptop
 // (laptop-baranja) ih odbija (Accept, kao repository.KeepVersion). Prije G4
 // server ih je slao svakim razgovorom iznova, ključ s 5000 takvih zaredom

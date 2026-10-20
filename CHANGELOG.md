@@ -965,7 +965,7 @@ sređivanjem koda. Sve čvorove treba nadograditi.**
   SECURITY.md: prijava ranjivosti i model povjerenja.
 - **Nadogradnja.** Sve čvorove nadograditi na 0.0.34: stariji program ne zna
   za poništen akt pa bi ga i dalje brojao u stanje obrane.
-- **Razvoj: sređivanje koda** (docs/STABILIZACIJA.md). Pokrivenost testovima
+- **Razvoj: sređivanje koda** (radni plan, izvan GitHuba). Pokrivenost testovima
   52,5 → oko 58 %, kritičnog koda 52,5 → oko 61 %, prosječni CRAP 42,5 → oko
   26; `main` rastavljen na korake pokretanja s testom životnog ciklusa čvora.
   Oko 66 sumnjivih ponašanja zapisano je i zaključano testovima; ispravci iz
@@ -1592,7 +1592,7 @@ rujnu 2024. (crveno na Dravi i Muri dva dana prije vrha kiše).
 
 ## 0.0.1-alfa — 1. 10. 2026.
 
-Prvo označeno izdanje. Program se koristi i provjerava u COP-u Osijek, ali
+Prvo označeno izdanje. Program se koristi i provjerava, ali
 nije za operativnu upotrebu bez nadzora: sve se još mijenja.
 
 **Operativa obrane** — teren i očitanja, pragovi i akti o stupnjevima obrane,
