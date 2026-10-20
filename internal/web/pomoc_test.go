@@ -50,6 +50,7 @@ func TestPomocImaOProgramuLicenceIZahvale(t *testing.T) {
 		"KaTeX", "Leaflet", "Lucide", "goldmark", "modernc.org/sqlite",
 		"OpenStreetMap", "Open‑Meteo", "CC BY‑SA 4.0", "Zahvale",
 		"HydroBASINS", "Tomislav Kraljević", "Mario Kraljević", "Nenad Šuvak",
+		"Dél-dunántúli Vízügyi Igazgatóság", "Republički hidrometeorološki zavod Srbije",
 	} {
 		if !strings.Contains(h, want) {
 			t.Errorf("odjeljak O programu nema %q", want)
