@@ -100,7 +100,10 @@ func TestOsobniKljucILozinka(t *testing.T) {
 // izgled i polje; izmjena sadržaja ruši oba; tuđi izdavatelj se ne priznaje.
 func TestPotpisPDFDvaPotpisa(t *testing.T) {
 	ca, _ := probniCA(t)
-	kad := time.Date(2026, 9, 19, 9, 12, 0, 0, time.FixedZone("CEST", 2*3600))
+	// Certifikati vrijede pet godina od izdavanja, a potpis se provjerava na
+	// današnji dan: zakucan dan izdavanja test bi srušio pet godina kasnije.
+	// Vrijeme potpisa u PDF-u je na sekundu.
+	kad := time.Now().In(time.FixedZone("CEST", 2*3600)).Truncate(time.Second)
 	zv, _ := ca.Novi(Osoba{UserID: "u-v", Ime: "Marko Markić", Sektor: "B"}, "vodavoda", kad)
 	zr, _ := ca.Novi(Osoba{UserID: "u-r", Ime: "Ana Anić", Funkcija: "Rukovoditelj BP 34", Sektor: "B"}, "lozinka-r", kad)
 
