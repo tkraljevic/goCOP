@@ -81,6 +81,33 @@ func cekajBiljesku(t *testing.T, ctx context.Context, n *node, ids ...string) ma
 	return zadnja
 }
 
+// nazoviICekajBiljesku: od nazove n i razmijeni s njim, a vrati se tek kad n
+// upiše svoju bilješku o toj razmjeni. n je upisuje u svojoj gorutini, nakon
+// razgovora, pa se od-ov SyncWith zna vratiti prije nje. Bilješka koja stigne
+// kasnije pregazi ono što test u međuvremenu upiše u n-ov popis računala.
+func nazoviICekajBiljesku(t *testing.T, ctx context.Context, od, n *node) error {
+	t.Helper()
+	zadnjiPut := func() *time.Time {
+		p, err := n.svc.GetPeer(ctx, od.id)
+		if err != nil || p == nil {
+			t.Fatalf("%s ne zna %s: %v", n.id, od.id, err)
+		}
+		return p.LastSeen
+	}
+	prije := zadnjiPut()
+	if _, _, err := od.svc.SyncWith(ctx, n.id); err != nil {
+		return err
+	}
+	for i := 0; i < 500; i++ {
+		if sad := zadnjiPut(); sad != nil && (prije == nil || sad.After(*prije)) {
+			return nil
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("%s nije zabilježio razmjenu s %s", n.id, od.id)
+	return nil
+}
+
 // Ovlašteni primatelj s izmijenjenim programom potpiše članstvo za ime L
 // svojim ključem i pošalje ga X-u, uz zapis L-a sa svojom adresom ispred
 // L-ove. X i dalje razmjenjuje s pravim L, L i dalje dolazi do X-a, a kad
@@ -112,7 +139,7 @@ func TestPrimateljNePreuzimaTudjeIme(t *testing.T) {
 		Addresses: append([]string{fmt.Sprintf("127.0.0.1:%d", u.svc.Ports().Exchange)}, pravi.Addresses...),
 		CreatedAt: pravi.CreatedAt,
 	})
-	if _, _, err := u.svc.SyncWith(ctx, x.id); err != nil {
+	if err := nazoviICekajBiljesku(t, ctx, u, x); err != nil {
 		t.Fatalf("U → X: %v", err)
 	}
 
@@ -124,7 +151,7 @@ func TestPrimateljNePreuzimaTudjeIme(t *testing.T) {
 	if got := stationNote(t, x, "Primjerovo"); got != "s pravog L" {
 		t.Errorf("X nakon razmjene s L ima napomenu %q", got)
 	}
-	if _, _, err := l.svc.SyncWith(ctx, x.id); err != nil {
+	if err := nazoviICekajBiljesku(t, ctx, l, x); err != nil {
 		t.Errorf("L → X: %v", err)
 	}
 

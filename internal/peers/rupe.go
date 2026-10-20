@@ -1,6 +1,6 @@
 package peers
 
-// Rupe u nizu (G4b u docs/plan-web-sync.md §3, oznaka rupe/1). Granica
+// Rupe u nizu (G4b u planu WEB synca, §3, oznaka rupe/1). Granica
 // knjige je najveći version_id po ključu (autor|kanal) i drugima kaže „imam
 // sve do toga”. Računalo koje nešto odbije (Accept, ograda povijesti) drži
 // niz s rupom. Kad ga proslijedi, treće računalo upiše noviju verziju,

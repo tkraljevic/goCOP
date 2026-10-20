@@ -1,6 +1,6 @@
 package peers
 
-// Granica odbijenih nakon uvoza (G4 u docs/plan-web-sync.md §3). Granica
+// Granica odbijenih nakon uvoza (G4 u planu WEB synca, §3). Granica
 // odbijenih vrijedi jer pošiljatelj u svakom ključu šalje neprekinut niz
 // svojih verzija iznad granice primatelja (granica_odbijenih.go), ali samo
 // za niz koji je imao kad je slao. Verziju koju poslije dobije ispod

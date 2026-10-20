@@ -1,7 +1,7 @@
 package peers
 
 // Rupa granice preko posrednika s užim pravilom čuvanja (G4b u
-// docs/plan-web-sync.md §3). Ured (windows-ured) napiše tri verzije u jednom
+// planu WEB synca, §3). Ured (windows-ured) napiše tri verzije u jednom
 // ključu granice (autor windows-ured, kanal ocitanja/16/2024): novo-1,
 // staro-a i novo-2. Laptop (laptop-drugi) drži manje i staro-a odbije
 // (Accept, kao repository.KeepVersion). Server (cop-osijek) drži sve. Laptop

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -45,7 +46,15 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 	rec := ledger.New(baza, "test")
 	userRepo := repository.NewUserRepository(baza, rec)
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
-	krajObrane := time.Date(2026, 10, 20, 8, 0, 0, 0, time.UTC)
+	// Kraj obrane i rok računaju se od danas: zakucan datum test je srušio
+	// na sam taj dan, kad je imenovanje već isteklo.
+	zagreb, err := time.LoadLocation("Europe/Zagreb")
+	if err != nil {
+		t.Fatal(err)
+	}
+	krajObrane := time.Now().UTC().Truncate(time.Hour).Add(72 * time.Hour)
+	godinaRoka := time.Now().Year() + 1
+	rok := fmt.Sprintf("%d-12-31", godinaRoka)
 	users.SetPrestanakObrane(func(models.Duty) *models.PrestanakObrane {
 		return &models.PrestanakObrane{Kad: krajObrane, Akt: models.Akt{Sektor: "B", Broj: 7, Godina: 2026}}
 	})
@@ -106,7 +115,7 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 
 	w := zovi(http.MethodPost, "/users/duty/add", url.Values{"user_id": {osoba.ID.String()}, "role": {string(models.RoleSectionLeader)},
 		"sector_id": {"B"}, "area_id": {"34"}, "section_codes": {"B.34.2"}, "is_temporary": {"1"}, "istece_s_obranom": {"1"},
-		"reason": {"nedostaje osoblja"}, "expires_at": {"2026-12-31"}})
+		"reason": {"nedostaje osoblja"}, "expires_at": {rok}})
 	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), "success") {
 		t.Fatalf("dodjela: %d %s", w.Code, w.Header().Get("Location"))
 	}
@@ -115,15 +124,16 @@ func TestPrivremenoImenovanjeKrozObrazac(t *testing.T) {
 		t.Fatalf("zaduženja: %+v", u.Duties)
 	}
 	d := u.Duties[0]
-	prestanak := time.Date(2026, 12, 31, 23, 0, 0, 0, time.UTC) // 1. 1. 2027. u 0 h u Zagrebu
+	prestanak := time.Date(godinaRoka, 12, 31, 23, 0, 0, 0, time.UTC) // 1. 1. iduće godine u 0 h u Zagrebu
 	if !d.IsTemporary || !d.IsticeSObranom || d.Rok == nil || !d.Rok.Equal(prestanak) || d.ExpiresAt == nil || !d.ExpiresAt.Equal(krajObrane) {
 		t.Fatalf("imenovanje: privremena %v, s obranom %v, rok %v, istek %v", d.IsTemporary, d.IsticeSObranom, d.Rok, d.ExpiresAt)
 	}
 
 	// profil: prestaje s krajem obrane (raniji od datuma), u satu po našem vremenu
-	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice", "prestaje 20. 10. 2026. u 10:00 (prestanak obrane, akt B-7/2026)")
+	mora(zovi(http.MethodGet, "/users/"+osoba.ID.String(), nil), "profil", "Privremeno · Rukovoditelj dionice",
+		"prestaje "+krajObrane.In(zagreb).Format("2. 1. 2006. u 15:04")+" (prestanak obrane, akt B-7/2026)")
 
 	// obrazac izmjene nudi zadani datum, a kvačica ostaje
 	mora(zovi(http.MethodGet, "/users/duties/"+d.ID.String()+"/edit", nil), "obrazac izmjene",
-		`value="2026-12-31"`, `name="istece_s_obranom" value="1" checked`, `name="is_temporary" value="1" checked`)
+		`value="`+rok+`"`, `name="istece_s_obranom" value="1" checked`, `name="is_temporary" value="1" checked`)
 }

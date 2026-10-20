@@ -14,7 +14,7 @@ import (
 
 // upozorenjaNadogradnje su upozorenja pločice razmjene o zapisima koji
 // čekaju nadogradnju programa (Odluke (11. 10. 2026.), 1; G5 u
-// docs/plan-web-sync.md §3): koliko ih je stiglo na ovo računalo i koliko
+// planu WEB synca, §3): koliko ih je stiglo na ovo računalo i koliko
 // ih čuva svako drugo računalo koje je to javilo. Broje se zapisi, ne
 // verzije. Računalo koje broj ne javlja (0.0.38) i ono kod kojeg ništa ne
 // čeka nemaju retka, pa se nula nikad ne prikazuje. Greška brojanja ide u

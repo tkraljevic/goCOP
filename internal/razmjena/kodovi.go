@@ -2,9 +2,9 @@ package razmjena
 
 // Kodovi razloga odbijanja. Isti broj znači isto na svakom putu: u
 // odbijenici razgovora (Envelope.Kod) na portu razmjene i kroz tunel, a
-// kasnije i kao kod greške QUIC toka ili veze (docs/plan-web-sync.md, F3).
-// Isti brojevi stoje u docs/plan-protokol-povezivanja.md §5.4, po kojem F3
-// dodjeljuje kodove, pa novi kod ide i ovdje i tamo.
+// kasnije i kao kod greške QUIC toka ili veze (plan WEB synca, F3).
+// Isti brojevi stoje u §5.4 plana protokola povezivanja (radni plan, izvan
+// GitHuba), po kojem F3 dodjeljuje kodove, pa novi kod ide i ovdje i tamo.
 //
 // Popis je stalan: kod se ne mijenja, ne prenumerira i ne daje drugom
 // razlogu, ni kad ga program prestane slati. Na žici je uvijek cijeli broj

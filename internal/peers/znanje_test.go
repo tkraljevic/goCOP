@@ -1,7 +1,7 @@
 package peers
 
 // Što čvorovi javljaju o sebi u granici (razmjena/mogucnosti.go; G2 u
-// docs/plan-web-sync.md §3): oznake mogućnosti, vrste zapisa sa shemama i
+// planu WEB synca, §3): oznake mogućnosti, vrste zapisa sa shemama i
 // koliko zapisa kod njih čeka nadogradnju. Čvor 0.0.38 to ne šalje i nova
 // polja zanemari.
 
@@ -45,7 +45,7 @@ func TestCvor0038ZanemarujeZnanje(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); mogućnosti nose i
+	// namjerno promijenjeno: G4 (plan WEB synca, §3); mogućnosti nose i
 	// granica-odbijenih/1. namjerno promijenjeno: G4b; i rupe/1 (naseOznake)
 	const payload = `{"frontier":{"laptop-baranja|ocitanja/16/2026":"` + tijekV1 + `"},"wants":{"all":true},` + programCvora +
 		`,"mogucnosti":` + naseOznake + `,"vrste":{"akti":1,"dnevna_izvjesca":2},"cekaNadogradnju":120}`
@@ -253,7 +253,7 @@ func TestUStupac(t *testing.T) {
 func TestTijekRazgovoraKatalogCvora(t *testing.T) {
 	a, b := cistiPar(t)
 	b.katalog = func() map[string]int { return map[string]int{"probni": 1, "akti": 2} }
-	// namjerno promijenjeno: G4 (docs/plan-web-sync.md §3); mogućnosti nose i
+	// namjerno promijenjeno: G4 (plan WEB synca, §3); mogućnosti nose i
 	// granica-odbijenih/1. namjerno promijenjeno: G4b; i rupe/1 (naseOznake)
 	granica := odCvora(kindFrontier, `{"frontier":{"laptop-baranja|ocitanja/16/2026":"`+tijekV1+`"},"wants":{"all":true},`+programCvora+
 		`,"mogucnosti":`+naseOznake+`,"vrste":{"akti":2,"probni":1}}`)
