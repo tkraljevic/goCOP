@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/dhmz"
 )
@@ -12,6 +13,8 @@ import (
 // Ploča za Osijek: upozorenje županije naprijed, tuđe u "drugdje", najbliža
 // postaja, regija i Drava prva u biltenu. Nedostupan izvor ne ruši ploču.
 func TestPlocaVremena(t *testing.T) {
+	// upozorenje vrijedi još godinu dana: isteklo se ne pokazuje
+	istek := time.Now().AddDate(1, 0, 0).In(dhmz.Zagreb).Format("2006-01-02 15:04:05-07:00")
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/v":
@@ -19,7 +22,7 @@ func TestPlocaVremena(t *testing.T) {
 <Grad><GradIme>RC Osijek-Čepin</GradIme><Lat>45.503</Lat><Lon>18.561</Lon><Podatci><Temp>20.0</Temp><Vlaga>46</Vlaga><Tlak>1024.1</Tlak><VjetarSmjer>E</VjetarSmjer><VjetarBrzina>2</VjetarBrzina><Vrijeme>vedro</Vrijeme></Podatci></Grad>
 <Grad><GradIme>Split-aerodrom</GradIme><Lat>43.5</Lat><Lon>16.3</Lon><Podatci><Temp>25</Temp></Podatci></Grad></Hrvatska>`))
 		case "/cap":
-			w.Write([]byte(`<alert><info><language>hr</language><event>Narančasto upozorenje za kišu</event><expires>2099-01-01 00:00:00+01:00</expires>
+			w.Write([]byte(`<alert><info><language>hr</language><event>Narančasto upozorenje za kišu</event><expires>` + istek + `</expires>
 <parameter><valueName>awareness_level</valueName><value>3; orange; Severe</value></parameter><area><areaDesc>Osječko-baranjska</areaDesc></area><area><areaDesc>Zadarska</areaDesc></area></info></alert>`))
 		case "/r":
 			w.Write([]byte(`<regije_danas><datum>26.09.2026.</datum><istocna>Sunčano.</istocna></regije_danas>`))
@@ -58,11 +61,15 @@ func TestPlocaVremena(t *testing.T) {
 // kartica (bilo ih je sedam s istom rečenicom), nego kao mirno stanje s
 // razdobljem; ni „drugdje u Hrvatskoj” ga ne broji.
 func TestPlocaVremenaZeleno(t *testing.T) {
+	// razdoblje bez upozorenja počinje za godinu dana i traje dan: isteklo
+	// se ne pokazuje
+	do := time.Now().AddDate(1, 0, 0).In(dhmz.Zagreb)
+	od := do.Add(-24 * time.Hour)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/cap":
 			w.Write([]byte(`<alert><info><language>hr</language><event>Zeleno upozorenje za vjetar</event><description>Nema upozorenja!</description>
-<onset>2099-01-01 00:00:00+01:00</onset><expires>2099-01-02 00:00:00+01:00</expires>
+<onset>` + od.Format("2006-01-02 15:04:05-07:00") + `</onset><expires>` + do.Format("2006-01-02 15:04:05-07:00") + `</expires>
 <parameter><valueName>awareness_level</valueName><value>1; green; Minor</value></parameter><area><areaDesc>Osječko-baranjska</areaDesc></area><area><areaDesc>Zadarska</areaDesc></area></info></alert>`))
 		default:
 			http.NotFound(w, r)
@@ -81,7 +88,7 @@ func TestPlocaVremenaZeleno(t *testing.T) {
 	if !strings.Contains(s, "Osječko-baranjska županija: nema upozorenja.") {
 		t.Errorf("nema mirnog stanja: %s", s)
 	}
-	if !strings.Contains(s, "bez opasnih pojava do 02.01.") {
+	if !strings.Contains(s, "bez opasnih pojava do "+do.Format("02.01. u 15:04")) {
 		t.Error("nema razdoblja bez upozorenja")
 	}
 	if strings.Contains(s, `class="vrijeme-upozorenje-red"`) {
