@@ -143,8 +143,8 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 	}
 
 	now := time.Now().UTC()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at) VALUES (1, ?, ?, ?)`,
-		name, razmjena.PublicKeyString(key.Public), now); err != nil {
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, ?)`,
+		name, razmjena.PublicKeyString(key.Public), now, s.protokol()); err != nil {
 		return err
 	}
 	s.mu.Lock()
@@ -176,8 +176,8 @@ func (s *Service) joinNetwork(ctx context.Context, pack welcomePack) error {
 	}
 
 	now := time.Now().UTC()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at) VALUES (1, ?, ?, ?)`,
-		pack.NetworkName, pack.NetworkKey, now); err != nil {
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, ?)`,
+		pack.NetworkName, pack.NetworkKey, now, s.protokol()); err != nil {
 		return err
 	}
 	key := razmjena.PublicNetwork(pack.NetworkName, pubKey)

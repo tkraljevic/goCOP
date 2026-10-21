@@ -496,10 +496,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	autoSync := &autoSyncValue
 
 	// Postojeći čvor bez ključa ne kreće: novi ključ bio bi novi identitet,
-	// koji upareni čvorovi odbijaju (kućni server, 5. 10. 2026.). Provjera samo
-	// čita bazu, prije nego što se išta zapiše. Pod Postavom odbijeni čvor
-	// čeka da ga ona zaustavi, da ga ne zamijeni prethodnim izdanjem.
-	if err := provjeriKljuc(cfg, cfgFrom, z.noviKljucCvora); err != nil {
+	// koji upareni čvorovi odbijaju (kućni server, 5. 10. 2026.). Ne kreće ni
+	// baza pokrenuta s drugim imenom protokola mreže od onog pod kojim je
+	// ušla u mrežu. Provjera samo čita bazu, prije nego što se išta zapiše.
+	// Pod Postavom odbijeni čvor čeka da ga ona zaustavi, da ga ne zamijeni
+	// prethodnim izdanjem.
+	if err := provjeriPokretanje(cfg, cfgFrom, z.noviKljucCvora); err != nil {
 		return odbijPokretanje(ctx, z.podPostavom, cfg.Addr, err, ulaz)
 	}
 
@@ -971,10 +973,12 @@ func splitPairs(s string) map[string]string {
 	return out
 }
 
-// postaviRazmjenu prenosi postavke iz [sync] u razmjenu: prati li čvor sve
-// i smije li razmjena koristiti Tailscale ([sync] tailscale = false: radi
-// kao da Tailscalea nema)
+// postaviRazmjenu prenosi postavke iz [sync] u razmjenu: prati li čvor sve,
+// smije li razmjena koristiti Tailscale ([sync] tailscale = false: radi
+// kao da Tailscalea nema) i ime protokola mreže. Poziva se prije Serve i
+// Announce, koji rade pod imenom zadanim u tom trenutku.
 func postaviRazmjenu(s *peers.Service, cfg config.Config) {
 	s.SetWantsAll(cfg.Sync.All)
 	s.PostaviTailscale(cfg.Sync.Tailscale)
+	s.PostaviProtokol(cfg.Sync.Protokol)
 }

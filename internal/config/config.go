@@ -86,6 +86,15 @@ type Config struct {
 		Bootstrap     []string `toml:"bootstrap" comment:"Stalno dostupni čvorovi preko kojih se pronalaze ostali. Svaki\ndodatni pomaže kad jedan padne.\n  bootstrap = ['cop.primjer.hr', 'cop.voda.hr']"`
 		All           bool     `toml:"sve" comment:"true = čvor prati sve: očitanja i dnevnike svih područja i godina\n(uredski poslužitelj). false = samo ono što je označeno u programu\n(laptop, mobitel).\n  sve = true"`
 		Tailscale     bool     `toml:"tailscale" comment:"true = na računalu s Tailscaleom razmjena koristi i Tailscale adrese\ndrugih vaših čvorova; false = razmjena radi kao da Tailscalea nema\n(za probu razmjene preko interneta). Na prijavu ne utječe."`
+		// Protokol je ime protokola mreže (certifikat, pronalaženje,
+		// uparivanje). Zadano je „gocop”. Drugo ime ima samo zasebna
+		// instanca s novom mapom podataka (TESTNA SIMULACIJA, „gocop-sim”):
+		// računala s različitim imenom protokola ne vide se i ne
+		// razmjenjuju. Baza pamti ime protokola pod kojim je ušla u mrežu,
+		// pa kopirana mapa s drugim imenom ne kreće
+		// (peers.ProvjeriProtokolMreze). Ne skraćuje se i ne pretvara u mala
+		// slova: neispravno ime odbija pokretanje.
+		Protokol string `toml:"protokol" comment:"Ime protokola mreže. Računala s različitim imenom protokola ne vide se\ni ne razmjenjuju podatke. Mapa podataka pamti ime pod kojim je ušla u\nmrežu, pa s drugim imenom ne kreće.\n  protokol = 'gocop-sim'   # testna simulacija, u novoj mapi podataka"`
 	} `toml:"sync"`
 }
 
@@ -104,6 +113,7 @@ func Default() Config {
 	// Sync.Bootstrap ostaje prazan: program ga zasad ne čita, a domena
 	// poslužitelja ne ide u javni kod, da je tražilice ne nađu
 	c.Sync.Tailscale = true
+	c.Sync.Protokol = "gocop" // isto kao peers.Protocol; config ne uvozi peers
 	c.Readings.MinutaPreuzimanja = 45
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
