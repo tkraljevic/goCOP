@@ -61,6 +61,18 @@ func (e Envelope) Decode(v any) error {
 // oko 64 MB). Kad svi čvorovi budu na 0.0.25 ili novijem, smije na 128 MiB.
 const NajvecaPoruka = 256 << 20
 
+// ErrDrugiKljuc je greška kad druga strana dokaže drugi ključ od uparenog
+var ErrDrugiKljuc = errors.New("druga strana dokazala je drugi ključ od uparenog")
+
+// drugiKljuc nosi tekst za korisnika; errors.Is je prepoznaje kao
+// ErrDrugiKljuc. Tekstovi na portu i kroz tunel ostaju kakvi su bili, jer ih
+// ljudi čitaju i navode (kljuc_cvora.go u peers).
+type drugiKljuc struct{ poruka string }
+
+func (e drugiKljuc) Error() string { return e.poruka }
+
+func (e drugiKljuc) Is(cilj error) bool { return cilj == ErrDrugiKljuc }
+
 // ErrPorukaPrevelika je poruka razmjene veća od dopuštene; veza se prekida
 var ErrPorukaPrevelika = errors.New("poruka razmjene veća od dopuštene")
 
@@ -407,7 +419,7 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		// one — another process holding that machine's sync port — was
 		// invisible for a day because this message only offered the
 		// first.
-		return nil, fmt.Errorf("the device at %s proved a DIFFERENT key than the one paired — refusing to exchange. It presented %s…, the pairing recorded %s…. Either that machine was rebuilt (pair again), or another process holds its sync port", addr, got[:8], PublicKeyString(expect)[:8])
+		return nil, drugiKljuc{poruka: fmt.Sprintf("the device at %s proved a DIFFERENT key than the one paired — refusing to exchange. It presented %s…, the pairing recorded %s…. Either that machine was rebuilt (pair again), or another process holds its sync port", addr, got[:8], PublicKeyString(expect)[:8])}
 	}
 	return conn, nil
 }

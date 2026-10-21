@@ -22,10 +22,6 @@ import (
 	"golang.org/x/net/websocket"
 )
 
-// vanjskiTLS je TLS prema web poslužitelju (Cloudflare); nil je provjera
-// prema sustavnim certifikatima. Testovi ga zamjenjuju svojim.
-var vanjskiTLS *tls.Config
-
 // PutTunela je put na web sučelju na kojem čvor prima razmjenu kroz tunel
 const PutTunela = "/razmjena/tunel"
 
@@ -146,44 +142,144 @@ func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol stri
 	return serveTLS(ctx, tls.NewListener(ln, cfg), protocol, trusted, handle, ogradaIz(o))
 }
 
+// KlijentTunela spaja se na čvor kroz tunel. Nulta vrijednost je zadano:
+// TCP i vanjski TLS prema sustavnim certifikatima, s rokom od 15 s za oboje
+// (kao do sada). Test zadaje svoje korijene i spajanje preko mreže u memoriji.
+type KlijentTunela struct {
+	TLS  *tls.Config                                                         // nil = sustavni certifikati
+	Dial func(ctx context.Context, network, adresa string) (net.Conn, error) // nil = net.Dialer
+}
+
+// rokVanjske je rok za TCP i vanjski TLS do web poslužitelja tunela
+const rokVanjske = 15 * time.Second
+
 // DialTunel spaja se na čvor kroz tunel (https://domena) i, kao
 // DialExchange, odbija nastaviti ako druga strana ne dokaže očekivani ključ.
-func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
+// Unutra je isto rukovanje kao na portu razmjene (DialExchangeOn).
+func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
 	baza, err := NormalizirajTunel(adresa)
 	if err != nil {
 		return nil, err
 	}
-	wsURL := "wss://" + strings.TrimPrefix(baza, "https://") + PutTunela
-	wcfg, err := websocket.NewConfig(wsURL, baza)
-	if err != nil {
-		return nil, err
-	}
-	wcfg.Dialer = &net.Dialer{Timeout: 15 * time.Second}
-	wcfg.TlsConfig = vanjskiTLS
-	ws, err := wcfg.DialContext(ctx)
+	nc, err := k.otvoriWebSocket(ctx, baza, PutTunela)
 	if err != nil {
 		return nil, fmt.Errorf("tunel %s: %w", baza, err)
 	}
-	ws.PayloadType = websocket.BinaryFrame
-	cfg, err := tlsConfigS(priv, protocol, vj)
+	conn, err := DialExchangeOn(ctx, nc, priv, protocol, vj, baza, expect)
 	if err != nil {
-		ws.Close()
-		return nil, err
-	}
-	tc := tls.Client(&wsVeza{Conn: ws, kraj: make(chan struct{})}, cfg)
-	hctx, otkazi := context.WithTimeout(ctx, 30*time.Second)
-	defer otkazi()
-	if err := tc.HandshakeContext(hctx); err != nil {
-		tc.Close()
-		return nil, fmt.Errorf("tunel %s: %w", baza, err)
-	}
-	conn, err := newConn(tc, protocol)
-	if err != nil {
-		return nil, err
-	}
-	if !conn.PeerKey.Equal(expect) {
-		conn.Close()
-		return nil, errors.New("čvor na " + baza + " dokazao je drugi ključ od uparenog — razmjena odbijena")
+		return nil, porukaTunela(baza, err)
 	}
 	return conn, nil
+}
+
+// porukaTunela: kriv ključ kroz tunel javlja se rečenicom koju korisnik već
+// zna (navodi je i poruka o ključu čvora u peers), a ostalo s adresom tunela
+func porukaTunela(baza string, err error) error {
+	if errors.Is(err, ErrDrugiKljuc) {
+		return drugiKljuc{poruka: "čvor na " + baza + " dokazao je drugi ključ od uparenog — razmjena odbijena"}
+	}
+	return fmt.Errorf("tunel %s: %w", baza, err)
+}
+
+// otvoriWebSocket otvara WebSocket na putu web sučelja (baza je
+// https://domena[:port]) i vraća ga kao net.Conn. Nadogradnja je bajt po bajt
+// ista kao uz websocket.Dial do sada: Host i Origin su domena kako je
+// upisana, bez dodanog porta 443, verzija 13, bez Sec-WebSocket-Protocol.
+// Okviri su binarni (0x82): TLS unutra nije tekst, a posrednik po RFC 6455
+// smije zatvoriti tekstni okvir koji nije UTF-8.
+func (k *KlijentTunela) otvoriWebSocket(ctx context.Context, baza, put string) (net.Conn, error) {
+	host := strings.TrimPrefix(baza, "https://")
+	vanjska, err := k.otvoriVanjsku(ctx, baza)
+	if err != nil {
+		return nil, err
+	}
+	cfg := &websocket.Config{
+		Location: &url.URL{Scheme: "wss", Host: host, Path: put},
+		Origin:   &url.URL{Scheme: "https", Host: host},
+		Version:  websocket.ProtocolVersionHybi13,
+		Header:   http.Header{},
+	}
+	ws, err := noviWebSocket(ctx, vanjska, cfg)
+	if err != nil {
+		vanjska.Close()
+		return nil, err
+	}
+	ws.PayloadType = websocket.BinaryFrame
+	// Omot nije samo radi Close: goli WebSocket klijenta javlja RemoteAddr
+	// kao wss://…, a net.SplitHostPort iz toga čita računalo „wss”.
+	return &wsVeza{Conn: ws, kraj: make(chan struct{})}, nil
+}
+
+// otvoriVanjsku otvara TCP i vanjski TLS do web poslužitelja tunela
+// (Cloudflare), u roku rokVanjske za oboje, kao tls.Dialer do sada
+func (k *KlijentTunela) otvoriVanjsku(ctx context.Context, baza string) (net.Conn, error) {
+	ctx, otkazi := context.WithTimeout(ctx, rokVanjske)
+	defer otkazi()
+	adresa, ime := vanjskaAdresa(baza)
+	raw, err := k.dial(ctx, "tcp", adresa)
+	if err != nil {
+		return nil, err
+	}
+	tc := tls.Client(raw, k.vanjskiTLS(ime))
+	if err := tc.HandshakeContext(ctx); err != nil {
+		raw.Close()
+		return nil, err
+	}
+	return tc, nil
+}
+
+// vanjskaAdresa: adresa za spajanje na web poslužitelj tunela, s portom 443
+// kad ga adresa nema (kao websocket.Dial), i ime za provjeru njegova
+// certifikata, bez porta i uglatih zagrada IPv6 adrese. Port ide samo u
+// adresu za spajanje, nikad u zaglavlje Host.
+func vanjskaAdresa(baza string) (adresa, ime string) {
+	host := strings.TrimPrefix(baza, "https://")
+	ime, port, err := net.SplitHostPort(host)
+	if err != nil {
+		ime, port = strings.Trim(host, "[]"), "443"
+	}
+	return net.JoinHostPort(ime, port), ime
+}
+
+// vanjskiTLS je TLS prema web poslužitelju: zadani ili sustavni, s imenom
+// poslužitelja kad ga postavka nema (kao tls.Dialer)
+func (k *KlijentTunela) vanjskiTLS(ime string) *tls.Config {
+	cfg := &tls.Config{}
+	if k.TLS != nil {
+		cfg = k.TLS.Clone()
+	}
+	if cfg.ServerName == "" {
+		cfg.ServerName = ime
+	}
+	return cfg
+}
+
+// dial otvara TCP vezu zadanim spajanjem, ili kao net.Dialer
+func (k *KlijentTunela) dial(ctx context.Context, network, adresa string) (net.Conn, error) {
+	if k.Dial != nil {
+		return k.Dial(ctx, network, adresa)
+	}
+	return (&net.Dialer{}).DialContext(ctx, network, adresa)
+}
+
+// noviWebSocket radi nadogradnju na WebSocket nad otvorenom vezom, u roku
+// konteksta. websocket.NewClient sam ne gleda kontekst, pa radi u svojoj
+// gorutini; kad kontekst istekne, rok na vezi prekine čekanje odgovora, kao u
+// websocket.Dial (x/net v0.59.0). Vezu zatvara pozivatelj.
+func noviWebSocket(ctx context.Context, rwc net.Conn, cfg *websocket.Config) (*websocket.Conn, error) {
+	var ws *websocket.Conn
+	var err error
+	gotovo := make(chan struct{})
+	go func() {
+		defer close(gotovo)
+		ws, err = websocket.NewClient(cfg, rwc)
+	}()
+	select {
+	case <-gotovo:
+		return ws, err
+	case <-ctx.Done():
+		_ = rwc.SetDeadline(time.Now()) // samo budi NewClient; veza se odmah zatim zatvara
+		<-gotovo
+		return nil, ctx.Err()
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"io"
 	"strings"
 	"sync/atomic"
@@ -130,9 +131,9 @@ func (b *brojac) odgovori(c *Conn) {
 	_ = c.Send(e) // je li odgovor stigao, provjerava pozivatelj
 }
 
-// Certifikat s imenom (CN) druge mreže odbija se na portu, na strani koja
-// zove i na strani koja prima: ni pitanje o članstvu ni obrada razmjene se ne
-// dogode. Odbijeno rukovanje oslobodi svoje mjesto.
+// Certifikat s imenom (CN) druge mreže odbija se na portu i kroz tunel, na
+// strani koja zove i na strani koja prima: ni pitanje o članstvu ni obrada
+// razmjene se ne dogode. Odbijeno rukovanje oslobodi svoje mjesto.
 func TestKrivCNOdbijen(t *testing.T) {
 	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync” (postavka [sync] protokol)"
 	t.Run("port, pozivatelj", func(t *testing.T) {
@@ -180,6 +181,42 @@ func TestKrivCNOdbijen(t *testing.T) {
 			t.Errorf("razmjena nakon odbijene: %v", err)
 		}
 	})
+	t.Run("tunel, pozivatelj", func(t *testing.T) {
+		uMjehuru(t, func(t *testing.T) {
+			kljucA, kljucB := newKey(t), newKey(t)
+			tu := noviTunelUMemoriji(t, kljucB, "drugi", kljucA.Public().(ed25519.PublicKey))
+			_, err := tu.klijent.DialTunel(t.Context(), kljucA, "testproto", nil, "https://cop.primjer.hr", kljucB.Public().(ed25519.PublicKey))
+			if err == nil || err.Error() != "tunel https://cop.primjer.hr: "+ocekivano {
+				t.Fatalf("čvor druge mreže kroz tunel: %v", err)
+			}
+			synctest.Wait()
+			if p, o := tu.pitan.Load(), tu.obrada.Load(); p != 0 || o != 0 {
+				t.Errorf("druga mreža je pitana %d puta, obradila %d veza", p, o)
+			}
+		})
+	})
+	t.Run("tunel, primatelj", func(t *testing.T) {
+		uMjehuru(t, func(t *testing.T) {
+			kljucA, kljucB := newKey(t), newKey(t)
+			tu := noviTunelUMemoriji(t, kljucB, "testproto", kljucA.Public().(ed25519.PublicKey))
+			nc, err := tu.klijent.otvoriWebSocket(t.Context(), "https://cop.primjer.hr", PutTunela)
+			bezGreske(t, err)
+			cfg, err := tlsConfig(kljucA, "drugi")
+			bezGreske(t, err)
+			c := tls.Client(nc, cfg)
+			defer c.Close()
+			if err := c.HandshakeContext(t.Context()); err != nil {
+				t.Fatalf("rukovanje s drugom mrežom kroz tunel: %v", err)
+			}
+			if _, err := c.Read(make([]byte, 1)); err != io.EOF {
+				t.Errorf("primatelj nije zatvorio vezu druge mreže: %v", err)
+			}
+			synctest.Wait()
+			if p, o := tu.pitan.Load(), tu.obrada.Load(); p != 0 || o != 0 {
+				t.Errorf("članstvo druge mreže pitano je %d puta, obrađeno %d veza", p, o)
+			}
+		})
+	})
 }
 
 // RTT na portu razmjene je trajanje rukovanja na strani koja zove: točno
@@ -221,4 +258,26 @@ func TestRTTRazmjeneNaPortu(t *testing.T) {
 			t.Errorf("primatelj: RTT %v, put %q, s adrese %s", p.RTT, p.Put, p.RemoteAddr())
 		}
 	})
+}
+
+// Greška DialExchangeOn kad druga strana dokaže drugi ključ prepoznaje se kao
+// ErrDrugiKljuc, a tekst je ostao isti (ljudi ga navode).
+func TestDrugiKljucJeErrDrugiKljuc(t *testing.T) {
+	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
+	defer otkazi()
+	posluzitelj := newKey(t)
+	var b brojac
+	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 4, time.Second), b.vjeruje, b.odgovori)
+	ocekivan := newKey(t).Public().(ed25519.PublicKey)
+	_, err := DialExchange(ctx, newKey(t), "testproto", nil, adresa, ocekivan)
+	if !errors.Is(err, ErrDrugiKljuc) {
+		t.Fatalf("drugi ključ: %v", err)
+	}
+	if !strings.HasPrefix(err.Error(), "the device at "+adresa+" proved a DIFFERENT key than the one paired — refusing to exchange. It presented ") ||
+		!strings.HasSuffix(err.Error(), "…, the pairing recorded "+PublicKeyString(ocekivan)[:8]+"…. Either that machine was rebuilt (pair again), or another process holds its sync port") {
+		t.Errorf("tekst greške: %v", err)
+	}
+	if errors.Is(errors.New("druga greška"), ErrDrugiKljuc) {
+		t.Error("svaka greška je ErrDrugiKljuc")
+	}
 }
