@@ -23,7 +23,9 @@ func privremena(rok *time.Time, sObranom bool, ovisiO *uuid.UUID) *models.Duty {
 func TestPrivremenaDuznostPoljaUBazi(t *testing.T) {
 	n := noviCvor(t, "ured")
 	repo := NewUserRepository(n.db, n.rec)
-	rok := time.Date(2026, 11, 30, 0, 0, 0, 0, time.UTC)
+	// Rok je 30. 11. iduće godine: popis osobe vraća samo dužnosti koje još
+	// nisu istekle, pa bi zakucan datum test srušio čim prođe.
+	rok := time.Date(time.Now().Year()+1, 11, 30, 0, 0, 0, 0, time.UTC)
 	izvor := uuid.New()
 	d := privremena(&rok, true, &izvor)
 	nuzno(t, repo.AddDuty(d))

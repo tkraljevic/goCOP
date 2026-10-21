@@ -54,6 +54,10 @@ func TestUpisiNaListPravoNaOdabranomPredanomListu(t *testing.T) {
 			ctx := context.Background()
 			dan := vdDan(time.March, 10)
 			k.o.naDan(dan)
+			// Pero je u program ušao dan nakon lista, pa list ulazi u doseg
+			// samo po mjestu na kojem je napisan. Bez toga je ušao u trenutku
+			// testa, a od 1. 1. do 10. 3. to je prije dana lista.
+			k.zaduzenOd(t, k.pero, dan.AddDate(0, 0, 1))
 			prvi := k.o.dvojnik(t, k.pero, dan, 1, "prvi list", true)
 			drugi := k.o.dvojnik(t, k.pero, dan, 2, "drugi list", true)
 			drugi.AreaID = 2

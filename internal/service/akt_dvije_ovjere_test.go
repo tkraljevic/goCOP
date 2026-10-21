@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"testing"
 	"time"
 
@@ -26,7 +27,10 @@ func TestIstiNacrtOvjerenNaDvaCvora(t *testing.T) {
 		o.akti.SetKljuc(k)
 	}
 	ctx := context.Background()
-	sat := time.Now().Add(-time.Hour).Truncate(time.Minute)
+	// Oznaka nosi godinu u kojoj akt vrijedi, a akti vrijede sat-dva prije
+	// testa. Pun sat drži sva tri akta (sat, +2 i +5 minuta) u istoj godini.
+	sat := time.Now().Add(-time.Hour).Truncate(time.Hour)
+	oznaka := func(broj int) string { return fmt.Sprintf("P-%d/%d", broj, sat.In(models.Zagreb).Year()) }
 	svoj, _ := posluzitelj.ovjeri(t, models.AktUspostava, models.PhasePrep, sat)
 	posluzitelj.ovjeri(t, models.AktPrekid, models.PhasePrep, sat.Add(2*time.Minute))
 	nacrt, err := laptop.akti.Pripremi(ctx, laptop.dezOvl, laptop.dezurni, service.ZahtjevAkta{StationID: laptop.letva.ID.String(),
@@ -39,11 +43,11 @@ func TestIstiNacrtOvjerenNaDvaCvora(t *testing.T) {
 	}
 	prenesiAkte(t, laptop, posluzitelj)
 	naLaptopu, _, err := laptop.akti.Ovjeri(ctx, laptop.ovlasti, laptop.rukovod, nacrt.ID, potvrdaPrimatelja)
-	if err != nil || naLaptopu.Oznaka() != "P-1/2026" {
+	if err != nil || naLaptopu.Oznaka() != oznaka(1) {
 		t.Fatalf("ovjera na laptopu: %v %+v", err, naLaptopu)
 	}
 	naPosluzitelju, _, err := posluzitelj.akti.Ovjeri(ctx, posluzitelj.ovlasti, posluzitelj.rukovod, nacrt.ID, potvrdaPrimatelja)
-	if err != nil || naPosluzitelju.Oznaka() != "P-3/2026" {
+	if err != nil || naPosluzitelju.Oznaka() != oznaka(3) {
 		t.Fatalf("ovjera na poslužitelju: %v %+v", err, naPosluzitelju)
 	}
 	prenesiAkte(t, laptop, posluzitelj)
@@ -59,7 +63,7 @@ func TestIstiNacrtOvjerenNaDvaCvora(t *testing.T) {
 			t.Fatalf("%s: na površini je najnovija ovjera, potpisana: %+v %v", ime, x, err)
 		}
 		s, ima := sukobi[nacrt.ID]
-		if !ima || s.Rijesen() || len(s.Ovjere) != 1 || s.Ovjere[0].Oznaka() != "P-1/2026" || s.Ovjere[0].OvjeraKod != naLaptopu.OvjeraKod ||
+		if !ima || s.Rijesen() || len(s.Ovjere) != 1 || s.Ovjere[0].Oznaka() != oznaka(1) || s.Ovjere[0].OvjeraKod != naLaptopu.OvjeraKod ||
 			service.ProvjeriPotpis(&s.Ovjere[0]) != service.PotpisVrijedi {
 			t.Errorf("%s: isti nacrt ovjeren dvaput mora biti označen, s potpisanom ovjerom laptopa: %+v", ime, sukobi)
 		}
