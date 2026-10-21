@@ -31,6 +31,11 @@ type Sadrzaj struct {
 	Preskoceno int        // sati koji lokalno ne postoje
 	OdGodine   int        // prva i zadnja godina koju datoteka pokriva, i kad
 	DoGodine   int        // je prazna: izvoz je prošao, mjerenja nema
+	// izDatoteke su krivulje poslane već u obliku datoteke krivulja, sa
+	// svojim izvorom i napomenom (ProcitajDatotekuKrivulja). Uz izvoz
+	// HIS-2000 prazno je, a poslana datoteka bez ijedne krivulje se odbija,
+	// pa prazno uvijek znači izvoz.
+	izDatoteke []razdobljeKrivulje
 }
 
 // Vrijednost je jedno očitanje; Dan je true kad izvor daje samo datum.

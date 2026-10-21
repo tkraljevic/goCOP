@@ -361,6 +361,10 @@
     </label>
     <button type="submit" class="btn btn-primary">{{icon "eye"}} Pogledaj krivulje</button>
   </div>
+  <p class="page-desc mt-2 mb-0">
+    Može se poslati i datoteka krivulja u obliku arhive, npr. od druge vodoprivrede; izvor i napomena tada
+    ostaju kakvi su u njoj.
+  </p>
 </form>
 
 <form method="POST" action="/administracija/uvoz-profila/pregled" enctype="multipart/form-data"
@@ -605,6 +609,7 @@
       {{if .Krivulje.ZatecenihOdsjecaka}}<span class="reg-card-sub">zatečeno {{.Krivulje.ZatecenihOdsjecaka}}</span>{{end}}</dd></div>
     <div><dt>Potencija</dt><dd>{{.Krivulje.Potencija}} <span class="reg-card-sub">donji dio krivulje</span></dd></div>
     <div><dt>Razdoblje</dt><dd class="mono">{{.Krivulje.Od}} .. {{.Krivulje.Do}}</dd></div>
+    <div><dt>Izvor</dt><dd>{{.Krivulje.Izvor}}</dd></div>
     {{if .Krivulje.KotaNule}}
     <div><dt>Kota nule uz krivulje</dt><dd class="mono">{{.Krivulje.KotaNule}} m
       {{if .Krivulje.Sirina}}<span class="reg-card-sub">{{.Krivulje.Sirina}} / {{.Krivulje.Duzina}}</span>{{end}}</dd></div>

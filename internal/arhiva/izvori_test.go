@@ -82,7 +82,7 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 	}
 	for naziv, ocekivanaSkupina := range map[string]string{
 		"his2000": models.SkupinaOvjereno, "vituki": models.SkupinaOvjereno, "arso": models.SkupinaOvjereno,
-		"his2000-cs": models.SkupinaOvjereno, "cop-rucno": models.SkupinaSLetve,
+		"his2000-cs": models.SkupinaOvjereno, "vizugy-ddvizig": models.SkupinaOvjereno, "cop-rucno": models.SkupinaSLetve,
 		"letva-dhmz": models.SkupinaOperativno, "cop": models.SkupinaOperativno,
 		"letva-hv":    models.SkupinaOperativno,
 		"geolux-seba": models.SkupinaOperativno,
@@ -109,6 +109,23 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 			t.Errorf("točnost %s: %v, očekivano %v", naziv, tocnosti[naziv], ocekivano)
 		}
 	}
+}
+
+// Mađarska vodoprivreda je među zadanim izvorima i ulazi u spoj. Točnost joj
+// je proglašena, ne izmjerena, pa to piše u napomeni. Da je u ovjerenoj
+// skupini, provjerava TestIzvoriSuSravnjeniUTriSkupine.
+func TestMadjarskaVodoprivredaUlaziUSpoj(t *testing.T) {
+	for _, i := range zadaniIzvori {
+		if i.Naziv != "vizugy-ddvizig" {
+			continue
+		}
+		if i.Tocnost != 5 || !i.Ukljucen || i.Mapa != "" ||
+			!strings.Contains(i.Napomena, "proglašena, ne izmjerena") {
+			t.Errorf("vizugy-ddvizig: %+v", i)
+		}
+		return
+	}
+	t.Error("vizugy-ddvizig nije među zadanim izvorima")
 }
 
 // Izvor kojeg nitko nije upisao ulazi isključen. Bolje da čeka odluku nego da

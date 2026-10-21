@@ -35,3 +35,13 @@ func TestZonaIzvora(t *testing.T) {
 		t.Error("razlika zima/ljeto nije jedan sat")
 	}
 }
+
+// Nizovi mađarske vodoprivrede uvezeni su u lokalnom vremenu, pa su tako
+// zapisani i u stablu arhive. Izvor zato ostaje u našoj zoni. Kad bi ušao na
+// popis izvora u UTC-u, sljedeća gradnja pomaknula bi sve njegove nizove za
+// sat ili dva.
+func TestMadjarskaVodoprivredaULokalnomVremenu(t *testing.T) {
+	if z := zonaIzvora("vizugy-ddvizig"); z != Zagreb {
+		t.Errorf("vizugy-ddvizig: zona %v, očekivano Europe/Zagreb", z)
+	}
+}
