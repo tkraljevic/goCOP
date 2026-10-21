@@ -204,12 +204,13 @@ func procitajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {
 
 // citajKrivulje prepoznaje datoteku po prvom retku. Datoteka krivulja u
 // obliku arhive, npr. od druge vodoprivrede, počinje imenima stupaca i
-// zadržava svoj izvor i napomenu. Sve ostalo čita se kao izvoz HIS-2000.
+// zadržava svoj izvor i napomenu, pa bez izvora ne prolazi. Sve ostalo čita
+// se kao izvoz HIS-2000.
 func citajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {
 	if his2000.JeDatotekaKrivulja(sadrzaj) {
 		s, err := his2000.ProcitajDatotekuKrivulja(ime, sadrzaj)
 		if err != nil {
-			return nil, fmt.Errorf("datoteka krivulja ne da se pročitati: %w", err)
+			return nil, fmt.Errorf("datoteka krivulja nije primljena: %w", err)
 		}
 		return s, nil
 	}

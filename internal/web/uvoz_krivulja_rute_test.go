@@ -101,8 +101,9 @@ func TestKrivuljePregledNaStranici(t *testing.T) {
 }
 
 // Pregled krivulja ne otvara se bez prava i tuđu letvu ne gleda; obrazac koji
-// nije višedijelni, obrazac bez datoteke, prevelika datoteka i datoteka koja
-// nije izvoz HIS-a vraćaju poruku, a ništa ne čeka potvrdu.
+// nije višedijelni, obrazac bez datoteke, prevelika datoteka, datoteka koja
+// nije izvoz HIS-a i datoteka krivulja bez krivulja ili izvan UTF-8 vraćaju
+// poruku, a ništa ne čeka potvrdu.
 func TestKrivuljePregledOdbija(t *testing.T) {
 	o := novaOkolinaVrata(t)
 	o.h.tmpl = sazetakKrivulja(t)
@@ -127,6 +128,12 @@ func TestKrivuljePregledOdbija(t *testing.T) {
 		{"zaglavlje krivulja bez stupca p1", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"letva": "primjerovo"},
 			datotekaObrasca{"datoteka", "krivulje.csv", "vrijedi_od;vrijedi_do;od_cm;do_cm;p2;p3\n2001-01-01;;0;100;2;3\n"}),
 			http.StatusOK, "greska=datoteka se ne čita kao HIS-2000 izvoz"},
+		{"datoteka krivulja samo sa zaglavljem", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"letva": "primjerovo"},
+			datotekaObrasca{"datoteka", "susjed.csv", zaglavljeKrivuljaTesta}),
+			http.StatusOK, "greska=datoteka krivulja nije primljena: ispod zaglavlja nema nijedne krivulje"},
+		{"datoteka krivulja nije UTF-8", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"letva": "primjerovo"},
+			datotekaObrasca{"datoteka", "susjed.csv", zaglavljeKrivuljaTesta + "2001-01-01;;0;100;polinom;1;2;3;;Ma\xf0arska;\n"}),
+			http.StatusOK, "greska=datoteka krivulja nije primljena: nije spremljena kao UTF-8"},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			w := odgovor(o.h.PregledUvozaKrivulja, s.r, s.u, s.p)

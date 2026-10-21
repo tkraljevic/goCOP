@@ -33,7 +33,8 @@ type Sadrzaj struct {
 	DoGodine   int        // je prazna: izvoz je prošao, mjerenja nema
 	// izDatoteke su krivulje poslane već u obliku datoteke krivulja, sa
 	// svojim izvorom i napomenom (ProcitajDatotekuKrivulja). Uz izvoz
-	// HIS-2000 prazno je.
+	// HIS-2000 prazno je, a poslana datoteka bez ijedne krivulje se odbija,
+	// pa prazno uvijek znači izvoz.
 	izDatoteke []razdobljeKrivulje
 }
 

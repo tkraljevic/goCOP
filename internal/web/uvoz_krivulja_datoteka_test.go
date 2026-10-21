@@ -56,7 +56,7 @@ func TestPregledKrivuljaIzDatotekeKrivulja(t *testing.T) {
 	}
 
 	_, err = pregledKrivulja("susjed.csv", []byte(zaglavljeKrivuljaTesta+"2001-01-01;;nula;100;polinom;1;2;3;;;\n"), "primjerovo", o.koren)
-	if err == nil || !strings.HasPrefix(err.Error(), "datoteka krivulja ne da se pročitati: redak 2: ") {
+	if err == nil || !strings.HasPrefix(err.Error(), "datoteka krivulja nije primljena: redak 2: ") {
 		t.Errorf("nečitljiv redak poslane datoteke: %v", err)
 	}
 }

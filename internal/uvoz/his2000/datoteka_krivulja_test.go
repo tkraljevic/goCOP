@@ -115,7 +115,6 @@ func TestDatotekaKrivuljaZadnjaKaoIzvoz(t *testing.T) {
 }
 
 // Redak koji gradnja ne bi pročitala odbija cijelu datoteku i kaže koji je.
-// Datoteka bez ijednog retka nema krivulja.
 func TestDatotekaKrivuljaNecitljivRedak(t *testing.T) {
 	_, err := ProcitajDatotekuKrivulja("susjed.csv", []byte(ZaglavljeKrivulja+"\n"+
 		redakSusjeda("2001-01-01", "", "21")+"2010-01-01;;nula;600;polinom;1;2;3;;"+izvorSusjeda+";\n"))
@@ -123,9 +122,63 @@ func TestDatotekaKrivuljaNecitljivRedak(t *testing.T) {
 	if !errors.As(err, &nr) || nr.Redak != 3 || !strings.Contains(nr.Razlog, "od_cm") {
 		t.Errorf("nečitljiv redak: %v", err)
 	}
-	s, err := ProcitajDatotekuKrivulja("susjed.csv", []byte(ZaglavljeKrivulja+"\n"))
-	if err != nil || len(s.Krivulje) != 0 || s.IzvoriKrivulja() != nil {
-		t.Errorf("datoteka bez redaka: %+v, %v", s, err)
+}
+
+// Poslana datoteka odbija se i zbog onoga što gradnja propušta: nije UTF-8
+// (Excel na hrvatskom Windowsu sprema CSV kao Windows-1250), nema nijedne
+// krivulje, kraj nije dan ili je prije početka, krivulja nema izvor. Bez
+// izvora krivulja druge službe ne smije ući, ni pod DHMZ ni prazna.
+func TestDatotekaKrivuljaOdbija(t *testing.T) {
+	bezStupcaIzvora := "vrijedi_od;vrijedi_do;od_cm;do_cm;oblik;p1;p2;p3;p4\n2001-01-01;;-100;600;polinom;10;200;300;\n"
+	for _, s := range []struct {
+		opis, sadrzaj, poruka string
+	}{
+		{"Windows-1250", ZaglavljeKrivulja + "\n2001-01-01;;-100;600;polinom;10;200;300;;Ma\xf0arska;\n", "UTF-8"},
+		{"samo zaglavlje", ZaglavljeKrivulja + "\n", "nema nijedne krivulje"},
+		{"kraj nije dan", ZaglavljeKrivulja + "\n" + redakSusjeda("2001-01-01", "31.12.2005", "10"), "od 2001-01-01 ima kraj „31.12.2005”"},
+		{"kraj prije početka", ZaglavljeKrivulja + "\n" + redakSusjeda("2001-01-01", "2000-12-31", "10"), "ima kraj „2000-12-31”"},
+		{"prazan izvor", ZaglavljeKrivulja + "\n" + redakSusjeda("2001-01-01", "", "10") +
+			"2010-01-01;;-100;600;polinom;20;200;300;;;napomena bez izvora\n", "od 2010-01-01 nema izvor"},
+		{"bez stupca izvor", bezStupcaIzvora, "od 2001-01-01 nema izvor"},
+	} {
+		if _, err := ProcitajDatotekuKrivulja("susjed.csv", []byte(s.sadrzaj)); err == nil || !strings.Contains(err.Error(), s.poruka) {
+			t.Errorf("%s: %v, očekivano %q", s.opis, err, s.poruka)
+		}
+	}
+	// Kraj na dan početka je krivulja od jednog dana, i prolazi.
+	if _, err := ProcitajDatotekuKrivulja("susjed.csv", []byte(ZaglavljeKrivulja+"\n"+redakSusjeda("2001-01-01", "2001-01-01", "10"))); err != nil {
+		t.Errorf("kraj na dan početka: %v", err)
+	}
+}
+
+// Krivulja bez kraja koja u datoteci nije zadnja vrijedi do sljedeće iz
+// datoteke, a ne do kraja zatečene krivulje istog početka. Zatečena krivulja
+// koja počinje usred nje ostaje i javlja se u pregledu.
+func TestDatotekaKrivuljaSrednjaBezKraja(t *testing.T) {
+	zateceno := ZaglavljeKrivulja + "\n" +
+		redakKrivulje("2001-01-01", "2003-12-31", "20") +
+		redakKrivulje("2008-01-01", "", "30")
+	s, err := ProcitajDatotekuKrivulja("susjed.csv", []byte(ZaglavljeKrivulja+"\n"+
+		redakSusjeda("2010-01-01", "", "41")+redakSusjeda("2001-01-01", "", "21")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !s.Krivulje[0].Do.Equal(dan(2009, 12, 31)) || !s.Krivulje[1].Do.IsZero() {
+		t.Errorf("krajevi u pregledu: %v, %v", s.Krivulje[0].Do, s.Krivulje[1].Do)
+	}
+	sp, err := SpojiKrivulje([]byte(zateceno), s)
+	if err != nil {
+		t.Fatal(err)
+	}
+	zeli := ZaglavljeKrivulja + "\n" +
+		redakSusjeda("2001-01-01", "2009-12-31", "21") +
+		redakKrivulje("2008-01-01", "2009-12-31", "30") +
+		redakSusjeda("2010-01-01", "", "41")
+	if string(sp.CSV) != zeli {
+		t.Errorf("spojene krivulje:\n%s", sp.CSV)
+	}
+	if strings.Join(sp.Usred, ",") != "2008-01-01" {
+		t.Errorf("zatečena krivulja usred poslane: %v", sp.Usred)
 	}
 }
 
