@@ -40,8 +40,8 @@ func TestZaboravCvora(t *testing.T) {
 }
 
 // Kad brisanje ili arhiviranje ne uspije, čvor ostaje na popisu; kad se
-// popis ne da pročitati, ne briše se ništa. Pokušaji spajanja i put zadnje
-// veze zaborave se svaki put.
+// popis ne da pročitati, ne briše se ništa. Pokušaji spajanja, put zadnje
+// veze i tvrdnje o adresama zaborave se svaki put.
 func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 	for ime, kvar := range map[string]func(t *testing.T, s *Service){
 		"brisanje padne":    func(t *testing.T, s *Service) { kvarUpisa(t, s, "DELETE", "peers", "") },
@@ -55,12 +55,13 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			}
 			s.zapamtiPokusaj("laptop-baranja", "192.0.2.7:4710", nil)
 			s.zapamtiPut(&Peer{NodeID: "laptop-baranja"}, &razmjena.Conn{Put: razmjena.PutLAN})
+			s.dodajTvrdnju("laptop-baranja", kandidat{"192.168.24.70:4710", razmjena.PutAdresa})
 			kvar(t, s)
 			if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err == nil {
 				t.Fatal("zaborav je prošao")
 			}
-			if n, put := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"); n != 0 || put != "" {
-				t.Errorf("nakon neuspjelog zaborava: %d pokušaja, put %q", n, put)
+			if n, put, tvrdnje := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"), s.uzmiTvrdnju("laptop-baranja"); n != 0 || put != "" || tvrdnje != nil {
+				t.Errorf("nakon neuspjelog zaborava: %d pokušaja, put %q, tvrdnje %v", n, put, tvrdnje)
 			}
 			if ime == "popis se ne čita" {
 				return
@@ -147,14 +148,18 @@ func lazniGlasnik(t *testing.T, beaconi ...razmjena.Beacon) int {
 	return conn.LocalAddr().(*net.UDPAddr).Port
 }
 
-// Pronalaženje ne vraća ovaj čvor, za poznati čvor kaže da je poznat i
-// osvježi mu adresu (laptop se preselio), a nepoznati samo navede.
+// Pronalaženje ne vraća ovaj čvor, za poznati čvor kaže da je poznat, a
+// nepoznati samo navede. Adresa na kojoj se poznati čvor javio (laptop se
+// preselio) ne ide u njegov zapis, pa nema nove verzije: to je tvrdnja, koju
+// razmjena nazove ispred adresa iz zapisa. Tvrdnja ostaje dok je razmjena ne
+// nazove, a nakon toga je nema.
 func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "laptop-baranja", PublicKey: javniKljuc(t),
 		Addresses: []string{"192.0.2.10:4710"}}); err != nil {
 		t.Fatal(err)
 	}
+	verzija := verzijeZapisaCvorova(t, s)
 	s.ports.Discovery = lazniGlasnik(t,
 		razmjena.Beacon{Protocol: Protocol, DeviceID: "cop-osijek", Name: "Osijek", ExchangePort: 4710},
 		razmjena.Beacon{Protocol: Protocol, DeviceID: "laptop-baranja", Name: "Laptop Baranja", ExchangePort: 4711},
@@ -178,11 +183,69 @@ func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !slices.Equal(laptop.Addresses, []string{"127.0.0.1:4711", "192.0.2.10:4710"}) || laptop.LastSeen == nil {
-		t.Errorf("poznatom čvoru adresa nije osvježena: %v, viđen %v", laptop.Addresses, laptop.LastSeen)
+	if !slices.Equal(laptop.Addresses, []string{"192.0.2.10:4710"}) || laptop.LastSeen == nil {
+		t.Errorf("zapis poznatog čvora: adrese %v, viđen %v", laptop.Addresses, laptop.LastSeen)
 	}
-	if p, _ := s.GetPeer(ctxRub, "ured-vukovar"); p != nil {
-		t.Error("nepoznati čvor je upisan samo zato što se javio")
+	if n := verzijeZapisaCvorova(t, s); n != verzija {
+		t.Errorf("pronalaženje je napisalo %d novih verzija zapisa čvorova", n-verzija)
+	}
+	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); p != nil || err != nil {
+		t.Errorf("nepoznati čvor je upisan samo zato što se javio: %+v %v", p, err)
+	}
+	tvrdnja := kandidat{"127.0.0.1:4711", razmjena.PutLAN}
+	if got := s.uzmiTvrdnju("laptop-baranja"); !slices.Equal(got, []kandidat{tvrdnja}) {
+		t.Errorf("tvrdnja o adresi poznatog čvora: %v", got)
+	}
+	if got := s.uzmiTvrdnju("ured-vukovar"); got != nil {
+		t.Errorf("tvrdnja o nepoznatom čvoru: %v", got)
+	}
+
+	// bez pronalaženja, da adresa ne dođe i iz lokalne mreže
+	s.ports.Discovery = 0
+	if got := s.adreseZaSpajanje(ctxRub, laptop); !slices.Equal(got, []kandidat{tvrdnja, {"192.0.2.10:4710", razmjena.PutAdresa}}) {
+		t.Errorf("adrese za spajanje: %v", got)
+	}
+	if got := s.adreseZaSpajanje(ctxRub, laptop); len(got) != 2 {
+		t.Errorf("tvrdnja je nestala prije nego što je nazvana: %v", got)
+	}
+	s.dial = func(_ context.Context, adresa string) (net.Conn, error) {
+		return nil, errors.New("dial tcp " + adresa + ": connect: connection refused")
+	}
+	if _, err := s.nazovi(ctxRub, laptop, tvrdnja, nil); err == nil {
+		t.Fatal("poziv na adresu na kojoj nitko ne sluša")
+	}
+	if got := s.adreseZaSpajanje(ctxRub, laptop); !slices.Equal(got, []kandidat{{"192.0.2.10:4710", razmjena.PutAdresa}}) {
+		t.Errorf("nakon poziva tvrdnje: %v", got)
+	}
+}
+
+// Kad se lokalna mreža ne da probati, pronalaženje javlja grešku. Tailscale
+// adresa na kojoj se poznati čvor javi nije tvrdnja, a čvor je ipak viđen.
+func TestPronalazenjeBezTvrdnjeOTailscaleAdresi(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "laptop-baranja", PublicKey: javniKljuc(t)}); err != nil {
+		t.Fatal(err)
+	}
+	s.pronadji = func(string, time.Duration, int) ([]razmjena.Found, error) {
+		return nil, errors.New("listen udp4 :0: address already in use")
+	}
+	if _, err := s.Discover(ctxRub, time.Second); err == nil {
+		t.Error("pronalaženje bez lokalne mreže prošlo je bez greške")
+	}
+	var proba time.Duration
+	s.pronadji = func(_ string, rok time.Duration, _ int) ([]razmjena.Found, error) {
+		proba = rok
+		return []razmjena.Found{{Beacon: razmjena.Beacon{DeviceID: "laptop-baranja", ExchangePort: 4710}, Addr: "100.101.0.9"}}, nil
+	}
+	nadjeni, err := s.Discover(ctxRub, 2*time.Second)
+	if err != nil || len(nadjeni) != 1 || !nadjeni[0].Known || proba != 2*time.Second {
+		t.Fatalf("pronađeni: %+v %v, rok probe %v", nadjeni, err, proba)
+	}
+	if got := s.uzmiTvrdnju("laptop-baranja"); got != nil {
+		t.Errorf("Tailscale adresa iz pronalaženja je tvrdnja: %v", got)
+	}
+	if p, err := s.GetPeer(ctxRub, "laptop-baranja"); err != nil || p == nil || p.LastSeen == nil {
+		t.Errorf("čvor nije viđen: %+v %v", p, err)
 	}
 }
 

@@ -64,6 +64,9 @@ type syncOutcome struct {
 	znanje           razmjena.Znanje // što je drugi čvor javio da zna
 	took             time.Duration
 	err              error
+	// dolazna: razmjenu je započeo drugi čvor, pa je njegova adresa veze
+	// samo tvrdnja s prolaznim portom (nauci)
+	dolazna bool
 }
 
 // ishodRazmjene slaže bilješku iz onoga što je exchange vratio; inačica

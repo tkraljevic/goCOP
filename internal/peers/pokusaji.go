@@ -34,13 +34,14 @@ type pokusajNa struct {
 }
 
 // pamcenjeVeza je ono što ovaj čvor o vezama s drugim računalima pamti samo
-// u memoriji: pokušaje spajanja po računalu, najstariji prvi, i put zadnje
-// veze. Oboje je na jednom mjestu, pa zaborav računala (ForgetPeer) briše
-// oboje odjednom.
+// u memoriji: pokušaje spajanja po računalu, najstariji prvi, put zadnje
+// veze i tvrdnje o adresama koje još nisu nazvane (naucene_adrese.go). Sve je
+// na jednom mjestu, pa zaborav računala (ForgetPeer) briše sve odjednom.
 type pamcenjeVeza struct {
 	mu       sync.Mutex
 	pokusaji map[string][]pokusajNa  // nodeID → pokušaji
 	put      map[string]razmjena.Put // nodeID → put zadnje veze
+	tvrdnje  map[string][]kandidat   // nodeID → tvrdnje, najnovija prva
 }
 
 // zapamtiPokusaj pamti kako je prošlo spajanje na adresu računala (nazovi),
@@ -97,11 +98,12 @@ func (s *Service) putZadnjeVeze(nodeID string) razmjena.Put {
 	return s.veze.put[nodeID]
 }
 
-// zaboraviPokusaje zaboravi pokušaje i put zadnje veze računala koje je
-// ovaj čvor zaboravio (ForgetPeer)
+// zaboraviPokusaje zaboravi pokušaje, put zadnje veze i tvrdnje o adresama
+// računala koje je ovaj čvor zaboravio (ForgetPeer)
 func (s *Service) zaboraviPokusaje(nodeID string) {
 	s.veze.mu.Lock()
 	defer s.veze.mu.Unlock()
 	delete(s.veze.pokusaji, nodeID)
 	delete(s.veze.put, nodeID)
+	delete(s.veze.tvrdnje, nodeID)
 }
