@@ -399,6 +399,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 				Ciljni: sada, Vrijednost: v, Dolje: v, Gore: v, Model: o.Model})
 		}
 	}
+	donjiRubProtoka(ishod.Izdane)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
@@ -684,7 +685,8 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 			continue
 		}
 		// Protok kroz krivulju letve, kao i satna prognoza u drugoj veličini:
-		// granice idu kroz krivulju, jer je ona rastuća.
+		// granice idu kroz krivulju, jer je ona rastuća. Granica koja iz
+		// krivulje ispadne ne briše protok (rasponKrozKrivulju).
 		if krivulje, err := o.ucitajKrivulje(ctx, c.Letva); err == nil && len(krivulje) > 0 {
 			for i := range d {
 				k := KrivuljaZa(krivulje, time.Unix(d[i].Ciljni*3600, 0).UTC())
@@ -695,14 +697,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				if !ok {
 					continue
 				}
-				// Granica raspona koja ispadne iz krivulje ne briše protok:
-				// uzima se jednaka vrijednosti, kao u satnoj prognozi. Vukovar
-				// 1. 10. 2026. — vodostaj −88 u krivulji, donja granica −105 ne.
-				qd, _, okD := pretvori(k, "protok", d[i].Dolje)
-				qg, _, okG := pretvori(k, "protok", d[i].Gore)
-				if !okD || !okG {
-					qd, qg = q, q
-				}
+				qd, qg, _ := rasponKrozKrivulju(k, "protok", q, d[i].Dolje, d[i].Gore)
 				d[i].Q, d[i].QDolje, d[i].QGore, d[i].ImaQ = q, qd, qg, true
 			}
 		}
@@ -1125,6 +1120,7 @@ func sidraDrugih(druge map[Izvor]Niz, sada int64) []Izdana {
 // Granice raspona idu kroz krivulju jednako kao i sama vrijednost — krivulja
 // je rastuća, pa granica od 68 % ostaje granica od 68 %. Množenje nagibom bi
 // pri maloj vodi, gdje je krivulja najzakrivljenija, dalo krivu širinu.
+// Granicu koja iz krivulje ispadne određuje rasponKrozKrivulju.
 func (o *Osvjezivac) uDrugojVelicini(ctx context.Context, izdane []Izdana) []Izdana {
 	if len(izdane) == 0 {
 		return nil
@@ -1147,19 +1143,84 @@ func (o *Osvjezivac) uDrugojVelicini(ctx context.Context, izdane []Izdana) []Izd
 		if !ok {
 			continue
 		}
-		d, izvanD, okD := pretvori(k, ciljna, i.Dolje)
-		g, izvanG, okG := pretvori(k, ciljna, i.Gore)
-		if !okD || !okG {
-			d, g = v, v
-			izvanD, izvanG = izvanV, izvanV
-		}
+		d, g, izvanR := rasponKrozKrivulju(k, ciljna, v, i.Dolje, i.Gore)
 		n := i
 		n.Velicina, n.Vrijednost, n.Dolje, n.Gore = ciljna, v, d, g
 		n.Racunata = true
-		n.Izvan = izvanV || izvanD || izvanG
+		n.Izvan = izvanV || izvanR
 		out = append(out, n)
 	}
 	return out
+}
+
+// rasponKrozKrivulju vodi granice raspona kroz krivulju, oko vrijednosti v
+// koja je kroz nju već prošla.
+//
+// Granica koja padne preko produljenja krivulje ne smije stisnuti raspon na
+// vrijednost: raspon bi tada tvrdio da je prognoza sigurna upravo ondje gdje
+// se krivulja nagađa. Zato granica dobiva istu udaljenost od vrijednosti kao
+// ona druga, koja je prošla, a nikad nije bliže od kraja krivulje, jer je
+// prava granica još dalje od njega. Pri maloj vodi svaki centimetar niže
+// nosi manje vode nego onaj iznad, pa je ovako zrcaljen donji rub protoka
+// niži od pravoga: raspon ispadne širi, a ne uži.
+//
+// Ne prođe li nijedna granica, raspona nema: obje stoje na vrijednosti.
+// Protok ne ide ispod nule. Treće što se vraća javlja da je granica izašla
+// iz umjerenog dijela krivulje ili iz nje cijele.
+func rasponKrozKrivulju(k *models.HQKrivulja, ciljna string, v, dolje, gore float64) (float64, float64, bool) {
+	najn, najv, _ := k.Raspon()
+	d, izvanD, pravaD := granicaKrozKrivulju(k, ciljna, dolje, najn-models.ProsirenjeKrivuljeCm)
+	g, izvanG, pravaG := granicaKrozKrivulju(k, ciljna, gore, najv+models.ProsirenjeKrivuljeCm)
+	switch {
+	case !pravaD && !pravaG:
+		d, g = v, v
+	case !pravaD:
+		d = math.Min(d, v-(g-v))
+	case !pravaG:
+		g = math.Max(g, v+(v-d))
+	}
+	if ciljna == "protok" {
+		d = math.Max(d, 0)
+	}
+	return d, g, izvanD || izvanG
+}
+
+// granicaKrozKrivulju vodi jednu granicu raspona kroz krivulju. Vraća
+// granicu, je li izvan umjerenog dijela krivulje i je li stvarno prošla. Kad
+// nije, vraća ono što krivulja daje na kraju produljenja s te strane (kraj,
+// u cm), uz oznaku izvan.
+func granicaKrozKrivulju(k *models.HQKrivulja, ciljna string, granica float64, kraj int) (float64, bool, bool) {
+	if ciljna == "vodostaj" {
+		// Obrat ne pada preko kraja krivulje nego na njemu stane. Je li
+		// stao, vidi se po tome ide li krivulja od njega još centimetar dalje
+		// na obje strane; kraj se tako ne pogađa brojem nego čita iz nje.
+		cm, izvan, ok := k.Vodostaj(granica)
+		if !ok {
+			return float64(kraj), true, false
+		}
+		_, _, nize := k.ProtokProsiren(cm - 1)
+		_, _, vise := k.ProtokProsiren(cm + 1)
+		return float64(cm), izvan, nize && vise
+	}
+	if q, izvan, ok := k.ProtokProsiren(int(math.Round(granica))); ok {
+		return q, izvan, true
+	}
+	if q, _, ok := k.ProtokProsiren(kraj); ok {
+		return q, true, false
+	}
+	return 0, true, false
+}
+
+// donjiRubProtoka podiže donji rub raspona protoka na nulu. Raspon je iste
+// širine pri maloj vodi kao i pri većoj, pa oko male vode zna pasti ispod
+// nule, a protoka ondje nema — ne daje ga ni produljena krivulja
+// (ProtokProsiren). Sama vrijednost se ne dira.
+func donjiRubProtoka(izdane []Izdana) {
+	for i := range izdane {
+		if izdane[i].Velicina == "protok" && izdane[i].Dolje < 0 && izdane[i].Vrijednost >= 0 {
+			izdane[i].Dolje = 0
+		}
+	}
 }
 
 // Pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu (vodostaj
