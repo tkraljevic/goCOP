@@ -410,6 +410,12 @@ func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, append(slices.Clone(izravne), tailscale, tunel)) {
 		t.Errorf("s Tailscaleom: %v", got)
 	}
+	// adresa bez porta dobije port koji se za čvor zna, pa se ista adresa
+	// s portom ne zove dvaput
+	bezPorta := Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7", " 192.0.2.8 ", "192.0.2.7:4720"}}
+	if got := s.adreseZaSpajanje(ctxRub, &bezPorta); !slices.Equal(got, []kandidat{{"192.0.2.7:4720", razmjena.PutAdresa}, {"192.0.2.8:4720", razmjena.PutAdresa}, tailscale}) {
+		t.Errorf("adrese bez porta: %v", got)
+	}
 	s.ports.Discovery = lazniGlasnik(t, razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4711})
 	lan := kandidat{"127.0.0.1:4711", razmjena.PutLAN}
 	if got := s.adreseZaSpajanje(ctxRub, &p); len(got) != 5 || got[0] != lan {

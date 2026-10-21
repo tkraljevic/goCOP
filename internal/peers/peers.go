@@ -1035,14 +1035,19 @@ type kandidat struct {
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
 // na kojoj se upravo javio u lokalnoj mreži, izravne adrese iz zapisa,
 // Tailscale adrese koje je čvor sam javio, a tunel zadnji. Tunel je
-// najsporiji, a u istoj mreži port razmjene je brži.
+// najsporiji, a u istoj mreži port razmjene je brži. Izravna adresa bez
+// porta dobije port koji se za čvor zna, pa se ista adresa ne zove dvaput.
 func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
+	port := s.exchangePortOf(*peer)
 	var izravne, tuneli []string
 	for _, a := range bezTailscalea(peer.Addresses) {
-		if razmjena.JeAdresaTunela(a) {
+		switch a = strings.TrimSpace(a); {
+		case a == "":
+			// prazna adresa iz zapisa se ne zove
+		case razmjena.JeAdresaTunela(a):
 			tuneli = append(tuneli, a)
-		} else {
-			izravne = append(izravne, a)
+		default:
+			izravne = append(izravne, withPort(a, port))
 		}
 	}
 	kandidati := append(s.uLokalnojMrezi(peer.NodeID), uz(razmjena.PutAdresa, izravne)...)
@@ -1115,7 +1120,8 @@ func (s *Service) spoji(ctx context.Context, peer *Peer, k kandidat, expect ed25
 		return s.tunelKlijent.DialTunel(ctx, s.node.key, Protocol, s.vjerodajnice, k.adresa, expect)
 	}
 	// adresa bez porta je stari zapis ili ručni unos: vrijedi port koji se
-	// za taj čvor zna iz drugih adresa, inače zadani
+	// za taj čvor zna iz drugih adresa, inače zadani. adreseZaSpajanje ga
+	// dodaje već prije, a ovdje vrijedi za svaku adresu koja dođe drukčije.
 	adresa := withPort(k.adresa, s.exchangePortOf(*peer))
 	raw, err := s.otvori(ctx, adresa)
 	if err != nil {
