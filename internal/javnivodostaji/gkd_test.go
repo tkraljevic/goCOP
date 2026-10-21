@@ -1,6 +1,7 @@
 package javnivodostaji
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,5 +27,15 @@ func TestGKDPrepoznajeAdresu(t *testing.T) {
 	a := "https://www.gkd.bayern.de/de/fluesse/wasserstand/passau/passau-ingling-18008008/messwerte?method=tabellen"
 	if got := PostajaGKDIzAdrese(a); got != "18008008" {
 		t.Fatalf("broj postaje %q", got)
+	}
+}
+
+func TestCitajGKDBezTabliceNavodiNaslov(t *testing.T) {
+	_, err := CitajGKD("<html><head><title>Zugang gesperrt</title></head><body>nichts</body></html>")
+	if err == nil || !strings.Contains(err.Error(), "„Zugang gesperrt”") {
+		t.Fatalf("poruka bez naslova stranice: %v", err)
+	}
+	if _, err := CitajGKD("<p>nichts</p>"); err == nil || !strings.Contains(err.Error(), "nema tablice") {
+		t.Errorf("stranica bez naslova: %v", err)
 	}
 }
