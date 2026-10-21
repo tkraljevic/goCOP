@@ -167,6 +167,32 @@ izvorne datoteke, pa treba zasebnu čistu kopiju repozitorija i jedan paket:
 `make quality-deep MUTATION_ROOT=/put/do/kopije MUTATION_PACKAGE=internal/models`.
 Pripremljeno je, ali još nije pokrenuto.
 
+### Provjera istodobnog pristupa
+
+Testovi idu s Go-ovom provjerom istodobnog pristupa (race). Ona javi kad
+dvije dretve u isto vrijeme, bez zaključavanja, pristupe istim podacima, a
+bar jedna ih mijenja. Provjera usporava testove nekoliko puta, a tuđi kod
+mnogo više: pogonski program baze SQLite (`modernc.org/...`) i bcrypt, kojim
+se provjeravaju lozinke. Zato `make quality` i provjera na GitHubu bez
+provjere prevode SQLite i cijeli `golang.org/x/crypto/...` (Odluke
+(18. 10. 2026.)). Iz `golang.org/x/crypto` goCOP osim bcrypta koristi i
+scrypt i hkdf (e-potpis, kod za primanje, drugi korak prijave), md4
+(prijava na Exchange, NTLM) i pbkdf2, pa ni oni nisu pod provjerom. Za sve
+te pakete ugašena je i provjera pretvorbe pokazivača (checkptr). S tim
+iznimkama svi testovi lokalno traju tri i pol minute umjesto šest, uz istu
+pokrivenost.
+
+Sav kod goCOP-a i standardna biblioteka Go-a, pa i `database/sql`, preko
+kojeg goCOP radi s bazom, i dalje su pod provjerom. Ne vidi se samo utrka
+koja zahvati kod SQLite-a ili paketa `golang.org/x/crypto`, npr. kad naš kod
+mijenja podatak koji pogonski program baze u isto vrijeme čita. Test u
+`dev/quality` na probnom paketu s namjernom utrkom provjerava da se utrka u
+kodu goCOP-a i dalje javlja i da iznimka vrijedi samo za te tuđe pakete.
+
+Zato jednom tjedno, i kad se pokrene ručno, GitHub pokreće sve testove s
+punom provjerom, bez iznimke (`make quality-puni-race`). Taj posao javlja
+samo utrku ili pad testa i ništa ne uspoređuje s referentnim mjerenjem.
+
 ### Što piše u izvještaju
 
 Izvještaj je na engleskom, jer su to nazivi alata. Ovo su riječi koje se u
@@ -176,6 +202,8 @@ njemu ponavljaju:
   kad izmjena ništa nije pogoršala, ali ostaje stari dug (funkcije iznad
   granice, pokrivenost ispod cilja, upozorenja statičke analize), a `FAIL`
   kad je izmjena nešto pogoršala ili je pao test.
+- Race kaže je li prošla provjera istodobnog pristupa. U zagradi su tuđi
+  paketi koje ta provjera ne nadzire (vidi gore).
 - CRAP je rizik izmjene, opisan gore. Funkcije se broje po razredima rizika:
   do 10, od 10 do 30, od 30 do 100 i iznad 100.
 - Exact duplication je udio koda koji se doslovno ponavlja u tijelima

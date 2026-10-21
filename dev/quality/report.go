@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 )
 
 func percent(c coverage) string {
@@ -15,13 +16,22 @@ func percent(c coverage) string {
 	return fmt.Sprintf("%.2f %%", *c.Percent)
 }
 
+// raceOpis je ishod race uz tuđe pakete koje provjera ne nadzire
+// (tudjiBezRacea), da se iz izvještaja ne zaključi da je to bio puni race
+func raceOpis(race string) string {
+	if (race != "PASS" && race != "FAIL") || len(tudjiBezRacea) == 0 {
+		return race
+	}
+	return race + " (bez nadzora: " + strings.Join(tudjiBezRacea, ", ") + ")"
+}
+
 func printSummary(r report) {
 	if r.Measurements != "PASS" {
 		fmt.Println("UPOZORENJE: mjerenje nije dovršeno; brojčane metrike nisu valjane.")
 	}
 	d := r.CRAPRaspodjela
 	fmt.Printf("\ngoCOP CODE HEALTH\n────────────────────────────────\nStatic analysis       %s (%d errors, %d warnings)\nTests                 %s\nRace detector         %s\nCoverage              %s\nCritical coverage     %s\nAverage CRAP          %.2f\nMedian CRAP           %.2f\nP90 / P95 CRAP        %.2f / %.2f\nWorst CRAP            %.2f\nCRAP ≤10/≤30/≤100/>100  %d / %d / %d / %d\nAverage complexity    %.2f\nMax complexity        %d\nExact duplication     %.2f %%\nFuzzy candidates      %.2f %%\nMutation              %s\n────────────────────────────────\nSTATUS                %s\n",
-		r.Static.Status, r.Static.Errors, r.Static.Warnings, r.Tests, r.Race, percent(r.Coverage), percent(r.CriticalCoverage),
+		r.Static.Status, r.Static.Errors, r.Static.Warnings, r.Tests, raceOpis(r.Race), percent(r.Coverage), percent(r.CriticalCoverage),
 		r.AverageCRAP, d.Medijan, d.P90, d.P95, r.MaxCRAP, d.DoDeset, d.DoTrideset, d.DoSto, d.PrekoSto,
 		r.AverageComplexity, r.MaxComplexity, r.Exact.Percent, r.Fuzzy.Percent, r.MutationStatus, r.Status)
 }
@@ -60,7 +70,7 @@ func functionTable(b *bytes.Buffer, fs []function, limit int) {
 
 func markdown(r report) []byte {
 	var b bytes.Buffer
-	fmt.Fprintf(&b, "# goCOP Code Health\n\n- Commit: `%s` (dirty: %t)\n- Vrijeme: %s\n- Platforma: %s, %s\n- Konfiguracija: `%s`\n- Status: **%s**\n\n| Metrika | Rezultat |\n|---|---:|\n| Testovi | %s |\n| Race | %s |\n| Statičke greške / upozorenja | %d / %d |\n| Coverage | %s |\n| Kritični coverage | %s |\n| Prosječni / najveći CRAP | %.2f / %.2f |\n| Medijan / P90 / P95 CRAP | %.2f / %.2f / %.2f |\n| Funkcije po CRAP-u (≤10 / 10–30 / 30–100 / >100) | %d / %d / %d / %d |\n| Prosječna / najveća kompleksnost | %.2f / %d |\n| Exact duplikacija (tokeni tijela funkcija) | %.2f %% |\n| Fuzzy kandidati (uključuju exact) | %.2f %% |\n| Mutation | %s |\n", r.Commit, r.Dirty, r.Timestamp, r.Platform, r.GoVersion, r.ConfigHash, r.Status, r.Tests, r.Race, r.Static.Errors, r.Static.Warnings, percent(r.Coverage), percent(r.CriticalCoverage), r.AverageCRAP, r.MaxCRAP, r.CRAPRaspodjela.Medijan, r.CRAPRaspodjela.P90, r.CRAPRaspodjela.P95, r.CRAPRaspodjela.DoDeset, r.CRAPRaspodjela.DoTrideset, r.CRAPRaspodjela.DoSto, r.CRAPRaspodjela.PrekoSto, r.AverageComplexity, r.MaxComplexity, r.Exact.Percent, r.Fuzzy.Percent, r.MutationStatus)
+	fmt.Fprintf(&b, "# goCOP Code Health\n\n- Commit: `%s` (dirty: %t)\n- Vrijeme: %s\n- Platforma: %s, %s\n- Konfiguracija: `%s`\n- Status: **%s**\n\n| Metrika | Rezultat |\n|---|---:|\n| Testovi | %s |\n| Race | %s |\n| Statičke greške / upozorenja | %d / %d |\n| Coverage | %s |\n| Kritični coverage | %s |\n| Prosječni / najveći CRAP | %.2f / %.2f |\n| Medijan / P90 / P95 CRAP | %.2f / %.2f / %.2f |\n| Funkcije po CRAP-u (≤10 / 10–30 / 30–100 / >100) | %d / %d / %d / %d |\n| Prosječna / najveća kompleksnost | %.2f / %d |\n| Exact duplikacija (tokeni tijela funkcija) | %.2f %% |\n| Fuzzy kandidati (uključuju exact) | %.2f %% |\n| Mutation | %s |\n", r.Commit, r.Dirty, r.Timestamp, r.Platform, r.GoVersion, r.ConfigHash, r.Status, r.Tests, raceOpis(r.Race), r.Static.Errors, r.Static.Warnings, percent(r.Coverage), percent(r.CriticalCoverage), r.AverageCRAP, r.MaxCRAP, r.CRAPRaspodjela.Medijan, r.CRAPRaspodjela.P90, r.CRAPRaspodjela.P95, r.CRAPRaspodjela.DoDeset, r.CRAPRaspodjela.DoTrideset, r.CRAPRaspodjela.DoSto, r.CRAPRaspodjela.PrekoSto, r.AverageComplexity, r.MaxComplexity, r.Exact.Percent, r.Fuzzy.Percent, r.MutationStatus)
 	fmt.Fprintln(&b, "\n## Top 10 CRAP")
 	functionTable(&b, sortedFunctions(r, true), 10)
 	fmt.Fprintln(&b, "\n## Top 10 kompleksnost")

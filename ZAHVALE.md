@@ -33,6 +33,11 @@ izričite suglasnosti.
   (MuraDrava-FFS).
 - Damir Perić omogućio je pristup sustavu HydroView (Geolux) za područje
   cijele Hrvatske.
+- Mađarska vodoprivreda (Dél-dunántúli Vízügyi Igazgatóság, Pečuh) ustupila
+  je hidrološke podatke mađarskih postaja na Dravi i Dunavu za analizu vodnih
+  valova.
+- Republički hidrometeorološki zavod Srbije ustupio je hidrološke podatke
+  srpskih postaja na Dunavu i pomogao provjerom kota nula vodokaza.
 
 ## Unos podataka u aplikaciju app.bp16.xyz (Baranja)
 

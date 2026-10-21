@@ -266,6 +266,29 @@ func TestEvidenceRejectsChangedReport(t *testing.T) {
 	}
 }
 
+// Potvrda snimljena s drukčijim zastavicama testova, npr. prije iznimaka za
+// race, ne smije proći kao da su testovi izvedeni s današnjim
+func TestEvidenceRejectsOtherTestArgs(t *testing.T) {
+	o := options{out: t.TempDir(), reuseTests: true}
+	r := cleanReport()
+	for _, name := range []string{"coverage.out", "tests.log"} {
+		if err := os.WriteFile(filepath.Join(o.out, name), []byte("original"), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e, err := evidence(o, &r)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e.TestArgs = "test -race -covermode=atomic"
+	if err := writeJSON(filepath.Join(o.out, "test-evidence.json"), e); err != nil {
+		t.Fatal(err)
+	}
+	if err := runTests(o, &r); err == nil {
+		t.Fatal("potvrda s drugim zastavicama prihvaćena")
+	}
+}
+
 func TestCheckedInConfig(t *testing.T) {
 	c, err := loadConfig("../../quality/config.json")
 	if err != nil {
@@ -387,6 +410,21 @@ func TestOnlyPackagesGitSeesAreMeasured(t *testing.T) {
 	want := []string{".", "./internal/novi", "./internal/web"}
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("paketi: %v, želim %v", got, want)
+	}
+}
+
+// Dugi paketi idu prvi, redom s popisa; ostali ostaju abecedno. Svaki
+// paket s popisa mora postojati, da preimenovani ne ispadne tiho s početka.
+func TestDugiPaketiKrecuPrvi(t *testing.T) {
+	got := poTrajanju([]string{".", "./internal/a", dugiPaketi[1], dugiPaketi[0], "./internal/z"})
+	want := []string{dugiPaketi[0], dugiPaketi[1], ".", "./internal/a", "./internal/z"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("redoslijed: %v, želim %v", got, want)
+	}
+	for _, p := range dugiPaketi {
+		if datoteke, err := filepath.Glob(filepath.Join("..", "..", p, "*_test.go")); err != nil || len(datoteke) == 0 {
+			t.Errorf("%s s popisa dugiPaketi nema testova (greška: %v)", p, err)
+		}
 	}
 }
 
