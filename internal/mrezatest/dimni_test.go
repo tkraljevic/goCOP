@@ -53,7 +53,7 @@ type tijek struct {
 	ime                          string
 	posluziteljPrvi, klijentPrvi bool // piše odmah nakon rukovanja, prije čitanja
 	kartaSesije                  bool // klijent pamti sesije, pa mu poslužitelj šalje kartu
-	zapinjeNaPipeu               bool
+	zapinjeNaPipeu               bool // isti tijek na net.Pipe stoji do roka
 }
 
 // strana napravi rukovanje, pa pošalje jednu poruku i primi jednu, redom
@@ -112,15 +112,17 @@ func razgovor(t *testing.T, a, b net.Conn, tk tijek) (time.Duration, error) {
 
 // TLS 1.3 rukovanje s certifikatom klijenta, pa prve poruke svakim redom,
 // prolazi bez zastoja. Na net.Pipe isti razgovor zapne do roka kad obje
-// strane pišu odmah i kad poslužitelj šalje kartu sesije dok klijent već
-// piše; to je razlog zašto paket postoji. Rukovanje s kašnjenjem traje
-// točno dva kašnjenja za klijenta.
+// strane pišu odmah, jer net.Pipe nema međuspremnik; to je razlog zašto
+// paket postoji. S kartom sesije na net.Pipe zapinje samo zbog toga kad je
+// crypto/tls šalje, a to se s novim Go-om može promijeniti, pa se ondje
+// net.Pipe ne provjerava. Rukovanje s kašnjenjem traje točno dva kašnjenja
+// za klijenta.
 func TestTLS13BezZastoja(t *testing.T) {
 	const kasnjenje = 20 * time.Millisecond
 	tijekovi := []tijek{
 		{ime: "poslužitelj prvi", posluziteljPrvi: true},
 		{ime: "klijent prvi", klijentPrvi: true},
-		{ime: "klijent prvi s kartom sesije", klijentPrvi: true, kartaSesije: true, zapinjeNaPipeu: true},
+		{ime: "klijent prvi s kartom sesije", klijentPrvi: true, kartaSesije: true},
 		{ime: "obje strane odmah", posluziteljPrvi: true, klijentPrvi: true, zapinjeNaPipeu: true},
 	}
 	for _, tk := range tijekovi {
@@ -164,7 +166,7 @@ var primiOkvir = websocket.Codec{
 
 // WebSocket preko TLS-a na mreži u memoriji, u mjehuru, kao tunel razmjene:
 // nadogradnja veze prolazi, a binarni okvir ide u oba smjera
-func TestWebsocketKrozTLSPrekoMreze(t *testing.T) {
+func TestWebSocketKrozTLSPrekoMreze(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		m := NovaMreza()
 		m.Kasnjenje = 10 * time.Millisecond
@@ -186,12 +188,16 @@ func TestWebsocketKrozTLSPrekoMreze(t *testing.T) {
 			if err := websocket.Message.Send(ws, []byte{3, 2, 1}); err != nil {
 				t.Error(err)
 			}
-			// klijent zatvara prvi; poslužitelj čeka njegov okvir za kraj
+			// Klijent zatvara prvi, a poslužitelj čeka njegov okvir za kraj.
+			// Da poslužitelj zatvori prvi, klijentov okvir za kraj otišao bi
+			// kad je zatvaranje poslužitelja već stiglo, pa bi ws.Close niže
+			// vratio grešku (vidi opis paketa), iako na TCP-u prođe.
 			if err := primiOkvir.Receive(ws, &o); err != io.EOF {
 				t.Errorf("umjesto kraja: %v", err)
 			}
 		}))
 		srv := &http.Server{Handler: mux}
+		defer srv.Close() // pusti Serve i kad test stane prije kraja
 		stao := make(chan error, 1)
 		go func() {
 			stao <- srv.Serve(tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}))
@@ -201,6 +207,7 @@ func TestWebsocketKrozTLSPrekoMreze(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		defer veza.Close() // pusti rukovatelja i kad test stane prije kraja; preuzetu vezu srv.Close ne zatvara
 		korijeni := x509.NewCertPool()
 		korijeni.AddCert(cert.Leaf)
 		tc := tls.Client(veza, &tls.Config{RootCAs: korijeni, ServerName: "cop.primjer.hr", MinVersion: tls.VersionTLS13})
