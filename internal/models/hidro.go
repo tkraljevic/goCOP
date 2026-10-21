@@ -20,7 +20,7 @@ type HidroNiz struct {
 	ID       int64
 	Sliv     string
 	Letva    string
-	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | geolux-seba | vituki | preracun-*
+	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | geolux-seba | vituki | vizugy-ddvizig | preracun-*
 	Velicina string // vodostaj | protok | temperatura | koncentracija | pronos
 	Vrsta    string // satni | dvokratni | jutarnji | srednjak | dnevni
 	PoDanu   bool   // izvor daje samo datum, bez sata
