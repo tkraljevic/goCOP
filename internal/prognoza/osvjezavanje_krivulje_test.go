@@ -86,9 +86,18 @@ func TestRasponKrozKrivulju(t *testing.T) {
 	// 520 cm (570 m³/s).
 	pravac := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
 		{OdCm: 0, DoCm: 500, Oblik: models.OblikPolinom, P2: 100, P3: 50}}}
-	// Q = H - 10 od 20 do 500 cm: na dnu produljenja protok bi bio ispod nule.
+	// Q = H - 10 od 20 do 500 cm: produljenje staje na 10 cm, gdje protok
+	// padne na nulu.
 	plitka := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
 		{OdCm: 20, DoCm: 500, Oblik: models.OblikPolinom, P2: 100, P3: -10}}}
+	// Parabola od -20 do 500 cm s tjemenom na -25 cm (0,75 m³/s): produljenje
+	// staje na tjemenu, 5 cm ispod ruba.
+	tjeme := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
+		{OdCm: -20, DoCm: 500, Oblik: models.OblikPolinom, P1: 4, P2: 2, P3: 1}}}
+	// Q = H - 25 cm, zapisana kao potencija od 0 cm: do 25 cm ne postoji,
+	// ni na svojem donjem rubu, pa obrata nema.
+	bezObrata := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
+		{OdCm: 0, DoCm: 500, Oblik: models.OblikPotencija, P1: 1, P2: 1, P3: -0.25}}}
 	for _, s := range []struct {
 		opis           string
 		k              *models.HQKrivulja
@@ -104,13 +113,16 @@ func TestRasponKrozKrivulju(t *testing.T) {
 		{"nijedna ne prolazi: raspona nema", pravac, "protok", 60, -50, 600, 60, 60, true},
 		{"zrcalo ispod nule: nula", pravac, "protok", 35, -60, 30, 0, 80, true},
 		{"na kraju produljenja protoka nema: nula", plitka, "protok", 20, 5, 40, 0, 30, true},
+		{"donja preko tjemena: kraj produljenja, ne nula", tjeme, "protok", 0.9375, -40, 0, 0.75, 1, true},
+		{"ni na kraju krivulje protoka nema: nula", bezObrata, "protok", 0.75, 10, 125, 0, 1, true},
 
 		{"protok u vodostaj, obje u krivulji", pravac, "vodostaj", 250, 250, 350, 200, 300, false},
 		{"vrijednost i obje granice stoje na dnu: raspona nema", pravac, "vodostaj", -20, 5, 25, -20, -20, true},
 		{"vrijednost na dnu, gornja prava: zrcali se gornja", pravac, "vodostaj", -20, 5, 80, -70, 30, true},
 		{"donja na dnu, zrcalo iznad dna: dno", pravac, "vodostaj", 10, 20, 62, -20, 12, true},
 		{"gornja na vrhu, zrcalo iznad vrha: zrcalo", pravac, "vodostaj", 510, 540, 700, 490, 530, true},
-		{"krivulja bez obrata: raspona nema", plitka, "vodostaj", 30, 20, 40, 30, 30, true},
+		{"krivulja bez obrata: raspona nema", bezObrata, "vodostaj", 30, 20, 40, 30, 30, true},
+		{"produljenje do nule protoka: obrat radi", plitka, "vodostaj", 30, 20, 40, 30, 50, false},
 	} {
 		d, g, izvan := rasponKrozKrivulju(s.k, s.ciljna, s.v, s.dolje, s.gore)
 		if d != s.d || g != s.g || izvan != s.izvan {

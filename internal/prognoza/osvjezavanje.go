@@ -1157,9 +1157,9 @@ func (o *Osvjezivac) uDrugojVelicini(ctx context.Context, izdane []Izdana) []Izd
 // Protok ne ide ispod nule. Treće što se vraća javlja da je granica izašla
 // iz umjerenog dijela krivulje ili iz nje cijele.
 func rasponKrozKrivulju(k *models.HQKrivulja, ciljna string, v, dolje, gore float64) (float64, float64, bool) {
-	najn, najv, _ := k.Raspon()
-	d, izvanD, pravaD := granicaKrozKrivulju(k, ciljna, dolje, najn-models.ProsirenjeKrivuljeCm)
-	g, izvanG, pravaG := granicaKrozKrivulju(k, ciljna, gore, najv+models.ProsirenjeKrivuljeCm)
+	krajD, krajG, _ := k.RasponProduljenja()
+	d, izvanD, pravaD := granicaKrozKrivulju(k, ciljna, dolje, krajD)
+	g, izvanG, pravaG := granicaKrozKrivulju(k, ciljna, gore, krajG)
 	switch {
 	case !pravaD && !pravaG:
 		d, g = v, v

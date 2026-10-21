@@ -862,30 +862,22 @@ func (k HQKrivulja) Vodostaj(protok float64) (cm int, izvan, ok bool) {
 	if len(k.Odsjecci) == 0 {
 		return 0, false, false
 	}
-	najn, najv := k.Odsjecci[0].OdCm, k.Odsjecci[0].DoCm
-	for _, o := range k.Odsjecci {
-		if o.OdCm < najn {
-			najn = o.OdCm
-		}
-		if o.DoCm > najv {
-			najv = o.DoCm
-		}
-	}
+	najn, najv := k.rubniOdsjecci()
 	q := func(cm int) (float64, bool) {
 		v, _, ok := k.ProtokProsiren(cm)
 		return v, ok
 	}
-	dolje, gore := najn-ProsirenjeKrivuljeCm, najv+ProsirenjeKrivuljeCm
+	dolje, gore := produljenje(najn, najn.OdCm, -1), produljenje(najv, najv.DoCm, 1)
 	qDolje, okD := q(dolje)
 	qGore, okG := q(gore)
 	if !okD || !okG {
 		return 0, false, false
 	}
 	if protok <= qDolje {
-		return dolje, true, true
+		return dolje, protok < qDolje || dolje < najn.OdCm, true
 	}
 	if protok >= qGore {
-		return gore, true, true
+		return gore, protok > qGore || gore > najv.DoCm, true
 	}
 	for gore-dolje > 1 {
 		sr := (dolje + gore) / 2
@@ -904,7 +896,7 @@ func (k HQKrivulja) Vodostaj(protok float64) (cm int, izvan, ok bool) {
 	if math.Abs(qGore-protok) < math.Abs(qDolje-protok) {
 		cm = gore
 	}
-	return cm, cm < najn || cm > najv, true
+	return cm, cm < najn.OdCm || cm > najv.DoCm, true
 }
 
 // ProsirenjeKrivuljeCm je koliko se krivulja smije produljiti preko krajeva
@@ -916,7 +908,8 @@ const ProsirenjeKrivuljeCm = 20
 
 // ProtokProsiren je Protok koji ide i malo izvan raspona krivulje, do
 // ProsirenjeKrivuljeCm ispod najnižeg i iznad najvišeg odsječka, rubnim
-// odsječkom. Izvan javlja da je vodostaj izvan umjerenog raspona.
+// odsječkom, ali samo dok on ondje raste (vidi produljenje). Izvan javlja da
+// je vodostaj izvan umjerenog raspona.
 func (k HQKrivulja) ProtokProsiren(vodostajCm int) (q float64, izvan, ok bool) {
 	if q, ok := k.Protok(vodostajCm); ok {
 		return q, false, true
@@ -924,7 +917,32 @@ func (k HQKrivulja) ProtokProsiren(vodostajCm int) (q float64, izvan, ok bool) {
 	if len(k.Odsjecci) == 0 {
 		return 0, false, false
 	}
-	najn, najv := k.Odsjecci[0], k.Odsjecci[0]
+	najn, najv := k.rubniOdsjecci()
+	switch {
+	case vodostajCm < najn.OdCm && vodostajCm >= produljenje(najn, najn.OdCm, -1):
+		q, ok := najn.Protok(vodostajCm)
+		return q, true, ok
+	case vodostajCm > najv.DoCm && vodostajCm <= produljenje(najv, najv.DoCm, 1):
+		q, ok := najv.Protok(vodostajCm)
+		return q, true, ok
+	}
+	return 0, false, false
+}
+
+// RasponProduljenja je najniži i najviši vodostaj do kojeg ProtokProsiren
+// ide, dakle oba kraja produljene krivulje.
+func (k HQKrivulja) RasponProduljenja() (dolje, gore int, ok bool) {
+	if len(k.Odsjecci) == 0 {
+		return 0, 0, false
+	}
+	najn, najv := k.rubniOdsjecci()
+	return produljenje(najn, najn.OdCm, -1), produljenje(najv, najv.DoCm, 1), true
+}
+
+// rubniOdsjecci su odsječak koji počinje najniže i odsječak koji završava
+// najviše. Krivulja mora imati barem jedan odsječak.
+func (k HQKrivulja) rubniOdsjecci() (najn, najv HQOdsjecak) {
+	najn, najv = k.Odsjecci[0], k.Odsjecci[0]
 	for _, o := range k.Odsjecci {
 		if o.OdCm < najn.OdCm {
 			najn = o
@@ -933,15 +951,33 @@ func (k HQKrivulja) ProtokProsiren(vodostajCm int) (q float64, izvan, ok bool) {
 			najv = o
 		}
 	}
-	switch {
-	case vodostajCm < najn.OdCm && vodostajCm >= najn.OdCm-ProsirenjeKrivuljeCm:
-		q, ok := najn.Protok(vodostajCm)
-		return q, true, ok && q >= 0
-	case vodostajCm > najv.DoCm && vodostajCm <= najv.DoCm+ProsirenjeKrivuljeCm:
-		q, ok := najv.Protok(vodostajCm)
-		return q, true, ok
+	return najn, najv
+}
+
+// produljenje je zadnji vodostaj do kojeg se odsječak smije produljiti od
+// svojeg ruba, prema dolje (smjer −1) ili prema gore (smjer 1): najviše
+// ProsirenjeKrivuljeCm, i samo dok ondje postoji i raste s vodostajem.
+//
+// Parabola zna imati tjeme tek koji centimetar preko ruba odsječka. Iza
+// tjemena protok ide suprotno od vode, pa bi produljena krivulja pri padu
+// vode davala sve veći protok, a obrat bi svaki protok manji od onoga na kraju
+// produljenja smjestio na sam kraj, koliko god da je voda bila viša.
+// Potencija ispod svoje nule ne postoji; produljena preko nje, obrat ne bi
+// uspio ni za jedan protok. Kad joj je nula baš na rubu, ni na rubu nema
+// protoka, pa krivulja počinje centimetar unutra.
+func produljenje(o HQOdsjecak, rub, smjer int) int {
+	prije, ok := o.Protok(rub)
+	if !ok {
+		return rub - smjer
 	}
-	return 0, false, false
+	for i := 1; i <= ProsirenjeKrivuljeCm; i++ {
+		q, ok := o.Protok(rub + smjer*i)
+		if !ok || q < 0 || (q-prije)*float64(smjer) <= 0 {
+			return rub + smjer*(i-1)
+		}
+		prije = q
+	}
+	return rub + smjer*ProsirenjeKrivuljeCm
 }
 
 // Raspon je najniži i najviši vodostaj koji krivulja pokriva.
