@@ -17,7 +17,7 @@ const ZaglavljeKrivulja = models.ZaglavljeDatotekeKrivulja
 // kad letva krivulja dosad nije imala. Zadnjoj krivulji kraj ostaje otvoren
 // (zatvoriKrajeve).
 func KrivuljeCSV(s *Sadrzaj) []byte {
-	return zapisiRazdoblja(zatvoriKrajeve(spoji(nil, razdobljaIzvoza(s))))
+	return zapisiRazdoblja(zatvoriKrajeve(spoji(nil, s.razdoblja())))
 }
 
 // BrojOdsjecaka je koliko odsječaka nose sve krivulje zajedno.

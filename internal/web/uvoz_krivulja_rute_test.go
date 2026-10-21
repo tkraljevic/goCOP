@@ -124,6 +124,9 @@ func TestKrivuljePregledOdbija(t *testing.T) {
 			datotekaObrasca{"datoteka", "krivulje.csv", strings.Repeat("x", 8<<20+1)}), http.StatusOK, "greska=datoteka je veća od 8 MB"},
 		{"nije izvoz HIS-a", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"letva": "primjerovo"},
 			datotekaObrasca{"datoteka", "krivulje.csv", "datum;vodostaj\n"}), http.StatusOK, "greska=datoteka se ne čita kao HIS-2000 izvoz"},
+		{"zaglavlje krivulja bez stupca p1", o.pero, o.peroOvl, viseDijelni(t, "/", map[string]string{"letva": "primjerovo"},
+			datotekaObrasca{"datoteka", "krivulje.csv", "vrijedi_od;vrijedi_do;od_cm;do_cm;p2;p3\n2001-01-01;;0;100;2;3\n"}),
+			http.StatusOK, "greska=datoteka se ne čita kao HIS-2000 izvoz"},
 	} {
 		t.Run(s.opis, func(t *testing.T) {
 			w := odgovor(o.h.PregledUvozaKrivulja, s.r, s.u, s.p)
