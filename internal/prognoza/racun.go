@@ -81,6 +81,65 @@ func NoviNiz(vrijednosti map[int64]float64) Niz {
 	return n
 }
 
+// poSatu svodi očitanja na pune sate, isto za namještanje i za živu
+// prognozu. Svaki puni sat uzima očitanje najbliže sebi, najviše pola sata
+// prije ili poslije; od dva jednako udaljena ostaje ranije. Očitanje točno u
+// pola sata jednako je blizu i satu prije i satu poslije, pa može poslužiti
+// obama: letva koja u nekom satu ima samo očitanje u :30, a sljedeći sat
+// svoje u :00, inače bi ostala s rupom, a namještanje preskače prozore s
+// rupom.
+//
+// Prije je namještanje uzimalo zadnje očitanje u satu: očitanje u 10:45
+// pregazilo bi ono u 10:00, a zalutalo očitanje u 20:01 ono u 20:00. Živa
+// prognoza je uzimala najbliže, pa je model učio na nizu koji je išao i do
+// sat ranije od onoga na kojem radi.
+type poSatu[T any] struct {
+	vrijednosti map[int64]T
+	kad         map[int64]int64 // sekunda očitanja koje je satu ostalo
+}
+
+func noviPoSatu[T any]() poSatu[T] {
+	return poSatu[T]{vrijednosti: map[int64]T{}, kad: map[int64]int64{}}
+}
+
+// dodaj nudi očitanje iz sekunde s od epohe satu ili satima do kojih je
+// najviše pola sata.
+func (p poSatu[T]) dodaj(s int64, v T) {
+	sat := satOcitanja(s)
+	p.ponudi(sat, s, v)
+	if s-sat*3600 == -1800 {
+		p.ponudi(sat-1, s, v)
+	}
+}
+
+func (p poSatu[T]) ponudi(sat, s int64, v T) {
+	if prije, ima := p.kad[sat]; ima {
+		d, dPrije := udaljenost(s, sat), udaljenost(prije, sat)
+		if d > dPrije || d == dPrije && s >= prije {
+			return
+		}
+	}
+	p.vrijednosti[sat] = v
+	p.kad[sat] = s
+}
+
+// satOcitanja je puni sat od epohe najbliži sekundi s; pola sata ide gore.
+func satOcitanja(s int64) int64 {
+	s += 1800
+	sat := s / 3600
+	if s%3600 < 0 { // dijeljenje u Gou reže prema nuli, a treba prema dolje
+		sat--
+	}
+	return sat
+}
+
+func udaljenost(s, sat int64) int64 {
+	if d := s - sat*3600; d >= 0 {
+		return d
+	}
+	return sat*3600 - s
+}
+
 // U vraća vrijednost u zadanom satu, po potrebi premošćenu između dva
 // očitanja. Premošćuje se pravocrtno jer se unutar nekoliko sati vodostaj i
 // ponaša pravocrtno; preko NajveciRazmak se ne premošćuje.

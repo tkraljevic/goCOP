@@ -72,6 +72,8 @@ func doGranice(n map[int64]float64) map[int64]float64 {
 }
 
 // NizIzArhive čita satni niz iz spojenog niza arhive: sat od epohe → vrijednost.
+// Spojeni niz drži očitanja u minuti u kojoj su izmjerena, a na pune sate
+// svodi ih isto pravilo kao u živoj prognozi (poSatu).
 func NizIzArhive(db *sql.DB, letva, velicina string) (map[int64]float64, error) {
 	r, err := db.Query(`SELECT vrijeme, vrijednost FROM spoj
 		WHERE letva = ? AND velicina = ? AND korak = 'satni'`, letva, velicina)
@@ -79,16 +81,16 @@ func NizIzArhive(db *sql.DB, letva, velicina string) (map[int64]float64, error) 
 		return nil, err
 	}
 	defer r.Close()
-	out := map[int64]float64{}
+	sati := noviPoSatu[float64]()
 	for r.Next() {
 		var t int64
 		var v float64
 		if err := r.Scan(&t, &v); err != nil {
 			return nil, err
 		}
-		out[t/3600] = v
+		sati.dodaj(t, v)
 	}
-	return out, r.Err()
+	return sati.vrijednosti, r.Err()
 }
 
 func koliko(db *sql.DB, letva, velicina string) int {
