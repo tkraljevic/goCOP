@@ -120,7 +120,7 @@ func TestCvorIzvanTailscaleMrezeNeDobivaAdrese(t *testing.T) {
 		t.Errorf("čvor izvan Tailscale mreže zna laptopove adrese: %v", got)
 	}
 	p, _ := mac.GetPeer(ctxRub, laptop.node.ID)
-	if got := mac.adreseZaSpajanje(ctxRub, p); !slices.Equal(got, []string{adresaNaPetlji(laptop)}) {
+	if got := mac.adreseZaSpajanje(ctxRub, p); !slices.Equal(got, []kandidat{{adresaNaPetlji(laptop), razmjena.PutAdresa}}) {
 		t.Errorf("čvor izvan Tailscale mreže zove %v", got)
 	}
 }
@@ -213,9 +213,9 @@ func TestKnjigaNikadNemaTailscaleAdresa(t *testing.T) {
 	}
 	for _, drugi := range []*Service{laptop, ured} {
 		p, _ := firma.GetPeer(ctxRub, drugi.node.ID)
-		for _, a := range firma.adreseZaSpajanje(ctxRub, p) {
-			if jeTailscaleAdresa(a) {
-				t.Errorf("čvor bez Tailscalea zove %s na %s", drugi.node.ID, a)
+		for _, k := range firma.adreseZaSpajanje(ctxRub, p) {
+			if jeTailscaleAdresa(k.adresa) || k.put == razmjena.PutTailscale {
+				t.Errorf("čvor bez Tailscalea zove %s na %v", drugi.node.ID, k)
 			}
 		}
 		if got := firma.tailscaleOd(ctxRub, drugi.node.ID); len(got) != 0 {

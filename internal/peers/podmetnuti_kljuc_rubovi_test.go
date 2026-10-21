@@ -71,8 +71,10 @@ func TestCvorPoKljucuIzClanstva(t *testing.T) {
 }
 
 // krozTunel otvara WebSocket do tunela čvora s, kao Cloudflare ispred njega,
-// i u njemu TLS razmjene s ključem koji pozivatelj očekuje. Vanjski TLS
-// (DialTunel) test iz ovog paketa ne može zadati, pa WebSocket ide izravno.
+// i u njemu TLS razmjene s ključem koji pozivatelj očekuje. WebSocket ide
+// izravno, bez vanjskog TLS-a, pa test vidi samo vrata tunela. Cijeli put
+// pozivatelja, s vanjskim TLS-om (Service.tunelKlijent), ide kroz SyncWith
+// u TestPutDolazneVeze.
 func krozTunel(t *testing.T, pozivatelj, s *Service, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	t.Helper()
 	srv := httptest.NewServer(s.TunelHandler())

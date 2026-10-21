@@ -156,6 +156,14 @@ type Service struct {
 	// tunelKlijent zove druge čvorove kroz njihov tunel; nulta vrijednost
 	// spaja se kao i do sada (sustavni certifikati)
 	tunelKlijent razmjena.KlijentTunela
+	// ograde primanja (Serve). Tunel ima svoju: kroz njega dolazi bilo tko
+	// s interneta, pa njegova rukovanja ne smiju zauzeti mjesta porta u
+	// lokalnoj mreži. Mjesta za razmjene dijele. Drži ih servis, a ne
+	// pojedina slušalica, da svaka nova vrata primanja dobiju iste granice.
+	ogradaPorta, ogradaTunela *razmjena.Ograda
+	// pokusaji drže put zadnje veze s drugim računalom, samo u memoriji
+	// (pokusaji.go)
+	pokusaji pamcenjePokusaja
 
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
 	uloge           atomic.Pointer[Uloge]
@@ -241,7 +249,9 @@ func (s *Service) autoSync() bool {
 }
 
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
-	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel()}
+	port := razmjena.NovaOgrada()
+	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel(),
+		ogradaPorta: port, ogradaTunela: razmjena.NovaOgradaTunela(port)}
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -532,8 +542,10 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 // ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
-	// zaboraviti previše košta samo jedno ponovno slanje
+	// zaboraviti previše košta samo jedno ponovno slanje. Isto vrijedi za
+	// ono što se o računalu pamti samo u memoriji (pokusaji.go).
 	defer s.zaboraviOdbijene()
+	defer s.zaboraviPokusaje(nodeID)
 	p, err := s.GetPeer(ctx, nodeID)
 	if err != nil {
 		return err
@@ -888,19 +900,27 @@ type doneMsg struct {
 // Serve prima razmjene od poznatih čvorova dok ctx traje: na portu
 // razmjene i, kad je web sučelje uključilo tunel, kroz njega
 func (s *Service) Serve(ctx context.Context) error {
-	primi := func(c *razmjena.Conn) { s.primiRazmjenu(ctx, c) }
-	// tunel ima svoju ogradu: kroz njega dolazi bilo tko s interneta, pa
-	// njegova rukovanja ne smiju zauzeti mjesta porta u lokalnoj mreži
-	port := razmjena.NovaOgrada()
 	go func() {
-		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.tunel, s.trusted, primi, razmjena.NovaOgradaTunela(port)); err != nil && ctx.Err() == nil {
+		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.tunel, s.trusted, s.primi(ctx, razmjena.PutKrozTunel), s.ogradaTunela); err != nil && ctx.Err() == nil {
 			log.Printf("razmjena kroz tunel: %v", err)
 		}
 	}()
+	primi := s.primi(ctx, razmjena.PutAdresa)
 	if s.slusalica != nil {
-		return razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.slusalica, s.trusted, primi, port)
+		return razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.slusalica, s.trusted, primi, s.ogradaPorta)
 	}
-	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, port)
+	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, s.ogradaPorta)
+}
+
+// primi obrađuje razmjenu koja je stigla na jedna vrata (port razmjene ili
+// tunel): veza dobije put tih vrata, pa ide razgovor. Veza na Tailscale
+// adresu ovog računala išla je preko Tailscalea i kad je druga strana na
+// običnoj adresi (putVeze).
+func (s *Service) primi(ctx context.Context, put razmjena.Put) func(*razmjena.Conn) {
+	return func(c *razmjena.Conn) {
+		c.Put = s.putVeze(put, c.LocalAddr())
+		s.primiRazmjenu(ctx, c)
+	}
 }
 
 // primiRazmjenu odradi razmjenu koju je započeo drugi čvor, na portu
@@ -936,14 +956,14 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	if err != nil {
 		return 0, 0, err
 	}
-	addresses := s.adreseZaSpajanje(ctx, peer)
-	if len(addresses) == 0 {
+	kandidati := s.adreseZaSpajanje(ctx, peer)
+	if len(kandidati) == 0 {
 		return 0, 0, fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
 	}
 
 	var lastErr error
-	for _, host := range addresses {
-		conn, err := s.nazovi(ctx, host, expect)
+	for _, k := range kandidati {
+		conn, err := s.nazovi(ctx, peer, k, expect)
 		if err != nil {
 			lastErr = err
 			continue
@@ -1003,11 +1023,17 @@ func (s *Service) javiDrugiKljuc(p *Peer, clanski ed25519.PublicKey) {
 	}
 }
 
+// kandidat je jedna adresa za spajanje i put kojim veza na nju ide
+type kandidat struct {
+	adresa string
+	put    razmjena.Put
+}
+
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
 // na kojoj se upravo javio u lokalnoj mreži, izravne adrese iz zapisa,
 // Tailscale adrese koje je čvor sam javio, a tunel zadnji. Tunel je
 // najsporiji, a u istoj mreži port razmjene je brži.
-func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []string {
+func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 	var izravne, tuneli []string
 	for _, a := range bezTailscalea(peer.Addresses) {
 		if razmjena.JeAdresaTunela(a) {
@@ -1016,14 +1042,40 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []string {
 			izravne = append(izravne, a)
 		}
 	}
-	izravne = append(s.uLokalnojMrezi(peer.NodeID), izravne...)
-	izravne = append(izravne, s.tailscaleZaSpajanje(ctx, peer.NodeID)...)
-	return dedupe(append(izravne, tuneli...))
+	k := append(s.uLokalnojMrezi(peer.NodeID), uz(razmjena.PutAdresa, izravne)...)
+	k = append(k, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
+	return bezDvojnika(append(k, uz(razmjena.PutKrozTunel, tuneli)...))
+}
+
+// uz su adrese za spajanje koje idu istim putem
+func uz(put razmjena.Put, adrese []string) []kandidat {
+	out := make([]kandidat, 0, len(adrese))
+	for _, a := range adrese {
+		out = append(out, kandidat{adresa: a, put: put})
+	}
+	return out
+}
+
+// bezDvojnika ostavlja svaku adresu jednom, s putem s kojim je prvi put
+// došla: adresa na kojoj se čvor javio u lokalnoj mreži ostaje lan i kad je
+// ista adresa i u zapisu čvora
+func bezDvojnika(in []kandidat) []kandidat {
+	vidjeno := map[string]bool{}
+	var out []kandidat
+	for _, k := range in {
+		k.adresa = strings.TrimSpace(k.adresa)
+		if k.adresa == "" || vidjeno[k.adresa] {
+			continue
+		}
+		vidjeno[k.adresa] = true
+		out = append(out, k)
+	}
+	return out
 }
 
 // uLokalnojMrezi je adresa na kojoj se čvor javlja u lokalnoj mreži, kad
 // je pronalaženje uključeno i čvor se javi
-func (s *Service) uLokalnojMrezi(nodeID string) []string {
+func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
 	if s.ports.Discovery <= 0 {
 		return nil
 	}
@@ -1031,24 +1083,35 @@ func (s *Service) uLokalnojMrezi(nodeID string) []string {
 	if !ok {
 		return nil
 	}
-	return []string{withPort(f.Addr, fmt.Sprint(f.ExchangePort))}
+	return []kandidat{{adresa: withPort(f.Addr, fmt.Sprint(f.ExchangePort)), put: razmjena.PutLAN}}
 }
 
-// nazovi otvara razmjenu na jednoj adresi: kroz tunel (https://domena) ili
-// na portu razmjene
-func (s *Service) nazovi(ctx context.Context, host string, expect ed25519.PublicKey) (*razmjena.Conn, error) {
+// nazovi otvara razmjenu na jednoj adresi. Veza dobije put kandidata, osim
+// kad je otišla s Tailscale adrese ovog računala (putVeze).
+func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
-	if razmjena.JeAdresaTunela(host) {
-		return s.tunelKlijent.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
-	}
-	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-	adresa := withPort(host, fmt.Sprint(DefaultExchangePort))
-	raw, err := s.otvori(dialCtx, adresa)
+	conn, err := s.spoji(dialCtx, peer, k, expect)
 	if err != nil {
 		return nil, err
 	}
-	return razmjena.DialExchangeOn(dialCtx, raw, s.node.key, Protocol, s.vjerodajnice, adresa, expect)
+	conn.Put = s.putVeze(k.put, conn.LocalAddr())
+	return conn, nil
+}
+
+// spoji otvara vezu razmjene: kroz tunel (https://domena) ili na portu
+// razmjene
+func (s *Service) spoji(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
+	if k.put == razmjena.PutKrozTunel {
+		return s.tunelKlijent.DialTunel(ctx, s.node.key, Protocol, s.vjerodajnice, k.adresa, expect)
+	}
+	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
+	adresa := withPort(k.adresa, fmt.Sprint(DefaultExchangePort))
+	raw, err := s.otvori(ctx, adresa)
+	if err != nil {
+		return nil, err
+	}
+	return razmjena.DialExchangeOn(ctx, raw, s.node.key, Protocol, s.vjerodajnice, adresa, expect)
 }
 
 // nazoviUparivanje otvara uparivanje s čvorom koji ga čeka na adresi

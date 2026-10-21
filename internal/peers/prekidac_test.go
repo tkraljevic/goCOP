@@ -61,7 +61,7 @@ func TestPrekidacTailscaleIskljucen(t *testing.T) {
 	if s.TailscaleUkljucen() || s.mojeTailscale() != nil {
 		t.Error("isključen Tailscale i dalje daje adrese")
 	}
-	if got := s.adreseZaSpajanje(ctxRub, p); len(got) != 1 {
+	if got := s.adreseZaSpajanje(ctxRub, p); len(got) != 1 || got[0].put != razmjena.PutAdresa {
 		t.Errorf("isključen Tailscale zove: %v", got)
 	}
 	s.zapamtiTailscale(ctxRub, "ured-vukovar", syncOutcome{})
@@ -70,7 +70,7 @@ func TestPrekidacTailscaleIskljucen(t *testing.T) {
 	}
 
 	s.PostaviTailscale(true)
-	if got := s.adreseZaSpajanje(ctxRub, p); len(got) != 2 || got[1] != "100.101.0.2:4710" {
+	if got := s.adreseZaSpajanje(ctxRub, p); len(got) != 2 || got[1] != (kandidat{"100.101.0.2:4710", razmjena.PutTailscale}) {
 		t.Errorf("nakon uključivanja: %v", got)
 	}
 }
@@ -124,7 +124,7 @@ func TestIskljucenTailscaleOdbijaRazmjenuNaTailscaleAdresi(t *testing.T) {
 		t.Errorf("dnevnik: %d redaka, zadnji %q", n, redak)
 	}
 	peerA, _ := b.GetPeer(ctxRub, a.node.ID)
-	if got := b.adreseZaSpajanje(ctxRub, peerA); len(got) != 1 {
+	if got := b.adreseZaSpajanje(ctxRub, peerA); len(got) != 1 || got[0].put != razmjena.PutAdresa {
 		t.Errorf("B s isključenim Tailscaleom zove: %v", got)
 	}
 	st, _ := b.syncStates(ctxRub)
