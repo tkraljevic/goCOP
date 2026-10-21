@@ -1169,9 +1169,8 @@ func (o *Osvjezivac) uDrugojVelicini(ctx context.Context, izdane []Izdana) []Izd
 // iz umjerenog dijela krivulje ili iz nje cijele.
 func rasponKrozKrivulju(k *models.HQKrivulja, ciljna string, v, dolje, gore float64) (float64, float64, bool) {
 	najn, najv, _ := k.Raspon()
-	dno, vrh := najn-models.ProsirenjeKrivuljeCm, najv+models.ProsirenjeKrivuljeCm
-	d, izvanD, pravaD := granicaKrozKrivulju(k, ciljna, dolje, dno, dno, vrh)
-	g, izvanG, pravaG := granicaKrozKrivulju(k, ciljna, gore, vrh, dno, vrh)
+	d, izvanD, pravaD := granicaKrozKrivulju(k, ciljna, dolje, najn-models.ProsirenjeKrivuljeCm)
+	g, izvanG, pravaG := granicaKrozKrivulju(k, ciljna, gore, najv+models.ProsirenjeKrivuljeCm)
 	switch {
 	case !pravaD && !pravaG:
 		d, g = v, v
@@ -1186,18 +1185,22 @@ func rasponKrozKrivulju(k *models.HQKrivulja, ciljna string, v, dolje, gore floa
 	return d, g, izvanD || izvanG
 }
 
-// granicaKrozKrivulju vodi jednu granicu raspona kroz krivulju produljenu od
-// dna do vrha. Vraća granicu, je li izvan umjerenog dijela krivulje i je li
-// stvarno prošla. Kad nije, vraća ono što krivulja daje na kraju produljenja
-// s te strane (kraj), uz oznaku izvan.
-func granicaKrozKrivulju(k *models.HQKrivulja, ciljna string, granica float64, kraj, dno, vrh int) (float64, bool, bool) {
+// granicaKrozKrivulju vodi jednu granicu raspona kroz krivulju. Vraća
+// granicu, je li izvan umjerenog dijela krivulje i je li stvarno prošla. Kad
+// nije, vraća ono što krivulja daje na kraju produljenja s te strane (kraj,
+// u cm), uz oznaku izvan.
+func granicaKrozKrivulju(k *models.HQKrivulja, ciljna string, granica float64, kraj int) (float64, bool, bool) {
 	if ciljna == "vodostaj" {
-		// Obrat ne pada preko produljenja nego stane na njegovu kraju.
+		// Obrat ne pada preko kraja krivulje nego na njemu stane. Je li
+		// stao, vidi se po tome ide li krivulja od njega još centimetar dalje
+		// na obje strane; kraj se tako ne pogađa brojem nego čita iz nje.
 		cm, izvan, ok := k.Vodostaj(granica)
 		if !ok {
 			return float64(kraj), true, false
 		}
-		return float64(cm), izvan, cm > dno && cm < vrh
+		_, _, nize := k.ProtokProsiren(cm - 1)
+		_, _, vise := k.ProtokProsiren(cm + 1)
+		return float64(cm), izvan, nize && vise
 	}
 	if q, izvan, ok := k.ProtokProsiren(int(math.Round(granica))); ok {
 		return q, izvan, true
