@@ -40,6 +40,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 // LoadOrCreateKey returns the device's Ed25519 private key, minting one on
@@ -222,9 +223,9 @@ func peerPublicKey(rawCerts [][]byte) (ed25519.PublicKey, error) {
 func cnRazmjene(protocol string) string { return protocol + "-sync" }
 
 // dokazaniKljuc vadi ključ i vjerodajnice druge strane iz certifikata koje je
-// TLS već pročitao, i odbija certifikat bez ključa Ed25519 ili s imenom (CN)
-// druge mreže. Vrsta ključa provjerava se prije imena: tuđi poslužitelj (npr.
-// web poslužitelj s certifikatom EC) javlja se kao i do sada, „not an Ed25519
+// TLS već pročitao, i odbija certifikat bez ključa Ed25519 ili s drugim imenom
+// (CN). Vrsta ključa provjerava se prije imena: tuđi poslužitelj (npr. web
+// poslužitelj s certifikatom EC) javlja se kao i do sada, „not an Ed25519
 // key”.
 func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKey, []byte, error) {
 	if len(certs) == 0 {
@@ -235,9 +236,28 @@ func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKe
 		return nil, nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", certs[0].PublicKey)
 	}
 	if cn, ocekuje := certs[0].Subject.CommonName, cnRazmjene(protocol); cn != ocekuje {
-		return nil, nil, fmt.Errorf("certifikat druge strane je za „%s”, a ovo računalo očekuje „%s” (postavka [sync] protokol)", cn, ocekuje)
+		return nil, nil, fmt.Errorf("certifikat druge strane je za „%s”, a ovo računalo očekuje „%s”", imeZaPoruku(cn), ocekuje)
 	}
 	return pub, peerVjerodajnice([][]byte{certs[0].Raw}), nil
+}
+
+// najduzeImeUPoruci je koliko znakova imena iz tuđeg certifikata ide u poruku
+const najduzeImeUPoruci = 64
+
+// imeZaPoruku: ime u certifikatu druge strane zadaje tko god se javi na
+// adresi, a ide u poruku o grešci, u zapis i na pločicu razmjene. Zato se
+// skrati i kontrolni znakovi (npr. novi red) zamijene upitnikom.
+func imeZaPoruku(ime string) string {
+	znakovi := []rune(strings.Map(func(z rune) rune {
+		if unicode.IsPrint(z) {
+			return z
+		}
+		return '?'
+	}, ime))
+	if len(znakovi) > najduzeImeUPoruci {
+		return string(znakovi[:najduzeImeUPoruci]) + "…"
+	}
+	return string(znakovi)
 }
 
 // prefiksVjerodajnica označava URI s vjerodajnicama čvora u certifikatu

@@ -64,10 +64,10 @@ func certifikatCvora(t *testing.T, k ed25519.PrivateKey, protokol string, vj []b
 	return x
 }
 
-// Ključ druge strane dobiva se samo iz certifikata čvora iste mreže: bez
-// certifikata nema ključa, certifikat koji nije Ed25519 javlja se kao i do
-// sada (i kad mu je ime krivo), a ime druge mreže kaže koje je ime stiglo i
-// koje se očekuje.
+// Ključ druge strane dobiva se samo iz certifikata čvora s istim imenom
+// protokola: bez certifikata nema ključa, certifikat koji nije Ed25519 javlja
+// se kao i do sada (i kad mu je ime krivo), a drugo ime kaže koje je ime
+// stiglo i koje se očekuje.
 func TestDokazaniKljuc(t *testing.T) {
 	if _, _, err := dokazaniKljuc(nil, "testproto"); err == nil || !strings.Contains(err.Error(), "no certificate") {
 		t.Errorf("bez certifikata: %v", err)
@@ -78,14 +78,35 @@ func TestDokazaniKljuc(t *testing.T) {
 		t.Errorf("certifikat EC s imenom „tudji”: %v", err)
 	}
 	k := newKey(t)
-	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync” (postavka [sync] protokol)"
+	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"
 	if _, _, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, "drugi", nil)}, "testproto"); err == nil || err.Error() != ocekivano {
-		t.Errorf("druga mreža: %v", err)
+		t.Errorf("drugo ime protokola: %v", err)
+	}
+	podmetnuto := strings.Repeat("x", 100) + "\nlažni redak"
+	ocekivano = "certifikat druge strane je za „" + strings.Repeat("x", 64) + "…”, a ovo računalo očekuje „testproto-sync”"
+	if _, _, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, podmetnuto, nil)}, "testproto"); err == nil || err.Error() != ocekivano {
+		t.Errorf("dugo ime s novim redom: %v", err)
 	}
 	vj := []byte(`{"clanstvo":"izmišljeno"}`)
 	kljuc, dobiveno, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, "testproto", vj)}, "testproto")
 	if err != nil || !kljuc.Equal(k.Public()) || !bytes.Equal(dobiveno, vj) {
 		t.Errorf("certifikat čvora: %v %s %v", kljuc, dobiveno, err)
+	}
+}
+
+// Ime iz tuđeg certifikata ide u poruku skraćeno i bez kontrolnih znakova
+func TestImeZaPoruku(t *testing.T) {
+	for _, s := range []struct{ ime, poruka string }{
+		{"gocop-sync", "gocop-sync"},
+		{"", ""},
+		{"a\nb\x00c\td", "a?b?c?d"},
+		{"čvor-šđž", "čvor-šđž"},
+		{strings.Repeat("ž", 64), strings.Repeat("ž", 64)},
+		{strings.Repeat("ž", 65), strings.Repeat("ž", 64) + "…"},
+	} {
+		if p := imeZaPoruku(s.ime); p != s.poruka {
+			t.Errorf("%q → %q, očekivano %q", s.ime, p, s.poruka)
+		}
 	}
 }
 
@@ -135,7 +156,7 @@ func (b *brojac) odgovori(c *Conn) {
 // strani koja zove i na strani koja prima: ni pitanje o članstvu ni obrada
 // razmjene se ne dogode. Odbijeno rukovanje oslobodi svoje mjesto.
 func TestKrivCNOdbijen(t *testing.T) {
-	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync” (postavka [sync] protokol)"
+	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"
 	t.Run("port, pozivatelj", func(t *testing.T) {
 		ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
 		defer otkazi()
