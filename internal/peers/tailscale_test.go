@@ -394,10 +394,10 @@ func TestVidjenaTailscaleAdresaNeIdeUKnjigu(t *testing.T) {
 	nemaTailscaleaUKnjizi(t, b)
 }
 
-// Redoslijed spajanja: adresa iz lokalne mreže, tvrdnje o adresama
-// (pronalaženje, dolazna razmjena), izravne adrese iz zapisa, naučene
-// adrese, Tailscale adrese koje je čvor sam javio, tunel, svaka sa svojim
-// putem. Stara Tailscale adresa iz zapisa se ne zove.
+// Redoslijed spajanja: adresa iz lokalne mreže, ranije adrese iz
+// pronalaženja, izravne adrese iz zapisa, naučene adrese, adrese s kojih su
+// stigle dolazne razmjene, Tailscale adrese koje je čvor sam javio, tunel,
+// svaka sa svojim putem. Stara Tailscale adresa iz zapisa se ne zove.
 func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	p := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr", "192.168.24.70:4710", "100.101.0.9:4710", "cop-vukovar.example.hr:4710"}}
@@ -433,16 +433,18 @@ func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 		t.Errorf("čvor se ne javlja u lokalnoj mreži: %v", got)
 	}
 
-	// tvrdnje idu iza adrese iz lokalne mreže, najnovija prva, a naučene
-	// adrese iza adresa iz zapisa; naučena adresa koja je i u zapisu ne
-	// zove se dvaput
+	// adresa iz pronalaženja ide iza adrese iz lokalne mreže, naučene
+	// adrese iza adresa iz zapisa, a adresa dolazne razmjene iza naučenih,
+	// kao do 0.0.39, kad ju je bilješka dopisivala na kraj zapisa. Adresa
+	// koja je i u zapisu ili među naučenima ne zove se dvaput.
 	s.dodajTvrdnju("ured-vukovar", kandidat{"192.168.24.73:4710", razmjena.PutAdresa})
+	s.dodajTvrdnju("ured-vukovar", kandidat{"192.168.24.70:4710", razmjena.PutAdresa})
 	s.zapamtiTvrdnju(ctxRub, razmjena.Found{Beacon: razmjena.Beacon{DeviceID: "ured-vukovar", ExchangePort: 4711}, Addr: "192.168.24.71"})
 	s.upisiNaucenu(ctxRub, "ured-vukovar", "192.168.24.70:4710", time.Now())
 	s.upisiNaucenu(ctxRub, "ured-vukovar", "192.168.24.72:4710", time.Now())
 	s.ports.Discovery = lazniGlasnik(t, razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4711})
-	ocekivano := append([]kandidat{lan, {"192.168.24.71:4711", razmjena.PutLAN}, {"192.168.24.73:4710", razmjena.PutAdresa}}, izravne...)
-	ocekivano = append(ocekivano, kandidat{"192.168.24.72:4710", razmjena.PutAdresa}, tailscale, tunel)
+	ocekivano := append([]kandidat{lan, {"192.168.24.71:4711", razmjena.PutLAN}}, izravne...)
+	ocekivano = append(ocekivano, kandidat{"192.168.24.72:4710", razmjena.PutAdresa}, kandidat{"192.168.24.73:4710", razmjena.PutAdresa}, tailscale, tunel)
 	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, ocekivano) {
 		t.Errorf("s tvrdnjama i naučenim adresama: %v", got)
 	}

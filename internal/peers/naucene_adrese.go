@@ -13,8 +13,9 @@ package peers
 // javilo u lokalnoj mreži (Discover) i adresa s koje je stigla dolazna
 // razmjena. U lokalnoj mreži može se javiti bilo tko, a dolazna veza može
 // stići preko usmjerivača ili posrednika (NAT), uvijek s prolaznog porta.
-// Sljedeća razmjena tvrdnju nazove jednom. Ako se na njoj javi očekivani
-// ključ, adresa se nauči s portom na koji je poziv otišao.
+// Razmjena tvrdnju nazove jednom, kad dođe na red (adreseZaSpajanje). Ako se
+// na njoj javi očekivani ključ, adresa se nauči s portom na koji je poziv
+// otišao.
 
 import (
 	"context"
@@ -49,7 +50,7 @@ type naucena struct {
 // nauci su jedina vrata za učenje adresa (noteSync). Odlazna veza nauči
 // adresu na koju je otišla. Dolazna samo tvrdi da je druga strana na adresi
 // s koje je veza stigla, pa ta adresa, s portom razmjene druge strane,
-// postaje tvrdnja koju sljedeća razmjena nazove.
+// postaje tvrdnja koju razmjena nazove kad dođe na red.
 func (s *Service) nauci(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
 	adresa, ok := s.adresaZaUcenje(peer, c, o.dolazna)
 	if !ok {
@@ -179,13 +180,19 @@ func (s *Service) dodajTvrdnju(nodeID string, k kandidat) {
 	s.veze.tvrdnje[nodeID] = l[:min(len(l), najviseTvrdnji)]
 }
 
-// uzmiTvrdnju su tvrdnje o adresama računala za spajanje, najnovija prva.
-// Tvrdnja ostaje dok je razmjena ne nazove (potrosiTvrdnju), pa ne nestane
-// kad razmjena uspije na adresi ispred nje.
-func (s *Service) uzmiTvrdnju(nodeID string) []kandidat {
+// tvrdnjeZa su tvrdnje o adresama računala koje razmjena još nije nazvala,
+// najnovija prva. Tvrdnja ostaje dok je razmjena ne nazove (potrosiTvrdnju),
+// pa ne nestane kad razmjena uspije na adresi ispred nje.
+func (s *Service) tvrdnjeZa(nodeID string) []kandidat {
 	s.veze.mu.Lock()
 	defer s.veze.mu.Unlock()
 	return slices.Clone(s.veze.tvrdnje[nodeID])
+}
+
+// tvrdnjePutem su tvrdnje o adresama računala koje idu tim putem: lan su
+// adrese iz pronalaženja, a adresa one s kojih je stigla dolazna razmjena
+func (s *Service) tvrdnjePutem(nodeID string, put razmjena.Put) []kandidat {
+	return slices.DeleteFunc(s.tvrdnjeZa(nodeID), func(k kandidat) bool { return k.put != put })
 }
 
 // potrosiTvrdnju zaboravlja tvrdnju o adresi koju je razmjena upravo nazvala

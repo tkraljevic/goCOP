@@ -60,7 +60,7 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err == nil {
 				t.Fatal("zaborav je prošao")
 			}
-			if n, put, tvrdnje := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"), s.uzmiTvrdnju("laptop-baranja"); n != 0 || put != "" || tvrdnje != nil {
+			if n, put, tvrdnje := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"), s.tvrdnjeZa("laptop-baranja"); n != 0 || put != "" || tvrdnje != nil {
 				t.Errorf("nakon neuspjelog zaborava: %d pokušaja, put %q, tvrdnje %v", n, put, tvrdnje)
 			}
 			if ime == "popis se ne čita" {
@@ -193,10 +193,10 @@ func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 		t.Errorf("nepoznati čvor je upisan samo zato što se javio: %+v %v", p, err)
 	}
 	tvrdnja := kandidat{"127.0.0.1:4711", razmjena.PutLAN}
-	if got := s.uzmiTvrdnju("laptop-baranja"); !slices.Equal(got, []kandidat{tvrdnja}) {
+	if got := s.tvrdnjeZa("laptop-baranja"); !slices.Equal(got, []kandidat{tvrdnja}) {
 		t.Errorf("tvrdnja o adresi poznatog čvora: %v", got)
 	}
-	if got := s.uzmiTvrdnju("ured-vukovar"); got != nil {
+	if got := s.tvrdnjeZa("ured-vukovar"); got != nil {
 		t.Errorf("tvrdnja o nepoznatom čvoru: %v", got)
 	}
 
@@ -241,7 +241,7 @@ func TestPronalazenjeBezTvrdnjeOTailscaleAdresi(t *testing.T) {
 	if err != nil || len(nadjeni) != 1 || !nadjeni[0].Known || proba != 2*time.Second {
 		t.Fatalf("pronađeni: %+v %v, rok probe %v", nadjeni, err, proba)
 	}
-	if got := s.uzmiTvrdnju("laptop-baranja"); got != nil {
+	if got := s.tvrdnjeZa("laptop-baranja"); got != nil {
 		t.Errorf("Tailscale adresa iz pronalaženja je tvrdnja: %v", got)
 	}
 	if p, err := s.GetPeer(ctxRub, "laptop-baranja"); err != nil || p == nil || p.LastSeen == nil {

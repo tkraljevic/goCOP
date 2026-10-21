@@ -613,7 +613,7 @@ type Discovered struct {
 
 // Discover proba lokalnu mrežu i vraća goCOP čvorove koji su se javili.
 // Adresa poznatog čvora (laptop se preselio) ne ide u njegov zapis: to je
-// samo tvrdnja, koju sljedeća razmjena nazove (zapamtiTvrdnju).
+// samo tvrdnja, koju razmjena nazove kad dođe na red (zapamtiTvrdnju).
 func (s *Service) Discover(ctx context.Context, timeout time.Duration) ([]Discovered, error) {
 	found, err := s.pronadjiUMrezi(timeout)
 	if err != nil {
@@ -1044,13 +1044,15 @@ type kandidat struct {
 }
 
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
-// na kojoj se upravo javio u lokalnoj mreži, tvrdnje o adresama koje još
-// nisu nazvane, izravne adrese iz zapisa, adrese koje je ovo računalo
-// naučilo, Tailscale adrese koje je čvor sam javio, a tunel zadnji. Tunel je
-// najsporiji, a u istoj mreži port razmjene je brži. Naučene idu iza adresa
-// iz zapisa, gdje ih je do 0.0.39 dodavala bilješka o razmjeni. Izravna
-// adresa bez porta dobije port koji se za čvor zna, pa se ista adresa ne
-// zove dvaput.
+// na kojoj se upravo javio u lokalnoj mreži, ranije adrese iz pronalaženja
+// koje još nisu nazvane, izravne adrese iz zapisa, adrese koje je ovo
+// računalo naučilo, adrese s kojih su stigle dolazne razmjene, Tailscale
+// adrese koje je čvor sam javio, a tunel zadnji. Tunel je najsporiji, a u
+// istoj mreži port razmjene je brži. Naučene i dolazne idu iza adresa iz
+// zapisa, gdje ih je do 0.0.39 dodavala bilješka o razmjeni. Dolazna stiže
+// sa svakom razmjenom koju započne druga strana, pa bi ispred zapisa svaki
+// krug prvo zvala adresu usmjerivača koji prevodi adrese. Izravna adresa bez
+// porta dobije port koji se za čvor zna, pa se ista adresa ne zove dvaput.
 func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 	port := s.exchangePortOf(*peer)
 	var izravne, tuneli []string
@@ -1064,8 +1066,10 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 			izravne = append(izravne, withPort(a, port))
 		}
 	}
-	kandidati := append(s.uLokalnojMrezi(peer.NodeID), s.uzmiTvrdnju(peer.NodeID)...)
-	kandidati = append(kandidati, uz(razmjena.PutAdresa, append(izravne, s.naucene(ctx, peer.NodeID)...))...)
+	kandidati := append(s.uLokalnojMrezi(peer.NodeID), s.tvrdnjePutem(peer.NodeID, razmjena.PutLAN)...)
+	kandidati = append(kandidati, uz(razmjena.PutAdresa, izravne)...)
+	kandidati = append(kandidati, uz(razmjena.PutAdresa, s.naucene(ctx, peer.NodeID))...)
+	kandidati = append(kandidati, s.tvrdnjePutem(peer.NodeID, razmjena.PutAdresa)...)
 	kandidati = append(kandidati, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
 	return bezDvojnika(append(kandidati, uz(razmjena.PutKrozTunel, tuneli)...))
 }

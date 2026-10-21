@@ -279,7 +279,7 @@ func TestDolazniJavniICGNATSeNeUci(t *testing.T) {
 			t.Fatalf("%s: %v", sl.udaljena, err)
 		}
 		cekajNovuBiljesku(t, b, a.node.ID)
-		if got := b.uzmiTvrdnju(a.node.ID); !slices.Equal(got, sl.tvrdnja) {
+		if got := b.tvrdnjeZa(a.node.ID); !slices.Equal(got, sl.tvrdnja) {
 			t.Errorf("%s: tvrdnja %v", sl.udaljena, got)
 		}
 		if got := b.naucene(ctxRub, a.node.ID); got != nil {
@@ -293,13 +293,16 @@ func TestDolazniJavniICGNATSeNeUci(t *testing.T) {
 
 // Dolazna razmjena s 192.168.24.1 na lokalnu 192.168.24.92 (s te adrese može
 // zvati i usmjerivač koji prevodi adrese, a ne druga strana) ne nauči ništa
-// dok ovo računalo samo ne nazove tu adresu i na njoj se ne javi očekivani
-// ključ. Kad poziv ne uspije, ne nauči se ništa. Kad uspije, adresa se nauči s
-// portom razmjene druge strane. Tvrdnju svaki poziv potroši.
+// dok ovo računalo ne nazove tu adresu i na njoj se ne javi očekivani ključ.
+// Adresa iz zapisa ovdje ne odgovara, jer se tvrdnja zove tek iza nje
+// (TestRedoslijedAdresaZaSpajanje). Kad poziv ne uspije, ne nauči se ništa. Kad uspije, adresa se nauči s portom razmjene
+// druge strane. Tvrdnju svaki poziv potroši.
 func TestDolaznaAdresaUciTekNakonPoziva(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
 	upoznaj(t, a, b, prerusenaRazmjena(t, b, tcpAdresa(t, "192.168.24.92:4710"), tcpAdresa(t, "192.168.24.1:51234")))
+	zapis := fmt.Sprintf("192.0.2.1:%d", a.ports.Exchange)
+	upoznaj(t, b, a, zapis)
 	naA := fmt.Sprintf("192.168.24.1:%d", a.ports.Exchange)
 	for _, sl := range []struct {
 		ime     string
@@ -314,20 +317,20 @@ func TestDolaznaAdresaUciTekNakonPoziva(t *testing.T) {
 			t.Fatalf("%s: %v", sl.ime, err)
 		}
 		cekajNovuBiljesku(t, b, a.node.ID)
-		if got := b.uzmiTvrdnju(a.node.ID); !slices.Equal(got, []kandidat{{naA, razmjena.PutAdresa}}) {
+		if got := b.tvrdnjeZa(a.node.ID); !slices.Equal(got, []kandidat{{naA, razmjena.PutAdresa}}) {
 			t.Fatalf("%s: tvrdnja nakon dolazne razmjene %v", sl.ime, got)
 		}
 		if got := b.naucene(ctxRub, a.node.ID); got != nil {
 			t.Fatalf("%s: naučeno prije poziva %v", sl.ime, got)
 		}
-		b.dial = prerusenPoziv("192.168.24.92:50000", map[string]prerusen{naA: {sl.cilj, naA}})
-		if _, _, err := b.SyncWith(ctxRub, a.node.ID); err != nil {
+		b.dial = prerusenPoziv("192.168.24.92:50000", map[string]prerusen{zapis: {"127.0.0.1:1", zapis}, naA: {sl.cilj, naA}})
+		if _, _, err := b.SyncWith(ctxRub, a.node.ID); (err == nil) != (sl.naucene != nil) {
 			t.Fatalf("%s: %v", sl.ime, err)
 		}
 		if got := b.naucene(ctxRub, a.node.ID); !slices.Equal(got, sl.naucene) {
 			t.Errorf("%s: naučeno %v", sl.ime, got)
 		}
-		if got := b.uzmiTvrdnju(a.node.ID); len(got) != 0 {
+		if got := b.tvrdnjeZa(a.node.ID); len(got) != 0 {
 			t.Errorf("%s: tvrdnja nije potrošena: %v", sl.ime, got)
 		}
 		if p, ok := b.pokusajiAdresa(a.node.ID)[naA]; !ok || (p.Greska == "") != (sl.naucene != nil) {
@@ -357,7 +360,7 @@ func TestRutaPodmrezeSeNeUci(t *testing.T) {
 			t.Fatal(err)
 		}
 		cekajNovuBiljesku(t, b, a.node.ID)
-		if got, ts := b.uzmiTvrdnju(a.node.ID), b.putZadnjeVeze(a.node.ID) == razmjena.PutTailscale; len(got) != 0 || ts != prepoznaje {
+		if got, ts := b.tvrdnjeZa(a.node.ID), b.putZadnjeVeze(a.node.ID) == razmjena.PutTailscale; len(got) != 0 || ts != prepoznaje {
 			t.Errorf("dolazna, Tailscale prepoznat %v: tvrdnja %v, put tailscale %v", prepoznaje, got, ts)
 		}
 		if got := b.naucene(ctxRub, a.node.ID); got != nil {
@@ -486,7 +489,7 @@ func TestTvrdnjaSKrivimKljucemSeNeUci(t *testing.T) {
 		if got := a.naucene(ctxRub, b.node.ID); !slices.Equal(got, sl.naucene) {
 			t.Errorf("%s: naučeno %v", sl.ime, got)
 		}
-		if got := a.uzmiTvrdnju(b.node.ID); len(got) != 0 {
+		if got := a.tvrdnjeZa(b.node.ID); len(got) != 0 {
 			t.Errorf("%s: tvrdnja nije potrošena: %v", sl.ime, got)
 		}
 	}
@@ -560,7 +563,7 @@ func TestTvrdnjeRubovi(t *testing.T) {
 		s.zapamtiTvrdnju(ctxRub, razmjena.Found{Beacon: razmjena.Beacon{DeviceID: "ured-vukovar", ExchangePort: 4710}, Addr: fmt.Sprintf("192.168.24.%d", 70+i%5)})
 	}
 	lan := func(a string) kandidat { return kandidat{a, razmjena.PutLAN} }
-	if got := s.uzmiTvrdnju("ured-vukovar"); !slices.Equal(got, []kandidat{lan("192.168.24.70:4710"), lan("192.168.24.74:4710"), lan("192.168.24.73:4710"), lan("192.168.24.72:4710")}) {
+	if got := s.tvrdnjeZa("ured-vukovar"); !slices.Equal(got, []kandidat{lan("192.168.24.70:4710"), lan("192.168.24.74:4710"), lan("192.168.24.73:4710"), lan("192.168.24.72:4710")}) {
 		t.Errorf("tvrdnje: %v", got)
 	}
 	if !strings.Contains(dnevnik.String(), "nije spremljeno kad je računalo ured-vukovar viđeno u lokalnoj mreži") {
@@ -568,10 +571,10 @@ func TestTvrdnjeRubovi(t *testing.T) {
 	}
 	s.potrosiTvrdnju("ured-vukovar", "192.168.24.74:4710")
 	s.potrosiTvrdnju("ured-osijek", "192.168.24.70:4710")
-	if got := s.uzmiTvrdnju("ured-vukovar"); !slices.Equal(got, []kandidat{lan("192.168.24.70:4710"), lan("192.168.24.73:4710"), lan("192.168.24.72:4710")}) {
+	if got := s.tvrdnjeZa("ured-vukovar"); !slices.Equal(got, []kandidat{lan("192.168.24.70:4710"), lan("192.168.24.73:4710"), lan("192.168.24.72:4710")}) {
 		t.Errorf("nakon poziva jedne adrese: %v", got)
 	}
-	if got := s.uzmiTvrdnju("ured-osijek"); got != nil {
+	if got := s.tvrdnjeZa("ured-osijek"); got != nil {
 		t.Errorf("tvrdnje drugog računala: %v", got)
 	}
 }
