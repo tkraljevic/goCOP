@@ -929,6 +929,16 @@ func (k HQKrivulja) ProtokProsiren(vodostajCm int) (q float64, izvan, ok bool) {
 	return 0, false, false
 }
 
+// RasponProduljenja je najniži i najviši vodostaj do kojeg ProtokProsiren
+// ide, dakle oba kraja produljene krivulje.
+func (k HQKrivulja) RasponProduljenja() (dolje, gore int, ok bool) {
+	if len(k.Odsjecci) == 0 {
+		return 0, 0, false
+	}
+	najn, najv := k.rubniOdsjecci()
+	return produljenje(najn, najn.OdCm, -1), produljenje(najv, najv.DoCm, 1), true
+}
+
 // rubniOdsjecci su odsječak koji počinje najniže i odsječak koji završava
 // najviše. Krivulja mora imati barem jedan odsječak.
 func (k HQKrivulja) rubniOdsjecci() (najn, najv HQOdsjecak) {
