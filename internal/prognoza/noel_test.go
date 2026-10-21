@@ -74,3 +74,34 @@ func TestDohvatiNOELVracaStoDobije(t *testing.T) {
 		t.Error("bez ijedne letve mora biti pogreška")
 	}
 }
+
+// Izmišljena obavijest kakvu je noel.gv.at 21. 10. 2026. slao s kodom 200
+// na adresu svake datoteke, dok je bio ugašen.
+const obavijestNOEL = "\ufeff<!doctype html>\n<html lang=\"de\"><head><meta charset=\"utf-8\">\n" +
+	"<title>Seite  derzeit\n nicht erreichbar &ndash; Probe</title></head>\n" +
+	"<body><p>Bitte sp&auml;ter wieder versuchen.</p></body></html>\n"
+
+func TestNOELStranicaUmjestoDatoteke(t *testing.T) {
+	_, err := CitajNOEL(obavijestNOEL)
+	if err == nil || !strings.Contains(err.Error(), "web-stranicu „Seite derzeit nicht erreichbar – Probe”") ||
+		strings.Contains(err.Error(), "oblik") {
+		t.Fatalf("poruka mora navesti stranicu, a ne pitati za oblik: %v", err)
+	}
+	if _, err := CitajNOEL("<html><body>bez naslova</body></html>"); err == nil ||
+		!strings.Contains(err.Error(), "web-stranicu bez naslova") {
+		t.Errorf("stranica bez naslova: %v", err)
+	}
+	if _, err := CitajNOEL("Stationsname;Wildungsmauer\nDatum;Mittel;Min;Max\n"); err == nil ||
+		!strings.Contains(err.Error(), "oblik") {
+		t.Errorf("datoteka bez prognoze i dalje pita za oblik: %v", err)
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, obavijestNOEL)
+	}))
+	defer srv.Close()
+	_, err = dohvatiNOEL(context.Background(), nil, srv.URL+"/")
+	if err == nil || strings.Count(err.Error(), "web-stranicu „") != len(LetveNOEL) {
+		t.Fatalf("svaka letva mora javiti stranicu: %v", err)
+	}
+}

@@ -131,7 +131,7 @@ func CitajNOEL(datoteka string) ([]Redak, error) {
 		poVremenu[t.Unix()] = Redak{Kad: t.UTC(), LevelCm: intPtr(int(math.Round(v)))}
 	}
 	if len(poVremenu) == 0 {
-		return nil, fmt.Errorf("noel.gv.at nije vratio nijedno očitanje na punom satu — je li se oblik promijenio?")
+		return nil, greskaBezOcitanjaNOEL(datoteka)
 	}
 	out := make([]Redak, 0, len(poVremenu))
 	for _, r := range poVremenu {
@@ -139,4 +139,12 @@ func CitajNOEL(datoteka string) ([]Redak, error) {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Kad.Before(out[j].Kad) })
 	return out, nil
+}
+
+// greskaBezOcitanjaNOEL kaže zašto u datoteci nije bilo nijednog očitanja.
+func greskaBezOcitanjaNOEL(datoteka string) error {
+	if stranica, ok := stranicaUmjestoDatoteke(datoteka); ok {
+		return fmt.Errorf("noel.gv.at je umjesto datoteke vratio %s; izvor vjerojatno ne radi, program ga pokušava svaki sat", stranica)
+	}
+	return fmt.Errorf("noel.gv.at nije vratio nijedno očitanje na punom satu — je li se oblik promijenio?")
 }
