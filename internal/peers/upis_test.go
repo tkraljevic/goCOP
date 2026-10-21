@@ -20,9 +20,16 @@ import (
 // ne zna, pa ide samo u knjigu
 const entitetProbe = "probni_zapis"
 
-// napuniKnjigu upisuje čvoru n verzija od oko 2 KB
+// napuniKnjigu upisuje čvoru n verzija od oko 2 KB, pod bravom upisa kao i
+// bilješka o razmjeni (zabiljezi): ta se upisuje u svojoj gorutini i nakon
+// što je pozivatelj već završio, a upis koji je počeo čitanjem SQLite tada
+// odbije odmah („database is locked”), bez čekanja
 func napuniKnjigu(t *testing.T, s *Service, n int) {
 	t.Helper()
+	if err := s.uzmiBravu(ctxRub); err != nil {
+		t.Fatal(err)
+	}
+	defer s.pustiBravu()
 	tx, err := s.db.BeginTx(ctxRub, nil)
 	if err != nil {
 		t.Fatal(err)
