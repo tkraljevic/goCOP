@@ -1724,6 +1724,10 @@ func migrateSchema(database *sql.DB) error {
 		// 1 kad je redak upisao program koji pamti mogućnosti, nakon što je
 		// granica stigla: tek tada prazne mogućnosti znače razmjena/1
 		{"peer_sync", "mogucnosti_poznate", "INTEGER NOT NULL DEFAULT 0"},
+		// Ime protokola mreže ([sync] protokol) pod kojim je ova baza ušla u
+		// mrežu: kopirana mapa podataka s drugim imenom ne kreće
+		// (peers.ProvjeriProtokolMreze). Do 0.0.39 sve su mreže bile „gocop”.
+		{"network", "protokol", "TEXT NOT NULL DEFAULT 'gocop'"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
