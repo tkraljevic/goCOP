@@ -65,7 +65,8 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 }
 
 // Adresa bez porta: za ovaj čvor vrijedi njegov port razmjene, za tuđi
-// port iz neke od poznatih adresa, a inače zadani.
+// port iz neke od poznatih adresa, a inače zadani. Adresa tunela i adresa
+// koja nije IP s portom ne daju port, pa ni ručno dodanoj adresi.
 func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 	s := &Service{node: &Node{ID: "cop-osijek"}, ports: Ports{Exchange: 4999}}
 	for _, p := range []struct {
@@ -77,10 +78,18 @@ func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 		{"port iz poznate adrese", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7", "192.0.2.8:4720"}}, "4720"},
 		{"adrese bez porta", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7"}}, "4710"},
 		{"bez adresa", Peer{NodeID: "ured-vukovar"}, "4710"},
+		{"tunel ispred adrese bez porta", Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr", "192.0.2.7"}}, "4710"},
+		{"adresa koja nije IP", Peer{NodeID: "ured-vukovar", Addresses: []string{"p2p:x", "192.0.2.8:4720"}}, "4720"},
+		{"port izvan raspona", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.9:0", "192.0.2.10:70000", "192.0.2.8:4720"}}, "4720"},
 	} {
 		if got := s.exchangePortOf(p.cvor); got != p.port {
 			t.Errorf("%s: port %s, očekivan %s", p.ime, got, p.port)
 		}
+	}
+
+	peer := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr"}}
+	if err := s.dodajAdresu(&peer, "192.0.2.7"); err != nil || !slices.Equal(peer.Addresses, []string{"https://cop.primjer.hr", "192.0.2.7:4710"}) {
+		t.Errorf("ručno dodana adresa iza tunela: %v %v", peer.Addresses, err)
 	}
 }
 

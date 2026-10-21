@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"net/netip"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -380,11 +381,19 @@ func (s *Service) exchangePortOf(p Peer) string {
 		return fmt.Sprint(s.ports.Exchange)
 	}
 	for _, a := range p.Addresses {
-		if _, port, err := net.SplitHostPort(a); err == nil && port != "" {
+		if _, port, err := net.SplitHostPort(a); err == nil && jePort(port) {
 			return port
 		}
 	}
 	return fmt.Sprint(DefaultExchangePort)
+}
+
+// jePort javlja je li tekst port: broj od 1 do 65535. Adresa tunela i
+// adresa koja nije IP prođu kroz net.SplitHostPort bez greške: iz
+// „https://cop.primjer.hr” izađe port „//cop.primjer.hr”, a iz „p2p:x” „x”.
+func jePort(p string) bool {
+	n, err := strconv.ParseUint(p, 10, 16)
+	return err == nil && n > 0
 }
 
 func (s *Service) GetPeer(ctx context.Context, nodeID string) (*Peer, error) {
