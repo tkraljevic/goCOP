@@ -347,7 +347,7 @@ func TestObrisiNacrtSIzvornikom(t *testing.T) {
 	if arh != 2 {
 		t.Errorf("arhiviranih verzija: %d, očekivane dvije (list i izvornik)", arh)
 	}
-	if want := ledger.ChannelFor(ledger.ChannelVodocuvar, nacrt.AreaID, 2026); kanal != want {
+	if want := ledger.ChannelFor(ledger.ChannelVodocuvar, nacrt.AreaID, dan.Year()); kanal != want {
 		t.Errorf("kanal arhiviranog izvornika: %q, očekivan %q", kanal, want)
 	}
 }

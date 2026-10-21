@@ -20,7 +20,7 @@ type HidroNiz struct {
 	ID       int64
 	Sliv     string
 	Letva    string
-	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | geolux-seba | vituki | preracun-*
+	Izvor    string // his2000 | cop | letva-hv | letva-dhmz | geolux-seba | vituki | vizugy-ddvizig | preracun-*
 	Velicina string // vodostaj | protok | temperatura | koncentracija | pronos
 	Vrsta    string // satni | dvokratni | jutarnji | srednjak | dnevni
 	PoDanu   bool   // izvor daje samo datum, bez sata
@@ -83,7 +83,6 @@ func NazivVelicine(v string) string {
 	return v
 }
 
-// NazivIzvora objašnjava odakle niz dolazi i koliko mu se vjeruje.
 // Skupine izvora. Ljestvica od osam stupnjeva bila je složenost koja ne radi
 // ništa: izmjereno je da na Batini, od 15.960 trenutaka gdje se izvori razilaze
 // preko 10 cm, ovjereni niz odlučuje u SVIH 15.960 — fini poredak među
@@ -111,34 +110,30 @@ func SkupinaIzvora(naziv string, red int) string {
 	return SkupinaOperativno
 }
 
+// naziviIzvora su izvori koji se ispisuju svojim imenom.
+var naziviIzvora = map[string]string{
+	"his2000":            "DHMZ, ovjereno",
+	"cop":                "COP Osijek, odabrana jutarnja vrijednost",
+	"letva-hv":           "telemetrija, Hrvatske vode",
+	"letva-dhmz":         "telemetrija, DHMZ",
+	"geolux-seba":        "AVS, Geolux/SEBA",
+	"vituki":             "vizugy.hu, Mađarska",
+	"vizugy-ddvizig":     "Mađarska vodoprivreda (DDVIZIG)",
+	"kisomjer-dhmz":      "kišomjer DHMZ-a",
+	"kisomjer-pljusak":   "pljusak.com, amaterska postaja",
+	"kisomjer-danubehis": "DanubeHIS, kišomjer nacionalne službe",
+	"openmeteo-era5":     "ERA5 reanaliza (Open-Meteo), procjena",
+	"openmeteo-era5land": "ERA5-Land reanaliza (Open-Meteo), procjena",
+	"hibrid-era5":        "ERA5 i prognoza (Open-Meteo), procjena",
+	"openmeteo":          "Open-Meteo, procjena modela",
+}
+
+// NazivIzvora objašnjava odakle niz dolazi i koliko mu se vjeruje.
 func NazivIzvora(i string) string {
+	if naziv, ima := naziviIzvora[i]; ima {
+		return naziv
+	}
 	switch {
-	case i == "his2000":
-		return "DHMZ, ovjereno"
-	case i == "cop":
-		return "COP Osijek, odabrana jutarnja vrijednost"
-	case i == "letva-hv":
-		return "telemetrija, Hrvatske vode"
-	case i == "letva-dhmz":
-		return "telemetrija, DHMZ"
-	case i == "geolux-seba":
-		return "AVS, Geolux/SEBA"
-	case i == "vituki":
-		return "vizugy.hu, Mađarska"
-	case i == "kisomjer-dhmz":
-		return "kišomjer DHMZ-a"
-	case i == "kisomjer-pljusak":
-		return "pljusak.com, amaterska postaja"
-	case i == "kisomjer-danubehis":
-		return "DanubeHIS, kišomjer nacionalne službe"
-	case i == "openmeteo-era5":
-		return "ERA5 reanaliza (Open-Meteo), procjena"
-	case i == "openmeteo-era5land":
-		return "ERA5-Land reanaliza (Open-Meteo), procjena"
-	case i == "hibrid-era5":
-		return "ERA5 i prognoza (Open-Meteo), procjena"
-	case i == "openmeteo":
-		return "Open-Meteo, procjena modela"
 	case strings.HasSuffix(i, "-izvan"):
 		// Odnos dviju letvi vrijedi samo u rasponu u kojem je izmjeren; ovdje
 		// je produljen izvan njega, pa to mora pisati uz svaku vrijednost.

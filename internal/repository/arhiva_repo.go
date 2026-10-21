@@ -114,7 +114,7 @@ func rangIzvora(i string) int {
 		return 2
 	case i == "letva-hv":
 		return 3
-	case i == "vituki":
+	case i == "vituki", i == "vizugy-ddvizig":
 		return 4
 	}
 	return 9

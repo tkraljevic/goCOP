@@ -14,11 +14,11 @@ const vrijemeXML = `<?xml version="1.0" encoding="UTF-8"?><Hrvatska><DatumTermin
 <Grad autom="1"><GradIme>Varaždin</GradIme><Lat>46.283</Lat><Lon>16.364</Lon><Podatci><Temp>-</Temp><Vlaga>40</Vlaga><Tlak>1023.9</Tlak><TlakTend></TlakTend><VjetarSmjer>SE</VjetarSmjer><VjetarBrzina> 1.3</VjetarBrzina><Vrijeme>lahor</Vrijeme><VrijemeZnak>-</VrijemeZnak></Podatci></Grad></Hrvatska>`
 
 const capXML = `<?xml version="1.0" encoding="UTF-8"?><alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
-<info><language>hr</language><event>Narančasto upozorenje za kišu</event><onset>2026-09-26 06:00:00+02:00</onset><expires>2099-09-26 20:00:00+02:00</expires>
+<info><language>hr</language><event>Narančasto upozorenje za kišu</event><onset>2026-09-26 06:00:00+02:00</onset><expires>{istek}</expires>
 <description>Obilna kiša.</description><instruction> BUDITE  SPREMNI </instruction>
 <parameter><valueName>awareness_level</valueName><value>3; orange; Severe</value></parameter>
 <area><areaDesc>Osječko-baranjska</areaDesc></area><area><areaDesc>Vukovarsko-srijemska</areaDesc></area></info>
-<info><language>en-GB</language><event>Orange rain warning</event><expires>2099-09-26 20:00:00+02:00</expires><area><areaDesc>Osijek-Baranja</areaDesc></area></info>
+<info><language>en-GB</language><event>Orange rain warning</event><expires>{istek}</expires><area><areaDesc>Osijek-Baranja</areaDesc></area></info>
 <info><language>hr</language><event>Žuto upozorenje za vjetar</event><expires>2000-01-01 00:00:00+02:00</expires>
 <parameter><valueName>awareness_level</valueName><value>2; yellow; Moderate</value></parameter><area><areaDesc>Zadarska</areaDesc></area></info>
 </alert>`
@@ -27,6 +27,9 @@ const biltenXML = `<?xml version="1.0" encoding="UTF-8"?><hidro_bilten><period_p
 <datum_upisa>25.09.2026.</datum_upisa><vrijeme_upisa>08:50</vrijeme_upisa><dunav>Vodostaji Dunava su u opadanju.</dunav><drava>Drava   stagnira.</drava></hidro_bilten>`
 
 func TestDHMZ(t *testing.T) {
+	// Narančasto upozorenje vrijedi još godinu dana: isteklo se ne vraća, pa
+	// bi ga zakucan istek s vremenom izbacio iz testa.
+	upozorenja := strings.ReplaceAll(capXML, "{istek}", time.Now().AddDate(1, 0, 0).In(Zagreb).Format("2006-01-02 15:04:05-07:00"))
 	poziva := 0
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		poziva++
@@ -34,7 +37,7 @@ func TestDHMZ(t *testing.T) {
 		case "/v":
 			w.Write([]byte(vrijemeXML))
 		case "/cap":
-			w.Write([]byte(capXML))
+			w.Write([]byte(upozorenja))
 		case "/b":
 			w.Write([]byte(biltenXML))
 		default:

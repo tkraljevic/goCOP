@@ -9,6 +9,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
@@ -33,6 +34,9 @@ type PregledKrivulja struct {
 	Odsjecaka      int
 	Potencija      int
 	Od, Do         string
+	// Izvor su izvori krivulja kako ulaze u datoteku: uz izvoz HIS-2000
+	// DHMZ, a uz datoteku krivulja ono što u njoj piše.
+	Izvor          string
 	KotaNule       string
 	Sirina, Duzina string
 	// Što letva već ima, da se vidi mijenja li se išta.
@@ -116,7 +120,8 @@ func pregledKrivulja(ime string, sadrzaj []byte, letva, koren string) (*PregledK
 		Krivulja:  len(s.Krivulje),
 		Odsjecaka: his2000.BrojOdsjecaka(s),
 		Od:        s.Krivulje[0].Od.Format("2006-01-02"),
-		Do:        s.Krivulje[len(s.Krivulje)-1].Do.Format("2006-01-02"),
+		Do:        danKrivulje(s.Krivulje[len(s.Krivulje)-1].Do),
+		Izvor:     strings.Join(s.IzvoriKrivulja(), "; "),
 		KotaNule:  s.Postaja.KotaNule, Sirina: s.Postaja.Sirina, Duzina: s.Postaja.Duzina,
 
 		ZatecenihKrivulja: sp.Zatecenih, ZatecenihOdsjecaka: sp.ZatecenihOdsjecaka,
@@ -131,7 +136,7 @@ func pregledKrivulja(ime string, sadrzaj []byte, letva, koren string) (*PregledK
 func popisKrivulja(s *his2000.Sadrzaj, razlikuju []string) (popis []KrivuljaZaPrikaz, potencija int) {
 	for _, k := range s.Krivulje {
 		od := k.Od.Format("2006-01-02")
-		kp := KrivuljaZaPrikaz{Od: od, Do: k.Do.Format("2006-01-02"), Razlikuje: slices.Contains(razlikuju, od)}
+		kp := KrivuljaZaPrikaz{Od: od, Do: danKrivulje(k.Do), Razlikuje: slices.Contains(razlikuju, od)}
 		for _, o := range k.Odsjecci {
 			if o.Oblik == models.OblikPotencija {
 				potencija++
@@ -187,14 +192,41 @@ func porukaZateceneDatoteke(letva string, err error) error {
 }
 
 func procitajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {
-	s, err := his2000.Procitaj(ime, sadrzaj)
+	s, err := citajKrivulje(ime, sadrzaj)
 	if err != nil {
-		return nil, fmt.Errorf("datoteka se ne čita kao HIS-2000 izvoz: %w", err)
+		return nil, err
 	}
 	if len(s.Krivulje) == 0 {
 		return nil, fmt.Errorf("u datoteci nema nijedne krivulje protoka — je li poslana krivulje.csv?")
 	}
 	return s, nil
+}
+
+// citajKrivulje prepoznaje datoteku po prvom retku. Datoteka krivulja u
+// obliku arhive, npr. od druge vodoprivrede, počinje imenima stupaca i
+// zadržava svoj izvor i napomenu, pa bez izvora ne prolazi. Sve ostalo čita
+// se kao izvoz HIS-2000.
+func citajKrivulje(ime string, sadrzaj []byte) (*his2000.Sadrzaj, error) {
+	if his2000.JeDatotekaKrivulja(sadrzaj) {
+		s, err := his2000.ProcitajDatotekuKrivulja(ime, sadrzaj)
+		if err != nil {
+			return nil, fmt.Errorf("datoteka krivulja nije primljena: %w", err)
+		}
+		return s, nil
+	}
+	s, err := his2000.Procitaj(ime, sadrzaj)
+	if err != nil {
+		return nil, fmt.Errorf("datoteka se ne čita kao HIS-2000 izvoz: %w", err)
+	}
+	return s, nil
+}
+
+// danKrivulje je dan iz razdoblja krivulje. Otvoren kraj ostaje prazan.
+func danKrivulje(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.Format("2006-01-02")
 }
 
 // putKrivulja je mjesto datoteke krivulja te letve u stablu.

@@ -69,7 +69,7 @@ func SpojiKrivulje(zateceno []byte, s *Sadrzaj) (SpojeneKrivulje, error) {
 	if err != nil {
 		return SpojeneKrivulje{}, err
 	}
-	nove := razdobljaIzvoza(s)
+	nove := s.razdoblja()
 	spojeno := zatvoriKrajeve(spoji(stare, nove))
 	return SpojeneKrivulje{
 		CSV:                zapisiRazdoblja(spojeno),
@@ -261,7 +261,11 @@ func razdobljaIzvoza(s *Sadrzaj) []razdobljeKrivulje {
 				o.P1, o.P2, o.P3, o.P4, izvorKrivulja, ""})
 		}
 	}
-	out := k.sve
+	return otvoriZadnju(k.sve)
+}
+
+// otvoriZadnju slaže krivulje po početku i zadnjoj briše kraj.
+func otvoriZadnju(out []razdobljeKrivulje) []razdobljeKrivulje {
 	sort.SliceStable(out, func(i, j int) bool { return out[i].pocetak.Before(out[j].pocetak) })
 	if n := len(out); n > 0 {
 		out[n-1].do = ""

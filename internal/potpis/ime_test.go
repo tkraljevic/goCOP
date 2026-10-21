@@ -14,7 +14,9 @@ import (
 // certifikati bez korisničkog imena pokazuju se kao i dosad.
 func TestImeUCertifikatuNosiKorisnickoIme(t *testing.T) {
 	ca, _ := probniCA(t)
-	kad := time.Date(2026, 10, 3, 9, 0, 0, 0, time.UTC)
+	// Certifikat vrijedi pet godina od izdavanja, a potpis se provjerava na
+	// današnji dan: zakucan dan izdavanja test bi srušio pet godina kasnije.
+	kad := time.Now().UTC()
 	novi, err := ca.Novi(Osoba{UserID: "u-v", Ime: "Ivan Horvat", KorisnickoIme: "pperic", Funkcija: "Vodočuvar", Sektor: "B"}, "lozinka-v", kad)
 	if err != nil {
 		t.Fatal(err)
