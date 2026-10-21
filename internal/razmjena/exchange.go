@@ -114,8 +114,11 @@ func (o *ograniceniCitac) Read(p []byte) (int, error) {
 	return n, err
 }
 
-// prijenos je veza ispod razmjene, nakon rukovanja: TLS na portu i kroz
-// tunel, a kasnije i tok QUIC-a (F3), koji nije *tls.Conn
+// prijenos je ono što razmjena traži od veze: čitanje, pisanje, rokove i
+// adrese. Razmjena danas uvijek ide preko *tls.Conn, na portu i kroz tunel, a
+// kasnije i preko toka QUIC-a (F3), koji nije *tls.Conn. Kroz tunel je ispod
+// TLS-a WebSocket (wsVeza), od kojeg TLS uzima rokove i adrese, pa provjera
+// niže drži i njega.
 type prijenos interface {
 	io.ReadWriteCloser
 	SetReadDeadline(time.Time) error
@@ -136,12 +139,15 @@ type Conn struct {
 	// Vjerodajnice su potvrda članstva (i ovlast) iz certifikata druge
 	// strane, JSON; prazno kod starijih programa
 	Vjerodajnice []byte
-	// Put kojim je veza došla ili otišla; postavlja ga pozivatelj (peers).
-	// Put i RTT nikad ne idu na žicu.
+	// Put kojim je veza došla ili otišla. Postavlja ga peers, na strani koja
+	// zove i na strani koja prima. Put i RTT nikad ne idu na žicu.
 	Put Put
-	// RTT je trajanje TLS rukovanja razmjene na strani koja zove: jedan
-	// obilazak do druge strane i natrag, isto na portu i kroz tunel. Na
-	// strani koja prima je nula.
+	// RTT je trajanje TLS rukovanja razmjene na strani koja zove: otprilike
+	// jedan obilazak do druge strane i natrag, isto na portu i kroz tunel. U
+	// njemu je i ono što obje strane rade tijekom rukovanja (vjerodajnice za
+	// certifikat, u peers čitanje iz baze) i čekanje na slobodno mjesto za
+	// rukovanje kod druge strane, pa pod opterećenjem ispadne veći od
+	// samog obilaska. Na strani koja prima je nula.
 	RTT     time.Duration
 	raw     prijenos
 	enc     *json.Encoder
@@ -157,8 +163,8 @@ func newConnKljuc(p prijenos, key ed25519.PublicKey, vj []byte) *Conn {
 	return &Conn{PeerKey: key, Vjerodajnice: vj, raw: p, enc: json.NewEncoder(p), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}
 }
 
-// newConn je veza razmjene nakon TLS rukovanja; certifikat druge strane koji
-// ne pripada razmjeni ove mreže zatvara vezu
+// newConn je veza razmjene nakon TLS rukovanja; certifikat druge strane bez
+// ključa Ed25519 ili s drugim imenom protokola zatvara vezu
 func newConn(tc *tls.Conn, protocol string) (*Conn, error) {
 	key, vj, err := dokazaniKljuc(tc.ConnectionState().PeerCertificates, protocol)
 	if err != nil {
@@ -274,8 +280,7 @@ func ogradaIz(o []*Ograda) *Ograda {
 	return NovaOgrada()
 }
 
-// vrata primaju jednu po jednu vezu razmjene: provjere nakon rukovanja i
-// mjesta u ogradi
+// vrata primaju veze razmjene: provjere nakon rukovanja i mjesta u ogradi
 type vrata struct {
 	protokol string
 	trusted  KeyChecker
@@ -337,11 +342,12 @@ func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
 
 // primiVezu provjeri vezu nakon rukovanja i preda je razmjeni: ključ i ime u
 // certifikatu, članstvo, pa mjesto za razmjenu. Ne ovisi o prijenosu, pa isto
-// radi i za tok QUIC-a (F3). Svaka provjera koja ne prođe ima svoj izlaz.
+// radi i za tok QUIC-a (F3). Svaka provjera koja ne prođe ima svoj izlaz, da
+// se odbijanja poslije mogu brojati po razlogu (G7).
 func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje func()) {
 	key, vj, err := dokazaniKljuc(certs, v.protokol)
 	if err != nil {
-		_ = p.Close() // veza s nečim što nije čvor ove mreže samo se prekida; greška zatvaranja nema što reći
+		_ = p.Close() // veza s nečim što nije čvor s istim imenom protokola samo se prekida; greška zatvaranja nema što reći
 		return
 	}
 	conn := newConnKljuc(p, key, vj)
@@ -399,8 +405,8 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		return nil, err
 	}
 	tc := tls.Client(raw, cfg)
-	// TLS 1.3 rukovanje na strani koja zove traje jedan obilazak (uz
-	// zanemarivo potpisivanje), pa je to RTT veze, i kroz tunel
+	// TLS 1.3 rukovanje na strani koja zove traje jedan obilazak i malo
+	// računanja, pa je to RTT veze, i kroz tunel (što još ulazi: Conn.RTT)
 	pocetak := time.Now()
 	if err := tc.HandshakeContext(ctx); err != nil {
 		tc.Close()

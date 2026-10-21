@@ -1,7 +1,8 @@
 package razmjena
 
-// Put je put kojim je razmjena prošla. Postavlja ga pozivatelj (peers) i ne
-// ide na žicu; na pločici razmjene prikazuje se u F1.
+// Put je put kojim je razmjena prošla. Postavlja ga peers, na strani koja
+// zove i na strani koja prima. Ne ide na žicu; na pločici razmjene
+// prikazuje se u F1.
 type Put string
 
 // Putovi razmjene
