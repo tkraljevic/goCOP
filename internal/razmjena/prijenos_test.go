@@ -10,8 +10,28 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
+
+	"gocop/internal/mrezatest"
 )
+
+// uMjehuru vodi test u mjehuru. Sat mjehura stane čim test i njegova
+// čišćenja završe, pa zadnje čišćenje (čišćenje ide obrnutim redom) pusti
+// sekundu probnog sata, da stigne zatvaranje koje još putuje mrežom.
+//
+// Stalna slučajnost (cryptotest.SetGlobalRandom) namjerno nije uključena:
+// ona prepisuje crypto/rand.Reader, a gorutine koje drugi testovi ovog paketa
+// ostave (TLS poslužitelji na loopbacku) taj isti Reader čitaju, pa provjera
+// istodobnog pristupa javlja utrku (21. 10. 2026., otprilike jednom u 30
+// ponavljanja). Ishod ovih testova ne ovisi o slučajnim brojevima.
+func uMjehuru(t *testing.T, f func(t *testing.T)) {
+	t.Helper()
+	synctest.Test(t, func(t *testing.T) {
+		t.Cleanup(func() { time.Sleep(time.Second) })
+		f(t)
+	})
+}
 
 // bezGreske prekida test na grešci pripreme
 func bezGreske(t *testing.T, err error) {
@@ -158,6 +178,47 @@ func TestKrivCNOdbijen(t *testing.T) {
 		defer pravi.Close()
 		if _, err := razgovaraj(pravi); err != nil {
 			t.Errorf("razmjena nakon odbijene: %v", err)
+		}
+	})
+}
+
+// RTT na portu razmjene je trajanje rukovanja na strani koja zove: točno
+// jedan obilazak (dva kašnjenja). Strana koja prima nema RTT, a put veze
+// postavlja tek pozivatelj paketa.
+func TestRTTRazmjeneNaPortu(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		const kasnjenje = 25 * time.Millisecond
+		m := mrezatest.NovaMreza()
+		m.Kasnjenje = kasnjenje
+		s, err := m.Slusaj("192.0.2.7:4710")
+		bezGreske(t, err)
+		kljucA, kljucB := newKey(t), newKey(t)
+		primljeno := make(chan *Conn, 1)
+		ctx := t.Context()
+		go func() {
+			err := ServeExchangeOn(ctx, kljucB, "testproto", nil, s, func(ed25519.PublicKey, []byte) bool { return true }, func(c *Conn) {
+				primljeno <- c
+				(&brojac{}).odgovori(c)
+			}, NovaOgrada())
+			if err != nil {
+				t.Error(err)
+			}
+		}()
+		raw, err := m.DialContextOd("192.0.2.8")(ctx, "tcp", "192.0.2.7:4710")
+		bezGreske(t, err)
+		c, err := DialExchangeOn(ctx, raw, kljucA, "testproto", nil, "192.0.2.7:4710", kljucB.Public().(ed25519.PublicKey))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		if c.RTT != 2*kasnjenje || c.Put != "" {
+			t.Errorf("pozivatelj: RTT %v (a ne %v), put %q", c.RTT, 2*kasnjenje, c.Put)
+		}
+		if _, err := razgovaraj(c); err != nil {
+			t.Fatal(err)
+		}
+		if p := <-primljeno; p.RTT != 0 || p.Put != "" || p.RemoteAddr().String() != "192.0.2.8:49152" {
+			t.Errorf("primatelj: RTT %v, put %q, s adrese %s", p.RTT, p.Put, p.RemoteAddr())
 		}
 	})
 }

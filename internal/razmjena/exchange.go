@@ -124,11 +124,18 @@ type Conn struct {
 	// Vjerodajnice su potvrda članstva (i ovlast) iz certifikata druge
 	// strane, JSON; prazno kod starijih programa
 	Vjerodajnice []byte
-	raw          prijenos
-	enc          *json.Encoder
-	dec          *json.Decoder
-	citac        *ograniceniCitac
-	najvise      int64 // ograda jedne primljene poruke; NajvecaPoruka
+	// Put kojim je veza došla ili otišla; postavlja ga pozivatelj (peers).
+	// Put i RTT nikad ne idu na žicu.
+	Put Put
+	// RTT je trajanje TLS rukovanja razmjene na strani koja zove: jedan
+	// obilazak do druge strane i natrag, isto na portu i kroz tunel. Na
+	// strani koja prima je nula.
+	RTT     time.Duration
+	raw     prijenos
+	enc     *json.Encoder
+	dec     *json.Decoder
+	citac   *ograniceniCitac
+	najvise int64 // ograda jedne primljene poruke; NajvecaPoruka
 }
 
 // newConnKljuc je veza razmjene nad prijenosom s već dokazanim ključem
@@ -380,14 +387,19 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		return nil, err
 	}
 	tc := tls.Client(raw, cfg)
+	// TLS 1.3 rukovanje na strani koja zove traje jedan obilazak (uz
+	// zanemarivo potpisivanje), pa je to RTT veze, i kroz tunel
+	pocetak := time.Now()
 	if err := tc.HandshakeContext(ctx); err != nil {
 		tc.Close()
 		return nil, err
 	}
+	rtt := time.Since(pocetak)
 	conn, err := newConn(tc, protocol)
 	if err != nil {
 		return nil, err
 	}
+	conn.RTT = rtt
 	if !conn.PeerKey.Equal(expect) {
 		got := PublicKeyString(conn.PeerKey)
 		conn.Close()
