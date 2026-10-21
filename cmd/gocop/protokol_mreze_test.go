@@ -134,7 +134,7 @@ func TestKopiranaMapaSDrugimProtokolomNeKreceURunu(t *testing.T) {
 	if kod != 1 {
 		t.Errorf("izlazni kod %d, očekivano 1", kod)
 	}
-	poruka := "goCOP nije pokrenut: ova mapa podataka pripada mreži „gocop”, a u gocop.toml piše [sync] protokol = „gocop-sim”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka."
+	poruka := "Čvor se ne pokreće: ova mapa podataka pripada mreži s imenom protokola „gocop”, a u gocop.toml piše [sync] protokol = „gocop-sim”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka."
 	if !strings.Contains(dnevnik.String(), poruka) {
 		t.Errorf("u dnevniku nema %q:\n%s", poruka, dnevnik)
 	}

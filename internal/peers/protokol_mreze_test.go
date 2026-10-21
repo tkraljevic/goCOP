@@ -70,7 +70,7 @@ func odbijenoKao(t *testing.T, err error, upisan, postavka string) {
 	if !errors.As(err, &drugi) || drugi.Upisan != upisan || drugi.Postavka != postavka {
 		t.Fatalf("baza pod „%s” s postavkom „%s”: %v", upisan, postavka, err)
 	}
-	ocekivano := "goCOP nije pokrenut: ova mapa podataka pripada mreži „" + upisan + "”, a u gocop.toml piše [sync] protokol = „" + postavka + "”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka."
+	ocekivano := "Čvor se ne pokreće: ova mapa podataka pripada mreži s imenom protokola „" + upisan + "”, a u gocop.toml piše [sync] protokol = „" + postavka + "”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka."
 	if err.Error() != ocekivano {
 		t.Errorf("poruka:\n%s\nočekivano:\n%s", err, ocekivano)
 	}
@@ -187,7 +187,7 @@ func TestImeProtokola(t *testing.T) {
 			t.Errorf("%q: %v", s.ime, err)
 		}
 	}
-	ocekivano := "goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku."
+	ocekivano := "Čvor se ne pokreće: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku."
 	if err := ProvjeriProtokolMreze(filepath.Join(t.TempDir(), "gocop.db"), ""); err == nil || err.Error() != ocekivano {
 		t.Errorf("prazno ime uz svježu mapu: %v", err)
 	}

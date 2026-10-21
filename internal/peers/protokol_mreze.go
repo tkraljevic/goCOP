@@ -39,7 +39,7 @@ type ProtokolDrugeMreze struct {
 }
 
 func (e *ProtokolDrugeMreze) Error() string {
-	return fmt.Sprintf("goCOP nije pokrenut: ova mapa podataka pripada mreži „%s”, a u gocop.toml piše [sync] protokol = „%s”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka.", e.Upisan, e.Postavka)
+	return fmt.Sprintf("Čvor se ne pokreće: ova mapa podataka pripada mreži s imenom protokola „%s”, a u gocop.toml piše [sync] protokol = „%s”. Ispravi postavku ili pokreni goCOP s drugom mapom podataka.", e.Upisan, e.Postavka)
 }
 
 // ProvjeriProtokolMreze pazi da baza radi pod imenom protokola pod kojim je
@@ -78,7 +78,7 @@ var oblikImenaProtokola = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // (npr. prazno: certifikat „-sync”)
 func imeProtokola(p string) error {
 	if len(p) > najduzeImeProtokola || !oblikImenaProtokola.MatchString(p) {
-		return errors.New("goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku.")
+		return errors.New("Čvor se ne pokreće: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku.")
 	}
 	return nil
 }
