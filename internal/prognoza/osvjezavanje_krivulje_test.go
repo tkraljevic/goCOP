@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"gocop/internal/models"
 )
 
 // satU je sat od epohe za zadani datum u podne UTC.
@@ -16,7 +18,8 @@ func satU(godina int, mjesec time.Month, dan int) int64 {
 
 // Prognoza u drugoj veličini ide kroz krivulju koja tada vrijedi, s
 // granicama provučenima kroz nju. Sat bez krivulje i vrijednost izvan nje
-// se preskaču; granica izvan krivulje ne briše vrijednost nego pada na nju.
+// se preskaču; granica izvan krivulje ne briše vrijednost (što s njom biva,
+// pokazuje TestRasponKrozKrivulju).
 func TestUDrugojVeliciniKrozKrivulju(t *testing.T) {
 	arhiva := arhivaKrivulja(t)
 	dodajPravcuKrivulju(t, arhiva, 1, "proba", "2020-01-01", "")
@@ -41,7 +44,7 @@ func TestUDrugojVeliciniKrozKrivulju(t *testing.T) {
 	want := []Izdana{
 		protok(sat+1, 200, 190, 210, false),
 		protok(sat+3, 545, 535, 565, true),
-		protok(sat+4, 350, 350, 350, false),
+		protok(sat+4, 350, 340, 570, true),
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("vodostaj u protok:\n%+v\nželim\n%+v", got, want)
@@ -71,6 +74,68 @@ func TestUDrugojVeliciniKrozKrivulju(t *testing.T) {
 	}
 	if got := (&Osvjezivac{}).uDrugojVelicini(ctx, []Izdana{izdana(sat+1, 150, 140, 160)}); got != nil {
 		t.Errorf("bez arhive: %+v", got)
+	}
+}
+
+// Granica raspona koja ispadne iz krivulje ne stišće raspon na vrijednost.
+// Dobiva udaljenost one koja je prošla, a nije bliže od kraja produljene
+// krivulje; ne prođe li nijedna, raspona nema. Protok ne ide ispod nule.
+// Krivulje su izmišljene.
+func TestRasponKrozKrivulju(t *testing.T) {
+	// Q = H + 50 (H u cm) od 0 do 500 cm; produljena od -20 (30 m³/s) do
+	// 520 cm (570 m³/s).
+	pravac := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
+		{OdCm: 0, DoCm: 500, Oblik: models.OblikPolinom, P2: 100, P3: 50}}}
+	// Q = H - 10 od 20 do 500 cm: na dnu produljenja protok bi bio ispod nule.
+	plitka := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
+		{OdCm: 20, DoCm: 500, Oblik: models.OblikPolinom, P2: 100, P3: -10}}}
+	for _, s := range []struct {
+		opis           string
+		k              *models.HQKrivulja
+		ciljna         string
+		v, dolje, gore float64 // v je vrijednost već provučena kroz krivulju
+		d, g           float64
+		izvan          bool
+	}{
+		{"obje granice u krivulji", pravac, "protok", 200, 140, 160, 190, 210, false},
+		{"donja preko produljenja: zrcali se gornja", pravac, "protok", 40, -30, 10, 20, 60, true},
+		{"zrcalo bliže od kraja krivulje: kraj", pravac, "protok", 50, -30, 5, 30, 55, true},
+		{"gornja preko produljenja: kraj krivulje dalje od zrcala", pravac, "protok", 350, 290, 700, 340, 570, true},
+		{"nijedna ne prolazi: raspona nema", pravac, "protok", 60, -50, 600, 60, 60, true},
+		{"zrcalo ispod nule: nula", pravac, "protok", 35, -60, 30, 0, 80, true},
+		{"na kraju produljenja protoka nema: nula", plitka, "protok", 20, 5, 40, 0, 30, true},
+
+		{"protok u vodostaj, obje u krivulji", pravac, "vodostaj", 250, 250, 350, 200, 300, false},
+		{"vrijednost i obje granice stoje na dnu: raspona nema", pravac, "vodostaj", -20, 5, 25, -20, -20, true},
+		{"vrijednost na dnu, gornja prava: zrcali se gornja", pravac, "vodostaj", -20, 5, 80, -70, 30, true},
+		{"donja na dnu, zrcalo iznad dna: dno", pravac, "vodostaj", 10, 20, 62, -20, 12, true},
+		{"gornja na vrhu, zrcalo iznad vrha: zrcalo", pravac, "vodostaj", 510, 540, 700, 490, 530, true},
+		{"krivulja bez obrata: raspona nema", plitka, "vodostaj", 30, 20, 40, 30, 30, true},
+	} {
+		d, g, izvan := rasponKrozKrivulju(s.k, s.ciljna, s.v, s.dolje, s.gore)
+		if d != s.d || g != s.g || izvan != s.izvan {
+			t.Errorf("%s: %v–%v izvan=%v, želim %v–%v izvan=%v", s.opis, d, g, izvan, s.d, s.g, s.izvan)
+		}
+	}
+}
+
+// Donji rub protoka ne ide ispod nule; vodostaj i sama vrijednost ostaju.
+func TestDonjiRubProtoka(t *testing.T) {
+	izdane := []Izdana{
+		{Velicina: "protok", Vrijednost: 20, Dolje: -46, Gore: 86},
+		{Velicina: "protok", Vrijednost: 20, Dolje: 5, Gore: 35},
+		{Velicina: "vodostaj", Vrijednost: -300, Dolje: -320, Gore: -280},
+		{Velicina: "protok", Vrijednost: -1, Dolje: -3, Gore: 1},
+	}
+	donjiRubProtoka(izdane)
+	want := []float64{0, 5, -320, -3}
+	for i, w := range want {
+		if izdane[i].Dolje != w {
+			t.Errorf("%d: donji rub %v, želim %v", i, izdane[i].Dolje, w)
+		}
+	}
+	if izdane[0].Vrijednost != 20 || izdane[0].Gore != 86 || izdane[3].Vrijednost != -1 {
+		t.Errorf("dirnuto više od donjeg ruba: %+v", izdane)
 	}
 }
 

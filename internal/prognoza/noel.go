@@ -19,9 +19,11 @@ import (
 	_ "embed"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"math"
 	"net/http"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -118,12 +120,40 @@ func CitajNOEL(datoteka string) (Letva, error) {
 		l.Dani = append(l.Dani, d)
 	}
 	if l.Naziv == "" || len(l.Dani) < 2 {
-		return l, fmt.Errorf("u datoteci nema prognoze — je li se oblik promijenio?")
+		return l, greskaBezPrognozeNOEL(datoteka)
 	}
 	if l.Izdano.IsZero() {
 		l.Izdano = l.Dani[0].Kad
 	}
 	return l, nil
+}
+
+// greskaBezPrognozeNOEL kaže zašto u datoteci nije bilo prognoze. Ispred
+// poruke krug već piše noel.gv.at i letvu.
+func greskaBezPrognozeNOEL(datoteka string) error {
+	if stranica, ok := stranicaUmjestoDatoteke(datoteka); ok {
+		return fmt.Errorf("poslužitelj je umjesto datoteke vratio %s; izvor vjerojatno ne radi, program ga pokušava svaki sat", stranica)
+	}
+	return fmt.Errorf("u datoteci nema prognoze — je li se oblik promijenio?")
+}
+
+var reNaslovStranice = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+
+// stranicaUmjestoDatoteke prepoznaje web-stranicu koja je stigla umjesto
+// datoteke. Tako je noel.gv.at 21. 10. 2026. s kodom 200 javljao da je
+// ugašen, a poruka je pitala je li se oblik datoteke promijenio. Vraća
+// stranicu opisanu za poruku, s naslovom kad ga ima.
+func stranicaUmjestoDatoteke(tijelo string) (string, bool) {
+	pocetak := strings.ToLower(strings.TrimLeft(tijelo[:min(len(tijelo), 256)], "\ufeff \t\r\n"))
+	if !strings.HasPrefix(pocetak, "<!doctype html") && !strings.HasPrefix(pocetak, "<html") {
+		return "", false
+	}
+	if m := reNaslovStranice.FindStringSubmatch(tijelo); m != nil {
+		if naslov := strings.Join(strings.Fields(html.UnescapeString(m[1])), " "); naslov != "" {
+			return "web-stranicu „" + naslov + "”", true
+		}
+	}
+	return "web-stranicu bez naslova", true
 }
 
 // DohvatiNOEL čita prognoze svih letvi koje vodimo. Vraća one koje je

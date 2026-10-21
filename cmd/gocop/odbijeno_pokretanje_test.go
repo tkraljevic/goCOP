@@ -89,7 +89,7 @@ func TestCvorBezKljucaPodPostavomCekaZatvaranjeUlaza(t *testing.T) {
 			t.Errorf("odbijeno pokretanje zapisalo je %s: %v", datoteka, err)
 		}
 	}
-	for _, mora := range []string{"Čvor se ne pokreće", "ostaje upaljen", "Standardni ulaz zatvoren"} {
+	for _, mora := range []string{"Čvor se ne pokreće", "ostaje upaljen dok ga ona ne zaustavi, da ga pri nadogradnji ne zamijeni prethodnim izdanjem, koje ovu provjeru možda nema.", "Standardni ulaz zatvoren"} {
 		if !strings.Contains(dnevnik.String(), mora) {
 			t.Errorf("u dnevniku nema %q:\n%s", mora, dnevnik)
 		}

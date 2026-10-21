@@ -41,10 +41,14 @@ import (
 )
 
 const (
+	// Oznake formata datoteka i sol koda za primanje ne ovise o imenu
+	// protokola mreže ([sync] protokol): ostaju iste kao u 0.0.37–0.0.39.
 	verzijaZahtjeva = "gocop-zahtjev/1"
 	verzijaPotvrde  = "gocop-potvrda/1"
-	najveciZahtjev  = 64 << 10
-	najvecaPotvrda  = 1 << 20
+	solPrimanja     = "gocop-primanje/1|"
+
+	najveciZahtjev = 64 << 10
+	najvecaPotvrda = 1 << 20
 
 	// zahtjevNaCekanjuDatoteka drži zadnji zahtjev ovog čvora i njegov kod
 	// dok potvrda ne stigne; uz ključ čvora, ne u bazi (ne sinkronizira se)
@@ -115,7 +119,7 @@ func kljucIzKoda(kod string, sol []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return scrypt.Key([]byte(k), append([]byte("gocop-primanje/1|"), sol...), scryptN, 8, 1, 32)
+	return scrypt.Key([]byte(k), append([]byte(solPrimanja), sol...), scryptN, 8, 1, 32)
 }
 
 func dokaz(kljuc []byte, vrsta string, b []byte) string {

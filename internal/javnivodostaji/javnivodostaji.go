@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -235,6 +236,32 @@ func objasniTLS(err error) error {
 	}
 	return fmt.Errorf("%w — certifikat je potpisao %q, a ovom računalu taj potpisnik nije poznat"+
 		" (ili mreža presreće promet, ili računalu nedostaje korijenski certifikat)", err, potpisnik)
+}
+
+var reNaslovStranice = regexp.MustCompile(`(?is)<title[^>]*>(.*?)</title>`)
+
+// naslovStranice je tekst iz <title> u jednom retku; prazno kad ga nema.
+func naslovStranice(tijelo string) string {
+	m := reNaslovStranice.FindStringSubmatch(tijelo)
+	if m == nil {
+		return ""
+	}
+	return strings.Join(strings.Fields(html.UnescapeString(m[1])), " ")
+}
+
+// stranicaUmjestoDatoteke prepoznaje web-stranicu koja je stigla umjesto
+// datoteke. Tako poslužitelj s kodom 200 javlja da je izvor ugašen ili u
+// održavanju (noel.gv.at 21. 10. 2026.), pa poruka ne smije pitati je li se
+// oblik datoteke promijenio. Vraća stranicu opisanu za poruku.
+func stranicaUmjestoDatoteke(tijelo string) (string, bool) {
+	pocetak := strings.ToLower(strings.TrimLeft(tijelo[:min(len(tijelo), 256)], "\ufeff \t\r\n"))
+	if !strings.HasPrefix(pocetak, "<!doctype html") && !strings.HasPrefix(pocetak, "<html") {
+		return "", false
+	}
+	if naslov := naslovStranice(tijelo); naslov != "" {
+		return "web-stranicu „" + naslov + "”", true
+	}
+	return "web-stranicu bez naslova", true
 }
 
 // Postaja je jedna postaja s javnog popisa

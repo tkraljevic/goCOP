@@ -86,6 +86,11 @@ func CitajGKD(html string) ([]Redak, error) {
 		if strings.Contains(html, "Wasserstand [cm]") {
 			return nil, fmt.Errorf("GKD tablica nema nijedno valjano očitanje na punom satu")
 		}
+		if naslov := naslovStranice(html); naslov != "" {
+			// naslov kaže je li stigla njihova stranica bez tablice ili
+			// nešto drugo, recimo obavijest o održavanju ili zabrani pristupa
+			return nil, fmt.Errorf("na GKD stranici „%s” nema tablice očitanja — je li se stranica promijenila?", naslov)
+		}
 		return nil, fmt.Errorf("na GKD stranici nema tablice očitanja — je li se stranica promijenila?")
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Kad.Before(out[j].Kad) })

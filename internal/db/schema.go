@@ -1730,6 +1730,10 @@ func migrateSchema(database *sql.DB) error {
 		// računalu i nikad ne putuju, ni u knjigu ni u zapis računala (Odluke
 		// (14. 10. 2026.), 2; peers/naucene_adrese.go)
 		{"peer_sync", "adrese", "TEXT NOT NULL DEFAULT ''"},
+		// Ime protokola mreže ([sync] protokol) pod kojim je ova baza ušla u
+		// mrežu: kopirana mapa podataka s drugim imenom ne kreće
+		// (peers.ProvjeriProtokolMreze). Do 0.0.39 sve su mreže bile „gocop”.
+		{"network", "protokol", "TEXT NOT NULL DEFAULT 'gocop'"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

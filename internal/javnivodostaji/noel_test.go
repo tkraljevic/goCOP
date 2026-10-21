@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -56,5 +57,16 @@ func TestNOELPrepoznajeICita(t *testing.T) {
 	}
 	if _, err := CitajNOEL("Datum;Wert\n2026-09-25 20:15:00;52\n"); err == nil {
 		t.Error("bez punog sata mora biti pogreška")
+	}
+}
+
+func TestNOELStranicaUmjestoDatoteke(t *testing.T) {
+	obavijest := "<!DOCTYPE html>\n<html><head><title>Wartung &amp; Probe</title></head><body></body></html>"
+	_, err := CitajNOEL(obavijest)
+	if err == nil || !strings.Contains(err.Error(), "web-stranicu „Wartung & Probe”") || strings.Contains(err.Error(), "oblik") {
+		t.Fatalf("poruka mora navesti stranicu, a ne pitati za oblik: %v", err)
+	}
+	if _, err := CitajNOEL("<html><title> </title></html>"); err == nil || !strings.Contains(err.Error(), "web-stranicu bez naslova") {
+		t.Errorf("stranica s praznim naslovom: %v", err)
 	}
 }

@@ -67,8 +67,10 @@ func certifikatCvora(t *testing.T, k ed25519.PrivateKey, protokol string, vj []b
 
 // Ključ druge strane dobiva se samo iz certifikata čvora s istim imenom
 // protokola: bez certifikata nema ključa, certifikat koji nije Ed25519 javlja
-// se kao i do sada (i kad mu je ime krivo), a drugo ime kaže koje je ime
-// stiglo i koje se očekuje.
+// se kao i do sada (i kad mu je ime krivo), a drugo ime kaže pod kojim imenom
+// protokola radi drugo računalo, a pod kojim ovo. Ime certifikata koje nije
+// ime čvora goCOP-a (bez nastavka „-sync”) ide u poruku kakvo jest, a
+// predugo skraćeno.
 func TestDokazaniKljuc(t *testing.T) {
 	if _, _, err := dokazaniKljuc(nil, "testproto"); err == nil || !strings.Contains(err.Error(), "no certificate") {
 		t.Errorf("bez certifikata: %v", err)
@@ -79,14 +81,19 @@ func TestDokazaniKljuc(t *testing.T) {
 		t.Errorf("certifikat EC s imenom „tudji”: %v", err)
 	}
 	k := newKey(t)
-	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"
-	if _, _, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, "drugi", nil)}, "testproto"); err == nil || err.Error() != ocekivano {
+	if _, _, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, "drugi", nil)}, "testproto"); err == nil || err.Error() != porukaDrugogImena {
 		t.Errorf("drugo ime protokola: %v", err)
 	}
 	podmetnuto := strings.Repeat("x", 100) + "\nlažni redak"
-	ocekivano = "certifikat druge strane je za „" + strings.Repeat("x", 64) + "…”, a ovo računalo očekuje „testproto-sync”"
+	ocekivano := "Razmjena odbijena: drugo računalo radi pod imenom protokola „" + strings.Repeat("x", 64) + "…”, a ovo pod „testproto”. Prava mreža i testna simulacija ne razmjenjuju podatke."
 	if _, _, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, podmetnuto, nil)}, "testproto"); err == nil || err.Error() != ocekivano {
 		t.Errorf("dugo ime s novim redom: %v", err)
+	}
+	tudji := certifikatCvora(t, k, "testproto", nil)
+	tudji.Subject.CommonName = "web.primjer.hr"
+	ocekivano = "Razmjena odbijena: drugo računalo radi pod imenom protokola „web.primjer.hr”, a ovo pod „testproto”. Prava mreža i testna simulacija ne razmjenjuju podatke."
+	if _, _, err := dokazaniKljuc([]*x509.Certificate{tudji}, "testproto"); err == nil || err.Error() != ocekivano {
+		t.Errorf("ime certifikata bez nastavka: %v", err)
 	}
 	vj := []byte(`{"clanstvo":"izmišljeno"}`)
 	kljuc, dobiveno, err := dokazaniKljuc([]*x509.Certificate{certifikatCvora(t, k, "testproto", vj)}, "testproto")
@@ -135,6 +142,10 @@ func TestOznakeFormataNeOvisiOProtokolu(t *testing.T) {
 	}
 }
 
+// porukaDrugogImena je odbijanje računala koje radi pod imenom protokola
+// „drugi”, na računalu koje radi pod „testproto”
+const porukaDrugogImena = "Razmjena odbijena: drugo računalo radi pod imenom protokola „drugi”, a ovo pod „testproto”. Prava mreža i testna simulacija ne razmjenjuju podatke."
+
 // brojac broji pitanja o povjerenju i obrade na slušalici razmjene
 type brojac struct{ pitan, obrada atomic.Int32 }
 
@@ -174,7 +185,7 @@ func slusalicaUMemoriji(t *testing.T, m *mrezatest.Mreza, kljuc ed25519.PrivateK
 // na strani koja zove i na strani koja prima: ni pitanje o članstvu ni obrada
 // razmjene se ne dogode. Odbijeno rukovanje oslobodi svoje mjesto.
 func TestKrivCNOdbijen(t *testing.T) {
-	ocekivano := "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"
+	ocekivano := porukaDrugogImena
 	t.Run("port, pozivatelj", func(t *testing.T) {
 		uMjehuru(t, func(t *testing.T) {
 			m := mrezatest.NovaMreza()
@@ -342,7 +353,7 @@ func TestPozivateljNeSaljeCertifikatKrivojStrani(t *testing.T) {
 		greska   string // početak greške; prazno: veza prolazi
 	}{
 		{"drugi ključ", newKey(t), "testproto", "the device at " + adresaPorta + " proved a DIFFERENT key than the one paired — refusing to exchange. It presented "},
-		{"drugo ime protokola", ocekivan, "drugi", "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"},
+		{"drugo ime protokola", ocekivan, "drugi", porukaDrugogImena},
 		{"očekivana strana", ocekivan, "testproto", ""},
 	} {
 		t.Run(sl.ime, func(t *testing.T) {

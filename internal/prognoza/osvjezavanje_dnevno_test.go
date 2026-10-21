@@ -88,8 +88,10 @@ func TestDnevnoSKisomBezNjeIProtokom(t *testing.T) {
 				t.Errorf("cilj A, dan 0: %+v", d)
 			}
 		case d.Dan <= 4:
-			// gornja granica (521 cm) izlazi iz krivulje: granice padaju na vrijednost
-			if !d.ImaQ || d.Q != 570 || d.QDolje != 570 || d.QGore != 570 || d.Gore != 521 {
+			// gornja granica (521 cm) izlazi iz krivulje: dobiva udaljenost
+			// donje, a nije niža od kraja krivulje
+			qd := d.Dolje + 50
+			if !d.ImaQ || d.Q != 570 || d.QDolje != qd || d.QGore != math.Max(570, 1140-qd) || d.Gore != 521 {
 				t.Errorf("cilj A, dan %d: %+v", d.Dan, d)
 			}
 		default:
