@@ -206,6 +206,12 @@ type Service struct {
 	// slusaj čeka poziv za uparivanje (StartListening); nil je
 	// razmjena.Listen na portu uparivanja. Test njime čekanje drži bez mreže.
 	slusaj func(ctx context.Context) (*razmjena.PairResult, error)
+	// pronadji proba lokalnu mrežu (Discover); nil je razmjena.Discover. Test
+	// njime glumi odgovore i grešku.
+	pronadji func(protocol string, timeout time.Duration, port int) ([]razmjena.Found, error)
+	// nadji pita lokalnu mrežu gdje je jedan čvor (uLokalnojMrezi); nil je
+	// razmjena.FindDevice. Test njime glumi odgovor.
+	nadji func(protocol, deviceID string, timeout time.Duration, port int) (razmjena.Found, bool)
 	// slusalica prima razmjene (Serve); nil je TCP port razmjene iz Ports.
 	// Test njome daje slušalicu koju je sam otvorio, pa port od izbora do
 	// kraja testa ne može uzeti nitko drugi.
@@ -543,8 +549,8 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
 	// zaboraviti previše košta samo jedno ponovno slanje. Pokušaji
-	// spajanja i put zadnje veze (pokusaji.go) zaborave se također i kad
-	// brisanje ne uspije: do sljedećeg spajanja ih samo nema.
+	// spajanja, put zadnje veze i tvrdnje o adresama (pokusaji.go) zaborave
+	// se također i kad brisanje ne uspije: do sljedećeg spajanja ih samo nema.
 	defer s.zaboraviOdbijene()
 	defer s.zaboraviPokusaje(nodeID)
 	p, err := s.GetPeer(ctx, nodeID)
@@ -559,7 +565,7 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
+	if err := obrisiZapisCvora(ctx, tx, nodeID); err != nil {
 		return err
 	}
 	// Spomenik putuje svima, kao i verzija iz SavePeer: bilješke o razmjeni
@@ -570,6 +576,17 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// obrisiZapisCvora briše zapis čvora koji ovaj čvor zaboravlja i adrese koje
+// je o njemu naučio (naucene_adrese.go). Ako se pod istim imenom upari
+// drugo računalo, ovo ne zove adrese starog.
+func obrisiZapisCvora(ctx context.Context, tx *sql.Tx, nodeID string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '' WHERE node_id = ?`, nodeID)
+	return err
 }
 
 // peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub, po istoj
@@ -608,9 +625,11 @@ type Discovered struct {
 	Known bool `json:"known"`
 }
 
-// Discover proba lokalnu mrežu i vraća goCOP čvorove koji su se javili
+// Discover proba lokalnu mrežu i vraća goCOP čvorove koji su se javili.
+// Adresa poznatog čvora (laptop se preselio) ne ide u njegov zapis: to je
+// samo tvrdnja, koju razmjena nazove kad dođe na red (zapamtiTvrdnju).
 func (s *Service) Discover(ctx context.Context, timeout time.Duration) ([]Discovered, error) {
-	found, err := razmjena.Discover(Protocol, timeout, s.ports.Discovery)
+	found, err := s.pronadjiUMrezi(timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -621,15 +640,19 @@ func (s *Service) Discover(ctx context.Context, timeout time.Duration) ([]Discov
 		}
 		known, _ := s.GetPeer(ctx, f.DeviceID)
 		if known != nil {
-			// osvježi adresu — laptop se preselio
-			now := time.Now().UTC()
-			known.LastSeen = &now
-			known.Addresses = dedupe(append([]string{withPort(f.Addr, fmt.Sprint(f.ExchangePort))}, known.Addresses...))
-			_ = s.SavePeer(ctx, *known)
+			s.zapamtiTvrdnju(ctx, f)
 		}
 		out = append(out, Discovered{Found: f, Known: known != nil})
 	}
 	return out, nil
+}
+
+// pronadjiUMrezi proba lokalnu mrežu (s.pronadji, inače razmjena.Discover)
+func (s *Service) pronadjiUMrezi(timeout time.Duration) ([]razmjena.Found, error) {
+	if s.pronadji != nil {
+		return s.pronadji(Protocol, timeout, s.ports.Discovery)
+	}
+	return razmjena.Discover(Protocol, timeout, s.ports.Discovery)
 }
 
 // ---------- uparivanje ----------
@@ -935,8 +958,10 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
+	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
+	o.dolazna = true
 	// bilješka čeka bravu upisa, a mjesto razmjene treba sljedećem
-	go s.zabiljezi(ctx, peer, c, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
+	go s.zabiljezi(ctx, peer, c, o)
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -1033,9 +1058,14 @@ type kandidat struct {
 }
 
 // adreseZaSpajanje su adrese čvora redom kojim ih razmjena zove: adresa
-// na kojoj se upravo javio u lokalnoj mreži, izravne adrese iz zapisa,
-// Tailscale adrese koje je čvor sam javio, a tunel zadnji. Tunel je
-// najsporiji, a u istoj mreži port razmjene je brži. Izravna adresa bez
+// na kojoj se upravo javio u lokalnoj mreži, ranije adrese iz pronalaženja
+// koje još nisu nazvane, izravne adrese iz zapisa, adrese koje je ovo
+// računalo naučilo, adrese s kojih su stigle dolazne razmjene, Tailscale
+// adrese koje je čvor sam javio, a tunel zadnji. Tunel je najsporiji, a u
+// istoj mreži port razmjene je brži. Naučene i dolazne idu iza adresa iz
+// zapisa, gdje ih je do 0.0.39 dodavala bilješka o razmjeni. Dolazna stiže
+// sa svakom razmjenom koju započne druga strana, pa bi ispred zapisa svaki
+// krug prvo zvala adresu usmjerivača koji prevodi adrese. Izravna adresa bez
 // porta dobije port koji se za čvor zna, pa se ista adresa ne zove dvaput.
 func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 	port := s.exchangePortOf(*peer)
@@ -1050,7 +1080,10 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 			izravne = append(izravne, withPort(a, port))
 		}
 	}
-	kandidati := append(s.uLokalnojMrezi(peer.NodeID), uz(razmjena.PutAdresa, izravne)...)
+	kandidati := append(s.uLokalnojMrezi(peer.NodeID), s.tvrdnjePutem(peer.NodeID, razmjena.PutLAN)...)
+	kandidati = append(kandidati, uz(razmjena.PutAdresa, izravne)...)
+	kandidati = append(kandidati, uz(razmjena.PutAdresa, s.naucene(ctx, peer.NodeID))...)
+	kandidati = append(kandidati, s.tvrdnjePutem(peer.NodeID, razmjena.PutAdresa)...)
 	kandidati = append(kandidati, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
 	return bezDvojnika(append(kandidati, uz(razmjena.PutKrozTunel, tuneli)...))
 }
@@ -1082,29 +1115,42 @@ func bezDvojnika(in []kandidat) []kandidat {
 }
 
 // uLokalnojMrezi je adresa na kojoj se čvor javlja u lokalnoj mreži, kad
-// je pronalaženje uključeno i čvor se javi
+// je pronalaženje uključeno i čvor se javi, osim Tailscale adrese
+// (tvrdnjaIz)
 func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
 	if s.ports.Discovery <= 0 {
 		return nil
 	}
-	f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
-	if !ok {
+	f, ok := s.nadjiUMrezi(nodeID)
+	k, nijeTailscale := tvrdnjaIz(f)
+	if !ok || !nijeTailscale {
 		return nil
 	}
-	return []kandidat{{adresa: withPort(f.Addr, fmt.Sprint(f.ExchangePort)), put: razmjena.PutLAN}}
+	return []kandidat{k}
+}
+
+// nadjiUMrezi pita lokalnu mrežu gdje je čvor (s.nadji, inače
+// razmjena.FindDevice)
+func (s *Service) nadjiUMrezi(nodeID string) (razmjena.Found, bool) {
+	if s.nadji != nil {
+		return s.nadji(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
+	}
+	return razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
 }
 
 // nazovi otvara razmjenu na jednoj adresi i pamti kako je spajanje prošlo
-// (pokusaji.go). Veza dobije put kandidata, osim kad je otišla s Tailscale
-// adrese ovog računala (putVeze).
+// (pokusaji.go); tvrdnja o toj adresi time je potrošena, osim kad je cijela
+// razmjena prekinuta. Veza dobije put kandidata, osim kad je otišla s
+// Tailscale adrese ovog računala (putVeze).
 func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	conn, err := s.spoji(dialCtx, peer, k, expect)
 	// kad je cijela razmjena prekinuta ili joj je isteklo vrijeme, ishod
-	// ništa ne govori o adresi, pa ostaje zapamćen prethodni
+	// ništa ne govori o adresi, pa ostaje zapamćen prethodni, a tvrdnja ostaje
 	if ctx.Err() == nil {
 		s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
+		s.potrosiTvrdnju(peer.NodeID, k.adresa)
 	}
 	if err != nil {
 		return nil, err
@@ -1343,42 +1389,50 @@ func (s *Service) Accept(fn func(ledger.Version) bool) {
 	s.accept = fn
 }
 
+// noteSync zapisuje ishod razmjene s čvorom. Sve ostaje na ovom računalu:
+// stanje razmjene, što je druga strana javila, naučena adresa (nauci) i
+// bilješka uz zapis čvora (zapisiBiljesku). Zato razmjena ne stvara novu
+// verziju zapisa čvora. Bilješka ide zadnja: kad je ona upisana, upisano je
+// i sve ostalo.
 func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
 	if peer == nil {
 		return
 	}
-	applied, sent, err := o.applied, o.sent, o.err
 	s.recordSyncState(ctx, peer.NodeID, o)
 	s.zapamtiTailscale(ctx, peer.NodeID, o)
 	s.zapamtiZnanje(ctx, peer.NodeID, o)
+	s.javiDrugiProgram(peer, o)
+	s.nauci(ctx, peer, c, o)
+	s.zapisiBiljesku(ctx, peer.NodeID, o)
+}
+
+// javiDrugiProgram zapisuje u dnevnik, jednom po čvoru i izdanju, kad drugi
+// čvor radi na drugom izdanju programa
+func (s *Service) javiDrugiProgram(peer *Peer, o syncOutcome) {
 	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
 		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
 			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
 		}
 	}
-	// Razmjena je mogla donijeti noviji zapis tog čvora (adrese, izloženost);
-	// bilješka ide na svjež red, inače bi stara kopija iz memorije pregazila
-	// primljeno i kao nova verzija otputovala natrag.
-	if fresh, getErr := s.GetPeer(ctx, peer.NodeID); getErr == nil && fresh != nil {
-		peer = fresh
-	}
+}
+
+// zapisiBiljesku zapisuje uz zapis čvora kad je zadnji put viđen i
+// sinkroniziran. Bilješka ne putuje (SavePeer je ne stavlja u verziju), pa se
+// piše izravno u red koji je u bazi. Tako se ne prepiše ono što je razmjena
+// upravo donijela o tom čvoru, a zapis koji je razmjena obrisala ostaje
+// obrisan.
+func (s *Service) zapisiBiljesku(ctx context.Context, nodeID string, o syncOutcome) {
 	now := time.Now().UTC()
-	peer.LastSeen = &now
-	if err == nil {
-		peer.LastSync = &now
-		peer.LastSyncNote = fmt.Sprintf("primljeno %d, poslano %d", applied, sent)
+	var sinkroniziran any // NULL: ostaje zadnja uspješna razmjena
+	biljeska := fmt.Sprintf("primljeno %d, poslano %d", o.applied, o.sent)
+	if o.err == nil {
+		sinkroniziran = now
 	} else {
-		peer.LastSyncNote = "greška: " + err.Error()
+		biljeska = "greška: " + o.err.Error()
 	}
-	if c != nil {
-		if host, _, splitErr := net.SplitHostPort(c.RemoteAddr().String()); splitErr == nil && host != "" {
-			if !hasAddressForHost(peer.Addresses, host) {
-				peer.Addresses = dedupe(append(peer.Addresses, host))
-			}
-		}
-	}
-	if saveErr := s.SavePeer(ctx, *peer); saveErr != nil {
-		log.Printf("sinkronizacija: bilješka o čvoru %s nije spremljena: %v", peer.NodeID, saveErr)
+	if _, err := s.db.ExecContext(ctx, `UPDATE peers SET last_seen = ?, last_sync = COALESCE(?, last_sync), last_sync_note = ? WHERE node_id = ?`,
+		now, sinkroniziran, biljeska, nodeID); err != nil {
+		log.Printf("sinkronizacija: bilješka o čvoru %s nije spremljena: %v", nodeID, err)
 	}
 }
 
@@ -1463,19 +1517,6 @@ func withPort(host, port string) string {
 		return host
 	}
 	return net.JoinHostPort(host, port)
-}
-
-func hasAddressForHost(addresses []string, host string) bool {
-	for _, a := range addresses {
-		h, _, err := net.SplitHostPort(a)
-		if err != nil {
-			h = a
-		}
-		if h == host {
-			return true
-		}
-	}
-	return false
 }
 
 // PrivateKey daje privatni ključ čvora onome tko njime potpisuje ono što čvor

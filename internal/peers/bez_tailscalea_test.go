@@ -189,9 +189,9 @@ func bezTailscaleaPrima(t *testing.T, s, laptop *Service) {
 // Tailscalea s oba. Na kraju nijedna verzija zapisa čvora ni na jednom
 // računalu nema adresu iz 100.64.0.0/10 ni fd7a:115c:a1e0::/48, a čvor bez
 // Tailscalea ih ne zove. Zapise čvorova upisuje samo SavePeer (uparivanje,
-// potvrda, pronalaženje, bilješka o razmjeni, ručni unos), a spomenik
-// ForgetPeer, pa to vrijedi za sve putove; TestTailscaleAdreseNeIduUZapisCvora
-// ih gleda izravno.
+// potvrda, ručni unos), a spomenik ForgetPeer, pa to vrijedi za sve putove;
+// pronalaženje i bilješka o razmjeni pišu samo kad je čvor viđen, bez nove
+// verzije. TestTailscaleAdreseNeIduUZapisCvora ih gleda izravno.
 func TestKnjigaNikadNemaTailscaleAdresa(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar", "ured-firme")
 	laptop, ured, firma := c[0], c[1], c[2]

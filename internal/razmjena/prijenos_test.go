@@ -328,3 +328,59 @@ func TestDrugiKljucJeErrDrugiKljuc(t *testing.T) {
 		}
 	})
 }
+
+// Pozivatelj provjeri ključ i ime protokola druge strane usred rukovanja,
+// prije nego što pošalje svoj certifikat, u kojem je potvrda članstva. Strana
+// s drugim ključem ili drugim imenom protokola certifikat ne dobije, a greška
+// je ista kao kad se provjeravalo nakon rukovanja. Očekivana strana ga dobije.
+func TestPozivateljNeSaljeCertifikatKrivojStrani(t *testing.T) {
+	ocekivan := newKey(t)
+	for _, sl := range []struct {
+		ime      string
+		kljuc    ed25519.PrivateKey
+		protokol string
+		greska   string // početak greške; prazno: veza prolazi
+	}{
+		{"drugi ključ", newKey(t), "testproto", "the device at " + adresaPorta + " proved a DIFFERENT key than the one paired — refusing to exchange. It presented "},
+		{"drugo ime protokola", ocekivan, "drugi", "certifikat druge strane je za „drugi-sync”, a ovo računalo očekuje „testproto-sync”"},
+		{"očekivana strana", ocekivan, "testproto", ""},
+	} {
+		t.Run(sl.ime, func(t *testing.T) {
+			uMjehuru(t, func(t *testing.T) {
+				klijent, posluzitelj := mrezatest.Par(mrezatest.TCP("192.0.2.8:49152"), mrezatest.TCP(adresaPorta))
+				cfg, err := tlsConfig(sl.kljuc, sl.protokol)
+				bezGreske(t, err)
+				var certifikata atomic.Int32
+				cfg.VerifyPeerCertificate = func(certs [][]byte, _ [][]*x509.Certificate) error {
+					certifikata.Add(int32(len(certs)))
+					return nil
+				}
+				rukovanje := make(chan error, 1)
+				go func() {
+					s := tls.Server(posluzitelj, cfg)
+					defer s.Close()
+					rukovanje <- s.HandshakeContext(t.Context())
+				}()
+				vj := func() []byte { return []byte(`{"clanstvo":"izmišljeno"}`) }
+				c, err := DialExchangeOn(t.Context(), klijent, newKey(t), "testproto", vj, adresaPorta, ocekivan.Public().(ed25519.PublicKey))
+				errPosluzitelja := <-rukovanje
+				if sl.greska == "" {
+					if err != nil || errPosluzitelja != nil || certifikata.Load() != 1 || !c.PeerKey.Equal(ocekivan.Public()) {
+						t.Fatalf("očekivana strana: %v, poslužitelj %v, certifikata %d", err, errPosluzitelja, certifikata.Load())
+					}
+					c.Close()
+					return
+				}
+				if err == nil || !strings.HasPrefix(err.Error(), sl.greska) {
+					t.Errorf("greška pozivatelja: %v", err)
+				}
+				if errors.Is(err, ErrDrugiKljuc) != (sl.ime == "drugi ključ") {
+					t.Errorf("greška %v kao ErrDrugiKljuc: %v", err, errors.Is(err, ErrDrugiKljuc))
+				}
+				if errPosluzitelja == nil || certifikata.Load() != 0 {
+					t.Errorf("druga strana: rukovanje %v, dobila certifikata %d", errPosluzitelja, certifikata.Load())
+				}
+			})
+		})
+	}
+}

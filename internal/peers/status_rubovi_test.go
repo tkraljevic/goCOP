@@ -14,8 +14,9 @@ import (
 
 // Ploča kaže što ne štima: čvor bez mreže i čvor bez poznatih čvorova samo
 // to; inače isključenu automatsku razmjenu, razmjenu koja nije uspjela ili
-// davno, čvor bez članstva, čvor koji ne odgovara, bez adrese ili na drugom
-// izdanju programa, i mrežu bez ijedne javne adrese.
+// davno, čvor bez članstva, čvor koji ne odgovara, bez adrese (naučena
+// adresa vrijedi kao adresa) ili na drugom izdanju programa, i mrežu bez
+// ijedne javne adrese.
 func TestUpozorenjaPloce(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	every := 5 * time.Minute
@@ -30,7 +31,7 @@ func TestUpozorenjaPloce(t *testing.T) {
 		t.Errorf("bez čvorova: %v", a)
 	}
 
-	st := &Status{Network: mreza, Program: "0.0.38", Total: 4, LastOK: &davno, Peers: []PeerStatus{
+	st := &Status{Network: mreza, Program: "0.0.38", Total: 5, LastOK: &davno, Peers: []PeerStatus{
 		{Peer: Peer{NodeID: "ured-vukovar", Name: "Ured Vukovar", Addresses: []string{"192.0.2.10:4710"}}, Member: true,
 			State: SyncState{Program: "0.0.36", LastOK: &davno}},
 		{Peer: Peer{NodeID: "laptop-baranja"}, MemberProblem: "nema potvrde članstva",
@@ -39,6 +40,8 @@ func TestUpozorenjaPloce(t *testing.T) {
 			State: SyncState{Fails: 4, LastOK: &davno, LastError: "istek roka", ProgramPoznat: true}},
 		{Peer: Peer{NodeID: "stari-cvor", Name: "Stari čvor", Addresses: []string{"192.0.2.12:4710"}}, Member: true,
 			State: SyncState{ProgramPoznat: true}},
+		{Peer: Peer{NodeID: "laptop-vukovar", Name: "Laptop Vukovar"}, Member: true,
+			State: SyncState{Naucene: []string{"192.168.24.70:4710"}}},
 	}}
 	a := s.alerts(st, every, sada)
 	vrijeme := davno.Local().Format("02.01. 15:04")
@@ -80,6 +83,29 @@ func TestUpozorenjaPloce(t *testing.T) {
 	}
 	if a := s.alerts(st, every, sada); len(a) != 0 {
 		t.Errorf("ovaj čvor ima javnu adresu, a ploča javlja: %v", a)
+	}
+}
+
+// Adresa koju je ovaj čvor naučio stoji na ploči uz čvor i vrijedi kao
+// poznata adresa: čvor bez adrese u zapisu koji ima naučenu adresu nema
+// upozorenje da ga ovaj čvor ne može nazvati.
+func TestPlocaZnaNauceneAdrese(t *testing.T) {
+	s := rubnaMreza(t, "cop-osijek")
+	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "Laptop Baranja", PublicKey: javniKljuc(t)}); err != nil {
+		t.Fatal(err)
+	}
+	bezAdrese := "Laptop Baranja: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati."
+	st, err := s.Status(ctxRub, false)
+	if err != nil || !slices.Contains(st.Alerts, bezAdrese) {
+		t.Fatalf("prije učenja: %+v %v", st, err)
+	}
+	s.upisiNaucenu(ctxRub, "laptop-baranja", "192.168.24.70:4710", time.Now())
+	st, err = s.Status(ctxRub, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(st.Peers) != 1 || !slices.Equal(st.Peers[0].State.Naucene, []string{"192.168.24.70:4710"}) || slices.Contains(st.Alerts, bezAdrese) {
+		t.Errorf("nakon učenja: %+v, upozorenja %v", st.Peers, st.Alerts)
 	}
 }
 
@@ -159,7 +185,7 @@ func TestPlocaKadBazaNeRadi(t *testing.T) {
 	}
 	if _, err := s.db.Exec(`CREATE TABLE peer_sync (node_id TEXT, their_frontier TEXT, last_attempt DATETIME, last_ok DATETIME, last_error TEXT,
 		applied INTEGER, sent INTEGER, duration_ms INTEGER, fails INTEGER, program TEXT, gradnja TEXT, program_poznat INTEGER, tailscale TEXT,
-		mogucnosti TEXT, vrste TEXT, ceka_nadogradnju INTEGER, mogucnosti_poznate INTEGER)`); err != nil {
+		mogucnosti TEXT, vrste TEXT, ceka_nadogradnju INTEGER, mogucnosti_poznate INTEGER, adrese TEXT)`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.db.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_error) VALUES ('ured-vukovar', '{}', NULL)`); err != nil {

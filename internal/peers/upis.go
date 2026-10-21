@@ -207,11 +207,11 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 	}
 }
 
-// zabiljezi upisuje bilješku o razmjeni (stanje razmjene, zapis čvora,
-// ponekad i njegovu verziju) pod bravom upisa: i ona piše u bazu, a SQLite
-// odbija upis koji je počeo čitanjem dok je drugi upisao („database is
-// locked” bez čekanja). Razgovor je tada gotov, pa smije čekati. Put veze
-// pamti se samo u memoriji, pa ne čeka bravu.
+// zabiljezi upisuje bilješku o razmjeni (stanje razmjene, naučenu adresu ili
+// tvrdnju i bilješku uz zapis čvora, bez nove verzije) pod bravom upisa: i
+// ona piše u bazu, a SQLite odbija upis koji je počeo čitanjem dok je drugi
+// upisao („database is locked” bez čekanja). Razgovor je tada gotov, pa
+// smije čekati. Put veze pamti se samo u memoriji, pa ne čeka bravu.
 func (s *Service) zabiljezi(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
 	s.zapamtiPut(peer, c)
 	if err := s.uzmiBravu(ctx); err != nil {
