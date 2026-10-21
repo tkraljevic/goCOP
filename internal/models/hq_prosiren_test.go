@@ -77,3 +77,47 @@ func TestPotencijaIPolinomSeSpajajuNaGranici(t *testing.T) {
 		t.Errorf("bez pomaka očekivano ispod 20 m³/s, dobiveno %.1f — test ne mjeri ono što misli", q2)
 	}
 }
+
+// Rubni odsječak se produljuje samo dok s vodostajem raste. Parabola zna imati
+// tjeme malo preko ruba odsječka; iza tjemena protok opet raste, pa bi
+// produljena krivulja pri padu vode davala sve veći protok.
+func TestProtokProsirenStajeNaTjemenu(t *testing.T) {
+	tjemeDolje := HQKrivulja{Odsjecci: []HQOdsjecak{ // tjeme na −5 cm
+		{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: 10, P2: 1, P3: 0.5},
+	}}
+	tjemeGore := HQKrivulja{Odsjecci: []HQOdsjecak{ // tjeme na 105 cm
+		{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: -10, P2: 21, P3: 1},
+	}}
+	slucajevi := []struct {
+		opisano string
+		k       HQKrivulja
+		cm      int
+		ok      bool
+	}{
+		{"na tjemenu ispod ruba", tjemeDolje, -5, true},
+		{"centimetar ispod tjemena", tjemeDolje, -6, false},
+		{"20 cm ispod ruba, iza tjemena", tjemeDolje, -20, false},
+		{"na tjemenu iznad vrha", tjemeGore, 105, true},
+		{"centimetar iznad tjemena", tjemeGore, 106, false},
+	}
+	for _, s := range slucajevi {
+		if _, izvan, ok := s.k.ProtokProsiren(s.cm); ok != s.ok || (ok && !izvan) {
+			t.Errorf("%s (%d cm): izvan=%v ok=%v, očekivano ok=%v", s.opisano, s.cm, izvan, ok, s.ok)
+		}
+	}
+
+	// Gdje god produljena krivulja daje protok, on raste s vodostajem.
+	for _, k := range []HQKrivulja{tjemeDolje, tjemeGore} {
+		prije := math.Inf(-1)
+		for cm := -ProsirenjeKrivuljeCm; cm <= 100+ProsirenjeKrivuljeCm; cm++ {
+			q, _, ok := k.ProtokProsiren(cm)
+			if !ok {
+				continue
+			}
+			if q <= prije {
+				t.Fatalf("na %d cm protok pada s %.4f na %.4f", cm, prije, q)
+			}
+			prije = q
+		}
+	}
+}

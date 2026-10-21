@@ -67,3 +67,52 @@ func TestVodostajBezOdsjecakaNeGata(t *testing.T) {
 		t.Error("prazna krivulja dala vodostaj")
 	}
 }
+
+// Obrat ne smije zapeti na rubu produljenja. Kad rubni odsječak preko ruba
+// prestane rasti ili prestane postojati, granica obrata je ondje, a ne puno
+// produljenje: inače svaki mali protok završi na kraju produljenja, koliko
+// god da je voda bila viša, ili obrat ne uspije ni za jedan protok.
+func TestVodostajNeZapinjeNaRubuProduljenja(t *testing.T) {
+	slucajevi := []struct {
+		opisano       string
+		k             HQKrivulja
+		prvi, zadnji  int // vodostaji koji se moraju vratiti
+		najniziProtok float64
+		najnizaRazina int // kamo ide protok manji od svih na krivulji
+	}{
+		{"tjeme parabole ispod najnižeg odsječka", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: 10, P2: 1, P3: 0.5},
+		}}, -5, 10, 0.1, -5},
+		{"tjeme parabole iznad najvišeg odsječka", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: -10, P2: 21, P3: 1},
+		}}, 90, 105, -10, -4},
+		{"potencija koja ispod ruba prestaje postojati", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 10, DoCm: 200, Oblik: OblikPotencija, P1: 5, P2: 2},
+		}}, 1, 30, 0, 1},
+		{"potencija s nulom na samom rubu", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 200, Oblik: OblikPotencija, P1: 5, P2: 2},
+		}}, 1, 30, 0, 1},
+	}
+	for _, s := range slucajevi {
+		for cm := s.prvi; cm <= s.zadnji; cm++ {
+			q, _, ok := s.k.ProtokProsiren(cm)
+			if !ok {
+				t.Fatalf("%s: %d cm nema protoka", s.opisano, cm)
+			}
+			natrag, izvan, ok := s.k.Vodostaj(q)
+			if !ok {
+				t.Errorf("%s: obrat %.4f m³/s ne uspijeva", s.opisano, q)
+				continue
+			}
+			if d := natrag - cm; d > 1 || d < -1 {
+				t.Errorf("%s: %d cm → %.4f m³/s → %d cm", s.opisano, cm, q, natrag)
+			}
+			if lo, hi, _ := s.k.Raspon(); izvan != (natrag < lo || natrag > hi) {
+				t.Errorf("%s: %d cm označen izvan=%v", s.opisano, natrag, izvan)
+			}
+		}
+		if cm, izvan, ok := s.k.Vodostaj(s.najniziProtok); !ok || !izvan || cm != s.najnizaRazina {
+			t.Errorf("%s, premali protok: %d cm, izvan %v, ok %v; očekivano %d cm izvan", s.opisano, cm, izvan, ok, s.najnizaRazina)
+		}
+	}
+}
