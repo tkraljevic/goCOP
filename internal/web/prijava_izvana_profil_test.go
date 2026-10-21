@@ -76,6 +76,8 @@ func novaOkolinaIzvana(t *testing.T) *okolinaIzvana {
 	repo := repository.NewUserRepository(baza, rec)
 	auth := service.NewAuthService(repo, repository.NewSessionRepository(baza))
 	users := service.NewUserService(repo, auth, service.NewSSEBroker())
+	// obavijest o promjeni adrese ide iz pozadine; čeka se prije zatvaranja baze
+	t.Cleanup(users.PricekajPozadinu)
 	dk := service.NewDrugiKorak(repository.NewDrugiKorakRepository(baza), repository.NewRacuniSustavaRepository(baza),
 		repo, repository.NewAktiRepository(baza, rec))
 	dk.SetKljuc([]byte("sjeme-cvora-za-test-drugog-koraka"))
