@@ -967,8 +967,7 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 	}
 	defer r.Close()
 
-	sirovo := map[int64]sirovoOcitanje{}
-	odmak := map[int64]time.Duration{}
+	sati := noviPoSatu[sirovoOcitanje]()
 	for r.Next() {
 		// Stupac je DATETIME, pa ga upravljač sam pretvara u vrijeme; čitan
 		// kao tekst dolazi u drugom zapisu nego što u bazi stoji.
@@ -980,20 +979,10 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 		if !s.cm.Valid && !s.q.Valid {
 			continue
 		}
-		t = t.UTC()
-		// Očitanje s pola sata pripada najbližem satu; kad ih na isti sat
-		// padne više, ostaje ono bliže punoj uri.
-		sat := int64(t.Add(30*time.Minute).Unix() / 3600)
-		raz := t.Sub(time.Unix(sat*3600, 0))
-		if raz < 0 {
-			raz = -raz
-		}
-		if prije, bilo := odmak[sat]; !bilo || raz < prije {
-			sirovo[sat] = s
-			odmak[sat] = raz
-		}
+		// Na pune sate isto kao namještanje iz arhive (poSatu).
+		sati.dodaj(t.Unix(), s)
 	}
-	return sirovo, r.Err()
+	return sati.vrijednosti, r.Err()
 }
 
 func uVelicini(velicina string, cm sql.NullInt64, q sql.NullFloat64,
