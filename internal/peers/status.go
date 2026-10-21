@@ -43,6 +43,9 @@ type SyncState struct {
 	// Tailscale su adrese koje je drugi čvor javio u izravnom razgovoru;
 	// ostaju na ovom računalu (vidi tailscale.go)
 	Tailscale []string `json:"tailscale,omitempty"`
+	// Naucene su adrese drugog čvora koje je ovo računalo naučilo, od
+	// najnovijeg uspjeha; i one ostaju na ovom računalu (naucene_adrese.go)
+	Naucene []string `json:"naucene,omitempty"`
 	// Mogucnosti, Vrste i CekaNadogradnju su ono što je drugi čvor javio da
 	// zna (razmjena/mogucnosti.go), očišćeno (Znanje.Ocisceno). Prazne
 	// Mogucnosti uz MogucnostiPoznate znače da nije javio nijednu ispravnu
@@ -151,18 +154,18 @@ func uStupac(v any) string {
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
-		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate FROM peer_sync`)
+		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
 	for rows.Next() {
-		var id, frontier, ts, mogucnosti, vrste string
+		var id, frontier, ts, mogucnosti, vrste, adrese string
 		var st SyncState
 		var attempt, ok sql.NullTime
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
-			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate); err != nil {
+			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese); err != nil {
 			return nil, err
 		}
 		if attempt.Valid {
@@ -177,6 +180,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
 		_ = json.Unmarshal([]byte(vrste), &st.Vrste)
+		st.Naucene = adreseNaucenih(naucenaIz(adrese))
 		out[id] = st
 	}
 	return out, rows.Err()
@@ -304,6 +308,10 @@ type PeerStatus struct {
 	Gradnja         string `json:"gradnja,omitempty"`
 	RazlicitProgram bool   `json:"razlicit_program,omitempty"`
 }
+
+// bezAdrese javlja da ovaj čvor ne zna nijednu adresu drugog: nema je ni u
+// zapisu čvora ni među naučenima (naučene ne idu u zapis)
+func (p PeerStatus) bezAdrese() bool { return len(p.Addresses) == 0 && len(p.State.Naucene) == 0 }
 
 // razlicitProgram javlja radi li drugi čvor na drugom izdanju: javio je
 // drukčije, ili se uspješno razmijenio a ne javlja ga (stariji program).
@@ -453,7 +461,7 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 			out = append(out, fmt.Sprintf("%s: %s (%d %s zaredom): %s", label(p.Peer), since, p.State.Fails,
 				models.UzBrojHR(p.State.Fails, "pokušaj", "pokušaja", "pokušaja"), p.State.LastError))
 		}
-		if len(p.Addresses) == 0 {
+		if p.bezAdrese() {
 			out = append(out, fmt.Sprintf("%s: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.", label(p.Peer)))
 		}
 		if st.Program != "" {

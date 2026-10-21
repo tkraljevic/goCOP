@@ -129,8 +129,13 @@ func (s *Service) upisiNaucenu(ctx context.Context, nodeID, adresa string, kada 
 
 // naucene su naučene adrese drugog računala, od najnovijeg uspjeha
 func (s *Service) naucene(ctx context.Context, nodeID string) []string {
+	return adreseNaucenih(s.citajNaucene(ctx, nodeID))
+}
+
+// adreseNaucenih su same adrese iz popisa naučenih, istim redom
+func adreseNaucenih(l []naucena) []string {
 	var out []string
-	for _, n := range s.citajNaucene(ctx, nodeID) {
+	for _, n := range l {
 		out = append(out, n.Adresa)
 	}
 	return out
@@ -143,6 +148,11 @@ func (s *Service) citajNaucene(ctx context.Context, nodeID string) []naucena {
 	if err := s.db.QueryRowContext(ctx, `SELECT adrese FROM peer_sync WHERE node_id = ?`, nodeID).Scan(&b); err != nil {
 		return nil
 	}
+	return naucenaIz(b)
+}
+
+// naucenaIz je popis naučenih adresa iz stupca peer_sync.adrese
+func naucenaIz(b string) []naucena {
 	var l []naucena
 	_ = json.Unmarshal([]byte(b), &l) // prazno ili pokvareno: nijedna
 	return l
