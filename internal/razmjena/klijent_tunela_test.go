@@ -21,12 +21,15 @@ import (
 	"math/big"
 	"net"
 	"net/http"
+	"reflect"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
+
+	"golang.org/x/net/websocket"
 
 	"gocop/internal/mrezatest"
 )
@@ -73,10 +76,10 @@ type tunelUMemoriji struct {
 }
 
 // noviTunelUMemoriji pokreće B s ključem i imenom protokola; B vjeruje samo
-// ključu poznat
-func noviTunelUMemoriji(t *testing.T, kljucB ed25519.PrivateKey, protokolB string, poznat ed25519.PublicKey) *tunelUMemoriji {
+// uparenom ključu
+func noviTunelUMemoriji(t *testing.T, kljucB ed25519.PrivateKey, protokolB string, upareni ed25519.PublicKey) *tunelUMemoriji {
 	t.Helper()
-	cert, korijeni := webCertifikat(t, "cop.primjer.hr", "sutljivi.primjer.hr", "prazan.primjer.hr")
+	cert, korijeni := webCertifikat(t, "cop.primjer.hr", "sutljivi.primjer.hr", "gluhi.primjer.hr", "prazan.primjer.hr")
 	m := mrezatest.NovaMreza()
 	m.Kasnjenje = kasnjenjeTunela
 	// klijent ne zadaje ime poslužitelja (ServerName): zadaje ga sam iz
@@ -89,7 +92,7 @@ func noviTunelUMemoriji(t *testing.T, kljucB ed25519.PrivateKey, protokolB strin
 	ctx := t.Context()
 	vjeruje := func(k ed25519.PublicKey, _ []byte) bool {
 		tu.pitan.Add(1)
-		return k.Equal(poznat)
+		return k.Equal(upareni)
 	}
 	go func() {
 		if err := ServeExchangeOn(ctx, kljucB, protokolB, nil, tunel, vjeruje, tu.odgovori, NovaOgradaTunela(nil)); err != nil {
@@ -114,14 +117,27 @@ func (tu *tunelUMemoriji) web(t *testing.T, adresa string, h http.Handler) {
 }
 
 // sutljivi je poslužitelj na adresi mreže koji završi vanjski TLS, a zatim
-// samo čita i nikad ne odgovori. Na kraju testa čeka da pozivatelj zatvori
-// svoje veze: zatvaranje putuje kašnjenje mreže, a sat mjehura stane čim test
-// završi.
+// samo čita i nikad ne odgovori
 func (tu *tunelUMemoriji) sutljivi(t *testing.T, adresa string) {
 	t.Helper()
 	s, err := tu.m.Slusaj(adresa)
 	bezGreske(t, err)
-	ln := tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{tu.cert}, MinVersion: tls.VersionTLS13})
+	samoCita(t, tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{tu.cert}, MinVersion: tls.VersionTLS13}))
+}
+
+// gluhi je poslužitelj na adresi mreže koji primi TCP vezu, ali ne odgovori
+// ni na vanjski TLS
+func (tu *tunelUMemoriji) gluhi(t *testing.T, adresa string) {
+	t.Helper()
+	s, err := tu.m.Slusaj(adresa)
+	bezGreske(t, err)
+	samoCita(t, s)
+}
+
+// samoCita prima veze sa slušalice i iz njih samo čita. Na kraju testa čeka
+// da pozivatelj zatvori svoje veze: zatvaranje putuje kašnjenje mreže, a sat
+// mjehura stane čim test završi.
+func samoCita(t *testing.T, ln net.Listener) {
 	var veze sync.WaitGroup
 	t.Cleanup(func() {
 		ln.Close()
@@ -159,8 +175,9 @@ func (tu *tunelUMemoriji) odgovori(c *Conn) {
 // Razmjena kroz tunel u memoriji: upareni ključ razmijeni omotnicu u svakom
 // smjeru, a RTT je točno jedan obilazak (dva kašnjenja). Nepoznati ključ ne
 // dođe do obrade, krivi očekivani ključ odbija pozivatelj rečenicom koju
-// korisnik zna, poslužitelj koji ne odgovori na nadogradnju istekne s rokom,
-// a web bez puta tunela i certifikat za drugo ime ne daju vezu.
+// korisnik zna, poslužitelj koji ne odgovori na nadogradnju istekne s rokom
+// poziva, a onaj koji ne odgovori ni na vanjski TLS s rokom od 15 s. Web bez
+// puta tunela i certifikat za drugo ime ne daju vezu.
 func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 	const adresa = "https://cop.primjer.hr"
 	t.Run("upareni ključ", func(t *testing.T) {
@@ -174,6 +191,11 @@ func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 			defer c.Close()
 			if c.RTT != 2*kasnjenjeTunela {
 				t.Errorf("RTT kroz tunel je %v, a ne %v", c.RTT, 2*kasnjenjeTunela)
+			}
+			// goli WebSocket klijenta javio bi wss://cop.primjer.hr/…, iz
+			// čega bi peers pročitao računalo „wss”
+			if a := c.RemoteAddr().String(); a != "tunel"+PutTunela {
+				t.Errorf("adresa druge strane kroz tunel: %q", a)
 			}
 			e, err := razgovaraj(c)
 			if err != nil || e.Kind != "odgovor" || string(e.Payload) != `{"stiglo":"frontier"}` {
@@ -234,6 +256,23 @@ func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 			}
 		})
 	})
+	t.Run("poslužitelj ne odgovara na vanjski TLS", func(t *testing.T) {
+		uMjehuru(t, func(t *testing.T) {
+			kljucA, kljucB := newKey(t), newKey(t)
+			tu := noviTunelUMemoriji(t, kljucB, "gocop-test", kljucA.Public().(ed25519.PublicKey))
+			tu.gluhi(t, "gluhi.primjer.hr:443")
+			ctx, otkazi := context.WithTimeout(t.Context(), time.Minute)
+			defer otkazi()
+			pocetak := time.Now()
+			_, err := tu.klijent.DialTunel(ctx, kljucA, "gocop-test", nil, "https://gluhi.primjer.hr", kljucB.Public().(ed25519.PublicKey))
+			if !errors.Is(err, context.DeadlineExceeded) || !strings.HasPrefix(err.Error(), "tunel https://gluhi.primjer.hr: ") {
+				t.Fatalf("vanjski TLS bez odgovora: %v", err)
+			}
+			if d := time.Since(pocetak); d != rokVanjske {
+				t.Errorf("poziv je odustao nakon %v, a ne nakon %v", d, rokVanjske)
+			}
+		})
+	})
 	t.Run("web bez puta tunela", func(t *testing.T) {
 		uMjehuru(t, func(t *testing.T) {
 			kljucA, kljucB := newKey(t), newKey(t)
@@ -259,12 +298,13 @@ func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 	})
 }
 
-// Nadogradnja na WebSocket kroz tunel ista je kao do 0.0.39 (provjereno
-// usporedbom sa starim DialTunel 21. 10. 2026.): Host i Origin bez porta 443,
-// koji ide samo u adresu za spajanje, verzija 13, bez Sec-WebSocket-Protocol.
-// Prvi okvir klijenta je binaran (0x82), jer posrednik po RFC 6455 smije
-// zatvoriti tekstni okvir koji nije UTF-8. Ime za vanjski TLS (SNI) je
-// domena tunela.
+// Nadogradnja na WebSocket kroz tunel ista je kao do 0.0.39: Host i Origin
+// bez porta 443, koji ide samo u adresu za spajanje, verzija 13, bez
+// Sec-WebSocket-Protocol. Snimka starog DialTunel 21. 10. 2026. pokriva samo
+// adrese s portom (port 443 nije se dao otvoriti); za adresu bez porta isto
+// pokazuje TestNadogradnjaKaoStariDialTunel. Prvi okvir klijenta je binaran
+// (0x82), jer posrednik po RFC 6455 smije zatvoriti tekstni okvir koji nije
+// UTF-8. Ime za vanjski TLS (SNI) je domena tunela.
 func TestNadogradnjaTunelaKaoDoSada(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		cert, korijeni := webCertifikat(t, "cop.primjer.hr")
@@ -351,6 +391,19 @@ func snimiNadogradnju(ln net.Listener, snimka chan<- string) {
 		maska = "nemaskiran"
 	}
 	snimka <- sb.String() + fmt.Sprintf("prvi okvir: %#x, %s\n", zaglavlje[0], maska)
+}
+
+// Zahtjev za nadogradnju isti je kakav je stari DialTunel gradio s
+// websocket.NewConfig, za adresu tunela bez porta (Cloudflare) i s portom.
+func TestNadogradnjaKaoStariDialTunel(t *testing.T) {
+	for _, baza := range []string{"https://cop.primjer.hr", "https://cop.primjer.hr:8443", "https://127.0.0.1", "https://[::1]:8443", "https://[::1]"} {
+		host := strings.TrimPrefix(baza, "https://")
+		stari, err := websocket.NewConfig("wss://"+host+PutTunela, baza)
+		bezGreske(t, err)
+		if novi := nadogradnja(host, PutTunela); !reflect.DeepEqual(novi, stari) {
+			t.Errorf("%s: %+v, a stari %+v", baza, novi, stari)
+		}
+	}
 }
 
 // Adresa web poslužitelja tunela dobiva port 443 samo kad ga nema, a ime za

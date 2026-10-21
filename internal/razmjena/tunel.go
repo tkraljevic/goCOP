@@ -156,6 +156,11 @@ const rokVanjske = 15 * time.Second
 // DialTunel spaja se na čvor kroz tunel (https://domena) i, kao
 // DialExchange, odbija nastaviti ako druga strana ne dokaže očekivani ključ.
 // Unutra je isto rukovanje kao na portu razmjene (DialExchangeOn).
+//
+// ctx mora imati rok: vlastiti rok ima samo TCP s vanjskim TLS-om
+// (rokVanjske), a nadogradnja na WebSocket i rukovanje unutra čekaju koliko
+// ctx dopusti (peers zove s 20 s). Bez roka poziv na poslužitelj koji šuti
+// visi zauvijek.
 func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
 	baza, err := NormalizirajTunel(adresa)
 	if err != nil {
@@ -163,7 +168,7 @@ func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, 
 	}
 	nc, err := k.otvoriWebSocket(ctx, baza, PutTunela)
 	if err != nil {
-		return nil, fmt.Errorf("tunel %s: %w", baza, err)
+		return nil, porukaTunela(baza, err)
 	}
 	conn, err := DialExchangeOn(ctx, nc, priv, protocol, vj, baza, expect)
 	if err != nil {
@@ -182,24 +187,15 @@ func porukaTunela(baza string, err error) error {
 }
 
 // otvoriWebSocket otvara WebSocket na putu web sučelja (baza je
-// https://domena[:port]) i vraća ga kao net.Conn. Nadogradnja je bajt po bajt
-// ista kao uz websocket.Dial do sada: Host i Origin su domena kako je
-// upisana, bez dodanog porta 443, verzija 13, bez Sec-WebSocket-Protocol.
-// Okviri su binarni (0x82): TLS unutra nije tekst, a posrednik po RFC 6455
-// smije zatvoriti tekstni okvir koji nije UTF-8.
+// https://domena[:port]) i vraća ga kao net.Conn. Okviri su binarni (0x82):
+// TLS unutra nije tekst, a posrednik po RFC 6455 smije zatvoriti tekstni
+// okvir koji nije UTF-8.
 func (k *KlijentTunela) otvoriWebSocket(ctx context.Context, baza, put string) (net.Conn, error) {
-	host := strings.TrimPrefix(baza, "https://")
 	vanjska, err := k.otvoriVanjsku(ctx, baza)
 	if err != nil {
 		return nil, err
 	}
-	cfg := &websocket.Config{
-		Location: &url.URL{Scheme: "wss", Host: host, Path: put},
-		Origin:   &url.URL{Scheme: "https", Host: host},
-		Version:  websocket.ProtocolVersionHybi13,
-		Header:   http.Header{},
-	}
-	ws, err := noviWebSocket(ctx, vanjska, cfg)
+	ws, err := noviWebSocket(ctx, vanjska, nadogradnja(strings.TrimPrefix(baza, "https://"), put))
 	if err != nil {
 		vanjska.Close()
 		return nil, err
@@ -208,6 +204,19 @@ func (k *KlijentTunela) otvoriWebSocket(ctx context.Context, baza, put string) (
 	// Omot nije samo radi Close: goli WebSocket klijenta javlja RemoteAddr
 	// kao wss://…, a net.SplitHostPort iz toga čita računalo „wss”.
 	return &wsVeza{Conn: ws, kraj: make(chan struct{})}, nil
+}
+
+// nadogradnja je zahtjev za WebSocket na putu web poslužitelja, isti kakav
+// daje websocket.NewConfig("wss://"+host+put, "https://"+host), kojim ga je
+// slao DialTunel do 0.0.39: Host i Origin su domena kako je upisana, bez
+// dodanog porta 443, verzija 13, bez Sec-WebSocket-Protocol.
+func nadogradnja(host, put string) *websocket.Config {
+	return &websocket.Config{
+		Location: &url.URL{Scheme: "wss", Host: host, Path: put},
+		Origin:   &url.URL{Scheme: "https", Host: host},
+		Version:  websocket.ProtocolVersionHybi13,
+		Header:   http.Header{},
+	}
 }
 
 // otvoriVanjsku otvara TCP i vanjski TLS do web poslužitelja tunela
