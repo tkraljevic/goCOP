@@ -20,7 +20,13 @@ import (
 // sa zadanom ogradom
 func slusalica(t *testing.T, ctx context.Context, kljuc ed25519.PrivateKey, o *Ograda, trusted KeyChecker, handle func(*Conn)) string {
 	t.Helper()
-	cfg, err := tlsConfig(kljuc, "testproto")
+	return slusalicaMreze(t, ctx, kljuc, "testproto", o, trusted, handle)
+}
+
+// slusalicaMreze je slusalica čvora mreže sa zadanim imenom protokola
+func slusalicaMreze(t *testing.T, ctx context.Context, kljuc ed25519.PrivateKey, protokol string, o *Ograda, trusted KeyChecker, handle func(*Conn)) string {
+	t.Helper()
+	cfg, err := tlsConfig(kljuc, protokol)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -28,7 +34,9 @@ func slusalica(t *testing.T, ctx context.Context, kljuc ed25519.PrivateKey, o *O
 	if err != nil {
 		t.Fatal(err)
 	}
-	go serveTLS(ctx, tls.NewListener(ln, cfg), trusted, handle, o)
+	go func() {
+		_ = serveTLS(ctx, tls.NewListener(ln, cfg), protokol, trusted, handle, o) // staje s ctx testa, a slušalicu koja padne provjerava TestSlusalicaRazmjeneKadPadneIliJePuna
+	}()
 	return ln.Addr().String()
 }
 

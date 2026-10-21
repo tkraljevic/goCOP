@@ -143,7 +143,7 @@ func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol stri
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, tls.NewListener(ln, cfg), trusted, handle, ogradaIz(o))
+	return serveTLS(ctx, tls.NewListener(ln, cfg), protocol, trusted, handle, ogradaIz(o))
 }
 
 // DialTunel spaja se na čvor kroz tunel (https://domena) i, kao
@@ -177,7 +177,7 @@ func DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj
 		tc.Close()
 		return nil, fmt.Errorf("tunel %s: %w", baza, err)
 	}
-	conn, err := newConn(tc)
+	conn, err := newConn(tc, protocol)
 	if err != nil {
 		return nil, err
 	}

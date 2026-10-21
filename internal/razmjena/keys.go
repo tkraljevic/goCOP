@@ -181,7 +181,7 @@ func ParsePublicKey(s string) (ed25519.PublicKey, error) {
 func selfSignedCert(priv ed25519.PrivateKey, protocol string, vjerodajnice ...[]byte) (tls.Certificate, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
-		Subject:      pkix.Name{CommonName: protocol + "-sync"},
+		Subject:      pkix.Name{CommonName: cnRazmjene(protocol)},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
 	}
@@ -213,6 +213,31 @@ func peerPublicKey(rawCerts [][]byte) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", cert.PublicKey)
 	}
 	return pub, nil
+}
+
+// cnRazmjene je ime (CN) u certifikatu čvora. Iz imena protokola, pa
+// računala s drugim imenom (npr. zasebna instanca „gocop-sim” za TESTNU
+// SIMULACIJU) jedno drugo odbiju već na vratima razmjene. Svi čvorovi od
+// 0.0.37 do 0.0.39 šalju „gocop-sync”.
+func cnRazmjene(protocol string) string { return protocol + "-sync" }
+
+// dokazaniKljuc vadi ključ i vjerodajnice druge strane iz certifikata koje je
+// TLS već pročitao, i odbija certifikat bez ključa Ed25519 ili s imenom (CN)
+// druge mreže. Vrsta ključa provjerava se prije imena: tuđi poslužitelj (npr.
+// web poslužitelj s certifikatom EC) javlja se kao i do sada, „not an Ed25519
+// key”.
+func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKey, []byte, error) {
+	if len(certs) == 0 {
+		return nil, nil, fmt.Errorf("the peer presented no certificate")
+	}
+	pub, ok := certs[0].PublicKey.(ed25519.PublicKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", certs[0].PublicKey)
+	}
+	if cn, ocekuje := certs[0].Subject.CommonName, cnRazmjene(protocol); cn != ocekuje {
+		return nil, nil, fmt.Errorf("certifikat druge strane je za „%s”, a ovo računalo očekuje „%s” (postavka [sync] protokol)", cn, ocekuje)
+	}
+	return pub, peerVjerodajnice([][]byte{certs[0].Raw}), nil
 }
 
 // prefiksVjerodajnica označava URI s vjerodajnicama čvora u certifikatu

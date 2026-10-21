@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -101,6 +102,21 @@ func (o *ograniceniCitac) Read(p []byte) (int, error) {
 	return n, err
 }
 
+// prijenos je veza ispod razmjene, nakon rukovanja: TLS na portu i kroz
+// tunel, a kasnije i tok QUIC-a (F3), koji nije *tls.Conn
+type prijenos interface {
+	io.ReadWriteCloser
+	SetReadDeadline(time.Time) error
+	SetWriteDeadline(time.Time) error
+	LocalAddr() net.Addr
+	RemoteAddr() net.Addr
+}
+
+var (
+	_ prijenos = (*tls.Conn)(nil)
+	_ prijenos = (*wsVeza)(nil)
+)
+
 // Conn is an authenticated exchange connection: the TLS session plus the
 // proven identity on the other end.
 type Conn struct {
@@ -108,22 +124,29 @@ type Conn struct {
 	// Vjerodajnice su potvrda članstva (i ovlast) iz certifikata druge
 	// strane, JSON; prazno kod starijih programa
 	Vjerodajnice []byte
-	raw          *tls.Conn
+	raw          prijenos
 	enc          *json.Encoder
 	dec          *json.Decoder
 	citac        *ograniceniCitac
 	najvise      int64 // ograda jedne primljene poruke; NajvecaPoruka
 }
 
-func newConn(c *tls.Conn) (*Conn, error) {
-	key, err := peerPublicKey(rawPeerCerts(c))
+// newConnKljuc je veza razmjene nad prijenosom s već dokazanim ključem
+func newConnKljuc(p prijenos, key ed25519.PublicKey, vj []byte) *Conn {
+	// json.Decoder ionako čita u svoj međuspremnik, pa bufio nije potreban
+	citac := &ograniceniCitac{r: p}
+	return &Conn{PeerKey: key, Vjerodajnice: vj, raw: p, enc: json.NewEncoder(p), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}
+}
+
+// newConn je veza razmjene nakon TLS rukovanja; certifikat druge strane koji
+// ne pripada razmjeni ove mreže zatvara vezu
+func newConn(tc *tls.Conn, protocol string) (*Conn, error) {
+	key, vj, err := dokazaniKljuc(tc.ConnectionState().PeerCertificates, protocol)
 	if err != nil {
-		c.Close()
+		tc.Close()
 		return nil, err
 	}
-	// json.Decoder ionako čita u svoj međuspremnik, pa bufio nije potreban
-	citac := &ograniceniCitac{r: c}
-	return &Conn{PeerKey: key, Vjerodajnice: peerVjerodajnice(rawPeerCerts(c)), raw: c, enc: json.NewEncoder(c), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}, nil
+	return newConnKljuc(tc, key, vj), nil
 }
 
 // Send and Receive move envelopes with a per-message deadline: a peer
@@ -173,7 +196,7 @@ func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, ln, trusted, handle, ogradaIz(o))
+	return serveTLS(ctx, ln, protocol, trusted, handle, ogradaIz(o))
 }
 
 // Ograde primanja. Rukovanje (TLS prije nego što se zna tko je s druge
@@ -232,9 +255,19 @@ func ogradaIz(o []*Ograda) *Ograda {
 	return NovaOgrada()
 }
 
+// vrata primaju jednu po jednu vezu razmjene: provjere nakon rukovanja i
+// mjesta u ogradi
+type vrata struct {
+	protokol string
+	trusted  KeyChecker
+	handle   func(*Conn)
+	o        *Ograda
+}
+
 // serveTLS prima veze s TLS slušalice dok ctx traje; zajedničko portu
 // razmjene i tunelu
-func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle func(*Conn), o *Ograda) error {
+func serveTLS(ctx context.Context, ln net.Listener, protocol string, trusted KeyChecker, handle func(*Conn), o *Ograda) error {
+	v := &vrata{protokol: protocol, trusted: trusted, handle: handle, o: o}
 	go func() {
 		<-ctx.Done()
 		ln.Close()
@@ -256,43 +289,56 @@ func serveTLS(ctx context.Context, ln net.Listener, trusted KeyChecker, handle f
 			raw.Close()
 			return nil
 		}
-		go func(nc net.Conn) {
-			// greška u jednoj vezi ne smije srušiti čvor: veza se zatvori,
-			// a ostale i web sučelje rade dalje
-			defer func() {
-				if r := recover(); r != nil {
-					log.Printf("razmjena: veza %s prekinuta zbog greške: %v", nc.RemoteAddr(), r)
-					nc.Close()
-				}
-			}()
-			pustiRukovanje := sync.OnceFunc(func() { <-o.rukovanja })
-			defer pustiRukovanje()
-			tc := nc.(*tls.Conn)
-			_ = tc.SetDeadline(time.Now().Add(o.rok))
-			if err := tc.HandshakeContext(ctx); err != nil {
-				tc.Close()
-				return
-			}
-			_ = tc.SetDeadline(time.Time{})
-			conn, err := newConn(tc)
-			if err != nil {
-				return
-			}
-			if !trusted(conn.PeerKey, conn.Vjerodajnice) {
-				conn.Close()
-				return
-			}
-			pustiRukovanje()
-			select {
-			case o.razmjene <- struct{}{}:
-			default:
-				odbijZauzet(conn)
-				return
-			}
-			defer func() { <-o.razmjene }()
-			handle(conn)
-		}(raw)
+		go v.primiTLS(ctx, raw)
 	}
+}
+
+// primiTLS dovrši TLS rukovanje s vezom koju je slušalica primila, u roku
+// ograde, i preda vezu na provjeru
+func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
+	// greška u jednoj vezi ne smije srušiti čvor: veza se zatvori,
+	// a ostale i web sučelje rade dalje
+	defer func() {
+		if r := recover(); r != nil {
+			log.Printf("razmjena: veza %s prekinuta zbog greške: %v", nc.RemoteAddr(), r)
+			nc.Close()
+		}
+	}()
+	pustiRukovanje := sync.OnceFunc(func() { <-v.o.rukovanja })
+	defer pustiRukovanje()
+	tc := nc.(*tls.Conn)
+	_ = tc.SetDeadline(time.Now().Add(v.o.rok)) // ne da se postaviti samo na zatvorenoj vezi, a na njoj rukovanje ionako padne
+	if err := tc.HandshakeContext(ctx); err != nil {
+		tc.Close()
+		return
+	}
+	_ = tc.SetDeadline(time.Time{}) // kao gore; rokove dalje postavlja svaka poruka (Send, Receive)
+	v.primiVezu(tc, tc.ConnectionState().PeerCertificates, pustiRukovanje)
+}
+
+// primiVezu provjeri vezu nakon rukovanja i preda je razmjeni: ključ i ime u
+// certifikatu, članstvo, pa mjesto za razmjenu. Ne ovisi o prijenosu, pa isto
+// radi i za tok QUIC-a (F3). Svaka provjera koja ne prođe ima svoj izlaz.
+func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje func()) {
+	key, vj, err := dokazaniKljuc(certs, v.protokol)
+	if err != nil {
+		_ = p.Close() // veza s nečim što nije čvor ove mreže samo se prekida; greška zatvaranja nema što reći
+		return
+	}
+	conn := newConnKljuc(p, key, vj)
+	if !v.trusted(conn.PeerKey, conn.Vjerodajnice) {
+		conn.Close()
+		return
+	}
+	pustiRukovanje()
+	select {
+	case v.o.razmjene <- struct{}{}:
+	default:
+		odbijZauzet(conn)
+		return
+	}
+	defer func() { <-v.o.razmjene }()
+	v.handle(conn)
 }
 
 // odbijZauzet javlja poznatom čvoru da je ovaj zauzet
@@ -338,7 +384,7 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		tc.Close()
 		return nil, err
 	}
-	conn, err := newConn(tc)
+	conn, err := newConn(tc, protocol)
 	if err != nil {
 		return nil, err
 	}
