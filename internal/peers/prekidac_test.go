@@ -120,6 +120,9 @@ func TestIskljucenTailscaleOdbijaRazmjenuNaTailscaleAdresi(t *testing.T) {
 	if got := a.tailscaleOd(ctxRub, b.node.ID); len(got) != 0 {
 		t.Errorf("A pamti Tailscale adrese čvora kojem je isključen: %v", got)
 	}
+	if got := a.pokusajiAdresa(b.node.ID); len(got) != 2 || !strings.Contains(got[naTailscale].Greska, razlogBezTailscalea) || got[adresaNaPetlji(b)].Greska != "" {
+		t.Errorf("A ne pamti odbijenicu uz adresu koja ju je poslala: %v", got)
+	}
 	if n, redak := dnevnik.broj(); n != 1 || !strings.Contains(redak, "laptop-baranja") {
 		t.Errorf("dnevnik: %d redaka, zadnji %q", n, redak)
 	}

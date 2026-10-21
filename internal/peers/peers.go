@@ -976,6 +976,8 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 		s.josIma.Store(nodeID, skraceno && err == nil)
 		conn.Close()
 		if s.odbioTailscale(ctx, nodeID, err) {
+			// spajanje je prošlo, ali ta adresa ne radi: pamti se odbijenica
+			s.zapamtiPokusaj(nodeID, k.adresa, err)
 			lastErr = err
 			continue
 		}

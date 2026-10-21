@@ -5,7 +5,8 @@ package peers
 // koja adresa zadnji put zvana, s kojom greškom i kojim je putem išla
 // zadnja veza. Sve je samo u memoriji i ne putuje. Greška koja se dogodi u
 // razgovoru, kad je veza već uspostavljena, nije ovdje: ona ide u bilješku
-// o razmjeni (peer_sync.last_error).
+// o razmjeni (peer_sync.last_error). Iznimka je odbijenica na Tailscale
+// adresi druge strane (SyncWith): tada ta adresa ne radi, pa se pamti uz nju.
 
 import (
 	"slices"
