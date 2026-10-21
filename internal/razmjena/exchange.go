@@ -163,17 +163,6 @@ func newConnKljuc(p prijenos, key ed25519.PublicKey, vj []byte) *Conn {
 	return &Conn{PeerKey: key, Vjerodajnice: vj, raw: p, enc: json.NewEncoder(p), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}
 }
 
-// newConn je veza razmjene nakon TLS rukovanja; certifikat druge strane bez
-// ključa Ed25519 ili s drugim imenom protokola zatvara vezu
-func newConn(tc *tls.Conn, protocol string) (*Conn, error) {
-	key, vj, err := dokazaniKljuc(tc.ConnectionState().PeerCertificates, protocol)
-	if err != nil {
-		tc.Close()
-		return nil, err
-	}
-	return newConnKljuc(tc, key, vj), nil
-}
-
 // Send and Receive move envelopes with a per-message deadline: a peer
 // that stalls mid-exchange fails loudly instead of holding the port.
 func (c *Conn) Send(e Envelope) error {
@@ -404,6 +393,15 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		raw.Close()
 		return nil, err
 	}
+	// Drugu stranu ovaj čvor provjeri usred rukovanja, prije nego što pošalje
+	// svoj certifikat: u njemu je potvrda članstva, a na adresi iz
+	// pronalaženja može se javiti bilo tko u lokalnoj mreži
+	var key ed25519.PublicKey
+	var vjDruge []byte
+	cfg.VerifyConnection = func(cs tls.ConnectionState) (err error) {
+		key, vjDruge, err = provjeriDrugu(cs.PeerCertificates, protocol, addr, expect)
+		return err
+	}
 	tc := tls.Client(raw, cfg)
 	// TLS 1.3 rukovanje na strani koja zove traje jedan obilazak i malo
 	// računanja, pa je to RTT veze, i kroz tunel (što još ulazi: Conn.RTT)
@@ -413,19 +411,26 @@ func DialExchangeOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, 
 		return nil, err
 	}
 	rtt := time.Since(pocetak)
-	conn, err := newConn(tc, protocol)
-	if err != nil {
-		return nil, err
-	}
+	conn := newConnKljuc(tc, key, vjDruge)
 	conn.RTT = rtt
-	if !conn.PeerKey.Equal(expect) {
-		got := PublicKeyString(conn.PeerKey)
-		conn.Close()
+	return conn, nil
+}
+
+// provjeriDrugu provjerava drugu stranu na strani koja zove: certifikat čvora
+// s istim imenom protokola (dokazaniKljuc) i ključ koji ovaj čvor očekuje.
+// Zove je TLS usred rukovanja (VerifyConnection), pa greška stiže pozivatelju
+// DialExchangeOn ista kakva je i bila nakon rukovanja.
+func provjeriDrugu(certs []*x509.Certificate, protocol, addr string, expect ed25519.PublicKey) (ed25519.PublicKey, []byte, error) {
+	key, vj, err := dokazaniKljuc(certs, protocol)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !key.Equal(expect) {
 		// Both fingerprints, and the two ways this happens. The second
 		// one — another process holding that machine's sync port — was
 		// invisible for a day because this message only offered the
 		// first.
-		return nil, drugiKljuc{poruka: fmt.Sprintf("the device at %s proved a DIFFERENT key than the one paired — refusing to exchange. It presented %s…, the pairing recorded %s…. Either that machine was rebuilt (pair again), or another process holds its sync port", addr, got[:8], PublicKeyString(expect)[:8])}
+		return nil, nil, drugiKljuc{poruka: fmt.Sprintf("the device at %s proved a DIFFERENT key than the one paired — refusing to exchange. It presented %s…, the pairing recorded %s…. Either that machine was rebuilt (pair again), or another process holds its sync port", addr, PublicKeyString(key)[:8], PublicKeyString(expect)[:8])}
 	}
-	return conn, nil
+	return key, vj, nil
 }
