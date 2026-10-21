@@ -1105,8 +1105,9 @@ func (s *Service) spoji(ctx context.Context, peer *Peer, k kandidat, expect ed25
 	if k.put == razmjena.PutKrozTunel {
 		return s.tunelKlijent.DialTunel(ctx, s.node.key, Protocol, s.vjerodajnice, k.adresa, expect)
 	}
-	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
-	adresa := withPort(k.adresa, fmt.Sprint(DefaultExchangePort))
+	// adresa bez porta je stari zapis ili ručni unos: vrijedi port koji se
+	// za taj čvor zna iz drugih adresa, inače zadani
+	adresa := withPort(k.adresa, s.exchangePortOf(*peer))
 	raw, err := s.otvori(ctx, adresa)
 	if err != nil {
 		return nil, err

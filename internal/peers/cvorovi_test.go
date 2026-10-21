@@ -5,7 +5,9 @@ package peers
 // lažni glasnik na loopbacku.
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"slices"
 	"testing"
@@ -66,7 +68,8 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 
 // Adresa bez porta: za ovaj čvor vrijedi njegov port razmjene, za tuđi
 // port iz neke od poznatih adresa, a inače zadani. Adresa tunela i adresa
-// koja nije IP s portom ne daju port, pa ni ručno dodanoj adresi.
+// koja nije IP s portom ne daju port. Taj port zove razmjena (nazovi) i
+// dobije ga ručno dodana adresa.
 func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 	s := &Service{node: &Node{ID: "cop-osijek"}, ports: Ports{Exchange: 4999}}
 	for _, p := range []struct {
@@ -84,6 +87,25 @@ func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 	} {
 		if got := s.exchangePortOf(p.cvor); got != p.port {
 			t.Errorf("%s: port %s, očekivan %s", p.ime, got, p.port)
+		}
+	}
+
+	var zvano []string
+	s.dial = func(_ context.Context, adresa string) (net.Conn, error) {
+		zvano = append(zvano, adresa)
+		return nil, errors.New("dial tcp " + adresa + ": connect: connection refused")
+	}
+	for _, p := range []struct {
+		adrese []string
+		zove   string
+	}{
+		{[]string{"192.0.2.7", "192.0.2.8:4720"}, "192.0.2.7:4720"},
+		{[]string{"https://cop.primjer.hr", "192.0.2.7"}, "192.0.2.7:4710"},
+	} {
+		zvano = nil
+		peer := &Peer{NodeID: "ured-vukovar", Addresses: p.adrese}
+		if _, err := s.nazovi(ctxRub, peer, kandidat{"192.0.2.7", razmjena.PutAdresa}, nil); err == nil || !slices.Equal(zvano, []string{p.zove}) {
+			t.Errorf("%v: zvano %v (%v), očekivano %s", p.adrese, zvano, err, p.zove)
 		}
 	}
 
