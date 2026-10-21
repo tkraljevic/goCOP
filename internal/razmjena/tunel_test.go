@@ -25,8 +25,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	mux.Handle("GET "+PutTunela, tunel.Handler())
 	srv := httptest.NewTLSServer(mux)
 	defer srv.Close()
-	vanjskiTLS = srv.Client().Transport.(*http.Transport).TLSClientConfig
-	defer func() { vanjskiTLS = nil }()
+	k := &KlijentTunela{TLS: srv.Client().Transport.(*http.Transport).TLSClientConfig}
 
 	ctx, otkazi := context.WithTimeout(context.Background(), 20*time.Second)
 	defer otkazi()
@@ -45,7 +44,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	})
 
 	adresa := srv.URL
-	c, err := DialTunel(ctx, kljucA, "gocop-test", nil, adresa, javniB)
+	c, err := k.DialTunel(ctx, kljucA, "gocop-test", nil, adresa, javniB)
 	if err != nil {
 		t.Fatalf("spajanje kroz tunel: %v", err)
 	}
@@ -64,7 +63,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 	c.Close()
 
 	// čvor kojeg druga strana ne poznaje ne dobiva ni bajt razmjene
-	if c, err := DialTunel(ctx, stranac, "gocop-test", nil, adresa, javniB); err == nil {
+	if c, err := k.DialTunel(ctx, stranac, "gocop-test", nil, adresa, javniB); err == nil {
 		pitanje, _ := NewEnvelope("frontier", nil)
 		c.Send(pitanje)
 		if _, err := c.Receive(); err == nil {
@@ -73,7 +72,7 @@ func TestRazmjenaKrozTunel(t *testing.T) {
 		c.Close()
 	}
 	// pozivatelj koji očekuje drugi ključ odbija vezu
-	if _, err := DialTunel(ctx, kljucA, "gocop-test", nil, adresa, stranac.Public().(ed25519.PublicKey)); err == nil {
+	if _, err := k.DialTunel(ctx, kljucA, "gocop-test", nil, adresa, stranac.Public().(ed25519.PublicKey)); err == nil {
 		t.Error("kriv ključ druge strane nije odbijen")
 	}
 }

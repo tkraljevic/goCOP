@@ -152,6 +152,9 @@ type Service struct {
 	// tunel prima razmjenu kroz web sučelje (WebSocket), za čvorove koji
 	// izvana smiju samo na web
 	tunel *razmjena.Tunel
+	// tunelKlijent zove druge čvorove kroz njihov tunel; nulta vrijednost
+	// spaja se kao i do sada (sustavni certifikati)
+	tunelKlijent razmjena.KlijentTunela
 
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
 	uloge           atomic.Pointer[Uloge]
@@ -1028,7 +1031,7 @@ func (s *Service) nazovi(ctx context.Context, host string, expect ed25519.Public
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	if razmjena.JeAdresaTunela(host) {
-		return razmjena.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
+		return s.tunelKlijent.DialTunel(dialCtx, s.node.key, Protocol, s.vjerodajnice, host, expect)
 	}
 	// adresa bez porta je stari zapis ili ručni unos — vrijedi zadani port
 	adresa := withPort(host, fmt.Sprint(DefaultExchangePort))

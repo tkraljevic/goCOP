@@ -205,7 +205,7 @@ func TestSlusalicaRazmjeneKadPadneIliJePuna(t *testing.T) {
 	rad, kraj := context.WithCancel(ctx)
 	stalo := make(chan error, 1)
 	go func() {
-		stalo <- serveTLS(rad, l, nil, func(*Conn) { t.Error("veza bez mjesta je obrađena") }, o)
+		stalo <- serveTLS(rad, l, "testproto", nil, func(*Conn) { t.Error("veza bez mjesta je obrađena") }, o)
 	}()
 	<-l.predano
 	kraj()
@@ -365,17 +365,15 @@ func TestCekanjeUparivanjaPreskaceOnoStoNijeCvor(t *testing.T) {
 	}
 }
 
-// tunelNaPosluzitelju je HTTPS poslužitelj s putem tunela; vanjski TLS
-// prema njemu vrijedi dok test traje
-func tunelNaPosluzitelju(t *testing.T, tunel *Tunel) string {
+// tunelNaPosluzitelju je HTTPS poslužitelj s putem tunela i klijent tunela
+// koji vjeruje njegovu certifikatu
+func tunelNaPosluzitelju(t *testing.T, tunel *Tunel) (string, *KlijentTunela) {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.Handle("GET "+PutTunela, tunel.Handler())
 	srv := httptest.NewTLSServer(mux)
 	t.Cleanup(srv.Close)
-	vanjskiTLS = srv.Client().Transport.(*http.Transport).TLSClientConfig
-	t.Cleanup(func() { vanjskiTLS = nil })
-	return srv.URL
+	return srv.URL, &KlijentTunela{TLS: srv.Client().Transport.(*http.Transport).TLSClientConfig}
 }
 
 // Poziv kroz tunel: adresa bez domene, poslužitelj koji ne odgovara,
@@ -388,28 +386,28 @@ func TestPozivKrozTunelKojiNeVodiDoCvora(t *testing.T) {
 	if _, err := NormalizirajTunel("https://"); err == nil {
 		t.Error("adresa tunela bez domene")
 	}
-	if _, err := DialTunel(ctx, newKey(t), "testproto", nil, "https://", javni); err == nil {
+	if _, err := (&KlijentTunela{}).DialTunel(ctx, newKey(t), "testproto", nil, "https://", javni); err == nil {
 		t.Error("poziv na adresu bez domene")
 	}
 	ugasen := httptest.NewTLSServer(http.NotFoundHandler())
 	adresaUgasenog := ugasen.URL
 	ugasen.Close()
-	if _, err := DialTunel(ctx, newKey(t), "testproto", nil, adresaUgasenog, javni); err == nil || !strings.Contains(err.Error(), "tunel https://127.0.0.1") {
+	if _, err := (&KlijentTunela{}).DialTunel(ctx, newKey(t), "testproto", nil, adresaUgasenog, javni); err == nil || !strings.Contains(err.Error(), "tunel https://127.0.0.1") {
 		t.Errorf("ugašen poslužitelj: %v", err)
 	}
 
 	zatvoren := NoviTunel()
 	zatvoren.Close()
-	adresa := tunelNaPosluzitelju(t, zatvoren)
-	if _, err := DialTunel(ctx, newKey(t), "testproto", nil, adresa, javni); err == nil || !strings.HasPrefix(err.Error(), "tunel ") {
+	adresa, k := tunelNaPosluzitelju(t, zatvoren)
+	if _, err := k.DialTunel(ctx, newKey(t), "testproto", nil, adresa, javni); err == nil || !strings.HasPrefix(err.Error(), "tunel ") {
 		t.Errorf("zatvoren tunel: %v", err)
 	}
-	if _, err := DialTunel(ctx, pokvarenKljuc(t), "testproto", nil, adresa, javni); err == nil {
+	if _, err := k.DialTunel(ctx, pokvarenKljuc(t), "testproto", nil, adresa, javni); err == nil {
 		t.Error("poziv kroz tunel s pokvarenim ključem")
 	}
 
 	tudji := NoviTunel()
-	adresa = tunelNaPosluzitelju(t, tudji)
+	adresa, k = tunelNaPosluzitelju(t, tudji)
 	go func() {
 		c, err := tudji.Accept()
 		if err != nil {
@@ -421,7 +419,7 @@ func TestPozivKrozTunelKojiNeVodiDoCvora(t *testing.T) {
 			_, _ = tc.Read(make([]byte, 1))
 		}
 	}()
-	if _, err := DialTunel(ctx, newKey(t), "testproto", nil, adresa, javni); err == nil || !strings.Contains(err.Error(), "not an Ed25519 key") {
+	if _, err := k.DialTunel(ctx, newKey(t), "testproto", nil, adresa, javni); err == nil || !strings.Contains(err.Error(), "not an Ed25519 key") {
 		t.Errorf("poslužitelj bez ključa čvora: %v", err)
 	}
 }

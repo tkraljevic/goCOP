@@ -28,7 +28,9 @@ func slusalica(t *testing.T, ctx context.Context, kljuc ed25519.PrivateKey, o *O
 	if err != nil {
 		t.Fatal(err)
 	}
-	go serveTLS(ctx, tls.NewListener(ln, cfg), trusted, handle, o)
+	go func() {
+		_ = serveTLS(ctx, tls.NewListener(ln, cfg), "testproto", trusted, handle, o) // staje s ctx testa, a slušalicu koja padne provjerava TestSlusalicaRazmjeneKadPadneIliJePuna
+	}()
 	return ln.Addr().String()
 }
 

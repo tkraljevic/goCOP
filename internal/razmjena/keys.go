@@ -40,6 +40,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 )
 
 // LoadOrCreateKey returns the device's Ed25519 private key, minting one on
@@ -181,7 +182,7 @@ func ParsePublicKey(s string) (ed25519.PublicKey, error) {
 func selfSignedCert(priv ed25519.PrivateKey, protocol string, vjerodajnice ...[]byte) (tls.Certificate, error) {
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(time.Now().UnixNano()),
-		Subject:      pkix.Name{CommonName: protocol + "-sync"},
+		Subject:      pkix.Name{CommonName: cnRazmjene(protocol)},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(10 * 365 * 24 * time.Hour),
 	}
@@ -213,6 +214,50 @@ func peerPublicKey(rawCerts [][]byte) (ed25519.PublicKey, error) {
 		return nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", cert.PublicKey)
 	}
 	return pub, nil
+}
+
+// cnRazmjene je ime (CN) u certifikatu čvora. Iz imena protokola, pa
+// računala s drugim imenom (npr. zasebna instanca „gocop-sim” za TESTNU
+// SIMULACIJU) jedno drugo odbiju već na vratima razmjene. Svi čvorovi od
+// 0.0.37 do 0.0.39 šalju „gocop-sync”.
+func cnRazmjene(protocol string) string { return protocol + "-sync" }
+
+// dokazaniKljuc vadi ključ i vjerodajnice druge strane iz certifikata koje je
+// TLS već pročitao, i odbija certifikat bez ključa Ed25519 ili s drugim imenom
+// (CN). Vrsta ključa provjerava se prije imena: tuđi poslužitelj (npr. web
+// poslužitelj s certifikatom EC) javlja se kao i do sada, „not an Ed25519
+// key”.
+func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKey, []byte, error) {
+	if len(certs) == 0 {
+		return nil, nil, fmt.Errorf("the peer presented no certificate")
+	}
+	pub, ok := certs[0].PublicKey.(ed25519.PublicKey)
+	if !ok {
+		return nil, nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", certs[0].PublicKey)
+	}
+	if cn, ocekuje := certs[0].Subject.CommonName, cnRazmjene(protocol); cn != ocekuje {
+		return nil, nil, fmt.Errorf("certifikat druge strane je za „%s”, a ovo računalo očekuje „%s”", imeZaPoruku(cn), ocekuje)
+	}
+	return pub, peerVjerodajnice([][]byte{certs[0].Raw}), nil
+}
+
+// najduzeImeUPoruci je koliko znakova imena iz tuđeg certifikata ide u poruku
+const najduzeImeUPoruci = 64
+
+// imeZaPoruku: ime u certifikatu druge strane zadaje tko god se javi na
+// adresi, a ide u poruku o grešci, u zapis i na pločicu razmjene. Zato se
+// skrati i kontrolni znakovi (npr. novi red) zamijene upitnikom.
+func imeZaPoruku(ime string) string {
+	znakovi := []rune(strings.Map(func(z rune) rune {
+		if unicode.IsPrint(z) {
+			return z
+		}
+		return '?'
+	}, ime))
+	if len(znakovi) > najduzeImeUPoruci {
+		return string(znakovi[:najduzeImeUPoruci]) + "…"
+	}
+	return string(znakovi)
 }
 
 // prefiksVjerodajnica označava URI s vjerodajnicama čvora u certifikatu
