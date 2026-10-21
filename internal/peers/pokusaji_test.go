@@ -101,10 +101,18 @@ func TestPokusajiNajviseSesnaestPoRacunalu(t *testing.T) {
 			t.Errorf("nakon 20 adresa: %s zapamćena %v", adresaBr(i), ima)
 		}
 	}
-	s.zapamtiPokusaj("laptop-baranja", adresaBr(5), nil)
+	// ponovljena adresa iz sredine ne zauzme novo mjesto, a nova adresa
+	// istisne najstariju, ne nju
+	s.zapamtiPokusaj("laptop-baranja", adresaBr(10), nil)
+	if got = s.pokusajiAdresa("laptop-baranja"); len(got) != najvisePokusaja || got[adresaBr(10)].Greska != "" {
+		t.Errorf("ponovljena adresa: %d pokušaja, %v", len(got), got[adresaBr(10)])
+	}
 	s.zapamtiPokusaj("laptop-baranja", adresaBr(21), nil)
 	got = s.pokusajiAdresa("laptop-baranja")
-	if _, ima := got[adresaBr(6)]; ima || len(got) != najvisePokusaja || got[adresaBr(5)].Greska != "" {
+	_, ima5 := got[adresaBr(5)]
+	_, ima6 := got[adresaBr(6)]
+	_, ima10 := got[adresaBr(10)]
+	if ima5 || !ima6 || !ima10 || len(got) != najvisePokusaja {
 		t.Errorf("ponovljena adresa nije postala najnovija: %v", got)
 	}
 

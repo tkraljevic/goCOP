@@ -23,14 +23,16 @@ func TestPutDolazneVeze(t *testing.T) {
 	c := clanoviMreze(t, false, "laptop-baranja", "ured-vukovar", "ured-osijek")
 	a, b, d := c[0], c[1], c[2]
 
-	// b prima na portu razmjene i kroz tunel, iza web poslužitelja s TLS-om
+	// b prima na portu razmjene
 	naPetlji(t, b)
-	srv := httptest.NewTLSServer(b.TunelHandler())
+
+	// d prima kroz tunel, iza web poslužitelja s TLS-om, i na slušalici na
+	// kojoj veza stiže na njegovu Tailscale adresu s obične adrese u drugoj
+	// mreži. Tunel nije na b: naPetlji pri ponovnom pokušaju zaustavi prvo
+	// pokretanje, a ono zatvori tunel.
+	srv := httptest.NewTLSServer(d.TunelHandler())
 	t.Cleanup(srv.Close)
 	a.tunelKlijent.TLS = srv.Client().Transport.(*http.Transport).TLSClientConfig
-
-	// d prima na slušalici na kojoj veza stiže na njegovu Tailscale adresu
-	// s obične adrese u drugoj mreži
 	d.ZadajTailscale(adresa("100.101.0.2"))
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -50,7 +52,7 @@ func TestPutDolazneVeze(t *testing.T) {
 		odlazni razmjena.Put
 	}{
 		{"port razmjene", b, adresaNaPetlji(b), razmjena.PutAdresa, razmjena.PutAdresa},
-		{"tunel", b, srv.URL, razmjena.PutKrozTunel, razmjena.PutKrozTunel},
+		{"tunel", d, srv.URL, razmjena.PutKrozTunel, razmjena.PutKrozTunel},
 		{"ruta podmreže", d, ln.Addr().String(), razmjena.PutTailscale, razmjena.PutAdresa},
 	} {
 		upoznaj(t, a, sl.cvor, sl.adresa)
@@ -111,6 +113,16 @@ func TestPutOdlazneVezePrekoRutePodmreze(t *testing.T) {
 	}
 	if got := a.putZadnjeVeze(b.node.ID); got != razmjena.PutTailscale {
 		t.Errorf("SyncWith pamti put %q, očekivan tailscale", got)
+	}
+
+	// i dok je Tailscale u razmjeni isključen, veza je išla preko njega
+	a.PostaviTailscale(false)
+	if conn, err = a.nazovi(ctxRub, peer, kandidat{"192.168.24.80:4710", razmjena.PutAdresa}, expect); err != nil {
+		t.Fatal(err)
+	}
+	conn.Close()
+	if conn.Put != razmjena.PutTailscale {
+		t.Errorf("s isključenim Tailscaleom put veze %q, očekivan tailscale", conn.Put)
 	}
 }
 

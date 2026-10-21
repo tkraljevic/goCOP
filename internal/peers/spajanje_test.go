@@ -1,11 +1,17 @@
 package peers
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
+
+	"gocop/internal/razmjena"
 )
 
 // Razmjena se ne pokreće s nepoznatim čvorom ni s čvorom koji nije član,
@@ -88,4 +94,55 @@ func TestTunelKojiPrestaneRaditiIdeUDnevnik(t *testing.T) {
 		t.Fatal("zatvoren tunel nije zapisan u dnevnik")
 	}
 	cekajPort(t, s.ports.Exchange)
+}
+
+// Port razmjene i tunel dijele mjesta za razmjene (Serve): dok na portu
+// stoje četiri razmjene, i razmjena kroz tunel dobije odbijenicu da je
+// čvor zauzet. Čvor prima na vlastitoj slušalici, jer naPetlji pri
+// ponovnom pokušaju zatvori tunel.
+func TestTunelIPortDijeleMjestaRazmjena(t *testing.T) {
+	c := clanoviMreze(t, false, "laptop-baranja", "ured-vukovar")
+	a, b := c[0], c[1]
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.slusalica = ln
+	ctx, otkazi := context.WithCancel(ctxRub)
+	t.Cleanup(otkazi)
+	stala := make(chan error, 1)
+	go func() { stala <- b.Serve(ctx) }()
+	srv := httptest.NewTLSServer(b.TunelHandler())
+	t.Cleanup(srv.Close)
+	a.tunelKlijent.TLS = srv.Client().Transport.(*http.Transport).TLSClientConfig
+
+	upoznaj(t, a, b, ln.Addr().String())
+	peer, expect, err := a.partnerZaRazmjenu(ctxRub, b.node.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// razmjena koja stane nakon granica drži svoje mjesto dok test traje
+	for i := 0; i < 4; i++ {
+		conn, err := a.nazovi(ctxRub, peer, kandidat{ln.Addr().String(), razmjena.PutAdresa}, expect)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { conn.Close() })
+		r, err := a.zapocniRazgovor(ctxRub, conn, true)
+		if err == nil {
+			err = r.granice()
+		}
+		if err != nil {
+			t.Fatalf("razmjena %d na portu: %v", i+1, err)
+		}
+	}
+	upoznaj(t, a, b, srv.URL)
+	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err == nil || !strings.Contains(err.Error(), razmjena.RazlogZauzet) {
+		select {
+		case e := <-stala:
+			t.Fatalf("razmjena kroz tunel: %v (slušalica je stala: %v)", err, e)
+		default:
+			t.Errorf("razmjena kroz tunel uz četiri razmjene na portu: %v", err)
+		}
+	}
 }

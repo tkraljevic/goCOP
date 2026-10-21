@@ -40,7 +40,8 @@ func TestZaboravCvora(t *testing.T) {
 }
 
 // Kad brisanje ili arhiviranje ne uspije, čvor ostaje na popisu; kad se
-// popis ne da pročitati, ne briše se ništa.
+// popis ne da pročitati, ne briše se ništa. Pokušaji spajanja i put zadnje
+// veze zaborave se svaki put.
 func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 	for ime, kvar := range map[string]func(t *testing.T, s *Service){
 		"brisanje padne":    func(t *testing.T, s *Service) { kvarUpisa(t, s, "DELETE", "peers", "") },
@@ -52,9 +53,14 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "laptop-baranja", PublicKey: javniKljuc(t)}); err != nil {
 				t.Fatal(err)
 			}
+			s.zapamtiPokusaj("laptop-baranja", "192.0.2.7:4710", nil)
+			s.zapamtiPut(&Peer{NodeID: "laptop-baranja"}, &razmjena.Conn{Put: razmjena.PutLAN})
 			kvar(t, s)
 			if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err == nil {
 				t.Fatal("zaborav je prošao")
+			}
+			if n, put := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"); n != 0 || put != "" {
+				t.Errorf("nakon neuspjelog zaborava: %d pokušaja, put %q", n, put)
 			}
 			if ime == "popis se ne čita" {
 				return
