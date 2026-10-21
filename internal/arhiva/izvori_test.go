@@ -41,6 +41,7 @@ func TestTablicaIzvoraNastajeSPostojecimVrijednostima(t *testing.T) {
 		{"geolux-seba", 5, true},
 		{"pegelonline", 5, true},
 		{"vituki", 5, true},
+		{"vizugy-ddvizig", 5, true},
 		{"arso", 5, true},
 		{"arso-borl", 5, true},
 		{"arso-borl-i", 5, true},
@@ -109,6 +110,22 @@ func TestIzvoriSuSravnjeniUTriSkupine(t *testing.T) {
 			t.Errorf("točnost %s: %v, očekivano %v", naziv, tocnosti[naziv], ocekivano)
 		}
 	}
+}
+
+// Mađarska vodoprivreda stoji uz vituki među ovjerenim izvorima i ulazi u
+// spoj. Točnost joj je proglašena, ne izmjerena, pa to piše u napomeni.
+func TestMadjarskaVodoprivredaMedjuOvjerenima(t *testing.T) {
+	for _, i := range zadaniIzvori {
+		if i.Naziv != "vizugy-ddvizig" {
+			continue
+		}
+		if i.Tocnost != 5 || i.Red != 10 || !i.Ukljucen || i.Mapa != "" ||
+			!strings.Contains(i.Napomena, "proglašena, ne izmjerena") {
+			t.Errorf("vizugy-ddvizig: %+v", i)
+		}
+		return
+	}
+	t.Error("vizugy-ddvizig nije među zadanim izvorima")
 }
 
 // Izvor kojeg nitko nije upisao ulazi isključen. Bolje da čeka odluku nego da

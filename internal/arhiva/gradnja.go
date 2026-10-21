@@ -1690,6 +1690,9 @@ var zadaniIzvori = []Izvor{
 	// ovjereno — službeni, revidirani nizovi
 	{"his2000", 0, 10, true, "", "referenca — po njoj su ostali izmjereni"},
 	{"vituki", 5, 10, true, "", "mađarska služba, na tamošnjim letvama jedini izvor; točnost proglašena, ne izmjerena"},
+	// datoteke ovog izvora u stablu su u lokalnom vremenu, pa ne smije na
+	// popis izvora u UTC-u u zonaIzvora
+	{"vizugy-ddvizig", 5, 10, true, "", "Mađarska vodoprivreda (DDVIZIG), satni nizovi i krivulje protoka iz paketa za obranu od poplava; točnost proglašena, ne izmjerena"},
 	{"arso", 5, 10, true, "", "slovenska služba, javno objavljene dnevne vrijednosti; točnost proglašena, ne izmjerena"},
 	{"arso-borl", 5, 10, true, "", "ARSO, stari Borl do 1981.; odvojeno od Borla I zbog HE Formin"},
 	{"arso-borl-i", 5, 10, true, "", "ARSO, Borl I od 1989.; odvojeno od starog Borla zbog HE Formin"},
