@@ -115,6 +115,16 @@ postojeći mijenjaju svoje stranice:
 Novi izvor i dalje ulazi kao zaseban dio programa i isključen, dok ga netko
 ne pogleda.
 
+Uz poliranje dolazi i pregled knjige verzija, jer je knjiga jedini pravi
+zapis o tome tko je što radio:
+
+- na stranici svakog zapisa njegova povijest: tko je i kada što promijenio
+  i tko ga je obrisao, s imenima ljudi umjesto šifri;
+- za administratora pregled po računalu, kanalu i vremenu: što je stiglo s
+  kojeg računala i što ovo računalo drži, a još ne razumije;
+- u Događanjima poništeno i obrisano ostaje vidljivo, precrtano, uz
+  vrijeme, osobu i razlog (Odluke (14. 10. 2026.)).
+
 ## 5. Testna simulacija
 
 Simulacija je odvojeni goCOP za probu i vježbu, s vlastitim bazama,
@@ -190,6 +200,11 @@ gotovi prije nego program izađe iz alfa faze:
 - Probu obnove iz sigurnosne kopije na čistom Windows računalu.
 - Potpis programa za Windows. Prijava je poslana i čeka odgovor; kako će
   potpis raditi, piše u [pravilima potpisivanja](CODE_SIGNING.md).
+- Manje mjesta na disku, bez gubitka ijednog podatka: zbijanje starijih
+  izdanja prognoze, sažete kopije baze prije nadogradnje i manji PDF-ovi.
+  Prema procjeni to otprilike udvostručuje vijek diska. Pospremanje starih
+  očitanja iz knjige na svim računalima veći je posao i stoji pod „Poslije:
+  službeni zapisi i arhiva”.
 
 ## Poslije: pouzdanost podataka u mreži
 
