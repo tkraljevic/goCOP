@@ -235,7 +235,7 @@ func TestTailscaleAdreseSamoPrekoTailscalea(t *testing.T) {
 
 	upoznaj(t, a, b, adresaNaPetlji(b))
 	peerB, _ := a.GetPeer(ctxRub, b.node.ID)
-	if got := a.adreseZaSpajanje(ctxRub, peerB); !slices.Equal(got, append([]string{adresaNaPetlji(b)}, odB...)) {
+	if got := a.adreseZaSpajanje(ctxRub, peerB); !slices.Equal(got, []kandidat{{adresaNaPetlji(b), razmjena.PutAdresa}, {odB[0], razmjena.PutTailscale}, {odB[1], razmjena.PutTailscale}}) {
 		t.Errorf("redoslijed spajanja: %v", got)
 	}
 	if st, err := a.Status(ctxRub, false); err != nil || len(st.Peers) != 1 || !slices.Equal(st.Peers[0].State.Tailscale, odB) {
@@ -394,22 +394,37 @@ func TestVidjenaTailscaleAdresaNeIdeUKnjigu(t *testing.T) {
 }
 
 // Redoslijed spajanja: adresa iz lokalne mreže, izravne adrese, Tailscale
-// adrese koje je čvor sam javio, tunel. Stara Tailscale adresa iz zapisa
-// se ne zove.
+// adrese koje je čvor sam javio, tunel, svaka sa svojim putem. Stara
+// Tailscale adresa iz zapisa se ne zove.
 func TestRedoslijedAdresaZaSpajanje(t *testing.T) {
 	s := rubniCvor(t, "laptop-baranja")
 	p := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr", "192.168.24.70:4710", "100.101.0.9:4710", "cop-vukovar.example.hr:4710"}}
 	s.upisiTailscale(ctxRub, "ured-vukovar", []string{"100.101.0.2:4710"})
-	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "https://cop.primjer.hr"}) {
+	izravne := []kandidat{{"192.168.24.70:4710", razmjena.PutAdresa}, {"cop-vukovar.example.hr:4710", razmjena.PutAdresa}}
+	tunel := kandidat{"https://cop.primjer.hr", razmjena.PutKrozTunel}
+	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, append(slices.Clone(izravne), tunel)) {
 		t.Errorf("bez Tailscalea: %v", got)
 	}
 	s.ZadajTailscale(adresa("100.101.0.1"))
-	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, []string{"192.168.24.70:4710", "cop-vukovar.example.hr:4710", "100.101.0.2:4710", "https://cop.primjer.hr"}) {
+	tailscale := kandidat{"100.101.0.2:4710", razmjena.PutTailscale}
+	if got := s.adreseZaSpajanje(ctxRub, &p); !slices.Equal(got, append(slices.Clone(izravne), tailscale, tunel)) {
 		t.Errorf("s Tailscaleom: %v", got)
 	}
+	// adresa bez porta dobije port koji se za čvor zna, pa se ista adresa
+	// s portom ne zove dvaput
+	bezPorta := Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7", " 192.0.2.8 ", "192.0.2.7:4720"}}
+	if got := s.adreseZaSpajanje(ctxRub, &bezPorta); !slices.Equal(got, []kandidat{{"192.0.2.7:4720", razmjena.PutAdresa}, {"192.0.2.8:4720", razmjena.PutAdresa}, tailscale}) {
+		t.Errorf("adrese bez porta: %v", got)
+	}
 	s.ports.Discovery = lazniGlasnik(t, razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4711})
-	if got := s.adreseZaSpajanje(ctxRub, &p); len(got) != 5 || got[0] != "127.0.0.1:4711" {
+	lan := kandidat{"127.0.0.1:4711", razmjena.PutLAN}
+	if got := s.adreseZaSpajanje(ctxRub, &p); len(got) != 5 || got[0] != lan {
 		t.Errorf("s pronalaženjem u lokalnoj mreži: %v", got)
+	}
+	// ista adresa u zapisu ne zove se dvaput i ostaje lan; prazna se preskače
+	p2 := Peer{NodeID: "ured-vukovar", Addresses: []string{" ", "127.0.0.1:4711 ", "192.168.24.70:4710"}}
+	if got := s.adreseZaSpajanje(ctxRub, &p2); !slices.Equal(got, []kandidat{lan, izravne[0], tailscale}) {
+		t.Errorf("adresa iz lokalne mreže i u zapisu: %v", got)
 	}
 	s.ports.Discovery = lazniGlasnik(t)
 	if got := s.adreseZaSpajanje(ctxRub, &p); len(got) != 4 {

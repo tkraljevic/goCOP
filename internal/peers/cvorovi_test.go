@@ -5,7 +5,9 @@ package peers
 // lažni glasnik na loopbacku.
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"net"
 	"slices"
 	"testing"
@@ -38,7 +40,8 @@ func TestZaboravCvora(t *testing.T) {
 }
 
 // Kad brisanje ili arhiviranje ne uspije, čvor ostaje na popisu; kad se
-// popis ne da pročitati, ne briše se ništa.
+// popis ne da pročitati, ne briše se ništa. Pokušaji spajanja i put zadnje
+// veze zaborave se svaki put.
 func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 	for ime, kvar := range map[string]func(t *testing.T, s *Service){
 		"brisanje padne":    func(t *testing.T, s *Service) { kvarUpisa(t, s, "DELETE", "peers", "") },
@@ -50,9 +53,14 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "laptop-baranja", PublicKey: javniKljuc(t)}); err != nil {
 				t.Fatal(err)
 			}
+			s.zapamtiPokusaj("laptop-baranja", "192.0.2.7:4710", nil)
+			s.zapamtiPut(&Peer{NodeID: "laptop-baranja"}, &razmjena.Conn{Put: razmjena.PutLAN})
 			kvar(t, s)
 			if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err == nil {
 				t.Fatal("zaborav je prošao")
+			}
+			if n, put := len(s.pokusajiAdresa("laptop-baranja")), s.putZadnjeVeze("laptop-baranja"); n != 0 || put != "" {
+				t.Errorf("nakon neuspjelog zaborava: %d pokušaja, put %q", n, put)
 			}
 			if ime == "popis se ne čita" {
 				return
@@ -65,7 +73,9 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 }
 
 // Adresa bez porta: za ovaj čvor vrijedi njegov port razmjene, za tuđi
-// port iz neke od poznatih adresa, a inače zadani.
+// port iz neke od poznatih adresa, a inače zadani. Adresa tunela i adresa
+// koja nije IP s portom ne daju port. Taj port zove razmjena (nazovi) i
+// dobije ga ručno dodana adresa.
 func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 	s := &Service{node: &Node{ID: "cop-osijek"}, ports: Ports{Exchange: 4999}}
 	for _, p := range []struct {
@@ -77,10 +87,37 @@ func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 		{"port iz poznate adrese", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7", "192.0.2.8:4720"}}, "4720"},
 		{"adrese bez porta", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7"}}, "4710"},
 		{"bez adresa", Peer{NodeID: "ured-vukovar"}, "4710"},
+		{"tunel ispred adrese bez porta", Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr", "192.0.2.7"}}, "4710"},
+		{"adresa koja nije IP", Peer{NodeID: "ured-vukovar", Addresses: []string{"p2p:x", "192.0.2.8:4720"}}, "4720"},
+		{"port izvan raspona", Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.9:0", "192.0.2.10:70000", "192.0.2.8:4720"}}, "4720"},
 	} {
 		if got := s.exchangePortOf(p.cvor); got != p.port {
 			t.Errorf("%s: port %s, očekivan %s", p.ime, got, p.port)
 		}
+	}
+
+	var zvano []string
+	s.dial = func(_ context.Context, adresa string) (net.Conn, error) {
+		zvano = append(zvano, adresa)
+		return nil, errors.New("dial tcp " + adresa + ": connect: connection refused")
+	}
+	for _, p := range []struct {
+		adrese []string
+		zove   string
+	}{
+		{[]string{"192.0.2.7", "192.0.2.8:4720"}, "192.0.2.7:4720"},
+		{[]string{"https://cop.primjer.hr", "192.0.2.7"}, "192.0.2.7:4710"},
+	} {
+		zvano = nil
+		peer := &Peer{NodeID: "ured-vukovar", Addresses: p.adrese}
+		if _, err := s.nazovi(ctxRub, peer, kandidat{"192.0.2.7", razmjena.PutAdresa}, nil); err == nil || !slices.Equal(zvano, []string{p.zove}) {
+			t.Errorf("%v: zvano %v (%v), očekivano %s", p.adrese, zvano, err, p.zove)
+		}
+	}
+
+	peer := Peer{NodeID: "ured-vukovar", Addresses: []string{"https://cop.primjer.hr"}}
+	if err := s.dodajAdresu(&peer, "192.0.2.7"); err != nil || !slices.Equal(peer.Addresses, []string{"https://cop.primjer.hr", "192.0.2.7:4710"}) {
+		t.Errorf("ručno dodana adresa iza tunela: %v %v", peer.Addresses, err)
 	}
 }
 

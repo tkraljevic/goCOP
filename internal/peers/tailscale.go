@@ -243,15 +243,29 @@ func (s *Service) odbioTailscale(ctx context.Context, nodeID string, err error) 
 	return true
 }
 
-// naVlastitiTailscale javlja je li veza stigla na Tailscale adresu ovog
-// računala. Raspon sam nije dovoljan (100.64.0.0/10 daju i mobilni
-// operateri), pa adresa mora biti među adresama Tailscalea ovog računala.
+// naVlastitiTailscale javlja je li lokalna adresa veze, dolazne ili
+// odlazne, Tailscale adresa ovog računala. Raspon sam nije dovoljan
+// (100.64.0.0/10 daju i mobilni operateri), pa adresa mora biti među
+// adresama Tailscalea ovog računala.
 func (s *Service) naVlastitiTailscale(a net.Addr) bool {
 	ip, ok := ipVeze(a)
 	if !ok || !tailscale.JeTailscale(ip) {
 		return false
 	}
 	return slices.Contains(s.vlastiteTailscale(), ip)
+}
+
+// putVeze je put veze: predloženi, osim kad je veza na Tailscale adresi
+// ovog računala. Tada je išla preko Tailscalea i kad je druga strana na
+// običnoj adresi (ruta podmreže, izlazni čvor). Vrijedi i dok je Tailscale
+// u razmjeni isključen. Veza kroz tunel nema IP adresu, pa ostaje tunel.
+// Druga strana na adresi iz 100.64.0.0/10 uz običnu adresu ovog računala
+// nije Tailscale: taj raspon daju i mobilni operateri.
+func (s *Service) putVeze(predlozen razmjena.Put, lokalna net.Addr) razmjena.Put {
+	if s.naVlastitiTailscale(lokalna) {
+		return razmjena.PutTailscale
+	}
+	return predlozen
 }
 
 // odbijTailscale odbija dolaznu razmjenu koja je stigla na Tailscale adresu

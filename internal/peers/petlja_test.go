@@ -179,7 +179,7 @@ func prerusenaRazmjena(t *testing.T, s *Service, lokalna, udaljena net.Addr) str
 	t.Cleanup(otkazi)
 	sl := prerusenaSlusalica{Listener: ln, lokalna: lokalna, udaljena: udaljena}
 	go func() {
-		_ = razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, sl, s.trusted, func(c *razmjena.Conn) { s.primiRazmjenu(ctx, c) })
+		_ = razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, sl, s.trusted, s.primi(ctx, razmjena.PutAdresa)) // staje kad test završi, a vrata koja se ne otvore test vidi kao šutnju druge strane
 	}()
 	return ln.Addr().String()
 }
