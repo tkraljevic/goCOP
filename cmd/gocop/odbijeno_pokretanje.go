@@ -16,6 +16,18 @@ import (
 	"gocop/internal/web"
 )
 
+// provjeriPokretanje su provjere prije otvaranja baze, dakle i prije
+// migracije: ključ čvora (provjeriKljuc), pa ime protokola mreže pod kojim
+// je baza ušla u mrežu (peers.ProvjeriProtokolMreze). Kopirana mapa
+// podataka pokrenuta s drugim [sync] protokol ne kreće, da testna simulacija
+// ne radi s pravim članstvom. Obje provjere bazu samo čitaju.
+func provjeriPokretanje(cfg config.Config, cfgFrom string, dopustiNovi bool) error {
+	if err := provjeriKljuc(cfg, cfgFrom, dopustiNovi); err != nil {
+		return err
+	}
+	return peers.ProvjeriProtokolMreze(cfg.DB, cfg.Sync.Protokol)
+}
+
 // provjeriKljuc je provjera ključa čvora pri pokretanju
 // (peers.ProvjeriKljucCvora) uz ono što zna samo pokretanje: nedostaje li
 // uz bazu i gocop.toml, a s njim i ime čvora (kućni server, 5. 10. 2026.: mover

@@ -35,6 +35,7 @@ import (
 
 // Protocol imenuje goCOP mrežu: čvor druge aplikacije koja se služi istim
 // slojem razmjene ne upari se s goCOP-om i ne odgovara na njegove pozive.
+// To je zadano ime; [sync] protokol ga mijenja (PostaviProtokol).
 const Protocol = "gocop"
 
 // Portovi kao obitelj: razmjena, uparivanje, pronalaženje. Namjerno pomaknuti
@@ -84,7 +85,7 @@ func (n *Node) PublicKey() string {
 // uparivanje ide na jednom portu, razmjena na drugom.
 func (s *Service) identity() razmjena.Identity {
 	return razmjena.Identity{
-		Protocol: Protocol,
+		Protocol: s.protokol(),
 		DeviceID: s.node.ID,
 		Name:     s.node.Name,
 		Version:  s.node.Version,
@@ -241,6 +242,9 @@ type Service struct {
 	// čuvanja (PostaviPraviloPrihvata)
 	rupeMijenja     atomic.Uint64
 	praviloPrihvata func() (mjeseci int, pracene []string)
+
+	// protokolMreze je [sync] protokol (PostaviProtokol); nil je Protocol
+	protokolMreze atomic.Pointer[string]
 }
 
 func (s *Service) autoSync() bool {
@@ -591,7 +595,7 @@ func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey, vj []byt
 
 // Announce odgovara na probe drugih goCOP čvorova dok ctx traje
 func (s *Service) Announce(ctx context.Context) error {
-	return razmjena.Announce(ctx, Protocol, s.ports.Discovery, func() razmjena.Beacon {
+	return razmjena.Announce(ctx, s.protokol(), s.ports.Discovery, func() razmjena.Beacon {
 		b := razmjena.Beacon{DeviceID: s.node.ID, Name: s.node.Name, ExchangePort: s.ports.Exchange}
 		s.mu.Lock()
 		if s.waiting != nil {
@@ -610,7 +614,7 @@ type Discovered struct {
 
 // Discover proba lokalnu mrežu i vraća goCOP čvorove koji su se javili
 func (s *Service) Discover(ctx context.Context, timeout time.Duration) ([]Discovered, error) {
-	found, err := razmjena.Discover(Protocol, timeout, s.ports.Discovery)
+	found, err := razmjena.Discover(s.protokol(), timeout, s.ports.Discovery)
 	if err != nil {
 		return nil, err
 	}
@@ -902,15 +906,15 @@ type doneMsg struct {
 // razmjene i, kad je web sučelje uključilo tunel, kroz njega
 func (s *Service) Serve(ctx context.Context) error {
 	go func() {
-		if err := razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.tunel, s.trusted, s.primi(ctx, razmjena.PutKrozTunel), s.ogradaTunela); err != nil && ctx.Err() == nil {
+		if err := razmjena.ServeExchangeOn(ctx, s.node.key, s.protokol(), s.vjerodajnice, s.tunel, s.trusted, s.primi(ctx, razmjena.PutKrozTunel), s.ogradaTunela); err != nil && ctx.Err() == nil {
 			log.Printf("razmjena kroz tunel: %v", err)
 		}
 	}()
 	primi := s.primi(ctx, razmjena.PutAdresa)
 	if s.slusalica != nil {
-		return razmjena.ServeExchangeOn(ctx, s.node.key, Protocol, s.vjerodajnice, s.slusalica, s.trusted, primi, s.ogradaPorta)
+		return razmjena.ServeExchangeOn(ctx, s.node.key, s.protokol(), s.vjerodajnice, s.slusalica, s.trusted, primi, s.ogradaPorta)
 	}
-	return razmjena.ServeExchange(ctx, s.node.key, Protocol, s.vjerodajnice, s.ports.Exchange, s.trusted, primi, s.ogradaPorta)
+	return razmjena.ServeExchange(ctx, s.node.key, s.protokol(), s.vjerodajnice, s.ports.Exchange, s.trusted, primi, s.ogradaPorta)
 }
 
 // primi obrađuje razmjenu koja je stigla na jedna vrata (port razmjene ili
@@ -1087,7 +1091,7 @@ func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
 	if s.ports.Discovery <= 0 {
 		return nil
 	}
-	f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
+	f, ok := razmjena.FindDevice(s.protokol(), nodeID, 700*time.Millisecond, s.ports.Discovery)
 	if !ok {
 		return nil
 	}
@@ -1117,7 +1121,7 @@ func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed2
 // razmjene
 func (s *Service) spoji(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	if k.put == razmjena.PutKrozTunel {
-		return s.tunelKlijent.DialTunel(ctx, s.node.key, Protocol, s.vjerodajnice, k.adresa, expect)
+		return s.tunelKlijent.DialTunel(ctx, s.node.key, s.protokol(), s.vjerodajnice, k.adresa, expect)
 	}
 	// adresa bez porta je stari zapis ili ručni unos: vrijedi port koji se
 	// za taj čvor zna iz drugih adresa, inače zadani. adreseZaSpajanje ga
@@ -1127,7 +1131,7 @@ func (s *Service) spoji(ctx context.Context, peer *Peer, k kandidat, expect ed25
 	if err != nil {
 		return nil, err
 	}
-	return razmjena.DialExchangeOn(ctx, raw, s.node.key, Protocol, s.vjerodajnice, adresa, expect)
+	return razmjena.DialExchangeOn(ctx, raw, s.node.key, s.protokol(), s.vjerodajnice, adresa, expect)
 }
 
 // nazoviUparivanje otvara uparivanje s čvorom koji ga čeka na adresi

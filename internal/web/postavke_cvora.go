@@ -63,6 +63,9 @@ const (
 	// [sync] bootstrap program zasad ne čita (docs/INSTALACIJA.md); dok ga ne
 	// čita, spremanje bi samo obećalo promjenu koje nema
 	razlogBootstrapa = "Program ovu postavku zasad ne čita. Čvorove sa stalnom adresom upišite gore, pod Domenski čvorovi."
+	// baza pamti ime protokola mreže (peers.ProvjeriProtokolMreze): s drugim
+	// imenom spremljenim iz programa čvor sljedeći put ne bi krenuo
+	razlogProtokola = "Drugo ime ima samo testna simulacija, u svojoj mapi podataka. Mijenja se u datoteci gocop.toml, jer s drugim imenom ova mapa podataka ne kreće."
 )
 
 // redakRasporeda: puni ključ i njegovo mjesto
@@ -88,6 +91,7 @@ var rasporedPostavki = []redakRasporeda{
 
 	{"sync.auto_sync", mjestoPostavke{"mreza", postavkaUrediva, "Automatska sinkronizacija", ""}},
 	{"sync.tailscale", mjestoPostavke{"mreza", postavkaUrediva, "Razmjena preko Tailscalea", ""}},
+	{"sync.protokol", mjestoPostavke{"mreza", postavkaSamoCitanje, "Ime protokola mreže", razlogProtokola}},
 	{"sync.bootstrap", mjestoPostavke{"mreza", postavkaSamoCitanje, "Stalno dostupni čvorovi", razlogBootstrapa}},
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
