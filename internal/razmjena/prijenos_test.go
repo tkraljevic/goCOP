@@ -69,7 +69,8 @@ func certifikatCvora(t *testing.T, k ed25519.PrivateKey, protokol string, vj []b
 // protokola: bez certifikata nema ključa, certifikat koji nije Ed25519 javlja
 // se kao i do sada (i kad mu je ime krivo), a drugo ime kaže pod kojim imenom
 // protokola radi drugo računalo, a pod kojim ovo. Ime certifikata koje nije
-// ime čvora goCOP-a (bez nastavka „-sync”) ide u poruku cijelo, skraćeno.
+// ime čvora goCOP-a (bez nastavka „-sync”) ide u poruku kakvo jest, a
+// predugo skraćeno.
 func TestDokazaniKljuc(t *testing.T) {
 	if _, _, err := dokazaniKljuc(nil, "testproto"); err == nil || !strings.Contains(err.Error(), "no certificate") {
 		t.Errorf("bez certifikata: %v", err)

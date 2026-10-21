@@ -231,7 +231,7 @@ func cnRazmjene(protocol string) string { return protocol + nastavakCN }
 // poslužitelj s certifikatom EC) javlja se kao i do sada, „not an Ed25519
 // key”. Poruka o drugom imenu ide na pločicu razmjene, pa navodi imena
 // protokola, bez nastavka „-sync”; ime certifikata bez tog nastavka (npr.
-// tuđeg poslužitelja) navodi cijelo, skraćeno (imeZaPoruku).
+// tuđeg poslužitelja) navodi kakvo jest, a predugo skrati imeZaPoruku.
 func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKey, []byte, error) {
 	if len(certs) == 0 {
 		return nil, nil, fmt.Errorf("the peer presented no certificate")
@@ -240,9 +240,9 @@ func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKe
 	if !ok {
 		return nil, nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", certs[0].PublicKey)
 	}
-	if cn, ocekuje := certs[0].Subject.CommonName, cnRazmjene(protocol); cn != ocekuje {
+	if cn := certs[0].Subject.CommonName; cn != cnRazmjene(protocol) {
 		return nil, nil, fmt.Errorf("Razmjena odbijena: drugo računalo radi pod imenom protokola „%s”, a ovo pod „%s”. Prava mreža i testna simulacija ne razmjenjuju podatke.",
-			imeZaPoruku(strings.TrimSuffix(cn, nastavakCN)), strings.TrimSuffix(ocekuje, nastavakCN))
+			imeZaPoruku(strings.TrimSuffix(cn, nastavakCN)), protocol)
 	}
 	return pub, peerVjerodajnice([][]byte{certs[0].Raw}), nil
 }

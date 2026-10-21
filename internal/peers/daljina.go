@@ -46,8 +46,9 @@ const (
 	verzijaZahtjeva = "gocop-zahtjev/1"
 	verzijaPotvrde  = "gocop-potvrda/1"
 	solPrimanja     = "gocop-primanje/1|"
-	najveciZahtjev  = 64 << 10
-	najvecaPotvrda  = 1 << 20
+
+	najveciZahtjev = 64 << 10
+	najvecaPotvrda = 1 << 20
 
 	// zahtjevNaCekanjuDatoteka drži zadnji zahtjev ovog čvora i njegov kod
 	// dok potvrda ne stigne; uz ključ čvora, ne u bazi (ne sinkronizira se)

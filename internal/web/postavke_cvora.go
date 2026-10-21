@@ -119,7 +119,7 @@ var rasporedPostavki = []redakRasporeda{
 
 // opisNaStranici zamjenjuje objašnjenje iz datoteke kad ono govori o samoj
 // datoteci („upiše ovdje”, „ova datoteka”) ili riječima true i false, što na
-// stranici zbunjuje
+// stranici zbunjuje, ili kad bi ponovilo razlog uz postavku samo za čitanje
 var opisNaStranici = map[string]string{
 	"sync.tailscale": "Uključeno: na računalu s Tailscaleom razmjena koristi i Tailscale adrese drugih vaših čvorova. " +
 		"Isključeno: razmjena radi kao da Tailscalea nema, npr. za probu razmjene preko interneta. Na prijavu ne utječe.",
@@ -129,6 +129,7 @@ var opisNaStranici = map[string]string{
 	"db":      "Datoteka baze ovog čvora. Uz nju stoje ključ čvora (node-key) i gocop.toml, pa se premještaju i kopiraju uvijek zajedno.",
 	"sync.sve": "Uključeno: čvor prati sva očitanja i dnevnike svih područja i godina (uredski poslužitelj). " +
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
+	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 }
 
 // redRasporeda je redni broj ključa u rasporedu; ključ bez retka ide na kraj
