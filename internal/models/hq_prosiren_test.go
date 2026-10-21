@@ -121,3 +121,41 @@ func TestProtokProsirenStajeNaTjemenu(t *testing.T) {
 		}
 	}
 }
+
+// Krajevi produljenja su točno ondje gdje ProtokProsiren prestaje davati
+// protok: na kraju ga još daje, centimetar dalje više ne.
+func TestRasponProduljenja(t *testing.T) {
+	slucajevi := []struct {
+		opisano     string
+		k           HQKrivulja
+		dolje, gore int
+	}{
+		{"pravac, puno produljenje", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P2: 100, P3: 50},
+		}}, -20, 120},
+		{"tjeme ispod ruba", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: 10, P2: 1, P3: 0.5},
+		}}, -5, 120},
+		{"tjeme iznad vrha, dolje protok pada ispod nule", HQKrivulja{Odsjecci: []HQOdsjecak{
+			{OdCm: 0, DoCm: 100, Oblik: OblikPolinom, P1: -10, P2: 21, P3: 1},
+		}}, -4, 105},
+	}
+	for _, s := range slucajevi {
+		dolje, gore, ok := s.k.RasponProduljenja()
+		if !ok || dolje != s.dolje || gore != s.gore {
+			t.Errorf("%s: %d do %d (ok %v), očekivano %d do %d", s.opisano, dolje, gore, ok, s.dolje, s.gore)
+			continue
+		}
+		for _, x := range []struct {
+			cm int
+			ok bool
+		}{{dolje, true}, {dolje - 1, false}, {gore, true}, {gore + 1, false}} {
+			if _, _, ok := s.k.ProtokProsiren(x.cm); ok != x.ok {
+				t.Errorf("%s: protok na %d cm ok=%v, očekivano %v", s.opisano, x.cm, ok, x.ok)
+			}
+		}
+	}
+	if _, _, ok := (HQKrivulja{}).RasponProduljenja(); ok {
+		t.Error("krivulja bez odsječaka ima raspon produljenja")
+	}
+}

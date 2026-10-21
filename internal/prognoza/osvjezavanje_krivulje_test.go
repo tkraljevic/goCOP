@@ -94,9 +94,10 @@ func TestRasponKrozKrivulju(t *testing.T) {
 	// staje na tjemenu, 5 cm ispod ruba.
 	tjeme := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
 		{OdCm: -20, DoCm: 500, Oblik: models.OblikPolinom, P1: 4, P2: 2, P3: 1}}}
-	// Potencija koja ne postoji ni na svojem donjem rubu: obrata nema.
+	// Q = H - 25 cm, zapisana kao potencija od 0 cm: do 25 cm ne postoji,
+	// ni na svojem donjem rubu, pa obrata nema.
 	bezObrata := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{
-		{OdCm: 0, DoCm: 500, Oblik: models.OblikPotencija, P1: 1, P2: 1, P3: -0.2}}}
+		{OdCm: 0, DoCm: 500, Oblik: models.OblikPotencija, P1: 1, P2: 1, P3: -0.25}}}
 	for _, s := range []struct {
 		opis           string
 		k              *models.HQKrivulja
@@ -113,6 +114,7 @@ func TestRasponKrozKrivulju(t *testing.T) {
 		{"zrcalo ispod nule: nula", pravac, "protok", 35, -60, 30, 0, 80, true},
 		{"na kraju produljenja protoka nema: nula", plitka, "protok", 20, 5, 40, 0, 30, true},
 		{"donja preko tjemena: kraj produljenja, ne nula", tjeme, "protok", 0.9375, -40, 0, 0.75, 1, true},
+		{"ni na kraju krivulje protoka nema: nula", bezObrata, "protok", 0.75, 10, 125, 0, 1, true},
 
 		{"protok u vodostaj, obje u krivulji", pravac, "vodostaj", 250, 250, 350, 200, 300, false},
 		{"vrijednost i obje granice stoje na dnu: raspona nema", pravac, "vodostaj", -20, 5, 25, -20, -20, true},
