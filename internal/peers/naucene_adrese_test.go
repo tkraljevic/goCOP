@@ -228,6 +228,7 @@ func TestNoteSyncBezNoveVerzije(t *testing.T) {
 	}
 }
 
+// Bilješka o neuspjeloj razmjeni ne briše kad je zadnja razmjena uspjela.
 // Kad razmjena obriše zapis čvora (stigao je spomenik, pa je zapis maknut bez
 // nove verzije ovdje), bilješka o toj razmjeni ga ne vraća. Do 0.0.39 ga je
 // spremala iznova, a nova verzija otišla je svima.
@@ -242,7 +243,16 @@ func TestNoteSyncNeVracaObrisanZapis(t *testing.T) {
 	}
 	s.noteSync(ctxRub, peer, nil, syncOutcome{err: fmt.Errorf("veza prekinuta")})
 	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); err != nil || p == nil || p.LastSyncNote != "greška: veza prekinuta" || p.LastSync != nil || p.LastSeen == nil {
-		t.Fatalf("bilješka prije brisanja: %+v %v", p, err)
+		t.Fatalf("bilješka bez ijedne uspješne razmjene: %+v %v", p, err)
+	}
+	s.noteSync(ctxRub, peer, nil, syncOutcome{applied: 3, sent: 2})
+	uspjela, err := s.GetPeer(ctxRub, "ured-vukovar")
+	if err != nil || uspjela == nil || uspjela.LastSync == nil || uspjela.LastSyncNote != "primljeno 3, poslano 2" {
+		t.Fatalf("bilješka o uspješnoj razmjeni: %+v %v", uspjela, err)
+	}
+	s.noteSync(ctxRub, peer, nil, syncOutcome{err: fmt.Errorf("veza prekinuta")})
+	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); err != nil || p == nil || p.LastSyncNote != "greška: veza prekinuta" || p.LastSync == nil || !p.LastSync.Equal(*uspjela.LastSync) {
+		t.Fatalf("bilješka o grešci nakon uspješne razmjene: %+v %v", p, err)
 	}
 	verzija := verzijeZapisaCvorova(t, s)
 	if _, err := s.db.Exec(`DELETE FROM peers WHERE node_id = 'ured-vukovar'`); err != nil {
@@ -344,27 +354,34 @@ func TestDolaznaAdresaUciTekNakonPoziva(t *testing.T) {
 // adresu išle su preko Tailscalea, pa ne uče ništa i ne stvaraju verziju.
 // Isto i kad računalo svoju Tailscale adresu ne prepozna (Mac kojem je u
 // Tailscaleu isključen IPv6): put je tada adresa, ali lokalna adresa je iz
-// Tailscaleova raspona. Kontrola: odlazna s obične adrese nauči.
+// Tailscaleova raspona. Kontrole: dolazna na običnu adresu postane tvrdnja, a
+// odlazna s obične adrese nauči.
 func TestRutaPodmrezeSeNeUci(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
 	verzijaB := verzijeZapisaCvorova(t, b)
-	for _, prepoznaje := range []bool{true, false} {
-		b.ZadajTailscale()
-		if prepoznaje {
-			b.ZadajTailscale(adresa("100.101.0.2"))
-		}
-		upoznaj(t, a, b, prerusenaRazmjena(t, b, tcpAdresa(t, "100.101.0.2:4710"), tcpAdresa(t, "192.168.24.80:51234")))
+	for _, sl := range []struct {
+		ime, lokalna string
+		tailscale    []netip.Addr
+		put          razmjena.Put
+		tvrdnje      []kandidat
+	}{
+		{"na prepoznatu Tailscale adresu", "100.101.0.2:4710", []netip.Addr{adresa("100.101.0.2")}, razmjena.PutTailscale, nil},
+		{"na neprepoznatu Tailscale adresu", "100.101.0.2:4710", nil, razmjena.PutAdresa, nil},
+		{"na običnu adresu", "192.168.24.92:4710", nil, razmjena.PutAdresa, []kandidat{{fmt.Sprintf("192.168.24.80:%d", a.ports.Exchange), razmjena.PutAdresa}}},
+	} {
+		b.ZadajTailscale(sl.tailscale...)
+		upoznaj(t, a, b, prerusenaRazmjena(t, b, tcpAdresa(t, sl.lokalna), tcpAdresa(t, "192.168.24.80:51234")))
 		obrisiBiljesku(t, b, a.node.ID)
 		if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
-			t.Fatal(err)
+			t.Fatalf("dolazna %s: %v", sl.ime, err)
 		}
 		cekajNovuBiljesku(t, b, a.node.ID)
-		if got, ts := b.tvrdnjeZa(a.node.ID), b.putZadnjeVeze(a.node.ID) == razmjena.PutTailscale; len(got) != 0 || ts != prepoznaje {
-			t.Errorf("dolazna, Tailscale prepoznat %v: tvrdnja %v, put tailscale %v", prepoznaje, got, ts)
+		if got, put := b.tvrdnjeZa(a.node.ID), b.putZadnjeVeze(a.node.ID); !slices.Equal(got, sl.tvrdnje) || put != sl.put {
+			t.Errorf("dolazna %s: tvrdnje %v, put %q", sl.ime, got, put)
 		}
 		if got := b.naucene(ctxRub, a.node.ID); got != nil {
-			t.Errorf("dolazna, Tailscale prepoznat %v: naučeno %v", prepoznaje, got)
+			t.Errorf("dolazna %s: naučeno %v", sl.ime, got)
 		}
 	}
 	if n := verzijeZapisaCvorova(t, b); n != verzijaB {
@@ -376,17 +393,21 @@ func TestRutaPodmrezeSeNeUci(t *testing.T) {
 	for _, sl := range []struct {
 		ime, lokalna string
 		tailscale    []netip.Addr
+		put          razmjena.Put
 		naucene      []string
 	}{
-		{"s prepoznate Tailscale adrese", "100.101.0.1:51234", []netip.Addr{adresa("100.101.0.1")}, nil},
-		{"s neprepoznate Tailscale adrese", "100.101.0.1:51234", nil, nil},
-		{"s obične adrese", "192.168.24.92:51234", nil, []string{naB}},
+		{"s prepoznate Tailscale adrese", "100.101.0.1:51234", []netip.Addr{adresa("100.101.0.1")}, razmjena.PutTailscale, nil},
+		{"s neprepoznate Tailscale adrese", "100.101.0.1:51234", nil, razmjena.PutAdresa, nil},
+		{"s obične adrese", "192.168.24.92:51234", nil, razmjena.PutAdresa, []string{naB}},
 	} {
 		a.ZadajTailscale(sl.tailscale...)
 		a.dial = prerusenPoziv(sl.lokalna, map[string]prerusen{naB: {adresaNaPetlji(b), naB}})
 		verzija := verzijeZapisaCvorova(t, a)
 		if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 			t.Fatalf("%s: %v", sl.ime, err)
+		}
+		if put := a.putZadnjeVeze(b.node.ID); put != sl.put {
+			t.Errorf("%s: put %q", sl.ime, put)
 		}
 		if got := a.naucene(ctxRub, b.node.ID); !slices.Equal(got, sl.naucene) {
 			t.Errorf("%s: naučeno %v", sl.ime, got)
@@ -399,29 +420,36 @@ func TestRutaPodmrezeSeNeUci(t *testing.T) {
 
 // Naučena adresa, i iz obične razmjene i iz pronalaženja, ostaje samo na
 // ovom računalu: ne stvara verziju i ne ide u zapis čvora ni drugom računalu.
-// Ostaje i kad se program ponovno pokrene (nov Service nad istom bazom), a
-// razmjena je zove iza adresa iz zapisa, ispred tunela.
+// Drugo računalo, koje je pozvano s privatne adrese, iz toga ima samo
+// tvrdnju. Naučena adresa ostaje i kad se program ponovno pokrene (nov
+// Service nad istom bazom), a razmjena je zove iza adresa iz zapisa, ispred
+// tunela.
 func TestNaucenaAdresaOstajeLokalno(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
 	poImenu, tunel, izPronalazenja := "cop-vukovar.example.hr:4710", "https://cop.primjer.hr", "192.168.24.70:4711"
 	upoznaj(t, a, b, poImenu, tunel)
-	verzija := verzijeZapisaCvorova(t, a)
-	// ime vodi na adresu u lokalnoj mreži
+	verzija, verzijaB := verzijeZapisaCvorova(t, a), verzijeZapisaCvorova(t, b)
+	// ime vodi na adresu u lokalnoj mreži, a b vidi poziv s privatne adrese
+	naB := prerusenaRazmjena(t, b, tcpAdresa(t, "192.168.24.80:4710"), tcpAdresa(t, "192.168.24.92:50000"))
 	a.dial = prerusenPoziv("192.168.24.92:50000", map[string]prerusen{
-		poImenu:        {adresaNaPetlji(b), "192.168.24.80:4710"},
-		izPronalazenja: {adresaNaPetlji(b), izPronalazenja},
+		poImenu:        {naB, "192.168.24.80:4710"},
+		izPronalazenja: {naB, izPronalazenja},
 	})
+	obrisiBiljesku(t, b, a.node.ID)
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
 	}
+	cekajNovuBiljesku(t, b, a.node.ID)
 	if got := a.naucene(ctxRub, b.node.ID); !slices.Equal(got, []string{"192.168.24.80:4710"}) {
 		t.Errorf("naučeno iz razmjene: %v", got)
 	}
 	a.zapamtiTvrdnju(ctxRub, razmjena.Found{Beacon: razmjena.Beacon{DeviceID: b.node.ID, ExchangePort: 4711}, Addr: "192.168.24.70"})
+	obrisiBiljesku(t, b, a.node.ID)
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
 	}
+	cekajNovuBiljesku(t, b, a.node.ID)
 	if got := a.naucene(ctxRub, b.node.ID); !slices.Equal(got, []string{izPronalazenja, "192.168.24.80:4710"}) {
 		t.Errorf("naučeno iz pronalaženja: %v", got)
 	}
@@ -445,6 +473,12 @@ func TestNaucenaAdresaOstajeLokalno(t *testing.T) {
 	}
 	if got := b.naucene(ctxRub, a.node.ID); got != nil {
 		t.Errorf("drugo računalo je naučilo %v", got)
+	}
+	if got := b.tvrdnjeZa(a.node.ID); !slices.Equal(got, []kandidat{{fmt.Sprintf("192.168.24.92:%d", a.ports.Exchange), razmjena.PutAdresa}}) {
+		t.Errorf("tvrdnje drugog računala: %v", got)
+	}
+	if n := verzijeZapisaCvorova(t, b); n != verzijaB {
+		t.Errorf("drugo računalo: %d novih verzija zapisa čvora", n-verzijaB)
 	}
 
 	ponovo, err := NewService(a.db, ledger.New(a.db, a.node.ID), a.node, Ports{})

@@ -209,6 +209,9 @@ type Service struct {
 	// pronadji proba lokalnu mrežu (Discover); nil je razmjena.Discover. Test
 	// njime glumi odgovore i grešku.
 	pronadji func(protocol string, timeout time.Duration, port int) ([]razmjena.Found, error)
+	// nadji pita lokalnu mrežu gdje je jedan čvor (uLokalnojMrezi); nil je
+	// razmjena.FindDevice. Test njime glumi odgovor.
+	nadji func(protocol, deviceID string, timeout time.Duration, port int) (razmjena.Found, bool)
 	// slusalica prima razmjene (Serve); nil je TCP port razmjene iz Ports.
 	// Test njome daje slušalicu koju je sam otvorio, pa port od izbora do
 	// kraja testa ne može uzeti nitko drugi.
@@ -1118,23 +1121,33 @@ func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
 	if s.ports.Discovery <= 0 {
 		return nil
 	}
-	f, ok := razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
-	k, lan := tvrdnjaIz(f)
-	if !ok || !lan {
+	f, ok := s.nadjiUMrezi(nodeID)
+	k, nijeTailscale := tvrdnjaIz(f)
+	if !ok || !nijeTailscale {
 		return nil
 	}
 	return []kandidat{k}
 }
 
+// nadjiUMrezi pita lokalnu mrežu gdje je čvor (s.nadji, inače
+// razmjena.FindDevice)
+func (s *Service) nadjiUMrezi(nodeID string) (razmjena.Found, bool) {
+	if s.nadji != nil {
+		return s.nadji(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
+	}
+	return razmjena.FindDevice(Protocol, nodeID, 700*time.Millisecond, s.ports.Discovery)
+}
+
 // nazovi otvara razmjenu na jednoj adresi i pamti kako je spajanje prošlo
-// (pokusaji.go); tvrdnja o toj adresi time je potrošena. Veza dobije put
-// kandidata, osim kad je otišla s Tailscale adrese ovog računala (putVeze).
+// (pokusaji.go); tvrdnja o toj adresi time je potrošena, osim kad je cijela
+// razmjena prekinuta. Veza dobije put kandidata, osim kad je otišla s
+// Tailscale adrese ovog računala (putVeze).
 func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	conn, err := s.spoji(dialCtx, peer, k, expect)
 	// kad je cijela razmjena prekinuta ili joj je isteklo vrijeme, ishod
-	// ništa ne govori o adresi, pa ostaje zapamćen prethodni
+	// ništa ne govori o adresi, pa ostaje zapamćen prethodni, a tvrdnja ostaje
 	if ctx.Err() == nil {
 		s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
 		s.potrosiTvrdnju(peer.NodeID, k.adresa)

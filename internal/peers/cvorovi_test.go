@@ -163,7 +163,8 @@ func lazniGlasnik(t *testing.T, beaconi ...razmjena.Beacon) int {
 // nepoznati samo navede. Adresa na kojoj se poznati čvor javio (laptop se
 // preselio) ne ide u njegov zapis, pa nema nove verzije: to je tvrdnja, koju
 // razmjena nazove ispred adresa iz zapisa. Tvrdnja ostaje dok je razmjena ne
-// nazove, a nakon toga je nema.
+// nazove (i kad je poziv prekinut zato što je prekinuta cijela razmjena), a
+// nakon toga je nema.
 func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "laptop-baranja", PublicKey: javniKljuc(t),
@@ -222,6 +223,14 @@ func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 	s.dial = func(_ context.Context, adresa string) (net.Conn, error) {
 		return nil, errors.New("dial tcp " + adresa + ": connect: connection refused")
 	}
+	prekinuta, prekini := context.WithCancel(ctxRub)
+	prekini()
+	if _, err := s.nazovi(prekinuta, laptop, tvrdnja, nil); err == nil {
+		t.Fatal("poziv u prekinutoj razmjeni")
+	}
+	if got := s.tvrdnjeZa("laptop-baranja"); !slices.Equal(got, []kandidat{tvrdnja}) {
+		t.Errorf("prekinuta razmjena potrošila je tvrdnju: %v", got)
+	}
 	if _, err := s.nazovi(ctxRub, laptop, tvrdnja, nil); err == nil {
 		t.Fatal("poziv na adresu na kojoj nitko ne sluša")
 	}
@@ -257,6 +266,33 @@ func TestPronalazenjeBezTvrdnjeOTailscaleAdresi(t *testing.T) {
 	}
 	if p, err := s.GetPeer(ctxRub, "laptop-baranja"); err != nil || p == nil || p.LastSeen == nil {
 		t.Errorf("čvor nije viđen: %+v %v", p, err)
+	}
+}
+
+// Čvor koji se u lokalnoj mreži javi s Tailscale adrese nema adresu iz
+// lokalne mreže: Tailscale adrese razmjena zove samo kad ih je čvor sam
+// javio, i to dok je Tailscale u razmjeni uključen. Kontrola: obična adresa
+// iz lokalne mreže zove se prva, s portom koji je čvor javio.
+func TestLokalnaMrezaBezTailscaleAdrese(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	s.ports.Discovery = 4712
+	p := &Peer{NodeID: "laptop-baranja", Addresses: []string{"192.0.2.10:4710"}}
+	izZapisa := kandidat{"192.0.2.10:4710", razmjena.PutAdresa}
+	for _, sl := range []struct {
+		javljena  string
+		ocekivano []kandidat
+	}{
+		{"100.101.0.9", []kandidat{izZapisa}},
+		{"fd7a:115c:a1e0::9", []kandidat{izZapisa}},
+		{"192.168.24.70", []kandidat{{"192.168.24.70:4711", razmjena.PutLAN}, izZapisa}},
+	} {
+		s.nadji = func(protokol, id string, _ time.Duration, port int) (razmjena.Found, bool) {
+			f := razmjena.Found{Beacon: razmjena.Beacon{Protocol: protokol, DeviceID: id, ExchangePort: 4711}, Addr: sl.javljena}
+			return f, protokol == Protocol && id == "laptop-baranja" && port == 4712
+		}
+		if got := s.adreseZaSpajanje(ctxRub, p); !slices.Equal(got, sl.ocekivano) {
+			t.Errorf("javio se s %s: %v", sl.javljena, got)
+		}
 	}
 }
 
