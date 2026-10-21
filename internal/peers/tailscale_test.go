@@ -372,7 +372,7 @@ func TestZaboravljenCvorBezBiljeskeORazmjeni(t *testing.T) {
 }
 
 // Veza koja stigne s Tailscale adrese ne upisuje tu adresu u zapis čvora:
-// viđena adresa ide u knjigu samo kad nije Tailscale
+// viđena adresa ne ide u knjigu (naucene_adrese.go)
 func TestVidjenaTailscaleAdresaNeIdeUKnjigu(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]

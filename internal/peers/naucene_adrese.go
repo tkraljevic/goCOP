@@ -1,13 +1,14 @@
 package peers
 
 // Naučene adrese i tvrdnje o adresama (plan WEB synca, F0). Adresu drugog
-// računala ovo računalo nauči samo kad je samo nazvalo i druga strana je na
-// njoj dokazala ključ iz članstva. Veza je pritom išla izravno, u lokalnoj
-// mreži ili na adresu (ne preko Tailscalea, kroz tunel ni probijanjem), a ne
-// s adrese iz Tailscaleovih raspona ovog računala (ruta podmreže). Adresa
-// druge strane mora biti u privatnoj mreži. Naučene adrese ostaju na ovom
-// računalu, u peer_sync.adrese, i nikad ne putuju: zapis računala zbog
-// razmjene ne dobiva novu verziju (Odluke (14. 10. 2026.), 2).
+// računala ovo računalo nauči samo kad je ono nazvalo tu adresu (a ne ona
+// njega) i druga strana je na njoj dokazala ključ iz članstva. Veza je pritom
+// išla izravno, u lokalnoj mreži ili na adresu (ne preko Tailscalea, kroz
+// tunel ni probijanjem), a ne s adrese iz Tailscaleovih raspona ovog računala
+// (ruta podmreže). Adresa druge strane mora biti u privatnoj mreži. Naučene
+// adrese ostaju na ovom računalu, u peer_sync.adrese, i nikad ne putuju:
+// zapis računala zbog razmjene ne dobiva novu verziju (Odluke
+// (14. 10. 2026.), 2).
 //
 // Sve drugo je tvrdnja i ostaje samo u memoriji: adresa na kojoj se računalo
 // javilo u lokalnoj mreži (Discover) i adresa s koje je stigla dolazna
@@ -72,10 +73,10 @@ func (s *Service) adresaZaUcenje(peer *Peer, c *razmjena.Conn, dolazna bool) (st
 		return "", false
 	}
 	ap, ok := privatnaIP(c.RemoteAddr())
-	switch {
-	case !ok:
+	if !ok {
 		return "", false
-	case dolazna:
+	}
+	if dolazna {
 		return withPort(ap.Addr().String(), s.exchangePortOf(*peer)), true
 	}
 	return ap.String(), true

@@ -1725,10 +1725,10 @@ func migrateSchema(database *sql.DB) error {
 		// granica stigla: tek tada prazne mogućnosti znače razmjena/1
 		{"peer_sync", "mogucnosti_poznate", "INTEGER NOT NULL DEFAULT 0"},
 		// Adrese drugog računala koje je ovo računalo naučilo (JSON, adresa i
-		// vrijeme zadnjeg uspjeha): na njima je samo nazvalo i druga strana je
-		// dokazala svoj ključ. Ostaju na ovom računalu i nikad ne putuju, ni u
-		// knjigu ni u zapis računala (Odluke (14. 10. 2026.), 2;
-		// peers/naucene_adrese.go)
+		// vrijeme zadnjeg uspjeha): ovo računalo nazvalo je tu adresu, a ne
+		// ona njega, i druga strana je dokazala svoj ključ. Ostaju na ovom
+		// računalu i nikad ne putuju, ni u knjigu ni u zapis računala (Odluke
+		// (14. 10. 2026.), 2; peers/naucene_adrese.go)
 		{"peer_sync", "adrese", "TEXT NOT NULL DEFAULT ''"},
 	}
 
