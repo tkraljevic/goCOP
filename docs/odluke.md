@@ -580,3 +580,12 @@ je gotov onaj o kojem ovisi.
   nikad ne ide s datotekom.
 - Time se mijenja točka 4b Odluka (14. 10. 2026.).
 - Kako u mrežu ulaze ispostave, odlučuje se posebno.
+
+## Odluke (21. 10. 2026.)
+
+- Prava mreža (`gocop`) i testna simulacija (`gocop-sim`) moraju biti
+  razdvojene. Zato baza pamti ime protokola svoje mreže, a čvor s drugim
+  imenom ne kreće i ne razmjenjuje podatke. Simulacija sama i dalje dolazi
+  kad je sve ispolirano.
+- Pregled knjige verzija i čišćenje prostora na disku dolaze kasnije.
+  Upravljanje prostorom osmislit će se kad dođe na red; zasad nije hitno.
