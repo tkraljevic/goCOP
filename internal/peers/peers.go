@@ -161,8 +161,8 @@ type Service struct {
 	// lokalnoj mreži. Mjesta za razmjene dijele. Drži ih servis, a ne
 	// pojedina slušalica, da svaka nova vrata primanja dobiju iste granice.
 	ogradaPorta, ogradaTunela *razmjena.Ograda
-	// pokusaji drže put zadnje veze s drugim računalom, samo u memoriji
-	// (pokusaji.go)
+	// pokusaji su zadnji pokušaji spajanja po adresi drugog računala i put
+	// zadnje veze s njim, samo u memoriji (pokusaji.go)
 	pokusaji pamcenjePokusaja
 
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
@@ -1086,12 +1086,14 @@ func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
 	return []kandidat{{adresa: withPort(f.Addr, fmt.Sprint(f.ExchangePort)), put: razmjena.PutLAN}}
 }
 
-// nazovi otvara razmjenu na jednoj adresi. Veza dobije put kandidata, osim
-// kad je otišla s Tailscale adrese ovog računala (putVeze).
+// nazovi otvara razmjenu na jednoj adresi i pamti kako je spajanje prošlo
+// (pokusaji.go). Veza dobije put kandidata, osim kad je otišla s Tailscale
+// adrese ovog računala (putVeze).
 func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	conn, err := s.spoji(dialCtx, peer, k, expect)
+	s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
 	if err != nil {
 		return nil, err
 	}
