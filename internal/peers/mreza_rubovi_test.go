@@ -300,8 +300,12 @@ func TestKljucCvora(t *testing.T) {
 // dnevniku, a stanje razmjene je ipak upisano.
 func TestBiljeskaORazmjeniKadZapisNeProde(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
+	if err := s.SavePeer(ctxRub, Peer{NodeID: "ured-vukovar", Name: "ured-vukovar", PublicKey: javniKljuc(t)}); err != nil {
+		t.Fatal(err)
+	}
+	kvarUpisa(t, s, "UPDATE", "peers", "")
 	dnevnik := brojiDnevnik(t, "nije spremljena")
-	s.noteSync(ctxRub, &Peer{NodeID: "ured-vukovar", PublicKey: "nije-kljuc"}, nil, syncOutcome{applied: 2, sent: 1})
+	s.noteSync(ctxRub, &Peer{NodeID: "ured-vukovar"}, nil, syncOutcome{applied: 2, sent: 1})
 	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "ured-vukovar") {
 		t.Errorf("dnevnik: %d %q", n, zadnji)
 	}

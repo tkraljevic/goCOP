@@ -1724,6 +1724,12 @@ func migrateSchema(database *sql.DB) error {
 		// 1 kad je redak upisao program koji pamti mogućnosti, nakon što je
 		// granica stigla: tek tada prazne mogućnosti znače razmjena/1
 		{"peer_sync", "mogucnosti_poznate", "INTEGER NOT NULL DEFAULT 0"},
+		// Adrese drugog računala koje je ovo računalo naučilo (JSON, adresa i
+		// vrijeme zadnjeg uspjeha): ovo računalo nazvalo je tu adresu, a ne
+		// ona njega, i druga strana je dokazala svoj ključ. Ostaju na ovom
+		// računalu i nikad ne putuju, ni u knjigu ni u zapis računala (Odluke
+		// (14. 10. 2026.), 2; peers/naucene_adrese.go)
+		{"peer_sync", "adrese", "TEXT NOT NULL DEFAULT ''"},
 		// Ime protokola mreže ([sync] protokol) pod kojim je ova baza ušla u
 		// mrežu: kopirana mapa podataka s drugim imenom ne kreće
 		// (peers.ProvjeriProtokolMreze). Do 0.0.39 sve su mreže bile „gocop”.
