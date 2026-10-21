@@ -102,7 +102,7 @@ func TestProvjeraPokretanja(t *testing.T) {
 		t.Errorf("gocop-sim uz bazu 0.0.39: %v", err)
 	}
 	cfg.Sync.Protokol = ""
-	if err := provjeriPokretanje(cfg, postavke, false); err == nil || !strings.Contains(err.Error(), "smije imati samo mala slova") {
+	if err := provjeriPokretanje(cfg, postavke, false); err == nil || !strings.Contains(err.Error(), "smije imati najviše 32 znaka") {
 		t.Errorf("prazno ime: %v", err)
 	}
 

@@ -181,7 +181,7 @@ func TestImeProtokola(t *testing.T) {
 			t.Errorf("%q: %v", s.ime, err)
 		}
 	}
-	ocekivano := "goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati samo mala slova, brojke i crtice, npr. „gocop” ili „gocop-sim”. Ispravi postavku."
+	ocekivano := "goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku."
 	if err := ProvjeriProtokolMreze(filepath.Join(t.TempDir(), "gocop.db"), ""); err == nil || err.Error() != ocekivano {
 		t.Errorf("prazno ime uz svježu mapu: %v", err)
 	}

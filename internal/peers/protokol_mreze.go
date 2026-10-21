@@ -78,7 +78,7 @@ var oblikImenaProtokola = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*$`)
 // (npr. prazno: certifikat „-sync”)
 func imeProtokola(p string) error {
 	if len(p) > najduzeImeProtokola || !oblikImenaProtokola.MatchString(p) {
-		return errors.New("goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati samo mala slova, brojke i crtice, npr. „gocop” ili „gocop-sim”. Ispravi postavku.")
+		return errors.New("goCOP nije pokrenut: [sync] protokol u gocop.toml smije imati najviše 32 znaka, samo mala slova, brojke i crtice, a crticu samo između slova ili brojki, npr. „gocop” ili „gocop-sim”. Ispravi postavku.")
 	}
 	return nil
 }
