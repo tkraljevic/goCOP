@@ -243,9 +243,10 @@ func (s *Service) odbioTailscale(ctx context.Context, nodeID string, err error) 
 	return true
 }
 
-// naVlastitiTailscale javlja je li veza stigla na Tailscale adresu ovog
-// računala. Raspon sam nije dovoljan (100.64.0.0/10 daju i mobilni
-// operateri), pa adresa mora biti među adresama Tailscalea ovog računala.
+// naVlastitiTailscale javlja je li lokalna adresa veze, dolazne ili
+// odlazne, Tailscale adresa ovog računala. Raspon sam nije dovoljan
+// (100.64.0.0/10 daju i mobilni operateri), pa adresa mora biti među
+// adresama Tailscalea ovog računala.
 func (s *Service) naVlastitiTailscale(a net.Addr) bool {
 	ip, ok := ipVeze(a)
 	if !ok || !tailscale.JeTailscale(ip) {

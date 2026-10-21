@@ -159,11 +159,12 @@ type Service struct {
 	// ograde primanja (Serve). Tunel ima svoju: kroz njega dolazi bilo tko
 	// s interneta, pa njegova rukovanja ne smiju zauzeti mjesta porta u
 	// lokalnoj mreži. Mjesta za razmjene dijele. Drži ih servis, a ne
-	// pojedina slušalica, da svaka nova vrata primanja dobiju iste granice.
+	// pojedina slušalica, da nova vrata primanja (npr. QUIC) dijele ista
+	// mjesta.
 	ogradaPorta, ogradaTunela *razmjena.Ograda
-	// pokusaji su zadnji pokušaji spajanja po adresi drugog računala i put
-	// zadnje veze s njim, samo u memoriji (pokusaji.go)
-	pokusaji pamcenjePokusaja
+	// veze: zadnji pokušaji spajanja po adresi drugog računala i put zadnje
+	// veze s njim, samo u memoriji (pokusaji.go)
+	veze pamcenjeVeza
 
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
 	uloge           atomic.Pointer[Uloge]
@@ -249,9 +250,8 @@ func (s *Service) autoSync() bool {
 }
 
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
-	port := razmjena.NovaOgrada()
-	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel(),
-		ogradaPorta: port, ogradaTunela: razmjena.NovaOgradaTunela(port)}
+	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel(), ogradaPorta: razmjena.NovaOgrada()}
+	s.ogradaTunela = razmjena.NovaOgradaTunela(s.ogradaPorta)
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -542,8 +542,9 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 // ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
-	// zaboraviti previše košta samo jedno ponovno slanje. Isto vrijedi za
-	// ono što se o računalu pamti samo u memoriji (pokusaji.go).
+	// zaboraviti previše košta samo jedno ponovno slanje. Pokušaji
+	// spajanja i put zadnje veze (pokusaji.go) zaborave se također i kad
+	// brisanje ne uspije: do sljedećeg spajanja ih samo nema.
 	defer s.zaboraviOdbijene()
 	defer s.zaboraviPokusaje(nodeID)
 	p, err := s.GetPeer(ctx, nodeID)
@@ -1042,9 +1043,9 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 			izravne = append(izravne, a)
 		}
 	}
-	k := append(s.uLokalnojMrezi(peer.NodeID), uz(razmjena.PutAdresa, izravne)...)
-	k = append(k, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
-	return bezDvojnika(append(k, uz(razmjena.PutKrozTunel, tuneli)...))
+	kandidati := append(s.uLokalnojMrezi(peer.NodeID), uz(razmjena.PutAdresa, izravne)...)
+	kandidati = append(kandidati, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
+	return bezDvojnika(append(kandidati, uz(razmjena.PutKrozTunel, tuneli)...))
 }
 
 // uz su adrese za spajanje koje idu istim putem
