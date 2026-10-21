@@ -12,6 +12,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
 	"regexp"
 )
 
@@ -46,13 +47,19 @@ func (e *ProtokolDrugeMreze) Error() string {
 // *ProtokolDrugeMreze. Svježa mapa (baze, tablice network ili mreže još
 // nema) prolazi uz svako ispravno ime. Poziva se prije otvaranja baze, pa i
 // prije dodavanja stupca protokol; baza se pritom samo čita.
+//
+// Bazu koja se ne da pročitati provjera samo zapiše u dnevnik i ne odbija:
+// ne otvori se ni poslije, pa čvor stane kao i do sada, a Postava ga pri
+// nadogradnji vidi kao pao i vrati prethodno izdanje. Odbijeni čvor pod
+// Postavom ostao bi upaljen, kao da je nadogradnja uspjela.
 func ProvjeriProtokolMreze(dbPath, protokol string) error {
 	if err := imeProtokola(protokol); err != nil {
 		return err
 	}
 	upisan, err := protokolIzBaze(dbPath)
 	if err != nil {
-		return fmt.Errorf("goCOP nije pokrenut: iz baze %s ne može se pročitati pod kojim je imenom protokola ušla u mrežu: %w", dbPath, err)
+		log.Printf("Ime protokola mreže: iz baze %s ne može se pročitati pod kojim je imenom ušla u mrežu (%v), pa se ne provjerava", dbPath, err)
+		return nil
 	}
 	if upisan != "" && upisan != protokol {
 		return &ProtokolDrugeMreze{Upisan: upisan, Postavka: protokol}

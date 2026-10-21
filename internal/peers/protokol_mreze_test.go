@@ -187,8 +187,10 @@ func TestImeProtokola(t *testing.T) {
 	}
 }
 
-// Datoteka koja nije baza ne prolazi provjeru i ostaje kakva je; prazna
-// datoteka (SQLite je čita kao praznu bazu) prolazi kao svježa mapa.
+// Datoteku koja nije baza provjera ne odbija, nego to zapiše u dnevnik i
+// datoteku ostavi kakva je: ne otvori se ni poslije, pa čvor stane kao i do
+// sada. Prazna datoteka (SQLite je čita kao praznu bazu) prolazi kao svježa
+// mapa.
 func TestProvjeraProtokolaNaNecitljivojBazi(t *testing.T) {
 	dir := t.TempDir()
 	smece := filepath.Join(dir, "smece.db")
@@ -196,10 +198,12 @@ func TestProvjeraProtokolaNaNecitljivojBazi(t *testing.T) {
 	if err := os.WriteFile(smece, sadrzaj, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err := ProvjeriProtokolMreze(smece, "gocop")
-	var drugi *ProtokolDrugeMreze
-	if err == nil || errors.As(err, &drugi) || !strings.HasPrefix(err.Error(), "goCOP nije pokrenut: iz baze "+smece+" ne može se pročitati pod kojim je imenom protokola ušla u mrežu: ") {
+	dnevnik := brojiDnevnik(t, "Ime protokola mreže: iz baze "+smece+" ne može se pročitati pod kojim je imenom ušla u mrežu (")
+	if err := ProvjeriProtokolMreze(smece, "gocop-sim"); err != nil {
 		t.Errorf("datoteka koja nije baza: %v", err)
+	}
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.HasSuffix(zadnji, "), pa se ne provjerava\n") {
+		t.Errorf("dnevnik: %d %q", n, zadnji)
 	}
 	if b, err := os.ReadFile(smece); err != nil || string(b) != string(sadrzaj) {
 		t.Errorf("provjera je mijenjala datoteku (%v)", err)

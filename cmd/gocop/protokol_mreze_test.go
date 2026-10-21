@@ -78,7 +78,9 @@ func TestZadaniProtokolMreze(t *testing.T) {
 
 // Pokretanje prvo provjeri ključ čvora, pa ime protokola: postojeći čvor bez
 // ključa odbija se kao i do sada, a baza mreže „gocop” s postavkom
-// „gocop-sim” kaže da pripada drugoj mreži. Neispravno ime ne kreće.
+// „gocop-sim” kaže da pripada drugoj mreži. Neispravno ime ne kreće. Bazu
+// koja se ne da pročitati provjera pušta dalje, a ne otvori se ni poslije,
+// pa čvor stane kao i do sada.
 func TestProvjeraPokretanja(t *testing.T) {
 	bezKljuca := config.Default()
 	bezKljuca.DB = bazaZaOporavak(t)
@@ -102,6 +104,19 @@ func TestProvjeraPokretanja(t *testing.T) {
 	cfg.Sync.Protokol = ""
 	if err := provjeriPokretanje(cfg, postavke, false); err == nil || !strings.Contains(err.Error(), "smije imati samo mala slova") {
 		t.Errorf("prazno ime: %v", err)
+	}
+
+	smece := config.Default()
+	smece.DB = mapa0039(t)
+	if err := os.WriteFile(smece.DB, []byte("ovo nije baza podataka nego izmišljeni tekst\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	dnevnikTesta(t)
+	if err := provjeriPokretanje(smece, filepath.Join(filepath.Dir(smece.DB), config.FileName), false); err != nil {
+		t.Errorf("datoteka koja nije baza: %v", err)
+	}
+	if baza, spremiste, err := otvoriBazu(smece.DB); err == nil || baza != nil || spremiste != nil {
+		t.Errorf("datoteka koja nije baza otvorila se: %v", err)
 	}
 }
 
