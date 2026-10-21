@@ -9,6 +9,8 @@ import (
 	"net"
 	"testing"
 	"time"
+
+	"gocop/internal/razmjena"
 )
 
 // Pokušaj spajanja pamti se za svaku adresu posebno, s vremenom i greškom,
@@ -55,6 +57,26 @@ func TestGreskaPoAdresi(t *testing.T) {
 	}
 	if n := len(a.pokusajiAdresa("nepoznato-racunalo")); n != 0 {
 		t.Errorf("nepoznato računalo ima %d pokušaja", n)
+	}
+}
+
+// Kad je razmjena prekinuta prije ili za vrijeme spajanja, adresa zadrži
+// zadnji pravi pokušaj: greška prekida ne govori ništa o njoj.
+func TestPrekinutaRazmjenaNePamtiPokusaj(t *testing.T) {
+	s := &Service{node: &Node{ID: "cop-osijek"}}
+	s.dial = func(ctx context.Context, kamo string) (net.Conn, error) {
+		var dialer net.Dialer
+		return dialer.DialContext(ctx, "tcp", kamo)
+	}
+	peer := &Peer{NodeID: "ured-vukovar", Addresses: []string{"192.0.2.7:4710"}}
+	s.zapamtiPokusaj(peer.NodeID, "192.0.2.7:4710", errors.New("dial tcp 192.0.2.7:4710: connect: connection refused"))
+	ctx, otkazi := context.WithCancel(ctxRub)
+	otkazi()
+	if _, err := s.nazovi(ctx, peer, kandidat{"192.0.2.7:4710", razmjena.PutAdresa}, nil); err == nil {
+		t.Fatal("prekinuta razmjena se spojila")
+	}
+	if got := s.pokusajiAdresa(peer.NodeID); len(got) != 1 || got["192.0.2.7:4710"].Greska != "dial tcp 192.0.2.7:4710: connect: connection refused" {
+		t.Errorf("pokušaji nakon prekida: %v", got)
 	}
 }
 

@@ -1094,7 +1094,11 @@ func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed2
 	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 	defer cancel()
 	conn, err := s.spoji(dialCtx, peer, k, expect)
-	s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
+	// kad je cijela razmjena prekinuta ili joj je isteklo vrijeme, ishod
+	// ništa ne govori o adresi, pa ostaje zapamćen prethodni
+	if ctx.Err() == nil {
+		s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
+	}
 	if err != nil {
 		return nil, err
 	}
