@@ -18,12 +18,15 @@
 //   - RST pri zatvaranju veze s nepročitanim podacima. Druga strana pročita
 //     sve što joj je poslano i zatim dobije io.EOF, a ne prekid veze. Testovi
 //     odbijanja i zauzetosti zato ostaju na loopbacku.
-//   - Pisanje nakon što je druga strana zatvorila vezu odmah vraća broken
-//     pipe, i dok zatvaranje još putuje. Na TCP-u prvo takvo pisanje obično
-//     još prođe, a greška dođe tek s RST-om. Zato npr. zatvaranje WebSocketa
-//     ili TLS veze prema strani koja je već zatvorila vraća grešku.
+//   - Pisanje prema strani koja je zatvorila vezu vraća broken pipe čim
+//     zatvaranje stigne do pisača: na vezi s kašnjenjem jedno kašnjenje
+//     nakon zatvaranja, a bez kašnjenja odmah. Na TCP-u prvo takvo pisanje
+//     obično još prođe, a greška dođe tek s RST-om. Zato npr. okvir za kraj
+//     WebSocketa ili TLS veze, poslan kao odgovor strani koja je već
+//     zatvorila, vraća grešku.
 //   - Trajanje uspostave veze. Kašnjenje vrijedi za podatke i za zatvaranje,
-//     a Nazovi i DialContext vraćaju vezu odmah.
+//     a Nazovi i DialContext vraćaju vezu bez kašnjenja (čekaju samo kad je
+//     zaostatak slušalice pun).
 package mrezatest
 
 // Adresa je net.Addr zadane mreže i teksta, npr. TCP adresa s izmišljenim

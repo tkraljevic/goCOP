@@ -23,7 +23,8 @@ func Par(a, b net.Addr) (net.Conn, net.Conn) { return ParSKasnjenjem(a, b, 0) }
 
 // ParSKasnjenjem je Par u kojem ono što se napiše, i zatvaranje, stiže na
 // drugu stranu tek nakon kašnjenja. Pitanje i odgovor zato traju dva
-// kašnjenja.
+// kašnjenja, a pisanje prema strani koja je zatvorila vezu prolazi dok
+// zatvaranje ne stigne do pisača.
 func ParSKasnjenjem(a, b net.Addr, kasnjenje time.Duration) (net.Conn, net.Conn) {
 	v := &veza{}
 	v.cond = sync.NewCond(&v.mu)
@@ -65,7 +66,9 @@ type smjer struct {
 	uLetu     int // bajtovi u redu, i oni koji još putuju
 	kasnjenje time.Duration
 	tajmer    *time.Timer
-	odbacen   bool // čitatelj je zatvorio svoj kraj
+	// zatvaranje je trenutak kad do pisača stigne da je čitatelj zatvorio
+	// svoj kraj; od tada pisanje vraća grešku
+	zatvaranje rok
 }
 
 // dodaj stavi u red koliko stane od b i vrati koliko je stalo
@@ -98,8 +101,9 @@ func (d *smjer) uzmi(b []byte, sad time.Time) (n int, gotovo bool) {
 	return n, false
 }
 
-// budi namjesti tajmer smjera na trenutak kad stiže prvi komad u redu
-func (d *smjer) budi(sad time.Time, probudi func()) {
+// navijTajmer namjesti tajmer smjera na trenutak kad stiže prvi komad u
+// redu; tada tajmer probudi one koji čekaju
+func (d *smjer) navijTajmer(sad time.Time, probudi func()) {
 	if len(d.red) == 0 || !d.red[0].stize.After(sad) {
 		return
 	}
@@ -117,15 +121,19 @@ func (d *smjer) zatvori(sad time.Time) {
 	d.red = append(d.red, komad{stize: sad.Add(d.kasnjenje), zadnji: true})
 }
 
-// odbaci baci nepročitano kad čitatelj zatvori svoj kraj; pisač s druge
-// strane od tada dobiva grešku
-func (d *smjer) odbaci() {
-	d.red, d.uLetu, d.odbacen = nil, 0, true
+// odbaci baci nepročitano kad čitatelj zatvori svoj kraj. Pisač to sazna tek
+// kad zatvaranje stigne do njega, jedno kašnjenje poslije, kao i podaci: do
+// tada piše kao i prije, a napisano se baca, ali zauzima mjesto. Od tada
+// pisanje vraća grešku, pa i onome tko čeka mjesto.
+func (d *smjer) odbaci(sad time.Time, probudi func()) {
+	d.red = nil
 	zaustavi(d.tajmer)
+	d.zatvaranje.postavi(sad.Add(d.kasnjenje), probudi)
 }
 
-// rok je rok čitanja ili pisanja. Tajmer samo budi one koji čekaju, a je li
-// rok istekao svatko provjeri po satu.
+// rok je trenutak od kojeg nešto vrijedi: rok čitanja ili pisanja, ili
+// dolazak zatvaranja do pisača. Tajmer samo budi one koji čekaju, a je li rok
+// istekao svatko provjeri po satu.
 type rok struct {
 	kad    time.Time
 	tajmer *time.Timer
@@ -179,7 +187,7 @@ func (k *kraj) Read(b []byte) (int, error) {
 			v.cond.Broadcast() // pisač možda čeka mjesto
 			return n, nil
 		}
-		d.budi(sad, v.probudi)
+		d.navijTajmer(sad, v.probudi)
 		v.cond.Wait()
 	}
 }
@@ -196,7 +204,7 @@ func (k *kraj) Write(b []byte) (int, error) {
 		if err := k.zapreka(&k.pisanje, sad); err != nil {
 			return n, k.greska("write", err)
 		}
-		if d.odbacen {
+		if d.zatvaranje.istekao(sad) {
 			return n, k.greska("write", os.NewSyscallError("write", syscall.EPIPE))
 		}
 		if m := d.dodaj(b[n:], sad); m > 0 {
@@ -222,7 +230,8 @@ func (k *kraj) zapreka(r *rok, sad time.Time) error {
 }
 
 // Close zatvara ovaj kraj. Druga strana pročita sve što je ovaj kraj poslao
-// i zatim dobije io.EOF; ono što joj ovaj kraj nije pročitao se baca.
+// i zatim dobije io.EOF, a ono što je druga strana poslala, a ovaj kraj nije
+// pročitao, baca se.
 func (k *kraj) Close() error {
 	v := k.v
 	v.mu.Lock()
@@ -231,8 +240,9 @@ func (k *kraj) Close() error {
 		return k.greska("close", net.ErrClosed)
 	}
 	k.zatvoren = true
-	v.smjer[k.i].zatvori(time.Now())
-	v.smjer[1-k.i].odbaci()
+	sad := time.Now()
+	v.smjer[k.i].zatvori(sad)
+	v.smjer[1-k.i].odbaci(sad, v.probudi)
 	zaustavi(k.citanje.tajmer)
 	zaustavi(k.pisanje.tajmer)
 	v.cond.Broadcast()

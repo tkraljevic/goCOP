@@ -119,6 +119,7 @@ func TestParCitanjePisanjeIZatvaranje(t *testing.T) {
 func TestPisacCekaMjesto(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		a, b := Par(klijentova, posluziteljeva)
+		defer a.Close() // pusti pisača i kad test stane prije kraja
 		poslano := bytes.Repeat([]byte("0123456789"), medjuspremnik/10+20)
 		gotovo := make(chan ishod, 1)
 		go func() {
@@ -142,22 +143,26 @@ func TestPisacCekaMjesto(t *testing.T) {
 }
 
 // Pisača koji čeka mjesto pusti rok pisanja, zatvaranje njegova kraja i
-// zatvaranje druge strane. Vrati koliko je stalo i grešku kakvu daje TCP.
+// zatvaranje druge strane, koje s kašnjenjem stiže do njega jedno kašnjenje
+// poslije. Vrati koliko je stalo i grešku kakvu daje TCP.
 func TestBlokiranogPisacaPustaRokIZatvaranje(t *testing.T) {
 	slucajevi := []struct {
-		ime      string
-		pusti    func(a, b net.Conn) error
-		greska   error
-		trajanje time.Duration
+		ime       string
+		kasnjenje time.Duration
+		pusti     func(a, b net.Conn) error
+		greska    error
+		trajanje  time.Duration
 	}{
-		{"rok pisanja", func(a, _ net.Conn) error { return a.SetWriteDeadline(time.Now().Add(time.Second)) }, os.ErrDeadlineExceeded, time.Second},
-		{"zatvaranje vlastitog kraja", func(a, _ net.Conn) error { return a.Close() }, net.ErrClosed, 0},
-		{"zatvaranje druge strane", func(_, b net.Conn) error { return b.Close() }, syscall.EPIPE, 0},
+		{"rok pisanja", 0, func(a, _ net.Conn) error { return a.SetWriteDeadline(time.Now().Add(time.Second)) }, os.ErrDeadlineExceeded, time.Second},
+		{"zatvaranje vlastitog kraja", 0, func(a, _ net.Conn) error { return a.Close() }, net.ErrClosed, 0},
+		{"zatvaranje druge strane", 0, func(_, b net.Conn) error { return b.Close() }, syscall.EPIPE, 0},
+		{"zatvaranje druge strane s kašnjenjem", 30 * time.Millisecond, func(_, b net.Conn) error { return b.Close() }, syscall.EPIPE, 30 * time.Millisecond},
 	}
 	for _, sl := range slucajevi {
 		t.Run(sl.ime, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				a, b := Par(klijentova, posluziteljeva)
+				a, b := ParSKasnjenjem(klijentova, posluziteljeva, sl.kasnjenje)
+				defer a.Close() // pusti pisača i kad test stane prije kraja
 				gotovo := make(chan ishod, 1)
 				go func() {
 					n, err := a.Write(make([]byte, medjuspremnik+10))
@@ -178,6 +183,38 @@ func TestBlokiranogPisacaPustaRokIZatvaranje(t *testing.T) {
 			})
 		})
 	}
+}
+
+// U 64 KiB broji se i ono što još putuje: s kašnjenjem pisač stane čim
+// napiše 64 KiB, iako druga strana još ništa nije primila, a nastavi tek kad
+// ona to primi i pročita
+func TestUMedjuspremnikBrojiSeIOnoStoPutuje(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a, b := ParSKasnjenjem(klijentova, posluziteljeva, time.Second)
+		defer a.Close() // pusti pisača i kad test stane prije kraja
+		pocetak := time.Now()
+		if n, err := a.Write(make([]byte, medjuspremnik)); n != medjuspremnik || err != nil {
+			t.Fatalf("pisanje 64 KiB: %d, %v", n, err)
+		}
+		gotovo := make(chan ishod, 1)
+		go func() {
+			n, err := a.Write([]byte("x"))
+			gotovo <- ishod{n, err}
+		}()
+		synctest.Wait()
+		select {
+		case r := <-gotovo:
+			t.Fatalf("pisanje nije čekalo mjesto dok bajtovi putuju: %d, %v", r.n, r.err)
+		default:
+		}
+		procitaj(t, b, medjuspremnik)
+		if r := <-gotovo; r.n != 1 || r.err != nil || time.Since(pocetak) != time.Second {
+			t.Errorf("pisanje nakon čitanja: %d, %v nakon %v", r.n, r.err, time.Since(pocetak))
+		}
+		if got := procitaj(t, b, 1); string(got) != "x" || time.Since(pocetak) != 2*time.Second {
+			t.Errorf("zadnji bajt: %q nakon %v", got, time.Since(pocetak))
+		}
+	})
 }
 
 // Rokovi idu po satu: čitanje čeka točno do roka, rok pomaknut dok
@@ -297,6 +334,34 @@ func TestKasnjenjePara(t *testing.T) {
 		}
 		if _, err := a.Read(buf); err != io.EOF || time.Since(pocetak) != 3*kasnjenje {
 			t.Errorf("zatvaranje: %v nakon %v", err, time.Since(pocetak))
+		}
+	})
+}
+
+// Zatvaranje putuje i do pisača. Dok ne stigne, pisanje prema strani koja je
+// zatvorila vezu prolazi, a od tada vraća broken pipe. Tako strana koja
+// odgovori i odmah zatvori vezu (npr. odbije razgovor) ne pokvari drugoj
+// strani slanje koje je već krenulo, pa ova još pročita odgovor.
+func TestZatvaranjeStizePisacuNakonKasnjenja(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		const kasnjenje = 50 * time.Millisecond
+		a, b := ParSKasnjenjem(klijentova, posluziteljeva, kasnjenje)
+		defer a.Close()
+		pocetak := time.Now()
+		napisi(t, b, "odbij")
+		if err := b.Close(); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(kasnjenje / 5)
+		napisi(t, a, "drugo pitanje")
+		if got := procitaj(t, a, 5); string(got) != "odbij" || time.Since(pocetak) != kasnjenje {
+			t.Errorf("odgovor: %q nakon %v", got, time.Since(pocetak))
+		}
+		if _, err := a.Read(make([]byte, 1)); err != io.EOF {
+			t.Errorf("nakon odgovora: %v", err)
+		}
+		if _, err := a.Write([]byte("x")); !errors.Is(err, syscall.EPIPE) {
+			t.Errorf("pisanje kad je zatvaranje stiglo: %v", err)
 		}
 	})
 }
