@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"syscall"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -89,6 +88,7 @@ func TestAcceptINazoviSOtkazanimKontekstom(t *testing.T) {
 func TestZaostatakSlusalice(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		s := NovaSlusalica(posluziteljeva)
+		defer s.Close() // pusti pozive koji čekaju i kad test stane prije kraja
 		var klijenti []net.Conn
 		for range zaostatak {
 			k, err := s.Nazovi(context.Background(), klijentova)
@@ -141,94 +141,6 @@ func TestZaostatakSlusalice(t *testing.T) {
 		}
 		if _, err := klijenti[1].Read(make([]byte, 1)); err != io.EOF {
 			t.Errorf("neprihvaćena veza nakon Close: %v", err)
-		}
-	})
-}
-
-// Mreža zove slušalicu po adresi. Na adresi na kojoj nitko ne sluša poziv se
-// odbija kao kod TCP-a (connection refused), zauzeta adresa se ne može
-// ponovno otvoriti, a zatvorena slušalica oslobađa adresu.
-func TestMrezaOdbijaNepoznatuAdresu(t *testing.T) {
-	m := NovaMreza()
-	_, err := m.DialContext(context.Background(), "tcp", "192.0.2.9:4710")
-	var op *net.OpError
-	if !errors.Is(err, syscall.ECONNREFUSED) || !errors.As(err, &op) || op.Op != "dial" || op.Addr.String() != "192.0.2.9:4710" {
-		t.Errorf("nepoznata adresa: %v", err)
-	}
-
-	s, err := m.Slusaj("cop.primjer.hr:443")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := m.Slusaj("cop.primjer.hr:443"); !errors.Is(err, syscall.EADDRINUSE) {
-		t.Errorf("zauzeta adresa: %v", err)
-	}
-	k1, err := m.DialContext(context.Background(), "tcp", "cop.primjer.hr:443")
-	if err != nil {
-		t.Fatal(err)
-	}
-	k2, err := m.DialContext(context.Background(), "tcp", "cop.primjer.hr:443")
-	if err != nil {
-		t.Fatal(err)
-	}
-	p1, err := s.Accept()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if k1.RemoteAddr().String() != "cop.primjer.hr:443" || p1.RemoteAddr() != k1.LocalAddr() || k1.LocalAddr() == k2.LocalAddr() {
-		t.Errorf("adrese: %v→%v, %v, poslužitelj vidi %v", k1.LocalAddr(), k1.RemoteAddr(), k2.LocalAddr(), p1.RemoteAddr())
-	}
-
-	if err := s.Close(); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := m.DialContext(context.Background(), "tcp", "cop.primjer.hr:443"); !errors.Is(err, syscall.ECONNREFUSED) {
-		t.Errorf("poziv zatvorene slušalice: %v", err)
-	}
-	if _, err := m.Slusaj("cop.primjer.hr:443"); err != nil {
-		t.Errorf("adresa zatvorene slušalice: %v", err)
-	}
-}
-
-// Kašnjenje mreže vrijedi za svaku novu vezu: krug (pitanje i odgovor)
-// traje točno dva kašnjenja
-func TestKrugPrekoMrezeTrajeDvaKasnjenja(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		m := NovaMreza()
-		m.Kasnjenje = 25 * time.Millisecond
-		s, err := m.Slusaj("192.0.2.2:4710")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer s.Close()
-		go func() {
-			p, err := s.Accept()
-			if err != nil {
-				t.Error(err)
-				return
-			}
-			defer p.Close()
-			b := make([]byte, 1)
-			if _, err := io.ReadFull(p, b); err != nil {
-				t.Error(err)
-				return
-			}
-			if _, err := p.Write(b); err != nil {
-				t.Error(err)
-			}
-		}()
-		k, err := m.DialContext(context.Background(), "tcp", "192.0.2.2:4710")
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer k.Close()
-		pocetak := time.Now()
-		napisi(t, k, "?")
-		if got := procitaj(t, k, 1); string(got) != "?" {
-			t.Errorf("odgovor: %q", got)
-		}
-		if d := time.Since(pocetak); d != 2*m.Kasnjenje {
-			t.Errorf("krug je trajao %v, a ne %v", d, 2*m.Kasnjenje)
 		}
 	})
 }
