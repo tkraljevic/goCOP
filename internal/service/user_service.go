@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"gocop/internal/models"
@@ -33,7 +34,15 @@ type UserService struct {
 	// privremenog imenovanja, s aktom koji ju je ukinuo, iz ovjerenih akata
 	// (SetPrestanakObrane); nil dok traje ili je nema
 	prestanakObrane func(d models.Duty) *models.PrestanakObrane
+	// pozadina broji poslove koji ne smiju zadržati odgovor, npr. obavijest
+	// e-poštom, da ih PricekajPozadinu može pričekati
+	pozadina sync.WaitGroup
 }
+
+// PricekajPozadinu čeka poslove pokrenute iz pozadine. Test ih pričeka prije
+// nego što zatvori bazu: obavijest koja još radi inače piše u bazu koje više
+// nema, a privremena mapa testa ne da se obrisati.
+func (s *UserService) PricekajPozadinu() { s.pozadina.Wait() }
 
 // SetPrestanakObrane povezuje prestanak redovne i izvanredne obrane iz akata
 // (AktService.PrestanakObraneDuznosti): privremeno imenovanje s tim istekom vrijedi
@@ -573,7 +582,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 		osoba := *target
 		// obavijest ide i na potvrđenu staru adresu: na nju je dotad išao PIN
 		osoba.PINAdresaPotvrdena = staraPotvrda
-		go s.auth.zastita.JaviPromjenuAdrese(context.Background(), &osoba, staraAdresa, target.Email)
+		s.pozadina.Go(func() { s.auth.zastita.JaviPromjenuAdrese(context.Background(), &osoba, staraAdresa, target.Email) })
 	}
 
 	s.sse.Broadcast("users_updated", fmt.Sprintf("Ažuriran djelatnik: %s", target.FullName), target.ID.String())
