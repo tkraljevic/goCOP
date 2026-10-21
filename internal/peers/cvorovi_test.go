@@ -17,17 +17,22 @@ import (
 )
 
 // Zaboravljeni čvor nestaje s popisa, a u knjizi ostaje arhivirana verzija,
-// pa zaborav putuje i drugima. Nepoznat čvor se ne može zaboraviti.
+// pa zaborav putuje i drugima. Zaborave se i adrese koje je ovaj čvor o njemu
+// naučio. Nepoznat čvor se ne može zaboraviti.
 func TestZaboravCvora(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if err := s.SavePeer(ctxRub, Peer{NodeID: "laptop-baranja", Name: "Laptop Baranja", PublicKey: javniKljuc(t)}); err != nil {
 		t.Fatal(err)
 	}
+	s.upisiNaucenu(ctxRub, "laptop-baranja", "192.168.24.70:4710", time.Now())
 	if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err != nil {
 		t.Fatal(err)
 	}
 	if p, err := s.GetPeer(ctxRub, "laptop-baranja"); p != nil || err != nil {
 		t.Errorf("zaboravljeni čvor je još tu: %+v %v", p, err)
+	}
+	if got := s.naucene(ctxRub, "laptop-baranja"); got != nil {
+		t.Errorf("naučene adrese zaboravljenog čvora: %v", got)
 	}
 	var arhivirano int
 	if err := s.db.QueryRow(`SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = 'laptop-baranja' AND archived = 1`,
@@ -39,14 +44,16 @@ func TestZaboravCvora(t *testing.T) {
 	}
 }
 
-// Kad brisanje ili arhiviranje ne uspije, čvor ostaje na popisu; kad se
-// popis ne da pročitati, ne briše se ništa. Pokušaji spajanja, put zadnje
-// veze i tvrdnje o adresama zaborave se svaki put.
+// Kad brisanje zapisa ili naučenih adresa ili arhiviranje ne uspije, čvor
+// ostaje na popisu, a naučene adrese ostaju; kad se popis ne da pročitati, ne
+// briše se ništa. Pokušaji spajanja, put zadnje veze i tvrdnje o adresama
+// zaborave se svaki put.
 func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 	for ime, kvar := range map[string]func(t *testing.T, s *Service){
-		"brisanje padne":    func(t *testing.T, s *Service) { kvarUpisa(t, s, "DELETE", "peers", "") },
-		"arhiviranje padne": func(t *testing.T, s *Service) { kvarUpisa(t, s, "INSERT", "record_versions", "NEW.archived = 1") },
-		"popis se ne čita":  func(t *testing.T, s *Service) { pokvariTablicu(t, s, "peers") },
+		"brisanje padne":              func(t *testing.T, s *Service) { kvarUpisa(t, s, "DELETE", "peers", "") },
+		"naučene se ne daju obrisati": func(t *testing.T, s *Service) { kvarUpisa(t, s, "UPDATE", "peer_sync", "") },
+		"arhiviranje padne":           func(t *testing.T, s *Service) { kvarUpisa(t, s, "INSERT", "record_versions", "NEW.archived = 1") },
+		"popis se ne čita":            func(t *testing.T, s *Service) { pokvariTablicu(t, s, "peers") },
 	} {
 		t.Run(ime, func(t *testing.T) {
 			s := rubniCvor(t, "cop-osijek")
@@ -56,6 +63,7 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			s.zapamtiPokusaj("laptop-baranja", "192.0.2.7:4710", nil)
 			s.zapamtiPut(&Peer{NodeID: "laptop-baranja"}, &razmjena.Conn{Put: razmjena.PutLAN})
 			s.dodajTvrdnju("laptop-baranja", kandidat{"192.168.24.70:4710", razmjena.PutAdresa})
+			s.upisiNaucenu(ctxRub, "laptop-baranja", "192.168.24.71:4710", time.Now())
 			kvar(t, s)
 			if err := s.ForgetPeer(ctxRub, "laptop-baranja"); err == nil {
 				t.Fatal("zaborav je prošao")
@@ -68,6 +76,9 @@ func TestZaboravKadBazaNeSuradjuje(t *testing.T) {
 			}
 			if p, _ := s.GetPeer(ctxRub, "laptop-baranja"); p == nil {
 				t.Error("čvor je nestao iako zaborav nije uspio")
+			}
+			if got := s.naucene(ctxRub, "laptop-baranja"); !slices.Equal(got, []string{"192.168.24.71:4710"}) {
+				t.Errorf("naučene adrese nakon neuspjelog zaborava: %v", got)
 			}
 		})
 	}

@@ -562,7 +562,7 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 		return err
 	}
 	defer tx.Rollback()
-	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
+	if err := obrisiZapisCvora(ctx, tx, nodeID); err != nil {
 		return err
 	}
 	// Spomenik putuje svima, kao i verzija iz SavePeer: bilješke o razmjeni
@@ -573,6 +573,17 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// obrisiZapisCvora briše zapis čvora koji ovaj čvor zaboravlja i adrese koje
+// je o njemu naučio (naucene_adrese.go). Ako se pod istim imenom upari
+// drugo računalo, ovo ne zove adrese starog.
+func obrisiZapisCvora(ctx context.Context, tx *sql.Tx, nodeID string) error {
+	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
+		return err
+	}
+	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '' WHERE node_id = ?`, nodeID)
+	return err
 }
 
 // peerByKey je poznati čvor koji je u razmjeni dokazao ključ pub, po istoj
