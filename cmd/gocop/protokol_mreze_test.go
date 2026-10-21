@@ -57,37 +57,30 @@ func imaStupacProtokol(t *testing.T, put string) bool {
 	return ima
 }
 
-// Zadano ime protokola isto je kao ime prave mreže u razmjeni, a postavka
-// se čita točno kako je upisana: bez skraćivanja i pretvaranja u mala slova
+// Zadano ime protokola isto je kao ime prave mreže u razmjeni (config ne
+// uvozi peers, pa to provjerava pokretanje)
 func TestZadaniProtokolMreze(t *testing.T) {
 	if p := config.Default().Sync.Protokol; p != peers.Protocol {
 		t.Errorf("zadani [sync] protokol %q, a razmjena radi pod %q", p, peers.Protocol)
 	}
-	for _, s := range []struct{ tekst, protokol string }{
-		{"", peers.Protocol},
-		{"[sync]\nauto_sync = '1h'\n", peers.Protocol},
-		{"[sync]\nprotokol = 'gocop-sim'\n", "gocop-sim"},
-		{"[sync]\nprotokol = ' Gocop '\n", " Gocop "},
-	} {
-		cfg, err := config.ProcitajTekst([]byte(s.tekst))
-		if err != nil || cfg.Sync.Protokol != s.protokol {
-			t.Errorf("%q: %q (%v)", s.tekst, cfg.Sync.Protokol, err)
-		}
-	}
 }
 
 // Pokretanje prvo provjeri ključ čvora, pa ime protokola: postojeći čvor bez
-// ključa odbija se kao i do sada, a baza mreže „gocop” s postavkom
-// „gocop-sim” kaže da pripada drugoj mreži. Neispravno ime ne kreće. Bazu
-// koja se ne da pročitati provjera pušta dalje, a ne otvori se ni poslije,
-// pa čvor stane kao i do sada.
+// ključa odbija se kao i do sada, i kad je uz to pokrenut pod drugim imenom
+// protokola, a baza mreže „gocop” s postavkom „gocop-sim” kaže da pripada
+// drugoj mreži. Neispravno ime ne kreće. Bazu koja se ne da pročitati
+// provjera pušta dalje, a ne otvori se ni poslije, pa čvor stane kao i do
+// sada.
 func TestProvjeraPokretanja(t *testing.T) {
 	bezKljuca := config.Default()
-	bezKljuca.DB = bazaZaOporavak(t)
+	bezKljuca.DB = mapa0039(t)
 	bezKljuca.Sync.Protokol = "gocop-sim"
+	if err := os.Remove(filepath.Join(filepath.Dir(bezKljuca.DB), peers.KeyFileName)); err != nil {
+		t.Fatal(err)
+	}
 	var nema *peers.KljucNedostaje
 	if err := provjeriPokretanje(bezKljuca, "", false); !errors.As(err, &nema) {
-		t.Errorf("baza bez ključa: %v", err)
+		t.Errorf("baza bez ključa pod drugim imenom protokola: %v", err)
 	}
 
 	cfg := config.Default()

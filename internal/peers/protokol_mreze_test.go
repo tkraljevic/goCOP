@@ -5,15 +5,21 @@ package peers
 // simulacije i računalo prave mreže ne razmjenjuju podatke.
 
 import (
+	"bytes"
+	"context"
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io/fs"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/db"
 	"gocop/internal/razmjena"
@@ -230,9 +236,12 @@ func TestOznakeFormataStalne(t *testing.T) {
 	if verzijaZahtjeva != "gocop-zahtjev/1" || verzijaPotvrde != "gocop-potvrda/1" || solPrimanja != "gocop-primanje/1|" {
 		t.Errorf("oznake: %q %q %q", verzijaZahtjeva, verzijaPotvrde, solPrimanja)
 	}
-	osnivac, sim := rubnaMreza(t, "osnivac-sim"), rubniCvor(t, "laptop-sim")
+	osnivac, sim := rubniCvor(t, "osnivac-sim"), rubniCvor(t, "laptop-sim")
 	osnivac.PostaviProtokol("gocop-sim")
 	sim.PostaviProtokol("gocop-sim")
+	if err := osnivac.CreateNetwork(ctxRub, "Testna simulacija"); err != nil {
+		t.Fatal(err)
+	}
 	zahtjev, kod, err := sim.NapraviZahtjev()
 	if err != nil {
 		t.Fatal(err)
@@ -245,9 +254,11 @@ func TestOznakeFormataStalne(t *testing.T) {
 		ime, oznaka string
 		sadrzaj     []byte
 	}{{"zahtjev", "gocop-zahtjev/1", zahtjev}, {"potvrda", "gocop-potvrda/1", potvrda}} {
+		// ključ "v" mora biti točno takav: potpis i dokaz idu preko bajtova
+		// JSON-a, a json.Unmarshal ključ prepozna i s velikim slovom
 		var v struct{ V string }
-		if err := json.Unmarshal(d.sadrzaj, &v); err != nil || v.V != d.oznaka {
-			t.Errorf("%s nosi oznaku %q (%v), a ne %q", d.ime, v.V, err, d.oznaka)
+		if err := json.Unmarshal(d.sadrzaj, &v); err != nil || v.V != d.oznaka || !bytes.Contains(d.sadrzaj, []byte(`"v": "`+d.oznaka+`"`)) {
+			t.Errorf("%s: oznaka %q (%v), očekivano \"v\": %q:\n%s", d.ime, v.V, err, d.oznaka, d.sadrzaj)
 		}
 	}
 	// izmišljeni kod i sol; vrijednost je izračunata 21. 10. 2026. kodom koji
@@ -258,49 +269,140 @@ func TestOznakeFormataStalne(t *testing.T) {
 	}
 }
 
+// simulacijaIPravi su računalo testne simulacije i računalo prave mreže s
+// valjanim članstvom iste mreže: svako zna za članstvo drugoga, pa bi bez
+// imena protokola razmijenili podatke. Adrese test upiše sam.
+func simulacijaIPravi(t *testing.T) (sim, pravi *Service) {
+	t.Helper()
+	osnivac := rubnaMreza(t, "osnivac-mreze")
+	sim, pravi = rubniCvor(t, "laptop-sim"), rubniCvor(t, "ured-vukovar")
+	sim.PostaviProtokol("gocop-sim")
+	clanSim, clanPravi := primiIzravno(t, osnivac, sim), primiIzravno(t, osnivac, pravi)
+	if err := sim.saveMembership(ctxRub, clanPravi); err != nil {
+		t.Fatal(err)
+	}
+	if err := pravi.saveMembership(ctxRub, clanSim); err != nil {
+		t.Fatal(err)
+	}
+	return sim, pravi
+}
+
+// razmjenaOdbijena: tko je zvao koga na adresi i razmjena je odbijena, uz
+// poruku pod kojim imenom protokola radi koje računalo
+func razmjenaOdbijena(t *testing.T, tko, koga *Service, adresa string) {
+	t.Helper()
+	upoznaj(t, tko, koga, adresa)
+	primljeno, poslano, err := tko.SyncWith(ctxRub, koga.node.ID)
+	poruka := "Razmjena odbijena: drugo računalo radi pod imenom protokola „" + koga.protokol() + "”, a ovo pod „" + tko.protokol() + "”. Prava mreža i testna simulacija ne razmjenjuju podatke."
+	if err == nil || !strings.Contains(err.Error(), poruka) || primljeno != 0 || poslano != 0 {
+		t.Errorf("%s → %s na %s: primljeno %d, poslano %d, %v", tko.node.ID, koga.node.ID, adresa, primljeno, poslano, err)
+	}
+}
+
+// javljaSe šalje na loopback probu pronalaženja pod imenom protokola, do
+// pokusaja puta, i vraća odgovor; sva pitanja idu s jedne nove utičnice
+func javljaSe(t *testing.T, port int, protokol string, pokusaja int) (razmjena.Beacon, bool) {
+	t.Helper()
+	proba, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer proba.Close()
+	kamo := &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: port}
+	buf := make([]byte, 2048)
+	for i := 0; i < pokusaja; i++ {
+		if _, err := proba.WriteTo([]byte(protokol+"-discover-v1"), kamo); err != nil {
+			t.Fatal(err)
+		}
+		_ = proba.SetReadDeadline(time.Now().Add(100 * time.Millisecond)) // bez roka čitanje ne bi stalo; istek znači da odgovora nema
+		n, _, err := proba.ReadFrom(buf)
+		if err != nil {
+			continue
+		}
+		var b razmjena.Beacon
+		if err := json.Unmarshal(buf[:n], &b); err != nil {
+			t.Fatal(err)
+		}
+		return b, true
+	}
+	return razmjena.Beacon{}, false
+}
+
 // Računalo testne simulacije i računalo prave mreže ne razmjenjuju podatke,
 // ni kad oba imaju valjano članstvo iste mreže: svako odbije certifikat s
 // drugim imenom protokola, i kaže pod kojim imenom radi koje računalo. U
-// lokalnoj mreži simulacija vidi samo računala pod svojim imenom, a
-// uparivanje predstavlja pod njim.
+// lokalnoj mreži simulacija vidi samo računala pod svojim imenom i javlja se
+// samo na njihovu probu, a uparivanje predstavlja pod njim.
 func TestSimulacijaNeVidiPravuMrezu(t *testing.T) {
-	osnivac := rubnaMreza(t, "osnivac-mreze")
-	sim, pravi := rubniCvor(t, "laptop-sim"), rubniCvor(t, "ured-vukovar")
-	sim.PostaviProtokol("gocop-sim")
-	clanSim, clanPravi := primiIzravno(t, osnivac, sim), primiIzravno(t, osnivac, pravi)
+	sim, pravi := simulacijaIPravi(t)
 	naPetlji(t, sim)
 	naPetlji(t, pravi)
-	for _, k := range []struct {
-		tko, koga *Service
-		clan      razmjena.Membership
-	}{{sim, pravi, clanPravi}, {pravi, sim, clanSim}} {
-		if err := k.tko.saveMembership(ctxRub, k.clan); err != nil {
-			t.Fatal(err)
-		}
-		upoznaj(t, k.tko, k.koga, adresaNaPetlji(k.koga))
-	}
-
-	for _, k := range []struct {
-		tko, koga  *Service
-		drugo, ovo string
-	}{{sim, pravi, "gocop", "gocop-sim"}, {pravi, sim, "gocop-sim", "gocop"}} {
-		primljeno, poslano, err := k.tko.SyncWith(ctxRub, k.koga.node.ID)
-		poruka := "Razmjena odbijena: drugo računalo radi pod imenom protokola „" + k.drugo + "”, a ovo pod „" + k.ovo + "”. Prava mreža i testna simulacija ne razmjenjuju podatke."
-		if err == nil || !strings.Contains(err.Error(), poruka) || primljeno != 0 || poslano != 0 {
-			t.Errorf("%s → %s: primljeno %d, poslano %d, %v", k.tko.node.ID, k.koga.node.ID, primljeno, poslano, err)
-		}
-	}
+	razmjenaOdbijena(t, sim, pravi, adresaNaPetlji(pravi))
+	razmjenaOdbijena(t, pravi, sim, adresaNaPetlji(sim))
 
 	sim.ports.Discovery = lazniGlasnik(t,
 		razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4710},
-		razmjena.Beacon{Protocol: "gocop-sim", DeviceID: "ured-vukovar", Name: "Ured Vukovar (simulacija)", ExchangePort: 4720})
+		razmjena.Beacon{Protocol: "gocop-sim", DeviceID: "ured-vukovar", Name: "Ured Vukovar (simulacija)", ExchangePort: 4720},
+		razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-osijek", Name: "Ured Osijek", ExchangePort: 4710})
 	if k := sim.uLokalnojMrezi("ured-vukovar"); len(k) != 1 || k[0].adresa != "127.0.0.1:4720" {
 		t.Errorf("u lokalnoj mreži simulacija vidi %v", k)
 	}
+	nadjeni, err := sim.Discover(ctxRub, 500*time.Millisecond)
+	if err != nil || len(nadjeni) != 1 || nadjeni[0].DeviceID != "ured-vukovar" || nadjeni[0].ExchangePort != 4720 {
+		t.Errorf("pronalaženje simulacije: %+v (%v)", nadjeni, err)
+	}
+
+	zauzet, err := net.ListenPacket("udp4", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sim.ports.Discovery = zauzet.LocalAddr().(*net.UDPAddr).Port
+	zauzet.Close()
+	ctx, otkazi := context.WithCancel(ctxRub)
+	t.Cleanup(otkazi)
+	go func() {
+		_ = sim.Announce(ctx) // staje kad test završi; port koji se ne otvori test vidi kao šutnju
+	}()
+	if b, ok := javljaSe(t, sim.ports.Discovery, "gocop-sim", 50); !ok || b.Protocol != "gocop-sim" || b.DeviceID != "laptop-sim" {
+		t.Errorf("simulacija se na probu simulacije javlja s %+v (%v)", b, ok)
+	}
+	if b, ok := javljaSe(t, sim.ports.Discovery, Protocol, 3); ok {
+		t.Errorf("simulacija se javila na probu prave mreže: %+v", b)
+	}
+
 	if p := sim.identity().Protocol; p != "gocop-sim" {
 		t.Errorf("uparivanje pod imenom %q", p)
 	}
 	if p := pravi.identity().Protocol; p != Protocol {
 		t.Errorf("uparivanje prave mreže pod imenom %q", p)
+	}
+}
+
+// Isto vrijedi kroz tunel, iza web poslužitelja s TLS-om, i na slušalici
+// koju razmjena dobije umjesto porta, u oba smjera.
+func TestSimulacijaNeRazmjenjujeKrozTunel(t *testing.T) {
+	sim, pravi := simulacijaIPravi(t)
+	tunel := map[*Service]string{}
+	slusalica := map[*Service]string{}
+	for _, p := range []struct{ s, drugo *Service }{{sim, pravi}, {pravi, sim}} {
+		srv := httptest.NewTLSServer(p.s.TunelHandler())
+		t.Cleanup(srv.Close)
+		// drugo računalo vjeruje certifikatu ovog web poslužitelja
+		p.drugo.tunelKlijent.TLS = srv.Client().Transport.(*http.Transport).TLSClientConfig
+		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatal(err)
+		}
+		p.s.slusalica = ln
+		ctx, otkazi := context.WithCancel(ctxRub)
+		t.Cleanup(otkazi)
+		go func() {
+			_ = p.s.Serve(ctx) // staje kad test završi; vrata koja se ne otvore test vidi kao neuspjelu razmjenu
+		}()
+		tunel[p.s], slusalica[p.s] = srv.URL, ln.Addr().String()
+	}
+	for _, k := range []struct{ tko, koga *Service }{{sim, pravi}, {pravi, sim}} {
+		razmjenaOdbijena(t, k.tko, k.koga, tunel[k.koga])
+		razmjenaOdbijena(t, k.tko, k.koga, slusalica[k.koga])
 	}
 }
