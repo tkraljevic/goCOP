@@ -56,7 +56,8 @@ type tockaPrikaza struct {
 // nizPrikaza je niz jedne letve po satu od izdanja (indeks je sat, 0 je sat
 // izdanja i ostaje prazan) u vodostaju i protoku.
 type nizPrikaza struct {
-	Cm, Q []tockaPrikaza
+	Cm, Q   []tockaPrikaza
+	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjaPri)
 }
 
 // izvorSata daje vrijednost jednog modela u satu h od izdanja. drzi kaže da je
@@ -209,8 +210,9 @@ func prikazLetve(odDana int, l PregledLetve, dnevne []prognoza.DnevnaIzdana, cil
 // lanac s težinom prognoza.TezinaLanca, a gdje je samo jedan od njih, on.
 func ugodjeniNiz(l PregledLetve, dnevne []prognoza.DnevnaIzdana, izdanoH int64) nizPrikaza {
 	return nizPrikaza{
-		Cm: ugodi(satniIzvor(l.Satno, izdanoH), dnevniIzvor(dnevniU, dnevne, izdanoH)),
-		Q:  ugodi(satniIzvor(l.SatnoQ, izdanoH), dnevniIzvor(dnevniQU, dnevne, izdanoH)),
+		Cm:      ugodi(satniIzvor(l.Satno, izdanoH), dnevniIzvor(dnevniU, dnevne, izdanoH)),
+		Q:       ugodi(satniIzvor(l.SatnoQ, izdanoH), dnevniIzvor(dnevniQU, dnevne, izdanoH)),
+		Ugodjen: true,
 	}
 }
 
@@ -239,7 +241,7 @@ func ugodiCelije(letve []LetvaPrognoze, prikaz map[string]nizPrikaza, ciljevi []
 	for i := range letve {
 		x := &letve[i]
 		n, ima := prikaz[x.Kod]
-		if !ima || !prognoza.Ugadja(x.Kod) {
+		if !ima || !n.Ugodjen {
 			continue
 		}
 		for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
@@ -279,9 +281,10 @@ func oznakaUdjela(dnevni float64) OznakaModela {
 }
 
 // nizLetve je niz letve iz njezinih modela: uz kombinaciju na letvi s
-// ugađanjem oba zajedno, inače po pravilu tablice.
+// ugađanjem pri niskoj i srednjoj vodi oba zajedno, inače po pravilu tablice.
 func (u ulazPrikaza) nizLetve(l PregledLetve) nizPrikaza {
-	if u.nacin == models.PrognozaKombinacija && prognoza.Ugadja(l.Letva) {
+	sada, imaSada := l.Sada["vodostaj"]
+	if u.nacin == models.PrognozaKombinacija && prognoza.UgadjaPri(l.Letva, sada, imaSada) {
 		return ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
 	}
 	return prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
