@@ -424,28 +424,42 @@ func (o *Osvjezivac) dnevniNizovi(ctx context.Context, sada int64, od time.Time,
 		return out
 	}
 	modeli, _ := o.dnevniModeliZaDanas(ctx)
-	unatrag, unaprijed := oborinskiDosezi()
-	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
-	if err != nil {
-		oborine = nil
-	}
+	oborine := o.oborineZaDnevni(sada)
 	for _, c := range DnevniCiljevi {
-		vel, treba := velicina[c.Letva]
-		if !treba {
-			continue
-		}
-		satni := o.satniCilja(ctx, c, od)
-		for _, m := range modeli[c.Letva] {
-			if m == nil || (samoSKisom && len(m.Cilj.Slivovi) == 0) {
-				continue
-			}
-			if n, ok := o.nizIzDnevnog(ctx, m, modeli[c.Letva], satni, oborine, sada, od, vel); ok {
+		if vel, treba := velicina[c.Letva]; treba {
+			if n, ok := o.prviNizCilja(ctx, c, modeli[c.Letva], oborine, sada, od, vel, samoSKisom); ok {
 				out[Izvor{Letva: c.Letva, Velicina: vel}] = n
-				break
 			}
 		}
 	}
 	return out
+}
+
+// oborineZaDnevni je kiša međuslivova oko sata izdavanja; kiša koja se ne da
+// pročitati ne ruši račun, nego modeli s kišom ne računaju.
+func (o *Osvjezivac) oborineZaDnevni(sada int64) map[string]DnevniNiz {
+	unatrag, unaprijed := oborinskiDosezi()
+	oborine, err := OborineOkoSada(o.Oborine, sada, unatrag, unaprijed)
+	if err != nil {
+		return nil
+	}
+	return oborine
+}
+
+// prviNizCilja je niz prve inačice dnevnog modela cilja koja ga da; s
+// samoSKisom samo inačice s kišom.
+func (o *Osvjezivac) prviNizCilja(ctx context.Context, c DnevniCilj, modeli []*DnevniModel, oborine map[string]DnevniNiz,
+	sada int64, od time.Time, vel string, samoSKisom bool) (Niz, bool) {
+	satni := o.satniCilja(ctx, c, od)
+	for _, m := range modeli {
+		if m == nil || (samoSKisom && len(m.Cilj.Slivovi) == 0) {
+			continue
+		}
+		if n, ok := o.nizIzDnevnog(ctx, m, modeli, satni, oborine, sada, od, vel); ok {
+			return n, true
+		}
+	}
+	return Niz{}, false
 }
 
 // satniCilja čita satne vodostaje svih letvi koje dnevni cilj i njegove
@@ -470,48 +484,55 @@ func (o *Osvjezivac) satniCilja(ctx context.Context, c DnevniCilj, od time.Time)
 // pretvorba u protok ispadne iz krivulje), pa put ostaje rezervi.
 func (o *Osvjezivac) nizIzDnevnog(ctx context.Context, m *DnevniModel, modeli []*DnevniModel, satni map[string]Niz,
 	oborine map[string]DnevniNiz, sada int64, od time.Time, vel string) (Niz, bool) {
-	letva := m.Cilj.Letva
 	d, err := PrognozirajDnevno(m, satni, oborine, sada)
 	if err != nil {
 		return Niz{}, false
 	}
 	d = SastaviBezKise(d, m, modeli, satni, oborine, sada)
+	sidro, krivulje := o.sidroDnevnog(ctx, m.Cilj.Letva, satni, od, vel)
 	tocke := map[int64]float64{}
-	sidro := satni[letva]
-	var krivulje []models.HQKrivulja
-	if vel != "vodostaj" {
-		sidro = Niz{}
-		if n, err := o.ucitajNiz(ctx, Izvor{Letva: letva, Velicina: vel}, od); err == nil {
-			sidro = n
-		}
-		krivulje, _ = o.ucitajKrivulje(ctx, letva)
-	}
 	if z, ima := sidro.ZadnjiSatDo(sada); ima {
 		v, _ := sidro.U(z)
 		tocke[z] = v
 	}
 	for _, x := range d {
-		if x.Dan == 0 {
-			continue
+		if v, ok := uVeliciniDnevne(x, vel, krivulje); ok && x.Dan > 0 {
+			tocke[x.Ciljni-12] = v
 		}
-		v := x.Vrijednost
-		if vel != "vodostaj" {
-			k := KrivuljaZa(krivulje, time.Unix(x.Ciljni*3600, 0).UTC())
-			if k == nil {
-				continue
-			}
-			q, _, ok := pretvori(k, vel, v)
-			if !ok {
-				continue
-			}
-			v = q
-		}
-		tocke[x.Ciljni-12] = v
 	}
 	if len(tocke) < 2 {
 		return Niz{}, false
 	}
 	return NizIzTocaka(tocke), true
+}
+
+// sidroDnevnog je izmjereni niz letve u veličini lanca, od čijeg zadnjeg sata
+// kreće niz dnevnog modela, i krivulje protoka kad lanac letvu ne vodi u
+// vodostaju.
+func (o *Osvjezivac) sidroDnevnog(ctx context.Context, letva string, satni map[string]Niz, od time.Time, vel string) (Niz, []models.HQKrivulja) {
+	if vel == "vodostaj" {
+		return satni[letva], nil
+	}
+	sidro := Niz{}
+	if n, err := o.ucitajNiz(ctx, Izvor{Letva: letva, Velicina: vel}, od); err == nil {
+		sidro = n
+	}
+	krivulje, _ := o.ucitajKrivulje(ctx, letva) // bez krivulje dani se ne pretvore, pa letva niz ne dobiva
+	return sidro, krivulje
+}
+
+// uVeliciniDnevne je dnevna vrijednost vodostaja u veličini lanca; u protoku
+// kroz krivulju koja tada vrijedi.
+func uVeliciniDnevne(x DnevnaIzdana, vel string, krivulje []models.HQKrivulja) (float64, bool) {
+	if vel == "vodostaj" {
+		return x.Vrijednost, true
+	}
+	k := KrivuljaZa(krivulje, time.Unix(x.Ciljni*3600, 0).UTC())
+	if k == nil {
+		return 0, false
+	}
+	q, _, ok := pretvori(k, vel, x.Vrijednost)
+	return q, ok
 }
 
 // dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.

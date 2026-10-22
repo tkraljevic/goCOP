@@ -85,6 +85,18 @@ func TestRacunaloUgodiCvor(t *testing.T) {
 	if v, _ := vrh.U(donja, sada+10); v.Iznos != 50+0.5*(90-50) {
 		t.Errorf("karika kao vrh za 10 h: %g, želim pola zadnjeg mjerenja i pola dnevnog", v.Iznos)
 	}
+	// dnevni model kraći od sata drži svoju zadnju vrijednost; bez njega
+	// karika ostaje satni lanac
+	kratki := NovoRacunalo(pojasi, mjereno, sada)
+	kratki.PostaviDnevniCvora(donja, NizIzTocaka(map[int64]float64{sada: 50, sada + 5: 60}))
+	if v, _ := kratki.U(donja, sada+10); math.Abs(v.Iznos-(60+0.5*(c10.Iznos-60))) > 1e-9 {
+		t.Errorf("kratki dnevni za 10 h: %g", v.Iznos)
+	}
+	prazni := NovoRacunalo(pojasi, mjereno, sada)
+	prazni.PostaviDnevniCvora(donja, Niz{})
+	if v, _ := prazni.U(donja, sada+10); v.Iznos != c10.Iznos {
+		t.Errorf("prazan dnevni za 10 h: %g, želim lanac %g", v.Iznos, c10.Iznos)
+	}
 	stara := NovoRacunalo(pojasi, mjereno, sada)
 	stara.PostaviDnevniCvora(Izvor{Letva: "gornja", Velicina: "vodostaj"}, dnevni)
 	if v, _ := stara.U(Izvor{Letva: "gornja", Velicina: "vodostaj"}, sada+10); v.Iznos != 100 {
@@ -133,5 +145,18 @@ func TestOsvjeziCvorIzDnevnogModela(t *testing.T) {
 	// prvog dana; težina lanca u 12. satu je pola
 	if d, want := naDosegu(ishod, "donja", 12), 101.5+0.5*(100-101.5); d == nil || math.Abs(d.Vrijednost-want) > 1e-9 {
 		t.Errorf("s kišom donja za 12 h: %+v, želim %g", d, want)
+	}
+}
+
+// Budućnost vrha kraća od traženog sata drži svoju zadnju vrijednost: vrh je
+// zadnje mjerenje uz promjenu budućnosti do njezina kraja.
+func TestBuducnostVrhaIzaKraja(t *testing.T) {
+	sada := int64(500000)
+	pojasi, mjereno := lanacCvora(t, sada)
+	gornja := Izvor{Letva: "gornja", Velicina: "vodostaj"}
+	r := NovoRacunalo(pojasi, mjereno, sada)
+	r.PostaviBuducnostVrha(gornja, NizIzTocaka(map[int64]float64{sada: 100, sada + 5: 110}))
+	if v, _ := r.U(gornja, sada+10); v.Iznos != 110 {
+		t.Errorf("vrh za 10 h: %g, želim 100 + 10", v.Iznos)
 	}
 }
