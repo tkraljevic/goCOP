@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -276,20 +277,28 @@ func TestGrafLetveIzPrikaza(t *testing.T) {
 }
 
 // Uzdužni profil crta isti niz: klizač seže do kraja šestog dana, dokle
-// seže dnevni model.
+// seže dnevni model. Letva bez kote nule ili bez kilometra ne ulazi.
 func TestProfilCrtaNizPrikaza(t *testing.T) {
 	p := novaProbaPrikaza(t)
 	_, prikaz := p.tablica(models.PrognozaKombinacija)
 	nula := func(x float64) *float64 { return &x }
+	prag := func(x int) *int { return &x }
 	postaje := map[string]models.Station{
-		"botovo":         {Code: "botovo", Name: "Botovo", Watercourse: "Drava", Stationing: "rkm 200,0", ZeroDatum: nula(120)},
+		"botovo": {Code: "botovo", Name: "Botovo", Watercourse: "Drava", Stationing: "rkm 200,0", ZeroDatum: nula(120),
+			Prep: models.Threshold{Cm: prag(300)}},
 		"terezino-polje": {Code: "terezino-polje", Name: "Terezino Polje", Watercourse: "Drava", Stationing: "rkm 100,0", ZeroDatum: nula(110)},
+		"samotna":        {Code: "samotna", Name: "Samotna", Watercourse: "Drava", Stationing: "rkm 150,0"},
+		"vukovar":        {Code: "vukovar", Name: "Vukovar", Watercourse: "Dunav", ZeroDatum: nula(80)},
 	}
 	jutro := Jutro{Cm: map[string]float64{"botovo": 100, "terezino-polje": -300}}
 	mjesec := NulaProfila{Cm: map[string]float64{"botovo": 90, "terezino-polje": -290}}
-	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, nil, mjesec, jutro)
+	uobicajeno := map[string]Sredina{"botovo": {Medijan: 95, Srednjak: 97}}
+	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, uobicajeno, mjesec, jutro)
 	if len(profili) != 1 || profili[0].SatDo != SatiPrikaza {
-		t.Fatalf("profili %d, klizač do %d: želim jedan profil do %d. sata", len(profili), profili[0].SatDo, SatiPrikaza)
+		t.Fatalf("profili %+v: želim jedan profil Drave do %d. sata", profili, SatiPrikaza)
+	}
+	if n := string(profili[0].Niz); !strings.Contains(n, "Botovo") || strings.Contains(n, "Samotna") || strings.Contains(n, "Vukovar") {
+		t.Errorf("na profilu su Botovo i Terezino Polje, a ne letve bez kote ili kilometra: %s", n)
 	}
 }
 

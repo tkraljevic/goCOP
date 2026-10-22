@@ -373,7 +373,7 @@ func (h *PrognozeHandler) PrikazZaLetvu(ctx context.Context, letva, velicina str
 	if err != nil || len(letve) == 0 {
 		return nil
 	}
-	dnevne, _ := c.DnevnoZa(izdano)
+	dnevne, _ := c.DnevnoZa(izdano) // bez dnevne prognoze graf ide satnim lancem, kao i tablica
 	postaje := h.postaje(ctx)
 	_, ciljevi := daniPregleda(izdano)
 	susjedi, srednjaci := h.susjediIzdanja(ctx, postaje, izdano)
