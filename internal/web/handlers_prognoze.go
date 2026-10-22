@@ -1227,10 +1227,12 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 }
 
 // PocetakProfila je letva od koje kreće uzdužni profil vode; letve uzvodno
-// od nje stoje u tablici, ali ne na profilu. Profil Dunava kreće od Batine
-// (Odluke (22. 10. 2026.)): mađarske letve imaju samo naš satni lanac do 96
-// sati, bez dnevnog modela, pa je Batina na profilu rasla bez Mohácsa.
-var PocetakProfila = map[string]string{"Dunav": "batina"}
+// od nje stoje u tablici, ali ne na profilu. Profil Dunava kreće od Komároma
+// (Odluke (22. 10. 2026.)): od njega naniže kiša ulazi u satni lanac
+// (prognoza.UgadjanjeCvorova), pa mađarske letve rastu zajedno s Batinom.
+// Nagybajcs i Wildungsmauer imaju samo satni lanac koji vrh drži na zadnjem
+// mjerenju.
+var PocetakProfila = map[string]string{"Dunav": "komarom"}
 
 // iznadPocetka javlja leži li letva na kilometru rkm uzvodno od letve od koje
 // profil te vode kreće.

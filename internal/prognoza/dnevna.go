@@ -159,6 +159,11 @@ type DnevniCilj struct {
 // do 2024. s tada izdanim prognozama kiše: pogreška preko svih dana 4.–6.
 // dan 32, 37 i 42 cm → 29, 34 i 38; na 28 mađarskih izdanja 5.–6. dan 70 i
 // 81 → 60 i 67 (njihovih 58 i 62).
+//
+// Komárom i Budimpešta imaju dnevni model da kiša uđe u satni lanac Dunava
+// (UgadjanjeCvorova): Komárom iz vlastite razine i kiše gornjeg Dunava i
+// Morave (N, M, L, K, O; austrijske letve dnevno imamo tek od 2012.),
+// Budimpešta iz Komároma i kiše H i N.
 var DnevniCiljevi = []DnevniCilj{
 	{"mursko-sredisce", nil, []string{"B"}},
 	{"gorican", []string{"mursko-sredisce"}, []string{"B"}},
@@ -169,6 +174,8 @@ var DnevniCiljevi = []DnevniCilj{
 	{"donji-miholjac", []string{"terezino-polje", "botovo", "mursko-sredisce", "borl-i"}, []string{"A", "B", "C", "D", "E"}},
 	{"belisce", []string{"donji-miholjac", "terezino-polje", "botovo", "borl-i"}, []string{"A", "B", "C", "D", "E", "F"}},
 	{"osijek", []string{"belisce", "donji-miholjac", "botovo", "aljmas", "mohacs", "budapest", "komarom"}, []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J"}},
+	{"komarom", nil, []string{"N", "M", "L", "K", "O"}},
+	{"budapest", []string{"komarom"}, []string{"H", "N"}},
 	{"batina", []string{"komarom", "budapest", "mohacs"}, []string{"H", "I", "J"}},
 	{"aljmas", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
 	{"vukovar", []string{"komarom", "budapest", "mohacs", "batina", "osijek", "donji-miholjac"}, []string{"H", "I", "J"}},
@@ -336,10 +343,14 @@ var UgadjanjeLetve = []string{"batina", "aljmas", "vukovar", "ilok"}
 var cvoroviTezine = [][2]float64{{0, 1}, {6, 0.56}, {72, 0.56}, {96, 0}}
 
 // TezinaLanca je težina satnog lanca h sati unaprijed na letvama ugađanja.
-func TezinaLanca(h int) float64 {
+func TezinaLanca(h int) float64 { return tezinaIzCvorova(cvoroviTezine, h) }
+
+// tezinaIzCvorova je težina u satu h, pravocrtno između čvorova; iza
+// zadnjeg čvora lanca nema.
+func tezinaIzCvorova(cvorovi [][2]float64, h int) float64 {
 	x := float64(h)
-	for i := 1; i < len(cvoroviTezine); i++ {
-		a, b := cvoroviTezine[i-1], cvoroviTezine[i]
+	for i := 1; i < len(cvorovi); i++ {
+		a, b := cvorovi[i-1], cvorovi[i]
 		if x <= b[0] {
 			return a[1] + (x-a[0])/(b[0]-a[0])*(b[1]-a[1])
 		}
@@ -347,11 +358,53 @@ func TezinaLanca(h int) float64 {
 	return 0
 }
 
-// Ugadja javlja ima li letva ugađanje. Imaju ga i srpske letve kojima se
-// prognoza prenosi samo s letvi s ugađanjem (Bezdan, Apatin, Bačka Palanka):
-// one su ista voda uz pomak, pa moraju pokazivati isto što i izvor.
+// UgadjanjeCvorova su karike satnog lanca kojima se ugađanje radi u samom
+// lancu (Odluke (22. 10. 2026.)): njihova vrijednost unaprijed je dnevni model
+// s kišom i satni lanac zajedno, težinom lanca iz čvorova, pa nizvodne letve
+// tu kišu dobivaju kroz lanac. Kiša kao ulaz u pojedinu vezu nije pomogla
+// (susjedne letve su 3–18 sati jedna od druge, pa je voda već na uzvodnoj);
+// pomaže kiša koja tek dolazi u rijeku.
+//
+// Mjereno 22. 10. 2026. puštanjem lanca kroz izdanja s dnevnim modelima
+// naučenima prije njih. Na 1.881 izdanju 2024.–2026. (učeno do 2023., kiša
+// kakva je tada bila prognozirana) srednji promašaj za 96 h: Komárom 36,3 →
+// 29,5 cm, Budimpešta 30,5 → 29,6, Mohács 19,5 → 17,0, Batina 18,9 → 16,2; za
+// 72 h Mohács 14,0 → 11,5 i Batina 12,6 → 11,5. Kad voda raste 30 cm i više,
+// Komárom 96 h 67 → 45, Batina 28,5 → 23,3. Na 8.063 izdanja 2012.–2026.
+// (učeno do 2011., kiša koja je pala) Batina 96 h 22,1 → 19,0. Prvih 48 sati
+// se ne mijenja.
+//
+// Mana: kad kiša digne prognozu za 20 cm i više, Batina za 96 h u prosjeku
+// prebaci 14 cm, a lanac je u istim izdanjima podbacivao 15 (2024.–2026.,
+// 142 izdanja). Isto rade i dnevni modeli Batine i Aljmaša na kiši nakon
+// suhih dana; ovo samo čini da i mađarske letve pokazuju isto.
+//
+// Komárom ima težinu kao letve ugađanja (TezinaLanca); s ranijim ulaskom
+// dnevnog modela Komárom je bio malo bolji, ali Batina i Mohács lošiji i
+// češće previsoki. Budimpešti lanac već nosi Komárom, pa ostaje jači. Obje
+// težine do 96. sata padaju na nulu: odande je prikaz dnevni model, pa
+// tablica, graf i lanac pokazuju isto.
+var UgadjanjeCvorova = map[string][][2]float64{
+	"komarom":  cvoroviTezine,
+	"budapest": {{0, 1}, {6, 0.8}, {72, 0.8}, {96, 0}},
+}
+
+// TezinaCvora je težina satnog lanca h sati unaprijed na karici s ugađanjem
+// u lancu; ok je false za letvu koja nije takva karika.
+func TezinaCvora(letva string, h int) (w float64, ok bool) {
+	c, ok := UgadjanjeCvorova[letva]
+	if !ok {
+		return 0, false
+	}
+	return tezinaIzCvorova(c, h), true
+}
+
+// Ugadja javlja ima li letva ugađanje. Imaju ga i karike s ugađanjem u lancu
+// (UgadjanjeCvorova) i srpske letve kojima se prognoza prenosi samo s letvi s
+// ugađanjem (Bezdan, Apatin, Bačka Palanka): one su ista voda uz pomak, pa
+// moraju pokazivati isto što i izvor.
 func Ugadja(letva string) bool {
-	if slices.Contains(UgadjanjeLetve, letva) {
+	if _, ima := UgadjanjeCvorova[letva]; ima || slices.Contains(UgadjanjeLetve, letva) {
 		return true
 	}
 	for _, p := range PreneseneLetve {

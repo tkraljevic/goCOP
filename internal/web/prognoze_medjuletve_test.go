@@ -156,12 +156,40 @@ func TestQIzKrivulje(t *testing.T) {
 	}
 }
 
-// Profil Dunava kreće od Batine: letva uzvodno od nje ne ulazi, nizvodna
-// ulazi, a voda bez početka ide cijela.
+// Profil Dunava kreće od Komároma: letva uzvodno od njega ne ulazi,
+// nizvodna ulazi, a voda bez početka ide cijela.
 func TestIznadPocetka(t *testing.T) {
-	postaje := map[string]models.Station{"batina": {Code: "batina", Stationing: "rkm 1424+850"}}
-	if !iznadPocetka(postaje, "Dunav", 1446.9) || iznadPocetka(postaje, "Dunav", 1380.3) ||
-		iznadPocetka(postaje, "Drava", 300) || iznadPocetka(map[string]models.Station{}, "Dunav", 1446.9) {
-		t.Error("početak profila: Mohács ne, Aljmaš da, Drava cijela, bez Batine sve")
+	postaje := map[string]models.Station{"komarom": {Code: "komarom", Stationing: "rkm 1768+300"}}
+	if !iznadPocetka(postaje, "Dunav", 1806.4) || iznadPocetka(postaje, "Dunav", 1446.9) ||
+		iznadPocetka(postaje, "Drava", 300) || iznadPocetka(map[string]models.Station{}, "Dunav", 1806.4) {
+		t.Error("početak profila: Nagybajcs ne, Mohács da, Drava cijela, bez Komároma sve")
+	}
+}
+
+// Karika s ugađanjem u lancu pokazuje satni lanac kakav jest, s udjelom
+// dnevnog modela iz težine karike (oznaka ds), a iza lanca dnevni model; ne
+// miješa se još jednom kao letve s ugađanjem na prikazu.
+func TestUgodjenULancu(t *testing.T) {
+	izdanoH := time.Date(2026, 10, 12, 9, 0, 0, 0, time.UTC).Unix() / 3600
+	l := PregledLetve{Letva: "komarom", Satno: map[int64]PregledVrijednost{}, SatnoQ: map[int64]PregledVrijednost{}}
+	for h := int64(1); h <= 96; h++ {
+		l.Satno[izdanoH+h] = PregledVrijednost{Vrijednost: 200, Dolje: 190, Gore: 210}
+	}
+	var dnevne []prognoza.DnevnaIzdana
+	for k := 0; k <= prognoza.DnevniDosezi; k++ {
+		dnevne = append(dnevne, prognoza.DnevnaIzdana{Letva: "komarom", Dan: k, Ciljni: izdanoH + int64(24*k),
+			Vrijednost: 300, Dolje: 290, Gore: 310})
+	}
+	n := (ulazPrikaza{nacin: models.PrognozaKombinacija, izdanoH: izdanoH,
+		dnevne: map[string][]prognoza.DnevnaIzdana{"komarom": dnevne}}).nizLetve(l)
+	if !n.Ugodjen || n.Cm[24].Vrijednost != 200 || n.Cm[120].Vrijednost != 300 {
+		t.Fatalf("24 h %+v, 120 h %+v: želim lanac pa dnevni model", n.Cm[24], n.Cm[120])
+	}
+	w, _ := prognoza.TezinaCvora("komarom", 24)
+	if math.Abs(n.Cm[24].Dnevni-(1-w)) > 1e-12 || oznakaTocke(n.Cm[24]).Tekst != "ds" || oznakaTocke(n.Cm[120]).Tekst != "d" {
+		t.Errorf("udio dnevnog %g, oznake %q i %q", n.Cm[24].Dnevni, oznakaTocke(n.Cm[24]).Tekst, oznakaTocke(n.Cm[120]).Tekst)
+	}
+	if n.Q[24].Ima {
+		t.Errorf("protok bez satnog i dnevnog protoka: %+v", n.Q[24])
 	}
 }

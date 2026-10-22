@@ -207,6 +207,7 @@ type Racunalo struct {
 	ostaci     map[Izvor]ostatak
 	uOstatku   map[Izvor]bool
 	buducnost  map[Izvor]Niz // budućnost vrha lanca (dnevni model, model ispuštanja), satno
+	dnevniCvor map[Izvor]Niz // dnevni model karike s ugađanjem u lancu (UgadjanjeCvorova), satno
 }
 
 // PostaviBuducnostVrha daje vrhu lanca budućnost za sate poslije izdavanja:
@@ -220,6 +221,38 @@ func (r *Racunalo) PostaviBuducnostVrha(iz Izvor, prognoza Niz) {
 		r.buducnost = map[Izvor]Niz{}
 	}
 	r.buducnost[iz] = prognoza
+}
+
+// PostaviDnevniCvora daje karici s ugađanjem u lancu (UgadjanjeCvorova)
+// njezin dnevni model kao satni niz. Za sate poslije izdavanja karika je
+// tada dnevni model i satni lanac zajedno, D + w·(C − D), s težinom lanca te
+// karike, a nizvodne letve računaju iz te vrijednosti.
+func (r *Racunalo) PostaviDnevniCvora(iz Izvor, dnevni Niz) {
+	if r.dnevniCvor == nil {
+		r.dnevniCvor = map[Izvor]Niz{}
+	}
+	r.dnevniCvor[iz] = dnevni
+}
+
+// ugodiCvor miješa vrijednost karike s njezinim dnevnim modelom u satu t;
+// karika bez dnevnog modela, ili sat za koji ga nema, ostaje satni lanac.
+func (r *Racunalo) ugodiCvor(iz Izvor, t int64, v Vrijednost) Vrijednost {
+	d, ima := r.dnevniCvor[iz]
+	if !ima || t <= r.sada {
+		return v
+	}
+	w, ok := TezinaCvora(iz.Letva, int(t-r.sada))
+	if !ok {
+		return v
+	}
+	dv, ok := d.U(t)
+	if !ok {
+		if dv, ok = d.ZadnjiDo(t); !ok {
+			return v
+		}
+	}
+	v.Iznos = dv + w*(v.Iznos-dv)
+	return v
 }
 
 // ostatak je razlika između mjerenja i modela u zadnjem izmjerenom satu letve.
@@ -313,7 +346,9 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 					v += ft - f0
 				}
 			}
-			return r.zapamti(k, Vrijednost{Iznos: v, Prognoza: true}, true)
+			// Karika s ugađanjem koja je u ovom izdanju vrh (ulazi joj nisu
+			// svježi) drži zadnje mjerenje samo kao satni dio ugađanja.
+			return r.zapamti(k, r.ugodiCvor(iz, t, Vrijednost{Iznos: v, Prognoza: true}), true)
 		}
 	}
 	r.uTijeku[k] = true
@@ -332,7 +367,7 @@ func (r *Racunalo) U(iz Izvor, t int64) (Vrijednost, bool) {
 			v.Iznos += o.ispravakU(t)
 		}
 	}
-	return r.zapamti(k, v, true)
+	return r.zapamti(k, r.ugodiCvor(iz, t, v), true)
 }
 
 // ZaostatakIspravka je koliko sati zadnje mjerenje karike smije biti staro, a
