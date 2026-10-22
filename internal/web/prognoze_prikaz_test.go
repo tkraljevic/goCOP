@@ -274,3 +274,91 @@ func TestGrafLetveIzPrikaza(t *testing.T) {
 		t.Error("letva bez šifre ima prognozu")
 	}
 }
+
+// Uzdužni profil crta isti niz: klizač seže do kraja šestog dana, dokle
+// seže dnevni model.
+func TestProfilCrtaNizPrikaza(t *testing.T) {
+	p := novaProbaPrikaza(t)
+	_, prikaz := p.tablica(models.PrognozaKombinacija)
+	nula := func(x float64) *float64 { return &x }
+	postaje := map[string]models.Station{
+		"botovo":         {Code: "botovo", Name: "Botovo", Watercourse: "Drava", Stationing: "rkm 200,0", ZeroDatum: nula(120)},
+		"terezino-polje": {Code: "terezino-polje", Name: "Terezino Polje", Watercourse: "Drava", Stationing: "rkm 100,0", ZeroDatum: nula(110)},
+	}
+	jutro := Jutro{Cm: map[string]float64{"botovo": 100, "terezino-polje": -300}}
+	mjesec := NulaProfila{Cm: map[string]float64{"botovo": 90, "terezino-polje": -290}}
+	profili := uzduzniProfili(postaje, p.pregled, prikaz, p.izdano, nil, nil, nil, mjesec, jutro)
+	if len(profili) != 1 || profili[0].SatDo != SatiPrikaza {
+		t.Fatalf("profili %d, klizač do %d: želim jedan profil do %d. sata", len(profili), profili[0].SatDo, SatiPrikaza)
+	}
+}
+
+// Graf u Excelu kreće iz mjerenja u satu izdanja i nastavlja se nizom.
+func TestGrafIzvozaKreceIzMjerenja(t *testing.T) {
+	izmisljeniSusjedi(t)
+	izdano := time.Date(2026, 10, 8, 19, 0, 0, 0, time.UTC)
+	p := novaProbaSusjeda(t)
+	r, postaje := ocitanjaSrednje(t, p.t.postaje, izdano)
+	satno := map[int64]PregledVrijednost{}
+	izdanoH := izdano.Unix() / 3600
+	for h := int64(1); h <= 96; h++ {
+		satno[izdanoH+h] = PregledVrijednost{Vrijednost: 125, Dolje: 120, Gore: 130}
+	}
+	data := PrognozePageData{IzdanoSat: izdanoH,
+		Tablice:  []TablicaPrognoza{{Letve: []LetvaPrognoze{{Kod: "srednja", Naziv: "Srednji Brod", Racuna: "vodostaj"}}}},
+		postajeM: postaje,
+		prikaz:   map[string]nizPrikaza{"srednja": prikazLetve(0, PregledLetve{Letva: "srednja", Satno: satno}, nil, nil, izdanoH)},
+	}
+	g := (&PrognozeHandler{readings: r}).nizoviGrafova(context.Background(), data)
+	if len(g) != 1 || g[0].prognoza[GrafUnatragSati] != 110 || g[0].prognoza[GrafUnatragSati+1] != 125 ||
+		g[0].izmjereno[GrafUnatragSati-1] != 130 {
+		t.Fatalf("graf %+v: želim mjerenje 110 u satu izdanja, pa niz 125", g)
+	}
+}
+
+// Bez polazišta susjeda ili letve, ili bez dnevne prognoze susjeda u tom
+// satu, vrijednosti iz susjeda nema.
+func TestVrijednostIzSusjedaTraziPolaziste(t *testing.T) {
+	dnevne := []prognoza.DnevnaIzdana{{Dan: 0, Ciljni: 100, Vrijednost: 50}, {Dan: 1, Ciljni: 124, Vrijednost: 60}}
+	niz := make([]tockaPrikaza, 30)
+	niz[5] = tockaPrikaza{PregledVrijednost: PregledVrijednost{Vrijednost: 55}, Ima: true, Dnevni: 0.5}
+	pun := susjedPrikaza{niz: niz, sada: 52, imaSada: true, nula: 50, imaNulu: true, dnevne: dnevne}
+	letva := polazisteLetve{srednjak: 20, sada: 22, imaSrednjak: true, imaSada: true}
+	if v, ok := pun.vrijednostIz(5, 100, letva); !ok || math.Abs(v-(21+55-51)) > 1e-9 {
+		t.Errorf("pola dnevnog: %g %v, želim 25", v, ok)
+	}
+	bezSada, bezNule := pun, pun
+	bezSada.imaSada, bezNule.imaNulu = false, false
+	for ime, s := range map[string]susjedPrikaza{"bez sada": bezSada, "bez dana 0": bezNule} {
+		if _, ok := s.vrijednostIz(5, 100, letva); ok {
+			t.Errorf("%s: ima vrijednost", ime)
+		}
+	}
+	if _, ok := pun.vrijednostIz(5, 100, polazisteLetve{sada: 22, imaSada: true}); ok {
+		t.Error("letva bez srednjaka: ima vrijednost")
+	}
+	if _, ok := pun.vrijednostIz(5, 200, letva); ok {
+		t.Error("susjed bez dnevne prognoze u tom satu: ima vrijednost")
+	}
+	if _, ok := pun.vrijednostIz(40, 100, letva); ok {
+		t.Error("sat iza niza: ima vrijednost")
+	}
+}
+
+// Stupac +6 h letve koja ima samo protok uzima protok i njegovu oznaku
+// slabije prognoze; letva bez niza ostaje kakva jest.
+func TestSatniStupciSamoProtok(t *testing.T) {
+	q := make([]tockaPrikaza, SatiPrikaza+1)
+	q[6] = tockaPrikaza{PregledVrijednost: PregledVrijednost{Vrijednost: 40, Dolje: 38, Gore: 42}, Ima: true}
+	letve := []LetvaPrognoze{
+		{Kod: "protocna", Vrijednosti: []VrijednostPrognoze{{DosegH: 6}}},
+		{Kod: "bez-niza", Vrijednosti: []VrijednostPrognoze{{DosegH: 6, Cm: "7"}}},
+	}
+	satniStupci(letve, map[string]nizPrikaza{"protocna": {Cm: make([]tockaPrikaza, SatiPrikaza+1), Q: q}})
+	if v := letve[0].Vrijednosti[0]; !v.Ima || v.Cm != "" || v.Q != "40" || !v.Slabija {
+		t.Errorf("protočna +6 h %+v: želim samo protok 40, slabiji", v)
+	}
+	if v := letve[1].Vrijednosti[0]; v.Cm != "7" {
+		t.Errorf("letva bez niza promijenjena: %+v", v)
+	}
+}

@@ -163,9 +163,6 @@ func (x vrijednostIzvora) prava() tockaPrikaza {
 
 // pomijesaj je udio u od b i 1-u od a, u vrijednosti i rasponu.
 func pomijesaj(a, b tockaPrikaza, u float64) tockaPrikaza {
-	if u >= 1 {
-		return b
-	}
 	ip := func(x, y float64) float64 { return x + u*(y-x) }
 	return tockaPrikaza{
 		PregledVrijednost: PregledVrijednost{Vrijednost: ip(a.Vrijednost, b.Vrijednost),
