@@ -4,6 +4,92 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.40-alfa — 22. 10. 2026.
+
+- **Prognoza više ne ovisi ni o jednoj tuđoj prognozi.** Komárom je vodila
+  mađarska prognoza, a Wildungsmauer austrijska. Austrijska je 21. 10.
+  nestala preko noći, kad je Donja Austrija ugasila svoje stranice.
+  Provjera je pokazala da mađarska prognoza našim letvama na Dunavu donosi
+  najviše nekoliko centimetara na 96 sati, a u dnevnoj tablici ništa. Sad
+  lanac računa sve sam, a mađarska, austrijska i srpska prognoza stoje uz
+  našu samo radi usporedbe (Odluke (22. 10. 2026.)). Letenye budućnost
+  dobiva samo iz našeg dnevnog modela, a bez njega drži zadnje mjerenje, uz
+  upozorenje. (#115)
+- **Na Dunavu satni lanac i dnevni model zajedno.** Na Batini, Aljmašu,
+  Vukovaru i Iloku prognoza do 96. sata više ne prelazi s jednoga na drugi,
+  nego ih uzima otprilike pola-pola, pri svakom vodostaju. Tako je
+  izmjereno točnije, i na živim izdanjima i na valovima od 2012. U vrhu
+  vala 3. dan Batina pokaže nekoliko centimetara više. Na Dravi ostaje
+  prijelaz s jednoga na drugi (Odluke (22. 10. 2026.)). (#118, #119)
+- **Uz svaku vrijednost prognoze stoji slovo** koje kaže iz čega je: s satni
+  lanac, d dnevni model, ds oboje zajedno, p susjedi. Slovo s u drugoj boji
+  znači da dnevnog modela u izdanju nema. U Excelu je slovo uz broj, a
+  ćelija ostaje broj. (#118, #119)
+- **Graf i tablica pokazuju isto.** Graf u Excelu držao je satni lanac do
+  96. sata pa skočio na dnevni model, iako ga tablica uzima ranije, pa su se
+  graf i tablica dan-dva razilazili. Sad tablica, uzdužni profil, graf letve
+  i graf u Excelu čitaju isti niz: u 7 h svakog dana to je broj iz tablice,
+  a između dana koje daju različiti modeli crta postupno prelazi s jednoga
+  na drugi. Graf letve sad seže do kraja šestog dana. U Postavkama prognoze
+  jedan je izbor modela umjesto tri. Šesti dan ima vrijednost i kad je
+  izdanje bilo danju (Odluke (22. 10. 2026.)). (#117)
+- **Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs prate
+  susjede u danima unaprijed.** Te letve nemaju dnevni model s kišom, pa su
+  im dani ostajali ravni dok su Botovo, Terezino Polje i Donji Miholjac
+  rasli. Sad se njihovi dani od 2. do 6. računaju iz onoga što pokazuju
+  susjedi, prema položaju na rijeci (oznaka p). Prate susjede i kad
+  najavljeni porast ne dođe. U Postavkama prognoze to se može isključiti.
+  (#116)
+- **Na visokoj vodi dnevni model na Dravi preuzima ranije.** Botovo od 2.
+  dana (prije 5.), Donji Miholjac od 3. (prije 4.), Belišće od 4. (prije
+  5.). HE Dubrava i HE Varaždin u modelu ispuštanja još nemaju režim velike
+  vode, pa satni lanac tada drži zadnje istjecanje. (#116)
+- **Stranica O prognozi** opisuje kako prognoza sad radi: ugađanje na
+  Dunavu, oznake i model ispuštanja HE. (#119)
+- **Raspon prognoze više ne pada na nulu gdje krivulja protoka prestaje.**
+  Pri maloj vodi protok je skakao iz sata u sat između raspona bez širine i
+  širokog raspona, a donji rub protoka znao je pasti ispod nule. (#110)
+- **Vodostaj iz protoka više ne zapinje na rubu krivulje.** Na Ludbregu je
+  prognoza vodostaja pri maloj vodi stajala na istom broju, a Tuhovec
+  prognozu vodostaja nije imao. (#111)
+- **Model prognoze uči se na istim satima na kojima radi.** Za letve koje
+  se očitavaju češće od jednom na sat učenje je uzimalo zadnje očitanje u
+  satu, a živa prognoza najbliže punom satu. Nakon nadogradnje treba
+  jednom pokrenuti „Pripremi model”. (#112)
+- **Ugašen tuđi izvor više ne izgleda kao promijenjen oblik datoteke.**
+  Dnevnik sad kaže da je izvor vratio web-stranicu umjesto datoteke i
+  navodi njezin naslov. (#109)
+- **Vodostaji i prognoza osvježavaju se svaki sat u istoj minuti**, a ne
+  od trenutka pokretanja programa. (#91)
+- **Mađarska vodoprivreda kao izvor arhive.** Nizovi Mađarske
+  vodoprivrede (DDVIZIG) imaju ime i stoje među ovjerenim izvorima. Uvoz
+  krivulja protoka prima i datoteku krivulja u obliku arhive, s izvorom i
+  napomenom iz datoteke. (#102)
+- **Razmjena se priprema za vezu preko interneta (WEB sync, korak F0).** Za
+  korisnika se ništa ne mijenja, a s računalima 0.0.37–0.0.39 razmjena ide
+  kao i prije. Novo je ovo:
+  - računala s različitim imenom protokola ne razmjenjuju podatke, pa se
+    prava mreža (`gocop`) i testna simulacija (`gocop-sim`) ne mogu
+    pomiješati; kopirana mapa podataka s drugim imenom ne kreće
+    (Odluke (21. 10. 2026.));
+  - adrese koje računalo nauči ostaju samo na njemu i ne stvaraju nove
+    verzije zapisa računala;
+  - tunel se spaja istim putem kao razmjena na portu, a računalo koje
+    zove ne šalje svoj certifikat strani s drugim ključem.
+  (#103, #104, #106, #108, #113)
+- **Zahvale** sad navode Mađarsku vodoprivredu i Republički
+  hidrometeorološki zavod Srbije. (#100)
+- **Upute:** kratak opis razmjene među računalima; primanje na daljinu
+  ostaje uključeno, a o početnoj lozinki piše točnije. Plan razvoja
+  navodi pregled knjige verzija i manje mjesta na disku. (#92, #98, #114)
+- Testovi su četiri puta brži, a nekoliko testova koji su padali sami od
+  sebe sad prolazi stabilno. Provjera javnog teksta gleda i `docs/`.
+  (#93, #94, #95, #96, #97, #101, #105, #107)
+
+**Nakon nadogradnje** računala koje izdaje prognozu jednom pokrenuti
+„Pripremi model” (#112). **Prije povratka na 0.0.39-alfa** zaustaviti sve
+instance `gocop-sim`, jer 0.0.39-alfa ne provjerava ime protokola.
+
 ## 0.0.39-alfa — 18. 10. 2026.
 
 - **Član mreže više ne može podmetnuti ključ drugog računala.** Član mreže
