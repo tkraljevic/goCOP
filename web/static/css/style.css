@@ -5361,6 +5361,9 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-lanac-legenda { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.82rem; margin-top: 0.4rem; }
 .prog-lanac-legenda span { display: inline-flex; align-items: center; gap: 0.35rem; }
 .prog-metoda-tablica td.nowrap { white-space: nowrap; }
+.prog-detalji { border-top: 1px solid var(--border, #ddd); padding: 0.3rem 0; }
+.prog-detalji > summary { cursor: pointer; font-weight: 600; font-size: 1rem; padding: 0.35rem 0; }
+.prog-detalji[open] > summary { margin-bottom: 0.3rem; }
 
 /* Generiranje prognoze: traka napretka i ispis koraka */
 .prog-generiraj-obrazac { margin: 0.5rem 0 0.75rem; }

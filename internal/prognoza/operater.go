@@ -224,10 +224,7 @@ func NamjestiOperatera(arhiva *sql.DB, o Operater, ocjenaOd int64) (*OperaterMod
 
 	for k := 1; k <= OperaterDosezi; k++ {
 		for g := 0; g < 2; g++ {
-			var Xuci, Xsvi [][]float64
-			var Yuci, Ysvi []float64
-			var Xocj [][]float64
-			var Yocj, Pocj []float64
+			var svi []uzorakOcjene
 			for _, u := range uzorci {
 				if m.rezim(u.osnova[1]) != g {
 					continue
@@ -241,33 +238,70 @@ func NamjestiOperatera(arhiva *sql.DB, o Operater, ocjenaOd int64) (*OperaterMod
 				if !ok {
 					continue
 				}
-				x := operaterCilj(u.osnova, u.t, k)
-				Xsvi, Ysvi = append(Xsvi, x), append(Ysvi, y)
-				if u.t < ocjenaOd {
-					Xuci, Yuci = append(Xuci, x), append(Yuci, y)
-				} else {
-					Xocj, Yocj, Pocj = append(Xocj, x), append(Yocj, y), append(Pocj, u.osnova[1])
-				}
+				svi = append(svi, uzorakOcjene{t: u.t, x: operaterCilj(u.osnova, u.t, k), y: y, post: u.osnova[1]})
 			}
-			if len(Xuci) < 500 || len(Xocj) < 100 {
+			podjela, ok := podjelaOcjene(svi, ocjenaOd)
+			if !ok {
 				continue
 			}
-			b := najmanjiKvadrati(Xuci, Yuci)
-			var e, ep float64
-			for i, x := range Xocj {
-				var f float64
-				for j := range b {
-					f += b[j] * x[j]
-				}
-				e += math.Abs(f - Yocj[i])
-				ep += math.Abs(Pocj[i] - Yocj[i])
-			}
-			m.MAE[g][k], m.MAEPost[g][k] = e/float64(len(Xocj)), ep/float64(len(Xocj))
+			m.MAE[g][k], m.MAEPost[g][k] = ocijeni(svi[:podjela], svi[podjela:])
 			m.Koristi[g][k] = m.MAE[g][k] < m.MAEPost[g][k]
-			m.Koef[g][k] = najmanjiKvadrati(Xsvi, Ysvi)
+			m.Koef[g][k] = najmanjiKvadrati(stupciUzoraka(svi))
 		}
 	}
 	return m, nil
+}
+
+// Najmanje sati za učenje režima i za ocjenu je li bolji od postojanosti.
+const (
+	operaterNajmanjeUcenja = 500
+	operaterNajmanjeOcjene = 100
+)
+
+// uzorakOcjene je jedan sat režima: osnova, izmjereno istjecanje k sati
+// kasnije i postojanost (istjecanje u satu uzorka).
+type uzorakOcjene struct {
+	t       int64
+	x       []float64
+	y, post float64
+}
+
+// podjelaOcjene dijeli uzorke režima, poredane po vremenu, na učenje i
+// ocjenu: ocjena su sati od ocjenaOd. Kad ih u tom razdoblju ima manje od
+// operaterNajmanjeOcjene — velike vode u dvije suhe godine bude i manje od
+// sto sati — ocjena se proširi unatrag na zadnjih toliko sati, i dalje iza
+// svih sati učenja. Bez toga je režim velike vode HE Dubrava i HE Varaždin
+// 21. 10. 2026. otpao uz 98 sati, a s njim i model ispuštanja pri velikoj vodi.
+func podjelaOcjene(svi []uzorakOcjene, ocjenaOd int64) (int, bool) {
+	podjela := sort.Search(len(svi), func(i int) bool { return svi[i].t >= ocjenaOd })
+	if len(svi)-podjela < operaterNajmanjeOcjene {
+		podjela = len(svi) - operaterNajmanjeOcjene
+	}
+	return podjela, podjela >= operaterNajmanjeUcenja
+}
+
+// ocijeni uči model na prvima i vraća srednju pogrešku njega i postojanosti
+// na drugima.
+func ocijeni(uci, ocjena []uzorakOcjene) (mae, maePost float64) {
+	b := najmanjiKvadrati(stupciUzoraka(uci))
+	for _, u := range ocjena {
+		var f float64
+		for j := range b {
+			f += b[j] * u.x[j]
+		}
+		mae += math.Abs(f - u.y)
+		maePost += math.Abs(u.post - u.y)
+	}
+	n := float64(len(ocjena))
+	return mae / n, maePost / n
+}
+
+func stupciUzoraka(us []uzorakOcjene) ([][]float64, []float64) {
+	X, Y := make([][]float64, len(us)), make([]float64, len(us))
+	for i, u := range us {
+		X[i], Y[i] = u.x, u.y
+	}
+	return X, Y
 }
 
 // SpremiOperatera zapisuje model u bazu prognoza, umjesto starog.
@@ -578,6 +612,16 @@ func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, 
 }
 
 // OpisOperatera kaže dežurnom kojim je režimom i na kojim dosezima model
+// imaRezim javlja ima li model koeficijente za režim g na ijednom dosegu.
+func (m *OperaterModel) imaRezim(g int) bool {
+	for k := 1; k <= OperaterDosezi; k++ {
+		if m.Koef[g][k] != nil {
+			return true
+		}
+	}
+	return false
+}
+
 // računao.
 func OpisOperatera(m *OperaterModel, q0 float64) string {
 	g := m.rezim(q0)
@@ -593,6 +637,11 @@ func OpisOperatera(m *OperaterModel, q0 float64) string {
 			}
 			do = k
 		}
+	}
+	if od == 0 {
+		za := map[int]string{0: "običnu", 1: "veliku"}[g]
+		return "vrh drži zadnje istjecanje: model ispuštanja elektrane za " + za +
+			" vodu nije naučen ili nije bolji od zadnjeg mjerenja"
 	}
 	return fmt.Sprintf("budućnost vrha iz modela ispuštanja elektrane (%s, iz %s; model od %d. do %d. sata, inače zadnje mjerenje)",
 		rezim, strings.Join(m.Ulazi, ", "), od, do)

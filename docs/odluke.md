@@ -619,3 +619,9 @@ je gotov onaj o kojem ovisi.
   3–4 tjedna. „Oznaka d za dnevni, oznaka s za satni, oznaka za
   kombinaciju je ds”; p ostaje za vrijednost iz susjeda.
 - Izdanje 0.0.40 čeka da ovo bude gotovo.
+- Režim velike vode modela ispuštanja za HE Dubrava i HE Varaždin se
+  popravlja, a ne izbacuje: „A što se tiče režima rada uzvodnih centrala, on
+  mora biti usklađen s Dubravom i nikako drukčije ne bi ni funkcionirao.
+  Tako da možemo pretpostaviti te režime.” Režim se uči iz podataka, a
+  ocjena se, kad je u dvije godine premalo velike vode, uzima na zadnjih sto
+  sati velike vode.

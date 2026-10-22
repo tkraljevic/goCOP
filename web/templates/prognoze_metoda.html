@@ -22,17 +22,10 @@
 </div>
 
 <div class="prog-metoda">
-  {{range .Odjeljci}}
+  {{range .Glavni}}
   <section class="detail-section">
     <h2>{{.Naslov}}</h2>
-    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>
-    {{else if .Tablica}}<div class="table-card prog-metoda-tablica-kartica"><div class="table-responsive">
-      <table class="data-table prog-metoda-tablica">{{if .Tablica.Naslov}}<caption>{{.Tablica.Naslov}}</caption>{{end}}
-        <thead><tr>{{range .Tablica.Stupci}}<th>{{.}}</th>{{end}}</tr></thead>
-        <tbody>{{range .Tablica.Redci}}<tr>{{range $i, $c := .}}<td{{if $i}} class="nowrap"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody>
-      </table></div></div>
-    {{else if .Popis}}<ul class="prog-popis">{{range .Popis}}<li>{{.}}</li>{{end}}</ul>
-    {{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
+    {{template "prognoze-metoda-odlomci" .}}
   </section>
   {{if and (eq .Naslov "Kako čitati prognozu") $.Lanac}}
   <section class="detail-section prog-lanac">
@@ -98,6 +91,20 @@
   </section>
   {{end}}
 
+  {{with .Detaljni}}
+  <section class="detail-section">
+    <h2>Detalji</h2>
+    <p>Za one koji provjeravaju račun: podaci, formule, provjere i povijest izmjena. Odjeljak se otvara klikom
+      na naslov.</p>
+    {{range .}}
+    <details class="prog-detalji">
+      <summary>{{.Naslov}}</summary>
+      {{template "prognoze-metoda-odlomci" .}}
+    </details>
+    {{end}}
+  </section>
+  {{end}}
+
   <section class="detail-section">
     <h2>Suradnja i podaci</h2>
     <p>Model je nastao u neslužbenoj suradnji Tomislava Kraljevića i
@@ -150,6 +157,17 @@
     {{else}}<p class="reg-card-sub">{{.BezLetvi}}</p>{{end}}
   </section>
 </div>
+{{end}}
+
+{{define "prognoze-metoda-odlomci"}}
+    {{range .Odlomci}}{{if .Formula}}<div class="prog-formula" data-tex="{{.TeX}}">{{.Tekst}}</div>
+    {{else if .Tablica}}<div class="table-card prog-metoda-tablica-kartica"><div class="table-responsive">
+      <table class="data-table prog-metoda-tablica">{{if .Tablica.Naslov}}<caption>{{.Tablica.Naslov}}</caption>{{end}}
+        <thead><tr>{{range .Tablica.Stupci}}<th>{{.}}</th>{{end}}</tr></thead>
+        <tbody>{{range .Tablica.Redci}}<tr>{{range $i, $c := .}}<td{{if $i}} class="nowrap"{{end}}>{{$c}}</td>{{end}}</tr>{{end}}</tbody>
+      </table></div></div>
+    {{else if .Popis}}<ul class="prog-popis">{{range .Popis}}<li>{{.}}</li>{{end}}</ul>
+    {{else}}<p>{{.Tekst}}</p>{{end}}{{end}}
 {{end}}
 
 {{define "scripts"}}
