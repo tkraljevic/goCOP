@@ -182,7 +182,7 @@ var DnevniCiljevi = []DnevniCilj{
 // griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
 // 13, 23, 28, 37, 42 i 50. Komárom dok je mađarska prognoza svježa slijedi
 // nju (TudaIspredRacuna), a bez nje se računa iz Nagybajcsa i Wildungsmauera,
-// koji slijedi 48-satnu austrijsku prognozu (noel.gv.at). Naš dnevni model Dunava iznad
+// koji drži zadnje mjerenje (VrhoviSTudomPrognozom). Naš dnevni model Dunava iznad
 // Komároma ne dostiže mađarsku prognozu Komároma: s kišom gornjeg Dunava
 // (međuslivovi O–N, ulazi Wildungsmauer, Kienstock, Achleiten, Hofkirchen)
 // preko svih dana griješi 10, 20, 29, 35, 39 i 43 cm (bez kiše 10–66), ali

@@ -231,7 +231,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
-		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav slijedi mađarsku prognozu Komároma dok je svježa, inače austrijsku prognozu Wildungsmauera.\n" +
+		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav slijedi mađarsku prognozu Komároma dok je svježa, inače naš lanac od Wildungsmauera, koji drži zadnje mjerenje.\n" +
 		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+
 			"lanac), odnosno %s standardna odstupanja analognih situacija (dnevni model): stvarna vrijednost ostaje "+
 			"u rasponu u %d %% slučajeva, a u %d %% izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je "+

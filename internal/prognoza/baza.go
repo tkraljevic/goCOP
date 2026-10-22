@@ -154,8 +154,11 @@ CREATE TABLE IF NOT EXISTS promasaji (
 	PRIMARY KEY (letva, velicina, doseg_h)
 ) WITHOUT ROWID;
 
--- Tuđe prognoze, radi usporedbe. Nikad ne ulaze u naš račun: prognoza koja se
--- oslanja na tuđu ne može biti provjera tuđoj.
+-- Tuđe prognoze, radi usporedbe. Cilj je da naš račun o njima ne ovisi; danas
+-- u nj ulazi samo mađarska: Komárom je slijedi dok je svježa
+-- (TudaIspredRacuna), a Letenye kad mu budućnost ne da naš dnevni model
+-- (VrhoviSTudomPrognozom). Ostale ne ulaze nikad. Gdje se račun na tuđu
+-- oslanja, ne može joj biti provjera.
 CREATE TABLE IF NOT EXISTS tude (
 	izvor      TEXT NOT NULL,         -- hydroinfo.hu …
 	letva      TEXT NOT NULL,

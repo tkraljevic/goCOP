@@ -122,8 +122,8 @@ type LetvaPrognoze struct {
 	Pregledna       bool // u model ne ulazi, stoji radi pregleda
 	Ulazi           []string
 	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
-	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj ili austrijskoj)
-	TudiIzvor       string // čija je ta prognoza (hydroinfo.hu, noel.gv.at)
+	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj)
+	TudiIzvor       string // čija je ta prognoza (hydroinfo.hu)
 	OperaterVrh     bool   // vrh lanca kojemu budućnost daje model ispuštanja elektrane
 	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
 	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
