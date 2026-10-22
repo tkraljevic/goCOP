@@ -57,7 +57,7 @@ type tockaPrikaza struct {
 // izdanja i ostaje prazan) u vodostaju i protoku.
 type nizPrikaza struct {
 	Cm, Q   []tockaPrikaza
-	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjanjeLetve)
+	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjanjeLetve, prognoza.UgadjanjeCvorova)
 }
 
 // izvorSata daje vrijednost jednog modela u satu h od izdanja. drzi kaže da je
@@ -237,6 +237,32 @@ func ugodi(satni, dnevni izvorSata) []tockaPrikaza {
 	return out
 }
 
+// ugodjenULancu je niz karike s ugađanjem u samom lancu
+// (prognoza.UgadjanjeCvorova): satni lanac je već dnevni model i lanac
+// zajedno, pa se ne miješa još jednom, nego mu se samo upiše udio dnevnog
+// modela; gdje satnog lanca nema, dnevni model.
+func ugodjenULancu(l PregledLetve, dnevne []prognoza.DnevnaIzdana, izdanoH int64) nizPrikaza {
+	return nizPrikaza{
+		Cm:      izLancaCvora(l.Letva, satniIzvor(l.Satno, izdanoH), dnevniIzvor(dnevniU, dnevne, izdanoH)),
+		Q:       izLancaCvora(l.Letva, satniIzvor(l.SatnoQ, izdanoH), dnevniIzvor(dnevniQU, dnevne, izdanoH)),
+		Ugodjen: true,
+	}
+}
+
+func izLancaCvora(letva string, satni, dnevni izvorSata) []tockaPrikaza {
+	out := make([]tockaPrikaza, SatiPrikaza+1)
+	for h := 1; h <= SatiPrikaza; h++ {
+		if c := uSatu(satni, h); c.ok && !c.drzi {
+			w, _ := prognoza.TezinaCvora(letva, h)
+			out[h] = c.v
+			out[h].Dnevni = 1 - w
+			continue
+		}
+		out[h] = uSatu(dnevni, h).prava()
+	}
+	return out
+}
+
 // celijeIzNiza upisuje iz niza stupce dana koje tablica sama ne zna složiti:
 // letvama s ugađanjem oznakom ds gdje su satni lanac i dnevni model zajedno,
 // a vrijednostima iz susjeda oznakom p, s rasponom i protokom iz niza. Gdje
@@ -303,6 +329,9 @@ func oznakaUdjela(dnevni float64) OznakaModela {
 // ugađanjem oba zajedno, inače po pravilu tablice.
 func (u ulazPrikaza) nizLetve(l PregledLetve) nizPrikaza {
 	if u.nacin == models.PrognozaKombinacija && prognoza.Ugadja(l.Letva) {
+		if _, cvor := prognoza.UgadjanjeCvorova[l.Letva]; cvor {
+			return ugodjenULancu(l, u.dnevne[l.Letva], u.izdanoH)
+		}
 		return ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
 	}
 	return prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
