@@ -9,8 +9,7 @@
     {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}}{{if .IzdaoCvor}} na čvoru {{.IzdaoCvor}}, stiglo razmjenom{{end}} · vrijednost ostaje unutar raspona
       u {{.Udio}} % slučajeva</p>{{end}}
     {{if .Oborina}}<p class="reg-card-sub prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{icon "cloud-rain"}} {{.Oborina}}</p>{{end}}
-    {{if .NacinTablice}}<p class="reg-card-sub">{{icon "chart-column"}} Dani u tablici: {{.NacinTablice}}.
-      {{if ne .NacinTablice .NacinGrafa}}Graf: {{.NacinGrafa}}.{{else}}Graf isto.{{end}}
+    {{if .NacinPrikaza}}<p class="reg-card-sub">{{icon "chart-column"}} Dani u tablici i na grafovima: {{.NacinPrikaza}}.
       {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke#prikaz">Promijeni</a>{{end}}</p>{{end}}
   </div>
   <div class="page-actions">

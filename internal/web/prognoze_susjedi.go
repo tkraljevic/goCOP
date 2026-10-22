@@ -58,11 +58,20 @@ const satiSrednjaka = 18
 func (h *PrognozeHandler) dopuniSusjede(ctx context.Context, letve []LetvaPrognoze, pregled []PregledLetve,
 	dnevne map[string][]prognoza.DnevnaIzdana, postaje map[string]models.Station, ciljevi []int64,
 	izdano time.Time, nacin string) {
-	if h.nacini(ctx).PrognozaBezSusjeda {
-		return
+	if ukljuceni, srednjaci := h.susjediIzdanja(ctx, postaje, izdano); ukljuceni {
+		dopuniIzSusjeda(tablicaSusjeda{letve: letve, pregled: pregled, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi},
+			srednjaci, nacin == models.PrognozaSatni)
 	}
-	dopuniIzSusjeda(tablicaSusjeda{letve: letve, pregled: pregled, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi},
-		h.srednjaciDana(ctx, postaje, izdano), nacin == models.PrognozaSatni)
+}
+
+// susjediIzdanja kaže jesu li dani iz susjeda uključeni i daje srednjake
+// kojima se dodaje promjena dana iz dnevnog modela susjeda.
+func (h *PrognozeHandler) susjediIzdanja(ctx context.Context, postaje map[string]models.Station,
+	izdano time.Time) (bool, map[string]float64) {
+	if h.nacini(ctx).PrognozaBezSusjeda {
+		return false, nil
+	}
+	return true, h.srednjaciDana(ctx, postaje, izdano)
 }
 
 // tablicaSusjeda je ono iz čega se dani računaju: retci tablice i pregleda

@@ -361,16 +361,16 @@ func TestProtokIzKrivuljeLetve(t *testing.T) {
 func TestPrognozaZaLetvu(t *testing.T) {
 	st := &models.Station{Code: "primjerovo"}
 	h := &ReadingsHandler{}
-	if h.prognozaZa(st, "vodostaj") != nil {
+	if h.prognozaZa(context.Background(), st, "vodostaj") != nil {
 		t.Error("bez čitača ima prognoze")
 	}
 	h.SetPrognoze(func() *CitacPrognoza { return nil })
-	if h.prognozaZa(st, "vodostaj") != nil {
+	if h.prognozaZa(context.Background(), st, "vodostaj") != nil {
 		t.Error("prazan čitač dao je prognozu")
 	}
 	h.SetPrognoze(func() *CitacPrognoza { return &CitacPrognoza{} })
 	for _, s := range []*models.Station{nil, {}, st} {
-		if h.prognozaZa(s, "vodostaj") != nil {
+		if h.prognozaZa(context.Background(), s, "vodostaj") != nil {
 			t.Errorf("čitač bez baze dao je prognozu za %+v", s)
 		}
 	}

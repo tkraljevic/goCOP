@@ -45,6 +45,7 @@ type ReadingsHandler struct {
 	tmplOcitanjaCSV  *template.Template
 	javni            func() *javnivodostaji.Uvoznik
 	prognoze         func() *CitacPrognoza
+	prikazPrognoze   func(ctx context.Context, letva, velicina string) *PrognozaNiza
 	akti             func() *service.AktService
 }
 
@@ -67,8 +68,20 @@ func (h *ReadingsHandler) smijeProglasiti(ctx context.Context, perms *models.Use
 // samo bez crte koja ide dalje od zadnjeg očitanja.
 func (h *ReadingsHandler) SetPrognoze(f func() *CitacPrognoza) { h.prognoze = f }
 
-func (h *ReadingsHandler) prognozaZa(st *models.Station, velicina string) *PrognozaNiza {
-	if h.prognoze == nil || st == nil || st.Code == "" {
+// SetPrikazPrognoze daje niz koji pokazuje i tablica prognoza (PrikazZaLetvu),
+// da graf letve pokazuje isto; bez njega graf crta samo satni lanac.
+func (h *ReadingsHandler) SetPrikazPrognoze(f func(ctx context.Context, letva, velicina string) *PrognozaNiza) {
+	h.prikazPrognoze = f
+}
+
+func (h *ReadingsHandler) prognozaZa(ctx context.Context, st *models.Station, velicina string) *PrognozaNiza {
+	if st == nil || st.Code == "" {
+		return nil
+	}
+	if h.prikazPrognoze != nil {
+		return h.prikazPrognoze(ctx, st.Code, velicina)
+	}
+	if h.prognoze == nil {
 		return nil
 	}
 	c := h.prognoze()
@@ -695,7 +708,7 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 			Izvor: rd.Origin, Vrsta: "trenutna",
 		})
 	}
-	prog := h.prognozaZa(station, "vodostaj")
+	prog := h.prognozaZa(ctx, station, "vodostaj")
 	data.Chart = crtajNizSPrognozom(prorijediNiz(zaGraf, 700), "vodostaj", thresholdStation, nil, prog)
 	data.ChartUzak = crtajNizUzakSPrognozom(prorijediNiz(zaGraf, 260), "vodostaj", thresholdStation, nil, prog)
 	data.Svi = shown // izvješće uzima cijelo razdoblje, ne samo prikazanu stranicu

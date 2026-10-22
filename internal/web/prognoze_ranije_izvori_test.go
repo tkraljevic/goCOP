@@ -30,7 +30,7 @@ func podaciRanijeg(h *PrognozeHandler, sat int64) PrognozePageData {
 		izdano := satOdEpohe(sat)
 		r = r.WithContext(UzRanijeIzdanje(r.Context(), RanijeIzdanje{Trazeno: izdano, Izdano: izdano}))
 	}
-	return h.podaci(r, "", "")
+	return h.podaci(r, "")
 }
 
 // Čvor koji je prije izdavao sam, a sada prima razmjenom, svoje staro

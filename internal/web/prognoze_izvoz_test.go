@@ -110,6 +110,7 @@ func TestIzvozGrafovaIGodisnjih(t *testing.T) {
 			{Kod: "batina", Naziv: "Batina", Racuna: "vodostaj", SadaCmV: v(300)},
 		}}},
 		pregled: []PregledLetve{{Letva: "batina", Satno: satno}},
+		prikaz:  map[string]nizPrikaza{"batina": prikazLetve(0, PregledLetve{Letva: "batina", Satno: satno}, nil, nil, izdanoSat)},
 		postajeM: map[string]models.Station{"batina": {Code: "batina", Name: "Batina",
 			Prep: models.Threshold{Cm: cm(420)}, Emergency: models.Threshold{Cm: cm(900)}}},
 	}

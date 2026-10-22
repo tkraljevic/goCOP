@@ -20,26 +20,15 @@
   <p class="reg-card-sub">Satni lanac seže 96 sati; dnevni model daje dane do šestog. Kombinacija uzima dnevni model od dana
     koji je provjera odredila za svaku letvu i za vodostaj u satu izdavanja: pri visokoj vodi kako je izmjereno na poplavnim
     valovima, pri niskoj i srednjoj ranije (na Dravi od 1. ili 2. dana, na Vukovaru i Iloku od 3.). Tablica je na stranici
-    O prognozi. Vrijednost iz dnevnog modela nosi oznaku d.</p>
+    O prognozi. Vrijednost iz dnevnog modela nosi oznaku d. Tablica, uzdužni profil, graf letve i izvoz u Excel pokazuju
+    isto: između dana koje daju različiti modeli crta kroz dan postupno prelazi s jednoga na drugi.</p>
   <form method="POST" action="/prognoze/postavke" class="prog-prikaz-obrazac">
     {{$o := .Opcije}}
-    <div class="prog-prikaz-red"><label for="prognoza_graf">Graf (uzdužni profil)</label>
-      <select name="prognoza_graf" id="prognoza_graf" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
-        <option value=""{{if eq $o.PrognozaGraf ""}} selected{{end}}>kombinacija</option>
-        <option value="satni"{{if eq $o.PrognozaGraf "satni"}} selected{{end}}>satni lanac</option>
-        <option value="dnevni"{{if eq $o.PrognozaGraf "dnevni"}} selected{{end}}>dnevni model</option>
-      </select></div>
-    <div class="prog-prikaz-red"><label for="prognoza_tablica">Tablica na stranici</label>
-      <select name="prognoza_tablica" id="prognoza_tablica" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
-        <option value=""{{if eq $o.PrognozaTablica ""}} selected{{end}}>kombinacija</option>
-        <option value="satni"{{if eq $o.PrognozaTablica "satni"}} selected{{end}}>satni lanac</option>
-        <option value="dnevni"{{if eq $o.PrognozaTablica "dnevni"}} selected{{end}}>dnevni model</option>
-      </select></div>
-    <div class="prog-prikaz-red"><label for="prognoza_excel">Izvoz u Excel</label>
-      <select name="prognoza_excel" id="prognoza_excel" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
-        <option value=""{{if eq $o.PrognozaExcel ""}} selected{{end}}>kombinacija</option>
-        <option value="satni"{{if eq $o.PrognozaExcel "satni"}} selected{{end}}>satni lanac</option>
-        <option value="dnevni"{{if eq $o.PrognozaExcel "dnevni"}} selected{{end}}>dnevni model</option>
+    <div class="prog-prikaz-red"><label for="prognoza_prikaz">Tablica, grafovi i izvoz</label>
+      <select name="prognoza_prikaz" id="prognoza_prikaz" class="form-control"{{if not $.SmijeMijenjati}} disabled{{end}}>
+        <option value=""{{if eq $o.PrognozaPrikaz ""}} selected{{end}}>kombinacija</option>
+        <option value="satni"{{if eq $o.PrognozaPrikaz "satni"}} selected{{end}}>satni lanac</option>
+        <option value="dnevni"{{if eq $o.PrognozaPrikaz "dnevni"}} selected{{end}}>dnevni model</option>
       </select></div>
     <div class="prog-prikaz-red"><label for="prognoza_susjedi">Letve bez dnevnog modela</label>
       <span><input type="checkbox" name="prognoza_susjedi" id="prognoza_susjedi" value="1"{{if not $o.PrognozaBezSusjeda}} checked{{end}}{{if not $.SmijeMijenjati}} disabled{{end}}>
