@@ -212,9 +212,14 @@ func TestOpisOperatera(t *testing.T) {
 			t.Errorf("pri %g m³/s:\n%s\nželim\n%s", s.q0, got, s.want)
 		}
 	}
-	// Model bez praga velike vode uvijek je u običnoj vodi.
+	// Model bez praga velike vode uvijek je u običnoj vodi; bez naučenog
+	// režima opis kaže da vrh drži zadnje istjecanje.
 	bez := &OperaterModel{Letva: "he-varazdin", Ulazi: []string{"he-formin"}}
-	if got := OpisOperatera(bez, 900); !strings.Contains(got, "(obična voda, iz he-formin;") {
+	if got := OpisOperatera(bez, 900); !strings.Contains(got, "za običnu vodu nije naučen") {
 		t.Errorf("model bez praga: %s", got)
+	}
+	m.Koristi[1] = [OperaterDosezi + 1]bool{}
+	if got := OpisOperatera(m, 500); got != "vrh drži zadnje istjecanje: model ispuštanja elektrane za veliku vodu nije naučen ili nije bolji od zadnjeg mjerenja" {
+		t.Errorf("bez režima velike vode: %s", got)
 	}
 }

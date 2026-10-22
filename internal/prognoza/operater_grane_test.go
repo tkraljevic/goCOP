@@ -128,10 +128,11 @@ func TestNamjestiOperateraGraniceUcenja(t *testing.T) {
 	}
 	// Granica 120 sati u ocjeni: doseg k vidi 120 − k sati ocjene, od kojih
 	// je svaki deseti velika voda. Sto sati obične vode ima još doseg 9, a
-	// doseg 10 ih ima 99. Bez granice naučili bi se svi dosezi.
+	// dosegu 10 i daljnjima ocjena se proširi unatrag na zadnjih sto sati
+	// (podjelaOcjene), pa se uče svi dosezi.
 	m = nauci(ocjena + 120)
-	if d, want := nauceni(m), []int{1, 2, 3, 4, 5, 6, 7, 8, 9}; !reflect.DeepEqual(d, want) {
-		t.Errorf("granica u ocjeni: naučeni dosezi %v, želim %v", d, want)
+	if d := nauceni(m); len(d) != OperaterDosezi {
+		t.Errorf("granica u ocjeni: naučeno %d dosega, želim svih %d", len(d), OperaterDosezi)
 	}
 	if len(m.Koef[0][1]) != 13 || m.imaRazinu() {
 		t.Errorf("model bez razine: %d koeficijenata, razina %v", len(m.Koef[0][1]), m.imaRazinu())
@@ -439,5 +440,35 @@ func TestBuducnostOperateraBilancaBezTjednaIstjecanja(t *testing.T) {
 	n := BuducnostOperatera(map[string]*OperaterModel{"elektrana": m}, nizovi, sada)[Izvor{Letva: "elektrana", Velicina: "protok"}]
 	if v, _ := n.U(sada + 6); math.Abs(v-130) > 1e-9 {
 		t.Errorf("+6 h: %v, želim 130 (dotok 100 uz omjer 1 i dopust 30)", v)
+	}
+}
+
+// Ocjena su sati od granice ocjene; kad ih je manje od sto, uzima se zadnjih
+// sto sati, uvijek iza svih sati učenja. Režim s manje od petsto sati učenja
+// ne uči se.
+func TestPodjelaOcjene(t *testing.T) {
+	uzorci := func(n int, od int64) []uzorakOcjene {
+		u := make([]uzorakOcjene, n)
+		for i := range u {
+			u[i].t = od + int64(i)
+		}
+		return u
+	}
+	for _, s := range []struct {
+		ime     string
+		svi     []uzorakOcjene
+		granica int64
+		podjela int
+		ok      bool
+	}{
+		{"dovoljno u ocjeni", uzorci(800, 0), 600, 600, true},
+		{"98 sati u ocjeni", uzorci(800, 0), 702, 700, true},
+		{"premalo za učenje", uzorci(590, 0), 500, 490, false},
+		{"premalo uopće", uzorci(50, 0), 10, -50, false},
+	} {
+		p, ok := podjelaOcjene(s.svi, s.granica)
+		if p != s.podjela || ok != s.ok {
+			t.Errorf("%s: podjela %d %v, želim %d %v", s.ime, p, ok, s.podjela, s.ok)
+		}
 	}
 }

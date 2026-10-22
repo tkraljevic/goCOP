@@ -574,7 +574,8 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 
 	// Modeli ispuštanja elektrana: uče se na svemu do granice (NamjestiDo ili
 	// danas), a odluka je li doseg bolji od postojanosti donosi se na zadnje
-	// dvije godine prije granice, modelom naučenim prije njih.
+	// dvije godine prije granice, modelom naučenim prije njih; kad je u njima
+	// premalo sati režima, na zadnjih sto sati režima (podjelaOcjene).
 	granica := time.Now().Unix() / 3600
 	if NamjestiDo > 0 {
 		granica = NamjestiDo
@@ -595,6 +596,10 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 		fmt.Fprintf(w, "\nmodel ispuštanja %s ← %s, prag velike vode %.0f m³/s (MAE m³/s u ocjeni, model/postojanost; * = koristi se)\n",
 			m.Letva, strings.Join(m.Ulazi, " + "), m.Prag)
 		for g, ime := range []string{"obična voda", "velika voda"} {
+			if !m.imaRezim(g) {
+				fmt.Fprintf(w, "  %-12s nije naučen (premalo sati), vrh drži zadnje istjecanje\n", ime)
+				continue
+			}
 			fmt.Fprintf(w, "  %-12s", ime)
 			for _, k := range []int{3, 6, 12, 18, 24, 36, 48, 72, 96} {
 				z := " "
