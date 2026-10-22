@@ -4,6 +4,34 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.41-alfa — 22. 10. 2026.
+
+- **Kiša ulazi u satni lanac Dunava.** Lanac Dunava nije vidio kišu: vrh
+  (Wildungsmauer) drži zadnje mjerenje, pa su Komárom, Budimpešta i Mohács
+  pri porastu od kiše kasnili za Batinom, koja uz lanac ima i dnevni model.
+  Sad Komárom i Budimpešta imaju dnevni model s kišom (gornji Dunav i
+  Morava; Váh, Hron i Ipeľ), a lanac na njima miješa oba modela, pa kišu
+  nose i sve letve nizvodno (oznaka ds). Na 2024.–2026. s pravim
+  prognozama kiše Batina za 96 sati griješi 16,2 cm umjesto 18,9, a kad
+  voda raste 23,3 umjesto 28,5. Kad kiša padne nakon suhih dana, prognoza
+  zna biti previsoka, kao i dosad dnevni model Batine. Novi dnevni model
+  program nauči sam pri prvom izračunu nakon nadogradnje (Odluke (22. 10.
+  2026.)). (#125)
+- **Letve između dunavskih postaja prate susjede.** Siga, Petreš,
+  Bogojevo, Dalj, Sotin i Mohovo te mađarske letve od Esztergoma do
+  Mohácsa nemaju dnevni model, pa na uzdužnom profilu nisu rasle sa
+  susjedima. Sad dnevni dio posuđuju od susjeda, prema položaju na rijeci
+  (oznaka p). Uz p raspon je procijenjen iz susjeda, a protok daje krivulja
+  letve gdje je ima. (#124, #125)
+- **Srpske letve s našom prognozom pokazuju isto što i letve s kojih se
+  prenose.** Bezdan, Apatin i Bačka Palanka dobivaju ugađanje kao Batina i
+  Ilok (oznaka ds). (#124)
+- **Uzdužni profil Dunava kreće od Komároma.** Nagybajcs i Wildungsmauer
+  imaju samo satni lanac, pa bi na profilu Komárom rastao sam; u tablici
+  prognoza i dalje stoje. (#124, #125)
+- **Stranica O prognozi i slika lanca** opisuju kišu u lancu i letve koje
+  prate susjede. (#124, #125)
+
 ## 0.0.40-alfa — 22. 10. 2026.
 
 - **Prognoza više ne ovisi ni o jednoj tuđoj prognozi.** Komárom je vodila
