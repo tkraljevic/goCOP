@@ -69,8 +69,8 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 	// U izvoz ulaze letve s našom prognozom i srpske letve, sa svojim
 	// mjerenjem, našom prenesenom prognozom i prognozom srpske službe, jer
 	// su na istom Dunavu nasuprot našima. Ostale letve samo s mjerenjem
-	// (Bratislava, Komárno) ili samo s tuđom prognozom (Komárom, Letenye)
-	// ostaju na stranici.
+	// (Bratislava, Komárno) i vrhovi lanca (Wildungsmauer, Letenye) ostaju
+	// na stranici.
 	var letve []LetvaPrognoze
 	for _, x := range t.Letve {
 		if _, drzava := imeIDrzava(x.Naziv); x.Racuna != "" || drzava == "RS" {
@@ -231,8 +231,8 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
 		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
-		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav slijedi mađarsku prognozu " +
-		"Komároma dok je svježa, inače naš lanac od Wildungsmauera (Wildungsmauer drži zadnje mjerenje).\n" +
+		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a na Dunavu Wildungsmauer, koji " +
+		"drži zadnje mjerenje. Tuđe prognoze u račun ne ulaze.\n" +
 		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+
 			"lanac), odnosno %s standardna odstupanja analognih situacija (dnevni model): stvarna vrijednost ostaje "+
 			"u rasponu u %d %% slučajeva, a u %d %% izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je "+
@@ -521,7 +521,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
 		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
 			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
-			"ništa ne mijenja. U provjeri vrh lanca ne slijedi mađarsku prognozu i nema ispravka pomaka. Dunavske valove "+
+			"ništa ne mijenja. U provjeri nema ispravka pomaka. Dunavske valove "+
 			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
 			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
