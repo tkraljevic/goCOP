@@ -32,14 +32,14 @@ type Opcije struct {
 	// nosi), umjesto nakon roka; štedi prostor, a stranica prijave slike
 	// pokazuje iz PDF-a
 	SlikeOdmah bool `json:"slike_odmah,omitempty"`
-	// PrognozaGraf, PrognozaTablica i PrognozaExcel biraju koji model daje
-	// dane prognoze na uzdužnom profilu, u tablici i u izvozu: prazno je
+	// PrognozaPrikaz bira koji model daje dane prognoze: prazno je
 	// kombinacija (dnevni model od dana koji je odredila provjera na
 	// valovima), "satni" satni lanac dokle seže, "dnevni" dnevni model od
-	// prvog dana gdje ga letva ima.
-	PrognozaGraf    string `json:"prognoza_graf,omitempty"`
-	PrognozaTablica string `json:"prognoza_tablica,omitempty"`
-	PrognozaExcel   string `json:"prognoza_excel,omitempty"`
+	// prvog dana gdje ga letva ima. Vrijedi za tablicu, uzdužni profil, graf
+	// letve i izvoz zajedno, jer graf i tablica moraju pokazivati isto (Odluke
+	// (22. 10. 2026.)). Ključ je ostao od izbora za tablicu, pa izbor spremljen
+	// prije toga vrijedi i dalje; zasebni izbori za graf i izvoz se zanemaruju.
+	PrognozaPrikaz string `json:"prognoza_tablica,omitempty"`
 	// PrognozaBezSusjeda isključuje dane iz susjeda: letve bez dnevnog
 	// modela (Novo Virje, Szentborbás, Vrbovka, Moslavina, Drávaszabolcs)
 	// tada od 2. dana ne slijede susjede s dnevnim modelom, nego pokazuju

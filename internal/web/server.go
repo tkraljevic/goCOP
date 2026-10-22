@@ -963,6 +963,7 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetWatercourses(s.watercourseService)
 	prognozeH.SetArhiva(s.Arhiva)
 	readingsH.SetKrajnosti(prognozeH.KrajnostiLetve)
+	readingsH.SetPrikazPrognoze(prognozeH.PrikazZaLetvu)
 	prognozeH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
 	prognozeH.SetPricuvno(func(ctx context.Context) (prognoza.PricuvniPodaci, bool) {
 		if s.pricuvno == nil {

@@ -406,14 +406,14 @@ func TestPostavkeDanaIzSusjeda(t *testing.T) {
 		forma url.Values
 		bez   bool
 	}{
-		{url.Values{"prognoza_tablica": {"satni"}}, true},
-		{url.Values{"prognoza_tablica": {"satni"}, "prognoza_susjedi": {"1"}}, false},
+		{url.Values{"prognoza_prikaz": {"satni"}}, true},
+		{url.Values{"prognoza_prikaz": {"satni"}, "prognoza_susjedi": {"1"}}, false},
 	} {
 		r := httptest.NewRequest(http.MethodPost, "/prognoze/postavke", strings.NewReader(tc.forma.Encode()))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, &models.UserPermissions{IsGlobalAdmin: true}))
 		h.SpremiPostavke(httptest.NewRecorder(), r)
-		if spremljeno.PrognozaBezSusjeda != tc.bez || spremljeno.PrognozaTablica != models.PrognozaSatni {
+		if spremljeno.PrognozaBezSusjeda != tc.bez || spremljeno.PrognozaPrikaz != models.PrognozaSatni {
 			t.Errorf("forma %v: spremljeno %+v", tc.forma, spremljeno)
 		}
 	}

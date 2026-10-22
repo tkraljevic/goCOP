@@ -62,9 +62,8 @@ func hrvatskeLetve(data PrognozePageData) []LetvaPrognoze {
 	return out
 }
 
-// nizoviGrafova slaže satne nizove hrvatskih letvi: izmjereno do izdanja,
-// a dalje prognozu satnog lanca, gdje ne seže — dnevni model, kao i na
-// uzdužnom profilu.
+// nizoviGrafova slaže satne nizove hrvatskih letvi: izmjereno do izdanja, a
+// dalje niz koji pokazuje i tablica (prikaz), kao i na uzdužnom profilu.
 func (h *PrognozeHandler) nizoviGrafova(ctx context.Context, data PrognozePageData) []letvaGrafa {
 	izdanoH := data.IzdanoSat
 	izdano := time.Unix(izdanoH*3600, 0)
@@ -76,10 +75,6 @@ func (h *PrognozeHandler) nizoviGrafova(ctx context.Context, data PrognozePageDa
 		}
 		return v
 	}
-	po := map[string]PregledLetve{}
-	for _, l := range data.pregled {
-		po[l.Letva] = l
-	}
 	var out []letvaGrafa
 	for _, x := range hrvatskeLetve(data) {
 		ime, _ := imeIDrzava(x.Naziv)
@@ -89,14 +84,10 @@ func (h *PrognozeHandler) nizoviGrafova(ctx context.Context, data PrognozePageDa
 			g.izmjereno[sat+GrafUnatragSati] = v
 		}
 		premosti(g.izmjereno, GrafPopunaSati)
-		l := po[x.Kod]
-		for sat := 1; sat <= GrafNaprijedSati; sat++ {
-			t := izdanoH + int64(sat)
-			v, ima := l.Satno[t]
-			if !ima {
-				v, ima = dnevniU(data.dnevne[x.Kod], t)
-			}
-			if !ima {
+		niz := data.prikaz[x.Kod].Cm
+		for sat := 1; sat <= GrafNaprijedSati && sat < len(niz); sat++ {
+			v := niz[sat]
+			if !v.Ima {
 				continue
 			}
 			i := sat + GrafUnatragSati

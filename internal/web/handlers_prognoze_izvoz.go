@@ -37,7 +37,7 @@ func (h *PrognozeHandler) IzvoziPrognoze(w http.ResponseWriter, r *http.Request)
 		zaSazetak = append(zaSazetak, g.Letve...)
 	}
 	h.godisnje(r.Context(), zaSazetak)
-	data := h.podaci(r, h.nacini(r.Context()).PrognozaExcel, h.nacini(r.Context()).PrognozaGraf)
+	data := h.podaci(r, h.nacini(r.Context()).PrognozaPrikaz)
 	if data.Nema {
 		http.Error(w, data.Razlog, http.StatusNotFound)
 		return
@@ -88,7 +88,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		l.Sirine = append(l.Sirine, sirinaLetve(x, t.Naslov))
 	}
 	zaglavljeLista(l, z, "PROGNOZA VODOSTAJA — "+t.Naslov,
-		"izdano "+data.Izdano+" · dani za 07 h · vodostaj u cm, protok u m³/s · dani: "+data.NacinTablice, stupaca)
+		"izdano "+data.Izdano+" · dani za 07 h · vodostaj u cm, protok u m³/s · dani: "+data.NacinPrikaza, stupaca)
 
 	// Zaglavlje u tri retka: naziv letve (dulji se prelomi u dva retka),
 	// država kraticom — ili voda, gdje nije ista kao naslov lista — i

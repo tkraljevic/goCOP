@@ -194,7 +194,7 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 		t.Error("gumb Generiraj na postavkama nije spreman za klik")
 	}
 	// Način prikaza vidi svatko, mijenja samo uprava.
-	if !strings.Contains(html, `name="prognoza_tablica"`) || strings.Contains(html, "Spremi</button>") {
+	if !strings.Contains(html, `name="prognoza_prikaz"`) || strings.Contains(html, "Spremi</button>") {
 		t.Error("izbor načina prikaza: vidljiv svima, spremanje samo upravi")
 	}
 	osnova.SmijeMijenjati = true
