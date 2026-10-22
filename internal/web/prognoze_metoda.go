@@ -412,6 +412,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"više; ispod crteža piše koje su izostavljene i zašto. Uobičajena voda zadnjih deset godina "+
 				"(medijan, crtkano) i srednji vodostaj (SV, točkasto) crtaju se kad su blizu vode. Pad vodnog lica "+
 				"računa se u Trstu; mađarske kote preračunate su dodavanjem 0,675 m."),
+			tekstM("Profil Dunava kreće od Batine. Mađarske letve imaju samo naš satni lanac do 96 sati, bez "+
+				"dnevnog modela, pa bi na profilu Batina rasla sama; u tablici prognoza i dalje stoje."),
 		),
 		detaljiM("Provjera i usporedbe",
 			tekstM("Svaki dio modela provjeren je na podacima koje pri učenju nije vidio. Dnevni model s kišom učen je "+
@@ -431,6 +433,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		),
 		detaljiM("Što je novo",
 			popisM(
+				"22. 10. 2026. — Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo dnevni dio posuđuju od susjeda (oznaka p), pa uzdužni profil više nema grbe; Bezdan, Apatin i Bačka Palanka pokazuju isto što i letve s kojih se prenose; uz p raspon procijenjen iz susjeda i protok iz krivulje; profil Dunava kreće od Batine.",
 				"22. 10. 2026. — na Batini, Aljmašu, Vukovaru i Iloku do 96. sata satni lanac i dnevni model zajedno (oznaka ds); uz svaku vrijednost slovo kaže iz čega je; graf i tablica pokazuju isto, a šesti dan ima vrijednost i kad je izdanje bilo danju; u Postavkama prognoze jedan je izbor modela umjesto tri.",
 				"22. 10. 2026. — prognoza ne ovisi ni o jednoj tuđoj prognozi; Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs od 2. dana slijede susjede (oznaka p); pri visokoj vodi dnevni model na Dravi preuzima ranije (Botovo od 2., Donji Miholjac od 3., Belišće od 4. dana).",
 				"10. 10. 2026. — ranija prognoza: izvoz u Excel za odabrani dan i sat.",
