@@ -16,7 +16,7 @@ func TestTezinaCvora(t *testing.T) {
 		letva string
 		h     int
 		w     float64
-	}{{"komarom", 0, 1}, {"komarom", 12, 0.5}, {"komarom", 30, 0.4}, {"komarom", 96, 0}, {"komarom", 120, 0},
+	}{{"komarom", 0, 1}, {"komarom", 6, 0.56}, {"komarom", 72, 0.56}, {"komarom", 84, 0.28}, {"komarom", 96, 0}, {"komarom", 120, 0},
 		{"budapest", 6, 0.8}, {"budapest", 72, 0.8}, {"budapest", 84, 0.4}} {
 		if w, ok := TezinaCvora(c.letva, c.h); !ok || math.Abs(w-c.w) > 1e-12 {
 			t.Errorf("%s %d h: %g (%v), želim %g", c.letva, c.h, w, ok, c.w)

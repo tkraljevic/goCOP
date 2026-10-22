@@ -642,7 +642,9 @@ je gotov onaj o kojem ovisi.
   nekoliko sati jedna od druge. Pomogao je dnevni model s kišom na
   Komáromu (gornji Dunav i Morava) i Budimpešti (Komárom, Váh, Hron, Ipeľ),
   ugođen sa satnim lancem u samom lancu, svaki svojom težinom: na 2024.–2026.
-  s pravim prognozama kiše Batina za 96 sati 18,9 → 16,5 cm, Komárom 36,3 →
+  s pravim prognozama kiše Batina za 96 sati 18,9 → 16,2 cm, Komárom 36,3 →
   29,5. Mađarske letve između njih dnevni dio posuđuju od susjeda (p).
+  Komárom ima težinu kao Batina: uz raniji ulazak dnevnog modela Batina i
+  Mohács češće prebacuju kad kiša padne nakon suhih dana.
 - Uzdužni profil Dunava zato kreće od Komároma: „Onda ih možda nećemo ni
   trebat uklanjat sa uzdužnog, jer neće bit te rupe.”

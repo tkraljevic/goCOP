@@ -368,19 +368,24 @@ func tezinaIzCvorova(cvorovi [][2]float64, h int) float64 {
 // Mjereno 22. 10. 2026. puštanjem lanca kroz izdanja s dnevnim modelima
 // naučenima prije njih. Na 1.881 izdanju 2024.–2026. (učeno do 2023., kiša
 // kakva je tada bila prognozirana) srednji promašaj za 96 h: Komárom 36,3 →
-// 29,5 cm, Budimpešta 30,5 → 29,6, Mohács 19,5 → 17,5, Batina 18,9 → 16,5; za
-// 72 h Mohács 14,0 → 11,8 i Batina 12,6 → 11,6. Kad voda raste 30 cm i više,
-// Komárom 96 h 67 → 45, Batina 28,5 → 23,6. Na 8.063 izdanja 2012.–2026.
-// (učeno do 2011., kiša koja je pala) Batina 96 h 22,1 → 19,3. Prvih 48 sati
+// 29,5 cm, Budimpešta 30,5 → 29,6, Mohács 19,5 → 17,0, Batina 18,9 → 16,2; za
+// 72 h Mohács 14,0 → 11,5 i Batina 12,6 → 11,5. Kad voda raste 30 cm i više,
+// Komárom 96 h 67 → 45, Batina 28,5 → 23,3. Na 8.063 izdanja 2012.–2026.
+// (učeno do 2011., kiša koja je pala) Batina 96 h 22,1 → 19,0. Prvih 48 sati
 // se ne mijenja.
 //
-// Komáromu lanac drži vrh (Wildungsmauer) na zadnjem mjerenju, pa dnevni
-// model ulazi rano; Budimpešti lanac već nosi bolji Komárom, pa ostaje jači.
-// Obje težine do 96. sata padaju na nulu, kao na letvama ugađanja: odande je
-// prikaz dnevni model, pa tablica, graf i lanac pokazuju isto. Budimpešti bi
-// lanac do 144. sata dao još 3 cm za 96 h, ali nizvodnim letvama ništa.
+// Mana: kad kiša digne prognozu za 20 cm i više, Batina za 96 h u prosjeku
+// prebaci 14 cm, a lanac je u istim izdanjima podbacivao 15 (2024.–2026.,
+// 142 izdanja). Isto rade i dnevni modeli Batine i Aljmaša na kiši nakon
+// suhih dana; ovo samo čini da i mađarske letve pokazuju isto.
+//
+// Komárom ima težinu kao letve ugađanja (TezinaLanca); s ranijim ulaskom
+// dnevnog modela Komárom je bio malo bolji, ali Batina i Mohács lošiji i
+// češće previsoki. Budimpešti lanac već nosi Komárom, pa ostaje jači. Obje
+// težine do 96. sata padaju na nulu: odande je prikaz dnevni model, pa
+// tablica, graf i lanac pokazuju isto.
 var UgadjanjeCvorova = map[string][][2]float64{
-	"komarom":  {{0, 1}, {12, 0.5}, {48, 0.3}, {96, 0}},
+	"komarom":  cvoroviTezine,
 	"budapest": {{0, 1}, {6, 0.8}, {72, 0.8}, {96, 0}},
 }
 

@@ -374,14 +374,17 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Komárom i Budimpešta imaju ugađanje u samom lancu: njihova vrijednost unaprijed je dnevni model s "+
 				"kišom i satni lanac zajedno, pa letve nizvodno računaju iz nje i kišu dobivaju kroz lanac. Komárom "+
 				"dnevni model računa iz kiše nad gornjim Dunavom i Moravom, Budimpešta iz Komároma i kiše nad Váhom, "+
-				"Hronom i Ipeľom. Težina satnog lanca na Komáromu je 0,5 u 12. satu i 0,3 u 48., a na Budimpešti 0,8 "+
-				"do 72. sata; na obje do 96. sata pada na 0. Kiša kao ulaz u pojedinu vezu lanca nije pomogla, jer su "+
-				"susjedne letve nekoliko sati jedna od druge, pa je voda već na uzvodnoj."),
+				"Hronom i Ipeľom. Težina satnog lanca na Komáromu je kao na Batini, a na Budimpešti 0,8 do 72. sata; "+
+				"na obje do 96. sata pada na 0. Kiša kao ulaz u pojedinu vezu lanca nije pomogla, jer su susjedne "+
+				"letve nekoliko sati jedna od druge, pa je voda već na uzvodnoj."),
 			tablicaM("Kiša u lancu: srednja pogreška u cm, lanac bez nje / s njom (1.881 izdanje 2024.–2026., model naučen do 2023., prave prognoze kiše)",
 				[]string{"", "72 h", "96 h", "96 h kad voda raste 30 cm i više"},
-				[]string{"Komárom", "29,2 / 26,1", "36,3 / 29,5", "67 / 45"},
-				[]string{"Mohács", "14,0 / 11,8", "19,5 / 17,5", "30,6 / 25,8"},
-				[]string{"Batina", "12,6 / 11,6", "18,9 / 16,5", "28,5 / 23,6"}),
+				[]string{"Komárom", "29,2 / 25,6", "36,3 / 29,5", "67 / 45"},
+				[]string{"Mohács", "14,0 / 11,5", "19,5 / 17,0", "30,6 / 25,2"},
+				[]string{"Batina", "12,6 / 11,5", "18,9 / 16,2", "28,5 / 23,3"}),
+			tekstM("Kad kiša nakon suhih dana digne prognozu za 20 cm i više, Batina za 96 sati u prosjeku pokaže "+
+				"14 cm previše, a lanac bez kiše je u istim izdanjima pokazivao 15 cm premalo. Isto rade i dnevni "+
+				"modeli Batine i Aljmaša; gornju granicu raspona tada treba čitati s tim na umu."),
 			tekstM("Na Dravi je ugađanje bilo lošije, jer satni lanac od 2. dana ide previsoko zbog elektrana. Ondje "+
 				"dnevni model preuzima od dana koji je provjera odredila (tablica niže). Između dana koje daju "+
 				"različiti modeli crta postupno prelazi s jednoga na drugi, pa tablica, uzdužni profil, graf letve i "+
@@ -448,7 +451,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		),
 		detaljiM("Što je novo",
 			popisM(
-				"22. 10. 2026. — kiša ulazi u satni lanac Dunava: Komárom i Budimpešta imaju dnevni model s kišom i ugađanje u samom lancu (oznaka ds), pa kišu nose i letve nizvodno; Batina za 96 sati griješi 2,4 cm manje, a kad voda raste 5 cm manje; mađarske letve od Esztergoma do Mohácsa dnevni dio posuđuju od susjeda (oznaka p); profil Dunava kreće od Komároma.",
+				"22. 10. 2026. — kiša ulazi u satni lanac Dunava: Komárom i Budimpešta imaju dnevni model s kišom i ugađanje u samom lancu (oznaka ds), pa kišu nose i letve nizvodno; Batina za 96 sati griješi 2,7 cm manje, a kad voda raste 5 cm manje; mađarske letve od Esztergoma do Mohácsa dnevni dio posuđuju od susjeda (oznaka p); profil Dunava kreće od Komároma.",
 				"22. 10. 2026. — Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo dnevni dio posuđuju od susjeda (oznaka p), pa uzdužni profil više nema grbe; Bezdan, Apatin i Bačka Palanka pokazuju isto što i letve s kojih se prenose; uz p raspon procijenjen iz susjeda i protok iz krivulje.",
 				"22. 10. 2026. — na Batini, Aljmašu, Vukovaru i Iloku do 96. sata satni lanac i dnevni model zajedno (oznaka ds); uz svaku vrijednost slovo kaže iz čega je; graf i tablica pokazuju isto, a šesti dan ima vrijednost i kad je izdanje bilo danju; u Postavkama prognoze jedan je izbor modela umjesto tri.",
 				"22. 10. 2026. — prognoza ne ovisi ni o jednoj tuđoj prognozi; Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs od 2. dana slijede susjede (oznaka p); pri visokoj vodi dnevni model na Dravi preuzima ranije (Botovo od 2., Donji Miholjac od 3., Belišće od 4. dana).",
