@@ -245,19 +245,20 @@ func ugodi(satni, dnevni izvorSata) []tockaPrikaza {
 func celijeIzNiza(letve []LetvaPrognoze, prikaz map[string]nizPrikaza, ciljevi []int64, izdanoH int64,
 	postaje map[string]models.Station) {
 	for i := range letve {
-		x := &letve[i]
-		n, ima := prikaz[x.Kod]
-		if !ima {
+		if n, ima := prikaz[letve[i].Kod]; ima {
+			celijeLetveIzNiza(&letve[i], n, ciljevi, izdanoH, postaje[letve[i].Kod])
+		}
+	}
+}
+
+func celijeLetveIzNiza(x *LetvaPrognoze, n nizPrikaza, ciljevi []int64, izdanoH int64, st models.Station) {
+	for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
+		h := int(ciljevi[k] - izdanoH)
+		if h > SatiPrikaza || !n.Cm[h].Ima {
 			continue
 		}
-		for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
-			h := int(ciljevi[k] - izdanoH)
-			if h > SatiPrikaza || !n.Cm[h].Ima {
-				continue
-			}
-			if t := n.Cm[h]; t.Susjedi > 0 || n.Ugodjen && t.Dnevni > 0 {
-				upisiIzNiza(&x.Dani[k], t, n.Q[h], postaje[x.Kod])
-			}
+		if t := n.Cm[h]; t.Susjedi > 0 || n.Ugodjen && t.Dnevni > 0 {
+			upisiIzNiza(&x.Dani[k], t, n.Q[h], st)
 		}
 	}
 }

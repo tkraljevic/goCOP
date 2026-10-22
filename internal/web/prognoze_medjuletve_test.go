@@ -8,6 +8,7 @@ import (
 
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
+	"gocop/internal/repository"
 )
 
 // probaMedjuletve je izmišljeni Dunav: Gornja (rkm 200) i Donja (rkm 100)
@@ -139,6 +140,19 @@ func TestQIzKrivulje(t *testing.T) {
 	}
 	if len((&PrognozeHandler{}).krivuljeSusjeda(context.Background())) != 0 {
 		t.Error("bez arhive ima krivulja")
+	}
+	stare := MedjuletveDunava
+	t.Cleanup(func() { MedjuletveDunava = stare })
+	MedjuletveDunava = []LetvaIzSusjeda{{Letva: "primjerovo", Uzvodna: "gornja", Nizvodna: "donja"}}
+	h := &PrognozeHandler{}
+	h.SetArhiva(func() *repository.ArhivaRepository { return nil })
+	if len(h.krivuljeSusjeda(context.Background())) != 0 {
+		t.Error("arhiva nije otvorena, a krivulja ima")
+	}
+	a := arhivaPrimjerova(t)
+	h.SetArhiva(func() *repository.ArhivaRepository { return a })
+	if k := h.krivuljeSusjeda(context.Background()); len(k["primjerovo"]) != 1 {
+		t.Errorf("krivulje %v, želim krivulju letve primjerovo", k)
 	}
 }
 
