@@ -226,8 +226,11 @@ type CelijaDana struct {
 	// IzSatne: dan bi davao dnevni model, ali ga u ovom izdanju nema, pa
 	// stoji satna; BezDnevne: dnevne nema, a satna do dana ne seže.
 	IzSatne, BezDnevne bool
-	Slabija            bool
-	Razina, Moguce     string
+	// IzSusjeda: letva nema dnevni model, pa dan daju susjedi s njim
+	// (prognoze_susjedi.go).
+	IzSusjeda      bool
+	Slabija        bool
+	Razina, Moguce string
 }
 
 // Model kaže koji je model dao vrijednost dana, za skriveni redak izvoza.
@@ -241,6 +244,8 @@ func (c CelijaDana) Model() string {
 		return "dnevni"
 	case c.IzSatne:
 		return "satni (dnevni nije izdan)"
+	case c.IzSusjeda:
+		return "iz susjeda"
 	}
 	return "satni"
 }
@@ -419,6 +424,7 @@ func (h *PrognozeHandler) SpremiPostavke(w http.ResponseWriter, r *http.Request)
 	o.PrognozaGraf = valjan(r.FormValue("prognoza_graf"))
 	o.PrognozaTablica = valjan(r.FormValue("prognoza_tablica"))
 	o.PrognozaExcel = valjan(r.FormValue("prognoza_excel"))
+	o.PrognozaBezSusjeda = r.FormValue("prognoza_susjedi") != "1" // neoznačen kvadratić ne šalje ništa
 	if err := h.spremiOpcije(r.Context(), perms, o); err != nil {
 		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", err.Error())
 		return
@@ -544,6 +550,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 			}
 		}
 	}
+	h.dopuniSusjede(r.Context(), data.Letve, letve, dnevne, postaje, ciljevi, izdano, nacinTablice)
 	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
 	data.Izdaje = h.centar(data.CurrentUser)

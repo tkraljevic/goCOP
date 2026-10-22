@@ -41,6 +41,9 @@
         <option value="satni"{{if eq $o.PrognozaExcel "satni"}} selected{{end}}>satni lanac</option>
         <option value="dnevni"{{if eq $o.PrognozaExcel "dnevni"}} selected{{end}}>dnevni model</option>
       </select></div>
+    <div class="prog-prikaz-red"><label for="prognoza_susjedi">Letve bez dnevnog modela</label>
+      <span><input type="checkbox" name="prognoza_susjedi" id="prognoza_susjedi" value="1"{{if not $o.PrognozaBezSusjeda}} checked{{end}}{{if not $.SmijeMijenjati}} disabled{{end}}>
+        od 2. dana prema susjedima s dnevnim modelom (oznaka p)</span></div>
     {{if .SmijeMijenjati}}<button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
     {{else}}<p class="reg-card-sub">Način prikaza mijenja uprava organizacije.</p>{{end}}
   </form>

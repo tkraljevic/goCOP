@@ -163,7 +163,7 @@
       <div class="prog-termin dan-{{.Razina}}{{if .Moguce}} dan-moguce-{{.Moguce}}{{end}}{{if .Slabija}} prog-slabija{{end}}"
            {{if .Moguce}}title="Gornja granica raspona doseže prag obrane"{{end}}>
         <div class="prog-termin-naslov">{{.Naslov}}</div>
-        {{if .Cm}}<div class="prog-vr">{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{else if .IzSatne}}<sup class="prog-oznaka prog-oznaka-satna" title="satna prognoza — dnevni model za ovo izdanje nije računao">s</sup>{{end}}</div>
+        {{if .Cm}}<div class="prog-vr">{{.Cm}}{{if .Dnevna}}<sup class="prog-oznaka" title="iz dnevnog modela">d</sup>{{else if .IzSatne}}<sup class="prog-oznaka prog-oznaka-satna" title="satna prognoza — dnevni model za ovo izdanje nije računao">s</sup>{{else if .IzSusjeda}}<sup class="prog-oznaka" title="iz susjednih postaja s dnevnim modelom, po riječnom kilometru; bez raspona">p</sup>{{end}}</div>
           {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}
           {{if .Q}}<div class="prog-druga"{{if .QRaspon}} title="protok {{.QRaspon}} m³/s"{{end}}>{{.Q}} m³/s</div>{{end}}
         {{else}}<div class="prog-vr prog-nema"{{if .BezDnevne}} title="Dnevne prognoze za ovo izdanje nema, a satna seže do 96 h"{{end}}>—</div>{{end}}
@@ -484,7 +484,10 @@
       drugog ili trećeg, na Dravi od prvog ili drugog. Vrh lanca na Muri je slovenska Gornja Radgona, a Dunav
       slijedi mađarsku prognozu Komároma dok je svježa, inače austrijsku prognozu Wildungsmauera.
       Kad dnevni model za izdanje nije računao, ti dani pokazuju satnu prognozu u 07 h
-      (oznaka <sup class="prog-oznaka prog-oznaka-satna">s</sup>), a dani do kojih satna ne seže ostaju prazni.</dd>
+      (oznaka <sup class="prog-oznaka prog-oznaka-satna">s</sup>), a dani do kojih satna ne seže ostaju prazni.
+      Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni model, pa od drugog dana slijede
+      susjedne postaje koje ga imaju, razmjerno udaljenosti po rijeci (oznaka <sup class="prog-oznaka">p</sup>).
+      Kad dnevni model susjedima najavi porast od kiše koji ne dođe, i ovdje je najava pogrešna.</dd>
 
     <dt>Raspon</dt>
     <dd>Interval koji obuhvaća {{.Udio}} % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz

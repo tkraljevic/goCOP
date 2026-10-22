@@ -132,6 +132,7 @@ func TestCelijaDanaModel(t *testing.T) {
 		{CelijaDana{BezDnevne: true}, "nema (dnevni nije izdan)"},
 		{CelijaDana{CmV: &v, Dnevna: true}, "dnevni"},
 		{CelijaDana{CmV: &v, IzSatne: true}, "satni (dnevni nije izdan)"},
+		{CelijaDana{CmV: &v, IzSusjeda: true}, "iz susjeda"},
 		{CelijaDana{CmV: &v}, "satni"},
 	} {
 		if got := tc.c.Model(); got != tc.want {

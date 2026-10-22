@@ -40,6 +40,11 @@ type Opcije struct {
 	PrognozaGraf    string `json:"prognoza_graf,omitempty"`
 	PrognozaTablica string `json:"prognoza_tablica,omitempty"`
 	PrognozaExcel   string `json:"prognoza_excel,omitempty"`
+	// PrognozaBezSusjeda isključuje dane iz susjeda: letve bez dnevnog
+	// modela (Novo Virje, Szentborbás, Vrbovka, Moslavina, Drávaszabolcs)
+	// tada od 2. dana ne slijede susjede s dnevnim modelom, nego pokazuju
+	// satni lanac dokle seže. Zadano su uključeni (Odluke (22. 10. 2026.)).
+	PrognozaBezSusjeda bool `json:"prognoza_bez_susjeda,omitempty"`
 }
 
 // Načini prikaza prognoze.

@@ -239,7 +239,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			data.Udio, brojHRf(prognoza.DnevniRasponMnozitelj, 2), data.Udio, 100-data.Udio) +
 		"HU — prognoza mađarske hidrološke službe (hydroinfo.hu), uz našu radi usporedbe; njihov raspon " +
 		"obuhvaća isti udio (70 %), pa dva raspona znače isto. Potpun opis modela i računa, " +
-		"s ulazima svake postaje, na listu „O prognozi”."
+		"s ulazima svake postaje, na listu „O prognozi”." + napomenaSusjeda(letve)
 	var sirina float64
 	for _, w := range l.Sirine {
 		sirina += w
