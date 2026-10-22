@@ -125,23 +125,38 @@ func spojiStupce(sidra []int, izvori []izvorDana, fje map[izvorDana]izvorSata, d
 // modeli ia i ib. Kad jedan model u tom satu nema vrijednosti, ide drugi; u
 // satu stupca samo model stupca, jer je to broj iz tablice.
 func prijelaz(h, s0, s1 int, ia, ib izvorDana, fja func(izvorDana) izvorSata) tockaPrikaza {
-	va, okA, drziA := fja(ia)(h)
+	a := uSatu(fja(ia), h)
 	if ia == ib {
-		if okA && !drziA {
-			return va
-		}
-		return tockaPrikaza{}
+		return a.prava()
 	}
-	vb, okB, drziB := fja(ib)(h)
+	b := uSatu(fja(ib), h)
 	switch {
-	case h == s1 && !(okB && !drziB):
-		return tockaPrikaza{}
-	case okA && okB && !(drziA && drziB):
-		return pomijesaj(va, vb, float64(h-s0)/float64(s1-s0))
-	case okA && !drziA:
-		return va
-	case okB && !drziB:
-		return vb
+	case h == s1:
+		return b.prava()
+	case a.ok && b.ok && !(a.drzi && b.drzi):
+		return pomijesaj(a.v, b.v, float64(h-s0)/float64(s1-s0))
+	case a.ok && !a.drzi:
+		return a.v
+	}
+	return b.prava()
+}
+
+// vrijednostIzvora je ono što je model dao u jednom satu.
+type vrijednostIzvora struct {
+	v        tockaPrikaza
+	ok, drzi bool
+}
+
+func uSatu(f izvorSata, h int) vrijednostIzvora {
+	v, ok, drzi := f(h)
+	return vrijednostIzvora{v: v, ok: ok, drzi: drzi}
+}
+
+// prava je vrijednost koja se smije crtati sama: postoji i nije zadržana iza
+// kraja satnog lanca.
+func (x vrijednostIzvora) prava() tockaPrikaza {
+	if x.ok && !x.drzi {
+		return x.v
 	}
 	return tockaPrikaza{}
 }
@@ -365,21 +380,44 @@ func (h *PrognozeHandler) PrikazZaLetvu(ctx context.Context, letva, velicina str
 	postaje := h.postaje(ctx)
 	_, ciljevi := daniPregleda(izdano)
 	susjedi, srednjaci := h.susjediIzdanja(ctx, postaje, izdano)
-	izdanoH := izdano.Unix() / 3600
 	n, ima := prikazIzdanja(ulazPrikaza{pregled: letve, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi,
-		izdanoH: izdanoH, nacin: h.nacini(ctx).PrognozaPrikaz, susjedi: susjedi, srednjak: srednjaci})[letva]
+		izdanoH: izdano.Unix() / 3600, nacin: h.nacini(ctx).PrognozaPrikaz, susjedi: susjedi, srednjak: srednjaci})[letva]
 	if !ima {
 		return nil
 	}
-	niz := n.Cm
-	if velicina == "protok" {
-		niz = n.Q
+	p := prognozaIzNiza(izdano, sadaLetve(letve, letva, velicina), n.uVelicini(velicina))
+	if p == nil {
+		return nil
 	}
-	p := &PrognozaNiza{Izdano: izdano, Udio: int(math.Round(prognoza.UdioURasponu * 100))}
+	u, _ := c.Upozorenja(izdano)
+	p.Upitno = upitnoLetve(u, letva)
+	return p
+}
+
+// uVelicini je niz u vodostaju ili protoku.
+func (n nizPrikaza) uVelicini(velicina string) []tockaPrikaza {
+	if velicina == "protok" {
+		return n.Q
+	}
+	return n.Cm
+}
+
+// sadaLetve je vrijednost letve u satu izdanja, kad je ima.
+func sadaLetve(letve []PregledLetve, letva, velicina string) *float64 {
 	for _, l := range letve {
 		if v, ima := l.Sada[velicina]; ima && l.Letva == letva {
-			p.Tocke = append(p.Tocke, TockaPrognoze{Kad: izdano, Vrijednost: v, Dolje: v, Gore: v})
+			return &v
 		}
+	}
+	return nil
+}
+
+// prognozaIzNiza je niz kakav ide na graf: od vrijednosti u satu izdanja
+// dalje; manje od dvije točke nije crta.
+func prognozaIzNiza(izdano time.Time, sada *float64, niz []tockaPrikaza) *PrognozaNiza {
+	p := &PrognozaNiza{Izdano: izdano, Udio: int(math.Round(prognoza.UdioURasponu * 100))}
+	if sada != nil {
+		p.Tocke = append(p.Tocke, TockaPrognoze{Kad: izdano, Vrijednost: *sada, Dolje: *sada, Gore: *sada})
 	}
 	for sat := 1; sat < len(niz); sat++ {
 		if t := niz[sat]; t.Ima {
@@ -390,7 +428,5 @@ func (h *PrognozeHandler) PrikazZaLetvu(ctx context.Context, letva, velicina str
 	if len(p.Tocke) < 2 {
 		return nil
 	}
-	u, _ := c.Upozorenja(izdano)
-	p.Upitno = upitnoLetve(u, letva)
 	return p
 }

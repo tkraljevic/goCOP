@@ -226,10 +226,51 @@ func TestSatniIzaKrajaSamoUPrijelazu(t *testing.T) {
 	}
 }
 
-// Graf letve uzima isti niz kao tablica, od sata izdanja; bez čitača nema ga.
-func TestPrikazZaLetvuBezCitaca(t *testing.T) {
+// Graf letve uzima isti niz kao tablica, od sata izdanja; bez čitača, za
+// nepoznatu letvu ili veličinu koje nema, nema ga.
+func TestPrikazZaLetvu(t *testing.T) {
 	h := &PrognozeHandler{}
-	if h.PrikazZaLetvu(context.Background(), "vukovar", "vodostaj") != nil {
+	if h.PrikazZaLetvu(context.Background(), "belisce", "vodostaj") != nil {
 		t.Error("bez čitača ima prognoze")
+	}
+	izdano := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
+	c, err := OtvoriPrognoze(bazaPrognoza(t, izdano.Unix()/3600))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	h = NewPrognozeHandler(nil, func() *CitacPrognoza { return c }, nil)
+	p := h.PrikazZaLetvu(context.Background(), "belisce", "vodostaj")
+	if p == nil || len(p.Tocke) != 73 || !p.Izdano.Equal(izdano) {
+		t.Fatalf("prognoza %+v: želim sat izdanja i 72 sata satnog lanca", p)
+	}
+	for i, q := range p.Tocke {
+		if q.Vrijednost != 30+float64(i) || !q.Kad.Equal(izdano.Add(time.Duration(i)*time.Hour)) {
+			t.Errorf("točka %d: %+v", i, q)
+		}
+	}
+	if h.PrikazZaLetvu(context.Background(), "belisce", "protok") != nil {
+		t.Error("protoka nema, a graf ga ima")
+	}
+	if h.PrikazZaLetvu(context.Background(), "nepoznata", "vodostaj") != nil {
+		t.Error("nepoznata letva ima prognozu")
+	}
+}
+
+// Stranica letve crta niz s prognoza kad ga ima, a ne svoj satni lanac.
+func TestGrafLetveIzPrikaza(t *testing.T) {
+	h := &ReadingsHandler{}
+	niz := &PrognozaNiza{Udio: 70}
+	h.SetPrikazPrognoze(func(_ context.Context, letva, velicina string) *PrognozaNiza {
+		if letva == "vukovar" && velicina == "vodostaj" {
+			return niz
+		}
+		return nil
+	})
+	if h.prognozaZa(context.Background(), &models.Station{Code: "vukovar"}, "vodostaj") != niz {
+		t.Error("graf letve ne uzima niz s prognoza")
+	}
+	if h.prognozaZa(context.Background(), &models.Station{}, "vodostaj") != nil {
+		t.Error("letva bez šifre ima prognozu")
 	}
 }
