@@ -873,8 +873,29 @@ func TudaPrognoza(db *sql.DB, izvor, letva string, od, do int64) (Niz, bool, err
 		AND izdano BETWEEN ? AND ?`, izvor, letva, od, do).Scan(&izdano); err != nil || !izdano.Valid {
 		return Niz{}, false, err
 	}
+	return tudeIzdanje(db, izvor, letva, izdano.Int64)
+}
+
+// tudaUSatu je kao TudaPrognoza, ali od izdanja u razdoblju uzima najnovije
+// koje ima vrijednost u satu sat i barem jednu poslije njega. Vrh lanca hod
+// tuđe prognoze slijedi od sata izdavanja (Racunalo.U), pa izdanje koje
+// počinje tek iza njega ne daje ništa: letva bi stajala na zadnjem mjerenju,
+// a izdanje bi govorilo da je vodi tuđa.
+func tudaUSatu(db *sql.DB, izvor, letva string, od, do, sat int64) (Niz, bool, error) {
+	var izdano sql.NullInt64
+	if err := db.QueryRow(`SELECT max(izdano) FROM (SELECT izdano FROM tude WHERE izvor = ? AND letva = ?
+		AND izdano BETWEEN ? AND ? GROUP BY izdano HAVING min(ciljni) <= ? AND max(ciljni) > ?)`,
+		izvor, letva, od, do, sat, sat).Scan(&izdano); err != nil || !izdano.Valid {
+		return Niz{}, false, err
+	}
+	return tudeIzdanje(db, izvor, letva, izdano.Int64)
+}
+
+// tudeIzdanje čita jedno tuđe izdanje letve, satno pravocrtno između
+// njegovih točaka; ok je netočno kad ima manje od dvije točke.
+func tudeIzdanje(db *sql.DB, izvor, letva string, izdano int64) (Niz, bool, error) {
 	r, err := db.Query(`SELECT ciljni, vrijednost FROM tude WHERE izvor = ? AND letva = ? AND izdano = ?`,
-		izvor, letva, izdano.Int64)
+		izvor, letva, izdano)
 	if err != nil {
 		return Niz{}, false, err
 	}

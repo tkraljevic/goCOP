@@ -310,8 +310,9 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				[]string{"Goričan, naš dnevni model", "7", "14", "15", "19", "20", "23"}),
 			tekstM("Dunav: mađarska prognoza dok je svježa. Komárom se računa iz Nagybajcsa i Wildungsmauera, a " +
 				"Wildungsmauer drži zadnje mjerenje; ipak, dok je mađarska prognoza Komároma svježa (ne starija od " +
-				"dva dana), Komárom postaje vrh i slijedi nju, jer je u valu dvostruko bolja od našeg lanca. Naš lanac " +
-				"je rezerva za sate kad mađarske nema. Cilj ostaje potpuna neovisnost, ali ne po cijenu lošije prognoze."),
+				"dva dana) i ima vrijednost u satu izdanja, Komárom postaje vrh i slijedi nju, jer je u valu dvostruko " +
+				"bolja od našeg lanca. Naš lanac je rezerva za sate kad mađarske nema. Cilj ostaje potpuna neovisnost, " +
+				"ali ne po cijenu lošije prognoze."),
 			tekstM("Od 26. 9. do 22. 10. 2026. Wildungsmauer je slijedio 48-satnu prognozu Donje Austrije " +
 				"(noel.gv.at). Ta je prognoza izbačena iz lanca: dok je mađarska svježa, mijenjala je samo Nagybajcs, a " +
 				"ni točna austrijska ne popravlja Batinu i Ilok unutar 96 sati. I dalje se preuzima i stoji uz našu " +

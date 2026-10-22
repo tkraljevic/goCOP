@@ -362,8 +362,8 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 // kojem se uzima njezina budućnost. Kad izdanje kasni deset sati, tuđa
 // izdana prije sat vremena za njega nije svježa (izdana je poslije sata
 // izdavanja i šest sati): srednja zadržava račun, a ne ostaje bez računa i
-// bez budućnosti. Tuđa izdana 45 sati prije sata izdavanja svježa je, iako
-// je po satu na zidu starija od dva dana.
+// bez budućnosti. Tuđa izdana 45 sati prije sata izdavanja, koja seže preko
+// njega, svježa je, iako je po satu na zidu starija od dva dana.
 func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 0)
 	sad := time.Now().UTC().Truncate(time.Hour)
@@ -390,7 +390,7 @@ func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
 	if _, err := o.Baza.Exec(`DELETE FROM tude`); err != nil {
 		t.Fatal(err)
 	}
-	upisiTuduSrednje(t, o.Baza, sada-45)
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada-45, 0, 57, 95, 5)
 	ishod, err = o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)

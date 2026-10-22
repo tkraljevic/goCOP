@@ -460,9 +460,10 @@ func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64) bool {
 }
 
 // tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada:
-// izdana najviše dva dana prije njega i najviše šest sati poslije.
+// izdana najviše dva dana prije njega i najviše šest sati poslije, s
+// vrijednošću u satu sada i barem jednom poslije njega (tudaUSatu).
 func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
-	n, ima, err := TudaPrognoza(o.Baza, izvor, letva, sada-48, sada+6)
+	n, ima, err := tudaUSatu(o.Baza, izvor, letva, sada-48, sada+6, sada)
 	return n, err == nil && ima
 }
 

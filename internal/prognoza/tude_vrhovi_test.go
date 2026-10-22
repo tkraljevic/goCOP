@@ -73,3 +73,65 @@ func TestWildungsmauerNeSlijediAustrijskuPrognozu(t *testing.T) {
 			ishod.TudiVrhovi, kraj)
 	}
 }
+
+// Vrh lanca budućnost tuđe prognoze slijedi od sata izdavanja
+// (Racunalo.U). Tuđa prognoza ispred računa izdana poslije sata izdavanja,
+// koja počinje tek iza njega, zato ne smije voditi letvu: srednja bi ostala
+// bez računa i stajala na zadnjem mjerenju, a popis tuđih vrhova tvrdio bi
+// da je vodi tuđa. Kad u dva dana prije ima izdanje koje sat izdavanja
+// pokriva, uzima se ono, iako nije najnovije.
+func TestTudaKojaPocinjeIzaSataIzdavanja(t *testing.T) {
+	postavi(t, &PoluvijekIspravka, 0)
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := lanacSaSrednjom(t, zadnji)
+	o.Iznova = true
+	sada := zadnji.Unix() / 3600
+
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada+3, 0, 12, 95, 5)
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := izdanihLetve(ishod, "srednja"); len(ishod.TudiVrhovi) != 0 || n < 2 {
+		t.Errorf("tuđa počinje iza sata izdavanja: srednja mora zadržati račun, vrhovi %v, izdanih %d",
+			ishod.TudiVrhovi, n)
+	}
+
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada-20, 0, 48, -5, 5) // u satu izdavanja 95
+	ishod, err = o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ishod.TudiVrhovi) != 1 || ishod.TudiVrhovi[0] != "srednja" {
+		t.Fatalf("starija tuđa pokriva sat izdavanja: srednja mora biti tuđi vrh, vrhovi %v", ishod.TudiVrhovi)
+	}
+	if _, kraj := izdanihLetve(ishod, "donja"); kraj == nil || kraj.Vrijednost != 95+5*10 {
+		t.Errorf("donja za 12 h mora slijediti stariju tuđu prognozu srednje (145): %+v", kraj)
+	}
+}
+
+// tudaUSatu uzima najnovije izdanje u razdoblju koje ima vrijednost u satu i
+// barem jednu poslije njega: izdanje koje u tom satu završava ili tek
+// počinje iza njega preskače se, a bez ijednog takvog prognoze nema.
+func TestTudaUSatu(t *testing.T) {
+	db := otvoriProbnu(t, "p.db")
+	upisiTudu(t, db, "probni-izvor", "srednja", 100, 0, 20, 50, 1) // 100–120
+	upisiTudu(t, db, "probni-izvor", "srednja", 104, 0, 6, 80, 1)  // 104–110, u 110 završava
+	upisiTudu(t, db, "probni-izvor", "srednja", 106, 5, 9, 90, 1)  // 111–115, počinje iza 110
+	n, ok, err := tudaUSatu(db, "probni-izvor", "srednja", 90, 120, 110)
+	if err != nil || !ok {
+		t.Fatalf("ok %v, %v", ok, err)
+	}
+	if v, _ := n.U(110); v != 60 || len(n.Sati) != 21 {
+		t.Errorf("u 110. satu %g iz %d sati, želim 60 iz izdanja 100 (21 sat)", v, len(n.Sati))
+	}
+	for _, r := range [][2]int64{{90, 99}, {104, 120}} {
+		if _, ok, err := tudaUSatu(db, "probni-izvor", "srednja", r[0], r[1], 110); ok || err != nil {
+			t.Errorf("izdana %d–%d ne pokrivaju 110. sat: ok %v, %v", r[0], r[1], ok, err)
+		}
+	}
+	db.Close()
+	if _, ok, err := tudaUSatu(db, "probni-izvor", "srednja", 90, 120, 110); err == nil || ok {
+		t.Errorf("zatvorena baza: ok %v, %v", ok, err)
+	}
+}
