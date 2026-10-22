@@ -455,3 +455,29 @@ func TestDaniDnevnogZa(t *testing.T) {
 		t.Errorf("Drava: %q", got)
 	}
 }
+
+// Kad dnevnog modela u izdanju nema, letva s ugađanjem pokazuje satni lanac
+// sa s u drugoj boji od 1. dana, jer bi dnevni model inače ulazio od 1. dana;
+// dani iza satnog lanca ostaju prazni.
+func TestUgadjanjeBezDnevnog(t *testing.T) {
+	p := novaProbaPrikaza(t)
+	delete(p.dnevne, "vukovar")
+	letve, prikaz := p.tablica(models.PrognozaKombinacija)
+	if !prikaz["vukovar"].Ugodjen {
+		t.Fatal("Vukovar bez dnevnog nema niz s ugađanjem")
+	}
+	for _, x := range letve {
+		if x.Kod != "vukovar" {
+			continue
+		}
+		for k, c := range x.Dani {
+			h := int(p.ciljevi[k] - p.izdanoH)
+			switch o := c.Oznaka(); {
+			case h <= 96 && (o.Tekst != "s" || !o.Upozorenje || c.Kombinacija):
+				t.Errorf("%d. dan %+v: želim satni lanac sa s u drugoj boji", k+1, c)
+			case h > 96 && (c.CmV != nil || !c.BezDnevne):
+				t.Errorf("%d. dan %+v: želim prazan dan", k+1, c)
+			}
+		}
+	}
+}
