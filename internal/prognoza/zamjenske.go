@@ -7,10 +7,10 @@ package prognoza
 // Nagiba nema, ista je voda.
 //
 // Povod: vizugy.hu zna večerima i noću stati po nekoliko sati (29. 9. 2026. od
-// 18 h za svih 35 mađarskih postaja), a Komárom je, dok ga vodi mađarska
-// prognoza, vrh lanca i drži cijelu prognozu na satu svojeg zadnjeg mjerenja —
-// iako val od njega do Batine putuje dva do tri dana. Slovačko Komárno s druge
-// obale javlja dalje.
+// 18 h za svih 35 mađarskih postaja), a Komárom je tada, dok ga je vodila
+// mađarska prognoza, bio vrh lanca i držao cijelu prognozu na satu svojeg
+// zadnjeg mjerenja — iako val od njega do Batine putuje dva do tri dana.
+// Slovačko Komárno s druge obale javlja dalje.
 //
 // Razlike na zajedničkim satima 1.–29. 9. 2026. (niska voda):
 //

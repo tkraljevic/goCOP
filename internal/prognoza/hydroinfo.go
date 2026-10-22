@@ -163,8 +163,8 @@ func Dohvati(ctx context.Context, klijent *http.Client) ([]Letva, error) {
 
 // NaseLetve preslikava njihove nazive u naše šifre postaja. Njihova tablica
 // pokriva i hrvatske letve, jer ih po međudržavnom dogovoru i prognoziraju,
-// a uz njih i mađarske letve koje stoje u našim lancima — one su ondje vrh
-// ili karika, pa njihova prognoza može ući u našu.
+// a uz njih i mađarske letve koje stoje u našim lancima. Njihova prognoza
+// stoji uz našu radi usporedbe; u naš račun ne ulazi.
 var NaseLetve = map[string]string{
 	"Aljmaš":         "aljmas",
 	"Botovo":         "botovo",

@@ -589,3 +589,11 @@ je gotov onaj o kojem ovisi.
   kad je sve ispolirano.
 - Pregled knjige verzija i čišćenje prostora na disku dolaze kasnije.
   Upravljanje prostorom osmislit će se kad dođe na red; zasad nije hitno.
+
+## Odluke (22. 10. 2026.)
+
+- Lanac prognoze ne ovisi ni o jednoj tuđoj prognozi: ni o austrijskoj
+  (noel.gv.at) ni o mađarskoj (hydroinfo.hu: Komárom, Letenye). Tuđe
+  prognoze stoje uz našu samo radi usporedbe.
+- Model ispuštanja za veliku vodu za HE Dubrava i HE Varaždin sljedeći je
+  veći posao na prognozi, prije sezone poplava.
