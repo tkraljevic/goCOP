@@ -138,6 +138,9 @@ func TestStilOznake(t *testing.T) {
 			t.Errorf("%q: stil %d, želim %d", oznaka, got, want)
 		}
 	}
+	if UTerminu(TablicaPodRubDS) != TablicaPodRubDS || UTerminu(TablicaPod) != TablicaPodRub {
+		t.Error("prvi redak termina mora zadržati oznaku, a ostalo dobiti crtu termina")
+	}
 	xfs := stilovi[strings.Index(stilovi, "<cellXfs"):strings.Index(stilovi, "</cellXfs>")]
 	if n := strings.Count(xfs, "<xf "); !strings.Contains(xfs, fmt.Sprintf(`count="%d"`, n)) || n != TablicaPodRubP+1 {
 		t.Errorf("stilova %d, a zaglavlje kaže %s", n, xfs[:24])
