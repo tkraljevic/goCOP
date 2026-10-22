@@ -223,3 +223,22 @@ func TestOpisOperatera(t *testing.T) {
 		t.Errorf("bez režima velike vode: %s", got)
 	}
 }
+
+// Izvještaj pripreme modela pokazuje pogrešku po režimu i dosegu, a za
+// režim koji se nije naučio kaže da vrh tada drži zadnje istjecanje.
+func TestIspisiOperatera(t *testing.T) {
+	m := &OperaterModel{Letva: "he-dubrava", Ulazi: []string{"he-cakovec"}, Prag: 544}
+	for k := 1; k <= OperaterDosezi; k++ {
+		m.Koef[0][k] = []float64{1}
+		m.MAE[0][k], m.MAEPost[0][k], m.Koristi[0][k] = 50, 60, true
+	}
+	var b strings.Builder
+	ispisiOperatera(&b, m)
+	out := b.String()
+	for _, want := range []string{"model ispuštanja he-dubrava ← he-cakovec, prag velike vode 544 m³/s",
+		"obična voda    3h  50.0/ 60.0*", "velika voda  nije naučen (premalo sati), vrh drži zadnje istjecanje"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("izvještaj nema %q:\n%s", want, out)
+		}
+	}
+}

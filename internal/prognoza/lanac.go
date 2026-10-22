@@ -593,25 +593,35 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 		if err := SpremiOperatera(baza, m); err != nil {
 			return len(sve), err
 		}
-		fmt.Fprintf(w, "\nmodel ispuštanja %s ← %s, prag velike vode %.0f m³/s (MAE m³/s u ocjeni, model/postojanost; * = koristi se)\n",
-			m.Letva, strings.Join(m.Ulazi, " + "), m.Prag)
-		for g, ime := range []string{"obična voda", "velika voda"} {
-			if !m.imaRezim(g) {
-				fmt.Fprintf(w, "  %-12s nije naučen (premalo sati), vrh drži zadnje istjecanje\n", ime)
-				continue
-			}
-			fmt.Fprintf(w, "  %-12s", ime)
-			for _, k := range []int{3, 6, 12, 18, 24, 36, 48, 72, 96} {
-				z := " "
-				if m.Koristi[g][k] {
-					z = "*"
-				}
-				fmt.Fprintf(w, "  %2dh %5.1f/%5.1f%s", k, m.MAE[g][k], m.MAEPost[g][k], z)
-			}
-			fmt.Fprintln(w)
-		}
+		ispisiOperatera(w, m)
 	}
 	return len(sve), nil
+}
+
+// ispisiOperatera ispiše naučeni model ispuštanja u izvještaj pripreme
+// modela: prag velike vode i pogrešku po režimu i dosegu, a za režim koji se
+// nije naučio da vrh tada drži zadnje istjecanje.
+func ispisiOperatera(w io.Writer, m *OperaterModel) {
+	var b strings.Builder
+	pisi := func(format string, a ...any) { b.WriteString(fmt.Sprintf(format, a...)) }
+	pisi("\nmodel ispuštanja %s ← %s, prag velike vode %.0f m³/s (MAE m³/s u ocjeni, model/postojanost; * = koristi se)\n",
+		m.Letva, strings.Join(m.Ulazi, " + "), m.Prag)
+	for g, ime := range []string{"obična voda", "velika voda"} {
+		if !m.imaRezim(g) {
+			pisi("  %-12s nije naučen (premalo sati), vrh drži zadnje istjecanje\n", ime)
+			continue
+		}
+		pisi("  %-12s", ime)
+		for _, k := range []int{3, 6, 12, 18, 24, 36, 48, 72, 96} {
+			z := " "
+			if m.Koristi[g][k] {
+				z = "*"
+			}
+			pisi("  %2dh %5.1f/%5.1f%s", k, m.MAE[g][k], m.MAEPost[g][k], z)
+		}
+		b.WriteString("\n")
+	}
+	_, _ = io.WriteString(w, b.String()) // izvještaj pripreme; neuspio ispis ne mijenja spremljeni model
 }
 
 // ProbajRacun namjesti jednu postavku, npr. "aljmas = batina + belisce", i
