@@ -429,6 +429,9 @@ func odDanaZa(letva, nacin string, l PregledLetve) int {
 		}
 		return 0
 	}
+	if prognoza.Ugadja(letva) {
+		return 1 // dnevni model ulazi od 1. dana, zajedno sa satnim lancem
+	}
 	sada, ima := l.Sada["vodostaj"]
 	return prognoza.DnevnaOdDanaZa(letva, sada, ima)
 }

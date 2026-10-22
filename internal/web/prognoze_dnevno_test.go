@@ -36,7 +36,8 @@ func TestCelijeDana(t *testing.T) {
 		prognoza.Podrijetlo:       {ciljevi[0]: {Cm: 275, PlusMin: 9}},
 		prognoza.PodrijetloHidmet: {ciljevi[0]: {Cm: 270}},
 	}
-	dani := celijeDana("batina", odDanaZa("batina", "", l), l, ciljevi, dnevne, tude, st)
+	// Pravilo stupca s danom prijelaza (na Batini ga u kombinaciji zamijeni ugađanje, ugodiCelije).
+	dani := celijeDana("batina", prognoza.DnevnaOdDana["batina"], l, ciljevi, dnevne, tude, st)
 
 	if d := dani[0]; d.Dnevna || d.Cm != "280" || d.Razina != "" || d.Moguce != "prep" {
 		t.Errorf("1. dan %+v: treba satni 280, obrub pripremnog", d)

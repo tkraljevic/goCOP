@@ -846,16 +846,16 @@
     <p>Satni lanac seže 96 sati, a dnevni model daje dane do šestog. Slovo uz vrijednost kaže iz
       čega je: <em>s</em> satni lanac, <em>d</em> dnevni model, <em>ds</em> oboje zajedno i
       <em>p</em> susjedne postaje. Zadano se prikazuje kombinacija. Na Batini, Aljmašu, Vukovaru i
-      Iloku pri niskoj i srednjoj vodi do 96. sata to je satni lanac i dnevni model zajedno, otprilike
-      pola-pola, jer je tako provjerom točnije. Na Dravi, i na Dunavu pri visokoj vodi, od dana koji
-      je provjera odredila za svaku letvu i razinu vode uzima se dnevni model. Na stranici <em>Postavke prognoze</em>
+      Iloku do 96. sata to je satni lanac i dnevni model zajedno, otprilike pola-pola, jer je tako
+      provjerom točnije. Na Dravi dnevni model preuzima od dana koji je provjera odredila za svaku letvu i
+      razinu vode. Na stranici <em>Postavke prognoze</em>
       globalni administrator bira satni lanac, dnevni model ili kombinaciju, jednom za tablicu,
       grafove i izvoz u Excel.</p>
     <p>Graf pokazuje isto što i tablica: u 7 h svakog dana crta prolazi kroz broj iz tablice. Kad jedan
       dan daje satni lanac, a idući dnevni model, crta kroz taj dan postupno prelazi s jednoga na drugi.
       Tako je na uzdužnom profilu, na grafu letve i na grafovima u Excelu.</p>
-    <p>Kad dnevni model za izdanje nije računao, dani od kojih bi ga tablica uzimala pokazuju satnu
-      prognozu u 07 h s oznakom <em>s</em> u drugoj boji, a dani do kojih satni lanac ne seže (dalje od
+    <p>Kad dnevni model za izdanje nije računao, dani koje bi on dao, sam ili zajedno sa satnim lancem,
+      pokazuju satnu prognozu u 07 h s oznakom <em>s</em> u drugoj boji, a dani do kojih satni lanac ne seže (dalje od
       96 sati) ostaju prazni. Brojke su iste kao satne; vidi se samo da dnevne nema.</p>
 
     <h3 id="prognoze-upozorenja">Upozorenja uz izdanje</h3>
@@ -937,7 +937,7 @@
     <p>Letve su poredane redom niz tok, ali razmak među njima nije u mjerilu: sedam desetina širine
       dijele jednako, a ostatak razmjerno kilometrima, jer bi u mjerilu devet naših letvi od Batine do
       Iloka dobilo petinu crteža. Kilometar ispod svake letve je stvaran. Crte petog i šestog dana
-      (dnevni model) prekidaju se ondje gdje letva vrijednosti nema.</p>
+      (dnevni model ili susjedi) prekidaju se ondje gdje letva vrijednosti nema.</p>
     <p>Iznad svake letve piše jutarnji vodostaj u centimetrima, bez kote vodnog lica — nju svatko
       računa u svojem sustavu ili čita iz tablica. Pad
       vodnog lica ispod crteža računa se u Trstu, sustavu koji dijele Hrvatska i Srbija, a mađarske kote
@@ -953,8 +953,8 @@
     <h3 id="prognoze-metoda">Kako nastaje</h3>
     <p>Satni model prenosi izmjereni val lancem postaja prema povijesno utvrđenom kašnjenju i vezi,
       uz korekciju zadnjim stvarnim mjerenjem. Dnevni model povezuje više uzvodnih ulaza i slične
-      povijesne situacije. Za svaku postaju i doseg zadržava se inačica koja se u provjeri na starim
-      podacima pokazala boljom. Vrhove lanca vodi najbolji dostupni izvor: na Dravi naučeni model
+      povijesne situacije. Za svaku postaju i doseg uzima se ono što je u provjeri na starim podacima
+      bilo točnije: jedan model ili, na Dunavu do 96. sata, oba zajedno. Vrhove lanca vodi najbolji dostupni izvor: na Dravi naučeni model
       ispuštanja hidroelektrana, na Muri slovenska Gornja Radgona (satni lanac preko Mursko Središća do
       Goričana), a na Dunavu Wildungsmauer drži zadnje mjerenje. Tuđe prognoze (mađarska,
       austrijska, srpska) u račun ne ulaze, nego stoje uz našu samo radi usporedbe. Dnevni model
