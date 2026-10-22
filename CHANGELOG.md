@@ -42,10 +42,20 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (#116)
 - **Na visokoj vodi dnevni model na Dravi preuzima ranije.** Botovo od 2.
   dana (prije 5.), Donji Miholjac od 3. (prije 4.), Belišće od 4. (prije
-  5.). HE Dubrava i HE Varaždin u modelu ispuštanja još nemaju režim velike
-  vode, pa satni lanac tada drži zadnje istjecanje. (#116)
-- **Stranica O prognozi** opisuje kako prognoza sad radi: ugađanje na
-  Dunavu, oznake i model ispuštanja HE. (#119)
+  5.). (#116)
+- **HE Dubrava i HE Varaždin opet imaju model ispuštanja za veliku vodu.**
+  Režim velike vode uči se samo kad u zadnje dvije godine ima barem sto sati
+  velike vode za ocjenu. Te dvije elektrane imale su ih 98, pa je režim
+  tiho otpao i vrh Drave je pri velikoj vodi držao zadnje istjecanje. Sad
+  se ocjena tada uzima na zadnjih sto sati velike vode. Na valovima od
+  2014. to lanac Botova popravlja na svim dosezima. Kad režima ipak nema,
+  to piše u izvještaju „Pripremi model” i na kartici vrha (Odluke (22. 10.
+  2026.)). (#122)
+- **Stranica O prognozi je kraća.** Na vrhu piše kako čitati prognozu
+  (vrijednost, raspon, oznake, boje faza), a odmah ispod je grafički
+  prikaz lanca. Formule, provjere i povijest izmjena sklopljeni su pod
+  „Detalji”, a zastarjeli odlomci o tuđim prognozama kao vrhu lanca su
+  izbačeni. (#119, #121)
 - **Raspon prognoze više ne pada na nulu gdje krivulja protoka prestaje.**
   Pri maloj vodi protok je skakao iz sata u sat između raspona bez širine i
   širokog raspona, a donji rub protoka znao je pasti ispod nule. (#110)
@@ -87,7 +97,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (#93, #94, #95, #96, #97, #101, #105, #107)
 
 **Nakon nadogradnje** računala koje izdaje prognozu jednom pokrenuti
-„Pripremi model” (#112). **Prije povratka na 0.0.39-alfa** zaustaviti sve
+„Pripremi model” (#112, #122). **Prije povratka na 0.0.39-alfa** zaustaviti sve
 instance `gocop-sim`, jer 0.0.39-alfa ne provjerava ime protokola.
 
 ## 0.0.39-alfa — 18. 10. 2026.
