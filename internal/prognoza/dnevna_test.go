@@ -386,6 +386,23 @@ func TestDnevnaOdDanaZa(t *testing.T) {
 	}
 }
 
+// Pri visokoj vodi Botovo, Donji Miholjac i Belišće uzimaju dnevni model od
+// 2., 3. i 4. dana (Odluke (22. 10. 2026.)); pri niskoj i srednjoj vodi i
+// ostale dravske letve ostaju kakve su bile.
+func TestDnevnaOdDanaZaDravaPriVisokojVodi(t *testing.T) {
+	for letva, want := range map[string]struct{ visoka, niska int }{
+		"botovo": {2, 1}, "terezino-polje": {3, 1}, "donji-miholjac": {3, 1}, "belisce": {4, 2}, "osijek": {5, 2},
+	} {
+		prag := VisokaVoda[letva]
+		if got := DnevnaOdDanaZa(letva, prag+1, true); got != want.visoka {
+			t.Errorf("%s pri visokoj vodi: od %d. dana, želim %d", letva, got, want.visoka)
+		}
+		if got := DnevnaOdDanaZa(letva, prag-1, true); got != want.niska {
+			t.Errorf("%s pri niskoj vodi: od %d. dana, želim %d", letva, got, want.niska)
+		}
+	}
+}
+
 // Točka ulazi u dnevnu prognozu samo kad je aktivna izvedena točka s težinom
 // u međuslivu čiju kišu model čita; inače se kaže zašto ne.
 func TestUlaziUPrognozu(t *testing.T) {

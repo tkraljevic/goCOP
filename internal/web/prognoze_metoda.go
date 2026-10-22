@@ -484,7 +484,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dnevni s tada izdanim prognozama kiše), zasebno za nisku vodu (ispod 25. percentila 2016.–2025.), " +
 				"srednju i visoku (iznad 75. percentila). Prvi dan satni lanac je na Dunavu bolji pri svakoj vodi; na " +
 				"Dravi pri niskoj i srednjoj vodi dnevni model pobjeđuje već od 1. ili 2. dana, jer satni lanac nosi " +
-				"dnevni val elektrana, koji u 7 h ne znači ništa. Pri visokoj vodi ostaje prijelaz s poplavnih valova."),
+				"dnevni val elektrana, koji u 7 h ne znači ništa. Pri visokoj vodi ista usporedba pomaknula je " +
+				"Botovo na 2., Donji Miholjac na 3. i Belišće na 4. dan (dotad 5., 4. i 5.): model ispuštanja HE " +
+				"Dubrava i HE Varaždin za veliku vodu nema, pa satni lanac tada na vrhu Drave drži zadnje istjecanje " +
+				"i val od kiše ne vidi. Ostale postaje pri visokoj vodi zadržale su prijelaz s poplavnih valova."),
 			tablicaM("Srednja pogreška u cm prema izmjerenom u ciljnom satu, satni lanac / dnevni model",
 				[]string{"", "voda", "1. dan", "2. dan", "3. dan", "4. dan"},
 				[]string{"Batina", "niska", "2,9 / 4,5", "6,4 / 6,0", "9,7 / 9,5", "16,8 / 16,6"},
@@ -496,10 +499,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tablicaM("Od kojeg dana vrijednost daje dnevni model", []string{"", "niska i srednja voda", "visoka voda"},
 				[]string{"Batina, Aljmaš", "2. dana", "2. dana"},
 				[]string{"Vukovar, Ilok", "3. dana", "2. dana"},
-				[]string{"Osijek, Belišće", "2. dana", "5. dana"},
-				[]string{"Donji Miholjac", "1. dana", "4. dana"},
+				[]string{"Osijek", "2. dana", "5. dana"},
+				[]string{"Belišće", "2. dana", "4. dana"},
+				[]string{"Donji Miholjac", "1. dana", "3. dana"},
 				[]string{"Terezino Polje", "1. dana", "3. dana"},
-				[]string{"Botovo", "1. dana", "5. dana"}),
+				[]string{"Botovo", "1. dana", "2. dana"}),
 			tekstM("Mađarska prognoza Mohácsa kao vrh lanca popravila bi Aljmaš 2.–6. dan za 3–22 cm (27 njihovih izdanja " +
 				"2024.–2026.), ali lanac ostaje neovisan: taj razmak — naš Mohács 2.–4. dan griješi 30, 48 i 47 cm prema " +
 				"njihovih 14, 19 i 24 — mjerilo je koliko vlastiti lanac gornjeg Dunava još treba popraviti. Koji model " +
@@ -609,6 +613,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"22. 10. 2026. — pri visokoj vodi dnevni model daje dane Botova od 2., Donjeg Miholjca od 3. i Belišća od 4. dana (dotad 5., 4. i 5.).",
 				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",

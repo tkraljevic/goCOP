@@ -284,9 +284,15 @@ func (c DnevniCilj) BezOborine() bool {
 // samo prvi dan, a na Dravi dulje, jer ondje satni lanac nosi i istjecanje
 // HE Dubrava i mađarsku prognozu Letenyea. Satni lanac seže do 96 sati, pa
 // dalje od toga ionako stoji dnevni.
+//
+// Botovo, Donji Miholjac i Belišće prelaze ranije (Odluke (22. 10. 2026.)):
+// pri visokoj vodi 2024.–2026., s tada izdanim prognozama kiše, dnevni model
+// pobjeđuje lanac od 2., 3. i 4. dana (Botovo 2. dan 24,7 prema 27,7 cm).
+// Model ispuštanja HE Dubrava i HE Varaždin za veliku vodu nema, pa vrh
+// dravskog lanca tada drži zadnje istjecanje i val od kiše ne vidi.
 var DnevnaOdDana = map[string]int{
 	"batina": 2, "aljmas": 2, "vukovar": 2, "ilok": 2,
-	"botovo": 5, "terezino-polje": 3, "donji-miholjac": 4, "belisce": 5, "osijek": 5,
+	"botovo": 2, "terezino-polje": 3, "donji-miholjac": 3, "belisce": 4, "osijek": 5,
 }
 
 // DnevnaOdDanaNiska je isto za nisku i srednju vodu: vodostaj u satu
@@ -296,8 +302,7 @@ var DnevnaOdDana = map[string]int{
 // Dravi pogađa bolje već od 1. ili 2. dana — satni lanac nosi dnevni val
 // elektrana, koji u 7 h ne znači ništa (Terezino Polje 1. dan 27,9 prema
 // 13,1 cm) — a na Vukovaru i Iloku satni je bolji i 2. dan (Ilok 5,3 prema
-// 6,6). Pri visokoj vodi vrijedi DnevnaOdDana s poplavnih valova, gdje
-// satni lanac nosi val HE Dubrava i Mure.
+// 6,6). Pri visokoj vodi vrijedi DnevnaOdDana.
 var DnevnaOdDanaNiska = map[string]int{
 	"batina": 2, "aljmas": 2, "vukovar": 3, "ilok": 3,
 	"botovo": 1, "terezino-polje": 1, "donji-miholjac": 1, "belisce": 2, "osijek": 2,
