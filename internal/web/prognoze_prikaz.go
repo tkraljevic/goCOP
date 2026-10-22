@@ -56,7 +56,8 @@ type tockaPrikaza struct {
 // nizPrikaza je niz jedne letve po satu od izdanja (indeks je sat, 0 je sat
 // izdanja i ostaje prazan) u vodostaju i protoku.
 type nizPrikaza struct {
-	Cm, Q []tockaPrikaza
+	Cm, Q   []tockaPrikaza
+	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjaPri)
 }
 
 // izvorSata daje vrijednost jednog modela u satu h od izdanja. drzi kaže da je
@@ -205,6 +206,90 @@ func prikazLetve(odDana int, l PregledLetve, dnevne []prognoza.DnevnaIzdana, cil
 	return nizPrikaza{Cm: spojiStupce(sidra, izvori, cm, SatiPrikaza), Q: spojiStupce(sidra, izvori, q, SatiPrikaza)}
 }
 
+// ugodjeniNiz je niz letve s ugađanjem: u svakom satu dnevni model i satni
+// lanac s težinom prognoza.TezinaLanca, a gdje je samo jedan od njih, on.
+func ugodjeniNiz(l PregledLetve, dnevne []prognoza.DnevnaIzdana, izdanoH int64) nizPrikaza {
+	return nizPrikaza{
+		Cm:      ugodi(satniIzvor(l.Satno, izdanoH), dnevniIzvor(dnevniU, dnevne, izdanoH)),
+		Q:       ugodi(satniIzvor(l.SatnoQ, izdanoH), dnevniIzvor(dnevniQU, dnevne, izdanoH)),
+		Ugodjen: true,
+	}
+}
+
+func ugodi(satni, dnevni izvorSata) []tockaPrikaza {
+	out := make([]tockaPrikaza, SatiPrikaza+1)
+	for h := 1; h <= SatiPrikaza; h++ {
+		c, d := uSatu(satni, h), uSatu(dnevni, h)
+		switch {
+		case c.ok && !c.drzi && d.ok:
+			out[h] = pomijesaj(c.v, d.v, 1-prognoza.TezinaLanca(h))
+		case c.ok && !c.drzi:
+			out[h] = c.v
+		default:
+			out[h] = d.prava()
+		}
+	}
+	return out
+}
+
+// ugodiCelije upisuje stupce dana letvama s ugađanjem iz njihova niza, s
+// oznakom ds gdje su satni lanac i dnevni model zajedno. Gdje niz ima samo
+// satni lanac (dnevne u izdanju nema), stupci ostaju kakve ih je složila
+// tablica.
+func ugodiCelije(letve []LetvaPrognoze, prikaz map[string]nizPrikaza, ciljevi []int64, izdanoH int64,
+	postaje map[string]models.Station) {
+	for i := range letve {
+		x := &letve[i]
+		n, ima := prikaz[x.Kod]
+		if !ima || !n.Ugodjen {
+			continue
+		}
+		for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
+			h := int(ciljevi[k] - izdanoH)
+			if h > SatiPrikaza || !n.Cm[h].Ima || n.Cm[h].Dnevni == 0 {
+				continue
+			}
+			upisiUgodjeno(&x.Dani[k], n.Cm[h], n.Q[h], postaje[x.Kod])
+		}
+	}
+}
+
+// upisiUgodjeno stavlja u dan vrijednost niza s ugađanjem.
+func upisiUgodjeno(c *CelijaDana, cm, q tockaPrikaza, st models.Station) {
+	c.Cm, c.CmV, c.Raspon = brojHRf(cm.Vrijednost, 0), ptr(cm.Vrijednost, true), rasponUz(cm.Vrijednost, cm.Dolje, cm.Gore)
+	c.Q, c.QV, c.QRaspon = "", nil, ""
+	if q.Ima {
+		c.Q, c.QV, c.QRaspon = brojHRf(q.Vrijednost, 0), ptr(q.Vrijednost, true), rasponUz(q.Vrijednost, q.Dolje, q.Gore)
+	}
+	c.Dnevna, c.Kombinacija = cm.Dnevni == 1, cm.Dnevni < 1
+	c.IzSatne, c.BezDnevne, c.Slabija = false, false, false
+	c.Razina, c.Moguce = razinaObrane(st, cm.Vrijednost), ""
+	if g := razinaObrane(st, cm.Gore); g != c.Razina {
+		c.Moguce = g
+	}
+}
+
+// oznakaUdjela je oznaka vrijednosti po udjelu dnevnog modela u njoj.
+func oznakaUdjela(dnevni float64) OznakaModela {
+	switch {
+	case dnevni <= 0:
+		return oznakaSatnog
+	case dnevni >= 1:
+		return oznakaDnevnog
+	}
+	return oznakaKombinacije
+}
+
+// nizLetve je niz letve iz njezinih modela: uz kombinaciju na letvi s
+// ugađanjem pri niskoj i srednjoj vodi oba zajedno, inače po pravilu tablice.
+func (u ulazPrikaza) nizLetve(l PregledLetve) nizPrikaza {
+	sada, imaSada := l.Sada["vodostaj"]
+	if u.nacin == models.PrognozaKombinacija && prognoza.UgadjaPri(l.Letva, sada, imaSada) {
+		return ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
+	}
+	return prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
+}
+
 // ulazPrikaza je sve iz čega se slažu nizovi izdanja.
 type ulazPrikaza struct {
 	pregled  []PregledLetve
@@ -224,7 +309,7 @@ func prikazIzdanja(u ulazPrikaza) map[string]nizPrikaza {
 	po := map[string]PregledLetve{}
 	for _, l := range u.pregled {
 		po[l.Letva] = l
-		out[l.Letva] = prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
+		out[l.Letva] = u.nizLetve(l)
 	}
 	if !u.susjedi {
 		return out
@@ -348,12 +433,12 @@ func satniStupci(letve []LetvaPrognoze, prikaz map[string]nizPrikaza) {
 			*v = VrijednostPrognoze{DosegH: d}
 			if cm := n.Cm[d]; cm.Ima {
 				v.Ima, v.Cm, v.CmRaspon, v.CmV = true, brojHRf(cm.Vrijednost, 0), granice(cm.PregledVrijednost), ptr(cm.Vrijednost, true)
-				v.Slabija = !cm.BoljaOdPostojanosti
+				v.Slabija, v.Oznaka = !cm.BoljaOdPostojanosti, oznakaUdjela(cm.Dnevni)
 			}
 			if q := n.Q[d]; q.Ima {
 				v.Q, v.QRaspon, v.QV = brojHRf(q.Vrijednost, 0), granice(q.PregledVrijednost), ptr(q.Vrijednost, true)
 				if !v.Ima {
-					v.Slabija = !q.BoljaOdPostojanosti
+					v.Slabija, v.Oznaka = !q.BoljaOdPostojanosti, oznakaUdjela(q.Dnevni)
 				}
 				v.Ima = true
 			}

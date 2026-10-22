@@ -512,3 +512,21 @@ func TestBezOborine(t *testing.T) {
 		t.Error("glavni cilj bez oborine: inačica nije „bez oborine”")
 	}
 }
+
+// Težina satnog lanca na Dunavu: 1 u satu izdanja, 0,56 od 6. do 72. sata,
+// 0 od 96. sata; između čvorova pravocrtno. Ugađanje je samo pri niskoj i
+// srednjoj vodi.
+func TestTezinaLanca(t *testing.T) {
+	for h, want := range map[int]float64{0: 1, 3: 0.78, 6: 0.56, 24: 0.56, 72: 0.56, 84: 0.28, 96: 0, 120: 0} {
+		if got := TezinaLanca(h); math.Abs(got-want) > 1e-9 {
+			t.Errorf("%d h: %g, želim %g", h, got, want)
+		}
+	}
+	if !Ugadja("vukovar") || Ugadja("osijek") {
+		t.Error("ugađanje je na Dunavu, a ne na Dravi")
+	}
+	g := VisokaVoda["vukovar"]
+	if !UgadjaPri("vukovar", g, true) || UgadjaPri("vukovar", g+1, true) || UgadjaPri("vukovar", 0, false) || UgadjaPri("osijek", 0, true) {
+		t.Error("ugađanje vrijedi samo na Dunavu pri niskoj i srednjoj vodi, uz poznat vodostaj")
+	}
+}

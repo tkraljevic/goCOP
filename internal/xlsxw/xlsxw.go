@@ -59,7 +59,43 @@ const (
 
 	Razlika        = 32 // cijeli broj s predznakom (+8, −3, 0): obrub, sredina
 	RazlikaIstakni = 33 // isto, podebljano na crvenkastoj podlozi — razlika koju treba vidjeti
+
+	// Kao TablicaPodRub, a uz cijeli broj stoji malo podignuto slovo modela
+	// prognoze (s, d, ds, p), kao na stranici. Slovo je dio oblika prikaza,
+	// pa ćelija ostaje broj.
+	TablicaPodRubS  = 34
+	TablicaPodRubD  = 35
+	TablicaPodRubDS = 36
+	TablicaPodRubP  = 37
 )
+
+// StilOznake je stil ćelije s oznakom modela: s, d, ds ili p; za drugo
+// TablicaPodRub.
+func StilOznake(oznaka string) int {
+	switch oznaka {
+	case "s":
+		return TablicaPodRubS
+	case "d":
+		return TablicaPodRubD
+	case "ds":
+		return TablicaPodRubDS
+	case "p":
+		return TablicaPodRubP
+	}
+	return TablicaPodRub
+}
+
+// SOznakom javlja nosi li stil oznaku modela.
+func SOznakom(stil int) bool { return stil >= TablicaPodRubS && stil <= TablicaPodRubP }
+
+// UTerminu je stil ćelije u prvom retku termina: s oznakom modela ostaje
+// kakav jest, inače TablicaPodRub.
+func UTerminu(stil int) int {
+	if SOznakom(stil) {
+		return stil
+	}
+	return TablicaPodRub
+}
 
 // UPojasu vraća stil s podlogom skupine; stil koji podlogu nema ostaje isti.
 func UPojasu(stil int) int {
@@ -343,7 +379,8 @@ func (l *List) sirinaStupcaA() int64 {
 
 // stilovi, redom kao konstante gore
 const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">` +
-	`<numFmts count="3"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="d.m.yyyy h:mm"/><numFmt numFmtId="166" formatCode="+0;\-0;0"/></numFmts>` +
+	`<numFmts count="7"><numFmt numFmtId="164" formatCode="#,##0.00"/><numFmt numFmtId="165" formatCode="d.m.yyyy h:mm"/><numFmt numFmtId="166" formatCode="+0;\-0;0"/>` +
+	`<numFmt numFmtId="167" formatCode="0&quot;ˢ&quot;"/><numFmt numFmtId="168" formatCode="0&quot;ᵈ&quot;"/><numFmt numFmtId="169" formatCode="0&quot;ᵈˢ&quot;"/><numFmt numFmtId="170" formatCode="0&quot;ᵖ&quot;"/></numFmts>` +
 	`<fonts count="8">` +
 	`<font><sz val="10"/><name val="Arial"/></font>` +
 	`<font><b/><sz val="10"/><name val="Arial"/></font>` +
@@ -366,7 +403,7 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="thin"><color rgb="FF999999"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border>` +
 	`<border><left style="thin"><color rgb="FF999999"/></left><right style="thin"><color rgb="FF999999"/></right><top style="medium"><color rgb="FF333333"/></top><bottom style="thin"><color rgb="FF999999"/></bottom><diagonal/></border></borders>` +
 	`<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>` +
-	`<cellXfs count="34">` +
+	`<cellXfs count="38">` +
 	`<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="center"/></xf>` + // 0
 	`<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 1
 	`<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>` + // 2
@@ -401,6 +438,10 @@ const stilovi = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSh
 	`<xf numFmtId="0" fontId="0" fillId="6" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>` + // 31
 	`<xf numFmtId="166" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 32
 	`<xf numFmtId="166" fontId="1" fillId="5" borderId="1" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>` + // 33
+	`<xf numFmtId="167" fontId="1" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 34
+	`<xf numFmtId="168" fontId="1" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 35
+	`<xf numFmtId="169" fontId="1" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 36
+	`<xf numFmtId="170" fontId="1" fillId="3" borderId="2" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>` + // 37
 	`</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`
 
 func (l *List) xml(crtez bool) string {

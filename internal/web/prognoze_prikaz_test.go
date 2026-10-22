@@ -12,10 +12,10 @@ import (
 )
 
 // probaPrikaza je izmišljeno izdanje u 11 h po našem vremenu: Botovo i
-// Terezino Polje pri niskoj vodi uzimaju dnevni model od 1. dana, Vukovar od
-// 3.; Srednja nema dnevni model i leži između Botova i Terezina Polja, a
-// Samotna ima samo satni lanac. Satni lanac i dnevni model namjerno se ne
-// slažu, da se prijelaz vidi. Brojevi su izmišljeni.
+// Terezino Polje pri niskoj vodi uzimaju dnevni model od 1. dana, Osijek od
+// 2.; Vukovar ima ugađanje; Srednja nema dnevni model i leži između Botova i
+// Terezina Polja, a Samotna ima samo satni lanac. Satni lanac i dnevni model
+// namjerno se ne slažu, da se prijelaz vidi. Brojevi su izmišljeni.
 type probaPrikaza struct {
 	izdano    time.Time
 	izdanoH   int64
@@ -59,11 +59,13 @@ func novaProbaPrikaza(t *testing.T) probaPrikaza {
 		lanac("srednja", 50, -0.1, true),
 		lanac("terezino-polje", -300, -0.3, false),
 		lanac("vukovar", 100, -0.25, true),
+		lanac("osijek", 20, -0.25, true),
 		lanac("samotna", 70, 0.1, false),
 	}
 	dnevni("botovo", 101, 12)
 	dnevni("terezino-polje", -299, 8)
 	dnevni("vukovar", 100, 15)
+	dnevni("osijek", 20, 15)
 	p.postaje = map[string]models.Station{
 		"botovo":         {Code: "botovo", Stationing: "rkm 200,0"},
 		"srednja":        {Code: "srednja", Stationing: "rkm 150,0"},
@@ -73,8 +75,8 @@ func novaProbaPrikaza(t *testing.T) probaPrikaza {
 	return p
 }
 
-// tablica slaže stupce dana kako ih slaže stranica (celijeDana pa dani iz
-// susjeda) i niz prikaza istim načinom prikaza.
+// tablica slaže stupce dana kako ih slaže stranica (celijeDana, dani iz
+// susjeda, ugađanje) i niz prikaza istim načinom prikaza.
 func (p probaPrikaza) tablica(nacin string) ([]LetvaPrognoze, map[string]nizPrikaza) {
 	letve := make([]LetvaPrognoze, len(p.pregled))
 	for i, l := range p.pregled {
@@ -86,6 +88,7 @@ func (p probaPrikaza) tablica(nacin string) ([]LetvaPrognoze, map[string]nizPrik
 		p.srednjaci, nacin == models.PrognozaSatni)
 	prikaz := prikazIzdanja(ulazPrikaza{pregled: p.pregled, dnevne: p.dnevne, postaje: p.postaje, ciljevi: p.ciljevi,
 		izdanoH: p.izdanoH, nacin: nacin, susjedi: true, srednjak: p.srednjaci})
+	ugodiCelije(letve, prikaz, p.ciljevi, p.izdanoH, p.postaje)
 	satniStupci(letve, prikaz)
 	return letve, prikaz
 }
@@ -121,19 +124,19 @@ func provjeriSat(t *testing.T, nacin, letva, velicina string, k int, tablica *fl
 	}
 }
 
-// Vukovar uzima dnevni model od 3. dana: do stupca 2. dana niz je satni
-// lanac, od stupca 3. dana dnevni model, a između udio dnevnog raste
+// Osijek pri niskoj vodi uzima dnevni model od 2. dana: do stupca 1. dana niz
+// je satni lanac, od stupca 2. dana dnevni model, a između udio dnevnog raste
 // pravocrtno, pa crta ne skače. Stupci +6 h i +12 h ostaju satni lanac.
 func TestPrijelazNaDnevniKrozDan(t *testing.T) {
 	p := novaProbaPrikaza(t)
 	letve, prikaz := p.tablica(models.PrognozaKombinacija)
-	n := prikaz["vukovar"].Cm
-	s2, s3 := int(p.ciljevi[1]-p.izdanoH), int(p.ciljevi[2]-p.izdanoH)
-	if n[s2].Dnevni != 0 || n[s3].Dnevni != 1 {
-		t.Fatalf("udio dnevnog u stupcima 2. i 3. dana %g i %g, želim 0 i 1", n[s2].Dnevni, n[s3].Dnevni)
+	n := prikaz["osijek"].Cm
+	s1, s2 := int(p.ciljevi[0]-p.izdanoH), int(p.ciljevi[1]-p.izdanoH)
+	if n[s1].Dnevni != 0 || n[s2].Dnevni != 1 {
+		t.Fatalf("udio dnevnog u stupcima 1. i 2. dana %g i %g, želim 0 i 1", n[s1].Dnevni, n[s2].Dnevni)
 	}
-	for h := s2 + 1; h < s3; h++ {
-		u := float64(h-s2) / float64(s3-s2)
+	for h := s1 + 1; h < s2; h++ {
+		u := float64(h-s1) / float64(s2-s1)
 		if math.Abs(n[h].Dnevni-u) > 1e-9 {
 			t.Errorf("sat %d: udio dnevnog %g, želim %g", h, n[h].Dnevni, u)
 		}
@@ -144,12 +147,75 @@ func TestPrijelazNaDnevniKrozDan(t *testing.T) {
 		}
 	}
 	for _, x := range letve {
-		if x.Kod != "vukovar" {
+		if x.Kod != "osijek" {
 			continue
 		}
 		for _, v := range x.Vrijednosti {
-			if want := 100 - 0.25*float64(v.DosegH); v.CmV == nil || math.Abs(*v.CmV-want) > 1e-9 {
-				t.Errorf("+%d h: %v, želim satni lanac %g", v.DosegH, v.CmV, want)
+			if want := 20 - 0.25*float64(v.DosegH); v.CmV == nil || math.Abs(*v.CmV-want) > 1e-9 || v.Oznaka.Tekst != "s" {
+				t.Errorf("+%d h: %v %q, želim satni lanac %g s oznakom s", v.DosegH, v.CmV, v.Oznaka.Tekst, want)
+			}
+		}
+		if d := x.Dani[0]; d.Oznaka().Tekst != "s" {
+			t.Errorf("1. dan Osijeka oznaka %q, želim s", d.Oznaka().Tekst)
+		}
+		if d := x.Dani[1]; d.Oznaka().Tekst != "d" {
+			t.Errorf("2. dan Osijeka oznaka %q, želim d", d.Oznaka().Tekst)
+		}
+	}
+}
+
+// Vukovar pri niskoj vodi ima ugađanje: do 96. sata dnevni model i satni
+// lanac s težinom lanca, oznaka ds, a dalje dnevni model, oznaka d. Isto u
+// stupcima +6 h i +12 h. Bez kombinacije i pri visokoj vodi ugađanja nema.
+func TestUgadjanjeVukovara(t *testing.T) {
+	p := novaProbaPrikaza(t)
+	letve, prikaz := p.tablica(models.PrognozaKombinacija)
+	var vukovar LetvaPrognoze
+	for _, x := range letve {
+		if x.Kod == "vukovar" {
+			vukovar = x
+		}
+	}
+	dnevni := func(h int) float64 { v, _ := dnevniU(p.dnevne["vukovar"], p.izdanoH+int64(h)); return v.Vrijednost }
+	for k, c := range vukovar.Dani {
+		h := int(p.ciljevi[k] - p.izdanoH)
+		w := prognoza.TezinaLanca(h)
+		want, oznaka := dnevni(h), "d"
+		if h <= 96 {
+			want, oznaka = w*(100-0.25*float64(h))+(1-w)*dnevni(h), "ds"
+		}
+		if c.CmV == nil || math.Abs(*c.CmV-want) > 1e-9 || c.Oznaka().Tekst != oznaka || c.Model() == "" {
+			t.Errorf("%d. dan (+%d h): %v %q, želim %g %s", k+1, h, c.CmV, c.Oznaka().Tekst, want, oznaka)
+		}
+	}
+	for _, v := range vukovar.Vrijednosti {
+		w := prognoza.TezinaLanca(v.DosegH)
+		want := w*(100-0.25*float64(v.DosegH)) + (1-w)*dnevni(v.DosegH)
+		if v.CmV == nil || math.Abs(*v.CmV-want) > 1e-9 || v.Oznaka.Tekst != "ds" {
+			t.Errorf("+%d h: %v %q, želim %g ds", v.DosegH, v.CmV, v.Oznaka.Tekst, want)
+		}
+	}
+	if n := prikaz["vukovar"].Cm[97]; n.Dnevni != 1 {
+		t.Errorf("iza 96. sata udio dnevnog %g, želim 1", n.Dnevni)
+	}
+	letve, _ = p.tablica(models.PrognozaSatni)
+	for _, x := range letve {
+		if x.Kod == "vukovar" && (x.Dani[0].Kombinacija || x.Dani[0].Oznaka().Tekst != "s") {
+			t.Errorf("satni način: 1. dan Vukovara %+v, želim satni lanac", x.Dani[0])
+		}
+	}
+	p.pregled[3].Sada["vodostaj"] = prognoza.VisokaVoda["vukovar"] + 1
+	letve, prikaz = p.tablica(models.PrognozaKombinacija)
+	if prikaz["vukovar"].Ugodjen {
+		t.Error("pri visokoj vodi Vukovar ima ugađanje")
+	}
+	for _, x := range letve {
+		if x.Kod != "vukovar" {
+			continue
+		}
+		for k, c := range x.Dani {
+			if c.Kombinacija {
+				t.Errorf("visoka voda: %d. dan %+v, želim prijelaz bez ds", k+1, c)
 			}
 		}
 	}
@@ -369,5 +435,28 @@ func TestSatniStupciSamoProtok(t *testing.T) {
 	}
 	if v := letve[1].Vrijednosti[0]; v.Cm != "7" {
 		t.Errorf("letva bez niza promijenjena: %+v", v)
+	}
+}
+
+// Oznaka po udjelu dnevnog modela: bez njega s, samo on d, oboje ds.
+func TestOznakaUdjela(t *testing.T) {
+	for udio, want := range map[float64]string{0: "s", 1: "d", 0.44: "ds"} {
+		if got := oznakaUdjela(udio).Tekst; got != want {
+			t.Errorf("udio %g: %q, želim %q", udio, got, want)
+		}
+	}
+}
+
+// Opis dana prijelaza: raspon kad se postaje razlikuju, jedan dan kad su
+// iste, crtica kad nijedna nema dan prijelaza.
+func TestDaniDnevnogZa(t *testing.T) {
+	if got := daniDnevnogZa("nepoznata"); got != "—" {
+		t.Errorf("bez dana prijelaza: %q", got)
+	}
+	if got := daniDnevnogZa("osijek"); got != tekstBroja(prognoza.DnevnaOdDana["osijek"])+". dana" {
+		t.Errorf("jedna postaja: %q", got)
+	}
+	if got := daniDnevnogDrave(); !strings.Contains(got, "već prema postaji") {
+		t.Errorf("Drava: %q", got)
 	}
 }

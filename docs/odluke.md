@@ -609,3 +609,10 @@ je gotov onaj o kojem ovisi.
   vremenom slabi. Koliko brzo slabi mjeri se za svaku letvu, posebno za
   nisku i visoku vodu. Kiša u satni lanac ulazi kasnije, kao dotok između
   letvi, iza modela ispuštanja za veliku vodu.
+- Ugađanje je izmjereno točnije na Dunavu pri niskoj i srednjoj vodi, pa na
+  Batini, Aljmašu, Vukovaru i Iloku tada do 96. sata stoje satni lanac i
+  dnevni model zajedno. Pri visokoj vodi i na Dravi uživo je bilo lošije, pa
+  ondje ostaje prijelaz; na Dravi dok se ne popravi model ispuštanja HE.
+  Živu provjeru ponoviti za 3–4 tjedna. „Oznaka d za dnevni, oznaka s za satni, oznaka za
+  kombinaciju je ds”; p ostaje za vrijednost iz susjeda.
+- Izdanje 0.0.40 čeka da ovo bude gotovo.

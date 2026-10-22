@@ -152,7 +152,7 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		for _, x := range letve {
 			c := celija(x)
 			if prvi {
-				c.Stil = xlsxw.TablicaPodRub
+				c.Stil = xlsxw.UTerminu(c.Stil)
 			}
 			c.Stil = pojas(c.Stil)
 			red = append(red, c)
@@ -180,7 +180,9 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			}
 			return VrijednostPrognoze{}
 		}
-		redak(termin, "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija { return broj(vr(x).CmV, xlsxw.TablicaPod) })
+		redak(termin, "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija {
+			return broj(vr(x).CmV, xlsxw.StilOznake(vr(x).Oznaka.Tekst))
+		})
 		redak("", "raspon", xlsxw.TablicaSivo, func(x LetvaPrognoze) xlsxw.Celija { return T(vr(x).CmRaspon, xlsxw.TablicaSivo) })
 		if ima(func(x LetvaPrognoze) bool { return vr(x).QV != nil }) {
 			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(vr(x).QV, xlsxw.TablicaKurziv) })
@@ -193,7 +195,9 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 			}
 			return CelijaDana{}
 		}
-		redak(naslov+" 07 h", "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).CmV, xlsxw.TablicaPod) })
+		redak(naslov+" 07 h", "cm", xlsxw.TablicaPod, func(x LetvaPrognoze) xlsxw.Celija {
+			return broj(dan(x).CmV, xlsxw.StilOznake(dan(x).Oznaka().Tekst))
+		})
 		redak("", "raspon", xlsxw.TablicaSivo, func(x LetvaPrognoze) xlsxw.Celija { return T(dan(x).Raspon, xlsxw.TablicaSivo) })
 		if ima(func(x LetvaPrognoze) bool { return dan(x).QV != nil }) {
 			redak("", "m³/s", xlsxw.TablicaKurziv, func(x LetvaPrognoze) xlsxw.Celija { return broj(dan(x).QV, xlsxw.TablicaKurziv) })
@@ -230,7 +234,8 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
-		"od 1901. — višestruka regresija i metoda analognih situacija. Vodostaj i protok međusobno su preračunati " +
+		"od 1901. — višestruka regresija i metoda analognih situacija. Na Batini, Aljmašu, Vukovaru i Iloku pri niskoj i " +
+		"srednjoj vodi do 96. sata oboje zajedno (satni i dnevni), otprilike pola-pola, jer je tako izmjereno točnije. Vodostaj i protok međusobno su preračunati " +
 		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a na Dunavu Wildungsmauer, koji " +
 		"drži zadnje mjerenje. Tuđe prognoze u račun ne ulaze.\n" +
 		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+

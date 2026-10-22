@@ -3,6 +3,7 @@ package xlsxw
 import (
 	"archive/zip"
 	"bytes"
+	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -125,5 +126,27 @@ func TestSkriveniRedak(t *testing.T) {
 		if !strings.Contains(x, s) {
 			t.Errorf("nema %s", s)
 		}
+	}
+}
+
+// Oznaka modela prognoze ima svoj stil, s brojem i malim slovom uz njega;
+// sve ostalo je obična ćelija termina. Broj stilova u zaglavlju mora biti
+// stvarni broj stilova, inače Excel datoteku popravlja.
+func TestStilOznake(t *testing.T) {
+	for oznaka, want := range map[string]int{"s": TablicaPodRubS, "d": TablicaPodRubD, "ds": TablicaPodRubDS, "p": TablicaPodRubP, "": TablicaPodRub, "x": TablicaPodRub} {
+		if got := StilOznake(oznaka); got != want || SOznakom(got) != (oznaka != "" && oznaka != "x") {
+			t.Errorf("%q: stil %d, želim %d", oznaka, got, want)
+		}
+	}
+	if UTerminu(TablicaPodRubDS) != TablicaPodRubDS || UTerminu(TablicaPod) != TablicaPodRub {
+		t.Error("prvi redak termina mora zadržati oznaku, a ostalo dobiti crtu termina")
+	}
+	xfs := stilovi[strings.Index(stilovi, "<cellXfs"):strings.Index(stilovi, "</cellXfs>")]
+	if n := strings.Count(xfs, "<xf "); !strings.Contains(xfs, fmt.Sprintf(`count="%d"`, n)) || n != TablicaPodRubP+1 {
+		t.Errorf("stilova %d, a zaglavlje kaže %s", n, xfs[:24])
+	}
+	fmts := stilovi[strings.Index(stilovi, "<numFmts"):strings.Index(stilovi, "</numFmts>")]
+	if n := strings.Count(fmts, "<numFmt "); !strings.Contains(fmts, fmt.Sprintf(`count="%d"`, n)) {
+		t.Errorf("oblika broja %d, a zaglavlje kaže %s", n, fmts[:20])
 	}
 }

@@ -109,7 +109,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		sirine[i] = tekstBroja(s)
 	}
 	poluvrijeme := brojHRf(prognoza.PoluvijekIspravka, 0)
-	dunav, drava := daniDnevnog()
+	drava := daniDnevnogDrave()
 
 	dani := []string{"", "1. dan", "2. dan", "3. dan", "4. dan", "5. dan", "6. dan"}
 	sati := []string{"", "6 h", "12 h", "18 h", "24 h", "48 h", "96 h"}
@@ -480,11 +480,22 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"nema dnevne prognoze. Na čvoru bez kišomjera inačica s kišom se ni ne pokušava."),
 		}},
 		{"Koji model daje koji dan", []OdlomakMetode{
-			tekstM("Satni lanac seže do 96 sati. Od kojeg dana vrijednost daje dnevni model određeno je " +
-				"provjerom na poplavnim valovima, zasebno za svaku postaju: na Dunavu od " + dunav + ", na Dravi od " +
-				drava + ". Na Dravi satni lanac dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom " +
-				"ispuštanja i Muru iz Gornje Radgone. Vrijednost iz dnevnog modela na stranici je označena slovom " +
-				"d, a u Excelu retkom „model”."),
+			tekstM("Satni lanac seže do 96 sati. Na Dravi, i na Dunavu pri visokoj vodi, od kojeg dana vrijednost " +
+				"daje dnevni model određeno je provjerom na poplavnim valovima, zasebno za svaku postaju: na Dravi od " +
+				drava + ", na Dunavu od 2. dana. Na Dravi satni lanac " +
+				"dulje pogađa bolje jer nosi istjecanje HE Dubrava s modelom ispuštanja i Muru iz Gornje Radgone. " +
+				"Slovo uz vrijednost kaže iz čega je: s satni lanac, d dnevni model, ds oboje zajedno, p susjedi; " +
+				"u Excelu to piše redak „model”."),
+			tekstM("Na Batini, Aljmašu, Vukovaru i Iloku pri niskoj i srednjoj vodi vrijednost do 96. sata nije " +
+				"ni satni lanac ni dnevni model, nego oboje zajedno (ds): dnevni model je osnova, a satni lanac " +
+				"ugađanje. Težina satnog lanca je 1 u satu izdanja, 0,56 od 6. do 72. sata, a do 96. sata pada " +
+				"na 0; dalje je samo dnevni model (d). Težina je naučena na preračunu izdanja 2024.–2026. i " +
+				"provjerena na živim izdanjima od 26. 9. 2026.: prosječna pogreška manja je za 0,3–0,5 cm, a do " +
+				"60. sata za 10–13 %; na preračunu pri niskoj vodi 0,5–0,7 cm, bolje u svakoj godini. Pri visokoj " +
+				"vodi, iznad granice iz tablice postaja, i u vrhovima valova 2025.–2026. ugađanje je bilo lošije, " +
+				"jer je satni lanac ondje išao previsoko, pa tada ostaje prijelaz s jednoga na drugi. Na Dravi je " +
+				"i pri niskoj vodi uživo bilo lošije, jer satni lanac od 2. dana ide previsoko zbog elektrana. Kad " +
+				"se u Postavkama prognoze odabere samo satni lanac ili samo dnevni model, ugađanja nema."),
 			tekstM("Tablica, uzdužni profil, graf letve i graf u Excelu pokazuju isti niz: u 7 h svakog dana crta " +
 				"prolazi kroz broj iz tablice. Kad jedan dan daje satni lanac, a idući dnevni model ili susjedi, crta " +
 				"kroz taj dan postupno prelazi s jednoga na drugi, umjesto da skoči na kraju satnog lanca. Kad dnevni " +
@@ -643,6 +654,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"22. 10. 2026. — na Batini, Aljmašu, Vukovaru i Iloku pri niskoj i srednjoj vodi do 96. sata satni lanac i dnevni model zajedno (ugađanje, oznaka ds), jer je tako izmjereno točnije; uz svaku vrijednost slovo kaže iz čega je: s satni lanac, d dnevni model, ds oboje, p susjedi.",
 				"22. 10. 2026. — graf i tablica pokazuju isto: uzdužni profil, graf letve i graf u Excelu crtaju isti niz kao tablica, a između dana koje daju satni lanac i dnevni model crta postupno prelazi s jednoga na drugi umjesto da skoči; šesti dan ima vrijednost i kad je izdanje bilo danju; u Postavkama prognoze jedan je izbor modela umjesto tri.",
 				"22. 10. 2026. — prognoza ne ovisi ni o jednoj tuđoj prognozi: Wildungsmauer drži zadnje mjerenje umjesto da slijedi austrijsku prognozu (noel.gv.at), a Komárom uvijek računa naš lanac umjesto da slijedi mađarsku (hydroinfo.hu). Pogrešku satne prognoze naših letvi na 96 sati to mijenja za 0–3 cm, a tablicu dana nimalo. Mađarska, austrijska i srpska prognoza i dalje stoje uz našu radi usporedbe.",
 				"22. 10. 2026. — Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs, koji nemaju dnevni model, od 2. dana slijede susjedne postaje s dnevnim modelom, razmjerno udaljenosti po rijeci (oznaka p; uprava to može isključiti u Postavkama prognoze); pri visokoj vodi dnevni model daje dane Botova od 2., Donjeg Miholjca od 3. i Belišća od 4. dana (dotad 5., 4. i 5.).",
@@ -662,25 +674,27 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 	}
 }
 
-// daniDnevnog opisuje od kojeg dana dnevni model daje vrijednost, po vodi.
-func daniDnevnog() (dunav, drava string) {
-	raspon := func(letve ...string) string {
-		naj, vrh := 99, 0
-		for _, l := range letve {
-			if d, ima := prognoza.DnevnaOdDana[l]; ima {
-				naj, vrh = min(naj, d), max(vrh, d)
-			}
+// daniDnevnogDrave opisuje od kojeg dana dnevni model na Dravi daje
+// vrijednost pri visokoj vodi; na Dunavu je ugađanje, bez dana prijelaza.
+func daniDnevnogDrave() string {
+	return daniDnevnogZa("botovo", "terezino-polje", "donji-miholjac", "belisce", "osijek")
+}
+
+// daniDnevnogZa opisuje od kojeg dana dnevni model daje vrijednost letvama.
+func daniDnevnogZa(letve ...string) string {
+	naj, vrh := 99, 0
+	for _, l := range letve {
+		if d, ima := prognoza.DnevnaOdDana[l]; ima {
+			naj, vrh = min(naj, d), max(vrh, d)
 		}
-		switch {
-		case vrh == 0:
-			return "—"
-		case naj == vrh:
-			return tekstBroja(naj) + ". dana"
-		}
-		return tekstBroja(naj) + ". do " + tekstBroja(vrh) + ". dana, već prema postaji"
 	}
-	return raspon("batina", "aljmas", "vukovar", "ilok"),
-		raspon("botovo", "terezino-polje", "donji-miholjac", "belisce", "osijek")
+	switch {
+	case vrh == 0:
+		return "—"
+	case naj == vrh:
+		return tekstBroja(naj) + ". dana"
+	}
+	return tekstBroja(naj) + ". do " + tekstBroja(vrh) + ". dana, već prema postaji"
 }
 
 // letveMetode slaže tablicu postaja: ulazi lanca iz namještenih pojasa,

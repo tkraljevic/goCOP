@@ -316,6 +316,49 @@ var VisokaVoda = map[string]float64{
 	"botovo": 151, "terezino-polje": -181, "donji-miholjac": 86, "belisce": 203, "osijek": 68,
 }
 
+// UgadjanjeLetve su letve na kojima prikaz do 96. sata pri niskoj i srednjoj
+// vodi nije ni satni lanac ni dnevni model, nego oboje zajedno (Odluke (22. 10.
+// 2026.)): osnova je dnevni model, a satni lanac je ugađanje s težinom
+// TezinaLanca. Mjereno 22. 10. 2026. na živim izdanjima od 26. 9. (težine
+// naučene samo na preračunu 2024.–2026.) bolje od prijelaza s jednoga na
+// drugi za 0,3–0,5 cm u prosjeku, do 60. sata 10–13 % manja greška; na
+// preračunu pri niskoj vodi 0,5–0,7 cm, bolje u svakoj godini. Pri visokoj
+// vodi i u vrhovima valova 2025.–2026. ugađanje je bilo lošije (lanac je
+// ondje išao previsoko), pa tada ostaje prijelaz. Na Dravi je i pri niskoj
+// vodi uživo bilo lošije (kaskada HE), pa ondje ostaje prijelaz dok se ne
+// popravi model ispuštanja.
+var UgadjanjeLetve = []string{"batina", "aljmas", "vukovar", "ilok"}
+
+// cvoroviTezine su sati unaprijed i težina satnog lanca u njima; između se
+// ide pravocrtno. Od 6. do 72. sata lanac i dnevni model dijele otprilike
+// pola-pola, a do 96. sata lanac nestaje. Osam namještenih čvorova nije
+// davalo ništa više od jedne težine (razlika do 0,03 cm).
+var cvoroviTezine = [][2]float64{{0, 1}, {6, 0.56}, {72, 0.56}, {96, 0}}
+
+// TezinaLanca je težina satnog lanca h sati unaprijed na letvama ugađanja.
+func TezinaLanca(h int) float64 {
+	x := float64(h)
+	for i := 1; i < len(cvoroviTezine); i++ {
+		a, b := cvoroviTezine[i-1], cvoroviTezine[i]
+		if x <= b[0] {
+			return a[1] + (x-a[0])/(b[0]-a[0])*(b[1]-a[1])
+		}
+	}
+	return 0
+}
+
+// Ugadja javlja ima li letva ugađanje.
+func Ugadja(letva string) bool {
+	return slices.Contains(UgadjanjeLetve, letva)
+}
+
+// UgadjaPri javlja vrijedi li ugađanje za letvu uz vodostaj u satu izdanja:
+// samo pri niskoj i srednjoj vodi (ne iznad VisokaVoda), kao DnevnaOdDanaZa.
+func UgadjaPri(letva string, sada float64, imaSada bool) bool {
+	g, ima := VisokaVoda[letva]
+	return Ugadja(letva) && ima && imaSada && sada <= g
+}
+
 // DnevnaOdDanaZa vraća od kojeg dana dnevni model daje vrijednost, prema
 // vodostaju letve u satu izdavanja (imaSada false: kao pri visokoj vodi).
 func DnevnaOdDanaZa(letva string, sada float64, imaSada bool) int {
