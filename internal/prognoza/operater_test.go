@@ -212,9 +212,33 @@ func TestOpisOperatera(t *testing.T) {
 			t.Errorf("pri %g m³/s:\n%s\nželim\n%s", s.q0, got, s.want)
 		}
 	}
-	// Model bez praga velike vode uvijek je u običnoj vodi.
+	// Model bez praga velike vode uvijek je u običnoj vodi; bez naučenog
+	// režima opis kaže da vrh drži zadnje istjecanje.
 	bez := &OperaterModel{Letva: "he-varazdin", Ulazi: []string{"he-formin"}}
-	if got := OpisOperatera(bez, 900); !strings.Contains(got, "(obična voda, iz he-formin;") {
+	if got := OpisOperatera(bez, 900); !strings.Contains(got, "za običnu vodu nije naučen") {
 		t.Errorf("model bez praga: %s", got)
+	}
+	m.Koristi[1] = [OperaterDosezi + 1]bool{}
+	if got := OpisOperatera(m, 500); got != "vrh drži zadnje istjecanje: model ispuštanja elektrane za veliku vodu nije naučen ili nije bolji od zadnjeg mjerenja" {
+		t.Errorf("bez režima velike vode: %s", got)
+	}
+}
+
+// Izvještaj pripreme modela pokazuje pogrešku po režimu i dosegu, a za
+// režim koji se nije naučio kaže da vrh tada drži zadnje istjecanje.
+func TestIspisiOperatera(t *testing.T) {
+	m := &OperaterModel{Letva: "he-dubrava", Ulazi: []string{"he-cakovec"}, Prag: 544}
+	for k := 1; k <= OperaterDosezi; k++ {
+		m.Koef[0][k] = []float64{1}
+		m.MAE[0][k], m.MAEPost[0][k], m.Koristi[0][k] = 50, 60, true
+	}
+	var b strings.Builder
+	ispisiOperatera(&b, m)
+	out := b.String()
+	for _, want := range []string{"model ispuštanja he-dubrava ← he-cakovec, prag velike vode 544 m³/s",
+		"obična voda    3h  50.0/ 60.0*", "velika voda  nije naučen (premalo sati), vrh drži zadnje istjecanje"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("izvještaj nema %q:\n%s", want, out)
+		}
 	}
 }
