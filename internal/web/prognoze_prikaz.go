@@ -278,6 +278,15 @@ func oznakaUdjela(dnevni float64) OznakaModela {
 	return oznakaKombinacije
 }
 
+// nizLetve je niz letve iz njezinih modela: uz kombinaciju na letvi s
+// ugađanjem oba zajedno, inače po pravilu tablice.
+func (u ulazPrikaza) nizLetve(l PregledLetve) nizPrikaza {
+	if u.nacin == models.PrognozaKombinacija && prognoza.Ugadja(l.Letva) {
+		return ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
+	}
+	return prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
+}
+
 // ulazPrikaza je sve iz čega se slažu nizovi izdanja.
 type ulazPrikaza struct {
 	pregled  []PregledLetve
@@ -297,11 +306,7 @@ func prikazIzdanja(u ulazPrikaza) map[string]nizPrikaza {
 	po := map[string]PregledLetve{}
 	for _, l := range u.pregled {
 		po[l.Letva] = l
-		if u.nacin == models.PrognozaKombinacija && prognoza.Ugadja(l.Letva) {
-			out[l.Letva] = ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
-			continue
-		}
-		out[l.Letva] = prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
+		out[l.Letva] = u.nizLetve(l)
 	}
 	if !u.susjedi {
 		return out

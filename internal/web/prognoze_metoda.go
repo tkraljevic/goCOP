@@ -674,8 +674,13 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 // daniDnevnogDrave opisuje od kojeg dana dnevni model na Dravi daje
 // vrijednost pri visokoj vodi; na Dunavu je ugađanje, bez dana prijelaza.
 func daniDnevnogDrave() string {
+	return daniDnevnogZa("botovo", "terezino-polje", "donji-miholjac", "belisce", "osijek")
+}
+
+// daniDnevnogZa opisuje od kojeg dana dnevni model daje vrijednost letvama.
+func daniDnevnogZa(letve ...string) string {
 	naj, vrh := 99, 0
-	for _, l := range []string{"botovo", "terezino-polje", "donji-miholjac", "belisce", "osijek"} {
+	for _, l := range letve {
 		if d, ima := prognoza.DnevnaOdDana[l]; ima {
 			naj, vrh = min(naj, d), max(vrh, d)
 		}

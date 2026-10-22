@@ -151,8 +151,8 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		red := []xlsxw.Celija{T(termin, pojas(stilTermina)), T(sto, pojas(stil))}
 		for _, x := range letve {
 			c := celija(x)
-			if prvi && !xlsxw.SOznakom(c.Stil) {
-				c.Stil = xlsxw.TablicaPodRub
+			if prvi {
+				c.Stil = xlsxw.UTerminu(c.Stil)
 			}
 			c.Stil = pojas(c.Stil)
 			red = append(red, c)

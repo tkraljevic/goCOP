@@ -88,6 +88,15 @@ func StilOznake(oznaka string) int {
 // SOznakom javlja nosi li stil oznaku modela.
 func SOznakom(stil int) bool { return stil >= TablicaPodRubS && stil <= TablicaPodRubP }
 
+// UTerminu je stil ćelije u prvom retku termina: s oznakom modela ostaje
+// kakav jest, inače TablicaPodRub.
+func UTerminu(stil int) int {
+	if SOznakom(stil) {
+		return stil
+	}
+	return TablicaPodRub
+}
+
 // UPojasu vraća stil s podlogom skupine; stil koji podlogu nema ostaje isti.
 func UPojasu(stil int) int {
 	switch stil {

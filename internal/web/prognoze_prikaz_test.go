@@ -422,3 +422,26 @@ func TestSatniStupciSamoProtok(t *testing.T) {
 		t.Errorf("letva bez niza promijenjena: %+v", v)
 	}
 }
+
+// Oznaka po udjelu dnevnog modela: bez njega s, samo on d, oboje ds.
+func TestOznakaUdjela(t *testing.T) {
+	for udio, want := range map[float64]string{0: "s", 1: "d", 0.44: "ds"} {
+		if got := oznakaUdjela(udio).Tekst; got != want {
+			t.Errorf("udio %g: %q, želim %q", udio, got, want)
+		}
+	}
+}
+
+// Opis dana prijelaza: raspon kad se postaje razlikuju, jedan dan kad su
+// iste, crtica kad nijedna nema dan prijelaza.
+func TestDaniDnevnogZa(t *testing.T) {
+	if got := daniDnevnogZa("nepoznata"); got != "—" {
+		t.Errorf("bez dana prijelaza: %q", got)
+	}
+	if got := daniDnevnogZa("osijek"); got != tekstBroja(prognoza.DnevnaOdDana["osijek"])+". dana" {
+		t.Errorf("jedna postaja: %q", got)
+	}
+	if got := daniDnevnogDrave(); !strings.Contains(got, "već prema postaji") {
+		t.Errorf("Drava: %q", got)
+	}
+}
