@@ -481,3 +481,16 @@ func TestUgadjanjeBezDnevnog(t *testing.T) {
 		}
 	}
 }
+
+// Stupac „Dnevni od”: na Dunavu ds do 96. sata, na Dravi dan prijelaza.
+func TestDnevniOd(t *testing.T) {
+	if got := dnevniOd("vukovar"); got != "ds do 96. sata" {
+		t.Errorf("Vukovar: %q", got)
+	}
+	if got := dnevniOd("osijek"); got != tekstBroja(prognoza.DnevnaOdDana["osijek"])+". dana" {
+		t.Errorf("Osijek: %q", got)
+	}
+	if got := dnevniOd("nepoznata"); got != "" {
+		t.Errorf("letva bez dnevnog modela: %q", got)
+	}
+}

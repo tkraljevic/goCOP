@@ -678,6 +678,18 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 	}
 }
 
+// dnevniOd je stupac „Dnevni od” tablice postaja: dan prijelaza pri visokoj
+// vodi, a na letvama s ugađanjem „ds do 96. sata”, jer ondje prijelaza nema.
+func dnevniOd(kod string) string {
+	if prognoza.Ugadja(kod) {
+		return "ds do 96. sata"
+	}
+	if d, ima := prognoza.DnevnaOdDana[kod]; ima {
+		return tekstBroja(d) + ". dana"
+	}
+	return ""
+}
+
 // daniDnevnogDrave opisuje od kojeg dana dnevni model na Dravi daje
 // vrijednost pri visokoj vodi; na Dunavu je ugađanje, bez dana prijelaza.
 func daniDnevnogDrave() string {
@@ -759,12 +771,7 @@ func letveMetode(tablice []TablicaPrognoza, postaje map[string]models.Station,
 				for _, u := range ulazi {
 					l.Dnevni = append(l.Dnevni, ime(u))
 				}
-				if d, ima := prognoza.DnevnaOdDana[x.Kod]; ima {
-					l.DnevniOd = tekstBroja(d) + ". dana"
-				}
-				if prognoza.Ugadja(x.Kod) {
-					l.DnevniOd = "ds do 96. sata"
-				}
+				l.DnevniOd = dnevniOd(x.Kod)
 			}
 			out = append(out, l)
 		}
