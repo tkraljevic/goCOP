@@ -126,7 +126,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"— ondje je bolje vjerovati zadnjem mjerenju. Sitno ispod stoje tuđe prognoze za isti termin: HU " +
 				"mađarska, RS srpska, AT austrijska. Termin obojen bojom faze obrane doseže prag, obrubljen ga " +
 				"doseže tek gornjom granicom raspona. Slovo s znači da bi taj dan dao dnevni model, ali za to " +
-				"izdanje nije računao, pa stoji satna prognoza u 07 h."),
+				"izdanje nije računao, pa stoji satna prognoza u 07 h. Slovo p znači da postaja nema dnevni " +
+				"model, pa vrijednost slijedi susjedne postaje koje ga imaju."),
 			tekstM("Kad pri izdavanju nešto ne radi — letva bez mjerenja, dnevni model koji nije računao, račun iz " +
 				"rezerve, vrh lanca bez svoje budućnosti, dnevni model bez kiše — iznad kartica stoji okvir " +
 				"„Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga upitne, satna od kojeg " +
@@ -489,12 +490,27 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"s oznakom s, a dani do kojih satni lanac ne seže (dalje od 96 sati) ostaju prazni. Brojke se pritom " +
 				"ne mijenjaju i ništa se ne zapisuje; dnevna starijeg izdanja ne podmeće se uz noviju satnu. U Excelu " +
 				"redak „model” tada piše „satni (dnevni nije izdan)” ili „nema (dnevni nije izdan)”."),
+			tekstM("Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni model, pa su im dani " +
+				"dolazili samo iz satnog lanca, koji ne zna za kišu: stajali su ravno dok su susjedi rasli, a 5. i 6. " +
+				"dan bili su prazni. Od 2. dana sad ih daju susjedne postaje s dnevnim modelom, uzvodna i nizvodna: " +
+				"Novom Virju Botovo i Terezino Polje, Szentborbásu, Vrbovki i Moslavini Terezino Polje i Donji " +
+				"Miholjac, a Drávaszabolcsu Donji Miholjac i Belišće. Promjena koju tablica pokazuje na svakoj od " +
+				"njih dodaje se vrijednosti postaje, razmjerno udaljenosti po rijeci, pa bliža vrijedi više. Takav " +
+				"dan nosi oznaku p, a u Excelu u retku „model” piše „iz susjeda”; raspona i protoka nema. Kad susjed " +
+				"u izdanju nema dnevne prognoze, dan ostaje kakav je bio, a prvi dan ostaje satni lanac, koji je u " +
+				"valu bolji. Na izdanjima 2024.–2025., s tada izdanim prognozama kiše, to je na svih pet postaja od " +
+				"2. do 6. dana bliže izmjerenom nego da voda ostane kakva je (Novo Virje 4. dan 21 prema 32 cm). " +
+				"Rizik: kad dnevni model susjedima najavi porast od kiše koji ne dođe, i ovdje je najava pogrešna " +
+				"(Novo Virje 4. dan 43 prema 27 cm). U Postavkama prognoze uprava to može isključiti."),
 			tekstM("Dan prijelaza ovisi i o vodostaju u satu izdavanja. Oba modela uspoređena su prema izmjerenom " +
 				"vodostaju u ciljnom satu, kako ga pokazuje tablica (siječanj 2024. – rujan 2026., modeli naučeni prije, " +
 				"dnevni s tada izdanim prognozama kiše), zasebno za nisku vodu (ispod 25. percentila 2016.–2025.), " +
 				"srednju i visoku (iznad 75. percentila). Prvi dan satni lanac je na Dunavu bolji pri svakoj vodi; na " +
 				"Dravi pri niskoj i srednjoj vodi dnevni model pobjeđuje već od 1. ili 2. dana, jer satni lanac nosi " +
-				"dnevni val elektrana, koji u 7 h ne znači ništa. Pri visokoj vodi ostaje prijelaz s poplavnih valova."),
+				"dnevni val elektrana, koji u 7 h ne znači ništa. Pri visokoj vodi ista usporedba pomaknula je " +
+				"Botovo na 2., Donji Miholjac na 3. i Belišće na 4. dan (dotad 5., 4. i 5.): model ispuštanja HE " +
+				"Dubrava i HE Varaždin za veliku vodu nema, pa satni lanac tada na vrhu Drave drži zadnje istjecanje " +
+				"i val od kiše ne vidi. Ostale postaje pri visokoj vodi zadržale su prijelaz s poplavnih valova."),
 			tablicaM("Srednja pogreška u cm prema izmjerenom u ciljnom satu, satni lanac / dnevni model",
 				[]string{"", "voda", "1. dan", "2. dan", "3. dan", "4. dan"},
 				[]string{"Batina", "niska", "2,9 / 4,5", "6,4 / 6,0", "9,7 / 9,5", "16,8 / 16,6"},
@@ -506,10 +522,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tablicaM("Od kojeg dana vrijednost daje dnevni model", []string{"", "niska i srednja voda", "visoka voda"},
 				[]string{"Batina, Aljmaš", "2. dana", "2. dana"},
 				[]string{"Vukovar, Ilok", "3. dana", "2. dana"},
-				[]string{"Osijek, Belišće", "2. dana", "5. dana"},
-				[]string{"Donji Miholjac", "1. dana", "4. dana"},
+				[]string{"Osijek", "2. dana", "5. dana"},
+				[]string{"Belišće", "2. dana", "4. dana"},
+				[]string{"Donji Miholjac", "1. dana", "3. dana"},
 				[]string{"Terezino Polje", "1. dana", "3. dana"},
-				[]string{"Botovo", "1. dana", "5. dana"}),
+				[]string{"Botovo", "1. dana", "2. dana"}),
 			tekstM("Mađarska prognoza Mohácsa kao vrh lanca popravila bi Aljmaš 2.–6. dan za 3–22 cm (27 njihovih izdanja " +
 				"2024.–2026.), ali lanac ostaje neovisan: taj razmak — naš Mohács 2.–4. dan griješi 30, 48 i 47 cm prema " +
 				"njihovih 14, 19 i 24 — mjerilo je koliko vlastiti lanac gornjeg Dunava još treba popraviti. Koji model " +
@@ -621,6 +638,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		{"Što je novo", []OdlomakMetode{
 			popisM(
 				"22. 10. 2026. — prognoza ne ovisi ni o jednoj tuđoj prognozi: Wildungsmauer drži zadnje mjerenje umjesto da slijedi austrijsku prognozu (noel.gv.at), a Komárom uvijek računa naš lanac umjesto da slijedi mađarsku (hydroinfo.hu). Pogrešku satne prognoze naših letvi na 96 sati to mijenja za 0–3 cm, a tablicu dana nimalo. Mađarska, austrijska i srpska prognoza i dalje stoje uz našu radi usporedbe.",
+				"22. 10. 2026. — Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs, koji nemaju dnevni model, od 2. dana slijede susjedne postaje s dnevnim modelom, razmjerno udaljenosti po rijeci (oznaka p; uprava to može isključiti u Postavkama prognoze); pri visokoj vodi dnevni model daje dane Botova od 2., Donjeg Miholjca od 3. i Belišća od 4. dana (dotad 5., 4. i 5.).",
 				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",
