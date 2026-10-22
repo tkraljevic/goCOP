@@ -8,7 +8,7 @@ otvoren, a program je neprofitan.
 Svako računalo s goCOP-om radi sa svojim podacima, pa radi i bez interneta.
 Kad ima veze, računala iste mreže međusobno se usklađuju.
 
-> **Alfa: zadnje izdanje je 0.0.39-alfa, od 18. 10. 2026.** Program je za
+> **Alfa: zadnje izdanje je 0.0.40-alfa, od 22. 10. 2026.** Program je za
 > razvoj i testiranje, ne za operativni rad. Prognoza pomaže stručnoj
 > procjeni. Ne zamjenjuje službene prognoze ni odluke odgovornih osoba. Što
 > je u kojem izdanju, piše u [popisu izmjena](CHANGELOG.md).
