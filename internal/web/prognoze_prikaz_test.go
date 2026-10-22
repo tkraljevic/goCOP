@@ -218,7 +218,7 @@ func TestSatniIzaKrajaSamoUPrijelazu(t *testing.T) {
 	}
 	fje := map[izvorDana]izvorSata{izSatnog: satniIzvor(satno, 100), izDnevnog: dnevni}
 	n := spojiStupce([]int{0, 2, 8}, []izvorDana{izSatnog, izSatnog, izDnevnog}, fje, 10)
-	if n[6].Vrijednost != 10+(20-10)*4.0/6 || n[8].Vrijednost != 20 || n[10].Vrijednost != 20 {
+	if math.Abs(n[6].Vrijednost-(10+(20-10)*4.0/6)) > 1e-9 || n[8].Vrijednost != 20 || n[10].Vrijednost != 20 {
 		t.Errorf("prijelaz %v", n)
 	}
 	n = spojiStupce([]int{0, 2, 8}, []izvorDana{izSatnog, izSatnog, bezIzvora}, fje, 10)
