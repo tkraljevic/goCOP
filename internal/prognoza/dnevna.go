@@ -347,9 +347,19 @@ func TezinaLanca(h int) float64 {
 	return 0
 }
 
-// Ugadja javlja ima li letva ugađanje.
+// Ugadja javlja ima li letva ugađanje. Imaju ga i srpske letve kojima se
+// prognoza prenosi samo s letvi s ugađanjem (Bezdan, Apatin, Bačka Palanka):
+// one su ista voda uz pomak, pa moraju pokazivati isto što i izvor.
 func Ugadja(letva string) bool {
-	return slices.Contains(UgadjanjeLetve, letva)
+	if slices.Contains(UgadjanjeLetve, letva) {
+		return true
+	}
+	for _, p := range PreneseneLetve {
+		if p.Letva == letva {
+			return len(p.Izvori) > 0 && !slices.ContainsFunc(p.Izvori, func(l string) bool { return !slices.Contains(UgadjanjeLetve, l) })
+		}
+	}
+	return false
 }
 
 // DnevnaOdDanaZa vraća od kojeg dana dnevni model daje vrijednost, prema

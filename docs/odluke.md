@@ -619,6 +619,15 @@ je gotov onaj o kojem ovisi.
   3–4 tjedna. „Oznaka d za dnevni, oznaka s za satni, oznaka za
   kombinaciju je ds”; p ostaje za vrijednost iz susjeda.
 - Izdanje 0.0.40 čeka da ovo bude gotovo.
+- Letve bez dnevnog modela između dunavskih letvi s ugađanjem (Siga,
+  Petreš, Bogojevo, Dalj, Sotin, Mohovo) dnevni dio posuđuju od susjeda, po
+  riječnom kilometru, kao Novo Virje na Dravi: „ili možda samo p, pošto
+  posuđujemo od susjednih letvi.” Srpske letve s našom prognozom (Bezdan,
+  Apatin, Bačka Palanka) pokazuju isto što i letve s kojih je prenesena.
+  Raspon uz p procjenjuje se iz susjeda („točnost za p ± bi se isto mogla
+  izvesti kao neki broj iz susjednih letvi”), a protok daje krivulja letve.
+- Uzdužni profil Dunava kreće od Batine: „da na uzdužnom dijagramu ne
+  pokazujemo mađarske postaje na Dunavu, nego da dijagram krene od Batine.”
 - Režim velike vode modela ispuštanja za HE Dubrava i HE Varaždin se
   popravlja, a ne izbacuje: „A što se tiče režima rada uzvodnih centrala, on
   mora biti usklađen s Dubravom i nikako drukčije ne bi ni funkcionirao.

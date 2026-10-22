@@ -209,7 +209,7 @@ func (h *PrognozeHandler) srednjaciDana(ctx context.Context, postaje map[string]
 	if h.readings == nil {
 		return out
 	}
-	for _, s := range LetveIzSusjeda {
+	for _, s := range letveSPosudbom() {
 		st, ima := postaje[s.Letva]
 		if !ima {
 			continue
@@ -258,10 +258,11 @@ func napomenaSusjeda(letve []LetvaPrognoze) string {
 	for _, x := range letve {
 		for _, d := range x.Dani {
 			if d.IzSusjeda {
-				return "\nNovo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni model, pa od " +
-					"drugog dana (skriveni redak „model”: iz susjeda) slijede susjedne postaje koje ga imaju, " +
-					"razmjerno udaljenosti po rijeci, bez raspona. Kad dnevni model susjedima najavi porast od " +
-					"kiše koji ne dođe, i ondje je najava pogrešna."
+				return "\nLetve bez dnevnog modela (skriveni redak „model”: iz susjeda) slijede susjedne postaje " +
+					"koje ga imaju, razmjerno udaljenosti po rijeci, s rasponom procijenjenim iz susjeda: na Dravi " +
+					"Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs od drugog dana, a na Dunavu " +
+					"Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo uz svoj satni lanac. Kad dnevni model susjedima " +
+					"najavi porast od kiše koji ne dođe, i ondje je najava pogrešna."
 			}
 		}
 	}

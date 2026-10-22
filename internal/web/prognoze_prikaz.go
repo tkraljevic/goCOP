@@ -185,15 +185,20 @@ func sidraDana(ciljevi []int64, izdanoH int64) []int {
 // izvoriLetve su modeli stupaca dana letve po pravilu tablice, s modelom od
 // kojeg niz kreće na početku: satni lanac gdje ga ima, inače dnevni model.
 func izvoriLetve(odDana int, l PregledLetve, dnevne []prognoza.DnevnaIzdana, ciljevi []int64) []izvorDana {
+	return izvoriPo(odDana, l.Satno, func(t int64) bool { _, ok := dnevniU(dnevne, t); return ok }, ciljevi)
+}
+
+// izvoriPo je isto pravilo za bilo koji dnevni izvor: imaDnevni javlja ima
+// li ga u satu t.
+func izvoriPo(odDana int, satno map[int64]PregledVrijednost, imaDnevni func(int64) bool, ciljevi []int64) []izvorDana {
 	prvi := izDnevnog
-	if len(l.Satno) > 0 {
+	if len(satno) > 0 {
 		prvi = izSatnog
 	}
 	izvori := []izvorDana{prvi}
 	for k, t := range ciljevi {
-		_, imaSatni := l.Satno[t]
-		_, imaDnevni := dnevniU(dnevne, t)
-		izvori = append(izvori, izvorStupca(k, odDana, imaSatni, imaDnevni))
+		_, imaSatni := satno[t]
+		izvori = append(izvori, izvorStupca(k, odDana, imaSatni, imaDnevni(t)))
 	}
 	return izvori
 }
@@ -232,41 +237,55 @@ func ugodi(satni, dnevni izvorSata) []tockaPrikaza {
 	return out
 }
 
-// ugodiCelije upisuje stupce dana letvama s ugađanjem iz njihova niza, s
-// oznakom ds gdje su satni lanac i dnevni model zajedno. Gdje niz ima samo
-// satni lanac (dnevne u izdanju nema), stupci ostaju kakve ih je složila
-// tablica.
-func ugodiCelije(letve []LetvaPrognoze, prikaz map[string]nizPrikaza, ciljevi []int64, izdanoH int64,
+// celijeIzNiza upisuje iz niza stupce dana koje tablica sama ne zna složiti:
+// letvama s ugađanjem oznakom ds gdje su satni lanac i dnevni model zajedno,
+// a vrijednostima iz susjeda oznakom p, s rasponom i protokom iz niza. Gdje
+// niz ima samo satni lanac (dnevne u izdanju nema), stupci ostaju kakve ih je
+// složila tablica.
+func celijeIzNiza(letve []LetvaPrognoze, prikaz map[string]nizPrikaza, ciljevi []int64, izdanoH int64,
 	postaje map[string]models.Station) {
 	for i := range letve {
-		x := &letve[i]
-		n, ima := prikaz[x.Kod]
-		if !ima || !n.Ugodjen {
-			continue
-		}
-		for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
-			h := int(ciljevi[k] - izdanoH)
-			if h > SatiPrikaza || !n.Cm[h].Ima || n.Cm[h].Dnevni == 0 {
-				continue
-			}
-			upisiUgodjeno(&x.Dani[k], n.Cm[h], n.Q[h], postaje[x.Kod])
+		if n, ima := prikaz[letve[i].Kod]; ima {
+			celijeLetveIzNiza(&letve[i], n, ciljevi, izdanoH, postaje[letve[i].Kod])
 		}
 	}
 }
 
-// upisiUgodjeno stavlja u dan vrijednost niza s ugađanjem.
-func upisiUgodjeno(c *CelijaDana, cm, q tockaPrikaza, st models.Station) {
+func celijeLetveIzNiza(x *LetvaPrognoze, n nizPrikaza, ciljevi []int64, izdanoH int64, st models.Station) {
+	for k := 0; k < len(x.Dani) && k < len(ciljevi); k++ {
+		h := int(ciljevi[k] - izdanoH)
+		if h > SatiPrikaza || !n.Cm[h].Ima {
+			continue
+		}
+		if t := n.Cm[h]; t.Susjedi > 0 || n.Ugodjen && t.Dnevni > 0 {
+			upisiIzNiza(&x.Dani[k], t, n.Q[h], st)
+		}
+	}
+}
+
+// upisiIzNiza stavlja u dan vrijednost niza, s oznakom po tome iz čega je.
+func upisiIzNiza(c *CelijaDana, cm, q tockaPrikaza, st models.Station) {
 	c.Cm, c.CmV, c.Raspon = brojHRf(cm.Vrijednost, 0), ptr(cm.Vrijednost, true), rasponUz(cm.Vrijednost, cm.Dolje, cm.Gore)
 	c.Q, c.QV, c.QRaspon = "", nil, ""
 	if q.Ima {
 		c.Q, c.QV, c.QRaspon = brojHRf(q.Vrijednost, 0), ptr(q.Vrijednost, true), rasponUz(q.Vrijednost, q.Dolje, q.Gore)
 	}
-	c.Dnevna, c.Kombinacija = cm.Dnevni == 1, cm.Dnevni < 1
+	c.IzSusjeda = cm.Susjedi > 0
+	c.Dnevna, c.Kombinacija = !c.IzSusjeda && cm.Dnevni == 1, !c.IzSusjeda && cm.Dnevni < 1
 	c.IzSatne, c.BezDnevne, c.Slabija = false, false, false
 	c.Razina, c.Moguce = razinaObrane(st, cm.Vrijednost), ""
 	if g := razinaObrane(st, cm.Gore); g != c.Razina {
 		c.Moguce = g
 	}
+}
+
+// oznakaTocke je oznaka vrijednosti niza: p kad u njoj ima susjeda, inače po
+// udjelu dnevnog modela.
+func oznakaTocke(t tockaPrikaza) OznakaModela {
+	if t.Susjedi > 0 {
+		return oznakaSusjeda
+	}
+	return oznakaUdjela(t.Dnevni)
 }
 
 // oznakaUdjela je oznaka vrijednosti po udjelu dnevnog modela u njoj.
@@ -297,8 +316,9 @@ type ulazPrikaza struct {
 	ciljevi  []int64
 	izdanoH  int64
 	nacin    string
-	susjedi  bool               // dani iz susjeda uključeni (Postavke prognoze)
-	srednjak map[string]float64 // izmjereni srednjak 24 sata do izdanja, letvama iz susjeda
+	susjedi  bool                           // dani iz susjeda uključeni (Postavke prognoze)
+	srednjak map[string]float64             // izmjereni srednjak 24 sata do izdanja, letvama iz susjeda
+	krivulje map[string][]models.HQKrivulja // krivulje protoka letvi iz susjeda, za protok uz p
 }
 
 // prikazIzdanja slaže niz svake letve izdanja, s danima iz susjeda gdje su
@@ -313,6 +333,7 @@ func prikazIzdanja(u ulazPrikaza) map[string]nizPrikaza {
 	if !u.susjedi {
 		return out
 	}
+	u.dodajMedjuletve(po, out)
 	for _, s := range LetveIzSusjeda {
 		l, imaX := po[s.Letva]
 		w, imaW := tezinaSusjeda(u.postaje, s)
@@ -329,6 +350,7 @@ func prikazIzdanja(u ulazPrikaza) map[string]nizPrikaza {
 		p := polazisteLetve{srednjak: srednjak, sada: sada, imaSrednjak: imaSrednjak, imaSada: imaSada}
 		out[s.Letva] = u.prikazIzSusjeda(l, out[s.Letva], w, p, gore, dolje)
 	}
+	u.protokIzKrivulja(out)
 	return out
 }
 
@@ -394,8 +416,13 @@ func (u ulazPrikaza) prikazIzSusjeda(l PregledLetve, vlastiti nizPrikaza, w floa
 		if !okG || !okD {
 			return tockaPrikaza{}, false, false
 		}
+		// Raspon je raspon susjeda, utegnut po kilometru kao i vrijednost;
+		// procijenjen je, a ne izmjeren za ovaj račun.
+		g, d := gore.niz[h], dolje.niz[h]
 		v := w*vg + (1-w)*vd
-		return tockaPrikaza{PregledVrijednost: PregledVrijednost{Vrijednost: v, Dolje: v, Gore: v}, Ima: true, Susjedi: 1}, true, false
+		dl := w*(g.Dolje-g.Vrijednost) + (1-w)*(d.Dolje-d.Vrijednost)
+		gr := w*(g.Gore-g.Vrijednost) + (1-w)*(d.Gore-d.Vrijednost)
+		return tockaPrikaza{PregledVrijednost: PregledVrijednost{Vrijednost: v, Dolje: v + dl, Gore: v + gr}, Ima: true, Susjedi: 1}, true, false
 	}
 	sidra := sidraDana(u.ciljevi, u.izdanoH)
 	izvori := izvoriLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi)
@@ -432,12 +459,12 @@ func satniStupci(letve []LetvaPrognoze, prikaz map[string]nizPrikaza) {
 			*v = VrijednostPrognoze{DosegH: d}
 			if cm := n.Cm[d]; cm.Ima {
 				v.Ima, v.Cm, v.CmRaspon, v.CmV = true, brojHRf(cm.Vrijednost, 0), granice(cm.PregledVrijednost), ptr(cm.Vrijednost, true)
-				v.Slabija, v.Oznaka = !cm.BoljaOdPostojanosti, oznakaUdjela(cm.Dnevni)
+				v.Slabija, v.Oznaka = !cm.BoljaOdPostojanosti, oznakaTocke(cm)
 			}
 			if q := n.Q[d]; q.Ima {
 				v.Q, v.QRaspon, v.QV = brojHRf(q.Vrijednost, 0), granice(q.PregledVrijednost), ptr(q.Vrijednost, true)
 				if !v.Ima {
-					v.Slabija, v.Oznaka = !q.BoljaOdPostojanosti, oznakaUdjela(q.Dnevni)
+					v.Slabija, v.Oznaka = !q.BoljaOdPostojanosti, oznakaTocke(q)
 				}
 				v.Ima = true
 			}
@@ -462,7 +489,8 @@ func (h *PrognozeHandler) PrikazZaLetvu(ctx context.Context, letva, velicina str
 	_, ciljevi := daniPregleda(izdano)
 	susjedi, srednjaci := h.susjediIzdanja(ctx, postaje, izdano)
 	n, ima := prikazIzdanja(ulazPrikaza{pregled: letve, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi,
-		izdanoH: izdano.Unix() / 3600, nacin: h.nacini(ctx).PrognozaPrikaz, susjedi: susjedi, srednjak: srednjaci})[letva]
+		izdanoH: izdano.Unix() / 3600, nacin: h.nacini(ctx).PrognozaPrikaz, susjedi: susjedi, srednjak: srednjaci,
+		krivulje: h.krivuljeSusjeda(ctx)})[letva]
 	if !ima {
 		return nil
 	}

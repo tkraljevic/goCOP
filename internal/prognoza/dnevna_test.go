@@ -8,6 +8,8 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"gocop/internal/models"
 )
 
 // Na izmišljenoj rijeci cilj ponavlja ulaz dva dana kasnije. Model naučen na
@@ -523,5 +525,21 @@ func TestTezinaLanca(t *testing.T) {
 	}
 	if !Ugadja("vukovar") || Ugadja("osijek") {
 		t.Error("ugađanje je na Dunavu, a ne na Dravi")
+	}
+	if !Ugadja("bezdan") || !Ugadja("apatin") || !Ugadja("backa-palanka") || Ugadja("bogojevo") {
+		t.Error("prenesena letva ima ugađanje kad ga imaju svi njezini izvori, a Bogojevo (iz Dalja) nema")
+	}
+}
+
+// UProtok vodi vrijednost i granice kroz krivulju; vrijednost izvan krivulje
+// protoka nema.
+func TestUProtok(t *testing.T) {
+	k := &models.HQKrivulja{Odsjecci: []models.HQOdsjecak{{OdCm: 0, DoCm: 300, Oblik: models.OblikPolinom, P2: 100}}}
+	q, qd, qg, ok := UProtok(k, 100, 90, 110)
+	if !ok || q != 100 || qd >= q || qg <= q {
+		t.Errorf("protok %g [%g, %g] %v, želim 100 s rasponom", q, qd, qg, ok)
+	}
+	if _, _, _, ok := UProtok(k, 5000, 4990, 5010); ok {
+		t.Error("vodostaj izvan krivulje, a protok ima")
 	}
 }
