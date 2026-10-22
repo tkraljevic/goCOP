@@ -404,6 +404,45 @@ func TestVrhBezBuducnostiUpozorava(t *testing.T) {
 	}
 }
 
+// Letva koju inače vodi tuđa prognoza (TudaIspredRacuna), a u izdanju je
+// računa naš lanac, upozorava i kaže zašto: tuđa nije stigla, zadnja je
+// starija od dva dana ili nema vrijednost za sat izdanja. Satna je upitna od
+// idućeg sata, na njoj i niz lanac. Kad je vodi tuđa, upozorenja nema.
+func TestBezTudeUpozorava(t *testing.T) {
+	sada := int64(500000)
+	postavi(t, &DnevniCiljevi, nil)
+	postavi(t, &TudaIspredRacuna, map[string]string{"srednja": Podrijetlo, "donja": "primjer.hr"})
+	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada, "donja": sada})
+	upitno := []Upitno{{Letva: "srednja", OdSata: 1}, {Letva: "donja", OdSata: 10}, {Letva: "cetvrta", OdSata: 15}}
+	for _, tc := range []struct {
+		ime    string
+		zadnje int64
+		uzrok  string
+	}{
+		{"nije stigla", 0, "mađarska prognoza (hydroinfo.hu) nije stigla"},
+		{"starija od dva dana", sada - 49,
+			"zadnja mađarska prognoza (hydroinfo.hu) izdana je " + satDnevnika(sada-49) + " i starija je od dva dana"},
+		{"bez sata izdanja", sada + 3,
+			"zadnja mađarska prognoza (hydroinfo.hu) izdana je " + satDnevnika(sada+3) + " i nema vrijednost za sat izdanja"},
+	} {
+		t.Run(tc.ime, func(t *testing.T) {
+			ishod := &Ishod{Sada: sada, BezTude: map[string]int64{"srednja": tc.zadnje}}
+			want := []Upozorenje{{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: "srednja",
+				Opis: tc.uzrok + ", pa računa naš lanac, koji pri valu griješi više", Upitno: upitno}}
+			if got := Upozori(ishod, lanacUpozorenja(), nizovi, nil); !reflect.DeepEqual(got, want) {
+				t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
+			}
+		})
+	}
+	got := Upozori(&Ishod{Sada: sada, BezTude: map[string]int64{"donja": 0}}, lanacUpozorenja(), nizovi, nil)
+	if len(got) != 1 || got[0].Opis != "tuđa prognoza (primjer.hr) nije stigla, pa računa naš lanac, koji pri valu griješi više" {
+		t.Errorf("tuđa drugog izvora: %+v", got)
+	}
+	if got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, nil); len(got) != 0 {
+		t.Errorf("tuđa vodi letvu, a upozorenje je: %+v", got)
+	}
+}
+
 // Letva bez ijednog sata prognoze je napomena: Ustava Draž je takva svaki
 // sat pri malim vodama, pa bi otvoreno upozorenje bilo stalna buka.
 func TestBezPrognozeJeNapomena(t *testing.T) {

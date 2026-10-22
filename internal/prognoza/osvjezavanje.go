@@ -129,6 +129,10 @@ type Ishod struct {
 	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
 	// zadnja četiri dana prije izdanja: letva → rupe redom.
 	Rekonstruirano map[string][]RekonstruiranaRupa
+	// BezTude su letve iz TudaIspredRacuna koje u ovom izdanju računa naš
+	// lanac, jer im tuđa prognoza nije svježa: letva → sat zadnjeg tuđeg
+	// izdanja do sata izdavanja i tudaPoslije sati, 0 kad ga nema.
+	BezTude map[string]int64
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -271,6 +275,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		ishod.Izbor = map[string]Izbor{}
 	}
 	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
+	ishod.BezTude = o.bezTude(pojasi, sada)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)
@@ -459,12 +464,36 @@ func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64) bool {
 	return izbacena
 }
 
-// tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada:
-// izdana najviše dva dana prije njega i najviše šest sati poslije, s
-// vrijednošću u satu sada i barem jednom poslije njega (tudaUSatu).
+// Tuđa prognoza je svježa za izdanje kad je izdana najviše tudaUnatrag sati
+// prije sata izdavanja i najviše tudaPoslije sati poslije njega.
+const (
+	tudaUnatrag = 48
+	tudaPoslije = 6
+)
+
+// tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada,
+// s vrijednošću u satu sada i barem jednom poslije njega (tudaUSatu).
 func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
-	n, ima, err := tudaUSatu(o.Baza, izvor, letva, sada-48, sada+6, sada)
+	n, ima, err := tudaUSatu(o.Baza, izvor, letva, sada-tudaUnatrag, sada+tudaPoslije, sada)
 	return n, err == nil && ima
+}
+
+// bezTude su letve iz TudaIspredRacuna kojima je u satu sada ostao račun, jer
+// im tuđa prognoza nije svježa (tudeIspredRacuna), sa satom zadnjeg tuđeg
+// izdanja; Upozori ih javlja.
+func (o *Osvjezivac) bezTude(pojasi map[string][]Pojas, sada int64) map[string]int64 {
+	out := map[string]int64{}
+	for letva, izvor := range TudaIspredRacuna {
+		if len(pojasi[letva]) == 0 {
+			continue
+		}
+		z, err := zadnjeTudeIzdanje(o.Baza, izvor, letva, sada+tudaPoslije)
+		if err != nil {
+			log.Printf("tuđa prognoza %s (%s): zadnje izdanje: %v", letva, izvor, err)
+		}
+		out[letva] = z
+	}
+	return out
 }
 
 // dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna

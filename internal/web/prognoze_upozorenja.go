@@ -162,8 +162,9 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaKrivulja:
 		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
 	}
-	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
-	// koje ova inačica još ne zna: opis izdavača imenima letvi
+	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša,
+	// letva bez tuđe prognoze i vrste koje ova inačica još ne zna: opis
+	// izdavača imenima letvi
 	o := opisVrste[u.Vrsta]
 	return p.uLetvi(u.Letva, o.uvod+p.imena(strings.TrimPrefix(u.Opis, o.prefiks)))
 }
@@ -411,6 +412,8 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return "dnevni model bez kiše"
 	case prognoza.VrstaRekonstrukcija:
 		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
+	case prognoza.VrstaBezTude:
+		return p.ime(u.Letva) + " bez tuđe prognoze"
 	}
 	return "dnevni model nije računao"
 }

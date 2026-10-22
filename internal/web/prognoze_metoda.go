@@ -128,8 +128,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"doseže tek gornjom granicom raspona. Slovo s znači da bi taj dan dao dnevni model, ali za to " +
 				"izdanje nije računao, pa stoji satna prognoza u 07 h."),
 			tekstM("Kad pri izdavanju nešto ne radi — letva bez mjerenja, dnevni model koji nije računao, račun iz " +
-				"rezerve, vrh lanca bez svoje budućnosti, dnevni model bez kiše — iznad kartica stoji okvir " +
-				"„Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga upitne, satna od kojeg " +
+				"rezerve, vrh lanca bez svoje budućnosti, Komárom bez mađarske prognoze, dnevni model bez kiše — iznad " +
+				"kartica stoji okvir „Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga upitne, satna od kojeg " +
 				"dosega i dnevna koja nije izdana. Kartica takve postaje ima kratak redak s razlogom. Sitnije stvari " +
 				"(dnevni model iz rezerve, sati s letve na drugoj obali, postaja bez prognoze, vrijednosti izvan " +
 				"krivulje protoka) stoje sklopljene pod „Napomene”. Upozorenja zapisuje čvor koji izdaje i ona putuju " +
@@ -311,8 +311,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Dunav: mađarska prognoza dok je svježa. Komárom se računa iz Nagybajcsa i Wildungsmauera, a " +
 				"Wildungsmauer drži zadnje mjerenje; ipak, dok je mađarska prognoza Komároma svježa (ne starija od " +
 				"dva dana) i ima vrijednost u satu izdanja, Komárom postaje vrh i slijedi nju, jer je u valu dvostruko " +
-				"bolja od našeg lanca. Naš lanac je rezerva za sate kad mađarske nema. Cilj ostaje potpuna neovisnost, " +
-				"ali ne po cijenu lošije prognoze."),
+				"bolja od našeg lanca. Naš lanac je rezerva za sate kad mađarske nema, i tada uz izdanje stoji " +
+				"upozorenje. Cilj ostaje potpuna neovisnost, ali ne po cijenu lošije prognoze."),
 			tekstM("Od 26. 9. do 22. 10. 2026. Wildungsmauer je slijedio 48-satnu prognozu Donje Austrije " +
 				"(noel.gv.at). Ta je prognoza izbačena iz lanca: dok je mađarska svježa, mijenjala je samo Nagybajcs, a " +
 				"ni točna austrijska ne popravlja Batinu i Ilok unutar 96 sati. I dalje se preuzima i stoji uz našu " +
@@ -613,7 +613,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
-				"22. 10. 2026. — Wildungsmauer više ne slijedi austrijsku prognozu (noel.gv.at), nego drži zadnje mjerenje; austrijska stoji samo radi usporedbe.",
+				"22. 10. 2026. — Wildungsmauer više ne slijedi austrijsku prognozu (noel.gv.at), nego drži zadnje mjerenje; austrijska stoji samo radi usporedbe. Kad Komárom računa naš lanac jer mađarske prognoze nema, uz izdanje stoji upozorenje.",
 				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",

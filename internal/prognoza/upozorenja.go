@@ -30,6 +30,7 @@ const (
 	VrstaBezPrognoze    = "bez-prognoze"   // letva bez ijednog sata prognoze
 	VrstaCeka           = "ceka"           // sat izdavanja drži vrh lanca koji kasni
 	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
+	VrstaBezTude        = "bez-tude"       // letvu koju vodi tuđa prognoza računa naš lanac
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -77,6 +78,7 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaDnevnog(ishod, pokriveno, ima)...)
 	u = append(u, upozorenjaIzbora(ishod, pojasi, ima)...)
 	u = append(u, upozorenjaVrhova(ishod, vrhovi, pojasi)...)
+	u = append(u, upozorenjaBezTude(ishod, pojasi)...)
 	u = append(u, upozorenjaOstalog(ishod)...)
 	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
 	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
@@ -482,6 +484,43 @@ func odakleBuducnostVrha(letva string) string {
 		izvori = append(izvori, "tuđa prognoza "+izvor)
 	}
 	return strings.Join(izvori, ", ")
+}
+
+// upozorenjaBezTude javljaju letvu koju inače vodi tuđa prognoza
+// (TudaIspredRacuna), a u ovom izdanju je računa naš lanac. Komárom je tako
+// tiho prelazio na naš lanac, koji u valu griješi više, a uz izdanje nije
+// stajalo ništa. Satna je upitna od idućeg sata, na letvi i niz lanac.
+func upozorenjaBezTude(ishod *Ishod, pojasi map[string][]Pojas) []Upozorenje {
+	out := make([]Upozorenje, 0, len(ishod.BezTude))
+	for letva, zadnje := range ishod.BezTude {
+		s := skupUpitnog{}
+		s.satna(satnaNizvodno(ishod, pojasi, letva, ishod.Sada+1))
+		out = append(out, Upozorenje{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: letva,
+			Opis: opisBezTude(TudaIspredRacuna[letva], zadnje, ishod.Sada), Upitno: s.popis()})
+	}
+	return out
+}
+
+// opisBezTude kaže zašto tuđa prognoza ne vodi letvu: nije stigla, zadnja je
+// starija od dva dana ili nema vrijednost za sat izdanja (tudaSvjeza).
+func opisBezTude(izvor string, zadnje, sada int64) string {
+	uzrok := imeTude(izvor) + " nije stigla"
+	switch {
+	case zadnje == 0:
+	case zadnje < sada-tudaUnatrag:
+		uzrok = "zadnja " + imeTude(izvor) + " izdana je " + satDnevnika(zadnje) + " i starija je od dva dana"
+	default:
+		uzrok = "zadnja " + imeTude(izvor) + " izdana je " + satDnevnika(zadnje) + " i nema vrijednost za sat izdanja"
+	}
+	return uzrok + ", pa računa naš lanac, koji pri valu griješi više"
+}
+
+// imeTude je naziv tuđe prognoze u opisu upozorenja.
+func imeTude(izvor string) string {
+	if izvor == Podrijetlo {
+		return "mađarska prognoza (" + izvor + ")"
+	}
+	return "tuđa prognoza (" + izvor + ")"
 }
 
 // upozorenjaOstalog su napomene o letvama bez ijednog sata prognoze i o
