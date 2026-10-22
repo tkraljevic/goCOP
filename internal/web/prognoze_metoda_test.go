@@ -86,8 +86,10 @@ func TestStranicaOPrognozi(t *testing.T) {
 		Letve: []LetvaMetode{{Naziv: "Donja", Voda: "Rijeka", Racuna: "vodostaj",
 			Satni: []string{"Gornja · protok · 12–20 h · prozor 5 h"}, Raspon: "±6 / ±11 / ±17 cm",
 			Dnevni: []string{"Gornja", "Pritok"}, DnevniOd: "3. dana"}},
+		Lanac: &SlikaLanca{Width: 400, Height: 120, Cvorovi: []CvorLanca{{Naziv: "Gornja"}}},
 	})
 	for _, want := range []string{"O prognozi", "Satni lanac — građa", "prog-formula", "data-tex=", `\frac`,
+		"Lanac postaja", "prog-lanac-svg", `<details class="prog-detalji">`, "<summary>Dnevni model</summary>",
 		"vendor/katex/katex.min.css", "vendor/katex/katex.min.js", "katex.render", "Nenada Šuvaka", suradnjaVeza, "izdanja.csv",
 		"Gornja · protok · 12–20 h · prozor 5 h", "±6 / ±11 / ±17 cm", "Gornja, Pritok", "3. dana",
 		"/prognoze.xlsx"} {
@@ -219,5 +221,34 @@ func TestProvjeraValovaIzSazetka(t *testing.T) {
 	}
 	if provjeraValovaIz(t.TempDir()) != nil {
 		t.Error("bez datoteke mora biti nil")
+	}
+}
+
+// Na vrhu stranice je ono što dežurni treba za čitanje prognoze, a crtež
+// lanca dolazi odmah iza toga; formule i povijest su u sklopljenim detaljima.
+func TestOpisMetodeGlavnoPaDetalji(t *testing.T) {
+	m := PrognozeMetodaData{Odjeljci: OpisMetode(68, "COP Osijek")}
+	glavni, detalji := m.Glavni(), m.Detaljni()
+	if len(glavni) == 0 || glavni[0].Naslov != "Kako čitati prognozu" {
+		t.Fatalf("prvi glavni odjeljak %+v, želim Kako čitati prognozu", glavni)
+	}
+	for _, o := range glavni {
+		for _, od := range o.Odlomci {
+			if od.Formula {
+				t.Errorf("formula u glavnom odjeljku %q: formule idu u detalje", o.Naslov)
+			}
+		}
+	}
+	if len(detalji) == 0 || detalji[len(detalji)-1].Naslov != "Što je novo" {
+		t.Errorf("detalji %d, zadnji treba biti Što je novo", len(detalji))
+	}
+	var oznake string
+	for _, od := range glavni[0].Odlomci {
+		oznake += strings.Join(od.Popis, "\n")
+	}
+	for _, slovo := range []string{"s — satni lanac", "d — dnevni model", "ds — satni lanac i dnevni model zajedno", "p — iz susjednih postaja"} {
+		if !strings.Contains(oznake, slovo) {
+			t.Errorf("Kako čitati prognozu nema oznaku %q", slovo)
+		}
 	}
 }
