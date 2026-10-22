@@ -597,3 +597,7 @@ je gotov onaj o kojem ovisi.
   prognoze stoje uz našu samo radi usporedbe.
 - Model ispuštanja za veliku vodu za HE Dubrava i HE Varaždin sljedeći je
   veći posao na prognozi, prije sezone poplava.
+- Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni
+  model, pa od 2. dana slijede susjedne postaje koje ga imaju, razmjerno
+  udaljenosti po rijeci. Pri visokoj vodi dnevni model na Dravi preuzima
+  ranije: Botovo od 2., Donji Miholjac od 3. i Belišće od 4. dana.
