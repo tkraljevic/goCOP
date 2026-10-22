@@ -162,9 +162,8 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaKrivulja:
 		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
 	}
-	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša,
-	// letva bez tuđe prognoze i vrste koje ova inačica još ne zna: opis
-	// izdavača imenima letvi
+	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
+	// koje ova inačica još ne zna: opis izdavača imenima letvi
 	o := opisVrste[u.Vrsta]
 	return p.uLetvi(u.Letva, o.uvod+p.imena(strings.TrimPrefix(u.Opis, o.prefiks)))
 }
@@ -412,19 +411,13 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return "dnevni model bez kiše"
 	case prognoza.VrstaRekonstrukcija:
 		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
-	case prognoza.VrstaBezTude:
-		return uzrokBezTude(p.ime(u.Letva), u.Letva)
+	case prognoza.VrstaDnevni:
+		return "dnevni model nije računao"
 	}
-	return "dnevni model nije računao"
-}
-
-// uzrokBezTude je razlog na kartici letve koju tuđa prognoza nije vodila,
-// istom riječju kao u pomoći: „Komárom bez mađarske prognoze”.
-func uzrokBezTude(ime, letva string) string {
-	if prognoza.TudaIspredRacuna[letva] == prognoza.Podrijetlo {
-		return ime + " bez mađarske prognoze"
-	}
-	return ime + " bez tuđe prognoze"
+	// Vrsta koju ova inačica ne zna: s izdavača novije inačice, ili vrsta
+	// koje više nema (npr. „bez-tude”, Komárom bez mađarske prognoze). Razlog
+	// se ne nagađa: stoji ime letve, a opis izdavača je u okviru upozorenja.
+	return cmp.Or(p.ime(u.Letva), "vidi upozorenja uz izdanje")
 }
 
 // nabroji spaja riječi zarezima, a zadnju s „i”.

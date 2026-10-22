@@ -5356,8 +5356,6 @@ body.uzd-puni-zaslon-otvoren { overflow: hidden; }
 .prog-lanac-cvor.karika circle { fill: var(--primary); }
 .prog-lanac-cvor.vrh-operater circle { fill: #d97706; }
 .prog-lanac-cvor.vrh-dnevni circle { fill: #16a34a; }
-.prog-lanac-cvor.vrh-hibrid circle { fill: #b45309; }
-.prog-lanac-cvor.vrh-hu circle { fill: #b45309; opacity: 0.6; }
 .prog-lanac-cvor.vrh-mjerenje circle { fill: var(--text-muted); }
 .prog-lanac-cvor.mjerenje circle { fill: var(--surface); stroke: var(--text-muted); }
 .prog-lanac-legenda { display: flex; flex-wrap: wrap; gap: 0.4rem 1.2rem; font-size: 0.82rem; margin-top: 0.4rem; }

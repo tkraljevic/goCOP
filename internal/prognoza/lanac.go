@@ -291,9 +291,10 @@ var Tokovi = []struct {
 		// lanca, ali samo zato što se nije pogledalo iznad nje: Mohács je 22 km
 		// uzvodno, a Esztergom 294. Zbroj kašnjenja od Esztergoma do Batine je
 		// 45–66 sati, i to nasljeđuje cijeli krak nizvodno.
-		// Vrh je Wildungsmauer, da lanac ne ovisi o mađarskoj prognozi
-		// Komároma; drži zadnje mjerenje, jer austrijska prognoza (noel.gv.at)
-		// ne popravlja naše letve unutar 96 sati (VrhoviSTudomPrognozom).
+		// Vrh je Wildungsmauer i drži zadnje mjerenje: lanac ne čita ni
+		// mađarsku prognozu Komároma ni austrijsku Wildungsmauera (noel.gv.at),
+		// jer naše letve unutar 96 sati gotovo ne mijenjaju (Odluke (22. 10.
+		// 2026.)).
 		// Austrijski Dunav iznad njega niz je akumulacija kroz koje val
 		// prolazi brzo (Achleiten → Kienstock → Wildungsmauer 2–5, 2–4 i
 		// 6–7 h). Uzvodnije karike nisu dodane dok je vrh slijedio

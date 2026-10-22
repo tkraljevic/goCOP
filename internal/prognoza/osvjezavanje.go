@@ -21,50 +21,28 @@ import (
 // jednom na dan zastarjela je devetnaest sati od dvadeset četiri; ova se
 // obnavlja kako voda stiže.
 
-// VrhoviSTudomPrognozom su vrhovi lanca kojima se za sate poslije izdavanja
-// uzima hod tuđe prognoze umjesto zadnjeg mjerenja.
+// Lanac ne čita nijednu tuđu prognozu (Odluke (22. 10. 2026.)). Vrh lanca
+// budućnost dobiva iz našeg dnevnog modela (VrhoviIzDnevnog) ili iz modela
+// ispuštanja elektrane, a inače drži zadnje mjerenje. Tuđe prognoze
+// (mađarska, austrijska, srpska) preuzimaju se i stoje uz našu samo radi
+// usporedbe.
 //
-// Wildungsmauer, vrh Dunava, od 25. 9. 2026. slijedio je 48-satnu prognozu
-// Donje Austrije (noel.gv.at). Izbačen je 22. 10. 2026.: dok je mađarska
-// prognoza Komároma svježa, austrijska mijenja samo Nagybajcs, a ni točna
-// austrijska ne popravlja Batinu i Ilok unutar 96 sati. I dalje se preuzima
-// i stoji uz našu radi usporedbe, ali je lanac ne čita, pa Wildungsmauer
-// drži zadnje mjerenje kao i ostali vrhovi.
-//
-// Mađarski Letenye mjeren je na 29 njihovih izdanja 2024.–2026. modelom
-// naučenim prije njih: s njihovim Letenyeom naš lanac Botovu skida pogrešku
-// 1.–4. dan s 30, 36, 48 i 60 cm na 22, 29, 41 i 49 — manje i od njihove
-// vlastite prognoze Botova (24, 37, 42, 51). Danas Letenye i Goričan
-// budućnost dobivaju iz našeg dnevnog modela (VrhoviIzDnevnog), a mađarska
-// je rezerva. Tuđa prognoza uzima se samo svježa: ne starija od dva dana i
-// s vrijednošću u satu izdanja (tudaSvjeza).
-var VrhoviSTudomPrognozom = map[string]string{
-	"letenye": Podrijetlo,
-}
-
-// TudaIspredRacuna su letve koje imaju svoj račun, ali dok je tuđa prognoza
-// svježa (ne starija od dva dana i s vrijednošću u satu izdanja, tudaSvjeza)
-// postaju vrh lanca i slijede nju; račun ostaje za sate kad je nema.
-// Komárom se računa iz Nagybajcsa i Wildungsmauera, no na 27 mađarskih
-// izdanja 2024.–2026. (uglavnom valovi)
-// taj lanac griješi 18, 38, 61, 90, 113 i 131 cm za 1.–6. dan prema
-// njihovih 12, 20, 28, 38, 47 i 59, a ni savršena austrijska prognoza vrha
-// to ne popravlja: pri velikoj vodi val od Wildungsmauera do Nagybajcsa
-// putuje tri dana (Szigetköz, Gabčíkovo, rukavci, Morava), ne 5–7 sati kako
-// je karika namještena na svim satima. Dok se za to ne skupi satna povijest
-// Morave i Bratislave, bolju prognozu daje njihov model; naša ostaje rezerva.
-var TudaIspredRacuna = map[string]string{
-	"komarom": Podrijetlo,
-}
-
-// TudiIzvorVrha kaže čija tuđa prognoza vodi letvu kad je vrh lanca.
-func TudiIzvorVrha(letva string) (string, bool) {
-	if izvor, ima := VrhoviSTudomPrognozom[letva]; ima {
-		return izvor, true
-	}
-	izvor, ima := TudaIspredRacuna[letva]
-	return izvor, ima
-}
+// Dotad su vrhove vodile tuđe prognoze:
+//   - Wildungsmauer, vrh Dunava, od 25. 9. 2026. slijedio je 48-satnu
+//     prognozu Donje Austrije (noel.gv.at). Dok je mađarska prognoza
+//     Komároma svježa, austrijska je mijenjala samo Nagybajcs, a ni točna
+//     austrijska ne popravlja Batinu i Ilok unutar 96 sati.
+//   - Komárom je od 23. 9. 2026. slijedio mađarsku prognozu (hydroinfo.hu)
+//     dok je svježa, a od 25. 9. bez nje se računao iz Nagybajcsa i
+//     Wildungsmauera. Na 27 mađarskih izdanja 2024.–2026. (uglavnom valovi)
+//     taj lanac Komárom promaši 18, 38, 61, 90, 113 i 131 cm za 1.–6. dan
+//     prema njihovih 12, 20, 28, 38, 47 i 59, ali pogrešku satne prognoze
+//     naših letvi na 96 sati mađarska mijenja za 0–3 cm, a tablicu dana
+//     nimalo (dnevni model tuđe prognoze ne čita). Pomaže samo mađarskom
+//     Dunavu u valu (pogreška Budimpešte na 96 h 34 cm s njom, 78 bez nje),
+//     a pri maloj vodi naš je lanac ondje bolji (11,1 prema 13,2 cm).
+//   - Letenye je mađarsku prognozu uzimao samo kad mu budućnost ne da naš
+//     dnevni model; u 589 izdanja od 26. 9. 2026. to se nije dogodilo.
 
 // PregledneLetve se na pregledu prognoza pokazuju s mjerenjem, iako u model ne
 // ulaze: Bratislava i Komárno stoje u svakoj uredskoj tablici za Dunav, a
@@ -109,7 +87,6 @@ type Ishod struct {
 	Preskoceno     bool                       // isti sat već je izdan, ništa se nije mijenjalo
 	BezPrognoze    map[string]error           // letve koje nisu dale nijedan sat
 	Dnevne         []DnevnaIzdana             // dnevna prognoza za 1.–6. dan
-	TudiVrhovi     []string                   // vrhovi kojima je budućnost dala tuđa prognoza
 	OperaterVrhovi []string                   // vrhovi kojima je budućnost dao model ispuštanja elektrane
 	NasiVrhovi     []string                   // vrhovi kojima je budućnost dao naš dnevni model
 	BezDnevne      map[string]error           // letve s dnevnim modelom koje ga nisu dale
@@ -130,20 +107,6 @@ type Ishod struct {
 	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
 	// zadnja četiri dana prije izdanja: letva → rupe redom.
 	Rekonstruirano map[string][]RekonstruiranaRupa
-	// BezTude su letve iz TudaIspredRacuna koje u ovom izdanju računa naš
-	// lanac, i zašto (bezTude).
-	BezTude map[string]RazlogBezTude
-}
-
-// RazlogBezTude kaže zašto letvu iz TudaIspredRacuna ne vodi tuđa prognoza.
-// Svježina se sudi u satu izdanja koji bi letva imala kao vrh lanca. To ne
-// mora biti sat izdanja (mjerenje letve kasni ili ga nema, ili sat izdanja
-// drži drugi vrh), pa tuđa za izdanje može biti svježa, a letvu ipak računa
-// naš lanac.
-type RazlogBezTude struct {
-	Zadnje int64 // sat zadnjeg tuđeg izdanja; 0 kad ga nema
-	Svjeza bool  // tuđa je svježa u satu izdanja
-	KaoVrh int64 // uz svježu: sat izdanja koji bi letva imala kao vrh; 0 kad nema mjerenja
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -227,16 +190,6 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 			izbor["zamjena:"+iz.Letva] = Izbor{Opis: z.Opis()}
 		}
 	}
-	// Letva s tuđom prognozom ispred računa: dok je prognoza svježa, račun
-	// joj se skida i ona postaje vrh, pa je dolje dobije kao budućnost.
-	skinute, kaoVrh := o.tudeIspredRacuna(pojasi, nizovi)
-	for letva, izvor := range skinute {
-		ulazi := imenaUlaza(pojasi[letva])
-		delete(pojasi, letva)
-		delete(izbor, letva)
-		izbor["vrh:"+letva] = Izbor{Inacica: 2, Opis: fmt.Sprintf("dok je svježa, vodi je tuđa prognoza (%s), "+
-			"jer je na valovima bolja od našeg lanca; bez nje računa se iz: %s", izvor, ulazi)}
-	}
 	_, vrhovi := TrebaniIzvori(pojasi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
 	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
@@ -283,46 +236,19 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 
 	r := NovoRacunalo(pojasi, nizovi, sada)
-	if ishod.Izbor == nil {
-		ishod.Izbor = map[string]Izbor{}
-	}
 	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
-	ishod.BezTude = o.bezTude(pojasi, kaoVrh, sada)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)
 		ishod.NasiVrhovi = append(ishod.NasiVrhovi, iz.Letva)
-		ishod.Izbor["vrh:"+iz.Letva] = Izbor{Inacica: 1, Opis: "budućnost vrha lanca iz našeg dnevnog modela s kišom, ne iz tuđe prognoze"}
+		ishod.Izbor["vrh:"+iz.Letva] = Izbor{Inacica: 1, Opis: "budućnost vrha lanca iz našeg dnevnog modela s kišom"}
 	}
 	sort.Strings(ishod.NasiVrhovi)
-	tudiVrhovi := map[string]string{}
-	for letva, izvor := range VrhoviSTudomPrognozom {
-		tudiVrhovi[letva] = izvor
-	}
-	for letva, izvor := range TudaIspredRacuna {
-		tudiVrhovi[letva] = izvor
-	}
-	for letva, izvor := range tudiVrhovi {
-		iz := Izvor{Letva: letva, Velicina: "vodostaj"}
-		if !vrhovi[iz] {
-			continue
-		}
-		if _, ima := nasi[iz]; ima {
-			continue
-		}
-		if n, ima := o.tudaSvjeza(izvor, letva, sada); ima {
-			r.PostaviBuducnostVrha(iz, n)
-			ishod.TudiVrhovi = append(ishod.TudiVrhovi, letva)
-		}
-	}
 	// Elektrana na vrhu lanca: budućnost iz modela ispuštanja, gdje ga ima i
 	// gdje je u provjeri bio bolji od zadnjeg mjerenja.
 	zauzeto := map[string]bool{}
 	for iz := range nasi {
 		zauzeto[iz.Letva] = true
-	}
-	for _, l := range ishod.TudiVrhovi {
-		zauzeto[l] = true
 	}
 	for iz, n := range BuducnostOperatera(operateri, nizovi, sada) {
 		if !vrhovi[iz] || zauzeto[iz.Letva] {
@@ -422,97 +348,6 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	donjiRubProtoka(ishod.Izdane)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
-}
-
-// tudeIspredRacuna bira letve iz TudaIspredRacuna kojima tuđa prognoza vodi
-// umjesto računa (letva → izvor): one kojima je svježa u satu izdavanja, istom
-// satu po kojem im se poslije uzima budućnost. Po satu na zidu letva je pri
-// izdanju koje kasni ostajala bez računa, a tuđa joj budućnost nije bila
-// postavljena. Bez računa letva postaje vrh, a vrhovi određuju sat izdavanja,
-// pa se skup sužava dok se ne ustali; letva kojoj tuđa u tom satu nije svježa
-// zadržava račun, a kaoVrh pamti sat u kojem joj nije bila svježa. Bez sata
-// izdavanja (vrh bez ijednog mjerenja) svježinu nije moguće reći, pa račun
-// ostaje svima.
-func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvor]Niz) (skinute map[string]string, kaoVrh map[string]int64) {
-	skinute, kaoVrh = map[string]string{}, map[string]int64{}
-	for letva, izvor := range TudaIspredRacuna {
-		if len(pojasi[letva]) > 0 {
-			skinute[letva] = izvor
-		}
-	}
-	for len(skinute) > 0 {
-		sada, ok := ZadnjiZajednicki(nizovi, vrhoviBez(pojasi, skinute))
-		if !ok {
-			return nil, kaoVrh
-		}
-		if !o.zadrziSvjeze(skinute, sada, kaoVrh) {
-			break
-		}
-	}
-	return skinute, kaoVrh
-}
-
-// vrhoviBez su vrhovi lanca kad letvama iz skinute nema računa.
-func vrhoviBez(pojasi map[string][]Pojas, skinute map[string]string) map[Izvor]bool {
-	bez := map[string][]Pojas{}
-	for letva, ps := range pojasi {
-		if _, skinuta := skinute[letva]; !skinuta {
-			bez[letva] = ps
-		}
-	}
-	_, vrhovi := TrebaniIzvori(bez)
-	return vrhovi
-}
-
-// zadrziSvjeze izbacuje iz skinute letve kojima tuđa prognoza nije svježa u
-// satu sada, upisuje im taj sat u kaoVrh i javlja je li ijednu izbacila.
-func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64, kaoVrh map[string]int64) bool {
-	izbacena := false
-	for letva, izvor := range skinute {
-		if _, ima := o.tudaSvjeza(izvor, letva, sada); !ima {
-			delete(skinute, letva)
-			kaoVrh[letva] = sada
-			izbacena = true
-		}
-	}
-	return izbacena
-}
-
-// Tuđa prognoza je svježa za izdanje kad je izdana najviše tudaUnatrag sati
-// prije sata izdavanja i najviše tudaPoslije sati poslije njega.
-const (
-	tudaUnatrag = 48
-	tudaPoslije = 6
-)
-
-// tudaSvjeza vraća tuđu prognozu letve kad je svježa u satu izdavanja sada,
-// s vrijednošću u satu sada i barem jednom poslije njega (tudaUSatu).
-func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
-	n, ima, err := tudaUSatu(o.Baza, izvor, letva, sada-tudaUnatrag, sada+tudaPoslije, sada)
-	return n, err == nil && ima
-}
-
-// bezTude su letve iz TudaIspredRacuna kojima je u izdanju sada ostao račun
-// (tudeIspredRacuna), i zašto; Upozori ih javlja. Uzrok se kaže za sat
-// izdanja, koji dežurni vidi: kad je tuđa za nj svježa, letvu je zadržao
-// sat izdanja koji bi imala kao vrh (kaoVrh), a ne tuđa prognoza.
-func (o *Osvjezivac) bezTude(pojasi map[string][]Pojas, kaoVrh map[string]int64, sada int64) map[string]RazlogBezTude {
-	out := map[string]RazlogBezTude{}
-	for letva, izvor := range TudaIspredRacuna {
-		if len(pojasi[letva]) == 0 {
-			continue
-		}
-		z, err := zadnjeTudeIzdanje(o.Baza, izvor, letva)
-		if err != nil {
-			log.Printf("tuđa prognoza %s (%s): zadnje izdanje: %v", letva, izvor, err)
-		}
-		r := RazlogBezTude{Zadnje: z}
-		if _, ima := o.tudaSvjeza(izvor, letva, sada); ima {
-			r.Svjeza, r.KaoVrh = true, kaoVrh[letva]
-		}
-		out[letva] = r
-	}
-	return out
 }
 
 // dnevniModeliZaDanas vraća naučene dnevne modele i letve kojima se nijedna

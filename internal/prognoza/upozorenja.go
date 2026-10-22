@@ -30,7 +30,6 @@ const (
 	VrstaBezPrognoze    = "bez-prognoze"   // letva bez ijednog sata prognoze
 	VrstaCeka           = "ceka"           // sat izdavanja drži vrh lanca koji kasni
 	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
-	VrstaBezTude        = "bez-tude"       // letvu koju vodi tuđa prognoza računa naš lanac
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -78,7 +77,6 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaDnevnog(ishod, pokriveno, ima)...)
 	u = append(u, upozorenjaIzbora(ishod, pojasi, ima)...)
 	u = append(u, upozorenjaVrhova(ishod, vrhovi, pojasi)...)
-	u = append(u, upozorenjaBezTude(ishod, pojasi)...)
 	u = append(u, upozorenjaOstalog(ishod)...)
 	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
 	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
@@ -451,105 +449,25 @@ func dnevniCiljeviSUlazom(letva string, ima map[string]bool) []string {
 }
 
 // upozorenjaVrhova javljaju vrh lanca koji budućnost inače dobiva iz našeg
-// dnevnog modela ili tuđe prognoze, a u ovom izdanju je nije dobio: za njega
+// dnevnog modela (VrhoviIzDnevnog), a u ovom izdanju je nije dobio: za njega
 // se drži zadnje mjerenje, pa je satna niz lanac upitna od idućeg sata.
 func upozorenjaVrhova(ishod *Ishod, vrhovi map[Izvor]bool, pojasi map[string][]Pojas) []Upozorenje {
 	imaju := map[string]bool{}
-	for _, l := range slices.Concat(ishod.NasiVrhovi, ishod.TudiVrhovi, ishod.OperaterVrhovi) {
+	for _, l := range slices.Concat(ishod.NasiVrhovi, ishod.OperaterVrhovi) {
 		imaju[l] = true
 	}
 	var out []Upozorenje
 	for iz := range vrhovi {
-		odakle := odakleBuducnostVrha(iz.Letva)
-		if odakle == "" || imaju[iz.Letva] {
+		if !VrhoviIzDnevnog[iz.Letva] || imaju[iz.Letva] {
 			continue
 		}
 		imaju[iz.Letva] = true // vrh u obje veličine javlja se jednom
 		s := skupUpitnog{}
 		s.satna(satnaNizVrha(ishod, pojasi, iz.Letva))
 		out = append(out, Upozorenje{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: iz.Letva,
-			Opis: "nema budućnosti vrha (" + odakle + "); drži se zadnje mjerenje", Upitno: s.popis()})
+			Opis: "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje", Upitno: s.popis()})
 	}
 	return out
-}
-
-// odakleBuducnostVrha kaže odakle vrh budućnost inače dobiva; prazno kad je
-// nema odakle dobiti i drži se zadnje mjerenje kao redovan rad.
-func odakleBuducnostVrha(letva string) string {
-	var izvori []string
-	if VrhoviIzDnevnog[letva] {
-		izvori = append(izvori, "dnevni model")
-	}
-	if izvor, ima := TudiIzvorVrha(letva); ima {
-		izvori = append(izvori, "tuđa prognoza "+izvor)
-	}
-	return strings.Join(izvori, ", ")
-}
-
-// upozorenjaBezTude javljaju letvu koju inače vodi tuđa prognoza
-// (TudaIspredRacuna), a u ovom izdanju je računa naš lanac. Komárom je tako
-// tiho prelazio na naš lanac, koji u valu griješi više, a uz izdanje nije
-// stajalo ništa. Satna je upitna od idućeg sata, na letvi i niz lanac.
-func upozorenjaBezTude(ishod *Ishod, pojasi map[string][]Pojas) []Upozorenje {
-	out := make([]Upozorenje, 0, len(ishod.BezTude))
-	for letva, r := range ishod.BezTude {
-		s := skupUpitnog{}
-		s.satna(satnaNizvodno(ishod, pojasi, letva, ishod.Sada+1))
-		out = append(out, Upozorenje{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: letva,
-			Opis: opisBezTude(letva, r, ishod.Sada), Upitno: s.popis()})
-	}
-	return out
-}
-
-// bezTudeRacuna je kraj svakog opisa bez tuđe prognoze.
-const bezTudeRacuna = ", pa ga računa naš lanac, koji pri valu griješi više od nje"
-
-// opisBezTude kaže zašto tuđa prognoza ne vodi letvu u satu izdanja sada.
-// Kad je za nj svježa, letvi nedostaje mjerenje od kojeg bi je slijedila,
-// ili bi kao vrh imala drugi sat izdanja, za koji tuđa ne vrijedi. Opis
-// letvu zove „ga”, jer je to Komárom.
-func opisBezTude(letva string, r RazlogBezTude, sada int64) string {
-	ime := imeTude(TudaIspredRacuna[letva])
-	switch {
-	case !r.Svjeza:
-		return nesvjezaTuda(ime, r.Zadnje, sada)
-	case r.KaoVrh == 0:
-		return ime + " je svježa, ali " + letva + " nema mjerenja od kojeg bi ga vodila" + bezTudeRacuna
-	}
-	return "kad bi ga vodila " + ime + ", sat izdanja bio bi " + satOpisa(r.KaoVrh) +
-		", a za taj sat ona ne vrijedi" + bezTudeRacuna
-}
-
-// nesvjezaTuda kaže zašto tuđa prognoza nije svježa u satu izdanja sada
-// (tudaSvjeza): nije stigla, zadnja je izdana više od tudaPoslije sati iza
-// njega, starija je od dva dana ili počinje tek iza njega. Mađarska ide šest
-// dana unaprijed, pa izdanje iz zadnja dva dana koje sat izdanja ne pokriva
-// počinje iza njega.
-func nesvjezaTuda(ime string, zadnje, sada int64) string {
-	switch {
-	case zadnje == 0:
-		return ime + " nije stigla" + bezTudeRacuna
-	case zadnje > sada+tudaPoslije:
-		return "zadnja " + ime + " izdana je " + satOpisa(zadnje) + ", više od šest sati iza sata izdanja" + bezTudeRacuna
-	case zadnje < sada-tudaUnatrag:
-		return "zadnja " + ime + ", izdana " + satOpisa(zadnje) + ", starija je od dva dana" + bezTudeRacuna
-	}
-	return "zadnja " + ime + ", izdana " + satOpisa(zadnje) + ", počinje tek iza sata izdanja" + bezTudeRacuna
-}
-
-// imeTude je naziv tuđe prognoze u opisu upozorenja.
-func imeTude(izvor string) string {
-	if izvor == Podrijetlo {
-		return "mađarska prognoza (" + izvor + ")"
-	}
-	return "tuđa prognoza (" + izvor + ")"
-}
-
-// satOpisa je sat od epohe u mjesnom vremenu kako ga stranica piše uz
-// upozorenja, npr. „7. 10. u 11 h”.
-func satOpisa(sat int64) string {
-	t := time.Unix(sat*3600, 0).In(models.Zagreb)
-	return fmt.Sprintf("%d. %d. u %d h", t.Day(), int(t.Month()), t.Hour())
 }
 
 // upozorenjaOstalog su napomene o letvama bez ijednog sata prognoze i o

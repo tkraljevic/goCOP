@@ -154,12 +154,10 @@ CREATE TABLE IF NOT EXISTS promasaji (
 	PRIMARY KEY (letva, velicina, doseg_h)
 ) WITHOUT ROWID;
 
--- Tuđe prognoze, radi usporedbe. Cilj je da naš račun o njima ne ovisi; danas
--- u satni lanac ulazi samo mađarska: Komárom je slijedi dok je svježa
--- (TudaIspredRacuna), a Letenye kad mu budućnost ne da naš dnevni model
--- (VrhoviSTudomPrognozom). Ostale u lanac ne ulaze; pričuvni izračun u
--- Excelu namjerno računa iz tuđih (PricuvniUlazi). Gdje se račun na tuđu
--- oslanja, ne može joj biti provjera.
+-- Tuđe prognoze, radi usporedbe. Nikad ne ulaze u naš račun (Odluke (22. 10.
+-- 2026.)): prognoza koja se oslanja na tuđu ne može biti provjera tuđoj. Iz
+-- njih namjerno računa samo pričuvni izračun u Excelu, za dan kad naša
+-- prognoza ne radi (PricuvniUlazi).
 CREATE TABLE IF NOT EXISTS tude (
 	izvor      TEXT NOT NULL,         -- hydroinfo.hu …
 	letva      TEXT NOT NULL,
@@ -874,38 +872,8 @@ func TudaPrognoza(db *sql.DB, izvor, letva string, od, do int64) (Niz, bool, err
 		AND izdano BETWEEN ? AND ?`, izvor, letva, od, do).Scan(&izdano); err != nil || !izdano.Valid {
 		return Niz{}, false, err
 	}
-	return tudeIzdanje(db, izvor, letva, izdano.Int64)
-}
-
-// tudaUSatu je kao TudaPrognoza, ali od izdanja u razdoblju uzima najnovije
-// koje ima vrijednost u satu sat i barem jednu poslije njega. Vrh lanca hod
-// tuđe prognoze slijedi od sata izdavanja (Racunalo.U), pa izdanje koje
-// počinje tek iza njega ne daje ništa: letva bi stajala na zadnjem mjerenju,
-// a izdanje bi govorilo da je vodi tuđa.
-func tudaUSatu(db *sql.DB, izvor, letva string, od, do, sat int64) (Niz, bool, error) {
-	var izdano sql.NullInt64
-	if err := db.QueryRow(`SELECT max(izdano) FROM (SELECT izdano FROM tude WHERE izvor = ? AND letva = ?
-		AND izdano BETWEEN ? AND ? GROUP BY izdano HAVING min(ciljni) <= ? AND max(ciljni) > ?)`,
-		izvor, letva, od, do, sat, sat).Scan(&izdano); err != nil || !izdano.Valid {
-		return Niz{}, false, err
-	}
-	return tudeIzdanje(db, izvor, letva, izdano.Int64)
-}
-
-// zadnjeTudeIzdanje je sat zadnjeg izdanja tuđe prognoze letve; 0 kad ga
-// nema.
-func zadnjeTudeIzdanje(db *sql.DB, izvor, letva string) (int64, error) {
-	var z int64
-	err := db.QueryRow(`SELECT coalesce(max(izdano), 0) FROM tude WHERE izvor = ? AND letva = ?`,
-		izvor, letva).Scan(&z)
-	return z, err
-}
-
-// tudeIzdanje čita jedno tuđe izdanje letve, satno pravocrtno između
-// njegovih točaka; ok je netočno kad ima manje od dvije točke.
-func tudeIzdanje(db *sql.DB, izvor, letva string, izdano int64) (Niz, bool, error) {
 	r, err := db.Query(`SELECT ciljni, vrijednost FROM tude WHERE izvor = ? AND letva = ? AND izdano = ?`,
-		izvor, letva, izdano)
+		izvor, letva, izdano.Int64)
 	if err != nil {
 		return Niz{}, false, err
 	}

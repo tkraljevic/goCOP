@@ -206,14 +206,15 @@ type Racunalo struct {
 	uTijeku    map[kljuc]bool
 	ostaci     map[Izvor]ostatak
 	uOstatku   map[Izvor]bool
-	buducnost  map[Izvor]Niz // tuđa prognoza vrha lanca, satno
+	buducnost  map[Izvor]Niz // budućnost vrha lanca (dnevni model, model ispuštanja), satno
 }
 
-// PostaviBuducnostVrha daje vrhu lanca tuđu prognozu za sate poslije
-// izdavanja. Vrh tada ne stoji na zadnjem mjerenju, nego se zadnjem mjerenju
-// dodaje promjena koju tuđa prognoza predviđa od sata izdavanja — njezina
-// razina ne mora se slagati s našom nulom ni s našim zadnjim satom, ali njezin
-// hod od tog trenutka je ono što nam nedostaje.
+// PostaviBuducnostVrha daje vrhu lanca budućnost za sate poslije izdavanja:
+// naš dnevni model ili model ispuštanja elektrane. Vrh tada ne stoji na
+// zadnjem mjerenju, nego se zadnjem mjerenju dodaje promjena koju ta
+// budućnost predviđa od sata izdavanja — njezina razina ne mora se slagati s
+// našim zadnjim satom, ali njezin hod od tog trenutka je ono što nam
+// nedostaje.
 func (r *Racunalo) PostaviBuducnostVrha(iz Izvor, prognoza Niz) {
 	if r.buducnost == nil {
 		r.buducnost = map[Izvor]Niz{}
