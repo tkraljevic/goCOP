@@ -634,3 +634,15 @@ je gotov onaj o kojem ovisi.
   Tako da možemo pretpostaviti te režime.” Režim se uči iz podataka, a
   ocjena se, kad je u dvije godine premalo velike vode, uzima na zadnjih sto
   sati velike vode.
+- Kiša ulazi u satni lanac Dunava preko Komároma i Budimpešte: „Nađbajc
+  treba vidjet kišu i Budimpešta, pa bi to onda bilo usklađeno”, „kiša padne
+  i kod Budimpešte i Baje i svuda u tom lancu, samo treba vidjet s kojom
+  težinom”, „možda se treba malo poigrat s težinama ako ne uspije iz prve”.
+  Kiša kao ulaz u pojedinu vezu lanca nije pomogla, jer su susjedne letve
+  nekoliko sati jedna od druge. Pomogao je dnevni model s kišom na
+  Komáromu (gornji Dunav i Morava) i Budimpešti (Komárom, Váh, Hron, Ipeľ),
+  ugođen sa satnim lancem u samom lancu, svaki svojom težinom: na 2024.–2026.
+  s pravim prognozama kiše Batina za 96 sati 18,9 → 16,5 cm, Komárom 36,3 →
+  29,5. Mađarske letve između njih dnevni dio posuđuju od susjeda (p).
+- Uzdužni profil Dunava zato kreće od Komároma: „Onda ih možda nećemo ni
+  trebat uklanjat sa uzdužnog, jer neće bit te rupe.”

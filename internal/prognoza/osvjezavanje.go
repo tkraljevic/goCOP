@@ -244,6 +244,10 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		ishod.Izbor["vrh:"+iz.Letva] = Izbor{Inacica: 1, Opis: "budućnost vrha lanca iz našeg dnevnog modela s kišom"}
 	}
 	sort.Strings(ishod.NasiVrhovi)
+	for iz, n := range o.cvoroviIzDnevnog(ctx, sada, od) {
+		r.PostaviDnevniCvora(iz, n)
+		ishod.Izbor["cvor:"+iz.Letva] = Izbor{Inacica: 1, Opis: "satni lanac ugođen našim dnevnim modelom s kišom"}
+	}
 	// Elektrana na vrhu lanca: budućnost iz modela ispuštanja, gdje ga ima i
 	// gdje je u provjeri bio bolji od zadnjeg mjerenja.
 	zauzeto := map[string]bool{}
@@ -384,22 +388,39 @@ func oborinskiDosezi() (unatrag, unaprijed int) {
 }
 
 // vrhoviIzDnevnog računa dnevnu prognozu vrhova lanca iz VrhoviIzDnevnog i
-// slaže je u satni niz za lanac, u veličini u kojoj lanac vrh vodi: zadnje
-// mjerenje vrha, pa srednjaci dana smješteni u sredinu svojih 24 sata,
-// pravocrtno između njih. Vrhu u protoku dnevna prognoza vodostaja ide kroz
-// krivulju protoka; bez krivulje takav vrh budućnost ne dobiva.
+// slaže je u satni niz za lanac, u veličini u kojoj lanac vrh vodi (vidi
+// dnevniNizovi).
 func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Time, vrhovi map[Izvor]bool) map[Izvor]Niz {
-	out := map[Izvor]Niz{}
-	if o.Arhiva == nil || len(VrhoviIzDnevnog) == 0 {
-		return out
-	}
 	velicina := map[string]string{}
 	for iz := range vrhovi {
 		if VrhoviIzDnevnog[iz.Letva] {
 			velicina[iz.Letva] = iz.Velicina
 		}
 	}
-	if len(velicina) == 0 {
+	return o.dnevniNizovi(ctx, sada, od, velicina, false)
+}
+
+// cvoroviIzDnevnog računa dnevnu prognozu karika s ugađanjem u lancu
+// (UgadjanjeCvorova), samo modelom s kišom: bez kiše karika ostaje satni
+// lanac, jer je ugađanje mjereno s kišom.
+func (o *Osvjezivac) cvoroviIzDnevnog(ctx context.Context, sada int64, od time.Time) map[Izvor]Niz {
+	velicina := map[string]string{}
+	for letva := range UgadjanjeCvorova {
+		if v, ima := Velicine[letva]; ima {
+			velicina[letva] = v
+		}
+	}
+	return o.dnevniNizovi(ctx, sada, od, velicina, true)
+}
+
+// dnevniNizovi slaže dnevnu prognozu zadanih letvi u satni niz za lanac, u
+// zadanoj veličini: zadnje mjerenje letve, pa srednjaci dana smješteni u
+// sredinu svojih 24 sata, pravocrtno između njih. Letvi u protoku dnevna
+// prognoza vodostaja ide kroz krivulju protoka; bez krivulje takva letva niz
+// ne dobiva. Uzima se prva inačica modela koja da niz.
+func (o *Osvjezivac) dnevniNizovi(ctx context.Context, sada int64, od time.Time, velicina map[string]string, samoSKisom bool) map[Izvor]Niz {
+	out := map[Izvor]Niz{}
+	if o.Arhiva == nil || len(velicina) == 0 {
 		return out
 	}
 	modeli, _ := o.dnevniModeliZaDanas(ctx)
@@ -413,70 +434,84 @@ func (o *Osvjezivac) vrhoviIzDnevnog(ctx context.Context, sada int64, od time.Ti
 		if !treba {
 			continue
 		}
-		satni := map[string]Niz{}
-		for _, in := range c.Inacice() {
-			for _, l := range in.letve() {
-				if _, ima := satni[l]; ima {
-					continue
-				}
-				if n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od); err == nil {
-					satni[l] = n
-				}
-			}
-		}
+		satni := o.satniCilja(ctx, c, od)
 		for _, m := range modeli[c.Letva] {
-			if m == nil {
+			if m == nil || (samoSKisom && len(m.Cilj.Slivovi) == 0) {
 				continue
 			}
-			d, err := PrognozirajDnevno(m, satni, oborine, sada)
-			if err != nil {
-				continue
-			}
-			d = SastaviBezKise(d, m, modeli[c.Letva], satni, oborine, sada)
-			tocke := map[int64]float64{}
-			sidro := satni[c.Letva]
-			if vel != "vodostaj" {
-				if n, err := o.ucitajNiz(ctx, Izvor{Letva: c.Letva, Velicina: vel}, od); err == nil {
-					sidro = n
-				} else {
-					sidro = Niz{}
-				}
-			}
-			if z, ima := sidro.ZadnjiSatDo(sada); ima {
-				v, _ := sidro.U(z)
-				tocke[z] = v
-			}
-			var krivulje []models.HQKrivulja
-			if vel != "vodostaj" {
-				krivulje, _ = o.ucitajKrivulje(ctx, c.Letva)
-			}
-			for _, x := range d {
-				if x.Dan == 0 {
-					continue
-				}
-				v := x.Vrijednost
-				if vel != "vodostaj" {
-					k := KrivuljaZa(krivulje, time.Unix(x.Ciljni*3600, 0).UTC())
-					if k == nil {
-						continue
-					}
-					q, _, ok := pretvori(k, vel, v)
-					if !ok {
-						continue
-					}
-					v = q
-				}
-				tocke[x.Ciljni-12] = v
-			}
-			// Model koji ne da barem dvije točke (npr. pretvorba u protok
-			// ispadne iz krivulje) ne zatvara put rezervi.
-			if len(tocke) >= 2 {
-				out[Izvor{Letva: c.Letva, Velicina: vel}] = NizIzTocaka(tocke)
+			if n, ok := o.nizIzDnevnog(ctx, m, modeli[c.Letva], satni, oborine, sada, od, vel); ok {
+				out[Izvor{Letva: c.Letva, Velicina: vel}] = n
 				break
 			}
 		}
 	}
 	return out
+}
+
+// satniCilja čita satne vodostaje svih letvi koje dnevni cilj i njegove
+// inačice trebaju.
+func (o *Osvjezivac) satniCilja(ctx context.Context, c DnevniCilj, od time.Time) map[string]Niz {
+	satni := map[string]Niz{}
+	for _, in := range c.Inacice() {
+		for _, l := range in.letve() {
+			if _, ima := satni[l]; ima {
+				continue
+			}
+			if n, err := o.ucitajNiz(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od); err == nil {
+				satni[l] = n
+			}
+		}
+	}
+	return satni
+}
+
+// nizIzDnevnog je satni niz jedne inačice dnevnog modela (vidi dnevniNizovi);
+// ok je false kad model ne računa ili ne da barem dvije točke (npr.
+// pretvorba u protok ispadne iz krivulje), pa put ostaje rezervi.
+func (o *Osvjezivac) nizIzDnevnog(ctx context.Context, m *DnevniModel, modeli []*DnevniModel, satni map[string]Niz,
+	oborine map[string]DnevniNiz, sada int64, od time.Time, vel string) (Niz, bool) {
+	letva := m.Cilj.Letva
+	d, err := PrognozirajDnevno(m, satni, oborine, sada)
+	if err != nil {
+		return Niz{}, false
+	}
+	d = SastaviBezKise(d, m, modeli, satni, oborine, sada)
+	tocke := map[int64]float64{}
+	sidro := satni[letva]
+	var krivulje []models.HQKrivulja
+	if vel != "vodostaj" {
+		sidro = Niz{}
+		if n, err := o.ucitajNiz(ctx, Izvor{Letva: letva, Velicina: vel}, od); err == nil {
+			sidro = n
+		}
+		krivulje, _ = o.ucitajKrivulje(ctx, letva)
+	}
+	if z, ima := sidro.ZadnjiSatDo(sada); ima {
+		v, _ := sidro.U(z)
+		tocke[z] = v
+	}
+	for _, x := range d {
+		if x.Dan == 0 {
+			continue
+		}
+		v := x.Vrijednost
+		if vel != "vodostaj" {
+			k := KrivuljaZa(krivulje, time.Unix(x.Ciljni*3600, 0).UTC())
+			if k == nil {
+				continue
+			}
+			q, _, ok := pretvori(k, vel, v)
+			if !ok {
+				continue
+			}
+			v = q
+		}
+		tocke[x.Ciljni-12] = v
+	}
+	if len(tocke) < 2 {
+		return Niz{}, false
+	}
+	return NizIzTocaka(tocke), true
 }
 
 // dnevno izdaje dnevnu prognozu iz satnih očitanja do sata izdavanja.

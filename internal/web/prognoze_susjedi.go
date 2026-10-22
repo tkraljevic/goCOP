@@ -261,7 +261,8 @@ func napomenaSusjeda(letve []LetvaPrognoze) string {
 				return "\nLetve bez dnevnog modela (skriveni redak „model”: iz susjeda) slijede susjedne postaje " +
 					"koje ga imaju, razmjerno udaljenosti po rijeci, s rasponom procijenjenim iz susjeda: na Dravi " +
 					"Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs od drugog dana, a na Dunavu " +
-					"Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo uz svoj satni lanac. Kad dnevni model susjedima " +
+					"mađarske letve od Esztergoma do Mohácsa te Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo uz " +
+					"svoj satni lanac. Kad dnevni model susjedima " +
 					"najavi porast od kiše koji ne dođe, i ondje je najava pogrešna."
 			}
 		}

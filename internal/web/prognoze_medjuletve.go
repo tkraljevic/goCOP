@@ -21,7 +21,18 @@ import (
 // djelomično opravdava. Nije posebno izmjereno. Srpsko Bogojevo (prognoza
 // prenesena s Aljmaša i Dalja) leži između Aljmaša i Vukovara, pa ide isto
 // kao Dalj; Bezdan, Apatin i Bačka Palanka imaju ugađanje izvora.
+//
+// Mađarske letve između Komároma, Budimpešte i Batine idu isto: Komárom i
+// Budimpešta imaju ugađanje u lancu (prognoza.UgadjanjeCvorova), pa satni
+// lanac letvi ispod njih već nosi kišu, a dnevni dio iz susjeda daje im i 5.
+// i 6. dan. Nagybajcs je iznad Komároma i ostaje satni lanac.
 var MedjuletveDunava = []LetvaIzSusjeda{
+	{"esztergom", "komarom", "budapest"},
+	{"dunafoldvar", "budapest", "batina"},
+	{"paks", "budapest", "batina"},
+	{"baja", "budapest", "batina"},
+	{"dunaszekcso", "budapest", "batina"},
+	{"mohacs", "budapest", "batina"},
 	{"siga", "batina", "aljmas"},
 	{"petres", "batina", "aljmas"},
 	{"bogojevo", "aljmas", "vukovar"},
