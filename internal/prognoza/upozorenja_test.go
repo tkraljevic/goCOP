@@ -405,37 +405,48 @@ func TestVrhBezBuducnostiUpozorava(t *testing.T) {
 }
 
 // Letva koju inače vodi tuđa prognoza (TudaIspredRacuna), a u izdanju je
-// računa naš lanac, upozorava i kaže zašto: tuđa nije stigla, zadnja je
-// starija od dva dana ili nema vrijednost za sat izdanja. Satna je upitna od
-// idućeg sata, na njoj i niz lanac. Kad je vodi tuđa, upozorenja nema.
+// računa naš lanac, upozorava i kaže zašto: tuđa nije stigla, izdana je
+// više od šest sati iza sata izdanja, starija je od dva dana ili počinje
+// tek iza sata izdanja; a kad je svježa, letvi fali mjerenje ili bi kao vrh
+// imala drugi sat izdanja. Satna je upitna od idućeg sata, na njoj i niz
+// lanac. Kad je vodi tuđa, upozorenja nema.
 func TestBezTudeUpozorava(t *testing.T) {
-	sada := int64(500000)
+	sada := int64(500000) // 15. 1. 2027. u 9 h
 	postavi(t, &DnevniCiljevi, nil)
 	postavi(t, &TudaIspredRacuna, map[string]string{"srednja": Podrijetlo, "donja": "primjer.hr"})
 	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada, "donja": sada})
 	upitno := []Upitno{{Letva: "srednja", OdSata: 1}, {Letva: "donja", OdSata: 10}, {Letva: "cetvrta", OdSata: 15}}
 	for _, tc := range []struct {
 		ime    string
-		zadnje int64
-		uzrok  string
+		razlog RazlogBezTude
+		opis   string
 	}{
-		{"nije stigla", 0, "mađarska prognoza (hydroinfo.hu) nije stigla"},
-		{"starija od dva dana", sada - 49,
-			"zadnja mađarska prognoza (hydroinfo.hu) izdana je " + satDnevnika(sada-49) + " i starija je od dva dana"},
-		{"bez sata izdanja", sada + 3,
-			"zadnja mađarska prognoza (hydroinfo.hu) izdana je " + satDnevnika(sada+3) + " i nema vrijednost za sat izdanja"},
+		{"nije stigla", RazlogBezTude{}, "mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, " +
+			"koji pri valu griješi više od nje"},
+		{"izdana više od šest sati iza", RazlogBezTude{Zadnje: sada + 7}, "zadnja mađarska prognoza (hydroinfo.hu) " +
+			"izdana je 15. 1. u 16 h, više od šest sati iza sata izdanja, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+		{"starija od dva dana", RazlogBezTude{Zadnje: sada - 49}, "zadnja mađarska prognoza (hydroinfo.hu), " +
+			"izdana 13. 1. u 8 h, starija je od dva dana, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+		{"točno dva dana, ne pokriva sat izdanja", RazlogBezTude{Zadnje: sada - 48}, "zadnja mađarska prognoza (hydroinfo.hu), " +
+			"izdana 13. 1. u 9 h, počinje tek iza sata izdanja, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+		{"počinje iza sata izdanja", RazlogBezTude{Zadnje: sada + 6}, "zadnja mađarska prognoza (hydroinfo.hu), " +
+			"izdana 15. 1. u 15 h, počinje tek iza sata izdanja, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+		{"svježa, bez mjerenja", RazlogBezTude{Zadnje: sada - 2, Svjeza: true}, "mađarska prognoza (hydroinfo.hu) je svježa, " +
+			"ali srednja nema mjerenja od kojeg bi ga vodila, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+		{"svježa, mjerenje kasni", RazlogBezTude{Zadnje: sada - 2, Svjeza: true, KaoVrh: sada - 3}, "kad bi ga vodila " +
+			"mađarska prognoza (hydroinfo.hu), sat izdanja bio bi 15. 1. u 6 h, a za taj sat ona ne vrijedi, pa ga računa " +
+			"naš lanac, koji pri valu griješi više od nje"},
 	} {
 		t.Run(tc.ime, func(t *testing.T) {
-			ishod := &Ishod{Sada: sada, BezTude: map[string]int64{"srednja": tc.zadnje}}
-			want := []Upozorenje{{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: "srednja",
-				Opis: tc.uzrok + ", pa računa naš lanac, koji pri valu griješi više", Upitno: upitno}}
+			ishod := &Ishod{Sada: sada, BezTude: map[string]RazlogBezTude{"srednja": tc.razlog}}
+			want := []Upozorenje{{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: "srednja", Opis: tc.opis, Upitno: upitno}}
 			if got := Upozori(ishod, lanacUpozorenja(), nizovi, nil); !reflect.DeepEqual(got, want) {
 				t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
 			}
 		})
 	}
-	got := Upozori(&Ishod{Sada: sada, BezTude: map[string]int64{"donja": 0}}, lanacUpozorenja(), nizovi, nil)
-	if len(got) != 1 || got[0].Opis != "tuđa prognoza (primjer.hr) nije stigla, pa računa naš lanac, koji pri valu griješi više" {
+	got := Upozori(&Ishod{Sada: sada, BezTude: map[string]RazlogBezTude{"donja": {}}}, lanacUpozorenja(), nizovi, nil)
+	if len(got) != 1 || got[0].Opis != "tuđa prognoza (primjer.hr) nije stigla"+bezTudeRacuna {
 		t.Errorf("tuđa drugog izvora: %+v", got)
 	}
 	if got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, nil); len(got) != 0 {

@@ -130,9 +130,19 @@ type Ishod struct {
 	// zadnja četiri dana prije izdanja: letva → rupe redom.
 	Rekonstruirano map[string][]RekonstruiranaRupa
 	// BezTude su letve iz TudaIspredRacuna koje u ovom izdanju računa naš
-	// lanac, jer im tuđa prognoza nije svježa: letva → sat zadnjeg tuđeg
-	// izdanja do sata izdavanja i tudaPoslije sati, 0 kad ga nema.
-	BezTude map[string]int64
+	// lanac, i zašto (bezTude).
+	BezTude map[string]RazlogBezTude
+}
+
+// RazlogBezTude kaže zašto letvu iz TudaIspredRacuna ne vodi tuđa prognoza.
+// Svježina se sudi u satu izdanja koji bi letva imala kao vrh lanca. To ne
+// mora biti sat izdanja (mjerenje letve kasni ili ga nema, ili sat izdanja
+// drži drugi vrh), pa tuđa za izdanje može biti svježa, a letvu ipak računa
+// naš lanac.
+type RazlogBezTude struct {
+	Zadnje int64 // sat zadnjeg tuđeg izdanja; 0 kad ga nema
+	Svjeza bool  // tuđa je svježa u satu izdanja
+	KaoVrh int64 // uz svježu: sat izdanja koji bi letva imala kao vrh; 0 kad nema mjerenja
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -218,7 +228,8 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 	// Letva s tuđom prognozom ispred računa: dok je prognoza svježa, račun
 	// joj se skida i ona postaje vrh, pa je dolje dobije kao budućnost.
-	for letva, izvor := range o.tudeIspredRacuna(pojasi, nizovi) {
+	skinute, kaoVrh := o.tudeIspredRacuna(pojasi, nizovi)
+	for letva, izvor := range skinute {
 		ulazi := imenaUlaza(pojasi[letva])
 		delete(pojasi, letva)
 		delete(izbor, letva)
@@ -275,7 +286,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		ishod.Izbor = map[string]Izbor{}
 	}
 	o.napomeneRekonstrukcije(ctx, nizovi, ishod, od)
-	ishod.BezTude = o.bezTude(pojasi, sada)
+	ishod.BezTude = o.bezTude(pojasi, kaoVrh, sada)
 	nasi := o.vrhoviIzDnevnog(ctx, sada, od, vrhovi)
 	for iz, n := range nasi {
 		r.PostaviBuducnostVrha(iz, n)
@@ -418,10 +429,11 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 // izdanju koje kasni ostajala bez računa, a tuđa joj budućnost nije bila
 // postavljena. Bez računa letva postaje vrh, a vrhovi određuju sat izdavanja,
 // pa se skup sužava dok se ne ustali; letva kojoj tuđa u tom satu nije svježa
-// zadržava račun. Bez sata izdavanja svježinu nije moguće reći, pa račun
+// zadržava račun, a kaoVrh pamti sat u kojem joj nije bila svježa. Bez sata
+// izdavanja (vrh bez ijednog mjerenja) svježinu nije moguće reći, pa račun
 // ostaje svima.
-func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvor]Niz) map[string]string {
-	skinute := map[string]string{}
+func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvor]Niz) (skinute map[string]string, kaoVrh map[string]int64) {
+	skinute, kaoVrh = map[string]string{}, map[string]int64{}
 	for letva, izvor := range TudaIspredRacuna {
 		if len(pojasi[letva]) > 0 {
 			skinute[letva] = izvor
@@ -430,13 +442,13 @@ func (o *Osvjezivac) tudeIspredRacuna(pojasi map[string][]Pojas, nizovi map[Izvo
 	for len(skinute) > 0 {
 		sada, ok := ZadnjiZajednicki(nizovi, vrhoviBez(pojasi, skinute))
 		if !ok {
-			return nil
+			return nil, kaoVrh
 		}
-		if !o.zadrziSvjeze(skinute, sada) {
+		if !o.zadrziSvjeze(skinute, sada, kaoVrh) {
 			break
 		}
 	}
-	return skinute
+	return skinute, kaoVrh
 }
 
 // vrhoviBez su vrhovi lanca kad letvama iz skinute nema računa.
@@ -452,12 +464,13 @@ func vrhoviBez(pojasi map[string][]Pojas, skinute map[string]string) map[Izvor]b
 }
 
 // zadrziSvjeze izbacuje iz skinute letve kojima tuđa prognoza nije svježa u
-// satu sada i javlja je li ijednu izbacila.
-func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64) bool {
+// satu sada, upisuje im taj sat u kaoVrh i javlja je li ijednu izbacila.
+func (o *Osvjezivac) zadrziSvjeze(skinute map[string]string, sada int64, kaoVrh map[string]int64) bool {
 	izbacena := false
 	for letva, izvor := range skinute {
 		if _, ima := o.tudaSvjeza(izvor, letva, sada); !ima {
 			delete(skinute, letva)
+			kaoVrh[letva] = sada
 			izbacena = true
 		}
 	}
@@ -478,20 +491,25 @@ func (o *Osvjezivac) tudaSvjeza(izvor, letva string, sada int64) (Niz, bool) {
 	return n, err == nil && ima
 }
 
-// bezTude su letve iz TudaIspredRacuna kojima je u satu sada ostao račun, jer
-// im tuđa prognoza nije svježa (tudeIspredRacuna), sa satom zadnjeg tuđeg
-// izdanja; Upozori ih javlja.
-func (o *Osvjezivac) bezTude(pojasi map[string][]Pojas, sada int64) map[string]int64 {
-	out := map[string]int64{}
+// bezTude su letve iz TudaIspredRacuna kojima je u izdanju sada ostao račun
+// (tudeIspredRacuna), i zašto; Upozori ih javlja. Uzrok se kaže za sat
+// izdanja, koji dežurni vidi: kad je tuđa za nj svježa, letvu je zadržao
+// sat izdanja koji bi imala kao vrh (kaoVrh), a ne tuđa prognoza.
+func (o *Osvjezivac) bezTude(pojasi map[string][]Pojas, kaoVrh map[string]int64, sada int64) map[string]RazlogBezTude {
+	out := map[string]RazlogBezTude{}
 	for letva, izvor := range TudaIspredRacuna {
 		if len(pojasi[letva]) == 0 {
 			continue
 		}
-		z, err := zadnjeTudeIzdanje(o.Baza, izvor, letva, sada+tudaPoslije)
+		z, err := zadnjeTudeIzdanje(o.Baza, izvor, letva)
 		if err != nil {
 			log.Printf("tuđa prognoza %s (%s): zadnje izdanje: %v", letva, izvor, err)
 		}
-		out[letva] = z
+		r := RazlogBezTude{Zadnje: z}
+		if _, ima := o.tudaSvjeza(izvor, letva, sada); ima {
+			r.Svjeza, r.KaoVrh = true, kaoVrh[letva]
+		}
+		out[letva] = r
 	}
 	return out
 }

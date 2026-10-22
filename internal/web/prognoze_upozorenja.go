@@ -413,9 +413,18 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 	case prognoza.VrstaRekonstrukcija:
 		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
 	case prognoza.VrstaBezTude:
-		return p.ime(u.Letva) + " bez tuđe prognoze"
+		return uzrokBezTude(p.ime(u.Letva), u.Letva)
 	}
 	return "dnevni model nije računao"
+}
+
+// uzrokBezTude je razlog na kartici letve koju tuđa prognoza nije vodila,
+// istom riječju kao u pomoći: „Komárom bez mađarske prognoze”.
+func uzrokBezTude(ime, letva string) string {
+	if prognoza.TudaIspredRacuna[letva] == prognoza.Podrijetlo {
+		return ime + " bez mađarske prognoze"
+	}
+	return ime + " bez tuđe prognoze"
 }
 
 // nabroji spaja riječi zarezima, a zadnju s „i”.

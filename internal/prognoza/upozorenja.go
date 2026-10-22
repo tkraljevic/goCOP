@@ -492,27 +492,49 @@ func odakleBuducnostVrha(letva string) string {
 // stajalo ništa. Satna je upitna od idućeg sata, na letvi i niz lanac.
 func upozorenjaBezTude(ishod *Ishod, pojasi map[string][]Pojas) []Upozorenje {
 	out := make([]Upozorenje, 0, len(ishod.BezTude))
-	for letva, zadnje := range ishod.BezTude {
+	for letva, r := range ishod.BezTude {
 		s := skupUpitnog{}
 		s.satna(satnaNizvodno(ishod, pojasi, letva, ishod.Sada+1))
 		out = append(out, Upozorenje{Vrsta: VrstaBezTude, Tezina: TezinaUpozorenje, Letva: letva,
-			Opis: opisBezTude(TudaIspredRacuna[letva], zadnje, ishod.Sada), Upitno: s.popis()})
+			Opis: opisBezTude(letva, r, ishod.Sada), Upitno: s.popis()})
 	}
 	return out
 }
 
-// opisBezTude kaže zašto tuđa prognoza ne vodi letvu: nije stigla, zadnja je
-// starija od dva dana ili nema vrijednost za sat izdanja (tudaSvjeza).
-func opisBezTude(izvor string, zadnje, sada int64) string {
-	uzrok := imeTude(izvor) + " nije stigla"
+// bezTudeRacuna je kraj svakog opisa bez tuđe prognoze.
+const bezTudeRacuna = ", pa ga računa naš lanac, koji pri valu griješi više od nje"
+
+// opisBezTude kaže zašto tuđa prognoza ne vodi letvu u satu izdanja sada.
+// Kad je za nj svježa, letvi nedostaje mjerenje od kojeg bi je slijedila,
+// ili bi kao vrh imala drugi sat izdanja, za koji tuđa ne vrijedi. Opis
+// letvu zove „ga”, jer je to Komárom.
+func opisBezTude(letva string, r RazlogBezTude, sada int64) string {
+	ime := imeTude(TudaIspredRacuna[letva])
+	switch {
+	case !r.Svjeza:
+		return nesvjezaTuda(ime, r.Zadnje, sada)
+	case r.KaoVrh == 0:
+		return ime + " je svježa, ali " + letva + " nema mjerenja od kojeg bi ga vodila" + bezTudeRacuna
+	}
+	return "kad bi ga vodila " + ime + ", sat izdanja bio bi " + satOpisa(r.KaoVrh) +
+		", a za taj sat ona ne vrijedi" + bezTudeRacuna
+}
+
+// nesvjezaTuda kaže zašto tuđa prognoza nije svježa u satu izdanja sada
+// (tudaSvjeza): nije stigla, zadnja je izdana više od tudaPoslije sati iza
+// njega, starija je od dva dana ili počinje tek iza njega. Mađarska ide šest
+// dana unaprijed, pa izdanje iz zadnja dva dana koje sat izdanja ne pokriva
+// počinje iza njega.
+func nesvjezaTuda(ime string, zadnje, sada int64) string {
 	switch {
 	case zadnje == 0:
+		return ime + " nije stigla" + bezTudeRacuna
+	case zadnje > sada+tudaPoslije:
+		return "zadnja " + ime + " izdana je " + satOpisa(zadnje) + ", više od šest sati iza sata izdanja" + bezTudeRacuna
 	case zadnje < sada-tudaUnatrag:
-		uzrok = "zadnja " + imeTude(izvor) + " izdana je " + satDnevnika(zadnje) + " i starija je od dva dana"
-	default:
-		uzrok = "zadnja " + imeTude(izvor) + " izdana je " + satDnevnika(zadnje) + " i nema vrijednost za sat izdanja"
+		return "zadnja " + ime + ", izdana " + satOpisa(zadnje) + ", starija je od dva dana" + bezTudeRacuna
 	}
-	return uzrok + ", pa računa naš lanac, koji pri valu griješi više"
+	return "zadnja " + ime + ", izdana " + satOpisa(zadnje) + ", počinje tek iza sata izdanja" + bezTudeRacuna
 }
 
 // imeTude je naziv tuđe prognoze u opisu upozorenja.
@@ -521,6 +543,13 @@ func imeTude(izvor string) string {
 		return "mađarska prognoza (" + izvor + ")"
 	}
 	return "tuđa prognoza (" + izvor + ")"
+}
+
+// satOpisa je sat od epohe u mjesnom vremenu kako ga stranica piše uz
+// upozorenja, npr. „7. 10. u 11 h”.
+func satOpisa(sat int64) string {
+	t := time.Unix(sat*3600, 0).In(models.Zagreb)
+	return fmt.Sprintf("%d. %d. u %d h", t.Day(), int(t.Month()), t.Hour())
 }
 
 // upozorenjaOstalog su napomene o letvama bez ijednog sata prognoze i o

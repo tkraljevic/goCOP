@@ -38,31 +38,45 @@ func upisiTudu(t *testing.T, baza *sql.DB, izvor, letva string, izdano, prvi, za
 	}
 }
 
-// Wildungsmauer više ne slijedi austrijsku prognozu (Odluke (22. 10. 2026.)):
-// ni kad je svježa stoji u bazi, Nagybajcs se računa iz zadnjeg mjerenja
-// vrha, a uz izdanje nema upozorenja da vrhu fali budućnost. Da je
+// Wildungsmauer više ne slijedi austrijsku prognozu: ni kad je svježa stoji
+// u bazi, Nagybajcs se računa iz zadnjeg mjerenja vrha. Ni kad je nema, uz
+// izdanje nema upozorenja da vrhu fali budućnost; to je od 21. 10. 2026.,
+// kad je noel.gv.at prestao davati prognozu, stajalo uz svako izdanje. Da je
 // Wildungsmauer i dalje na popisu, ista bi ga prognoza vodila.
 func TestWildungsmauerNeSlijediAustrijskuPrognozu(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := dunavOdWildungsmauera(t, zadnji)
+	bezAustrijske := func(ime string, ishod *Ishod) {
+		t.Helper()
+		if slices.Contains(ishod.TudiVrhovi, "wildungsmauer") {
+			t.Errorf("%s: Wildungsmauer je dobio tuđu budućnost: %v", ime, ishod.TudiVrhovi)
+		}
+		if _, kraj := izdanihLetve(ishod, "nagybajcs"); kraj == nil || kraj.Vrijednost != 100 {
+			t.Errorf("%s: Nagybajcs za 12 h mora stajati na zadnjem mjerenju vrha (100): %+v", ime, kraj)
+		}
+		for _, u := range ishod.Upozorenja {
+			if u.Letva == "wildungsmauer" || strings.Contains(u.Opis, PodrijetloNOEL) {
+				t.Errorf("%s: upozorenje o austrijskoj prognozi: %v", ime, u)
+			}
+		}
+	}
 
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if slices.Contains(ishod.TudiVrhovi, "wildungsmauer") {
-		t.Errorf("Wildungsmauer je dobio tuđu budućnost: %v", ishod.TudiVrhovi)
-	}
-	if _, kraj := izdanihLetve(ishod, "nagybajcs"); kraj == nil || kraj.Vrijednost != 100 {
-		t.Errorf("Nagybajcs za 12 h mora stajati na zadnjem mjerenju vrha (100): %+v", kraj)
-	}
-	for _, u := range ishod.Upozorenja {
-		if u.Letva == "wildungsmauer" || strings.Contains(u.Opis, PodrijetloNOEL) {
-			t.Errorf("upozorenje o austrijskoj prognozi: %v", u)
-		}
-	}
+	bezAustrijske("austrijska u bazi", ishod)
 
+	if _, err := o.Baza.Exec(`DELETE FROM tude`); err != nil {
+		t.Fatal(err)
+	}
+	if ishod, err = o.Osvjezi(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	bezAustrijske("austrijske nema", ishod)
+
+	upisiTudu(t, o.Baza, PodrijetloNOEL, "wildungsmauer", zadnji.Unix()/3600, 0, 12, 100, 10)
 	postavi(t, &VrhoviSTudomPrognozom, map[string]string{"wildungsmauer": PodrijetloNOEL})
 	ishod, err = o.Osvjezi(context.Background())
 	if err != nil {
@@ -97,7 +111,8 @@ func TestTudaKojaPocinjeIzaSataIzdavanja(t *testing.T) {
 		t.Errorf("tuđa počinje iza sata izdavanja: srednja mora zadržati račun, vrhovi %v, izdanih %d",
 			ishod.TudiVrhovi, n)
 	}
-	if !reflect.DeepEqual(ishod.BezTude, map[string]int64{"srednja": sada + 3}) || !imaUpozorenje(ishod, VrstaBezTude, "srednja") {
+	if !reflect.DeepEqual(ishod.BezTude, map[string]RazlogBezTude{"srednja": {Zadnje: sada + 3}}) ||
+		!imaUpozorenje(ishod, VrstaBezTude, "srednja") {
 		t.Errorf("srednju računa naš lanac, a uz izdanje to ne piše: bez tuđe %v, upozorenja %v", ishod.BezTude, ishod.Upozorenja)
 	}
 
@@ -124,7 +139,8 @@ func imaUpozorenje(ishod *Ishod, vrsta, letva string) bool {
 
 // Kad mađarska prognoza Komároma nije stigla ili je starija od dva dana,
 // Komárom računa naš lanac, i uz izdanje to piše; dok je svježa, ne piše
-// ništa. Ovdje je srednja letva u ulozi Komároma.
+// ništa. Izdana točno dva dana prije sata izdanja još je svježa, sat
+// starija nije. Ovdje je srednja letva u ulozi Komároma.
 func TestBezTudeUIzdanju(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
@@ -135,12 +151,17 @@ func TestBezTudeUIzdanju(t *testing.T) {
 	for _, tc := range []struct {
 		ime     string
 		izdano  int64 // 0: tuđe prognoze nema
-		bezTude map[string]int64
+		bezTude map[string]RazlogBezTude
 	}{
-		{"nije stigla", 0, map[string]int64{"srednja": 0}},
-		{"starija od dva dana", sada - 60, map[string]int64{"srednja": sada - 60}},
-		{"svježa", sada - 12, map[string]int64{}},
+		{"nije stigla", 0, map[string]RazlogBezTude{"srednja": {}}},
+		{"starija od dva dana", sada - 60, map[string]RazlogBezTude{"srednja": {Zadnje: sada - 60}}},
+		{"sat starija od dva dana", sada - 49, map[string]RazlogBezTude{"srednja": {Zadnje: sada - 49}}},
+		{"točno dva dana", sada - 48, map[string]RazlogBezTude{}},
+		{"svježa", sada - 12, map[string]RazlogBezTude{}},
 	} {
+		if _, err := o.Baza.Exec(`DELETE FROM tude`); err != nil {
+			t.Fatal(err)
+		}
 		if tc.izdano != 0 {
 			upisiTudu(t, o.Baza, "probni-izvor", "srednja", tc.izdano, 0, 72, 95, 1)
 		}
@@ -151,7 +172,93 @@ func TestBezTudeUIzdanju(t *testing.T) {
 		if !reflect.DeepEqual(ishod.BezTude, tc.bezTude) || imaUpozorenje(ishod, VrstaBezTude, "srednja") != (len(tc.bezTude) > 0) {
 			t.Errorf("%s: bez tuđe %v, upozorenja %v", tc.ime, ishod.BezTude, ishod.Upozorenja)
 		}
+		if vodi := slices.Contains(ishod.TudiVrhovi, "srednja"); vodi != (len(tc.bezTude) == 0) {
+			t.Errorf("%s: vodi li srednju tuđa %v, vrhovi %v", tc.ime, vodi, ishod.TudiVrhovi)
+		}
 	}
+}
+
+// Tuđa izdana najviše šest sati iza sata izdanja vodi srednju, izdana sedam
+// sati iza nje ne vodi, iako sat izdanja pokriva; uz izdanje tada piše
+// kad je izdana.
+func TestTudaDoSestSatiIzaSataIzdanja(t *testing.T) {
+	postavi(t, &PoluvijekIspravka, 0)
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	o := lanacSaSrednjom(t, zadnji)
+	o.Iznova = true
+	sada := zadnji.Unix() / 3600
+
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada+6, -8, 12, 95, 5) // od sada−2
+	ishod, err := o.Osvjezi(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(ishod.TudiVrhovi, "srednja") || len(ishod.BezTude) != 0 {
+		t.Errorf("izdana šest sati iza: srednju mora voditi tuđa, vrhovi %v, bez tuđe %v", ishod.TudiVrhovi, ishod.BezTude)
+	}
+
+	if _, err := o.Baza.Exec(`DELETE FROM tude`); err != nil {
+		t.Fatal(err)
+	}
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada+7, -8, 12, 95, 5) // od sada−1
+	if ishod, err = o.Osvjezi(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if n, _ := izdanihLetve(ishod, "srednja"); slices.Contains(ishod.TudiVrhovi, "srednja") || n < 2 {
+		t.Errorf("izdana sedam sati iza: srednja mora zadržati račun, vrhovi %v, izdanih %d", ishod.TudiVrhovi, n)
+	}
+	want := "zadnja tuđa prognoza (probni-izvor) izdana je " + satOpisa(sada+7) + ", više od šest sati iza sata izdanja" + bezTudeRacuna
+	if u := upozorenjeLetve(ishod, VrstaBezTude, "srednja"); u.Opis != want {
+		t.Errorf("izdana sedam sati iza: opis %q, želim %q", u.Opis, want)
+	}
+}
+
+// Kad je tuđa za sat izdanja svježa, a letvu ipak računa naš lanac, uzrok
+// nije tuđa prognoza, nego mjerenje letve: bez njega je tuđa nema od čega
+// voditi, a kad kasni, letva bi kao vrh lanca imala raniji sat izdanja, za
+// koji tuđa ne vrijedi.
+func TestBezTudeKadJeSvjeza(t *testing.T) {
+	postavi(t, &PoluvijekIspravka, 0)
+	zadnji := time.Now().UTC().Truncate(time.Hour)
+	sada := zadnji.Unix() / 3600
+	for _, tc := range []struct {
+		ime     string
+		mjereno time.Time // zadnje mjerenje srednje; nula: nema ga
+		razlog  RazlogBezTude
+		opis    string
+	}{
+		{"bez mjerenja", time.Time{}, RazlogBezTude{Zadnje: sada - 1, Svjeza: true},
+			"tuđa prognoza (probni-izvor) je svježa, ali srednja nema mjerenja od kojeg bi ga vodila" + bezTudeRacuna},
+		{"mjerenje kasni", zadnji.Add(-6 * time.Hour), RazlogBezTude{Zadnje: sada - 1, Svjeza: true, KaoVrh: sada - 6},
+			"kad bi ga vodila tuđa prognoza (probni-izvor), sat izdanja bio bi " + satOpisa(sada-6) +
+				", a za taj sat ona ne vrijedi" + bezTudeRacuna},
+	} {
+		o := lanacSaSrednjom(t, zadnji)
+		o.Iznova = true
+		if _, err := o.Ocitanja.Exec(`DELETE FROM readings WHERE station_id = '3' AND measured_at > ?`, tc.mjereno); err != nil {
+			t.Fatal(err)
+		}
+		upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada-1, -1, 72, 95, 1) // od sada−2
+		ishod, err := o.Osvjezi(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		if ishod.Sada != sada || !reflect.DeepEqual(ishod.BezTude, map[string]RazlogBezTude{"srednja": tc.razlog}) {
+			t.Errorf("%s: sat izdanja %d (želim %d), bez tuđe %v", tc.ime, ishod.Sada, sada, ishod.BezTude)
+		}
+		if u := upozorenjeLetve(ishod, VrstaBezTude, "srednja"); u.Opis != tc.opis {
+			t.Errorf("%s: opis %q\nželim %q", tc.ime, u.Opis, tc.opis)
+		}
+	}
+}
+
+// upozorenjeLetve je upozorenje izdanja zadane vrste za letvu.
+func upozorenjeLetve(ishod *Ishod, vrsta, letva string) Upozorenje {
+	i := slices.IndexFunc(ishod.Upozorenja, func(u Upozorenje) bool { return u.Vrsta == vrsta && u.Letva == letva })
+	if i < 0 {
+		return Upozorenje{}
+	}
+	return ishod.Upozorenja[i]
 }
 
 // Kad se zadnje tuđe izdanje ne da pročitati, letva se ipak javlja, kao da
@@ -161,8 +268,8 @@ func TestBezTudeNecitljivaBaza(t *testing.T) {
 	baza := otvoriProbnu(t, "p.db")
 	baza.Close()
 	o := &Osvjezivac{Baza: baza}
-	got := o.bezTude(map[string][]Pojas{"srednja": {{Letva: "srednja"}}}, 100)
-	if !reflect.DeepEqual(got, map[string]int64{"srednja": 0}) {
+	got := o.bezTude(map[string][]Pojas{"srednja": {{Letva: "srednja"}}}, map[string]int64{}, 100)
+	if !reflect.DeepEqual(got, map[string]RazlogBezTude{"srednja": {}}) {
 		t.Errorf("bez tuđe %v", got)
 	}
 }

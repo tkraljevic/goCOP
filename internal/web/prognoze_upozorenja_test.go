@@ -144,8 +144,12 @@ func TestTekstSvihVrsta(t *testing.T) {
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaVrh, Letva: "gornja", Opis: "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje", Upitno: jedan},
 			"Gornji Brod: vrh lanca, nema budućnosti vrha (dnevni model); drži se zadnje mjerenje.", "Satna upitna najranije od +3 h (Gornji Brod bez budućnosti vrha)."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaBezTude, Letva: "srednja", Upitno: jedan,
-			Opis: "zadnja mađarska prognoza (hydroinfo.hu) izdana je 19.10. u 08:00 i starija je od dva dana, pa računa naš lanac, koji pri valu griješi više"},
-			"Srednji Brod: zadnja mađarska prognoza (hydroinfo.hu) izdana je 19.10. u 08:00 i starija je od dva dana, pa računa naš lanac, koji pri valu griješi više.",
+			Opis: "zadnja mađarska prognoza (hydroinfo.hu), izdana 19. 10. u 8 h, starija je od dva dana, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+			"Srednji Brod: zadnja mađarska prognoza (hydroinfo.hu), izdana 19. 10. u 8 h, starija je od dva dana, pa ga računa naš lanac, koji pri valu griješi više od nje.",
+			"Satna upitna najranije od +3 h (Srednji Brod bez tuđe prognoze)."},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaBezTude, Letva: "srednja", Upitno: jedan,
+			Opis: "mađarska prognoza (hydroinfo.hu) je svježa, ali srednja nema mjerenja od kojeg bi ga vodila, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+			"Srednji Brod: mađarska prognoza (hydroinfo.hu) je svježa, ali Srednji Brod nema mjerenja od kojeg bi ga vodila, pa ga računa naš lanac, koji pri valu griješi više od nje.",
 			"Satna upitna najranije od +3 h (Srednji Brod bez tuđe prognoze)."},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaKisa, Opis: "dnevni model računa bez kiše: oborine nisu uključene", Upitno: []prognoza.Upitno{{Letva: "donja", OdSata: -1, Dnevno: true}}},
 			"Dnevni model računa bez kiše: oborine nisu uključene.", "Dnevna upitna (dnevni model bez kiše)."},
@@ -551,5 +555,16 @@ func TestKisaSlivovaBezPragaTrijuDana(t *testing.T) {
 	}
 	if got := prag(31.5); got != "31,5" {
 		t.Errorf("prag triju dana %q, želim 31,5", got)
+	}
+}
+
+// Komárom, kojega vodi mađarska prognoza, na kartici je „bez mađarske
+// prognoze”, istom riječju kao u pomoći; letva s drugom tuđom „bez tuđe”.
+func TestUzrokBezTude(t *testing.T) {
+	if got := uzrokBezTude("Komárom", "komarom"); got != "Komárom bez mađarske prognoze" {
+		t.Errorf("Komárom: %q", got)
+	}
+	if got := uzrokBezTude("Srednji Brod", "srednja"); got != "Srednji Brod bez tuđe prognoze" {
+		t.Errorf("druga letva: %q", got)
 	}
 }

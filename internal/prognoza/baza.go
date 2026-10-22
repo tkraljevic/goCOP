@@ -891,12 +891,12 @@ func tudaUSatu(db *sql.DB, izvor, letva string, od, do, sat int64) (Niz, bool, e
 	return tudeIzdanje(db, izvor, letva, izdano.Int64)
 }
 
-// zadnjeTudeIzdanje je sat zadnjeg izdanja tuđe prognoze letve do sata do; 0
-// kad ga nema.
-func zadnjeTudeIzdanje(db *sql.DB, izvor, letva string, do int64) (int64, error) {
+// zadnjeTudeIzdanje je sat zadnjeg izdanja tuđe prognoze letve; 0 kad ga
+// nema.
+func zadnjeTudeIzdanje(db *sql.DB, izvor, letva string) (int64, error) {
 	var z int64
-	err := db.QueryRow(`SELECT coalesce(max(izdano), 0) FROM tude WHERE izvor = ? AND letva = ? AND izdano <= ?`,
-		izvor, letva, do).Scan(&z)
+	err := db.QueryRow(`SELECT coalesce(max(izdano), 0) FROM tude WHERE izvor = ? AND letva = ?`,
+		izvor, letva).Scan(&z)
 	return z, err
 }
 

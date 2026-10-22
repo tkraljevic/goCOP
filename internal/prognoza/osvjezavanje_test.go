@@ -361,7 +361,8 @@ func TestTudaIspredRacunaSkidaRacunDokJeSvjeza(t *testing.T) {
 // Svježina tuđe prognoze ispred računa mjeri se satom izdavanja, istim po
 // kojem se uzima njezina budućnost. Kad izdanje kasni deset sati, tuđa
 // izdana prije sat vremena za njega nije svježa (izdana je poslije sata
-// izdavanja i šest sati): srednja zadržava račun, a ne ostaje bez računa i
+// izdavanja i šest sati), iako ga pokriva, kao što mađarska počinje u 7 h
+// prije svojeg izdanja: srednja zadržava račun, a ne ostaje bez računa i
 // bez budućnosti. Tuđa izdana 45 sati prije sata izdavanja, koja seže preko
 // njega, svježa je, iako je po satu na zidu starija od dva dana.
 func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
@@ -371,7 +372,7 @@ func TestTudaIspredRacunaSvjezaPoSatuIzdavanja(t *testing.T) {
 	o := lanacSaSrednjom(t, zadnji)
 	sada := zadnji.Unix() / 3600
 
-	upisiTuduSrednje(t, o.Baza, sad.Unix()/3600-1)
+	upisiTudu(t, o.Baza, "probni-izvor", "srednja", sada+9, -12, 12, 95, 5) // od sada−3
 	ishod, err := o.Osvjezi(context.Background())
 	if err != nil {
 		t.Fatal(err)
@@ -413,8 +414,8 @@ func TestTudaIspredRacunaBezSataIzdavanja(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if skinute := o.tudeIspredRacuna(pojasi, map[Izvor]Niz{}); len(skinute) != 0 {
-		t.Errorf("bez očitanja skinut je račun: %v", skinute)
+	if skinute, kaoVrh := o.tudeIspredRacuna(pojasi, map[Izvor]Niz{}); len(skinute) != 0 || len(kaoVrh) != 0 {
+		t.Errorf("bez očitanja skinut je račun: %v, sat izdanja kao vrh %v", skinute, kaoVrh)
 	}
 }
 
