@@ -128,9 +128,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"doseže tek gornjom granicom raspona. Slovo s znači da bi taj dan dao dnevni model, ali za to " +
 				"izdanje nije računao, pa stoji satna prognoza u 07 h."),
 			tekstM("Kad pri izdavanju nešto ne radi — letva bez mjerenja, dnevni model koji nije računao, račun iz " +
-				"rezerve, vrh lanca bez svoje budućnosti, Komárom bez mađarske prognoze, dnevni model bez kiše — iznad " +
-				"kartica stoji okvir „Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga upitne, satna od kojeg " +
-				"dosega i dnevna koja nije izdana. Kartica takve postaje ima kratak redak s razlogom. Sitnije stvari " +
+				"rezerve, vrh lanca bez svoje budućnosti, Komárom bez mađarske prognoze, dnevni model bez kiše — " +
+				"iznad kartica stoji okvir „Upozorenja uz ovo izdanje”: što ne radi i koje su vrijednosti zbog toga " +
+				"upitne, satna od kojeg dosega i dnevna koja nije izdana. Kartica takve postaje ima kratak redak s " +
+				"razlogom. Sitnije stvari " +
 				"(dnevni model iz rezerve, sati s letve na drugoj obali, postaja bez prognoze, vrijednosti izvan " +
 				"krivulje protoka) stoje sklopljene pod „Napomene”. Upozorenja zapisuje čvor koji izdaje i ona putuju " +
 				"s izdanjem, pa svi čvorovi pokazuju isto; izdanje starije od tri sata stranica javlja sama."),
@@ -153,7 +154,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Prognozi vrijedi vjerovati manje:"),
 			popisM(
 				"na Dravi od trećeg dana pri velikom valu, jer ga model podcjenjuje — dotok iz Slovenije ne znamo unaprijed; gledati gornju granicu raspona;",
-				"na Dunavu pri valu kad mađarska prognoza Komároma izostane, jer naš lanac iz Austrije val propušta prebrzo;",
+				"na Dunavu pri valu kad mađarska prognoza Komároma izostane, jer naš lanac od Wildungsmauera val propušta prebrzo;",
 				"na Varaždinu, gdje razinu vodi HE Varaždin sat po sat, pa je prognoza tek za val vrijedna više od postojanosti;",
 				"pri vodi izvan svega što je arhiva vidjela, jer model tada produžuje zadnji pravac."),
 			tekstM("Rječnik:"),
@@ -313,10 +314,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dva dana) i ima vrijednost u satu izdanja, Komárom postaje vrh i slijedi nju, jer je u valu dvostruko " +
 				"bolja od našeg lanca. Naš lanac je rezerva za sate kad mađarske nema, i tada uz izdanje stoji " +
 				"upozorenje. Cilj ostaje potpuna neovisnost, ali ne po cijenu lošije prognoze."),
-			tekstM("Od 26. 9. do 22. 10. 2026. Wildungsmauer je slijedio 48-satnu prognozu Donje Austrije " +
+			tekstM("Od 25. 9. do 22. 10. 2026. Wildungsmauer je slijedio 48-satnu prognozu Donje Austrije " +
 				"(noel.gv.at). Ta je prognoza izbačena iz lanca: dok je mađarska svježa, mijenjala je samo Nagybajcs, a " +
-				"ni točna austrijska ne popravlja Batinu i Ilok unutar 96 sati. I dalje se preuzima i stoji uz našu " +
-				"radi usporedbe."),
+				"ni točna austrijska ne popravlja Batinu i Ilok unutar 96 sati. Od Komároma do Batine val putuje oko " +
+				"dva i pol dana, pa Batina do 96. sata ovisi o prvih dan i pol Komároma, a tu je naš lanac s točnom " +
+				"austrijskom lošiji nego bez nje (tablica niže). I dalje se preuzima i stoji uz našu radi usporedbe."),
 			tablicaM("Komárom, srednja pogreška 1.–6. dana u cm (27 mađarskih izdanja 2024.–2026., uglavnom valovi)",
 				dani,
 				[]string{"mađarska prognoza", "12", "20", "28", "38", "47", "59"},
@@ -613,7 +615,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
-				"22. 10. 2026. — Wildungsmauer više ne slijedi austrijsku prognozu (noel.gv.at), nego drži zadnje mjerenje; austrijska stoji samo radi usporedbe. Kad Komárom računa naš lanac jer mađarske prognoze nema, uz izdanje stoji upozorenje.",
+				"22. 10. 2026. — Wildungsmauer više ne slijedi austrijsku prognozu (noel.gv.at), nego drži zadnje mjerenje; austrijska stoji samo radi usporedbe. Kad mađarska prognoza ne vodi Komárom, nego ga računa naš lanac, uz izdanje stoji upozorenje s razlogom. Mađarska prognoza koja počinje tek iza sata izdanja više ne vodi Komárom; s njom je Komárom stajao na zadnjem mjerenju.",
 				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",
 				"2. 10. 2026. — prognozu izdaje jedan čvor (Čvor, mreža i sinkronizacija → Uloge ovog čvora); svako izdanje, s kišom i tuđim prognozama, ide razmjenom ostalim čvorovima, koji ga pokazuju s nazivom čvora koji ga je izdao.",
