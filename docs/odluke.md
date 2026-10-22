@@ -592,9 +592,8 @@ je gotov onaj o kojem ovisi.
 
 ## Odluke (22. 10. 2026.)
 
-- Austrijska prognoza (noel.gv.at) više nije vrh lanca na Dunavu.
-  Wildungsmauer drži zadnje mjerenje, a austrijska prognoza stoji samo radi
-  usporedbe, i kad stranica Donje Austrije opet proradi. Za naše letve to ne
-  mijenja ništa.
+- Lanac prognoze ne ovisi ni o jednoj tuđoj prognozi: ni o austrijskoj
+  (noel.gv.at) ni o mađarskoj (hydroinfo.hu: Komárom, Letenye). Tuđe
+  prognoze stoje uz našu samo radi usporedbe.
 - Model ispuštanja za veliku vodu za HE Dubrava i HE Varaždin sljedeći je
   veći posao na prognozi, prije sezone poplava.
