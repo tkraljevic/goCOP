@@ -102,6 +102,7 @@ type VrijednostPrognoze struct {
 	Q        string
 	QRaspon  string
 	Slabija  bool // na tom dosegu postojanost je bolja
+	Oznaka   OznakaModela
 }
 
 // LetvaPrognoze je jedan redak pregleda.
@@ -227,10 +228,44 @@ type CelijaDana struct {
 	IzSatne, BezDnevne bool
 	// IzSusjeda: letva nema dnevni model, pa dan daju susjedi s njim
 	// (prognoze_susjedi.go).
-	IzSusjeda      bool
+	IzSusjeda bool
+	// Kombinacija: dan je satni lanac i dnevni model zajedno (ugađanje,
+	// prognoza.UgadjanjeLetve).
+	Kombinacija    bool
 	Slabija        bool
 	Razina, Moguce string
 }
+
+// OznakaModela je slovo uz vrijednost prognoze koje kaže iz čega je (Odluke
+// (22. 10. 2026.)): s satni lanac, d dnevni model, ds oboje zajedno, p
+// susjedi. Upozorenje je satna koja stoji jer dnevne u izdanju nema.
+type OznakaModela struct {
+	Tekst, Naslov string
+	Upozorenje    bool
+}
+
+// Oznaka je slovo uz vrijednost dana.
+func (c CelijaDana) Oznaka() OznakaModela {
+	switch {
+	case c.Cm == "":
+		return OznakaModela{}
+	case c.Kombinacija:
+		return oznakaKombinacije
+	case c.Dnevna:
+		return oznakaDnevnog
+	case c.IzSusjeda:
+		return OznakaModela{Tekst: "p", Naslov: "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; bez raspona"}
+	case c.IzSatne:
+		return OznakaModela{Tekst: "s", Naslov: "satna prognoza — dnevni model za ovo izdanje nije računao", Upozorenje: true}
+	}
+	return oznakaSatnog
+}
+
+var (
+	oznakaSatnog      = OznakaModela{Tekst: "s", Naslov: "iz satnog lanca"}
+	oznakaDnevnog     = OznakaModela{Tekst: "d", Naslov: "iz dnevnog modela"}
+	oznakaKombinacije = OznakaModela{Tekst: "ds", Naslov: "satni lanac i dnevni model zajedno"}
+)
 
 // Model kaže koji je model dao vrijednost dana, za skriveni redak izvoza.
 func (c CelijaDana) Model() string {
@@ -245,6 +280,8 @@ func (c CelijaDana) Model() string {
 		return "satni (dnevni nije izdan)"
 	case c.IzSusjeda:
 		return "iz susjeda"
+	case c.Kombinacija:
+		return "satni i dnevni"
 	}
 	return "satni"
 }
@@ -555,6 +592,7 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 	}
 	data.prikaz = prikazIzdanja(ulazPrikaza{pregled: letve, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi,
 		izdanoH: data.IzdanoSat, nacin: nacin, susjedi: susjedi, srednjak: srednjaci})
+	ugodiCelije(data.Letve, data.prikaz, ciljevi, data.IzdanoSat, postaje)
 	satniStupci(data.Letve, data.prikaz)
 	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)

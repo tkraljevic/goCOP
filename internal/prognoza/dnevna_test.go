@@ -512,3 +512,16 @@ func TestBezOborine(t *testing.T) {
 		t.Error("glavni cilj bez oborine: inačica nije „bez oborine”")
 	}
 }
+
+// Težina satnog lanca na Dunavu: 1 u satu izdanja, oko pola od 6. do 72. sata,
+// 0 od 96. sata; između čvorova pravocrtno.
+func TestTezinaLanca(t *testing.T) {
+	for h, want := range map[int]float64{0: 1, 3: 0.83, 6: 0.66, 24: 0.57, 48: 0.56, 84: 0.28, 96: 0, 120: 0} {
+		if got := TezinaLanca(h); math.Abs(got-want) > 1e-9 {
+			t.Errorf("%d h: %g, želim %g", h, got, want)
+		}
+	}
+	if !Ugadja("vukovar") || Ugadja("osijek") {
+		t.Error("ugađanje je na Dunavu, a ne na Dravi")
+	}
+}

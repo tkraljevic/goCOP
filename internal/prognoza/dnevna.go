@@ -316,6 +316,38 @@ var VisokaVoda = map[string]float64{
 	"botovo": 151, "terezino-polje": -181, "donji-miholjac": 86, "belisce": 203, "osijek": 68,
 }
 
+// UgadjanjeLetve su letve na kojima prikaz do 96. sata nije ni satni lanac ni
+// dnevni model, nego oboje zajedno (Odluke (22. 10. 2026.)): osnova je dnevni
+// model, a satni lanac je ugađanje s težinom TezinaLanca. Mjereno 22. 10. 2026.
+// na živim izdanjima od 26. 9. (težine naučene samo na preračunu 2024.–2026.)
+// bolje od prijelaza s jednoga na drugi: Batina 0,5, Ilok 0,4, Vukovar i Aljmaš
+// 0,3 cm u prosjeku, a u danima 2.–4. do 1,7 cm; na preračunu 0,5–1,3 cm. Na
+// Dravi je isto uživo bilo lošije, jer satni lanac od 2. dana ide previsoko
+// (kaskada HE), pa ondje ostaje prijelaz dok se ne popravi model ispuštanja.
+var UgadjanjeLetve = []string{"batina", "aljmas", "vukovar", "ilok"}
+
+// cvoroviTezine su sati unaprijed i težina satnog lanca u njima; između se
+// ide pravocrtno. Nije postupno slabljenje: od 6. do 72. sata lanac i dnevni
+// model dijele otprilike pola-pola, a do 96. sata lanac nestaje.
+var cvoroviTezine = [][2]float64{{0, 1}, {6, 0.66}, {12, 0.61}, {24, 0.57}, {36, 0.56}, {72, 0.56}, {96, 0}}
+
+// TezinaLanca je težina satnog lanca h sati unaprijed na letvama ugađanja.
+func TezinaLanca(h int) float64 {
+	x := float64(h)
+	for i := 1; i < len(cvoroviTezine); i++ {
+		a, b := cvoroviTezine[i-1], cvoroviTezine[i]
+		if x <= b[0] {
+			return a[1] + (x-a[0])/(b[0]-a[0])*(b[1]-a[1])
+		}
+	}
+	return 0
+}
+
+// Ugadja javlja ima li letva ugađanje.
+func Ugadja(letva string) bool {
+	return slices.Contains(UgadjanjeLetve, letva)
+}
+
 // DnevnaOdDanaZa vraća od kojeg dana dnevni model daje vrijednost, prema
 // vodostaju letve u satu izdavanja (imaSada false: kao pri visokoj vodi).
 func DnevnaOdDanaZa(letva string, sada float64, imaSada bool) int {
