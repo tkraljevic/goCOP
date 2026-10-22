@@ -362,7 +362,7 @@ func TestDaniIzSusjedaNaStraniciIUExcelu(t *testing.T) {
 		Tablice: []TablicaPrognoza{{Naslov: "Rijeka", Letve: []LetvaPrognoze{{Kod: "srednja", Naziv: "Srednji Brod", Racuna: "vodostaj",
 			ImaTermina: true, Dani: []CelijaDana{{Naslov: "pet 9.10.", Cm: "145", CmV: &v, IzSusjeda: true}}}}}},
 	})
-	for _, want := range []string{">p</sup>", "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; bez raspona",
+	for _, want := range []string{">p</sup>", "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; raspon procijenjen iz susjeda",
 		"Kad dnevni model susjedima najavi porast od kiše koji ne dođe, i ovdje je najava pogrešna."} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)

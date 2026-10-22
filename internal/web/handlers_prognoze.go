@@ -254,7 +254,7 @@ func (c CelijaDana) Oznaka() OznakaModela {
 	case c.Dnevna:
 		return oznakaDnevnog
 	case c.IzSusjeda:
-		return OznakaModela{Tekst: "p", Naslov: "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; bez raspona"}
+		return oznakaSusjeda
 	case c.IzSatne:
 		return OznakaModela{Tekst: "s", Naslov: "satna prognoza — dnevni model za ovo izdanje nije računao", Upozorenje: true}
 	}
@@ -265,6 +265,7 @@ var (
 	oznakaSatnog      = OznakaModela{Tekst: "s", Naslov: "iz satnog lanca"}
 	oznakaDnevnog     = OznakaModela{Tekst: "d", Naslov: "iz dnevnog modela"}
 	oznakaKombinacije = OznakaModela{Tekst: "ds", Naslov: "satni lanac i dnevni model zajedno"}
+	oznakaSusjeda     = OznakaModela{Tekst: "p", Naslov: "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; raspon procijenjen iz susjeda"}
 )
 
 // Model kaže koji je model dao vrijednost dana, za skriveni redak izvoza.
@@ -594,8 +595,8 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 			srednjaci, nacin == models.PrognozaSatni)
 	}
 	data.prikaz = prikazIzdanja(ulazPrikaza{pregled: letve, dnevne: dnevne, postaje: postaje, ciljevi: ciljevi,
-		izdanoH: data.IzdanoSat, nacin: nacin, susjedi: susjedi, srednjak: srednjaci})
-	ugodiCelije(data.Letve, data.prikaz, ciljevi, data.IzdanoSat, postaje)
+		izdanoH: data.IzdanoSat, nacin: nacin, susjedi: susjedi, srednjak: srednjaci, krivulje: h.krivuljeSusjeda(r.Context())})
+	celijeIzNiza(data.Letve, data.prikaz, ciljevi, data.IzdanoSat, postaje)
 	satniStupci(data.Letve, data.prikaz)
 	upozorenjaStranice(&data, c, izdano, sadZahtjeva(r), postaje)
 	data.Tablice = poVodama(data.Letve, postaje)
@@ -973,7 +974,7 @@ func uzduzniProfili(postaje map[string]models.Station, letve []PregledLetve,
 			continue
 		}
 		rkm, ok := rijecniKm(st.Stationing)
-		if !ok {
+		if !ok || iznadPocetka(postaje, st.Watercourse, rkm) {
 			continue
 		}
 		lp := LetvaProfila{
@@ -1223,6 +1224,23 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 		return imena(opis) + "."
 	}
 	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je iz namještanja, ne iz provjere unatrag."
+}
+
+// PocetakProfila je letva od koje kreće uzdužni profil vode; letve uzvodno
+// od nje stoje u tablici, ali ne na profilu. Profil Dunava kreće od Batine
+// (Odluke (22. 10. 2026.)): mađarske letve imaju samo naš satni lanac do 96
+// sati, bez dnevnog modela, pa je Batina na profilu rasla bez Mohácsa.
+var PocetakProfila = map[string]string{"Dunav": "batina"}
+
+// iznadPocetka javlja leži li letva na kilometru rkm uzvodno od letve od koje
+// profil te vode kreće.
+func iznadPocetka(postaje map[string]models.Station, voda string, rkm float64) bool {
+	pocetak, ima := postaje[PocetakProfila[voda]]
+	if !ima {
+		return false
+	}
+	p, ok := rijecniKm(pocetak.Stationing)
+	return ok && rkm > p
 }
 
 // IzvanProfila su letve koje se prognoziraju i stoje na pregledu, ali se na

@@ -1106,6 +1106,17 @@ func Pretvori(k *models.HQKrivulja, ciljna string, v float64) (vrijednost float6
 }
 
 // pretvori vodi jednu vrijednost kroz krivulju u traženu veličinu.
+// UProtok preračuna vodostaj i granice raspona u protok krivuljom, istim
+// pravilom kao satni lanac; ok je false kad vrijednost ne prođe krivulju.
+func UProtok(k *models.HQKrivulja, v, dolje, gore float64) (q, qd, qg float64, ok bool) {
+	q, _, ok = pretvori(k, "protok", v)
+	if !ok {
+		return 0, 0, 0, false
+	}
+	qd, qg, _ = rasponKrozKrivulju(k, "protok", q, dolje, gore)
+	return q, qd, qg, true
+}
+
 func pretvori(k *models.HQKrivulja, ciljna string, v float64) (float64, bool, bool) {
 	if ciljna == "vodostaj" {
 		cm, izvan, ok := k.Vodostaj(v)

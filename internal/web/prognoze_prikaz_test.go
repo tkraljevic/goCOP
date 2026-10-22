@@ -88,7 +88,7 @@ func (p probaPrikaza) tablica(nacin string) ([]LetvaPrognoze, map[string]nizPrik
 		p.srednjaci, nacin == models.PrognozaSatni)
 	prikaz := prikazIzdanja(ulazPrikaza{pregled: p.pregled, dnevne: p.dnevne, postaje: p.postaje, ciljevi: p.ciljevi,
 		izdanoH: p.izdanoH, nacin: nacin, susjedi: true, srednjak: p.srednjaci})
-	ugodiCelije(letve, prikaz, p.ciljevi, p.izdanoH, p.postaje)
+	celijeIzNiza(letve, prikaz, p.ciljevi, p.izdanoH, p.postaje)
 	satniStupci(letve, prikaz)
 	return letve, prikaz
 }

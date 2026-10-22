@@ -154,7 +154,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"s u drugoj boji — satni lanac, jer dnevnog modela u tom izdanju nema;",
 				"d — dnevni model;",
 				"ds — satni lanac i dnevni model zajedno (Batina, Aljmaš, Vukovar i Ilok do 96. sata);",
-				"p — iz susjednih postaja s dnevnim modelom, bez raspona i protoka (Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs)."),
+				"p — iz susjednih postaja s dnevnim modelom, s rasponom procijenjenim iz susjeda; protok samo gdje postaja ima krivulju (Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs na Dravi, a Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo na Dunavu)."),
 			tekstM("Svjetlije pisana vrijednost nije u provjeri bila bolja od pretpostavke da se ništa neće promijeniti; "+
 				"ondje je bolje vjerovati zadnjem mjerenju. Termin obojen bojom faze obrane doseže prag, a obrubljen "+
 				"ga doseže tek gornjom granicom raspona."),
@@ -179,7 +179,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"dalje dnevni model. Na Dravi dnevni model preuzima od dana koji je provjera odredila za svaku postaju "+
 				"i za vodostaj u satu izdanja: pri visokoj vodi od "+drava+", pri niskoj i srednjoj od 1. ili 2. dana. "+
 				"Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni model, pa od 2. dana "+
-				"slijede susjedne postaje koje ga imaju."),
+				"slijede susjedne postaje koje ga imaju. Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo na Dunavu "+
+				"isto nemaju dnevni model: do 96. sata uz svoj satni lanac uzimaju dnevni dio susjeda, istom "+
+				"težinom kao susjedi, a dalje samo njega. Srpske letve s našom prognozom (Bezdan, Apatin, Bačka "+
+				"Palanka) pokazuju isto što i letve s kojih je prenesena."),
 			tekstM("Vrhovi lanca su naši. Dravu vodi naučeno ispuštanje hidroelektrana, Muru slovenska Gornja Radgona, "+
 				"a Wildungsmauer na Dunavu drži zadnje mjerenje. Kišu koja tek pada daje prognoza Open-Meteo. Tuđe "+
 				"prognoze u račun ne ulaze. Model ispuštanja ima režim obične i velike vode za sve tri elektrane "+
@@ -383,6 +386,14 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"vrijednosti postaje, razmjerno udaljenosti po rijeci. Na izdanjima 2024.–2025. to je bliže "+
 				"izmjerenom nego da voda ostane kakva je. Rizik: kad dnevni model susjedima najavi porast od kiše "+
 				"koji ne dođe, i ovdje je najava pogrešna. U Postavkama prognoze uprava to može isključiti."),
+			tekstM("Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo leže između dunavskih postaja s ugađanjem i nemaju "+
+				"dnevni model. Bez njega je uzdužni profil imao grbe: susjedi su rasli s kišom, a one nisu. Dnevni "+
+				"dio zato posuđuju od susjeda (Batina i Aljmaš, Aljmaš i Vukovar, Vukovar i Ilok), razmjerno "+
+				"udaljenosti po rijeci, i do 96. sata miješaju ga sa svojim satnim lancem istom težinom kao "+
+				"susjedi; dalje stoji samo dio iz susjeda. Siga i Petreš su iznad ušća Drave, a Aljmaš ispod, pa "+
+				"njihov dio od Aljmaša nosi i malo Drave. Nije posebno izmjereno."),
+			tekstM("Uz oznaku p raspon je raspon susjeda, utegnut po kilometru kao i vrijednost: procijenjen je, a "+
+				"ne izmjeren. Protok daje krivulja postaje (Novo Virje, Dalj); gdje je nema, nema ni protoka."),
 			tekstM("Koji model daje dane bira se u Postavkama prognoze, jednom za tablicu, grafove i Excel: "+
 				"kombinacija (zadano), samo satni lanac ili samo dnevni model. Uz samo jedan model ugađanja nema."),
 		),
