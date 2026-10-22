@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	stdhtml "html"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -166,6 +167,13 @@ func TestTekstSvihVrsta(t *testing.T) {
 			"Izvan krivulje protoka (krivulja produljena preko svog ruba): vodostaj Četvrti Most; protok Donji Grad i Treće Selo od +12 h.", ""},
 		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaNapomena, Opis: "nešto novo na srednja"},
 			"Nešto novo na Srednji Brod.", ""},
+		// vrste koje ova inačica ne zna: izbačena „bez-tude” i nova bez letve
+		{prognoza.Upozorenje{Vrsta: "bez-tude", Tezina: prognoza.TezinaUpozorenje, Letva: "srednja", Upitno: jedan,
+			Opis: "mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje"},
+			"Srednji Brod: mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje.",
+			"Satna upitna najranije od +3 h (Srednji Brod)."},
+		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaUpozorenje, Opis: "nešto novo na srednja", Upitno: jedan},
+			"Nešto novo na Srednji Brod.", "Satna upitna najranije od +3 h (vidi upozorenja uz izdanje)."},
 	} {
 		if got := p.sto(tc.u); got != tc.sto {
 			t.Errorf("%s:\n %q\nželim\n %q", tc.u.Vrsta, got, tc.sto)
@@ -320,6 +328,36 @@ func TestPrimateljPokazujeUpozorenjeIzdavaca(t *testing.T) {
 	for _, want := range []string{"Upozorenja uz ovo izdanje", "Srednji Brod (primjer.hu): nema mjerenja od 8. 10. u 10 h",
 		"Donji Grad najranije od +1 h", "Napomene uz ovo izdanje (1)", "Četvrti Most: nema prognoze",
 		"prog-upozorenje", "Satna upitna najranije od +1 h, dnevna nije izdana (Srednji Brod bez mjerenja)."} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+}
+
+// Izdavač na starijoj inačici šalje upozorenje vrste koje više nema
+// („bez-tude”, Komárom bez mađarske prognoze). Primatelj ga piše opisom
+// izdavača, a na kartici stoji ime letve, ne nagađani razlog.
+func TestPrimateljPokazujeIzbacenuVrstuUpozorenja(t *testing.T) {
+	izdano := satUTC(8, 19)
+	u := []prognoza.Upozorenje{{Vrsta: "bez-tude", Tezina: prognoza.TezinaUpozorenje, Letva: "srednja",
+		Opis:   "mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje",
+		Upitno: []prognoza.Upitno{{Letva: "srednja", OdSata: 1}, {Letva: "donja", OdSata: 4}}}}
+	c, err := OtvoriPrognoze(izdanjeKodPrimatelja(t, izdano, u, false))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	data := PrognozePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		ActiveNav: "prognoze", Izdano: "8.10.2026. u 21:00", Udio: 70, Dani: daniUpozorenja, IzdaoCvor: c.Izdavac(),
+		Letve: []LetvaPrognoze{{Kod: "donja", Naziv: "Donji Grad", Racuna: "vodostaj"}}}
+	izd := time.Unix(izdano*3600, 0)
+	upozorenjaStranice(&data, c, izd, izd.Add(time.Hour), izmisljenePostaje())
+	data.Tablice = []TablicaPrognoza{{Naslov: "Rijeka", Letve: data.Letve}}
+	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", data))
+	for _, want := range []string{"Upozorenja uz ovo izdanje",
+		"Srednji Brod: mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje.",
+		"Upitno: satna prognoza Srednji Brod najranije od +1 h; Donji Grad najranije od +4 h.",
+		"Satna upitna najranije od +4 h (Srednji Brod)."} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
 		}
@@ -547,5 +585,69 @@ func TestKisaSlivovaBezPragaTrijuDana(t *testing.T) {
 	}
 	if got := prag(31.5); got != "31,5" {
 		t.Errorf("prag triju dana %q, želim 31,5", got)
+	}
+}
+
+// Izdanje iz vremena kad je Komárom vodila mađarska prognoza (do 22. 10.
+// 2026.), ili izdanje izdavača na starijoj inačici, u izboru nosi vrh po
+// tuđoj prognozi. Kartica takvog vrha i dalje kaže da je u tom izdanju išao
+// po tuđoj prognozi, s izvorom iz zapisa, a ne da ga vodi naš dnevni model.
+// Mađarska prognoza stoji u tablici dana uz našu, radi usporedbe.
+func TestIzdanjeSVrhomPoTudojPrognozi(t *testing.T) {
+	put := bazaPrognoza(t, satStarog)
+	pb, err := prognoza.Otvori(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	opis := "dok je svježa, vodi je tuđa prognoza (hydroinfo.hu), jer je na valovima bolja od našeg lanca; bez nje računa se iz: moslavina"
+	if err := prognoza.SpremiIzbor(pb, satStarog, map[string]prognoza.Izbor{"vrh:donji-miholjac": {Inacica: 2, Opis: opis}}); err != nil {
+		t.Fatal(err)
+	}
+	_, ciljevi := daniPregleda(satOdEpohe(satStarog))
+	if _, err := pb.Exec(`INSERT INTO tude (izvor, letva, izdano, ciljni, vrijednost, raspon) VALUES (?, 'belisce', ?, ?, 222, 0)`,
+		prognoza.Podrijetlo, satStarog-2, ciljevi[0]); err != nil {
+		t.Fatal(err)
+	}
+	if err := pb.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data := podaciRanijeg(rukovateljBaze(t, put), satStarog)
+	letva := func(kod string) LetvaPrognoze {
+		t.Helper()
+		i := slices.IndexFunc(data.Letve, func(l LetvaPrognoze) bool { return l.Kod == kod })
+		if i < 0 {
+			t.Fatalf("nema kartice %s: %+v", kod, data.Letve)
+		}
+		return data.Letve[i]
+	}
+	if dm := letva("donji-miholjac"); !dm.TudiVrh || dm.NasVrh || dm.Racuna != "" || !strings.Contains(dm.Rezerva, opis) {
+		t.Errorf("vrh po tuđoj prognozi: tuđi %v, naš %v, računa %q, redak %q", dm.TudiVrh, dm.NasVrh, dm.Racuna, dm.Rezerva)
+	}
+	if b := letva("belisce"); len(b.Dani) == 0 ||
+		!slices.ContainsFunc(b.Dani[0].Tude, func(x TudaCelija) bool { return x.Oznaka == "HU" && x.CmV == 222 }) {
+		t.Errorf("Belišće bez mađarske prognoze u tablici dana: %+v", b.Dani)
+	}
+	data.CurrentUser, data.Permissions = &models.User{FullName: "P"}, &models.UserPermissions{IsGlobalAdmin: true}
+	html := stdhtml.UnescapeString(iscrtaj(t, "prognoze.html", data))
+	for _, want := range []string{"vrh lanca; u ovom izdanju dalje od mjerenja ide po tuđoj prognozi", opis} {
+		if !strings.Contains(html, want) {
+			t.Errorf("stranica nema %q", want)
+		}
+	}
+}
+
+// Letva koja u satu izdanja nije povezana sa živom vodom na kartici kaže iz
+// kojeg ulaza i ispod kojeg praga, imenima iz registra.
+func TestKarticaNepovezaneLetve(t *testing.T) {
+	h := NewPrognozeHandler(nil, nil, nil)
+	popis := map[string]models.Station{
+		"gornja":  {Code: "gornja", Name: "Gornji Brod (Mađarska)"},
+		"rukavac": {Code: "rukavac", Name: "Rukavac"},
+	}
+	got := h.opisiLetve(popis, []PregledLetve{{Letva: "rukavac", Racuna: "vodostaj", Ulazi: []string{"gornja"},
+		Nepovezana: true, PragPovezanosti: 123}})
+	want := "Rukavac trenutno nije povezan sa živom vodom (Gornji Brod ispod 123 cm), pa se ne može ni prognozirati."
+	if len(got) != 1 || got[0].Nepovezana != want {
+		t.Errorf("kartica %+v\nželim %q", got, want)
 	}
 }

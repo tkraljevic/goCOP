@@ -375,30 +375,28 @@ func TestUpozorenjaIzbora(t *testing.T) {
 	}
 }
 
-// Vrh koji budućnost inače dobiva iz dnevnog modela ili tuđe prognoze, a u
-// izdanju je nije dobio, upozorava: niz lanac drži se njegovo zadnje
-// mjerenje. Kad budućnost ima, ili je nikad ne dobiva, upozorenja nema.
+// Vrh koji budućnost inače dobiva iz dnevnog modela, a u izdanju je nije
+// dobio, upozorava: niz lanac drži se njegovo zadnje mjerenje. Kad budućnost
+// ima, ili je nikad ne dobiva, upozorenja nema.
 func TestVrhBezBuducnostiUpozorava(t *testing.T) {
 	sada := int64(500000)
 	postavi(t, &DnevniCiljevi, nil)
 	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
-	postavi(t, &VrhoviSTudomPrognozom, map[string]string{"gornja": "primjer.hr"})
 	nizovi := nizoviDo(map[string]int64{"gornja": sada, "srednja": sada, "donja": sada})
 	vrhovi := map[Izvor]bool{{Letva: "gornja", Velicina: "vodostaj"}: true, {Letva: "gornja", Velicina: "protok"}: true}
 	got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, vrhovi)
 	want := []Upozorenje{{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: "gornja",
-		Opis:   "nema budućnosti vrha (dnevni model, tuđa prognoza primjer.hr); drži se zadnje mjerenje",
+		Opis:   "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje",
 		Upitno: []Upitno{{Letva: "srednja", OdSata: 3}, {Letva: "donja", OdSata: 12}, {Letva: "cetvrta", OdSata: 17}}}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("upozorenja\n %+v\nželim\n %+v", got, want)
 	}
-	for _, ishod := range []*Ishod{{Sada: sada, NasiVrhovi: []string{"gornja"}}, {Sada: sada, TudiVrhovi: []string{"gornja"}}} {
+	for _, ishod := range []*Ishod{{Sada: sada, NasiVrhovi: []string{"gornja"}}, {Sada: sada, OperaterVrhovi: []string{"gornja"}}} {
 		if got := Upozori(ishod, lanacUpozorenja(), nizovi, vrhovi); len(got) != 0 {
 			t.Errorf("vrh ima budućnost, a upozorenje je: %+v", got)
 		}
 	}
 	postavi(t, &VrhoviIzDnevnog, map[string]bool{})
-	postavi(t, &VrhoviSTudomPrognozom, map[string]string{})
 	if got := Upozori(&Ishod{Sada: sada}, lanacUpozorenja(), nizovi, vrhovi); len(got) != 0 {
 		t.Errorf("vrh koji budućnost ne dobiva nigdje, a upozorenje je: %+v", got)
 	}

@@ -411,8 +411,13 @@ func (p pisacUpozorenja) uzrok(u prognoza.Upozorenje) string {
 		return "dnevni model bez kiše"
 	case prognoza.VrstaRekonstrukcija:
 		return p.ime(u.Letva) + " rekonstruirana izvan provjerenog raspona"
+	case prognoza.VrstaDnevni:
+		return "dnevni model nije računao"
 	}
-	return "dnevni model nije računao"
+	// Vrsta koju ova inačica ne zna: s izdavača novije inačice, ili vrsta
+	// koje više nema (npr. „bez-tude”, Komárom bez mađarske prognoze). Razlog
+	// se ne nagađa: stoji ime letve, a opis izdavača je u okviru upozorenja.
+	return cmp.Or(p.ime(u.Letva), "vidi upozorenja uz izdanje")
 }
 
 // nabroji spaja riječi zarezima, a zadnju s „i”.

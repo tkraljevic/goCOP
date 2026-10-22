@@ -122,8 +122,7 @@ type LetvaPrognoze struct {
 	Pregledna       bool // u model ne ulazi, stoji radi pregleda
 	Ulazi           []string
 	ImaTermina      bool   // ima ijednu prognozu, svoju ili tuđu
-	TudiVrh         bool   // vrh lanca koji dalje ide po tuđoj prognozi (mađarskoj ili austrijskoj)
-	TudiIzvor       string // čija je ta prognoza (hydroinfo.hu, noel.gv.at)
+	TudiVrh         bool   // vrh koji je u tom izdanju išao po tuđoj prognozi: izdanja do 22. 10. 2026. ili izdavač na starijoj inačici
 	OperaterVrh     bool   // vrh lanca kojemu budućnost daje model ispuštanja elektrane
 	NasVrh          bool   // vrh lanca koji dalje ide po našem dnevnom modelu
 	DnevniOpis      string // letva koju prognozira samo dnevni model: iz čega
@@ -510,7 +509,8 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacinTablice, nacinGrafa strin
 			}
 			data.Letve[i].Rezerva += iz.Opis
 			if iz.Inacica == 2 {
-				// tuđa prognoza ispred računa: letva je ovaj put vrh
+				// tuđa prognoza ispred računa (izdanje do 22. 10. 2026.):
+				// letva je ovaj put vrh
 				data.Letve[i].TudiVrh, data.Letve[i].NasVrh, data.Letve[i].Racuna = true, false, ""
 			} else if iz.Inacica == 3 {
 				data.Letve[i].OperaterVrh, data.Letve[i].NasVrh, data.Letve[i].TudiVrh = true, false, false
@@ -658,14 +658,11 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 	for _, l := range letve {
 		ulaz := l.Racuna == "" && !l.UlazLanca && jeDnevniUlaz(l.Letva)
 		pregledna := l.Racuna == "" && !l.UlazLanca && !ulaz && jePregledna(l.Letva)
-		tudiIzvor, tudi := prognoza.TudiIzvorVrha(l.Letva)
 		sadaCm, imaSadaCm := l.Sada["vodostaj"]
 		sadaQ, imaSadaQ := l.Sada["protok"]
 		red := LetvaPrognoze{
 			Kod: l.Letva, Naziv: l.Letva, Racuna: l.Racuna, Doseg: l.Doseg,
 			Vrh: l.Racuna == "" && !ulaz && !pregledna, Ulaz: ulaz, Pregledna: pregledna,
-			TudiVrh:    l.Racuna == "" && tudi,
-			TudiIzvor:  tudiIzvor,
 			DnevniOpis: opisDnevnogCilja(l.Letva, popis),
 			SadaCm:     uVelicini(l.Sada, "vodostaj"), SadaQ: uVelicini(l.Sada, "protok"),
 			SadaJed: jedinicaSada(l.Letva),

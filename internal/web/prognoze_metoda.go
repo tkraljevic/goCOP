@@ -135,8 +135,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"(dnevni model iz rezerve, sati s letve na drugoj obali, postaja bez prognoze, vrijednosti izvan " +
 				"krivulje protoka) stoje sklopljene pod „Napomene”. Upozorenja zapisuje čvor koji izdaje i ona putuju " +
 				"s izdanjem, pa svi čvorovi pokazuju isto; izdanje starije od tri sata stranica javlja sama."),
-			tekstM("Kartica postaje na vrhu lanca kaže odakle joj budućnost: iz modela ispuštanja elektrane, iz " +
-				"našeg dnevnog modela ili iz tuđe prognoze s navedenim izvorom. Uzdužni profil crta vodostaj uzduž toka " +
+			tekstM("Kartica postaje na vrhu lanca kaže odakle joj budućnost: iz modela ispuštanja elektrane ili iz " +
+				"našeg dnevnog modela; inače vrh drži zadnje mjerenje. Uzdužni profil crta vodostaj uzduž toka " +
 				"prema vodi zadnjih 30 dana na svakoj letvi: jutarnja crta (7 h) stoji cijeli dan, a crte prognoze pokazuju kamo " +
 				"val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra, brane su okomite crte, a razine " +
 				"akumulacija točke uz njih."),
@@ -154,7 +154,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			tekstM("Prognozi vrijedi vjerovati manje:"),
 			popisM(
 				"na Dravi od trećeg dana pri velikom valu, jer ga model podcjenjuje — dotok iz Slovenije ne znamo unaprijed; gledati gornju granicu raspona;",
-				"na Dunavu pri valu kad mađarska prognoza Komároma izostane, jer naš lanac iz Austrije val propušta prebrzo;",
+				"na mađarskom Dunavu (Komárom, Budimpešta) pri valu, jer naš lanac od Wildungsmauera val propušta prebrzo;",
 				"na Varaždinu, gdje razinu vodi HE Varaždin sat po sat, pa je prognoza tek za val vrijedna više od postojanosti;",
 				"pri vodi izvan svega što je arhiva vidjela, jer model tada produžuje zadnji pravac."),
 			tekstM("Rječnik:"),
@@ -178,9 +178,10 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"zasebno za svaku postaju i prema vodostaju u satu izdanja: pri visokoj vodi na poplavnim valovima, " +
 				"pri niskoj i srednjoj usporedbom s izmjerenim (tablica postaja na kraju)."),
 			tekstM("Ono što model ne može izmjeriti, uzima iz najboljeg dostupnog izvora: na vrhu Drave iz " +
-				"naučenog ponašanja hidroelektrana, na vrhu Mure iz slovenske Gornje Radgone, na vrhu Dunava " +
-				"iz mađarske prognoze Komároma dok je svježa, inače iz austrijske prognoze Wildungsmauera; kišu koja " +
-				"tek pada iz prognoza Open-Meteo. Kad izvora nema, vrh lanca drži zadnje mjerenje."),
+				"naučenog ponašanja hidroelektrana, na vrhu Mure iz slovenske Gornje Radgone, a kišu koja tek " +
+				"pada iz prognoza Open-Meteo. Kad izvora nema, vrh lanca drži zadnje mjerenje, kao Wildungsmauer " +
+				"na vrhu Dunava. Lanac je cijeli naš: tuđe prognoze (mađarska, austrijska, srpska) u račun ne " +
+				"ulaze, nego stoje uz našu samo radi usporedbe."),
 		}},
 		{"Ulazni podaci", []OdlomakMetode{
 			tekstM("Satni vodostaji i protoci iz arhive goCOP-a, koja se puni s mjernih sustava Hrvatskih voda " +
@@ -204,8 +205,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"račun; mjerenjem se ne pokazuje, a kartica letve kaže kad joj je kraj niza došao s druge obale."),
 			tekstM("Tuđe prognoze preuzimaju se kako ih službe izdaju: mađarska (hydroinfo.hu) i srpska " +
 				"(hidmet.gov.rs) jednom dnevno za šest, odnosno četiri dana, austrijska (Donja Austrija, noel.gv.at) " +
-				"više puta dnevno za 48 sati. Mađarska vodi Komárom, austrijska Wildungsmauer, srpska stoji samo " +
-				"radi usporedbe; sve se pamte, da se s našom prognozom uspoređuju i unatrag."),
+				"više puta dnevno za 48 sati. U račun ne ulazi nijedna: stoje uz našu samo radi usporedbe i sve se " +
+				"pamte, da se s našom prognozom uspoređuju i unatrag."),
 			tekstM("Srpske letve uz naše na Dunavu — Bezdan, Apatin, Bogojevo i Bačka Palanka — ne uče se lancem, nego " +
 				"dobivaju našu prognozu prenesenu pravcem iz dnevnih vrijednosti (do deset godina): Bezdan iz Batine, Apatin " +
 				"iz Batine i Aljmaša, Bogojevo iz Aljmaša i Dalja, Bačka Palanka iz Iloka. Kartica takve letve kaže odakle je " +
@@ -309,11 +310,20 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				[]string{"Letenye, mađarska prognoza", "13", "23", "28", "37", "42", "50"},
 				[]string{"Letenye, naš dnevni model", "13", "22", "18", "22", "30", "24"},
 				[]string{"Goričan, naš dnevni model", "7", "14", "15", "19", "20", "23"}),
-			tekstM("Dunav: mađarska prognoza dok je svježa. Komárom se računa iz Nagybajcsa i Wildungsmauera, a " +
-				"Wildungsmauer slijedi 48-satnu prognozu Donje Austrije; ipak, dok je mađarska prognoza Komároma " +
-				"svježa (ne starija od dva dana), Komárom postaje vrh i slijedi nju, jer je u valu dvostruko bolja od " +
-				"našeg lanca. Lanac iz Austrije je rezerva za sate kad mađarske nema. Cilj ostaje potpuna neovisnost, " +
-				"ali ne po cijenu lošije prognoze."),
+			tekstM("Dunav: naš lanac od Wildungsmauera. Komárom se računa iz Nagybajcsa i Wildungsmauera, a " +
+				"Wildungsmauer drži zadnje mjerenje. Lanac ne ovisi ni o jednoj tuđoj prognozi; mađarska i " +
+				"austrijska stoje uz našu samo radi usporedbe."),
+			tekstM("Od 25. 9. do 22. 10. 2026. Wildungsmauer je slijedio 48-satnu prognozu Donje Austrije " +
+				"(noel.gv.at). Ta je prognoza izbačena iz lanca: dok je mađarska svježa, mijenjala je samo Nagybajcs, a " +
+				"ni točna austrijska ne popravlja Batinu i Ilok unutar 96 sati. Od Komároma do Batine val putuje oko " +
+				"dva i pol dana, pa Batina do 96. sata ovisi o prvih dan i pol Komároma, a tu je naš lanac s točnom " +
+				"austrijskom lošiji nego bez nje (tablica niže). I dalje se preuzima i stoji uz našu radi usporedbe."),
+			tekstM("Od 23. 9. do 22. 10. 2026. Komárom je, dok je bila svježa, slijedio mađarsku prognozu " +
+				"(hydroinfo.hu). I ona je izbačena iz lanca: u valu je za Komárom dvostruko bolja od našeg lanca " +
+				"(tablica niže), ali pogrešku satne prognoze naših letvi na 96 sati mijenja za 0–3 cm, a tablicu " +
+				"dana nimalo, jer dnevni model tuđe prognoze ne čita. Pomaže samo mađarskom Dunavu u valu " +
+				"(pogreška Budimpešte na 96 sati 34 cm s njom, 78 bez nje), a pri maloj vodi ondje je bolji naš lanac " +
+				"(11,1 prema 13,2 cm). I dalje se preuzima i stoji uz našu radi usporedbe."),
 			tablicaM("Komárom, srednja pogreška 1.–6. dana u cm (27 mađarskih izdanja 2024.–2026., uglavnom valovi)",
 				dani,
 				[]string{"mađarska prognoza", "12", "20", "28", "38", "47", "59"},
@@ -600,7 +610,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				[]string{"Mohács, satni lanac", "7 / 12", "14 / 33", "20 / 51", "24 / 57", "28 / 66", "31 / 73"},
 				[]string{"Aljmaš, dnevni model", "29 / 9", "31 / 18", "31 / 31", "32 / 49", "37 / 68", "43 / 76"}),
 			tekstM("Na Dravi smo bolji ili jednaki na svim dosezima, Osijek od uspora Dunava nešto lošiji. Na " +
-				"mađarskom Dunavu njihov je model bolji, pa Komárom vodi njihova prognoza. Njihova prognoza Aljmaša " +
+				"mađarskom Dunavu njihov je model u valu bolji, ali naše letve to do 96 sati gotovo ne osjete, pa lanac njihovu " +
+				"prognozu ne čita. Njihova prognoza Aljmaša " +
 				"sustavno je 25 cm previsoka, pa je usporedba tamo u našu korist do trećeg dana. Sve ove račune " +
 				"administrator ponavlja dijagnostičkim alatima izvan aplikacije."),
 		}},
@@ -619,13 +630,14 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 			popisM(
 				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 52, 76 i 90 cm (21 val 2012.–2024.) i kad je kiša nakon izdanja poznata točno, a s pravom prognozom kiše više. S Murom iz Gornje Radgone podcjenjivanje vrha na 72 h palo je s 60 na 42 cm, ali ne i nestalo. Uzrok nije rad elektrana — i najjači zahvat HE mijenja vrh Botova za oko 57 cm (studija MuraDrava 2018.), a radni volumen svih triju akumulacija (31 hm³) manji je od vršnog dijela vala (preko 50 hm³) — nego dotok Drave iz Slovenije, za koji prognoze nemamo. Pratiti gornju granicu raspona.",
 				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči; unutar dana odluke elektrane ostaju nepredvidive. Pri velikoj vodi HEP akumulacije spušta i puni bez zapisanog pravila, pa model to uči iz razine. Varaždin ispod HE Varaždin o njima ovisi cijeli.",
-				"Na Dunavu je prognoza za valove ovisna o mađarskoj službi dok se dionica Wildungsmauer → Nagybajcs ne namjesti po režimima.",
+				"Na mađarskom Dunavu naš lanac u valu griješi više od mađarske prognoze dok se dionica Wildungsmauer → Nagybajcs ne namjesti po režimima; naše letve to do 96 sati gotovo ne osjete.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi valja biti oprezan.",
 				"Prognoza kiše iz Open-Meteo je jedina; kad izostane (kvota, mreža), dnevni model radi bez kiše i to piše uz izdanje.",
 				"Doseg od kojeg je satna prognoza upitna kad gore nešto ne radi („najranije od +N h”) je najraniji mogući: nevolja se niz lanac širi najmanjim namještenim kašnjenjem vala, a postaja niže izmjerena je do izdanja, pa je stiže tek poslije njega. Prozor prosjeka i ispravak po zadnjem mjerenju taj doseg samo odgađaju."),
 		}},
 		{"Što je novo", []OdlomakMetode{
 			popisM(
+				"22. 10. 2026. — prognoza ne ovisi ni o jednoj tuđoj prognozi: Wildungsmauer drži zadnje mjerenje umjesto da slijedi austrijsku prognozu (noel.gv.at), a Komárom uvijek računa naš lanac umjesto da slijedi mađarsku (hydroinfo.hu). Pogrešku satne prognoze naših letvi na 96 sati to mijenja za 0–3 cm, a tablicu dana nimalo. Mađarska, austrijska i srpska prognoza i dalje stoje uz našu radi usporedbe.",
 				"22. 10. 2026. — Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs, koji nemaju dnevni model, od 2. dana slijede susjedne postaje s dnevnim modelom, razmjerno udaljenosti po rijeci (oznaka p; uprava to može isključiti u Postavkama prognoze); pri visokoj vodi dnevni model daje dane Botova od 2., Donjeg Miholjca od 3. i Belišća od 4. dana (dotad 5., 4. i 5.).",
 				"10. 10. 2026. — ranija prognoza: u Postavkama prognoze bira se dan i sat, a izvoz u Excel daje izdanje toga sata (ili najbliže ranije) kakvo je bilo, s njegovim upozorenjima, dnevnom prognozom i kišom; što uz izdanje nije zapisano, izvoz kaže.",
 				"9. 10. 2026. — upozorenja uz izdanje: kad pri izdavanju nešto ne radi, stranica Prognoze, izvoz, sažetak i graf postaje kažu što i koje su vrijednosti zbog toga upitne (satna od kojeg dosega, dnevna koja nije izdana); upozorenja putuju s izdanjem, pa ih svi čvorovi pokazuju jednako. Kad dnevni model za izdanje nije računao, dani pokazuju satnu prognozu s oznakom s.",

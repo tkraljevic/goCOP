@@ -154,8 +154,10 @@ CREATE TABLE IF NOT EXISTS promasaji (
 	PRIMARY KEY (letva, velicina, doseg_h)
 ) WITHOUT ROWID;
 
--- Tuđe prognoze, radi usporedbe. Nikad ne ulaze u naš račun: prognoza koja se
--- oslanja na tuđu ne može biti provjera tuđoj.
+-- Tuđe prognoze, radi usporedbe. Nikad ne ulaze u naš račun (Odluke (22. 10.
+-- 2026.)): prognoza koja se oslanja na tuđu ne može biti provjera tuđoj. Iz
+-- njih namjerno računa samo pričuvni izračun u Excelu, za dan kad naša
+-- prognoza ne radi (PricuvniUlazi).
 CREATE TABLE IF NOT EXISTS tude (
 	izvor      TEXT NOT NULL,         -- hydroinfo.hu …
 	letva      TEXT NOT NULL,

@@ -146,8 +146,8 @@ func TestOsvjeziZamjenaCekanjeIPregledne(t *testing.T) {
 	}
 }
 
-// Vrh lanca s našim dnevnim modelom dobiva budućnost iz njega, ne iz tuđe
-// prognoze koju također ima; dnevni bez kiše to kaže uz izdanje.
+// Vrh lanca s našim dnevnim modelom dobiva budućnost iz njega, i kad za nj
+// u bazi stoji svježa tuđa prognoza; dnevni bez kiše to kaže uz izdanje.
 func TestOsvjeziVrhIzDnevnogModela(t *testing.T) {
 	postavi(t, &PoluvijekIspravka, 0)
 	zadnji := time.Now().UTC().Truncate(time.Hour)
@@ -161,7 +161,6 @@ func TestOsvjeziVrhIzDnevnogModela(t *testing.T) {
 	c := DnevniCilj{Letva: "gornja", Slivovi: []string{"X"}}
 	postavi(t, &DnevniCiljevi, []DnevniCilj{c})
 	postavi(t, &VrhoviIzDnevnog, map[string]bool{"gornja": true})
-	postavi(t, &VrhoviSTudomPrognozom, map[string]string{"gornja": Podrijetlo})
 	postavi(t, &sadaUcenja, func() time.Time { return zadnji })
 	podmetniDnevne(t, map[string][]*DnevniModel{"gornja": {{Cilj: c}, {Cilj: DnevniCilj{Letva: "gornja"}}}})
 
@@ -169,8 +168,8 @@ func TestOsvjeziVrhIzDnevnogModela(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !reflect.DeepEqual(ishod.NasiVrhovi, []string{"gornja"}) || len(ishod.TudiVrhovi) != 0 {
-		t.Fatalf("naši vrhovi %v, tuđi %v", ishod.NasiVrhovi, ishod.TudiVrhovi)
+	if !reflect.DeepEqual(ishod.NasiVrhovi, []string{"gornja"}) {
+		t.Fatalf("naši vrhovi %v", ishod.NasiVrhovi)
 	}
 	if iz := ishod.Izbor["vrh:gornja"]; iz.Inacica != 1 || !strings.Contains(iz.Opis, "iz našeg dnevnog modela") {
 		t.Errorf("izbor vrha: %+v", iz)

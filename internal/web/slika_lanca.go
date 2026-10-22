@@ -19,7 +19,7 @@ type CvorLanca struct {
 	Kod, Naziv string
 	X, Y       float64
 	Dolje      bool   // natpis u drugom redu
-	Vrsta      string // razred boje: karika | vrh-operater | vrh-dnevni | vrh-hu | vrh-at | vrh-hibrid | vrh-mjerenje
+	Vrsta      string // razred boje: karika | vrh-operater | vrh-dnevni | vrh-mjerenje | mjerenje
 	Izvor      string // opis odakle vrhu budućnost; prazno za kariku
 }
 
@@ -55,9 +55,6 @@ type RijekaLanca struct {
 var opisiVrsta = map[string]string{
 	"vrh-operater": "vrh: model ispuštanja elektrane",
 	"vrh-dnevni":   "vrh: naš dnevni model s kišom",
-	"vrh-hibrid":   "mađarska prognoza dok je svježa, inače lanac",
-	"vrh-hu":       "vrh: mađarska prognoza",
-	"vrh-at":       "vrh: austrijska prognoza",
 	"vrh-mjerenje": "vrh: drži zadnje mjerenje",
 	"karika":       "karika: računa se iz ulaza",
 	"mjerenje":     "mjerenje, u model ne ulazi",
@@ -66,9 +63,6 @@ var opisiVrsta = map[string]string{
 // vrstaCvora kaže odakle postaji budućnost, po istim popisima po kojima bira
 // osvježavanje.
 func vrstaCvora(kod string, imaRacun, uLancu bool) string {
-	if _, ima := prognoza.TudaIspredRacuna[kod]; ima {
-		return "vrh-hibrid"
-	}
 	if imaRacun {
 		return "karika"
 	}
@@ -82,12 +76,6 @@ func vrstaCvora(kod string, imaRacun, uLancu bool) string {
 	}
 	if prognoza.VrhoviIzDnevnog[kod] {
 		return "vrh-dnevni"
-	}
-	switch prognoza.VrhoviSTudomPrognozom[kod] {
-	case prognoza.Podrijetlo:
-		return "vrh-hu"
-	case prognoza.PodrijetloNOEL:
-		return "vrh-at"
 	}
 	return "vrh-mjerenje"
 }
@@ -283,7 +271,7 @@ func slikaLanca(pojasi map[string][]prognoza.Pojas, postaje map[string]models.St
 		}
 	}
 	vidjeno := map[string]bool{}
-	for _, v := range []string{"karika", "vrh-operater", "vrh-dnevni", "vrh-hibrid", "vrh-hu", "vrh-at", "vrh-mjerenje", "mjerenje"} {
+	for _, v := range []string{"karika", "vrh-operater", "vrh-dnevni", "vrh-mjerenje", "mjerenje"} {
 		for _, c := range s.Cvorovi {
 			if c.Vrsta == v && !vidjeno[v] {
 				vidjeno[v] = true

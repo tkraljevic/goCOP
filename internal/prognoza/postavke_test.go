@@ -25,7 +25,6 @@ func postavi[T any](t *testing.T, p *T, v T) {
 type postavke struct {
 	PoluvijekIspravka  float64
 	StalniIspravakSati int
-	TudaIspredRacuna   map[string]string
 	VrhoviIzDnevnog    map[string]bool
 	DnevniCiljevi      []DnevniCilj
 }
@@ -34,7 +33,6 @@ func snimiPostavke() postavke {
 	return postavke{
 		PoluvijekIspravka:  PoluvijekIspravka,
 		StalniIspravakSati: StalniIspravakSati,
-		TudaIspredRacuna:   maps.Clone(TudaIspredRacuna),
 		VrhoviIzDnevnog:    maps.Clone(VrhoviIzDnevnog),
 		DnevniCiljevi:      slices.Clone(DnevniCiljevi),
 	}

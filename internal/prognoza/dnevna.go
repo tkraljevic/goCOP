@@ -116,8 +116,8 @@ type DnevniCilj struct {
 // 17,9, 30,6, 39,4 i 52,5 cm pogreške 1., 2., 3. i 6. dan, prema 18,9, 31,0,
 // 39,9 i 52,9 s Letenyeom; oba zajedno ne dodaju ništa. Niz mu je potpuniji
 // (11 dravskih valova prema 8), a letva je naša i javna, pa dnevna prognoza
-// Drave ne čeka mađarske podatke. Letenye ostaje u satnom lancu, gdje nosi
-// mađarsku prognozu.
+// Drave ne čeka mađarske podatke. Letenye ostaje vrh satnog lanca, s
+// budućnošću iz svojeg dnevnog modela (VrhoviIzDnevnog).
 //
 // Na Dravi ulazi i oborina međuslivova uzvodno od cilja (registar slivova):
 // kiša koja je pala, a nijedna letva je još ne vidi, i prognozirana kiša
@@ -176,19 +176,19 @@ var DnevniCiljevi = []DnevniCilj{
 }
 
 // VrhoviIzDnevnog su vrhovi satnog lanca kojima budućnost daje naš dnevni
-// model umjesto tuđe prognoze, da lanac ne ovisi o njoj. Provjereno na 28
+// model; tuđu prognozu lanac ne čita (Odluke (22. 10. 2026.)). Provjereno na 28
 // mađarskih izdanja 2024.–2026. modelom naučenim prije njih: naš dnevni model
 // Letenyea (Mursko Središće + kiša nad Murom, tada izdana prognoza kiše)
 // griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
-// 13, 23, 28, 37, 42 i 50. Komárom dok je mađarska prognoza svježa slijedi
-// nju (TudaIspredRacuna), a bez nje se računa iz Nagybajcsa i Wildungsmauera,
-// koji slijedi 48-satnu austrijsku prognozu (noel.gv.at). Naš dnevni model Dunava iznad
+// 13, 23, 28, 37, 42 i 50. Komárom se računa iz Nagybajcsa i Wildungsmauera,
+// a Wildungsmauer drži zadnje mjerenje. Naš dnevni model Dunava iznad
 // Komároma ne dostiže mađarsku prognozu Komároma: s kišom gornjeg Dunava
 // (međuslivovi O–N, ulazi Wildungsmauer, Kienstock, Achleiten, Hofkirchen)
 // preko svih dana griješi 10, 20, 29, 35, 39 i 43 cm (bez kiše 10–66), ali
 // na njihovih 27 izdanja, uglavnom valova, 25, 52, 68, 89, 104 i 119 prema
 // njihovih 12, 20, 28, 38, 47 i 59 — oni nose cijeli austrijsko-njemački
-// prognostički lanac. Kad našeg nema, uzima se tuđa.
+// prognostički lanac, pa ni on ne daje budućnost Wildungsmaueru. Kad dnevni
+// model vrhu ne da budućnost, vrh drži zadnje mjerenje.
 //
 // Goričan je vrh lanca Botova u protoku: dnevna prognoza vodostaja ide kroz
 // njegovu krivulju protoka, kao i sve dnevne vrijednosti letvi s krivuljom.
@@ -282,8 +282,9 @@ func (c DnevniCilj) BezOborine() bool {
 // prije toga satni lanac. Granica je ondje gdje je provjera na valovima
 // pokazala da dnevni počinje pogađati bolje: na Dunavu je satni lanac bolji
 // samo prvi dan, a na Dravi dulje, jer ondje satni lanac nosi i istjecanje
-// HE Dubrava i mađarsku prognozu Letenyea. Satni lanac seže do 96 sati, pa
-// dalje od toga ionako stoji dnevni.
+// HE Dubrava; granice su određene dok je vrh Letenye još nosio mađarsku
+// prognozu. Satni lanac seže do 96 sati, pa dalje od toga ionako stoji
+// dnevni.
 //
 // Botovo, Donji Miholjac i Belišće prelaze ranije (Odluke (22. 10. 2026.)):
 // pri visokoj vodi 2024.–2026., s tada izdanim prognozama kiše, dnevni model

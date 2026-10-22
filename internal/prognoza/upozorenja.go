@@ -449,39 +449,25 @@ func dnevniCiljeviSUlazom(letva string, ima map[string]bool) []string {
 }
 
 // upozorenjaVrhova javljaju vrh lanca koji budućnost inače dobiva iz našeg
-// dnevnog modela ili tuđe prognoze, a u ovom izdanju je nije dobio: za njega
+// dnevnog modela (VrhoviIzDnevnog), a u ovom izdanju je nije dobio: za njega
 // se drži zadnje mjerenje, pa je satna niz lanac upitna od idućeg sata.
 func upozorenjaVrhova(ishod *Ishod, vrhovi map[Izvor]bool, pojasi map[string][]Pojas) []Upozorenje {
 	imaju := map[string]bool{}
-	for _, l := range slices.Concat(ishod.NasiVrhovi, ishod.TudiVrhovi, ishod.OperaterVrhovi) {
+	for _, l := range slices.Concat(ishod.NasiVrhovi, ishod.OperaterVrhovi) {
 		imaju[l] = true
 	}
 	var out []Upozorenje
 	for iz := range vrhovi {
-		odakle := odakleBuducnostVrha(iz.Letva)
-		if odakle == "" || imaju[iz.Letva] {
+		if !VrhoviIzDnevnog[iz.Letva] || imaju[iz.Letva] {
 			continue
 		}
 		imaju[iz.Letva] = true // vrh u obje veličine javlja se jednom
 		s := skupUpitnog{}
 		s.satna(satnaNizVrha(ishod, pojasi, iz.Letva))
 		out = append(out, Upozorenje{Vrsta: VrstaVrh, Tezina: TezinaUpozorenje, Letva: iz.Letva,
-			Opis: "nema budućnosti vrha (" + odakle + "); drži se zadnje mjerenje", Upitno: s.popis()})
+			Opis: "nema budućnosti vrha (dnevni model); drži se zadnje mjerenje", Upitno: s.popis()})
 	}
 	return out
-}
-
-// odakleBuducnostVrha kaže odakle vrh budućnost inače dobiva; prazno kad je
-// nema odakle dobiti i drži se zadnje mjerenje kao redovan rad.
-func odakleBuducnostVrha(letva string) string {
-	var izvori []string
-	if VrhoviIzDnevnog[letva] {
-		izvori = append(izvori, "dnevni model")
-	}
-	if izvor, ima := TudiIzvorVrha(letva); ima {
-		izvori = append(izvori, "tuđa prognoza "+izvor)
-	}
-	return strings.Join(izvori, ", ")
 }
 
 // upozorenjaOstalog su napomene o letvama bez ijednog sata prognoze i o

@@ -44,10 +44,10 @@ type stranaPrognoza struct {
 }
 
 // stranePrognoze redom kojim se čitaju:
-//   - mađarska izlazi jednom dnevno, ali ne uvijek u isti sat; treba je i za
-//     usporedbu i kao ulaz tamo gdje nam lanac nema ništa uzvodno;
-//   - austrijska (Donja Austrija) daje vrhu Dunava, Wildungsmaueru, 48 sati
-//     unaprijed; izlazi više puta dnevno;
+//   - mađarska izlazi jednom dnevno, ali ne uvijek u isti sat; stoji uz našu
+//     radi usporedbe i puni pričuvni izračun u Excelu, a u lanac ne ulazi;
+//   - austrijska (Donja Austrija) za Wildungsmauer 48 sati unaprijed, više
+//     puta dnevno; stoji samo radi usporedbe, u lanac ne ulazi;
 //   - srpska izlazi u 12 h; uz naše letve stoji drugom bojom.
 func stranePrognoze() []stranaPrognoza {
 	return []stranaPrognoza{

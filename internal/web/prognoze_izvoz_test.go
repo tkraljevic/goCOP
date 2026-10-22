@@ -27,8 +27,8 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 	}
 	tab := TablicaPrognoza{Naslov: "Dunav", Letve: []LetvaPrognoze{
 		{Kod: "bratislava", Naziv: "Bratislava (Slovačka)", Voda: "Dunav", Pregledna: true, SadaCmV: v(300)},
-		{Kod: "komarom", Naziv: "Komárom (Mađarska)", Voda: "Dunav", TudiVrh: true, SadaCmV: v(80),
-			Dani: []CelijaDana{{Tude: []TudaCelija{{Oznaka: "HU", CmV: 85}}}, {}}},
+		{Kod: "wildungsmauer", Naziv: "Wildungsmauer (Austrija)", Voda: "Dunav", Vrh: true, SadaCmV: v(80),
+			Dani: []CelijaDana{{Tude: []TudaCelija{{Oznaka: "AT", CmV: 85}}}, {}}},
 		{Kod: "bezdan", Naziv: "Bezdan (Srbija)", Voda: "Dunav", Stacionaza: "rkm 1.425,59", Pregledna: true,
 			SadaCmV: v(120), Dani: []CelijaDana{{Tude: []TudaCelija{{Oznaka: "RS", CmV: 131}}}, {}}},
 		{Kod: "batina", Naziv: "Batina", Voda: "Dunav", Stacionaza: "rkm 1424+850", Racuna: "vodostaj", SadaCmV: v(150), SadaQV: v(2100),
@@ -59,7 +59,7 @@ func TestIzvozPrognozeUExcel(t *testing.T) {
 		sve.Write(x)
 	}
 	txt := sve.String()
-	for _, nema := range []string{">Bratislava<", ">Komárom<", "hidmet", "Naša prognoza", "1424+850"} {
+	for _, nema := range []string{">Bratislava<", ">Wildungsmauer<", "hidmet", "Naša prognoza", "1424+850"} {
 		if strings.Contains(txt, nema) {
 			t.Errorf("u izvozu je %s, a za nju nemamo prognozu", nema)
 		}
