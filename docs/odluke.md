@@ -601,3 +601,11 @@ je gotov onaj o kojem ovisi.
   model, pa od 2. dana slijede susjedne postaje koje ga imaju, razmjerno
   udaljenosti po rijeci. Pri visokoj vodi dnevni model na Dravi preuzima
   ranije: Botovo od 2., Donji Miholjac od 3. i Belišće od 4. dana.
+- „Ono što mi prikazuje graf mora mi prikazivat i tablica.” Tablica,
+  uzdužni profil, graf letve i graf u Excelu pokazuju isti niz, s jednim
+  izborom modela u Postavkama prognoze umjesto tri. Između dana koje daju
+  satni lanac i dnevni model crta postupno prelazi s jednoga na drugi.
+- Dnevni model je osnova za sve dane, a satni lanac fino ugađanje koje s
+  vremenom slabi. Koliko brzo slabi mjeri se za svaku letvu, posebno za
+  nisku i visoku vodu. Kiša u satni lanac ulazi kasnije, kao dotok između
+  letvi, iza modela ispuštanja za veliku vodu.
