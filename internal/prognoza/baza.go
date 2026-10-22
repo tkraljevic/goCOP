@@ -155,9 +155,10 @@ CREATE TABLE IF NOT EXISTS promasaji (
 ) WITHOUT ROWID;
 
 -- Tuđe prognoze, radi usporedbe. Cilj je da naš račun o njima ne ovisi; danas
--- u nj ulazi samo mađarska: Komárom je slijedi dok je svježa
+-- u satni lanac ulazi samo mađarska: Komárom je slijedi dok je svježa
 -- (TudaIspredRacuna), a Letenye kad mu budućnost ne da naš dnevni model
--- (VrhoviSTudomPrognozom). Ostale ne ulaze nikad. Gdje se račun na tuđu
+-- (VrhoviSTudomPrognozom). Ostale u lanac ne ulaze; pričuvni izračun u
+-- Excelu namjerno računa iz tuđih (PricuvniUlazi). Gdje se račun na tuđu
 -- oslanja, ne može joj biti provjera.
 CREATE TABLE IF NOT EXISTS tude (
 	izvor      TEXT NOT NULL,         -- hydroinfo.hu …

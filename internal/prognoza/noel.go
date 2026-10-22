@@ -4,10 +4,9 @@ package prognoza
 // na noel.gv.at za dunavske letve Kienstock, Korneuburg i Wildungsmauer
 // prognozu vodostaja 48 sati unaprijed, po četvrt sata, s rasponom
 // pouzdanosti, više puta dnevno. Pamti se i stoji uz našu radi usporedbe; u
-// lanac ne ulazi (Odluke (22. 10. 2026.), VrhoviSTudomPrognozom), pa
-// Wildungsmauer, vrh našeg dunavskog lanca, drži zadnje mjerenje. Ista
-// stranica daje i Angern na Moravi (48 h) — kad se za nj skupi satna
-// povijest, ući će kao pritok.
+// lanac ne ulazi (VrhoviSTudomPrognozom), pa Wildungsmauer, vrh našeg
+// dunavskog lanca, drži zadnje mjerenje. Ista stranica daje i Angern na
+// Moravi (48 h) — kad se za nj skupi satna povijest, ući će kao pritok.
 //
 // Datoteke su CSV s točkom-zarezom, a vrijeme u njima je srednjoeuropsko bez
 // ljetnog pomaka (MEZ, UTC+1), kako austrijska hidrografija vodi sve nizove.

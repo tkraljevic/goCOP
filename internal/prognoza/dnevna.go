@@ -181,9 +181,10 @@ var DnevniCiljevi = []DnevniCilj{
 // Letenyea (Mursko Središće + kiša nad Murom, tada izdana prognoza kiše)
 // griješi 13, 22, 18, 22, 30 i 24 cm za 1.–6. dan, njihova prognoza Letenyea
 // 13, 23, 28, 37, 42 i 50. Komárom dok je mađarska prognoza svježa slijedi
-// nju (TudaIspredRacuna), a bez nje se računa iz Nagybajcsa i Wildungsmauera,
-// koji drži zadnje mjerenje (VrhoviSTudomPrognozom). Naš dnevni model Dunava iznad
-// Komároma ne dostiže mađarsku prognozu Komároma: s kišom gornjeg Dunava
+// nju (TudaIspredRacuna), a bez nje se računa iz Nagybajcsa i
+// Wildungsmauera; Wildungsmauer drži zadnje mjerenje (VrhoviSTudomPrognozom).
+// Naš dnevni model Dunava iznad Komároma ne dostiže mađarsku prognozu
+// Komároma: s kišom gornjeg Dunava
 // (međuslivovi O–N, ulazi Wildungsmauer, Kienstock, Achleiten, Hofkirchen)
 // preko svih dana griješi 10, 20, 29, 35, 39 i 43 cm (bez kiše 10–66), ali
 // na njihovih 27 izdanja, uglavnom valova, 25, 52, 68, 89, 104 i 119 prema

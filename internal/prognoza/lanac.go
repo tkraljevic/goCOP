@@ -299,8 +299,9 @@ var Tokovi = []struct {
 		// 6–7 h). Uzvodnije karike nisu dodane dok je vrh slijedio
 		// austrijsku prognozu, jer je ona taj put već nosila; koliko bi dale
 		// vrhu koji drži zadnje mjerenje, nije mjereno. Između Wildungsmauera
-		// i Nagybajcsa ulaze Morava i Gabčíkovo, koje karika nosi u rasapu (14–20 cm; namješteno do
-		// rujna 2024.: r 0,76–0,89, kašnjenje 6–7 h); Angern na Moravi
+		// i Nagybajcsa ulaze Morava i Gabčíkovo, koje karika nosi u rasapu
+		// (14–20 cm; namješteno do rujna 2024.: r 0,76–0,89, kašnjenje
+		// 6–7 h); Angern na Moravi
 		// ući će kao pritok kad se skupi satna povijest. Komárom iz
 		// Nagybajcsa (3–4 h) i Wildungsmauera drži r 0,85–0,97 uz rasap
 		// 8–15 cm; sam Nagybajcs 10–18 cm. Rajka nije karika: leži na
