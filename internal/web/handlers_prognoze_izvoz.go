@@ -234,8 +234,8 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
 		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
 		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
-		"od 1901. — višestruka regresija i metoda analognih situacija. Na Batini, Aljmašu, Vukovaru i Iloku pri niskoj i " +
-		"srednjoj vodi do 96. sata oboje zajedno (satni i dnevni), otprilike pola-pola, jer je tako izmjereno točnije. Vodostaj i protok međusobno su preračunati " +
+		"od 1901. — višestruka regresija i metoda analognih situacija. Na Batini, Aljmašu, Vukovaru i Iloku do 96. " +
+		"sata oboje zajedno (satni i dnevni), otprilike pola-pola, jer je tako izmjereno točnije. Vodostaj i protok međusobno su preračunati " +
 		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a na Dunavu Wildungsmauer, koji " +
 		"drži zadnje mjerenje. Tuđe prognoze u račun ne ulaze.\n" +
 		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+

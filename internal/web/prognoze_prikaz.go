@@ -57,7 +57,7 @@ type tockaPrikaza struct {
 // izdanja i ostaje prazan) u vodostaju i protoku.
 type nizPrikaza struct {
 	Cm, Q   []tockaPrikaza
-	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjaPri)
+	Ugodjen bool // satni lanac i dnevni model zajedno (prognoza.UgadjanjeLetve)
 }
 
 // izvorSata daje vrijednost jednog modela u satu h od izdanja. drzi kaže da je
@@ -281,10 +281,9 @@ func oznakaUdjela(dnevni float64) OznakaModela {
 }
 
 // nizLetve je niz letve iz njezinih modela: uz kombinaciju na letvi s
-// ugađanjem pri niskoj i srednjoj vodi oba zajedno, inače po pravilu tablice.
+// ugađanjem oba zajedno, inače po pravilu tablice.
 func (u ulazPrikaza) nizLetve(l PregledLetve) nizPrikaza {
-	sada, imaSada := l.Sada["vodostaj"]
-	if u.nacin == models.PrognozaKombinacija && prognoza.UgadjaPri(l.Letva, sada, imaSada) {
+	if u.nacin == models.PrognozaKombinacija && prognoza.Ugadja(l.Letva) {
 		return ugodjeniNiz(l, u.dnevne[l.Letva], u.izdanoH)
 	}
 	return prikazLetve(odDanaZa(l.Letva, u.nacin, l), l, u.dnevne[l.Letva], u.ciljevi, u.izdanoH)
