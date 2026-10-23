@@ -425,6 +425,21 @@ func imaStablo(koren string) bool {
 	return false
 }
 
+// cvorRazmjene je jedno računalo na pločici. Sirova greška razmjene ne ide
+// na pločicu, jer nosi adrese: pločica kaže put i razlog rečenicom, a
+// grešku vidi administrator na stranici Sinkronizacija.
+func cvorRazmjene(ps peers.PeerStatus, josPrima bool) web.CvorRazmjene {
+	c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
+		Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
+		Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
+		Verzija: ps.Program, Razlicita: ps.RazlicitProgram, JosPrima: josPrima,
+		Put: ps.State.Put.Naziv, RTTMs: ps.State.Put.RTTMs, RazlogPuta: ps.State.Put.Razlog}
+	if c.Naziv == "" {
+		c.Naziv = ps.NodeID
+	}
+	return c
+}
+
 // stanjeRazmjene slaže pločicu razmjene za naslovnu: čvorove iz nadzorne
 // ploče sinkronizacije, napredak arhive, sadržaj koji čeka, izdavača
 // prognoze, zapise koji čekaju nadogradnju i upozorenje kad na disku
@@ -452,14 +467,7 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	// je ovaj od njega odbio)
 	josPrima := p.PrimaJos(ctx)
 	for _, ps := range st.Peers {
-		c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
-			Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
-			Greska: ps.State.LastError, Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
-			Verzija: ps.Program, Razlicita: ps.RazlicitProgram, JosPrima: josPrima(ps)}
-		if c.Naziv == "" {
-			c.Naziv = ps.NodeID
-		}
-		out.Cvorovi = append(out.Cvorovi, c)
+		out.Cvorovi = append(out.Cvorovi, cvorRazmjene(ps, josPrima(ps)))
 	}
 	a := ra.stanje(ctx)
 	out.Arhiva = web.ArhivaRazmjene{UKazalu: a.UKazalu, Vlastitih: a.Vlastitih, Ugradjeno: a.Ugradjeno, Ceka: a.Ceka,

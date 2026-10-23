@@ -316,6 +316,44 @@ func TestRTTRazmjeneNaPortu(t *testing.T) {
 	})
 }
 
+// Veza broji bajtove razmjene u oba smjera, na obje strane; veza koju nije
+// složio ovaj paket nema brojila i vraća nule.
+func TestBajtoviVeze(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		m := mrezatest.NovaMreza()
+		kljucA, kljucB := newKey(t), newKey(t)
+		gotovo := make(chan *Conn, 1)
+		var b brojac
+		slusalicaUMemoriji(t, m, kljucB, "testproto", NovaOgrada(), b.vjeruje, func(c *Conn) {
+			b.odgovori(c)
+			gotovo <- c
+		})
+		ctx := t.Context()
+		raw, err := m.DialContextOd("192.0.2.8")(ctx, "tcp", adresaPorta)
+		bezGreske(t, err)
+		c, err := DialExchangeOn(ctx, raw, kljucA, "testproto", nil, adresaPorta, kljucB.Public().(ed25519.PublicKey))
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer c.Close()
+		if pr, po := c.Bajtovi(); pr != 0 || po != 0 {
+			t.Errorf("prije razgovora: %d/%d", pr, po)
+		}
+		if _, err := razgovaraj(c); err != nil {
+			t.Fatal(err)
+		}
+		p := <-gotovo
+		cPr, cPo := c.Bajtovi()
+		pPr, pPo := p.Bajtovi()
+		if cPr == 0 || cPo == 0 || pPr != cPo || pPo != cPr {
+			t.Errorf("pozivatelj %d/%d, primatelj %d/%d", cPr, cPo, pPr, pPo)
+		}
+	})
+	if pr, po := (&Conn{}).Bajtovi(); pr != 0 || po != 0 {
+		t.Errorf("veza bez brojila: %d/%d", pr, po)
+	}
+}
+
 // Greška DialExchangeOn kad druga strana dokaže drugi ključ prepoznaje se kao
 // ErrDrugiKljuc, i samo kao ona, a tekst je ostao isti (ljudi ga navode).
 func TestDrugiKljucJeErrDrugiKljuc(t *testing.T) {

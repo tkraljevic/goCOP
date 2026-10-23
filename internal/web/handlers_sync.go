@@ -63,7 +63,43 @@ func (h *SyncHandler) HandleStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	writeJSON(w, st)
+	writeJSON(w, h.zaPrikaz(r, st))
+}
+
+// stanjeZaPrikaz je stanje sinkronizacije za stranicu. Administrator uz
+// njega dobije pokušaje spajanja po adresi, a drugi korisnik s modulom
+// Administracija stanje bez adresa i bez sirovih grešaka, koje nose adrese
+// (plan WEB synca, F1).
+type stanjeZaPrikaz struct {
+	*peers.Status
+	Pokusaji map[string][]peers.PokusajSpajanja `json:"pokusaji,omitempty"`
+}
+
+func (h *SyncHandler) zaPrikaz(r *http.Request, st *peers.Status) stanjeZaPrikaz {
+	if st == nil {
+		return stanjeZaPrikaz{}
+	}
+	if !jeAdministrator(r) {
+		bezAdresa(st)
+		return stanjeZaPrikaz{Status: st}
+	}
+	out := stanjeZaPrikaz{Status: st, Pokusaji: map[string][]peers.PokusajSpajanja{}}
+	for _, p := range st.Peers {
+		if l := h.peers.PokusajiSpajanja(p.NodeID); len(l) > 0 {
+			out.Pokusaji[p.NodeID] = l
+		}
+	}
+	return out
+}
+
+// bezAdresa briše iz stanja adrese računala i sirove greške razmjene
+func bezAdresa(st *peers.Status) {
+	st.LanDiscovered = nil
+	for i := range st.Peers {
+		p := &st.Peers[i]
+		p.Addresses, p.LastSyncNote = nil, ""
+		p.State.LastError, p.State.Tailscale, p.State.Naucene = "", nil, nil
+	}
 }
 
 // HandleSyncAll razmjenjuje sa svim poznatim čvorovima odjednom, po četiri
@@ -77,5 +113,5 @@ func (h *SyncHandler) HandleSyncAll(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	results := h.peers.SyncAll(ctx)
 	st, _ := h.peers.Status(r.Context(), false)
-	writeJSON(w, map[string]any{"success": true, "results": results, "status": st})
+	writeJSON(w, map[string]any{"success": true, "results": results, "status": h.zaPrikaz(r, st)})
 }

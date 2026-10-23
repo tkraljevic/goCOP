@@ -2,13 +2,16 @@ package web
 
 import (
 	"context"
+	"html/template"
 	"net/http"
 	"net/http/httptest"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/razmjena"
 )
 
 func TestPlocicaRazmjene(t *testing.T) {
@@ -21,17 +24,18 @@ func TestPlocicaRazmjene(t *testing.T) {
 	}{
 		{"bez mreže", RazmjenaStanje{}, []string{"nije ni u jednoj mreži"}},
 		{"usklađeno", RazmjenaStanje{UMrezi: true, Verzija: "0.0.24-alfa",
-			Cvorovi:  []CvorRazmjene{{Naziv: "COP Osijek (kućni server)", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.24-alfa"}},
+			Cvorovi:  []CvorRazmjene{{Naziv: "COP Osijek (kućni server)", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.24-alfa", Put: "LAN sync", RTTMs: 3}},
 			Prognoza: PrognozaRazmjene{Ima: true, Izdavac: "cop-osijek-server", Primljeno: true, Izdano: sad, Nastalo: sad}},
-			[]string{"Sve je usklađeno s 1 čvorom", "COP Osijek (kućni server) na 0.0.24-alfa: zadnja razmjena prije 2 min", "s čvora cop-osijek-server", "ovaj čvor na 0.0.24-alfa"}},
+			[]string{"Sve je usklađeno s 1 čvorom", "COP Osijek (kućni server) na 0.0.24-alfa: zadnja razmjena prije 2 min, LAN sync, 3 ms", "s čvora cop-osijek-server", "ovaj čvor na 0.0.24-alfa"}},
 		{"stariji program", RazmjenaStanje{UMrezi: true, Verzija: "0.0.24-alfa",
 			Cvorovi: []CvorRazmjene{
 				{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Verzija: "0.0.23-alfa", Razlicita: true},
 				{Naziv: "stari laptop", Dostupnost: "online", Zadnja: &malo, Razlicita: true}}},
 			[]string{"<strong>laptop</strong><div class=\"reg-card-sub\">0.0.23-alfa — drukčija od ovog čvora</div>", "starija inačica (ne javlja je)"}},
 		{"laptop izvan kuće", RazmjenaStanje{UMrezi: true,
-			Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Zaostaje: 3, SamoDolazi: true, Greska: "dial tcp 192.168.1.96:4710: no route to host"}}},
-			[]string{"na mreži", "javlja se sam (kroz tunel)"}},
+			Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Zaostaje: 3, SamoDolazi: true,
+				Put: "SERVER sync", RTTMs: 35, RazlogPuta: razmjena.RazlogPutaNijeSeJavio}}},
+			[]string{"na mreži", "SERVER sync, 35 ms", "javlja se sam (kroz tunel)"}},
 		{"prva razmjena", RazmjenaStanje{UMrezi: true,
 			Cvorovi:     []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Primljeno: 5000, JosPrima: true}},
 			Arhiva:      ArhivaRazmjene{UKazalu: 298, Ugradjeno: 168, Ceka: 130, CekaBajtova: 12_400_000, Trenutno: "ugradnja paketa osijek"},
@@ -111,5 +115,75 @@ func TestBezPriruckeMemorije(t *testing.T) {
 		if got := w.Header().Get("Cache-Control"); got != ocekivano {
 			t.Errorf("%s: Cache-Control %q, očekivano %q", put, got, ocekivano)
 		}
+	}
+}
+
+// Pločica za svaki naziv puta i svaki razlog: rečenica stoji uz računalo, a
+// u HTML-u nema ni IPv4 ni IPv6 adrese ni imena sustava na kojem radi
+// poslužitelj, jer pločicu vidi svaki prijavljeni korisnik. Trajan razlog
+// stoji kao upozorenje, a prolazni kao sitni tekst.
+func TestPlocicaPutIRazlozi(t *testing.T) {
+	malo := time.Now().Add(-2 * time.Minute)
+	adresa := regexp.MustCompile(`\b\d{1,3}(\.\d{1,3}){3}\b|[0-9a-f]{1,4}(:[0-9a-f]{0,4}){2,7}`)
+	razlozi := []razmjena.RazlogPuta{razmjena.RazlogPutaNijeSeJavio, razmjena.RazlogPutaBezOdgovora, razmjena.RazlogPutaUDPNeProlazi, razmjena.RazlogPutaNATOvisan,
+		razmjena.RazlogPutaUDPDoDrugih, razmjena.RazlogPutaVatrozid, razmjena.RazlogPutaNijeClan, razmjena.RazlogPutaStarijiProgram,
+		razmjena.RazlogPutaPriprema, razmjena.RazlogPutaPauza, razmjena.RazlogPutaIstiKljuc}
+	for _, naziv := range []string{razmjena.NazivLAN, razmjena.NazivServer, razmjena.NazivTailscale, razmjena.NazivWeb, ""} {
+		for _, r := range razlozi {
+			// Zaostaje 1: pločica s tablicom; 0: jedan redak, uz prolazni razlog
+			for _, zaostaje := range []int{0, 1} {
+				// „bez odgovora” stoji samo uz računalo koje nije na mreži
+				dostupnost := map[bool]string{true: "offline", false: "online"}[r == razmjena.RazlogPutaBezOdgovora]
+				c := CvorRazmjene{Naziv: "laptop", Dostupnost: dostupnost, Zadnja: &malo, Zaostaje: zaostaje, Put: naziv, RTTMs: 12, RazlogPuta: r}
+				var b strings.Builder
+				if err := razmjenaTmpl.Execute(&b, RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{c}}); err != nil {
+					t.Fatal(err)
+				}
+				html, recenica := b.String(), c.Razlog()
+				if recenica == "" || strings.Contains(recenica, "%") || !strings.Contains(html, template.HTMLEscapeString(recenica)) {
+					t.Errorf("%q, %q: rečenica %q nije na pločici", naziv, r, recenica)
+				}
+				if naziv != "" && !strings.Contains(html, naziv+", 12 ms") {
+					t.Errorf("%q, %q: nema naziva puta", naziv, r)
+				}
+				if m := adresa.FindString(html); m != "" || nadjiRijec(html, sustavKucnogServera, nil) >= 0 {
+					t.Errorf("%q, %q: na pločici je adresa ili ime sustava: %q", naziv, r, m)
+				}
+				trajan := strings.Contains(html, `<div class="razmjena-upozorenje">`+template.HTMLEscapeString(recenica))
+				if zaostaje == 1 && trajan != r.Trajan() {
+					t.Errorf("%q: trajan na pločici %v", r, trajan)
+				}
+				if jedanRedak := strings.Contains(html, "Sve je usklađeno"); jedanRedak != (zaostaje == 0 && !r.Trajan() && dostupnost == "online") {
+					t.Errorf("%q, zaostaje %d: jedan redak %v", r, zaostaje, jedanRedak)
+				}
+			}
+		}
+	}
+	// trajan razlog izbaci pločicu iz „sve je usklađeno”, prolazni ne
+	for r, sredeno := range map[razmjena.RazlogPuta]bool{razmjena.RazlogPutaNijeSeJavio: true, razmjena.RazlogPutaNijeClan: false} {
+		st := RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, RazlogPuta: r}}}
+		if st.Sredeno() != sredeno {
+			t.Errorf("%q: usklađeno %v", r, st.Sredeno())
+		}
+	}
+	if (CvorRazmjene{}).Razlog() != "" || (CvorRazmjene{RazlogPuta: "nepoznat"}).Razlog() != "" {
+		t.Error("razlog bez koda")
+	}
+	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaBezOdgovora, Put: razmjena.NazivLAN, Dostupnost: "offline"}).Razlog(); r != "Računalo se ne javlja ni na jednoj poznatoj adresi." {
+		t.Errorf("bez ijedne adrese: %q", r)
+	}
+	// računalo koje se samo javlja na javnu adresu, a ovo ga ne može nazvati:
+	// pločica je jedan redak i ne kaže da se ne javlja
+	samo := RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo,
+		Put: razmjena.NazivServer, Neuspjelih: 1, RazlogPuta: razmjena.RazlogPutaBezOdgovora}}}
+	var b strings.Builder
+	if err := razmjenaTmpl.Execute(&b, samo); err != nil {
+		t.Fatal(err)
+	}
+	if !samo.Sredeno() || strings.Contains(b.String(), "ne javlja") {
+		t.Errorf("računalo koje se samo javlja: %s", b.String())
+	}
+	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaNijeSeJavio, Put: razmjena.NazivServer}).Razlog(); r != "Računalo se ne javlja u lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync)." {
+		t.Errorf("primjer iz plana: %q", r)
 	}
 }

@@ -215,6 +215,7 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 // smije čekati. Put veze pamti se samo u memoriji, pa ne čeka bravu.
 func (s *Service) zabiljezi(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
 	s.zapamtiPut(peer, c)
+	o = o.uzVezu(c)
 	if err := s.uzmiBravu(ctx); err != nil {
 		return
 	}

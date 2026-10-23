@@ -192,6 +192,11 @@ nepouzdano.
 - Pronalaženje (UDP 4712, IPv4 broadcast) je samo imenik: odgovor nosi ime,
   oznaku čvora i portove. Lažan odgovor može potrošiti pokušaj veze, ali
   ne donosi povjerenje.
+- Adrese drugih računala i poruke o greškama razmjene, koje ih nose, vidi
+  samo globalni administrator, na stranici Sinkronizacija. Drugi korisnik s
+  modulom Administracija dobiva stanje razmjene bez njih, a pločica razmjene
+  na naslovnoj, koju vidi svaki prijavljeni korisnik, pokazuje samo naziv
+  puta (LAN sync, SERVER sync, Tailscale, WEB sync) i razlog rečenicom.
 - Provjera mreže za WEB sync (UDP 4713, samo uz `[povezivost]
   web_sync_prijava = true`) pita dva STUN poslužitelja kojom javnom adresom
   vide računalo. STUN odgovor nije potpisan: tko je na putu, može podmetnuti

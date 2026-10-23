@@ -50,9 +50,9 @@ func TestUpozorenjaPloce(t *testing.T) {
 		"Ni s kim nije bilo uspješne razmjene od " + vrijeme + "; provjerite mrežu i adrese čvorova.",
 		"Čvor Ured Vukovar radi na 0.0.36, ovaj na 0.0.38 — nadogradite stariji čvor.",
 		"laptop-baranja: nema potvrde članstva — razmjena s njim nije dopuštena.",
-		"laptop-baranja: nikad nije odgovorio (3 pokušaja zaredom): veza odbijena",
+		"laptop-baranja: nikad nije odgovorio (3 pokušaja zaredom).",
 		"laptop-baranja: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.",
-		"Laptop Ilok: ne odgovara od " + vrijeme + " (4 pokušaja zaredom): istek roka",
+		"Laptop Ilok: ne odgovara od " + vrijeme + " (4 pokušaja zaredom).",
 		"Čvor Laptop Ilok radi na verziji starijoj od 0.0.38 (ne javlja verziju) — nadogradite ga.",
 		"Nijedan čvor nema javnu adresu: razmjena radi samo unutar lokalne mreže.",
 	}
@@ -149,6 +149,10 @@ func TestPlocaRedoslijedIDostupnost(t *testing.T) {
 	}
 	upisiStanje(t, s, "ured-vukovar", sada.Add(-time.Minute), 1)
 	upisiStanje(t, s, "laptop-baranja", sada.Add(-2*time.Hour), 0)
+	// zadnja razmjena s uredom stigla je kroz tunel, a ovaj ga ne može nazvati
+	if _, err := s.db.Exec(`UPDATE peer_sync SET put = 'tunel' WHERE node_id = 'ured-vukovar'`); err != nil {
+		t.Fatal(err)
+	}
 
 	st, err := s.Status(ctxRub, true)
 	if err != nil {

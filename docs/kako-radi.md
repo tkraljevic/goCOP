@@ -58,7 +58,10 @@ podaci putuju. Postoje četiri puta:
 
 Program uvijek prvo pokuša lokalnu mrežu. Razmjena krene sama nakon
 pokretanja i ponavlja se svakih pet minuta. Na naslovnoj stranici pločica
-„Razmjena s čvorovima” pokazuje zadnju razmjenu i napredak arhive.
+„Razmjena s čvorovima” pokazuje zadnju razmjenu, put kojim je prošla (npr.
+„LAN sync, 3 ms”) i napredak arhive. Kad razmjena ne ide boljim putem,
+pločica rečenicom kaže zašto, bez adresa. Adrese i greške razmjene vidi
+samo administrator, na stranici Sinkronizacija.
 
 Javnu adresu stalnog računala administrator upiše jednom, na bilo kojem
 računalu mreže, a ostala je dobiju razmjenom. Dva računala koja se ne vide

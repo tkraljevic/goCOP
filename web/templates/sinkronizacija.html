@@ -82,6 +82,25 @@ function clan(rok) {
   if (rok.stanje === 'pricuva') return '<span class="badge badge-danger">isteklo ' + dan(rok.do) + '</span><br><span class="muted">razmjena radi još 30 dana od isteka</span>';
   return '<span class="badge ' + (rok.stanje === 'istjece' ? 'badge-warning' : 'badge-active') + '">član</span><br><span class="muted">do ' + dan(rok.do) + '</span>';
 }
+function mb(n) { return n < 1e6 ? Math.round(n / 1e3) + ' kB' : (n / 1e6).toLocaleString('hr-HR', {maximumFractionDigits: 1}) + ' MB'; }
+// put je naziv puta zadnje razmjene i RTT
+function put(s) {
+  const p = s.put || {};
+  return p.naziv ? '<br><span class="muted">' + esc(p.naziv) + (p.rtt_ms ? ', ' + p.rtt_ms + ' ms' : '') + '</span>' : '';
+}
+// brojaci su razmjene i bajtovi otkad razmjena ide tim putem
+function brojaci(s) {
+  const p = s.put || {};
+  const od = p.od ? new Date(p.od).toLocaleString('hr-HR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+  return od ? '<br><span class="muted">tim putem od ' + od + ': uspjelo ' + p.uspjesi + ' od ' + p.pokusaji + ', ' + mb(p.primljeno + p.poslano) + '</span>' : '';
+}
+// pokusaji su zadnji pokušaji spajanja po adresi, za računalo koje ne
+// odgovara; dobiva ih samo administrator
+function pokusaji(st, p, s) {
+  if (p.reachability === 'online' && !s.fails) return '';
+  const l = (st.pokusaji || {})[p.node_id] || [];
+  return l.map(k => '<br><span class="mono">' + esc(k.adresa) + '</span> ' + (k.greska ? '<span class="err">' + esc(k.greska) + '</span>' : 'spojeno') + ' <span class="muted">' + when(k.kada) + '</span>').join('');
+}
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
 
 function render(st) {
@@ -106,10 +125,10 @@ function render(st) {
       <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}</td>
       <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
       <td>${p.member ? clan(p.rok_clanstva) : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
-      <td>${when(s.last_ok)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
-      <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' : '—'}</td>
+      <td>${when(s.last_ok)}${put(s)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
+      <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' + brojaci(s) : '—'}</td>
       <td>${s.last_ok ? (p.backlog ? p.backlog + ' ' + uzBroj(p.backlog, 'verzija', 'verzije', 'verzija') : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
-      <td class="muted mono">${(p.addresses || []).concat((s.tailscale || []).map(a => a + ' (Tailscale)')).map(esc).join('<br>') || '—'}</td>
+      <td class="muted mono">${(p.addresses || []).concat((s.tailscale || []).map(a => a + ' (Tailscale)')).map(esc).join('<br>') || '—'}${pokusaji(st, p, s)}</td>
       <td>${IS_ADMIN ? '<button class="btn btn-sm btn-secondary" data-node="' + esc(p.node_id) + '" onclick="syncOne(this.dataset.node)">Razmijeni</button>' : ''}</td>
     </tr>`;
   });

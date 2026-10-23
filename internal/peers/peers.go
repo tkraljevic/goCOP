@@ -600,14 +600,17 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	return tx.Commit()
 }
 
-// obrisiZapisCvora briše zapis čvora koji ovaj čvor zaboravlja i adrese koje
-// je o njemu naučio (naucene_adrese.go). Ako se pod istim imenom upari
-// drugo računalo, ovo ne zove adrese starog.
+// obrisiZapisCvora briše zapis čvora koji ovaj čvor zaboravlja, adrese koje
+// je o njemu naučio (naucene_adrese.go) i put razmjene s brojačima
+// (put_razmjene.go). Ako se pod istim imenom upari drugo računalo, ovo ne
+// zove adrese starog i ne nasljeđuje njegov put.
 func obrisiZapisCvora(ctx context.Context, tx *sql.Tx, nodeID string) error {
 	if _, err := tx.ExecContext(ctx, `DELETE FROM peers WHERE node_id = ?`, nodeID); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '' WHERE node_id = ?`, nodeID)
+	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '', put = '', put_privatna = 0, rtt_ms = 0, put_od = NULL,
+		put_razlog = '', put_pokusaji = 0, put_uspjesi = 0, put_neuspjesi = 0, put_primljeno = 0, put_poslano = 0, zadnji_zvao = '',
+		priprema_pokusaji = 0, priprema_uspjesi = 0, priprema_neuspjesi = 0 WHERE node_id = ?`, nodeID)
 	return err
 }
 
@@ -1009,7 +1012,7 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 	}
 
 	var lastErr error
-	for _, k := range kandidati {
+	for i, k := range kandidati {
 		conn, err := s.nazovi(ctx, peer, k, expect)
 		if err != nil {
 			lastErr = err
@@ -1027,10 +1030,12 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 			lastErr = err
 			continue
 		}
-		s.zabiljezi(ctx, peer, conn, ishodRazmjene(applied, sent, theirs, time.Since(started), err))
+		o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
+		o.razlog = razlogNakon(kandidati[:i])
+		s.zabiljezi(ctx, peer, conn, o)
 		return applied, sent, err
 	}
-	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr})
+	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr, razlog: razmjena.RazlogPutaBezOdgovora})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
 }
 

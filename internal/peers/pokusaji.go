@@ -1,9 +1,11 @@
 package peers
 
 // Pokušaji spajanja po adresi drugog računala i put zadnje veze s njim.
-// Pločica razmjene to će pokazati uz računalo (plan WEB synca, F1): kad je
-// koja adresa zadnji put zvana, s kojom greškom i kojim je putem išla
-// zadnja veza. Sve je samo u memoriji i ne putuje. Greška koja se dogodi u
+// Stranica Sinkronizacija pokazuje ih administratoru uz računalo (plan WEB
+// synca, F1; PokusajiSpajanja): kad je koja adresa zadnji put zvana i s
+// kojom greškom. Pločica ih nema, jer nose adrese. Put zadnje veze za
+// pločicu je u bazi (put_razmjene.go). Sve ovdje je samo u memoriji i ne
+// putuje. Greška koja se dogodi u
 // razgovoru, kad je veza već uspostavljena, nije ovdje: ona ide u bilješku
 // o razmjeni (peer_sync.last_error). Iznimka je odbijenica na Tailscale
 // adresi druge strane (SyncWith): tada ta adresa ne radi, pa se pamti uz nju.
@@ -72,6 +74,27 @@ func (s *Service) pokusajiAdresa(nodeID string) map[string]pokusajAdrese {
 	out := map[string]pokusajAdrese{}
 	for _, p := range s.veze.pokusaji[nodeID] {
 		out[p.adresa] = p.pokusajAdrese
+	}
+	return out
+}
+
+// PokusajSpajanja je zadnji pokušaj spajanja na jednu adresu računala, za
+// stranicu Sinkronizacija: adrese i sirove greške vidi samo administrator
+type PokusajSpajanja struct {
+	Adresa string    `json:"adresa"`
+	Kada   time.Time `json:"kada"`
+	Greska string    `json:"greska,omitempty"` // prazno: veza je uspostavljena
+}
+
+// PokusajiSpajanja su zadnji pokušaji spajanja na adrese računala,
+// najnoviji prvi
+func (s *Service) PokusajiSpajanja(nodeID string) []PokusajSpajanja {
+	s.veze.mu.Lock()
+	defer s.veze.mu.Unlock()
+	l := s.veze.pokusaji[nodeID]
+	out := make([]PokusajSpajanja, 0, len(l))
+	for i := len(l) - 1; i >= 0; i-- {
+		out = append(out, PokusajSpajanja{Adresa: l[i].adresa, Kada: l[i].Kada, Greska: l[i].Greska})
 	}
 	return out
 }
