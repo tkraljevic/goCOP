@@ -66,6 +66,9 @@ const (
 	// baza pamti ime protokola mreže (peers.ProvjeriProtokolMreze): s drugim
 	// imenom spremljenim iz programa čvor sljedeći put ne bi krenuo
 	razlogProtokola = "Drugo ime ima samo testna simulacija, u svojoj mapi podataka. Mijenja se u datoteci gocop.toml, jer s drugim imenom ova mapa podataka ne kreće."
+	// WEB sync (F1a): tuđi STUN poslužitelj saznao bi javne adrese računala i
+	// mogao vratiti lažne, a krivi UDP port odsiječe računalo
+	razlogPovezivosti = "Mijenja se samo u datoteci gocop.toml: tuđi STUN poslužitelj saznao bi javnu adresu ovog računala i mogao vratiti lažnu, a krivi UDP port odsiječe računalo."
 )
 
 // redakRasporeda: puni ključ i njegovo mjesto
@@ -91,11 +94,16 @@ var rasporedPostavki = []redakRasporeda{
 
 	{"sync.auto_sync", mjestoPostavke{"mreza", postavkaUrediva, "Automatska sinkronizacija", ""}},
 	{"sync.tailscale", mjestoPostavke{"mreza", postavkaUrediva, "Razmjena preko Tailscalea", ""}},
+	{"povezivost.web_sync_prijava", mjestoPostavke{"mreza", postavkaUrediva, "Prijava za WEB sync", ""}},
+	{"povezivost.web_sync", mjestoPostavke{"mreza", postavkaUrediva, "WEB sync", ""}},
 	{"sync.protokol", mjestoPostavke{"mreza", postavkaSamoCitanje, "Ime protokola mreže", razlogProtokola}},
 	{"sync.bootstrap", mjestoPostavke{"mreza", postavkaSamoCitanje, "Stalno dostupni čvorovi", razlogBootstrapa}},
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
 	{"web.tailscale_lokalno", mjestoPostavke{"mreza", postavkaSamoCitanje, "Tailscale kao lokalna mreža", razlogPosrednika}},
+	{"povezivost.udp_port", mjestoPostavke{"mreza", postavkaSamoCitanje, "UDP port WEB synca", razlogPovezivosti}},
+	{"povezivost.stun", mjestoPostavke{"mreza", postavkaSamoCitanje, "STUN poslužitelji", razlogPovezivosti}},
+	{"povezivost.lan_adresa", mjestoPostavke{"mreza", postavkaSamoCitanje, "Adresa u lokalnoj mreži", razlogPovezivosti}},
 
 	{"sync.sve", mjestoPostavke{"pretplate", postavkaUrediva, "Prati sve", ""}},
 	{"vodostaji.povijest_mjeseci", mjestoPostavke{"pretplate", postavkaUrediva, "Povijest tuđih očitanja (mjeseci)", ""}},
@@ -130,6 +138,9 @@ var opisNaStranici = map[string]string{
 	"sync.sve": "Uključeno: čvor prati sva očitanja i dnevnike svih područja i godina (uredski poslužitelj). " +
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
+	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
+		"Isključeno: nema UDP utičnice ni upita prema van. Vrijedi od idućeg pokretanja.",
+	"povezivost.web_sync": "Uključeno: razmjena ide i WEB syncom, kad je uključena i prijava. Zasad se još ne koristi, pa razmjena ide kao prije.",
 }
 
 // redRasporeda je redni broj ključa u rasporedu; ključ bez retka ide na kraj
@@ -144,7 +155,7 @@ func redRasporeda(puni string) int {
 
 // dioOdjeljka: gdje stoji postavka koje u rasporedu (još) nema, po odjeljku
 var dioOdjeljka = map[string]string{
-	"": "cvor", "node": "cvor", "kontakt": "cvor", "web": "mreza", "sync": "mreza",
+	"": "cvor", "node": "cvor", "kontakt": "cvor", "web": "mreza", "sync": "mreza", "povezivost": "mreza",
 	"vodostaji": "pretplate", "karta": "opcije", "posta": "posta",
 }
 

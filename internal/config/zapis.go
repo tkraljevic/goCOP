@@ -3,6 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
+	"net"
+	"net/netip"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -38,6 +40,30 @@ var pravila = map[string]func(Config) string{
 	"karta.plocice":                func(c Config) string { return provjeriPlocice(c.Karta.Plocice) },
 	"karta.zasluge":                func(c Config) string { return provjeriNatpis(c.Karta.Zasluge) },
 	"karta.najvise_z":              func(c Config) string { return provjeriPriblizavanje(c.Karta.NajviseZ) },
+	"povezivost.udp_port":          func(c Config) string { return provjeriPort(c.Povezivost.UDPPort) },
+	"povezivost.stun":              func(c Config) string { return provjeriPosluzitelje(c.Povezivost.Stun) },
+	"povezivost.lan_adresa":        func(c Config) string { return provjeriLanAdresu(c.Povezivost.LanAdresa) },
+}
+
+// provjeriPosluzitelje: svaki STUN poslužitelj je ime ili adresa s portom
+func provjeriPosluzitelje(popis []string) string {
+	for _, s := range popis {
+		if h, p, err := net.SplitHostPort(s); err != nil || h == "" || p == "" || strings.ContainsAny(s, " \t") {
+			return "Svaki poslužitelj kao ime:port, npr. stun.cloudflare.com:3478."
+		}
+	}
+	return ""
+}
+
+// provjeriLanAdresu: prazno ili IP adresa u lokalnoj mreži
+func provjeriLanAdresu(s string) string {
+	if s == "" {
+		return ""
+	}
+	if a, err := netip.ParseAddr(s); err != nil || !a.IsPrivate() {
+		return "Upišite adresu u lokalnoj mreži, npr. 192.168.1.20, ili ostavite prazno."
+	}
+	return ""
 }
 
 // provjeriNatpis: natpis o podrijetlu karte stranice upisuju u kartu kao

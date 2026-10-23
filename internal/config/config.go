@@ -96,6 +96,18 @@ type Config struct {
 		// slova: neispravno ime odbija pokretanje.
 		Protokol string `toml:"protokol" comment:"Ime protokola mreže. Računala s različitim imenom protokola ne vide se\ni ne razmjenjuju podatke. Mapa podataka pamti ime pod kojim je ušla u\nmrežu, pa s drugim imenom ne kreće.\n  protokol = 'gocop-sim'   # testna simulacija, u novoj mapi podataka"`
 	} `toml:"sync"`
+
+	// Povezivost je WEB sync (plan WEB synca, F1): izravna razmjena preko
+	// interneta, preko UDP-a i QUIC-a. Zadano je sve isključeno; uz
+	// web_sync_prijava = false nema ni UDP utičnice ni upita prema STUN
+	// poslužiteljima.
+	Povezivost struct {
+		WebSyncPrijava bool     `toml:"web_sync_prijava" comment:"true = računalo otvori UDP utičnicu za WEB sync i provjeri mrežu (STUN).\nfalse = nema UDP utičnice ni upita prema STUN poslužiteljima.\n  web_sync_prijava = true"`
+		WebSync        bool     `toml:"web_sync" comment:"true = razmjena ide i WEB syncom, kad je uključena i prijava.\nZasad se još ne koristi: razmjena ide kao prije."`
+		UDPPort        int      `toml:"udp_port" comment:"UDP port WEB synca. Kad je zauzet, uzme se nasumičan. 0 = nasumičan."`
+		Stun           []string `toml:"stun" comment:"STUN poslužitelji za provjeru mreže, različitih operatera. Vide javnu\nadresu i port ovog računala. Prazan popis isključuje provjeru.\n  stun = []"`
+		LanAdresa      string   `toml:"lan_adresa" comment:"Adresa ovog računala u lokalnoj mreži, kad je goCOP u spremniku (Docker)\ni sam je ne vidi. Prazno = sam je nađe.\n  lan_adresa = '192.168.1.20'"`
+	} `toml:"povezivost"`
 }
 
 // Default su zadane vrijednosti — iste kao bez ikakve datoteke
@@ -113,7 +125,9 @@ func Default() Config {
 	// Sync.Bootstrap ostaje prazan: program ga zasad ne čita, a domena
 	// poslužitelja ne ide u javni kod, da je tražilice ne nađu
 	c.Sync.Tailscale = true
-	c.Sync.Protokol = "gocop" // isto kao peers.Protocol; config ne uvozi peers
+	c.Sync.Protokol = "gocop"   // isto kao peers.Protocol; config ne uvozi peers
+	c.Povezivost.UDPPort = 4713 // isto kao peers.DefaultUDPPort; config ne uvozi peers
+	c.Povezivost.Stun = []string{"stun.l.google.com:19302", "stun.cloudflare.com:3478"}
 	c.Readings.MinutaPreuzimanja = 45
 	c.Karta.Plocice = ZadaniIzvorPlocica
 	c.Karta.Zasluge = "© OpenStreetMap suradnici"
