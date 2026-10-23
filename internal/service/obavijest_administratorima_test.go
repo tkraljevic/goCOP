@@ -80,6 +80,15 @@ func TestObavijestiAdministratorima(t *testing.T) {
 	if err := bezKljuca.PosaljiObavijest(ctx, pero, "goCOP: rok", "tekst"); !errors.Is(err, service.ErrNemaKljucaPrijave) {
 		t.Errorf("bez ključa: %v", err)
 	}
+
+	// račun za slanje koji se ne da pročitati je greška baze, ne „nema
+	// pošiljatelja”
+	if _, err := o.baza.Exec(`ALTER TABLE racuni_sustava RENAME TO racuni_negdje`); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.dk.PosaljiObavijest(ctx, pero, "goCOP: rok", "tekst"); err == nil || errors.Is(err, service.ErrNemaPosiljatelja) {
+		t.Errorf("račun se ne da pročitati: %v", err)
+	}
 }
 
 // Kad se popis administratora ne da pročitati, primatelja nema, uz grešku.
