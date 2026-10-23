@@ -174,8 +174,9 @@ Na prvom računalu mreže globalni administrator nastavlja ovim redom.
    računalu osoba na svom profilu, pod Što ovo računalo prati, izabere sektor
    ili područje i godine koje joj trebaju.
 7. **Sigurnosna kopija.** Kopija mora obuhvatiti cijelu mapu `data`, s
-   ključem računala (`node-key`), a na prvom računalu i s ključem mreže
-   (`network-key`). Kad je mapa `vodostaji` izvan nje, i nju; u spremniku
+   ključem računala (`node-key`), a na računalu koje drži ključ mreže i s
+   ključem mreže (`network-key`). Za ključ mreže spremite i šifriranu kopiju
+   na hladni disk (Postavke, pod Mreža, Kopija ključa mreže). Kad je mapa `vodostaji` izvan nje, i nju; u spremniku
    obje montirane mape. Povrat probajte prije operativnog rada. Pojedinosti
    su u [uputama administratoru, poglavlje 7](INSTALACIJA.md#7-stalni-čvor-spremnik-i-sigurnosna-kopija).
 8. **Nadogradnja.** Na Windowsu nadogradnju nudi ikona Postave, uvijek na

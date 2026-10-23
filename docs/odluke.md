@@ -666,3 +666,15 @@ je gotov onaj o kojem ovisi.
   kao i članstvo. Pločica javlja da je ovlast obnovljena.
 - Računalo s ovlasti prima i obnavlja druga računala samo dok mu vlastito
   članstvo nije isteklo. Do sada je bila dovoljna ovlast.
+- Uz pločicu ide i e-pošta, svim globalnim administratorima čija adresa
+  smije primati PIN. Šalje je računalo koje prima, računom za slanje PIN-a,
+  kad je na njemu podešen. Svaki administrator dobije je u pravilu jednom
+  za svako računalo, stupanj (30 dana prije isteka, i kad članstvo uđe u
+  pričuvu ili ovlast istekne) i rok.
+- Ključ mreže ne smije biti samo na jednom računalu. Računalo s ključem
+  sprema kopiju za hladni disk, šifriranu posebnom lozinkom od najmanje 12
+  znakova, koja se čuva odvojeno od diska. Drugo računalo iste mreže kopiju
+  učita i time i ono drži ključ mreže. Dok kopija nije spremljena, i dok
+  ovlast za primanje imaju manje od dva računala, pločica računala s
+  ključem na to upozorava. Mreža radi i s jednim računalom koje prima; ovo
+  je pričuva za slučaj da ono propadne.

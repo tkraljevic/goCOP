@@ -857,6 +857,23 @@ func (r *UserRepository) AktivnihSAdresom(adresa string, osim uuid.UUID) (int, e
 	return n, err
 }
 
+// GlobalniAdministratori su aktivni globalni administratori (računom ili
+// dužnošću), primatelji obavijesti o roku članstva u mreži
+// (service.DrugiKorak.PrimateljiObavijesti)
+func (r *UserRepository) GlobalniAdministratori() ([]models.User, error) {
+	svi, err := r.ListUsers("", 0, "GLOBAL_ADMIN", "", "")
+	if err != nil {
+		return nil, err
+	}
+	out := svi[:0]
+	for _, u := range svi {
+		if u.IsActive {
+			out = append(out, u)
+		}
+	}
+	return out, nil
+}
+
 func (r *UserRepository) GlobalAdminContact() (name, phone, email string, ok bool) {
 	err := r.db.QueryRow(`
 		SELECT full_name, CASE WHEN mobile_phone <> '' THEN mobile_phone ELSE phone END, email

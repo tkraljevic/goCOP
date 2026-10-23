@@ -1,11 +1,16 @@
 package web
 
 // Gumbi za obnovu članstva u Postavkama, pod Mreža (G9a): Obnovi članstvo
-// za ovo računalo i Obnovi uz člana na računalu koje prima. Samo globalni
-// administrator.
+// za ovo računalo i Obnovi uz člana na računalu koje prima; i šifrirana
+// kopija ključa mreže (G9b). Samo globalni administrator.
 
 import (
+	"errors"
+	"log"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 
 	"gocop/internal/models"
 	"gocop/internal/razmjena"
@@ -47,4 +52,111 @@ func (h *SettingsHandler) HandleObnoviClana(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "message": "Članstvo računala " + m.DeviceID + " obnovljeno je i vrijedi do " + danHR(m.ExpiresAt.In(models.Zagreb)) + " Do njega stiže razmjenom."})
+}
+
+// najvecaKopijaKljuca ograđuje tijelo zahtjeva s kopijom ključa mreže
+const najvecaKopijaKljuca = 64 << 10
+
+// SetZastitaKljuca daje provjeru trenutne lozinke računa
+// (AuthService.ProvjeriLozinku) za spremanje kopije ključa mreže
+func (h *SettingsHandler) SetZastitaKljuca(lozinka func(uuid.UUID, string) error) {
+	h.lozinkaRacuna = lozinka
+}
+
+// HandleKopijaKljuca je gumb Spremi šifriranu kopiju: vraća datoteku kopije
+// ključa mreže za preuzimanje. Tko ima kopiju i njezinu lozinku, ima ključ
+// mreže, a on se ne da opozvati. Zato samo administrator svojim očima, s
+// ovog računala ili iz lokalne mreže, uz trenutnu lozinku računa; događaj
+// ide u knjigu i administratorima e-poštom (javiKljuc).
+func (h *SettingsHandler) HandleKopijaKljuca(w http.ResponseWriter, r *http.Request) {
+	if z := smijeMijenjatiCvor(r); z != nil {
+		http.Error(w, z.kljuc, http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Lozinka       string `json:"lozinka"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
+	}
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	u, _ := stvarnaOsoba(r)
+	if err := h.provjeriLozinkuRacuna(u, req.LozinkaRacuna); err != nil {
+		http.Error(w, "Kopija nije spremljena: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	raw, ime, err := h.peers.KopijaKljucaMreze(r.Context(), req.Lozinka)
+	if err != nil {
+		http.Error(w, "Kopija nije spremljena: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	h.javiKljuc(r, u, "spremio je kopiju ključa mreže")
+	writeJSON(w, map[string]any{"success": true, "kopija": string(raw), "datoteka": ime})
+}
+
+// provjeriLozinkuRacuna provjerava trenutnu lozinku osobe, uz isto
+// ograničenje krivih upisa kao pri promjeni lozinke
+func (h *SettingsHandler) provjeriLozinkuRacuna(u *models.User, lozinka string) error {
+	if u == nil || h.lozinkaRacuna == nil {
+		return errors.New("lozinka računa ne može se provjeriti")
+	}
+	kljuc := kljucPonovneLozinke("", u.ID.String())
+	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+		return err
+	}
+	err := h.lozinkaRacuna(u.ID, lozinka)
+	ishodPonovneLozinke(kljuc, err)
+	return err
+}
+
+// HandleUcitajKopijuKljuca je gumb Učitaj kopiju ključa: nakon njega ovo
+// računalo drži ključ mreže. Samo administrator svojim očima, s ovog
+// računala ili iz lokalne mreže; događaj ide u knjigu i administratorima
+// e-poštom (javiKljuc).
+func (h *SettingsHandler) HandleUcitajKopijuKljuca(w http.ResponseWriter, r *http.Request) {
+	if z := smijeMijenjatiCvor(r); z != nil {
+		http.Error(w, z.kljuc, http.StatusForbidden)
+		return
+	}
+	var req struct {
+		Kopija  string `json:"kopija"`
+		Lozinka string `json:"lozinka"`
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, najvecaKopijaKljuca)
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := h.peers.UcitajKopijuKljuca(r.Context(), []byte(req.Kopija), req.Lozinka); err != nil {
+		http.Error(w, "Ključ mreže nije učitan: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	u, _ := stvarnaOsoba(r)
+	h.javiKljuc(r, u, "učitao je kopiju ključa mreže")
+	writeJSON(w, map[string]any{"success": true, "message": "Ključ mreže je učitan. Ovo računalo sad prima u mrežu i obnavlja članstva i ovlasti."})
+}
+
+// javiKljuc zapisuje u dnevnik i u knjigu tko je i odakle napravio što s
+// kopijom ključa mreže. E-poštu administratorima pošalje program
+// (cmd/gocop, obavijesti), odmah s ovog računala ako ima račun za slanje,
+// a inače s drugog kojem događaj stigne razmjenom.
+func (h *SettingsHandler) javiKljuc(r *http.Request, u *models.User, sto string) {
+	tko := "nepoznata osoba"
+	if u != nil {
+		tko = u.FullName + " (" + u.Username + ")"
+	}
+	odakle := klijentIz(r).String()
+	log.Printf("razmjena: %s %s s adrese %s", tko, sto, odakle)
+	if err := h.peers.ZabiljeziDogadjajKljuca(r.Context(), tko, odakle, sto); err != nil {
+		log.Printf("razmjena: događaj s ključem mreže nije upisan u knjigu: %v", err)
+	}
+}
+
+// mjesnoVrijeme je kad u mjesnom vremenu, a nula kad ga nema
+func mjesnoVrijeme(kad *time.Time) time.Time {
+	if kad == nil {
+		return time.Time{}
+	}
+	return kad.Local()
 }

@@ -122,6 +122,22 @@ nepouzdano.
   upozorenje na pločici. U tom roku čvor ne prima i ne obnavlja druge:
   primatelj treba i ovlast i vlastitu potvrdu koja nije istekla. Nakon
   pričuve čvor treba ponovno primiti u mrežu.
+- **Kopija ključa mreže.** Nositelj ključa mreže sprema kopiju za hladni
+  disk: sjeme ključa šifrirano je AES-256-GCM-om s ključem izvedenim iz
+  lozinke kopije (scrypt, najmanje 12 znakova), a oznaka formata, naziv
+  mreže, javni ključ i cijena izvoda vezani su uz šifru, pa izmijenjena
+  datoteka ne prolazi. Lozinka se ne pamti nigdje. Kopiju učita samo čvor
+  iste mreže, i samo kad iz nje izađe upravo ključ mreže; tada i on drži
+  `network-key`. Tko ima datoteku i lozinku, ima ključ mreže, pa se lozinka
+  čuva odvojeno od diska. Ključ mreže se ne da opozvati, pa kopiju sprema
+  samo globalni administrator svojim očima, s tog računala ili iz lokalne
+  mreže (ne izvana ni kroz tunel), uz trenutnu lozinku svog računa, s istim
+  ograničenjem krivih upisa kao pri promjeni lozinke. Učitavanje traži isto,
+  osim lozinke računa. U dnevnik i u knjigu ide tko je i s koje adrese
+  spremio ili učitao kopiju, a globalni administratori s adresom za PIN o
+  tome dobiju e-poštu: odmah s tog čvora, ili, kad on nema račun za
+  slanje, sat ili više kasnije s drugog čvora kojem događaj stigne
+  razmjenom. Bez ijednog računa za slanje u mreži e-pošte nema.
 
 ### Uparivanje kodom od 6 znamenki
 

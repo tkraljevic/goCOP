@@ -96,6 +96,29 @@
         <div class="form-help">Obnova se traži sama uz razmjenu 30 dana prije isteka. Gumbom se može tražiti u svako doba. Nakon isteka razmjena radi još 30 dana.</div></dd>{{end}}
       {{with .RokOvlasti}}<dt>Ovlast za primanje</dt><dd><span class="badge {{.Oznaka}}">{{.Opis}}</span></dd>{{end}}
     </dl>
+    {{if .Permissions.IsGlobalAdmin}}
+    <div class="mt-3" id="kopija-kljuca">
+      <h3>Kopija ključa mreže</h3>
+      {{if .Network.DrziKljuc}}
+      <p class="desc">Ako ovo računalo propadne, nitko ne može obnoviti ovlasti za primanje i mreža se za najviše dvije godine raspadne. Spremite šifriranu kopiju ključa na hladni disk, a lozinku kopije zapišite i čuvajte odvojeno od diska. {{if .KopijaKljuca.IsZero}}<b>Kopija još nije spremljena.</b>{{else}}Kopija postoji: zadnji put spremljena ili učitana {{formatDate .KopijaKljuca}}.{{end}} Sprema se samo s ovog računala ili iz lokalne mreže, uz lozinku vašeg računa, a administratori o tome dobiju e-poštu kad je u mreži podešen račun za slanje PIN-a.</p>
+      <div class="actions">
+        <input type="password" id="kopija-lozinka" class="form-control" placeholder="Lozinka kopije, najmanje 12 znakova" autocomplete="new-password" style="max-width:280px;">
+        <input type="password" id="kopija-lozinka2" class="form-control" placeholder="Lozinka kopije još jednom" autocomplete="new-password" style="max-width:220px;">
+        <input type="password" id="kopija-racun" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" style="max-width:220px;">
+        <button type="button" class="btn btn-secondary" onclick="spremiKopijuKljuca()">Spremi šifriranu kopiju</button>
+      </div>
+      <p id="kopija-status" class="mt-2"></p>
+      {{else}}
+      <p class="desc">Kad računalo s ključem mreže propadne, ovdje se učita njegova šifrirana kopija s hladnog diska. Nakon toga ovo računalo prima u mrežu i obnavlja članstva i ovlasti.</p>
+      <div class="actions">
+        <input type="file" id="kljuc-datoteka" accept=".json,application/json" class="form-control" style="max-width:280px;">
+        <input type="password" id="kljuc-lozinka" class="form-control" placeholder="Lozinka kopije" autocomplete="off" style="max-width:220px;">
+        <button type="button" class="btn btn-secondary" onclick="ucitajKopijuKljuca()">Učitaj kopiju ključa</button>
+      </div>
+      <p id="kljuc-status" class="mt-2"></p>
+      {{end}}
+    </div>
+    {{end}}
     <div class="mt-3">
       {{range .Members}}
       <div class="peer">
@@ -278,6 +301,32 @@ async function revokeMember(node) {
     if (r.pogodjeni && r.pogodjeni.length) alert('Članstvo opozvano.' + pogodjeniPoruka(r.pogodjeni));
     location.reload();
   } catch (e) { alert(e.message); }
+}
+
+async function spremiKopijuKljuca() {
+  const st = document.getElementById('kopija-status');
+  const l1 = document.getElementById('kopija-lozinka'), l2 = document.getElementById('kopija-lozinka2'), racun = document.getElementById('kopija-racun');
+  if (l1.value !== l2.value) { st.innerHTML = '<span class="err">Lozinke kopije se ne podudaraju.</span>'; return; }
+  try {
+    const r = await api('/api/network/kljuc/kopija', {lozinka: l1.value, lozinka_racuna: racun.value});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([r.kopija], {type: 'application/json'}));
+    a.download = r.datoteka;
+    document.body.appendChild(a); a.click(); a.remove();
+    l1.value = l2.value = racun.value = '';
+    st.innerHTML = 'Kopija <b>' + escPronadjeno(r.datoteka) + '</b> je preuzeta. Spremite je na hladni disk, a lozinku čuvajte odvojeno od diska.';
+  } catch (e) { st.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
+}
+
+async function ucitajKopijuKljuca() {
+  const st = document.getElementById('kljuc-status');
+  const f = document.getElementById('kljuc-datoteka').files[0];
+  if (!f) { st.innerHTML = '<span class="err">Odaberite datoteku kopije.</span>'; return; }
+  try {
+    const r = await api('/api/network/kljuc/ucitaj', {kopija: await f.text(), lozinka: document.getElementById('kljuc-lozinka').value});
+    st.textContent = r.message;
+    setTimeout(() => location.reload(), 1500);
+  } catch (e) { st.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
 
 async function obnoviClanstvo() {

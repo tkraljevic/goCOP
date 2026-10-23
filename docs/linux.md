@@ -64,7 +64,7 @@ U mapi podataka su:
 | `sadrzaj.db`, `prognoze.db`, `oborine.db` | spremište privitaka, prognoze, kiša |
 | `vodostaji.db` | hidrološka arhiva (može narasti na desetak GB) |
 | `node-key` | ključ čvora (`0600`) — identitet ovog računala na mreži |
-| `network-key` | ključ mreže (`0600`), samo na čvoru koji je osnovao mrežu |
+| `network-key` | ključ mreže (`0600`), samo na čvoru koji drži ključ: osnivač ili čvor koji je učitao kopiju ključa |
 | `gocop.toml` | postavke čvora |
 | `vodostaji/`, `pakete/`, `skenovi/` | izvorne datoteke arhive, `.cop` paketi, skenovi prijava |
 | `kopije/` | kopije baze koje skripta napravi prije nadogradnje |
@@ -385,7 +385,8 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
   `/var/lib/gocop`; datoteka `.db` nikad se ne kopira bez pripadne `-wal`.
 - Ključ čvora (`node-key`) i ključ mreže (`network-key`) čuvajte posebno i
   zaštićeno: tko ih ima, predstavlja se kao ovaj čvor, odnosno prima
-  članove u mrežu.
+  članove u mrežu. Za ključ mreže program sam sprema šifriranu kopiju za
+  hladni disk (Postavke, pod Mreža, Kopija ključa mreže).
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
 - Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
   0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka
