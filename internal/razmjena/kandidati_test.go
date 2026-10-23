@@ -53,10 +53,11 @@ func TestLokalniKandidati(t *testing.T) {
 		{ime: "Tailscale", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "100.101.0.11/32")}},
 		{ime: "CloudflareWARP", zastavice: net.FlagUp | net.FlagPointToPoint, adrese: []net.Addr{ipMreza(t, "172.16.0.2/32")}},
 		{ime: "eth5", zastavice: gore, adrese: []net.Addr{ipMreza(t, "192.168.77.4/24")}}, // vlastita Tailscale adresa u privatnoj mreži
+		{ime: "tap0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "10.8.0.6/24")}},     // OpenVPN s broadcastom
 		{ime: "en5", zastavice: net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "192.168.2.10/24")}},
 		{ime: "lo0", zastavice: net.FlagUp | net.FlagLoopback | net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "127.0.0.1/8")}},
 	}
-	jezgra := usmjeravanje{"192.168.1.0/24": "192.168.1.10", "192.168.5.0/24": "192.168.5.20", "10.20.0.0/16": "100.101.0.10"}
+	jezgra := usmjeravanje{"192.168.1.0/24": "192.168.1.10", "192.168.5.0/24": "192.168.5.20", "10.20.0.0/16": "100.101.0.10", "10.8.0.0/24": "10.8.0.6"}
 	ts := []netip.Addr{netip.MustParseAddr("192.168.77.4"), netip.MustParseAddr("100.101.0.10")}
 	k, razlozi := lokalniKandidati(4713, "", sva, ts, jezgra.izlaz)
 	if got, want := adreseKandidata(k), []string{"lokalna 192.168.1.10:4713", "lokalna 192.168.5.20:4713"}; !slices.Equal(got, want) {
@@ -128,14 +129,19 @@ func TestPoredakIJavniKandidat(t *testing.T) {
 	}
 }
 
-// Izlaz prema STUN-u: vlastita Tailscale adresa je izlazni čvor, sučelje
-// koje ne vodi u lokalnu mrežu je VPN, petlja i nepoznato sučelje su običan
-// put, a bez rute ostaje greška. Neriješen poslužitelj nema izlaza.
+// Izlaz prema STUN-u: vlastita Tailscale adresa je izlazni čvor, tunel po
+// imenu je VPN, a mobilni modem, PPP, most s LAN-om, petlja i nepoznato
+// sučelje su običan put. Bez rute ostaje greška, a neriješen poslužitelj
+// nema izlaza.
 func TestIzlazPremaSTUN(t *testing.T) {
 	sva := []sucelje{
 		{ime: "en0", zastavice: net.FlagUp | net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "192.168.1.10/24")}},
 		{ime: "utun4", zastavice: net.FlagUp | net.FlagPointToPoint, adrese: []net.Addr{ipMreza(t, "10.99.0.2/32")}},
 		{ime: "tailscale0", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "100.101.0.10/32")}},
+		{ime: "CloudflareWARP", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "172.16.0.2/32")}},
+		{ime: "Cellular", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "10.140.3.7/30")}},
+		{ime: "ppp0", zastavice: net.FlagUp | net.FlagPointToPoint, adrese: []net.Addr{ipMreza(t, "100.70.1.2/32")}},
+		{ime: "vEthernet (External)", zastavice: net.FlagUp | net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "192.168.1.20/24")}},
 	}
 	ts := []netip.Addr{netip.MustParseAddr("100.101.0.10")}
 	posluzitelji := []PosluziteljSTUN{
@@ -145,21 +151,27 @@ func TestIzlazPremaSTUN(t *testing.T) {
 		{Ime: "petlja", Adresa: &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1), Port: 3478}},
 		{Ime: "nepoznato sučelje", Adresa: &net.UDPAddr{IP: net.IPv4(4, 4, 4, 4), Port: 3478}},
 		{Ime: "bez rute", Adresa: &net.UDPAddr{IP: net.IPv4(5, 5, 5, 5), Port: 3478}},
+		{Ime: "WARP", Adresa: &net.UDPAddr{IP: net.IPv4(6, 6, 6, 6), Port: 3478}},
+		{Ime: "LTE", Adresa: &net.UDPAddr{IP: net.IPv4(7, 7, 7, 7), Port: 3478}},
+		{Ime: "PPP", Adresa: &net.UDPAddr{IP: net.IPv4(8, 8, 4, 4), Port: 3478}},
+		{Ime: "most s LAN-om", Adresa: &net.UDPAddr{IP: net.IPv4(9, 9, 9, 9), Port: 3478}},
 		{Ime: "neriješen"},
 	}
 	jezgra := usmjeravanje{"1.1.1.1/32": "192.168.1.10", "2.2.2.2/32": "100.101.0.10", "3.3.3.3/32": "10.99.0.2",
-		"127.0.0.0/8": "127.0.0.1", "4.4.4.4/32": "192.168.200.1"}
+		"127.0.0.0/8": "127.0.0.1", "4.4.4.4/32": "192.168.200.1", "6.6.6.6/32": "172.16.0.2", "7.7.7.7/32": "10.140.3.7",
+		"8.8.4.4/32": "100.70.1.2", "9.9.9.9/32": "192.168.1.20"}
 	got := map[string]IzlazSTUN{}
 	for _, i := range izlaziPremaSTUN(posluzitelji, sva, ts, jezgra.izlaz) {
 		got[i.Ime] = i
 	}
 	for ime, kroz := range map[string]string{"obican": IzlazObican, "izlazni čvor": IzlazTailscale, "vpn": IzlazVPN,
-		"petlja": IzlazObican, "nepoznato sučelje": IzlazObican, "bez rute": IzlazBezRute} {
+		"petlja": IzlazObican, "nepoznato sučelje": IzlazObican, "bez rute": IzlazBezRute, "WARP": IzlazVPN,
+		"LTE": IzlazObican, "PPP": IzlazObican, "most s LAN-om": IzlazObican} {
 		if got[ime].Kroz != kroz {
 			t.Errorf("%s: kroz %q, želim %q", ime, got[ime].Kroz, kroz)
 		}
 	}
-	if len(got) != 6 || got["obican"].Sucelje != "en0" || got["bez rute"].Greska == "" || got["obican"].Lokalna.String() != "192.168.1.10" {
+	if len(got) != 10 || got["obican"].Sucelje != "en0" || got["bez rute"].Greska == "" || got["obican"].Lokalna.String() != "192.168.1.10" {
 		t.Errorf("izlazi: %+v", got)
 	}
 }

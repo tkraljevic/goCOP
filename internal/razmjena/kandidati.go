@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strings"
 
 	"gocop/internal/tailscale"
 )
@@ -67,7 +68,7 @@ var izlaznaAdresa izlazFunc = func(dst netip.AddrPort) (netip.Addr, error) {
 	if err != nil {
 		return netip.Addr{}, err
 	}
-	defer c.Close()
+	defer c.Close() //nolint:errcheck // povezana utičnica nije ništa poslala, pa zatvaranje nema što izgubiti
 	return c.LocalAddr().(*net.UDPAddr).AddrPort().Addr().Unmap(), nil
 }
 
@@ -123,12 +124,27 @@ func lokalniKandidati(port int, lanAdresa string, sva []sucelje, ts []netip.Addr
 }
 
 // suceljaZaLAN su sučelja koja vode u lokalnu mrežu i imaju broadcast:
-// isti skup na koji ide proba pronalaženja (ciljeviProbe). Bez broadcasta su
-// petlja i tuneli (WireGuard, WARP, Wintun).
+// isti skup na koji ide proba pronalaženja (ciljeviProbe), bez tunela. Bez
+// broadcasta su petlja i većina tunela (WireGuard, WARP, Wintun); tap0
+// (OpenVPN) broadcast ima, pa ga izbaci ime.
 func suceljaZaLAN(sva []sucelje) []sucelje {
 	return slices.DeleteFunc(lokalnaSucelja(sva), func(s sucelje) bool {
-		return s.zastavice&net.FlagBroadcast == 0 || s.zastavice&net.FlagLoopback != 0
+		return s.zastavice&net.FlagBroadcast == 0 || s.zastavice&net.FlagLoopback != 0 || jeTunel(s.ime)
 	})
+}
+
+// tuneli su početci imena sučelja koja su tunel, malim slovima: VPN i WARP
+// na macOS-u (utun), Tailscale, WireGuard, tun i tap (OpenVPN), WARP na
+// Linuxu i Windowsima i ZeroTier. VPN na Windowsima koji se predstavlja kao
+// Ethernet kartica („Ethernet 3”) po imenu se ne da prepoznati.
+var tuneli = []string{"utun", "tailscale", "wg", "tun", "tap", "cloudflarewarp", "zt"}
+
+// jeTunel javlja je li sučelje s tim imenom tunel. Bez broadcasta su i
+// mobilni modem (Windowsov „Cellular”, ppp0, wwan0), a to je običan put na
+// internet, pa se tunel ne prepoznaje po zastavicama.
+func jeTunel(ime string) bool {
+	ime = strings.ToLower(ime)
+	return slices.ContainsFunc(tuneli, func(p string) bool { return strings.HasPrefix(ime, p) })
 }
 
 // kandidatSa je kandidat s jedne adrese sučelja; prazan kandidat uz razlog
@@ -260,9 +276,10 @@ func adresaPosluzitelja(a net.Addr) (netip.AddrPort, bool) {
 }
 
 // razvrstajIzlaz kaže kroz što ide promet s lokalne adrese: vlastita
-// Tailscale adresa je izlazni čvor, a sučelje koje ne vodi u lokalnu mrežu
-// (tunel, izbačeno filtrom) VPN. Petlja je običan put: tako je kad je STUN na
-// ovom istom računalu, u testovima.
+// Tailscale adresa je izlazni čvor, a tunel po imenu sučelja (jeTunel) VPN.
+// Ostalo je običan put, i kad sučelje ne vodi u lokalnu mrežu: mobilni
+// modem, PPP, most s LAN-om (bridge0, vEthernet) i petlja (STUN na ovom
+// računalu, u testovima).
 func razvrstajIzlaz(ime string, lok netip.Addr, err error, sva []sucelje, ts []netip.Addr) IzlazSTUN {
 	if err != nil {
 		return IzlazSTUN{Ime: ime, Kroz: IzlazBezRute, Greska: err.Error()}
@@ -271,8 +288,7 @@ func razvrstajIzlaz(ime string, lok netip.Addr, err error, sva []sucelje, ts []n
 	switch {
 	case slices.Contains(ts, lok):
 		i.Kroz = IzlazTailscale
-	case lok.IsLoopback():
-	case i.Sucelje != "" && !slices.ContainsFunc(suceljaZaLAN(sva), func(s sucelje) bool { return s.ime == i.Sucelje }):
+	case jeTunel(i.Sucelje):
 		i.Kroz = IzlazVPN
 	}
 	return i
