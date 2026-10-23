@@ -198,6 +198,25 @@ razmjenu još 30 dana, uz upozorenje na pločici, a u tom roku računalo ne
 prima druga. Računalo s ključem mreže samo sebi obnavlja članstvo. Ovlast za
 primanje vrijedi dvije godine i obnavlja je računalo s ključem mreže, isto
 na zahtjev (Odluke (23. 10. 2026.)).
+
+Rokove koji ističu ili su istekli računalo koje prima javi i e-poštom, svim
+globalnim administratorima čija adresa smije primati PIN, računom za slanje
+PIN-a, ako je na njemu podešen. Šalje i računalo kojem je ovlast istekla.
+Svaki administrator u pravilu dobije svaku obavijest jednom, i kad je može
+poslati više računala: zapis o poslanoj ide razmjenom, prvo šalje računalo
+s ključem mreže (kad ih je više, jedno za drugim), a ostala čekaju po
+nekoliko sati, svako po svom redu, i šalju samo ono što do tada nije
+otišlo. Kad nijedan administrator
+nema takvu adresu, to piše u dnevniku programa. Računalo s ključem mreže u Postavkama, pod Mreža, sprema šifriranu
+kopiju ključa za hladni disk. Lozinka kopije ima najmanje 12 znakova i čuva
+se odvojeno od diska. Kad to računalo propadne, drugo računalo iste mreže
+učita kopiju i od tada ono prima i obnavlja članstva i ovlasti. Kopija se
+sprema i učitava samo s tog računala ili iz lokalne mreže, a spremanje
+traži i lozinku računa. Svaki takav događaj ide u knjigu, a administratori
+s adresom za PIN o njemu dobiju e-poštu, odmah s tog računala ili, kad ono
+nema račun za slanje, s drugog koje ga ima, sat ili više kasnije. Pločica
+računala s ključem upozorava dok kopija nije spremljena i dok ovlast za
+primanje nemaju barem dva računala.
 Opoziv članstva je potpisan i putuje razmjenom, pa na drugom računalu vrijedi
 kad ondje stigne. Pojedinosti i granice zaštite su u
 [SECURITY.md](../SECURITY.md).

@@ -1758,6 +1758,9 @@ func migrateSchema(database *sql.DB) error {
 		// mrežu: kopirana mapa podataka s drugim imenom ne kreće
 		// (peers.ProvjeriProtokolMreze). Do 0.0.39 sve su mreže bile „gocop”.
 		{"network", "protokol", "TEXT NOT NULL DEFAULT 'gocop'"},
+		// Kad je ovo računalo zadnji put spremilo šifriranu kopiju ključa
+		// mreže (G9b, peers/kljuc_kopija.go); NULL: nikad. Lokalno.
+		{"network", "kopija_kljuca", "DATETIME"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane

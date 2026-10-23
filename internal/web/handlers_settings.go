@@ -9,6 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
@@ -21,6 +23,9 @@ type SettingsHandler struct {
 	rec           *ledger.Recorder
 	tmpl          *template.Template
 	postavkeCvora izvorPostavki // gocop.toml: kartice Ovaj čvor i Mreža
+	// lozinkaRacuna provjerava trenutnu lozinku osobe prije spremanja kopije
+	// ključa mreže (AuthService.ProvjeriLozinku; G9b)
+	lozinkaRacuna func(uuid.UUID, string) error
 }
 
 func NewSettingsHandler(peersSvc *peers.Service, rec *ledger.Recorder, tmpl *template.Template) *SettingsHandler {
@@ -41,14 +46,17 @@ type SettingsPageData struct {
 	Network       *peers.Network
 	// RokClanstva i RokOvlasti su rokovi ovog računala (G9a); nil kad ih nema
 	RokClanstva, RokOvlasti *peers.Rok
-	Members                 []peers.Member
-	VersionCounts           map[string]int
-	TotalVersions           int
-	Uloge                   peers.Uloge
-	Postavke                *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
-	SuccessMessage          string
-	ErrorMessage            string
-	ActiveNav               string
+	// KopijaKljuca je kad je ovo računalo spremilo kopiju ključa mreže (G9b);
+	// nula kad nije nikad
+	KopijaKljuca   time.Time
+	Members        []peers.Member
+	VersionCounts  map[string]int
+	TotalVersions  int
+	Uloge          peers.Uloge
+	Postavke       *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
+	SuccessMessage string
+	ErrorMessage   string
+	ActiveNav      string
 	ViewAsBanner
 }
 
@@ -83,6 +91,7 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	data.Self, _ = h.peers.SelfPeer(ctx)
 	data.Network = h.peers.NetworkInfo()
 	data.RokClanstva, data.RokOvlasti = h.peers.VlastitiRokovi(ctx)
+	data.KopijaKljuca = mjesnoVrijeme(h.peers.KopijaKljucaKad(ctx))
 	if members, err := h.peers.ListMembers(ctx); err == nil {
 		data.Members = members
 	}

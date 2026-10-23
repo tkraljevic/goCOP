@@ -204,6 +204,34 @@ func (s *Service) obnoviSebe(ctx context.Context) (razmjena.Membership, error) {
 	return m, s.saveMembership(ctx, m)
 }
 
+// obnoviVlastituOvlast: računalo s ključem mreže koje ima i ovlast za
+// primanje (npr. učitalo je kopiju ključa) obnovi je samo, kad ističe ili
+// uvijek, da je druga računala ne vide kao isteklu
+func (s *Service) obnoviVlastituOvlast(ctx context.Context, uvijek bool) {
+	o := s.ovlastZaObnovu(ctx, s.node.ID, s.node.PublicKey())
+	if o == nil || (!uvijek && !rokZa(o.ExpiresAt, time.Now(), false).TraziPaznju()) {
+		return
+	}
+	if err := s.izdajVlastituOvlast(ctx); err != nil {
+		log.Printf("razmjena: vlastita ovlast za primanje nije obnovljena: %v", err)
+	}
+}
+
+// izdajVlastituOvlast: računalo s ključem mreže izda ovlast za primanje sebi
+func (s *Service) izdajVlastituOvlast(ctx context.Context) error {
+	s.mu.Lock()
+	network := s.network
+	s.mu.Unlock()
+	if network == nil {
+		return errors.New("ovo računalo nije ni u jednoj mreži")
+	}
+	o, err := network.Ovlasti(s.node.ID, s.node.key.Public().(ed25519.PublicKey), s.node.ID, OvlastValidity)
+	if err != nil {
+		return err
+	}
+	return s.saveOvlast(ctx, o)
+}
+
 // ObnoviClana je gumb Obnovi uz člana na računalu koje prima: novo članstvo
 // s istim imenom i ključem, ako članstvo još vrijedi ili je u pričuvi
 func (s *Service) ObnoviClana(ctx context.Context, nodeID string) (razmjena.Membership, error) {
@@ -294,6 +322,9 @@ func (s *Service) obnovaUzRazmjenu(ctx context.Context, o syncOutcome) {
 // a drugo zatraži obnovu, najviše jednom na dan
 func (s *Service) mozdaZatraziObnovu(ctx context.Context) {
 	n := s.NetworkInfo()
+	if n != nil && n.DrziKljuc {
+		s.obnoviVlastituOvlast(ctx, false)
+	}
 	if n == nil || !s.trebaObnova(ctx, n.DrziKljuc) || s.nedavnoZatrazeno(ctx, n) {
 		return
 	}

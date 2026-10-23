@@ -74,7 +74,7 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   | `gocop.toml.20261012-153000` | prethodne inačice `gocop.toml` koje program spremi prije svake izmjene; čuva zadnjih pet |
   | `gocop.toml.primjer` | opisi i primjeri svih postavki tekuće inačice; program ga piše pri svakom pokretanju i ne čita ga |
   | `node-key` | privatni ključ ovog računala (Ed25519), prava 0600 |
-  | `network-key` | ključ mreže, kod čvora koji ju je osnovao |
+  | `network-key` | ključ mreže, na čvoru koji drži ključ: osnivač ili čvor koji je učitao kopiju ključa |
 
   U `data/` je i `skenovi/` sa skenovima prijava s terena. Uz `data/`, u istoj
   radnoj mapi, zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
@@ -817,8 +817,9 @@ poruke čvor pamti u datoteci `obavijest-o-disku.txt` uz bazu.
 NAS koji sam premješta datoteke s jednog diska na drugi (npr. s brzog diska
 na polje diskova) ne smije premjestiti datoteke iz `/data` dok spremnik i
 dalje gleda staru putanju. Prije i nakon nadogradnje provjeriti da montirani
-`/data` sadrži postojeće `gocop.toml`, `node-key` i bazu; osnivač mreže čuva
-i `network-key`. Spremnik bez ključa uz postojeću bazu ne kreće, a u
+`/data` sadrži postojeće `gocop.toml`, `node-key` i bazu; čvor koji drži
+ključ mreže (osnivač ili čvor koji je učitao kopiju ključa) čuva i
+`network-key`. Spremnik bez ključa uz postojeću bazu ne kreće, a u
 dnevniku spremnika piše koja datoteka nedostaje (npr. `/data/node-key`). Bez
 `gocop.toml`, a s ključem, kreće, ali ime uzima iz baze, ne zapisuje novi
 primjer i u dnevniku javlja da datoteke nema. U oba slučaja zaustaviti

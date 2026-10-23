@@ -188,6 +188,7 @@ func (PravaPosta) Imenik(ctx context.Context, p posta.Postavke, r posta.Racun, u
 type korisniciDrugogKoraka interface {
 	GetUserByID(id uuid.UUID) (*models.User, error)
 	ListAreas(sectorID string) ([]models.Area, error) // doseg za privremeni kod (smijePonistiti)
+	GlobalniAdministratori() ([]models.User, error)   // primatelji obavijesti (JaviAdministratorima)
 }
 
 type postavkeDrugogKoraka interface {
@@ -588,22 +589,29 @@ func (d *DrugiKorak) krivUnos(userID uuid.UUID, sad time.Time) {
 	}
 }
 
-// smijeSlati provjeri i zabilježi slanje: po osobi i ukupno s čvora
-func (d *DrugiKorak) smijeSlati(kljucOsobe string, sad time.Time) error {
+// Brojila slanja: PIN i obavijesti administratorima broje se odvojeno, pa
+// obavijest ne troši PIN-ove i ne zatvara prijavu izvana
+const (
+	brojiloPIN        = "pinmail"
+	brojiloObavijesti = "obavijest"
+)
+
+// smijeSlati provjeri i zabilježi slanje u brojilu: po osobi i ukupno s čvora
+func (d *DrugiKorak) smijeSlati(brojilo, kljucOsobe string, sad time.Time) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if sad.Before(d.stankaDo) {
 		return ErrSlanjeZastalo
 	}
-	if d.broj("pinmail:*", sad, time.Hour) >= slanjaNaSat {
+	if d.broj(brojilo+":*", sad, time.Hour) >= slanjaNaSat {
 		return ErrSlanjeOgraniceno
 	}
-	if kljucOsobe != "" && d.broj("pinmail:"+kljucOsobe, sad, prozorSlanja) >= slanjaPoOsobi {
+	if kljucOsobe != "" && d.broj(brojilo+":"+kljucOsobe, sad, prozorSlanja) >= slanjaPoOsobi {
 		return ErrSlanjeOgraniceno
 	}
-	d.dogadaji["pinmail:*"] = append(d.dogadaji["pinmail:*"], sad)
+	d.dogadaji[brojilo+":*"] = append(d.dogadaji[brojilo+":*"], sad)
 	if kljucOsobe != "" {
-		d.dogadaji["pinmail:"+kljucOsobe] = append(d.dogadaji["pinmail:"+kljucOsobe], sad)
+		d.dogadaji[brojilo+":"+kljucOsobe] = append(d.dogadaji[brojilo+":"+kljucOsobe], sad)
 	}
 	return nil
 }
@@ -818,7 +826,8 @@ func (d *DrugiKorak) zauzmiSlanje(ctx context.Context) error {
 // zahtjevu koji ga je pokrenuo: preglednik koji odustane ne prekida
 // poruku i ne zaustavlja slanje drugima. provjera (probni PIN) šalje novom,
 // još neprijavljenom vezom, da proba stvarno provjeri lozinku.
-func (d *DrugiKorak) posalji(ctx context.Context, kljucOsobe string, m posta.Poruka, provjera bool) error {
+// Slanja se broje u brojilu (brojiloPIN, brojiloObavijesti).
+func (d *DrugiKorak) posalji(ctx context.Context, brojilo, kljucOsobe string, m posta.Poruka, provjera bool) error {
 	if err := d.zauzmiSlanje(ctx); err != nil {
 		return err
 	}
@@ -840,7 +849,7 @@ func (d *DrugiKorak) posalji(ctx context.Context, kljucOsobe string, m posta.Por
 		return fmt.Errorf("%w: poslužitelj e-pošte nije podešen", ErrNemaPosiljatelja)
 	}
 	p.SvjezaVeza = provjera
-	if err := d.smijeSlati(kljucOsobe, d.sad()); err != nil {
+	if err := d.smijeSlati(brojilo, kljucOsobe, d.sad()); err != nil {
 		return err
 	}
 	lozinka, err := posta.Otkljucaj(d.kljucRacuna, r.Lozinka)
@@ -988,7 +997,7 @@ func (d *DrugiKorak) PosaljiProbniPIN(ctx context.Context, actor *models.UserPer
 	m := porukaPIN(adresa, pin, "", d.sad())
 	m.Predmet = "goCOP: probni kod za prijavu"
 	m.Tekst = "Ovo je probna poruka: račun za slanje PIN-a na ovom čvoru radi.\n\n" + m.Tekst
-	if err := d.posalji(ctx, u.ID.String(), m, true); err != nil {
+	if err := d.posalji(ctx, brojiloPIN, u.ID.String(), m, true); err != nil {
 		return "", err
 	}
 	d.mu.Lock()
@@ -1021,9 +1030,41 @@ func (d *DrugiKorak) JaviPromjenuAdrese(ctx context.Context, u *models.User, sta
 		Tekst: "Adresa e-pošte vašeg računa " + u.Username + " u goCOP-u promijenjena je " + kadTekst(kad) + " u: " + novaTekst + ".\n" +
 			"Na nju ubuduće stiže kod za prijavu izvana.\n\n" +
 			"Ako to niste bili vi, odmah javite administratoru.\n"}
-	if err := d.posalji(ctx, u.ID.String(), m, false); err != nil {
+	if err := d.posalji(ctx, brojiloPIN, u.ID.String(), m, false); err != nil {
 		log.Printf("prijava izvana: obavijest o promjeni adrese za %s nije poslana: %v", u.Username, err)
 	}
+}
+
+// PrimateljObavijesti je globalni administrator kojem smije ići obavijest:
+// oznaka računa, ime i adresa na koju smije ići i PIN
+type PrimateljObavijesti struct {
+	ID, Ime, Adresa string
+}
+
+// PrimateljiObavijesti su aktivni globalni administratori čija adresa smije
+// primati PIN (rok članstva u mreži, Odluke (23. 10. 2026.)); oni bez
+// takve adrese se preskaču
+func (d *DrugiKorak) PrimateljiObavijesti(ctx context.Context) ([]PrimateljObavijesti, error) {
+	admini, err := d.korisnici.GlobalniAdministratori()
+	if err != nil {
+		return nil, err
+	}
+	var out []PrimateljObavijesti
+	for i := range admini {
+		if adresa, err := d.adresaZaPIN(ctx, &admini[i]); err == nil {
+			out = append(out, PrimateljObavijesti{ID: admini[i].ID.String(), Ime: admini[i].FullName, Adresa: adresa})
+		}
+	}
+	return out, nil
+}
+
+// PosaljiObavijest šalje obavijest jednom primatelju računom za slanje
+// PIN-a, uz ista ograničenja kao PIN, ali u svom brojilu
+func (d *DrugiKorak) PosaljiObavijest(ctx context.Context, p PrimateljObavijesti, predmet, tekst string) error {
+	if err := d.spreman(); err != nil {
+		return err
+	}
+	return d.posalji(ctx, brojiloObavijesti, p.ID, posta.Poruka{Za: mail.Address{Name: p.Ime, Address: p.Adresa}, Predmet: predmet, Tekst: tekst, Kad: d.sad()}, false)
 }
 
 // ---- prijava na čekanju ----
@@ -1089,7 +1130,7 @@ func (d *DrugiKorak) posaljiPIN(ctx context.Context, u *models.User, id []byte, 
 	if err != nil {
 		return nil, "", err
 	}
-	if err := d.posalji(ctx, u.ID.String(), porukaPIN(adresa, pin, ip, d.sad()), false); err != nil {
+	if err := d.posalji(ctx, brojiloPIN, u.ID.String(), porukaPIN(adresa, pin, ip, d.sad()), false); err != nil {
 		return nil, "", err
 	}
 	return d.sazetakPINa(id, pin), adresa, nil

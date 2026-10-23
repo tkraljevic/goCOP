@@ -383,22 +383,26 @@ type pokusajPostavki struct {
 
 type kljucPokusaja struct{}
 
-// zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora
-// ni ponovno pokrenuti čvor, za svako od toga svojim riječima
-type zabranaCvora struct{ postavke, ponovno string }
+// zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora,
+// ponovno pokrenuti čvor ni spremiti ili učitati kopiju ključa mreže, za
+// svako od toga svojim riječima
+type zabranaCvora struct{ postavke, ponovno, kljuc string }
 
 var (
 	zabranaNijeAdmin = &zabranaCvora{
 		postavke: "Postavke čvora mijenja samo administrator.",
 		ponovno:  "Čvor ponovno pokreće samo administrator.",
+		kljuc:    "Kopiju ključa mreže sprema i učitava samo administrator.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
 		postavke: "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		ponovno:  "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		kljuc:    "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke: "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 		ponovno:  "Čvor se ponovno pokreće samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		kljuc:    "Kopija ključa mreže sprema se i učitava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 

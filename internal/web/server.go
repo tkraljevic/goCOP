@@ -885,6 +885,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /dnevnici/{id}/obracun", s.authMiddleware(http.HandlerFunc(journalsH.ShowObracun)))
 	s.mux.Handle("POST /dnevnici/{id}/upisi/{entry}/stanje", s.authMiddleware(http.HandlerFunc(journalsH.HandleTaskStatus)))
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
+	settingsH.SetZastitaKljuca(s.authService.ProvjeriLozinku)
 	sseH := NewSSEHandler(s.sseBroker)
 
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
@@ -1487,6 +1488,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/network/members/{node}/ovlast/opozovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleOpozoviOvlast)))
 	s.mux.Handle("POST /api/network/obnovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleObnoviClanstvo)))
 	s.mux.Handle("POST /api/network/members/{node}/obnovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleObnoviClana)))
+	s.mux.Handle("POST /api/network/kljuc/kopija", s.authMiddleware(http.HandlerFunc(settingsH.HandleKopijaKljuca)))
+	s.mux.Handle("POST /api/network/kljuc/ucitaj", s.authMiddleware(http.HandlerFunc(settingsH.HandleUcitajKopijuKljuca)))
 	s.mux.Handle("POST /api/network/zahtjev/procitaj", s.authMiddleware(http.HandlerFunc(settingsH.HandleProcitajZahtjev)))
 	s.mux.Handle("POST /api/network/zahtjev/primi", s.authMiddleware(http.HandlerFunc(settingsH.HandlePrimiZahtjev)))
 

@@ -530,7 +530,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// članstva i paketima prognoze polja se ne prenose iz starih verzija
 	// (potpis pokriva samo ono što je potpisano, paket je neproziran).
 	ledger.PoznatiEntiteti(append(repository.PoznatiEntiteti(),
-		peers.EntityPeers, peers.EntityMemberships, peers.EntityZahtjeviObnove,
+		peers.EntityPeers, peers.EntityMemberships, peers.EntityZahtjeviObnove, peers.EntityObavijestiRoka, peers.EntityDogadjajiKljuca,
 		prognoza.EntitetIzdanja, prognoza.EntitetModela, EntitetArhive)...)
 	ledger.BezPrijenosaPolja(peers.EntityMemberships, peers.EntityZahtjeviObnove, prognoza.EntitetIzdanja, prognoza.EntitetModela)
 	recorder.NaNovost(func(n ledger.Novost) {
@@ -724,6 +724,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetAkti(aktService)
 	drugiKorak.SetPosta(aktService.Posta)
 	server.SetDrugiKorak(drugiKorak)
+	// rok članstva u mreži i kopija ključa mreže: e-pošta administratorima
+	// (G9b); zaustavlja se prije zatvaranja baze
+	defer pokreniObavijesti(ctx, peersService, drugiKorak)()
 	vodocuvarService := service.NewVodocuvarService(repository.NewVodocuvarRepository(database, recorder), userService, node.ID)
 	vodocuvarService.SetOrg(orgRepo)
 	// rukovoditelj dionice zadaje zadatke vodočuvaru samo dok traje obrana

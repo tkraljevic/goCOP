@@ -223,6 +223,9 @@ type Service struct {
 	// (obnova.go)
 	obnovaTece     sync.Mutex
 	javljenaObnova sync.Map
+	// novaObavijest potakne slanje obavijesti kad nastane događaj s ključem
+	// mreže (kljuc_dogadjaj.go: KadNovaObavijest)
+	novaObavijest func()
 	// objavi je glasnik pronalaženja (Announce); nil je razmjena.Announce.
 	// Test njime glumi glasnika koji padne.
 	objavi func(ctx context.Context) error
