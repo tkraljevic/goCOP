@@ -239,6 +239,36 @@ type Ograda struct {
 	rukovanja chan struct{}
 	razmjene  chan struct{}
 	rok       time.Duration
+	odbijeno  func(RazlogVrata, ed25519.PublicKey)
+}
+
+// RazlogVrata je zašto vrata razmjene nisu pustila vezu (G7 u planu WEB
+// synca); broji ga onaj tko je dao ogradu (Ograda.KadOdbije)
+type RazlogVrata string
+
+const (
+	// VrataRukovanje: rukovanje (TLS, ili tok QUIC-a) nije uspjelo u roku
+	VrataRukovanje RazlogVrata = "rukovanje"
+	// VrataNijeCvor: druga strana nije pokazala certifikat goCOP čvora
+	VrataNijeCvor RazlogVrata = "nije-cvor"
+	// VrataDrugiProtokol: čvor radi pod drugim imenom protokola (prava mreža
+	// i testna simulacija)
+	VrataDrugiProtokol RazlogVrata = "drugi-protokol"
+	// VrataNijeClan: čvor nije član mreže ili je opozvan
+	VrataNijeClan RazlogVrata = "nije-clan"
+	// VrataZauzeto: sva mjesta za razmjene su zauzeta (KodZauzet)
+	VrataZauzeto RazlogVrata = "zauzeto"
+)
+
+// KadOdbije postavlja što vrata s ovom ogradom rade kad ne puste vezu:
+// dobiju razlog i ključ druge strane, kad se zna. Postavlja se prije nego
+// što vrata krenu, a f se zove iz gorutina vrata.
+func (o *Ograda) KadOdbije(f func(RazlogVrata, ed25519.PublicKey)) { o.odbijeno = f }
+
+func (o *Ograda) odbij(r RazlogVrata, kljuc ed25519.PublicKey) {
+	if o.odbijeno != nil {
+		o.odbijeno(r, kljuc)
+	}
 }
 
 // NovaOgrada daje ogradu sa zadanim granicama čvora
@@ -322,6 +352,7 @@ func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
 	tc := nc.(*tls.Conn)
 	_ = tc.SetDeadline(time.Now().Add(v.o.rok)) // ne da se postaviti samo na zatvorenoj vezi, a na njoj rukovanje ionako padne
 	if err := tc.HandshakeContext(ctx); err != nil {
+		v.o.odbij(VrataRukovanje, nil)
 		tc.Close()
 		return
 	}
@@ -336,11 +367,13 @@ func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
 func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje func()) {
 	key, vj, err := dokazaniKljuc(certs, v.protokol)
 	if err != nil {
+		v.o.odbij(razlogKljuca(err), nil)
 		_ = p.Close() // veza s nečim što nije čvor s istim imenom protokola samo se prekida; greška zatvaranja nema što reći
 		return
 	}
 	conn := newConnKljuc(p, key, vj)
 	if !v.trusted(conn.PeerKey, conn.Vjerodajnice) {
+		v.o.odbij(VrataNijeClan, conn.PeerKey)
 		conn.Close()
 		return
 	}
@@ -348,11 +381,20 @@ func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje 
 	select {
 	case v.o.razmjene <- struct{}{}:
 	default:
+		v.o.odbij(VrataZauzeto, conn.PeerKey)
 		odbijZauzet(conn)
 		return
 	}
 	defer func() { <-v.o.razmjene }()
 	v.handle(conn)
+}
+
+// razlogKljuca je razlog vrata za ključ koji se ne da dokazati
+func razlogKljuca(err error) RazlogVrata {
+	if errors.As(err, new(drugiProtokol)) {
+		return VrataDrugiProtokol
+	}
+	return VrataNijeCvor
 }
 
 // odbijZauzet javlja poznatom čvoru da je ovaj zauzet

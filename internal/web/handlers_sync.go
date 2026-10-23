@@ -29,6 +29,10 @@ type SyncPageData struct {
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
+	// Odbijeno je zapis odbijenih i djelomično razumljenih poruka (G7),
+	// samo za administratora
+	Odbijeno       []RedakOdbijenog
+	OdbijenoGreska string
 	ViewAsBanner
 }
 
@@ -46,6 +50,7 @@ func (h *SyncHandler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 		data.ErrorMessage = err.Error()
 	}
 	data.Status = st
+	h.dodajOdbijeno(r.Context(), perms, &data)
 	if err := h.tmpl.ExecuteTemplate(w, "sinkronizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

@@ -443,6 +443,8 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	// predugo traži (rupe u nizu, internal/peers/rupe.go)
 	out.Upozorenja = append(out.Upozorenja, upozorenjeOgrade(repository.MjeseciPovijestiOcitanja(), st.Peers)...)
 	out.Upozorenja = append(out.Upozorenja, p.NedostajeDulje(ctx)...)
+	// računala koja zovu ovo, a ovdje nisu članovi (zapis odbijenog, G7)
+	out.Upozorenja = append(out.Upozorenja, p.KvaroviRazmjene(ctx)...)
 	// zapisi koje je poslao noviji program, ovdje i na drugim računalima:
 	// čuvaju se i prosljeđuju, a primijene nakon nadogradnje
 	out.Upozorenja = append(out.Upozorenja, upozorenjaNadogradnje(ctx, rec, st.Peers, time.Now())...)

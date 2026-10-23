@@ -241,11 +241,17 @@ func dokazaniKljuc(certs []*x509.Certificate, protocol string) (ed25519.PublicKe
 		return nil, nil, fmt.Errorf("the peer's certificate carries a %T, not an Ed25519 key", certs[0].PublicKey)
 	}
 	if cn := certs[0].Subject.CommonName; cn != cnRazmjene(protocol) {
-		return nil, nil, fmt.Errorf("Razmjena odbijena: drugo računalo radi pod imenom protokola „%s”, a ovo pod „%s”. Prava mreža i testna simulacija ne razmjenjuju podatke.",
-			imeZaPoruku(strings.TrimSuffix(cn, nastavakCN)), protocol)
+		return nil, nil, drugiProtokol(fmt.Sprintf("Razmjena odbijena: drugo računalo radi pod imenom protokola „%s”, a ovo pod „%s”. Prava mreža i testna simulacija ne razmjenjuju podatke.",
+			imeZaPoruku(strings.TrimSuffix(cn, nastavakCN)), protocol))
 	}
 	return pub, peerVjerodajnice([][]byte{certs[0].Raw}), nil
 }
+
+// drugiProtokol je greška ključa čvora pod drugim imenom protokola; vrata je
+// broje zasebno (VrataDrugiProtokol)
+type drugiProtokol string
+
+func (e drugiProtokol) Error() string { return string(e) }
 
 // najduzeImeUPoruci je koliko znakova imena iz tuđeg certifikata ide u poruku
 const najduzeImeUPoruci = 64

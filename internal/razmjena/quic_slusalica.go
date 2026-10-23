@@ -106,6 +106,7 @@ func (v *vrata) primiQUIC(ctx context.Context, veza *quic.Conn) {
 	tok, err := veza.AcceptStream(ctxToka)
 	otkazi()
 	if err != nil {
+		v.o.odbij(VrataRukovanje, nil)
 		_ = veza.CloseWithError(0, "") // tko ne otvori tok u roku, gubi vezu
 		return
 	}
