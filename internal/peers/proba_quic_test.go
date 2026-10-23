@@ -59,8 +59,9 @@ func uSvomProcesu(t *testing.T) {
 }
 
 // mrezaRazgovora podigne vrata pozvanog (primi) i nazove ga s pozivatelja, na
-// jednoj mreži u memoriji, dok ctx traje
-type mrezaRazgovora func(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (*razmjena.Conn, error)
+// jednoj mreži u memoriji, dok ctx traje; slusalica se zatvori kad vrata
+// stanu
+type mrezaRazgovora func(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (c *razmjena.Conn, slusalica <-chan struct{}, err error)
 
 // vrataZa puštaju samo ključ pozivatelja, pa razgovor ne ovisi o tome kako se
 // provjerava članstvo
@@ -69,25 +70,28 @@ func vrataZa(pozivatelj *Service) razmjena.KeyChecker {
 }
 
 // tcpUMemoriji: port razmjene na mreži iz mrezatest
-func tcpUMemoriji(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (*razmjena.Conn, error) {
+func tcpUMemoriji(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (*razmjena.Conn, <-chan struct{}, error) {
 	m := mrezatest.NovaMreza()
 	const adresa = "10.0.0.2:4710"
 	ln, err := m.Slusaj(adresa)
 	if err != nil {
 		t.Fatal(err)
 	}
+	slusalica := make(chan struct{})
 	go func() {
+		defer close(slusalica)
 		_ = razmjena.ServeExchangeOn(ctx, pozvani.node.key, Protocol, pozvani.vjerodajnice, ln, vrataZa(pozivatelj), primi) // staje s ctx; vrata koja se ne otvore test vidi kao grešku poziva
 	}()
 	raw, err := m.DialContextOd("10.0.0.1")(ctx, "tcp", adresa)
 	if err != nil {
-		return nil, err
+		return nil, slusalica, err
 	}
-	return razmjena.DialExchangeOn(ctx, raw, pozivatelj.node.key, Protocol, pozivatelj.vjerodajnice, adresa, pozvani.javni())
+	c, err := razmjena.DialExchangeOn(ctx, raw, pozivatelj.node.key, Protocol, pozivatelj.vjerodajnice, adresa, pozvani.javni())
+	return c, slusalica, err
 }
 
 // quicNaSimnetu: QUIC na simnetu, 5 ms u svakom smjeru
-func quicNaSimnetu(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (*razmjena.Conn, error) {
+func quicNaSimnetu(t *testing.T, ctx context.Context, pozivatelj, pozvani *Service, primi func(*razmjena.Conn)) (*razmjena.Conn, <-chan struct{}, error) {
 	n := &simnet.Simnet{Router: &simnet.PerfectRouter{}}
 	veza := simnet.NodeBiDiLinkSettings{Latency: 5 * time.Millisecond}
 	adresaA := &net.UDPAddr{IP: net.ParseIP("10.0.0.1"), Port: 4713}
@@ -102,26 +106,32 @@ func quicNaSimnetu(t *testing.T, ctx context.Context, pozivatelj, pozvani *Servi
 		trB.Close()
 		n.Close()
 	})
+	slusalica := make(chan struct{})
 	go func() {
+		defer close(slusalica)
 		_ = razmjena.ServeExchangeQUIC(ctx, trB, pozvani.node.key, Protocol, pozvani.vjerodajnice, vrataZa(pozivatelj), primi) // kao uz TCP
 	}()
-	return razmjena.DialExchangeQUIC(ctx, trA, adresaB, pozivatelj.node.key, Protocol, pozivatelj.vjerodajnice, pozvani.javni())
+	c, err := razmjena.DialExchangeQUIC(ctx, trA, adresaB, pozivatelj.node.key, Protocol, pozivatelj.vjerodajnice, pozvani.javni())
+	return c, slusalica, err
 }
 
 // razgovarajNaMrezi: pozivatelj nazove pozvanoga na mreži iz mreza i vrati
-// ishod obiju strana; greška spajanja ruši test
+// ishod obiju strana; greška spajanja ruši test. Pozvani zatvori vezu prije
+// nego što javi ishod, a test čeka i da vrata stanu: TLS pri zatvaranju čita
+// slučajnost, koju cryptotest na kraju testa vraća, pa ništa od veze ne smije
+// raditi iza kraja razgovora.
 func razgovarajNaMrezi(t *testing.T, mreza mrezaRazgovora, pozivatelj, pozvani *Service) (p, z ishodRazgovora) {
 	t.Helper()
 	ctx, otkazi := context.WithTimeout(t.Context(), 60*time.Second)
 	defer otkazi()
 	ishod := make(chan ishodRazgovora, 1)
 	primi := func(c *razmjena.Conn) {
-		defer c.Close()
 		var o ishodRazgovora
 		o.applied, o.sent, o.theirs, o.err = pozvani.exchange(ctx, c, false)
+		c.Close()
 		ishod <- o
 	}
-	conn, err := mreza(t, ctx, pozivatelj, pozvani, primi)
+	conn, slusalica, err := mreza(t, ctx, pozivatelj, pozvani, primi)
 	if err != nil {
 		t.Fatalf("spajanje %s → %s: %v", pozivatelj.node.ID, pozvani.node.ID, err)
 	}
@@ -132,6 +142,8 @@ func razgovarajNaMrezi(t *testing.T, mreza mrezaRazgovora, pozivatelj, pozvani *
 	case <-ctx.Done():
 		t.Fatal("pozvani nije završio razgovor")
 	}
+	otkazi()
+	<-slusalica
 	return p, z
 }
 
