@@ -60,8 +60,9 @@ func provjeriLanAdresu(s string) string {
 	if s == "" {
 		return ""
 	}
-	if a, err := netip.ParseAddr(s); err != nil || !a.IsPrivate() {
-		return "Upišite adresu u lokalnoj mreži, npr. 192.168.1.20, ili ostavite prazno."
+	// samo IPv4 iz privatnih mreža: WEB sync nudi samo IPv4 (razmjena.lanKandidat)
+	if a, err := netip.ParseAddr(s); err != nil || !a.Is4() || !a.IsPrivate() {
+		return "Upišite IPv4 adresu u lokalnoj mreži, npr. 192.168.1.20, ili ostavite prazno."
 	}
 	return ""
 }
