@@ -261,10 +261,15 @@ func TestPovezivostBezUticnice(t *testing.T) {
 	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, w, d.javi)
 	close(w.slusa)
 	d.cekaj(t, "UDP utičnica se ne da otvoriti, pa WEB sync ne radi: nema mreže")
-	stani()
-	if _, ima := oznakaPadova(t, dir); ima {
-		t.Error("oznaka ostala nakon urednog gašenja")
+	for rok := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
+		if _, ima := oznakaPadova(t, dir); !ima {
+			break // prekid ovog pokretanja više se ne broji kao pad WEB synca
+		}
+		if time.Now().After(rok) {
+			t.Fatal("oznaka ostala dok čvor radi bez utičnice")
+		}
 	}
+	stani()
 
 	if err := os.MkdirAll(filepath.Join(dir, peers.DatotekaPadaPovezivosti, "a"), 0o700); err != nil {
 		t.Fatal(err)

@@ -115,6 +115,7 @@ func (p *povezivost) radi(ctx context.Context, slusa <-chan struct{}) {
 	}
 	p.upisano = true
 	if p.udp = p.otvori(); p.udp == nil {
+		p.zatvori() // bez utičnice nema ni quic-go-a: prekid ovog pokretanja nije pad WEB synca
 		return
 	}
 	p.provjeri(ctx)
@@ -165,6 +166,7 @@ func (p *povezivost) zatvori() {
 	if !p.upisano {
 		return
 	}
+	p.upisano = false
 	if err := p.pad.Obrisi(); err != nil {
 		p.javi("povezivost: oznaka padova uz bazu ne da se obrisati, pa iduće pokretanje broji pad: %v", err)
 	}

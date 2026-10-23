@@ -723,10 +723,11 @@ nova postavka dobije objašnjenje kao u primjeru. Staru datoteku spremi kao
 promijenio. Naziv čvora, adresu web sučelja i portove, putanje, pouzdane
 posrednike i `bootstrap` program pokazuje, ali ih mijenja samo datoteka:
 krivim portom ili putanjom čvor bi se zaključao izvan dosega, a posrednici
-određuju što je zahtjev izvana. Isto vrijedi za UDP port WEB synca, STUN
-poslužitelje i adresu u lokalnoj mreži (`[povezivost] udp_port`, `stun`,
-`lan_adresa`): tuđi STUN poslužitelj saznao bi javnu adresu računala i mogao
-vratiti lažnu, a krivi port odsiječe računalo. Ime čvora u mreži (`[node] id`) poslije
+određuju što je zahtjev izvana. Isto vrijedi za UDP port WEB synca i STUN
+poslužitelje (`[povezivost] udp_port`, `stun`): tuđi STUN poslužitelj saznao
+bi javnu adresu računala i mogao vratiti lažnu, a krivi port odsiječe
+računalo. Samo u datoteci mijenja se i adresa u lokalnoj mreži za spremnik
+(`lan_adresa`), koja se zasad još ne koristi. Ime čvora u mreži (`[node] id`) poslije
 prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 

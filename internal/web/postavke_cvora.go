@@ -69,6 +69,7 @@ const (
 	// WEB sync (F1a): tuđi STUN poslužitelj saznao bi javne adrese računala i
 	// mogao vratiti lažne, a krivi UDP port odsiječe računalo
 	razlogPovezivosti = "Mijenja se samo u datoteci gocop.toml: tuđi STUN poslužitelj saznao bi javnu adresu ovog računala i mogao vratiti lažnu, a krivi UDP port odsiječe računalo."
+	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se još ne koristi."
 )
 
 // redakRasporeda: puni ključ i njegovo mjesto
@@ -103,7 +104,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"web.tailscale_lokalno", mjestoPostavke{"mreza", postavkaSamoCitanje, "Tailscale kao lokalna mreža", razlogPosrednika}},
 	{"povezivost.udp_port", mjestoPostavke{"mreza", postavkaSamoCitanje, "UDP port WEB synca", razlogPovezivosti}},
 	{"povezivost.stun", mjestoPostavke{"mreza", postavkaSamoCitanje, "STUN poslužitelji", razlogPovezivosti}},
-	{"povezivost.lan_adresa", mjestoPostavke{"mreza", postavkaSamoCitanje, "Adresa u lokalnoj mreži", razlogPovezivosti}},
+	{"povezivost.lan_adresa", mjestoPostavke{"mreza", postavkaSamoCitanje, "Adresa u lokalnoj mreži", razlogLanAdrese}},
 
 	{"sync.sve", mjestoPostavke{"pretplate", postavkaUrediva, "Prati sve", ""}},
 	{"vodostaji.povijest_mjeseci", mjestoPostavke{"pretplate", postavkaUrediva, "Povijest tuđih očitanja (mjeseci)", ""}},

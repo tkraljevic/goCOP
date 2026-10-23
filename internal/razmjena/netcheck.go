@@ -169,7 +169,7 @@ func zakljuci(lokalniPort int, odgovori []OdgovorPosluzitelja) MjerenjeMreze {
 		m.Vrsta = NATOvisan
 	}
 	if len(javne) > 0 {
-		m.Javna, m.CuvaPort = javne[0], int(javne[0].Port()) == lokalniPort
+		m.Javna, m.CuvaPort = javne[0], cuvaPort(lokalniPort, javne)
 	}
 	return m
 }
@@ -185,6 +185,18 @@ func javneAdrese(odgovori []OdgovorPosluzitelja) (javne []netip.AddrPort, razrij
 		}
 	}
 	return javne, razrijesenih
+}
+
+// cuvaPort: NAT je lokalni port sačuvao prema svakom poslužitelju koji je
+// odgovorio. Uz NAT ovisan o odredištu port obično ostane samo prvom toku,
+// a upiti idu usporedno, pa jedan odgovor ne govori ništa.
+func cuvaPort(lokalniPort int, javne []netip.AddrPort) bool {
+	for _, j := range javne {
+		if int(j.Port()) != lokalniPort {
+			return false
+		}
+	}
+	return true
 }
 
 func sveIste(a []netip.AddrPort) bool {

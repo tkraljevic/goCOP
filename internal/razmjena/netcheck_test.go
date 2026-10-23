@@ -115,6 +115,10 @@ func TestProvjeraMreze(t *testing.T) {
 		{"lak NAT koji čuva port", uvijek("198.51.100.7:4713"), uvijek("198.51.100.7:4713"), posluzitelji, NATLak, true, 10 * time.Millisecond},
 		{"lak NAT koji mijenja port", uvijek("198.51.100.7:61000"), uvijek("198.51.100.7:61000"), posluzitelji, NATLak, false, 10 * time.Millisecond},
 		{"NAT ovisan o odredištu", uvijek("198.51.100.7:61000"), uvijek("198.51.100.7:61001"), posluzitelji, NATOvisan, false, 10 * time.Millisecond},
+		// port sačuvan samo prema jednom poslužitelju ne znači da NAT čuva
+		// port, ma koji od njih bio prvi na popisu
+		{"ovisan, port sačuvan prema prvom", uvijek("198.51.100.7:4713"), uvijek("198.51.100.7:4714"), posluzitelji, NATOvisan, false, 10 * time.Millisecond},
+		{"ovisan, port sačuvan prema drugom", uvijek("198.51.100.7:4714"), uvijek("198.51.100.7:4713"), posluzitelji, NATOvisan, false, 10 * time.Millisecond},
 		{"odgovorio samo jedan", uvijek("198.51.100.7:4713"), nil, posluzitelji, NATNepoznat, true, rokSTUN},
 		{"nijedan nije odgovorio", nil, nil, posluzitelji, UDPBlokiran, false, rokSTUN},
 		{"adrese se nisu dale razriješiti", nil, nil, []PosluziteljSTUN{{Ime: "Google"}, {Ime: "Cloudflare"}}, NATNepoznat, false, 0},

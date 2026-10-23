@@ -337,14 +337,15 @@ Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
 datotekom; jedinica zadaje samo `-db`.
 
 Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
-i centar sa stranice prijave te razmak sinkronizacije (*Čvor, mreža i
-sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
+i centar sa stranice prijave, razmak sinkronizacije te prijava za WEB sync i
+sam WEB sync (*Čvor, mreža i sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
 karta (*Opcije*); do svih se dolazi iz Administracije (opis u
 [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
 `/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
 komentare. Naziv čvora, port weba i portove razmjene (i `[povezivost]
-udp_port`), STUN poslužitelje, putanje i posrednike mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* ugasi
+udp_port`), STUN poslužitelje, adresu u lokalnoj mreži za WEB sync, putanje
+i posrednike mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* ugasi
 čvor, a systemd ga za pet sekundi pokrene, isto kao
 `sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi
 ga ugašenog.
@@ -453,7 +454,8 @@ sudo ufw delete allow from 192.168.1.0/24 to any port 4711 proto tcp
 
 WEB sync na 4713/UDP ide posebnim pravilom, ne pod lokalnu mrežu, jer druga
 računala dolaze s interneta: `sudo ufw allow 4713/udp`, a s firewalld
-`sudo firewall-cmd --permanent --add-port=4713/udp`. Za samu provjeru mreže
+`sudo firewall-cmd --permanent --add-port=4713/udp` pa
+`sudo firewall-cmd --reload`. Za samu provjeru mreže
 pravilo ne treba, jer odgovori na odlazne upite prolaze sami.
 
 Primjer s **firewalld**:
