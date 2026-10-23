@@ -73,7 +73,10 @@ putem koji radi.
 
 Zasad postoji prvi korak: uz `[povezivost] web_sync_prijava = true` računalo
 otvori UDP port 4713 i provjeri mrežu preko dva STUN poslužitelja, a ishod
-upiše u dnevnik. Podaci tim putem još ne idu. Ako se program dvaput zaredom
+upiše u dnevnik. Administrator to može i gumbom *Provjeri vezu*, a pojedinosti
+(vlastita javna adresa, adrese koje bi WEB sync nudio, kuda ide promet prema
+STUN-u) vidi u bloku Dohvatljivost na stranici Sinkronizacija. Podaci tim
+putem još ne idu. Ako se program dvaput zaredom
 prekine dok WEB sync radi, kreće bez njega dok ga administrator ponovno ne
 uključi (Odluke (23. 10. 2026.)).
 

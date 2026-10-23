@@ -29,10 +29,11 @@ import (
 )
 
 // posluziteljPovezivosti je web poslužitelj: kad sluša i komu javiti
-// stanje WEB synca (web.Server)
+// stanje WEB synca i provjeru veze (web.Server)
 type posluziteljPovezivosti interface {
 	Slusa() <-chan struct{}
 	SetPovezivost(stanje func() web.StanjePovezivosti, ukljuci func() error)
+	SetProvjeraVeze(provjeri func(context.Context) web.ProvjeraVeze, zadnja func() *web.ProvjeraVeze)
 }
 
 // rokRazrjesenjaSTUN je najdulje čekanje na adresu jednog STUN poslužitelja
@@ -45,43 +46,57 @@ var stabilanRadPovezivosti = peers.StabilanRadPovezivosti
 // otvoriUticnicu otvara UDP utičnicu WEB synca; var, da je test podmetne
 var otvoriUticnicu = razmjena.OtvoriUDP
 
-// povezivost je WEB sync u ovom pokretanju. upisano i udp dira samo
-// gorutina koja radi, a zaustavljanje tek kad ona završi.
+// povezivost je WEB sync u ovom pokretanju i provjera veze. Mjerenja idu
+// pod kontekstom programa, jedno po jedno; gorutine (radi i mjerenja) prate
+// se u teku, pa zaustavljanje pričeka i mjerenje pokrenuto gumbom.
 type povezivost struct {
 	cfg         config.Povezivost
 	pad         peers.PadPovezivosti
 	javi        func(format string, args ...any)
 	stabilanRad time.Duration
+	ctx         context.Context
+	teku        sync.WaitGroup
 
 	mu                       sync.Mutex
 	nakonPadova, ukljucujeSe bool
+	gasi                     bool                 // zaustavljanje je počelo: novih mjerenja nema
+	udp                      *razmjena.UDP        // stalna utičnica WEB synca; gumb je čita
+	mreza                    razmjena.StanjeMreze // vrsta mreže s histerezom, samo sa stalne utičnice
+	zadnja                   *web.ProvjeraVeze
+	uTijeku                  chan struct{} // zatvori se kad mjerenje u tijeku završi
 
-	upisano bool // oznaka je upisana, pa je uredno gašenje briše
-	udp     *razmjena.UDP
+	upisano bool // oznaka je upisana, pa je uredno gašenje briše; samo radi i zatvori
 }
 
 // pokreniPovezivost pokrene WEB sync u pozadini i vrati zaustavljanje.
 // Zove se prije nego web počne slušati, jer poslužitelju predaje stanje.
+// Provjera veze radi i uz isključenu prijavu za WEB sync: tada mjeri na
+// privremenoj utičnici.
 func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, w posluziteljPovezivosti, javi func(string, ...any)) func() {
-	if !cfg.WebSyncPrijava {
-		return func() {}
+	ctx, otkazi := context.WithCancel(ctx)
+	p := &povezivost{cfg: cfg, javi: javi, stabilanRad: stabilanRadPovezivosti, ctx: ctx}
+	w.SetProvjeraVeze(p.provjeriVezu, p.zadnjaProvjera)
+	stani := func() {
+		p.mu.Lock()
+		p.gasi = true
+		p.mu.Unlock()
+		otkazi()
+		p.teku.Wait()
+		p.zatvori()
 	}
-	p := &povezivost{cfg: cfg, pad: peers.ProcitajPadPovezivosti(dir), javi: javi, stabilanRad: stabilanRadPovezivosti}
+	if !cfg.WebSyncPrijava {
+		return stani
+	}
+	p.pad = peers.ProcitajPadPovezivosti(dir)
 	w.SetPovezivost(p.stanje, p.ukljuci)
 	if p.pad.Iskljucen() {
 		p.nakonPadova = true
 		javi("povezivost: WEB sync je isključen, jer se program dvaput zaredom prekinuo dok je WEB sync radio; " +
 			"ponovno se uključuje u Administraciji, pod Čvor i mreža")
-		return func() {}
+		return stani
 	}
-	ctx, otkazi := context.WithCancel(ctx)
-	var teku sync.WaitGroup
-	teku.Go(func() { p.radi(ctx, w.Slusa()) })
-	return func() {
-		otkazi()
-		teku.Wait()
-		p.zatvori()
-	}
+	p.teku.Go(func() { p.radi(ctx, w.Slusa()) })
+	return stani
 }
 
 func (p *povezivost) stanje() web.StanjePovezivosti {
@@ -114,11 +129,19 @@ func (p *povezivost) radi(ctx context.Context, slusa <-chan struct{}) {
 		return
 	}
 	p.upisano = true
-	if p.udp = p.otvori(); p.udp == nil {
+	u := p.otvori()
+	if u == nil {
 		p.zatvori() // bez utičnice nema ni quic-go-a: prekid ovog pokretanja nije pad WEB synca
 		return
 	}
-	p.provjeri(ctx)
+	p.mu.Lock()
+	p.udp = u
+	p.mu.Unlock()
+	if len(p.cfg.Stun) == 0 {
+		p.javi("povezivost: provjera mreže je isključena (stun = [])")
+	} else {
+		p.provjeriVezu(ctx)
+	}
 	t := time.NewTimer(p.stabilanRad)
 	defer t.Stop()
 	select {
@@ -146,22 +169,14 @@ func (p *povezivost) otvori() *razmjena.UDP {
 	return u
 }
 
-// provjeri pita STUN poslužitelje i zapiše ishod u dnevnik
-func (p *povezivost) provjeri(ctx context.Context) {
-	if len(p.cfg.Stun) == 0 {
-		p.javi("povezivost: provjera mreže je isključena (stun = [])")
-		return
-	}
-	m := p.udp.ProvjeriMrezu(ctx, posluziteljiSTUN(ctx, p.cfg.Stun))
-	if ctx.Err() == nil {
-		p.javi("povezivost: %s", m.Opis())
-	}
-}
-
 // zatvori zatvori utičnicu i obriše oznaku koju je ovo pokretanje upisalo
 func (p *povezivost) zatvori() {
-	if p.udp != nil {
-		_ = p.udp.Close() // gašenje: utičnica se zatvara bez obzira na grešku
+	p.mu.Lock()
+	u := p.udp
+	p.udp = nil
+	p.mu.Unlock()
+	if u != nil {
+		_ = u.Close() // gašenje: utičnica se zatvara bez obzira na grešku
 	}
 	if !p.upisano {
 		return
@@ -170,6 +185,134 @@ func (p *povezivost) zatvori() {
 	if err := p.pad.Obrisi(); err != nil {
 		p.javi("povezivost: oznaka padova uz bazu ne da se obrisati, pa iduće pokretanje broji pad: %v", err)
 	}
+}
+
+// provjeriVezu izmjeri mrežu, na gumb i pri pokretanju. Drugi poziv dok
+// mjerenje traje pričeka to isto mjerenje, a zahtjev koji ode ne prekida
+// mjerenje: ono ide pod kontekstom programa.
+func (p *povezivost) provjeriVezu(ctx context.Context) web.ProvjeraVeze {
+	gotovo, ok := p.zapocniMjerenje()
+	if !ok {
+		return web.ProvjeraVeze{Kad: time.Now(), Greska: "Program se gasi, pa provjere nema."}
+	}
+	select {
+	case <-gotovo:
+		return *p.zadnjaProvjera()
+	case <-ctx.Done():
+		return web.ProvjeraVeze{Kad: time.Now(), Greska: "Provjera nije dočekana, jer je zahtjev prekinut."}
+	}
+}
+
+// zapocniMjerenje pokrene mjerenje ako ne traje i vrati kanal koji se
+// zatvori kad završi; ne pokreće ništa kad se program gasi
+func (p *povezivost) zapocniMjerenje() (<-chan struct{}, bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.gasi {
+		return nil, false
+	}
+	if p.uTijeku == nil {
+		gotovo := make(chan struct{})
+		p.uTijeku = gotovo
+		p.teku.Go(func() { p.izmjeri(gotovo) })
+	}
+	return p.uTijeku, true
+}
+
+// izmjeri odradi mjerenje i zapamti ishod
+func (p *povezivost) izmjeri(gotovo chan struct{}) {
+	r := p.mjerenje(p.ctx)
+	p.mu.Lock()
+	p.zadnja, p.uTijeku = &r, nil
+	p.mu.Unlock()
+	close(gotovo)
+}
+
+// zadnjaProvjera je kopija zadnjeg ishoda; nil dok provjere nije bilo
+func (p *povezivost) zadnjaProvjera() *web.ProvjeraVeze {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if p.zadnja == nil {
+		return nil
+	}
+	z := *p.zadnja
+	return &z
+}
+
+// mjerenje pita STUN poslužitelje: na stalnoj utičnici WEB synca kad je
+// ima, inače na privremenoj
+func (p *povezivost) mjerenje(ctx context.Context) web.ProvjeraVeze {
+	if len(p.cfg.Stun) == 0 {
+		return web.ProvjeraVeze{Kad: time.Now(), Greska: "Provjera mreže je isključena (stun = [] u gocop.toml)."}
+	}
+	posl := posluziteljiSTUN(ctx, p.cfg.Stun)
+	izlazi := razmjena.IzlazPremaSTUN(posl)
+	p.mu.Lock()
+	u := p.udp
+	p.mu.Unlock()
+	if u != nil {
+		return p.naStalnoj(ctx, u, posl, izlazi)
+	}
+	return p.naPrivremenoj(ctx, posl, izlazi)
+}
+
+// naStalnoj mjeri na utičnici WEB synca. Ishod ide u histerezu i u dnevnik
+// kad je prvi ili kad se vrsta mreže promijeni; prekinuto mjerenje ne ide
+// nikamo, jer bi izgledalo kao blokiran UDP.
+func (p *povezivost) naStalnoj(ctx context.Context, u *razmjena.UDP, posl []razmjena.PosluziteljSTUN, izlazi []razmjena.IzlazSTUN) web.ProvjeraVeze {
+	r := web.ProvjeraVeze{Kad: time.Now(), Port: u.Port(), Izlazi: izlazi}
+	if !u.Radi() {
+		r.Greska = "UDP utičnica WEB synca više ne radi. Ponovno pokrenite čvor."
+		return r
+	}
+	r.Mjerenje = u.ProvjeriMrezu(ctx, posl)
+	if ctx.Err() != nil {
+		r.Greska = "Provjera je prekinuta."
+		return r
+	}
+	p.mu.Lock()
+	prva := p.zadnja == nil
+	promjena := p.mreza.Dodaj(r.Mjerenje)
+	r.Vrijedi = p.mreza.Vrsta
+	p.mu.Unlock()
+	if prva || promjena {
+		p.javi("povezivost: %s", r.Mjerenje.Opis())
+	}
+	r.Kandidati, r.Razlozi = kandidatiZa(r.Port, p.cfg.LanAdresa, r.Mjerenje, izlazi)
+	return r
+}
+
+// naPrivremenoj otvori utičnicu na udp_port (kad je zauzet, na nasumičnom
+// portu), izmjeri i zatvori je. Oznaku padova ne dira, a ishod ne ide u
+// histerezu: vrijedi samo za ovu provjeru.
+func (p *povezivost) naPrivremenoj(ctx context.Context, posl []razmjena.PosluziteljSTUN, izlazi []razmjena.IzlazSTUN) web.ProvjeraVeze {
+	r := web.ProvjeraVeze{Kad: time.Now(), Privremena: true, Izlazi: izlazi}
+	utisajQuic()
+	conn, upozorenje, err := otvoriUticnicu(p.cfg.UDPPort)
+	if err != nil {
+		r.Greska = "UDP utičnica se ne da otvoriti: " + err.Error()
+		return r
+	}
+	u := razmjena.NoviUDP(conn)
+	defer u.Close() //nolint:errcheck // privremena utičnica je samo za mjerenje, pa zatvaranje nema što izgubiti
+	if upozorenje != nil {
+		r.Upozorenje = upozorenje.Error()
+	}
+	r.Port = u.Port()
+	r.Mjerenje = u.ProvjeriMrezu(ctx, posl)
+	if ctx.Err() != nil {
+		r.Greska = "Provjera je prekinuta."
+		return r
+	}
+	r.Kandidati, r.Razlozi = kandidatiZa(r.Port, p.cfg.LanAdresa, r.Mjerenje, izlazi)
+	return r
+}
+
+// kandidatiZa su vlastiti kandidati za port, s javnim kad ga mjerenje
+// dopušta
+func kandidatiZa(port int, lanAdresa string, m razmjena.MjerenjeMreze, izlazi []razmjena.IzlazSTUN) ([]razmjena.Kandidat, []string) {
+	k, razlozi := razmjena.VlastitiKandidati(port, lanAdresa, izlazi)
+	return razmjena.SJavnim(k, m, izlazi), razlozi
 }
 
 // utisajQuic gasi upozorenje quic-go-a da ne može povećati međuspremnik

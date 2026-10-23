@@ -81,6 +81,10 @@ Only when a user or an administrator asks for it:
 - **Place lookup.** When a global administrator looks up the coordinates of a
   defended area, the place name or address is sent to OpenStreetMap
   Nominatim.
+- **Network check button.** When a global administrator presses *Provjeri
+  vezu*, the node sends the same STUN requests as described under WEB sync
+  below, also when WEB sync is off: it opens UDP port 4713 for the check only
+  and closes it afterwards. `[povezivost] stun = []` turns this off too.
 
 Only when the administrator sets it up:
 

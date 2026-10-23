@@ -69,7 +69,7 @@ const (
 	// WEB sync (F1a): tuđi STUN poslužitelj saznao bi javne adrese računala i
 	// mogao vratiti lažne, a krivi UDP port odsiječe računalo
 	razlogPovezivosti = "Mijenja se samo u datoteci gocop.toml: tuđi STUN poslužitelj saznao bi javnu adresu ovog računala i mogao vratiti lažnu, a krivi UDP port odsiječe računalo."
-	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se još ne koristi."
+	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog."
 )
 
 // redakRasporeda: puni ključ i njegovo mjesto
@@ -140,7 +140,7 @@ var opisNaStranici = map[string]string{
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
-		"Isključeno: nema UDP utičnice ni upita prema van. Vrijedi od idućeg pokretanja.",
+		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu. Vrijedi od idućeg pokretanja.",
 	"povezivost.web_sync": "Uključeno: razmjena ide i WEB syncom, kad je uključena i prijava. Zasad se još ne koristi, pa razmjena ide kao prije.",
 }
 
@@ -299,6 +299,7 @@ type PostavkeStranice struct {
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Čvor i mreža
 	WebSync     *WebSyncPrikaz           // samo na stranici Čvor i mreža, kad je WEB sync isključen nakon padova
+	Provjera    *ProvjeraVezePrikaz      // samo na stranici Čvor i mreža, kad program nudi provjeru veze
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -466,6 +467,7 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
 		out.WebSync = s.prikazWebSynca(sl.zabrana)
+		out.Provjera = s.prikazProvjereVeze(sl.zabrana)
 	}
 	return out
 }

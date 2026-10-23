@@ -20,14 +20,17 @@ import (
 
 	"gocop/internal/config"
 	"gocop/internal/peers"
+	"gocop/internal/razmjena"
 	"gocop/internal/web"
 )
 
 // lazniWeb je poslužitelj koji sluša kad test zatvori slusa
 type lazniWeb struct {
-	slusa   chan struct{}
-	stanje  func() web.StanjePovezivosti
-	ukljuci func() error
+	slusa    chan struct{}
+	stanje   func() web.StanjePovezivosti
+	ukljuci  func() error
+	provjeri func(context.Context) web.ProvjeraVeze
+	zadnja   func() *web.ProvjeraVeze
 }
 
 func noviLazniWeb() *lazniWeb { return &lazniWeb{slusa: make(chan struct{})} }
@@ -36,6 +39,10 @@ func (l *lazniWeb) Slusa() <-chan struct{} { return l.slusa }
 
 func (l *lazniWeb) SetPovezivost(stanje func() web.StanjePovezivosti, ukljuci func() error) {
 	l.stanje, l.ukljuci = stanje, ukljuci
+}
+
+func (l *lazniWeb) SetProvjeraVeze(provjeri func(context.Context) web.ProvjeraVeze, zadnja func() *web.ProvjeraVeze) {
+	l.provjeri, l.zadnja = provjeri, zadnja
 }
 
 // dnevnikPovezivosti hvata retke dnevnika; bez međuspremnika gorutina
@@ -62,6 +69,15 @@ func (d dnevnikPovezivosti) cekaj(t *testing.T, sadrzi string) string {
 // (XOR-MAPPED-ADDRESS), kao poslužitelj iza kojeg nema NAT-a
 func lazniSTUN(t *testing.T) string {
 	t.Helper()
+	odmah := make(chan struct{})
+	close(odmah)
+	return lazniSTUNSa(t, odmah, nil)
+}
+
+// lazniSTUNSa odgovara tek kad se pusti zatvori, a svaki primljeni upit
+// javi na upiti, kad ga ima
+func lazniSTUNSa(t *testing.T, pusti <-chan struct{}, upiti chan<- struct{}) string {
+	t.Helper()
 	c, err := net.ListenPacket("udp4", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -74,8 +90,15 @@ func lazniSTUN(t *testing.T) string {
 			if err != nil {
 				return
 			}
+			if upiti != nil {
+				upiti <- struct{}{}
+			}
 			if a, ok := od.(*net.UDPAddr); ok && n >= 20 {
-				_, _ = c.WriteTo(odgovorSTUN(b[:20], a), od) // izgubljen odgovor nadoknadi idući upit
+				odg := odgovorSTUN(b[:20], a)
+				go func() {
+					<-pusti
+					_, _ = c.WriteTo(odg, od) // izgubljen odgovor nadoknadi idući upit
+				}()
 			}
 		}
 	}()
@@ -367,5 +390,135 @@ func TestUtisajQuic(t *testing.T) {
 	utisajQuic()
 	if v := os.Getenv(k); v != "1" {
 		t.Errorf("nepostavljeno: %q", v)
+	}
+}
+
+// slobodanUDP je UDP port koji je upravo bio slobodan
+func slobodanUDP(t *testing.T) int {
+	t.Helper()
+	c, err := net.ListenPacket("udp4", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	return c.LocalAddr().(*net.UDPAddr).Port
+}
+
+// Uz isključenu prijavu za WEB sync gumb mjeri na privremenoj utičnici na
+// udp_port, zatvori je i ne dira oznaku padova; stanje WEB synca poslužitelj
+// ne dobiva. Bez STUN poslužitelja provjera kaže da je isključena.
+func TestProvjeraVezeBezPrijave(t *testing.T) {
+	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti, 4)
+	port := slobodanUDP(t)
+	cfg := config.Povezivost{UDPPort: port, Stun: []string{lazniSTUN(t), lazniSTUN(t)}}
+	stani := pokreniPovezivost(context.Background(), cfg, dir, w, d.javi)
+	defer stani()
+	if w.stanje != nil || w.provjeri == nil || w.zadnja() != nil {
+		t.Fatalf("poslužitelj: stanje %v, provjera %v", w.stanje != nil, w.provjeri != nil)
+	}
+	r := w.provjeri(context.Background())
+	if r.Greska != "" || !r.Privremena || r.Port != port || r.Mjerenje.Vrsta != "lak" || r.Vrijedi != "" || r.Upozorenje != "" {
+		t.Errorf("privremena provjera: %+v", r)
+	}
+	if z := w.zadnja(); z == nil || !z.Kad.Equal(r.Kad) {
+		t.Errorf("zadnja: %+v", z)
+	}
+	if _, ima := oznakaPadova(t, dir); ima {
+		t.Error("privremena provjera upisala oznaku padova")
+	}
+	c, err := net.ListenPacket("udp4", ":"+strconv.Itoa(port))
+	if err != nil {
+		t.Fatalf("privremena utičnica nije zatvorena: %v", err)
+	}
+	// zauzet port: mjeri se s nasumičnog, uz upozorenje
+	r = w.provjeri(context.Background())
+	c.Close()
+	if r.Port == port || !strings.Contains(r.Upozorenje, strconv.Itoa(port)) || r.Greska != "" {
+		t.Errorf("uz zauzet port: %+v", r)
+	}
+
+	w2 := noviLazniWeb()
+	stani2 := pokreniPovezivost(context.Background(), config.Povezivost{}, dir, w2, d.javi)
+	defer stani2()
+	if r := w2.provjeri(context.Background()); !strings.Contains(r.Greska, "stun = []") {
+		t.Errorf("bez STUN-a: %+v", r)
+	}
+}
+
+// Dva pritiska dok mjerenje traje znače jedno mjerenje; zahtjev koji ode ne
+// prekida mjerenje, a nakon zaustavljanja provjere nema.
+func TestProvjeraVezeJednaPoJedna(t *testing.T) {
+	upiti, pusti := make(chan struct{}, 16), make(chan struct{})
+	cfg := config.Povezivost{UDPPort: 0, Stun: []string{lazniSTUNSa(t, pusti, upiti)}}
+	w := noviLazniWeb()
+	stani := pokreniPovezivost(context.Background(), cfg, t.TempDir(), w, make(dnevnikPovezivosti, 4).javi)
+	prvi, drugi := make(chan web.ProvjeraVeze, 1), make(chan web.ProvjeraVeze, 1)
+	go func() { prvi <- w.provjeri(context.Background()) }()
+	<-upiti // prvo mjerenje je poslalo upit i čeka odgovor, koji test drži
+	otisao, odustani := context.WithCancel(context.Background())
+	odustani()
+	if r := w.provjeri(otisao); !strings.Contains(r.Greska, "nije dočekana") {
+		t.Errorf("otišao zahtjev: %+v", r)
+	}
+	go func() { drugi <- w.provjeri(context.Background()) }()
+	time.Sleep(50 * time.Millisecond) // drugi pritisak stigne dok prvo mjerenje čeka (rok mu je 2 s)
+	close(pusti)
+	a, b := <-prvi, <-drugi
+	if a.Greska != "" || !b.Kad.Equal(a.Kad) {
+		t.Errorf("dva pritiska, dva mjerenja: %+v / %+v", a, b)
+	}
+	stani()
+	if r := w.provjeri(context.Background()); !strings.Contains(r.Greska, "gasi") {
+		t.Errorf("nakon zaustavljanja: %+v", r)
+	}
+}
+
+// Uz WEB sync gumb mjeri na stalnoj utičnici, a ishod ide u histerezu i
+// nosi kandidate; utičnica koja više ne radi i prekinuto mjerenje kažu
+// grešku, a ne blokiran UDP.
+func TestProvjeraVezeNaStalnoj(t *testing.T) {
+	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(lazniSTUN(t), lazniSTUN(t)), dir, w, d.javi)
+	defer stani()
+	close(w.slusa)
+	d.cekaj(t, "povezivost: UDP radi na :")
+	d.cekaj(t, "povezivost: NAT je lak")
+	var pri *web.ProvjeraVeze
+	for rok := time.Now().Add(5 * time.Second); pri == nil; time.Sleep(10 * time.Millisecond) {
+		if pri = w.zadnja(); pri == nil && time.Now().After(rok) {
+			t.Fatal("ishod provjere pri pokretanju nije zapamćen")
+		}
+	}
+	r := w.provjeri(context.Background())
+	if r.Privremena || r.Port != pri.Port || r.Vrijedi != "lak" || r.Greska != "" || !r.Kad.After(pri.Kad) {
+		t.Errorf("na stalnoj: %+v (pri pokretanju %+v)", r, pri)
+	}
+
+	p := &povezivost{cfg: prijavaWebSynca(lazniSTUN(t)), javi: d.javi}
+	conn, _, err := razmjena.OtvoriUDP(0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	u := razmjena.NoviUDP(conn)
+	posl := posluziteljiSTUN(context.Background(), p.cfg.Stun)
+	prekinut, otkazi := context.WithCancel(context.Background())
+	otkazi()
+	if r := p.naStalnoj(prekinut, u, posl, nil); r.Greska != "Provjera je prekinuta." {
+		t.Errorf("prekinuto na stalnoj: %+v", r)
+	}
+	if r := p.naPrivremenoj(prekinut, posl, nil); r.Greska != "Provjera je prekinuta." {
+		t.Errorf("prekinuto na privremenoj: %+v", r)
+	}
+	if err := u.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if r := p.naStalnoj(context.Background(), u, posl, nil); !strings.Contains(r.Greska, "više ne radi") {
+		t.Errorf("utičnica koja ne radi: %+v", r)
+	}
+	stari := otvoriUticnicu
+	otvoriUticnicu = func(int) (net.PacketConn, error, error) { return nil, nil, errors.New("nema mreže") }
+	t.Cleanup(func() { otvoriUticnicu = stari })
+	if r := p.naPrivremenoj(context.Background(), posl, nil); !strings.Contains(r.Greska, "nema mreže") {
+		t.Errorf("privremena se ne da otvoriti: %+v", r)
 	}
 }

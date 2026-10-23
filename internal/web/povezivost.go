@@ -7,6 +7,7 @@ package web
 // idućeg pokretanja, kao i promjena postavki.
 
 import (
+	"context"
 	"log"
 	"net/http"
 )
@@ -17,16 +18,19 @@ type StanjePovezivosti struct {
 	UkljucujeSe bool // oznaka padova je obrisana: WEB sync kreće idućim pokretanjem
 }
 
-// povezivostCvora su stanje WEB synca i njegovo ponovno uključivanje
+// povezivostCvora su stanje WEB synca, njegovo ponovno uključivanje i
+// provjera veze (provjera_veze.go)
 type povezivostCvora struct {
-	stanje  func() StanjePovezivosti
-	ukljuci func() error
+	stanje   func() StanjePovezivosti
+	ukljuci  func() error
+	provjeri func(context.Context) ProvjeraVeze
+	zadnja   func() *ProvjeraVeze
 }
 
 // SetPovezivost daje poslužitelju stanje WEB synca i ponovno uključivanje
 // nakon padova; zove se prije Start
 func (s *Server) SetPovezivost(stanje func() StanjePovezivosti, ukljuci func() error) {
-	s.povezivost = povezivostCvora{stanje: stanje, ukljuci: ukljuci}
+	s.povezivost.stanje, s.povezivost.ukljuci = stanje, ukljuci
 }
 
 func (p povezivostCvora) trenutno() StanjePovezivosti {

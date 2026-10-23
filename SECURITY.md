@@ -197,9 +197,11 @@ nepouzdano.
   modulom Administracija dobiva stanje razmjene bez njih, a pločica razmjene
   na naslovnoj, koju vidi svaki prijavljeni korisnik, pokazuje samo naziv
   puta (LAN sync, SERVER sync, Tailscale, WEB sync) i razlog rečenicom.
-- Provjera mreže za WEB sync (UDP 4713, samo uz `[povezivost]
-  web_sync_prijava = true`) pita dva STUN poslužitelja kojom javnom adresom
-  vide računalo. STUN odgovor nije potpisan: tko je na putu, može podmetnuti
+- Provjera mreže za WEB sync (UDP 4713, uz `[povezivost]
+  web_sync_prijava = true` i na gumb Provjeri vezu, koji vidi samo
+  administrator) pita dva STUN poslužitelja kojom javnom adresom vide
+  računalo. Vlastitu javnu adresu i adrese za WEB sync pokazuje samo blok
+  Dohvatljivost na stranici Sinkronizacija, administratoru. STUN odgovor nije potpisan: tko je na putu, može podmetnuti
   lažnu adresu, a tko nije, morao bi pogoditi 96-bitni ID upita. Zato se
   popis poslužitelja mijenja samo u `gocop.toml`. Lažna adresa mijenja samo
   ishod provjere, a ne povjerenje među čvorovima.
