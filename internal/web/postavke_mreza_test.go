@@ -5,6 +5,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -21,6 +22,14 @@ import (
 // svjeziCvorZaWeb je čvor bez mreže, u svojoj bazi
 func svjeziCvorZaWeb(t *testing.T, id string) *peers.Service {
 	t.Helper()
+	s, _ := cvorIBazaZaWeb(t, id)
+	return s
+}
+
+// cvorIBazaZaWeb je svjeziCvorZaWeb uz njegovu bazu, za test koji u nju
+// izravno upisuje
+func cvorIBazaZaWeb(t *testing.T, id string) (*peers.Service, *sql.DB) {
+	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), id+".db")
 	baza, err := db.BazaIzPredloska(dbPath)
 	if err != nil {
@@ -35,7 +44,7 @@ func svjeziCvorZaWeb(t *testing.T, id string) *peers.Service {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return s
+	return s, baza
 }
 
 func TestPostavkeMrezeOvlastIPrimanjeNaDaljinu(t *testing.T) {

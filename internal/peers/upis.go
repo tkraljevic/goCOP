@@ -202,6 +202,7 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 		_ = c.Send(kraj)
 		_, _ = c.Receive()
 	default:
+		s.odbiliSmo(RazlogUpisZauzet, c.PeerKey)
 		_, _ = c.Receive()
 		_ = c.Send(razmjena.Odbijenica(razmjena.KodUpisZauzet, razlogUpisZauzet))
 	}

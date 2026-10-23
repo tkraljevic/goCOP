@@ -565,6 +565,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	// izdanje putuje u razmjeni, da drugi čvorovi vide tko radi na starijem
 	peersService.PostaviProgram(verzijaPrograma, punaVerzija())
+	// od sada ono što program u knjizi ne razumije ide i u zapis odbijenog
+	// (G7); zamjenjuje dnevnik postavljen gore, pa ono što je u knjizi već
+	// bilo pri pokretanju ide samo u dnevnik i ne broji se iznova
+	peersService.PratiNovosti(recorder)
 	// Paketi se potpisuju ključem čvora. Nepotpisan paket je samo tvrdnja o
 	// tome tko ga je izdao — svaki koji danas izađe nepotpisan ostaje takav,
 	// jer se onaj koji je već otišao ne da naknadno potpisati.

@@ -282,6 +282,7 @@ func (s *Service) odbijTailscale(c *razmjena.Conn, peer *Peer) bool {
 	if _, vec := s.javljenTailscale.LoadOrStore(tko, true); !vec {
 		log.Printf("razmjena: %s je nazvao Tailscale adresu ovog računala (%s), a Tailscale je u razmjeni isključen ([sync] tailscale = false); razmjena je odbijena, a %s zove sljedeću adresu", tko, c.LocalAddr(), tko)
 	}
+	s.odbiliSmo(RazlogBezTailscalea, c.PeerKey)
 	razmjena.Odbij(c, razmjena.KodBezTailscalea, razlogBezTailscalea)
 	return true
 }

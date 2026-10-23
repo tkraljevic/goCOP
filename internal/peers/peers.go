@@ -215,6 +215,9 @@ type Service struct {
 	trazi func(protocol string, timeout time.Duration, port int, trazeni []string) ([]razmjena.Found, error)
 	// lan je zajednički nalaz pronalaženja (nalaz_mreze.go)
 	lan nalazMreze
+	// odbijenoOcisceno je dan (UTC) kad je zapis odbijenog zadnji put
+	// očišćen od starih redaka (odbijeno.go)
+	odbijenoOcisceno atomic.Value
 	// objavi je glasnik pronalaženja (Announce); nil je razmjena.Announce.
 	// Test njime glumi glasnika koji padne.
 	objavi func(ctx context.Context) error
@@ -267,6 +270,8 @@ func (s *Service) autoSync() bool {
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
 	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel(), ogradaPorta: razmjena.NovaOgrada()}
 	s.ogradaTunela = razmjena.NovaOgradaTunela(s.ogradaPorta)
+	s.ogradaPorta.KadOdbije(s.naVratima(PutVrataPort))
+	s.ogradaTunela.KadOdbije(s.naVratima(PutVrataTunel))
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -1400,6 +1405,7 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	s.recordSyncState(ctx, peer.NodeID, o)
 	s.zapamtiTailscale(ctx, peer.NodeID, o)
 	s.zapamtiZnanje(ctx, peer.NodeID, o)
+	s.zabiljeziIshod(ctx, peer, o)
 	s.javiDrugiProgram(peer, o)
 	s.nauci(ctx, peer, c, o)
 	s.zapisiBiljesku(ctx, peer.NodeID, o)

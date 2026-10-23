@@ -85,6 +85,24 @@ func NaseMogucnosti() []string {
 	return []string{OznakaGranicaOdbijenih, OznakaRazmjena, OznakaRupe}
 }
 
+// NepoznateOznake su ispravne oznake druge strane čije ime ovaj program ne
+// zna (G7: djelomično razumljeno), poredane
+func NepoznateOznake(njihove []string) []string {
+	znam := map[string]bool{}
+	for _, o := range NaseMogucnosti() {
+		ime, _, _ := procitajOznaku(o)
+		znam[ime] = true
+	}
+	var out []string
+	for o := range ispravne(njihove) {
+		if ime, _, _ := procitajOznaku(o); !znam[ime] {
+			out = append(out, o)
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
 // Dogovor je za svako ime koje obje strane imaju najviši zajednički N.
 // Bez ijedne ispravne oznake druge strane vrijedi razmjena/1. Da obje strane
 // imaju ime/N, znači Dogovor(...)[ime] == N, a ne >=: viša verzija ne mora

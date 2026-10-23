@@ -175,7 +175,10 @@ func TestQUICBezTokaIGreskaUObradi(t *testing.T) {
 		a, b := mrezaQUIC(t)
 		ctx, otkazi := context.WithCancel(t.Context())
 		defer otkazi()
-		kraj := slusalicaQUIC(ctx, b, posluzitelj, novaOgrada(4, 4, time.Second), svima, func(*Conn) { panic("probna greška") })
+		o := novaOgrada(4, 4, time.Second)
+		var z zapisVrata
+		o.KadOdbije(z.biljezi)
+		kraj := slusalicaQUIC(ctx, b, posluzitelj, o, svima, func(*Conn) { panic("probna greška") })
 		javni := posluzitelj.Public().(ed25519.PublicKey)
 
 		tih, err := DialExchangeQUIC(ctx, a, adresaQUICB, newKey(t), "testproto", nil, javni)
@@ -183,6 +186,10 @@ func TestQUICBezTokaIGreskaUObradi(t *testing.T) {
 		time.Sleep(2 * time.Second) // dulje od roka ograde
 		if _, err := tih.Receive(); err == nil {
 			t.Error("veza bez toka je ostala otvorena")
+		}
+		synctest.Wait()
+		if r, _ := z.cekaj(t, 1); r != VrataRukovanje {
+			t.Errorf("veza bez toka na vratima: %s", r)
 		}
 
 		c, err := DialExchangeQUIC(ctx, a, adresaQUICB, newKey(t), "testproto", nil, javni)

@@ -41,6 +41,20 @@
 <div id="lan" class="mt-4"></div>
 <p class="muted mt-2" id="stamp"></p>
 
+{{if .Permissions.IsGlobalAdmin}}
+<h2 class="mt-4" style="font-size:1rem;">Odbijeno i djelomično razumljeno, zadnjih 7 dana</h2>
+<p class="muted">Bez adresa i bez sadržaja zapisa. Ponešto odbijenih pokušaja na vratima je uobičajeno, osobito kroz tunel, gdje se javlja bilo tko s interneta. Stanje u trenutku otvaranja stranice.</p>
+{{if .OdbijenoGreska}}<div class="alert alert-warning">{{.OdbijenoGreska}}</div>{{end}}
+{{if .Odbijeno}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table" id="odbijeno">
+    <thead><tr><th>Dan</th><th>Što</th><th>Put</th><th>Razlog</th><th>Računalo</th><th>Puta</th></tr></thead>
+    <tbody>{{range .Odbijeno}}<tr><td>{{.Dan}}</td><td>{{.Sto}}</td><td>{{.Put}}</td><td>{{.Razlog}}</td><td>{{.Racunalo}}</td><td>{{.Broj}}</td></tr>{{end}}</tbody>
+  </table>
+</div></div>
+{{else if not .OdbijenoGreska}}<p class="muted">Ništa nije odbijeno.</p>{{end}}
+{{end}}
+
 <script>
 const IS_ADMIN = {{if .Permissions.IsGlobalAdmin}}true{{else}}false{{end}};
 const api = (url, body) => fetch(url, {

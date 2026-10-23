@@ -930,6 +930,21 @@ func InitSchema(database *sql.DB) error {
 			zapisano DATETIME NOT NULL
 		);`,
 
+		// Zapis odbijenih i djelomično razumljenih poruka razmjene (G7,
+		// peers/odbijeno.go): koliko je čega bilo po danu (UTC), vrsti,
+		// putu, razlogu i računalu, bez sadržaja zapisa i bez adresa. Čuva
+		// se 30 dana. Lokalno: ne ide u knjigu ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS razmjena_odbijeno (
+			dan TEXT NOT NULL,
+			vrsta TEXT NOT NULL,
+			put TEXT NOT NULL DEFAULT '',
+			razlog TEXT NOT NULL,
+			racunalo TEXT NOT NULL DEFAULT '',
+			broj INTEGER NOT NULL,
+			zadnje DATETIME NOT NULL,
+			PRIMARY KEY (dan, vrsta, put, razlog, racunalo)
+		);`,
+
 		// Poznati čvorovi. Identitet čvora je njegov javni ključ; adresa je
 		// promjenjiva. Popis se sinkronizira kao i sve drugo.
 		`CREATE TABLE IF NOT EXISTS peers (
