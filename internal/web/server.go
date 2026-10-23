@@ -87,7 +87,10 @@ type Server struct {
 	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
 	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
 	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
-	skenoviDir     string                  // mapa sa skenovima prijava iz ranije evidencije
+	slusa          chan struct{}           // zatvori se kad web prvi put sluša (Slusa)
+	slusaJednom    sync.Once
+	povezivost     povezivostCvora // WEB sync u ovom pokretanju; prazno dok ga main ne da
+	skenoviDir     string          // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
 	arhivaPut      string
@@ -616,6 +619,7 @@ func NewServer(
 		poslovi:            poslovi.NoviRegistar(),
 		mux:                http.NewServeMux(),
 		pokrenut:           time.Now(),
+		slusa:              make(chan struct{}),
 	}
 
 	s.setupRoutes()
@@ -1448,6 +1452,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /settings/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/settings", http.HandlerFunc(settingsH.ShowSettings))))
 	s.mux.Handle("POST /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handlePonovnoPokretanje)))
 	s.mux.Handle("GET /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handleStanjePokretanja)))
+	s.mux.Handle("POST /settings/web-sync/ukljuci", s.samoAdmin(http.HandlerFunc(s.handleUkljuciWebSync)))
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {
 			return nil

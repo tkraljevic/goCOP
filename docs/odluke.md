@@ -21,6 +21,7 @@ Računalo s goCOP-om u tekstu se zove i čvor.
   spoje izravno: oba u isto vrijeme otvore put kroz svoj usmjerivač.
 - Svoju vanjsku adresu računalo doznaje od javnog STUN poslužitelja,
   Googleova ili Cloudflareova. Jedan se bira nasumično, a drugi je rezerva.
+  Ovo mijenjaju Odluke (23. 10. 2026.), WEB sync: pitaju se oba usporedno.
 - Promet je šifriran ključevima čvorova.
 - Promet se ne prerušava u promet Teamsa, Zooma ni drugih programa.
 - Posrednik, računalo koje prenosi šifrirani promet kad izravna veza ne
@@ -678,3 +679,15 @@ je gotov onaj o kojem ovisi.
   ovlast za primanje imaju manje od dva računala, pločica računala s
   ključem na to upozorava. Mreža radi i s jednim računalom koje prima; ovo
   je pričuva za slučaj da ono propadne.
+
+### WEB sync: provjera mreže i prekid rada
+
+- Provjera mreže pita oba STUN poslužitelja, Googleov i Cloudflareov,
+  usporedno, s iste UDP utičnice, i uspoređuje odgovore. Ista javna adresa
+  od oba znači da će izravna veza vjerojatno proći. To mijenja Odluke
+  (2. 10. 2026.), gdje se jedan birao nasumično, a drugi je bio rezerva.
+- Ako se program dvaput zaredom prekine dok WEB sync radi, iduće pokretanje
+  kreće bez WEB synca i to kaže na pločici. Brojač prekida vraća se na nulu
+  nakon 10 minuta rada bez prekida, pa dva nestanka struje u različitim
+  danima ne isključe WEB sync. Ponovno ga uključuje administrator, gumbom u
+  Administraciji.

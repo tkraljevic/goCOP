@@ -1642,7 +1642,7 @@
         datoteke mijenja se i u programu, svaka na stranici kojoj pripada. Na stranici <em>Čvor,
         mreža i sinkronizacija</em> u kartici <em>Ovaj čvor</em> su javna adresa te centar i
         telefon koji se vide na stranici prijave, a u kartici <em>Mreža</em> razmak automatske
-        sinkronizacije i razmjena preko Tailscalea; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
+        sinkronizacije, razmjena preko Tailscalea te prijava za WEB sync i sam WEB sync; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
         tuđih očitanja su na stranici <em>Što ovo računalo prati</em>, do koje vodi i kartica u
         Administraciji, a izvor karte pod <em>Opcije</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
         postavki, kad je datoteka mijenjana i njezine prethodne inačice. Mijenja ih globalni
@@ -1650,8 +1650,8 @@
         se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
         uz polje što ne valja. Stara datoteka ostaje uz novu kao kopija, a ručni komentari u njoj
         se ne gube.
-        <br>Naziv čvora, adresa web sučelja i portovi, putanje baze i arhive te pouzdani posrednici
-        u programu se samo prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao
+        <br>Naziv čvora, adresa web sučelja i portovi, putanje baze i arhive, pouzdani posrednici te
+        STUN poslužitelji i adresa u lokalnoj mreži za WEB sync u programu se samo prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao
         nedostupan ili bi drukčije prepoznavao zahtjeve izvana. Ime čvora u mreži poslije prvog
         pokretanja ne mijenja se ni u datoteci. Kad je čvor pokrenut sa zastavicom (npr.
         <code>-addr</code> u spremniku), uz postavku piše da vrijedi zastavica.
@@ -1660,7 +1660,11 @@
         <em>Ovaj čvor</em> uredno ga ugasi, a pokrene ga ono što ga je i pokrenulo: Postava, usluga
         sustava ili Docker (samo uz <code>--restart</code>). Čvor pokrenut ručno u terminalu gumba
         nema; zaustavite ga (Ctrl+C) i pokrenite istom naredbom. Postavke e-pošte vodi stranica
-        <em>E-pošta</em>.</li>
+        <em>E-pošta</em>.
+        <br>WEB sync je zadano isključen. Ako se program dvaput zaredom prekine dok WEB sync radi,
+        iduće pokretanje kreće bez njega, a pločica razmjene to kaže. Razmjena ide kao i prije.
+        Kad je uzrok uklonjen, gumb <em>Ponovno uključi WEB sync</em> u kartici <em>Ovaj čvor</em>
+        ga vraća od idućeg pokretanja.</li>
       <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
         (administrator napravi svoj račun globalnog administratora, a čvor osnuje mrežu; nova mreža se

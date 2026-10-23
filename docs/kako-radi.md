@@ -68,6 +68,12 @@ pomogne dvama računalima da se nađu, kratkim porukama, a podaci zatim idu
 izravno. Razmjena nikad neće čekati WEB sync. Dok se veza priprema, krug ide
 putem koji radi.
 
+Zasad postoji prvi korak: uz `[povezivost] web_sync_prijava = true` računalo
+otvori UDP port 4713 i provjeri mrežu preko dva STUN poslužitelja, a ishod
+upiše u dnevnik. Podaci tim putem još ne idu. Ako se program dvaput zaredom
+prekine dok WEB sync radi, kreće bez njega dok ga administrator ponovno ne
+uključi (Odluke (23. 10. 2026.)).
+
 Kad mreže nema dulje vrijeme, odabrani podaci prenose se i bez nje. Jedno
 računalo izda potpisan paket (Administracija → Održavanje baze → Izdaj
 .cop), a drugo ga ugradi, na primjer s USB ključa. Paket prolazi ista

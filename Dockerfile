@@ -50,8 +50,8 @@ WORKDIR /data
 USER 99:100
 
 # Web 8080; razmjena 4710, uparivanje 4711 (samo dok traje), pronalaženje
-# 4712/udp (samo lokalna mreža)
-EXPOSE 8080 4710 4711 4712/udp
+# 4712/udp (samo lokalna mreža), WEB sync 4713/udp (zadano isključen)
+EXPOSE 8080 4710 4711 4712/udp 4713/udp
 
 ENTRYPOINT ["gocop", "-config", "/data/gocop.toml", "-db", "/data/gocop.db", "-addr", ":8080", \
     "-arhiva", "/arhiva/vodostaji.db", "-podaci", "/arhiva/vodostaji", \

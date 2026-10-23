@@ -902,6 +902,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		node.ID, node.PublicKey(), *syncPort, *pairPort, *discoveryPort)
 	log.Print(opisMreze(peersService.NetworkInfo()))
 
+	// WEB sync: UDP utičnica i provjera mreže kreću u pozadini kad web
+	// sluša; zaustavljanje ide prije gašenja razmjene i baze
+	defer pokreniPovezivost(syncCtx, cfg.Povezivost, filepath.Dir(*dbPath), server, log.Printf)()
+
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	server.JaviPostavljanje(*addr)

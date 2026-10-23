@@ -89,7 +89,7 @@ bez početnog `v` ili `latest`. Za stalno računalo birajte broj izdanja.
 sudo mkdir -p /srv/gocop/data /srv/gocop/arhiva
 sudo chown 99:100 /srv/gocop/data /srv/gocop/arhiva
 docker run -d --name gocop --restart unless-stopped \
-  -p 8080:8080 -p 4710:4710 -p 4711:4711 -p 4712:4712/udp \
+  -p 8080:8080 -p 4710:4710 -p 4711:4711 -p 4712:4712/udp -p 4713:4713/udp \
   -v /srv/gocop/data:/data -v /srv/gocop/arhiva:/arhiva \
   ghcr.io/tkraljevic/gocop:<izdanje> -node pperic-posluzitelj
 ```
