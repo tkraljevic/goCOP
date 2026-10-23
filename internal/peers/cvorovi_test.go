@@ -286,9 +286,12 @@ func TestLokalnaMrezaBezTailscaleAdrese(t *testing.T) {
 		{"fd7a:115c:a1e0::9", []kandidat{izZapisa}},
 		{"192.168.24.70", []kandidat{{"192.168.24.70:4711", razmjena.PutLAN}, izZapisa}},
 	} {
-		s.nadji = func(protokol, id string, _ time.Duration, port int) (razmjena.Found, bool) {
-			f := razmjena.Found{Beacon: razmjena.Beacon{Protocol: protokol, DeviceID: id, ExchangePort: 4711}, Addr: sl.javljena}
-			return f, protokol == Protocol && id == "laptop-baranja" && port == 4712
+		s.lan.zaboravi()
+		s.trazi = func(protokol string, _ time.Duration, port int, trazeni []string) ([]razmjena.Found, error) {
+			if protokol != Protocol || port != 4712 || !slices.Contains(trazeni, "laptop-baranja") {
+				return nil, nil
+			}
+			return []razmjena.Found{{Beacon: razmjena.Beacon{Protocol: protokol, DeviceID: "laptop-baranja", ExchangePort: 4711}, Addr: sl.javljena}}, nil
 		}
 		if got := s.adreseZaSpajanje(ctxRub, p); !slices.Equal(got, sl.ocekivano) {
 			t.Errorf("javio se s %s: %v", sl.javljena, got)
