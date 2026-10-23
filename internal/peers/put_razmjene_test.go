@@ -144,17 +144,29 @@ func TestPutRazmjeneBrojaci(t *testing.T) {
 		func(p PutRazmjene) bool {
 			return p.Put == razmjena.PutAdresa && p.Pokusaji == 3 && p.Neuspjesi == 2 && p.Razlog == razmjena.RazlogPutaBezOdgovora && p.ZadnjiZvao == "ovaj"
 		})
+	korak("neuspjela dolazna u LAN-u ne zadržava „bez odgovora”", syncOutcome{put: razmjena.PutAdresa, privatna: true, dolazna: true, err: greska},
+		func(p PutRazmjene) bool { return p.Razlog == "" })
+	korak("opet bez veze", syncOutcome{err: greska, razlog: razmjena.RazlogPutaBezOdgovora},
+		func(p PutRazmjene) bool { return p.Razlog == razmjena.RazlogPutaBezOdgovora })
 	time.Sleep(10 * time.Millisecond) // put_od mora biti noviji od prvog
+	korak("neuspjela dolazna kroz tunel ne briše „bez odgovora”", syncOutcome{put: razmjena.PutKrozTunel, dolazna: true, err: greska},
+		func(p PutRazmjene) bool {
+			return p.Naziv == razmjena.NazivServer && p.Razlog == razmjena.RazlogPutaBezOdgovora && p.ZadnjiZvao == "drugi" && p.Od.After(*prvi.Od)
+		})
+	korak("uspjela odlazna kroz tunel iza LAN-a koji ne odgovara", syncOutcome{put: razmjena.PutKrozTunel, razlog: razmjena.RazlogPutaNijeSeJavio},
+		func(p PutRazmjene) bool { return p.Razlog == razmjena.RazlogPutaNijeSeJavio })
+	korak("i opet bez veze", syncOutcome{err: greska, razlog: razmjena.RazlogPutaBezOdgovora},
+		func(p PutRazmjene) bool { return p.Razlog == razmjena.RazlogPutaBezOdgovora })
 	korak("uspjela dolazna kroz tunel briše „bez odgovora”", syncOutcome{put: razmjena.PutKrozTunel, dolazna: true, primljeno: 7},
 		func(p PutRazmjene) bool {
-			return p.Naziv == razmjena.NazivServer && p.Razlog == "" && p.RTTMs == 0 && p.Od.After(*prvi.Od) && p.Pokusaji == 1 && p.Uspjesi == 1 && p.Primljeno == 7
+			return p.Naziv == razmjena.NazivServer && p.Razlog == "" && p.RTTMs == 0 && p.Pokusaji == 4 && p.Uspjesi == 2 && p.Primljeno == 7
 		})
 	korak("odlazna kroz tunel iza LAN-a koji ne odgovara", syncOutcome{put: razmjena.PutKrozTunel, rtt: 40 * time.Millisecond, razlog: razmjena.RazlogPutaNijeSeJavio},
 		func(p PutRazmjene) bool {
-			return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 2 && p.Uspjesi == 2
+			return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 5 && p.Uspjesi == 3
 		})
 	korak("dolazna kroz tunel", syncOutcome{put: razmjena.PutKrozTunel, dolazna: true},
-		func(p PutRazmjene) bool { return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 3 })
+		func(p PutRazmjene) bool { return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 6 })
 	korak("dolazna preko Tailscalea", syncOutcome{put: razmjena.PutTailscale, dolazna: true},
 		func(p PutRazmjene) bool {
 			return p.Naziv == razmjena.NazivTailscale && p.RTTMs == 0 && p.Pokusaji == 1 && p.Razlog == razmjena.RazlogPutaNijeSeJavio

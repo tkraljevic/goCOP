@@ -109,7 +109,13 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 
 // --- uparivanje ---
 
+// HandlePairStatus javlja stanje uparivanja; nosi adresu računala koje se
+// uparuje i kod, pa ga dobiva samo administrator
 func (h *SettingsHandler) HandlePairStatus(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	writeJSON(w, h.peers.PairStatus())
 }
 
@@ -443,9 +449,8 @@ func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Requ
 
 // --- povijest zapisa ---
 
-// HandleHistory vraća verzije jednog zapisa, od najnovije
-// HandleHistory vraća sve verzije zapisa iz knjige. Zapis čvora nosi
-// adrese, pa povijest vidi samo administrator.
+// HandleHistory vraća verzije jednog zapisa iz knjige, od najnovije. Zapis
+// čvora nosi adrese, pa povijest vidi samo administrator.
 func (h *SettingsHandler) HandleHistory(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdmin(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)

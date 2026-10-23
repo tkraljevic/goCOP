@@ -46,8 +46,15 @@ type CvorRazmjene struct {
 	RazlogPuta razmjena.RazlogPuta
 }
 
-// Razlog je razlog puta rečenicom za pločicu
-func (c CvorRazmjene) Razlog() string { return razlogRijecima(c.RazlogPuta, c.Put) }
+// Razlog je razlog puta rečenicom za pločicu. „Ne javlja se ni na jednoj
+// adresi” ne stoji uz računalo koje je na mreži: ono se nedavno samo javilo
+// (npr. laptop izvan kuće na javnu adresu), a ovo ga ne može nazvati.
+func (c CvorRazmjene) Razlog() string {
+	if c.RazlogPuta == razmjena.RazlogPutaBezOdgovora && c.Dostupnost == "online" {
+		return ""
+	}
+	return razlogRijecima(c.RazlogPuta, c.Put)
+}
 
 // RazlogTrajan: razlog se sam ne popravi, pa traži čovjeka
 func (c CvorRazmjene) RazlogTrajan() bool { return c.RazlogPuta.Trajan() }

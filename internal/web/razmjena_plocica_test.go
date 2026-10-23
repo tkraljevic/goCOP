@@ -132,7 +132,9 @@ func TestPlocicaPutIRazlozi(t *testing.T) {
 		for _, r := range razlozi {
 			// Zaostaje 1: pločica s tablicom; 0: jedan redak, uz prolazni razlog
 			for _, zaostaje := range []int{0, 1} {
-				c := CvorRazmjene{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Zaostaje: zaostaje, Put: naziv, RTTMs: 12, RazlogPuta: r}
+				// „bez odgovora” stoji samo uz računalo koje nije na mreži
+				dostupnost := map[bool]string{true: "offline", false: "online"}[r == razmjena.RazlogPutaBezOdgovora]
+				c := CvorRazmjene{Naziv: "laptop", Dostupnost: dostupnost, Zadnja: &malo, Zaostaje: zaostaje, Put: naziv, RTTMs: 12, RazlogPuta: r}
 				var b strings.Builder
 				if err := razmjenaTmpl.Execute(&b, RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{c}}); err != nil {
 					t.Fatal(err)
@@ -151,7 +153,7 @@ func TestPlocicaPutIRazlozi(t *testing.T) {
 				if zaostaje == 1 && trajan != r.Trajan() {
 					t.Errorf("%q: trajan na pločici %v", r, trajan)
 				}
-				if jedanRedak := strings.Contains(html, "Sve je usklađeno"); jedanRedak != (zaostaje == 0 && !r.Trajan()) {
+				if jedanRedak := strings.Contains(html, "Sve je usklađeno"); jedanRedak != (zaostaje == 0 && !r.Trajan() && dostupnost == "online") {
 					t.Errorf("%q, zaostaje %d: jedan redak %v", r, zaostaje, jedanRedak)
 				}
 			}
@@ -167,8 +169,19 @@ func TestPlocicaPutIRazlozi(t *testing.T) {
 	if (CvorRazmjene{}).Razlog() != "" || (CvorRazmjene{RazlogPuta: "nepoznat"}).Razlog() != "" {
 		t.Error("razlog bez koda")
 	}
-	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaBezOdgovora, Put: razmjena.NazivLAN}).Razlog(); r != "Računalo se ne javlja ni na jednoj poznatoj adresi." {
+	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaBezOdgovora, Put: razmjena.NazivLAN, Dostupnost: "offline"}).Razlog(); r != "Računalo se ne javlja ni na jednoj poznatoj adresi." {
 		t.Errorf("bez ijedne adrese: %q", r)
+	}
+	// računalo koje se samo javlja na javnu adresu, a ovo ga ne može nazvati:
+	// pločica je jedan redak i ne kaže da se ne javlja
+	samo := RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo,
+		Put: razmjena.NazivServer, Neuspjelih: 1, RazlogPuta: razmjena.RazlogPutaBezOdgovora}}}
+	var b strings.Builder
+	if err := razmjenaTmpl.Execute(&b, samo); err != nil {
+		t.Fatal(err)
+	}
+	if !samo.Sredeno() || strings.Contains(b.String(), "ne javlja") {
+		t.Errorf("računalo koje se samo javlja: %s", b.String())
 	}
 	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaNijeSeJavio, Put: razmjena.NazivServer}).Razlog(); r != "Računalo se ne javlja u lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync)." {
 		t.Errorf("primjer iz plana: %q", r)

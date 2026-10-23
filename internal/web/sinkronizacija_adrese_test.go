@@ -100,12 +100,12 @@ func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 	}
 }
 
-// Pretraga lokalne mreže i povijest zapisa iz knjige nose adrese računala,
-// pa ih dobiva samo administrator.
+// Pretraga lokalne mreže, povijest zapisa iz knjige i stanje uparivanja
+// nose adrese računala, pa ih dobiva samo administrator.
 func TestPretragaIPovijestSamoAdministratoru(t *testing.T) {
 	s, baza := cvorIBazaZaWeb(t, "cop-osijek")
 	h := NewSettingsHandler(s, ledger.New(baza, "cop-osijek"), nil)
-	for ime, rukovatelj := range map[string]http.HandlerFunc{"pretraga": h.HandleDiscover, "povijest": h.HandleHistory} {
+	for ime, rukovatelj := range map[string]http.HandlerFunc{"pretraga": h.HandleDiscover, "povijest": h.HandleHistory, "uparivanje": h.HandlePairStatus} {
 		r := httptest.NewRequest(http.MethodGet, "/api/history/peers/laptop-baranja", nil)
 		r.SetPathValue("entity", "peers")
 		r.SetPathValue("id", "laptop-baranja")

@@ -230,7 +230,7 @@
         {{end}}
       </div>
       {{else}}
-      <p class="muted">Još nema poznatih čvorova. Uparite prvi ili pretražite lokalnu mrežu.</p>
+      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Uparite prvi ili pretražite lokalnu mrežu.{{else}}Čvorove dodaje administrator.{{end}}</p>
       {{end}}
     </div>
   </div>
