@@ -96,8 +96,11 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 	if _, err := baza.Exec(`INSERT INTO peers (node_id, name, public_key, created_at) VALUES ('laptop-ana', '', 'k1', ?), ('cop-ured', 'COP Ured', 'k2', ?)`, sad, sad); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := baza.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_ok, last_error, applied, sent, fails, mogucnosti, ceka_nadogradnju, mogucnosti_poznate)
-		VALUES ('laptop-ana', '{"treci-cvor":"v-zzz"}', ?, 'dial tcp: no route to host', 3, 2, 1, '["razmjena/1"]', 120, 1)`, sad); err != nil {
+	// laptop se zadnji put javio sam kroz tunel, a ovaj ga ne može nazvati
+	if _, err := baza.Exec(`INSERT INTO peer_sync (node_id, their_frontier, last_ok, last_error, applied, sent, fails, mogucnosti, ceka_nadogradnju, mogucnosti_poznate,
+		put, rtt_ms, put_razlog)
+		VALUES ('laptop-ana', '{"treci-cvor":"v-zzz"}', ?, 'dial tcp 192.168.1.30:4710: no route to host', 3, 2, 1, '["razmjena/1"]', 120, 1,
+		'tunel', 35, 'nije-se-javio')`, sad); err != nil {
 		t.Fatal(err)
 	}
 	// zapis novije sheme, kakav šalje noviji program
@@ -130,7 +133,8 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 		t.Errorf("ured: %+v", ured)
 	}
 	if laptop.Naziv != "laptop-ana" || laptop.Dostupnost != "online" || !laptop.JosPrima || laptop.Primljeno != 3 || laptop.Poslano != 2 ||
-		laptop.Neuspjelih != 1 || !laptop.SamoDolazi || laptop.Greska == "" || laptop.Zadnja == nil {
+		laptop.Neuspjelih != 1 || !laptop.SamoDolazi || laptop.Zadnja == nil ||
+		laptop.Put != "SERVER sync" || laptop.RTTMs != 35 || laptop.RazlogPuta != "nije-se-javio" {
 		t.Errorf("laptop: %+v", laptop)
 	}
 	for _, u := range []string{"Stigao je 1 zapis koji ovaj program još ne razumije. Primijenit će ga nakon nadogradnje goCOP-a.",

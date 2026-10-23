@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/razmjena"
 )
 
 // Razmjena na naslovnoj: s kojim čvorovima se ovaj čvor usklađuje, koliko
@@ -32,12 +33,24 @@ type CvorRazmjene struct {
 	Poslano    int  // u zadnjoj razmjeni
 	Zaostaje   int  // naših verzija koje taj čvor još nema (do 5000)
 	JosPrima   bool // taj čvor ima verzija koje ovaj još nema
-	Greska     string
 	Neuspjelih int
 	SamoDolazi bool   // javlja se sam (kroz tunel), ovaj čvor ga ne može nazvati
 	Verzija    string // izdanje programa na kojem radi; prazno = ne javlja ga
 	Razlicita  bool   // radi na drugom izdanju od ovog čvora (ili starijem koji ga ne javlja)
+	// Put je naziv puta zadnje razmjene (LAN sync, SERVER sync, Tailscale,
+	// WEB sync), RTTMs njezin RTT (0: ne zna se), a RazlogPuta zašto ne ide
+	// boljim putem. Sirova greška razmjene nosi adrese, pa pločica nema nju,
+	// nego rečenicu razloga.
+	Put        string
+	RTTMs      int
+	RazlogPuta razmjena.RazlogPuta
 }
+
+// Razlog je razlog puta rečenicom za pločicu
+func (c CvorRazmjene) Razlog() string { return razlogRijecima(c.RazlogPuta, c.Put, c.Neuspjelih) }
+
+// RazlogTrajan: razlog se sam ne popravi, pa traži čovjeka
+func (c CvorRazmjene) RazlogTrajan() bool { return c.RazlogPuta.Trajan() }
 
 // ArhivaRazmjene je napredak arhive paketima
 type ArhivaRazmjene struct {
@@ -88,11 +101,18 @@ func (r RazmjenaStanje) Sredeno() bool {
 		return false
 	}
 	for _, c := range r.Cvorovi {
-		if c.Dostupnost != "online" || c.Zaostaje > 0 || c.JosPrima || c.Razlicita {
+		if !c.uskladjen() {
 			return false
 		}
 	}
 	return true
+}
+
+// uskladjen: računalo je na mreži, ništa se ne čeka i nema razloga koji
+// traži čovjeka. Prolazni razlog (npr. podaci idu preko poslužitelja jer se
+// računalo ne javlja u lokalnoj mreži) ne smeta: podaci stižu.
+func (c CvorRazmjene) uskladjen() bool {
+	return c.Dostupnost == "online" && c.Zaostaje == 0 && !c.JosPrima && !c.Razlicita && !c.RazlogTrajan()
 }
 
 // PrognozaKasni javlja da zadnje izdanje nije novije od tri sata
@@ -177,7 +197,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>
     <div class="vrijeme-mirno-tekst">
       <div class="vrijeme-mirno-naslov">Sve je usklađeno s {{len .Cvorovi}} {{if eq (len .Cvorovi) 1}}čvorom{{else}}čvorova{{end}}.</div>
-      <div class="reg-card-sub">{{range $i, $c := .Cvorovi}}{{if $i}} · {{end}}{{$c.Naziv}}{{if $c.Verzija}} na {{$c.Verzija}}{{end}}: zadnja razmjena {{prijePtr $c.Zadnja}}{{end}}{{with .Prognoza}}{{if .Ima}} · prognoza {{if $.Prognoza.Izdaje}}se izdaje ovdje{{else}}s čvora {{.Izdavac}}{{end}}, zadnja za {{sat .Izdano}}{{end}}{{end}}</div>
+      <div class="reg-card-sub">{{range $i, $c := .Cvorovi}}{{if $i}} · {{end}}{{$c.Naziv}}{{if $c.Verzija}} na {{$c.Verzija}}{{end}}: zadnja razmjena {{prijePtr $c.Zadnja}}{{with $c.Put}}, {{.}}{{end}}{{with $c.RTTMs}}, {{.}} ms{{end}}{{end}}{{with .Prognoza}}{{if .Ima}} · prognoza {{if $.Prognoza.Izdaje}}se izdaje ovdje{{else}}s čvora {{.Izdavac}}{{end}}, zadnja za {{sat .Izdano}}{{end}}{{end}}</div>
     </div>
   </div>
   {{else}}
@@ -188,7 +208,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     {{range .Cvorovi}}<tr>
       <td><strong>{{.Naziv}}</strong>{{if .Verzija}}<div class="reg-card-sub">{{.Verzija}}{{if .Razlicita}} — drukčija od ovog čvora{{end}}</div>{{else if .Razlicita}}<div class="reg-card-sub">starija inačica (ne javlja je)</div>{{end}}</td>
       <td>{{if eq .Dostupnost "online"}}<span class="badge badge-active">na mreži</span>{{else if eq .Dostupnost "never"}}<span class="badge badge-inactive">još nikad</span>{{else}}<span class="badge badge-pending">ne odgovara</span>{{end}}</td>
-      <td>{{prijePtr .Zadnja}}{{if .SamoDolazi}}<div class="reg-card-sub">javlja se sam (kroz tunel); ovaj čvor njega ne može nazvati</div>{{else if .Greska}}<div class="reg-card-sub">{{.Greska}}</div>{{end}}</td>
+      <td>{{prijePtr .Zadnja}}{{if .Put}}<div class="reg-card-sub">{{.Put}}{{if .RTTMs}}, {{.RTTMs}} ms{{end}}</div>{{end}}{{if .SamoDolazi}}<div class="reg-card-sub">javlja se sam (kroz tunel); ovaj čvor njega ne može nazvati</div>{{else if .Razlog}}<div class="{{if .RazlogTrajan}}razmjena-upozorenje{{else}}reg-card-sub{{end}}">{{.Razlog}}</div>{{end}}</td>
       <td class="mono" style="text-align:right;">{{.Primljeno}} / {{.Poslano}}</td>
       <td>{{if .Zaostaje}}šalje se još {{if ge .Zaostaje 5000}}više od 5000{{else}}{{.Zaostaje}}{{end}} verzija{{if .JosPrima}}; {{end}}{{end}}{{if .JosPrima}}prima se još{{end}}{{if and (not .Zaostaje) (not .JosPrima)}}usklađeno{{end}}</td>
     </tr>{{end}}

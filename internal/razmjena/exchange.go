@@ -12,6 +12,7 @@ import (
 	"log"
 	"net"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -150,6 +151,7 @@ type Conn struct {
 	// samog obilaska. Na strani koja prima je nula.
 	RTT     time.Duration
 	raw     prijenos
+	brojilo *brojiloVeze
 	enc     *json.Encoder
 	dec     *json.Decoder
 	citac   *ograniceniCitac
@@ -159,8 +161,39 @@ type Conn struct {
 // newConnKljuc je veza razmjene nad prijenosom s već dokazanim ključem
 func newConnKljuc(p prijenos, key ed25519.PublicKey, vj []byte) *Conn {
 	// json.Decoder ionako čita u svoj međuspremnik, pa bufio nije potreban
-	citac := &ograniceniCitac{r: p}
-	return &Conn{PeerKey: key, Vjerodajnice: vj, raw: p, enc: json.NewEncoder(p), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}
+	b := &brojiloVeze{p: p}
+	citac := &ograniceniCitac{r: b}
+	return &Conn{PeerKey: key, Vjerodajnice: vj, raw: p, brojilo: b, enc: json.NewEncoder(b), dec: json.NewDecoder(citac), citac: citac, najvise: NajvecaPoruka}
+}
+
+// brojiloVeze broji bajtove razmjene u oba smjera, iznad TLS-a: poruke s
+// verzijama i sadržajem, bez rukovanja i bez okvira TLS-a, WebSocketa ili
+// QUIC-a. Zato se ne slaže s brojkama vatrozida ni Cloudflarea. Brojači su
+// atomski, jer bilješku o dolaznoj razmjeni piše druga gorutina.
+type brojiloVeze struct {
+	p                  prijenos
+	primljeno, poslano atomic.Int64
+}
+
+func (b *brojiloVeze) Read(p []byte) (int, error) {
+	n, err := b.p.Read(p)
+	b.primljeno.Add(int64(n))
+	return n, err
+}
+
+func (b *brojiloVeze) Write(p []byte) (int, error) {
+	n, err := b.p.Write(p)
+	b.poslano.Add(int64(n))
+	return n, err
+}
+
+// Bajtovi su bajtovi razmjene primljeni i poslani ovom vezom (brojiloVeze);
+// veza koju nije složio ovaj paket nema brojila
+func (c *Conn) Bajtovi() (primljeno, poslano int64) {
+	if c.brojilo == nil {
+		return 0, 0
+	}
+	return c.brojilo.primljeno.Load(), c.brojilo.poslano.Load()
 }
 
 // Send and Receive move envelopes with a per-message deadline: a peer

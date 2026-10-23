@@ -272,7 +272,12 @@
     <h3 id="dashboard-razmjena">Razmjena s čvorovima</h3>
     <p>Pločica pokazuje s kojim se čvorovima ovo računalo usklađuje, kada je bila zadnja
       razmjena, koliko još treba poslati ili primiti, dokle je stigla ugradnja arhive vodostaja i
-      koji čvor izdaje prognozu. Uz svaki čvor stoji izdanje programa na kojem radi. Kad drugi
+      koji čvor izdaje prognozu. Uz svaki čvor stoji izdanje programa na kojem radi i put kojim
+      je prošla zadnja razmjena: LAN sync (lokalna mreža), SERVER sync (preko poslužitelja),
+      Tailscale ili WEB sync, uz vrijeme obilaska do drugog računala, npr. „LAN sync, 3 ms”.
+      Kad razmjena ne ide boljim putem, ispod piše zašto, npr. „Računalo se ne javlja u
+      lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync).” Adrese i poruke o greškama
+      pločica nema, jer je vidi svaki prijavljeni korisnik. Kad drugi
       čvor radi na drukčijem ili starijem izdanju, pločica to javlja upozorenjem i savjetuje
       nadogradnju. Najprije se nadograđuje stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
@@ -1681,7 +1686,10 @@
         razinu sadržaja i rok lokalnog držanja. Hidrološka arhiva ne ulazi u običnu knjigu
         verzija kao niz mjerenja: knjiga prenosi kazalo, a potpisani <code>.cop</code> paket
         dohvaća se zasebno prema pretplati. Stranica pokazuje i izdanje programa svakog čvora
-        i upozorava na čvor koji radi na drukčijem ili starijem izdanju.</li>
+        i upozorava na čvor koji radi na drukčijem ili starijem izdanju. Uz svaki čvor stoji put
+        zadnje razmjene i koliko je razmjena tim putem uspjelo otkad ide njime. Adrese čvorova,
+        greške razmjene i, za čvor koji ne odgovara, zadnji pokušaj na svakoj adresi vidi samo
+        globalni administrator.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a

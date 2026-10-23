@@ -56,6 +56,8 @@ type SyncState struct {
 	Vrste             map[string]int `json:"-"`
 	CekaNadogradnju   int            `json:"ceka_nadogradnju,omitempty"` // broj zapisa, ne verzija
 	MogucnostiPoznate bool           `json:"-"`
+	// Put je put zadnje razmjene i brojači od tada (put_razmjene.go)
+	Put PutRazmjene `json:"put"`
 }
 
 // syncOutcome je ishod jedne razmjene za bilješku
@@ -70,6 +72,13 @@ type syncOutcome struct {
 	// dolazna: razmjenu je započeo drugi čvor, pa je njegova adresa veze
 	// samo tvrdnja s prolaznim portom (nauci)
 	dolazna bool
+	// put veze, je li adresa druge strane privatna, RTT i bajtovi (uzVezu)
+	// i razlog zašto razmjena nije išla boljim putem (SyncWith)
+	put                razmjena.Put
+	privatna           bool
+	rtt                time.Duration
+	primljeno, poslano int64
+	razlog             razmjena.RazlogPuta
 }
 
 // ishodRazmjene slaže bilješku iz onoga što je exchange vratio; inačica
@@ -114,6 +123,7 @@ func (s *Service) recordSyncState(ctx context.Context, nodeID string, o syncOutc
 	if err != nil {
 		fmt.Printf("sinkronizacija: stanje za %s nije spremljeno: %v\n", nodeID, err)
 	}
+	s.upisiPut(ctx, nodeID, o, now)
 }
 
 // zapamtiZnanje pamti što je drugi čvor javio da zna, samo na ovom
@@ -154,7 +164,8 @@ func uStupac(v any) string {
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
-		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese FROM peer_sync`)
+		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese,
+		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
@@ -163,19 +174,15 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 	for rows.Next() {
 		var id, frontier, ts, mogucnosti, vrste, adrese string
 		var st SyncState
-		var attempt, ok sql.NullTime
+		var attempt, ok, od sql.NullTime
+		p := &st.Put
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
-			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese); err != nil {
+			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese,
+			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao); err != nil {
 			return nil, err
 		}
-		if attempt.Valid {
-			t := attempt.Time.UTC()
-			st.LastAttempt = &t
-		}
-		if ok.Valid {
-			t := ok.Time.UTC()
-			st.LastOK = &t
-		}
+		st.LastAttempt, st.LastOK, p.Od = vrijemeIz(attempt), vrijemeIz(ok), vrijemeIz(od)
+		p.Naziv = razmjena.NazivPuta(p.Put, p.Privatna)
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
@@ -394,7 +401,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 			// čvor ne može nazvati: laptop u uredu sam zove kroz tunel, a
 			// kućna adresa mu je nedostupna.
 			ps.Reachability = "online"
-			ps.SamoDolazi = ps.State.Fails > 0
+			ps.SamoDolazi = samoDolazi(ps.State)
 			st.Online++
 		default:
 			ps.Reachability = "offline"
@@ -463,8 +470,9 @@ func (s *Service) alerts(st *Status, every time.Duration, now time.Time) []strin
 			if p.State.LastOK != nil {
 				since = "ne odgovara od " + p.State.LastOK.Local().Format("02.01. 15:04")
 			}
-			out = append(out, fmt.Sprintf("%s: %s (%d %s zaredom): %s", label(p.Peer), since, p.State.Fails,
-				models.UzBrojHR(p.State.Fails, "pokušaj", "pokušaja", "pokušaja"), p.State.LastError))
+			// sirova greška nosi adrese, pa ide samo na stranicu Sinkronizacija
+			out = append(out, fmt.Sprintf("%s: %s (%d %s zaredom).", label(p.Peer), since, p.State.Fails,
+				models.UzBrojHR(p.State.Fails, "pokušaj", "pokušaja", "pokušaja")))
 		}
 		if p.bezAdrese() {
 			out = append(out, fmt.Sprintf("%s: nema nijednu poznatu adresu, pa ga ovaj čvor ne može nazvati.", label(p.Peer)))

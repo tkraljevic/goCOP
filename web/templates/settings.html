@@ -214,9 +214,10 @@
           <span class="peer-meta mono">{{.NodeID}}</span>
         </div>
         <div class="peer-meta">
-          adrese: {{if .Addresses}}{{range .Addresses}}<span class="mono">{{.}}</span> {{end}}{{else}}—{{end}}
-          {{if .LastSync}} · zadnji sync {{formatDate (derefTime .LastSync)}}{{end}}
-          {{if .LastSyncNote}} · {{.LastSyncNote}}{{end}}
+          {{/* adrese i bilješka s greškom razmjene (nosi adrese) samo administratoru */}}
+          {{if $.Permissions.IsGlobalAdmin}}adrese: {{if .Addresses}}{{range .Addresses}}<span class="mono">{{.}}</span> {{end}}{{else}}—{{end}}{{end}}
+          {{if .LastSync}}{{if $.Permissions.IsGlobalAdmin}} · {{end}}zadnji sync {{formatDate (derefTime .LastSync)}}{{end}}
+          {{if and $.Permissions.IsGlobalAdmin .LastSyncNote}} · {{.LastSyncNote}}{{end}}
         </div>
         {{if $.Permissions.IsGlobalAdmin}}
         <div class="actions">

@@ -1761,6 +1761,27 @@ func migrateSchema(database *sql.DB) error {
 		// Kad je ovo računalo zadnji put spremilo šifriranu kopiju ključa
 		// mreže (G9b, peers/kljuc_kopija.go); NULL: nikad. Lokalno.
 		{"network", "kopija_kljuca", "DATETIME"},
+		// Put zadnje razmjene s računalom (F1b, peers/put_razmjene.go): put
+		// (razmjena.Put), je li adresa druge strane privatna (za naziv LAN
+		// sync ili SERVER sync), RTT, otkad razmjena ide tim putem i zašto ne
+		// ide boljim (razmjena.RazlogPuta). Brojači idu od put_od: razmjene,
+		// uspjele i neuspjele, bajtovi razmjene i tko je zadnji zvao ('ovaj'
+		// ili 'drugi'). Brojače pripreme WEB synca puni F3b; promjena puta ih
+		// ne briše. Sve ostaje na ovom računalu, nikad u knjigu ni na žicu.
+		{"peer_sync", "put", "TEXT NOT NULL DEFAULT ''"},
+		{"peer_sync", "put_privatna", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "rtt_ms", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "put_od", "DATETIME"},
+		{"peer_sync", "put_razlog", "TEXT NOT NULL DEFAULT ''"},
+		{"peer_sync", "put_pokusaji", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "put_uspjesi", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "put_neuspjesi", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "put_primljeno", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "put_poslano", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "zadnji_zvao", "TEXT NOT NULL DEFAULT ''"},
+		{"peer_sync", "priprema_pokusaji", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "priprema_uspjesi", "INTEGER NOT NULL DEFAULT 0"},
+		{"peer_sync", "priprema_neuspjesi", "INTEGER NOT NULL DEFAULT 0"},
 	}
 
 	// Vrijednosti koje su promijenile ime nakon što su upisane
