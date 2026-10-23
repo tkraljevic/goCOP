@@ -495,9 +495,9 @@ func TestProvjeraVezeNaStalnoj(t *testing.T) {
 	}
 
 	p := &povezivost{cfg: prijavaWebSynca(lazniSTUN(t)), javi: d.javi}
-	conn, _, err := razmjena.OtvoriUDP(0)
-	if err != nil {
-		t.Fatal(err)
+	conn, upozorenje, err := razmjena.OtvoriUDP(0)
+	if err != nil || upozorenje != nil {
+		t.Fatal(err, upozorenje)
 	}
 	u := razmjena.NoviUDP(conn)
 	posl := posluziteljiSTUN(context.Background(), p.cfg.Stun)
@@ -518,7 +518,7 @@ func TestProvjeraVezeNaStalnoj(t *testing.T) {
 	stari := otvoriUticnicu
 	otvoriUticnicu = func(int) (net.PacketConn, error, error) { return nil, nil, errors.New("nema mreže") }
 	t.Cleanup(func() { otvoriUticnicu = stari })
-	if r := p.naPrivremenoj(context.Background(), posl, nil); !strings.Contains(r.Greska, "nema mreže") {
+	if r := p.naPrivremenoj(context.Background(), posl, nil); !strings.Contains(r.Greska, "nema mreže") || r.Privremena || r.Port != 0 {
 		t.Errorf("privremena se ne da otvoriti: %+v", r)
 	}
 }

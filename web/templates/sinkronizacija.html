@@ -50,7 +50,7 @@
 <p class="muted">Provjereno {{vrijemeHR .Kad}}{{if .Privremena}}, na utičnici otvorenoj samo za ovu provjeru{{end}}.{{with .Upozorenje}} {{.}}.{{end}}</p>
 {{with $.Dohvatljivost.Javna}}<p>Javna adresa: <span class="mono">{{.}}</span></p>{{end}}
 {{range $.Dohvatljivost.Izlazi}}<p>{{.}}</p>{{end}}
-<p>Adrese za WEB sync: {{range $i, $k := $.Dohvatljivost.Kandidati}}{{if $i}}, {{end}}<span class="mono">{{$k}}</span>{{else}}nijedna{{end}}</p>
+{{if not .Greska}}<p>Adrese za WEB sync: {{range $i, $k := $.Dohvatljivost.Kandidati}}{{if $i}}, {{end}}<span class="mono">{{$k}}</span>{{else}}nijedna{{end}}</p>{{end}}
 {{with .Razlozi}}<p class="muted">Nisu ponuđene: {{range $i, $r := .}}{{if $i}}; {{end}}{{$r}}{{end}}</p>{{end}}
 {{else}}<p class="muted">Provjere još nije bilo. Pokreće se sama pri pokretanju uz uključenu prijavu za WEB sync, ili gumbom Provjeri vezu u kartici <a href="/settings#provjera-veze">Ovaj čvor</a>.</p>
 {{end}}

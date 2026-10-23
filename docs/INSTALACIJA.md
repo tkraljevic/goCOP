@@ -159,7 +159,9 @@ pokazuje sažetak, npr. „UDP radi na :4713. NAT je lak i čuva port.”, a blo
 *Dohvatljivost ovog računala* na stranici Sinkronizacija pojedinosti: vlastitu
 javnu adresu, adrese koje bi WEB sync nudio drugima i kuda promet prema
 STUN-u izlazi (obično, kroz Tailscale ili kroz VPN). Taj blok vidi samo
-administrator. U spremniku bez `lan_adresa` pločica razmjene na to upozorava.
+administrator. Spremnik u mostu treba `lan_adresa`: dok je nema, na to
+upozorava blok nakon provjere, a pločica razmjene uz uključenu prijavu za
+WEB sync. Spremnik s mrežom računala (host) adresu nađe sam.
 
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
@@ -737,8 +739,8 @@ određuju što je zahtjev izvana. Isto vrijedi za UDP port WEB synca i STUN
 poslužitelje (`[povezivost] udp_port`, `stun`): tuđi STUN poslužitelj saznao
 bi javnu adresu računala i mogao vratiti lažnu, a krivi port odsiječe
 računalo. Samo u datoteci mijenja se i adresa u lokalnoj mreži za spremnik
-(`lan_adresa`, samo IPv4), koju WEB sync nudi drugim računalima umjesto
-adrese spremnika. Ime čvora u mreži (`[node] id`) poslije
+(`lan_adresa`, samo IPv4), koju bi WEB sync nudio drugim računalima umjesto
+adrese spremnika; zasad se samo prikazuje u bloku Dohvatljivost. Ime čvora u mreži (`[node] id`) poslije
 prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 

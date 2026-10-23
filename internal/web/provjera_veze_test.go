@@ -97,7 +97,7 @@ func TestProvjeraVezeUKartici(t *testing.T) {
 	}
 	izvana := kaoAdmin
 	izvana.adresa = adresaIzvana
-	if html := iscrtajPostavke(t, s, "/settings", izvana); strings.Contains(html, `action="/settings/provjeri-vezu"`) || !strings.Contains(html, zabranaIzvana.postavke) {
+	if html := iscrtajPostavke(t, s, "/settings", izvana); strings.Contains(html, `action="/settings/provjeri-vezu"`) || !strings.Contains(html, zabranaIzvana.provjera) {
 		t.Error("izvana: gumb ili bez razloga")
 	}
 }
@@ -171,36 +171,47 @@ func TestDohvatljivostNaSinkronizaciji(t *testing.T) {
 	}
 }
 
-// U spremniku uz prijavu za WEB sync bez lan_adresa pločica i blok
-// upozore; s lan_adresa, bez prijave ili izvan spremnika ne.
+// U spremniku u mostu bez lan_adresa: pločica upozori uz prijavu za WEB
+// sync, a blok Dohvatljivost i nakon provjere bez prijave. S lan_adresa,
+// izvan spremnika ili kad je provjera našla adresu izvan Dockerove mreže
+// (host, macvlan) upozorenja nema.
 func TestUpozorenjeLanAdrese(t *testing.T) {
+	u172 := []razmjena.Kandidat{{Vrsta: razmjena.KandidatLokalni, Adresa: netip.MustParseAddrPort("172.17.0.2:4713"), Sucelje: "eth0"}}
+	u192 := []razmjena.Kandidat{{Vrsta: razmjena.KandidatLokalni, Adresa: netip.MustParseAddrPort("192.168.1.10:4713"), Sucelje: "eth0"}}
 	for _, c := range []struct {
-		nacin    NacinRada
-		prijava  bool
-		lan      string
-		upozorav bool
+		ime           string
+		nacin         NacinRada
+		prijava       bool
+		lan           string
+		provjera      []razmjena.Kandidat // nil: provjere nije bilo
+		plocica, blok bool
 	}{
-		{USpremniku, true, "", true},
-		{USpremniku, true, "192.168.1.2", false},
-		{USpremniku, false, "", false},
-		{UslugaSustava, true, "", false},
+		{"most, prijava", USpremniku, true, "", nil, true, true},
+		{"most, prijava, provjera", USpremniku, true, "", u172, true, true},
+		{"host, prijava, provjera", USpremniku, true, "", u192, false, false},
+		{"s lan_adresa", USpremniku, true, "192.168.1.2", u172, false, false},
+		{"bez prijave, bez provjere", USpremniku, false, "", nil, false, false},
+		{"bez prijave, provjera", USpremniku, false, "", u172, false, true},
+		{"izvan spremnika", UslugaSustava, true, "", u172, false, false},
 	} {
 		s, _ := cvorSPostavkama(t, sadrzajPostavk, nil)
 		s.SetPonovnoPokretanje(c.nacin, func() {})
 		p := s.postavke.snimka()
 		p.Vrijedi.Povezivost = config.Povezivost{WebSyncPrijava: c.prijava, LanAdresa: c.lan}
 		s.SetPostavkeCvora(p)
-		if got := s.upozorenjeLanAdrese() != ""; got != c.upozorav {
-			t.Errorf("%+v: upozorenje %v", c, got)
+		if c.provjera != nil {
+			l := &lazniProvjeravatelj{ishod: ProvjeraVeze{Kandidati: c.provjera}}
+			l.zadnja = &l.ishod
+			l.postavi(s)
 		}
-		if got := len(s.upozorenjaPovezivosti()) > 0; got != c.upozorav {
-			t.Errorf("%+v: pločica %v", c, got)
+		if got := len(s.upozorenjaPovezivosti()) > 0; got != c.plocica {
+			t.Errorf("%s: pločica %v", c.ime, got)
 		}
-		if got := len(s.dohvatljivost().Upozorenja) > 0; got != c.upozorav {
-			t.Errorf("%+v: blok %v", c, got)
+		if got := len(s.dohvatljivost().Upozorenja) > 0; got != c.blok {
+			t.Errorf("%s: blok %v", c.ime, got)
 		}
 	}
-	if (&Server{}).upozorenjeLanAdrese() != "" {
+	if (&Server{}).upozorenjeLanAdrese(true) != "" {
 		t.Error("poslužitelj bez postavki")
 	}
 }

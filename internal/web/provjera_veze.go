@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/netip"
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -81,7 +83,7 @@ func (s *Server) prikazProvjereVeze(zabrana *zabranaCvora) *ProvjeraVezePrikaz {
 	}
 	p := &ProvjeraVezePrikaz{Nudi: zabrana == nil, Zadnja: s.povezivost.zadnjaProvjera()}
 	if zabrana != nil {
-		p.Zabrana = zabrana.postavke
+		p.Zabrana = zabrana.provjera
 	}
 	return p
 }
@@ -91,7 +93,7 @@ func (s *Server) prikazProvjereVeze(zabrana *zabranaCvora) *ProvjeraVezePrikaz {
 // stranica iscrta nakon preusmjeravanja.
 func (s *Server) handleProvjeriVezu(w http.ResponseWriter, r *http.Request) {
 	if z := smijeMijenjatiCvor(r); z != nil {
-		http.Error(w, z.postavke, http.StatusForbidden)
+		http.Error(w, z.provjera, http.StatusForbidden)
 		return
 	}
 	if s.povezivost.provjeri == nil {
@@ -136,7 +138,7 @@ var rijeciIzlaza = map[string]string{
 // dohvatljivost slaže blok za stranicu Sinkronizacija iz zadnje provjere
 func (s *Server) dohvatljivost() *DohvatljivostPrikaz {
 	d := &DohvatljivostPrikaz{Provjera: s.povezivost.zadnjaProvjera()}
-	if u := s.upozorenjeLanAdrese(); u != "" {
+	if u := s.upozorenjeLanAdrese(d.Provjera != nil); u != "" {
 		d.Upozorenja = append(d.Upozorenja, u)
 	}
 	if d.Provjera == nil {
@@ -169,24 +171,38 @@ func opisKandidata(k razmjena.Kandidat) string {
 // padova i u spremniku bez lan_adresa
 func (s *Server) upozorenjaPovezivosti() []string {
 	out := s.povezivost.upozorenja()
-	if u := s.upozorenjeLanAdrese(); u != "" {
+	if u := s.upozorenjeLanAdrese(false); u != "" {
 		out = append(out, u)
 	}
 	return out
 }
 
-// upozorenjeLanAdrese: WEB sync u spremniku bez lan_adresa ne zna adresu
-// računala u kućnoj mreži, pa ga druga računala u kući ne nađu WEB syncom.
-// Vrijedi samo uz prijavu za WEB sync; uz mrežu računala (host) adresa ne
-// treba, pa rečenica to kaže uvjetno.
-func (s *Server) upozorenjeLanAdrese() string {
+// upozorenjeLanAdrese: spremnik u mostu bez lan_adresa ne zna adresu
+// računala u kućnoj mreži, pa ga druga računala u kući WEB syncom ne nađu.
+// Na pločici vrijedi uz prijavu za WEB sync, a u bloku Dohvatljivost i
+// nakon provjere bez nje (bezPrijave). Kad je zadnja provjera
+// našla adresu izvan Dockerove mreže, spremnik radi s mrežom računala
+// (host, macvlan) i adresa ne treba.
+func (s *Server) upozorenjeLanAdrese(bezPrijave bool) string {
 	if s.ponovno.nacin != USpremniku || s.postavke == nil {
 		return ""
 	}
 	p := s.postavke.snimka().Vrijedi.Povezivost
-	if !p.WebSyncPrijava || strings.TrimSpace(p.LanAdresa) != "" {
+	if !p.WebSyncPrijava && !bezPrijave || strings.TrimSpace(p.LanAdresa) != "" || s.imaAdresuIzvanDockera() {
 		return ""
 	}
-	return "WEB sync u spremniku ne zna adresu računala u lokalnoj mreži, pa ga druga računala u kući tim putem ne nađu. " +
-		"Ako spremnik radi u mostu, upišite [povezivost] lan_adresa u gocop.toml."
+	return "Ako goCOP u spremniku radi u mostu (bridge), WEB sync ne zna adresu računala u lokalnoj mreži, pa ga druga " +
+		"računala u kući tim putem ne nađu. Administrator tada upiše [povezivost] lan_adresa u gocop.toml."
+}
+
+// dockerMreza je raspon iz kojeg Docker daje adrese spremnicima u mostu
+var dockerMreza = netip.MustParsePrefix("172.16.0.0/12")
+
+// imaAdresuIzvanDockera: zadnja provjera našla je lokalnu adresu izvan
+// Dockerove mreže, pa spremnik vidi kućnu mrežu
+func (s *Server) imaAdresuIzvanDockera() bool {
+	z := s.povezivost.zadnjaProvjera()
+	return z != nil && slices.ContainsFunc(z.Kandidati, func(k razmjena.Kandidat) bool {
+		return k.Vrsta == razmjena.KandidatLokalni && !dockerMreza.Contains(k.Adresa.Addr())
+	})
 }

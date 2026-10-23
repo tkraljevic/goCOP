@@ -6,7 +6,9 @@ package main
 // pozadini i tek kad web već sluša, jer Postava vraća staro izdanje kad
 // novo ne odgovori u 90 s. Prije otvaranja uz bazu se upiše oznaka padova
 // (internal/peers/pad_povezivosti.go), a uredno gašenje je obriše. Uz
-// web_sync_prijava = false nema ni utičnice ni oznake.
+// web_sync_prijava = false nema stalne utičnice ni oznake: gumb Provjeri
+// vezu tada otvori privremenu utičnicu (udp_port, a kad je zauzet,
+// nasumičan), bez oznake padova, i zatvori je nakon mjerenja.
 //
 // U dnevnik idu redci „povezivost:”, bez tuđih javnih adresa i bez
 // vlastite.
@@ -286,7 +288,7 @@ func (p *povezivost) naStalnoj(ctx context.Context, u *razmjena.UDP, posl []razm
 // portu), izmjeri i zatvori je. Oznaku padova ne dira, a ishod ne ide u
 // histerezu: vrijedi samo za ovu provjeru.
 func (p *povezivost) naPrivremenoj(ctx context.Context, posl []razmjena.PosluziteljSTUN, izlazi []razmjena.IzlazSTUN) web.ProvjeraVeze {
-	r := web.ProvjeraVeze{Kad: time.Now(), Privremena: true, Izlazi: izlazi}
+	r := web.ProvjeraVeze{Kad: time.Now(), Izlazi: izlazi}
 	utisajQuic()
 	conn, upozorenje, err := otvoriUticnicu(p.cfg.UDPPort)
 	if err != nil {
@@ -298,7 +300,7 @@ func (p *povezivost) naPrivremenoj(ctx context.Context, posl []razmjena.Posluzit
 	if upozorenje != nil {
 		r.Upozorenje = upozorenje.Error()
 	}
-	r.Port = u.Port()
+	r.Port, r.Privremena = u.Port(), true
 	r.Mjerenje = u.ProvjeriMrezu(ctx, posl)
 	if ctx.Err() != nil {
 		r.Greska = "Provjera je prekinuta."
