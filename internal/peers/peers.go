@@ -218,6 +218,11 @@ type Service struct {
 	// odbijenoOcisceno je dan (UTC) kad je zapis odbijenog zadnji put
 	// očišćen od starih redaka (odbijeno.go)
 	odbijenoOcisceno atomic.Value
+	// obnovaTece: obnova uz razmjenu ide u jednoj razmjeni odjednom, a
+	// javljenaObnova pamti zahtjeve čija je neuspjela obnova već u dnevniku
+	// (obnova.go)
+	obnovaTece     sync.Mutex
+	javljenaObnova sync.Map
 	// objavi je glasnik pronalaženja (Announce); nil je razmjena.Announce.
 	// Test njime glumi glasnika koji padne.
 	objavi func(ctx context.Context) error
@@ -1406,6 +1411,7 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	s.zapamtiTailscale(ctx, peer.NodeID, o)
 	s.zapamtiZnanje(ctx, peer.NodeID, o)
 	s.zabiljeziIshod(ctx, peer, o)
+	s.obnovaUzRazmjenu(ctx, o)
 	s.javiDrugiProgram(peer, o)
 	s.nauci(ctx, peer, c, o)
 	s.zapisiBiljesku(ctx, peer.NodeID, o)

@@ -648,3 +648,21 @@ je gotov onaj o kojem ovisi.
   Mohács češće prebacuju kad kiša padne nakon suhih dana.
 - Uzdužni profil Dunava zato kreće od Komároma: „Onda ih možda nećemo ni
   trebat uklanjat sa uzdužnog, jer neće bit te rupe.”
+
+## Odluke (23. 10. 2026.)
+
+### Rok članstva u mreži
+
+- Uz članstvo piše do kad vrijedi, a pločica upozorava 30 dana prije
+  isteka: „korisnik mora imat upozorenje kad istiće i sa može obnoviti
+  članstvo. I bilo bi dobro da može obnoviti članstvo bilo kad.” Gumb
+  Obnovi članstvo radi u svako doba. Mjesec dana prije isteka računalo samo
+  zatraži obnovu, ali samo uz razmjenu, pa računalo koje se ne koristi samo
+  istekne (Odluke (18. 10. 2026.)).
+- Kad članstvo ipak istekne, razmjena ide još 30 dana uz upozorenje na
+  pločici. U tom roku računalo ne prima nova računala. Nakon toga ga treba
+  ponovno primiti u mrežu.
+- Ovlast za primanje obnavlja računalo s ključem mreže, samo i na zahtjev,
+  kao i članstvo. Pločica javlja da je ovlast obnovljena.
+- Računalo s ovlasti prima i obnavlja druga računala samo dok mu vlastito
+  članstvo nije isteklo. Do sada je bila dovoljna ovlast.

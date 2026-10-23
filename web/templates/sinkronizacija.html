@@ -74,6 +74,14 @@ function when(iso) {
   if (diff < 86400) return Math.round(diff / 3600) + ' h · ' + abs;
   return abs;
 }
+// clan je stupac Član: do kad vrijedi članstvo, žuto kad ističe za manje
+// od 30 dana, crveno u pričuvi nakon isteka
+function clan(rok) {
+  if (!rok || !rok.do || rok.do.startsWith('0001')) return '<span class="badge badge-active">član</span>';
+  const dan = iso => new Date(iso).toLocaleDateString('hr-HR');
+  if (rok.stanje === 'pricuva') return '<span class="badge badge-danger">isteklo ' + dan(rok.do) + '</span><br><span class="muted">razmjena radi još 30 dana od isteka</span>';
+  return '<span class="badge ' + (rok.stanje === 'istjece' ? 'badge-warning' : 'badge-active') + '">član</span><br><span class="muted">do ' + dan(rok.do) + '</span>';
+}
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
 
 function render(st) {
@@ -97,7 +105,7 @@ function render(st) {
     return `<tr>
       <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}</td>
       <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
-      <td>${p.member ? '<span class="badge badge-active">član</span>' : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
+      <td>${p.member ? clan(p.rok_clanstva) : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
       <td>${when(s.last_ok)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>
       <td>${s.last_ok ? s.applied + ' / ' + s.sent + '<br><span class="muted">' + (s.duration_ms >= 1000 ? (s.duration_ms / 1000).toFixed(1) + ' s' : s.duration_ms + ' ms') + '</span>' : '—'}</td>
       <td>${s.last_ok ? (p.backlog ? p.backlog + ' ' + uzBroj(p.backlog, 'verzija', 'verzije', 'verzija') : 'ništa') + '<div class="bar"><i style="width:' + pct + '%"></i></div>' : '—'}</td>
