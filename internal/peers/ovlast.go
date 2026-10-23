@@ -183,9 +183,10 @@ func (s *Service) opozvano(ctx context.Context, vrsta, kljuc string, izdano time
 }
 
 // provjeriClanstvo: potpis i rok (i lanac kroz ovlast primatelja), te da
-// ni članstvo ni ovlast njegova primatelja nisu opozvani
+// ni članstvo ni ovlast njegova primatelja nisu opozvani. Isteklo članstvo
+// vrijedi još za pričuvnog roka (obnova.go).
 func (s *Service) provjeriClanstvo(ctx context.Context, networkPub ed25519.PublicKey, m razmjena.Membership, pub ed25519.PublicKey) error {
-	if err := m.Verify(networkPub, pub, time.Now()); err != nil {
+	if err := m.Verify(networkPub, pub, time.Now()); err != nil && !uPricuvi(m, err, time.Now()) {
 		return err
 	}
 	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, m.IssuedAt, opozivateljiClanstva(networkPub, m)...) {
@@ -288,10 +289,16 @@ func (s *Service) izdajClanstvo(ctx context.Context, id string, kljuc ed25519.Pu
 	case network.CanSign():
 		return network.Admit(id, kljuc, s.node.ID, MembershipValidity)
 	}
-	if o := s.mojaOvlast(ctx); o != nil {
-		return razmjena.AdmitAs(s.node.key, *o, id, kljuc, MembershipValidity)
+	o := s.mojaOvlast(ctx)
+	if o == nil {
+		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: nema ključ mreže ni ovlast za primanje")
 	}
-	return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: nema ključ mreže ni ovlast za primanje")
+	// Odluke (23. 10. 2026.): uz ovlast treba i vlastito članstvo koje nije
+	// isteklo; u pričuvi računalo ne prima i ne obnavlja druge
+	if m, err := s.izabranoClanstvo(ctx, s.node.ID); err != nil || m.DeviceKey != s.node.PublicKey() || rokZa(m.ExpiresAt, time.Now(), true).Stanje == RokPricuva {
+		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: njegovo članstvo u mreži je isteklo; obnovite ga (Postavke, pod Mreža: Obnovi članstvo)")
+	}
+	return razmjena.AdmitAs(s.node.key, *o, id, kljuc, MembershipValidity)
 }
 
 // IzdajOvlast daje članu ovlast da prima druge. Samo nositelj ključa mreže.

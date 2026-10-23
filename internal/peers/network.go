@@ -153,7 +153,7 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 	s.mu.Unlock()
 
 	// osnivač je prvi član — vlastitim potpisom
-	self, err := key.Admit(s.node.ID, s.node.key.Public().(ed25519.PublicKey), s.node.ID, 10*MembershipValidity)
+	self, err := key.Admit(s.node.ID, s.node.key.Public().(ed25519.PublicKey), s.node.ID, ValjanostOsnivaca)
 	if err != nil {
 		return err
 	}
@@ -389,6 +389,8 @@ type Member struct {
 	IsSelf  bool   `json:"is_self"`
 	// OvlastZaPrimanje je ovlast ovog člana da prima druge, kad je ima
 	OvlastZaPrimanje *Primatelj `json:"ovlast_za_primanje,omitempty"`
+	// Rok je stanje roka članstva (obnova.go)
+	Rok Rok `json:"rok"`
 }
 
 // ListMembers vraća sve poznate potvrde, s ocjenom vrijede li za našu mrežu
@@ -417,6 +419,7 @@ func (s *Service) ListMembers(ctx context.Context) ([]Member, error) {
 		}
 		member.Problem = s.problemClanstva(ctx, network, m)
 		member.Valid = member.Problem == ""
+		member.Rok = rokZa(m.ExpiresAt, time.Now(), true)
 		out = append(out, member)
 	}
 	return out, nil
@@ -452,6 +455,9 @@ func (s *Service) problemClanstva(ctx context.Context, network *razmjena.Network
 		return "neispravan ključ"
 	}
 	if err := s.provjeriClanstvo(ctx, network.Public, m, pub); err != nil {
+		if errors.Is(err, razmjena.ErrExpired) {
+			return fmt.Sprintf("članstvo je isteklo %s i pričuva je prošla; računalo treba ponovno primiti u mrežu", datumHR(m.ExpiresAt))
+		}
 		return err.Error()
 	}
 	return ""

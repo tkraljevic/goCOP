@@ -297,8 +297,10 @@ type PeerStatus struct {
 	State         SyncState `json:"state"`
 	Member        bool      `json:"member"`
 	MemberProblem string    `json:"member_problem,omitempty"`
-	Backlog       int       `json:"backlog"`      // naših verzija koje taj čvor još nema (po zadnjoj granici)
-	Reachability  string    `json:"reachability"` // online, offline, never
+	// RokClanstva je rok članstva tog računala, kad ga ovaj čvor zna
+	RokClanstva  *Rok   `json:"rok_clanstva,omitempty"`
+	Backlog      int    `json:"backlog"`      // naših verzija koje taj čvor još nema (po zadnjoj granici)
+	Reachability string `json:"reachability"` // online, offline, never
 	// SamoDolazi: razmjena s njim uspijeva kad on nazove (npr. laptop izvan
 	// kuće kroz tunel), a ovaj čvor njega ne može nazvati
 	SamoDolazi bool `json:"samo_dolazi,omitempty"`
@@ -368,8 +370,9 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		return nil, err
 	}
 	members := map[string]Member{}
-	if ms, err := s.ListMembers(ctx); err == nil {
-		for _, m := range ms {
+	clanovi, err := s.ListMembers(ctx)
+	if err == nil {
+		for _, m := range clanovi {
 			members[m.DeviceID] = m
 		}
 	}
@@ -379,7 +382,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		ps.Program, ps.Gradnja = ps.State.Program, ps.State.Gradnja
 		ps.RazlicitProgram = razlicitProgram(st.Program, ps.State)
 		if m, ok := members[p.NodeID]; ok {
-			ps.Member, ps.MemberProblem = m.Valid, m.Problem
+			ps.Member, ps.MemberProblem, ps.RokClanstva = m.Valid, m.Problem, &m.Rok
 		} else {
 			ps.MemberProblem = "nema potvrde članstva"
 		}
@@ -423,6 +426,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	}
 
 	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
+	st.Alerts = append(st.Alerts, s.upozorenjaRokova(ctx, clanovi)...)
 	return st, nil
 }
 

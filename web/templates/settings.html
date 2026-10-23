@@ -92,19 +92,23 @@
       <dt>Naziv</dt><dd><b>{{.Network.Name}}</b></dd>
       <dt>Ključ mreže</dt><dd class="mono text-xs">{{.Network.PublicKey}}</dd>
       <dt>Ovaj čvor</dt><dd>{{if .Network.DrziKljuc}}<span class="badge badge-active">drži ključ mreže — može primati članove</span>{{else if .Network.Ovlast}}<span class="badge badge-active">ovlašteni primatelj — može primati članove</span> do {{formatDate .Network.Ovlast.ExpiresAt}}{{else}}član{{end}} · od {{formatDate .Network.JoinedAt}}</dd>
+      {{with .RokClanstva}}<dt>Članstvo</dt><dd><span class="badge {{.Oznaka}}">{{.Opis}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-secondary" onclick="obnoviClanstvo()">Obnovi članstvo</button>{{end}}
+        <div class="form-help">Obnova se traži sama uz razmjenu 30 dana prije isteka. Gumbom se može tražiti u svako doba. Nakon isteka razmjena radi još 30 dana.</div></dd>{{end}}
+      {{with .RokOvlasti}}<dt>Ovlast za primanje</dt><dd><span class="badge {{.Oznaka}}">{{.Opis}}</span></dd>{{end}}
     </dl>
     <div class="mt-3">
       {{range .Members}}
       <div class="peer">
         <div class="peer-head">
           <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovaj čvor)</span>{{end}}
-            {{if .Valid}}<span class="badge badge-active">član</span>{{else}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{end}}</span>
+            {{if not .Valid}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{else if .Rok.TraziPaznju}}<span class="badge {{.Rok.Oznaka}}">{{.Rok.Opis}}</span>{{else}}<span class="badge badge-active">član</span>{{end}}</span>
           <span class="peer-meta">primio {{.IssuedBy}}{{if .Primatelj}} (ovlašteni primatelj){{end}} · vrijedi do {{formatDate .ExpiresAt}}</span>
         </div>
         {{with .OvlastZaPrimanje}}<div class="peer-meta">{{if .Valid}}<span class="badge badge-active">ovlašteni primatelj</span> do {{formatDate .ExpiresAt}}{{else}}<span class="badge badge-inactive" title="{{.Problem}}">ovlast za primanje ne vrijedi</span>{{end}}</div>{{end}}
         {{if and $.Permissions.IsGlobalAdmin (not .IsSelf)}}
         <div class="actions">
           {{if and $.Network.DrziKljuc .Valid}}{{if and .OvlastZaPrimanje .OvlastZaPrimanje.Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="opozoviOvlast('{{.DeviceID}}')">Oduzmi ovlast za primanje</button>{{else}}<button type="button" class="btn btn-sm btn-secondary" onclick="izdajOvlast('{{.DeviceID}}')">Daj ovlast za primanje</button>{{end}}{{end}}
+          {{if and $.Network.CanAdmit .Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="obnoviClana('{{.DeviceID}}')">Obnovi</button>{{end}}
           {{if or $.Network.DrziKljuc (and .Primatelj (eq .Primatelj.DeviceKey $.NodePublicKey))}}<button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button>{{end}}
         </div>
         {{end}}
@@ -274,6 +278,14 @@ async function revokeMember(node) {
     if (r.pogodjeni && r.pogodjeni.length) alert('Članstvo opozvano.' + pogodjeniPoruka(r.pogodjeni));
     location.reload();
   } catch (e) { alert(e.message); }
+}
+
+async function obnoviClanstvo() {
+  try { const r = await api('/api/network/obnovi', {}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
+}
+
+async function obnoviClana(node) {
+  try { const r = await api('/api/network/members/' + encodeURIComponent(node) + '/obnovi', {}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
 }
 
 async function izdajOvlast(node) {

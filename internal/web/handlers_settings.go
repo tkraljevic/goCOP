@@ -28,25 +28,27 @@ func NewSettingsHandler(peersSvc *peers.Service, rec *ledger.Recorder, tmpl *tem
 }
 
 type SettingsPageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	NodeID         string
-	NodeName       string
-	NodeVersion    string
-	NodePublicKey  string
-	SchemaVersion  int
-	Ports          peers.Ports
-	Peers          []peers.Peer
-	Self           peers.Peer // vlastiti zapis: javne adrese koje putuju drugima
-	Network        *peers.Network
-	Members        []peers.Member
-	VersionCounts  map[string]int
-	TotalVersions  int
-	Uloge          peers.Uloge
-	Postavke       *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
-	SuccessMessage string
-	ErrorMessage   string
-	ActiveNav      string
+	CurrentUser   *models.User
+	Permissions   *models.UserPermissions
+	NodeID        string
+	NodeName      string
+	NodeVersion   string
+	NodePublicKey string
+	SchemaVersion int
+	Ports         peers.Ports
+	Peers         []peers.Peer
+	Self          peers.Peer // vlastiti zapis: javne adrese koje putuju drugima
+	Network       *peers.Network
+	// RokClanstva i RokOvlasti su rokovi ovog računala (G9a); nil kad ih nema
+	RokClanstva, RokOvlasti *peers.Rok
+	Members                 []peers.Member
+	VersionCounts           map[string]int
+	TotalVersions           int
+	Uloge                   peers.Uloge
+	Postavke                *PostavkeStranice // postavke ovog čvora iz gocop.toml; nil za ne-administratora
+	SuccessMessage          string
+	ErrorMessage            string
+	ActiveNav               string
 	ViewAsBanner
 }
 
@@ -80,6 +82,7 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Self, _ = h.peers.SelfPeer(ctx)
 	data.Network = h.peers.NetworkInfo()
+	data.RokClanstva, data.RokOvlasti = h.peers.VlastitiRokovi(ctx)
 	if members, err := h.peers.ListMembers(ctx); err == nil {
 		data.Members = members
 	}

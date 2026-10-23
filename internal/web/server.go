@@ -1485,6 +1485,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/network/members/{node}/revoke", s.authMiddleware(http.HandlerFunc(settingsH.HandleRevokeMember)))
 	s.mux.Handle("POST /api/network/members/{node}/ovlast", s.authMiddleware(http.HandlerFunc(settingsH.HandleIzdajOvlast)))
 	s.mux.Handle("POST /api/network/members/{node}/ovlast/opozovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleOpozoviOvlast)))
+	s.mux.Handle("POST /api/network/obnovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleObnoviClanstvo)))
+	s.mux.Handle("POST /api/network/members/{node}/obnovi", s.authMiddleware(http.HandlerFunc(settingsH.HandleObnoviClana)))
 	s.mux.Handle("POST /api/network/zahtjev/procitaj", s.authMiddleware(http.HandlerFunc(settingsH.HandleProcitajZahtjev)))
 	s.mux.Handle("POST /api/network/zahtjev/primi", s.authMiddleware(http.HandlerFunc(settingsH.HandlePrimiZahtjev)))
 

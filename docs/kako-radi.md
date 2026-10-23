@@ -187,6 +187,17 @@ mrežu. Primanje na daljinu ostaje i u beti (Odluke (19. 10. 2026.)).
 Primljeno računalo dobije potpisano članstvo, koje vrijedi godinu dana. Pri
 svakoj vezi računalo dokazuje svoj ključ, a računalo bez važećeg članstva
 odbija se. Zato novo računalo ne treba upariti sa svakim članom posebno.
+
+Mjesec dana prije isteka računalo pri razmjeni samo zatraži obnovu članstva.
+Zahtjev putuje razmjenom, i preko drugih računala, do računala koje prima u
+mrežu, a ono izda novo članstvo s istim imenom i ključem, ako računalo nije
+opozvano. Obnova se može tražiti i gumbom Obnovi članstvo u Postavkama, pod
+Mreža, u svako doba, a računalo koje prima ima gumb Obnovi uz svakog člana.
+Računalo koje se ne koristi samo istekne. Isteklo članstvo vrijedi za
+razmjenu još 30 dana, uz upozorenje na pločici, a u tom roku računalo ne
+prima druga. Računalo s ključem mreže samo sebi obnavlja članstvo. Ovlast za
+primanje vrijedi dvije godine i obnavlja je računalo s ključem mreže, isto
+na zahtjev (Odluke (23. 10. 2026.)).
 Opoziv članstva je potpisan i putuje razmjenom, pa na drugom računalu vrijedi
 kad ondje stigne. Pojedinosti i granice zaštite su u
 [SECURITY.md](../SECURITY.md).

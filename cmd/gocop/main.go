@@ -530,9 +530,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// članstva i paketima prognoze polja se ne prenose iz starih verzija
 	// (potpis pokriva samo ono što je potpisano, paket je neproziran).
 	ledger.PoznatiEntiteti(append(repository.PoznatiEntiteti(),
-		peers.EntityPeers, peers.EntityMemberships,
+		peers.EntityPeers, peers.EntityMemberships, peers.EntityZahtjeviObnove,
 		prognoza.EntitetIzdanja, prognoza.EntitetModela, EntitetArhive)...)
-	ledger.BezPrijenosaPolja(peers.EntityMemberships, prognoza.EntitetIzdanja, prognoza.EntitetModela)
+	ledger.BezPrijenosaPolja(peers.EntityMemberships, peers.EntityZahtjeviObnove, prognoza.EntitetIzdanja, prognoza.EntitetModela)
 	recorder.NaNovost(func(n ledger.Novost) {
 		log.Printf("razmjena: %s — nadogradite goCOP", n)
 	})

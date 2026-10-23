@@ -945,6 +945,15 @@ func InitSchema(database *sql.DB) error {
 			PRIMARY KEY (dan, vrsta, put, razlog, racunalo)
 		);`,
 
+		// Zadnji zahtjev za obnovu članstva koji je ovo računalo obradilo, po
+		// računalu (G9a, peers/obnova.go): isti zahtjev se ne obrađuje
+		// dvaput. Lokalno: ne ide u knjigu ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS obnova_obradjena (
+			node_id TEXT PRIMARY KEY,
+			potpis TEXT NOT NULL,
+			kad DATETIME NOT NULL
+		);`,
+
 		// Poznati čvorovi. Identitet čvora je njegov javni ključ; adresa je
 		// promjenjiva. Popis se sinkronizira kao i sve drugo.
 		`CREATE TABLE IF NOT EXISTS peers (

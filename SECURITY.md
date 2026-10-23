@@ -88,8 +88,9 @@ nepouzdano.
   mreže, a primatelj je ne može dati dalje.
 - Čvor pri svakom spajanju pokaže svoju potvrdu u certifikatu TLS-a. Strana
   koja prima vezu prihvaća člana čiju valjanu potvrdu ima u bazi, ili
-  onoga koji je pokazao valjanu potvrdu: potpis i rok vrijede, potvrda nije
-  opozvana, a ime ne pripada drugom ključu. Zato novo računalo ne treba
+  onoga koji je pokazao valjanu potvrdu: potpis i rok vrijede (uz pričuvu od
+  30 dana nakon isteka), potvrda nije opozvana, a ime ne pripada drugom
+  ključu. Zato novo računalo ne treba
   uparivati sa svakim čvorom. Strana koja zove provjerava očekivani ključ i
   potvrdu iz svoje baze.
 - Čvor bez valjane potvrde je **poznat, ali mu se razmjena odbija**.
@@ -108,7 +109,19 @@ nepouzdano.
   jednom čvoru. Opozvana potvrda ne vrijedi ni kad je čvor pokaže sam, a
   potvrda izdana nakon opoziva opet vrijedi (ponovno primanje izdaje novo
   članstvo). Oduzeta ovlast poništava sva članstva koja je primatelj izdao.
-- Automatske obnove potvrde nema; obnavlja se ponovnim primanjem.
+- **Obnova potvrde.** Mjesec dana prije isteka čvor pri uspješnoj razmjeni
+  sam upiše zahtjev za obnovu, potpisan svojim ključem čvora; isto radi
+  gumb Obnovi članstvo, u svako doba. Zahtjev putuje knjigom do čvora koji
+  smije primati, a on izda novu potvrdu s istim imenom i ključem, ako
+  potvrda još vrijedi ili je u pričuvi i nije opozvana. Zahtjev pod tuđim
+  imenom ili s tuđim ključem ništa ne obnavlja, a nova potvrda vrijedi samo
+  za ključ koji je već bio u potvrdi. Ovlast za primanje obnavlja samo
+  nositelj ključa mreže, isto na zahtjev, a nositelj ključa sam sebi
+  obnavlja potvrdu. Čvor koji se ne koristi ne traži obnovu i istekne.
+- **Pričuva.** Istekla potvrda vrijedi za razmjenu još 30 dana, uz
+  upozorenje na pločici. U tom roku čvor ne prima i ne obnavlja druge:
+  primatelj treba i ovlast i vlastitu potvrdu koja nije istekla. Nakon
+  pričuve čvor treba ponovno primiti u mrežu.
 
 ### Uparivanje kodom od 6 znamenki
 
