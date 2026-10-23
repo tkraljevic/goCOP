@@ -75,6 +75,16 @@
 </div>
 {{end}}
 
+{{define "webSyncNakonPadova"}}{{with .}}
+<div id="web-sync-padovi" class="mt-3">
+  <h3>WEB sync nakon padova</h3>
+  {{if .UkljucujeSe}}<p class="form-help">Oznaka padova je obrisana. WEB sync kreće idućim pokretanjem čvora.</p>
+  {{else}}<p class="form-help">Program se dvaput zaredom prekinuo dok je WEB sync radio, pa sad radi bez njega. Razmjena ide kao i prije. Kad je uzrok uklonjen, na primjer nadogradnjom programa, WEB sync se ponovno uključuje ovdje. Vrijedi od idućeg pokretanja.</p>
+  {{if .Nudi}}<form method="POST" action="/settings/web-sync/ukljuci"><div class="actions"><button type="submit" class="btn btn-secondary">{{icon "refresh-cw"}} Ponovno uključi WEB sync</button></div></form>
+  {{else if .Zabrana}}<p class="form-help">{{.Zabrana}}</p>{{end}}{{end}}
+</div>
+{{end}}{{end}}
+
 {{define "ponovnoPokretanje"}}{{with .}}
 <div id="ponovno-pokretanje" class="mt-3">
   <h3>Ponovno pokretanje</h3>

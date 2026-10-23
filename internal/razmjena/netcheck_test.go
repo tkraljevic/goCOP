@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net"
 	"net/netip"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -254,6 +255,32 @@ func TestStanjeMrezeHistereza(t *testing.T) {
 	korak(UDPBlokiran, false, NATOvisan)
 	korak(NATLak, false, NATOvisan) // drugi kandidat kreće ispočetka
 	korak(NATLak, true, NATLak)
+}
+
+// Opis mjerenja je jedna rečenica bez ijedne adrese, ni kad je javna
+// adresa poznata.
+func TestOpisMjerenja(t *testing.T) {
+	javna := netip.MustParseAddrPort("203.0.113.7:4713")
+	google := OdgovorPosluzitelja{Ime: "Google", Razrijesen: true, Odgovorio: true, Javna: javna, RTT: 12 * time.Millisecond}
+	for _, c := range []struct {
+		m    MjerenjeMreze
+		want string
+	}{
+		{MjerenjeMreze{Vrsta: NATLak, CuvaPort: true, Javna: javna, Odgovori: []OdgovorPosluzitelja{google,
+			{Ime: "Cloudflare", Razrijesen: true, Odgovorio: true, Javna: javna, RTT: 300 * time.Microsecond}}},
+			"NAT je lak i čuva port. STUN: Google 12 ms, Cloudflare ispod 1 ms."},
+		{MjerenjeMreze{Vrsta: NATOvisan, Odgovori: []OdgovorPosluzitelja{google}},
+			"NAT ovisi o odredištu i ne čuva port. STUN: Google 12 ms."},
+		{MjerenjeMreze{Vrsta: NATNepoznat, Odgovori: []OdgovorPosluzitelja{google, {Ime: "Cloudflare"}}},
+			"vrsta NAT-a se ne zna. STUN: Google 12 ms, Cloudflare se ne da razriješiti."},
+		{MjerenjeMreze{Vrsta: UDPBlokiran, Odgovori: []OdgovorPosluzitelja{{Ime: "Google", Razrijesen: true}}},
+			"UDP do STUN poslužitelja ne prolazi. STUN: Google bez odgovora."},
+		{MjerenjeMreze{Vrsta: NATNepoznat}, "vrsta NAT-a se ne zna. STUN poslužitelja nema."},
+	} {
+		if got := c.m.Opis(); got != c.want || strings.Contains(got, "203.0.113") {
+			t.Errorf("%s: %q", c.m.Vrsta, got)
+		}
+	}
 }
 
 // Zauzet port daje nasumičan uz upozorenje; utičnica koja se nikako ne da

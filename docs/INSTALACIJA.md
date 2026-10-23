@@ -108,6 +108,7 @@ iza tunela i dalje sluša HTTP.
 | **4710** | TCP, TLS 1.3 | dolazno i odlazno | razmjena podataka između uparenih računala |
 | **4711** | TCP, TLS 1.3 | dolazno | uparivanje — samo dok uparivanje traje |
 | **4712** | UDP, broadcast | lokalna mreža | pronalaženje drugih goCOP računala u istom segmentu |
+| **4713** | UDP (STUN, kasnije QUIC) | odlazno; dolazno samo od članova mreže | WEB sync, zadano isključen (`[povezivost] web_sync_prijava`) |
 
 Razmjena izvana može ići kroz `https://<domena>/razmjena/tunel` (WebSocket).
 Unutar nje ostaje TLS s ključevima uparenih čvorova. U Domenske čvorove upisuje
@@ -141,6 +142,16 @@ odbije; drugi čvor zove njegovu sljedeću adresu. Na prijavu ne utječe.
 U Dockeru program vidi Tailscale samo uz mrežu računala (host);
 uz most (bridge) čvor radi kao da Tailscalea nema.
 
+**WEB sync (u izradi).** Uz `[povezivost] web_sync_prijava = true` računalo
+pri pokretanju otvori UDP utičnicu na portu 4713 i provjeri mrežu preko dva
+STUN poslužitelja različitih operatera. Kad je port zauzet, uzme nasumičan i
+to javi u dnevniku. Razmjena zasad ide samo dosadašnjim putovima, a u
+dnevniku stoji redak `povezivost:` s ishodom, npr. „NAT je lak i čuva port”.
+Ako se program dvaput zaredom prekine dok WEB sync radi, iduće pokretanje
+kreće bez njega i to kaže na pločici razmjene; `gocop.toml` ostaje kakav
+jest. Gumb *Ponovno uključi WEB sync* u kartici *Ovaj čvor* to poništi, od
+idućeg pokretanja. Deset minuta rada bez prekida vraća brojač prekida na nulu.
+
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
 s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivanju),
@@ -160,10 +171,17 @@ prijavljenih izvora vodostaja (HydroView i mLetva), izvora kiše i vanjskih
 prognoza. I bez uloge obrazac letve dohvaća javni popis postaja s
 vodostaji.voda.hr, a ručno preuzimanje na stranici letve čita njezin izvor.
 Lozinke vanjskih izvora ostaju šifrirane na tom čvoru i ne sinkroniziraju se.
+Uz `[povezivost] web_sync_prijava = true` računalo pri pokretanju s UDP porta
+4713 pita STUN poslužitelje `stun.l.google.com` i `stun.cloudflare.com` kojom
+ga javnom adresom vide. Oni tada vide javnu IP adresu i port računala, i
+ništa drugo. `stun = []` isključuje te upite.
 Bez tih veza osnovni rad ostaje dostupan.
 
 **Za vatrozid:** pristup ograničiti na računala koja sudjeluju u testu.
 Port 4711 otvarati samo tijekom uparivanja, a 4712 zadržati u lokalnoj mreži.
+UDP 4713 treba samo uz uključen WEB sync. goCOP sam ne mijenja pravila
+vatrozida: dopuštenje daje čovjek, na službenim računalima informatika.
+Odgovori na odlazne STUN upite prolaze i bez posebnog pravila.
 Uz web tunel nije potrebno javno otvarati 4710 ni izvorni HTTP port.
 Portovi se mijenjaju u `gocop.toml`.
 
@@ -484,6 +502,9 @@ traci i nadograđuje ga. Mijenja se rijetko i ima svoja izdanja (oznake
    Pri prvom pokretanju čvora Windows vatrozid pita smije li program na mrežu:
    dopustiti samo **privatne** mreže, a kućnu ili uredsku mrežu u Windowsima
    označiti kao privatnu (inače se čvorovi u lokalnoj mreži ne nalaze).
+   To pravilo vrijedi za program, pa vjerojatno pokriva i UDP 4713 za WEB
+   sync; na Windowsima to još nije provjereno. goCOP sam ne dodaje pravila
+   vatrozida, a na službenim računalima postavlja ih informatika.
 
 ```
 %LOCALAPPDATA%\goCOP\
@@ -687,7 +708,9 @@ imaju prednost pred datotekom.
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
 pripada: javnu adresu, centar i telefon sa stranice prijave te minutu
 preuzimanja vodostaja u *Čvor, mreža i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
-preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), `sve`
+preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), kao i
+prijavu za WEB sync i sam WEB sync (`[povezivost] web_sync_prijava` i
+`web_sync`), `sve`
 i `povijest_mjeseci` pod *Što ovo računalo prati*, izvor karte pod *Opcije*. *Održavanje baze*
 pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
 mijenjana i njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
@@ -700,7 +723,10 @@ nova postavka dobije objašnjenje kao u primjeru. Staru datoteku spremi kao
 promijenio. Naziv čvora, adresu web sučelja i portove, putanje, pouzdane
 posrednike i `bootstrap` program pokazuje, ali ih mijenja samo datoteka:
 krivim portom ili putanjom čvor bi se zaključao izvan dosega, a posrednici
-određuju što je zahtjev izvana. Ime čvora u mreži (`[node] id`) poslije
+određuju što je zahtjev izvana. Isto vrijedi za UDP port WEB synca, STUN
+poslužitelje i adresu u lokalnoj mreži (`[povezivost] udp_port`, `stun`,
+`lan_adresa`): tuđi STUN poslužitelj saznao bi javnu adresu računala i mogao
+vratiti lažnu, a krivi port odsiječe računalo. Ime čvora u mreži (`[node] id`) poslije
 prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 
@@ -794,8 +820,10 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
 Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.41-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
-uparivanje na 4711 i pronalaženje na 4712/UDP, a radi kao UID/GID `99:100`;
-mape moraju biti dostupne tom korisniku.
+uparivanje na 4711 i pronalaženje na 4712/UDP, a WEB sync, kad se uključi,
+na 4713/UDP. Radi kao UID/GID `99:100`; mape moraju biti dostupne tom
+korisniku. Slika najavljuje portove (`EXPOSE`), ali ih ne objavljuje: 4713/udp
+uz uključen WEB sync treba dodati u predložak spremnika na NAS-u, kao i ostale.
 
 - `/data`: baza operative, sadržaji, prognoze, oborine, postavke i ključevi.
 - `/arhiva`: `vodostaji.db`, izvorno stablo `vodostaji/`, `skenovi/` i `pakete/`.

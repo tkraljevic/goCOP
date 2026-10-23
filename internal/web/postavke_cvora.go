@@ -297,6 +297,7 @@ type PostavkeStranice struct {
 	CekaPonovno bool                     // spremljena promjena čeka ponovno pokretanje
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Čvor i mreža
+	WebSync     *WebSyncPrikaz           // samo na stranici Čvor i mreža, kad je WEB sync isključen nakon padova
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -463,6 +464,7 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	}
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
+		out.WebSync = s.prikazWebSynca(sl.zabrana)
 	}
 	return out
 }

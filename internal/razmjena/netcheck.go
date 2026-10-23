@@ -16,6 +16,8 @@ import (
 	"crypto/rand"
 	"net"
 	"net/netip"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -192,6 +194,44 @@ func sveIste(a []netip.AddrPort) bool {
 		}
 	}
 	return true
+}
+
+// opisVrste je vrsta mreže riječima
+var opisVrste = map[string]string{
+	NATLak:      "NAT je lak",
+	NATOvisan:   "NAT ovisi o odredištu",
+	NATNepoznat: "vrsta NAT-a se ne zna",
+	UDPBlokiran: "UDP do STUN poslužitelja ne prolazi",
+}
+
+// Opis je mjerenje jednom rečenicom, bez adresa, za dnevnik i stranicu
+// Sinkronizacija: „NAT je lak i čuva port. STUN: Google 12 ms, Cloudflare 8 ms.”
+func (m MjerenjeMreze) Opis() string {
+	var b strings.Builder
+	b.WriteString(opisVrste[m.Vrsta])
+	if m.Vrsta == NATLak || m.Vrsta == NATOvisan {
+		b.WriteString(map[bool]string{true: " i čuva port", false: " i ne čuva port"}[m.CuvaPort])
+	}
+	if len(m.Odgovori) == 0 {
+		return b.String() + ". STUN poslužitelja nema."
+	}
+	b.WriteString(". STUN:")
+	for i, o := range m.Odgovori {
+		b.WriteString(map[bool]string{true: ", ", false: " "}[i > 0] + o.Ime + " " + o.opis())
+	}
+	return b.String() + "."
+}
+
+func (o OdgovorPosluzitelja) opis() string {
+	switch {
+	case !o.Razrijesen:
+		return "se ne da razriješiti"
+	case !o.Odgovorio:
+		return "bez odgovora"
+	case o.RTT < time.Millisecond:
+		return "ispod 1 ms"
+	}
+	return strconv.FormatInt(o.RTT.Milliseconds(), 10) + " ms"
 }
 
 // StanjeMreze je vrsta mreže s histerezom: nova vrsta vrijedi tek nakon dva

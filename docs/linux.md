@@ -23,11 +23,11 @@ u sebi. Postupak je isproban na Ubuntu 24.04 LTS.
 
 ### Prije instalacije: slobodni portovi
 
-Čvor treba port 80 (web) i portove 4710–4712 (razmjena). Provjerite da ih
-ne drži neki drugi program:
+Čvor treba port 80 (web) i portove 4710–4712 (razmjena), a uz uključen
+WEB sync i UDP 4713. Provjerite da ih ne drži neki drugi program:
 
 ```sh
-sudo ss -ltnup | grep -E ':(80|8080|4710|4711|4712)\b'
+sudo ss -ltnup | grep -E ':(80|8080|4710|4711|4712|4713)\b'
 ```
 
 Ako naredba ništa ne ispiše, portovi su slobodni. Na računalu koje je prije
@@ -343,8 +343,8 @@ karta (*Opcije*); do svih se dolazi iz Administracije (opis u
 [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
 `/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne
-komentare. Naziv čvora, port weba i portove razmjene, putanje i posrednike
-mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* ugasi
+komentare. Naziv čvora, port weba i portove razmjene (i `[povezivost]
+udp_port`), STUN poslužitelje, putanje i posrednike mijenja samo datoteka. Nakon spremanja gumb *Ponovno pokreni čvor* ugasi
 čvor, a systemd ga za pet sekundi pokrene, isto kao
 `sudo systemctl restart gocop`. Vlastita jedinica bez `Restart=` ostavila bi
 ga ugašenog.
@@ -355,7 +355,9 @@ ga ugašenog.
 - **čvor iza posrednika** (Cloudflare tunel, nginx): `[web]
   pouzdani_posrednici` i `zaglavlje_klijenta` (opisani u INSTALACIJA.md);
 - **portovi razmjene:** `[sync] exchange_port`, `pair_port`,
-  `discovery_port` (0 isključuje).
+  `discovery_port` (0 isključuje);
+- **UDP port WEB synca:** `[povezivost] udp_port` (0 je nasumičan; WEB sync
+  se uključuje s `web_sync_prijava`).
 
 ### Arhiva na drugom disku
 
@@ -414,6 +416,7 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
 | 4710 | TCP | izravna razmjena s čvorovima (TLS 1.3) | samo čvorovima mreže |
 | 4711 | TCP | uparivanje (TLS 1.3) | samo dok traje uparivanje |
 | 4712 | UDP | pronalaženje čvorova u lokalnoj mreži (broadcast) | samo lokalnoj mreži |
+| 4713 | UDP | WEB sync (STUN, kasnije QUIC), zadano isključen | samo uz uključen WEB sync, kad provjera pokaže da treba |
 
 Web sučelje je obični HTTP. Pristup s interneta ide kroz tunel ili
 posrednika s HTTPS-om ispred čvora, nikad izravno na port 80. Čvorovi koji
@@ -447,6 +450,11 @@ sudo ufw allow from 192.168.1.0/24 to any port 4712 proto udp
 sudo ufw allow from 192.168.1.0/24 to any port 4711 proto tcp
 sudo ufw delete allow from 192.168.1.0/24 to any port 4711 proto tcp
 ```
+
+WEB sync na 4713/UDP ide posebnim pravilom, ne pod lokalnu mrežu, jer druga
+računala dolaze s interneta: `sudo ufw allow 4713/udp`, a s firewalld
+`sudo firewall-cmd --permanent --add-port=4713/udp`. Za samu provjeru mreže
+pravilo ne treba, jer odgovori na odlazne upite prolaze sami.
 
 Primjer s **firewalld**:
 

@@ -192,6 +192,15 @@ nepouzdano.
 - Pronalaženje (UDP 4712, IPv4 broadcast) je samo imenik: odgovor nosi ime,
   oznaku čvora i portove. Lažan odgovor može potrošiti pokušaj veze, ali
   ne donosi povjerenje.
+- Provjera mreže za WEB sync (UDP 4713, samo uz `[povezivost]
+  web_sync_prijava = true`) pita dva STUN poslužitelja kojom javnom adresom
+  vide računalo. STUN odgovor nije potpisan: tko je na putu, može podmetnuti
+  lažnu adresu, a tko nije, morao bi pogoditi 96-bitni ID upita. Zato se
+  popis poslužitelja mijenja samo u `gocop.toml`. Lažna adresa mijenja samo
+  ishod provjere, a ne povjerenje među čvorovima.
+- quic-go nema `recover` u svojim gorutinama. Ako se program dvaput zaredom
+  prekine dok WEB sync radi, iduće pokretanje kreće bez njega (oznaka
+  `povezivost-u-radu.txt` uz bazu), da se ne vrti u krugu padova.
 - Veliki sadržaji (privici, PDF-ovi) adresirani su SHA-256 otiskom i
   provjeravaju se pri primitku. `.cop` paketi arhive potpisani su ključem
   čvora koji ih izdaje i provjeravaju se pri čitanju.
@@ -333,6 +342,8 @@ nepouzdano.
   potpisima čisti se regularnim izrazima, a ne pravim raščlanjivačem.
 - **Pronalaženje čvorova** odgovara svakome tko dohvati UDP 4712 i otkriva
   ime čvora i portove.
+- **Provjera mreže za WEB sync:** STUN poslužitelji (zadano Google i
+  Cloudflare) vide javnu IP adresu i port računala.
 - **Potpisi programa:** izvršna datoteka nema Authenticode ni drugi potpis
   sustava; Docker slika i instalacijski program Postave nemaju potpis
   izdanja (Postava ima samo SHA-256).

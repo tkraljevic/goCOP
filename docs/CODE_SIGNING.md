@@ -90,6 +90,12 @@ Only when the administrator sets it up:
   local network, through the organisation's own public node (HTTPS tunnel),
   or over Tailscale when both computers have it. goCOP itself only connects to
   the Tailscale addresses of the organisation's own nodes.
+- **Network check for WEB sync**, only with `[povezivost] web_sync_prijava =
+  true` (off by default). When the node starts, it sends a STUN Binding
+  request from UDP port 4713 to stun.l.google.com and stun.cloudflare.com, to
+  learn under which public address they see it. These servers see the
+  computer's public IP address and port, and nothing else.
+  `[povezivost] stun = []` turns the requests off.
 - **E-mail** through the organisation's own Exchange server (sign-in PIN,
   notifications, acts, company address book), only when the administrator
   sets up the server.
@@ -105,8 +111,9 @@ Only when the administrator sets it up:
 No data is ever sent to the authors of the program, and there is no
 telemetry. The administrator can switch off automatic exchange with other
 nodes (`[sync] auto_sync = '0'`), exchange over Tailscale
-(`[sync] tailscale = false`), downloads from sources (node roles) and
-e-mail. Weather downloads and the update check cannot be switched off yet.
+(`[sync] tailscale = false`), WEB sync and its network check
+(`[povezivost] web_sync_prijava = false`, the default), downloads from
+sources (node roles) and e-mail. Weather downloads and the update check cannot be switched off yet.
 
 ## Reporting
 
