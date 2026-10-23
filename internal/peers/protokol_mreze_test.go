@@ -344,7 +344,7 @@ func TestSimulacijaNeVidiPravuMrezu(t *testing.T) {
 		razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-vukovar", Name: "Ured Vukovar", ExchangePort: 4710},
 		razmjena.Beacon{Protocol: "gocop-sim", DeviceID: "ured-vukovar", Name: "Ured Vukovar (simulacija)", ExchangePort: 4720},
 		razmjena.Beacon{Protocol: Protocol, DeviceID: "ured-osijek", Name: "Ured Osijek", ExchangePort: 4710})
-	if k := sim.uLokalnojMrezi("ured-vukovar"); len(k) != 1 || k[0].adresa != "127.0.0.1:4720" {
+	if k := sim.uLokalnojMrezi(ctxRub, "ured-vukovar"); len(k) != 1 || k[0].adresa != "127.0.0.1:4720" {
 		t.Errorf("u lokalnoj mreži simulacija vidi %v", k)
 	}
 	nadjeni, err := sim.Discover(ctxRub, 500*time.Millisecond)

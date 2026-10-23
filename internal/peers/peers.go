@@ -210,9 +210,14 @@ type Service struct {
 	// pronadji proba lokalnu mrežu (Discover); nil je razmjena.Discover. Test
 	// njime glumi odgovore i grešku.
 	pronadji func(protocol string, timeout time.Duration, port int) ([]razmjena.Found, error)
-	// nadji pita lokalnu mrežu gdje je jedan čvor (uLokalnojMrezi); nil je
-	// razmjena.FindDevice. Test njime glumi odgovor.
-	nadji func(protocol, deviceID string, timeout time.Duration, port int) (razmjena.Found, bool)
+	// trazi pita lokalnu mrežu gdje su tražena računala (nadjiUMrezi); nil
+	// je razmjena.Pronadji. Test njime glumi odgovor.
+	trazi func(protocol string, timeout time.Duration, port int, trazeni []string) ([]razmjena.Found, error)
+	// lan je zajednički nalaz pronalaženja (nalaz_mreze.go)
+	lan nalazMreze
+	// objavi je glasnik pronalaženja (Announce); nil je razmjena.Announce.
+	// Test njime glumi glasnika koji padne.
+	objavi func(ctx context.Context) error
 	// slusalica prima razmjene (Serve); nil je TCP port razmjene iz Ports.
 	// Test njome daje slušalicu koju je sam otvorio, pa port od izbora do
 	// kraja testa ne može uzeti nitko drugi.
@@ -610,17 +615,16 @@ func (s *Service) peerByKey(ctx context.Context, pub ed25519.PublicKey, vj []byt
 
 // ---------- pronalaženje na lokalnoj mreži ----------
 
-// Announce odgovara na probe drugih goCOP čvorova dok ctx traje
-func (s *Service) Announce(ctx context.Context) error {
-	return razmjena.Announce(ctx, s.protokol(), s.ports.Discovery, func() razmjena.Beacon {
-		b := razmjena.Beacon{DeviceID: s.node.ID, Name: s.node.Name, ExchangePort: s.ports.Exchange}
-		s.mu.Lock()
-		if s.waiting != nil {
-			b.PairPort = s.ports.Pair
-		}
-		s.mu.Unlock()
-		return b
-	})
+// beacon je ono što glasnik javlja o ovom čvoru; port uparivanja samo dok
+// čvor čeka uparivanje
+func (s *Service) beacon() razmjena.Beacon {
+	b := razmjena.Beacon{DeviceID: s.node.ID, Name: s.node.Name, ExchangePort: s.ports.Exchange}
+	s.mu.Lock()
+	if s.waiting != nil {
+		b.PairPort = s.ports.Pair
+	}
+	s.mu.Unlock()
+	return b
 }
 
 // Discovered je čvor viđen na lokalnoj mreži, uz naznaku je li već poznat
@@ -1084,7 +1088,7 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 			izravne = append(izravne, withPort(a, port))
 		}
 	}
-	kandidati := append(s.uLokalnojMrezi(peer.NodeID), s.tvrdnjePutem(peer.NodeID, razmjena.PutLAN)...)
+	kandidati := append(s.uLokalnojMrezi(ctx, peer.NodeID), s.tvrdnjePutem(peer.NodeID, razmjena.PutLAN)...)
 	kandidati = append(kandidati, uz(razmjena.PutAdresa, izravne)...)
 	kandidati = append(kandidati, uz(razmjena.PutAdresa, s.naucene(ctx, peer.NodeID))...)
 	kandidati = append(kandidati, s.tvrdnjePutem(peer.NodeID, razmjena.PutAdresa)...)
@@ -1121,25 +1125,16 @@ func bezDvojnika(in []kandidat) []kandidat {
 // uLokalnojMrezi je adresa na kojoj se čvor javlja u lokalnoj mreži, kad
 // je pronalaženje uključeno i čvor se javi, osim Tailscale adrese
 // (tvrdnjaIz)
-func (s *Service) uLokalnojMrezi(nodeID string) []kandidat {
+func (s *Service) uLokalnojMrezi(ctx context.Context, nodeID string) []kandidat {
 	if s.ports.Discovery <= 0 {
 		return nil
 	}
-	f, ok := s.nadjiUMrezi(nodeID)
+	f, ok := s.nadjiUMrezi(ctx, nodeID)
 	k, nijeTailscale := tvrdnjaIz(f)
 	if !ok || !nijeTailscale {
 		return nil
 	}
 	return []kandidat{k}
-}
-
-// nadjiUMrezi pita lokalnu mrežu gdje je čvor (s.nadji, inače
-// razmjena.FindDevice)
-func (s *Service) nadjiUMrezi(nodeID string) (razmjena.Found, bool) {
-	if s.nadji != nil {
-		return s.nadji(s.protokol(), nodeID, 700*time.Millisecond, s.ports.Discovery)
-	}
-	return razmjena.FindDevice(s.protokol(), nodeID, 700*time.Millisecond, s.ports.Discovery)
 }
 
 // nazovi otvara razmjenu na jednoj adresi i pamti kako je spajanje prošlo
