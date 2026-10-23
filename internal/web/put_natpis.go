@@ -23,6 +23,7 @@ var frazaPuta = map[string]string{
 // kad je treba
 var recenicaRazloga = map[razmjena.RazlogPuta]string{
 	razmjena.RazlogPutaNijeSeJavio:    "Računalo se ne javlja u lokalnoj mreži; podaci idu %s.",
+	razmjena.RazlogPutaBezOdgovora:    "Računalo se ne javlja ni na jednoj poznatoj adresi.",
 	razmjena.RazlogPutaUDPNeProlazi:   "UDP ne prolazi, pa WEB sync ne radi; podaci idu %s.",
 	razmjena.RazlogPutaNATOvisan:      "Oba računala su iza usmjerivača koji mijenjaju port prema odredištu, pa WEB sync ne prolazi; podaci idu %s.",
 	razmjena.RazlogPutaUDPDoDrugih:    "UDP do drugog računala ne prolazi; podaci idu %s.",
@@ -34,13 +35,8 @@ var recenicaRazloga = map[razmjena.RazlogPuta]string{
 	razmjena.RazlogPutaIstiKljuc:      "Isti ključ ima još jedno računalo, vjerojatno kopija iste mape podataka. Jednom od njih treba novi ključ.",
 }
 
-// razlogRijecima je razlog puta rečenicom; prazno kad razloga nema.
-// Kad zadnji pokušaj nije prošao ni na jednoj adresi, put još ne radi, pa
-// rečenica to kaže umjesto puta kojim podaci idu.
-func razlogRijecima(r razmjena.RazlogPuta, naziv string, neuspjelih int) string {
-	if r == razmjena.RazlogPutaNijeSeJavio && neuspjelih > 0 {
-		return "Računalo se ne javlja ni na jednoj poznatoj adresi."
-	}
+// razlogRijecima je razlog puta rečenicom; prazno kad razloga nema
+func razlogRijecima(r razmjena.RazlogPuta, naziv string) string {
 	fraza, ok := frazaPuta[naziv]
 	if !ok {
 		fraza = "drugim putem"

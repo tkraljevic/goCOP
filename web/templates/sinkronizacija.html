@@ -82,7 +82,7 @@ function clan(rok) {
   if (rok.stanje === 'pricuva') return '<span class="badge badge-danger">isteklo ' + dan(rok.do) + '</span><br><span class="muted">razmjena radi još 30 dana od isteka</span>';
   return '<span class="badge ' + (rok.stanje === 'istjece' ? 'badge-warning' : 'badge-active') + '">član</span><br><span class="muted">do ' + dan(rok.do) + '</span>';
 }
-function mb(n) { return (n / 1e6).toLocaleString('hr-HR', {maximumFractionDigits: 1}) + ' MB'; }
+function mb(n) { return n < 1e6 ? Math.round(n / 1e3) + ' kB' : (n / 1e6).toLocaleString('hr-HR', {maximumFractionDigits: 1}) + ' MB'; }
 // put je naziv puta zadnje razmjene i RTT
 function put(s) {
   const p = s.put || {};
@@ -91,7 +91,8 @@ function put(s) {
 // brojaci su razmjene i bajtovi otkad razmjena ide tim putem
 function brojaci(s) {
   const p = s.put || {};
-  return p.od ? '<br><span class="muted">od ' + when(p.od) + ': uspjelo ' + p.uspjesi + ' od ' + p.pokusaji + ', ' + mb(p.primljeno + p.poslano) + '</span>' : '';
+  const od = p.od ? new Date(p.od).toLocaleString('hr-HR', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '';
+  return od ? '<br><span class="muted">tim putem od ' + od + ': uspjelo ' + p.uspjesi + ' od ' + p.pokusaji + ', ' + mb(p.primljeno + p.poslano) + '</span>' : '';
 }
 // pokusaji su zadnji pokušaji spajanja po adresi, za računalo koje ne
 // odgovara; dobiva ih samo administrator

@@ -1035,7 +1035,7 @@ func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent in
 		s.zabiljezi(ctx, peer, conn, o)
 		return applied, sent, err
 	}
-	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr, razlog: razmjena.RazlogPutaNijeSeJavio})
+	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr, razlog: razmjena.RazlogPutaBezOdgovora})
 	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
 }
 

@@ -46,30 +46,36 @@ func TestPutRazmjeneObjeStrane(t *testing.T) {
 	}
 }
 
-// Kad adresa u lokalnoj mreži ne odgovori, a razmjena prođe na idućoj,
-// razlog kaže da se računalo ne javlja u lokalnoj mreži. Kad ne odgovori
-// nijedna, put ostaje prijašnji, a brojači broje neuspjeh. Pokušaji po
-// adresi idu od najnovijeg, a zaborav računala briše put i brojače.
+// Kad adresa u lokalnoj mreži ne odgovori, a razmjena prođe preko
+// poslužitelja, razlog kaže da se računalo ne javlja u lokalnoj mreži. Kad
+// ne odgovori nijedna adresa, put ostaje prijašnji, a razlog to kaže. Kad
+// razmjena prođe u lokalnoj mreži, razloga nema. Pokušaji po adresi idu od
+// najnovijeg, a zaborav računala briše put i brojače.
 func TestPutRazmjeneRazlogIZaborav(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
-	upoznaj(t, a, b, "192.168.1.250:4710", adresaNaPetlji(b))
+	upoznaj(t, a, b, "192.168.1.250:4710", "cop.primjer.hr:4710")
 	nema := false
+	javna := tcpAdresa(t, "203.0.113.5:4710")
 	a.dial = func(ctx context.Context, kamo string) (net.Conn, error) {
 		if nema || kamo == "192.168.1.250:4710" {
 			return nil, fmt.Errorf("dial tcp %s: i/o timeout", kamo)
 		}
 		var d net.Dialer
-		return d.DialContext(ctx, "tcp", kamo)
+		veza, err := d.DialContext(ctx, "tcp", adresaNaPetlji(b))
+		if err != nil || kamo != "cop.primjer.hr:4710" {
+			return veza, err
+		}
+		return prerusenaVeza{Conn: veza, udaljena: javna}, nil // poslužitelj na javnoj adresi
 	}
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
 	}
-	if p := putIz(t, a, b.node.ID); p.Razlog != razmjena.RazlogPutaNijeSeJavio || p.Uspjesi != 1 {
+	if p := putIz(t, a, b.node.ID); p.Naziv != razmjena.NazivServer || p.Razlog != razmjena.RazlogPutaNijeSeJavio || p.Uspjesi != 1 {
 		t.Errorf("nakon adrese koja ne odgovara: %+v", p)
 	}
 	pokusaji := a.PokusajiSpajanja(b.node.ID)
-	if len(pokusaji) != 2 || pokusaji[0].Adresa != adresaNaPetlji(b) || pokusaji[0].Greska != "" ||
+	if len(pokusaji) != 2 || pokusaji[0].Adresa != "cop.primjer.hr:4710" || pokusaji[0].Greska != "" ||
 		pokusaji[1].Adresa != "192.168.1.250:4710" || pokusaji[1].Greska == "" {
 		t.Errorf("pokušaji: %+v", pokusaji)
 	}
@@ -81,8 +87,19 @@ func TestPutRazmjeneRazlogIZaborav(t *testing.T) {
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err == nil {
 		t.Fatal("razmjena bez ijedne adrese")
 	}
-	if p := putIz(t, a, b.node.ID); p.Put != razmjena.PutAdresa || p.Pokusaji != 2 || p.Neuspjesi != 1 || p.Razlog != razmjena.RazlogPutaNijeSeJavio {
+	if p := putIz(t, a, b.node.ID); p.Naziv != razmjena.NazivServer || p.Pokusaji != 2 || p.Neuspjesi != 1 || p.Razlog != razmjena.RazlogPutaBezOdgovora {
 		t.Errorf("nakon neuspjeha: %+v", p)
+	}
+
+	// i neodgovorena adresa iz zapisa prije uspjele u lokalnoj mreži ne daje
+	// razlog: od LAN synca boljeg puta nema
+	nema = false
+	upoznaj(t, a, b, "192.168.1.250:4710", adresaNaPetlji(b))
+	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
+		t.Fatal(err)
+	}
+	if p := putIz(t, a, b.node.ID); p.Naziv != razmjena.NazivLAN || p.Razlog != "" {
+		t.Errorf("u lokalnoj mreži: %+v", p)
 	}
 
 	if err := a.ForgetPeer(ctxRub, b.node.ID); err != nil {
@@ -123,22 +140,28 @@ func TestPutRazmjeneBrojaci(t *testing.T) {
 		func(p PutRazmjene) bool {
 			return p.Put == razmjena.PutAdresa && p.RTTMs == 1 && p.Od.Equal(*prvi.Od) && p.Pokusaji == 2 && p.Neuspjesi == 1 && p.Primljeno == 110 && p.ZadnjiZvao == "drugi"
 		})
-	korak("bez veze", syncOutcome{err: greska, razlog: razmjena.RazlogPutaNijeSeJavio},
+	korak("bez veze", syncOutcome{err: greska, razlog: razmjena.RazlogPutaBezOdgovora},
 		func(p PutRazmjene) bool {
-			return p.Put == razmjena.PutAdresa && p.Pokusaji == 3 && p.Neuspjesi == 2 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.ZadnjiZvao == "ovaj"
+			return p.Put == razmjena.PutAdresa && p.Pokusaji == 3 && p.Neuspjesi == 2 && p.Razlog == razmjena.RazlogPutaBezOdgovora && p.ZadnjiZvao == "ovaj"
 		})
 	time.Sleep(10 * time.Millisecond) // put_od mora biti noviji od prvog
-	korak("kroz tunel", syncOutcome{put: razmjena.PutKrozTunel, rtt: 40 * time.Millisecond, primljeno: 7, razlog: razmjena.RazlogPutaNijeSeJavio},
+	korak("uspjela dolazna kroz tunel briše „bez odgovora”", syncOutcome{put: razmjena.PutKrozTunel, dolazna: true, primljeno: 7},
 		func(p PutRazmjene) bool {
-			return p.Naziv == razmjena.NazivServer && p.RTTMs == 40 && p.Od.After(*prvi.Od) && p.Pokusaji == 1 && p.Uspjesi == 1 && p.Neuspjesi == 0 && p.Primljeno == 7
+			return p.Naziv == razmjena.NazivServer && p.Razlog == "" && p.RTTMs == 0 && p.Od.After(*prvi.Od) && p.Pokusaji == 1 && p.Uspjesi == 1 && p.Primljeno == 7
+		})
+	korak("odlazna kroz tunel iza LAN-a koji ne odgovara", syncOutcome{put: razmjena.PutKrozTunel, rtt: 40 * time.Millisecond, razlog: razmjena.RazlogPutaNijeSeJavio},
+		func(p PutRazmjene) bool {
+			return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 2 && p.Uspjesi == 2
 		})
 	korak("dolazna kroz tunel", syncOutcome{put: razmjena.PutKrozTunel, dolazna: true},
-		func(p PutRazmjene) bool {
-			return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 2
-		})
+		func(p PutRazmjene) bool { return p.RTTMs == 40 && p.Razlog == razmjena.RazlogPutaNijeSeJavio && p.Pokusaji == 3 })
 	korak("dolazna preko Tailscalea", syncOutcome{put: razmjena.PutTailscale, dolazna: true},
-		func(p PutRazmjene) bool { return p.Naziv == razmjena.NazivTailscale && p.RTTMs == 0 && p.Pokusaji == 1 })
-	korak("uspjela iz LAN-a briše razlog", syncOutcome{put: razmjena.PutLAN, rtt: 2 * time.Millisecond},
+		func(p PutRazmjene) bool {
+			return p.Naziv == razmjena.NazivTailscale && p.RTTMs == 0 && p.Pokusaji == 1 && p.Razlog == razmjena.RazlogPutaNijeSeJavio
+		})
+	korak("dolazna u LAN-u, i neuspjela, briše razlog", syncOutcome{put: razmjena.PutAdresa, privatna: true, dolazna: true, err: greska},
+		func(p PutRazmjene) bool { return p.Naziv == razmjena.NazivLAN && p.Razlog == "" && p.ZadnjiZvao == "drugi" })
+	korak("odlazna u LAN-u", syncOutcome{put: razmjena.PutLAN, rtt: 2 * time.Millisecond},
 		func(p PutRazmjene) bool { return p.Naziv == razmjena.NazivLAN && p.Razlog == "" && p.RTTMs == 2 })
 }
 
@@ -195,5 +218,17 @@ func TestSamoDolaziIRTT(t *testing.T) {
 	}
 	if o := (syncOutcome{put: razmjena.PutLAN}).uzVezu(nil); o.put != razmjena.PutLAN {
 		t.Errorf("bez veze: %+v", o)
+	}
+}
+
+// Redak stanja koji se ne da pročitati (vrijeme zapisano kao tekst) javi
+// grešku, a ne prazno stanje.
+func TestSyncStatesPokvarenRedak(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	if _, err := s.db.Exec(`INSERT INTO peer_sync (node_id, put_od) VALUES ('laptop-baranja', 'nije vrijeme')`); err != nil {
+		t.Fatal(err)
+	}
+	if st, err := s.syncStates(ctxRub); err == nil {
+		t.Errorf("pokvaren redak bez greške: %+v", st)
 	}
 }

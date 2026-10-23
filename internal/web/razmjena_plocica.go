@@ -47,7 +47,7 @@ type CvorRazmjene struct {
 }
 
 // Razlog je razlog puta rečenicom za pločicu
-func (c CvorRazmjene) Razlog() string { return razlogRijecima(c.RazlogPuta, c.Put, c.Neuspjelih) }
+func (c CvorRazmjene) Razlog() string { return razlogRijecima(c.RazlogPuta, c.Put) }
 
 // RazlogTrajan: razlog se sam ne popravi, pa traži čovjeka
 func (c CvorRazmjene) RazlogTrajan() bool { return c.RazlogPuta.Trajan() }
@@ -198,6 +198,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     <div class="vrijeme-mirno-tekst">
       <div class="vrijeme-mirno-naslov">Sve je usklađeno s {{len .Cvorovi}} {{if eq (len .Cvorovi) 1}}čvorom{{else}}čvorova{{end}}.</div>
       <div class="reg-card-sub">{{range $i, $c := .Cvorovi}}{{if $i}} · {{end}}{{$c.Naziv}}{{if $c.Verzija}} na {{$c.Verzija}}{{end}}: zadnja razmjena {{prijePtr $c.Zadnja}}{{with $c.Put}}, {{.}}{{end}}{{with $c.RTTMs}}, {{.}} ms{{end}}{{end}}{{with .Prognoza}}{{if .Ima}} · prognoza {{if $.Prognoza.Izdaje}}se izdaje ovdje{{else}}s čvora {{.Izdavac}}{{end}}, zadnja za {{sat .Izdano}}{{end}}{{end}}</div>
+      {{range .Cvorovi}}{{if not .SamoDolazi}}{{if .Razlog}}<div class="reg-card-sub">{{.Naziv}}: {{.Razlog}}</div>{{end}}{{end}}{{end}}
     </div>
   </div>
   {{else}}

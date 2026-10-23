@@ -81,17 +81,24 @@ func rttMs(d time.Duration) int {
 // upisiPut upisuje put i brojače iz bilješke o razmjeni. Redak već postoji,
 // jer ga je recordSyncState upravo upisao. Kad se promijeni naziv puta,
 // brojači kreću od ove razmjene; kad veze nije bilo, put ostaje prijašnji.
-// RTT dolazne veze se ne zna, pa ostaje prijašnji na istom putu. Razlog
-// piše samo razmjena koju je započelo ovo računalo: dolazna ne zna je li
-// ovo računalo moglo nazvati boljim putem.
+// RTT dolazne veze se ne zna, pa ostaje prijašnji na istom putu.
+//
+// Razlog piše razmjena koju je započelo ovo računalo, jer dolazna ne zna je
+// li ovo moglo nazvati boljim putem. Dvije iznimke: od LAN synca boljeg puta
+// nema, pa razmjena u lokalnoj mreži razlog briše u oba smjera, a uspjela
+// dolazna briše „nije odgovorila nijedna adresa”, jer se računalo upravo
+// javilo.
 func (s *Service) upisiPut(ctx context.Context, nodeID string, o syncOutcome, sad time.Time) {
-	novi := o.put != "" && razmjena.NazivPuta(o.put, o.privatna) != s.nazivPuta(ctx, nodeID)
+	naziv := razmjena.NazivPuta(o.put, o.privatna)
+	novi := o.put != "" && naziv != s.nazivPuta(ctx, nodeID)
 	_, err := s.db.ExecContext(ctx, `UPDATE peer_sync SET
 		put = CASE WHEN ?1 <> '' THEN ?1 ELSE put END,
 		put_privatna = CASE WHEN ?1 <> '' THEN ?2 ELSE put_privatna END,
 		rtt_ms = CASE WHEN ?3 > 0 THEN ?3 WHEN ?4 THEN 0 ELSE rtt_ms END,
 		put_od = CASE WHEN ?4 THEN ?5 ELSE put_od END,
-		put_razlog = CASE WHEN ?6 THEN put_razlog ELSE ?7 END,
+		put_razlog = CASE WHEN ?13 THEN ''
+			WHEN ?6 AND ?8 AND put_razlog = ?14 THEN ''
+			WHEN ?6 THEN put_razlog ELSE ?7 END,
 		put_pokusaji = CASE WHEN ?4 THEN 0 ELSE put_pokusaji END + 1,
 		put_uspjesi = CASE WHEN ?4 THEN 0 ELSE put_uspjesi END + ?8,
 		put_neuspjesi = CASE WHEN ?4 THEN 0 ELSE put_neuspjesi END + 1 - ?8,
@@ -100,7 +107,8 @@ func (s *Service) upisiPut(ctx context.Context, nodeID string, o syncOutcome, sa
 		zadnji_zvao = ?11
 		WHERE node_id = ?12`,
 		string(o.put), boolInt(o.privatna), rttMs(o.rtt), boolInt(novi), sad, boolInt(o.dolazna), string(o.razlog),
-		boolInt(o.err == nil), o.primljeno, o.poslano, map[bool]string{true: "drugi", false: "ovaj"}[o.dolazna], nodeID)
+		boolInt(o.err == nil), o.primljeno, o.poslano, map[bool]string{true: "drugi", false: "ovaj"}[o.dolazna], nodeID,
+		boolInt(naziv == razmjena.NazivLAN), string(razmjena.RazlogPutaBezOdgovora))
 	if err != nil {
 		log.Printf("razmjena: put razmjene s %s nije spremljen: %v", nodeID, err)
 	}

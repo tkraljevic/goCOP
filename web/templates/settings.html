@@ -50,12 +50,13 @@
     <p class="desc">Čvor sa stalnom adresom (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.</p>
     <div class="peer">
       <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovaj čvor)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
-      <div class="peer-meta">{{if .Self.Addresses}}{{range .Self.Addresses}}<span class="mono">{{.}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button>{{end}} {{end}}{{else}}bez javne adrese — dostupan samo u lokalnoj mreži{{end}}</div>
+      {{/* adrese računala vidi samo administrator */}}
+      <div class="peer-meta">{{if .Self.Addresses}}{{if $.Permissions.IsGlobalAdmin}}{{range .Self.Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}{{else}}ima javnu adresu{{end}}{{else}}bez javne adrese — dostupan samo u lokalnoj mreži{{end}}</div>
     </div>
     {{range .Peers}}{{if .IsBootstrap}}
     <div class="peer">
       <div class="peer-head"><span class="peer-name">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</span><span class="badge badge-active">stalno izložen</span></div>
-      {{$peer := .}}<div class="peer-meta">{{range .Addresses}}<span class="mono">{{.}}</span>{{if $.Permissions.IsGlobalAdmin}} <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$peer.NodeID}}', '{{.}}')" title="Makni adresu">×</button>{{end}} {{end}}</div>
+      {{$peer := .}}{{if $.Permissions.IsGlobalAdmin}}<div class="peer-meta">{{range .Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$peer.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}</div>{{end}}
     </div>
     {{end}}{{end}}
     {{if .Permissions.IsGlobalAdmin}}
@@ -201,8 +202,8 @@
     <h2>Poznati čvorovi</h2>
     <p class="desc">Čvorovi s kojima se ovaj sinkronizira. Adresa se mijenja, ključ ne. Čvorovi s domenom označeni su kao stalno izloženi.</p>
     <div class="actions mt-0 mb-2">
-      <button type="button" class="btn btn-secondary" onclick="discover()">Pretraži lokalnu mrežu</button>
-      {{if .Permissions.IsGlobalAdmin}}<button type="button" class="btn btn-primary" onclick="syncNow('all')">Sinkroniziraj sa svima</button>{{end}}
+      {{if .Permissions.IsGlobalAdmin}}<button type="button" class="btn btn-secondary" onclick="discover()">Pretraži lokalnu mrežu</button>
+      <button type="button" class="btn btn-primary" onclick="syncNow('all')">Sinkroniziraj sa svima</button>{{end}}
     </div>
     <div id="discover-results"></div>
     <div id="peer-list">

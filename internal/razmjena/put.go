@@ -26,22 +26,25 @@ const (
 	NazivTailscale = "Tailscale"
 )
 
+// naziviPuta su nazivi puta uz javnu i uz privatnu adresu druge strane
+var naziviPuta = map[Put][2]string{
+	PutLAN:       {NazivLAN, NazivLAN},
+	PutAdresa:    {NazivServer, NazivLAN},
+	PutProbijeno: {NazivWeb, NazivLAN},
+	PutTailscale: {NazivTailscale, NazivTailscale},
+	PutKrozTunel: {NazivServer, NazivServer},
+}
+
 // NazivPuta je naziv puta na pločici. Za adresu i probijanje odlučuje je li
 // adresa druge strane privatna, a ne je li u istoj podmreži: laptop kod kuće
 // (192.168.0.x) i kućni server (192.168.1.x) su u istoj kući. Domena koju je
 // upisao čovjek je javna adresa poslužitelja. Prazan put nema naziv.
 func NazivPuta(p Put, privatna bool) string {
-	switch {
-	case p == PutLAN || (p == PutAdresa || p == PutProbijeno) && privatna:
-		return NazivLAN
-	case p == PutProbijeno:
-		return NazivWeb
-	case p == PutTailscale:
-		return NazivTailscale
-	case p == PutAdresa || p == PutKrozTunel:
-		return NazivServer
+	n := naziviPuta[p]
+	if privatna {
+		return n[1]
 	}
-	return ""
+	return n[0]
 }
 
 // RazlogPuta kaže zašto razmjena ne ide boljim putem. Sprema se u
@@ -50,10 +53,12 @@ func NazivPuta(p Put, privatna bool) string {
 // (RazlogVrata).
 type RazlogPuta string
 
-// Razlozi puta (plan WEB synca, F1). Od F1b upisuje se samo
-// RazlogPutaNijeSeJavio; ostale upisuju sastajalište (F2) i WEB sync (F3).
+// Razlozi puta (plan WEB synca, F1). Od F1b upisuju se samo
+// RazlogPutaNijeSeJavio i RazlogPutaBezOdgovora; ostale upisuju
+// sastajalište (F2) i WEB sync (F3).
 const (
 	RazlogPutaNijeSeJavio    RazlogPuta = "nije-se-javio"   // bolji put nije odgovorio
+	RazlogPutaBezOdgovora    RazlogPuta = "bez-odgovora"    // nije odgovorila nijedna adresa
 	RazlogPutaUDPNeProlazi   RazlogPuta = "udp-ne-prolazi"  // UDP ne prolazi
 	RazlogPutaNATOvisan      RazlogPuta = "nat-ovisan"      // oba NAT-a ovisna o odredištu
 	RazlogPutaUDPDoDrugih    RazlogPuta = "udp-do-drugih"   // UDP do drugih računala ne prolazi

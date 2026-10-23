@@ -29,7 +29,7 @@ func TestNazivPuta(t *testing.T) {
 func TestRazloziPutaStalni(t *testing.T) {
 	trajni := map[RazlogPuta]bool{RazlogPutaNijeClan: true, RazlogPutaStarijiProgram: true, RazlogPutaIstiKljuc: true}
 	for r, vrijednost := range map[RazlogPuta]string{
-		RazlogPutaNijeSeJavio: "nije-se-javio", RazlogPutaUDPNeProlazi: "udp-ne-prolazi", RazlogPutaNATOvisan: "nat-ovisan",
+		RazlogPutaNijeSeJavio: "nije-se-javio", RazlogPutaBezOdgovora: "bez-odgovora", RazlogPutaUDPNeProlazi: "udp-ne-prolazi", RazlogPutaNATOvisan: "nat-ovisan",
 		RazlogPutaUDPDoDrugih: "udp-do-drugih", RazlogPutaVatrozid: "vatrozid", RazlogPutaNijeClan: "nije-clan",
 		RazlogPutaStarijiProgram: "stariji-program", RazlogPutaPriprema: "priprema", RazlogPutaPauza: "pauza",
 		RazlogPutaIstiKljuc: "isti-kljuc",

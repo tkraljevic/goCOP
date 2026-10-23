@@ -314,7 +314,13 @@ func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Requ
 		"datoteka": "gocop-potvrda-" + z.Cvor + ".json"})
 }
 
+// HandleDiscover pretraži lokalnu mrežu; odgovor nosi adrese računala, pa
+// ga dobiva samo administrator
 func (h *SettingsHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	found, err := h.peers.Discover(r.Context(), 1500*time.Millisecond)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -438,7 +444,13 @@ func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Requ
 // --- povijest zapisa ---
 
 // HandleHistory vraća verzije jednog zapisa, od najnovije
+// HandleHistory vraća sve verzije zapisa iz knjige. Zapis čvora nosi
+// adrese, pa povijest vidi samo administrator.
 func (h *SettingsHandler) HandleHistory(w http.ResponseWriter, r *http.Request) {
+	if err := requireAdmin(r); err != nil {
+		http.Error(w, err.Error(), http.StatusForbidden)
+		return
+	}
 	entity, id := r.PathValue("entity"), r.PathValue("id")
 	history, err := h.rec.History(r.Context(), entity, id)
 	if err != nil {

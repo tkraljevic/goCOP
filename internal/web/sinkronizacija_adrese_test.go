@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/razmjena"
@@ -70,22 +71,58 @@ func TestStanjeSinkronizacijeBezAdresa(t *testing.T) {
 	}
 }
 
-// Stranica Čvor i mreža pokazuje adrese poznatih čvorova i bilješku s
-// greškom razmjene samo administratoru.
+// Stranica Čvor i mreža pokazuje adrese poznatih čvorova, domenskih
+// čvorova i vlastite javne adrese, i bilješku s greškom razmjene, samo
+// administratoru; pretragu lokalne mreže nudi samo njemu.
 func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 	tmpl := predlozakStranice(t, "settings.html")
 	zadnji := time.Now()
 	for admin, treba := range map[bool]bool{true: true, false: false} {
 		var b strings.Builder
 		data := SettingsPageData{CurrentUser: adminIvic, Permissions: &models.UserPermissions{IsGlobalAdmin: admin},
-			Peers: []peers.Peer{{NodeID: "laptop-baranja", Name: "Laptop Baranja", Addresses: []string{"192.168.1.30:4710"},
-				LastSync: &zadnji, LastSyncNote: "greška: dial tcp 192.168.1.30:4710: no route to host"}}}
+			Self: peers.Peer{NodeID: "cop-osijek", Addresses: []string{"cop-osijek.primjer.hr:4710"}, IsBootstrap: true},
+			Peers: []peers.Peer{
+				{NodeID: "laptop-baranja", Name: "Laptop Baranja", Addresses: []string{"192.168.1.30:4710"},
+					LastSync: &zadnji, LastSyncNote: "greška: dial tcp 192.168.1.30:4710: no route to host"},
+				{NodeID: "ured-vukovar", Name: "Ured Vukovar", Addresses: []string{"ured.primjer.hr:4710"}, IsBootstrap: true}}}
 		if err := tmpl.ExecuteTemplate(&b, "settings.html", data); err != nil {
 			t.Fatal(err)
 		}
 		html := b.String()
-		if strings.Contains(html, "192.168.1.30") != treba || !strings.Contains(html, "zadnji sync") {
-			t.Errorf("administrator %v: adrese na stranici %v", admin, strings.Contains(html, "192.168.1.30"))
+		for _, adresa := range []string{"192.168.1.30", "ured.primjer.hr", "cop-osijek.primjer.hr", "onclick=\"discover()\""} {
+			if strings.Contains(html, adresa) != treba {
+				t.Errorf("administrator %v: %q na stranici %v", admin, adresa, !treba)
+			}
 		}
+		if !strings.Contains(html, "zadnji sync") || !admin && !strings.Contains(html, "ima javnu adresu") {
+			t.Errorf("administrator %v: nema zadnje razmjene ili oznake javne adrese", admin)
+		}
+	}
+}
+
+// Pretraga lokalne mreže i povijest zapisa iz knjige nose adrese računala,
+// pa ih dobiva samo administrator.
+func TestPretragaIPovijestSamoAdministratoru(t *testing.T) {
+	s, baza := cvorIBazaZaWeb(t, "cop-osijek")
+	h := NewSettingsHandler(s, ledger.New(baza, "cop-osijek"), nil)
+	for ime, rukovatelj := range map[string]http.HandlerFunc{"pretraga": h.HandleDiscover, "povijest": h.HandleHistory} {
+		r := httptest.NewRequest(http.MethodGet, "/api/history/peers/laptop-baranja", nil)
+		r.SetPathValue("entity", "peers")
+		r.SetPathValue("id", "laptop-baranja")
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, &models.UserPermissions{}))
+		w := httptest.NewRecorder()
+		rukovatelj(w, r)
+		if w.Code != http.StatusForbidden {
+			t.Errorf("%s bez prava: %d", ime, w.Code)
+		}
+	}
+	r := httptest.NewRequest(http.MethodGet, "/api/history/peers/laptop-baranja", nil)
+	r.SetPathValue("entity", "peers")
+	r.SetPathValue("id", "laptop-baranja")
+	r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, &models.UserPermissions{IsGlobalAdmin: true}))
+	w := httptest.NewRecorder()
+	h.HandleHistory(w, r)
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), `"versions":[]`) {
+		t.Errorf("povijest administratoru: %d %s", w.Code, w.Body)
 	}
 }

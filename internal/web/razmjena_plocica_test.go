@@ -125,14 +125,14 @@ func TestBezPriruckeMemorije(t *testing.T) {
 func TestPlocicaPutIRazlozi(t *testing.T) {
 	malo := time.Now().Add(-2 * time.Minute)
 	adresa := regexp.MustCompile(`\b\d{1,3}(\.\d{1,3}){3}\b|[0-9a-f]{1,4}(:[0-9a-f]{0,4}){2,7}`)
-	razlozi := []razmjena.RazlogPuta{razmjena.RazlogPutaNijeSeJavio, razmjena.RazlogPutaUDPNeProlazi, razmjena.RazlogPutaNATOvisan,
+	razlozi := []razmjena.RazlogPuta{razmjena.RazlogPutaNijeSeJavio, razmjena.RazlogPutaBezOdgovora, razmjena.RazlogPutaUDPNeProlazi, razmjena.RazlogPutaNATOvisan,
 		razmjena.RazlogPutaUDPDoDrugih, razmjena.RazlogPutaVatrozid, razmjena.RazlogPutaNijeClan, razmjena.RazlogPutaStarijiProgram,
 		razmjena.RazlogPutaPriprema, razmjena.RazlogPutaPauza, razmjena.RazlogPutaIstiKljuc}
 	for _, naziv := range []string{razmjena.NazivLAN, razmjena.NazivServer, razmjena.NazivTailscale, razmjena.NazivWeb, ""} {
 		for _, r := range razlozi {
-			for _, neuspjelih := range []int{0, 2} {
-				// Zaostaje: pločica s tablicom, a ne jedan redak
-				c := CvorRazmjene{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Zaostaje: 1, Put: naziv, RTTMs: 12, RazlogPuta: r, Neuspjelih: neuspjelih}
+			// Zaostaje 1: pločica s tablicom; 0: jedan redak, uz prolazni razlog
+			for _, zaostaje := range []int{0, 1} {
+				c := CvorRazmjene{Naziv: "laptop", Dostupnost: "online", Zadnja: &malo, Zaostaje: zaostaje, Put: naziv, RTTMs: 12, RazlogPuta: r}
 				var b strings.Builder
 				if err := razmjenaTmpl.Execute(&b, RazmjenaStanje{UMrezi: true, Cvorovi: []CvorRazmjene{c}}); err != nil {
 					t.Fatal(err)
@@ -148,8 +148,11 @@ func TestPlocicaPutIRazlozi(t *testing.T) {
 					t.Errorf("%q, %q: na pločici je adresa ili ime sustava: %q", naziv, r, m)
 				}
 				trajan := strings.Contains(html, `<div class="razmjena-upozorenje">`+template.HTMLEscapeString(recenica))
-				if trajan != r.Trajan() {
+				if zaostaje == 1 && trajan != r.Trajan() {
 					t.Errorf("%q: trajan na pločici %v", r, trajan)
+				}
+				if jedanRedak := strings.Contains(html, "Sve je usklađeno"); jedanRedak != (zaostaje == 0 && !r.Trajan()) {
+					t.Errorf("%q, zaostaje %d: jedan redak %v", r, zaostaje, jedanRedak)
 				}
 			}
 		}
@@ -164,7 +167,7 @@ func TestPlocicaPutIRazlozi(t *testing.T) {
 	if (CvorRazmjene{}).Razlog() != "" || (CvorRazmjene{RazlogPuta: "nepoznat"}).Razlog() != "" {
 		t.Error("razlog bez koda")
 	}
-	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaNijeSeJavio, Neuspjelih: 1}).Razlog(); r != "Računalo se ne javlja ni na jednoj poznatoj adresi." {
+	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaBezOdgovora, Put: razmjena.NazivLAN}).Razlog(); r != "Računalo se ne javlja ni na jednoj poznatoj adresi." {
 		t.Errorf("bez ijedne adrese: %q", r)
 	}
 	if r := (CvorRazmjene{RazlogPuta: razmjena.RazlogPutaNijeSeJavio, Put: razmjena.NazivServer}).Razlog(); r != "Računalo se ne javlja u lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync)." {
