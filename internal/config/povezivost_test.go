@@ -60,6 +60,7 @@ func TestProvjeriPovezivost(t *testing.T) {
 		{"STUN s razmakom", func(c *Config) { c.Povezivost.Stun = []string{"stun primjer:3478"} }, "povezivost.stun"},
 		{"javna adresa umjesto lokalne", func(c *Config) { c.Povezivost.LanAdresa = "8.8.8.8" }, "povezivost.lan_adresa"},
 		{"nije adresa", func(c *Config) { c.Povezivost.LanAdresa = "ured" }, "povezivost.lan_adresa"},
+		{"IPv6 iz privatne mreže", func(c *Config) { c.Povezivost.LanAdresa = "fd00::5" }, "povezivost.lan_adresa"},
 	} {
 		cfg := Default()
 		c.izmjena(&cfg)
