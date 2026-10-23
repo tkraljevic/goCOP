@@ -313,12 +313,12 @@ func TestOtvoriUDP(t *testing.T) {
 	}
 	c.Close()
 	otvoriUDP = func(int) (net.PacketConn, error) { return nil, errors.New("nema mreže") }
-	if _, _, err := OtvoriUDP(4713); err == nil {
-		t.Error("utičnica bez mreže bez greške")
+	if c, upozorenje, err := OtvoriUDP(4713); err == nil || c != nil || upozorenje == nil {
+		t.Errorf("utičnica bez mreže: %v %v", upozorenje, err)
 	}
 	otvoriUDP = staro
-	if c, _, err := OtvoriUDP(0); err != nil {
-		t.Errorf("prava utičnica: %v", err)
+	if c, upozorenje, err := OtvoriUDP(0); err != nil || upozorenje != nil {
+		t.Errorf("prava utičnica: %v %v", upozorenje, err)
 	} else {
 		c.Close()
 	}

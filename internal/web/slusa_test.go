@@ -28,7 +28,9 @@ func TestSlusaTekKadWebSlusa(t *testing.T) {
 	default:
 	}
 	s.SetAddr("127.0.0.1:0")
-	go func() { _ = s.Start() }() // poslužitelj radi do kraja testova
+	go func() {
+		_ = s.Start() // poslužitelj radi do kraja testova, pa grešku nema tko pročitati
+	}()
 	select {
 	case <-s.Slusa():
 	case <-time.After(5 * time.Second):

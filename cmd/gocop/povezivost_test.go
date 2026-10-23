@@ -361,7 +361,9 @@ func TestUtisajQuic(t *testing.T) {
 	if v := os.Getenv(k); v != "0" {
 		t.Errorf("postavljeno: %q", v)
 	}
-	os.Unsetenv(k)
+	if err := os.Unsetenv(k); err != nil {
+		t.Fatal(err)
+	}
 	utisajQuic()
 	if v := os.Getenv(k); v != "1" {
 		t.Errorf("nepostavljeno: %q", v)
