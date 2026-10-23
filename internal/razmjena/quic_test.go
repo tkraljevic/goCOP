@@ -61,8 +61,8 @@ func TestRazmjenaPrekoQUICa(t *testing.T) {
 		videno := make(chan *Conn, 1)
 		kraj := slusalicaQUIC(ctx, b, posluzitelj, nil, svima, func(c *Conn) {
 			defer c.Close()
-			e, _ := c.Receive()
-			_ = c.Send(e)
+			e, _ := c.Receive() // jeka: grešku razgovora vidi strana koja zove
+			_ = c.Send(e)       // isto
 			videno <- c
 		})
 		vj := func() []byte { return []byte(`{"clan":"laptop"}`) }

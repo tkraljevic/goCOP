@@ -55,7 +55,7 @@ func ServeExchangeQUIC(ctx context.Context, tr *quic.Transport, priv ed25519.Pri
 	v := &vrata{protokol: protocol, trusted: trusted, handle: handle, o: ogradaIz(o)}
 	go func() {
 		<-ctx.Done()
-		ln.Close()
+		_ = ln.Close() // slušalica staje s ctx; greška zatvaranja nema kome reći
 	}()
 	for {
 		veza, err := ln.Accept(ctx)
