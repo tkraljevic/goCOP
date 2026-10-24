@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -208,18 +209,8 @@ func PrimiIzdanje(db *sql.DB, knjiga string, p PaketIzdanja) (bool, error) {
 	if ImaIzdanjeIzKnjige(db, knjiga) {
 		return false, nil
 	}
-	if len(p.Tude.Redci) > 0 {
-		tx, err := db.Begin()
-		if err != nil {
-			return false, err
-		}
-		if err := upisiTablicu(tx, "tude", p.Tude, "OR IGNORE"); err != nil {
-			tx.Rollback()
-			return false, fmt.Errorf("tuđe prognoze: %w", err)
-		}
-		if err := tx.Commit(); err != nil {
-			return false, err
-		}
+	if err := primiTude(db, p); err != nil {
+		return false, fmt.Errorf("tuđe prognoze: %w", err)
 	}
 	// Isti sat izdan iznova: staro izdanje seli među ranije, kao kod izdavača.
 	if err := ObrisiIzdanje(db, p.Zapis.Izdano); err != nil {
@@ -244,6 +235,69 @@ func PrimiIzdanje(db *sql.DB, knjiga string, p PaketIzdanja) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// primiTude upiše tuđe prognoze iz paketa. Paket nosi cijela tuđa izdanja
+// zadnjih TudeUnatragSati kakva ih izdavač ima, i s ispravcima kad je neko
+// izdanje pročitao iznova (SpremiTude). Najnovije naše izdanje zato
+// zamijeni retke istih tuđih izdanja; starije koje stigne kasno samo
+// dopunjuje, da ne vrati staro stanje.
+func primiTude(db *sql.DB, p PaketIzdanja) error {
+	if len(p.Tude.Redci) == 0 {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	nacin, err := zamjenaTudih(tx, p)
+	if err != nil {
+		return err
+	}
+	if err := upisiTablicu(tx, "tude", p.Tude, nacin); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// zamjenaTudih vrati kako se upisuju tuđe prognoze paketa: kad je paket
+// najnovije naše izdanje (kao ZadnjeIzdanje), obriše tuđa izdanja koja nosi
+// i vrati „OR REPLACE”, a za starije „OR IGNORE”.
+func zamjenaTudih(tx *sql.Tx, p PaketIzdanja) (string, error) {
+	var zadnje sql.NullInt64
+	if err := tx.QueryRow(`SELECT max(izdano) FROM izdane`).Scan(&zadnje); err != nil {
+		return "", err
+	}
+	if zadnje.Valid && p.Zapis.Izdano < zadnje.Int64 {
+		return "OR IGNORE", nil
+	}
+	return "OR REPLACE", obrisiTudaIzdanja(tx, p.Tude)
+}
+
+// obrisiTudaIzdanja obriše retke tuđih izdanja (izvor, letva, izdano) koja
+// tablica nosi. Tablica bez tih stupaca ne briše ništa, a njezin upis javi
+// grešku (upisiTablicu).
+func obrisiTudaIzdanja(tx *sql.Tx, t Tablica) error {
+	kljuc := []int{slices.Index(t.Stupci, "izvor"), slices.Index(t.Stupci, "letva"), slices.Index(t.Stupci, "izdano")}
+	if slices.Contains(kljuc, -1) {
+		return nil
+	}
+	obrisano := map[[3]any]bool{}
+	for _, red := range t.Redci {
+		if len(red) != len(t.Stupci) {
+			continue // upisiTablicu ga odbije
+		}
+		k := [3]any{red[kljuc[0]], red[kljuc[1]], vrijednost(red[kljuc[2]])}
+		if obrisano[k] {
+			continue
+		}
+		obrisano[k] = true
+		if _, err := tx.Exec(`DELETE FROM tude WHERE izvor = ? AND letva = ? AND izdano = ?`, k[0], k[1], k[2]); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // SastaviModel slaže namješteni model i njegov otisak.

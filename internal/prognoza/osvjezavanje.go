@@ -107,6 +107,9 @@ type Ishod struct {
 	// Rekonstruirano su rupe letvi koje su susjedi popunili, a sežu u
 	// zadnja četiri dana prije izdanja: letva → rupe redom.
 	Rekonstruirano map[string][]RekonstruiranaRupa
+	// NeuredneTude su upozorenja o tuđim prognozama s neurednim datumima
+	// (ZapamtiNeuredne) koje je izdavač imao.
+	NeuredneTude []Upozorenje
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -350,6 +353,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 	}
 	donjiRubProtoka(ishod.Izdane)
+	ishod.NeuredneTude = upozorenjaTudih(o.Baza, sada)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
