@@ -4,6 +4,92 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.42-alfa — 24. 10. 2026.
+
+- **Srpska prognoza s krivim datumima više ne stoji pod krivim danom.**
+  RHMZ Srbije je uz pomak sata 22.–24. 10. 2026. u tablici napisao jedan dan
+  dvaput (subota 24., nedjelja 25., nedjelja 25., ponedjeljak 26. i utorak
+  27. 10.), pa su njihove vrijednosti za 26.–28. 10. stajale dan prerano, a
+  jedna je nestala. Takvu tablicu goCOP sad čita redom po danima, uz
+  napomenu uz izdanje. Svaki drugi slijed datuma koji ne ide dan za danom, u
+  srpskoj i mađarskoj tablici, sprema se samo do prvog neurednog datuma,
+  ništa se ne premješta, a izdanje nosi upozorenje dok tablica ne bude
+  ispravljena. Gdje RHMZ upiše „-”, granice obrane moravskih postaja više ne
+  ulaze među dane prognoze. Pri prvom pokretanju novog izdanja program jednom
+  ispravi stare srpske retke: dane uz pomak sata premjesti na pravi dan, a
+  granice obrane spremljene kao prognoza obriše. (#139)
+- **Pločica razmjene kaže kojim putem razmjena ide i zašto.** Uz svako
+  računalo piše put zadnje razmjene, npr. „LAN sync, 3 ms” ili „SERVER sync,
+  35 ms”, a kad razmjena ne ide boljim putem, rečenica kaže zašto. Dok je
+  stalni čvor na mreži, uz računalo koje ne odgovara piše „SERVER sync,
+  preko cop.primjer.hr: podaci stižu do 10 min kasnije.” Program pritom ne
+  provjerava radi li to računalo, pa isti natpis stoji i uz ugašeno. Adrese i
+  sirove greške razmjene više nisu na pločici. Vidi ih samo globalni
+  administrator, na stranicama Sinkronizacija i Čvor, mreža i
+  sinkronizacija; drugi s modulom Administracija više ih ne vide, a nemaju ni
+  gumb *Pretraži lokalnu mrežu*. (#133, #136)
+- **Članstvo u mreži i ovlast za primanje imaju rok koji se vidi i obnavlja
+  samo.** Rok piše u Administraciji, na stranici Čvor, mreža i
+  sinkronizacija, pod Mreža, a pločica upozorava 30 dana prije isteka.
+  Članstvo vrijedi godinu dana, ovlast za primanje dvije. Računalo kojem rok
+  ističe samo zatraži obnovu uz uspješnu razmjenu, a globalni administrator
+  može je zatražiti i gumbom *Obnovi članstvo*. Novo članstvo izda računalo
+  koje prima nova računala kad do njega stigne zahtjev, a ovlast samo
+  računalo s ključem mreže. Isteklo članstvo vrijedi za razmjenu još 30 dana,
+  ali u tom roku računalo ne prima druga računala; nakon toga računalo treba
+  ponovno primiti u mrežu. (#130)
+- **E-pošta o roku i šifrirana kopija ključa mreže.** Globalni
+  administratori čija adresa smije primati PIN dobiju e-poštu kad članstvu
+  ili ovlasti nekog računala ostane manje od 30 dana ili istekne, i za svaku
+  spremljenu ili učitanu kopiju ključa mreže (tko, na kojem računalu, kada).
+  Kopiju na računalu s ključem mreže sprema globalni administrator gumbom
+  *Spremi šifriranu kopiju*, uz posebnu lozinku od najmanje 12 znakova;
+  preglednik preuzme datoteku koju treba spremiti na hladni disk, a lozinku
+  program ne pamti. Drugo računalo iste mreže kopiju učita gumbom *Učitaj
+  kopiju ključa* i od tada i ono prima nova računala. Oboje samo s tog
+  računala ili iz lokalne mreže. (#131)
+- **Globalni administrator vidi što je odbijeno.** Na stranici
+  Sinkronizacija vidi zadnjih 7 dana: veze koje vrata razmjene nisu pustila,
+  razmjene koje je ovo računalo odbilo, odbijenice drugih računala i ono što
+  ovaj program ne razumije, bez adresa i sadržaja. Svako računalo pokazuje
+  samo svoj zapis. Kad poznato računalo u zadnja 24 sata zove ovo, a ovdje
+  nije član, to piše na pločici, koju vide svi prijavljeni. (#129)
+- **Pronalaženje u lokalnoj mreži je brže i otpornije.** Proba ide tri puta
+  i završi čim se jave tražena računala, a jedno pronalaženje vrijedi za sve
+  razmjene u krugu. Računalo na probe odgovara samo iz mreža na koje je
+  spojeno, a kad odgovaranje stane, samo se ponovno pokrene (to piše samo u
+  dnevniku). Mostovi Dockera, libvirta, Hyper-V-a i WSL-a, mostovi i VPN na
+  macOS-u i Tailscale više se ne vide kao lokalna mreža; VirtualBox, VMware
+  i neke VPN-ove program još ne prepoznaje. (#128)
+- **Prvi dio WEB synca: provjera mreže i prijava kod sastajališta, zadano
+  isključeni.** Uz `[povezivost] web_sync_prijava = true` računalo otvori UDP
+  port 4713 i pita dva STUN poslužitelja (Googleov i Cloudflareov) kojom ga
+  javnom adresom vide; na vatrozidu za to ne treba otvarati ništa. Stalni
+  čvor uz `posluzi_sastajaliste = true` postaje sastajalište, a ostala
+  računala uz `sastajaliste` i `sastajaliste_cvor` prijave se kod njega
+  preko njegove web adrese i drže vezu, i nakon buđenja i promjene mreže.
+  Prijava za WEB sync mora biti uključena na svima, i na sastajalištu.
+  Sastajalište prima najviše 64 računala, a s iste javne adrese 8. Pločica
+  kaže kod koga je računalo prijavljeno, a na stalnom čvoru koliko je
+  računala prijavljeno. Kopiju istog goCOP-a na drugom računalu sastajalište
+  odbija i javlja na oba. Podaci tim putem još ne idu; izravnu vezu donosi
+  iduća faza. (#127, #132, #134, #136, #138)
+- **Prekidač WEB synca pri padu.** Ako se program prekine dok WEB sync radi
+  i idući put opet se prekine u prvih 10 minuta rada, sljedeće pokretanje
+  kreće bez WEB synca, a pločica to kaže. Na stalnom čvoru tada ne radi ni
+  sastajalište. Globalni administrator ga ponovno uključuje gumbom *Ponovno
+  uključi WEB sync* u kartici *Ovaj čvor*, s tog računala ili iz lokalne
+  mreže; WEB sync proradi kad se čvor ponovno pokrene. (#132)
+- **Gumbi Provjeri vezu i Provjeri vezu s računalom.** *Provjeri vezu* u
+  kartici *Ovaj čvor* izmjeri mrežu ovog računala, i kad je WEB sync
+  isključen. Blok *Dohvatljivost ovog računala* na stranici Sinkronizacija
+  pokazuje ishod zadnje provjere: javnu adresu, adrese koje bi WEB sync
+  nudio, koje ne nudi i zašto. *Provjeri vezu s računalom* nazove svaku
+  adresu koju ovo računalo zna za izabrano računalo i za svaku kaže kako je
+  prošlo, bez razmjene podataka; radi samo za članove mreže. Gumbe vidi i
+  pokreće samo globalni administrator, s tog računala ili iz lokalne mreže.
+  (#135, #137)
+
 ## 0.0.41-alfa — 22. 10. 2026.
 
 - **Kiša ulazi u satni lanac Dunava.** Lanac Dunava nije vidio kišu: vrh
