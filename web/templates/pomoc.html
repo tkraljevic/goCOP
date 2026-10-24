@@ -1701,7 +1701,14 @@
         i upozorava na čvor koji radi na drukčijem ili starijem izdanju. Uz svaki čvor stoji put
         zadnje razmjene i koliko je razmjena tim putem uspjelo otkad ide njime. Adrese čvorova,
         greške razmjene i, za čvor koji ne odgovara, zadnji pokušaj na svakoj adresi vidi samo
-        globalni administrator.</li>
+        globalni administrator.
+        <br id="provjera-racunala">Gumb <em>Provjeri vezu s računalom</em> (samo administrator, s ovog
+        računala ili iz lokalne mreže) nazove svaku adresu koju ovo računalo zna za izabrano računalo,
+        kao razmjena, i za svaku kaže odakle je adresa, kojim bi putem išla i kako je prošlo, npr.
+        „javlja se pravim ključem, 3 ms” ili „računalo je tu, ali na tom portu goCOP ne sluša”. Na
+        adresi stane čim se računalo javi svojim ključem, pa se podaci ne razmjenjuju, a drugo računalo
+        to ne bilježi kao neuspjelu razmjenu, nego samo kao vezu koja nije prošla rukovanje. Usput
+        izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em>. Traje do 10 sekundi.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a

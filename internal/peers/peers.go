@@ -1094,9 +1094,18 @@ type kandidat struct {
 // krug prvo zvala adresu usmjerivača koji prevodi adrese. Izravna adresa bez
 // porta dobije port koji se za čvor zna, pa se ista adresa ne zove dvaput.
 func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
-	port := s.exchangePortOf(*peer)
-	var izravne, tuneli []string
-	for _, a := range bezTailscalea(peer.Addresses) {
+	sIzvorom := s.adreseSIzvorom(ctx, peer)
+	out := make([]kandidat, 0, len(sIzvorom))
+	for _, k := range sIzvorom {
+		out = append(out, k.kandidat)
+	}
+	return out
+}
+
+// izravneITuneli dijeli adrese iz zapisa čvora na izravne, s portom, i
+// tunele; Tailscale adrese i prazne se ne zovu
+func izravneITuneli(adrese []string, port string) (izravne, tuneli []string) {
+	for _, a := range bezTailscalea(adrese) {
 		switch a = strings.TrimSpace(a); {
 		case a == "":
 			// prazna adresa iz zapisa se ne zove
@@ -1106,12 +1115,7 @@ func (s *Service) adreseZaSpajanje(ctx context.Context, peer *Peer) []kandidat {
 			izravne = append(izravne, withPort(a, port))
 		}
 	}
-	kandidati := append(s.uLokalnojMrezi(ctx, peer.NodeID), s.tvrdnjePutem(peer.NodeID, razmjena.PutLAN)...)
-	kandidati = append(kandidati, uz(razmjena.PutAdresa, izravne)...)
-	kandidati = append(kandidati, uz(razmjena.PutAdresa, s.naucene(ctx, peer.NodeID))...)
-	kandidati = append(kandidati, s.tvrdnjePutem(peer.NodeID, razmjena.PutAdresa)...)
-	kandidati = append(kandidati, uz(razmjena.PutTailscale, s.tailscaleZaSpajanje(ctx, peer.NodeID))...)
-	return bezDvojnika(append(kandidati, uz(razmjena.PutKrozTunel, tuneli)...))
+	return izravne, tuneli
 }
 
 // uz su adrese za spajanje koje idu istim putem
@@ -1123,12 +1127,12 @@ func uz(put razmjena.Put, adrese []string) []kandidat {
 	return out
 }
 
-// bezDvojnika ostavlja svaku adresu jednom, s putem s kojim je prvi put
-// došla: adresa na kojoj se čvor javio u lokalnoj mreži ostaje lan i kad je
-// ista adresa i u zapisu čvora
-func bezDvojnika(in []kandidat) []kandidat {
+// bezDvojnika ostavlja svaku adresu jednom, s putem i izvorom s kojim je
+// prvi put došla: adresa na kojoj se čvor javio u lokalnoj mreži ostaje lan i
+// kad je ista adresa i u zapisu čvora
+func bezDvojnika(in []kandidatIzvora) []kandidatIzvora {
 	vidjeno := map[string]bool{}
-	var out []kandidat
+	var out []kandidatIzvora
 	for _, k := range in {
 		k.adresa = strings.TrimSpace(k.adresa)
 		if k.adresa == "" || vidjeno[k.adresa] {
