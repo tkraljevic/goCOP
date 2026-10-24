@@ -90,6 +90,7 @@ type Server struct {
 	slusa          chan struct{}           // zatvori se kad web prvi put sluša (Slusa)
 	slusaJednom    sync.Once
 	povezivost     povezivostCvora // WEB sync u ovom pokretanju; prazno dok ga main ne da
+	signal         http.Handler    // rukovatelj sastajališta (F2b); nil dok ga nema
 	skenoviDir     string          // mapa sa skenovima prijava iz ranije evidencije
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
@@ -1198,6 +1199,8 @@ func (s *Server) setupRoutes() {
 	if s.peersService != nil {
 		s.mux.Handle("GET "+razmjena.PutTunela, ograditiTunel(s.peersService.TunelHandler()))
 	}
+	// Sastajalište za WEB sync, isto bez prijave korisnika (ograda_signala.go)
+	s.mux.Handle("GET "+razmjena.PutSignala, ograditiSignal(http.HandlerFunc(s.handleSignal)))
 	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
 	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
 	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)

@@ -45,15 +45,21 @@ type pravilo struct {
 	netaknuto bool  // ni rokova ni ograde tijela (tunel razmjene: veza se preuzima)
 }
 
+// webSocketRute su rute koje vezu preuzimaju kao WebSocket i drže je
+// satima. Svaka mora biti netaknuto, jer bi je inače rok od 60 s prekinuo,
+// a to izgleda kao prekid Cloudflarea (TestWebSocketRuteNetaknute).
+var webSocketRute = []string{"GET " + razmjena.PutTunela, "GET " + razmjena.PutSignala}
+
 // pravilaRuta su iznimke od zadanog, po uzorku rute točno kako je
 // registriran u server.go (s.mux.Handle). Test rokovi_test.go traži da
 // svaka ruta koja prima datoteku i svaki izvoz datoteke ovdje imaju svoj
 // red. Granice tijela su granica datoteke iz rukovatelja i 1 MiB za ostala
 // polja obrasca.
 var pravilaRuta = map[string]pravilo{
-	// tok događaja i tunel razmjene
-	"GET /api/events":           {tok: true},
-	"GET " + razmjena.PutTunela: {netaknuto: true},
+	// tok događaja, tunel razmjene i sastajalište (WebSocket; webSocketRute)
+	"GET /api/events":            {tok: true},
+	"GET " + razmjena.PutTunela:  {netaknuto: true},
+	"GET " + razmjena.PutSignala: {netaknuto: true},
 
 	// primanje datoteka
 	"POST /administracija/baza/uvoz":              {dugo: true, tijelo: 2<<30 + 1<<20}, // .cop do 2 GiB (peers.najveciCop) ili cijela baza

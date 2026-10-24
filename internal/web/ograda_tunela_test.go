@@ -36,7 +36,7 @@ func TestTunelIPv6PoMrezi(t *testing.T) {
 func TestOgradaTunelaKrozRukovatelj(t *testing.T) {
 	o := novaOgradaTunela(najviseTunela, najviseTunelaPoKlijentu)
 	pusti := make(chan struct{})
-	h := (&Server{}).klijentSloj(o.omotaj(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-pusti })))
+	h := (&Server{}).klijentSloj(o.omotaj(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { <-pusti }), "puno"))
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, "/razmjena/tunel", nil)
 		r.RemoteAddr = "127.0.0.1:5555"

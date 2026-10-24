@@ -13,7 +13,8 @@ import (
 
 func TestPovezivost(t *testing.T) {
 	z := Default().Povezivost
-	if z.WebSyncPrijava || z.WebSync || z.UDPPort != 4713 || len(z.Stun) != 2 || z.LanAdresa != "" {
+	if z.WebSyncPrijava || z.WebSync || z.UDPPort != 4713 || len(z.Stun) != 2 || z.LanAdresa != "" ||
+		z.Sastajaliste != "" || z.SastajalisteCvor != "" || z.PosluziSastajaliste {
 		t.Errorf("zadano %+v", z)
 	}
 	dir := t.TempDir()
@@ -61,6 +62,8 @@ func TestProvjeriPovezivost(t *testing.T) {
 		{"javna adresa umjesto lokalne", func(c *Config) { c.Povezivost.LanAdresa = "8.8.8.8" }, "povezivost.lan_adresa"},
 		{"nije adresa", func(c *Config) { c.Povezivost.LanAdresa = "ured" }, "povezivost.lan_adresa"},
 		{"IPv6 iz privatne mreže", func(c *Config) { c.Povezivost.LanAdresa = "fd00::5" }, "povezivost.lan_adresa"},
+		{"sastajalište bez sheme", func(c *Config) { c.Povezivost.Sastajaliste = "cop.primjer.hr" }, "povezivost.sastajaliste"},
+		{"čvor sastajališta s razmakom", func(c *Config) { c.Povezivost.SastajalisteCvor = "cop osijek" }, "povezivost.sastajaliste_cvor"},
 	} {
 		cfg := Default()
 		c.izmjena(&cfg)
@@ -70,6 +73,7 @@ func TestProvjeriPovezivost(t *testing.T) {
 	}
 	cfg := Default()
 	cfg.Povezivost.LanAdresa = "192.168.1.20"
+	cfg.Povezivost.Sastajaliste, cfg.Povezivost.SastajalisteCvor = "https://cop.primjer.hr", "cop-osijek"
 	cfg.Povezivost.Stun = nil
 	if g := Provjeri(cfg); len(g) != 0 {
 		t.Errorf("ispravno: %v", g)

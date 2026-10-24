@@ -428,12 +428,13 @@ func imaStablo(koren string) bool {
 // cvorRazmjene je jedno računalo na pločici. Sirova greška razmjene ne ide
 // na pločicu, jer nosi adrese: pločica kaže put i razlog rečenicom, a
 // grešku vidi administrator na stranici Sinkronizacija.
-func cvorRazmjene(ps peers.PeerStatus, josPrima bool) web.CvorRazmjene {
+func cvorRazmjene(ps peers.PeerStatus, josPrima bool, preko string) web.CvorRazmjene {
 	c := web.CvorRazmjene{Naziv: ps.Name, Dostupnost: ps.Reachability, Zadnja: ps.State.LastOK,
 		Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
 		Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
 		Verzija: ps.Program, Razlicita: ps.RazlicitProgram, JosPrima: josPrima,
-		Put: ps.State.Put.Naziv, RTTMs: ps.State.Put.RTTMs, RazlogPuta: ps.State.Put.Razlog}
+		Put: ps.State.Put.Naziv, RTTMs: ps.State.Put.RTTMs, RazlogPuta: ps.State.Put.Razlog,
+		PrekoPosluzitelja: prekoPosluziteljaZa(ps, preko)}
 	if c.Naziv == "" {
 		c.Naziv = ps.NodeID
 	}
@@ -466,8 +467,9 @@ func stanjeRazmjene(ctx context.Context, p *peers.Service, rec *ledger.Recorder,
 	// drugi čvor zna za verzije koje ovaj prati, a još nema (bez onih koje
 	// je ovaj od njega odbio)
 	josPrima := p.PrimaJos(ctx)
+	preko := prekoPosluzitelja(st.Peers)
 	for _, ps := range st.Peers {
-		out.Cvorovi = append(out.Cvorovi, cvorRazmjene(ps, josPrima(ps)))
+		out.Cvorovi = append(out.Cvorovi, cvorRazmjene(ps, josPrima(ps), preko))
 	}
 	a := ra.stanje(ctx)
 	out.Arhiva = web.ArhivaRazmjene{UKazalu: a.UKazalu, Vlastitih: a.Vlastitih, Ugradjeno: a.Ugradjeno, Ceka: a.Ceka,

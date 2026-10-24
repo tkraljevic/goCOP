@@ -163,6 +163,19 @@ administrator. Spremnik u mostu treba `lan_adresa`: dok je nema, na to
 upozorava blok nakon provjere, a pločica razmjene uz uključenu prijavu za
 WEB sync. Spremnik s mrežom računala (host) adresu nađe sam.
 
+Da bi se dva računala našla preko interneta, WEB sync se prijavljuje kod
+sastajališta, stalnog čvora koji je dostupan s interneta. Na ostalim
+računalima upisuje se `[povezivost] sastajaliste = 'https://cop.primjer.hr'`
+i `sastajaliste_cvor`, ime tog čvora u mreži; njegov ključ program će
+uzimati iz članstva, ne iz zapisa čvora. Na samom stalnom čvoru postavlja se
+`posluzi_sastajaliste = true`, uz `web_sync_prijava = true`; bez prijave
+pločica razmjene na njemu upozorava da sastajalište ne radi. Sve tri postavke
+mijenjaju se samo u datoteci. Same prijave još nema: dolazi u idućem koraku,
+pa `https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze, s jedne
+adrese 8) zasad vraća 404 i uz obje postavke. Kad prijava dođe, pločica
+razmjene reći će „WEB sync: prijavljen kod cop.primjer.hr od 12:01”, a na
+sastajalištu koliko je računala prijavljeno.
+
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
 s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivanju),
@@ -740,7 +753,10 @@ poslužitelje (`[povezivost] udp_port`, `stun`): tuđi STUN poslužitelj saznao
 bi javnu adresu računala i mogao vratiti lažnu, a krivi port odsiječe
 računalo. Samo u datoteci mijenja se i adresa u lokalnoj mreži za spremnik
 (`lan_adresa`, samo IPv4), koju bi WEB sync nudio drugim računalima umjesto
-adrese spremnika; zasad se samo prikazuje u bloku Dohvatljivost. Ime čvora u mreži (`[node] id`) poslije
+adrese spremnika; zasad se samo prikazuje u bloku Dohvatljivost. Isto vrijedi
+za sastajalište (`sastajaliste`, `sastajaliste_cvor`, `posluzi_sastajaliste`):
+krivom adresom ili krivim čvorom WEB sync bi se prijavljivao kod tuđeg
+računala ili ni kod koga. Ime čvora u mreži (`[node] id`) poslije
 prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 

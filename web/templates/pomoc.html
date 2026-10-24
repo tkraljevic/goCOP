@@ -276,8 +276,10 @@
       je prošla zadnja razmjena: LAN sync (lokalna mreža), SERVER sync (preko poslužitelja),
       Tailscale ili WEB sync, uz vrijeme obilaska do drugog računala, npr. „LAN sync, 3 ms”.
       Kad razmjena ne ide boljim putem, ispod piše zašto, npr. „Računalo se ne javlja u
-      lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync).” Adrese i poruke o greškama
-      pločica nema, jer je vidi svaki prijavljeni korisnik. Kad drugi
+      lokalnoj mreži; podaci idu preko poslužitelja (SERVER sync).” Uz računalo do kojeg ovo
+      nema puta piše „SERVER sync, preko cop.primjer.hr: podaci stižu do 10 min kasnije.”:
+      oba se razmjenjuju sa stalnim čvorom, pa podaci idu preko njega u dva kruga. Adrese i
+      poruke o greškama pločica nema, jer je vidi svaki prijavljeni korisnik. Kad drugi
       čvor radi na drukčijem ili starijem izdanju, pločica to javlja upozorenjem i savjetuje
       nadogradnju. Najprije se nadograđuje stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
@@ -1656,7 +1658,7 @@
         uz polje što ne valja. Stara datoteka ostaje uz novu kao kopija, a ručni komentari u njoj
         se ne gube.
         <br>Naziv čvora, adresa web sučelja i portovi, putanje baze i arhive, pouzdani posrednici te
-        STUN poslužitelji i adresa u lokalnoj mreži za WEB sync u programu se samo prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao
+        STUN poslužitelji, adresa u lokalnoj mreži i sastajalište za WEB sync u programu se samo prikazuju. Mijenjaju se u datoteci, jer bi krivom vrijednošću čvor ostao
         nedostupan ili bi drukčije prepoznavao zahtjeve izvana. Ime čvora u mreži poslije prvog
         pokretanja ne mijenja se ni u datoteci. Kad je čvor pokrenut sa zastavicom (npr.
         <code>-addr</code> u spremniku), uz postavku piše da vrijedi zastavica.
@@ -1671,6 +1673,11 @@
         za to kratko otvori UDP utičnicu i odmah je zatvori. Pojedinosti, s vlastitom javnom adresom
         i adresama koje bi WEB sync nudio drugima, su u bloku <em>Dohvatljivost ovog računala</em> na
         stranici Sinkronizacija; vidi ga samo administrator.
+        <br id="vatrozid-web-sync">Kad pločica razmjene kaže da vatrozid možda ne pušta WEB sync,
+        dopustite dolazni UDP na portu WEB synca (zadano 4713) u vatrozidu računala. Na Linuxu je to
+        <code>sudo ufw allow 4713/udp</code>, na Windowsima pravilo za goCOP u privatnim mrežama, a na
+        Macu dolazne veze za goCOP pod Postavke sustava → Mreža → Vatrozid → Opcije. Na službenim
+        računalima pravila vatrozida postavlja informatika.
         <br>WEB sync je zadano isključen. Ako se program dvaput zaredom prekine dok WEB sync radi,
         iduće pokretanje kreće bez njega, a pločica razmjene to kaže. Razmjena ide kao i prije.
         Kad je uzrok uklonjen, gumb <em>Ponovno uključi WEB sync</em> u kartici <em>Ovaj čvor</em>

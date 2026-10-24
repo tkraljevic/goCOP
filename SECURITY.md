@@ -205,6 +205,12 @@ nepouzdano.
   lažnu adresu, a tko nije, morao bi pogoditi 96-bitni ID upita. Zato se
   popis poslužitelja mijenja samo u `gocop.toml`. Lažna adresa mijenja samo
   ishod provjere, a ne povjerenje među čvorovima.
+- Sastajalište za WEB sync (`/razmjena/signal`, WebSocket) odgovara samo
+  na čvoru s `[povezivost] posluzi_sastajaliste = true` i
+  `web_sync_prijava = true`, a inače vraća 404. Dok prijave kod
+  sastajališta nema (u izradi), vraća 404 uvijek. Ograda: najviše 64 veze,
+  s jednog klijenta 8. Adresu i ime čvora sastajališta računalo će uzimati
+  samo iz vlastitog `gocop.toml`, a ključ iz članstva.
 - quic-go nema `recover` u svojim gorutinama. Ako se program dvaput zaredom
   prekine dok WEB sync radi, iduće pokretanje kreće bez njega (oznaka
   `povezivost-u-radu.txt` uz bazu), da se ne vrti u krugu padova.

@@ -43,6 +43,16 @@ var pravila = map[string]func(Config) string{
 	"povezivost.udp_port":          func(c Config) string { return provjeriPort(c.Povezivost.UDPPort) },
 	"povezivost.stun":              func(c Config) string { return provjeriPosluzitelje(c.Povezivost.Stun) },
 	"povezivost.lan_adresa":        func(c Config) string { return provjeriLanAdresu(c.Povezivost.LanAdresa) },
+	"povezivost.sastajaliste":      func(c Config) string { return provjeriJavnuAdresu(c.Povezivost.Sastajaliste) },
+	"povezivost.sastajaliste_cvor": func(c Config) string { return provjeriImeCvora(c.Povezivost.SastajalisteCvor) },
+}
+
+// provjeriImeCvora: ime čvora u mreži je jedna riječ bez razmaka
+func provjeriImeCvora(s string) string {
+	if strings.ContainsAny(s, " \t,/") {
+		return "Upišite ime čvora u mreži, npr. cop-osijek, bez razmaka."
+	}
+	return ""
 }
 
 // provjeriPosluzitelje: svaki STUN poslužitelj je ime ili adresa s portom
