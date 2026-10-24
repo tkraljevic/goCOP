@@ -150,8 +150,15 @@ func TestCuvarMreze(t *testing.T) {
 		}
 		zakljucano(func() { bezRute = true })
 		korak(0)
-		if len(razlozi) < 3 || razlozi[2] != RazlogBezRute {
+		korak(0) // utičnica i dalje bez rute: kreće iznova samo jednom
+		if len(razlozi) != 3 || razlozi[2] != RazlogBezRute {
 			t.Errorf("bez rute: %v", razlozi)
+		}
+		zakljucano(func() { adrese = []string{"10.0.0.5/8"} })
+		korak(0)
+		korak(0) // nova mreža, a utičnica i dalje bez rute
+		if len(razlozi) != 5 || razlozi[3] != RazlogNovaMreza || razlozi[4] != RazlogBezRute {
+			t.Errorf("bez rute u novoj mreži: %v", razlozi)
 		}
 		otkazi()
 		<-gotovo
@@ -160,4 +167,35 @@ func TestCuvarMreze(t *testing.T) {
 			t.Errorf("bez utičnice: %v", got)
 		}
 	})
+}
+
+// Sastajalište provjerava prijave tek nakon što su primljene verzije na
+// površini (opozivi), i kad primjena ne uspije
+func TestClanstvoNakonPovrsine(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	var redoslijed []string
+	s.OnApplied(func(context.Context, []ledger.Version) error {
+		redoslijed = append(redoslijed, "površina")
+		return nil
+	})
+	f := func() { redoslijed = append(redoslijed, "provjera") }
+	s.promjenaClanstva.Store(&f)
+	osnivac := rubnaMreza(t, "osnivac")
+	m, err := osnivac.izdajClanstvo(ctxRub, "laptop-baranja", rubniCvor(t, "laptop-baranja").javni())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := osnivac.saveMembership(ctxRub, m); err != nil {
+		t.Fatal(err)
+	}
+	verzije, err := osnivac.rec.Delta(ctxRub, nil, func(string) bool { return true }, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := s.primijeni(ctxRub, verzije); err != nil {
+		t.Fatal(err)
+	}
+	if len(redoslijed) != 2 || redoslijed[0] != "površina" || redoslijed[1] != "provjera" {
+		t.Errorf("redoslijed: %v", redoslijed)
+	}
 }

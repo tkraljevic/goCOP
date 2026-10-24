@@ -17,7 +17,9 @@ import (
 	"time"
 )
 
-// posalji šalje paket s utičnice; slanje bez rute zapamti
+// posalji šalje STUN upit s utičnice; slanje bez rute zapamti. Samo za
+// STUN: udarac (F3) na lokalnog kandidata računala koje spava javi
+// EHOSTDOWN, a to ne znači da ovo računalo nema rutu.
 func (u *UDP) posalji(b []byte, na net.Addr) {
 	if _, err := u.tr.WriteTo(b, na); BezRute(err) {
 		u.bezRute.Store(true)
@@ -42,8 +44,8 @@ func ObnoviUDP(stara *UDP) (u *UDP, upozorenje, err error) {
 
 // Čekanje rute; var, da ih test podmetne
 var (
-	poveziUDP = func(adresa string) error {
-		c, err := net.Dial("udp4", adresa)
+	poveziUDP = func(ctx context.Context, adresa string) error {
+		c, err := (&net.Dialer{}).DialContext(ctx, "udp4", adresa)
 		if err == nil {
 			c.Close()
 		}
@@ -54,13 +56,13 @@ var (
 
 // CekajRutu čeka da postoji ruta prema adresi: povezana UDP utičnica
 // (bez slanja), ponovno nakon 100 ms, pa dvostruko dulje, do 1 s, najviše
-// 5 s. Vraća zadnju grešku kad rute nema.
+// 5 s, i za razrješenje imena. Vraća zadnju grešku kad rute nema.
 func CekajRutu(ctx context.Context, adresa string) error {
 	ctx, otkazi := context.WithTimeout(ctx, rokRute)
 	defer otkazi()
 	cekaj := 100 * time.Millisecond
 	for {
-		err := poveziUDP(adresa)
+		err := poveziUDP(ctx, adresa)
 		if err == nil {
 			return nil
 		}
@@ -75,14 +77,18 @@ func CekajRutu(ctx context.Context, adresa string) error {
 	}
 }
 
-// LokalneAdrese su adrese uključenih sučelja koja vode u lokalnu mrežu,
-// poredane (isti filtar kao pronalaženje i kandidati): po njima se vidi
-// promjena mreže
+// LokalneAdrese su IPv4 adrese uključenih sučelja koja vode u lokalnu
+// mrežu, bez petlje i link-locala, poredane: po njima se vidi promjena
+// mreže. Utičnica je udp4, pa IPv6 adrese (privremene, link-local na
+// awdl0 i llw0 na macOS-u) ne mijenjaju ništa i ne smiju sve pokrenuti
+// iznova.
 func LokalneAdrese() []string {
 	var out []string
 	for _, s := range lokalnaSucelja(procitajSucelja()) {
 		for _, a := range s.adrese {
-			out = append(out, a.String())
+			if p, ok := prefiksIPv4(a); ok && !p.Addr().IsLoopback() && !p.Addr().IsLinkLocalUnicast() {
+				out = append(out, a.String())
+			}
 		}
 	}
 	slices.Sort(out)

@@ -9,11 +9,14 @@ package peers
 // Na stalnom čvoru s posluzi_sastajaliste sastajalište vjeruje istim
 // pravilom kao razmjena (trusted, s članstvom iz certifikata, pa ulazi i
 // tek upareno računalo), a nakon primjene članstava, ovlasti ili opoziva
-// odmah ponovno provjeri sve prijave.
+// ponovno provjeri sve prijave, kad su već na površini (opozivi), pa
+// opozvano računalo odmah ispada.
 
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
+	"fmt"
 	"slices"
 	"time"
 
@@ -26,9 +29,20 @@ import (
 func (s *Service) KlijentSignala(adresa, cvor string, javi func(string, ...any)) *razmjena.KlijentSignala {
 	program, _ := s.Program()
 	return &razmjena.KlijentSignala{Priv: s.node.key, Protokol: s.protokol(), Vj: s.vjerodajnice, Adresa: adresa,
-		Kljuc:   func(ctx context.Context) (ed25519.PublicKey, error) { return s.kljucClana(ctx, cvor) },
+		Kljuc:   func(ctx context.Context) (ed25519.PublicKey, error) { return s.kljucSastajalista(ctx, cvor) },
 		Tunel:   &s.tunelKlijent,
 		Program: program, Javi: javi}
+}
+
+// kljucSastajalista je ključ čvora sastajališta iz članstva. Kad čvor nije
+// poznat član, to je ErrNepoznatCvorSastajalista (tek upareno računalo ga
+// dobije prvom razmjenom); greška baze ostaje prolazna.
+func (s *Service) kljucSastajalista(ctx context.Context, cvor string) (ed25519.PublicKey, error) {
+	k, err := s.kljucClana(ctx, cvor)
+	if errors.Is(err, errNijeClan) {
+		return nil, fmt.Errorf("%w: %s", razmjena.ErrNepoznatCvorSastajalista, cvor)
+	}
+	return k, err
 }
 
 // Sastajaliste je sastajalište ovog čvora; od tada promjene članstva

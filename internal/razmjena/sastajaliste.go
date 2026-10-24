@@ -12,12 +12,13 @@ package razmjena
 //     istim ključem dobije mjesto samo kad stara veza ne odgovori na puls u
 //     5 s; inače je kopija: nova se odbije i javi se tek za 10 min, a stara
 //     dobije upozorenje;
-//   - član se provjeri odmah nakon rukovanja, i ponovno nakon primjene
-//     članstava, ovlasti ili opoziva (ProvjeriSve);
+//   - član se provjeri odmah nakon rukovanja, ponovno kad ulazi u registar,
+//     nakon primjene članstava, ovlasti ili opoziva i svakih sat vremena
+//     (ProvjeriSve);
 //   - poruka čiji od nije ključ iz TLS-a se odbacuje;
 //   - 6 poziva u minuti po pozivatelju, 2 sesije u tijeku prema istom cilju
 //     od istog pozivatelja, 8 prema istom cilju ukupno; sesija je u tijeku
-//     do odziva ili 30 s;
+//     do odziva njezina cilja ili 30 s, a neisporučen poziv ne drži mjesto;
 //   - više od 20 poruka u sekundi na jednoj vezi prekida vezu;
 //   - po 2 rukovanja odjednom s jednog klijenta weba, s rokom od 2 s.
 
@@ -51,6 +52,9 @@ var (
 	rokRukovanjaSignala = 2 * time.Second
 	rokStareVeze        = 5 * time.Second
 	rokSesijeSignala    = 30 * time.Second
+	// rokPrvePoruke: računalo pošalje prijavu odmah nakon rukovanja, pa
+	// veza koja šuti ne drži mjesto u ogradi weba dulje od toga
+	rokPrvePoruke = 3 * time.Second
 )
 
 var (
@@ -59,6 +63,7 @@ var (
 	errPunRegistar = errors.New("sastajalište drži najviše računala")
 	errBrzina      = errors.New("previše poruka u sekundi")
 	errNijeClan    = errors.New("računalo nije član mreže")
+	errPromjena    = errors.New("u međuvremenu se javila druga veza s istim ključem")
 )
 
 // Sastajaliste je poslužitelj signala
@@ -93,14 +98,17 @@ type sesijaSignala struct {
 	do     time.Time
 }
 
-// prijavljeni je jedno računalo na vezi
+// prijavljeni je jedno računalo na vezi. Polja ispod ziv mijenja samo
+// petlja čitanja te veze.
 type prijavljeni struct {
 	v        *vezaSignala
 	kljuc    string
 	proces   string
 	ziv      chan struct{} // svaka primljena poruka; puls stare veze čeka na njemu
+	provjera sync.Mutex    // jedna provjera živosti odjednom (odgovara)
 	sekunda  time.Time
 	uSekundi int
+	odbaceno bool // odbačena poruka je već u dnevniku
 }
 
 // PostavkeSastajalista su ono što sastajalište treba od čvora
@@ -139,17 +147,19 @@ func (s *Sastajaliste) Handler() http.Handler {
 func (s *Sastajaliste) posluzi(ws *websocket.Conn) {
 	ws.PayloadType = websocket.BinaryFrame
 	nc := &wsVeza{Conn: ws, kraj: make(chan struct{}), put: PutSignala}
-	defer nc.Close()
+	defer func() { _ = nc.Close() }() // kraj veze; greška zatvaranja nema što reći
 	v, err := s.rukovanje(klijentIz(ws.Request().Context()), nc)
 	if err != nil {
 		return
 	}
 	p, err := s.prijava(v)
-	if err != nil {
+	if p == nil {
 		return
 	}
 	defer s.odjavi(p)
-	s.citaj(p)
+	if err == nil {
+		s.citaj(p)
+	}
 }
 
 // rukovanje dovrši TLS signala u roku, najviše dva odjednom s istog
@@ -192,9 +202,11 @@ func (s *Sastajaliste) pustiRukovanje(klijent string) {
 	}
 }
 
-// prijava čeka prijavu, upiše računalo u registar i potvrdi ga
+// prijava čeka prijavu, upiše računalo u registar i potvrdi ga. Vraća
+// prijavljenog kad je upisan, i kad potvrda nije prošla (tada uz grešku),
+// da ga posluzi odjavi.
 func (s *Sastajaliste) prijava(v *vezaSignala) (*prijavljeni, error) {
-	por, err := v.primi(rokPrijave)
+	por, err := v.primi(rokPrvePoruke)
 	if err != nil {
 		return nil, err
 	}
@@ -213,8 +225,11 @@ func (s *Sastajaliste) prijava(v *vezaSignala) (*prijavljeni, error) {
 
 // odbijenicaZa je odbijenica za grešku upisa
 func odbijenicaZa(err error) odbijenoSignala {
-	if errors.Is(err, errKopija) {
+	switch {
+	case errors.Is(err, errKopija):
 		return odbijenoSignala{Kod: KodSignalaKopija, Razlog: err.Error(), PonovnoZaSek: ponovnoNakonKopijeSek}
+	case errors.Is(err, errNijeClan):
+		return odbijenoSignala{Kod: KodSignalaNijeClan}
 	}
 	return odbijenoSignala{Kod: KodSignalaNedostupno, Razlog: err.Error()}
 }
@@ -231,14 +246,18 @@ func (s *Sastajaliste) upisi(p *prijavljeni) error {
 		_ = stara.v.posalji(SignalUpozorenje, upozorenjeSignala{Kod: KodSignalaKopija}) // stara ostaje; kad ne primi, ionako je mrtva
 		return errKopija
 	}
-	s.zamijeni(p)
-	return nil
+	return s.zamijeni(p, stara)
 }
 
-// zauzmi upiše novo računalo kad ključa nema; inače vrati staru vezu
+// zauzmi upiše novo računalo kad ključa nema; inače vrati staru vezu.
+// Članstvo provjeri ponovno, pod istom bravom pod kojom ProvjeriSve gleda
+// registar: opoziv primijenjen između rukovanja i prijave tako ne promakne.
 func (s *Sastajaliste) zauzmi(p *prijavljeni) (*prijavljeni, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if !s.vjeruje(p.v.kljuc, p.v.vj) {
+		return nil, errNijeClan
+	}
 	if stara := s.prijavljeni[p.kljuc]; stara != nil {
 		return stara, nil
 	}
@@ -250,19 +269,34 @@ func (s *Sastajaliste) zauzmi(p *prijavljeni) (*prijavljeni, error) {
 }
 
 // zamijeni stavi novu vezu na mjesto ključa i zatvori onu koja je bila na
-// njemu (stara, ili u međuvremenu neka treća)
-func (s *Sastajaliste) zamijeni(nova *prijavljeni) {
+// njemu. Smije samo kad je ondje još veza koju je ova prijava provjerila,
+// ili ništa, ili isti proces; inače se u međuvremenu javila druga veza koju
+// nitko nije provjerio, pa nova pokuša ponovno. Članstvo se gleda ponovno,
+// jer je provjera stare veze mogla trajati 5 s.
+func (s *Sastajaliste) zamijeni(nova, provjerena *prijavljeni) error {
 	s.mu.Lock()
 	bila := s.prijavljeni[nova.kljuc]
+	switch {
+	case !s.vjeruje(nova.v.kljuc, nova.v.vj):
+		s.mu.Unlock()
+		return errNijeClan
+	case bila != nil && bila != provjerena && bila.proces != nova.proces:
+		s.mu.Unlock()
+		return errPromjena
+	}
 	s.prijavljeni[nova.kljuc] = nova
 	s.mu.Unlock()
-	if bila != nil && bila != nova {
+	if bila != nil {
 		bila.v.zatvori()
 	}
+	return nil
 }
 
-// odgovara pošalje puls koji traži odgovor i čeka bilo koju poruku
+// odgovara pošalje puls koji traži odgovor i čeka bilo koju poruku; dvije
+// provjere iste veze ne idu odjednom, jer bi dijelile isti znak života
 func (p *prijavljeni) odgovara() bool {
+	p.provjera.Lock()
+	defer p.provjera.Unlock()
 	select {
 	case <-p.ziv:
 	default:
@@ -349,7 +383,7 @@ func (s *Sastajaliste) proslijediOd(p *prijavljeni, por porukaSignala) {
 	pp, err := potpisanaIz(por)
 	t, errZ := pp.Zaglavlje()
 	if err != nil || errZ != nil || t.Od != p.kljuc {
-		s.javi("povezivost: sastajalište je odbacilo poruku %s od %s: pošiljatelj u poruci nije računalo na vezi", por.Vrsta, s.ime(p.v.kljuc))
+		s.odbaci(p, por.Vrsta)
 		return
 	}
 	razlog := s.dopusteno(por.Vrsta, t)
@@ -361,8 +395,18 @@ func (s *Sastajaliste) proslijediOd(p *prijavljeni, por porukaSignala) {
 	}
 }
 
+// odbaci zapiše odbačenu poruku u dnevnik, jednom po vezi: član bi inače
+// mogao puniti dnevnik 20 redaka u sekundi
+func (s *Sastajaliste) odbaci(p *prijavljeni, vrsta string) {
+	if p.odbaceno {
+		return
+	}
+	p.odbaceno = true
+	s.javi("povezivost: sastajalište je odbacilo poruku %s od %s: pošiljatelj u poruci nije računalo na vezi", vrsta, s.ime(p.v.kljuc))
+}
+
 // isporuci preda poruku cilju: sebi (NaPoruku) ili računalu na vezi;
-// vraća razlog kad cilja nema
+// vraća razlog kad cilja nema, a poziv koji nije stigao ne drži sesiju
 func (s *Sastajaliste) isporuci(por porukaSignala, pp PotpisanaPoruka, t TijeloPoruke) string {
 	if t.Za == s.moj {
 		if s.NaPoruku != nil {
@@ -374,9 +418,29 @@ func (s *Sastajaliste) isporuci(por porukaSignala, pp PotpisanaPoruka, t TijeloP
 	cilj := s.prijavljeni[t.Za]
 	s.mu.Unlock()
 	if cilj == nil || cilj.v.proslijedi(por) != nil {
+		s.odbaciSesiju(por.Vrsta, t.Sesija)
 		return NemaNijePrijavljen
 	}
 	return ""
+}
+
+// odbaciSesiju makne sesiju poziva koji nije stigao do cilja
+func (s *Sastajaliste) odbaciSesiju(vrsta, sesija string) {
+	if vrsta != VrstaPoziv {
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	delete(s.sesije, sesija)
+}
+
+// zavrsiSesiju makne sesiju u tijeku kad odziv šalje njezin cilj
+// pozivatelju; odziv koji pošalje netko drugi sesiju ne zatvara. Zove se
+// pod bravom.
+func (s *Sastajaliste) zavrsiSesiju(t TijeloPoruke) {
+	if ss, ima := s.sesije[t.Sesija]; ima && ss.za == t.Od && ss.od == t.Za {
+		delete(s.sesije, t.Sesija)
+	}
 }
 
 // dopusteno primijeni granice poziva i vodi sesije u tijeku; vraća razlog
@@ -388,7 +452,7 @@ func (s *Sastajaliste) dopusteno(vrsta string, t TijeloPoruke) string {
 	s.ocistiSesije(sad)
 	switch vrsta {
 	case VrstaOdziv:
-		delete(s.sesije, t.Sesija)
+		s.zavrsiSesiju(t)
 		return ""
 	case VrstaPoziv:
 		return s.noviPoziv(t, sad)
@@ -453,9 +517,13 @@ func (s *Sastajaliste) ProvjeriSve() {
 		}
 	}
 	s.mu.Unlock()
+	// odbijenica ima rok pisanja od 10 s, a ProvjeriSve zove i primjena
+	// primljenog pod bravom upisa, pa slanje ide u pozadini
 	for _, p := range van {
-		_ = p.v.posalji(SignalOdbijeno, odbijenoSignala{Kod: KodSignalaNijeClan}) // veza se ionako zatvara
-		p.v.zatvori()
+		go func() {
+			_ = p.v.posalji(SignalOdbijeno, odbijenoSignala{Kod: KodSignalaNijeClan}) // veza se ionako zatvara
+			p.v.zatvori()
+		}()
 	}
 }
 
@@ -467,6 +535,9 @@ func (s *Sastajaliste) Posalji(pp PotpisanaPoruka) error {
 		return err
 	}
 	s.mu.Lock()
+	if pp.Vrsta == VrstaOdziv {
+		s.zavrsiSesiju(t)
+	}
 	cilj := s.prijavljeni[t.Za]
 	s.mu.Unlock()
 	if cilj == nil {

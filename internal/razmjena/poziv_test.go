@@ -114,8 +114,8 @@ func TestProvjeraPoruke(t *testing.T) {
 	// Potpisi sam postavi vrijeme kad ga nema
 	bez := p.tijelo()
 	bez.Izdano = 0
-	if z, _ := Potpisi(p.a, "gocop", VrstaPoziv, bez).Zaglavlje(); z.Izdano == 0 {
-		t.Error("vrijeme nije postavljeno")
+	if z, err := Potpisi(p.a, "gocop", VrstaPoziv, bez).Zaglavlje(); err != nil || z.Izdano == 0 {
+		t.Errorf("vrijeme nije postavljeno: %v", err)
 	}
 }
 

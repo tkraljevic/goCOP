@@ -6,8 +6,10 @@ package peers
 // sastajalištu (macOS se i u snu kratko budi, pa se veza ne otvara iznova).
 // Nakon spavanja duljeg od 10 min, kad se promijene lokalne adrese ili kad
 // slanje s UDP utičnice javi da nema rute, sve kreće iznova: nova prijava s
-// odgodom ispočetka, nova UDP utičnica i nova provjera mreže. Adrese
-// sučelja gledaju se svakih 10 s. Sat i adrese dolaze izvana, pa se sve
+// odgodom ispočetka, nova UDP utičnica i nova provjera mreže. Utičnica bez
+// rute kreće iznova jednom, dok se mreža ne promijeni: inače bi mreža bez
+// IPv4 rute svakih 10 s rušila ispravnu vezu. Adrese sučelja gledaju se
+// svakih 10 s. Sat i adrese dolaze izvana, pa se sve
 // ispituje lažnim satom.
 
 import (
@@ -38,6 +40,8 @@ type CuvarMreze struct {
 	BezRute func() bool         // slanje s UDP utičnice javilo je da nema rute; nil: nema utičnice
 	Puls    func()              // nakon kratkog spavanja
 	Ponovno func(razlog string) // nakon dugog spavanja ili promjene mreže
+
+	bezRuteJavljeno bool // za ovu mrežu je utičnica bez rute već krenula iznova; samo Radi
 }
 
 // Radi prati dok ctx traje
@@ -66,6 +70,7 @@ func (c *CuvarMreze) Radi(ctx context.Context) {
 func (c *CuvarMreze) nakonRazmaka(razmak time.Duration) {
 	switch {
 	case razmak > dugoSpavanje:
+		c.bezRuteJavljeno = false
 		c.Ponovno(RazlogDugoSpavanje)
 	case razmak > granicaSpavanja:
 		c.Puls()
@@ -78,8 +83,10 @@ func (c *CuvarMreze) nakonAdresa(prije []string) []string {
 	sad := c.Adrese()
 	switch {
 	case !slices.Equal(sad, prije):
+		c.bezRuteJavljeno = false
 		c.Ponovno(RazlogNovaMreza)
-	case c.BezRute != nil && c.BezRute():
+	case !c.bezRuteJavljeno && c.BezRute != nil && c.BezRute():
+		c.bezRuteJavljeno = true
 		c.Ponovno(RazlogBezRute)
 	}
 	return sad

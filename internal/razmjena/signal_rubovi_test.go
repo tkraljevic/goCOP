@@ -50,7 +50,7 @@ func lazniSastajaliste(t *testing.T, kljuc ed25519.PrivateKey, saALPN bool, odgo
 	srv := &http.Server{Handler: mux, ErrorLog: log.New(io.Discard, "", 0)}
 	t.Cleanup(func() { srv.Close() })
 	go func() {
-		_ = srv.Serve(tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}))
+		_ = srv.Serve(tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13})) // staje sa srv.Close na kraju testa
 	}()
 	return &KlijentTunela{TLS: &tls.Config{RootCAs: korijeni}, Dial: m.DialContext}
 }
@@ -72,14 +72,14 @@ func TestPrijavaKodLaznogSastajalista(t *testing.T) {
 	}{
 		"prekid": {true, func(v *vezaSignala) { v.zatvori() }},
 		"druga oznaka": {true, func(v *vezaSignala) {
-			_, _ = v.primi(time.Minute)
-			_ = v.posalji(SignalPrijavljen, prijavljenSignala{Oznaka: "drugo/1"})
+			_, _ = v.primi(time.Minute)                                           // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalPrijavljen, prijavljenSignala{Oznaka: "drugo/1"}) // lažno sastajalište: ishod gleda klijent
 		}},
-		"druga poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPuls, pulsSignala{}) }},
-		"krivo tijelo":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPrijavljen, 7) }},
+		"druga poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPuls, pulsSignala{}) }}, // lažno sastajalište: ishod gleda klijent
+		"krivo tijelo":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPrijavljen, 7) }},       // lažno sastajalište: ishod gleda klijent
 		"bez ALPN-a":       {false, func(v *vezaSignala) {}},
-		"kriva poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte("{")) }},
-		"poruka bez vrste": {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte(`{"tijelo":1}`)) }},
+		"kriva poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte("{")) }},            // lažno sastajalište: ishod gleda klijent
+		"poruka bez vrste": {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte(`{"tijelo":1}`)) }}, // lažno sastajalište: ishod gleda klijent
 	} {
 		t.Run(ime, func(t *testing.T) {
 			uMjehuru(t, func(t *testing.T) {
@@ -106,14 +106,14 @@ func TestPorukeLaznogSastajalista(t *testing.T) {
 		odgovori := make(chan error, 1)
 		odbij := make(chan struct{})
 		tun := lazniSastajaliste(t, kljucR, true, func(v *vezaSignala) {
-			_, _ = v.primi(time.Minute)
-			_ = v.posalji(SignalPrijavljen, prijavljenSignala{Ver: 1, Oznaka: oznakaSastajalista, Vrijeme: time.Now().Add(-3 * time.Minute).UnixMilli()})
-			_ = v.posalji(SignalUpozorenje, upozorenjeSignala{})
-			_ = v.posalji(SignalUpozorenje, 7)
-			_ = v.posalji(SignalNema, nemaSignala{Sesija: "s", Razlog: NemaNijePrijavljen})
-			_ = v.posalji(VrstaPoziv, PotpisanaPoruka{Tijelo: []byte("{}")})
-			_ = v.posalji(SignalPuls, pulsSignala{})
-			_ = v.posalji(SignalPuls, pulsSignala{Odgovori: true})
+			_, _ = v.primi(time.Minute)                                                                                                                   // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalPrijavljen, prijavljenSignala{Ver: 1, Oznaka: oznakaSastajalista, Vrijeme: time.Now().Add(-3 * time.Minute).UnixMilli()}) // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalUpozorenje, upozorenjeSignala{})                                                                                          // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalUpozorenje, 7)                                                                                                            // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalNema, nemaSignala{Sesija: "s", Razlog: NemaNijePrijavljen})                                                               // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(VrstaPoziv, PotpisanaPoruka{Tijelo: []byte("{}")})                                                                              // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalPuls, pulsSignala{})                                                                                                      // lažno sastajalište: ishod gleda klijent
+			_ = v.posalji(SignalPuls, pulsSignala{Odgovori: true})                                                                                        // lažno sastajalište: ishod gleda klijent
 			p, err := v.primi(time.Minute)
 			if err == nil && p.Vrsta != SignalPuls {
 				err = errors.New("odgovor nije puls: " + p.Vrsta)
@@ -123,7 +123,7 @@ func TestPorukeLaznogSastajalista(t *testing.T) {
 			default: // klijent se ponovno spojio; prvi ishod je već predan
 			}
 			<-odbij
-			_ = v.posalji(SignalOdbijeno, 7)
+			_ = v.posalji(SignalOdbijeno, 7) // lažno sastajalište: ishod gleda klijent
 		})
 		k := klijentNa(tun, newKey(t), kljucR)
 		pokreni(t, k)
@@ -215,7 +215,9 @@ func TestSastajalisteRubovi(t *testing.T) {
 func TestPulsBezOdgovora(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		a, b := net.Pipe()
-		go func() { _, _ = io.Copy(io.Discard, b) }()
+		defer b.Close()
+		defer a.Close()
+		go func() { _, _ = io.Copy(io.Discard, b) }() // cijev se zatvara s testom
 		k := &KlijentSignala{}
 		k.pripremi()
 		k.veza = &vezaSignala{c: a}

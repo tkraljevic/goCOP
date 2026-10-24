@@ -216,9 +216,10 @@ nepouzdano.
   1.3 s ključevima čvorova i vlastitim ALPN-om (`<protokol>-signal/1`).
   Sastajalište šalje certifikat bez potvrde članstva, pa je strani klijent
   ne vidi; članstvo klijenta provjeri odmah nakon rukovanja, istim
-  pravilom kao razmjena, a nečlanu odgovori samo odbijenicom. Ponovno
-  provjerava sve prijave čim primijeni članstva, ovlasti ili opozive, pa
-  opozvano računalo odmah ispada. Računalo adresu i ime čvora
+  pravilom kao razmjena, a nečlanu odgovori samo odbijenicom. Članstvo
+  gleda ponovno kad računalo ulazi u registar, čim primijeni članstva,
+  ovlasti ili opozive i svakih sat vremena, pa opozvano računalo odmah
+  ispada, a ono kojem je članstvo isteklo najkasnije za sat. Računalo adresu i ime čvora
   sastajališta uzima samo iz vlastitog `gocop.toml`, a ključ iz članstva,
   i stane prije svog certifikata kad se na adresi javi drugi ključ.
 - Ograde sastajališta: najviše 64 veze, s jednog klijenta 8, i po 2

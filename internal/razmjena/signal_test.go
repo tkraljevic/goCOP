@@ -247,8 +247,11 @@ func TestSignalKrivotvorenPosiljatelj(t *testing.T) {
 		bezGreske(t, a.Posalji(PotpisanaPoruka{Vrsta: VrstaPoziv, Tijelo: []byte("nije json")}))
 		time.Sleep(time.Second)
 		synctest.Wait()
-		if len(primljeno) != 0 || !su.uDnevniku("pošiljatelj u poruci nije računalo na vezi") {
-			t.Errorf("krivotvoreno: primljeno %d, dnevnik %v", len(primljeno), su.dnevnik)
+		su.mu.Lock()
+		puta := strings.Count(strings.Join(su.dnevnik, "\n"), "pošiljatelj u poruci nije računalo na vezi")
+		su.mu.Unlock()
+		if len(primljeno) != 0 || puta != 1 {
+			t.Errorf("krivotvoreno: primljeno %d, u dnevniku %d puta", len(primljeno), puta)
 		}
 	})
 }
@@ -273,9 +276,15 @@ func TestSignalOdbijeni(t *testing.T) {
 		cekajStanje(t, krivi, "krivi ključ", func(st StanjeSignala) bool { return st.Kod == KodSignalaKriviKljuc })
 
 		bez := su.klijent(kljucA)
-		bez.Kljuc = func(context.Context) (ed25519.PublicKey, error) { return nil, errors.New("nije član") }
+		bez.Kljuc = func(context.Context) (ed25519.PublicKey, error) {
+			return nil, fmt.Errorf("%w: cop-osijek", ErrNepoznatCvorSastajalista)
+		}
 		pokreni(t, bez)
 		cekajStanje(t, bez, "nepoznat čvor", func(st StanjeSignala) bool { return st.Kod == KodSignalaNepoznatCvor })
+		baza := su.klijent(kljucA)
+		baza.Kljuc = func(context.Context) (ed25519.PublicKey, error) { return nil, errors.New("database is locked") }
+		pokreni(t, baza)
+		cekajStanje(t, baza, "greška baze je prolazna", func(st StanjeSignala) bool { return st.Kod == KodSignalaNedostupno })
 
 		kljucB := newKey(t)
 		su.clan("ured", kljucB)
@@ -396,7 +405,7 @@ func TestSignalStareIBucneVeze(t *testing.T) {
 		bezGreske(t, bucni.posalji("nova-vrsta", struct{}{}))
 		bezGreske(t, bucni.posalji("nova-vrsta", struct{}{}))
 		for range najvisePorukaUSekundi {
-			_ = bucni.posalji(SignalPuls, pulsSignala{})
+			_ = bucni.posalji(SignalPuls, pulsSignala{}) // sastajalište vezu prekine usred petlje; to se i ispituje
 		}
 		time.Sleep(time.Second)
 		synctest.Wait()

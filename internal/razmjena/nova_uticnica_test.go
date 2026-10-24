@@ -15,8 +15,10 @@ import (
 // radi; kad je port u međuvremenu zauzet, nova je na nasumičnom uz
 // upozorenje, a kad se nikako ne da otvoriti, greška
 func TestObnoviUDP(t *testing.T) {
-	conn, _, err := OtvoriUDP(0)
-	bezGreske(t, err)
+	conn, upozorenje, err := OtvoriUDP(0)
+	if err != nil || upozorenje != nil {
+		t.Fatal(err, upozorenje)
+	}
 	stara := NoviUDP(conn)
 	port := stara.Port()
 	nova, upozorenje, err := ObnoviUDP(stara)
@@ -36,7 +38,7 @@ func TestObnoviUDP(t *testing.T) {
 		t.Errorf("zauzet port: %v, %v", upozorenje, err)
 	}
 	otvoriUDP = func(int) (net.PacketConn, error) { return nil, errors.New("nema mreže") }
-	if _, _, err := ObnoviUDP(treca); err == nil {
+	if _, _, err := ObnoviUDP(treca); err == nil { // uz grešku nema ni utičnice ni upozorenja
 		t.Error("utičnica bez mreže")
 	}
 }
@@ -78,7 +80,7 @@ func TestCekajRutu(t *testing.T) {
 		staro := poveziUDP
 		t.Cleanup(func() { poveziUDP = staro })
 		pokusaja := 0
-		poveziUDP = func(string) error {
+		poveziUDP = func(context.Context, string) error {
 			if pokusaja++; pokusaja < 4 {
 				return errors.New("nema rute")
 			}
@@ -88,7 +90,7 @@ func TestCekajRutu(t *testing.T) {
 		if err := CekajRutu(t.Context(), "192.0.2.1:3478"); err != nil || time.Since(pocetak) != 700*time.Millisecond {
 			t.Errorf("ruta nakon tri pokušaja: %v za %v", err, time.Since(pocetak))
 		}
-		poveziUDP = func(string) error { return errors.New("nema rute") }
+		poveziUDP = func(context.Context, string) error { return errors.New("nema rute") }
 		pocetak = time.Now()
 		if err := CekajRutu(t.Context(), "192.0.2.1:3478"); err == nil || time.Since(pocetak) != rokRute {
 			t.Errorf("bez rute: %v za %v", err, time.Since(pocetak))
@@ -111,6 +113,9 @@ func TestLokalneAdrese(t *testing.T) {
 			{ime: "eth0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "10.0.0.5/8")}},
 			{ime: "docker0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "172.17.0.1/16")}},
 			{ime: "eth1", zastavice: net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "10.9.9.9/8")}},
+			{ime: "lo0", zastavice: net.FlagUp | net.FlagLoopback, adrese: []net.Addr{ipMreza(t, "127.0.0.1/8"), ipMreza(t, "::1/128")}},
+			{ime: "en1", zastavice: gore, adrese: []net.Addr{ipMreza(t, "fe80::1/64"), ipMreza(t, "2001:db8::5/64"), ipMreza(t, "169.254.3.4/16")}},
+			{ime: "awdl0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "fe80::2/64")}},
 		}
 	}
 	if got := LokalneAdrese(); !slices.Equal(got, []string{"10.0.0.5/8", "192.168.1.20/24"}) {

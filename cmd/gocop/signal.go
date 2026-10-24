@@ -25,6 +25,19 @@ type cvorSignala interface {
 	Sastajaliste(javi func(string, ...any)) (*razmjena.Sastajaliste, error)
 }
 
+// prijavaSignala je prijava kod sastajališta (razmjena.KlijentSignala)
+type prijavaSignala interface {
+	Radi(ctx context.Context)
+	Puls()
+	PonovnoSpoji()
+	Stanje() razmjena.StanjeSignala
+}
+
+// razmakProvjereClanstava: sastajalište svakih toliko ponovno provjeri
+// članstva prijavljenih, jer članstvo i ovlast istječu i dok veza traje;
+// var, da ga test skrati
+var razmakProvjereClanstava = time.Hour
+
 // pokreniSignal pripremi sastajalište ili prijavu i preda webu njihovo
 // stanje; zove se prije nego web sluša
 func (p *povezivost) pokreniSignal(cvor cvorSignala, w posluziteljPovezivosti) {
@@ -48,6 +61,7 @@ func (p *povezivost) posluziSastajaliste(cvor cvorSignala, w posluziteljPovezivo
 		return
 	}
 	p.sastajaliste = r
+	p.teku.Go(func() { provjeravajClanstva(p.ctx, r) })
 	w.SetSignal(r.Handler())
 	w.SetSignalStanje(func() web.SignalStanje {
 		st := r.Stanje()
@@ -55,6 +69,21 @@ func (p *povezivost) posluziSastajaliste(cvor cvorSignala, w posluziteljPovezivo
 			Kopije: st.Kopije, WebSync: p.cfg.WebSync}
 	})
 	p.javi("povezivost: ovo računalo je sastajalište za WEB sync")
+}
+
+// provjeravajClanstva svakih razmakProvjereClanstava ponovno provjeri
+// članstva prijavljenih
+func provjeravajClanstva(ctx context.Context, r *razmjena.Sastajaliste) {
+	t := time.NewTicker(razmakProvjereClanstava)
+	defer t.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			r.ProvjeriSve()
+		}
+	}
 }
 
 // signalZaWeb je stanje prijave za pločicu
@@ -114,18 +143,31 @@ func (p *povezivost) puls() {
 }
 
 // ponovno nakon dugog spavanja ili promjene mreže: prijava iznova, nova
-// utičnica i, kad je ruta tu, nova provjera mreže
+// utičnica i, kad je ruta tu, nova provjera mreže. Utičnica bez rute ne
+// dira prijavu: ona ide TCP-om i može raditi i kad UDP ne prolazi.
 func (p *povezivost) ponovno(razlog string) {
 	p.javi("povezivost: %s, pa WEB sync kreće iznova", razlog)
-	if p.klijent != nil {
+	if p.klijent != nil && razlog != peers.RazlogBezRute {
 		p.klijent.PonovnoSpoji()
 	}
 	p.novaUticnica()
 	if len(p.cfg.Stun) > 0 {
 		p.teku.Go(func() {
 			_ = razmjena.CekajRutu(p.ctx, p.cfg.Stun[0]) // bez rute provjera kaže što vidi
-			p.provjeriVezu(p.ctx)
+			p.provjeriNakonZamjene(p.ctx)
 		})
+	}
+}
+
+// greskaZamjene je ishod mjerenja koje je teklo na utičnici zamijenjenoj
+// usred mjerenja (naStalnoj)
+const greskaZamjene = "Mreža se promijenila tijekom provjere, pa se provjera ponavlja."
+
+// provjeriNakonZamjene izmjeri mrežu na novoj utičnici: mjerenje koje je u
+// tijeku možda teče na staroj, pa se nakon njega mjeri još jednom
+func (p *povezivost) provjeriNakonZamjene(ctx context.Context) {
+	if r := p.provjeriVezu(ctx); r.Greska == greskaZamjene {
+		p.provjeriVezu(ctx)
 	}
 }
 

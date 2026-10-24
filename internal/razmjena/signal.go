@@ -8,7 +8,7 @@ package razmjena
 // klijent pričeka 2 s · 2ⁿ, najviše 60 s, ±20 %, i pokuša ponovno; to nikad
 // ne znači da tamo nema sastajališta. Nakon buđenja ili promjene adresa
 // (PonovnoSpoji) odgoda kreće ispočetka. Kopija istog ključa na drugom
-// računalu čeka 10 min.
+// računalu čeka 10 min, i nakon buđenja: taj rok zadaje sastajalište.
 
 import (
 	"context"
@@ -29,6 +29,9 @@ var (
 	najvecaOdgodaSignala = 60 * time.Second
 	rokSpajanjaSignala   = 15 * time.Second
 	rokPulsaBudenja      = 5 * time.Second
+	// trajanjeUpozorenjaKopije: kopija koja još radi javi se svakih 10 min,
+	// pa upozorenje na računalu koje je ostalo prijavljeno nakon toga ode
+	trajanjeUpozorenjaKopije = 2 * ponovnoNakonKopijeSek * time.Second
 )
 
 // ErrNepoznatCvorSastajalista: ključ čvora sastajališta iz postavki nije u
@@ -79,6 +82,9 @@ type KlijentSignala struct {
 	ziv       chan struct{} // svaka primljena poruka
 	budi      chan struct{} // PonovnoSpoji: odgoda ispočetka
 	ispocetka bool
+	prekini   context.CancelFunc // prekida pokušaj u tijeku (PonovnoSpoji)
+	nePrije   time.Time          // rok sastajališta: ranije se ne zove (kopija)
+	kopijaU   time.Time          // kad je stiglo upozorenje o kopiji
 }
 
 func (k *KlijentSignala) pripremi() {
@@ -96,10 +102,15 @@ func (k *KlijentSignala) pripremi() {
 	})
 }
 
-// Stanje je stanje prijave sada
+// Stanje je stanje prijave sada. Upozorenje o kopiji na računalu koje je
+// ostalo prijavljeno ode kad se kopija dugo ne javi.
 func (k *KlijentSignala) Stanje() StanjeSignala {
+	k.pripremi()
 	k.mu.Lock()
 	defer k.mu.Unlock()
+	if k.stanje.Prijavljen && k.stanje.Kod == KodSignalaKopija && k.Sat().Sub(k.kopijaU) > trajanjeUpozorenjaKopije {
+		k.stanje.Kod = ""
+	}
 	return k.stanje
 }
 
@@ -108,8 +119,11 @@ func (k *KlijentSignala) Radi(ctx context.Context) {
 	k.pripremi()
 	k.postavi(StanjeSignala{Kod: KodSignalaSpajaSe, Od: k.Sat()})
 	n := 0
-	for ctx.Err() == nil {
-		prijavljen, err := k.jednaVeza(ctx)
+	for {
+		prijavljen, err := k.pokusaj(ctx)
+		if ctx.Err() != nil {
+			return // gašenje nije prekid veze
+		}
 		if prijavljen {
 			n = 0
 		}
@@ -121,16 +135,28 @@ func (k *KlijentSignala) Radi(ctx context.Context) {
 	}
 }
 
-// PonovnoSpoji prekine vezu i spoji se odmah, s odgodom ispočetka (nakon
-// buđenja i promjene adresa)
+// pokusaj je jedna veza pod svojim kontekstom, koji PonovnoSpoji prekida i
+// dok se veza tek otvara
+func (k *KlijentSignala) pokusaj(ctx context.Context) (bool, error) {
+	ctx, otkazi := context.WithCancel(ctx)
+	defer otkazi()
+	k.mu.Lock()
+	k.prekini = otkazi
+	k.mu.Unlock()
+	return k.jednaVeza(ctx)
+}
+
+// PonovnoSpoji prekine vezu ili pokušaj u tijeku i spoji se odmah, s
+// odgodom ispočetka (nakon buđenja i promjene adresa); rok koji je zadalo
+// sastajalište ipak vrijedi
 func (k *KlijentSignala) PonovnoSpoji() {
 	k.pripremi()
 	k.mu.Lock()
 	k.ispocetka = true
-	v := k.veza
+	prekini := k.prekini
 	k.mu.Unlock()
-	if v != nil {
-		v.zatvori()
+	if prekini != nil {
+		prekini()
 	}
 	select {
 	case k.budi <- struct{}{}:
@@ -188,6 +214,8 @@ func (k *KlijentSignala) jednaVeza(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	defer v.zatvori()
+	// kraj konteksta zatvori vezu, pa ni čekanje na potvrdu ne drži gašenje
+	defer context.AfterFunc(ctx, v.zatvori)()
 	prijavljen, err := k.prijavi(v)
 	if err != nil {
 		return false, err
@@ -201,7 +229,7 @@ func (k *KlijentSignala) jednaVeza(ctx context.Context) (bool, error) {
 func (k *KlijentSignala) spoji(ctx context.Context) (*vezaSignala, error) {
 	kljuc, err := k.Kljuc(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrNepoznatCvorSastajalista, err)
+		return nil, err // ErrNepoznatCvorSastajalista ili prolazna greška baze
 	}
 	ctx, otkazi := context.WithTimeout(ctx, rokSpajanjaSignala)
 	defer otkazi()
@@ -244,7 +272,7 @@ func (k *KlijentSignala) prijavi(v *vezaSignala) (prijavljenSignala, error) {
 func (k *KlijentSignala) uVezi(v *vezaSignala, pr prijavljenSignala) {
 	sad := k.Sat()
 	k.mu.Lock()
-	k.veza = v
+	k.veza, k.nePrije = v, time.Time{}
 	k.stanje = StanjeSignala{Prijavljen: true, Od: sad, OdstupanjeSata: sad.Sub(time.UnixMilli(pr.Vrijeme))}
 	k.mu.Unlock()
 	k.javi("povezivost: WEB sync je prijavljen kod sastajališta")
@@ -266,7 +294,7 @@ func (k *KlijentSignala) drzi(ctx context.Context, v *vezaSignala) error {
 	for {
 		select {
 		case <-ctx.Done():
-			v.zatvori()
+			v.zatvori() // AfterFunc je to već učinio; zatvaranje dvaput ne smeta
 			<-greska
 			return ctx.Err()
 		case err := <-greska:
@@ -329,7 +357,7 @@ func (k *KlijentSignala) naUpozorenje(por porukaSignala) {
 		return
 	}
 	k.mu.Lock()
-	k.stanje.Kod = u.Kod
+	k.stanje.Kod, k.kopijaU = u.Kod, k.Sat()
 	k.mu.Unlock()
 	k.javi("povezivost: sastajalište javlja: %s", u.Kod)
 }
@@ -351,23 +379,35 @@ func (k *KlijentSignala) naPotpisanu(por porukaSignala) {
 // vrati koliko čekati
 func (k *KlijentSignala) nakonGreske(err error, n int) time.Duration {
 	sad := k.Sat()
-	kod, cekaj := kodNakon(err), odgoda(n)
-	var odb odbijenSignal
+	st := StanjeSignala{Kod: kodNakon(err), Od: sad}
+	cekaj := odgoda(n)
+	if zaSek := ponovnoZa(err); zaSek > 0 {
+		cekaj = time.Duration(zaSek) * time.Second
+		st.Odbijen, st.PonovnoU = true, sad.Add(cekaj)
+	}
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	st := StanjeSignala{Kod: kod, Od: sad}
-	if !k.stanje.Prijavljen && !k.stanje.Kod.Trajan() && !kod.Trajan() {
-		st.Od = k.stanje.Od // prolazno stanje traje od prvog neuspjeha
+	if st.Odbijen {
+		k.nePrije = st.PonovnoU
 	}
-	if errors.As(err, &odb) && odb.o.PonovnoZaSek > 0 {
-		cekaj = time.Duration(odb.o.PonovnoZaSek) * time.Second
-		st.Odbijen, st.PonovnoU = true, sad.Add(cekaj)
+	if !k.stanje.Prijavljen && !k.stanje.Kod.Trajan() && !st.Kod.Trajan() {
+		st.Od = k.stanje.Od // prolazno stanje traje od prvog neuspjeha
 	}
 	if k.stanje.Prijavljen || st.Kod != k.stanje.Kod {
 		k.javi("povezivost: WEB sync nije prijavljen kod sastajališta (%s); ponovno za %d s", st.Kod, int(cekaj.Seconds()))
 	}
 	k.stanje = st
 	return cekaj
+}
+
+// ponovnoZa je za koliko sekundi sastajalište smije ponovno, kad ga je
+// odbilo s rokom (kopija); 0: uobičajena odgoda
+func ponovnoZa(err error) int {
+	var odb odbijenSignal
+	if errors.As(err, &odb) {
+		return odb.o.PonovnoZaSek
+	}
+	return 0
 }
 
 // kodNakon je kod stanja za grešku veze
@@ -393,19 +433,48 @@ func odgoda(n int) time.Duration {
 	return time.Duration(float64(d) * (0.8 + 0.4*mrand.Float64())) // raspršenje odgode ne treba sigurnu slučajnost
 }
 
-// cekaj čeka odgodu, PonovnoSpoji ili kraj; javlja je li odgoda ispočetka
+// cekaj čeka odgodu ili PonovnoSpoji, koji je skrati, ali nikad ispod
+// roka koji je zadalo sastajalište (nePrije); javlja je li odgoda ispočetka
 func (k *KlijentSignala) cekaj(ctx context.Context, d time.Duration) bool {
+	ispocetka := k.uzmiIspocetka()
+	if ispocetka {
+		d = 0
+	}
+	for {
+		d = max(d, k.doRoka())
+		if d <= 0 || !k.probudjen(ctx, d) {
+			return ispocetka
+		}
+		k.uzmiIspocetka()
+		ispocetka, d = true, 0
+	}
+}
+
+// uzmiIspocetka vrati i obriše oznaku ponovnog spajanja
+func (k *KlijentSignala) uzmiIspocetka() bool {
 	k.mu.Lock()
+	defer k.mu.Unlock()
 	ispocetka := k.ispocetka
 	k.ispocetka = false
-	k.mu.Unlock()
-	if ispocetka {
-		select {
-		case <-k.budi:
-		default:
-		}
-		return true
+	select {
+	case <-k.budi:
+	default:
 	}
+	return ispocetka
+}
+
+// doRoka je koliko je još do roka sastajališta; 0 ili manje kad ga nema
+func (k *KlijentSignala) doRoka() time.Duration {
+	k.mu.Lock()
+	defer k.mu.Unlock()
+	if k.nePrije.IsZero() {
+		return 0
+	}
+	return k.nePrije.Sub(k.Sat())
+}
+
+// probudjen čeka d; true kad ga je prije probudio PonovnoSpoji
+func (k *KlijentSignala) probudjen(ctx context.Context, d time.Duration) bool {
 	t := time.NewTimer(d)
 	defer t.Stop()
 	select {
@@ -414,9 +483,6 @@ func (k *KlijentSignala) cekaj(ctx context.Context, d time.Duration) bool {
 	case <-t.C:
 		return false
 	case <-k.budi:
-		k.mu.Lock()
-		k.ispocetka = false
-		k.mu.Unlock()
 		return true
 	}
 }

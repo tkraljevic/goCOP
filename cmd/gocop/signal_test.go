@@ -7,11 +7,13 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	"gocop/internal/config"
+	"gocop/internal/peers"
 	"gocop/internal/razmjena"
 	"gocop/internal/web"
 )
@@ -25,7 +27,7 @@ type lazniCvor struct {
 func (lazniCvor) KlijentSignala(adresa, cvor string, javi func(string, ...any)) *razmjena.KlijentSignala {
 	return &razmjena.KlijentSignala{Adresa: adresa, Javi: javi,
 		Kljuc: func(context.Context) (ed25519.PublicKey, error) {
-			return nil, errors.New("čvor " + cvor + " nije član")
+			return nil, fmt.Errorf("%w: %s", razmjena.ErrNepoznatCvorSastajalista, cvor)
 		}}
 }
 
@@ -48,12 +50,19 @@ func (c lazniCvor) Sastajaliste(javi func(string, ...any)) (*razmjena.Sastajalis
 func TestPokreniSignal(t *testing.T) {
 	d := make(dnevnikPovezivosti, 8)
 	w := noviLazniWeb()
-	p := &povezivost{cfg: config.Povezivost{WebSyncPrijava: true, PosluziSastajaliste: true, WebSync: true}, javi: d.javi}
+	staro := razmakProvjereClanstava
+	t.Cleanup(func() { razmakProvjereClanstava = staro })
+	razmakProvjereClanstava = 10 * time.Millisecond
+	ctxS, otkaziS := context.WithCancel(context.Background())
+	p := &povezivost{cfg: config.Povezivost{WebSyncPrijava: true, PosluziSastajaliste: true, WebSync: true}, javi: d.javi, ctx: ctxS}
 	p.pokreniSignal(lazniCvor{}, w)
 	d.cekaj(t, "ovo računalo je sastajalište")
 	if st := w.signalStanje(); w.signal == nil || !st.Sastajaliste || !st.WebSync || st.Prijavljenih != 0 {
 		t.Errorf("sastajalište: %+v", st)
 	}
+	time.Sleep(50 * time.Millisecond) // nekoliko provjera članstava
+	otkaziS()
+	p.teku.Wait()
 	p.zatvoriSastajaliste()
 
 	w = noviLazniWeb()
@@ -65,7 +74,7 @@ func TestPokreniSignal(t *testing.T) {
 	w = noviLazniWeb()
 	p = &povezivost{cfg: config.Povezivost{WebSyncPrijava: true, Sastajaliste: "https://Cop.Primjer.hr", SastajalisteCvor: "cop-osijek"}, javi: d.javi}
 	p.pokreniSignal(lazniCvor{}, w)
-	if st := w.signalStanje(); st.Posluzitelj != "cop.primjer.hr" || st.WebSync || p.klijent == nil || p.klijent.Adresa != "https://Cop.Primjer.hr" {
+	if st := w.signalStanje(); st.Posluzitelj != "cop.primjer.hr" || st.WebSync || p.klijent == nil || p.klijent.(*razmjena.KlijentSignala).Adresa != "https://Cop.Primjer.hr" {
 		t.Errorf("prijava: %+v", st)
 	}
 	ctx, otkazi := context.WithCancel(context.Background())
@@ -103,8 +112,8 @@ func TestPonovnoNakonPromjeneMreze(t *testing.T) {
 		t.Error("bez utičnice nema ni rute")
 	}
 	p.novaUticnica() // bez utičnice ne radi ništa
-	conn, _, err := razmjena.OtvoriUDP(0)
-	if err != nil {
+	conn, upozorenje, err := razmjena.OtvoriUDP(0)
+	if err != nil || upozorenje != nil {
 		t.Fatal(err)
 	}
 	p.udp = razmjena.NoviUDP(conn)
@@ -156,4 +165,56 @@ func TestSignalZaWeb(t *testing.T) {
 		!got.PonovnoU.Equal(want.PonovnoU) || got.Odbijen != want.Odbijen || got.OdstupanjeSata != want.OdstupanjeSata || got.WebSync != want.WebSync {
 		t.Errorf("stanje za pločicu: %+v", got)
 	}
+}
+
+// laznaPrijava broji što čuvar mreže traži od prijave
+type laznaPrijava struct{ pulsevi, ponovno int }
+
+func (*laznaPrijava) Radi(context.Context)           {}
+func (l *laznaPrijava) Puls()                        { l.pulsevi++ }
+func (l *laznaPrijava) PonovnoSpoji()                { l.ponovno++ }
+func (*laznaPrijava) Stanje() razmjena.StanjeSignala { return razmjena.StanjeSignala{} }
+
+// Utičnica bez rute kreće iznova bez nove prijave: prijava ide TCP-om;
+// promjena mreže prijavljuje iznova
+func TestPonovnoBezRuteNeDiraPrijavu(t *testing.T) {
+	d := make(dnevnikPovezivosti, 8)
+	l := &laznaPrijava{}
+	p := &povezivost{javi: d.javi, ctx: context.Background(), klijent: l}
+	p.puls()
+	p.ponovno(peers.RazlogBezRute)
+	if l.ponovno != 0 || l.pulsevi != 1 {
+		t.Errorf("bez rute: %+v", l)
+	}
+	p.ponovno(peers.RazlogNovaMreza)
+	if l.ponovno != 1 {
+		t.Errorf("nova mreža: %+v", l)
+	}
+}
+
+// Mjerenje koje je teklo na utičnici zamijenjenoj usred mjerenja ne ide u
+// vrstu mreže, nego se ponovi na novoj
+func TestMjerenjeNaZamijenjenojUticnici(t *testing.T) {
+	pusti, upiti := make(chan struct{}), make(chan struct{}, 8)
+	d := make(dnevnikPovezivosti, 16)
+	p := &povezivost{cfg: config.Povezivost{WebSyncPrijava: true, Stun: []string{lazniSTUNSa(t, pusti, upiti)}}, javi: d.javi, ctx: context.Background()}
+	conn, upozorenje, err := razmjena.OtvoriUDP(0)
+	if err != nil || upozorenje != nil {
+		t.Fatal(err, upozorenje)
+	}
+	p.udp = razmjena.NoviUDP(conn)
+	ishod := make(chan web.ProvjeraVeze, 1)
+	go func() { ishod <- p.provjeriVezu(context.Background()) }()
+	<-upiti // mjerenje je krenulo na staroj utičnici
+	p.novaUticnica()
+	close(pusti)
+	if r := <-ishod; r.Greska != greskaZamjene || r.Vrijedi != "" {
+		t.Fatalf("mjerenje na staroj utičnici: %+v", r)
+	}
+	p.provjeriNakonZamjene(context.Background())
+	if z := p.zadnjaProvjera(); z == nil || z.Greska != "" {
+		t.Errorf("nakon zamjene: %+v", z)
+	}
+	p.teku.Wait()
+	_ = p.udp.Close() // kraj testa
 }

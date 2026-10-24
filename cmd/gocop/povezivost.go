@@ -72,7 +72,7 @@ type povezivost struct {
 
 	// prijava kod sastajališta ili samo sastajalište (signal.go); postave se
 	// prije nego web sluša, a poslije se samo čitaju
-	klijent      *razmjena.KlijentSignala
+	klijent      prijavaSignala
 	sastajaliste *razmjena.Sastajaliste
 
 	upisano bool // oznaka je upisana, pa je uredno gašenje briše; samo radi i zatvori
@@ -285,6 +285,13 @@ func (p *povezivost) naStalnoj(ctx context.Context, u *razmjena.UDP, posl []razm
 		return r
 	}
 	p.mu.Lock()
+	if p.udp != u {
+		// utičnica je zamijenjena usred mjerenja: bez odgovora bi izgledalo
+		// kao blokiran UDP, pa ishod ne ide ni u histerezu ni u dnevnik
+		p.mu.Unlock()
+		r.Greska = greskaZamjene
+		return r
+	}
 	prva := p.zadnja == nil
 	promjena := p.mreza.Dodaj(r.Mjerenje)
 	r.Vrijedi = p.mreza.Vrsta
