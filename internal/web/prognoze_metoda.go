@@ -139,6 +139,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 	}
 	poluvrijeme := brojHRf(prognoza.PoluvijekIspravka, 0)
 	drava := daniDnevnogDrave()
+	uzvRast, uzvNajvise := brojHRf(prognoza.UzvodniRast, 0), brojHRf(prognoza.UzvodnoNajvise, 0)
+	uzvNapomena := brojHRf(prognoza.UzvodnoNapomena, 0)
 
 	dani := []string{"", "1. dan", "2. dan", "3. dan", "4. dan", "5. dan", "6. dan"}
 	return []OdjeljakMetode{
@@ -185,6 +187,15 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"lanac uzimaju dnevni dio susjeda, istom "+
 				"težinom kao susjedi, a dalje samo njega. Srpske letve s našom prognozom (Bezdan, Apatin, Bačka "+
 				"Palanka) pokazuju isto što i letve s kojih je prenesena."),
+			tekstM("Dnevna prognoza Batine, Aljmaša, Vukovara i Iloka ispravlja se i prema satnim mjerenjima "+
+				"Wildungsmauera i Achleitena u Austriji. Val koji su oni izmjerili stiže do Batine za oko pet dana, a "+
+				"dnevni model ga ne vidi, pa ispravak najviše mijenja 4.–6. dan. Ne spušta prognozu dok voda na "+
+				"postaji raste više od "+uzvRast+" cm na dan i ne diže je više od "+uzvNajvise+" cm. Kad Achleiten "+
+				"ne javlja, ispravak se računa samo prema Wildungsmaueru, a kad ne javlja ni Wildungsmauer, ispravka nema. "+
+				"Oboje piše u napomenama uz izdanje, kao i kad ispravak digne prognozu za više od "+uzvNapomena+" cm. "+
+				"Ispravak dobivaju i letve koje dnevni dio uzimaju od tih postaja: Siga, Petreš, Bogojevo, Dalj, Sotin, "+
+				"Mohovo, Bezdan, Apatin i Bačka Palanka, a mađarske letve od Dunaföldvára do Mohácsa dio, to manji što su "+
+				"bliže Budimpešti."),
 			tekstM("Vrhovi lanca su naši. Dravu vodi naučeno ispuštanje hidroelektrana, Muru slovenska Gornja Radgona, "+
 				"a Wildungsmauer na Dunavu drži zadnje mjerenje; kišu gornjeg Dunava, Morave i Slovačke lanac "+
 				"dobiva na Komáromu i Budimpešti. Kišu koja tek pada daje prognoza Open-Meteo. Tuđe "+
@@ -202,6 +213,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"Veliki dravski val od trećeg dana prognoza podcjenjuje: vrh Botova 3.–5. dan promaši 52, 76 i 90 cm (21 val 2012.–2024.), i kad je kiša nakon izdanja poznata točno. Uzrok je dotok Drave iz Slovenije, za koji prognoze nemamo, a ne rad elektrana. Pratite gornju granicu raspona.",
 				"Rad hidroelektrana unaprijed se zna samo koliko ga model ispuštanja nauči. Pri velikoj vodi HEP akumulacije spušta i puni bez zapisanog pravila. Varaždin ispod HE Varaždin o tome ovisi cijeli.",
 				"Na mađarskom Dunavu naš lanac u valu griješi više od mađarske prognoze; naše letve to do 96 sati gotovo ne osjete.",
+				"U najvećim valovima ispravak prema Wildungsmaueru i Achleitenu ne pomaže: blizu vrha dnevna prognoza Batine 4.–6. dan ostaje preniska kao i bez njega, 50–55 cm u lipnju 2013. i rujnu 2024. Ranije u valu zna dići previsoko; kad digne više od "+uzvNapomena+" cm, to piše u napomeni uz izdanje.",
+				"U maloj vodi ispravak dnevnu prognozu Dunava 4.–6. dan u prosjeku malo podigne, a ondje je ona i bez njega malo previsoka: srednja pogreška raste s oko +2 na +4 cm, 2022. sa +7 na +9 cm. U provjeri po godinama ukupna pogreška bila je i tada manja nego bez ispravka, ali prvi tjedni u maloj vodi mogu izgledati lošije.",
 				"Vrijednost izvan svega viđenoga u arhivi model procjenjuje produženjem zadnjeg pravca; pri rekordnoj vodi budite oprezni.",
 				"Prognoza kiše iz Open-Meteo je jedina. Kad izostane, dnevni model radi bez kiše i to piše uz izdanje.",
 				"Kad gore u lancu nešto ne radi, upozorenje kaže od kojeg je dosega satna prognoza upitna. To je najraniji mogući doseg; nevolja stigne i kasnije."),
@@ -354,6 +367,21 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				prognoza.DnevnihAnalogija, brojHRf(prognoza.DnevniRasponMnozitelj, 2))),
 			formulaM("Δ̂ₖ = ¾ · Δₖ_reg + ¼ · Δₖ_kNN,   ĥ_T(t + k) = h_T(t) + Δ̂ₖ ± "+brojHRf(prognoza.DnevniRasponMnozitelj, 2)+" · sₖ",
 				`\widehat{\Delta}_k=\tfrac{3}{4}\,\Delta_{k,\mathrm{reg}}+\tfrac{1}{4}\,\Delta_{k,\mathrm{kNN}},\qquad \hat{h}_T(t+k)=h_T(t)+\widehat{\Delta}_k\pm `+texBroj(brojHRf(prognoza.DnevniRasponMnozitelj, 2))+`\,s_k`),
+			tekstM("Uzvodni ispravak (Batina, Aljmaš, Vukovar, Ilok): promjena za doseg k pomiče se za naučenu "+
+				"pogrešku modela, iz promjena vodostaja Wildungsmauera i Achleitena x za 24 i 48 sati do sata prije "+
+				"izdanja (mjerenje smije kasniti do "+tekstBroja(prognoza.UzvodnoKasnjenje)+" sata; lažan skok veći od "+
+				brojHRf(prognoza.UzvodniSkok, 0)+" cm u satu, na sat ili dva pa natrag, ne ulazi, a pravi kasni sat ili dva):"),
+			formulaM("Δ̂ₖ* = Δ̂ₖ − (c₀ₖ + Σᵢ bᵢₖ · xᵢ)",
+				`\widehat{\Delta}_k^{*}=\widehat{\Delta}_k-\left(c_{0k}+\sum_i b_{ik}\,x_i\right)`),
+			tekstM("Koeficijenti su naučeni na pogreškama dnevnog modela 2012.–8/2026., i to samo na danima koje model "+
+				"pri učenju nije vidio; ispravak se uči izvan programa. Ispravak ne prelazi granice viđene u učenju, "+
+				"ne spušta prognozu dok cilj raste više od "+uzvRast+" cm u 24 sata i ne diže je više od "+uzvNajvise+
+				" cm: bez toga je u valu iz rujna 2024. Batinu 6. dan spustio i do 90 cm dok je ona još rasla, jer val "+
+				"u velikoj vodi putuje 7,5–9,7 dana umjesto pet. Provjereno izostavljanjem godine: pogreška Dunava "+
+				"4.–6. dan manja je za 2,55 cm (s 20,7 cm), u svakoj od 15 godina. Kad Achleiten ne javlja, ispravak "+
+				"ide samo iz Wildungsmauera, a bez njega prognoza je ista kao bez ispravka. Izdanje bilježi je li "+
+				"dnevna prognoza računata s ispravkom, i kad ga je zaštita zadržala na nuli, pa se izdanja s njim i "+
+				"bez njega mogu uspoređivati."),
 			tekstM("Uživo je „dan” srednjak 24 sata koji završavaju u satu izdavanja, pa se dnevna prognoza obnavlja "+
 				"svaki sat. Model se uči iz arhive jednom na dan, iza ponoći, i iznova kad se arhiva promijeni ili "+
 				"se pokrene Pripremi model."),
@@ -451,6 +479,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		),
 		detaljiM("Što je novo",
 			popisM(
+				"24. 10. 2026. — dnevna prognoza Batine, Aljmaša, Vukovara i Iloka ispravlja se prema satnim mjerenjima Wildungsmauera i Achleitena; 4.–6. dan griješi oko 2,5 cm manje; uz izdanje piše kad ispravak radi samo prema Wildungsmaueru ili ga nema, i kad digne prognozu za više od "+uzvNapomena+" cm.",
 				"22. 10. 2026. — kiša ulazi u satni lanac Dunava: Komárom i Budimpešta imaju dnevni model s kišom i ugađanje u samom lancu (oznaka ds), pa kišu nose i letve nizvodno; Batina za 96 sati griješi 2,7 cm manje, a kad voda raste 5 cm manje; mađarske letve od Esztergoma do Mohácsa dnevni dio posuđuju od susjeda (oznaka p); profil Dunava kreće od Komároma.",
 				"22. 10. 2026. — Siga, Petreš, Bogojevo, Dalj, Sotin i Mohovo dnevni dio posuđuju od susjeda (oznaka p), pa uzdužni profil više nema grbe; Bezdan, Apatin i Bačka Palanka pokazuju isto što i letve s kojih se prenose; uz p raspon procijenjen iz susjeda i protok iz krivulje.",
 				"22. 10. 2026. — na Batini, Aljmašu, Vukovaru i Iloku do 96. sata satni lanac i dnevni model zajedno (oznaka ds); uz svaku vrijednost slovo kaže iz čega je; graf i tablica pokazuju isto, a šesti dan ima vrijednost i kad je izdanje bilo danju; u Postavkama prognoze jedan je izbor modela umjesto tri.",
@@ -553,15 +582,31 @@ func letveMetode(tablice []TablicaPrognoza, postaje map[string]models.Station,
 				}
 			}
 			if imaDnevni {
-				for _, u := range ulazi {
-					l.Dnevni = append(l.Dnevni, ime(u))
-				}
+				l.Dnevni = ulaziDnevnog(x.Kod, ulazi, ime)
 				l.DnevniOd = dnevniOd(x.Kod)
 			}
 			out = append(out, l)
 		}
 	}
 	return out
+}
+
+// ulaziDnevnog su ulazi dnevnog modela postaje imenima, a za postaju s
+// uzvodnim ispravkom na kraju i letve ispravka, npr. „ispravak: Wildungsmauer
+// i Achleiten”.
+func ulaziDnevnog(kod string, ulazi []string, ime func(string) string) []string {
+	var out []string
+	for _, u := range ulazi {
+		out = append(out, ime(u))
+	}
+	if !prognoza.ImaUzvodniIspravak(kod) {
+		return out
+	}
+	uzvodne := make([]string, len(prognoza.UzvodneLetve))
+	for i, l := range prognoza.UzvodneLetve {
+		uzvodne[i] = ime(l)
+	}
+	return append(out, "ispravak: "+nabroji(uzvodne))
 }
 
 // ulaziLanca opisuje ulaze satnog lanca: kašnjenje glavnog po pojasima, od

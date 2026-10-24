@@ -31,6 +31,7 @@ const (
 	VrstaCeka           = "ceka"           // sat izdavanja drži vrh lanca koji kasni
 	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
 	VrstaTudaDatumi     = "tuda-datumi"    // tuđa prognoza s neurednim datumima (NeuredniDatumi)
+	VrstaUzvodno        = "uzvodno"        // uzvodni ispravak bez letve ili digao prognozu (upozorenjaUzvodnog)
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -82,6 +83,7 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
 	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
 	u = append(u, ishod.NeuredneTude...)
+	u = append(u, upozorenjaUzvodnog(ishod.Uzvodno)...)
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
 		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))
@@ -369,11 +371,8 @@ func upozorenjaIzbora(ishod *Ishod, pojasi map[string][]Pojas, ima map[string]bo
 // vrstaIzbora kaže koje upozorenje daje ključ izbora i na koju se letvu
 // odnosi; prazna vrsta znači da je to redovan rad.
 func vrstaIzbora(kljuc string, iz Izbor) (vrsta, letva string) {
-	if kljuc == "oborina" {
-		if iz.Inacica == 2 {
-			return VrstaKisa, ""
-		}
-		return "", ""
+	if v, jest := vrstaIzboraBezLetve(kljuc, iz); jest {
+		return v, ""
 	}
 	prefiks, letva, slozen := strings.Cut(kljuc, ":")
 	if !slozen {
@@ -388,6 +387,22 @@ func vrstaIzbora(kljuc string, iz Izbor) (vrsta, letva string) {
 		return VrstaZamjena, letva
 	}
 	return "", letva
+}
+
+// vrstaIzboraBezLetve su ključevi izbora koji nisu letva: dnevni model bez
+// kiše je upozorenje, a napomene uzvodnog ispravka slaže upozorenjaUzvodnog.
+// jest je false za ključ koji je letva ili ima prefiks.
+func vrstaIzboraBezLetve(kljuc string, iz Izbor) (vrsta string, jest bool) {
+	switch kljuc {
+	case "oborina":
+		if iz.Inacica == 2 {
+			return VrstaKisa, true
+		}
+		return "", true
+	case KljucUzvodno:
+		return "", true
+	}
+	return "", false
 }
 
 // vrstaSatnog: inačica iznad nule je rezerva, −1 zadržano mjerenje.

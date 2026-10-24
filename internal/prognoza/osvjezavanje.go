@@ -110,6 +110,8 @@ type Ishod struct {
 	// NeuredneTude su upozorenja o tuđim prognozama s neurednim datumima
 	// (ZapamtiNeuredne) koje je izdavač imao.
 	NeuredneTude []Upozorenje
+	// Uzvodno je što je uzvodni ispravak dnevne prognoze imao u izdanju.
+	Uzvodno UzvodnoIzdanja
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -312,7 +314,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	ishod.Izdane = append(ishod.Izdane, sidraDrugih(druge, sada)...)
 	var sidra []Izdana
 	var izborDnevni map[string]Izbor
-	ishod.Dnevne, sidra, ishod.BezDnevne, izborDnevni, ishod.Kisa = o.dnevno(ctx, sada, od)
+	ishod.Dnevne, sidra, ishod.BezDnevne, izborDnevni, ishod.Kisa, ishod.Uzvodno = o.dnevno(ctx, sada, od)
 	for k, v := range izborDnevni {
 		ishod.Izbor[k] = v
 	}
@@ -467,7 +469,7 @@ func (o *Osvjezivac) prviNizCilja(ctx context.Context, c DnevniCilj, modeli []*D
 }
 
 // satniCilja čita satne vodostaje svih letvi koje dnevni cilj i njegove
-// inačice trebaju.
+// inačice trebaju, i uzvodnih letvi kad cilj ima uzvodni ispravak.
 func (o *Osvjezivac) satniCilja(ctx context.Context, c DnevniCilj, od time.Time) map[string]Niz {
 	satni := map[string]Niz{}
 	for _, in := range c.Inacice() {
@@ -480,7 +482,26 @@ func (o *Osvjezivac) satniCilja(ctx context.Context, c DnevniCilj, od time.Time)
 			}
 		}
 	}
+	o.ucitajUzvodne(ctx, satni, c.Letva, od)
 	return satni
+}
+
+// ucitajUzvodne dodaje satnim nizovima mjerenja uzvodnih letvi kad cilj ima
+// uzvodni ispravak. Uzima se samo izmjereno, bez sati s druge obale i iz
+// susjeda, jer je ispravak naučen na izmjerenom. Letva koja se ne da
+// pročitati ostaje bez niza, pa ispravak ide bez nje (uzvodnoStanje).
+func (o *Osvjezivac) ucitajUzvodne(ctx context.Context, satni map[string]Niz, letva string, od time.Time) {
+	if !ImaUzvodniIspravak(letva) {
+		return
+	}
+	for _, l := range UzvodneLetve {
+		if _, ima := satni[l]; ima {
+			continue
+		}
+		if n, err := o.ucitajIzmjereni(ctx, Izvor{Letva: l, Velicina: "vodostaj"}, od); err == nil {
+			satni[l] = n
+		}
+	}
 }
 
 // nizIzDnevnog je satni niz jedne inačice dnevnog modela (vidi dnevniNizovi);
@@ -543,11 +564,13 @@ func uVeliciniDnevne(x DnevnaIzdana, vel string, krivulje []models.HQKrivulja) (
 //
 // Kad glavni ulaz nema zadnja četiri dana (Borl I zna stati danima), ide
 // prva rezerva koja ih ima; izbor se zapiše pod ključem „dnevni:letva”.
-func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error, map[string]Izbor, map[string]DnevniNiz) {
+// Skup uzvodnog ispravka ide pod KljucUzvodno, a stanje ispravka za
+// napomene vraća se zasebno.
+func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]DnevnaIzdana, []Izdana, map[string]error, map[string]Izbor, map[string]DnevniNiz, UzvodnoIzdanja) {
 	bez := map[string]error{}
 	izbor := map[string]Izbor{}
 	if o.Arhiva == nil {
-		return nil, nil, bez, izbor, nil
+		return nil, nil, bez, izbor, nil, UzvodnoIzdanja{}
 	}
 	modeli, greske := o.dnevniModeliZaDanas(ctx)
 	for l, err := range greske {
@@ -598,6 +621,7 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				satni[l] = n
 			}
 		}
+		o.ucitajUzvodne(ctx, satni, c.Letva, od)
 		var d []DnevnaIzdana
 		var err error
 		for i, m := range in {
@@ -679,7 +703,9 @@ func (o *Osvjezivac) dnevno(ctx context.Context, sada int64, od time.Time) ([]Dn
 				Vrijednost: v, Dolje: v, Gore: v, Model: ModelDnevni})
 		}
 	}
-	return out, sidra, bez, izbor, oborine
+	uzvodno := uzvodnoIzdanja(satni, sada, out)
+	uzvodno.upisi(izbor)
+	return out, sidra, bez, izbor, oborine, uzvodno
 }
 
 // Zapisi sprema izračunato.

@@ -167,6 +167,18 @@ func TestTekstSvihVrsta(t *testing.T) {
 			"Izvan krivulje protoka (krivulja produljena preko svog ruba): vodostaj Četvrti Most; protok Donji Grad i Treće Selo od +12 h.", ""},
 		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaNapomena, Opis: "nešto novo na srednja"},
 			"Nešto novo na Srednji Brod.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "srednja", Zadnje: satUTC(21, 15),
+			Opis: "nema mjerenja od 21. 10. u 17 h; dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi gornja"},
+			"Srednji Brod (primjer.hu): nema mjerenja od 21. 10. u 17 h; dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi Gornji Brod.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "srednja",
+			Opis: "fali mjerenje 22. 10. u 17 h (prije 24 sata); dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi gornja"},
+			"Srednji Brod (primjer.hu): fali mjerenje 22. 10. u 17 h (prije 24 sata); dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi Gornji Brod.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "gornja",
+			Opis: "nema mjerenja; dnevna prognoza Dunava od 4. dana računa se bez ispravka prema uzvodnim letvama"},
+			"Gornji Brod: nema mjerenja; dnevna prognoza Dunava od 4. dana računa se bez ispravka prema uzvodnim letvama.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena,
+			Opis: "ispravak prema uzvodnim letvama digao je dnevnu prognozu za više od 50 cm: donja 6. dan za 62 cm, treca 5. dan za 55 cm. U velikoj vodi ispravak zna dići i previsoko"},
+			"Ispravak prema uzvodnim letvama digao je dnevnu prognozu za više od 50 cm: Donji Grad 6. dan za 62 cm, Treće Selo 5. dan za 55 cm. U velikoj vodi ispravak zna dići i previsoko.", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaTudaDatumi, Tezina: prognoza.TezinaUpozorenje,
 			Opis: "srpska prognoza (hidmet.gov.rs) od 10. 10.: datumi u tablici ne idu dan za danom (10. 10., 11. 10., 11. 10., 12. 10., 13. 10.); " +
 				"uz našu prognozu njihova stoji samo do 11. 10., jer se za ostale stupce ne zna kojem danu pripadaju"},
@@ -202,6 +214,11 @@ func TestTekstSvihVrsta(t *testing.T) {
 	}
 	if s := p.upitno(prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka}); s != "" {
 		t.Errorf("bez upitnih: %q", s)
+	}
+	// napomena uzvodnog ispravka je sklopljena i ne kaže da je išta upitno
+	if otvorena, napomene := p.slozi([]prognoza.Upozorenje{{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena,
+		Letva: "gornja", Opis: "x"}}); len(otvorena) != 0 || len(napomene) != 1 || napomene[0].Upitno != "" {
+		t.Errorf("uzvodno: otvorena %+v, napomene %+v", otvorena, napomene)
 	}
 	// dnevna bez kartica u tablici: bez rečenice o danima
 	if s := (pisacUpozorenja{postaje: izmisljenePostaje()}).dnevnaUpitna(prognoza.Upozorenje{Upitno: []prognoza.Upitno{{Letva: "treca", Dnevno: true}}}); s != "dnevna prognoza Treće Selo" {
