@@ -675,7 +675,7 @@ func TestRutePostavkiIzaZastita(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, putanja := range []string{"/settings/postavke-cvora", "/pretplate/postavke-cvora", "/administracija/baza/postavke-cvora",
-		"/administracija/opcije/postavke-cvora", "/settings/ponovno-pokretanje", "/settings/web-sync/ukljuci"} {
+		"/administracija/opcije/postavke-cvora", "/settings/ponovno-pokretanje", "/settings/web-sync/ukljuci", "/settings/provjeri-vezu"} {
 		r := httptest.NewRequest(http.MethodPost, putanja, strings.NewReader("dio=cvor"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("Sec-Fetch-Site", "cross-site")

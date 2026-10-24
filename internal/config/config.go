@@ -104,13 +104,13 @@ type Config struct {
 // Povezivost je WEB sync (plan WEB synca, F1): izravna razmjena preko
 // interneta, preko UDP-a i QUIC-a. Zadano je sve isključeno; uz
 // web_sync_prijava = false nema ni UDP utičnice ni upita prema STUN
-// poslužiteljima.
+// poslužiteljima, osim kad administrator pritisne Provjeri vezu.
 type Povezivost struct {
-	WebSyncPrijava bool     `toml:"web_sync_prijava" comment:"true = računalo otvori UDP utičnicu za WEB sync i provjeri mrežu (STUN).\nfalse = nema UDP utičnice ni upita prema STUN poslužiteljima.\n  web_sync_prijava = true"`
+	WebSyncPrijava bool     `toml:"web_sync_prijava" comment:"true = računalo otvori UDP utičnicu za WEB sync i provjeri mrežu (STUN).\nfalse = nema UDP utičnice ni upita prema STUN poslužiteljima, osim kad\nadministrator pritisne Provjeri vezu.\n  web_sync_prijava = true"`
 	WebSync        bool     `toml:"web_sync" comment:"true = razmjena ide i WEB syncom, kad je uključena i prijava.\nZasad se još ne koristi: razmjena ide kao prije."`
 	UDPPort        int      `toml:"udp_port" comment:"UDP port WEB synca. Kad je zauzet, uzme se nasumičan. 0 = nasumičan."`
 	Stun           []string `toml:"stun" comment:"STUN poslužitelji za provjeru mreže, različitih operatera. Vide javnu\nadresu i port ovog računala. Prazan popis isključuje provjeru.\n  stun = []"`
-	LanAdresa      string   `toml:"lan_adresa" comment:"Adresa ovog računala u lokalnoj mreži, kad je goCOP u spremniku (Docker)\ni sam je ne vidi. Prazno = sam je nađe. Zasad se još ne koristi.\n  lan_adresa = '192.168.1.20'"`
+	LanAdresa      string   `toml:"lan_adresa" comment:"Adresa ovog računala u lokalnoj mreži, kad je goCOP u spremniku (Docker)\ni sam je ne vidi, samo IPv4. WEB sync bi je nudio drugim računalima umjesto\nadrese spremnika; zasad se samo prikazuje na stranici Sinkronizacija.\nPrazno = sam je nađe.\n  lan_adresa = '192.168.1.20'"`
 }
 
 // Default su zadane vrijednosti — iste kao bez ikakve datoteke

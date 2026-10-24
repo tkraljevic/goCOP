@@ -69,7 +69,7 @@ const (
 	// WEB sync (F1a): tuđi STUN poslužitelj saznao bi javne adrese računala i
 	// mogao vratiti lažne, a krivi UDP port odsiječe računalo
 	razlogPovezivosti = "Mijenja se samo u datoteci gocop.toml: tuđi STUN poslužitelj saznao bi javnu adresu ovog računala i mogao vratiti lažnu, a krivi UDP port odsiječe računalo."
-	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se još ne koristi."
+	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se samo prikazuje na stranici Sinkronizacija."
 )
 
 // redakRasporeda: puni ključ i njegovo mjesto
@@ -140,7 +140,7 @@ var opisNaStranici = map[string]string{
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
-		"Isključeno: nema UDP utičnice ni upita prema van. Vrijedi od idućeg pokretanja.",
+		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu. Vrijedi od idućeg pokretanja.",
 	"povezivost.web_sync": "Uključeno: razmjena ide i WEB syncom, kad je uključena i prijava. Zasad se još ne koristi, pa razmjena ide kao prije.",
 }
 
@@ -299,6 +299,7 @@ type PostavkeStranice struct {
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Čvor i mreža
 	WebSync     *WebSyncPrikaz           // samo na stranici Čvor i mreža, kad je WEB sync isključen nakon padova
+	Provjera    *ProvjeraVezePrikaz      // samo na stranici Čvor i mreža, kad program nudi provjeru veze
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -397,25 +398,28 @@ type pokusajPostavki struct {
 type kljucPokusaja struct{}
 
 // zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora,
-// ponovno pokrenuti čvor ni spremiti ili učitati kopiju ključa mreže, za
-// svako od toga svojim riječima
-type zabranaCvora struct{ postavke, ponovno, kljuc string }
+// ponovno pokrenuti čvor, spremiti ili učitati kopiju ključa mreže ni
+// provjeriti vezu, za svako od toga svojim riječima
+type zabranaCvora struct{ postavke, ponovno, kljuc, provjera string }
 
 var (
 	zabranaNijeAdmin = &zabranaCvora{
 		postavke: "Postavke čvora mijenja samo administrator.",
 		ponovno:  "Čvor ponovno pokreće samo administrator.",
 		kljuc:    "Kopiju ključa mreže sprema i učitava samo administrator.",
+		provjera: "Vezu provjerava samo administrator.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
 		postavke: "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		ponovno:  "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		kljuc:    "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		provjera: "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke: "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 		ponovno:  "Čvor se ponovno pokreće samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 		kljuc:    "Kopija ključa mreže sprema se i učitava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		provjera: "Veza se provjerava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 
@@ -466,6 +470,7 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
 		out.WebSync = s.prikazWebSynca(sl.zabrana)
+		out.Provjera = s.prikazProvjereVeze(sl.zabrana)
 	}
 	return out
 }

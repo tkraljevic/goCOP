@@ -16,6 +16,9 @@ import (
 type SyncHandler struct {
 	peers *peers.Service
 	tmpl  *template.Template
+	// dohvatljivost je blok Dohvatljivost (provjera_veze.go); čita stanje
+	// poslužitelja u trenutku zahtjeva
+	dohvatljivost func() *DohvatljivostPrikaz
 }
 
 func NewSyncHandler(peersSvc *peers.Service, tmpl *template.Template) *SyncHandler {
@@ -33,6 +36,8 @@ type SyncPageData struct {
 	// samo za administratora
 	Odbijeno       []RedakOdbijenog
 	OdbijenoGreska string
+	// Dohvatljivost je mreža ovog računala za WEB sync, samo za administratora
+	Dohvatljivost *DohvatljivostPrikaz
 	ViewAsBanner
 }
 
@@ -51,9 +56,18 @@ func (h *SyncHandler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Status = st
 	h.dodajOdbijeno(r.Context(), perms, &data)
+	h.dodajDohvatljivost(perms, &data)
 	if err := h.tmpl.ExecuteTemplate(w, "sinkronizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// dodajDohvatljivost puni blok Dohvatljivost, samo za administratora
+func (h *SyncHandler) dodajDohvatljivost(perms *models.UserPermissions, data *SyncPageData) {
+	if perms == nil || !perms.IsGlobalAdmin || h.dohvatljivost == nil {
+		return
+	}
+	data.Dohvatljivost = h.dohvatljivost()
 }
 
 // HandleStatus vraća stanje kao JSON; uz ?lan=1 pita i lokalnu mrežu

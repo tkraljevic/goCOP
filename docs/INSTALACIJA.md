@@ -152,6 +152,17 @@ kreće bez njega i to kaže na pločici razmjene; `gocop.toml` ostaje kakav
 jest. Gumb *Ponovno uključi WEB sync* u kartici *Ovaj čvor* to poništi, od
 idućeg pokretanja. Deset minuta rada bez prekida vraća brojač prekida na nulu.
 
+Gumb *Provjeri vezu* u istoj kartici izmjeri mrežu kad god administrator
+želi. Dok WEB sync radi, mjeri na njegovoj utičnici; kad ne radi, program za
+to kratko otvori UDP utičnicu na portu 4713 i odmah je zatvori. Kartica
+pokazuje sažetak, npr. „UDP radi na :4713. NAT je lak i čuva port.”, a blok
+*Dohvatljivost ovog računala* na stranici Sinkronizacija pojedinosti: vlastitu
+javnu adresu, adrese koje bi WEB sync nudio drugima i kuda promet prema
+STUN-u izlazi (obično, kroz Tailscale ili kroz VPN). Taj blok vidi samo
+administrator. Spremnik u mostu treba `lan_adresa`: dok je nema, na to
+upozorava blok nakon provjere, a pločica razmjene uz uključenu prijavu za
+WEB sync. Spremnik s mrežom računala (host) adresu nađe sam.
+
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
 s goCOP čvorovima iste mreže (članstvo potpisano ključem mreže pri uparivanju),
@@ -173,8 +184,9 @@ vodostaji.voda.hr, a ručno preuzimanje na stranici letve čita njezin izvor.
 Lozinke vanjskih izvora ostaju šifrirane na tom čvoru i ne sinkroniziraju se.
 Uz `[povezivost] web_sync_prijava = true` računalo pri pokretanju s UDP porta
 4713 pita STUN poslužitelje `stun.l.google.com` i `stun.cloudflare.com` kojom
-ga javnom adresom vide. Oni tada vide javnu IP adresu i port računala, i
-ništa drugo. `stun = []` isključuje te upite.
+ga javnom adresom vide, a isto napravi i kad administrator pritisne *Provjeri
+vezu*, i uz isključenu prijavu. Oni tada vide javnu IP adresu i port
+računala, i ništa drugo. `stun = []` isključuje te upite.
 Bez tih veza osnovni rad ostaje dostupan.
 
 **Za vatrozid:** pristup ograničiti na računala koja sudjeluju u testu.
@@ -727,7 +739,8 @@ određuju što je zahtjev izvana. Isto vrijedi za UDP port WEB synca i STUN
 poslužitelje (`[povezivost] udp_port`, `stun`): tuđi STUN poslužitelj saznao
 bi javnu adresu računala i mogao vratiti lažnu, a krivi port odsiječe
 računalo. Samo u datoteci mijenja se i adresa u lokalnoj mreži za spremnik
-(`lan_adresa`), koja se zasad još ne koristi. Ime čvora u mreži (`[node] id`) poslije
+(`lan_adresa`, samo IPv4), koju bi WEB sync nudio drugim računalima umjesto
+adrese spremnika; zasad se samo prikazuje u bloku Dohvatljivost. Ime čvora u mreži (`[node] id`) poslije
 prvog pokretanja ne mijenja se ni u datoteci. Kad je zastavica pokretanja jača od datoteke (npr. u
 spremniku `-addr`, `-arhiva`), to piše uz postavku.
 

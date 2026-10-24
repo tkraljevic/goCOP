@@ -1439,6 +1439,7 @@ func (s *Server) setupRoutes() {
 
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
+	syncH.dohvatljivost = s.dohvatljivost
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
 	s.mux.Handle("GET /api/sync/status", s.authMiddleware(http.HandlerFunc(syncH.HandleStatus)))
 	s.mux.Handle("POST /api/sync/all", s.authMiddleware(http.HandlerFunc(syncH.HandleSyncAll)))
@@ -1452,7 +1453,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /settings/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/settings", http.HandlerFunc(settingsH.ShowSettings))))
 	s.mux.Handle("POST /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handlePonovnoPokretanje)))
 	s.mux.Handle("GET /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handleStanjePokretanja)))
-	s.mux.Handle("POST /settings/web-sync/ukljuci", s.samoAdmin(http.HandlerFunc(s.handleUkljuciWebSync)))
+	s.rutePovezivosti()
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {
 			return nil
@@ -1539,6 +1540,13 @@ func DijeloviPredloska(stranica string) []string {
 // Sve što mijenja hidrološku arhivu prolazi ovuda, pa se ne može zaboraviti u
 // pojedinom rukovatelju. Provjere u rukovateljima ostaju; ovo je prvi sloj, ne
 // jedini.
+// rutePovezivosti su rute WEB synca u Administraciji, sve samo za
+// administratora: ponovno uključivanje nakon padova i provjera veze
+func (s *Server) rutePovezivosti() {
+	s.mux.Handle("POST /settings/web-sync/ukljuci", s.samoAdmin(http.HandlerFunc(s.handleUkljuciWebSync)))
+	s.mux.Handle("POST /settings/provjeri-vezu", s.samoAdmin(http.HandlerFunc(s.handleProvjeriVezu)))
+}
+
 func (s *Server) samoAdmin(next http.Handler) http.Handler {
 	return s.authMiddleware(trebaAdmina(next))
 }
