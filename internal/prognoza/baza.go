@@ -12,6 +12,7 @@
 package prognoza
 
 import (
+	"cmp"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -306,7 +307,7 @@ func uskladi(db *sql.DB) error {
 			return fmt.Errorf("ponovna gradnja %s: %w", tablica, err)
 		}
 	}
-	return nil
+	return uvediNeuredne(db)
 }
 
 func imaStupac(db *sql.DB, tablica, stupac string) (bool, error) {
@@ -813,8 +814,13 @@ func bezStranihZnakova(s string) string { return straniZnakovi.Replace(s) }
 // SpremiTude zapisuje tuđu prognozu za sve postaje iz njihove tablice: naše
 // letve pod našom šifrom, ostale kao „strana-naziv”. Svako njihovo izdanje
 // ostaje zapisano uz naša, za usporedbu i kalibraciju. Isto izdanje dolazi sa
-// svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače.
-// Vraća koliko je novih vrijednosti upisano.
+// svakim satom dok ne izađe novo, pa se ponovljeni zapis preskače; kad se
+// novo čitanje istog izdanja razlikuje (služba ga je ispravila, ili ga je
+// starija inačica čitala krivo), ono zamijeni što je za tu postaju bilo
+// zapisano. Unutar jednog izdanja postaje sati moraju ići naprijed: dva
+// dana s istim satom ne bi se razlikovala, pa se takva postaja preskače, a
+// ostale se zapišu uz grešku *PreskocenePostaje. Vraća koliko je novih ili
+// promijenjenih vrijednosti.
 func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) string) (int, error) {
 	tx, err := db.Begin()
 	if err != nil {
@@ -822,6 +828,7 @@ func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) stri
 	}
 	defer tx.Rollback()
 	novih := 0
+	var preskoceno []error
 	for _, l := range letve {
 		if l.Izdano.IsZero() {
 			continue
@@ -839,28 +846,89 @@ func SpremiTude(db *sql.DB, izvor string, letve []Letva, sifra func(string) stri
 			continue
 		}
 		izdano := l.Izdano.UTC().Unix() / 3600
-		dani := l.Dani
-		// Jutarnje mjerenje iz njihove tablice stoji uz prognozu kao sidro:
-		// ciljni sat mu je 07 h dana izdanja, dakle prije izdanja, pa se po
-		// tome i razlikuje od prognoze. Hod tuđe prognoze od sata izdanja
-		// računa se od njega.
-		if l.ImaDanas {
-			lok := l.Izdano.In(models.Zagreb)
-			jutro := time.Date(lok.Year(), lok.Month(), lok.Day(), 7, 0, 0, 0, models.Zagreb)
-			dani = append([]Dan{{Kad: jutro, Cm: l.Danas}}, dani...)
+		dani := daniSJutrom(l)
+		if err := satiNaprijed(dani); err != nil {
+			preskoceno = append(preskoceno, fmt.Errorf("%s %s: %w", izvor, kod, err))
+			continue
 		}
-		for _, d := range dani {
-			r, err := tx.Exec(`INSERT OR IGNORE INTO tude (izvor, letva, izdano, ciljni, vrijednost, raspon)
-				VALUES (?,?,?,?,?,?)`, izvor, kod, izdano, d.Kad.UTC().Unix()/3600, d.Cm, d.PlusMin)
-			if err != nil {
-				return 0, fmt.Errorf("%s %s: %w", izvor, kod, err)
-			}
-			if n, _ := r.RowsAffected(); n > 0 {
-				novih += int(n)
-			}
+		n, err := zapisiIzdanjePostaje(tx, izvor, kod, izdano, dani)
+		if err != nil {
+			return 0, fmt.Errorf("%s %s: %w", izvor, kod, err)
+		}
+		novih += n
+	}
+	return novih, cmp.Or(tx.Commit(), preskocene(preskoceno))
+}
+
+// PreskocenePostaje su postaje tuđe prognoze koje SpremiTude nije zapisao,
+// a ostale jest.
+type PreskocenePostaje struct{ Greske []error }
+
+func (e *PreskocenePostaje) Error() string { return errors.Join(e.Greske...).Error() }
+
+// preskocene je greška preskočenih postaja; nil kad ih nema.
+func preskocene(g []error) error {
+	if len(g) == 0 {
+		return nil
+	}
+	return &PreskocenePostaje{Greske: g}
+}
+
+// zapisiIzdanjePostaje zapiše dane jednog izdanja postaje tako da ono što
+// je za to izdanje zapisano bude isto kao novo čitanje: sati kojih u njemu
+// nema brišu se, a promijenjene vrijednosti se ispravljaju. Postaja bez
+// dana ne dira ništa. Vraća koliko je vrijednosti novo ili promijenjeno.
+func zapisiIzdanjePostaje(tx *sql.Tx, izvor, kod string, izdano int64, dani []Dan) (int, error) {
+	if len(dani) == 0 {
+		return 0, nil
+	}
+	sati := make([]any, 0, len(dani)+3)
+	sati = append(sati, izvor, kod, izdano)
+	for _, d := range dani {
+		sati = append(sati, d.Kad.UTC().Unix()/3600)
+	}
+	if _, err := tx.Exec(`DELETE FROM tude WHERE izvor = ? AND letva = ? AND izdano = ? AND ciljni NOT IN (?`+
+		strings.Repeat(",?", len(dani)-1)+`)`, sati...); err != nil {
+		return 0, err
+	}
+	novih := 0
+	for _, d := range dani {
+		r, err := tx.Exec(`INSERT INTO tude (izvor, letva, izdano, ciljni, vrijednost, raspon) VALUES (?,?,?,?,?,?)
+			ON CONFLICT (izvor, letva, izdano, ciljni) DO UPDATE SET vrijednost = excluded.vrijednost, raspon = excluded.raspon
+			WHERE vrijednost != excluded.vrijednost OR raspon != excluded.raspon`,
+			izvor, kod, izdano, d.Kad.UTC().Unix()/3600, d.Cm, d.PlusMin)
+		if err != nil {
+			return 0, err
+		}
+		n, _ := r.RowsAffected() // SQLite ga uvijek zna
+		novih += int(n)
+	}
+	return novih, nil
+}
+
+// daniSJutrom su dani tuđe prognoze letve s jutarnjim mjerenjem iz njihove
+// tablice ispred: ono stoji uz prognozu kao sidro. Ciljni sat mu je 07 h
+// dana izdanja, dakle prije izdanja, pa se po tome i razlikuje od prognoze.
+// Hod tuđe prognoze od sata izdanja računa se od njega.
+func daniSJutrom(l Letva) []Dan {
+	if !l.ImaDanas {
+		return l.Dani
+	}
+	lok := l.Izdano.In(models.Zagreb)
+	jutro := time.Date(lok.Year(), lok.Month(), lok.Day(), 7, 0, 0, 0, models.Zagreb)
+	return append([]Dan{{Kad: jutro, Cm: l.Danas}}, l.Dani...)
+}
+
+// satiNaprijed javi kad sat jednog izdanja ne ide naprijed: dva dana s
+// istim satom ne bi se razlikovala, pa se ne zna kojem pripada vrijednost.
+func satiNaprijed(dani []Dan) error {
+	for i := 1; i < len(dani); i++ {
+		if !dani[i].Kad.After(dani[i-1].Kad) {
+			return fmt.Errorf("sat %s dolazi iza %s, pa se ne zna kojem pripada vrijednost; ta postaja nije zapisana",
+				dani[i].Kad.In(models.Zagreb).Format("2. 1. u 15 h"), dani[i-1].Kad.In(models.Zagreb).Format("2. 1. u 15 h"))
 		}
 	}
-	return novih, tx.Commit()
+	return nil
 }
 
 // TudaPrognoza vraća najnoviju tuđu prognozu letve izdanu u zadanom

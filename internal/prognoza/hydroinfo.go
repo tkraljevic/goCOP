@@ -13,6 +13,7 @@ package prognoza
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -62,13 +63,15 @@ var (
 
 // Citaj razlaže tablicu prognoze. Svaki dan je u tablici zaseban okvir s
 // dvije vrijednosti, prognozom i rasponom pogreške, pa se ne čitaju ćelije
-// nego redoslijed brojeva iza zaglavlja letve.
+// nego redoslijed brojeva iza zaglavlja letve. Kad datumi zaglavlja ne idu
+// dan za danom, letve stižu skraćene na uredni početak, uz grešku
+// *NeuredniDatumi.
 func Citaj(stranica string) ([]Letva, error) {
 	tekst := popraviZnakove(html.UnescapeString(izISO88592(stranica)))
 	tekst = reOznake.ReplaceAllString(tekst, " ")
 	tekst = strings.Join(strings.Fields(tekst), " ")
 
-	datumi := danoviZaglavlja(tekst)
+	datumi, neuredno := urednoZaglavlje(danoviZaglavlja(tekst, time.Now()), Podrijetlo, false)
 	zaglavlja := reLetva.FindAllStringSubmatchIndex(tekst, -1)
 
 	var out []Letva
@@ -110,30 +113,37 @@ func Citaj(stranica string) ([]Letva, error) {
 	if len(out) == 0 {
 		return nil, fmt.Errorf("u tablici nema nijedne letve — je li se stranica promijenila?")
 	}
-	return out, nil
+	return out, neuredno.uz(out[0].Izdano)
 }
 
 // danoviZaglavlja čita dane iz zaglavlja tablice („22.09. 07h"). Godina u
-// zaglavlju ne piše, pa se uzima iz današnjeg datuma, uz prijelaz godine.
-func danoviZaglavlja(tekst string) []time.Time {
-	sada := time.Now().In(models.Zagreb)
+// zaglavlju ne piše, pa se uzima iz sada, uz prijelaz godine: siječanj
+// viđen u prosincu je iduće godine, a prosinac viđen u siječnju prošle.
+func danoviZaglavlja(tekst string, sada time.Time) []time.Time {
+	sada = sada.In(models.Zagreb)
 	var out []time.Time
 	for _, m := range reZaglavlje.FindAllStringSubmatch(tekst, -1) {
+		mjesec := time.Month(broj(m[2]))
 		godina := sada.Year()
-		if time.Month(broj(m[2])) == time.January && sada.Month() == time.December {
+		switch {
+		case mjesec == time.January && sada.Month() == time.December:
 			godina++
+		case mjesec == time.December && sada.Month() == time.January:
+			godina--
 		}
-		out = append(out, time.Date(godina, time.Month(broj(m[2])), broj(m[1]), 7, 0, 0, 0, models.Zagreb))
+		out = append(out, time.Date(godina, mjesec, broj(m[1]), 7, 0, 0, 0, models.Zagreb))
 	}
 	return out
 }
 
-// Dohvati čita obje tablice, dunavsku i dravsku.
+// Dohvati čita obje tablice, dunavsku i dravsku; kao Citaj, uz neuredne
+// datume (NeuredneIz, s imenom tablice) vraća i letve.
 func Dohvati(ctx context.Context, klijent *http.Client) ([]Letva, error) {
 	if klijent == nil {
 		klijent = &http.Client{Timeout: 30 * time.Second}
 	}
 	var sve []Letva
+	var neuredne []error
 	for _, adresa := range []string{AdresaDunav, AdresaDrava} {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, adresa, nil)
 		if err != nil {
@@ -153,13 +163,16 @@ func Dohvati(ctx context.Context, klijent *http.Client) ([]Letva, error) {
 			return nil, fmt.Errorf("%s: %s", adresa, resp.Status)
 		}
 		letve, err := Citaj(string(b))
-		if err != nil {
+		if err := odvojiNeuredne(err, tabliceHydroinfa[adresa], &neuredne); err != nil {
 			return nil, fmt.Errorf("%s: %w", adresa, err)
 		}
 		sve = append(sve, letve...)
 	}
-	return sve, nil
+	return sve, errors.Join(neuredne...)
 }
+
+// tabliceHydroinfa su imena tablica za upozorenje o neurednim datumima.
+var tabliceHydroinfa = map[string]string{AdresaDunav: "dunavska tablica", AdresaDrava: "dravska tablica"}
 
 // NaseLetve preslikava njihove nazive u naše šifre postaja. Njihova tablica
 // pokriva i hrvatske letve, jer ih po međudržavnom dogovoru i prognoziraju,

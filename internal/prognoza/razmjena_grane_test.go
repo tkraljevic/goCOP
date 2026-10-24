@@ -1,7 +1,10 @@
 package prognoza
 
 import (
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -149,5 +152,91 @@ func TestCitajIUpisiTablicu(t *testing.T) {
 	defer tx.Rollback()
 	if err := upisiTablicu(tx, "izbor", izbor(), ""); err != nil {
 		t.Errorf("prazna tablica: %v", err)
+	}
+}
+
+// Najnovije izdanje zamijeni tuđa izdanja koja nosi, s ispravcima i
+// brisanjima izdavača; starije koje stigne kasno samo dopunjuje. Paket
+// bez ključnih stupaca ne briše ništa, a greška baze se javi.
+func TestPrimiTude(t *testing.T) {
+	n := func(v string) json.Number { return json.Number(v) }
+	tude := func(redci ...[]any) Tablica {
+		return Tablica{Stupci: []string{"izvor", "letva", "izdano", "ciljni", "vrijednost", "raspon"}, Redci: redci}
+	}
+	red := func(letva, ciljni, v string) []any {
+		return []any{"hidmet.gov.rs", letva, n("498010"), n(ciljni), n(v), n("0")}
+	}
+	stanje := func(db *sql.DB) map[string]int64 {
+		t.Helper()
+		r, err := db.Query(`SELECT letva, ciljni, vrijednost FROM tude`)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer r.Close()
+		out := map[string]int64{}
+		for r.Next() {
+			var l string
+			var c, v int64
+			if err := r.Scan(&l, &c, &v); err != nil {
+				t.Fatal(err)
+			}
+			out[fmt.Sprintf("%s %d", l, c)] = v
+		}
+		return out
+	}
+	paket := func(sat int64) PaketIzdanja { // satne vrijednosti nose isti sat izdanja
+		p := paketIzdanjaProbe(sat)
+		p.Izdane.Redci[0][2] = n(fmt.Sprint(sat))
+		return p
+	}
+	db := praznaBazaPrognoza(t)
+	stari := paket(498010)
+	stari.Tude = tude(red("bezdan", "498030", "-155"), red("bezdan", "498054", "-150"), red("varvarin", "498054", "400"))
+	if ok, err := PrimiIzdanje(db, "v1", stari); !ok || err != nil {
+		t.Fatalf("prvo izdanje: %v, %v", ok, err)
+	}
+	ispravljen := paket(498011)
+	ispravljen.Tude = tude(red("bezdan", "498030", "-160"), red("bezdan", "498078", "-150"), red("varvarin", "498030", "-210"))
+	if ok, err := PrimiIzdanje(db, "v2", ispravljen); !ok || err != nil {
+		t.Fatalf("ispravljeno izdanje: %v, %v", ok, err)
+	}
+	zelim := map[string]int64{"bezdan 498030": -160, "bezdan 498078": -150, "varvarin 498030": -210}
+	if got := stanje(db); !reflect.DeepEqual(got, zelim) {
+		t.Errorf("nakon ispravka %v, želim %v", got, zelim)
+	}
+	kasno := paket(498009)
+	kasno.Tude = stari.Tude
+	if ok, err := PrimiIzdanje(db, "v0", kasno); !ok || err != nil {
+		t.Fatalf("kasno izdanje: %v, %v", ok, err)
+	}
+	zelim["bezdan 498054"], zelim["varvarin 498054"] = -150, 400 // dopunjeno, ispravljeno ostaje
+	if got := stanje(db); !reflect.DeepEqual(got, zelim) {
+		t.Errorf("nakon kasnog %v, želim %v", got, zelim)
+	}
+
+	krivi := paket(498020)
+	krivi.Tude = tude(red("bezdan", "498030", "1"), []any{"kratak"})
+	if _, err := PrimiIzdanje(db, "v3", krivi); err == nil || !strings.Contains(err.Error(), "tuđe prognoze: redak s 1 vrijednosti") {
+		t.Errorf("kratak redak: %v", err)
+	}
+	if _, err := db.Exec(`CREATE TRIGGER ne BEFORE DELETE ON tude BEGIN SELECT RAISE(ABORT, 'ne'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrimiIzdanje(db, "v4", ispravljen); err == nil || !strings.Contains(err.Error(), "tuđe prognoze: ") {
+		t.Errorf("brisanje odbijeno: %v", err)
+	}
+	bezIzdanih := praznaBazaPrognoza(t)
+	if _, err := bezIzdanih.Exec(`DROP TABLE izdane`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := PrimiIzdanje(bezIzdanih, "v1", ispravljen); err == nil || !strings.Contains(err.Error(), "tuđe prognoze: ") {
+		t.Errorf("bez izdanih: %v", err)
+	}
+	zatvorena := praznaBazaPrognoza(t)
+	if err := zatvorena.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := primiTude(zatvorena, ispravljen); err == nil {
+		t.Error("zatvorena baza: bez greške")
 	}
 }

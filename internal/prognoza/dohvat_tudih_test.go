@@ -35,6 +35,11 @@ func posluziteljTablica(t *testing.T) *httptest.Server {
 		case "prazno":
 			_, _ = fmt.Fprint(w, "<html></html>")
 			return
+		case "neuredno", "obje":
+			if r.URL.RawQuery == "obje" || strings.HasSuffix(r.URL.Path, "/draelotH.html") {
+				_, _ = fmt.Fprint(w, strings.Replace(ispisDunava, "22.09. 07h", "21.09. 07h", 1))
+				return
+			}
 		}
 		if strings.HasSuffix(r.URL.Path, "/dunelotH.html") {
 			_, _ = fmt.Fprint(w, ispisDunava)
@@ -47,8 +52,9 @@ func posluziteljTablica(t *testing.T) *httptest.Server {
 }
 
 // Dohvati čita dunavsku pa dravsku tablicu s našim potpisom i vraća letve
-// obiju; odgovor koji nije 200, prekinut odgovor, stranica bez tablice i
-// nedostupan poslužitelj su greška koja kaže adresu.
+// obiju, i uz neuredne datume jedne od njih; odgovor koji nije 200,
+// prekinut odgovor, stranica bez tablice i nedostupan poslužitelj su greška
+// koja kaže adresu.
 func TestDohvatiHydroinfo(t *testing.T) {
 	srv := posluziteljTablica(t)
 	klijent, put := klijentPrema(t, srv, "")
@@ -77,6 +83,18 @@ func TestDohvatiHydroinfo(t *testing.T) {
 		if l, err := Dohvati(context.Background(), k); err == nil || !strings.Contains(err.Error(), s.greska) {
 			t.Errorf("%s: %v, letve %+v — želim grešku %q", s.upit, err, l, s.greska)
 		}
+	}
+	// Dravska tablica s ponovljenim danom: letve obiju tablica stižu uz
+	// neuredne datume.
+	k, _ := klijentPrema(t, srv, "neuredno")
+	l, err := Dohvati(context.Background(), k)
+	if nd := NeuredneIz(err); len(nd) != 1 || len(l) != 2 || nd[0].Urednih != 1 || nd[0].Tablica != "dravska tablica" {
+		t.Errorf("neuredno: %v, letve %+v", err, l)
+	}
+	k, _ = klijentPrema(t, srv, "obje")
+	l, err = Dohvati(context.Background(), k)
+	if nd := NeuredneIz(err); len(nd) != 2 || len(l) != 2 || nd[0].Tablica != "dunavska tablica" || nd[1].Tablica != "dravska tablica" {
+		t.Errorf("obje neuredne: %v, letve %+v", err, l)
 	}
 	srv.Close()
 	if _, err := Dohvati(context.Background(), klijent); err == nil {

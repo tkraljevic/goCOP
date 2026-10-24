@@ -50,6 +50,87 @@ func TestStranaPrognozaKojaSeNeDaZapisati(t *testing.T) {
 	}
 }
 
+// Tuđa prognoza s neurednim datumima: javi se u retku kruga, uredni početak
+// se zapiše, a baza prognoza pamti tablicu dok čitanje ne uspije uredno;
+// neuspjelo čitanje je ne briše.
+func TestStranaPrognozaNeuredniDatumi(t *testing.T) {
+	k, uvoznik := okolinaKruga(t, true)
+	dnevnikTesta(t)
+	izdano := time.Now().Truncate(time.Hour)
+	sutra := izdano.UTC().Add(24 * time.Hour)
+	neuredno := &prognoza.NeuredniDatumi{Izvor: prognoza.PodrijetloHidmet, Izdano: izdano, Urednih: 2, PrviJeMjerenje: true,
+		Datumi: []time.Time{izdano, sutra, sutra}}
+	var greska error = neuredno
+	iz := stranaPrognoza{korak: "srpska prognoza", postotak: 94, podrijetlo: prognoza.PodrijetloHidmet, sifra: prognoza.SifraSrpske,
+		dohvati: func(context.Context, *http.Client) ([]prognoza.Letva, error) {
+			if greska != nil && len(prognoza.NeuredneIz(greska)) == 0 {
+				return nil, greska
+			}
+			return []prognoza.Letva{{Naziv: "BEZDAN", Izdano: izdano, Dani: []prognoza.Dan{{Kad: sutra, Cm: 205}}}}, greska
+		}}
+	zapamceno := func() (n int) {
+		t.Helper()
+		if err := k.prognoze.QueryRow(`SELECT count(*) FROM tude_neuredne`).Scan(&n); err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	preuzmiStranuPrognozu(context.Background(), uvoznik, k.prognoze, iz)
+	redci := redciS(uvoznik.Napredak().Redci, prognoza.PodrijetloHidmet)
+	if len(redci) != 2 || redci[0] != prognoza.PodrijetloHidmet+": "+neuredno.Error() ||
+		redci[1] != prognoza.PodrijetloHidmet+": 1 letva, 1 nova vrijednost" {
+		t.Fatalf("redci: %q", redci)
+	}
+	if n := zapamceno(); n != 1 {
+		t.Fatalf("zapamćeno %d", n)
+	}
+
+	greska = errors.New("hidmet.gov.rs ne odgovara")
+	preuzmiStranuPrognozu(context.Background(), uvoznik, k.prognoze, iz)
+	if n := zapamceno(); n != 1 {
+		t.Errorf("nakon neuspjelog čitanja: %d", n)
+	}
+	greska = nil
+	preuzmiStranuPrognozu(context.Background(), uvoznik, k.prognoze, iz)
+	if n := zapamceno(); n != 0 {
+		t.Errorf("nakon urednog čitanja: %d", n)
+	}
+
+	// Zapis neuredne tablice koji ne uspije javi se u dnevniku, a tuđa
+	// prognoza ostaje zapisana.
+	if _, err := k.prognoze.Exec(`DROP TABLE tude_neuredne`); err != nil {
+		t.Fatal(err)
+	}
+	dnevnik := dnevnikTesta(t)
+	greska = neuredno
+	preuzmiStranuPrognozu(context.Background(), uvoznik, k.prognoze, iz)
+	if !strings.Contains(dnevnik.String(), prognoza.PodrijetloHidmet+": zapis neurednih datuma: ") {
+		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Postaja kojoj sati ne idu naprijed preskače se, a ostale postaje istog
+// izvora zapišu se i redak kruga kaže koliko.
+func TestStranaPrognozaPreskocenaPostaja(t *testing.T) {
+	k, uvoznik := okolinaKruga(t, true)
+	dnevnikTesta(t)
+	izdano := time.Now().Truncate(time.Hour)
+	sutra := izdano.UTC().Add(24 * time.Hour)
+	iz := stranaPrognoza{korak: "mađarska prognoza", postotak: 91, podrijetlo: prognoza.Podrijetlo, sifra: prognoza.Sifra,
+		dohvati: func(context.Context, *http.Client) ([]prognoza.Letva, error) {
+			return []prognoza.Letva{
+				{Naziv: "Osijek", Izdano: izdano, Dani: []prognoza.Dan{{Kad: sutra, Cm: 1}}},
+				{Naziv: "Aljmaš", Izdano: izdano, Dani: []prognoza.Dan{{Kad: sutra, Cm: 1}, {Kad: sutra, Cm: 2}}},
+			}, nil
+		}}
+	preuzmiStranuPrognozu(context.Background(), uvoznik, k.prognoze, iz)
+	redci := redciS(uvoznik.Napredak().Redci, prognoza.Podrijetlo)
+	if len(redci) != 2 || !strings.HasPrefix(redci[0], prognoza.Podrijetlo+": zapis: hydroinfo.hu aljmas: sat ") ||
+		redci[1] != prognoza.Podrijetlo+": 2 letve, 1 nova vrijednost" {
+		t.Errorf("redci: %q", redci)
+	}
+}
+
 // Oborine s Open-Meteo: greška registra javi se, prazan registar je nula
 // sati; bez oborinskih točaka izvor oborina za izračun ostaje kakav je bio
 func TestOborineUKrugu(t *testing.T) {

@@ -167,6 +167,11 @@ func TestTekstSvihVrsta(t *testing.T) {
 			"Izvan krivulje protoka (krivulja produljena preko svog ruba): vodostaj Četvrti Most; protok Donji Grad i Treće Selo od +12 h.", ""},
 		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaNapomena, Opis: "nešto novo na srednja"},
 			"Nešto novo na Srednji Brod.", ""},
+		{prognoza.Upozorenje{Vrsta: prognoza.VrstaTudaDatumi, Tezina: prognoza.TezinaUpozorenje,
+			Opis: "srpska prognoza (hidmet.gov.rs) od 10. 10.: datumi u tablici ne idu dan za danom (10. 10., 11. 10., 11. 10., 12. 10., 13. 10.); " +
+				"uz našu prognozu njihova stoji samo do 11. 10., jer se za ostale stupce ne zna kojem danu pripadaju"},
+			"Srpska prognoza (hidmet.gov.rs) od 10. 10.: datumi u tablici ne idu dan za danom (10. 10., 11. 10., 11. 10., 12. 10., 13. 10.); " +
+				"uz našu prognozu njihova stoji samo do 11. 10., jer se za ostale stupce ne zna kojem danu pripadaju.", ""},
 		// vrste koje ova inačica ne zna: izbačena „bez-tude” i nova bez letve
 		{prognoza.Upozorenje{Vrsta: "bez-tude", Tezina: prognoza.TezinaUpozorenje, Letva: "srednja", Upitno: jedan,
 			Opis: "mađarska prognoza (hydroinfo.hu) nije stigla, pa ga računa naš lanac, koji pri valu griješi više od nje"},

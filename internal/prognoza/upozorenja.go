@@ -30,6 +30,7 @@ const (
 	VrstaBezPrognoze    = "bez-prognoze"   // letva bez ijednog sata prognoze
 	VrstaCeka           = "ceka"           // sat izdavanja drži vrh lanca koji kasni
 	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
+	VrstaTudaDatumi     = "tuda-datumi"    // tuđa prognoza s neurednim datumima (NeuredniDatumi)
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -80,6 +81,7 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaOstalog(ishod)...)
 	u = append(u, upozorenjeKrivulje(ishod.Izdane, ishod.Sada)...)
 	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
+	u = append(u, ishod.NeuredneTude...)
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
 		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))

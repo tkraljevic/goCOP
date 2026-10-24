@@ -9,6 +9,7 @@ package main
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -57,19 +58,31 @@ func stranePrognoze() []stranaPrognoza {
 	}
 }
 
-// preuzmiStranuPrognozu dohvati jednu tuđu prognozu i zapiše što je novo
+// preuzmiStranuPrognozu dohvati jednu tuđu prognozu i zapiše što je novo.
+// Tablica s neurednim datumima zapiše se do prvog neurednog, a baza
+// prognoza to pamti za upozorenje izdanja dok tablica ne bude ispravljena.
 func preuzmiStranuPrognozu(ctx context.Context, uvoznik *javnivodostaji.Uvoznik, pb *sql.DB, iz stranaPrognoza) {
 	letve, err := iz.dohvati(ctx, nil)
-	if err != nil {
+	neuredne := prognoza.NeuredneIz(err)
+	if err != nil && len(neuredne) == 0 {
 		log.Printf("%s: %v", iz.podrijetlo, err)
 		uvoznik.Redak("%s: %v", iz.podrijetlo, err)
 		return
 	}
-	n, err := prognoza.SpremiTude(pb, iz.podrijetlo, letve, iz.sifra)
-	if err != nil {
-		log.Printf("%s: zapis: %v", iz.podrijetlo, err)
-		uvoznik.Redak("%s: zapis: %v", iz.podrijetlo, err)
-		return
+	for _, nd := range neuredne {
+		log.Printf("%s: %v", iz.podrijetlo, nd)
+		uvoznik.Redak("%s: %v", iz.podrijetlo, nd)
+	}
+	n, greska := prognoza.SpremiTude(pb, iz.podrijetlo, letve, iz.sifra)
+	if greska != nil {
+		log.Printf("%s: zapis: %v", iz.podrijetlo, greska)
+		uvoznik.Redak("%s: zapis: %v", iz.podrijetlo, greska)
+		if !errors.As(greska, new(*prognoza.PreskocenePostaje)) {
+			return // ništa nije zapisano
+		}
+	}
+	if greska := prognoza.ZapamtiNeuredne(pb, iz.podrijetlo, err); greska != nil {
+		log.Printf("%s: zapis neurednih datuma: %v", iz.podrijetlo, greska)
 	}
 	if n > 0 {
 		log.Printf("%s: zapisano %d novih vrijednosti", iz.podrijetlo, n)
