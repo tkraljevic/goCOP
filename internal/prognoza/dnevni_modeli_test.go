@@ -308,7 +308,7 @@ func TestBezDnevneNeImenujeLetvuKojuRacunaRezerva(t *testing.T) {
 	zadnji := time.Now().UTC().Truncate(time.Hour)
 	o := &Osvjezivac{Ocitanja: probneOcitanja(t, 120, zadnji), Arhiva: arhiva}
 
-	dnevne, _, bez, izbor, _ := o.dnevno(context.Background(), zadnji.Unix()/3600, zadnji.Add(-10*24*time.Hour))
+	dnevne, _, bez, izbor, _, _ := o.dnevno(context.Background(), zadnji.Unix()/3600, zadnji.Add(-10*24*time.Hour))
 	if err, ima := bez["gornja"]; ima {
 		t.Errorf("gornju računa rezerva, a stoji u BezDnevne: %v", err)
 	}

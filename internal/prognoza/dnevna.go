@@ -34,10 +34,15 @@ import (
 
 // ModelDnevni je oznaka pod kojom se dnevna prognoza zapisuje; ModelDnevniKisa
 // kad je računata s kišom (palom i prognoziranom), da se u svakom izdanju i
-// izvozu vidi s čime je vrijednost dobivena.
+// izvozu vidi s čime je vrijednost dobivena. Nastavak „-uzv” znači da je
+// računata s uzvodnim ispravkom (UzvodniIspravak), da se izdanja s njim i
+// bez njega mogu uspoređivati. Program oznaku nigdje ne tumači, nego je samo
+// zapisuje i prenosi, pa je i stariji čvorovi primaju bez promjene u prikazu.
 const (
-	ModelDnevni     = "dnevni-1"
-	ModelDnevniKisa = "dnevni-1-kisa"
+	ModelDnevni        = "dnevni-1"
+	ModelDnevniKisa    = "dnevni-1-kisa"
+	ModelDnevniUzv     = "dnevni-1-uzv"
+	ModelDnevniKisaUzv = "dnevni-1-kisa-uzv"
 )
 
 // DnevniDosezi je koliko se dana unaprijed prognozira.
@@ -1085,6 +1090,9 @@ type DnevnaIzdana struct {
 	Q, QDolje, QGore float64
 	ImaQ             bool
 	Model            string
+	// uzvodno je koliko je uzvodni ispravak pomaknuo vrijednost (cm), za
+	// napomenu uz izdanje; ne zapisuje se.
+	uzvodno float64
 }
 
 // Raspon je polovina širine raspona.
@@ -1253,7 +1261,9 @@ func redFali(f string) int {
 
 // PrognozirajDnevno izdaje dnevnu prognozu cilja iz satnih nizova uživo.
 // oborine su dnevni zbrojevi međuslivova unatrag i unaprijed (OborineOkoSada); bez njih
-// inačica s oborinom javlja što joj fali.
+// inačica s oborinom javlja što joj fali. Cilj s uzvodnim ispravkom pomiče
+// se za UzvodniIspravak kad satni nizovi nose uzvodne letve; bez njih je
+// račun isti kao bez ispravka.
 func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]DnevniNiz, sada int64) ([]DnevnaIzdana, error) {
 	dnevni := map[string]DnevniNiz{}
 	for _, l := range m.Cilj.letve() {
@@ -1279,18 +1289,16 @@ func PrognozirajDnevno(m *DnevniModel, satni map[string]Niz, oborine map[string]
 		return nil, &NepotpuniDani{Letva: m.Cilj.Letva, Fali: fali, Rupe: rupe}
 	}
 	promjena, raspon := m.Prognoziraj(x)
+	pomak, skup := UzvodniIspravak(m.Cilj.Letva, satni, sada, x[2])
 	sad := x[1]
-	model := ModelDnevni
-	if len(m.Cilj.Slivovi) > 0 {
-		model = ModelDnevniKisa
-	}
+	model := oznakaDnevnog(len(m.Cilj.Slivovi) > 0, skup)
 	out := []DnevnaIzdana{{Letva: m.Cilj.Letva, Izdano: sada, Dan: 0, Ciljni: sada,
 		Vrijednost: sad, Dolje: sad, Gore: sad, Model: model}}
 	for k := 1; k <= DnevniDosezi; k++ {
-		v := sad + promjena[k]
+		v := sad + promjena[k] + pomak[k]
 		out = append(out, DnevnaIzdana{Letva: m.Cilj.Letva, Izdano: sada, Dan: k,
 			Ciljni: sada + int64(24*k), Vrijednost: v, Dolje: v - raspon[k], Gore: v + raspon[k],
-			Model: model})
+			Model: model, uzvodno: pomak[k]})
 	}
 	return out, nil
 }

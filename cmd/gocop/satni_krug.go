@@ -333,9 +333,9 @@ func javiIzdanje(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
 }
 
 // javiUpozorenja upisuje u dnevnik kruga dnevne ciljeve koji u izdanju
-// nemaju dnevnu prognozu, s razlogom, i otvorena upozorenja izdanja.
-// Cilj kojem je glavni model pao, a rezerva računala, ovdje se ne javlja:
-// dnevnu ima.
+// nemaju dnevnu prognozu, s razlogom, i otvorena upozorenja izdanja (vidi
+// vrstaRetka). Cilj kojem je glavni model pao, a rezerva računala, ovdje se
+// ne javlja: dnevnu ima.
 func javiUpozorenja(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
 	ima := map[string]bool{}
 	for _, d := range ishod.Dnevne {
@@ -354,10 +354,25 @@ func javiUpozorenja(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
 		uvoznik.Redak("bez dnevne prognoze %s: %s", letva, zasto)
 	}
 	for _, u := range ishod.Upozorenja {
-		if u.Tezina < prognoza.TezinaUpozorenje {
+		vrsta := vrstaRetka(u)
+		if vrsta == "" {
 			continue
 		}
-		log.Printf("prognoza: upozorenje: %s", u)
-		uvoznik.Redak("upozorenje: %s", u)
+		log.Printf("prognoza: %s: %s", vrsta, u)
+		uvoznik.Redak("%s: %s", vrsta, u)
 	}
+}
+
+// vrstaRetka kaže kako upozorenje izdanja ide u dnevnik kruga: otvoreno kao
+// upozorenje, a od napomena samo one uzvodnog ispravka, da se i iz dnevnika
+// vidi kad je dnevna prognoza Dunava računata bez uzvodne letve ili ju je
+// ispravak digao; prazno za ostale napomene.
+func vrstaRetka(u prognoza.Upozorenje) string {
+	switch {
+	case u.Tezina >= prognoza.TezinaUpozorenje:
+		return "upozorenje"
+	case u.Vrsta == prognoza.VrstaUzvodno:
+		return "napomena"
+	}
+	return ""
 }

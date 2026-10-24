@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -31,6 +32,8 @@ func TestOpisMetodeCitaBrojkeIzRacuna(t *testing.T) {
 		"[0, " + tekstBroja(prognoza.NajveciPomak) + "] h",
 		"68. percentil", "u 32 % stvarna vrijednost", "70 %",
 		"linearni spline", "najbližih susjeda", "Q–H",
+		"ne diže je više od " + brojHRf(prognoza.UzvodnoNajvise, 0) + " cm",
+		"za više od " + brojHRf(prognoza.UzvodnoNapomena, 0) + " cm",
 	} {
 		if !strings.Contains(tekst, want) {
 			t.Errorf("opis metode nema %q", want)
@@ -56,12 +59,25 @@ func TestLetveMetodeOpisujuUlaze(t *testing.T) {
 	promasaji := map[prognoza.Izvor]map[int]prognoza.Promasaj{
 		{Letva: "donja", Velicina: "vodostaj"}: {24: {Rasap: 6.4}, 48: {Rasap: 11.2}},
 		{Letva: "donja", Velicina: "protok"}:   {24: {Rasap: 90}, 48: {Rasap: 140}, 72: {Rasap: 200}}}
+	// Postaja u protoku ima raspon u m³/s; Batina samo dnevni model, s
+	// letvama uzvodnog ispravka na kraju ulaza.
+	pojasi["protocna"] = []prognoza.Pojas{{Letva: "protocna", Velicina: "protok", R: 0.95, Ulazi: []prognoza.Ulaz{
+		{Letva: "gornja", Velicina: "protok", PomakH: 3, Sirina: 1}}}}
+	promasaji[prognoza.Izvor{Letva: "protocna", Velicina: "protok"}] = map[int]prognoza.Promasaj{24: {Rasap: 12.4}}
 	tablice := []TablicaPrognoza{{Naslov: "Rijeka", Letve: []LetvaPrognoze{
-		{Kod: "gornja", Naziv: "Gornja"}, {Kod: "donja", Naziv: "Donja", Voda: "Rijeka"}}}}
+		{Kod: "gornja", Naziv: "Gornja"}, {Kod: "donja", Naziv: "Donja", Voda: "Rijeka"},
+		{Kod: "batina", Naziv: "Batina"}, {Kod: "protocna", Naziv: "Protočna"}}}}
 
 	l := letveMetode(tablice, postaje, pojasi, promasaji)
-	if len(l) != 1 {
-		t.Fatalf("u tablici %d postaja, a računa se samo jedna", len(l))
+	if len(l) != 3 {
+		t.Fatalf("u tablici %d postaja, a računaju se tri", len(l))
+	}
+	if b := l[1]; b.Naziv != "Batina" || len(b.Satni) != 0 || !slices.Equal(b.Dnevni,
+		[]string{"komarom", "budapest", "mohacs", "ispravak: wildungsmauer i achleiten"}) {
+		t.Errorf("Batina: %+v", b)
+	}
+	if p := l[2]; p.Racuna != "protok" || p.Raspon != "±12 / — / — m³/s" || p.Dnevni != nil {
+		t.Errorf("postaja u protoku: %+v", p)
 	}
 	d := l[0]
 	if len(d.Satni) != 2 || d.Satni[0] != "Gornja · protok · 12–20 h · prozor 5 h" || d.Satni[1] != "Pritok · vodostaj · 6 h" {
@@ -72,6 +88,22 @@ func TestLetveMetodeOpisujuUlaze(t *testing.T) {
 	}
 	if d.Slaganje != "0,981–0,993" {
 		t.Errorf("R: %q", d.Slaganje)
+	}
+}
+
+// Ulazi dnevnog modela u tablici postaja: postaja s uzvodnim ispravkom na
+// kraju navodi i letve ispravka, ostale samo svoje ulaze.
+func TestUlaziDnevnogSIspravkom(t *testing.T) {
+	ime := func(kod string) string { return strings.ToUpper(kod[:1]) + kod[1:] }
+	if got := ulaziDnevnog("batina", []string{"komarom", "mohacs"}, ime); !slices.Equal(got,
+		[]string{"Komarom", "Mohacs", "ispravak: Wildungsmauer i Achleiten"}) {
+		t.Errorf("Batina: %q", got)
+	}
+	if got := ulaziDnevnog("osijek", []string{"belisce"}, ime); !slices.Equal(got, []string{"Belisce"}) {
+		t.Errorf("Osijek: %q", got)
+	}
+	if got := ulaziDnevnog("komarom", nil, ime); got != nil {
+		t.Errorf("Komárom bez ulaza: %q", got)
 	}
 }
 
