@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 	"time"
@@ -19,10 +20,16 @@ type SyncHandler struct {
 	// dohvatljivost je blok Dohvatljivost (provjera_veze.go); čita stanje
 	// poslužitelja u trenutku zahtjeva
 	dohvatljivost func() *DohvatljivostPrikaz
+	// mjeriMrezu je mjerenje mreže ovog računala uz provjeru veze s
+	// računalom (provjera_racunala.go); nil: ne mjeri se
+	mjeriMrezu func(context.Context) *ProvjeraVeze
+	// provjeriVezuS je peers.ProvjeriVezuS; test zadaje svoj ishod
+	provjeriVezuS func(context.Context, string) (peers.ProvjeraRacunala, error)
+	provjera      zadnjaSRacunalom
 }
 
 func NewSyncHandler(peersSvc *peers.Service, tmpl *template.Template) *SyncHandler {
-	return &SyncHandler{peers: peersSvc, tmpl: tmpl}
+	return &SyncHandler{peers: peersSvc, tmpl: tmpl, provjeriVezuS: peersSvc.ProvjeriVezuS}
 }
 
 type SyncPageData struct {
@@ -38,6 +45,8 @@ type SyncPageData struct {
 	OdbijenoGreska string
 	// Dohvatljivost je mreža ovog računala za WEB sync, samo za administratora
 	Dohvatljivost *DohvatljivostPrikaz
+	// ProvjeraRacunala je provjera veze s računalom, samo za administratora
+	ProvjeraRacunala *ProvjeraRacunalaPrikaz
 	ViewAsBanner
 }
 
@@ -57,6 +66,7 @@ func (h *SyncHandler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	data.Status = st
 	h.dodajOdbijeno(r.Context(), perms, &data)
 	h.dodajDohvatljivost(perms, &data)
+	h.dodajProvjeruRacunala(r, &data)
 	if err := h.tmpl.ExecuteTemplate(w, "sinkronizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

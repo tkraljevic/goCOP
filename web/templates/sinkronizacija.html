@@ -58,6 +58,31 @@
 </section>
 {{end}}
 
+{{with .ProvjeraRacunala}}
+<section id="provjera-racunala">
+<h2 class="mt-4" style="font-size:1rem;">Provjera veze s računalom</h2>
+<p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu. Traje do 10 sekundi.</p>
+{{if .Racunala}}
+{{if .Nudi}}<form method="POST" action="/sinkronizacija/provjeri-vezu" class="actions">
+  <select name="cvor" aria-label="Računalo">{{range .Racunala}}<option value="{{.NodeID}}"{{if eq .NodeID $.ProvjeraRacunala.Odabrano}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
+  <button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu s računalom</button>
+</form>
+{{else}}<p class="muted">{{.Zabrana}}</p>{{end}}
+{{else}}<p class="muted">Ovo računalo još ne zna nijedno drugo računalo.</p>{{end}}
+{{with .Zadnja}}
+<p>Zadnja provjera: {{.Racunalo.Naziv}}, {{vrijemeHR .Racunalo.Kad}}.{{with .Mreza}} Ovo računalo: {{.Sazetak}}{{end}}</p>
+{{if $.ProvjeraRacunala.Retci}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table" id="provjera-adresa">
+    <thead><tr><th>Adresa</th><th>Odakle</th><th>Put</th><th>Ishod</th></tr></thead>
+    <tbody>{{range $.ProvjeraRacunala.Retci}}<tr><td class="mono">{{.Adresa}}</td><td>{{.Izvor}}</td><td>{{.Put}}</td><td>{{if .Prosla}}<span class="badge badge-active">{{.Ishod}}</span>{{else}}{{.Ishod}}{{with .Greska}}<div class="muted mono">{{.}}</div>{{end}}{{end}}</td></tr>{{end}}</tbody>
+  </table>
+</div></div>
+{{else}}<p class="muted">Za to računalo ovo ne zna nijednu adresu: ni iz zapisa, ni iz lokalne mreže, ni naučenu.</p>{{end}}
+{{end}}
+</section>
+{{end}}
+
 {{if .Permissions.IsGlobalAdmin}}
 <h2 class="mt-4" style="font-size:1rem;">Odbijeno i djelomično razumljeno, zadnjih 7 dana</h2>
 <p class="muted">Bez adresa i bez sadržaja zapisa. Ponešto odbijenih pokušaja na vratima je uobičajeno, osobito kroz tunel, gdje se javlja bilo tko s interneta. Stanje u trenutku otvaranja stranice.</p>

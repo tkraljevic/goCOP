@@ -1443,7 +1443,9 @@ func (s *Server) setupRoutes() {
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
 	syncH.dohvatljivost = s.dohvatljivost
+	syncH.mjeriMrezu = s.mjeriMrezu
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
+	s.mux.Handle("POST /sinkronizacija/provjeri-vezu", s.samoAdmin(http.HandlerFunc(syncH.handleProvjeriRacunalo)))
 	s.mux.Handle("GET /api/sync/status", s.authMiddleware(http.HandlerFunc(syncH.HandleStatus)))
 	s.mux.Handle("POST /api/sync/all", s.authMiddleware(http.HandlerFunc(syncH.HandleSyncAll)))
 

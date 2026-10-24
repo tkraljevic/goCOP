@@ -166,19 +166,29 @@ const rokVanjske = 15 * time.Second
 // ctx dopusti (peers zove s 20 s). Bez roka poziv na poslužitelj koji šuti
 // visi zauvijek.
 func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
-	baza, err := NormalizirajTunel(adresa)
+	nc, baza, err := k.uTunel(ctx, adresa)
 	if err != nil {
 		return nil, err
-	}
-	nc, err := k.otvoriWebSocket(ctx, baza, PutTunela)
-	if err != nil {
-		return nil, porukaTunela(baza, err)
 	}
 	conn, err := DialExchangeOn(ctx, nc, priv, protocol, vj, baza, expect)
 	if err != nil {
 		return nil, porukaTunela(baza, err)
 	}
 	return conn, nil
+}
+
+// uTunel otvara WebSocket na putu tunela i vraća ga s adresom tunela
+// svedenom na https://domena[:port]; greška nosi tu adresu
+func (k *KlijentTunela) uTunel(ctx context.Context, adresa string) (net.Conn, string, error) {
+	baza, err := NormalizirajTunel(adresa)
+	if err != nil {
+		return nil, "", err
+	}
+	nc, err := k.otvoriWebSocket(ctx, baza, PutTunela)
+	if err != nil {
+		return nil, "", porukaTunela(baza, err)
+	}
+	return nc, baza, nil
 }
 
 // porukaTunela: kriv ključ kroz tunel javlja se rečenicom koju korisnik već

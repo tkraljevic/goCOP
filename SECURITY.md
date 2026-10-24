@@ -205,6 +205,11 @@ nepouzdano.
   lažnu adresu, a tko nije, morao bi pogoditi 96-bitni ID upita. Zato se
   popis poslužitelja mijenja samo u `gocop.toml`. Lažna adresa mijenja samo
   ishod provjere, a ne povjerenje među čvorovima.
+- Provjera veze s računalom (gumb na stranici Sinkronizacija, samo
+  administrator, lokalno) zove poznate adrese drugog računala i stane čim
+  ono dokaže ključ, prije nego ovo pošalje svoj certifikat i potvrdu
+  članstva. Na adresi gdje se javi netko drugi zato ne ostaje ništa o ovom
+  računalu, kao ni kod razmjene (provjera ključa usred rukovanja).
 - Sastajalište za WEB sync (`/razmjena/signal`, WebSocket) odgovara samo
   na čvoru s `[povezivost] posluzi_sastajaliste = true` i
   `web_sync_prijava = true`, a inače vraća 404. Dok prijave kod

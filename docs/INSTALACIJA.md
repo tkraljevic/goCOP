@@ -163,6 +163,15 @@ administrator. Spremnik u mostu treba `lan_adresa`: dok je nema, na to
 upozorava blok nakon provjere, a pločica razmjene uz uključenu prijavu za
 WEB sync. Spremnik s mrežom računala (host) adresu nađe sam.
 
+Na istoj stranici gumb *Provjeri vezu s računalom* za izabrano računalo
+nazove svaku adresu koju ovo zna (lokalna mreža, zapis računala, naučene,
+dolazne, Tailscale, tunel) i za svaku kaže ishod, put i razlog. Na adresi
+stane čim se računalo javi svojim ključem: ovo računalo ne pošalje svoj
+certifikat, pa se podaci ne razmjenjuju, a drugo računalo to u bloku
+*Odbijeno* broji kao rukovanje koje nije završilo. Usput izmjeri i mrežu
+ovog računala. Gumb radi kao *Provjeri vezu*: samo administrator, s tog
+računala ili iz lokalne mreže.
+
 Da bi se dva računala našla preko interneta, WEB sync se prijavljuje kod
 sastajališta, stalnog čvora koji je dostupan s interneta. Na ostalim
 računalima upisuje se `[povezivost] sastajaliste = 'https://cop.primjer.hr'`
