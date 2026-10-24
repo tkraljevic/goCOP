@@ -38,7 +38,8 @@ func TestObnoviUDP(t *testing.T) {
 		t.Errorf("zauzet port: %v, %v", upozorenje, err)
 	}
 	otvoriUDP = func(int) (net.PacketConn, error) { return nil, errors.New("nema mreže") }
-	if _, _, err := ObnoviUDP(treca); err == nil { // uz grešku nema ni utičnice ni upozorenja
+	_, _, err = ObnoviUDP(treca) // uz grešku nema ni utičnice ni upozorenja
+	if err == nil {
 		t.Error("utičnica bez mreže")
 	}
 }

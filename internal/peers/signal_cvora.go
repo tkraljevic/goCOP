@@ -39,6 +39,9 @@ func (s *Service) KlijentSignala(adresa, cvor string, javi func(string, ...any))
 // dobije prvom razmjenom); greška baze ostaje prolazna.
 func (s *Service) kljucSastajalista(ctx context.Context, cvor string) (ed25519.PublicKey, error) {
 	k, err := s.kljucClana(ctx, cvor)
+	if err != nil && ctx.Err() != nil {
+		return nil, ctx.Err() // prekinut pokušaj nije nepoznat čvor
+	}
 	if errors.Is(err, errNijeClan) {
 		return nil, fmt.Errorf("%w: %s", razmjena.ErrNepoznatCvorSastajalista, cvor)
 	}

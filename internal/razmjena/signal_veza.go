@@ -106,9 +106,14 @@ type vezaSignala struct {
 
 // posalji zapiše poruku vrste s tijelom
 func (v *vezaSignala) posalji(vrsta string, tijelo any) error {
+	return v.pisi(okvirSignala(vrsta, tijelo))
+}
+
+// okvirSignala je zapis poruke vrste s tijelom
+func okvirSignala(vrsta string, tijelo any) []byte {
 	b, _ := json.Marshal(tijelo)                                     // tijela su strukture i brojevi, koji se uvijek daju zapisati
 	okvir, _ := json.Marshal(porukaSignala{Vrsta: vrsta, Tijelo: b}) // RawMessage je već ispravan JSON
-	return v.pisi(okvir)
+	return okvir
 }
 
 // proslijedi zapiše poruku s tijelom kakvo je stiglo, bajt po bajt
@@ -120,6 +125,11 @@ func (v *vezaSignala) proslijedi(p porukaSignala) error {
 func (v *vezaSignala) pisi(okvir []byte) error {
 	v.pisanje.Lock()
 	defer v.pisanje.Unlock()
+	return v.pisiBezBrave(okvir)
+}
+
+// pisiBezBrave piše okvir kad pozivatelj već drži bravu pisanja
+func (v *vezaSignala) pisiBezBrave(okvir []byte) error {
 	_ = v.c.SetWriteDeadline(time.Now().Add(rokPisanjaSignala)) // na zatvorenoj vezi padne i pisanje
 	return PisiOkvir(v.c, okvir)
 }

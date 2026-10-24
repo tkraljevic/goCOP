@@ -56,7 +56,7 @@ func novoSastajalisteUMemoriji(t *testing.T) *sastajalisteUMemoriji {
 	mux := http.NewServeMux()
 	h := r.Handler()
 	mux.Handle("GET "+PutSignala, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		klijent, _, _ := net.SplitHostPort(req.RemoteAddr)
+		klijent, _, _ := net.SplitHostPort(req.RemoteAddr) // mrezatest daje adresu s portom
 		h.ServeHTTP(w, req.WithContext(SKlijentom(req.Context(), klijent)))
 	}))
 	s, err := su.m.Slusaj("cop.primjer.hr:443")
@@ -64,7 +64,7 @@ func novoSastajalisteUMemoriji(t *testing.T) *sastajalisteUMemoriji {
 	srv := &http.Server{Handler: mux, ErrorLog: log.New(io.Discard, "", 0)}
 	t.Cleanup(func() { r.Zatvori(); srv.Close() })
 	go func() {
-		_ = srv.Serve(tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}))
+		_ = srv.Serve(tls.NewListener(s, &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13})) // staje sa srv.Close na kraju testa
 	}()
 	return su
 }
@@ -545,7 +545,7 @@ func TestSignalRukovanjaKlijenta(t *testing.T) {
 		}
 		synctest.Wait()
 		zatvorena := func(nc net.Conn) bool {
-			_ = nc.SetReadDeadline(time.Now().Add(100 * time.Millisecond))
+			_ = nc.SetReadDeadline(time.Now().Add(100 * time.Millisecond)) // na zatvorenoj vezi ionako padne čitanje
 			_, err := nc.Read(make([]byte, 1))
 			return errors.Is(err, io.EOF)
 		}

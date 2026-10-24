@@ -4,6 +4,7 @@ package peers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -192,10 +193,29 @@ func TestClanstvoNakonPovrsine(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := s.primijeni(ctxRub, verzije); err != nil {
+	_, _, err = s.primijeni(ctxRub, verzije) // broj primijenjenih i greška površine ne gledaju se
+	if err != nil {
 		t.Fatal(err)
 	}
 	if len(redoslijed) != 2 || redoslijed[0] != "površina" || redoslijed[1] != "provjera" {
 		t.Errorf("redoslijed: %v", redoslijed)
+	}
+}
+
+// Prekinut pokušaj nije nepoznat čvor: greška je prekid, pa stanje ostaje
+// prolazno
+func TestKljucSastajalistaPrekinut(t *testing.T) {
+	c := clanovi(t, "laptop-baranja", "cop-osijek")
+	laptop := c[0]
+	ctx, otkazi := context.WithCancel(ctxRub)
+	otkazi()
+	if _, err := laptop.kljucSastajalista(ctx, "cop-osijek"); !errors.Is(err, context.Canceled) || errors.Is(err, razmjena.ErrNepoznatCvorSastajalista) {
+		t.Errorf("prekinut pokušaj: %v", err)
+	}
+	if k, err := laptop.kljucSastajalista(ctxRub, "cop-osijek"); err != nil || k == nil {
+		t.Errorf("poznat čvor: %v", err)
+	}
+	if _, err := laptop.kljucSastajalista(ctxRub, "nepoznat"); !errors.Is(err, razmjena.ErrNepoznatCvorSastajalista) {
+		t.Errorf("nepoznat čvor: %v", err)
 	}
 }

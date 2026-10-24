@@ -8,7 +8,9 @@ import (
 	"errors"
 	"io"
 	"net"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -81,13 +83,13 @@ func TestSesijeNakonPregleda(t *testing.T) {
 		}
 		prva := pozovi(zaB)
 		pozovi(zaB)
-		<-kodB
-		<-kodB
+		primi(t, kodB, "prvi poziv kod B")
+		primi(t, kodB, "drugi poziv kod B")
 		// A sam „odgovara” na svoj poziv: sesija ostaje
 		bezGreske(t, a.Posalji(Potpisi(kljucA, protokolSignala, VrstaOdziv, TijeloPoruke{Sesija: prva, Za: zaB, Sastajaliste: javniR})))
-		<-kodB
+		primi(t, kodB, "odziv pozivatelja kod B")
 		pozovi(zaB)
-		if r := <-nema; r != NemaPreviseSesija {
+		if r := primi(t, nema, "nema za A"); r != NemaPreviseSesija {
 			t.Errorf("odziv pozivatelja zatvorio je sesiju: %q", r)
 		}
 
@@ -95,26 +97,28 @@ func TestSesijeNakonPregleda(t *testing.T) {
 		nepoznat := PublicKeyString(newKey(t).Public().(ed25519.PublicKey))
 		for range 3 {
 			pozovi(nepoznat)
-			if r := <-nema; r != NemaNijePrijavljen {
+			if r := primi(t, nema, "nema za nepoznatog"); r != NemaNijePrijavljen {
 				t.Errorf("neisporučen poziv: %q", r)
 			}
 		}
 		bezGreske(t, a.Posalji(Potpisi(kljucA, protokolSignala, VrstaOdziv, TijeloPoruke{Sesija: NovaSesija(), Za: nepoznat, Sastajaliste: javniR})))
-		if r := <-nema; r != NemaNijePrijavljen {
+		if r := primi(t, nema, "nema za odziv"); r != NemaNijePrijavljen {
 			t.Errorf("neisporučen odziv: %q", r)
 		}
 
 		time.Sleep(time.Minute)
 		s1 := pozovi(javniR)
 		pozovi(javniR)
-		<-su.naR
-		<-su.naR
+		primi(t, su.naR, "prvi poziv kod R")
+		primi(t, su.naR, "drugi poziv kod R")
 		bezGreske(t, su.r.Posalji(Potpisi(su.kljucR, protokolSignala, VrstaOdziv, TijeloPoruke{Sesija: s1, Za: zaA, Sastajaliste: javniR})))
 		pozovi(javniR)
 		select {
 		case <-su.naR:
 		case r := <-nema:
 			t.Errorf("odziv sastajališta nije zatvorio sesiju: %q", r)
+		case <-time.After(time.Minute):
+			t.Error("treći poziv sastajalištu nije stigao")
 		}
 	})
 }
@@ -145,6 +149,13 @@ func TestZamjenaPrijave(t *testing.T) {
 	}
 	delete(s.prijavljeni, "k")
 	vjeruje = true
+	for i := range najvisePrijavljenih {
+		s.prijavljeni["r"+strconv.Itoa(i)] = veza("z")
+	}
+	if err := s.zamijeni(nova, provjerena); !errors.Is(err, errPunRegistar) {
+		t.Errorf("puni registar: %v", err)
+	}
+	s.prijavljeni = map[string]*prijavljeni{}
 	if err := s.zamijeni(nova, provjerena); err != nil || s.prijavljeni["k"] != nova {
 		t.Errorf("prazno mjesto: %v", err)
 	}
@@ -222,7 +233,7 @@ func TestPonovnoSpojiPrekidaPokusaj(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		a, b := net.Pipe()
 		t.Cleanup(func() { a.Close(); b.Close() })
-		go func() { _, _ = io.Copy(io.Discard, b) }() // cijev se zatvara s testom
+		go func() { _, _ = io.Copy(io.Discard, b) }() //nolint:errcheck // cijev se zatvara s testom
 		pokusaja := 0
 		k := &KlijentSignala{Kljuc: func(ctx context.Context) (ed25519.PublicKey, error) {
 			pokusaja++
@@ -242,3 +253,154 @@ func TestPonovnoSpojiPrekidaPokusaj(t *testing.T) {
 		<-gotovo
 	})
 }
+
+// primi čeka poruku na kanalu najviše minutu (u mjehuru vrijeme ne košta),
+// da test padne umjesto da visi
+func primi[T any](t *testing.T, ch <-chan T, opis string) T {
+	t.Helper()
+	select {
+	case v := <-ch:
+		return v
+	case <-time.After(time.Minute):
+		t.Fatalf("%s: nije stiglo za minutu", opis)
+	}
+	var nula T
+	return nula
+}
+
+// Odziv trećeg računala ne zatvara tuđu sesiju
+func TestOdzivTrecegNeZatvaraSesiju(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		su := novoSastajalisteUMemoriji(t)
+		kljucA, kljucB, kljucC := newKey(t), newKey(t), newKey(t)
+		su.clan("laptop", kljucA)
+		su.clan("ured", kljucB)
+		su.clan("treci", kljucC)
+		a, b, c := su.klijent(kljucA), su.klijent(kljucB), su.klijent(kljucC)
+		nema := make(chan string, 8)
+		a.NaNemu = func(_, razlog string) { nema <- razlog }
+		kodA, kodB := make(chan PotpisanaPoruka, 8), make(chan PotpisanaPoruka, 8)
+		a.NaPoruku = func(p PotpisanaPoruka) { kodA <- p }
+		b.NaPoruku = func(p PotpisanaPoruka) { kodB <- p }
+		for _, k := range []*KlijentSignala{a, b, c} {
+			pokreni(t, k)
+			cekajStanje(t, k, "prijavljen", prijavljen)
+		}
+		javniR := PublicKeyString(su.kljucR.Public().(ed25519.PublicKey))
+		zaA, zaB := PublicKeyString(kljucA.Public().(ed25519.PublicKey)), PublicKeyString(kljucB.Public().(ed25519.PublicKey))
+		pozovi := func() string {
+			s := NovaSesija()
+			bezGreske(t, a.Posalji(Potpisi(kljucA, protokolSignala, VrstaPoziv, TijeloPoruke{Sesija: s, Za: zaB, Sastajaliste: javniR})))
+			return s
+		}
+		prva := pozovi()
+		pozovi()
+		primi(t, kodB, "prvi poziv kod B")
+		primi(t, kodB, "drugi poziv kod B")
+		bezGreske(t, c.Posalji(Potpisi(kljucC, protokolSignala, VrstaOdziv, TijeloPoruke{Sesija: prva, Za: zaA, Sastajaliste: javniR})))
+		primi(t, kodA, "odziv trećeg kod A")
+		pozovi()
+		if r := primi(t, nema, "nema za A"); r != NemaPreviseSesija {
+			t.Errorf("odziv trećeg zatvorio je sesiju: %q", r)
+		}
+	})
+}
+
+// Opoziv ne čeka da odbijenica stigne do računala koje ne čita: veza se
+// zatvara u pozadini
+func TestProvjeriSveNeCeka(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		a, b := net.Pipe() // nitko ne čita b, pa bi pisanje čekalo rok od 10 s
+		defer b.Close()
+		s := &Sastajaliste{prijavljeni: map[string]*prijavljeni{}, vjeruje: func(ed25519.PublicKey, []byte) bool { return false }}
+		s.prijavljeni["k"] = &prijavljeni{v: &vezaSignala{c: a}, kljuc: "k"}
+		pocetak := time.Now()
+		s.ProvjeriSve()
+		if d := time.Since(pocetak); d != 0 || len(s.prijavljeni) != 0 {
+			t.Errorf("ProvjeriSve čekao %v, u registru %d", d, len(s.prijavljeni))
+		}
+		time.Sleep(rokPisanjaSignala + time.Second)
+		synctest.Wait()
+	})
+}
+
+// Veza koja nakon rukovanja šuti zatvara se nakon rokPrvePoruke, ne nakon
+// roka prijave klijenta
+func TestPrvaPorukaURoku(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		su := novoSastajalisteUMemoriji(t)
+		kljuc := newKey(t)
+		su.clan("laptop", kljuc)
+		v := su.rucnaVeza(t, kljuc, "")
+		pocetak := time.Now()
+		if _, err := v.primi(time.Minute); err == nil {
+			t.Fatal("tiha veza dobila je poruku")
+		}
+		if d := time.Since(pocetak); d > rokPrvePoruke+time.Second {
+			t.Errorf("tiha veza zatvorena nakon %v", d)
+		}
+	})
+}
+
+// Gašenje dok klijent čeka potvrdu prijave ne čeka rok prijave
+func TestGasenjeDokCekaPotvrdu(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		kljucR := newKey(t)
+		blok := make(chan struct{})
+		defer close(blok)
+		tun := lazniSastajaliste(t, kljucR, true, func(v *vezaSignala) {
+			_, _ = v.primi(time.Minute) // prijava stigne, potvrde nema
+			<-blok
+		})
+		k := klijentNa(tun, newKey(t), kljucR)
+		ctx, ugasi := context.WithCancel(t.Context())
+		gotovo := make(chan struct{})
+		go func() { k.Radi(ctx); close(gotovo) }()
+		time.Sleep(time.Second)
+		pocetak := time.Now()
+		ugasi()
+		<-gotovo
+		if d := time.Since(pocetak); d >= rokPrijave {
+			t.Errorf("gašenje je čekalo %v", d)
+		}
+	})
+}
+
+// Rok kopije mjeri se zidnim satom: računalo koje je prespavalo rok nakon
+// buđenja zove odmah
+func TestRokKopijeZidnimSatom(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		su := novoSastajalisteUMemoriji(t)
+		kljuc := newKey(t)
+		su.clan("laptop", kljuc)
+		prvi := su.klijent(kljuc)
+		pokreni(t, prvi)
+		cekajStanje(t, prvi, "prvi prijavljen", prijavljen)
+		var pomak atomicTrajanje
+		kopija := su.klijent(kljuc)
+		kopija.Sat = func() time.Time { return time.Now().Add(pomak.uzmi()) }
+		ctx, ugasi := context.WithCancel(t.Context())
+		gotovo := make(chan struct{})
+		go func() { kopija.Radi(ctx); close(gotovo) }()
+		cekajStanje(t, kopija, "kopija odbijena", func(st StanjeSignala) bool { return st.Odbijen })
+		odbijanja := func() int {
+			su.mu.Lock()
+			defer su.mu.Unlock()
+			return strings.Count(strings.Join(su.dnevnik, "\n"), "odbilo drugu kopiju")
+		}
+		pomak.postavi(11 * time.Minute) // računalo je spavalo; monotoni sat nije tekao
+		kopija.PonovnoSpoji()
+		time.Sleep(time.Minute)
+		if n := odbijanja(); n != 2 {
+			t.Errorf("nakon buđenja: %d odbijanja", n)
+		}
+		ugasi()
+		<-gotovo
+	})
+}
+
+// atomicTrajanje je pomak lažnog zidnog sata
+type atomicTrajanje struct{ v atomic.Int64 }
+
+func (a *atomicTrajanje) uzmi() time.Duration     { return time.Duration(a.v.Load()) }
+func (a *atomicTrajanje) postavi(d time.Duration) { a.v.Store(int64(d)) }

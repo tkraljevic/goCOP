@@ -72,7 +72,10 @@ type KlijentSignala struct {
 	Javi     func(string, ...any)                             // dnevnik
 	NaPoruku func(PotpisanaPoruka)                            // potpisana poruka od drugog računala (F3)
 	NaNemu   func(sesija, razlog string)                      // sastajalište nije proslijedilo (F3)
-	Sat      func() time.Time                                 // zadano time.Now
+	// NaPrijavu se zove nakon svake prijave: plan traži novu provjeru mreže
+	// pri ponovnom spajanju na sastajalište
+	NaPrijavu func()
+	Sat       func() time.Time // zadano time.Now
 
 	pocetak   sync.Once
 	proces    string
@@ -108,7 +111,7 @@ func (k *KlijentSignala) Stanje() StanjeSignala {
 	k.pripremi()
 	k.mu.Lock()
 	defer k.mu.Unlock()
-	if k.stanje.Prijavljen && k.stanje.Kod == KodSignalaKopija && k.Sat().Sub(k.kopijaU) > trajanjeUpozorenjaKopije {
+	if k.stanje.Prijavljen && k.stanje.Kod == KodSignalaKopija && k.Sat().Round(0).Sub(k.kopijaU) > trajanjeUpozorenjaKopije {
 		k.stanje.Kod = ""
 	}
 	return k.stanje
@@ -276,6 +279,9 @@ func (k *KlijentSignala) uVezi(v *vezaSignala, pr prijavljenSignala) {
 	k.stanje = StanjeSignala{Prijavljen: true, Od: sad, OdstupanjeSata: sad.Sub(time.UnixMilli(pr.Vrijeme))}
 	k.mu.Unlock()
 	k.javi("povezivost: WEB sync je prijavljen kod sastajališta")
+	if k.NaPrijavu != nil {
+		k.NaPrijavu()
+	}
 }
 
 // izVeze zaboravi vezu; stanje dalje vodi nakonGreske
@@ -357,7 +363,7 @@ func (k *KlijentSignala) naUpozorenje(por porukaSignala) {
 		return
 	}
 	k.mu.Lock()
-	k.stanje.Kod, k.kopijaU = u.Kod, k.Sat()
+	k.stanje.Kod, k.kopijaU = u.Kod, k.Sat().Round(0)
 	k.mu.Unlock()
 	k.javi("povezivost: sastajalište javlja: %s", u.Kod)
 }
@@ -378,13 +384,7 @@ func (k *KlijentSignala) naPotpisanu(por porukaSignala) {
 // nakonGreske postavi stanje nakon veze koja je pukla ili nije uspjela i
 // vrati koliko čekati
 func (k *KlijentSignala) nakonGreske(err error, n int) time.Duration {
-	sad := k.Sat()
-	st := StanjeSignala{Kod: kodNakon(err), Od: sad}
-	cekaj := odgoda(n)
-	if zaSek := ponovnoZa(err); zaSek > 0 {
-		cekaj = time.Duration(zaSek) * time.Second
-		st.Odbijen, st.PonovnoU = true, sad.Add(cekaj)
-	}
+	st, cekaj := stanjeNakon(err, n, k.Sat().Round(0)) // zidni sat: rok sastajališta teče i dok računalo spava
 	k.mu.Lock()
 	defer k.mu.Unlock()
 	if st.Odbijen {
@@ -398,6 +398,18 @@ func (k *KlijentSignala) nakonGreske(err error, n int) time.Duration {
 	}
 	k.stanje = st
 	return cekaj
+}
+
+// stanjeNakon je stanje i odgoda za grešku veze: uobičajena odgoda, ili
+// rok koji je zadalo sastajalište (kopija)
+func stanjeNakon(err error, n int, sad time.Time) (StanjeSignala, time.Duration) {
+	st := StanjeSignala{Kod: kodNakon(err), Od: sad}
+	cekaj := odgoda(n)
+	if zaSek := ponovnoZa(err); zaSek > 0 {
+		cekaj = time.Duration(zaSek) * time.Second
+		st.Odbijen, st.PonovnoU = true, sad.Add(cekaj)
+	}
+	return st, cekaj
 }
 
 // ponovnoZa je za koliko sekundi sastajalište smije ponovno, kad ga je
@@ -470,7 +482,7 @@ func (k *KlijentSignala) doRoka() time.Duration {
 	if k.nePrije.IsZero() {
 		return 0
 	}
-	return k.nePrije.Sub(k.Sat())
+	return k.nePrije.Sub(k.Sat().Round(0))
 }
 
 // probudjen čeka d; true kad ga je prije probudio PonovnoSpoji

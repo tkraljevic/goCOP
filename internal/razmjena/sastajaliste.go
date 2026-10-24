@@ -147,7 +147,7 @@ func (s *Sastajaliste) Handler() http.Handler {
 func (s *Sastajaliste) posluzi(ws *websocket.Conn) {
 	ws.PayloadType = websocket.BinaryFrame
 	nc := &wsVeza{Conn: ws, kraj: make(chan struct{}), put: PutSignala}
-	defer func() { _ = nc.Close() }() // kraj veze; greška zatvaranja nema što reći
+	defer nc.Close() //nolint:errcheck // kraj veze; greška zatvaranja nema što reći
 	v, err := s.rukovanje(klijentIz(ws.Request().Context()), nc)
 	if err != nil {
 		return
@@ -215,12 +215,16 @@ func (s *Sastajaliste) prijava(v *vezaSignala) (*prijavljeni, error) {
 		return nil, errNijePrijava
 	}
 	p := &prijavljeni{v: v, kljuc: PublicKeyString(v.kljuc), proces: pr.Proces, ziv: make(chan struct{}, 1)}
+	// prva poruka nakon upisa je potvrda: dok se računalo upisuje, nitko
+	// drugi ne piše na ovu vezu (puls kopiji, proslijeđen poziv)
+	v.pisanje.Lock()
+	defer v.pisanje.Unlock()
 	if err := s.upisi(p); err != nil {
-		_ = v.posalji(SignalOdbijeno, odbijenicaZa(err)) // veza se ionako zatvara
+		_ = v.pisiBezBrave(okvirSignala(SignalOdbijeno, odbijenicaZa(err))) // veza se ionako zatvara
 		return nil, err
 	}
-	return p, v.posalji(SignalPrijavljen, prijavljenSignala{Ver: 1, Oznaka: oznakaSastajalista, Vrijeme: s.sat().UnixMilli(),
-		PulsSek: int(razmakPulsa / time.Second)})
+	return p, v.pisiBezBrave(okvirSignala(SignalPrijavljen, prijavljenSignala{Ver: 1, Oznaka: oznakaSastajalista,
+		Vrijeme: s.sat().UnixMilli(), PulsSek: int(razmakPulsa / time.Second)}))
 }
 
 // odbijenicaZa je odbijenica za grešku upisa
@@ -276,18 +280,29 @@ func (s *Sastajaliste) zauzmi(p *prijavljeni) (*prijavljeni, error) {
 func (s *Sastajaliste) zamijeni(nova, provjerena *prijavljeni) error {
 	s.mu.Lock()
 	bila := s.prijavljeni[nova.kljuc]
-	switch {
-	case !s.vjeruje(nova.v.kljuc, nova.v.vj):
+	if err := s.smijeNaMjesto(nova, provjerena, bila); err != nil {
 		s.mu.Unlock()
-		return errNijeClan
-	case bila != nil && bila != provjerena && bila.proces != nova.proces:
-		s.mu.Unlock()
-		return errPromjena
+		return err
 	}
 	s.prijavljeni[nova.kljuc] = nova
 	s.mu.Unlock()
 	if bila != nil {
 		bila.v.zatvori()
+	}
+	return nil
+}
+
+// smijeNaMjesto: nova je član, na mjestu je još provjerena veza, ništa ili
+// isti proces, a prazno mjesto ne prelazi granicu registra. Zove se pod
+// bravom.
+func (s *Sastajaliste) smijeNaMjesto(nova, provjerena, bila *prijavljeni) error {
+	switch {
+	case !s.vjeruje(nova.v.kljuc, nova.v.vj):
+		return errNijeClan
+	case bila != nil && bila != provjerena && bila.proces != nova.proces:
+		return errPromjena
+	case bila == nil && len(s.prijavljeni) >= najvisePrijavljenih:
+		return errPunRegistar
 	}
 	return nil
 }

@@ -203,18 +203,71 @@ func TestMjerenjeNaZamijenjenojUticnici(t *testing.T) {
 		t.Fatal(err, upozorenje)
 	}
 	p.udp = razmjena.NoviUDP(conn)
-	ishod := make(chan web.ProvjeraVeze, 1)
-	go func() { ishod <- p.provjeriVezu(context.Background()) }()
-	<-upiti // mjerenje je krenulo na staroj utičnici
+	nakon := make(chan struct{})
+	go func() { p.provjeriNakonZamjene(context.Background()); close(nakon) }()
+	<-upiti // prvo mjerenje je krenulo na staroj utičnici
 	p.novaUticnica()
 	close(pusti)
-	if r := <-ishod; r.Greska != greskaZamjene || r.Vrijedi != "" {
-		t.Fatalf("mjerenje na staroj utičnici: %+v", r)
-	}
-	p.provjeriNakonZamjene(context.Background())
+	<-nakon
 	if z := p.zadnjaProvjera(); z == nil || z.Greska != "" {
 		t.Errorf("nakon zamjene: %+v", z)
 	}
+	if st := p.mreza.Vrsta; st == razmjena.UDPBlokiran {
+		t.Errorf("mjerenje stare utičnice ušlo je u vrstu mreže: %q", st)
+	}
 	p.teku.Wait()
 	_ = p.udp.Close() // kraj testa
+}
+
+// Provjera članstava ide svakih razmakProvjereClanstava dok traje kontekst
+func TestProvjeravajClanstva(t *testing.T) {
+	staro := razmakProvjereClanstava
+	t.Cleanup(func() { razmakProvjereClanstava = staro })
+	razmakProvjereClanstava = 5 * time.Millisecond
+	puta := make(chan struct{}, 8)
+	ctx, otkazi := context.WithCancel(context.Background())
+	gotovo := make(chan struct{})
+	go func() {
+		provjeravajClanstva(ctx, func() {
+			select {
+			case puta <- struct{}{}:
+			default:
+			}
+		})
+		close(gotovo)
+	}()
+	<-puta
+	<-puta
+	otkazi()
+	<-gotovo
+}
+
+// Prijava odmah nakon svježeg mjerenja ne mjeri još jednom; nakon starog
+// mjerenja mjeri iznova, a bez STUN poslužitelja nikad
+func TestMjerenjeNakonPrijave(t *testing.T) {
+	p := &povezivost{cfg: config.Povezivost{WebSyncPrijava: true, Stun: []string{lazniSTUN(t)}}, javi: func(string, ...any) {}, ctx: context.Background()}
+	p.nakonPrijave()
+	p.teku.Wait()
+	prva := p.zadnjaProvjera()
+	if prva == nil {
+		t.Fatal("prva prijava bez mjerenja")
+	}
+	p.nakonPrijave()
+	p.teku.Wait()
+	if z := p.zadnjaProvjera(); !z.Kad.Equal(prva.Kad) {
+		t.Error("svježe mjerenje je ponovljeno")
+	}
+	p.mu.Lock()
+	p.zadnja.Kad = p.zadnja.Kad.Add(-2 * svjezeMjerenje)
+	p.mu.Unlock()
+	p.nakonPrijave()
+	p.teku.Wait()
+	if z := p.zadnjaProvjera(); !z.Kad.After(prva.Kad.Add(-2 * svjezeMjerenje)) {
+		t.Error("staro mjerenje nije ponovljeno")
+	}
+	bez := &povezivost{javi: func(string, ...any) {}, ctx: context.Background()}
+	bez.nakonPrijave()
+	if bez.zadnjaProvjera() != nil {
+		t.Error("mjerenje bez STUN poslužitelja")
+	}
 }

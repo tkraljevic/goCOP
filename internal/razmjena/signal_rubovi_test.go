@@ -217,7 +217,7 @@ func TestPulsBezOdgovora(t *testing.T) {
 		a, b := net.Pipe()
 		defer b.Close()
 		defer a.Close()
-		go func() { _, _ = io.Copy(io.Discard, b) }() // cijev se zatvara s testom
+		go func() { _, _ = io.Copy(io.Discard, b) }() //nolint:errcheck // cijev se zatvara s testom
 		k := &KlijentSignala{}
 		k.pripremi()
 		k.veza = &vezaSignala{c: a}

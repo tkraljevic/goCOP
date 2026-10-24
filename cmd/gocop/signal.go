@@ -47,7 +47,9 @@ func (p *povezivost) pokreniSignal(cvor cvorSignala, w posluziteljPovezivosti) {
 	case strings.TrimSpace(p.cfg.Sastajaliste) == "" || strings.TrimSpace(p.cfg.SastajalisteCvor) == "":
 		w.SetSignalStanje(func() web.SignalStanje { return web.SignalStanje{Kod: razmjena.KodSignalaBezPostavke} })
 	default:
-		p.klijent = cvor.KlijentSignala(p.cfg.Sastajaliste, p.cfg.SastajalisteCvor, p.javi)
+		k := cvor.KlijentSignala(p.cfg.Sastajaliste, p.cfg.SastajalisteCvor, p.javi)
+		k.NaPrijavu = p.nakonPrijave
+		p.klijent = k
 		posluzitelj := domenaSastajalista(p.cfg.Sastajaliste)
 		w.SetSignalStanje(func() web.SignalStanje { return signalZaWeb(p.klijent.Stanje(), posluzitelj, p.cfg.WebSync) })
 	}
@@ -61,7 +63,7 @@ func (p *povezivost) posluziSastajaliste(cvor cvorSignala, w posluziteljPovezivo
 		return
 	}
 	p.sastajaliste = r
-	p.teku.Go(func() { provjeravajClanstva(p.ctx, r) })
+	p.teku.Go(func() { provjeravajClanstva(p.ctx, r.ProvjeriSve) })
 	w.SetSignal(r.Handler())
 	w.SetSignalStanje(func() web.SignalStanje {
 		st := r.Stanje()
@@ -73,7 +75,7 @@ func (p *povezivost) posluziSastajaliste(cvor cvorSignala, w posluziteljPovezivo
 
 // provjeravajClanstva svakih razmakProvjereClanstava ponovno provjeri
 // članstva prijavljenih
-func provjeravajClanstva(ctx context.Context, r *razmjena.Sastajaliste) {
+func provjeravajClanstva(ctx context.Context, provjeri func()) {
 	t := time.NewTicker(razmakProvjereClanstava)
 	defer t.Stop()
 	for {
@@ -81,7 +83,7 @@ func provjeravajClanstva(ctx context.Context, r *razmjena.Sastajaliste) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			r.ProvjeriSve()
+			provjeri()
 		}
 	}
 }
@@ -101,6 +103,19 @@ func domenaSastajalista(adresa string) string {
 	}
 	return strings.ToLower(u.Hostname())
 }
+
+// nakonPrijave: pri svakom spajanju na sastajalište mreža se izmjeri
+// iznova (plan WEB synca, §2.2), u pozadini, da prijava ne čeka; tako se vidi
+// i kad se ruta vratila uz iste adrese
+func (p *povezivost) nakonPrijave() {
+	if z := p.zadnjaProvjera(); len(p.cfg.Stun) == 0 || z != nil && time.Since(z.Kad) < svjezeMjerenje {
+		return // prva prijava odmah nakon mjerenja pri pokretanju ne mjeri još jednom
+	}
+	p.zapocniMjerenje()
+}
+
+// svjezeMjerenje: mjerenje mlađe od toga ne ponavlja se pri prijavi
+const svjezeMjerenje = time.Minute
 
 // prijaviSe pokrene prijavu kod sastajališta, kad je ima
 func (p *povezivost) prijaviSe(ctx context.Context) {

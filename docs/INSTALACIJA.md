@@ -183,7 +183,10 @@ mijenjaju se samo u datoteci. Sastajalište je na
 `https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze, s jedne
 adrese 8); bez tih postavki vraća 404. Prijavljeno računalo drži vezu,
 šalje puls svakih 25 s i nakon prekida se samo vrati, za 2 s pa sve rjeđe,
-najviše svake minute; nakon buđenja ili promjene mreže odmah. Pločica
+najviše svake minute; nakon buđenja ili promjene mreže odmah. Pri svakoj
+prijavi mreža se izmjeri iznova. Računalo koje sastajalište odbije kao
+kopiju istog ključa pokuša ponovno tek za 10 min, i nakon buđenja; pločica
+kaže kad. Pločica
 razmjene tada kaže „WEB sync: prijavljen kod cop.primjer.hr od 12:01.”, a na
 sastajalištu koliko je računala prijavljeno, koliko je poziva bilo u zadnjem
 satu i koliko prekida u 24 h. Podaci i dalje idu kao prije: WEB sync ih nosi
