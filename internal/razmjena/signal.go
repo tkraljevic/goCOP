@@ -40,7 +40,6 @@ var ErrNepoznatCvorSastajalista = errors.New("čvor sastajališta nije poznat č
 
 var (
 	errNijeSastajaliste = errors.New("druga strana se nije javila kao sastajalište")
-	errPonovnoSpajanje  = errors.New("ponovno spajanje")
 )
 
 // odbijenSignal je odbijenica sastajališta

@@ -587,8 +587,11 @@ func TestSignalPonovnoSpajanje(t *testing.T) {
 		kljuc := newKey(t)
 		su.clan("laptop", kljuc)
 		k := su.klijent(kljuc)
+		prijava := make(chan struct{}, 4)
+		k.NaPrijavu = func() { prijava <- struct{}{} } // svaka prijava javi programu, da izmjeri mrežu
 		pokreni(t, k)
 		cekajStanje(t, k, "prijavljen", prijavljen)
+		<-prijava
 		od := k.Stanje().Od
 		k.Puls()
 		if st := k.Stanje(); !st.Prijavljen || !st.Od.Equal(od) {
@@ -596,6 +599,7 @@ func TestSignalPonovnoSpajanje(t *testing.T) {
 		}
 		su.r.Zatvori()
 		cekajStanje(t, k, "ponovno prijavljen", func(st StanjeSignala) bool { return st.Prijavljen && st.Od.After(od) })
+		<-prijava // i ponovna prijava javi programu
 
 		su.opozovi(kljuc)
 		su.r.ProvjeriSve()

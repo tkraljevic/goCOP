@@ -61,7 +61,6 @@ var (
 	errNijePrijava = errors.New("prva poruka nije prijava")
 	errKopija      = errors.New("isti ključ je spojen s drugog računala")
 	errPunRegistar = errors.New("sastajalište drži najviše računala")
-	errBrzina      = errors.New("previše poruka u sekundi")
 	errNijeClan    = errors.New("računalo nije član mreže")
 	errPromjena    = errors.New("u međuvremenu se javila druga veza s istim ključem")
 )

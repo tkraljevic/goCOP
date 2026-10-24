@@ -75,11 +75,11 @@ func TestPrijavaKodLaznogSastajalista(t *testing.T) {
 			_, _ = v.primi(time.Minute)                                           // lažno sastajalište: ishod gleda klijent
 			_ = v.posalji(SignalPrijavljen, prijavljenSignala{Oznaka: "drugo/1"}) // lažno sastajalište: ishod gleda klijent
 		}},
-		"druga poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPuls, pulsSignala{}) }}, // lažno sastajalište: ishod gleda klijent
-		"krivo tijelo":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPrijavljen, 7) }},       // lažno sastajalište: ishod gleda klijent
+		"druga poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPuls, pulsSignala{}) }}, //nolint:errcheck // lažno sastajalište: ishod gleda klijent
+		"krivo tijelo":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.posalji(SignalPrijavljen, 7) }},       //nolint:errcheck // lažno sastajalište: ishod gleda klijent
 		"bez ALPN-a":       {false, func(v *vezaSignala) {}},
-		"kriva poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte("{")) }},            // lažno sastajalište: ishod gleda klijent
-		"poruka bez vrste": {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte(`{"tijelo":1}`)) }}, // lažno sastajalište: ishod gleda klijent
+		"kriva poruka":     {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte("{")) }},            //nolint:errcheck // lažno sastajalište: ishod gleda klijent
+		"poruka bez vrste": {true, func(v *vezaSignala) { _, _ = v.primi(time.Minute); _ = v.pisi([]byte(`{"tijelo":1}`)) }}, //nolint:errcheck // lažno sastajalište: ishod gleda klijent
 	} {
 		t.Run(ime, func(t *testing.T) {
 			uMjehuru(t, func(t *testing.T) {
