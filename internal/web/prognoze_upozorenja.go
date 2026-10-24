@@ -161,6 +161,8 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 			"; čeka se, pa sat izdanja stoji iza najsvježijih očitanja ostalih letvi")
 	case prognoza.VrstaKrivulja:
 		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
+	case prognoza.VrstaUzvodno:
+		return p.stoUzvodnog(u)
 	}
 	// rezerva, zadržano mjerenje, dnevna rezerva, druga obala, susjedi, kiša i vrste
 	// koje ova inačica još ne zna: opis izdavača imenima letvi
@@ -184,6 +186,16 @@ func (p pisacUpozorenja) stoUlaza(u prognoza.Upozorenje) string {
 		s += "; vrijednost u satu izdanja izračunata je iz uzvodnih letvi"
 	}
 	return s + "."
+}
+
+// stoUzvodnog piše napomenu uzvodnog ispravka kako ju je izdavač napisao:
+// uz letvu s izvorom mjerenja koje mjerenje fali i kako se zato računa
+// dnevna prognoza Dunava, a bez letve da je ispravak digao prognozu.
+func (p pisacUpozorenja) stoUzvodnog(u prognoza.Upozorenje) string {
+	if u.Letva == "" {
+		return velikoSlovo(p.imena(u.Opis)) + "."
+	}
+	return p.imeSIzvorom(u.Letva) + ": " + p.imena(u.Opis) + "."
 }
 
 // imenaDnevnih su upitne letve s dnevnom prognozom: ciljevi dnevnog modela

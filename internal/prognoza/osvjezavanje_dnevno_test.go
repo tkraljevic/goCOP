@@ -68,7 +68,7 @@ func TestDnevnoSKisomBezNjeIProtokom(t *testing.T) {
 	dodajPravcuKrivulju(t, o.Arhiva, 2, "cilj-b", "2000-01-01", "")
 	o.Oborine = kisomjerSvakiSat()
 
-	dnevne, sidra, bezDnevne, izbor, kisa := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
+	dnevne, sidra, bezDnevne, izbor, kisa, _ := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
 
 	po := map[string][]DnevnaIzdana{}
 	for _, d := range dnevne {
@@ -141,7 +141,7 @@ func TestDnevnoIzborOborine(t *testing.T) {
 		"cilj-a": {{Cilj: cA}, {Cilj: DnevniCilj{Letva: "cilj-a", Ulazi: []string{"ulaz"}}}},
 	}, map[string]int{"cilj-a": 150, "ulaz": 100})
 	o.Oborine = kisomjerSvakiSat()
-	_, _, _, izbor, _ := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
+	_, _, _, izbor, _, _ := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
 	want := "dnevni model računa s kišom: pala kiša 7 dana unatrag i prognoza 6 dana unaprijed (Open-Meteo, 1 kišomjer)"
 	if iz := izbor["oborina"]; iz.Inacica != 1 || iz.Opis != want || len(izbor) != 1 {
 		t.Errorf("izbor %+v, želim %q", izbor, want)
@@ -154,7 +154,7 @@ func TestDnevnoIzborOborine(t *testing.T) {
 	stari := log.Writer()
 	log.SetOutput(&dnevnik)
 	t.Cleanup(func() { log.SetOutput(stari) })
-	dnevne, _, _, izbor, kisa := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
+	dnevne, _, _, izbor, kisa, _ := o.dnevno(context.Background(), sada, zadnji.Add(-Unatrag))
 	if !strings.Contains(dnevnik.String(), "dnevni model: oborina uživo: baza oborina zaključana") {
 		t.Errorf("dnevnik: %q", dnevnik.String())
 	}
