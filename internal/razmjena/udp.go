@@ -2,10 +2,10 @@ package razmjena
 
 // UDP utičnica WEB synca (plan WEB synca, F1a). Jedna utičnica nosi STUN, a
 // od F3 i QUIC: drži je jedan quic.Transport, a sve što nije QUIC s nje čita
-// jedan čitač (ReadNonQUICPacket). STUN odgovor ide onome tko čeka taj ID
-// transakcije, a ostali paketi koji nisu QUIC (od F3 udarci) zasad se broje
-// kao odbačeni. Utičnica se otvara samo uz web_sync_prijava; s nje se nakon
-// toga nikad ne čita izravno.
+// jedan čitač (ReadNonQUICPacket). Udarac (F3a) ide sesiji kojoj pripada
+// (udaranje.go), STUN odgovor onome tko čeka taj ID transakcije, a ostali
+// paketi koji nisu QUIC broje se kao odbačeni. Utičnica se otvara samo uz
+// web_sync_prijava; s nje se nakon toga nikad ne čita izravno.
 
 import (
 	"context"
@@ -44,7 +44,8 @@ type UDP struct {
 	cekaju   map[[12]byte]chan<- odgovorSTUN
 	odbaceni atomic.Int64
 	radi     atomic.Bool
-	bezRute  atomic.Bool // slanje je javilo da nema rute (nova_uticnica.go)
+	bezRute  atomic.Bool                         // slanje je javilo da nema rute (nova_uticnica.go)
+	sesije   map[[16]byte]chan<- primljeniUdarac // sesije udaraca (udaranje.go), pod mu
 	otkazi   context.CancelFunc
 	citac    sync.WaitGroup
 }
@@ -101,11 +102,14 @@ func (u *UDP) citaj(ctx context.Context) {
 	defer u.radi.Store(false)
 	b := make([]byte, 1500)
 	for {
-		n, _, err := u.tr.ReadNonQUICPacket(ctx, b)
+		n, od, err := u.tr.ReadNonQUICPacket(ctx, b)
 		if err != nil {
 			return
 		}
-		u.predaj(append([]byte(nil), b[:n]...), time.Now())
+		p, kad := append([]byte(nil), b[:n]...), time.Now()
+		if !u.predajUdarac(p, od, kad) {
+			u.predaj(p, kad)
+		}
 	}
 }
 
