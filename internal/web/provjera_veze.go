@@ -140,8 +140,10 @@ var rijeciIzlaza = map[string]string{
 func (s *Server) dohvatljivost() *DohvatljivostPrikaz {
 	d := &DohvatljivostPrikaz{Provjera: s.povezivost.zadnjaProvjera(), Signal: s.redakSignala()}
 	d.Upozorenja = s.povezivost.signalStanje().upozorenja(time.Now())
-	if u := s.upozorenjeLanAdrese(d.Provjera != nil); u != "" {
-		d.Upozorenja = append(d.Upozorenja, u)
+	for _, u := range []string{s.upozorenjeSastajalista(), s.upozorenjeLanAdrese(d.Provjera != nil)} {
+		if u != "" {
+			d.Upozorenja = append(d.Upozorenja, u)
+		}
 	}
 	if d.Provjera == nil {
 		return d
@@ -170,11 +172,14 @@ func opisKandidata(k razmjena.Kandidat) string {
 }
 
 // upozorenjaPovezivosti su rečenice WEB synca za pločicu razmjene: nakon
-// padova, prema sastajalištu i u spremniku bez lan_adresa
+// padova, prema sastajalištu, sastajalište bez prijave i spremnik bez
+// lan_adresa
 func (s *Server) upozorenjaPovezivosti() []string {
 	out := append(s.povezivost.upozorenja(), s.povezivost.signalStanje().upozorenja(time.Now())...)
-	if u := s.upozorenjeLanAdrese(false); u != "" {
-		out = append(out, u)
+	for _, u := range []string{s.upozorenjeSastajalista(), s.upozorenjeLanAdrese(false)} {
+		if u != "" {
+			out = append(out, u)
+		}
 	}
 	return out
 }

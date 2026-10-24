@@ -7,13 +7,15 @@ import (
 )
 
 // Ime stalnog čvora na mreži je domena iz adrese tunela, nikad IP adresa;
-// bez stalnog čvora na mreži natpisa nema, a uz sam stalni čvor i uz
-// računalo na mreži ne stoji
+// bez stalnog čvora na mreži natpisa nema, a uz sam stalni čvor, uz
+// računalo na mreži i uz opozvano računalo ne stoji
 func TestPrekoPosluzitelja(t *testing.T) {
 	stalni := func(dostupnost string, adrese ...string) peers.PeerStatus {
 		return peers.PeerStatus{Peer: peers.Peer{Name: "COP Osijek", IsBootstrap: true, Addresses: adrese}, Reachability: dostupnost}
 	}
-	laptop := peers.PeerStatus{Peer: peers.Peer{Name: "laptop", Addresses: []string{"192.168.1.20:4710"}}, Reachability: "offline"}
+	laptop := peers.PeerStatus{Peer: peers.Peer{Name: "laptop", Addresses: []string{"192.168.1.20:4710"}}, Reachability: "offline", Member: true}
+	opozvan := laptop
+	opozvan.Member, opozvan.MemberProblem = false, "članstvo je opozvano"
 	for _, c := range []struct {
 		ime     string
 		cvorovi []peers.PeerStatus
@@ -38,9 +40,10 @@ func TestPrekoPosluzitelja(t *testing.T) {
 		je string
 	}{
 		{laptop, "cop.primjer.hr"},
-		{peers.PeerStatus{Reachability: "never"}, "cop.primjer.hr"},
-		{peers.PeerStatus{Reachability: "online"}, ""},
+		{peers.PeerStatus{Reachability: "never", Member: true}, "cop.primjer.hr"},
+		{peers.PeerStatus{Reachability: "online", Member: true}, ""},
 		{stalni("offline"), ""},
+		{opozvan, ""},
 	} {
 		if got := prekoPosluziteljaZa(c.ps, "cop.primjer.hr"); got != c.je {
 			t.Errorf("%s, %s: %q", c.ps.Name, c.ps.Reachability, got)

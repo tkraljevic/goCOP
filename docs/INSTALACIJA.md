@@ -168,11 +168,12 @@ sastajališta, stalnog čvora koji je dostupan s interneta. Na ostalim
 računalima upisuje se `[povezivost] sastajaliste = 'https://cop.primjer.hr'`
 i `sastajaliste_cvor`, ime tog čvora u mreži; njegov ključ program će
 uzimati iz članstva, ne iz zapisa čvora. Na samom stalnom čvoru postavlja se
-`posluzi_sastajaliste = true`, uz `web_sync_prijava = true`. Tek tada
-odgovara na `https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze,
-s jedne adrese 8), a inače vraća 404. Sve tri postavke mijenjaju se samo u
-datoteci. Same prijave još nema: dolazi u idućem koraku, a pločica razmjene
-tada kaže „WEB sync: prijavljen kod cop.primjer.hr od 12:01”, a na
+`posluzi_sastajaliste = true`, uz `web_sync_prijava = true`; bez prijave
+pločica razmjene na njemu upozorava da sastajalište ne radi. Sve tri postavke
+mijenjaju se samo u datoteci. Same prijave još nema: dolazi u idućem koraku,
+pa `https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze, s jedne
+adrese 8) zasad vraća 404 i uz obje postavke. Kad prijava dođe, pločica
+razmjene reći će „WEB sync: prijavljen kod cop.primjer.hr od 12:01”, a na
 sastajalištu koliko je računala prijavljeno.
 
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;

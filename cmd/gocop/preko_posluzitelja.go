@@ -53,10 +53,11 @@ func domenaTunela(a string) string {
 	return strings.ToLower(u.Hostname())
 }
 
-// prekoPosluziteljaZa: natpis ide uz računalo koje nije na mreži i nije sam
-// stalni čvor
+// prekoPosluziteljaZa: natpis ide uz člana mreže koji nije na mreži i nije
+// sam stalni čvor. S opozvanim računalom i s onim bez valjanog članstva ne
+// razmjenjuje nitko, pa ni stalni čvor.
 func prekoPosluziteljaZa(ps peers.PeerStatus, preko string) string {
-	if ps.IsBootstrap || ps.Reachability == "online" {
+	if ps.IsBootstrap || ps.Reachability == "online" || !ps.Member {
 		return ""
 	}
 	return preko

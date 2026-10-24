@@ -31,7 +31,7 @@ var recenicaRazloga = map[razmjena.RazlogPuta]string{
 	razmjena.RazlogPutaNijeClan:       "Računalo nije član mreže ili mu je članstvo opozvano. Razmjena s njim ne ide dok ga ne primite ponovno.",
 	razmjena.RazlogPutaStarijiProgram: "Na tom računalu je stariji goCOP, koji ne zna za WEB sync. Nadogradite ga.",
 	razmjena.RazlogPutaPriprema:       "WEB sync se priprema; dotad podaci idu %s.",
-	razmjena.RazlogPutaPauza:          "WEB sync s ovim računalom ne uspijeva; podaci idu %s.",
+	razmjena.RazlogPutaPauza:          "WEB sync s tim računalom ne uspijeva; podaci idu %s.",
 	razmjena.RazlogPutaIstiKljuc:      "Isti ključ ima još jedno računalo, vjerojatno kopija iste mape podataka. Jednom od njih treba novi ključ.",
 }
 

@@ -30,6 +30,19 @@ func (s *Server) posluziSastajaliste() bool {
 	return p.PosluziSastajaliste && p.WebSyncPrijava
 }
 
+// upozorenjeSastajalista: računalo je postavljeno kao sastajalište, ali bez
+// prijave za WEB sync ruta vraća 404, pa se kod njega nitko ne prijavi
+func (s *Server) upozorenjeSastajalista() string {
+	if s.postavke == nil {
+		return ""
+	}
+	if p := s.postavke.snimka().Vrijedi.Povezivost; !p.PosluziSastajaliste || p.WebSyncPrijava {
+		return ""
+	}
+	return "Ovo računalo je postavljeno kao sastajalište za WEB sync (posluzi_sastajaliste), ali prijava za WEB sync je " +
+		"isključena, pa se druga računala kod njega ne mogu prijaviti. Administrator je uključuje u Administraciji, pod Čvor i mreža."
+}
+
 // handleSignal predaje vezu rukovatelju sastajališta, ili 404
 func (s *Server) handleSignal(w http.ResponseWriter, r *http.Request) {
 	if s.signal == nil || !s.posluziSastajaliste() {
