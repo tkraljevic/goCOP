@@ -85,7 +85,10 @@ func TestProvjeraVezeSRacunalomNaSinkronizaciji(t *testing.T) {
 		t.Error("prije provjere: nema gumba, računala bez naziva ili ima ishod")
 	}
 	w := salji(kaoAdmin)
-	lok, _ := url.QueryUnescape(w.Header().Get("Location"))
+	lok, err := url.QueryUnescape(w.Header().Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	if w.Code != http.StatusSeeOther || !strings.HasSuffix(lok, "#provjera-racunala") || len(trazeno) != 1 || trazeno[0] != "laptop-baranja" ||
 		!strings.Contains(lok, "Provjera veze s računalom Laptop Baranja: javilo se na 1 od 3 adrese.") || reAdresa.MatchString(lok) {
 		t.Errorf("provjera: %d %q, tražena %v", w.Code, lok, trazeno)
@@ -119,7 +122,9 @@ func TestProvjeraVezeSRacunalomNaSinkronizaciji(t *testing.T) {
 	}
 	ishod, greska = peers.ProvjeraRacunala{NodeID: "ured-vukovar", Naziv: "ured-vukovar", Kad: time.Now()}, nil
 	h.mjeriMrezu = nil
-	lok, _ = url.QueryUnescape(salji(kaoAdmin).Header().Get("Location"))
+	if lok, err = url.QueryUnescape(salji(kaoAdmin).Header().Get("Location")); err != nil {
+		t.Fatal(err)
+	}
 	if !strings.Contains(lok, "Za računalo ured-vukovar ovo računalo ne zna nijednu adresu.") {
 		t.Errorf("bez adresa: %q", lok)
 	}

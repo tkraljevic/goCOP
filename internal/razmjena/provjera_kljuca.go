@@ -1,13 +1,16 @@
 package razmjena
 
 // Provjera veze s drugim računalom (plan WEB synca, F2a, gumb „Provjeri vezu
-// s računalom”). Rukovanje ide samo dok druga strana ne dokaže ključ i tu
-// stane: ovaj čvor ne pošalje svoj certifikat ni potvrdu članstva, pa ga
-// druga strana ne pusti dalje od rukovanja. Kod nje je to rukovanje koje nije
-// završilo (VrataRukovanje), a ne neuspjela razmjena koja bi odgodila iduću.
+// s računalom”). Rukovanje ide dok druga strana ne dokaže ključ i tu stane.
+// U TLS-u 1.3 to je trenutak kad druga strana potpiše rukovanje svojim
+// ključem (CertificateVerify), završi svoj dio (Finished) i zatraži
+// certifikat ovog računala. Ovo ga ne pošalje, a ne pošalje ni potvrdu
+// članstva, pa ga druga strana ne pusti dalje od rukovanja. Kod nje je to
+// rukovanje koje nije završilo (VrataRukovanje), a ne neuspjela razmjena koja
+// bi odgodila iduću. Ranije, odmah nakon certifikata, ključ još nije dokazan:
+// certifikat s tuđim javnim ključem može pokazati bilo tko.
 
 import (
-	"cmp"
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
@@ -16,31 +19,30 @@ import (
 	"time"
 )
 
-// errKljucDokazan prekida rukovanje provjere čim druga strana dokaže ključ
+// errKljucDokazan prekida rukovanje provjere kad druga strana zatraži
+// certifikat ovog računala
 var errKljucDokazan = errors.New("ključ druge strane je dokazan")
-
-// errBezDokaza: rukovanje je završilo, a provjera ključa nije ni pitana
-var errBezDokaza = errors.New("rukovanje je završilo bez provjere ključa druge strane")
 
 // ProvjeriKljucOn provjeri ključ druge strane preko otvorene veze i zatvori
 // je. Vraća vrijeme od početka rukovanja do dokaza ključa, otprilike jedan
 // obilazak. Druga strana provjerava se kao u DialExchangeOn (provjeriDrugu),
 // a addr je samo za poruku o grešci.
 func ProvjeriKljucOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey, protocol, addr string, expect ed25519.PublicKey) (time.Duration, error) {
-	defer raw.Close() //nolint:errcheck // provjera je gotova, a greška zatvaranja ne mijenja ishod
+	defer func() { _ = raw.Close() }() // provjera je gotova, a greška zatvaranja ne mijenja ishod
 	cfg, err := tlsConfig(priv, protocol)
 	if err != nil {
 		return 0, err
 	}
 	cfg.VerifyConnection = func(cs tls.ConnectionState) error {
-		if _, _, err := provjeriDrugu(cs.PeerCertificates, protocol, addr, expect); err != nil {
-			return err
-		}
-		return errKljucDokazan
+		_, _, err := provjeriDrugu(cs.PeerCertificates, protocol, addr, expect)
+		return err
 	}
+	cfg.GetClientCertificate = func(*tls.CertificateRequestInfo) (*tls.Certificate, error) { return nil, errKljucDokazan }
 	pocetak := time.Now()
-	if err := tls.Client(raw, cfg).HandshakeContext(ctx); !errors.Is(err, errKljucDokazan) {
-		return 0, cmp.Or(err, errBezDokaza)
+	// rukovanje bez zahtjeva za certifikat (nije goCOP čvor) završi samo,
+	// uz isti dokaz ključa
+	if err := tls.Client(raw, cfg).HandshakeContext(ctx); err != nil && !errors.Is(err, errKljucDokazan) {
+		return 0, err
 	}
 	return time.Since(pocetak), nil
 }

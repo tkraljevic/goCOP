@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"slices"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -38,7 +39,18 @@ func TestProvjeraVezeSRacunalom(t *testing.T) {
 		var dialer net.Dialer
 		return dialer.DialContext(ctx, "tcp", kamo)
 	}
-	upoznaj(t, a, b, "192.0.2.7:4710", "192.0.2.8", "192.0.2.9:4710", "192.0.2.10:4710", adresaNaPetlji(treci), adresaNaPetlji(b))
+	a.tunelKlijent.Dial = func(context.Context, string, string) (net.Conn, error) {
+		return nil, errors.New("web poslužitelj ne odgovara")
+	}
+	// pravi zatvoren port: razlog mora doći iz greške sustava, ne iz testa
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	zatvoren := ln.Addr().String()
+	ln.Close()
+	a.dodajTvrdnju(b.node.ID, kandidat{zatvoren, razmjena.PutAdresa})
+	upoznaj(t, a, b, "192.0.2.7:4710", "192.0.2.8", "192.0.2.9:4710", "192.0.2.10:4710", adresaNaPetlji(treci), adresaNaPetlji(b), "https://cop.primjer.hr")
 
 	p, err := a.ProvjeriVezuS(ctxRub, b.node.ID)
 	if err != nil {
@@ -46,22 +58,25 @@ func TestProvjeraVezeSRacunalom(t *testing.T) {
 	}
 	ocekivano := []struct {
 		adresa string
+		izvor  IzvorAdrese
 		razlog RazlogAdrese
 		prosla bool
 	}{
-		{"192.0.2.7:4710", RazlogAdreseOdbijeno, false},
-		{"192.0.2.8:4710", RazlogAdreseNemaOdgovor, false},
-		{"192.0.2.9:4710", RazlogAdreseNemaPuta, false},
-		{"192.0.2.10:4710", "", false},
-		{adresaNaPetlji(treci), RazlogAdreseDrugiKljuc, false},
-		{adresaNaPetlji(b), "", true},
+		{"192.0.2.7:4710", IzvorZapis, RazlogAdreseOdbijeno, false},
+		{"192.0.2.8:4710", IzvorZapis, RazlogAdreseNemaOdgovor, false},
+		{"192.0.2.9:4710", IzvorZapis, RazlogAdreseNemaPuta, false},
+		{"192.0.2.10:4710", IzvorZapis, "", false},
+		{adresaNaPetlji(treci), IzvorZapis, RazlogAdreseDrugiKljuc, false},
+		{adresaNaPetlji(b), IzvorZapis, "", true},
+		{zatvoren, IzvorDolazna, RazlogAdreseOdbijeno, false},
+		{"https://cop.primjer.hr", IzvorTunel, "", false},
 	}
 	if p.NodeID != b.node.ID || p.Naziv == "" || p.Kad.IsZero() || len(p.Adrese) != len(ocekivano) {
 		t.Fatalf("provjera: %+v", p)
 	}
 	for i, o := range ocekivano {
 		g := p.Adrese[i]
-		if g.Adresa != o.adresa || g.Razlog != o.razlog || g.Prosla() != o.prosla || g.Izvor != IzvorZapis || g.Kada.IsZero() {
+		if g.Adresa != o.adresa || g.Razlog != o.razlog || g.Prosla() != o.prosla || g.Izvor != o.izvor || g.Kada.IsZero() {
 			t.Errorf("%d. adresa: %+v, a treba %+v", i+1, g, o)
 		}
 		if o.prosla && (g.RTT <= 0 || g.Put != razmjena.NazivLAN) || !o.prosla && (g.RTT != 0 || g.Greska == "") {
@@ -71,10 +86,13 @@ func TestProvjeraVezeSRacunalom(t *testing.T) {
 	if g := p.Adrese[0].Put; g != razmjena.NazivServer {
 		t.Errorf("javna adresa iz zapisa: put %q", g)
 	}
+	if g := p.Adrese[7]; g.Put != razmjena.NazivServer || !strings.Contains(g.Greska, "tunel https://cop.primjer.hr") {
+		t.Errorf("tunel: %+v", g)
+	}
 
 	cekajDa(t, "drugo računalo broji prekinuto rukovanje", func() bool {
-		z, _ := b.Odbijeno(ctxRub, 1)
-		return slices.ContainsFunc(z, func(r ZapisOdbijenog) bool { return r.Razlog == string(razmjena.VrataRukovanje) })
+		z, err := b.Odbijeno(ctxRub, 1)
+		return err == nil && slices.ContainsFunc(z, func(r ZapisOdbijenog) bool { return r.Razlog == string(razmjena.VrataRukovanje) })
 	})
 	for _, s := range []*Service{a, b} {
 		st, err := s.syncStates(ctxRub)
@@ -90,6 +108,9 @@ func TestProvjeraVezeSRacunalom(t *testing.T) {
 	if n := len(a.pokusajiAdresa(b.node.ID)); n != 0 {
 		t.Errorf("provjera je zapamćena kao %d pokušaja razmjene", n)
 	}
+	if !slices.Equal(a.tvrdnjePutem(b.node.ID, razmjena.PutAdresa), []kandidat{{zatvoren, razmjena.PutAdresa}}) {
+		t.Error("provjera je potrošila tvrdnju o adresi")
+	}
 }
 
 // Izvor adrese: javila se u lokalnoj mreži, naučena, dolazna, Tailscale ili
@@ -102,9 +123,18 @@ func TestIzvoriAdresa(t *testing.T) {
 	a.dodajTvrdnju(b.node.ID, kandidat{"192.168.1.31:4710", razmjena.PutAdresa})
 	a.dodajTvrdnju(b.node.ID, kandidat{"192.168.1.32:4710", razmjena.PutLAN})
 	a.dodajTvrdnju(b.node.ID, kandidat{"192.0.2.20:4710", razmjena.PutAdresa})
-	p, _ := a.GetPeer(ctxRub, b.node.ID)
+	a.ports.Discovery = 4712
+	a.lan.zaboravi()
+	a.trazi = func(protokol string, _ time.Duration, _ int, _ []string) ([]razmjena.Found, error) {
+		return []razmjena.Found{{Beacon: razmjena.Beacon{Protocol: protokol, DeviceID: b.node.ID, ExchangePort: 4711}, Addr: "192.168.1.33"}}, nil
+	}
+	p, err := a.GetPeer(ctxRub, b.node.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	got := a.adreseSIzvorom(ctxRub, p)
 	ocekivano := []kandidatIzvora{
+		{kandidat{"192.168.1.33:4711", razmjena.PutLAN}, IzvorLokalnaMreza},
 		{kandidat{"192.168.1.32:4710", razmjena.PutLAN}, IzvorLokalnaMreza},
 		{kandidat{"192.0.2.20:4710", razmjena.PutAdresa}, IzvorZapis},
 		{kandidat{"192.0.2.21:4710", razmjena.PutAdresa}, IzvorZapis},

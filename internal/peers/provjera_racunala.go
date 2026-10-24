@@ -15,8 +15,8 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"net"
+	"slices"
 	"sync"
-	"syscall"
 	"time"
 
 	"gocop/internal/razmjena"
@@ -155,10 +155,13 @@ var razloziAdrese = []struct {
 }{
 	{RazlogAdreseDrugiKljuc, func(err error) bool { return errors.Is(err, razmjena.ErrDrugiKljuc) }},
 	{RazlogAdreseNemaOdgovor, isteklo},
-	{RazlogAdreseOdbijeno, func(err error) bool { return errors.Is(err, syscall.ECONNREFUSED) }},
-	{RazlogAdreseNemaPuta, func(err error) bool {
-		return errors.Is(err, syscall.EHOSTUNREACH) || errors.Is(err, syscall.ENETUNREACH)
-	}},
+	{RazlogAdreseOdbijeno, func(err error) bool { return jeJedna(err, greskeOdbijeno) }},
+	{RazlogAdreseNemaPuta, func(err error) bool { return jeJedna(err, greskeNemaPuta) }},
+}
+
+// jeJedna: greška je jedna od zadanih (razlog_adrese_*.go)
+func jeJedna(err error, zadane []error) bool {
+	return slices.ContainsFunc(zadane, func(z error) bool { return errors.Is(err, z) })
 }
 
 // razlogAdrese je razlog za grešku provjere; prazno kad se ne prepozna

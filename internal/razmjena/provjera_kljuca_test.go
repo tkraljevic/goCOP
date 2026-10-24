@@ -3,7 +3,9 @@ package razmjena
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/tls"
 	"errors"
+	"net"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -88,4 +90,57 @@ func TestProvjeraKljucaKrozTunel(t *testing.T) {
 			t.Errorf("B je pitan %d puta i obradio %d veza", p, n)
 		}
 	})
+}
+
+// tudjiPosluzitelj na loopbacku pokaže certifikat i rukuje se ključem koji
+// zada test; uz zahtjev traži certifikat druge strane, kao čvor
+func tudjiPosluzitelj(t *testing.T, cert tls.Certificate, zahtjev bool) string {
+	t.Helper()
+	cfg := &tls.Config{Certificates: []tls.Certificate{cert}, MinVersion: tls.VersionTLS13}
+	if zahtjev {
+		cfg.ClientAuth = tls.RequireAnyClientCert
+	}
+	ln, err := tls.Listen("tcp", "127.0.0.1:0", cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { ln.Close() })
+	go func() {
+		for {
+			c, err := ln.Accept()
+			if err != nil {
+				return
+			}
+			go func(c net.Conn) {
+				defer c.Close()
+				_ = c.(*tls.Conn).Handshake() // ishod gleda klijent
+			}(c)
+		}
+	}()
+	return ln.Addr().String()
+}
+
+// Tko pokaže tuđi javni certifikat (B ga daje svakome tko se spoji), a
+// rukuje se svojim ključem, nije prošao: ključ je dokazan tek potpisom
+// rukovanja. Poslužitelj koji ne traži certifikat druge strane, a pravim
+// ključem potpiše rukovanje, prolazi.
+func TestProvjeraKljucaTraziPotpis(t *testing.T) {
+	kljucB, klijent := newKey(t), newKey(t)
+	javniB := kljucB.Public().(ed25519.PublicKey)
+	certB, err := selfSignedCert(kljucB, "testproto", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
+	defer otkazi()
+
+	lazni := tls.Certificate{Certificate: certB.Certificate, PrivateKey: newKey(t)}
+	adresa := tudjiPosluzitelj(t, lazni, true)
+	if _, err := ProvjeriKljucOn(ctx, otvori(t, adresa), klijent, "testproto", adresa, javniB); err == nil || !strings.Contains(err.Error(), "invalid signature") {
+		t.Errorf("tuđi certifikat bez ključa: %v", err)
+	}
+	adresa = tudjiPosluzitelj(t, certB, false)
+	if rtt, err := ProvjeriKljucOn(ctx, otvori(t, adresa), klijent, "testproto", adresa, javniB); err != nil || rtt <= 0 {
+		t.Errorf("bez zahtjeva za certifikat: %v, %v", rtt, err)
+	}
 }
