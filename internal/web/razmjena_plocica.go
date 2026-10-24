@@ -44,14 +44,29 @@ type CvorRazmjene struct {
 	Put        string
 	RTTMs      int
 	RazlogPuta razmjena.RazlogPuta
+	// PonovnoU je kad WEB sync s tim računalom pokušava ponovno nakon
+	// pauze (puni ga F3b); nula: ne zna se
+	PonovnoU time.Time
+	// PrekoPosluzitelja je ime poslužitelja (ili „poslužitelja”) preko
+	// kojeg podaci stižu u dva kruga kad ovo računalo do tog nema puta;
+	// prazno: tako ne ide
+	PrekoPosluzitelja string
 }
 
 // Razlog je razlog puta rečenicom za pločicu. „Ne javlja se ni na jednoj
 // adresi” ne stoji uz računalo koje je na mreži: ono se nedavno samo javilo
-// (npr. laptop izvan kuće na javnu adresu), a ovo ga ne može nazvati.
+// (npr. laptop izvan kuće na javnu adresu), a ovo ga ne može nazvati. Do
+// računala bez puta podaci idu preko poslužitelja, pa to stoji umjesto
+// prolaznog razloga.
 func (c CvorRazmjene) Razlog() string {
-	if c.RazlogPuta == razmjena.RazlogPutaBezOdgovora && c.Dostupnost == "online" {
+	switch {
+	case c.PrekoPosluzitelja != "" && !c.RazlogTrajan():
+		return "SERVER sync, preko " + c.PrekoPosluzitelja + ": podaci stižu do 10 min kasnije."
+	case c.RazlogPuta == razmjena.RazlogPutaBezOdgovora && c.Dostupnost == "online":
 		return ""
+	case c.RazlogPuta == razmjena.RazlogPutaPauza && !c.PonovnoU.IsZero():
+		return strings.TrimSuffix(razlogRijecima(c.RazlogPuta, c.Put), ".") +
+			", a WEB sync pokušava ponovno u " + c.PonovnoU.In(models.Zagreb).Format("15:04") + "."
 	}
 	return razlogRijecima(c.RazlogPuta, c.Put)
 }
@@ -85,6 +100,7 @@ type PrognozaRazmjene struct {
 type RazmjenaStanje struct {
 	UMrezi         bool
 	Verzija        string // izdanje programa ovog čvora
+	Signal         string // redak o WEB syncu prema sastajalištu (signal_natpis.go)
 	Cvorovi        []CvorRazmjene
 	Upozorenja     []string
 	Arhiva         ArhivaRazmjene
@@ -145,6 +161,7 @@ func (s *Server) ShowRazmjena(w http.ResponseWriter, r *http.Request) {
 	ctx, otkazi := context.WithTimeout(r.Context(), 10*time.Second)
 	defer otkazi()
 	st := s.razmjena(ctx)
+	st.Signal = s.redakSignala()
 	st.Upozorenja = append(st.Upozorenja, s.upozorenjaPovezivosti()...)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
@@ -197,6 +214,7 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
     <span class="reg-card-sub">{{if .Verzija}}ovaj čvor na {{.Verzija}} · {{end}}osvježava se sama · <a href="/sinkronizacija">Sinkronizacija</a></span>
   </div>
   {{range .Disk}}<div class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Poruka}} {{.Savjet}}</div>{{end}}
+  {{if .UMrezi}}{{with .Signal}}<p class="reg-card-sub">{{.}}</p>{{end}}{{end}}
   {{if not .UMrezi}}
   <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Čvor, mreža i sinkronizacija</a></p>
   {{else if .Sredeno}}

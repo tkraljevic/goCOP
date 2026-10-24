@@ -83,6 +83,10 @@ func imenaUIzrazu(e ast.Node, tipovi map[string]string, dodaj func(string)) {
 	ast.Inspect(e, obidji)
 }
 
+// putoviRazmjene su stalni putovi iz paketa razmjena koje server.go koristi
+// u rutama
+var putoviRazmjene = map[string]string{"PutTunela": razmjena.PutTunela, "PutSignala": razmjena.PutSignala}
+
 // ruteIzIzvora čita sve s.mux.Handle iz server.go
 func ruteIzIzvora(t *testing.T) []ruta {
 	t.Helper()
@@ -139,8 +143,8 @@ func ruteIzIzvora(t *testing.T) []ruta {
 				s, _ := strconv.Unquote(v.Value)
 				return []dio{{s, regexp.QuoteMeta(s)}}
 			case *ast.SelectorExpr:
-				if v.Sel.Name == "PutTunela" {
-					return []dio{{razmjena.PutTunela, regexp.QuoteMeta(razmjena.PutTunela)}}
+				if put, ok := putoviRazmjene[v.Sel.Name]; ok {
+					return []dio{{put, regexp.QuoteMeta(put)}}
 				}
 			case *ast.Ident:
 				if vrijednosti, ok := petlje[v.Name]; ok {
@@ -420,7 +424,7 @@ func TestOgradaTunela(t *testing.T) {
 		mu.Unlock()
 		usli.Done()
 		<-pusti
-	}))
+	}), "puno")
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", razmjena.PutTunela, nil)
 		r.RemoteAddr = adresa + ":5000"

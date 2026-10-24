@@ -111,6 +111,12 @@ type Povezivost struct {
 	UDPPort        int      `toml:"udp_port" comment:"UDP port WEB synca. Kad je zauzet, uzme se nasumičan. 0 = nasumičan."`
 	Stun           []string `toml:"stun" comment:"STUN poslužitelji za provjeru mreže, različitih operatera. Vide javnu\nadresu i port ovog računala. Prazan popis isključuje provjeru.\n  stun = []"`
 	LanAdresa      string   `toml:"lan_adresa" comment:"Adresa ovog računala u lokalnoj mreži, kad je goCOP u spremniku (Docker)\ni sam je ne vidi, samo IPv4. WEB sync bi je nudio drugim računalima umjesto\nadrese spremnika; zasad se samo prikazuje na stranici Sinkronizacija.\nPrazno = sam je nađe.\n  lan_adresa = '192.168.1.20'"`
+	// Sastajalište (plan WEB synca, F2): računalo dostupno s interneta, kod
+	// kojeg se ostala prijave za WEB sync. Uzima se samo odavde, nikad iz
+	// zapisa čvora u knjizi, jer taj zapis može promijeniti bilo koji član.
+	Sastajaliste        string `toml:"sastajaliste" comment:"Web adresa sastajališta za WEB sync, obično kućnog servera. Prazno = bez\nsastajališta.\n  sastajaliste = 'https://cop.primjer.hr'"`
+	SastajalisteCvor    string `toml:"sastajaliste_cvor" comment:"Ime čvora sastajališta u mreži; njegov ključ uzima se iz članstva.\n  sastajaliste_cvor = 'cop-osijek'"`
+	PosluziSastajaliste bool   `toml:"posluzi_sastajaliste" comment:"true = ovo računalo je sastajalište (samo kućni server, uz\nweb_sync_prijava = true)."`
 }
 
 // Default su zadane vrijednosti — iste kao bez ikakve datoteke

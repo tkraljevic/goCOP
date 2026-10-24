@@ -45,6 +45,7 @@
 <section id="dohvatljivost">
 <h2 class="mt-4" style="font-size:1rem;">Dohvatljivost ovog računala</h2>
 {{range .Upozorenja}}<div class="alert alert-warning">{{.}}</div>{{end}}
+{{with .Signal}}<p>{{.}}</p>{{end}}
 {{with .Provjera}}
 <p>{{.Sazetak}}{{with $.Dohvatljivost.Vrijedi}} Vrijedi: {{.}}.{{end}}</p>
 <p class="muted">Provjereno {{vrijemeHR .Kad}}{{if .Privremena}}, na utičnici otvorenoj samo za ovu provjeru{{end}}.{{with .Upozorenje}} {{.}}.{{end}}</p>

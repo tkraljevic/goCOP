@@ -25,6 +25,10 @@ import (
 // PutTunela je put na web sučelju na kojem čvor prima razmjenu kroz tunel
 const PutTunela = "/razmjena/tunel"
 
+// PutSignala je put na web sučelju na kojem se računala prijavljuju kod
+// sastajališta za WEB sync (plan WEB synca, F2)
+const PutSignala = "/razmjena/signal"
+
 // JeAdresaTunela javlja ide li adresa kroz tunel (https://domena) a ne na
 // port razmjene
 func JeAdresaTunela(adresa string) bool {

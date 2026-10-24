@@ -119,6 +119,7 @@ type DohvatljivostPrikaz struct {
 	Kandidati  []string
 	Izlazi     []string // rečenice za izlaz prema STUN-u koji nije običan
 	Upozorenja []string
+	Signal     string // redak o WEB syncu prema sastajalištu
 }
 
 // rijeciVrste je vrsta mreže riječima, za „vrijedi”
@@ -137,7 +138,8 @@ var rijeciIzlaza = map[string]string{
 
 // dohvatljivost slaže blok za stranicu Sinkronizacija iz zadnje provjere
 func (s *Server) dohvatljivost() *DohvatljivostPrikaz {
-	d := &DohvatljivostPrikaz{Provjera: s.povezivost.zadnjaProvjera()}
+	d := &DohvatljivostPrikaz{Provjera: s.povezivost.zadnjaProvjera(), Signal: s.redakSignala()}
+	d.Upozorenja = s.povezivost.signalStanje().upozorenja(time.Now())
 	if u := s.upozorenjeLanAdrese(d.Provjera != nil); u != "" {
 		d.Upozorenja = append(d.Upozorenja, u)
 	}
@@ -168,9 +170,9 @@ func opisKandidata(k razmjena.Kandidat) string {
 }
 
 // upozorenjaPovezivosti su rečenice WEB synca za pločicu razmjene: nakon
-// padova i u spremniku bez lan_adresa
+// padova, prema sastajalištu i u spremniku bez lan_adresa
 func (s *Server) upozorenjaPovezivosti() []string {
-	out := s.povezivost.upozorenja()
+	out := append(s.povezivost.upozorenja(), s.povezivost.signalStanje().upozorenja(time.Now())...)
 	if u := s.upozorenjeLanAdrese(false); u != "" {
 		out = append(out, u)
 	}

@@ -65,15 +65,16 @@ func (o *ogradaTunela) pusti(a netip.Addr) {
 // ograditiTunel omata rukovatelja tunela. websocket.Server.ServeHTTP vraća
 // tek kad razmjena završi, pa se mjesto pušta na izlasku.
 func ograditiTunel(next http.Handler) http.Handler {
-	return novaOgradaTunela(najviseTunela, najviseTunelaPoKlijentu).omotaj(next)
+	return novaOgradaTunela(najviseTunela, najviseTunelaPoKlijentu).omotaj(next, "Čvor već drži najviše veza razmjene kroz tunel; pokušajte kasnije.")
 }
 
-func (o *ogradaTunela) omotaj(next http.Handler) http.Handler {
+// omotaj pušta zahtjev dok ima mjesta, a višku odgovori porukom i 503
+func (o *ogradaTunela) omotaj(next http.Handler, poruka string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		a := kljucKlijentaTunela(klijentIz(r).Adresa)
 		if !o.uzmi(a) {
 			w.Header().Set("Retry-After", ponoviTunelZa)
-			http.Error(w, "Čvor već drži najviše veza razmjene kroz tunel; pokušajte kasnije.", http.StatusServiceUnavailable)
+			http.Error(w, poruka, http.StatusServiceUnavailable)
 			return
 		}
 		defer o.pusti(a)

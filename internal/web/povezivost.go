@@ -19,12 +19,14 @@ type StanjePovezivosti struct {
 }
 
 // povezivostCvora su stanje WEB synca, njegovo ponovno uključivanje i
-// provjera veze (provjera_veze.go)
+// provjera veze (provjera_veze.go) i stanje prema sastajalištu
+// (signal_natpis.go)
 type povezivostCvora struct {
 	stanje   func() StanjePovezivosti
 	ukljuci  func() error
 	provjeri func(context.Context) ProvjeraVeze
 	zadnja   func() *ProvjeraVeze
+	signal   func() SignalStanje
 }
 
 // SetPovezivost daje poslužitelju stanje WEB synca i ponovno uključivanje

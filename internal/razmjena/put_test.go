@@ -42,3 +42,20 @@ func TestRazloziPutaStalni(t *testing.T) {
 		}
 	}
 }
+
+// Kodovi signala su stalni, a prolazna su samo spajanje i nedostupno
+// sastajalište
+func TestKodoviSignala(t *testing.T) {
+	for k, trajan := range map[KodSignala]bool{KodSignalaSpajaSe: false, KodSignalaNedostupno: false, "": false,
+		KodSignalaNemaRute: true, KodSignalaKriviKljuc: true, KodSignalaNijeClan: true, KodSignalaKopija: true, KodSignalaBezPostavke: true} {
+		if k.Trajan() != trajan {
+			t.Errorf("%q: trajan %v", k, k.Trajan())
+		}
+	}
+	for k, v := range map[KodSignala]string{KodSignalaSpajaSe: "spaja-se", KodSignalaNedostupno: "nedostupno", KodSignalaNemaRute: "nema-rute",
+		KodSignalaKriviKljuc: "krivi-kljuc", KodSignalaNijeClan: "nije-clan", KodSignalaKopija: "kopija", KodSignalaBezPostavke: "bez-postavke"} {
+		if string(k) != v {
+			t.Errorf("%q se promijenio u %q", v, k)
+		}
+	}
+}
