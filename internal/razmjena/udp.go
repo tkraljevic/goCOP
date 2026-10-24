@@ -44,6 +44,7 @@ type UDP struct {
 	cekaju   map[[12]byte]chan<- odgovorSTUN
 	odbaceni atomic.Int64
 	radi     atomic.Bool
+	bezRute  atomic.Bool // slanje je javilo da nema rute (nova_uticnica.go)
 	otkazi   context.CancelFunc
 	citac    sync.WaitGroup
 }

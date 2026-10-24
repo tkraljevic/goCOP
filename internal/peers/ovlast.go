@@ -337,6 +337,7 @@ func (s *Service) IzdajOvlast(ctx context.Context, nodeID string) (razmjena.Ovla
 // potpisao time prestaju vrijediti; vraća te čvorove (treba ih primiti
 // ponovno, ključem mreže ili drugim primateljem). Samo nositelj ključa mreže.
 func (s *Service) OpozoviOvlast(ctx context.Context, nodeID string) ([]string, error) {
+	defer s.javiPromjenuClanstva()
 	s.mu.Lock()
 	network := s.network
 	s.mu.Unlock()

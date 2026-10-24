@@ -11,7 +11,11 @@ package web
 // registar, i 8 po adresi, jer cijeli ured izlazi s jedne ili dvije adrese.
 // Rukovanja unutar veze ograđuje sam rukovatelj (2 po adresi, rok 2 s).
 
-import "net/http"
+import (
+	"net/http"
+
+	"gocop/internal/razmjena"
+)
 
 const (
 	najviseSignala           = 64
@@ -43,13 +47,16 @@ func (s *Server) upozorenjeSastajalista() string {
 		"isključena, pa se druga računala kod njega ne mogu prijaviti. Administrator je uključuje u Administraciji, pod Čvor i mreža."
 }
 
-// handleSignal predaje vezu rukovatelju sastajališta, ili 404
+// handleSignal predaje vezu rukovatelju sastajališta, ili 404. Uz vezu ide
+// klijent kako ga vidi web (adresa iza posrednika, mreža /48 za IPv6), po
+// kojem sastajalište ograđuje rukovanja.
 func (s *Server) handleSignal(w http.ResponseWriter, r *http.Request) {
 	if s.signal == nil || !s.posluziSastajaliste() {
 		http.NotFound(w, r)
 		return
 	}
-	s.signal.ServeHTTP(w, r)
+	klijent := kljucKlijentaTunela(klijentIz(r).Adresa).String()
+	s.signal.ServeHTTP(w, r.WithContext(razmjena.SKlijentom(r.Context(), klijent)))
 }
 
 // ograditiSignal omata rukovatelja sastajališta; mjesto se pušta kad veza

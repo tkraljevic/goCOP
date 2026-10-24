@@ -170,6 +170,9 @@ type Service struct {
 	// uloge ovog računala za mrežu (preuzima vodostaje, izdaje prognozu)
 	uloge           atomic.Pointer[Uloge]
 	naPromjenuUloga func(Uloge)
+	// promjenaClanstva se zove kad stignu ili se ovdje zapišu članstva,
+	// ovlasti ili opozivi (sastajalište tada provjeri prijave; signal_cvora.go)
+	promjenaClanstva atomic.Pointer[func()]
 
 	// izdanje programa i puna oznaka gradnje, za razmjenu (PostaviProgram)
 	program, gradnja string

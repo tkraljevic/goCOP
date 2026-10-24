@@ -280,6 +280,7 @@ func (s *Service) uTransakciji(ctx context.Context, fn func(tx *sql.Tx) error) e
 // član. Ako je bio ovlašteni primatelj, opoziva mu se i ovlast, a time i
 // članstva koja je potpisao; vraća te čvorove.
 func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string, error) {
+	defer s.javiPromjenuClanstva()
 	if nodeID == s.node.ID {
 		return nil, fmt.Errorf("čvor ne može opozvati sam sebe")
 	}

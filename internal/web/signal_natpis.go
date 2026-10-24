@@ -121,6 +121,8 @@ var recenicaSignala = map[razmjena.KodSignala]string{
 	razmjena.KodSignalaNijeClan: "WEB sync se ne može prijaviti kod %s, jer ovo računalo nije član mreže ili mu je članstvo opozvano. " +
 		"Administrator ga treba ponovno primiti u mrežu.",
 	razmjena.KodSignalaBezPostavke: "Prijava za WEB sync je uključena, ali sastajalište nije upisano (sastajaliste i sastajaliste_cvor u gocop.toml).",
+	razmjena.KodSignalaNepoznatCvor: "WEB sync se ne može prijaviti kod %s, jer ovo računalo čvor sastajališta iz postavki ne zna kao člana mreže. " +
+		"Provjerite sastajaliste_cvor u gocop.toml.",
 }
 
 // upozorenja su rečenice o kvaru WEB synca prema sastajalištu, s odgodom

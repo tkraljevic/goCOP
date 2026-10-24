@@ -135,7 +135,7 @@ func (q *upitSTUN) cekajOdgovor(ctx context.Context) OdgovorPosluzitelja {
 func (q *upitSTUN) posaljiSljedeci() (time.Duration, bool) {
 	i := len(q.poslano)
 	q.poslano = append(q.poslano, time.Now())
-	_, _ = q.u.tr.WriteTo(zahtjevBinding(q.ids[i]), q.na) // izgubljen upit nadoknadi sljedeći ili rok
+	q.u.posalji(zahtjevBinding(q.ids[i]), q.na) // izgubljen upit nadoknadi sljedeći ili rok
 	if i+1 >= len(q.ids) {
 		return 0, false
 	}

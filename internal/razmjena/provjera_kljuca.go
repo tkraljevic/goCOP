@@ -50,7 +50,7 @@ func ProvjeriKljucOn(ctx context.Context, raw net.Conn, priv ed25519.PrivateKey,
 // ProvjeriTunel je ProvjeriKljucOn kroz tunel (https://domena); greška nosi
 // adresu tunela, kao uz DialTunel
 func (k *KlijentTunela) ProvjeriTunel(ctx context.Context, priv ed25519.PrivateKey, protocol, adresa string, expect ed25519.PublicKey) (time.Duration, error) {
-	nc, baza, err := k.uTunel(ctx, adresa)
+	nc, baza, err := k.uTunel(ctx, adresa, PutTunela)
 	if err != nil {
 		return 0, err
 	}

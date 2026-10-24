@@ -8,13 +8,17 @@ type KodSignala string
 
 // Kodovi signala
 const (
-	KodSignalaSpajaSe     KodSignala = "spaja-se"     // prijava je u tijeku
-	KodSignalaNedostupno  KodSignala = "nedostupno"   // sastajalište ne odgovara; klijent pokušava ponovno
-	KodSignalaNemaRute    KodSignala = "nema-rute"    // na adresi nema sastajališta (404)
-	KodSignalaKriviKljuc  KodSignala = "krivi-kljuc"  // na adresi odgovara drugo računalo
-	KodSignalaNijeClan    KodSignala = "nije-clan"    // sastajalište ne prima ovo računalo
-	KodSignalaKopija      KodSignala = "kopija"       // isti ključ je prijavljen s drugog računala
-	KodSignalaBezPostavke KodSignala = "bez-postavke" // prijava je uključena, a sastajalište nije upisano
+	KodSignalaSpajaSe    KodSignala = "spaja-se"   // prijava je u tijeku
+	KodSignalaNedostupno KodSignala = "nedostupno" // sastajalište ne odgovara; klijent pokušava ponovno
+	// KodSignalaNemaRute: na adresi nema sastajališta (404). Zasad ga nitko
+	// ne upisuje: x/net/websocket ne razlikuje 404 od 503, pa neuspio
+	// WebSocket uvijek znači samo da sastajalište ne odgovara.
+	KodSignalaNemaRute     KodSignala = "nema-rute"
+	KodSignalaKriviKljuc   KodSignala = "krivi-kljuc"   // na adresi odgovara drugo računalo
+	KodSignalaNijeClan     KodSignala = "nije-clan"     // sastajalište ne prima ovo računalo
+	KodSignalaKopija       KodSignala = "kopija"        // isti ključ je prijavljen s drugog računala
+	KodSignalaBezPostavke  KodSignala = "bez-postavke"  // prijava je uključena, a sastajalište nije upisano
+	KodSignalaNepoznatCvor KodSignala = "nepoznat-cvor" // čvor sastajališta iz postavki nije poznat član mreže
 )
 
 // Trajan javlja stanje koje se samo ne popravi, pa traži čovjeka
