@@ -81,6 +81,9 @@ func (s *Service) pustiBravu() { <-s.bravaUpisa() }
 // površinu. Zove se pod bravom. Greška površine vraća se zasebno: verzije
 // su tada u knjizi, a površinu obnovi sljedeća primjena.
 func (s *Service) primijeni(ctx context.Context, verzije []ledger.Version) (applied int, povrsina, err error) {
+	// sastajalište provjerava prijave tek kad su opozivi i članstva na
+	// površini, iz koje ih čita trusted
+	defer s.nakonClanstva(verzije)
 	applied, err = s.rec.Apply(ctx, verzije)
 	if err != nil || applied == 0 || s.onApplied == nil {
 		return applied, nil, err

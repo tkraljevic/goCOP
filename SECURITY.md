@@ -212,10 +212,29 @@ nepouzdano.
   računalu, kao ni kod razmjene (provjera ključa usred rukovanja).
 - Sastajalište za WEB sync (`/razmjena/signal`, WebSocket) odgovara samo
   na čvoru s `[povezivost] posluzi_sastajaliste = true` i
-  `web_sync_prijava = true`, a inače vraća 404. Dok prijave kod
-  sastajališta nema (u izradi), vraća 404 uvijek. Ograda: najviše 64 veze,
-  s jednog klijenta 8. Adresu i ime čvora sastajališta računalo će uzimati
-  samo iz vlastitog `gocop.toml`, a ključ iz članstva.
+  `web_sync_prijava = true`, a inače vraća 404. Unutar WebSocketa je TLS
+  1.3 s ključevima čvorova i vlastitim ALPN-om (`<protokol>-signal/1`).
+  Sastajalište šalje certifikat bez potvrde članstva, pa je strani klijent
+  ne vidi; članstvo klijenta provjeri odmah nakon rukovanja, istim
+  pravilom kao razmjena, a nečlanu odgovori samo odbijenicom. Članstvo
+  gleda ponovno kad računalo ulazi u registar, čim primijeni članstva,
+  ovlasti ili opozive i svakih sat vremena, pa opozvano računalo odmah
+  ispada, a ono kojem je članstvo isteklo najkasnije za sat. Računalo adresu i ime čvora
+  sastajališta uzima samo iz vlastitog `gocop.toml`, a ključ iz članstva,
+  i stane prije svog certifikata kad se na adresi javi drugi ključ.
+- Ograde sastajališta: najviše 64 veze, s jednog klijenta 8, i po 2
+  rukovanja s rokom od 2 s; 64 prijavljena računala i jedna veza po
+  ključu (kopija istog ključa na drugom računalu se odbija i javi);
+  poruka najviše 64 KiB, više od 20 poruka u sekundi prekida vezu; 6
+  poziva u minuti po pozivatelju, 2 u tijeku prema istom računalu, 8 prema
+  istom računalu ukupno.
+- Poziv, odziv i sinkro potpisuje pošiljatelj svojim ključem, nad
+  bajtovima tijela i uz ime protokola i vrstu poruke. Sastajalište ih
+  prosljeđuje netaknute i odbacuje poruku čiji pošiljatelj nije računalo
+  na vezi. Primatelj provjeri člana, potpis, da je poruka za njega i
+  stigla preko njegova sastajališta, vrijeme (±10 min) i da je ne vidi
+  drugi put. Sastajalište vidi tko je na vezi i tko koga zove, ali ne
+  vidi podatke razmjene.
 - quic-go nema `recover` u svojim gorutinama. Ako se program dvaput zaredom
   prekine dok WEB sync radi, iduće pokretanje kreće bez njega (oznaka
   `povezivost-u-radu.txt` uz bazu), da se ne vrti u krugu padova.

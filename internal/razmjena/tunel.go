@@ -118,18 +118,27 @@ type tunelAdresa string
 func (a tunelAdresa) Network() string { return "websocket" }
 func (a tunelAdresa) String() string  { return string(a) }
 
-// wsVeza je WebSocket kao net.Conn; Close javlja handleru da smije završiti
+// wsVeza je WebSocket kao net.Conn; Close javlja handleru da smije završiti.
+// Put je put web sučelja (PutTunela kad je prazan, ili PutSignala).
 type wsVeza struct {
 	*websocket.Conn
 	kraj    chan struct{}
 	zatvori sync.Once
+	put     string
 }
 
 // RemoteAddr i LocalAddr: WebSocket na strani poslužitelja nema adresu
 // druge strane (iza tunela je ionako adresa tunela), pa se vraća put
-// tunela umjesto praznog URL-a na kojem bi ispis pao.
-func (v *wsVeza) RemoteAddr() net.Addr { return tunelAdresa("tunel" + PutTunela) }
-func (v *wsVeza) LocalAddr() net.Addr  { return tunelAdresa(PutTunela) }
+// umjesto praznog URL-a na kojem bi ispis pao.
+func (v *wsVeza) RemoteAddr() net.Addr { return tunelAdresa("tunel" + v.putVeze()) }
+func (v *wsVeza) LocalAddr() net.Addr  { return tunelAdresa(v.putVeze()) }
+
+func (v *wsVeza) putVeze() string {
+	if v.put == "" {
+		return PutTunela
+	}
+	return v.put
+}
 
 func (v *wsVeza) Close() error {
 	err := v.Conn.Close()
@@ -166,7 +175,7 @@ const rokVanjske = 15 * time.Second
 // ctx dopusti (peers zove s 20 s). Bez roka poziv na poslužitelj koji šuti
 // visi zauvijek.
 func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, protocol string, vj func() []byte, adresa string, expect ed25519.PublicKey) (*Conn, error) {
-	nc, baza, err := k.uTunel(ctx, adresa)
+	nc, baza, err := k.uTunel(ctx, adresa, PutTunela)
 	if err != nil {
 		return nil, err
 	}
@@ -177,14 +186,15 @@ func (k *KlijentTunela) DialTunel(ctx context.Context, priv ed25519.PrivateKey, 
 	return conn, nil
 }
 
-// uTunel otvara WebSocket na putu tunela i vraća ga s adresom tunela
-// svedenom na https://domena[:port]; greška nosi tu adresu
-func (k *KlijentTunela) uTunel(ctx context.Context, adresa string) (net.Conn, string, error) {
+// uTunel otvara WebSocket na putu web sučelja (PutTunela, PutSignala) i
+// vraća ga s adresom svedenom na https://domena[:port]; greška nosi tu
+// adresu
+func (k *KlijentTunela) uTunel(ctx context.Context, adresa, put string) (net.Conn, string, error) {
 	baza, err := NormalizirajTunel(adresa)
 	if err != nil {
 		return nil, "", err
 	}
-	nc, err := k.otvoriWebSocket(ctx, baza, PutTunela)
+	nc, err := k.otvoriWebSocket(ctx, baza, put)
 	if err != nil {
 		return nil, "", porukaTunela(baza, err)
 	}
@@ -217,7 +227,7 @@ func (k *KlijentTunela) otvoriWebSocket(ctx context.Context, baza, put string) (
 	ws.PayloadType = websocket.BinaryFrame
 	// Omot nije samo radi Close: goli WebSocket klijenta javlja RemoteAddr
 	// kao wss://…, a net.SplitHostPort iz toga čita računalo „wss”.
-	return &wsVeza{Conn: ws, kraj: make(chan struct{})}, nil
+	return &wsVeza{Conn: ws, kraj: make(chan struct{}), put: put}, nil
 }
 
 // nadogradnja je zahtjev za WebSocket na putu web poslužitelja, isti kakav

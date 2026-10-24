@@ -57,7 +57,7 @@ func TestRedakSignala(t *testing.T) {
 func TestUpozorenjaSignala(t *testing.T) {
 	sad := time.Date(2026, 11, 4, 12, 0, 0, 0, time.UTC)
 	kodovi := []razmjena.KodSignala{razmjena.KodSignalaSpajaSe, razmjena.KodSignalaNedostupno, razmjena.KodSignalaNemaRute,
-		razmjena.KodSignalaKriviKljuc, razmjena.KodSignalaNijeClan, razmjena.KodSignalaKopija, razmjena.KodSignalaBezPostavke}
+		razmjena.KodSignalaKriviKljuc, razmjena.KodSignalaNijeClan, razmjena.KodSignalaKopija, razmjena.KodSignalaBezPostavke, razmjena.KodSignalaNepoznatCvor}
 	for _, k := range kodovi {
 		for _, traje := range []time.Duration{0, 9 * time.Second, odgodaProlaznog, time.Hour} {
 			for _, ime := range []string{"cop.primjer.hr", "203.0.113.7", "[2001:db8::1]:443", ""} {

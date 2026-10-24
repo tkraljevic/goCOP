@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,6 +32,9 @@ type lazniWeb struct {
 	ukljuci  func() error
 	provjeri func(context.Context) web.ProvjeraVeze
 	zadnja   func() *web.ProvjeraVeze
+	// sastajalište i stanje prijave (signal.go)
+	signal       http.Handler
+	signalStanje func() web.SignalStanje
 }
 
 func noviLazniWeb() *lazniWeb { return &lazniWeb{slusa: make(chan struct{})} }
@@ -40,6 +44,10 @@ func (l *lazniWeb) Slusa() <-chan struct{} { return l.slusa }
 func (l *lazniWeb) SetPovezivost(stanje func() web.StanjePovezivosti, ukljuci func() error) {
 	l.stanje, l.ukljuci = stanje, ukljuci
 }
+
+func (l *lazniWeb) SetSignal(h http.Handler) { l.signal = h }
+
+func (l *lazniWeb) SetSignalStanje(stanje func() web.SignalStanje) { l.signalStanje = stanje }
 
 func (l *lazniWeb) SetProvjeraVeze(provjeri func(context.Context) web.ProvjeraVeze, zadnja func() *web.ProvjeraVeze) {
 	l.provjeri, l.zadnja = provjeri, zadnja
@@ -147,7 +155,7 @@ func prijavaWebSynca(stun ...string) config.Povezivost {
 func TestPovezivostBezPrijave(t *testing.T) {
 	dir, w := t.TempDir(), noviLazniWeb()
 	close(w.slusa)
-	stani := pokreniPovezivost(context.Background(), config.Default().Povezivost, dir, w, make(dnevnikPovezivosti).javi)
+	stani := pokreniPovezivost(context.Background(), config.Default().Povezivost, dir, nil, w, make(dnevnikPovezivosti).javi)
 	stani()
 	if _, ima := oznakaPadova(t, dir); ima || w.stanje != nil {
 		t.Errorf("bez prijave: oznaka %v, stanje %v", ima, w.stanje != nil)
@@ -162,7 +170,7 @@ func TestPovezivostRadi(t *testing.T) {
 	t.Cleanup(func() { stabilanRadPovezivosti = stari })
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti)
 	uOznaci(t, dir, "0\n") // prethodno pokretanje palo jednom
-	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(lazniSTUN(t), lazniSTUN(t)), dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(lazniSTUN(t), lazniSTUN(t)), dir, nil, w, d.javi)
 	if s, _ := oznakaPadova(t, dir); s != "0\n" || w.stanje().NakonPadova {
 		t.Fatalf("prije nego web sluša: oznaka %q, stanje %+v", s, w.stanje())
 	}
@@ -202,7 +210,7 @@ func TestPovezivostRadi(t *testing.T) {
 func TestPovezivostNakonPadova(t *testing.T) {
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti, 4)
 	uOznaci(t, dir, "1\n")
-	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, nil, w, d.javi)
 	d.cekaj(t, "povezivost: WEB sync je isključen")
 	close(w.slusa)
 	stani()
@@ -239,13 +247,13 @@ func TestPovezivostGumbBezBrisanja(t *testing.T) {
 func TestPovezivostNeKrece(t *testing.T) {
 	nema := filepath.Join(t.TempDir(), "nema")
 	w, d := noviLazniWeb(), make(dnevnikPovezivosti)
-	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), nema, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), nema, nil, w, d.javi)
 	close(w.slusa)
 	d.cekaj(t, "ne da se upisati")
 	stani()
 
 	dir := t.TempDir()
-	stani = pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, noviLazniWeb(), make(dnevnikPovezivosti).javi)
+	stani = pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, nil, noviLazniWeb(), make(dnevnikPovezivosti).javi)
 	stani()
 	if _, ima := oznakaPadova(t, dir); ima {
 		t.Error("oznaka upisana prije nego je web slušao")
@@ -263,7 +271,7 @@ func TestPovezivostZauzetPortBezSTUNa(t *testing.T) {
 	cfg := prijavaWebSynca()
 	cfg.UDPPort = port
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti)
-	stani := pokreniPovezivost(context.Background(), cfg, dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), cfg, dir, nil, w, d.javi)
 	close(w.slusa)
 	d.cekaj(t, fmt.Sprintf("UDP port %d se ne da otvoriti", port))
 	if r := d.cekaj(t, "povezivost: UDP radi na :"); strings.HasSuffix(r, ":"+strconv.Itoa(port)) {
@@ -281,7 +289,7 @@ func TestPovezivostBezUticnice(t *testing.T) {
 	otvoriUticnicu = func(int) (net.PacketConn, error, error) { return nil, nil, errors.New("nema mreže") }
 	t.Cleanup(func() { otvoriUticnicu = stari })
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti)
-	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(), dir, nil, w, d.javi)
 	close(w.slusa)
 	d.cekaj(t, "UDP utičnica se ne da otvoriti, pa WEB sync ne radi: nema mreže")
 	for rok := time.Now().Add(5 * time.Second); ; time.Sleep(10 * time.Millisecond) {
@@ -411,7 +419,7 @@ func TestProvjeraVezeBezPrijave(t *testing.T) {
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti, 4)
 	port := slobodanUDP(t)
 	cfg := config.Povezivost{UDPPort: port, Stun: []string{lazniSTUN(t), lazniSTUN(t)}}
-	stani := pokreniPovezivost(context.Background(), cfg, dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), cfg, dir, nil, w, d.javi)
 	defer stani()
 	if w.stanje != nil || w.provjeri == nil || w.zadnja() != nil {
 		t.Fatalf("poslužitelj: stanje %v, provjera %v", w.stanje != nil, w.provjeri != nil)
@@ -438,7 +446,7 @@ func TestProvjeraVezeBezPrijave(t *testing.T) {
 	}
 
 	w2 := noviLazniWeb()
-	stani2 := pokreniPovezivost(context.Background(), config.Povezivost{}, dir, w2, d.javi)
+	stani2 := pokreniPovezivost(context.Background(), config.Povezivost{}, dir, nil, w2, d.javi)
 	defer stani2()
 	if r := w2.provjeri(context.Background()); !strings.Contains(r.Greska, "stun = []") {
 		t.Errorf("bez STUN-a: %+v", r)
@@ -451,7 +459,7 @@ func TestProvjeraVezeJednaPoJedna(t *testing.T) {
 	upiti, pusti := make(chan struct{}, 16), make(chan struct{})
 	cfg := config.Povezivost{UDPPort: 0, Stun: []string{lazniSTUNSa(t, pusti, upiti)}}
 	w := noviLazniWeb()
-	stani := pokreniPovezivost(context.Background(), cfg, t.TempDir(), w, make(dnevnikPovezivosti, 4).javi)
+	stani := pokreniPovezivost(context.Background(), cfg, t.TempDir(), nil, w, make(dnevnikPovezivosti, 4).javi)
 	prvi, drugi := make(chan web.ProvjeraVeze, 1), make(chan web.ProvjeraVeze, 1)
 	go func() { prvi <- w.provjeri(context.Background()) }()
 	<-upiti // prvo mjerenje je poslalo upit i čeka odgovor, koji test drži
@@ -478,7 +486,7 @@ func TestProvjeraVezeJednaPoJedna(t *testing.T) {
 // grešku, a ne blokiran UDP.
 func TestProvjeraVezeNaStalnoj(t *testing.T) {
 	dir, w, d := t.TempDir(), noviLazniWeb(), make(dnevnikPovezivosti)
-	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(lazniSTUN(t), lazniSTUN(t)), dir, w, d.javi)
+	stani := pokreniPovezivost(context.Background(), prijavaWebSynca(lazniSTUN(t), lazniSTUN(t)), dir, nil, w, d.javi)
 	defer stani()
 	close(w.slusa)
 	d.cekaj(t, "povezivost: UDP radi na :")

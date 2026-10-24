@@ -76,9 +76,11 @@ otvori UDP port 4713 i provjeri mrežu preko dva STUN poslužitelja, a ishod
 upiše u dnevnik. Administrator to može i gumbom *Provjeri vezu*, a pojedinosti
 (vlastita javna adresa, adrese koje bi WEB sync nudio, kuda ide promet prema
 STUN-u) vidi u bloku Dohvatljivost na stranici Sinkronizacija. Podaci tim
-putem još ne idu. Postavke sastajališta (`sastajaliste`,
-`sastajaliste_cvor`, a na stalnom čvoru `posluzi_sastajaliste`) već postoje,
-ali prijave kod njega još nema. Ako se program dvaput zaredom
+putem još ne idu. Drugi korak je prijava kod sastajališta: stalni čvor uz
+`posluzi_sastajaliste` zna tko je na vezi, a ostala računala se kod njega
+prijave (`sastajaliste`, `sastajaliste_cvor`) i drže vezu, i nakon buđenja
+i promjene mreže. Preko sastajališta poslije idu kratke potpisane poruke
+kojima se dva računala dogovore o izravnoj vezi. Ako se program dvaput zaredom
 prekine dok WEB sync radi, kreće bez njega dok ga administrator ponovno ne
 uključi (Odluke (23. 10. 2026.)).
 

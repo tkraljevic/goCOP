@@ -17,6 +17,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"net/netip"
 	"os"
 	"strconv"
@@ -31,11 +32,13 @@ import (
 )
 
 // posluziteljPovezivosti je web poslužitelj: kad sluša i komu javiti
-// stanje WEB synca i provjeru veze (web.Server)
+// stanje WEB synca, provjeru veze i sastajalište (web.Server)
 type posluziteljPovezivosti interface {
 	Slusa() <-chan struct{}
 	SetPovezivost(stanje func() web.StanjePovezivosti, ukljuci func() error)
 	SetProvjeraVeze(provjeri func(context.Context) web.ProvjeraVeze, zadnja func() *web.ProvjeraVeze)
+	SetSignal(h http.Handler)
+	SetSignalStanje(stanje func() web.SignalStanje)
 }
 
 // rokRazrjesenjaSTUN je najdulje čekanje na adresu jednog STUN poslužitelja
@@ -67,6 +70,11 @@ type povezivost struct {
 	zadnja                   *web.ProvjeraVeze
 	uTijeku                  chan struct{} // zatvori se kad mjerenje u tijeku završi
 
+	// prijava kod sastajališta ili samo sastajalište (signal.go); postave se
+	// prije nego web sluša, a poslije se samo čitaju
+	klijent      prijavaSignala
+	sastajaliste *razmjena.Sastajaliste
+
 	upisano bool // oznaka je upisana, pa je uredno gašenje briše; samo radi i zatvori
 }
 
@@ -74,7 +82,7 @@ type povezivost struct {
 // Zove se prije nego web počne slušati, jer poslužitelju predaje stanje.
 // Provjera veze radi i uz isključenu prijavu za WEB sync: tada mjeri na
 // privremenoj utičnici.
-func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, w posluziteljPovezivosti, javi func(string, ...any)) func() {
+func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, cvor cvorSignala, w posluziteljPovezivosti, javi func(string, ...any)) func() {
 	ctx, otkazi := context.WithCancel(ctx)
 	p := &povezivost{cfg: cfg, javi: javi, stabilanRad: stabilanRadPovezivosti, ctx: ctx}
 	w.SetProvjeraVeze(p.provjeriVezu, p.zadnjaProvjera)
@@ -84,6 +92,7 @@ func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, w
 		p.mu.Unlock()
 		otkazi()
 		p.teku.Wait()
+		p.zatvoriSastajaliste()
 		p.zatvori()
 	}
 	if !cfg.WebSyncPrijava {
@@ -97,6 +106,7 @@ func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, w
 			"ponovno se uključuje u Administraciji, pod Čvor i mreža")
 		return stani
 	}
+	p.pokreniSignal(cvor, w)
 	p.teku.Go(func() { p.radi(ctx, w.Slusa()) })
 	return stani
 }
@@ -144,6 +154,8 @@ func (p *povezivost) radi(ctx context.Context, slusa <-chan struct{}) {
 	} else {
 		p.provjeriVezu(ctx)
 	}
+	p.prijaviSe(ctx)
+	p.cuvajMrezu(ctx)
 	t := time.NewTimer(p.stabilanRad)
 	defer t.Stop()
 	select {
@@ -273,6 +285,13 @@ func (p *povezivost) naStalnoj(ctx context.Context, u *razmjena.UDP, posl []razm
 		return r
 	}
 	p.mu.Lock()
+	if p.udp != u {
+		// utičnica je zamijenjena usred mjerenja: bez odgovora bi izgledalo
+		// kao blokiran UDP, pa ishod ne ide ni u histerezu ni u dnevnik
+		p.mu.Unlock()
+		r.Greska = greskaZamjene
+		return r
+	}
 	prva := p.zadnja == nil
 	promjena := p.mreza.Dodaj(r.Mjerenje)
 	r.Vrijedi = p.mreza.Vrsta

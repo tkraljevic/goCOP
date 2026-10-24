@@ -175,15 +175,30 @@ računala ili iz lokalne mreže.
 Da bi se dva računala našla preko interneta, WEB sync se prijavljuje kod
 sastajališta, stalnog čvora koji je dostupan s interneta. Na ostalim
 računalima upisuje se `[povezivost] sastajaliste = 'https://cop.primjer.hr'`
-i `sastajaliste_cvor`, ime tog čvora u mreži; njegov ključ program će
-uzimati iz članstva, ne iz zapisa čvora. Na samom stalnom čvoru postavlja se
+i `sastajaliste_cvor`, ime tog čvora u mreži; njegov ključ program uzima
+iz članstva, ne iz zapisa čvora. Na samom stalnom čvoru postavlja se
 `posluzi_sastajaliste = true`, uz `web_sync_prijava = true`; bez prijave
 pločica razmjene na njemu upozorava da sastajalište ne radi. Sve tri postavke
-mijenjaju se samo u datoteci. Same prijave još nema: dolazi u idućem koraku,
-pa `https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze, s jedne
-adrese 8) zasad vraća 404 i uz obje postavke. Kad prijava dođe, pločica
-razmjene reći će „WEB sync: prijavljen kod cop.primjer.hr od 12:01”, a na
-sastajalištu koliko je računala prijavljeno.
+mijenjaju se samo u datoteci. Sastajalište je na
+`https://<domena>/razmjena/signal` (WebSocket, najviše 64 veze, s jedne
+adrese 8); bez tih postavki vraća 404. Prijavljeno računalo drži vezu,
+šalje puls svakih 25 s i nakon prekida se samo vrati, za 2 s pa sve rjeđe,
+najviše svake minute; nakon buđenja ili promjene mreže odmah. Pri svakoj
+prijavi mreža se izmjeri iznova. Računalo koje sastajalište odbije kao
+kopiju istog ključa pokuša ponovno tek za 10 min, i nakon buđenja; pločica
+kaže kad. Pločica
+razmjene tada kaže „WEB sync: prijavljen kod cop.primjer.hr od 12:01.”, a na
+sastajalištu koliko je računala prijavljeno, koliko je poziva bilo u zadnjem
+satu i koliko prekida u 24 h. Podaci i dalje idu kao prije: WEB sync ih nosi
+tek u idućoj fazi.
+
+Uz Cloudflare ispred stalnog čvora preporučuje se jedno pravilo ograničenja
+brzine samo za put `/razmjena/signal`, na primjer više od 30 zahtjeva u
+minuti s iste adrese → blokiraj. Prag nije 10, jer kod kuće do četiri
+računala izlaze s iste javne adrese, a nakon pada stalnog čvora svako u
+prvoj minuti pokuša nekoliko puta. Put `/razmjena/tunel` to pravilo ne
+dobiva. Ulaz `cloudflared` ne smije imati pravilo puta koje bi za
+`/razmjena/signal` vratilo 404.
 
 **Što ide izvan računala:** program nema telemetriju o uporabi ni obvezni cloud;
 sučelje, fontovi i skripte ugrađeni su u program. Poslovni podaci sinkroniziraju se samo
