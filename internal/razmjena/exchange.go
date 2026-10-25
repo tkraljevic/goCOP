@@ -404,10 +404,11 @@ func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje 
 		_ = p.Close() // veza s nečim što nije čvor s istim imenom protokola samo se prekida; greška zatvaranja nema što reći
 		return
 	}
-	conn := newConnKljuc(p, key, vj)
+	conn := newConnKljuc(p, key, vjPrijenosa(p, vj))
+	conn.Put = putPrijenosa(p)
 	if !v.trusted(conn.PeerKey, conn.Vjerodajnice) {
 		v.o.odbij(VrataNijeClan, conn.PeerKey)
-		conn.Close()
+		odbijNeclana(conn)
 		return
 	}
 	pustiRukovanje()
@@ -420,6 +421,47 @@ func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje 
 	}
 	defer func() { <-v.o.razmjene }()
 	v.handle(conn)
+}
+
+// znaVj je prijenos koji sam zna vjerodajnice druge strane (tok WEB sync
+// sesije): slušalica WEB synca šalje certifikat bez njih, pa ih sesija
+// nosi iz potpisanog poziva ili odziva
+type znaVj interface{ vjerodajnice() []byte }
+
+// vjPrijenosa su vjerodajnice druge strane: od prijenosa koji ih zna, inače
+// iz certifikata
+func vjPrijenosa(p prijenos, izCertifikata []byte) []byte {
+	if z, ok := p.(znaVj); ok {
+		return z.vjerodajnice()
+	}
+	return izCertifikata
+}
+
+// znaPut je prijenos koji sam zna svoj put (tok WEB sync sesije): QUIC
+// sluša na 0.0.0.0, pa peers put dolazne veze ne vidi iz lokalne adrese
+type znaPut interface{ put() Put }
+
+// putPrijenosa je put prijenosa koji ga zna; inače prazan, a postavlja ga
+// peers
+func putPrijenosa(p prijenos) Put {
+	if z, ok := p.(znaPut); ok {
+		return z.put()
+	}
+	return ""
+}
+
+// odbijaKodom je prijenos koji nečlana odbija kodom (QUIC: kod greške
+// veze), a ne samo zatvaranjem; port i tunel to ne znaju
+type odbijaKodom interface{ odbijKodom(KodRazloga) }
+
+// odbijNeclana zatvori vezu nečlana: na portu i kroz tunel bez poruke, a
+// preko QUIC-a kodom 0x0104, uz koji se zatvara i cijela sesija (F3a)
+func odbijNeclana(c *Conn) {
+	if o, ok := c.raw.(odbijaKodom); ok {
+		o.odbijKodom(KodNijeClan)
+		return
+	}
+	c.Close()
 }
 
 // razlogKljuca je razlog vrata za ključ koji se ne da dokazati

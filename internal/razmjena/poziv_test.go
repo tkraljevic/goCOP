@@ -55,7 +55,7 @@ func novaProvjera(t *testing.T) *provjeraZa {
 	p := &provjeraZa{a: newKey(t), b: newKey(t), r: newKey(t), sad: time.Unix(1_790_990_000, 0)}
 	javniA := p.a.Public().(ed25519.PublicKey)
 	p.pp = ProvjeraPoruka{Protokol: "gocop", Moj: p.b.Public().(ed25519.PublicKey), Sastajaliste: p.r.Public().(ed25519.PublicKey),
-		Vjeruje: func(k ed25519.PublicKey) bool { return k.Equal(javniA) }, Sat: func() time.Time { return p.sad }, Pricuva: NovaPricuvaPoruka()}
+		Vjeruje: func(k ed25519.PublicKey, _ []byte) bool { return k.Equal(javniA) }, Sat: func() time.Time { return p.sad }, Pricuva: NovaPricuvaPoruka()}
 	return p
 }
 
@@ -154,5 +154,33 @@ func TestPricuvaPoruka(t *testing.T) {
 	}
 	if n := len(c.vidjeno); n != 1 {
 		t.Errorf("u pričuvi ostalo %d", n)
+	}
+}
+
+// Članstvo se provjerava tek nakon potpisa: poruka koju ključ iz polja od
+// nije potpisao (krivi potpis, tuđe tijelo, s vjerodajnicama ili bez njih)
+// ne pokreće Vjeruje (upit u bazu i provjeru lanca kod peersa).
+func TestPotpisPrijeClanstva(t *testing.T) {
+	p := novaProvjera(t)
+	pitanja := 0
+	clan := p.pp.Vjeruje
+	p.pp.Vjeruje = func(k ed25519.PublicKey, vj []byte) bool {
+		pitanja++
+		return clan(k, vj)
+	}
+	tijelo := p.tijelo()
+	tijelo.Vj = bytes.Repeat([]byte{'v'}, 1000)
+	dobra := Potpisi(p.a, "gocop", VrstaPoziv, tijelo)
+	for ime, pp := range map[string]PotpisanaPoruka{
+		"krivi potpis":   {Vrsta: VrstaPoziv, Tijelo: dobra.Tijelo, Potpis: make([]byte, ed25519.SignatureSize)},
+		"druga vrsta":    {Vrsta: VrstaOdziv, Tijelo: dobra.Tijelo, Potpis: dobra.Potpis},
+		"potpis nečlana": {Vrsta: VrstaPoziv, Tijelo: dobra.Tijelo, Potpis: Potpisi(newKey(t), "gocop", VrstaPoziv, tijelo).Potpis},
+	} {
+		if _, err := p.pp.Provjeri(pp); !errors.Is(err, ErrPotpisPoruke) || pitanja != 0 {
+			t.Errorf("%s: %v, Vjeruje pitan %d puta", ime, err, pitanja)
+		}
+	}
+	if _, err := p.pp.Provjeri(dobra); err != nil || pitanja != 1 {
+		t.Errorf("potpisana poruka: %v, Vjeruje pitan %d puta", err, pitanja)
 	}
 }

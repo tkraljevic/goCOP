@@ -210,7 +210,7 @@ func TestQUICPozivBezToka(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		posluzitelj := newKey(t)
 		a, b := mrezaQUIC(t)
-		cfg, err := tlsZaQUIC(posluzitelj, "testproto", nil)
+		cfg, err := tlsZaQUIC(posluzitelj, "testproto", nil, alpnProbe("testproto"))
 		bezGreske(t, err)
 		ln, err := b.Listen(cfg, &quic.Config{MaxIncomingStreams: -1})
 		bezGreske(t, err)
@@ -229,9 +229,32 @@ func TestQUICPozivBezToka(t *testing.T) {
 	})
 }
 
-// ALPN WEB synca izvodi se samo iz imena protokola.
+// ALPN WEB synca i probe izvode se samo iz imena protokola i razlikuju se.
 func TestAlpnWeb(t *testing.T) {
 	if alpnWeb("gocop") != "gocop-web/1" || alpnWeb("gocop-sim") != "gocop-sim-web/1" {
 		t.Error(alpnWeb("gocop"), alpnWeb("gocop-sim"))
 	}
+	if alpnProbe("gocop") != "gocop-proba/1" {
+		t.Error(alpnProbe("gocop"))
+	}
+}
+
+// Proba QUIC-a nema vrata WEB synca, pa poziv WEB synca (A) na njezinu
+// slušalicu ne uspostavi vezu: ALPN se ne dogovori.
+func TestProbaNePrimaWebSync(t *testing.T) {
+	uMjehuru(t, func(t *testing.T) {
+		posluzitelj := newKey(t)
+		a, b := mrezaQUIC(t)
+		ctx, otkazi := context.WithCancel(t.Context())
+		defer otkazi()
+		obrada := make(chan struct{}, 1)
+		kraj := slusalicaQUIC(ctx, b, posluzitelj, nil, svima, func(c *Conn) { obrada <- struct{}{}; c.Close() })
+		cfg, err := tlsKlijentaWeb(newKey(t), "testproto", nil, adresaQUICB.String(), posluzitelj.Public().(ed25519.PublicKey))
+		bezGreske(t, err)
+		if _, err := a.Dial(ctx, adresaQUICB, cfg, postavkeQUIC()); err == nil || len(obrada) != 0 {
+			t.Errorf("WEB sync je došao do probe: %v", err)
+		}
+		otkazi()
+		bezGreske(t, <-kraj)
+	})
 }

@@ -1,12 +1,37 @@
 package razmjena
 
-// Slušalica i pozivanje QUIC-a (plan WEB synca, F3a). Zasad samo ono što
-// traži proba prije F1: jedna razmjena po vezi, istim vratima i istom
-// provjerom druge strane kao na portu, bez sesije i kanala.
+// Slušalica i pozivanje QUIC-a (plan WEB synca, F3a). ServeExchangeQUIC i
+// DialExchangeQUIC su iz probe prije F1: jedna razmjena po vezi, istim
+// vratima i istom provjerom druge strane kao na portu, bez sesije i kanala,
+// s vlastitim ALPN-om (alpnProbe). Nemaju vrata WEB synca, pa nisu za
+// utičnicu WEB synca; program ih ne zove.
+//
+// Slušalica WEB synca (F3a-2, slusajWeb) je na istoj UDP utičnici kao STUN
+// i udarci, a pokreće je samo WebSync.Radi, koji program zove samo uz
+// web_sync = true. Postavke (plan, „Postavke QUIC-a”):
+//   - rukovanje 5 s, mirovanje 60 s, održavanje veze svakih 15 s, 8
+//     dolaznih tokova, bez jednosmjernih tokova, 0-RTT-a i datagrama, bez
+//     nastavka TLS sesije (svako rukovanje pokazuje certifikat);
+//   - VerifySourceAddress uvijek vraća true, pa svatko dobiva Retry: do
+//     ConnContext dolazi samo adresa koja je dokazala da prima pakete;
+//   - ConnContext pušta samo adresu s koje je u zadnjih 30 s stigao valjan
+//     udarac ili odgovor druge strane (Udarci.Pusta) i uz vezu zapamti
+//     pripreme koje su je pustile;
+//   - certifikat klijenta mora nositi ključ druge strane jedne od tih
+//     priprema (expect), nikad vlastiti ključ (sesija sa samim sobom), a
+//     to se provjerava usred rukovanja (VerifyConnection);
+//   - StatelessResetKey iz ključa čvora (kljucReseta, NoviUDPCvora);
+//   - zove računalo s manjim ključem (A), a ALPN je <protokol>-web/1.
+// Slušalica kao poslužitelj šalje certifikat samo s ključem: članstvo ide
+// samo u certifikatu klijenta, pa ga strani klijent ne vidi (kao signal).
+// A članstvo druge strane zato uzima iz njezinog provjerenog odziva
+// (SesijaWeb.vjDruge).
 
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/hkdf"
+	"crypto/sha256"
 	"crypto/tls"
 	"log"
 	"net"
@@ -29,13 +54,13 @@ func postavkeQUIC() *quic.Config {
 	}
 }
 
-// tlsZaQUIC je tlsConfigS s ALPN-om WEB synca
-func tlsZaQUIC(priv ed25519.PrivateKey, protocol string, vj func() []byte) (*tls.Config, error) {
+// tlsZaQUIC je tlsConfigS s ALPN-om alpn
+func tlsZaQUIC(priv ed25519.PrivateKey, protocol string, vj func() []byte, alpn string) (*tls.Config, error) {
 	cfg, err := tlsConfigS(priv, protocol, vj)
 	if err != nil {
 		return nil, err
 	}
-	cfg.NextProtos = []string{alpnWeb(protocol)}
+	cfg.NextProtos = []string{alpn}
 	return cfg, nil
 }
 
@@ -44,7 +69,7 @@ func tlsZaQUIC(priv ed25519.PrivateKey, protocol string, vj func() []byte) (*tls
 // certifikatu, članstvo, pa mjesto za razmjenu. Svaka veza nosi jedan tok
 // razmjene. Ograda (po želji) je ista kao uz ServeExchange.
 func ServeExchangeQUIC(ctx context.Context, tr *quic.Transport, priv ed25519.PrivateKey, protocol string, vj func() []byte, trusted KeyChecker, handle func(*Conn), o ...*Ograda) error {
-	cfg, err := tlsZaQUIC(priv, protocol, vj)
+	cfg, err := tlsZaQUIC(priv, protocol, vj, alpnProbe(protocol))
 	if err != nil {
 		return err
 	}
@@ -119,7 +144,7 @@ func (v *vrata) primiQUIC(ctx context.Context, veza *quic.Conn) {
 // rukovanja QUIC-a. Kad tok ne može početi, veza se zatvara; inače ostaje
 // otvorena dok je ne zatvori prijenos ili istek mirovanja.
 func DialExchangeQUIC(ctx context.Context, tr *quic.Transport, addr net.Addr, priv ed25519.PrivateKey, protocol string, vj func() []byte, expect ed25519.PublicKey) (*Conn, error) {
-	cfg, err := tlsZaQUIC(priv, protocol, vj)
+	cfg, err := tlsZaQUIC(priv, protocol, vj, alpnProbe(protocol))
 	if err != nil {
 		return nil, err
 	}
@@ -143,4 +168,71 @@ func DialExchangeQUIC(ctx context.Context, tr *quic.Transport, addr net.Addr, pr
 	conn := newConnKljuc(noviTokQUIC(veza, tok), key, vjDruge)
 	conn.RTT = rtt
 	return conn, nil
+}
+
+// oznakaReseta je oznaka HKDF-a za ključ resetiranja QUIC veza; ne ide na
+// žicu, pa ne ovisi o imenu protokola
+const oznakaReseta = "razmjena-quic-reset-v1"
+
+// kljucReseta je ključ za resetiranje QUIC veza izveden iz sjemena ključa
+// čvora; bez ključa čvora ga nema (resetiranje je tada isključeno)
+func kljucReseta(priv ed25519.PrivateKey) *quic.StatelessResetKey {
+	if len(priv) != ed25519.PrivateKeySize {
+		return nil
+	}
+	b, _ := hkdf.Key(sha256.New, priv.Seed(), nil, oznakaReseta, 32) // 32 B je daleko ispod granice HKDF-a, pa greške nema
+	k := quic.StatelessResetKey(b)
+	return &k
+}
+
+// provjeraKlijenta provjeri certifikat klijenta usred rukovanja, s
+// kontekstom veze iz ConnContext
+type provjeraKlijenta func(ctx context.Context, cs tls.ConnectionState) error
+
+// tlsPosluziteljaWeb je TLS slušalice WEB synca: certifikat bez
+// vjerodajnica, ALPN WEB synca, bez nastavka sesije, a klijenta za svaku
+// vezu provjeri provjeri, s kontekstom koji je dao ConnContext. ALPN ne
+// treba provjeravati posebno: QUIC bez dogovorenog ALPN-a ne uspostavlja
+// vezu, a ovdje ga nudi samo jedan.
+func tlsPosluziteljaWeb(priv ed25519.PrivateKey, protokol string, provjeri provjeraKlijenta) (*tls.Config, error) {
+	cfg, err := tlsConfig(priv, protokol)
+	if err != nil {
+		return nil, err
+	}
+	cfg.NextProtos = []string{alpnWeb(protokol)}
+	cfg.SessionTicketsDisabled = true
+	osnovni := cfg.Clone()
+	cfg.GetConfigForClient = func(chi *tls.ClientHelloInfo) (*tls.Config, error) {
+		c, ctx := osnovni.Clone(), chi.Context()
+		c.VerifyConnection = func(cs tls.ConnectionState) error { return provjeri(ctx, cs) }
+		return c, nil
+	}
+	return cfg, nil
+}
+
+// tlsKlijentaWeb je TLS računala koje zove (A): s vjerodajnicama, a druga
+// strana mora dokazati očekivani ključ prije nego što ovo računalo pošalje
+// svoj certifikat (provjeriDrugu). ALPN WEB synca nudi samo on, pa ga
+// druga strana ili dogovori ili veze nema.
+func tlsKlijentaWeb(priv ed25519.PrivateKey, protokol string, vj func() []byte, addr string, expect ed25519.PublicKey) (*tls.Config, error) {
+	cfg, err := tlsZaQUIC(priv, protokol, vj, alpnWeb(protokol))
+	if err != nil {
+		return nil, err
+	}
+	cfg.SessionTicketsDisabled = true
+	cfg.VerifyConnection = func(cs tls.ConnectionState) error {
+		_, _, err := provjeriDrugu(cs.PeerCertificates, protokol, addr, expect)
+		return err
+	}
+	return cfg, nil
+}
+
+// slusajWeb otvori slušalicu WEB synca na prijenosu tr: svatko dobiva
+// Retry, a do rukovanja dolazi samo adresa koju pusti vrata (ConnContext).
+// Postavke prijenosa zadaju se prije Listen, u istoj gorutini, pa ih
+// quic-go čita tek kad su postavljene.
+func slusajWeb(tr *quic.Transport, cfg *tls.Config, vrata func(context.Context, *quic.ClientInfo) (context.Context, error)) (*quic.Listener, error) {
+	tr.VerifySourceAddress = func(net.Addr) bool { return true }
+	tr.ConnContext = vrata
+	return tr.Listen(cfg, postavkeQUIC())
 }

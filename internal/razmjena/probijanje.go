@@ -27,6 +27,12 @@ package razmjena
 // pozvanome prije sinkra, ili adresa na kojoj QUIC nije uspio, javi se
 // ponovno u pokušaju koji slijedi.
 //
+// QUIC zove samo A (računalo s manjim ključem), a B čeka. B ne zna je li
+// A-ov poziv uspio dok veza ne stigne, pa vezu koja je stigla s pozdravom
+// ove sesije (DogadjajPrihvacen) prima u svakoj fazi u kojoj probijanje još
+// traje, i prije sinkra: A krene u QUIC čim mu stigne odgovor na udarac, a
+// sinkro do B zna putovati dulje.
+//
 // Sinkro se prima samo za vlastitu sesiju koja čeka sinkro: od druge
 // strane, ovoj kao pozvanoj, dok probijanje nije gotovo, i samo s pokušajem
 // većim od zadnjeg i unutar broja pokušaja (PrimaSinkro); odziv samo
@@ -86,11 +92,12 @@ type VrstaDogadjaja int
 
 // Vrste događaja
 const (
-	DogadjajSat    VrstaDogadjaja = iota + 1 // prošlo je vrijeme (Budjenje)
-	DogadjajOdziv                            // stigao je provjeren odziv
-	DogadjajSinkro                           // stigao je provjeren sinkro
-	DogadjajUdarac                           // prvi valjan paket druge strane s jedne adrese (Valjan)
-	DogadjajQUIC                             // QUIC je uspio ili nije
+	DogadjajSat       VrstaDogadjaja = iota + 1 // prošlo je vrijeme (Budjenje)
+	DogadjajOdziv                               // stigao je provjeren odziv
+	DogadjajSinkro                              // stigao je provjeren sinkro
+	DogadjajUdarac                              // prvi valjan paket druge strane s jedne adrese (Valjan)
+	DogadjajQUIC                                // QUIC je uspio ili nije
+	DogadjajPrihvacen                           // B je primio QUIC vezu s pozdravom ove sesije
 )
 
 // Dogadjaj je jedan događaj, s trenutkom u kojem se dogodio
@@ -201,10 +208,10 @@ type prijelaz func(Probijanje, Dogadjaj) (Probijanje, []Radnja)
 // kojeg za fazu nema ne mijenja ništa; završene faze nemaju nijedan.
 var prijelazi = map[Faza]map[VrstaDogadjaja]prijelaz{
 	FazaCekaOdziv:   {DogadjajSat: poRoku(bezOdziva), DogadjajOdziv: naOdziv},
-	FazaCekaSinkro:  {DogadjajSat: poRoku(bezSinkra), DogadjajSinkro: naSinkro},
-	FazaUdara:       {DogadjajSat: poRoku(istekPokusaja), DogadjajSinkro: naSinkro, DogadjajUdarac: naUdarac},
-	FazaCekaLokalni: {DogadjajSat: poRoku(bezLokalnog), DogadjajSinkro: naSinkro, DogadjajUdarac: naLokalni},
-	FazaQUIC:        {DogadjajSat: poRoku(prekiniPokusaj), DogadjajSinkro: naSinkro, DogadjajQUIC: naQUIC},
+	FazaCekaSinkro:  {DogadjajSat: poRoku(bezSinkra), DogadjajSinkro: naSinkro, DogadjajPrihvacen: naPrihvacen},
+	FazaUdara:       {DogadjajSat: poRoku(istekPokusaja), DogadjajSinkro: naSinkro, DogadjajUdarac: naUdarac, DogadjajPrihvacen: naPrihvacen},
+	FazaCekaLokalni: {DogadjajSat: poRoku(bezLokalnog), DogadjajSinkro: naSinkro, DogadjajUdarac: naLokalni, DogadjajPrihvacen: naPrihvacen},
+	FazaQUIC:        {DogadjajSat: poRoku(prekiniPokusaj), DogadjajSinkro: naSinkro, DogadjajQUIC: naQUIC, DogadjajPrihvacen: naPrihvacen},
 }
 
 // Prijelaz je novo stanje i radnje nakon događaja d
@@ -339,6 +346,16 @@ func naQUIC(p Probijanje, d Dogadjaj) (Probijanje, []Radnja) {
 	}
 	p.Faza = FazaUdara
 	return p, nil
+}
+
+// naPrihvacen: B je primio QUIC vezu ove sesije, pa je probijanje uspjelo;
+// A vezu ne prima, jer zove samo on
+func naPrihvacen(p Probijanje, _ Dogadjaj) (Probijanje, []Radnja) {
+	if p.a {
+		return p, nil
+	}
+	p.Faza = FazaUspjeh
+	return p, []Radnja{{Vrsta: RadnjaStani}, {Vrsta: RadnjaKraj, Uspjeh: true}}
 }
 
 // prekiniPokusaj: pokušaj je istekao dok je QUIC još trajao

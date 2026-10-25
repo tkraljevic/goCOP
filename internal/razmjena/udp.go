@@ -9,6 +9,7 @@ package razmjena
 
 import (
 	"context"
+	"crypto/ed25519"
 	"errors"
 	"fmt"
 	"net"
@@ -40,6 +41,7 @@ func OtvoriUDP(port int) (conn net.PacketConn, upozorenje, err error) {
 // UDP je UDP utičnica WEB synca: quic.Transport i čitač paketa koji nisu QUIC
 type UDP struct {
 	tr       *quic.Transport
+	reset    *quic.StatelessResetKey // iz ključa čvora (NoviUDPCvora); prenosi ga ObnoviUDP
 	mu       sync.Mutex
 	cekaju   map[[12]byte]chan<- odgovorSTUN
 	odbaceni atomic.Int64
@@ -59,8 +61,19 @@ type odgovorSTUN struct {
 // NoviUDP preuzme utičnicu conn: od tada s nje čita i piše samo UDP. Red
 // paketa koji nisu QUIC stvori se prije prvog slanja, jer quic-go do tada
 // takve pakete tiho baca.
-func NoviUDP(conn net.PacketConn) *UDP {
-	u := &UDP{tr: &quic.Transport{Conn: conn}, cekaju: map[[12]byte]chan<- odgovorSTUN{}}
+func NoviUDP(conn net.PacketConn) *UDP { return noviUDP(conn, nil) }
+
+// NoviUDPCvora je NoviUDP s ključem za resetiranje QUIC veza (stateless
+// reset) izvedenim iz ključa čvora (kljucReseta): nakon ponovnog pokretanja
+// računalo i dalje zna ključ, pa veze koje je druga strana zadržala od
+// prije zatvori odmah, a ne tek nakon minute mirovanja. Ključ se mora
+// zadati prije prvog čitanja s prijenosa, pa ide ovdje.
+func NoviUDPCvora(conn net.PacketConn, priv ed25519.PrivateKey) *UDP {
+	return noviUDP(conn, kljucReseta(priv))
+}
+
+func noviUDP(conn net.PacketConn, reset *quic.StatelessResetKey) *UDP {
+	u := &UDP{tr: &quic.Transport{Conn: conn, StatelessResetKey: reset}, reset: reset, cekaju: map[[12]byte]chan<- odgovorSTUN{}}
 	ctx, otkazi := context.WithCancel(context.Background())
 	u.otkazi = otkazi
 	odmah, stani := context.WithCancel(ctx)

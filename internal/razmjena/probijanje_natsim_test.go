@@ -41,6 +41,7 @@ var (
 
 // stranaProbe je računalo u probi: utičnica, izmjerena mreža i kandidati
 type stranaProbe struct {
+	priv      ed25519.PrivateKey
 	kljuc     ed25519.PublicKey
 	u         *UDP
 	nat       *NATPoruke
@@ -54,7 +55,8 @@ func stranaIza(t *testing.T, n *natsim.NAT, lokalna string, p natsim.PostavkeRac
 	t.Helper()
 	a := netip.MustParseAddrPort(lokalna)
 	p.Kasnjenje = max(p.Kasnjenje, time.Millisecond)
-	s := &stranaProbe{kljuc: newKey(t).Public().(ed25519.PublicKey), u: uticnicaUdaraca(t, n.Racunalo(a, p))}
+	priv := newKey(t)
+	s := &stranaProbe{priv: priv, kljuc: priv.Public().(ed25519.PublicKey), u: uticnicaUdaraca(t, n.Racunalo(a, p))}
 	var stanje StanjeMreze
 	m := s.u.ProvjeriMrezu(t.Context(), posluziteljiNatsima)
 	stanje.Dodaj(m)
@@ -263,9 +265,9 @@ type ishodProbe struct {
 func probaj(t *testing.T, a, b *stranaProbe, u uvjetiProbe) ishodProbe {
 	t.Helper()
 	tajna := bytes.Repeat([]byte{7}, 32)
-	ka, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajna, a.kljuc, b.kljuc)
+	ka, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajna, tajnaOdziva, a.kljuc, b.kljuc)
 	bezGreske(t, err)
-	kb, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajna, b.kljuc, a.kljuc)
+	kb, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajna, tajnaOdziva, b.kljuc, a.kljuc)
 	bezGreske(t, err)
 	var posta sync.WaitGroup
 	d := &dogovorQUIC{uvjeti: u, ceka: map[*vozac]cekaQUIC{}}
@@ -426,11 +428,20 @@ func TestProbijanjeUzGubitak(t *testing.T) {
 	}
 }
 
-// Ostali slučajevi iz plana koji ne trebaju pravi QUIC: dvostruki NAT s
-// putem koji udarcima radi samo u jednom smjeru, ured s dvije javne
-// adrese, Docker most s conntrackom, vatrozid na računalu i ista privatna
-// adresa u dvije kuće.
-func TestProbijanjeOstaliNAT(t *testing.T) {
+// slucajNAT je par iz probe uz tablicu: priprema dviju strana, provjera
+// ishoda i očekivani ishod
+type slucajNAT struct {
+	ime      string
+	priprema func(t *testing.T, m *natsim.Mreza) (a, b *stranaProbe, provjera func(*testing.T, ishodProbe))
+	uspjeh   bool
+	pokusaja int
+}
+
+// ostaliNAT su slučajevi iz plana uz tablicu: dvostruki NAT s putem koji
+// udarcima radi samo u jednom smjeru, ured s dvije javne adrese, Docker
+// most s conntrackom, vatrozid na računalu i ista privatna adresa u dvije
+// kuće. Probaju ih i stroj s lažnim QUIC-om i pravi WEB sync.
+func ostaliNAT() []slucajNAT {
 	dvijeJavne := natsim.Postavke{Preslikavanje: natsim.PreslikavanjePoAdresi, JavneNaizmjence: true, Kasnjenje: 10 * time.Millisecond}
 	docker := func(t *testing.T, m *natsim.Mreza, laptopNAT natsim.Postavke) (*stranaProbe, *stranaProbe, func(*testing.T, ishodProbe)) {
 		most := m.NAT(dockerMost, netip.MustParseAddr("203.0.113.9"))
@@ -443,12 +454,7 @@ func TestProbijanjeOstaliNAT(t *testing.T) {
 			}
 		}
 	}
-	for _, c := range []struct {
-		ime      string
-		priprema func(t *testing.T, m *natsim.Mreza) (a, b *stranaProbe, provjera func(*testing.T, ishodProbe))
-		uspjeh   bool
-		pokusaja int
-	}{
+	return []slucajNAT{
 		// laptop iza kućnog usmjernika, a ThinkCentre ravno na usmjerniku
 		// operatera, bez hairpina: udarci prolaze samo od laptopa prema
 		// ThinkCentreu, a natrag ide odgovor na adresu koju vidi tek
@@ -495,7 +501,12 @@ func TestProbijanjeOstaliNAT(t *testing.T) {
 					}
 				}
 		}, true, 1},
-	} {
+	}
+}
+
+// Ostali slučajevi iz plana (ostaliNAT) sa strojem i lažnim QUIC-om.
+func TestProbijanjeOstaliNAT(t *testing.T) {
+	for _, c := range ostaliNAT() {
 		t.Run(c.ime, func(t *testing.T) {
 			uMjehuru(t, func(t *testing.T) {
 				m := internetUdaraca(t)
