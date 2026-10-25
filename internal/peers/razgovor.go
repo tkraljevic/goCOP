@@ -129,7 +129,7 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje
-// (razmjena.NaseMogucnosti), uz web/1 dok računalo ima WEB sync
+// (razmjena.NaseMogucnosti), uz web/1 dok računalo ima uključen WEB sync
 // (priprema_weba.go), ili oznake koje je čvoru dao test (s.mogucnosti)
 func (s *Service) mojeMogucnosti() []string {
 	if s.mogucnosti != nil {
@@ -138,9 +138,11 @@ func (s *Service) mojeMogucnosti() []string {
 	return s.uzWeb(razmjena.NaseMogucnosti())
 }
 
-// uzWeb doda oznaku web/1 dok računalo ima WEB sync, poredano
+// uzWeb doda oznaku web/1 dok računalo ima uključen WEB sync, poredano.
+// Uz web_sync = false oznake nema (Odluke (25. 10. 2026.)): nitko ga tada
+// ne zove, a računalo s 0.0.42 ne vidi novu oznaku dok proba ne krene.
 func (s *Service) uzWeb(oznake []string) []string {
-	if s.web.Load() == nil {
+	if ws := s.web.Load(); ws == nil || !ws.ukljucen {
 		return oznake
 	}
 	oznake = append(oznake, razmjena.OznakaWeb)

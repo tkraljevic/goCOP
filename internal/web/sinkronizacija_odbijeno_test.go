@@ -112,3 +112,12 @@ func TestOpisOdbijenog(t *testing.T) {
 		t.Errorf("bez ovlasti %+v", data)
 	}
 }
+
+// Svaka vrata imaju natpis, i WEB sync, pa stupac puta nije prazan.
+func TestNatpisVrataOdbijenog(t *testing.T) {
+	for _, p := range []string{peers.PutVrataPort, peers.PutVrataTunel, peers.PutVrataWeb} {
+		if opisPutaOdbijenog[p] == "" {
+			t.Errorf("vrata %q nemaju natpis", p)
+		}
+	}
+}

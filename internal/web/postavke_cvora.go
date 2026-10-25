@@ -148,7 +148,8 @@ var opisNaStranici = map[string]string{
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
 		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu. Vrijedi od idućeg pokretanja.",
-	"povezivost.web_sync": "Uključeno: razmjena ide i WEB syncom, kad je uključena i prijava. Zasad se još ne koristi, pa razmjena ide kao prije.",
+	"povezivost.web_sync": "Uključeno: kad je uključena i prijava, računala iza kućnog ili uredskog usmjerivača razmjenjuju i izravno, WEB syncom. " +
+		"Isključeno: razmjena ide kao prije, a računalo na poziv WEB synca odgovara da ga nema.",
 }
 
 // redRasporeda je redni broj ključa u rasporedu; ključ bez retka ide na kraj

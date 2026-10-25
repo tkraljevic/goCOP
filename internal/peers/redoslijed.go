@@ -95,10 +95,11 @@ func (s *Service) noviKrug(ctx context.Context, peer *Peer, expect ed25519.Publi
 }
 
 // ograniciPoPutu ostavi prvih najviseAdresaPuta kandidata svakog puta
-// (put kaže kojem putu kandidat pripada)
-func ograniciPoPutu(kandidati []kandidat, put func(kandidat) razmjena.Put) []kandidat {
+// (put kaže kojem putu kandidat pripada); isto vrijedi za krug i za
+// Provjeri vezu s računalom
+func ograniciPoPutu[T any](kandidati []T, put func(T) razmjena.Put) []T {
 	broj := map[razmjena.Put]int{}
-	var out []kandidat
+	var out []T
 	for _, kk := range kandidati {
 		if p := put(kk); broj[p] < najviseAdresaPuta {
 			broj[p]++
