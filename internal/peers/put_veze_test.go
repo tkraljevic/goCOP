@@ -28,8 +28,7 @@ func TestPutDolazneVeze(t *testing.T) {
 
 	// d prima kroz tunel, iza web poslužitelja s TLS-om, i na slušalici na
 	// kojoj veza stiže na njegovu Tailscale adresu s obične adrese u drugoj
-	// mreži. Tunel nije na b: naPetlji pri ponovnom pokušaju zaustavi prvo
-	// pokretanje, a ono zatvori tunel.
+	// mreži
 	srv := httptest.NewTLSServer(d.TunelHandler())
 	t.Cleanup(srv.Close)
 	a.tunelKlijent.TLS = srv.Client().Transport.(*http.Transport).TLSClientConfig

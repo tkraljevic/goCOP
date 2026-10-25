@@ -2,12 +2,14 @@ package peers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -93,13 +95,56 @@ func TestTunelKojiPrestaneRaditiIdeUDnevnik(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("zatvoren tunel nije zapisan u dnevnik")
 	}
-	cekajPort(t, s.ports.Exchange)
+	// port i dalje prima: rukovanje na njemu dokaže ključ čvora, a vrata
+	// porta zabilježe da je rukovanje prekinuto nakon dokaza
+	raw, err := net.Dial("tcp", adresaNaPetlji(s))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, otkazi := context.WithTimeout(ctxRub, 15*time.Second)
+	defer otkazi()
+	if _, err := razmjena.ProvjeriKljucOn(ctx, raw, s.node.key, Protocol, adresaNaPetlji(s), s.javni()); err != nil {
+		t.Fatalf("port razmjene nakon zatvorenog tunela: %v", err)
+	}
+	cekajDa(t, "vrata porta bilježe prekinuto rukovanje", func() bool {
+		z, err := s.Odbijeno(ctxRub, 1)
+		return err == nil && len(z) == 1 && z[0].Put == PutVrataPort && z[0].Razlog == string(razmjena.VrataRukovanje)
+	})
+}
+
+// Kad je port razmjene zauzet, Serve to javi odmah (program zapiše da
+// razmjena nije dostupna), a tunel prima dalje dok ctx traje
+func TestZauzetPortRazmjeneTunelPrima(t *testing.T) {
+	c := clanoviMreze(t, false, "laptop-baranja", "ured-vukovar")
+	a, b := c[0], c[1]
+	zauzet, err := net.Listen("tcp", ":0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { zauzet.Close() })
+	b.ports.Exchange = zauzet.Addr().(*net.TCPAddr).Port
+	ctx, otkazi := context.WithCancel(ctxRub)
+	t.Cleanup(otkazi)
+	stala := make(chan error, 1)
+	go func() { stala <- b.Serve(ctx) }()
+	select {
+	case err := <-stala:
+		if !errors.Is(err, syscall.EADDRINUSE) {
+			t.Fatalf("razmjena na zauzetom portu: %v", err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("razmjena na zauzetom portu nije javila grešku")
+	}
+	conn, err := krozTunel(t, a, b, b.javni())
+	if err != nil {
+		t.Fatalf("kroz tunel uz zauzet port: %v", err)
+	}
+	conn.Close()
 }
 
 // Port razmjene i tunel dijele mjesta za razmjene (Serve): dok na portu
 // stoje četiri razmjene, i razmjena kroz tunel dobije odbijenicu da je
-// čvor zauzet. Čvor prima na vlastitoj slušalici, jer naPetlji pri
-// ponovnom pokušaju zatvori tunel.
+// čvor zauzet
 func TestTunelIPortDijeleMjestaRazmjena(t *testing.T) {
 	c := clanoviMreze(t, false, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
