@@ -284,3 +284,29 @@ func TestOpisMetodeGlavnoPaDetalji(t *testing.T) {
 		}
 	}
 }
+
+// Literatura stoji u sklopljenim detaljima, ispred „Što je novo”: što
+// radovi potvrđuju i što primijeniti, pa posebno što ne primjenjujemo.
+func TestOpisMetodeLiteratura(t *testing.T) {
+	detalji := PrognozeMetodaData{Odjeljci: OpisMetode(68, "COP Osijek")}.Detaljni()
+	n := len(detalji)
+	if n < 2 || detalji[n-2].Naslov != "Znanstveni radovi i literatura" {
+		t.Fatalf("predzadnji detalj %q, želim Znanstveni radovi i literatura", detalji[n-2].Naslov)
+	}
+	var popisi int
+	var tekst string
+	for _, od := range detalji[n-2].Odlomci {
+		if len(od.Popis) > 0 {
+			popisi++
+		}
+		tekst += od.Tekst + strings.Join(od.Popis, "\n")
+	}
+	for _, s := range []string{"Wong i Laurenson (1983.)", "Gneiting (2011.)", "Što ne primjenjujemo", "Odlukama (22. 10. 2026.)"} {
+		if !strings.Contains(tekst, s) {
+			t.Errorf("literatura nema %q", s)
+		}
+	}
+	if popisi != 2 {
+		t.Errorf("popisa %d, želim dva: primijeniti i ne primjenjujemo", popisi)
+	}
+}

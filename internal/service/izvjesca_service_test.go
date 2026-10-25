@@ -167,8 +167,8 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 		{Kind: models.EntryKindReport, Text: "Procjeđivanje kod Zmajevca.", ReportedBy: "vodočuvar", Podrucje: &pod},
 		{Kind: models.EntryKindDuty, Text: "Dežurstvo preuzeo."},
 	} {
-		z.JournalID, z.Date = obrana.ID, dan.Add(8*time.Hour)
-		h := dan.Add(7*time.Hour + 15*time.Minute)
+		z.JournalID, z.Date = obrana.ID, uSatu(dan, 8, 0)
+		h := uSatu(dan, 7, 15)
 		z.HappenedAt = &h
 		if err := js.DodajZapisCOP(ctx, voditelj, uprava, models.Opseg{Sektor: "B", Podrucja: []int{16, 34}}, obrana, &z); err != nil {
 			t.Fatal(err)

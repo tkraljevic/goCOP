@@ -83,6 +83,12 @@ func novaOkolinaIzvjesca(t *testing.T) *okolinaIzvjesca {
 
 func danas() time.Time { return pocetakDana(time.Now().In(models.Zagreb)) }
 
+// uSatu je sat i minuta zadanog dana po zagrebačkom vremenu; dan.Add bi na
+// dan pomaka sata dao sat više ili manje.
+func uSatu(dan time.Time, sat, minuta int) time.Time {
+	return time.Date(dan.Year(), dan.Month(), dan.Day(), sat, minuta, 0, 0, models.Zagreb)
+}
+
 func punoIzvjesce(code string, dan time.Time) *models.DnevnoIzvjesce {
 	return &models.DnevnoIzvjesce{SectionCode: code, Dan: dan, Sadrzaj: models.IzvjesceSadrzaj{Pregled: "Nasip pregledan, bez oštećenja."}}
 }
@@ -314,7 +320,7 @@ func TestPredlozakDnevnogIzvjesca(t *testing.T) {
 	upisi := func(sat, minuta int, cm *int) {
 		t.Helper()
 		if err := o.citanja.Create(ctx, &models.Reading{ID: uuid.New(), StationID: o.letva.ID.String(), Source: models.ReadingSourceManual,
-			MeasuredAt: dan.Add(time.Duration(sat)*time.Hour + time.Duration(minuta)*time.Minute), LevelCm: cm, Note: "x"}); err != nil {
+			MeasuredAt: uSatu(dan, sat, minuta), LevelCm: cm, Note: "x"}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -338,7 +344,7 @@ func TestPredlozakDnevnogIzvjesca(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	iz, err := o.svc.Predlozak(ctx, o.d111, dan.Add(15*time.Hour))
+	iz, err := o.svc.Predlozak(ctx, o.d111, uSatu(dan, 15, 0))
 	if err != nil {
 		t.Fatal(err)
 	}
