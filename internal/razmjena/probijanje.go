@@ -58,19 +58,23 @@ const (
 	rokSinkra        = 5 * time.Second
 )
 
-// Odluke u odzivu
+// Odluke u odzivu. OdlukaIskljuceno šalje pozvani kojem je WEB sync
+// isključen (web_sync = false; Odluke (25. 10. 2026.), 1); stroj je čita
+// kao odbij, uz svoj razlog, pa i stroj koji je ne zna stane odmah.
 const (
-	OdlukaProbaj = "probaj"
-	OdlukaOdbij  = "odbij"
+	OdlukaProbaj     = "probaj"
+	OdlukaOdbij      = "odbij"
+	OdlukaIskljuceno = "iskljuceno"
 )
 
 // Razlozi neuspjeha probijanja (Probijanje.Razlog)
 const (
-	RazlogOdbijeno  = "odbijeno"     // druga strana je odgovorila „odbij”
-	RazlogUDP       = "udp-blokiran" // kod jedne strane UDP ne prolazi
-	RazlogBezOdziva = "bez-odziva"   // odziv nije stigao za 10 s
-	RazlogBezSinkra = "bez-sinkra"   // sinkro nije stigao za 5 s
-	RazlogBezPuta   = "bez-puta"     // nijedan pokušaj nije uspio
+	RazlogOdbijeno   = "odbijeno"     // druga strana je odgovorila „odbij”
+	RazlogIskljuceno = "iskljuceno"   // druga strana ima isključen WEB sync
+	RazlogUDP        = "udp-blokiran" // kod jedne strane UDP ne prolazi
+	RazlogBezOdziva  = "bez-odziva"   // odziv nije stigao za 10 s
+	RazlogBezSinkra  = "bez-sinkra"   // sinkro nije stigao za 5 s
+	RazlogBezPuta    = "bez-puta"     // nijedan pokušaj nije uspio
 )
 
 // Faza probijanja
@@ -244,7 +248,7 @@ func naOdziv(p Probijanje, d Dogadjaj) (Probijanje, []Radnja) {
 	case !p.PrimaOdziv(o):
 		return p, nil
 	case o.Odluka != OdlukaProbaj:
-		return p.neuspjeh(RazlogOdbijeno)
+		return p.neuspjeh(razlogOdluke(o.Odluka))
 	}
 	p.najvise, p.imaLokalnih = brojPokusaja(p.mojNAT, o.NAT), imaLokalnih(o.Kandidati)
 	if p.najvise == 0 {
@@ -252,6 +256,14 @@ func naOdziv(p Probijanje, d Dogadjaj) (Probijanje, []Radnja) {
 	}
 	p.rtt = rttOdziva(d.Sad.Sub(p.poslano), o.ObradaMs)
 	return p.sljedeciPokusaj(d.Sad)
+}
+
+// razlogOdluke je razlog neuspjeha uz odluku koja nije „probaj”
+func razlogOdluke(odluka string) string {
+	if odluka == OdlukaIskljuceno {
+		return RazlogIskljuceno
+	}
+	return RazlogOdbijeno
 }
 
 // rttOdziva je RTT iz odziva: proteklo vrijeme bez obrade druge strane. Ni

@@ -433,7 +433,7 @@ func cvorRazmjene(ps peers.PeerStatus, josPrima bool, preko string) web.CvorRazm
 		Primljeno: ps.State.Applied, Poslano: ps.State.Sent, Zaostaje: ps.Backlog,
 		Neuspjelih: ps.State.Fails, SamoDolazi: ps.SamoDolazi,
 		Verzija: ps.Program, Razlicita: ps.RazlicitProgram, JosPrima: josPrima,
-		Put: ps.State.Put.Naziv, RTTMs: ps.State.Put.RTTMs, RazlogPuta: ps.State.Put.Razlog,
+		Put: ps.State.Put.Naziv, RTTMs: ps.State.Put.RTTMs, RazlogPuta: ps.State.Put.Razlog, PonovnoU: ps.State.Put.PonovnoU,
 		PrekoPosluzitelja: prekoPosluziteljaZa(ps, preko)}
 	if c.Naziv == "" {
 		c.Naziv = ps.NodeID

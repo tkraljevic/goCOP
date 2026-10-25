@@ -21,7 +21,7 @@ package razmjena
 //
 // Oznake nikad ne sadrže ime protokola ni „gocop”: ALPN je ime protokola,
 // '-' i oznaka, a ime protokola postaje postavka. sadrzaj/1 je rezervirano
-// za roj, a web/1 i ostale objavljuju tek faze koje ih uvode.
+// za roj; web/1 (od F3b) javlja samo računalo prijavljeno za WEB sync.
 //
 // Tipovi polja su zauvijek: mogucnosti je popis teksta, vrste mapa teksta na
 // cijeli broj, cekaNadogradnju cijeli broj. Drugi tip srušio bi kod starijeg
@@ -59,6 +59,16 @@ const ImeRupe = "rupe"
 // OznakaRupe je prva inačica rupa u nizu
 const OznakaRupe = ImeRupe + "/1"
 
+// ImeWeb je ime oznake WEB synca (plan WEB synca, F3b): računalo prima
+// pozive WEB synca preko sastajališta i na njih odgovara, uz web_sync =
+// false odzivom „isključeno”. Javlja je samo računalo koje je prijavljeno
+// za WEB sync (internal/peers), pa je nema u NaseMogucnosti, ali je ovaj
+// program zna (NepoznateOznake).
+const ImeWeb = "web"
+
+// OznakaWeb je prva inačica WEB synca
+const OznakaWeb = ImeWeb + "/1"
+
 // Ograde onoga što se od druge strane pamti: popis i mapa idu u bazu
 const (
 	najduljeIme   = 32   // znakova u imenu oznake
@@ -89,7 +99,7 @@ func NaseMogucnosti() []string {
 // zna (G7: djelomično razumljeno), poredane
 func NepoznateOznake(njihove []string) []string {
 	znam := map[string]bool{}
-	for _, o := range NaseMogucnosti() {
+	for _, o := range append(NaseMogucnosti(), OznakaWeb) {
 		ime, _, _ := procitajOznaku(o)
 		znam[ime] = true
 	}

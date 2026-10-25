@@ -125,9 +125,10 @@ func TestVrataJavljajuZastoNisuPustila(t *testing.T) {
 }
 
 // Oznake druge strane koje ovaj program ne zna, poredane, bez neispravnih.
+// web/1 program zna od F3b, iako ga javlja samo računalo s WEB syncom.
 func TestNepoznateOznake(t *testing.T) {
-	got := NepoznateOznake([]string{OznakaRazmjena, OznakaRupe, "web/1", "stranice/2", "losa oznaka", "razmjena/2"})
-	if want := []string{"stranice/2", "web/1"}; !slices.Equal(got, want) {
+	got := NepoznateOznake([]string{OznakaRazmjena, OznakaRupe, "web/1", "web/2", "stranice/2", "losa oznaka", "razmjena/2"})
+	if want := []string{"stranice/2"}; !slices.Equal(got, want) {
 		t.Errorf("nepoznate oznake %v, želim %v", got, want)
 	}
 	if NepoznateOznake(NaseMogucnosti()) != nil {

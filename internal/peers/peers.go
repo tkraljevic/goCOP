@@ -16,6 +16,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -270,6 +271,16 @@ type Service struct {
 
 	// protokolMreze je [sync] protokol (PostaviProtokol); nil je Protocol
 	protokolMreze atomic.Pointer[string]
+
+	// WEB sync (priprema_weba.go): WEB sync na UDP utičnici programa, nil
+	// dok ga nema; pripreme u pozadini i pauze po paru; ograda WEB synca,
+	// koja dijeli mjesta za razmjene s portom i tunelom. izlazUDP je
+	// izlazna adresa prema adresi (nil: pita sustav); test njime glumi put
+	// kroz Tailscale.
+	web       atomic.Pointer[webSyncServisa]
+	pripreme  pripremeWeba
+	ogradaWeb *razmjena.Ograda
+	izlazUDP  func(netip.AddrPort) (netip.Addr, error)
 }
 
 func (s *Service) autoSync() bool {
@@ -281,8 +292,10 @@ func (s *Service) autoSync() bool {
 func NewService(db *sql.DB, rec *ledger.Recorder, node *Node, ports Ports) (*Service, error) {
 	s := &Service{db: db, rec: rec, node: node, ports: ports, tunel: razmjena.NoviTunel(), ogradaPorta: razmjena.NovaOgrada()}
 	s.ogradaTunela = razmjena.NovaOgradaTunela(s.ogradaPorta)
+	s.ogradaWeb = razmjena.NovaOgradaTunela(s.ogradaPorta) // WEB sync rukovanja ne broji u ogradi, a mjesta za razmjene dijeli
 	s.ogradaPorta.KadOdbije(s.naVratima(PutVrataPort))
 	s.ogradaTunela.KadOdbije(s.naVratima(PutVrataTunel))
+	s.ogradaWeb.KadOdbije(s.naVratima(PutVrataWeb))
 	if err := s.loadNetwork(); err != nil {
 		return nil, err
 	}
@@ -975,7 +988,9 @@ func (s *Service) primi(ctx context.Context, put razmjena.Put) func(*razmjena.Co
 }
 
 // primiRazmjenu odradi razmjenu koju je započeo drugi čvor, na portu
-// razmjene ili kroz tunel, i zabilježi ishod
+// razmjene, kroz tunel ili WEB syncom, i zabilježi ishod. Veza koju je
+// pozivatelj zatvorio prije svoje granice ne bilježi se: zvao je više
+// adresa usporedno, a razgovor ide na drugoj (redoslijed.go).
 func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	defer c.Close()
 	peer, _ := s.peerByKey(ctx, c.PeerKey, c.Vjerodajnice)
@@ -985,10 +1000,19 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
+	if praznaVeza(theirs, err) {
+		return
+	}
 	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
 	o.dolazna = true
 	// bilješka čeka bravu upisa, a mjesto razmjene treba sljedećem
 	go s.zabiljezi(ctx, peer, c, o)
+}
+
+// praznaVeza: pozivatelj je zatvorio vezu prije nego što je poslao svoju
+// granicu, jer je druga adresa bila brža (redoslijed.go)
+func praznaVeza(theirs frontierMsg, err error) bool {
+	return errors.Is(err, io.EOF) && theirs.Frontier == nil && theirs.Program == ""
 }
 
 // TunelHandler je razmjena kroz tunel za web sučelje (razmjena.PutTunela):
@@ -1003,43 +1027,70 @@ const NajviseVerzijaPoRazmjeni = 5000
 // prima dva i pol sata, po 5000 svakih pet minuta.
 const najviseKrugovaZaRedom = 200
 
-// SyncWith obavi razmjenu s poznatim čvorom, na prvoj adresi koja odgovori
+// SyncWith obavi razmjenu s poznatim čvorom, putem koji se prvi spoji
+// (redoslijed.go: LAN sync, živa WEB sync sesija, pa zajedno Tailscale,
+// upisane adrese i tunel, uz pripremu WEB synca u pozadini). Spajanje ima
+// rok od 45 s, a razgovor rok onoga tko zove.
 func (s *Service) SyncWith(ctx context.Context, nodeID string) (applied, sent int, err error) {
 	peer, expect, err := s.partnerZaRazmjenu(ctx, nodeID)
 	if err != nil {
 		return 0, 0, err
 	}
-	kandidati := s.adreseZaSpajanje(ctx, peer)
-	if len(kandidati) == 0 {
-		return 0, 0, fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
-	}
-
-	var lastErr error
-	for i, k := range kandidati {
-		conn, err := s.nazovi(ctx, peer, k, expect)
+	spajanje, otkazi := context.WithTimeout(ctx, rokSpajanja)
+	defer otkazi()
+	k := s.noviKrug(spajanje, peer, expect)
+	for {
+		conn, kk, err := k.spoji(spajanje)
 		if err != nil {
-			lastErr = err
-			continue
+			return 0, 0, k.bezVeze(ctx, err)
 		}
-		started := time.Now()
-		var theirs frontierMsg
-		applied, sent, theirs, err = s.exchange(ctx, conn, true)
-		_, skraceno := s.skracene.LoadAndDelete(conn)
-		s.josIma.Store(nodeID, skraceno && err == nil)
-		conn.Close()
-		if s.odbioTailscale(ctx, nodeID, err) {
-			// spajanje je prošlo, ali ta adresa ne radi: pamti se odbijenica
-			s.zapamtiPokusaj(nodeID, k.adresa, err)
-			lastErr = err
-			continue
+		applied, sent, dalje, err := k.razmijeni(ctx, conn, kk)
+		if !dalje {
+			return applied, sent, err
 		}
-		o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
-		o.razlog = razlogNakon(kandidati[:i])
-		s.zabiljezi(ctx, peer, conn, o)
-		return applied, sent, err
 	}
-	s.zabiljezi(ctx, peer, nil, syncOutcome{err: lastErr, razlog: razmjena.RazlogPutaBezOdgovora})
-	return 0, 0, fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, lastErr)
+}
+
+// razmijeni odradi razgovor na vezi koja je pobijedila i zabilježi ishod.
+// Kad druga strana odbije razmjenu jer joj je Tailscale isključen, odbijenica
+// se pamti uz tu adresu, a krug ide dalje bez nje (dalje).
+func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) (applied, sent int, dalje bool, err error) {
+	s, nodeID := k.s, k.peer.NodeID
+	started := time.Now()
+	applied, sent, theirs, err := s.exchange(ctx, conn, true)
+	_, skraceno := s.skracene.LoadAndDelete(conn)
+	s.josIma.Store(nodeID, skraceno && err == nil)
+	conn.Close()
+	if s.odbioTailscale(ctx, nodeID, err) {
+		s.zapamtiPokusaj(nodeID, kk.adresa, err)
+		k.bez(kk)
+		return 0, 0, true, err
+	}
+	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
+	o.razlog = k.razlog()
+	s.zabiljezi(ctx, k.peer, conn, o)
+	return applied, sent, false, err
+}
+
+// bezVeze je ishod kruga u kojem se nijedan put nije spojio: dok se WEB
+// sync priprema, to nije neuspjeh (bilježi se samo razlog puta); bez
+// ijedne adrese nema ni bilješke, osim razloga pauze WEB synca; inače
+// računalo nije odgovorilo, a razlog na pločici je razlog pauze WEB synca,
+// kad je par u pauzi
+func (k *krug) bezVeze(ctx context.Context, err error) error {
+	nodeID := k.peer.NodeID
+	switch {
+	case k.uPripremi:
+		k.s.zapisiRazlogPuta(ctx, nodeID, razmjena.RazlogPutaPriprema)
+		return opisPripreme(nodeID)
+	case !k.imaAdresa && k.razlogWeba != "":
+		k.s.zapisiRazlogPuta(ctx, nodeID, k.razlogWeba)
+		return fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
+	case !k.imaAdresa:
+		return fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
+	}
+	k.s.zabiljezi(ctx, k.peer, nil, syncOutcome{err: err, razlog: cmp.Or(k.razlogWeba, razmjena.RazlogPutaBezOdgovora)})
+	return fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, err)
 }
 
 // partnerZaRazmjenu je poznati čvor s kojim je razmjena dopuštena (član
@@ -1162,16 +1213,18 @@ func (s *Service) uLokalnojMrezi(ctx context.Context, nodeID string) []kandidat 
 	return []kandidat{k}
 }
 
-// nazovi otvara razmjenu na jednoj adresi i pamti kako je spajanje prošlo
-// (pokusaji.go); tvrdnja o toj adresi time je potrošena, osim kad je cijela
-// razmjena prekinuta. Veza dobije put kandidata, osim kad je otišla s
-// Tailscale adrese ovog računala (putVeze).
-func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey) (*razmjena.Conn, error) {
-	dialCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
+// nazovi otvara razmjenu na jednoj adresi, u roku rok, i pamti kako je
+// spajanje prošlo (pokusaji.go); tvrdnja o toj adresi time je potrošena,
+// osim kad je cijela razmjena prekinuta ili je druga adresa bila brža. Veza
+// dobije put kandidata, osim kad je otišla s Tailscale adrese ovog
+// računala (putVeze).
+func (s *Service) nazovi(ctx context.Context, peer *Peer, k kandidat, expect ed25519.PublicKey, rok time.Duration) (*razmjena.Conn, error) {
+	dialCtx, cancel := context.WithTimeout(ctx, rok)
 	defer cancel()
 	conn, err := s.spoji(dialCtx, peer, k, expect)
-	// kad je cijela razmjena prekinuta ili joj je isteklo vrijeme, ishod
-	// ništa ne govori o adresi, pa ostaje zapamćen prethodni, a tvrdnja ostaje
+	// kad je cijela razmjena prekinuta ili joj je isteklo vrijeme, ili je
+	// druga adresa bila brža, ishod ništa ne govori o adresi, pa ostaje
+	// zapamćen prethodni, a tvrdnja ostaje
 	if ctx.Err() == nil {
 		s.zapamtiPokusaj(peer.NodeID, k.adresa, err)
 		s.potrosiTvrdnju(peer.NodeID, k.adresa)

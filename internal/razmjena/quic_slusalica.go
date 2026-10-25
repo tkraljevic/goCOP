@@ -9,9 +9,10 @@ package razmjena
 // Slušalica WEB synca (F3a-2, slusajWeb) je na istoj UDP utičnici kao STUN
 // i udarci, a pokreće je samo WebSync.Radi, koji program zove samo uz
 // web_sync = true. Postavke (plan, „Postavke QUIC-a”):
-//   - rukovanje 5 s, mirovanje 60 s, održavanje veze svakih 15 s, 8
-//     dolaznih tokova, bez jednosmjernih tokova, 0-RTT-a i datagrama, bez
-//     nastavka TLS sesije (svako rukovanje pokazuje certifikat);
+//   - rukovanje 5 s, mirovanje 30 s (dvaput razmak održavanja; Odluke
+//     (25. 10. 2026.), 2), održavanje veze svakih 15 s, 8 dolaznih tokova,
+//     bez jednosmjernih tokova, 0-RTT-a i datagrama, bez nastavka TLS
+//     sesije (svako rukovanje pokazuje certifikat);
 //   - VerifySourceAddress uvijek vraća true, pa svatko dobiva Retry: do
 //     ConnContext dolazi samo adresa koja je dokazala da prima pakete;
 //   - ConnContext pušta samo adresu s koje je u zadnjih 30 s stigao valjan
@@ -42,12 +43,17 @@ import (
 )
 
 // postavkeQUIC su postavke veze WEB synca (plan, F3a): rukovanje 5 s,
-// mirovanje 60 s, održavanje veze svakih 15 s, 8 dolaznih tokova, bez
-// jednosmjernih tokova, 0-RTT-a i datagrama
+// mirovanje 30 s, održavanje veze svakih 15 s, 8 dolaznih tokova, bez
+// jednosmjernih tokova, 0-RTT-a i datagrama. Mirovanje je dvaput razmak
+// održavanja (Odluke (25. 10. 2026.), 2): kad druga strana padne ili ode
+// iza drugog NAT-a, sesija se zatvori 30 do 45 s nakon njezinog zadnjeg
+// paketa (quic-go rok pokrene iznova i prvim vlastitim održavanjem veze
+// nakon njega, po RFC 9000, 10.1), a ne nakon 60 do 75 s. Obnove veze kad
+// padne A uz Docker most nema (quic-go ne mijenja oznaku veze).
 func postavkeQUIC() *quic.Config {
 	return &quic.Config{
 		HandshakeIdleTimeout:  5 * time.Second,
-		MaxIdleTimeout:        60 * time.Second,
+		MaxIdleTimeout:        30 * time.Second,
 		KeepAlivePeriod:       15 * time.Second,
 		MaxIncomingStreams:    8,
 		MaxIncomingUniStreams: -1,

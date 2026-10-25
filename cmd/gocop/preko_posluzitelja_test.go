@@ -1,9 +1,12 @@
 package main
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/peers"
+	"gocop/internal/razmjena"
 )
 
 // Ime stalnog čvora na mreži je domena iz adrese tunela, nikad IP adresa;
@@ -51,5 +54,17 @@ func TestPrekoPosluzitelja(t *testing.T) {
 	}
 	if got := cvorRazmjene(laptop, false, "cop.primjer.hr").Razlog(); got != "SERVER sync, preko cop.primjer.hr: podaci stižu do 10 min kasnije." {
 		t.Errorf("pločica: %q", got)
+	}
+}
+
+// Dok je par u pauzi WEB synca, pločica kaže kad WEB sync pokušava ponovno
+// (PonovnoU iz peers).
+func TestPlocicaPauzeWebSynca(t *testing.T) {
+	ponovno := time.Date(2026, 10, 25, 13, 30, 0, 0, time.UTC)
+	ps := peers.PeerStatus{Peer: peers.Peer{Name: "ThinkCentre"}, Reachability: "online", Member: true,
+		State: peers.SyncState{Put: peers.PutRazmjene{Naziv: razmjena.NazivServer, Razlog: razmjena.RazlogPutaPauza, PonovnoU: ponovno}}}
+	c := cvorRazmjene(ps, false, "")
+	if !c.PonovnoU.Equal(ponovno) || !strings.Contains(c.Razlog(), "pokušava ponovno u 14:30") {
+		t.Errorf("pločica u pauzi: %+v %q", c, c.Razlog())
 	}
 }

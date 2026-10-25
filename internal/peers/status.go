@@ -165,12 +165,14 @@ func uStupac(v any) string {
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
 		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese,
-		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao FROM peer_sync`)
+		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao,
+		priprema_pokusaji, priprema_uspjesi, priprema_neuspjesi FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
+	pauze := s.pripreme.pauzeDo(time.Now()) // dok je par u pauzi, pločica kaže kad WEB sync pokušava ponovno
 	for rows.Next() {
 		var id, frontier, ts, mogucnosti, vrste, adrese string
 		var st SyncState
@@ -178,11 +180,12 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		p := &st.Put
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
 			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese,
-			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao); err != nil {
+			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao,
+			&p.PripremaPokusaji, &p.PripremaUspjesi, &p.PripremaNeuspjesi); err != nil {
 			return nil, err
 		}
 		st.LastAttempt, st.LastOK, p.Od = vrijemeIz(attempt), vrijemeIz(ok), vrijemeIz(od)
-		p.Naziv = razmjena.NazivPuta(p.Put, p.Privatna)
+		p.Naziv, p.PonovnoU = razmjena.NazivPuta(p.Put, p.Privatna), pauze[id]
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa

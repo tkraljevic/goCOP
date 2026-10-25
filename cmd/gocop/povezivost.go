@@ -71,9 +71,18 @@ type povezivost struct {
 	uTijeku                  chan struct{} // zatvori se kad mjerenje u tijeku završi
 
 	// prijava kod sastajališta ili samo sastajalište (signal.go); postave se
-	// prije nego web sluša, a poslije se samo čitaju
+	// prije nego web sluša, a poslije se samo čitaju. signal je ista prijava
+	// kao klijent, za WEB sync (ključ sastajališta i slanje).
 	klijent      prijavaSignala
+	signal       *razmjena.KlijentSignala
 	sastajaliste *razmjena.Sastajaliste
+
+	// WEB sync (web_sync.go): čvor koji ga drži (nil: nema ga) i WEB sync
+	// koji upravo radi, pod mu; pokretanje i zaustavljanje idu jedno po
+	// jedno (webMu)
+	webCvor cvorWeba
+	webMu   sync.Mutex
+	web     *webPovezivosti
 
 	upisano bool // oznaka je upisana, pa je uredno gašenje briše; samo radi i zatvori
 }
@@ -85,6 +94,7 @@ type povezivost struct {
 func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, cvor cvorSignala, w posluziteljPovezivosti, javi func(string, ...any)) func() {
 	ctx, otkazi := context.WithCancel(ctx)
 	p := &povezivost{cfg: cfg, javi: javi, stabilanRad: stabilanRadPovezivosti, ctx: ctx}
+	p.webCvor, _ = cvor.(cvorWeba) // bez njega (test) nema WEB synca
 	w.SetProvjeraVeze(p.provjeriVezu, p.zadnjaProvjera)
 	stani := func() {
 		p.mu.Lock()
@@ -92,6 +102,7 @@ func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, c
 		p.mu.Unlock()
 		otkazi()
 		p.teku.Wait()
+		p.zaustaviWeb()
 		p.zatvoriSastajaliste()
 		p.zatvori()
 	}
@@ -154,6 +165,7 @@ func (p *povezivost) radi(ctx context.Context, slusa <-chan struct{}) {
 	} else {
 		p.provjeriVezu(ctx)
 	}
+	p.pokreniWeb()
 	p.prijaviSe(ctx)
 	p.cuvajMrezu(ctx)
 	t := time.NewTimer(p.stabilanRad)
@@ -178,7 +190,7 @@ func (p *povezivost) otvori() *razmjena.UDP {
 		p.javi("povezivost: UDP utičnica se ne da otvoriti, pa WEB sync ne radi: %v", err)
 		return nil
 	}
-	u := razmjena.NoviUDP(conn)
+	u := razmjena.NoviUDPCvora(conn, p.kljucCvora())
 	p.javi("povezivost: UDP radi na :%d", u.Port())
 	return u
 }

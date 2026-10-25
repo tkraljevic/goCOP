@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/netip"
 	"runtime"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -383,7 +384,7 @@ func TestGorutineNakonZatvaranja(t *testing.T) {
 		ka, kb := poredaniKljucevi(t)
 		sa, sb := stranaJavna(t, m, vrataA.String(), ka), stranaJavna(t, m, vrataB.String(), kb)
 		synctest.Wait()
-		prije := runtime.NumGoroutine()
+		prije := gorutineMjehura()
 		a, b, _ := parWeb(t, sa, sb, true)
 		s, _ := sesijaPara(t, a, b)
 		for range 3 {
@@ -395,10 +396,30 @@ func TestGorutineNakonZatvaranja(t *testing.T) {
 		b.zaustavi()
 		time.Sleep(time.Minute) // zatvaranje putuje mrežom, a quic-go čisti za sobom
 		synctest.Wait()
-		if poslije := runtime.NumGoroutine(); poslije != prije {
+		if poslije := gorutineMjehura(); poslije != prije {
 			t.Errorf("gorutina prije %d, poslije %d", prije, poslije)
 		}
 	})
+}
+
+// gorutineMjehura broji gorutine mjehura u kojem test radi.
+// runtime.NumGoroutine broji i gorutine izvan mjehura, npr. one koje
+// prethodni test još gasi, pa je brojka na CI-ju znala skočiti.
+func gorutineMjehura() int {
+	b := make([]byte, 1<<20)
+	moja := strings.SplitN(string(b[:runtime.Stack(b, false)]), "\n", 2)[0]
+	i := strings.Index(moja, "synctest bubble ")
+	if i < 0 {
+		return runtime.NumGoroutine()
+	}
+	oznaka := strings.TrimSuffix(moja[i:], "]:")
+	n := 0
+	for _, l := range strings.Split(string(b[:runtime.Stack(b, true)]), "\n") {
+		if strings.HasPrefix(l, "goroutine ") && strings.HasSuffix(l, oznaka+"]:") {
+			n++
+		}
+	}
+	return n
 }
 
 // Na adresi probijenog puta sluša slušalica s drugim ključem (ovdje B, a

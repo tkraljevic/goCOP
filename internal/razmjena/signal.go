@@ -38,6 +38,11 @@ var (
 // članstvu
 var ErrNepoznatCvorSastajalista = errors.New("čvor sastajališta nije poznat član mreže")
 
+// ErrNijePrijavljen: ovo računalo nije prijavljeno kod sastajališta, pa
+// poruka nije otišla. Kvar je kod ovog računala, ne kod druge strane, pa
+// priprema WEB synca to ne broji kao neuspjeh para.
+var ErrNijePrijavljen = errors.New("WEB sync nije prijavljen kod sastajališta")
+
 var (
 	errNijeSastajaliste = errors.New("druga strana se nije javila kao sastajalište")
 )
@@ -204,7 +209,7 @@ func (k *KlijentSignala) Posalji(pp PotpisanaPoruka) error {
 	v := k.veza
 	k.mu.Unlock()
 	if v == nil {
-		return errors.New("WEB sync nije prijavljen kod sastajališta")
+		return ErrNijePrijavljen
 	}
 	return v.posalji(pp.Vrsta, pp)
 }

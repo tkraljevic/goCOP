@@ -109,8 +109,12 @@ func noviCvorWeb(t *testing.T, s *stranaProbe, posta *postaWeb, uz ...func(*Post
 	}
 	w, err := NoviWebSync(s.u, p)
 	bezGreske(t, err)
-	w.izlaz = func(netip.AddrPort) (netip.Addr, error) { return netip.MustParseAddr("192.0.2.1"), nil }
-	w.ts = func() []netip.Addr { return nil }
+	if p.Izlaz == nil {
+		w.izlaz = func(netip.AddrPort) (netip.Addr, error) { return netip.MustParseAddr("192.0.2.1"), nil }
+	}
+	if p.TailscaleAdrese == nil {
+		w.ts = func() []netip.Addr { return nil }
+	}
 	c.w = w
 	posta.mu.Lock()
 	posta.cvorovi[PublicKeyString(s.kljuc)] = w
@@ -436,8 +440,9 @@ func TestWebSyncSesijaPreziviDvaKruga(t *testing.T) {
 
 // Promjena mreže usred sesije: laptop prijeđe iza drugog NAT-a s novom
 // utičnicom, a stara bez ijedne poruke nestane. Druga strana sesiju
-// zatvori kad prođe minuta bez prometa, a nova priprema s nove mreže
-// uspije i zamijeni je.
+// zatvori 30 do 45 s nakon zadnjeg prometa (rok mirovanja 30 s, dvaput
+// razmak održavanja od 15 s; Odluke (25. 10. 2026.), 2), a nova priprema s
+// nove mreže uspije i zamijeni je.
 func TestWebSyncPromjenaMreze(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		m := internetUdaraca(t)
@@ -447,8 +452,13 @@ func TestWebSyncPromjenaMreze(t *testing.T) {
 		_, sB := sesijaPara(t, a, b)
 		_ = a.u.Close() // mreža je otišla s utičnicom; greška zatvaranja nema što reći
 		a.zaustavi()
-		if zatvorena(sB, 50*time.Second) || !zatvorena(sB, 30*time.Second) {
-			t.Fatal("sesija druge strane nije se zatvorila nakon minute bez prometa")
+		// rok mirovanja od 30 s quic-go mjeri od zadnjeg primljenog paketa,
+		// ali ga i prvo vlastito održavanje veze nakon njega (najviše 15 s
+		// kasnije) pokrene iznova (RFC 9000, 10.1): sesija se zatvori 30 do
+		// 45 s nakon zadnjeg paketa druge strane, a ne nakon minute ili
+		// 75 s, kao uz rok od 60 s
+		if zatvorena(sB, 29*time.Second) || !zatvorena(sB, 17*time.Second) {
+			t.Fatal("sesija druge strane nije se zatvorila 30 do 45 s nakon zadnjeg prometa")
 		}
 		nova := stranaIza(t, m.NAT(eimNeovisno, netip.MustParseAddr("203.0.113.7")), "10.20.0.5:4713", natsim.PostavkeRacunala{})
 		nova.priv, nova.kljuc = sa.priv, sa.kljuc
@@ -494,11 +504,12 @@ func TestWebSyncSpavanjeIBudenje(t *testing.T) {
 // Ponovno pokretanje bez urednog zatvaranja: ključ za resetiranje QUIC
 // veza izveden je iz ključa čvora, pa novi proces računala B (slušalice)
 // na istoj adresi resetira staru vezu čim mu druga strana nešto pošalje
-// (razgovor), umjesto da ona čeka minutu mirovanja. S drugim ključem
+// (razgovor), umjesto da ona čeka 30 s mirovanja. S drugim ključem
 // čvora reseta nema. Ograničenja quic-go-a: reset ide samo na paket veći
 // od 42 B, pa ga održavanje veze ne izazove, a kad padne A, koji je zvao,
-// druga strana čeka minutu, jer znak za reset prvog identifikatora veze
-// daje samo slušalica.
+// druga strana čeka 30 s, jer znak za reset prvog identifikatora veze
+// daje samo slušalica (obnova uz Docker most se ne radi; Odluke
+// (25. 10. 2026.), 2).
 func TestWebSyncPonovnoPokretanje(t *testing.T) {
 	for _, isti := range []bool{true, false} {
 		t.Run(fmt.Sprintf("isti ključ %v", isti), func(t *testing.T) {

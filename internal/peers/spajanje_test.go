@@ -123,7 +123,7 @@ func TestTunelIPortDijeleMjestaRazmjena(t *testing.T) {
 	}
 	// razmjena koja stane nakon granica drži svoje mjesto dok test traje
 	for i := 0; i < 4; i++ {
-		conn, err := a.nazovi(ctxRub, peer, kandidat{ln.Addr().String(), razmjena.PutAdresa}, expect)
+		conn, err := a.nazovi(ctxRub, peer, kandidat{ln.Addr().String(), razmjena.PutAdresa}, expect, rokOstalih)
 		if err != nil {
 			t.Fatal(err)
 		}

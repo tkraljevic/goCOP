@@ -48,8 +48,8 @@ func (p *povezivost) pokreniSignal(cvor cvorSignala, w posluziteljPovezivosti) {
 		w.SetSignalStanje(func() web.SignalStanje { return web.SignalStanje{Kod: razmjena.KodSignalaBezPostavke} })
 	default:
 		k := cvor.KlijentSignala(p.cfg.Sastajaliste, p.cfg.SastajalisteCvor, p.javi)
-		k.NaPrijavu = p.nakonPrijave
-		p.klijent = k
+		k.NaPrijavu, k.NaPoruku, k.NaNemu = p.nakonPrijave, p.naPoruku, p.naNemu
+		p.klijent, p.signal = k, k
 		posluzitelj := domenaSastajalista(p.cfg.Sastajaliste)
 		w.SetSignalStanje(func() web.SignalStanje { return signalZaWeb(p.klijent.Stanje(), posluzitelj, p.cfg.WebSync) })
 	}
@@ -62,6 +62,7 @@ func (p *povezivost) posluziSastajaliste(cvor cvorSignala, w posluziteljPovezivo
 		p.javi("povezivost: sastajalište ne radi: %v", err)
 		return
 	}
+	r.NaPoruku = p.naPoruku // poruke kojima je cilj ovo računalo idu WEB syncu
 	p.sastajaliste = r
 	p.teku.Go(func() { provjeravajClanstva(p.ctx, r.ProvjeriSve) })
 	w.SetSignal(r.Handler())
@@ -106,8 +107,10 @@ func domenaSastajalista(adresa string) string {
 
 // nakonPrijave: pri svakom spajanju na sastajalište mreža se izmjeri
 // iznova (plan WEB synca, §2.2), u pozadini, da prijava ne čeka; tako se vidi
-// i kad se ruta vratila uz iste adrese
+// i kad se ruta vratila uz iste adrese. WEB sync kreće ovdje kad pri
+// pokretanju ključ sastajališta još nije bio poznat (tek upareno računalo).
 func (p *povezivost) nakonPrijave() {
+	p.pokreniWeb()
 	if z := p.zadnjaProvjera(); len(p.cfg.Stun) == 0 || z != nil && time.Since(z.Kad) < svjezeMjerenje {
 		return // prva prijava odmah nakon mjerenja pri pokretanju ne mjeri još jednom
 	}
@@ -187,14 +190,21 @@ func (p *povezivost) provjeriNakonZamjene(ctx context.Context) {
 }
 
 // novaUticnica zamijeni UDP utičnicu novom na istom portu; vrsta mreže
-// kreće ispočetka, jer je mreža nova
+// kreće ispočetka, jer je mreža nova. WEB sync stare utičnice staje (sesije
+// se zatvaraju), a na novoj kreće iznova, bez pauza (web_sync.go). Cijela
+// zamjena ide pod webMu, pa prijava usred nje (nakonPrijave) ne pokrene
+// WEB sync na staroj utičnici koji poslije nitko ne bi zaustavio.
 func (p *povezivost) novaUticnica() {
+	p.webMu.Lock()
+	defer p.webMu.Unlock()
 	p.mu.Lock()
 	stara := p.udp
 	p.mu.Unlock()
 	if stara == nil {
 		return
 	}
+	p.zaustaviWebPodBravom()
+	defer p.pokreniWebPodBravom()
 	nova, upozorenje, err := obnoviUticnicu(stara)
 	if upozorenje != nil {
 		p.javi("povezivost: %v", upozorenje)
