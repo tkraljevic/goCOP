@@ -5,7 +5,9 @@ package peers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -87,7 +89,7 @@ func TestNajviseCetiriPripreme(t *testing.T) {
 	var pw pripremeWeba
 	sad := time.Now()
 	pokrenuto := 0
-	pocni := func(context.Context) { pokrenuto++ }
+	pocni := func(context.Context) bool { pokrenuto++; return true }
 	for i := range 5 {
 		r, tece := pw.pokreni(ctxRub, "racunalo", string(rune('a'+i)), "moj", sad, pocni)
 		if (i < 4) != tece || (i < 4) != (r == razmjena.RazlogPutaPriprema) {
@@ -105,6 +107,37 @@ func TestNajviseCetiriPripreme(t *testing.T) {
 	pw.ocisti()
 	if r, tece := pw.pokreni(ctxRub, "racunalo", "a", "moj", sad, pocni); !tece || r != razmjena.RazlogPutaPriprema || pokrenuto != 5 || !pw.uspjeh("a") {
 		t.Errorf("nakon nove utičnice: %s %v", r, tece)
+	}
+	pw.gotova("a")
+	if r, tece := pw.pokreni(ctxRub, "racunalo", "a", "moj", sad, func(context.Context) bool { return false }); tece || r != "" || pw.teku["a"] {
+		t.Errorf("WEB sync koji staje: %s %v, teče %v", r, tece, pw.teku)
+	}
+}
+
+// Pozadina WEB synca koji staje ne prima nove gorutine, i kad ih netko
+// pokuša pokrenuti usred zaustavljanja: zaustavljanje čeka sve koje su
+// krenule, a nakon njega ništa ne kreće.
+func TestPozadinaNakonZaustavljanja(t *testing.T) {
+	for range 200 {
+		ctx, otkazi := context.WithCancel(ctxRub)
+		ws := &webSyncServisa{ctx: ctx, otkazi: otkazi}
+		var zavrseno atomic.Int32
+		pokusaji := make(chan struct{})
+		go func() {
+			defer close(pokusaji)
+			for range 50 {
+				ws.uPozadini(func() { zavrseno.Add(1) })
+			}
+		}()
+		ws.stani()
+		poslije := zavrseno.Load()
+		<-pokusaji
+		if ws.uPozadini(func() { t.Error("pokrenuto nakon zaustavljanja") }) {
+			t.Fatal("uPozadini nakon zaustavljanja javlja da je krenula")
+		}
+		if n := zavrseno.Load(); n != poslije {
+			t.Fatalf("nakon zaustavljanja krenulo još %d", n-poslije)
+		}
 	}
 }
 
@@ -127,6 +160,7 @@ func TestGreskaZaPauzu(t *testing.T) {
 		{otkazan, context.Canceled, false, ""},
 		{ctxRub, razmjena.ErrPripremaUTijeku, false, ""},
 		{ctxRub, razmjena.ErrWebSyncNeRadi, false, ""},
+		{ctxRub, fmt.Errorf("poziv: %w", razmjena.ErrNijePrijavljen), false, ""},
 		{ctxRub, errors.New("signal nije prijavljen"), true, razmjena.RazlogNema},
 	} {
 		if g, broji := greskaZaPauzu(c.ctx, c.err); broji != c.broji || g.Razlog != c.razlog {

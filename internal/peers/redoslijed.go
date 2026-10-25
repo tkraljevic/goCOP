@@ -7,7 +7,10 @@ package peers
 //     usporedno, svaka iduća 250 ms kasnije, svaka s rokom od 3 s. LAN ide
 //     prvi i kad postoji živa WEB sync sesija, pa laptop koji dođe kući
 //     iduću razmjenu radi LAN syncom.
-//  2. WEB sync, kad s tim računalom postoji živa sesija.
+//  2. WEB sync, kad s tim računalom postoji živa sesija i odgovori na ping
+//     (najmanje 1 s, inače 3 RTT-a). Sesija koja ne odgovori se zatvara, a
+//     krug ide dalje, pa mrtva sesija (druga strana je promijenila mrežu,
+//     a rok mirovanja još nije istekao) ne drži Tailscale ni tunel.
 //  3. Inače zajedno, odmah: Tailscale, javne adrese i domene koje je
 //     upisao čovjek (SERVER sync) i tunel (SERVER sync), svaka s rokom od
 //     20 s. Usporedo s tim, kad treba, u pozadini kreće priprema WEB synca
@@ -27,6 +30,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"log"
 	"time"
 
 	"gocop/internal/razmjena"
@@ -38,7 +42,14 @@ var (
 	rokLAN      = 3 * time.Second        // jedna adresa u lokalnoj mreži
 	razmakLAN   = 250 * time.Millisecond // iduća adresa u lokalnoj mreži kreće toliko kasnije
 	rokOstalih  = 20 * time.Second       // Tailscale, javna adresa ili tunel
+	rokPinga    = time.Second            // najmanje toliko sesija ima za odgovor na ping
 )
+
+// najviseAdresaPuta: jedan krug zove najviše toliko adresa istim putem
+// (LAN sve zajedno), redom iz adreseZaSpajanje. Zapis čvora piše bilo koji
+// član, pa bi inače stotine podmetnutih adresa svako računalo u mreži zvalo
+// odjednom, u svakom krugu.
+const najviseAdresaPuta = 8
 
 var (
 	// errBezKandidata: korak nema nijednu adresu
@@ -77,8 +88,24 @@ func (s *Service) noviKrug(ctx context.Context, peer *Peer, expect ed25519.Publi
 	for _, kk := range s.adreseZaSpajanje(ctx, peer) {
 		k.dodaj(kk)
 	}
+	k.lan = ograniciPoPutu(k.lan, func(kandidat) razmjena.Put { return razmjena.PutLAN })
+	k.ostali = ograniciPoPutu(k.ostali, func(kk kandidat) razmjena.Put { return kk.put })
 	k.imaAdresa = len(k.lan)+len(k.ostali) > 0
 	return k
+}
+
+// ograniciPoPutu ostavi prvih najviseAdresaPuta kandidata svakog puta
+// (put kaže kojem putu kandidat pripada)
+func ograniciPoPutu(kandidati []kandidat, put func(kandidat) razmjena.Put) []kandidat {
+	broj := map[razmjena.Put]int{}
+	var out []kandidat
+	for _, kk := range kandidati {
+		if p := put(kk); broj[p] < najviseAdresaPuta {
+			broj[p]++
+			out = append(out, kk)
+		}
+	}
+	return out
 }
 
 // dodaj stavi adresu u korak: iz pronalaženja i privatne su LAN, ostalo
@@ -121,14 +148,15 @@ func (k *krug) zapamtiGresku(err error) {
 	}
 }
 
-// sesijaWeba otvori razgovor na živoj WEB sync sesiji s računalom
+// sesijaWeba otvori razgovor na živoj WEB sync sesiji s računalom; sesija
+// koja ne odgovori na ping (zivaSesija) ne vrijedi
 func (k *krug) sesijaWeba(ctx context.Context) (*razmjena.Conn, kandidat, bool) {
 	ws := k.s.web.Load()
 	if ws == nil || k.bezWeba {
 		return nil, kandidat{}, false
 	}
 	ses := ws.w.Sesija(k.expect)
-	if ses == nil {
+	if ses == nil || !k.zivaSesija(ctx, ws, ses) {
 		return nil, kandidat{}, false
 	}
 	c, err := ses.Razgovor(ctx)
@@ -137,6 +165,25 @@ func (k *krug) sesijaWeba(ctx context.Context) (*razmjena.Conn, kandidat, bool) 
 	}
 	k.zadnjiWeb = true
 	return c, kandidat{adresa: c.RemoteAddr().String(), put: c.Put}, true
+}
+
+// zivaSesija javlja odgovara li sesija na ping u roku (rokPinga, a najmanje
+// 3 RTT-a). Sesija koja ne odgovori zatvara se u pozadini, a krug je više
+// ne zove; kad je prekinut cijeli krug, ping ne govori ništa o sesiji, pa
+// ona ostaje.
+func (k *krug) zivaSesija(ctx context.Context, ws *webSyncServisa, ses *razmjena.SesijaWeb) bool {
+	pingCtx, otkazi := context.WithTimeout(ctx, max(rokPinga, 3*ses.RTT))
+	defer otkazi()
+	_, err := ses.Ping(pingCtx)
+	switch {
+	case err == nil:
+		return true
+	case ctx.Err() == nil:
+		k.bezWeba = true
+		log.Printf("povezivost: WEB sync sesija s %s ne odgovara (%v), pa se zatvara", label(*k.peer), err)
+		ws.uPozadini(func() { ses.Zatvori(0) })
+	}
+	return false
 }
 
 // bez makne vezu koju je druga strana odbila jer joj je Tailscale

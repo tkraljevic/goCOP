@@ -168,3 +168,28 @@ func TestWebSyncSPrijavom(t *testing.T) {
 		t.Error("ključ bez čvora")
 	}
 }
+
+// Prijava usred zamjene utičnice (nakonPrijave → pokreniWeb) ne ostavi
+// upaljen WEB sync stare utičnice: na kraju radi točno jedan, na novoj.
+func TestNovaUticnicaUzPrijavu(t *testing.T) {
+	c := noviLazniWebCvor(t)
+	kljuc := c.priv.Public().(ed25519.PublicKey)
+	p := &povezivost{cfg: config.Povezivost{WebSyncPrijava: true}, javi: func(string, ...any) {}, ctx: context.Background(), webCvor: c,
+		signal: &razmjena.KlijentSignala{Kljuc: func(context.Context) (ed25519.PublicKey, error) { return kljuc, nil }}}
+	p.udp = udpZaTest(t, p)
+	p.pokreniWeb()
+	for range 20 {
+		var wg sync.WaitGroup
+		wg.Go(p.novaUticnica)
+		wg.Go(p.pokreniWeb)
+		wg.Wait()
+	}
+	p.mu.Lock()
+	radi, u := p.web, p.udp
+	p.mu.Unlock()
+	t.Cleanup(func() { _ = u.Close() }) // zadnja utičnica; ranije zatvara zamjena
+	if pokrenuto, stalo := c.stanje(); pokrenuto-stalo != 1 || radi == nil || radi.u != u {
+		t.Errorf("pokrenuto %d, stalo %d, radi na novoj %v", pokrenuto, stalo, radi != nil && radi.u == u)
+	}
+	p.zaustaviWeb()
+}

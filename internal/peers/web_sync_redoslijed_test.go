@@ -383,7 +383,8 @@ func TestOpozivZatvaraWebSesiju(t *testing.T) {
 }
 
 // Utrka bez ijedne adrese odmah javlja grešku; veze koje se spoje nakon
-// pobjednika zatvaraju se, a prekinuta utrka adresu ni ne zove.
+// pobjednika zatvaraju se prije razgovora, pa ih druga strana ne bilježi
+// (ni razmjenu ni neuspjeh), a prekinuta utrka adresu ni ne zove.
 func TestUtrkaRubovi(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := clanoviMreze(t, false, "cop-osijek", "thinkcentre-ured")
@@ -403,6 +404,9 @@ func TestUtrkaRubovi(t *testing.T) {
 		}
 		zatvoriOstale(ishodi, 2)
 		synctest.Wait()
+		if st := stanjeS(t, b, a.node.ID); st.LastAttempt != nil || st.Fails != 0 || st.Put.Pokusaji != 0 {
+			t.Errorf("druga strana je zabilježila vezu zatvorenu prije razgovora: %+v", st)
+		}
 		if r := a.nazoviNakon(otkazan(), time.Second, peer, kandidat{"198.51.100.9:4710", razmjena.PutAdresa}, b.javni(), time.Second); r.conn != nil || r.err == nil {
 			t.Errorf("prekinuta utrka je zvala: %+v", r)
 		}

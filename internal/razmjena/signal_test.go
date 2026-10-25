@@ -630,7 +630,7 @@ func TestOdgodaSignala(t *testing.T) {
 func TestKlijentSignalaBezVeze(t *testing.T) {
 	k := &KlijentSignala{}
 	k.Puls()
-	if err := k.Posalji(PotpisanaPoruka{Vrsta: VrstaPoziv}); err == nil {
+	if err := k.Posalji(PotpisanaPoruka{Vrsta: VrstaPoziv}); !errors.Is(err, ErrNijePrijavljen) {
 		t.Error("slanje bez veze")
 	}
 	if kodNakon(errNijeSastajaliste) != KodSignalaNedostupno || kodNakon(odbijenSignal{odbijenoSignala{}}) != KodSignalaNedostupno {

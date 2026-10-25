@@ -700,18 +700,30 @@ func (w *WebSync) krozTailscale(a netip.AddrPort) bool {
 func (w *WebSync) MojOtisak() string { return OtisakMreze(w.Mreza()) }
 
 // OtisakMreze je stanje mreže računala po kojem se vidi da se promijenilo
-// (pauza WEB synca po paru, F3b): javni kandidati, poredani, i vrsta NAT-a.
+// (pauza WEB synca po paru, F3b): javne adrese, poredane, bez porta, i
+// vrsta NAT-a. Port ne ulazi: NAT koji ne čuva port nakon isteka
+// preslikavanja da novi, a mreža je ista, pa bi inače svako mjerenje prije
+// pripreme izgledalo kao nova mreža i par nikad ne bi došao do pauze.
 // Lokalni kandidati ne ulaze: oni ne mijenjaju ishod probijanja preko
 // interneta.
 func OtisakMreze(kandidati []KandidatPoruke, nat *NATPoruke) string {
 	var javne []string
 	for _, k := range kandidati {
 		if k.Vrsta == KandidatJavni {
-			javne = append(javne, k.Adresa)
+			javne = append(javne, bezPorta(k.Adresa))
 		}
 	}
 	slices.Sort(javne)
-	return strings.Join(javne, ",") + "|" + vrstaNAT(nat) + "|" + strconv.FormatBool(blokiranUDP(nat))
+	return strings.Join(slices.Compact(javne), ",") + "|" + vrstaNAT(nat) + "|" + strconv.FormatBool(blokiranUDP(nat))
+}
+
+// bezPorta je adresa kandidata bez porta; adresa koja se ne da pročitati
+// ostaje kakva je
+func bezPorta(adresa string) string {
+	if a, err := netip.ParseAddrPort(adresa); err == nil {
+		return a.Addr().String()
+	}
+	return adresa
 }
 
 // zapamtiSesiju upiše sesiju za računalo; starija sesija s njim se zatvara

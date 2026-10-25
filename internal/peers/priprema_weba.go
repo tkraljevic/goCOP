@@ -66,13 +66,37 @@ var razloziBezPauze = []string{razmjena.RazlogDrugaZove, razmjena.RazlogStao, ra
 
 // webSyncServisa je WEB sync na jednoj UDP utičnici: ukljucen uz Radi,
 // inače Odbija. Pripreme u pozadini i razmjene nakon njih idu pod ctx i
-// prate se u pozadina.
+// prate se u pozadina; kreću samo kroz uPozadini, pod mu, dok ctx traje.
 type webSyncServisa struct {
 	w           *razmjena.WebSync
 	ctx         context.Context
+	otkazi      context.CancelFunc
 	ukljucen    bool
 	prijePoziva func(context.Context)
+	mu          sync.Mutex
 	pozadina    sync.WaitGroup
+}
+
+// uPozadini pokrene f u pozadini WEB synca, osim kad on staje ili je stao;
+// javlja je li f krenula. Pod mu, pa zaustavljanje (stani) ne može početi
+// čekati pozadinu dok se ona još povećava.
+func (ws *webSyncServisa) uPozadini(f func()) bool {
+	ws.mu.Lock()
+	defer ws.mu.Unlock()
+	if ws.ctx.Err() != nil {
+		return false
+	}
+	ws.pozadina.Go(f)
+	return true
+}
+
+// stani zaustavi pozadinu: nakon otkazivanja pod mu nijedna nova gorutina
+// ne kreće, pa čekanje vidi sve
+func (ws *webSyncServisa) stani() {
+	ws.mu.Lock()
+	ws.otkazi()
+	ws.mu.Unlock()
+	ws.pozadina.Wait()
 }
 
 // PostavkeWebSynca su postavke WEB synca koje zna servis: ključ, ime
@@ -94,7 +118,7 @@ func (s *Service) PostavkeWebSynca(ctx context.Context) razmjena.PostavkeWeb {
 // pripreme u pozadini; drugi poziv ne radi ništa.
 func (s *Service) PokreniWebSync(ctx context.Context, w *razmjena.WebSync, ukljucen bool, prijePoziva func(context.Context)) func() {
 	ctx, otkazi := context.WithCancel(ctx)
-	ws := &webSyncServisa{w: w, ctx: ctx, ukljucen: ukljucen, prijePoziva: prijePoziva}
+	ws := &webSyncServisa{w: w, ctx: ctx, otkazi: otkazi, ukljucen: ukljucen, prijePoziva: prijePoziva}
 	if ws.prijePoziva == nil {
 		ws.prijePoziva = func(context.Context) {}
 	}
@@ -109,7 +133,7 @@ func (s *Service) PokreniWebSync(ctx context.Context, w *razmjena.WebSync, uklju
 		s.web.CompareAndSwap(ws, nil)
 		otkazi()
 		<-gotovo
-		ws.pozadina.Wait()
+		ws.stani()
 	})
 }
 
@@ -204,7 +228,7 @@ func (k *krug) pripremiWeb() {
 	}
 	peer, expect := *k.peer, k.expect
 	k.razlogWeba, k.uPripremi = k.s.pripreme.pokreni(ws.ctx, peer.NodeID, razmjena.PublicKeyString(expect), ws.w.MojOtisak(), time.Now(),
-		func(ctx context.Context) { ws.pozadina.Go(func() { k.s.pripremi(ctx, ws, peer, expect) }) })
+		func(ctx context.Context) bool { return ws.uPozadini(func() { k.s.pripremi(ctx, ws, peer, expect) }) })
 }
 
 // pripremi pripremi WEB sync s računalom i zabilježi ishod
@@ -234,7 +258,7 @@ func (s *Service) nakonPripreme(ctx context.Context, ws *webSyncServisa, peer Pe
 		s.pripreme.ocistiPauzu(i.kljuc)
 		s.brojiPripremu(ws.ctx, peer.NodeID, true)
 		log.Printf("povezivost: WEB sync s %s uspio u %d. pokušaju (%d ms), pozvao=ovaj", label(peer), i.ses.Pokusaj, i.trajanje.Milliseconds())
-		ws.pozadina.Go(func() { s.razmijeniOdmah(ws.ctx, peer) })
+		ws.uPozadini(func() { s.razmijeniOdmah(ws.ctx, peer) }) // WEB sync koji staje ne razmjenjuje
 		return
 	}
 	g, broji := greskaZaPauzu(ctx, i.err)
@@ -248,19 +272,23 @@ func (s *Service) nakonPripreme(ctx context.Context, ws *webSyncServisa, peer Pe
 
 // greskaZaPauzu je greška pripreme kao neuspjeh za pauzu i broji li se.
 // Ne broje se prekid (kraj rada, nova utičnica), priprema koja već teče,
-// WEB sync koji ne radi, istodobni poziv druge strane i drugi ključ na
-// adresi druge strane. Poziv koji ni ne ode preko sastajališta (druga
-// strana nije prijavljena) broji se kao „nema”.
+// WEB sync koji ne radi, ovo računalo koje nije prijavljeno kod
+// sastajališta (kvar je ovdje, ne kod para), istodobni poziv druge strane
+// i drugi ključ na adresi druge strane. Poziv koji ni ne ode preko
+// sastajališta (druga strana nije prijavljena) broji se kao „nema”.
 func greskaZaPauzu(ctx context.Context, err error) (razmjena.GreskaPripreme, bool) {
 	var g razmjena.GreskaPripreme
 	switch {
 	case errors.As(err, &g):
 		return g, neuspjehProbijanja(g)
-	case ctx.Err() != nil || errors.Is(err, razmjena.ErrPripremaUTijeku) || errors.Is(err, razmjena.ErrWebSyncNeRadi):
+	case ctx.Err() != nil || slices.ContainsFunc(greskeBezPauze, func(e error) bool { return errors.Is(err, e) }):
 		return g, false
 	}
 	return razmjena.GreskaPripreme{Razlog: razmjena.RazlogNema}, true
 }
+
+// greskeBezPauze su greške pripreme koje nisu neuspjeh para (greskaZaPauzu)
+var greskeBezPauze = []error{razmjena.ErrPripremaUTijeku, razmjena.ErrWebSyncNeRadi, razmjena.ErrNijePrijavljen}
 
 // neuspjehProbijanja javlja broji li se greška pripreme za pauzu
 func neuspjehProbijanja(g razmjena.GreskaPripreme) bool {
@@ -293,15 +321,6 @@ func (s *Service) zapisiRazlogPuta(ctx context.Context, nodeID string, r razmjen
 	}
 }
 
-// uzPauzeWeba dopuni put računala vremenom kad WEB sync pokušava ponovno,
-// dok je par u pauzi (za pločicu)
-func (s *Service) uzPauzeWeba(peers []PeerStatus, sad time.Time) {
-	do := s.pripreme.pauzeDo(sad)
-	for i := range peers {
-		peers[i].State.Put.PonovnoU = do[peers[i].NodeID]
-	}
-}
-
 // pripremeWeba su pripreme u tijeku i pauze, po ključu druge strane
 type pripremeWeba struct {
 	mu    sync.Mutex
@@ -319,8 +338,9 @@ type pauzaPara struct {
 }
 
 // pokreni pokrene pripremu kad par nije u pauzi, priprema s njim već ne
-// teče i nema ih najviše; vraća razlog puta i teče li priprema
-func (pw *pripremeWeba) pokreni(ctx context.Context, nodeID, kljuc, moj string, sad time.Time, pocni func(context.Context)) (razmjena.RazlogPuta, bool) {
+// teče i nema ih najviše; vraća razlog puta i teče li priprema. pocni
+// javlja je li priprema krenula (WEB sync koji staje je ne pokreće).
+func (pw *pripremeWeba) pokreni(ctx context.Context, nodeID, kljuc, moj string, sad time.Time, pocni func(context.Context) bool) (razmjena.RazlogPuta, bool) {
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
 	if r, ok := pw.uPauzi(kljuc, moj, sad); ok {
@@ -336,7 +356,10 @@ func (pw *pripremeWeba) pokreni(ctx context.Context, nodeID, kljuc, moj string, 
 		pw.teku = map[string]bool{}
 	}
 	pw.teku[kljuc] = true
-	pocni(ctx)
+	if !pocni(ctx) {
+		delete(pw.teku, kljuc)
+		return "", false
+	}
 	return razmjena.RazlogPutaPriprema, true
 }
 

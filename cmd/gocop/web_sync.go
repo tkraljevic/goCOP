@@ -53,6 +53,11 @@ func (p *povezivost) kljucCvora() ed25519.PrivateKey {
 func (p *povezivost) pokreniWeb() {
 	p.webMu.Lock()
 	defer p.webMu.Unlock()
+	p.pokreniWebPodBravom()
+}
+
+// pokreniWebPodBravom je pokreniWeb pod webMu
+func (p *povezivost) pokreniWebPodBravom() {
 	p.mu.Lock()
 	u, radi := p.udp, p.web
 	p.mu.Unlock()
@@ -80,6 +85,11 @@ func (p *povezivost) pokreniWeb() {
 func (p *povezivost) zaustaviWeb() {
 	p.webMu.Lock()
 	defer p.webMu.Unlock()
+	p.zaustaviWebPodBravom()
+}
+
+// zaustaviWebPodBravom je zaustaviWeb pod webMu
+func (p *povezivost) zaustaviWebPodBravom() {
 	p.mu.Lock()
 	radi := p.web
 	p.web = nil

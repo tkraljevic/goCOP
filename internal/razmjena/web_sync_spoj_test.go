@@ -201,13 +201,22 @@ func TestStanjeMrezeUPripremi(t *testing.T) {
 	})
 }
 
-// Stanje mreže su javni kandidati, poredani, i vrsta NAT-a; lokalni
+// Stanje mreže su javne adrese bez porta, poredane, i vrsta NAT-a; lokalni
 // kandidati ga ne mijenjaju.
 func TestOtisakMreze(t *testing.T) {
 	javni := []KandidatPoruke{{Vrsta: KandidatJavni, Adresa: "203.0.113.2:4713"}, {Vrsta: KandidatJavni, Adresa: "203.0.113.1:4713"}}
 	s := OtisakMreze(append(javni, KandidatPoruke{Vrsta: KandidatLokalni, Adresa: "192.168.1.10:4713"}), &NATPoruke{Vrsta: NATLak})
-	if s != "203.0.113.1:4713,203.0.113.2:4713|"+NATLak+"|false" || s != OtisakMreze([]KandidatPoruke{javni[1], javni[0]}, &NATPoruke{Vrsta: NATLak}) {
+	if s != "203.0.113.1,203.0.113.2|"+NATLak+"|false" || s != OtisakMreze([]KandidatPoruke{javni[1], javni[0]}, &NATPoruke{Vrsta: NATLak}) {
 		t.Errorf("otisak: %q", s)
+	}
+	// NAT koji ne čuva port: novi port iste javne adrese nije nova mreža;
+	// dvije adrese s istom IP adresom broje se jednom
+	novi := []KandidatPoruke{{Vrsta: KandidatJavni, Adresa: "203.0.113.2:40001"}, {Vrsta: KandidatJavni, Adresa: "203.0.113.1:40002"}, {Vrsta: KandidatJavni, Adresa: "203.0.113.1:40003"}}
+	if o := OtisakMreze(novi, &NATPoruke{Vrsta: NATLak}); o != s {
+		t.Errorf("drugi port daje drugi otisak %q", o)
+	}
+	if o := OtisakMreze([]KandidatPoruke{{Vrsta: KandidatJavni, Adresa: "nije-adresa"}}, nil); o != "nije-adresa||false" {
+		t.Errorf("adresa koja se ne da pročitati: %q", o)
 	}
 	for _, drugi := range []string{OtisakMreze(javni[:1], &NATPoruke{Vrsta: NATLak}), OtisakMreze(javni, nil), OtisakMreze(javni, &NATPoruke{UDPBlokiran: true})} {
 		if drugi == s {

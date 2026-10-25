@@ -1075,7 +1075,8 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 // bezVeze je ishod kruga u kojem se nijedan put nije spojio: dok se WEB
 // sync priprema, to nije neuspjeh (bilježi se samo razlog puta); bez
 // ijedne adrese nema ni bilješke, osim razloga pauze WEB synca; inače
-// računalo nije odgovorilo
+// računalo nije odgovorilo, a razlog na pločici je razlog pauze WEB synca,
+// kad je par u pauzi
 func (k *krug) bezVeze(ctx context.Context, err error) error {
 	nodeID := k.peer.NodeID
 	switch {
@@ -1088,7 +1089,7 @@ func (k *krug) bezVeze(ctx context.Context, err error) error {
 	case !k.imaAdresa:
 		return fmt.Errorf("za čvor %s nije poznata nijedna adresa", nodeID)
 	}
-	k.s.zabiljezi(ctx, k.peer, nil, syncOutcome{err: err, razlog: razmjena.RazlogPutaBezOdgovora})
+	k.s.zabiljezi(ctx, k.peer, nil, syncOutcome{err: err, razlog: cmp.Or(k.razlogWeba, razmjena.RazlogPutaBezOdgovora)})
 	return fmt.Errorf("čvor %s nije dostupan ni na jednoj adresi: %v", nodeID, err)
 }
 

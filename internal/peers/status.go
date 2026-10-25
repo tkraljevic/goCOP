@@ -172,6 +172,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 	}
 	defer rows.Close()
 	out := map[string]SyncState{}
+	pauze := s.pripreme.pauzeDo(time.Now()) // dok je par u pauzi, pločica kaže kad WEB sync pokušava ponovno
 	for rows.Next() {
 		var id, frontier, ts, mogucnosti, vrste, adrese string
 		var st SyncState
@@ -184,7 +185,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 			return nil, err
 		}
 		st.LastAttempt, st.LastOK, p.Od = vrijemeIz(attempt), vrijemeIz(ok), vrijemeIz(od)
-		p.Naziv = razmjena.NazivPuta(p.Put, p.Privatna)
+		p.Naziv, p.PonovnoU = razmjena.NazivPuta(p.Put, p.Privatna), pauze[id]
 		_ = json.Unmarshal([]byte(frontier), &st.Frontier)
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
@@ -420,7 +421,6 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		st.Peers = append(st.Peers, ps)
 	}
 	st.Total = len(st.Peers)
-	s.uzPauzeWeba(st.Peers, now)
 	sort.SliceStable(st.Peers, func(i, j int) bool {
 		rank := map[string]int{"online": 0, "offline": 1, "never": 2}
 		if rank[st.Peers[i].Reachability] != rank[st.Peers[j].Reachability] {

@@ -191,16 +191,20 @@ func (p *povezivost) provjeriNakonZamjene(ctx context.Context) {
 
 // novaUticnica zamijeni UDP utičnicu novom na istom portu; vrsta mreže
 // kreće ispočetka, jer je mreža nova. WEB sync stare utičnice staje (sesije
-// se zatvaraju), a na novoj kreće iznova, bez pauza (web_sync.go).
+// se zatvaraju), a na novoj kreće iznova, bez pauza (web_sync.go). Cijela
+// zamjena ide pod webMu, pa prijava usred nje (nakonPrijave) ne pokrene
+// WEB sync na staroj utičnici koji poslije nitko ne bi zaustavio.
 func (p *povezivost) novaUticnica() {
+	p.webMu.Lock()
+	defer p.webMu.Unlock()
 	p.mu.Lock()
 	stara := p.udp
 	p.mu.Unlock()
 	if stara == nil {
 		return
 	}
-	p.zaustaviWeb()
-	defer p.pokreniWeb()
+	p.zaustaviWebPodBravom()
+	defer p.pokreniWebPodBravom()
 	nova, upozorenje, err := obnoviUticnicu(stara)
 	if upozorenje != nil {
 		p.javi("povezivost: %v", upozorenje)
