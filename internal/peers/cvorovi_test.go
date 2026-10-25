@@ -122,7 +122,7 @@ func TestPortRazmjeneZaAdresuBezPorta(t *testing.T) {
 	} {
 		zvano = nil
 		peer := &Peer{NodeID: "ured-vukovar", Addresses: p.adrese}
-		if _, err := s.nazovi(ctxRub, peer, kandidat{"192.0.2.7", razmjena.PutAdresa}, nil); err == nil || !slices.Equal(zvano, []string{p.zove}) {
+		if _, err := s.nazovi(ctxRub, peer, kandidat{"192.0.2.7", razmjena.PutAdresa}, nil, rokOstalih); err == nil || !slices.Equal(zvano, []string{p.zove}) {
 			t.Errorf("%v: zvano %v (%v), očekivano %s", p.adrese, zvano, err, p.zove)
 		}
 	}
@@ -225,13 +225,13 @@ func TestPronalazenjeOsvjezavaPoznateCvorove(t *testing.T) {
 	}
 	prekinuta, prekini := context.WithCancel(ctxRub)
 	prekini()
-	if _, err := s.nazovi(prekinuta, laptop, tvrdnja, nil); err == nil {
+	if _, err := s.nazovi(prekinuta, laptop, tvrdnja, nil, rokOstalih); err == nil {
 		t.Fatal("poziv u prekinutoj razmjeni")
 	}
 	if got := s.tvrdnjeZa("laptop-baranja"); !slices.Equal(got, []kandidat{tvrdnja}) {
 		t.Errorf("prekinuta razmjena potrošila je tvrdnju: %v", got)
 	}
-	if _, err := s.nazovi(ctxRub, laptop, tvrdnja, nil); err == nil {
+	if _, err := s.nazovi(ctxRub, laptop, tvrdnja, nil, rokOstalih); err == nil {
 		t.Fatal("poziv na adresu na kojoj nitko ne sluša")
 	}
 	if got := s.adreseZaSpajanje(ctxRub, laptop); !slices.Equal(got, []kandidat{{"192.0.2.10:4710", razmjena.PutAdresa}}) {

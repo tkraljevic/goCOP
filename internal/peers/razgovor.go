@@ -35,6 +35,7 @@ package peers
 import (
 	"context"
 	"log"
+	"slices"
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
@@ -128,12 +129,23 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje
-// (razmjena.NaseMogucnosti), ili oznake koje je čvoru dao test (s.mogucnosti)
+// (razmjena.NaseMogucnosti), uz web/1 dok računalo ima WEB sync
+// (priprema_weba.go), ili oznake koje je čvoru dao test (s.mogucnosti)
 func (s *Service) mojeMogucnosti() []string {
 	if s.mogucnosti != nil {
 		return s.mogucnosti()
 	}
-	return razmjena.NaseMogucnosti()
+	return s.uzWeb(razmjena.NaseMogucnosti())
+}
+
+// uzWeb doda oznaku web/1 dok računalo ima WEB sync, poredano
+func (s *Service) uzWeb(oznake []string) []string {
+	if s.web.Load() == nil {
+		return oznake
+	}
+	oznake = append(oznake, razmjena.OznakaWeb)
+	slices.Sort(oznake)
+	return oznake
 }
 
 // mojKatalog su vrste zapisa sa shemama koje ovaj program razumije

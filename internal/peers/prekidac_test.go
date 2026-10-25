@@ -161,7 +161,10 @@ func TestOdbijenaTailscaleRazmjenaNepoznatogCvora(t *testing.T) {
 	sl := prerusenaSlusalica{Listener: ln, lokalna: tcpAdresa(t, "100.101.0.2:4710")}
 	go func() {
 		_ = razmjena.ServeExchangeOn(ctx, b.node.key, Protocol, nil, sl, func(ed25519.PublicKey, []byte) bool { return true },
-			func(c *razmjena.Conn) { odbijeno <- b.odbijTailscale(c, nil) })
+			func(c *razmjena.Conn) {
+				c.Put = b.putVeze(razmjena.PutAdresa, c.LocalAddr()) // kao primi
+				odbijeno <- b.odbijTailscale(c, nil)
+			})
 	}()
 	a := rubniCvor(t, "tudji-laptop")
 	conn, err := razmjena.DialExchange(ctx, a.node.key, Protocol, nil, ln.Addr().String(), b.javni())

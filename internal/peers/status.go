@@ -165,7 +165,8 @@ func uStupac(v any) string {
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
 		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese,
-		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao FROM peer_sync`)
+		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao,
+		priprema_pokusaji, priprema_uspjesi, priprema_neuspjesi FROM peer_sync`)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +179,8 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		p := &st.Put
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
 			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese,
-			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao); err != nil {
+			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao,
+			&p.PripremaPokusaji, &p.PripremaUspjesi, &p.PripremaNeuspjesi); err != nil {
 			return nil, err
 		}
 		st.LastAttempt, st.LastOK, p.Od = vrijemeIz(attempt), vrijemeIz(ok), vrijemeIz(od)
@@ -418,6 +420,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 		st.Peers = append(st.Peers, ps)
 	}
 	st.Total = len(st.Peers)
+	s.uzPauzeWeba(st.Peers, now)
 	sort.SliceStable(st.Peers, func(i, j int) bool {
 		rank := map[string]int{"online": 0, "offline": 1, "never": 2}
 		if rank[st.Peers[i].Reachability] != rank[st.Peers[j].Reachability] {

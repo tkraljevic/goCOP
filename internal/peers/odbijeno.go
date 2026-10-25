@@ -35,6 +35,7 @@ const (
 const (
 	PutVrataPort  = "port"
 	PutVrataTunel = "tunel"
+	PutVrataWeb   = "web" // QUIC WEB synca (F3b)
 )
 
 // Razlozi izvan razmjena.RazlogVrata: odbijenica po kodu, oznaka mogućnosti

@@ -42,6 +42,14 @@ type PutRazmjene struct {
 	Poslano   int64               `json:"poslano"`
 	// ZadnjiZvao: „ovaj” ili „drugi”, tko je započeo zadnju razmjenu
 	ZadnjiZvao string `json:"zadnji_zvao,omitempty"`
+	// Brojači priprema WEB synca u pozadini koje je započelo ovo računalo
+	// (priprema_weba.go); promjena puta ih ne briše
+	PripremaPokusaji  int `json:"priprema_pokusaji"`
+	PripremaUspjesi   int `json:"priprema_uspjesi"`
+	PripremaNeuspjesi int `json:"priprema_neuspjesi"`
+	// PonovnoU je kad WEB sync s tim računalom pokušava ponovno, dok je par
+	// u pauzi nakon neuspjeha; samo u memoriji
+	PonovnoU time.Time `json:"ponovno_u,omitzero"`
 }
 
 // uzVezu dopuni ishod onim što zna veza: put, je li adresa druge strane

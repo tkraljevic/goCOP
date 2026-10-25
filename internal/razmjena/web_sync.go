@@ -1,12 +1,13 @@
 package razmjena
 
 // WEB sync od poziva do razgovora (plan WEB synca, F3a-2), za obje strane.
-// F3b samo zove:
+// Program (internal/peers, F3b) samo zove:
 //   - NoviWebSync s ključem, imenom protokola, vjerodajnicama, trusted,
 //     zajedničkom ogradom razmjena, obradom razgovora, slanjem preko
 //     sastajališta i vlastitim kandidatima;
 //   - Radi dok vrijedi web_sync = true: slušalica QUIC-a i red poruka
-//     sastajališta;
+//     sastajališta; uz web_sync = false umjesto njega Odbija, koji na svaki
+//     poziv odmah odgovori „isključeno” (Odluke (25. 10. 2026.), 1);
 //   - NaPoruku i NaNemu iz signalnog klijenta ili sastajališta;
 //   - Pripremi kad ovo računalo zove drugo: poziv, odziv, provjera
 //     kandidata druge strane, udarci, probijanje, QUIC i pozdrav. Vraća
@@ -41,6 +42,10 @@ package razmjena
 //     zatvara (predaj, pocisti).
 //   - Jedna sesija po računalu: nova zatvori stariju.
 //   - Sesija sa samim sobom (isti ključ) se ne priprema i ne prima.
+//   - Uz [sync] tailscale = false (BezTailscalea) udarci s adresa do kojih
+//     promet ide kroz Tailscale se odbacuju, a QUIC put kroz Tailscale se
+//     odbija: slušalica je na 0.0.0.0, pa se put gleda po izlaznoj adresi
+//     (putQUIC), ne po lokalnoj adresi veze.
 
 import (
 	"bytes"
@@ -54,6 +59,8 @@ import (
 	"net"
 	"net/netip"
 	"slices"
+	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -77,6 +84,9 @@ const (
 	RazlogPripremaZauzeta = "zauzet"     // pozvani već priprema najviše odjednom
 	RazlogNema            = "nema"       // sastajalište javlja da druge strane nema (uz razlog sastajališta)
 	RazlogStao            = "stao"       // WEB sync na ovom računalu je stao
+	// RazlogBezTailscalea: put je išao kroz Tailscale, a Tailscale je u
+	// razmjeni isključen
+	RazlogBezTailscalea = "bez-tailscalea"
 )
 
 // Greške pripreme
@@ -91,10 +101,22 @@ var (
 )
 
 // GreskaPripreme je priprema koja nije uspjela: razlog (Razlog*) i u kojem
-// je pokušaju stala
+// je pokušaju stala, uz ono po čemu program bira razlog na pločici i broji
+// pauzu (F3b)
 type GreskaPripreme struct {
 	Razlog  string
 	Pokusaj int
+	// Udaraca je koliko je udaraca ovo računalo poslalo, a Valjanih koliko
+	// je stiglo valjanih paketa druge strane (StanjeUdaraca): bez ijednog
+	// valjanog uz poslane udarce vatrozid ovog računala možda ne pušta WEB
+	// sync
+	Udaraca, Valjanih int
+	// DrugiKljuc: na adresi druge strane javio se drugi ključ, što nije
+	// neuspjeh probijanja
+	DrugiKljuc bool
+	// Druga je stanje mreže druge strane iz njezinog poziva ili odziva
+	// (OtisakMreze); prazno kad ga nije javila
+	Druga string
 }
 
 func (e GreskaPripreme) Error() string { return "WEB sync nije uspio: " + e.Razlog }
@@ -120,6 +142,18 @@ type PostavkeWeb struct {
 	Prima    func(ed25519.PublicKey) string
 	NaSesiju func(*SesijaWeb) // nova sesija, u obje uloge; zadano ništa
 	Znanje   func() *Znanje   // za pozdrav; zadano bez njega
+	// NaPoziv javlja provjeren poziv člana i stanje njegove mreže
+	// (OtisakMreze), da program vidi kad se mreža druge strane promijenila;
+	// zadano ništa
+	NaPoziv func(druga ed25519.PublicKey, otisak string)
+	// BezTailscalea javlja je li Tailscale u razmjeni isključen ([sync]
+	// tailscale = false); zadano nije
+	BezTailscalea func() bool
+	// TailscaleAdrese su Tailscale adrese ovog računala, a Izlaz lokalna
+	// adresa kojom bi UDP izašao prema adresi (povezana utičnica bez
+	// slanja); zadano ih pita sustav
+	TailscaleAdrese func() []netip.Addr
+	Izlaz           func(netip.AddrPort) (netip.Addr, error)
 }
 
 // WebSync je WEB sync jednog računala na njegovoj UDP utičnici
@@ -134,6 +168,7 @@ type WebSync struct {
 	red      chan primljena
 	Odbaceno atomic.Int64 // poruke koje nisu stale u red
 	radi     atomic.Bool
+	odbija   atomic.Bool // Odbija čita red
 	izlaz    izlazFunc
 	ts       func() []netip.Addr
 
@@ -160,6 +195,7 @@ func NoviWebSync(u *UDP, p PostavkeWeb) (*WebSync, error) {
 	w.tls, w.moj = cfg, p.Priv.Public().(ed25519.PublicKey)
 	w.mojS = PublicKeyString(w.moj)
 	w.zadano()
+	w.zadanoPuta()
 	w.vrata = &vrata{protokol: p.Protokol, trusted: p.Trusted, handle: p.Handle, o: w.Ograda}
 	return w, nil
 }
@@ -183,11 +219,28 @@ func (w *WebSync) zadano() {
 	}
 }
 
+// zadanoPuta popuni neobavezne postavke puta i poziva
+func (w *WebSync) zadanoPuta() {
+	if w.NaPoziv == nil {
+		w.NaPoziv = func(ed25519.PublicKey, string) {}
+	}
+	if w.BezTailscalea == nil {
+		w.BezTailscalea = func() bool { return false }
+	}
+	if w.TailscaleAdrese != nil {
+		w.ts = w.TailscaleAdrese
+	}
+	if w.Izlaz != nil {
+		w.izlaz = w.Izlaz
+	}
+}
+
 // Radi drži slušalicu QUIC-a i obrađuje poruke sastajališta dok ctx traje;
-// na kraju zatvori sesije i prekine pripreme. Greška kad već radi ili kad
-// se slušalica ne da otvoriti. Na jednoj utičnici radi jedan WebSync.
+// na kraju zatvori sesije i prekine pripreme. Greška kad već radi (i kad
+// radi Odbija) ili kad se slušalica ne da otvoriti. Na jednoj utičnici radi
+// jedan WebSync.
 func (w *WebSync) Radi(ctx context.Context) error {
-	if !w.radi.CompareAndSwap(false, true) {
+	if w.odbija.Load() || !w.radi.CompareAndSwap(false, true) {
 		return ErrWebSyncVecRadi
 	}
 	ln, err := slusajWeb(w.u.tr, w.tls, w.vrataQUIC)
@@ -204,6 +257,38 @@ func (w *WebSync) Radi(ctx context.Context) error {
 	w.zatvoriSve()
 	w.gorutine.Wait()
 	return nil
+}
+
+// Odbija čita red poruka sastajališta dok ctx traje, kad je WEB sync na
+// ovom računalu isključen (web_sync = false), a prijava kod sastajališta
+// radi: na svaki provjeren poziv odmah odgovori odzivom „isključeno”
+// (Odluke (25. 10. 2026.), 1), pa pozivatelj ne čeka 10 s, nego par stavi
+// u pauzu. Slušalice QUIC-a nema. Odziv i sinkro se odbacuju prije
+// provjere potpisa, jer ovo računalo ne priprema ništa, pa ne pune pričuvu
+// poruka. Greška kad Radi ili Odbija već radi.
+func (w *WebSync) Odbija(ctx context.Context) error {
+	if w.radi.Load() || !w.odbija.CompareAndSwap(false, true) {
+		return ErrWebSyncVecRadi
+	}
+	defer w.odbija.Store(false)
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case m := <-w.red:
+			w.odbijIskljucen(m)
+		}
+	}
+}
+
+// odbijIskljucen: provjeren poziv drugog računala dobije odziv „isključeno”
+func (w *WebSync) odbijIskljucen(m primljena) {
+	if m.pp.Vrsta != VrstaPoziv {
+		return
+	}
+	if t, err := w.provjera().Provjeri(m.pp); err == nil && t.Od != w.mojS {
+		w.odbijPoziv(t, OdlukaIskljuceno, "")
+	}
 }
 
 // NaPoruku preda potpisanu poruku sastajališta WEB syncu. Samo je stavi u
@@ -345,7 +430,7 @@ func (w *WebSync) naPoziv(ctx context.Context, m primljena) {
 	p, err := w.novaPripremaPozvanog(ctx, t)
 	if razlog := w.razlogOdbijanja(p, err); razlog != "" {
 		p.pocisti()
-		w.odbijPoziv(t, razlog)
+		w.odbijPoziv(t, OdlukaOdbij, razlog)
 		return
 	}
 	w.prihvatiPoziv(p, t, m.kad)
@@ -371,9 +456,10 @@ func (w *WebSync) razlogOdbijanja(p *priprema, greskaUdaraca error) string {
 // udarcima: tajna poziva i vlastita tajna odziva
 func (w *WebSync) novaPripremaPozvanog(ctx context.Context, t TijeloPoruke) (*priprema, error) {
 	druga, _ := ParsePublicKey(t.Od) // Provjeri ga je već pročitao
+	w.NaPoziv(druga, OtisakMreze(t.Kandidati, t.NAT))
 	ctx, otkazi := context.WithCancelCause(ctx)
 	p := w.novaPriprema(otkazi, druga, t.Sesija, false)
-	p.ctx, p.vjDruge = ctx, t.Vj
+	p.ctx, p.vjDruge, p.otisakDruge = ctx, t.Vj, OtisakMreze(t.Kandidati, t.NAT)
 	return p, p.pokreniUdarce(t.Tajna, p.tajna, t.Kandidati)
 }
 
@@ -385,9 +471,9 @@ func (w *WebSync) prihvatiPoziv(p *priprema, t TijeloPoruke, primljen time.Time)
 	p.p = NovoProbijanjePozvanog(t, p.a, p.nat, time.Now())
 }
 
-// odbijPoziv pošalje odziv „odbij” s razlogom
-func (w *WebSync) odbijPoziv(t TijeloPoruke, razlog string) {
-	odziv := w.potpisi(VrstaOdziv, t.Sesija, t.Od, TijeloPoruke{Odluka: OdlukaOdbij, Razlog: razlog})
+// odbijPoziv pošalje odziv s odlukom „odbij” ili „isključeno” i razlogom
+func (w *WebSync) odbijPoziv(t TijeloPoruke, odluka, razlog string) {
+	odziv := w.potpisi(VrstaOdziv, t.Sesija, t.Od, TijeloPoruke{Odluka: odluka, Razlog: razlog})
 	_ = w.Posalji(odziv) // bez odziva pozivatelj stane nakon 10 s
 }
 
@@ -582,20 +668,50 @@ func (w *WebSync) zovi(ctx context.Context, p *priprema, na netip.AddrPort) (*ve
 // provjerenog poziva ili odziva: slušalica šalje certifikat bez njih, pa
 // ih A inače ne bi imao. Sesija je postavljena prije nego što je upisana,
 // jer je odmah nakon upisa smiju zatvoriti ProvjeriSve, kraj Radi i nova
-// sesija.
-func (w *WebSync) novaSesija(p *priprema) *SesijaWeb {
+// sesija. Put kroz Tailscale uz isključen Tailscale se odbija, a veza
+// zatvara.
+func (w *WebSync) novaSesija(p *priprema) (*SesijaWeb, error) {
 	v := p.veza
+	druga, _ := adresaPosluzitelja(v.veza.RemoteAddr()) // QUIC veza uvijek ima UDP adresu
+	put := putQUIC(druga, w.ts(), w.izlaz)
+	if put == PutTailscale && w.BezTailscalea() {
+		v.odbaci()
+		return nil, p.greska(RazlogBezTailscalea)
+	}
 	if !p.a {
 		_ = pisiKontrolu(v.kontrola, porukaKontrole{Vrsta: kontrolaPozdrav, Ver: 1, Sesija: p.sesija, Znanje: w.Znanje()}) // kad ne prođe, A ne dobije pozdrav i zatvori vezu, a s njom i ovu sesiju
 	}
-	druga, _ := adresaPosluzitelja(v.veza.RemoteAddr()) // QUIC veza uvijek ima UDP adresu
-	s := &SesijaWeb{Sesija: p.sesija, Druga: p.druga, Put: putQUIC(druga, w.ts(), w.izlaz), RTT: v.rtt, Pokusaj: p.p.Pokusaj,
+	s := &SesijaWeb{Sesija: p.sesija, Druga: p.druga, Put: put, RTT: v.rtt, Pokusaj: p.p.Pokusaj,
 		Znanje: v.znanje, veza: v.veza, kontrola: v.kontrola, vjDruge: p.vjDruge, v: w.vrata}
 	s.postavi()
 	w.zapamtiSesiju(s)
 	s.pokreni(w.zaboraviSesiju)
 	w.NaSesiju(s)
-	return s
+	return s, nil
+}
+
+// krozTailscale javlja da se udarci s adrese odbacuju: Tailscale je u
+// razmjeni isključen, a promet do te adrese ide kroz Tailscale
+func (w *WebSync) krozTailscale(a netip.AddrPort) bool {
+	return w.BezTailscalea() && putQUIC(a, w.ts(), w.izlaz) == PutTailscale
+}
+
+// MojOtisak je stanje mreže ovog računala sada (OtisakMreze)
+func (w *WebSync) MojOtisak() string { return OtisakMreze(w.Mreza()) }
+
+// OtisakMreze je stanje mreže računala po kojem se vidi da se promijenilo
+// (pauza WEB synca po paru, F3b): javni kandidati, poredani, i vrsta NAT-a.
+// Lokalni kandidati ne ulaze: oni ne mijenjaju ishod probijanja preko
+// interneta.
+func OtisakMreze(kandidati []KandidatPoruke, nat *NATPoruke) string {
+	var javne []string
+	for _, k := range kandidati {
+		if k.Vrsta == KandidatJavni {
+			javne = append(javne, k.Adresa)
+		}
+	}
+	slices.Sort(javne)
+	return strings.Join(javne, ",") + "|" + vrstaNAT(nat) + "|" + strconv.FormatBool(blokiranUDP(nat))
 }
 
 // zapamtiSesiju upiše sesiju za računalo; starija sesija s njim se zatvara
@@ -676,15 +792,19 @@ type priprema struct {
 	pozivatelj bool
 	a          bool
 	tajna      []byte
-	kandidati  []KandidatPoruke
-	nat        *NATPoruke
-	vlastite   []netip.AddrPort
-	x          atomic.Pointer[Udarci]
-	ctx        context.Context
-	otkazi     context.CancelCauseFunc
-	ulaz       chan stavka
-	kraj       chan struct{}
-	vjDruge    []byte // iz provjerenog poziva (B) ili odziva (A)
+	// otisakDruge je stanje mreže druge strane iz poziva ili odziva, a
+	// drugiKljuc da se na adresi druge strane javio drugi ključ (greska)
+	otisakDruge string
+	drugiKljuc  bool
+	kandidati   []KandidatPoruke
+	nat         *NATPoruke
+	vlastite    []netip.AddrPort
+	x           atomic.Pointer[Udarci]
+	ctx         context.Context
+	otkazi      context.CancelCauseFunc
+	ulaz        chan stavka
+	kraj        chan struct{}
+	vjDruge     []byte // iz provjerenog poziva (B) ili odziva (A)
 
 	// predaja nakon kraja zatvara vezu (predaj, pocisti)
 	mu      sync.Mutex
@@ -733,8 +853,8 @@ func (p *priprema) pokreniUdarce(tajnaPoziva, tajnaOdziva []byte, kandidati []Ka
 	if err != nil {
 		return err
 	}
-	ostali, _ := kandidatiDruge(kandidati, p.w.ts(), p.w.izlaz) // razloge izbacivanja pokazuje tek gumb Provjeri vezu (F3b)
-	x, err := NoviUdarci(p.w.u, k, ostali, p.vlastite)
+	ostali, _ := kandidatiDruge(kandidati, p.w.ts(), p.w.izlaz) // razloge izbacivanja pokazuje tek gumb Provjeri vezu
+	x, err := noviUdarciBez(p.w.u, k, ostali, p.vlastite, p.w.krozTailscale)
 	p.x.Store(x)
 	return err
 }
@@ -754,9 +874,20 @@ func (p *priprema) vozi(ctx context.Context) (*SesijaWeb, error) {
 		}
 	}
 	if p.p.Faza != FazaUspjeh {
-		return nil, GreskaPripreme{Razlog: p.p.Razlog, Pokusaj: p.p.Pokusaj}
+		return nil, p.greska(p.p.Razlog)
 	}
-	return p.w.novaSesija(p), nil
+	return p.w.novaSesija(p)
+}
+
+// greska je neuspjeh pripreme s razlogom, uz brojila udaraca, drugi ključ
+// i stanje mreže druge strane; zove se dok udarci još rade
+func (p *priprema) greska(razlog string) GreskaPripreme {
+	g := GreskaPripreme{Razlog: razlog, Pokusaj: p.p.Pokusaj, DrugiKljuc: p.drugiKljuc, Druga: p.otisakDruge}
+	if x := p.x.Load(); x != nil {
+		st := x.Stanje()
+		g.Udaraca, g.Valjanih = st.Udaraca, st.Valjanih
+	}
+	return g
 }
 
 // prekinuta je greška prekinute pripreme: razlog prekida, ili greška
@@ -917,6 +1048,7 @@ func (p *priprema) naIshod(n int, v *vezaSesije, err error) (Dogadjaj, bool) {
 		v.odbaci()
 		return Dogadjaj{}, false
 	}
+	p.drugiKljuc = p.drugiKljuc || errors.Is(err, ErrDrugiKljuc)
 	p.veza = v
 	return Dogadjaj{Vrsta: DogadjajQUIC, Sad: time.Now(), Uspjeh: err == nil}, true
 }
@@ -959,10 +1091,15 @@ func (p *priprema) provjera() ProvjeraPoruka {
 }
 
 // naOdziv: A zapamti vjerodajnice druge strane iz provjerenog odziva, a
-// odziv „probaj” pokreće udarce; vraća odluku za stroj
+// odziv „probaj” stanje njezine mreže i pokreće udarce; vraća odluku za
+// stroj
 func (p *priprema) naOdziv(t TijeloPoruke) string {
 	p.vjDruge = t.Vj
-	if t.Odluka == OdlukaProbaj && p.pokreniUdarce(p.tajna, t.Tajna, t.Kandidati) != nil {
+	if t.Odluka != OdlukaProbaj {
+		return t.Odluka
+	}
+	p.otisakDruge = OtisakMreze(t.Kandidati, t.NAT)
+	if p.pokreniUdarce(p.tajna, t.Tajna, t.Kandidati) != nil {
 		return OdlukaOdbij // bez ključeva udaraca nema probijanja
 	}
 	return t.Odluka

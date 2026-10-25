@@ -15,12 +15,14 @@ import (
 
 // Pokušaj spajanja pamti se za svaku adresu posebno, s vremenom i greškom,
 // a uspjeli je bez greške. Pokušaji drugog računala ne miješaju se s ovima.
+// Adrese su privatne, pa ih LAN sync zove usporedno, svaku 250 ms kasnije
+// (redoslijed.go), a vremena pokušaja idu tim redom.
 func TestGreskaPoAdresi(t *testing.T) {
 	c := clanovi(t, "laptop-baranja", "ured-vukovar")
 	a, b := c[0], c[1]
 	greske := map[string]error{
-		"192.0.2.7:4710": errors.New("dial tcp 192.0.2.7:4710: connect: connection refused"),
-		"192.0.2.8:4710": errors.New("dial tcp 192.0.2.8:4710: i/o timeout"),
+		"10.0.2.7:4710": errors.New("dial tcp 10.0.2.7:4710: connect: connection refused"),
+		"10.0.2.8:4710": errors.New("dial tcp 10.0.2.8:4710: i/o timeout"),
 	}
 	a.dial = func(ctx context.Context, kamo string) (net.Conn, error) {
 		if err, ok := greske[kamo]; ok {
@@ -31,7 +33,7 @@ func TestGreskaPoAdresi(t *testing.T) {
 	}
 	a.zapamtiPokusaj("ured-osijek", "192.0.2.7:4710", errors.New("veza odbijena"))
 	prije := time.Now()
-	upoznaj(t, a, b, "192.0.2.7:4710", "192.0.2.8:4710", adresaNaPetlji(b))
+	upoznaj(t, a, b, "10.0.2.7:4710", "10.0.2.8:4710", adresaNaPetlji(b))
 	if _, _, err := a.SyncWith(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +50,7 @@ func TestGreskaPoAdresi(t *testing.T) {
 	if g := got[adresaNaPetlji(b)].Greska; g != "" {
 		t.Errorf("uspjelo spajanje ima grešku %q", g)
 	}
-	prvi, drugi, treci := got["192.0.2.7:4710"].Kada, got["192.0.2.8:4710"].Kada, got[adresaNaPetlji(b)].Kada
+	prvi, drugi, treci := got["10.0.2.7:4710"].Kada, got["10.0.2.8:4710"].Kada, got[adresaNaPetlji(b)].Kada
 	if prvi.Before(prije) || drugi.Before(prvi) || treci.Before(drugi) {
 		t.Errorf("vremena pokušaja: %v, %v, %v (prije %v)", prvi, drugi, treci, prije)
 	}
@@ -72,7 +74,7 @@ func TestPrekinutaRazmjenaNePamtiPokusaj(t *testing.T) {
 	s.zapamtiPokusaj(peer.NodeID, "192.0.2.7:4710", errors.New("dial tcp 192.0.2.7:4710: connect: connection refused"))
 	ctx, otkazi := context.WithCancel(ctxRub)
 	otkazi()
-	if _, err := s.nazovi(ctx, peer, kandidat{"192.0.2.7:4710", razmjena.PutAdresa}, nil); err == nil {
+	if _, err := s.nazovi(ctx, peer, kandidat{"192.0.2.7:4710", razmjena.PutAdresa}, nil, rokOstalih); err == nil {
 		t.Fatal("prekinuta razmjena se spojila")
 	}
 	if got := s.pokusajiAdresa(peer.NodeID); len(got) != 1 || got["192.0.2.7:4710"].Greska != "dial tcp 192.0.2.7:4710: connect: connection refused" {

@@ -96,7 +96,7 @@ func TestPutOdlazneVezePrekoRutePodmreze(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	conn, err := a.nazovi(ctxRub, peer, kandidat{"192.168.24.80:4710", razmjena.PutAdresa}, expect)
+	conn, err := a.nazovi(ctxRub, peer, kandidat{"192.168.24.80:4710", razmjena.PutAdresa}, expect, rokOstalih)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,7 +117,7 @@ func TestPutOdlazneVezePrekoRutePodmreze(t *testing.T) {
 
 	// i dok je Tailscale u razmjeni isključen, veza je išla preko njega
 	a.PostaviTailscale(false)
-	if conn, err = a.nazovi(ctxRub, peer, kandidat{"192.168.24.80:4710", razmjena.PutAdresa}, expect); err != nil {
+	if conn, err = a.nazovi(ctxRub, peer, kandidat{"192.168.24.80:4710", razmjena.PutAdresa}, expect, rokOstalih); err != nil {
 		t.Fatal(err)
 	}
 	conn.Close()

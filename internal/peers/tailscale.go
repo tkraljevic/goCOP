@@ -268,11 +268,14 @@ func (s *Service) putVeze(predlozen razmjena.Put, lokalna net.Addr) razmjena.Put
 	return predlozen
 }
 
-// odbijTailscale odbija dolaznu razmjenu koja je stigla na Tailscale adresu
-// ovog računala dok je Tailscale u razmjeni isključen; dnevnik dobije jedan
-// redak po čvoru
+// odbijTailscale odbija dolaznu razmjenu koja je išla preko Tailscalea dok
+// je Tailscale u razmjeni isključen; dnevnik dobije jedan redak po čvoru.
+// Gleda se put veze, a ne lokalna adresa: TCP veza na Tailscale adresu
+// ovog računala dobije put tailscale (putVeze), a QUIC WEB synca sluša na
+// 0.0.0.0, pa put zna sesija (razmjena.PutTailscale kad promet ide kroz
+// Tailscale).
 func (s *Service) odbijTailscale(c *razmjena.Conn, peer *Peer) bool {
-	if s.TailscaleUkljucen() || !s.naVlastitiTailscale(c.LocalAddr()) {
+	if s.TailscaleUkljucen() || c.Put != razmjena.PutTailscale {
 		return false
 	}
 	tko := razmjena.PublicKeyString(c.PeerKey)

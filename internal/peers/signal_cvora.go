@@ -81,9 +81,11 @@ func (s *Service) nakonClanstva(verzije []ledger.Version) {
 	}
 }
 
-// javiPromjenuClanstva zove onoga tko prati članstvo (sastajalište)
+// javiPromjenuClanstva zove one koji prate članstvo: sastajalište i
+// sesije WEB synca (priprema_weba.go)
 func (s *Service) javiPromjenuClanstva() {
 	if f := s.promjenaClanstva.Load(); f != nil {
 		(*f)()
 	}
+	s.provjeriWebSync()
 }

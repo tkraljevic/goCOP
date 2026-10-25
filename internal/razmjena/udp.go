@@ -66,7 +66,7 @@ func NoviUDP(conn net.PacketConn) *UDP { return noviUDP(conn, nil) }
 // NoviUDPCvora je NoviUDP s ključem za resetiranje QUIC veza (stateless
 // reset) izvedenim iz ključa čvora (kljucReseta): nakon ponovnog pokretanja
 // računalo i dalje zna ključ, pa veze koje je druga strana zadržala od
-// prije zatvori odmah, a ne tek nakon minute mirovanja. Ključ se mora
+// prije zatvori odmah, a ne tek nakon 30 s mirovanja. Ključ se mora
 // zadati prije prvog čitanja s prijenosa, pa ide ovdje.
 func NoviUDPCvora(conn net.PacketConn, priv ed25519.PrivateKey) *UDP {
 	return noviUDP(conn, kljucReseta(priv))

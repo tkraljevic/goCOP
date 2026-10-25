@@ -57,6 +57,7 @@ const (
 	OdbijenPonovljen = "ponovljen"
 	OdbijenAdresa    = "odgovor-s-krive-adrese"
 	OdbijenPrevise   = "previse-adresa"
+	OdbijenTailscale = "kroz-tailscale"
 )
 
 var razlogUdarca = map[error]string{errOblikUdarca: OdbijenOblik, errVlastitiUdarac: OdbijenVlastiti, errPotpisUdarca: OdbijenPotpis}
@@ -103,6 +104,7 @@ type Udarci struct {
 	javljene map[netip.AddrPort]bool      // adrese koje su se u ovom pokušaju javile kao Valjan
 	udareni  map[netip.AddrPort]bool
 	stanje   StanjeUdaraca
+	bez      func(netip.AddrPort) bool // adrese čiji se valjani paketi odbacuju (noviUdarciBez)
 }
 
 type primljeniUdarac struct {
@@ -116,7 +118,16 @@ type primljeniUdarac struct {
 // njegovi kandidati), koje se ne udaraju. Udarci kreću tek s Pokusaj, a
 // odgovori na valjane udarce odmah.
 func NoviUdarci(u *UDP, k KljuceviUdarca, kandidati []KandidatPoruke, vlastite []netip.AddrPort) (*Udarci, error) {
-	x := &Udarci{u: u, k: k, prijem: make(chan primljeniUdarac, redUdaraca), budi: make(chan struct{}, 1),
+	return noviUdarciBez(u, k, kandidati, vlastite, nil)
+}
+
+// noviUdarciBez su NoviUdarci koji valjane pakete s adresa za koje bez
+// javi true odbacuju kao da nisu stigli (OdbijenTailscale): uz [sync]
+// tailscale = false to su adrese do kojih promet ide kroz Tailscale. Na
+// takvu adresu ne ide ni odgovor, a vrata je ne puštaju. nil ne odbacuje
+// ništa.
+func noviUdarciBez(u *UDP, k KljuceviUdarca, kandidati []KandidatPoruke, vlastite []netip.AddrPort, bez func(netip.AddrPort) bool) (*Udarci, error) {
+	x := &Udarci{u: u, k: k, bez: bez, prijem: make(chan primljeniUdarac, redUdaraca), budi: make(chan struct{}, 1),
 		valjani: make(chan Valjan, najviseAdresaDruge), kraj: make(chan struct{}),
 		ciljevi: ciljeviUdaraca(kandidati, vlastite), druge: map[netip.AddrPort]time.Time{}, javljene: map[netip.AddrPort]bool{},
 		udareni: map[netip.AddrPort]bool{}, stanje: StanjeUdaraca{Odbijeno: map[string]int{}}}
@@ -224,11 +235,15 @@ func (x *Udarci) vrti() {
 	}
 }
 
-// primi provjeri paket druge strane i zapamti ga kad je valjan
+// primi provjeri paket druge strane i zapamti ga kad je valjan; valjan
+// paket s adrese koja se odbacuje (bez) ne pamti se
 func (x *Udarci) primi(p primljeniUdarac) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 	vrsta, razlog := x.prihvati(p)
+	if razlog == "" && x.bez != nil && x.bez(p.od) {
+		razlog = OdbijenTailscale
+	}
 	if razlog != "" {
 		x.stanje.Odbijeno[razlog]++
 		return
