@@ -502,7 +502,10 @@ func TestRazmakUdaraca(t *testing.T) {
 // 33 paketa odjednom, s 33 adrese (jedan više nego što stane u red
 // utičnice): odgovori idu samo na adrese druge strane do granice od 16, i
 // ne brže od 20 u sekundi; nalet od 33 pokvarena udarca ne dobiva nijedan
-// odgovor. Utičnica nakon naleta radi.
+// odgovor. Nakon naleta adresa druge strane opet dobiva odgovor, a adresa
+// izvan granice ne. Kojih 16 adresa uđe nije zadano: svaki izvor šalje
+// svojom vezom u simnetu, a paketi poslani u istom trenutku stižu redom
+// kojim su gorutine tih veza došle na red.
 func Test33PaketaNaglo(t *testing.T) {
 	uMjehuru(t, func(t *testing.T) {
 		m := internetUdaraca(t)
@@ -511,10 +514,12 @@ func Test33PaketaNaglo(t *testing.T) {
 		ua := javnoRacunalo(t, m, udaracA)
 		xa := noviUdarci(t, ua, ka, javniKandidati(udaracB), udaracA)
 		var izvori []*simnet.SimConn
+		var adrese []netip.AddrPort
 		for i := range 33 {
-			c := m.Racunalo(netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(100 + i)}), 4713), natsim.PostavkeRacunala{})
+			a := netip.AddrPortFrom(netip.AddrFrom4([4]byte{203, 0, 113, byte(100 + i)}), 4713)
+			c := m.Racunalo(a, natsim.PostavkeRacunala{})
 			defer c.Close()
-			izvori = append(izvori, c)
+			izvori, adrese = append(izvori, c), append(adrese, a)
 		}
 		for _, c := range izvori {
 			pokvaren := kb.sastavi(vrstaUdarac, 1)
@@ -540,11 +545,18 @@ func Test33PaketaNaglo(t *testing.T) {
 		s := xa.Stanje()
 		if len(odgovori) != najviseAdresaDruge || najviseUSekundi(odgovori) > 20 || s.Valjanih != najviseAdresaDruge || s.Odbijeno[OdbijenPrevise] == 0 ||
 			s.Valjanih+s.Odbijeno[OdbijenPrevise]+s.Odbijeno[OdbijenPotpis] > 66 || !ua.Radi() {
-			t.Errorf("odgovora %d (najviše %d u sekundi), stanje %+v", len(odgovori), najviseUSekundi(odgovori), s)
+			t.Fatalf("odgovora %d (najviše %d u sekundi), stanje %+v", len(odgovori), najviseUSekundi(odgovori), s)
 		}
-		posaljiSirovo(t, izvori[0], kb.sastavi(vrstaUdarac, 100), udaracA)
-		if _, _, ok := procitaj(izvori[0]); !ok {
-			t.Error("nakon naleta nema odgovora")
+		druge := xa.AdreseDruge()
+		unutra := slices.Index(adrese, druge[0])
+		izvan := slices.IndexFunc(adrese, func(a netip.AddrPort) bool { return !slices.Contains(druge, a) })
+		posaljiSirovo(t, izvori[unutra], kb.sastavi(vrstaUdarac, 100), udaracA)
+		if _, _, ok := procitaj(izvori[unutra]); !ok {
+			t.Errorf("nakon naleta nema odgovora na %s", adrese[unutra])
+		}
+		posaljiSirovo(t, izvori[izvan], kb.sastavi(vrstaUdarac, 101), udaracA)
+		if _, _, ok := procitaj(izvori[izvan]); ok || xa.Stanje().Odbijeno[OdbijenPrevise] != s.Odbijeno[OdbijenPrevise]+1 {
+			t.Errorf("nakon naleta odgovor na %s, izvan granice", adrese[izvan])
 		}
 	})
 }
