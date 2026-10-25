@@ -64,4 +64,45 @@ func TestJavnaVezaLetveIPostojecaOcitanja(t *testing.T) {
 	if err != nil || !ima[kad.Unix()] || len(ima) != 1 {
 		t.Errorf("postojeća: %v (%v)", ima, err)
 	}
+	// vodostaji koje letva ima, od kojih se mjeri skok; očitanje bez vodostaja ne ulazi
+	temp := 12.0
+	if _, err := sp.Upisi(ctx, []models.Reading{{ID: uuid.New(), StationID: batina.ID.String(), MeasuredAt: kad.Add(time.Hour), TempC: &temp, Source: models.ReadingSourceImport}}); err != nil {
+		t.Fatal(err)
+	}
+	razine, err := sp.Razine(ctx, batina.ID.String(), kad.Add(-time.Hour), kad.Add(2*time.Hour))
+	if err != nil || len(razine) != 1 || razine[kad.Unix()] != -119 {
+		t.Errorf("razine: %v (%v)", razine, err)
+	}
+	// uz razdoblje i zadnja razina prije njega, kako god davno bila (rupa)
+	staro, prije := kad.Add(-30*time.Hour), -123
+	if _, err := sp.Upisi(ctx, []models.Reading{
+		{ID: uuid.New(), StationID: batina.ID.String(), MeasuredAt: staro, LevelCm: &prije, Source: models.ReadingSourceImport},
+		{ID: uuid.New(), StationID: batina.ID.String(), MeasuredAt: staro.Add(-time.Hour), LevelCm: &prije, Source: models.ReadingSourceImport},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	razine, err = sp.Razine(ctx, batina.ID.String(), kad.Add(3*time.Hour), kad.Add(4*time.Hour))
+	if err != nil || len(razine) != 1 || razine[kad.Unix()] != -119 {
+		t.Errorf("zadnja prije razdoblja: %v (%v)", razine, err)
+	}
+	razine, err = sp.Razine(ctx, batina.ID.String(), kad.Add(-time.Hour), kad)
+	if err != nil || len(razine) != 2 || razine[staro.Unix()] != -123 {
+		t.Errorf("rupa prije razdoblja: %v (%v)", razine, err)
+	}
+	// skok se bilježi za stranicu letve i broji posebno
+	skok := models.OdbacenSkok(models.Reading{StationID: batina.ID.String(), MeasuredAt: kad.Add(2 * time.Hour), LevelCm: &cm, Origin: "vodostaji.voda.hr"})
+	if err := sp.ZabiljeziOdbacene(ctx, []models.OdbacenaVrijednost{skok}); err != nil {
+		t.Fatal(err)
+	}
+	s, err := readings.SazetakOdbacenih(ctx, "station:"+batina.ID.String())
+	if err != nil || s == nil || s.Broj != 1 || s.Skokova != 1 || s.Zadnja.Polje != models.PoljeSkok {
+		t.Errorf("sažetak: %+v (%v)", s, err)
+	}
+	if _, err := sp.Razine(ctx, batina.ID.String(), kad, kad); err != nil {
+		t.Fatal(err)
+	}
+	baza.Close()
+	if _, err := sp.Razine(ctx, batina.ID.String(), kad, kad); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/skok"
 )
 
 // Osvježavanje: jedan prolaz koji iz zatečenih očitanja izračuna prognozu i
@@ -76,6 +77,9 @@ type Osvjezivac struct {
 	Oborine *OborinskiIzvor
 	// Cvor je naziv čvora koji izdaje; ide uz zapis o izdanju i putuje s njim.
 	Cvor string
+	// Pragovi su pragovi lažnog skoka po letvi (bezSkokova); nil znači
+	// skok.ZadaniPrag za svaku letvu.
+	Pragovi *skok.Pragovi
 }
 
 // Ishod je što je jedno osvježavanje dalo.
@@ -112,6 +116,9 @@ type Ishod struct {
 	NeuredneTude []Upozorenje
 	// Uzvodno je što je uzvodni ispravak dnevne prognoze imao u izdanju.
 	Uzvodno UzvodnoIzdanja
+	// Skokovi su sati letvi koje filtar lažnog skoka nije pustio u
+	// prognozu (bezSkokova).
+	Skokovi []IzbaceniSkok
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -145,7 +152,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
-	ctx = uKrugu(ctx)
+	ctx = sBiljeznikomSkokova(uKrugu(ctx))
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -356,6 +363,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	}
 	donjiRubProtoka(ishod.Izdane)
 	ishod.NeuredneTude = upozorenjaTudih(o.Baza, sada)
+	ishod.Skokovi = skokoviIzdanja(ctx)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
@@ -921,15 +929,17 @@ func (o *Osvjezivac) ucitajNizZ(ctx context.Context, iz Izvor, od time.Time, zam
 
 // sirovoOcitanje je očitanje letve svedeno na puni sat, kako je u evidenciji.
 type sirovoOcitanje struct {
-	cm sql.NullInt64
-	q  sql.NullFloat64
+	cm    sql.NullInt64
+	q     sql.NullFloat64
+	rucno bool // upisao ga je čovjek; filtar skoka ga ne dira
 }
 
-// ucitajSirovo čita očitanja letve po satima.
+// ucitajSirovo čita očitanja letve po satima, bez lažnih skokova
+// (bezSkokova).
 func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Time) (map[int64]sirovoOcitanje, error) {
-	r, err := o.Ocitanja.QueryContext(ctx, `SELECT o.measured_at, o.level_cm, o.flow_m3s
+	r, err := o.Ocitanja.QueryContext(ctx, `SELECT o.measured_at, o.level_cm, o.flow_m3s, o.source = ?
 		FROM readings o JOIN stations s ON s.id = o.station_id
-		WHERE s.code = ? AND o.measured_at >= ?`, letva, od)
+		WHERE s.code = ? AND o.measured_at >= ?`, models.ReadingSourceManual, letva, od)
 	if err != nil {
 		return nil, err
 	}
@@ -941,7 +951,7 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 		// kao tekst dolazi u drugom zapisu nego što u bazi stoji.
 		var t time.Time
 		var s sirovoOcitanje
-		if err := r.Scan(&t, &s.cm, &s.q); err != nil {
+		if err := r.Scan(&t, &s.cm, &s.q, &s.rucno); err != nil {
 			return nil, err
 		}
 		if !s.cm.Valid && !s.q.Valid {
@@ -950,6 +960,7 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 		// Na pune sate isto kao namještanje iz arhive (poSatu).
 		sati.dodaj(t.Unix(), s)
 	}
+	o.bezSkokova(ctx, letva, sati.vrijednosti)
 	return sati.vrijednosti, r.Err()
 }
 

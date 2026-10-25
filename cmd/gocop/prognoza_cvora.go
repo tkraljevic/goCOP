@@ -23,6 +23,7 @@ import (
 	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
+	"gocop/internal/skok"
 	"gocop/internal/web"
 )
 
@@ -36,12 +37,21 @@ type ovisnostiPrognoze struct {
 	uvoznik     *javnivodostaji.Uvoznik
 	razmjenaArh *razmjenaArhive
 	ctx         context.Context // razmjena; gasi prorjeđivanje izdanja
+	pragovi     *skok.Pragovi   // pragovi lažnog skoka, isti kao pri preuzimanju
 
 	dbPath, prognozePut, arhivaPut string
 	podaci, nazivCvora             string
 
 	ulogePostavljene bool
 	ulogeErr         error
+}
+
+// pragoviSkoka su pragovi lažnog skoka iz arhive, kroz vlastitu vezu samo
+// za čitanje. Veza ne otvara datoteku dok je ne zatreba: arhiva koje još
+// nema daje zadani prag, a kad stigne paketom, pragovi se računaju iz nje.
+func pragoviSkoka(arhivaPut string) *skok.Pragovi {
+	arhiva, _ := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut)) // upravljač postoji, pa ne pada; bez veze (nil) vrijedi zadani prag
+	return skok.NoviPragovi(arhiva)
 }
 
 // postaviCitacPrognoza daje poslužitelju bazu prognoza za čitanje. Veza je
@@ -82,7 +92,7 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		return nil
 	}
 	osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
-		Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora}
+		Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora, Pragovi: o.pragovi}
 	// Izdanje putuje razmjenom: ostali čvorovi ga upišu u svoju bazu
 	// prognoza, a namješteni model ide uz njega kad se promijeni.
 	var oborineDB *sql.DB // baza oborina; kiša ide uz izdanje

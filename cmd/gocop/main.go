@@ -862,6 +862,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// su povezane s javnim izvorom i označene za preuzimanje. Bez interneta
 	// samo javi grešku na letvi i pokuša idući sat.
 	javniUvoznik := javnivodostaji.NoviUvoznik(repository.NewJavniSpremiste(database, readingRepo), log.Printf)
+	// Prag lažnog skoka po letvi, iz arhive; isti vrijedi pri preuzimanju i
+	// u prognozi (Odluke (25. 10. 2026.)). Bez arhive vrijedi zadani prag.
+	pragovi := pragoviSkoka(arhivaPut)
+	javniUvoznik.Prag = pragovi.Za
 	javniUvoznik.Preuzima = func() bool { return peersService.TrenutneUloge().Preuzima }
 	javniUvoznik.Minuta = minutaPreuzimanja(cfg, log.Printf)
 	javniUvoznik.Biljeg = filepath.Join(filepath.Dir(*dbPath), biljegPreuzimanja)
@@ -875,7 +879,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	pbRazmjena = pokreniPrognozu(ovisnostiPrognoze{
 		baza: database, knjiga: recorder, mreza: peersService, cvor: node, posluzitelj: server,
 		uvoznik: javniUvoznik, razmjenaArh: razmjenaArh, ctx: syncCtx,
-		dbPath: *dbPath, prognozePut: prognozePut, arhivaPut: arhivaPut,
+		dbPath: *dbPath, prognozePut: prognozePut, arhivaPut: arhivaPut, pragovi: pragovi,
 		podaci: z.podaci, nazivCvora: nazivCvora,
 		ulogePostavljene: ulogePostavljene, ulogeErr: ulogeErr,
 	})

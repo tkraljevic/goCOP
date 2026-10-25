@@ -32,6 +32,7 @@ const (
 	VrstaKrivulja       = "krivulja"       // vrijednost izvan krivulje protoka
 	VrstaTudaDatumi     = "tuda-datumi"    // tuđa prognoza s neurednim datumima (NeuredniDatumi)
 	VrstaUzvodno        = "uzvodno"        // uzvodni ispravak bez letve ili digao prognozu (upozorenjaUzvodnog)
+	VrstaSkok           = "skok"           // lažni skok letve nije ušao u prognozu (upozorenjaSkokova)
 )
 
 // Težine: upozorenje stoji otvoreno, napomena je sklopljena.
@@ -84,6 +85,7 @@ func Upozori(ishod *Ishod, pojasi map[string][]Pojas, nizovi map[Izvor]Niz, vrho
 	u = append(u, upozorenjaRekonstrukcije(ishod, pojasi, ima)...)
 	u = append(u, ishod.NeuredneTude...)
 	u = append(u, upozorenjaUzvodnog(ishod.Uzvodno)...)
+	u = append(u, upozorenjaSkokova(ishod.Skokovi, ishod.Sada)...)
 	slices.SortStableFunc(u, func(a, b Upozorenje) int {
 		return cmp.Or(cmp.Compare(b.Tezina, a.Tezina), cmp.Compare(a.Vrsta, b.Vrsta),
 			cmp.Compare(a.Letva, b.Letva), cmp.Compare(a.Opis, b.Opis))

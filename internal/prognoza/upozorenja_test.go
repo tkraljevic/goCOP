@@ -29,7 +29,7 @@ func ocitanjaLetvi(t *testing.T, zadnji time.Time, letve ...probnaLetva) *sql.DB
 	t.Cleanup(func() { db.Close() })
 	if _, err := db.Exec(`
 		CREATE TABLE stations (id TEXT PRIMARY KEY, code TEXT);
-		CREATE TABLE readings (station_id TEXT, measured_at DATETIME, level_cm INTEGER, flow_m3s REAL);`); err != nil {
+		CREATE TABLE readings (station_id TEXT, measured_at DATETIME, level_cm INTEGER, flow_m3s REAL, source TEXT NOT NULL DEFAULT 'RUČNO');`); err != nil {
 		t.Fatal(err)
 	}
 	for i, l := range letve {
