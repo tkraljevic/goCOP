@@ -4,6 +4,72 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.43-alfa — 25. 10. 2026.
+
+- **WEB sync: dva računala iza usmjerivača razmjenjuju izravno.** Do sada
+  su laptop kod kuće i računalo u uredu podatke izmjenjivali samo preko
+  stalnog čvora, do 10 minuta kasnije. Sad se, kad je WEB sync uključen na
+  oba, nađu preko sastajališta, probiju kućni i uredski usmjerivač i
+  razmjenjuju izravno. Razmjena ide redom: najprije lokalna mreža, zatim
+  živa WEB sync veza, a ako nje nema, zajedno Tailscale, upisane javne
+  adrese i tunel do stalnog čvora; vrijedi prvi put koji se spoji, a
+  spajanje traje najviše 45 s. WEB sync se priprema u pozadini i ništa ne
+  zaustavlja; kad je spreman, razmjena kreće odmah. Prema računalu s javnim
+  ulazom, kao što je kućni server, ne priprema se. Nakon tri neuspjela
+  pokušaja par čeka 30 minuta, zatim do sat vremena, a pločica kaže zašto.
+  Računalo s isključenim WEB syncom drugome odmah javi da ga nema. Jedan
+  krug zove najviše 8 adresa istim putem, i *Provjeri vezu s računalom*
+  isto. Pločica razmjene uz računalo piše „WEB sync” kad razmjena ide tim
+  putem. WEB sync je i dalje zadano isključen; kako se uključuje, piše u
+  uputama za nadogradnju. (#142, #144, #147, #148, #150, #154, #156)
+- **Lažni skok s javne stranice više ne ulazi u bazu ni u prognozu.**
+  Jedno krivo očitanje, stotine centimetara iznad prave razine, prošlo je
+  kroz raspon letve i desecima centimetara dizalo dnevnu prognozu, sve dok
+  ga netko nije ručno ispravio. Sad preuzimanje vrijednost koja od
+  prethodne odskoči više od praga letve ne upisuje odmah, nego čeka iduće
+  očitanje: kad se ono vrati na staru razinu, skok se odbacuje i broji na
+  stranici letve kao „skok”, a kad ostane na novoj, upišu se obje.
+  Očitanje nakon dužeg ispada uspoređuje se s iduća dva. Prag je po letvi
+  iz arhive, najmanje 50 cm u satu, pa letve ispod elektrana dobiju veći.
+  Prognoza isto pravilo primjenjuje na sva očitanja osim ručnih, uz
+  napomenu uz izdanje. (#151)
+- **Zaglavljen ili odskočen mjerni uređaj vidi se na letvi.** Kad
+  automatsko očitanje stoji dulje nego što ta letva inače stoji (najmanje
+  6 h), a susjedna letva iste rijeke se u to vrijeme pomaknula, u
+  vrijednost se skočilo ili je ona daleko izvan uobičajenog raspona, na
+  vrhu stranice letve je okvir „Mjerni uređaj je vjerojatno u kvaru”, a u
+  popisu operativnih vodostaja znak uz letvu. Isto za uređaj koji odskoči
+  i drži se. Kad se susjedi samo spuštaju, okvir kaže „Voda je vjerojatno
+  ispod dosega mjernog uređaja”. Uređaj koji u tjedan dana barem tri puta
+  lažno odskoči dobije okvir s popisom tih skokova. Ustave, crpne stanice,
+  elektrane i akumulacije se ne provjeravaju. Očitanja se ne brišu. Kad
+  kvar potvrđuje susjedna letva, prognoza ta očitanja ne uzima i računa
+  kao da mjerenja nema; inače ih uzima, uz napomenu uz izdanje. (#155)
+- **Dnevna prognoza Dunava vidi val izmjeren u Austriji.** Dnevni model
+  Batine, Aljmaša, Vukovara i Iloka nije znao za val koji su Wildungsmauer i
+  Achleiten već izmjerili, pa je 4.–6. dan podbacivao porast. Sad se
+  prognoza pomiče prema promjeni na tim dvjema letvama u zadnja 24 i 48
+  sati. Ne spušta je dok voda raste više od 5 cm na dan i ne diže je više od
+  100 cm; kad je digne više od 50 cm ili kad neka od tih letvi ne javlja, to
+  piše u napomeni uz izdanje. Isti ispravak dobivaju letve koje dnevni dio
+  uzimaju od tih postaja. Satni lanac, Komárom i Budimpešta se ne mijenjaju.
+  U provjeri na 2024.–2026. pogreška 4.–6. dana pala je s 17,8 na 16,0 cm.
+  (#141)
+- **Izmjena očitanja više ne mijenja njegov datum i vrijeme.** Kad se u
+  postojećem očitanju ispravio samo vodostaj, obrazac je pri spremanju
+  vrijeme postavljao na trenutak ispravka. Sad izmjena čuva izvorni
+  trenutak, i sekunde i sat na dan pomaka sata; izmjena bez datuma i
+  vremena se odbija. Novo očitanje i dalje dobiva trenutak spremanja. (#149)
+- **Kraća i jednostavnija objašnjenja prognoze.** Natpis ispod uzdužnog
+  profila i odjeljak na dnu stranice prognoze sad kažu samo kako čitati
+  sliku i karticu, a pojedinosti su na stranici O prognozi. Kraće su i
+  napomene u izvozu u Excel i nekoliko upozorenja uz izdanje. Napomena koja
+  završava datumom više nema dvije točke. (#145, #146)
+- **O prognozi: znanstveni radovi i literatura.** Pod Detaljima je novo
+  poglavlje: radovi na kojima se temelji naš način prognoze, što koji
+  potvrđuje i što iz njega primjenjujemo, te pristupi koje ne primjenjujemo
+  i zašto. (#143)
+
 ## 0.0.42-alfa — 24. 10. 2026.
 
 - **Srpska prognoza s krivim datumima više ne stoji pod krivim danom.**

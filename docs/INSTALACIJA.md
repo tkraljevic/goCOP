@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.42-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 24. 10. 2026.
+Administratorske upute za izdanje 0.0.43-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 25. 10. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.42-alfa (24. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.43-alfa (25. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -189,8 +189,9 @@ kopiju istog ključa pokuša ponovno tek za 10 min, i nakon buđenja; pločica
 kaže kad. Pločica
 razmjene tada kaže „WEB sync: prijavljen kod cop.primjer.hr od 12:01.”, a na
 sastajalištu koliko je računala prijavljeno, koliko je poziva bilo u zadnjem
-satu i koliko prekida u 24 h. Podaci i dalje idu kao prije: WEB sync ih nosi
-tek u idućoj fazi.
+satu i koliko prekida u 24 h. Od 0.0.43-alfa, uz `web_sync = true` na oba
+računala, WEB sync nosi i podatke: računala se preko sastajališta dogovore i
+razmjenjuju izravno.
 
 Uz Cloudflare ispred stalnog čvora preporučuje se jedno pravilo ograničenja
 brzine samo za put `/razmjena/signal`, na primjer više od 30 zahtjeva u
@@ -513,7 +514,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.42-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.43-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -872,7 +873,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.42-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.43-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a WEB sync, kad se uključi,
 na 4713/UDP. Radi kao UID/GID `99:100`; mape moraju biti dostupne tom
@@ -948,6 +949,31 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Sinkronizacija.
+
+0.0.43-alfa radi uz 0.0.37–0.0.42-alfa i razmjena s njima ide kao i dosad.
+Baza se ne mijenja, pa se na 0.0.42-alfa može vratiti bez kopije baze.
+Odbačeni lažni skokovi zapisuju se kao i dosadašnje vrijednosti izvan
+raspona, pa ih računalo s 0.0.42-alfa i starijim prikaže kao odbačenu
+vrijednost. Prag skoka i uobičajeno trajanje mirne vode program za svaku
+letvu uči iz arhive, pri pokretanju u pozadini, oko sekunde po letvi.
+Najprije nadograditi računalo koje izdaje prognozu (stalni čvor): uzvodni
+ispravak dnevne prognoze Dunava računa samo ono, a ostala ga dobiju
+razmjenom.
+
+WEB sync u 0.0.43-alfa prvi put nosi podatke: dva računala iza kućnog ili
+uredskog usmjerivača razmjenjuju izravno, bez stalnog čvora. I dalje je
+zadano isključen. Za probu u odjeljku `[povezivost]` u `gocop.toml` (vidi
+upute uz 0.0.42-alfa niže) na svakom računalu koje sudjeluje upisati
+`web_sync_prijava = true` i `web_sync = true`, a na ostalima uz to
+`sastajaliste` i `sastajaliste_cvor`; stalni čvor je sastajalište
+(`posluzi_sastajaliste = true`). Izravna veza ide samo među računalima s
+0.0.43-alfa; sastajalište s 0.0.42-alfa poruke prosljeđuje, ali i njega je
+najbolje nadograditi. Na vatrozidu ne treba otvarati ništa dolazno, ali
+računalo mora smjeti slati UDP prema internetu. Prema računalu s javnim
+ulazom (domena s tunelom ili javna adresa koja odgovara), kao što je
+kućni server, WEB sync se ne priprema: do njega razmjena ide kao i dosad.
+Kojim putem razmjena ide, piše na pločici razmjene („WEB sync”, „LAN sync”
+ili „SERVER sync”).
 
 0.0.42-alfa radi uz 0.0.37–0.0.41-alfa i razmjena s njima ide kao i dosad;
 starija izdanja WEB sync ne vide i ne smetaju mu. Nadogradnja dodaje u bazu
@@ -1281,8 +1307,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.42-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.42-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.43-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.43-alfa` i `:latest`.
 
 ## 9. Za razvoj
 
