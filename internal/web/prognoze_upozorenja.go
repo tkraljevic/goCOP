@@ -52,8 +52,8 @@ func bezZapisa(zapisano bool, izdavac string) []UpozorenjeStranice {
 	if zapisano || izdavac == "" {
 		return nil
 	}
-	return []UpozorenjeStranice{{Sto: "Izdavač uz izdanje ne zapisuje upozorenja (starija inačica programa), " +
-		"pa se ovdje ne vidi radi li mu sve."}}
+	return []UpozorenjeStranice{{Sto: "Računalo koje je izdalo prognozu ima stariji program i ne šalje upozorenja, " +
+		"pa se ne vidi je li mu sve radilo."}}
 }
 
 // zastarjelo upozorava kad je sat izdanja stariji od PrognozaZastarijeva.
@@ -62,8 +62,8 @@ func zastarjelo(izdano, sad time.Time) string {
 	if starost <= PrognozaZastarijeva {
 		return ""
 	}
-	return fmt.Sprintf("Zadnja prognoza izdana je za %s — prije %d h; novije izdanje nije stiglo ni izračunato. "+
-		"Upitno: sve vrijednosti.", satUpozorenja(izdano), int(starost.Hours()))
+	return fmt.Sprintf("Zadnja prognoza je za %s, prije %d h. Novija nije stigla ni izračunata, "+
+		"pa su sve vrijednosti upitne.", satUpozorenja(izdano), int(starost.Hours()))
 }
 
 // satUpozorenja je sat po mjesnom vremenu, npr. „7. 10. u 11 h”.
@@ -157,10 +157,10 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaBezPrognoze:
 		return p.uLetvi(u.Letva, "nema prognoze ("+p.imena(u.Opis)+")")
 	case prognoza.VrstaCeka:
-		return p.uLetvi(u.Letva, "zadnje mjerenje "+satUpozorenja(satOdEpohe(u.Zadnje))+
-			"; čeka se, pa sat izdanja stoji iza najsvježijih očitanja ostalih letvi")
+		return p.uLetvi(u.Letva, "zadnje mjerenje je od "+satUpozorenja(satOdEpohe(u.Zadnje))+
+			". Prognoza ga čeka, pa je izdana za raniji sat nego što ostale letve već imaju")
 	case prognoza.VrstaKrivulja:
-		return "Izvan krivulje protoka (krivulja produljena preko svog ruba): " + p.krivulja(u.Upitno) + "."
+		return "Izvan krivulje protoka (krivulja je produžena preko ruba): " + p.krivulja(u.Upitno) + "."
 	case prognoza.VrstaUzvodno:
 		return p.stoUzvodnog(u)
 	}

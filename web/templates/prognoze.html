@@ -6,19 +6,19 @@
 <div class="detail-head">
   <div>
     <h1>{{icon "trending-up"}} Prognoze</h1>
-    {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}}{{if .IzdaoCvor}} na čvoru {{.IzdaoCvor}}, stiglo razmjenom{{end}} · vrijednost ostaje unutar raspona
-      u {{.Udio}} % slučajeva</p>{{end}}
+    {{if .Izdano}}<p class="reg-card-sub">Izdano {{.Izdano}}{{if .IzdaoCvor}}, izdao {{.IzdaoCvor}}{{end}} · voda ostaje
+      u rasponu u {{.Udio}} % slučajeva</p>{{end}}
     {{if .Oborina}}<p class="reg-card-sub prog-oborina{{if .BezKise}} prog-oborina-bez{{end}}">{{icon "cloud-rain"}} {{.Oborina}}</p>{{end}}
     {{if .NacinPrikaza}}<p class="reg-card-sub">{{icon "chart-column"}} Dani u tablici i na grafovima: {{.NacinPrikaza}}.
       {{if or .MozeGenerirati .MozePripremiti}}<a href="/prognoze/postavke#prikaz">Promijeni</a>{{end}}</p>{{end}}
   </div>
   <div class="page-actions">
     <a href="/prognoze/o-prognozi" class="btn btn-secondary"
-      title="Kojim je modelom i računom prognoza izvedena">{{icon "info"}} O prognozi</a>
+      title="Kako se prognoza računa">{{icon "info"}} O prognozi</a>
     {{if .Tablice}}<a href="/prognoze.xlsx?t={{svjeze}}" class="btn btn-secondary"
-      title="Prognoza po vodama, u obliku uredske tablice">{{icon "download"}} Izvoz u Excel</a>{{end}}
+      title="Prognoza po vodama, kao uredska tablica">{{icon "download"}} Izvoz u Excel</a>{{end}}
     {{if or .MozeGenerirati .MozePripremiti .Tablice}}<a href="/prognoze/postavke" class="btn btn-secondary"
-      title="Generiranje prognoze, priprema modela i izvoz ranije prognoze">{{icon "settings"}} Postavke</a>{{end}}
+      title="Izdavanje prognoze, priprema modela i ranije prognoze">{{icon "settings"}} Postavke</a>{{end}}
   </div>
 </div>
 
@@ -43,8 +43,7 @@
 {{if .Nema}}
 <div class="table-card" style="padding:1.25rem;">
   <p>{{.Razlog}}</p>
-  <p class="reg-card-sub">Prognoza je račun, ne zapis: izgubi li se, ponovno se izračuna iz
-    istih ulaza.</p>
+  <p class="reg-card-sub">Prognoza se uvijek može izračunati iznova iz istih mjerenja.</p>
 </div>
 {{else}}
 
@@ -63,7 +62,7 @@
   <div id="profil-{{$p.Oznaka}}" class="kartica uzd-profil" role="tabpanel" data-ime="{{$p.Ime}}" data-nula="{{$p.NulaKratko}}"{{if ne $i 0}} hidden{{end}}>
     <div class="uzd-legenda" role="group" aria-label="Dosezi prognoze">
       <span class="uzd-legenda-stavka"><span class="uzd-znak jutro"></span> {{$p.JutroOpis}}</span>
-      <span class="uzd-legenda-stavka" title="Medijan vode istih dana na svim letvama toka, najviše 30 dana: nula crteža"><span class="uzd-znak nula"></span> {{$p.NulaNaziv}}</span>
+      <span class="uzd-legenda-stavka" title="Nula crteža: medijan vode zadnjih 30 dana"><span class="uzd-znak nula"></span> {{$p.NulaNaziv}}</span>
       <span class="uzd-legenda-stavka" title="Medijan dnevnih vodostaja zadnjih deset godina"><span class="uzd-znak uobicajeno"></span> uobičajena voda (10 g.)</span>
       <span class="uzd-legenda-stavka" title="Srednji vodostaj (SV) zadnjih deset godina"><span class="uzd-znak srednjak"></span> srednji vodostaj</span>
       <span class="uzd-legenda-stavka" title="Crta klizača dok pokazuje mjerenja"><span class="uzd-znak mjereno"></span> klizač: mjereno</span>
@@ -94,19 +93,10 @@
              aria-label="Sat prema izdanju prognoze">
       <span class="uzd-klizac-natpis">sad</span>
     </div>
-    <p class="graf-natpis">{{$p.Pad}}. Okomita os je vodostaj u centimetrima iznad ili ispod vode zadnjih
-      30 dana na svakoj letvi (medijan istih dana na svim letvama toka), a ne kota: u kotama se val ne bi vidio. Prema zadnjem mjesecu mirna
-      voda je ravna crta, a val brijeg; prema dugogodišnjem prosjeku svaka bi letva na maloj vodi stajala na
-      svojoj stepenici i izgledalo bi kao da svaka ima val. Uobičajena voda zadnjih deset godina (medijan,
-      crtkano) i srednji vodostaj (točkasto) ucrtani su kad su blizu; inače u kutu piše da su iznad ili ispod.
-      Puna ljubičasta crta je jutarnje stanje u 7 h i stoji cijeli dan; dok jutarnjeg očitanja nema, stoji najnovije
-      od 4 h, a letva bez ijednog čeka svoje. Brijeg na njoj je val kakav je jutros, a crte prognoze pokazuju
-      kamo ide. Iznad svake letve piše jutarnji vodostaj u centimetrima; boja točke
-      je faza obrane. Klizač pomiče vrijeme: lijevo od „sad” su mjerenja (plava crta), desno prognoza (zelena), a
-      broj uz točku je promjena od jutra. Peti i šesti dan daje dnevni model, a letve bez njega dobivaju te
-      dane od susjeda; gdje letva nema ni jedno ni drugo, crte se prekidaju. Profil Dunava kreće od Komároma. Letve su poredane redom niz tok, ali
-      razmak među njima nije u mjerilu: gusto posađene naše letve dobiju mjesta za natpis. Klik na doseg u legendi pokazuje njegov raspon. Pragovi obrane ulaze u sliku tek kad
-      se voda približi.</p>
+    <p class="graf-natpis">{{$p.Pad}}. Visina je vodostaj prema vodi zadnjih 30 dana, a ne kota, pa se val vidi
+      kao brijeg. Razmak letvi nije u mjerilu. Ljubičasta crta je stanje u 7 h. Klizač pomiče vrijeme: plavo su
+      mjerenja, zeleno prognoza. Broj uz točku je promjena od jutra, a boja točke faza obrane.
+      <a href="/prognoze/o-prognozi">Više na stranici O prognozi</a>.</p>
     {{if $p.Izostavljeno}}<p class="graf-natpis uzd-izostavljeno">Izostavljeno s profila:
       {{range $k, $x := $p.Izostavljeno}}{{if $k}}; {{end}}{{$x}}{{end}}.</p>{{end}}
   </div>
@@ -150,7 +140,7 @@
     <div class="prog-termini">
       {{range .Vrijednosti}}
       <div class="prog-termin{{if .Slabija}} prog-slabija{{end}}"
-           {{if .Slabija}}title="Na tom dosegu prognoza ne pobjeđuje pretpostavku da se ništa neće promijeniti"{{end}}>
+           {{if .Slabija}}title="Ovdje je zadnje mjerenje pouzdanije od prognoze"{{end}}>
         <div class="prog-termin-naslov">+{{.DosegH}} h</div>
         {{if .Ima}}
           {{if .Cm}}<div class="prog-vr">{{.Cm}}{{with .Oznaka}}{{if .Tekst}}<sup class="prog-oznaka" title="{{.Naslov}}">{{.Tekst}}</sup>{{end}}{{end}}</div>{{if .CmRaspon}}<div class="prog-raspon">{{.CmRaspon}}</div>{{end}}{{end}}
@@ -165,7 +155,7 @@
         {{if .Cm}}<div class="prog-vr">{{.Cm}}{{with .Oznaka}}{{if .Tekst}}<sup class="prog-oznaka{{if .Upozorenje}} prog-oznaka-satna{{end}}" title="{{.Naslov}}">{{.Tekst}}</sup>{{end}}{{end}}</div>
           {{if .Raspon}}<div class="prog-raspon">{{.Raspon}}</div>{{end}}
           {{if .Q}}<div class="prog-druga"{{if .QRaspon}} title="protok {{.QRaspon}} m³/s"{{end}}>{{.Q}} m³/s</div>{{end}}
-        {{else}}<div class="prog-vr prog-nema"{{if .BezDnevne}} title="Dnevne prognoze za ovo izdanje nema, a satna seže do 96 h"{{end}}>—</div>{{end}}
+        {{else}}<div class="prog-vr prog-nema"{{if .BezDnevne}} title="Dnevne prognoze u ovom izdanju nema; satna ide do 96 h"{{end}}>—</div>{{end}}
         {{range .Tude}}<div class="prog-tuda prog-tuda-{{.Klasa}}" title="{{.Naslov}}">{{.Oznaka}} {{.Cm}}{{if .Raspon}} {{.Raspon}}{{end}}</div>{{end}}
       </div>
       {{end}}
@@ -468,52 +458,31 @@
   <h2>{{icon "info"}} O prognozi{{if .Izdaje}} — {{.Izdaje}}{{end}}</h2>
   <dl>
     <dt>Kako čitati karticu</dt>
-    <dd>Svaka kartica je jedna vodomjerna postaja: gore mjerenje sada, ispod prognoza za +6 i +12 sati
-      te za šest dana u 07 h, kao i u mađarskoj i uredskoj prognozi. U svakom terminu gore je vodostaj
-      u centimetrima, ispod raspon i protok u m³/s. Postaja se računa u jednoj veličini, a drugu daje
-      krivulja protoka — gdje krivulje nema, nema ni druge brojke.</dd>
-
-    <dt>Metoda</dt>
-    <dd>Prvih dana hidrološki lanac vodomjernih postaja: vodostaj, odnosno protok nizvodne postaje izvodi
-      se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu ovisnu o vodnosti,
-      ispravljeno prema zadnjem mjerenju (oznaka <sup class="prog-oznaka">s</sup>). Dalje statistički model na
-      dnevnim vodostajima od 1901. — višestruka regresija i metoda analognih situacija (oznaka
-      <sup class="prog-oznaka">d</sup>). Na Batini, Aljmašu, Vukovaru i Iloku do 96. sata vrijednost je satni lanac
-      i dnevni model zajedno, otprilike pola-pola (oznaka <sup class="prog-oznaka">ds</sup>), jer je tako provjerom
-      točnije. Na Komáromu i Budimpešti dnevni model s kišom ulazi u sam satni lanac, pa kišu nose i letve
-      nizvodno. Na Dravi koji model daje koji dan
-      ovisi o vodostaju u satu izdanja: pri visokoj vodi dnevni od drugog do petog dana, već prema postaji, a pri
-      niskoj i srednjoj od prvog ili drugog. Vrh lanca na Muri je slovenska Gornja Radgona, a na Dunavu
-      Wildungsmauer, koji drži zadnje mjerenje; kišu gornjeg Dunava lanac dobiva na Komáromu. Tuđe prognoze u
-      račun ne ulaze.
-      Kad dnevni model za izdanje nije računao, dani koje bi on dao pokazuju satnu prognozu u 07 h, s oznakom
-      <sup class="prog-oznaka prog-oznaka-satna">s</sup> u drugoj boji, a dani do kojih satni lanac ne seže ostaju prazni.
-      Novo Virje, Szentborbás, Vrbovka, Moslavina i Drávaszabolcs nemaju dnevni model, pa od drugog dana slijede
-      susjedne postaje koje ga imaju, razmjerno udaljenosti po rijeci (oznaka <sup class="prog-oznaka">p</sup>).
-      Isto vrijedi za mađarske letve od Esztergoma do Mohácsa te Sigu, Petreš, Bogojevo, Dalj, Sotin i Mohovo na
-      Dunavu, koje uz svoj satni lanac dnevni dio posuđuju od susjeda. Uz p raspon je procijenjen iz susjeda.
-      Kad dnevni model susjedima najavi porast od kiše koji ne dođe, i ovdje je najava pogrešna.</dd>
-
-    <dt>Raspon</dt>
-    <dd>Interval koji obuhvaća {{.Udio}} % pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz
-      arhivu (satni lanac), odnosno ±1,04 standardna odstupanja analognih situacija (dnevni model): stvarna
-      vrijednost ostaje u rasponu u {{.Udio}} % slučajeva, a u {{sub 100 .Udio}} % izlazi iz njega, podjednako iznad i ispod.
-      Zapisan je kao ± kad je simetričan, a granicama kad ga preračun krivuljom protoka učini
-      nesimetričnim.</dd>
+    <dd>Kartica je jedna postaja. Gore je mjerenje sada, ispod prognoza za +6 i +12 sati i za šest dana
+      u 7 h. Uz vodostaj u centimetrima stoji raspon, a gdje postaja ima krivulju protoka i protok u m³/s.</dd>
 
     <dt>Oznake</dt>
-    <dd>Sitno ispod naše vrijednosti, svaka svojom bojom, tuđe prognoze za isti termin:
-      <span class="prog-tuda-hu">HU</span> mađarska (hydroinfo.hu; njihov raspon obuhvaća isti udio slučajeva
-      kao naš, {{.Udio}} %, pa znače isto), <span class="prog-tuda-rs">RS</span> srpska (hidmet.gov.rs) i
-      <span class="prog-tuda-at">AT</span> austrijska (noel.gv.at, 48 sati za Wildungsmauer) —
-      nisu naše, pa stoje odvojeno. Termin obojen bojom faze obrane je onaj u kojem prognoza doseže prag, a
-      obrubljen onaj u kojem ga doseže tek gornja granica raspona. Termin pisan
-      <span class="prog-slabija">svjetlije</span> je onaj na kojem prognoza ne pobjeđuje pretpostavku da
-      se ništa neće promijeniti — ondje je bolje vjerovati zadnjem mjerenju. Veliki dravski val od trećeg
-      dana prognoza podcjenjuje, jer nastaje iz kiše i dotoka iz Slovenije koje još nijedna naša postaja ne vidi — ondje vrijedi
-      pratiti obrub.</dd>
+    <dd><sup class="prog-oznaka">s</sup> je satni lanac, <sup class="prog-oznaka">d</sup> dnevni model,
+      <sup class="prog-oznaka">ds</sup> oba zajedno,
+      a <sup class="prog-oznaka">p</sup> vrijednost iz susjednih postaja.
+      <sup class="prog-oznaka prog-oznaka-satna">s</sup> u drugoj boji znači da dnevnog modela u tom izdanju
+      nema; dani do kojih satni lanac ne seže tada ostaju prazni.</dd>
+
+    <dt>Raspon</dt>
+    <dd>Voda ostaje u rasponu u {{.Udio}} % slučajeva, a u {{sub 100 .Udio}} % izađe iz njega, podjednako
+      iznad i ispod. Za odluku gledajte gornju granicu, ne samo sredinu.</dd>
+
+    <dt>Boje</dt>
+    <dd>Termin u boji faze obrane doseže prag, a obrubljen ga doseže tek gornjom granicom raspona. Termin
+      pisan <span class="prog-slabija">svjetlije</span> nije bolji od zadnjeg mjerenja, pa ondje vjerujte
+      mjerenju. Veliki dravski val od trećeg dana prognoza podcjenjuje; ondje pratite obrub.</dd>
+
+    <dt>Tuđe prognoze</dt>
+    <dd>Sitno ispod naše vrijednosti stoje <span class="prog-tuda-hu">HU</span> mađarska,
+      <span class="prog-tuda-rs">RS</span> srpska i <span class="prog-tuda-at">AT</span> austrijska prognoza
+      za isti termin. U naš račun ne ulaze.</dd>
   </dl>
-  <p class="reg-card-sub"><a href="/prognoze/o-prognozi">Detaljan opis modela i računa, s ulazima svake postaje →</a></p>
+  <p class="reg-card-sub"><a href="/prognoze/o-prognozi">Kako se prognoza računa, s ulazima svake postaje →</a></p>
 </section>
 
 

@@ -165,7 +165,7 @@ func TestIzvozGrafovaIGodisnjih(t *testing.T) {
 	for _, want := range []string{">GODIŠNJI VODOSTAJI — Dunav<", `s="25"><v>772</v>`, `s="26"><v>-160</v>`, `s="15"><v>-2</v>`,
 		`s="16"><v>797</v>`, ">2026<", ">2013<", ">Karakteristične vrijednosti 1991.–2020. (standardno razdoblje)<",
 		">Karakteristične vrijednosti cijelog izmjerenog niza<", ">SV · SNV · SVV<", ">NNV · VVV<", `s="28"><v>275</v>`,
-		`s="28"><v>19</v>`, ">1 g.<", ">2026.<", "SVV srednji visoki"} {
+		`s="28"><v>19</v>`, ">1 g.<", ">2026.<", "SVV (srednji visoki)"} {
 		if !strings.Contains(god, want) {
 			t.Errorf("godišnji list nema %s", want)
 		}
@@ -178,7 +178,7 @@ func TestIzvozGrafovaIGodisnjih(t *testing.T) {
 	}
 	q := d["xl/worksheets/sheet4.xml"]
 	for _, want := range []string{">GODIŠNJI PROTOCI — Dunav<", ">Qsr<", ">NQ<", ">VQ<", ">Qsr · SNQ · SVQ<",
-		">NNQ · VVQ<", "<v>5.3</v>", "<v>88.5</v>", "VVQ najveći"} {
+		">NNQ · VVQ<", "<v>5.3</v>", "<v>88.5</v>", "VVQ i NNQ su najveći"} {
 		if !strings.Contains(q, want) {
 			t.Errorf("list protoka nema %s", want)
 		}

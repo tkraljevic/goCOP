@@ -231,21 +231,16 @@ func listPrognoze(k *xlsxw.Knjiga, z ZaglavljeIzvoza, data PrognozePageData, t T
 		izdaje = z.Centar
 	}
 	napomena := upozorenjaIzvoza(data, letve) + "Prognoza " + izdaje + ". " +
-		"Metoda: prvih dana (skriveni redak „model”: satni) hidrološki lanac vodomjernih postaja — vodostaj, odnosno protok " +
-		"nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme propagacije vala i po dijelovima linearnu vezu " +
-		"ovisnu o vodnosti, ispravljeno prema zadnjem mjerenju; dalje (dnevni) statistički model na dnevnim vodostajima " +
-		"od 1901. — višestruka regresija i metoda analognih situacija. Na Batini, Aljmašu, Vukovaru i Iloku do 96. " +
-		"sata oboje zajedno (satni i dnevni), otprilike pola-pola, jer je tako izmjereno točnije. Vodostaj i protok međusobno su preračunati " +
-		"krivuljom protoka postaje. Vrh lanca na Muri je slovenska Gornja Radgona, a na Dunavu Wildungsmauer, koji " +
-		"drži zadnje mjerenje. Tuđe prognoze u račun ne ulaze.\n" +
-		fmt.Sprintf("Raspon obuhvaća %d %% pogrešaka prognoze, izmjerenih puštanjem prognoze unatrag kroz arhivu (satni "+
-			"lanac), odnosno %s standardna odstupanja analognih situacija (dnevni model): stvarna vrijednost ostaje "+
-			"u rasponu u %d %% slučajeva, a u %d %% izlazi iz njega, podjednako iznad i ispod. Zapisan je kao ± kad je "+
-			"simetričan, a granicama kad ga preračun krivuljom protoka učini nesimetričnim.\n",
-			data.Udio, brojHRf(prognoza.DnevniRasponMnozitelj, 2), data.Udio, 100-data.Udio) +
-		"HU — prognoza mađarske hidrološke službe (hydroinfo.hu), uz našu radi usporedbe; njihov raspon " +
-		"obuhvaća isti udio (70 %), pa dva raspona znače isto. Potpun opis modela i računa, " +
-		"s ulazima svake postaje, na listu „O prognozi”." + napomenaSusjeda(letve)
+		"Prvih dana računa satni lanac: vodostaj nizvodne postaje izvodi se iz uzvodnih, uz izmjereno vrijeme " +
+		"putovanja vala, i ispravlja prema zadnjem mjerenju. Dalje računa dnevni model (regresija i metoda " +
+		"analognih situacija), naučen na dnevnim vodostajima od 1901. Na Batini, Aljmašu, Vukovaru i Iloku do 96. sata rade oba, " +
+		"otprilike pola-pola. Koji je radio, kaže skriveni redak „model”. Tuđe prognoze u račun ne ulaze.\n" +
+		fmt.Sprintf("Voda ostaje u rasponu u %d %% slučajeva, a u %d %% izađe iz njega, podjednako iznad i ispod. "+
+			"Raspon satnog lanca izmjeren je puštanjem prognoze unatrag kroz arhivu, a kod dnevnog modela je "+
+			"±%s standardna odstupanja sličnih situacija. Kad ga krivulja protoka učini nesimetričnim, zapisan je "+
+			"granicama.\n", data.Udio, 100-data.Udio, brojHRf(prognoza.DnevniRasponMnozitelj, 2)) +
+		"HU je prognoza mađarske službe (hydroinfo.hu), radi usporedbe; njihov raspon obuhvaća isti udio (70 %). " +
+		"Cijeli opis je na listu „O prognozi”." + napomenaSusjeda(letve)
 	var sirina float64
 	for _, w := range l.Sirine {
 		sirina += w
@@ -463,16 +458,17 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	// točnost, ograničenja i izvori. Potpun opis (građa lanca, dnevni model,
 	// provjere, promjene) ostaje na stranici „O prognozi" u aplikaciji.
 	preko(T("Kako čitati tablicu", xlsxw.Podnaslov), 22)
-	tekst("Svaki list je jedna voda, letve od uzvodne prema nizvodnoj. U zaglavlju stoje država (RH, HU, RS), " +
-		"voda gdje nije ista kao naslov lista i riječni kilometar.")
-	tekst(fmt.Sprintf("Redak „Sada” je zadnje mjerenje; +6 h i +12 h računaju se od izdanja, a dani vrijede za 07 h. "+
-		"Vodostaj je u cm na nuli letve, protok (kurzivom) u m³/s iz krivulje protoka. Raspon uz vrijednost obuhvaća "+
-		"%d %% slučajeva. Skriveni redak „model” (otkriva se gumbom „+” uz rub) kaže iz čega je dan: satni, dnevni, satni i dnevni zajedno ili iz susjeda. HU i RS su prognoze mađarske "+
-		"i srpske službe za isti termin, radi usporedbe; srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) nose našu prognozu prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
-	tekst("List „Grafovi”: zadnja tri dana izmjereno i šest dana prognoze s rasponom. P, R i I su pragovi pripremnog " +
-		"stanja, redovne i izvanredne obrane, IS izvanredno stanje, MAX najviši izmjereni vodostaj; u naslovu grafa stoje " +
-		"uvijek, a crtaju se kad su blizu vode. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj po " +
-		"godinama iz arhive, s označenim rekordima.")
+	tekst("Svaki list je jedna voda, letve idu niz tok. U zaglavlju su država, riječni kilometar i voda, " +
+		"kad nije ista kao naslov lista.")
+	tekst(fmt.Sprintf("Redak „Sada” je zadnje mjerenje. +6 h i +12 h računaju se od izdanja, a dani vrijede za 7 h. "+
+		"Vodostaj je u cm na nuli letve, a protok (kurzivom) u m³/s iz krivulje protoka. Voda ostaje u rasponu u "+
+		"%d %% slučajeva. Skriveni redak „model” (gumb „+” uz rub) kaže koji je model dao dan. HU i RS su mađarska "+
+		"i srpska prognoza za isti termin, radi usporedbe. Srpske letve (Bezdan, Apatin, Bogojevo, Bačka Palanka) "+
+		"nose našu prognozu, prenesenu s naših letvi, a srpska stoji ispod nje.", int(math.Round(prognoza.UdioURasponu*100))))
+	tekst("List „Grafovi”: tri dana mjerenja i šest dana prognoze s rasponom. P, R, I i IS su pripremno stanje, " +
+		"redovna i izvanredna obrana i izvanredno stanje, a MAX najviši izmjereni vodostaj. Pišu u naslovu grafa, a " +
+		"crtaju se kad im se voda približi. List „Godišnji vodostaji”: srednji, najniži i najviši vodostaj svake " +
+		"godine, s označenim rekordima.")
 	odjeljci := map[string]bool{"Ukratko o metodi": true, "Raspon i vjerojatnost": true, "Ograničenja": true}
 	for _, o := range m.Odjeljci {
 		if !odjeljci[o.Naslov] {
@@ -524,11 +520,10 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 
 	if v := m.Valovi; v != nil {
 		preko(T("Provjera na poplavnim valovima", xlsxw.Podnaslov), 22)
-		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Pogreška najavljenog vrha "+
-			"(srednja apsolutna, cm) i pristranost (negativno = prognoza preniska); postojanost = pretpostavka da se "+
-			"ništa ne mijenja. U provjeri nema ispravka pomaka. Dunavske valove "+
-			"do 2013. model precjenjuje desetak centimetara jer uči na koritu kakvo je od 2014.: Baja je 2002.–2004. "+
-			"prema Paksu stajala 20–30 cm niže nego danas.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
+		uvod := fmt.Sprintf("%d %s iz arhive, svaki provjeren modelom koji ga nije vidio. Uz doseg stoje prosječni "+
+			"promašaj najavljenog vrha u cm i pristranost (minus znači preniska prognoza). Postojanost je pretpostavka "+
+			"da se ništa ne mijenja. U provjeri nema ispravka pomaka. Dunavske valove do 2013. model precjenjuje "+
+			"desetak centimetara, jer je naučen na vodostajima od 2014.", v.Valova, models.UzBrojHR(v.Valova, "val", "vala", "valova"))
 		preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 		// Svaka skupina dobiva svoj naslov preko cijele širine (rijeka, model,
 		// broj valova), a ispod nje samo doseg i pogreške: u uskom prvom
@@ -559,7 +554,7 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	}
 
 	preko(T("Izvori podataka", xlsxw.Podnaslov), 22)
-	tekst("Mjerenja s mjernih sustava Hrvatskih voda i sa stranica hidroloških službi susjednih država: " +
+	tekst("Mjerenja su s mjernih sustava Hrvatskih voda i sa stranica hidroloških službi susjednih država: " +
 		"ARSO (Slovenija), vizugy.hu i hydroinfo.hu (Mađarska), hidmet.gov.rs (Srbija), SHMÚ (Slovačka), eHYD, " +
 		"viadonau i noel.gv.at (Austrija), GKD i Pegelonline (Njemačka). Povijest stranih postaja dopunjena je iz " +
 		"ICPDR-ova sustava DanubeHIS (licenca CC BY-NC-SA 4.0: izvedeni podaci samo za nekomercijalnu uporabu, uz " +
@@ -578,12 +573,11 @@ func listMetode(k *xlsxw.Knjiga, z ZaglavljeIzvoza, m PrognozeMetodaData) {
 	for i, d := range m.RasponDo {
 		dosezi[i] = tekstBroja(d)
 	}
-	uvod := "Kod satnog lanca uz ulaz stoji veličina, kašnjenje (raspon po pojasima vodnosti kod glavnog " +
-		"ulaza) i prozor glačanja; R je koeficijent korelacije računa s mjerenjima, a raspon polovina širine " +
-		"raspona na " + strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model. " +
-		"„Dnevni od” je dan prijelaza na Dravi pri visokoj vodi; pri niskoj i srednjoj dnevni model ondje daje " +
-		"vrijednost od 1. ili 2. dana. Na Batini, Aljmašu, Vukovaru i Iloku prijelaza nema: do 96. sata rade satni " +
-		"lanac i dnevni model zajedno, a dalje dnevni model."
+	uvod := "Uz ulaz satnog lanca stoje veličina, kašnjenje i prozor glačanja. Kašnjenje glavnog ulaza ide od " +
+		"male do velike vode. R je koeficijent korelacije računa s mjerenjima, a raspon pola širine raspona na " +
+		strings.Join(dosezi, " / ") + " h. Postaje bez satnog lanca imaju samo dnevni model. „Dnevni od” je dan " +
+		"od kojeg na Dravi pri visokoj vodi računa dnevni model; pri niskoj i srednjoj to je 1. ili 2. dan. Na " +
+		"Batini, Aljmašu, Vukovaru i Iloku do 96. sata rade oba modela zajedno, a dalje dnevni."
 	preko(T(uvod, xlsxw.Tekst), visinaTeksta(uvod, int(sirina*1.1), 15, 0))
 	r := l.Redak()
 	l.Dodaj(T("Postaja", xlsxw.Zaglavlje), T("Satni lanac — ulazi", xlsxw.Zaglavlje), T("R", xlsxw.Zaglavlje),

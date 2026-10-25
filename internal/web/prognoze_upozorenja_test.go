@@ -161,10 +161,10 @@ func TestTekstSvihVrsta(t *testing.T) {
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "cetvrta", Opis: "nema ulaza za nijedan sat unaprijed"},
 			"Četvrti Most: nema prognoze (nema ulaza za nijedan sat unaprijed).", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaCeka, Tezina: prognoza.TezinaNapomena, Letva: "gornja", Zadnje: satUTC(8, 3)},
-			"Gornji Brod: zadnje mjerenje 8. 10. u 5 h; čeka se, pa sat izdanja stoji iza najsvježijih očitanja ostalih letvi.", ""},
+			"Gornji Brod: zadnje mjerenje je od 8. 10. u 5 h. Prognoza ga čeka, pa je izdana za raniji sat nego što ostale letve već imaju.", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaKrivulja, Tezina: prognoza.TezinaNapomena, Upitno: []prognoza.Upitno{
 			{Letva: "donja", Velicina: "protok", OdSata: 0}, {Letva: "treca", Velicina: "protok", OdSata: 12}, {Letva: "cetvrta", Velicina: "vodostaj"}}},
-			"Izvan krivulje protoka (krivulja produljena preko svog ruba): vodostaj Četvrti Most; protok Donji Grad i Treće Selo od +12 h.", ""},
+			"Izvan krivulje protoka (krivulja je produžena preko ruba): vodostaj Četvrti Most; protok Donji Grad i Treće Selo od +12 h.", ""},
 		{prognoza.Upozorenje{Vrsta: "buduca", Tezina: prognoza.TezinaNapomena, Opis: "nešto novo na srednja"},
 			"Nešto novo na Srednji Brod.", ""},
 		{prognoza.Upozorenje{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "srednja", Zadnje: satUTC(21, 15),
@@ -251,14 +251,14 @@ func TestZastarjeloIzdanje(t *testing.T) {
 		t.Errorf("dva sata: %q", s)
 	}
 	if s, want := zastarjelo(izdano, izdano.Add(5*time.Hour+20*time.Minute)),
-		"Zadnja prognoza izdana je za 8. 10. u 21 h — prije 5 h; novije izdanje nije stiglo ni izračunato. Upitno: sve vrijednosti."; s != want {
+		"Zadnja prognoza je za 8. 10. u 21 h, prije 5 h. Novija nije stigla ni izračunata, pa su sve vrijednosti upitne."; s != want {
 		t.Errorf("%q\nželim\n%q", s, want)
 	}
 }
 
 // Izdavač koji upozorenja ne zapisuje: napomena samo uz izdanje drugog čvora.
 func TestIzdavacBezZapisa(t *testing.T) {
-	if n := bezZapisa(false, "cvor-izdavac"); len(n) != 1 || !strings.Contains(n[0].Sto, "ne zapisuje upozorenja") {
+	if n := bezZapisa(false, "cvor-izdavac"); len(n) != 1 || !strings.Contains(n[0].Sto, "ne šalje upozorenja") {
 		t.Errorf("stari izdavač: %+v", n)
 	}
 	if n := bezZapisa(true, "cvor-izdavac"); n != nil {
@@ -397,7 +397,7 @@ func TestPrimateljStarijegIzdavaca(t *testing.T) {
 	defer c.Close()
 	data := PrognozePageData{IzdaoCvor: c.Izdavac()}
 	upozorenjaStranice(&data, c, time.Unix(izdano*3600, 0), time.Unix(izdano*3600, 0), nil)
-	if len(data.Upozorenja) != 0 || len(data.Napomene) != 1 || !strings.Contains(data.Napomene[0].Sto, "ne zapisuje upozorenja") {
+	if len(data.Upozorenja) != 0 || len(data.Napomene) != 1 || !strings.Contains(data.Napomene[0].Sto, "ne šalje upozorenja") {
 		t.Errorf("upozorenja %+v, napomene %+v", data.Upozorenja, data.Napomene)
 	}
 }
@@ -668,7 +668,7 @@ func TestKarticaNepovezaneLetve(t *testing.T) {
 	}
 	got := h.opisiLetve(popis, []PregledLetve{{Letva: "rukavac", Racuna: "vodostaj", Ulazi: []string{"gornja"},
 		Nepovezana: true, PragPovezanosti: 123}})
-	want := "Rukavac trenutno nije povezan sa živom vodom (Gornji Brod ispod 123 cm), pa se ne može ni prognozirati."
+	want := "Rukavac sad nije spojen sa živom vodom (Gornji Brod ispod 123 cm), pa prognoze nema."
 	if len(got) != 1 || got[0].Nepovezana != want {
 		t.Errorf("kartica %+v\nželim %q", got, want)
 	}

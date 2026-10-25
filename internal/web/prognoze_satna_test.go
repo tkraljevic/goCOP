@@ -150,8 +150,8 @@ func TestStranicaPrognozaSatnaUmjestoDnevne(t *testing.T) {
 		Tablice: []TablicaPrognoza{{Naslov: "Rijeka", Letve: []LetvaPrognoze{{Kod: "donja", Naziv: "Donja", Racuna: "vodostaj", ImaTermina: true,
 			Dani: []CelijaDana{{Naslov: "pet 9.10.", Cm: "101", IzSatne: true}, {Naslov: "uto 13.10.", BezDnevne: true}}}}}},
 	})
-	for _, want := range []string{"prog-oznaka-satna", "dnevni model za ovo izdanje nije računao", ">s</sup>",
-		"Dnevne prognoze za ovo izdanje nema, a satna seže do 96 h"} {
+	for _, want := range []string{"prog-oznaka-satna", "dnevni model u ovom izdanju nije računao", ">s</sup>",
+		"Dnevne prognoze u ovom izdanju nema; satna ide do 96 h"} {
 		if !strings.Contains(html, want) {
 			t.Errorf("stranica nema %q", want)
 		}

@@ -256,7 +256,7 @@ func (c CelijaDana) Oznaka() OznakaModela {
 	case c.IzSusjeda:
 		return oznakaSusjeda
 	case c.IzSatne:
-		return OznakaModela{Tekst: "s", Naslov: "satna prognoza — dnevni model za ovo izdanje nije računao", Upozorenje: true}
+		return OznakaModela{Tekst: "s", Naslov: "satna prognoza: dnevni model u ovom izdanju nije računao", Upozorenje: true}
 	}
 	return oznakaSatnog
 }
@@ -265,7 +265,7 @@ var (
 	oznakaSatnog      = OznakaModela{Tekst: "s", Naslov: "iz satnog lanca"}
 	oznakaDnevnog     = OznakaModela{Tekst: "d", Naslov: "iz dnevnog modela"}
 	oznakaKombinacije = OznakaModela{Tekst: "ds", Naslov: "satni lanac i dnevni model zajedno"}
-	oznakaSusjeda     = OznakaModela{Tekst: "p", Naslov: "iz susjednih postaja s dnevnim modelom, po riječnom kilometru; raspon procijenjen iz susjeda"}
+	oznakaSusjeda     = OznakaModela{Tekst: "p", Naslov: "iz susjednih postaja s dnevnim modelom; raspon je procijenjen iz susjeda"}
 )
 
 // Model kaže koji je model dao vrijednost dana, za skriveni redak izvoza.
@@ -608,8 +608,8 @@ func (h *PrognozeHandler) podaci(r *http.Request, nacin string) PrognozePageData
 		h.mjerenoUnatrag(r.Context(), postaje, letve, izdano), h.usca(r.Context(), postaje, letve),
 		h.uobicajeno(r.Context(), postaje, naProfilu), h.mjesecno(r.Context(), postaje, naProfilu, jutro.Dan), jutro)
 	if len(data.Profili) == 0 {
-		data.BezProfila = "Za uzdužni profil treba barem dvije letve s poznatom " +
-			"stacionažom, kotom nule, jutarnjim očitanjem i nizom u arhivi."
+		data.BezProfila = "Uzdužnog profila nema: treba barem dvije letve sa stacionažom, " +
+			"kotom nule, jutarnjim očitanjem i nizom u arhivi."
 	}
 	return data
 }
@@ -721,7 +721,7 @@ func (h *PrognozeHandler) opisiLetve(popis map[string]models.Station, letve []Pr
 			if st, ima := popis[l.Letva]; ima {
 				naziv = st.Name
 			}
-			red.Nepovezana = fmt.Sprintf("%s trenutno nije povezan sa živom vodom (%s ispod %s cm), pa se ne može ni prognozirati.",
+			red.Nepovezana = fmt.Sprintf("%s sad nije spojen sa živom vodom (%s ispod %s cm), pa prognoze nema.",
 				naziv, ulaz, brojHRf(l.PragPovezanosti, 0))
 		}
 		if st, ima := popis[l.Letva]; ima {
@@ -1223,7 +1223,7 @@ func opisRezerve(opis string, postaje map[string]models.Station) string {
 	case strings.HasPrefix(opis, "bez svježeg ulaza"):
 		return imena(opis) + "."
 	}
-	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je iz namještanja, ne iz provjere unatrag."
+	return "Računa se iz rezerve: " + imena(strings.TrimPrefix(opis, "rezerva: ")) + ". Raspon je procjena, nije provjeren unatrag."
 }
 
 // PocetakProfila je letva od koje kreće uzdužni profil vode; letve uzvodno

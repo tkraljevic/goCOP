@@ -431,11 +431,11 @@ func (k Krajnost) Naslov() string {
 	}
 	switch {
 	case k.Prema != "":
-		return fmt.Sprintf("%s izmjereni vodostaj na letvi %s (%d.), prenesen razlikom kota nule: ova letva nema vlastiti dugi niz u arhivi, a %s je na istoj vodi", vrsta, k.Prema, k.Godina, k.Prema)
+		return fmt.Sprintf("%s izmjereni vodostaj na letvi %s (%d.), prenesen razlikom kota nule, jer ova letva nema dugi niz u arhivi", vrsta, k.Prema, k.Godina)
 	case k.Od != "":
-		return fmt.Sprintf("%s očitani vodostaj u evidenciji (%d.); letva nema dugi niz u arhivi, evidencija ide od %s", vrsta, k.Godina, k.Od)
+		return fmt.Sprintf("%s očitani vodostaj u evidenciji (%d.); letva nema dugi niz u arhivi, a evidencija ide od %s", vrsta, k.Godina, k.Od)
 	case k.IzEvidencije:
-		return fmt.Sprintf("%s izmjereni vodostaj (%d.), iz evidencije očitanja — noviji od arhive", vrsta, k.Godina)
+		return fmt.Sprintf("%s izmjereni vodostaj (%d.), iz evidencije očitanja, noviji od arhive", vrsta, k.Godina)
 	}
 	return fmt.Sprintf("%s izmjereni vodostaj (%d.), iz arhive", vrsta, k.Godina)
 }
@@ -622,10 +622,9 @@ var godisnjiVodostajiVrsta = vrstaGodisnjih{
 	list: "Vodostaji", naslov: "GODIŠNJI VODOSTAJI", jedinica: "cm",
 	sr: "sr", min: "min", max: "max",
 	srednje: [3]string{"SV", "SNV", "SVV"}, krajnje: [3]string{"", "NNV", "VVV"},
-	tumac: "Karakteristični vodostaji razdoblja: VVV najviši i NNV najniži izmjereni vodostaj (apsolutni, s godinom); " +
-		"SVV srednji visoki — prosjek godišnjih maksimuma, dakle uobičajeni godišnji val; SNV srednji niski — " +
-		"prosjek godišnjih minimuma; SV srednji vodostaj — prosjek godišnjih srednjaka. SV, SNV i SVV računaju se " +
-		"iz punih godina, VVV i NNV iz svih izmjerenih.",
+	tumac: "VVV i NNV su najviši i najniži izmjereni vodostaj razdoblja, s godinom. SVV (srednji visoki) je " +
+		"prosjek godišnjih maksimuma, dakle uobičajeni godišnji val, SNV (srednji niski) prosjek godišnjih " +
+		"minimuma, a SV prosjek godišnjih srednjaka. SV, SNV i SVV računaju se iz punih godina, VVV i NNV iz svih.",
 	decimale: func(float64) int { return 0 },
 }
 
@@ -642,10 +641,10 @@ var godisnjiProtociVrsta = vrstaGodisnjih{
 	list: "Protoci", naslov: "GODIŠNJI PROTOCI", jedinica: "m³/s",
 	sr: "Qsr", min: "NQ", max: "VQ",
 	srednje: [3]string{"Qsr", "SNQ", "SVQ"}, krajnje: [3]string{"", "NNQ", "VVQ"},
-	tumac: "Po godinama: Qsr srednji, NQ najmanji i VQ najveći protok godine. Karakteristični protoci razdoblja: " +
-		"VVQ najveći i NNQ najmanji zabilježeni protok (apsolutni, s godinom); SVQ srednji veliki — prosjek " +
-		"godišnjih VQ; SNQ srednji mali — prosjek godišnjih NQ; Qsr srednji protok — prosjek godišnjih srednjaka. " +
-		"Protok je iz krivulje protoka postaje, koja se mijenja kroz godine.",
+	tumac: "Qsr, NQ i VQ su srednji, najmanji i najveći protok godine. VVQ i NNQ su najveći i najmanji " +
+		"zabilježeni protok razdoblja, s godinom. SVQ (srednji veliki) je prosjek godišnjih VQ, SNQ (srednji mali) " +
+		"prosjek godišnjih NQ, a Qsr razdoblja prosjek godišnjih srednjaka. Protok je iz krivulje protoka, koja " +
+		"se kroz godine mijenja.",
 	decimale: decimaleProtoka,
 }
 
@@ -869,12 +868,12 @@ func listGodisnjih(k *xlsxw.Knjiga, z ZaglavljeIzvoza, skupina string, letve []l
 		l.Dodaj(red...)
 	}
 	l.Dodaj()
-	napomena := "Srednja vrijednost godine je srednjak dnevnih vrijednosti. Najniža i najviša uzimaju se iz satnih " +
-		"vrijednosti gdje ih ima, a u starijim godinama iz dnevnih (jutarnje očitanje ili srednjak dana), pa je " +
-		"ondje pravi vrh vala mogao biti viši od upisanog. Kurzivom su godine koje nisu izmjerene na letvi nego " +
-		"preračunate sa susjedne (Batina do 1960. iz Mohácsa, 22 km); one ne ulaze u karakteristične vrijednosti ni u " +
-		"rekorde. Plavkastom podlogom su godine preračunate s letve na istom mjestu (Batina 1960.–2000. iz Bezdana, " +
-		"740 m na drugoj obali, ±5 cm, podaci RHMZ-a Srbije); one se broje kao izmjerene. Razdoblje 1991.–2020. je standardno tridesetogodišnje razdoblje WMO-a; na Dunavu i Dravi korito " +
-		"se kroz desetljeća mijenja, pa vodostaji cijelog niza nisu posve usporedivi s današnjima. Godina je kalendarska."
+	napomena := "Srednja vrijednost godine je srednjak dnevnih. Najniža i najviša su iz satnih vrijednosti gdje ih " +
+		"ima, a u starijim godinama iz dnevnih, pa je pravi vrh vala ondje mogao biti viši. Kurzivom su godine " +
+		"preračunate sa susjedne letve (Batina do 1960. iz Mohácsa, 22 km); one ne ulaze u karakteristične " +
+		"vrijednosti ni u rekorde. Plavkasto su godine preračunate s letve na istom mjestu (Batina 1960.–2000. iz " +
+		"Bezdana, 740 m na drugoj obali, ±5 cm, podaci RHMZ-a Srbije); one se broje kao izmjerene. 1991.–2020. je " +
+		"standardno razdoblje WMO-a. Korito se kroz desetljeća mijenja, pa stari vodostaji nisu posve usporedivi s " +
+		"današnjima. Godina je kalendarska."
 	napomenaLista(l, napomena, stupaca, visinaTeksta(napomena, int(sirinaGod*1.2), 30, 0))
 }

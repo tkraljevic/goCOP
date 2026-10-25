@@ -146,7 +146,7 @@ func TestIzvozRanijegIzdanja(t *testing.T) {
 			t.Errorf("u izvozu ranijeg izdanja nema %q", want)
 		}
 	}
-	for _, nema := range []string{">506<", ">777<", ">333<", "nije izdana;", "Zadnja prognoza izdana je"} {
+	for _, nema := range []string{">506<", ">777<", ">333<", "nije izdana;", "Zadnja prognoza je za"} {
 		if strings.Contains(staro, nema) {
 			t.Errorf("u izvozu ranijeg izdanja je %q", nema)
 		}
@@ -192,7 +192,7 @@ func TestIzvozRanijegBezIzdanjaUSatu(t *testing.T) {
 			t.Errorf("u izvozu nema %q", want)
 		}
 	}
-	for _, nema := range []string{">506<", "Zadnja prognoza izdana je", "Upitno: sve vrijednosti"} {
+	for _, nema := range []string{">506<", "Zadnja prognoza je za", "sve vrijednosti upitne"} {
 		if strings.Contains(txt, nema) {
 			t.Errorf("u izvozu je %q", nema)
 		}

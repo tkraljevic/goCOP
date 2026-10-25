@@ -148,7 +148,7 @@ func TestStranicaPrognozaPokazujeIzdanjeIRaspon(t *testing.T) {
 	})
 	for _, want := range []string{"Belišće", "Drava", "23.9.2026. u 07:00", "68 %",
 		"49 do 65", "245", "240 do 251", "-86 do -38", "prog-slabija", "čet 24.9.",
-		"HU 60 ±9", "prog-tuda-rs", "RS 58", "Metoda", "metoda analognih situacija", "u 32 % izlazi", "301 m³/s", "prog-kartica", "dan-prep", "dan-moguce-regular", "prog-oznaka", "Drava i Mura",
+		"HU 60 ±9", "prog-tuda-rs", "RS 58", "Oznake", "Kako se prognoza računa", "u 32 % izađe", "301 m³/s", "prog-kartica", "dan-prep", "dan-moguce-regular", "prog-oznaka", "Drava i Mura",
 		"/readings/station/x",
 		"računa se u vodostaju"} {
 		if !strings.Contains(html, want) {
@@ -251,10 +251,10 @@ func TestStranicaPrognozaNepovezanaLetva(t *testing.T) {
 		ActiveNav: "prognoze", Izdano: "24.9.2026. u 21:00", Udio: 70,
 		Tablice: []TablicaPrognoza{{Naslov: "Dunav", Letve: []LetvaPrognoze{{
 			Kod: "tikves", Naziv: "Tikveš", Voda: "Dunav", Racuna: "vodostaj", SadaCm: "41",
-			Nepovezana: "Tikveš trenutno nije povezan sa živom vodom (Batina ispod 123 cm), pa se ne može ni prognozirati.",
+			Nepovezana: "Tikveš sad nije spojen sa živom vodom (Batina ispod 123 cm), pa prognoze nema.",
 		}}}},
 	})
-	if !strings.Contains(html, "nije povezan sa živom vodom (Batina ispod 123 cm)") || !strings.Contains(html, "prog-nepovezana") {
+	if !strings.Contains(html, "nije spojen sa živom vodom (Batina ispod 123 cm)") || !strings.Contains(html, "prog-nepovezana") {
 		t.Error("kartica nepovezane letve nema poruku")
 	}
 }
