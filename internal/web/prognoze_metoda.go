@@ -458,6 +458,11 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"više; ispod crteža piše koje su izostavljene i zašto. Uobičajena voda zadnjih deset godina "+
 				"(medijan, crtkano) i srednji vodostaj (SV, točkasto) crtaju se kad su blizu vode. Pad vodnog lica "+
 				"računa se u Trstu; mađarske kote preračunate su dodavanjem 0,675 m."),
+			tekstM("Letve stoje redom niz tok, ali razmak nije u mjerilu, da gusto posađene letve dobiju mjesta za "+
+				"natpis. Iznad letve piše jutarnji vodostaj, a boja točke je faza obrane. Prije 7 h stoji zadnje "+
+				"očitanje od 4 h. Peti i šesti dan daje dnevni model; letva bez njega uzima te dane od susjeda, a "+
+				"gdje nema ni toga, crta prestaje. Pragovi obrane ucrtaju se kad im se voda približi, a klik na "+
+				"doseg u legendi pokaže njegov raspon."),
 			tekstM("Profil Dunava kreće od Komároma. Nagybajcs i Wildungsmauer imaju samo satni lanac, koji vrh drži "+
 				"na zadnjem mjerenju, pa bi na profilu Komárom rastao sam; u tablici prognoza i dalje stoje."),
 		),

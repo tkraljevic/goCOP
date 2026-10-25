@@ -579,13 +579,13 @@ func (h *PrognozeHandler) listSazetka(ctx context.Context, k *xlsxw.Knjiga, z Za
 		for _, red := range usporedba {
 			l.Dodaj(red...)
 		}
-		odlomak("HU je mađarska prognoza (hydroinfo.hu) za isti termin. Razlika je naša manje mađarska, u cm; 10 cm ili više istaknuto je bojom. Mađarska prognoza izlazi jednom dnevno, pa zna biti starija od naše.", xlsxw.Napomena)
+		odlomak("HU je mađarska prognoza (hydroinfo.hu) za isti termin. Razlika je naša minus mađarska, u cm; od 10 cm naviše istaknuta je bojom. Mađarska izlazi jednom dnevno, pa zna biti starija od naše.", xlsxw.Napomena)
 	}
 
 	l.Dodaj()
-	odlomak("Vrijednosti su prognoza i nose nesigurnost; raspon, satne vrijednosti, grafovi, godišnji vodostaji i opis metode su na sljedećim listovima. "+
-		"Najniži i najviši zabilježeni vodostaj su iz arhive i evidencije očitanja (dnevni srednjaci). "+
-		"Protok je procjena iz krivulje protoka postaje (sivo); gdje krivulje nema, stupac je prazan.", xlsxw.Napomena)
+	odlomak("Raspon, satne vrijednosti, grafovi, godišnji vodostaji i opis metode su na sljedećim listovima. "+
+		"Najniži i najviši zabilježeni vodostaj su dnevni srednjaci iz arhive i evidencije očitanja. "+
+		"Protok (sivo) je procjena iz krivulje protoka; gdje krivulje nema, stupac je prazan.", xlsxw.Napomena)
 }
 
 // genitivPostaje daje genitiv imena postaje za rečenice sažetka
