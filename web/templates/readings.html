@@ -69,6 +69,10 @@
           <div class="reg-card-sub">{{.Sub}}</div>
         </div>
         {{if and .Latest .Phase.InForce}}<span class="badge {{.Phase.BadgeClass}}">{{.Phase.Label}}</span>{{end}}
+        {{with index $.Mjerila .Key}}
+        {{if .Kvar}}<span class="badge badge-warning" title="{{.Kvar}}" data-znak-kvara>{{icon "triangle-alert"}} {{if .NaDnu}}ispod dosega uređaja{{else}}kvar uređaja{{end}}</span>{{end}}
+        {{if .Skokova}}<span class="badge badge-warning" title="Broj lažnih skokova u zadnjih {{$.SkokoviDana}} dana: {{.Skokova}}." data-znak-skokova>{{icon "triangle-alert"}} česti skokovi</span>{{end}}
+        {{end}}
       </div>
       {{if .Latest}}
       <div style="display:flex; align-items:baseline; gap:0.75rem; flex-wrap:wrap; margin-top:0.35rem;">

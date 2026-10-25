@@ -80,6 +80,9 @@ type Osvjezivac struct {
 	// Pragovi su pragovi lažnog skoka po letvi (bezSkokova); nil znači
 	// skok.ZadaniPrag za svaku letvu.
 	Pragovi *skok.Pragovi
+	// Kvarovi prepoznaju kvar mjerila (bezZaglavljenih); nil znači da se
+	// ne provjerava.
+	Kvarovi PrepoznavacKvarova
 }
 
 // Ishod je što je jedno osvježavanje dalo.
@@ -88,7 +91,7 @@ type Ishod struct {
 	Vrhovi         map[Izvor]int64            // zadnji izmjereni sat svakog vrha lanca
 	Izdane         []Izdana                   // sve izračunate vrijednosti
 	Promasaji      map[Izvor]map[int]Promasaj // po letvi i veličini
-	Preskoceno     bool                       // isti sat već je izdan, ništa se nije mijenjalo
+	Preskoceno     bool                       // isti ili noviji sat već je izdan, ništa se nije mijenjalo
 	BezPrognoze    map[string]error           // letve koje nisu dale nijedan sat
 	Dnevne         []DnevnaIzdana             // dnevna prognoza za 1.–6. dan
 	OperaterVrhovi []string                   // vrhovi kojima je budućnost dao model ispuštanja elektrane
@@ -119,6 +122,8 @@ type Ishod struct {
 	// Skokovi su sati letvi koje filtar lažnog skoka nije pustio u
 	// prognozu (bezSkokova).
 	Skokovi []IzbaceniSkok
+	// Kvarovi su kvarovi mjerila u očitanjima izdanja (bezZaglavljenih).
+	Kvarovi []KvarMjerila
 }
 
 // KoCeka opisuje vrhove koji drže sat izdanja, npr. „kotoriba (zadnje 29.9. u
@@ -152,7 +157,7 @@ func (i *Ishod) Zaostatak(sada time.Time) time.Duration {
 // sat prognoza već izdana, ne računa ništa: ista očitanja daju istu prognozu,
 // pa bi ponovni upis bio samo trošak.
 func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
-	ctx = sBiljeznikomSkokova(uKrugu(ctx))
+	ctx = sBiljeznikomKvarova(sBiljeznikomSkokova(uKrugu(ctx)))
 	inacice, err := SveInacice(o.Baza)
 	if err != nil {
 		return nil, err
@@ -203,6 +208,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 		}
 	}
 	_, vrhovi := TrebaniIzvori(pojasi)
+	o.drziVrhoveUKvaru(ctx, nizovi, vrhovi)
 	// Vrh lanca se vodi u jednoj veličini, ali letva ima obje. Donja Dubrava
 	// nema krivulju, pa joj se vodostaj ne da izračunati — a mjeren jest, i na
 	// uzdužnom profilu treba stajati.
@@ -242,7 +248,11 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 			}
 		}
 	}
-	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje == sada && !o.Iznova {
+	// Ni za sat stariji od zadnjeg izdanja: kad vrh lanca počne kasniti
+	// (izvor zapne, ili se kraj niza prepozna kao kvar mjerila), sat izdanja
+	// padne unatrag, a staro izdanje zapisano iznova i poslano razmjenom
+	// prikazalo bi se kao zadnje.
+	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje >= sada && !o.Iznova {
 		ishod.Preskoceno = true
 		return ishod, nil
 	}
@@ -364,6 +374,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	donjiRubProtoka(ishod.Izdane)
 	ishod.NeuredneTude = upozorenjaTudih(o.Baza, sada)
 	ishod.Skokovi = skokoviIzdanja(ctx)
+	ishod.Kvarovi = kvaroviIzdanja(ctx)
 	ishod.Upozorenja = Upozori(ishod, pojasi, nizovi, vrhovi)
 	return ishod, nil
 }
@@ -935,7 +946,8 @@ type sirovoOcitanje struct {
 }
 
 // ucitajSirovo čita očitanja letve po satima, bez lažnih skokova
-// (bezSkokova).
+// (bezSkokova) i bez sati kvara mjerila koji potvrđuje susjed
+// (bezZaglavljenih).
 func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Time) (map[int64]sirovoOcitanje, error) {
 	r, err := o.Ocitanja.QueryContext(ctx, `SELECT o.measured_at, o.level_cm, o.flow_m3s, o.source = ?
 		FROM readings o JOIN stations s ON s.id = o.station_id
@@ -961,6 +973,7 @@ func (o *Osvjezivac) ucitajSirovo(ctx context.Context, letva string, od time.Tim
 		sati.dodaj(t.Unix(), s)
 	}
 	o.bezSkokova(ctx, letva, sati.vrijednosti)
+	o.bezZaglavljenih(ctx, letva, sati.vrijednosti)
 	return sati.vrijednosti, r.Err()
 }
 

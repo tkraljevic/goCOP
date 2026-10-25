@@ -20,6 +20,7 @@ import (
 	"gocop/internal/models"
 	"gocop/internal/oborine"
 	"gocop/internal/peers"
+	"gocop/internal/plato"
 	"gocop/internal/poslovi"
 	"gocop/internal/prognoza"
 	"gocop/internal/repository"
@@ -36,8 +37,9 @@ type ovisnostiPrognoze struct {
 	posluzitelj *web.Server
 	uvoznik     *javnivodostaji.Uvoznik
 	razmjenaArh *razmjenaArhive
-	ctx         context.Context // razmjena; gasi prorjeđivanje izdanja
-	pragovi     *skok.Pragovi   // pragovi lažnog skoka, isti kao pri preuzimanju
+	ctx         context.Context             // razmjena; gasi prorjeđivanje izdanja
+	pragovi     *skok.Pragovi               // pragovi lažnog skoka, isti kao pri preuzimanju
+	kvarovi     prognoza.PrepoznavacKvarova // kvar mjerila, isti kao na stranici letve; nil bez provjere
 
 	dbPath, prognozePut, arhivaPut string
 	podaci, nazivCvora             string
@@ -52,6 +54,24 @@ type ovisnostiPrognoze struct {
 func pragoviSkoka(arhivaPut string) *skok.Pragovi {
 	arhiva, _ := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut)) // upravljač postoji, pa ne pada; bez veze (nil) vrijedi zadani prag
 	return skok.NoviPragovi(arhiva)
+}
+
+// kvaroviMjerila prepoznaju kvar mjerila iz očitanja čvora i arhive, kroz
+// vlastite veze samo za čitanje. Kao pragoviSkoka: veza ne otvara datoteku
+// dok je ne zatreba, a bez arhive vrijede zadane vrijednosti.
+func kvaroviMjerila(dbPath, arhivaPut string, pragovi *skok.Pragovi) *plato.Procjenitelj {
+	ocitanja, _ := sql.Open("sqlite", db.SamoZaCitanje(dbPath))  // upravljač postoji, pa ne pada
+	arhiva, _ := sql.Open("sqlite", db.SamoZaCitanje(arhivaPut)) // isto; bez arhive zadane vrijednosti
+	return plato.Novi(ocitanja, arhiva, pragovi, prognoza.SusjediKvara())
+}
+
+// pripremiKvarove uči svojstva letvi za kvar mjerila unaprijed, u
+// pozadini; greška se samo zabilježi (stranica i prognoza ih tada uče kad
+// zatrebaju).
+func pripremiKvarove(ctx context.Context, p *plato.Procjenitelj) {
+	if err := p.Pripremi(ctx); err != nil {
+		log.Printf("Kvar mjerila: svojstva letvi nisu naučena unaprijed: %v", err)
+	}
 }
 
 // postaviCitacPrognoza daje poslužitelju bazu prognoza za čitanje. Veza je
@@ -92,7 +112,7 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		return nil
 	}
 	osvjezivac := &prognoza.Osvjezivac{Baza: pb, Ocitanja: ocitanjaRO,
-		Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora, Pragovi: o.pragovi}
+		Arhiva: arhivaRO, Najdalje: 96, Model: prognoza.ModelLanac, Cvor: nazivCvora, Pragovi: o.pragovi, Kvarovi: o.kvarovi}
 	// Izdanje putuje razmjenom: ostali čvorovi ga upišu u svoju bazu
 	// prognoza, a namješteni model ide uz njega kad se promijeni.
 	var oborineDB *sql.DB // baza oborina; kiša ide uz izdanje

@@ -59,7 +59,7 @@ func TestMjeriloKojeStojiIspadaKadSeSusjediMicu(t *testing.T) {
 	}
 	n := sloziNulu(nizovi, nulaDunava(map[string]float64{"gornja": 1425, "zapela": 1412, "zapela2": 1393, "donja": 1380}), nil)
 	for _, l := range []string{"zapela", "zapela2"} {
-		if _, ima := n.Cm[l]; ima || !strings.HasPrefix(n.Razlog[l], "mjerilo stoji na ") {
+		if _, ima := n.Cm[l]; ima || !strings.HasPrefix(n.Razlog[l], "mjerni uređaj stoji na ") {
 			t.Errorf("%s: nula %v, razlog %q", l, n.Cm[l], n.Razlog[l])
 		}
 	}

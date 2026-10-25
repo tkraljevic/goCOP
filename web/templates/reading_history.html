@@ -22,6 +22,25 @@
   {{end}}
 </div>
 
+{{with .KvarMjerila}}
+<div class="alert alert-warning" data-kvar-mjerila>
+  {{if .NaDnu}}<strong>{{icon "triangle-alert"}} Voda je vjerojatno ispod dosega mjernog uređaja.</strong> {{.Tekst}}
+  Prognoza ova očitanja uzima, jer prava razina nije viša od njih. Okvir nestane sam kad se mjerenje opet pomakne.
+  {{else}}<strong>{{icon "triangle-alert"}} Mjerni uređaj je vjerojatno u kvaru.</strong> {{.Tekst}}
+  {{if .Izbacen}}Prognoza ova očitanja ne uzima dok kvar traje.{{else}}Prognoza ih ipak uzima, jer to ne potvrđuje susjedna letva.{{end}}
+  Očitanja se ne brišu, a okvir nestane sam kad mjerni uređaj opet radi.{{end}}
+</div>
+{{end}}
+{{with .CestiSkokovi}}
+<div class="alert alert-warning" data-cesti-skokovi>
+  <strong>{{icon "triangle-alert"}} Mjerni uređaj često odskoči.</strong> Broj lažnih skokova u zadnjih {{.Dana}} dana: {{.Broj}}.
+  Skok je vrijednost koja je odskočila od prethodne više nego što ova letva stvarno skače, a iduće očitanje se vratilo;
+  takva se ne upisuje. Kad se to ponavlja, mjerni uređaj vrijedi pregledati.{{if .Skraceno}} Popis pokazuje zadnjih {{len .Popis}}.{{end}}
+  <ul style="margin:0.4rem 0 0; padding-left:1.25rem;">
+    {{range .Popis}}<li>{{formatDate (localTime .Kad)}}: {{.Opis}}{{with .Izvor}} ({{.}}){{end}}</li>{{end}}
+  </ul>
+</div>
+{{end}}
 
 {{if .Latest}}
 <section class="detail-section mt-0">
@@ -149,7 +168,7 @@
     <span class="badge badge-inactive">{{icon "triangle-alert"}} {{.Tekst}}{{with .IzvorLabel}} ({{.}}){{end}}</span>
     Vrijednosti izvan raspona ručnog upisa ne upisuju se ni s javnih stranica, telemetrije ni iz uvoza:
     uz vodostaj izvan raspona ne upisuje se cijelo očitanje, a uz temperaturu ili protok izvan raspona
-    ostale vrijednosti istog očitanja upisuju se. Ovdje se broje odbačene. S preuzimanja su obično znak da je mjerilo u kvaru, a iz uvoza starih evidencija
+    ostale vrijednosti istog očitanja upisuju se. Ovdje se broje odbačene. S preuzimanja su obično znak da je mjerni uređaj u kvaru, a iz uvoza starih evidencija
     greška u zapisu; broj se ne poništava, pa datum zadnje kaže traje li to još. Broje se i vrijednosti koje je
     odbacilo računalo koje letvu preuzima: zapis o njima putuje razmjenom kao i očitanja.
     Skok je vodostaj s javne stranice ili telemetrije koji je odskočio od prethodnog više nego što ova letva

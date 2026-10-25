@@ -453,7 +453,7 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 				"medijana satnih vodostaja mjeseca prije današnjeg jutra. Mirna voda je tako ravna crta, a val se "+
 				"vidi kao brijeg koji putuje nizvodno. Jutarnja crta (7 h) stoji cijeli dan, a crte prognoze "+
 				"pokazuju kamo val ide; klizač pomiče vrijeme i uz točku piše promjenu od jutra."),
-			tekstM("Nula se računa iz istih dana na svim letvama jednog toka. S profila ispada letva čije mjerilo "+
+			tekstM("Nula se računa iz istih dana na svim letvama jednog toka. S profila ispada letva čiji mjerni uređaj "+
 				"danima stoji dok se susjedna pomakne, i letva koja nakon prekida mjerenja nastavi bitno niže ili "+
 				"više; ispod crteža piše koje su izostavljene i zašto. Uobičajena voda zadnjih deset godina "+
 				"(medijan, crtkano) i srednji vodostaj (SV, točkasto) crtaju se kad su blizu vode. Pad vodnog lica "+

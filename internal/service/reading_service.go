@@ -51,6 +51,18 @@ func (s *ReadingService) SazetakOdbacenih(ctx context.Context, letva string) (*m
 	return s.repo.SazetakOdbacenih(ctx, letva)
 }
 
+// NedavniSkokovi su vrijednosti letve (GaugeKey) odbačene kao lažni skok
+// od trenutka od, najnovije prvo
+func (s *ReadingService) NedavniSkokovi(ctx context.Context, letva string, od time.Time) ([]models.OdbacenaVrijednost, error) {
+	return s.repo.NedavniSkokovi(ctx, letva, od)
+}
+
+// BrojNedavnihSkokova je koliko je vrijednosti svake letve odbačeno kao
+// lažni skok od trenutka od
+func (s *ReadingService) BrojNedavnihSkokova(ctx context.Context, od time.Time) (map[string]int, error) {
+	return s.repo.BrojNedavnihSkokova(ctx, od)
+}
+
 func hasAnyWriteRight(perms *models.UserPermissions) bool {
 	if perms == nil {
 		return false

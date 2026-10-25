@@ -866,6 +866,12 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// u prognozi (Odluke (25. 10. 2026.)). Bez arhive vrijedi zadani prag.
 	pragovi := pragoviSkoka(arhivaPut)
 	javniUvoznik.Prag = pragovi.Za
+	// Kvar mjerila (zaglavljen ili odskočen uređaj) prepoznaje se iz
+	// očitanja ovog čvora uz svojstva iz arhive; isto vide stranica letve i
+	// prognoza (Odluke (25. 10. 2026.)).
+	kvarovi := kvaroviMjerila(*dbPath, arhivaPut, pragovi)
+	server.SetKvaroviMjerila(kvarovi)
+	go pripremiKvarove(syncCtx, kvarovi)
 	javniUvoznik.Preuzima = func() bool { return peersService.TrenutneUloge().Preuzima }
 	javniUvoznik.Minuta = minutaPreuzimanja(cfg, log.Printf)
 	javniUvoznik.Biljeg = filepath.Join(filepath.Dir(*dbPath), biljegPreuzimanja)
@@ -879,7 +885,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	pbRazmjena = pokreniPrognozu(ovisnostiPrognoze{
 		baza: database, knjiga: recorder, mreza: peersService, cvor: node, posluzitelj: server,
 		uvoznik: javniUvoznik, razmjenaArh: razmjenaArh, ctx: syncCtx,
-		dbPath: *dbPath, prognozePut: prognozePut, arhivaPut: arhivaPut, pragovi: pragovi,
+		dbPath: *dbPath, prognozePut: prognozePut, arhivaPut: arhivaPut, pragovi: pragovi, kvarovi: kvarovi,
 		podaci: z.podaci, nazivCvora: nazivCvora,
 		ulogePostavljene: ulogePostavljene, ulogeErr: ulogeErr,
 	})

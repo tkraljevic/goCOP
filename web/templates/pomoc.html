@@ -89,6 +89,7 @@
     <a href="#ocitanja-graf">Kretanje vodostaja</a>
     <a href="#ocitanja-popis">Upis i popis očitanja</a>
     <a href="#ocitanja-raspon">Vrijednosti izvan raspona</a>
+    <a href="#ocitanja-kvar">Kvar mjernog uređaja</a>
     <a href="#ocitanja-skupno">Unos više odjednom</a>
     <a href="#ocitanja-ispravak">Provjera i ispravak u tablici</a>
   </div>
@@ -644,7 +645,7 @@
       ili protoka preuzimanje i uvoz poslije ne dopunjuju, kao ni svako drugo koje letva već ima. Na stranici letve tada piše koliko je
       vrijednosti odbačeno i koja zadnja, npr.
       <em>Odbačeno izvan raspona: 50, zadnje −1102 cm u 03 h</em>. S preuzimanja je to obično znak da
-      je mjerilo u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu. Stranica
+      je mjerni uređaj u kvaru, a iz uvoza starih evidencija (BP16, tablica centra) greška u zapisu. Stranica
       letve pokazuje samo broj i zadnju odbačenu vrijednost, s danom i satom zapisa, pa se taj zapis može
       naći i ispraviti. Popisa svih odbačenih vrijednosti nema; uvoz iz BP16 i uvoz tablice centra u
       sažetku kažu koliko su ih odbacili. Broj se
@@ -669,6 +670,23 @@
       letve na kartici, na stranici očitanja i u obrascu letve, i primaju vrijednosti
       od 5000 do 40 000 cm umjesto od −500 do 3000 cm. Oznaku postavlja program; u obrascu letve se ne mijenja.
       Očitanja upisana prije ove provjere ostaju kakva jesu.</p>
+
+    <h3 id="ocitanja-kvar">Kvar mjernog uređaja</h3>
+    <p>Uređaj koji zaglavi pokazuje istu vrijednost satima, a voda se u međuvremenu mijenja. Program
+      to javlja kad automatsko očitanje stoji unutar 1 cm dulje nego što ta letva u arhivi normalno
+      stoji (najmanje 6 sati), a uz to se susjedna letva iste rijeke u tom vremenu pomaknula, ili se
+      u tu vrijednost skočilo, ili je ona daleko izvan uobičajenog raspona letve. Isto se javlja kad
+      mjerni uređaj odskoči daleko od prave razine i ondje se drži, npr. 1385 cm umjesto oko −120 cm.
+      Tada je na vrhu stranice letve okvir <em>Mjerni uređaj je vjerojatno u kvaru</em>, a u popisu
+      Operativni vodostaji uz letvu znak <em>kvar uređaja</em>. Okvir nestane sam kad mjerni uređaj opet radi.</p>
+    <p>Očitanja se zbog toga ne brišu. Kad kvar potvrđuje susjedna letva, prognoza ta očitanja ne uzima i
+      računa kao da mjerenja nema; inače ih uzima, a uz izdanje stoji napomena.</p>
+    <p>Niska vrijednost koja stoji dok se susjedne letve samo spuštaju vjerojatno nije kvar: voda je
+      pala ispod dosega mjernog uređaja. Tada okvir kaže <em>Voda je vjerojatno ispod dosega mjernog uređaja</em>, a
+      prognoza ta očitanja uzima, jer prava razina nije viša od njih.</p>
+    <p>Mjerni uređaj koji u tjedan dana barem tri puta lažno odskoči i vrati se dobije okvir
+      <em>Mjerni uređaj često odskoči</em> s popisom odbačenih skokova. Ustave, crpne stanice, elektrane i
+      akumulacije se ne provjeravaju, jer njihovu razinu vodi čovjek ili elektrana.</p>
 
     <h3 id="ocitanja-skupno">Unos više odjednom</h3>
     <p>Umjesto upisa jednog po jednog, može se zalijepiti tablica s letva.voda.hr ili priložiti
@@ -941,8 +959,8 @@
     <p>Profil slaže postaje redom niz vodotok, jedan profil po rijeci, od prve uzvodne letve do zadnje
       naše. Okomita os nije kota nego vodostaj iznad ili ispod vode zadnjih 30 dana na svakoj letvi
       (medijan satnih vodostaja mjeseca prije današnjeg jutra, istih dana na svim letvama toka). Prema
-      zadnjem mjesecu mirna voda je ravna crta, a val brijeg. Letva čije mjerilo danima stoji dok se susjedi
-      miču (voda je pala ispod mjerila) i letva koja nakon prekida mjerenja nastavi na drugoj razini ne
+      zadnjem mjesecu mirna voda je ravna crta, a val brijeg. Letva čiji mjerni uređaj danima stoji dok se susjedi
+      miču (voda je pala ispod dosega uređaja) i letva koja nakon prekida mjerenja nastavi na drugoj razini ne
       crtaju se; ispod crteža piše koje su i zašto. Prema dugogodišnjem prosjeku svaka letva na maloj vodi stoji na svojoj stepenici
       — pragovi i širina korita nisu isti posvuda — pa bi izgledalo kao da svaka ima val.
       Uobičajena voda zadnjih deset godina (medijan, crtkano) i srednji vodostaj (SV, točkasto) ucrtani su
