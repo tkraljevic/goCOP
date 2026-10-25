@@ -22,8 +22,9 @@ const (
 	KodZauzet KodRazloga = 0x0102
 	// KodOdbijeno je odbijanje bez točnijeg koda
 	KodOdbijeno KodRazloga = 0x0103
-	// KodNijeClan: druga strana nije član mreže ili je opozvana. Slat će ga
-	// QUIC (F3); port i tunel takvu vezu i dalje zatvore bez odbijenice.
+	// KodNijeClan: druga strana nije član mreže ili je opozvana. Šalje ga
+	// QUIC, kao kod zatvaranja WEB sync sesije (odbijNeclana, sesija.go);
+	// port i tunel takvu vezu i dalje zatvore bez odbijenice.
 	KodNijeClan KodRazloga = 0x0104
 	// 0x0105 je zauzet za proračun posrednika; posrednik je odgođen, a kod
 	// se ne daje drugom razlogu

@@ -3,14 +3,22 @@ package razmjena
 // Udarci WEB synca (plan WEB synca, F3a): paketi od 60 B kojima dva
 // računala otvaraju NAT jedno prema drugome prije QUIC-a. Udarac nosi
 // sesiju i brojač i potpisan je HMAC-om ključem svog smjera. Oba računala
-// izvode ključeve oba smjera iz tajne potpisanog poziva (HKDF-SHA256 bez
-// soli, 32 B, oznaka <protokol>-udarac-v1, sesija i smjer), pa udarac
+// izvode ključeve oba smjera iz tajni potpisanog poziva i potpisanog
+// odziva, tim redom (HKDF-SHA256 bez soli, 32 B, oznaka
+// <protokol>-udarac-v1, sesija i smjer), pa udarac
 // vrijedi samo u toj sesiji, samo na toj mreži i samo u jednom smjeru:
 // udarac odbijen natrag pošiljatelju (javna Wi-Fi mreža) ili primljen od
 // samog sebe (dvije kuće s istom podmrežom) ne prolazi (po Tailscaleu, gdje
 // paket nosi ključ pošiljatelja). Smjer A je računalo s manjim ključem.
 // Brojač je big-endian i zaseban za svaki smjer, a primatelj pamti zadnja
 // 64 i ponovljeni odbacuje, kao WireGuard.
+//
+// Tajnu daju obje strane (F3a-2): pozivatelj u pozivu, pozvani u odzivu.
+// Tako ključevi ne ovise samo o slučajnosti jednog računala, a ponovljen
+// poziv (pričuva poruka nakon ponovnog pokretanja je prazna, a poziv
+// vrijedi 10 min) ne daje ključeve stare sesije: pozvani svaki put doda
+// novu tajnu, pa snimljeni stari udarci ne otvaraju vrata za QUIC. Obje
+// tajne vidi sastajalište, kao i prije; od njega ovo ne štiti.
 //
 // Gornja dva bita prvog bajta su 0, inače quic-go paket ne pusti čitaču
 // paketa koji nisu QUIC, a prvi bajt nije 0x00 ni 0x01, kojima počinje
@@ -50,7 +58,7 @@ const (
 )
 
 // ErrKljuceviUdarca: ključevi udarca se ne daju izvesti (sesija nije
-// 16 B, tajna je prekratka ili su oba ključa ista)
+// 16 B, jedna od tajni je prekratka ili su oba ključa ista)
 var ErrKljuceviUdarca = errors.New("ključevi udarca se ne daju izvesti")
 
 // Greške čitanja udarca
@@ -68,13 +76,15 @@ type KljuceviUdarca struct {
 }
 
 // NoviKljuceviUdarca izvede ključeve sesije (32 heksadecimalna znaka) iz
-// tajne potpisanog poziva; moj i drugi su ključevi ovog i drugog računala.
-// Sesija sa samim sobom (isti ključ) nema ključeva.
-func NoviKljuceviUdarca(protokol, sesija string, tajna []byte, moj, drugi ed25519.PublicKey) (KljuceviUdarca, error) {
+// tajne potpisanog poziva i tajne potpisanog odziva; moj i drugi su
+// ključevi ovog i drugog računala. Sesija sa samim sobom (isti ključ) nema
+// ključeva.
+func NoviKljuceviUdarca(protokol, sesija string, tajnaPoziva, tajnaOdziva []byte, moj, drugi ed25519.PublicKey) (KljuceviUdarca, error) {
 	s, err := hex.DecodeString(sesija)
-	if err != nil || len(s) != 16 || len(tajna) < najmanjaTajna || bytes.Equal(moj, drugi) {
+	if err != nil || len(s) != 16 || min(len(tajnaPoziva), len(tajnaOdziva)) < najmanjaTajna || bytes.Equal(moj, drugi) {
 		return KljuceviUdarca{}, ErrKljuceviUdarca
 	}
+	tajna := slices.Concat(tajnaPoziva, tajnaOdziva)
 	k := KljuceviUdarca{sesija: [16]byte(s), smjer: smjerBA}
 	if bytes.Compare(moj, drugi) < 0 {
 		k.smjer = smjerAB

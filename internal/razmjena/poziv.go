@@ -8,6 +8,14 @@ package razmjena
 // provjeri pošiljatelja (član mreže), potpis, da je poruka za njega i da je
 // stigla preko njegova sastajališta, vrijeme (±10 min) i da je nije već
 // vidio (PricuvaPoruka). Što poruka traži, čitaju F3a i F3b.
+//
+// Poziv i odziv nose i vjerodajnice pošiljatelja (vj, isto što i u
+// certifikatu razmjene): računalo koje je upravo upareno javi se prije nego
+// što njegovo članstvo razmjenom stigne do druge strane, pa ga ona inače
+// ne bi prepoznala (bilješka uz pregled F2b). Primatelj ih provjerava istim
+// trusted(ključ, vj) kao vrata razmjene. Polje je novo i neobavezno: 0.0.42
+// ga pri čitanju tijela zanemari, a sastajalište 0.0.42 poruku i dalje
+// prosljeđuje bajt po bajt, pa potpis ostaje valjan.
 
 import (
 	"crypto/ed25519"
@@ -67,6 +75,7 @@ type TijeloPoruke struct {
 	ObradaMs     int              `json:"obradaMs,omitempty"` // odziv: koliko je primatelj radio
 	Pokusaj      int              `json:"pokusaj,omitempty"`  // sinkro: 1–3
 	RTTMs        int              `json:"rttMs,omitempty"`    // sinkro
+	Vj           []byte           `json:"vj,omitempty"`       // poziv i odziv: vjerodajnice pošiljatelja (F3a-2)
 }
 
 // PotpisanaPoruka je tijelo kako ga je pošiljatelj zapisao i potpis nad
@@ -126,9 +135,11 @@ type ProvjeraPoruka struct {
 	// Moj je ključ ovog računala, a Sastajaliste ključ njegovog sastajališta
 	// (na samom sastajalištu isti kao Moj)
 	Moj, Sastajaliste ed25519.PublicKey
-	Vjeruje           func(ed25519.PublicKey) bool // je li pošiljatelj član mreže
-	Sat               func() time.Time
-	Pricuva           *PricuvaPoruka
+	// Vjeruje javlja je li pošiljatelj član mreže, uz vjerodajnice iz
+	// poruke (Vj), istim pravilom kao vrata razmjene
+	Vjeruje KeyChecker
+	Sat     func() time.Time
+	Pricuva *PricuvaPoruka
 }
 
 // Provjeri provjeri poruku i zapamti je; vraća tijelo kad prođe
@@ -146,18 +157,23 @@ func (pp ProvjeraPoruka) Provjeri(p PotpisanaPoruka) (TijeloPoruke, error) {
 	return t, pp.Pricuva.Zapamti(p.Vrsta, t, sad)
 }
 
-// potpisana pročita tijelo i provjeri da ga je potpisao član mreže
+// potpisana pročita tijelo i provjeri da ga je potpisao član mreže. Potpis
+// ide prije članstva: Vjeruje (upit u bazu, provjera lanca u vj) pokreće
+// samo poruka koju je ključ iz polja od doista potpisao.
 func (pp ProvjeraPoruka) potpisana(p PotpisanaPoruka) (TijeloPoruke, error) {
 	t, err := p.Zaglavlje()
 	if err != nil {
 		return TijeloPoruke{}, err
 	}
 	od, err := ParsePublicKey(t.Od)
-	if err != nil || !pp.Vjeruje(od) {
+	if err != nil {
 		return TijeloPoruke{}, ErrNepoznatPosiljatelj
 	}
 	if !ed25519.Verify(od, append(prefiksPoruke(pp.Protokol, p.Vrsta), p.Tijelo...), p.Potpis) {
 		return TijeloPoruke{}, ErrPotpisPoruke
+	}
+	if !pp.Vjeruje(od, t.Vj) {
+		return TijeloPoruke{}, ErrNepoznatPosiljatelj
 	}
 	return t, nil
 }

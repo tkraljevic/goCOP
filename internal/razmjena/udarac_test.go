@@ -13,7 +13,10 @@ import (
 
 const sesijaUdaraca = "00112233445566778899aabbccddeeff"
 
-var tajnaUdaraca = []byte("tajna iz potpisanog poziva, 32 B!")
+var (
+	tajnaUdaraca = []byte("tajna iz potpisanog poziva, 32 B!")
+	tajnaOdziva  = []byte("tajna iz potpisanog odziva, 32 B!")
+)
 
 // kljuceviPara su ključevi udaraca obiju strana iste sesije: a je
 // računalo s manjim ključem
@@ -23,9 +26,9 @@ func kljuceviPara(t *testing.T) (a, b KljuceviUdarca) {
 	if bytes.Compare(ka, kb) > 0 {
 		ka, kb = kb, ka
 	}
-	a, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, ka, kb)
+	a, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, tajnaOdziva, ka, kb)
 	bezGreske(t, err)
-	b, err = NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, kb, ka)
+	b, err = NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, tajnaOdziva, kb, ka)
 	bezGreske(t, err)
 	return a, b
 }
@@ -38,32 +41,36 @@ func TestKljuceviUdarca(t *testing.T) {
 		t.Fatalf("smjerovi: A %v, B %v", a.A(), b.A())
 	}
 	ka, kb := newKey(t).Public().(ed25519.PublicKey), newKey(t).Public().(ed25519.PublicKey)
-	osnovni, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, ka, kb)
+	osnovni, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, tajnaUdaraca, tajnaOdziva, ka, kb)
 	bezGreske(t, err)
 	for ime, c := range map[string]struct {
 		protokol, sesija string
-		tajna            []byte
+		tajna, odziva    []byte
 	}{
-		"drugi protokol": {"gocop", sesijaUdaraca, tajnaUdaraca},
-		"druga sesija":   {"testproto", "ffeeddccbbaa99887766554433221100", tajnaUdaraca},
-		"druga tajna":    {"testproto", sesijaUdaraca, []byte("neka sasvim druga tajna poziva")},
+		"drugi protokol":     {"gocop", sesijaUdaraca, tajnaUdaraca, tajnaOdziva},
+		"druga sesija":       {"testproto", "ffeeddccbbaa99887766554433221100", tajnaUdaraca, tajnaOdziva},
+		"druga tajna":        {"testproto", sesijaUdaraca, []byte("neka sasvim druga tajna poziva"), tajnaOdziva},
+		"druga tajna odziva": {"testproto", sesijaUdaraca, tajnaUdaraca, []byte("neka sasvim druga tajna odziva")},
+		"tajne zamijenjene":  {"testproto", sesijaUdaraca, tajnaOdziva, tajnaUdaraca},
 	} {
-		k, err := NoviKljuceviUdarca(c.protokol, c.sesija, c.tajna, ka, kb)
+		k, err := NoviKljuceviUdarca(c.protokol, c.sesija, c.tajna, c.odziva, ka, kb)
 		if err != nil || k.saljem == osnovni.saljem || k.primam == osnovni.primam {
 			t.Errorf("%s: isti ključevi (%v)", ime, err)
 		}
 	}
 	for ime, c := range map[string]struct {
-		sesija     string
-		tajna      []byte
-		moj, drugi ed25519.PublicKey
+		sesija        string
+		tajna, odziva []byte
+		moj, drugi    ed25519.PublicKey
 	}{
-		"sesija nije heks":      {"nije-heks", tajnaUdaraca, ka, kb},
-		"sesija od 8 B":         {"0011223344556677", tajnaUdaraca, ka, kb},
-		"kratka tajna":          {sesijaUdaraca, []byte("kratko"), ka, kb},
-		"sesija sa samim sobom": {sesijaUdaraca, tajnaUdaraca, ka, ka},
+		"sesija nije heks":      {"nije-heks", tajnaUdaraca, tajnaOdziva, ka, kb},
+		"sesija od 8 B":         {"0011223344556677", tajnaUdaraca, tajnaOdziva, ka, kb},
+		"kratka tajna":          {sesijaUdaraca, []byte("kratko"), tajnaOdziva, ka, kb},
+		"kratka tajna odziva":   {sesijaUdaraca, tajnaUdaraca, []byte("kratko"), ka, kb},
+		"bez tajne odziva":      {sesijaUdaraca, tajnaUdaraca, nil, ka, kb},
+		"sesija sa samim sobom": {sesijaUdaraca, tajnaUdaraca, tajnaOdziva, ka, ka},
 	} {
-		if _, err := NoviKljuceviUdarca("testproto", c.sesija, c.tajna, c.moj, c.drugi); !errors.Is(err, ErrKljuceviUdarca) {
+		if _, err := NoviKljuceviUdarca("testproto", c.sesija, c.tajna, c.odziva, c.moj, c.drugi); !errors.Is(err, ErrKljuceviUdarca) {
 			t.Errorf("%s: %v", ime, err)
 		}
 	}
@@ -89,7 +96,7 @@ func TestOblikUdarca(t *testing.T) {
 		t.Error("STUN zahtjev izgleda kao udarac")
 	}
 	// isti par i sesija, ali tajna drugog poziva
-	tudji, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, []byte("tajna nekog drugog poziva, 32 B"), newKey(t).Public().(ed25519.PublicKey), newKey(t).Public().(ed25519.PublicKey))
+	tudji, err := NoviKljuceviUdarca("testproto", sesijaUdaraca, []byte("tajna nekog drugog poziva, 32 B"), tajnaOdziva, newKey(t).Public().(ed25519.PublicKey), newKey(t).Public().(ed25519.PublicKey))
 	bezGreske(t, err)
 	tudji.smjer = b.smjer
 	ispravan := a.sastavi(vrstaUdarac, 1)

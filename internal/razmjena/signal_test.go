@@ -187,7 +187,7 @@ func TestSignalPrijavaIProsljedivanje(t *testing.T) {
 			t.Fatalf("B je primio drukčiji poziv: %+v", stiglo)
 		}
 		provjera := ProvjeraPoruka{Protokol: protokolSignala, Moj: javniB, Sastajaliste: javniR, Sat: time.Now, Pricuva: NovaPricuvaPoruka(),
-			Vjeruje: func(k ed25519.PublicKey) bool { return su.vjeruje(k, nil) }}
+			Vjeruje: su.vjeruje}
 		tijelo, err := provjera.Provjeri(stiglo)
 		bezGreske(t, err)
 		odziv := Potpisi(kljucB, protokolSignala, VrstaOdziv, TijeloPoruke{Sesija: tijelo.Sesija, Za: tijelo.Od, Sastajaliste: PublicKeyString(javniR), Odluka: "probaj"})

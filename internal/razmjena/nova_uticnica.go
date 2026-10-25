@@ -31,7 +31,8 @@ func (u *UDP) posalji(b []byte, na net.Addr) {
 func (u *UDP) BezRute() bool { return u.bezRute.Load() }
 
 // ObnoviUDP zatvori utičnicu i otvori novu na istom portu; kad se taj ne
-// da otvoriti, na nasumičnom, uz upozorenje (kao OtvoriUDP)
+// da otvoriti, na nasumičnom, uz upozorenje (kao OtvoriUDP). Nova utičnica
+// ima isti ključ za resetiranje QUIC veza kao stara.
 func ObnoviUDP(stara *UDP) (u *UDP, upozorenje, err error) {
 	port := stara.Port()
 	_ = stara.Close() // stara ide u svakom slučaju; greška zatvaranja ne sprječava novu
@@ -39,7 +40,7 @@ func ObnoviUDP(stara *UDP) (u *UDP, upozorenje, err error) {
 	if err != nil {
 		return nil, upozorenje, err
 	}
-	return NoviUDP(conn), upozorenje, nil
+	return noviUDP(conn, stara.reset), upozorenje, nil
 }
 
 // Čekanje rute; var, da ih test podmetne
