@@ -140,9 +140,18 @@ var opisVrste = map[string]struct{ prefiks, uvod string }{
 // uLetvi piše tekst uz letvu („Batina: …”), ili sam kad letve nema.
 func (p pisacUpozorenja) uLetvi(letva, tekst string) string {
 	if letva == "" {
-		return velikoSlovo(tekst) + "."
+		return recenica(velikoSlovo(tekst))
 	}
-	return p.ime(letva) + ": " + tekst + "."
+	return recenica(p.ime(letva) + ": " + tekst)
+}
+
+// recenica završava tekst točkom; opis izdavača koji već završava datumom
+// („do 29. 10.”) ne dobiva drugu.
+func recenica(s string) string {
+	if strings.HasSuffix(s, ".") {
+		return s
+	}
+	return s + "."
 }
 
 // sto piše što ne radi.
@@ -151,7 +160,7 @@ func (p pisacUpozorenja) sto(u prognoza.Upozorenje) string {
 	case prognoza.VrstaUlaz:
 		return p.stoUlaza(u)
 	case prognoza.VrstaDnevni:
-		return "Dnevni model nije računao za " + nabroji(p.imenaDnevnih(u.Upitno, true)) + ": " + p.imena(u.Opis) + "."
+		return recenica("Dnevni model nije računao za " + nabroji(p.imenaDnevnih(u.Upitno, true)) + ": " + p.imena(u.Opis))
 	case prognoza.VrstaVrh:
 		return p.uLetvi(u.Letva, "vrh lanca, "+p.imena(u.Opis))
 	case prognoza.VrstaBezPrognoze:
@@ -193,9 +202,9 @@ func (p pisacUpozorenja) stoUlaza(u prognoza.Upozorenje) string {
 // dnevna prognoza Dunava, a bez letve da je ispravak digao prognozu.
 func (p pisacUpozorenja) stoUzvodnog(u prognoza.Upozorenje) string {
 	if u.Letva == "" {
-		return velikoSlovo(p.imena(u.Opis)) + "."
+		return recenica(velikoSlovo(p.imena(u.Opis)))
 	}
-	return p.imeSIzvorom(u.Letva) + ": " + p.imena(u.Opis) + "."
+	return recenica(p.imeSIzvorom(u.Letva) + ": " + p.imena(u.Opis))
 }
 
 // imenaDnevnih su upitne letve s dnevnom prognozom: ciljevi dnevnog modela

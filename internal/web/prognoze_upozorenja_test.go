@@ -673,3 +673,17 @@ func TestKarticaNepovezaneLetve(t *testing.T) {
 		t.Errorf("kartica %+v\nželim %q", got, want)
 	}
 }
+
+// Opis izdavača koji završava datumom ne dobiva još jednu točku.
+func TestUpozorenjeBezDvijeTocke(t *testing.T) {
+	p := pisacUpozorenja{}
+	for _, tc := range []struct{ letva, tekst, want string }{
+		{"", "srpska prognoza stoji redom do 29. 10.", "Srpska prognoza stoji redom do 29. 10."},
+		{"", "nema ulaza", "Nema ulaza."},
+		{"x", "nema prognoze", "x: nema prognoze."},
+	} {
+		if got := p.uLetvi(tc.letva, tc.tekst); got != tc.want {
+			t.Errorf("uLetvi(%q, %q) = %q, želim %q", tc.letva, tc.tekst, got, tc.want)
+		}
+	}
+}
