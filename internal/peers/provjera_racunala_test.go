@@ -5,6 +5,7 @@ package peers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"slices"
@@ -171,5 +172,25 @@ func TestProvjeraVezeBezRacunala(t *testing.T) {
 	upoznaj(t, a, stranac, adresaNaPetlji(b))
 	if _, err := a.ProvjeriVezuS(ctxRub, stranac.node.ID); err == nil {
 		t.Error("računalo bez članstva")
+	}
+}
+
+// Provjera veze zove najviše 8 adresa po putu, kao krug: privatne adrese
+// broje se zajedno s LAN-om, a tunel ostaje i kad javnih ima previše.
+func TestProvjeraNajviseAdresaPoPutu(t *testing.T) {
+	var k []kandidatIzvora
+	for i := range 20 {
+		k = append(k,
+			kandidatIzvora{kandidat: kandidat{adresa: fmt.Sprintf("192.168.1.%d", i+1), put: razmjena.PutAdresa}},
+			kandidatIzvora{kandidat: kandidat{adresa: fmt.Sprintf("10.0.0.%d", i+1), put: razmjena.PutLAN}},
+			kandidatIzvora{kandidat: kandidat{adresa: fmt.Sprintf("203.0.113.%d", i+1), put: razmjena.PutAdresa}})
+	}
+	k = append(k, kandidatIzvora{kandidat: kandidat{adresa: "wss://cop.primjer.hr", put: razmjena.PutKrozTunel}})
+	broj := map[razmjena.Put]int{}
+	for _, x := range ograniciPoPutu(k, putProvjere) {
+		broj[putProvjere(x)]++
+	}
+	if broj[razmjena.PutLAN] != 8 || broj[razmjena.PutAdresa] != 8 || broj[razmjena.PutKrozTunel] != 1 {
+		t.Errorf("po putu: %v", broj)
 	}
 }

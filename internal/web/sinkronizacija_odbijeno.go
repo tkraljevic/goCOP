@@ -33,6 +33,7 @@ var opisVrsteOdbijenog = map[string]string{
 var opisPutaOdbijenog = map[string]string{
 	peers.PutVrataPort:  "port razmjene",
 	peers.PutVrataTunel: "tunel",
+	peers.PutVrataWeb:   "WEB sync",
 }
 
 var opisRazlogaOdbijenog = map[string]string{

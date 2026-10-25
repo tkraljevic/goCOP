@@ -202,6 +202,10 @@ func TestOznakaWeba(t *testing.T) {
 		t.Fatal("web/1 bez WEB synca")
 	}
 	s.web.Store(&webSyncServisa{ctx: ctxRub})
+	if slices.Contains(s.mojeMogucnosti(), razmjena.OznakaWeb) {
+		t.Fatal("web/1 uz web_sync = false")
+	}
+	s.web.Store(&webSyncServisa{ctx: ctxRub, ukljucen: true})
 	if m := s.mojeMogucnosti(); !slices.Contains(m, razmjena.OznakaWeb) || !slices.IsSorted(m) {
 		t.Errorf("oznake uz WEB sync: %v", m)
 	}

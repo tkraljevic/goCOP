@@ -108,7 +108,7 @@ func (s *Service) ProvjeriVezuS(ctx context.Context, nodeID string) (ProvjeraRac
 	if err != nil {
 		return ProvjeraRacunala{}, err
 	}
-	kandidati := s.adreseSIzvorom(ctx, peer)
+	kandidati := ograniciPoPutu(s.adreseSIzvorom(ctx, peer), putProvjere)
 	out := ProvjeraRacunala{NodeID: peer.NodeID, Naziv: label(*peer), Kad: time.Now(), Adrese: make([]AdresaProvjere, len(kandidati))}
 	var wg sync.WaitGroup
 	for i, k := range kandidati {
@@ -116,6 +116,15 @@ func (s *Service) ProvjeriVezuS(ctx context.Context, nodeID string) (ProvjeraRac
 	}
 	wg.Wait()
 	return out, nil
+}
+
+// putProvjere je put adrese za granicu adresa po putu, kao u krugu: LAN i
+// privatne adrese zajedno
+func putProvjere(k kandidatIzvora) razmjena.Put {
+	if k.put == razmjena.PutAdresa && privatnaAdresa(k.adresa) {
+		return razmjena.PutLAN
+	}
+	return k.put
 }
 
 // provjeriAdresu provjeri jednu adresu u roku rokProvjereAdrese
