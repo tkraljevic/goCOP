@@ -424,6 +424,12 @@ type Spremiste interface {
 	Postojeca(ctx context.Context, stationID string, od, do time.Time) (map[int64]bool, error)
 	// Upisi upisuje nova očitanja; vraća koliko ih je stvarno upisano
 	Upisi(ctx context.Context, ocitanja []models.Reading) (int, error)
+	// Razine vraća vodostaje (cm) koje letva već ima, po trenutku (UTC,
+	// unix): od njih se mjeri skok nove vrijednosti (bezSkokova)
+	Razine(ctx context.Context, stationID string, od, do time.Time) (map[int64]int, error)
+	// ZabiljeziOdbacene bilježi vrijednosti odbačene kao lažni skok, za
+	// stranicu letve
+	ZabiljeziOdbacene(ctx context.Context, odbacene []models.OdbacenaVrijednost) error
 }
 
 // StanjeLetve je što se zadnje dogodilo s preuzimanjem jedne letve
@@ -438,6 +444,13 @@ type StanjeLetve struct {
 	// izvan raspona (Odluke (8. 10. 2026.), pitanje 21). Ukupan broj po
 	// letvi putuje razmjenom i vidi se na stranici letve.
 	Odbaceno int
+	// Skokova je koliko vrijednosti zadnjeg preuzimanja nije upisano jer su
+	// lažni skok (Odluke (25. 10. 2026.), bezSkokova); broje se i na
+	// stranici letve, s odbačenima izvan raspona.
+	Skokova int
+	// Ceka je koliko vrijednosti je odskočilo, a nije upisano dok ih iduće
+	// očitanje ne potvrdi ili odbaci.
+	Ceka int
 }
 
 // Uvoznik svaki sat preuzme označene letve. Stanje po letvi drži u
@@ -470,9 +483,17 @@ type Uvoznik struct {
 	// Vodostaje za mrežu dovoljno je da preuzima jedan čvor.
 	Preuzima func() bool
 
+	// Prag je prag lažnog skoka letve po šifri, u cm u satu (skok.Pragovi);
+	// nil znači skok.ZadaniPrag za svaku letvu.
+	Prag func(sifra string) float64
+
 	mu      sync.Mutex
 	stanja  map[string]StanjeLetve // po ID-u postaje
 	postaje []Postaja              // javni popis, predmemoriran
+	// cekaju su očitanja koja su odskočila i čekaju iduće, i kad je koje
+	// prvi put stiglo, po ID-u postaje (bezSkokova). Samo u memoriji: nakon
+	// ponovnog pokretanja izvor ih obično opet vrati, pa se odluči iznova.
+	cekaju map[string]cekanjeLetve
 
 	krug       sync.Mutex // drži se dok traje jedan krug preuzimanja; drugi krug u to vrijeme ne počinje
 	zadnjiKrug Krug
@@ -493,6 +514,7 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 		Spremiste: s,
 		Zapisnik:  zapisnik,
 		stanja:    map[string]StanjeLetve{},
+		cekaju:    map[string]cekanjeLetve{},
 	}
 }
 
@@ -855,25 +877,37 @@ func (u *Uvoznik) Preuzmi(ctx context.Context, st *models.Station) StanjeLetve {
 		}
 	}
 	s.ZadnjeKad = do
+	u.upisiNovo(ctx, st, svi, od, do, &s)
+	return s
+}
+
+// upisiNovo upiše od redaka izvora ono što letva još nema, bez vrijednosti
+// izvan raspona (upis ih odbaci i zabilježi) i bez lažnih skokova
+// (bezSkokova), i to zapiše u stanje letve.
+func (u *Uvoznik) upisiNovo(ctx context.Context, st *models.Station, svi []izRedak, od, do time.Time, s *StanjeLetve) {
 	postojeca, err := u.Spremiste.Postojeca(ctx, st.ID.String(), od.Add(-time.Minute), do.Add(time.Minute))
 	if err != nil {
 		s.Greska = err.Error()
-		return s
+		return
 	}
 	var nova []models.Reading
 	nova, s.Odbaceno = novaOcitanja(st, svi, postojeca, time.Now())
+	if nova, err = u.bezSkokova(ctx, st, nova, time.Now(), s); err != nil {
+		s.Greska = err.Error()
+		u.Zapisnik("javni vodostaji: %s: skokovi: %v", st.Name, err)
+		return
+	}
 	if len(nova) == 0 {
-		return s
+		return
 	}
 	n, err := u.Spremiste.Upisi(ctx, nova)
 	if err != nil {
 		s.Greska = err.Error()
 		u.Zapisnik("javni vodostaji: %s: upis: %v", st.Name, err)
-		return s
+		return
 	}
 	s.Novih = n
 	s.UkupnoNovo += n
-	return s
 }
 
 // izRedak je redak s izvora uz naziv izvora s kojeg je stigao

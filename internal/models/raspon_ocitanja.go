@@ -243,17 +243,21 @@ func OdbaceneVrijednosti(rd Reading, izvan []IzvanRaspona) []OdbacenaVrijednost 
 }
 
 // SazetakOdbacenih je ono što stranica letve kaže o odbačenim vrijednostima:
-// koliko ih je i koja je zadnja odbačena
+// koliko ih je, koliko od njih zbog skoka (PoljeSkok) i koja je zadnja
+// odbačena
 type SazetakOdbacenih struct {
-	Broj   int
-	Zadnja OdbacenaVrijednost
+	Broj    int
+	Skokova int
+	Zadnja  OdbacenaVrijednost
 }
 
 // IzvorLabel je podrijetlo zadnje odbačene vrijednosti za prikaz
 func (s SazetakOdbacenih) IzvorLabel() string { return Reading{Origin: s.Zadnja.Izvor}.OriginLabel() }
 
 // Tekst je redak za stranicu letve, npr. „Odbačeno izvan raspona: 50,
-// zadnje −1102 cm u 03 h”
+// zadnje −1102 cm u 03 h”. Kad su među odbačenima i skokovi, redak to
+// kaže: „Odbačeno izvan raspona i zbog skoka: 3, zadnje skok na 830 cm u
+// 21 h”.
 func (s SazetakOdbacenih) Tekst() string { return s.tekst(time.Now()) }
 
 func (s SazetakOdbacenih) tekst(sada time.Time) string {
@@ -261,7 +265,19 @@ func (s SazetakOdbacenih) tekst(sada time.Time) string {
 	if s.Zadnja.Polje != PoljeVrijeme {
 		zadnje += " " + satOcitanja(s.Zadnja.Kad, sada)
 	}
-	return fmt.Sprintf("Odbačeno izvan raspona: %d, zadnje %s", s.Broj, zadnje)
+	return fmt.Sprintf("Odbačeno %s: %d, zadnje %s", s.razlog(), s.Broj, zadnje)
+}
+
+// razlog kaže zašto su vrijednosti odbačene: izvan raspona, zbog skoka ili
+// oboje
+func (s SazetakOdbacenih) razlog() string {
+	switch {
+	case s.Skokova == 0:
+		return "izvan raspona"
+	case s.Skokova >= s.Broj:
+		return "zbog skoka"
+	}
+	return "izvan raspona i zbog skoka"
 }
 
 // satOcitanja piše trenutak očitanja kratko: danas samo sat, inače i dan

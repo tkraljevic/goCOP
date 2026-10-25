@@ -152,7 +152,7 @@ func TestSatniKrugCvorKojiIzdaje(t *testing.T) {
 }
 
 // Dnevnik kruga kaže koji dnevni ciljevi nemaju dnevnu prognozu i zašto,
-// otvorena upozorenja izdanja i napomene uzvodnog ispravka; cilj kojem je
+// otvorena upozorenja izdanja, napomene uzvodnog ispravka i lažnog skoka; cilj kojem je
 // rezerva računala i ostale napomene se ne javljaju.
 func TestSatniKrugJavljaUpozorenja(t *testing.T) {
 	k, uvoznik := okolinaKruga(t, true)
@@ -170,6 +170,8 @@ func TestSatniKrugJavljaUpozorenja(t *testing.T) {
 			{Vrsta: prognoza.VrstaBezPrognoze, Tezina: prognoza.TezinaNapomena, Letva: "ustava", Opis: "nema ulaza"},
 			{Vrsta: prognoza.VrstaUzvodno, Tezina: prognoza.TezinaNapomena, Letva: "gornja",
 				Opis: "fali mjerenje 22. 10. u 17 h (prije 24 sata); dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi srednja"},
+			{Vrsta: prognoza.VrstaSkok, Tezina: prognoza.TezinaNapomena, Letva: "donja",
+				Opis: "prognoza ne uzima 830 cm iz 24. 10. u 21 h: odskočilo je od −123 cm, a iduće očitanje vratilo se na −121 cm"},
 		}}
 	javiUpozorenja(k.uvoznik, ishod)
 	zelim := []string{
@@ -177,6 +179,7 @@ func TestSatniKrugJavljaUpozorenja(t *testing.T) {
 		"bez dnevne prognoze donja: nepotpuna zadnja četiri dana na [srednja]",
 		"upozorenje: ulaz srednja; upitno: donja dnevna",
 		"napomena: uzvodno gornja; fali mjerenje 22. 10. u 17 h (prije 24 sata); dnevna prognoza Dunava od 4. dana ispravlja se samo prema letvi srednja",
+		"napomena: skok donja; prognoza ne uzima 830 cm iz 24. 10. u 21 h: odskočilo je od −123 cm, a iduće očitanje vratilo se na −121 cm",
 	}
 	if r := uvoznik.Napredak().Redci; strings.Join(r, "\n") != strings.Join(zelim, "\n") {
 		t.Errorf("redci:\n%s\nželim:\n%s", strings.Join(r, "\n"), strings.Join(zelim, "\n"))

@@ -141,7 +141,7 @@
   <p class="form-help mt-0 mb-3">
     {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
     {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
-    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if .Odbaceno}}, odbačeno izvan raspona {{.Odbaceno}}{{end}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
+    {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if .Odbaceno}}, odbačeno izvan raspona {{.Odbaceno}}{{end}}{{if .Skokova}}, odbačeno kao skok {{.Skokova}}{{end}}{{if .Ceka}}, čeka iduće očitanje {{.Ceka}}{{end}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
   </p>
   {{end}}
   {{with .Odbaceno}}
@@ -152,6 +152,8 @@
     ostale vrijednosti istog očitanja upisuju se. Ovdje se broje odbačene. S preuzimanja su obično znak da je mjerilo u kvaru, a iz uvoza starih evidencija
     greška u zapisu; broj se ne poništava, pa datum zadnje kaže traje li to još. Broje se i vrijednosti koje je
     odbacilo računalo koje letvu preuzima: zapis o njima putuje razmjenom kao i očitanja.
+    Skok je vodostaj s javne stranice ili telemetrije koji je odskočio od prethodnog više nego što ova letva
+    stvarno skače, a iduće očitanje se vratilo na staru razinu; takav se ne upisuje.
   </p>
   {{end}}
   <form method="GET" action="" id="pogled" class="d-flex gap-2 items-center flex-wrap mb-3">

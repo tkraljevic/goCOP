@@ -76,23 +76,36 @@ func (p *provjeraRaspona) kota(ctx context.Context, stationID string) (bool, err
 	return k, nil
 }
 
-// primljeno uklanja zapise o očitanju letve odbačenom samo zato što je
-// stiglo više od sat unaprijed, kad letva za taj trenutak primi očitanje:
-// sljedeći krug ga je primio kad mu je vrijeme došlo (sat izvora ili
-// računala ide naprijed). Odbačena vrijednost (npr. vodostaj −1102 cm)
-// ostaje.
+// primljeno uklanja zapise o očitanju letve koje je uvoz sad upisao:
+//   - odbačenom samo zato što je stiglo više od sat unaprijed: sljedeći krug
+//     ga je primio kad mu je vrijeme došlo (sat izvora ili računala ide
+//     naprijed). Odbačena vrijednost (npr. vodostaj −1102 cm) ostaje.
+//   - odbačenom kao lažni skok, kad je isti izvor za isti trenutak sad dao
+//     isti vodostaj i on je upisan: iduće očitanje ga je potvrdilo, pa nije
+//     bio skok (vrijednost odbačena nakon šest sati čekanja, a izvor ju je
+//     poslije potvrdio). Skok koji je čovjek ispravio rukom ili izvor drugom
+//     vrijednošću ostaje zapisan.
 func (p *provjeraRaspona) primljeno(ctx context.Context, rd *models.Reading) error {
-	return ukloniPreranoOdbaceno(ctx, p.tx, p.rec, rd.GaugeKey(), rd.MeasuredAt)
+	if err := ukloniPreranoOdbaceno(ctx, p.tx, p.rec, rd.GaugeKey(), rd.MeasuredAt); err != nil || rd.LevelCm == nil {
+		return err
+	}
+	return ukloniOdbacene(ctx, p.tx, p.rec, `letva = ? AND kad = ? AND polje = ? AND izvor = ? AND opis = ?`,
+		rd.GaugeKey(), rd.MeasuredAt.UTC(), models.PoljeSkok, rd.Origin, models.OdbacenSkok(*rd).Opis)
 }
 
 // ukloniPreranoOdbaceno uklanja zapise o očitanju letve za dani trenutak
-// odbačenom samo zato što je stiglo više od sat unaprijed. Zapis se uklanja
-// verzijom u knjizi, pa nestaje i na čvorovima koji su ga dobili razmjenom,
-// i ne broji se opet kad očitanje poslije ode iz operativne baze
-// (zaboravljanje uloženog, ograda povijesti očitanja).
+// odbačenom samo zato što je stiglo više od sat unaprijed.
 func ukloniPreranoOdbaceno(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, letva string, kad time.Time) error {
-	rows, err := tx.QueryContext(ctx, `DELETE FROM odbacena_ocitanja WHERE letva = ? AND kad = ? AND polje = ?
-		RETURNING id, letva, kad, polje, izvor, opis, zabiljezeno`, letva, kad.UTC(), models.PoljeVrijeme)
+	return ukloniOdbacene(ctx, tx, rec, `letva = ? AND kad = ? AND polje = ?`, letva, kad.UTC(), models.PoljeVrijeme)
+}
+
+// ukloniOdbacene uklanja zapise o odbačenim vrijednostima koji ispunjavaju
+// uvjet. Zapis se uklanja verzijom u knjizi, pa nestaje i na čvorovima koji
+// su ga dobili razmjenom, i ne broji se opet kad očitanje poslije ode iz
+// operativne baze (zaboravljanje uloženog, ograda povijesti očitanja).
+func ukloniOdbacene(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, uvjet string, args ...any) error {
+	rows, err := tx.QueryContext(ctx, `DELETE FROM odbacena_ocitanja WHERE `+uvjet+`
+		RETURNING id, letva, kad, polje, izvor, opis, zabiljezeno`, args...)
 	if err != nil {
 		return err
 	}
@@ -221,8 +234,9 @@ func (r *ReadingRepository) ZabiljeziOdbacene(ctx context.Context, odbacene []mo
 }
 
 // SazetakOdbacenih vraća koliko je vrijednosti letve odbačeno jer su izvan
-// raspona (na ovom čvoru ili na onom od kojeg je zapis stigao razmjenom) i
-// koja je zadnja; nil kad nijedna nije. Zadnja je zadnja zabilježena, a
+// raspona ili lažni skok (na ovom čvoru ili na onom od kojeg je zapis stigao
+// razmjenom), koliko je od njih skokova i koja je zadnja; nil kad nijedna
+// nije. Zadnja je zadnja zabilježena, a
 // među istodobno zabilježenima ona s najkasnijim trenutkom.
 //
 // Očitanje odbačeno samo zato što je stiglo više od sat unaprijed ne broji
@@ -238,9 +252,10 @@ func (r *ReadingRepository) SazetakOdbacenih(ctx context.Context, letva string) 
 			SELECT kad, polje, izvor, opis, zabiljezeno FROM odbacena_ocitanja
 			WHERE letva = ? AND NOT (polje = ? AND EXISTS (
 				SELECT 1 FROM readings WHERE `+stupac+` = ? AND measured_at = odbacena_ocitanja.kad)))
-		SELECT (SELECT COUNT(*) FROM o), kad, polje, izvor, opis FROM o ORDER BY zabiljezeno DESC, kad DESC LIMIT 1`,
-		letva, models.PoljeVrijeme, id).
-		Scan(&s.Broj, &s.Zadnja.Kad, &s.Zadnja.Polje, &s.Zadnja.Izvor, &s.Zadnja.Opis)
+		SELECT (SELECT COUNT(*) FROM o), (SELECT COUNT(*) FROM o WHERE polje = ?), kad, polje, izvor, opis
+		FROM o ORDER BY zabiljezeno DESC, kad DESC LIMIT 1`,
+		letva, models.PoljeVrijeme, id, models.PoljeSkok).
+		Scan(&s.Broj, &s.Skokova, &s.Zadnja.Kad, &s.Zadnja.Polje, &s.Zadnja.Izvor, &s.Zadnja.Opis)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}

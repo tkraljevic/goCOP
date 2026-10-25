@@ -659,3 +659,44 @@ func TestUvozZaglavljenogMjerilaNeUpisujeNiProtokIzKrivogVodostaja(t *testing.T)
 		t.Errorf("ispravljeni vodostaj: %+v", got)
 	}
 }
+
+// Odluke (25. 10. 2026.): vrijednost odbačena kao lažni skok (npr. nakon
+// šest sati čekanja), a koju je isti izvor poslije potvrdio i uvoz upisao,
+// više se ne broji: zapis se uklanja verzijom u knjizi, i na čvoru koji ga
+// je dobio razmjenom. Skok koji je čovjek ispravio rukom ostaje zapisan, a i
+// skok s drugom vrijednošću ili s drugog izvora.
+func TestPotvrdjeniSkokSeVisNeBroji(t *testing.T) {
+	a, b := noviCvorZaRazmjenu(t, "a"), noviCvorZaRazmjenu(t, "b")
+	ctx := context.Background()
+	repo := NewReadingRepository(a.db, a.rec)
+	pivnica := novaLetva(t, a, "pivnica-probna", false)
+	letva := "station:" + pivnica.ID.String()
+	kad := time.Date(2026, 10, 24, 21, 0, 0, 0, models.Zagreb)
+
+	potvrdjen, ispravljen := uvezeno(pivnica, kad, 400), uvezeno(pivnica, kad.Add(time.Hour), 830)
+	drugi, sDrugog := uvezeno(pivnica, kad.Add(2*time.Hour), 500), uvezeno(pivnica, kad.Add(3*time.Hour), 600)
+	sDrugog.Origin = "drugi izvor"
+	odbaceni := []models.OdbacenaVrijednost{models.OdbacenSkok(potvrdjen), models.OdbacenSkok(ispravljen),
+		models.OdbacenSkok(drugi), models.OdbacenSkok(sDrugog)}
+	if err := repo.ZabiljeziOdbacene(ctx, odbaceni); err != nil {
+		t.Fatal(err)
+	}
+	a.posalji(t, b, "")
+
+	rucno := uvezeno(pivnica, ispravljen.MeasuredAt, -122)
+	rucno.Source, rucno.Origin = models.ReadingSourceManual, ""
+	drugaVrijednost, istaSDrugog := uvezeno(pivnica, drugi.MeasuredAt, 501), uvezeno(pivnica, sDrugog.MeasuredAt, 600)
+	if n, err := repo.ImportBatch(ctx, []models.Reading{potvrdjen, rucno, drugaVrijednost, istaSDrugog}); err != nil || n != 4 {
+		t.Fatalf("upis: %d, %v", n, err)
+	}
+	a.posalji(t, b, "")
+	for ime, c := range map[string]*cvorZaRazmjenu{"a": a, "b": b} {
+		s, err := NewReadingRepository(c.db, c.rec).SazetakOdbacenih(ctx, letva)
+		if err != nil || s == nil || s.Broj != 3 || s.Skokova != 3 {
+			t.Errorf("čvor %s: %+v, %v", ime, s, err)
+		}
+	}
+	if v, err := a.rec.Latest(ctx, EntityOdbacena, idOdbacene(odbaceni[0])); err != nil || v == nil || !v.Archived {
+		t.Errorf("verzija potvrđenog skoka: %+v, %v", v, err)
+	}
+}

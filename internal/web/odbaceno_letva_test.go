@@ -117,6 +117,9 @@ func TestPorukaPreuzimanja(t *testing.T) {
 	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 3, Novih: 1, Odbaceno: 2}); p != "Preuzeto s javne stranice: 3 očitanja, novih 1, odbačeno izvan raspona 2." {
 		t.Errorf("s odbačenima: %q", p)
 	}
+	if p := porukaPreuzimanja(javnivodostaji.StanjeLetve{Preuzeto: 4, Novih: 2, Skokova: 1, Ceka: 1}); p != "Preuzeto s javne stranice: 4 očitanja, novih 2, odbačeno kao skok 1, čeka iduće očitanje 1." {
+		t.Errorf("sa skokom: %q", p)
+	}
 }
 
 // Dorada (Odluke (8. 10. 2026.), pitanje 21): oznaku „kota u cm n. m.”

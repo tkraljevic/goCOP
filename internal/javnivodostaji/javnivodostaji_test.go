@@ -3,6 +3,7 @@ package javnivodostaji
 import (
 	"context"
 	"io"
+	"maps"
 	"net/http"
 	"strconv"
 	"strings"
@@ -46,6 +47,12 @@ type probnoSpremiste struct {
 	letve     []models.Station
 	postojeca map[int64]bool
 	upisano   []models.Reading
+	// razine su vodostaji koje letva već ima; odbaceno ono što je
+	// preuzimanje zabilježilo kao skok
+	razine          map[int64]int
+	odbaceno        []models.OdbacenaVrijednost
+	greskaRazina    error
+	greskaOdbacenih error
 }
 
 func (p *probnoSpremiste) LetveZaPreuzimanje(context.Context) ([]models.Station, error) {
@@ -57,6 +64,24 @@ func (p *probnoSpremiste) Postojeca(context.Context, string, time.Time, time.Tim
 func (p *probnoSpremiste) Upisi(_ context.Context, o []models.Reading) (int, error) {
 	p.upisano = append(p.upisano, o...)
 	return len(o), nil
+}
+
+// Razine su zadane razine i vodostaji onoga što je upisano, kao u bazi
+func (p *probnoSpremiste) Razine(context.Context, string, time.Time, time.Time) (map[int64]int, error) {
+	out := maps.Clone(p.razine)
+	if out == nil {
+		out = map[int64]int{}
+	}
+	for _, o := range p.upisano {
+		if o.LevelCm != nil {
+			out[o.MeasuredAt.Unix()] = *o.LevelCm
+		}
+	}
+	return out, p.greskaRazina
+}
+func (p *probnoSpremiste) ZabiljeziOdbacene(_ context.Context, o []models.OdbacenaVrijednost) error {
+	p.odbaceno = append(p.odbaceno, o...)
+	return p.greskaOdbacenih
 }
 
 type probniPrijenos struct{ html string }

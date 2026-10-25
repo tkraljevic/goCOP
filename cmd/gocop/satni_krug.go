@@ -366,12 +366,13 @@ func javiUpozorenja(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
 // vrstaRetka kaže kako upozorenje izdanja ide u dnevnik kruga: otvoreno kao
 // upozorenje, a od napomena samo one uzvodnog ispravka, da se i iz dnevnika
 // vidi kad je dnevna prognoza Dunava računata bez uzvodne letve ili ju je
-// ispravak digao; prazno za ostale napomene.
+// ispravak digao, i napomene o lažnom skoku koji nije ušao u prognozu;
+// prazno za ostale napomene.
 func vrstaRetka(u prognoza.Upozorenje) string {
 	switch {
 	case u.Tezina >= prognoza.TezinaUpozorenje:
 		return "upozorenje"
-	case u.Vrsta == prognoza.VrstaUzvodno:
+	case u.Vrsta == prognoza.VrstaUzvodno, u.Vrsta == prognoza.VrstaSkok:
 		return "napomena"
 	}
 	return ""

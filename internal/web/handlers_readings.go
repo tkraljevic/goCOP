@@ -131,11 +131,17 @@ func (h *ReadingsHandler) HandlePreuzmiJavno(w http.ResponseWriter, r *http.Requ
 }
 
 // porukaPreuzimanja javlja ishod preuzimanja jedne letve; odbačene
-// vrijednosti izvan raspona spominje samo kad ih ima
+// vrijednosti izvan raspona, odbačene kao skok i one koje čekaju iduće
+// očitanje spominje samo kad ih ima
 func porukaPreuzimanja(s javnivodostaji.StanjeLetve) string {
 	poruka := fmt.Sprintf("Preuzeto s javne stranice: %d %s, novih %d", s.Preuzeto, models.UzBrojHR(s.Preuzeto, "očitanje", "očitanja", "očitanja"), s.Novih)
-	if s.Odbaceno > 0 {
-		poruka += fmt.Sprintf(", odbačeno izvan raspona %d", s.Odbaceno)
+	for _, d := range []struct {
+		n     int
+		tekst string
+	}{{s.Odbaceno, "odbačeno izvan raspona"}, {s.Skokova, "odbačeno kao skok"}, {s.Ceka, "čeka iduće očitanje"}} {
+		if d.n > 0 {
+			poruka += fmt.Sprintf(", %s %d", d.tekst, d.n)
+		}
 	}
 	return poruka + "."
 }

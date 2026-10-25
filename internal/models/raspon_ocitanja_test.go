@@ -285,6 +285,19 @@ func TestTekstOdbacenihZaStranicuLetve(t *testing.T) {
 	if !strings.HasPrefix(s.Tekst(), "Odbačeno izvan raspona: 50") {
 		t.Errorf("tekst: %q", s.Tekst())
 	}
+	// Odluke (25. 10. 2026.): skok se broji s odbačenima izvan raspona
+	skok := OdbacenSkok(Reading{StationID: "dm", MeasuredAt: time.Date(2026, 10, 6, 13, 0, 0, 0, Zagreb), LevelCm: cmR(830), Origin: "vodostaji.voda.hr"})
+	if skok.Polje != PoljeSkok || skok.Opis != "skok na 830 cm" || skok.Letva != "station:dm" || skok.Izvor != "vodostaji.voda.hr" {
+		t.Errorf("zapis skoka: %+v", skok)
+	}
+	s = SazetakOdbacenih{Broj: 3, Skokova: 1, Zadnja: skok}
+	if got := s.tekst(sada); got != "Odbačeno izvan raspona i zbog skoka: 3, zadnje skok na 830 cm u 13 h" {
+		t.Errorf("mješovito: %q", got)
+	}
+	s.Broj = 1
+	if got := s.tekst(sada); got != "Odbačeno zbog skoka: 1, zadnje skok na 830 cm u 13 h" {
+		t.Errorf("samo skok: %q", got)
+	}
 }
 
 // Oznaku kote po odluci imaju tri letve akumulacija HEP-a, po šifri

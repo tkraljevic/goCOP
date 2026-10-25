@@ -29,7 +29,7 @@ func izdavackiKrug(t *testing.T) (*satniKrug, *[]*prognoza.Ishod) {
 	t.Cleanup(func() { ocitanja.Close() })
 	if _, err := ocitanja.Exec(`
 		CREATE TABLE stations (id TEXT PRIMARY KEY, code TEXT);
-		CREATE TABLE readings (station_id TEXT, measured_at DATETIME, level_cm INTEGER, flow_m3s REAL);
+		CREATE TABLE readings (station_id TEXT, measured_at DATETIME, level_cm INTEGER, flow_m3s REAL, source TEXT NOT NULL DEFAULT 'RUČNO');
 		INSERT INTO stations VALUES ('1','gornja'),('2','donja');`); err != nil {
 		t.Fatal(err)
 	}
