@@ -337,10 +337,14 @@ type ReadingFormData struct {
 	IsSluice    bool
 	IsField     bool   // terencu je način uvijek ručno, pa ga obrazac ne pita
 	LocalValue  string // vrijednost za datetime-local
-	Sources     []string
-	States      []string
-	Gates       []string
-	Latest      *models.Reading
+	// Izvorni trenutak očitanja pri izmjeni (RFC 3339, UTC): obrazac ga
+	// vraća, pa nepromijenjeno vrijeme ostaje točno, sa sekundama i u
+	// dvostrukom satu pomaka sata (izvorniTrenutak)
+	IzvornoUTC string
+	Sources    []string
+	States     []string
+	Gates      []string
+	Latest     *models.Reading
 	// Procjena protoka iz HQ krivulje za zadnje očitanje: kartica Protok tako
 	// pokaže što bi krivulja rekla, da se izmjereno ima s čime usporediti.
 	ProtokIzKrivulje string
@@ -890,6 +894,7 @@ func (h *ReadingsHandler) ShowForm(w http.ResponseWriter, r *http.Request) {
 	}
 	data.IsField = u != nil && u.IsFieldUser()
 	data.LocalValue = rd.MeasuredAt.In(models.Zagreb).Format("2006-01-02T15:04")
+	data.IzvornoUTC = rd.MeasuredAt.UTC().Format(time.RFC3339Nano)
 	if a := h.arh(); a != nil && data.Station != nil && data.Station.Code != "" {
 		if krivulje, _ := a.Krivulje(ctx, data.Station.Code); len(krivulje) > 0 {
 			data.ImaKrivulju = true
@@ -916,6 +921,35 @@ func parseOptionalInt(s string) (*int, error) {
 	return &v, nil
 }
 
+// vrijemeIzObrasca je vrijeme očitanja iz obrasca: prazno je sada za novo
+// očitanje, a izmjena bez vremena se odbija, da ispravak ne premjesti
+// očitanje na trenutak ispravka
+func vrijemeIzObrasca(r *http.Request, izmjena bool) (time.Time, error) {
+	at := strings.TrimSpace(r.FormValue("measured_at"))
+	switch {
+	case at == "" && izmjena:
+		return time.Time{}, fmt.Errorf("upišite datum i vrijeme očitanja")
+	case at == "":
+		return time.Now().UTC(), nil
+	}
+	t, err := time.ParseInLocation("2006-01-02T15:04", at, models.Zagreb)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("vrijeme očitanja nije čitljivo")
+	}
+	return izvorniTrenutak(r, at, t.UTC()), nil
+}
+
+// izvorniTrenutak: kad izmjena ostavi datum i vrijeme kakvi su bili,
+// vrijedi izvorni trenutak očitanja, a ne onaj pročitan iz polja, koje nosi
+// samo minute i u dvostrukom satu pomaka sata ne zna koji je od dva sata
+func izvorniTrenutak(r *http.Request, polje string, procitano time.Time) time.Time {
+	izvorno, err := time.Parse(time.RFC3339Nano, r.FormValue("measured_at_utc"))
+	if err != nil || izvorno.In(models.Zagreb).Format("2006-01-02T15:04") != polje {
+		return procitano
+	}
+	return izvorno.UTC()
+}
+
 func readingFromForm(r *http.Request) (*models.Reading, error) {
 	rd := &models.Reading{
 		StationID:      strings.TrimSpace(r.FormValue("station_id")),
@@ -934,17 +968,10 @@ func readingFromForm(r *http.Request) (*models.Reading, error) {
 		}
 		rd.ID = id
 	}
-	at := strings.TrimSpace(r.FormValue("measured_at"))
-	if at == "" {
-		rd.MeasuredAt = time.Now().UTC()
-	} else {
-		t, err := time.ParseInLocation("2006-01-02T15:04", at, models.Zagreb)
-		if err != nil {
-			return nil, fmt.Errorf("vrijeme očitanja nije čitljivo")
-		}
-		rd.MeasuredAt = t.UTC()
-	}
 	var err error
+	if rd.MeasuredAt, err = vrijemeIzObrasca(r, rd.ID != uuid.Nil); err != nil {
+		return nil, err
+	}
 	if rd.LevelCm, err = parseOptionalInt(r.FormValue("level_cm")); err != nil {
 		return nil, fmt.Errorf("vodostaj: %w", err)
 	}

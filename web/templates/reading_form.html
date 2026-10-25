@@ -14,7 +14,8 @@
 
 
 <form class="form-page" method="POST" action="{{if .IsEdit}}/readings/update{{else}}/readings/create{{end}}">
-  {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">{{end}}
+  {{if .IsEdit}}<input type="hidden" name="id" value="{{.Reading.ID}}">
+  <input type="hidden" name="measured_at_utc" value="{{.IzvornoUTC}}">{{end}}
   <input type="hidden" name="station_id" value="{{.Reading.StationID}}">
   <input type="hidden" name="structure_id" value="{{.Reading.StructureID}}">
   <input type="hidden" name="back" value="{{.BackURL}}">
@@ -132,8 +133,8 @@
     <div class="form-group">
       <label class="form-label" for="measured_at">Vrijeme očitanja</label>
       <input type="datetime-local" id="measured_at" name="measured_at" class="form-control" value="{{.LocalValue}}"
-             data-zadano="{{.LocalValue}}" required>
-      <div class="form-help">Zadano je sad; promijenite kad upisujete naknadno.</div>
+             {{if not .IsEdit}}data-zadano="{{.LocalValue}}" {{end}}required>
+      {{if not .IsEdit}}<div class="form-help">Zadano je sad; promijenite kad upisujete naknadno.</div>{{end}}
     </div>
     {{if .IsField}}
     <input type="hidden" name="source" value="{{if .Reading.Source}}{{.Reading.Source}}{{else}}RUČNO{{end}}">
@@ -192,11 +193,13 @@
   // upiše poslije dobivao vrijeme kad je otvorio, a ne kad je očitao. Zato:
   // nedirnuto polje se pri slanju osvježi na sada, a dirnuto se potvrđuje ako
   // znatno zaostaje. Bez skripte ostaje kako je bilo — upozorenje smije izostati,
-  // upis ne smije.
+  // upis ne smije. Pri izmjeni postojećeg očitanja polje nosi vrijeme toga
+  // očitanja i ne smije se osvježiti na sada (nema data-zadano), inače bi
+  // ispravak vodostaja premjestio očitanje na trenutak ispravka.
   (function () {
     const polje = document.getElementById('measured_at');
     const obrazac = polje && polje.form;
-    if (!obrazac) { return; }
+    if (!obrazac || polje.dataset.zadano === undefined) { return; }
     let dirano = false;
     polje.addEventListener('input', function () { dirano = true; });
     function sada() {
