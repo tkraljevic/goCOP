@@ -4,6 +4,34 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.44-alfa — 26. 10. 2026.
+
+- **WEB sync: računala koja se nikad nisu izravno razgovarala sad se
+  spoje.** Uredsko i kućno računalo imali su uključen WEB sync, ali se nisu
+  ni pokušali spojiti. WEB sync se pripremao samo prema računalu koje je u
+  izravnoj razmjeni javilo da ga ima, a ta dva nikad nisu bila na istoj
+  mreži. Sad se WEB sync pokuša i kad se ne zna ima li ga drugo računalo.
+  Ako ga nema, sastajalište to odmah javi i nakon tri pokušaja par čeka 30
+  minuta. Računalo koje je javilo da WEB sync nema i dalje se ne zove.
+  (#158)
+- **Uzdužni profil više ne nestaje do sutra.** Na kućnom serveru je nakon
+  nadogradnje cijeli dan pisalo „Uzdužnog profila nema”, iako su letve imale
+  i očitanja i arhivu. Profil vodostaje zadnjih 30 dana čita jednom na dan i
+  pamti ih; kad to čitanje nije uspjelo, zapamtio je prazno do sutra. Sad se
+  neuspjelo čitanje ne pamti, pa iduće otvaranje stranice čita iznova. Uz to
+  se Excel šalje tek kad je cijeli složen, pa prekid veze usred preuzimanja
+  više ne ostavlja grešku u dnevniku poslužitelja. (#157)
+- **`gocop` iz instalacije Postave bez `-db` više ne pravi novi čvor.**
+  Pokrenut ručno iz mape `program`, koja je u PATH-u, program je napravio
+  novu bazu u `program\data`, s novim ključem i imenom, i u mreži bi se
+  javio kao novo računalo. Sad bez `-db` ne kreće, nego kaže gdje su podaci
+  čvora i kako ga ručno pokrenuti. Isto vrijedi za oporavak lozinke s
+  konzole. (#159)
+- **Kad srpski zavod nema podataka, dnevnik to i kaže.** Za Novi Sad je
+  svaki sat pisalo „na stranici nema tablice očitanja — je li se stranica
+  promijenila?”, a na stranici RHMZ-a stajalo je „Podaci nisu raspoloživi”.
+  Sad poruka kaže da RHMZ trenutno nema podataka za postaju. (#160)
+
 ## 0.0.43-alfa — 25. 10. 2026.
 
 - **WEB sync: dva računala iza usmjerivača razmjenjuju izravno.** Do sada
