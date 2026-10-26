@@ -99,7 +99,7 @@ type UzduzniProfil struct {
 	SatOd, SatDo            int // raspon klizača, sati prema izdanju
 	Niz                     template.JS
 	NulaKratko              string   // razdoblje nule: „zadnjih 30 dana” ili „od 20. 9.”
-	Izostavljeno            []string // letve koje nisu na crtežu i zašto: „Siga — mjerilo stoji …”
+	Izostavljeno            []string // letve koje nisu na crtežu i zašto: „Siga — mjerni uređaj stoji …”
 }
 
 // NulaNaziv je natpis crte nule: „voda zadnjih 30 dana”.
