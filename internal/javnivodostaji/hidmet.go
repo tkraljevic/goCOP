@@ -105,6 +105,9 @@ func CitajHidmet(html string) ([]Redak, error) {
 		out = append(out, Redak{Kad: kad.UTC(), LevelCm: intPtr(cm)})
 	}
 	if len(out) == 0 {
+		if strings.Contains(html, "Podaci nisu raspoloživi") || strings.Contains(html, "Подаци нису расположиви") {
+			return nil, fmt.Errorf("RHMZ trenutno nema podataka za ovu postaju (na stranici piše „Podaci nisu raspoloživi”)")
+		}
 		if strings.Contains(html, "Vodostaj") {
 			return nil, fmt.Errorf("tablica je prazna — postaja možda ne javlja vodostaj")
 		}
