@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"net"
 	"net/netip"
+	"slices"
 	"sync"
 	"testing"
 	"testing/synctest"
@@ -266,6 +267,36 @@ func TestWebSyncTablicaKrozSyncWith(t *testing.T) {
 			})
 		}
 	}
+}
+
+// Dva računala koja se nikad nisu izravno razgovarala (ured i kućni
+// Windows, 26. 10. 2026.) ne znaju jedno za drugo ima li WEB sync. Ipak se
+// spoje WEB syncom iz prvog kruga, razmijene podatke i nakon toga znaju
+// jedno drugome oznake.
+func TestWebSyncPrviSusret(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		a, b, posta := parWeba(t, mrezaWeba(t), natEIM, natEIM)
+		for _, s := range []*Service{a, b} {
+			if _, err := s.db.Exec(`DELETE FROM peer_sync`); err != nil {
+				t.Fatal(err)
+			}
+		}
+		napuniKnjigu(t, a, 2)
+		napuniKnjigu(t, b, 1)
+		if _, _, err := a.SyncWith(t.Context(), b.node.ID); !errors.Is(err, ErrWebSyncSePriprema) {
+			t.Fatalf("SyncWith: %v", err)
+		}
+		pricekajPozadinu()
+		provjeriTablicu(t, a, b, true)
+		if n := posta.poslano(razmjena.VrstaPoziv); n != 1 {
+			t.Errorf("poziva %d", n)
+		}
+		for _, par := range [][2]*Service{{a, b}, {b, a}} {
+			if st := stanjeS(t, par[0], par[1].node.ID); !slices.Contains(st.Mogucnosti, razmjena.OznakaWeb) {
+				t.Errorf("%s nakon razmjene ne zna da %s ima WEB sync: %v", par[0].node.ID, par[1].node.ID, st.Mogucnosti)
+			}
+		}
+	})
 }
 
 // provjeriTablicu: uspjeh je razmjena preko WEB synca na obje strane, a
