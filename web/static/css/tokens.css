@@ -1,0 +1,180 @@
+/* Tokeni sustava dizajna goCOP-a (Material 3). Izvor je FigCraft datoteka
+   goCOP-private/dizajn/goCOP-m3.figcraft: varijable zbirki Boje i Mjere,
+   izvezene naredbom variable.export. Ne uređivati ručno: izmjena se radi u
+   FigCraftu i ponovno izvozi. Boje su izračunate iz plave #173E74 i zelene
+   #20BA70 iz znaka Hrvatskih voda, kako ih računa Flutter (fidelity).
+   Svijetla tema je na :root, tamna pod data-theme="dark" (js/tema.js), isto
+   kao u style.css. Zasad ih čita samo stranica prijave (css/prijava.css). */
+
+:root,
+[data-tema-pregled="light"] {
+  --md-sys-color-primary: #002856;
+  --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #173E74;
+  --md-sys-color-on-primary-container: #89AAE7;
+  --md-sys-color-secondary: #216B42;
+  --md-sys-color-on-secondary: #FFFFFF;
+  --md-sys-color-secondary-container: #A5F0BC;
+  --md-sys-color-on-secondary-container: #267046;
+  --md-sys-color-tertiary: #002E34;
+  --md-sys-color-on-tertiary: #FFFFFF;
+  --md-sys-color-tertiary-container: #00464F;
+  --md-sys-color-on-tertiary-container: #56B8C8;
+  --md-sys-color-error: #BA1A1A;
+  --md-sys-color-on-error: #FFFFFF;
+  --md-sys-color-error-container: #FFDAD6;
+  --md-sys-color-on-error-container: #93000A;
+  --md-sys-color-surface: #FAF9FD;
+  --md-sys-color-on-surface: #1A1B1E;
+  --md-sys-color-on-surface-variant: #44474E;
+  --md-sys-color-surface-container-lowest: #FFFFFF;
+  --md-sys-color-surface-container-low: #F4F3F7;
+  --md-sys-color-surface-container: #EFEDF1;
+  --md-sys-color-surface-container-high: #E9E7EC;
+  --md-sys-color-surface-container-highest: #E3E2E6;
+  --md-sys-color-outline: #74777F;
+  --md-sys-color-outline-variant: #C4C6D0;
+  --md-sys-color-inverse-surface: #2F3033;
+  --md-sys-color-inverse-on-surface: #F1F0F4;
+  --md-sys-color-inverse-primary: #AAC7FF;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --stadij-mirno-boja: #006D3E;
+  --stadij-mirno-naboji: #FFFFFF;
+  --stadij-mirno-ploha: #A5F0BC;
+  --stadij-mirno-naplohi: #00210F;
+  --stadij-pripremno-boja: #745B00;
+  --stadij-pripremno-naboji: #FFFFFF;
+  --stadij-pripremno-ploha: #FFE08A;
+  --stadij-pripremno-naplohi: #241A00;
+  --stadij-redovno-boja: #924C00;
+  --stadij-redovno-naboji: #FFFFFF;
+  --stadij-redovno-ploha: #FFDCC4;
+  --stadij-redovno-naplohi: #2F1400;
+  --stadij-izvanredno-boja: #A73733;
+  --stadij-izvanredno-naboji: #FFFFFF;
+  --stadij-izvanredno-ploha: #FFDAD6;
+  --stadij-izvanredno-naplohi: #410003;
+  --graf-mjereno: #173E74;
+  --graf-mjerenoploha: #E1E9F5;
+  --graf-prognoza: #E65100;
+  --graf-raspon: #FBE3D6;
+  --graf-buducnost: #F1F1F4;
+  --graf-mjereno: #173E74;
+  --graf-mjerenoploha: #E1E9F5;
+  --graf-prognoza: #E65100;
+  --graf-raspon: #FBE3D6;
+  --graf-buducnost: #F1F1F4;
+  --stadij-izvanrednostanje-boja: #813FAC;
+  --stadij-izvanrednostanje-naboji: #FFFFFF;
+  --stadij-izvanrednostanje-ploha: #F4D9FF;
+  --stadij-izvanrednostanje-naplohi: #2F004B;
+  --color-naplavojplohi: #FFFFFF;
+  --md-sys-color-ploha-odabrano: #D6E3FF;
+  --md-sys-color-naplohi-odabrano: #284777;
+}
+
+:root[data-theme="dark"],
+[data-tema-pregled="dark"] {
+  --md-sys-color-primary: #AAC7FF;
+  --md-sys-color-on-primary: #002F64;
+  --md-sys-color-primary-container: #173E74;
+  --md-sys-color-on-primary-container: #89AAE7;
+  --md-sys-color-secondary: #8DD7A4;
+  --md-sys-color-on-secondary: #00391E;
+  --md-sys-color-secondary-container: #015731;
+  --md-sys-color-on-secondary-container: #82CB9A;
+  --md-sys-color-tertiary: #74D4E5;
+  --md-sys-color-on-tertiary: #00363D;
+  --md-sys-color-tertiary-container: #00464F;
+  --md-sys-color-on-tertiary-container: #56B8C8;
+  --md-sys-color-error: #FFB4AB;
+  --md-sys-color-on-error: #690005;
+  --md-sys-color-error-container: #93000A;
+  --md-sys-color-on-error-container: #FFDAD6;
+  --md-sys-color-surface: #121316;
+  --md-sys-color-on-surface: #E3E2E6;
+  --md-sys-color-on-surface-variant: #C4C6D0;
+  --md-sys-color-surface-container-lowest: #0D0E11;
+  --md-sys-color-surface-container-low: #1A1B1E;
+  --md-sys-color-surface-container: #1E1F23;
+  --md-sys-color-surface-container-high: #292A2D;
+  --md-sys-color-surface-container-highest: #343538;
+  --md-sys-color-outline: #8E9099;
+  --md-sys-color-outline-variant: #44474E;
+  --md-sys-color-inverse-surface: #E3E2E6;
+  --md-sys-color-inverse-on-surface: #2F3033;
+  --md-sys-color-inverse-primary: #3C5E96;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+  --stadij-mirno-boja: #57DF92;
+  --stadij-mirno-naboji: #00391E;
+  --stadij-mirno-ploha: #00522D;
+  --stadij-mirno-naplohi: #76FCAC;
+  --stadij-pripremno-boja: #F0C115;
+  --stadij-pripremno-naboji: #3D2F00;
+  --stadij-pripremno-ploha: #574400;
+  --stadij-pripremno-naplohi: #FFE08A;
+  --stadij-redovno-boja: #FFB780;
+  --stadij-redovno-naboji: #4E2600;
+  --stadij-redovno-ploha: #6F3800;
+  --stadij-redovno-naplohi: #FFDCC4;
+  --stadij-izvanredno-boja: #FFB3AC;
+  --stadij-izvanredno-naboji: #67050A;
+  --stadij-izvanredno-ploha: #871F1E;
+  --stadij-izvanredno-naplohi: #FFDAD6;
+  --graf-mjereno: #AAC7FF;
+  --graf-mjerenoploha: #1E2A3D;
+  --graf-prognoza: #FFB68F;
+  --graf-raspon: #4A2A1A;
+  --graf-buducnost: #1A1B1E;
+  --graf-mjereno: #AAC7FF;
+  --graf-mjerenoploha: #1E2A3D;
+  --graf-prognoza: #FFB68F;
+  --graf-raspon: #4A2A1A;
+  --graf-buducnost: #1A1B1E;
+  --stadij-izvanrednostanje-boja: #E4B5FF;
+  --stadij-izvanrednostanje-naboji: #4E0078;
+  --stadij-izvanrednostanje-ploha: #672492;
+  --stadij-izvanrednostanje-naplohi: #F4D9FF;
+  --color-naplavojplohi: #E3E2E6;
+  --md-sys-color-ploha-odabrano: #284777;
+  --md-sys-color-naplohi-odabrano: #D6E3FF;
+}
+
+/* Mjere · razmaci (mreža od 4), oblici (Material 3 shape scale), cilj dodira */
+:root {
+  --space-4: 4px;
+  --space-8: 8px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+  --shape-none: 0px;
+  --shape-extrasmall: 4px;
+  --shape-small: 8px;
+  --shape-medium: 12px;
+  --shape-large: 16px;
+  --shape-extralarge: 28px;
+  --shape-full: 999px;
+  --size-touchtarget: 48px;
+}
+
+/* Slova: Inter za web, Android i iOS (Odluke (26. 10. 2026.)). Dok datoteke
+   fonta nisu u static/fonts, vrijedi sistemsko pismo iz zamjene. Ljestvica
+   je Materialova (TextTheme u Flutteru): veličina / visina retka. */
+:root {
+  --md-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --md-type-display-medium: 400 45px/52px var(--md-font-sans);
+  --md-type-headline-medium: 400 28px/36px var(--md-font-sans);
+  --md-type-headline-small: 400 24px/32px var(--md-font-sans);
+  --md-type-title-large: 400 22px/28px var(--md-font-sans);
+  --md-type-title-medium: 500 16px/24px var(--md-font-sans);
+  --md-type-title-small: 500 14px/20px var(--md-font-sans);
+  --md-type-body-large: 400 16px/24px var(--md-font-sans);
+  --md-type-body-medium: 400 14px/20px var(--md-font-sans);
+  --md-type-body-small: 400 13px/18px var(--md-font-sans);
+  --md-type-label-large: 500 14px/20px var(--md-font-sans);
+  --md-type-label-medium: 500 13px/16px var(--md-font-sans);
+}
