@@ -129,10 +129,20 @@ func uticnicaIza(t *testing.T, n *natsim.NAT, lokalna string) (*razmjena.UDP, []
 func izlazUTestu(netip.AddrPort) (netip.Addr, error) { return netip.MustParseAddr("192.0.2.1"), nil }
 
 // sWebom da čvoru WEB sync na utičnici iza NAT-a n, prijavljen kod poste;
-// ukljucen je web_sync. WEB sync staje na kraju testa.
+// ukljucen je web_sync. WEB sync radi čim PokreniWebSync vrati, a staje na
+// kraju testa.
 func sWebom(t *testing.T, s *Service, posta *postaWeba, n *natsim.NAT, lokalna string, ukljucen bool, uz ...func(*razmjena.PostavkeWeb)) *razmjena.WebSync {
 	t.Helper()
 	u, kandidati, nat := uticnicaIza(t, n, lokalna)
+	w := webNa(t, s, posta, u, kandidati, nat, uz...)
+	t.Cleanup(s.PokreniWebSync(t.Context(), w, ukljucen, nil))
+	return w
+}
+
+// webNa je WEB sync čvora na utičnici u s kandidatima i vrstom mreže,
+// prijavljen kod poste; ne radi dok ga ne pokrene PokreniWebSync
+func webNa(t *testing.T, s *Service, posta *postaWeba, u *razmjena.UDP, kandidati []razmjena.KandidatPoruke, nat *razmjena.NATPoruke, uz ...func(*razmjena.PostavkeWeb)) *razmjena.WebSync {
+	t.Helper()
 	if s.tailscaleAdrese == nil {
 		s.ZadajTailscale()
 	}
@@ -152,18 +162,7 @@ func sWebom(t *testing.T, s *Service, posta *postaWeba, n *natsim.NAT, lokalna s
 	posta.mu.Lock()
 	posta.cvorovi[razmjena.PublicKeyString(s.javni())] = w
 	posta.mu.Unlock()
-	pokreniWebDokTraje(t, s, w, ukljucen, nil)
 	return w
-}
-
-// pokreniWebDokTraje pokrene WEB sync čvora dok test traje i pričeka da
-// krene. PokreniWebSync ga pokreće u gorutini, a priprema koja stigne prije
-// nje dobije ErrWebSyncNeRadi: ne broji se i poziv ne ode, pa bi test
-// ovisio o tome koja gorutina prva dođe na red. Wait čeka da sve gorutine
-// mjehura stanu, a ta stane tek kad je WEB sync krenuo i čeka poruke.
-func pokreniWebDokTraje(t *testing.T, s *Service, w *razmjena.WebSync, ukljucen bool, prijePoziva func(context.Context)) {
-	t.Cleanup(s.PokreniWebSync(t.Context(), w, ukljucen, prijePoziva))
-	synctest.Wait()
 }
 
 // bezOdgovora je spajanje koje nikad ne odgovori, do roka

@@ -123,14 +123,17 @@ func noviCvorWeb(t *testing.T, s *stranaProbe, posta *postaWeb, uz ...func(*Post
 	return c
 }
 
-// pokreni pokrene Radi; na kraju testa ga zaustavi i pričeka
+// pokreni pokrene WEB sync (Pokreni, pa petlja u gorutini); na kraju testa
+// ga zaustavi i pričeka
 func (c *cvorWeb) pokreni(t *testing.T) {
 	ctx, stani := context.WithCancel(context.Background())
 	c.stani = stani
-	go func() { c.kraj <- c.w.Radi(ctx) }()
-	for !c.w.radi.Load() {
-		time.Sleep(time.Millisecond)
-	}
+	petlja, err := c.w.Pokreni(ctx)
+	bezGreske(t, err)
+	go func() {
+		petlja()
+		c.kraj <- nil
+	}()
 	t.Cleanup(c.zaustavi)
 }
 
