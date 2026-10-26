@@ -231,7 +231,7 @@ func odrediPostavke(z *zastavice) (cfg config.Config, cfgFrom, imeIzDatoteke str
 	if !z.zadane["pakete"] && cfg.Pakete != "" {
 		z.paketi = cfg.Pakete
 	}
-	return cfg, cfgFrom, imeIzDatoteke, nil
+	return cfg, cfgFrom, imeIzDatoteke, mjestoBazePrograma(z.zadane, cfg.DB)
 }
 
 // Ime čvora: upisano u gocop.toml, zadano zastavicom -node, ili ga svjež

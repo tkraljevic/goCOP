@@ -574,6 +574,12 @@ mape nema, a mapa istog imena stoji u mapi iznad, čvor ne počinje novo stablo
 ni novu mapu paketa: *Unos u arhivu* kaže koju je mapu tražio i predloži onu
 iznad.
 
+Mapa `program` je u PATH-u, pa se `gocop` može pokrenuti i iz naredbenog
+retka. Bez `-db` tada ne kreće, nego javi gdje su podaci čvora: otvorio bi
+novu bazu u `data` ispod trenutne mape i u mreži se javio kao novo računalo.
+Za ručno pokretanje i oporavak lozinke zadaje se puna putanja baze, npr.
+`gocop -db "%LOCALAPPDATA%\goCOP\data\gocop.db" -ponisti-lozinku pperic`.
+
 **Ikona u traci:** valovi u bojama znaka kad čvor radi, sivi kad je
 zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da
 postoji novije izdanje. Dvoklik otvara goCOP u pregledniku. Desni klik: *Otvori
