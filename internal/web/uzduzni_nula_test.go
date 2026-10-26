@@ -194,7 +194,7 @@ func TestAkumulacijaZadrzavaSvojuNulu(t *testing.T) {
 // natpis nule kaže iz kojih je dana.
 func TestOpisiIzostavljenihINatpisNule(t *testing.T) {
 	n := NulaProfila{Dan: danNule,
-		Razlog: map[string]string{"petres": "mjerilo stoji na 25 cm od 26. 9.", "siga": "mjerilo stoji na 19 cm od 25. 9.", "vrbovka": "x"},
+		Razlog: map[string]string{"petres": "mjerni uređaj stoji na 25 cm od 26. 9.", "siga": "mjerni uređaj stoji na 19 cm od 25. 9.", "vrbovka": "x"},
 		Voda:   map[string]string{"petres": "Dunav", "siga": "Dunav", "vrbovka": "Drava"},
 		Rkm:    map[string]float64{"petres": 1393, "siga": 1412.2, "vrbovka": 100},
 		Naziv:  map[string]string{"petres": "Petreš", "siga": "Siga", "vrbovka": "Vrbovka"},
@@ -202,7 +202,7 @@ func TestOpisiIzostavljenihINatpisNule(t *testing.T) {
 	}
 	p := &UzduzniProfil{}
 	n.opisi(p, "Dunav")
-	if len(p.Izostavljeno) != 2 || !strings.HasPrefix(p.Izostavljeno[0], "Siga — mjerilo stoji na 19 cm") ||
+	if len(p.Izostavljeno) != 2 || !strings.HasPrefix(p.Izostavljeno[0], "Siga — mjerni uređaj stoji na 19 cm") ||
 		!strings.HasPrefix(p.Izostavljeno[1], "Petreš — ") {
 		t.Errorf("izostavljeno %q", p.Izostavljeno)
 	}
@@ -219,7 +219,7 @@ func TestOpisiIzostavljenihINatpisNule(t *testing.T) {
 func TestStranicaPiseRazdobljeNuleIIzostavljene(t *testing.T) {
 	a, b := letvaProfila("a", 400, 130, 50), letvaProfila("b", 300, 120, 50)
 	p := crtajUzduzni("Dunav", []LetvaProfila{a, b}, nil)
-	p.NulaKratko, p.Izostavljeno = "od 20. 9.", []string{"Siga — mjerilo stoji na 19 cm od 25. 9."}
+	p.NulaKratko, p.Izostavljeno = "od 20. 9.", []string{"Siga — mjerni uređaj stoji na 19 cm od 25. 9."}
 	predlosci, err := fs.Sub(web.Files, "templates")
 	if err != nil {
 		t.Fatal(err)
@@ -284,7 +284,7 @@ func probnaArhivaNula(t *testing.T, vrijednosti map[string]map[string]map[time.T
 
 // Nula se slaže iz arhive i očitanja: očitanje istog sata ima prednost,
 // akumulacija se čita kao kota, letva izvan registra nema niza, a niz se
-// čita jednom na dan.
+// čita jednom na dan, osim kad čitanje nije uspjelo.
 func TestMjesecniNiziIzArhiveIOcitanja(t *testing.T) {
 	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "nula.db"))
 	if err != nil {
@@ -349,9 +349,24 @@ func TestMjesecniNiziIzArhiveIOcitanja(t *testing.T) {
 	}
 	zatvorena.Close()
 	poSatu := map[int64]float64{}
-	dodajOcitanja(ctx, service.NewReadingService(repository.NewReadingRepository(zatvorena, rec), nil, nil, nil, nil), postaje["primjerovo"], danNule.AddDate(0, 0, -30), danNule, poSatu)
-	dodajIzArhive(ctx, probnaArhivaNula(t, nil), models.Station{Code: "primjerovo"}, danNule.AddDate(0, 0, -30), danNule, poSatu)
+	if err := dodajOcitanja(ctx, service.NewReadingService(repository.NewReadingRepository(zatvorena, rec), nil, nil, nil, nil), postaje["primjerovo"], danNule.AddDate(0, 0, -30), danNule, poSatu); err == nil {
+		t.Error("čitanje iz zatvorene baze mora javiti grešku")
+	}
+	if err := dodajIzArhive(ctx, probnaArhivaNula(t, nil), models.Station{Code: "primjerovo"}, danNule.AddDate(0, 0, -30), danNule, poSatu); err != nil {
+		t.Errorf("prazna arhiva nije greška: %v", err)
+	}
 	if len(poSatu) != 0 {
 		t.Errorf("greška čitanja: %v", poSatu)
+	}
+
+	// Niz koji se nije dao pročitati ne pamti se: kad je baza prvi put bila
+	// nedostupna, iduće otvaranje istog dana čita iznova i profil se vrati.
+	k := &PrognozeHandler{readings: service.NewReadingService(repository.NewReadingRepository(zatvorena, rec), nil, nil, nil, nil)}
+	if prvi := k.mjesecniNizovi(ctx, postaje, []string{"primjerovo"}, danNule); len(prvi) != 0 {
+		t.Errorf("iz zatvorene baze nema niza: %v", prvi)
+	}
+	k.readings = service.NewReadingService(ocitanja, stanice, nil, nil, nil)
+	if drugi := k.mjesecniNizovi(ctx, postaje, []string{"primjerovo"}, danNule); len(drugi["primjerovo"]) != 10 {
+		t.Errorf("nakon neuspjelog čitanja isti dan mora čitati iznova: %v", drugi)
 	}
 }

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"sync"
 	"time"
@@ -157,7 +158,10 @@ func (h *PrognozeHandler) mjesecno(ctx context.Context, postaje map[string]model
 }
 
 // mjesecniNizovi čita satne vodostaje letvi zadnjih 30 dana prije dana jutra,
-// jednom na dan po letvi. Letva bez ijedne vrijednosti nema niza.
+// jednom na dan po letvi. Letva bez ijedne vrijednosti nema niza. Niz koji
+// se nije dao pročitati do kraja (arhiva ili baza zauzeta, otvaranje
+// stranice prekinuto) ne pamti se, nego se čita iznova pri idućem
+// otvaranju; zapamćen, ostao bi bez profila do sutra.
 func (h *PrognozeHandler) mjesecniNizovi(ctx context.Context, postaje map[string]models.Station, letve []string, dan time.Time) map[string]map[int64]float64 {
 	u := &h.mjesecna
 	u.mu.Lock()
@@ -169,8 +173,11 @@ func (h *PrognozeHandler) mjesecniNizovi(ctx context.Context, postaje map[string
 	for _, l := range letve {
 		niz, ima := u.niz[l]
 		if !ima {
-			niz = h.satniNizLetve(ctx, postaje, l, dan)
-			u.niz[l] = niz
+			var err error
+			niz, err = h.satniNizLetve(ctx, postaje, l, dan)
+			if err == nil {
+				u.niz[l] = niz
+			}
 		}
 		if len(niz) > 0 {
 			out[l] = niz
@@ -180,28 +187,30 @@ func (h *PrognozeHandler) mjesecniNizovi(ctx context.Context, postaje map[string
 }
 
 // satniNizLetve slaže satni niz letve za zadnjih 30 dana prije dana jutra:
-// vrijednosti iz arhive, dopunjene očitanjima koja arhiva još nema.
-func (h *PrognozeHandler) satniNizLetve(ctx context.Context, postaje map[string]models.Station, l string, dan time.Time) map[int64]float64 {
+// vrijednosti iz arhive, dopunjene očitanjima koja arhiva još nema. Uz
+// grešku vraća ono što je pročitano.
+func (h *PrognozeHandler) satniNizLetve(ctx context.Context, postaje map[string]models.Station, l string, dan time.Time) (map[int64]float64, error) {
 	poSatu := map[int64]float64{}
 	st, ima := postaje[l]
 	if !ima {
-		return poSatu
+		return poSatu, nil
 	}
 	od, do := dan.AddDate(0, 0, -MjesecDana), dan.Add(-time.Second)
+	var errArhive, errOcitanja error
 	if h.arhiva != nil {
-		dodajIzArhive(ctx, h.arhiva(), st, od, do, poSatu)
+		errArhive = dodajIzArhive(ctx, h.arhiva(), st, od, do, poSatu)
 	}
 	if h.readings != nil {
-		dodajOcitanja(ctx, h.readings, st, od, do, poSatu)
+		errOcitanja = dodajOcitanja(ctx, h.readings, st, od, do, poSatu)
 	}
-	return poSatu
+	return poSatu, errors.Join(errArhive, errOcitanja)
 }
 
 // dodajIzArhive upisuje satne vrijednosti letve iz arhive (za akumulaciju
 // kotu, za letvu vodostaj).
-func dodajIzArhive(ctx context.Context, a *repository.ArhivaRepository, st models.Station, od, do time.Time, poSatu map[int64]float64) {
+func dodajIzArhive(ctx context.Context, a *repository.ArhivaRepository, st models.Station, od, do time.Time, poSatu map[int64]float64) error {
 	if a == nil {
-		return
+		return nil
 	}
 	velicina := "vodostaj"
 	if jeAkumulacija(st) {
@@ -209,25 +218,27 @@ func dodajIzArhive(ctx context.Context, a *repository.ArhivaRepository, st model
 	}
 	vs, err := a.SpojRaspon(ctx, st.Code, velicina, "satni", od, do, 20000, 0, "")
 	if err != nil {
-		return
+		return err
 	}
 	for _, v := range vs {
 		poSatu[v.Kad.Unix()/3600] = v.Vrijednost
 	}
+	return nil
 }
 
 // dodajOcitanja upisuje očitanja letve preko arhive: očitanje istog sata
 // ima prednost, jer je novije.
-func dodajOcitanja(ctx context.Context, r *service.ReadingService, st models.Station, od, do time.Time, poSatu map[int64]float64) {
+func dodajOcitanja(ctx context.Context, r *service.ReadingService, st models.Station, od, do time.Time, poSatu map[int64]float64) error {
 	rs, err := r.List(ctx, repository.ReadingFilter{StationID: st.ID.String(), From: od, To: do})
 	if err != nil {
-		return
+		return err
 	}
 	for _, rd := range rs {
 		if rd.LevelCm != nil {
 			poSatu[rd.MeasuredAt.Unix()/3600] = float64(*rd.LevelCm)
 		}
 	}
+	return nil
 }
 
 // ocitanje je jedno mjerenje vodostaja u vremenu.

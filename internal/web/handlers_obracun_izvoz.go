@@ -1,6 +1,7 @@
 package web
 
 import (
+	"bytes"
 	"fmt"
 	"net/http"
 	"sort"
@@ -181,12 +182,21 @@ func (h *JournalsHandler) IzvoziIORS(w http.ResponseWriter, r *http.Request) {
 	posaljiXLSX(w, ime, knjiga)
 }
 
+// posaljiXLSX šalje knjigu tek kad je cijela složena: greška slaganja je
+// tada čist odgovor 500 umjesto prekinute datoteke, a prekid veze usred
+// slanja (preglednik je odustao) ne pokušava poslati grešku preko već
+// poslanog zaglavlja
 func posaljiXLSX(w http.ResponseWriter, ime string, knjiga *xlsxw.Knjiga) {
-	w.Header().Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-	w.Header().Set("Content-Disposition", `attachment; filename="`+ime+`"`)
-	if err := knjiga.Zapisi(w); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	var b bytes.Buffer
+	if err := knjiga.Zapisi(&b); err != nil {
+		http.Error(w, "Excel datoteka nije složena: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
+	h := w.Header()
+	h.Set("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	h.Set("Content-Disposition", `attachment; filename="`+ime+`"`)
+	h.Set("Content-Length", strconv.Itoa(b.Len()))
+	_, _ = b.WriteTo(w) // prekinuta veza: preglednik je odustao, nema kome javiti
 }
 
 var prazno = xlsxw.T("")
