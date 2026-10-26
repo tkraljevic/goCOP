@@ -6,8 +6,11 @@ package razmjena
 //     zajedničkom ogradom razmjena, obradom razgovora, slanjem preko
 //     sastajališta i vlastitim kandidatima;
 //   - Radi dok vrijedi web_sync = true: slušalica QUIC-a i red poruka
-//     sastajališta; uz web_sync = false umjesto njega Odbija, koji na svaki
-//     poziv odmah odgovori „isključeno” (Odluke (25. 10. 2026.), 1);
+//     sastajališta. Pokreni je isto u dva dijela: odmah zauzme WEB sync i
+//     otvori slušalicu, a petlju vrati pozivatelju, pa priprema koja krene
+//     odmah nakon pokretanja ne dobije ErrWebSyncNeRadi. Uz web_sync =
+//     false umjesto njega Odbija, koji na svaki poziv odmah odgovori
+//     „isključeno” (Odluke (25. 10. 2026.), 1);
 //   - NaPoruku i NaNemu iz signalnog klijenta ili sastajališta;
 //   - Pripremi kad ovo računalo zove drugo: poziv, odziv, provjera
 //     kandidata druge strane, udarci, probijanje, QUIC i pozdrav. Vraća
@@ -236,27 +239,45 @@ func (w *WebSync) zadanoPuta() {
 }
 
 // Radi drži slušalicu QUIC-a i obrađuje poruke sastajališta dok ctx traje;
-// na kraju zatvori sesije i prekine pripreme. Greška kad već radi (i kad
-// radi Odbija) ili kad se slušalica ne da otvoriti. Na jednoj utičnici radi
-// jedan WebSync.
+// na kraju zatvori sesije i prekine pripreme. Isto je što Pokreni, pa
+// petlja koju vrati.
 func (w *WebSync) Radi(ctx context.Context) error {
+	petlja, err := w.Pokreni(ctx)
+	if err != nil {
+		return err
+	}
+	petlja()
+	return nil
+}
+
+// Pokreni zauzme WEB sync i odmah otvori slušalicu QUIC-a, pa Pripremi
+// radi čim Pokreni vrati. Vraća petlju koju pozivatelj mora pozvati (obično
+// u svojoj gorutini): ona drži slušalicu i obrađuje poruke sastajališta dok
+// ctx traje, a na kraju zatvori sesije i prekine pripreme. Greška kad već
+// radi (i kad radi Odbija) ili kad se slušalica ne da otvoriti; tada WEB
+// sync ne radi i petlje nema. Na jednoj utičnici radi jedan WebSync.
+func (w *WebSync) Pokreni(ctx context.Context) (func(), error) {
 	if w.odbija.Load() || !w.radi.CompareAndSwap(false, true) {
-		return ErrWebSyncVecRadi
+		return nil, ErrWebSyncVecRadi
 	}
 	ln, err := slusajWeb(w.u.tr, w.tls, w.vrataQUIC)
 	if err != nil {
 		w.radi.Store(false)
-		return err
+		return nil, err
 	}
+	return func() { w.petlja(ctx, ln) }, nil
+}
+
+// petlja je rad WEB synca koji je zauzeo Pokreni, dok ctx traje
+func (w *WebSync) petlja(ctx context.Context, ln *quic.Listener) {
 	ctx, otkazi := context.WithCancel(ctx)
 	w.gorutine.Go(func() { w.primaj(ctx, ln) })
 	w.razvrstavaj(ctx)
 	w.radi.Store(false)
 	otkazi()
-	_ = ln.Close() // slušalica staje s Radi; greška zatvaranja nema kome reći
+	_ = ln.Close() // slušalica staje s petljom; greška zatvaranja nema kome reći
 	w.zatvoriSve()
 	w.gorutine.Wait()
-	return nil
 }
 
 // Odbija čita red poruka sastajališta dok ctx traje, kad je WEB sync na

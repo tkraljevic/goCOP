@@ -4,8 +4,10 @@ package peers
 // (WebSync) na UDP utičnici programa, priprema u pozadini i pauza po paru.
 //
 // Program da servisu WEB sync na svakoj novoj UDP utičnici
-// (PokreniWebSync): uz web_sync = true on radi (Radi), a uz web_sync =
-// false samo na pozive odgovara „isključeno” (Odbija). Nova utičnica
+// (PokreniWebSync): uz web_sync = true on radi (Pokreni, prije nego što
+// PokreniWebSync vrati), a uz web_sync = false samo na pozive odgovara
+// „isključeno” (Odbija). WEB sync koji se ne da pokrenuti servis ne uzima,
+// pa krug zbog njega ne javlja „WEB sync se priprema”. Nova utičnica
 // zatvori sesije stare (njezin WebSync staje) i obriše pauze. Dok WEB sync
 // postoji, računalo javlja oznaku web/1.
 //
@@ -112,10 +114,15 @@ func (s *Service) PostavkeWebSynca(ctx context.Context) razmjena.PostavkeWeb {
 }
 
 // PokreniWebSync pokrene WEB sync w ove UDP utičnice dok ctx traje: uz
-// ukljucen Radi, inače Odbija. prijePoziva (smije biti nil) se zove prije
-// svake pripreme u pozadini, da program osvježi mjerenje mreže. Pauze se
-// brišu, jer je utičnica nova. Vraća zaustavljanje, koje pričeka i
-// pripreme u pozadini; drugi poziv ne radi ništa.
+// ukljucen Radi, inače Odbija. Uključen WEB sync radi već kad
+// PokreniWebSync vrati (razmjena.WebSync.Pokreni), pa ga priprema iz prvog
+// kruga zatekne spremnog. Kad se ne da pokrenuti (slušalica QUIC-a se ne
+// otvori), greška ide u dnevnik, a servis ga ne uzima: ne javlja web/1 i
+// ne priprema WEB sync dok ga program ne pokrene na novoj utičnici.
+// prijePoziva (smije biti nil) se zove prije svake pripreme u pozadini, da
+// program osvježi mjerenje mreže. Pauze se brišu, jer je utičnica nova.
+// Vraća zaustavljanje, koje pričeka i pripreme u pozadini; drugi poziv ne
+// radi ništa.
 func (s *Service) PokreniWebSync(ctx context.Context, w *razmjena.WebSync, ukljucen bool, prijePoziva func(context.Context)) func() {
 	ctx, otkazi := context.WithCancel(ctx)
 	ws := &webSyncServisa{w: w, ctx: ctx, otkazi: otkazi, ukljucen: ukljucen, prijePoziva: prijePoziva}
@@ -123,11 +130,17 @@ func (s *Service) PokreniWebSync(ctx context.Context, w *razmjena.WebSync, uklju
 		ws.prijePoziva = func(context.Context) {}
 	}
 	s.pripreme.ocisti()
+	radi, err := ws.zauzmi()
+	if err != nil {
+		otkazi()
+		log.Printf("povezivost: WEB sync ne radi: %v", err)
+		return func() {}
+	}
 	s.web.Store(ws)
 	gotovo := make(chan struct{})
 	go func() {
 		defer close(gotovo)
-		s.radiWeb(ws)
+		radi()
 	}()
 	return sync.OnceFunc(func() {
 		s.web.CompareAndSwap(ws, nil)
@@ -137,15 +150,18 @@ func (s *Service) PokreniWebSync(ctx context.Context, w *razmjena.WebSync, uklju
 	})
 }
 
-// radiWeb drži WEB sync dok mu ctx traje; greška ide u dnevnik
-func (s *Service) radiWeb(ws *webSyncServisa) {
-	radi := ws.w.Odbija
+// zauzmi zauzme WEB sync i vrati njegov rad dok ctx traje: uključen odmah
+// otvori slušalicu (Pokreni), a isključen samo odbija pozive (Odbija), uz
+// grešku u dnevniku kad ne krene
+func (ws *webSyncServisa) zauzmi() (func(), error) {
 	if ws.ukljucen {
-		radi = ws.w.Radi
+		return ws.w.Pokreni(ws.ctx)
 	}
-	if err := radi(ws.ctx); err != nil {
-		log.Printf("povezivost: WEB sync ne radi: %v", err)
-	}
+	return func() {
+		if err := ws.w.Odbija(ws.ctx); err != nil {
+			log.Printf("povezivost: WEB sync ne radi: %v", err)
+		}
+	}, nil
 }
 
 // webSync je WEB sync ovog računala; nil dok ga nema
