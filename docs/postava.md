@@ -77,6 +77,12 @@ neuspjelim i vratila prethodno izdanje. Prethodno izdanje bi uz takvu bazu
 napravilo novi ključ, a time i novi identitet računala u mreži. Postava
 polje `odbijeno` zasad ne čita, pa takav čvor u traci izgleda kao da radi.
 
+Od 0.0.44-alfa `gocop` iz mape `program` instalacije, pokrenut bez `-db` i
+`-config`, ne kreće, nego javi gdje su podaci čvora
+([poglavlje 6 uputa](INSTALACIJA.md#windows-instalacijski-program-gocop-postava)).
+Inače bi u `data` ispod trenutne mape napravio novu bazu i u mreži se javio
+kao novo računalo. Postava ga uvijek pokreće s `-db`, pa nju to ne dira.
+
 Sve ostalo goCOP smije mijenjati bez obzira na Postavu.
 
 ## Potpis za Windows
