@@ -71,16 +71,18 @@ pomogne dvama računalima da se nađu, kratkim porukama, a podaci zatim idu
 izravno. Razmjena nikad neće čekati WEB sync. Dok se veza priprema, krug ide
 putem koji radi.
 
-Zasad postoji prvi korak: uz `[povezivost] web_sync_prijava = true` računalo
+Prvi korak: uz `[povezivost] web_sync_prijava = true` računalo
 otvori UDP port 4713 i provjeri mrežu preko dva STUN poslužitelja, a ishod
 upiše u dnevnik. Administrator to može i gumbom *Provjeri vezu*, a pojedinosti
 (vlastita javna adresa, adrese koje bi WEB sync nudio, kuda ide promet prema
 STUN-u) vidi u bloku Dohvatljivost na stranici Sinkronizacija. Podaci tim
-putem još ne idu. Drugi korak je prijava kod sastajališta: stalni čvor uz
-`posluzi_sastajaliste` zna tko je na vezi, a ostala računala se kod njega
-prijave (`sastajaliste`, `sastajaliste_cvor`) i drže vezu, i nakon buđenja
-i promjene mreže. Preko sastajališta poslije idu kratke potpisane poruke
-kojima se dva računala dogovore o izravnoj vezi. Ako se program dvaput zaredom
+putem idu tek uz treći korak. Drugi korak je prijava kod sastajališta:
+stalni čvor uz `posluzi_sastajaliste` zna tko je na vezi, a ostala računala
+se kod njega prijave (`sastajaliste`, `sastajaliste_cvor`) i drže vezu, i
+nakon buđenja i promjene mreže. Treći korak (od 0.0.43-alfa, uz
+`web_sync = true`): preko sastajališta idu kratke potpisane poruke kojima se
+dva računala dogovore, probiju usmjerivače i razmjenjuju izravno. Prema
+računalu s javnim ulazom, kao što je kućni server, WEB sync se ne priprema. Ako se program dvaput zaredom
 prekine dok WEB sync radi, kreće bez njega dok ga administrator ponovno ne
 uključi (Odluke (23. 10. 2026.)).
 
