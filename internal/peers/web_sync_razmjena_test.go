@@ -152,8 +152,18 @@ func sWebom(t *testing.T, s *Service, posta *postaWeba, n *natsim.NAT, lokalna s
 	posta.mu.Lock()
 	posta.cvorovi[razmjena.PublicKeyString(s.javni())] = w
 	posta.mu.Unlock()
-	t.Cleanup(s.PokreniWebSync(t.Context(), w, ukljucen, nil))
+	pokreniWebDokTraje(t, s, w, ukljucen, nil)
 	return w
+}
+
+// pokreniWebDokTraje pokrene WEB sync čvora dok test traje i pričeka da
+// krene. PokreniWebSync ga pokreće u gorutini, a priprema koja stigne prije
+// nje dobije ErrWebSyncNeRadi: ne broji se i poziv ne ode, pa bi test
+// ovisio o tome koja gorutina prva dođe na red. Wait čeka da sve gorutine
+// mjehura stanu, a ta stane tek kad je WEB sync krenuo i čeka poruke.
+func pokreniWebDokTraje(t *testing.T, s *Service, w *razmjena.WebSync, ukljucen bool, prijePoziva func(context.Context)) {
+	t.Cleanup(s.PokreniWebSync(t.Context(), w, ukljucen, prijePoziva))
+	synctest.Wait()
 }
 
 // bezOdgovora je spajanje koje nikad ne odgovori, do roka

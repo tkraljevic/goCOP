@@ -157,7 +157,7 @@ func sWebomIMjerenjem(t *testing.T, s *Service, posta *postaWeba, n *natsim.NAT,
 	posta.mu.Lock()
 	posta.cvorovi[razmjena.PublicKeyString(s.javni())] = w
 	posta.mu.Unlock()
-	t.Cleanup(s.PokreniWebSync(t.Context(), w, true, m.mjeri))
+	pokreniWebDokTraje(t, s, w, true, m.mjeri)
 	return m
 }
 
