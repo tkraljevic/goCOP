@@ -71,6 +71,7 @@ type Server struct {
 	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
 	tailscale    *tailscaleVeze                                    // veze na Tailscale adresu ovog računala; nil = zadano, tailscale.go
 	javni        *javnivodostaji.Uvoznik                           // preuzimanje javnih vodostaja; prazno kad nije uključeno
+	kvarovi      KvaroviMjerila                                    // kvar mjerila letve; nil kad se ne provjerava
 	pricuvno     func(ctx context.Context) prognoza.PricuvniPodaci // pričuvni Excel prognoze
 	// ključ kojim se zaključavaju lozinke za Geolux HydroView; izveden iz
 	// ključa čvora, pa lozinka vrijedi samo na ovom računalu
@@ -820,6 +821,7 @@ func (s *Server) setupRoutes() {
 	})
 	readingsH.SetUvoz(s.templates["uvoz_ocitanja.html"])
 	readingsH.SetJavniUvoz(func() *javnivodostaji.Uvoznik { return s.javni })
+	readingsH.SetKvaroviMjerila(func() KvaroviMjerila { return s.kvarovi })
 	readingsH.SetOcitanjaCSV(s.templates["ocitanja_ispravci.html"])
 	// Baza se poslužitelju daje tek nakon sastavljanja, pa se repozitorij gradi
 	// pri zahtjevu. Predana vrijednost bila bi zauvijek prazna.
@@ -1804,6 +1806,10 @@ func (s *Server) SetVodocuvar(v *service.VodocuvarService, org *repository.OrgRe
 
 // SetJavniUvoz daje poslužitelju uvoznika javnih vodostaja
 func (s *Server) SetJavniUvoz(u *javnivodostaji.Uvoznik) { s.javni = u }
+
+// SetKvaroviMjerila daje poslužitelju prepoznavanje kvara mjerila letve
+// (stranica letve, popis Operativni vodostaji).
+func (s *Server) SetKvaroviMjerila(k KvaroviMjerila) { s.kvarovi = k }
 
 // SetPricuvno daje poslužitelju račun pričuvnog Excela prognoze (veze iz
 // arhive i predupis tuđih prognoza); bez njega se Excel ne nudi.

@@ -215,7 +215,7 @@ func (n *NulaProfila) nulaToka(voda string, letve []string, nizovi map[string]ma
 	for i, l := range letve {
 		niz := nizovi[l]
 		if od, cm, ok := stojiOd(niz); ok && !susjediMiruju(letve, i, nizovi, stoje, od, satiNiza(niz)[len(niz)-1]) {
-			n.Razlog[l] = fmt.Sprintf("mjerilo stoji na %.0f cm od %s, a susjedne letve se miču", cm, odSata(od))
+			n.Razlog[l] = fmt.Sprintf("mjerni uređaj stoji na %.0f cm od %s, a susjedne letve se miču", cm, odSata(od))
 			continue
 		}
 		pocetak := satiNiza(niz)[0]

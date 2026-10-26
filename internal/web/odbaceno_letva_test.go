@@ -227,10 +227,10 @@ func TestOdbacenoIzStareEvidencijeNijeKvarMjerila(t *testing.T) {
 	if !strings.Contains(html, "Odbačeno izvan raspona: 1, zadnje 21500 cm 3. 5. 1987. u 07 h (evidencija VGI Baranja)") {
 		t.Errorf("upozorenje ne navodi datum zadnje vrijednosti:\n%s", html)
 	}
-	if strings.Contains(html, "jer je to znak da je mjerilo vjerojatno u kvaru") {
+	if strings.Contains(html, "jer je to znak da je mjerni uređaj vjerojatno u kvaru") {
 		t.Error("stranica tvrdi da je mjerilo u kvaru i za grešku u staroj evidenciji")
 	}
-	for _, s := range []string{"greška u zapisu", "mjerilo u kvaru", "datum zadnje"} {
+	for _, s := range []string{"greška u zapisu", "mjerni uređaj u kvaru", "datum zadnje"} {
 		if !strings.Contains(html, s) {
 			t.Errorf("stranica ne spominje %q", s)
 		}

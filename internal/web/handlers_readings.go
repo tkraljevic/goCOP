@@ -47,6 +47,7 @@ type ReadingsHandler struct {
 	prognoze         func() *CitacPrognoza
 	prikazPrognoze   func(ctx context.Context, letva, velicina string) *PrognozaNiza
 	akti             func() *service.AktService
+	kvarovi          func() KvaroviMjerila
 }
 
 // SetAkti daje rukovatelju servis akata: gumb „Proglasi / prekini” vidi samo
@@ -232,6 +233,8 @@ type ReadingsOverviewData struct {
 	Permissions    *models.UserPermissions
 	Gauges         []models.GaugeSummary
 	Protok         map[string]ProtokLetve // procjena ili mjerenje protoka po ključu letve, samo gdje ga ima
+	Mjerila        map[string]ZnakLetve   // kvar mjerila i česti skokovi po ključu letve, samo gdje ih ima
+	SkokoviDana    int                    // koliko dana unatrag se broje česti skokovi
 	Sectors        []models.Sector
 	Areas          []models.Area
 	SelectedSector string
@@ -322,6 +325,11 @@ type ReadingHistoryData struct {
 	// 21). Broje se i one koje je odbacio čvor koji preuzima, jer zapis
 	// putuje razmjenom. Nil kad nijedna.
 	Odbaceno *models.SazetakOdbacenih
+	// KvarMjerila je kvar mjerila koji traje, a CestiSkokovi odbačeni
+	// skokovi zadnjeg tjedna kad ih je dosta; okviri na vrhu stranice
+	// (kvar_mjerila.go). Nil kad ih nema.
+	KvarMjerila  *KvarLetve
+	CestiSkokovi *CestiSkokovi
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -455,7 +463,7 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 		CurrentUser: u, Permissions: perms, SelectedSector: sectorID, SelectedArea: areaID,
 		SearchQuery: strings.TrimSpace(q.Get("q")), ShowAll: q.Get("all") == "1",
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
-		ActiveNav: "readings", ViewAsBanner: viewBanner(r),
+		ActiveNav: "readings", ViewAsBanner: viewBanner(r), SkokoviDana: models.CestiSkokoviDana,
 	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas(sectorID)
@@ -504,6 +512,7 @@ func (h *ReadingsHandler) ShowOverview(w http.ResponseWriter, r *http.Request) {
 			data.Protok[g.Key] = p
 		}
 	}
+	data.Mjerila = h.znakoviMjerila(ctx, data.Gauges, time.Now())
 	data.TotalCount, _, data.LastAt, _ = h.readingService.Stats(ctx)
 	if err := h.tmplOverview.ExecuteTemplate(w, "readings.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -574,6 +583,7 @@ func (h *ReadingsHandler) ShowHistory(w http.ResponseWriter, r *http.Request) {
 	data.Ispravlja = h.ispravljiva(data.Permissions, station, data.CanRecord, data.Readings)
 	data.BriseNaLetvi = h.briseNaLetvi(data.Permissions, station)
 	data.SmijeProglasiti = h.smijeProglasiti(r.Context(), data.Permissions, station)
+	h.upozorenjaMjerila(r.Context(), &data, station)
 	if station != nil {
 		data.LetvaStranica = "ocitanja"
 		// Razina akumulacije je kota nad morem, a elektrana istjecanje: najniži

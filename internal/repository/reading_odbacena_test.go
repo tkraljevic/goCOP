@@ -700,3 +700,56 @@ func TestPotvrdjeniSkokSeVisNeBroji(t *testing.T) {
 		t.Errorf("verzija potvrđenog skoka: %+v, %v", v, err)
 	}
 }
+
+// Česti skokovi (Odluke (25. 10. 2026.)): stranica letve čita odbačene
+// skokove zadnjeg tjedna, najnovije prvo, a popis broj po letvi. Odbačene
+// izvan raspona i starije se ne broje.
+func TestNedavniSkokovi(t *testing.T) {
+	c := noviCvorZaRazmjenu(t, "a")
+	ctx := context.Background()
+	repo := NewReadingRepository(c.db, c.rec)
+	kad := time.Date(2026, 10, 22, 7, 0, 0, 0, models.Zagreb)
+	vodostaj := func(cm int) *int { return &cm }
+	skok := func(letva string, h, cm int) models.OdbacenaVrijednost {
+		return models.OdbacenSkok(models.Reading{StationID: letva, MeasuredAt: time.Date(2026, 10, 22, h, 0, 0, 0, models.Zagreb), LevelCm: vodostaj(cm), Origin: "hdv.voda.hr"})
+	}
+	odb := []models.OdbacenaVrijednost{
+		skok("a", 7, 830), skok("a", 9, 912), skok("a", -200, 700), skok("b", 8, 500),
+		{Letva: "station:a", Kad: kad, Polje: models.PoljeVodostaj, Opis: "−1102 cm", Izvor: "hdv.voda.hr"},
+	}
+	if err := repo.ZabiljeziOdbacene(ctx, odb); err != nil {
+		t.Fatal(err)
+	}
+	od := time.Date(2026, 10, 18, 0, 0, 0, 0, models.Zagreb)
+	s, err := repo.NedavniSkokovi(ctx, "station:a", od)
+	if err != nil || len(s) != 2 || s[0].Opis != "skok na 912 cm" || s[1].Opis != "skok na 830 cm" || s[0].Izvor != "hdv.voda.hr" {
+		t.Errorf("skokovi %+v %v", s, err)
+	}
+	broj, err := repo.BrojNedavnihSkokova(ctx, od)
+	if err != nil || broj["station:a"] != 2 || broj["station:b"] != 1 || len(broj) != 2 {
+		t.Errorf("broj %v %v", broj, err)
+	}
+	c.db.Close()
+	if _, err := repo.NedavniSkokovi(ctx, "station:a", od); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+	if _, err := repo.BrojNedavnihSkokova(ctx, od); err == nil {
+		t.Error("zatvorena baza mora javiti grešku")
+	}
+}
+
+// Zapis koji se ne da pročitati (trenutak koji nije vrijeme) javlja grešku.
+func TestNedavniSkokoviKrivZapis(t *testing.T) {
+	c := noviCvorZaRazmjenu(t, "a")
+	repo := NewReadingRepository(c.db, c.rec)
+	if _, err := c.db.Exec(`INSERT INTO odbacena_ocitanja (letva, kad, polje, zabiljezeno) VALUES ('station:z', 'nije vrijeme', ?, 'nije vrijeme')`, models.PoljeSkok); err != nil {
+		t.Fatal(err)
+	}
+	od := time.Date(2026, 10, 18, 0, 0, 0, 0, models.Zagreb)
+	if _, err := repo.NedavniSkokovi(context.Background(), "station:z", od); err == nil {
+		t.Error("kriv zapis bez greške")
+	}
+	if _, err := repo.BrojNedavnihSkokova(context.Background(), od); err == nil {
+		t.Error("kriv zapis bez greške (broj)")
+	}
+}

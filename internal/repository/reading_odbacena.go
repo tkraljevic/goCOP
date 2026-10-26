@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -278,4 +279,42 @@ func upsertOdbacena(ctx context.Context, tx *sql.Tx, payload []byte) error {
 		ON CONFLICT(letva, kad, polje, izvor) DO UPDATE SET id = excluded.id, opis = excluded.opis, zabiljezeno = excluded.zabiljezeno`,
 		o.ID, o.Letva, o.Kad.UTC(), o.Polje, o.Izvor, o.Opis, o.Zabiljezeno.UTC())
 	return err
+}
+
+// NedavniSkokovi su vrijednosti letve (GaugeKey) odbačene kao lažni skok s
+// trenutkom očitanja od od naovamo, najnovije prvo, svi (koliko ih je u
+// tjedan dana, toliko piše i uz letvu u popisu: BrojNedavnihSkokova). Skok
+// koji je izvor poslije potvrdio ovdje ga više nema (primljeno).
+func (r *ReadingRepository) NedavniSkokovi(ctx context.Context, letva string, od time.Time) ([]models.OdbacenaVrijednost, error) {
+	return r.skokovi(ctx, `letva = ? AND polje = ? AND kad >= ? ORDER BY kad DESC`, letva, models.PoljeSkok, od.UTC())
+}
+
+// skokovi su zapisi o odbačenim vrijednostima koji ispunjavaju uvjet.
+func (r *ReadingRepository) skokovi(ctx context.Context, uvjet string, args ...any) ([]models.OdbacenaVrijednost, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT id, letva, kad, polje, izvor, opis, zabiljezeno FROM odbacena_ocitanja WHERE `+uvjet, args...)
+	if err != nil {
+		return nil, fmt.Errorf("odbačeni skokovi: %w", err)
+	}
+	defer rows.Close()
+	var out []models.OdbacenaVrijednost
+	for rows.Next() {
+		var o models.OdbacenaVrijednost
+		if err := rows.Scan(&o.ID, &o.Letva, &o.Kad, &o.Polje, &o.Izvor, &o.Opis, &o.Zabiljezeno); err != nil {
+			return nil, fmt.Errorf("odbačeni skokovi: %w", err)
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// BrojNedavnihSkokova je koliko je vrijednosti svake letve (GaugeKey)
+// odbačeno kao lažni skok s trenutkom očitanja od od naovamo; letva bez
+// njih nije u mapi.
+func (r *ReadingRepository) BrojNedavnihSkokova(ctx context.Context, od time.Time) (map[string]int, error) {
+	skokovi, err := r.skokovi(ctx, `polje = ? AND kad >= ?`, models.PoljeSkok, od.UTC())
+	out := map[string]int{}
+	for _, s := range skokovi {
+		out[s.Letva]++
+	}
+	return out, err
 }
