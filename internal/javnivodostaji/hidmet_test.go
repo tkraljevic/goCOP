@@ -1,6 +1,7 @@
 package javnivodostaji
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
@@ -71,5 +72,20 @@ func TestHidmetPrepoznajeSvojeAdrese(t *testing.T) {
 func TestHidmetJavljaPraznuStranicu(t *testing.T) {
 	if _, err := CitajHidmet("<html><body>Nema ničega</body></html>"); err == nil {
 		t.Error("stranica bez tablice mora javiti grešku")
+	}
+}
+
+// Kad RHMZ za postaju nema podataka, stranica to kaže, a poruka u dnevniku
+// to i prenese, umjesto da pita je li se stranica promijenila (Novi Sad,
+// 26. 10. 2026.). Isto na ćirilici.
+func TestHidmetPodaciNisuRaspolozivi(t *testing.T) {
+	for _, html := range []string{
+		"<html><body>Izveštajna stanica: NOVI SAD <p>Podaci nisu raspoloživi.</p></body></html>",
+		"<html><body>Извештајна станица: НОВИ САД <p>Подаци нису расположиви.</p></body></html>",
+	} {
+		_, err := CitajHidmet(html)
+		if err == nil || !strings.Contains(err.Error(), "RHMZ trenutno nema podataka") || strings.Contains(err.Error(), "promijenila") {
+			t.Errorf("stranica bez podataka: %v", err)
+		}
 	}
 }
