@@ -194,8 +194,20 @@ func TestIshodPripremeUBrojace(t *testing.T) {
 	s.zapisiRazlogPuta(ctxRub, peer.NodeID, razmjena.RazlogPutaPriprema)
 }
 
-// Oznaku web/1 računalo javlja samo dok ima WEB sync, a drugo računalo je
-// ima tek kad ju je javilo.
+// znaBezWeba upiše da je drugo računalo u zadnjoj razmjeni javilo oznake
+// bez web/1
+func znaBezWeba(t *testing.T, s *Service, nodeID string) {
+	t.Helper()
+	if _, err := s.db.Exec(`INSERT INTO peer_sync (node_id, mogucnosti, mogucnosti_poznate) VALUES (?, ?, 1)
+		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, mogucnosti_poznate = 1`,
+		nodeID, `["granica-odbijenih/1","razmjena/1","rupe/1"]`); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Oznaku web/1 računalo javlja samo dok ima WEB sync. Drugo računalo smije
+// se zvati kad ju je javilo, ili dok se ne zna što zna (nikad se nisu
+// izravno razgovarala), a ne kad je u razmjeni javilo oznake bez nje.
 func TestOznakaWeba(t *testing.T) {
 	s := rubniCvor(t, "cop-osijek")
 	if slices.Contains(s.mojeMogucnosti(), razmjena.OznakaWeb) || s.imaWeb(ctxRub, "thinkcentre-ured") {
@@ -209,8 +221,18 @@ func TestOznakaWeba(t *testing.T) {
 	if m := s.mojeMogucnosti(); !slices.Contains(m, razmjena.OznakaWeb) || !slices.IsSorted(m) {
 		t.Errorf("oznake uz WEB sync: %v", m)
 	}
+	if !s.imaWeb(ctxRub, "thinkcentre-ured") {
+		t.Error("s računalom bez zapisa nikad se nije razgovaralo: smije se zvati")
+	}
+	if _, err := s.db.Exec(`INSERT INTO peer_sync (node_id, fails) VALUES ('thinkcentre-ured', 3)`); err != nil {
+		t.Fatal(err)
+	}
+	if !s.imaWeb(ctxRub, "thinkcentre-ured") {
+		t.Error("samo neuspjeli pokušaji: oznake se ne znaju, smije se zvati")
+	}
+	znaBezWeba(t, s, "thinkcentre-ured")
 	if s.imaWeb(ctxRub, "thinkcentre-ured") {
-		t.Error("druga strana bez javljene oznake")
+		t.Error("druga strana javila je oznake bez web/1")
 	}
 	znaWeb(t, s, "thinkcentre-ured")
 	if !s.imaWeb(ctxRub, "thinkcentre-ured") {
@@ -227,6 +249,7 @@ func TestKadNemaPripreme(t *testing.T) {
 	s.web.Store(&webSyncServisa{ctx: ctxRub})
 	k.pripremiWeb()
 	s.web.Store(&webSyncServisa{ctx: ctxRub, ukljucen: true})
+	znaBezWeba(t, s, "thinkcentre-ured")
 	k.pripremiWeb()
 	znaWeb(t, s, "thinkcentre-ured")
 	k.tunel = true

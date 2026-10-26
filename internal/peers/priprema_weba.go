@@ -13,7 +13,8 @@ package peers
 //
 // Priprema u pozadini (pripremiWeb, iz kruga razmjene u redoslijed.go):
 //   - kreće kad LAN ne odgovori, a sesije s tim računalom nema, kad drugo
-//     računalo ima web/1 i nije u pauzi;
+//     računalo ima web/1 ili se s njim ovo nikad nije izravno razgovaralo
+//     (imaWeb), i nije u pauzi;
 //   - ne kreće prema računalu s javnim ulazom (Odluke (24. 10. 2026.)):
 //     prema računalu s tunelom nikad, a prema računalu s javnom adresom
 //     tek kad ona u tom krugu nije odgovorila;
@@ -37,6 +38,7 @@ import (
 	"cmp"
 	"context"
 	"crypto/ed25519"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -202,11 +204,22 @@ func (s *Service) provjeriWebSync() {
 	}
 }
 
-// imaWeb javlja zna li drugo računalo WEB sync (oznaka web/1 iz zadnje
-// razmjene, i kod ovog računala)
+// imaWeb javlja smije li se drugo računalo zvati WEB syncom: javilo je
+// oznaku web/1 u zadnjoj razmjeni (i ovo računalo je ima), ili ovo računalo
+// još ne zna što ono zna, jer se nikad nisu izravno razgovarala. Bez toga
+// dva računala koja se sreću samo preko WEB synca (ured i kućni Windows)
+// ne bi se nikad ni pokušala spojiti. Računalo koje WEB sync nema
+// sastajalište odmah javi kao „nema”, pa nakon tri pokušaja ide u pauzu.
 func (s *Service) imaWeb(ctx context.Context, nodeID string) bool {
 	var b string
-	_ = s.db.QueryRowContext(ctx, `SELECT mogucnosti FROM peer_sync WHERE node_id = ?`, nodeID).Scan(&b) // bez retka nema ni oznaka
+	var poznate bool
+	err := s.db.QueryRowContext(ctx, `SELECT mogucnosti, mogucnosti_poznate FROM peer_sync WHERE node_id = ?`, nodeID).Scan(&b, &poznate)
+	if !slices.Contains(s.mojeMogucnosti(), razmjena.OznakaWeb) {
+		return false
+	}
+	if errors.Is(err, sql.ErrNoRows) || err == nil && !poznate {
+		return true
+	}
 	var njihove []string
 	_ = json.Unmarshal([]byte(b), &njihove) // prazno ili pokvareno: druga strana nije javila ništa
 	return razmjena.Dogovor(s.mojeMogucnosti(), njihove)[razmjena.ImeWeb] == 1
