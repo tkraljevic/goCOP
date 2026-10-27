@@ -7,61 +7,96 @@
   <title>Prijava | goCOP — {{term "org"}}</title>
   <meta name="color-scheme" content="light dark">
   <script src="{{statika "js/tema.js"}}"></script>
-  <script src="{{statika "js/uzbroj.js"}}"></script>
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  <link rel="stylesheet" href="{{statika "css/tokens.css"}}">
+  <link rel="stylesheet" href="{{statika "css/prijava.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
 </head>
-<body>
-  <div class="login-wrapper">
-    <div class="login-box">
-      <div class="login-header">
-        <div class="login-logo"><img src="{{logo}}" alt="">{{term "org"}}</div>
-        <h1 class="login-title">{{term "cop"}}</h1>
-        <p class="login-subtitle">goCOP · operativni sustav obrane od poplava</p>
-      </div>
+<body class="prijava">
+  {{/* Prvi ekran u novom izgledu (FigCraft, stranica Prijava): na mobitelu
+       jedan stupac, na tabletu ploča na sredini, na računalu znak lijevo i
+       obrazac desno. Prije prijave program ne zna sektor ni centar osobe,
+       pa ovdje stoji samo naziv organizacije i goCOP (Odluke (26. 10.
+       2026.)); kontakti u kartici pomoći su od ovog računala. */}}
+  <div class="prijava-stranica">
+    <aside class="prijava-znak" aria-hidden="true">
+      <img src="{{logo}}" alt="" class="prijava-logo">
+      <span class="prijava-org">{{term "org"}}</span>
+      <span class="prijava-naslov">goCOP</span>
+      <span class="prijava-podnaslov">Operativni sustav obrane od poplava</span>
+    </aside>
 
-      {{if .Error}}
-      <div class="alert alert-danger">{{.Error}}</div>
-      {{end}}
+    <main class="prijava-sadrzaj">
+      <header class="prijava-zaglavlje">
+        <img src="{{logo}}" alt="" class="prijava-logo">
+        <span class="prijava-org">{{term "org"}}</span>
+        <h1 class="prijava-naslov">goCOP</h1>
+        <p class="prijava-podnaslov">Operativni sustav obrane od poplava</p>
+      </header>
+      <h1 class="prijava-naslov-obrasca">Prijava</h1>
 
-      {{if .Fresh}}
-      <div class="alert alert-warning mb-4">
-        Ovo računalo još nije postavljeno, pa u njemu nema djelatnika.
-        <a href="/postavljanje" class="fw-600">Postavite ga</a>: osnujte novu mrežu sa svojim
-        administratorskim računom ili ga povežite s uredom.
-      </div>
-      {{end}}
+      <form action="/login" method="POST" class="prijava-obrazac">
+        {{if .Error}}
+        <div class="prijava-poruka prijava-poruka-greska" role="alert">{{.Error}}</div>
+        {{end}}
 
-      <form action="/login" method="POST">
-        <div class="form-group mb-4">
-          <label class="form-label" for="username">Korisničko ime</label>
-          <input type="text" id="username" name="username" class="form-control" required autofocus placeholder="npr. tkraljevic">
+        {{if .Fresh}}
+        <div class="prijava-poruka prijava-poruka-napomena">
+          Ovo računalo još nije postavljeno, pa u njemu nema djelatnika.
+          <a href="/postavljanje">Postavite ga</a>: osnujte novu mrežu sa svojim
+          administratorskim računom ili ga povežite s uredom.
+        </div>
+        {{end}}
+
+        <div class="prijava-polje">
+          {{icon "user"}}
+          <label for="username">Korisničko ime</label>
+          <input type="text" id="username" name="username" required autofocus autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="npr. tkraljevic">
         </div>
 
-        <div class="form-group mb-6">
-          <label class="form-label" for="password">Lozinka</label>
-          <input type="password" id="password" name="password" class="form-control" required placeholder="Lozinka">
+        <div class="prijava-polje">
+          {{icon "lock"}}
+          <label for="password">Lozinka</label>
+          <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="Lozinka">
+          <button type="button" class="prijava-oko" aria-label="Pokaži lozinku" aria-pressed="false" hidden>
+            <span class="ikona-pokazi">{{icon "eye"}}</span><span class="ikona-skrij">{{icon "eye-off"}}</span>
+          </button>
         </div>
 
-        <button type="submit" class="btn btn-primary w-full">Prijavi se</button>
+        <button type="submit" class="prijava-gumb">Prijavi se</button>
       </form>
 
-      <div class="login-hint">
-        {{with term "prijava"}}<span style="white-space:pre-line; display:block; margin-bottom:0.35rem;">{{.}}</span>{{else}}Prijavljujete se korisničkim imenom iz imenika djelatnika.{{end}}
-        {{if .Support.HasPerson}}Početnu lozinku i pomoć oko prijave daje:<br>
-        <strong>{{.Support.Name}}</strong>{{if .Support.Phone}} · <a href="tel:{{.Support.PhoneLink}}">{{.Support.Phone}}</a>{{end}}{{if .Support.Email}} ·
-        <a href="mailto:{{.Support.Email}}">{{.Support.Email}}</a>{{end}}
-        {{else}}Početnu lozinku i pomoć oko prijave daje administrator vašeg centra ({{term "cop_k"}}).{{end}}
-        {{if .Support.HasCenter}}<br>
-        <span style="color:var(--text-secondary);">{{.Support.Center}} ·
-        <a href="tel:{{.Support.CenterLink}}">{{.Support.CenterPhone}}</a> — na taj se broj za vrijeme
-        obrane od poplava javlja dežurni operater.</span>{{end}}
-      </div>
-    </div>
-
-    <!-- Koliko sustav zna: iste brojke kao na naslovnoj, rastu uživo -->
-    <section id="podaci-brojke" class="brojke brojke-prijava" data-url="/podaci/brojke" aria-label="Podaci u sustavu" hidden></section>
+      <section class="prijava-pomoc" aria-labelledby="prijava-pomoc-naslov">
+        <h2 class="prijava-pomoc-naslov" id="prijava-pomoc-naslov">{{icon "circle-question-mark"}} Pomoć oko prijave</h2>
+        <p class="prijava-pomoc-uvod">{{with term "prijava"}}{{.}}{{else}}Prijavljujete se korisničkim imenom iz imenika djelatnika.{{end}}
+          {{if .Support.HasPerson}}Početnu lozinku daje:{{else}}Početnu lozinku daje administrator vašeg centra ({{term "cop_k"}}).{{end}}</p>
+        {{if .Support.HasPerson}}
+        <div class="prijava-redak">
+          {{icon "user"}}
+          <div><div class="prijava-redak-glavno">{{.Support.Name}}</div><div class="prijava-redak-sporedno">administrator centra</div></div>
+        </div>
+        {{if .Support.Phone}}
+        <a class="prijava-redak" href="tel:{{.Support.PhoneLink}}">
+          {{icon "phone"}}
+          <div><div class="prijava-redak-glavno">{{.Support.Phone}}</div><div class="prijava-redak-sporedno">telefon za pomoć oko prijave</div></div>
+        </a>
+        {{end}}
+        {{if .Support.Email}}
+        <a class="prijava-redak" href="mailto:{{.Support.Email}}">
+          {{icon "mail"}}
+          <div><div class="prijava-redak-glavno">{{.Support.Email}}</div><div class="prijava-redak-sporedno">e-pošta</div></div>
+        </a>
+        {{end}}
+        {{end}}
+        {{if .Support.HasCenter}}
+        <a class="prijava-redak" href="tel:{{.Support.CenterLink}}">
+          {{icon "phone"}}
+          <div><div class="prijava-redak-glavno">{{.Support.CenterPhone}}</div><div class="prijava-redak-sporedno">{{.Support.Center}} · dežurni operater za vrijeme obrane</div></div>
+        </a>
+        {{end}}
+      </section>
+    </main>
   </div>
-  <script src="{{statika "js/brojke.js"}}" defer></script>
+  <script src="{{statika "js/prijava.js"}}" defer></script>
 </body>
 </html>
