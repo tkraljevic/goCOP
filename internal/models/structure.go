@@ -71,6 +71,54 @@ var StructureKinds = []string{
 	StructureKindWeir, StructureKindEmbankment, StructureKindDam, StructureKindOther,
 }
 
+// StructureRegister je zaseban registar objekata: svoj popis, svoja
+// pretraga i svoja stavka u izborniku. Nasipi, crpne stanice, ustave i
+// brane imaju svaki svoj; sifoni, pregrade i ostalo dijele „Ostale objekte”.
+type StructureRegister struct {
+	Kind        string   // vrsta novog zapisa iz ovog registra
+	Kinds       []string // sve vrste koje registar prikazuje
+	Path        string   // npr. "/nasipi"
+	Title       string   // množina, naslov popisa
+	Icon        string
+	Desc        string
+	Placeholder string // primjer u polju pretrage
+	NewLabel    string // gumb za novi zapis
+}
+
+// Ima javlja prikazuje li registar tu vrstu
+func (r StructureRegister) Ima(kind string) bool {
+	for _, k := range r.Kinds {
+		if k == kind {
+			return true
+		}
+	}
+	return false
+}
+
+// StructureRegisters su registri redom kojim ih izbornik nudi
+var StructureRegisters = []StructureRegister{
+	{StructureKindEmbankment, []string{StructureKindEmbankment}, "/nasipi", "Nasipi", "nasip",
+		"Nasipi i obaloutvrde: crta nasipa sa stacionažom na karti, dionice koje ga dijele.", "Naziv nasipa (Zmajevac – Kopačevo)…", "Novi nasip"},
+	{StructureKindPumpingStation, []string{StructureKindPumpingStation}, "/crpne-stanice", "Crpne stanice", "crpna-stanica",
+		"Crpne stanice: kota nule letve, kapacitet i vodostaji uključenja i zaustavljanja.", "Naziv crpne stanice (CS Draž)…", "Nova crpna stanica"},
+	{StructureKindSluice, []string{StructureKindSluice}, "/ustave", "Ustave", "ustava",
+		"Ustave s letvom uzvodno i nizvodno.", "Naziv ustave (Ustava Kopačevo)…", "Nova ustava"},
+	{StructureKindDam, []string{StructureKindDam}, "/brane", "Brane", "brana",
+		"Brane i njihove dionice.", "Naziv brane…", "Nova brana"},
+	{StructureKindSiphon, []string{StructureKindSiphon, StructureKindWeir, StructureKindOther}, "/ostali-objekti", "Ostali objekti", "construction",
+		"Sifoni, pregrade i objekti drugih vrsta.", "Naziv objekta…", "Novi objekt"},
+}
+
+// StructureRegisterFor vraća registar koji prikazuje tu vrstu
+func StructureRegisterFor(kind string) (StructureRegister, bool) {
+	for _, r := range StructureRegisters {
+		if r.Ima(kind) {
+			return r, true
+		}
+	}
+	return StructureRegister{}, false
+}
+
 // KindLabel je naziv vrste u sučelju
 func (s Structure) KindLabel() string { return StructureKindLabel(s.Kind) }
 

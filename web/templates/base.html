@@ -50,7 +50,7 @@
           {{if or (.Sees "registri") (.Sees "djelatnici")}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (eq .ActiveNav "structures") (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva") (eq .ActiveNav "users")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (jeNavObjekta .ActiveNav) (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva") (eq .ActiveNav "users")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
@@ -68,9 +68,11 @@
               <a href="/stations" class="nav-dropdown-item {{if eq .ActiveNav "stations"}}active{{end}}">
                 {{icon "ruler"}} Vodomjerne postaje
               </a>
-              <a href="/structures" class="nav-dropdown-item {{if eq .ActiveNav "structures"}}active{{end}}">
-                {{icon "construction"}} Objekti
+              {{range registriObjekata}}
+              <a href="{{.Path}}" class="nav-dropdown-item {{if eq $.ActiveNav (navObjekta .Kind)}}active{{end}}">
+                {{icon .Icon}} {{.Title}}
               </a>
+              {{end}}
               <a href="/watercourses" class="nav-dropdown-item {{if eq .ActiveNav "watercourses"}}active{{end}}">
                 {{icon "droplet"}} Vodotoci i vodna tijela
               </a>
@@ -78,7 +80,7 @@
                 {{icon "map"}} Slivovi i meteorološke postaje
               </a>
               <a href="/firme" class="nav-dropdown-item {{if eq .ActiveNav "firme"}}active{{end}}">
-                {{icon "wrench"}} Licencirane firme
+                {{icon "building-2"}} Licencirane firme
               </a>
               <a href="/odrzavanje" class="nav-dropdown-item {{if eq .ActiveNav "maintenance"}}active{{end}}">
                 {{icon "wrench"}} Održavanje

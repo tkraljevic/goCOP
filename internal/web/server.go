@@ -440,21 +440,24 @@ func templateFuncs() template.FuncMap {
 		"dionice": func(n int) string {
 			return fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "dionica", "dionice", "dionica"))
 		},
-		"add":            func(a, b int) int { return a + b },
-		"kolicina":       kolicinaHR,
-		"kolicinaZnak":   kolicinaSaZnakom,
-		"kolicinaPlain":  func(v float64) string { return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1) },
-		"oblik":          models.OblikNaziv,
-		"promet":         models.PrometNaziv,
-		"strana":         models.StranaOznaka,
-		"grupa":          models.GrupaNaziv,
-		"vrijemeHR":      func(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. 15:04") },
-		"satHR":          func(t time.Time) string { return t.In(models.Zagreb).Format("15:04") },
-		"structureKind":  models.StructureKindLabel,
-		"readingSource":  models.ReadingSourceLabel,
-		"structureState": models.StructureStateLabel,
-		"gateLabel":      models.GateLabel,
-		"localTime":      func(t time.Time) time.Time { return t.In(models.Zagreb) },
+		"add":              func(a, b int) int { return a + b },
+		"kolicina":         kolicinaHR,
+		"kolicinaZnak":     kolicinaSaZnakom,
+		"kolicinaPlain":    func(v float64) string { return strings.Replace(strconv.FormatFloat(v, 'f', -1, 64), ".", ",", 1) },
+		"oblik":            models.OblikNaziv,
+		"promet":           models.PrometNaziv,
+		"strana":           models.StranaOznaka,
+		"grupa":            models.GrupaNaziv,
+		"vrijemeHR":        func(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. 15:04") },
+		"satHR":            func(t time.Time) string { return t.In(models.Zagreb).Format("15:04") },
+		"structureKind":    models.StructureKindLabel,
+		"registriObjekata": registriObjekataUIzborniku,
+		"navObjekta":       navObjekta,
+		"jeNavObjekta":     jeNavObjekta,
+		"readingSource":    models.ReadingSourceLabel,
+		"structureState":   models.StructureStateLabel,
+		"gateLabel":        models.GateLabel,
+		"localTime":        func(t time.Time) time.Time { return t.In(models.Zagreb) },
 		// Arhiva od sada drži pravi UTC, pa se pri ispisu pretvara u zagrebačko
 		// vrijeme — isto kao operativna očitanja. Dežurni tako svugdje vidi sat
 		// kakav pokazuje sat na zidu, bez obzira odakle podatak dolazi.
@@ -1145,6 +1148,7 @@ func (s *Server) setupRoutes() {
 	// Registar vodnih tijela
 	s.mux.Handle("GET /watercourses", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourses)))
 	s.mux.Handle("GET /structures", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructures)))
+	s.rutaRegistaraObjekata(structuresH)
 	s.mux.Handle("GET /readings", s.authMiddleware(http.HandlerFunc(readingsH.ShowOverview)))
 	s.mux.Handle("GET /readings/new", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
 	s.mux.Handle("GET /readings/edit/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
@@ -1673,7 +1677,9 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/readings", models.ModuleReadings},
 	{"/registri", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
-	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
+	{"/structures", models.ModuleRegisters}, {"/nasipi", models.ModuleRegisters}, {"/crpne-stanice", models.ModuleRegisters},
+	{"/ustave", models.ModuleRegisters}, {"/brane", models.ModuleRegisters}, {"/sifoni", models.ModuleRegisters},
+	{"/pregrade", models.ModuleRegisters}, {"/ostali-objekti", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
 	{"/dnevnici", models.ModuleJournals},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},

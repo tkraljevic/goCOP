@@ -43,11 +43,14 @@
       <div class="dash-card-footer"><a href="/stations" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
 
+    {{range registriObjekata}}
     <div class="dash-card">
-      <div class="dash-card-header"><div class="dash-card-icon-box warning">{{icon "construction"}}</div><span class="dash-status-pill warning">OBJEKTI</span></div>
-      <div class="dash-card-body"><h2 class="dash-card-title">Objekti</h2><p class="dash-card-desc">Crpne stanice, ustave i drugi objekti obrane od poplava.</p></div>
-      <div class="dash-card-footer"><a href="/structures" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
+      <div class="dash-card-header"><div class="dash-card-icon-box warning">{{icon .Icon}}</div><span class="dash-status-pill warning">OBJEKTI</span></div>
+      <div class="dash-card-body"><h2 class="dash-card-title">{{.Title}}</h2><p class="dash-card-desc">{{.Desc}}</p></div>
+      <div class="dash-card-footer"><a href="{{.Path}}" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>
+    {{end}}
+
 
     <div class="dash-card">
       <div class="dash-card-header"><div class="dash-card-icon-box info">{{icon "droplet"}}</div><span class="dash-status-pill info">VODE</span></div>
@@ -62,7 +65,7 @@
     </div>
 
     <div class="dash-card">
-      <div class="dash-card-header"><div class="dash-card-icon-box teal">{{icon "wrench"}}</div><span class="dash-status-pill default">FIRME</span></div>
+      <div class="dash-card-header"><div class="dash-card-icon-box teal">{{icon "building-2"}}</div><span class="dash-status-pill default">FIRME</span></div>
       <div class="dash-card-body"><h2 class="dash-card-title">Licencirane firme</h2><p class="dash-card-desc">Pravne osobe s licencijom koje po ugovoru rade održavanje i obranu, i {{terml "podrucja"}} na kojima rade.</p></div>
       <div class="dash-card-footer"><a href="/firme" class="btn btn-secondary dash-btn"><span>Otvori registar</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>

@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{.Structure.Name}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/structures">Objekti</a> › <a href="/structures?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
+<div class="breadcrumb"><a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
 
 <div class="detail-head">
   <div>
@@ -14,8 +14,10 @@
     </p>
   </div>
   <div class="detail-actions">
+  {{if .Structure.TakesReadings}}
     <a href="/readings/new?structure={{.Structure.ID}}" class="btn btn-primary">{{icon "plus"}} Upiši očitanje</a>
     <a href="/readings/structure/{{.Structure.ID}}" class="btn btn-secondary">{{icon "activity"}} Očitanja</a>
+  {{end}}
   {{if .CanEdit}}
     <a href="/structures/{{.Structure.ID}}/edit" class="btn btn-secondary">{{icon "pencil"}} Uredi</a>
     <form method="POST" action="/structures/delete" onsubmit="return confirm('Obrisati objekt „{{.Structure.Name}}“ iz registra? Zapis ostaje u povijesti.')">
