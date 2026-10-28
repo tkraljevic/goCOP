@@ -249,8 +249,15 @@ func (r *StationRepository) attachSectionCodes(ctx context.Context, stations []m
 			stations[idx].SectionCodes = append(stations[idx].SectionCodes, sectionCode)
 		}
 	}
-
+	sloziSifrePostaja(stations)
 	return rows.Err()
+}
+
+// sloziSifrePostaja slaže dionice svake postaje po brojevima šifre
+func sloziSifrePostaja(stations []models.Station) {
+	for i := range stations {
+		models.SloziSifreDionica(stations[i].SectionCodes)
+	}
 }
 
 // GetStationByCode vraća postaju po šifri ili nil
@@ -305,6 +312,7 @@ func (r *StationRepository) GetSectionCodesForStation(ctx context.Context, stati
 		}
 		codes = append(codes, code)
 	}
+	models.SloziSifreDionica(codes)
 	return codes, rows.Err()
 }
 

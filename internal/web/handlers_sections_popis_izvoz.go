@@ -113,30 +113,6 @@ func voditeljiDionice(osoblje []models.SectionOfficer) (ruk, zam string) {
 	return strings.Join(r, "; "), strings.Join(zz, "; ")
 }
 
-// brojSifre daje brojeve iz šifre "B.34.10" → [34, 10], za prirodan poredak
-func brojSifre(code string) []int {
-	var out []int
-	for _, d := range strings.Split(code, ".")[1:] {
-		n, _ := strconv.Atoi(d)
-		out = append(out, n)
-	}
-	return out
-}
-
-func manjaSifra(a, b string) bool {
-	sa, sb := strings.SplitN(a, ".", 2), strings.SplitN(b, ".", 2)
-	if sa[0] != sb[0] {
-		return sa[0] < sb[0]
-	}
-	na, nb := brojSifre(a), brojSifre(b)
-	for i := 0; i < len(na) && i < len(nb); i++ {
-		if na[i] != nb[i] {
-			return na[i] < nb[i]
-		}
-	}
-	return len(na) < len(nb)
-}
-
 // KnjigaPopisaDionica slaže popis na A4 vodoravno: sektor, pa područje, pa
 // dionice redom šifre; uz svako područje i sektor zbroj duljina
 func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podrucja []models.Area, z ZaglavljeIzvoza, filtar string) *xlsxw.Knjiga {
@@ -168,7 +144,7 @@ func KnjigaPopisaDionica(redci []DionicaUPopisu, sektori []models.Sector, podruc
 		if a.AreaID != b.AreaID {
 			return a.AreaID < b.AreaID
 		}
-		return manjaSifra(a.Code, b.Code)
+		return models.ManjaSifraDionice(a.Code, b.Code)
 	})
 
 	red := func(celije map[int]xlsxw.Celija, stil int, spojevi [][2]int) int {

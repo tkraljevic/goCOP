@@ -314,5 +314,6 @@ func (r *WatercourseRepository) ListSectionsForWatercourse(ctx context.Context, 
 		}
 		codes = append(codes, c)
 	}
+	models.SloziSifreDionica(codes)
 	return codes, rows.Err()
 }

@@ -105,6 +105,17 @@ func (r *SectionRepository) ListSections(sectorID string, areaID int, search str
 		}
 		sections = append(sections, sec)
 	}
+	// šifre po brojevima (B.34.2 prije B.34.10), što SQL ne zna
+	sort.SliceStable(sections, func(i, j int) bool {
+		a, b := sections[i], sections[j]
+		if a.SectorID != b.SectorID {
+			return a.SectorID < b.SectorID
+		}
+		if a.AreaID != b.AreaID {
+			return a.AreaID < b.AreaID
+		}
+		return models.ManjaSifraDionice(a.Code, b.Code)
+	})
 	return sections, nil
 }
 

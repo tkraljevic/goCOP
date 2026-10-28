@@ -129,6 +129,7 @@ func (r *StructureRepository) decorate(ctx context.Context, s *models.Structure)
 			}
 		}
 		rows.Close()
+		models.SloziSifreDionica(s.SectionCodes)
 	}
 	if s.StationID != "" {
 		_ = r.db.QueryRowContext(ctx, `SELECT name FROM stations WHERE id = ?`, s.StationID).Scan(&s.StationName)
