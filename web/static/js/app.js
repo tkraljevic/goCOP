@@ -59,13 +59,23 @@ function stationMapPopup(st, hideDetails) {
   return popupHtml;
 }
 
-// Stvara autentičnu ikonu vodomjerne letve (stupić s E-podjelom) za Leaflet kartu
+// Ikona letve na kartama letvi: zadano posebna ikona (stupić s E-podjelom),
+// ili ikona koju je uprava izabrala u Administraciji › Karte. Posebna ikona
+// raste s veličinom točke; kod 32 px visoka je 44 px.
 function stvoriLetvaIkonu() {
   if (typeof L === 'undefined') return null;
-  return L.divIcon({
-    className: 'letva-map-marker-wrap',
-    html: '<div class="letva-stupic" title="Vodomjerna letva">' +
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="18" height="44" class="letva-svg">' +
+  var pk = postavkeKarte(), stil = (pk.objekti || {}).LETVA || {};
+  if (stil.ikona && stil.ikona !== 'letva') {
+    var stl = getComputedStyle(document.documentElement);
+    return ikonaObjekta(stil, stil.boja || (stl.getPropertyValue('--primary') || '').trim() || '#173e74');
+  }
+  return posebnaIkonaLetve();
+}
+
+// htmlPosebneLetve: SVG letve (stupić s E-podjelom); i za pregled u
+// Administraciji › Karte
+function htmlPosebneLetve(sirina, visina) {
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 18 44" width="' + sirina + '" height="' + visina + '" class="letva-svg">' +
       '<path d="M3,2 L15,2 L15,36 L9,42 L3,36 Z" fill="#ffffff" stroke="#334155" stroke-width="1.2" stroke-linejoin="round"/>' +
       '<rect x="3.6" y="2.6" width="10.8" height="6.6" fill="#dc2626"/>' +
       '<path d="M5.5,4.2 H8.5 M5.5,6 H7.5 M5.5,7.8 H8.5 M5.5,4.2 V7.8" stroke="#ffffff" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
@@ -77,10 +87,17 @@ function stvoriLetvaIkonu() {
       '<path d="M5.5,28.5 H8.5 M5.5,30.5 H7.5 M5.5,32.5 H8.5 M5.5,28.5 V32.5" stroke="#1e293b" stroke-width="1.2" stroke-linecap="square" fill="none"/>' +
       '<circle cx="9" cy="35.5" r="1.2" fill="#dc2626"/>' +
       '<polygon points="7.5,36.5 10.5,36.5 9,41" fill="#334155"/>' +
-      '</svg></div>',
-    iconSize: [18, 44],
-    iconAnchor: [9, 42],
-    popupAnchor: [0, -40]
+    '</svg>';
+}
+
+function posebnaIkonaLetve() {
+  var k = (postavkeKarte().velicina || 32) / 32;
+  return L.divIcon({
+    className: 'letva-map-marker-wrap',
+    html: '<div class="letva-stupic" title="Vodomjerna letva">' + htmlPosebneLetve(Math.round(18 * k), Math.round(44 * k)) + '</div>',
+    iconSize: [Math.round(18 * k), Math.round(44 * k)],
+    iconAnchor: [Math.round(9 * k), Math.round(42 * k)],
+    popupAnchor: [0, -Math.round(40 * k)]
   });
 }
 
@@ -682,27 +699,82 @@ function ravanKomad(c, w, vidljivo, sredina) {
   return najbolji;
 }
 
-// Druga podloga je satelitska snimka (Esri World Imagery). Zadana ostaje
-// obična karta, a snimka se upali kad s karte nije jasno što je na terenu.
-var SATELIT_ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+// Postavke karata iz Administracije › Karte (base.html, #postavke-karte):
+// izgled objekata po vrsti i podloge uz običnu kartu. Bez njih (stranica bez
+// prijave) karta ima samo običnu podlogu i boje teme.
+var postavkeKarteStranice = null;
+function postavkeKarte() {
+  if (postavkeKarteStranice) return postavkeKarteStranice;
+  var p = null;
+  try { p = JSON.parse((document.getElementById('postavke-karte') || {}).textContent || 'null'); } catch (e) { p = null; }
+  postavkeKarteStranice = p || { objekti: {}, podloge: [], ikone: '' };
+  return postavkeKarteStranice;
+}
 
+// Podloge za izbor na karti: obična karta pa podloge iz postavki. Ključ se
+// upisuje u adresu na mjestu {kljuc}. Snimke se u tamnoj temi ne izvrću.
 function podlogeKarte(osnovni) {
-  var satelit = L.tileLayer(SATELIT_ESRI, {
-    maxZoom: osnovni.options.maxZoom || 19, maxNativeZoom: 19,
-    attribution: escapeHtml('Satelit: Esri, Maxar, Earthstar Geographics, and the GIS User Community')
-  });
-  // tamna tema izvrće boje karte, a snimka mora ostati kakva jest
+  var podloge = { 'Karta': osnovni };
   function snimka(da) {
     return function () { if (this._map) this._map.getContainer().classList.toggle('karta-snimka', da); };
   }
   osnovni.on('add', snimka(false));
-  satelit.on('add', snimka(true));
-  return { 'Karta': osnovni, 'Satelit': satelit };
+  (postavkeKarte().podloge || []).forEach(function (p) {
+    var adresa = String(p.url || '').split('{kljuc}').join(encodeURIComponent(p.kljuc || ''));
+    var opcije = {
+      maxZoom: osnovni.options.maxZoom || 19, maxNativeZoom: p.najvise_z || 19,
+      attribution: escapeHtml(p.zasluge || '')
+    };
+    var sloj = p.vrsta === 'wms'
+      ? L.tileLayer.wms(adresa, L.extend(opcije, { layers: p.slojevi, format: 'image/jpeg', version: '1.3.0', tileSize: 512 }))
+      : L.tileLayer(adresa, opcije);
+    sloj.on('add', snimka(true));
+    podloge[p.naziv] = sloj;
+  });
+  return podloge;
 }
 
 function dodajPodloge(karta, osnovni) {
   if (!karta || !osnovni || typeof L === 'undefined') return;
-  L.control.layers(podlogeKarte(osnovni), null, { position: 'topright' }).addTo(karta);
+  var podloge = podlogeKarte(osnovni);
+  if (Object.keys(podloge).length < 2) return;
+  L.control.layers(podloge, null, { position: 'topright' }).addTo(karta);
+}
+
+// Točka objekta: ikona iz icons.svg ili iz vlastitih ikona (ime v-…), kao
+// letva na karti letvi. Zadano je ikona u boji vrste s bijelim obrubom; uz
+// „s krugom” bijela ikona na krugu u boji vrste, a uz ikonu „krug” mali
+// krug bez ikone.
+function tockaObjekta(ll, stil, boja) {
+  if (!stil.ikona || stil.ikona === 'krug') {
+    return L.circleMarker(ll, { radius: 6, color: '#fff', weight: 2, fillColor: boja, fillOpacity: 1 });
+  }
+  return L.marker(ll, { icon: stil.ikona === 'letva' ? posebnaIkonaLetve() : ikonaObjekta(stil, boja) });
+}
+
+// ikonaObjekta: Leafletova ikona točke (bez kruga ili s krugom, po postavkama)
+function ikonaObjekta(stil, boja) {
+  var pk = postavkeKarte();
+  var ikone = String(stil.ikona || '').indexOf('v-') === 0 ? pk.vlastite : pk.ikone;
+  var use = '<use href="' + escapeHtml(ikone) + '#' + escapeHtml(stil.ikona) + '"/>';
+  var px = pk.velicina || 32;
+  if (!stil.ikona || stil.ikona === 'krug' || !ikone) {
+    return L.divIcon({ className: '', iconSize: [12, 12], iconAnchor: [6, 6], popupAnchor: [0, -6],
+      html: '<div class="tocka-objekta" style="width:12px;height:12px;background:' + escapeHtml(boja) + '"></div>' });
+  }
+  if (!pk.s_krugom) {
+    return L.divIcon({
+      className: '', iconSize: [px, px], iconAnchor: [px / 2, px / 2], popupAnchor: [0, -px / 2],
+      html: '<div class="tocka-bez" style="color:' + escapeHtml(boja) + '"><svg viewBox="0 0 24 24" aria-hidden="true"><g class="obrub">' +
+        use + '</g><g class="crta">' + use + '</g></svg></div>'
+    });
+  }
+  var krug = Math.round(px * 0.8);
+  return L.divIcon({
+    className: '', iconSize: [krug, krug], iconAnchor: [krug / 2, krug / 2], popupAnchor: [0, -krug / 2],
+    html: '<div class="tocka-objekta" style="width:' + krug + 'px;height:' + krug + 'px;background:' + escapeHtml(boja) +
+      '"><svg class="icon" aria-hidden="true">' + use + '</svg></div>'
+  });
 }
 
 // Zajedničke kontrole svih Leaflet karata. Položaj služi samo za orijentaciju
@@ -980,14 +1052,18 @@ function dodajKontroleKarte(karta, platno, opcije) {
       dodajPodloge(karta, sloj);
 
       var stil = getComputedStyle(document.documentElement);
-      var bojaCrte = (stil.getPropertyValue('--primary') || '').trim() || '#173e74';
-      // nasip je narančast: odvaja se od plavih vodotoka, a i od zelenih
-      // polja i šuma na karti i satelitskoj snimci
-      if (okvir.dataset.vrsta === 'NASIP') bojaCrte = '#e8590c';
+      // boja, debljina i ikona vrste iz Administracije › Karte; bez boje
+      // vrste crta se glavnom bojom teme
+      var izgled = (postavkeKarte().objekti || {})[okvir.dataset.vrsta] || {};
+      var bojaCrte = izgled.boja || (stil.getPropertyValue('--primary') || '').trim() || '#173e74';
       var objekt = L.geoJSON(geo, {
-        style: function () { return { color: bojaCrte, weight: 5, opacity: 0.9 }; },
+        style: function () { return { color: bojaCrte, weight: izgled.debljina || 5, opacity: 0.9 }; },
         pointToLayer: function (f, ll) {
-          return L.circleMarker(ll, { radius: 4, color: bojaCrte, weight: 2, fillColor: '#fff', fillOpacity: 1 });
+          var p = f.properties || {};
+          if (p.km !== undefined && p.km !== null && p.km !== '') {
+            return L.circleMarker(ll, { radius: 4, color: bojaCrte, weight: 2, fillColor: '#fff', fillOpacity: 1 });
+          }
+          return tockaObjekta(ll, izgled, bojaCrte).bindTooltip(okvir.dataset.naziv || '', { direction: 'top', offset: [0, -12] });
         },
         onEachFeature: function (f, l) {
           var p = f.properties || {};

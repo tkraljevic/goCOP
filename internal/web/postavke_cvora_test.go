@@ -114,7 +114,7 @@ func predlozakStranice(t *testing.T, stranica string) *template.Template {
 func prikazStranice(t *testing.T, s *Server, stranica string) http.Handler {
 	t.Helper()
 	datoteka := map[string]string{"/settings": "settings.html", "/pretplate": "pretplate.html",
-		"/administracija/baza": "baza.html", "/administracija/opcije": "administracija_opcije.html"}[stranica]
+		"/administracija/baza": "baza.html", "/administracija/karte": "administracija_karte.html"}[stranica]
 	tmpl := predlozakStranice(t, datoteka)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
@@ -131,7 +131,7 @@ func prikazStranice(t *testing.T, s *Server, stranica string) http.Handler {
 		case "baza.html":
 			data = DBMaintPageData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
 		default:
-			data = OpcijeData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
+			data = PostavkeKarteData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
 		}
 		if err := tmpl.ExecuteTemplate(w, datoteka, data); err != nil {
 			t.Errorf("%s: %v", datoteka, err)
@@ -341,7 +341,7 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 		}
 	}
 	// traka na svim stranicama s blokom, a uz postavku što vrijedi do tada
-	for _, stranica := range []string{"/settings", "/pretplate", "/administracija/baza", "/administracija/opcije"} {
+	for _, stranica := range []string{"/settings", "/pretplate", "/administracija/baza", "/administracija/karte"} {
 		if !strings.Contains(iscrtajPostavke(t, s, stranica, kaoAdmin), "Spremljena promjena u gocop.toml vrijedi nakon ponovnog pokretanja čvora.") {
 			t.Errorf("%s: nema trake o ponovnom pokretanju", stranica)
 		}
@@ -434,8 +434,8 @@ func TestNeispravnoSeNeZapisuje(t *testing.T) {
 		{"/settings", "cvor", map[string]string{"javna_adresa": "cop.primjer.hr"}, "Upišite punu adresu"},
 		{"/settings", "cvor", map[string]string{"kontakt.centar": "dva\nretka"}, "u jednom retku"},
 		{"/pretplate", "pretplate", map[string]string{"vodostaji.povijest_mjeseci": "dvanaest"}, "Upišite cijeli broj"},
-		{"/administracija/opcije", "opcije", map[string]string{"karta.najvise_z": "25"}, "od 0 do 19"},
-		{"/administracija/opcije", "opcije", map[string]string{"karta.plocice": "https://plocice.primjer.hr/a.png"}, "{z}, {x} i {y}"},
+		{"/administracija/karte", "karte", map[string]string{"karta.najvise_z": "25"}, "od 0 do 19"},
+		{"/administracija/karte", "karte", map[string]string{"karta.plocice": "https://plocice.primjer.hr/a.png"}, "{z}, {x} i {y}"},
 	}
 	for _, sl := range slucajevi {
 		w := spremi(t, s, sl.stranica, obrazacBloka(sl.dio, otisak, sl.polja), kaoAdmin)
@@ -483,7 +483,7 @@ func TestSpremanjeBezDatoteke(t *testing.T) {
 	if b := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/", nil, kaoAdmin), "/administracija/baza").Dio("baza"); b.Datoteka.Postoji {
 		t.Error("nepostojeća datoteka prikazana kao da postoji")
 	}
-	w := spremi(t, s, "/administracija/opcije", obrazacBloka("opcije", "nema", map[string]string{"karta.najvise_z": "15"}), kaoAdmin)
+	w := spremi(t, s, "/administracija/karte", obrazacBloka("karte", "nema", map[string]string{"karta.najvise_z": "15"}), kaoAdmin)
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("nova datoteka: %d\n%s", w.Code, w.Body.String())
 	}
@@ -675,7 +675,7 @@ func TestRutePostavkiIzaZastita(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, putanja := range []string{"/settings/postavke-cvora", "/pretplate/postavke-cvora", "/administracija/baza/postavke-cvora",
-		"/administracija/opcije/postavke-cvora", "/settings/ponovno-pokretanje", "/settings/web-sync/ukljuci", "/settings/provjeri-vezu"} {
+		"/administracija/karte/postavke-cvora", "/settings/ponovno-pokretanje", "/settings/web-sync/ukljuci", "/settings/provjeri-vezu"} {
 		r := httptest.NewRequest(http.MethodPost, putanja, strings.NewReader("dio=cvor"))
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		r.Header.Set("Sec-Fetch-Site", "cross-site")

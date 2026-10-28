@@ -70,8 +70,8 @@ func TestPostavkeNaCvoruSklopljene(t *testing.T) {
 		t.Error("ponovno pokretanje je u sklopu postavki")
 	}
 	// ostale stranice nemaju sklop
-	if o := oznakaBloka(iscrtajPostavke(t, s, "/administracija/opcije", kaoAdmin), "postavke-cvora"); strings.HasPrefix(o, "<details") {
-		t.Errorf("Opcije: %q", o)
+	if o := oznakaBloka(iscrtajPostavke(t, s, "/administracija/karte", kaoAdmin), "postavke-cvora"); strings.HasPrefix(o, "<details") {
+		t.Errorf("Karte: %q", o)
 	}
 	if w := spremi(t, s, "/settings", obrazacBloka("cvor", otisakDatoteke(t, put), map[string]string{"kontakt.centar": "COP Primjer"}), kaoAdmin); w.Code != http.StatusSeeOther {
 		t.Fatalf("spremanje: %d", w.Code)
@@ -168,13 +168,13 @@ func TestZatvorenIzvorKarteSeZamjenjuje(t *testing.T) {
 	stari := "[karta]\nplocice = 'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png'\nzasluge = '© Wikimedia'\nnajvise_z = 17\n"
 	s, put := cvorSPostavkama(t, stari, nil)
 	s.postavke.p.Vrijedi.ZamijeniZatvoreneIzvore() // kao main pri pokretanju
-	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/administracija/opcije", nil, kaoAdmin), "/administracija/opcije")
-	st := stavkaBloka(p.Dio("opcije"), "karta.plocice")
+	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/administracija/karte", nil, kaoAdmin), "/administracija/karte")
+	st := stavkaBloka(p.Dio("karte"), "karta.plocice")
 	if st.Polje != config.ZadaniIzvorPlocica || st.CekaPonovno || st.Zamjena == "" || !strings.Contains(st.UDatoteci, "wikimedia") || p.CekaPonovno {
 		t.Errorf("zatvoren izvor: %+v", st)
 	}
-	w := spremi(t, s, "/administracija/opcije", obrazacBloka("opcije", otisakDatoteke(t, put), map[string]string{
-		"karta.plocice": st.Polje, "karta.zasluge": stavkaBloka(p.Dio("opcije"), "karta.zasluge").Polje, "karta.najvise_z": "17"}), kaoAdmin)
+	w := spremi(t, s, "/administracija/karte", obrazacBloka("karte", otisakDatoteke(t, put), map[string]string{
+		"karta.plocice": st.Polje, "karta.zasluge": stavkaBloka(p.Dio("karte"), "karta.zasluge").Polje, "karta.najvise_z": "17"}), kaoAdmin)
 	if w.Code != http.StatusSeeOther || strings.Contains(w.Header().Get("Location"), url.QueryEscape("Ništa nije promijenjeno.")) {
 		t.Fatalf("spremanje zamjene: %d %s", w.Code, w.Header().Get("Location"))
 	}

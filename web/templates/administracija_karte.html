@@ -1,0 +1,190 @@
+{{template "base.html" .}}
+
+{{define "title"}}goCOP — Karte{{end}}
+
+{{define "content"}}
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Karte</div>
+
+<div class="page-header">
+  <div>
+    <h1 class="page-title">{{icon "map"}} Karte</h1>
+    <p class="page-desc">Kako se objekti crtaju na kartama i koje se podloge uz običnu kartu mogu upaliti. Vrijedi na svim čvorovima; mijenja samo uprava organizacije, a promjena ostaje u knjizi verzija.</p>
+  </div>
+</div>
+
+{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
+{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
+
+<form method="POST" action="/administracija/karte">
+<section class="detail-section" style="margin-top:0;">
+  <div class="detail-section-head"><h2>{{icon "construction"}} Objekti na karti</h2></div>
+  <p class="text-muted">Boja i debljina vrijede za crtu objekta (nasip, brana), a ikona za točku (crpna stanica, ustava). Točke stacionaže na nasipu ostaju mali krugovi.</p>
+  <div class="form-row items-end">
+    <div class="form-group">
+      <span class="form-label">Točka objekta, za sve vrste</span>
+      <label class="opcija-red"><input type="radio" name="tocka" value="ikona" {{if not .SKrugom}}checked{{end}}> Samo ikona, u boji vrste s bijelim obrubom</label>
+      <label class="opcija-red"><input type="radio" name="tocka" value="krug" {{if .SKrugom}}checked{{end}}> Bijela ikona na krugu u boji vrste</label>
+    </div>
+    <div class="form-group"><label for="velicina_tocke">Veličina točke</label><input type="number" id="velicina_tocke" name="velicina_tocke" value="{{.Velicina}}" min="20" max="48" class="form-control" style="width:5rem"> px</div>
+  </div>
+  <div class="table-wrap">
+  <table class="table karte-stilovi">
+    <thead><tr><th>Vrsta</th><th>Boja</th><th>Debljina crte</th><th>Ikona točke</th><th>Izgled</th></tr></thead>
+    <tbody>
+    {{range .Objekti}}
+      <tr data-vrsta="{{.Kind}}">
+        <td>{{.Naziv}}</td>
+        <td><input type="color" name="boja_{{.Kind}}" value="{{.BojaZaBirac}}" aria-label="Boja: {{.Naziv}}"></td>
+        <td><input type="number" name="debljina_{{.Kind}}" value="{{.Debljina}}" min="1" max="12" class="form-control" style="width:5rem" aria-label="Debljina crte: {{.Naziv}}"> px</td>
+        <td>
+          <select name="ikona_{{.Kind}}" class="form-control" aria-label="Ikona točke: {{.Naziv}}">
+            {{$izabrana := .Ikona}}{{range $.Ikone}}<option value="{{.Ime}}" {{if eq .Ime $izabrana}}selected{{end}}>{{.Naziv}}</option>{{end}}
+          </select>
+        </td>
+        <td class="karte-izgled"><span class="karte-izgled-crta"></span><span class="karte-izgled-tocka"></span></td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="detail-section">
+  <div class="detail-section-head"><h2>{{icon "layers"}} Podloge</h2></div>
+  <p class="text-muted">Na karti se podloga bira gumbom sa slojevima, gore desno. Prva je uvijek obična karta, a ostale vrijede na svim čvorovima.</p>
+  <fieldset class="karte-podloga">
+    <legend>Karta (OpenStreetMap), samo ovaj čvor</legend>
+    <p class="text-muted">Izvor obične karte je postavka ovog čvora u gocop.toml, jer laptop bez interneta može čitati pločice spremljene na disku (<code>/karta/{z}/{x}/{y}.png</code>). Sprema se zasebnim gumbom ispod, a vrijedi nakon ponovnog pokretanja čvora.</p>
+    {{with .Postavke}}{{template "trakaPonovnogPokretanja" .}}{{else}}<p class="text-muted">Postavke ovog čvora ovdje nisu dostupne.</p>{{end}}
+  </fieldset>
+  <p class="text-muted">Adresa pločica ima <code>{z}</code>, <code>{x}</code> i <code>{y}</code>, a ključ se u nju upisuje kao <code>{kljuc}</code>, npr. <code>https://…/tile/{z}/{y}/{x}?token={kljuc}</code>. Ključ vide svi prijavljeni korisnici, jer ga preglednik šalje uz svaku pločicu. Zato upišite ključ koji smije samo čitati podloge.</p>
+  {{range $i, $p := .Podloge}}
+  <fieldset class="karte-podloga" {{if not (or $p.Naziv $p.URL)}}hidden data-nova{{end}}>
+    <legend>{{if $p.Naziv}}{{$p.Naziv}}{{else}}Nova podloga{{end}}</legend>
+    <button type="button" class="btn btn-sm btn-secondary karte-ukloni">{{icon "trash"}} Ukloni podlogu</button>
+    <div class="form-row">
+      <div class="form-group"><label for="podloga_{{$i}}_naziv">Naziv</label><input type="text" id="podloga_{{$i}}_naziv" name="podloga_{{$i}}_naziv" value="{{$p.Naziv}}" maxlength="40" class="form-control" placeholder="Satelit"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_vrsta">Vrsta</label>
+        <select id="podloga_{{$i}}_vrsta" name="podloga_{{$i}}_vrsta" class="form-control">
+          <option value="xyz" {{if eq $p.Vrsta "xyz"}}selected{{end}}>Pločice (XYZ)</option>
+          <option value="wms" {{if eq $p.Vrsta "wms"}}selected{{end}}>WMS</option>
+        </select></div>
+      <div class="form-group"><label for="podloga_{{$i}}_najvise_z">Najveće približavanje</label><input type="number" id="podloga_{{$i}}_najvise_z" name="podloga_{{$i}}_najvise_z" value="{{if $p.NajviseZ}}{{$p.NajviseZ}}{{end}}" min="1" max="22" class="form-control" placeholder="19"></div>
+    </div>
+    <div class="form-group"><label for="podloga_{{$i}}_url">Adresa</label><input type="text" id="podloga_{{$i}}_url" name="podloga_{{$i}}_url" value="{{$p.URL}}" class="form-control" spellcheck="false" placeholder="https://…/{z}/{x}/{y}"></div>
+    <div class="form-row">
+      <div class="form-group"><label for="podloga_{{$i}}_slojevi">Slojevi (samo WMS)</label><input type="text" id="podloga_{{$i}}_slojevi" name="podloga_{{$i}}_slojevi" value="{{$p.Slojevi}}" class="form-control" spellcheck="false"></div>
+      <div class="form-group"><label for="podloga_{{$i}}_kljuc">Ključ</label><input type="text" id="podloga_{{$i}}_kljuc" name="podloga_{{$i}}_kljuc" value="{{$p.Kljuc}}" class="form-control" spellcheck="false" autocomplete="off"></div>
+    </div>
+    <div class="form-group"><label for="podloga_{{$i}}_zasluge">Natpis o podrijetlu</label><input type="text" id="podloga_{{$i}}_zasluge" name="podloga_{{$i}}_zasluge" value="{{$p.Zasluge}}" class="form-control" placeholder="Kako davatelj traži, npr. Satelit: Esri, Maxar"></div>
+  </fieldset>
+  {{end}}
+  <button type="button" class="btn btn-secondary" id="karte-dodaj">{{icon "plus"}} Dodaj podlogu</button>
+  <span class="text-muted" id="karte-dosta" hidden>Uz običnu kartu može biti najviše 8 podloga.</span>
+  <p class="text-muted mt-2">Uklonjena ili dodana podloga sprema se tek gumbom Spremi.</p>
+</section>
+
+<div class="d-flex gap-2 mt-3">
+  <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
+  <button type="submit" name="radnja" value="zadano" class="btn btn-secondary" formnovalidate onclick="return confirm('Vratiti zadane boje, ikone i podloge na svim čvorovima? Učitane ikone se brišu.')">Vrati zadano</button>
+</div>
+</form>
+
+{{with .Postavke}}
+<section class="detail-section" id="postavke-cvora">
+  <div class="detail-section-head"><h2>{{icon "map"}} Obična karta ovog čvora (gocop.toml)</h2></div>
+  <p class="text-muted">Odakle ovaj čvor uzima običnu kartu. Ne vrijedi na drugim čvorovima.</p>
+  {{template "postavkeCvora" (.Dio "karte")}}
+</section>
+{{end}}
+
+<section class="detail-section" id="ikone">
+  <div class="detail-section-head"><h2>{{icon "upload"}} Vlastite ikone</h2></div>
+  <p class="text-muted">Učitajte SVG ikonu, npr. nacrtanu u Inkscapeu ili preuzetu s interneta, pa je izaberite uz vrstu objekta gore. Program iz datoteke zadrži samo crte i oblike, a boje zamijeni bijelom, pa se ikona na karti crta bijelo na krugu u boji vrste. Najbolje izgleda ikona nacrtana crtama na mreži 24 × 24. Ikona učitana pod istim nazivom zamjenjuje staru.</p>
+  {{if .Vlastite}}
+  <div class="karte-vlastite">
+    {{range .Vlastite}}
+    <div class="karte-vlastita">
+      <span class="karte-izgled-tocka" style="background:{{$.Glavna}}"><svg class="icon" aria-hidden="true"><use href="{{$.AdresaSvojih}}#{{.Ime}}"/></svg></span>
+      <span>{{.Naziv}}</span>
+      <form method="POST" action="/administracija/karte/ikona/obrisi" onsubmit="return confirm('Maknuti ikonu „{{.Naziv}}”? Vrste koje je koriste dobit će zadanu ikonu.')">
+        <input type="hidden" name="ime" value="{{.Ime}}">
+        <button type="submit" class="btn btn-sm btn-secondary" aria-label="Makni ikonu {{.Naziv}}">{{icon "trash"}}</button>
+      </form>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  <form method="POST" action="/administracija/karte/ikona" enctype="multipart/form-data" class="form-row items-end mt-2">
+    <div class="form-group"><label for="ikona_naziv">Naziv ikone</label><input type="text" id="ikona_naziv" name="naziv" maxlength="40" required class="form-control" placeholder="Crpka velika"></div>
+    <div class="form-group"><label for="ikona_datoteka">SVG datoteka</label><input type="file" id="ikona_datoteka" name="datoteka" accept=".svg,image/svg+xml" required class="form-control"></div>
+    <div class="form-group"><button type="submit" class="btn btn-secondary">{{icon "upload"}} Učitaj ikonu</button></div>
+  </form>
+</section>
+{{end}}
+
+{{define "scripts"}}
+<script>
+// dodaj i ukloni podlogu: uklonjena se isprazni i sakrije, a spremanje je
+// preskače; „Dodaj” otkriva sljedeći prazan redak
+(function () {
+  var dodaj = document.getElementById('karte-dodaj'), dosta = document.getElementById('karte-dosta');
+  function slobodni() { return document.querySelectorAll('.karte-podloga[data-nova][hidden]'); }
+  function osvjezi() { var ima = slobodni().length > 0; dodaj.hidden = !ima; dosta.hidden = ima; }
+  dodaj.addEventListener('click', function () {
+    var f = slobodni()[0];
+    if (!f) return;
+    f.hidden = false;
+    f.querySelector('input').focus();
+    osvjezi();
+  });
+  document.querySelectorAll('.karte-ukloni').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var f = b.closest('.karte-podloga');
+      f.querySelectorAll('input').forEach(function (i) { i.value = ''; });
+      f.hidden = true;
+      f.setAttribute('data-nova', '');
+      osvjezi();
+    });
+  });
+  osvjezi();
+})();
+
+// pregled u tablici: crta i točka u izabranoj boji, debljini i ikoni;
+// čeka app.js (defer), koji crta posebnu ikonu letve
+document.addEventListener('DOMContentLoaded', function () {
+  var ikone = {{.AdresaIkona}}, svoje = {{.AdresaSvojih}};
+  document.querySelectorAll('.karte-stilovi tr[data-vrsta]').forEach(function (red) {
+    var boja = red.querySelector('input[type=color]'), deb = red.querySelector('input[type=number]'), ik = red.querySelector('select');
+    var crta = red.querySelector('.karte-izgled-crta'), tocka = red.querySelector('.karte-izgled-tocka');
+    var velicina = document.getElementById('velicina_tocke');
+    function osvjezi() {
+      crta.style.background = boja.value;
+      crta.style.height = Math.max(1, Math.min(12, parseInt(deb.value, 10) || 5)) + 'px';
+      var krug = (document.querySelector('input[name=tocka]:checked') || {}).value === 'krug';
+      var px = Math.max(20, Math.min(48, parseInt(velicina.value, 10) || 32));
+      if (ik.value === 'letva') {
+        tocka.className = 'karte-izgled-tocka bez';
+        tocka.style.background = 'transparent';
+        tocka.style.width = Math.round(18 * px / 32) + 'px';
+        tocka.style.height = Math.round(44 * px / 32) + 'px';
+        tocka.innerHTML = htmlPosebneLetve(Math.round(18 * px / 32), Math.round(44 * px / 32));
+        return;
+      }
+      var izvor = ik.value.indexOf('v-') === 0 ? svoje : ikone;
+      var use = '<use href="' + izvor + '#' + ik.value + '"/>';
+      tocka.className = 'karte-izgled-tocka' + (ik.value === 'krug' ? ' krug' : (krug ? '' : ' bez'));
+      tocka.style.background = krug || ik.value === 'krug' ? boja.value : 'transparent';
+      tocka.style.color = boja.value;
+      tocka.style.width = tocka.style.height = ik.value === 'krug' ? '' : (krug ? Math.round(px * 0.8) : px) + 'px';
+      tocka.innerHTML = ik.value === 'krug' ? '' : krug
+        ? '<svg class="icon" aria-hidden="true">' + use + '</svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><g class="obrub">' + use + '</g><g class="crta">' + use + '</g></svg>';
+    }
+    [boja, deb, ik, velicina].forEach(function (el) { el.addEventListener('input', osvjezi); el.addEventListener('change', osvjezi); });
+    document.querySelectorAll('input[name=tocka]').forEach(function (el) { el.addEventListener('change', osvjezi); });
+    osvjezi();
+  });
+});
+</script>
+{{end}}

@@ -19,8 +19,7 @@ type OpcijeData struct {
 	SuccessMessage string
 	ErrorMessage   string
 
-	Opcije   models.Opcije
-	Postavke *PostavkeStranice // postavke ovog čvora iz gocop.toml (karta)
+	Opcije models.Opcije
 }
 
 // SetOpcije daje rukovatelju predložak stranice opcija
@@ -34,7 +33,7 @@ func (h *AktiHandler) ShowOpcije(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	d := OpcijeData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r), SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
-		Opcije: s.Opcije(r.Context()), Postavke: h.postavkeCvora.za(r, "/administracija/opcije")}
+		Opcije: s.Opcije(r.Context())}
 	if err := h.tmplOpcije.ExecuteTemplate(w, "administracija_opcije.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

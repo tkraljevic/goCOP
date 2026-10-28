@@ -28,7 +28,7 @@ type AktiHandler struct {
 	stations                                     *service.StationService
 	tmplPopis, tmplForm, tmplAkt, tmplPrimatelji *template.Template
 	tmplSpranca                                  *template.Template
-	postavkeCvora                                izvorPostavki // gocop.toml na stranici Opcije (karta)
+	postavkeCvora                                izvorPostavki // gocop.toml na stranici Karte (obična karta)
 	tmplPosta, tmplPostaAdmin                    *template.Template
 	tmplSanducic, tmplPismo, tmplNovoPismo       *template.Template
 	tmplImenik                                   *template.Template
@@ -37,6 +37,7 @@ type AktiHandler struct {
 	tmplZig                                      *template.Template
 	tmplOpcije                                   *template.Template
 	tmplTema                                     *template.Template
+	tmplKarte                                    *template.Template
 	// drugiKorak daje drugi korak prijave izvana (račun koji šalje PIN,
 	// sklopka); nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak

@@ -3111,6 +3111,36 @@ textarea {
 .karta-objekta .karta-platno { height: 420px; }
 .karta-objekta.karta-prazna .karta-platno { opacity: 0.65; }
 .karta-akcije .btn[hidden] { display: none; }
+.tocka-objekta {
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%;
+  border: 2px solid #fff; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+  color: #fff;
+}
+.tocka-objekta .icon { width: 58%; height: 58%; }
+/* Administracija › Karte: pregled crte i točke uz svaku vrstu */
+.karte-izgled { white-space: nowrap; }
+.karte-izgled-crta { display: inline-block; width: 3rem; vertical-align: middle; border-radius: 3px; margin-right: 0.75rem; }
+.karte-izgled-tocka {
+  display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
+  width: 26px; height: 26px; border-radius: 50%; border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45); color: #fff;
+}
+.karte-izgled-tocka.krug { width: 10px; height: 10px; }
+.karte-izgled-tocka.bez { border: 0; box-shadow: none; border-radius: 0; }
+/* točka bez kruga: ikona u boji vrste preko bijelog obruba, i na karti */
+.karte-izgled-tocka.bez svg, .tocka-bez svg { width: 100%; height: 100%; fill: none; stroke-linecap: round; stroke-linejoin: round; overflow: visible; }
+.karte-izgled-tocka.bez .obrub, .tocka-bez .obrub { stroke: #fff; stroke-width: 5; }
+.karte-izgled-tocka.bez .crta, .tocka-bez .crta { stroke: currentColor; stroke-width: 2.2; }
+.tocka-bez { display: block; width: 100%; height: 100%; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); }
+.karte-izgled-tocka .icon { width: 15px; height: 15px; }
+.karte-vlastite { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-bottom: 0.75rem; }
+.karte-vlastita { display: flex; align-items: center; gap: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 0.35rem 0.5rem; }
+.karte-vlastita form { margin: 0; }
+.karte-podloga { border: 1px solid var(--border); border-radius: var(--radius, 8px); padding: 0.75rem 1rem; margin: 0 0 1rem; }
+.karte-podloga legend { padding: 0 0.4rem; font-weight: 600; }
+.karte-podloga[hidden] { display: none; }
+.karte-podloga .karte-ukloni { float: right; }
 .natpis-crte span {
   position: absolute; left: 0; top: 0; transform-origin: 0 0;
   white-space: nowrap; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em;

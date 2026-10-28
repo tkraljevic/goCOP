@@ -16,7 +16,7 @@ import (
 func TestNatpisKarteBezHTML(t *testing.T) {
 	s, put := cvorSPostavkama(t, sadrzajPostavk, nil)
 	napad := `<img src=x onerror="fetch('/posta')">`
-	w := spremi(t, s, "/administracija/opcije", obrazacBloka("opcije", otisakDatoteke(t, put), map[string]string{"karta.zasluge": napad}), kaoAdmin)
+	w := spremi(t, s, "/administracija/karte", obrazacBloka("karte", otisakDatoteke(t, put), map[string]string{"karta.zasluge": napad}), kaoAdmin)
 	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "običan tekst") {
 		t.Errorf("natpis s oznakom: %d", w.Code)
 	}

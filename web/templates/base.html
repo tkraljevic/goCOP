@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="{{statika "css/style.css"}}">
   {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
   {{block "head" .}}{{end}}
+  {{if .CurrentUser}}<script id="postavke-karte" type="application/json">{{postavkeKarte}}</script>{{end}}
   <script src="{{statika "vendor/leaflet/leaflet.js"}}" defer></script>
   <script src="{{statika "js/app.js"}}" defer></script>
 </head>

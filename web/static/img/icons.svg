@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" style="display:none">
-<!-- Lucide ikone (ISC), vidi LICENSE-lucide.txt; "waves", "nasip", "crpna-stanica", "ustava" i "brana" su vlastite u istom stilu -->
+<!-- Lucide ikone (ISC), vidi LICENSE-lucide.txt; "waves", "nasip", "crpna-stanica", "ustava", "brana", "sifon", "zaklopka", "propust", "prag", "pregrada" i "letva-obicna" su vlastite u istom stilu -->
   <symbol id="arrow-right" viewBox="0 0 24 24"><path d="M5 12h14" />
   <path d="m12 5 7 7-7 7" /></symbol>
   <symbol id="bell" viewBox="0 0 24 24"><path d="M10.268 21a2 2 0 0 0 3.464 0" />
@@ -248,10 +248,12 @@
   <symbol id="nasip" viewBox="0 0 24 24"><path d="M2 19h20" />
   <path d="M3.5 19 9 11h6l5.5 8" />
   <path d="M2 15.5c.7-.5 1.4-.5 2.1 0s1.4.5 2.1 0" /></symbol>
-  <symbol id="crpna-stanica" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" />
-  <path d="M9 6.8 18 12l-9 5.2" />
-  <path d="M2 12h4" />
-  <path d="M18 12h4" /></symbol>
+  <symbol id="crpna-stanica" viewBox="0 0 24 24"><circle cx="9" cy="13" r="6" />
+  <path d="M9 7h11v4h-5.2" />
+  <circle cx="9" cy="13" r="1.5" />
+  <path d="M4 21h10" />
+  <path d="m6.5 18.4-1.2 2.6" />
+  <path d="m11.5 18.4 1.2 2.6" /></symbol>
   <symbol id="ustava" viewBox="0 0 24 24"><path d="M4 3v18" />
   <path d="M20 3v18" />
   <path d="M8 4h8v8H8z" />
@@ -261,4 +263,29 @@
   <path d="M10 21V4h3l6 17" />
   <path d="M2 9c1-.7 2-.7 3 0s2 .7 3 0" />
   <path d="M2 13.5c1-.7 2-.7 3 0s2 .7 3 0" /></symbol>
+  <symbol id="sifon" viewBox="0 0 24 24"><path d="M3 3v8a9 9 0 0 0 18 0V3" />
+  <path d="M8 3v8a4 4 0 0 0 8 0V3" />
+  <path d="M3 3h5" />
+  <path d="M16 3h5" /></symbol>
+  <symbol id="zaklopka" viewBox="0 0 24 24"><path d="M2 9h11" />
+  <path d="M2 15h11" />
+  <circle cx="14.5" cy="7" r="1.2" />
+  <path d="M14.5 8.2 17 17.5" />
+  <path d="M19 12c.8-.6 1.6-.6 2.4 0" /></symbol>
+  <symbol id="propust" viewBox="0 0 24 24"><path d="M2 20h20" />
+  <path d="M3 20 8.5 10h7L21 20" />
+  <circle cx="12" cy="16" r="2.5" /></symbol>
+  <symbol id="prag" viewBox="0 0 24 24"><path d="M2 10h8v6h12" />
+  <path d="M2 6.5c1-.7 2-.7 3 0s2 .7 3 0" />
+  <path d="M13 12.5c1-.7 2-.7 3 0s2 .7 3 0" /></symbol>
+  <symbol id="pregrada" viewBox="0 0 24 24"><path d="M10.5 5h3v15h-3z" />
+  <path d="M2 20h20" />
+  <path d="M2 9c1.2-.8 2.4-.8 3.6 0s2.4.8 3.6 0" />
+  <path d="M15 14c1.2-.8 2.4-.8 3.6 0s2.4.8 3.6 0" /></symbol>
+  <symbol id="letva-obicna" viewBox="0 0 24 24"><path d="M9 2h6v16H9z" />
+  <path d="M12 5h3" />
+  <path d="M9 8h3" />
+  <path d="M12 11h3" />
+  <path d="M9 14h3" />
+  <path d="M2 21c1.3-.9 2.7-.9 4 0s2.7.9 4 0 2.7-.9 4 0 2.7.9 4 0 2.7-.9 4 0" /></symbol>
 </svg>
