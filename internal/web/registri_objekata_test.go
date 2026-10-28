@@ -64,8 +64,22 @@ func TestRegistriObjekataPoVrstama(t *testing.T) {
 			t.Errorf("%s: %d → %q, htio %q", put, w.Code, w.Header().Get("Location"), cilj)
 		}
 	}
-	if b := otvori("/structures/" + nasip.ID.String()); !strings.Contains(b, `<a href="/nasipi">Nasipi</a>`) || strings.Contains(b, "Upiši očitanje") {
-		t.Error("stranica nasipa ne vodi natrag na nasipe ili nudi očitanje")
+	if b := otvori("/nasipi/" + nasip.ID.String()); !strings.Contains(b, `<a href="/nasipi">Nasipi</a>`) || strings.Contains(b, "Upiši očitanje") ||
+		!strings.Contains(b, `href="/nasipi/`+nasip.ID.String()+`/edit"`) {
+		t.Error("stranica nasipa ne vodi natrag na nasipe, nudi očitanje ili uređivanje nije u registru nasipa")
+	}
+	if b := otvori("/nasipi?q=Primjerovo"); !strings.Contains(b, `href="/nasipi/`+nasip.ID.String()+`"`) {
+		t.Error("popis nasipa ne vodi na adresu nasipa u registru")
+	}
+	// stare poveznice (dionice, održavanje, skladište) vode na adresu u registru
+	for stara, nova := range map[string]string{
+		"/structures/" + nasip.ID.String():                         "/nasipi/" + nasip.ID.String(),
+		"/structures/" + stanica.ID.String() + "/edit":             "/crpne-stanice/" + stanica.ID.String() + "/edit",
+		"/structures/" + nasip.ID.String() + "?success=Spremljeno": "/nasipi/" + nasip.ID.String() + "?success=Spremljeno",
+	} {
+		if w := posalji(stara); w.Code != http.StatusMovedPermanently || w.Header().Get("Location") != nova {
+			t.Errorf("%s: %d → %q, htio %q", stara, w.Code, w.Header().Get("Location"), nova)
+		}
 	}
 	if b := otvori("/structures/new?kind=" + models.StructureKindSluice); !strings.Contains(b, "Nova ustava") {
 		t.Error("novi zapis iz registra ustava ne nosi vrstu")
@@ -104,5 +118,19 @@ func TestBrisanjeObjektaVodiNaRegistarVrste(t *testing.T) {
 func TestOznakeIzbornikaObjekata(t *testing.T) {
 	if len(registriObjekataUIzborniku()) != 5 || !jeNavObjekta(navObjekta(models.StructureKindDam)) || jeNavObjekta("stations") {
 		t.Error("izbornik registara objekata nije složen kako treba")
+	}
+}
+
+func TestLetvaObjekta(t *testing.T) {
+	o := novaOkolinaSastavljaca(t)
+	h := NewStructuresHandler(o.structures, o.stations, nil, nil, nil, nil, nil)
+	ctx := context.Background()
+	for _, id := range []string{"", "nije-id", "11111111-2222-3333-4444-555555555555"} {
+		if l := h.letvaObjekta(ctx, id); l != nil {
+			t.Errorf("%q: dobio letvu %s", id, l.Name)
+		}
+	}
+	if l := h.letvaObjekta(ctx, o.letva.ID.String()); l == nil || l.ID != o.letva.ID {
+		t.Errorf("postojeća letva nije pročitana: %+v", l)
 	}
 }

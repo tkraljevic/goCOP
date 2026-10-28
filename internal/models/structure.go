@@ -123,6 +123,14 @@ func StructureRegisterFor(kind string) (StructureRegister, bool) {
 	return StructureRegister{}, false
 }
 
+// Path je adresa objekta u registru njegove vrste, npr. /nasipi/<id>
+func (s Structure) Path() string {
+	if reg, ok := StructureRegisterFor(s.Kind); ok {
+		return reg.Path + "/" + s.ID.String()
+	}
+	return "/structures/" + s.ID.String()
+}
+
 // KindLabel je naziv vrste u sučelju
 func (s Structure) KindLabel() string { return StructureKindLabel(s.Kind) }
 

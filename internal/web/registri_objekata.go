@@ -1,6 +1,7 @@
 package web
 
 import (
+	"net/http"
 	"strings"
 
 	"gocop/internal/models"
@@ -16,9 +17,12 @@ func navObjekta(kind string) string { return "objekti-" + kind }
 // jeNavObjekta javlja je li stranica u nekom od registara objekata
 func jeNavObjekta(nav string) bool { return strings.HasPrefix(nav, "objekti-") }
 
-// rutaRegistaraObjekata daje svakoj vrsti objekta svoju adresu popisa
+// rutaRegistaraObjekata daje svakom registru adresu popisa, a objektu u
+// njemu adresu stranice i obrasca: /nasipi, /nasipi/<id>, /nasipi/<id>/edit
 func (s *Server) rutaRegistaraObjekata(h *StructuresHandler) {
 	for _, reg := range models.StructureRegisters {
 		s.mux.Handle("GET "+reg.Path, s.authMiddleware(h.ShowRegister(reg)))
+		s.mux.Handle("GET "+reg.Path+"/{id}", s.authMiddleware(http.HandlerFunc(h.ShowStructure)))
+		s.mux.Handle("GET "+reg.Path+"/{id}/edit", s.authMiddleware(http.HandlerFunc(h.ShowStructureForm)))
 	}
 }

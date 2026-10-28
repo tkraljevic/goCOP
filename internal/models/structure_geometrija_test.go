@@ -1,6 +1,10 @@
 package models
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/google/uuid"
+)
 
 func TestStructureHasGeometry(t *testing.T) {
 	for geo, htio := range map[string]bool{"": false, "  \n": false, `{"type":"FeatureCollection","features":[]}`: true} {
@@ -50,5 +54,16 @@ func TestNoveVrsteObjekata(t *testing.T) {
 		if (Structure{Kind: kind}).TakesReadings() {
 			t.Errorf("%s nudi očitanje", kind)
 		}
+	}
+}
+
+func TestAdresaObjektaURegistru(t *testing.T) {
+	s := Structure{ID: uuid.MustParse("11111111-2222-3333-4444-555555555555"), Kind: StructureKindWeir}
+	if s.Path() != "/ostali-objekti/11111111-2222-3333-4444-555555555555" {
+		t.Errorf("pregrada: %s", s.Path())
+	}
+	s.Kind = "NEPOZNATO"
+	if s.Path() != "/structures/11111111-2222-3333-4444-555555555555" {
+		t.Errorf("nepoznata vrsta: %s", s.Path())
 	}
 }
