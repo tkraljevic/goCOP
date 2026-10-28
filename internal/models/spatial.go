@@ -141,8 +141,8 @@ type PartTerritory struct {
 }
 
 // PartObject je objekt na poddionici: naš objekt iz registra (crpna stanica,
-// ustava, sifon) vezan je preko StructureID; mostovi i propusti tuđi su i
-// ostaju samo redak s nazivom.
+// ustava, sifon, čep ili propust kroz nasip) vezan je preko StructureID;
+// mostovi i cestovni propusti tuđi su i ostaju samo redak s nazivom.
 //
 // Redak koji imenuje vodu — „ušće p. Karašice”, „ušće Šarkanjskog Dun.” —
 // vezan je na registar voda preko WatercourseCode. Objekt iz registra smije
