@@ -37,3 +37,18 @@ func TestRegistriObjekata(t *testing.T) {
 		t.Error("nepoznata vrsta dobila je registar")
 	}
 }
+
+// Čep, propust i prag su u Ostalim objektima, imaju svoj naziv i bez letve su
+func TestNoveVrsteObjekata(t *testing.T) {
+	for kind, naziv := range map[string]string{StructureKindPlug: "čep", StructureKindCulvert: "propust", StructureKindSill: "prag"} {
+		if StructureKindLabel(kind) != naziv {
+			t.Errorf("%s: naziv %q", kind, StructureKindLabel(kind))
+		}
+		if r, ok := StructureRegisterFor(kind); !ok || r.Path != "/ostali-objekti" {
+			t.Errorf("%s nije u ostalim objektima", kind)
+		}
+		if (Structure{Kind: kind}).TakesReadings() {
+			t.Errorf("%s nudi očitanje", kind)
+		}
+	}
+}
