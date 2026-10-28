@@ -2,6 +2,11 @@
 
 {{define "title"}}goCOP — {{.Structure.Name}}{{end}}
 
+{{define "head"}}{{if .CanEdit}}<link rel="stylesheet" href="{{statika "vendor/geoman/leaflet-geoman.css"}}">{{end}}{{end}}
+
+{{define "scripts"}}{{if .CanEdit}}<script src="{{statika "vendor/geoman/leaflet-geoman.min.js"}}" defer></script>
+<script src="{{statika "js/uredjivac-objekta.js"}}" defer></script>{{end}}{{end}}
+
 {{define "content"}}
 <div class="breadcrumb"><a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
 
@@ -53,24 +58,29 @@
   <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
     <h2>{{icon "map"}} Na karti</h2>
     {{if .CanEdit}}
-    <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz GeoJSON-a{{else}}Ucrtaj iz GeoJSON-a{{end}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
+    <div class="karta-akcije d-flex gap-2 items-center">
+      <button type="button" class="btn btn-sm btn-secondary karta-uredi-btn">{{icon "pencil"}} Uredi na karti</button>
+      <button type="button" class="btn btn-sm btn-primary karta-spremi-btn" hidden>{{icon "check"}} Spremi</button>
+      <button type="button" class="btn btn-sm btn-secondary karta-odustani-btn" hidden>Odustani</button>
+      <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz GeoJSON-a{{else}}Ucrtaj iz GeoJSON-a{{end}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
+    </div>
     {{end}}
   </div>
-  {{if .GeometryJSON}}
+  {{if not .GeometryJSON}}<p class="reg-card-sub">Objekt još nije ucrtan. Nacrtajte ga gumbom „Uredi na karti” ili učitajte GeoJSON iz QGIS-a{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>{{end}}
   <div class="karta-objekta"
+       data-id="{{.Structure.ID}}"
+       data-vrsta="{{.Structure.Kind}}"
        data-naziv="{{.Structure.Name}}"
+       {{with .Structure.Latitude}}data-lat="{{printf "%.6f" .}}"{{end}} {{with .Structure.Longitude}}data-lon="{{printf "%.6f" .}}"{{end}}
        data-plocice="{{.Karta.Plocice}}"
        data-zasluge="{{.Karta.Zasluge}}"
        data-najvise-z="{{.Karta.NajviseZ}}">
     <div class="karta-platno"></div>
-    <script type="application/json" class="karta-geometrija-podaci">{{.GeometryJSON}}</script>
+    <script type="application/json" class="karta-geometrija-podaci">{{if .GeometryJSON}}{{.GeometryJSON}}{{else}}{"type":"FeatureCollection","features":[]}{{end}}</script>
     <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
       nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
       Objekt je ucrtan i vidljiv.</p>
   </div>
-  {{else}}
-  <p class="reg-card-sub">Objekt još nije ucrtan. Učitajte GeoJSON iz QGIS-a{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>
-  {{end}}
 </section>
 {{end}}
 

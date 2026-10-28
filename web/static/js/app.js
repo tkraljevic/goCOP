@@ -597,6 +597,114 @@ function renderMarkdown(md) {
   }
 })();
 
+// Natpis objekta uz njegovu crtu, da se naziv nasipa vidi bez prelaska
+// mišem. Tekst je ravan, pa stoji samo uz komad crte koji je dovoljno ravan i
+// dug za cijeli tekst, i to onaj koji se vidi, najbliži sredini karte. Kad
+// takvog komada nema (odzumirano se zavoji zbiju), natpisa nema. Kratki dijelovi objekta
+// (ispod četvrtine najduljeg) ostaju bez natpisa, da se ne gomilaju.
+// odzumirano naziv daje samo oblačić pri prelasku mišem
+var NATPIS_OD_POVECANJA = 14;
+
+function natpisiUzCrte(karta, objekt, naziv, boja) {
+  if (!naziv) return;
+  var crte = [];
+  objekt.eachLayer(function (l) {
+    if (!(l instanceof L.Polyline) || l instanceof L.Polygon) return;
+    var dijelovi = l.getLatLngs();
+    if (dijelovi.length && !Array.isArray(dijelovi[0])) dijelovi = [dijelovi];
+    dijelovi.forEach(function (d) { var c = crtaUMetrima(d); if (c) crte.push(c); });
+  });
+  var najdulja = crte.reduce(function (m, c) { return Math.max(m, c.duljina); }, 0);
+  crte = crte.filter(function (c) { return c.duljina >= najdulja / 4; });
+  var sirinaTeksta = naziv.length * 7 + 16; // px, otprilike za 0,78rem podebljano
+  var natpisi = L.layerGroup().addTo(karta);
+  function osvjezi() {
+    natpisi.clearLayers();
+    if (karta.getZoom() < NATPIS_OD_POVECANJA) return;
+    // metri Mercatora u piksele na ovom povećanju
+    var w = sirinaTeksta / (256 * Math.pow(2, karta.getZoom()) / (2 * Math.PI * 6378137));
+    var vidljivo = karta.getBounds(), sredina = L.CRS.EPSG3857.project(karta.getCenter());
+    crte.forEach(function (c) {
+      var mjesto = ravanKomad(c, w, vidljivo, sredina);
+      if (!mjesto) return;
+      var span = document.createElement('span');
+      span.textContent = naziv;
+      span.style.color = boja;
+      span.style.transform = 'rotate(' + mjesto.kut.toFixed(1) + 'deg) translate(-50%, -150%)';
+      natpisi.addLayer(L.marker(mjesto.tocka, {
+        icon: L.divIcon({ className: 'natpis-crte', html: span.outerHTML, iconSize: [0, 0] }),
+        interactive: false, keyboard: false, pmIgnore: true
+      }));
+    });
+  }
+  karta.on('moveend', osvjezi);
+  karta.whenReady(osvjezi);
+}
+
+// crtaUMetrima: točke crte u Mercatoru (metri) i duljina; Mercator čuva
+// kutove, pa je smjer na zaslonu isti na svakom povećanju
+function crtaUMetrima(tocke) {
+  var crs = L.CRS.EPSG3857, p = tocke.map(function (t) { return crs.project(L.latLng(t)); });
+  var duljina = 0;
+  for (var i = 1; i < p.length; i++) duljina += p[i].distanceTo(p[i - 1]);
+  return p.length < 2 || duljina === 0 ? null : { p: p, duljina: duljina };
+}
+
+function tockaNaDuljini(c, s) {
+  var p = c.p;
+  for (var j = 1; j < p.length; j++) {
+    var d = p[j].distanceTo(p[j - 1]);
+    if (s <= d || j === p.length - 1) {
+      var t = d ? Math.min(Math.max(s / d, 0), 1) : 0;
+      return L.point(p[j - 1].x + (p[j].x - p[j - 1].x) * t, p[j - 1].y + (p[j].y - p[j - 1].y) * t);
+    }
+    s -= d;
+  }
+}
+
+// ravanKomad: sredina i smjer komada crte duljine w (metri) koji je gotovo
+// ravan (tetiva barem 92 % puta) i vidi se na karti; od takvih onaj najbliži
+// sredini karte. Komadi se probaju u koracima od pola teksta, najviše 200.
+function ravanKomad(c, w, vidljivo, sredina) {
+  if (c.duljina < w * 1.1) return null;
+  var korak = Math.max(w / 2, c.duljina / 200), najbolji = null, najblize = Infinity;
+  for (var s = w / 2; s <= c.duljina - w / 2; s += korak) {
+    var t = tockaNaDuljini(c, s), ll = L.CRS.EPSG3857.unproject(t);
+    if (!vidljivo.contains(ll) || t.distanceTo(sredina) >= najblize) continue;
+    var a = tockaNaDuljini(c, s - w / 2), b = tockaNaDuljini(c, s + w / 2);
+    if (a.distanceTo(b) < 0.92 * w) continue;
+    // projekcija raste prema sjeveru, zaslon prema jugu: zato −dy
+    var kut = Math.atan2(-(b.y - a.y), b.x - a.x) * 180 / Math.PI;
+    if (kut > 90) kut -= 180; else if (kut < -90) kut += 180;
+    najbolji = { tocka: ll, kut: kut };
+    najblize = t.distanceTo(sredina);
+  }
+  return najbolji;
+}
+
+// Druga podloga je satelitska snimka (Esri World Imagery). Zadana ostaje
+// obična karta, a snimka se upali kad s karte nije jasno što je na terenu.
+var SATELIT_ESRI = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+
+function podlogeKarte(osnovni) {
+  var satelit = L.tileLayer(SATELIT_ESRI, {
+    maxZoom: osnovni.options.maxZoom || 19, maxNativeZoom: 19,
+    attribution: escapeHtml('Satelit: Esri, Maxar, Earthstar Geographics, and the GIS User Community')
+  });
+  // tamna tema izvrće boje karte, a snimka mora ostati kakva jest
+  function snimka(da) {
+    return function () { if (this._map) this._map.getContainer().classList.toggle('karta-snimka', da); };
+  }
+  osnovni.on('add', snimka(false));
+  satelit.on('add', snimka(true));
+  return { 'Karta': osnovni, 'Satelit': satelit };
+}
+
+function dodajPodloge(karta, osnovni) {
+  if (!karta || !osnovni || typeof L === 'undefined') return;
+  L.control.layers(podlogeKarte(osnovni), null, { position: 'topright' }).addTo(karta);
+}
+
 // Zajedničke kontrole svih Leaflet karata. Položaj služi samo za orijentaciju
 // i ne sprema se; obrasci koji preuzimaju GPS u svoja polja imaju zaseban gumb.
 function dodajKontroleKarte(karta, platno, opcije) {
@@ -815,6 +923,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      dodajPodloge(karta, sloj);
 
       var podaci = okvir.querySelector('.karta-letva-podaci');
       var popup = podaci ? stationMapPopup(JSON.parse(podaci.textContent), true) : escapeHtml(okvir.dataset.naziv || '');
@@ -868,9 +977,13 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      dodajPodloge(karta, sloj);
 
       var stil = getComputedStyle(document.documentElement);
       var bojaCrte = (stil.getPropertyValue('--primary') || '').trim() || '#173e74';
+      // nasip je narančast: odvaja se od plavih vodotoka, a i od zelenih
+      // polja i šuma na karti i satelitskoj snimci
+      if (okvir.dataset.vrsta === 'NASIP') bojaCrte = '#e8590c';
       var objekt = L.geoJSON(geo, {
         style: function () { return { color: bojaCrte, weight: 5, opacity: 0.9 }; },
         pointToLayer: function (f, ll) {
@@ -885,9 +998,15 @@ function dodajKontroleKarte(karta, platno, opcije) {
           }
         }
       }).addTo(karta);
+      natpisiUzCrte(karta, objekt, okvir.dataset.naziv || '', bojaCrte);
       var granice = objekt.getBounds();
+      var lat = parseFloat(okvir.dataset.lat), lon = parseFloat(okvir.dataset.lon);
       if (granice.isValid()) karta.fitBounds(granice, { padding: [24, 24], maxZoom: 16 });
+      else if (!isNaN(lat) && !isNaN(lon)) karta.setView([lat, lon], 15);
       else karta.setView([45.55, 18.7], 9);
+      // uređivač (uredjivac-objekta.js) radi na istoj karti i istom sloju
+      okvir._karta = karta;
+      okvir._objekt = objekt;
     });
   });
 })();
@@ -940,6 +1059,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      dodajPodloge(karta, sloj);
 
       var riverPolyline = null;
       var riverFeature = null;
@@ -1303,6 +1423,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      dodajPodloge(karta, sloj);
 
       var allBounds = L.latLngBounds();
 
@@ -1402,6 +1523,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
           if (poruka) poruka.hidden = false;
         });
         sloj.addTo(karta);
+        dodajPodloge(karta, sloj);
       }
       var tocka = null;
       function postavi(la, lo, zumiraj) {
@@ -1875,6 +1997,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      dodajPodloge(karta, sloj);
       var obuhvat = L.latLngBounds();
 
       // slivovi: prozirne plohe, svaka svoje boje
@@ -2086,6 +2209,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         okvir.classList.add('karta-prazna');
       });
       sloj.addTo(karta);
+      var podloge = podlogeKarte(sloj);
 
       // 1. Z-Index panes: Županije ispod (390), Gradovi i Općine iznad (450)
       if (!karta.getPane('zupanijePane')) {
@@ -2808,7 +2932,7 @@ function dodajKontroleKarte(karta, platno, opcije) {
         if (naseljaSloj) {
           slojevi['<span class="sloj-naziv sloj-naselja">Naselja (6.759)</span>'] = naseljaSloj;
         }
-        layerControl = L.control.layers(null, slojevi, { collapsed: false, position: 'topright' });
+        layerControl = L.control.layers(podloge, slojevi, { collapsed: false, position: 'topright' });
         layerControl.addTo(karta);
       }
 

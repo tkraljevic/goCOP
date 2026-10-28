@@ -33,7 +33,7 @@ func TestNatpisKarteBezHTML(t *testing.T) {
 			continue
 		}
 		n++
-		if !strings.Contains(redak, "zaslugeKarte(") {
+		if !strings.Contains(redak, "zaslugeKarte(") && !strings.Contains(redak, "escapeHtml(") {
 			t.Errorf("app.js:%d: natpis karte ide u kartu bez escapeHtml: %s", i+1, strings.TrimSpace(redak))
 		}
 	}

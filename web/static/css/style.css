@@ -3110,6 +3110,13 @@ textarea {
 .karta-vodotoka.karta-prazna .karta-platno { opacity: 0.65; }
 .karta-objekta .karta-platno { height: 420px; }
 .karta-objekta.karta-prazna .karta-platno { opacity: 0.65; }
+.karta-akcije .btn[hidden] { display: none; }
+.natpis-crte span {
+  position: absolute; left: 0; top: 0; transform-origin: 0 0;
+  white-space: nowrap; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.01em;
+  text-shadow: 0 0 2px #fff, 0 0 3px #fff, 0 0 4px #fff;
+  pointer-events: none;
+}
 .karta-sve-postaje .karta-platno { height: 65vh; min-height: 550px; border-radius: var(--r-kartica); }
 .karta-sve-postaje.karta-prazna .karta-platno { opacity: 0.65; }
 .karta-teritorij { position: relative; flex: 1; min-width: 0; }
@@ -3421,6 +3428,7 @@ textarea {
    iznad njih u svojim bojama. Ispis je uvijek svijetao (js/tema.js), pa se
    ispisuje prava karta. */
 .leaflet-tile-pane { filter: var(--karta-filtar); opacity: var(--karta-prozirnost); }
+.karta-snimka .leaflet-tile-pane { filter: none; opacity: 1; }
 
 /* Kontrole (približi/udalji, puni zaslon, položaj, smjerovi, slojevi) su
    pločice u jeziku aplikacije */
