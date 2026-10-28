@@ -184,6 +184,9 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 		http.NotFound(w, r)
 		return
 	}
+	if preusmjeriNaRegistar(w, r, st.Path()) {
+		return
+	}
 	data.Structure = st
 	data.CanEdit = h.structureService.CanEdit(data.Permissions, st)
 	h.oznaciRegistar(&data)
@@ -192,16 +195,7 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 			data.Sections = append(data.Sections, *sec)
 		}
 	}
-	if st.StationID != "" {
-		if sid, err := uuid.Parse(st.StationID); err == nil {
-			data.Station, _ = h.stationService.GetStation(ctx, sid)
-		}
-	}
-	if st.StationDownID != "" {
-		if sid, err := uuid.Parse(st.StationDownID); err == nil {
-			data.StationDown, _ = h.stationService.GetStation(ctx, sid)
-		}
-	}
+	data.Station, data.StationDown = h.letvaObjekta(ctx, st.StationID), h.letvaObjekta(ctx, st.StationDownID)
 	h.napuniKartu(&data)
 	if err := h.tmplDetail.ExecuteTemplate(w, "structure_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -216,6 +210,9 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 		st := h.load(r)
 		if st == nil {
 			http.NotFound(w, r)
+			return
+		}
+		if preusmjeriNaRegistar(w, r, st.Path()+"/edit") {
 			return
 		}
 		if !h.structureService.CanEdit(data.Permissions, st) {
@@ -293,7 +290,7 @@ func (h *StructuresHandler) HandleCreate(w http.ResponseWriter, r *http.Request)
 		redirectWith(w, r, "/structures/new", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/structures/"+st.ID.String(), "success", "Objekt je upisan u registar.")
+	redirectWith(w, r, st.Path(), "success", "Objekt je upisan u registar.")
 }
 
 // HandleUpdate mijenja objekt
@@ -312,10 +309,10 @@ func (h *StructuresHandler) HandleUpdate(w http.ResponseWriter, r *http.Request)
 	st.ID = id
 	h.fillSector(&st)
 	if err := h.structureService.Update(r.Context(), perms, &st); err != nil {
-		redirectWith(w, r, "/structures/"+id.String()+"/edit", "error", err.Error())
+		redirectWith(w, r, st.Path()+"/edit", "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/structures/"+id.String(), "success", "Izmjene su spremljene.")
+	redirectWith(w, r, st.Path(), "success", "Izmjene su spremljene.")
 }
 
 // HandleDelete briše objekt iz registra (u povijesti ostaje)
@@ -381,6 +378,32 @@ func (h *StructuresHandler) oznaciRegistar(data *StructurePageData) {
 	if reg, ok := models.StructureRegisterFor(data.Structure.Kind); ok {
 		data.Register, data.ActiveNav = reg, navObjekta(reg.Kind)
 	}
+}
+
+// letvaObjekta čita letvu objekta po ID-u; prazan ili kriv ID nema letve
+func (h *StructuresHandler) letvaObjekta(ctx context.Context, id string) *models.Station {
+	sid, err := uuid.Parse(id)
+	if err != nil {
+		return nil
+	}
+	st, err := h.stationService.GetStation(ctx, sid)
+	if err != nil {
+		return nil
+	}
+	return st
+}
+
+// preusmjeriNaRegistar šalje staru adresu /structures/<id> na adresu u
+// registru vrste (/nasipi/<id>…), s istim upitom; javlja je li preusmjerio
+func preusmjeriNaRegistar(w http.ResponseWriter, r *http.Request, put string) bool {
+	if !strings.HasPrefix(r.URL.Path, "/structures/") || r.URL.Path == put {
+		return false
+	}
+	if r.URL.RawQuery != "" {
+		put += "?" + r.URL.RawQuery
+	}
+	http.Redirect(w, r, put, http.StatusMovedPermanently)
+	return true
 }
 
 // napuniKartu daje stranici pločice karte i ucrtani objekt
