@@ -84,7 +84,7 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.44-alfa
+IZDANJE=v0.0.45-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
 for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
@@ -339,7 +339,7 @@ datotekom; jedinica zadaje samo `-db`.
 Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
 i centar sa stranice prijave, razmak sinkronizacije te prijava za WEB sync i
 sam WEB sync (*Čvor, mreža i sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
-karta (*Opcije*); do svih se dolazi iz Administracije (opis u
+obična karta (*Karte*); do svih se dolazi iz Administracije (opis u
 [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
 `/var/lib/gocop/gocop.toml.<datum-vrijeme>` (zadnjih pet) i ne dira ručne

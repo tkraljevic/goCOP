@@ -4,6 +4,35 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.45-alfa — 28. 10. 2026.
+
+- **Nasipi i drugi objekti ucrtavaju se na kartu.** Objekt je dosad imao
+  samo jednu točku, pa se nasip nije mogao ucrtati. Sad nosi crtu cijelog
+  nasipa s točkama stacionaže, a nasip koji dijele dvije dionice ostaje
+  jedan objekt. Crta se učitava iz GeoJSON-a (npr. iz QGIS-a) ili crta
+  ravno na karti objekta: gumbom „Uredi na karti” dodaju se, pomiču i brišu
+  točke, crte i poligoni, a nova točka na nasipu pita za km. (#164, #169)
+- **Nasipi, crpne stanice, ustave i brane imaju svoje registre.** Svi su
+  objekti bili na jednom popisu. Sad svaki registar ima svoju stavku u
+  izborniku, svoju pretragu i adresu (npr. `/nasipi/…`); stare poveznice
+  vode na novu adresu. Sifoni, pregrade i dodane vrste čep, propust i prag
+  su u Ostalim objektima, pa se retci dionica imaju na što vezati. (#165,
+  #167, #168)
+- **Dionice idu redom brojeva.** B.34.2 je stajala iza B.34.19, jer su se
+  šifre slagale kao tekst. Sad se uspoređuju po brojevima. (#166)
+- **Na karti se može upaliti satelitska snimka.** Uz običnu kartu, na svim
+  kartama u programu, gumbom sa slojevima gore desno. U tamnoj temi snimka
+  ostaje u pravim bojama. Nasipi su narančasti, a od većeg povećanja naziv
+  nasipa piše uz crtu. (#169)
+- **Izgled karata bira se u Administraciji › Karte.** Za svaku vrstu
+  objekta i za vodomjernu letvu bira se boja, debljina crte i ikona točke,
+  a podloge se dodaju i uklanjaju, s adresom i ključem. Vrijedi na svim
+  čvorovima. Točke su ikone bez kruga, a crpna stanica, sifon, čep, propust,
+  prag i pregrada imaju nove ikone. Učitati se mogu i vlastite SVG ikone.
+  Obična karta ovog čvora prešla je s Opcija na istu stranicu. (#170)
+- **Prijava ima novi izgled.** Stranica prijave prva je prenesena iz novog
+  sustava dizajna, za mobitel, tablet i računalo, u obje teme. (#163)
+
 ## 0.0.44-alfa — 26. 10. 2026.
 
 - **WEB sync: računala koja se nikad nisu izravno razgovarala sad se
