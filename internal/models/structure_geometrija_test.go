@@ -42,6 +42,21 @@ func TestRegistriObjekata(t *testing.T) {
 	}
 }
 
+// Čep, propust i prag su u Ostalim objektima, imaju svoj naziv i bez letve su
+func TestNoveVrsteObjekata(t *testing.T) {
+	for kind, naziv := range map[string]string{StructureKindPlug: "čep", StructureKindCulvert: "propust", StructureKindSill: "prag"} {
+		if StructureKindLabel(kind) != naziv {
+			t.Errorf("%s: naziv %q", kind, StructureKindLabel(kind))
+		}
+		if r, ok := StructureRegisterFor(kind); !ok || r.Path != "/ostali-objekti" {
+			t.Errorf("%s nije u ostalim objektima", kind)
+		}
+		if (Structure{Kind: kind}).TakesReadings() {
+			t.Errorf("%s nudi očitanje", kind)
+		}
+	}
+}
+
 func TestAdresaObjektaURegistru(t *testing.T) {
 	s := Structure{ID: uuid.MustParse("11111111-2222-3333-4444-555555555555"), Kind: StructureKindWeir}
 	if s.Path() != "/ostali-objekti/11111111-2222-3333-4444-555555555555" {

@@ -63,12 +63,16 @@ const (
 	StructureKindEmbankment     = "NASIP"
 	StructureKindDam            = "BRANA"
 	StructureKindOther          = "OSTALO"
+	StructureKindPlug           = "CEP"     // automatski ili ručni čep na propustu kroz nasip
+	StructureKindCulvert        = "PROPUST" // propust kroz nasip, sa zapornicom ili bez
+	StructureKindSill           = "PRAG"    // prag ili stepenica u koritu
 )
 
 // StructureKinds su vrste redom kojim ih obrazac nudi
 var StructureKinds = []string{
 	StructureKindPumpingStation, StructureKindSluice, StructureKindSiphon,
-	StructureKindWeir, StructureKindEmbankment, StructureKindDam, StructureKindOther,
+	StructureKindWeir, StructureKindEmbankment, StructureKindDam,
+	StructureKindPlug, StructureKindCulvert, StructureKindSill, StructureKindOther,
 }
 
 // StructureRegister je zaseban registar objekata: svoj popis, svoja
@@ -105,8 +109,8 @@ var StructureRegisters = []StructureRegister{
 		"Ustave s letvom uzvodno i nizvodno.", "Naziv ustave (Ustava Kopačevo)…", "Nova ustava"},
 	{StructureKindDam, []string{StructureKindDam}, "/brane", "Brane", "brana",
 		"Brane i njihove dionice.", "Naziv brane…", "Nova brana"},
-	{StructureKindSiphon, []string{StructureKindSiphon, StructureKindWeir, StructureKindOther}, "/ostali-objekti", "Ostali objekti", "construction",
-		"Sifoni, pregrade i objekti drugih vrsta.", "Naziv objekta…", "Novi objekt"},
+	{StructureKindSiphon, []string{StructureKindSiphon, StructureKindPlug, StructureKindCulvert, StructureKindSill, StructureKindWeir, StructureKindOther}, "/ostali-objekti", "Ostali objekti", "construction",
+		"Sifoni, čepovi, propusti, pragovi, pregrade i objekti drugih vrsta.", "Naziv objekta…", "Novi objekt"},
 }
 
 // StructureRegisterFor vraća registar koji prikazuje tu vrstu
@@ -131,12 +135,13 @@ func (s Structure) Path() string {
 func (s Structure) KindLabel() string { return StructureKindLabel(s.Kind) }
 
 // TakesReadings kaže je li na objektu uopće što očitati. Vodostaj se čita na
-// letvi crpne stanice, ustave, sifona ili pregrade; nasip i brana letve nemaju
+// letvi crpne stanice, ustave, sifona ili pregrade; nasip, brana, čep, propust
+// i prag letve nemaju
 // — Teren ih je nudio kao "letve područja" s gumbom za upis, uz jedinu pravu
 // letvu Batinu.
 func (s Structure) TakesReadings() bool {
 	switch s.Kind {
-	case StructureKindEmbankment, StructureKindDam:
+	case StructureKindEmbankment, StructureKindDam, StructureKindPlug, StructureKindCulvert, StructureKindSill:
 		return false
 	}
 	return true
@@ -156,6 +161,12 @@ func StructureKindLabel(kind string) string {
 		return "nasip"
 	case StructureKindDam:
 		return "brana"
+	case StructureKindPlug:
+		return "čep"
+	case StructureKindCulvert:
+		return "propust"
+	case StructureKindSill:
+		return "prag"
 	}
 	return "objekt"
 }
