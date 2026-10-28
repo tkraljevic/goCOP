@@ -1,7 +1,8 @@
 # Karta položaja
 
 Za administratora ukratko: podlogu karte bira postavka `[karta] plocice` u
-`gocop.toml` ili Administracija → Opcije. Zadan je OpenStreetMap, koji je
+`gocop.toml` ili Administracija → Karte, gdje se biraju i druge podloge
+(npr. satelit), boje i ikone objekata za cijelu mrežu. Zadan je OpenStreetMap, koji je
 dovoljan za probnu i laganu upotrebu. Za širu upotrebu (stotine računala)
 bolja je službena podloga Državne geodetske uprave ili vlastiti poslužitelj
 pločica u mreži organizacije, upisan u `plocice`.
