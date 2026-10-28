@@ -3108,6 +3108,8 @@ textarea {
 .karta-letve.karta-prazna .karta-platno { opacity: 0.45; }
 .karta-vodotoka .karta-platno { height: 440px; }
 .karta-vodotoka.karta-prazna .karta-platno { opacity: 0.65; }
+.karta-objekta .karta-platno { height: 420px; }
+.karta-objekta.karta-prazna .karta-platno { opacity: 0.65; }
 .karta-sve-postaje .karta-platno { height: 65vh; min-height: 550px; border-radius: var(--r-kartica); }
 .karta-sve-postaje.karta-prazna .karta-platno { opacity: 0.65; }
 .karta-teritorij { position: relative; flex: 1; min-width: 0; }

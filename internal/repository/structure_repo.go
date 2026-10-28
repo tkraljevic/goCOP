@@ -31,22 +31,23 @@ func NewStructureRepository(database *sql.DB, rec *ledger.Recorder) *StructureRe
 
 const structureColumns = `id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
 	zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
-	notes, origin, latitude, longitude, created_at, updated_at, station_down_id`
+	notes, origin, latitude, longitude, created_at, updated_at, station_down_id, geometry`
 
 func scanStructure(row rowScanner) (models.Structure, error) {
 	var s models.Structure
 	var idStr string
-	var wc, st, zds, cap, stt, spt, notes, origin, dole sql.NullString
+	var wc, st, zds, cap, stt, spt, notes, origin, dole, geo sql.NullString
 	var zd, lat, lon sql.NullFloat64
 	var startCm, stopCm sql.NullInt64
 	err := row.Scan(&idStr, &s.Code, &s.Name, &s.Kind, &s.SectorID, &s.AreaID, &wc, &st,
-		&zd, &zds, &cap, &startCm, &stt, &stopCm, &spt, &notes, &origin, &lat, &lon, &s.CreatedAt, &s.UpdatedAt, &dole)
+		&zd, &zds, &cap, &startCm, &stt, &stopCm, &spt, &notes, &origin, &lat, &lon, &s.CreatedAt, &s.UpdatedAt, &dole, &geo)
 	if err != nil {
 		return s, err
 	}
 	s.ID, _ = uuid.Parse(idStr)
 	s.WatercourseCode, s.StationID, s.ZeroDatumSystem = wc.String, st.String, zds.String
 	s.StationDownID = dole.String
+	s.Geometry = geo.String
 	s.CapacityText, s.StartText, s.StopText, s.Notes, s.Origin = cap.String, stt.String, spt.String, notes.String, origin.String
 	if zd.Valid {
 		v := zd.Float64
@@ -209,10 +210,10 @@ func (r *StructureRepository) CreateStructure(ctx context.Context, s *models.Str
 	defer tx.Rollback()
 
 	if _, err := tx.ExecContext(ctx, `INSERT INTO structures (`+structureColumns+`)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		s.ID.String(), s.Code, s.Name, s.Kind, s.SectorID, s.AreaID, s.WatercourseCode, s.StationID,
 		s.ZeroDatum, s.ZeroDatumSystem, s.CapacityText, s.StartCm, s.StartText, s.StopCm, s.StopText,
-		s.Notes, s.Origin, s.Latitude, s.Longitude, s.CreatedAt, s.UpdatedAt, s.StationDownID); err != nil {
+		s.Notes, s.Origin, s.Latitude, s.Longitude, s.CreatedAt, s.UpdatedAt, s.StationDownID, s.Geometry); err != nil {
 		return fmt.Errorf("greška pri upisu objekta: %w", err)
 	}
 	saved, err := getStructureTx(ctx, tx, s.ID.String())
@@ -225,7 +226,8 @@ func (r *StructureRepository) CreateStructure(ctx context.Context, s *models.Str
 	return tx.Commit()
 }
 
-// UpdateStructure mijenja podatke objekta; veze na dionice se ne diraju
+// UpdateStructure mijenja podatke objekta; veze na dionice i geometrija se ne
+// diraju, pa spremanje obrasca ne briše ucrtani nasip
 func (r *StructureRepository) UpdateStructure(ctx context.Context, s *models.Structure) error {
 	s.UpdatedAt = time.Now().UTC()
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -248,6 +250,29 @@ func (r *StructureRepository) UpdateStructure(ctx context.Context, s *models.Str
 		return err
 	}
 	if _, err := r.rec.Record(ctx, tx, EntityStructures, s.ID.String(), saved); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// SetStructureGeometry upisuje GeoJSON objekta (prazno briše crtu) i bilježi
+// novu verziju u knjizi
+func (r *StructureRepository) SetStructureGeometry(ctx context.Context, id uuid.UUID, geojson string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx, `UPDATE structures SET geometry = ?, updated_at = ? WHERE id = ?`,
+		geojson, time.Now().UTC(), id.String()); err != nil {
+		return fmt.Errorf("greška pri upisu geometrije objekta: %w", err)
+	}
+	// nepostojeći objekt: čitanje vrati sql.ErrNoRows i ništa se ne bilježi
+	saved, err := getStructureTx(ctx, tx, id.String())
+	if err != nil {
+		return err
+	}
+	if _, err := r.rec.Record(ctx, tx, EntityStructures, id.String(), saved); err != nil {
 		return err
 	}
 	return tx.Commit()

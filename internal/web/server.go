@@ -713,6 +713,7 @@ func (s *Server) setupRoutes() {
 	structuresH := NewStructuresHandler(s.structureService, s.stationService, s.sectionService, s.userService,
 		s.templates["structures.html"], s.templates["structure_detail.html"], s.templates["structure_form.html"])
 	sectionsH.SetStructureService(s.structureService)
+	structuresH.SetKarta(func() KartaPostavke { return s.karta })
 	sectionsH.SetWatercourseService(s.watercourseService)
 	modulesH := NewModulesHandler(s.moduleService, s.templates["moduli.html"])
 	s.mux.Handle("GET /moduli", s.authMiddleware(http.HandlerFunc(modulesH.ShowMatrix)))
@@ -1173,6 +1174,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /structures/create", s.authMiddleware(http.HandlerFunc(structuresH.HandleCreate)))
 	s.mux.Handle("POST /structures/update", s.authMiddleware(http.HandlerFunc(structuresH.HandleUpdate)))
 	s.mux.Handle("POST /structures/delete", s.authMiddleware(http.HandlerFunc(structuresH.HandleDelete)))
+	s.mux.Handle("POST /api/structures/geometry", s.authMiddleware(http.HandlerFunc(structuresH.HandleGeometryAPI)))
 	s.mux.Handle("GET /watercourses/new", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))
 	s.mux.Handle("GET /watercourses/{code}", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourse)))
 	s.mux.Handle("GET /watercourses/{code}/edit", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourseForm)))

@@ -79,15 +79,15 @@ func PripremiGeometrijuVode(geojson string) (string, error) {
 func provjeriTocku(t any) error {
 	p, _ := t.([]any)
 	if len(p) < 2 {
-		return errors.New("točka toka nema dvije koordinate")
+		return errors.New("točka nema dvije koordinate")
 	}
 	lon, ok1 := p[0].(float64)
 	lat, ok2 := p[1].(float64)
 	if !ok1 || !ok2 {
-		return errors.New("koordinate toka nisu brojevi")
+		return errors.New("koordinate nisu brojevi")
 	}
 	if lon < -180 || lon > 180 || lat < -90 || lat > 90 {
-		return fmt.Errorf("koordinate %.0f, %.0f nisu u stupnjevima — izvezite tok u WGS84 (EPSG:4326), ne u HTRS96/TM", lon, lat)
+		return fmt.Errorf("koordinate %.0f, %.0f nisu u stupnjevima — izvezite sloj u WGS84 (EPSG:4326), ne u HTRS96/TM", lon, lat)
 	}
 	if lon > 40 && lon < 50 && lat > 10 && lat < 25 {
 		return fmt.Errorf("koordinate %.4f, %.4f izgledaju zamijenjeno — GeoJSON traži dužinu pa širinu", lon, lat)

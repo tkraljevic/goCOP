@@ -1,6 +1,7 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -38,6 +39,10 @@ type Structure struct {
 
 	Latitude  *float64 `json:"latitude,omitempty"`
 	Longitude *float64 `json:"longitude,omitempty"`
+	// Geometry je GeoJSON zbirka u WGS84: kod nasipa crta cijelog nasipa i
+	// točke stacionaže (km nasipa), kao tok i rkm kod vodotoka. Nasip
+	// podijeljen na dvije dionice ostaje jedan objekt s jednom crtom.
+	Geometry string `json:"geometry,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -117,6 +122,9 @@ func (s Structure) OriginLabel() string {
 // StructureOriginContract označava objekt koji je u registar ušao iz popisa
 // lokacija ugovora o održavanju
 const StructureOriginContract = "UGOVOR"
+
+// HasGeometry javlja je li objekt ucrtan
+func (s Structure) HasGeometry() bool { return strings.TrimSpace(s.Geometry) != "" }
 
 // IsPumpingStation javlja nosi li objekt podatke o pogonu (uključenje, zaustavljanje)
 func (s Structure) IsPumpingStation() bool { return s.Kind == StructureKindPumpingStation }
