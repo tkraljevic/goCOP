@@ -451,6 +451,9 @@ func templateFuncs() template.FuncMap {
 		"vrijemeHR":      func(t time.Time) string { return t.In(models.Zagreb).Format("2.1.2006. 15:04") },
 		"satHR":          func(t time.Time) string { return t.In(models.Zagreb).Format("15:04") },
 		"structureKind":  models.StructureKindLabel,
+		"registriObjekata": registriObjekataUIzborniku,
+		"navObjekta":       navObjekta,
+		"jeNavObjekta":     jeNavObjekta,
 		"readingSource":  models.ReadingSourceLabel,
 		"structureState": models.StructureStateLabel,
 		"gateLabel":      models.GateLabel,
@@ -1145,6 +1148,7 @@ func (s *Server) setupRoutes() {
 	// Registar vodnih tijela
 	s.mux.Handle("GET /watercourses", s.authMiddleware(http.HandlerFunc(watercoursesH.ShowWatercourses)))
 	s.mux.Handle("GET /structures", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructures)))
+	s.rutaRegistaraObjekata(structuresH)
 	s.mux.Handle("GET /readings", s.authMiddleware(http.HandlerFunc(readingsH.ShowOverview)))
 	s.mux.Handle("GET /readings/new", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
 	s.mux.Handle("GET /readings/edit/{id}", s.authMiddleware(http.HandlerFunc(readingsH.ShowForm)))
@@ -1673,7 +1677,9 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/readings", models.ModuleReadings},
 	{"/registri", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
-	{"/structures", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
+	{"/structures", models.ModuleRegisters}, {"/nasipi", models.ModuleRegisters}, {"/crpne-stanice", models.ModuleRegisters},
+	{"/ustave", models.ModuleRegisters}, {"/brane", models.ModuleRegisters}, {"/sifoni", models.ModuleRegisters},
+	{"/pregrade", models.ModuleRegisters}, {"/ostali-objekti", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
 	{"/dnevnici", models.ModuleJournals},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},

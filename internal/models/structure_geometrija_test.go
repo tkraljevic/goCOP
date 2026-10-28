@@ -9,3 +9,18 @@ func TestStructureHasGeometry(t *testing.T) {
 		}
 	}
 }
+
+// Svaka vrsta ima jedan registar s vlastitom adresom
+func TestRegistriObjekata(t *testing.T) {
+	putovi := map[string]bool{}
+	for _, k := range StructureKinds {
+		r, ok := StructureRegisterFor(k)
+		if !ok || r.Path == "" || putovi[r.Path] {
+			t.Errorf("vrsta %s nema svoj registar (%+v)", k, r)
+		}
+		putovi[r.Path] = true
+	}
+	if _, ok := StructureRegisterFor("NEPOZNATO"); ok {
+		t.Error("nepoznata vrsta dobila je registar")
+	}
+}

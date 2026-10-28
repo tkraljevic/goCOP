@@ -55,6 +55,11 @@ type StructuresPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	ViewAsBanner
+
+	// Register je registar jedne vrste (nasipi, crpne stanice…); prazan
+	// kod popisa svih objekata
+	Register  models.StructureRegister
+	Registers []models.StructureRegister // za prečace s popisa svih objekata
 }
 
 type StructurePageData struct {
@@ -69,6 +74,7 @@ type StructurePageData struct {
 
 	Karta        KartaPostavke
 	GeometryJSON template.JS // ucrtani objekt za kartu
+	Register     models.StructureRegister
 
 	Sectors  []models.Sector
 	Areas    []models.Area
@@ -87,8 +93,18 @@ func (h *StructuresHandler) base(r *http.Request) (*models.User, *models.UserPer
 	return u, p
 }
 
-// ShowStructures prikazuje registar objekata
+// ShowStructures prikazuje sve objekte, s izborom vrste
 func (h *StructuresHandler) ShowStructures(w http.ResponseWriter, r *http.Request) {
+	h.prikaziPopis(w, r, models.StructureRegister{})
+}
+
+// ShowRegister prikazuje registar jedne vrste: nasipe, crpne stanice…
+// Pretraga i filtri tada traže samo u toj vrsti.
+func (h *StructuresHandler) ShowRegister(reg models.StructureRegister) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { h.prikaziPopis(w, r, reg) })
+}
+
+func (h *StructuresHandler) prikaziPopis(w http.ResponseWriter, r *http.Request, reg models.StructureRegister) {
 	ctx := r.Context()
 	u, perms := h.base(r)
 	q := r.URL.Query()
@@ -99,7 +115,10 @@ func (h *StructuresHandler) ShowStructures(w http.ResponseWriter, r *http.Reques
 		SelectedKind: strings.TrimSpace(q.Get("kind")), SearchQuery: strings.TrimSpace(q.Get("q")),
 		CanCreate: h.structureService.CanCreate(perms), ByKind: map[string]int{},
 		SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error"),
-		ActiveNav: "structures", ViewAsBanner: viewBanner(r),
+		ActiveNav: "structures", ViewAsBanner: viewBanner(r), Register: reg, Registers: models.StructureRegisters,
+	}
+	if reg.Kind != "" {
+		data.SelectedKind, data.ActiveNav = reg.Kind, navObjekta(reg.Kind)
 	}
 	all, err := h.structureService.List(ctx, data.SelectedSector, data.SelectedArea, data.SelectedKind, data.SearchQuery)
 	if err != nil {
@@ -152,6 +171,7 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 	}
 	data.Structure = st
 	data.CanEdit = h.structureService.CanEdit(data.Permissions, st)
+	h.oznaciRegistar(&data)
 	for _, code := range st.SectionCodes {
 		if sec, err := h.sectionService.GetSectionWithDetails(code); err == nil && sec != nil {
 			data.Sections = append(data.Sections, *sec)
@@ -188,6 +208,7 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 			return
 		}
 		data.Structure, data.IsEdit = st, true
+		h.oznaciRegistar(&data)
 	} else {
 		if !h.structureService.CanCreate(data.Permissions) {
 			http.Error(w, "Nemate pravo dodavati objekte", http.StatusForbidden)
@@ -197,7 +218,12 @@ func (h *StructuresHandler) ShowStructureForm(w http.ResponseWriter, r *http.Req
 		if areaID, _ := strconv.Atoi(r.URL.Query().Get("area")); areaID > 0 {
 			st.AreaID = areaID
 		}
+		// novi zapis iz registra jedne vrste dolazi s tom vrstom
+		if reg, ok := models.StructureRegisterFor(r.URL.Query().Get("kind")); ok {
+			st.Kind = reg.Kind
+		}
 		data.Structure = st
+		h.oznaciRegistar(&data)
 	}
 	data.Sectors, _ = h.userService.ListSectors()
 	data.Areas, _ = h.userService.ListAreas("")
@@ -285,11 +311,17 @@ func (h *StructuresHandler) HandleDelete(w http.ResponseWriter, r *http.Request)
 		redirectWith(w, r, "/structures", "error", "Neispravan identifikator objekta")
 		return
 	}
+	natrag := "/structures"
+	if st, err := h.structureService.Get(r.Context(), id); err == nil && st != nil {
+		if reg, ok := models.StructureRegisterFor(st.Kind); ok {
+			natrag = reg.Path
+		}
+	}
 	if err := h.structureService.Delete(r.Context(), perms, id); err != nil {
 		redirectWith(w, r, "/structures/"+id.String(), "error", err.Error())
 		return
 	}
-	redirectWith(w, r, "/structures", "success", "Objekt je obrisan iz registra; zapis ostaje u povijesti.")
+	redirectWith(w, r, natrag, "success", "Objekt je obrisan iz registra; zapis ostaje u povijesti.")
 }
 
 // fillSector popunjava sektor iz područja kad obrazac šalje samo područje
@@ -306,6 +338,14 @@ func (h *StructuresHandler) fillSector(st *models.Structure) {
 			st.SectorID = a.SectorID
 			return
 		}
+	}
+}
+
+// oznaciRegistar veže stranicu objekta uz registar njegove vrste: izbornik
+// i put natrag vode na nasipe, crpne stanice…
+func (h *StructuresHandler) oznaciRegistar(data *StructurePageData) {
+	if reg, ok := models.StructureRegisterFor(data.Structure.Kind); ok {
+		data.Register, data.ActiveNav = reg, navObjekta(reg.Kind)
 	}
 }
 

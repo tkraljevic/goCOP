@@ -71,6 +71,40 @@ var StructureKinds = []string{
 	StructureKindWeir, StructureKindEmbankment, StructureKindDam, StructureKindOther,
 }
 
+// StructureRegister je zaseban registar jedne vrste objekta: svoj popis,
+// svoja pretraga i svoja stavka u izborniku
+type StructureRegister struct {
+	Kind        string
+	Path        string // npr. "/nasipi"
+	Title       string // množina, naslov popisa
+	Icon        string
+	Desc        string
+	Placeholder string // primjer u polju pretrage
+	NewLabel    string // gumb za novi zapis
+	InMenu      bool   // ima svoju stavku u izborniku Registri
+}
+
+// StructureRegisters su registri redom kojim ih izbornik nudi
+var StructureRegisters = []StructureRegister{
+	{StructureKindEmbankment, "/nasipi", "Nasipi", "nasip", "Nasipi i obaloutvrde: crta nasipa sa stacionažom na karti, dionice koje ga dijele.", "Naziv nasipa (Zmajevac – Kopačevo)…", "Novi nasip", true},
+	{StructureKindPumpingStation, "/crpne-stanice", "Crpne stanice", "crpna-stanica", "Crpne stanice: kota nule letve, kapacitet i vodostaji uključenja i zaustavljanja.", "Naziv crpne stanice (CS Draž)…", "Nova crpna stanica", true},
+	{StructureKindSluice, "/ustave", "Ustave", "ustava", "Ustave s letvom uzvodno i nizvodno.", "Naziv ustave (Ustava Kopačevo)…", "Nova ustava", true},
+	{StructureKindDam, "/brane", "Brane", "brana", "Brane i njihove dionice.", "Naziv brane…", "Nova brana", true},
+	{StructureKindSiphon, "/sifoni", "Sifoni", "construction", "Sifoni na vodotocima i kanalima.", "Naziv sifona…", "Novi sifon", false},
+	{StructureKindWeir, "/pregrade", "Pregrade", "construction", "Pregrade i pragovi.", "Naziv pregrade…", "Nova pregrada", false},
+	{StructureKindOther, "/ostali-objekti", "Ostali objekti", "construction", "Objekti koji nisu ni u jednoj od vrsta.", "Naziv objekta…", "Novi objekt", false},
+}
+
+// StructureRegisterFor vraća registar vrste; nepoznata vrsta nema registar
+func StructureRegisterFor(kind string) (StructureRegister, bool) {
+	for _, r := range StructureRegisters {
+		if r.Kind == kind {
+			return r, true
+		}
+	}
+	return StructureRegister{}, false
+}
+
 // KindLabel je naziv vrste u sučelju
 func (s Structure) KindLabel() string { return StructureKindLabel(s.Kind) }
 
