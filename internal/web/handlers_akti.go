@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/models"
+	"gocop/internal/peers"
 	"gocop/internal/poslovi"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -38,6 +39,7 @@ type AktiHandler struct {
 	tmplOpcije                                   *template.Template
 	tmplTema                                     *template.Template
 	tmplKarte                                    *template.Template
+	peers                                        *peers.Service // paketi karte
 	// drugiKorak daje drugi korak prijave izvana (račun koji šalje PIN,
 	// sklopka); nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak

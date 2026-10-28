@@ -340,6 +340,19 @@ func ProvjeriCopPotpis(m CopManifest) (ed25519.PublicKey, error) {
 	return javni, nil
 }
 
+// citajManifestCopa čita manifest paketa kanala; paket karte ima svoje
+// mjesto (Administracija › Karte)
+func citajManifestCopa(mb []byte, m *CopManifest) error {
+	if err := json.Unmarshal(mb, m); err != nil {
+		return fmt.Errorf("manifest nije čitljiv: %w", err)
+	}
+	var vrsta struct{ Vrsta string }
+	if json.Unmarshal(mb, &vrsta) == nil && vrsta.Vrsta == VrstaPaketaKarte {
+		return fmt.Errorf("ovo je paket karte; učitava se u Administraciji › Karte")
+	}
+	return nil
+}
+
 // CitajCop otvara paket i provjerava ga bez ugradnje: manifest, otisak,
 // potpis. Vraća manifest i pročitane dijelove.
 func CitajCop(r io.ReaderAt, size int64) (CopManifest, []ledger.Version, []CopSadrzaj, map[string][]byte, error) {
@@ -370,8 +383,8 @@ func CitajCop(r io.ReaderAt, size int64) (CopManifest, []ledger.Version, []CopSa
 	if err != nil {
 		return m, nil, nil, nil, err
 	}
-	if err := json.Unmarshal(mb, &m); err != nil {
-		return m, nil, nil, nil, fmt.Errorf("manifest nije čitljiv: %w", err)
+	if err := citajManifestCopa(mb, &m); err != nil {
+		return m, nil, nil, nil, err
 	}
 	// Stariji oblik se čita (novi program zna stare pakete); noviji ne, jer
 	// ovaj program ne zna što je u njemu dodano.

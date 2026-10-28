@@ -719,6 +719,8 @@ function podlogeKarte(osnovni) {
     return function () { if (this._map) this._map.getContainer().classList.toggle('karta-snimka', da); };
   }
   osnovni.on('add', snimka(false));
+  var vk = vektorskaPodloga(osnovni);
+  if (vk) podloge['Karta bez interneta'] = vk;
   (postavkeKarte().podloge || []).forEach(function (p) {
     var adresa = String(p.url || '').split('{kljuc}').join(encodeURIComponent(p.kljuc || ''));
     var opcije = {
@@ -732,6 +734,24 @@ function podlogeKarte(osnovni) {
     podloge[p.naziv] = sloj;
   });
   return podloge;
+}
+
+// Karta bez interneta: vektorska karta s diska čvora (Administracija ›
+// Karte), crtana u pregledniku (protomaps-leaflet), svijetla ili tamna po
+// temi stranice, pa se u tamnoj temi ne izvrće kao slika
+function vektorskaPodloga(osnovni) {
+  var vk = postavkeKarte().vektorska;
+  if (!vk || !vk.url || typeof protomapsL === 'undefined') return null;
+  var o = vk.obuhvat || [];
+  var tamna = document.documentElement.getAttribute('data-theme') === 'dark';
+  var sloj = protomapsL.leafletLayer({
+    url: vk.url, flavor: tamna ? 'dark' : 'light', lang: 'hr',
+    maxDataZoom: vk.najvise_z || 15, maxZoom: osnovni.options.maxZoom || 19,
+    bounds: o.length === 4 ? L.latLngBounds([o[1], o[0]], [o[3], o[2]]) : undefined,
+    attribution: escapeHtml(vk.zasluge || '')
+  });
+  sloj.on('add', function () { if (this._map) this._map.getContainer().classList.add('karta-snimka'); });
+  return sloj;
 }
 
 function dodajPodloge(karta, osnovni) {

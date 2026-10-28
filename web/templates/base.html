@@ -15,6 +15,7 @@
   {{block "head" .}}{{end}}
   {{if .CurrentUser}}<script id="postavke-karte" type="application/json">{{postavkeKarte}}</script>{{end}}
   <script src="{{statika "vendor/leaflet/leaflet.js"}}" defer></script>
+  {{if and .CurrentUser imaVektorskuKartu}}<script src="{{statika "vendor/protomaps/protomaps-leaflet.js"}}" defer></script>{{end}}
   <script src="{{statika "js/app.js"}}" defer></script>
 </head>
 <body>

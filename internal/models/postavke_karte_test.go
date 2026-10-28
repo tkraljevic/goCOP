@@ -130,7 +130,7 @@ func TestPostavkeKarteZaPreglednik(t *testing.T) {
 		t.Error("bez postavljenih postavki nisu zadane")
 	}
 	SetPostavkeKarte(PostavkeKarte{Podloge: []PodlogaKarte{}})
-	b, err := json.Marshal(PostavkeKartePrograma().ZaPreglednik("/static/img/icons.svg", "/karta/ikone.svg"))
+	b, err := json.Marshal(PostavkeKartePrograma().ZaPreglednik("/static/img/icons.svg", "/karta/ikone.svg", ""))
 	if err != nil {
 		t.Fatal(err)
 	}

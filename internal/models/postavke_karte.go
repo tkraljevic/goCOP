@@ -24,6 +24,8 @@ type PostavkeKarte struct {
 	// vrste s bijelim obrubom; s krugom je bijela ikona na krugu u boji vrste
 	SKrugom       bool `json:"s_krugom,omitempty"`
 	VelicinaTocke int  `json:"velicina_tocke,omitempty"` // px; 0 je zadano
+	// Vektorska je zadana karta bez interneta; nil kad je nema
+	Vektorska *VektorskaKarta `json:"vektorska,omitempty"`
 }
 
 // Veličina točke objekta (px)
@@ -203,8 +205,9 @@ func cmpOr(a, b string) string {
 
 // ZaPreglednik su postavke kakve čita app.js: stil svake vrste popunjen
 // zadanim vrijednostima, podloge, adresa ugrađenih i adresa vlastitih ikona
-// (prazna kad ih nema)
-func (p PostavkeKarte) ZaPreglednik(ikone, vlastite string) any {
+// (prazna kad ih nema) te karta bez interneta, samo kad je ovaj čvor ima
+// (vektor je tada adresa datoteke)
+func (p PostavkeKarte) ZaPreglednik(ikone, vlastite, vektor string) any {
 	objekti := map[string]StilObjekta{}
 	for _, k := range VrsteNaKarti {
 		objekti[k] = p.Stil(k)
@@ -212,14 +215,26 @@ func (p PostavkeKarte) ZaPreglednik(ikone, vlastite string) any {
 	if len(p.Ikone) == 0 {
 		vlastite = ""
 	}
+	type karta struct {
+		URL      string     `json:"url"`
+		Naziv    string     `json:"naziv"`
+		Zasluge  string     `json:"zasluge"`
+		NajviseZ int        `json:"najvise_z"`
+		Obuhvat  [4]float64 `json:"obuhvat"`
+	}
+	var kb *karta
+	if p.Vektorska != nil && vektor != "" {
+		kb = &karta{vektor, p.Vektorska.Naziv, "© OpenStreetMap suradnici", p.Vektorska.NajviseZ, p.Vektorska.Obuhvat}
+	}
 	return struct {
-		Objekti  map[string]StilObjekta `json:"objekti"`
-		Podloge  []PodlogaKarte         `json:"podloge"`
-		Ikone    string                 `json:"ikone"`
-		Vlastite string                 `json:"vlastite"`
-		SKrugom  bool                   `json:"s_krugom"`
-		Velicina int                    `json:"velicina"`
-	}{objekti, p.Podloge, ikone, vlastite, p.SKrugom, p.Velicina()}
+		Objekti   map[string]StilObjekta `json:"objekti"`
+		Podloge   []PodlogaKarte         `json:"podloge"`
+		Ikone     string                 `json:"ikone"`
+		Vlastite  string                 `json:"vlastite"`
+		SKrugom   bool                   `json:"s_krugom"`
+		Velicina  int                    `json:"velicina"`
+		Vektorska *karta                 `json:"vektorska"`
+	}{objekti, p.Podloge, ikone, vlastite, p.SKrugom, p.Velicina(), kb}
 }
 
 // CitajPostavkeKarte čita spremljeni JSON; bez zapisa ili uz neispravan
@@ -233,6 +248,11 @@ func CitajPostavkeKarte(s string) PostavkeKarte {
 	c := PostavkeKarte{Ikone: ocisceneIkone(p.Ikone), SKrugom: p.SKrugom}
 	if p.VelicinaTocke >= NajmanjaVelicinaTocke && p.VelicinaTocke <= NajvecaVelicinaTocke {
 		c.VelicinaTocke = p.VelicinaTocke
+	}
+	if p.Vektorska != nil {
+		if k, err := p.Vektorska.Provjereno(); err == nil {
+			c.Vektorska = &k
+		}
 	}
 	c.Objekti = c.ocisceniStilovi(p.Objekti)
 	c.Podloge = ociscenePodloge(p.Podloge)
@@ -288,6 +308,13 @@ func (p PostavkeKarte) Provjeri() (PostavkeKarte, error) {
 	}
 	if err := p.provjereniStilovi(out.Objekti); err != nil {
 		return out, err
+	}
+	if p.Vektorska != nil {
+		k, err := p.Vektorska.Provjereno()
+		if err != nil {
+			return out, err
+		}
+		out.Vektorska = &k
 	}
 	var err error
 	out.Podloge, err = provjerenePodloge(p.Podloge)

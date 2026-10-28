@@ -6,6 +6,16 @@ dovoljan za probnu i laganu upotrebu. Za širu upotrebu (stotine računala)
 bolja je službena podloga Državne geodetske uprave ili vlastiti poslužitelj
 pločica u mreži organizacije, upisan u `plocice`.
 
+Karta bez interneta je vektorska karta (PMTiles, iz OpenStreetMapa) koju
+čvor drži na svom disku, u mapi `karte/` uz bazu, i poslužuje je pregledniku.
+Učitava se u Administraciji → Karte: izvezena `.pmtiles` karta na jednom
+računalu, a na ostalima njezin potpisani `.cop` paket, koji se ondje i
+preuzima. Program paket prima samo od člana iste mreže i provjerava otisak
+karte. Razmjenom putuje samo koja je karta zadana; računalo koje je nema
+piše to na istoj stranici. Kartu Sektora B izvezenu iz Protomapsa daje npr.
+`pmtiles extract https://build.protomaps.com/20261027.pmtiles sektor-b.pmtiles
+--bbox=17.0,45.05,19.65,46.30 --maxzoom=15` (oko 120 MB).
+
 Letva koja ima koordinate prikazuje se na karti, na svojoj kartici. Ista
 podloga stoji i u registrima **Vodomjerne postaje** i **Teritorijalne
 jedinice** (prikaz **Karta**), na stranici vodotoka, u **Slivovi i

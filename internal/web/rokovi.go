@@ -79,11 +79,14 @@ var pravilaRuta = map[string]pravilo{
 	"POST /organizacija/uvoz":                     {dugo: true, tijelo: 4<<20 + 1<<20},
 	"POST /firme/uvoz":                            {dugo: true, tijelo: 4<<20 + 1<<20},
 	"POST /odrzavanje/uvoz":                       {dugo: true, tijelo: 32 << 20},
-	"POST /administracija/nazivi":                 {tijelo: 3 << 20},  // grb do models.LogoMaxBytes
-	"POST /administracija/zig":                    {tijelo: 3 << 20},  // žig do models.ZigMaxBytes
-	"POST /administracija/karte/ikona":            {tijelo: 64 << 10}, // SVG ikona do models.NajvecaIkonaSVG
-	"POST /profile/potpis-slika":                  {tijelo: 2 << 20},  // potpis do 1 MiB
-	"POST /profile/potpis":                        {tijelo: 10 << 20}, // HTML potpisa e-pošte može nositi slike
+	"POST /administracija/nazivi":                 {tijelo: 3 << 20},                   // grb do models.LogoMaxBytes
+	"POST /administracija/zig":                    {tijelo: 3 << 20},                   // žig do models.ZigMaxBytes
+	"POST /administracija/karte/ikona":            {tijelo: 64 << 10},                  // SVG ikona do models.NajvecaIkonaSVG
+	"POST /administracija/karte/vektorska":        {dugo: true, tijelo: 2<<30 + 2<<20}, // karta do peers.NajvecaKarta, paket uz 1 MiB
+	"GET /administracija/karte/vektorska.cop":     {dugo: true},                        // paket karte, stotine MB
+	"GET /karta/vektor/{ime}":                     {dugo: true},                        // karta po dijelovima (Range)
+	"POST /profile/potpis-slika":                  {tijelo: 2 << 20},                   // potpis do 1 MiB
+	"POST /profile/potpis":                        {tijelo: 10 << 20},                  // HTML potpisa e-pošte može nositi slike
 
 	// geometrija u JSON-u
 	"POST /api/watercourses/create":       {tijelo: tijeloGeometrije},
