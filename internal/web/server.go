@@ -395,16 +395,17 @@ func templateFuncs() template.FuncMap {
 			}
 			return template.JS(data)
 		},
-		"qualityLabel": models.QualityLabel,
-		"bankLabel":    hydro.BankLabel,
-		"muniType":     models.MunicipalityTypeLabel,
-		"term":         func(key string) string { return models.Terms().Get(key) },
-		"terml":        func(key string) string { return models.Terms().Lower(key) },
-		"logo":         LogoURL,
-		"temaCSS":      temaCSSAdresa,
-		"roleOptions":  roleOptions,
-		"humanBytes":   humanBytes,
-		"km":           models.FormatKm,
+		"qualityLabel":  models.QualityLabel,
+		"bankLabel":     hydro.BankLabel,
+		"muniType":      models.MunicipalityTypeLabel,
+		"term":          func(key string) string { return models.Terms().Get(key) },
+		"terml":         func(key string) string { return models.Terms().Lower(key) },
+		"logo":          LogoURL,
+		"temaCSS":       temaCSSAdresa,
+		"postavkeKarte": postavkeKarteZaStranicu,
+		"roleOptions":   roleOptions,
+		"humanBytes":    humanBytes,
+		"km":            models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -582,7 +583,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_tema.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -907,6 +908,7 @@ func (s *Server) setupRoutes() {
 		s.mux.HandleFunc("GET /logo", ServeLogo)
 	}
 	s.mux.HandleFunc("GET /tema.css", ServeTemaCSS)
+	s.mux.HandleFunc("GET /karta/ikone.svg", ServeVlastiteIkone)
 	// Postava na istom računalu (instalacija, nadogradnja, ikona u traci)
 	s.mux.HandleFunc("GET /zdravlje", ServeZdravlje)
 
@@ -1270,11 +1272,16 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
 	aktiH.postavkeCvora = s.postavkeStranice
-	s.mux.Handle("POST /administracija/opcije/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/opcije", http.HandlerFunc(aktiH.ShowOpcije))))
 	aktiH.SetTema(s.templates["administracija_tema.html"])
 	s.mux.Handle("GET /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.ShowTema)))
 	s.mux.Handle("POST /administracija/tema", s.samoAdmin(http.HandlerFunc(aktiH.HandleTema)))
 	s.mux.Handle("POST /administracija/tema/pregled", s.samoAdmin(http.HandlerFunc(aktiH.PregledTeme)))
+	aktiH.SetPostavkeKarte(s.templates["administracija_karte.html"])
+	s.mux.Handle("GET /administracija/karte", s.samoAdmin(http.HandlerFunc(aktiH.ShowPostavkeKarte)))
+	s.mux.Handle("POST /administracija/karte", s.samoAdmin(http.HandlerFunc(aktiH.HandlePostavkeKarte)))
+	s.mux.Handle("POST /administracija/karte/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/karte", http.HandlerFunc(aktiH.ShowPostavkeKarte))))
+	s.mux.Handle("POST /administracija/karte/ikona", s.samoAdmin(http.HandlerFunc(aktiH.HandleVlastitaIkona)))
+	s.mux.Handle("POST /administracija/karte/ikona/obrisi", s.samoAdmin(http.HandlerFunc(aktiH.HandleObrisiIkonu)))
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
@@ -1537,7 +1544,7 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
-	case "settings.html", "pretplate.html", "baza.html", "administracija_opcije.html":
+	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}
 	return dijelovi

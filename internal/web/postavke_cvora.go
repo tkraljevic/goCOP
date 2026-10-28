@@ -2,7 +2,7 @@ package web
 
 // Postavke ovog čvora iz gocop.toml u Administraciji (Odluke 12. 10. 2026.).
 // Nema zasebne stranice: svaka postavka stoji na stranici kojoj prirodno
-// pripada (Čvor i mreža, Pretplate, Održavanje baze, Opcije). Popis postavki,
+// pripada (Čvor i mreža, Pretplate, Održavanje baze, Karte). Popis postavki,
 // objašnjenja i vrste čitaju se iz same strukture config.Config, pa se nova
 // postavka pojavi sama; raspored niže kaže samo gdje stoji i smije li se
 // mijenjati. Test pada kad Config dobije postavku koje u rasporedu nema.
@@ -122,9 +122,9 @@ var rasporedPostavki = []redakRasporeda{
 	{"skenovi", mjestoPostavke{"baza", postavkaSamoCitanje, "Skenovi i fotografije s terena", razlogPutanje}},
 	{"pakete", mjestoPostavke{"baza", postavkaSamoCitanje, "Mapa .cop paketa", razlogPutanje}},
 
-	{"karta.plocice", mjestoPostavke{"opcije", postavkaUrediva, "Izvor pločica karte", ""}},
-	{"karta.zasluge", mjestoPostavke{"opcije", postavkaUrediva, "Natpis o podrijetlu karte", ""}},
-	{"karta.najvise_z", mjestoPostavke{"opcije", postavkaUrediva, "Najveće približavanje karte", ""}},
+	{"karta.plocice", mjestoPostavke{"karte", postavkaUrediva, "Izvor pločica karte", ""}},
+	{"karta.zasluge", mjestoPostavke{"karte", postavkaUrediva, "Natpis o podrijetlu karte", ""}},
+	{"karta.najvise_z", mjestoPostavke{"karte", postavkaUrediva, "Najveće približavanje karte", ""}},
 
 	{"posta.nacin", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
 	{"posta.posluzitelj", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
@@ -165,7 +165,7 @@ func redRasporeda(puni string) int {
 // dioOdjeljka: gdje stoji postavka koje u rasporedu (još) nema, po odjeljku
 var dioOdjeljka = map[string]string{
 	"": "cvor", "node": "cvor", "kontakt": "cvor", "web": "mreza", "sync": "mreza", "povezivost": "mreza",
-	"vodostaji": "pretplate", "karta": "opcije", "posta": "posta",
+	"vodostaji": "pretplate", "karta": "karte", "posta": "posta",
 }
 
 // mjestoKljuca vraća redak rasporeda; nova postavka bez retka prikazuje se
@@ -200,7 +200,7 @@ var dijeloviPostavki = []dioPostavki{
 	{ime: "mreza", stranica: "/settings", sidro: "postavke-mreza", naslov: "Postavke mreže ovog čvora (gocop.toml)", sklop: true},
 	{ime: "pretplate", stranica: "/pretplate", sidro: "postavke-cvora"},
 	{ime: "baza", stranica: "/administracija/baza", sidro: "postavke-cvora"},
-	{ime: "opcije", stranica: "/administracija/opcije", sidro: "postavke-cvora"},
+	{ime: "karte", stranica: "/administracija/karte", sidro: "postavke-cvora"},
 }
 
 func nadjiDio(ime string) (dioPostavki, bool) {

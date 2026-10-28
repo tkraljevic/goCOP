@@ -102,6 +102,7 @@ func TestSveArhivskeRuteIduKrozOgradu(t *testing.T) {
 		"/administracija/obracun/koeficijenti",
 		"/administracija/tema",
 		"/administracija/tema/pregled",
+		"/administracija/karte",
 	}
 	for _, put := range moraju {
 		for _, redak := range strings.Split(izvor, "\n") {

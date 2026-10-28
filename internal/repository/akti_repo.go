@@ -1123,6 +1123,10 @@ const PostavkaOpcije = "opcije"
 // PostavkaTema je ključ boja programa iz Administracije › Tema (JSON models.Tema)
 const PostavkaTema = "tema"
 
+// PostavkaKarta je ključ izgleda objekata i podloga iz Administracije › Karte
+// (JSON models.PostavkeKarte)
+const PostavkaKarta = "karta"
+
 // DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
 // slanja; svako brisanje ostaje zabilježeno u knjizi verzija
 func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {

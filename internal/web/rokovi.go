@@ -81,6 +81,7 @@ var pravilaRuta = map[string]pravilo{
 	"POST /odrzavanje/uvoz":                       {dugo: true, tijelo: 32 << 20},
 	"POST /administracija/nazivi":                 {tijelo: 3 << 20},  // grb do models.LogoMaxBytes
 	"POST /administracija/zig":                    {tijelo: 3 << 20},  // žig do models.ZigMaxBytes
+	"POST /administracija/karte/ikona":            {tijelo: 64 << 10}, // SVG ikona do models.NajvecaIkonaSVG
 	"POST /profile/potpis-slika":                  {tijelo: 2 << 20},  // potpis do 1 MiB
 	"POST /profile/potpis":                        {tijelo: 10 << 20}, // HTML potpisa e-pošte može nositi slike
 

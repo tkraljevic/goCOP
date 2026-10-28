@@ -174,8 +174,8 @@ func primijeniZig(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniPostavku stavlja primljenu opću postavku na površinu; tema se
-// odmah uzima u program
+// primijeniPostavku stavlja primljenu opću postavku na površinu; tema i
+// postavke karata odmah se uzimaju u program
 func primijeniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var p Postavka
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
@@ -184,8 +184,11 @@ func primijeniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error 
 	if _, err := tx.ExecContext(ctx, opcaPostavkaUpsert, p.ID, p.Vrijednost, v.CreatedAt.UTC()); err != nil {
 		return err
 	}
-	if p.ID == PostavkaTema {
+	switch p.ID {
+	case PostavkaTema:
 		models.SetTema(models.CitajTemu(p.Vrijednost))
+	case PostavkaKarta:
+		models.SetPostavkeKarte(models.CitajPostavkeKarte(p.Vrijednost))
 	}
 	return nil
 }
@@ -201,5 +204,8 @@ func makniPostavku(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		return nil
 	}
 	_, err := tx.ExecContext(ctx, `DELETE FROM postavke WHERE id = ?`, v.EntityID)
+	if err == nil && v.EntityID == PostavkaKarta {
+		models.SetPostavkeKarte(models.ZadanePostavkeKarte())
+	}
 	return err
 }

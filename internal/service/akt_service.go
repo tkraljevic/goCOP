@@ -1459,6 +1459,35 @@ func (s *AktService) SpremiTemu(ctx context.Context, perms *models.UserPermissio
 	return nil
 }
 
+// PostavkeKarte vraća izgled objekata i podloge iz Administracije › Karte
+func (s *AktService) PostavkeKarte(ctx context.Context) models.PostavkeKarte {
+	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaKarta) // bez zapisa ili baze vrijede zadane postavke
+	return models.CitajPostavkeKarte(v)
+}
+
+// SpremiPostavkeKarte sprema izgled objekata i podloge; smije samo uprava
+// organizacije. Nil znači zadane postavke. Vrijede odmah na ovom čvoru, a
+// razmjenom stižu i na ostale.
+func (s *AktService) SpremiPostavkeKarte(ctx context.Context, perms *models.UserPermissions, p *models.PostavkeKarte) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	zapis, ok := "", models.ZadanePostavkeKarte()
+	if p != nil {
+		var err error
+		if ok, err = p.Provjeri(); err != nil {
+			return fmt.Errorf("Postavke karata nisu spremljene. %s.", err.Error())
+		}
+		b, _ := json.Marshal(ok) // samo tekst i brojevi, ne može pasti
+		zapis = string(b)
+	}
+	if err := s.repo.SavePostavka(ctx, repository.PostavkaKarta, zapis); err != nil {
+		return err
+	}
+	models.SetPostavkeKarte(ok)
+	return nil
+}
+
 // SmijeObrisatiTrajno javlja smije li korisnik trajno obrisati ovjeren akt:
 // samo kad je prekidač uključen, i samo uprava organizacije ili sektora
 func (s *AktService) SmijeObrisatiTrajno(ctx context.Context, perms *models.UserPermissions, a *models.Akt) bool {
