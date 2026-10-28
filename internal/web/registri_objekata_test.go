@@ -24,7 +24,8 @@ func TestRegistriObjekataPoVrstama(t *testing.T) {
 	admin := &models.UserPermissions{IsGlobalAdmin: true}
 	nasip := &models.Structure{Code: "nasip-primjerovo", Name: "Nasip Primjerovo", Kind: models.StructureKindEmbankment, SectorID: "P", AreaID: 1}
 	stanica := &models.Structure{Code: "cs-primjerovo", Name: "CS Primjerovo", Kind: models.StructureKindPumpingStation, SectorID: "P", AreaID: 1}
-	for _, st := range []*models.Structure{nasip, stanica} {
+	sifon := &models.Structure{Code: "sifon-primjerovo", Name: "Sifon Primjerovo", Kind: models.StructureKindSiphon, SectorID: "P", AreaID: 1}
+	for _, st := range []*models.Structure{nasip, stanica, sifon} {
 		if err := o.structures.Create(ctx, admin, st); err != nil {
 			t.Fatal(err)
 		}
@@ -33,12 +34,16 @@ func TestRegistriObjekataPoVrstama(t *testing.T) {
 	if err := o.sesije.CreateSession(sesija); err != nil {
 		t.Fatal(err)
 	}
-	otvori := func(put string) string {
-		t.Helper()
+	posalji := func(put string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, put, nil)
 		r.AddCookie(&http.Cookie{Name: imeKolacicaSesije, Value: sesija.ID.String()})
 		w := httptest.NewRecorder()
 		s.mux.ServeHTTP(w, r)
+		return w
+	}
+	otvori := func(put string) string {
+		t.Helper()
+		w := posalji(put)
 		if w.Code != http.StatusOK {
 			t.Fatalf("%s: status %d", put, w.Code)
 		}
@@ -50,8 +55,14 @@ func TestRegistriObjekataPoVrstama(t *testing.T) {
 	if b := otvori("/crpne-stanice"); !strings.Contains(b, "CS Primjerovo") || strings.Contains(b, "Nasip Primjerovo") {
 		t.Error("registar crpnih stanica pokazuje i nasipe")
 	}
-	if b := otvori("/structures"); !strings.Contains(b, "Nasip Primjerovo") || !strings.Contains(b, "CS Primjerovo") || !strings.Contains(b, `href="/nasipi"`) {
-		t.Error("popis svih objekata nema obje vrste ili prečac na nasipe")
+	if b := otvori("/ostali-objekti"); !strings.Contains(b, "Sifon Primjerovo") || strings.Contains(b, "Nasip Primjerovo") || !strings.Contains(b, `name="kind"`) {
+		t.Error("ostali objekti ne pokazuju sifon, pokazuju nasip ili nemaju izbor vrste")
+	}
+	for put, cilj := range map[string]string{"/structures?kind=" + models.StructureKindSluice + "&area=1": "/ustave?area=1", "/structures": "/nasipi",
+		"/structures?kind=" + models.StructureKindWeir: "/ostali-objekti?kind=" + models.StructureKindWeir} {
+		if w := posalji(put); w.Code != http.StatusSeeOther || w.Header().Get("Location") != cilj {
+			t.Errorf("%s: %d → %q, htio %q", put, w.Code, w.Header().Get("Location"), cilj)
+		}
 	}
 	if b := otvori("/structures/" + nasip.ID.String()); !strings.Contains(b, `<a href="/nasipi">Nasipi</a>`) || strings.Contains(b, "Upiši očitanje") {
 		t.Error("stranica nasipa ne vodi natrag na nasipe ili nudi očitanje")
@@ -79,7 +90,7 @@ func TestBrisanjeObjektaVodiNaRegistarVrste(t *testing.T) {
 		h.HandleDelete(w, r)
 		return w.Header().Get("Location")
 	}
-	if l := brisi("nije-id", admin); !strings.HasPrefix(l, "/structures?") {
+	if l := brisi("nije-id", admin); !strings.HasPrefix(l, "/nasipi?") {
 		t.Errorf("neispravan id: %q", l)
 	}
 	if l := brisi(nasip.ID.String(), &models.UserPermissions{}); !strings.HasPrefix(l, "/structures/"+nasip.ID.String()) {
@@ -91,7 +102,7 @@ func TestBrisanjeObjektaVodiNaRegistarVrste(t *testing.T) {
 }
 
 func TestOznakeIzbornikaObjekata(t *testing.T) {
-	if len(registriObjekataUIzborniku()) != 4 || !jeNavObjekta(navObjekta(models.StructureKindDam)) || !jeNavObjekta("structures") || jeNavObjekta("stations") {
+	if len(registriObjekataUIzborniku()) != 5 || !jeNavObjekta(navObjekta(models.StructureKindDam)) || jeNavObjekta("stations") {
 		t.Error("izbornik registara objekata nije složen kako treba")
 	}
 }

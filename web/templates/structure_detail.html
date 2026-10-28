@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — {{.Structure.Name}}{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">{{if .Register.Path}}<a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a>{{else}}<a href="/structures">Objekti</a> › <a href="/structures?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a>{{end}} › {{.Structure.Name}}</div>
+<div class="breadcrumb"><a href="{{.Register.Path}}">{{.Register.Title}}</a> › <a href="{{.Register.Path}}?area={{.Structure.AreaID}}">BP {{.Structure.AreaID}}</a> › {{.Structure.Name}}</div>
 
 <div class="detail-head">
   <div>

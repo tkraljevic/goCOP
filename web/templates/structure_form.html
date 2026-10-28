@@ -4,7 +4,7 @@
 
 {{define "content"}}
 <div class="breadcrumb">
-  {{if .Register.Path}}<a href="{{.Register.Path}}">{{.Register.Title}}</a>{{else}}<a href="/structures">Objekti</a>{{end}}
+  <a href="{{.Register.Path}}">{{.Register.Title}}</a>
   {{if .IsEdit}} › <a href="/structures/{{.Structure.ID}}">{{.Structure.Name}}</a> › Uređivanje{{else}} › {{if .Register.NewLabel}}{{.Register.NewLabel}}{{else}}Novi objekt{{end}}{{end}}
 </div>
 

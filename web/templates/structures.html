@@ -1,49 +1,35 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — {{if .Register.Kind}}{{.Register.Title}}{{else}}Objekti{{end}}{{end}}
+{{define "title"}}goCOP — {{.Register.Title}}{{end}}
 
 {{define "content"}}
 <div class="page-header">
   <div>
-  {{if .Register.Kind}}
     <h1 class="page-title">{{icon .Register.Icon}} {{.Register.Title}}</h1>
     <p class="page-desc">{{.Register.Desc}}</p>
-  {{else}}
-    <h1 class="page-title">{{icon "construction"}} Objekti</h1>
-    <p class="page-desc">
-      Svi hidrotehnički objekti zajedno. Svaka vrsta ima i svoj registar s vlastitom pretragom:
-      nasipi, crpne stanice, ustave, brane, sifoni, pregrade.
-    </p>
-  {{end}}
   </div>
   {{if .CanCreate}}
-  <a href="/structures/new?{{if .Register.Kind}}kind={{.Register.Kind}}&{{end}}{{if .SelectedArea}}area={{.SelectedArea}}{{end}}" class="btn btn-primary">{{icon "plus"}} {{if .Register.Kind}}{{.Register.NewLabel}}{{else}}Novi objekt{{end}}</a>
+  <a href="/structures/new?kind={{if .SelectedKind}}{{.SelectedKind}}{{else}}{{.Register.Kind}}{{end}}{{if .SelectedArea}}&area={{.SelectedArea}}{{end}}" class="btn btn-primary">{{icon "plus"}} {{.Register.NewLabel}}</a>
   {{end}}
 </div>
 
 <div class="d-flex gap-2 flex-wrap mb-5">
-  {{if .Register.Kind}}
-  {{$n := index .ByKind .Register.Kind}}<span class="stat-badge has-items">{{icon .Register.Icon}} {{$n}} u registru</span>
-  <a class="stat-badge" href="/structures">{{icon "construction"}} Svi objekti: {{.Total}}</a>
-  {{else}}
-  <span class="stat-badge has-items">{{icon "construction"}} {{.Total}} {{uzBroj .Total "objekt" "objekta" "objekata"}} u registru</span>
-  {{range $r := .Registers}}{{$n := index $.ByKind $r.Kind}}{{if gt $n 0}}<a class="stat-badge has-items" href="{{$r.Path}}">{{icon $r.Icon}} {{$r.Title}}: {{$n}}</a>{{end}}{{end}}
-  {{end}}
+  <span class="stat-badge has-items">{{icon .Register.Icon}} {{.Total}} u registru</span>
+  {{if gt (len .Register.Kinds) 1}}{{range .Register.Kinds}}{{$n := index $.ByKind .}}{{if gt $n 0}}<span class="stat-badge has-items">{{$n}} · {{structureKind .}}</span>{{end}}{{end}}{{end}}
 </div>
 
 
 <div class="filter-card">
-  <form action="{{if .Register.Path}}{{.Register.Path}}{{else}}/structures{{end}}" method="GET">
+  <form action="{{.Register.Path}}" method="GET">
     <div class="search-bar-row">
       <div class="search-input-wrapper">
         <span class="search-icon">{{icon "search"}}</span>
-        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input" placeholder="{{if .Register.Placeholder}}{{.Register.Placeholder}}{{else}}Naziv objekta (CS Draž, ustava Bilje)…{{end}}" autocomplete="off">
+        <input type="search" name="q" value="{{.SearchQuery}}" class="search-input" placeholder="{{.Register.Placeholder}}" autocomplete="off">
       </div>
       <button type="submit" class="btn btn-primary">Pretraži</button>
-      {{if .Register.Kind}}{{if or .SearchQuery .SelectedSector .SelectedArea}}<a href="{{.Register.Path}}" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
-      {{else if or .SearchQuery .SelectedSector .SelectedArea .SelectedKind}}<a href="/structures" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
+      {{if or .SearchQuery .SelectedSector .SelectedArea .SelectedKind}}<a href="{{.Register.Path}}" class="btn btn-secondary">{{icon "x"}}</a>{{end}}
     </div>
-    <div class="filters-row stupci-14">
+<div class="filters-row stupci-14">
       <div class="filter-group">
         <label class="filter-label" for="sector">{{icon "building-2"}} {{term "sektor"}}</label>
         <select id="sector" name="sector" class="filter-select" onchange="this.form.submit()">
@@ -58,7 +44,7 @@
           {{range .Areas}}<option value="{{.ID}}" {{if eq $.SelectedArea .ID}}selected{{end}}>{{.ID}}: {{.Name}}</option>{{end}}
         </select>
       </div>
-      {{if not .Register.Kind}}
+      {{if gt (len .Register.Kinds) 1}}
       <div class="filter-group">
         <label class="filter-label" for="kind">{{icon "construction"}} Vrsta</label>
         <select id="kind" name="kind" class="filter-select" onchange="this.form.submit()">
