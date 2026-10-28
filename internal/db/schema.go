@@ -1656,6 +1656,8 @@ func migrateSchema(database *sql.DB) error {
 		{"akti", "uvod", "TEXT NOT NULL DEFAULT ''"},
 		// ustava ima letvu s obje strane; station_id je uzvodna ili jedina
 		{"structures", "station_down_id", "TEXT NOT NULL DEFAULT ''"},
+		// GeoJSON objekta: crta nasipa sa stacionažom, točka crpne stanice
+		{"structures", "geometry", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "zavrsno", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "poveznice", "TEXT NOT NULL DEFAULT ''"},
 		{"akti", "potpis", "TEXT NOT NULL DEFAULT ''"},

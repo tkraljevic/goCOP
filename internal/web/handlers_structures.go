@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"html/template"
 	"net/http"
 	"strconv"
@@ -23,7 +24,11 @@ type StructuresHandler struct {
 	tmplList         *template.Template
 	tmplDetail       *template.Template
 	tmplForm         *template.Template
+	karta            func() KartaPostavke
 }
+
+// SetKarta daje rukovatelju izvor pločica za kartu objekta
+func (h *StructuresHandler) SetKarta(f func() KartaPostavke) { h.karta = f }
 
 func NewStructuresHandler(structures *service.StructureService, stations *service.StationService,
 	sections *service.SectionService, users *service.UserService, list, detail, form *template.Template) *StructuresHandler {
@@ -61,6 +66,9 @@ type StructurePageData struct {
 	StationDown *models.Station // nizvodna letva ustave
 	CanEdit     bool
 	IsEdit      bool
+
+	Karta        KartaPostavke
+	GeometryJSON template.JS // ucrtani objekt za kartu
 
 	Sectors  []models.Sector
 	Areas    []models.Area
@@ -159,6 +167,7 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 			data.StationDown, _ = h.stationService.GetStation(ctx, sid)
 		}
 	}
+	h.napuniKartu(&data)
 	if err := h.tmplDetail.ExecuteTemplate(w, "structure_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -298,4 +307,50 @@ func (h *StructuresHandler) fillSector(st *models.Structure) {
 			return
 		}
 	}
+}
+
+// napuniKartu daje stranici pločice karte i ucrtani objekt
+func (h *StructuresHandler) napuniKartu(data *StructurePageData) {
+	if h.karta != nil {
+		data.Karta = h.karta()
+	}
+	if data.Structure.HasGeometry() {
+		data.GeometryJSON, _ = jsonZaSkriptu([]byte(data.Structure.Geometry))
+	}
+}
+
+type structureGeometryForm struct {
+	ID      string `json:"id"`
+	GeoJSON string `json:"geojson"`
+}
+
+// HandleGeometryAPI upisuje ili briše ucrtani objekt. Geometrija stiže samo
+// JSON-om iz skripte stranice, kao kod vodotoka: običan obrazac može poslati
+// i tuđa stranica, a geometrija se crta na karti.
+func (h *StructuresHandler) HandleGeometryAPI(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
+	if !jsonTijelo(r) {
+		http.Error(w, "Geometrija se šalje kao JSON (Content-Type: application/json)", http.StatusUnsupportedMediaType)
+		return
+	}
+	var req structureGeometryForm
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Neispravan JSON format", http.StatusBadRequest)
+		return
+	}
+	id, err := uuid.Parse(strings.TrimSpace(req.ID))
+	if err != nil {
+		http.Error(w, "Objekt nije naveden", http.StatusBadRequest)
+		return
+	}
+	if err := h.structureService.SetGeometry(ctx, perms, id, req.GeoJSON); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	poruka := "Objekt je ucrtan na kartu."
+	if strings.TrimSpace(req.GeoJSON) == "" {
+		poruka = "Crta objekta je obrisana s karte."
+	}
+	writeJSON(w, map[string]any{"success": true, "message": poruka})
 }

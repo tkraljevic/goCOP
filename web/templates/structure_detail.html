@@ -46,6 +46,32 @@
   </div>
 </section>
 
+{{if and .Karta.Ima (or .GeometryJSON .CanEdit)}}
+<section class="detail-section" id="karta">
+  <div class="detail-section-head d-flex justify-between items-center flex-wrap gap-2">
+    <h2>{{icon "map"}} Na karti</h2>
+    {{if .CanEdit}}
+    <label class="btn btn-sm btn-secondary" style="cursor:pointer; display:inline-flex; width:auto;" title="GeoJSON u WGS84 (EPSG:4326), npr. izvoz iz QGIS-a; nasip kao crta, stacionaža kao točke">{{icon "upload"}} {{if .GeometryJSON}}Zamijeni iz GeoJSON-a{{else}}Ucrtaj iz GeoJSON-a{{end}}<input type="file" accept=".geojson,.json,application/geo+json,application/json" hidden class="karta-objekta-datoteka" data-id="{{.Structure.ID}}" data-ima="{{if .GeometryJSON}}1{{end}}"></label>
+    {{end}}
+  </div>
+  {{if .GeometryJSON}}
+  <div class="karta-objekta"
+       data-naziv="{{.Structure.Name}}"
+       data-plocice="{{.Karta.Plocice}}"
+       data-zasluge="{{.Karta.Zasluge}}"
+       data-najvise-z="{{.Karta.NajviseZ}}">
+    <div class="karta-platno"></div>
+    <script type="application/json" class="karta-geometrija-podaci">{{.GeometryJSON}}</script>
+    <p class="reg-card-sub karta-bez-mreze" hidden>{{icon "triangle-alert"}} Pločice karte
+      nisu dostupne — program radi bez interneta, a za ovo područje još nisu preuzete.
+      Objekt je ucrtan i vidljiv.</p>
+  </div>
+  {{else}}
+  <p class="reg-card-sub">Objekt još nije ucrtan. Učitajte GeoJSON iz QGIS-a{{if eq .Structure.Kind "NASIP"}}: crtu nasipa i, po želji, točke stacionaže s brojem km{{end}}.</p>
+  {{end}}
+</section>
+{{end}}
+
 {{if .Structure.Notes}}
 <section class="detail-section">
   <h2>{{icon "file-text"}} Detaljni opis</h2>

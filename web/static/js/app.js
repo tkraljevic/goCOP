@@ -823,6 +823,75 @@ function dodajKontroleKarte(karta, platno, opcije) {
   });
 })();
 
+// Karta objekta: crta nasipa (ili točka objekta) i stacionaža nasipa (km).
+// Učitavanje GeoJSON-a ide na /api/structures/geometry; program ga provjeri
+// (WGS84, dužina–širina, kod nasipa crta) i odbije s objašnjenjem.
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.karta-objekta-datoteka').forEach(function (input) {
+      input.addEventListener('change', function () {
+        var f = input.files && input.files[0];
+        if (!f) return;
+        if (f.size > 20 * 1024 * 1024) { alert('Datoteka je veća od 20 MB — pojednostavnite crtu prije učitavanja.'); input.value = ''; return; }
+        if (input.dataset.ima && !confirm('Zamijeniti ucrtani objekt onim iz datoteke „' + f.name + '”? Prethodni ostaje u povijesti zapisa.')) { input.value = ''; return; }
+        f.text().then(function (tekst) {
+          return fetch('/api/structures/geometry', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: input.dataset.id, geojson: tekst })
+          });
+        }).then(function (res) {
+          if (!res.ok) return res.text().then(function (t) { alert('Objekt nije ucrtan: ' + t.trim()); });
+          location.hash = 'karta';
+          location.reload();
+        }).finally(function () { input.value = ''; });
+      });
+    });
+
+    if (typeof L === 'undefined') return;
+    document.querySelectorAll('.karta-objekta').forEach(function (okvir) {
+      var platno = okvir.querySelector('.karta-platno');
+      var geoEl = okvir.querySelector('.karta-geometrija-podaci');
+      if (!platno || !geoEl || !okvir.dataset.plocice) return;
+      var geo;
+      try { geo = JSON.parse(geoEl.textContent); } catch (e) { return; }
+
+      var najvise = parseInt(okvir.dataset.najviseZ, 10) || 17;
+      var karta = L.map(platno, { scrollWheelZoom: true });
+      dodajKontroleKarte(karta, platno);
+      var sloj = L.tileLayer(okvir.dataset.plocice, { referrerPolicy: UPUCIVAC_PLOCICA,
+        maxZoom: najvise, attribution: zaslugeKarte(okvir) });
+      var promasaja = 0;
+      sloj.on('tileerror', function () {
+        if (++promasaja < 3) return;
+        var poruka = okvir.querySelector('.karta-bez-mreze');
+        if (poruka) poruka.hidden = false;
+        okvir.classList.add('karta-prazna');
+      });
+      sloj.addTo(karta);
+
+      var stil = getComputedStyle(document.documentElement);
+      var bojaCrte = (stil.getPropertyValue('--primary') || '').trim() || '#173e74';
+      var objekt = L.geoJSON(geo, {
+        style: function () { return { color: bojaCrte, weight: 5, opacity: 0.9 }; },
+        pointToLayer: function (f, ll) {
+          return L.circleMarker(ll, { radius: 4, color: bojaCrte, weight: 2, fillColor: '#fff', fillOpacity: 1 });
+        },
+        onEachFeature: function (f, l) {
+          var p = f.properties || {};
+          if (p.km !== undefined && p.km !== null && p.km !== '') {
+            l.bindTooltip('km ' + String(p.km), { direction: 'top', offset: [0, -4] });
+          } else if (f.geometry && /LineString/.test(f.geometry.type)) {
+            l.bindTooltip(okvir.dataset.naziv || '', { sticky: true });
+          }
+        }
+      }).addTo(karta);
+      var granice = objekt.getBounds();
+      if (granice.isValid()) karta.fitBounds(granice, { padding: [24, 24], maxZoom: 16 });
+      else karta.setView([45.55, 18.7], 9);
+    });
+  });
+})();
+
 // Karta vodotoka: prikazuje poliliniju toka rijeke, stacionaže (rkm) i vodomjerne postaje.
 (function () {
   function escapeHtml(text) {
