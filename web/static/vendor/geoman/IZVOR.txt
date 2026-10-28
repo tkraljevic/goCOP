@@ -1,0 +1,3 @@
+Leaflet-Geoman Free 2.20.2 (MIT), s npm-a @geoman-io/leaflet-geoman-free@2.20.2
+sha1 paketa 643f9f6c81a170c9486082d0c3dc53a82f72eb3f (isti kao u registru npm)
+Preuzeto 28. 10. 2026.; datoteke iz dist/ bez izmjena.
