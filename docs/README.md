@@ -24,8 +24,8 @@ instalira, što dolazi i kakav je kod.
 - [Postava](postava.md): instalacijski program i što još dolazi.
 - [Predlošci uvoza](predlosci/README.md): oblik datoteka za registre i prvo
   punjenje, s izmišljenim primjerima.
-- [Karta položaja](karta.md): odakle dolazi podloga karte i kako je
-  promijeniti.
+- [Karte](karta.md): podloge karte i kako ih promijeniti, karta bez
+  interneta i crtanje objekata i tokova na karti.
 - [Pravila potpisivanja](CODE_SIGNING.md), na engleskom: potpis programa za
   Windows i što program šalje izvan računala.
 

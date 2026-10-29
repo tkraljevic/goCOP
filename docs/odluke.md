@@ -691,3 +691,45 @@ je gotov onaj o kojem ovisi.
   nakon 10 minuta rada bez prekida, pa dva nestanka struje u različitim
   danima ne isključe WEB sync. Ponovno ga uključuje administrator, gumbom u
   Administraciji.
+
+## Odluke (29. 10. 2026.)
+
+### Redoslijed rada
+
+- Najprije karte, tako da većina onoga što program vodi ima svoje mjesto na
+  karti. Zatim se sređuju dionice sektora B, pa objekti, a nakon toga
+  dizajn sučelja.
+- Dok se dizajn prenosi na pojedini ekran, usput se dorađuju i funkcije tog
+  ekrana.
+
+### Ugroženo područje uz nasip
+
+- Uz svaki nasip u obrascu dionice stoji kvačica „Vrijedi i ugroženo
+  područje cijele poddionice”. Nasip s kvačicom pokazuje svoja naselja i
+  naselja upisana za cijelu poddionicu, a nasip bez kvačice samo svoja.
+  Tako se ista naselja ne moraju upisivati uz svaki nasip.
+- Kvačice se uključuju tek kad su sva računala nadograđena na 0.0.46.
+  Stariji program (0.0.45 i niži) kvačicu ne čuva kad sam spremi dionicu.
+  Naselja se pritom ne gube.
+- Kopije kvačice za stariji program nema, jer bi je stariji program, kad
+  ukloni poddionicu, mogao prenijeti na krivi nasip.
+
+### Objekti i obala nasipa
+
+- Objekt bez upisanog nasipa stoji uz sve nasipe svoje obale čiji raspon
+  pokriva njegovu stacionažu. Od njih vrijedi nasip s najužim rasponom, a
+  kad ih više ima isti najuži raspon, objekt stoji uz sve. Objekt s
+  upisanim nasipom ostaje uz svoj nasip.
+- Objekt lijeve obale ide samo uz nasip lijeve obale, a objekt desne obale
+  samo uz nasip desne. Objekt bez obale ili s obalom LD ide uz nasipe obiju
+  obala.
+- Obala nasipa čita se iz naziva: „l.o.” i „Lijevi…” su lijeva obala,
+  „d.o.” i „Desni…” desna. Nasip čiji naziv ne kaže obalu, ili kaže obje,
+  prima objekte obiju obala.
+- Objekt koji nije u rasponu nijednog nasipa svoje obale stoji u retku
+  „Bez nasipa”, a ne uz nasip druge obale.
+- Nasipi uz kanale dijele se na nasip lijeve i nasip desne obale (l.o. i
+  d.o.) kad tako stoje u planu obrane i u GIS-u. Oba smiju imati isti
+  raspon i iste objekte.
+- Objekt koji prelazi vodotok, na primjer most, propust ili ušće, upisuje
+  se jednom, bez nasipa i s obalom LD. Tako stoji uz nasipe obiju obala.

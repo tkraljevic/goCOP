@@ -24,7 +24,10 @@ Prvo se pišu testovi, a tek onda se složen kod dijeli na manje dijelove, bez
 promjene ponašanja. Najvažniji dijelovi programa danas su gotovo potpuno
 pokriveni testovima: razmjena, arhiva, prognoza, uvozi, prijava i ovlasti,
 akti i stanje obrane. Najsloženiji dio, primjena podataka primljenih s
-drugih računala, već je podijeljen. Slijede složeni dijelovi prognoze,
+drugih računala, već je podijeljen. Za izdanje 0.0.46-alfa na korake je
+razdvojeno još desetak najsloženijih funkcija, među njima dodavanje potpisa
+i pečata na PDF, crtanje uzdužnog profila i opis događaja na zidu, bez
+promjene ponašanja. Slijede složeni dijelovi prognoze,
 uvoza ugovora o održavanju i web stranica, a zatim veća pokrivenost
 testovima cijelog koda, s ciljem od 85 %.
 
@@ -34,31 +37,28 @@ Cilj i sadašnje stanje su u dokumentu [Kvaliteta koda](CODE_QUALITY.md).
 
 ## 2. Pravila razmjene i WEB sync
 
-Ovo je glavni posao sada, usporedo s prvim korakom.
+Veći dio ovog koraka je gotov.
 
-Najprije pravila razmjene. Veći dio je izašao u izdanju 0.0.39-alfa.
+Pravila razmjene izašla su u izdanjima 0.0.39-alfa i 0.0.42-alfa.
 Računala na početku razgovora kažu jedno drugome što razumiju, pa novo
 izdanje može dodati novu vrstu poruke, a starije je zanemari bez greške.
 Računalo koje ne drži stara očitanja više ih ne dobiva svakom razmjenom
 iznova. Jedan neispravan zapis više ne odbija cijeli primljeni paket.
 Pločica razmjene kaže koliko je stiglo zapisa koje program još ne razumije,
 a za drugo računalo koje to javi koliko zapisa kod njega čeka nadogradnju.
-Još dolazi: program će bilježiti poruke koje je odbio ili nije do kraja
-razumio, bez njihova sadržaja.
+Globalni administrator vidi što je računalo odbilo ili nije razumjelo,
+bez sadržaja poruka.
 
-Zatim WEB sync: izravna šifrirana veza dvaju računala preko interneta, i kad
-su oba iza usmjerivača, kod kuće ili u uredu. Danas takva računala
-razmjenjuju samo preko stalnog računala ili Tailscalea, pa podatak između
-njih čeka krug na stalnom računalu. Uredsko računalo iza vatrozida
-organizacije uz to danas ne može nitko nazvati izvana. Stalno računalo i
-dalje će pomagati računalima da se nađu, ali kroz njega će ići samo kratke
-poruke, ne podaci. Na usmjerivačima i vatrozidu organizacije ne otvara se
-ništa, a na samom računalu možda treba dopustiti jedan UDP port. Pločica
-razmjene reći će kojim je putem prošla zadnja razmjena i, kad put ne radi,
-zašto. Kad stigne opoziv članstva, računalo će odmah zatvoriti veze s
-opozvanim računalom.
+WEB sync, izravna šifrirana veza dvaju računala preko interneta, izašao je
+u izdanjima 0.0.42-alfa do 0.0.44-alfa. Dva računala iza usmjerivača, kod
+kuće ili u uredu, nađu se preko stalnog računala i razmjenjuju izravno.
+Kroz stalno računalo idu samo kratke poruke, ne podaci. Na usmjerivačima i
+vatrozidu organizacije ne otvara se ništa, a na samom računalu možda treba
+dopustiti UDP port 4713. Pločica razmjene kaže kad je
+razmjena išla tim putem i, kad put ne radi, zašto. Još dolazi: kad stigne
+opoziv članstva, računalo će odmah zatvoriti veze s opozvanim računalom.
 
-WEB sync bit će zadano isključen. Zadano se uključuje tek zasebnom odlukom,
+WEB sync je zadano isključen. Zadano se uključuje tek zasebnom odlukom,
 kad dva tjedna radi bez greške na svim probnim računalima i kad informatičari
 organizacije dobiju njegov opis.
 
@@ -68,7 +68,18 @@ podatke kroz jedno računalo.
 
 ## 3. Proširenja
 
-Kad je WEB sync gotov, dolaze nove mogućnosti:
+Ovo je glavni posao sada. Prema Odlukama (29. 10. 2026.) ide ovim redom:
+
+1. karte, tako da većina onoga što program vodi ima svoje mjesto na karti;
+2. sređivanje dionica sektora B. U 0.0.46-alfa objekt bez nasipa stoji uz
+   nasipe svoje obale, a ugroženo područje poddionice može vrijediti uz
+   više nasipa;
+3. objekti;
+4. dizajn sučelja. Ekrani se jedan po jedan prenose u novi izgled, a uz
+   prijenos se usput dorađuju i funkcije tog ekrana. Prva je prenesena
+   stranica prijave (0.0.45-alfa).
+
+Proširenja su:
 
 - Prognoza po branjenim područjima i vodotocima. Model prognoze vodi se po
   branjenom području, a gleda se i po vodotoku. Administrator ga mijenja u
@@ -86,11 +97,14 @@ Kad je WEB sync gotov, dolaze nove mogućnosti:
   na početku rada, tijekom rada i na kraju, a sve to ulazi u dnevnik
   strojara.
 - Karte. Svaki objekt, od vodotoka do crpne stanice, ima svoje mjesto na
-  karti. Modul Karte sve to povezuje u slojeve: vodotoci, nasipi i
-  dionice, objekti, letve i obuhvati poplave iz karata opasnosti od
-  poplava. Uz to karta bez interneta, iz vlastite zalihe pločica za
-  područje, jer javni poslužitelj OpenStreetMapa ne dopušta skupno
-  preuzimanje.
+  karti. Gotovo je: nasipi i drugi objekti ucrtavaju se na kartu i imaju
+  svoje registre, izgled karata bira se u Administraciji › Karte
+  (0.0.45-alfa), tok vodotoka crta se i uređuje istim alatom kao objekt, a
+  karta bez interneta drži se na samom računalu (0.0.46-alfa). Kartu bez
+  interneta, oko 120 MB za Sektor B, na svako računalo treba prenijeti
+  ručno, paketom .cop. Još dolazi modul Karte, koji sve to povezuje u
+  slojeve: vodotoci, nasipi i dionice, objekti, letve i obuhvati poplave iz
+  karata opasnosti od poplava.
 - Mobilna aplikacija za teren, kao pojednostavljen goCOP za mobitel: svima
   prognoza, stanje letvi i upis očitanja, vodočuvaru dnevni zadaci i dnevni
   list, rukovoditelju dionice dnevno izvješće. Dolazi tek kad je goCOP
@@ -272,6 +286,8 @@ Ovo je smjer, bez redoslijeda unutar popisa:
   istu prognozu i razmjenu bez grešaka, a nijedan podatak ne nestaje tiho.
 - Nadograđuje se redom: najprije stalno računalo, odmah zatim ostala. Kad
   izdanje traži da sva računala budu na istoj inačici, sva se nadograđuju
-  odmah.
+  odmah. Nešto se uključuje i tek nakon nadogradnje svih računala, na
+  primjer kvačica ugroženog područja uz nasip iz 0.0.46-alfa: stariji
+  program je pri spremanju dionice ne čuva (Odluke (29. 10. 2026.)).
 - Odluke na koje se plan oslanja zapisane su po datumu u dokumentu
   [Odluke](odluke.md).

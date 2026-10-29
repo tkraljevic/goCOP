@@ -6,7 +6,7 @@ Kako se program koristi, piše u samom programu, na stranici **Pomoć**. Kako
 se postavlja, piše u [uputama administratoru](INSTALACIJA.md).
 
 Program je u alfa fazi. Ovdje je opisano ono što radi danas, u izdanju
-0.0.39-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
+0.0.46-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
 
 ## Što je goCOP
 
@@ -24,7 +24,9 @@ Svako računalo s goCOP-om (u programu se zove čvor) drži svoju kopiju
 podataka, u vlastitim bazama na svom disku. Zato radi i bez interneta:
 unos, pregled, dnevnici, akti i dokumenti rade lokalno. Mreža treba samo za
 ono što dolazi izvana: nova očitanja s javnih izvora, vrijeme, karte,
-e-poštu i razmjenu s drugim računalima.
+e-poštu i razmjenu s drugim računalima. Kartu bez interneta računalo drži
+na svom disku, pa ona radi i bez mreže (vidi
+[Karte](karta.md#karta-bez-interneta)).
 
 Izmjena ne prepisuje stari zapis. Svaka izmjena ostaje kao nova verzija
 zapisa, s računalom na kojem je nastala i vremenom, a starije verzije
@@ -43,6 +45,13 @@ ne razumije, ono čuva i šalje dalje, a primijeni ga nakon nadogradnje. Kad
 neko izdanje traži da sva računala budu na istoj inačici, to piše uz izdanje
 u [popisu izmjena](../CHANGELOG.md).
 
+S novim poljem u zapisu koji starije izdanje razumije nije tako. Kad
+starije izdanje samo spremi takav zapis, novo polje ne sačuva. Primjer je
+kvačica „Vrijedi i ugroženo područje cijele poddionice” uz nasip u obrascu
+dionice: izdanje 0.0.45-alfa i starija ispuste je kad sama spreme
+dionicu. Naselja se pritom ne gube. Zato se takve kvačice uključuju tek
+kad su sva računala nadograđena.
+
 ## Kako se računala usklađuju
 
 Računala razmjenjuju podatke samo s članovima iste mreže. Veza je šifrirana
@@ -54,7 +63,7 @@ podaci putuju. Postoje četiri puta:
 | LAN sync | računala su u istoj lokalnoj mreži, u uredu ili kod kuće, i nađu se sama | radi |
 | SERVER sync | preko stalnog računala koje je dostupno s interneta, na njegovoj javnoj adresi ili kroz web tunel (HTTPS); ono je član mreže, prima podatke i šalje ih dalje | radi |
 | Tailscale | oba računala su u istoj Tailscale mreži | radi od 0.0.37-alfa; u postavkama se može isključiti |
-| WEB sync | izravna veza dvaju računala preko interneta, i kad su oba iza usmjerivača | u izradi; bit će zadano isključen |
+| WEB sync | izravna veza dvaju računala preko interneta, i kad su oba iza usmjerivača | radi od 0.0.43-alfa, još se dorađuje; zadano isključen |
 
 Program uvijek prvo pokuša lokalnu mrežu. Razmjena krene sama nakon
 pokretanja i ponavlja se svakih pet minuta. Na naslovnoj stranici pločica
@@ -90,6 +99,11 @@ Kad mreže nema dulje vrijeme, odabrani podaci prenose se i bez nje. Jedno
 računalo izda potpisan paket (Administracija → Održavanje baze → Izdaj
 .cop), a drugo ga ugradi, na primjer s USB ključa. Paket prolazi ista
 pravila kao razmjena.
+
+Karta bez interneta ne ide razmjenom. Razmjenom putuje samo njezin opis,
+pa sva računala znaju koja je karta zadana. Samu datoteku karte, za Sektor
+B oko 120 MB, globalni administrator na svako računalo prenosi njezinim
+paketom `.cop`, u Administraciji → Karte.
 
 ### Što koje računalo dobiva
 
@@ -303,7 +317,8 @@ stanje. Pravila su opisana u dokumentu [Stadiji obrane](stadiji-obrane.md).
 
 ## Što još nije gotovo
 
-Još nisu napravljeni WEB sync, oznaka sukoba i starosti podatka,
-trenutačan opoziv, zajedničko kazalo službenih zapisa, dogovoreno brisanje
-starih podataka na svim računalima i umirovljenje računala. Kojim redom
-dolaze i zašto, piše u [planu razvoja](plan-razvoja.md).
+WEB sync još nije gotov ni zadano uključen. Još nisu napravljeni oznaka
+sukoba i starosti podatka, trenutačan opoziv, zajedničko kazalo službenih
+zapisa, dogovoreno brisanje starih podataka na svim računalima i
+umirovljenje računala. Kojim redom dolaze i zašto, piše u
+[planu razvoja](plan-razvoja.md).
