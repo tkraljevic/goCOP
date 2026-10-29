@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -103,12 +104,39 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 	if len(pdf) < 16 || !bytes.HasPrefix(pdf, []byte("%PDF")) {
 		return nil, errors.New("pdf: nije PDF")
 	}
+	tr, err := citajTrailer(pdf)
+	if err != nil {
+		return nil, err
+	}
+	st, err := citajStranicu(pdf, tr.root, dod.Stranica)
+	if err != nil {
+		return nil, err
+	}
+	iz := novaIzmjena(pdf, tr.size)
+	ap := iz.izgled(dod)
+	widget, sig := iz.biljeska(dod, st, ap)
+	iz.uStranicuIKatalog(st, tr.root, widget, sig > 0)
+	rez := iz.zakljuci(tr)
+	if sig == 0 {
+		return rez, nil
+	}
+	return upisiPotpis(rez, iz.pomaci[sig], dod.Potpisnik)
+}
+
+// trailer su podaci zadnjeg traillera dokumenta
+type trailer struct {
+	root, size, prev int
+	info             string // " /Info N 0 R" ili prazno
+}
+
+// citajTrailer čita zadnji trailer iz repa dokumenta. Zadnji je mjerodavan:
+// kratka ranija izmjena stane u isti rep s prethodnim trailerom, pa se uzima
+// zadnje podudaranje.
+func citajTrailer(pdf []byte) (trailer, error) {
 	rep := pdf
 	if len(rep) > 2048 {
 		rep = rep[len(rep)-2048:]
 	}
-	// zadnji trailer je mjerodavan: kratka ranija izmjena stane u isti rep
-	// s prethodnim trailerom, pa se uzima zadnje podudaranje
 	zadnji := func(re *regexp.Regexp) []byte {
 		sve := re.FindAllSubmatch(rep, -1)
 		if len(sve) == 0 {
@@ -118,100 +146,134 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 	}
 	m, ms, mx := zadnji(reRoot), zadnji(reSize), reXref.FindSubmatch(rep)
 	if m == nil || ms == nil || mx == nil {
-		return nil, errors.New("pdf: nema zaglavlja tablice objekata")
+		return trailer{}, errors.New("pdf: nema zaglavlja tablice objekata")
 	}
-	root, _ := strconv.Atoi(string(m))
-	size, _ := strconv.Atoi(string(ms))
-	prev, _ := strconv.Atoi(string(mx[1]))
-	info := ""
+	var tr trailer
+	tr.root, _ = strconv.Atoi(string(m))     // regex je uzeo samo znamenke
+	tr.size, _ = strconv.Atoi(string(ms))    // isto
+	tr.prev, _ = strconv.Atoi(string(mx[1])) // isto
 	if mi := zadnji(reInfo); mi != nil {
-		info = " /Info " + string(mi) + " 0 R"
+		tr.info = " /Info " + string(mi) + " 0 R"
 	}
+	return tr, nil
+}
+
+// stranica je stranica na koju ide dodatak, uz katalog dokumenta
+type stranica struct {
+	katalog string
+	n       int // broj objekta stranice
+	tijelo  string
+	visina  float64
+}
+
+// citajStranicu nalazi zadanu stranicu (od 1) preko kataloga i popisa stranica
+func citajStranicu(pdf []byte, root, redni int) (stranica, error) {
 	katalog, err := objekt(pdf, root)
 	if err != nil {
-		return nil, err
+		return stranica{}, err
 	}
 	mp := rePages.FindStringSubmatch(katalog)
 	if mp == nil {
-		return nil, errors.New("pdf: katalog bez stranica")
+		return stranica{}, errors.New("pdf: katalog bez stranica")
 	}
-	pagesN, _ := strconv.Atoi(mp[1])
+	pagesN, _ := strconv.Atoi(mp[1]) // regex je uzeo samo znamenke
 	pages, err := objekt(pdf, pagesN)
 	if err != nil {
-		return nil, err
+		return stranica{}, err
 	}
 	mk := reKids.FindStringSubmatch(pages)
 	if mk == nil {
-		return nil, errors.New("pdf: nema popisa stranica")
+		return stranica{}, errors.New("pdf: nema popisa stranica")
 	}
 	kids := reRef.FindAllStringSubmatch(mk[1], -1)
-	if dod.Stranica < 1 || dod.Stranica > len(kids) {
-		return nil, fmt.Errorf("pdf: nema stranice %d", dod.Stranica)
+	if redni < 1 || redni > len(kids) {
+		return stranica{}, fmt.Errorf("pdf: nema stranice %d", redni)
 	}
-	pageN, _ := strconv.Atoi(kids[dod.Stranica-1][1])
-	page, err := objekt(pdf, pageN)
-	if err != nil {
-		return nil, err
+	st := stranica{katalog: katalog, visina: A4H}
+	st.n, _ = strconv.Atoi(kids[redni-1][1]) // regex je uzeo samo znamenke
+	if st.tijelo, err = objekt(pdf, st.n); err != nil {
+		return stranica{}, err
 	}
-	visina := A4H
-	if mb := reMediaBox.FindStringSubmatch(page); mb != nil {
-		visina, _ = strconv.ParseFloat(mb[2], 64)
+	if mb := reMediaBox.FindStringSubmatch(st.tijelo); mb != nil {
+		st.visina, _ = strconv.ParseFloat(mb[2], 64) // regex je uzeo samo broj
 	}
+	return st, nil
+}
 
-	// novi objekti dobivaju brojeve od /Size nadalje
-	var out bytes.Buffer
-	out.Write(pdf)
+// izmjena je dokument s dopisanim objektima; novi objekti dobivaju brojeve
+// od /Size nadalje, a pomaci svih upisanih idu u novu tablicu objekata
+type izmjena struct {
+	out      bytes.Buffer
+	sljedeci int
+	pomaci   map[int]int
+}
+
+func novaIzmjena(pdf []byte, size int) *izmjena {
+	iz := &izmjena{sljedeci: size, pomaci: map[int]int{}}
+	iz.out.Write(pdf)
 	if pdf[len(pdf)-1] != '\n' {
-		out.WriteByte('\n')
+		iz.out.WriteByte('\n')
 	}
-	sljedeci := size
-	pomaci := map[int]int{}
-	obj := func(n int, sadrzaj string) {
-		pomaci[n] = out.Len()
-		fmt.Fprintf(&out, "%d 0 obj\n%s\nendobj\n", n, sadrzaj)
-	}
-	novi := func(sadrzaj string) int {
-		n := sljedeci
-		sljedeci++
-		obj(n, sadrzaj)
-		return n
-	}
+	return iz
+}
 
-	// izgled: mala stranica nacrtana istim alatima, kao obrazac XObject
-	ap := 0
-	if dod.Crtaj != nil && dod.W > 0 && dod.H > 0 {
-		t := &Doc{W: dod.W, H: dod.H}
-		t.NovaStranica()
-		dod.Crtaj(t)
-		xobj := ""
-		for i, s := range t.slike {
-			var k int
-			if s.jpeg != nil {
-				prostor := map[int]string{1: "/DeviceGray", 3: "/DeviceRGB", 4: "/DeviceCMYK"}[s.komp]
-				if prostor == "" {
-					prostor = "/DeviceRGB"
-				}
-				k = novi(fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace %s /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", s.w, s.h, prostor, len(s.jpeg), s.jpeg))
-			} else {
-				var z bytes.Buffer
-				zw := zlib.NewWriter(&z)
-				_, _ = zw.Write(s.rgb)
-				_ = zw.Close()
-				k = novi(fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n%s\nendstream", s.w, s.h, z.Len(), z.Bytes()))
-			}
-			xobj += fmt.Sprintf("/Im%d %d 0 R ", i+1, k)
+func (iz *izmjena) obj(n int, sadrzaj string) {
+	iz.pomaci[n] = iz.out.Len()
+	fmt.Fprintf(&iz.out, "%d 0 obj\n%s\nendobj\n", n, sadrzaj)
+}
+
+func (iz *izmjena) rezerviraj() int {
+	n := iz.sljedeci
+	iz.sljedeci++
+	return n
+}
+
+func (iz *izmjena) novi(sadrzaj string) int {
+	n := iz.rezerviraj()
+	iz.obj(n, sadrzaj)
+	return n
+}
+
+// izgled crta dodatak kao malu stranicu istim alatima i upisuje je kao
+// obrazac XObject, sa slikama; 0 kad dodatak nema izgleda
+func (iz *izmjena) izgled(dod Dodatak) int {
+	if dod.Crtaj == nil || dod.W <= 0 || dod.H <= 0 {
+		return 0
+	}
+	t := &Doc{W: dod.W, H: dod.H}
+	t.NovaStranica()
+	dod.Crtaj(t)
+	xobj := ""
+	for i, s := range t.slike {
+		xobj += fmt.Sprintf("/Im%d %d 0 R ", i+1, iz.novi(objektSlike(s)))
+	}
+	tok := t.tok().String()
+	return iz.novi(fmt.Sprintf("<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 %.2f %.2f] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << %s>> >> /Length %d >>\nstream\n%s\nendstream", dod.W, dod.H, xobj, len(tok), tok))
+}
+
+// objektSlike: JPEG ide kakav jest, a ostalo kao sažeti RGB
+func objektSlike(s slika) string {
+	if s.jpeg != nil {
+		prostor := map[int]string{1: "/DeviceGray", 3: "/DeviceRGB", 4: "/DeviceCMYK"}[s.komp]
+		if prostor == "" {
+			prostor = "/DeviceRGB"
 		}
-		tok := t.tok().String()
-		ap = novi(fmt.Sprintf("<< /Type /XObject /Subtype /Form /FormType 1 /BBox [0 0 %.2f %.2f] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << %s>> >> /Length %d >>\nstream\n%s\nendstream", dod.W, dod.H, xobj, len(tok), tok))
+		return fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace %s /BitsPerComponent 8 /Filter /DCTDecode /Length %d >>\nstream\n%s\nendstream", s.w, s.h, prostor, len(s.jpeg), s.jpeg)
 	}
+	var z bytes.Buffer
+	zw := zlib.NewWriter(&z)
+	_, _ = zw.Write(s.rgb) // pisanje u memoriju ne pada
+	_ = zw.Close()         // isto
+	return fmt.Sprintf("<< /Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /FlateDecode /Length %d >>\nstream\n%s\nendstream", s.w, s.h, z.Len(), z.Bytes())
+}
 
-	// polje potpisa ili pečat
-	rect := fmt.Sprintf("[%.2f %.2f %.2f %.2f]", dod.X, visina-dod.Y-dod.H, dod.X+dod.W, visina-dod.Y)
-	if ap == 0 {
-		rect = "[0 0 0 0]"
-	}
-	apDio := ""
+// biljeska upisuje polje potpisa (s rječnikom potpisa i rezerviranim
+// mjestom za CMS) ili pečat; vraća broj bilješke i rječnika potpisa (0 za
+// pečat)
+func (iz *izmjena) biljeska(dod Dodatak, st stranica, ap int) (widget, sig int) {
+	rect, apDio := "[0 0 0 0]", ""
 	if ap > 0 {
+		rect = fmt.Sprintf("[%.2f %.2f %.2f %.2f]", dod.X, st.visina-dod.Y-dod.H, dod.X+dod.W, st.visina-dod.Y)
 		apDio = fmt.Sprintf(" /AP << /N %d 0 R >>", ap)
 	}
 	kad := dod.Kad
@@ -219,84 +281,84 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 		kad = time.Now()
 	}
 	datum := kad.Format("D:20060102150405-07'00'")
-	polja := ""
-	if ma := reAcro.FindStringSubmatch(katalog); ma != nil {
-		polja = strings.TrimSpace(ma[1])
-	}
-	brojPolja := len(reRef.FindAllString(polja, -1))
-	sig := 0
-	var widget int
-	if dod.Potpisnik != nil {
-		sig = sljedeci
-		sljedeci++
-		widget = sljedeci
-		sljedeci++
-		obj(sig, fmt.Sprintf("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0000000000 0000000000 0000000000 0000000000] /Contents <%s> /M (%s) /Name %s /Reason %s /Location %s >>",
-			strings.Repeat("0", rezerva*2), datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), tekstUTF16(dod.Mjesto)))
-		obj(widget, fmt.Sprintf("<< /Type /Annot /Subtype /Widget /FT /Sig /T (Potpis%d) /V %d 0 R /Rect %s /F 132 /P %d 0 R%s >>", brojPolja+1, sig, rect, pageN, apDio))
-	} else {
+	if dod.Potpisnik == nil {
 		pecat := dod.Pecat
 		if pecat == "" {
 			pecat = "goCOP"
 		}
-		widget = novi(fmt.Sprintf("<< /Type /Annot /Subtype /Stamp /Name /%s /Rect %s /F 132 /P %d 0 R /M (%s) /T %s /Contents %s%s >>", pecat, rect, pageN, datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), apDio))
+		return iz.novi(fmt.Sprintf("<< /Type /Annot /Subtype /Stamp /Name /%s /Rect %s /F 132 /P %d 0 R /M (%s) /T %s /Contents %s%s >>", pecat, rect, st.n, datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), apDio)), 0
 	}
+	sig, widget = iz.rezerviraj(), iz.rezerviraj()
+	iz.obj(sig, fmt.Sprintf("<< /Type /Sig /Filter /Adobe.PPKLite /SubFilter /ETSI.CAdES.detached /ByteRange [0000000000 0000000000 0000000000 0000000000] /Contents <%s> /M (%s) /Name %s /Reason %s /Location %s >>",
+		strings.Repeat("0", rezerva*2), datum, tekstUTF16(dod.Ime), tekstUTF16(dod.Razlog), tekstUTF16(dod.Mjesto)))
+	iz.obj(widget, fmt.Sprintf("<< /Type /Annot /Subtype /Widget /FT /Sig /T (Potpis%d) /V %d 0 R /Rect %s /F 132 /P %d 0 R%s >>", len(reRef.FindAllString(poljaObrasca(st.katalog), -1))+1, sig, rect, st.n, apDio))
+	return widget, sig
+}
 
-	// stranica s dodanom bilješkom, katalog s poljem obrasca
+// poljaObrasca su reference polja iz /AcroForm kataloga, ili prazno
+func poljaObrasca(katalog string) string {
+	if ma := reAcro.FindStringSubmatch(katalog); ma != nil {
+		return strings.TrimSpace(ma[1])
+	}
+	return ""
+}
+
+// uStranicuIKatalog dopisuje stranicu s novom bilješkom, a za potpis i
+// katalog s poljem u obrascu
+func (iz *izmjena) uStranicuIKatalog(st stranica, root, widget int, potpis bool) {
 	ref := fmt.Sprintf("%d 0 R", widget)
+	page := st.tijelo
 	if man := reAnnots.FindStringSubmatch(page); man != nil {
 		page = reAnnots.ReplaceAllLiteralString(page, "/Annots [ "+strings.TrimSpace(man[1])+" "+ref+" ]")
 	} else {
 		page = strings.TrimSuffix(strings.TrimSpace(page), ">>") + "/Annots [ " + ref + " ] >>"
 	}
-	obj(pageN, page)
-	if sig > 0 {
-		if polja != "" {
-			polja += " "
-		}
-		polja += ref
-		acro := "/AcroForm << /Fields [ " + polja + " ] /SigFlags 3 >>"
-		if reAcro.MatchString(katalog) {
-			katalog = reAcro.ReplaceAllLiteralString(katalog, acro)
-		} else {
-			katalog = strings.TrimSuffix(strings.TrimSpace(katalog), ">>") + acro + " >>"
-		}
-		obj(root, katalog)
+	iz.obj(st.n, page)
+	if !potpis {
+		return
 	}
+	polja := poljaObrasca(st.katalog)
+	if polja != "" {
+		polja += " "
+	}
+	acro := "/AcroForm << /Fields [ " + polja + ref + " ] /SigFlags 3 >>"
+	katalog := st.katalog
+	if reAcro.MatchString(katalog) {
+		katalog = reAcro.ReplaceAllLiteralString(katalog, acro)
+	} else {
+		katalog = strings.TrimSuffix(strings.TrimSpace(katalog), ">>") + acro + " >>"
+	}
+	iz.obj(root, katalog)
+}
 
-	// tablica objekata za izmijenjene i nove, po odsječcima uzastopnih brojeva
-	brojevi := make([]int, 0, len(pomaci))
-	for n := range pomaci {
+// zakljuci dopisuje tablicu objekata za izmijenjene i nove, po odsječcima
+// uzastopnih brojeva, i trailer koji preko /Prev pokazuje na stari
+func (iz *izmjena) zakljuci(tr trailer) []byte {
+	brojevi := make([]int, 0, len(iz.pomaci))
+	for n := range iz.pomaci {
 		brojevi = append(brojevi, n)
 	}
-	for i := range brojevi {
-		for j := i + 1; j < len(brojevi); j++ {
-			if brojevi[j] < brojevi[i] {
-				brojevi[i], brojevi[j] = brojevi[j], brojevi[i]
-			}
-		}
-	}
-	xref := out.Len()
-	out.WriteString("xref\n")
+	slices.Sort(brojevi)
+	xref := iz.out.Len()
+	iz.out.WriteString("xref\n")
 	for i := 0; i < len(brojevi); {
 		j := i
 		for j+1 < len(brojevi) && brojevi[j+1] == brojevi[j]+1 {
 			j++
 		}
-		fmt.Fprintf(&out, "%d %d\n", brojevi[i], j-i+1)
+		fmt.Fprintf(&iz.out, "%d %d\n", brojevi[i], j-i+1)
 		for k := i; k <= j; k++ {
-			fmt.Fprintf(&out, "%010d 00000 n \n", pomaci[brojevi[k]])
+			fmt.Fprintf(&iz.out, "%010d 00000 n \n", iz.pomaci[brojevi[k]])
 		}
 		i = j + 1
 	}
-	fmt.Fprintf(&out, "trailer\n<< /Size %d /Root %d 0 R%s /Prev %d >>\nstartxref\n%d\n%%%%EOF\n", sljedeci, root, info, prev, xref)
-	rez := out.Bytes()
-	if sig == 0 {
-		return rez, nil
-	}
+	fmt.Fprintf(&iz.out, "trailer\n<< /Size %d /Root %d 0 R%s /Prev %d >>\nstartxref\n%d\n%%%%EOF\n", iz.sljedeci, tr.root, tr.info, tr.prev, xref)
+	return iz.out.Bytes()
+}
 
-	// raspon bajtova: sve osim heksadecimalnog sadržaja potpisa
-	od := pomaci[sig]
+// upisiPotpis upisuje raspon bajtova (sve osim heksadecimalnog sadržaja
+// potpisa), potpiše ga i upiše CMS u rezervirano mjesto rječnika na pomaku od
+func upisiPotpis(rez []byte, od int, potpisnik Potpisnik) ([]byte, error) {
 	c := bytes.Index(rez[od:], []byte("/Contents <"))
 	if c < 0 {
 		return nil, errors.New("pdf: potpis bez sadržaja")
@@ -314,15 +376,14 @@ func Dodaj(pdf []byte, dod Dodatak) ([]byte, error) {
 	podaci := make([]byte, 0, len(rez))
 	podaci = append(podaci, rez[:pocetak-1]...)
 	podaci = append(podaci, rez[krajHex+1:]...)
-	cms, err := dod.Potpisnik(podaci)
+	cms, err := potpisnik(podaci)
 	if err != nil {
 		return nil, err
 	}
 	if len(cms) > rezerva {
 		return nil, fmt.Errorf("pdf: potpis od %d bajtova ne stane u rezervirano mjesto", len(cms))
 	}
-	hexCMS := strings.ToUpper(hex.EncodeToString(cms))
-	copy(rez[pocetak:], hexCMS)
+	copy(rez[pocetak:], strings.ToUpper(hex.EncodeToString(cms)))
 	return rez, nil
 }
 
