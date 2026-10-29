@@ -541,7 +541,7 @@ func (c *opisivac) sektorskoIzvjesce(d *Dogadjaj, v ledger.Version, nova bool) b
 // (otključavanje, Odluke (13. 10. 2026.)). Spremanje nacrta na zid ne ide.
 // Tko je otključao piše u napomeni inventure, a ne u verziji, pa redak
 // otključavanja nema osobu.
-func (c *opisivac) inventura(d *Dogadjaj, v ledger.Version) bool {
+func (c *opisivac) inventura(d *Dogadjaj, v ledger.Version, _ bool) bool {
 	var p models.Popis
 	if json.Unmarshal(v.Payload, &p) != nil || v.Archived {
 		return false
@@ -585,230 +585,297 @@ func (c *opisivac) bilaZakljucena(versionID string) bool {
 // opisi pretvara verziju u događaj; false kad verzija na zid ne ide
 func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 	d := Dogadjaj{VersionID: v.VersionID, Modul: modulEntiteta(v.Entity), Kad: v.CreatedAt, Cvor: v.NodeID}
-	nova := v.Supersedes == ""
-	switch v.Entity {
-	case repository.EntityJournalEntries:
-		var e models.JournalEntry
-		if json.Unmarshal(v.Payload, &e) != nil || v.Archived {
-			return d, false
-		}
-		j := c.journal(e.JournalID)
-		if j == nil || j.Kind != models.JournalKindDefense {
-			return d, false
-		}
-		d.Sektor, d.Tko, d.Link = j.CentarSektor, e.UserName, "/dnevnici/"+e.JournalID
-		if e.Podrucje != nil {
-			d.AreaID = *e.Podrucje
-		}
-		if e.Kind == models.EntryKindDuty {
-			d.Modul = ModulDezurstva
-		}
-		if e.Voided {
-			d.Naslov, d.Tekst = "Storniran zapis", e.Text
-		} else if !nova {
-			return d, false
-		} else {
-			d.Naslov = e.KindLabel()
-			d.Tekst = e.Text
-			if e.ReportedBy != "" {
-				d.Tekst = e.ReportedBy + ": " + d.Tekst
-			}
-		}
-		if len([]rune(d.Tekst)) > 220 {
-			d.Tekst = string([]rune(d.Tekst)[:220]) + "…"
-		}
+	opis, ok := opisiPoEntitetu[v.Entity]
+	if !ok {
+		return d, false
+	}
+	ok = opis(c, &d, v, v.Supersedes == "")
+	return d, ok
+}
 
-	case repository.EntityPrijave:
-		return c.opisiPrijavu(v, d)
+// opisiPoEntitetu: po entitetu knjige opis njegove verzije u redak zida;
+// nova je verzija koja ništa ne zamjenjuje. Opis upisuje u redak i kad
+// javi false. Entitet kojeg ovdje nema na zid ne ide.
+var opisiPoEntitetu = map[string]func(c *opisivac, d *Dogadjaj, v ledger.Version, nova bool) bool{
+	repository.EntityJournalEntries:    (*opisivac).zapisDnevnika,
+	repository.EntityPrijave:           (*opisivac).opisiPrijavu,
+	repository.EntityJournals:          (*opisivac).dnevnikCOPa,
+	repository.EntityDezurstva:         (*opisivac).dezurstvo,
+	repository.EntityDnevnaIzvjesca:    (*opisivac).dnevnoIzvjesce,
+	repository.EntitySektorskaIzvjesca: (*opisivac).sektorskoIzvjesce,
+	repository.EntityEpisodes:          (*opisivac).obrana,
+	repository.EntityMtsPromet:         (*opisivac).prometSredstava,
+	repository.EntityMtsPopisi:         (*opisivac).inventura,
+	repository.EntityMtsPotrebe:        (*opisivac).potrebaNabave,
+	repository.EntityReadings:          (*opisivac).ocitanjeIznadPraga,
+	repository.EntitySections:          (*opisivac).novaDionica,
+	repository.EntityMtsSkladista:      (*opisivac).novoSkladiste,
+	repository.EntityStations:          (*opisivac).novaPostaja,
+	repository.EntityStructures:        (*opisivac).noviObjekt,
+}
 
-	case repository.EntityJournals:
-		var j models.Journal
-		if json.Unmarshal(v.Payload, &j) != nil || j.Kind != models.JournalKindDefense || v.Archived {
-			return d, false
+// zapisDnevnika: zapis u dnevnik COP-a na zidu je kad je upisan i kad je
+// storniran; ostale izmjene nisu redak. Zapis dežurstva ide u modul
+// dežurstava.
+func (c *opisivac) zapisDnevnika(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var e models.JournalEntry
+	if json.Unmarshal(v.Payload, &e) != nil || v.Archived {
+		return false
+	}
+	j := c.journal(e.JournalID)
+	if j == nil || j.Kind != models.JournalKindDefense {
+		return false
+	}
+	d.Sektor, d.Tko, d.Link = j.CentarSektor, e.UserName, "/dnevnici/"+e.JournalID
+	if e.Podrucje != nil {
+		d.AreaID = *e.Podrucje
+	}
+	if e.Kind == models.EntryKindDuty {
+		d.Modul = ModulDezurstva
+	}
+	if e.Voided {
+		d.Naslov, d.Tekst = "Storniran zapis", e.Text
+	} else if !nova {
+		return false
+	} else {
+		d.Naslov = e.KindLabel()
+		d.Tekst = e.Text
+		if e.ReportedBy != "" {
+			d.Tekst = e.ReportedBy + ": " + d.Tekst
 		}
-		d.Sektor, d.Link = j.CentarSektor, "/dnevnici/"+j.ID
-		switch {
-		case nova:
-			d.Naslov, d.Tekst, d.Vazno = "Otvoren dnevnik COP-a", j.DisplayTitle(), true
-		case j.EndedAt != nil:
-			d.Naslov, d.Tekst = "Zaključen dnevnik COP-a", j.DisplayTitle()
-		default:
-			return d, false
-		}
+	}
+	d.Tekst = skratiZaZid(d.Tekst)
+	return d.Naslov != ""
+}
 
-	case repository.EntityDezurstva:
-		var z models.Dezurstvo
-		if json.Unmarshal(v.Payload, &z) != nil {
-			return d, false
-		}
-		j := c.journal(z.JournalID)
-		if j != nil {
-			d.Sektor = j.CentarSektor
-		}
-		d.Tko, d.Link = z.UserName, "/dnevnici/"+z.JournalID+"/dezurstva"
-		if z.Podrucje != nil {
-			d.AreaID = *z.Podrucje
-		}
-		kad := z.Od.In(models.Zagreb).Format("2.1. 15:04") + " – " + z.Do.In(models.Zagreb).Format("2.1. 15:04")
-		switch {
-		case v.Archived:
-			d.Naslov, d.Tekst = "Maknuto dežurstvo", kad
-		case nova:
-			d.Naslov, d.Tekst = "Upisano dežurstvo", kad+" · "+z.MjestoTekst()
-		case z.Potvrdio != "":
-			d.Naslov, d.Tekst = "Potvrđeno dežurstvo", kad
-		default:
-			return d, false
-		}
+// skratiZaZid: redak zida nosi najviše 220 znakova teksta zapisa
+func skratiZaZid(tekst string) string {
+	if len([]rune(tekst)) > 220 {
+		return string([]rune(tekst)[:220]) + "…"
+	}
+	return tekst
+}
 
-	case repository.EntityDnevnaIzvjesca:
-		return d, c.dnevnoIzvjesce(&d, v, nova)
-
-	case repository.EntitySektorskaIzvjesca:
-		return d, c.sektorskoIzvjesce(&d, v, nova)
-
-	case repository.EntityEpisodes:
-		var e models.DefenseEpisode
-		if json.Unmarshal(v.Payload, &e) != nil || v.Archived {
-			return d, false
-		}
-		if sec := c.dionica(e.SectionCode); sec != nil {
-			d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
-		}
-		d.Link, d.Vazno = "/sections/"+e.SectionCode, true
-		if e.DeclaredBy != "" {
-			d.Tko = c.ime(e.DeclaredBy)
-		}
-		switch {
-		case e.EndedAt != nil:
-			d.Naslov, d.Tekst = "Prekinuta obrana", e.SectionCode+" · "+e.Phase.Label()
-			if e.EndedBy != "" {
-				d.Tko = c.ime(e.EndedBy)
-			}
-		case nova:
-			d.Naslov, d.Tekst = "Proglašena obrana", e.SectionCode+" · "+e.Phase.Label()
-		default:
-			d.Naslov, d.Tekst = "Promijenjen stadij obrane", e.SectionCode+" · "+e.Phase.Label()
-		}
-
-	case repository.EntityMtsPromet:
-		var p models.Promet
-		if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !nova {
-			return d, false
-		}
-		if p.Vrsta == models.PrometPopis {
-			return d, false
-		}
-		d.Sektor, d.Tko, d.Naslov = p.Sektor, p.UserName, models.PrometNaziv(p.Vrsta)
-		if p.AreaID > 0 {
-			d.AreaID = p.AreaID
-		}
-		kol := kolicinaTekst(absF(p.Kolicina)) + " " + c.jedinica(p.VrstaID) + " " + c.vrsta(p.VrstaID)
-		if p.Oblik != "" {
-			kol += " (" + models.OblikNaziv(p.Oblik) + ")"
-		}
-		gdje := ""
-		if sk := c.skladiste(p.SkladisteID); sk != nil {
-			gdje = sk.Naziv
-			d.Link = "/sredstva/skladista/" + sk.ID
-			if d.AreaID == 0 {
-				d.AreaID = sk.AreaID
-			}
-		} else {
-			gdje = "teren · " + p.MjestoNaziv()
-			d.Link = "/sredstva/na-terenu?sektor=" + p.Sektor
-		}
-		d.Tekst = kol + " · " + gdje
-		if p.Preuzeo != "" {
-			d.Tekst += " · " + strings.ToLower(models.StranaOznaka(p.Vrsta)) + " " + p.Preuzeo
-		}
-		if p.VezaID != "" {
-			d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
-		}
-		d = c.prijenosIzDrugogSektora(p, d)
-
-	case repository.EntityMtsPopisi:
-		return d, c.inventura(&d, v)
-
-	case repository.EntityMtsPotrebe:
-		var p models.Potreba
-		if json.Unmarshal(v.Payload, &p) != nil || v.Archived || p.Kolicina == 0 {
-			return d, false
-		}
-		sk := c.skladiste(p.SkladisteID)
-		naziv := p.SkladisteID
-		if sk != nil {
-			naziv, d.Sektor, d.AreaID = sk.Naziv, sk.Sektor, sk.AreaID
-		}
-		d.Tko, d.Link = p.UserName, "/sredstva/skladista/"+p.SkladisteID+"/potrebe?godina="+fmt.Sprint(p.Godina)
-		d.Naslov, d.Tekst = "Upisana potreba za nabavom", fmt.Sprintf("%s %s %s · %s · za %d.", kolicinaTekst(p.Kolicina), c.jedinica(p.VrstaID), c.vrsta(p.VrstaID), naziv, p.Godina)
-
-	case repository.EntityReadings:
-		var r models.Reading
-		if json.Unmarshal(v.Payload, &r) != nil || v.Archived || !nova || r.LevelCm == nil || r.StationID == "" {
-			return d, false
-		}
-		st := c.postaja(r.StationID)
-		if st == nil {
-			return d, false
-		}
-		faza := st.CalculateDefensePhase(*r.LevelCm)
-		if faza == models.PhaseNormal || faza == models.PhaseUnknown {
-			return d, false
-		}
-		d.Naslov, d.Vazno = "Očitanje iznad praga", faza.Severity() >= models.PhaseEmergency.Severity()
-		d.Tekst = fmt.Sprintf("%s: %+d cm · %s · %s", st.Name, *r.LevelCm, faza.Label(), r.MeasuredAt.In(models.Zagreb).Format("2.1. 15:04"))
-		d.Link = "/stations/" + r.StationID
-		d.Tko = c.ime(r.UserID)
-		c.sektorLetve(&d, st)
-
-	case repository.EntitySections:
-		if !nova || v.Archived {
-			return d, false
-		}
-		var sec models.Section
-		if json.Unmarshal(v.Payload, &sec) != nil {
-			return d, false
-		}
-		d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = sec.SectorID, sec.AreaID, "Nova dionica u registru", sec.Code+" · "+sec.EffectiveDescription(), "/sections/"+sec.Code
-
-	case repository.EntityMtsSkladista:
-		if !nova || v.Archived {
-			return d, false
-		}
-		var sk models.Skladiste
-		if json.Unmarshal(v.Payload, &sk) != nil {
-			return d, false
-		}
-		d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = sk.Sektor, sk.AreaID, "Novo skladište", sk.Naziv, "/sredstva/skladista/"+sk.ID
-
-	case repository.EntityStations:
-		if !nova || v.Archived {
-			return d, false
-		}
-		var st models.Station
-		if json.Unmarshal(v.Payload, &st) != nil {
-			return d, false
-		}
-		d.Naslov, d.Tekst, d.Link = "Nova vodomjerna postaja", st.Name, "/stations/"+st.ID.String()
-
-	case repository.EntityStructures:
-		if !nova || v.Archived {
-			return d, false
-		}
-		var st models.Structure
-		if json.Unmarshal(v.Payload, &st) != nil {
-			return d, false
-		}
-		d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = st.SectorID, st.AreaID, "Novi objekt u registru", st.Name, "/structures/"+st.ID.String()
-
+// dnevnikCOPa: dnevnik COP-a na zidu je kad je otvoren i kad je zaključen
+func (c *opisivac) dnevnikCOPa(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var j models.Journal
+	if json.Unmarshal(v.Payload, &j) != nil || j.Kind != models.JournalKindDefense || v.Archived {
+		return false
+	}
+	d.Sektor, d.Link = j.CentarSektor, "/dnevnici/"+j.ID
+	switch {
+	case nova:
+		d.Naslov, d.Tekst, d.Vazno = "Otvoren dnevnik COP-a", j.DisplayTitle(), true
+	case j.EndedAt != nil:
+		d.Naslov, d.Tekst = "Zaključen dnevnik COP-a", j.DisplayTitle()
 	default:
-		return d, false
+		return false
 	}
-	if d.Naslov == "" {
-		return d, false
+	return true
+}
+
+// dezurstvo: dežurstvo na zidu je kad je upisano, maknuto i potvrđeno
+func (c *opisivac) dezurstvo(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var z models.Dezurstvo
+	if json.Unmarshal(v.Payload, &z) != nil {
+		return false
 	}
-	return d, true
+	j := c.journal(z.JournalID)
+	if j != nil {
+		d.Sektor = j.CentarSektor
+	}
+	d.Tko, d.Link = z.UserName, "/dnevnici/"+z.JournalID+"/dezurstva"
+	if z.Podrucje != nil {
+		d.AreaID = *z.Podrucje
+	}
+	kad := z.Od.In(models.Zagreb).Format("2.1. 15:04") + " – " + z.Do.In(models.Zagreb).Format("2.1. 15:04")
+	switch {
+	case v.Archived:
+		d.Naslov, d.Tekst = "Maknuto dežurstvo", kad
+	case nova:
+		d.Naslov, d.Tekst = "Upisano dežurstvo", kad+" · "+z.MjestoTekst()
+	case z.Potvrdio != "":
+		d.Naslov, d.Tekst = "Potvrđeno dežurstvo", kad
+	default:
+		return false
+	}
+	return true
+}
+
+// obrana: proglašenje, promjena stadija i prekid obrane na dionici, svaki
+// istaknut, pod imenom onoga tko je proglasio odnosno prekinuo
+func (c *opisivac) obrana(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var e models.DefenseEpisode
+	if json.Unmarshal(v.Payload, &e) != nil || v.Archived {
+		return false
+	}
+	if sec := c.dionica(e.SectionCode); sec != nil {
+		d.Sektor, d.AreaID = sec.SectorID, sec.AreaID
+	}
+	d.Link, d.Vazno = "/sections/"+e.SectionCode, true
+	if e.DeclaredBy != "" {
+		d.Tko = c.ime(e.DeclaredBy)
+	}
+	switch {
+	case e.EndedAt != nil:
+		d.Naslov, d.Tekst = "Prekinuta obrana", e.SectionCode+" · "+e.Phase.Label()
+		if e.EndedBy != "" {
+			d.Tko = c.ime(e.EndedBy)
+		}
+	case nova:
+		d.Naslov, d.Tekst = "Proglašena obrana", e.SectionCode+" · "+e.Phase.Label()
+	default:
+		d.Naslov, d.Tekst = "Promijenjen stadij obrane", e.SectionCode+" · "+e.Phase.Label()
+	}
+	return true
+}
+
+// prometSredstava: novi redak knjige prometa, osim usklađenja po inventuri
+// (ono je redak inventure), sa skladištem ili mjestom na terenu
+func (c *opisivac) prometSredstava(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	var p models.Promet
+	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !nova {
+		return false
+	}
+	if p.Vrsta == models.PrometPopis {
+		return false
+	}
+	d.Sektor, d.Tko, d.Naslov = p.Sektor, p.UserName, models.PrometNaziv(p.Vrsta)
+	if p.AreaID > 0 {
+		d.AreaID = p.AreaID
+	}
+	kol := c.kolicinaPrometa(p)
+	gdje := ""
+	if sk := c.skladiste(p.SkladisteID); sk != nil {
+		gdje = sk.Naziv
+		d.Link = "/sredstva/skladista/" + sk.ID
+		if d.AreaID == 0 {
+			d.AreaID = sk.AreaID
+		}
+	} else {
+		gdje = "teren · " + p.MjestoNaziv()
+		d.Link = "/sredstva/na-terenu?sektor=" + p.Sektor
+	}
+	d.Tekst = kol + " · " + gdje
+	if p.Preuzeo != "" {
+		d.Tekst += " · " + strings.ToLower(models.StranaOznaka(p.Vrsta)) + " " + p.Preuzeo
+	}
+	if p.VezaID != "" {
+		d.Link = "/sredstva/promet/" + p.VezaID + "/potvrda.xlsx"
+	}
+	*d = c.prijenosIzDrugogSektora(p, *d)
+	return d.Naslov != ""
+}
+
+// kolicinaPrometa je „4000 kom Vreće 50x80 cm (napunjeno)”: koliko, bez
+// predznaka, i čega
+func (c *opisivac) kolicinaPrometa(p models.Promet) string {
+	kol := kolicinaTekst(absF(p.Kolicina)) + " " + c.jedinica(p.VrstaID) + " " + c.vrsta(p.VrstaID)
+	if p.Oblik != "" {
+		kol += " (" + models.OblikNaziv(p.Oblik) + ")"
+	}
+	return kol
+}
+
+// potrebaNabave: upisana (i izmijenjena) potreba za nabavom; nula nije redak
+func (c *opisivac) potrebaNabave(d *Dogadjaj, v ledger.Version, _ bool) bool {
+	var p models.Potreba
+	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || p.Kolicina == 0 {
+		return false
+	}
+	sk := c.skladiste(p.SkladisteID)
+	naziv := p.SkladisteID
+	if sk != nil {
+		naziv, d.Sektor, d.AreaID = sk.Naziv, sk.Sektor, sk.AreaID
+	}
+	d.Tko, d.Link = p.UserName, "/sredstva/skladista/"+p.SkladisteID+"/potrebe?godina="+fmt.Sprint(p.Godina)
+	d.Naslov, d.Tekst = "Upisana potreba za nabavom", fmt.Sprintf("%s %s %s · %s · za %d.", kolicinaTekst(p.Kolicina), c.jedinica(p.VrstaID), c.vrsta(p.VrstaID), naziv, p.Godina)
+	return true
+}
+
+// ocitanjeIznadPraga: novo očitanje vodostaja na zidu je samo kad je letva
+// u nekom stadiju obrane; izvanredna obrana i stanje su istaknuti
+func (c *opisivac) ocitanjeIznadPraga(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	r, ok := novoOcitanje(v, nova)
+	if !ok {
+		return false
+	}
+	st := c.postaja(r.StationID)
+	if st == nil {
+		return false
+	}
+	faza := st.CalculateDefensePhase(*r.LevelCm)
+	if faza == models.PhaseNormal || faza == models.PhaseUnknown {
+		return false
+	}
+	d.Naslov, d.Vazno = "Očitanje iznad praga", faza.Severity() >= models.PhaseEmergency.Severity()
+	d.Tekst = fmt.Sprintf("%s: %+d cm · %s · %s", st.Name, *r.LevelCm, faza.Label(), r.MeasuredAt.In(models.Zagreb).Format("2.1. 15:04"))
+	d.Link = "/stations/" + r.StationID
+	d.Tko = c.ime(r.UserID)
+	c.sektorLetve(d, st)
+	return true
+}
+
+// novoOcitanje je novo, živo očitanje s vodostajem i letvom
+func novoOcitanje(v ledger.Version, nova bool) (models.Reading, bool) {
+	var r models.Reading
+	if json.Unmarshal(v.Payload, &r) != nil || v.Archived || !nova {
+		return r, false
+	}
+	return r, r.LevelCm != nil && r.StationID != ""
+}
+
+// novaDionica: u registru je na zidu samo novi zapis; izmjena i brisanje
+// nisu redak
+func (c *opisivac) novaDionica(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	if !nova || v.Archived {
+		return false
+	}
+	var sec models.Section
+	if json.Unmarshal(v.Payload, &sec) != nil {
+		return false
+	}
+	d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = sec.SectorID, sec.AreaID, "Nova dionica u registru", sec.Code+" · "+sec.EffectiveDescription(), "/sections/"+sec.Code
+	return true
+}
+
+// novoSkladiste: kao kod dionice, samo novo skladište
+func (c *opisivac) novoSkladiste(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	if !nova || v.Archived {
+		return false
+	}
+	var sk models.Skladiste
+	if json.Unmarshal(v.Payload, &sk) != nil {
+		return false
+	}
+	d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = sk.Sektor, sk.AreaID, "Novo skladište", sk.Naziv, "/sredstva/skladista/"+sk.ID
+	return true
+}
+
+// novaPostaja: samo nova postaja; postaja nema sektor ni područje
+func (c *opisivac) novaPostaja(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	if !nova || v.Archived {
+		return false
+	}
+	var st models.Station
+	if json.Unmarshal(v.Payload, &st) != nil {
+		return false
+	}
+	d.Naslov, d.Tekst, d.Link = "Nova vodomjerna postaja", st.Name, "/stations/"+st.ID.String()
+	return true
+}
+
+// noviObjekt: samo novi objekt u registru
+func (c *opisivac) noviObjekt(d *Dogadjaj, v ledger.Version, nova bool) bool {
+	if !nova || v.Archived {
+		return false
+	}
+	var st models.Structure
+	if json.Unmarshal(v.Payload, &st) != nil {
+		return false
+	}
+	d.Sektor, d.AreaID, d.Naslov, d.Tekst, d.Link = st.SectorID, st.AreaID, "Novi objekt u registru", st.Name, "/structures/"+st.ID.String()
+	return true
 }
 
 // opisiPrijavu: prijava s terena na zidu je njezina objava i njezino
@@ -820,10 +887,10 @@ func (c *opisivac) opisi(v ledger.Version) (Dogadjaj, bool) {
 // verziju objave, redak objave (i isticanje vrste „Prijava”) se gubi
 // (objavaU); redak rješenja tada nosi verzija koja je ostala, s njezinim
 // vremenom.
-func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
+func (c *opisivac) opisiPrijavu(d *Dogadjaj, v ledger.Version, _ bool) bool {
 	var p models.PrijavaSTerena
 	if json.Unmarshal(v.Payload, &p) != nil || v.Archived || !p.Objavljena() || p.Rekonstrukcija {
-		return d, false
+		return false
 	}
 	d.Sektor, d.AreaID, d.Tko, d.Link, d.prijava = p.Sektor, p.AreaID, p.Ime, "/prijave/"+p.ID, &p
 	objava, rjesenje := c.verzijePrijave(v.EntityID)
@@ -839,9 +906,9 @@ func (c *opisivac) opisiPrijavu(v ledger.Version, d Dogadjaj) (Dogadjaj, bool) {
 			d.Tekst += " · " + m
 		}
 	default:
-		return d, false
+		return false
 	}
-	return d, true
+	return true
 }
 
 // naslovRjesenja: redak rješenja nosi vrstu prijave, u njezinu rodu, jer je
