@@ -1,6 +1,8 @@
 package web
 
 import (
+	"math"
+	"regexp"
 	"strings"
 
 	"gocop/internal/hydro"
@@ -26,7 +28,9 @@ func (r EmbankmentRow) UgrozenoPoZupanijama() []UgrozenaZupanija {
 // na njega; objekt bez nasipa, ali sa stacionažom uz vodu, ide na nasip čiji
 // raspon uz vodu tu stacionažu pokriva — ušće ili vodokaz na rkm 1424+850 leži
 // uz nasip koji štiti 1425+770–1423+770. To pravilo vraća raspored Privitka
-// bez pogađanja. Što ne stane nikamo, ide u zadnji red bez nasipa.
+// bez pogađanja. Isti objekt smije stajati uz dva nasipa: most preko
+// Bobotskog kanala stoji i uz nasip l.o. i uz nasip d.o. (B.15.11). Što ne
+// stane nikamo, ide u zadnji red bez nasipa.
 func embankmentRows(p models.SectionPart) []EmbankmentRow {
 	rows := make([]EmbankmentRow, len(p.Embankments))
 	for i := range p.Embankments {
@@ -38,11 +42,13 @@ func embankmentRows(p models.SectionPart) []EmbankmentRow {
 			rows[i].Objects = append(rows[i].Objects, o)
 			continue
 		}
-		if i := poStacionazi(p.Embankments, o); i >= 0 {
+		nasipi := poStacionazi(p.Embankments, o)
+		for _, i := range nasipi {
 			rows[i].Objects = append(rows[i].Objects, o)
-			continue
 		}
-		loose = append(loose, o)
+		if len(nasipi) == 0 {
+			loose = append(loose, o)
+		}
 	}
 	if len(loose) > 0 {
 		rows = append(rows, EmbankmentRow{Objects: loose})
@@ -63,36 +69,99 @@ func poNazivu(embankments []models.PartEmbankment, name string) int {
 	return -1
 }
 
-// poStacionazi nalazi nasip čiji raspon uz vodu pokriva stacionažu objekta.
+// jednakRaspon: dva nasipa jednako su dugačka uz vodu kad im se rasponi
+// razlikuju za najviše metar (stacionaža je u km)
+const jednakRaspon = 0.001
+
+// poStacionazi nalazi nasipe čiji raspon uz vodu pokriva stacionažu objekta.
 // Uspoređuje se samo ista vrsta stacionaže: rkm objekta prema rkm nasipa.
 // Rasponi se preklapaju — nasip za zaštitu Batine leži unutar nasipa Državna
 // granica–Draž — pa pobjeđuje najuži koji objekt pokriva: to je nasip na
 // kojem objekt doista stoji, i tako ga slaže i Privitak.
-func poStacionazi(embankments []models.PartEmbankment, o models.PartObject) int {
+//
+// Na BP 15 nasip je upisan posebno za lijevu i posebno za desnu obalu:
+// „Nasip uz l.o. Bobotskog kanala” i „Nasip uz d.o. Bobotskog kanala”, oba
+// kkm 24+000–40+000 (B.15.11). Objekt bez obale — most, propust, ušće —
+// prelazi vodu, pa ide na oba; zato se vraćaju svi nasipi jednako uskog
+// raspona, a ne samo prvi. Objekt s obalom ide samo na nasip svoje obale.
+// Kad takvog nema, objekt ostaje bez nasipa: objekt l.o. na rkm 42+780
+// (B.15.2) ne stoji uz nasip d.o. samo zato što jedino taj pokriva rkm.
+func poStacionazi(embankments []models.PartEmbankment, o models.PartObject) []int {
 	km, ok := stacionazaKm(o)
 	if !ok {
-		return -1
+		return nil
 	}
-	best, bestSpan := -1, 0.0
+	type kandidat struct {
+		i    int
+		span float64
+	}
+	var kandidati []kandidat
+	najuzi := math.Inf(1)
 	for i, e := range embankments {
-		if e.WaterFrom == nil || e.WaterTo == nil {
+		span, ok := rasponPokriva(e, o.StationingKind, km)
+		if !ok || !obalaPrima(obalaNasipa(e.Name), o.Bank) {
 			continue
 		}
-		if e.WaterKind != "" && o.StationingKind != "" && !strings.EqualFold(e.WaterKind, o.StationingKind) {
-			continue
-		}
-		lo, hi := *e.WaterFrom, *e.WaterTo
-		if lo > hi {
-			lo, hi = hi, lo
-		}
-		if km < lo || km > hi {
-			continue
-		}
-		if span := hi - lo; best < 0 || span < bestSpan {
-			best, bestSpan = i, span
+		kandidati = append(kandidati, kandidat{i, span})
+		najuzi = math.Min(najuzi, span)
+	}
+	var out []int
+	for _, k := range kandidati {
+		if k.span-najuzi <= jednakRaspon {
+			out = append(out, k.i)
 		}
 	}
-	return best
+	return out
+}
+
+// rasponPokriva kaže pokriva li raspon nasipa uz vodu stacionažu km iste
+// vrste, i koliko je taj raspon dug. Raspon smije biti upisan u bilo kojem
+// smjeru: Privitak za B.34.1 piše rkm 1430+000–1423+770.
+func rasponPokriva(e models.PartEmbankment, vrsta string, km float64) (float64, bool) {
+	if e.WaterFrom == nil || e.WaterTo == nil {
+		return 0, false
+	}
+	if e.WaterKind != "" && vrsta != "" && !strings.EqualFold(e.WaterKind, vrsta) {
+		return 0, false
+	}
+	lo, hi := math.Min(*e.WaterFrom, *e.WaterTo), math.Max(*e.WaterFrom, *e.WaterTo)
+	if km < lo || km > hi {
+		return 0, false
+	}
+	return hi - lo, true
+}
+
+// Obala nasipa piše se samo u nazivu: „Nasip uz l.o. r. Vuke”, „Desni
+// sekundarni nasip Kovačke livade”. Oznaka mora stajati kao zasebna riječ —
+// „Lonja” i „Donji Miholjac” nisu l.o. ni d.o. — pa se točka između slova
+// traži, a granica riječi gleda i hrvatska slova (regexp \b ih ne zna).
+var (
+	reNasipLijevo = regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])(?:l\s*\.\s*o(?:[^\p{L}\p{N}]|$)|lijev)`)
+	reNasipDesno  = regexp.MustCompile(`(?i)(?:^|[^\p{L}\p{N}])(?:d\s*\.\s*o(?:[^\p{L}\p{N}]|$)|desn)`)
+)
+
+// obalaNasipa čita obalu iz naziva nasipa. Naziv s obje obale („Usporni
+// nasip uz l.o. i d.o. K. Travnik”, „Lijevi i desni nasip spojnog kanala”)
+// ili bez obale („Nasip Gomboš”) brani obje, pa prima objekte obiju obala.
+func obalaNasipa(naziv string) string {
+	l, d := reNasipLijevo.MatchString(naziv), reNasipDesno.MatchString(naziv)
+	switch {
+	case l && !d:
+		return hydro.BankLeft
+	case d && !l:
+		return hydro.BankRight
+	}
+	return hydro.BankBoth
+}
+
+// obalaPrima: objekt lijeve obale ide samo na nasip lijeve ili obiju obala,
+// desne isto tako; objekt bez obale ili obiju obala ide na svaki nasip.
+func obalaPrima(nasip, objekt string) bool {
+	switch o := strings.ToUpper(strings.TrimSpace(objekt)); o {
+	case hydro.BankLeft, hydro.BankRight:
+		return nasip == hydro.BankBoth || nasip == o
+	}
+	return true
 }
 
 // stacionazaKm uzima broj kad ga ima, a inače ga čita iz zapisa "rkm 1428+010"
