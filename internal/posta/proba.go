@@ -106,236 +106,326 @@ func (p *ProbniPosluzitelj) Zatvori() {
 // (umjesto NTLM-a), GetFolder i CreateItem s MimeContent
 func PokreniProbniEWS(korisnik, lozinka string) (*ProbniPosluzitelj, error) {
 	p := &ProbniPosluzitelj{Korisnik: korisnik, Lozinka: lozinka}
-	p.web = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		k, l, ok := r.BasicAuth()
-		if !ok || k != p.Korisnik || l != p.Lozinka {
-			w.Header().Add("WWW-Authenticate", `Basic realm="probni"`)
-			w.WriteHeader(http.StatusUnauthorized)
-			return
-		}
-		tijelo, _ := io.ReadAll(r.Body)
-		odgovor := func(vrsta, ishod, tekst string) {
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:%sResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:%sResponseMessage ResponseClass="%s"><m:MessageText>%s</m:MessageText><m:ResponseCode>%s</m:ResponseCode></m:%sResponseMessage></m:ResponseMessages></m:%sResponse></s:Body></s:Envelope>`,
-				vrsta, vrsta, ishod, tekst, kodGreske(ishod, tekst), vrsta, vrsta)
-		}
-		switch {
-		case bytes.Contains(tijelo, []byte("<m:GetFolder>")):
-			ids := regexp.MustCompile(`<t:DistinguishedFolderId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1)
-			if len(ids) <= 1 {
-				odgovor("GetFolder", "Success", "")
-				return
-			}
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			var b bytes.Buffer
-			b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages>`)
-			for _, x := range ids {
-				mapa := string(x[1])
-				if mapa == "archive" && !p.ImaArhivu {
-					b.WriteString(`<m:GetFolderResponseMessage ResponseClass="Error"><m:MessageText>The specified folder could not be found in the store.</m:MessageText><m:ResponseCode>ErrorFolderNotFound</m:ResponseCode></m:GetFolderResponseMessage>`)
-					continue
-				}
-				nepr, uk := 0, 0
-				for _, pi := range p.Pisma {
-					m := p.Mapa[pi.ID]
-					if m == "" {
-						m = "inbox"
-					}
-					if m == mapa {
-						uk++
-						if !pi.Procitano {
-							nepr++
-						}
-					}
-				}
-				fmt.Fprintf(&b, `<m:GetFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Folders><t:Folder><t:DisplayName>%s</t:DisplayName><t:TotalCount>%d</t:TotalCount><t:UnreadCount>%d</t:UnreadCount></t:Folder></m:Folders></m:GetFolderResponseMessage>`, mapa, uk, nepr)
-			}
-			b.WriteString(`</m:ResponseMessages></m:GetFolderResponse></s:Body></s:Envelope>`)
-			_, _ = w.Write(b.Bytes())
-		case bytes.Contains(tijelo, []byte("<m:FindFolder")):
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			var b bytes.Buffer
-			b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder><t:Folders><t:Folder><t:FolderId Id="AAMk-inbox"/><t:DisplayName>Inbox</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`)
-			for id, naziv := range p.Korisnikove {
-				fmt.Fprintf(&b, `<t:Folder><t:FolderId Id="%s"/><t:DisplayName>%s</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`, xmlAttr(id), xmlAttr(naziv))
-			}
-			b.WriteString(`</t:Folders></m:RootFolder></m:FindFolderResponseMessage></m:ResponseMessages></m:FindFolderResponse></s:Body></s:Envelope>`)
-			_, _ = w.Write(b.Bytes())
-		case bytes.Contains(tijelo, []byte("<m:ResolveNames")):
-			x := regexp.MustCompile(`<m:UnresolvedEntry>([^<]*)</m:UnresolvedEntry>`).FindSubmatch(tijelo)
-			upit := ""
-			if x != nil {
-				upit = strings.ToLower(string(x[1]))
-			}
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			var b bytes.Buffer
-			var nadjeni []Kontakt
-			for _, k := range p.Adresar {
-				if strings.Contains(strings.ToLower(k.Ime+" "+k.Email), upit) {
-					nadjeni = append(nadjeni, k)
-				}
-			}
-			if len(nadjeni) == 0 {
-				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Error"><m:MessageText>No results were found.</m:MessageText><m:ResponseCode>ErrorNameResolutionNoResults</m:ResponseCode></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
-				_, _ = w.Write(b.Bytes())
-				return
-			}
-			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:ResolutionSet TotalItemsInView="%d">`, len(nadjeni))
-			for _, k := range nadjeni {
-				fmt.Fprintf(&b, `<t:Resolution><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox><t:Contact><t:DisplayName>%s</t:DisplayName><t:PhoneNumbers><t:Entry Key="BusinessPhone">%s</t:Entry><t:Entry Key="MobilePhone">%s</t:Entry></t:PhoneNumbers><t:JobTitle>%s</t:JobTitle><t:Department>%s</t:Department></t:Contact></t:Resolution>`,
-					xmlAttr(k.Ime), xmlAttr(k.Email), xmlAttr(k.Ime), xmlAttr(k.Telefon), xmlAttr(k.Mobitel), xmlAttr(k.Funkcija), xmlAttr(k.Odjel))
-			}
-			b.WriteString(`</m:ResolutionSet></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
-			_, _ = w.Write(b.Bytes())
-		case bytes.Contains(tijelo, []byte("<m:FindItem")):
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			mapa := "inbox"
-			if x := regexp.MustCompile(`<t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo); x != nil {
-				mapa = string(x[1])
-			}
-			upit := ""
-			if x := regexp.MustCompile(`<m:QueryString>([^<]*)</m:QueryString>`).FindSubmatch(tijelo); x != nil {
-				upit = strings.ToLower(string(x[1]))
-			}
-			var odabrana []Pismo
-			for _, x := range p.Pisma {
-				m := p.Mapa[x.ID]
-				if m == "" {
-					m = "inbox"
-				}
-				if m != mapa {
-					continue
-				}
-				if upit != "" && !strings.Contains(strings.ToLower(x.Predmet+" "+x.Od+" "+x.Tekst), upit) {
-					continue
-				}
-				odabrana = append(odabrana, x)
-			}
-			var b bytes.Buffer
-			fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(odabrana))
-			for _, x := range odabrana {
-				fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead><t:Preview>%s</t:Preview></t:Message>`,
-					xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano, xmlAttr(x.Tekst))
-			}
-			b.WriteString(`</t:Items></m:RootFolder></m:FindItemResponseMessage></m:ResponseMessages></m:FindItemResponse></s:Body></s:Envelope>`)
-			_, _ = w.Write(b.Bytes())
-		case bytes.Contains(tijelo, []byte("<m:GetItem>")):
-			x := regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindSubmatch(tijelo)
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			for _, pi := range p.Pisma {
-				if x == nil || pi.ID != string(x[1]) {
-					continue
-				}
-				var b bytes.Buffer
-				html := pi.HTML
-				if html == "" {
-					html = "<html><body><p>" + strings.ReplaceAll(xmlAttr(pi.Tekst), "\n", "<br>") + "</p></body></html>"
-				}
-				fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:InternetMessageId>%s</t:InternetMessageId><t:Subject>%s</t:Subject><t:Body BodyType="HTML">%s</t:Body><t:TextBody>%s</t:TextBody><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
-					xmlAttr(pi.ID), xmlAttr(pi.MessageID), xmlAttr(pi.Predmet), xmlAttr(html), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
-				for _, a := range pi.Privitci {
-					fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:ContentId>%s</t:ContentId><t:Size>%d</t:Size><t:IsInline>%v</t:IsInline></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, xmlAttr(a.ContentID), a.Velicina, a.Ugradjen)
-				}
-				b.WriteString(`</t:Attachments></t:Message></m:Items></m:GetItemResponseMessage></m:ResponseMessages></m:GetItemResponse></s:Body></s:Envelope>`)
-				_, _ = w.Write(b.Bytes())
-				return
-			}
-			odgovor("GetItem", "Error", "The specified object was not found in the store.")
-		case bytes.Contains(tijelo, []byte("<m:UpdateItem")):
-			xs := regexp.MustCompile(`<t:ItemId Id="([^"]*)" ChangeKey="([^"]*)"`).FindAllSubmatch(tijelo, -1)
-			for _, x := range xs {
-				if string(x[2]) != "ck1" {
-					odgovor("UpdateItem", "Error", "ErrorIrresolvableConflict")
-					return
-				}
-				for i := range p.Pisma {
-					if p.Pisma[i].ID == string(x[1]) {
-						p.Pisma[i].Procitano = bytes.Contains(tijelo, []byte("<t:IsRead>true</t:IsRead>"))
-					}
-				}
-			}
-			odgovor("UpdateItem", "Success", "")
-		case bytes.Contains(tijelo, []byte("<m:DeleteItem")):
-			brisi := map[string]bool{}
-			for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
-				brisi[string(x[1])] = true
-			}
-			var ostaju []Pismo
-			for _, pi := range p.Pisma {
-				if !brisi[pi.ID] {
-					ostaju = append(ostaju, pi)
-				}
-			}
-			p.Pisma = ostaju
-			odgovor("DeleteItem", "Success", "")
-		case bytes.Contains(tijelo, []byte("<m:MoveItem>")):
-			cilj := regexp.MustCompile(`<m:ToFolderId><t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo)
-			if cilj == nil || (string(cilj[1]) == "archive" && !p.ImaArhivu) {
-				odgovor("MoveItem", "Error", "The specified folder could not be found in the store. ErrorFolderNotFound")
-				return
-			}
-			if p.Mapa == nil {
-				p.Mapa = map[string]string{}
-			}
-			for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
-				p.Mapa[string(x[1])] = string(cilj[1])
-			}
-			odgovor("MoveItem", "Success", "")
-		case bytes.Contains(tijelo, []byte("<m:GetAttachment>")):
-			x := regexp.MustCompile(`<t:AttachmentId Id="([^"]*)"`).FindSubmatch(tijelo)
-			w.Header().Set("Content-Type", "text/xml; charset=utf-8")
-			for _, pi := range p.Pisma {
-				for _, a := range pi.Privitci {
-					if x != nil && a.ID == string(x[1]) {
-						fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetAttachmentResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetAttachmentResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Attachments><t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Content>%s</t:Content></t:FileAttachment></m:Attachments></m:GetAttachmentResponseMessage></m:ResponseMessages></m:GetAttachmentResponse></s:Body></s:Envelope>`,
-							xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, base64.StdEncoding.EncodeToString(p.Datoteke[a.ID]))
-						return
-					}
-				}
-			}
-			odgovor("GetAttachment", "Error", "The specified object was not found in the store.")
-		case bytes.Contains(tijelo, []byte("<m:CreateItem")):
-			x := regexp.MustCompile(`<t:MimeContent[^>]*>([^<]*)</t:MimeContent>`).FindSubmatch(tijelo)
-			if x == nil {
-				odgovor("CreateItem", "Error", "nema MimeContent")
-				return
-			}
-			mimeP, _ := base64.StdEncoding.DecodeString(string(x[1]))
-			m, err := mail.ReadMessage(bytes.NewReader(mimeP))
-			if err != nil {
-				odgovor("CreateItem", "Error", err.Error())
-				return
-			}
-			za, _ := mail.ParseAddressList(m.Header.Get("To"))
-			if cc := m.Header.Get("Cc"); cc != "" {
-				k, _ := mail.ParseAddressList(cc)
-				za = append(za, k...)
-			}
-			od, _ := mail.ParseAddress(m.Header.Get("From"))
-			if len(za) == 0 || od == nil {
-				odgovor("CreateItem", "Error", "One or more recipients are invalid.")
-				return
-			}
-			for _, x := range za {
-				if slices.Contains(p.Odbij, strings.ToLower(x.Address)) {
-					odgovor("CreateItem", "Error", "One or more recipients are invalid.")
-					return
-				}
-			}
-			p.mu.Lock()
-			for _, x := range za {
-				p.poruke = append(p.poruke, Primljena{Od: strings.ToLower(od.Address), Za: strings.ToLower(x.Address), Podaci: string(mimeP)})
-			}
-			p.mu.Unlock()
-			odgovor("CreateItem", "Success", "")
-		default:
-			w.WriteHeader(http.StatusBadRequest)
-		}
-	}))
+	p.web = httptest.NewTLSServer(http.HandlerFunc(p.obradiEWS))
 	pool := x509.NewCertPool()
 	pool.AddCert(p.web.Certificate())
 	p.klijent = &tls.Config{RootCAs: pool}
 	return p, nil
+}
+
+// ewsOperacije: operacija se prepoznaje po prvoj oznaci s popisa koja se nađe
+// u tijelu, pa redoslijed odlučuje kad tijelo nosi više oznaka
+var ewsOperacije = []struct {
+	oznaka string
+	obradi func(p *ProbniPosluzitelj, w http.ResponseWriter, tijelo []byte)
+}{
+	{"<m:GetFolder>", (*ProbniPosluzitelj).ewsGetFolder},
+	{"<m:FindFolder", (*ProbniPosluzitelj).ewsFindFolder},
+	{"<m:ResolveNames", (*ProbniPosluzitelj).ewsResolveNames},
+	{"<m:FindItem", (*ProbniPosluzitelj).ewsFindItem},
+	{"<m:GetItem>", (*ProbniPosluzitelj).ewsGetItem},
+	{"<m:UpdateItem", (*ProbniPosluzitelj).ewsUpdateItem},
+	{"<m:DeleteItem", (*ProbniPosluzitelj).ewsDeleteItem},
+	{"<m:MoveItem>", (*ProbniPosluzitelj).ewsMoveItem},
+	{"<m:GetAttachment>", (*ProbniPosluzitelj).ewsGetAttachment},
+	{"<m:CreateItem", (*ProbniPosluzitelj).ewsCreateItem},
+}
+
+// obradiEWS provjeri prijavu Basic i preda tijelo operaciji; nepoznata je 400
+func (p *ProbniPosluzitelj) obradiEWS(w http.ResponseWriter, r *http.Request) {
+	k, l, ok := r.BasicAuth()
+	if !ok || k != p.Korisnik || l != p.Lozinka {
+		w.Header().Add("WWW-Authenticate", `Basic realm="probni"`)
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	tijelo, _ := io.ReadAll(r.Body) // krnje tijelo samo ne prepozna operaciju
+	for _, o := range ewsOperacije {
+		if bytes.Contains(tijelo, []byte(o.oznaka)) {
+			o.obradi(p, w, tijelo)
+			return
+		}
+	}
+	w.WriteHeader(http.StatusBadRequest)
+}
+
+// probniOdgovor je odgovor bez podataka: samo ishod, poruka i kod
+func probniOdgovor(w http.ResponseWriter, vrsta, ishod, tekst string) {
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:%sResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:%sResponseMessage ResponseClass="%s"><m:MessageText>%s</m:MessageText><m:ResponseCode>%s</m:ResponseCode></m:%sResponseMessage></m:ResponseMessages></m:%sResponse></s:Body></s:Envelope>`,
+		vrsta, vrsta, ishod, tekst, kodGreske(ishod, tekst), vrsta, vrsta)
+}
+
+// mapaPisma: pismo koje nitko nije premjestio je u inboxu
+func (p *ProbniPosluzitelj) mapaPisma(id string) string {
+	m := p.Mapa[id]
+	if m == "" {
+		m = "inbox"
+	}
+	return m
+}
+
+// ewsGetFolder: za jednu mapu samo potvrdi (tako se provjerava prijava), za
+// više njih vrati broj pisama i nepročitanih po mapi
+func (p *ProbniPosluzitelj) ewsGetFolder(w http.ResponseWriter, tijelo []byte) {
+	ids := regexp.MustCompile(`<t:DistinguishedFolderId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1)
+	if len(ids) <= 1 {
+		probniOdgovor(w, "GetFolder", "Success", "")
+		return
+	}
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	var b bytes.Buffer
+	b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages>`)
+	for _, x := range ids {
+		mapa := string(x[1])
+		if mapa == "archive" && !p.ImaArhivu {
+			b.WriteString(`<m:GetFolderResponseMessage ResponseClass="Error"><m:MessageText>The specified folder could not be found in the store.</m:MessageText><m:ResponseCode>ErrorFolderNotFound</m:ResponseCode></m:GetFolderResponseMessage>`)
+			continue
+		}
+		uk, nepr := p.brojPisama(mapa)
+		fmt.Fprintf(&b, `<m:GetFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Folders><t:Folder><t:DisplayName>%s</t:DisplayName><t:TotalCount>%d</t:TotalCount><t:UnreadCount>%d</t:UnreadCount></t:Folder></m:Folders></m:GetFolderResponseMessage>`, mapa, uk, nepr)
+	}
+	b.WriteString(`</m:ResponseMessages></m:GetFolderResponse></s:Body></s:Envelope>`)
+	_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+}
+
+// brojPisama vrati koliko je pisama u mapi i koliko ih nije pročitano
+func (p *ProbniPosluzitelj) brojPisama(mapa string) (uk, nepr int) {
+	for _, pi := range p.Pisma {
+		if p.mapaPisma(pi.ID) == mapa {
+			uk++
+			if !pi.Procitano {
+				nepr++
+			}
+		}
+	}
+	return uk, nepr
+}
+
+// ewsFindFolder vrati inbox i korisnikove mape, sve prazne
+func (p *ProbniPosluzitelj) ewsFindFolder(w http.ResponseWriter, _ []byte) {
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	var b bytes.Buffer
+	b.WriteString(`<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindFolderResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindFolderResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder><t:Folders><t:Folder><t:FolderId Id="AAMk-inbox"/><t:DisplayName>Inbox</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`)
+	for id, naziv := range p.Korisnikove {
+		fmt.Fprintf(&b, `<t:Folder><t:FolderId Id="%s"/><t:DisplayName>%s</t:DisplayName><t:FolderClass>IPF.Note</t:FolderClass><t:TotalCount>0</t:TotalCount><t:UnreadCount>0</t:UnreadCount></t:Folder>`, xmlAttr(id), xmlAttr(naziv))
+	}
+	b.WriteString(`</t:Folders></m:RootFolder></m:FindFolderResponseMessage></m:ResponseMessages></m:FindFolderResponse></s:Body></s:Envelope>`)
+	_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+}
+
+// ewsResolveNames traži u adresaru po dijelu imena ili adrese
+func (p *ProbniPosluzitelj) ewsResolveNames(w http.ResponseWriter, tijelo []byte) {
+	x := regexp.MustCompile(`<m:UnresolvedEntry>([^<]*)</m:UnresolvedEntry>`).FindSubmatch(tijelo)
+	upit := ""
+	if x != nil {
+		upit = strings.ToLower(string(x[1]))
+	}
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	var b bytes.Buffer
+	nadjeni := p.nadjiKontakte(upit)
+	if len(nadjeni) == 0 {
+		fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Error"><m:MessageText>No results were found.</m:MessageText><m:ResponseCode>ErrorNameResolutionNoResults</m:ResponseCode></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
+		_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+		return
+	}
+	fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:ResolveNamesResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:ResolveNamesResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:ResolutionSet TotalItemsInView="%d">`, len(nadjeni))
+	for _, k := range nadjeni {
+		fmt.Fprintf(&b, `<t:Resolution><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox><t:Contact><t:DisplayName>%s</t:DisplayName><t:PhoneNumbers><t:Entry Key="BusinessPhone">%s</t:Entry><t:Entry Key="MobilePhone">%s</t:Entry></t:PhoneNumbers><t:JobTitle>%s</t:JobTitle><t:Department>%s</t:Department></t:Contact></t:Resolution>`,
+			xmlAttr(k.Ime), xmlAttr(k.Email), xmlAttr(k.Ime), xmlAttr(k.Telefon), xmlAttr(k.Mobitel), xmlAttr(k.Funkcija), xmlAttr(k.Odjel))
+	}
+	b.WriteString(`</m:ResolutionSet></m:ResolveNamesResponseMessage></m:ResponseMessages></m:ResolveNamesResponse></s:Body></s:Envelope>`)
+	_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+}
+
+// nadjiKontakte: upit je već malim slovima, prazan odgovara svima
+func (p *ProbniPosluzitelj) nadjiKontakte(upit string) []Kontakt {
+	var nadjeni []Kontakt
+	for _, k := range p.Adresar {
+		if strings.Contains(strings.ToLower(k.Ime+" "+k.Email), upit) {
+			nadjeni = append(nadjeni, k)
+		}
+	}
+	return nadjeni
+}
+
+// ewsFindItem vrati sva pisma mape (stranica se ne gleda), uz pretragu
+// QueryString po predmetu, pošiljatelju i tekstu
+func (p *ProbniPosluzitelj) ewsFindItem(w http.ResponseWriter, tijelo []byte) {
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	mapa := "inbox"
+	if x := regexp.MustCompile(`<t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo); x != nil {
+		mapa = string(x[1])
+	}
+	upit := ""
+	if x := regexp.MustCompile(`<m:QueryString>([^<]*)</m:QueryString>`).FindSubmatch(tijelo); x != nil {
+		upit = strings.ToLower(string(x[1]))
+	}
+	odabrana := p.odaberiPisma(mapa, upit)
+	var b bytes.Buffer
+	fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:FindItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:FindItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:RootFolder TotalItemsInView="%d"><t:Items>`, len(odabrana))
+	for _, x := range odabrana {
+		fmt.Fprintf(&b, `<t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:Subject>%s</t:Subject><t:HasAttachments>%v</t:HasAttachments><t:Size>%d</t:Size><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:IsRead>%v</t:IsRead><t:Preview>%s</t:Preview></t:Message>`,
+			xmlAttr(x.ID), xmlAttr(x.Predmet), len(x.Privitci) > 0, x.Velicina, x.Kad.UTC().Format(time.RFC3339), xmlAttr(x.Od), xmlAttr(x.OdAdresa), x.Procitano, xmlAttr(x.Tekst))
+	}
+	b.WriteString(`</t:Items></m:RootFolder></m:FindItemResponseMessage></m:ResponseMessages></m:FindItemResponse></s:Body></s:Envelope>`)
+	_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+}
+
+// odaberiPisma: pisma mape kojima predmet, pošiljatelj ili tekst sadrže upit
+func (p *ProbniPosluzitelj) odaberiPisma(mapa, upit string) []Pismo {
+	var odabrana []Pismo
+	for _, x := range p.Pisma {
+		if p.mapaPisma(x.ID) != mapa {
+			continue
+		}
+		if upit != "" && !strings.Contains(strings.ToLower(x.Predmet+" "+x.Od+" "+x.Tekst), upit) {
+			continue
+		}
+		odabrana = append(odabrana, x)
+	}
+	return odabrana
+}
+
+// ewsGetItem vrati otvoreno pismo s popisom privitaka
+func (p *ProbniPosluzitelj) ewsGetItem(w http.ResponseWriter, tijelo []byte) {
+	x := regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindSubmatch(tijelo)
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	for _, pi := range p.Pisma {
+		if x == nil || pi.ID != string(x[1]) {
+			continue
+		}
+		p.ewsOtvorenoPismo(w, pi)
+		return
+	}
+	probniOdgovor(w, "GetItem", "Error", "The specified object was not found in the store.")
+}
+
+// ewsOtvorenoPismo: bez HTML-a tijelo se slaže iz teksta
+func (p *ProbniPosluzitelj) ewsOtvorenoPismo(w http.ResponseWriter, pi Pismo) {
+	var b bytes.Buffer
+	html := pi.HTML
+	if html == "" {
+		html = "<html><body><p>" + strings.ReplaceAll(xmlAttr(pi.Tekst), "\n", "<br>") + "</p></body></html>"
+	}
+	fmt.Fprintf(&b, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetItemResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetItemResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Items><t:Message><t:ItemId Id="%s" ChangeKey="ck1"/><t:InternetMessageId>%s</t:InternetMessageId><t:Subject>%s</t:Subject><t:Body BodyType="HTML">%s</t:Body><t:TextBody>%s</t:TextBody><t:DateTimeReceived>%s</t:DateTimeReceived><t:From><t:Mailbox><t:Name>%s</t:Name><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:From><t:ToRecipients><t:Mailbox><t:EmailAddress>%s</t:EmailAddress></t:Mailbox></t:ToRecipients><t:Attachments>`,
+		xmlAttr(pi.ID), xmlAttr(pi.MessageID), xmlAttr(pi.Predmet), xmlAttr(html), xmlAttr(pi.Tekst), pi.Kad.UTC().Format(time.RFC3339), xmlAttr(pi.Od), xmlAttr(pi.OdAdresa), xmlAttr(p.Korisnik))
+	for _, a := range pi.Privitci {
+		fmt.Fprintf(&b, `<t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:ContentId>%s</t:ContentId><t:Size>%d</t:Size><t:IsInline>%v</t:IsInline></t:FileAttachment>`, xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, xmlAttr(a.ContentID), a.Velicina, a.Ugradjen)
+	}
+	b.WriteString(`</t:Attachments></t:Message></m:Items></m:GetItemResponseMessage></m:ResponseMessages></m:GetItemResponse></s:Body></s:Envelope>`)
+	_, _ = w.Write(b.Bytes()) // klijent koji je otišao ionako ne čita odgovor
+}
+
+// ewsUpdateItem označi pisma pročitanima ili nepročitanima; ChangeKey osim
+// ck1 je sukob, a pisma prije njega ostaju promijenjena
+func (p *ProbniPosluzitelj) ewsUpdateItem(w http.ResponseWriter, tijelo []byte) {
+	xs := regexp.MustCompile(`<t:ItemId Id="([^"]*)" ChangeKey="([^"]*)"`).FindAllSubmatch(tijelo, -1)
+	for _, x := range xs {
+		if string(x[2]) != "ck1" {
+			probniOdgovor(w, "UpdateItem", "Error", "ErrorIrresolvableConflict")
+			return
+		}
+		for i := range p.Pisma {
+			if p.Pisma[i].ID == string(x[1]) {
+				p.Pisma[i].Procitano = bytes.Contains(tijelo, []byte("<t:IsRead>true</t:IsRead>"))
+			}
+		}
+	}
+	probniOdgovor(w, "UpdateItem", "Success", "")
+}
+
+// ewsDeleteItem briše pisma, nepoznati ID se preskače
+func (p *ProbniPosluzitelj) ewsDeleteItem(w http.ResponseWriter, tijelo []byte) {
+	brisi := map[string]bool{}
+	for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
+		brisi[string(x[1])] = true
+	}
+	var ostaju []Pismo
+	for _, pi := range p.Pisma {
+		if !brisi[pi.ID] {
+			ostaju = append(ostaju, pi)
+		}
+	}
+	p.Pisma = ostaju
+	probniOdgovor(w, "DeleteItem", "Success", "")
+}
+
+// ewsMoveItem premješta pisma u mapu; arhive nema dok nije ImaArhivu
+func (p *ProbniPosluzitelj) ewsMoveItem(w http.ResponseWriter, tijelo []byte) {
+	cilj := regexp.MustCompile(`<m:ToFolderId><t:(?:Distinguished)?FolderId Id="([^"]*)"`).FindSubmatch(tijelo)
+	if cilj == nil || (string(cilj[1]) == "archive" && !p.ImaArhivu) {
+		probniOdgovor(w, "MoveItem", "Error", "The specified folder could not be found in the store. ErrorFolderNotFound")
+		return
+	}
+	if p.Mapa == nil {
+		p.Mapa = map[string]string{}
+	}
+	for _, x := range regexp.MustCompile(`<t:ItemId Id="([^"]*)"`).FindAllSubmatch(tijelo, -1) {
+		p.Mapa[string(x[1])] = string(cilj[1])
+	}
+	probniOdgovor(w, "MoveItem", "Success", "")
+}
+
+// ewsGetAttachment vrati sadržaj privitka iz Datoteke
+func (p *ProbniPosluzitelj) ewsGetAttachment(w http.ResponseWriter, tijelo []byte) {
+	x := regexp.MustCompile(`<t:AttachmentId Id="([^"]*)"`).FindSubmatch(tijelo)
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	for _, pi := range p.Pisma {
+		for _, a := range pi.Privitci {
+			if x != nil && a.ID == string(x[1]) {
+				fmt.Fprintf(w, `<?xml version="1.0"?><s:Envelope xmlns:s="http://schemas.xmlsoap.org/soap/envelope/"><s:Body><m:GetAttachmentResponse xmlns:m="m" xmlns:t="t"><m:ResponseMessages><m:GetAttachmentResponseMessage ResponseClass="Success"><m:ResponseCode>NoError</m:ResponseCode><m:Attachments><t:FileAttachment><t:AttachmentId Id="%s"/><t:Name>%s</t:Name><t:ContentType>%s</t:ContentType><t:Content>%s</t:Content></t:FileAttachment></m:Attachments></m:GetAttachmentResponseMessage></m:ResponseMessages></m:GetAttachmentResponse></s:Body></s:Envelope>`,
+					xmlAttr(a.ID), xmlAttr(a.Ime), a.Vrsta, base64.StdEncoding.EncodeToString(p.Datoteke[a.ID]))
+				return
+			}
+		}
+	}
+	probniOdgovor(w, "GetAttachment", "Error", "The specified object was not found in the store.")
+}
+
+// ewsCreateItem "šalje" pismo iz MimeContent: pamti ga za svakog primatelja
+// (To i Cc), a ako je ijedan na popisu Odbij, ne šalje nikome
+func (p *ProbniPosluzitelj) ewsCreateItem(w http.ResponseWriter, tijelo []byte) {
+	x := regexp.MustCompile(`<t:MimeContent[^>]*>([^<]*)</t:MimeContent>`).FindSubmatch(tijelo)
+	if x == nil {
+		probniOdgovor(w, "CreateItem", "Error", "nema MimeContent")
+		return
+	}
+	mimeP, _ := base64.StdEncoding.DecodeString(string(x[1])) // krnji base64 daje dio pisma, a ReadMessage javi grešku
+	m, err := mail.ReadMessage(bytes.NewReader(mimeP))
+	if err != nil {
+		probniOdgovor(w, "CreateItem", "Error", err.Error())
+		return
+	}
+	za, od := adresePisma(m)
+	if len(za) == 0 || od == nil {
+		probniOdgovor(w, "CreateItem", "Error", "One or more recipients are invalid.")
+		return
+	}
+	for _, x := range za {
+		if slices.Contains(p.Odbij, strings.ToLower(x.Address)) {
+			probniOdgovor(w, "CreateItem", "Error", "One or more recipients are invalid.")
+			return
+		}
+	}
+	p.mu.Lock()
+	for _, x := range za {
+		p.poruke = append(p.poruke, Primljena{Od: strings.ToLower(od.Address), Za: strings.ToLower(x.Address), Podaci: string(mimeP)})
+	}
+	p.mu.Unlock()
+	probniOdgovor(w, "CreateItem", "Success", "")
+}
+
+// adresePisma vrati primatelje (To pa Cc) i pošiljatelja; neispravne adrese
+// ostaju prazne, pa ih pozivatelj odbije
+func adresePisma(m *mail.Message) (za []*mail.Address, od *mail.Address) {
+	za, _ = mail.ParseAddressList(m.Header.Get("To")) // bez valjanih primatelja pismo se odbija
+	if cc := m.Header.Get("Cc"); cc != "" {
+		k, _ := mail.ParseAddressList(cc) // neispravna kopija samo ne dodaje primatelje
+		za = append(za, k...)
+	}
+	od, _ = mail.ParseAddress(m.Header.Get("From")) // bez pošiljatelja pismo se odbija
+	return za, od
 }
 
 func (p *ProbniPosluzitelj) primaj() {
