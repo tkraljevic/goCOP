@@ -974,10 +974,9 @@ Razmjenom putuje samo opis karte bez interneta, ne i sama karta. Na
 računalu koje kartu ima globalni administrator u Administraciji › Karte
 preuzme njezin paket `.cop`, a na svakom drugom računalu učita ga na istoj
 stranici. Karta Sektora B ima oko 120 MB, a učitavanje traje do minute.
-Računalo s 0.0.45-alfa kartu ne prikazuje. Ako se na njemu spreme postavke
-karata, opis karte nestane i s ostalih računala, pa kartu treba ponovno
-učitati na jednom od njih. Zato za vrijeme nadogradnje ne spremati
-postavke karata na računalu sa starijim izdanjem.
+Računalo s 0.0.45-alfa kartu ne prikazuje. Opis karte čuva se odvojeno od
+ostalih postavki karata, pa ga spremanje izgleda karte na starijem
+izdanju ne briše.
 
 0.0.45-alfa radi uz 0.0.37–0.0.44-alfa i razmjena s njima ide kao i dosad.
 Baza pri prvom pokretanju dobiva stupac za crtu objekta (`structures.geometry`).

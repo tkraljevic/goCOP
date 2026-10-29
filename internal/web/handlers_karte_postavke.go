@@ -64,14 +64,14 @@ func (h *AktiHandler) ShowPostavkeKarte(w http.ResponseWriter, r *http.Request) 
 	if s == nil || u == nil {
 		return
 	}
-	p := s.PostavkeKarte(r.Context())
+	p, k := s.PostavkeKarte(r.Context()), s.KartaBezInterneta(r.Context())
 	glavna := models.TemaPrograma().Svijetla.Popunjeno(models.ZadanaSvijetla, true).Glavna
 	d := PostavkeKarteData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
 		Podloge: podlogeZaObrazac(p.Podloge),
 		Ikone:   append([]struct{ Ime, Naziv string }{}, models.IkoneTocaka...), Glavna: glavna,
 		Postavke:  h.postavkeCvora.za(r, "/administracija/karte"),
-		Vektorska: p.Vektorska, VektorskaOvdje: kartaOvdje(p.Vektorska), SKrugom: p.SKrugom, Velicina: p.Velicina(),
+		Vektorska: k, VektorskaOvdje: kartaOvdje(k), SKrugom: p.SKrugom, Velicina: p.Velicina(),
 		Vlastite: p.Ikone, AdresaIkona: statickaAdresa("img/icons.svg"), AdresaSvojih: adresaVlastitihIkona(p)}
 	for _, ik := range p.Ikone {
 		d.Ikone = append(d.Ikone, struct{ Ime, Naziv string }{ik.Ime, ik.Naziv})
@@ -111,14 +111,8 @@ func (h *AktiHandler) HandlePostavkeKarte(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if r.FormValue("radnja") == "zadano" {
-		// karta bez interneta nije izgled, pa ostaje
-		var zadano *models.PostavkeKarte
-		if k := s.PostavkeKarte(r.Context()).Vektorska; k != nil {
-			z := models.ZadanePostavkeKarte()
-			z.Vektorska = k
-			zadano = &z
-		}
-		if err := s.SpremiPostavkeKarte(r.Context(), perms, zadano); err != nil {
+		// karta bez interneta je zasebna postavka, pa ostaje
+		if err := s.SpremiPostavkeKarte(r.Context(), perms, nil); err != nil {
 			redirectWith(w, r, "/administracija/karte", "error", err.Error())
 			return
 		}
@@ -127,7 +121,7 @@ func (h *AktiHandler) HandlePostavkeKarte(w http.ResponseWriter, r *http.Request
 	}
 	p := postavkeKarteIzObrasca(r)
 	zatecene := s.PostavkeKarte(r.Context())
-	p.Ikone, p.Vektorska = zatecene.Ikone, zatecene.Vektorska // obrazac ikone i kartu ne nosi
+	p.Ikone = zatecene.Ikone // obrazac ikone ne nosi
 	if err := s.SpremiPostavkeKarte(r.Context(), perms, &p); err != nil {
 		redirectWith(w, r, "/administracija/karte", "error", err.Error())
 		return

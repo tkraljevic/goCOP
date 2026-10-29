@@ -3,7 +3,9 @@ package peers
 // .cop paket karte: vektorska karta bez interneta (PMTiles) s manifestom i
 // potpisom izdavača, u istom ZIP obliku kao paket kanala. Ne ide u knjigu
 // verzija: razmjenom putuje samo opis karte (models.VektorskaKarta u
-// postavkama karata), a datoteka se na svaki čvor učitava ovim paketom.
+// zasebnoj postavci karta_bez_interneta), a datoteka se na svaki čvor
+// učitava ovim paketom. Opis nosi i otiske dijelova karte; oni se ne
+// potpisuju, nego se pri spremanju računaju iz bajtova.
 //
 // Unutra je ZIP:
 //   manifest.json   vrsta "karta", opis karte, izdavač i potpis
@@ -20,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"path/filepath"
@@ -135,15 +138,16 @@ func (s *Service) UveziKartu(ctx context.Context, put, mapa string) (models.Vekt
 	if err := s.provjeriIzdavacaKarte(ctx, m); err != nil {
 		return m.Karta, err
 	}
-	return m.Karta, raspakirajKartu(kf, m.Karta, mapa)
+	return raspakirajKartu(kf, m.Karta, mapa)
 }
 
-// raspakirajKartu sprema kartu iz paketa; karta koja ne odgovara opisu iz
+// raspakirajKartu sprema kartu iz paketa i vraća opis spremljene karte, s
+// dijelovima izračunatim iz bajtova; karta koja ne odgovara opisu iz
 // potpisanog manifesta ne ostaje na disku
-func raspakirajKartu(kf *zip.File, opis models.VektorskaKarta, mapa string) error {
+func raspakirajKartu(kf *zip.File, opis models.VektorskaKarta, mapa string) (models.VektorskaKarta, error) {
 	rc, err := kf.Open()
 	if err != nil {
-		return errors.New("karta u paketu se ne da otvoriti")
+		return opis, errors.New("karta u paketu se ne da otvoriti")
 	}
 	defer func() { _ = rc.Close() }() // samo čitanje
 	k, err := SpremiKartu(rc, mapa, opis.Naziv, opis.Izvor)
@@ -151,7 +155,10 @@ func raspakirajKartu(kf *zip.File, opis models.VektorskaKarta, mapa string) erro
 		_ = os.Remove(PutKarte(mapa, k.Otisak)) // mogla je biti i prije: tada je ista karta, pa ponovno učitavanje vraća
 		err = errors.New("karta u paketu ne odgovara otisku iz manifesta")
 	}
-	return err
+	if err != nil {
+		return opis, err
+	}
+	return k, nil
 }
 
 func citajPaketKarte(z *zip.Reader) (KartaManifest, *zip.File, error) {
@@ -246,37 +253,56 @@ func PutKarte(mapa, otisak string) string {
 // test smanji)
 var NajvecaKarta int64 = 2 << 30
 
+// VelicinaDijelaKarte je veličina dijela karte čiji se otisak upisuje u
+// opis (varijabla samo zato da je test smanji; od 1 do
+// models.NajveciDioKarte, inače SpremiKartu kartu odbije prije upisa)
+var VelicinaDijelaKarte int64 = 4 << 20
+
 // SpremiKartu sprema učitanu PMTiles kartu u mapu pod njezinim otiskom i iz
-// zaglavlja čita područje i najveće povećanje. Prima samo vektorsku kartu.
+// zaglavlja čita područje i najveće povećanje, a usput računa otiske
+// dijelova. Prima samo vektorsku kartu.
 func SpremiKartu(r io.Reader, mapa, naziv, izvor string) (models.VektorskaKarta, error) {
 	k := models.VektorskaKarta{Naziv: strings.TrimSpace(naziv), Izvor: strings.TrimSpace(izvor)}
 	if err := os.MkdirAll(mapa, 0o750); err != nil {
 		return k, err
 	}
-	tmp, glava, otisak, n, err := upisiPrivremeno(r, mapa)
-	defer os.Remove(tmp) //nolint:errcheck // nakon preimenovanja je nema
+	u, err := upisiPrivremeno(r, mapa)
+	defer os.Remove(u.put) //nolint:errcheck // nakon preimenovanja je nema
 	if err != nil {
 		return k, err
 	}
-	if err := zaglavljeKarte(glava, &k); err != nil {
+	if err := zaglavljeKarte(u.glava, &k); err != nil {
 		return k, err
 	}
-	k.Otisak, k.Bajtova = otisak, n
+	k.Otisak, k.Bajtova, k.Dio, k.Dijelovi = u.otisak, u.n, VelicinaDijelaKarte, u.dijelovi
 	if _, err := k.Provjereno(); err != nil {
 		return k, err
 	}
-	return k, os.Rename(tmp, PutKarte(mapa, k.Otisak))
+	return k, os.Rename(u.put, PutKarte(mapa, k.Otisak))
+}
+
+// upisanaKarta je privremena datoteka karte s onim što se o njoj saznalo
+// dok je stizala
+type upisanaKarta struct {
+	put      string
+	glava    []byte // zaglavlje PMTiles
+	otisak   string
+	n        int64
+	dijelovi []string
 }
 
 // upisiPrivremeno sprema kartu kako stiže u privremenu datoteku u mapi
-// karata, usput joj računa otisak i pamti zaglavlje
-func upisiPrivremeno(r io.Reader, mapa string) (put string, glava []byte, otisak string, n int64, err error) {
+// karata, usput joj računa otisak i otiske dijelova i pamti zaglavlje
+func upisiPrivremeno(r io.Reader, mapa string) (upisanaKarta, error) {
+	if !dioKarteIspravan(VelicinaDijelaKarte) {
+		return upisanaKarta{}, errors.New("veličina dijela karte nije ispravna")
+	}
 	tmp, err := os.CreateTemp(mapa, "ucitavanje-*.pmtiles")
 	if err != nil {
-		return "", nil, "", 0, err
+		return upisanaKarta{}, err
 	}
-	h, g := sha256.New(), &pocetak{}
-	n, err = io.Copy(io.MultiWriter(tmp, h, g), io.LimitReader(r, NajvecaKarta+1))
+	h, g, d := sha256.New(), &pocetak{}, &dijeloviPisac{velicina: VelicinaDijelaKarte, h: sha256.New()}
+	n, err := io.Copy(io.MultiWriter(tmp, h, g, d), io.LimitReader(r, NajvecaKarta+1))
 	if cerr := tmp.Close(); err == nil {
 		err = cerr
 	}
@@ -286,7 +312,50 @@ func upisiPrivremeno(r io.Reader, mapa string) (put string, glava []byte, otisak
 	case n > NajvecaKarta:
 		err = errors.New("karta je prevelika (najviše 2 GB)")
 	}
-	return tmp.Name(), g.b, hex.EncodeToString(h.Sum(nil)), n, err
+	return upisanaKarta{put: tmp.Name(), glava: g.b, otisak: hex.EncodeToString(h.Sum(nil)), n: n, dijelovi: d.zatvori()}, err
+}
+
+// dioKarteIspravan: dio od 1 do models.NajveciDioKarte bajtova; s nulom bi
+// dijeloviPisac stao u beskonačnoj petlji
+func dioKarteIspravan(velicina int64) bool {
+	return velicina >= 1 && velicina <= models.NajveciDioKarte
+}
+
+// dijeloviPisac računa SHA-256 svakog dijela od velicina bajtova onoga što
+// kroz njega prođe
+type dijeloviPisac struct {
+	velicina int64
+	h        hash.Hash
+	n        int64 // bajtova u dijelu koji je u tijeku
+	otisci   []string
+}
+
+func (d *dijeloviPisac) Write(b []byte) (int, error) {
+	ukupno := len(b)
+	for len(b) > 0 {
+		m := min(d.velicina-d.n, int64(len(b)))
+		_, _ = d.h.Write(b[:m]) // hash.Hash.Write nikad ne vraća grešku
+		d.n += m
+		b = b[m:]
+		if d.n == d.velicina {
+			d.dovrsi()
+		}
+	}
+	return ukupno, nil
+}
+
+func (d *dijeloviPisac) dovrsi() {
+	d.otisci = append(d.otisci, hex.EncodeToString(d.h.Sum(nil)))
+	d.h.Reset()
+	d.n = 0
+}
+
+// zatvori dovrši zadnji, kraći dio i vraća otiske svih dijelova
+func (d *dijeloviPisac) zatvori() []string {
+	if d.n > 0 {
+		d.dovrsi()
+	}
+	return d.otisci
 }
 
 // pocetak pamti prvih 127 bajtova (zaglavlje PMTiles) onoga što kroz njega prođe

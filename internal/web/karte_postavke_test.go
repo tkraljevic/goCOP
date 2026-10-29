@@ -78,6 +78,17 @@ func TestStranicaPostavkiKarata(t *testing.T) {
 		t.Errorf("bez predloška: %d", w.Code)
 	}
 
+	// stranica pokazuje kartu bez interneta iz zasebne postavke
+	prijeK := models.VektorskaKartaPrograma()
+	t.Cleanup(func() { models.SetVektorskaKarta(prijeK) })
+	opis := models.VektorskaKarta{Naziv: "Baranja", Otisak: strings.Repeat("ab", 32), Bajtova: 150, Obuhvat: [4]float64{18.3, 45.5, 18.95, 45.95}, NajviseZ: 15}
+	if err := akti.SpremiKartuBezInterneta(context.Background(), &models.UserPermissions{IsGlobalAdmin: true}, &opis); err != nil {
+		t.Fatal(err)
+	}
+	if s := zovi(http.MethodGet, nil, h.ShowPostavkeKarte).Body.String(); !strings.Contains(s, "<td>Baranja</td>") || !strings.Contains(s, "nije učitana") {
+		t.Error("stranica ne pokazuje kartu bez interneta")
+	}
+
 	w = zovi(http.MethodGet, nil, h.ShowPostavkeKarte)
 	stranica := w.Body.String()
 	for _, zeli := range []string{`name="boja_NASIP" value="#e8590c"`, `name="podloga_0_naziv" value="Satelit"`, `name="podloga_1_naziv" value=""`,

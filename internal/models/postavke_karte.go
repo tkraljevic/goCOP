@@ -24,8 +24,11 @@ type PostavkeKarte struct {
 	// vrste s bijelim obrubom; s krugom je bijela ikona na krugu u boji vrste
 	SKrugom       bool `json:"s_krugom,omitempty"`
 	VelicinaTocke int  `json:"velicina_tocke,omitempty"` // px; 0 je zadano
-	// Vektorska je zadana karta bez interneta; nil kad je nema
-	Vektorska *VektorskaKarta `json:"vektorska,omitempty"`
+	// Vektorska je zadana karta bez interneta; nil kad je nema. Ne sprema
+	// se s postavkama karata nego zasebno (karta_bez_interneta), jer 0.0.45
+	// pri spremanju postavki karata prepiše cijeli zapis bez nje.
+	// PostavkeKartePrograma je puni iz VektorskaKartaPrograma.
+	Vektorska *VektorskaKarta `json:"-"`
 }
 
 // Veličina točke objekta (px)
@@ -253,7 +256,7 @@ func (p PostavkeKarte) ZaPreglednik(ikone, vlastite, vektor string) any {
 
 // CitajPostavkeKarte čita spremljeni JSON; bez zapisa ili uz neispravan
 // zapis vrijede zadane postavke, a neispravna podloga, boja ili ikona se
-// izostavi
+// izostavi. Karta bez interneta se odavde ne čita (CitajVektorskuKartu).
 func CitajPostavkeKarte(s string) PostavkeKarte {
 	var p PostavkeKarte
 	if strings.TrimSpace(s) == "" || json.Unmarshal([]byte(s), &p) != nil {
@@ -262,11 +265,6 @@ func CitajPostavkeKarte(s string) PostavkeKarte {
 	c := PostavkeKarte{Ikone: ocisceneIkone(p.Ikone), SKrugom: p.SKrugom}
 	if p.VelicinaTocke >= NajmanjaVelicinaTocke && p.VelicinaTocke <= NajvecaVelicinaTocke {
 		c.VelicinaTocke = p.VelicinaTocke
-	}
-	if p.Vektorska != nil {
-		if k, err := p.Vektorska.Provjereno(); err == nil {
-			c.Vektorska = &k
-		}
 	}
 	c.Objekti = c.ocisceniStilovi(p.Objekti)
 	c.Podloge = ociscenePodloge(p.Podloge)
@@ -322,13 +320,6 @@ func (p PostavkeKarte) Provjeri() (PostavkeKarte, error) {
 	}
 	if err := p.provjereniStilovi(out.Objekti); err != nil {
 		return out, err
-	}
-	if p.Vektorska != nil {
-		k, err := p.Vektorska.Provjereno()
-		if err != nil {
-			return out, err
-		}
-		out.Vektorska = &k
 	}
 	var err error
 	out.Podloge, err = provjerenePodloge(p.Podloge)
@@ -427,10 +418,13 @@ var trenutnePostavkeKarte atomic.Pointer[PostavkeKarte]
 // spremanja i nakon primitka razmjenom
 func SetPostavkeKarte(p PostavkeKarte) { trenutnePostavkeKarte.Store(&p) }
 
-// PostavkeKartePrograma vraća trenutne postavke karata
+// PostavkeKartePrograma vraća trenutne postavke karata, sa zadanom kartom
+// bez interneta
 func PostavkeKartePrograma() PostavkeKarte {
-	if p := trenutnePostavkeKarte.Load(); p != nil {
-		return *p
+	p := ZadanePostavkeKarte()
+	if t := trenutnePostavkeKarte.Load(); t != nil {
+		p = *t
 	}
-	return ZadanePostavkeKarte()
+	p.Vektorska = VektorskaKartaPrograma()
+	return p
 }

@@ -714,6 +714,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	go pratiAkteNaSnazi(ctx, aktService, 10*time.Minute)
 	models.SetTema(aktService.Tema(context.Background()))
 	models.SetPostavkeKarte(aktService.PostavkeKarte(context.Background()))
+	models.SetVektorskaKarta(aktService.KartaBezInterneta(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
 	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga
 	// (jednom, prije prve uporabe), a one kojima se lozinka računa otada
