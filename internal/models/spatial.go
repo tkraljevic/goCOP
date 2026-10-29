@@ -198,6 +198,14 @@ type PartEmbankment struct {
 	// nasip; poddionica nastala spajanjem više redaka nosi zbroj svih.
 	ProtectedText string `json:"protected_text,omitempty"`
 
+	// UgrozenoPoddionice: uz ovaj nasip vrijede i naselja upisana za cijelu
+	// poddionicu, bez nasipa. Tako se ista naselja ne upisuju uz svaki nasip
+	// posebno (B.34.14, poddionica 2). Zadano je isključeno: nasip tada
+	// pokazuje samo svoja naselja. Stariji program (0.0.45 i niže) pri
+	// vlastitom spremanju dionice polje ne čuva, pa se kvačice uključuju kad
+	// su svi čvorovi nadograđeni; naselja se pritom ne gube.
+	UgrozenoPoddionice bool `json:"ugrozeno_poddionice,omitempty"`
+
 	// Izvedeno pri čitanju
 	StructureKind string `json:"-"`
 }

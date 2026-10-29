@@ -115,7 +115,7 @@
         <div data-role="emb-rows"></div>
       </div>
       <button type="button" class="btn btn-sm btn-secondary" onclick="addEmbankment(this)">{{icon "plus"}} Dodaj nasip ili branu</button>
-      <div class="form-help">Odaberite postojeći nasip ili branu iz registra. „Novi nasip ili brana” stvara novi zapis u registru tek pri spremanju dionice.</div>
+      <div class="form-help">Odaberite postojeći nasip ili branu iz registra. „Novi nasip ili brana” stvara novi zapis u registru tek pri spremanju dionice. S kvačicom „Vrijedi i ugroženo područje cijele poddionice” kartica uz taj nasip pokazuje i naselja upisana za cijelu poddionicu, pa ih ne treba upisivati uz svaki nasip.</div>
     </details>
 
     <details open class="part-block">
@@ -167,6 +167,10 @@
       <select class="form-control" data-field="embankment_choice" aria-label="Odaberi postojeći ili novi nasip ili branu" onchange="embankmentChoice(this)"></select>
       <input type="text" class="form-control" data-field="name" placeholder="Naziv novog nasipa ili brane" aria-label="Naziv novog nasipa ili brane" autocomplete="off" oninput="renderChips(partOf(this))" hidden>
       <input type="hidden" data-field="structure_id">
+      <label style="display:flex; gap:0.4rem; align-items:center; font-size:0.85rem;">
+        <input type="checkbox" data-field="ugrozeno_poddionice" onchange="renderChips(partOf(this))">
+        Vrijedi i ugroženo područje cijele poddionice
+      </label>
     </div>
     <div data-label="Uz vodu od"><input type="text" class="form-control mono" data-field="water_from" placeholder="0+235" aria-label="Uz vodu od"></div>
     <div data-label="do"><input type="text" class="form-control mono" data-field="water_to" placeholder="0+855" aria-label="Uz vodu do"></div>
@@ -281,7 +285,10 @@ function renderChips(el) {
   fillEmbankmentSelect(el.querySelector('[data-role=terr-emb]'), nasipi, 'cijela poddionica');
   el.querySelectorAll('.obj-row [data-field=on_embankment]').forEach(sel => fillEmbankmentSelect(sel, nasipi, '— na vodotoku —'));
   el.querySelector('[data-role=terr-emb-group]').hidden = nasipi.length === 0;
-  const skupine = nasipi.map(n => ({naziv: n, kljuc: n.toLowerCase(), stavke: []})).concat([{naziv: nasipi.length ? 'Cijela poddionica' : '', kljuc: '', stavke: []}]);
+  // uz skupinu cijele poddionice piše koji je nasipi preuzimaju, kao na kartici
+  const uz = [...el.querySelectorAll('.emb-row')].filter(r => r.querySelector('[data-field=ugrozeno_poddionice]').checked).map(r => r.querySelector('[data-field=name]').value.trim()).filter(Boolean);
+  const cijela = nasipi.length ? 'Cijela poddionica' + (uz.length ? ' — vrijedi i uz: ' + uz.join(', ') : '') : '';
+  const skupine = nasipi.map(n => ({naziv: n, kljuc: n.toLowerCase(), stavke: []})).concat([{naziv: cijela, kljuc: '', stavke: []}]);
   for (const t of tr) {
     const k = (t.on_embankment || '').toLowerCase();
     (skupine.find(g => g.kljuc === k && k !== '') || skupine[skupine.length - 1]).stavke.push(t);
@@ -443,6 +450,7 @@ function addEmbankment(btn, e) {
   row.querySelector('[data-field=water_from]').value = e.water_from != null ? kmText(e.water_from) : ''; row.querySelector('[data-field=water_to]').value = e.water_to != null ? kmText(e.water_to) : '';
   row.querySelector('[data-field=emb_from]').value = e.emb_from != null ? kmText(e.emb_from) : ''; row.querySelector('[data-field=emb_to]').value = e.emb_to != null ? kmText(e.emb_to) : '';
   row.querySelector('[data-field=length_km]').value = e.length_km != null ? num(e.length_km) : ''; row.dataset.waterKind = e.water_kind || ''; row.dataset.data = e.data || ''; row.dataset.protected = e.protected_text || '';
+  row.querySelector('[data-field=ugrozeno_poddionice]').checked = !!e.ugrozeno_poddionice;
   el.querySelector('[data-role=emb-rows]').appendChild(row); fillEmbankmentChoices(row); renderChips(el);
 }
 function selectedAreaID() {
@@ -614,6 +622,7 @@ function collectParts() {
       const known = EMBANKMENTS.find(x => x.name === name);
       const e = { name: name, structure_id: known ? known.id : (g('structure_id') || ''), water_kind: row.dataset.waterKind || p.stationing_kind, data: row.dataset.data || '', protected_text: row.dataset.protected || '' };
       const wf = kmOf(g('water_from')), wt = kmOf(g('water_to')), ef = kmOf(g('emb_from')), et = kmOf(g('emb_to')), lk = kmOf(g('length_km'));
+      if (row.querySelector('[data-field=ugrozeno_poddionice]').checked) e.ugrozeno_poddionice = true;
       if (wf !== null) e.water_from = wf; if (wt !== null) e.water_to = wt; if (ef !== null) e.emb_from = ef; if (et !== null) e.emb_to = et; if (lk !== null) e.length_km = lk;
       p.embankments.push(e);
     }

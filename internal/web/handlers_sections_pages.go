@@ -156,9 +156,9 @@ func (h *SectionsHandler) napuniDionicu(r *http.Request, data *SectionPageData) 
 				v.Stations = append(v.Stations, s)
 			}
 		}
-		// naselja uz svoj nasip; na poddionici bez nasipa u retku uz
-		// objekte, a ostatak bez nasipa ostaje na poddionici
-		v.Rows, v.Territories = ugrozenoBezNasipa(v.Rows, razvrstajUgrozeno(v.Rows, p, terrByKey))
+		// naselja uz svoj nasip; naselja bez nasipa uz nasipe s kvačicom i
+		// u retku „Bez nasipa”, kako kaže rasporediUgrozeno
+		v.Rows, v.Territories = rasporediUgrozeno(v.Rows, p, terrByKey)
 		for _, g := range p.Gauges {
 			if !g.IsGauge() || !coveredBy(v.Stations, g) {
 				v.Criteria = append(v.Criteria, g)
