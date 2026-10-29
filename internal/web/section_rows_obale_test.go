@@ -126,8 +126,10 @@ func TestNasipObijuObalaPrimaSve(t *testing.T) {
 	}
 }
 
-// Nejednaki rasponi: pobjeđuje najuži, kao i dosad. Rasponi koji se
-// razlikuju za manje od metra jednaki su, pa objekt ide uz oba.
+// Nejednaki rasponi: uz svaku obalu pobjeđuje najuži. Most Petrova Slatina
+// na B.15.2 prelazi Vuku, pa stoji uz nasip l.o. i uz nasip d.o., iako je
+// raspon d.o. uži. Rasponi koji se razlikuju za manje od metra jednaki su,
+// a širi nasip iste obale ne dobiva objekt.
 func TestNejednakiRasponiNajuziPobjeduje(t *testing.T) {
 	p := models.SectionPart{
 		Embankments: []models.PartEmbankment{
@@ -137,7 +139,7 @@ func TestNejednakiRasponiNajuziPobjeduje(t *testing.T) {
 		Objects: []models.PartObject{{Name: "most Petrova Slatina", StationingKind: "rkm", StationingText: "rkm 44+273"}},
 	}
 	po := objektiRedaka(embankmentRows(p))
-	istiPopis(t, "l.o.", po["Nasip uz l.o. r. Vuke"], nil)
+	istiPopis(t, "l.o.", po["Nasip uz l.o. r. Vuke"], []string{"most Petrova Slatina"})
 	istiPopis(t, "d.o.", po["Nasip uz d.o. r. Vuke"], []string{"most Petrova Slatina"})
 
 	p.Embankments = []models.PartEmbankment{
@@ -150,6 +152,31 @@ func TestNejednakiRasponiNajuziPobjeduje(t *testing.T) {
 	istiPopis(t, "l.o. pola metra dulji", po[loBobotski], []string{"propust"})
 	istiPopis(t, "d.o.", po[doBobotski], []string{"propust"})
 	istiPopis(t, "širi nasip", po["Nasip uz d.o. k. Velika Osatina"], nil)
+}
+
+// Nasip bez obale u nazivu brani obje obale i natječe se uz svaku. Nasip za
+// zaštitu Batine leži unutar nasipa Državna granica–Draž, pa most stoji samo
+// uz uži. Kad je uz jednu obalu uži nasip te obale, most stoji uz njega i uz
+// nasip obiju obala, koji je tada najuži uz drugu obalu.
+func TestNasipObijuObalaUzSvakuObalu(t *testing.T) {
+	p := models.SectionPart{
+		Embankments: []models.PartEmbankment{
+			{Name: "Nasip Državna granica - Draž", WaterKind: "rkm", WaterFrom: km(1433), WaterTo: km(1420)},
+			{Name: "Nasip za zaštitu Batine", WaterKind: "rkm", WaterFrom: km(1426), WaterTo: km(1424)},
+		},
+		Objects: []models.PartObject{{Name: "most", StationingKind: "rkm", Stationing: km(1425)}},
+	}
+	po := objektiRedaka(embankmentRows(p))
+	istiPopis(t, "širi", po["Nasip Državna granica - Draž"], nil)
+	istiPopis(t, "uži", po["Nasip za zaštitu Batine"], []string{"most"})
+
+	p.Embankments = append(p.Embankments, models.PartEmbankment{
+		Name: "Nasip uz l.o. kanala", WaterKind: "rkm", WaterFrom: km(1425.5), WaterTo: km(1424.5),
+	})
+	po = objektiRedaka(embankmentRows(p))
+	istiPopis(t, "širi", po["Nasip Državna granica - Draž"], nil)
+	istiPopis(t, "obje obale", po["Nasip za zaštitu Batine"], []string{"most"})
+	istiPopis(t, "l.o.", po["Nasip uz l.o. kanala"], []string{"most"})
 }
 
 // B.15.2, poddionica 2: nasip l.o. Vuke ide rkm 51+670–43+183, nasip d.o.

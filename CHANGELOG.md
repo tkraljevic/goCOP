@@ -44,7 +44,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   pokriva njegovu stacionažu, a od više takvih uz onaj s najužim rasponom.
   Kad ih je više s jednakim rasponom, stoji uz sve. Objekt lijeve obale ide
   samo uz nasip lijeve obale, desne uz desni, a objekt bez obale ili s
-  obalom LD uz oba. Obala nasipa čita se iz naziva („l.o.”, „d.o.”,
+  obalom LD uz najuži nasip svake obale, i kad rasponi nisu jednaki: most
+  Petrova Slatina na B.15.2 stoji uz nasip l.o. i uz nasip d.o. Vuke. Obala nasipa čita se iz naziva („l.o.”, „d.o.”,
   „Lijevi…”, „Desni…”), a nasip bez obale u nazivu prima sve. Objekt čiju
   stacionažu ne pokriva nijedan nasip njegove obale ide u redak „Bez
   nasipa”. Objekt s upisanim nasipom ostaje na svom, a izvoz u Excel ide

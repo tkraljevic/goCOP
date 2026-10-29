@@ -3,6 +3,7 @@ package web
 import (
 	"math"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gocop/internal/hydro"
@@ -76,21 +77,49 @@ const jednakRaspon = 0.001
 // poStacionazi nalazi nasipe čiji raspon uz vodu pokriva stacionažu objekta.
 // Uspoređuje se samo ista vrsta stacionaže: rkm objekta prema rkm nasipa.
 // Rasponi se preklapaju — nasip za zaštitu Batine leži unutar nasipa Državna
-// granica–Draž — pa pobjeđuje najuži koji objekt pokriva: to je nasip na
-// kojem objekt doista stoji, i tako ga slaže i Privitak.
+// granica–Draž — pa uz svaku obalu pobjeđuje najuži nasip koji objekt
+// pokriva: to je nasip na kojem objekt doista stoji, i tako ga slaže i
+// Privitak.
 //
 // Na BP 15 nasip je upisan posebno za lijevu i posebno za desnu obalu:
 // „Nasip uz l.o. Bobotskog kanala” i „Nasip uz d.o. Bobotskog kanala”, oba
 // kkm 24+000–40+000 (B.15.11). Objekt bez obale — most, propust, ušće —
-// prelazi vodu, pa ide na oba; zato se vraćaju svi nasipi jednako uskog
-// raspona, a ne samo prvi. Objekt s obalom ide samo na nasip svoje obale.
-// Kad takvog nema, objekt ostaje bez nasipa: objekt l.o. na rkm 42+780
-// (B.15.2) ne stoji uz nasip d.o. samo zato što jedino taj pokriva rkm.
+// prelazi vodu, pa ide na najuži nasip svake obale, i kad rasponi nisu
+// jednaki: most Petrova Slatina na rkm 44+273 (B.15.2) stoji i uz nasip l.o.
+// i uz nasip d.o. Vuke. Objekt s obalom ide samo na nasip svoje obale. Kad
+// takvog nema, objekt ostaje bez nasipa: objekt l.o. na rkm 42+780 (B.15.2)
+// ne stoji uz nasip d.o. samo zato što jedino taj pokriva rkm.
 func poStacionazi(embankments []models.PartEmbankment, o models.PartObject) []int {
 	km, ok := stacionazaKm(o)
 	if !ok {
 		return nil
 	}
+	var out []int
+	for _, obala := range obaleObjekta(o.Bank) {
+		for _, i := range najuziUzObalu(embankments, o.StationingKind, km, obala) {
+			if !slices.Contains(out, i) {
+				out = append(out, i)
+			}
+		}
+	}
+	slices.Sort(out)
+	return out
+}
+
+// obaleObjekta: objekt lijeve ili desne obale traži nasip samo svoje obale,
+// a objekt bez obale ili obiju obala nasip svake obale posebno.
+func obaleObjekta(bank string) []string {
+	switch o := strings.ToUpper(strings.TrimSpace(bank)); o {
+	case hydro.BankLeft, hydro.BankRight:
+		return []string{o}
+	}
+	return []string{hydro.BankLeft, hydro.BankRight}
+}
+
+// najuziUzObalu vraća najuže nasipe koji brane obalu i pokrivaju km; svi
+// rasponi uži od metra razlike su jednako uski. Nasip obiju obala natječe
+// se uz svaku obalu.
+func najuziUzObalu(embankments []models.PartEmbankment, vrsta string, km float64, obala string) []int {
 	type kandidat struct {
 		i    int
 		span float64
@@ -98,8 +127,8 @@ func poStacionazi(embankments []models.PartEmbankment, o models.PartObject) []in
 	var kandidati []kandidat
 	najuzi := math.Inf(1)
 	for i, e := range embankments {
-		span, ok := rasponPokriva(e, o.StationingKind, km)
-		if !ok || !obalaPrima(obalaNasipa(e.Name), o.Bank) {
+		span, ok := rasponPokriva(e, vrsta, km)
+		if !ok || !obalaPrima(obalaNasipa(e.Name), obala) {
 			continue
 		}
 		kandidati = append(kandidati, kandidat{i, span})
