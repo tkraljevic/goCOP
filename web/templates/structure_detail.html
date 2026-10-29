@@ -5,6 +5,7 @@
 {{define "head"}}{{if .CanEdit}}<link rel="stylesheet" href="{{statika "vendor/geoman/leaflet-geoman.css"}}">{{end}}{{end}}
 
 {{define "scripts"}}{{if .CanEdit}}<script src="{{statika "vendor/geoman/leaflet-geoman.min.js"}}" defer></script>
+<script src="{{statika "js/uredjivac-karte.js"}}" defer></script>
 <script src="{{statika "js/uredjivac-objekta.js"}}" defer></script>{{end}}{{end}}
 
 {{define "content"}}

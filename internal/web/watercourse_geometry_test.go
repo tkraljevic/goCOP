@@ -153,3 +153,43 @@ func TestObrazacVodeNapomenaTokaILetve(t *testing.T) {
 		t.Errorf("uklanjanje letve: %v / %q", w.ExtraStationIDs, service.NapomenaToka(w.Geometry))
 	}
 }
+
+// Alat karte šalje samo crte (samo_crte): točka rkm iz zapisa ostaje, a
+// izračunata točka s karte se ne upiše.
+func TestWatercourseGeometryAPISamoCrte(t *testing.T) {
+	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "web_voda_crte.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	rec := ledger.New(baza, "test-node")
+	waterRepo := repository.NewWatercourseRepository(baza, rec)
+	waterSvc := service.NewWatercourseService(waterRepo)
+	secSvc := service.NewSectionService(repository.NewSectionRepository(baza, rec), service.NewSSEBroker())
+	ctx := context.Background()
+	zapis := `{"type":"FeatureCollection","features":[{"type":"Feature","geometry":{"type":"LineString","coordinates":[[18.8,45.8],[18.9,45.5]]}},` +
+		`{"type":"Feature","properties":{"tip":"rkm","rkm":1350},"geometry":{"type":"Point","coordinates":[18.85,45.7]}}]}`
+	if err := waterRepo.CreateWatercourse(ctx, &models.Watercourse{Code: "rijeka-dunav", OfficialName: "rijeka Dunav", Name: "Dunav", Geometry: zapis}); err != nil {
+		t.Fatal(err)
+	}
+	h := NewWatercoursesHandler(waterSvc, secSvc, nil)
+
+	crte := `{"type":"FeatureCollection","features":[{"type":"Feature","properties":{},"geometry":{"type":"LineString","coordinates":[[18.81,45.8],[18.91,45.5]]}},` +
+		`{"type":"Feature","properties":{"tip":"rkm","rkm":1351,"status":"kalibrirano"},"geometry":{"type":"Point","coordinates":[18.86,45.7]}}]}`
+	tijelo := `{"code":"rijeka-dunav","samo_crte":true,"geojson":"` + strings.ReplaceAll(crte, `"`, `\"`) + `"}`
+	req := httptest.NewRequest("POST", "/api/watercourses/geometry", strings.NewReader(tijelo))
+	req.Header.Set("Content-Type", "application/json")
+	req = req.WithContext(context.WithValue(ctx, contextKeyPerms, &models.UserPermissions{IsGlobalAdmin: true}))
+	odg := httptest.NewRecorder()
+	h.HandleUpdateWatercourseGeometryAPI(odg, req)
+	if odg.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", odg.Code, odg.Body.String())
+	}
+	w, err := waterSvc.GetWatercourse(ctx, "rijeka-dunav")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(w.Geometry, "18.81") || !strings.Contains(w.Geometry, `"rkm":1350`) || strings.Contains(w.Geometry, "kalibrirano") {
+		t.Errorf("u bazi nije pomaknuta crta s izvornom točkom: %s", w.Geometry)
+	}
+}

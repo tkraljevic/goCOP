@@ -2050,7 +2050,8 @@ func TestKartaSeCrtaSamoKadImaOboje(t *testing.T) {
 }
 
 // Karta vodotoka prikazuje se kad vodotok ima geometriju i kad su pločice
-// uključene; bez geometrije ili bez pločica karta se ne prikazuje.
+// uključene; bez pločica karta se ne prikazuje, a bez geometrije samo onome
+// tko smije ucrtati tok.
 func TestWatercourseDetailKarta(t *testing.T) {
 	karta := KartaPostavke{
 		Plocice:  "https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png",
@@ -2084,15 +2085,15 @@ func TestWatercourseDetailKarta(t *testing.T) {
 		}
 	}
 
-	// Bez geometrije nema okvira karte
+	// Bez geometrije korisnik bez prava ne dobije okvir karte
 	bezGeom := iscrtaj(t, "watercourse_detail.html", WatercoursePageData{
 		CurrentUser: &models.User{FullName: "P"},
-		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
+		Permissions: &models.UserPermissions{},
 		Water:       water,
 		Karta:       karta,
 	})
 	if strings.Contains(bezGeom, "karta-vodotoka") {
-		t.Error("vodotok bez geometrije dobio je kartu")
+		t.Error("vodotok bez geometrije dobio je kartu za korisnika bez prava")
 	}
 
 	// Bez pločica nema okvira karte

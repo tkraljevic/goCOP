@@ -3814,7 +3814,7 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
-/* Uređivač toka rijeke na karti */
+/* Traka s uputama uređivača na karti slivova */
 .karta-editor-traka {
   background: var(--surface-sunken, #f1f5f9);
   border: 1px solid var(--border, #cbd5e1);
@@ -3844,35 +3844,6 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
   font-size: 0.8rem;
   color: var(--text-muted);
   font-weight: 500;
-}
-.karta-vodotoka.u-uredjivanju .karta-platno {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-  border-color: var(--karta-rijeka);
-  box-shadow: 0 0 0 1px var(--karta-rijeka);
-}
-.karta-tocka-rucica {
-  width: 12px;
-  height: 12px;
-  background: #ffffff;
-  border: 2px solid var(--karta-rijeka);
-  border-radius: 50%;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.35);
-  cursor: grab;
-  transition: transform 0.1s ease, border-color 0.1s ease, background 0.1s ease;
-}
-.karta-tocka-rucica:hover {
-  transform: scale(1.35);
-  border-color: var(--karta-rijeka);
-  background: var(--tint-sky-bg);
-}
-.karta-tocka-rucica.rucica-aktivna {
-  background: var(--karta-rijeka);
-  border-color: #ffffff;
-  cursor: grabbing;
-}
-.karta-vodotoka.u-uredjivanju .leaflet-interactive.rijeka-linija {
-  cursor: crosshair;
 }
 
 /* Od čega je spojeni niz sastavljen: jedan redak po izvoru. Prelama se kad

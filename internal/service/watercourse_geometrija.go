@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 // PripremiGeometrijuVode provjerava GeoJSON toka prije upisa i vraća ga kao
@@ -159,4 +160,103 @@ func SNapomenomToka(geojson, tekst string) (string, error) {
 		return string(out), err
 	}
 	return "", errors.New("u geometriji nema crte toka")
+}
+
+// SpojiCrteToka slaže zapis toka nakon uređivanja na karti: crte uzima s
+// karte, a točke uz tok (stacionažu rkm) i vrh zbirke (naziv, crs) iz
+// spremljenog zapisa. Karta Dunava i Drave prikazuje stacionažu koju program
+// sam izračuna prema ENC-u; da se ona ne upiše umjesto izvornih točaka, s
+// karte se uzimaju samo crte. Kad program i napomenu uz tok računa sam
+// (racunaNapomenu), napomena s karte se odbacuje, a ostaje ona iz zapisa.
+func SpojiCrteToka(spremljeno, crte string, racunaNapomenu bool) (string, error) {
+	_, saKarte, err := razloziZbirku(crte)
+	if err != nil {
+		return "", errors.New("crte s karte nisu ispravan GeoJSON")
+	}
+	vrh, stare, err := razloziZbirku(spremljeno)
+	if err != nil {
+		// pokvaren zapis nema točaka koje bi se sačuvale; tok se piše iznova
+		vrh, stare = map[string]json.RawMessage{}, nil
+	}
+	vrh["type"] = json.RawMessage(`"FeatureCollection"`)
+	vrh["features"], err = json.Marshal(crteIOznake(saKarte, stare, racunaNapomenu))
+	if err != nil {
+		return "", err
+	}
+	out, err := json.Marshal(vrh)
+	if err != nil {
+		return "", err
+	}
+	if napomena := NapomenaToka(spremljeno); racunaNapomenu && napomena != "" {
+		return SNapomenomToka(string(out), napomena)
+	}
+	return string(out), nil
+}
+
+// crteIOznake vraća crte s karte i ostale značajke (točke) iz zapisa
+func crteIOznake(saKarte, stare []json.RawMessage, racunaNapomenu bool) []json.RawMessage {
+	znacajke := make([]json.RawMessage, 0, len(saKarte)+len(stare))
+	for _, f := range saKarte {
+		if !jeCrtaToka(f) {
+			continue
+		}
+		if racunaNapomenu {
+			f = bezNapomene(f)
+		}
+		znacajke = append(znacajke, f)
+	}
+	for _, f := range stare {
+		if !jeCrtaToka(f) {
+			znacajke = append(znacajke, f)
+		}
+	}
+	return znacajke
+}
+
+// razloziZbirku vraća vrh zbirke GeoJSON-a i njezine značajke; prazan tekst
+// je prazna zbirka
+func razloziZbirku(s string) (map[string]json.RawMessage, []json.RawMessage, error) {
+	vrh := map[string]json.RawMessage{}
+	if strings.TrimSpace(s) == "" {
+		return vrh, nil, nil
+	}
+	if err := json.Unmarshal([]byte(s), &vrh); err != nil {
+		return nil, nil, err
+	}
+	var znacajke []json.RawMessage
+	if len(vrh["features"]) > 0 {
+		if err := json.Unmarshal(vrh["features"], &znacajke); err != nil {
+			return nil, nil, err
+		}
+	}
+	return vrh, znacajke, nil
+}
+
+// jeCrtaToka kaže je li značajka crta (LineString ili MultiLineString)
+func jeCrtaToka(f json.RawMessage) bool {
+	var z struct {
+		Geometry struct {
+			Type string `json:"type"`
+		} `json:"geometry"`
+	}
+	_ = json.Unmarshal(f, &z) // neispravna značajka nije crta
+	return z.Geometry.Type == "LineString" || z.Geometry.Type == "MultiLineString"
+}
+
+// bezNapomene vraća značajku bez napomene o stacionaži; ostala svojstva ostaju
+func bezNapomene(f json.RawMessage) json.RawMessage {
+	var z, svojstva map[string]json.RawMessage
+	if json.Unmarshal(f, &z) != nil || json.Unmarshal(z["properties"], &svojstva) != nil {
+		return f
+	}
+	if _, ima := svojstva["stacionaza_napomena"]; !ima {
+		return f
+	}
+	delete(svojstva, "stacionaza_napomena")
+	z["properties"], _ = json.Marshal(svojstva) // mapa sirovih JSON-a uvijek se zapiše
+	out, err := json.Marshal(z)
+	if err != nil {
+		return f
+	}
+	return out
 }

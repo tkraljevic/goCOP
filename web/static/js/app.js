@@ -1108,12 +1108,100 @@ function dodajKontroleKarte(karta, platno, opcije) {
 })();
 
 // Karta vodotoka: prikazuje poliliniju toka rijeke, stacionaže (rkm) i vodomjerne postaje.
+// Tok se uređuje alatom karte (uredjivac-vodotoka.js) na istoj karti i
+// sloju toka; stacionaža i postaje se pri uređivanju ne miču (pmIgnore).
 (function () {
   function escapeHtml(text) {
     if (!text) return '';
     var div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  function jeCrta(feat) {
+    return !!feat.geometry && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString');
+  }
+
+  // znacajkeToka vraća popis značajki: zbirka, jedna značajka ili gola crta
+  function znacajkeToka(geo) {
+    if (geo.type === 'FeatureCollection') return geo.features || [];
+    if (geo.type === 'Feature') return [geo];
+    return [{ type: 'Feature', properties: {}, geometry: geo }];
+  }
+
+  // izgled crte toka; isti ima i crta nova nacrtana alatom karte
+  var STIL_TOKA = { color: '#0284c7', weight: 4, opacity: 0.85, className: 'rijeka-linija' };
+
+  // sloj toka: crte koje alat karte uređuje
+  function slojToka(okvir, crte) {
+    return L.geoJSON(crte, {
+      style: function () { return STIL_TOKA; },
+      onEachFeature: function (feat, layer) {
+        if (!feat.properties) return;
+        var naziv = feat.properties.naziv || feat.properties.name || okvir.dataset.naziv || 'Vodotok';
+        layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>' +
+          (feat.properties.stacionaza_napomena ? '<br>' + escapeHtml(feat.properties.stacionaza_napomena) : ''));
+      }
+    });
+  }
+
+  // sloj oznaka: stacionaža (rkm) i ostale točke uz tok, ne uređuju se
+  function slojOznaka(ostalo) {
+    return L.geoJSON(ostalo, {
+      pmIgnore: true,
+      pointToLayer: function (feat, latlng) {
+        if (feat.properties && feat.properties.tip === 'rkm') {
+          var marker = L.circleMarker(latlng, {
+            radius: 3.5,
+            fillColor: '#ffffff',
+            color: '#0369a1',
+            weight: 1.5,
+            opacity: 0.9,
+            fillOpacity: 0.9,
+            pmIgnore: true
+          });
+          var oznaka = feat.properties.oznaka || ('rkm ' + feat.properties.rkm);
+          marker.bindTooltip(escapeHtml(oznaka), {
+            permanent: false,
+            direction: 'top',
+            className: 'rkm-tooltip'
+          });
+          return marker;
+        }
+        return L.marker(latlng, { pmIgnore: true });
+      }
+    });
+  }
+
+  function dodajPostaje(karta, stationsData) {
+    var tocke = [];
+    stationsData.forEach(function (st) {
+      if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
+      var stMarker = L.marker([st.lat, st.lon], { icon: stvoriLetvaIkonu(), pmIgnore: true });
+      var popupHtml = '<div class="karta-popup">' +
+        '<div class="karta-popup-naslov"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
+        (st.stationing ? '<div class="karta-popup-opis">' + escapeHtml(st.stationing) + '</div>' : '') +
+        (st.country ? '<div class="karta-popup-sitno">' + escapeHtml(st.country) + '</div>' : '') +
+        '<div class="karta-popup-radnje"><a href="' + escapeHtml(st.detail_url) + '" class="karta-popup-gumb">Prikaži postaju</a></div>' +
+        '</div>';
+      stMarker.bindPopup(popupHtml);
+      stMarker.addTo(karta);
+      tocke.push([st.lat, st.lon]);
+    });
+    return tocke;
+  }
+
+  // obuhvat: ucrtani tok; dok toka nema, postaje vode, a bez njih istok Hrvatske
+  function namjestiObuhvat(karta, tok, oznake, postaje) {
+    var bounds = tok.getBounds();
+    if (oznake.getBounds().isValid()) bounds.extend(oznake.getBounds());
+    if (bounds.isValid()) {
+      karta.fitBounds(bounds, { padding: [25, 25] });
+    } else if (postaje.length > 0) {
+      karta.fitBounds(L.latLngBounds(postaje), { padding: [25, 25], maxZoom: 12 });
+    } else {
+      karta.setView([45.5, 18.0], 8);
+    }
   }
 
   document.addEventListener('DOMContentLoaded', function () {
@@ -1157,315 +1245,17 @@ function dodajKontroleKarte(karta, platno, opcije) {
       sloj.addTo(karta);
       dodajPodloge(karta, sloj);
 
-      var riverPolyline = null;
-      var riverFeature = null;
+      var znacajke = znacajkeToka(geoData);
+      var crte = znacajke.filter(jeCrta);
+      var ostalo = znacajke.filter(function (f) { return !jeCrta(f); });
+      var tok = slojToka(okvir, crte).addTo(karta);
+      var oznake = slojOznaka(ostalo).addTo(karta);
+      var postaje = dodajPostaje(karta, stationsData);
+      namjestiObuhvat(karta, tok, oznake, postaje);
 
-      var rijekaSloj = L.geoJSON(geoData, {
-        style: function (feat) {
-          if (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString') {
-            return {
-              color: '#0284c7',
-              weight: 4,
-              opacity: 0.85,
-              className: 'rijeka-linija'
-            };
-          }
-        },
-        pointToLayer: function (feat, latlng) {
-          if (feat.properties && feat.properties.tip === 'rkm') {
-            var marker = L.circleMarker(latlng, {
-              radius: 3.5,
-              fillColor: '#ffffff',
-              color: '#0369a1',
-              weight: 1.5,
-              opacity: 0.9,
-              fillOpacity: 0.9
-            });
-            var oznaka = feat.properties.oznaka || ('rkm ' + feat.properties.rkm);
-            marker.bindTooltip(escapeHtml(oznaka), {
-              permanent: false,
-              direction: 'top',
-              className: 'rkm-tooltip'
-            });
-            return marker;
-          }
-          return L.marker(latlng);
-        },
-        onEachFeature: function (feat, layer) {
-          if (feat.properties && (feat.geometry.type === 'LineString' || feat.geometry.type === 'MultiLineString')) {
-            if (!riverPolyline && feat.geometry.type === 'LineString') {
-              riverPolyline = layer;
-              riverFeature = feat;
-            }
-              var naziv = feat.properties.naziv || feat.properties.name || okvir.dataset.naziv || 'Vodotok';
-            layer.bindPopup('<strong>' + escapeHtml(naziv) + '</strong>' +
-              (feat.properties.stacionaza_napomena ? '<br>' + escapeHtml(feat.properties.stacionaza_napomena) : ''));
-          }
-        }
-      }).addTo(karta);
-
-      // Dodaj vodomjerne postaje
-      stationsData.forEach(function (st) {
-        if (typeof st.lat !== 'number' || typeof st.lon !== 'number') return;
-        var stMarker = L.marker([st.lat, st.lon], { icon: stvoriLetvaIkonu() });
-        var popupHtml = '<div class="karta-popup">' +
-          '<div class="karta-popup-naslov"><a href="' + escapeHtml(st.detail_url) + '">' + escapeHtml(st.name) + '</a></div>' +
-          (st.stationing ? '<div class="karta-popup-opis">' + escapeHtml(st.stationing) + '</div>' : '') +
-          (st.country ? '<div class="karta-popup-sitno">' + escapeHtml(st.country) + '</div>' : '') +
-          '<div class="karta-popup-radnje"><a href="' + escapeHtml(st.detail_url) + '" class="karta-popup-gumb">Prikaži postaju</a></div>' +
-          '</div>';
-        stMarker.bindPopup(popupHtml);
-        stMarker.addTo(karta);
-      });
-
-      // Podesi obuhvat prema rijeci
-      var bounds = rijekaSloj.getBounds();
-      if (bounds.isValid()) {
-        karta.fitBounds(bounds, { padding: [25, 25] });
-      } else {
-        karta.setView([45.5, 18.0], 8);
-      }
-
-
-      // Kontrole za uređivanje geometrije toka rijeke
-      var sekcija = okvir.closest('.detail-section') || okvir.parentElement;
-      var btnUredi = sekcija ? sekcija.querySelector('.karta-uredi-btn') : null;
-      var btnSpremi = sekcija ? sekcija.querySelector('.karta-spremi-btn') : null;
-      var btnPonisti = sekcija ? sekcija.querySelector('.karta-ponisti-btn') : null;
-      var btnOdustani = sekcija ? sekcija.querySelector('.karta-odustani-btn') : null;
-      var editorTraka = sekcija ? sekcija.querySelector('.karta-editor-traka') : null;
-      var editorStatus = sekcija ? sekcija.querySelector('.karta-editor-status') : null;
-
-      if (btnUredi && riverPolyline) {
-        var uUredjivanju = false;
-        var ruciceLayer = L.layerGroup().addTo(karta);
-        var izvorniLatLngs = null;
-
-        function distToSegmentSq(p, p1, p2) {
-          var l2 = (p2.x - p1.x)*(p2.x - p1.x) + (p2.y - p1.y)*(p2.y - p1.y);
-          if (l2 === 0) return (p.x - p1.x)*(p.x - p1.x) + (p.y - p1.y)*(p.y - p1.y);
-          var t = ((p.x - p1.x)*(p2.x - p1.x) + (p.y - p1.y)*(p2.y - p1.y)) / l2;
-          t = Math.max(0, Math.min(1, t));
-          var projX = p1.x + t * (p2.x - p1.x);
-          var projY = p1.y + t * (p2.y - p1.y);
-          var dx = p.x - projX;
-          var dy = p.y - projY;
-          return dx * dx + dy * dy;
-        }
-
-        function osvjeziRucice() {
-          ruciceLayer.clearLayers();
-          var latlngs = riverPolyline.getLatLngs();
-          if (editorStatus) {
-            editorStatus.textContent = 'Ukupno točaka toka: ' + latlngs.length;
-          }
-
-          var handleIcon = L.divIcon({
-            className: 'karta-tocka-rucica-omotac',
-            html: '<div class="karta-tocka-rucica"></div>',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7]
-          });
-
-          latlngs.forEach(function (pt, idx) {
-            var marker = L.marker(pt, {
-              icon: handleIcon,
-              draggable: true,
-              zIndexOffset: 2000
-            });
-
-            marker.on('dragstart', function () {
-              var el = marker.getElement();
-              if (el) {
-                var c = el.querySelector('.karta-tocka-rucica');
-                if (c) c.classList.add('rucica-aktivna');
-              }
-            });
-
-            marker.on('drag', function () {
-              latlngs[idx] = marker.getLatLng();
-              riverPolyline.setLatLngs(latlngs);
-            });
-
-            marker.on('dragend', function () {
-              var el = marker.getElement();
-              if (el) {
-                var c = el.querySelector('.karta-tocka-rucica');
-                if (c) c.classList.remove('rucica-aktivna');
-              }
-              if (editorStatus) {
-                editorStatus.textContent = 'Točka ' + (idx + 1) + ' premještena. Ukupno: ' + latlngs.length;
-              }
-            });
-
-            // Brisanje točke: desni klik ili dvoklik
-            function obrisiTocku(e) {
-              L.DomEvent.stopPropagation(e);
-              L.DomEvent.preventDefault(e);
-              var pts = riverPolyline.getLatLngs();
-              if (pts.length <= 2) {
-                alert('Nije moguće obrisati točku — tok mora imati najmanje dvije točke.');
-                return;
-              }
-              pts.splice(idx, 1);
-              riverPolyline.setLatLngs(pts);
-              osvjeziRucice();
-              if (editorStatus) {
-                editorStatus.textContent = 'Točka ' + (idx + 1) + ' obrisana. Preostalo: ' + pts.length;
-              }
-            }
-            marker.on('contextmenu', obrisiTocku);
-            marker.on('dblclick', obrisiTocku);
-
-            marker.bindTooltip('Točka ' + (idx + 1) + '<br><small>Povucite za pomak, desni klik za brisanje</small>', {
-              direction: 'top',
-              offset: [0, -7]
-            });
-
-            ruciceLayer.addLayer(marker);
-          });
-        }
-
-        function pokreniUredjivanje() {
-          uUredjivanju = true;
-          okvir.classList.add('u-uredjivanju');
-          var pts = riverPolyline.getLatLngs();
-          izvorniLatLngs = pts.map(function (ll) { return L.latLng(ll.lat, ll.lng); });
-
-          btnUredi.style.display = 'none';
-          if (btnSpremi) btnSpremi.style.display = '';
-          if (btnPonisti) btnPonisti.style.display = '';
-          if (btnOdustani) btnOdustani.style.display = '';
-          if (editorTraka) editorTraka.style.display = 'flex';
-
-          riverPolyline.closePopup();
-          osvjeziRucice();
-        }
-
-        function zaustaviUredjivanje() {
-          uUredjivanju = false;
-          okvir.classList.remove('u-uredjivanju');
-          ruciceLayer.clearLayers();
-
-          btnUredi.style.display = '';
-          if (btnSpremi) btnSpremi.style.display = 'none';
-          if (btnPonisti) btnPonisti.style.display = 'none';
-          if (btnOdustani) btnOdustani.style.display = 'none';
-          if (editorTraka) editorTraka.style.display = 'none';
-        }
-
-        btnUredi.addEventListener('click', pokreniUredjivanje);
-
-        if (btnOdustani) {
-          btnOdustani.addEventListener('click', function () {
-            if (izvorniLatLngs) {
-              riverPolyline.setLatLngs(izvorniLatLngs);
-            }
-            zaustaviUredjivanje();
-          });
-        }
-
-        if (btnPonisti) {
-          btnPonisti.addEventListener('click', function () {
-            if (izvorniLatLngs) {
-              var pts = izvorniLatLngs.map(function (ll) { return L.latLng(ll.lat, ll.lng); });
-              riverPolyline.setLatLngs(pts);
-              osvjeziRucice();
-              if (editorStatus) {
-                editorStatus.textContent = 'Vraćeno na početno stanje (' + pts.length + ' ' + uzBroj(pts.length, 'točka', 'točke', 'točaka') + ').';
-              }
-            }
-          });
-        }
-
-        // Klik na liniju rijeke dodaje novu točku na najbliži segment
-        riverPolyline.on('click', function (e) {
-          if (!uUredjivanju) return;
-          L.DomEvent.stopPropagation(e);
-          riverPolyline.closePopup();
-
-          var pts = riverPolyline.getLatLngs();
-          if (pts.length < 2) return;
-
-          var clickPt = karta.latLngToLayerPoint(e.latlng);
-          var minIdx = 0;
-          var minDist = Infinity;
-
-          for (var i = 0; i < pts.length - 1; i++) {
-            var p1 = karta.latLngToLayerPoint(pts[i]);
-            var p2 = karta.latLngToLayerPoint(pts[i + 1]);
-            var d = distToSegmentSq(clickPt, p1, p2);
-            if (d < minDist) {
-              minDist = d;
-              minIdx = i;
-            }
-          }
-
-          pts.splice(minIdx + 1, 0, e.latlng);
-          riverPolyline.setLatLngs(pts);
-          osvjeziRucice();
-          if (editorStatus) {
-            editorStatus.textContent = 'Dodana nova točka toka! Ukupno: ' + pts.length;
-          }
-        });
-
-        if (btnSpremi) {
-          btnSpremi.addEventListener('click', function () {
-            var pts = riverPolyline.getLatLngs();
-            var newCoords = pts.map(function (ll) {
-              return [
-                Math.round(ll.lng * 1000000) / 1000000,
-                Math.round(ll.lat * 1000000) / 1000000
-              ];
-            });
-
-            if (riverFeature && riverFeature.geometry) {
-              riverFeature.geometry.coordinates = newCoords;
-            }
-
-            var sifra = okvir.dataset.sifra;
-            if (!sifra) {
-              alert('Nedostaje šifra vodotoka za spremanje.');
-              return;
-            }
-
-            btnSpremi.disabled = true;
-            btnSpremi.textContent = 'Spremanje...';
-
-            fetch('/api/watercourses/geometry', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                code: sifra,
-                geojson: JSON.stringify(geoData)
-              })
-            })
-            .then(function (res) {
-              return res.json().then(function (data) {
-                if (!res.ok) {
-                  throw new Error(data.message || data.error || ('HTTP ' + res.status));
-                }
-                return data;
-              });
-            })
-            .then(function () {
-              geoEl.textContent = JSON.stringify(geoData);
-              izvorniLatLngs = pts.map(function (ll) { return L.latLng(ll.lat, ll.lng); });
-              alert('Geometrija toka rijeke uspješno je spremljena!');
-              zaustaviUredjivanje();
-            })
-            .catch(function (err) {
-              alert('Greška pri spremanju geometrije: ' + err.message);
-            })
-            .finally(function () {
-              btnSpremi.disabled = false;
-              btnSpremi.textContent = 'Spremi geometriju';
-            });
-          });
-        }
-      }
+      okvir._karta = karta;
+      okvir._tok = tok;
+      okvir._stilToka = STIL_TOKA;
     });
   });
 })();
