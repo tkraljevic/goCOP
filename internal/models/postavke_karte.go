@@ -196,6 +196,20 @@ func (p PostavkeKarte) Stil(kind string) StilObjekta {
 	return s
 }
 
+// IkonaVrste je ikona vrste objekta za naslov stranice: ona iz postavki
+// karte kad je znak iz zajedničke zbirke, inače ikona registra. Krug,
+// posebna letva i vlastite ikone nisu u zbirci, pa se ne pokazuju u naslovu.
+func IkonaVrste(kind string) string {
+	ik := PostavkeKartePrograma().Stil(kind).Ikona
+	if ik != IkonaKrug && ik != IkonaLetva && !strings.HasPrefix(ik, "v-") {
+		return ik
+	}
+	if r, ok := StructureRegisterFor(kind); ok {
+		return r.Icon
+	}
+	return "construction"
+}
+
 func cmpOr(a, b string) string {
 	if a != "" {
 		return a

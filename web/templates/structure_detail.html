@@ -13,7 +13,7 @@
 
 <div class="detail-head">
   <div>
-    <h1 class="page-title">{{icon "construction"}} {{.Structure.Name}}</h1>
+    <h1 class="page-title">{{icon (ikonaVrste .Structure.Kind)}} {{.Structure.Name}}</h1>
     <p class="page-desc">
       {{.Structure.KindLabel}} · {{term "sektor"}} {{.Structure.SectorID}} · {{term "bp"}} {{.Structure.AreaID}}{{if .Structure.AreaName}}: {{.Structure.AreaName}}{{end}}
       · {{.Structure.OriginLabel}}
