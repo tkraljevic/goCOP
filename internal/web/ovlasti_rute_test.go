@@ -39,6 +39,9 @@ func TestArhivskeRuteOdbijajuObicnogKorisnika(t *testing.T) {
 		{http.MethodPost, "/administracija/izdavanje"},
 		{http.MethodGet, "/administracija/izvori"},
 		{http.MethodPost, "/administracija/izvori"},
+		{http.MethodGet, "/administracija/telemetrija"},
+		{http.MethodPost, "/administracija/telemetrija"},
+		{http.MethodPost, "/administracija/telemetrija/mletva"},
 	}
 
 	// Ograda se ispituje sama, bez baze: authMiddleware traži sesiju, a ovdje
@@ -106,6 +109,8 @@ func TestSveArhivskeRuteIduKrozOgradu(t *testing.T) {
 		"/administracija/karte/vektorska",
 		"/administracija/karte/vektorska.cop",
 		"/administracija/karte/vektorska/makni",
+		"/administracija/telemetrija",
+		"/administracija/telemetrija/mletva",
 	}
 	for _, put := range moraju {
 		for _, redak := range strings.Split(izvor, "\n") {
