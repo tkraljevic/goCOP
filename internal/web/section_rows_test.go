@@ -163,13 +163,13 @@ func TestNaseljeNepoznatogNasipaOstajeNaPoddionici(t *testing.T) {
 	}
 }
 
-// Poddionica bez nasipa ugroženo područje pokazuje u retku uz objekte, na
-// mjestu gdje ga poddionica s nasipima pokazuje uz nasip, a ne iznad
-// tablice. Poddionica s nasipima ostatak bez nasipa zadržava iznad tablice.
+// Naselje bez nasipa stoji u retku „Bez nasipa” uz objekte izvan nasipa, i na
+// poddionici s nasipima (B.34.12, poddionica 2), a ne iznad tablice.
 func TestUgrozenoBezNasipaURetku(t *testing.T) {
 	t1, s1 := naselje(1, "Draž", "")
 	ostalo := []models.SectionTerritory{s1}
 	objekt := models.PartObject{Name: "Ustava Draž"}
+	nasip := []models.PartEmbankment{{Name: "Nasip Gomboš"}}
 	for _, c := range []struct {
 		opis   string
 		part   models.SectionPart
@@ -179,9 +179,10 @@ func TestUgrozenoBezNasipaURetku(t *testing.T) {
 	}{
 		{"bez nasipa i objekata", models.SectionPart{Territories: []models.PartTerritory{t1}}, 1, true, 0},
 		{"bez nasipa, s objektom", models.SectionPart{Objects: []models.PartObject{objekt}, Territories: []models.PartTerritory{t1}}, 1, true, 0},
-		{"s nasipom", models.SectionPart{Embankments: []models.PartEmbankment{{Name: "Nasip Gomboš"}}, Territories: []models.PartTerritory{t1}}, 1, false, 1},
+		{"s nasipom, bez objekata izvan njega", models.SectionPart{Embankments: nasip, Territories: []models.PartTerritory{t1}}, 2, true, 0},
+		{"s nasipom i objektom izvan njega", models.SectionPart{Embankments: nasip, Objects: []models.PartObject{objekt}, Territories: []models.PartTerritory{t1}}, 2, true, 0},
 	} {
-		rows, iznad := ugrozenoBezNasipa(embankmentRows(c.part), c.part, ostalo)
+		rows, iznad := ugrozenoBezNasipa(embankmentRows(c.part), ostalo)
 		if len(rows) != c.redaka || len(iznad) != c.iznad {
 			t.Errorf("%s: %d redaka, %d iznad tablice", c.opis, len(rows), len(iznad))
 			continue
@@ -190,13 +191,13 @@ func TestUgrozenoBezNasipaURetku(t *testing.T) {
 			t.Errorf("%s: ugroženo u retku %v", c.opis, u)
 		}
 	}
-	if rows, iznad := ugrozenoBezNasipa(nil, models.SectionPart{}, nil); rows != nil || iznad != nil {
+	if rows, iznad := ugrozenoBezNasipa(nil, nil); rows != nil || iznad != nil {
 		t.Errorf("bez ugroženog područja ne dodaje se redak: %v %v", rows, iznad)
 	}
 
 	// kartica: naselje stoji u retku „Bez nasipa”, a ne iznad tablice
 	part := models.SectionPart{Territories: []models.PartTerritory{t1}}
-	rows, iznad := ugrozenoBezNasipa(embankmentRows(part), part, ostalo)
+	rows, iznad := ugrozenoBezNasipa(embankmentRows(part), ostalo)
 	html := iscrtaj(t, "section_detail.html", SectionPageData{
 		CurrentUser: &models.User{FullName: "Pero Perić"}, Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Section: models.Section{Code: "P.1.1", AreaID: 1, SectorID: "P"},
