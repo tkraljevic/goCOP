@@ -4,6 +4,8 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"math"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -88,7 +90,7 @@ func TestUzduzniProfilDraveOstajeIsti(t *testing.T) {
 		t.Fatal("nema profila")
 	}
 	zapis := fmt.Sprintf("%+v", *p)
-	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(zapis))); got != sazetakDrave {
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(zaokruziZapis(zapis)))); got != sazetakDrave {
 		t.Errorf("crtež Drave se promijenio: %s\n%s", got, zapis)
 	}
 	for _, tk := range p.Tocke {
@@ -107,7 +109,22 @@ func TestUzduzniProfilDraveOstajeIsti(t *testing.T) {
 	}
 }
 
-const sazetakDrave = "421a97d6f8611aac39a5ba4cc5cc9093212ec85e5e67852c4e7a1813d52ab901"
+// zaokruziZapis zaokruži decimalne brojeve u zapisu crteža na stotinku
+// piksela: Apple i Intel procesori u zadnjim decimalama računaju malo
+// drukčije (spajanje množenja i zbrajanja), a sažetak mora biti isti na oba.
+func zaokruziZapis(s string) string {
+	return reDecimalni.ReplaceAllStringFunc(s, func(b string) string {
+		v, err := strconv.ParseFloat(b, 64)
+		if err != nil {
+			return b
+		}
+		return strconv.FormatFloat(math.Round(v*100)/100, 'f', 2, 64)
+	})
+}
+
+var reDecimalni = regexp.MustCompile(`-?\d+\.\d+(e[-+]\d+)?`)
+
+const sazetakDrave = "c75b738e635310684dbc4cf5c1636b43c5ea9e448a1a46bd6ff12bfd291d5691"
 
 // letveDunava slaže Dunav od Bratislave do Bačke Palanke pri visokoj vodi, s
 // pragovima blizu vala: bez ušća i akumulacije, pa pragovi ulaze u crtež.
@@ -160,12 +177,12 @@ func TestUzduzniProfilDunavaOstajeIsti(t *testing.T) {
 		t.Fatal("nema profila ili pragova")
 	}
 	zapis := fmt.Sprintf("%+v", *p)
-	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(zapis))); got != sazetakDunava {
+	if got := fmt.Sprintf("%x", sha256.Sum256([]byte(zaokruziZapis(zapis)))); got != sazetakDunava {
 		t.Errorf("crtež Dunava se promijenio: %s\n%s", got, zapis)
 	}
 }
 
-const sazetakDunava = "1b163e711cded75c4e1aca09c62cfba6a7e97e0bcbcfcd9f5507710afedb1066"
+const sazetakDunava = "2b8beb4b83e370e0659edea1e3bac844d69558b361b81be03a9329189cf395d5"
 
 // Kad je voda velika, nula i referentne crte ostaju ispod crteža, pa i
 // napomena ide dolje; jedna stvar „je”, više njih „su”.
