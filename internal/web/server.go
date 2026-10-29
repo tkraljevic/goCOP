@@ -403,6 +403,7 @@ func templateFuncs() template.FuncMap {
 		"logo":              LogoURL,
 		"temaCSS":           temaCSSAdresa,
 		"postavkeKarte":     postavkeKarteZaStranicu,
+		"ikonaVrste":        models.IkonaVrste,
 		"imaVektorskuKartu": imaVektorskuKartu,
 		"roleOptions":       roleOptions,
 		"humanBytes":        humanBytes,
