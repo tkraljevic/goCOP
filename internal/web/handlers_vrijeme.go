@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"html/template"
 	"math"
 	"net/http"
@@ -156,10 +157,7 @@ func (h *VrijemeHandler) ShowPloca(w http.ResponseWriter, r *http.Request) {
 // kisa traži najbliži stvarni kišomjer koji se javlja i najbližu izvedenu
 // točku s prognozom
 func (h *VrijemeHandler) kisa(p *PlocaVremena) {
-	if h.kisomjeri == nil || h.mjerenja == nil {
-		return
-	}
-	svc, sp := h.kisomjeri(), h.mjerenja()
+	svc, sp := h.izvoriKise()
 	if svc == nil || sp == nil {
 		return
 	}
@@ -167,11 +165,33 @@ func (h *VrijemeHandler) kisa(p *PlocaVremena) {
 	if err != nil {
 		return
 	}
-	sort.Slice(tocke, func(a, b int) bool {
-		return dhmz.Udaljenost(p.Lat, p.Lon, tocke[a].Latitude, tocke[a].Longitude) <
-			dhmz.Udaljenost(p.Lat, p.Lon, tocke[b].Latitude, tocke[b].Longitude)
-	})
+	poUdaljenosti(tocke, p.Lat, p.Lon)
 	sada := time.Now()
+	najblizeIzmjereno(p, sp, tocke, sada)
+	najblizaPrognoza(p, sp, tocke, sada)
+}
+
+// izvoriKise vraća registar i spremište mjerenja; nil dok ih poslužitelj
+// nije otvorio
+func (h *VrijemeHandler) izvoriKise() (*service.KisomjerService, *kisomjeri.Spremiste) {
+	if h.kisomjeri == nil || h.mjerenja == nil {
+		return nil, nil
+	}
+	return h.kisomjeri(), h.mjerenja()
+}
+
+// poUdaljenosti slaže točke od najbliže prema najdaljoj
+func poUdaljenosti(tocke []models.Kisomjer, lat, lon float64) {
+	sort.Slice(tocke, func(a, b int) bool {
+		return dhmz.Udaljenost(lat, lon, tocke[a].Latitude, tocke[a].Longitude) <
+			dhmz.Udaljenost(lat, lon, tocke[b].Latitude, tocke[b].Longitude)
+	})
+}
+
+// najblizeIzmjereno upisuje kišu s najbližeg aktivnog stvarnog kišomjera
+// unutar 40 km koji je javio zadnji sat ili današnji zbroj; nijemi se
+// preskaču, jer ih ima i koji danima ništa ne šalju
+func najblizeIzmjereno(p *PlocaVremena, sp *kisomjeri.Spremiste, tocke []models.Kisomjer, sada time.Time) {
 	for _, t := range tocke {
 		if !t.Aktivan || !t.JeStvarni() {
 			continue
@@ -185,57 +205,81 @@ func (h *VrijemeHandler) kisa(p *PlocaVremena) {
 			continue
 		}
 		iz := &IzmjerenaKisa{Naziv: t.Naziv, Izvor: t.Izvor, Km: km}
-		for _, x := range m {
-			v := x.Oborina
-			switch {
-			case x.Sati == 1 && !x.Kraj.After(sada) && sada.Sub(x.Kraj) < 3*time.Hour:
-				iz.ZadnjiSat, iz.Javljeno = &v, x.Kraj
-			case x.Sati == 24 && x.Kraj.After(sada):
-				iz.Danas = &v
-			}
-		}
+		upisiMjerenja(iz, m, sada)
 		if iz.ZadnjiSat != nil || iz.Danas != nil {
 			p.Izmjereno = iz
 			break
 		}
 	}
+}
+
+// upisiMjerenja uzima zadnji sat koji je završio u zadnja tri sata i dnevni
+// zbroj koji još traje; mjerenja su po vremenu, pa pobjeđuje najkasnije
+func upisiMjerenja(iz *IzmjerenaKisa, m []kisomjeri.Mjerenje, sada time.Time) {
+	for _, x := range m {
+		v := x.Oborina
+		switch {
+		case x.Sati == 1 && !x.Kraj.After(sada) && sada.Sub(x.Kraj) < 3*time.Hour:
+			iz.ZadnjiSat, iz.Javljeno = &v, x.Kraj
+		case x.Sati == 24 && x.Kraj.After(sada):
+			iz.Danas = &v
+		}
+	}
+}
+
+// najblizaPrognoza upisuje prognozu s najbliže aktivne izvedene točke; kad
+// ona nema redaka, dalja se ne gleda
+func najblizaPrognoza(p *PlocaVremena, sp *kisomjeri.Spremiste, tocke []models.Kisomjer, sada time.Time) {
 	sat := sada.Unix() / 3600
 	for _, t := range tocke {
 		if !t.Aktivan || t.JeStvarni() {
 			continue
 		}
-		r, err := sp.DB.Query(`SELECT sat, oborina FROM satne WHERE kisomjer = ? AND sat BETWEEN ? AND ?`, t.Code, sat-24, sat+72)
-		if err != nil {
-			return
-		}
-		pk := &PrognoznaKisa{Naziv: t.Naziv, Km: dhmz.Udaljenost(p.Lat, p.Lon, t.Latitude, t.Longitude)}
-		n := 0
-		for r.Next() {
-			var s int64
-			var v float64
-			if r.Scan(&s, &v) != nil {
-				continue
-			}
-			n++
-			switch {
-			case s <= sat:
-				pk.Proteklih24 += v
-			case s <= sat+24:
-				pk.Sljedecih24 += v
-				pk.Sljed72 += v
-			default:
-				pk.Sljed72 += v
-			}
-		}
-		r.Close()
-		if n > 0 {
-			pk.Proteklih24 = math.Round(pk.Proteklih24*10) / 10
-			pk.Sljedecih24 = math.Round(pk.Sljedecih24*10) / 10
-			pk.Sljed72 = math.Round(pk.Sljed72*10) / 10
-			p.Prognozno = pk
-		}
+		prognozaTocke(p, sp, t, sat)
 		return
 	}
+}
+
+// prognozaTocke zbraja satne oborine točke od 24 h prije do 72 h poslije
+// sata sat, zaokružene na desetinku
+func prognozaTocke(p *PlocaVremena, sp *kisomjeri.Spremiste, t models.Kisomjer, sat int64) {
+	r, err := sp.DB.Query(`SELECT sat, oborina FROM satne WHERE kisomjer = ? AND sat BETWEEN ? AND ?`, t.Code, sat-24, sat+72)
+	if err != nil {
+		return
+	}
+	pk := &PrognoznaKisa{Naziv: t.Naziv, Km: dhmz.Udaljenost(p.Lat, p.Lon, t.Latitude, t.Longitude)}
+	n := zbrojiPrognozu(pk, r, sat)
+	r.Close()
+	if n > 0 {
+		pk.Proteklih24 = math.Round(pk.Proteklih24*10) / 10
+		pk.Sljedecih24 = math.Round(pk.Sljedecih24*10) / 10
+		pk.Sljed72 = math.Round(pk.Sljed72*10) / 10
+		p.Prognozno = pk
+	}
+}
+
+// zbrojiPrognozu dijeli sate na proteklih 24 h (s tekućim satom), sljedećih
+// 24 h i 72 h; rupe (NULL) se ne broje. Vraća broj pročitanih sati.
+func zbrojiPrognozu(pk *PrognoznaKisa, r *sql.Rows, sat int64) int {
+	n := 0
+	for r.Next() {
+		var s int64
+		var v float64
+		if r.Scan(&s, &v) != nil {
+			continue
+		}
+		n++
+		switch {
+		case s <= sat:
+			pk.Proteklih24 += v
+		case s <= sat+24:
+			pk.Sljedecih24 += v
+			pk.Sljed72 += v
+		default:
+			pk.Sljed72 += v
+		}
+	}
+	return n
 }
 
 var plocaVremenaTmpl = template.Must(template.New("ploca").Funcs(template.FuncMap{
