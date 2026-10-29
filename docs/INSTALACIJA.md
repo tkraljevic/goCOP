@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.45-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 28. 10. 2026.
+Administratorske upute za izdanje 0.0.46-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 29. 10. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.45-alfa (28. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.46-alfa (29. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -520,7 +520,7 @@ Portovi se mijenjaju u `gocop.toml`.
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
   samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.45-alfa`) ili
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.46-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -885,7 +885,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.45-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.46-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a WEB sync, kad se uključi,
 na 4713/UDP. Radi kao UID/GID `99:100`; mape moraju biti dostupne tom
@@ -962,7 +962,7 @@ sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Sinkronizacija.
 
-0.0.46-alfa (u pripremi) radi uz 0.0.37–0.0.45-alfa i razmjena s njima ide
+0.0.46-alfa radi uz 0.0.37–0.0.45-alfa i razmjena s njima ide
 kao i dosad. Baza se ne mijenja, pa se na 0.0.45-alfa može vratiti bez kopije
 baze. Kvačicu „Vrijedi i ugroženo područje cijele poddionice” uz nasip u
 obrascu dionice uključiti tek kad su sva računala na 0.0.46-alfa: stariji
@@ -1352,8 +1352,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.45-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.45-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.46-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.46-alfa` i `:latest`.
 
 ## 9. Za razvoj
 

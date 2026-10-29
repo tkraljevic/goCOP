@@ -4,7 +4,7 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.46-alfa — u pripremi
+## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju
   se s interneta, pa bez njega karte u programu ostaju prazne. Sad čvor može
@@ -15,7 +15,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   koji se preuzme na istoj stranici. Paket se prima samo od računala iste
   mreže. Razmjenom ide samo koja je karta zadana. Samu datoteku, za Sektor B
   oko 120 MB, treba paketom prenijeti na svako računalo. Karta se daje samo
-  prijavljenima. (#172)
+  prijavljenima. (#172, #192)
 - **Tok vodotoka crta se istim alatom kao objekt.** Karta vodotoka imala je
   stari uređivač, a tok koji još nije bio ucrtan nije se mogao nacrtati, pa
   se karta nije ni pokazivala. Sad ima isti alat kao karta objekta, s
@@ -52,7 +52,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   istim pravilom. Nasip uz kanal upisuje se kao dva nasipa, l.o. i d.o.,
   kad tako stoji u planu i GIS-u. Most, propust ili ušće, koji prelaze
   vodotok, upisuju se jednom, bez nasipa, s obalom LD (Odluke (29. 10.
-  2026.)). (#190)
+  2026.)). (#190, #193)
 - **Stranica nasipa i brane pokazuje mjerodavne vodomjere.** Većina nasipa
   nema svoju letvu, pa je u bloku „Vodomjer na objektu” pisalo „Objekt nema
   pridružen vodomjer”, iako svaka poddionica u planu obrane ima mjerodavni
@@ -65,6 +65,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   obrascu za novo naselje, pa se upisanom naselju broj nije dao ni upisati
   ni promijeniti. Sad je u retku naselja na stranici općine, uz naziv i
   poštanski broj. (#173)
+- **Račun telemetrije mijenja samo globalni administrator.** Stranica
+  Administracija › Telemetrija tražila je samo modul Administracija, pa je
+  svatko s tim modulom mogao promijeniti ili obrisati račun kojim letve bez
+  javne stranice čitaju vodostaje. Sad su stranica i spremanje samo za
+  globalnog administratora, kao Izvori, Karte i Tema. (#194)
 - **Testovi i sređivanje koda, bez promjene ponašanja.** Najsloženiji
   dijelovi programa, npr. potpis i pečat na PDF-u ili crtanje uzdužnog
   profila, dobili su testove i rastavljeni su na manje korake. Program radi
