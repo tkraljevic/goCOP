@@ -2,9 +2,12 @@ package web
 
 import (
 	"net/http/httptest"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"gocop/internal/db"
+	"gocop/internal/ledger"
 	"gocop/internal/peers"
 )
 
@@ -37,5 +40,25 @@ func TestPrijenosKarteRijecima(t *testing.T) {
 	r := httptest.NewRequest("GET", "/administracija/karte", nil)
 	if got := (&AktiHandler{}).prijenosKarte(r); got != "Učitajte njezin .cop paket ispod." {
 		t.Errorf("bez razmjene: %q", got)
+	}
+	// razmjena bez prijenosa karte (PostaviKarte) daje prazno stanje
+	dbPath := filepath.Join(t.TempDir(), "gocop.db")
+	baza, err := db.BazaIzPredloska(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	n, err := peers.LoadNode(dbPath, "cop-proba", "cop-proba", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ps, err := peers.NewService(baza, ledger.New(baza, "test"), n, peers.Ports{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := &AktiHandler{}
+	h.SetPeers(ps)
+	if got := h.prijenosKarte(r); got != "Učitajte njezin .cop paket ispod." {
+		t.Errorf("razmjena bez prijenosa karte: %q", got)
 	}
 }

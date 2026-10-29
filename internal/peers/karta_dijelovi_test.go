@@ -2,13 +2,15 @@ package peers
 
 // Prijenos karte u dijelovima na jednom računalu, bez mreže: stanje s
 // diska, koje dijelove računalo traži, što daje drugima, upis primljenog,
-// slaganje karte, kriv opis, dvije karte zaredom, nestanak struje usred
-// upisa, greške datoteka i čišćenje mape karata.
+// slaganje karte, kriv opis i kvar diska prije slaganja, dvije karte
+// zaredom, nestanak struje usred upisa, greške datoteka i čišćenje mape
+// karata.
 
 import (
 	"bytes"
 	"context"
 	"errors"
+	"log"
 	"os"
 	"path/filepath"
 	"slices"
@@ -76,6 +78,13 @@ func smiri(d *dijeloviKarte) {
 // dio je i-ti dio karte b
 func dio(k models.VektorskaKarta, b []byte, i int) []byte {
 	return b[int64(i)*k.Dio : int64(i)*k.Dio+duljinaDijela(&k, i)]
+}
+
+// narastaj je stanje koje prijenos drži
+func narastaj(d *dijeloviKarte) uint64 {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.narastaj
 }
 
 func naDisku(put string) bool {
@@ -447,13 +456,13 @@ func TestZakasnjeliUpisNePraviDatoteku(t *testing.T) {
 	if err := d.upisi(k1.Dijelovi[0], dio(k1, b1, 0)); err != nil {
 		t.Fatal(err)
 	}
-	kz, idx, err := d.zaUpis(k1.Dijelovi[1], 128)
+	u, err := d.zaUpis(k1.Dijelovi[1], 128)
 	if err != nil {
 		t.Fatal(err)
 	}
 	o.postavi(&k2)
 	smiri(d)
-	if err := d.zapisi(kz, idx, dio(k1, b1, 1)); !errors.Is(err, errKartaPromijenjena) || naDisku(putDjelomicne(mapa, k1.Otisak)) {
+	if err := d.zapisi(u, dio(k1, b1, 1)); !errors.Is(err, errKartaPromijenjena) || naDisku(putDjelomicne(mapa, k1.Otisak)) {
 		t.Errorf("zakasnio upis stare karte: %v, djelomična %v", err, naDisku(putDjelomicne(mapa, k1.Otisak)))
 	}
 	// isti dio dvaput prošao provjeru (zauzeće isteklo), a karta je složena
@@ -463,7 +472,7 @@ func TestZakasnjeliUpisNePraviDatoteku(t *testing.T) {
 		}
 	}
 	zadnji := len(k2.Dijelovi) - 1
-	kz, idx, err = d.zaUpis(k2.Dijelovi[zadnji], duljinaDijela(&k2, zadnji))
+	u, err = d.zaUpis(k2.Dijelovi[zadnji], duljinaDijela(&k2, zadnji))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -471,7 +480,7 @@ func TestZakasnjeliUpisNePraviDatoteku(t *testing.T) {
 		t.Fatal(err)
 	}
 	d.pozadina.Wait()
-	if err := d.zapisi(kz, idx, dio(k2, b2, zadnji)); !errors.Is(err, errKartaPromijenjena) || naDisku(putDjelomicne(mapa, k2.Otisak)) {
+	if err := d.zapisi(u, dio(k2, b2, zadnji)); !errors.Is(err, errKartaPromijenjena) || naDisku(putDjelomicne(mapa, k2.Otisak)) {
 		t.Errorf("zakasnio upis složene karte: %v", err)
 	}
 }
@@ -545,6 +554,7 @@ func TestNovaKartaZamjenjujeStaru(t *testing.T) {
 	smiri(d)
 	o.postavi(&k1)
 	smiri(d)
+	stanjeK1 := narastaj(d)
 	if err := d.upisi(k1.Dijelovi[0], dio(k1, b1, 0)); err != nil {
 		t.Fatal(err)
 	}
@@ -566,7 +576,7 @@ func TestNovaKartaZamjenjujeStaru(t *testing.T) {
 		t.Error("nakon nove karte stara je ostala ili nova nije složena")
 	}
 	// upisano dok se opis mijenjao ne ide u novu kartu
-	d.upisano(k1, []int{0})
+	d.upisano(upisDijela{k: k1, narastaj: stanjeK1, idx: []int{0}})
 	if d.stanje().Dijelova != len(k2.Dijelovi) {
 		t.Error("upis stare karte promijenio je stanje nove")
 	}
@@ -786,5 +796,225 @@ func TestDijeloviKarteRubovi(t *testing.T) {
 		if err := provjeriSlozenu(put, k); err == nil || errors.Is(err, errKartaNeOdgovara) {
 			t.Errorf("%s: %v", opis, err)
 		}
+	}
+}
+
+// Dio se pokvari na disku između upisa i slaganja: to nije kriv opis, pa
+// nema trajne oznake. Djelomična datoteka nestane, a karta se nakon odgode
+// preuzme iznova i složi. Kraća ili dulja datoteka je isti kvar.
+func TestKvarDiskaPrijeSlaganjaNeOdbacujeOpis(t *testing.T) {
+	k, b, _ := kartaUDijelovima(t, 1000, 128, 20)
+	mapa := t.TempDir()
+	d, _ := prijenosU(mapa, &k)
+	smiri(d)
+	for i := range 7 {
+		if err := d.upisi(k.Dijelovi[i], dio(k, b, i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	pokvari(t, putDjelomicne(mapa, k.Otisak), 2*128+3)
+	if err := d.upisi(k.Dijelovi[7], dio(k, b, 7)); err != nil {
+		t.Fatal(err)
+	}
+	d.pozadina.Wait()
+	if naDisku(putDjelomicne(mapa, k.Otisak)) || naDisku(PutKarte(mapa, k.Otisak)) {
+		t.Error("pokvarena karta ostala je na disku")
+	}
+	if len(odbaceniOpisi(mapa)) != 0 {
+		t.Fatal("kvar diska zapisao je trajnu oznaku odbačenog opisa")
+	}
+	if st := d.stanje(); st.Los || !st.Prenosi || st.Dijelova != 0 {
+		t.Errorf("nakon kvara diska: %+v", st)
+	}
+	if got := d.zeljeni(1<<20, 10); got != nil {
+		t.Errorf("pokvarena karta traži se iznova prije odgode: %d", len(got))
+	}
+	odgoda := odgodaSlaganja
+	odgodaSlaganja = 0
+	t.Cleanup(func() { odgodaSlaganja = odgoda })
+	if got := d.zeljeni(1<<20, 10); len(got) != 8 {
+		t.Fatalf("nakon odgode traži %d dijelova", len(got))
+	}
+	for i := range 8 {
+		if err := d.upisi(k.Dijelovi[i], dio(k, b, i)); err != nil {
+			t.Fatalf("dio %d iznova: %v", i, err)
+		}
+	}
+	d.pozadina.Wait()
+	got, _ := os.ReadFile(PutKarte(mapa, k.Otisak)) // karte koje nema nema ni bajtova
+	if !bytes.Equal(got, b) {
+		t.Error("karta preuzeta iznova nije složena")
+	}
+	nakon, _ := prijenosU(mapa, &k)
+	smiri(nakon)
+	if st := nakon.stanje(); st.Los || !st.Slozena {
+		t.Errorf("nakon ponovnog pokretanja: %+v", st)
+	}
+	for opis, bajtovi := range map[string][]byte{"kraća": b[:999], "dulja": append(slices.Clone(b), 0)} {
+		put := filepath.Join(t.TempDir(), "karta")
+		if err := os.WriteFile(put, bajtovi, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := provjeriSlozenu(put, k); !errors.Is(err, errDioNaDisku) {
+			t.Errorf("%s datoteka: %v", opis, err)
+		}
+	}
+}
+
+// Opis je odbačen, a složena karta tog otiska je na disku (stigla je .cop
+// paketom): računalo je drži i pokazuje da je ovdje, ali je ne daje dalje
+// ni ne traži, i nakon ponovnog pokretanja. Kad je kriv popis dijelova,
+// traženi dio se ni ne čita s diska ni ne zapisuje u dnevnik.
+func TestSlozenaKartaOdbacenogOpisa(t *testing.T) {
+	k, b, _ := kartaUDijelovima(t, 1000, 128, 21)
+	drugi, _, _ := kartaUDijelovima(t, 1000, 128, 28)
+	krivPopis, krivoZaglavlje := k, k
+	krivPopis.Dijelovi = drugi.Dijelovi
+	krivoZaglavlje.NajviseZ++
+	var dnevnik bytes.Buffer
+	stari := log.Writer()
+	log.SetOutput(&dnevnik)
+	t.Cleanup(func() { log.SetOutput(stari) })
+	for opis, kriv := range map[string]models.VektorskaKarta{"kriv popis dijelova": krivPopis, "krivo zaglavlje": krivoZaglavlje} {
+		mapa := t.TempDir()
+		d, _ := prijenosU(mapa, &kriv)
+		d.mu.Lock()
+		d.odbaci(&kriv)
+		d.mu.Unlock()
+		if st := d.stanje(); !st.Los || st.Prenosi || st.Slozena {
+			t.Fatalf("%s: odbačen opis bez karte: %+v", opis, st)
+		}
+		if err := os.WriteFile(PutKarte(mapa, k.Otisak), b, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		for kad, p := range map[string]*dijeloviKarte{"isti prijenos": d, "nakon pokretanja": noviPrijenos(mapa, func() *models.VektorskaKarta { return &kriv }, nil)} {
+			smiri(p)
+			if st := p.stanje(); !st.Los || !st.Slozena || st.Prenosi {
+				t.Errorf("%s, %s: složena karta odbačenog opisa: %+v", opis, kad, st)
+			}
+			if _, ok := p.procitaj(kriv.Dijelovi[3]); ok {
+				t.Errorf("%s, %s: dio složene karte odbačenog opisa dan je dalje", opis, kad)
+			}
+			if p.zeljeni(1<<20, 10) != nil || p.nedostaje() {
+				t.Errorf("%s, %s: odbačen opis se traži", opis, kad)
+			}
+		}
+		if !naDisku(PutKarte(mapa, k.Otisak)) {
+			t.Errorf("%s: složena karta odbačenog opisa je obrisana", opis)
+		}
+	}
+	if dnevnik.Len() != 0 {
+		t.Errorf("traženi dio odbačenog opisa pročitan je s diska: %q", dnevnik.String())
+	}
+}
+
+// Opis se promijenio dok se karta provjeravala: provjerena karta ne postane
+// složena karta koju prijenos više ne drži, a njezina djelomična datoteka
+// nestane. Kad je novi opis iste karte (drukčiji dijelovi), djelomična
+// datoteka ostaje novom opisu.
+func TestSlaganjeNakonPromjeneOpisa(t *testing.T) {
+	k1, b1, _ := kartaUDijelovima(t, 1000, 128, 22)
+	k2, b2, _ := kartaUDijelovima(t, 1100, 128, 23)
+	k1v, _, _ := kartaUDijelovima(t, 1000, 256, 22)
+	staro := uint64(0) // stanje opisa k1, koje prijenos više ne drži
+	if k1v.Otisak != k1.Otisak {
+		t.Fatal("ista karta s drukčijim dijelovima ima drugi otisak")
+	}
+	for opis, c := range map[string]struct {
+		novi      models.VektorskaKarta
+		b         []byte
+		djelomica bool
+	}{"druga karta": {k2, b2, false}, "ista karta": {k1v, b1, true}} {
+		mapa := t.TempDir()
+		d, _ := prijenosU(mapa, &c.novi)
+		smiri(d)
+		if err := os.WriteFile(putDjelomicne(mapa, k1.Otisak), b1, 0o600); err != nil {
+			t.Fatal(err)
+		}
+		d.pozadina.Add(1)
+		d.slozi(k1, staro)
+		if naDisku(PutKarte(mapa, k1.Otisak)) || naDisku(putDjelomicne(mapa, k1.Otisak)) != c.djelomica {
+			t.Errorf("%s: složena %v, djelomična %v", opis, naDisku(PutKarte(mapa, k1.Otisak)), naDisku(putDjelomicne(mapa, k1.Otisak)))
+		}
+		if st := d.stanje(); st.Slozena || !st.Prenosi {
+			t.Errorf("%s: stanje novog opisa: %+v", opis, st)
+		}
+		// novi opis se upravo slaže: ishod starog slaganja ne briše tu
+		// oznaku, pa se u djelomičnu datoteku ne upisuje
+		d.mu.Lock()
+		d.slaze = true
+		d.nakonSlaganja(k1, staro, errKartaPromijenjena)
+		slaze := d.slaze
+		d.mu.Unlock()
+		if !slaze {
+			t.Errorf("%s: slaganje starog opisa obrisalo je oznaku slaganja novoga", opis)
+		}
+		if err := d.upisi(c.novi.Dijelovi[0], dio(c.novi, c.b, 0)); !errors.Is(err, errKartaPromijenjena) {
+			t.Errorf("%s: dio je upisan dok se karta slaže: %v", opis, err)
+		}
+	}
+}
+
+// Opis se promijeni i vrati na isti (A, B, A) dok se karta A slaže: novo
+// stanje ima novu djelomičnu datoteku s jednim dijelom. Staro slaganje, koje
+// je provjerilo staru datoteku, novu ne preimenuje u kartu ni ne briše, a
+// stari upis ne bilježi dio u novom stanju niti otvara njegovu datoteku.
+func TestSlaganjeStarogStanjaIstogOpisa(t *testing.T) {
+	k1, b1, _ := kartaUDijelovima(t, 1000, 128, 24)
+	k2, _, _ := kartaUDijelovima(t, 1100, 128, 25)
+	mapa := t.TempDir()
+	d, o := prijenosU(mapa, &k1)
+	smiri(d)
+	staro := narastaj(d)
+	o.postavi(&k2)
+	smiri(d)
+	o.postavi(&k1)
+	smiri(d)
+	if err := d.upisi(k1.Dijelovi[0], dio(k1, b1, 0)); err != nil {
+		t.Fatal(err)
+	}
+	d.dovrsiSlaganje(k1, staro, putDjelomicne(mapa, k1.Otisak), nil)
+	if naDisku(PutKarte(mapa, k1.Otisak)) || !naDisku(putDjelomicne(mapa, k1.Otisak)) {
+		t.Errorf("staro slaganje: složena %v, djelomična %v", naDisku(PutKarte(mapa, k1.Otisak)), naDisku(putDjelomicne(mapa, k1.Otisak)))
+	}
+	d.upisano(upisDijela{k: k1, narastaj: staro, idx: []int{1}})
+	if st := d.stanje(); st.Slozena || st.Dijelova != 1 {
+		t.Errorf("novo stanje istog opisa: %+v", st)
+	}
+	if _, err := d.otvoriDjelomicnu(upisDijela{k: k1, narastaj: staro}); !errors.Is(err, errKartaPromijenjena) {
+		t.Errorf("stari upis otvorio je datoteku novog stanja: %v", err)
+	}
+}
+
+// Opis se vrati na kartu B, koja je već složena, a prijenos to još nije
+// vidio kad slaganje karte A završi: A se ne preimenuje, a B ostaje
+// trenutna karta i ne briše se
+func TestSlaganjeNakonNevidjenePromjeneOpisa(t *testing.T) {
+	kA, bA, _ := kartaUDijelovima(t, 1000, 128, 26)
+	kB, bB, _ := kartaUDijelovima(t, 1100, 128, 27)
+	mapa := t.TempDir()
+	if err := os.WriteFile(PutKarte(mapa, kB.Otisak), bB, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d, o := prijenosU(mapa, &kB)
+	smiri(d)
+	o.postavi(&kA)
+	smiri(d)
+	if err := os.WriteFile(putDjelomicne(mapa, kA.Otisak), bA, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	d.mu.Lock()
+	n := d.narastaj
+	d.slaze = true
+	d.mu.Unlock()
+	o.postavi(&kB)
+	d.pozadina.Add(1)
+	d.slozi(kA, n)
+	got, _ := os.ReadFile(PutKarte(mapa, kB.Otisak)) // karte koje nema nema ni bajtova
+	if !bytes.Equal(got, bB) || naDisku(PutKarte(mapa, kA.Otisak)) || naDisku(putDjelomicne(mapa, kA.Otisak)) {
+		t.Errorf("karta B %v, složena A %v, djelomična A %v", bytes.Equal(got, bB), naDisku(PutKarte(mapa, kA.Otisak)), naDisku(putDjelomicne(mapa, kA.Otisak)))
+	}
+	if st := d.stanje(); !st.Slozena || st.Ukupno != kB.Bajtova {
+		t.Errorf("stanje nakon slaganja: %+v", st)
 	}
 }

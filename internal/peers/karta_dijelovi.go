@@ -19,9 +19,17 @@ package peers
 // pozadini, pa se preuzimanje nastavlja i nakon prekida i ponovnog
 // pokretanja; dio koji je nestanak struje prekinuo ne odgovara otisku i
 // traži se iznova. Stara karta briše se tek kad je nova složena. Opis veći
-// od NajvecaKarta se ne prenosi, a opis čiji se dijelovi ne slože u kartu
-// pamti se oznakom <ključ>.odbacen u mapi karata, pa se ne preuzima ni
-// nakon ponovnog pokretanja.
+// od NajvecaKarta se ne prenosi. Opis čiji ispravni dijelovi ne daju kartu
+// iz opisa pamti se oznakom <ključ>.odbacen u mapi karata, pa se ne preuzima
+// ni nakon ponovnog pokretanja; kvar na ovom disku ne zaključa opis, nego se
+// karta preuzme iznova. Složenu kartu odbačenog opisa (npr. iz .cop paketa)
+// računalo drži, ali je ne daje dalje: njezini dijelovi ne odgovaraju popisu
+// iz opisa, ili odgovaraju, a složena karta drugom računalu opet ne bi
+// odgovarala opisu.
+//
+// Slaganje i upis koji su krenuli pod jednim stanjem prijenosa nose njegov
+// narastaj: kad se opis u međuvremenu promijeni i vrati na isti, to je novo
+// stanje s novom djelomičnom datotekom, pa ga staro slaganje ni upis ne diraju.
 
 import (
 	"context"
@@ -93,9 +101,17 @@ var (
 // karta složena, pa djelomična datoteka više ne treba
 var errKartaPromijenjena = errors.New("karta se u međuvremenu promijenila ili je već složena")
 
-// errKartaNeOdgovara: svi dijelovi su tu, a karta ne odgovara otisku ili
-// zaglavlju iz opisa; opis je kriv, pa se taj otisak više ne preuzima
+// errKartaNeOdgovara: svaki dio odgovara svom otisku iz opisa, a cijela
+// karta ne odgovara otisku ili zaglavlju iz opisa. Bajtovi su točno oni koje
+// opisuje popis dijelova, pa je kriv sam opis (popis dijelova nije te karte,
+// ili područje i povećanje nisu iz njezina zaglavlja) i taj se opis više ne
+// preuzima.
 var errKartaNeOdgovara = errors.New("složena karta ne odgovara opisu")
+
+// errDioNaDisku: dio u djelomičnoj datoteci više ne odgovara otisku (ili je
+// datoteka kraća ili dulja), iako je pri upisu odgovarao. To je kvar na ovom
+// disku između upisa i slaganja, a ne kriv opis, pa se karta preuzme iznova.
+var errDioNaDisku = errors.New("dio karte na disku više ne odgovara otisku")
 
 // MapaKarata je mapa karata čvora, uz bazu; istu računaju razmjena i web
 func MapaKarata(dbPath string) string {
@@ -116,6 +132,7 @@ type dijeloviKarte struct {
 
 	mu        sync.Mutex
 	k         *models.VektorskaKarta // opis čije se stanje drži; nil kad karte nema
+	narastaj  uint64                 // raste sa svakim pocni: koje se stanje drži
 	indeksi   map[string][]int       // otisak dijela → redni brojevi dijelova
 	ima       []bool
 	spreman   bool // stanje djelomične datoteke je pročitano
@@ -187,7 +204,21 @@ func kljucOpisa(k *models.VektorskaKarta) string {
 // prenosiSe: opis s dijelovima, ne veći od NajvecaKarta (opis smije
 // zapisati svaki član, a models pušta i veći), koji nije odbačen
 func (d *dijeloviKarte) prenosiSe(k *models.VektorskaKarta) bool {
-	return k != nil && len(k.Dijelovi) > 0 && k.Bajtova <= NajvecaKarta && (len(d.los) == 0 || !d.los[kljucOpisa(k)])
+	return k != nil && len(k.Dijelovi) > 0 && k.Bajtova <= NajvecaKarta && !d.odbacen(k)
+}
+
+// odbacen: opis je kriv (errKartaNeOdgovara). Ni složena karta tog otiska
+// na disku (npr. iz .cop paketa) ne ide dalje: ili joj dijelovi ne odgovaraju
+// popisu iz opisa, pa bi se svaki traženi dio pročitao i bacio, ili
+// odgovaraju, a drugo računalo bi je preuzelo cijelu i opet odbacilo.
+func (d *dijeloviKarte) odbacen(k *models.VektorskaKarta) bool {
+	return len(d.los) > 0 && d.los[kljucOpisa(k)]
+}
+
+// drzi: prijenos još drži stanje narastaja n, a ne novo stanje istog opisa
+// (opis se promijenio pa vratio). Zove se pod d.mu.
+func (d *dijeloviKarte) drzi(n uint64) bool {
+	return d.k != nil && d.narastaj == n
 }
 
 // osvjezi uskladi stanje s trenutnim opisom i vrati ga kad je stanje
@@ -241,6 +272,7 @@ func (d *dijeloviKarte) pocni(k *models.VektorskaKarta) {
 	c := *k
 	c.Dijelovi = slices.Clone(k.Dijelovi)
 	n := len(c.Dijelovi)
+	d.narastaj++
 	d.k, d.ima, d.trazeno, d.zauzeto = &c, make([]bool, n), make([]time.Time, n), map[int]time.Time{}
 	d.indeksi = map[string][]int{}
 	for i, o := range c.Dijelovi {
@@ -261,16 +293,16 @@ func (d *dijeloviKarte) pocni(k *models.VektorskaKarta) {
 		return
 	}
 	d.pozadina.Add(1)
-	go d.procitajStanje(c)
+	go d.procitajStanje(c, d.narastaj)
 }
 
 // procitajStanje pročita koji su dijelovi opisa već u djelomičnoj datoteci
-func (d *dijeloviKarte) procitajStanje(k models.VektorskaKarta) {
+func (d *dijeloviKarte) procitajStanje(k models.VektorskaKarta, n uint64) {
 	defer d.pozadina.Done()
 	ima := dijeloviNaDisku(putDjelomicne(d.mapa, k.Otisak), k)
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if istaKarta(d.k, &k) && !d.spreman {
+	if d.drzi(n) && !d.spreman {
 		d.ima, d.spreman = ima, true
 		d.mozdaSlozi()
 	}
@@ -310,7 +342,7 @@ func (d *dijeloviKarte) zeljeni(budzet int64, najvise int) []string {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	k := d.osvjezi()
-	if k == nil || d.slozena {
+	if k == nil || !d.trazi() {
 		return nil
 	}
 	sad := time.Now()
@@ -325,6 +357,13 @@ func (d *dijeloviKarte) zeljeni(budzet int64, najvise int) []string {
 		out = append(out, k.Dijelovi[i])
 	}
 	return out
+}
+
+// trazi: karta nije složena, a nakon slaganja koje nije uspjelo prošla je
+// odgodaSlaganja (pokvarena karta ne preuzima se iznova odmah). Zove se pod
+// d.mu.
+func (d *dijeloviKarte) trazi() bool {
+	return !d.slozena && time.Since(d.neuspjelo) >= odgodaSlaganja
 }
 
 // redomTrazenja su dijelovi koji nedostaju i nisu zauzeti, najdavnije
@@ -439,52 +478,60 @@ func (d *dijeloviKarte) pokvaren(o string) {
 // nema, a otisak i duljina se slažu. Ide ravno u djelomičnu datoteku, bez
 // brave upisa baze.
 func (d *dijeloviKarte) upisi(o string, b []byte) error {
-	k, idx, err := d.zaUpis(o, int64(len(b)))
+	u, err := d.zaUpis(o, int64(len(b)))
 	if err != nil {
 		return err
 	}
 	if otisakBajtova(b) != o {
 		return errors.New("dio ne odgovara otisku")
 	}
-	if err := d.zapisi(k, idx, b); err != nil {
+	if err := d.zapisi(u, b); err != nil {
 		return err
 	}
-	d.upisano(k, idx)
+	d.upisano(u)
 	return nil
 }
 
+// upisDijela je dio koji se upisuje: opis, narastaj stanja i redni brojevi
+// dijelova s tim otiskom koji ovdje nedostaju
+type upisDijela struct {
+	k        models.VektorskaKarta
+	narastaj uint64
+	idx      []int
+}
+
 // zaUpis su opis i dijelovi s tim otiskom koji ovdje nedostaju
-func (d *dijeloviKarte) zaUpis(o string, n int64) (models.VektorskaKarta, []int, error) {
+func (d *dijeloviKarte) zaUpis(o string, n int64) (upisDijela, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	k := d.osvjezi()
 	if k == nil {
-		return models.VektorskaKarta{}, nil, errors.New("karta se ne preuzima")
+		return upisDijela{}, errors.New("karta se ne preuzima")
 	}
-	var idx []int
+	u := upisDijela{k: *k, narastaj: d.narastaj}
 	for _, i := range d.indeksi[o] {
 		if !d.ima[i] {
-			idx = append(idx, i)
+			u.idx = append(u.idx, i)
 		}
 	}
 	switch {
-	case len(idx) == 0:
-		return *k, nil, errors.New("dio nije na popisu karte ili je već tu")
-	case duljinaDijela(k, idx[0]) != n:
-		return *k, nil, errors.New("dio nije ispravne duljine")
+	case len(u.idx) == 0:
+		return u, errors.New("dio nije na popisu karte ili je već tu")
+	case duljinaDijela(k, u.idx[0]) != n:
+		return u, errors.New("dio nije ispravne duljine")
 	}
-	return *k, idx, nil
+	return u, nil
 }
 
 // zapisi upiše dio na svoje mjesto u djelomičnoj datoteci i pričeka disk
-func (d *dijeloviKarte) zapisi(k models.VektorskaKarta, idx []int, b []byte) error {
+func (d *dijeloviKarte) zapisi(u upisDijela, b []byte) error {
 	d.pisanje.Lock()
 	defer d.pisanje.Unlock()
-	f, err := d.otvoriDjelomicnu(k)
+	f, err := d.otvoriDjelomicnu(u)
 	if err != nil {
 		return err
 	}
-	err = zapisiDio(f, k, idx, b)
+	err = zapisiDio(f, u.k, u.idx, b)
 	if cerr := f.Close(); err == nil {
 		err = cerr
 	}
@@ -492,18 +539,19 @@ func (d *dijeloviKarte) zapisi(k models.VektorskaKarta, idx []int, b []byte) err
 }
 
 // otvoriDjelomicnu otvori (i napravi, s mapom karata) djelomičnu datoteku
-// opisa k, pod d.mu: upis koji je zakasnio ne napravi iznova datoteku stare
-// karte ni one koja je u međuvremenu složena
-func (d *dijeloviKarte) otvoriDjelomicnu(k models.VektorskaKarta) (datotekaKarte, error) {
+// opisa upisa, pod d.mu: upis koji je zakasnio ne napravi iznova datoteku
+// stare karte ni one koja je u međuvremenu složena, a ni datoteku novog
+// stanja istog opisa
+func (d *dijeloviKarte) otvoriDjelomicnu(u upisDijela) (datotekaKarte, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if !istaKarta(d.k, &k) || d.slozena || d.slaze {
+	if !d.drzi(u.narastaj) || d.slozena || d.slaze {
 		return nil, errKartaPromijenjena
 	}
 	if err := os.MkdirAll(d.mapa, 0o750); err != nil {
 		return nil, err
 	}
-	return otvoriZaUpis(putDjelomicne(d.mapa, k.Otisak))
+	return otvoriZaUpis(putDjelomicne(d.mapa, u.k.Otisak))
 }
 
 func zapisiDio(f datotekaKarte, k models.VektorskaKarta, idx []int, b []byte) error {
@@ -519,13 +567,13 @@ func zapisiDio(f datotekaKarte, k models.VektorskaKarta, idx []int, b []byte) er
 }
 
 // upisano zabilježi upisan dio; kad su svi tu, karta se slaže
-func (d *dijeloviKarte) upisano(k models.VektorskaKarta, idx []int) {
+func (d *dijeloviKarte) upisano(u upisDijela) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if !istaKarta(d.k, &k) {
+	if !d.drzi(u.narastaj) {
 		return
 	}
-	for _, i := range idx {
+	for _, i := range u.idx {
 		d.ima[i] = true
 		delete(d.zauzeto, i)
 	}
@@ -541,22 +589,48 @@ func (d *dijeloviKarte) mozdaSlozi() {
 	}
 	d.slaze = true
 	d.pozadina.Add(1)
-	go d.slozi(*d.k)
+	go d.slozi(*d.k, d.narastaj)
 }
 
-// slozi provjeri cijelu kartu i preimenuje je u PutKarte
-func (d *dijeloviKarte) slozi(k models.VektorskaKarta) {
+// slozi provjeri cijelu kartu stanja narastaja n i preimenuje je u PutKarte
+func (d *dijeloviKarte) slozi(k models.VektorskaKarta, n uint64) {
 	defer d.pozadina.Done()
 	put := putDjelomicne(d.mapa, k.Otisak)
-	err := provjeriSlozenu(put, k)
-	if err == nil {
-		err = preimenujKartu(put, PutKarte(d.mapa, k.Otisak))
-	}
-	d.nakonSlaganja(k, err)
+	d.dovrsiSlaganje(k, n, put, provjeriSlozenu(put, k))
 }
 
-// provjeriSlozenu: otisak cijele datoteke, a iz zaglavlja područje i
-// najveće povećanje moraju biti kao u opisu
+// dovrsiSlaganje preimenuje provjerenu kartu i zabilježi ishod, pod d.mu.
+// Opis se mogao promijeniti dok se karta provjeravala, a da ga prijenos još
+// nije vidio, pa se stanje prvo uskladi s trenutnim opisom: složena karta i
+// pospremanje uz nju (pocisti) uvijek su u ime trenutnog opisa.
+func (d *dijeloviKarte) dovrsiSlaganje(k models.VektorskaKarta, n uint64, put string, err error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.osvjezi()
+	if err == nil {
+		err = d.preimenuj(k, n, put)
+	}
+	d.nakonSlaganja(k, n, err)
+}
+
+// preimenuj provjerenu kartu u PutKarte, pod d.mu. Kad prijenos više ne
+// drži stanje u kojem je slaganje krenulo, karta se ne preimenuje, jer bi
+// složena karta koju prijenos više ne drži ostala na disku (ili bi novo
+// stanje istog opisa dobilo neprovjerenu datoteku), a djelomična se obriše,
+// osim kad je trenutni opis iste karte (ista datoteka).
+func (d *dijeloviKarte) preimenuj(k models.VektorskaKarta, n uint64, put string) error {
+	if !d.drzi(n) {
+		if d.k == nil || d.k.Otisak != k.Otisak {
+			_ = obrisiKartu(put) // ne uspije li, pobriše je pospremanje (pocisti)
+		}
+		return errKartaPromijenjena
+	}
+	return preimenujKartu(put, PutKarte(d.mapa, k.Otisak))
+}
+
+// provjeriSlozenu: svaki dio mora odgovarati svom otisku (inače je kvar na
+// ovom disku, errDioNaDisku), a otisak cijele datoteke i, iz zaglavlja,
+// područje i najveće povećanje opisu (inače je kriv opis, errKartaNeOdgovara)
 func provjeriSlozenu(put string, k models.VektorskaKarta) error {
 	f, err := os.Open(put) // put je iz provjerenog otiska
 	if err != nil {
@@ -564,7 +638,7 @@ func provjeriSlozenu(put string, k models.VektorskaKarta) error {
 	}
 	defer f.Close() //nolint:errcheck // samo čitanje
 	h, g := sha256.New(), &pocetak{}
-	if _, err := io.Copy(io.MultiWriter(h, g), f); err != nil {
+	if err := provjeriDijelove(f, k, io.MultiWriter(h, g)); err != nil {
 		return err
 	}
 	var z models.VektorskaKarta
@@ -574,20 +648,59 @@ func provjeriSlozenu(put string, k models.VektorskaKarta) error {
 	return nil
 }
 
-// nakonSlaganja: složena karta zamijeni staru; karta koja ne odgovara
-// opisu se briše i taj se opis više ne preuzima, ni nakon ponovnog
-// pokretanja; ostala greška (npr. datoteku drži drugi program) pokuša se
-// iznova nakon odgodaSlaganja
-func (d *dijeloviKarte) nakonSlaganja(k models.VektorskaKarta, err error) {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+// provjeriDijelove čita datoteku dio po dio i šalje ga u w; dio koji ne
+// odgovara svom otisku i datoteka kraća ili dulja od opisa su kvar na disku
+func provjeriDijelove(r io.Reader, k models.VektorskaKarta, w io.Writer) error {
+	b := make([]byte, k.Dio)
+	for i, o := range k.Dijelovi {
+		n := duljinaDijela(&k, i)
+		if err := procitajProvjereno(r, b[:n], o); err != nil {
+			return err
+		}
+		_, _ = w.Write(b[:n]) // sha256 i pocetak nikad ne vraćaju grešku
+	}
+	if _, err := r.Read(b[:1]); !errors.Is(err, io.EOF) { // iza zadnjeg dijela smije biti samo kraj datoteke
+		return errDioNaDisku
+	}
+	return nil
+}
+
+// procitajProvjereno pročita dio u b i provjeri ga otiskom o; datoteka koja
+// prije završi i dio koji ne odgovara otisku su kvar na disku
+func procitajProvjereno(r io.Reader, b []byte, o string) error {
+	_, err := io.ReadFull(r, b)
+	switch {
+	case errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF):
+		return errDioNaDisku
+	case err != nil:
+		return err
+	case otisakBajtova(b) != o:
+		return errDioNaDisku
+	}
+	return nil
+}
+
+// nakonSlaganja: složena karta zamijeni staru. Kad je kriv opis, karta se
+// briše i taj se opis više ne preuzima, ni nakon ponovnog pokretanja. Kvar na
+// disku obriše djelomičnu datoteku, a karta se preuzme iznova nakon
+// odgodaSlaganja. Ostala greška (npr. datoteku drži drugi program) pokuša
+// se iznova nakon odgodaSlaganja. Slaganje opisa koji se u međuvremenu
+// promijenio ne dira stanje novoga (ni novo stanje istog opisa). Zove se pod
+// d.mu.
+func (d *dijeloviKarte) nakonSlaganja(k models.VektorskaKarta, n uint64, err error) {
+	if !d.drzi(n) {
+		return
+	}
 	d.slaze = false
 	switch {
-	case !istaKarta(d.k, &k):
 	case errors.Is(err, errKartaNeOdgovara):
 		log.Printf("karta: karta %q stigla je razmjenom, ali ne odgovara svom opisu, pa je obrisana", k.Naziv)
 		_ = obrisiKartu(putDjelomicne(d.mapa, k.Otisak)) // ne uspije li, pobriše je pospremanje (bezPrijenosa)
 		d.odbaci(&k)
+	case errors.Is(err, errDioNaDisku):
+		log.Printf("karta: karta %q pokvarila se na ovom disku prije slaganja, pa se za %v preuzima iznova", k.Naziv, odgodaSlaganja)
+		_ = obrisiKartu(putDjelomicne(d.mapa, k.Otisak)) // ne uspije li, dijelovi se upišu iznova preko starih
+		d.iznova()
 	case err != nil:
 		d.neuspjelo = time.Now()
 		log.Printf("karta: karta %q nije složena, pokušava se ponovno za %v: %v", k.Naziv, odgodaSlaganja, err)
@@ -602,7 +715,15 @@ func (d *dijeloviKarte) nakonSlaganja(k models.VektorskaKarta, err error) {
 	}
 }
 
-// odbaci: opis se ne slaže u kartu, pa se više ne preuzima; oznaka u mapi
+// iznova: nijedan dio nije ovdje, a traže se tek nakon odgodaSlaganja.
+// Zove se pod d.mu.
+func (d *dijeloviKarte) iznova() {
+	clear(d.ima)
+	clear(d.zauzeto)
+	d.neuspjelo = time.Now()
+}
+
+// odbaci: opis je kriv (errKartaNeOdgovara), pa se više ne preuzima; oznaka u mapi
 // karata vrijedi i nakon ponovnog pokretanja. Zove se pod d.mu.
 func (d *dijeloviKarte) odbaci(k *models.VektorskaKarta) {
 	kljuc := kljucOpisa(k)
@@ -654,7 +775,7 @@ func davnoMijenjana(f fs.DirEntry) bool {
 type StanjeKarte struct {
 	Prenosi  bool // karta ima dijelove i prijenos je uključen
 	Slozena  bool // karta je na ovom računalu
-	Los      bool // karta koja je stigla ne odgovara opisu
+	Los      bool // opis je kriv: dijelovi su stigli ispravni, a karta mu ne odgovara
 	Dijelova int  // koliko ih je ovdje
 	Svih     int
 	Bajtova  int64 // koliko je ovdje
@@ -679,8 +800,9 @@ func (s *Service) StanjeKarte(ctx context.Context) StanjeKarte {
 func (d *dijeloviKarte) stanje() StanjeKarte {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	if k := d.opis(); k != nil && d.los[kljucOpisa(k)] {
-		return StanjeKarte{Los: true, Ukupno: k.Bajtova, Svih: len(k.Dijelovi)}
+	if k := d.opis(); k != nil && d.odbacen(k) {
+		// složena karta odbačenog opisa je ovdje, ali ne ide dalje
+		return StanjeKarte{Los: true, Slozena: slozenaNaDisku(d.mapa, k), Ukupno: k.Bajtova, Svih: len(k.Dijelovi)}
 	}
 	d.osvjezi()
 	k := d.k // i dok se stanje djelomične datoteke još čita
