@@ -59,12 +59,13 @@
     {{range .Settlements}}
     <article class="reg-card" style="padding:0.75rem 1rem; gap:0.35rem;">
       {{if $.Permissions.IsGlobalAdmin}}
-      <form method="POST" action="/api/settlements/update" style="display:grid; grid-template-columns: 1fr auto auto; gap:0.4rem; align-items:center;">
+      <form method="POST" action="/api/settlements/update" style="display:grid; grid-template-columns: 1fr auto auto auto; gap:0.4rem; align-items:center;">
         <input type="hidden" name="id" value="{{.ID}}">
+        <input type="hidden" name="municipality_id" value="{{$.Municipality.ID}}">
         <input type="text" name="name" value="{{.Name}}" class="form-control" required aria-label="Naziv naselja" style="min-height:36px;">
         <input type="text" name="postal_code" value="{{.PostalCode}}" class="form-control" inputmode="numeric" placeholder="pošt. br." aria-label="Poštanski broj" style="width:6.5rem; min-height:36px;">
+        <input type="text" name="population" value="{{if gt .Population 0}}{{.Population}}{{end}}" class="form-control" inputmode="numeric" placeholder="stanovnika" aria-label="Broj stanovnika" style="width:7rem; min-height:36px;">
         <button type="submit" class="btn btn-secondary btn-sm" style="min-height:36px;">Spremi</button>
-        <input type="hidden" name="population" value="{{.Population}}">
       </form>
       <form method="POST" action="/api/settlements/delete" class="m-0" onsubmit="return confirm('Obrisati naselje {{.Name}}?')">
         <input type="hidden" name="id" value="{{.ID}}">
