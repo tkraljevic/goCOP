@@ -143,110 +143,17 @@ func (s *Server) ShowBrojke(w http.ResponseWriter, r *http.Request) {
 // bez arhive, bez prognoza) ostaje nula i stranica tu pločicu ne pokazuje.
 func (s *Server) izbrojiPodatke(ctx context.Context) *BrojkePodataka {
 	b := &BrojkePodataka{Izracunato: time.Now()}
-	godina := func(od string) int {
-		if len(od) >= 4 {
-			g, _ := strconv.Atoi(od[:4])
-			return g
-		}
-		return 0
-	}
-	najranija := func(trenutna *int, od string) {
-		if g := godina(od); g > 0 && (*trenutna == 0 || g < *trenutna) {
-			*trenutna = g
-		}
-	}
 	letve := map[string]bool{}
 	if a := s.Arhiva(); a != nil {
 		if ab, err := a.Brojke(ctx); err == nil && ab != nil {
-			// Stvarni kišomjer ima satni i dnevni niz: postaje se broje po
-			// izvoru, većim od dvaju.
-			postaja := map[string]int{}
-			for _, red := range ab.Redovi {
-				b.Zapisa += red.Zapisa
-				switch {
-				case red.Velicina == "vodostaj" && red.Vrsta == "satni":
-					b.SatnihVodostaja += red.Zapisa
-					najranija(&b.SatniOd, red.Od)
-				case red.Velicina == "vodostaj":
-					b.DnevnihVodostaja += red.Zapisa
-					najranija(&b.DnevniOd, red.Od)
-				case red.Velicina == "protok":
-					b.Protoka += red.Zapisa
-					najranija(&b.ProtokOd, red.Od)
-				case red.Velicina == "oborina" && strings.HasPrefix(red.Izvor, "kisomjer-"):
-					b.OborinaPrave += red.Zapisa
-					postaja[red.Izvor] = max(postaja[red.Izvor], red.Letvi)
-					najranija(&b.PraveOd, red.Od)
-				case red.Velicina == "oborina" && red.Izvor == "hibrid-era5":
-					// popuna rupa pravih kišomjera iz ERA5 — nije mjerenje, a
-					// nije ni oborina po slivovima
-					b.OborinaPopuna += red.Zapisa
-				case red.Velicina == "oborina":
-					b.OborinaIzvedene += red.Zapisa
-					if strings.HasPrefix(red.Izvor, "openmeteo-era5") && red.Letvi > b.TocakaIzvedenih {
-						b.TocakaIzvedenih = red.Letvi
-					}
-					najranija(&b.IzvedeneOd, red.Od)
-				case red.Velicina == "snijeg" || red.Velicina == "temperatura-zraka" || red.Velicina == "visina-snijega":
-					b.Meteo += red.Zapisa
-				}
-			}
-			for _, n := range postaja {
-				b.PostajaPravih += n
-			}
-			if ab.PravihKisomjera > 0 {
-				b.PostajaPravih = ab.PravihKisomjera
-			}
-			for _, l := range ab.Letve {
-				letve[l] = true
-			}
-			b.Profili, b.ProfilTocke, b.HQ = ab.Profili, ab.ProfilTocke, ab.HQ
-			if g := godina(ab.NajstarijiOd); g > 0 {
-				b.Godina = time.Now().Year() - g
-				if t, err := time.Parse("2006-01-02", ab.NajstarijiOd[:min(10, len(ab.NajstarijiOd))]); err == nil {
-					b.NajstarijiDan = strconv.Itoa(t.Day()) + ". " + strconv.Itoa(int(t.Month())) + ". " + strconv.Itoa(t.Year()) + "."
-				}
-				b.NajstarijaLetva = ab.NajstarijaLetva
-				if s.db != nil {
-					var ime string
-					if s.db.QueryRowContext(ctx, `SELECT name FROM stations WHERE code = ?`, ab.NajstarijaLetva).Scan(&ime) == nil && ime != "" {
-						b.NajstarijaLetva = ime
-					}
-				}
-			}
+			s.brojkeArhive(ctx, b, ab, letve)
 		}
 	}
 	if a := s.Arhiva(); a != nil {
-		for _, lr := range letveRekorda {
-			cm, kad, ok := a.NajviseIzmjereno(ctx, lr.letva)
-			if !ok {
-				continue
-			}
-			ime := lr.letva
-			if s.db != nil {
-				var n string
-				if s.db.QueryRowContext(ctx, `SELECT name FROM stations WHERE code = ?`, lr.letva).Scan(&n) == nil && n != "" {
-					ime = n
-				}
-			}
-			b.Rekordi = append(b.Rekordi, Rekord{Voda: lr.voda, Letva: ime, Cm: cm, Kad: danRekorda(kad)})
-		}
+		b.Rekordi = s.rekordiArhive(ctx, a)
 	}
 	if s.db != nil {
-		_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM readings`).Scan(&b.Ocitanja)
-		od := time.Now().UTC().Add(-24 * time.Hour)
-		_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM readings WHERE measured_at >= ?`, od).Scan(&b.Ocitanja24h)
-		if rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT s.code FROM readings r JOIN stations s ON s.id = r.station_id
-			WHERE r.measured_at >= ?`, od); err == nil {
-			for rows.Next() {
-				var l string
-				if rows.Scan(&l) == nil {
-					letve[l] = true
-					b.LetviUzivo++
-				}
-			}
-			rows.Close()
-		}
+		s.brojkeRadneBaze(ctx, b, letve)
 	}
 	b.Letvi = len(letve)
 	if p := s.Prognoze(); p != nil {
@@ -262,6 +169,156 @@ func (s *Server) izbrojiPodatke(ctx context.Context) *BrojkePodataka {
 		b.Bajtova += v.Bajtova
 	}
 	return b
+}
+
+// godinaIz je godina s početka datuma „2006-01-02”; 0 kad je nema.
+func godinaIz(od string) int {
+	if len(od) >= 4 {
+		g, _ := strconv.Atoi(od[:4]) // bez broja godine nema, ostaje 0
+		return g
+	}
+	return 0
+}
+
+// najranija pamti raniju od dviju godina; nula znači da godine još nema.
+func najranija(trenutna *int, od string) {
+	if g := godinaIz(od); g > 0 && (*trenutna == 0 || g < *trenutna) {
+		*trenutna = g
+	}
+}
+
+// brojkeArhive prenosi brojke arhive i dodaje njezine letve u skup letava.
+func (s *Server) brojkeArhive(ctx context.Context, b *BrojkePodataka, ab *repository.ArhivaBrojke, letve map[string]bool) {
+	zbrojiRedove(b, ab.Redovi)
+	if ab.PravihKisomjera > 0 {
+		b.PostajaPravih = ab.PravihKisomjera
+	}
+	for _, l := range ab.Letve {
+		letve[l] = true
+	}
+	b.Profili, b.ProfilTocke, b.HQ = ab.Profili, ab.ProfilTocke, ab.HQ
+	s.najstarijiVodostaj(ctx, b, ab)
+}
+
+// zbrojiRedove zbraja redove nizova po vrsti brojke. Stvarni kišomjer ima
+// satni i dnevni niz: postaje se broje po izvoru, većim od dvaju.
+func zbrojiRedove(b *BrojkePodataka, redovi []repository.RedNizova) {
+	postaja := map[string]int{}
+	for _, red := range redovi {
+		zbrojiRed(b, red, postaja)
+	}
+	for _, n := range postaja {
+		b.PostajaPravih += n
+	}
+}
+
+// zbrojiRed dodaje jedan red u zbroj svih zapisa i u brojku njegove veličine;
+// ostale veličine (temperatura vode) ulaze samo u zbroj.
+func zbrojiRed(b *BrojkePodataka, red repository.RedNizova, postaja map[string]int) {
+	b.Zapisa += red.Zapisa
+	switch red.Velicina {
+	case "vodostaj", "protok":
+		zbrojiHidrologiju(b, red)
+	case "oborina":
+		zbrojiOborinu(b, red, postaja)
+	case "snijeg", "temperatura-zraka", "visina-snijega":
+		b.Meteo += red.Zapisa
+	}
+}
+
+// zbrojiHidrologiju broji red vodostaja (satni ili dnevni) ili protoka.
+func zbrojiHidrologiju(b *BrojkePodataka, red repository.RedNizova) {
+	switch {
+	case red.Velicina == "protok":
+		b.Protoka += red.Zapisa
+		najranija(&b.ProtokOd, red.Od)
+	case red.Vrsta == "satni":
+		b.SatnihVodostaja += red.Zapisa
+		najranija(&b.SatniOd, red.Od)
+	default:
+		b.DnevnihVodostaja += red.Zapisa
+		najranija(&b.DnevniOd, red.Od)
+	}
+}
+
+// zbrojiOborinu broji red oborine: pravi kišomjer, popunu ili izvedenu.
+func zbrojiOborinu(b *BrojkePodataka, red repository.RedNizova, postaja map[string]int) {
+	switch {
+	case strings.HasPrefix(red.Izvor, "kisomjer-"):
+		b.OborinaPrave += red.Zapisa
+		postaja[red.Izvor] = max(postaja[red.Izvor], red.Letvi)
+		najranija(&b.PraveOd, red.Od)
+	case red.Izvor == "hibrid-era5":
+		// popuna rupa pravih kišomjera iz ERA5 — nije mjerenje, a
+		// nije ni oborina po slivovima
+		b.OborinaPopuna += red.Zapisa
+	default:
+		b.OborinaIzvedene += red.Zapisa
+		if strings.HasPrefix(red.Izvor, "openmeteo-era5") && red.Letvi > b.TocakaIzvedenih {
+			b.TocakaIzvedenih = red.Letvi
+		}
+		najranija(&b.IzvedeneOd, red.Od)
+	}
+}
+
+// najstarijiVodostaj piše koliko godina unatrag seže najstariji vodostaj,
+// kojeg dana i na kojoj letvi.
+func (s *Server) najstarijiVodostaj(ctx context.Context, b *BrojkePodataka, ab *repository.ArhivaBrojke) {
+	g := godinaIz(ab.NajstarijiOd)
+	if g <= 0 {
+		return
+	}
+	b.Godina = time.Now().Year() - g
+	if t, err := time.Parse("2006-01-02", ab.NajstarijiOd[:min(10, len(ab.NajstarijiOd))]); err == nil {
+		b.NajstarijiDan = strconv.Itoa(t.Day()) + ". " + strconv.Itoa(int(t.Month())) + ". " + strconv.Itoa(t.Year()) + "."
+	}
+	b.NajstarijaLetva = s.imeLetve(ctx, ab.NajstarijaLetva)
+}
+
+// imeLetve je ime letve iz radne baze; bez baze ili bez imena ostaje šifra.
+func (s *Server) imeLetve(ctx context.Context, sifra string) string {
+	if s.db == nil {
+		return sifra
+	}
+	var ime string
+	if s.db.QueryRowContext(ctx, `SELECT name FROM stations WHERE code = ?`, sifra).Scan(&ime) == nil && ime != "" {
+		return ime
+	}
+	return sifra
+}
+
+// rekordiArhive su najviši izmjereni vodostaji letava rekorda koje arhiva ima.
+func (s *Server) rekordiArhive(ctx context.Context, a *repository.ArhivaRepository) []Rekord {
+	var rekordi []Rekord
+	for _, lr := range letveRekorda {
+		cm, kad, ok := a.NajviseIzmjereno(ctx, lr.letva)
+		if !ok {
+			continue
+		}
+		rekordi = append(rekordi, Rekord{Voda: lr.voda, Letva: s.imeLetve(ctx, lr.letva), Cm: cm, Kad: danRekorda(kad)})
+	}
+	return rekordi
+}
+
+// brojkeRadneBaze broji očitanja u radnoj bazi i letve s očitanjem u zadnja
+// 24 h, koje dodaje u skup letava.
+func (s *Server) brojkeRadneBaze(ctx context.Context, b *BrojkePodataka, letve map[string]bool) {
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM readings`).Scan(&b.Ocitanja) // bez odgovora brojka ostaje 0
+	od := time.Now().UTC().Add(-24 * time.Hour)
+	_ = s.db.QueryRowContext(ctx, `SELECT count(*) FROM readings WHERE measured_at >= ?`, od).Scan(&b.Ocitanja24h) // bez odgovora brojka ostaje 0
+	rows, err := s.db.QueryContext(ctx, `SELECT DISTINCT s.code FROM readings r JOIN stations s ON s.id = r.station_id
+			WHERE r.measured_at >= ?`, od)
+	if err != nil {
+		return
+	}
+	for rows.Next() {
+		var l string
+		if rows.Scan(&l) == nil {
+			letve[l] = true
+			b.LetviUzivo++
+		}
+	}
+	rows.Close()
 }
 
 // velicinePodataka mjeri baze i izvorne datoteke, po dijelovima.
