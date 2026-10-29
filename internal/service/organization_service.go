@@ -1,9 +1,11 @@
 package service
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"regexp"
+	"slices"
 	"strings"
 
 	"gocop/internal/models"
@@ -192,19 +194,51 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 	if perms == nil {
 		return fmt.Errorf("prijava je obavezna")
 	}
-	c.Name = strings.TrimSpace(c.Name)
-	c.ShortName, c.OIB = strings.TrimSpace(c.ShortName), strings.TrimSpace(c.OIB)
-	c.Address, c.Phone, c.Email = strings.TrimSpace(c.Address), strings.TrimSpace(c.Phone), strings.TrimSpace(c.Email)
-	c.Contact, c.Notes = strings.TrimSpace(c.Contact), strings.TrimSpace(c.Notes)
+	trimContractor(c)
 	if c.Name == "" {
 		return fmt.Errorf("naziv firme je obavezan")
 	}
 	if c.OIB != "" && !reOIB.MatchString(c.OIB) {
 		return fmt.Errorf("OIB ima 11 znamenki")
 	}
-	areas, err := s.repo.ListAreas(ctx, "")
+	clean, err := s.contractorAssignments(ctx, perms, c.ID, where)
 	if err != nil {
 		return err
+	}
+	if err := s.repo.SaveContractor(ctx, c, clean); err != nil {
+		return err
+	}
+	s.sse.Broadcast("organization_changed", "Licencirana firma: "+c.Name, c.ID)
+	return nil
+}
+
+// trimContractor miče rubne razmake iz polja firme; upisuje se ono što piše
+func trimContractor(c *models.Contractor) {
+	c.Name = strings.TrimSpace(c.Name)
+	c.ShortName, c.OIB = strings.TrimSpace(c.ShortName), strings.TrimSpace(c.OIB)
+	c.Address, c.Phone, c.Email = strings.TrimSpace(c.Address), strings.TrimSpace(c.Phone), strings.TrimSpace(c.Email)
+	c.Contact, c.Notes = strings.TrimSpace(c.Contact), strings.TrimSpace(c.Notes)
+}
+
+// contractorAssignments vraća mjesta rada za upis firme id. Globalni
+// administrator postavlja ih kako zada, a ostali samo unutar svog dosega.
+func (s *OrgService) contractorAssignments(ctx context.Context, perms *models.UserPermissions, id string, where []models.ContractorAssignment) ([]models.ContractorAssignment, error) {
+	clean, err := s.resolveAssignments(ctx, where)
+	if err != nil {
+		return nil, err
+	}
+	if perms.IsGlobalAdmin {
+		return clean, nil
+	}
+	return s.scopedAssignments(ctx, perms, id, clean)
+}
+
+// resolveAssignments provjerava zadana mjesta rada i miče dvostruka (ostaje
+// prvo). Područje nosi svoj sektor, bez obzira na to koji je upisan.
+func (s *OrgService) resolveAssignments(ctx context.Context, where []models.ContractorAssignment) ([]models.ContractorAssignment, error) {
+	areas, err := s.repo.ListAreas(ctx, "")
+	if err != nil {
+		return nil, err
 	}
 	sectorOf := map[int]string{}
 	for _, a := range areas {
@@ -217,16 +251,13 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 		if w.AreaID > 0 {
 			sec, ok := sectorOf[w.AreaID]
 			if !ok {
-				return fmt.Errorf("branjeno područje %d ne postoji", w.AreaID)
+				return nil, fmt.Errorf("branjeno područje %d ne postoji", w.AreaID)
 			}
 			w.SectorID = sec
 		} else {
 			sector, err := s.repo.GetSector(ctx, w.SectorID)
-			if err != nil {
-				return err
-			}
-			if sector == nil {
-				return fmt.Errorf("sektor %q ne postoji", w.SectorID)
+			if err := requireFound(sector, err, "sektor %q ne postoji", w.SectorID); err != nil {
+				return nil, err
 			}
 		}
 		if seen[w.Key()] {
@@ -235,44 +266,49 @@ func (s *OrgService) SaveContractor(ctx context.Context, perms *models.UserPermi
 		seen[w.Key()] = true
 		clean = append(clean, w)
 	}
+	return clean, nil
+}
 
-	if !perms.IsGlobalAdmin {
-		if len(clean) == 0 {
-			return fmt.Errorf("upis firme bez određenog sektora ili branjenog područja dopušten je samo globalnom administratoru")
-		}
-		for _, w := range clean {
-			if !perms.CanAdminister(w.SectorID, w.AreaID) {
-				return fmt.Errorf("firmu možete upisati samo za sektor ili branjeno područje koje vodite")
-			}
-		}
-		if c.ID != "" {
-			existing, err := s.repo.GetContractor(ctx, c.ID)
-			if err != nil {
-				return err
-			}
-			if existing == nil {
-				return fmt.Errorf("firma ne postoji")
-			}
-			ownsOne := len(existing.Assignments) == 0
-			for _, a := range existing.Assignments {
-				if perms.CanAdminister(a.SectorID, a.AreaID) {
-					ownsOne = true
-				} else {
-					// mjesta rada koja korisnik ne administrira ostaju netaknuta
-					clean = append(clean, a)
-				}
-			}
-			if !ownsOne {
-				return fmt.Errorf("ovu firmu smije uređivati samo tko vodi barem jedno od njenih postojećih mjesta rada")
-			}
+// scopedAssignments pušta korisnika koji nije globalni administrator samo na
+// mjesta rada koja vodi. Postojećoj firmi mora voditi barem jedno mjesto, a
+// ona koja ne vodi dodaju se natrag da ih upis ne bi maknuo.
+func (s *OrgService) scopedAssignments(ctx context.Context, perms *models.UserPermissions, id string, clean []models.ContractorAssignment) ([]models.ContractorAssignment, error) {
+	if len(clean) == 0 {
+		return nil, fmt.Errorf("upis firme bez određenog sektora ili branjenog područja dopušten je samo globalnom administratoru")
+	}
+	if slices.ContainsFunc(clean, func(w models.ContractorAssignment) bool { return !perms.CanAdminister(w.SectorID, w.AreaID) }) {
+		return nil, fmt.Errorf("firmu možete upisati samo za sektor ili branjeno područje koje vodite")
+	}
+	if id == "" {
+		return clean, nil
+	}
+	existing, err := s.repo.GetContractor(ctx, id)
+	if err := requireFound(existing, err, "firma ne postoji"); err != nil {
+		return nil, err
+	}
+	ownsOne := len(existing.Assignments) == 0
+	for _, a := range existing.Assignments {
+		if perms.CanAdminister(a.SectorID, a.AreaID) {
+			ownsOne = true
+		} else {
+			// mjesta rada koja korisnik ne administrira ostaju netaknuta
+			clean = append(clean, a)
 		}
 	}
-
-	if err := s.repo.SaveContractor(ctx, c, clean); err != nil {
-		return err
+	if !ownsOne {
+		return nil, fmt.Errorf("ovu firmu smije uređivati samo tko vodi barem jedno od njenih postojećih mjesta rada")
 	}
-	s.sse.Broadcast("organization_changed", "Licencirana firma: "+c.Name, c.ID)
-	return nil
+	return clean, nil
+}
+
+// requireFound vraća grešku čitanja zapisa, a kad čitanje uspije bez zapisa,
+// grešku složenu iz format i args; repozitorij javlja nepostojeći zapis kao
+// nil bez greške. Poruka se slaže tek kad zapisa nema.
+func requireFound[T any](v *T, err error, format string, args ...any) error {
+	if v == nil {
+		return cmp.Or(err, fmt.Errorf(format, args...))
+	}
+	return err
 }
 
 // DeleteContractor briše firmu i sva njena mjesta rada. Globalni administrator
