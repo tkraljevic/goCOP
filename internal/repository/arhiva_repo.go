@@ -143,6 +143,31 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 		&p.Niz.Od, &p.Niz.Do, &p.Niz.Zapisa, &p.Niz.Otisak); err != nil {
 		return nil, err
 	}
+	var err error
+	if p.Godine, err = r.godine(ctx, nizID); err != nil {
+		return nil, err
+	}
+	if len(p.Godine) == 0 {
+		return &p, nil
+	}
+	po, err := r.ekstremiPoGodini(ctx, nizID)
+	if err != nil {
+		return nil, err
+	}
+	upisiDatumeEkstrema(p.Godine, po)
+	sazmiGodine(&p)
+
+	if p.Mjeseci, err = r.mjeseci(ctx, nizID); err != nil {
+		return nil, err
+	}
+	if p.Trajanje, err = r.trajanje(ctx, nizID); err != nil {
+		return nil, err
+	}
+	return &p, nil
+}
+
+// godine čita zbir niza po kalendarskoj godini, poredan po godini.
+func (r *ArhivaRepository) godine(ctx context.Context, nizID int64) ([]models.HidroGodina, error) {
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT strftime('%Y', vrijeme, 'unixepoch') AS g, count(*),
 		       min(vrijednost), max(vrijednost), avg(vrijednost), sum(vrijednost)
@@ -151,6 +176,7 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 		return nil, fmt.Errorf("karakteristične vrijednosti: %w", err)
 	}
 	defer rows.Close()
+	var out []models.HidroGodina
 	for rows.Next() {
 		var g models.HidroGodina
 		var god string
@@ -158,16 +184,31 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 			return nil, err
 		}
 		fmt.Sscanf(god, "%d", &g.Godina)
-		p.Godine = append(p.Godine, g)
+		out = append(out, g)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	if len(p.Godine) == 0 {
-		return &p, nil
-	}
+	return out, rows.Err()
+}
 
-	// datumi ekstrema po godini, jednim prolazom
+// ekstremGodine pamti najnižu i najvišu vrijednost godine i dan kad su bile.
+type ekstremGodine struct {
+	min, max     float64
+	minNa, maxNa string
+}
+
+// uzmi pomiče ekstrem na vrijednost koja ga dostiže ili prelazi. Jednaka
+// vrijednost također pomiče datum, pa izjednačen ekstrem nosi kasniji dan.
+func (e *ekstremGodine) uzmi(v float64, kad string) {
+	if v <= e.min || e.minNa == "" {
+		e.min, e.minNa = v, kad
+	}
+	if v >= e.max || e.maxNa == "" {
+		e.max, e.maxNa = v, kad
+	}
+}
+
+// ekstremiPoGodini nalazi datume ekstrema svake godine jednim prolazom kroz
+// niz. Zbirni upit zna vrijednost ekstrema, ali ne i kad je bio.
+func (r *ArhivaRepository) ekstremiPoGodini(ctx context.Context, nizID int64) (map[int]*ekstremGodine, error) {
 	dat, err := r.db.QueryContext(ctx, `
 		SELECT strftime('%Y', vrijeme, 'unixepoch') AS g, vrijeme, vrijednost
 		FROM ocitanja WHERE niz = ? ORDER BY vrijeme`, nizID)
@@ -175,12 +216,7 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 		return nil, err
 	}
 	defer dat.Close()
-	type ekstrem struct {
-		min, max     float64
-		minNa, maxNa string
-		prvi         bool
-	}
-	po := map[int]*ekstrem{}
+	po := map[int]*ekstremGodine{}
 	for dat.Next() {
 		var god string
 		var t int64
@@ -192,28 +228,31 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 		fmt.Sscanf(god, "%d", &y)
 		e := po[y]
 		if e == nil {
-			e = &ekstrem{min: v, max: v, prvi: true}
+			e = &ekstremGodine{min: v, max: v}
 			po[y] = e
 		}
-		kad := time.Unix(t, 0).UTC().Format("2006-01-02")
-		if v <= e.min || e.minNa == "" {
-			e.min, e.minNa = v, kad
-		}
-		if v >= e.max || e.maxNa == "" {
-			e.max, e.maxNa = v, kad
-		}
+		e.uzmi(v, time.Unix(t, 0).UTC().Format("2006-01-02"))
 	}
-	// prvi zapis godine daje ekstrem, ostali ga samo pomiču; zato se datumi
-	// uzimaju iz prvog pojavljivanja vrijednosti, ne zadnjeg
-	for i := range p.Godine {
-		if e := po[p.Godine[i].Godina]; e != nil {
-			p.Godine[i].MinNa, p.Godine[i].MaxNa = e.minNa, e.maxNa
-		}
-	}
+	return po, nil
+}
 
+// upisiDatumeEkstrema prepisuje dane ekstrema u godine zbirnog upita.
+func upisiDatumeEkstrema(godine []models.HidroGodina, po map[int]*ekstremGodine) {
+	for i := range godine {
+		if e := po[godine[i].Godina]; e != nil {
+			godine[i].MinNa, godine[i].MaxNa = e.minNa, e.maxNa
+		}
+	}
+}
+
+// sazmiGodine izvodi pregled cijelog niza iz godina. Uz izjednačen ekstrem
+// ostaje ranija godina, a srednjak je vagan brojem zapisa svake godine.
+// Godine moraju postojati.
+func sazmiGodine(p *models.HidroPregled) {
 	p.Min, p.Max = p.Godine[0].Min, p.Godine[0].Max
 	p.MinNa, p.MaxNa = p.Godine[0].MinNa, p.Godine[0].MaxNa
-	var zbroj float64
+	// gomila je zbroj pronosa; zbraja se uz ostalo, godinu po godinu
+	var zbroj, gomila float64
 	var n int
 	for _, g := range p.Godine {
 		if g.Min < p.Min {
@@ -224,24 +263,15 @@ func (r *ArhivaRepository) Pregled(ctx context.Context, nizID int64) (*models.Hi
 		}
 		zbroj += g.Srednjak * float64(g.Zapisa)
 		n += g.Zapisa
+		gomila += g.Zbroj
 	}
 	if n > 0 {
 		p.Srednjak = zbroj / float64(n)
 	}
 	if models.SeZbraja(p.Niz.Velicina) {
 		p.ZbrojIma = true
-		for _, g := range p.Godine {
-			p.Zbroj += g.Zbroj
-		}
+		p.Zbroj = gomila
 	}
-
-	if p.Mjeseci, err = r.mjeseci(ctx, nizID); err != nil {
-		return nil, err
-	}
-	if p.Trajanje, err = r.trajanje(ctx, nizID); err != nil {
-		return nil, err
-	}
-	return &p, nil
 }
 
 // mjeseci računa godišnji hod: isti mjesec kroz sve godine niza.
