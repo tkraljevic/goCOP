@@ -33,14 +33,16 @@ func probnaPMTiles() []byte {
 	return append(z, bytes.Repeat([]byte("pločica"), 8)...)
 }
 
-// Karta bez interneta: učitana PMTiles karta postaje zadana i poslužuje se
-// po dijelovima, njezin paket se preuzima i učitava natrag, „Vrati zadano”
-// je ne miče, a „Makni kartu” je miče i s diska
+// Karta bez interneta: učitana PMTiles karta postaje zadana (zasebna
+// postavka, s otiscima dijelova) i poslužuje se po dijelovima, njezin paket
+// se preuzima i učitava natrag, spremanje izgleda i „Vrati zadano” je ne
+// miču, a „Makni kartu” je miče i s diska
 func TestKartaBezInterneta(t *testing.T) {
-	prije := models.PostavkeKartePrograma()
+	prije, prijeK := models.PostavkeKartePrograma(), models.VektorskaKartaPrograma()
 	staraMapa := mapaKarata.Load()
-	t.Cleanup(func() { models.SetPostavkeKarte(prije); mapaKarata.Store(staraMapa) })
+	t.Cleanup(func() { models.SetPostavkeKarte(prije); models.SetVektorskaKarta(prijeK); mapaKarata.Store(staraMapa) })
 	models.SetPostavkeKarte(models.ZadanePostavkeKarte())
+	models.SetVektorskaKarta(nil)
 
 	dbPath := filepath.Join(t.TempDir(), "gocop.db")
 	baza, err := db.BazaIzPredloska(dbPath)
@@ -103,6 +105,13 @@ func TestKartaBezInterneta(t *testing.T) {
 	if k == nil || k.Naziv != "Baranja" || !kartaOvdje(k) || !imaVektorskuKartu() {
 		t.Fatalf("zadana karta: %+v", k)
 	}
+	if s := akti.KartaBezInterneta(context.Background()); s == nil || s.Otisak != k.Otisak || s.Dio != peers.VelicinaDijelaKarte || len(s.Dijelovi) != 1 {
+		t.Fatalf("spremljen opis karte: %+v", s)
+	}
+	zapisKarte := func() string {
+		v, _ := repository.NewAktiRepository(baza, rec).GetPostavka(context.Background(), repository.PostavkaKarta) // bez zapisa je prazno
+		return v
+	}
 	adresa := adresaVektorskeKarte(k)
 
 	// preglednik traži kartu po dijelovima
@@ -138,6 +147,12 @@ func TestKartaBezInterneta(t *testing.T) {
 	if loc := ucitaj(paket, nil); !strings.Contains(loc, "je učitana") || !kartaOvdje(models.PostavkeKartePrograma().Vektorska) {
 		t.Fatalf("učitavanje paketa: %s", loc)
 	}
+	// opis je već bio zapisan, pa paket ne piše novu verziju opisa
+	var verzijaOpisa int
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`,
+		repository.EntityPostavke, repository.PostavkaKartaBezInterneta).Scan(&verzijaOpisa); err != nil || verzijaOpisa != 1 {
+		t.Errorf("verzija opisa nakon paketa iste karte: %d, %v", verzijaOpisa, err)
+	}
 	// paket se ne da spremiti kad se u mapu karata ne smije pisati
 	if err := os.Chmod(mapaKarataCvora(), 0o500); err != nil {
 		t.Fatal(err)
@@ -150,12 +165,22 @@ func TestKartaBezInterneta(t *testing.T) {
 		t.Errorf("paket u mapu bez pisanja: %s", loc)
 	}
 
-	// „Vrati zadano” vraća izgled, a karta ostaje
-	rz := httptest.NewRequest(http.MethodPost, "/administracija/karte", strings.NewReader(url.Values{"radnja": {"zadano"}}.Encode()))
-	rz.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	h.HandlePostavkeKarte(httptest.NewRecorder(), kao(rz))
-	if models.PostavkeKartePrograma().Vektorska == nil {
-		t.Error("vraćanje zadanog maknulo je kartu")
+	// spremanje izgleda i „Vrati zadano” ne miču kartu i ne pišu je u
+	// postavke karata
+	for _, radnja := range []string{"spremi", "zadano"} {
+		rz := httptest.NewRequest(http.MethodPost, "/administracija/karte", strings.NewReader(url.Values{"radnja": {radnja}, "tocka": {"krug"}}.Encode()))
+		rz.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		h.HandlePostavkeKarte(w, kao(rz))
+		if loc := mustUnescape(w.Header().Get("Location")); !strings.Contains(loc, "success=") {
+			t.Errorf("%s: %s", radnja, loc)
+		}
+		if models.PostavkeKartePrograma().Vektorska == nil || akti.KartaBezInterneta(context.Background()) == nil {
+			t.Errorf("%s: maknuta je karta", radnja)
+		}
+		if v := zapisKarte(); strings.Contains(v, "vektorska") {
+			t.Errorf("%s: postavke karata nose kartu: %s", radnja, v)
+		}
 	}
 
 	for opis, c := range map[string]struct {
@@ -178,7 +203,7 @@ func TestKartaBezInterneta(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	h.HandleMakniKartu(w, kao(httptest.NewRequest(http.MethodPost, "/administracija/karte/vektorska/makni", nil)))
-	if models.PostavkeKartePrograma().Vektorska != nil {
+	if models.PostavkeKartePrograma().Vektorska != nil || akti.KartaBezInterneta(context.Background()) != nil {
 		t.Error("karta nije maknuta")
 	}
 	if _, err := os.Stat(peers.PutKarte(mapaKarataCvora(), k.Otisak)); !os.IsNotExist(err) {

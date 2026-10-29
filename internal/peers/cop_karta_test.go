@@ -11,11 +11,14 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"testing/iotest"
+	"time"
 
 	"gocop/internal/models"
+	"gocop/internal/sadrzaj"
 )
 
 // probnaKarta je najmanja PMTiles datoteka koju program prima: zaglavlje
@@ -92,7 +95,7 @@ func TestPaketKarteIzmedjuCvorovaMreze(t *testing.T) {
 
 	// primatelj iz mreže učita kartu s istim otiskom
 	dobio, err := b.UveziKartu(ctxRub, put, mapaB)
-	if err != nil || dobio != k {
+	if err != nil || !reflect.DeepEqual(dobio, k) {
 		t.Fatalf("uvoz: %+v %v", dobio, err)
 	}
 	if _, err := os.Stat(PutKarte(mapaB, k.Otisak)); err != nil {
@@ -342,5 +345,95 @@ func TestPrivremenaDatoteka(t *testing.T) {
 	}
 	if _, err := PrivremenaDatoteka(strings.NewReader("x"), samoCitanje, "p-*", 5); err == nil {
 		t.Error("mapa u koju se ne smije pisati")
+	}
+}
+
+// dijeloviKarte su otisci odsječaka od po velicina bajtova, računati
+// neovisno o programu (sadrzaj.Otisak)
+func dijeloviKarte(b []byte, velicina int) []string {
+	var out []string
+	for i := 0; i < len(b); i += velicina {
+		out = append(out, sadrzaj.Otisak(b[i:min(i+velicina, len(b))]))
+	}
+	return out
+}
+
+// Spremljena karta nosi otiske dijelova: zadnji dio je kraći, karta točne
+// veličine nema praznog dijela, a tok koji stiže u komadićima daje iste
+// otiske. Uvoz paketa vraća opis spremljene karte, s dijelovima
+// izračunatim na ovom računalu, i kad je popis u paketu podmetnut (dijelovi
+// nisu dio potpisa).
+func TestSpremiKartuRacunaDijelove(t *testing.T) {
+	stara := VelicinaDijelaKarte
+	t.Cleanup(func() { VelicinaDijelaKarte = stara })
+	b := probnaKarta(1)
+	if len(b) != 191 {
+		t.Fatalf("probna karta ima %d bajtova, a dijelovi niže računaju sa 191", len(b))
+	}
+	mapa := filepath.Join(t.TempDir(), "karte")
+
+	for _, velicina := range []int{50, 191, 64, 1 << 20} {
+		VelicinaDijelaKarte = int64(velicina)
+		k, err := SpremiKartu(iotest.OneByteReader(bytes.NewReader(b)), mapa, "Baranja", "")
+		if err != nil {
+			t.Fatalf("dio %d: %v", velicina, err)
+		}
+		if zeli := dijeloviKarte(b, velicina); k.Dio != int64(velicina) || !reflect.DeepEqual(k.Dijelovi, zeli) {
+			t.Errorf("dio %d: %d %v, želi %v", velicina, k.Dio, k.Dijelovi, zeli)
+		}
+		if _, err := k.Provjereno(); err != nil {
+			t.Errorf("dio %d: opis nije ispravan: %v", velicina, err)
+		}
+	}
+
+	a, prim := izdavacIPrimatelj(t)
+	mapaA := filepath.Join(t.TempDir(), "a")
+	k := spremiProbnuKartu(t, mapaA)
+	put := izveziKartu(t, a, k, mapaA)
+	podmetnut := prepakiraj(t, put, func(m *KartaManifest) { m.Karta.Dijelovi = []string{strings.Repeat("ab", 32)} }, nil)
+
+	VelicinaDijelaKarte = 64
+	for opis, p := range map[string]string{"paket": put, "podmetnut popis": podmetnut} {
+		dobio, err := prim.UveziKartu(ctxRub, p, filepath.Join(t.TempDir(), "b"))
+		if err != nil {
+			t.Fatalf("%s: %v", opis, err)
+		}
+		if dobio.Otisak != k.Otisak || dobio.Naziv != k.Naziv || dobio.Dio != 64 || !reflect.DeepEqual(dobio.Dijelovi, dijeloviKarte(b, 64)) {
+			t.Errorf("%s: uvezen opis %+v", opis, dobio)
+		}
+	}
+	// opis karte koja ne odgovara manifestu ostaje opis iz manifesta, uz grešku
+	druga := prepakiraj(t, put, nil, append(probnaKarta(1), 'x'))
+	if dobio, err := prim.UveziKartu(ctxRub, druga, t.TempDir()); err == nil || dobio.Otisak != k.Otisak {
+		t.Errorf("izmijenjena karta: %+v %v", dobio, err)
+	}
+}
+
+// Veličina dijela izvan dopuštenog (mijenjaju je samo testovi) odbije kartu
+// prije upisa, umjesto da računanje dijelova stane u beskonačnoj petlji, i
+// u mapi ne ostavi privremenu datoteku
+func TestSpremiKartuOdbijaKrivuVelicinuDijela(t *testing.T) {
+	stara := VelicinaDijelaKarte
+	t.Cleanup(func() { VelicinaDijelaKarte = stara })
+	for _, velicina := range []int64{0, -1, models.NajveciDioKarte + 1} {
+		VelicinaDijelaKarte = velicina
+		mapa := t.TempDir()
+		gotovo := make(chan error, 1)
+		go func() {
+			_, err := SpremiKartu(bytes.NewReader(probnaKarta(1)), mapa, "Baranja", "")
+			gotovo <- err
+		}()
+		select {
+		case err := <-gotovo:
+			if err == nil || !strings.Contains(err.Error(), "dijela") {
+				t.Errorf("dio %d: %v", velicina, err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatalf("dio %d: spremanje karte ne završava", velicina)
+		}
+		ostalo, _ := os.ReadDir(mapa) // mapa je iz t.TempDir; greška daje prazan popis, a provjera niže ionako traži prazno
+		if len(ostalo) != 0 {
+			t.Errorf("dio %d: u mapi je ostalo %v", velicina, ostalo)
+		}
 	}
 }

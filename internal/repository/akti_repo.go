@@ -1127,6 +1127,12 @@ const PostavkaTema = "tema"
 // (JSON models.PostavkeKarte)
 const PostavkaKarta = "karta"
 
+// PostavkaKartaBezInterneta je ključ opisa zadane karte bez interneta (JSON
+// models.VektorskaKarta); prazna vrijednost znači da karte nema. Zaseban je
+// od PostavkaKarta, jer 0.0.45 pri spremanju postavki karata prepiše cijeli
+// zapis i tako bi opis maknuo svim čvorovima.
+const PostavkaKartaBezInterneta = "karta_bez_interneta"
+
 // DeleteAktTrajno briše akt bez obzira na stanje, s izvornikom i dnevnikom
 // slanja; svako brisanje ostaje zabilježeno u knjizi verzija
 func (r *AktiRepository) DeleteAktTrajno(ctx context.Context, id string) error {

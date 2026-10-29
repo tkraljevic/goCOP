@@ -1488,6 +1488,58 @@ func (s *AktService) SpremiPostavkeKarte(ctx context.Context, perms *models.User
 	return nil
 }
 
+// KartaBezInterneta vraća opis zadane karte bez interneta, nil kad je nema
+func (s *AktService) KartaBezInterneta(ctx context.Context) *models.VektorskaKarta {
+	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaKartaBezInterneta) // bez zapisa ili baze karte nema
+	return models.CitajVektorskuKartu(v)
+}
+
+// SpremiKartuBezInterneta sprema opis zadane karte bez interneta; smije samo
+// uprava organizacije. Nil znači da karte više nema (zapis ostaje, prazan).
+// Vrijedi odmah na ovom čvoru, a razmjenom stiže i na ostale. Opis koji je
+// već zapisan (npr. paket karte učitan na drugom računalu nakon što je opis
+// stigao razmjenom) ne piše novu verziju: ona bi nosila današnje vrijeme i
+// pregazila noviju odluku drugog čvora koja još nije stigla.
+func (s *AktService) SpremiKartuBezInterneta(ctx context.Context, perms *models.UserPermissions, k *models.VektorskaKarta) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	zapis := ""
+	if k != nil {
+		ok, err := k.Provjereno()
+		if err != nil {
+			return err
+		}
+		zapis, k = zapisKarte(ok), &ok
+	}
+	if !s.zapisanaKarta(ctx, zapis) {
+		if err := s.repo.SavePostavka(ctx, repository.PostavkaKartaBezInterneta, zapis); err != nil {
+			return err
+		}
+	}
+	models.SetVektorskaKarta(k)
+	return nil
+}
+
+// zapisKarte je zapis opisa karte u postavci (kad karte nema, zapis je prazan)
+func zapisKarte(k models.VektorskaKarta) string {
+	b, _ := json.Marshal(k) // samo tekst i brojevi, ne može pasti
+	return string(b)
+}
+
+// zapisanaKarta javlja je li u postavci već upravo taj opis karte; kad se
+// postavka ne da pročitati, nije
+func (s *AktService) zapisanaKarta(ctx context.Context, zapis string) bool {
+	v, err := s.repo.GetPostavka(ctx, repository.PostavkaKartaBezInterneta)
+	if err != nil {
+		return false
+	}
+	if k := models.CitajVektorskuKartu(v); k != nil {
+		v = zapisKarte(*k)
+	}
+	return v == zapis
+}
+
 // SmijeObrisatiTrajno javlja smije li korisnik trajno obrisati ovjeren akt:
 // samo kad je prekidač uključen, i samo uprava organizacije ili sektora
 func (s *AktService) SmijeObrisatiTrajno(ctx context.Context, perms *models.UserPermissions, a *models.Akt) bool {

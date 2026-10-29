@@ -86,9 +86,7 @@ func (h *AktiHandler) HandleUcitajKartu(w http.ResponseWriter, r *http.Request) 
 	}
 	k, err := h.ucitajKartu(r)
 	if err == nil {
-		p := s.PostavkeKarte(r.Context())
-		p.Vektorska = &k
-		err = s.SpremiPostavkeKarte(r.Context(), perms, &p)
+		err = s.SpremiKartuBezInterneta(r.Context(), perms, &k)
 	}
 	if err != nil {
 		redirectWith(w, r, "/administracija/karte#karta-bez-interneta", "error", "Karta nije učitana: "+err.Error())
@@ -161,10 +159,8 @@ func (h *AktiHandler) HandleMakniKartu(w http.ResponseWriter, r *http.Request) {
 	if s == nil {
 		return
 	}
-	p := s.PostavkeKarte(r.Context())
-	stara := p.Vektorska
-	p.Vektorska = nil
-	if err := s.SpremiPostavkeKarte(r.Context(), perms, &p); err != nil {
+	stara := s.KartaBezInterneta(r.Context())
+	if err := s.SpremiKartuBezInterneta(r.Context(), perms, nil); err != nil {
 		redirectWith(w, r, "/administracija/karte#karta-bez-interneta", "error", err.Error())
 		return
 	}
