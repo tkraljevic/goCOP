@@ -359,6 +359,9 @@ func (h *WatercoursesHandler) vezeLetve(ctx context.Context, perms *models.UserP
 type watercourseGeometryForm struct {
 	Code    string `json:"code"`
 	GeoJSON string `json:"geojson"`
+	// SamoCrte šalje alat karte: od toka se uzimaju samo crte, a točke uz
+	// tok (stacionaža) ostaju iz spremljenog zapisa
+	SamoCrte bool `json:"samo_crte"`
 }
 
 // HandleUpdateWatercourseGeometryAPI sprema ažurirani GeoJSON toka rijeke
@@ -395,7 +398,11 @@ func (h *WatercoursesHandler) HandleUpdateWatercourseGeometryAPI(w http.Response
 		return
 	}
 
-	if err := h.watercourseService.SetWatercourseGeometry(ctx, perms, req.Code, req.GeoJSON); err != nil {
+	spremi := h.watercourseService.SetWatercourseGeometry
+	if req.SamoCrte {
+		spremi = h.watercourseService.SetWatercourseLines
+	}
+	if err := spremi(ctx, perms, req.Code, req.GeoJSON); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

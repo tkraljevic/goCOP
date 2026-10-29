@@ -72,6 +72,39 @@ func (s *WatercourseService) SetWatercourseGeometry(ctx context.Context, perms *
 	return s.repo.UpdateWatercourse(ctx, w)
 }
 
+// SetWatercourseLines sprema tok nacrtan na karti. S karte uzima samo crte,
+// a točke uz tok ostaju iz spremljenog zapisa (vidi SpojiCrteToka).
+func (s *WatercourseService) SetWatercourseLines(ctx context.Context, perms *models.UserPermissions, code, crte string) error {
+	if err := requireGlobalAdmin(perms, "izmjenu geometrije vodnog tijela"); err != nil {
+		return err
+	}
+	w, err := s.repo.GetWatercourse(ctx, code)
+	if err != nil {
+		return err
+	}
+	if w == nil {
+		return fmt.Errorf("vodno tijelo %q ne postoji", code)
+	}
+	spojeno, err := SpojiCrteToka(s.zapisToka(w), crte, geometrija.RacunaStacionazu(code))
+	if err != nil {
+		return err
+	}
+	return s.SetWatercourseGeometry(ctx, perms, code, spojeno)
+}
+
+// zapisToka je tok kakav je spremljen, prije izračuna stacionaže: iz baze, a
+// dok ga u bazi nema, s diska ili iz ugrađenog paketa
+func (s *WatercourseService) zapisToka(w *models.Watercourse) string {
+	if strings.TrimSpace(w.Geometry) != "" {
+		return w.Geometry
+	}
+	data, err := geometrija.Ucitaj(s.geometrijaDir, w.Code)
+	if err != nil {
+		return "" // za ovu vodu nema zapisa toka, pa ni točaka uz njega
+	}
+	return string(data)
+}
+
 func (s *WatercourseService) ListWatercourses(ctx context.Context, search, category string, onlyUsed bool) ([]models.Watercourse, error) {
 	return s.repo.ListWatercourses(ctx, search, category, onlyUsed)
 }

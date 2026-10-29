@@ -57,6 +57,9 @@ type WatercoursePageData struct {
 	Karta           KartaPostavke
 	GeometryJSON    template.JS
 	MapStationsJSON template.JS
+	// CanEdit pali alat karte i učitavanje GeoJSON-a; registar voda (pa i
+	// tok na karti) uređuje samo globalni administrator
+	CanEdit bool
 }
 
 // watercourseKinds su vrste voda koje obrazac nudi
@@ -91,6 +94,7 @@ func (h *WatercoursesHandler) pageData(r *http.Request) WatercoursePageData {
 		ActiveNav:      "watercourses",
 		ViewAsBanner:   viewBanner(r),
 		Karta:          kp,
+		CanEdit:        perms != nil && perms.IsGlobalAdmin,
 	}
 }
 

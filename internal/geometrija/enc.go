@@ -41,11 +41,18 @@ var encCache = struct {
 	items map[string]encCacheEntry
 }{items: make(map[string]encCacheEntry)}
 
+// RacunaStacionazu kaže računa li program stacionažu vode sam prema ENC-u
+// (Dunav i Drava). Karta takve vode ne prikazuje spremljene rkm točke ni
+// napomenu uz tok, nego izračunate.
+func RacunaStacionazu(code string) bool {
+	return code == "rijeka-drava" || code == "rijeka-dunav"
+}
+
 // PrimijeniStacionazu izvodi prikaz iz geometrije baze, diska ili ugrađenog
 // paketa. Ne piše u bazu: linija i položaji postaja ostaju nepromijenjeni.
 // Cache čuva samo posljednju geometriju svake od dvije podržane rijeke.
 func PrimijeniStacionazu(code string, data []byte) ([]byte, error) {
-	if len(data) == 0 || (code != "rijeka-drava" && code != "rijeka-dunav") {
+	if len(data) == 0 || !RacunaStacionazu(code) {
 		return data, nil
 	}
 	hash := sha256.Sum256(data)
