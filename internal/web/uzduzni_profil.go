@@ -236,8 +236,6 @@ var oznakeZemalja = map[string]string{
 	"Bosna i Hercegovina": "BA",
 }
 
-// crtajUzduzni slaže profil jednog toka. Letve bez kote nule ili bez
-// stacionaže ispadaju: bez njih se ne zna ni gdje su ni koliko visoko.
 // BranaUlaz je brana na toku koji se crta: okomita crta na svojem
 // kilometru, da se vidi gdje val prolazi kroz akumulaciju i elektranu.
 type BranaUlaz struct {
@@ -253,7 +251,52 @@ type BranaProfila struct {
 	Dolje bool // natpis u drugom redu, da se susjedne brane ne preklapaju
 }
 
+// crtajUzduzni slaže profil jednog toka. Letve bez kote nule ili bez
+// stacionaže ispadaju: bez njih se ne zna ni gdje su ni koliko visoko.
 func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...BranaUlaz) *UzduzniProfil {
+	korisne, pravih := korisneLetve(letve)
+	if pravih < 2 {
+		return nil
+	}
+	korisne = akumulacijeMeduLetvama(korisne)
+
+	p := &UzduzniProfil{Ime: ime, Oznaka: oznakaImena(ime), Width: 1600, Height: 560,
+		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76, SatOd: KlizacOd}
+	r, uSlici, dugiUSlici, svUSlici := visinaCrteza(korisne, p)
+	najOd, najDo := r.najOd, r.najDo
+	rub := (najDo - najOd) / 10
+	najOd, najDo = najOd-rub, najDo+rub
+
+	plotW := float64(p.Width) - p.Lijevo - p.Desno
+	plotH := float64(p.Height) - p.Vrh - p.Dno
+	prva, zadnja := pravaLetva(korisne, 0), pravaLetva(korisne, len(korisne)-1)
+	uscaUSlici, odRkm, doRkm := odaberiUsca(usca, prva.Rkm, zadnja.Rkm)
+	xOf := osRazmaka(cvoroviOsi(korisne, uscaUSlici, prva.Rkm, zadnja.Rkm), p.Lijevo, plotW)
+	yOf := func(cm float64) float64 { return p.Vrh + (najDo-cm)/(najDo-najOd)*plotH }
+	p.NulaY = yOf(0)
+	p.UsceY = p.NulaY
+	if !p.NulaUSlici {
+		p.UsceY = p.Vrh + 18
+	}
+	p.NapomenaIspod = najOd > 0
+	p.NulaNapomena = napomenaNule(p.NulaUSlici, dugiUSlici, svUSlici, p.NapomenaIspod)
+	referentneCrte(p, korisne, xOf, yOf, dugiUSlici, svUSlici)
+	p.Crte = crteDosega(korisne, xOf, yOf)
+	p.Pragovi = crtePragova(korisne, uSlici, xOf, yOf)
+
+	natpisiLetvi(p, korisne, xOf, yOf)
+	p.Usca = natpisiUsca(p, uscaUSlici, xOf)
+	p.Brane = natpisiBrana(p, brane, korisne, odRkm, doRkm, xOf)
+
+	p.YTicks = oznakeVisine(najOd, najDo, yOf)
+	opisiProfila(p, ime, prva, zadnja)
+	p.Niz = nizZaKlizac(korisne, p, xOf, yOf)
+	return p
+}
+
+// korisneLetve odbacuje letve bez kote, stacionaže, jutra ili nule i broji
+// prave letve (bez točaka ušća i akumulacija): tek dvije čine profil.
+func korisneLetve(letve []LetvaProfila) ([]LetvaProfila, int) {
 	var korisne []LetvaProfila
 	var pravih int
 	for _, l := range letve {
@@ -264,39 +307,76 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			}
 		}
 	}
-	if pravih < 2 {
-		return nil
-	}
+	return korisne, pravih
+}
+
+// akumulacijeMeduLetvama slaže letve nizvodno i izbacuje akumulaciju izvan
+// raspona pravih letvi: ona iznad prve letve ne pripada crtežu.
+func akumulacijeMeduLetvama(korisne []LetvaProfila) []LetvaProfila {
 	// Nizvodno ide udesno, a rkm nizvodno pada.
 	sort.Slice(korisne, func(i, j int) bool { return korisne[i].Rkm > korisne[j].Rkm })
-	// Akumulacija ulazi samo među letvama: ona iznad prve letve ne pripada crtežu.
-	{
-		var prvaRkm, zadnjaRkm float64
-		for i := range korisne {
-			if !korisne[i].Usce && !korisne[i].Akumulacija {
-				if prvaRkm == 0 {
-					prvaRkm = korisne[i].Rkm
-				}
-				zadnjaRkm = korisne[i].Rkm
+	var prvaRkm, zadnjaRkm float64
+	for i := range korisne {
+		if !korisne[i].Usce && !korisne[i].Akumulacija {
+			if prvaRkm == 0 {
+				prvaRkm = korisne[i].Rkm
 			}
+			zadnjaRkm = korisne[i].Rkm
 		}
-		var ost []LetvaProfila
-		for _, l := range korisne {
-			if l.Akumulacija && (l.Rkm > prvaRkm || l.Rkm < zadnjaRkm) {
-				continue
-			}
-			ost = append(ost, l)
+	}
+	var ost []LetvaProfila
+	for _, l := range korisne {
+		if l.Akumulacija && (l.Rkm > prvaRkm || l.Rkm < zadnjaRkm) {
+			continue
 		}
-		korisne = ost
+		ost = append(ost, l)
 	}
+	return ost
+}
 
-	p := &UzduzniProfil{Ime: ime, Oznaka: oznakaImena(ime), Width: 1600, Height: 560,
-		Lijevo: 86, Desno: 96, Vrh: 64, Dno: 76, SatOd: KlizacOd}
+// rasponCrteza je raspon odstupanja (cm) koji mora stati u visinu crteža.
+type rasponCrteza struct{ najOd, najDo float64 }
 
-	najOd, najDo := math.Inf(1), math.Inf(-1)
-	uzmi := func(cm float64) {
-		najOd, najDo = math.Min(najOd, cm), math.Max(najDo, cm)
+// uzmi širi raspon da u njega stane cm.
+func (r *rasponCrteza) uzmi(cm float64) {
+	r.najOd, r.najDo = math.Min(r.najOd, cm), math.Max(r.najDo, cm)
+}
+
+// visinaCrteza odlučuje što ulazi u visinu crteža: val, a uz njega pragovi,
+// nula, dugogodišnji medijan i srednjak, ali samo oni koji su mu blizu.
+func visinaCrteza(korisne []LetvaProfila, p *UzduzniProfil) (r rasponCrteza, uSlici []int, dugiUSlici, svUSlici bool) {
+	r = rasponVala(korisne, p)
+	if r.najDo-r.najOd < NajmanjiRaspon {
+		sredina := (r.najOd + r.najDo) / 2
+		r.najOd, r.najDo = sredina-NajmanjiRaspon/2, sredina+NajmanjiRaspon/2
 	}
+	// Prag ulazi u sliku tek kad je blizu. Mjeri se prema samom valu, a ne
+	// prema rasponu koji raste kako pragovi ulaze — inače svaki primljeni prag
+	// propusti sljedeći, pa pri srednjoj vodi uđu sva tri i crtež se opet
+	// spljošti.
+	valOd, valDo := r.najOd, r.najDo
+	sirina := valDo - valOd
+	uSlici = pragoviUSlici(korisne, &r, valOd, valDo, sirina)
+	// Nula (voda zadnjih 30 dana), dugogodišnji medijan i srednjak ulaze u
+	// sliku samo kad je voda blizu njih. Kad je Dunav dva metra ispod
+	// uobičajenog, ta bi crta uzela pola crteža, a val od dvadeset centimetara
+	// bio bi sitan; gore piše gdje je ona.
+	dopustNule := math.Max(KolikoDalekoNula*sirina, NulaUvijekDo)
+	blizu := func(o float64) bool { return o >= valOd-dopustNule && o <= valDo+dopustNule }
+	p.NulaUSlici = blizu(0)
+	if p.NulaUSlici {
+		r.uzmi(0)
+	}
+	dugiUSlici = referencaBlizu(korisne, blizu, func(l LetvaProfila) float64 { return l.DugiMedijanCm })
+	svUSlici = referencaBlizu(korisne, blizu, func(l LetvaProfila) float64 { return l.SrednjakCm })
+	uzmiReference(korisne, &r, dugiUSlici, svUSlici)
+	return r, uSlici, dugiUSlici, svUSlici
+}
+
+// rasponVala skuplja jutro, prognozu, granice i niz klizača svake letve, i
+// usput produžuje klizač do zadnjeg sata niza.
+func rasponVala(korisne []LetvaProfila, p *UzduzniProfil) rasponCrteza {
+	r := rasponCrteza{math.Inf(1), math.Inf(-1)}
 	for _, l := range korisne {
 		// Razina akumulacije ne ravna mjerilo: elektrana je u danu diže i
 		// spušta metar i više, pa bi rijeka stala u tanku traku. Kad ne stane,
@@ -307,35 +387,31 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			}
 			continue
 		}
-		uzmi(l.JutroCm - l.UobicajenoCm)
+		r.uzmi(l.JutroCm - l.UobicajenoCm)
 		for _, d := range dosezniProfila {
 			if v, ima := l.Cm[d]; ima {
-				uzmi(v - l.UobicajenoCm)
+				r.uzmi(v - l.UobicajenoCm)
 			}
 			if g, ima := l.Granice[d]; ima {
-				uzmi(g[0] - l.UobicajenoCm)
-				uzmi(g[1] - l.UobicajenoCm)
+				r.uzmi(g[0] - l.UobicajenoCm)
+				r.uzmi(g[1] - l.UobicajenoCm)
 			}
 		}
 		// I ono što klizač pokazuje mora stati u sliku: val koji je prošao
 		// prije dva dana dio je iste priče.
 		for h, v := range l.Niz {
-			uzmi(v - l.UobicajenoCm)
+			r.uzmi(v - l.UobicajenoCm)
 			if h > p.SatDo {
 				p.SatDo = h
 			}
 		}
 	}
-	if najDo-najOd < NajmanjiRaspon {
-		sredina := (najOd + najDo) / 2
-		najOd, najDo = sredina-NajmanjiRaspon/2, sredina+NajmanjiRaspon/2
-	}
-	// Prag ulazi u sliku tek kad je blizu. Mjeri se prema samom valu, a ne
-	// prema rasponu koji raste kako pragovi ulaze — inače svaki primljeni prag
-	// propusti sljedeći, pa pri srednjoj vodi uđu sva tri i crtež se opet
-	// spljošti. Redom od najnižeg: kad pripremna ne stane, ne stanu ni ostali.
-	valOd, valDo := najOd, najDo
-	sirina := valDo - valOd
+	return r
+}
+
+// pragoviUSlici vraća pragove koji su dovoljno blizu vala i stavlja ih u
+// raspon. Ide redom od najnižeg: kad pripremna ne stane, ne stanu ni ostali.
+func pragoviUSlici(korisne []LetvaProfila, r *rasponCrteza, valOd, valDo, sirina float64) []int {
 	var uSlici []int
 	for i, pr := range pragoviProfila {
 		odmaci, sve := odmaciPraga(korisne, pr.kljuc)
@@ -353,64 +429,61 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			break
 		}
 		for _, o := range odmaci {
-			uzmi(o)
+			r.uzmi(o)
 		}
 		uSlici = append(uSlici, i)
 	}
-	// Nula (voda zadnjih 30 dana), dugogodišnji medijan i srednjak ulaze u
-	// sliku samo kad je voda blizu njih. Kad je Dunav dva metra ispod
-	// uobičajenog, ta bi crta uzela pola crteža, a val od dvadeset centimetara
-	// bio bi sitan; gore piše gdje je ona.
-	dopustNule := math.Max(KolikoDalekoNula*sirina, NulaUvijekDo)
-	blizu := func(o float64) bool { return o >= valOd-dopustNule && o <= valDo+dopustNule }
-	p.NulaUSlici = blizu(0)
-	if p.NulaUSlici {
-		uzmi(0)
-	}
-	referenca := func(vrijednost func(LetvaProfila) float64) bool {
-		ima := false
-		for _, l := range korisne {
-			if v := vrijednost(l); v != 0 && !l.Akumulacija {
-				if !blizu(v - l.UobicajenoCm) {
-					return false
-				}
-				ima = true
+	return uSlici
+}
+
+// referencaBlizu kaže je li dugogodišnja vrijednost blizu vala na svakoj letvi
+// koja je ima; bez ijedne letve s vrijednošću nema je ni na crtežu.
+func referencaBlizu(korisne []LetvaProfila, blizu func(float64) bool, vrijednost func(LetvaProfila) float64) bool {
+	ima := false
+	for _, l := range korisne {
+		if v := vrijednost(l); v != 0 && !l.Akumulacija {
+			if !blizu(v - l.UobicajenoCm) {
+				return false
 			}
+			ima = true
 		}
-		return ima
 	}
-	dugiUSlici := referenca(func(l LetvaProfila) float64 { return l.DugiMedijanCm })
-	svUSlici := referenca(func(l LetvaProfila) float64 { return l.SrednjakCm })
+	return ima
+}
+
+// uzmiReference stavlja u raspon dugogodišnji medijan i srednjak koji su u
+// slici; akumulacija ih nema na crtežu.
+func uzmiReference(korisne []LetvaProfila, r *rasponCrteza, dugiUSlici, svUSlici bool) {
 	for _, l := range korisne {
 		if l.Akumulacija {
 			continue
 		}
 		if dugiUSlici && l.DugiMedijanCm != 0 {
-			uzmi(l.DugiMedijanCm - l.UobicajenoCm)
+			r.uzmi(l.DugiMedijanCm - l.UobicajenoCm)
 		}
 		if svUSlici && l.SrednjakCm != 0 {
-			uzmi(l.SrednjakCm - l.UobicajenoCm)
+			r.uzmi(l.SrednjakCm - l.UobicajenoCm)
 		}
 	}
+}
 
-	rub := (najDo - najOd) / 10
-	najOd, najDo = najOd-rub, najDo+rub
-
-	plotW := float64(p.Width) - p.Lijevo - p.Desno
-	plotH := float64(p.Height) - p.Vrh - p.Dno
-	prava := func(i int) LetvaProfila { // krajnja prava letva, bez točke ušća i akumulacije
-		for ; i >= 0 && i < len(korisne); i += 1 - 2*boolInt(i == len(korisne)-1) {
-			if !korisne[i].Usce && !korisne[i].Akumulacija {
-				return korisne[i]
-			}
+// pravaLetva traži krajnju pravu letvu od i-te prema sredini, bez točke ušća
+// i akumulacije.
+func pravaLetva(korisne []LetvaProfila, i int) LetvaProfila {
+	for ; i >= 0 && i < len(korisne); i += 1 - 2*boolInt(i == len(korisne)-1) {
+		if !korisne[i].Usce && !korisne[i].Akumulacija {
+			return korisne[i]
 		}
-		return korisne[0]
 	}
-	odRkm, doRkm := prava(0).Rkm, prava(len(korisne)-1).Rkm
-	// Ušće među letvama uvijek je u slici. Ušće malo izvan krajnjih letvi
-	// uđe u sliku i produži crtež do sebe samo kad s druge strane ima letvi
-	// na pregledu — inače bi Plitvica i Bednja iznad Botova samo gomilale
-	// natpise. Daleko ušće ne pripada ovom crtežu.
+	return korisne[0]
+}
+
+// odaberiUsca vraća ušća koja ulaze u crtež i raspon kilometara koji tada
+// crtež pokriva. Ušće među letvama uvijek je u slici. Ušće malo izvan krajnjih
+// letvi uđe u sliku i produži crtež do sebe samo kad s druge strane ima letvi
+// na pregledu — inače bi Plitvica i Bednja iznad Botova samo gomilale
+// natpise. Daleko ušće ne pripada ovom crtežu.
+func odaberiUsca(usca []UsceUlaz, odRkm, doRkm float64) ([]UsceUlaz, float64, float64) {
 	dopust := (odRkm - doRkm) * KolikoIzvanZaUsce
 	var uscaUSlici []UsceUlaz
 	for _, u := range usca {
@@ -421,34 +494,33 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 		odRkm, doRkm = math.Max(odRkm, u.Rkm), math.Min(doRkm, u.Rkm)
 		uscaUSlici = append(uscaUSlici, u)
 	}
-	raspon := odRkm - doRkm
-	if raspon <= 0 {
-		raspon = 1
-	}
-	// Razmak letvi nije u mjerilu: naša dionica ima letvu svakih desetak
-	// kilometara, mađarska svakih sedamdeset, pa bi u mjerilu devet naših
-	// letvi dobilo petinu širine, a natpisi bi se preklapali.
+	return uscaUSlici, odRkm, doRkm
+}
+
+// cvoroviOsi su kilometri koji dijele vodoravnu os: letve i akumulacije, te
+// ušća izvan krajnjih letvi. Razmak letvi nije u mjerilu: naša dionica ima
+// letvu svakih desetak kilometara, mađarska svakih sedamdeset, pa bi u mjerilu
+// devet naših letvi dobilo petinu širine, a natpisi bi se preklapali.
+func cvoroviOsi(korisne []LetvaProfila, usca []UsceUlaz, prvaRkm, zadnjaRkm float64) []float64 {
 	cvorovi := []float64{}
 	for _, l := range korisne {
 		if !l.Usce {
 			cvorovi = append(cvorovi, l.Rkm)
 		}
 	}
-	for _, u := range uscaUSlici {
-		if u.Rkm > prava(0).Rkm || u.Rkm < prava(len(korisne)-1).Rkm {
+	for _, u := range usca {
+		if u.Rkm > prvaRkm || u.Rkm < zadnjaRkm {
 			cvorovi = append(cvorovi, u.Rkm)
 		}
 	}
-	xOf := osRazmaka(cvorovi, p.Lijevo, plotW)
-	yOf := func(cm float64) float64 { return p.Vrh + (najDo-cm)/(najDo-najOd)*plotH }
-	p.NulaY = yOf(0)
-	p.UsceY = p.NulaY
-	if !p.NulaUSlici {
-		p.UsceY = p.Vrh + 18
-	}
-	p.NapomenaIspod = najOd > 0
+	return cvorovi
+}
+
+// napomenaNule kaže što ne stane u crtež i gdje je: „↑ uobičajena voda
+// (10 g.) i srednji vodostaj su iznad crteža”. Kad sve stane, napomene nema.
+func napomenaNule(nulaUSlici, dugiUSlici, svUSlici, ispod bool) string {
 	var izvan []string
-	if !p.NulaUSlici {
+	if !nulaUSlici {
 		izvan = append(izvan, "voda zadnjih 30 dana (0)")
 	}
 	if !dugiUSlici {
@@ -457,21 +529,26 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 	if !svUSlici {
 		izvan = append(izvan, "srednji vodostaj")
 	}
-	if len(izvan) > 0 {
-		smjer, gdje := "↑", "iznad"
-		if p.NapomenaIspod {
-			smjer, gdje = "↓", "ispod"
-		}
-		glagol := "je"
-		if len(izvan) > 1 {
-			glagol = "su"
-		}
-		p.NulaNapomena = smjer + " " + spojiIli(izvan) + " " + glagol + " " + gdje + " crteža"
+	if len(izvan) == 0 {
+		return ""
 	}
+	smjer, gdje := "↑", "iznad"
+	if ispod {
+		smjer, gdje = "↓", "ispod"
+	}
+	glagol := "je"
+	if len(izvan) > 1 {
+		glagol = "su"
+	}
+	return smjer + " " + spojiIli(izvan) + " " + glagol + " " + gdje + " crteža"
+}
+
+// referentneCrte povlači jutarnju crtu te dugogodišnji medijan i srednjak kad
+// su u slici. Dugogodišnji medijan i srednjak razine akumulacije nisu voda
+// rijeke: u crte ne ulaze.
+func referentneCrte(p *UzduzniProfil, korisne []LetvaProfila, xOf, yOf func(float64) float64, dugiUSlici, svUSlici bool) {
 	p.JutroPut = crtaOdstupanja(korisne, xOf, yOf,
 		func(l LetvaProfila) (float64, bool) { return l.JutroCm - l.UobicajenoCm, true })
-	// Dugogodišnji medijan i srednjak razine akumulacije nisu voda rijeke: u
-	// crte ne ulaze.
 	if dugiUSlici {
 		p.DugiPut = crtaOdstupanja(korisne, xOf, yOf, func(l LetvaProfila) (float64, bool) {
 			return l.DugiMedijanCm - l.UobicajenoCm, l.DugiMedijanCm != 0
@@ -482,7 +559,12 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			return l.SrednjakCm - l.UobicajenoCm, l.SrednjakCm != 0
 		})
 	}
+}
 
+// crteDosega povlači crtu prognoze za svaki doseg koji ima barem dvije letve,
+// a satnom lancu dodaje i pojas granica.
+func crteDosega(korisne []LetvaProfila, xOf, yOf func(float64) float64) []ProfilCrta {
+	var crte []ProfilCrta
 	for i, d := range dosezniProfila {
 		c := ProfilCrta{Naziv: nazivDosega(d), Class: fmt.Sprintf("h%d", i+1), Doseg: d}
 		vrijednost := func(l LetvaProfila) (float64, bool) { v, ima := l.Cm[d]; return v - l.UobicajenoCm, ima }
@@ -500,8 +582,14 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 		if d <= SatniLanacDo {
 			c.Pojas = plohaGranica(korisne, d, xOf, yOf)
 		}
-		p.Crte = append(p.Crte, c)
+		crte = append(crte, c)
 	}
+	return crte
+}
+
+// crtePragova povlači crte pragova obrane koji su ušli u sliku.
+func crtePragova(korisne []LetvaProfila, uSlici []int, xOf, yOf func(float64) float64) []ProfilCrta {
+	var pragovi []ProfilCrta
 	for _, i := range uSlici {
 		pr := pragoviProfila[i]
 		put := crtaOdstupanja(korisne, xOf, yOf, func(l LetvaProfila) (float64, bool) {
@@ -509,133 +597,172 @@ func crtajUzduzni(ime string, letve []LetvaProfila, usca []UsceUlaz, brane ...Br
 			return v - l.UobicajenoCm, ima
 		})
 		if put != "" {
-			p.Pragovi = append(p.Pragovi, ProfilCrta{Naziv: pr.naziv, Class: pr.class, Put: put})
+			pragovi = append(pragovi, ProfilCrta{Naziv: pr.naziv, Class: pr.class, Put: put})
 		}
 	}
+	return pragovi
+}
 
-	// Natpisi: letve koje stoje preblizu (Sotin, Mohovo, Ilok) dobiju drugi
-	// red, da se imena ne preklapaju.
-	zadnjiGore, zadnjiDolje := math.Inf(-1), math.Inf(-1)
+// redoviNatpisa pamti gdje je zadnji natpis u prvom i u drugom redu, da se
+// imena susjeda ne preklapaju.
+type redoviNatpisa struct{ gore, dolje float64 }
+
+func noviRedovi() *redoviNatpisa {
+	return &redoviNatpisa{gore: math.Inf(-1), dolje: math.Inf(-1)}
+}
+
+// smjesti stavlja natpis u prvi red dok stane; inače u drugi; kad ne stane ni
+// u jedan, u onaj u kojem je susjed dalje (Sotin, Mohovo, Ilok na dvadeset
+// kilometara). Vraća je li natpis u drugom redu.
+func (r *redoviNatpisa) smjesti(x float64) bool {
+	dolje := false
+	switch {
+	case x-r.gore >= razmakNatpisa:
+	case x-r.dolje >= razmakNatpisa:
+		dolje = true
+	default:
+		dolje = x-r.dolje > x-r.gore
+	}
+	r.zapamti(x, dolje)
+	return dolje
+}
+
+// zapamti bilježi zadnji natpis u redu.
+func (r *redoviNatpisa) zapamti(x float64, dolje bool) {
+	if dolje {
+		r.dolje = x
+	} else {
+		r.gore = x
+	}
+}
+
+// natpisiLetvi slaže točke letvi s natpisima i oznake kilometara. Letve koje
+// stoje preblizu (Sotin, Mohovo, Ilok) dobiju drugi red, da se imena ne
+// preklapaju.
+func natpisiLetvi(p *UzduzniProfil, korisne []LetvaProfila, xOf, yOf func(float64) float64) {
+	redovi := noviRedovi()
 	for i, l := range korisne {
 		if l.Usce {
 			continue
 		}
-		sidro := "middle"
-		if i == 0 {
-			sidro = "start"
-		} else if i == len(korisne)-1 || korisne[i+1].Usce {
-			sidro = "end"
-		}
+		sidro := sidroLetve(korisne, i)
 		x := xOf(l.Rkm)
-		// Prvi red dok stane; inače drugi; kad ne stane ni u jedan, onaj u
-		// kojem je susjed dalje (Sotin, Mohovo, Ilok na dvadeset kilometara).
-		dolje := false
-		switch {
-		case x-zadnjiGore >= razmakNatpisa:
-		case x-zadnjiDolje >= razmakNatpisa:
-			dolje = true
-		default:
-			dolje = x-zadnjiDolje > x-zadnjiGore
-		}
-		if dolje {
-			zadnjiDolje = x
-		} else {
-			zadnjiGore = x
-		}
-		ime, zemlja := kratkoIme(l.Naziv)
-		t := TockaUzduznog{
-			Naziv: ime, Zemlja: zemlja, X: x, Y: math.Max(p.Vrh, math.Min(p.DnoY(), yOf(l.JutroCm-l.UobicajenoCm))),
-			Sidro: sidro, Dolje: dolje, Razina: l.Razina,
-			Cm: brojHRf(l.JutroCm, 0),
-		}
-		switch {
-		case l.Akumulacija:
-			// Razina akumulacije stoji na brani: jedan natpis „HE Čakovec”
-			// za oboje, s kotom jezera (bez nule letve: samo metri).
-			t.Naziv = "HE " + strings.TrimPrefix(ime, "Razina akumulacije ")
-			t.Cm, t.Kota = "", brojHRf(l.JutroCm/100, 2)
-			t.Y = math.Max(p.Vrh+RubAkumulacije, math.Min(p.DnoY()-RubAkumulacije, t.Y))
-		}
-		p.Tocke = append(p.Tocke, t)
+		dolje := redovi.smjesti(x)
+		p.Tocke = append(p.Tocke, tockaLetve(p, l, x, yOf, sidro, dolje))
 		if !l.Akumulacija {
 			p.XTicks = append(p.XTicks, ChartTick{Pos: x, Label: brojHRf(l.Rkm, 1), Anchor: sidro})
 		}
 	}
+}
 
-	sort.Slice(uscaUSlici, func(i, j int) bool { return uscaUSlici[i].Rkm > uscaUSlici[j].Rkm })
-	zadnjiGore, zadnjiDolje = math.Inf(-1), math.Inf(-1)
-	for _, u := range uscaUSlici {
-		x := xOf(u.Rkm)
-		sidro := "middle"
-		if x-p.Lijevo < 60 {
-			sidro = "start"
-		} else if float64(p.Width)-p.Desno-x < 60 {
-			sidro = "end"
-		}
-		dolje := false
-		switch {
-		case x-zadnjiGore >= razmakNatpisa:
-		case x-zadnjiDolje >= razmakNatpisa:
-			dolje = true
-		default:
-			dolje = x-zadnjiDolje > x-zadnjiGore
-		}
-		if dolje {
-			zadnjiDolje = x
-		} else {
-			zadnjiGore = x
-		}
-		p.Usca = append(p.Usca, UsceProfila{Naziv: u.Naziv, Tekst: u.Tekst, X: x, Sidro: sidro, Dolje: dolje})
+// sidroLetve sidri prvu letvu na početak, zadnju (ili onu iza koje je samo
+// točka ušća) na kraj, a ostale na sredinu.
+func sidroLetve(korisne []LetvaProfila, i int) string {
+	sidro := "middle"
+	if i == 0 {
+		sidro = "start"
+	} else if i == len(korisne)-1 || korisne[i+1].Usce {
+		sidro = "end"
 	}
+	return sidro
+}
 
-	// Brana ulazi u sliku samo među letvama: brana iznad prve letve ne
-	// pripada crtežu, jer voda iznad nje nije na njemu.
-	// Brana na kojoj je i razina akumulacije ne dobiva svoj natpis: nosi ga
-	// akumulacija („HE Čakovec”), a crtkana crta brane ostaje.
+// tockaLetve je točka letve na jutarnjoj crti, unutar crteža.
+func tockaLetve(p *UzduzniProfil, l LetvaProfila, x float64, yOf func(float64) float64, sidro string, dolje bool) TockaUzduznog {
+	ime, zemlja := kratkoIme(l.Naziv)
+	t := TockaUzduznog{
+		Naziv: ime, Zemlja: zemlja, X: x, Y: math.Max(p.Vrh, math.Min(p.DnoY(), yOf(l.JutroCm-l.UobicajenoCm))),
+		Sidro: sidro, Dolje: dolje, Razina: l.Razina,
+		Cm: brojHRf(l.JutroCm, 0),
+	}
+	if l.Akumulacija {
+		// Razina akumulacije stoji na brani: jedan natpis „HE Čakovec”
+		// za oboje, s kotom jezera (bez nule letve: samo metri).
+		t.Naziv = "HE " + strings.TrimPrefix(ime, "Razina akumulacije ")
+		t.Cm, t.Kota = "", brojHRf(l.JutroCm/100, 2)
+		t.Y = math.Max(p.Vrh+RubAkumulacije, math.Min(p.DnoY()-RubAkumulacije, t.Y))
+	}
+	return t
+}
+
+// sidroURubu sidri natpis ušća ili brane uz rub crteža prema unutra.
+func sidroURubu(p *UzduzniProfil, x float64) string {
+	sidro := "middle"
+	if x-p.Lijevo < 60 {
+		sidro = "start"
+	} else if float64(p.Width)-p.Desno-x < 60 {
+		sidro = "end"
+	}
+	return sidro
+}
+
+// natpisiUsca slaže oznake ušća redom toka, u dva reda kao i letve.
+func natpisiUsca(p *UzduzniProfil, usca []UsceUlaz, xOf func(float64) float64) []UsceProfila {
+	sort.Slice(usca, func(i, j int) bool { return usca[i].Rkm > usca[j].Rkm })
+	redovi := noviRedovi()
+	var out []UsceProfila
+	for _, u := range usca {
+		x := xOf(u.Rkm)
+		sidro := sidroURubu(p, x)
+		dolje := redovi.smjesti(x)
+		out = append(out, UsceProfila{Naziv: u.Naziv, Tekst: u.Tekst, X: x, Sidro: sidro, Dolje: dolje})
+	}
+	return out
+}
+
+// natpisiBrana slaže brane redom toka. Brana ulazi u sliku samo među letvama:
+// brana iznad prve letve ne pripada crtežu, jer voda iznad nje nije na njemu.
+// Brana na kojoj je i razina akumulacije ne dobiva svoj natpis: nosi ga
+// akumulacija („HE Čakovec”), a crtkana crta brane ostaje.
+func natpisiBrana(p *UzduzniProfil, brane []BranaUlaz, korisne []LetvaProfila, odRkm, doRkm float64,
+	xOf func(float64) float64) []BranaProfila {
 	sort.Slice(brane, func(i, j int) bool { return brane[i].Rkm > brane[j].Rkm })
-	zadnjiGore, zadnjiDolje = math.Inf(-1), math.Inf(-1)
+	redovi := noviRedovi()
+	var out []BranaProfila
 	for _, b := range brane {
 		if b.Rkm > odRkm || b.Rkm < doRkm {
 			continue
 		}
 		x := xOf(b.Rkm)
-		uzAkumulaciju := false
-		for _, l := range korisne {
-			if l.Akumulacija && math.Abs(l.Rkm-b.Rkm) < 0.5 {
-				uzAkumulaciju = true
-			}
-		}
-		if uzAkumulaciju {
-			p.Brane = append(p.Brane, BranaProfila{X: x})
+		if branaUzAkumulaciju(korisne, b.Rkm) {
+			out = append(out, BranaProfila{X: x})
 			continue
 		}
-		sidro := "middle"
-		if x-p.Lijevo < 60 {
-			sidro = "start"
-		} else if float64(p.Width)-p.Desno-x < 60 {
-			sidro = "end"
-		}
-		dolje := x-zadnjiGore < razmakNatpisa && x-zadnjiDolje >= razmakNatpisa
-		if dolje {
-			zadnjiDolje = x
-		} else {
-			zadnjiGore = x
-		}
-		p.Brane = append(p.Brane, BranaProfila{Naziv: b.Naziv, X: x, Sidro: sidro, Dolje: dolje})
+		sidro := sidroURubu(p, x)
+		dolje := x-redovi.gore < razmakNatpisa && x-redovi.dolje >= razmakNatpisa
+		redovi.zapamti(x, dolje)
+		out = append(out, BranaProfila{Naziv: b.Naziv, X: x, Sidro: sidro, Dolje: dolje})
 	}
+	return out
+}
 
+// branaUzAkumulaciju kaže stoji li na brani i razina akumulacije.
+func branaUzAkumulaciju(korisne []LetvaProfila, rkm float64) bool {
+	for _, l := range korisne {
+		if l.Akumulacija && math.Abs(l.Rkm-rkm) < 0.5 {
+			return true
+		}
+	}
+	return false
+}
+
+// oznakeVisine stavlja oznake centimetara na okomitu os, okruglim korakom.
+func oznakeVisine(najOd, najDo float64, yOf func(float64) float64) []ChartTick {
+	var oznake []ChartTick
 	korak := niceStep((najDo - najOd) / 5)
 	for v := math.Ceil(najOd/korak) * korak; v <= najDo; v += korak {
-		p.YTicks = append(p.YTicks, ChartTick{Pos: yOf(v), Label: brojHRf(v, 0)})
+		oznake = append(oznake, ChartTick{Pos: yOf(v), Label: brojHRf(v, 0)})
 	}
-	prva, zadnja := prava(0), prava(len(korisne)-1)
+	return oznake
+}
+
+// opisiProfila piše pad vodnog lica i opis crteža od prve do zadnje prave letve.
+func opisiProfila(p *UzduzniProfil, ime string, prva, zadnja LetvaProfila) {
 	pad := (prva.KotaNule + prva.JutroCm/100) - (zadnja.KotaNule + zadnja.JutroCm/100)
 	p.Pad = fmt.Sprintf("%s, %s → %s: vodno lice jutros pada %s m na %s km", ime, prva.Naziv, zadnja.Naziv,
 		brojHRf(pad, 1), brojHRf(prva.Rkm-zadnja.Rkm, 0))
 	p.Opis = "Uzdužni profil " + ime + ": vodostaj od " + prva.Naziv + " do " + zadnja.Naziv +
 		", u centimetrima iznad ili ispod vode zadnjih 30 dana, jutros i u prognozi"
-	p.Niz = nizZaKlizac(korisne, p, xOf, yOf)
-	return p
 }
 
 // nizProfila je ono što klizač vremena treba: za svaki sat i svaku letvu
