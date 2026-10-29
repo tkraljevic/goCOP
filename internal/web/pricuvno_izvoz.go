@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/prognoza"
@@ -74,21 +75,32 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 	unos := k.NoviList("Unos")
 	veze := k.NoviList("Veze")
 	kako := k.NoviList("Kako")
-
-	naslovDana := func() []xlsxw.Celija {
-		var c []xlsxw.Celija
-		for d, dan := range p.Dani {
-			if d == 0 {
-				c = append(c, xlsxw.T("danas "+dan.Format("2.1."), xlsxw.Zaglavlje))
-				continue
-			}
-			c = append(c, xlsxw.T(daniTjedna[dan.Weekday()]+" "+dan.Format("2.1."), xlsxw.Zaglavlje))
-		}
-		return c
-	}
 	izdano := p.Sada.In(models.Zagreb).Format("2.1.2006. u 15:04")
 
-	// --- Unos: tuđe letve po danima, u 7 h
+	// Naše postaje se slažu nakon Unosa i Veza jer formule gledaju njihove retke.
+	adresaUnosa := listUnosPricuvno(unos, p, ime, izdano)
+	vezeLetve := listVezePricuvno(veze, p, ime)
+	listNasePricuvno(nase, p, ime, izdano, adresaUnosa, vezeLetve)
+	listKakoPricuvno(kako, izdano)
+	return k
+}
+
+// naslovDanaPricuvno su zaglavlja stupaca dana: „danas 29.10.”, „pet 30.10.” …
+func naslovDanaPricuvno(dani []time.Time) []xlsxw.Celija {
+	var c []xlsxw.Celija
+	for d, dan := range dani {
+		if d == 0 {
+			c = append(c, xlsxw.T("danas "+dan.Format("2.1."), xlsxw.Zaglavlje))
+			continue
+		}
+		c = append(c, xlsxw.T(daniTjedna[dan.Weekday()]+" "+dan.Format("2.1."), xlsxw.Zaglavlje))
+	}
+	return c
+}
+
+// listUnosPricuvno puni list „Unos”: tuđe letve po danima, u 7 h. Vraća
+// redak svake letve, za formule na listu „Naše postaje”.
+func listUnosPricuvno(unos *xlsxw.List, p prognoza.PricuvniPodaci, ime func(string) string, izdano string) map[string]int {
 	unos.Dodaj(xlsxw.T("Pričuvni izračun — unos tuđih prognoza", xlsxw.Naslov))
 	unos.Dodaj(xlsxw.T("Vodostaj u cm na nuli letve, u 7 h. Žuta polja su za unos; program ih je popunio onim što je znao "+
 		izdano+". Nepoznato ostavi prazno. Mađarska prognoza: hydroinfo.hu; srpska: hidmet.gov.rs.", xlsxw.Napomena))
@@ -96,39 +108,54 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 	unos.Visina(1, 30)
 	unos.Dodaj()
 	unos.Dodaj(append([]xlsxw.Celija{xlsxw.T("Letva", xlsxw.Zaglavlje), xlsxw.T("Država", xlsxw.Zaglavlje),
-		xlsxw.T("Upisano iz", xlsxw.Zaglavlje)}, naslovDana()...)...)
+		xlsxw.T("Upisano iz", xlsxw.Zaglavlje)}, naslovDanaPricuvno(p.Dani)...)...)
 	adresaUnosa := map[string]int{} // letva → redak
 	for _, u := range prognoza.PricuvniUlazi {
-		red := unos.Redak()
-		adresaUnosa[u.Letva] = red
-		drzava := "RS"
-		if u.Izvor == prognoza.Podrijetlo {
-			drzava = "HU"
-		}
-		if strings.HasPrefix(u.Letva, prognoza.Madjarska) {
-			drzava = "HU → RH"
-		}
-		izvor := p.Izvori[u.Letva]
-		if izvor == "" {
-			izvor = "—"
-		}
-		c := []xlsxw.Celija{xlsxw.T(imeUlaza(u.Letva, ime), xlsxw.TablicaPod), xlsxw.T(drzava, xlsxw.TablicaSredina),
-			xlsxw.T(izvor, xlsxw.TablicaSivo)}
-		for d := 0; d <= prognoza.PricuvniDana; d++ {
-			if v := p.Ulazi[u.Letva][d]; v != nil {
-				c = append(c, xlsxw.N(*v, xlsxw.Unos))
-			} else {
-				c = append(c, xlsxw.T("", xlsxw.Unos))
-			}
-		}
-		unos.Dodaj(c...)
+		adresaUnosa[u.Letva] = unos.Redak()
+		unos.Dodaj(redakUnosaPricuvno(u.Letva, u.Izvor, p, ime)...)
 	}
 	unos.Sirine = []float64{34, 9, 14}
 	for d := 0; d <= prognoza.PricuvniDana; d++ {
 		unos.Sirine = append(unos.Sirine, 11)
 	}
+	return adresaUnosa
+}
 
-	// --- Veze: pravci, rasap i današnji pomak (pomak se smije mijenjati)
+// redakUnosaPricuvno je redak jedne tuđe letve: ime, država, odakle je
+// upisano i žuta polja po danima, popunjena koliko se zna.
+func redakUnosaPricuvno(letva, izvorUlaza string, p prognoza.PricuvniPodaci, ime func(string) string) []xlsxw.Celija {
+	drzava := "RS"
+	if izvorUlaza == prognoza.Podrijetlo {
+		drzava = "HU"
+	}
+	if strings.HasPrefix(letva, prognoza.Madjarska) {
+		drzava = "HU → RH"
+	}
+	izvor := p.Izvori[letva]
+	if izvor == "" {
+		izvor = "—"
+	}
+	c := []xlsxw.Celija{xlsxw.T(imeUlaza(letva, ime), xlsxw.TablicaPod), xlsxw.T(drzava, xlsxw.TablicaSredina),
+		xlsxw.T(izvor, xlsxw.TablicaSivo)}
+	for d := 0; d <= prognoza.PricuvniDana; d++ {
+		if v := p.Ulazi[letva][d]; v != nil {
+			c = append(c, xlsxw.N(*v, xlsxw.Unos))
+		} else {
+			c = append(c, xlsxw.T("", xlsxw.Unos))
+		}
+	}
+	return c
+}
+
+// pricuvnaVezaRed je veza s pravcem i redak u kojem stoji na listu „Veze”.
+type pricuvnaVezaRed struct {
+	red  int
+	veza prognoza.PricuvnaVeza
+}
+
+// listVezePricuvno puni list „Veze”: pravci, rasap i današnji pomak (pomak se
+// smije mijenjati). Vraća veze s pravcem po našoj letvi, redom putova.
+func listVezePricuvno(veze *xlsxw.List, p prognoza.PricuvniPodaci, ime func(string) string) map[string][]pricuvnaVezaRed {
 	veze.Dodaj(xlsxw.T("Veze: iz čega se računa koja letva", xlsxw.Naslov))
 	veze.Dodaj(xlsxw.T("Naša letva = odsječak + pomak + nagib 1 · ulaz 1 + nagib 2 · ulaz 2. Pravci su iz dnevnih vrijednosti "+
 		"zadnjih deset godina; ± je standardno odstupanje ostatka. Pomak je današnja razlika mjerenja i pravca — "+
@@ -140,11 +167,7 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 		xlsxw.T("Odsječak", xlsxw.Zaglavlje), xlsxw.T("Nagib 1", xlsxw.Zaglavlje), xlsxw.T("Nagib 2", xlsxw.Zaglavlje),
 		xlsxw.T("± cm", xlsxw.Zaglavlje), xlsxw.T("Pomak danas", xlsxw.Zaglavlje), xlsxw.T("Dana", xlsxw.Zaglavlje),
 		xlsxw.T("Od", xlsxw.Zaglavlje), xlsxw.T("Napomena", xlsxw.Zaglavlje))
-	type vezaRed struct {
-		red  int
-		veza prognoza.PricuvnaVeza
-	}
-	vezeLetve := map[string][]vezaRed{}
+	vezeLetve := map[string][]pricuvnaVezaRed{}
 	for _, pp := range prognoza.PricuvniPutovi {
 		for i, v := range p.Veze[pp.Letva] {
 			var iz []string
@@ -161,31 +184,94 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 				veze.Dodaj(c...)
 				continue
 			}
-			nagib2 := xlsxw.T("", xlsxw.Tablica)
-			if len(v.Koef) > 2 {
-				nagib2 = xlsxw.N(zaokruzi(v.Koef[2], 4), xlsxw.TablicaBroj)
-			}
-			rasap := xlsxw.T("", xlsxw.TablicaSredina)
-			napomena := ""
-			if v.Rasap > 0 {
-				rasap = xlsxw.N(zaokruzi(v.Rasap, 1), xlsxw.TablicaSredina)
-			}
-			if strings.HasPrefix(v.Izvori[0], prognoza.Madjarska) {
-				napomena = "mađarska prognoza iste letve, kakva je objavljena"
-			}
-			dana, od := xlsxw.T("", xlsxw.TablicaSredina), xlsxw.T("", xlsxw.TablicaSredina)
-			if v.Dana > 0 {
-				dana, od = xlsxw.N(float64(v.Dana), xlsxw.TablicaSredina), xlsxw.T(v.Od, xlsxw.TablicaSredina)
-			}
-			c = append(c, xlsxw.N(zaokruzi(v.Koef[0], 2), xlsxw.TablicaBroj), xlsxw.N(zaokruzi(v.Koef[1], 4), xlsxw.TablicaBroj),
-				nagib2, rasap, xlsxw.N(v.Pomak, xlsxw.Unos), dana, od, xlsxw.T(napomena, xlsxw.TablicaSivo))
-			veze.Dodaj(c...)
-			vezeLetve[pp.Letva] = append(vezeLetve[pp.Letva], vezaRed{red, v})
+			veze.Dodaj(append(c, celijePravcaPricuvno(v)...)...)
+			vezeLetve[pp.Letva] = append(vezeLetve[pp.Letva], pricuvnaVezaRed{red, v})
 		}
 	}
 	veze.Sirine = []float64{16, 6, 38, 10, 9, 9, 7, 11, 7, 11, 44}
+	return vezeLetve
+}
 
-	// --- Naše postaje: vrijednost i odakle je, po danu
+// celijePravcaPricuvno su stupci od odsječka do napomene za vezu s pravcem.
+func celijePravcaPricuvno(v prognoza.PricuvnaVeza) []xlsxw.Celija {
+	nagib2 := xlsxw.T("", xlsxw.Tablica)
+	if len(v.Koef) > 2 {
+		nagib2 = xlsxw.N(zaokruzi(v.Koef[2], 4), xlsxw.TablicaBroj)
+	}
+	rasap := xlsxw.T("", xlsxw.TablicaSredina)
+	napomena := ""
+	if v.Rasap > 0 {
+		rasap = xlsxw.N(zaokruzi(v.Rasap, 1), xlsxw.TablicaSredina)
+	}
+	if strings.HasPrefix(v.Izvori[0], prognoza.Madjarska) {
+		napomena = "mađarska prognoza iste letve, kakva je objavljena"
+	}
+	dana, od := xlsxw.T("", xlsxw.TablicaSredina), xlsxw.T("", xlsxw.TablicaSredina)
+	if v.Dana > 0 {
+		dana, od = xlsxw.N(float64(v.Dana), xlsxw.TablicaSredina), xlsxw.T(v.Od, xlsxw.TablicaSredina)
+	}
+	return []xlsxw.Celija{xlsxw.N(zaokruzi(v.Koef[0], 2), xlsxw.TablicaBroj), xlsxw.N(zaokruzi(v.Koef[1], 4), xlsxw.TablicaBroj),
+		nagib2, rasap, xlsxw.N(v.Pomak, xlsxw.Unos), dana, od, xlsxw.T(napomena, xlsxw.TablicaSivo)}
+}
+
+// formulePricuvno zna gdje stoji koja letva, pa slaže Excelove formule
+// putova za list „Naše postaje”.
+type formulePricuvno struct {
+	redNase     map[string]int // redak vrijednosti naše letve
+	adresaUnosa map[string]int // redak tuđe letve na listu „Unos”
+	ime         func(string) string
+}
+
+// ref je adresa ulaza u stupcu: naša letva s istog lista, inače s „Unosa”.
+func (f formulePricuvno) ref(letva string, stupac int) string {
+	if rn, ima := f.redNase[letva]; ima {
+		return xlsxw.Adresa(stupac, rn)
+	}
+	return "Unos!" + xlsxw.Adresa(stupac, f.adresaUnosa[letva])
+}
+
+// put u stupcu s: uvjet (svi ulazi upisani) i izraz pravca
+func (f formulePricuvno) put(vz pricuvnaVezaRed, s int) (string, string) {
+	var uvjeti []string
+	izraz := fmt.Sprintf("Veze!$D$%d+Veze!$H$%d", vz.red+1, vz.red+1)
+	for j, l := range vz.veza.Izvori {
+		a := f.ref(l, s)
+		uvjeti = append(uvjeti, "ISNUMBER("+a+")")
+		izraz += fmt.Sprintf("+Veze!$%s$%d*%s", xlsxw.Stupac(4+j), vz.red+1, a)
+	}
+	if len(uvjeti) > 1 {
+		return "AND(" + strings.Join(uvjeti, ",") + ")", izraz
+	}
+	return uvjeti[0], izraz
+}
+
+// dan slaže formulu vrijednosti i formulu opisa naše letve za dan d: putovi
+// se gnijezde od zadnjeg prema prvom, pa prvi upisani put pobjeđuje.
+func (f formulePricuvno) dan(letva string, vezeLetve []pricuvnaVezaRed, d int) (string, string) {
+	stupac := pricuvniStupac + d
+	formula, tekst := "\"\"", "\"nema ulaza\""
+	for i := len(vezeLetve) - 1; i >= 0; i-- {
+		vz := vezeLetve[i]
+		uvjet, izraz := f.put(vz, stupac)
+		vrijednost := "ROUND(" + izraz + ",0)"
+		if i > 0 && d > 0 {
+			// Sljedeći put nastavlja na jučerašnju vrijednost svojom
+			// promjenom, da prijelaz između dviju prognoza ne skoči.
+			jucer := xlsxw.Adresa(stupac-1, f.redNase[letva])
+			uvjet0, izraz0 := f.put(vz, stupac-1)
+			vrijednost = fmt.Sprintf("IF(AND(ISNUMBER(%s),%s),ROUND(%s+(%s)-(%s),0),ROUND(%s,0))",
+				jucer, uvjet0, jucer, izraz, izraz0, izraz)
+		}
+		formula = fmt.Sprintf("IF(%s,%s,%s)", uvjet, vrijednost, formula)
+		tekst = fmt.Sprintf("IF(%s,\"%s\",%s)", uvjet, opisPuta(vz.veza, f.ime), tekst)
+	}
+	return formula, tekst
+}
+
+// listNasePricuvno puni list „Naše postaje”: za svaku našu letvu redak
+// vrijednosti po danu i ispod njega redak „iz” s opisom puta.
+func listNasePricuvno(nase *xlsxw.List, p prognoza.PricuvniPodaci, ime func(string) string, izdano string,
+	adresaUnosa map[string]int, vezeLetve map[string][]pricuvnaVezaRed) {
 	vrijednosti, putovi := prognoza.PricuvnoRacunaj(p)
 	nase.Dodaj(xlsxw.T("Pričuvni izračun za naše letve", xlsxw.Naslov))
 	nase.Dodaj(xlsxw.T("Kad prognoza COP Osijek ne radi: vodostaj u cm, u 7 h, izračunat iz tuđih prognoza na listu „Unos” "+
@@ -195,70 +281,10 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 	nase.Visina(1, 42)
 	nase.Dodaj()
 	nase.Dodaj(append([]xlsxw.Celija{xlsxw.T("Letva", xlsxw.Zaglavlje), xlsxw.T("Izmjereno danas", xlsxw.Zaglavlje),
-		xlsxw.T("", xlsxw.Zaglavlje)}, naslovDana()...)...)
-	// Redak vrijednosti svake naše letve, za formule koje je uzimaju kao ulaz.
-	redNase := map[string]int{}
-	r := nase.Redak()
+		xlsxw.T("", xlsxw.Zaglavlje)}, naslovDanaPricuvno(p.Dani)...)...)
+	f := formulePricuvno{redNase: redciNasePricuvno(nase.Redak()), adresaUnosa: adresaUnosa, ime: ime}
 	for _, pp := range prognoza.PricuvniPutovi {
-		redNase[pp.Letva] = r
-		r += 2
-	}
-	ref := func(letva string, stupac int) string {
-		if rn, ima := redNase[letva]; ima {
-			return xlsxw.Adresa(stupac, rn)
-		}
-		return "Unos!" + xlsxw.Adresa(stupac, adresaUnosa[letva])
-	}
-	for _, pp := range prognoza.PricuvniPutovi {
-		izm := xlsxw.T("", xlsxw.TablicaSredina)
-		if v, ima := p.Nase[pp.Letva]; ima {
-			izm = xlsxw.N(v, xlsxw.TablicaSredina)
-		}
-		vr := []xlsxw.Celija{xlsxw.T(ime(pp.Letva), xlsxw.TablicaPodRub), izm, xlsxw.T("cm", xlsxw.TablicaSivo)}
-		iz := []xlsxw.Celija{xlsxw.T("iz", xlsxw.TablicaKurziv), xlsxw.T("", xlsxw.Tablica), xlsxw.T("", xlsxw.Tablica)}
-		for d := 0; d <= prognoza.PricuvniDana; d++ {
-			stupac := pricuvniStupac + d
-			formula, tekst := "\"\"", "\"nema ulaza\""
-			// put u stupcu s: uvjet (svi ulazi upisani) i izraz pravca
-			put := func(vz vezaRed, s int) (string, string) {
-				var uvjeti []string
-				izraz := fmt.Sprintf("Veze!$D$%d+Veze!$H$%d", vz.red+1, vz.red+1)
-				for j, l := range vz.veza.Izvori {
-					a := ref(l, s)
-					uvjeti = append(uvjeti, "ISNUMBER("+a+")")
-					izraz += fmt.Sprintf("+Veze!$%s$%d*%s", xlsxw.Stupac(4+j), vz.red+1, a)
-				}
-				if len(uvjeti) > 1 {
-					return "AND(" + strings.Join(uvjeti, ",") + ")", izraz
-				}
-				return uvjeti[0], izraz
-			}
-			for i := len(vezeLetve[pp.Letva]) - 1; i >= 0; i-- {
-				vz := vezeLetve[pp.Letva][i]
-				uvjet, izraz := put(vz, stupac)
-				vrijednost := "ROUND(" + izraz + ",0)"
-				if i > 0 && d > 0 {
-					// Sljedeći put nastavlja na jučerašnju vrijednost svojom
-					// promjenom, da prijelaz između dviju prognoza ne skoči.
-					jucer := xlsxw.Adresa(stupac-1, redNase[pp.Letva])
-					uvjet0, izraz0 := put(vz, stupac-1)
-					vrijednost = fmt.Sprintf("IF(AND(ISNUMBER(%s),%s),ROUND(%s+(%s)-(%s),0),ROUND(%s,0))",
-						jucer, uvjet0, jucer, izraz, izraz0, izraz)
-				}
-				formula = fmt.Sprintf("IF(%s,%s,%s)", uvjet, vrijednost, formula)
-				tekst = fmt.Sprintf("IF(%s,\"%s\",%s)", uvjet, opisPuta(vz.veza, ime), tekst)
-			}
-			if v := vrijednosti[pp.Letva][d]; v != nil {
-				vr = append(vr, xlsxw.F(formula, *v, xlsxw.TablicaPod))
-			} else {
-				vr = append(vr, xlsxw.FT(formula, "", xlsxw.TablicaPod))
-			}
-			opis := "nema ulaza"
-			if i := putovi[pp.Letva][d]; i >= 0 {
-				opis = opisPuta(p.Veze[pp.Letva][i], ime)
-			}
-			iz = append(iz, xlsxw.FT(tekst, opis, xlsxw.TablicaSivo))
-		}
+		vr, iz := f.redciNaseLetvePricuvno(pp.Letva, p, vezeLetve[pp.Letva], vrijednosti[pp.Letva], putovi[pp.Letva])
 		nase.Dodaj(vr...)
 		nase.Dodaj(iz...)
 	}
@@ -268,8 +294,47 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 	}
 	nase.PonoviRetke(3, 3)
 	nase.Vodoravno = true
+}
 
-	// --- Kako
+// redciNasePricuvno: redak vrijednosti svake naše letve, za formule koje je
+// uzimaju kao ulaz. Svaka letva zauzima dva retka, od retka r.
+func redciNasePricuvno(r int) map[string]int {
+	redNase := map[string]int{}
+	for _, pp := range prognoza.PricuvniPutovi {
+		redNase[pp.Letva] = r
+		r += 2
+	}
+	return redNase
+}
+
+// redciNaseLetvePricuvno su dva retka naše letve: vrijednosti (formula s
+// izračunatom vrijednosti) i „iz” (formula opisa s izračunatim opisom).
+func (f formulePricuvno) redciNaseLetvePricuvno(letva string, p prognoza.PricuvniPodaci, vezeLetve []pricuvnaVezaRed,
+	vrijednosti [prognoza.PricuvniDana + 1]*float64, putovi [prognoza.PricuvniDana + 1]int) ([]xlsxw.Celija, []xlsxw.Celija) {
+	izm := xlsxw.T("", xlsxw.TablicaSredina)
+	if v, ima := p.Nase[letva]; ima {
+		izm = xlsxw.N(v, xlsxw.TablicaSredina)
+	}
+	vr := []xlsxw.Celija{xlsxw.T(f.ime(letva), xlsxw.TablicaPodRub), izm, xlsxw.T("cm", xlsxw.TablicaSivo)}
+	iz := []xlsxw.Celija{xlsxw.T("iz", xlsxw.TablicaKurziv), xlsxw.T("", xlsxw.Tablica), xlsxw.T("", xlsxw.Tablica)}
+	for d := 0; d <= prognoza.PricuvniDana; d++ {
+		formula, tekst := f.dan(letva, vezeLetve, d)
+		if v := vrijednosti[d]; v != nil {
+			vr = append(vr, xlsxw.F(formula, *v, xlsxw.TablicaPod))
+		} else {
+			vr = append(vr, xlsxw.FT(formula, "", xlsxw.TablicaPod))
+		}
+		opis := "nema ulaza"
+		if i := putovi[d]; i >= 0 {
+			opis = opisPuta(p.Veze[letva][i], f.ime)
+		}
+		iz = append(iz, xlsxw.FT(tekst, opis, xlsxw.TablicaSivo))
+	}
+	return vr, iz
+}
+
+// listKakoPricuvno puni list „Kako”: upute dežurnom, svaka u spojenom retku.
+func listKakoPricuvno(kako *xlsxw.List, izdano string) {
 	kako.Dodaj(xlsxw.T("Kako se služiti pričuvnim izračunom", xlsxw.Naslov))
 	for _, s := range []string{
 		"1. Na listu „Unos” upiši vodostaje tuđih letvi u 7 h po danima: srpske iz biltena hidmet.gov.rs (Bezdan, Apatin, " +
@@ -290,7 +355,6 @@ func knjigaPricuvno(p prognoza.PricuvniPodaci, ime func(string) string) *xlsxw.K
 		kako.Visina(kako.Redak()-1, 44)
 	}
 	kako.Sirine = []float64{12, 12, 12, 12, 12, 12, 12, 12, 12}
-	return k
 }
 
 // opisPuta je kratak opis puta za redak „iz”: „Bezdan ±4”.
