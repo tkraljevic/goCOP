@@ -85,13 +85,53 @@
 </section>
 {{end}}
 
+{{/* Nasip i brana nakon karte nose mjerodavne vodomjere iz dionica, a opis
+     ide iza njih; kod ostalih objekata redoslijed je kakav je bio. Blok
+     „Vodomjer na objektu” nasip pokazuje samo kad ima vlastitu letvu. */}}
+{{if .Mjerodavni}}
+{{template "objekt-vodomjer" .}}
+{{template "objekt-mjerodavni" .Mjerodavni}}
+{{template "objekt-opis" .}}
+{{else}}
+{{template "objekt-opis" .}}
+{{template "objekt-vodomjer" .}}
+{{end}}
+
+<section class="detail-section">
+  <h2>{{icon "file-text"}} Dionice <span class="reg-chip">{{len .Sections}}</span></h2>
+  <div class="reg-list">
+    {{range .Sections}}
+    <article class="reg-card">
+      <a class="reg-card-link" href="/sections/{{.Code}}" style="padding-bottom:0.5rem;">
+        <div class="reg-card-head">
+          <div>
+            <h3 class="reg-card-title">{{.Code}}</h3>
+            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
+          </div>
+          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
+        </div>
+        <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
+      </a>
+    </article>
+    {{else}}
+    <div class="reg-empty">Objekt nije vezan ni na jednu dionicu.</div>
+    {{end}}
+  </div>
+  <p class="form-help">Objekt se na dionicu veže u obrascu dionice, u poddionici na kojoj stoji.</p>
+</section>
+{{end}}
+
+{{define "objekt-opis"}}
 {{if .Structure.Notes}}
 <section class="detail-section">
   <h2>{{icon "file-text"}} Detaljni opis</h2>
   <div class="reg-card markdown-body">{{renderMarkdown .Structure.Notes}}</div>
 </section>
 {{end}}
+{{end}}
 
+{{define "objekt-vodomjer"}}
+{{if or .Station .StationDown (not .Mjerodavni)}}
 <section class="detail-section">
   <h2>{{icon "ruler"}} {{if .StationDown}}Vodomjeri na objektu{{else}}Vodomjer na objektu{{end}}</h2>
   {{if or .Station .StationDown}}
@@ -137,27 +177,52 @@
   <div class="reg-empty">Objekt nema pridružen vodomjer. Pridružuje se u uređivanju objekta.</div>
   {{end}}
 </section>
+{{end}}
+{{end}}
 
-<section class="detail-section">
-  <h2>{{icon "file-text"}} Dionice <span class="reg-chip">{{len .Sections}}</span></h2>
+{{define "objekt-mjerodavni"}}
+<section class="detail-section" id="mjerodavni-vodomjeri">
+  <h2>{{icon "chart-column"}} Mjerodavni vodomjeri{{if .Ima}} <span class="reg-chip">{{.Broj}}</span>{{end}}</h2>
+  {{if .Ima}}
+  {{if .Letve}}
   <div class="reg-list">
-    {{range .Sections}}
-    <article class="reg-card">
-      <a class="reg-card-link" href="/sections/{{.Code}}" style="padding-bottom:0.5rem;">
-        <div class="reg-card-head">
-          <div>
-            <h3 class="reg-card-title">{{.Code}}</h3>
-            <div class="reg-card-sub">{{.SectorName}}{{if .AreaName}} · {{.AreaName}}{{end}}</div>
-          </div>
-          {{if .Bank}}<span class="badge badge-inactive">{{bankLabel .Bank}}</span>{{end}}
+    {{range .Letve}}
+    {{$l := .Letva}}
+    <article class="reg-card p-4 gap-2">
+      <div class="reg-card-head">
+        <div>
+          <h3 class="reg-card-title"><a href="/stations/{{$l.ID}}">{{$l.Name}}</a></h3>
+          <div class="reg-card-sub">{{if $l.HasWatercourse}}{{$l.Watercourse}}{{end}}{{if $l.Stationing}} · {{$l.Stationing}}{{end}}</div>
         </div>
-        <p style="font-size:0.8rem; margin:0;">{{.Description}}</p>
-      </a>
+      </div>
+      <dl class="reg-facts">
+        <div><dt>P</dt><dd><span class="threshold-pill prep">{{$l.Prep.Label}}</span></dd></div>
+        <div><dt>R</dt><dd><span class="threshold-pill regular">{{$l.Regular.Label}}</span></dd></div>
+        <div><dt>I</dt><dd><span class="threshold-pill emerg">{{$l.Emergency.Label}}</span></dd></div>
+        <div><dt>IS</dt><dd><span class="threshold-pill crit">{{$l.State.Label}}</span></dd></div>
+      </dl>
+      <div class="reg-card-foot">
+        {{range .Dionice}}<a class="reg-chip" href="/sections/{{.Code}}">{{icon "file-text"}} {{.Oznaka}}</a>{{end}}
+      </div>
     </article>
-    {{else}}
-    <div class="reg-empty">Objekt nije vezan ni na jednu dionicu.</div>
     {{end}}
   </div>
-  <p class="form-help">Objekt se na dionicu veže u obrascu dionice, u poddionici na kojoj stoji.</p>
+  {{end}}
+  {{if .Kriteriji}}
+  <div class="reg-card p-4">
+    {{range .Kriteriji}}
+    {{$k := .Kriterij}}
+    <div class="part-gauge">{{icon "ruler"}} <strong>{{$k.StationName}}</strong>
+      {{if or $k.PrepCm $k.RegularCm $k.EmergCm $k.CriticalCm}}<span class="reading-meta">{{if $k.PrepCm}}P {{$k.PrepCm}}{{end}}{{if $k.RegularCm}} · R {{$k.RegularCm}}{{end}}{{if $k.EmergCm}} · I {{$k.EmergCm}}{{end}}{{if $k.CriticalCm}} · IS {{$k.CriticalCm}}{{end}}{{if $k.RecordCm}} · M {{$k.RecordCm}}{{end}}</span>{{end}}
+      {{if $k.Notes}}<span class="reading-meta"> · {{$k.Notes}}</span>{{end}}
+      <span class="reading-meta"> · {{range $i, $d := .Dionice}}{{if $i}}, {{end}}<a href="/sections/{{$d.Code}}">{{$d.Oznaka}}</a>{{end}}</span>
+    </div>
+    {{end}}
+  </div>
+  {{end}}
+  <p class="form-help">Mjerodavni vodomjeri preuzeti su iz dionica na kojima {{.Objekt}} stoji i dodaju se u obrascu dionice. Pragovi se mijenjaju na kartici letve.</p>
+  {{else}}
+  <div class="reg-empty">Mjerodavni vodomjer nije upisan ni u jednoj dionici na kojoj {{.Objekt}} stoji. Upisuje se u obrascu dionice, pod „Mjerodavni vodomjeri”, u poddionici na kojoj je {{.Objekt}}.</div>
+  {{end}}
 </section>
 {{end}}
