@@ -1110,6 +1110,40 @@ func (s *ZidService) obranaSektora(ctx context.Context, sektor string) (int, mod
 	return broj, stadij
 }
 
+// ObranaTraje javlja je li na ovom računalu igdje proglašen stadij obrane:
+// na barem jednoj dionici traje stadij iz ovjerenih akata, ili, na dionici
+// bez akata, zatečena epizoda (isto pravilo kao obranaSektora, za sve
+// sektore). Kad se stanje ne da pročitati, odgovor je da obrana traje, jer
+// onda prijenos karte preko interneta samo pričeka.
+func (s *ZidService) ObranaTraje(ctx context.Context) bool {
+	stanja := map[string]models.StanjeObrane{}
+	if s.stanjaSektora != nil {
+		st, err := s.stanjaSektora(ctx, "", time.Now())
+		if err != nil {
+			return true
+		}
+		stanja = st
+	}
+	for _, st := range stanja {
+		if st.Traje() {
+			return true
+		}
+	}
+	if s.episodes == nil {
+		return false
+	}
+	otvorene, err := s.episodes.OtvoreneDionice(ctx)
+	if err != nil {
+		return true
+	}
+	for _, d := range otvorene {
+		if _, izAkata := stanja[d]; !izAkata {
+			return true
+		}
+	}
+	return false
+}
+
 // StanjeObrane je traka stanja na naslovnoj: po sektoru koji osoba vidi
 type StanjeObrane struct {
 	Sektor        string

@@ -17,7 +17,8 @@ import (
 // sadržaja po kanalu), a ne pošiljatelj.
 
 // najviseBajtovaPoRazmjeni ograđuje jednu razmjenu; ostatak dođe sljedećom
-const najviseBajtovaPoRazmjeni = 48 << 20
+// (var samo zato da je test smanji)
+var najviseBajtovaPoRazmjeni = 48 << 20
 
 // najveciSadrzajUPoruci je najveći pojedini sadržaj koji se šalje. Ograda
 // po razmjeni pušta jednu veću stavku samu; ova ne pušta ni nju, jer bi
@@ -67,16 +68,23 @@ func (s *Service) spremisteSadrzaja() *sadrzaj.Spremiste {
 // pretplata ne pokriva preskaču se prije ograde od 200 stavki: ostaju na
 // popisu za dohvat, ali ne zauzimaju mjesta željenima iza sebe.
 func (s *Service) zeljeniOtisci(ctx context.Context, w Wants) []string {
+	out, _ := s.zeljeniSBajtovima(ctx, w)
+	return out
+}
+
+// zeljeniSBajtovima je zeljeniOtisci uz zbroj bajtova traženoga, od kojeg
+// dijelovi karte uzimaju ostatak ograde (karta_razgovor.go)
+func (s *Service) zeljeniSBajtovima(ctx context.Context, w Wants) ([]string, int) {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
-		return nil
+		return nil, 0
 	}
 	sectorOf := s.sectorLookup(ctx)
 	zelje, err := sp.ZeljeniKoje(ctx, najviseSadrzajaPoRazmjeni, func(z sadrzaj.Zelja) bool {
 		return w.zeliSadrzaj(z.Kanal, z.Vrsta, sectorOf)
 	})
 	if err != nil {
-		return nil
+		return nil, 0
 	}
 	var out []string
 	var ukupno int
@@ -88,7 +96,7 @@ func (s *Service) zeljeniOtisci(ctx context.Context, w Wants) []string {
 		out = append(out, z.Otisak)
 		_ = sp.Trazeno(ctx, z.Otisak)
 	}
-	return out
+	return out, ukupno
 }
 
 // sadrzajZa slaže odgovor: od traženih otisaka ono što ovaj čvor drži i

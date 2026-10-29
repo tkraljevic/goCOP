@@ -245,16 +245,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			// pun razgovor znači da ima još: nastavlja se odmah, ne za pet minuta
-			var applied, sent, krugova int
-			var err error
-			for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
-				a, sn, e := s.SyncWith(ctx, p.NodeID)
-				applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-				if e != nil || (a < NajviseVerzijaPoRazmjeni && sn < NajviseVerzijaPoRazmjeni && !s.imaJos(p.NodeID)) {
-					break
-				}
-			}
+			applied, sent, krugova, err := s.razgovoriZaRedom(ctx, p.NodeID)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -519,6 +510,47 @@ func label(p Peer) string {
 		return p.Name
 	}
 	return p.NodeID
+}
+
+// razgovoriZaRedom razmjenjuje s čvorom dok god ima još: pun razgovor
+// znači da ima još, pa se nastavlja odmah, ne za pet minuta. Zbog dijelova
+// karte koji još putuju ide najviše najviseRazgovoraZaKartu dodatnih
+// razgovora (dalje).
+func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied, sent, krugova int, err error) {
+	zbogKarte := 0
+	for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
+		a, sn, e := s.SyncWith(ctx, nodeID)
+		applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
+		if !s.dalje(nodeID, a, sn, e, &zbogKarte) {
+			break
+		}
+	}
+	return applied, sent, krugova, err
+}
+
+// dalje javlja treba li odmah još jedan razgovor: razgovor je bio pun ili
+// skraćen, ili je prenio dijelove karte, a ponavljanja zbog karte još nije
+// bilo najviseRazgovoraZaKartu
+func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int) bool {
+	pun := applied >= NajviseVerzijaPoRazmjeni || sent >= NajviseVerzijaPoRazmjeni || s.imaJos(nodeID)
+	karta := s.imaJosKarte(nodeID)
+	switch {
+	case err != nil:
+		return false
+	case pun:
+		return true
+	case karta && *zbogKarte < najviseRazgovoraZaKartu:
+		*zbogKarte++
+		return true
+	}
+	return false
+}
+
+// imaJosKarte javlja da je zadnja razmjena s čvorom prenijela dijelove
+// karte, a nekoj strani još nedostaju
+func (s *Service) imaJosKarte(nodeID string) bool {
+	v, ok := s.josKarte.LoadAndDelete(nodeID)
+	return ok && v.(bool)
 }
 
 // imaJos javlja da je zadnja razmjena s čvorom poslala skraćenu deltu

@@ -59,6 +59,16 @@ const ImeRupe = "rupe"
 // OznakaRupe je prva inačica rupa u nizu
 const OznakaRupe = ImeRupe + "/1"
 
+// ImeDijeloviKarte je ime oznake dijelova karte bez interneta: želje
+// smiju nositi otiske dijelova karte, a sadržaj stavke vrste "karta-dio"
+// bez kanala. Primatelj bez oznake takvu stavku ne razumije (upisao bi je
+// među sadržaje kao siroče), pa se dijelovi traže i šalju samo kad Dogovor
+// kaže da je obje strane imaju.
+const ImeDijeloviKarte = "dijelovi-karte"
+
+// OznakaDijeloviKarte je prva inačica dijelova karte
+const OznakaDijeloviKarte = ImeDijeloviKarte + "/1"
+
 // ImeWeb je ime oznake WEB synca (plan WEB synca, F3b): računalo prima
 // pozive WEB synca preko sastajališta i na njih odgovara, uz web_sync =
 // false odzivom „isključeno”. Javlja je samo računalo koje je prijavljeno
@@ -92,7 +102,7 @@ type Znanje struct {
 // NaseMogucnosti su oznake koje ovaj program objavljuje, poredane i bez
 // ponavljanja. Svaki poziv daje novi popis.
 func NaseMogucnosti() []string {
-	return []string{OznakaGranicaOdbijenih, OznakaRazmjena, OznakaRupe}
+	return []string{OznakaDijeloviKarte, OznakaGranicaOdbijenih, OznakaRazmjena, OznakaRupe}
 }
 
 // NepoznateOznake su ispravne oznake druge strane čije ime ovaj program ne

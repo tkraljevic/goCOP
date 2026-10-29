@@ -3,12 +3,13 @@ package web
 import (
 	"bufio"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/peers"
@@ -24,7 +25,7 @@ import (
 var mapaKarata atomic.Pointer[string]
 
 func postaviMapuKarata(dbPath string) {
-	m := filepath.Join(filepath.Dir(dbPath), "karte")
+	m := peers.MapaKarata(dbPath)
 	mapaKarata.Store(&m)
 }
 
@@ -93,7 +94,51 @@ func (h *AktiHandler) HandleUcitajKartu(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	redirectWith(w, r, "/administracija/karte#karta-bez-interneta", "success",
-		"Karta „"+k.Naziv+"” je učitana i zadana je karta bez interneta na svim čvorovima. Računala koja je nemaju trebaju njezin .cop paket.")
+		"Karta „"+k.Naziv+"” je učitana. Ostala računala dobit će je sama razmjenom; .cop paket treba samo računalu izvan mreže ili sa starijim programom.")
+}
+
+// cekanjeKarte: toliko bez ijednog novog dijela znači da karta čeka
+// računalo koje je ima
+const cekanjeKarte = 30 * time.Minute
+
+// prijenosKarte je rečenica o prijenosu zadane karte na ovaj čvor
+func (h *AktiHandler) prijenosKarte(r *http.Request) string {
+	if h.peers == nil {
+		return "Učitajte njezin .cop paket ispod."
+	}
+	return prijenosKarteRijecima(h.peers.StanjeKarte(r.Context()), time.Now())
+}
+
+// prijenosKarteRijecima: koliko je karte stiglo razmjenom, čeka li
+// računalo koje je ima i miruje li prijenos preko interneta zbog obrane
+func prijenosKarteRijecima(st peers.StanjeKarte, sad time.Time) string {
+	switch {
+	case st.Los:
+		return "Karta koja je stigla ne odgovara opisu. Učitajte je ponovno na računalu koje je ima."
+	case !st.Prenosi || st.Slozena:
+		return "Učitajte njezin .cop paket ispod."
+	}
+	tekst := fmt.Sprintf("Karta stiže razmjenom: %s od %s (%d od %d dijelova).", velicinaRijecima(st.Bajtova), velicinaRijecima(st.Ukupno), st.Dijelova, st.Svih)
+	if sad.Sub(cmpVrijeme(st.Zadnji, st.Od)) > cekanjeKarte {
+		tekst = fmt.Sprintf("Karta čeka računalo koje je ima. Stiglo je %s od %s.", velicinaRijecima(st.Bajtova), velicinaRijecima(st.Ukupno))
+	}
+	if st.UObrani {
+		tekst += " Dok traje obrana, stiže samo preko lokalne mreže."
+	}
+	return tekst
+}
+
+// velicinaRijecima je humanBytes s decimalnim zarezom, za rečenicu
+func velicinaRijecima(n int64) string {
+	return strings.Replace(humanBytes(n), ".", ",", 1)
+}
+
+// cmpVrijeme je prvo vrijeme koje nije nula
+func cmpVrijeme(a, b time.Time) time.Time {
+	if a.IsZero() {
+		return b
+	}
+	return a
 }
 
 func (h *AktiHandler) ucitajKartu(r *http.Request) (models.VektorskaKarta, error) {

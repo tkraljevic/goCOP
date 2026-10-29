@@ -19,8 +19,9 @@ import (
 // granica-odbijenih/1, pa razgovor dvaju novih čvorova nosi i granicu
 // odbijenih; do G4 javljao je samo razmjena/1. Namjerno promijenjeno: G4b;
 // čvor javlja i rupe/1, pa razgovor dvaju novih čvorova nosi i poruku rupa.
+// Namjerno promijenjeno: karta razmjenom; čvor javlja i dijelovi-karte/1.
 func TestRazmjenaNosiZnanje(t *testing.T) {
-	oznake := []string{"granica-odbijenih/1", "razmjena/1", "rupe/1"}
+	oznake := []string{"dijelovi-karte/1", "granica-odbijenih/1", "razmjena/1", "rupe/1"}
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	a := startNodeBezRegistra(t, ctx, "cop-osijek")
@@ -49,7 +50,7 @@ func TestRazmjenaNosiZnanje(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(ploca), `"mogucnosti":["granica-odbijenih/1","razmjena/1","rupe/1"]`) {
+	if !strings.Contains(string(ploca), `"mogucnosti":["dijelovi-karte/1","granica-odbijenih/1","razmjena/1","rupe/1"]`) {
 		t.Errorf("ploča: %s", ploca)
 	}
 }

@@ -119,10 +119,17 @@ type Service struct {
 	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
 	skracene sync.Map // *razmjena.Conn → bool
 	josIma   sync.Map // nodeID → bool, iz zadnjeg SyncWith
-	db       *sql.DB
-	rec      *ledger.Recorder
-	node     *Node
-	ports    Ports
+	// kartaTece: razgovori koji su prenijeli dijelove karte, a nekoj strani
+	// još nedostaju; josKarte isto po čvoru, iz zadnjeg SyncWith
+	// (karta_razgovor.go)
+	kartaTece sync.Map // *razmjena.Conn → bool
+	josKarte  sync.Map // nodeID → bool
+	// karte je prijenos karte bez interneta (PostaviKarte); nil bez njega
+	karte atomic.Pointer[dijeloviKarte]
+	db    *sql.DB
+	rec   *ledger.Recorder
+	node  *Node
+	ports Ports
 
 	mu      sync.Mutex
 	pending *razmjena.PairResult // uparivanje koje čeka odluku čovjeka
@@ -1019,6 +1026,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
+	s.kartaTece.Delete(c)
 	if praznaVeza(theirs, err) {
 		return
 	}
@@ -1079,6 +1087,8 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 	applied, sent, theirs, err := s.exchange(ctx, conn, true)
 	_, skraceno := s.skracene.LoadAndDelete(conn)
 	s.josIma.Store(nodeID, skraceno && err == nil)
+	_, karta := s.kartaTece.LoadAndDelete(conn)
+	s.josKarte.Store(nodeID, karta && err == nil)
 	conn.Close()
 	if s.odbioTailscale(ctx, nodeID, err) {
 		s.zapamtiPokusaj(nodeID, kk.adresa, err)

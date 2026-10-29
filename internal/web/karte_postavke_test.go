@@ -85,7 +85,7 @@ func TestStranicaPostavkiKarata(t *testing.T) {
 	if err := akti.SpremiKartuBezInterneta(context.Background(), &models.UserPermissions{IsGlobalAdmin: true}, &opis); err != nil {
 		t.Fatal(err)
 	}
-	if s := zovi(http.MethodGet, nil, h.ShowPostavkeKarte).Body.String(); !strings.Contains(s, "<td>Baranja</td>") || !strings.Contains(s, "nije učitana") {
+	if s := zovi(http.MethodGet, nil, h.ShowPostavkeKarte).Body.String(); !strings.Contains(s, "<td>Baranja</td>") || !strings.Contains(s, "nije učitana</span> Učitajte njezin .cop paket ispod.") {
 		t.Error("stranica ne pokazuje kartu bez interneta")
 	}
 
