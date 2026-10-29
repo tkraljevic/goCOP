@@ -41,8 +41,9 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   vodostaje, izdaje prognozu), prognoza i kiša razmjenom, spremište velikih
   sadržaja po SHA-256 otisku te odvojena hidrološka arhiva s potpisanim `.cop`
   paketima koji se dohvaćaju prema pretplati.
-- **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno.
-  Mrežne karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
+- **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno,
+  a od 0.0.46-alfa i karta bez interneta, kad je učitana na računalo.
+  Ostale karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
   samo kada postoji odgovarajuća mrežna veza.
 
 Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
@@ -80,8 +81,12 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   radnoj mapi, zadano žive `vodostaji/`, stablo izvornih datoteka, i `pakete/`,
   mapa izdanih `.cop` paketa s `katalog.json`. Pod Postavom i kad je čvor
   usluga sustava radna mapa je mapa baze, pa `vodostaji/` i `pakete/` nastaju
-  u njoj. Putanje se mijenjaju u `gocop.toml` (`db`, `arhiva`, `podaci`,
-  `skenovi`, `pakete`) ili zastavicama.
+  u njoj. Od 0.0.46-alfa karta bez interneta stoji u mapi `karte/` uz bazu
+  (`gocop.db`), kao datoteka `<otisak>.pmtiles`, i to samo na računalu na
+  koje je učitana. Pod Postavom je to `data\karte`, u spremniku `/data/karte`.
+  Mapa se ne mijenja u `gocop.toml`; uvijek ide za bazom. Putanje se
+  mijenjaju u `gocop.toml` (`db`, `arhiva`, `podaci`, `skenovi`, `pakete`)
+  ili zastavicama.
 
   U istu mapu administrator može staviti datoteke registara i imenika
   (`*.json`); program ih pročita samo pri prvom punjenju prazne baze
@@ -208,7 +213,7 @@ obostrano autentificiranim TLS-om 1.3.
 Bez ikakve postavke program dohvaća javno vrijeme i upozorenja DHMZ-a za ploču
 na naslovnoj i vrijeme s Open-Meteo za novi list dnevnika, a pločice karte
 dolaze s OpenStreetMapa (`plocice` u `gocop.toml`; prazno isključuje kartu,
-osim karte teritorijalnih jedinica; vidi [kartu položaja](karta.md)).
+osim karte teritorijalnih jedinica; vidi [Karte](karta.md)).
 Pločice za kartu u PDF-u dohvaća i sam čvor. Kad globalni administrator traži
 koordinate branjenog područja, naziv mjesta ili adresa ide OpenStreetMapovu
 Nominatimu. Dohvat vremena s DHMZ-a i Open-Meteo zasad se ne može
@@ -497,7 +502,8 @@ Portovi se mijenjaju u `gocop.toml`.
    ručno zadane domene i WebSocket tunela radi, a od 0.0.37-alfa i preko
    Tailscalea, kad ga imaju oba računala ([poglavlje 2](#2-mreža)); lokalno
    pronalaženje ostaje na LAN-u. Izravna veza dvaju računala preko interneta,
-   bez poslužitelja između njih, je u izradi.
+   bez poslužitelja između njih (WEB sync), radi od 0.0.43-alfa. Još se
+   dorađuje i zadano je isključena.
 4. **Shema se još mijenja.** Sve što se unese u alfi može se izgubiti pri
    promjeni sheme između verzija. Čvorove držati na istom izdanju i
    nadograđivati ih redom iz [poglavlja 7](#7-stalni-čvor-spremnik-i-sigurnosna-kopija).
@@ -955,6 +961,23 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Sinkronizacija.
+
+0.0.46-alfa (u pripremi) radi uz 0.0.37–0.0.45-alfa i razmjena s njima ide
+kao i dosad. Baza se ne mijenja, pa se na 0.0.45-alfa može vratiti bez kopije
+baze. Kvačicu „Vrijedi i ugroženo područje cijele poddionice” uz nasip u
+obrascu dionice uključiti tek kad su sva računala na 0.0.46-alfa: stariji
+program kvačicu ne poznaje i briše je kad sam spremi dionicu, a naselja
+ostaju. Objekte bez nasipa uz oba nasipa, l.o. i d.o., pokazuje samo
+0.0.46-alfa; stariji ih i dalje stavlja uz prvi nasip.
+
+Razmjenom putuje samo opis karte bez interneta, ne i sama karta. Na
+računalu koje kartu ima globalni administrator u Administraciji › Karte
+preuzme njezin paket `.cop`, a na svakom drugom računalu učita ga na istoj
+stranici. Karta Sektora B ima oko 120 MB, a učitavanje traje do minute.
+Računalo s 0.0.45-alfa kartu ne prikazuje. Ako se na njemu spreme postavke
+karata, opis karte nestane i s ostalih računala, pa kartu treba ponovno
+učitati na jednom od njih. Zato za vrijeme nadogradnje ne spremati
+postavke karata na računalu sa starijim izdanjem.
 
 0.0.45-alfa radi uz 0.0.37–0.0.44-alfa i razmjena s njima ide kao i dosad.
 Baza pri prvom pokretanju dobiva stupac za crtu objekta (`structures.geometry`).

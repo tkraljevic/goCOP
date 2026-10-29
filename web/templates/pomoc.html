@@ -53,6 +53,8 @@
 <nav class="pomoc-kazalo" id="pomoc-kazalo" aria-label="Sadržaj">
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#pocetak">Kako se program koristi</a>
+    <a href="#karte">Karte</a>
+    <a href="#karta-uredjivanje">Crtanje na karti</a>
     <a class="kazalo-glava" href="#dashboard">Početna</a>
     <a href="#dashboard-hero">Prijavljeni djelatnik i profil</a>
     <a href="#dashboard-kartice">Moduli</a>
@@ -67,6 +69,7 @@
   <div class="kazalo-grupa">
     <a class="kazalo-glava" href="#sections">Dionice</a>
     <a href="#dionica-poddionice">Poddionice</a>
+    <a href="#dionica-nasipi">Nasipi, objekti i ugroženo područje</a>
     <a href="#dionica-vodomjeri">Mjerodavni vodomjeri</a>
     <a href="#dionica-obrana">Proglašavanje obrane</a>
     <a href="#dionica-ljudi">Tko je zadužen</a>
@@ -137,6 +140,7 @@
     <a href="#slivovi-kisomjeri">Meteorološke postaje</a>
     <a class="kazalo-glava" href="#admin">Administracija</a>
     <a href="#admin-posta-pin">PIN za prijavu izvana</a>
+    <a href="#admin-karta-bez-interneta">Karta bez interneta</a>
     <a href="#telemetrija">Telemetrija letava</a>
     <a href="#admin-test">Testne opcije</a>
     <a class="kazalo-glava" href="#profile">Moj profil</a>
@@ -173,7 +177,7 @@
       tablice imaju svoj oblik za uski zaslon — isti podaci, drukčije složeni. Tablica koja ne
       stane u širinu zaslona razlaže se u kartice, s naslovom stupca uz svaku vrijednost, pa se
       ništa ne mora listati ustranu. Tablice koje stanu ostaju tablice.</p>
-    <h3>Karte</h3>
+    <h3 id="karte">Karte</h3>
     <p>Gumbi gore desno na karti uključuju i isključuju <strong>puni zaslon</strong> te, uz
       dopuštenje preglednika, centriraju kartu na <strong>vaš položaj</strong>. Plavi krug pokazuje
       približnu točnost. Kotačić miša ili pomak s dva prsta povećava i smanjuje kartu kao gumbi
@@ -181,6 +185,44 @@
       Položaj služi samo za orijentaciju: ne sprema se i ne šalje programu.
       Na obrascu prijave poseban gumb <em>Moj položaj</em> namjerno upisuje koordinate u obrazac.
       Određivanje položaja radi na lokalnom računalu ili preko zaštićene HTTPS veze.</p>
+    <p><strong>Podloga</strong> se bira gumbom sa slojevima, gore desno. Prva je uvijek obična
+      karta, a uz nju mogu biti satelit i druge podloge iz Administracije › Karte. Te podloge
+      obično dolaze s interneta. Kad interneta nema, izaberite podlogu
+      <strong>Karta bez interneta</strong>: to je karta iz OpenStreetMapa koju čvor drži na svom
+      disku. Pokriva samo područje za koje je izvezena, a vide je samo prijavljeni. Na računalu
+      na kojem ta karta nije učitana podloge nema; učitava se pod
+      <a href="#admin-karta-bez-interneta">Administracija › Karte</a>.</p>
+
+    <h3 id="karta-uredjivanje">Crtanje na karti</h3>
+    <p>Objekt i vodotok crtaju se istim alatom. Na stranici objekta pritisnite
+      <em>Uredi na karti</em>, a na stranici vodotoka <em>Uredi tok na karti</em>. Gore lijevo na
+      karti tada se pojavi traka s alatima:</p>
+    <ul>
+      <li><strong>Nova crta</strong> (kod vodotoka <em>Nova crta toka</em>): kliknite prvu točku,
+        pa sljedeće, a crtu završite klikom na zadnju točku ili gumbom <em>Završi</em>. Kod
+        objekta su tu i <em>Nova točka</em> i <em>Novi poligon</em>.</li>
+      <li><strong>Pomiči točke i vrhove</strong>: povucite vrh na novo mjesto. Desni klik na vrh
+        briše ga.</li>
+      <li><strong>Pomakni cijeli dio</strong> objekta ili toka, bez mijenjanja oblika.</li>
+      <li><strong>Obriši dio</strong> objekta ili toka: kliknite crtu, točku ili poligon koji
+        treba maknuti.</li>
+    </ul>
+    <p>Ništa nije spremljeno dok ne pritisnete <em>Spremi</em>. <em>Odustani</em> vraća kartu
+      kakva je bila. Prethodni crtež ostaje u povijesti zapisa.</p>
+    <p>Na nasipu i brani nova točka pita km stacionaže, npr. 1+250. Ako polje ostavite prazno,
+      točka je obična točka. Kad s karte objekta obrišete sve, program prije spremanja pita
+      treba li obrisati crtu objekta.</p>
+    <p>Na vodotoku se spremaju samo crte toka. Točke stacionaže (rkm) ostaju kakve su bile u
+      zapisu, pa ih pomicanje crte ne briše. Tok ne može ostati prazan: ako ste obrisali sve,
+      nacrtajte barem jednu crtu ili pritisnite <em>Odustani</em>. Tok koji još nije ucrtan
+      može se nacrtati od početka.</p>
+    <p>Crtež se može i učitati iz datoteke, gumbom <em>Ucrtaj iz GeoJSON-a</em> ili, kad crtež
+      već postoji, <em>Zamijeni iz GeoJSON-a</em>. Datoteka je GeoJSON u WGS84 (EPSG:4326),
+      npr. izvoz iz QGIS-a. Program je provjeri i, ako ne valja, kaže zašto. Na vodotoku
+      datoteka zamijeni cijeli zapis toka, pa i točke rkm. Prethodni ostaje u povijesti
+      zapisa.</p>
+    <p><strong>Tko smije:</strong> objekt na karti crta onaj tko smije uređivati i sam objekt.
+      Tok vodotoka crta samo globalni administrator. Ostali kartu samo gledaju.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "" "" "Početna" "#dashboard")}}
 </section>
@@ -378,6 +420,42 @@
     <p>Opis dionice program slaže sam iz poddionica. Kad ga netko prepiše rukom, ostaje njegov i
       program ga više ne dira.</p>
 
+    <h3 id="dionica-nasipi">Nasipi, objekti i ugroženo područje</h3>
+    <p>Na kartici dionice poddionica s nasipima ima po jedan redak za svaki nasip ili branu. Uz
+      nasip stoje objekti na njemu i naselja koja taj nasip brani (ugroženo područje). Zadnji redak,
+      <strong>Bez nasipa</strong>, skuplja objekte koji ne stoje ni uz jedan nasip i naselja koja
+      nisu upisana uz nasip. Isto se slaže i u izvozu dionice u Excel.</p>
+    <p><strong>Više nasipa, isto ugroženo područje.</strong> Kad više nasipa jedne poddionice
+      brani ista naselja, ne upisujte ih uz svaki nasip posebno. Upišite ih jednom, pod <em>Ugroženo područje</em> s izborom <em>Uz nasip: cijela poddionica</em>, a uz
+      nasipe koji ih brane uključite kvačicu <em>Vrijedi i ugroženo područje cijele
+      poddionice</em>. Nasip s kvačicom na kartici pokazuje svoja naselja i naselja cijele
+      poddionice, a nasip bez kvačice samo svoja. Redak <em>Bez nasipa</em> tada ostaje samo
+      kad poddionica ima objekte izvan nasipa, ili naselje čiji je nasip u međuvremenu preimenovan
+      ili uklonjen.</p>
+    <p>Kvačice uključujte tek kad sva računala u mreži imaju 0.0.46 ili novije izdanje. Kad
+      dionicu spremi računalo sa starijim izdanjem, kvačice se izgube i treba ih ponovno
+      uključiti. Naselja se pritom ne gube.</p>
+    <p><strong>Objekt bez upisanog nasipa.</strong> Objekt kojem je u stupcu <em>Na nasipu</em>
+      upisan nasip stoji uz taj nasip. Objekt s izborom <em>na vodotoku</em> program sam stavi uz
+      nasip čiji raspon <em>Uz vodu od – do</em> pokriva stacionažu objekta iste vrste (rkm uz
+      rkm), i to samo uz nasip njegove obale:</p>
+    <ul>
+      <li>objekt lijeve obale (L) stoji uz nasip lijeve obale, objekt desne obale (D) uz nasip
+        desne obale;</li>
+      <li>objekt obiju obala (LD), ili objekt na poddionici bez upisane obale, stoji uz oba;</li>
+      <li>kad stacionažu objekta pokriva više takvih nasipa, objekt ide uz onaj s najkraćim
+        rasponom, a uz više njih samo kad su im rasponi jednako dugi.</li>
+    </ul>
+    <p>Obalu nasipa program čita iz naziva: „l.o.” ili „Lijevi…” je lijeva obala, „d.o.” ili
+      „Desni…” desna. Nasip bez obale u nazivu, ili s obje, brani obje obale. Objekt čiju
+      stacionažu ne pokriva nijedan nasip njegove obale ide u redak <em>Bez nasipa</em>, kao i
+      objekt bez stacionaže. Objekt kojem obala nije posebno upisana ima obalu poddionice.
+      Program pritom ništa ne upisuje u dionicu, mijenja se samo prikaz.</p>
+    <p>Odluke (29. 10. 2026.): nasipi uz kanale razdvajaju se na nasip lijeve i nasip desne
+      obale kad tako stoje u planu i GIS-u. Objekt koji prelazi vodotok, npr. most, propust ili
+      ušće, upisuje se jednom, bez nasipa, s obalom LD. Na poddionici obiju obala (LD) objekt tu
+      obalu dobije sam. Tako stoji uz oba nasipa kad su im rasponi uz vodu jednaki.</p>
+
     <h3 id="dionica-vodomjeri">Mjerodavni vodomjeri</h3>
     <p>Dionica ne drži vlastite pragove. Ona <strong>pridruži letvu</strong> koja joj je
       mjerodavna, a pragovi dolaze s te letve — pripremno stanje, redovna obrana, izvanredna
@@ -393,6 +471,14 @@
     <p>Zapis iz dokumentacije koji <strong>nije</strong> vodomjer — kota u metrima, uputa na
       pravilnik — ne ulazi u registar postaja nego ostaje uz poddionicu kao kriterij, jer se iz
       njega ne da računati stupanj obrane.</p>
+    <p><strong>Na stranici nasipa i brane</strong> stoji blok <em>Mjerodavni vodomjeri</em>. Nasip
+      rijetko ima svoju letvu, pa program skupi mjerodavne vodomjere svih poddionica na kojima je
+      nasip upisan. Za svaku letvu stoji kartica s vodom, stacionažom, pragovima P, R, I i IS sa
+      same letve i oznakama dionica za koje vrijedi. Ista letva na više poddionica stoji jednom. Kriterij koji
+      nije letva iz registra stoji kao redak s pragovima iz zapisa dionice.</p>
+    <p>Na stranici nasipa ništa se ne upisuje. Mjerodavni vodomjer dodaje se u obrascu dionice,
+      pod <em>Mjerodavni vodomjeri</em>, a pragovi se mijenjaju na kartici letve. Nasip s vlastitom
+      letvom ima i blok <em>Vodomjer na objektu</em>.</p>
 
     <h3 id="dionica-obrana">Proglašavanje obrane</h3>
     <p>Obranu proglašava i prekida <strong>čovjek</strong>, aktom. Na stranici očitanja
@@ -534,7 +620,9 @@
     <h3 id="letva-karta">Karta položaja</h3>
     <p>Letva s upisanim koordinatama prikazuje se na karti. Podloga dolazi s mreže; program sam
       ne treba internet, pa gdje mreže nema karta to i napiše, a koordinate i poveznica na
-      vanjsku kartu vrijede i dalje. Izvor podloge postavlja se u <code>gocop.toml</code>.</p>
+      vanjsku kartu vrijede i dalje. Bez mreže izaberite podlogu <em>Karta bez interneta</em>,
+      ako je čvor ima (<a href="#karte">Karte</a>). Izvor obične karte postavlja se u
+      <code>gocop.toml</code> ili pod <em>Administracija › Karte</em>.</p>
 
     <h3 id="letva-historijat">Historijat letve</h3>
     <p>Kartica letve odgovara na pitanje <strong>što letva jest</strong> — gdje stoji, koji su joj
@@ -1578,18 +1666,27 @@
         sektori, područja, uredi.</li>
       <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
         stupnjevima obrane. Razrađeno gore, <a href="#sections">Dionice</a>.</li>
-      <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.</li>
+      <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.
+        Naziv, poštanski broj i broj stanovnika naselja globalni administrator mijenja na
+        stranici općine, u retku naselja, gumbom <em>Spremi</em>.</li>
       <li><strong>Službe</strong> — stožeri, civilna zaštita, 112, policija, vatrogasci, Crveni
         križ i druge službene adrese koje se mogu birati kao primatelji akata.</li>
       <li><strong>Vodomjerne postaje</strong> — letve: šifra, vodotok, stacionaža, kota nule i
         pragovi obrane. Razrađeno gore, <a href="#stations">Vodomjerne postaje</a>.</li>
       <li id="structures"><strong>Objekti</strong> — crpke, ustave, propusti i ostalo što ima
-        svoje stanje i zapornice.</li>
+        svoje stanje i zapornice. Naslov stranice objekta nosi ikonu njegove vrste, istu kao na
+        karti (Administracija › Karte). Kad je na karti krug, posebna letva ili vlastita ikona,
+        naslov ima uobičajeni znak te vrste. Stranica nasipa i brane ima blok <em>Mjerodavni
+        vodomjeri</em>, složen iz dionica (<a href="#dionica-vodomjeri">Mjerodavni
+        vodomjeri</a>). Objekt se na karti crta gumbom <em>Uredi na karti</em> (<a href="#karta-uredjivanje">Crtanje na karti</a>).</li>
       <li id="watercourses"><strong>Vodotoci i vodna tijela</strong> — rijeke i kanali.
         Oznake rkm na detaljnoj OSM liniji kalibriraju se između susjednih sidara iz ENC-a:
         Dunav 1295,600–1432,900 i Drava 0,100–23,200 (izdanja 2018.). Klik na liniju
         pokazuje pokrivenost, a oznake izvan nje označene su kao orijentacijske.
-        Izračun ne mijenja koordinate ni upisani rkm postaja i nije za navigaciju.</li>
+        Izračun ne mijenja koordinate ni upisani rkm postaja i nije za navigaciju.
+        Globalni administrator tok crta gumbom <em>Uredi tok na karti</em>, i kad toka još nema
+        (<a href="#karta-uredjivanje">Crtanje na karti</a>). Spremaju se samo crte, a točke rkm
+        ostaju iz zapisa.</li>
       <li id="firme"><strong>Licencirane firme</strong> — izvođači.</li>
       <li id="maintenance"><strong>Održavanje</strong> — lokacije izvršenja usluga i stavke
         radova.</li>
@@ -1681,7 +1778,7 @@
         telefon koji se vide na stranici prijave, a u kartici <em>Mreža</em> razmak automatske
         sinkronizacije, razmjena preko Tailscalea te prijava za WEB sync i sam WEB sync; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
         tuđih očitanja su na stranici <em>Što ovo računalo prati</em>, do koje vodi i kartica u
-        Administraciji, a izvor karte pod <em>Opcije</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
+        Administraciji, a izvor obične karte pod <em>Karte</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
         postavki, kad je datoteka mijenjana i njezine prethodne inačice. Mijenja ih globalni
         administrator, s računala na kojem je čvor ili iz lokalne mreže; izvana i kroz tunel samo
         se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
@@ -1753,6 +1850,12 @@
         Nedjelja se računa kao blagdan; povijesno pravilo ne briše se nego mu se ograniči
         razdoblje važenja kako bi stari obračuni ostali ponovljivi. Ovdje se postavlja i redovno
         radno vrijeme, zadano 7:30–15:30.</li>
+      <li id="admin-karte"><strong>Karte</strong> — boja, debljina crte i ikona za svaku vrstu
+        objekta na karti, vlastite SVG ikone, podloge uz običnu kartu (npr. satelit, s adresom i
+        ključem) i izvor obične karte ovog čvora. Ovdje se učitava i karta bez interneta, opisano
+        niže (<a href="#admin-karta-bez-interneta">Karta bez interneta</a>). Mijenja globalni
+        administrator. Izgled i podloge vrijede na svim čvorovima, a izvor obične karte samo na
+        ovom i vrijedi nakon ponovnog pokretanja.</li>
       <li><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
         opisano je niže; operativno se drže isključenima.</li>
       <li><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
@@ -1821,6 +1924,31 @@
       poslužitelj nije dostupan, slanje stane na pet minuta. Čvor šalje najviše 60 pisama s
       PIN-om na sat, a jedan djelatnik dobije najviše tri u 15 minuta. PIN se nigdje ne zapisuje
       u dnevnik.</p>
+
+    <h3 id="admin-karta-bez-interneta">Karta bez interneta</h3>
+    <p>Kad u obrani nestane interneta, podloge s interneta ostanu prazne. Zato čvor može
+      držati kartu iz OpenStreetMapa na svom disku. Na karti se tada bira podloga <em>Karta bez
+      interneta</em>. Kartu učitava globalni administrator pod <em>Administracija › Karte</em>, u
+      bloku <em>Karta bez interneta</em>:</p>
+    <ol>
+      <li><strong>Prvo računalo.</strong> Pod <em>Karta ili paket karte</em> izaberite izvezenu
+        kartu <code>.pmtiles</code>, npr. iz Protomapsa, upišite <em>Naziv karte</em> i
+        <em>Izvor</em> pa pritisnite <em>Učitaj kartu</em>. Karta od stotinjak MB učitava se do
+        minute. Ta karta postaje zadana karta bez interneta na svim čvorovima.</li>
+      <li><strong>Paket za druga računala.</strong> Gumb <em>Preuzmi .cop za druga računala</em>
+        daje paket karte. Razmjenom putuje samo podatak koja je karta zadana, ne i sama karta, jer
+        je velika: za Sektor B oko 120 MB. Paket zato prenesite ručno, npr. na USB disku.</li>
+      <li><strong>Ostala računala.</strong> Na svakom računalu, pa i na kućnom serveru, učitajte
+        taj <code>.cop</code> istim poljem i gumbom <em>Učitaj kartu</em>. Naziv i izvor ne treba
+        upisivati, paket ih nosi sam. Program primi samo paket s računala iste mreže i provjeri
+        da karta nije mijenjana.</li>
+    </ol>
+    <p>U tablici iznad obrasca piše koja je karta zadana, koje područje pokriva, do kojeg
+      povećanja i koliko je velika. Redak <em>Na ovom računalu</em> kaže je li karta ovdje
+      <em>učitana</em> ili <em>nije učitana</em>. Računalo bez nje tu podlogu ne nudi.</p>
+    <p>Gumb <em>Makni kartu</em> miče kartu bez interneta: na svim čvorovima prestaje biti
+      podloga, a s ovog računala se briše. Nova karta učitana preko stare postaje zadana umjesto
+      nje, pa i nju treba prenijeti na ostala računala.</p>
 
     <h3>Provjera razmjene i arhive</h3>
     <p>Prva automatska razmjena počinje oko 30 sekundi nakon pokretanja. Pločica
@@ -2047,12 +2175,12 @@
       <div><dt>EUPL‑1.2</dt><dd>goCOP, osim posebno označenih dijelova.</dd></div>
       <div><dt>MIT</dt><dd>sloj <code>internal/razmjena</code>, <code>digitorus/pkcs7</code>, <code>go-toml/v2</code>,
         <code>goldmark</code>, <code>go-humanize</code>, <code>go-isatty</code>,
-        <code>go-strftime</code> i KaTeX.</dd></div>
+        <code>go-strftime</code>, KaTeX i Leaflet-Geoman Free (crtanje na karti).</dd></div>
       <div><dt>BSD 3-Clause</dt><dd>Go i njegova standardna biblioteka, <code>google/uuid</code>,
         <code>golang.org/x/crypto</code>, <code>x/net</code> (WebSocket), <code>x/image</code>, <code>x/text</code> i
         <code>x/sys</code>, <code>bigfft</code>, modernc biblioteke
-        (<code>sqlite</code>, <code>libc</code>, <code>mathutil</code> i <code>memory</code>)
-        te ugrađeni Go fontovi.</dd></div>
+        (<code>sqlite</code>, <code>libc</code>, <code>mathutil</code> i <code>memory</code>),
+        protomaps-leaflet, koji crta kartu bez interneta, te ugrađeni Go fontovi.</dd></div>
       <div><dt>BSD 2-Clause</dt><dd>Leaflet, biblioteka za interaktivne karte.</dd></div>
       <div><dt>ISC / MIT</dt><dd>Lucide ikone; dio ikona izveden je iz projekta Feather pod
         licencom MIT.</dd></div>
@@ -2064,7 +2192,8 @@
     <ul>
       <li><strong>OpenStreetMap</strong> — kartografski podaci © suradnici OpenStreetMapa,
         licenca ODbL; zadane mrežne pločice pruža OpenStreetMap (tile.openstreetmap.org), a
-        pretraživanje mjesta Nominatim. Zasluga se prikazuje i na samoj karti.</li>
+        pretraživanje mjesta Nominatim. Karta bez interneta izvezena je iz istih podataka i nosi
+        isti navod. Zasluga se prikazuje i na samoj karti.</li>
       <li><strong>Open‑Meteo</strong> — meteorološki podaci dostupni su pod licencom CC BY 4.0.
         Usluga radi samo kada je internet dostupan.</li>
       <li><strong>Hrvatske vode, Direkcija</strong> — granice sektora i branjenih područja na karti

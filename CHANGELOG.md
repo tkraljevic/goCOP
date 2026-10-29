@@ -4,6 +4,71 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.46-alfa — u pripremi
+
+- **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju
+  se s interneta, pa bez njega karte u programu ostaju prazne. Sad čvor može
+  držati vektorsku kartu OpenStreetMapa na svom disku. Na karti se bira kao
+  podloga „Karta bez interneta”, s nazivima na hrvatskom, svijetla ili tamna
+  po temi. Globalni administrator je učitava u Administraciji › Karte:
+  izvezenu `.pmtiles` na jednom računalu, a na ostalima njezin paket `.cop`,
+  koji se preuzme na istoj stranici. Paket se prima samo od računala iste
+  mreže. Razmjenom ide samo koja je karta zadana. Samu datoteku, za Sektor B
+  oko 120 MB, treba paketom prenijeti na svako računalo. Karta se daje samo
+  prijavljenima. (#172)
+- **Tok vodotoka crta se istim alatom kao objekt.** Karta vodotoka imala je
+  stari uređivač, a tok koji još nije bio ucrtan nije se mogao nacrtati, pa
+  se karta nije ni pokazivala. Sad ima isti alat kao karta objekta, s
+  učitavanjem iz GeoJSON-a, a globalni administrator kartu dobije i kad toka
+  još nema. Kad se tok crta na karti, spremaju se samo crte, a točke
+  stacionaže, npr. rkm na Dunavu i Dravi, ostaju kakve su bile. Učitani
+  GeoJSON i dalje zamijeni cijeli tok. Tok i dalje mijenja samo globalni
+  administrator. Uz to naslov stranice objekta nosi ikonu svoje vrste iz
+  Administracije › Karte, a ne isti znak građevine za sve vrste. (#180,
+  #187)
+- **Ugroženo područje cijele poddionice može vrijediti i uz nasip.** Na
+  poddionici s više nasipa i istim ugroženim područjem naselja su se morala
+  upisati uz svaki nasip posebno. Inače su stajala u retku „Bez nasipa”, a uz
+  nasipe je pisalo 0. Sad uz svaki nasip u obrascu dionice stoji kvačica
+  „Vrijedi i ugroženo područje cijele poddionice”. Nasip s kvačicom pokazuje
+  svoja naselja i ona upisana za cijelu poddionicu, a nasip bez kvačice samo
+  svoja. Naselja koja nisu uz nijedan nasip stajala su iznad tablice, a redak
+  „Bez nasipa” pokazivao je nula ugroženih; sad su u tom retku. Izvoz dionice
+  u Excel ide istim pravilom. Kvačice uključiti kad su sva računala na
+  0.0.46: stariji program kvačicu briše kad sam spremi dionicu, a naselja
+  ostaju. (#174, #188)
+- **Objekt bez nasipa stoji uz nasipe svoje obale.** Kad je poddionica imala
+  nasip uz lijevu i nasip uz desnu obalu s istim rasponom, objekti bez
+  upisanog nasipa stajali su samo uz prvi nasip, a obala objekta se nije
+  gledala. Sad objekt bez nasipa stoji uz nasip svoje obale čiji raspon
+  pokriva njegovu stacionažu, a od više takvih uz onaj s najužim rasponom.
+  Kad ih je više s jednakim rasponom, stoji uz sve. Objekt lijeve obale ide
+  samo uz nasip lijeve obale, desne uz desni, a objekt bez obale ili s
+  obalom LD uz oba. Obala nasipa čita se iz naziva („l.o.”, „d.o.”,
+  „Lijevi…”, „Desni…”), a nasip bez obale u nazivu prima sve. Objekt čiju
+  stacionažu ne pokriva nijedan nasip njegove obale ide u redak „Bez
+  nasipa”. Objekt s upisanim nasipom ostaje na svom, a izvoz u Excel ide
+  istim pravilom. Nasip uz kanal upisuje se kao dva nasipa, l.o. i d.o.,
+  kad tako stoji u planu i GIS-u. Most, propust ili ušće, koji prelaze
+  vodotok, upisuju se jednom, bez nasipa, s obalom LD (Odluke (29. 10.
+  2026.)). (#190)
+- **Stranica nasipa i brane pokazuje mjerodavne vodomjere.** Većina nasipa
+  nema svoju letvu, pa je u bloku „Vodomjer na objektu” pisalo „Objekt nema
+  pridružen vodomjer”, iako svaka poddionica u planu obrane ima mjerodavni
+  vodomjer. Sad nasip i brana imaju blok „Mjerodavni vodomjeri”, složen iz
+  poddionica na kojima objekt stoji. Uz svaku letvu stoje voda, stacionaža,
+  pragovi sa same letve, kao na stranici dionice, i oznake dionica s
+  poveznicom. Ista letva na više poddionica pokaže se jednom. Nasip s
+  vlastitom letvom zadržava i blok „Vodomjer na objektu”. (#189)
+- **Naselju se može promijeniti broj stanovnika.** Polje je bilo samo u
+  obrascu za novo naselje, pa se upisanom naselju broj nije dao ni upisati
+  ni promijeniti. Sad je u retku naselja na stranici općine, uz naziv i
+  poštanski broj. (#173)
+- **Testovi i sređivanje koda, bez promjene ponašanja.** Najsloženiji
+  dijelovi programa, npr. potpis i pečat na PDF-u ili crtanje uzdužnog
+  profila, dobili su testove i rastavljeni su na manje korake. Program radi
+  kao i prije. (#175–#179, #181–#186)
+
 ## 0.0.45-alfa — 28. 10. 2026.
 
 - **Nasipi i drugi objekti ucrtavaju se na kartu.** Objekt je dosad imao

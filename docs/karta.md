@@ -1,33 +1,93 @@
-# Karta položaja
+# Karte
 
 Za administratora ukratko: podlogu karte bira postavka `[karta] plocice` u
 `gocop.toml` ili Administracija → Karte, gdje se biraju i druge podloge
-(npr. satelit), boje i ikone objekata za cijelu mrežu. Zadan je OpenStreetMap, koji je
+(npr. satelit), boje i ikone objekata za cijelu mrežu. Tu stranicu mijenja
+samo globalni administrator. Zadan je OpenStreetMap, koji je
 dovoljan za probnu i laganu upotrebu. Za širu upotrebu (stotine računala)
 bolja je službena podloga Državne geodetske uprave ili vlastiti poslužitelj
 pločica u mreži organizacije, upisan u `plocice`.
-
-Karta bez interneta je vektorska karta (PMTiles, iz OpenStreetMapa) koju
-čvor drži na svom disku, u mapi `karte/` uz bazu, i poslužuje je pregledniku.
-Učitava se u Administraciji → Karte: izvezena `.pmtiles` karta na jednom
-računalu, a na ostalima njezin potpisani `.cop` paket, koji se ondje i
-preuzima. Program paket prima samo od člana iste mreže i provjerava otisak
-karte. Razmjenom putuje samo koja je karta zadana; računalo koje je nema
-piše to na istoj stranici. Kartu Sektora B izvezenu iz Protomapsa daje npr.
-`pmtiles extract https://build.protomaps.com/20261027.pmtiles sektor-b.pmtiles
---bbox=17.0,45.05,19.65,46.30 --maxzoom=15` (oko 120 MB).
 
 Letva koja ima koordinate prikazuje se na karti, na svojoj kartici. Ista
 podloga stoji i u registrima **Vodomjerne postaje** i **Teritorijalne
 jedinice** (prikaz **Karta**), na stranici vodotoka, u **Slivovi i
 meteorološke postaje**, pri odabiru mjesta na prijavi s terena i na obrascu
 kišomjera. Biblioteka za kartu (Leaflet 1.9.4, licenca BSD-2) ugrađena je
-u program, pa preglednik s mreže uzima samo pločice podloge.
+u program, pa preglednik s mreže uzima samo pločice podloge. Kartu bez
+interneta (niže) dobiva od samog čvora.
 
-Pločice skida i sam poslužitelj kad kartu slaže u PDF: položaj na prijavi s
-terena i ucrtani obuhvat zadatka na dnevnom listu vodočuvara. Uzima isti
-predložak iz `[karta]`, na svaku pločicu čeka najviše 5 s i prima samo PNG. Ne stigne li i
-jedna pločica, PDF se sastavlja bez te karte.
+Pločice skida i sam poslužitelj kad kartu slaže u PDF: položaj na
+prijavi s terena i ucrtani obuhvat zadatka na dnevnom listu vodočuvara.
+Uzima isti predložak iz `[karta]`, na svaku pločicu čeka najviše 5 s i
+prima samo PNG. Ne stigne li i jedna pločica, PDF se sastavlja bez te
+karte. Karta bez interneta u PDF ne ide.
+
+## Karta bez interneta
+
+Obična karta i satelit čitaju se s interneta. Kad interneta nema, na
+primjer u obrani, ostaju prazni. Zato čvor može držati i vektorsku kartu
+na svom disku, u mapi `karte/` uz bazu, i poslužiti je pregledniku.
+
+Karta je u obliku PMTiles i napravljena je iz OpenStreetMapa. Podaci
+OpenStreetMapa su pod licencom ODbL, pa karta nosi navod „© OpenStreetMap
+suradnici”. Karta za svoje područje izreže se iz Protomapsove karte
+svijeta alatom `pmtiles`. Kartu Sektora B daje npr.
+`pmtiles extract https://build.protomaps.com/20261027.pmtiles sektor-b.pmtiles
+--bbox=17.0,45.05,19.65,46.30 --maxzoom=15` (oko 120 MB). Kartu u
+pregledniku crta biblioteka protomaps-leaflet 5.1.0 (licenca BSD-3),
+ugrađena u program, svijetlo ili tamno prema temi stranice, s nazivima na
+hrvatskom. Ona ništa ne traži s interneta.
+
+Karta se učitava u Administraciji → Karte, pod Karta bez interneta:
+
+1. Na jednom računalu učita se izvezena `.pmtiles` karta, uz naziv
+   (npr. Sektor B) i izvor. Ona tada postaje zadana karta bez interneta
+   na svim čvorovima.
+2. Na istoj stranici preuzme se njezin potpisani `.cop` paket, gumbom
+   *Preuzmi .cop za druga računala*.
+3. Paket se prenese na svako drugo računalo, npr. USB ključem, i ondje se
+   učita na istu stranicu. Paket karte ne učitava se u Održavanju baze.
+
+Razmjenom putuje samo opis karte: koja je karta zadana, njezino područje,
+veličina i otisak. Sama datoteka, od stotinjak MB, ne ide razmjenom.
+Računalo koje kartu nema piše to na istoj stranici („nije učitana”).
+Program paket prima samo od člana iste mreže i provjerava da karta ima
+otisak i veličinu iz potpisanog paketa. Izmijenjenu kartu ili paket s
+krivim potpisom odbije. Učitavanje karte od stotinjak MB traje i do
+minute, a karta smije imati najviše 2 GB.
+
+Kartu čvor daje samo prijavljenim korisnicima. Na kartama u programu
+prvo stoji obična karta, a „Karta bez interneta” bira se gumbom sa
+slojevima, gore desno, kao i satelit. Na karti teritorijalnih jedinica
+popis podloga stoji stalno otvoren. Karta pokazuje samo izvezeno
+područje. Iznad povećanja do kojeg je izvezena karta ne dobiva nove
+pojedinosti. Uz prazan `plocice` ostale karte nema, pa ni karte bez
+interneta, jer se podloge biraju uz običnu kartu (niže). Karta
+teritorijalnih jedinica tada uzima zadani OpenStreetMap.
+
+Gumb *Makni kartu* miče kartu kao podlogu na svim čvorovima, a datoteku
+briše s ovog računala. *Vrati zadano* na istoj stranici kartu bez
+interneta ne dira.
+
+## Crte na karti objekta i vodotoka
+
+Karta objekta i karta vodotoka imaju isti alat za crtanje (Leaflet-Geoman
+Free 2.20.2, licenca MIT, ugrađen u program). Gumbom *Uredi na karti*,
+odnosno *Uredi tok na karti*, crta se nova crta, pomiču se vrhovi (desni
+klik briše vrh) i pomiče se ili briše cijeli dio. Na kraju *Spremi* ili
+*Odustani*. Crta se može i učitati iz GeoJSON-a u WGS84 (EPSG:4326), npr.
+izvezenog iz QGIS-a.
+
+Objekt crta onaj tko smije uređivati objekt. Na karti objekta crtaju se i
+točke i poligoni, a nova točka na nasipu ili brani pita za km stacionaže.
+
+Tok vodotoka mijenja samo globalni administrator. Tok koji još nije
+ucrtan može se nacrtati ravno na karti, a prazan tok se ne sprema. Kad
+se tok crta na karti, spremaju se samo crte, a točke stacionaže (rkm)
+ostaju iz spremljenog zapisa, jer karta Dunava i Drave pokazuje
+stacionažu preračunatu prema [ENC kartama](stacionaza-enc.md), a ne
+spremljenu. Učitani GeoJSON zamijeni cijeli tok, pa i točke rkm.
+Prethodni tok ostaje u povijesti zapisa.
 
 ## Izvor pločica
 
@@ -74,7 +134,9 @@ napiše, umjesto da čovjek gleda sive kvadrate.
 
 ## Preuzimanje pločica po području (nije napravljeno)
 
-Zamisao: svaki čvor preuzme pločice **samo za svoje područje** (sektor ili
+Na zaslonu karta bez interneta (gore) već radi bez mreže. Dokumenti s
+kartom i dalje trebaju obične pločice s interneta. Za njih ostaje
+zamisao: svaki čvor preuzme pločice **samo za svoje područje** (sektor ili
 što već pokriva) i spremi ih uz bazu. Tada se u postavkama upiše
 lokalna putanja i karta radi bez interneta, kao i sve ostalo.
 
@@ -100,5 +162,6 @@ lokalna putanja i karta radi bez interneta, kao i sve ostalo.
    komentar u `gocop.toml`, njemu ne radi: zaliha mora biti dohvatljiva i
    poslužitelju, inače PDF ostaje bez karte.
 
-Do tada karta radi ondje gdje ima interneta, a gdje ga nema, letva i dalje
+Do tada obična karta i dokumenti s kartom rade ondje gdje ima interneta.
+Gdje ga nema, na zaslonu ostaje karta bez interneta, a letva i dalje
 pokazuje koordinate i poveznicu.

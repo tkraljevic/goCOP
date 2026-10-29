@@ -36,32 +36,44 @@ rizik ne naraste više od 0,5.
 
 ### Stanje
 
-Zadnje referentno mjerenje je od 15. 10. 2026. Uz njega su brojke prvog
-mjerenja:
+Zadnje mjerenje je od 29. 10. 2026., nakon razdvajanja najsloženijih
+funkcija. Uz njega su brojke prvog mjerenja i mjerenja od 15. 10. 2026.:
 
-| | 4. 10. 2026. | 15. 10. 2026. |
-|---|---:|---:|
-| pokrivenost cijelog koda | 51,8 % | 76,2 % |
-| pokrivenost dijelova o kojima ovisi obrana | 50,4 % | 99,2 % |
-| prosječna složenost funkcije | 5,4 | 4,7 |
-| prosječni rizik izmjene | 43,4 | 12,3 |
-| funkcije iznad granice u dijelovima o kojima ovisi obrana | 559 | 286 |
+| | 4. 10. 2026. | 15. 10. 2026. | 29. 10. 2026. |
+|---|---:|---:|---:|
+| pokrivenost cijelog koda | 51,8 % | 76,2 % | 80,7 % |
+| pokrivenost dijelova o kojima ovisi obrana | 50,4 % | 99,2 % | 99,4 % |
+| prosječna složenost funkcije | 5,4 | 4,7 | 4,3 |
+| prosječni rizik izmjene | 43,4 | 12,3 | 8,8 |
+| najveća složenost jedne funkcije | 219 | 107 | 82 |
+| funkcije iznad granice u dijelovima o kojima ovisi obrana | 559 | 286 | 275 |
 
-Prosječna funkcija ima oko pet putova, a tri od četiri funkcije imaju pet
-ili manje. Polovica funkcija ima rizik 4 ili manji. Prosječni rizik od 12,3
-podiže oko 380 funkcija s rizikom iznad 30. Većina njih ima malo testova, a
-samo 13 ih je u dijelovima o kojima ovisi obrana.
+Referentno mjerenje, s kojim provjera uspoređuje svaku izmjenu, je od
+20. 10. 2026. Mjerenje od 29. 10. nije ga pomaknulo.
 
-U dijelovima o kojima ovisi obrana je 2.018 funkcija, a 286 ih prelazi
+Izmjereno je 8.123 funkcije. Prosječna funkcija ima nešto više od četiri
+puta, a gotovo četiri od pet funkcija imaju pet ili manje. Polovica funkcija
+ima rizik manji od 3,1. Prosječni rizik od 8,8 podiže 350 funkcija s
+rizikom iznad 30. Većina njih ima malo testova, a samo 12 ih je u
+dijelovima o kojima ovisi obrana. Najrizičnija funkcija 15. 10. bila je
+dodavanje potpisa i pečata na PDF, s rizikom 2.256, a najsloženija
+crtanje uzdužnog profila. Obje su 29. 10. razdvojene na korake. Najveći
+rizik jedne funkcije sad je 756.
+
+U dijelovima o kojima ovisi obrana je 2.997 funkcija, a 275 ih prelazi
 granicu. Gotovo sve su dobro pokrivene testovima, ali su prevelike: imaju
-previše grananja. Najviše ih je u prognozi i uvozu. Takve se
+previše grananja. Najviše ih je u prognozi. Takve se
 funkcije ne dijele odjednom. Izmjena ih ne smije pogoršati, a dijele se
 postupno, uz iste testove prije i poslije. Uvoz iz stare evidencije BP16 je
 privremen, pa se ne preuređuje: njegove su složene funkcije izuzete do
 13. 4. 2027. (Odluke (13. 10. 2026.)).
 
-Statička analiza ne nalazi nijednu grešku. Ostaje 938 upozorenja, od toga
-487 mjesta na kojima kod ne provjerava vraćenu grešku. Još nije pokrenuto
+Statička analiza ne nalazi nijednu grešku. Ostaje 3.023 upozorenja, od toga
+2.607 mjesta na kojima kod ne provjerava vraćenu grešku. Mjesta je više nego
+15. 10. (tada 938 upozorenja i 487 mjesta), jer mjerenje od 17. 10. 2026.
+broji i grešku koja je izričito zanemarena bez razloga u istom retku. Stari
+retci ostaju dug dok ih nitko ne dira. Čim se redak promijeni, grešku treba
+obraditi, inače provjera padne. Još nije pokrenuto
 mutacijsko testiranje, koje provjerava bi li testovi primijetili namjerno
 ubačenu grešku.
 
@@ -126,6 +138,28 @@ važniji su od prosjeka.
    (`OrgTerms`), ne piše se rukom. Testovi provjeravaju da naziv u predlošku
    postoji, da uz njega nema slova i da su napisana sva tri oblika. Jesu li
    oblici i padež dobri, testovi ne vide; to se provjerava čitanjem.
+
+### Kako se dijeli složena funkcija
+
+Tako su 29. 10. 2026. razdvojene najsloženije funkcije, i tako se radi i
+dalje:
+
+1. Najprije se pišu testovi na neizmijenjenom kodu. Oni zapišu što funkcija
+   danas radi. Ponašanje koje izgleda krivo zapiše se za posebnu izmjenu, a
+   ne popravlja se usput.
+2. Za vrijeme razdvajanja stara kopija funkcije ostaje uz novu, a test
+   uspoređuje izlaz obiju na istim ulazima, za PDF i Excel bajt po bajt.
+   Kad je razdvajanje gotovo, kopija se miče.
+3. Novi dijelovi odmah moraju biti unutar granica. Dijelovi koji se u
+   `quality/config.json` upišu kao premješteni iz stare funkcije zajedno
+   smiju imati najviše onoliko složenosti koliko je izvorna funkcija
+   izgubila.
+4. Pregled izmjene traži i grane koje testovi izvrše, ali ne provjeravaju.
+   Za njih se dodaju testovi.
+5. Test koji uspoređuje sažetak izlaza mora dati isti rezultat na svakom
+   procesoru. Test uzdužnog profila zato prije sažimanja zaokruži decimale
+   na stotinku piksela, jer Intel i Apple procesori zadnje decimale računaju
+   malo drukčije.
 
 ## Kako provjeriti (make quality)
 
