@@ -738,21 +738,6 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	// poslužitelju e-pošte i minuta čekanja na grešku koja je već poznata.
 	ctx, odustani := context.WithCancel(ctx)
 	defer odustani()
-	out := make([]UsporedbaKontakta, len(svi))
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	var prva error
-	gotovo, uspjelo := 0, 0
-	javi := func(ime string) {
-		mu.Lock()
-		gotovo++
-		g := gotovo
-		mu.Unlock()
-		if napredak != nil {
-			napredak(ime, g, len(svi))
-		}
-	}
-	red := make(chan int)
 	// Svaki upit adresaru nosi svoju NTLM prijavu, a djelatnika su stotine.
 	// Stotine prijava u pola minute Exchange razumije kao napad i zaključa
 	// račun, pa nakon toga ne prolazi ni jedan jedini upit, ni za mali
@@ -761,88 +746,163 @@ func (s *AktService) UsporediImenik(ctx context.Context, perms *models.UserPermi
 	// posao u pozadini prihvatljivo, a račun ostaje otključan.
 	takt := time.NewTicker(time.Second / 3)
 	defer takt.Stop()
+	p := &prolazImenika{pp: pp, r: r, svi: svi, napredak: napredak, odustani: odustani, takt: takt,
+		out: make([]UsporedbaKontakta, len(svi))}
+	return p.prodji(ctx)
+}
+
+// prolazImenika je stanje jedne usporedbe: radnici upisuju svaki svoj
+// redak u out, a pod mu broje obrađene i uspjele te pamte prvu grešku
+type prolazImenika struct {
+	pp       posta.Postavke
+	r        posta.Racun
+	svi      []models.User
+	napredak func(sto string, gotovo, ukupno int)
+	odustani context.CancelFunc
+	takt     *time.Ticker
+	out      []UsporedbaKontakta
+
+	mu              sync.Mutex
+	prva            error
+	gotovo, uspjelo int
+}
+
+// prodji pušta dva radnika na djelatnike i čeka ih; i jedna greška poništi
+// cijeli rezultat
+func (p *prolazImenika) prodji(ctx context.Context) ([]UsporedbaKontakta, error) {
+	red := make(chan int)
+	var wg sync.WaitGroup
 	for w := 0; w < 2; w++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for i := range red {
-				select {
-				case <-takt.C:
-				case <-ctx.Done():
-					return
-				}
-				x := svi[i]
-				u := UsporedbaKontakta{User: x}
-				var kandidati []posta.Kontakt
-				var err error
-				if x.Email != "" {
-					kandidati, err = posta.Imenik(ctx, pp, r, x.Email)
-				}
-				if err == nil && len(kandidati) == 0 {
-					kandidati, err = posta.Imenik(ctx, pp, r, x.FullName)
-				}
-				if err != nil {
-					mu.Lock()
-					if prva == nil {
-						prva = err
-					}
-					mu.Unlock()
-					if errors.Is(err, posta.ErrPrijava) {
-						// Prvi upit odbijen znači kriva lozinka. Odbijen nakon
-						// niza uspjelih ne znači to: poslužitelj je stao
-						// primati toliko prijava u kratkom vremenu.
-						mu.Lock()
-						if uspjelo > 0 {
-							prva = fmt.Errorf("poslužitelj e-pošte prestao je primati upite nakon %d djelatnika: previše prijava u kratkom vremenu. Lozinka je vjerojatno ispravna — pokušajte usporedbu po sektoru", uspjelo)
-						}
-						mu.Unlock()
-						odustani()
-					}
-					out[i] = u
-					javi(x.FullName)
-					continue
-				}
-				u.Kandidati = len(kandidati)
-				if k := najboljiKontakt(kandidati, x); k != nil {
-					u.Kontakt = k
-					u.Polja = poljaKontakta(x, *k)
-					for _, p := range u.Polja {
-						if p.Razlikuje() {
-							u.Razlike = append(u.Razlike, p)
-						}
-					}
-				}
-				mu.Lock()
-				uspjelo++
-				mu.Unlock()
-				out[i] = u
-				javi(x.FullName)
-			}
+			p.radi(ctx, red)
 		}()
 	}
-punjenje:
-	for i := range svi {
-		if strings.TrimSpace(svi[i].FullName) == "" {
+	p.posalji(ctx, red)
+	close(red)
+	wg.Wait()
+	if p.prva != nil {
+		return nil, p.prva
+	}
+	return p.imenovani(), nil
+}
+
+// posalji daje radnicima djelatnike s imenom, redom; nakon prekida ostatak se ne pita
+func (p *prolazImenika) posalji(ctx context.Context, red chan<- int) {
+	for i := range p.svi {
+		if strings.TrimSpace(p.svi[i].FullName) == "" {
 			continue
 		}
 		select {
 		case red <- i:
 		case <-ctx.Done():
-			break punjenje // prekinuto: ostatak se ne pita
+			return
 		}
 	}
-	close(red)
-	wg.Wait()
-	if prva != nil {
-		return nil, prva
+}
+
+// radi je jedan radnik: svaki djelatnik čeka svoj takt, pa se u sekundi
+// pita najviše tri djelatnika
+func (p *prolazImenika) radi(ctx context.Context, red <-chan int) {
+	for i := range red {
+		select {
+		case <-p.takt.C:
+		case <-ctx.Done():
+			return
+		}
+		p.obradi(ctx, i)
 	}
+}
+
+// obradi pita adresar za jednog djelatnika i upiše njegov redak; i
+// djelatnik s greškom ulazi u napredak
+func (p *prolazImenika) obradi(ctx context.Context, i int) {
+	x := p.svi[i]
+	kandidati, err := p.kandidati(ctx, x)
+	if err != nil {
+		p.zabiljeziGresku(err)
+		p.out[i] = UsporedbaKontakta{User: x}
+		p.javi(x.FullName)
+		return
+	}
+	u := usporedbaDjelatnika(x, kandidati)
+	p.mu.Lock()
+	p.uspjelo++
+	p.mu.Unlock()
+	p.out[i] = u
+	p.javi(x.FullName)
+}
+
+// kandidati pita adresar adresom djelatnika, a imenom kad adrese nema ili
+// za nju nema nikoga
+func (p *prolazImenika) kandidati(ctx context.Context, x models.User) ([]posta.Kontakt, error) {
+	var kandidati []posta.Kontakt
+	var err error
+	if x.Email != "" {
+		kandidati, err = posta.Imenik(ctx, p.pp, p.r, x.Email)
+	}
+	if err == nil && len(kandidati) == 0 {
+		kandidati, err = posta.Imenik(ctx, p.pp, p.r, x.FullName)
+	}
+	return kandidati, err
+}
+
+// zabiljeziGresku pamti prvu grešku; odbijena prijava prekida prolaz
+func (p *prolazImenika) zabiljeziGresku(err error) {
+	p.mu.Lock()
+	if p.prva == nil {
+		p.prva = err
+	}
+	p.mu.Unlock()
+	if errors.Is(err, posta.ErrPrijava) {
+		// Prvi upit odbijen znači kriva lozinka. Odbijen nakon
+		// niza uspjelih ne znači to: poslužitelj je stao
+		// primati toliko prijava u kratkom vremenu.
+		p.mu.Lock()
+		if p.uspjelo > 0 {
+			p.prva = fmt.Errorf("poslužitelj e-pošte prestao je primati upite nakon %d djelatnika: previše prijava u kratkom vremenu. Lozinka je vjerojatno ispravna — pokušajte usporedbu po sektoru", p.uspjelo)
+		}
+		p.mu.Unlock()
+		p.odustani()
+	}
+}
+
+// javi broji obrađenog djelatnika; napredak se zove izvan brave
+func (p *prolazImenika) javi(ime string) {
+	p.mu.Lock()
+	p.gotovo++
+	g := p.gotovo
+	p.mu.Unlock()
+	if p.napredak != nil {
+		p.napredak(ime, g, len(p.svi))
+	}
+}
+
+// imenovani su retci djelatnika s imenom, redom popisa
+func (p *prolazImenika) imenovani() []UsporedbaKontakta {
 	var puni []UsporedbaKontakta
-	for i := range out {
-		if strings.TrimSpace(svi[i].FullName) != "" {
-			puni = append(puni, out[i])
+	for i := range p.out {
+		if strings.TrimSpace(p.svi[i].FullName) != "" {
+			puni = append(puni, p.out[i])
 		}
 	}
-	return puni, nil
+	return puni
+}
+
+// usporedbaDjelatnika uspoređuje djelatnika s najboljim pogotkom adresara
+func usporedbaDjelatnika(x models.User, kandidati []posta.Kontakt) UsporedbaKontakta {
+	u := UsporedbaKontakta{User: x, Kandidati: len(kandidati)}
+	if k := najboljiKontakt(kandidati, x); k != nil {
+		u.Kontakt = k
+		u.Polja = poljaKontakta(x, *k)
+		for _, p := range u.Polja {
+			if p.Razlikuje() {
+				u.Razlike = append(u.Razlike, p)
+			}
+		}
+	}
+	return u
 }
 
 // najboljiKontakt bira osobu iz adresara: istu adresu, pa isto ime; kad
