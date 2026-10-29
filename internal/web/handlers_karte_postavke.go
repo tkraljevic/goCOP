@@ -33,6 +33,11 @@ type PostavkeKarteData struct {
 	SKrugom  bool // točka s krugom ili samo ikona
 	Velicina int  // veličina točke (px)
 
+	// Vektorska je zadana karta bez interneta (nil kad je nema), a
+	// VektorskaOvdje javlja ima li je ovaj čvor na disku
+	Vektorska      *models.VektorskaKarta
+	VektorskaOvdje bool
+
 	// Postavke su obična karta ovog čvora iz gocop.toml (karta.plocice…)
 	Postavke *PostavkeStranice
 
@@ -65,7 +70,8 @@ func (h *AktiHandler) ShowPostavkeKarte(w http.ResponseWriter, r *http.Request) 
 		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
 		Podloge: podlogeZaObrazac(p.Podloge),
 		Ikone:   append([]struct{ Ime, Naziv string }{}, models.IkoneTocaka...), Glavna: glavna,
-		Postavke: h.postavkeCvora.za(r, "/administracija/karte"), SKrugom: p.SKrugom, Velicina: p.Velicina(),
+		Postavke:  h.postavkeCvora.za(r, "/administracija/karte"),
+		Vektorska: p.Vektorska, VektorskaOvdje: kartaOvdje(p.Vektorska), SKrugom: p.SKrugom, Velicina: p.Velicina(),
 		Vlastite: p.Ikone, AdresaIkona: statickaAdresa("img/icons.svg"), AdresaSvojih: adresaVlastitihIkona(p)}
 	for _, ik := range p.Ikone {
 		d.Ikone = append(d.Ikone, struct{ Ime, Naziv string }{ik.Ime, ik.Naziv})
@@ -105,7 +111,14 @@ func (h *AktiHandler) HandlePostavkeKarte(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if r.FormValue("radnja") == "zadano" {
-		if err := s.SpremiPostavkeKarte(r.Context(), perms, nil); err != nil {
+		// karta bez interneta nije izgled, pa ostaje
+		var zadano *models.PostavkeKarte
+		if k := s.PostavkeKarte(r.Context()).Vektorska; k != nil {
+			z := models.ZadanePostavkeKarte()
+			z.Vektorska = k
+			zadano = &z
+		}
+		if err := s.SpremiPostavkeKarte(r.Context(), perms, zadano); err != nil {
 			redirectWith(w, r, "/administracija/karte", "error", err.Error())
 			return
 		}
@@ -113,7 +126,8 @@ func (h *AktiHandler) HandlePostavkeKarte(w http.ResponseWriter, r *http.Request
 		return
 	}
 	p := postavkeKarteIzObrasca(r)
-	p.Ikone = s.PostavkeKarte(r.Context()).Ikone // obrazac ikone ne nosi
+	zatecene := s.PostavkeKarte(r.Context())
+	p.Ikone, p.Vektorska = zatecene.Ikone, zatecene.Vektorska // obrazac ikone i kartu ne nosi
 	if err := s.SpremiPostavkeKarte(r.Context(), perms, &p); err != nil {
 		redirectWith(w, r, "/administracija/karte", "error", err.Error())
 		return
@@ -160,7 +174,7 @@ func postavkeKarteIzObrasca(r *http.Request) models.PostavkeKarte {
 // postavkeKarteZaStranicu su postavke koje app.js čita iz base.html
 func postavkeKarteZaStranicu() any {
 	p := models.PostavkeKartePrograma()
-	return p.ZaPreglednik(statickaAdresa("img/icons.svg"), adresaVlastitihIkona(p))
+	return p.ZaPreglednik(statickaAdresa("img/icons.svg"), adresaVlastitihIkona(p), adresaVektorskeKarte(p.Vektorska))
 }
 
 // adresaVlastitihIkona ima otisak, pa se mijenja s ikonama

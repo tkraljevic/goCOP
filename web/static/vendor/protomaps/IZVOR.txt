@@ -1,0 +1,5 @@
+protomaps-leaflet 5.1.0 (BSD-3-Clause), s npm-a:
+https://registry.npmjs.org/protomaps-leaflet/-/protomaps-leaflet-5.1.0.tgz
+integrity sha512-N0YY1Gbw5nZ9n8VUOvwHKm/w3zhTTuaZEeMZl8doHemeM4ujGPp2otI6t4Sgqrz8iM4svx2rpG1Q17rHkOWSaA==
+Preuzeto 28. 10. 2026.; dist/protomaps-leaflet.js i LICENSE bez izmjena.
+Crta vektorsku kartu (PMTiles) u Leafletu; sama ne zove nijednu vanjsku adresu.

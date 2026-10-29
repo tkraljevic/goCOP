@@ -105,7 +105,7 @@ func TestVlastiteIkoneUPostavkama(t *testing.T) {
 	if _, err := (PostavkeKarte{Ikone: make([]VlastitaIkona, NajviseVlastitih+1)}).Provjeri(); err == nil {
 		t.Error("previše ikona prošlo")
 	}
-	if x := p.ZaPreglednik("/i.svg", "/v.svg"); x == nil {
+	if x := p.ZaPreglednik("/i.svg", "/v.svg", ""); x == nil {
 		t.Error("za preglednik")
 	}
 }

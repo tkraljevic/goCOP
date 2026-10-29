@@ -395,17 +395,18 @@ func templateFuncs() template.FuncMap {
 			}
 			return template.JS(data)
 		},
-		"qualityLabel":  models.QualityLabel,
-		"bankLabel":     hydro.BankLabel,
-		"muniType":      models.MunicipalityTypeLabel,
-		"term":          func(key string) string { return models.Terms().Get(key) },
-		"terml":         func(key string) string { return models.Terms().Lower(key) },
-		"logo":          LogoURL,
-		"temaCSS":       temaCSSAdresa,
-		"postavkeKarte": postavkeKarteZaStranicu,
-		"roleOptions":   roleOptions,
-		"humanBytes":    humanBytes,
-		"km":            models.FormatKm,
+		"qualityLabel":      models.QualityLabel,
+		"bankLabel":         hydro.BankLabel,
+		"muniType":          models.MunicipalityTypeLabel,
+		"term":              func(key string) string { return models.Terms().Get(key) },
+		"terml":             func(key string) string { return models.Terms().Lower(key) },
+		"logo":              LogoURL,
+		"temaCSS":           temaCSSAdresa,
+		"postavkeKarte":     postavkeKarteZaStranicu,
+		"imaVektorskuKartu": imaVektorskuKartu,
+		"roleOptions":       roleOptions,
+		"humanBytes":        humanBytes,
+		"km":                models.FormatKm,
 		"derefTime": func(t *time.Time) time.Time {
 			if t == nil {
 				return time.Time{}
@@ -1282,6 +1283,11 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/karte/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/karte", http.HandlerFunc(aktiH.ShowPostavkeKarte))))
 	s.mux.Handle("POST /administracija/karte/ikona", s.samoAdmin(http.HandlerFunc(aktiH.HandleVlastitaIkona)))
 	s.mux.Handle("POST /administracija/karte/ikona/obrisi", s.samoAdmin(http.HandlerFunc(aktiH.HandleObrisiIkonu)))
+	aktiH.SetPeers(s.peersService)
+	s.mux.Handle("POST /administracija/karte/vektorska", s.samoAdmin(http.HandlerFunc(aktiH.HandleUcitajKartu)))
+	s.mux.Handle("GET /administracija/karte/vektorska.cop", s.samoAdmin(http.HandlerFunc(aktiH.HandleIzveziKartu)))
+	s.mux.Handle("POST /administracija/karte/vektorska/makni", s.samoAdmin(http.HandlerFunc(aktiH.HandleMakniKartu)))
+	s.mux.Handle("GET /karta/vektor/{ime}", s.authMiddleware(http.HandlerFunc(ServeVektorskaKarta)))
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
@@ -1757,6 +1763,7 @@ func bezPriruckeMemorije(next http.Handler) http.Handler {
 // SetDatabase daje poslužitelju bazu i njezinu putanju, za održavanje
 func (s *Server) SetDatabase(db *sql.DB, path string) {
 	s.db, s.dbPath = db, path
+	postaviMapuKarata(path)
 }
 
 // SetKarta daje poslužitelju izvor pločica za kartu. Prazan predložak URL-a
