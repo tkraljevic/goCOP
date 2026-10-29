@@ -69,8 +69,11 @@ type StructurePageData struct {
 	Sections    []models.Section
 	Station     *models.Station
 	StationDown *models.Station // nizvodna letva ustave
-	CanEdit     bool
-	IsEdit      bool
+	// Mjerodavni su mjerodavni vodomjeri nasipa ili brane iz dionica na
+	// kojima stoji; nil kod drugih vrsta objekata
+	Mjerodavni *MjerodavniNasipa
+	CanEdit    bool
+	IsEdit     bool
 
 	Karta        KartaPostavke
 	GeometryJSON template.JS // ucrtani objekt za kartu
@@ -196,6 +199,9 @@ func (h *StructuresHandler) ShowStructure(w http.ResponseWriter, r *http.Request
 		}
 	}
 	data.Station, data.StationDown = h.letvaObjekta(ctx, st.StationID), h.letvaObjekta(ctx, st.StationDownID)
+	if imaMjerodavneVodomjere(st.Kind) {
+		data.Mjerodavni = h.mjerodavniVodomjeri(ctx, st.ID.String(), st.Kind, data.Sections)
+	}
 	h.napuniKartu(&data)
 	if err := h.tmplDetail.ExecuteTemplate(w, "structure_detail.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
