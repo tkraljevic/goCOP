@@ -54,20 +54,27 @@ func (s *MaintenanceService) LinkWater(ctx context.Context, perms *models.UserPe
 	if m == nil || m.AreaID != area.ID {
 		return errors.New("lokacija nije pronađena")
 	}
-	target = strings.TrimSpace(target)
 	m.WatercourseCode, m.StructureID = "", ""
-	if target != "" {
-		if w, err := s.waters.GetWatercourse(ctx, target); err != nil {
-			return err
-		} else if w != nil {
-			m.WatercourseCode = w.Code
-		} else if st, err := s.structures.GetByCode(ctx, target); err != nil {
-			return err
-		} else if st != nil {
-			m.StructureID = st.ID.String()
-		} else {
-			return errors.New("nema vode ni objekta s tom šifrom")
-		}
+	return s.linkAndSave(ctx, m, strings.TrimSpace(target))
+}
+
+// linkAndSave veže lokaciju na vodu zadane šifre ili, kad takve vode nema,
+// na objekt (nasip) iste šifre, pa je upisuje. Bez šifre veza ostaje kakva
+// jest. Zajedničko je ručnom unosu i vezanju postojeće lokacije.
+func (s *MaintenanceService) linkAndSave(ctx context.Context, m *models.MaintainedWater, target string) error {
+	if target == "" {
+		return s.repo.UpsertWater(ctx, m)
+	}
+	if w, err := s.waters.GetWatercourse(ctx, target); err != nil {
+		return err
+	} else if w != nil {
+		m.WatercourseCode = w.Code
+	} else if st, err := s.structures.GetByCode(ctx, target); err != nil {
+		return err
+	} else if st != nil {
+		m.StructureID = st.ID.String()
+	} else {
+		return errors.New("nema vode ni objekta s tom šifrom")
 	}
 	return s.repo.UpsertWater(ctx, m)
 }
@@ -82,22 +89,11 @@ func (s *MaintenanceService) AddWater(ctx context.Context, perms *models.UserPer
 	if m.Name == "" {
 		return errors.New("naziv lokacije je obvezan")
 	}
-	if m.Order != models.WaterOrderFirst && m.Order != models.WaterOrderSecond && m.Order != models.WaterOrderThird && m.Order != models.WaterOrderFourth {
-		return errors.New("odaberite red vode")
+	if err := normalizeWaterOrder(m); err != nil {
+		return err
 	}
-	if m.Order != models.WaterOrderFirst {
-		m.Group = ""
-	} else if m.Group != models.WaterGroupInterstate && m.Group != models.WaterGroupOtherState {
-		return errors.New("za vode I. reda odaberite skupinu")
-	}
-	if m.Program == "" {
-		m.Program = models.ProgramA02
-		if m.Order == models.WaterOrderThird || m.Order == models.WaterOrderFourth {
-			m.Program = models.ProgramA03
-		}
-	}
-	if m.Program != models.ProgramA02 && m.Program != models.ProgramA03 {
-		return errors.New("program je A.02 ili A.03")
+	if err := normalizeWaterProgram(m); err != nil {
+		return err
 	}
 	if models.MaintenanceKindLabel(m.Kind) == m.Kind {
 		return errors.New("odaberite vrstu lokacije")
@@ -112,20 +108,36 @@ func (s *MaintenanceService) AddWater(ctx context.Context, perms *models.UserPer
 	if m.Source == "" {
 		m.Source = "ručni unos"
 	}
-	if target = strings.TrimSpace(target); target != "" {
-		if w, err := s.waters.GetWatercourse(ctx, target); err != nil {
-			return err
-		} else if w != nil {
-			m.WatercourseCode = w.Code
-		} else if st, err := s.structures.GetByCode(ctx, target); err != nil {
-			return err
-		} else if st != nil {
-			m.StructureID = st.ID.String()
-		} else {
-			return errors.New("nema vode ni objekta s tom šifrom")
+	return s.linkAndSave(ctx, m, strings.TrimSpace(target))
+}
+
+// normalizeWaterOrder provjerava red vode i sređuje skupinu: skupinu
+// (međudržavne ili ostale državne) imaju samo vode I. reda, ostalima se briše
+func normalizeWaterOrder(m *models.MaintainedWater) error {
+	if m.Order != models.WaterOrderFirst && m.Order != models.WaterOrderSecond && m.Order != models.WaterOrderThird && m.Order != models.WaterOrderFourth {
+		return errors.New("odaberite red vode")
+	}
+	if m.Order != models.WaterOrderFirst {
+		m.Group = ""
+	} else if m.Group != models.WaterGroupInterstate && m.Group != models.WaterGroupOtherState {
+		return errors.New("za vode I. reda odaberite skupinu")
+	}
+	return nil
+}
+
+// normalizeWaterProgram dopunjava i provjerava program: bez zadanog programa
+// kanali III. i IV. reda su A.03, ostale vode A.02
+func normalizeWaterProgram(m *models.MaintainedWater) error {
+	if m.Program == "" {
+		m.Program = models.ProgramA02
+		if m.Order == models.WaterOrderThird || m.Order == models.WaterOrderFourth {
+			m.Program = models.ProgramA03
 		}
 	}
-	return s.repo.UpsertWater(ctx, m)
+	if m.Program != models.ProgramA02 && m.Program != models.ProgramA03 {
+		return errors.New("program je A.02 ili A.03")
+	}
+	return nil
 }
 
 // ImportContract čita ugovor o održavanju iz datoteke: bez write samo
