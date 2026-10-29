@@ -180,7 +180,18 @@ func TestObrazacDioniceImaZaglavljeIPrijepis(t *testing.T) {
 	if redak == "" {
 		t.Fatal("predložak retka nasipa nije nađen")
 	}
-	if strings.Contains(redak, "<label") {
+	// kvačica „vrijedi i ugroženo područje cijele poddionice” nije naslov
+	// stupca, nego njezin natpis, pa se ne broji
+	bezKvacice := redak
+	if i := strings.Index(redak, `data-field="ugrozeno_poddionice"`); i >= 0 {
+		if j := strings.LastIndex(redak[:i], "<label"); j >= 0 {
+			bezKvacice = redak[:j]
+			if k := strings.Index(redak[i:], "</label>"); k >= 0 {
+				bezKvacice += redak[i+k+len("</label>"):]
+			}
+		}
+	}
+	if strings.Contains(bezKvacice, "<label") {
 		t.Error("redak nasipa još nosi vlastite naslove stupaca")
 	}
 	for _, treba := range []string{`data-label="Uz vodu od"`, `aria-label="Uz vodu od"`} {

@@ -157,3 +157,83 @@ func ugrozenoBezNasipa(rows []EmbankmentRow, ostalo []models.SectionTerritory) (
 	rows[len(rows)-1].Territories = ostalo
 	return rows, nil
 }
+
+// rasporediUgrozeno razvrstava ugroženo područje poddionice po retcima
+// kartice. Nasip s kvačicom „vrijedi i ugroženo područje cijele
+// poddionice” pokazuje uz svoja i naselja upisana bez nasipa (B.34.14,
+// poddionica 2: tri nasipa, pet naselja za cijelu poddionicu). Redak „Bez
+// nasipa” koji postoji zbog objekata izvan nasipa i dalje pokazuje sva
+// naselja bez svog nasipa. Samo radi naselja dodaje se tek kad ima naselja
+// čiji je nasip preimenovan ili uklonjen: ona ne pripadaju cijeloj
+// poddionici, pa ih nasip s kvačicom ne preuzima. Kad nijedan nasip nema
+// kvačicu, sve je kao u ugrozenoBezNasipa.
+func rasporediUgrozeno(rows []EmbankmentRow, part models.SectionPart, poKljucu map[string]models.SectionTerritory) ([]EmbankmentRow, []models.SectionTerritory) {
+	ostalo := razvrstajUgrozeno(rows, part, poKljucu)
+	if len(ostalo) == 0 || !nekiNasipNosiPoddionicu(rows) {
+		return ugrozenoBezNasipa(rows, ostalo)
+	}
+	zaPoddionicu, bezSvogNasipa := podijeliBezNasipa(ostalo, part)
+	for i := range rows {
+		if e := rows[i].Embankment; e != nil && e.UgrozenoPoddionice {
+			rows[i].Territories = dodajNaselja(rows[i].Territories, zaPoddionicu)
+		}
+	}
+	if n := len(rows); rows[n-1].Embankment == nil {
+		rows[n-1].Territories = ostalo
+	} else if len(bezSvogNasipa) > 0 {
+		rows = append(rows, EmbankmentRow{Territories: bezSvogNasipa})
+	}
+	return rows, nil
+}
+
+// podijeliBezNasipa dijeli naselja bez svog nasipa na ona upisana za cijelu
+// poddionicu (on_embankment prazno) i ona čiji nasip više ne postoji
+func podijeliBezNasipa(ostalo []models.SectionTerritory, part models.SectionPart) (zaPoddionicu, bezSvogNasipa []models.SectionTerritory) {
+	bezOznake := map[string]bool{}
+	for _, t := range part.Territories {
+		if kljucNaziva(t.OnEmbankment) == "" {
+			bezOznake[t.Key()] = true
+		}
+	}
+	for _, t := range ostalo {
+		if bezOznake[kljucUgrozenog(t)] {
+			zaPoddionicu = append(zaPoddionicu, t)
+		} else {
+			bezSvogNasipa = append(bezSvogNasipa, t)
+		}
+	}
+	return zaPoddionicu, bezSvogNasipa
+}
+
+func nekiNasipNosiPoddionicu(rows []EmbankmentRow) bool {
+	for _, r := range rows {
+		if r.Embankment != nil && r.Embankment.UgrozenoPoddionice {
+			return true
+		}
+	}
+	return false
+}
+
+// dodajNaselja vraća nov popis: naselja nasipa, pa naselja poddionice kojih
+// uz nasip još nema. Isto naselje uz nasip i uz poddionicu ne piše se dvaput;
+// tako otpada i naselje upisano dvaput uz isti nasip, što obrazac ionako ne
+// dopušta.
+func dodajNaselja(svoja, poddionice []models.SectionTerritory) []models.SectionTerritory {
+	out := make([]models.SectionTerritory, 0, len(svoja)+len(poddionice))
+	ima := map[string]bool{}
+	for _, popis := range [][]models.SectionTerritory{svoja, poddionice} {
+		for _, t := range popis {
+			k := kljucUgrozenog(t)
+			if ima[k] {
+				continue
+			}
+			ima[k] = true
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func kljucUgrozenog(t models.SectionTerritory) string {
+	return models.PartTerritory{CountyID: t.CountyID, MunicipalityID: t.MunicipalityID, SettlementID: t.SettlementID}.Key()
+}
