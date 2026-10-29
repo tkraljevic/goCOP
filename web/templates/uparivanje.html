@@ -30,6 +30,7 @@
           <input type="text" id="addr" class="form-control" placeholder="adresa, npr. 192.168.1.20" style="max-width:220px;">
           <button type="button" class="btn btn-secondary" onclick="dial()">Nazovi</button>
           <button type="button" class="btn btn-secondary" onclick="listen()">Čekaj poziv ureda</button>
+          <button type="button" class="btn btn-secondary" id="stop-btn" onclick="stopListen()" style="display:none;">Prestani čekati</button>
         </div>
         <div id="found"></div>
         <p id="status" class="muted mt-2 mb-0"></p>
@@ -90,6 +91,7 @@ function show(st) {
   if (st.error) { status.innerHTML = '<span class="err">' + escPronadjeno(st.error) + '</span>'; }
   else if (st.waiting) { status.textContent = 'Čeka se da ured nazove ovo računalo…'; }
   else if (!st.pending) { status.textContent = ''; }
+  $('stop-btn').style.display = st.waiting ? '' : 'none';
   if (st.pending) {
     on('step-find', 'done'); on('step-code', 'on');
     $('pending').style.display = 'block';
@@ -107,6 +109,13 @@ function show(st) {
 }
 
 async function listen() { try { show(await api('/api/uparivanje/listen', {})); } catch (e) { $('status').innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; } }
+async function stopListen() {
+  try {
+    const st = await api('/api/uparivanje/stop', {});
+    show(st);
+    if (!st.waiting && !st.pending && !st.error) { $('status').textContent = 'Čekanje je prekinuto.'; }
+  } catch (e) { $('status').innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
+}
 async function dial(addr) {
   addr = addr || $('addr').value.trim();
   if (!addr) { $('status').textContent = 'Upišite adresu računala.'; return; }

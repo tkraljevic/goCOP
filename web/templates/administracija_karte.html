@@ -54,7 +54,7 @@
   <p class="text-muted">Na karti se podloga bira gumbom sa slojevima, gore desno. Prva je uvijek obična karta, a ostale vrijede na svim čvorovima.</p>
   <fieldset class="karte-podloga">
     <legend>Karta (OpenStreetMap), samo ovaj čvor</legend>
-    <p class="text-muted">Izvor obične karte je postavka ovog čvora u gocop.toml, jer laptop bez interneta može čitati pločice spremljene na disku (<code>/karta/{z}/{x}/{y}.png</code>). Sprema se zasebnim gumbom ispod, a vrijedi nakon ponovnog pokretanja čvora.</p>
+    <p class="text-muted">Izvor obične karte je postavka ovog čvora u gocop.toml, jer laptop bez interneta može čitati pločice spremljene na disku (<code>/karta/{z}/{x}/{y}.png</code>).{{if .Postavke}} Sprema se zasebnim gumbom u odjeljku <a href="#obicna-karta">Obična karta ovog čvora</a>, a vrijedi nakon ponovnog pokretanja čvora.{{end}}</p>
     {{with .Postavke}}{{template "trakaPonovnogPokretanja" .}}{{else}}<p class="text-muted">Postavke ovog čvora ovdje nisu dostupne.</p>{{end}}
   </fieldset>
   <p class="text-muted">Adresa pločica ima <code>{z}</code>, <code>{x}</code> i <code>{y}</code>, a ključ se u nju upisuje kao <code>{kljuc}</code>, npr. <code>https://…/tile/{z}/{y}/{x}?token={kljuc}</code>. Ključ vide svi prijavljeni korisnici, jer ga preglednik šalje uz svaku pločicu. Zato upišite ključ koji smije samo čitati podloge.</p>
@@ -103,7 +103,7 @@
   </table>
   <div class="d-flex gap-2 mt-2">
     {{if $.VektorskaOvdje}}<a class="btn btn-secondary" href="/administracija/karte/vektorska.cop">{{icon "download"}} Preuzmi .cop za druga računala</a>{{end}}
-    <form method="POST" action="/administracija/karte/vektorska/makni" onsubmit="return confirm('Maknuti kartu bez interneta? Na svim čvorovima prestaje biti podloga, a s ovog računala se briše.')">
+    <form method="POST" action="/administracija/karte/vektorska/makni" onsubmit="return confirm({{if $.VektorskaOvdje}}'Maknuti kartu bez interneta? Na svim čvorovima prestaje biti podloga, a s ovog računala se briše.'{{else}}'Maknuti kartu bez interneta sa svih čvorova? Na svim čvorovima prestaje biti podloga. Ovo računalo je nema, pa se s njega ništa ne briše.'{{end}})">
       <button type="submit" class="btn btn-secondary">{{icon "trash"}} Makni kartu</button>
     </form>
   </div>
@@ -122,7 +122,7 @@
 </section>
 
 {{with .Postavke}}
-<section class="detail-section" id="postavke-cvora">
+<section class="detail-section" id="obicna-karta">
   <div class="detail-section-head"><h2>{{icon "map"}} Obična karta ovog čvora (gocop.toml)</h2></div>
   <p class="text-muted">Odakle ovaj čvor uzima običnu kartu. Ne vrijedi na drugim čvorovima.</p>
   {{template "postavkeCvora" (.Dio "karte")}}

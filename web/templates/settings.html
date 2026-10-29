@@ -32,12 +32,12 @@
     {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{template "webSyncNakonPadova" .WebSync}}{{template "provjeraVeze" .Provjera}}{{end}}
   </div>
 
-  <div class="card">
+  <div class="card" id="uloge">
     <h2>Uloge ovog čvora</h2>
     <p class="desc">Vodostaje s izvora (vodostaji.voda.hr, mađarske, austrijske i ostale letve) dovoljno je da preuzima jedan čvor: očitanja putuju razmjenom. Prognozu izdaje jedan čvor, a njegovo izdanje stiže ostalima; inače dva računala izdaju dvije malo različite prognoze za isti sat.</p>
     <form method="POST" action="/settings/uloge">
       <label class="uloga-red"><input type="checkbox" name="preuzima" value="1"{{if .Uloge.Preuzima}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
-        <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat; računi HidroViewa i letve trebaju samo ovdje</span></span></label>
+        <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat; računi za HydroView i mobilnu stranicu Hrvatskih voda trebaju samo ovdje</span></span></label>
       <label class="uloga-red"><input type="checkbox" name="izdaje" value="1"{{if .Uloge.Izdaje}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
         <span><b>Izdaje prognozu</b><br><span class="muted">tuđe prognoze, kiša, izračun i priprema modela; izdanje i model idu razmjenom</span></span></label>
       {{if .Permissions.IsGlobalAdmin}}<div class="actions" style="margin-top:0.6rem;"><button type="submit" class="btn btn-primary">Spremi uloge</button></div>{{end}}
@@ -182,6 +182,7 @@
     <div id="pair-box">
       <div class="actions">
         <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj drugi čvor</button>
+        <button type="button" class="btn btn-secondary" id="pair-stop" onclick="pairStop()" style="display:none;">Prestani čekati</button>
         <input type="text" id="pair-addr" class="form-control" placeholder="adresa čvora, npr. 192.168.1.20" style="max-width:260px;">
         <button type="button" class="btn btn-secondary" onclick="pairDial()">Nazovi čvor</button>
       </div>
@@ -256,6 +257,7 @@ function showPairStatus(st) {
   if (st.error) { box.innerHTML = '<span class="err">' + escPronadjeno(st.error) + '</span>'; }
   else if (st.waiting) { box.textContent = 'Čeka se da drugi čvor nazove ovaj (port ' + {{.Ports.Pair}} + ')…'; }
   else if (!st.pending) { box.textContent = ''; }
+  document.getElementById('pair-stop').style.display = st.waiting ? '' : 'none';
   if (st.pending) {
     pending.style.display = 'block';
     document.getElementById('pair-peer-name').textContent = st.peer.name || '';
@@ -272,6 +274,13 @@ function showPairStatus(st) {
 }
 
 async function pairListen() { try { showPairStatus(await api('/api/peers/pair/listen', {})); } catch (e) { alert(e.message); } }
+async function pairStop() {
+  try {
+    const st = await api('/api/peers/pair/stop', {});
+    showPairStatus(st);
+    if (!st.waiting && !st.pending && !st.error) { document.getElementById('pair-status').textContent = 'Čekanje je prekinuto.'; }
+  } catch (e) { alert(e.message); }
+}
 async function pairDial() {
   const addr = document.getElementById('pair-addr').value.trim();
   if (!addr) { alert('Upišite adresu čvora.'); return; }

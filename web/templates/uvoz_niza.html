@@ -798,7 +798,7 @@
           krivo.</span>
       </label>
       {{if .Zatecen.IzvanNov}}
-      <div class="alert alert-warning mt-2 mb-0">
+      <div class="alert alert-warning mt-2 mb-0" data-potvrda-zamjene="Zamjena će iz arhive odnijeti {{brojHR .Zatecen.IzvanNov}} {{uzBroj .Zatecen.IzvanNov "vrijednost" "vrijednosti" "vrijednosti"}} kojih u ovoj datoteci nema ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}). Upisati i izgraditi?">
         Zamjena bi odnijela i vrijednosti kojih u ovoj datoteci nema: <strong>{{brojHR .Zatecen.IzvanNov}}</strong>
         ({{.Zatecen.OdIzvan}} – {{.Zatecen.DoIzvan}}).
       </div>

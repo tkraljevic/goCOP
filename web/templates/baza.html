@@ -10,7 +10,8 @@
     <h1 class="page-title">{{icon "history"}} Održavanje baze</h1>
     <p class="page-desc">
       Koliko je baza velika i od čega, sažimanje knjige verzija, povrat prostora na disku, te izvoz i uvoz
-      kanala u datoteku. Ništa ovdje ne dira zadnje stanje zapisa; briše se samo povijest izmjena i prostor.
+      kanala u datoteku. Sažimanje briše samo staru povijest izmjena, a povrat prostora vraća oslobođeni prostor
+      na disku. Ni jedno ni drugo ne dira zadnje stanje zapisa. Ugradnja paketa i obnova iz knjige zapise osvježavaju.
     </p>
   </div>
 </div>
@@ -60,7 +61,7 @@
     </div>
     <button type="submit" class="btn btn-secondary">Preračunaj</button>
   </form>
-  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{end}}</p>
+  <p class="mt-3 mb-3">Uz rok od <b>{{.KeepDays}}</b> dana sažimanje bi obrisalo <b>{{.Compactable}}</b> {{uzBroj .Compactable "verziju" "verzije" "verzija"}}.{{if .BrisanjePovijesti}} Prekidač <em>Brisanje povijesti verzija</em> je uključen: rok 0 briše svu povijest odmah.{{else}} Prekidač <em>Brisanje povijesti verzija</em> u <a href="/administracija/opcije">Opcijama</a> otključava rok 0 i brisanje spomenika. Uključuje se samo pri čišćenju testnog čvora.{{end}}</p>
   {{if .Permissions.IsGlobalAdmin}}
   <div class="d-flex gap-2 flex-wrap">
     <form method="POST" action="/administracija/baza/sazmi" onsubmit="return confirm('Obrisati {{.Compactable}} {{uzBroj .Compactable "stariju verziju" "starije verzije" "starijih verzija"}}? Zadnje verzije i spomenici ostaju; povijest izmjena starija od {{.KeepDays}} dana nestaje s ovog čvora.')">
@@ -75,11 +76,12 @@
     <form method="POST" action="/administracija/baza/vacuum" onsubmit="return confirm('Sažeti datoteku na disku? Traje ovisno o veličini, program za to vrijeme radi sporije.')">
       <button type="submit" class="btn btn-secondary">{{icon "refresh-cw"}} Vrati prostor na disku (VACUUM)</button>
     </form>
-    <form method="POST" action="/administracija/baza/obnovi">
-      <button type="submit" class="btn btn-secondary" title="Zadnje verzije iz knjige ponovno se primijene na tablice; koristi se kad razmjena javi da površina nije osvježena">{{icon "history"}} Obnovi površinu iz knjige</button>
+    <form method="POST" action="/administracija/baza/obnovi" onsubmit="return confirm('Ponovno upisati zadnje stanje svih zapisa iz knjige verzija? To može potrajati.')">
+      <button type="submit" class="btn btn-secondary">{{icon "history"}} Obnovi zapise iz knjige</button>
     </form>
   </div>
   <div class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; VACUUM ga vraća operacijskom sustavu.</div>
+  <div class="form-help">Obnova iz knjige ponovno upisuje zadnje stanje svakog zapisa iz knjige verzija. Treba samo kad ugradnja paketa ili arhive javi „površina nije osvježena”.</div>
   {{end}}
 </section>
 
@@ -112,15 +114,16 @@
     </div>
     <div class="form-group m-0">
       <label class="form-label" for="area">{{term "podrucje"}}</label>
-      <input type="text" inputmode="numeric" id="area" name="area" class="form-control max-w-10" placeholder="npr. 16 (prazno = sva)">
+      <input type="text" inputmode="numeric" id="area" name="area" class="form-control max-w-10" placeholder="npr. 16">
     </div>
     <div class="form-group m-0">
       <label class="form-label" for="year">Godina</label>
-      <input type="text" inputmode="numeric" id="year" name="year" class="form-control max-w-10" placeholder="npr. 2024 (prazno = sve)">
+      <input type="text" inputmode="numeric" id="year" name="year" class="form-control max-w-10" placeholder="npr. 2024">
     </div>
     <button type="submit" class="btn btn-primary">{{icon "download"}} Izdaj .cop</button>
     <button type="submit" name="oblik" value="db" class="btn btn-secondary" title="Stara SQLite arhiva bez potpisa i sadržaja">Stari oblik (.db)</button>
   </form>
+  <div class="form-help">Upišite područje, godinu ili oboje. Bez područja izdaju se sva područja te godine, a bez godine sve godine tog područja.</div>
   <div class="table-card mt-3"><div class="table-responsive">
     <table class="data-table">
       <thead><tr><th>Vrsta</th><th>BP</th><th>Godina</th><th>Verzija</th><th>Pretplata</th></tr></thead>

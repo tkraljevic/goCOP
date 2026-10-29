@@ -1823,6 +1823,17 @@ function dodajKontroleKarte(karta, platno, opcije) {
       var polje = forma.elements[ime];
       if (polje) { polje.addEventListener('change', pitaj); }
     });
+
+    // Zamjena koja odnosi vrijednosti kojih u datoteci nema traži potvrdu.
+    // Osvježi pregled ništa ne upisuje, pa se uz njega ne pita.
+    forma.addEventListener('submit', function (e) {
+      if (e.submitter && e.submitter.getAttribute('formaction')) { return; }
+      var zamjena = forma.querySelector('input[name="nacin"][value="zamijeni"]:checked');
+      var upozorenje = okvir.querySelector('[data-potvrda-zamjene]');
+      if (zamjena && upozorenje && !window.confirm(upozorenje.getAttribute('data-potvrda-zamjene'))) {
+        e.preventDefault();
+      }
+    });
     // Prvi put odmah, za slučaj da naziv datoteke već sve kazuje.
     if (!okvir.innerHTML.trim()) { pitaj(); }
   }

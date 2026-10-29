@@ -155,7 +155,9 @@ function render(st) {
   $('t-auto').querySelector('.n').textContent = st.auto_sync ? fmtEvery(st.interval_sec) : 'isključeno';
   $('t-auto').className = 'tile ' + (st.auto_sync ? '' : 'bad');
 
-  $('alerts').innerHTML = (st.alerts || []).map(a => '<div class="alert alert-warning">' + esc(a) + '</div>').join('');
+  // upozorenja koja traže uparivanje vode globalnog administratora na uparivanje
+  $('alerts').innerHTML = (st.alerts || []).map(a => '<div class="alert alert-warning">' + esc(a) +
+    (IS_ADMIN && a.indexOf('Uparite') >= 0 ? ' <a href="/uparivanje">Upari računalo</a>' : '') + '</div>').join('');
 
   const label = {online: 'na mreži', offline: 'ne odgovara', never: 'još nikad'};
   const rows = (st.peers || []).map(p => {

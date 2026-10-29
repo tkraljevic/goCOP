@@ -17,8 +17,7 @@ import (
 
 // Stranica Administracija › Telemetrija. Letve koje nemaju javnu stranicu
 // vodostaja čitaju se s Geolux HydroViewa, a taj sustav traži prijavu.
-// Račun stoji na čvoru: upiše se jednom i vrijedi za sve takve letve, a
-// letva koja treba drugi upisuje ga u svojoj kartici.
+// Račun stoji na čvoru: upiše se jednom i vrijedi za sve takve letve.
 //
 // Račun je ovdje, a ne među postavkama čvora, jer je posao onoga tko vodi
 // letve, kao i poslužitelj e-pošte — s čvorom ga veže samo to što se lozinka
@@ -134,7 +133,8 @@ func (h *TelemetrijaHandler) letve(ctx context.Context, repo *repository.HidroVi
 
 // Spremi upisuje račun čvora. Prijava se prvo provjeri na samom sustavu:
 // bolje odbiti odmah nego da letve svaki sat javljaju grešku koju nitko ne
-// gleda. Prazno korisničko ime briše račun s ovog čvora.
+// gleda. Račun se briše samo posebnim gumbom; prazno korisničko ime se
+// odbija, da se račun ne izgubi slučajno.
 func (h *TelemetrijaHandler) Spremi(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	const natrag = "/administracija/telemetrija"
@@ -143,30 +143,19 @@ func (h *TelemetrijaHandler) Spremi(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", "Spremište računa nije dostupno.")
 		return
 	}
+	if r.FormValue("radnja") == "obrisi" {
+		obrisiRacun(w, r, "Račun za HydroView", func() error { return repo.Obrisi(ctx, "") })
+		return
+	}
 	korisnik := strings.TrimSpace(r.FormValue("hidroview_korisnik"))
 	lozinka := r.FormValue("hidroview_lozinka")
 	adresa := strings.TrimSpace(r.FormValue("hidroview_adresa"))
-
 	if korisnik == "" {
-		if err := repo.Obrisi(ctx, ""); err != nil {
-			redirectWith(w, r, natrag, "error", "Račun nije obrisan: "+err.Error())
-			return
-		}
-		redirectWith(w, r, natrag, "success", "Račun je obrisan s ovog čvora.")
+		redirectWith(w, r, natrag, "error", porukaPraznogKorisnika)
 		return
 	}
 	if lozinka == "" {
-		postojeci, _ := repo.Racun(ctx, "")
-		if postojeci == nil || postojeci.Letva != "" {
-			redirectWith(w, r, natrag, "error", "Upišite i lozinku.")
-			return
-		}
-		postojeci.Korisnik, postojeci.Adresa = korisnik, adresa
-		if err := repo.Spremi(ctx, postojeci); err != nil {
-			redirectWith(w, r, natrag, "error", err.Error())
-			return
-		}
-		redirectWith(w, r, natrag, "success", "Račun je spremljen.")
+		spremiBezLozinke(w, r, repo, korisnik, adresa)
 		return
 	}
 	provjera, otkazi := context.WithTimeout(ctx, 45*time.Second)
@@ -177,14 +166,9 @@ func (h *TelemetrijaHandler) Spremi(w http.ResponseWriter, r *http.Request) {
 			"Prijava na "+hidroview.Podrijetlo+" nije prošla, ništa nije spremljeno: "+err.Error())
 		return
 	}
-	kljuc := h.kljuc()
-	if len(kljuc) == 0 {
-		redirectWith(w, r, natrag, "error", "Ključ čvora nije učitan, pa se lozinka ne može sigurno spremiti.")
-		return
-	}
-	z, err := posta.Zakljucaj(kljuc, lozinka)
-	if err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
+	z, greska := h.zakljucaj(lozinka)
+	if greska != "" {
+		redirectWith(w, r, natrag, "error", greska)
 		return
 	}
 	if err := repo.Spremi(ctx, &repository.RacunHidroView{Korisnik: korisnik, Adresa: adresa, Lozinka: z}); err != nil {
@@ -194,10 +178,57 @@ func (h *TelemetrijaHandler) Spremi(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, natrag, "success", "Prijava je provjerena i račun je spremljen na ovaj čvor.")
 }
 
+// porukaPraznogKorisnika odbija spremanje bez korisničkog imena; prije je
+// ono brisalo račun, pa letve tiho prestanu preuzimati
+const porukaPraznogKorisnika = "Račun nije spremljen: korisničko ime je prazno. Upišite korisničko ime i lozinku."
+
+// spremiBezLozinke mijenja samo korisničko ime i adresu već upisanog računa
+// čvora; lozinka ostaje stara.
+func spremiBezLozinke(w http.ResponseWriter, r *http.Request, repo *repository.HidroViewRepository, korisnik, adresa string) {
+	const natrag = "/administracija/telemetrija"
+	postojeci, _ := repo.Racun(r.Context(), "") // nepročitan račun vrijedi kao neupisan: traži se lozinka
+	if postojeci == nil || postojeci.Letva != "" {
+		redirectWith(w, r, natrag, "error", "Upišite i lozinku.")
+		return
+	}
+	postojeci.Korisnik, postojeci.Adresa = korisnik, adresa
+	if err := repo.Spremi(r.Context(), postojeci); err != nil {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", "Račun je spremljen.")
+}
+
+// obrisiRacun je gumb „Obriši račun”: račun nestaje s ovog čvora, a poruka
+// kaže koji.
+func obrisiRacun(w http.ResponseWriter, r *http.Request, koji string, obrisi func() error) {
+	const natrag = "/administracija/telemetrija"
+	if err := obrisi(); err != nil {
+		redirectWith(w, r, natrag, "error", koji+" nije obrisan: "+err.Error())
+		return
+	}
+	redirectWith(w, r, natrag, "success", koji+" je obrisan s ovog čvora.")
+}
+
+// zakljucaj zaključava lozinku ključem čvora; uz neuspjeh vraća poruku za
+// korisnika.
+func (h *TelemetrijaHandler) zakljucaj(lozinka string) ([]byte, string) {
+	kljuc := h.kljuc()
+	if len(kljuc) == 0 {
+		return nil, "Ključ čvora nije učitan, pa se lozinka ne može sigurno spremiti."
+	}
+	z, err := posta.Zakljucaj(kljuc, lozinka)
+	if err != nil {
+		return nil, err.Error()
+	}
+	return z, ""
+}
+
 // SpremiMLetvu upisuje račun čvora za mletva.voda.hr. Prijava se provjeri na
 // samom sustavu prije spremanja. „Iz e-pošte“ uzima račun e-pošte prijavljenog
 // korisnika — isti je račun domene — pa se lozinka ne upisuje dvaput;
-// korisničko ime ondje ide bez „@voda.hr“.
+// korisničko ime ondje ide bez „@voda.hr“. Račun se briše samo posebnim
+// gumbom, kao i račun HydroViewa.
 func (h *TelemetrijaHandler) SpremiMLetvu(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	const natrag = "/administracija/telemetrija"
@@ -206,26 +237,17 @@ func (h *TelemetrijaHandler) SpremiMLetvu(w http.ResponseWriter, r *http.Request
 		redirectWith(w, r, natrag, "error", "Spremište računa nije dostupno.")
 		return
 	}
-	korisnik := strings.TrimSpace(r.FormValue("mletva_korisnik"))
-	lozinka := r.FormValue("mletva_lozinka")
-	if r.FormValue("iz_poste") != "" {
-		u, _ := ctx.Value(contextKeyUser).(*models.User)
-		if h.racunPoste == nil || u == nil {
-			redirectWith(w, r, natrag, "error", "Račun e-pošte nije dostupan.")
-			return
-		}
-		k, l, err := h.racunPoste(ctx, u)
-		if err != nil {
-			redirectWith(w, r, natrag, "error", "Račun e-pošte se ne da uzeti: "+err.Error())
-			return
-		}
-		korisnik, lozinka = KorisnikDomene(k), l
-	} else if korisnik == "" {
-		if err := sr.Obrisi(ctx, mletva.Podrijetlo); err != nil {
-			redirectWith(w, r, natrag, "error", "Račun nije obrisan: "+err.Error())
-			return
-		}
-		redirectWith(w, r, natrag, "success", "Račun za "+mletva.Podrijetlo+" je obrisan s ovog čvora.")
+	if r.FormValue("radnja") == "obrisi" {
+		obrisiRacun(w, r, "Račun za mobilnu stranicu Hrvatskih voda", func() error { return sr.Obrisi(ctx, mletva.Podrijetlo) })
+		return
+	}
+	korisnik, lozinka, greska := h.racunZaMLetvu(r)
+	if greska != "" {
+		redirectWith(w, r, natrag, "error", greska)
+		return
+	}
+	if korisnik == "" {
+		redirectWith(w, r, natrag, "error", porukaPraznogKorisnika)
 		return
 	}
 	if lozinka == "" {
@@ -238,14 +260,9 @@ func (h *TelemetrijaHandler) SpremiMLetvu(w http.ResponseWriter, r *http.Request
 		redirectWith(w, r, natrag, "error", "Prijava na "+mletva.Podrijetlo+" nije prošla, ništa nije spremljeno: "+err.Error())
 		return
 	}
-	kljuc := h.kljuc()
-	if len(kljuc) == 0 {
-		redirectWith(w, r, natrag, "error", "Ključ čvora nije učitan, pa se lozinka ne može sigurno spremiti.")
-		return
-	}
-	z, err := posta.Zakljucaj(kljuc, lozinka)
-	if err != nil {
-		redirectWith(w, r, natrag, "error", err.Error())
+	z, greska := h.zakljucaj(lozinka)
+	if greska != "" {
+		redirectWith(w, r, natrag, "error", greska)
 		return
 	}
 	if err := sr.Spremi(ctx, &repository.RacunSustava{Sustav: mletva.Podrijetlo, Korisnik: korisnik, Lozinka: z}); err != nil {
@@ -253,6 +270,24 @@ func (h *TelemetrijaHandler) SpremiMLetvu(w http.ResponseWriter, r *http.Request
 		return
 	}
 	redirectWith(w, r, natrag, "success", "Prijava na "+mletva.Podrijetlo+" je provjerena i račun "+korisnik+" je spremljen na ovaj čvor.")
+}
+
+// racunZaMLetvu čita korisnika i lozinku iz obrasca, ili ih uz „Uzmi moj
+// račun e-pošte“ uzima iz profila prijavljenog korisnika; uz neuspjeh vraća
+// poruku za korisnika.
+func (h *TelemetrijaHandler) racunZaMLetvu(r *http.Request) (korisnik, lozinka, greska string) {
+	if r.FormValue("iz_poste") == "" {
+		return strings.TrimSpace(r.FormValue("mletva_korisnik")), r.FormValue("mletva_lozinka"), ""
+	}
+	u, _ := r.Context().Value(contextKeyUser).(*models.User)
+	if h.racunPoste == nil || u == nil {
+		return "", "", "Račun e-pošte nije dostupan."
+	}
+	k, l, err := h.racunPoste(r.Context(), u)
+	if err != nil {
+		return "", "", "Račun e-pošte se ne da uzeti: " + err.Error()
+	}
+	return KorisnikDomene(k), l, ""
 }
 
 // KorisnikDomene svodi adresu e-pošte na korisničko ime domene:

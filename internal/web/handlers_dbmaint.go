@@ -173,10 +173,10 @@ func (h *DBMaintHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 	}
 	n, err := repository.ReplaySurface(r.Context(), h.db(), h.rec)
 	if err != nil {
-		redirectWith(w, r, "/administracija/baza", "error", fmt.Sprintf("Površina obnovljena iz %d zapisa, uz preskočene: %v", n, err))
+		redirectWith(w, r, "/administracija/baza", "error", fmt.Sprintf("Obnovljeno iz knjige: %d %s; neki su zapisi preskočeni: %v", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa"), err))
 		return
 	}
-	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Površina je obnovljena iz knjige: %d %s.", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa")))
+	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Zapisi su obnovljeni iz knjige: %d %s.", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa")))
 }
 
 // HandleVacuum vraća prostor obrisanih redaka operacijskom sustavu

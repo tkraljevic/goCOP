@@ -14,7 +14,7 @@
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
 {{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-{{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom na ovom računalu nije uključeno: administrator upisuje poslužitelj u <span class="mono">gocop.toml</span>, odjeljak <span class="mono">[posta]</span>. Lozinku možete upisati i sada.</div>{{end}}
+{{if not .Podesena}}<div class="alert alert-warning">Slanje e-poštom na ovom računalu nije uključeno: administrator upisuje poslužitelj u {{if and .Permissions .Permissions.IsGlobalAdmin}}<a href="/administracija/posta">Administraciji › E-pošta</a>{{else}}Administraciji › E-pošta{{end}}. Lozinku možete upisati i sada.</div>{{end}}
 
 <section class="detail-section" style="max-width:36rem;">
   {{if .Racun}}<p>{{icon "check"}} Lozinka je upisana za <span class="mono">{{.Racun}}</span>, {{formatDate (localTime .RacunAt)}}.</p>{{else}}<p>Lozinka nije upisana. Ako ste je već upisivali, a otada se lozinka vašeg računa u goCOP-u promijenila ili je poništena, spremljena je obrisana: upišite je ponovno.</p>{{end}}
