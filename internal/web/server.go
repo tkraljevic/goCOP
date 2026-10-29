@@ -1488,7 +1488,7 @@ func (s *Server) setupRoutes() {
 		return repository.NewHidroViewRepository(s.db)
 	}, func() []byte { return s.hidroviewKljuc }, s.stationService, s.templates["administracija_telemetrija.html"])
 	telemetrijaH.preuzima = func() bool { return s.peersService == nil || s.peersService.TrenutneUloge().Preuzima }
-	s.mux.Handle("GET /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Prikazi)))
+	s.mux.Handle("GET /administracija/telemetrija", s.samoAdmin(http.HandlerFunc(telemetrijaH.Prikazi)))
 	telemetrijaH.sustavi = func() *repository.RacuniSustavaRepository {
 		if s.db == nil {
 			return nil
@@ -1501,8 +1501,8 @@ func (s *Server) setupRoutes() {
 		}
 		return s.akti.RacunPosteOtkljucan(ctx, u)
 	}
-	s.mux.Handle("POST /administracija/telemetrija", s.authMiddleware(http.HandlerFunc(telemetrijaH.Spremi)))
-	s.mux.Handle("POST /administracija/telemetrija/mletva", s.authMiddleware(http.HandlerFunc(telemetrijaH.SpremiMLetvu)))
+	s.mux.Handle("POST /administracija/telemetrija", s.samoAdmin(http.HandlerFunc(telemetrijaH.Spremi)))
+	s.mux.Handle("POST /administracija/telemetrija/mletva", s.samoAdmin(http.HandlerFunc(telemetrijaH.SpremiMLetvu)))
 	s.mux.Handle("GET /api/peers/pair/status", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStatus)))
 	s.mux.Handle("POST /api/peers/pair/listen", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairListen)))
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))
