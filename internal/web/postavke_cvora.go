@@ -422,6 +422,7 @@ type kljucPokusaja struct{}
 type zabranaCvora struct {
 	postavke, ponovno, kljuc, provjera, pretplate, uloge string
 	izvori, povijest, staraArhiva, neprovjeren           string
+	knjiga                                               string
 }
 
 var (
@@ -436,6 +437,7 @@ var (
 		povijest:    "Čuva li ovo računalo cijelu povijest letve, odlučuje samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 		staraArhiva: "Staru .db arhivu uvozi samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 		neprovjeren: "Paket s diska uvozi samo globalni administrator.",
+		knjiga:      "Neispravne zapise iz knjige briše samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
 		postavke:    "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
@@ -448,6 +450,7 @@ var (
 		povijest:    "Čuvanje povijesti letve ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		staraArhiva: "Stara .db arhiva ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		neprovjeren: "Paket koji ovo računalo ne može provjeriti ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		knjiga:      "Zapisi iz knjige ne brišu se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke:  "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
@@ -463,6 +466,7 @@ var (
 			"a ne izvana ni kroz tunel. Odavde se uvozi potpisani .cop paket.",
 		neprovjeren: "Ovo računalo još nije u mreži, pa ne može provjeriti čiji je potpis na paketu. Zato se paket s diska " +
 			"dotad uvozi samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		knjiga: "Neispravni zapisi iz knjige brišu se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 

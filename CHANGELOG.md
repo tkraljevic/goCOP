@@ -6,6 +6,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Održavanje baze: brisanje neispravnih zapisa iz knjige.** Kad u knjizi
+  ima zapisa koje razmjena danas ne bi primila, npr. s vremenom iz
+  budućnosti, stranica to kaže i nudi njihovo brisanje. Briše samo globalni
+  administrator, s ovog računala ili iz lokalne mreže; dnevnik programa
+  zapiše tko je to napravio i odakle, a zapisi se zatim obnove iz knjige.
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni

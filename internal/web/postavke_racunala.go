@@ -11,6 +11,7 @@ var (
 	zaPovijest     = func(z *zabranaCvora) string { return z.povijest }
 	zaStaruArhivu  = func(z *zabranaCvora) string { return z.staraArhiva }
 	zaNeprovjereno = func(z *zabranaCvora) string { return z.neprovjeren }
+	zaKnjigu       = func(z *zabranaCvora) string { return z.knjiga }
 )
 
 // porukaZabrane vraća rečenicu kojom se zahtjev odbija, ili prazno kad ga

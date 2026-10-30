@@ -1493,6 +1493,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/baza/sazmi", s.authMiddleware(http.HandlerFunc(dbH.HandleCompact)))
 	s.mux.Handle("POST /administracija/baza/vacuum", s.authMiddleware(http.HandlerFunc(dbH.HandleVacuum)))
 	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
+	s.mux.Handle("POST /administracija/baza/ocisti-knjigu", s.authMiddleware(samoNaCvoru(zaKnjigu, http.HandlerFunc(dbH.HandleOcistiKnjigu))))
 	s.mux.Handle("POST /administracija/baza/spomenici", s.authMiddleware(http.HandlerFunc(dbH.HandlePurgeTombstones)))
 	dbH.SetOpcije(s.opcije)
 	dbH.SetIzmjenaOpcija(s.izmijeniOpcije)
