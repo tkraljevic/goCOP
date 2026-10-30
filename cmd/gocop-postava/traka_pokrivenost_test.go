@@ -113,7 +113,7 @@ func TestPocetakNeDiraTudje(t *testing.T) {
 	if uklj, _ := postava.PriPrijavi(tr.p.Exe); uklj {
 		t.Error("pokretanje pri prijavi uključeno bez pitanja")
 	}
-	if b, _ := os.ReadFile(tudja); string(b) != "tuđe" { // nepročitana datoteka je prazna, pa usporedba pada
+	if b, err := os.ReadFile(tudja); err != nil || string(b) != "tuđe" {
 		t.Error("tuđa datoteka je promijenjena")
 	}
 	b, _ := os.ReadFile(tr.p.M.DnevnikPostave()) // nepostojeći dnevnik je prazan, pa usporedba niže pada

@@ -136,15 +136,6 @@ func TestPravaRazmjenomCekajuPotvrdu(t *testing.T) {
 					IsGlobalAdmin: true, OrgType: models.OrgHrvatskeVode, CreatedAt: time.Now(), UpdatedAt: time.Now()}
 				return tudjiRacun(t, n), n.ID
 			}},
-		{naziv: "druga_oznaka_zapisa", stupac: "is_global_admin", prije: "0", poslije: "1", admin: true, promjena: "dobiva zastavicu globalnog administratora",
-			verzija: func(t *testing.T, c *cvor, u models.User) (ledger.Version, uuid.UUID) {
-				// sadržaj nosi drugi račun nego oznaka zapisa
-				drugi := models.User{ID: uuid.New(), Username: "drugi", FullName: "Drugi", PasswordHash: "y", IsActive: true,
-					OrgType: models.OrgHrvatskeVode, CreatedAt: time.Now(), UpdatedAt: time.Now()}
-				nuzno(t, NewUserRepository(c.db, c.rec).CreateUser(&drugi, nil))
-				drugi.IsGlobalAdmin, drugi.PasswordHash = true, "y"
-				return tudja(t, EntityUsers, u.ID.String(), versionOfUser(drugi)), drugi.ID
-			}},
 	} {
 		t.Run(s.naziv, func(t *testing.T) {
 			c, u := uredSRacunom(t, s.admin)

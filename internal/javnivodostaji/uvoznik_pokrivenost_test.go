@@ -146,7 +146,7 @@ func TestClientOsnovaIZadaniKlijent(t *testing.T) {
 		_, _ = w.Write([]byte(probnaTablica))
 	}))
 	t.Cleanup(srv.Close)
-	c := &Client{Base: srv.URL + "/"}
+	c := &Client{Base: srv.URL + "/", HTTP: srv.Client()} // zadani klijent na lokalnu adresu ne ide
 	r, err := c.OcitanjaSAdrese(context.Background(), AdresaPostaje(Postaja{ID: 424, Sektor: 2}))
 	if err != nil || len(r) != 3 {
 		t.Errorf("očitanja: %+v %v", r, err)

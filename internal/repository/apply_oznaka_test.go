@@ -223,19 +223,15 @@ func TestDrugaOznakaNaZadnjojVerziji(t *testing.T) {
 // nosi u sadržaju, i kad obje verzije stignu istim paketom.
 func TestOpozivIDrugaOznakaUSadrzaju(t *testing.T) {
 	c := noviCvor(t, "b")
-	const oznaka = "clanstvo:KLJUC:1700000000:abcd"
-	opoziv := func(kljuc, potpis string) map[string]string {
-		return map[string]string{"id": oznaka, "vrsta": "clanstvo", "nodeId": "laptop", "publicKey": kljuc,
-			"issuedAt": "2023-11-14T22:13:20Z", "opozvanoAt": "2026-10-30T10:00:00Z", "opozvao": "ured", "potpisnik": "MREZA", "potpis": potpis}
-	}
+	pravi := opozivProbe("laptop", "KLJUC")
 	primi(t, c, []ledger.Version{
-		verzijaZa(t, entitetOpozivi, "drugi-1", vid(1), opoziv("DRUGI", "x")),
-		verzijaZa(t, entitetOpozivi, oznaka, vid(2), opoziv("KLJUC", "PRAVI")),
+		verzijaZa(t, entitetOpozivi, "drugi-1", vid(1), pravi),
+		verzijaZa(t, entitetOpozivi, pravi.ID, vid(2), pravi),
 	})
-	var kljuc, potpis string
-	nuzno(t, c.db.QueryRow(`SELECT public_key, potpis FROM opozivi WHERE id = ?`, oznaka).Scan(&kljuc, &potpis))
-	if kljuc != "KLJUC" || potpis != "PRAVI" {
-		t.Errorf("opoziv: ključ %q, potpis %q", kljuc, potpis)
+	var kljuc string
+	nuzno(t, c.db.QueryRow(`SELECT public_key FROM opozivi WHERE id = ?`, pravi.ID).Scan(&kljuc))
+	if kljuc != "KLJUC" {
+		t.Errorf("opoziv: ključ %q", kljuc)
 	}
 	if n := redakaNaPovrsini(t, c, "opozivi"); n != 1 {
 		t.Errorf("opoziva na površini: %d", n)

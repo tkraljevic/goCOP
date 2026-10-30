@@ -124,14 +124,15 @@ func TestARSOTablicaPaXML(t *testing.T) {
 	}
 }
 
-// Zamjenske adrese (Base) i čitač bez klijenta idu na lokalni poslužitelj.
+// Zamjenske adrese (Base) idu na lokalni poslužitelj; zadani klijent na
+// lokalnu adresu ne ide, pa test daje svoj.
 func TestARSOZamjenskeAdrese(t *testing.T) {
 	srv := httptest.NewServer(stranice(map[string]string{
 		"/tablica/2150": "<p>nema tablice</p>",
 		"/xml":          probniARSO,
 	}))
 	t.Cleanup(srv.Close)
-	a := ARSO{Base: srv.URL + "/xml", BaseTablice: srv.URL + "/tablica/%s"}
+	a := ARSO{Client: &Client{HTTP: srv.Client()}, Base: srv.URL + "/xml", BaseTablice: srv.URL + "/tablica/%s"}
 	r, err := a.Ocitanja(context.Background(), "https://www.arso.gov.si/xml/vode/hidro_podatki_zadnji.xml?postaja=2150")
 	if err != nil || len(r) != 1 || *r[0].LevelCm != 58 {
 		t.Errorf("zamjenske adrese: %+v %v", r, err)
@@ -333,7 +334,7 @@ func TestVizugyOcitanja(t *testing.T) {
 		_, _ = w.Write([]byte(ispisVizugy))
 	}))
 	t.Cleanup(srv.Close)
-	v := Vizugy{Base: srv.URL + "/"}
+	v := Vizugy{Client: &Client{HTTP: srv.Client()}, Base: srv.URL + "/"}
 	r, err := v.Ocitanja(context.Background(), AdresaVizugy(strings.ToLower(oznaka)))
 	if err != nil || len(r) != 5 {
 		t.Fatalf("redci: %+v %v", r, err)

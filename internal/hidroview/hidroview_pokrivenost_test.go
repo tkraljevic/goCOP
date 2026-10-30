@@ -174,7 +174,10 @@ func TestPrijavaLosKljuc(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	der, _ := x509.MarshalPKIXPublicKey(&ec.PublicKey)
+	der, err := x509.MarshalPKIXPublicKey(&ec.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ecPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
 	losPEM := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: []byte("smeće")}))
 	for ime, s := range map[string]struct{ odgovor, zelim string }{

@@ -313,9 +313,9 @@ func TestTLSIstekaoINepoznat(t *testing.T) {
 		ServerName:       "mletva.voda.test",
 		PeerCertificates: []*x509.Certificate{cert, cert},
 	})
-	var nepoznat x509.UnknownAuthorityError
-	if !errors.As(err, &nepoznat) {
-		t.Fatalf("greška %v (%T), želim nepoznatog potpisnika", err, err)
+	// istekli certifikat koji nije onaj poznati odbija se već zbog isteka
+	if err == nil || !strings.Contains(err.Error(), "nije onaj poznati") {
+		t.Fatalf("greška %v, želim odbijen istekli nepoznati certifikat", err)
 	}
 }
 

@@ -160,7 +160,7 @@ func TestMigracijaIzvornikaISlikaUSpremiste(t *testing.T) {
 			t.Errorf("nova tablica izvornika bez stupca %s (%v)", stupac, err)
 		}
 	}
-	if ima, _ := columnExists(database, "prijave_izvornici", "pdf"); ima {
+	if ima, err := columnExists(database, "prijave_izvornici", "pdf"); err != nil || ima {
 		t.Error("nova tablica izvornika i dalje nosi PDF")
 	}
 	// iduće pokretanje ne dira ništa

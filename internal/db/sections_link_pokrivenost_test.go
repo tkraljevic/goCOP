@@ -154,7 +154,7 @@ func TestLinkerNoviZapisOdbijen(t *testing.T) {
 				t.Error("odbijeni zahtjev je obrisan ili upisan")
 			}
 			var n int
-			tx.QueryRow(`SELECT COUNT(*) FROM structures`).Scan(&n)
+			_ = tx.QueryRow(`SELECT COUNT(*) FROM structures`).Scan(&n) // n ostaje 0 i usporedba niže pada
 			if n != 1 {
 				t.Errorf("objekata u registru %d", n)
 			}
