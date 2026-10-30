@@ -52,7 +52,7 @@ func TestPreuzmiISatne(t *testing.T) {
 	if n != 10 {
 		t.Errorf("upisano %d sati, želim 10 (6 sati × 2 točke, bez jednog null)", n)
 	}
-	for _, dio := range []string{"latitude=46.8000%2C45.5000", "past_days=7", "forecast_days=7", "timezone=UTC"} {
+	for _, dio := range []string{"latitude=46.8000%2C45.5000", "past_days=7", "forecast_days=8", "timezone=UTC"} {
 		if !strings.Contains(zahtjev, dio) {
 			t.Errorf("zahtjev bez %q: %s", dio, zahtjev)
 		}

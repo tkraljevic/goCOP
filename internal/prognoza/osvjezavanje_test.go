@@ -101,6 +101,9 @@ func TestOsvjezavanjeNePonavljaIstiSat(t *testing.T) {
 	if !drugi.Preskoceno {
 		t.Error("isti sat je preračunat iznova")
 	}
+	if drugi.ZadnjeIzdano != prvi.Sada {
+		t.Errorf("preskočeno: zadnje izdano %d, želim %d", drugi.ZadnjeIzdano, prvi.Sada)
+	}
 	if len(drugi.Izdane) != 0 {
 		t.Errorf("preskočeno osvježavanje ipak je dalo %d vrijednosti", len(drugi.Izdane))
 	}
