@@ -301,8 +301,8 @@ func upisiOcitanja(t *testing.T, s *Service, kanal string, ids ...string) {
 	}
 }
 
-// Paket izdavača izvan mreže čvor u mreži odbija; čvor koji još nema mrežu
-// ga ugradi uz napomenu da članstvo nije provjereno.
+// Paket izdavača izvan mreže čvor u mreži odbija (čvor bez mreže:
+// cop_mreza_test.go).
 func TestUvozCopaOdIzdavacaIzvanMreze(t *testing.T) {
 	b := rubnaMreza(t, "laptop-baranja")
 	stranac := rubniCvor(t, "tudji-laptop")
@@ -317,15 +317,6 @@ func TestUvozCopaOdIzdavacaIzvanMreze(t *testing.T) {
 		t.Error("paket izdavača izvan mreže je ugrađen")
 	}
 
-	bezMreze := rubniCvor(t, "novi-laptop")
-	if rep, err := bezMreze.UveziCop(ctxRub, put); err != nil || rep.Novih != 0 {
-		t.Fatalf("čvor bez pretplata prima kanale: %+v %v", rep, err)
-	}
-	bezMreze.SetWantsAll(true)
-	rep, err = bezMreze.UveziCop(ctxRub, put)
-	if err != nil || rep.Novih != 2 || rep.IzdavacClan || !strings.Contains(rep.Napomena, "nije u mreži") {
-		t.Fatalf("čvor bez mreže: %+v %v", rep, err)
-	}
 }
 
 // Isto izdanje istog izdavača s drugim otiskom ne ugrađuje se; čvor koji
@@ -356,6 +347,15 @@ func TestUvozCopaOdbijaDrugiOtisakIstogIzdanja(t *testing.T) {
 
 	if _, err := b.UveziCop(ctxRub, filepath.Join(t.TempDir(), "nema.cop")); !errors.Is(err, os.ErrNotExist) {
 		t.Errorf("nepostojeća datoteka: %v", err)
+	}
+	if os.Geteuid() != 0 {
+		zatvoren := filepath.Join(t.TempDir(), "zatvoren.cop")
+		if err := os.WriteFile(zatvoren, []byte("nije paket"), 0o000); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := b.UveziCop(ctxRub, zatvoren); !errors.Is(err, os.ErrPermission) {
+			t.Errorf("datoteka bez prava čitanja: %v", err)
+		}
 	}
 	los := filepath.Join(t.TempDir(), "los.cop")
 	_ = os.WriteFile(los, []byte("nije paket"), 0o600)

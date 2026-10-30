@@ -184,7 +184,6 @@ type CopIzvjestaj struct {
 	SadrzajaZeljeno int
 	PotpisValjan    bool
 	IzdavacClan     bool
-	Napomena        string
 }
 
 // IzveziCop sastavlja .cop izdanje zadanih kanala. sSadrzajem kaže nose li
@@ -379,8 +378,9 @@ func citajManifestCopa(mb []byte, m *CopManifest) error {
 }
 
 // UveziCop ugrađuje paket: provjera otiska i potpisa, izdavač mora biti
-// član mreže (osim dok čvor još nema mrežu), izdanje ne smije biti starije
-// od već primljenog istog izdavača; zatim verzije kao razmjenom, pa sadržaj.
+// član mreže ovog čvora (dok čvor nema mrežu, samo on sam), izdanje ne smije
+// biti starije od već primljenog istog izdavača; zatim verzije kao
+// razmjenom, pa sadržaj.
 func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error) {
 	var rep CopIzvjestaj
 	f, err := os.Open(put)
@@ -400,17 +400,8 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	m := p.m
-	javni, err := ProvjeriCopPotpis(m)
-	if err != nil {
+	if err := s.izdavacCopa(ctx, m, &rep); err != nil {
 		return rep, err
-	}
-	rep.PotpisValjan = true
-	rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni)
-	if err != nil {
-		return rep, err
-	}
-	if !rep.IzdavacClan {
-		rep.Napomena = "čvor još nije u mreži, pa se članstvo izdavača nije moglo provjeriti"
 	}
 	versions, sadrzaji, err := p.zapisi()
 	rep.Verzija = len(versions)
@@ -493,6 +484,30 @@ func upisiSadrzajCopa(ctx context.Context, sp *sadrzaj.Spremiste, p *copPaket, s
 		return 0
 	}
 	return 1
+}
+
+// izdavacCopa provjerava potpis paketa i izdavača. U mreži izdavač mora biti
+// njezin član (izdavacClan). Čvor koji još nije u mreži ugrađuje samo paket
+// potpisan vlastitim ključem: članstvo stranog izdavača ne može provjeriti,
+// a ono što ugradi, kad uđe u mrežu, razmjenom ide svim članovima.
+func (s *Service) izdavacCopa(ctx context.Context, m CopManifest, rep *CopIzvjestaj) error {
+	javni, err := ProvjeriCopPotpis(m)
+	if err != nil {
+		return err
+	}
+	rep.PotpisValjan = true
+	if rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni); err != nil || rep.IzdavacClan {
+		return err
+	}
+	if !s.vlastitiKljuc(javni) {
+		return fmt.Errorf("paket je izdalo računalo %[1]s. Ovo računalo još nije u mreži, pa ne može provjeriti je li %[1]s u istoj mreži. Primite ovo računalo u mrežu, pa paket ugradite ponovno", m.Izdao)
+	}
+	return nil
+}
+
+// vlastitiKljuc javlja je li to javni ključ ovog čvora
+func (s *Service) vlastitiKljuc(javni ed25519.PublicKey) bool {
+	return len(s.node.key) == ed25519.PrivateKeySize && s.node.key.Public().(ed25519.PublicKey).Equal(javni)
 }
 
 // izdavacClan javlja je li paket potpisao član naše mreže koji je u

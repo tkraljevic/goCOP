@@ -63,7 +63,7 @@ func TestPostavkeMrezeOvlastIPrimanjeNaDaljinu(t *testing.T) {
 			b, _ = json.Marshal(v)
 		}
 		r := httptest.NewRequest(http.MethodPost, "/api/network/x", strings.NewReader(string(b)))
-		r.RemoteAddr = "192.168.1.50:40000" // iz lokalne mreže lozinka računa ne treba
+		r.RemoteAddr, r.Host = "192.168.1.50:40000", adresaCvoraTesta // iz lokalne mreže lozinka računa ne treba
 		r.Header.Set("Content-Type", "application/json")
 		if cvor != "" {
 			r.SetPathValue("node", cvor)

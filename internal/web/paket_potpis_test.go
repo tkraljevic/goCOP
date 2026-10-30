@@ -86,7 +86,7 @@ func novaOkolinaPaketa(t *testing.T) *okolinaPaketa {
 
 func (o *okolinaPaketa) zahtjev(metoda, putanja string, tijelo io.Reader, vrsta string) *http.Request {
 	r := httptest.NewRequest(metoda, putanja, tijelo)
-	r.RemoteAddr = o.adresa
+	r.RemoteAddr, r.Host = o.adresa, adresaCvoraTesta
 	if vrsta != "" {
 		r.Header.Set("Content-Type", vrsta)
 	}

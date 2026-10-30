@@ -56,7 +56,7 @@ func (o *okolinaStraniceLetve) posaljiPaket(t *testing.T, polje string, sadrzaj 
 	id := o.letva.ID.String()
 	r := httptest.NewRequest(http.MethodPost, "/stations/"+id+"/paket/pregled", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
-	r.RemoteAddr = adresaLokalno // s diska se paket ugrađuje iz lokalne mreže
+	r.RemoteAddr, r.Host = adresaLokalno, adresaCvoraTesta // s diska se paket ugrađuje iz lokalne mreže
 	return zoviLetvu(t, o.h.PregledPaketa, r, id, adminPaketa)
 }
 
@@ -67,7 +67,7 @@ func (o *okolinaStraniceLetve) ugradiPaket(t *testing.T, kljuc string) *httptest
 	r := httptest.NewRequest(http.MethodPost, "/stations/"+id+"/paket/ugradi",
 		strings.NewReader(url.Values{"kljuc": {kljuc}}.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.RemoteAddr = adresaLokalno
+	r.RemoteAddr, r.Host = adresaLokalno, adresaCvoraTesta
 	return zoviLetvu(t, o.h.UgradiPaket, r, id, adminPaketa)
 }
 

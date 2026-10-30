@@ -98,7 +98,8 @@ uključi (Odluke (23. 10. 2026.)).
 Kad mreže nema dulje vrijeme, odabrani podaci prenose se i bez nje. Jedno
 računalo izda potpisan paket (Administracija → Održavanje baze → Izdaj
 .cop), a drugo ga ugradi, na primjer s USB ključa. Paket prolazi ista
-pravila kao razmjena.
+pravila kao razmjena. Računalo ugrađuje samo paket koji je izdalo računalo
+iste mreže; dok još nije u mreži, ugrađuje samo vlastite pakete.
 
 Karta bez interneta ne ide razmjenom. Razmjenom putuje samo njezin opis,
 pa sva računala znaju koja je karta zadana. Samu datoteku karte, za Sektor

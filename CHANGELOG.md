@@ -109,6 +109,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Javni izvori vodostaja čitaju se i otvaraju samo na poslužitelju izvora.**
   Odgovori vanjskih usluga čitaju se do granice, certifikat mletva.voda.hr
   provjerava se po otisku, a poruka o prijavi na HydroView navodi samo put.
+- **Ugradnja .cop paketa: samo iz iste mreže.** Računalo ugrađuje paket
+  podataka samo kad ga je izdalo računalo iste mreže. Računalo koje još
+  nije u mreži ugrađuje samo vlastite pakete.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.
