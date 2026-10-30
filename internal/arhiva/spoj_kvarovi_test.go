@@ -154,6 +154,10 @@ func TestSpajanjeIzKrnjeArhive(t *testing.T) {
 // ne dira, kvar prije potvrde ostavlja niz, a kvar u ponovnom spajanju javlja
 // da je niz maknut ali spoj nije složen.
 func TestMicanjeNizaKojeNeUspije(t *testing.T) {
+	// stablo ima satni niz letve, a jutarnjem je datoteka nestala
+	koren := t.TempDir()
+	zapisiDatoteku(t, filepath.Join(koren, "dunav", "vodograd", "vodograd_cop_vodostaj_satni_2026.csv"),
+		"vrijeme;vodostaj_cm\n2026-01-01 01:00;119\n")
 	pripremi := func(t *testing.T) (*sql.DB, string) {
 		db := praznaArhiva(t)
 		upisiNiz(t, db, "vodograd", "cop", "vodostaj", "jutarnji", zapis{t: 0, v: 120}, zapis{t: 86400, v: 121})
@@ -161,7 +165,7 @@ func TestMicanjeNizaKojeNeUspije(t *testing.T) {
 		return db, filepath.Join(t.TempDir(), "arhiva.db")
 	}
 	makni := func(db *sql.DB, baza string) (int, error) {
-		return MakniNiz(db, baza, "vodograd", "cop", "vodostaj", "jutarnji")
+		return MakniNiz(db, baza, koren, "vodograd", "cop", "vodostaj", "jutarnji")
 	}
 
 	t.Run("arhivu drži drugi posao", func(t *testing.T) {
@@ -214,6 +218,19 @@ func TestMicanjeNizaKojeNeUspije(t *testing.T) {
 			}
 		})
 	}
+	t.Run("potvrda", func(t *testing.T) {
+		// odgođena veza na niz puca tek pri potvrdi, pa se niz ne miče
+		db, baza := pripremi(t)
+		if _, err := db.Exec(`CREATE TABLE veza_na_niz (niz INTEGER REFERENCES nizovi(id) DEFERRABLE INITIALLY DEFERRED);
+			INSERT INTO veza_na_niz SELECT id FROM nizovi WHERE vrsta = 'jutarnji'`); err != nil {
+			t.Fatal(err)
+		}
+		_, err := makni(db, baza)
+		greskaSadrzi(t, "potvrda", err, "FOREIGN KEY")
+		if n := broj(t, db, `SELECT count(*) FROM nizovi`) + broj(t, db, `SELECT count(*) FROM ocitanja`); n != 5 {
+			t.Errorf("iza neuspjele potvrde ostalo je %d od 5 redaka", n)
+		}
+	})
 	t.Run("ponovno spajanje", func(t *testing.T) {
 		db, baza := pripremi(t)
 		kvar(t, db, "INSERT", "spoj", "")

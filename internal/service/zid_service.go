@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sort"
@@ -1269,12 +1270,24 @@ func (s StanjeObrane) Mirno() bool {
 	return s.Dnevnik == nil && s.DionicaUObr == 0 && len(s.NaTerenu) == 0
 }
 
+// ErrNijeSPloce: verzija ne pripada nijednom zapisu koji oglasna ploča
+// prikazuje, pa se s nje ni ne briše
+var ErrNijeSPloce = errors.New("s oglasne ploče brišu se samo zapisi koji se na njoj prikazuju")
+
 // ObrisiDogadjaj briše zapis s oglasne ploče, tj. tu verziju iz knjige;
 // smije uprava organizacije, i samo kad je prekidač uključen (provjerava
-// rukovatelj)
+// rukovatelj). Briše se samo verzija zapisa koji ploča prikazuje, a ne bilo
+// koja verzija iz knjige.
 func (s *ZidService) ObrisiDogadjaj(ctx context.Context, perms *models.UserPermissions, versionID string) error {
 	if perms == nil || !perms.IsGlobalAdmin {
 		return ErrUnauthorized
+	}
+	v, err := s.rec.Verzije(ctx, []string{versionID})
+	if err != nil {
+		return err
+	}
+	if len(v) > 0 && modulEntiteta(v[0].Entity) == "" {
+		return ErrNijeSPloce
 	}
 	return s.rec.DeleteVersion(ctx, versionID)
 }

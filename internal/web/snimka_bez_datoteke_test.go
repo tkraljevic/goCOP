@@ -97,7 +97,16 @@ func TestPosluziteljMiceSnimku(t *testing.T) {
 	if _, err := (&Server{}).MakniSnimku("vodograd", "2010-03-22"); err == nil {
 		t.Error("micanje bez arhive prošlo je")
 	}
-	s := &Server{arhivaPut: put}
+	// Bez stabla se ne zna je li snimka bez datoteke, pa se ne miče.
+	if _, err := (&Server{arhivaPut: put}).MakniSnimku("vodograd", "2010-03-22"); err == nil ||
+		!strings.Contains(err.Error(), "nije na popisu snimki bez datoteke") {
+		t.Errorf("micanje bez stabla: %v", err)
+	}
+	koren := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "vodograd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	s := &Server{arhivaPut: put, podaciDir: koren}
 	n, err := s.MakniSnimku("vodograd", "2010-03-22")
 	if err != nil || n != 2 {
 		t.Fatalf("micanje: %d, %v", n, err)
@@ -110,11 +119,11 @@ func TestPosluziteljMiceSnimku(t *testing.T) {
 	if err := db.QueryRow(`SELECT count(*) FROM profili`).Scan(&ostalo); err != nil || ostalo != 0 {
 		t.Errorf("u arhivi je ostalo %d snimki (%v)", ostalo, err)
 	}
-	if _, err := s.MakniSnimku("vodograd", "2010-03-22"); err == nil || !strings.Contains(err.Error(), "nije u arhivi") {
+	if _, err := s.MakniSnimku("vodograd", "2010-03-22"); err == nil || !strings.Contains(err.Error(), "u arhivi više nema") {
 		t.Errorf("micanje snimke koje nema: %v", err)
 	}
 	// Niz ide istim putem kroz arhivu.
-	if _, err := s.MakniNiz("vodograd", "his2000", "vodostaj", "satni"); err == nil || !strings.Contains(err.Error(), "nije u arhivi") {
+	if _, err := s.MakniNiz("vodograd", "his2000", "vodostaj", "satni"); err == nil || !strings.Contains(err.Error(), "u arhivi više nema") {
 		t.Errorf("micanje niza kojeg nema: %v", err)
 	}
 }

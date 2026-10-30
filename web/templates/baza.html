@@ -176,10 +176,12 @@
 <section class="detail-section">
   <h2>{{icon "file-text"}} Ugradnja paketa</h2>
   <p class="page-desc">
-    <span class="mono">.cop</span> paket ili stara <span class="mono">.db</span> arhiva s bilo kojeg čvora. Ugradnja radi
+    <span class="mono">.cop</span> paket s bilo kojeg čvora. Ugradnja radi
     kao razmjena: provjere otiska i potpisa, pa verzije koje ovaj čvor nema uđu u knjigu, zapisi se osvježe iz
     najnovijih, uključeni sadržaj u spremište, ostali na popis za dohvat. Starije izdanje istog izdavača se odbija;
-    ponovljena ugradnja iste datoteke ne mijenja ništa.
+    ponovljena ugradnja iste datoteke ne mijenja ništa. Stara <span class="mono">.db</span> arhiva nema potpis, pa
+    se uvozi samo s ovog računala ili iz lokalne mreže. Dok računalo još nije u mreži, ne zna čiji je potpis
+    na paketu, pa se dotad i <span class="mono">.cop</span> paket uvozi samo s ovog računala ili iz lokalne mreže.
   </p>
   <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page d-flex gap-2 items-end flex-wrap">
     <div class="form-group m-0">

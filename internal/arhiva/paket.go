@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -814,6 +815,21 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 		s.vrijednosti = append(s.vrijednosti, v)
 	}
 	return &s, nil
+}
+
+// ErrNepotpisan je paket letve bez potpisa. Takav se čita, da se može
+// pogledati, ali se s diska ne ugrađuje (Odluke (30. 10. 2026.), 13).
+var ErrNepotpisan = errors.New("paket nije potpisan, pa se ne ugrađuje; " +
+	"zatražite novo izdanje od čvora koji ga je izdao, program ga potpisuje sam")
+
+// TraziPotpis pušta samo paket s valjanim potpisom. Potpis provjerava već
+// Procitaj; ovdje se traži da ga paket uopće ima. Čiji je ključ, odlučuje
+// pozivatelj.
+func TraziPotpis(s *Sadrzaj) error {
+	if s == nil || len(s.PotpisaoKljuc) == 0 {
+		return ErrNepotpisan
+	}
+	return nil
 }
 
 func kratki(otisak string) string {

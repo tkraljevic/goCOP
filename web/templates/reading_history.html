@@ -144,7 +144,7 @@
       </button>
     </form>
     {{end}}
-    {{if .Permissions.IsGlobalAdmin}}
+    {{if .CuvanjePovijesti}}
     <form method="POST" action="/readings/follow" class="m-0">
       <input type="hidden" name="gauge_key" value="{{.GaugeKey}}">
       <input type="hidden" name="name" value="{{.GaugeName}}">

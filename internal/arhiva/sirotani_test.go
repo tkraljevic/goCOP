@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -77,11 +78,14 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	koren := t.TempDir()
 	baza := filepath.Join(t.TempDir(), "arhiva.db")
 	kad := time.Date(2026, 9, 11, 7, 0, 0, 0, time.UTC)
+	var jutarnji string
 	for _, vrsta := range []string{"satni", "jutarnji"} {
-		if _, err := Upisi(koren, "dunav", "batina", "cop-rucno", "vodostaj", vrsta,
-			[]Redak{{Vrijeme: kad, Vrijednost: -160}}); err != nil {
+		put, err := Upisi(koren, "dunav", "batina", "cop-rucno", "vodostaj", vrsta,
+			[]Redak{{Vrijeme: kad, Vrijednost: -160}})
+		if err != nil {
 			t.Fatal(err)
 		}
+		jutarnji = put
 	}
 	if _, err := Izgradi(koren, baza, "batina", nil); err != nil {
 		t.Fatal(err)
@@ -103,7 +107,24 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	obrisano, err := MakniNiz(db, baza, "batina", "cop-rucno", "vodostaj", "jutarnji")
+	// Niz koji u stablu ima datoteku ne miče se, ni kad je stranica s gumbom
+	// ostala otvorena otprije.
+	if _, err := MakniNiz(db, baza, koren, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil ||
+		!strings.Contains(err.Error(), "nije na popisu nizova bez datoteke") {
+		t.Fatalf("micanje niza koji ima datoteku: %v", err)
+	}
+	if n := broj(t, db, `SELECT count(*) FROM nizovi WHERE letva='batina' AND vrsta='jutarnji'`); n != 1 {
+		t.Fatalf("niz s datotekom je maknut (%d)", n)
+	}
+	if err := os.Remove(jutarnji); err != nil {
+		t.Fatal(err)
+	}
+	// bez stabla se ne zna je li niz bez datoteke, pa se ne miče
+	if _, err := MakniNiz(db, baza, "", "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
+		t.Fatal("micanje niza bez stabla prošlo je")
+	}
+
+	obrisano, err := MakniNiz(db, baza, koren, "batina", "cop-rucno", "vodostaj", "jutarnji")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -137,7 +158,7 @@ func TestMicanjeNizaCistiISpoj(t *testing.T) {
 	}
 
 	// Nepostojeći niz se javlja greškom, ne tiho.
-	if _, err := MakniNiz(db, baza, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
+	if _, err := MakniNiz(db, baza, koren, "batina", "cop-rucno", "vodostaj", "jutarnji"); err == nil {
 		t.Error("micanje nepostojećeg niza je prošlo bez greške")
 	}
 }

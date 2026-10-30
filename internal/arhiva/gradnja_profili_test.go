@@ -329,7 +329,18 @@ func TestMaknutaSnimkaOstajeNaPopisuBezDatoteke(t *testing.T) {
 		t.Errorf("popis bez gradnje: %+v, %v", o, err)
 	}
 
-	tocaka, err := MakniSnimku(db, baza, "vodograd", "2010-03-22")
+	// Snimka koja u stablu ima datoteku i snimka letve bez mape u stablu ne
+	// miču se, ni kad je stranica s gumbom ostala otvorena otprije.
+	for _, x := range []struct{ letva, datum string }{{"vodograd", "2010-03-23"}, {"rijecica", "2015-05-05"}} {
+		if _, err := MakniSnimku(db, baza, koren, x.letva, x.datum); err == nil ||
+			!strings.Contains(err.Error(), "nije na popisu snimki bez datoteke") {
+			t.Errorf("micanje snimke %s %s: %v", x.letva, x.datum, err)
+		}
+	}
+	if n := broj(t, db, `SELECT count(*) FROM profili`); n != 3 {
+		t.Fatalf("odbijeno micanje promijenilo je arhivu: %d snimki", n)
+	}
+	tocaka, err := MakniSnimku(db, baza, koren, "vodograd", "2010-03-22")
 	if err != nil || tocaka != 2 {
 		t.Fatalf("micanje snimke: %d točaka, %v", tocaka, err)
 	}
@@ -348,8 +359,8 @@ func TestMaknutaSnimkaOstajeNaPopisuBezDatoteke(t *testing.T) {
 	if n := broj(t, db, `SELECT count(*) FROM profili WHERE letva='rijecica'`); n != 1 {
 		t.Errorf("snimka letve bez mape u stablu je dirana")
 	}
-	if _, err := MakniSnimku(db, baza, "vodograd", "2010-03-22"); err == nil ||
-		err.Error() != "snimka korita vodograd od 2010-03-22 nije u arhivi" {
+	if _, err := MakniSnimku(db, baza, koren, "vodograd", "2010-03-22"); err == nil ||
+		!strings.Contains(err.Error(), "snimka korita vodograd od 2010-03-22 nije na popisu snimki bez datoteke") {
 		t.Errorf("micanje snimke koje nema: %v", err)
 	}
 }

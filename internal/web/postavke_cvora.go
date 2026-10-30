@@ -415,25 +415,38 @@ type kljucPokusaja struct{}
 // zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora,
 // ponovno pokrenuti čvor, spremiti ili učitati kopiju ključa mreže,
 // provjeriti vezu ni mijenjati što računalo prati, za svako od toga svojim
-// riječima
-type zabranaCvora struct{ postavke, ponovno, kljuc, provjera, pretplate, uloge string }
+// riječima. Isto pravilo čuva i ono što pripada samo ovom računalu: izvore
+// arhive, čuvanje povijesti letve i ono što se s diska uvozi mimo provjerena
+// potpisa (postavke_racunala.go).
+type zabranaCvora struct {
+	postavke, ponovno, kljuc, provjera, pretplate, uloge string
+	izvori, povijest, staraArhiva, neprovjeren           string
+}
 
 var (
 	zabranaNijeAdmin = &zabranaCvora{
-		postavke:  "Postavke čvora mijenja samo administrator.",
-		ponovno:   "Čvor ponovno pokreće samo administrator.",
-		kljuc:     "Kopiju ključa mreže sprema i učitava samo administrator.",
-		provjera:  "Vezu provjerava samo administrator.",
-		pretplate: "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
-		uloge:     "Uloge ovog čvora mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		postavke:    "Postavke čvora mijenja samo administrator.",
+		ponovno:     "Čvor ponovno pokreće samo administrator.",
+		kljuc:       "Kopiju ključa mreže sprema i učitava samo administrator.",
+		provjera:    "Vezu provjerava samo administrator.",
+		pretplate:   "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		uloge:       "Uloge ovog čvora mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		izvori:      "Izvore arhive mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		povijest:    "Čuva li ovo računalo cijelu povijest letve, odlučuje samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		staraArhiva: "Staru .db arhivu uvozi samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		neprovjeren: "Paket s diska uvozi samo globalni administrator.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
-		postavke:  "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		ponovno:   "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		kljuc:     "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		provjera:  "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		pretplate: "Što ovo računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		uloge:     "Uloge ovog čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		postavke:    "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		ponovno:     "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		kljuc:       "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		provjera:    "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		pretplate:   "Što ovo računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		uloge:       "Uloge ovog čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		izvori:      "Izvori arhive ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		povijest:    "Čuvanje povijesti letve ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		staraArhiva: "Stara .db arhiva ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		neprovjeren: "Paket koji ovo računalo ne može provjeriti ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke:  "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
@@ -442,6 +455,13 @@ var (
 		provjera:  "Veza se provjerava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 		pretplate: "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 		uloge:     "Uloge ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		izvori: "Izvori arhive su postavka ovog računala, pa se mijenjaju samo s ovog računala ili iz lokalne mreže, " +
+			"a ne izvana ni kroz tunel.",
+		povijest: "Čuvanje povijesti letve mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		staraArhiva: "Stara .db arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže, " +
+			"a ne izvana ni kroz tunel. Odavde se uvozi potpisani .cop paket.",
+		neprovjeren: "Ovo računalo još nije u mreži, pa ne može provjeriti čiji je potpis na paketu. Zato se paket s diska " +
+			"dotad uvozi samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 

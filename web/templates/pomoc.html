@@ -720,7 +720,9 @@
       ga čvorovi primaju razmjenom; javni podatak uvijek zadržava
       izvor i ne predstavlja se kao ručni upis vodočuvara.</p>
     <p><strong>Čuvaj povijest</strong> govori ovom računalu da drži cijelu povijest te letve, a
-      ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.</p>
+      ne samo zadnjih nekoliko očitanja. Odluka je lokalna — druga računala ostaju kakva jesu.
+      Kao i postavke čvora, mijenja je globalni administrator s ovog računala ili iz lokalne
+      mreže; izvana se gumb ne vidi.</p>
 
     <h3 id="ocitanja-raspon">Vrijednosti izvan raspona</h3>
     <p>Očitanje se prima samo u rasponu u kojem ima smisla: vodostaj od −500 do 3000 cm,
@@ -811,7 +813,11 @@
       se i uvijek se može ponovno napraviti iz izvornih datoteka.</p>
     <p>Arhiva ne ulazi u knjigu verzija kao niz mjerenja. Razmjenom putuje samo kazalo izdanih
       paketa, a potpisani <code>.cop</code> paket letve čvor dohvaća od bilo kojeg čvora koji ga
-      ima, ako ga pokriva pretplata (vidi <a href="#profile">Što ovo računalo prati</a>). Čvor
+      ima, ako ga pokriva pretplata (vidi <a href="#profile">Što ovo računalo prati</a>). Paket
+      letve učitan s diska, na historijatu letve, ugrađuje se samo ako je potpisan, i to ključem
+      ovog računala ili člana mreže; pregled prije ugradnje kaže tko ga je potpisao. Računalo koje
+      još nije u mreži ne zna čiji je ključ, pa takav paket ugrađuje samo s ovog računala ili iz
+      lokalne mreže. Čvor
       bez arhive i dalje radi:
       kartica letve se otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
       glavnoj bazi, uz svaki je redak išla i verzija za razmjenu, pa je 45.547 očitanja jedne
@@ -873,7 +879,8 @@
         otiska i verzije bez prethodnog dogovora.</li>
       <li><strong>Izvori arhive</strong> — na stranici <em>Administracija → Izvori arhive</em>
         uređuju se točnost, red povjerenja, mapa s datotekama, napomena i uključenost svakog
-        izvora. Red povjerenja svrstava izvor u tri skupine: <em>ovjereno</em> (službeni
+        izvora. Izvori su postavka ovog računala, pa ih globalni administrator mijenja samo s ovog
+        računala ili iz lokalne mreže; izvana ih samo vidi. Red povjerenja svrstava izvor u tri skupine: <em>ovjereno</em> (službeni
         revidirani nizovi), <em>s letve</em> (ono što je čovjek očitao) i <em>operativno</em>
         (dojave automatike). Preračuni nose oznaku <em>preračun</em>.</li>
     </ul>
@@ -934,8 +941,9 @@
       <em>Nizovi bez datoteke u stablu</em>, a iz arhive ih makne gumb <strong>Makni</strong>. Tako
       vanjski disk koji nije priključen ne odnese podatke. Snimke i krivulje letve koja u stablu nema
       svoju mapu na taj popis ne idu, npr. letve koju čvor samo prima paketom. Ne idu ni krivulje letve
-      koja je stigla paketom s drugog čvora. Ako je letva otkad je stranica otvorena dobila datoteku
-      krivulja ili stigla paketom, gumb Makni njezine krivulje ne miče, nego to javi. Ni gradnja ni gumb
+      koja je stigla paketom s drugog čvora. Gumb Makni prije micanja još jednom provjeri je li niz,
+      snimka ili krivulja i dalje na tom popisu. Ako je otkad je stranica otvorena dobila datoteku, letva
+      je stigla paketom ili disk s mapom izvora nije priključen, gumb ništa ne miče, nego to javi. Ni gradnja ni gumb
       Makni datoteke u stablu nikad ne mijenjaju.</p>
     <p>Datoteka snimke korita koja se ne da pročitati stoji na tom popisu kao zaseban redak, s razlogom i
       bez gumba Makni. Takvu datoteku treba popraviti u stablu. Dok se ne popravi, popis za tu letvu ne
@@ -1939,7 +1947,10 @@
         to ne bilježi kao neuspjelu razmjenu, nego samo kao vezu koja nije prošla rukovanje. Usput
         izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em> iznad. Traje do 10 sekundi.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
-        izvoz i obnova. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
+        izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
+        <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže.
+        Dok računalo još nije u mreži, ne zna čiji je potpis na paketu, pa se dotad i
+        <code>.cop</code> paket uvozi samo s ovog računala ili iz lokalne mreže. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
         čuvaju izvorne fotografije s terena; to vrijedi na svim čvorovima. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
@@ -1949,7 +1960,7 @@
         ulaganje i izdanja samo globalni administrator. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
         se nad istom arhivom izvodi samo jedan posao.</li>
       <li><strong>Izvori arhive</strong> — pregled i uređivanje izvora arhivskih podataka,
-        njihove pouzdanosti i točnosti.</li>
+        njihove pouzdanosti i točnosti. Mijenjaju se samo s ovog računala ili iz lokalne mreže.</li>
       <li id="obracun"><strong>Obračun sati</strong> — blagdani i koeficijenti za ured i teren.
         Nedjelja se računa kao blagdan; povijesno pravilo ne briše se nego mu se ograniči
         razdoblje važenja kako bi stari obračuni ostali ponovljivi. Ovdje se postavlja i redovno

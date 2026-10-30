@@ -549,6 +549,33 @@ func (s *Service) izdavacClan(ctx context.Context, izdao string, javni ed25519.P
 	return true, nil
 }
 
+// Potpisnik kaže što se zna o ključu kojim je paket potpisan
+type Potpisnik int
+
+const (
+	// PotpisnikNeprovjeren: računalo još nije u mreži, pa ne zna čiji je ključ
+	PotpisnikNeprovjeren Potpisnik = iota
+	// PotpisnikClan: član mreže, pod svojim imenom
+	PotpisnikClan
+	// PotpisnikOvoRacunalo: ključ ovog računala
+	PotpisnikOvoRacunalo
+)
+
+// PotpisnikPaketa javlja tko je potpisao paket koji kaže da ga je izdao
+// čvor izdao: ovo računalo, član naše mreže ili, dok računalo još nije u
+// mreži, nepoznat ključ. Pravilo je isto kao za .cop paket kanala: ključ
+// izvan mreže i član koji potpisuje pod tuđim imenom su greška.
+func (s *Service) PotpisnikPaketa(ctx context.Context, izdao string, javni ed25519.PublicKey) (Potpisnik, error) {
+	if len(s.node.key) > 0 && bytes.Equal(javni, s.node.key.Public().(ed25519.PublicKey)) {
+		return PotpisnikOvoRacunalo, nil
+	}
+	clan, err := s.izdavacClan(ctx, izdao, javni)
+	if err != nil || !clan {
+		return PotpisnikNeprovjeren, err
+	}
+	return PotpisnikClan, nil
+}
+
 // CopIme je naziv datoteke paketa: gocop-dnevnici-bp16-2026_v3.cop
 func CopIme(m CopManifest) string {
 	k := strings.NewReplacer("/", "-").Replace(m.Obuhvat.Kljuc())

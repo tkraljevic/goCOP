@@ -2,10 +2,14 @@ package web
 
 import (
 	"bytes"
+	"context"
+	"crypto/ed25519"
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +20,7 @@ import (
 	"gocop/internal/arhiva"
 	gocopdb "gocop/internal/db"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 
 	_ "modernc.org/sqlite"
 )
@@ -103,6 +108,9 @@ type PaketData struct {
 	// i s ovdašnjim postavkama.
 	RazlikeIzvora []arhiva.RazlikaIzvora
 	StariPaket    bool // inačica 1: ne kaže s čime je složen
+
+	// Potpis kaže tko je paket potpisao i je li to član mreže
+	Potpis string
 }
 
 // IzveziPaket šalje historijat letve kao datoteku. Sastavlja se u memoriju pa
@@ -202,8 +210,9 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 		h.pisiPregled(w, pd)
 		return
 	}
-	sadrzaj, err := arhiva.Procitaj(otvorena, n)
+	sadrzaj, potpis, err := h.procitajPotpisan(r, otvorena, n)
 	otvorena.Close()
+	pd.Potpis = potpis
 	if err != nil {
 		os.Remove(privremena.Name())
 		pd.Greska = err.Error()
@@ -218,7 +227,7 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 		h.pisiPregled(w, pd)
 		return
 	}
-	if a := h.arhiva(); a != nil {
+	if a := h.arh(); a != nil {
 		pd.Zateceno = a.StanjeLetve(r.Context(), data.Station.Code)
 	}
 	pd.StariPaket = sadrzaj.Manifest.Inacica < 2
@@ -258,7 +267,7 @@ func (h *StationsHandler) UgradiPaket(w http.ResponseWriter, r *http.Request) {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return
 	}
-	sadrzaj, err := arhiva.Procitaj(f, st.Size())
+	sadrzaj, err := h.procitajZaLetvu(r, f, st.Size(), data.Station.Code)
 	f.Close()
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
@@ -277,6 +286,73 @@ func (h *StationsHandler) UgradiPaket(w http.ResponseWriter, r *http.Request) {
 		sadrzaj.Manifest.Letva, sadrzaj.Manifest.Izdanje,
 		brojHR(sadrzaj.Manifest.Zapisa), models.UzBrojHR(sadrzaj.Manifest.Zapisa, "zapis je ugrađen", "zapisa su ugrađena", "zapisa je ugrađeno"),
 		sadrzaj.Manifest.Nizova, models.UzBrojHR(sadrzaj.Manifest.Nizova, "niz", "niza", "nizova")))
+}
+
+// potpisPaketa vraća rečenicu o tome tko je paket potpisao, ili grešku kad
+// se paket ne smije ugraditi. Nepotpisan paket se odbija (Odluke
+// (30. 10. 2026.), 13), a potpis mora biti člana mreže ili ovog računala,
+// kao kod .cop paketa kanala.
+func (h *StationsHandler) potpisPaketa(r *http.Request, s *arhiva.Sadrzaj) (string, error) {
+	if err := arhiva.TraziPotpis(s); err != nil {
+		return "", err
+	}
+	p := peers.PotpisnikNeprovjeren
+	if h.potpisnik != nil {
+		var err error
+		if p, err = h.potpisnik(r.Context(), s.Manifest.Izdao, s.PotpisaoKljuc); err != nil {
+			return "", err
+		}
+	}
+	return opisPotpisnika(r, s.Manifest.Izdao, p)
+}
+
+// opisPotpisnika kaže tko je paket potpisao. Dok računalo još nije u mreži,
+// ne zna čiji je ključ, pa paket vrijedi koliko i nepotpisan: ugrađuje se
+// samo s ovog računala ili iz lokalne mreže, kao stara .db arhiva (Odluke
+// (30. 10. 2026.), 13).
+func opisPotpisnika(r *http.Request, izdao string, p peers.Potpisnik) (string, error) {
+	switch p {
+	case peers.PotpisnikClan:
+		return "Paket je potpisao čvor " + izdao + ", član mreže.", nil
+	case peers.PotpisnikOvoRacunalo:
+		return "Paket je potpisalo ovo računalo.", nil
+	}
+	if poruka := porukaZabrane(r, zaNeprovjereno); poruka != "" {
+		return "", errors.New(poruka)
+	}
+	return "Paket kaže da ga je izdao čvor " + izdao + ". Potpis je ispravan, ali ovo računalo još nije u mreži, " +
+		"pa nije provjerilo čiji je ključ.", nil
+}
+
+// procitajPotpisan čita paket i provjerava njegov potpis (potpisPaketa)
+func (h *StationsHandler) procitajPotpisan(r *http.Request, ra io.ReaderAt, n int64) (*arhiva.Sadrzaj, string, error) {
+	s, err := arhiva.Procitaj(ra, n)
+	if err != nil {
+		return nil, "", err
+	}
+	potpis, err := h.potpisPaketa(r, s)
+	return s, potpis, err
+}
+
+// procitajZaLetvu ponavlja provjere iz pregleda neposredno prije ugradnje:
+// potpis i letvu s koje se paket ugrađuje
+func (h *StationsHandler) procitajZaLetvu(r *http.Request, ra io.ReaderAt, n int64, letva string) (*arhiva.Sadrzaj, error) {
+	s, _, err := h.procitajPotpisan(r, ra, n)
+	if err != nil {
+		return nil, err
+	}
+	if !strings.EqualFold(s.Manifest.Letva, letva) {
+		return nil, fmt.Errorf("paket nosi historijat letve %s, a otvorena je %s; otvorite letvu %s i ondje ga učitajte",
+			s.Manifest.Letva, letva, s.Manifest.Letva)
+	}
+	return s, nil
+}
+
+// SetPotpisnik daje rukovatelju provjeru tko je paket potpisao
+// (peers.Service.PotpisnikPaketa). Bez nje računalo ne zna čiji je ključ,
+// kao dok nije u mreži.
+func (h *StationsHandler) SetPotpisnik(f func(ctx context.Context, izdao string, javni ed25519.PublicKey) (peers.Potpisnik, error)) {
+	h.potpisnik = f
 }
 
 func (h *StationsHandler) pisiPregled(w http.ResponseWriter, pd PaketData) {

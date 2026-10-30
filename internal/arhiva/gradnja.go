@@ -2163,10 +2163,12 @@ func spojiJedan(db Izvrsitelj, letva, velicina string, redSpajanja []string, toc
 //
 // Arhiva se poslije ovoga i dalje da izgraditi iznova iz stabla: ondje te
 // datoteke nema, pa je i nema što vratiti.
-func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, error) {
+func MakniNiz(db *sql.DB, baza, koren, letva, izvor, velicina, vrsta string) (int, error) {
 	// Micanje niza završava ponovnim spajanjem, što je isti posao kao gradnja,
 	// pa ide pod istu bravu.
-	brava, err := Uzmi(baza, "micanje niza "+letva+" · "+izvor, "")
+	brava, err := uzmiZaMicanje(baza, "micanje niza "+letva+" · "+izvor, func() error {
+		return nizJosBezDatoteke(db, koren, letva, izvor, velicina, vrsta)
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -2178,21 +2180,14 @@ func MakniNiz(db *sql.DB, baza, letva, izvor, velicina, vrsta string) (int, erro
 	}
 	defer tx.Rollback()
 
-	var id int64
-	err = tx.QueryRow(`SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
-		letva, izvor, velicina, vrsta).Scan(&id)
-	if err == sql.ErrNoRows {
-		return 0, fmt.Errorf("niz %s/%s/%s/%s nije u arhivi", letva, izvor, velicina, vrsta)
-	}
-	if err != nil {
-		return 0, err
-	}
-	res, err := tx.Exec(`DELETE FROM ocitanja WHERE niz = ?`, id)
+	// niz je pod bravom provjeren na popisu bez datoteke, pa ga u arhivi ima
+	const niz = `SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`
+	res, err := tx.Exec(`DELETE FROM ocitanja WHERE niz IN (`+niz+`)`, letva, izvor, velicina, vrsta)
 	if err != nil {
 		return 0, err
 	}
 	obrisano, _ := res.RowsAffected()
-	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id IN (`+niz+`)`, letva, izvor, velicina, vrsta); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
@@ -2302,13 +2297,81 @@ func krivuljeJosBezDatoteke(tx Izvrsitelj, koren, letva string) error {
 	return nil
 }
 
+// nizJosBezDatoteke provjerava, pod bravom, da je niz i dalje na popisu
+// bez datoteke, kao krivuljeJosBezDatoteke za krivulje. Stranica s gumbom
+// Makni zna biti otvorena dugo: niz je u međuvremenu mogao dobiti datoteku,
+// letva je mogla stići paketom, a mapa izvora je možda na disku koji sad nije
+// priključen. Takav niz se ne miče.
+func nizJosBezDatoteke(db *sql.DB, koren, letva, izvor, velicina, vrsta string) error {
+	naPopisu, err := naPopisuBezDatoteke(db, koren, jeNiz(letva, izvor, velicina, vrsta))
+	if err != nil {
+		return fmt.Errorf("ne da se provjeriti je li niz %s/%s/%s/%s još bez datoteke: %w", letva, izvor, velicina, vrsta, err)
+	}
+	if !naPopisu {
+		return fmt.Errorf("niz %s/%s/%s/%s nije na popisu nizova bez datoteke: u međuvremenu je dobio datoteku, "+
+			"letva je stigla paketom s drugog čvora, mapa izvora nije dostupna ili ga u arhivi više nema", letva, izvor, velicina, vrsta)
+	}
+	return nil
+}
+
+// jeNiz prepoznaje redak popisa bez datoteke koji je baš taj niz
+func jeNiz(letva, izvor, velicina, vrsta string) func(Sirotan) bool {
+	return func(o Sirotan) bool {
+		return !o.Snimka && !o.Krivulje && o.Letva == letva && o.Izvor == izvor && o.Velicina == velicina && o.Vrsta == vrsta
+	}
+}
+
+// snimkaJosBezDatoteke je ista provjera za snimku korita
+func snimkaJosBezDatoteke(db *sql.DB, koren, letva, datum string) error {
+	naPopisu, err := naPopisuBezDatoteke(db, koren, func(o Sirotan) bool {
+		return o.Snimka && o.Datoteka == "" && o.Letva == letva && o.Datum == datum
+	})
+	if err != nil {
+		return fmt.Errorf("ne da se provjeriti je li snimka korita %s od %s još bez datoteke: %w", letva, datum, err)
+	}
+	if !naPopisu {
+		return fmt.Errorf("snimka korita %s od %s nije na popisu snimki bez datoteke: u međuvremenu je dobila datoteku, "+
+			"letva je stigla paketom s drugog čvora ili te snimke u arhivi više nema", letva, datum)
+	}
+	return nil
+}
+
+// uzmiZaMicanje uzima bravu arhive i pod njom provjerava smije li se
+// micati; kad ne smije, bravu odmah pušta
+func uzmiZaMicanje(baza, sto string, provjera func() error) (*Brava, error) {
+	brava, err := Uzmi(baza, sto, "")
+	if err != nil {
+		return nil, err
+	}
+	if err := provjera(); err != nil {
+		brava.Pusti()
+		return nil, err
+	}
+	return brava, nil
+}
+
+// naPopisuBezDatoteke javlja ima li na popisu bez datoteke zapisa koji isti
+// prepoznaje
+func naPopisuBezDatoteke(db *sql.DB, koren string, isti func(Sirotan) bool) (bool, error) {
+	if koren == "" {
+		return false, nil
+	}
+	bez, err := Sirotani(db, koren)
+	if err != nil {
+		return false, err
+	}
+	return slices.ContainsFunc(bez, isti), nil
+}
+
 // MakniSnimku briše iz arhive snimku korita kojoj datoteke u stablu više nema
 // i vraća koliko je točaka maknuto. Kao ni niz, ni snimku gradnja ne miče sama
 // (Odluke (13. 10. 2026.)): odlučuje čovjek, na popisu bez datoteke. Datoteke
 // u stablu se ne diraju, pa se arhiva i dalje da izgraditi iznova.
-func MakniSnimku(db *sql.DB, baza, letva, datum string) (int, error) {
+func MakniSnimku(db *sql.DB, baza, koren, letva, datum string) (int, error) {
 	// Ista brava kao gradnja: gradnja istodobno briše i upisuje točke snimki.
-	brava, err := Uzmi(baza, "micanje snimke korita "+letva+" · "+datum, "")
+	brava, err := uzmiZaMicanje(baza, "micanje snimke korita "+letva+" · "+datum, func() error {
+		return snimkaJosBezDatoteke(db, koren, letva, datum)
+	})
 	if err != nil {
 		return 0, err
 	}
@@ -2324,12 +2387,10 @@ func MakniSnimku(db *sql.DB, baza, letva, datum string) (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	tocaka, _ := res.RowsAffected()
-	if res, err = tx.Exec(`DELETE FROM profili WHERE letva = ? AND datum = ?`, letva, datum); err != nil {
+	tocaka, _ := res.RowsAffected() // SQLite uvijek zna koliko je redaka obrisano
+	// snimka je pod bravom provjerena na popisu bez datoteke, pa je u arhivi ima
+	if _, err := tx.Exec(`DELETE FROM profili WHERE letva = ? AND datum = ?`, letva, datum); err != nil {
 		return 0, err
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return 0, fmt.Errorf("snimka korita %s od %s nije u arhivi", letva, datum)
 	}
 	return int(tocaka), tx.Commit()
 }
