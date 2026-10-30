@@ -6,6 +6,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Izvođač ne ulazi u IORS ni u obračun sati.** Izvođača koji dežura
+  plaća njegova firma, a ne Hrvatske vode, pa njegova dežurstva ne ulaze u
+  obračun sati centra, a on svoj IORS više ne otvara.
 - **Vraćanje na starije izdanje iz ikone u traci.** Postava postavlja
   starije izdanje, najstarije 0.0.37-alfa, samo kad ga globalni
   administrator dopusti na stranici Ovo računalo i mreža, s računala s

@@ -123,7 +123,8 @@ func TestIzvodjacKrozRuteDnevnikaCOPa(t *testing.T) {
 		t.Errorf("dnevnik COP-a ima %d zapisa poslovođe", len(zapisi))
 	}
 	for _, putanja := range []string{put + "/obracun/" + poslovodja.ID.String(), put + "/obracun/" + poslovodja.ID.String() + "/iors.xlsx"} {
-		if w := p.salji(t, poslovodja, http.MethodGet, putanja, nil); w.Code != http.StatusOK {
+		// izvođača plaća njegova firma, pa svoj IORS nema
+		if w := p.salji(t, poslovodja, http.MethodGet, putanja, nil); w.Code != http.StatusForbidden {
 			t.Errorf("poslovođa na svom IORS-u %s: %d", putanja, w.Code)
 		}
 	}

@@ -37,9 +37,40 @@ func (s *JournalService) VidiObracun(perms *models.UserPermissions, j *models.Jo
 }
 
 // VidiIORS: izvješće o radnim satima osobe vidi uprava centra i osoba sama
-// (Odluke (30. 10. 2026.), 2)
+// (Odluke (30. 10. 2026.), 2). Izvođača plaća njegova firma, a ne Hrvatske
+// vode, pa on svoj IORS nema (Odluke (30. 10. 2026.), dopuna 15).
 func (s *JournalService) VidiIORS(u *models.User, perms *models.UserPermissions, j *models.Journal, userID string) bool {
-	return s.UpravaCentra(perms, j) || (u != nil && userID != "" && u.ID.String() == userID)
+	return s.UpravaCentra(perms, j) || (u != nil && userID != "" && u.ID.String() == userID && !s.IzvodjacZaCOP(u))
+}
+
+// racunaSeUObracun javlja ide li dio dežurstva trajanja t u zbroj sati:
+// ne ide dežurstvo izvođača (izvodjacUDezurstvu) ni ono koje izvanZbroja
+// izdvaja
+func (s *JournalService) racunaSeUObracun(d models.Dezurstvo, t time.Duration, out *Obracun, povijesti map[string][]models.VerzijaZaduzenja) bool {
+	return !s.izvodjacUDezurstvu(d, povijesti) && !izvanZbroja(d, t, out)
+}
+
+// izvodjacUDezurstvu javlja je li osoba u vrijeme dežurstva imala dužnost
+// poslovođe izvođača. Izvođača plaća njegova firma, pa takvo dežurstvo ne
+// ulazi u obračun sati ni u IORS (Odluke (30. 10. 2026.), dopuna 15).
+// Povijest dužnosti pamti se po osobi u povijesti; bez nje dežurstvo ostaje.
+func (s *JournalService) izvodjacUDezurstvu(d models.Dezurstvo, povijesti map[string][]models.VerzijaZaduzenja) bool {
+	if s.povijestZaduzenja == nil {
+		return false
+	}
+	p, ok := povijesti[d.UserID]
+	if !ok {
+		if id, err := uuid.Parse(d.UserID); err == nil {
+			p, _ = s.povijestZaduzenja(id) // bez povijesti dežurstvo ostaje u obračunu
+		}
+		povijesti[d.UserID] = p
+	}
+	for _, z := range models.ZaduzenjaZaZapis(p, d.Od) {
+		if z.Role == models.RoleServiceLeaderForeman {
+			return true
+		}
+	}
+	return false
 }
 
 // CitaDnevnikeCOP javlja smije li osoba čitati dnevnike COP-a i plan
@@ -662,9 +693,10 @@ func (s *JournalService) Obracun(ctx context.Context, j *models.Journal, od, do 
 	}
 	sati := map[kljuc]obracun.Sati{}
 	imena := map[string]string{}
+	povijesti := map[string][]models.VerzijaZaduzenja{}
 	for _, d := range dez {
 		a, b, ok := dioURazdoblju(d, od, do)
-		if !ok || izvanZbroja(d, b.Sub(a), &out) {
+		if !ok || !s.racunaSeUObracun(d, b.Sub(a), &out, povijesti) {
 			continue
 		}
 		kl := kljuc{d.PodrucjeID(), d.UserID, d.MjestoRada()}
@@ -841,8 +873,9 @@ func (s *JournalService) ObracunOsobe(ctx context.Context, j *models.Journal, us
 	if err != nil {
 		return out, err
 	}
+	povijesti := map[string][]models.VerzijaZaduzenja{}
 	for _, d := range dez {
-		if d.UserID != userID {
+		if d.UserID != userID || s.izvodjacUDezurstvu(d, povijesti) {
 			continue
 		}
 		out.UserName = d.UserName

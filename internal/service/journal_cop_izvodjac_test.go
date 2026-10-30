@@ -180,7 +180,11 @@ func TestTkoVidiObracunIIORS(t *testing.T) {
 	if !s.VidiObracun(uprava, cop) || !s.VidiIORS(voditelj, uprava, cop, drugi) {
 		t.Error("uprava centra ne vidi obračun ili tuđi IORS")
 	}
-	if !s.VidiIORS(operater, dezurni, cop, operater.ID.String()) || !s.VidiIORS(poslovodja, pp, cop, poslovodja.ID.String()) {
+	if !s.VidiIORS(operater, dezurni, cop, operater.ID.String()) {
 		t.Error("osoba ne vidi svoj IORS")
+	}
+	// izvođača plaća njegova firma, pa svoj IORS nema
+	if s.VidiIORS(poslovodja, pp, cop, poslovodja.ID.String()) {
+		t.Error("izvođač vidi svoj IORS")
 	}
 }

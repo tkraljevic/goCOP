@@ -348,7 +348,11 @@ func (s *JournalService) izvodjacZaCOP(perms *models.UserPermissions) bool {
 // dežurstava kao izvođač: samo kad danas ima važeću dužnost voditelja
 // usluga / poslovođe. Prijašnja dužnost poslovođe se ne računa, za razliku
 // od dnevnika usluga (IzvodjacZaDnevnike) (Odluke (30. 10. 2026.), dopuna 6).
-func (s *JournalService) IzvodjacZaCOP(u *models.User) bool {
+func (s *JournalService) IzvodjacZaCOP(u *models.User) bool { return JeIzvodjacZaCOP(u) }
+
+// JeIzvodjacZaCOP je pravilo IzvodjacZaCOP bez servisa, za stranice koje
+// ga trebaju (profil)
+func JeIzvodjacZaCOP(u *models.User) bool {
 	if u == nil {
 		return false
 	}

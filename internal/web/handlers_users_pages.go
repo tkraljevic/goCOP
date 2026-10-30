@@ -428,9 +428,7 @@ func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kod
 	data.IsSelf = true
 	data.ActiveNav = "profile"
 	data.Izvana = dolaziIzvana(r)
-	if h.planovi != nil {
-		data.Planovi, _ = h.planovi(r.Context(), data.User.ID.String())
-	}
+	data.Planovi = h.planoviProfila(r.Context(), data.User)
 	if h.postaRacun != nil {
 		data.PostaRacun, data.PostaKad = h.postaRacun(r.Context(), data.User.ID.String())
 	}
@@ -520,4 +518,15 @@ func (h *UsersHandler) HandleUserModules(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/users/"+u.ID.String(), "success", "Vidljivost modula za ovaj račun je spremljena.")
+}
+
+// planoviProfila su kartice dežurstava na profilu. Izvođača plaća njegova
+// firma, pa on na profilu nema dežurstava ni izvješća o satima (Odluke
+// (30. 10. 2026.)). Kartice koje se ne daju pročitati se ne pokazuju.
+func (h *UsersHandler) planoviProfila(ctx context.Context, u *models.User) []models.PlanOsobe {
+	if h.planovi == nil || u == nil || service.JeIzvodjacZaCOP(u) {
+		return nil
+	}
+	planovi, _ := h.planovi(ctx, u.ID.String()) // bez kartica profil se i dalje prikazuje
+	return planovi
 }
