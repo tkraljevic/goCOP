@@ -46,7 +46,7 @@ func TestPotvrdaBezPrijaveNeDajeClanstvo(t *testing.T) {
 	o := novaOkolinaUparivanja(t)
 	o.pair.primaClanove = func() bool { return false }
 
-	code, odgovor, primi := o.potvrdaUparivanja(izravno, nil)
+	code, odgovor, primi := o.potvrdaUparivanja(izravnoSKodom, nil)
 	if code != http.StatusOK || primi == nil {
 		t.Fatalf("svjež čvor bez prijave mora moći upariti: %d", code)
 	}
@@ -68,10 +68,10 @@ func TestCvorKojiPrimaNeUparujeBezPrijave(t *testing.T) {
 	prima := true
 	o.pair.primaClanove = func() bool { return prima }
 
-	if code, _, primi := o.potvrdaUparivanja(izravno, nil); code != http.StatusForbidden || primi != nil {
+	if code, _, primi := o.potvrdaUparivanja(izravnoSKodom, nil); code != http.StatusForbidden || primi != nil {
 		t.Errorf("čvor s ključem mreže bez prijave: %d, potvrda stigla do razmjene: %v", code, primi != nil)
 	}
-	if code, ov := o.zahtjev(izravno, nil, "/api/uparivanje/listen"); code != http.StatusForbidden || ov != nil {
+	if code, ov := o.zahtjev(izravnoSKodom, nil, "/api/uparivanje/listen"); code != http.StatusForbidden || ov != nil {
 		t.Errorf("čekanje uparivanja bez prijave na čvoru s ključem: %d", code)
 	}
 	o.racun("sef", "sefova-lozinka", true, false)
@@ -80,7 +80,7 @@ func TestCvorKojiPrimaNeUparujeBezPrijave(t *testing.T) {
 	}
 
 	prima = false
-	if code, _, _ := o.potvrdaUparivanja(izravno, nil); code != http.StatusOK {
+	if code, _, _ := o.potvrdaUparivanja(izravnoSKodom, nil); code != http.StatusOK {
 		t.Errorf("svjež čvor bez ključa i ovlasti uparuje bez prijave: %d", code)
 	}
 }
@@ -113,10 +113,10 @@ func TestPorukaPozivaIzvanaJeOpca(t *testing.T) {
 // bez prijave prestaje, a administratorova potvrda stiže do razmjene
 func TestOsnovanaMrezaZatvaraUparivanjeBezPrijave(t *testing.T) {
 	o := novaOkolinaPostavljanja(t)
-	h := NewPairHandler(o.mreza, o.auth, service.NewUserService(o.repo, o.auth, service.NewSSEBroker()), nil)
+	h := sKodomPostavljanja(NewPairHandler(o.mreza, o.auth, service.NewUserService(o.repo, o.auth, service.NewSSEBroker()), nil))
 	srv := (&Server{}).klijentSloj(h.Gate(http.HandlerFunc(h.HandleConfirm)))
 	potvrda := func(sesija *models.Session) *httptest.ResponseRecorder {
-		r := izravno(httptest.NewRequest(http.MethodPost, "/api/uparivanje/confirm", strings.NewReader(`{"approved":true}`)))
+		r := izravnoSKodom(httptest.NewRequest(http.MethodPost, "/api/uparivanje/confirm", strings.NewReader(`{"approved":true}`)))
 		r.Header.Set("Content-Type", "application/json")
 		if sesija != nil {
 			r.AddCookie(&http.Cookie{Name: imeKolacicaSesije, Value: sesija.ID.String()})
@@ -261,10 +261,10 @@ func TestPozivIRazmjenaIzPostavkiIzvana(t *testing.T) {
 func TestOvlastZaPrimanjeZatvaraUparivanjeBezPrijave(t *testing.T) {
 	o := novaOkolinaPostavljanja(t)
 	ured := primateljNaDaljinu(t)
-	h := NewPairHandler(o.mreza, o.auth, service.NewUserService(o.repo, o.auth, service.NewSSEBroker()), nil)
+	h := sKodomPostavljanja(NewPairHandler(o.mreza, o.auth, service.NewUserService(o.repo, o.auth, service.NewSSEBroker()), nil))
 	srv := (&Server{}).klijentSloj(h.Gate(http.HandlerFunc(h.HandleStatus)))
 	status := func(sesija *models.Session) int {
-		r := izravno(httptest.NewRequest(http.MethodGet, "/api/uparivanje/status", nil))
+		r := izravnoSKodom(httptest.NewRequest(http.MethodGet, "/api/uparivanje/status", nil))
 		if sesija != nil {
 			r.AddCookie(&http.Cookie{Name: imeKolacicaSesije, Value: sesija.ID.String()})
 		}

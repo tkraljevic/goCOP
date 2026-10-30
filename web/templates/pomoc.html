@@ -1840,7 +1840,11 @@
         i potvrđuje globalni administrator; prima čvor koji drži ključ mreže ili član kojem je
         nositelj ključa dao <em>ovlast za primanje</em>. Oduzeta ovlast poništava članstva svih
         računala koja je taj primatelj primio, a ekran ih nabroji. Članstvo opoziva čvor koji drži
-        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Uz članstvo
+        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Kad je stranica
+        otvorena izvana, kroz tunel ili s javne adrese, računalo se prima, ovlast za primanje daje i
+        oduzima, a članstvo opoziva samo uz lozinku vašeg računa, upisanu u isti obrazac. S ovog računala
+        i iz lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše u dnevniku
+        programa. Tuđim očima se mreža ne mijenja. Uz članstvo
         piše do kad vrijedi. Mjesec dana prije isteka računalo samo zatraži obnovu pri razmjeni, a gumb
         <em>Obnovi članstvo</em> traži je u svako doba; računalo koje prima ima gumb <em>Obnovi</em> uz
         svakog člana. Isteklo članstvo vrijedi za razmjenu još 30 dana, a u tom roku računalo ne prima
@@ -1851,8 +1855,9 @@
         učitava se zahtjev računala izvan lokalne mreže i upisuje <em>kod za primanje</em> koji
         čovjek s tog računala pročita telefonom; potvrda se preuzme i pošalje mu natrag.
         Podmetnut zahtjev ili potvrda ne odgovaraju kodu i odbijaju se. Primljeno računalo sinkronizira se sa svim članovima bez
-        uparivanja sa svakim: pri spajanju pokaže svoju potvrdu članstva. Svjež čvor bez računa nudi čarobnjak samo iz
-        lokalne mreže, ne kroz javni tunel. Bez prijave se računalo samo upari: u mrežu ga prima
+        uparivanja sa svakim: pri spajanju pokaže svoju potvrdu članstva. Svjež čvor bez računa nudi čarobnjak
+        bez prijave samo osobi za tim računalom: na njemu samom, ili iz lokalne mreže uz jednokratni kod
+        iz dnevnika programa, isti kao za Postavljanje. Kroz tunel ga ne nudi. Bez prijave se računalo samo upari: u mrežu ga prima
         tek prijavljeni globalni administrator. Računalo koje drži ključ mreže ili ovlast za primanje
         čarobnjak bez prijave ne nudi. Ime čvora u mreži (<code>[node] id</code>) zadaje se
         prije prvog pokretanja i ne mijenja se; uparivanje odbija računalo s imenom koje u mreži

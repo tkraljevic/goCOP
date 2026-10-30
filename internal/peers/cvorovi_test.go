@@ -328,3 +328,23 @@ func TestCekanjeNaUparivanje(t *testing.T) {
 		t.Error("drugi prekid je pokrenuo čekanje")
 	}
 }
+
+// Ovo računalo ne zaboravlja samo sebe: vlastiti zapis s adresom za
+// razmjenu ostaje, i u knjizi nema arhivirane verzije
+func TestCvorNeZaboravljaSamSebe(t *testing.T) {
+	s := rubniCvor(t, "cop-osijek")
+	if _, err := s.PublicAddress(ctxRub, "cop-osijek", "cop.primjer.hr", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ForgetPeer(ctxRub, "cop-osijek"); err == nil {
+		t.Fatal("ovo računalo zaboravilo je samo sebe")
+	}
+	if p, err := s.SelfPeer(ctxRub); err != nil || len(p.Addresses) != 1 {
+		t.Errorf("vlastiti zapis nakon odbijenog zaborava: %+v %v", p, err)
+	}
+	var arhivirano int
+	if err := s.db.QueryRow(`SELECT count(*) FROM record_versions WHERE entity = ? AND entity_id = 'cop-osijek' AND archived = 1`,
+		EntityPeers).Scan(&arhivirano); err != nil || arhivirano != 0 {
+		t.Errorf("arhiviranih verzija vlastitog zapisa %d (%v)", arhivirano, err)
+	}
+}

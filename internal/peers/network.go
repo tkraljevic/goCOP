@@ -491,12 +491,13 @@ func (s *Service) welcomeFor(ctx context.Context, peerID string, peerKey ed25519
 }
 
 // acceptWelcome obrađuje paket druge strane nakon uspješnog uparivanja.
-// Vraća je li drugi čvor sada član naše mreže, i poruku za ekran.
-func (s *Service) acceptWelcome(ctx context.Context, raw json.RawMessage, peerID string, peerKey ed25519.PublicKey, given *welcomePack) (bool, string, error) {
+// Vraća je li drugi čvor sada član naše mreže, je li ga upravo primilo ovo
+// računalo (Primljen), i poruku za ekran. Paired postavlja pozivatelj.
+func (s *Service) acceptWelcome(ctx context.Context, raw json.RawMessage, peerID string, peerKey ed25519.PublicKey, given *welcomePack) (PairOutcome, error) {
 	var theirs welcomePack
 	if len(raw) > 0 {
 		if err := json.Unmarshal(raw, &theirs); err != nil {
-			return false, "", fmt.Errorf("paket dobrodošlice se ne može pročitati: %w", err)
+			return PairOutcome{}, fmt.Errorf("paket dobrodošlice se ne može pročitati: %w", err)
 		}
 	}
 
@@ -507,28 +508,28 @@ func (s *Service) acceptWelcome(ctx context.Context, raw json.RawMessage, peerID
 	// nismo ni u jednoj mreži: jedini način unutra je da nas druga strana primi
 	if network == nil {
 		if err := s.joinNetwork(ctx, theirs); err != nil {
-			return false, "", err
+			return PairOutcome{}, err
 		}
 		if theirs.Mine != nil {
-			_ = s.saveMembership(ctx, *theirs.Mine)
+			_ = s.saveMembership(ctx, *theirs.Mine) // potvrda druge strane samo ubrzava prvu razmjenu; stiže i razmjenom
 		}
-		return true, fmt.Sprintf("Ovaj čvor je primljen u mrežu %q.", theirs.NetworkName), nil
+		return PairOutcome{Member: true, Message: fmt.Sprintf("Ovaj čvor je primljen u mrežu %q.", theirs.NetworkName)}, nil
 	}
 
 	// u mreži smo: druga strana je ili iste mreže, ili ju mi primamo, ili ništa
 	ourKey := razmjena.PublicKeyString(network.Public)
 	if theirs.NetworkKey != "" && theirs.NetworkKey != ourKey {
-		return false, "", fmt.Errorf("čvor %s pripada drugoj mreži (%q) — ne može biti član naše", peerID, theirs.NetworkName)
+		return PairOutcome{}, fmt.Errorf("čvor %s pripada drugoj mreži (%q) — ne može biti član naše", peerID, theirs.NetworkName)
 	}
 	if theirs.Mine != nil && s.provjeriClanstvo(ctx, network.Public, *theirs.Mine, peerKey) == nil {
-		_ = s.saveMembership(ctx, *theirs.Mine)
-		return true, "Čvor je već član naše mreže.", nil
+		_ = s.saveMembership(ctx, *theirs.Mine) // već je član; potvrda stiže i razmjenom
+		return PairOutcome{Member: true, Message: "Čvor je već član naše mreže."}, nil
 	}
 	if given != nil && given.ForYou != nil {
 		if err := s.saveMembership(ctx, *given.ForYou); err != nil {
-			return false, "", err
+			return PairOutcome{}, err
 		}
-		return true, fmt.Sprintf("Čvor %s je primljen u mrežu %q.", peerID, network.Name), nil
+		return PairOutcome{Member: true, Primljen: true, Message: fmt.Sprintf("Čvor %s je primljen u mrežu %q.", peerID, network.Name)}, nil
 	}
-	return false, fmt.Sprintf("Čvor %s je uparen, ali NIJE član mreže — primiti ga može samo nositelj mrežnog ključa ili ovlašteni primatelj.", peerID), nil
+	return PairOutcome{Message: fmt.Sprintf("Čvor %s je uparen, ali NIJE član mreže — primiti ga može samo nositelj mrežnog ključa ili ovlašteni primatelj.", peerID)}, nil
 }

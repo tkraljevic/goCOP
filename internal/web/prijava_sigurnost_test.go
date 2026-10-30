@@ -94,6 +94,21 @@ func javnoIzravno(r *http.Request) *http.Request {
 	return r
 }
 
+// testniKodPostavljanja je kod iz dnevnika u testovima uparivanja bez prijave
+const testniKodPostavljanja = "7KQ4-M2XD"
+
+// izravnoSKodom je zahtjev iz lokalne mreže s kodom iz dnevnika
+func izravnoSKodom(r *http.Request) *http.Request {
+	r.Header.Set(zaglavljeKoda, testniKodPostavljanja)
+	return izravno(r)
+}
+
+// sKodomPostavljanja daje rukovatelju uparivanja provjeru testnog koda
+func sKodomPostavljanja(h *PairHandler) *PairHandler {
+	h.SetKodPostavljanja((&PostavljanjeHandler{kod: testniKodPostavljanja}).dopusteno)
+	return h
+}
+
 func krozTunel(klijent string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = "127.0.0.1:5555"
@@ -330,7 +345,7 @@ type okolinaUparivanja struct {
 
 func novaOkolinaUparivanja(t *testing.T) *okolinaUparivanja {
 	o := &okolinaUparivanja{okolinaPrijave: novaOkolinaPrijave(t), racuna: 1}
-	o.pair = &PairHandler{auth: o.auth}
+	o.pair = sKodomPostavljanja(&PairHandler{auth: o.auth})
 	o.pair.brojiRacun = func() (int, error) { o.upiti++; return o.racuna, nil }
 	return o
 }
@@ -368,9 +383,9 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	tunel := krozTunel("198.51.100.7")
 	const api = "/api/uparivanje/confirm"
 
-	// svjež čvor: lokalno bez prijave da, kroz tunel ne
-	if code, ov := o.zahtjev(izravno, nil, api); code != http.StatusOK || ov == nil || ov.korisnik != nil {
-		t.Errorf("svjež čvor, izravan klijent: %d %+v", code, ov)
+	// svjež čvor: lokalno bez prijave uz kod iz dnevnika da, kroz tunel ne
+	if code, ov := o.zahtjev(izravnoSKodom, nil, api); code != http.StatusOK || ov == nil || ov.korisnik != nil {
+		t.Errorf("svjež čvor, izravan klijent s kodom: %d %+v", code, ov)
 	}
 	if code, ov := o.zahtjev(tunel, nil, api); code != http.StatusForbidden || ov != nil {
 		t.Errorf("svjež čvor kroz tunel bez prijave mora biti odbijen: %d", code)

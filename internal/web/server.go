@@ -928,6 +928,7 @@ func (s *Server) setupRoutes() {
 	s.postavljanje = &PostavljanjeHandler{users: s.userService, auth: s.authService, peers: s.peersService,
 		tmpl: s.templates["postavljanje.html"], svjez: pairH.Fresh, nijeVise: pairH.NijeViseSvjez,
 		kod: noviKodPostavljanja()}
+	pairH.SetKodPostavljanja(s.postavljanje.dopusteno)
 	s.mux.HandleFunc("GET /postavljanje", s.postavljanje.Prikazi)
 	s.mux.HandleFunc("POST /postavljanje", s.postavljanje.Osnuj)
 	s.mux.HandleFunc("GET /postavljanje/zahtjev", s.postavljanje.Zahtjev)

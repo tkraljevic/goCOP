@@ -30,6 +30,7 @@
           <label class="form-label" for="kod">Kod iz dnevnika</label>
           <input type="text" id="kod" name="kod" class="form-control" required autofocus placeholder="npr. 7KQ4-M2XD" autocomplete="off">
         </div>
+        {{with .Put}}<input type="hidden" name="put" value="{{.}}">{{end}}
         <button type="submit" class="btn btn-primary w-full">Nastavi</button>
       </form>
       {{else if .Uvezeno}}
@@ -98,7 +99,7 @@
         <summary class="fw-600" style="cursor:pointer;">Priključit ću se postojećoj mreži</summary>
         <p class="mt-4"><b>U istoj lokalnoj mreži</b> (npr. u uredu): ovo računalo upari s računalom koje je već u mreži.
         Djelatnici, registri i podaci stižu od tamo, pa se nakon toga prijavljujete svojim računom.</p>
-        <a href="/uparivanje" class="btn btn-secondary w-full">Poveži ga s uredom</a>
+        <a href="/uparivanje{{if .Kod}}?kod={{.Kod}}{{end}}" class="btn btn-secondary w-full">Poveži ga s uredom</a>
 
         <p class="mt-6 mb-2"><b>Na daljinu</b> (npr. laptop kod kuće, a ured na drugom kraju):</p>
         <ol class="mb-4" style="padding-left:1.2rem;">

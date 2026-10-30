@@ -25,6 +25,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Sken ovjere učitava samo onaj tko akt smije ovjeriti, tuđim očima se akt
   ne ovjerava, a nacrt drugog sektora se ne otvara.
   Lozinka e-pošte ide samo poslužitelju za koji je upisana.
+- **Provjere prava: mreža izvana i uparivanje novog računala.** Izvana se
+  računalo prima u mrežu, ovlast za primanje daje i oduzima, a članstvo
+  opoziva samo uz lozinku računa. Dnevnik programa zapiše tko je to
+  napravio i s koje adrese. Iz lokalne mreže lozinka ne treba. Uparivanje
+  bez prijave iz lokalne mreže traži kod iz dnevnika, i bez Postave.
+  Tuđim očima se mreža ne mijenja, a ovo računalo ne zaboravlja samo sebe.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.
