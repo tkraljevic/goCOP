@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"net/url"
 	"regexp"
 	"sort"
 	"strings"
@@ -36,8 +35,8 @@ func AdresaPegelOnline(uuid string) string {
 }
 
 func PostajaPegelOnlineIzAdrese(adresa string) string {
-	u, err := url.Parse(strings.TrimSpace(adresa))
-	if err != nil || !strings.HasSuffix(strings.ToLower(u.Hostname()), "pegelonline.wsv.de") {
+	u, ok := adresaIzvora(adresa, "pegelonline.wsv.de")
+	if !ok {
 		return ""
 	}
 	m := rePegelOnline.FindStringSubmatch(u.Path)
@@ -51,6 +50,7 @@ func (p PegelOnline) Ocitanja(ctx context.Context, adresa string) ([]Redak, erro
 	if PostajaPegelOnlineIzAdrese(adresa) == "" {
 		return nil, fmt.Errorf("PEGELONLINE adresa nema UUID postaje")
 	}
+	adresa = zaDohvat(adresa, "pegelonline.wsv.de")
 	if p.Base != "" {
 		adresa = p.Base
 	}

@@ -100,6 +100,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   izvan radne tablice ili s previše ćelija javlja grešku. Čitanje godišnjaka
   iz PDF-a staje nakon dvije minute ili kad se pregled zatvori. Kućni server
   nadogradite prvi.
+- **Javni izvori vodostaja čitaju se i otvaraju samo na poslužitelju izvora.**
+  Odgovori vanjskih usluga čitaju se do granice, certifikat mletva.voda.hr
+  provjerava se po otisku, a poruka o prijavi na HydroView navodi samo put.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

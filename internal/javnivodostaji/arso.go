@@ -12,7 +12,6 @@ import (
 	"fmt"
 	"html"
 	"math"
-	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
@@ -44,9 +43,8 @@ func AdresaARSO(sifra string) string { return AdresaARSOXML + "#" + strings.Trim
 
 // PostajaARSOIzAdrese čita šifru iz fragmenta ili parametra postaja.
 func PostajaARSOIzAdrese(adresa string) string {
-	u, err := url.Parse(strings.TrimSpace(adresa))
-	if err != nil || !strings.HasSuffix(strings.ToLower(u.Hostname()), "arso.gov.si") ||
-		!strings.HasSuffix(strings.ToLower(u.Path), "/hidro_podatki_zadnji.xml") {
+	u, ok := adresaIzvora(adresa, "arso.gov.si")
+	if !ok || !strings.HasSuffix(strings.ToLower(u.Path), "/hidro_podatki_zadnji.xml") {
 		return ""
 	}
 	sifra := strings.TrimSpace(u.Fragment)
@@ -77,7 +75,7 @@ func (a ARSO) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 			return redci, nil
 		}
 	}
-	dohvati := strings.SplitN(adresa, "#", 2)[0]
+	dohvati := zaDohvat(adresa, "arso.gov.si")
 	if a.Base != "" {
 		dohvati = a.Base
 	}

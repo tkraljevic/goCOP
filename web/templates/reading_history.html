@@ -158,7 +158,7 @@
   </div>
   {{if and .Station .JavniURL}}
   <p class="form-help mt-0 mb-3">
-    {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: <a href="{{.JavniURL}}" target="_blank" rel="noopener">{{if .JavniIzvor}}{{.JavniIzvor}}{{else}}{{.JavniURL}}{{end}}</a>{{if not .JavniIzvor}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
+    {{if .JavniTelemetrija}}Telemetrija{{else}}Javna stranica{{end}}: {{if .JavnaPoveznica}}<a href="{{.JavnaPoveznica}}" target="_blank" rel="noopener">{{.JavniIzvor}}</a>{{else}}{{.JavniURL}} <span class="badge badge-inactive">{{icon "triangle-alert"}} nema čitača za tu adresu</span>{{end}}.
     {{if .JavniUvoz}}Satno preuzimanje je uključeno.{{else}}Satno preuzimanje je isključeno.{{end}}
     {{with .JavniStanje}}{{if .Greska}}<span class="badge badge-inactive">{{icon "triangle-alert"}} zadnje preuzimanje {{satHR .Kad}} nije uspjelo: {{.Greska}}</span>{{else}}Zadnje preuzimanje {{satHR .Kad}}: {{.Preuzeto}} s izvora, novih {{.Novih}}{{if .Odbaceno}}, odbačeno izvan raspona {{.Odbaceno}}{{end}}{{if .Skokova}}, odbačeno kao skok {{.Skokova}}{{end}}{{if .Ceka}}, čeka iduće očitanje {{.Ceka}}{{end}}{{if not .ZadnjeKad.IsZero}}, najnovije {{formatDate (localTime .ZadnjeKad)}}{{end}}.{{end}}{{end}}
   </p>

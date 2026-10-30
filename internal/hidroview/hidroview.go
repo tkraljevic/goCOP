@@ -341,9 +341,28 @@ func (k *Klijent) citaj(ctx context.Context, put string, u any) error {
 		return err
 	}
 	if err := json.Unmarshal(b, u); err != nil {
-		return fmt.Errorf("%s: odgovor nije očekivani JSON: %w", put, err)
+		return fmt.Errorf("%s: odgovor nije očekivani JSON: %w", bezUpita(put), err)
 	}
 	return nil
+}
+
+// bezUpita je put bez upita. Upit prijave nosi korisničko ime i šifriranu
+// lozinku, pa poruka o grešci, stanje letve i dnevnik dobivaju samo put.
+func bezUpita(put string) string {
+	if i := strings.IndexByte(put, '?'); i >= 0 {
+		return put[:i]
+	}
+	return put
+}
+
+// greskaBezUpita uklanja upit iz adrese u grešci mreže. Vrsta greške ostaje
+// ista, pa se istek i prekid veze i dalje prepoznaju.
+func greskaBezUpita(err error, adresa string) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		ue.URL = bezUpita(adresa)
+	}
+	return err
 }
 
 func (k *Klijent) dohvati(ctx context.Context, put string) ([]byte, error) {
@@ -360,12 +379,12 @@ func (k *Klijent) dohvati(ctx context.Context, put string) ([]byte, error) {
 	}
 	resp, err := k.klijent().Do(req)
 	if err != nil {
-		return nil, err
+		return nil, greskaBezUpita(err, k.osnova()+put)
 	}
 	defer resp.Body.Close()
 	b, err := io.ReadAll(io.LimitReader(resp.Body, 32<<20))
 	if err != nil {
-		return nil, err
+		return nil, greskaBezUpita(err, k.osnova()+put)
 	}
 	if (resp.StatusCode == http.StatusUnauthorized || resp.StatusCode == http.StatusForbidden) && token != "" {
 		k.mu.Lock()
@@ -373,10 +392,10 @@ func (k *Klijent) dohvati(ctx context.Context, put string) ([]byte, error) {
 			k.token = ""
 		}
 		k.mu.Unlock()
-		return nil, fmt.Errorf("%s: %s: %w", put, resp.Status, ErrOdbijenToken)
+		return nil, fmt.Errorf("%s: %s: %w", bezUpita(put), resp.Status, ErrOdbijenToken)
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%s: %s", put, resp.Status)
+		return nil, fmt.Errorf("%s: %s", bezUpita(put), resp.Status)
 	}
 	return b, nil
 }

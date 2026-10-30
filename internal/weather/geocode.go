@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -60,15 +61,32 @@ func (g *Geokoder) Nadji(ctx context.Context, upit string) (*Tocka, error) {
 		Lat, Lon    string
 		DisplayName string `json:"display_name"`
 	}
-	if err := json.NewDecoder(res.Body).Decode(&out); err != nil {
+	if err := json.NewDecoder(io.LimitReader(res.Body, najveciOdgovor)).Decode(&out); err != nil {
 		return nil, fmt.Errorf("odgovor OpenStreetMapa nije čitljiv: %w", err)
 	}
 	if len(out) == 0 {
 		return nil, fmt.Errorf("za „%s” nije nađeno mjesto; pokušajte samo s gradom", upit)
 	}
-	lat, _ := strconv.ParseFloat(out[0].Lat, 64)
-	lon, _ := strconv.ParseFloat(out[0].Lon, 64)
+	lat, lon, ok := koordinate(out[0].Lat, out[0].Lon)
+	if !ok {
+		return nil, fmt.Errorf("OpenStreetMap je za „%s” vratio neispravne koordinate; pokušajte ponovno", upit)
+	}
 	return &Tocka{Lat: lat, Lon: lon, Naziv: out[0].DisplayName}, nil
+}
+
+// koordinate čita širinu i dužinu; ok je netočno kad nisu brojevi ili su
+// izvan ±90° i ±180°
+func koordinate(sirina, duzina string) (lat, lon float64, ok bool) {
+	lat, err1 := strconv.ParseFloat(strings.TrimSpace(sirina), 64)
+	lon, err2 := strconv.ParseFloat(strings.TrimSpace(duzina), 64)
+	if err1 != nil || err2 != nil {
+		return 0, 0, false
+	}
+	// NaN ne prolazi nijednu usporedbu, a beskonačno je izvan raspona
+	if !(lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+		return 0, 0, false
+	}
+	return lat, lon, true
 }
 
 // MjestoIzNaziva vadi grad iz "VGI Vuka, Osijek" ili "Podcentar Osijek":

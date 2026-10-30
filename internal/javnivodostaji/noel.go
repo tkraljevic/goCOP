@@ -6,15 +6,14 @@
 package javnivodostaji
 
 import (
-	"bufio"
 	"context"
 	"crypto/tls"
 	"crypto/x509"
 	_ "embed"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -39,10 +38,7 @@ var noelKlijent = sync.OnceValue(func() *http.Client {
 		bazen = x509.NewCertPool()
 	}
 	bazen.AppendCertsFromPEM(haricaCA)
-	return &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: bazen}},
-	}
+	return javniKlijent(30*time.Second, &tls.Config{RootCAs: bazen})
 })
 
 var reNOEL = regexp.MustCompile(`(?i)/kidata/stationdata/(\d+)_Wasserstand_3Tage\.csv$`)
@@ -64,8 +60,8 @@ func (n NOEL) Prepoznaje(adresa string) bool { return PostajaNOELIzAdrese(adresa
 
 // PostajaNOELIzAdrese vraća njihov broj postaje iz adrese; prazno kad nije njihova
 func PostajaNOELIzAdrese(adresa string) string {
-	u, err := url.Parse(strings.TrimSpace(adresa))
-	if err != nil || !strings.HasSuffix(strings.ToLower(u.Hostname()), "noel.gv.at") {
+	u, ok := adresaIzvora(adresa, "noel.gv.at")
+	if !ok {
 		return ""
 	}
 	m := reNOEL.FindStringSubmatch(u.Path)
@@ -80,6 +76,7 @@ func (n NOEL) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	if PostajaNOELIzAdrese(adresa) == "" {
 		return nil, fmt.Errorf("adresa nije datoteka vodostaja s noel.gv.at")
 	}
+	adresa = zaDohvat(adresa, "noel.gv.at")
 	if n.Base != "" {
 		adresa = n.Base
 	}
@@ -100,15 +97,27 @@ func (n NOEL) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%s: %s", adresa, resp.Status)
 	}
-	s := bufio.NewScanner(resp.Body)
-	var redci []string
-	for s.Scan() {
-		redci = append(redci, s.Text())
-	}
-	if err := s.Err(); err != nil {
+	b, err := citajDoGranice(resp.Body, najvecaDatotekaNOEL)
+	if err != nil {
 		return nil, err
 	}
-	return CitajNOEL(strings.Join(redci, "\n"))
+	return CitajNOEL(string(b))
+}
+
+// najvecaDatotekaNOEL je granica datoteke. Tri dana po četvrt sata su oko
+// 300 redaka, desetak kilobajta; granica ostavlja mnogo mjesta.
+const najvecaDatotekaNOEL = 4 << 20
+
+// citajDoGranice čita odgovor do granice i javlja grešku kad je odgovor veći
+func citajDoGranice(r io.Reader, granica int64) ([]byte, error) {
+	b, err := io.ReadAll(io.LimitReader(r, granica+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(b)) > granica {
+		return nil, fmt.Errorf("odgovor je veći od %d MB, pa se ne čita; izvor vjerojatno šalje nešto drugo", granica>>20)
+	}
+	return b, nil
 }
 
 // CitajNOEL razlaže datoteku: iza zaglavlja slijede redci „Datum;Wert”.

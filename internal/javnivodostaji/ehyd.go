@@ -7,7 +7,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -22,15 +21,15 @@ type EHYD struct {
 func (e EHYD) Naziv() string { return PodrijetloEHYD }
 
 func (e EHYD) Prepoznaje(adresa string) bool {
-	u, err := url.Parse(strings.TrimSpace(adresa))
-	return err == nil && strings.EqualFold(u.Hostname(), "gis.lfrz.gv.at") &&
-		strings.Contains(u.Path, "/collections/i000501:pegel_aktuell/items/")
+	u, ok := adresaIzvora(adresa, "gis.lfrz.gv.at")
+	return ok && strings.Contains(u.Path, "/collections/i000501:pegel_aktuell/items/")
 }
 
 func (e EHYD) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	if !e.Prepoznaje(adresa) {
 		return nil, fmt.Errorf("adresa nije službeni eHYD zapis aktualne postaje")
 	}
+	adresa = zaDohvat(adresa, "gis.lfrz.gv.at")
 	if e.Base != "" {
 		adresa = e.Base
 	}
