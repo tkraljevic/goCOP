@@ -327,7 +327,7 @@ func Izgradi(koren, baza, samo string, zapisi io.Writer) (Izvjestaj, error) {
 	// Gradnja piše ravno u arhivu koju čvor koristi. Bez trajnog upisa
 	// nestanak struje usred gradnje mogao je pokvariti cijelu arhivu; na
 	// Macu to ni sad nije sasvim isključeno (vidi TrajniUpis).
-	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&"+gocopdb.TrajniUpis)
+	db, err := sql.Open("sqlite", baza+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis+"&"+gocopdb.UpisOdPocetka)
 	if err != nil {
 		return iz, err
 	}
