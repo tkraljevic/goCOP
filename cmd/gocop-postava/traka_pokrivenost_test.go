@@ -89,7 +89,7 @@ func TestPocetakPopravljaUnoseInstalacije(t *testing.T) {
 	if !postava.UPutu(tr.p.M.Program) {
 		t.Error("program nije vraćen u PATH")
 	}
-	b, _ := os.ReadFile(tr.p.M.DnevnikPostave())
+	b, _ := os.ReadFile(tr.p.M.DnevnikPostave()) // nepostojeći dnevnik je prazan, pa usporedba niže pada
 	if !strings.Contains(string(b), "Pokretanje pri prijavi popravljeno") {
 		t.Errorf("dnevnik:\n%s", b)
 	}
@@ -101,7 +101,7 @@ func TestPocetakNeDiraTudje(t *testing.T) {
 	tr, _ := novaTraka(t, nil)
 	tr.instaliran = true
 	tr.p.Cvor = &cvorUStanju{}
-	home, _ := os.UserHomeDir()
+	home, _ := os.UserHomeDir() // bez kućne mape put je relativan, a test i dalje provjerava ishod
 	tudja := filepath.Join(home, ".local", "bin", "gocop")
 	if err := os.MkdirAll(filepath.Dir(tudja), 0o755); err != nil {
 		t.Fatal(err)
@@ -113,10 +113,10 @@ func TestPocetakNeDiraTudje(t *testing.T) {
 	if uklj, _ := postava.PriPrijavi(tr.p.Exe); uklj {
 		t.Error("pokretanje pri prijavi uključeno bez pitanja")
 	}
-	if b, _ := os.ReadFile(tudja); string(b) != "tuđe" {
+	if b, _ := os.ReadFile(tudja); string(b) != "tuđe" { // nepročitana datoteka je prazna, pa usporedba pada
 		t.Error("tuđa datoteka je promijenjena")
 	}
-	b, _ := os.ReadFile(tr.p.M.DnevnikPostave())
+	b, _ := os.ReadFile(tr.p.M.DnevnikPostave()) // nepostojeći dnevnik je prazan, pa usporedba niže pada
 	if !strings.Contains(string(b), "PATH:") {
 		t.Errorf("dnevnik:\n%s", b)
 	}

@@ -27,7 +27,7 @@ func pokreniMain(t *testing.T, args ...string) string {
 	os.Stdout = w
 	procitano := make(chan string, 1)
 	go func() {
-		b, _ := io.ReadAll(r)
+		b, _ := io.ReadAll(r) // čitanje iz cijevi u memoriji ne javlja grešku; prazno pada na usporedbi
 		procitano <- string(b)
 	}()
 	main()

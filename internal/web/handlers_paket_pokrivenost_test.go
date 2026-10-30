@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"crypto/ed25519"
 	"errors"
 	"mime/multipart"
 	"net/http"
@@ -25,6 +26,12 @@ var adminPaketa = &models.UserPermissions{IsGlobalAdmin: true}
 // izveziPaketLetve vraća paket historijata letve kako ga izvoz šalje
 func (o *okolinaStraniceLetve) izveziPaketLetve(t *testing.T, st *models.Station) []byte {
 	t.Helper()
+	_, kljuc, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	arhiva.PostaviKljucIzdavaca(kljuc) // s diska se ugrađuje samo potpisan paket
+	defer arhiva.PostaviKljucIzdavaca(nil)
 	id := st.ID.String()
 	w := dohvatiLetvu(t, o.h.IzveziPaket, "/stations/"+id+"/paket.cop", id, adminPaketa)
 	if w.Code != http.StatusOK {
@@ -49,6 +56,7 @@ func (o *okolinaStraniceLetve) posaljiPaket(t *testing.T, polje string, sadrzaj 
 	id := o.letva.ID.String()
 	r := httptest.NewRequest(http.MethodPost, "/stations/"+id+"/paket/pregled", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
+	r.RemoteAddr = adresaLokalno // s diska se paket ugrađuje iz lokalne mreže
 	return zoviLetvu(t, o.h.PregledPaketa, r, id, adminPaketa)
 }
 
@@ -59,6 +67,7 @@ func (o *okolinaStraniceLetve) ugradiPaket(t *testing.T, kljuc string) *httptest
 	r := httptest.NewRequest(http.MethodPost, "/stations/"+id+"/paket/ugradi",
 		strings.NewReader(url.Values{"kljuc": {kljuc}}.Encode()))
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.RemoteAddr = adresaLokalno
 	return zoviLetvu(t, o.h.UgradiPaket, r, id, adminPaketa)
 }
 
