@@ -431,16 +431,23 @@ func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	p, err := h.peers.GetPeer(r.Context(), r.PathValue("node"))
-	if err != nil || p == nil {
+	nepoznat := false
+	_, err := h.peers.IzmijeniCvor(r.Context(), r.PathValue("node"), func(p *peers.Peer) (*peers.Peer, error) {
+		if p == nil {
+			nepoznat = true
+			return nil, nil
+		}
+		p.IsBootstrap = req.Bootstrap
+		if len(req.Addresses) > 0 {
+			p.Addresses = req.Addresses
+		}
+		return p, nil
+	})
+	if nepoznat {
 		http.Error(w, "čvor nije poznat", http.StatusNotFound)
 		return
 	}
-	p.IsBootstrap = req.Bootstrap
-	if len(req.Addresses) > 0 {
-		p.Addresses = req.Addresses
-	}
-	if err := h.peers.SavePeer(r.Context(), *p); err != nil {
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

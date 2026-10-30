@@ -556,10 +556,13 @@ func (s *Service) upisiCvorIzPotvrde(ctx context.Context, mrezni ed25519.PublicK
 	}
 	peer := c.Peer
 	peer.LastSeen, peer.LastSync, peer.LastSyncNote, peer.CreatedAt = nil, nil, "", time.Time{}
-	if postojeci, _ := s.GetPeer(ctx, peer.NodeID); postojeci != nil {
-		peer.Addresses = dedupe(append(postojeci.Addresses, peer.Addresses...))
-		peer.CreatedAt = postojeci.CreatedAt
-		peer.IsBootstrap = peer.IsBootstrap || postojeci.IsBootstrap
-	}
-	return true, s.SavePeer(ctx, peer)
+	_, err = s.IzmijeniCvor(ctx, peer.NodeID, func(postojeci *Peer) (*Peer, error) {
+		if postojeci != nil {
+			peer.Addresses = dedupe(append(postojeci.Addresses, peer.Addresses...))
+			peer.CreatedAt = postojeci.CreatedAt
+			peer.IsBootstrap = peer.IsBootstrap || postojeci.IsBootstrap
+		}
+		return &peer, nil
+	})
+	return true, err
 }

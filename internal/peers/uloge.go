@@ -97,15 +97,15 @@ func (s *Service) OsvjeziSebe(ctx context.Context) error {
 	if s.node.Name == "" {
 		return nil
 	}
-	stored, err := s.GetPeer(ctx, s.node.ID)
-	if err != nil {
-		return err
-	}
-	// Bez zatečenog zapisa nema što ispraviti (zapis nastaje pri uparivanju),
-	// a novi bi s praznim adresama pregazio javne adrese koje su drugi upisali.
-	if stored == nil || stored.Name == s.node.Name {
-		return nil
-	}
-	stored.Name = s.node.Name
-	return s.SavePeer(ctx, *stored)
+	_, err := s.IzmijeniCvor(ctx, s.node.ID, func(stored *Peer) (*Peer, error) {
+		// Bez zatečenog zapisa nema što ispraviti (zapis nastaje pri
+		// uparivanju), a novi bi s praznim adresama pregazio javne adrese
+		// koje su drugi upisali.
+		if stored == nil || stored.Name == s.node.Name {
+			return nil, nil
+		}
+		stored.Name = s.node.Name
+		return stored, nil
+	})
+	return err
 }
