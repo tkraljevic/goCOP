@@ -469,11 +469,7 @@ func (h *WatercoursesHandler) HandleAssignStationWatercourseAPI(w http.ResponseW
 
 	if err := h.watercourseService.SetStationWatercourse(ctx, perms,
 		strings.TrimSpace(req.StationID), strings.TrimSpace(req.WatercourseCode)); err != nil {
-		if wantsPage(r) {
-			redirectWith(w, r, "/stations/"+strings.TrimSpace(req.StationID), "error", err.Error())
-			return
-		}
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		odbijIzmjenuPostaje(w, r, "/stations/"+strings.TrimSpace(req.StationID), err)
 		return
 	}
 

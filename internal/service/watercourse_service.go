@@ -18,6 +18,19 @@ import (
 type WatercourseService struct {
 	repo          *repository.WatercourseRepository
 	geometrijaDir string
+	postaje       provjeraPostaje
+}
+
+// provjeraPostaje kaže smije li korisnik mijenjati postaju. Vodotok postaje
+// dio je postaje, pa za njega vrijedi isto pravo kao za svaku njezinu izmjenu.
+type provjeraPostaje interface {
+	PostajaZaIzmjenu(ctx context.Context, perms *models.UserPermissions, stationID string) (string, error)
+}
+
+// SetPostaje daje servisu provjeru prava nad postajama. Bez nje vodotok
+// postaje mijenja samo globalni administrator.
+func (s *WatercourseService) SetPostaje(p provjeraPostaje) {
+	s.postaje = p
 }
 
 func NewWatercourseService(repo *repository.WatercourseRepository) *WatercourseService {
@@ -188,8 +201,9 @@ func (s *WatercourseService) DeleteWatercourse(ctx context.Context, perms *model
 // Ručno pridruživanje nadjačava strojno utvrđivanje i tako se i bilježi —
 // operater zna ono što dokumentacija ne kaže.
 func (s *WatercourseService) SetStationWatercourse(ctx context.Context, perms *models.UserPermissions, stationID, watercourseCode string) error {
-	if perms == nil {
-		return fmt.Errorf("nemate ovlasti za izmjenu vodotoka postaje")
+	stationID, err := s.postajaZaIzmjenu(ctx, perms, stationID)
+	if err != nil {
+		return err
 	}
 
 	name, source := "", ""
@@ -207,13 +221,26 @@ func (s *WatercourseService) SetStationWatercourse(ctx context.Context, perms *m
 	return s.repo.SetStationWatercourse(ctx, stationID, watercourseCode, name, source)
 }
 
+// postajaZaIzmjenu traži isto pravo kao izmjena postaje: globalnog
+// administratora ili pravo na barem jednu dionicu na kojoj postaja stoji.
+// Vraća identifikator postaje u zapisu baze.
+func (s *WatercourseService) postajaZaIzmjenu(ctx context.Context, perms *models.UserPermissions, stationID string) (string, error) {
+	if perms == nil {
+		return "", greskaOvlasti("nemate ovlasti za izmjenu vodotoka postaje")
+	}
+	if s.postaje == nil {
+		return stationID, requireGlobalAdmin(perms, "mijenjanje vodotoka postaje")
+	}
+	return s.postaje.PostajaZaIzmjenu(ctx, perms, stationID)
+}
+
 func (s *WatercourseService) SectionsForWatercourse(ctx context.Context, code string) ([]string, error) {
 	return s.repo.ListSectionsForWatercourse(ctx, code)
 }
 
 func requireGlobalAdmin(perms *models.UserPermissions, action string) error {
 	if perms == nil || !perms.IsGlobalAdmin {
-		return fmt.Errorf("%s dopušteno je samo globalnom administratoru", action)
+		return greskaOvlasti(fmt.Sprintf("%s dopušteno je samo globalnom administratoru", action))
 	}
 	return nil
 }

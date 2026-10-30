@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -133,7 +134,7 @@ func (s *StationService) canEditSection(perms *models.UserPermissions, sectionCo
 		return err
 	}
 	if !s.sectionService.CanEditSection(perms, sec) {
-		return fmt.Errorf("nemate ovlasti za izmjenu mjerodavnih vodomjera na dionici %s", sectionCode)
+		return greskaOvlasti(fmt.Sprintf("nemate ovlasti za izmjenu mjerodavnih vodomjera na dionici %s", sectionCode))
 	}
 	return nil
 }
@@ -144,12 +145,8 @@ func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPe
 	if err := s.provjeriNovu(ctx, station); err != nil {
 		return err
 	}
-	if sectionCode != "" {
-		if err := s.canEditSection(perms, sectionCode); err != nil {
-			return err
-		}
-	} else if perms == nil || !perms.IsGlobalAdmin {
-		return fmt.Errorf("postaju izvan dionice može unijeti samo globalni administrator")
+	if err := s.ProvjeriUnos(perms, sectionCode); err != nil {
+		return err
 	}
 
 	if strings.TrimSpace(station.Code) == "" {
@@ -164,6 +161,57 @@ func (s *StationService) CreateStation(ctx context.Context, perms *models.UserPe
 	// Mjerodavnost za dionicu upisuje se u poddionici na obrascu dionice
 	return nil
 }
+
+// ProvjeriUnos javlja grešku ako korisnik ne smije unijeti novu postaju na
+// dionicu. Postaju izvan dionice unosi samo globalni administrator.
+func (s *StationService) ProvjeriUnos(perms *models.UserPermissions, sectionCode string) error {
+	if sectionCode != "" {
+		return s.canEditSection(perms, sectionCode)
+	}
+	if perms == nil || !perms.IsGlobalAdmin {
+		return greskaOvlasti("postaju izvan dionice može unijeti samo globalni administrator")
+	}
+	return nil
+}
+
+// ProvjeriIzmjenu javlja grešku ako korisnik ne smije mijenjati postaju:
+// treba mu pravo na barem jednu dionicu na kojoj postaja stoji. Isto pravilo
+// vrijedi za svaku izmjenu postaje, i za vodotok.
+func (s *StationService) ProvjeriIzmjenu(perms *models.UserPermissions, station *models.Station) error {
+	if station == nil {
+		return fmt.Errorf("vodomjerna postaja nije pronađena")
+	}
+	return s.requireAnySectionAccess(perms, station.SectionCodes)
+}
+
+// PostajaZaIzmjenu učita postaju po identifikatoru i provjeri smije li je
+// korisnik mijenjati. Vraća identifikator onako kako ga baza zapisuje, da se
+// upis odnosi baš na postaju čije je pravo provjereno.
+func (s *StationService) PostajaZaIzmjenu(ctx context.Context, perms *models.UserPermissions, stationID string) (string, error) {
+	id, err := uuid.Parse(strings.TrimSpace(stationID))
+	if err != nil {
+		return "", fmt.Errorf("vodomjerna postaja nije pronađena")
+	}
+	st, err := s.stationRepo.GetStationByID(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	if err := s.ProvjeriIzmjenu(perms, st); err != nil {
+		return "", err
+	}
+	return st.ID.String(), nil
+}
+
+// ErrNemaOvlasti stoji iza svake greške koja kaže da korisnik nema pravo na
+// radnju, da je web može odvojiti od neispravnog unosa (403, a ne 400).
+var ErrNemaOvlasti = errors.New("nemate ovlasti")
+
+// greskaOvlasti je poruka korisniku koji nema pravo na radnju
+type greskaOvlasti string
+
+func (g greskaOvlasti) Error() string { return string(g) }
+
+func (g greskaOvlasti) Unwrap() error { return ErrNemaOvlasti }
 
 // bezPragovaNapomena je napomena koju program sam upiše kad postaja nema
 // pragova u centimetrima. Prepoznaje se po tekstu, pa se poslije zna razlikovati
@@ -205,7 +253,7 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 	if existing == nil {
 		return fmt.Errorf("vodomjerna postaja nije pronađena")
 	}
-	if err := s.provjeriIzmjenu(ctx, perms, station, existing); err != nil {
+	if err := s.provjeriIzmjenuIPracenje(ctx, perms, station, existing); err != nil {
 		return err
 	}
 	preispitajPregled(station)
@@ -217,9 +265,9 @@ func (s *StationService) UpdateStation(ctx context.Context, perms *models.UserPe
 	//
 	// Ono što obrazac doista ne uređuje čuva rukovatelj — svaki obrazac prenosi
 	// samo svoja polja na postojeći zapis, pa ovdje nema što nadoknađivati.
-	if strings.TrimSpace(station.Code) == "" {
-		station.Code = existing.Code // šifra je identitet i ne uređuje se
-	}
+	// Šifra je identitet letve: po njoj se vode arhiva, račun telemetrije,
+	// ispravci i bilješke. Izmjena je ne mijenja, kakva god stigla.
+	station.Code = existing.Code
 
 	podrijetloVode(station, existing)
 
@@ -286,10 +334,10 @@ func (s *StationService) provjeriNovu(ctx context.Context, station *models.Stati
 	return s.provjeriPracenje(ctx, station, nil)
 }
 
-// provjeriIzmjenu traži ovlast nad postajom i provjerava sektore i područja
-// koji je prate
-func (s *StationService) provjeriIzmjenu(ctx context.Context, perms *models.UserPermissions, station, existing *models.Station) error {
-	if err := s.requireAnySectionAccess(perms, existing.SectionCodes); err != nil {
+// provjeriIzmjenuIPracenje traži ovlast nad postajom i provjerava sektore i
+// područja koji je prate
+func (s *StationService) provjeriIzmjenuIPracenje(ctx context.Context, perms *models.UserPermissions, station, existing *models.Station) error {
+	if err := s.ProvjeriIzmjenu(perms, existing); err != nil {
 		return err
 	}
 	return s.provjeriPracenje(ctx, station, existing)
@@ -322,7 +370,7 @@ func (s *StationService) requireAnySectionAccess(perms *models.UserPermissions, 
 			return nil
 		}
 	}
-	return fmt.Errorf("nemate ovlasti za izmjenu ove vodomjerne postaje")
+	return greskaOvlasti("nemate ovlasti za izmjenu ove vodomjerne postaje")
 }
 
 func (s *StationService) validate(station *models.Station) error {

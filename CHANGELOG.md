@@ -74,6 +74,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (30. 10. 2026.)). Računalu s 0.0.46-alfa ili starijim kartu i dalje treba
   prenijeti paketom `.cop`. (#197)
 
+- **Provjere prava: vodotok i šifra letve, novo očitanje.** Vodotok letve
+  mijenja samo tko smije uređivati letvu, izmjena letve ne mijenja šifru, a
+  novo očitanje identifikator dobije od programa.
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju

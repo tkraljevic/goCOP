@@ -49,8 +49,9 @@ func TestRegistarPostajaKrozServis(t *testing.T) {
 
 // Izmjena letve: smije je rukovoditelj područja jedne od njezinih dionica;
 // napomena od samih razmaka uz letvu bez pragova postaje napomena o
-// pragovima. Letva koje nema, koja se ne da pročitati ili bi uzela tuđu
-// šifru ne mijenja se, a nova letva s tuđom šifrom ne upisuje se.
+// pragovima. Letva koje nema ili koja se ne da pročitati ne mijenja se.
+// Izmjena ne mijenja šifru letve, pa ni tuđu ne može uzeti, a nova letva s
+// tuđom šifrom ne upisuje se.
 func TestIzmjenaPostajeKrozServisRubovi(t *testing.T) {
 	o := novaOkolinaPostaja(t)
 	ctx := context.Background()
@@ -81,8 +82,11 @@ func TestIzmjenaPostajeKrozServisRubovi(t *testing.T) {
 	}
 	tudja := *natrag
 	tudja.Code = "ustava-probna"
-	if err := o.svc.UpdateStation(ctx, globalAdmin(), &tudja); err == nil {
-		t.Error("letva je uzela tuđu šifru")
+	if err := o.svc.UpdateStation(ctx, globalAdmin(), &tudja); err != nil {
+		t.Errorf("izmjena s tuđom šifrom: %v", err)
+	}
+	if poSifri, err := o.svc.GetStationByCode(ctx, "primjerovo"); err != nil || poSifri == nil || poSifri.ID != natrag.ID {
+		t.Errorf("letva nije zadržala svoju šifru: %+v %v", poSifri, err)
 	}
 	if err := o.svc.CreateStation(ctx, globalAdmin(), &models.Station{Name: "Nova ustava", Code: "ustava-probna"}, ""); err == nil {
 		t.Error("nova letva s tuđom šifrom je upisana")

@@ -621,6 +621,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	stationService := service.NewStationService(stationRepo, sectionService, sseBroker)
 	watercourseRepo := repository.NewWatercourseRepository(database, recorder)
 	watercourseService := service.NewWatercourseService(watercourseRepo)
+	watercourseService.SetPostaje(stationService)
 	structureRepo := repository.NewStructureRepository(database, recorder)
 	structureService := service.NewStructureService(structureRepo)
 	readingRepo := repository.NewReadingRepository(database, recorder)

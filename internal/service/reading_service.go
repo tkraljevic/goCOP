@@ -282,6 +282,8 @@ func (s *ReadingService) kotaLetve(ctx context.Context, stationID string) bool {
 // provjerava prije unosa, kao kod izmjene: tko nema pravo, ne dozna pravila
 // unosa.
 func (s *ReadingService) Create(ctx context.Context, perms *models.UserPermissions, rd *models.Reading) error {
+	// Identifikator novog očitanja uvijek daje program, a ne obrazac
+	rd.ID = uuid.Nil
 	kota, err := s.pravoNaLetvu(ctx, perms, rd)
 	if err != nil {
 		return err
