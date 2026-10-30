@@ -37,6 +37,7 @@ type Stanje struct {
 	Izdanje         string // izdanje čvora koji radi
 	Port            int
 	Novije          *Izdanje // novije izdanje goCOP-a, ako postoji
+	Starije         string   // starije izdanje koje je globalni administrator dopustio na čvoru, dok vrijedi
 	NovijaPostava   string
 	StranicaPostave string
 	Zauzeto         string // posao u tijeku (nadogradnja…)
@@ -62,6 +63,7 @@ type Postava struct {
 	zauzeto  string
 	izdanje  string
 	port     int
+	starije  string // dopušteno starije izdanje iz zadnjeg /zdravlje
 	promjena func()
 
 	// izdanje programa na disku; pita se ponovno kad se datoteka promijeni,
@@ -155,10 +157,27 @@ func (p *Postava) Stanje() Stanje {
 	default:
 		s.Cvor = Pokrece
 	}
-	if g := p.ponuda.GoCOP; g != nil && ponuditi(g, veceIzdanje(p.izdanje, p.izdanjeDatotekeZakljucano()), instaliran) {
+	p.ponudeZakljucano(&s, instaliran)
+	return s
+}
+
+// ponudeZakljucano: novije izdanje s GitHuba i dopušteno starije, svako
+// samo prema izdanju koje je sada postavljeno (poziva se uz p.mu)
+func (p *Postava) ponudeZakljucano(s *Stanje, instaliran bool) {
+	postavljeno := veceIzdanje(p.izdanje, p.izdanjeDatotekeZakljucano())
+	if g := p.ponuda.GoCOP; g != nil && ponuditi(g, postavljeno, instaliran) {
 		s.Novije = g
 	}
-	return s
+	if instaliran && ponuditiStarije(p.starije, postavljeno) {
+		s.Starije = p.starije
+	}
+}
+
+// starijeOd: izdanje a je starije od b; kad se ijedno ne zna, nije
+func starijeOd(a, b string) bool {
+	va, okA := izdanje.ParsirajOznaku(a)
+	vb, okB := izdanje.ParsirajOznaku(b)
+	return okA && okB && va.Usporedi(vb) < 0
 }
 
 // ponuditi: izdanje g nudi se samo kad je novije od postavljenoga. Kad se
@@ -208,20 +227,34 @@ func (p *Postava) Prati(ctx context.Context) {
 	}
 }
 
+// OsvjeziZdravlje odmah pita čvor za izdanje i dopuštenje, bez čekanja
+// idućeg kruga praćenja (npr. prije pitanja o vraćanju)
+func (p *Postava) OsvjeziZdravlje(ctx context.Context) { p.osvjeziZdravlje(ctx) }
+
 func (p *Postava) osvjeziZdravlje(ctx context.Context) {
-	izd, port := "", 0
+	var o OdgovorZdravlja
 	if p.Cvor.Proces().Radi {
-		c, cancel := context.WithTimeout(ctx, 3*time.Second)
-		izd, port = p.Cvor.Zdravlje(c)
-		cancel()
+		o = p.pitajCvor(ctx)
 	}
 	p.mu.Lock()
-	promijenjeno := izd != p.izdanje || port != p.port
-	p.izdanje, p.port = izd, port
+	promijenjeno := o.Izdanje != p.izdanje || o.Port != p.port || o.Dopusteno != p.starije
+	p.izdanje, p.port, p.starije = o.Izdanje, o.Port, o.Dopusteno
 	p.mu.Unlock()
 	if promijenjeno {
 		p.javi()
 	}
+}
+
+// pitajCvor pita čvor /zdravlje, najviše tri sekunde. Upravljač koji ne
+// javlja cijeli odgovor javlja samo izdanje, pa dopuštenja nema.
+func (p *Postava) pitajCvor(ctx context.Context) OdgovorZdravlja {
+	c, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	if z, ok := p.Cvor.(zdravljeIDopustenje); ok {
+		return z.PitajZdravlje(c)
+	}
+	izd, port := p.Cvor.Zdravlje(c)
+	return OdgovorZdravlja{Izdanje: izd, Port: port}
 }
 
 // Provjeri pita GitHub ima li novijeg izdanja
@@ -279,21 +312,59 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	return p.ugradiIzdanje(ctx, iz, staro, nadogradnja)
+}
+
+// posaoUgradnje kaže ugradiIzdanje radi li nadogradnju ili vraćanje na
+// starije izdanje
+type posaoUgradnje struct {
+	ime, odbijeno, gotovo string // za dnevnik Postave
+	sPostavom             bool   // uz uslugu postavlja i Postavu iz izdanja
+	// jos, kad nije nil, neposredno prije zamjene programa pita smije li se
+	// izdanje još postaviti, i do kad
+	jos func(context.Context) (time.Time, error)
+}
+
+// nadogradnja je posao Nadogradi: Postava iz izdanja ide s njim
+var nadogradnja = posaoUgradnje{ime: "Nadogradnja", odbijeno: "Nadogradnja odbijena", gotovo: "Nadogradnja na %s gotova", sPostavom: true}
+
+// provjeri pita jos; bez njega nema ni roka
+func (g posaoUgradnje) provjeri(ctx context.Context) (time.Time, error) {
+	if g.jos == nil {
+		return time.Time{}, nil
+	}
+	return g.jos(ctx)
+}
+
+// zapisiGotovo zapisuje u dnevnik da je posao gotov, kad za to ima redak
+func (p *Postava) zapisiGotovo(g posaoUgradnje, izd string) {
+	if g.gotovo != "" {
+		p.Pisi(g.gotovo, izd)
+	}
+}
+
+// ugradiIzdanje preuzima, provjerava i postavlja izdanje iz
+func (p *Postava) ugradiIzdanje(ctx context.Context, iz Izdanje, staro string, g posaoUgradnje) (string, error) {
 	if p.usluga != nil {
-		return p.nadogradiUslugu(ctx, iz)
+		return p.nadogradiUslugu(ctx, iz, g)
 	}
 	novi, err := p.Ugradnja.Pripremi(ctx, iz)
 	if err != nil {
-		p.Pisi("Nadogradnja odbijena: %v", err)
+		p.Pisi("%s: %v", g.odbijeno, err)
+		return "", err
+	}
+	if _, err := g.provjeri(ctx); err != nil {
+		_ = os.Remove(novi) // pripremljeni program više ne treba; ostatak ne smeta
 		return "", err
 	}
 	if !p.Cvor.Instaliran() {
 		return iz.Verzija.String(), p.Ugradnja.Postavi(novi)
 	}
 	if err := p.Ugradnja.Ugradi(ctx, novi, staro, iz.Verzija.String()); err != nil {
-		p.Pisi("Nadogradnja: %v", err)
+		p.Pisi("%s: %v", g.ime, err)
 		return "", err
 	}
+	p.zapisiGotovo(g, iz.Verzija.String())
 	return iz.Verzija.String(), nil
 }
 

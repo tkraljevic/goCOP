@@ -15,6 +15,8 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"gocop/internal/izdanje"
 )
 
 // Zdravlje je odgovor na GET /zdravlje
@@ -24,6 +26,16 @@ type Zdravlje struct {
 	// Odbijeno je razlog kad čvor nije smio krenuti, a pod Postavom ostaje
 	// upaljen (OdbijenoPokretanje); Postava ga ne čita, polje je od 0.0.35
 	Odbijeno string `json:"odbijeno,omitempty"`
+	// DopustenoIzdanje je starije izdanje koje je globalni administrator na
+	// ovom računalu dopustio Postavi postaviti, dok dopuštenje vrijedi
+	// (starije_izdanje.go). Polje je od 0.0.47-alfa: starija Postava ga ne
+	// čita, a bez njega Postava starije izdanje ne postavlja.
+	DopustenoIzdanje string `json:"dopusteno_izdanje,omitempty"`
+	// DopustenoDo je rok dopuštenja (Unix sekunde), uz DopustenoIzdanje
+	DopustenoDo int64 `json:"dopusteno_do,omitempty"`
+	// PotpisDopustenja je izdanje.PotpisDopustenja ključem koji je Postava
+	// dala čvoru pri pokretanju. Bez ključa (usluga sustava) ga nema.
+	PotpisDopustenja string `json:"potpis_dopustenja,omitempty"`
 }
 
 // izdanjeZaPostavu je izdanje bez oznake commita iz podnožja
@@ -34,10 +46,22 @@ func izdanjeZaPostavu() string {
 	return ""
 }
 
-// ServeZdravlje odgovara Postavi na istom računalu
-func ServeZdravlje(w http.ResponseWriter, r *http.Request) {
-	odgovoriZdravlje(w, r, Zdravlje{Izdanje: izdanjeZaPostavu(), Radi: true})
+// serveZdravlje odgovara Postavi na istom računalu, uz dopušteno starije
+// izdanje dok vrijedi, njegov rok i potpis
+func (s *Server) serveZdravlje(w http.ResponseWriter, r *http.Request) {
+	z := Zdravlje{Izdanje: izdanjeZaPostavu(), Radi: true}
+	if dopusteno, do := s.dopustenje.vrijedi(); dopusteno != "" {
+		z.DopustenoIzdanje, z.DopustenoDo = dopusteno, do.Unix()
+		if s.kljucPostave != "" {
+			z.PotpisDopustenja = izdanje.PotpisDopustenja(s.kljucPostave, z.Izdanje, dopusteno, z.DopustenoDo)
+		}
+	}
+	odgovoriZdravlje(w, r, z)
 }
+
+// SetKljucPostave: ključ kojim čvor potpisuje dopuštenje za starije
+// izdanje; daje ga Postava pri pokretanju (izdanje.OkolinaKljucaPostave)
+func (s *Server) SetKljucPostave(kljuc string) { s.kljucPostave = kljuc }
 
 // sOvogRacunala: izravan zahtjev s ovog računala, ne kroz posrednika, upućen
 // imenu localhost ili adresi petlje (Klijent.SOvogRacunala)

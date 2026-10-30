@@ -816,6 +816,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetLokalnaImena(cfg.Web.LokalnaImena)
 	postaviTailscale(server, cfg)
 	server.SetPodPostavom(z.podPostavom)
+	server.SetKljucPostave(kljucPostave(z.podPostavom, os.Getenv, os.Unsetenv))
 	server.SetPocetneLozinke(pocetneLozinke, func() error { return db.PocetneLozinkePreuzete(database) })
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
 	ponovno := make(chan struct{}, 1)

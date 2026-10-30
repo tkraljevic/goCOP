@@ -50,9 +50,37 @@ Postava pri pokretanju i svakih šest sati pita GitHub za popis izdanja. Ne
 šalje ništa o računalu, korisniku ni podacima. Nadograđuje se samo na klik.
 
 Postava nudi samo izdanje novije od onoga koje je sada postavljeno, a pita
-i čvor koji radi i program na disku. Starije ili isto izdanje ne postavlja.
-Kad ne može doznati koje je izdanje postavljeno, jer program ne odgovara na
-`-version`, ne nudi nadogradnju, pa se goCOP tada instalira ponovno.
+i čvor koji radi i program na disku. Starije ili isto izdanje sama ne
+postavlja. Kad ne može doznati koje je izdanje postavljeno, jer program ne
+odgovara na `-version`, ne nudi nadogradnju, pa se goCOP tada instalira
+ponovno.
+
+Starije izdanje Postava postavlja samo kad ga dopusti globalni
+administrator (Odluke (30. 10. 2026.)). Dopušta ga na stranici *Ovo
+računalo i mreža*, svojim očima, s tog računala ili iz lokalne mreže, a ne
+izvana ni kroz tunel. Upiše oznaku izdanja, npr. `0.0.45-alfa`, i potvrdi.
+Čvor dopuštenje drži samo u memoriji, 30 minuta. Ne sprema ga u bazu i ne
+šalje razmjenom. U dnevnik programa zapiše tko je dopustio i s koje adrese.
+Postava tada u izborniku ikone ponudi *Vrati na 0.0.45-alfa*. Nakon klika
+preuzme baš to izdanje s GitHuba, po oznaci, i provjeri ga kao i svaku
+nadogradnju: potpis, `SHA256SUMS` i `-version`. Prije preuzimanja i
+neposredno prije zamjene programa dopuštenje još jednom pročita s čvora.
+Ako je isteklo ili je dopušteno drugo izdanje, ne mijenja ništa. Uz uslugu
+sustava druga provjera je prije traženja lozinke, a rok dopuštenja nakon
+lozinke još jednom provjeri naredba koja radi kao root. Vraćanje zapiše u
+svoj dnevnik. Novije izdanje već je prilagodilo bazu sebi, pa starije
+možda neće raditi kako treba. Baza se zato prije zamjene kopira, kao i pri
+nadogradnji.
+
+Postava ne vraća na izdanja starija od 0.0.37-alfa, a čvor ih ne dopušta.
+Od tog izdanja `instaliraj.sh` i `gocop.service` isti su kao danas. Na
+starije izdanje goCOP se vraća ručno. Uz uslugu sustava Postava iz
+starijeg izdanja ne preuzima Postavu, pa ikona u traci ostaje ista.
+
+Kad novo izdanje ne smije krenuti (polje `odbijeno`, niže), stranica *Ovo
+računalo i mreža* ne radi, pa se ni dopuštenje ne može dati. Tada se
+goCOP vraća ručno: zaustavi se, na mjesto programa vrati se prethodni
+program i pokrene se.
 
 ## Ugovor između Postave i goCOP-a
 
@@ -71,7 +99,23 @@ Postava, pa nijedno izdanje ne može tiho prekršiti ugovor. Ugovor čine:
   čvor ne ostane raditi bez nadzora;
 - `GET /zdravlje`, samo s istog računala, odgovara
   `{"izdanje":"…","radi":true}`. Po tome Postava zna radi li čvor i koje je
-  izdanje.
+  izdanje. Od 0.0.47-alfa, dok vrijedi dopuštenje za starije izdanje,
+  odgovor nosi i `"dopusteno_izdanje":"0.0.45-alfa"`, rok
+  `"dopusteno_do"` (Unix sekunde) i, uz vlastiti čvor,
+  `"potpis_dopustenja"`. Starija Postava ta polja ne čita, a bez njih
+  Postava starije izdanje ne postavlja, pa stariji čvor i dalje radi s
+  novom Postavom.
+
+Na `/zdravlje` može odgovoriti i drugi program na istom računalu, npr. na
+rezervnom portu 8080 dok čvor ne radi. Zato Postava dopuštenje ne prima
+od bilo koga. Vlastitom čvoru pri svakom pokretanju da novi ključ, u
+varijabli okoline `GOCOP_POSTAVA_KLJUC`. Čvor ga odmah makne iz okoline i
+njime potpiše dopuštenje: HMAC-SHA256 nad izdanjem, dopuštenim izdanjem i
+rokom. Dopuštenje bez ispravnog potpisa Postava ne prima. Usluzi sustava
+ključ ne daje, pa dopuštenje prima samo s porta ispod 1024. Na Linuxu
+takav port otvara samo root ili usluga kojoj je to dopušteno. Usluga na
+portu 1024 ili višem zato se na starije izdanje vraća ručno, kao i
+računalo na kojem je `net.ipv4.ip_unprivileged_port_start` spušten.
 
 Od 0.0.35-alfa čvor koji ne smije krenuti pod Postavom ne izlazi. To je
 čvor s postojećom bazom bez ključa čvora

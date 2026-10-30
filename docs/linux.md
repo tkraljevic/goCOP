@@ -500,10 +500,12 @@ Uz ikonu u traci isto se radi iz njezina izbornika, *Nadogradi na …*
 Napomene:
 
 - Stalni čvor ažurira se prvi, pa ostali (redoslijed je u INSTALACIJA.md).
-- Program pri pokretanju sam prilagodi bazu novom izdanju. Povratak na
-  starije izdanje zato nije podržan: tko ga ipak treba, zaustavi uslugu,
-  ručno vrati stari program i kopiju baze iz `kopije/` (sve promjene nakon
-  kopije se gube).
+- Program pri pokretanju sam prilagodi bazu novom izdanju, pa starije
+  izdanje s takvom bazom možda neće raditi kako treba. Iz ikone u traci
+  starije izdanje postavlja se samo kad ga dopusti globalni administrator
+  (poglavlje 12), i to kroz `instaliraj.sh` starijeg izdanja. Ručno:
+  zaustavite uslugu, vratite stari program i kopiju baze iz `kopije/`
+  (sve promjene nakon kopije se gube).
 - Skripta kopira samo `gocop.db`; za ostale baze vrijedi sigurnosna
   kopija iz poglavlja 6.
 - `gocop` se ne nadograđuje sam i ne preuzima nova izdanja; nadogradnja je
@@ -573,7 +575,7 @@ Izbornik ikone:
   **Provjeri nadogradnje** odmah pita GitHub; inače Postava pita sama,
   svakih šest sati.
 
-  Postava nudi i postavlja samo izdanje novije od onoga koje je sada
+  Postava sama nudi i postavlja samo izdanje novije od onoga koje je sada
   postavljeno. To doznaje od usluge i od `/usr/local/bin/gocop -version`,
   a vrijedi više od ta dva. Kad ne može doznati nijedno, ne nudi
   nadogradnju, pa se goCOP nadograđuje ručno. Isto vrijedi kad je `/home`
@@ -584,6 +586,17 @@ Izbornik ikone:
   stara Postava, starim putem. Nju je bolje napraviti ručno (poglavlje 9).
   Ako se radi iz ikone, odmah nakon nje odjavite se i ponovno prijavite,
   da ikona krene s novim programom.
+- **Vrati na …** postavlja starije izdanje, ali samo dok ga dopušta
+  globalni administrator. Dopušta ga na stranici *Ovo računalo i mreža* u
+  pregledniku, s računala s čvorom ili iz lokalne mreže, na 30 minuta.
+  Izdanje se preuzima i provjerava kao i nadogradnja. Zamjenu radi
+  `instaliraj.sh` starijeg izdanja, uz lozinku administratora. Postava iz
+  starijeg izdanja se ne preuzima, pa ikona u traci ostaje ista. Ako
+  dopuštenje istekne dok se upisuje lozinka, ništa se ne mijenja.
+  Najstarije izdanje na koje se tako vraća je 0.0.37-alfa. Dopuštenje
+  Postava prima samo od usluge na portu ispod 1024 (zadani 80), a ne s
+  rezervnog 8080, na kojem bi mogao odgovoriti i drugi program. Uz drugi
+  port vraća se ručno (poglavlje 9). Bez dopuštenja stavka je isključena.
 - **Dnevnik čvora** otvara zadnjih 2000 redaka iz `journalctl -u gocop`.
   Dnevnik sustava smiju čitati članovi grupe `adm` ili `systemd-journal`
   (prvi korisnik na Ubuntuu je u grupi `adm`); za ostale je prazan.

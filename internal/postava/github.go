@@ -67,26 +67,33 @@ type Ponuda struct {
 }
 
 func (iz Izdanja) popis(ctx context.Context) ([]ghIzdanje, error) {
-	url := fmt.Sprintf("%s/repos/%s/releases?per_page=40", iz.API, iz.Repo)
+	var out []ghIzdanje
+	if err := iz.dohvati(ctx, fmt.Sprintf("%s/repos/%s/releases?per_page=40", iz.API, iz.Repo), "popis izdanja", &out); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// dohvati čita JSON s GitHubova API-ja u out; sto ide uz grešku čitanja
+func (iz Izdanja) dohvati(ctx context.Context, url, sto string, out any) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	req.Header.Set("User-Agent", iz.Agent)
 	odg, err := iz.Klijent.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("GitHub nije dostupan: %w", err)
+		return fmt.Errorf("GitHub nije dostupan: %w", err)
 	}
 	defer odg.Body.Close()
 	if odg.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub odgovara %s", odg.Status)
+		return fmt.Errorf("GitHub odgovara %s", odg.Status)
 	}
-	var out []ghIzdanje
-	if err := json.NewDecoder(io.LimitReader(odg.Body, 8<<20)).Decode(&out); err != nil {
-		return nil, fmt.Errorf("popis izdanja: %w", err)
+	if err := json.NewDecoder(io.LimitReader(odg.Body, 8<<20)).Decode(out); err != nil {
+		return fmt.Errorf("%s: %w", sto, err)
 	}
-	return out, nil
+	return nil
 }
 
 var oznakaPostave = regexp.MustCompile(`^postava-v(\d+)\.(\d+)\.(\d+)$`)
@@ -113,30 +120,53 @@ func (iz Izdanja) Provjeri(ctx context.Context, goos, goarch, mojaPostava string
 			}
 			continue
 		}
-		v, ok := izdanje.ParsirajOznaku(g.Oznaka)
-		if !ok {
-			continue
-		}
-		kand := Izdanje{Oznaka: g.Oznaka, Verzija: v, Naslov: g.Naslov, Stranica: g.Stranica, Datoteke: g.Datoteke}
-		for _, d := range g.Datoteke {
-			switch d.Ime {
-			case ime:
-				kand.Program = d
-			case izdanje.ImeZbrojeva:
-				kand.Zbrojevi = d
-			case izdanje.ImePotpisa:
-				kand.Potpis = d
-			}
-		}
-		if kand.Program.URL == "" || kand.Zbrojevi.URL == "" || kand.Potpis.URL == "" {
-			continue // nepotpisano ili bez programa za ovaj sustav
-		}
-		if p.GoCOP == nil || v.Usporedi(p.GoCOP.Verzija) > 0 {
-			k := kand
-			p.GoCOP = &k
+		kand, ok := zaSustav(g, ime)
+		if ok && (p.GoCOP == nil || kand.Verzija.Usporedi(p.GoCOP.Verzija) > 0) {
+			p.GoCOP = &kand
 		}
 	}
 	return p, nil
+}
+
+// zaSustav je izdanje goCOP-a s programom ime, uz SHA256SUMS i potpis.
+// Oznaka koja nije izdanje goCOP-a, nepotpisano izdanje i izdanje bez
+// programa za ovaj sustav ne vrijede.
+func zaSustav(g ghIzdanje, ime string) (Izdanje, bool) {
+	v, ok := izdanje.ParsirajOznaku(g.Oznaka)
+	if !ok {
+		return Izdanje{}, false
+	}
+	kand := Izdanje{Oznaka: g.Oznaka, Verzija: v, Naslov: g.Naslov, Stranica: g.Stranica, Datoteke: g.Datoteke}
+	for _, d := range g.Datoteke {
+		switch d.Ime {
+		case ime:
+			kand.Program = d
+		case izdanje.ImeZbrojeva:
+			kand.Zbrojevi = d
+		case izdanje.ImePotpisa:
+			kand.Potpis = d
+		}
+	}
+	return kand, kand.Program.URL != "" && kand.Zbrojevi.URL != "" && kand.Potpis.URL != ""
+}
+
+// PoOznaci traži izdanje goCOP-a po oznaci (v0.0.45-alfa), za vraćanje na
+// starije izdanje. Kao i u Provjeri, nacrt ne vrijedi, a izdanje mora imati
+// program za ovaj sustav, SHA256SUMS i potpis.
+func (iz Izdanja) PoOznaci(ctx context.Context, goos, goarch, oznaka string) (Izdanje, error) {
+	v, ok := izdanje.ParsirajOznaku(oznaka)
+	if !ok {
+		return Izdanje{}, fmt.Errorf("%q nije oznaka izdanja goCOP-a", oznaka)
+	}
+	var g ghIzdanje
+	if err := iz.dohvati(ctx, fmt.Sprintf("%s/repos/%s/releases/tags/v%s", iz.API, iz.Repo, v), "izdanje", &g); err != nil {
+		return Izdanje{}, fmt.Errorf("izdanje %s ne može se preuzeti: %w", v, err)
+	}
+	kand, ok := zaSustav(g, izdanje.ImeDatoteke(goos, goarch))
+	if !ok || g.Nacrt || kand.Verzija != v {
+		return Izdanje{}, fmt.Errorf("na GitHubu nema potpisanog izdanja %s za ovaj sustav", v)
+	}
+	return kand, nil
 }
 
 func brojeviPostave(s string) [3]int {

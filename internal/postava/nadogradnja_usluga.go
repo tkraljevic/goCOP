@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 
 	"gocop/internal/izdanje"
 )
@@ -32,7 +34,7 @@ func imePostave(goos, goarch string) string { return "gocop-postava-" + goos + "
 
 // uputaRucno ide uz svaku grešku zbog koje se usluga ne može nadograditi iz
 // ikone
-const uputaRucno = "goCOP se tada nadograđuje ručno, kako piše u docs/linux.md, poglavlje 9."
+const uputaRucno = "Izdanje goCOP-a tada se mijenja ručno, kako piše u docs/linux.md, poglavlje 9."
 
 // ZaUslugu je izdanje pripremljeno za instaliraj.sh: mapa u koju je
 // preuzeto, imena datoteka i SHA-256 dviju datoteka koje root ponovno
@@ -44,6 +46,7 @@ type ZaUslugu struct {
 	Datoteke []string // sve datoteke u mapi koje idu skripti
 	Zbrojevi string   // SHA-256 potpisanog SHA256SUMS
 	Skripta  string   // SHA-256 instaliraj.sh iz SHA256SUMS
+	Rok      int64    // do kad (Unix sekunde) se skripta smije pokrenuti; 0: bez roka
 }
 
 // PripremiZaUslugu preuzima u novu mapu (u mapi Postave) program,
@@ -52,6 +55,13 @@ type ZaUslugu struct {
 // nego išta pokrene, a preuzeti program mora na -version javiti baš izdanje
 // koje se postavlja. Kad nešto ne valja, mape nema.
 func (u Ugradnja) PripremiZaUslugu(ctx context.Context, iz Izdanje) (ZaUslugu, error) {
+	return u.pripremiZaUslugu(ctx, iz, true)
+}
+
+// pripremiZaUslugu je PripremiZaUslugu; bez sPostavom Postava iz izdanja
+// se ne preuzima, pa je instaliraj.sh ne dira (vraćanje na starije
+// izdanje ne vraća i Postavu)
+func (u Ugradnja) pripremiZaUslugu(ctx context.Context, iz Izdanje, sPostavom bool) (ZaUslugu, error) {
 	zbrojevi, potpis, err := u.potpisaniZbrojevi(ctx, iz)
 	if err != nil {
 		return ZaUslugu{}, err
@@ -60,10 +70,14 @@ func (u Ugradnja) PripremiZaUslugu(ctx context.Context, iz Izdanje) (ZaUslugu, e
 	if err != nil {
 		return ZaUslugu{}, err
 	}
+	imena := u.datotekeZaUslugu(zbrojevi)
+	if !sPostavom {
+		imena = slices.DeleteFunc(imena, func(ime string) bool { return ime == imePostave(u.GOOS, u.GOARCH) })
+	}
 	z := ZaUslugu{Mapa: mapa, Program: izdanje.ImeDatoteke(u.GOOS, u.GOARCH),
-		Datoteke: append([]string{izdanje.ImeZbrojeva, izdanje.ImePotpisa}, u.datotekeZaUslugu(zbrojevi)...),
+		Datoteke: append([]string{izdanje.ImeZbrojeva, izdanje.ImePotpisa}, imena...),
 		Zbrojevi: fmt.Sprintf("%x", sha256.Sum256(zbrojevi))}
-	err = u.preuzmiZaUslugu(ctx, iz, zbrojevi, potpis, mapa)
+	err = u.preuzmiZaUslugu(ctx, iz, zbrojevi, potpis, mapa, imena)
 	if err == nil {
 		z.Skripta, err = izdanje.Zbroj(zbrojevi, imeSkripte)
 	}
@@ -88,13 +102,13 @@ func (u Ugradnja) provjeriZaUslugu(ctx context.Context, put, ocekivano string) e
 	return fmt.Errorf("%w. %s", err, uputaRucno)
 }
 
-func (u Ugradnja) preuzmiZaUslugu(ctx context.Context, iz Izdanje, zbrojevi, potpis []byte, mapa string) error {
+func (u Ugradnja) preuzmiZaUslugu(ctx context.Context, iz Izdanje, zbrojevi, potpis []byte, mapa string, imena []string) error {
 	for ime, b := range map[string][]byte{izdanje.ImeZbrojeva: zbrojevi, izdanje.ImePotpisa: potpis} {
 		if err := os.WriteFile(filepath.Join(mapa, ime), b, 0o644); err != nil {
 			return err
 		}
 	}
-	for _, ime := range u.datotekeZaUslugu(zbrojevi) {
+	for _, ime := range imena {
 		if err := u.preuzmiIzIzdanja(ctx, iz, zbrojevi, mapa, ime); err != nil {
 			return err
 		}
@@ -130,14 +144,21 @@ func (u Ugradnja) preuzmiIzIzdanja(ctx context.Context, iz Izdanje, zbrojevi []b
 // Postave, pa skriptu pokrene iz te kopije. Ostale datoteke skripta sama
 // provjeri prema kopiji SHA256SUMS. Ništa se ne čita iz korisnikove mape
 // nakon kopiranja. Kopira se samo obična datoteka (ne poveznica, cijev ni
-// uređaj), i od nje najviše najveciProgram bajtova.
+// uređaj), i od nje najviše najveciProgram bajtova. Uz rok (vraćanje na
+// starije izdanje) ništa se ne radi kad je rok prošao dok se upisivala
+// lozinka.
 //
 //	$1 mapa, $2 SHA-256 od SHA256SUMS, $3 SHA-256 od instaliraj.sh,
-//	$4 ime programa, dalje imena datoteka koje se kopiraju
+//	$4 ime programa, $5 rok (Unix sekunde, 0 bez roka), dalje imena
+//	datoteka koje se kopiraju
 const prijenosKaoRoot = `# goCOP: nadogradnja usluge (instaliraj.sh iz provjerene kopije)
 set -eu
-mapa=$1 zbrojevi=$2 skripta=$3 program=$4
-shift 4
+mapa=$1 zbrojevi=$2 skripta=$3 program=$4 rok=$5
+shift 5
+if [ "$rok" != 0 ] && [ "$(date +%s)" -ge "$rok" ]; then
+	echo "Greška: dopuštenje za starije izdanje isteklo je dok se upisivala lozinka, pa ništa nije promijenjeno. Globalni administrator ga može ponovno dopustiti." >&2
+	exit 1
+fi
 cilj=$(mktemp -d /tmp/gocop-nadogradnja.XXXXXXXXXX)
 trap 'rm -rf -- "$cilj"' EXIT
 for ime in "$@"; do
@@ -159,7 +180,7 @@ fi
 // Ispis skripte ide u dnevnik Postave.
 func (u *Usluga) Ugradi(ctx context.Context, z ZaUslugu, pisi func(string, ...any)) error {
 	if !jeZbroj(z.Zbrojevi) || !jeZbroj(z.Skripta) {
-		return errors.New("nadogradnja nije pokrenuta: za izdanje nema SHA-256 kojim se provjerava kopija. " + uputaRucno)
+		return errors.New("skripta nije pokrenuta: za izdanje nema SHA-256 kojim se provjerava kopija. " + uputaRucno)
 	}
 	pkexec, err := u.Trazi("pkexec")
 	if err != nil {
@@ -169,7 +190,8 @@ func (u *Usluga) Ugradi(ctx context.Context, z ZaUslugu, pisi func(string, ...an
 	if err != nil {
 		return fmt.Errorf("nema programa bash (%v). %s", err, uputaRucno)
 	}
-	arg := append([]string{bash, "-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, z.Skripta, z.Program}, z.Datoteke...)
+	arg := append([]string{bash, "-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, z.Skripta, z.Program,
+		strconv.FormatInt(z.Rok, 10)}, z.Datoteke...)
 	// Skripta se ne prekida, ni kad se Postava gasi: prekinuta usred
 	// zamjene ostavila bi uslugu zaustavljenu. Nakon lozinke ionako radi
 	// kao root, pa je korisnikov proces ne bi ni mogao ugasiti.
@@ -197,32 +219,40 @@ func greskaUgradnje(out []byte, err error) error {
 	}
 	switch izlaz.ExitCode() {
 	case 126:
-		return errors.New("goCOP nije nadograđen jer lozinka administratora nije upisana. " + uputaRucno)
+		return errors.New("izdanje goCOP-a nije promijenjeno jer lozinka administratora nije upisana. " + uputaRucno)
 	case 127:
-		return errors.New("goCOP nije nadograđen: sustav nije mogao otvoriti prozor za lozinku administratora. " + uputaRucno)
+		return errors.New("izdanje goCOP-a nije promijenjeno: sustav nije mogao otvoriti prozor za lozinku administratora. " + uputaRucno)
 	}
 	return fmt.Errorf("instalacijska skripta javlja grešku: %s\nCijeli ispis je u dnevniku Postave (postava.log).", ispisIliGreska(out, err))
 }
 
 // nadogradiUslugu: preuzmi i provjeri, pokreni instaliraj.sh kao root i
-// potvrdi da usluga odgovara s novim izdanjem. Da je izdanje novije od
-// postavljenoga, provjerio je Nadogradi.
-func (p *Postava) nadogradiUslugu(ctx context.Context, iz Izdanje) (string, error) {
-	z, err := p.Ugradnja.PripremiZaUslugu(ctx, iz)
+// potvrdi da usluga odgovara s novim izdanjem. Smije li se izdanje
+// postaviti, provjerio je pozivatelj; g.jos (kad nije nil) pita još jednom,
+// prije lozinke, a rok koji javi provjeri skripta kao root, nakon lozinke.
+func (p *Postava) nadogradiUslugu(ctx context.Context, iz Izdanje, g posaoUgradnje) (string, error) {
+	z, err := p.Ugradnja.pripremiZaUslugu(ctx, iz, g.sPostavom)
 	if err != nil {
-		p.Pisi("Nadogradnja odbijena: %v", err)
+		p.Pisi("%s: %v", g.odbijeno, err)
 		return "", err
 	}
 	defer os.RemoveAll(z.Mapa) //nolint:errcheck // preuzeto izdanje više ne treba, ostatak ne smeta
+	do, err := g.provjeri(ctx)
+	if err != nil {
+		return "", err
+	}
+	if !do.IsZero() {
+		z.Rok = do.Unix()
+	}
 	novo := iz.Verzija.String()
 	if err := p.usluga.Ugradi(ctx, z, p.Pisi); err != nil {
-		p.Pisi("Nadogradnja: %v", err)
+		p.Pisi("%s: %v", g.ime, err)
 		return "", err
 	}
 	if !p.Ugradnja.cekajIzdanje(ctx, novo) {
 		return "", fmt.Errorf("skripta je završila, ali usluga ne javlja izdanje %s. Pogledajte Dnevnik čvora", novo)
 	}
-	p.Pisi("Nadogradnja na %s gotova", novo)
+	p.zapisiGotovo(g, novo)
 	return novo, nil
 }
 
@@ -263,8 +293,8 @@ func veceIzdanje(a, b string) string {
 	return a
 }
 
-// novijeOd: Postava čvor nikad ne vraća na starije ni isto izdanje, a
-// kad ne zna koje je postavljeno, ne nadograđuje
+// novijeOd: Postava čvor sama ne vraća na starije ni isto izdanje, a kad ne
+// zna koje je postavljeno, ne nadograđuje. Jedina iznimka je dopustenoIzdanje.
 func novijeOd(novo izdanje.Verzija, trenutno string) error {
 	v, ok := izdanje.ParsirajOznaku(trenutno)
 	if !ok {

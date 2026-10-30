@@ -2,6 +2,8 @@ package postava
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +18,8 @@ import (
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
+
+	"gocop/internal/izdanje"
 )
 
 // Upravljac pali, gasi i nadzire čvor. Cvor ga pokreće kao dijete Postave,
@@ -43,6 +47,7 @@ type Cvor struct {
 	pokrenut time.Time   // kad je zadnji put pokrenut
 	padovi   []time.Time // nezatraženi izlasci, za odustajanje
 	pao      bool        // previše padova: čeka korisnika
+	kljuc    string      // ključ za potpis dopuštenja, nov pri svakom pokretanju
 	promjena func()
 }
 
@@ -111,8 +116,10 @@ func (c *Cvor) pokreniZakljucano() error {
 	if err != nil {
 		return err
 	}
+	kljuc := rand.Text()
 	cmd := exec.Command(c.m.Gocop(), "-upravitelj", "-db", c.m.BazaCvora())
 	cmd.Dir = c.m.Podaci
+	cmd.Env = append(os.Environ(), izdanje.OkolinaKljucaPostave+"="+kljuc)
 	cmd.Stdout, cmd.Stderr = dnevnik, dnevnik
 	bezProzora(cmd)
 	ulaz, err := cmd.StdinPipe()
@@ -125,7 +132,7 @@ func (c *Cvor) pokreniZakljucano() error {
 		return fmt.Errorf("pokretanje čvora: %w", err)
 	}
 	gotov := make(chan struct{})
-	c.cmd, c.ulaz, c.gotov, c.pokrenut = cmd, ulaz, gotov, time.Now()
+	c.cmd, c.ulaz, c.gotov, c.pokrenut, c.kljuc = cmd, ulaz, gotov, time.Now(), kljuc
 	_ = os.WriteFile(c.m.PIDCvora(), []byte(strconv.Itoa(cmd.Process.Pid)), 0o644)
 	c.pisi("Čvor pokrenut (pid %d)", cmd.Process.Pid)
 	go c.cekaj(cmd, gotov, dnevnik)
@@ -229,31 +236,95 @@ func (c *Cvor) Proces() StanjeProcesa {
 // odgovara. Pokušava port iz gocop.toml; uz zadani 80 i 8080, na koji čvor
 // sam prijeđe kad je 80 zauzet.
 func (c *Cvor) Zdravlje(ctx context.Context) (izdanje string, port int) {
-	return zdravlje(ctx, c.klijent, portoviIz(c.m.PostavkeCvora()))
+	o := c.PitajZdravlje(ctx)
+	return o.Izdanje, o.Port
 }
 
-// zdravlje pita GET /zdravlje na 127.0.0.1, redom po portovima
-func zdravlje(ctx context.Context, klijent *http.Client, portovi []int) (izdanje string, port int) {
+// PitajZdravlje je Zdravlje s cijelim odgovorom. Dopušteno starije izdanje
+// ostaje samo kad ga je čvor potpisao ključem koji mu je Postava dala pri
+// pokretanju: drugi program na istom portu (npr. na rezervnom 8080) taj
+// ključ ne zna.
+func (c *Cvor) PitajZdravlje(ctx context.Context) OdgovorZdravlja {
+	o := pitajZdravlje(ctx, c.klijent, portoviIz(c.m.PostavkeCvora()))
+	c.mu.Lock()
+	kljuc := c.kljuc
+	c.mu.Unlock()
+	return uzDopustenje(o, potpisano(o, kljuc), time.Now())
+}
+
+// OdgovorZdravlja je ono što čvor javi na GET /zdravlje (docs/postava.md);
+// prazno izdanje znači da ne odgovara
+type OdgovorZdravlja struct {
+	Izdanje string
+	Port    int
+	// Dopusteno je starije izdanje koje je globalni administrator na čvoru
+	// dopustio postaviti, dok dopuštenje vrijedi. Čvor ga šalje od
+	// 0.0.47-alfa; stariji ga ne šalje, pa je prazno.
+	Dopusteno string
+	Do        time.Time // rok dopuštenja
+	potpis    string    // potpis dopuštenja (izdanje.PotpisDopustenja)
+}
+
+// potpisano: dopuštenje je potpisao vlastiti čvor, ključem koji mu je
+// Postava dala pri pokretanju
+func potpisano(o OdgovorZdravlja, kljuc string) bool {
+	ocekivan := izdanje.PotpisDopustenja(kljuc, o.Izdanje, o.Dopusteno, o.Do.Unix())
+	return kljuc != "" && hmac.Equal([]byte(o.potpis), []byte(ocekivan))
+}
+
+// uzDopustenje ostavlja dopuštenje u odgovoru samo kad mu se vjeruje i rok
+// mu još nije prošao; inače je odgovor bez dopuštenja
+func uzDopustenje(o OdgovorZdravlja, vjeruje bool, sad time.Time) OdgovorZdravlja {
+	if o.Dopusteno != "" && (!vjeruje || !sad.Before(o.Do)) {
+		o.Dopusteno, o.Do, o.potpis = "", time.Time{}, ""
+	}
+	return o
+}
+
+// zdravljeIDopustenje: upravljač koji javlja cijeli odgovor na /zdravlje
+// (Cvor i Usluga). Upravljač bez njega javlja samo izdanje, pa Postava uz
+// njega starije izdanje ne postavlja.
+type zdravljeIDopustenje interface {
+	PitajZdravlje(ctx context.Context) OdgovorZdravlja
+}
+
+// pitajZdravlje pita GET /zdravlje na 127.0.0.1, redom po portovima
+func pitajZdravlje(ctx context.Context, klijent *http.Client, portovi []int) OdgovorZdravlja {
 	for _, p := range portovi {
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/zdravlje", p), nil)
-		if err != nil {
-			continue
-		}
-		odg, err := klijent.Do(req)
-		if err != nil {
-			continue
-		}
-		var z struct {
-			Izdanje string `json:"izdanje"`
-			Radi    bool   `json:"radi"`
-		}
-		err = json.NewDecoder(io.LimitReader(odg.Body, 4096)).Decode(&z)
-		odg.Body.Close()
-		if err == nil && odg.StatusCode == http.StatusOK && z.Radi && z.Izdanje != "" {
-			return z.Izdanje, p
+		if z, ok := jedanZdravlje(ctx, klijent, p); ok {
+			o := OdgovorZdravlja{Izdanje: z.Izdanje, Port: p, Dopusteno: z.Dopusteno, potpis: z.Potpis}
+			if z.Do > 0 {
+				o.Do = time.Unix(z.Do, 0)
+			}
+			return o
 		}
 	}
-	return "", 0
+	return OdgovorZdravlja{}
+}
+
+// jsonZdravlja je tijelo odgovora na /zdravlje; ostala polja se ne čitaju
+type jsonZdravlja struct {
+	Izdanje   string `json:"izdanje"`
+	Radi      bool   `json:"radi"`
+	Dopusteno string `json:"dopusteno_izdanje"`
+	Do        int64  `json:"dopusteno_do"`
+	Potpis    string `json:"potpis_dopustenja"`
+}
+
+// jedanZdravlje pita /zdravlje na jednom portu; ok kad čvor radi i javlja
+// izdanje
+func jedanZdravlje(ctx context.Context, klijent *http.Client, port int) (z jsonZdravlja, ok bool) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fmt.Sprintf("http://127.0.0.1:%d/zdravlje", port), nil)
+	if err != nil {
+		return z, false
+	}
+	odg, err := klijent.Do(req)
+	if err != nil {
+		return z, false
+	}
+	defer odg.Body.Close()
+	err = json.NewDecoder(io.LimitReader(odg.Body, 4096)).Decode(&z)
+	return z, err == nil && odg.StatusCode == http.StatusOK && z.Radi && z.Izdanje != ""
 }
 
 // portoviIz su port iz gocop.toml (zadano 80), uz 80 i rezervni 8080. Kad

@@ -1938,6 +1938,15 @@
         sustava ili Docker (samo uz <code>--restart</code>). Čvor pokrenut ručno u terminalu gumba
         nema; zaustavite ga (Ctrl+C) i pokrenite istom naredbom. Postavke e-pošte vodi stranica
         <em>E-pošta</em>.
+        <br id="starije-izdanje">Postava (ikona u traci) sama postavlja samo novije izdanje goCOP-a.
+        Kad treba vratiti starije, na primjer jer novo ne radi kako treba, globalni administrator u
+        kartici <em>Ovaj čvor</em> upiše oznaku izdanja, npr. 0.0.45-alfa, i klikne <em>Dopusti
+        starije izdanje</em>. To radi s računala na kojem je čvor ili iz lokalne mreže. Dopuštenje
+        vrijedi 30 minuta i samo na računalu s čvorom. U izborniku ikone tada se pojavi <em>Vrati na
+        0.0.45-alfa</em>. Ako te stavke nema, najprije nadogradite Postavu. Postava izdanje preuzme i
+        provjeri kao i nadogradnju, a bazu prije toga kopira. Novije izdanje već je prilagodilo bazu
+        sebi, pa starije možda neće raditi kako treba. Na izdanja starija od 0.0.37-alfa Postava ne
+        vraća; na njih se goCOP vraća ručno.
         <br>Gumb <em>Provjeri vezu</em> je na stranici <em>Stanje razmjene</em>, u bloku <em>Dohvatljivost
         ovog računala</em>, koji vidi samo administrator. Pita STUN poslužitelje kojom
         javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program

@@ -25,16 +25,19 @@ type traka struct {
 	ctx        context.Context
 	izadji     func()
 
-	status, otvori, prekidac, nadogradi, provjeri, priPrijavi *systray.MenuItem
+	status, otvori, prekidac, nadogradi, vrati, provjeri, priPrijavi *systray.MenuItem
 
-	// prozori i otvaranje datoteka; test ih zamijeni da se ništa ne otvara
-	poruka  func(naslov, tekst string, greska bool)
-	pitanje func(naslov, tekst string) bool
-	pokazi  func(cilj string) error
+	// prozori, obavijesti i otvaranje datoteka; test ih zamijeni da se
+	// ništa ne otvara
+	poruka     func(naslov, tekst string, greska bool)
+	pitanje    func(naslov, tekst string) bool
+	pokazi     func(cilj string) error
+	obavijesti func(tekst string)
 
 	mu           sync.Mutex
 	ikonaZa      string // stanje za koje je ikona zadnji put nacrtana
 	javljeno     string // izdanje o kojem je već stigla obavijest
+	javljenoStar string // dopušteno starije izdanje o kojem je već stigla obavijest
 	prvoOtvoreno bool   // stranica Postavljanje svježeg čvora već otvorena
 }
 
@@ -65,6 +68,7 @@ func pokreniTraku(p *postava.Postava) {
 	}
 
 	tr.t = systray.New()
+	tr.obavijesti = func(tekst string) { tr.t.ShowNotification("goCOP", tekst) }
 	tr.t.SetMenu(tr.izbornik()).SetTooltip("goCOP").Show()
 	tr.t.OnDoubleClick(tr.otvoriPlocu)
 	tr.osvjezi()
@@ -92,6 +96,8 @@ func (tr *traka) izbornik() *systray.Menu {
 	tr.prekidac = m.Add("Zaustavi", func() { go tr.prekidacKlik() })
 	m.AddSeparator()
 	tr.nadogradi = m.Add("Nema novijeg izdanja", func() { go tr.nadogradiKlik() })
+	// systray stavku ne zna sakriti, pa bez dopuštenja stoji isključena
+	tr.vrati = m.Add(bezStarijeg, uPozadini(tr.vratiKlik))
 	tr.provjeri = m.Add("Provjeri nadogradnje", func() { go tr.provjeriKlik() })
 	m.AddSeparator()
 	if !tr.p.UslugaSustava() {
@@ -239,9 +245,67 @@ func pitanjeNadogradnje(s postava.Stanje) string {
 	}
 	pitanje := fmt.Sprintf("Nadograditi goCOP s %s na %s?\n\n", staro, s.Novije.Verzija)
 	if s.UslugaSustava {
-		return pitanje + "goCOP radi kao usluga sustava, pa će se tražiti lozinka administratora. Usluga se nakratko zaustavlja, a baza se prije toga kopira u /var/lib/gocop/kopije."
+		return pitanje + "goCOP radi kao usluga sustava, pa će se tražiti lozinka administratora. Usluga se nakratko zaustavlja, a baza se prije toga kopira u /var/lib/gocop/kopije. Postava (ova ikona) ostaje ista."
 	}
 	return pitanje + "Čvor se nakratko zaustavlja, a baza se prije toga kopira u mapu data\\kopije. Ako novo izdanje ne krene, vraća se prethodno."
+}
+
+// uPozadini je klik na stavku izbornika koji f pokrene u zasebnoj
+// gorutini, da izbornik ne čeka
+func uPozadini(f func()) func() { return func() { go f() } }
+
+// bezStarijeg je natpis stavke za vraćanje dok starije izdanje nije dopušteno
+const bezStarijeg = "Vrati na starije izdanje"
+
+// vratiKlik postavlja starije izdanje koje je globalni administrator
+// dopustio na čvoru, nakon potvrde
+func (tr *traka) vratiKlik() {
+	tr.p.OsvjeziZdravlje(tr.ctx) // dopuštenje je možda isteklo od zadnjeg kruga
+	s := tr.p.Stanje()
+	if s.Starije == "" || s.Zauzeto != "" {
+		return
+	}
+	if !tr.pitanje(naslov, pitanjeVracanja(s)) {
+		return
+	}
+	izd, err := tr.p.Vrati(tr.ctx)
+	if err != nil {
+		tr.poruka(naslov, "Vraćanje nije uspjelo:\n"+err.Error(), true)
+		return
+	}
+	tr.obavijesti("Vraćeno na izdanje " + izd)
+}
+
+// pitanjeVracanja je pitanje prije vraćanja na s.Starije
+func pitanjeVracanja(s postava.Stanje) string {
+	odakle := ""
+	if s.Izdanje != "" {
+		odakle = " s " + s.Izdanje
+	}
+	pitanje := fmt.Sprintf("Vratiti goCOP%s na starije izdanje %s?\n\n"+
+		"To je dopustio globalni administrator na stranici Ovo računalo i mreža. "+
+		"Novije izdanje već je prilagodilo bazu sebi, pa starije možda neće raditi kako treba.\n\n", odakle, s.Starije)
+	if s.UslugaSustava {
+		return pitanje + "goCOP radi kao usluga sustava, pa će se tražiti lozinka administratora. Usluga se nakratko zaustavlja, a baza se prije toga kopira u /var/lib/gocop/kopije. Postava (ova ikona) ostaje ista."
+	}
+	return pitanje + "Čvor se nakratko zaustavlja, a baza se prije toga kopira u mapu data\\kopije. Ako starije izdanje ne krene, vraća se sadašnje."
+}
+
+// osvjeziVracanje: stavka za vraćanje uključena je samo dok vrijedi
+// dopuštenje, a o novom dopuštenju stiže obavijest
+func (tr *traka) osvjeziVracanje(s postava.Stanje) {
+	if s.Starije == "" {
+		tr.javljenoStar = ""
+		tr.vrati.SetLabel(bezStarijeg)
+		tr.vrati.SetDisabled(true)
+		return
+	}
+	tr.vrati.SetLabel("Vrati na " + s.Starije)
+	tr.vrati.SetDisabled(s.Zauzeto != "")
+	if tr.javljenoStar != s.Starije {
+		tr.javljenoStar = s.Starije
+		tr.obavijesti("Globalni administrator dopustio je vraćanje na izdanje " + s.Starije + ". Vraćanje: desni klik na ikonu.")
+	}
 }
 
 func (tr *traka) provjeriKlik() {
@@ -383,6 +447,7 @@ func (tr *traka) osvjezi() {
 		tr.nadogradi.SetLabel("Nema novijeg izdanja")
 		tr.nadogradi.SetDisabled(true)
 	}
+	tr.osvjeziVracanje(s)
 
 	st := ikona.Stoji
 	switch s.Cvor {
