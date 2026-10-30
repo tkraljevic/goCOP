@@ -11,11 +11,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   bez kiše za sve letve, uz upozorenje da oborine nisu preuzete za svih
   dana. Prognoza kiše preuzeta je još prethodnog dana, pa je zadnjem danu
   koji model gleda falio zadnji sat. Sad se s Open-Meteo preuzima dan više.
+  (#202)
 - **U dnevniku programa vidi se zašto sat nije izdan.** Kad privremena
   očitanja Hrvatskih voda za idući sat u :45 još nisu stigla, prognoza tog
   sata ne izađe, a u dnevniku programa o tome nije bilo ni retka. Sad piše
   za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
-  očitanja.
+  očitanja. (#202)
 
 ## 0.0.46-alfa — 29. 10. 2026.
 
