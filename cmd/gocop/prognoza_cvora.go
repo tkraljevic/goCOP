@@ -106,7 +106,9 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)
 		return nil
 	}
-	arhivaRO, err := sql.Open("sqlite", db.SamoZaCitanje(o.arhivaPut))
+	// Dok netko piše u arhivu, čitanje pričeka bravu umjesto da odmah javi
+	// „database is locked” — namještanju bi tada ispala veza.
+	arhivaRO, err := sql.Open("sqlite", db.SamoZaCitanje(o.arhivaPut)+"&_pragma=busy_timeout(5000)")
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
 		return nil

@@ -189,7 +189,11 @@ func NamjestiOperatera(arhiva *sql.DB, o Operater, ocjenaOd int64) (*OperaterMod
 	var razina *Niz
 	kota := 0.0
 	if o.Razina != "" {
-		if rm, err := NizIzArhive(arhiva, o.Razina, "kota"); err == nil && len(rm) >= 24*365 {
+		rm, err := NizIzArhive(arhiva, o.Razina, "kota")
+		if err != nil {
+			return nil, err
+		}
+		if len(rm) >= 24*365 {
 			n := NoviNiz(rm)
 			razina, kota = &n, KotaUspora[o.Razina]
 		}

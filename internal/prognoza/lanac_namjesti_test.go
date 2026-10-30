@@ -249,8 +249,8 @@ func TestNamjestiRacunRijetkeLetve(t *testing.T) {
 	postavi(t, &NajveciPomak, 8)
 
 	var w bytes.Buffer
-	pojasi := namjestiRacun(arhiva, Racun{Letva: "dunav-zmajevac", Ulazi: []string{"batina"}}, &w)
-	if len(pojasi) == 0 {
+	pojasi, err := namjestiRacun(arhiva, Racun{Letva: "dunav-zmajevac", Ulazi: []string{"batina"}}, &w)
+	if err != nil || len(pojasi) == 0 {
 		t.Fatalf("rijetka letva bez pojasa:\n%s", w.String())
 	}
 	for _, p := range pojasi {
@@ -263,22 +263,22 @@ func TestNamjestiRacunRijetkeLetve(t *testing.T) {
 	}
 
 	w.Reset()
-	if p := namjestiRacun(arhiva, Racun{Letva: "obicna", Ulazi: []string{"obicna:vodostaj"}}, &w); p != nil {
-		t.Errorf("letva kojoj se veličina ne zna dala je pojase: %+v", p)
+	if p, err := namjestiRacun(arhiva, Racun{Letva: "obicna", Ulazi: []string{"obicna:vodostaj"}}, &w); p != nil || err != nil {
+		t.Errorf("letva kojoj se veličina ne zna dala je pojase: %+v, %v", p, err)
 	}
 	if !strings.Contains(w.String(), "za obicna se ne zna u čemu se vodi") {
 		t.Errorf("ispis: %q", w.String())
 	}
 	w.Reset()
-	if p := namjestiRacun(arhiva, Racun{Letva: "obicna:vodostaj", Ulazi: []string{"batina"}}, &w); p != nil {
-		t.Errorf("obična letva s rijetkim nizom dala je pojase: %+v", p)
+	if p, err := namjestiRacun(arhiva, Racun{Letva: "obicna:vodostaj", Ulazi: []string{"batina"}}, &w); p != nil || err != nil {
+		t.Errorf("obična letva s rijetkim nizom dala je pojase: %+v, %v", p, err)
 	}
 	if !strings.Contains(w.String(), "obicna: samo 599 satnih vrijednosti u vodostaj") {
 		t.Errorf("ispis: %q", w.String())
 	}
 	w.Reset()
-	if p := namjestiRacun(arhiva, Racun{Letva: "obicna:vodostaj", Ulazi: []string{"nepoznati-ulaz"}}, &w); p != nil {
-		t.Errorf("ulaz kojem se veličina ne zna dao je pojase: %+v", p)
+	if p, err := namjestiRacun(arhiva, Racun{Letva: "obicna:vodostaj", Ulazi: []string{"nepoznati-ulaz"}}, &w); p != nil || err != nil {
+		t.Errorf("ulaz kojem se veličina ne zna dao je pojase: %+v, %v", p, err)
 	}
 	if !strings.Contains(w.String(), "za nepoznati-ulaz se ne zna u čemu se vodi") {
 		t.Errorf("ispis: %q", w.String())
