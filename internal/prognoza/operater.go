@@ -550,6 +550,7 @@ func uravnotezi(tocke map[int64]float64, t0 int64, q, dotok Niz, dotokBuduci *Ni
 // takvog dosega u svojem režimu ne vraća ništa — vrh tada i dalje drži
 // mjerenje, bez oznake modela.
 func BuducnostOperatera(modeli map[string]*OperaterModel, nizovi map[Izvor]Niz, sada int64) map[Izvor]Niz {
+	nizovi = odrezaniDo(nizovi, sada) // kao u računu: ništa iza sata izdavanja
 	out := map[Izvor]Niz{}
 	for _, m := range redOperatera(modeli) {
 		iz := Izvor{Letva: m.Letva, Velicina: "protok"}
