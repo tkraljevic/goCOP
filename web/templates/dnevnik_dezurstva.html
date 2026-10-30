@@ -24,7 +24,7 @@
   </div>
   <div class="page-actions">
     <a href="/dnevnici/{{.Journal.ID}}" class="btn btn-secondary">{{icon "activity"}} Dnevnik COP-a</a>
-    {{if .CanWrite}}<a href="/dnevnici/{{.Journal.ID}}/obracun" class="btn btn-primary">{{icon "calculator"}} Obračun sati</a>{{end}}
+    {{if .UpravaCentra}}<a href="/dnevnici/{{.Journal.ID}}/obracun" class="btn btn-primary">{{icon "calculator"}} Obračun sati</a>{{end}}
   </div>
 </div>
 

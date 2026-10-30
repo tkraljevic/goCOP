@@ -81,7 +81,7 @@ func TestTokDnevnikaCOPa(t *testing.T) {
 	}
 
 	// Storno: zapis ostaje, s razlogom i brojem; tuđi stornira samo nadzor.
-	if err := s.VoidEntry(ctx, dezurni, podrucni, o, z2.ID, "krivi zapis"); err != nil {
+	if err := s.VoidEntry(ctx, dezurni, podrucni, o, &j, z2.ID, "krivi zapis"); err != nil {
 		// dežurni nije izvođač, pa je "nadzor" i smije — provjera je da ne padne
 		t.Fatal(err)
 	}

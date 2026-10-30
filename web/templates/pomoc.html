@@ -1183,9 +1183,14 @@
       u trenutku događaja.</p>
     <p><span class="reg-chip">Piše: operater u dosegu centra</span>
       <span class="reg-chip">Zaglavlje: voditelj ili zamjenik centra</span></p>
+    <p>Izvođač, odnosno voditelj usluga ili poslovođa, dnevnik COP-a i plan dežurstava ne čita,
+      ne piše u njih, ne preuzima dežurstvo i ne upisuje se u plan. On piše samo u dnevnike
+      usluga svoje firme, a svoje izvješće o satima vidi na stranici <em>Moj profil</em>.</p>
     <p>Zapis se ne prepisuje i ne briše. Pogrešan zapis se <strong>stornira uz razlog</strong> i
       ostaje vidljiv u dnevniku. Prijepis iz stare evidencije može se ispraviti dok je označen
-      kao prijepis; zaključen dnevnik više ne prima nove zapise.</p>
+      kao prijepis.</p>
+    <p>Ovjeren dnevnik više ne prima zapise, storno ni ispravke, ni u prijepisu. Dnevnik s
+      upisanim krajem, a još neovjeren, prima samo zapise s danom do kraja.</p>
     <p>Prije zaključivanja dnevnik mora imati upisan kraj i ne smije ostati aktivno dežurstvo.
       <strong>Voditelj COP-a</strong>, odgovoran za dežurstva, zaključuje ga svojim osobnim
       elektroničkim ključem. Tada nastaje trajni potpisani PDF izvornik i dnevnik se više ne
@@ -1196,7 +1201,7 @@
     <p>Plan stoji uz dnevnik COP-a i govori <strong>tko je radio, od kada do kada, za cijeli
       sektor ili određeno područje, na kojem poslu te u uredu ili na terenu</strong>. Isti zapis
       poslije postaje osnova obračuna — dežurstvo se ne prepisuje u drugu evidenciju.</p>
-    <p>Svatko tko pripada dosegu centra može upisati sebe. Takav upis čeka potvrdu uprave centra
+    <p>Svatko tko pripada dosegu centra može upisati sebe, osim izvođača. Takav upis čeka potvrdu uprave centra
       i tek tada ulazi u obračun. Uprava centra može upisati bilo koju osobu u svom dosegu; njezin
       unos potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
       i čeka zasebnu provjeru i potvrdu uprave. Nepotvrđeni vlastiti unos osoba može maknuti,
@@ -1212,7 +1217,7 @@
       trajati najviše 36 sati; dulji se upisuje u više dijelova. Predaja aktivnog dežurstva
       iz dnevnika COP-a čuva cijelo stvarno trajanje, i kad je dulje od 36 sati, te za sve
       dulje od 24 sata traži potvrdu uprave prije obračuna.</p>
-    <p><span class="reg-chip">Svoj unos: svatko u dosegu</span>
+    <p><span class="reg-chip">Svoj unos: svatko u dosegu, osim izvođača</span>
       <span class="reg-chip">Potvrđuje: uprava centra</span></p>
 
     <h3 id="dnevnik-obracun">Obračun sati i IORS</h3>
@@ -1237,6 +1242,8 @@
       gdje piše i koliko njezinih dežurstava čeka potvrdu, a koliko je za provjeru.
       Cijeli obračun može se izvesti u Excel u obliku za računovodstvo, s listovima
       <code>BP_&lt;broj&gt;</code>, ukupnim iznosima i mjestima za potpise.</p>
+    <p><span class="reg-chip">Obračun: uprava centra</span>
+      <span class="reg-chip">IORS: uprava centra i osoba sama</span></p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici/popis?vrsta=DEZURSTVA">{{icon "users"}} Otvori plan dežurstava</a></p>
 
     <h3 id="izvjesca">Dnevna izvješća</h3>

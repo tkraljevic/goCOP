@@ -140,10 +140,14 @@ func (o *ObjavaAkta) Objavi(ctx context.Context, u *models.User, a *models.Akt, 
 }
 
 // ZapisIzAkta upisuje obavijest o aktu u dnevnik COP-a; akt je ovjeren pa
-// upis ne traži ovlast, ali dan mora biti unutar trajanja dnevnika
+// upis ne traži ovlast, ali dan mora biti unutar trajanja dnevnika, a
+// ovjeren dnevnik ne prima ni ovaj zapis
 func (s *JournalService) ZapisIzAkta(ctx context.Context, j *models.Journal, e *models.JournalEntry) error {
 	if j == nil || j.CentarSektor == "" {
 		return fmt.Errorf("ovo nije dnevnik COP-a")
+	}
+	if err := neOvjeren(j); err != nil {
+		return err
 	}
 	if j.StartedAt != nil && e.Date.Before(pocetakDana(j.StartedAt.In(models.Zagreb))) {
 		// akt vrijedi od prije otvaranja dnevnika: upis ide na dan otvaranja
