@@ -113,14 +113,23 @@ func (h *UvozHandler) racunHV(ctx context.Context, letva string) (korisnik, lozi
 	return r.Korisnik, loz, r.Adresa, nil
 }
 
+// zadatakIzObrasca slaže zadatak iz obrasca. Letva koja u stablu već stoji
+// uvozi se u svoj sliv, što god obrazac kaže; sliv iz obrasca vrijedi samo za
+// novu letvu.
 func zadatakIzObrasca(r *http.Request, koren string, slivZa map[string]string) izvori.Zadatak {
 	v := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	z := izvori.Zadatak{Koren: koren, Sliv: v("sliv"), Letva: v("letva"), Izvor: v("izvor"),
 		Velicina: v("velicina"), Postaje: v("postaje"), Zamijeni: v("zamijeni") == "1"}
-	if z.Sliv == "" {
-		z.Sliv = slivZa[z.Letva]
-	}
+	z.Sliv = slivLetve(z.Letva, z.Sliv, slivZa)
 	return z
+}
+
+// slivLetve je sliv u kojem letva stoji u stablu, a za novu letvu upisani.
+func slivLetve(letva, upisani string, slivZa map[string]string) string {
+	if s, ima := slivZa[letva]; ima {
+		return s
+	}
+	return upisani
 }
 
 // smijeSveLetve provjerava pravo na svaku letvu na koju uvoz piše.
@@ -158,7 +167,7 @@ func (h *UvozHandler) PregledIzvora(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	z := zadatakIzObrasca(r, d.PodaciDir, d.SlivZa)
-	if err := h.smijeSveLetve(d.Permissions, f, z); err != nil {
+	if err := h.smijeUvesti(&d, f, z); err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
 		return
@@ -229,8 +238,11 @@ func (h *UvozHandler) UpisiIzvor(w http.ResponseWriter, r *http.Request) {
 		h.pisi(w, d)
 		return
 	}
+	// Sliv se određuje ponovno: letva koja se u međuvremenu pojavila u stablu
+	// upisuje se u svoj sliv, a ne u onaj iz obrasca.
+	c.zadatak.Sliv = slivLetve(c.zadatak.Letva, c.zadatak.Sliv, d.SlivZa)
 	f, _ := izvori.Nadji(c.format)
-	if err := h.smijeSveLetve(d.Permissions, f, c.zadatak); err != nil {
+	if err := h.smijeUvesti(&d, f, c.zadatak); err != nil {
 		d.ErrorMessage = err.Error()
 		h.pisi(w, d)
 		return
@@ -292,9 +304,12 @@ func (h *UvozHandler) PreuzmiHidroView(w http.ResponseWriter, r *http.Request) {
 	v := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
 	z := hvpovijest.Zadatak{Koren: d.PodaciDir, Letva: v("letva"), Sliv: v("sliv"), Naziv: v("naziv"),
 		Izvor: v("izvor"), Zaokruzi: -1, Probno: v("probno") == "1"}
-	if z.Sliv == "" {
-		z.Sliv = d.SlivZa[z.Letva]
+	if err := d.stabloCitljivo(); err != nil {
+		d.ErrorMessage = err.Error()
+		h.pisi(w, d)
+		return
 	}
+	z.Sliv = slivLetve(z.Letva, z.Sliv, d.SlivZa)
 	if z.Letva == "" || z.Sliv == "" {
 		d.ErrorMessage = "Trebaju letva i sliv."
 		h.pisi(w, d)

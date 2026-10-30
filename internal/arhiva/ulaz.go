@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode"
 
 	"gocop/internal/trajno"
 )
@@ -78,6 +79,17 @@ func Letve(koren string) (map[string]string, error) {
 	return out, nil
 }
 
+// LetveStabla je Letve za uvoz: stablo kojeg još nema nije greška, jer ga
+// novi čvor počinje prvim uvozom. Svaka druga greška čitanja jest, jer se
+// bez nje ne zna u kojem slivu letva već stoji.
+func LetveStabla(koren string) (map[string]string, error) {
+	letve, err := Letve(koren)
+	if _, e := os.Stat(koren); errors.Is(e, fs.ErrNotExist) {
+		return map[string]string{}, nil
+	}
+	return letve, err
+}
+
 // Slivovi vraća slivove koje stablo ima, poredane.
 func Slivovi(koren string) ([]string, error) {
 	letve, err := Letve(koren)
@@ -107,14 +119,17 @@ func KanonskoIme(letva, izvor, velicina, vrsta string, od, do time.Time) string 
 }
 
 // ProvjeriDjelove javlja je li ono što je čovjek upisao uopće upotrebljivo kao
-// dio naziva. Donja crta bi razlomila ugovor, a kosa crta bi izašla iz mape.
+// dio naziva. Dio naziva smije imati samo slova, brojke, crticu i točku
+// (dopusteniNaziv): donja crta bi razlomila ugovor, kosa crta bi izašla iz
+// mape, a znakovi traženja (* ? [) promijenili bi koje se datoteke smatraju
+// starim nizom istog imena.
 func ProvjeriDjelove(letva, izvor, velicina, vrsta string) error {
 	for ime, v := range map[string]string{"letva": letva, "izvor": izvor, "veličina": velicina, "vrsta": vrsta} {
 		if strings.TrimSpace(v) == "" {
 			return fmt.Errorf("%s nije zadana", ime)
 		}
-		if strings.ContainsAny(v, "_/\\ ") {
-			return fmt.Errorf("%s %q ne smije sadržavati donju crtu, kosu crtu ni razmak", ime, v)
+		if !dopusteniNaziv(v) {
+			return fmt.Errorf("%s %q ne smije imati ništa osim slova, brojki, crtice i točke, ni točku na početku ili kraju", ime, v)
 		}
 	}
 	if !sadrziNiz(Velicine, velicina) {
@@ -122,6 +137,52 @@ func ProvjeriDjelove(letva, izvor, velicina, vrsta string) error {
 	}
 	if !sadrziNiz(Vrste, vrsta) {
 		return fmt.Errorf("vrsta %q nije jedna od: %s", vrsta, strings.Join(Vrste, ", "))
+	}
+	return nil
+}
+
+// ProvjeriSliv javlja je li sliv upotrebljiv kao naziv mape u stablu. Sliv je
+// jedna mapa ispod korijena s dopuštenim nazivom (dopusteniNaziv). Ne smije
+// počinjati s „PRISTUP”, jer takve mape stablo preskače (Letve), pa letva u
+// njoj ne bi bila vidljiva.
+func ProvjeriSliv(sliv string) error {
+	if !dopusteniNaziv(sliv) || strings.HasPrefix(sliv, "PRISTUP") {
+		return fmt.Errorf("sliv %q nije upotrebljiv kao naziv mape", sliv)
+	}
+	return nil
+}
+
+// dopusteniNaziv: samo slova, brojke, crtica i točka, a točka ni na početku
+// ni na kraju. Tako ne prolaze „.” i „..”, skrivene mape, kose i donje crte,
+// razmaci, kontrolni znakovi, znakovi traženja (* ? [) ni znakovi koje
+// Windows ne prima u nazivu (: < > | ").
+func dopusteniNaziv(s string) bool {
+	return s != "" && strings.Trim(s, ".") == s && strings.IndexFunc(s, nedopustenZnak) < 0
+}
+
+func nedopustenZnak(z rune) bool {
+	return !unicode.IsLetter(z) && !unicode.IsDigit(z) && z != '-' && z != '.'
+}
+
+// MapaLetve vraća mapu letve u stablu, <koren>/<sliv>/<letva>. Sliv i letva
+// moraju biti obični nazivi mapa, a gotova putanja mora ostati ispod korijena.
+func MapaLetve(koren, sliv, letva string) (string, error) {
+	if err := ProvjeriSliv(sliv); err != nil {
+		return "", err
+	}
+	if !dopusteniNaziv(letva) {
+		return "", fmt.Errorf("letva %q nije upotrebljiva kao naziv mape", letva)
+	}
+	mapa := filepath.Join(koren, sliv, letva)
+	return mapa, uStablu(koren, mapa, filepath.Join(sliv, letva))
+}
+
+// uStablu potvrđuje da je mapa točno rel ispod korijena. Uz provjerene
+// nazive to uvijek vrijedi; provjera ostaje za slučaj da se pravilo naziva
+// jednom olabavi.
+func uStablu(koren, mapa, rel string) error {
+	if r, err := filepath.Rel(koren, mapa); err != nil || r != rel {
+		return fmt.Errorf("mapa %s ne stoji u stablu s podacima", filepath.ToSlash(rel))
 	}
 	return nil
 }
@@ -149,15 +210,15 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 	if err := ProvjeriDjelove(letva, izvor, velicina, vrsta); err != nil {
 		return "", err
 	}
-	if strings.TrimSpace(sliv) == "" || strings.ContainsAny(sliv, "_/\\ ") {
-		return "", fmt.Errorf("sliv %q nije upotrebljiv kao naziv mape", sliv)
+	mapa, err := MapaLetve(koren, sliv, letva)
+	if err != nil {
+		return "", err
 	}
 	if len(redci) == 0 {
 		return "", fmt.Errorf("nema nijednog retka za upis")
 	}
 	sort.Slice(redci, func(a, b int) bool { return redci[a].Vrijeme.Before(redci[b].Vrijeme) })
 
-	mapa := filepath.Join(koren, sliv, letva)
 	if err := os.MkdirAll(mapa, 0o755); err != nil {
 		return "", err
 	}
@@ -264,6 +325,9 @@ func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (s
 	if err := ProvjeriDjelove(letva, izvor, velicina, vrsta); err != nil {
 		return "", err
 	}
+	if err := ProvjeriSliv(sliv); err != nil {
+		return "", err
+	}
 	stare, err := PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta)
 	if err != nil {
 		return "", fmt.Errorf("niz nije dopunjen, jer se zatečeni niz u stablu ne da pročitati do kraja: %w", err)
@@ -283,7 +347,8 @@ func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (s
 }
 
 // PostojeciRedci čita ono što niz već ima u stablu. Niza može i ne biti — tada
-// se ulaže na prazno i to nije greška.
+// se ulaže na prazno i to nije greška. Ni sliv ili letva koji nisu naziv mape
+// u stablu nemaju niza.
 //
 // Čita se kao u gradnji, istim čitačem i istim pravilom za redak. Prije se
 // redak dijelio na prvoj točki-zarezu, pa su redak s trećim stupcem, polje u
@@ -291,7 +356,13 @@ func Dopuni(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (s
 // prepisala bez njih. Redak koji se ne da pročitati sad je greška, pa dopuna
 // odbije upis i datoteka ostane kakva je bila.
 func PostojeciRedci(koren, sliv, letva, izvor, velicina, vrsta string) ([]Redak, error) {
-	uzorak := filepath.Join(koren, sliv, letva,
+	mapa, err := MapaLetve(koren, sliv, letva)
+	if err != nil || ProvjeriDjelove(letva, izvor, velicina, vrsta) != nil {
+		// Niza nema ondje gdje mapa ne smije ni stajati ni pod imenom koje se
+		// ne smije upisati; upis takav sliv ili dio naziva odbije.
+		return nil, nil
+	}
+	uzorak := filepath.Join(mapa,
 		strings.Join([]string{letva, izvor, velicina, vrsta}, "_")+"_*.csv")
 	puts, err := filepath.Glob(uzorak)
 	if err != nil || len(puts) == 0 {

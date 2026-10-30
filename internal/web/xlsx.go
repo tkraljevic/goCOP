@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"gocop/internal/raspakiraj"
 )
 
 // Čitanje .xlsx tablica bez vanjske knjižnice: .xlsx je zip s XML-om, pa je
@@ -26,74 +28,42 @@ func procitajXLSX(sadrzaj []byte) ([][]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("datoteka nije .xlsx: %w", err)
 	}
+	g := granicaXLSX()
+	if err := g.Stavke(len(zr.File)); err != nil {
+		return nil, fmt.Errorf("datoteka nije obična .xlsx tablica: %w", err)
+	}
 	if err := bezPonovljenihDijelova(zr.File); err != nil {
 		return nil, err
 	}
+	sstStavka, listStavka := stavkeXLSX(zr.File)
+	if listStavka == nil {
+		return nil, fmt.Errorf("u datoteci nema nijednog lista")
+	}
 	var sst []string
-	if f := dioZipa(zr.File, "xl/sharedStrings.xml"); f != nil {
-		if sst, err = tablicaIzZipa(f); err != nil {
+	if sstStavka != nil {
+		if sst, err = tablicaIzZipa(sstStavka, g); err != nil {
 			return nil, err
 		}
 	}
-	list := prviList(zr.File)
-	if list == nil {
-		return nil, fmt.Errorf("u datoteci nema nijednog lista")
-	}
-	listXML, err := citajIzZipa(list)
+	listXML, err := citajIzZipa(listStavka, g)
 	if err != nil {
 		return nil, err
 	}
 	return redciIzLista(listXML, sst)
 }
 
-// dioZipa vraća dio zadanog naziva, ili nil
-func dioZipa(dijelovi []*zip.File, ime string) *zip.File {
-	for _, f := range dijelovi {
-		if f.Name == ime {
-			return f
-		}
-	}
-	return nil
-}
-
-// prviList vraća prvi list po nazivu (sheet1.xml prije sheet2.xml), ili nil
-func prviList(dijelovi []*zip.File) *zip.File {
-	var prvi *zip.File
-	for _, f := range dijelovi {
-		if !strings.HasPrefix(f.Name, "xl/worksheets/sheet") || !strings.HasSuffix(f.Name, ".xml") {
-			continue
-		}
-		if prvi == nil || f.Name < prvi.Name {
-			prvi = f
-		}
-	}
-	return prvi
-}
-
-// najviseDijelaXLSX je najveći dio .xlsx-a nakon raspakiranja
-const najviseDijelaXLSX = 64 << 20
-
-func citajIzZipa(f *zip.File) ([]byte, error) {
-	rc, err := f.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-	return procitajDatoteku(rc, najviseDijelaXLSX)
-}
-
 // tablicaIzZipa čita zajedničku tablicu nizova izravno iz zipa, bez
 // spremanja cijelog dijela u memoriju
-func tablicaIzZipa(f *zip.File) ([]string, error) {
-	rc, err := f.Open()
+func tablicaIzZipa(f *zip.File, g *raspakiraj.Granica) ([]string, error) {
+	rc, err := g.Otvori(f)
 	if err != nil {
 		return nil, err
 	}
 	defer rc.Close()
-	return nizoviIzSST(&ograniceniDio{r: rc, ostalo: najviseDijelaXLSX + 1})
+	return nizoviIzSST(&ograniceniDio{r: rc, ostalo: najviseStavkeXLSX + 1})
 }
 
-var errPrevelikDio = fmt.Errorf("datoteka je veća od %s nakon raspakiranja", opisVelicine(najviseDijelaXLSX))
+var errPrevelikDio = fmt.Errorf("datoteka je veća od %s nakon raspakiranja", opisVelicine(najviseStavkeXLSX))
 
 // ograniceniDio čita dio zipa i vraća grešku kad dio prijeđe granicu,
 // umjesto da ga tiho skrati; ostalo je granica uvećana za jedan bajt
@@ -130,7 +100,7 @@ func bezPonovljenihDijelova(dijelovi []*zip.File) error {
 // <t>, a u obojenom tekstu razlomljen na više <r><t>, pa se dijelovi
 // spajaju. Neispravna tablica daje prazne nizove, kao i prije; tablica s
 // više zapisa nego što list smije imati ćelija, zapis dulji nego što Excel
-// dopušta ili tablica veća od najviseDijelaXLSX odbija se.
+// dopušta ili tablica veća od najviseStavkeXLSX odbija se.
 func nizoviIzSST(r io.Reader) ([]string, error) {
 	dec := xml.NewDecoder(r)
 	c := &citacSST{}

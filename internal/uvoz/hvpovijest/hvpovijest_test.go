@@ -250,7 +250,7 @@ func TestPreuzmiGreske(t *testing.T) {
 
 	z := osnova
 	z.Izvor = "geolux_radar" // donja crta ne smije u naziv niza
-	if _, err := Preuzmi(ctx, k, z); err == nil || !strings.Contains(err.Error(), "donju crtu") {
+	if _, err := Preuzmi(ctx, k, z); err == nil || !strings.Contains(err.Error(), "ne smije imati ništa osim slova") {
 		t.Errorf("neispravan izvor: %v", err)
 	}
 

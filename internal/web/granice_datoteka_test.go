@@ -195,7 +195,7 @@ func TestZajednickaTablicaSPreviseZapisa(t *testing.T) {
 		t.Errorf("previše zapisa: %v", err)
 	}
 	// tablica veća od 64 MB nakon raspakiranja odbija se, a ne skraćuje
-	golema := `<sst><si><t>a</t></si>` + strings.Repeat(" ", najviseDijelaXLSX) + `</sst>`
+	golema := `<sst><si><t>a</t></si>` + strings.Repeat(" ", najviseStavkeXLSX) + `</sst>`
 	if _, err := procitajXLSX(xlsxSTablicom(t, golema, list)); !errors.Is(err, errPrevelikDio) || !strings.Contains(err.Error(), "64 MB") {
 		t.Errorf("prevelika tablica: %v", err)
 	}

@@ -3,6 +3,7 @@ package izvori
 import (
 	"archive/zip"
 	"bytes"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -12,9 +13,16 @@ import (
 // u stablo, što proba samo ispiše i da se greška čitača ili zapisa vrati
 // pozivatelju. Ulazne datoteke su male i izmišljene.
 
-// losSliv ima donju crtu, pa ga arhiva odbije tek pri zapisu, nakon što je
-// datoteka već pročitana.
-const losSliv = "do_nja"
+// slivPodDatotekom vraća sliv pod čijim imenom u stablu stoji datoteka, pa se
+// mapa letve ne da napraviti: zapis padne tek nakon što je datoteka već
+// pročitana.
+func slivPodDatotekom(t *testing.T, koren string) string {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(koren, "zauzet"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return "zauzet"
+}
 
 func uvezi(t *testing.T, kod string, dat []Datoteka, z Zadatak) (Ishod, string, error) {
 	t.Helper()
@@ -93,7 +101,7 @@ func TestUvozARSO(t *testing.T) {
 		Zadatak{Koren: koren, Sliv: "drava", Letva: "ptuj"}); err == nil {
 		t.Error("datoteka bez stupaca ARSO-a je prošla")
 	}
-	if _, _, err := uvezi(t, "arso", dat, Zadatak{Koren: koren, Sliv: losSliv, Letva: "ptuj"}); err == nil {
+	if _, _, err := uvezi(t, "arso", dat, Zadatak{Koren: koren, Sliv: slivPodDatotekom(t, koren), Letva: "ptuj"}); err == nil {
 		t.Error("neuspio zapis je prošao")
 	}
 }
@@ -135,7 +143,7 @@ func TestUvozEHYD(t *testing.T) {
 	if _, _, err := uvezi(t, "ehyd", []Datoteka{{Ime: "x.csv", Sadrzaj: []byte("bez odjeljka\n")}}, z); err == nil {
 		t.Error("datoteka bez vrijednosti je prošla")
 	}
-	z.Sliv = losSliv
+	z.Sliv = slivPodDatotekom(t, koren)
 	if _, _, err := uvezi(t, "ehyd", dat, z); err == nil {
 		t.Error("neuspio zapis je prošao")
 	}
@@ -170,7 +178,7 @@ func TestUvozGKD(t *testing.T) {
 	if _, _, err := uvezi(t, "gkd", []Datoteka{{Ime: "x.zip", Sadrzaj: []byte("nije zip")}}, z); err == nil {
 		t.Error("pokvaren ZIP je prošao")
 	}
-	z.Sliv = losSliv
+	z.Sliv = slivPodDatotekom(t, koren)
 	if _, _, err := uvezi(t, "gkd", dat, z); err == nil {
 		t.Error("neuspio zapis je prošao")
 	}
@@ -190,7 +198,7 @@ func TestUvozPegelonlineGreskeIProba(t *testing.T) {
 		Zadatak{Koren: koren, Letva: "kienstock"}); err == nil {
 		t.Error("nečitljiv JSON je prošao")
 	}
-	if _, _, err := uvezi(t, "pegelonline", dat, Zadatak{Koren: koren, Sliv: losSliv, Letva: "kienstock"}); err == nil {
+	if _, _, err := uvezi(t, "pegelonline", dat, Zadatak{Koren: koren, Sliv: slivPodDatotekom(t, koren), Letva: "kienstock"}); err == nil {
 		t.Error("neuspio zapis je prošao")
 	}
 }
