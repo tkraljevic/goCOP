@@ -28,7 +28,7 @@ func init() {
 	sqlite.RegisterConnectionHook(func(veza sqlite.ExecQuerierContext, dsn string) error {
 		pracenje.Lock()
 		defer pracenje.Unlock()
-		if pracenje.put == "" || !strings.HasPrefix(dsn, pracenje.put) {
+		if pracenje.put == "" || !strings.Contains(dsn, pracenje.put) {
 			return nil
 		}
 		redovi, err := veza.QueryContext(context.Background(), "PRAGMA synchronous", nil)

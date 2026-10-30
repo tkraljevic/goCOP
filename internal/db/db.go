@@ -20,7 +20,7 @@ func OpenDB(dbPath string) (*sql.DB, error) {
 
 	// SQLite DSN s pragmama: WAL mod, busy timeout 5s, uključeni foreign keys
 	// i trajni upis: potvrđena ovjera akta ne smije nestati kad nestane struje
-	dsn := fmt.Sprintf("%s?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(ON)&%s", dbPath, TrajniUpis)
+	dsn := ZaPisanje(dbPath, "_pragma=journal_mode(WAL)", "_pragma=busy_timeout(5000)", "_pragma=foreign_keys(ON)")
 
 	database, err := sql.Open("sqlite", dsn)
 	if err != nil {

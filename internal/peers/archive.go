@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 
 	_ "modernc.org/sqlite"
@@ -39,7 +40,7 @@ func (s *Service) ExportFile(ctx context.Context, path string, channels []string
 	}
 	jamstvo, _ := json.Marshal(rupe.zaIzvoz(s.rupeMijenja.Load(), versions))
 	_ = os.Remove(path)
-	out, err := sql.Open(upravljacArhive, path)
+	out, err := sql.Open(upravljacArhive, db.Adresa(path))
 	if err != nil {
 		return 0, err
 	}

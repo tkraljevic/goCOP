@@ -1,9 +1,9 @@
 package db
 
-// TrajniUpis dopisuje se na kraj adrese svake baze u koju program piše, npr.
-// put+"?_pragma=journal_mode(WAL)&"+TrajniUpis. Potvrđen upis ne smije
-// nestati ni kad se računalo sruši ili nestane struje, jer je ovjeren akt
-// možda već poslan ili ispisan, a njegov broj ne smije dobiti drugi akt.
+// TrajniUpis stoji na kraju adrese svake baze u koju program piše; takvu
+// adresu slaže ZaPisanje. Potvrđen upis ne smije nestati ni kad se računalo
+// sruši ili nestane struje, jer je ovjeren akt možda već poslan ili ispisan,
+// a njegov broj ne smije dobiti drugi akt.
 //
 // Na Macu to vrijedi samo za pad sustava. Ondje fsync ne prazni predmemoriju
 // samog diska, pa nestanak struje ili prisilno gašenje i dalje mogu odnijeti

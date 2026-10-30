@@ -1,7 +1,5 @@
 package db
 
-import "strings"
-
 // SamoZaCitanje je adresa baze koju SQLite otvara samo za čitanje. Program
 // tako otvara svaku vezu koja smije samo čitati: arhivu, bazu očitanja i bazu
 // prognoza.
@@ -14,5 +12,5 @@ import "strings"
 // šifriraju. Ostale postavke dopisuju se s „&”, npr.
 // SamoZaCitanje(put)+"&_pragma=busy_timeout(3000)".
 func SamoZaCitanje(put string) string {
-	return "file:" + strings.NewReplacer("%", "%25", "?", "%3F", "#", "%23").Replace(put) + "?mode=ro"
+	return "file:" + sifrirajPut.Replace(put) + "?mode=ro"
 }

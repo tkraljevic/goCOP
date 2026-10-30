@@ -1915,7 +1915,7 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 	if s.arhivaPut == "" {
 		return fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)&"+gocopdb.TrajniUpis)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut, "_pragma=journal_mode(WAL)"))
 	if err != nil {
 		return err
 	}
@@ -1946,7 +1946,7 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 	if s.arhivaPut == "" {
 		return nil, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)&"+gocopdb.TrajniUpis)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut, "_pragma=journal_mode(WAL)"))
 	if err != nil {
 		return nil, err
 	}
@@ -2014,7 +2014,7 @@ func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error)
 	if s.arhivaPut == "" {
 		return 0, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?"+gocopdb.TrajniUpis)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut))
 	if err != nil {
 		return 0, err
 	}
