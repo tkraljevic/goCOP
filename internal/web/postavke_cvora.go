@@ -2,10 +2,10 @@ package web
 
 // Postavke ovog čvora iz gocop.toml u Administraciji (Odluke 12. 10. 2026.).
 // Nema zasebne stranice: svaka postavka stoji na stranici kojoj prirodno
-// pripada (Čvor i mreža, Pretplate, Održavanje baze, Karte). Popis postavki,
-// objašnjenja i vrste čitaju se iz same strukture config.Config, pa se nova
-// postavka pojavi sama; raspored niže kaže samo gdje stoji i smije li se
-// mijenjati. Test pada kad Config dobije postavku koje u rasporedu nema.
+// pripada (Čvor i mreža, Pretplate, Održavanje baze, Karte, Elektronički
+// potpisi). Popis postavki, objašnjenja i vrste čitaju se iz same strukture
+// config.Config, pa se nova postavka pojavi sama; raspored niže kaže samo
+// gdje stoji i smije li se mijenjati. Test pada kad Config dobije postavku koje u rasporedu nema.
 //
 // Mijenja ih samo globalni administrator, izravno s ovog računala ili iz
 // lokalne mreže, nikad kroz posrednika (tunel). Program datoteku čita samo
@@ -86,7 +86,6 @@ type redakRasporeda struct {
 // naziv, redom kako stoje u bloku (urediva prije onih samo za čitanje).
 // [posta] vodi stranica E-pošta i ovdje se ne prikazuje.
 var rasporedPostavki = []redakRasporeda{
-	{"javna_adresa", mjestoPostavke{"cvor", postavkaUrediva, "Javna adresa", ""}},
 	{"kontakt.centar", mjestoPostavke{"cvor", postavkaUrediva, "Centar obrane od poplava", ""}},
 	{"kontakt.centar_telefon", mjestoPostavke{"cvor", postavkaUrediva, "Telefon centra", ""}},
 	{"vodostaji.minuta_preuzimanja", mjestoPostavke{"cvor", postavkaUrediva, "Minuta preuzimanja vodostaja", ""}},
@@ -125,6 +124,10 @@ var rasporedPostavki = []redakRasporeda{
 	{"karta.plocice", mjestoPostavke{"karte", postavkaUrediva, "Izvor pločica karte", ""}},
 	{"karta.zasluge", mjestoPostavke{"karte", postavkaUrediva, "Natpis o podrijetlu karte", ""}},
 	{"karta.najvise_z", mjestoPostavke{"karte", postavkaUrediva, "Najveće približavanje karte", ""}},
+
+	// javna_adresa ide samo u QR kod na dokumentima, pa stoji uz potpise akata
+	// (Odluke (30. 10. 2026.)); ključ i datoteka ostaju isti
+	{"javna_adresa", mjestoPostavke{"dokumenti", postavkaUrediva, "Adresa za QR kod na dokumentima", ""}},
 
 	{"posta.nacin", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
 	{"posta.posluzitelj", mjestoPostavke{dio: "posta", nacin: postavkaDrugdje}},
@@ -201,6 +204,7 @@ var dijeloviPostavki = []dioPostavki{
 	{ime: "pretplate", stranica: "/pretplate", sidro: "postavke-cvora"},
 	{ime: "baza", stranica: "/administracija/baza", sidro: "postavke-cvora"},
 	{ime: "karte", stranica: "/administracija/karte", sidro: "postavke-cvora"},
+	{ime: "dokumenti", stranica: "/administracija/potpisi", sidro: "postavke-cvora"},
 }
 
 func nadjiDio(ime string) (dioPostavki, bool) {

@@ -94,8 +94,8 @@ func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 				t.Errorf("administrator %v: %q na stranici %v", admin, adresa, !treba)
 			}
 		}
-		if !strings.Contains(html, "zadnji sync") || !admin && !strings.Contains(html, "ima javnu adresu") {
-			t.Errorf("administrator %v: nema zadnje razmjene ili oznake javne adrese", admin)
+		if !strings.Contains(html, "zadnji sync") || !admin && !strings.Contains(html, "ima adresu za razmjenu") {
+			t.Errorf("administrator %v: nema zadnje razmjene ili oznake adrese za razmjenu", admin)
 		}
 	}
 }

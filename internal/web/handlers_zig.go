@@ -4,15 +4,21 @@ import (
 	"html/template"
 	"io"
 	"net/http"
+	"net/url"
+	"slices"
 	"time"
 
 	"gocop/internal/models"
 )
 
-// Žig centra: sken žiga po sektoru, u Administraciji; ide na PDF ovjerenog akta
+// Žig centra: sken žiga po sektoru; ide na PDF ovjerenog akta. Mijenja ga
+// uprava sektora, a ona modul Administracija zadano nema, pa žig stoji na
+// stranici sektora, uz njegove podatke (Odluke (30. 10. 2026.)). Stare
+// adrese pod /administracija/zig i dalje rade.
 
-// ZigData je stranica žiga
-type ZigData struct {
+// SektorData je stranica sektora: podaci svima koji vide Registre, a žig
+// samo upravi sektora
+type SektorData struct {
 	CurrentUser *models.User
 	Permissions *models.UserPermissions
 	ActiveNav   string
@@ -20,14 +26,14 @@ type ZigData struct {
 	SuccessMessage string
 	ErrorMessage   string
 
-	Sektori []models.Sector // sektori kojima korisnik smije mijenjati žig
-	Sektor  string
-	Zig     *models.Zig
-	Ima     bool
-	Kad     time.Time
+	Sektor       models.Sector
+	SmijeZig     bool            // uprava sektora: vidi i mijenja žig
+	DrugiSektori []models.Sector // svi sektori kojima korisnik smije mijenjati žig
+	Zig          *models.Zig
+	Kad          time.Time
 }
 
-// SetZig daje rukovatelju predložak stranice žiga
+// SetZig daje rukovatelju predložak stranice sektora
 func (h *AktiHandler) SetZig(t *template.Template) { h.tmplZig = t }
 
 func (h *AktiHandler) sektoriZaZig(perms *models.UserPermissions, svi []models.Sector) []models.Sector {
@@ -40,28 +46,58 @@ func (h *AktiHandler) sektoriZaZig(perms *models.UserPermissions, svi []models.S
 	return out
 }
 
-// ShowZig prikazuje žig sektora i obrazac za novi sken
-func (h *AktiHandler) ShowZig(w http.ResponseWriter, r *http.Request) {
+// stranicaSektora je adresa stranice sektora; bez sektora popis organizacije
+func stranicaSektora(sektor string) string {
+	if sektor == "" {
+		return "/organizacija"
+	}
+	return "/organizacija/sektori/" + url.PathEscape(sektor)
+}
+
+// sektorZiga čita sektor iz adrese, a sa starih adresa iz obrasca ili upita
+func sektorZiga(r *http.Request) string {
+	if id := r.PathValue("id"); id != "" {
+		return id
+	}
+	return r.FormValue("sektor")
+}
+
+// ShowSektor prikazuje podatke sektora i, upravi sektora, njegov žig
+func (h *AktiHandler) ShowSektor(w http.ResponseWriter, r *http.Request) {
 	u, perms, base := h.base(r)
-	s := h.svc(w)
-	if s == nil || u == nil {
+	if u == nil {
 		return
 	}
-	d := ZigData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r), SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage,
-		Sektori: h.sektoriZaZig(perms, base.Sektori), Sektor: r.URL.Query().Get("sektor")}
-	if d.Sektor == "" && len(d.Sektori) > 0 {
-		d.Sektor = d.Sektori[0].ID
+	i := slices.IndexFunc(base.Sektori, func(s models.Sector) bool { return s.ID == r.PathValue("id") })
+	if i < 0 {
+		http.NotFound(w, r)
+		return
 	}
-	if d.Sektor != "" {
-		d.Zig = s.Zig(r.Context(), d.Sektor)
-		d.Ima = d.Zig != nil
-		if d.Zig != nil {
+	d := SektorData{CurrentUser: u, Permissions: perms, ActiveNav: "organizacija", ViewAsBanner: viewBanner(r),
+		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage, Sektor: base.Sektori[i]}
+	if s := h.akti(); s != nil && perms.CanAdminister(d.Sektor.ID, 0) {
+		d.SmijeZig, d.DrugiSektori = true, h.sektoriZaZig(perms, base.Sektori)
+		if d.Zig = s.Zig(r.Context(), d.Sektor.ID); d.Zig != nil {
 			d.Kad = d.Zig.UpdatedAt
 		}
 	}
-	if err := h.tmplZig.ExecuteTemplate(w, "administracija_zig.html", d); err != nil {
+	if err := h.tmplZig.ExecuteTemplate(w, "sektor.html", d); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// ShowZig je stara adresa stranice žiga: vodi na žig na stranici sektora
+func (h *AktiHandler) ShowZig(w http.ResponseWriter, r *http.Request) {
+	_, perms, base := h.base(r)
+	sektor := r.URL.Query().Get("sektor")
+	if moji := h.sektoriZaZig(perms, base.Sektori); sektor == "" && len(moji) > 0 {
+		sektor = moji[0].ID
+	}
+	if sektor == "" {
+		http.Redirect(w, r, "/organizacija", http.StatusSeeOther)
+		return
+	}
+	http.Redirect(w, r, stranicaSektora(sektor)+"#zig", http.StatusSeeOther)
 }
 
 // HandleZig sprema novi sken ili briše žig
@@ -72,11 +108,11 @@ func (h *AktiHandler) HandleZig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := r.ParseMultipartForm(4 << 20); err != nil {
-		redirectWith(w, r, "/administracija/zig", "error", "Slika je prevelika ili obrazac nije ispravan")
+		redirectWith(w, r, stranicaSektora(r.PathValue("id")), "error", "Slika je prevelika ili obrazac nije ispravan")
 		return
 	}
-	sektor := r.FormValue("sektor")
-	natrag := "/administracija/zig?sektor=" + sektor
+	sektor := sektorZiga(r)
+	natrag := stranicaSektora(sektor) + "#zig"
 	if r.FormValue("obrisi") == "1" {
 		if err := s.ObrisiZig(r.Context(), perms, sektor); err != nil {
 			redirectWith(w, r, natrag, "error", err.Error())
@@ -91,7 +127,7 @@ func (h *AktiHandler) HandleZig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer f.Close()
-	slika, _ := io.ReadAll(io.LimitReader(f, models.ZigMaxBytes+1))
+	slika, _ := io.ReadAll(io.LimitReader(f, models.ZigMaxBytes+1)) // djelomično pročitanu sliku odbije provjera slike u SpremiZig
 	if err := s.SpremiZig(r.Context(), perms, u, sektor, slika); err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return
@@ -106,7 +142,10 @@ func (h *AktiHandler) ZigSlika(w http.ResponseWriter, r *http.Request) {
 	if s == nil {
 		return
 	}
-	sektor := r.URL.Query().Get("sektor")
+	sektor := r.PathValue("id")
+	if sektor == "" {
+		sektor = r.URL.Query().Get("sektor") // stara adresa /administracija/zig/slika
+	}
 	if perms == nil || !perms.CanAdminister(sektor, 0) {
 		http.Error(w, "žig smije pregledati samo uprava sektora", http.StatusForbidden)
 		return

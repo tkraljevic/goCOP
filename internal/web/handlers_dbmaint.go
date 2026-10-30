@@ -32,6 +32,9 @@ type DBMaintHandler struct {
 	dbPath func() string
 	tmpl   *template.Template
 	opcije func(ctx context.Context) models.Opcije // nil = sve isključeno
+	// izmijeniOpcije sprema dio „Pohrana”: rok čuvanja fotografija s terena
+	// stoji u općim opcijama, pa se mijenjaju samo njegova polja
+	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
 	// gocop.toml: gdje je, kopije i putanje
 	postavkeCvora izvorPostavki
 }
@@ -39,8 +42,42 @@ type DBMaintHandler struct {
 // SetOpcije daje rukovatelju uvid u opće prekidače
 func (h *DBMaintHandler) SetOpcije(f func(ctx context.Context) models.Opcije) { h.opcije = f }
 
+// SetIzmjenaOpcija daje rukovatelju spremanje roka čuvanja fotografija
+func (h *DBMaintHandler) SetIzmjenaOpcija(f func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error) {
+	h.izmijeniOpcije = f
+}
+
+// HandlePohrana sprema rok čuvanja fotografija s terena i brisanje odmah po
+// objavi. Postavka je ista kao prije na stranici Opcije (isti ključ i
+// JSON), pa je stariji čvorovi čitaju jednako; ostale opcije ostaju kakve
+// jesu (Odluke (30. 10. 2026.)).
+func (h *DBMaintHandler) HandlePohrana(w http.ResponseWriter, r *http.Request) {
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if h.izmijeniOpcije == nil {
+		redirectWith(w, r, "/administracija/baza#pohrana", "error", "Rok čuvanja fotografija ne može se spremiti na ovom čvoru.")
+		return
+	}
+	err := h.izmijeniOpcije(r.Context(), perms, func(o *models.Opcije) {
+		o.CuvanjeSlikaDana, _ = strconv.Atoi(r.FormValue("cuvanje_slika_dana")) // prazno ili neispravno je 0, a to je zadani rok
+		o.SlikeOdmah = r.FormValue("slike_odmah") == "1"
+	})
+	if err != nil {
+		redirectWith(w, r, "/administracija/baza#pohrana", "error", "Rok čuvanja fotografija nije spremljen: "+err.Error())
+		return
+	}
+	redirectWith(w, r, "/administracija/baza#pohrana", "success", "Rok čuvanja fotografija je spremljen i vrijedi na svim čvorovima.")
+}
+
 func (h *DBMaintHandler) brisanjePovijesti(ctx context.Context) bool {
-	return h.opcije != nil && h.opcije(ctx).BrisanjePovijestiVerzija
+	return h.citajOpcije(ctx).BrisanjePovijestiVerzija
+}
+
+// citajOpcije su opći prekidači; bez izvora sve je isključeno
+func (h *DBMaintHandler) citajOpcije(ctx context.Context) models.Opcije {
+	if h.opcije == nil {
+		return models.Opcije{}
+	}
+	return h.opcije(ctx)
 }
 
 // HandlePurgeTombstones briše spomenike obrisanih zapisa, uz uključen prekidač
@@ -76,8 +113,9 @@ type DBMaintPageData struct {
 	Channels          []peers.ChannelStat
 	Compactable       int // verzija koje bi sažimanje maknulo uz zadani rok
 	KeepDays          int
-	Spomenika         int  // arhiviranih verzija (spomenika)
-	BrisanjePovijesti bool // prekidač uključen
+	Spomenika         int           // arhiviranih verzija (spomenika)
+	BrisanjePovijesti bool          // prekidač uključen
+	Opcije            models.Opcije // dio „Pohrana”: rok čuvanja fotografija s terena
 	Readings          int
 	Journals          int
 	Sessions          int
@@ -98,7 +136,7 @@ func (h *DBMaintHandler) pageData(r *http.Request) DBMaintPageData {
 	currUser, _ := ctx.Value(contextKeyUser).(*models.User)
 	perms, _ := ctx.Value(contextKeyPerms).(*models.UserPermissions)
 	return DBMaintPageData{
-		CurrentUser: currUser, Permissions: perms, KeepDays: DefaultKeepDays,
+		CurrentUser: currUser, Permissions: perms, KeepDays: DefaultKeepDays, Opcije: h.citajOpcije(ctx),
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 	}

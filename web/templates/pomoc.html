@@ -1366,7 +1366,8 @@
       vrijeme snimanja, položaj i uređaj; u dokumentu ispod toga stoji i SHA-256 otisak izvorne
       datoteke. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
     <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
-      onoliko dana koliko administrator zada u Opcijama, a zatim se brišu; potpisani PDF sa svim
+      onoliko dana koliko globalni administrator zada na stranici <em>Održavanje baze</em>, u dijelu
+      <em>Pohrana</em>, a zatim se brišu; potpisani PDF sa svim
       slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
       i prenosi odgovarajućim čvorovima prema njihovoj pretplati.</p>
 
@@ -1529,7 +1530,7 @@
       <li><strong>Vlastoručni potpis i žig na papiru</strong> koriste se kad treba i papir: nacrt
         se ispiše, potpiše i ovjeri žigom, a sken se učita kao izvornik. Potpis na skenu program
         ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra
-        uređuje samo uprava sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
+        uređuje samo uprava sektora, na stranici sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
       <li><strong>Simulirani potpis</strong> postoji isključivo za testiranje tuđim očima. Crven je,
         nosi riječ SIMULACIJA i veliki žig „BEZVRIJEDNO”; nema pravnu ni poslovnu vrijednost.</li>
     </ul>
@@ -1544,7 +1545,8 @@
   <h2>{{icon "users"}} Djelatnici</h2>
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
-      tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen.</p>
+      tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen. Djelatnici imaju
+      svoju stavku u glavnom izborniku, odmah iza Registara.</p>
     <p>Dužnost s područjem uvijek pripada sektoru tog područja, a dionice dužnosti moraju biti
       upisane u registar i pripadati tom području; drukčiji upis program odbija. Uprava sektora
       ili područja dodjeljuje dužnosti samo u svom dosegu i nikad sama sebi: vlastito zaduženje
@@ -1678,7 +1680,8 @@
       što se iz nje računa.</p>
     <ul>
       <li id="organizacija"><strong>Administrativna organizacija</strong> — ustroj kuće:
-        sektori, područja, uredi.</li>
+        sektori, područja, uredi. Oznaka sektora otvara stranicu sektora s njegovim podacima.
+        Uprava sektora ondje vidi i mijenja žig centra, i bez modula Administracija.</li>
       <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
         stupnjevima obrane. Razrađeno gore, <a href="#sections">Dionice</a>.</li>
       <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.
@@ -1789,11 +1792,11 @@
         dnevniku javlja da datoteke nema.</li>
       <li id="postavke-cvora"><strong>Postavke ovog čvora (gocop.toml)</strong> — dio postavki iz
         datoteke mijenja se i u programu, svaka na stranici kojoj pripada. Na stranici <em>Čvor,
-        mreža i sinkronizacija</em> u kartici <em>Ovaj čvor</em> su javna adresa te centar i
+        mreža i sinkronizacija</em> u kartici <em>Ovaj čvor</em> su centar i
         telefon koji se vide na stranici prijave, a u kartici <em>Mreža</em> razmak automatske
         sinkronizacije, razmjena preko Tailscalea te prijava za WEB sync i sam WEB sync; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
         tuđih očitanja su na stranici <em>Što ovo računalo prati</em>, do koje vodi i kartica u
-        Administraciji, a izvor obične karte pod <em>Karte</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
+        Administraciji, a izvor obične karte pod <em>Karte</em>. Adresa za QR kod na dokumentima je na stranici <em>Elektronički potpisi</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
         postavki, kad je datoteka mijenjana i njezine prethodne inačice. Mijenja ih globalni
         administrator, s računala na kojem je čvor ili iz lokalne mreže; izvana i kroz tunel samo
         se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
@@ -1853,7 +1856,8 @@
         to ne bilježi kao neuspjelu razmjenu, nego samo kao vezu koja nije prošla rukovanje. Usput
         izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em>. Traje do 10 sekundi.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
-        izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
+        izvoz i obnova. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
+        čuvaju izvorne fotografije s terena; to vrijedi na svim čvorovima. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
       <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
@@ -1876,9 +1880,12 @@
       <li><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
         opisano je niže; operativno se drže isključenima.</li>
       <li><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
-        uprava sektora.</li>
+        uprava sektora. Kartica vodi na stranicu sektora, pod Registri › Administrativna
+        organizacija, gdje je žig i za upravu sektora bez modula Administracija.</li>
       <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
-        čvorova i pregled osobnih certifikata.</li>
+        čvorova i pregled osobnih certifikata. Ovdje je i adresa za QR kod na dokumentima
+        (<code>javna_adresa</code> u <code>gocop.toml</code>): s njom QR kod na PDF-u prijave s
+        terena vodi na dokument u goCOP-u. Vrijedi samo na ovom računalu.</li>
       <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja te
         račun koji šalje PIN za prijavu izvana i sklopku te prijave; opisano niže,
         <a href="#admin-posta-pin">PIN za prijavu izvana</a>.</li>
