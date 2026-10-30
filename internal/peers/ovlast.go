@@ -104,7 +104,7 @@ func (s *Service) ListOpozivi(ctx context.Context) ([]Opoziv, error) {
 func (s *Service) zapisiOpoziv(ctx context.Context, tx *sql.Tx, priv ed25519.PrivateKey, vrsta, nodeID, kljuc string, izdano time.Time) error {
 	op := Opoziv{
 		Vrsta: vrsta, NodeID: nodeID, PublicKey: kljuc, IssuedAt: izdano.UTC().Truncate(time.Second),
-		OpozvanoAt: time.Now().UTC().Truncate(time.Second), Opozvao: s.node.ID,
+		OpozvanoAt: s.sadOpoziva().UTC().Truncate(time.Second), Opozvao: s.node.ID,
 	}.Potpisi(priv)
 	if _, err := tx.ExecContext(ctx, `
 		INSERT INTO opozivi (`+stupciOpoziva+`)
@@ -462,13 +462,22 @@ func (s *Service) opozoviOvlastiTx(ctx context.Context, tx *sql.Tx, nodeID strin
 	if err := s.makniOvlast(ctx, tx, nodeID, ovlasti); err != nil {
 		return nil, err
 	}
-	izdano := trenutakOpoziva(time.Now(), ovlasti)
+	izdano := trenutakOpoziva(s.sadOpoziva(), ovlasti)
 	for _, k := range kljucevi {
 		if err := s.zapisiOpoziv(ctx, tx, mrezni, OpozivOvlasti, nodeID, k, izdano); err != nil {
 			return nil, err
 		}
 	}
 	return primljeniKljucevima(ctx, tx, kljucevi)
+}
+
+// sadOpoziva je „sada” koje nosi opoziv: trenutak opoziva članstva i ovlasti
+// (zaOpozivClana, opozoviOvlastiTx) i trenutak potpisa (zapisiOpoziv)
+func (s *Service) sadOpoziva() time.Time {
+	if s.satOpoziva != nil {
+		return s.satOpoziva()
+	}
+	return time.Now()
 }
 
 // trenutakOpoziva je trenutak koji nosi opoziv ovlasti: sada, ili kasniji

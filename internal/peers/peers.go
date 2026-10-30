@@ -275,6 +275,9 @@ type Service struct {
 	odbijene       pamcenjeOdbijenih
 	stanjePrihvata func() (narastaj uint64, rub time.Time)
 	satOdbijenih   func() time.Time
+	// satOpoziva je sat trenutka koji nosi opoziv (sadOpoziva): nil je
+	// time.Now, test njime zaustavi vrijeme pa oznaku opoziva zna unaprijed
+	satOpoziva func() time.Time
 	// uvozi su narastaj uvoza i što su druga računala nakon uvoza dobila
 	// (granica_nakon_uvoza.go)
 	uvozi pamcenjeUvoza

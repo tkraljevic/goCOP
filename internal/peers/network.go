@@ -368,7 +368,7 @@ func (s *Service) zaOpozivClana(ctx context.Context, nodeID string) (opozivClana
 	o.kljucevi = kljuceviZaOpoziv(append(slices.Clone(o.clanstva), potpisana...), o.ovlasti)
 	sada, kljucevi := time.Time{}, []string(nil)
 	if o.mrezni {
-		sada, kljucevi = time.Now(), o.kljucevi
+		sada, kljucevi = s.sadOpoziva(), o.kljucevi
 	}
 	o.izdano = trenuciOpozivaClanstva(sada, kljucevi, o.clanstva)
 	return o, nil

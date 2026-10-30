@@ -340,23 +340,22 @@ func primiPrimljeno(t *testing.T, s *Service, verzije []ledger.Version) {
 }
 
 // Opoziv koji ovaj čvor potpiše zamijeni redak s istom oznakom koji nosi
-// drugi sadržaj, pa u tablici stoji upravo potpisan opoziv. Redak drugog
-// sadržaja stoji pod oznakom opoziva za svaku sekundu u kojoj se opoziv
-// može potpisati.
+// drugi sadržaj, pa u tablici stoji upravo potpisan opoziv. Sat opoziva
+// stoji, pa se oznaka zna unaprijed. Stoji u sekundi nakon izdavanja
+// članstva: tada opoziv nosi svoj trenutak, ne trenutak izdavanja
+// (trenuciOpozivaClanstva). Sa zidnim satom to se događa kad između
+// izdavanja i opoziva prođe granica sekunde, npr. pod -race na CI-ju.
 func TestZapisaniOpozivZamijeniRedakIsteOznake(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	b := rubniCvor(t, "ured-vukovar")
 	mb := primiIzravno(t, a, b)
-	pocetak := time.Now().UTC().Truncate(time.Second)
-	oznake := map[string]bool{}
-	for i := range 10 {
-		op := Opoziv{Vrsta: OpozivClanstva, NodeID: b.node.ID, PublicKey: mb.DeviceKey, IssuedAt: mb.IssuedAt.UTC().Truncate(time.Second),
-			OpozvanoAt: pocetak.Add(time.Duration(i) * time.Second), Opozvao: a.node.ID}.Potpisi(a.network.Private())
-		oznake[op.ID] = true
-		if _, err := a.db.Exec(`INSERT INTO opozivi (`+stupciOpoziva+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			op.ID, op.Vrsta, op.NodeID, "drugi-kljuc", op.IssuedAt, op.OpozvanoAt, op.Opozvao, op.Potpisnik, op.Potpis); err != nil {
-			t.Fatal(err)
-		}
+	sada := mb.IssuedAt.Add(1500 * time.Millisecond)
+	a.satOpoziva = func() time.Time { return sada }
+	op := Opoziv{Vrsta: OpozivClanstva, NodeID: b.node.ID, PublicKey: mb.DeviceKey, IssuedAt: sada.UTC().Truncate(time.Second),
+		OpozvanoAt: sada.UTC().Truncate(time.Second), Opozvao: a.node.ID}.Potpisi(a.network.Private())
+	if _, err := a.db.Exec(`INSERT INTO opozivi (`+stupciOpoziva+`) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		op.ID, op.Vrsta, op.NodeID, "drugi-kljuc", op.IssuedAt, op.OpozvanoAt, op.Opozvao, op.Potpisnik, op.Potpis); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := a.RevokeMembership(ctxRub, b.node.ID); err != nil {
 		t.Fatal(err)
@@ -366,8 +365,8 @@ func TestZapisaniOpozivZamijeniRedakIsteOznake(t *testing.T) {
 		EntityOpozivi, OpozivClanstva).Scan(&id, &kljuc); err != nil {
 		t.Fatal(err)
 	}
-	if !oznake[id] {
-		t.Fatalf("opoziv %s potpisan je izvan pripremljenih sekundi", id)
+	if id != op.ID {
+		t.Fatalf("potpisan je opoziv %s, a pripremljen redak nosi oznaku %s", id, op.ID)
 	}
 	if err := a.db.QueryRow(`SELECT public_key FROM opozivi WHERE id = ?`, id).Scan(&kljuc); err != nil || kljuc != mb.DeviceKey {
 		t.Errorf("u retku opoziva je ključ %q (%v)", kljuc, err)
