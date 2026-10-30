@@ -1479,7 +1479,7 @@ func (s *Server) setupRoutes() {
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
-	s.mux.Handle("POST /settings/uloge", s.authMiddleware(http.HandlerFunc(settingsH.HandleUloge)))
+	s.mux.Handle("POST /settings/uloge", s.authMiddleware(smijeMijenjatiUloge(http.HandlerFunc(settingsH.HandleUloge))))
 	// Postavke ovog čvora (gocop.toml) i ponovno pokretanje: samo
 	// administrator, izravno iz lokalne mreže (postavke_cvora.go)
 	settingsH.postavkeCvora = s.postavkeStranice

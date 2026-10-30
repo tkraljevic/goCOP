@@ -236,6 +236,40 @@ func TestPretplateMijenjaSamoAdministratorIzLokalneMreze(t *testing.T) {
 	}
 }
 
+// Odluke (30. 10. 2026.), 13: uloge ovog čvora mijenja globalni
+// administrator samo s ovog računala ili iz lokalne mreže.
+func TestUlogeCvoraMijenjajuSeSamoNaRacunalu(t *testing.T) {
+	izvana, tunel, tudjim := kaoAdmin, kaoAdmin, kaoAdmin
+	izvana.adresa = adresaIzvana
+	tunel.adresa, tunel.tunel = adresaTunela, true
+	tudjim.tudjim = true
+	for _, x := range []struct {
+		opis   string
+		u      uvjetiZahtjeva
+		poruka string // prazno: prolazi
+	}{
+		{"administrator iz lokalne mreže", kaoAdmin, ""},
+		{"obični korisnik", uvjetiZahtjeva{perms: &models.UserPermissions{}, adresa: adresaLokalno, korisnik: adminIvic}, "Uloge ovog čvora mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže."},
+		{"administrator izvana", izvana, "Uloge ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
+		{"administrator kroz tunel", tunel, "Uloge ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
+		{"tuđim očima", tudjim, "Uloge ovog čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno."},
+	} {
+		presao := false
+		w := httptest.NewRecorder()
+		smijeMijenjatiUloge(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { presao = true })).
+			ServeHTTP(w, zahtjevPostavki(http.MethodPost, "/settings/uloge", nil, x.u))
+		if x.poruka == "" {
+			if !presao {
+				t.Errorf("%s: nije prošao (%d)", x.opis, w.Code)
+			}
+			continue
+		}
+		if presao || w.Code != http.StatusForbidden || strings.TrimSpace(w.Body.String()) != x.poruka {
+			t.Errorf("%s: prošao %v, %d %q", x.opis, presao, w.Code, w.Body.String())
+		}
+	}
+}
+
 // Odluke (30. 10. 2026.), 7: prognozu rukom pokreću dežurni i globalni
 // administrator. Dežurstvo koje je isteklo ne vrijedi.
 func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
