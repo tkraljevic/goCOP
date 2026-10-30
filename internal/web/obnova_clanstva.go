@@ -17,10 +17,10 @@ import (
 )
 
 // HandleObnoviClanstvo je gumb Obnovi članstvo: računalo s ključem mreže
-// obnovi sebe odmah, a drugo upiše zahtjev koji ide uz razmjenu
+// obnovi sebe odmah, a drugo upiše zahtjev koji ide uz razmjenu. Izvana uz
+// lozinku računa.
 func (h *SettingsHandler) HandleObnoviClanstvo(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdminSvojimOcima(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
 	m, err := h.peers.ZatraziObnovu(r.Context())
@@ -40,10 +40,9 @@ func porukaObnove(m *razmjena.Membership) string {
 }
 
 // HandleObnoviClana je gumb Obnovi uz člana: novo članstvo odmah, s istim
-// imenom i ključem
+// imenom i ključem. Izvana uz lozinku računa.
 func (h *SettingsHandler) HandleObnoviClana(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdminSvojimOcima(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
 	m, err := h.peers.ObnoviClana(r.Context(), r.PathValue("node"))

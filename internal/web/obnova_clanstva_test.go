@@ -40,13 +40,13 @@ func TestGumbiObnoveClanstva(t *testing.T) {
 	admin := &models.UserPermissions{IsGlobalAdmin: true}
 	zovi := func(s *peers.Service, perms *models.UserPermissions, rukovatelj func(*SettingsHandler) http.HandlerFunc, cvor string) *httptest.ResponseRecorder {
 		t.Helper()
-		r := httptest.NewRequest(http.MethodPost, "/api/network/obnovi", strings.NewReader("{}"))
+		r := izravno(httptest.NewRequest(http.MethodPost, "/api/network/obnovi", strings.NewReader("{}")))
 		if cvor != "" {
 			r.SetPathValue("node", cvor)
 		}
 		r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, perms))
 		w := httptest.NewRecorder()
-		rukovatelj(&SettingsHandler{peers: s})(w, r)
+		(&Server{}).klijentSloj(rukovatelj(&SettingsHandler{peers: s})).ServeHTTP(w, r)
 		return w
 	}
 	sebe := func(h *SettingsHandler) http.HandlerFunc { return h.HandleObnoviClanstvo }

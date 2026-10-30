@@ -745,6 +745,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /moduli", s.authMiddleware(http.HandlerFunc(modulesH.ShowMatrix)))
 	s.mux.Handle("POST /moduli/save", s.authMiddleware(http.HandlerFunc(modulesH.HandleSave)))
 	usersH.SetModuleService(s.moduleService)
+	usersH.SetLozinkaRacuna(s.authService.ProvjeriLozinku)
 	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
 	vodH := NewVodocuvarHandler(func() *service.VodocuvarService { return s.vodocuvar }, s.userService, func() *repository.OrgRepository { return s.orgRepo }, s.templates["vodocuvar.html"], s.templates["vodocuvar_list.html"])
 	vodH.SetPotpisSlika(func(ctx context.Context, userID string) *models.PotpisSlika {

@@ -42,6 +42,9 @@ type UsersHandler struct {
 	// stareLozinke daje uključene račune koje još otvara stara zajednička
 	// početna lozinka (stare_lozinke.go); nil dok se ne spoji
 	stareLozinke func() ([]models.User, error)
+	// lozinkaRacuna provjerava lozinku prijavljene osobe za radnje izvana
+	// nad pravom globalnog administratora i prijavom izvana (racuni_izvana.go)
+	lozinkaRacuna func(uuid.UUID, string) error
 }
 
 // SetPlanovi spaja profil s planom dežurstava: osoba na profilu vidi svoje
@@ -163,6 +166,9 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	isGlobalAdmin := r.FormValue("is_global_admin") == "1" || r.FormValue("is_global_admin") == "on"
+	if h.odbijenoBezLozinke(w, r, "/users/new", trazeLozinkuNovog(isGlobalAdmin, models.Role(r.FormValue("role")), r.FormValue("pin_adresa_potvrdena") == "1")) {
+		return
+	}
 
 	req := service.CreateUserRequest{
 		Username:      r.FormValue("username"),
@@ -214,11 +220,7 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 	isActive := r.FormValue("is_active") == "1" || r.FormValue("is_active") == "on"
 	isGlobalAdmin := r.FormValue("is_global_admin") == "1" || r.FormValue("is_global_admin") == "on"
 
-	// Svoju lozinku administrator mijenja na profilu, uz trenutnu: obrazac
-	// djelatnika postavlja tuđu (i time opoziva njezina zapamćena računala)
-	vlastiti := perms != nil && perms.User.ID == userID
-	if vlastiti && r.FormValue("password") != "" {
-		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", "Svoju lozinku mijenjate na profilu, uz trenutnu lozinku.")
+	if h.odbijenaLozinkaObrasca(w, r, perms, userID, izmjenaIzObrasca(r, isGlobalAdmin, isActive)) {
 		return
 	}
 
@@ -258,6 +260,21 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Profil je spremljen.")
+}
+
+// odbijenaLozinkaObrasca provjerava lozinke iz obrasca djelatnika. Svoju
+// lozinku administrator mijenja na profilu, uz trenutnu: obrazac djelatnika
+// postavlja tuđu (i time opoziva njezina zapamćena računala). Izvana pravo
+// globalnog administratora, lozinka i uključenost takvog računa i nova
+// potvrda adrese za PIN traže lozinku vlastitog računa. Kad vrati true,
+// odgovor je napisan.
+func (h *UsersHandler) odbijenaLozinkaObrasca(w http.ResponseWriter, r *http.Request, perms *models.UserPermissions, userID uuid.UUID, iz izmjenaRacuna) bool {
+	natrag := "/users/" + userID.String() + "/edit"
+	if perms != nil && perms.User.ID == userID && iz.lozinka != "" {
+		redirectWith(w, r, natrag, "error", "Svoju lozinku mijenjate na profilu, uz trenutnu lozinku.")
+		return true
+	}
+	return h.odbijenoBezLozinke(w, r, natrag, h.trazeLozinkuIzmjene(perms, userID, iz))
 }
 
 // HandleUpdateProfile omogućuje prijavljenom djelatniku izmjenu vlastitog profila sa bilo koje stranice sustava
@@ -330,7 +347,9 @@ func (h *UsersHandler) azurirajUzLozinku(ctx context.Context, perms *models.User
 	return u, err
 }
 
-// HandleAddDuty dodjeljuje dodatnu funkciju, zaduženje dionica ili privremenu ispomoć
+// HandleAddDuty dodjeljuje dodatnu funkciju, zaduženje dionica ili privremenu
+// ispomoć. Izvana dužnost uprave organizacije daje se uz lozinku vlastitog
+// računa.
 func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/users?error=Neispravan+zahtjev", http.StatusSeeOther)
@@ -348,6 +367,9 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	if req.Role == "" {
 		// obrazac kreće bez uloge (Odluke (30. 10. 2026.), 18)
 		redirectWith(w, r, "/users/"+userID.String()+"/duties/new", "error", "Zaduženje nije dodano: odaberite ulogu.")
+		return
+	}
+	if h.odbijenoBezLozinke(w, r, "/users/"+userID.String()+"/duties/new", upravaOrganizacije(req.Role)) {
 		return
 	}
 	// primarnu dužnost i vlastiti naziv daje samo tko uređuje cijeli račun;
@@ -394,7 +416,8 @@ func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyReque
 	}
 }
 
-// HandleUpdateDuty sprema izmjenu postojećeg zaduženja
+// HandleUpdateDuty sprema izmjenu postojećeg zaduženja. Izvana dužnost
+// uprave organizacije mijenja se uz lozinku vlastitog računa.
 func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/users?error=Neispravan+zahtjev", http.StatusSeeOther)
@@ -416,6 +439,9 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", "Zaduženje nije izmijenjeno: odaberite ulogu.")
 		return
 	}
+	if h.odbijenoBezLozinke(w, r, "/users/duties/"+dutyID.String()+"/edit", h.diraDuznostUprave(dutyID, req.Role)) {
+		return
+	}
 	if err := h.userService.UpdateDuty(perms, dutyID, req); err != nil {
 		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", err.Error())
 		return
@@ -423,7 +449,8 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 	redirectWith(w, r, "/users/"+userID.String(), "success", "Zaduženje je izmijenjeno.")
 }
 
-// HandleRevokeDuty opoziva funkciju ili privremenu ispomoć
+// HandleRevokeDuty opoziva funkciju ili privremenu ispomoć. Izvana dužnost
+// uprave organizacije opoziva se uz lozinku vlastitog računa.
 func (h *UsersHandler) HandleRevokeDuty(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Redirect(w, r, "/users?error=Neispravan+zahtjev", http.StatusSeeOther)
@@ -440,6 +467,9 @@ func (h *UsersHandler) HandleRevokeDuty(w http.ResponseWriter, r *http.Request) 
 	back := "/users"
 	if uid := strings.TrimSpace(r.FormValue("user_id")); uid != "" {
 		back = "/users/" + uid
+	}
+	if h.odbijenoBezLozinke(w, r, back, h.diraDuznostUprave(dutyID, "")) {
+		return
 	}
 	err = h.userService.RevokeDuty(perms, dutyID, viewBanner(r).Viewing)
 	if err != nil {
@@ -463,7 +493,8 @@ func (h *UsersHandler) HandleGetAreasAPI(w http.ResponseWriter, r *http.Request)
 	json.NewEncoder(w).Encode(areas)
 }
 
-// HandleDeleteUser briše profil djelatnika
+// HandleDeleteUser briše profil djelatnika. Izvana račun s pravom
+// globalnog administratora briše se uz lozinku vlastitog računa.
 func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "Metoda nije dozvoljena", http.StatusMethodNotAllowed)
@@ -481,6 +512,9 @@ func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if h.odbijenoBezLozinke(w, r, "/users/"+userID.String(), h.diraRacunUprave(userID)) {
+		return
+	}
 	if err := h.userService.DeleteUser(perms, userID); err != nil {
 		redirectWith(w, r, "/users/"+userID.String(), "error", err.Error())
 		return

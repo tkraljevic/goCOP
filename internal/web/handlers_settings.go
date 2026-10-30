@@ -167,8 +167,10 @@ func (h *SettingsHandler) HandlePairDial(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
-// HandlePairConfirm je odluka o kodu uparivanja. Na računalu koje prima u
-// mrežu potvrda prima i drugo računalo, pa izvana traži lozinku računa.
+// HandlePairConfirm je odluka o kodu uparivanja. Potvrda upisuje poznati
+// čvor i njegove adrese, na računalu koje prima u mrežu prima i drugo
+// računalo, a na računalu izvan mreže ovo ulazi u tuđu, pa izvana uvijek
+// traži lozinku računa. Odbijanje lozinku ne traži.
 func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -182,11 +184,8 @@ func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if req.Approved && h.primaClanove() {
-		if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), req.LozinkaRacuna); err != nil {
-			odbijBezLozinke(w, r, prijavljeni(r), err)
-			return
-		}
+	if req.Approved && !h.uzLozinkuIzvana(w, r, req.LozinkaRacuna) {
+		return
 	}
 	racunalo := h.peers.PairStatus().Peer.DeviceID
 	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved, true) // administrator svojim očima, gore
@@ -202,17 +201,22 @@ func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Reque
 
 // --- mreža i članstvo ---
 
-// HandleCreateNetwork osniva mrežu: ovaj čvor dobiva ključ mreže
+// HandleCreateNetwork osniva mrežu: ovaj čvor dobiva ključ mreže. Izvana
+// uz lozinku računa.
 func (h *SettingsHandler) HandleCreateNetwork(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Name string `json:"name"`
+		Name          string `json:"name"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.uzLozinkuIzvana(w, r, req.LozinkaRacuna) {
 		return
 	}
 	if err := h.peers.CreateNetwork(r.Context(), strings.TrimSpace(req.Name)); err != nil {
@@ -234,14 +238,20 @@ func (h *SettingsHandler) HandleMembers(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"success": true, "network": h.peers.NetworkInfo(), "members": members})
 }
 
-// primaClanove javlja drži li ovo računalo ključ mreže ili ovlast za primanje
-func (h *SettingsHandler) primaClanove() bool {
-	n := h.peers.NetworkInfo()
-	return n != nil && n.CanAdmit
+// uzLozinkuIzvana pušta zahtjev s ovog računala i iz lokalne mreže, a
+// izvana samo uz točnu lozinku računa prijavljene osobe. Kad vrati false,
+// odgovor 403 je napisan, a odbijeni zahtjev upisan u dnevnik programa.
+func (h *SettingsHandler) uzLozinkuIzvana(w http.ResponseWriter, r *http.Request, lozinka string) bool {
+	if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), lozinka); err != nil {
+		odbijBezLozinke(w, r, prijavljeni(r), err)
+		return false
+	}
+	return true
 }
 
-// smijeClanstvo pušta promjenu članstva samo administratoru svojim očima, a
-// izvana i uz lozinku računa iz tijela zahtjeva. Kad vrati false, odgovor je
+// smijeClanstvo pušta promjenu članstva i poznatih čvorova samo
+// administratoru svojim očima, a izvana i uz lozinku računa iz tijela
+// zahtjeva. Kad vrati false, odgovor je
 // već napisan.
 func (h *SettingsHandler) smijeClanstvo(w http.ResponseWriter, r *http.Request) bool {
 	if err := requireAdminSvojimOcima(r); err != nil {
@@ -255,11 +265,7 @@ func (h *SettingsHandler) smijeClanstvo(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return false
 	}
-	if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), req.LozinkaRacuna); err != nil {
-		odbijBezLozinke(w, r, prijavljeni(r), err)
-		return false
-	}
-	return true
+	return h.uzLozinkuIzvana(w, r, req.LozinkaRacuna)
 }
 
 func (h *SettingsHandler) HandleRevokeMember(w http.ResponseWriter, r *http.Request) {
@@ -404,9 +410,9 @@ func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"success": true, "applied": applied, "sent": sent})
 }
 
+// HandleForgetPeer zaboravlja čvor; izvana uz lozinku računa
 func (h *SettingsHandler) HandleForgetPeer(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdminSvojimOcima(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
 	if err := h.peers.ForgetPeer(r.Context(), r.PathValue("node")); err != nil {
@@ -417,18 +423,23 @@ func (h *SettingsHandler) HandleForgetPeer(w http.ResponseWriter, r *http.Reques
 }
 
 // HandlePublicAddress dodaje ili miče javnu adresu čvora (domenski čvor);
-// za ovaj čvor time ured objavljuje gdje ga se nalazi
+// za ovaj čvor time ured objavljuje gdje ga se nalazi. Izvana uz lozinku
+// računa.
 func (h *SettingsHandler) HandlePublicAddress(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Add    string `json:"add"`
-		Remove string `json:"remove"`
+		Add           string `json:"add"`
+		Remove        string `json:"remove"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.uzLozinkuIzvana(w, r, req.LozinkaRacuna) {
 		return
 	}
 	p, err := h.peers.PublicAddress(r.Context(), r.PathValue("node"), req.Add, req.Remove)
@@ -464,17 +475,21 @@ func (h *SettingsHandler) HandleUloge(w http.ResponseWriter, r *http.Request) {
 
 // HandleSetBootstrap označava čvor kao stalno izložen (domena) ili to skida.
 // Adrese se ovdje ne mijenjaju, nego samo kroz HandlePublicAddress, koji
-// provjerava njihov oblik.
+// provjerava njihov oblik. Izvana uz lozinku računa.
 func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Bootstrap bool `json:"bootstrap"`
+		Bootstrap     bool   `json:"bootstrap"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if !h.uzLozinkuIzvana(w, r, req.LozinkaRacuna) {
 		return
 	}
 	nepoznat := false

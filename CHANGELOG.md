@@ -25,6 +25,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Izvješće dionice kad autor više ne vodi dionicu.** Predano izvješće
   mijenja onaj tko ga je izradio. Kad on više nije rukovoditelj ni zamjenik
   te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik dionice
+- **Izvana: više radnji traži lozinku vašeg računa.** Kroz tunel ili s
+  javne adrese lozinku vlastitog računa sad traže i osnivanje mreže,
+  zaborav čvora, obnova članstva, adrese i oznaka „stalno izložen”, svaka
+  potvrda uparivanja, kod za prijavu izvana i potvrda adrese za PIN. Isto
+  vrijedi za novog globalnog administratora, davanje i oduzimanje tog prava
+  oznakom ili dužnošću uprave organizacije, te za lozinku, uključenost i
+  brisanje računa koji to pravo ima. Iz lokalne mreže lozinka ne treba
   (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave

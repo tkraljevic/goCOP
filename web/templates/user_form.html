@@ -135,7 +135,7 @@
     <label class="form-label" for="role">Uloga{{if not .Permissions.IsGlobalAdmin}} *{{end}}</label>
     <select id="role" name="role" class="form-control"{{if not .Permissions.IsGlobalAdmin}} required{{end}}>
       <option value="">{{if .Permissions.IsGlobalAdmin}}— bez uloge —{{else}}— odaberi ulogu —{{end}}</option>
-      {{range .Roles}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
+      {{range .Roles}}<option value="{{.Value}}"{{if .Uprava}} data-uprava="1"{{end}}>{{.Label}}</option>{{end}}
     </select>
     {{if .Permissions.IsGlobalAdmin}}<div class="form-help">Bez uloge osoba se može prijaviti, ali samo gleda dok joj ulogu ne dodijelite.</div>{{end}}
   </div>
@@ -167,16 +167,44 @@
   <div class="form-group d-flex flex-col gap-2 mt-2">
     {{if .IsEdit}}
     <label class="oznaka-kvacica">
-      <input type="checkbox" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
+      <input type="checkbox" id="is_active" name="is_active" value="1" {{if .User.IsActive}}checked{{end}} {{if .IsSelf}}disabled{{end}}>
       Smije se prijaviti
       {{if .IsSelf}}<input type="hidden" name="is_active" value="1">{{end}}
     </label>
     {{end}}
     <label class="oznaka-kvacica">
-      <input type="checkbox" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
+      <input type="checkbox" id="is_global_admin" name="is_global_admin" value="1" {{if .User.IsGlobalAdmin}}checked{{end}}>
       Globalni administrator
     </label>
   </div>
+  {{if .Izvana}}
+  <div class="form-group">
+    <label class="form-label" for="lozinka_racuna">Lozinka vašeg računa</label>
+    <input type="password" id="lozinka_racuna" name="lozinka_racuna" class="form-control" autocomplete="current-password" aria-describedby="lozinka-racuna-pomoc" style="max-width:240px;"{{if .PravoAdministratora}} data-pravo="1"{{end}}>
+    <div class="form-help" id="lozinka-racuna-pomoc">Stranicu ste otvorili izvana. Upišite lozinku svog računa kad dajete ili oduzimate pravo globalnog administratora, kad takvom računu mijenjate lozinku ili prijavu i kad potvrđujete adresu za PIN. Za ostale izmjene polje ostavite prazno.</div>
+  </div>
+  <script>
+  // polje lozinke računa postaje obavezno čim obrazac traži lozinku, da se
+  // ispunjen obrazac ne odbije i ne izgubi
+  (function () {
+    const polje = document.getElementById('lozinka_racuna'), obrazac = polje.form;
+    const el = function (id) { return document.getElementById(id); };
+    const oznaka = el('is_global_admin'), aktivan = el('is_active'), uloga = el('role');
+    const lozinka = el('password'), email = el('email'), potvrda = el('pin_adresa_potvrdena');
+    const pocetno = {oznaka: oznaka && oznaka.checked, aktivan: aktivan && aktivan.checked};
+    const potvrdena = potvrda ? (potvrda.dataset.potvrdena || '').trim().toLowerCase() : '';
+    function treba() {
+      if (oznaka && oznaka.checked !== pocetno.oznaka) return true;
+      if (uloga && uloga.selectedOptions[0] && uloga.selectedOptions[0].dataset.uprava) return true;
+      if (polje.dataset.pravo && ((lozinka && lozinka.value) || (aktivan && aktivan.checked !== pocetno.aktivan))) return true;
+      return !!(potvrda && potvrda.checked && (!potvrdena || email.value.trim().toLowerCase() !== potvrdena));
+    }
+    obrazac.addEventListener('input', function () { polje.required = treba(); });
+    obrazac.addEventListener('change', function () { polje.required = treba(); });
+    polje.required = treba();
+  })();
+  </script>
+  {{end}}
   {{else if .IsEdit}}
   <input type="hidden" name="is_active" value="{{if .User.IsActive}}1{{else}}0{{end}}">
   {{end}}

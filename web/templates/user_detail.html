@@ -29,9 +29,11 @@
     <form method="POST" action="/users/{{.User.ID}}/reset-password" onsubmit="return confirm('Poništiti lozinku i dati {{.User.FullName}} privremenu? Otvorene prijave te osobe se gase, osobni potpisni ključ se uklanja, a spremljena lozinka e-pošte se briše.')" class="d-flex items-center gap-2 flex-wrap">
       <button type="submit" class="btn btn-secondary" title="Za osobu koja je zaboravila lozinku">{{icon "key-round"}} Poništi lozinku</button>
       {{if .DrugiKorak}}<label class="form-help m-0" title="Za osobu izvan ureda koja nema e-poštu ili joj PIN ne stiže"><input type="checkbox" name="i_kod" value="1"> i kod za prijavu izvana</label>{{end}}
+      {{if and .Izvana (or .PravoAdministratora .DrugiKorak)}}<input type="password" name="lozinka_racuna" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se lozinka globalnog administratora poništava, a kod za prijavu izdaje samo uz lozinku vašeg računa" style="max-width:200px;"{{if .PravoAdministratora}} required{{end}}>{{end}}
     </form>
     {{if .DrugiKorak}}
-    <form method="POST" action="/users/{{.User.ID}}/kod-prijave" onsubmit="return confirm('Izdati {{.User.FullName}} privremeni kod za prijavu izvana? Vrijedi 24 sata i za jednu prijavu, uz njezinu lozinku; stariji neiskorišteni kod prestaje vrijediti.')">
+    <form method="POST" action="/users/{{.User.ID}}/kod-prijave" onsubmit="return confirm('Izdati {{.User.FullName}} privremeni kod za prijavu izvana? Vrijedi 24 sata i za jednu prijavu, uz njezinu lozinku; stariji neiskorišteni kod prestaje vrijediti.')" class="d-flex items-center gap-2 flex-wrap">
+      {{if .Izvana}}<input type="password" name="lozinka_racuna" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se kod za prijavu izdaje samo uz lozinku vašeg računa" style="max-width:200px;" required>{{end}}
       <button type="submit" class="btn btn-secondary" title="Kad PIN ne stiže: kod zamjenjuje PIN za jednu prijavu izvana, 24 sata">{{icon "shield"}} Privremeni kod za prijavu</button>
     </form>
     {{end}}
@@ -110,6 +112,7 @@
                 onsubmit="return confirm('Opozvati zaduženje „{{.Title}}“? Nestaje s profila, a ostaje u povijesti.')">
             <input type="hidden" name="duty_id" value="{{.ID}}">
             <input type="hidden" name="user_id" value="{{$.User.ID}}">
+            {{if and $.Izvana (eq .Role.RazinaUprave 1)}}<input type="password" name="lozinka_racuna" class="form-control d-inline" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se dužnost uprave organizacije opoziva samo uz lozinku vašeg računa" style="max-width:180px;" required>{{end}}
             <button type="submit" class="btn btn-sm btn-secondary" title="Opozovi zaduženje">{{icon "x"}} Opozovi</button>
           </form>
         </td>
@@ -168,6 +171,7 @@
     <p style="margin:0 0 0.75rem; font-size:0.9rem;">Ovim se računom nitko nije prijavio, pa se smije obrisati: nestaje s popisa i sa svih dionica. Račun koji je radio ne briše se, njemu se isključi prijava u uređivanju profila, da očitanja i upisi zadrže ime.</p>
     <form method="POST" action="/users/delete" onsubmit="return confirm('Obrisati profil djelatnika {{.User.FullName}}?')">
       <input type="hidden" name="user_id" value="{{.User.ID}}">
+      {{if and .Izvana .PravoAdministratora}}<input type="password" name="lozinka_racuna" class="form-control mb-2" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" title="Izvana se račun globalnog administratora briše samo uz lozinku vašeg računa" style="max-width:220px;" required>{{end}}
       <button type="submit" class="btn btn-sm btn-brisi min-h-40">{{icon "trash"}} Obriši profil</button>
     </form>
   </div>

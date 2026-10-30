@@ -30,7 +30,9 @@ import (
 // ne otvara. Prijavljenom čarobnjak otvara samo globalni administrator s
 // promijenjenom lozinkom, koji ne gleda tuđim očima: njegova potvrda
 // uparivanja na čvoru koji drži ključ mreže prima drugi čvor u mrežu, a
-// izvana uz lozinku računa (Odluke (30. 10. 2026.), 1). Osnivanje mreže,
+// izvana uz lozinku računa (Odluke (30. 10. 2026.), 1). Izvana lozinku
+// traži svaka potvrda uparivanja, i na računalu koje još nije ni u jednoj
+// mreži, jer njome ulazi u tuđu (Odluke (30. 10. 2026.), 12). Osnivanje mreže,
 // opoziv i zaboravljanje čvorova ostaju u postavkama.
 
 type PairHandler struct {
@@ -232,8 +234,8 @@ type PairPageData struct {
 	// Kod je kod iz dnevnika s kojim je stranica otvorena bez prijave; ide
 	// uz svaki poziv čarobnjaka
 	Kod string
-	// TraziLozinku: administrator izvana na računalu koje prima u mrežu
-	// potvrđuje kod uz lozinku računa (Odluke (30. 10. 2026.), 1)
+	// TraziLozinku: administrator izvana potvrđuje kod uz lozinku računa
+	// (Odluke (30. 10. 2026.), 1 i 12)
 	TraziLozinku bool
 }
 
@@ -358,9 +360,11 @@ func stanjeUparivanja(r *http.Request, st peers.PairStatus) peers.PairStatus {
 }
 
 // primaIzvana javlja treba li potvrda koda lozinku računa: prijavljeni
-// administrator izvana, na računalu koje prima u mrežu
+// administrator izvana. Potvrda prima drugo računalo u mrežu, ovo računalo
+// njome ulazi u tuđu, a i samo uparivanje upisuje poznati čvor i njegove
+// adrese, pa izvana svaka potvrda traži lozinku.
 func (h *PairHandler) primaIzvana(r *http.Request, o ovlastUparivanja) bool {
-	return o.korisnik != nil && klijentIz(r).Izvana() && h.primaClanove != nil && h.primaClanove()
+	return o.korisnik != nil && klijentIz(r).Izvana()
 }
 
 // uparuje je oznaka računala koje čeka odluku o kodu, za dnevnik programa

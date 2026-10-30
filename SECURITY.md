@@ -163,6 +163,13 @@ nepouzdano.
 - Primanje računala u mrežu (uparivanjem ili na daljinu), davanje i
   oduzimanje ovlasti za primanje i opoziv članstva smiju i izvana, kroz
   tunel ili s javne adrese, ali uz lozinku računa upisanu u isti obrazac.
+  Isto vrijedi za osnivanje mreže, zaborav čvora, obnovu članstva, adrese
+  i oznaku „stalno izložen”, svaku potvrdu uparivanja, privremeni kod za
+  prijavu izvana, potvrdu adrese na koju ide PIN i sve što dira pravo
+  globalnog administratora: novi račun s tim pravom, davanje i oduzimanje
+  oznake ili dužnosti uprave organizacije (razina 1, i privremene), te
+  poništenje ili upis lozinke, uključivanje, isključivanje i brisanje
+  računa koji to pravo ima.
   Krivi upisi broje se kao pri promjeni lozinke. S ovog računala i iz
   lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše
   u dnevniku programa, a tamo piše i zahtjev izvana odbijen zbog lozinke.

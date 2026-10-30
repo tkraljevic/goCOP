@@ -30,7 +30,7 @@
       {{/* Bez unaprijed odabrane uloge (Odluke (30. 10. 2026.), 18); pri
            izmjeni stoji dosadašnja, bez prazne */}}
       {{if not .Duty}}<option value="">— odaberi ulogu —</option>{{end}}
-      {{$uloga := ""}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}"{{if eq .Value $uloga}} selected{{end}}>{{.Label}}</option>{{end}}
+      {{$uloga := ""}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}"{{if eq .Value $uloga}} selected{{end}}{{if .Uprava}} data-uprava="1"{{end}}>{{.Label}}</option>{{end}}
     </select>
   </div>
   <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora i uprava branjenog područja dodjeljuju uloge samo u svom dosegu: uprava sektora uloge svoje razine ili niže, a uprava područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara.</div>
@@ -87,6 +87,26 @@
       </div>
     </div>
   </div>
+
+  {{if and .Izvana .Permissions.IsGlobalAdmin}}
+  <div class="form-group">
+    <label class="form-label" for="lozinka_racuna">Lozinka vašeg računa</label>
+    <input type="password" id="lozinka_racuna" name="lozinka_racuna" class="form-control" autocomplete="current-password" aria-describedby="lozinka-racuna-pomoc" style="max-width:240px;"{{if and .Duty (eq .Duty.Role.RazinaUprave 1)}} data-uprava="1"{{end}}>
+    <div class="form-help" id="lozinka-racuna-pomoc">Stranicu ste otvorili izvana. Upišite lozinku svog računa kad dajete ili mijenjate ulogu razine 1, jer ona daje pravo globalnog administratora. Za ostale uloge polje ostavite prazno.</div>
+  </div>
+  <script>
+  // polje lozinke računa obavezno je dok obrazac daje ili mijenja ulogu razine 1
+  (function () {
+    const polje = document.getElementById('lozinka_racuna'), uloga = document.getElementById('role');
+    function treba() {
+      const o = uloga.selectedOptions[0];
+      polje.required = !!(polje.dataset.uprava || (o && o.dataset.uprava));
+    }
+    uloga.addEventListener('change', treba);
+    treba();
+  })();
+  </script>
+  {{end}}
 
   <div class="form-actions">
     <a href="/users/{{.User.ID}}" class="btn btn-secondary">Odustani</a>
