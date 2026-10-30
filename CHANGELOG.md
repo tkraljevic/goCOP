@@ -77,6 +77,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   gradovima i VPN tada se računaju kao internet (Odluke (29. 10. 2026.) i
   (30. 10. 2026.)). Računalu s 0.0.46-alfa ili starijim kartu i dalje treba
   prenijeti paketom `.cop`. (#197)
+- **Provjere prava: uvoz u arhivu piše samo u mapu letve.** Sliv mora biti
+  obična mapa u stablu, a letva koja u stablu već stoji upisuje se u svoj
+  sliv. Sliv, letva i izvor smiju imati samo slova, brojke, crticu i točku.
+  Svi ZIP-ovi jednog uvoza zajedno smiju imati najviše 1000 datoteka i
+  256 MB kad se raspakiraju.
 
 - **Provjere prava: vodotok i šifra letve, novo očitanje.** Vodotok letve
   mijenja samo tko smije uređivati letvu, izmjena letve ne mijenja šifru, a

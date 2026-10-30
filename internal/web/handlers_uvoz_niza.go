@@ -188,10 +188,13 @@ type UvozPageData struct {
 	Letve     []string          // letve koje stablo već ima
 	SlivZa    map[string]string // letva → sliv
 	Slivovi   []string
-	Izvori    []string
-	Velicine  []string
-	Vrste     []string
-	Zone      []string
+	// greskaStabla kaže zašto se stablo nije dalo pročitati; uvoz se tada
+	// odbija (stabloCitljivo)
+	greskaStabla error
+	Izvori       []string
+	Velicine     []string
+	Vrste        []string
+	Zone         []string
 
 	// Stablo i mapa paketa na disku: puna putanja i, kad relativne mape
 	// nema, obavijest umjesto upisa i izdavanja
@@ -269,7 +272,9 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
 	}
 	d.Stablo, d.Paketi = h.mapeNaDisku()
-	if letve, err := arhiva.Letve(d.PodaciDir); err == nil {
+	letve, err := arhiva.LetveStabla(d.PodaciDir)
+	d.greskaStabla = err
+	if err == nil {
 		d.SlivZa = letve
 		for l := range letve {
 			// Popis nudi samo ono što ta osoba smije dirati. Letva koju ne
@@ -608,9 +613,9 @@ func (h *UvozHandler) popuniPregled(d *UvozPageData, ime string, sadrzaj []byte,
 	// bajtova. Zato provjera stoji na ovom jednom mjestu kroz koje prolaze
 	// svi: i pregled, i osvježavanje, i upis. Rukovatelj koji je zaboravi
 	// dodati kod sebe ostaje pokriven.
-	if d.Prijedlg.Letva != "" && !h.smijeZa(d.Permissions, d.Prijedlg.Letva) {
-		return fmt.Errorf("letva %s nije na vašim dionicama — njezine podatke uvozi administrator njezina područja",
-			d.Prijedlg.Letva)
+	// Uz pravo se gleda i je li se stablo dalo pročitati (smijePrijedlog).
+	if err := h.smijePrijedlog(d); err != nil {
+		return err
 	}
 
 	redci, preskoceno, err := pretvori(tijelo, d.Prijedlg)
@@ -731,11 +736,10 @@ func prijedlogIzNaziva(ime string, slivZa map[string]string) UvozNiza {
 }
 
 // slivIzStabla daje prijedlogu sliv postojeće letve iz stabla i kad je letvu
-// upisao čovjek u obrazac, a ne naziv datoteke; sliv koji je upisao ostaje
+// upisao čovjek u obrazac, a ne naziv datoteke. Postojeća letva ostaje u svom
+// slivu i kad je u obrascu upisan drugi; upisani sliv vrijedi samo za novu.
 func slivIzStabla(u *UvozNiza, slivZa map[string]string) {
-	if s, ima := slivZa[u.Letva]; ima && u.Sliv == "" {
-		u.Sliv = s
-	}
+	u.Sliv = slivLetve(u.Letva, u.Sliv, slivZa)
 }
 
 func primiIzObrasca(u *UvozNiza, r *http.Request) {

@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"gocop/internal/arhiva"
 )
 
 // Zadatak je jedan uvoz: koji godišnjaci, koje postaje i kamo.
@@ -17,7 +19,8 @@ type Zadatak struct {
 	Godisnjaci []string          // putanje do PDF-ova
 	Postaje    map[string]string // šifra postaje u godišnjaku → naša letva
 	Koren      string            // korijen stabla vodostaji/
-	Sliv       string
+	Sliv       string            // sliv nove letve
+	SlivZa     map[string]string // letva → sliv u kojem već stoji u stablu
 	Probno     bool
 	Popis      bool // samo ispiši postaje koje godišnjaci sadrže
 	Dnevnik    io.Writer
@@ -110,14 +113,14 @@ func Uvezi(z Zadatak) (Ishod, error) {
 		if len(dani) == 0 {
 			continue
 		}
-		popis := make([]Dan2, 0, len(dani))
-		for d := range dani {
-			popis = append(popis, d)
-		}
-		sort.Slice(popis, func(i, j int) bool { return popis[i].Prije(popis[j]) })
+		popis := poredaniDani(dani)
 		od, do := popis[0].Godina, popis[len(popis)-1].Godina
 		ime := fmt.Sprintf("%s_hidmet_vodostaj_srednjak_%d-%d.csv", letva, od, do)
-		put := filepath.Join(z.Koren, z.Sliv, letva, ime)
+		mapa, err := z.mapaLetve(letva)
+		if err != nil {
+			return ishod, err
+		}
+		put := filepath.Join(mapa, ime)
 		pisi("\n%-10s %6d dana, %d.-%d.\n              → %s\n", letva, len(dani), od, do, ime)
 		ishod.Letve = append(ishod.Letve, letva)
 		if z.Probno {
@@ -137,6 +140,26 @@ func Uvezi(z Zadatak) (Ishod, error) {
 	}
 	pisi("\nzapisano %d nizova\n", len(ishod.Zapisano))
 	return ishod, nil
+}
+
+// poredaniDani su dani niza od najstarijeg.
+func poredaniDani(dani map[Dan2]int) []Dan2 {
+	popis := make([]Dan2, 0, len(dani))
+	for d := range dani {
+		popis = append(popis, d)
+	}
+	sort.Slice(popis, func(i, j int) bool { return popis[i].Prije(popis[j]) })
+	return popis
+}
+
+// mapaLetve je mapa letve u stablu: u slivu u kojem letva već stoji, a nova
+// u zadanom slivu.
+func (z Zadatak) mapaLetve(letva string) (string, error) {
+	sliv := z.Sliv
+	if s, ima := z.SlivZa[letva]; ima {
+		sliv = s
+	}
+	return arhiva.MapaLetve(z.Koren, sliv, letva)
 }
 
 // zapisiNiz zapisuje dnevni niz letve u CSV.

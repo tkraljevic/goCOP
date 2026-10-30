@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gocop/internal/arhiva"
+	"gocop/internal/raspakiraj"
 )
 
 type Izvjestaj struct {
@@ -27,42 +28,63 @@ type Rezultat struct {
 
 // Citaj uzima samo provjerene dnevne srednje protoke. Maksimum i minimum
 // ostaju u izvornom ZIP-u jer arhiva zasad vodi po jedan niz za jednu veličinu.
-func Citaj(put string) (Rezultat, error) {
+// ZIP s previše stavki ili s više raspakiranih bajtova nego što uvoz prima
+// odbija se (raspakiraj.Zadana).
+func Citaj(put string) (Rezultat, error) { return citaj(put, raspakiraj.Zadana()) }
+
+func citaj(put string, g *raspakiraj.Granica) (Rezultat, error) {
 	var out Rezultat
 	z, err := zip.OpenReader(put)
 	if err != nil {
 		return out, err
 	}
 	defer z.Close()
-
+	if err := g.Stavke(len(z.File)); err != nil {
+		return out, err
+	}
 	poDanu := map[int64]float64{}
-	for _, f := range z.File {
-		if f.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(f.Name), ".csv") {
-			continue
-		}
-		out.Izvjestaj.Datoteka++
-		if err := citajDatoteku(f, poDanu, &out.Izvjestaj); err != nil {
-			return Rezultat{}, fmt.Errorf("%s: %w", f.Name, err)
-		}
+	if err := citajStavke(z.File, g, poDanu, &out.Izvjestaj); err != nil {
+		return Rezultat{}, err
 	}
-	kljucevi := make([]int64, 0, len(poDanu))
-	for k := range poDanu {
-		kljucevi = append(kljucevi, k)
-	}
-	sort.Slice(kljucevi, func(i, j int) bool { return kljucevi[i] < kljucevi[j] })
-	for _, k := range kljucevi {
-		out.Protoci = append(out.Protoci, arhiva.Redak{
-			Vrijeme: time.Unix(k, 0).UTC(), PoDanu: true, Vrijednost: poDanu[k],
-		})
-	}
+	out.Protoci = protociPoDanu(poDanu)
 	if len(out.Protoci) == 0 {
 		return Rezultat{}, fmt.Errorf("%s: nema provjerenih dnevnih srednjih protoka", put)
 	}
 	return out, nil
 }
 
-func citajDatoteku(f *zip.File, po map[int64]float64, iz *Izvjestaj) error {
-	raw, err := f.Open()
+// citajStavke čita CSV stavke ZIP-a; mape i ostale datoteke preskače.
+func citajStavke(stavke []*zip.File, g *raspakiraj.Granica, poDanu map[int64]float64, iz *Izvjestaj) error {
+	for _, f := range stavke {
+		if f.FileInfo().IsDir() || !strings.HasSuffix(strings.ToLower(f.Name), ".csv") {
+			continue
+		}
+		iz.Datoteka++
+		if err := citajDatoteku(f, g, poDanu, iz); err != nil {
+			return fmt.Errorf("%s: %w", f.Name, err)
+		}
+	}
+	return nil
+}
+
+// protociPoDanu slaže dnevne protoke od najstarijeg dana.
+func protociPoDanu(poDanu map[int64]float64) []arhiva.Redak {
+	var out []arhiva.Redak
+	kljucevi := make([]int64, 0, len(poDanu))
+	for k := range poDanu {
+		kljucevi = append(kljucevi, k)
+	}
+	sort.Slice(kljucevi, func(i, j int) bool { return kljucevi[i] < kljucevi[j] })
+	for _, k := range kljucevi {
+		out = append(out, arhiva.Redak{
+			Vrijeme: time.Unix(k, 0).UTC(), PoDanu: true, Vrijednost: poDanu[k],
+		})
+	}
+	return out
+}
+
+func citajDatoteku(f *zip.File, g *raspakiraj.Granica, po map[int64]float64, iz *Izvjestaj) error {
+	raw, err := g.Otvori(f)
 	if err != nil {
 		return err
 	}

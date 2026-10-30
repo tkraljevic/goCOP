@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"gocop/internal/raspakiraj"
 )
 
 // Zaključava čitanje GKD izvoza s više datoteka: mape i ostale datoteke se
@@ -110,5 +112,34 @@ func TestCitajGreske(t *testing.T) {
 		if _, err := Citaj(put); err == nil || !strings.HasPrefix(err.Error(), "niz.csv: ") {
 			t.Errorf("%s: %v", ime, err)
 		}
+	}
+}
+
+// ZIP s više stavki ili s više raspakiranih bajtova nego što uvoz prima
+// odbija se i kad su sve stavke u redu; isti ZIP uz dovoljnu granicu čita se.
+func TestCitajGraniceZIPa(t *testing.T) {
+	csv := zaglavlje + "2024-01-01;328;;;Geprueft\n"
+	put := zipSDatotekama(t, [2]string{"a.csv", csv}, [2]string{"b.csv", csv}, [2]string{"c.csv", csv})
+	for _, s := range []struct {
+		opis   string
+		g      *raspakiraj.Granica
+		greska string
+	}{
+		{"previše stavki", raspakiraj.Nova(2, 1<<20), "najviše 2"},
+		{"raspakirano preveliko", raspakiraj.Nova(10, int64(2*len(csv)+10)), "kad se raspakiraju"},
+	} {
+		t.Run(s.opis, func(t *testing.T) {
+			if _, err := citaj(put, s.g); err == nil || !strings.Contains(err.Error(), s.greska) {
+				t.Errorf("greška %v, očekivano %q", err, s.greska)
+			}
+		})
+	}
+	dug := zipSDatotekama(t, [2]string{"a.csv", strings.Repeat("a", 5000)})
+	if _, err := citaj(dug, raspakiraj.Nova(10, 1000)); err == nil || !strings.Contains(err.Error(), "kad se raspakiraju") {
+		t.Errorf("redak bez razdjelnika i kraja: %v", err)
+	}
+	r, err := citaj(put, raspakiraj.Nova(3, int64(3*len(csv))))
+	if err != nil || len(r.Protoci) != 1 || r.Izvjestaj.Datoteka != 3 {
+		t.Errorf("ZIP unutar granice: %+v, %v", r.Izvjestaj, err)
 	}
 }

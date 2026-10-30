@@ -21,6 +21,7 @@ import (
 	"gocop/internal/importer/gkd"
 	"gocop/internal/importer/pegelonline"
 	"gocop/internal/importer/seba"
+	"gocop/internal/raspakiraj"
 	"gocop/internal/uvoz/godisnjak"
 	"gocop/internal/uvoz/his2000"
 )
@@ -133,12 +134,11 @@ func (f Format) Uvezi(datoteke []Datoteka, z Zadatak, w io.Writer) (Ishod, error
 	if err := arhiva.ProvjeriKoren(z.Koren); err != nil {
 		return Ishod{}, err
 	}
-	if z.Sliv == "" {
-		z.Sliv = f.ZadaniSliv
+	sliv, err := f.slivZadatka(z.Sliv)
+	if err != nil {
+		return Ishod{}, err
 	}
-	if z.Sliv == "" {
-		return Ishod{}, fmt.Errorf("treba sliv")
-	}
+	z.Sliv = sliv
 	if f.Postaje {
 		if strings.TrimSpace(z.Postaje) == "" {
 			return Ishod{}, fmt.Errorf("trebaju postaje u obliku šifra=letva")
@@ -188,6 +188,18 @@ func (f Format) Uvezi(datoteke []Datoteka, z Zadatak, w io.Writer) (Ishod, error
 	ishod, err := f.uvezi(puts, z, w)
 	sort.Strings(ishod.Letve)
 	return ishod, err
+}
+
+// slivZadatka je sliv iz zadatka, a bez njega zadani sliv formata. Mora biti
+// obična mapa u stablu, za svaki format.
+func (f Format) slivZadatka(sliv string) (string, error) {
+	if sliv == "" {
+		sliv = f.ZadaniSliv
+	}
+	if sliv == "" {
+		return "", fmt.Errorf("treba sliv")
+	}
+	return sliv, arhiva.ProvjeriSliv(sliv)
 }
 
 func uveziARSO(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
@@ -327,23 +339,21 @@ func uveziSEBA(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 }
 
 func uveziHIS(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
+	// Granica vrijedi za cijeli uvoz: sve ZIP-ove i sve datoteke zajedno.
+	g := granicaUvoza()
 	var dat []his2000.Datoteka
 	for _, put := range puts {
-		b, err := os.ReadFile(put)
+		iz, err := datotekeHIS(put, g)
 		if err != nil {
 			return Ishod{}, err
 		}
-		if strings.EqualFold(filepath.Ext(put), ".zip") {
-			iz, err := izZIP(b)
-			if err != nil {
-				return Ishod{}, fmt.Errorf("%s: %w", filepath.Base(put), err)
-			}
-			dat = append(dat, iz...)
-			continue
-		}
-		dat = append(dat, his2000.Datoteka{Ime: filepath.Base(put), Sadrzaj: b})
+		dat = append(dat, iz...)
 	}
-	p := &his2000.Posao{Cilj: filepath.Join(z.Koren, z.Sliv, z.Letva), Letva: z.Letva, Izvor: z.Izvor,
+	cilj, err := arhiva.MapaLetve(z.Koren, z.Sliv, z.Letva)
+	if err != nil {
+		return Ishod{}, err
+	}
+	p := &his2000.Posao{Cilj: cilj, Letva: z.Letva, Izvor: z.Izvor,
 		Probno: z.Probno, Zamijeni: z.Zamijeni, Dnevnik: w}
 	if _, err := p.Uvezi(dat); err != nil {
 		return Ishod{}, err
@@ -351,11 +361,44 @@ func uveziHIS(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 	return Ishod{Letve: []string{z.Letva}}, nil
 }
 
+// datotekeHIS čita jednu poslanu datoteku: ZIP se raspakira, a obična
+// datoteka ide kakva jest. Obje troše istu granicu uvoza.
+func datotekeHIS(put string, g *raspakiraj.Granica) ([]his2000.Datoteka, error) {
+	b, err := os.ReadFile(put)
+	if err != nil {
+		return nil, err
+	}
+	ime := filepath.Base(put)
+	if strings.EqualFold(filepath.Ext(put), ".zip") {
+		b, err := izZIP(b, g)
+		return b, omotaj(ime, err)
+	}
+	if err := g.Potrosi(int64(len(b))); err != nil {
+		return nil, omotaj(ime, err)
+	}
+	return []his2000.Datoteka{{Ime: ime, Sadrzaj: b}}, nil
+}
+
+// omotaj dodaje ime datoteke grešci; bez greške vraća nil.
+func omotaj(ime string, err error) error {
+	if err == nil {
+		return nil
+	}
+	return fmt.Errorf("%s: %w", ime, err)
+}
+
+// granicaUvoza je granica raspakiranja jednog uvoza HIS-2000.
+var granicaUvoza = raspakiraj.Zadana
+
 // izZIP vadi datoteke iz ZIP-a, bez mapa u imenu; HIS ih ionako prepoznaje
-// po zaglavlju.
-func izZIP(b []byte) ([]his2000.Datoteka, error) {
+// po zaglavlju. Stavke i raspakirani bajtovi troše granicu cijelog uvoza, pa
+// ZIP koji bi je prešao odbija se cijeli.
+func izZIP(b []byte, g *raspakiraj.Granica) ([]his2000.Datoteka, error) {
 	zr, err := zip.NewReader(bytes.NewReader(b), int64(len(b)))
 	if err != nil {
+		return nil, err
+	}
+	if err := g.Stavke(len(zr.File)); err != nil {
 		return nil, err
 	}
 	var out []his2000.Datoteka
@@ -363,18 +406,9 @@ func izZIP(b []byte) ([]his2000.Datoteka, error) {
 		if f.FileInfo().IsDir() || strings.HasPrefix(filepath.Base(f.Name), ".") {
 			continue
 		}
-		rc, err := f.Open()
+		s, err := g.Procitaj(f)
 		if err != nil {
 			return nil, err
-		}
-		s, err := io.ReadAll(io.LimitReader(rc, 256<<20+1))
-		rc.Close()
-		if err != nil {
-			return nil, err
-		}
-		// odrezana datoteka bi se uvezla kao da je cijela
-		if len(s) > 256<<20 {
-			return nil, fmt.Errorf("%s u arhivi je veća od 256 MB", f.Name)
 		}
 		out = append(out, his2000.Datoteka{Ime: filepath.Base(f.Name), Sadrzaj: s})
 	}
@@ -386,8 +420,14 @@ func uveziGodisnjak(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 	if err != nil {
 		return Ishod{}, err
 	}
+	// Letva koja u stablu već stoji ostaje u svom slivu; zadani sliv vrijedi
+	// samo za nove.
+	slivZa, err := arhiva.LetveStabla(z.Koren)
+	if err != nil {
+		return Ishod{}, err
+	}
 	ish, err := godisnjak.Uvezi(godisnjak.Zadatak{Godisnjaci: puts, Postaje: zeljene,
-		Koren: z.Koren, Sliv: z.Sliv, Probno: z.Probno, Dnevnik: w})
+		Koren: z.Koren, Sliv: z.Sliv, SlivZa: slivZa, Probno: z.Probno, Dnevnik: w})
 	return Ishod{Letve: ish.Letve, Zapisano: ish.Zapisano}, err
 }
 

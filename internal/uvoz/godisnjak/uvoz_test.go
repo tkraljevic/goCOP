@@ -208,6 +208,15 @@ func TestUveziGreske(t *testing.T) {
 	if _, err := Uvezi(Zadatak{Godisnjaci: []string{godisnjak}, Postaje: postaje, Koren: koren, Sliv: "dunav"}); err == nil {
 		t.Error("mapa letve pod datotekom je prošla")
 	}
+	// sliv koji nije mapa u stablu odbija se prije upisa
+	koren = filepath.Join(t.TempDir(), "a", "vodostaji")
+	if _, err := Uvezi(Zadatak{Godisnjaci: []string{godisnjak}, Postaje: postaje, Koren: koren, Sliv: ".."}); err == nil ||
+		!strings.Contains(err.Error(), "nije upotrebljiv kao naziv mape") {
+		t.Errorf("sliv ..: %v", err)
+	}
+	if _, err := os.Stat(filepath.Dir(koren)); err == nil {
+		t.Error("odbijen sliv je napravio mapu")
+	}
 	// na mjestu niza stoji mapa, pa se niz ne može zapisati
 	koren = t.TempDir()
 	if err := os.MkdirAll(filepath.Join(koren, "dunav", "bezdan", "bezdan_hidmet_vodostaj_srednjak_2020-2020.csv"), 0o755); err != nil {
