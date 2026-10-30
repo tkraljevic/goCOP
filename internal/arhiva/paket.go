@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	gocopdb "gocop/internal/db"
 )
 
 // Paket je prijenosni oblik historijata jedne letve — ono što se preda na USB
@@ -663,18 +665,23 @@ func ucitajPromjene(db *sql.DB, letva string) ([]promjenaUPaketu, error) {
 }
 
 // PripremiPraznu stvara shemu u praznoj arhivi. Čvor koji arhivu ne gradi
-// sam nego je samo prima mora je ipak imati gdje upisati.
+// sam nego je samo prima mora je ipak imati gdje upisati. Arhivu u koju se
+// poslije ugrađuje treba otvoriti adresom AdresaZaPisanje.
 func PripremiPraznu(db *sql.DB) error {
-	// Bez ovoga SQLite ne provodi ON DELETE CASCADE, pa brisanje roditelja
-	// ostavlja djecu. Zatečena arhiva tako je skupila 330 odsječaka i 164 točke
-	// profila bez svoje krivulje odnosno profila.
-	if _, err := db.Exec(`PRAGMA foreign_keys = ON`); err != nil {
-		return err
-	}
 	if _, err := db.Exec(shema); err != nil {
 		return err
 	}
 	return dopuniShemu(db)
+}
+
+// AdresaZaPisanje je adresa arhive u koju se piše: s trajnim upisom i sa
+// stranim ključevima na svakoj vezi. Bez stranih ključeva SQLite ne provodi
+// ON DELETE CASCADE, pa brisanje krivulje ili profila ostavlja djecu;
+// zatečena arhiva tako je skupila 330 odsječaka i 164 točke bez roditelja.
+// „PRAGMA foreign_keys = ON” poslan kroz db.Exec vrijedi samo za jednu vezu
+// iz bazena, a ostale veze brisale su bez kaskade.
+func AdresaZaPisanje(put string) string {
+	return gocopdb.ZaPisanje(put, "_pragma=journal_mode(WAL)", "_pragma=foreign_keys(1)")
 }
 
 // pospremiSirotisteva briše djecu kojoj je roditelj davno nestao. Nije samo

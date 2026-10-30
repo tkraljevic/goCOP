@@ -1915,7 +1915,7 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 	if s.arhivaPut == "" {
 		return fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut, "_pragma=journal_mode(WAL)"))
+	db, err := sql.Open("sqlite", arhiva.AdresaZaPisanje(s.arhivaPut))
 	if err != nil {
 		return err
 	}

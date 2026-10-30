@@ -15,13 +15,28 @@ import (
 	"modernc.org/sqlite"
 )
 
-// pracenje bilježi synchronous svake veze koja se otvori na putu koji test
-// prati. Driver popis hookova čita bez brave, pa se hook prijavi jednom,
-// prije svih testova.
+// pracenje bilježi synchronous i foreign_keys svake veze koja se otvori na
+// putu koji test prati. Driver popis hookova čita bez brave, pa se hook
+// prijavi jednom, prije svih testova.
 var pracenje struct {
 	sync.Mutex
 	put         string
 	synchronous []driver.Value
+	kljucevi    []driver.Value
+}
+
+// pragma čita jednu vrijednost PRAGMA naredbe na vezi
+func pragma(veza sqlite.ExecQuerierContext, ime string) (driver.Value, error) {
+	redovi, err := veza.QueryContext(context.Background(), "PRAGMA "+ime, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer redovi.Close()
+	v := make([]driver.Value, 1)
+	if err := redovi.Next(v); err != nil {
+		return nil, err
+	}
+	return v[0], nil
 }
 
 func init() {
@@ -31,28 +46,29 @@ func init() {
 		if pracenje.put == "" || !strings.Contains(dsn, pracenje.put) {
 			return nil
 		}
-		redovi, err := veza.QueryContext(context.Background(), "PRAGMA synchronous", nil)
+		synchronous, err := pragma(veza, "synchronous")
 		if err != nil {
 			return err
 		}
-		defer redovi.Close()
-		v := make([]driver.Value, 1)
-		if err := redovi.Next(v); err != nil {
+		kljucevi, err := pragma(veza, "foreign_keys")
+		if err != nil {
 			return err
 		}
-		pracenje.synchronous = append(pracenje.synchronous, v[0])
+		pracenje.synchronous = append(pracenje.synchronous, synchronous)
+		pracenje.kljucevi = append(pracenje.kljucevi, kljucevi)
 		return nil
 	})
 }
 
 // Zaključava da gradnja piše u arhivu tako da potvrđen upis preživi nestanak
-// struje. Gradnja piše ravno u arhivu koju čvor koristi, a uz
-// synchronous(OFF) nestanak struje usred gradnje mogao je pokvariti cijelu
-// arhivu.
+// struje i da svaka veza provodi strane ključeve. Gradnja piše ravno u
+// arhivu koju čvor koristi, a uz synchronous(OFF) nestanak struje usred
+// gradnje mogao je pokvariti cijelu arhivu. Strani ključevi uključivali su se
+// samo na jednoj vezi, pa su brisanja na ostalima ostavljala djecu.
 func TestGradnjaPiseTrajno(t *testing.T) {
 	koren, baza := stabloSKvarom(t, "")
 	pracenje.Lock()
-	pracenje.put, pracenje.synchronous = baza, nil
+	pracenje.put, pracenje.synchronous, pracenje.kljucevi = baza, nil, nil
 	pracenje.Unlock()
 	t.Cleanup(func() {
 		pracenje.Lock()
@@ -71,6 +87,40 @@ func TestGradnjaPiseTrajno(t *testing.T) {
 	for i, v := range pracenje.synchronous {
 		if v != int64(2) {
 			t.Errorf("%d. veza gradnje: synchronous %v, treba 2 (FULL)", i+1, v)
+		}
+		if k := pracenje.kljucevi[i]; k != int64(1) {
+			t.Errorf("%d. veza gradnje: foreign_keys %v, treba 1", i+1, k)
+		}
+	}
+}
+
+// Zaključava da arhiva otvorena za upis provodi strane ključeve na svakoj
+// vezi iz bazena, ne samo na prvoj
+func TestArhivaZaPisanjeImaStraneKljuceve(t *testing.T) {
+	put := filepath.Join(t.TempDir(), "arhiva.db")
+	db, err := sql.Open("sqlite", AdresaZaPisanje(put))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	if err := PripremiPraznu(db); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	prva, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer prva.Close()
+	druga, err := db.Conn(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer druga.Close()
+	for i, veza := range []*sql.Conn{prva, druga} {
+		var kljucevi int
+		if err := veza.QueryRowContext(ctx, `PRAGMA foreign_keys`).Scan(&kljucevi); err != nil || kljucevi != 1 {
+			t.Errorf("%d. veza: foreign_keys %d, %v; treba 1", i+1, kljucevi, err)
 		}
 	}
 }
