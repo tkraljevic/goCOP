@@ -6,6 +6,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Vraćanje na starije izdanje iz ikone u traci.** Postava postavlja
+  starije izdanje, najstarije 0.0.37-alfa, samo kad ga globalni
+  administrator dopusti na stranici Ovo računalo i mreža, s računala s
+  čvorom ili iz lokalne mreže. Dopuštenje vrijedi 30 minuta, a izdanje se
+  provjerava kao i pri nadogradnji (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni

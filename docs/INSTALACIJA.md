@@ -606,9 +606,10 @@ Za ručno pokretanje i oporavak lozinke zadaje se puna putanja baze, npr.
 **Ikona u traci:** valovi u bojama znaka kad čvor radi, sivi kad je
 zaustavljen, crveni kad je pao ili ne odgovara, a narančasta točka znači da
 postoji novije izdanje. Dvoklik otvara goCOP u pregledniku. Desni klik: *Otvori
-goCOP*, *Pokreni/Zaustavi*, *Nadogradi na …*, *Provjeri nadogradnje*, *Otvori
-mapu s podacima*, *Dnevnik čvora*, *Pokreni pri prijavi*, *O programu*,
-*Ukloni goCOP…*, *Izlaz* (gasi i čvor).
+goCOP*, *Pokreni/Zaustavi*, *Nadogradi na …*, *Vrati na …* (samo dok
+starije izdanje dopušta globalni administrator, [postava.md](postava.md)),
+*Provjeri nadogradnje*, *Otvori mapu s podacima*, *Dnevnik čvora*, *Pokreni
+pri prijavi*, *O programu*, *Ukloni goCOP…*, *Izlaz* (gasi i čvor).
 
 **Nadogradnja** je uvijek na klik. Postava jednom pri pokretanju i svakih
 šest sati pita GitHub za popis javnih izdanja (ne šalje ništa o čvoru ni
@@ -1214,8 +1215,9 @@ upisuje odjednom, pa ni gradnja ni stvaranje nove baze ne bi trebali biti
 primjetno sporiji; ni to nije izmjereno. Ništa od toga ne treba uključivati.
 
 Povratak na 0.0.38-alfa je moguć bez kopije baze: nove tablice i stupci u
-bazi služe samo računalu s 0.0.39-alfa, a 0.0.38-alfa ih ne čita. Postava ne
-ugrađuje starije izdanje, pa se povratak radi ručno: zaustaviti goCOP, na
+bazi služe samo računalu s 0.0.39-alfa, a 0.0.38-alfa ih ne čita. Od
+0.0.47-alfa Postava ugrađuje starije izdanje kad ga dopusti globalni
+administrator ([postava.md](postava.md)). Inače se povratak radi ručno: zaustaviti goCOP, na
 mjesto programa vratiti potpisani program 0.0.38-alfa i pokrenuti ga. Kad je
 nadogradnju na Windowsu napravila Postava, prethodni program stoji u mapi
 programa kao `gocop.prethodni.exe`. U spremniku se vraća oznaka slike

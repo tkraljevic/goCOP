@@ -35,7 +35,7 @@ func TestZdravljeSamoSOvogRacunala(t *testing.T) {
 			r.Header.Set(s.zaglavlje, "203.0.113.7")
 		}
 		w := httptest.NewRecorder()
-		ServeZdravlje(w, r)
+		(&Server{}).serveZdravlje(w, r)
 		if w.Code != s.zelim {
 			t.Errorf("%s: %d, želim %d", s.ime, w.Code, s.zelim)
 			continue

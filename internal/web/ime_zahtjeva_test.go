@@ -92,7 +92,7 @@ func TestPrijavaNaTudjeImeVrijediKaoIzvana(t *testing.T) {
 // Stanje programa za Postavu daje se samo zahtjevu s ovog računala na
 // njegovo ime ili adresu
 func TestZdravljeNaTudjeIme(t *testing.T) {
-	h := (&Server{}).klijentSloj(http.HandlerFunc(ServeZdravlje))
+	h := (&Server{}).klijentSloj(http.HandlerFunc((&Server{}).serveZdravlje))
 	for host, zelim := range map[string]int{"127.0.0.1:1160": http.StatusOK, "localhost:1160": http.StatusOK, "[::1]:1160": http.StatusOK,
 		"x.primjer.hr:1160": http.StatusNotFound, "x.local:1160": http.StatusNotFound, "tower:1160": http.StatusNotFound} {
 		r := httptest.NewRequest(http.MethodGet, "/zdravlje", nil)

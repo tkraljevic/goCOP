@@ -316,6 +316,7 @@ type PostavkeStranice struct {
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Ovo računalo i mreža
 	WebSync     *WebSyncPrikaz           // samo na stranici Ovo računalo i mreža, kad je WEB sync isključen nakon padova
+	Starije     *StarijeIzdanjePrikaz    // samo na stranici Ovo računalo i mreža, uz Postavu
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -418,10 +419,11 @@ type kljucPokusaja struct{}
 // provjeriti vezu ni mijenjati što računalo prati, za svako od toga svojim
 // riječima. Isto pravilo čuva i ono što pripada samo ovom računalu: izvore
 // arhive, čuvanje povijesti letve i ono što se s diska uvozi mimo provjerena
-// potpisa (postavke_racunala.go).
+// potpisa (postavke_racunala.go), i dopuštenje Postavi da postavi starije
+// izdanje (starije_izdanje.go).
 type zabranaCvora struct {
 	postavke, ponovno, kljuc, provjera, pretplate, uloge string
-	izvori, povijest, staraArhiva, neprovjeren           string
+	izvori, povijest, staraArhiva, neprovjeren, starije  string
 }
 
 var (
@@ -436,6 +438,7 @@ var (
 		povijest:    "Čuva li ovo računalo cijelu povijest letve, odlučuje samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 		staraArhiva: "Staru .db arhivu uvozi samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 		neprovjeren: "Paket s diska uvozi samo globalni administrator.",
+		starije:     "Starije izdanje dopušta samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
 		postavke:    "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
@@ -448,6 +451,7 @@ var (
 		povijest:    "Čuvanje povijesti letve ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		staraArhiva: "Stara .db arhiva ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		neprovjeren: "Paket koji ovo računalo ne može provjeriti ne uvozi se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		starije:     "Starije izdanje ne dopušta se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke:  "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
@@ -463,6 +467,7 @@ var (
 			"a ne izvana ni kroz tunel. Odavde se uvozi potpisani .cop paket.",
 		neprovjeren: "Ovo računalo još nije u mreži, pa ne može provjeriti čiji je potpis na paketu. Zato se paket s diska " +
 			"dotad uvozi samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		starije: "Starije izdanje dopušta se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 
@@ -548,6 +553,7 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
 		out.WebSync = s.prikazWebSynca(sl.zabrana)
+		out.Starije = s.prikazStarijeg(sl.zabrana)
 	}
 	return out
 }

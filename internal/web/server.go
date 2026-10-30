@@ -91,6 +91,8 @@ type Server struct {
 	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
 	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
 	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
+	dopustenje     dopustenjeIzdanja       // starije izdanje koje Postava smije postaviti; samo u memoriji
+	kljucPostave   string                  // ključ za potpis dopuštenja, od Postave; prazan uz uslugu sustava
 	slusa          chan struct{}           // zatvori se kad web prvi put sluša (Slusa)
 	slusaJednom    sync.Once
 	povezivost     povezivostCvora // WEB sync u ovom pokretanju; prazno dok ga main ne da
@@ -937,7 +939,7 @@ func (s *Server) setupRoutes() {
 	s.mux.HandleFunc("GET /tema.css", ServeTemaCSS)
 	s.mux.HandleFunc("GET /karta/ikone.svg", ServeVlastiteIkone)
 	// Postava na istom računalu (instalacija, nadogradnja, ikona u traci)
-	s.mux.HandleFunc("GET /zdravlje", ServeZdravlje)
+	s.mux.HandleFunc("GET /zdravlje", s.serveZdravlje)
 
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
 	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])
@@ -1523,6 +1525,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /settings/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/settings", http.HandlerFunc(settingsH.ShowSettings))))
 	s.mux.Handle("POST /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handlePonovnoPokretanje)))
 	s.mux.Handle("GET /settings/ponovno-pokretanje", s.samoAdmin(http.HandlerFunc(s.handleStanjePokretanja)))
+	s.mux.Handle("POST /settings/starije-izdanje", s.samoAdmin(http.HandlerFunc(s.handleStarijeIzdanje)))
 	s.rutePovezivosti()
 	telemetrijaH := NewTelemetrijaHandler(func() *repository.HidroViewRepository {
 		if s.db == nil {

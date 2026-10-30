@@ -233,11 +233,11 @@ func (u Ugradnja) Ugradi(ctx context.Context, novi, staroIzdanje, novoIzdanje st
 		return err
 	}
 	if err := KopirajBazu(u.M, staroIzdanje, time.Now()); err != nil {
-		u.pisi("Kopija baze prije nadogradnje nije uspjela: %v", err)
+		u.pisi("Kopija baze prije zamjene programa nije uspjela: %v", err)
 		if radio {
 			_ = u.Cvor.Pokreni()
 		}
-		return fmt.Errorf("kopija baze prije nadogradnje: %w", err)
+		return fmt.Errorf("kopija baze prije zamjene programa: %w", err)
 	}
 	_ = os.Remove(u.M.Prethodni())
 	if err := zamijeni(u.M.Gocop(), u.M.Prethodni()); err != nil {
@@ -256,7 +256,6 @@ func (u Ugradnja) Ugradi(ctx context.Context, novi, staroIzdanje, novoIzdanje st
 	_ = os.Remove(filepath.Dir(u.M.Novi()))
 	u.pisi("Program zamijenjen: %s → %s", staroIzdanje, novoIzdanje)
 	if err := u.Cvor.Pokreni(); err == nil && u.cekajIzdanje(ctx, novoIzdanje) {
-		u.pisi("Nadogradnja na %s gotova", novoIzdanje)
 		return nil
 	}
 

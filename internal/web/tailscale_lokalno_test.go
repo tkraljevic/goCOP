@@ -195,7 +195,7 @@ func TestSvjezCvorPrekoTailscalea(t *testing.T) {
 // /zdravlje ostaje samo za ovo računalo, i preko Tailscalea
 func TestZdravljeNePrekoTailscalea(t *testing.T) {
 	s := &Server{tailscale: noviTailscale(func() []netip.Addr { return []netip.Addr{netip.MustParseAddr(tsOvo)} })}
-	h := s.klijentSloj(http.HandlerFunc(ServeZdravlje))
+	h := s.klijentSloj(http.HandlerFunc(s.serveZdravlje))
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, naAdresu(tsDrugi, tsOvo)(httptest.NewRequest(http.MethodGet, "/zdravlje", nil)))
 	if w.Code != http.StatusNotFound {

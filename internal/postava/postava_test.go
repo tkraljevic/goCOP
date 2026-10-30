@@ -39,6 +39,14 @@ func noviGitHub(t *testing.T) *lazniGitHub {
 			_ = json.NewEncoder(w).Encode(g.izdanja)
 			return
 		}
+		if oznaka, ok := strings.CutPrefix(r.URL.Path, "/repos/"+izdanje.Repozitorij+"/releases/tags/"); ok {
+			for _, iz := range g.izdanja {
+				if iz.Oznaka == oznaka {
+					_ = json.NewEncoder(w).Encode(iz) // nepotpun odgovor obori test koji ga čita
+					return
+				}
+			}
+		}
 		if b, ok := g.datoteke[r.URL.Path]; ok {
 			_, _ = w.Write(b)
 			return

@@ -29,7 +29,7 @@
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
     <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
-    {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{end}}
+    {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{template "starijeIzdanje" .Starije}}{{end}}
   </div>
 
   {{with .Postavke}}

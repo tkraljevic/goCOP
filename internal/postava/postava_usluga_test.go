@@ -308,19 +308,19 @@ func TestNadogradnjaUsluge(t *testing.T) {
 	if err != nil || novo != "0.0.36-alfa" {
 		t.Fatalf("nadogradnja: %q %v", novo, err)
 	}
-	// bash -c prijenosKaoRoot ime mapa zbroj-SHA256SUMS zbroj-skripte program datoteke...
-	if len(naredba) < 8 || naredba[0] != "/usr/bin/bash" || naredba[1] != "-c" || naredba[2] != prijenosKaoRoot ||
-		!strings.HasPrefix(naredba[4], p.M.Podaci) || naredba[7] != program {
+	// bash -c prijenosKaoRoot ime mapa zbroj-SHA256SUMS zbroj-skripte program rok datoteke...
+	if len(naredba) < 9 || naredba[0] != "/usr/bin/bash" || naredba[1] != "-c" || naredba[2] != prijenosKaoRoot ||
+		!strings.HasPrefix(naredba[4], p.M.Podaci) || naredba[7] != program || naredba[8] != "0" {
 		t.Fatalf("pkexec %v", naredba)
 	}
 	if naredba[5] != fmt.Sprintf("%x", sha256.Sum256([]byte(uMapi[izdanje.ImeZbrojeva]))) ||
 		naredba[6] != fmt.Sprintf("%x", sha256.Sum256(zelim[imeSkripte])) {
 		t.Errorf("zbrojevi za provjeru kao root: %v", naredba[5:7])
 	}
-	dat := append([]string{}, naredba[8:]...)
+	dat := append([]string{}, naredba[9:]...)
 	sort.Strings(dat)
 	if !reflect.DeepEqual(dat, uMapiImena) {
-		t.Errorf("datoteke za kopiju: %v, u mapi %v", naredba[8:], uMapiImena)
+		t.Errorf("datoteke za kopiju: %v, u mapi %v", naredba[9:], uMapiImena)
 	}
 	for n, b := range zelim {
 		if uMapi[n] != string(b) {
@@ -440,7 +440,7 @@ func TestPripremaZaUsluguBezMreze(t *testing.T) {
 		Potpis: ghDatoteka{URL: g.srv.URL + "/nema"}}); err == nil {
 		t.Error("bez potpisa")
 	}
-	if err := u.preuzmiZaUslugu(ctx, Izdanje{}, nil, nil, filepath.Join(t.TempDir(), "nema")); err == nil {
+	if err := u.preuzmiZaUslugu(ctx, Izdanje{}, nil, nil, filepath.Join(t.TempDir(), "nema"), nil); err == nil {
 		t.Error("mapa ne postoji")
 	}
 	if got := u.datotekeZaUslugu([]byte(fmt.Sprintf("%064x  gocop-postava-linux-amd64\n", 1))); !reflect.DeepEqual(got,
@@ -478,7 +478,7 @@ func TestPkexecZaNadogradnjuUsluge(t *testing.T) {
 		t.Fatal(err)
 	}
 	zelim := []string{"/usr/bin/pkexec", "/usr/bin/bash", "-c", prijenosKaoRoot, "gocop-nadogradnja", mapa,
-		strings.Repeat("a", 64), strings.Repeat("b", 64), "gocop-linux-amd64", "SHA256SUMS", "instaliraj.sh", "gocop-linux-amd64"}
+		strings.Repeat("a", 64), strings.Repeat("b", 64), "gocop-linux-amd64", "0", "SHA256SUMS", "instaliraj.sh", "gocop-linux-amd64"}
 	if l.pozvano(zelim...) != 1 {
 		t.Errorf("pozivi: %v, želim %v", l.pozivi, zelim)
 	}
@@ -924,11 +924,24 @@ func TestPrijenosKaoRoot(t *testing.T) {
 
 	// prazan SHA-256 skripte: redak neispravnog oblika ne prolazi
 	z = pripremi()
-	arg := append([]string{"-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, "", z.Program}, z.Datoteke...)
+	arg := append([]string{"-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, "", z.Program, "0"}, z.Datoteke...)
 	if out, err := exec.Command(bash, arg...).CombinedOutput(); err == nil || strings.Contains(string(out), "mapa=") {
 		t.Errorf("bez SHA-256 skripte: %v\n%s", err, out)
 	}
 	if !strings.Contains(prijenosKaoRoot, "head -c "+strconv.Itoa(najveciProgram)+" ") {
 		t.Error("granica kopiranja nije najveciProgram")
+	}
+
+	// vraćanje: rok je prošao dok se upisivala lozinka, pa se ništa ne
+	// pokreće; dok rok traje, skripta radi
+	z = pripremi()
+	z.Rok = 946684800 // 1. 1. 2000.
+	if err := u.Ugradi(ctx, z, pisi); err == nil || !strings.Contains(err.Error(), "isteklo je dok se upisivala lozinka") || strings.Contains(ispis, "mapa=") {
+		t.Errorf("istekao rok: %v\n%s", err, ispis)
+	}
+	z = pripremi()
+	z.Rok = 4102444800 // 1. 1. 2100.
+	if err := u.Ugradi(ctx, z, pisi); err != nil || !strings.Contains(ispis, "mapa=") {
+		t.Errorf("rok traje: %v\n%s", err, ispis)
 	}
 }

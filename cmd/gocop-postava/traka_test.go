@@ -67,10 +67,11 @@ func (c *lazniCvor) NaPromjenu(func())                      {}
 
 // lazniProzori bilježe poruke i odgovaraju na pitanja
 type lazniProzori struct {
-	odgovor  bool
-	pitanja  []string
-	poruke   []string
-	otvoreno []string
+	odgovor    bool
+	pitanja    []string
+	poruke     []string
+	otvoreno   []string
+	obavijesti []string
 }
 
 // novaTraka je traka bez ikone u sustavu: s pravom Postavom u privremenoj
@@ -89,9 +90,10 @@ func novaTraka(t *testing.T, l *lazniSystemd) (*traka, *lazniProzori) {
 	}
 	pr := &lazniProzori{}
 	tr := &traka{p: p, ctx: context.Background(),
-		poruka:  func(_, tekst string, _ bool) { pr.poruke = append(pr.poruke, tekst) },
-		pitanje: func(_, tekst string) bool { pr.pitanja = append(pr.pitanja, tekst); return pr.odgovor },
-		pokazi:  func(cilj string) error { pr.otvoreno = append(pr.otvoreno, cilj); return nil },
+		poruka:     func(_, tekst string, _ bool) { pr.poruke = append(pr.poruke, tekst) },
+		pitanje:    func(_, tekst string) bool { pr.pitanja = append(pr.pitanja, tekst); return pr.odgovor },
+		pokazi:     func(cilj string) error { pr.otvoreno = append(pr.otvoreno, cilj); return nil },
+		obavijesti: func(tekst string) { pr.obavijesti = append(pr.obavijesti, tekst) },
 	}
 	return tr, pr
 }

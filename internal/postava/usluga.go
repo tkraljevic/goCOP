@@ -30,6 +30,10 @@ type Usluga struct {
 	Trazi    func(ime string) (string, error) // put do programa koji se pokreće kao root
 
 	klijent *http.Client
+	// povlasten javlja smije li se s tog porta primiti dopuštenje za
+	// starije izdanje; nil: port ispod 1024 (sPovlastenogPorta). Test ga
+	// zamijeni, jer probni poslužitelj ne sluša na takvom portu.
+	povlasten func(port int) bool
 
 	mu        sync.Mutex
 	stanje    StanjeProcesa
@@ -235,7 +239,25 @@ func ispisIliGreska(out []byte, err error) string {
 // Zdravlje pita čvor isto kao Cvor. gocop.toml usluge korisnik obično ne
 // može pročitati, pa tada vrijede zadani portovi 80 i 8080.
 func (u *Usluga) Zdravlje(ctx context.Context) (izdanje string, port int) {
-	return zdravlje(ctx, u.klijent, portoviIz(u.Postavke))
+	o := u.PitajZdravlje(ctx)
+	return o.Izdanje, o.Port
+}
+
+// PitajZdravlje je Zdravlje s cijelim odgovorom. Usluzi Postava ne daje
+// ključ za potpis, pa dopuštenje za starije izdanje prima samo s porta
+// ispod 1024: na Linuxu njega otvara samo root ili usluga kojoj je to
+// dopušteno, a ne bilo koji program na računalu (npr. na rezervnom 8080).
+func (u *Usluga) PitajZdravlje(ctx context.Context) OdgovorZdravlja {
+	o := pitajZdravlje(ctx, u.klijent, portoviIz(u.Postavke))
+	return uzDopustenje(o, u.sPovlastenogPorta(o.Port), time.Now())
+}
+
+// sPovlastenogPorta: s porta se smije primiti dopuštenje za starije izdanje
+func (u *Usluga) sPovlastenogPorta(port int) bool {
+	if u.povlasten != nil {
+		return u.povlasten(port)
+	}
+	return port > 0 && port < 1024
 }
 
 // Dnevnik zapisuje zadnjih 2000 redaka dnevnika usluge (journalctl) u
