@@ -93,10 +93,11 @@ type ImportReport struct {
 }
 
 // ImportFile čita arhivu i primjenjuje verzije kao da su stigle razmjenom,
-// uz rupe izvoznika (rupeIzArhive)
+// uz rupe izvoznika (rupeIzArhive). Datoteka se otvara samo za čitanje:
+// uvoz je ne smije mijenjati, a kad je nema, ne smije je napraviti.
 func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, error) {
 	rep := ImportReport{Channels: map[string]int{}}
-	in, err := sql.Open(upravljacArhive, path)
+	in, err := sql.Open(upravljacArhive, db.SamoZaCitanje(path))
 	if err != nil {
 		return rep, err
 	}
