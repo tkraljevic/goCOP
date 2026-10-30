@@ -301,6 +301,10 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
+	if poruka := h.zabranaNeprovjerenog(r); poruka != "" {
+		http.Error(w, poruka, http.StatusForbidden)
+		return
+	}
 	if err := r.ParseMultipartForm(256 << 20); err != nil {
 		redirectWith(w, r, "/administracija/baza", "error", "Datoteka nije primljena: "+err.Error())
 		return
@@ -323,18 +327,45 @@ func (h *DBMaintHandler) HandleImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if jeCop(tmp) {
-		rep, err := h.peers.UveziCop(r.Context(), tmp)
-		if err != nil {
-			redirectWith(w, r, "/administracija/baza", "error", err.Error())
-			return
-		}
-		poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d %s u paketu, %d %s; sadržaja upisano %d, za dohvat %d.",
-			rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, models.UzBrojHR(rep.Verzija, "zapis", "zapisa", "zapisa"),
-			rep.Novih, models.UzBrojHR(rep.Novih, "novi", "nova", "novih"), rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
-		if rep.Napomena != "" {
-			poruka += " " + rep.Napomena + "."
-		}
-		redirectWith(w, r, "/administracija/baza", "success", poruka)
+		h.uveziCop(w, r, tmp)
+		return
+	}
+	h.uveziStaruArhivu(w, r, tmp)
+}
+
+// zabranaNeprovjerenog: dok ovo računalo još nije u mreži, ne zna čiji je
+// potpis na paketu, pa paket vrijedi koliko i stara .db arhiva bez potpisa i
+// uvozi se samo s ovog računala ili iz lokalne mreže (Odluke (30. 10. 2026.),
+// 13). Odbija se prije nego se datoteka primi.
+func (h *DBMaintHandler) zabranaNeprovjerenog(r *http.Request) string {
+	if h.peers.NetworkInfo() != nil {
+		return ""
+	}
+	return porukaZabrane(r, zaNeprovjereno)
+}
+
+// uveziCop ugrađuje potpisani .cop paket
+func (h *DBMaintHandler) uveziCop(w http.ResponseWriter, r *http.Request, tmp string) {
+	rep, err := h.peers.UveziCop(r.Context(), tmp)
+	if err != nil {
+		redirectWith(w, r, "/administracija/baza", "error", err.Error())
+		return
+	}
+	poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d %s u paketu, %d %s; sadržaja upisano %d, za dohvat %d.",
+		rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, models.UzBrojHR(rep.Verzija, "zapis", "zapisa", "zapisa"),
+		rep.Novih, models.UzBrojHR(rep.Novih, "novi", "nova", "novih"), rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
+	if rep.Napomena != "" {
+		poruka += " " + rep.Napomena + "."
+	}
+	redirectWith(w, r, "/administracija/baza", "success", poruka)
+}
+
+// uveziStaruArhivu uvozi staru .db arhivu. Ona nema potpis, pa je globalni
+// administrator uvozi samo s ovog računala ili iz lokalne mreže, kao postavke
+// čvora (Odluke (30. 10. 2026.), 13).
+func (h *DBMaintHandler) uveziStaruArhivu(w http.ResponseWriter, r *http.Request, tmp string) {
+	if poruka := porukaZabrane(r, zaStaruArhivu); poruka != "" {
+		http.Error(w, poruka, http.StatusForbidden)
 		return
 	}
 	rep, err := h.peers.ImportFile(r.Context(), tmp)

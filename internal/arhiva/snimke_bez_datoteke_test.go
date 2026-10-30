@@ -104,6 +104,11 @@ func TestPopisBezDatotekeKojiSeNeDaSloziti(t *testing.T) {
 // ostane kakva je bila: arhivu drži drugi posao, veza je zatvorena, ili
 // brisanje točaka ili snimke ne prođe.
 func TestSnimkaKojaSeNeDaMaknuti(t *testing.T) {
+	// letva ima mapu u stablu, a datoteke snimke u njoj nema
+	koren := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(koren, "dunav", "vodograd"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	snimka := func(t *testing.T) (*sql.DB, string) {
 		t.Helper()
 		put := filepath.Join(t.TempDir(), "arhiva.db")
@@ -133,7 +138,7 @@ func TestSnimkaKojaSeNeDaMaknuti(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer drugi.Pusti()
-		_, err = MakniSnimku(db, put, "vodograd", "2010-03-22")
+		_, err = MakniSnimku(db, put, koren, "vodograd", "2010-03-22")
 		var z *Zauzeto
 		if !asZauzeto(err, &z) || z.Tko != "Ana Anić" {
 			t.Errorf("micanje uz zauzetu arhivu: %v", err)
@@ -143,7 +148,7 @@ func TestSnimkaKojaSeNeDaMaknuti(t *testing.T) {
 	t.Run("zatvorena veza", func(t *testing.T) {
 		db, put := snimka(t)
 		db.Close()
-		if _, err := MakniSnimku(db, put, "vodograd", "2010-03-22"); err == nil {
+		if _, err := MakniSnimku(db, put, koren, "vodograd", "2010-03-22"); err == nil {
 			t.Error("micanje kroz zatvorenu vezu prošlo je")
 		}
 	})
@@ -154,7 +159,7 @@ func TestSnimkaKojaSeNeDaMaknuti(t *testing.T) {
 		t.Run(s.ime, func(t *testing.T) {
 			db, put := snimka(t)
 			kvar(t, db, "DELETE", s.tablica, "")
-			_, err := MakniSnimku(db, put, "vodograd", "2010-03-22")
+			_, err := MakniSnimku(db, put, koren, "vodograd", "2010-03-22")
 			greskaSadrzi(t, s.ime, err, "namjerni kvar")
 			ostalo(t, db)
 		})

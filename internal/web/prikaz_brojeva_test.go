@@ -1515,6 +1515,7 @@ func TestCuvajPovijestStojiUzOcitanja(t *testing.T) {
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
 		Station:     &models.Station{ID: uuid.New(), Name: "Batina", Code: "batina"},
 		GaugeName:   "Batina", Pogled: "30", PogledOpis: "zadnjih 30 dana",
+		CuvanjePovijesti: true,
 	})
 	iGlava := strings.Index(html, `class="detail-actions"`)
 	iOcitanja := strings.Index(html, "Svježa očitanja")

@@ -17,8 +17,8 @@
 {{if .Greska}}
 <section class="detail-section">
   <div class="alert alert-danger">{{icon "triangle-alert"}} {{.Greska}}</div>
-  <p class="page-desc">Paket se provjerava otiskom prije nego se išta upiše. Datoteka koja se putem
-    pokvarila ili nije paket ne ugrađuje se — u arhivu ne smije ući nešto što se usput promijenilo.</p>
+  <p class="page-desc">Paket se provjerava otiskom i potpisom prije nego se išta upiše. Datoteka koja se putem
+    pokvarila, nije paket ili nije potpisana ne ugrađuje se — u arhivu ne smije ući nešto što se usput promijenilo.</p>
   <a href="/stations/{{.Station.ID}}/historijat" class="btn btn-secondary">{{icon "arrow-left"}} Natrag na historijat</a>
 </section>
 
@@ -48,7 +48,7 @@
     </dl>
   </div>
   <p class="page-desc mt-2">Otisak je provjeren — sadržaj paketa odgovara onome
-    što manifest tvrdi.</p>
+    što manifest tvrdi.{{if .Potpis}} {{.Potpis}}{{end}}</p>
 </section>
 
 <section class="detail-section">

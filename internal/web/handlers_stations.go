@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"gocop/internal/hidroview"
 	"gocop/internal/javnivodostaji"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
 	"gocop/internal/service"
@@ -41,6 +43,7 @@ type StationsHandler struct {
 	hidroviewKljuc     func() []byte
 	paketiDirFn        func() string
 	ugradi             func(*arhiva.Sadrzaj) error
+	potpisnik          func(ctx context.Context, izdao string, javni ed25519.PublicKey) (peers.Potpisnik, error)
 	tmplPaket          *template.Template
 	karta              func() KartaPostavke
 	sektor             func(ctx context.Context, id string) *models.Sector

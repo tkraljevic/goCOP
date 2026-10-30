@@ -31,6 +31,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   napravio i s koje adrese. Iz lokalne mreže lozinka ne treba. Uparivanje
   bez prijave iz lokalne mreže traži kod iz dnevnika, i bez Postave.
   Tuđim očima se mreža ne mijenja, a ovo računalo ne zaboravlja samo sebe.
+- **Provjere prava: paketi, uvoz i postavke ovog računala.** Paket letve
+  učitan s diska ugrađuje se samo potpisan, ključem ovog računala ili člana
+  mreže, a pregled kaže tko ga je potpisao. Staru .db arhivu, izvore arhive
+  i „Čuvaj povijest” globalni administrator mijenja samo s ovog računala ili
+  iz lokalne mreže (Odluke (30. 10. 2026.)). Isto vrijedi za paket s diska
+  dok računalo još nije u mreži, jer tada ne zna čiji je potpis. Gumb Makni prije micanja niza ili
+  snimke korita još jednom provjeri da im datoteke i dalje nema, a s
+  oglasne ploče briše se samo zapis koji se na njoj prikazuje.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

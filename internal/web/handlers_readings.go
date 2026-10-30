@@ -300,10 +300,13 @@ type ReadingHistoryData struct {
 	// LetvaStranica govori zajedničkom izborniku gdje se stoji. Prazno kad
 	// stranica nije o letvi nego o vodnoj građevini.
 	LetvaStranica string
-	Followed      bool   // čvor drži cijelu povijest ove letve
-	GaugeURL      string // putanja ove letve, za izvoz i uvoz
-	GaugeKey      string
-	Pager         Pager
+	Followed      bool // čvor drži cijelu povijest ove letve
+	// CuvanjePovijesti: osoba smije mijenjati drži li ovo računalo cijelu
+	// povijest letve; to je postavka ovog računala (Odluke (30. 10. 2026.), 10)
+	CuvanjePovijesti bool
+	GaugeURL         string // putanja ove letve, za izvoz i uvoz
+	GaugeKey         string
+	Pager            Pager
 
 	// Krivulje protoka ove letve. S njima svako očitanje uz vodostaj dobiva i
 	// procjenu protoka — dežurni tako uz visinu vidi i koliko vode prolazi,
@@ -631,6 +634,7 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 			data.Followed = keys[data.GaugeKey]
 		}
 	}
+	data.CuvanjePovijesti = porukaZabrane(r, zaPovijest) == ""
 	f := repository.ReadingFilter{}
 	if structure != nil {
 		f.StructureID = structure.ID.String()

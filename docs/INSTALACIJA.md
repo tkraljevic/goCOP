@@ -745,7 +745,8 @@ koju je svaki čvor upisao u kanal, a akt i zadnju verziju svake svoje
 ovjere), vraća prostor na disku, te izdaje kanal
 kao potpisan `.cop` paket (npr. `gocop-ocitanja-bp16-2024_v1.cop`, po izboru s PDF-ovima i slikama;
 stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u bilo koji čvor:
-arhiva na disku ili prijenos bez mreže. Na stranici prijave stoji kontakt
+arhiva na disku ili prijenos bez mreže. Stari `.db` oblik nema potpis, pa ga
+globalni administrator uvozi samo s tog računala ili iz lokalne mreže. Na stranici prijave stoji kontakt
 glavnog administratora iz registra (mobitel, e-pošta) i centar iz
 `gocop.toml` (odjeljak `[kontakt]`).
 

@@ -68,6 +68,9 @@ type IzvoriPageData struct {
 	Izvori     []IzvorURedu
 	Zanemareno int    // zapisa koji leže u arhivi a ne ulaze u spoj
 	PodaciDir  string // zajedničko stablo, ono koje vrijedi kad izvor nema svoje
+	// Zabrana kaže zašto se izvori odavde ne mijenjaju; prazno kad se
+	// mijenjaju (Odluke (30. 10. 2026.), 10)
+	Zabrana string
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -83,6 +86,7 @@ func (h *IzvoriHandler) pageData(r *http.Request) IzvoriPageData {
 		CurrentUser: u, Permissions: perms,
 		SuccessMessage: r.URL.Query().Get("success"), ErrorMessage: r.URL.Query().Get("error"),
 		ActiveNav: "admin", ViewAsBanner: viewBanner(r),
+		Zabrana: porukaZabrane(r, zaIzvore),
 	}
 }
 
@@ -187,6 +191,20 @@ func stanjeNaDisku(stablo, izvor string) (dostupno bool, datoteka int, greska st
 	return true, len(puts), ""
 }
 
+// mapaPostoji pušta praznu mapu (zajedničko stablo) i mapu koja postoji, a
+// za ostalo vraća korisnika na stranicu s porukom
+func mapaPostoji(w http.ResponseWriter, r *http.Request, mapa string) bool {
+	if mapa == "" {
+		return true
+	}
+	if st, err := os.Stat(mapa); err != nil || !st.IsDir() {
+		redirectWith(w, r, "/administracija/izvori", "error",
+			"Mape "+mapa+" nema, ili nije mapa. Ostavite prazno za zajedničko stablo arhive.")
+		return false
+	}
+	return true
+}
+
 func sadrzi(s []string, x string) bool {
 	for _, v := range s {
 		if v == x {
@@ -198,11 +216,19 @@ func sadrzi(s []string, x string) bool {
 
 // SpremiIzvor mijenja jedan izvor i odmah ponovno spaja letve kojih se tiče.
 // Spajanje ide u istom zahtjevu, jer polovična promjena — nova točnost a
-// stari spoj — znači da stranica pokazuje jedno a arhiva drugo.
+// stari spoj — znači da stranica pokazuje jedno a arhiva drugo. Izvori su
+// postavka ovog računala, pa ih globalni administrator mijenja samo s ovog
+// računala ili iz lokalne mreže, kao postavke čvora (Odluke (30. 10. 2026.),
+// 10). Odbija se prije nego se išta pročita, pa ni odbijena mapa ne otkriva
+// postoji li na disku.
 func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	if data.Permissions == nil || !data.Permissions.IsGlobalAdmin {
 		http.Error(w, "Izvore arhive uređuje administrator", http.StatusForbidden)
+		return
+	}
+	if data.Zabrana != "" {
+		http.Error(w, data.Zabrana, http.StatusForbidden)
 		return
 	}
 	naziv := strings.TrimSpace(r.FormValue("naziv"))
@@ -221,12 +247,8 @@ func (h *IzvoriHandler) SpremiIzvor(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	mapa := strings.TrimSpace(r.FormValue("mapa"))
-	if mapa != "" {
-		if st, err := os.Stat(mapa); err != nil || !st.IsDir() {
-			redirectWith(w, r, "/administracija/izvori", "error",
-				"Mape "+mapa+" nema, ili nije mapa. Ostavite prazno za zajedničko stablo arhive.")
-			return
-		}
+	if !mapaPostoji(w, r, mapa) {
+		return
 	}
 	i := arhiva.Izvor{
 		Naziv: naziv, Tocnost: tocnost, Red: red,

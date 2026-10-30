@@ -22,6 +22,7 @@
       odlučuje točnost. Sitniji poredak ne treba: izmjereno je da ondje gdje se dvije dojave razilaze, ovjereni
       niz je gotovo uvijek ondje i odlučuje.
     </p>
+    {{if .Zabrana}}<p class="page-desc">{{.Zabrana}} Ovdje ih možete samo pregledati.</p>{{end}}
   </div>
 </div>
 
@@ -53,19 +54,19 @@
     </div>
 
     <label class="izvor-sklopka">
-      <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}>
+      <input type="checkbox" name="ukljucen" value="1" {{if .Ukljucen}}checked{{end}}{{if $.Zabrana}} disabled{{end}}>
       <span><strong>Ulazi u spojeni niz</strong></span>
     </label>
 
     <div class="izvor-brojevi">
       <label>
         <span class="part-label">Točnost ±</span>
-        <input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control mono">
+        <input type="text" inputmode="decimal" name="tocnost" value="{{brojHRf .Tocnost 0}}" class="form-control mono"{{if $.Zabrana}} disabled{{end}}>
         <small>68 % vrijednosti</small>
       </label>
       <label>
         <span class="part-label">Red povjerenja</span>
-        <input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control mono">
+        <input type="text" inputmode="numeric" name="red" value="{{.Red}}" class="form-control mono"{{if $.Zabrana}} disabled{{end}}>
         <small>manji broj ide prvi</small>
       </label>
     </div>
@@ -73,7 +74,7 @@
     <label class="izvor-napomena">
       <span class="part-label">Mapa s datotekama</span>
       <input type="text" name="mapa" value="{{.Mapa}}" class="form-control mono"
-             placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}">
+             placeholder="{{if $.PodaciDir}}{{$.PodaciDir}}{{else}}zajedničko stablo arhive{{end}}"{{if $.Zabrana}} disabled{{end}}>
       <small class="izvor-disk">
         {{if not .Stablo}}Nije zadano gdje datoteke stoje.
         {{else if not .Dostupno}}<span class="badge badge-unknown">{{.GreskaPut}}</span> {{.Stablo}}
@@ -86,7 +87,7 @@
     <label class="izvor-napomena">
       <span class="part-label">Napomena</span>
       <input type="text" name="napomena" value="{{.Napomena}}" class="form-control"
-             placeholder="zašto je tako odlučeno">
+             placeholder="zašto je tako odlučeno"{{if $.Zabrana}} disabled{{end}}>
     </label>
 
     {{if .Letve}}
@@ -96,9 +97,11 @@
     </details>
     {{end}}
 
+    {{if not $.Zabrana}}
     <div class="izvor-podnozje">
       <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Spremi</button>
     </div>
+    {{end}}
   </form>
   {{end}}
 </div>

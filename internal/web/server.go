@@ -3,6 +3,7 @@ package web
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -704,6 +705,7 @@ func (s *Server) setupRoutes() {
 		s.UgradiPaket,
 		s.templates["paket_pregled.html"])
 	stationsH.SetPaketiDir(func() string { return s.paketiDir })
+	stationsH.SetPotpisnik(s.potpisnikPaketa)
 	stationsH.SetSektor(func(ctx context.Context, id string) *models.Sector {
 		if s.orgService == nil {
 			return nil
@@ -1184,7 +1186,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /readings/create", s.authMiddleware(http.HandlerFunc(readingsH.HandleCreate)))
 	s.mux.Handle("POST /readings/update", s.authMiddleware(http.HandlerFunc(readingsH.HandleUpdate)))
 	s.mux.Handle("POST /readings/delete", s.authMiddleware(http.HandlerFunc(readingsH.HandleDelete)))
-	s.mux.Handle("POST /readings/follow", s.authMiddleware(http.HandlerFunc(readingsH.HandleFollow)))
+	s.mux.Handle("POST /readings/follow", s.authMiddleware(samoNaCvoru(zaPovijest, http.HandlerFunc(readingsH.HandleFollow))))
 	s.mux.Handle("GET /structures/new", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))
 	s.mux.Handle("GET /structures/{id}", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructure)))
 	s.mux.Handle("GET /structures/{id}/edit", s.authMiddleware(http.HandlerFunc(structuresH.ShowStructureForm)))
@@ -2089,11 +2091,20 @@ func (s *Server) IzgradiLetvu(letva string, zapisi io.Writer) (arhiva.Izvjestaj,
 	return iz, nil
 }
 
+// potpisnikPaketa javlja tko je potpisao paket letve; bez razmjene računalo
+// ne zna čiji je ključ, kao dok nije u mreži
+func (s *Server) potpisnikPaketa(ctx context.Context, izdao string, javni ed25519.PublicKey) (peers.Potpisnik, error) {
+	if s.peersService == nil {
+		return peers.PotpisnikNeprovjeren, nil
+	}
+	return s.peersService.PotpisnikPaketa(ctx, izdao, javni)
+}
+
 // MakniNiz briše niz koji je ostao u arhivi iako mu datoteke u stablu više
 // nema, pa zatim otvara arhivu iznova da program odmah vidi novo stanje.
 func (s *Server) MakniNiz(letva, izvor, velicina, vrsta string) (int, error) {
 	return s.urediArhivu(func(db *sql.DB) (int, error) {
-		return arhiva.MakniNiz(db, s.arhivaPut, letva, izvor, velicina, vrsta)
+		return arhiva.MakniNiz(db, s.arhivaPut, s.podaciDir, letva, izvor, velicina, vrsta)
 	})
 }
 
@@ -2124,7 +2135,7 @@ func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error)
 // stanje.
 func (s *Server) MakniSnimku(letva, datum string) (int, error) {
 	return s.urediArhivu(func(db *sql.DB) (int, error) {
-		return arhiva.MakniSnimku(db, s.arhivaPut, letva, datum)
+		return arhiva.MakniSnimku(db, s.arhivaPut, s.podaciDir, letva, datum)
 	})
 }
 
