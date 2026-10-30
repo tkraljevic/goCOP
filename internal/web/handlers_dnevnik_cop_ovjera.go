@@ -57,12 +57,15 @@ func (h *JournalsHandler) HandleOvjeraCOP(w http.ResponseWriter, r *http.Request
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
+	// Vrijeme ovjere uzima se prije čitanja zapisa: zapis spremljen između
+	// ta dva trenutka ulazi u izvornik, a nijedan zapis koji u izvornik nije
+	// ušao nema vrijeme upisa prije ovjere (oznaka „nastao nakon ovjere”)
+	sad := time.Now()
 	zapisi, err := h.journals.EntriesForJournal(r.Context(), j.ID)
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
-	sad := time.Now()
 	radnja := r.FormValue("radnja")
 	var pdf []byte
 	var m mjestaPotpisaCOP

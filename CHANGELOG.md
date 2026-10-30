@@ -264,6 +264,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   localhost, upisanu javnu adresu i imena iz `[web] lokalna_imena` sve radi
   kao prije. Pod Postavom početna lozinka vrijedi samo na
   `http://localhost`.
+- **Dnevnik COP-a: ovjera ostaje kad stigne zapis s drugog računala.**
+  Zapis upisan na drugom računalu nakon ovjere ostaje u dnevniku i u izvozu
+  u Excel s oznakom „nastao nakon ovjere” i vremenom upisa; ispravljen ili
+  storniran zapis dobije oznaku „izmijenjen” ili „storniran nakon ovjere”.
+  Izmjena zaglavlja ni brisanje dnevnika s računala koje ovjeru još nije
+  primilo ne skidaju ovjeru ni zapise i plan dežurstava (Odluke
+  (30. 10. 2026.)).
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

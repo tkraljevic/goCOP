@@ -4387,6 +4387,7 @@ body.karta-puni-zaslon-otvoren { overflow: hidden; }
 .zapis-kad { font-weight: 700; color: var(--primary); font-variant-numeric: tabular-nums; }
 .zapis-tko { color: var(--text-secondary); overflow-wrap: anywhere; }
 .zapis-upisao { font-size: 0.75rem; color: var(--text-muted); }
+.zapis-nakon-ovjere { font-size: 0.75rem; color: var(--warning-fg); background: var(--warning-bg); border-radius: 4px; padding: 0 0.3rem; display: inline-block; }
 .zapis-tekst { white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Smjena je granica dana, ne običan zapis. */

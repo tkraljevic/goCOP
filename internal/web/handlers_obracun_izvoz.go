@@ -821,6 +821,21 @@ func (h *JournalsHandler) dezurstvaKojaVidi(ctx context.Context, data JournalPag
 	return dezurstva
 }
 
+// napomenaOvjere je napomena uz zapis ovjerenog dnevnika koji je nastao,
+// izmijenjen ili storniran nakon ovjere, kao oznaka na stranici dnevnika
+// (Odluke (30. 10. 2026.)); prazna za ostale zapise
+func napomenaOvjere(j *models.Journal, e models.JournalEntry) string {
+	switch {
+	case j.ZapisNakonOvjere(e):
+		return "\n[nastao nakon ovjere, upisan " + e.CreatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	case j.ZapisIzmijenjenNakonOvjere(e) && e.Voided:
+		return "\n[storniran nakon ovjere, " + e.UpdatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	case j.ZapisIzmijenjenNakonOvjere(e):
+		return "\n[izmijenjen nakon ovjere, " + e.UpdatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	}
+	return ""
+}
+
 // KnjigaDnevnika slaže dnevnik COP-a kao jedan list: zaglavlje, osnovno o
 // dnevniku, zapisi po danima — dan kao naslovni redak, ispod redak po zapisu
 // (storniran ostaje, označen, s razlogom) — pa tko ga je vodio i potpisi.
@@ -929,6 +944,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 			}
 			tekst += "]"
 		}
+		tekst += napomenaOvjere(j, e)
 		upisaoIme := e.UserName
 		if upisaoIme == "" {
 			upisaoIme = e.UpisaoPoDezurstvu

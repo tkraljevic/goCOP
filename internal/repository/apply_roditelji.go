@@ -239,7 +239,8 @@ func imaSpomenik(ctx context.Context, tx *sql.Tx, entitet, id string) (bool, err
 }
 
 // vratiDjecu vraća na površinu djecu zapisa koja su u knjizi živa, a na
-// površini ih nema, i njihovu djecu
+// površini ih nema, i njihovu djecu. Ovjeren dnevnik vraća i djecu čije
+// brisanje ovjeru ne pogađa (vratiDjecuOvjerenog).
 func vratiDjecu(ctx context.Context, tx *sql.Tx, ovaj, entitet, id string) error {
 	for _, r := range vezeRoditelja[entitet] {
 		djeca, err := ziveDjeceIzKnjige(ctx, tx, r, id)
@@ -251,6 +252,9 @@ func vratiDjecu(ctx context.Context, tx *sql.Tx, ovaj, entitet, id string) error
 		if err != nil {
 			return err
 		}
+	}
+	if entitet == EntityJournals {
+		return vratiDjecuOvjerenog(ctx, tx, ovaj, id)
 	}
 	return nil
 }
