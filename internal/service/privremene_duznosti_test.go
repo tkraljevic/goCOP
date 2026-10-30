@@ -133,7 +133,8 @@ func TestStalnaDuznostBezIsteka(t *testing.T) {
 	}
 }
 
-// Privremeni rukovoditelj branjenog područja dodijeli zamjenika: zamjenik je
+// Privremeni zamjenik rukovoditelja sektora za branjeno područje dodijeli
+// zamjenika rukovoditelja područja: zamjenik je
 // privremen i ističe s imenovanjem (kraj obrane, opoziv), a ponovno
 // usklađivanje ne mijenja već prošli istek
 func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
@@ -141,13 +142,15 @@ func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
 	o.ovjeri(t, models.AktUspostava, models.PhaseRegular, time.Now().Add(-time.Hour).Truncate(time.Minute))
 	uprava := o.upravaOrganizacije()
 
-	// privremeni rukovoditelj područja (već ima dužnost vodočuvara)
+	// privremeni zamjenik rukovoditelja sektora za područje (već ima dužnost
+	// vodočuvara); rukovoditelj područja zamjenika ne daje (Odluke
+	// (30. 10. 2026.), 16)
 	podrucje := 1
-	if err := o.users.AddDuty(uprava, service.AddDutyRequest{UserID: o.vodocuv.ID, Role: models.RoleAreaLeader, AreaID: &podrucje,
+	if err := o.users.AddDuty(uprava, service.AddDutyRequest{UserID: o.vodocuv.ID, Role: models.RoleSectorAreaDeputy, AreaID: &podrucje,
 		IsTemporary: true, IsticeSObranom: true, Reason: "nedostaje osoblja"}); err != nil {
 		t.Fatal(err)
 	}
-	imenovanje := o.duznostOsobe(t, o.vodocuv.ID, models.RoleAreaLeader)
+	imenovanje := o.duznostOsobe(t, o.vodocuv.ID, models.RoleSectorAreaDeputy)
 	privremeni, err := o.users.GetUserByID(o.vodocuv.ID)
 	if err != nil {
 		t.Fatal(err)
@@ -173,7 +176,7 @@ func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
 	// kraj obrane: oba ističu u isti trenutak
 	kraj := time.Now().Add(2 * time.Hour).Truncate(time.Minute)
 	o.ovjeri(t, models.AktPrekid, models.PhaseRegular, kraj)
-	if d := o.duznostOsobe(t, o.vodocuv.ID, models.RoleAreaLeader); !istiTrenutak(d.ExpiresAt, kraj) {
+	if d := o.duznostOsobe(t, o.vodocuv.ID, models.RoleSectorAreaDeputy); !istiTrenutak(d.ExpiresAt, kraj) {
 		t.Errorf("imenovanje nakon prekida: %v", d.ExpiresAt)
 	}
 	if d := o.duznostOsobe(t, zamjenik.ID, models.RoleAreaDeputy); !istiTrenutak(d.ExpiresAt, kraj) {

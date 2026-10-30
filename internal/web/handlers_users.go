@@ -320,6 +320,11 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := dutyRequestFromForm(r, userID)
+	if req.Role == "" {
+		// obrazac kreće bez uloge (Odluke (30. 10. 2026.), 18)
+		redirectWith(w, r, "/users/"+userID.String()+"/duties/new", "error", "Zaduženje nije dodano: odaberite ulogu.")
+		return
+	}
 	// primarnu dužnost i vlastiti naziv daje samo tko uređuje cijeli račun;
 	// drugome se dužnost doda kao ispomoć, i to mu se kaže
 	ispomoc := (req.IsPrimary || req.Title != "") && !h.userService.SmijeUredjivatiRacun(perms, userID)
@@ -380,7 +385,12 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 		http.Redirect(w, r, "/users?error=Neispravan+korisnik", http.StatusSeeOther)
 		return
 	}
-	if err := h.userService.UpdateDuty(perms, dutyID, dutyRequestFromForm(r, userID)); err != nil {
+	req := dutyRequestFromForm(r, userID)
+	if req.Role == "" {
+		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", "Zaduženje nije izmijenjeno: odaberite ulogu.")
+		return
+	}
+	if err := h.userService.UpdateDuty(perms, dutyID, req); err != nil {
 		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", err.Error())
 		return
 	}

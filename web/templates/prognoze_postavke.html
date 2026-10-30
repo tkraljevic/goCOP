@@ -48,7 +48,7 @@
     <button type="submit" class="btn btn-primary"{{if .Generira}} disabled{{end}}>
       {{icon "refresh-cw"}} {{if .Generira}}Generiranje u tijeku…{{else}}Generiraj{{end}}</button>
   </form>
-  {{else}}<p class="reg-card-sub">Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.</p>{{end}}
+  {{else}}<p class="reg-card-sub">Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.</p>{{end}}
   <div class="prog-napredak"{{if not .Generira}} hidden{{end}} role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="{{.Napredak.Postotak}}">
     <div class="prog-napredak-traka"><div class="prog-napredak-ispuna" style="width:{{.Napredak.Postotak}}%"></div></div>
     <div class="prog-napredak-tekst"><span class="prog-napredak-postotak">{{.Napredak.Postotak}} %</span> · <span class="prog-napredak-faza">{{.Napredak.Faza}}</span>
