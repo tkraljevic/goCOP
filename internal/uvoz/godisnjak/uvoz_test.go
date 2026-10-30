@@ -1,6 +1,7 @@
 package godisnjak
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -22,8 +23,9 @@ func lazniPdftotext(t *testing.T) {
 	mapa := t.TempDir()
 	skripta := "#!/bin/sh\n" +
 		"[ \"$1\" = \"-layout\" ] || { echo \"bez -layout\" >&2; exit 2; }\n" +
-		"case \"$2\" in *pokvaren*) echo \"nije PDF\" >&2; exit 1;; esac\n" +
-		"exec /bin/cat \"$2\"\n"
+		"[ \"$2\" = \"-l\" ] && [ -n \"$3\" ] || { echo \"bez -l\" >&2; exit 2; }\n" +
+		"case \"$4\" in *pokvaren*) echo \"nije PDF\" >&2; exit 1;; *sporo*) exec /bin/sleep 30;; esac\n" +
+		"exec /bin/cat \"$4\"\n"
 	if err := os.WriteFile(filepath.Join(mapa, "pdftotext"), []byte(skripta), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +52,7 @@ func TestTekstPDF(t *testing.T) {
 	if ImaPDFAlat() {
 		t.Fatal("u praznom PATH-u nema pdftotexta")
 	}
-	if _, err := TekstPDF("bilo.pdf"); err == nil || !strings.Contains(err.Error(), "nema programa pdftotext") {
+	if _, err := TekstPDF(context.Background(), "bilo.pdf"); err == nil || !strings.Contains(err.Error(), "nema programa pdftotext") {
 		t.Errorf("bez alata: %v", err)
 	}
 
@@ -59,11 +61,11 @@ func TestTekstPDF(t *testing.T) {
 		t.Fatal("lažni pdftotext nije nađen")
 	}
 	put := godisnjakNaDisku(t, "1991.pdf", "В О Д О С Т А Ј И\n")
-	tekst, err := TekstPDF(put)
+	tekst, err := TekstPDF(context.Background(), put)
 	if err != nil || tekst != "В О Д О С Т А Ј И\n" {
 		t.Errorf("tekst %q, greška %v", tekst, err)
 	}
-	if _, err := TekstPDF(godisnjakNaDisku(t, "pokvaren.pdf", "x")); err == nil || !strings.HasPrefix(err.Error(), "pdftotext:") {
+	if _, err := TekstPDF(context.Background(), godisnjakNaDisku(t, "pokvaren.pdf", "x")); err == nil || !strings.HasPrefix(err.Error(), "pdftotext:") {
 		t.Errorf("neuspio pdftotext: %v", err)
 	}
 }

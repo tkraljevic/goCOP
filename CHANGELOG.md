@@ -85,6 +85,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Vrata razmjene i tunel: mjesta po adresi i rok rukovanja.** Na portu
   razmjene i kroz tunel veze se ograđuju po adresi, a veza koja ne započne
   rukovanje u 2 s (kroz tunel 3 s) zatvara se.
+- **Provjere pri uvozu: paketi, vodomjerenja i godišnjaci.** Paket arhive i
+  kazalo primaju samo letvu čiji naziv vrijedi i kao naziv mape, najviše
+  64 bajta. Izdavanje piše pakete samo u mapu paketa i preskače letvu koja se
+  od druge razlikuje samo po velikim i malim slovima. Paket kanala (.cop)
+  prvo provjeri potpis i izdavača, svaki dio čita do njegove granice, zapise
+  i popis sadržaja samo do broja iz manifesta, a sadržaj uzima samo kad ga
+  navodi zapis iz paketa. Tablica vodomjerenja HIS-2000 s redom ili stupcem
+  izvan radne tablice ili s previše ćelija javlja grešku. Čitanje godišnjaka
+  iz PDF-a staje nakon dvije minute ili kad se pregled zatvori. Kućni server
+  nadogradite prvi.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

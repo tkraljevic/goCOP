@@ -92,3 +92,20 @@ func TestPokvarenPaketDajePoruku(t *testing.T) {
 		t.Error("nema izlaza sa stranice")
 	}
 }
+
+// Paket letve istog naziva uz drukčija velika i mala slova je paket druge
+// letve; paket iste letve nije.
+func TestPaketDrugeLetve(t *testing.T) {
+	for _, p := range []struct {
+		uPaketu, letva string
+		druga          bool
+	}{
+		{"batina", "batina", false},
+		{"BATINA", "batina", true},
+		{"vukovar", "batina", true},
+	} {
+		if got := drugaLetva(p.uPaketu, p.letva); got != p.druga {
+			t.Errorf("%s uz %s: %v", p.uPaketu, p.letva, got)
+		}
+	}
+}

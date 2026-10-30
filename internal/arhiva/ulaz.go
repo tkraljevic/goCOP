@@ -152,12 +152,27 @@ func ProvjeriSliv(sliv string) error {
 	return nil
 }
 
+// ProvjeriLetvu javlja je li letva upotrebljiva kao naziv mape i kao početak
+// imena paketa (<letva>_v<izdanje>.cop): isto pravilo kao za mape u stablu
+// (dopusteniNaziv). Vrijedi i za letvu koja stigne paketom ili kazalom.
+func ProvjeriLetvu(letva string) error {
+	if !dopusteniNaziv(letva) {
+		return fmt.Errorf("letva %q nije upotrebljiva kao naziv mape", letva)
+	}
+	return nil
+}
+
+// najduziNaziv je najviše bajtova u nazivu mape ili dijela naziva. Najdulja
+// stvarna letva ima 31 znak; ime paketa (<letva>_v<izdanje>.cop) i ime
+// datoteke niza tako ostaju daleko ispod granice imena datoteke (255 bajtova).
+const najduziNaziv = 64
+
 // dopusteniNaziv: samo slova, brojke, crtica i točka, a točka ni na početku
-// ni na kraju. Tako ne prolaze „.” i „..”, skrivene mape, kose i donje crte,
-// razmaci, kontrolni znakovi, znakovi traženja (* ? [) ni znakovi koje
-// Windows ne prima u nazivu (: < > | ").
+// ni na kraju, najviše najduziNaziv bajtova. Tako ne prolaze „.” i „..”,
+// skrivene mape, kose i donje crte, razmaci, kontrolni znakovi, znakovi
+// traženja (* ? [) ni znakovi koje Windows ne prima u nazivu (: < > | ").
 func dopusteniNaziv(s string) bool {
-	return s != "" && strings.Trim(s, ".") == s && strings.IndexFunc(s, nedopustenZnak) < 0
+	return s != "" && len(s) <= najduziNaziv && strings.Trim(s, ".") == s && strings.IndexFunc(s, nedopustenZnak) < 0
 }
 
 func nedopustenZnak(z rune) bool {
@@ -170,8 +185,8 @@ func MapaLetve(koren, sliv, letva string) (string, error) {
 	if err := ProvjeriSliv(sliv); err != nil {
 		return "", err
 	}
-	if !dopusteniNaziv(letva) {
-		return "", fmt.Errorf("letva %q nije upotrebljiva kao naziv mape", letva)
+	if err := ProvjeriLetvu(letva); err != nil {
+		return "", err
 	}
 	mapa := filepath.Join(koren, sliv, letva)
 	return mapa, uStablu(koren, mapa, filepath.Join(sliv, letva))

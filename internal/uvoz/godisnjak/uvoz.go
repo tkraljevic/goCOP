@@ -2,6 +2,7 @@ package godisnjak
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -9,6 +10,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"gocop/internal/arhiva"
@@ -24,6 +27,14 @@ type Zadatak struct {
 	Probno     bool
 	Popis      bool // samo ispiši postaje koje godišnjaci sadrže
 	Dnevnik    io.Writer
+	Ctx        context.Context // prekida čitanje PDF-a; nil znači bez prekida (samo rok)
+}
+
+func (z Zadatak) kontekst() context.Context {
+	if z.Ctx == nil {
+		return context.Background()
+	}
+	return z.Ctx
 }
 
 // Ishod kaže što je zapisano.
@@ -48,6 +59,7 @@ func (a Dan2) Prije(b Dan2) bool {
 
 // Uvezi čita godišnjake i zapiše dnevni niz vodostaja svake tražene postaje.
 func Uvezi(z Zadatak) (Ishod, error) {
+	ctx := z.kontekst()
 	pisi := func(format string, a ...any) {
 		if z.Dnevnik != nil {
 			fmt.Fprintf(z.Dnevnik, format, a...)
@@ -62,7 +74,7 @@ func Uvezi(z Zadatak) (Ishod, error) {
 	var upozorenja []string
 
 	for _, put := range z.Godisnjaci {
-		tekst, err := TekstPDF(put)
+		tekst, err := TekstPDF(ctx, put)
 		if err != nil {
 			return ishod, fmt.Errorf("%s: %w", filepath.Base(put), err)
 		}
@@ -202,18 +214,75 @@ func ImaPDFAlat() bool {
 	return err == nil
 }
 
+// Granice čitanja godišnjaka. Godišnjak ima oko 300 stranica i pdftotext ga
+// pročita za nekoliko sekundi; ništa veće od ovoga nije godišnjak. Najviše
+// dva čitanja idu u isto vrijeme, ostala čekaju red.
+var (
+	rokPDF          = 2 * time.Minute
+	najviseStranica = 1000
+	najviseTeksta   = 64 << 20
+	citaciPDF       = make(chan struct{}, 2)
+)
+
 // TekstPDF vadi tekst iz godišnjaka, s poravnanjem stupaca kakvo tablica i
 // ima; bez -layout se stupci sliju i tablica se ne da pročitati. Tekst vadi
 // pdftotext (paket poppler); skenirani godišnjak bez sloja teksta daje prazno.
-func TekstPDF(put string) (string, error) {
+// Čitanje se prekida kad istekne ctx ili rokPDF, a pdftotext se tada gasi.
+func TekstPDF(ctx context.Context, put string) (string, error) {
 	if !ImaPDFAlat() {
 		return "", fmt.Errorf("na ovom računalu nema programa pdftotext (paket poppler), a bez njega se godišnjak ne može pročitati")
 	}
-	cmd := exec.Command("pdftotext", "-layout", put, "-")
-	cmd.WaitDelay = 5 * time.Second
-	b, err := cmd.Output()
-	if err != nil {
-		return "", fmt.Errorf("pdftotext: %w", err)
+	select {
+	case citaciPDF <- struct{}{}:
+	case <-ctx.Done():
+		return "", ctx.Err()
 	}
-	return string(b), nil
+	defer func() { <-citaciPDF }()
+	rok, prekini := context.WithTimeout(ctx, rokPDF)
+	defer prekini()
+	cmd := exec.CommandContext(rok, "pdftotext", "-layout", "-l", strconv.Itoa(najviseStranica), put, "-")
+	cmd.WaitDelay = 5 * time.Second
+	izlaz := &ograniceniIzlaz{ostalo: najviseTeksta}
+	cmd.Stdout = izlaz
+	if err := greskaPDF(ctx, rok, izlaz, pokreniPDF(cmd)); err != nil {
+		return "", err
+	}
+	tekst := izlaz.b.String()
+	if strings.Count(tekst, "\f") >= najviseStranica {
+		return "", fmt.Errorf("PDF ima %d ili više stranica, a godišnjak ih ima oko 300; ovo nije godišnjak", najviseStranica)
+	}
+	return tekst, nil
+}
+
+// greskaPDF kaže zašto čitanje nije uspjelo: prevelik tekst, istekao rok,
+// prekinut zahtjev ili greška samog pdftotexta.
+func greskaPDF(ctx, rok context.Context, izlaz *ograniceniIzlaz, err error) error {
+	switch {
+	case izlaz.preko:
+		return fmt.Errorf("tekst PDF-a je veći od %d MB; ovo nije godišnjak", najviseTeksta>>20)
+	case ctx.Err() != nil:
+		return ctx.Err()
+	case rok.Err() != nil:
+		return fmt.Errorf("čitanje PDF-a traje dulje od %v, pa je prekinuto", rokPDF)
+	case err != nil:
+		return fmt.Errorf("pdftotext: %w", err)
+	}
+	return nil
+}
+
+// ograniceniIzlaz skuplja izlaz pdftotexta do granice. Preko granice javlja
+// grešku, pa pdftotext ne može više pisati i završi.
+type ograniceniIzlaz struct {
+	b      strings.Builder
+	ostalo int
+	preko  bool
+}
+
+func (o *ograniceniIzlaz) Write(p []byte) (int, error) {
+	if len(p) > o.ostalo {
+		o.preko = true
+		return 0, errors.New("izlaz je prevelik")
+	}
+	o.ostalo -= len(p)
+	return o.b.Write(p)
 }

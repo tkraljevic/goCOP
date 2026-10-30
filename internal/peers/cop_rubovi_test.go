@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand/v2"
 	"os"
 	"path/filepath"
@@ -89,25 +90,43 @@ type gradnjaCopa struct {
 	sadrzaj  map[string][]byte
 	popis    []byte // popis sadržaja kakav ide u paket; nil: iz sadrzaji
 	bez      string // dio koji paket ne nosi
+	dodatno  []datotekaCopa
 }
 
 var pdfIzvornika = []byte("%PDF-1.4 izvornik prijave, Ana Anić")
 
-func novaGradnjaCopa(t *testing.T) *gradnjaCopa {
+// slikaUKazalu je otisak slike koju paket samo navodi, bez bajtova.
+var slikaUKazalu = sadrzaj.Otisak([]byte("slika prijave"))
+
+// izvornikPrijave je redak zapisa izvornika prijave koji navodi sadržaj.
+func izvornikPrijave(t *testing.T, n int, otisak, vrsta string, bajtova int) []byte {
 	t.Helper()
-	v := ledger.Version{VersionID: "0190a000-0000-7000-8000-000000000001", Entity: "prijave_izvornici", EntityID: "p-1",
-		NodeID: "cop-osijek", Payload: json.RawMessage(`{"otisak":"x"}`), Channel: "prijave/16/2026"}
+	payload, err := json.Marshal(map[string]any{"otisak": otisak, "vrsta": vrsta, "bajtova": bajtova})
+	if err != nil {
+		t.Fatal(err)
+	}
+	v := ledger.Version{VersionID: fmt.Sprintf("0190a000-0000-7000-8000-%012d", n), Entity: "prijave_izvornici",
+		EntityID: fmt.Sprintf("p-%d", n), NodeID: "cop-osijek", Payload: payload, Channel: "prijave/16/2026"}
 	red, err := json.Marshal(v)
 	if err != nil {
 		t.Fatal(err)
 	}
+	return append(red, '\n')
+}
+
+// novaGradnjaCopa je ispravan paket s dva zapisa izvornika: jedan nosi PDF
+// u paketu, drugi samo navodi sliku. Između zapisa su prazni reci.
+func novaGradnjaCopa(t *testing.T) *gradnjaCopa {
+	t.Helper()
 	otisak := sadrzaj.Otisak(pdfIzvornika)
+	zapisi := append([]byte("\n"), izvornikPrijave(t, 1, otisak, "application/pdf", len(pdfIzvornika))...)
+	zapisi = append(append(zapisi, "  \n"...), izvornikPrijave(t, 2, slikaUKazalu, "image/jpeg", 10)...)
 	return &gradnjaCopa{
-		m:      CopManifest{Inacica: CopInacica, Obuhvat: CopObuhvat{Vrsta: "prijave", AreaID: 16}, Kanali: []string{"prijave/16/2026"}, Izdanje: 1, Izdao: "cop-osijek", Zapisa: 1, Sadrzaja: 2},
-		zapisi: append(append(append([]byte("\n"), red...), '\n'), []byte("  \n")...),
+		m:      CopManifest{Inacica: CopInacica, Obuhvat: CopObuhvat{Vrsta: "prijave", AreaID: 16}, Kanali: []string{"prijave/16/2026"}, Izdanje: 1, Izdao: "cop-osijek", Zapisa: 2, Sadrzaja: 2},
+		zapisi: zapisi,
 		sadrzaji: []CopSadrzaj{
 			{Otisak: otisak, Vrsta: "application/pdf", Bajtova: len(pdfIzvornika), Kanal: "prijave/16/2026", Ukljucen: true},
-			{Otisak: "0000-samo-u-kazalu", Vrsta: "image/jpeg", Bajtova: 10, Kanal: "prijave/16/2026"},
+			{Otisak: slikaUKazalu, Vrsta: "image/jpeg", Bajtova: 10, Kanal: "prijave/16/2026"},
 		},
 		sadrzaj: map[string][]byte{otisak: pdfIzvornika},
 	}
@@ -132,11 +151,41 @@ func (g *gradnjaCopa) slozi(t *testing.T) []byte {
 	for o, b := range g.sadrzaj {
 		dat = append(dat, datotekaCopa{ime: "sadrzaj/" + o, b: b})
 	}
-	return zipCopa(t, dat...)
+	return zipCopa(t, append(dat, g.dodatno...)...)
 }
 
+// procitajCop čita paket kao uvoz nakon provjere izdavača: manifest,
+// zapise, popis i otisak svakog uključenog sadržaja.
+func procitajCop(b []byte) (CopManifest, []ledger.Version, []CopSadrzaj, error) {
+	p, err := otvoriCop(bytes.NewReader(b), int64(len(b)))
+	if err != nil {
+		return p.m, nil, nil, err
+	}
+	versions, sadrzaji, err := p.zapisi()
+	if err == nil {
+		err = p.provjeriSadrzaje(sadrzaji)
+	}
+	if err != nil {
+		return p.m, nil, nil, err
+	}
+	return p.m, versions, sadrzaji, nil
+}
+
+// citajCop čita paket kao procitajCop i uz to bajtove uključenih sadržaja,
+// kako ih uvoz upisuje.
 func citajCop(b []byte) (CopManifest, []ledger.Version, []CopSadrzaj, map[string][]byte, error) {
-	return CitajCop(bytes.NewReader(b), int64(len(b)))
+	m, verzije, sadrzaji, err := procitajCop(b)
+	if err != nil {
+		return m, verzije, sadrzaji, nil, err
+	}
+	p, err := otvoriCop(bytes.NewReader(b), int64(len(b)))
+	bajtovi := map[string][]byte{}
+	for _, sd := range sadrzaji {
+		if sd.Ukljucen && err == nil {
+			bajtovi[sd.Otisak], err = p.procitajSadrzaj(sd.Otisak)
+		}
+	}
+	return m, verzije, sadrzaji, bajtovi, err
 }
 
 // Ispravan paket se pročita: prazni reci zapisa se preskaču, a bajtove ima
@@ -147,7 +196,7 @@ func TestCitanjeCopaPreskaceIzostavljeno(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if m.Izdao != "cop-osijek" || len(verzije) != 1 || verzije[0].EntityID != "p-1" || len(sadrzaji) != 2 {
+	if m.Izdao != "cop-osijek" || len(verzije) != 2 || verzije[0].EntityID != "p-1" || len(sadrzaji) != 2 {
 		t.Fatalf("pročitano: %+v %+v %+v", m, verzije, sadrzaji)
 	}
 	if len(bajtovi) != 1 || !bytes.Equal(bajtovi[sadrzaji[0].Otisak], pdfIzvornika) {
@@ -183,8 +232,11 @@ func TestCitanjeCopaOdbija(t *testing.T) {
 		{"bez popisa sadržaja", func(g *gradnjaCopa) []byte { g.bez = "sadrzaji.json"; return g.slozi(t) }, "nema sadrzaji.json"},
 		{"popis nije JSON", func(g *gradnjaCopa) []byte { g.popis = []byte("nije popis"); return g.slozi(t) }, "popis sadržaja nije čitljiv"},
 		{"drugi otisak", func(g *gradnjaCopa) []byte { g.m.Otisak = "a1b2c3"; return g.slozi(t) }, "otisak paketa se ne slaže"},
-		{"zapis nije JSON", func(g *gradnjaCopa) []byte { g.zapisi = []byte("nije zapis\n"); return g.slozi(t) }, "zapis nije čitljiv"},
-		{"broj zapisa", func(g *gradnjaCopa) []byte { g.m.Zapisa = 2; return g.slozi(t) }, "manifest kaže 2 zapisa, u paketu ih je 1"},
+		{"zapis nije JSON", func(g *gradnjaCopa) []byte {
+			g.zapisi = append(bytes.Repeat([]byte("nije zapis "), 20), '\n')
+			return g.slozi(t)
+		}, "zapis nije čitljiv"},
+		{"broj zapisa", func(g *gradnjaCopa) []byte { g.m.Zapisa = 3; return g.slozi(t) }, "manifest kaže 3 zapisa, u paketu ih je 2"},
 		{"uključen sadržaj nedostaje", func(g *gradnjaCopa) []byte { g.sadrzaj = nil; return g.slozi(t) }, "nema sadrzaj/" + otisak},
 		{"sadržaj ne odgovara otisku", func(g *gradnjaCopa) []byte {
 			g.sadrzaj = map[string][]byte{otisak: []byte("%PDF-1.4 podmetnuto")}
@@ -624,8 +676,8 @@ func TestIzvozCopaKadPisanjePadne(t *testing.T) {
 }
 
 // Sadržaj koji čvor ne drži ide u popis paketa, ali bez bajtova; arhivirani
-// izvornik, izvornik bez otiska i nečitljiv zapis ne idu u popis, a
-// izvornik bez vrste je PDF.
+// izvornik, izvornik bez otiska ili s nečim što nije otisak i nečitljiv
+// zapis ne idu u popis, a izvornik bez vrste je PDF.
 func TestIzvozCopaPopisSadrzaja(t *testing.T) {
 	s := rubnaMreza(t, "cop-osijek")
 	sp, _ := sadrzaj.Otvori("")
@@ -638,12 +690,14 @@ func TestIzvozCopaPopisSadrzaja(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	upisi("l-1", map[string]any{"otisak": "aa11", "bajtova": 120})
-	upisi("l-2", map[string]any{"otisak": "aa11", "bajtova": 120, "vrsta": "application/pdf"})
+	aa, bb := sadrzaj.Otisak([]byte("izvornik lista")), sadrzaj.Otisak([]byte("slika lista"))
+	upisi("l-1", map[string]any{"otisak": aa, "bajtova": 120})
+	upisi("l-2", map[string]any{"otisak": aa, "bajtova": 120, "vrsta": "application/pdf"})
 	upisi("l-3", map[string]any{"bajtova": 7})
-	upisi("l-4", map[string]any{"otisak": "bb22", "vrsta": "image/jpeg", "bajtova": 30})
+	upisi("l-4", map[string]any{"otisak": bb, "vrsta": "image/jpeg", "bajtova": 30})
 	upisi("l-5", []string{"nije", "izvornik"})
-	if _, err := s.rec.ArchiveIn(ctxRub, s.db, kanal, "vodocuvarski_izvornici", "l-4", map[string]any{"otisak": "bb22"}); err != nil {
+	upisi("l-6", map[string]any{"otisak": "aa11", "bajtova": 5})
+	if _, err := s.rec.ArchiveIn(ctxRub, s.db, kanal, "vodocuvarski_izvornici", "l-4", map[string]any{"otisak": bb}); err != nil {
 		t.Fatal(err)
 	}
 	var paket bytes.Buffer
@@ -658,10 +712,10 @@ func TestIzvozCopaPopisSadrzaja(t *testing.T) {
 	if m.Sadrzaja != 2 || m.Ukljuceno != 0 || len(bajtovi) != 0 || len(popis) != 2 {
 		t.Fatalf("manifest %+v, popis %+v", m, popis)
 	}
-	if popis[0].Otisak != "aa11" || popis[0].Vrsta != "application/pdf" || popis[0].Kanal != kanal || popis[0].Ukljucen {
+	if popis[0].Otisak != aa || popis[0].Vrsta != "application/pdf" || popis[0].Kanal != kanal || popis[0].Ukljucen {
 		t.Errorf("izvornik bez vrste: %+v", popis[0])
 	}
-	if popis[1].Otisak != "bb22" || popis[1].Vrsta != "image/jpeg" {
+	if popis[1].Otisak != bb || popis[1].Vrsta != "image/jpeg" {
 		t.Errorf("izvornik koji je u knjizi i arhiviran: %+v", popis[1])
 	}
 }

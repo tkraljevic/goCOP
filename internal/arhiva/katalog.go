@@ -20,7 +20,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
+	"strings"
 	"time"
 
 	"gocop/internal/trajno"
@@ -166,6 +168,8 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, uMrezi UMrezi, za
 		return iz, err
 	}
 	poLetvi := prijasnji.PoLetvi()
+	letve = ispravneLetve(letve, &iz, zapisi)
+	letve = bezIstihPoSlovima(letve, prijasnji.Paketi, &iz, zapisi)
 
 	novi := Katalog{Inacica: PaketInacica, Nastalo: time.Now().UTC(), Izdao: izdao}
 	for i, letva := range letve {
@@ -225,7 +229,7 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, uMrezi UMrezi, za
 			letva, izdanje, stanje, m.Zapisa, m.Od, m.Do, float64(b.Len())/1e3)
 
 		if !probno {
-			if err := ZapisiSaStrane(filepath.Join(uMapu, ime), b.Bytes()); err != nil {
+			if err := zapisiPaket(uMapu, ime, b.Bytes()); err != nil {
 				return iz, err
 			}
 		}
@@ -336,11 +340,108 @@ func zadrziPrijasnje(novi, prijasnji []UPaketu, zapisi io.Writer) []UPaketu {
 		switch {
 		case p.Letva == "":
 			_, _ = fmt.Fprintln(zapisi, "  izbacujem iz kataloga prazan redak bez letve")
+		case ProvjeriRedKataloga(p) != nil:
+			_, _ = fmt.Fprintf(zapisi, "  izbacujem iz kataloga redak %q: %v\n", p.Letva, ProvjeriRedKataloga(p)) // dnevnik izdavanja, greška pisanja ne mijenja ishod
 		case !imamo[p.Letva]:
 			novi = append(novi, p)
 		}
 	}
 	return novi
+}
+
+// ispravneLetve izbacuje letve čiji naziv nije upotrebljiv kao ime paketa
+// (ProvjeriLetvu). Takva je mogla u arhivu ući paketom prije te provjere; ne
+// izdaje se, a izdavanje se javlja kao preskočeno.
+func ispravneLetve(letve []string, iz *IzvjestajIzdanja, zapisi io.Writer) []string {
+	out := letve[:0:0]
+	for _, l := range letve {
+		if err := ProvjeriLetvu(l); err != nil {
+			_, _ = fmt.Fprintf(zapisi, "  %-18q preskačem: %v\n", l, err) // dnevnik izdavanja, greška pisanja ne mijenja ishod
+			iz.Redci = append(iz.Redci, RedIzdanja{Letva: l, Greska: err.Error()})
+			iz.Preskocenih++
+			continue
+		}
+		out = append(out, l)
+	}
+	return out
+}
+
+// bezIstihPoSlovima izbacuje letvu čiji se naziv od druge letve razlikuje
+// samo po velikim i malim slovima. Na macOS-u i Windowsu obje bi pisale u
+// istu datoteku paketa. Ostaje letva koja je već u katalogu; kad nijedna nije,
+// ne izdaje se nijedna.
+func bezIstihPoSlovima(letve []string, katalog []UPaketu, iz *IzvjestajIzdanja, zapisi io.Writer) []string {
+	sk := skupinePoSlovima(letve, katalog)
+	out := letve[:0:0]
+	for _, l := range letve {
+		if g := sk.letve[strings.ToLower(l)]; !sk.ostaje(l) {
+			druga := g[0]
+			if druga == l {
+				druga = g[1]
+			}
+			razlog := fmt.Sprintf("druga letva ima isti naziv uz drukčija velika i mala slova (%s)", druga)
+			_, _ = fmt.Fprintf(zapisi, "  %-18s preskačem: %s\n", l, razlog) // dnevnik izdavanja, greška pisanja ne mijenja ishod
+			iz.Redci = append(iz.Redci, RedIzdanja{Letva: l, Greska: razlog})
+			iz.Preskocenih++
+			continue
+		}
+		out = append(out, l)
+	}
+	return out
+}
+
+// skupinaPoSlovima su letve istog naziva bez obzira na velika i mala slova,
+// po nazivu malim slovima; letva iz kataloga je prva u svojoj skupini.
+type skupinaPoSlovima struct {
+	letve      map[string][]string
+	izKataloga map[string]bool
+}
+
+func skupinePoSlovima(letve []string, katalog []UPaketu) skupinaPoSlovima {
+	sk := skupinaPoSlovima{letve: map[string][]string{}, izKataloga: map[string]bool{}}
+	for _, p := range katalog {
+		if k := strings.ToLower(p.Letva); !sk.izKataloga[k] {
+			sk.izKataloga[k] = true
+			sk.letve[k] = []string{p.Letva}
+		}
+	}
+	for _, l := range letve {
+		k := strings.ToLower(l)
+		if !slices.Contains(sk.letve[k], l) {
+			sk.letve[k] = append(sk.letve[k], l)
+		}
+	}
+	return sk
+}
+
+// ostaje: letva je sama u skupini, ili je ona iz kataloga.
+func (sk skupinaPoSlovima) ostaje(l string) bool {
+	k := strings.ToLower(l)
+	g := sk.letve[k]
+	return g[0] == l && (len(g) == 1 || sk.izKataloga[k])
+}
+
+// ProvjeriRedKataloga javlja je li redak kataloga upotrebljiv: letva po
+// pravilu naziva i datoteka, ako je ima, kao obično ime u mapi paketa, bez
+// mape ispred. Redak bez datoteke ostaje kakav jest (izdanje 0.0.37).
+func ProvjeriRedKataloga(p UPaketu) error {
+	if err := ProvjeriLetvu(p.Letva); err != nil {
+		return err
+	}
+	d := p.Datoteka
+	if d != "" && (filepath.Base(d) != d || strings.ContainsAny(d, `/\`) || strings.Trim(d, ".") == "") {
+		return fmt.Errorf("datoteka %q nije obično ime u mapi paketa", p.Datoteka)
+	}
+	return nil
+}
+
+// zapisiPaket zapisuje paket pod imenom ime, samo izravno u mapu paketa.
+func zapisiPaket(uMapu, ime string, b []byte) error {
+	put := filepath.Join(uMapu, ime)
+	if filepath.Dir(put) != filepath.Clean(uMapu) {
+		return fmt.Errorf("paket %s ne stoji u mapi paketa", ime)
+	}
+	return ZapisiSaStrane(put, b)
 }
 
 // LetveUArhivi vraća letve koje imaju barem jedan niz, poredane.
