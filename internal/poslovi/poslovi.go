@@ -186,6 +186,8 @@ type Registar struct {
 	mu sync.Mutex
 	m  map[string]*Posao
 	br int64
+	// rade broji poslove koji još traju, da ih Pricekaj može pričekati
+	rade sync.WaitGroup
 }
 
 func NoviRegistar() *Registar { return &Registar{m: map[string]*Posao{}} }
@@ -209,16 +211,21 @@ func (r *Registar) Pokreni(naziv, korisnik, odrediste string, f func(*Posao) err
 	r.m[p.ID] = p
 	r.mu.Unlock()
 
-	go func() {
+	r.rade.Go(func() {
 		defer func() {
 			if x := recover(); x != nil {
 				p.zavrsi(fmt.Errorf("posao je pukao: %v", x))
 			}
 		}()
 		p.zavrsi(f(p))
-	}()
+	})
 	return p
 }
+
+// Pricekaj se vraća kad završe svi pokrenuti poslovi. Test ih pričeka prije
+// nego što zatvori bazu: posao koji je usred upita svoju vezu zatvara tek kad
+// je vrati, pa bi SQLite još pisao u privremenu mapu koju test briše.
+func (r *Registar) Pricekaj() { r.rade.Wait() }
 
 // Nadi vraća posao ako pripada tome tko pita. Tuđi posao se ne pokazuje: u
 // njegovu dnevniku piše što je netko drugi radio s arhivom.

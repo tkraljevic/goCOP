@@ -3,7 +3,9 @@ package poslovi
 import (
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -132,4 +134,27 @@ func TestPlodStizeStranici(t *testing.T) {
 	if !ok || plod["promijenjenih"] != 3 {
 		t.Errorf("plod %v", p.Plod())
 	}
+}
+
+// Pricekaj se vraća tek kad posao završi
+func TestPricekajCekaPosao(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		r := NoviRegistar()
+		pusti := make(chan struct{})
+		r.Pokreni("proba", "covjek", "", func(*Posao) error { <-pusti; return nil })
+		var docekao atomic.Bool
+		go func() {
+			r.Pricekaj()
+			docekao.Store(true)
+		}()
+		synctest.Wait()
+		if docekao.Load() {
+			t.Fatal("Pricekaj se vratio dok posao još radi")
+		}
+		close(pusti)
+		synctest.Wait()
+		if !docekao.Load() {
+			t.Fatal("Pricekaj se nije vratio kad je posao završio")
+		}
+	})
 }

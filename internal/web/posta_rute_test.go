@@ -146,7 +146,11 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	h.SetPotpis(tmpl("posta_potpis.html"))
 	mux.HandleFunc("GET /profile/potpis", h.ShowPotpis)
 	mux.HandleFunc("POST /profile/potpis", h.HandlePotpis)
-	h.SetImenik(tmpl("imenik_exchange.html"), poslovi.NoviRegistar())
+	// zadnji upisi iz adresara pokreću usporedbu koju test ne čita; pričeka se
+	// prije zatvaranja baze (defer ide obrnutim redom)
+	imenik := poslovi.NoviRegistar()
+	defer imenik.Pricekaj()
+	h.SetImenik(tmpl("imenik_exchange.html"), imenik)
 	mux.HandleFunc("GET /users/exchange", h.ShowImenik)
 	mux.HandleFunc("POST /users/exchange", h.HandleImenikPrimijeni)
 	mux.HandleFunc("POST /users/exchange/usporedi", h.HandleImenikUsporedi)
