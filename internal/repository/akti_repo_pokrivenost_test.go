@@ -27,7 +27,7 @@ func sSpremistemAkata(t *testing.T) {
 	SetSpremiste(sp)
 	t.Cleanup(func() {
 		SetSpremiste(prijasnje)
-		_ = sp.Zatvori()
+		_ = sp.Zatvori() // probni podaci su ispravni; kvar bi pokazala provjera niže
 	})
 }
 
@@ -101,7 +101,7 @@ func TestDeleteAktSamoNacrt(t *testing.T) {
 	if err := repo.DeleteAkt(ctx, ovjereni.ID); err == nil {
 		t.Error("ovjeren akt je obrisan")
 	}
-	if a, _ := repo.GetAkt(ctx, ovjereni.ID); a == nil {
+	if a, err := repo.GetAkt(ctx, ovjereni.ID); err != nil || a == nil {
 		t.Error("ovjerenog akta nema")
 	}
 
@@ -128,22 +128,22 @@ func TestDeleteAktTrajnoSIzvornikomISlanjima(t *testing.T) {
 		{AktID: a.ID, Adresa: "vgi@primjer.hr", Naziv: "VGI", Poslao: "Ana Anić", Kad: kad, Uspjelo: true},
 		{AktID: a.ID, Adresa: "krivo@primjer", Poslao: "Ana Anić", Kad: kad, Greska: "adresa ne postoji"},
 	}))
-	slanja, _ := repo.ListSlanja(ctx, a.ID)
+	slanja, _ := repo.ListSlanja(ctx, a.ID) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(slanja) != 2 {
 		t.Fatalf("slanja prije brisanja: %d", len(slanja))
 	}
-	if iz, _ := repo.GetIzvornik(ctx, a.ID); iz == nil || !bytes.Equal(iz.PDF, []byte("%PDF-1.4 akt")) {
+	if iz, err := repo.GetIzvornik(ctx, a.ID); err != nil || iz == nil || !bytes.Equal(iz.PDF, []byte("%PDF-1.4 akt")) {
 		t.Fatalf("izvornik prije brisanja: %+v", iz)
 	}
 
 	nuzno(t, repo.DeleteAktTrajno(ctx, a.ID))
-	if x, _ := repo.GetAkt(ctx, a.ID); x != nil {
+	if x, err := repo.GetAkt(ctx, a.ID); err != nil || x != nil {
 		t.Error("akt je ostao")
 	}
 	if iz, err := repo.GetIzvornik(ctx, a.ID); err != nil || iz != nil {
 		t.Errorf("izvornik je ostao: %+v, %v", iz, err)
 	}
-	if sl, _ := repo.ListSlanja(ctx, a.ID); len(sl) != 0 {
+	if sl, err := repo.ListSlanja(ctx, a.ID); err != nil || len(sl) != 0 {
 		t.Errorf("slanja su ostala: %d", len(sl))
 	}
 	knjiga := ledger.New(baza, "cop-osijek")
@@ -194,10 +194,10 @@ func TestRegistarPrimatelja(t *testing.T) {
 	// nepostojeći nije greška
 	nuzno(t, repo.DeletePrimatelj(ctx, "nema"))
 	nuzno(t, repo.DeletePrimatelj(ctx, popis[1].ID))
-	if p, _ := repo.GetPrimatelj(ctx, popis[1].ID); p != nil {
+	if p, err := repo.GetPrimatelj(ctx, popis[1].ID); err != nil || p != nil {
 		t.Error("primatelj je ostao")
 	}
-	if ostali, _ := repo.ListPrimatelji(ctx, "B"); len(ostali) != 3 {
+	if ostali, err := repo.ListPrimatelji(ctx, "B"); err != nil || len(ostali) != 3 {
 		t.Errorf("ostali primatelji: %d", len(ostali))
 	}
 	v, err := ledger.New(baza, "cop-osijek").Latest(ctx, EntityPrimatelji, popis[1].ID)
@@ -224,7 +224,7 @@ func TestSprancaZadanaIUredena(t *testing.T) {
 		t.Errorf("uređena špranca: %+v", ured)
 	}
 	// drugi sektor i dalje ima zadanu
-	if a, _ := repo.GetSpranca(ctx, "A"); a.Zavrsno != models.ZadanaSpranca("A").Zavrsno {
+	if a, err := repo.GetSpranca(ctx, "A"); err != nil || a.Zavrsno != models.ZadanaSpranca("A").Zavrsno {
 		t.Errorf("špranca sektora A: %q", a.Zavrsno)
 	}
 }
@@ -266,7 +266,7 @@ func TestUgovorneFirmePodrucja(t *testing.T) {
 		firme[1].Email != "ured@vodogradnja.primjer" || firme[0].Skupina != models.SkupinaIspostava {
 		t.Errorf("ugovorne firme područja 34: %+v", firme)
 	}
-	if firme, _ := repo.UgovorneFirme(context.Background(), 99); len(firme) != 0 {
+	if firme, err := repo.UgovorneFirme(context.Background(), 99); err != nil || len(firme) != 0 {
 		t.Errorf("područje bez firmi: %+v", firme)
 	}
 }
@@ -298,7 +298,7 @@ func TestRacuniPosteNaCvoru(t *testing.T) {
 	if ok, err := repo.DeleteRacunPoste(ctx, "drugi"); err != nil || ok {
 		t.Errorf("drugo brisanje računa: %v, %v", ok, err)
 	}
-	if x, _ := repo.GetRacunPoste(ctx, "drugi"); x != nil {
+	if x, err := repo.GetRacunPoste(ctx, "drugi"); err != nil || x != nil {
 		t.Error("obrisani račun se čita")
 	}
 }
@@ -346,13 +346,13 @@ func TestPopuniOtiskeRacunaPoste(t *testing.T) {
 	if x == nil || string(x.OtisakLozinke) != "otisak:sazetak-ana" || x.SazetakLozinke != "sazetak-ana" {
 		t.Errorf("Anin račun: %+v", x)
 	}
-	if x, _ := repo.GetRacunPoste(ctx, ivo.ID.String()); x != nil {
+	if x, err := repo.GetRacunPoste(ctx, ivo.ID.String()); err != nil || x != nil {
 		t.Error("Ivin zapis nakon promjene lozinke nije obrisan")
 	}
-	if x, _ := repo.GetRacunPoste(ctx, eva.ID.String()); x == nil || string(x.OtisakLozinke) != "stari-otisak" {
+	if x, err := repo.GetRacunPoste(ctx, eva.ID.String()); err != nil || x == nil || string(x.OtisakLozinke) != "stari-otisak" {
 		t.Errorf("Evin zapis s otiskom: %+v", x)
 	}
-	if ids, _ := repo.KorisniciSRacunomPoste(ctx); len(ids) != 2 {
+	if ids, err := repo.KorisniciSRacunomPoste(ctx); err != nil || len(ids) != 2 {
 		t.Errorf("ostali računi: %v", ids)
 	}
 
@@ -384,7 +384,7 @@ func TestPostavkeIPotpisPoste(t *testing.T) {
 	}
 	nuzno(t, repo.SavePostavka(ctx, PostavkaPosta, `{"posluzitelj":"posta.primjer.hr"}`))
 	nuzno(t, repo.SavePostavka(ctx, PostavkaPosta, `{"posluzitelj":"mail.primjer.hr"}`))
-	if v, _ := repo.GetPostavka(ctx, PostavkaPosta); v != `{"posluzitelj":"mail.primjer.hr"}` {
+	if v, err := repo.GetPostavka(ctx, PostavkaPosta); err != nil || v != `{"posluzitelj":"mail.primjer.hr"}` {
 		t.Errorf("postavka nakon izmjene: %q", v)
 	}
 
@@ -392,7 +392,7 @@ func TestPostavkeIPotpisPoste(t *testing.T) {
 		t.Fatalf("prazan potpis: %q, %v", h, err)
 	}
 	nuzno(t, repo.SavePotpis(ctx, &PotpisPoste{UserID: "ana", HTML: "<p>Ana Anić</p>"}))
-	if h, _ := repo.GetPotpis(ctx, "ana"); h != "<p>Ana Anić</p>" {
+	if h, err := repo.GetPotpis(ctx, "ana"); err != nil || h != "<p>Ana Anić</p>" {
 		t.Errorf("potpis: %q", h)
 	}
 }
@@ -413,7 +413,7 @@ func TestZigSektora(t *testing.T) {
 	// brisanje nepostojećeg nije greška
 	nuzno(t, repo.DeleteZig(ctx, "A"))
 	nuzno(t, repo.DeleteZig(ctx, "B"))
-	if z, _ := repo.GetZig(ctx, "B"); z != nil {
+	if z, err := repo.GetZig(ctx, "B"); err != nil || z != nil {
 		t.Error("žig je ostao")
 	}
 	v, err := ledger.New(baza, "cop-osijek").Latest(ctx, EntityZigovi, "B")
@@ -443,7 +443,7 @@ func TestSkenPotpisaSamoLokalno(t *testing.T) {
 		t.Errorf("sken potpisa u knjizi: %d verzija", verzija)
 	}
 	nuzno(t, repo.DeletePotpisSlika(ctx, "ana"))
-	if z, _ := repo.GetPotpisSlika(ctx, "ana"); z != nil {
+	if z, err := repo.GetPotpisSlika(ctx, "ana"); err != nil || z != nil {
 		t.Error("sken je ostao")
 	}
 }

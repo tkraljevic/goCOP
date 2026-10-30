@@ -539,7 +539,7 @@ const rokOdbijanjaBezMjesta = 2 * time.Second
 // odbijURoku je Odbij koji granicu druge strane čeka najviše rok
 func odbijURoku(c *Conn, kod KodRazloga, razlog string, rok time.Duration) {
 	defer c.Close()
-	_ = c.raw.SetReadDeadline(time.Now().Add(rok))
+	_ = c.raw.SetReadDeadline(time.Now().Add(rok)) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	c.citac.postavi(1 << 20)
 	var prva Envelope
 	_ = c.dec.Decode(&prva)

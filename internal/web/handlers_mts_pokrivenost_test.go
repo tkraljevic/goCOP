@@ -371,7 +371,7 @@ func TestSredstvaPromatracNePise(t *testing.T) {
 	}
 	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/skladista/"+o.sk.ID), "kartica skladišta",
 		"SmijePisati=false", "SmijeUrediti=false", "Skladiste=Skladište Bilje", "Promet=2;")
-	if v, _ := o.svc.Vrsta(context.Background(), "lopata"); v == nil {
+	if v, err := o.svc.Vrsta(context.Background(), "lopata"); err != nil || v == nil {
 		t.Error("promatrač je obrisao vrstu")
 	}
 }
@@ -391,14 +391,14 @@ func TestObrazacSkladista(t *testing.T) {
 func TestSpremanjeSkladista(t *testing.T) {
 	o := novaOkolinaSredstava(t)
 	ctx := context.Background()
-	prije, _ := o.svc.Skladiste(ctx, o.sk.ID)
+	prije, _ := o.svc.Skladiste(ctx, o.sk.ID) // probni podaci su ispravni; kvar bi pokazala provjera niže
 
 	put, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/skladista/"+o.sk.ID,
 		url.Values{"naziv": {"Skladište Bilje II"}, "sektor": {"B"}, "area_id": {"34"}, "adresa": {"Bilje 1"}}), "success")
 	if put != "/sredstva/skladista/"+o.sk.ID || poruka != "Skladište je upisano." {
 		t.Errorf("izmjena: %s %q", put, poruka)
 	}
-	poslije, _ := o.svc.Skladiste(ctx, o.sk.ID)
+	poslije, _ := o.svc.Skladiste(ctx, o.sk.ID) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if poslije.Naziv != "Skladište Bilje II" || poslije.Adresa != "Bilje 1" || !poslije.CreatedAt.Equal(prije.CreatedAt) || !poslije.Aktivno {
 		t.Errorf("poslije izmjene: %+v (nastalo prije %v)", poslije, prije.CreatedAt)
 	}
@@ -488,11 +488,11 @@ func TestSpremanjeZahvata(t *testing.T) {
 	if p != natrag || !strings.HasPrefix(poruka, "Primka: 1\u00a0500") || !strings.HasSuffix(poruka, " je upisano; sljedeći zahvat.") {
 		t.Errorf("još jedan: %s %q", p, poruka)
 	}
-	u, _ := url.Parse(w.Header().Get("Location"))
+	u, _ := url.Parse(w.Header().Get("Location")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if u.Query().Get("vrsta") != models.PrometPrimka || u.Query().Get("potvrda") == "" {
 		t.Errorf("novi obrazac nema vrstu ili potvrdu: %s", u.RawQuery)
 	}
-	promet, _ := o.svc.Promet(context.Background(), repository.FiltarPrometa{SkladisteID: o.sk.ID, VrstaID: "lopata"})
+	promet, _ := o.svc.Promet(context.Background(), repository.FiltarPrometa{SkladisteID: o.sk.ID, VrstaID: "lopata"}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	nadeno := false
 	for _, x := range promet {
 		if x.Vrsta == models.PrometPrimka && x.Kolicina == 1500 && x.Datum.Format("2006-01-02") == "2025-05-01" {
@@ -511,11 +511,11 @@ func TestSpremanjeZahvata(t *testing.T) {
 		!strings.HasSuffix(poruka, " je upisano.") || strings.Contains(poruka, "sljedeći") {
 		t.Errorf("bez još jednog: %s %q", p, poruka)
 	}
-	u, _ = url.Parse(w.Header().Get("Location"))
+	u, _ = url.Parse(w.Header().Get("Location")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if u.Query().Get("potvrda") == "" || u.Query().Get("vrsta") != "" {
 		t.Errorf("kartica skladišta: potvrda prazna ili vrsta zaostala: %s", u.RawQuery)
 	}
-	promet, _ = o.svc.Promet(context.Background(), repository.FiltarPrometa{SkladisteID: o.sk.ID, VrstaID: "lopata"})
+	promet, _ = o.svc.Promet(context.Background(), repository.FiltarPrometa{SkladisteID: o.sk.ID, VrstaID: "lopata"}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	nadeno = false
 	for _, x := range promet {
 		if x.Vrsta == models.PrometPrimka && x.Kolicina == 2 && x.Datum.Format("2006-01-02") == "2025-05-02" {
@@ -574,7 +574,7 @@ func TestInventuraKrozRute(t *testing.T) {
 		t.Fatalf("nacrt: %s %q", p, poruka)
 	}
 	id := strings.TrimPrefix(p, "/sredstva/popisi/")
-	popis, _ := o.svc.Popis(context.Background(), id)
+	popis, _ := o.svc.Popis(context.Background(), id) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if popis == nil || popis.Zakljucen() || popis.Napomena != "" {
 		t.Fatalf("spremljeni nacrt: %+v", popis)
 	}
@@ -640,7 +640,7 @@ func TestPopisBezSkladista(t *testing.T) {
 	if err != nil {
 		t.Fatalf("popis se ne da odvojiti od skladišta: %v", err)
 	}
-	if n, _ := res.RowsAffected(); n != 1 {
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
 		t.Fatalf("odvojeno popisa: %d, očekivan jedan", n)
 	}
 	if w := o.zovi(t, upravaSredstava(), http.MethodGet, "/sredstva/popisi/"+p.ID, nil); w.Code != http.StatusNotFound {
@@ -657,7 +657,7 @@ func TestKatalogSredstava(t *testing.T) {
 	mora(t, o.ispis(t, promatracSredstava(), "/sredstva/katalog?uredi=lopata"), "promatrač", "SmijeUrediti=false", "Uredi=;")
 
 	najvisi := 0
-	sve, _ := o.svc.SveVrste(ctx)
+	sve, _ := o.svc.SveVrste(ctx) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	for _, v := range sve {
 		if v.Grupa == models.GrupaMaterijal && v.Redoslijed > najvisi {
 			najvisi = v.Redoslijed
@@ -669,7 +669,7 @@ func TestKatalogSredstava(t *testing.T) {
 		t.Errorf("nova vrsta: %q", poruka)
 	}
 	var nova *models.VrstaSredstva
-	sve, _ = o.svc.SveVrste(ctx)
+	sve, _ = o.svc.SveVrste(ctx) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	for i := range sve {
 		if sve[i].Naziv == "Vreće 40x60 cm" {
 			nova = &sve[i]
@@ -679,12 +679,12 @@ func TestKatalogSredstava(t *testing.T) {
 		t.Fatalf("nova vrsta: %+v (najviši redni broj %d)", nova, najvisi)
 	}
 
-	lopata, _ := o.svc.Vrsta(ctx, "lopata")
+	lopata, _ := o.svc.Vrsta(ctx, "lopata") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if _, poruka := preusmjerenjeSredstava(t, o.zovi(t, upravaSredstava(), http.MethodPost, "/sredstva/katalog/lopata", url.Values{
 		"grupa": {models.GrupaAlat}, "naziv": {"Lopata široka"}, "jedinica": {"kom"}, "aktivna": {"0"}}), "success"); poruka == "" {
 		t.Error("izmjena vrste nije prošla")
 	}
-	poslije, _ := o.svc.Vrsta(ctx, "lopata")
+	poslije, _ := o.svc.Vrsta(ctx, "lopata") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if poslije.Naziv != "Lopata široka" || poslije.Redoslijed != lopata.Redoslijed || poslije.Aktivna {
 		t.Errorf("izmijenjena lopata: %+v (redni broj prije %d)", poslije, lopata.Redoslijed)
 	}

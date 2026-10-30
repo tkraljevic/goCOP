@@ -109,7 +109,7 @@ func (o *okolinaListaVodocuvara) zovi(h http.HandlerFunc, u *models.User, r *htt
 	}
 	var p *models.UserPermissions
 	if u != nil {
-		cijeli, _ := o.users.GetUserByID(u.ID)
+		cijeli, _ := o.users.GetUserByID(u.ID) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		p = models.NewUserPermissions(*cijeli)
 	}
 	w := httptest.NewRecorder()
@@ -289,7 +289,7 @@ func TestKoordinatePodrucjaKrozPosao(t *testing.T) {
 			w.WriteHeader(kod)
 			return
 		}
-		_ = json.NewEncoder(w).Encode([]map[string]string{{"lat": "45.55", "lon": "18.69", "display_name": "Primjerovo, Hrvatska"}})
+		_ = json.NewEncoder(w).Encode([]map[string]string{{"lat": "45.55", "lon": "18.69", "display_name": "Primjerovo, Hrvatska"}}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	}))
 	defer osm.Close()
 	o.h.SetGeokoder(&weather.Geokoder{BaseURL: osm.URL, HTTP: osm.Client()})
@@ -312,7 +312,7 @@ func TestKoordinatePodrucjaKrozPosao(t *testing.T) {
 	if s := posao(); s.Odrediste != "/organizacija?"+uspjeh.Encode() {
 		t.Errorf("nađene koordinate: %q", s.Odrediste)
 	}
-	if a, _ := o.org.GetArea(ctx, 34); a == nil || a.Latitude != 45.55 || a.Longitude != 18.69 {
+	if a, err := o.org.GetArea(ctx, 34); err != nil || a == nil || a.Latitude != 45.55 || a.Longitude != 18.69 {
 		t.Errorf("područje 34: %+v", a)
 	}
 	if u := poslano(); len(u) != 2 || u[0] != "Primjerovo" {

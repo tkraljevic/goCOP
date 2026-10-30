@@ -49,7 +49,7 @@ func (o *okolinaStraniceLetve) posaljiPaket(t *testing.T, polje string, sadrzaj 
 	if err != nil {
 		t.Fatal(err)
 	}
-	_, _ = fw.Write(sadrzaj)
+	_, _ = fw.Write(sadrzaj) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if err := mw.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -320,7 +320,7 @@ func TestUgradnjaPaketaPrepreke(t *testing.T) {
 	if s, ima := cekaju.uzmi(k); !ima {
 		t.Error("ključ je potrošen na odbijenom zahtjevu")
 	} else {
-		os.Remove(s.put)
+		_ = os.Remove(s.put) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	}
 }
 

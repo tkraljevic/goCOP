@@ -47,7 +47,7 @@ func noviHV(t *testing.T) *probniHV {
 }
 
 func (p *probniHV) javni() string {
-	der, _ := x509.MarshalPKIXPublicKey(&p.kljuc.PublicKey)
+	der, _ := x509.MarshalPKIXPublicKey(&p.kljuc.PublicKey) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	return string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
 }
 
@@ -69,20 +69,20 @@ func (p *probniHV) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte(o))
 			return
 		}
-		json.NewEncoder(w).Encode(map[string]string{"rsa_key": p.javni()})
+		_ = json.NewEncoder(w).Encode(map[string]string{"rsa_key": p.javni()}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		return
 	case "login/get_token":
 		p.mu.Lock()
 		p.korisni = r.URL.Query().Get("username")
 		p.mu.Unlock()
-		tajna, _ := hex.DecodeString(r.URL.Query().Get("password"))
+		tajna, _ := hex.DecodeString(r.URL.Query().Get("password")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		otvoreno, err := rsa.DecryptPKCS1v15(nil, p.kljuc, tajna)
 		zbroj := md5.Sum([]byte(p.lozinka))
 		if err != nil || !bytes.Equal(otvoreno, []byte(strings.ToUpper(hex.EncodeToString(zbroj[:])))) {
-			json.NewEncoder(w).Encode(map[string]string{"status": "wrong_password"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"status": "wrong_password"}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 			return
 		}
-		json.NewEncoder(w).Encode(p.prijava)
+		_ = json.NewEncoder(w).Encode(p.prijava) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		return
 	}
 	if r.Header.Get("Authorization") != "Bearer tok-1" {
@@ -207,7 +207,7 @@ func TestPrijavaLosKljuc(t *testing.T) {
 }
 
 func mustJSON(v any) string {
-	b, _ := json.Marshal(v)
+	b, _ := json.Marshal(v) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	return string(b)
 }
 

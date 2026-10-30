@@ -83,7 +83,7 @@ func TestPopisVodaSFiltrima(t *testing.T) {
 			t.Errorf("%s: %v, htio %v", s.ime, got, s.htio)
 		}
 	}
-	l, _ := repo.ListWatercourses(ctx, "Drava", "", false)
+	l, _ := repo.ListWatercourses(ctx, "Drava", "", false) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(l) != 1 || l[0].SectionCount != 2 || l[0].StationCount != 0 {
 		t.Errorf("Drava: %+v", l)
 	}
@@ -149,7 +149,7 @@ func TestBrisanjeVodeOstajeUKnjizi(t *testing.T) {
 	if err := json.Unmarshal(v.Payload, &zapis); err != nil || zapis.OfficialName != "rijeka Vučica" {
 		t.Errorf("spomenik bez stanja vode: %s", v.Payload)
 	}
-	if l, _ := repo.ListWatercourses(ctx, "", "", false); len(l) != 2 {
+	if l, err := repo.ListWatercourses(ctx, "", "", false); err != nil || len(l) != 2 {
 		t.Errorf("ostalo %d voda, htio 2", len(l))
 	}
 }
@@ -171,7 +171,7 @@ func TestPridruzivanjeVodeLetvi(t *testing.T) {
 	if err != nil || v == nil || !strings.Contains(string(v.Payload), "rijeka-drava") {
 		t.Errorf("verzija letve %+v, %v", v, err)
 	}
-	if d, l, _ := repo.CountUsage(ctx, "rijeka-drava"); d != 2 || l != 1 {
+	if d, l, err := repo.CountUsage(ctx, "rijeka-drava"); err != nil || d != 2 || l != 1 {
 		t.Errorf("Drava sad ima %d dionica i %d letava", d, l)
 	}
 
@@ -179,7 +179,7 @@ func TestPridruzivanjeVodeLetvi(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "nije pronađena") {
 		t.Errorf("nepostojeća letva: %v", err)
 	}
-	if v, _ := rec.Latest(ctx, EntityStations, "0f1e2d3c-0000-4000-8000-0000000000ff"); v != nil {
+	if v, err := rec.Latest(ctx, EntityStations, "0f1e2d3c-0000-4000-8000-0000000000ff"); err == nil && v != nil { // ne postoji: greška ili prazno
 		t.Errorf("verzija za nepostojeću letvu: %+v", v)
 	}
 }

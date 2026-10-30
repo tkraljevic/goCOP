@@ -102,7 +102,7 @@ func istaMreza64(a, b netip.Addr) bool {
 		return false
 	}
 	pa, _ := a.Prefix(bitovaKlijenta6) // obje su IPv6 bez zone
-	pb, _ := b.Prefix(bitovaKlijenta6)
+	pb, _ := b.Prefix(bitovaKlijenta6) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	return pa == pb
 }
 

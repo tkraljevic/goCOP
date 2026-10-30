@@ -187,7 +187,7 @@ func TestUvozIspravakaArhivePokazujePregled(t *testing.T) {
 	if strings.Count(html, `name="kad"`) != 1 {
 		t.Errorf("u obrascu potvrde %d redaka, želim 1", strings.Count(html, `name="kad"`))
 	}
-	if n, _ := repository.NewIspravakRepository(p.baza, nil).Broj(context.Background(), "primjerovo", "vodostaj", "dnevni"); n != 0 {
+	if n, err := repository.NewIspravakRepository(p.baza, nil).Broj(context.Background(), "primjerovo", "vodostaj", "dnevni"); err != nil || n != 0 {
 		t.Errorf("pregled je upisao %d ispravaka", n)
 	}
 

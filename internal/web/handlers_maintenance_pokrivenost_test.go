@@ -195,7 +195,7 @@ func TestOdrzavanjeLokacije(t *testing.T) {
 	if l := veza(o.peroOvl, potok, "P-CS-PROBNI"); l != "/odrzavanje?area=1&success=Veza je spremljena." {
 		t.Errorf("veza na objekt: %s", l)
 	}
-	if m, _ := o.odrz.GetWater(context.Background(), potok); m == nil || m.StructureID == "" || m.WatercourseCode != "" {
+	if m, err := o.odrz.GetWater(context.Background(), potok); err != nil || m == nil || m.StructureID == "" || m.WatercourseCode != "" {
 		t.Errorf("lokacija nije vezana na objekt: %+v", m)
 	}
 	if l := veza(o.peroOvl, uuid.NewString(), "rijeka-primjerica"); !strings.Contains(l, "error=lokacija nije pronađena") {
@@ -390,7 +390,7 @@ func TestOdrzavanjeUvozUgovora(t *testing.T) {
 	cekaju := func() []string {
 		t.Helper()
 		var nadjene []string
-		imena, _ := filepath.Glob(filepath.Join(importDir(), "*.xlsx"))
+		imena, _ := filepath.Glob(filepath.Join(importDir(), "*.xlsx")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		for _, ime := range imena {
 			if b, err := os.ReadFile(ime); err == nil && bytes.Contains(b, []byte(oznaka)) {
 				nadjene = append(nadjene, ime)
@@ -400,7 +400,7 @@ func TestOdrzavanjeUvozUgovora(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		for _, ime := range cekaju() {
-			os.Remove(ime)
+			_ = os.Remove(ime) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		}
 	})
 	ucitaj := func(p *models.UserPermissions, area string, dat ...datotekaObrasca) *httptest.ResponseRecorder {

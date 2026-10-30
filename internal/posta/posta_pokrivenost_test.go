@@ -71,7 +71,7 @@ func TestSMTPViseLjudiIKopija(t *testing.T) {
 	if pm.Header.Get("Cc") != "<arhiva@voda.hr>" || pm.Header.Get("In-Reply-To") != "<p1@voda.hr>" || pm.Header.Get("References") != "<p1@voda.hr>" {
 		t.Errorf("zaglavlja: %v", pm.Header)
 	}
-	if d, _ := pm.Header.Date(); !d.Equal(m.Kad) {
+	if d, err := pm.Header.Date(); err != nil || !d.Equal(m.Kad) {
 		t.Errorf("datum: %v", d)
 	}
 	if !strings.HasSuffix(pm.Header.Get("Message-ID"), "@voda.hr>") {
@@ -181,7 +181,7 @@ func TestPrijavaDrugimImenom(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	b, _ := io.ReadAll(res.Body)
+	b, _ := io.ReadAll(res.Body) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	res.Body.Close()
 	if res.StatusCode != http.StatusOK || !bytes.Contains(b, []byte(`ResponseClass="Success"`)) {
 		t.Errorf("NTLMPost: %d %s", res.StatusCode, b)
@@ -304,7 +304,7 @@ func TestLozinkaGreske(t *testing.T) {
 	if _, err := Otkljucaj(Kljuc([]byte("drugi čvor")), z); err == nil || !strings.Contains(err.Error(), "drugim ključem") {
 		t.Errorf("drugi ključ: %v", err)
 	}
-	z2, _ := Zakljucaj(k, "Lozinka-1")
+	z2, _ := Zakljucaj(k, "Lozinka-1") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if bytes.Equal(z, z2) {
 		t.Error("ista lozinka mora dati različit zapis (nasumičan nonce)")
 	}

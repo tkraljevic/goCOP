@@ -252,7 +252,7 @@ func TestUgradiZamjenaIPokretanje(t *testing.T) {
 	if _, err := os.Stat(filepath.Dir(u.M.Novi())); !os.IsNotExist(err) {
 		t.Error("mapa novo je ostala")
 	}
-	kopije, _ := filepath.Glob(filepath.Join(u.M.Kopije(), "gocop-*-0.0.39-alfa.db"))
+	kopije, _ := filepath.Glob(filepath.Join(u.M.Kopije(), "gocop-*-0.0.39-alfa.db")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(kopije) != 1 {
 		t.Errorf("kopija baze: %v", kopije)
 	}
@@ -324,7 +324,7 @@ func TestUgradiBezKopijeBazeNeMijenja(t *testing.T) {
 	u2, novi2 := pripremljenaUgradnja(t, l2)
 	zapisi(t, u2.M.BazaCvora(), "baza")
 	zapisi(t, u2.M.Kopije(), "x")
-	_ = u2.Ugradi(context.Background(), novi2, "a", "b")
+	_ = u2.Ugradi(context.Background(), novi2, "a", "b") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if l2.pokretanja != 0 {
 		t.Errorf("ugašeni čvor pokrenut: %d", l2.pokretanja)
 	}
@@ -381,7 +381,7 @@ func TestPocistiOstavljaNajnovije(t *testing.T) {
 	if err := pocisti(dir, 2); err != nil {
 		t.Fatal(err)
 	}
-	stavke, _ := os.ReadDir(dir)
+	stavke, _ := os.ReadDir(dir) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	var imena []string
 	for _, s := range stavke {
 		imena = append(imena, s.Name())

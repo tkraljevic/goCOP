@@ -446,7 +446,7 @@ func pokreniLazniHidroView(t *testing.T) *lazniHidroView {
 	}
 	javni := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
 	l := &lazniHidroView{}
-	pisi := func(w http.ResponseWriter, v any) { _ = json.NewEncoder(w).Encode(v) }
+	pisi := func(w http.ResponseWriter, v any) { _ = json.NewEncoder(w).Encode(v) } // probni podaci su ispravni; kvar bi pokazala provjera niže
 	l.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		put := strings.TrimPrefix(r.URL.Path, "/api/v1/")
@@ -486,8 +486,8 @@ func pokreniLazniHidroView(t *testing.T) *lazniHidroView {
 				http.Error(w, "kvar", http.StatusInternalServerError)
 				return
 			}
-			od, _ := strconv.ParseInt(q.Get("start"), 10, 64)
-			do, _ := strconv.ParseInt(q.Get("end"), 10, 64)
+			od, _ := strconv.ParseInt(q.Get("start"), 10, 64) // probni podaci su ispravni; kvar bi pokazala provjera niže
+			do, _ := strconv.ParseInt(q.Get("end"), 10, 64)   // probni podaci su ispravni; kvar bi pokazala provjera niže
 			v := map[string]string{"obrada": "1.237", "sirovo": "9.99", "temp": "11.5"}[q.Get("id0")]
 			var b strings.Builder
 			b.WriteString("timestamp,value\n")

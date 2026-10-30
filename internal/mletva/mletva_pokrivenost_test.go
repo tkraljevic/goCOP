@@ -38,7 +38,7 @@ func (p *probniSustav) handler(t *testing.T) http.Handler {
 		if r.Header.Get("Content-Type") != "application/x-www-form-urlencoded" || r.Header.Get("User-Agent") != "goCOP" {
 			t.Errorf("zaglavlja %v", r.Header)
 		}
-		r.ParseForm()
+		_ = r.ParseForm() // probni podaci su ispravni; kvar bi pokazala provjera niže
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		p.brojPrijava++
@@ -88,7 +88,7 @@ func noviKlijent(t *testing.T, p *probniSustav) *Klijent {
 	t.Helper()
 	srv := httptest.NewServer(p.handler(t))
 	t.Cleanup(srv.Close)
-	jar, _ := cookiejar.New(nil)
+	jar, _ := cookiejar.New(nil) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	return &Klijent{Adresa: srv.URL + "/", HTTP: &http.Client{Jar: jar}}
 }
 
@@ -308,7 +308,7 @@ func TestTLSIstekaoINepoznat(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	cert, _ := x509.ParseCertificate(der)
+	cert, _ := x509.ParseCertificate(der) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	err = TLSBezIsteka().VerifyConnection(tls.ConnectionState{
 		ServerName:       "mletva.voda.test",
 		PeerCertificates: []*x509.Certificate{cert, cert},

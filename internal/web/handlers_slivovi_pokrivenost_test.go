@@ -162,7 +162,7 @@ func TestIzmjenaKisomjera(t *testing.T) {
 	// "aktivan=0" gasi točku
 	forma.Set("aktivan", "0")
 	porukaPreusmjerenja(t, p.obrazac("uprava", put, forma), "success")
-	if k, _ := p.kisomjeri.GetKisomjer(ctx, "b-b1-ravnica"); k == nil || k.Aktivan {
+	if k, err := p.kisomjeri.GetKisomjer(ctx, "b-b1-ravnica"); err != nil || k == nil || k.Aktivan {
 		t.Error("točka nije ugašena")
 	}
 
@@ -199,7 +199,7 @@ func TestIzmjenaKisomjera(t *testing.T) {
 		strings.TrimSpace(w.Body.String()) != "izmjenu kišomjera dopušteno je samo globalnom administratoru" {
 		t.Errorf("dežurni mijenja: %d %q", w.Code, w.Body.String())
 	}
-	if k, _ := p.kisomjeri.GetKisomjer(ctx, "b-b1-ravnica"); k == nil || k.Naziv != "B1 ravnica" {
+	if k, err := p.kisomjeri.GetKisomjer(ctx, "b-b1-ravnica"); err != nil || k == nil || k.Naziv != "B1 ravnica" {
 		t.Error("dežurni je promijenio točku")
 	}
 }
@@ -215,7 +215,7 @@ func TestBrisanjeKisomjeraIMedjusliva(t *testing.T) {
 	if w.Code != http.StatusBadRequest || strings.TrimSpace(w.Body.String()) != "brisanje kišomjera dopušteno je samo globalnom administratoru" {
 		t.Errorf("dežurni briše točku: %d %q", w.Code, w.Body.String())
 	}
-	if k, _ := p.kisomjeri.GetKisomjer(ctx, "b-b2-pobrde"); k == nil {
+	if k, err := p.kisomjeri.GetKisomjer(ctx, "b-b2-pobrde"); err != nil || k == nil {
 		t.Error("dežurni je obrisao točku")
 	}
 
@@ -223,7 +223,7 @@ func TestBrisanjeKisomjeraIMedjusliva(t *testing.T) {
 	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "Kišomjer je obrisan.") {
 		t.Errorf("JSON brisanje: %d %s", w.Code, w.Body.String())
 	}
-	if k, _ := p.kisomjeri.GetKisomjer(ctx, "z-z1"); k != nil {
+	if k, err := p.kisomjeri.GetKisomjer(ctx, "z-z1"); err != nil || k != nil {
 		t.Error("točka nije obrisana")
 	}
 
@@ -272,7 +272,7 @@ func TestBrisanjeKisomjeraIMedjusliva(t *testing.T) {
 	if putanja != "/slivovi" || poruka != "Sliv je obrisan." {
 		t.Errorf("brisanje međusliva: %s %q", putanja, poruka)
 	}
-	if slivovi, _ := p.kisomjeri.ListSlivovi(ctx); len(slivovi) != 2 {
+	if slivovi, err := p.kisomjeri.ListSlivovi(ctx); err != nil || len(slivovi) != 2 {
 		t.Errorf("nakon brisanja %d međusliva", len(slivovi))
 	}
 }
@@ -316,7 +316,7 @@ func TestPolozajiKisomjeraSamoJSON(t *testing.T) {
 	if lat, lon := polozaj("z-z1"); lat != 45.21 || lon != 15.21 {
 		t.Errorf("z-z1 na %v, %v", lat, lon)
 	}
-	if k, _ := p.kisomjeri.GetKisomjer(ctx, "b-b2-pobrde"); k == nil || k.Naziv != "B2 pobrđe" || k.Visina == nil || *k.Visina != 420 {
+	if k, err := p.kisomjeri.GetKisomjer(ctx, "b-b2-pobrde"); err != nil || k == nil || k.Naziv != "B2 pobrđe" || k.Visina == nil || *k.Visina != 420 {
 		t.Errorf("premještanje je promijenilo i drugo: %+v", k)
 	}
 }
@@ -389,7 +389,7 @@ func TestSlivoviJSONZaKartu(t *testing.T) {
 // Rijeke i letve na karti: bez registra ili bez ičega ucrtanog nema podataka.
 func TestRijekeILetveZaKartu(t *testing.T) {
 	h := NewSlivoviHandler(nil, nil, nil, func(string) *template.Template { return nil }, nil)
-	r, _ := http.NewRequest(http.MethodGet, "/slivovi", nil)
+	r, _ := http.NewRequest(http.MethodGet, "/slivovi", nil) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if h.rijekeJSON(r) != "" || h.letveJSON(r) != "" || len(h.imenaLetvi(r)) != 0 {
 		t.Error("bez registara nešto je ucrtano")
 	}

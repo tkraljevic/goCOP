@@ -67,7 +67,7 @@ func TestOvjeriOdbijaIPrihvaca(t *testing.T) {
 	if l.PotvrdioID != ana.ID.String() || l.Potvrdio != "Ana Anić" || l.PotvrdenoAt == nil {
 		t.Errorf("ovjera nije upisana: %+v", l)
 	}
-	if iz, _ := o.repo.Get(ctx, predan.ID); iz == nil || !iz.Potvrden() || iz.Potvrdio != "Ana Anić" {
+	if iz, err := o.repo.Get(ctx, predan.ID); err != nil || iz == nil || !iz.Potvrden() || iz.Potvrdio != "Ana Anić" {
 		t.Errorf("ovjera nije spremljena: %+v", iz)
 	}
 	// druga ovjera iste osobe vraća list kakav jest; ponovni poziv osobe
@@ -114,7 +114,7 @@ func TestParafirajJednomSFunkcijom(t *testing.T) {
 	if l, err := o.vs.Parafiraj(ctx, anaPrava, ana, predan.ID); err != nil || len(l.Parafe) != 1 {
 		t.Errorf("ponovna parafa: %+v, %v", l, err)
 	}
-	if iz, _ := o.repo.Get(ctx, predan.ID); iz == nil || len(iz.Parafe) != 1 {
+	if iz, err := o.repo.Get(ctx, predan.ID); err != nil || iz == nil || len(iz.Parafe) != 1 {
 		t.Errorf("spremljene parafe: %+v", iz)
 	}
 }
@@ -138,13 +138,13 @@ func TestObrisiSamoSvojNacrt(t *testing.T) {
 	if err := o.vs.Obrisi(ctx, pero, predan.ID); !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("predan list: %v", err)
 	}
-	if l, _ := o.repo.Get(ctx, predan.ID); l == nil {
+	if l, err := o.repo.Get(ctx, predan.ID); err != nil || l == nil {
 		t.Error("predan list je obrisan")
 	}
 	if err := o.vs.Obrisi(ctx, pero, nacrt.ID); err != nil {
 		t.Fatalf("brisanje svog nacrta: %v", err)
 	}
-	if l, _ := o.repo.Get(ctx, nacrt.ID); l != nil {
+	if l, err := o.repo.Get(ctx, nacrt.ID); err != nil || l != nil {
 		t.Error("nacrt nije obrisan")
 	}
 }
@@ -348,7 +348,7 @@ func probnaPrognoza(t *testing.T, status int, sati []string, temp, oborina []flo
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(odg)
+		_ = json.NewEncoder(w).Encode(odg) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	}))
 	t.Cleanup(srv.Close)
 	return srv

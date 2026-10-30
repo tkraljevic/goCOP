@@ -103,7 +103,7 @@ func TestLatestOf(t *testing.T) {
 	if got := oznake(postaje); got != "2,7" || !postaje[1].Archived || postaje[0].NodeID != "laptop-a" {
 		t.Errorf("postaje %s %+v", got, postaje)
 	}
-	dva, _ := rec.LatestOf(ctx, []string{"sections", "readings", "nema"})
+	dva, _ := rec.LatestOf(ctx, []string{"sections", "readings", "nema"}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if got := oznake(dva); got != "3,4,5,6" {
 		t.Errorf("dionice i očitanja %s", got)
 	}
@@ -121,11 +121,11 @@ func TestSinceByNode(t *testing.T) {
 	if got := oznake(vv); got != "4,5" {
 		t.Errorf("laptop-a u kanalu %s", got)
 	}
-	vv, _ = rec.SinceByNode(ctx, "laptop-a", "ocitanja/16/2026", "01950000-0000-7000-8000-000000000004", 0)
+	vv, _ = rec.SinceByNode(ctx, "laptop-a", "ocitanja/16/2026", "01950000-0000-7000-8000-000000000004", 0) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if got := oznake(vv); got != "5" {
 		t.Errorf("nakon 4: %s", got)
 	}
-	vv, _ = rec.SinceByNode(ctx, "cop-osijek", "", "", 1)
+	vv, _ = rec.SinceByNode(ctx, "cop-osijek", "", "", 1) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if got := oznake(vv); got != "1" {
 		t.Errorf("jedna zajednička: %s", got)
 	}
@@ -144,11 +144,11 @@ func TestInChannels(t *testing.T) {
 	if got := oznake(vv); got != "6,4,5" {
 		t.Errorf("kanali %s", got)
 	}
-	vv, _ = rec.InChannels(context.Background(), []string{""})
+	vv, _ = rec.InChannels(context.Background(), []string{""}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if got := oznake(vv); got != "1,2,3,7" {
 		t.Errorf("zajednički %s", got)
 	}
-	if vv, _ := rec.InChannels(context.Background(), nil); vv != nil {
+	if vv, err := rec.InChannels(context.Background(), nil); err != nil || vv != nil {
 		t.Errorf("bez kanala %v", vv)
 	}
 }
@@ -379,7 +379,7 @@ func TestSpojiNepoznataBezObjekta(t *testing.T) {
 	if _, err := rec.Record(ctx, db, "polja_niz", "z-1", nil); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := rec.Latest(ctx, "polja_niz", "z-1"); string(v.Payload) != "null" {
+	if v, err := rec.Latest(ctx, "polja_niz", "z-1"); err != nil || string(v.Payload) != "null" {
 		t.Errorf("prazan sadržaj %s", v.Payload)
 	}
 	// struktura koja se zapisuje kao null (nil pokazivač) ne dobiva polja
@@ -390,7 +390,7 @@ func TestSpojiNepoznataBezObjekta(t *testing.T) {
 	if _, err := rec.Record(ctx, db, "polja_niz", "z-1", prazan); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := rec.Latest(ctx, "polja_niz", "z-1"); string(v.Payload) != "null" {
+	if v, err := rec.Latest(ctx, "polja_niz", "z-1"); err != nil || string(v.Payload) != "null" {
 		t.Errorf("nil pokazivač %s", v.Payload)
 	}
 }

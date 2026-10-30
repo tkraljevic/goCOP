@@ -96,18 +96,18 @@ func TestPripremiIzMapeOdbija(t *testing.T) {
 	}{
 		{"bez zbrojeva", func(t *testing.T) string {
 			m := mapaIzdanja(t, dobar, tajni, false)
-			os.Remove(filepath.Join(m, izdanje.ImeZbrojeva))
+			_ = os.Remove(filepath.Join(m, izdanje.ImeZbrojeva)) // probni podaci su ispravni; kvar bi pokazala provjera niže
 			return m
 		}, nil, izdanje.ImeZbrojeva},
 		{"bez potpisa", func(t *testing.T) string {
 			m := mapaIzdanja(t, dobar, tajni, false)
-			os.Remove(filepath.Join(m, izdanje.ImePotpisa))
+			_ = os.Remove(filepath.Join(m, izdanje.ImePotpisa)) // probni podaci su ispravni; kvar bi pokazala provjera niže
 			return m
 		}, nil, izdanje.ImePotpisa},
 		{"tuđi ključ", func(t *testing.T) string { return mapaIzdanja(t, dobar, tudji, false) }, nil, "odbijeno"},
 		{"bez programa", func(t *testing.T) string {
 			m := mapaIzdanja(t, dobar, tajni, false)
-			os.Remove(filepath.Join(m, ime))
+			_ = os.Remove(filepath.Join(m, ime)) // probni podaci su ispravni; kvar bi pokazala provjera niže
 			return m
 		}, nil, ime},
 		{"podmetnut program", func(t *testing.T) string { return mapaIzdanja(t, dobar, tajni, true) }, nil,
@@ -216,7 +216,7 @@ func TestInstalirajIzMape(t *testing.T) {
 	if err := p.Instaliraj(ctx, Opcije{IzMape: starija}); err != nil {
 		t.Fatal(err)
 	}
-	if izd, _ := IzdanjeDatoteke(ctx, p.M.Gocop()); izd != "0.0.40-alfa" {
+	if izd, err := IzdanjeDatoteke(ctx, p.M.Gocop()); err != nil || izd != "0.0.40-alfa" {
 		t.Errorf("starije izdanje je zamijenilo novije: %q", izd)
 	}
 	if uklj, _ := PriPrijavi(p.Exe); uklj {
@@ -282,15 +282,15 @@ func TestInstalirajSGitHuba(t *testing.T) {
 		if err := p.Instaliraj(ctx, Opcije{}); err != nil {
 			t.Fatal(err)
 		}
-		if izd, _ := IzdanjeDatoteke(ctx, p.M.Gocop()); izd != "0.0.40-alfa" {
+		if izd, err := IzdanjeDatoteke(ctx, p.M.Gocop()); err != nil || izd != "0.0.40-alfa" {
 			t.Fatalf("instalirano %q", izd)
 		}
 		// isto izdanje: ne preuzima se ponovno
-		fi, _ := os.Stat(p.M.Gocop())
+		fi, _ := os.Stat(p.M.Gocop()) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		if err := p.Instaliraj(ctx, Opcije{}); err != nil {
 			t.Fatal(err)
 		}
-		if fi2, _ := os.Stat(p.M.Gocop()); !os.SameFile(fi, fi2) {
+		if fi2, err := os.Stat(p.M.Gocop()); err != nil || !os.SameFile(fi, fi2) {
 			t.Error("isto izdanje je ponovno postavljeno")
 		}
 		// GitHub bez izdanja ili nedostupan: instalirano ostaje

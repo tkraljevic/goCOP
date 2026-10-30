@@ -31,7 +31,7 @@ func noviDnevniciProbe(t *testing.T) *dnevniciProbe {
 	SetSpremiste(sp)
 	t.Cleanup(func() {
 		SetSpremiste(prijasnje)
-		_ = sp.Zatvori()
+		_ = sp.Zatvori() // probni podaci su ispravni; kvar bi pokazala provjera niže
 	})
 	for _, q := range []string{
 		`UPDATE sectors SET center_cop = 'COP Osijek' WHERE id = 'B'`,
@@ -116,7 +116,7 @@ func TestPopisDnevnikaSBrojevima(t *testing.T) {
 	if o.SheetCount != 2 || o.LastSheetOn != "2026-03-11" || o.OpenTasks != 1 || o.AreaName != "Drava i Dunav" || o.CentarNaziv != "" {
 		t.Errorf("dnevnik održavanja %+v", o)
 	}
-	l, _ = p.repo.ListJournals(ctx, 0)
+	l, _ = p.repo.ListJournals(ctx, 0) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if got := idDnevnika(l); !reflect.DeepEqual(got, []string{"Dežurstvo COP Osijek", "Dežurstvo COP Zagreb", "Održavanje 2026", "Obrana 2025"}) {
 		t.Errorf("svi %v", got)
 	}
@@ -143,7 +143,7 @@ func TestDnevniciCOPa(t *testing.T) {
 	if a := l[1]; a.SheetCount != 0 || a.CentarNaziv != "COP Zagreb" || a.CentarPodrucje != nil {
 		t.Errorf("COP Zagreb %+v", a)
 	}
-	if l, _ := p.repo.ListCOPJournals(ctx, "A"); !reflect.DeepEqual(idDnevnika(l), []string{"Dežurstvo COP Zagreb"}) {
+	if l, err := p.repo.ListCOPJournals(ctx, "A"); err != nil || !reflect.DeepEqual(idDnevnika(l), []string{"Dežurstvo COP Zagreb"}) {
 		t.Errorf("sektor A %v", idDnevnika(l))
 	}
 	centri, err := p.repo.CentriSDnevnicima(ctx)
@@ -273,12 +273,12 @@ func TestOvjeraDnevnikaCOPaIIzvornik(t *testing.T) {
 			t.Errorf("%s: %v", s.ime, err)
 		}
 	}
-	if g, _ := p.repo.GetJournal(ctx, p.copB.ID); g.ZakljucenoAt != nil {
+	if g, err := p.repo.GetJournal(ctx, p.copB.ID); err != nil || g.ZakljucenoAt != nil {
 		t.Fatal("odbijena ovjera je upisana")
 	}
 
 	nuzno(t, p.repo.SaveOvjeraCOP(ctx, ovjeren(*p.copB), pdf))
-	g, _ := p.repo.GetJournal(ctx, p.copB.ID)
+	g, _ := p.repo.GetJournal(ctx, p.copB.ID) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if g.ZakljucenoAt == nil || !g.ZakljucenoAt.Equal(kad) || g.Zakljucio != "Ana Anić" {
 		t.Errorf("ovjera %+v", g)
 	}
@@ -288,7 +288,7 @@ func TestOvjeraDnevnikaCOPaIIzvornik(t *testing.T) {
 	if err := p.repo.SaveOvjeraCOP(ctx, ovjeren(*p.copB), []byte("%PDF-1.7\ndrugi")); err == nil || !strings.Contains(err.Error(), "već ovjeren") {
 		t.Errorf("druga ovjera: %v", err)
 	}
-	if b, _ := p.repo.JournalIzvornik(ctx, p.copB.ID); string(b) != string(pdf) {
+	if b, err := p.repo.JournalIzvornik(ctx, p.copB.ID); err != nil || string(b) != string(pdf) {
 		t.Errorf("druga ovjera promijenila izvornik: %q", b)
 	}
 	if _, err := NewJournalRepository(zatvorenaBaza(t), nil).JournalIzvornik(ctx, p.copB.ID); err == nil {

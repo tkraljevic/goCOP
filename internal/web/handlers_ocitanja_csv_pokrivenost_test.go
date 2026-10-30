@@ -384,10 +384,10 @@ func TestPotvrdaIspravkaOcitanja(t *testing.T) {
 		nakon.Observer != "Marko Markić" || nakon.Note != "predznak" {
 		t.Errorf("ispravak nije upisan: %+v", nakon)
 	}
-	if rd, _ := p.ocitanja.Get(ctx, visak.ID); rd != nil {
+	if rd, err := p.ocitanja.Get(ctx, visak.ID); err != nil || rd != nil {
 		t.Error("očitanje za brisanje je ostalo")
 	}
-	if rd, _ := p.ocitanja.Get(ctx, isto.ID); rd == nil || *rd.LevelCm != -119 {
+	if rd, err := p.ocitanja.Get(ctx, isto.ID); err != nil || rd == nil || *rd.LevelCm != -119 {
 		t.Error("nepromijenjeno očitanje je dirano")
 	}
 
@@ -429,10 +429,10 @@ func TestPotvrdaIspravkaPoPravuRetka(t *testing.T) {
 	if poruka != "Ispravljeno 1 očitanje. Svaka izmjena stoji u knjizi verzija s vašim imenom. 2 retka nisu prošla: nemate pravo brisati ovo očitanje" {
 		t.Errorf("poruka: %q", poruka)
 	}
-	if rd, _ := p.ocitanja.Get(context.Background(), tudje.ID); rd == nil {
+	if rd, err := p.ocitanja.Get(context.Background(), tudje.ID); err != nil || rd == nil {
 		t.Error("tuđe očitanje obrisano bez prava")
 	}
-	if rd, _ := p.ocitanja.Get(context.Background(), tudje2.ID); rd == nil || *rd.LevelCm != -121 {
+	if rd, err := p.ocitanja.Get(context.Background(), tudje2.ID); err != nil || rd == nil || *rd.LevelCm != -121 {
 		t.Error("tuđe očitanje ispravljeno bez prava")
 	}
 

@@ -111,7 +111,7 @@ func TestMtsBrojSkladistaBrojiAktivna(t *testing.T) {
 	if err := s.SpremiSkladiste(ctx, uprava, drugo); err != nil {
 		t.Fatal(err)
 	}
-	if n, _ := s.BrojSkladista(ctx); n != 2 {
+	if n, err := s.BrojSkladista(ctx); err != nil || n != 2 {
 		t.Errorf("broj aktivnih skladišta: %d, očekivano 2", n)
 	}
 }
@@ -188,11 +188,11 @@ func TestMtsGdjeImaPreskaceNuleIRedaPoNazivu(t *testing.T) {
 		VrstaID: "lopata", Kolicina: 2, Datum: dan}); err != nil {
 		t.Fatal(err)
 	}
-	gdje, _ = s.GdjeIma(ctx, "lopata")
+	gdje, _ = s.GdjeIma(ctx, "lopata") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(gdje) != 2 || gdje[0].Skladiste.Naziv != "Bilje" || gdje[1].Skladiste.Naziv != "Darda" || gdje[0].Kolicina != 12 {
 		t.Errorf("jednake količine: %+v", gdje)
 	}
-	if gdje, _ := s.GdjeIma(ctx, "kramp-nema"); len(gdje) != 0 {
+	if gdje, err := s.GdjeIma(ctx, "kramp-nema"); err != nil || len(gdje) != 0 {
 		t.Errorf("vrsta koje nigdje nema: %+v", gdje)
 	}
 }
@@ -298,10 +298,10 @@ func TestMtsPopisiPoSektoruSkladistuIGodini(t *testing.T) {
 	if svi[0].Godina != 2025 || svi[1].Godina != 2024 {
 		t.Errorf("najnoviji popis mora biti prvi: %d, %d", svi[0].Godina, svi[1].Godina)
 	}
-	if g, _ := s.Popisi(ctx, "", sk.ID, 2024); len(g) != 1 || g[0].Godina != 2024 {
+	if g, err := s.Popisi(ctx, "", sk.ID, 2024); err != nil || len(g) != 1 || g[0].Godina != 2024 {
 		t.Errorf("popisi skladišta za 2024.: %+v", g)
 	}
-	if f, _ := s.Popisi(ctx, "F", "", 0); len(f) != 0 {
+	if f, err := s.Popisi(ctx, "F", "", 0); err != nil || len(f) != 0 {
 		t.Errorf("sektor F nema popisa: %+v", f)
 	}
 	if p, err := s.Popis(ctx, uuid.NewString()); err != nil || p != nil {
@@ -349,13 +349,13 @@ func TestMtsPotrebeOdbijanjaIPreskakanje(t *testing.T) {
 	if err := s.SpremiPotrebe(ctx, drugi, uprava, sk.ID, 2026, []models.Potreba{{VrstaID: "lopata", Kolicina: 20, Napomena: "za nasip"}}); err != nil {
 		t.Fatal(err)
 	}
-	if pp, _ := s.PotrebeSkladista(ctx, sk.ID, 2026); pp["lopata"].UserName != u.FullName || !pp["lopata"].UpdatedAt.Equal(prije) {
+	if pp, err := s.PotrebeSkladista(ctx, sk.ID, 2026); err != nil || pp["lopata"].UserName != u.FullName || !pp["lopata"].UpdatedAt.Equal(prije) {
 		t.Errorf("nepromijenjena potreba je prepisana: %+v", pp["lopata"])
 	}
 	if err := s.SpremiPotrebe(ctx, drugi, uprava, sk.ID, 2026, []models.Potreba{{VrstaID: "lopata", Kolicina: 25, Napomena: "za nasip"}}); err != nil {
 		t.Fatal(err)
 	}
-	if pp, _ := s.PotrebeSkladista(ctx, sk.ID, 2026); pp["lopata"].Kolicina != 25 || pp["lopata"].UserName != "Ivana Probić" {
+	if pp, err := s.PotrebeSkladista(ctx, sk.ID, 2026); err != nil || pp["lopata"].Kolicina != 25 || pp["lopata"].UserName != "Ivana Probić" {
 		t.Errorf("izmijenjena potreba: %+v", pp["lopata"])
 	}
 
@@ -363,7 +363,7 @@ func TestMtsPotrebeOdbijanjaIPreskakanje(t *testing.T) {
 	if err != nil || len(sektor) != 1 || sektor[0].VrstaID != "lopata" {
 		t.Errorf("potrebe sektora: %+v, %v", sektor, err)
 	}
-	if f, _ := s.PotrebeSektora(ctx, "F", 2026); len(f) != 0 {
+	if f, err := s.PotrebeSektora(ctx, "F", 2026); err != nil || len(f) != 0 {
 		t.Errorf("sektor F nema potreba: %+v", f)
 	}
 }
@@ -488,7 +488,7 @@ func TestMtsObrisiVrstu(t *testing.T) {
 	if err := s.ObrisiVrstu(ctx, nekoristena.ID); err != nil {
 		t.Fatalf("brisanje nekorištene: %v", err)
 	}
-	if v, _ := s.Vrsta(ctx, nekoristena.ID); v != nil {
+	if v, err := s.Vrsta(ctx, nekoristena.ID); err != nil || v != nil {
 		t.Error("nekorištena vrsta nije obrisana")
 	}
 
@@ -517,7 +517,7 @@ func TestMtsObrisiVrstu(t *testing.T) {
 	if err := s.ObrisiVrstu(ctx, naPopisu.ID); err == nil || !strings.Contains(err.Error(), "popisa: 1") {
 		t.Errorf("vrsta na popisu: %v", err)
 	}
-	if v, _ := s.Vrsta(ctx, "lopata"); v == nil {
+	if v, err := s.Vrsta(ctx, "lopata"); err != nil || v == nil {
 		t.Error("korištena vrsta je obrisana")
 	}
 }

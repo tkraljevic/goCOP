@@ -194,7 +194,7 @@ func TestSanducicPismaIMape(t *testing.T) {
 	if err := o.akti.OznaciProcitano(ctx, o.ana, "pismo-1", "ck1", true); err != nil {
 		t.Fatal(err)
 	}
-	mape, _ = o.akti.MapeSanducica(ctx, o.ana)
+	mape, _ = o.akti.MapeSanducica(ctx, o.ana) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if in := mapaSanducica(t, mape, "inbox"); in.Neprocitano != 0 {
 		t.Errorf("nakon označavanja pročitanim: %+v", in)
 	}
@@ -204,7 +204,7 @@ func TestSanducicPismaIMape(t *testing.T) {
 	if err := o.akti.OznaciProcitanoVise(ctx, o.ana, []posta.Stavka{{ID: "pismo-1", ChangeKey: "ck1"}, {ID: "pismo-2", ChangeKey: "ck1"}}, false); err != nil {
 		t.Fatal(err)
 	}
-	mape, _ = o.akti.MapeSanducica(ctx, o.ana)
+	mape, _ = o.akti.MapeSanducica(ctx, o.ana) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if in := mapaSanducica(t, mape, "inbox"); in.Neprocitano != 2 {
 		t.Errorf("nakon označavanja nepročitanima: %+v", in)
 	}
@@ -223,13 +223,13 @@ func TestSanducicPismaIMape(t *testing.T) {
 	if err != nil || n != 2 || len(obrisano) != 2 {
 		t.Fatalf("Obrisano: %d pisama (%d), %v", len(obrisano), n, err)
 	}
-	if ulazna, n, _ := o.akti.Sanducic(ctx, o.ana, "inbox", "", 1, 20); n != 0 || len(ulazna) != 0 {
+	if ulazna, n, err := o.akti.Sanducic(ctx, o.ana, "inbox", "", 1, 20); err != nil || n != 0 || len(ulazna) != 0 {
 		t.Errorf("inbox nakon brisanja: %+v", ulazna)
 	}
 	if err := o.akti.ObrisiTrajno(ctx, o.ana, []string{"pismo-1"}); err != nil {
 		t.Fatal(err)
 	}
-	obrisano, _, _ = o.akti.Sanducic(ctx, o.ana, "deleteditems", "", 1, 20)
+	obrisano, _, _ = o.akti.Sanducic(ctx, o.ana, "deleteditems", "", 1, 20) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(obrisano) != 1 || obrisano[0].ID != "pismo-2" {
 		t.Errorf("Obrisano nakon trajnog brisanja: %+v", obrisano)
 	}

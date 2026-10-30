@@ -44,7 +44,7 @@ func TestOsigurajKatalogPuniPrazanIPrijeKrajaNePrepisuje(t *testing.T) {
 	v.Naziv, v.Aktivna = "Vreće (naše)", false
 	nuzno(t, repo.SaveVrsta(ctxRaz, v))
 	nuzno(t, repo.OsigurajKatalog(ctxRaz))
-	v, _ = repo.GetVrsta(ctxRaz, "vrece-50x80")
+	v, _ = repo.GetVrsta(ctxRaz, "vrece-50x80") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if v.Naziv != "Vreće (naše)" || v.Aktivna {
 		t.Errorf("drugo pokretanje prepisalo je vrstu: %+v", v)
 	}
@@ -82,7 +82,7 @@ func TestOsigurajKatalogDopunjujeOblike(t *testing.T) {
 
 	nuzno(t, repo.OsigurajKatalog(ctxRaz))
 
-	v, _ := repo.GetVrsta(ctxRaz, "box-barijera-1x1x1")
+	v, _ := repo.GetVrsta(ctxRaz, "box-barijera-1x1x1") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(v.Oblici) != 2 || v.Oblici[0] != models.OblikPrazno {
 		t.Fatalf("oblici barijere: %v", v.Oblici)
 	}
@@ -91,12 +91,12 @@ func TestOsigurajKatalogDopunjujeOblike(t *testing.T) {
 	if len(box) != 1 || box[0].Oblik != models.OblikPrazno || box[0].Kolicina != 20 {
 		t.Errorf("promet barijera: %+v", box)
 	}
-	lop, _ := repo.ListPromet(ctxRaz, FiltarPrometa{VrstaID: "lopata"})
+	lop, _ := repo.ListPromet(ctxRaz, FiltarPrometa{VrstaID: "lopata"}) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(lop) != 1 || lop[0].Oblik != models.OblikOsnovni {
 		t.Errorf("promet lopata: %+v", lop)
 	}
 	// u katalogu nisu dodane ostale vrste
-	if sve, _ := repo.ListVrste(ctxRaz, true); len(sve) != 2 {
+	if sve, err := repo.ListVrste(ctxRaz, true); err != nil || len(sve) != 2 {
 		t.Errorf("katalog s postojećim vrstama: %d", len(sve))
 	}
 }
@@ -169,11 +169,11 @@ func TestOsigurajKatalogPrenosiPotrebeIzInventura(t *testing.T) {
 	p.Kolicina = 1
 	nuzno(t, repo.SavePotrebe(ctxRaz, []models.Potreba{p}))
 	nuzno(t, repo.OsigurajKatalog(ctxRaz))
-	potrebe, _ = repo.Potrebe(ctxRaz, "", "", 0)
+	potrebe, _ = repo.Potrebe(ctxRaz, "", "", 0) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(potrebe) != 1 || potrebe[0].Kolicina != 1 {
 		t.Errorf("ponovni prijenos: %+v", potrebe)
 	}
-	if drugi, _ := repo.Potrebe(ctxRaz, "A", "", 0); len(drugi) != 0 {
+	if drugi, err := repo.Potrebe(ctxRaz, "A", "", 0); err != nil || len(drugi) != 0 {
 		t.Errorf("potrebe drugog sektora: %+v", drugi)
 	}
 }
@@ -213,13 +213,13 @@ func TestListSkladistaIBroj(t *testing.T) {
 	if sva[0].AreaName != "Područje 16" || !sva[0].Centralno {
 		t.Errorf("centralno skladište: %+v", sva[0])
 	}
-	if s, _ := repo.ListSkladista(ctxRaz, "B", 17, true); len(s) != 2 {
+	if s, err := repo.ListSkladista(ctxRaz, "B", 17, true); err != nil || len(s) != 2 {
 		t.Errorf("područje 17 s ugašenima: %v", imena(s))
 	}
-	if s, _ := repo.ListSkladista(ctxRaz, "B", 17, false); len(s) != 1 || s[0].Naziv != "Darda" {
+	if s, err := repo.ListSkladista(ctxRaz, "B", 17, false); err != nil || len(s) != 1 || s[0].Naziv != "Darda" {
 		t.Errorf("područje 17 bez ugašenih: %v", imena(s))
 	}
-	if s, _ := repo.ListSkladista(ctxRaz, "A", 0, true); len(s) != 0 {
+	if s, err := repo.ListSkladista(ctxRaz, "A", 0, true); err != nil || len(s) != 0 {
 		t.Errorf("drugi sektor: %v", imena(s))
 	}
 	if b, err := repo.BrojSkladista(ctxRaz); err != nil || b != 5 {
@@ -280,12 +280,12 @@ func TestListPrometIStanjePoFiltrima(t *testing.T) {
 	if len(st) != 2 {
 		t.Fatalf("stanje svih skladišta: %+v", st)
 	}
-	st, _ = repo.Stanje(ctxRaz, a.ID, "B", nil)
+	st, _ = repo.Stanje(ctxRaz, a.ID, "B", nil) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(st) != 1 || st[0].Kolicina != 6 {
 		t.Errorf("stanje Ribnjaka: %+v", st)
 	}
 	sijecanj := danMts(2026, 1, 31)
-	st, _ = repo.Stanje(ctxRaz, "", "B", &sijecanj)
+	st, _ = repo.Stanje(ctxRaz, "", "B", &sijecanj) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(st) != 1 || st[0].Kolicina != 10 {
 		t.Errorf("stanje na 31.1.: %+v", st)
 	}
@@ -294,7 +294,7 @@ func TestListPrometIStanjePoFiltrima(t *testing.T) {
 	if len(teren) != 1 || teren[0].Kolicina != 4 || teren[0].Mjesto != "Nasip" {
 		t.Errorf("teren obrane: %+v", teren)
 	}
-	if teren, _ := repo.StanjeNaTerenu(ctxRaz, "druga-obrana", ""); len(teren) != 0 {
+	if teren, err := repo.StanjeNaTerenu(ctxRaz, "druga-obrana", ""); err != nil || len(teren) != 0 {
 		t.Errorf("teren druge obrane: %+v", teren)
 	}
 }
@@ -331,10 +331,10 @@ func TestPopisiPoDanuIFiltrima(t *testing.T) {
 	if len(sve) != 3 || !sve[0].Dan.Equal(danMts(2026, 6, 30)) || !sve[2].Dan.Equal(danMts(2025, 12, 31)) {
 		t.Fatalf("svi popisi, najnoviji dan prvi: %+v", sve)
 	}
-	if s, _ := repo.ListPopisi(ctxRaz, "B", "", 0); len(s) != 2 {
+	if s, err := repo.ListPopisi(ctxRaz, "B", "", 0); err != nil || len(s) != 2 {
 		t.Errorf("popisi sektora B: %d", len(s))
 	}
-	if s, _ := repo.ListPopisi(ctxRaz, "", a.ID, 2025); len(s) != 1 || s[0].Godina != 2025 {
+	if s, err := repo.ListPopisi(ctxRaz, "", a.ID, 2025); err != nil || len(s) != 1 || s[0].Godina != 2025 {
 		t.Errorf("popis Ribnjaka za 2025.: %+v", s)
 	}
 }
@@ -371,7 +371,7 @@ func TestUpotrebaIArhiviranjeVrste(t *testing.T) {
 	}
 
 	nuzno(t, repo.ArhivirajVrstu(ctxRaz, v))
-	if g, _ := repo.GetVrsta(ctxRaz, "lopata"); g != nil {
+	if g, err := repo.GetVrsta(ctxRaz, "lopata"); err != nil || g != nil {
 		t.Error("vrsta je ostala u katalogu")
 	}
 	zadnja, err := n.rec.Latest(ctxRaz, EntityMtsVrste, "lopata")
@@ -395,12 +395,12 @@ func TestArhivirajPopisSamoNacrt(t *testing.T) {
 	if err := repo.ArhivirajPopis(ctxRaz, zakljucen); err == nil {
 		t.Error("zaključeni popis je maknut")
 	}
-	if p, _ := repo.GetPopis(ctxRaz, zakljucen.ID); p == nil || !p.Zakljucen() {
+	if p, err := repo.GetPopis(ctxRaz, zakljucen.ID); err != nil || p == nil || !p.Zakljucen() {
 		t.Errorf("zaključeni popis: %+v", p)
 	}
 
 	nuzno(t, repo.ArhivirajPopis(ctxRaz, nacrt))
-	if p, _ := repo.GetPopis(ctxRaz, nacrt.ID); p != nil {
+	if p, err := repo.GetPopis(ctxRaz, nacrt.ID); err != nil || p != nil {
 		t.Error("nacrt popisa je ostao")
 	}
 	zadnja, err := n.rec.Latest(ctxRaz, EntityMtsPopisi, nacrt.ID)

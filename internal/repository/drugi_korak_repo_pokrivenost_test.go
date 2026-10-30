@@ -104,14 +104,14 @@ func TestPrijavaNaCekanjuBezPINaIPonovnoSlanje(t *testing.T) {
 	}
 
 	nuzno(t, repo.PostaviRazlog(ctx, []byte("p"), "bez-adrese"))
-	p, _ = repo.Prijava(ctx, []byte("p"))
+	p, _ = repo.Prijava(ctx, []byte("p")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if p.Razlog != "bez-adrese" {
 		t.Errorf("razlog: %q", p.Razlog)
 	}
 
 	kad := sadDrugogKoraka.Add(2 * time.Minute)
 	nuzno(t, repo.PostaviPIN(ctx, []byte("p"), []byte("novi-pin"), "a**@primjer.hr", kad))
-	p, _ = repo.Prijava(ctx, []byte("p"))
+	p, _ = repo.Prijava(ctx, []byte("p")) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if !bytes.Equal(p.PinHash, []byte("novi-pin")) || p.PoslanoNa != "a**@primjer.hr" || p.Razlog != "" ||
 		p.PosljednjeSlanje == nil || !p.PosljednjeSlanje.Equal(kad) {
 		t.Errorf("nakon ponovnog slanja: %+v", p)
@@ -136,7 +136,7 @@ func TestBrisanjePrijavaNaCekanju(t *testing.T) {
 	}
 
 	nuzno(t, repo.ObrisiPrijaveKorisnika(ctx, ivo))
-	if p, _ := repo.Prijava(ctx, []byte("i")); p != nil {
+	if p, err := repo.Prijava(ctx, []byte("i")); err != nil || p != nil {
 		t.Error("prijava osobe nije obrisana")
 	}
 }
@@ -180,7 +180,7 @@ func TestZapamcenaRacunala(t *testing.T) {
 
 	kad := sadDrugogKoraka.Add(3 * time.Hour)
 	nuzno(t, repo.OznaciKoristenje(ctx, x.ID, "10.0.0.9", kad))
-	x, _ = repo.Racunalo(ctx, []byte("t1"), ana)
+	x, _ = repo.Racunalo(ctx, []byte("t1"), ana) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if x.LastUsedAt == nil || !x.LastUsedAt.Equal(kad) || x.IPZadnji != "10.0.0.9" || !x.ExpiresAt.Equal(zamjena.ExpiresAt) {
 		t.Errorf("korištenje: zadnje %v, ip %q, rok %v", x.LastUsedAt, x.IPZadnji, x.ExpiresAt)
 	}
@@ -199,10 +199,10 @@ func TestZapamcenaRacunala(t *testing.T) {
 		t.Errorf("brisanje svojeg: %v, %v", ok, err)
 	}
 	nuzno(t, repo.ObrisiRacunaloPoTokenu(ctx, ivo, []byte("t1")))
-	if x, _ := repo.Racunalo(ctx, []byte("t1"), ivo); x != nil {
+	if x, err := repo.Racunalo(ctx, []byte("t1"), ivo); err != nil || x != nil {
 		t.Error("računalo po tokenu nije zaboravljeno")
 	}
-	if x, _ := repo.Racunalo(ctx, []byte("t1"), ana); x == nil {
+	if x, err := repo.Racunalo(ctx, []byte("t1"), ana); err != nil || x == nil {
 		t.Error("brisanje po tokenu jedne osobe odnijelo je i drugu")
 	}
 
@@ -210,7 +210,7 @@ func TestZapamcenaRacunala(t *testing.T) {
 	if n, err := repo.ObrisiRacunalaKorisnika(ctx, ana); err != nil || n != 2 {
 		t.Errorf("sva računala osobe: %d, %v", n, err)
 	}
-	if sva, _ := repo.Racunala(ctx, ana); len(sva) != 0 {
+	if sva, err := repo.Racunala(ctx, ana); err != nil || len(sva) != 0 {
 		t.Errorf("ostala računala: %d", len(sva))
 	}
 }
@@ -250,7 +250,7 @@ func TestRezervniKodovi(t *testing.T) {
 	if ok, err := repo.IskoristiKod(ctx, k.ID, sadDrugogKoraka.Add(3*time.Hour)); err != nil || ok {
 		t.Errorf("drugo korištenje istog koda: %v, %v", ok, err)
 	}
-	if k, _ := repo.Kod(ctx, ana, "R1"); k != nil {
+	if k, err := repo.Kod(ctx, ana, "R1"); err != nil || k != nil {
 		t.Errorf("iskorišteni kod se još nudi: %+v", k)
 	}
 
@@ -299,10 +299,10 @@ func TestPrivremeniKodVrijediSamoZadnji(t *testing.T) {
 	}
 
 	nuzno(t, repo.ObrisiPrivremene(ctx, ana))
-	if k, _ := repo.Kod(ctx, ana, "P"); k != nil {
+	if k, err := repo.Kod(ctx, ana, "P"); err != nil || k != nil {
 		t.Error("privremeni kod nije obrisan")
 	}
-	if n, _, _ := repo.StanjeRezervnih(ctx, ana); n != 1 {
+	if n, _, err := repo.StanjeRezervnih(ctx, ana); err != nil || n != 1 {
 		t.Errorf("brisanje privremenih odnijelo je rezervne: ostalo %d", n)
 	}
 }
@@ -351,25 +351,25 @@ func TestOcistiIstekleDrugogKoraka(t *testing.T) {
 	if n != 6 {
 		t.Errorf("obrisano %d, očekivano 6", n)
 	}
-	if p, _ := repo.Prijava(ctx, []byte("na-rubu")); p != nil {
+	if p, err := repo.Prijava(ctx, []byte("na-rubu")); err != nil || p != nil {
 		t.Error("ostala je prijava kojoj je rok istekao u trenutku čišćenja")
 	}
-	if sva, _ := repo.Racunala(ctx, ivo); len(sva) != 0 {
+	if sva, err := repo.Racunala(ctx, ivo); err != nil || len(sva) != 0 {
 		t.Errorf("ostalo je računalo kojem je rok istekao u trenutku čišćenja: %+v", sva)
 	}
-	if k, _ := repo.Kod(ctx, eva, "P"); k != nil {
+	if k, err := repo.Kod(ctx, eva, "P"); err != nil || k != nil {
 		t.Errorf("ostao je privremeni kod kojem je rok istekao u trenutku čišćenja: %+v", k)
 	}
-	if p, _ := repo.Prijava(ctx, []byte("vrijedi")); p == nil {
+	if p, err := repo.Prijava(ctx, []byte("vrijedi")); err != nil || p == nil {
 		t.Error("obrisana je prijava koja vrijedi")
 	}
-	if sva, _ := repo.Racunala(ctx, ana); len(sva) != 1 || string(sva[0].TokenHash) != "b" {
+	if sva, err := repo.Racunala(ctx, ana); err != nil || len(sva) != 1 || string(sva[0].TokenHash) != "b" {
 		t.Errorf("ostala računala: %+v", sva)
 	}
-	if k, _ := repo.Kod(ctx, ivo, "P"); k == nil {
+	if k, err := repo.Kod(ctx, ivo, "P"); err != nil || k == nil {
 		t.Error("obrisan je privremeni kod koji vrijedi")
 	}
-	if k, _ := repo.Kod(ctx, ana, "R1"); k == nil {
+	if k, err := repo.Kod(ctx, ana, "R1"); err != nil || k == nil {
 		t.Error("obrisan je rezervni kod")
 	}
 }
@@ -471,7 +471,7 @@ func TestZamjenaKodovaBezPolaPosla(t *testing.T) {
 	if n, kad, err := repo.StanjeRezervnih(ctx, ana); err != nil || n != 2 || kad == nil || !kad.Equal(sadDrugogKoraka) {
 		t.Errorf("stari niz nakon neuspjele zamjene: %d, %v, %v", n, kad, err)
 	}
-	if k, _ := repo.Kod(ctx, ana, "R1"); k == nil || !bytes.Equal(k.KodHash, []byte("s1")) {
+	if k, err := repo.Kod(ctx, ana, "R1"); err != nil || k == nil || !bytes.Equal(k.KodHash, []byte("s1")) {
 		t.Errorf("kod R1 nakon neuspjele zamjene: %+v", k)
 	}
 
@@ -479,7 +479,7 @@ func TestZamjenaKodovaBezPolaPosla(t *testing.T) {
 	if err := repo.DodajPrivremeni(ctx, &KodPrijave{ID: "stari-1", UserID: ana, Oznaka: "P", KodHash: []byte("p2"), CreatedAt: sadDrugogKoraka, ExpiresAt: &istek}); err == nil {
 		t.Fatal("privremeni kod s postojećim ID-om je spremljen")
 	}
-	if k, _ := repo.Kod(ctx, ana, "P"); k == nil || !bytes.Equal(k.KodHash, []byte("p1")) {
+	if k, err := repo.Kod(ctx, ana, "P"); err != nil || k == nil || !bytes.Equal(k.KodHash, []byte("p1")) {
 		t.Errorf("privremeni kod nakon neuspjelog upisa: %+v", k)
 	}
 }

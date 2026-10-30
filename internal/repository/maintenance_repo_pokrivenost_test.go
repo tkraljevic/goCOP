@@ -133,7 +133,7 @@ func TestPopisiUKojimaSeVodaVodi(t *testing.T) {
 	if l[0].WaterName != "rijeka Drava" {
 		t.Errorf("naziv iz registra %q", l[0].WaterName)
 	}
-	l, _ = repo.WatersFor(ctx, "", "nasip-1")
+	l, _ = repo.WatersFor(ctx, "", "nasip-1") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if len(l) != 1 || l[0].Name != "nasip" || l[0].WaterName != "Nasip Proba" || l[0].StructureKind != "NASIP" {
 		t.Errorf("po objektu %+v", l)
 	}
@@ -201,7 +201,7 @@ func TestStavkeRadova(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(opisi(l), []string{"prva po rasporedu", "čišćenje", "košnja"}) {
 		t.Errorf("uključene %v, %v", opisi(l), err)
 	}
-	l, _ = repo.ListItems(ctx, 34, true)
+	l, _ = repo.ListItems(ctx, 34, true) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if !reflect.DeepEqual(opisi(l), []string{"prva po rasporedu", "isključena", "čišćenje", "košnja"}) {
 		t.Errorf("sve %v", opisi(l))
 	}
@@ -218,7 +218,7 @@ func TestStavkeRadova(t *testing.T) {
 	}
 
 	nuzno(t, repo.DeleteItem(ctx, kosnja.ID))
-	if g, _ := repo.GetItem(ctx, kosnja.ID); g != nil {
+	if g, err := repo.GetItem(ctx, kosnja.ID); err != nil || g != nil {
 		t.Error("stavka je ostala")
 	}
 	v, err := rec.Latest(ctx, EntityWorkItems, kosnja.ID)

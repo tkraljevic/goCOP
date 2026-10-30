@@ -171,7 +171,7 @@ func TestUlaganjeIPospremanje(t *testing.T) {
 	}
 	for rows.Next() {
 		var iz string
-		_ = rows.Scan(&iz)
+		_ = rows.Scan(&iz) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		oznake[iz]++
 	}
 	rows.Close()

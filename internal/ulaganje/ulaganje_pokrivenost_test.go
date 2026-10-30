@@ -643,8 +643,8 @@ func TestZaboraviUlozenaBriseSamoOznacena(t *testing.T) {
 		t.Errorf("obrisano %d očitanja i %d verzija, želim 1 i 2", o, v)
 	}
 	var ostalo, verzija int
-	_ = baza.QueryRow(`SELECT count(*) FROM readings`).Scan(&ostalo)
-	_ = baza.QueryRow(`SELECT count(*) FROM record_versions`).Scan(&verzija)
+	_ = baza.QueryRow(`SELECT count(*) FROM readings`).Scan(&ostalo)         // probni podaci su ispravni; kvar bi pokazala provjera niže
+	_ = baza.QueryRow(`SELECT count(*) FROM record_versions`).Scan(&verzija) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if ostalo != 2 || verzija != 2 {
 		t.Errorf("ostalo %d očitanja i %d verzija, želim 2 i 2", ostalo, verzija)
 	}

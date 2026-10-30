@@ -142,10 +142,10 @@ func TestStaroStanjeArhiviranaJeRijesena(t *testing.T) {
 	p := objavljenaPrijava("stara", 1, time.Date(2025, 5, 5, 9, 0, 0, 0, models.Zagreb))
 	p.Status = "ARHIVIRANA"
 	nuzno(t, repo.Save(ctx, p))
-	if g, _ := repo.Get(ctx, "stara"); g == nil || g.Status != models.PrijavaRijesena {
+	if g, err := repo.Get(ctx, "stara"); err != nil || g == nil || g.Status != models.PrijavaRijesena {
 		t.Errorf("stanje %+v", g)
 	}
-	if l, _ := repo.List(ctx, FiltarPrijava{}); len(l) != 1 || l[0].Status != models.PrijavaRijesena {
+	if l, err := repo.List(ctx, FiltarPrijava{}); err != nil || len(l) != 1 || l[0].Status != models.PrijavaRijesena {
 		t.Errorf("popis %+v", l)
 	}
 }
@@ -159,7 +159,7 @@ func TestFiltarRijesenihNalaziStaroStanje(t *testing.T) {
 	p := objavljenaPrijava("stara", 1, time.Date(2025, 5, 5, 9, 0, 0, 0, models.Zagreb))
 	p.Status = "ARHIVIRANA"
 	nuzno(t, repo.Save(ctx, p))
-	if l, _ := repo.List(ctx, FiltarPrijava{Status: models.PrijavaRijesena}); len(l) != 1 {
+	if l, err := repo.List(ctx, FiltarPrijava{Status: models.PrijavaRijesena}); err != nil || len(l) != 1 {
 		t.Errorf("riješene %+v", l)
 	}
 }
@@ -195,11 +195,11 @@ func TestBrisanjeNacrtaSFotografijom(t *testing.T) {
 		Status: models.PrijavaNacrt, Slike: []models.SlikaPrijave{{ID: "foto-1", Naziv: "fotografija 1"}}}
 	nuzno(t, repo.Save(ctx, p))
 	nuzno(t, repo.SaveSlika(ctx, "foto-1", p.ID, []byte("\xff\xd8 nasip")))
-	if b, _ := repo.Slika(ctx, "foto-1"); string(b) != "\xff\xd8 nasip" {
+	if b, err := repo.Slika(ctx, "foto-1"); err != nil || string(b) != "\xff\xd8 nasip" {
 		t.Fatalf("fotografija prije brisanja %q", b)
 	}
 	nuzno(t, repo.Delete(ctx, p.ID))
-	if g, _ := repo.Get(ctx, p.ID); g != nil {
+	if g, err := repo.Get(ctx, p.ID); err != nil || g != nil {
 		t.Error("nacrt je ostao")
 	}
 	if b, err := repo.Slika(ctx, "foto-1"); err != nil || b != nil {

@@ -180,7 +180,7 @@ func TestKisomjer_IzmjenaCuvaDatumUpisa(t *testing.T) {
 	if err := svc.CreateKisomjer(ctx, kisomjerAdmin, &models.Kisomjer{Code: "zz-izmjena", Naziv: "Prije", Latitude: 45, Longitude: 18}); err != nil {
 		t.Fatal(err)
 	}
-	prije, _ := svc.GetKisomjer(ctx, "zz-izmjena")
+	prije, _ := svc.GetKisomjer(ctx, "zz-izmjena") // probni podaci su ispravni; kvar bi pokazala provjera niže
 
 	izmjena := &models.Kisomjer{Code: " ZZ-Izmjena ", Naziv: " Poslije ", Latitude: 46, Longitude: 19, Napomena: " nova "}
 	if err := svc.UpdateKisomjer(ctx, kisomjerAdmin, izmjena); err != nil {
@@ -189,7 +189,7 @@ func TestKisomjer_IzmjenaCuvaDatumUpisa(t *testing.T) {
 	if !izmjena.CreatedAt.Equal(prije.CreatedAt) {
 		t.Errorf("datum upisa promijenjen: %v → %v", prije.CreatedAt, izmjena.CreatedAt)
 	}
-	poslije, _ := svc.GetKisomjer(ctx, "zz-izmjena")
+	poslije, _ := svc.GetKisomjer(ctx, "zz-izmjena") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if poslije.Naziv != "Poslije" || poslije.Latitude != 46 || poslije.Napomena != "nova" {
 		t.Errorf("izmjena nije spremljena: %+v", poslije)
 	}
@@ -243,7 +243,7 @@ func TestKisomjer_PremjestanjeMijenjaSamoKoordinate(t *testing.T) {
 	if n != 1 {
 		t.Errorf("premješteno %d, očekivano 1", n)
 	}
-	p1, _ := svc.GetKisomjer(ctx, "zz-p1")
+	p1, _ := svc.GetKisomjer(ctx, "zz-p1") // probni podaci su ispravni; kvar bi pokazala provjera niže
 	if p1.Latitude != 45.123457 || p1.Longitude != 18.765432 {
 		t.Errorf("nove koordinate: %v, %v", p1.Latitude, p1.Longitude)
 	}
@@ -259,7 +259,7 @@ func TestKisomjer_PremjestanjeMijenjaSamoKoordinate(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "ne postoji") || n != 1 {
 		t.Errorf("nepostojeća točka: n=%d, err=%v", n, err)
 	}
-	if p2, _ := svc.GetKisomjer(ctx, "zz-p2"); p2.Latitude != 46.5 {
+	if p2, err := svc.GetKisomjer(ctx, "zz-p2"); err != nil || p2.Latitude != 46.5 {
 		t.Errorf("prva točka nije spremljena prije greške: %v", p2.Latitude)
 	}
 
@@ -312,7 +312,7 @@ func TestKisomjer_Slivovi(t *testing.T) {
 	if err := svc.DeleteSliv(ctx, kisomjerAdmin, " ZQ "); err != nil {
 		t.Fatalf("brisanje sliva: %v", err)
 	}
-	slivovi, _ = svc.ListSlivovi(ctx)
+	slivovi, _ = svc.ListSlivovi(ctx) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	for _, s := range slivovi {
 		if s.Oznaka == "ZQ" {
 			t.Error("sliv ZQ i dalje postoji nakon brisanja")

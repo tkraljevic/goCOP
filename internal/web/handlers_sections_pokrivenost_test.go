@@ -127,7 +127,7 @@ func TestDionicaAPI(t *testing.T) {
 	procitaj := func(p *models.UserPermissions, r *http.Request, put map[string]string) (int, map[string]any) {
 		w := o.zovi(o.h.HandleGetSectionAPI, p, r, put)
 		var out map[string]any
-		_ = json.Unmarshal(w.Body.Bytes(), &out)
+		_ = json.Unmarshal(w.Body.Bytes(), &out) // probni podaci su ispravni; kvar bi pokazala provjera niže
 		return w.Code, out
 	}
 	if kod, d := procitaj(o.peroOvl, dohvati("/api/sections/P.1.1"), map[string]string{"code": "P.1.1"}); kod != http.StatusOK || d["code"] != "P.1.1" || d["can_edit"] != true {
@@ -361,7 +361,7 @@ func TestUpisIIzmjenaDionice(t *testing.T) {
 	if l := posalji(o.h.HandleUpdateSection, o.peroOvl, izmjena.Encode()); l != "/sections/E.3.7?success=Izmjene su spremljene." {
 		t.Errorf("izmjena: %s", l)
 	}
-	if sec, _ := o.h.sectionService.GetSectionWithDetails("E.3.7"); sec == nil || sec.Notes != "Nova napomena" || len(sec.Parts) != 1 || sec.Parts[0].Bank != "D" || sec.Parts[0].WatercourseCode != "kanal-probni" {
+	if sec, err := o.h.sectionService.GetSectionWithDetails("E.3.7"); err != nil || sec == nil || sec.Notes != "Nova napomena" || len(sec.Parts) != 1 || sec.Parts[0].Bank != "D" || sec.Parts[0].WatercourseCode != "kanal-probni" {
 		t.Errorf("izmjena nije spremljena: %+v", sec)
 	}
 	if l := posalji(o.h.HandleUpdateSection, o.markOvl, izmjena.Encode()); !strings.HasPrefix(l, "/sections/E.3.7/edit?error=") {

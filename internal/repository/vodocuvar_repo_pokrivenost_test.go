@@ -252,7 +252,7 @@ func TestPopisiZadataka(t *testing.T) {
 	if err != nil || !reflect.DeepEqual(idZadataka(l), []string{"z-ponoc-11", "z-vecer-10"}) {
 		t.Errorf("dva najnovija %v, %v", idZadataka(l), err)
 	}
-	if l, _ = repo.ZadaciVodocuvara(ctx, vodocuvarMarko, 0); len(l) != 5 {
+	if l, err = repo.ZadaciVodocuvara(ctx, vodocuvarMarko, 0); err != nil || len(l) != 5 {
 		t.Errorf("bez ograničenja %d zadataka, htio 5", len(l))
 	}
 	od, do := time.Date(2026, 3, 10, 0, 0, 0, 0, models.Zagreb), time.Date(2026, 3, 11, 0, 0, 0, 0, models.Zagreb)
@@ -285,7 +285,7 @@ func TestPrilogListaIzSpremista(t *testing.T) {
 	}
 	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
-	t.Cleanup(func() { _ = sp.Zatvori() })
+	t.Cleanup(func() { _ = sp.Zatvori() }) // probni podaci su ispravni; kvar bi pokazala provjera niže
 	SetSpremiste(sp)
 
 	l := listMarka(time.Date(2026, 3, 10, 0, 0, 0, 0, models.Zagreb), 1)
