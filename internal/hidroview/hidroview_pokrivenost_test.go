@@ -76,7 +76,7 @@ func (p *probniHV) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		p.korisni = r.URL.Query().Get("username")
 		p.mu.Unlock()
 		tajna, _ := hex.DecodeString(r.URL.Query().Get("password")) // probni podaci su ispravni; kvar bi pokazala provjera niže
-		otvoreno, err := rsa.DecryptPKCS1v15(nil, p.kljuc, tajna)
+		otvoreno, err := rsa.DecryptPKCS1v15(nil, p.kljuc, tajna)   //nolint:staticcheck // HydroView šifrira lozinku PKCS #1 v1.5, pa probni poslužitelj čita isto
 		zbroj := md5.Sum([]byte(p.lozinka))
 		if err != nil || !bytes.Equal(otvoreno, []byte(strings.ToUpper(hex.EncodeToString(zbroj[:])))) {
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "wrong_password"}) // probni podaci su ispravni; kvar bi pokazala provjera niže

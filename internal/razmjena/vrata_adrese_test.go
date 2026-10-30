@@ -165,7 +165,9 @@ func TestRokNakonClientHellaZadrzavaPostavke(t *testing.T) {
 		t.Fatalf("postavke pozivatelja: %v %v", c, err)
 	}
 	go func() {
-		_, _ = b.Write([]byte{1}) /* čitanje niže čeka taj bajt; ako upis ne prođe, test padne na roku */
+		if _, err := b.Write([]byte{1}); err != nil { // čitanje niže čeka taj bajt
+			t.Error(err)
+		}
 	}()
 	if _, err := a.Read(make([]byte, 1)); err != nil {
 		t.Errorf("nakon ClientHella rok nije produžen: %v", err)

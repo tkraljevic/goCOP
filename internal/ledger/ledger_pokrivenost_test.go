@@ -328,7 +328,7 @@ type zapisSDijelovima struct {
 
 // samoSebe ugrađuje sebe, pa skupljanje polja ne smije ući u petlju
 type samoSebe struct {
-	*samoSebe
+	*samoSebe //nolint:unused // polje postoji samo da struktura ugradi sebe; test gleda skupljanje polja
 	Ime string `json:"ime"`
 }
 

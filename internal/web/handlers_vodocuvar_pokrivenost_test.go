@@ -289,7 +289,9 @@ func TestKoordinatePodrucjaKrozPosao(t *testing.T) {
 			w.WriteHeader(kod)
 			return
 		}
-		_ = json.NewEncoder(w).Encode([]map[string]string{{"lat": "45.55", "lon": "18.69", "display_name": "Primjerovo, Hrvatska"}}) // probni podaci su ispravni; kvar bi pokazala provjera niže
+		if err := json.NewEncoder(w).Encode([]map[string]string{{"lat": "45.55", "lon": "18.69", "display_name": "Primjerovo, Hrvatska"}}); err != nil {
+			t.Error(err)
+		}
 	}))
 	defer osm.Close()
 	o.h.SetGeokoder(&weather.Geokoder{BaseURL: osm.URL, HTTP: osm.Client()})

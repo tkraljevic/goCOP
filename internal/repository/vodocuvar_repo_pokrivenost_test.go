@@ -285,7 +285,11 @@ func TestPrilogListaIzSpremista(t *testing.T) {
 	}
 	sp, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
-	t.Cleanup(func() { _ = sp.Zatvori() }) // probni podaci su ispravni; kvar bi pokazala provjera niže
+	t.Cleanup(func() {
+		if err := sp.Zatvori(); err != nil {
+			t.Error(err)
+		}
+	})
 	SetSpremiste(sp)
 
 	l := listMarka(time.Date(2026, 3, 10, 0, 0, 0, 0, models.Zagreb), 1)

@@ -426,7 +426,7 @@ func (l *lazniHidroView) lozinkaVrijedi(kljuc *rsa.PrivateKey, hexTajna string) 
 	if err != nil {
 		return false
 	}
-	otvoreno, err := rsa.DecryptPKCS1v15(nil, kljuc, tajna)
+	otvoreno, err := rsa.DecryptPKCS1v15(nil, kljuc, tajna) //nolint:staticcheck // Hrvatske vode šifriraju lozinku PKCS #1 v1.5, pa probni poslužitelj čita isto
 	if err != nil {
 		return false
 	}
@@ -446,7 +446,11 @@ func pokreniLazniHidroView(t *testing.T) *lazniHidroView {
 	}
 	javni := string(pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: der}))
 	l := &lazniHidroView{}
-	pisi := func(w http.ResponseWriter, v any) { _ = json.NewEncoder(w).Encode(v) } // probni podaci su ispravni; kvar bi pokazala provjera niže
+	pisi := func(w http.ResponseWriter, v any) {
+		if err := json.NewEncoder(w).Encode(v); err != nil {
+			t.Error(err)
+		}
+	}
 	l.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		put := strings.TrimPrefix(r.URL.Path, "/api/v1/")
