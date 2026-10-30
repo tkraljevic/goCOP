@@ -18,10 +18,17 @@ import (
 // Članstvo ostaje svako (po potpisu): razmjena ključ računala bira iz svih
 // članstava u knjizi, a vrijedi prvo izdano (peers, clanstvo_oznake.go).
 // Kad bi ostala samo zadnja verzija, tuđe članstvo pod istim imenom, koje
-// je stiglo poslije, nakon sažimanja zauzelo bi to ime.
+// je stiglo poslije, nakon sažimanja zauzelo bi to ime. Isto vrijedi za
+// ovlasti za primanje: opoziv člana čita ih iz svih verzija u knjizi.
+//
+// Opoziv ostaje svaki, po cijelom sadržaju: provjera opoziva čita i knjigu
+// (peers.opozvano), pa u knjizi ostaje svaka verzija opoziva koja se
+// sadržajem razlikuje od drugih.
 var pravilaSazimanja = []ledger.ZadrziPo{
 	{Entity: EntityAkti, Kljuc: "$.ovjera_kod"},
 	{Entity: "memberships", Kljuc: "$.signature"},
+	{Entity: "ovlasti", Kljuc: "$.signature"},
+	{Entity: entitetOpozivi, Kljuc: "$"},
 }
 
 // ZaSazimanje broji verzije koje bi SazmiKnjigu obrisala, za pregled prije

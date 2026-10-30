@@ -1316,6 +1316,8 @@ func slucajeviRazmjene() []slucajRazmjene {
 			napravi: func(t *testing.T, a *cvor) {
 				var op peers.Opoziv
 				puni(&op)
+				// primjena upisuje samo opoziv koji vrijedi sam za sebe
+				op = op.Potpisi(kljucProbe)
 				tx, err := a.db.Begin()
 				nuzno(t, err)
 				defer tx.Rollback()

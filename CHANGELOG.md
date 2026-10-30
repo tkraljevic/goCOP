@@ -59,6 +59,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Akti, događanja i vodočuvarski dnevnik traže Dokumentaciju; vodočuvar svoj
   dnevnik vodi i bez nje. Izvođač na zidu ne vidi dnevnik COP-a ni
   dežurstva.
+- **Opoziv člana oduzima i ovlast za primanje.** Kad računalo s ključem
+  mreže opozove člana, uvijek mu opozove i ovlast za primanje novih
+  računala, svaku izdanu do tog trenutka, i onu za koju to računalo još ne
+  zna, i kad je članu članstvo već isteklo. Program opoziv provjerava i u
+  knjizi primljenih zapisa, ne samo u popisu opoziva. U popis opoziva
+  ulazi samo opoziv čija oznaka odgovara sadržaju i potpisu.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

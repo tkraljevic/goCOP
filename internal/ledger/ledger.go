@@ -605,8 +605,10 @@ func (r *Recorder) Compactable(ctx context.Context, olderThan time.Time, zadrzi 
 }
 
 // ZadrziPo je pravilo sažimanja za entitet kojem površina ne ovisi samo o
-// zadnjoj verziji: osim zadnje verzije zapisa ostaje i zadnja verzija svake
-// vrijednosti JSON puta Kljuc u sadržaju (npr. svake ovjere akta, "$.ovjera_kod")
+// zadnjoj verziji: osim zadnje verzije zapisa ostaje i zadnja živa i zadnja
+// arhivirana verzija svake vrijednosti JSON puta Kljuc u sadržaju (npr.
+// svake ovjere akta, "$.ovjera_kod"). Sadržaj koji SQLite ne može pročitati
+// kao JSON (npr. dublji od njegove granice) pada u jednu skupinu.
 type ZadrziPo struct {
 	Entity string
 	Kljuc  string
@@ -634,7 +636,8 @@ func sazimljive(olderThan time.Time, cuvaj []string, zadrzi []ZadrziPo) (string,
 	}
 	for _, z := range zadrzi {
 		uvjet += `
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions WHERE entity = ? GROUP BY entity_id, json_extract(payload, ?))`
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions WHERE entity = ?
+		                         GROUP BY entity_id, archived, CASE WHEN json_valid(payload) THEN json_extract(payload, ?) END)`
 		args = append(args, z.Entity, z.Kljuc)
 	}
 	return uvjet, args

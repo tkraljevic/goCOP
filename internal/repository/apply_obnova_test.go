@@ -287,9 +287,9 @@ func TestObnovaJednaPoJednaIGreskaCitanja(t *testing.T) {
 	ocitanjeNa(t, a, time.Now().UTC().Add(-time.Hour), 150)
 	sve, err := a.rec.Since(ctxRaz, "", 0)
 	nuzno(t, err)
-	const opoziv = "01a00000-0000-7000-8000-00000000f002"
-	samoUKnjigu(t, b, append(sve, verzijaZa(t, peers.EntityOpozivi, opoziv, vid(1),
-		peers.Opoziv{ID: opoziv, Vrsta: peers.OpozivClanstva, NodeID: "cop-proba-opozvani"})))
+	op := opozivProbe("cop-proba-opozvani", "kljuc-probe")
+	opoziv := op.ID
+	samoUKnjigu(t, b, append(sve, verzijaZa(t, peers.EntityOpozivi, opoziv, vid(1), op)))
 
 	obnovaTece.Lock()
 	o, err := ObnoviPovrsinu(ctxRaz, b.db, b.rec)

@@ -145,8 +145,14 @@ func TestOpozvanoClanstvoIzCertifikataSeOdbija(t *testing.T) {
 	if _, _, err := d.svc.SyncWith(ctx, a.id); err == nil {
 		t.Error("opozvani čvor je ušao s potvrdom iz certifikata")
 	}
+	// opoziv ključem mreže uz članstvo uvijek opoziva i ovlast za primanje
+	// istog ključa, i kad je čvor nije imao
 	ops, err := a.svc.ListOpozivi(ctx)
-	if err != nil || len(ops) != 1 || ops[0].NodeID != d.id || ops[0].Vrsta != peers.OpozivClanstva {
+	vrste := map[string]bool{}
+	for _, op := range ops {
+		vrste[op.Vrsta] = op.NodeID == d.id && op.PublicKey == ops[0].PublicKey
+	}
+	if err != nil || len(ops) != 2 || !vrste[peers.OpozivClanstva] || !vrste[peers.OpozivOvlasti] {
 		t.Errorf("opozivi: %+v %v", ops, err)
 	}
 }
@@ -416,8 +422,12 @@ func TestKrivotvorenIArhiviranOpozivNemajuUcinka(t *testing.T) {
 	if _, _, err := uljez.svc.SyncWith(ctx, a.id); err != nil {
 		t.Fatal(err)
 	}
-	if ops, _ := a.svc.ListOpozivi(ctx); len(ops) != 1 {
-		t.Fatalf("krivotvoren opoziv nije stigao na A: %+v", ops)
+	// stigao je u knjigu, a u tablicu ne, jer ne vrijedi ni sam za sebe
+	if h, err := a.rec.History(ctx, peers.EntityOpozivi, "lazni"); err != nil || len(h) != 1 {
+		t.Fatalf("krivotvoren opoziv nije stigao na A: %+v, %v", h, err)
+	}
+	if ops, err := a.svc.ListOpozivi(ctx); err != nil || len(ops) != 0 {
+		t.Errorf("krivotvoren opoziv je u tablici opoziva: %+v, %v", ops, err)
 	}
 	if _, _, err := c.svc.SyncWith(ctx, a.id); err != nil {
 		t.Fatalf("krivotvoren opoziv odsjekao je C: %v", err)
