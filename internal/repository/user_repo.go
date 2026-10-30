@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -168,9 +169,13 @@ func (r *UserRepository) GetDuty(id uuid.UUID) (*models.Duty, error) {
 	return &d, nil
 }
 
-// recordDuties ostavlja verziju za svako navedeno zaduženje, kakvo je na površini
+// recordDuties ostavlja verziju za svako navedeno zaduženje, kakvo je na
+// površini. Zaduženje za koje čeka potvrda promjene prava ne mijenja se.
 func (r *UserRepository) recordDuties(ctx context.Context, tx *sql.Tx, ids []string) error {
 	for _, id := range ids {
+		if err := cekaPotvrdu(ctx, tx, EntityDuties, id); err != nil {
+			return err
+		}
 		d, err := getDutyTx(ctx, tx, id)
 		if err != nil {
 			return err
@@ -492,7 +497,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 		mustChangeInt = 1
 	}
 
-	tx, err := r.db.Begin()
+	tx, err := r.pocniIzmjenu(context.Background(), EntityUsers, u.ID.String())
 	if err != nil {
 		return err
 	}
@@ -559,7 +564,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 // arhivirani. Sesije su lokalne i ne sinkroniziraju se, pa se samo brišu.
 func (r *UserRepository) DeleteUser(id uuid.UUID) error {
 	ctx := context.Background()
-	tx, err := r.db.Begin()
+	tx, err := r.pocniIzmjenu(ctx, EntityUsers, id.String())
 	if err != nil {
 		return err
 	}
@@ -941,7 +946,7 @@ func (r *UserRepository) ListAreas(sectorID string) ([]models.Area, error) {
 // ChangePassword ažurira lozinku korisnika i postavlja must_change_password na 0
 func (r *UserRepository) ChangePassword(userID uuid.UUID, newPasswordHash string) error {
 	ctx := context.Background()
-	tx, err := r.db.Begin()
+	tx, err := r.pocniIzmjenu(ctx, EntityUsers, userID.String())
 	if err != nil {
 		return err
 	}
@@ -971,7 +976,7 @@ func (r *UserRepository) ChangePassword(userID uuid.UUID, newPasswordHash string
 // ChangePassword, koji oznaku gasi jer je lozinku postavio sam korisnik.
 func (r *UserRepository) ResetPassword(userID uuid.UUID, newPasswordHash string) error {
 	ctx := context.Background()
-	tx, err := r.db.Begin()
+	tx, err := r.pocniIzmjenu(ctx, EntityUsers, userID.String())
 	if err != nil {
 		return err
 	}
@@ -1006,9 +1011,11 @@ func (r *UserRepository) MarkLogin(userID uuid.UUID, at time.Time) error {
 	at = at.UTC()
 	ctx := context.Background()
 
-	tx, err := r.db.Begin()
+	// dok za račun čeka potvrda promjene prava, prijava se ne bilježi:
+	// verzija s ovog računala odlučila bi umjesto administratora
+	tx, err := r.pocniIzmjenu(ctx, EntityUsers, userID.String())
 	if err != nil {
-		return err
+		return bezCekanja(err)
 	}
 	defer tx.Rollback()
 
@@ -1032,6 +1039,26 @@ func (r *UserRepository) MarkLogin(userID uuid.UUID, at time.Time) error {
 		return err
 	}
 	return tx.Commit()
+}
+
+// bezCekanja: zapis za koji čeka potvrda prava se preskače bez greške
+func bezCekanja(err error) error {
+	if errors.Is(err, ErrRacunCekaPotvrdu) {
+		err = nil
+	}
+	return err
+}
+
+// pocniIzmjenu otvara transakciju lokalne izmjene zapisa. Zapis za koji na
+// ovom računalu čeka potvrda promjene prava ne mijenja se (cekaPotvrdu).
+func (r *UserRepository) pocniIzmjenu(ctx context.Context, entitet, id string) (*sql.Tx, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err == nil {
+		if err = cekaPotvrdu(ctx, tx, entitet, id); err != nil {
+			_ = tx.Rollback() // ništa još nije upisano
+		}
+	}
+	return tx, err
 }
 
 func sameDay(a, b time.Time) bool {

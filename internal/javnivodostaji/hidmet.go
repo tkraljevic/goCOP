@@ -55,10 +55,8 @@ func (h Hidmet) Prepoznaje(adresa string) bool { return PostajaHidmetIzAdrese(ad
 // PostajaHidmetIzAdrese vraća broj postaje iz adrese; 0 kad adresa nije
 // njihova ili nema broja
 func PostajaHidmetIzAdrese(adresa string) int {
-	if !strings.Contains(strings.ToLower(adresa), "hidmet.gov.rs") {
-		return 0
-	}
-	m := reHidmetPostaja.FindStringSubmatch(adresa)
+	_, upit := dioIzvora(adresa, "hidmet.gov.rs")
+	m := reHidmetPostaja.FindStringSubmatch(upit)
 	if m == nil {
 		return 0
 	}
@@ -71,11 +69,14 @@ func AdresaHidmet(hmID int) string {
 	return AdresaHidmetPostaje + "?hm_id=" + strconv.Itoa(hmID) + "&period=7"
 }
 
-// Ocitanja čita satne vrijednosti s adrese, najstarije prvo
+// Ocitanja čita satne vrijednosti postaje s adrese, najstarije prvo. Iz
+// adrese se uzima samo broj postaje; stranica se čita s hidmet.gov.rs.
 func (h Hidmet) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
-	if PostajaHidmetIzAdrese(adresa) <= 0 {
+	id := PostajaHidmetIzAdrese(adresa)
+	if id <= 0 {
 		return nil, fmt.Errorf("adresa nema broj postaje (hm_id=…)")
 	}
+	adresa = AdresaHidmet(id)
 	if h.Base != "" {
 		adresa = h.Base + "?" + strings.SplitN(adresa, "?", 2)[1]
 	}

@@ -97,16 +97,13 @@ func (h *PotpisHandler) HandleKljuc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// lozinka računa provjerava se uz ograničenje krivih upisa (ratelimit.go)
-	kljuc := kljucPonovneLozinke("", u.ID.String())
-	err := ponovnaLozinkaDopustena(kljuc)
-	if err == nil {
+	err := uzGranicuPonovne(kljuceviLozinkeRacuna(r.Context(), u.ID.String()), func() error {
 		if r.FormValue("radnja") == "novi" {
-			_, err = s.Novi(r.Context(), u, r.FormValue("lozinka"))
-		} else {
-			err = s.Obrisi(r.Context(), u, r.FormValue("lozinka"))
+			_, err := s.Novi(r.Context(), u, r.FormValue("lozinka"))
+			return err
 		}
-		ishodPonovneLozinke(kljuc, err)
-	}
+		return s.Obrisi(r.Context(), u, r.FormValue("lozinka"))
+	})
 	if err != nil {
 		redirectWith(w, r, natrag, "error", err.Error())
 		return

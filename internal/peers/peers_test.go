@@ -122,7 +122,7 @@ func startNode(t *testing.T, ctx context.Context, id string) *node {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 

@@ -34,7 +34,7 @@ const PodrijetloDanubeHIS = "danubehis.org"
 const AdresaDanubeHISPostaje = "https://www.danubehis.org/results/"
 
 var (
-	reDanubeHISPostaja = regexp.MustCompile(`(?i)danubehis\.org/results/([A-Z]{2}[0-9A-Z]+_HYDRO)`)
+	reDanubeHISPostaja = regexp.MustCompile(`(?i)^/results/([A-Z]{2}[0-9A-Z]+_HYDRO)(?:/|$)`)
 	reDanubeHISRedak   = regexp.MustCompile(
 		`(?s)views-field-time"\s*>\s*(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*</td>\s*<td[^>]*views-field-value[^>]*>\s*(-?\d+(?:\.\d+)?)\s*</td>\s*<td[^>]*views-field-unit"\s*>\s*cm\s*</td>\s*<td[^>]*views-field-description"\s*>\s*Current water level`)
 )
@@ -72,7 +72,8 @@ func (d DanubeHIS) Prepoznaje(adresa string) bool { return PostajaDanubeHISIzAdr
 
 // PostajaDanubeHISIzAdrese vraća oznaku postaje (npr. HU442522_HYDRO)
 func PostajaDanubeHISIzAdrese(adresa string) string {
-	m := reDanubeHISPostaja.FindStringSubmatch(adresa)
+	put, _ := dioIzvora(adresa, "danubehis.org")
+	m := reDanubeHISPostaja.FindStringSubmatch(put)
 	if m == nil {
 		return ""
 	}
@@ -84,12 +85,14 @@ func AdresaDanubeHIS(oznaka string) string {
 	return AdresaDanubeHISPostaje + strings.ToUpper(oznaka) + "/h"
 }
 
-// Ocitanja čita zadnje satne vodostaje s adrese, najstarije prvo
+// Ocitanja čita zadnje satne vodostaje postaje s adrese, najstarije prvo.
+// Iz adrese se uzima samo oznaka postaje; stranica se čita s danubehis.org.
 func (d DanubeHIS) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	oznaka := PostajaDanubeHISIzAdrese(adresa)
 	if oznaka == "" {
 		return nil, fmt.Errorf("adresa nema oznaku postaje (…/results/XX…_HYDRO)")
 	}
+	adresa = AdresaDanubeHIS(oznaka)
 	if d.Base != "" {
 		adresa = d.Base + "/results/" + oznaka + "/h"
 	}

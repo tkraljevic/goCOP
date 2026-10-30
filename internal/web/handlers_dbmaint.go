@@ -348,15 +348,12 @@ func (h *DBMaintHandler) zabranaNeprovjerenog(r *http.Request) string {
 func (h *DBMaintHandler) uveziCop(w http.ResponseWriter, r *http.Request, tmp string) {
 	rep, err := h.peers.UveziCop(r.Context(), tmp)
 	if err != nil {
-		redirectWith(w, r, "/administracija/baza", "error", err.Error())
+		redirectWith(w, r, "/administracija/baza", "error", velikimSlovom(err.Error()))
 		return
 	}
 	poruka := fmt.Sprintf("Ugrađeno izdanje %d (%s) čvora %s: %d %s u paketu, %d %s; sadržaja upisano %d, za dohvat %d.",
 		rep.Manifest.Izdanje, rep.Manifest.Obuhvat.Kljuc(), rep.Manifest.Izdao, rep.Verzija, models.UzBrojHR(rep.Verzija, "zapis", "zapisa", "zapisa"),
 		rep.Novih, models.UzBrojHR(rep.Novih, "novi", "nova", "novih"), rep.SadrzajaUpisano, rep.SadrzajaZeljeno)
-	if rep.Napomena != "" {
-		poruka += " " + rep.Napomena + "."
-	}
 	redirectWith(w, r, "/administracija/baza", "success", poruka)
 }
 

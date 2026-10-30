@@ -76,6 +76,9 @@ type syncOutcome struct {
 	// dolazna: razmjenu je započeo drugi čvor, pa je njegova adresa veze
 	// samo tvrdnja s prolaznim portom (nauci)
 	dolazna bool
+	// ucenje je adresa koju veza smije naučiti ili predložiti (izVeze);
+	// prazno kad ne smije
+	ucenje string
 	// put veze, je li adresa druge strane privatna, RTT i bajtovi (uzVezu)
 	// i razlog zašto razmjena nije išla boljim putem (SyncWith)
 	put                razmjena.Put
@@ -86,10 +89,13 @@ type syncOutcome struct {
 }
 
 // ishodRazmjene slaže bilješku iz onoga što je exchange vratio; inačica
-// programa vrijedi i kad je razgovor pukao nakon što je granica stigla
+// programa vrijedi i kad je razgovor pukao nakon što je granica stigla. Od
+// onoga što je druga strana javila ostaje samo ograđeno: izdanje i gradnja
+// skraćeni, očišćeno znanje i granica koja nije prevelika.
 func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
-	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
-		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, znanje: theirs.Znanje, took: took, err: err}
+	return syncOutcome{applied: applied, sent: sent, frontier: granicaZaPamcenje(theirs.Frontier),
+		program: skrati(theirs.Program, najduljiProgram), gradnja: skrati(theirs.Gradnja, najduljiProgram),
+		tailscale: theirs.tailscale, znanje: theirs.Znanje.Ocisceno(), took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje
@@ -432,6 +438,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	}
 
 	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
+	st.Alerts = append(st.Alerts, s.upozorenjaSata(st, now)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaRokova(ctx, clanovi)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaKljucaMreze(ctx)...)
 	return st, nil
@@ -523,10 +530,11 @@ func label(p Peer) string {
 // razgovora (dalje).
 func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied, sent, krugova int, err error) {
 	zbogKarte := 0
+	var otisak string
 	for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
 		a, sn, e := s.SyncWith(ctx, nodeID)
 		applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-		if !s.dalje(nodeID, a, sn, e, &zbogKarte) {
+		if !s.dalje(nodeID, a, sn, e, &zbogKarte, &otisak) {
 			break
 		}
 	}
@@ -534,10 +542,11 @@ func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied,
 }
 
 // dalje javlja treba li odmah još jedan razgovor: razgovor je bio pun ili
-// skraćen, ili je prenio dijelove karte, a ponavljanja zbog karte još nije
-// bilo najviseRazgovoraZaKartu
-func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int) bool {
-	pun := applied >= NajviseVerzijaPoRazmjeni || sent >= NajviseVerzijaPoRazmjeni || s.imaJos(nodeID)
+// skraćen, a stanje se od prethodnog pomaknulo (josVerzija), ili je prenio
+// dijelove karte, a ponavljanja zbog karte još nije bilo
+// najviseRazgovoraZaKartu
+func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int, otisak *string) bool {
+	pun := s.josVerzija(nodeID, applied, sent, otisak)
 	karta := s.imaJosKarte(nodeID)
 	switch {
 	case err != nil:

@@ -78,13 +78,13 @@ func TestPrimjenaAktaOvjeraPrijeNacrta(t *testing.T) {
 	}
 
 	// u knjizi su nacrt i nacrt poslije ovjere, a ovjera stiže zadnja
-	primi(verzija("01-v1", *a, false), verzija("01-v3", nacrtPoslije, false))
+	primi(verzija(vid(1), *a, false), verzija(vid(3), nacrtPoslije, false))
 	if x, _ := repo.GetAkt(ctx, a.ID); x == nil || x.Napomena == "" {
 		t.Fatalf("dok ovjere nema, na površini je najnoviji nacrt: %+v", x)
 	}
-	primi(verzija("01-v2", ovjerena, false))
+	primi(verzija(vid(2), ovjerena, false))
 	naPovrsini("ovjera stigla poslije novijeg nacrta")
-	primi(verzija("01-v4", nacrtPoslije, true))
+	primi(verzija(vid(4), nacrtPoslije, true))
 	naPovrsini("brisanje nacrta poslije ovjere")
 	if _, err := ReplaySurface(ctx, baza, rec); err != nil {
 		t.Fatal(err)
@@ -92,20 +92,20 @@ func TestPrimjenaAktaOvjeraPrijeNacrta(t *testing.T) {
 	naPovrsini("obnova površine iz knjige")
 
 	// ostali zapisi: na površinu ide samo najnovija verzija
-	akt := verzija("01-v1", *a, false)
-	if v, primijeni, err := verzijaZaPovrsinu(ctx, rec, akt); err != nil || !primijeni || v.VersionID != "01-v2" {
+	akt := verzija(vid(1), *a, false)
+	if v, primijeni, err := verzijaZaPovrsinu(ctx, rec, akt); err != nil || !primijeni || v.VersionID != vid(2) {
 		t.Errorf("akt: %s %v %v", v.VersionID, primijeni, err)
 	}
 	sluzba := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, Entity: EntitySluzbe, EntityID: "sluzba-1", Payload: json.RawMessage(`{}`), CreatedAt: time.Now(), SchemaVersion: 1}
+		return ledger.Version{VersionID: id, Entity: EntitySluzbe, EntityID: "sluzba-1", Payload: json.RawMessage(`{"id":"sluzba-1"}`), CreatedAt: time.Now(), SchemaVersion: 1}
 	}
-	if _, err := rec.Apply(ctx, []ledger.Version{sluzba("01-s1"), sluzba("01-s2")}); err != nil {
+	if _, err := rec.Apply(ctx, []ledger.Version{sluzba(vid(11)), sluzba(vid(12))}); err != nil {
 		t.Fatal(err)
 	}
-	if v, primijeni, err := verzijaZaPovrsinu(ctx, rec, sluzba("01-s2")); err != nil || !primijeni || v.VersionID != "01-s2" {
+	if v, primijeni, err := verzijaZaPovrsinu(ctx, rec, sluzba(vid(12))); err != nil || !primijeni || v.VersionID != vid(12) {
 		t.Errorf("najnovija verzija: %s %v %v", v.VersionID, primijeni, err)
 	}
-	if _, primijeni, err := verzijaZaPovrsinu(ctx, rec, sluzba("01-s1")); err != nil || primijeni {
+	if _, primijeni, err := verzijaZaPovrsinu(ctx, rec, sluzba(vid(11))); err != nil || primijeni {
 		t.Errorf("starija verzija ne ide na površinu: %v %v", primijeni, err)
 	}
 
@@ -117,7 +117,7 @@ func TestPrimjenaAktaOvjeraPrijeNacrta(t *testing.T) {
 	}
 	otkazan, prekini := context.WithCancel(ctx)
 	prekini()
-	for _, v := range []ledger.Version{akt, sluzba("01-s2")} {
+	for _, v := range []ledger.Version{akt, sluzba(vid(12))} {
 		if _, primijeni, err := verzijaZaPovrsinu(otkazan, rec, v); err == nil || primijeni {
 			t.Errorf("%s uz prekinut zahtjev: %v %v", v.Entity, primijeni, err)
 		}

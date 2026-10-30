@@ -81,6 +81,9 @@ func TestPotpisniKljucSeUklanjaSamoUzLozinku(t *testing.T) {
 		t.Errorf("nakon krivih upisa: %s", loc)
 	}
 	ponovnaLozinka = newLoginLimiter()
+	if loc := posalji(ruk, false, url.Values{"radnja": {"nesto"}, "lozinka": {"lozinka-ruk"}}); !strings.Contains(loc, "Nepoznata radnja") {
+		t.Errorf("nepoznata radnja: %s", loc)
+	}
 
 	// tuđim očima: ni uklanjanje ni izrada, ni s točnom lozinkom
 	if loc := posalji(ruk, true, url.Values{"radnja": {"obrisi"}, "lozinka": {"lozinka-ruk"}}); !strings.Contains(loc, "error") || !ps.Ima(ctx, ruk.ID.String()) {

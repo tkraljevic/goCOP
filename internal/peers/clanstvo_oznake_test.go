@@ -49,8 +49,9 @@ func primateljUMrezi(t *testing.T, a, u *Service) razmjena.Ovlast {
 
 // Član bez ikakve ovlasti pošalje krivotvorenu verziju B-ova članstva sa
 // svojim ključem, ranijim datumom i lošim potpisom: pod drugom oznakom
-// zapisa, pod B-ovom, pa kao spomenik B-ova članstva. Red B-a u tablici
-// članstava tada nosi C-ov ključ ili ga nema, a B i dalje ima isti ključ:
+// zapisa, pod B-ovom, pa kao spomenik B-ova članstva. Verzija pod drugom
+// oznakom zapisa red B-a ne mijenja; poslije red B-a u tablici članstava
+// nosi C-ov ključ ili ga nema, a B i dalje ima isti ključ:
 // vrata ga puštaju bez potvrde u certifikatu, a ime mu ne može zauzeti
 // drugo računalo.
 func TestKrivotvorenoClanstvoNeMijenjaKljuc(t *testing.T) {
@@ -65,7 +66,7 @@ func TestKrivotvorenoClanstvoNeMijenjaKljuc(t *testing.T) {
 		arhivirano bool
 		red        string // ključ u redu B-a nakon primjene; "" kad reda nema
 	}{
-		{"smece-1", false, c.node.PublicKey()},
+		{"smece-1", false, b.node.PublicKey()},
 		{b.node.ID, false, c.node.PublicKey()},
 		{b.node.ID, true, ""},
 	} {

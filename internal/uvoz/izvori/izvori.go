@@ -8,6 +8,7 @@ package izvori
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -42,6 +43,8 @@ type Zadatak struct {
 	Postaje  string // samo godišnjak: šifra=letva, odvojeno zarezom
 	Probno   bool
 	Zamijeni bool // samo HIS-2000: prepiši zatečeni niz i kad se vrijednosti razlikuju
+
+	ctx context.Context // samo za ovaj poziv (UveziUz); ne sprema se uz zadatak
 }
 
 // Ishod kaže koje letve treba ponovno izgraditi i što je zapisano.
@@ -88,6 +91,13 @@ var Formati = []Format{
 	{Kod: "godisnjak", Naziv: "Hidrološki godišnjak RHMZ Srbije (PDF)",
 		Opis:     "Dnevni vodostaji iz tablica godišnjaka, za zadane postaje (šifra=letva). Treba pdftotext; skenirani godišnjak bez teksta se ne da pročitati.",
 		Nastavci: []string{".pdf"}, Vise: true, Postaje: true, ZadaniSliv: "dunav", uvezi: uveziGodisnjak},
+}
+
+// UveziUz je Uvezi koji se prekida s ctx (npr. kad korisnik zatvori
+// stranicu pregleda): zasad se prekida čitanje godišnjaka.
+func (f Format) UveziUz(ctx context.Context, datoteke []Datoteka, z Zadatak, w io.Writer) (Ishod, error) {
+	z.ctx = ctx
+	return f.Uvezi(datoteke, z, w)
 }
 
 // Nadji vraća format po kodu.
@@ -427,7 +437,7 @@ func uveziGodisnjak(puts []string, z Zadatak, w io.Writer) (Ishod, error) {
 		return Ishod{}, err
 	}
 	ish, err := godisnjak.Uvezi(godisnjak.Zadatak{Godisnjaci: puts, Postaje: zeljene,
-		Koren: z.Koren, Sliv: z.Sliv, SlivZa: slivZa, Probno: z.Probno, Dnevnik: w})
+		Koren: z.Koren, Sliv: z.Sliv, SlivZa: slivZa, Probno: z.Probno, Dnevnik: w, Ctx: z.ctx})
 	return Ishod{Letve: ish.Letve, Zapisano: ish.Zapisano}, err
 }
 

@@ -25,7 +25,7 @@ func setupSectionTestServices(t *testing.T) (*service.SectionService, *service.U
 		t.Fatalf("Greška pri otvaranju test baze: %v", err)
 	}
 
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("Greška pri seed podacima: %v", err)
 	}
 

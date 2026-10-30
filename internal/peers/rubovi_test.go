@@ -661,11 +661,12 @@ func TestOvlastKadUpisIliCitanjePadne(t *testing.T) {
 	}
 }
 
-// Nečitljiv zapis opoziva: popis javlja grešku, a potvrda tog ključa ne vrijedi
+// Nečitljiv zapis opoziva (pod oznakom koja počinje vrstom i ključem):
+// popis javlja grešku, a potvrda tog ključa ne vrijedi
 func TestNecitljivOpozivZnaciNeVrijedi(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	if _, err := a.db.Exec(`INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao)
-		VALUES ('x', ?, 'b', 'kljuc-b', 'nije-vrijeme', 'nije-vrijeme', 'test')`, OpozivClanstva); err != nil {
+		VALUES (?, ?, 'b', 'kljuc-b', 'nije-vrijeme', 'nije-vrijeme', 'test')`, OpozivClanstva+":kljuc-b:x", OpozivClanstva); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := a.ListOpozivi(ctxRub); err == nil {

@@ -90,6 +90,47 @@
 </section>
 {{end}}
 
+{{with .Prava}}
+<section id="prava">
+<h2 class="mt-4" style="font-size:1rem;">Promjene prava koje čekaju potvrdu</h2>
+<p class="muted">Kad s drugog računala stigne promjena koja nekome daje ili oduzima prava globalnog administratora ili dužnost uprave organizacije, ili mijenja lozinku ili uključenost računa globalnog administratora, ona na ovom računalu ne vrijedi dok je ovdje ne potvrdi globalni administrator. Do tada ostaje zapisana i ide dalje drugim računalima, a ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj se račun ili dužnost na ovom računalu ne može mijenjati. Odbijena promjena ostaje zapisana, ali ovdje ne vrijedi. Računalo u stupcu S računala je ono koje navodi sama promjena.</p>
+{{with .Greska}}<div class="alert alert-warning">{{.}}</div>{{end}}
+{{if .Ceka}}
+{{with .Zabrana}}<p class="muted">{{.}}</p>{{end}}
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table" id="prava-ceka">
+    <thead><tr><th>Račun</th><th>Što se mijenja</th><th>S računala</th><th>Stiglo</th><th></th></tr></thead>
+    <tbody>{{range .Ceka}}<tr>
+      <td>{{.Racun}}</td>
+      <td>{{.Promjene}}{{if not .Zadnja}}<div class="muted">Račun je u međuvremenu promijenjen bez ove promjene, pa se ona može samo odbiti.</div>{{end}}</td>
+      <td>{{if .ImeCvora}}{{.ImeCvora}}{{else}}<span class="mono">{{.Cvor}}</span>{{end}}</td>
+      <td>{{vrijemeHR .Stiglo}}</td>
+      <td>{{if $.Prava.Nudi}}<form method="POST" action="/sinkronizacija/prava" class="actions">
+        <input type="hidden" name="verzija" value="{{.VersionID}}">
+        {{if .Zadnja}}<button type="submit" name="odluka" value="potvrdi" class="btn btn-primary btn-sm" onclick="return confirm('Potvrditi promjenu za račun {{.Racun}}: {{.Promjene}}?')">Potvrdi</button>{{end}}
+        <button type="submit" name="odluka" value="odbij" class="btn btn-secondary btn-sm">Odbij</button>
+      </form>{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table>
+</div></div>
+{{else}}<p class="muted">Nijedna promjena prava ne čeka potvrdu.</p>{{end}}
+{{if .Odluke}}
+<h3 class="mt-3" style="font-size:.95rem;">Zadnje odluke</h3>
+<div class="table-card"><div class="table-responsive">
+  <table class="data-table" id="prava-odluke">
+    <thead><tr><th>Račun</th><th>Što se mijenja</th><th>S računala</th><th>Odluka</th><th>Tko</th><th>Kad</th></tr></thead>
+    <tbody>{{range .Odluke}}<tr>
+      <td>{{.Racun}}</td><td>{{.Promjene}}</td>
+      <td>{{if .ImeCvora}}{{.ImeCvora}}{{else}}<span class="mono">{{.Cvor}}</span>{{end}}</td>
+      <td>{{if eq .Stanje "potvrdeno"}}potvrđeno{{else}}odbijeno{{end}}</td>
+      <td>{{.Odlucio}}</td><td>{{with .Odluceno}}{{vrijemeHR .}}{{end}}</td>
+    </tr>{{end}}</tbody>
+  </table>
+</div></div>
+{{end}}
+</section>
+{{end}}
+
 {{if .Permissions.IsGlobalAdmin}}
 <h2 class="mt-4" style="font-size:1rem;">Odbijeno i djelomično razumljeno, zadnjih 7 dana</h2>
 <p class="muted">Bez adresa i bez sadržaja zapisa. Ponešto odbijenih pokušaja na vratima je uobičajeno, osobito kroz tunel, gdje se javlja bilo tko s interneta. Stanje u trenutku otvaranja stranice.</p>

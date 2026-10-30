@@ -129,9 +129,11 @@ func (r *razmjenaArhive) paketiZaObjavu() ([]arhiva.UPaketu, error) {
 // objaviPaket upisuje kazalo jednog retka kataloga i kaže je li upisano.
 // Redak bez letve ili bez datoteke preskače bez traga: takve je zapisivalo
 // izdanje 0.0.37, paketa za njih nema, a pokušaj čitanja javljao je grešku u
-// dnevnik svake dvije minute.
+// dnevnik svake dvije minute. Isto i redak čija letva ili datoteka nije
+// obično ime u mapi paketa (arhiva.ProvjeriRedKataloga): sljedeće izdavanje
+// ga izbaci iz kataloga.
 func (r *razmjenaArhive) objaviPaket(ctx context.Context, p arhiva.UPaketu) (bool, error) {
-	if p.Letva == "" || p.Datoteka == "" {
+	if p.Letva == "" || p.Datoteka == "" || arhiva.ProvjeriRedKataloga(p) != nil {
 		return false, nil
 	}
 	if vec, err := r.vecUKazalu(ctx, p); vec || err != nil {
@@ -216,7 +218,7 @@ func (r *razmjenaArhive) primi(ctx context.Context) {
 			continue
 		}
 		var p paketUKnjizi
-		if err := json.Unmarshal(v.Payload, &p); err != nil || p.Letva == "" || p.Sadrzaj == "" {
+		if err := json.Unmarshal(v.Payload, &p); err != nil || !ugradivo(p) {
 			continue
 		}
 		if ro != nil {
@@ -325,6 +327,21 @@ type stanjeArhive struct {
 	Trenutno    string // posao koji upravo drži arhivu
 }
 
+// kazaloZaStanje čita kazalo iz verzije; verzija bez letve nije kazalo.
+func kazaloZaStanje(v ledger.Version) (paketUKnjizi, bool) {
+	var p paketUKnjizi
+	if v.Archived || json.Unmarshal(v.Payload, &p) != nil {
+		return p, false
+	}
+	return p, p.Letva != ""
+}
+
+// ugradivo: kazalo ima paket i letvu čiji naziv vrijedi (isti filtar kao
+// primi); drugo se nikad ne ugrađuje.
+func ugradivo(p paketUKnjizi) bool {
+	return arhiva.ProvjeriLetvu(p.Letva) == nil && p.Sadrzaj != ""
+}
+
 // stanje broji isto što i primi, bez dohvata i ugradnje
 func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 	var st stanjeArhive
@@ -342,11 +359,15 @@ func (r *razmjenaArhive) stanje(ctx context.Context) stanjeArhive {
 		}
 	}
 	for _, v := range verzije {
-		var p paketUKnjizi
-		if v.Archived || json.Unmarshal(v.Payload, &p) != nil || p.Letva == "" {
+		p, ima := kazaloZaStanje(v)
+		if !ima {
 			continue
 		}
 		st.UKazalu++
+		if !ugradivo(p) {
+			st.Odbijeno++
+			continue
+		}
 		if v.NodeID == r.rec.Cvor() {
 			st.Vlastitih++
 			continue

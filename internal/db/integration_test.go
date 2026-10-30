@@ -31,7 +31,7 @@ func praznaBaza(t *testing.T) *sql.DB {
 // napunjena pokreće prvo punjenje iz datoteka na koje pokazuju DataDir i ImenikPath
 func napunjena(t *testing.T, database *sql.DB) *sql.DB {
 	t.Helper()
-	if err := SeedInitialData(database); err != nil {
+	if _, err := SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	return database
@@ -122,7 +122,7 @@ func provjeriIdempotentnost(t *testing.T, database *sql.DB) {
 	if err := InitSchema(database); err != nil {
 		t.Fatalf("druga shema: %v", err)
 	}
-	if err := SeedInitialData(database); err != nil {
+	if _, err := SeedInitialData(database); err != nil {
 		t.Fatalf("drugi seed: %v", err)
 	}
 

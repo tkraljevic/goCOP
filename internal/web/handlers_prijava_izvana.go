@@ -150,12 +150,11 @@ func (h *UsersHandler) noviRezervniKodovi(r *http.Request) (*models.User, []stri
 	if viewing {
 		return nil, nil, service.ErrTudjimOcima
 	}
-	kljuc := kljucPonovneLozinke("", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		return nil, nil, err
-	}
-	kodovi, err := d.NapraviRezervneKodove(r.Context(), u, r.FormValue("lozinka"), viewing)
-	ishodPonovneLozinke(kljuc, err)
+	var kodovi []string
+	err := uzGranicuPonovne(kljuceviLozinkeRacuna(r.Context(), u.ID.String()), func() (err error) {
+		kodovi, err = d.NapraviRezervneKodove(r.Context(), u, r.FormValue("lozinka"), viewing)
+		return err
+	})
 	return u, kodovi, err
 }
 
@@ -299,6 +298,15 @@ func (h *AktiHandler) pinRadnja(w http.ResponseWriter, r *http.Request) (*servic
 	return d, u, perms, true
 }
 
+// prijavaPosiljatelja je broj prijava na poslužitelj za račun koji šalje
+// PIN: ime bez domene troši dvije (goCOP pokuša i DOMENA\ime)
+func prijavaPosiljatelja(korisnik string) int {
+	if prijavaBezDomene(korisnik) {
+		return 2
+	}
+	return 1
+}
+
 // HandlePINPosiljatelj sprema ili briše račun koji s ovog čvora šalje PIN.
 // Prijava se provjeri na poslužitelju prije spremanja; adresa pošiljatelja
 // traži se u adresaru kad nije upisana. Svaki upis lozinke broji se kao
@@ -332,25 +340,16 @@ func (h *AktiHandler) HandlePINPosiljatelj(w http.ResponseWriter, r *http.Reques
 		}
 		korisnik, lozinka = k, l
 	}
+	// prijave računa u domeni broje se zajedno s osobnim sandučićem; ime bez
+	// domene troši dvije (goCOP pokuša i DOMENA\ime). Bez lozinke nema
+	// prijave, pa se rezervirani upis vraća.
 	kljuc := kljucPonovneLozinke("posta-pin", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+	kljucAD, err := naplatiUpisPoste(kljuc, lozinka != "" && korisnik != "", func() (string, error) {
+		return naplatiPrijaveAD(u.ID.String(), korisnik, prijavaPosiljatelja(korisnik))
+	})
+	if err != nil {
 		redirectWith(w, r, natragPIN, "error", err.Error())
 		return
-	}
-	// prijave računa u domeni broje se zajedno s osobnim sandučićem; ime bez
-	// domene troši dvije (goCOP pokuša i DOMENA\ime)
-	var kljucAD string
-	if lozinka != "" && korisnik != "" {
-		n := 1
-		if prijavaBezDomene(korisnik) {
-			n = 2
-		}
-		var err error
-		if kljucAD, err = naplatiPrijaveAD(u.ID.String(), korisnik, n); err != nil {
-			redirectWith(w, r, natragPIN, "error", upperFirst(err.Error())+".")
-			return
-		}
-		ponovnaLozinka.Fail(kljuc)
 	}
 	p, err := d.SpremiPosiljatelja(ctx, perms, korisnik, lozinka, r.FormValue("adresa"))
 	if kljucAD != "" {

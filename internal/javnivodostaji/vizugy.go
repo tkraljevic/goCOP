@@ -56,10 +56,7 @@ var vizugyKlijent = sync.OnceValue(func() *http.Client {
 		bazen = x509.NewCertPool()
 	}
 	bazen.AppendCertsFromPEM(vizugyCA)
-	return &http.Client{
-		Timeout:   30 * time.Second,
-		Transport: &http.Transport{TLSClientConfig: &tls.Config{RootCAs: bazen}},
-	}
+	return javniKlijent(30*time.Second, &tls.Config{RootCAs: bazen})
 })
 
 // PodrijetloVizugy je ono što stoji uz očitanje kao izvor
@@ -90,10 +87,8 @@ func (v Vizugy) Prepoznaje(adresa string) bool { return PostajaVizugyIzAdrese(ad
 // PostajaVizugyIzAdrese vraća oznaku postaje iz adrese; prazno kad adresa
 // nije njihova ili nema oznake
 func PostajaVizugyIzAdrese(adresa string) string {
-	if !strings.Contains(strings.ToLower(adresa), "vizugy.hu") {
-		return ""
-	}
-	m := reVizugyPostaja.FindStringSubmatch(adresa)
+	_, upit := dioIzvora(adresa, "vizugy.hu")
+	m := reVizugyPostaja.FindStringSubmatch(upit)
 	if m == nil {
 		return ""
 	}
@@ -106,12 +101,14 @@ func AdresaVizugy(oznaka string) string {
 		strings.ToUpper(oznaka) + "&mapData=OrasIdosor"
 }
 
-// Ocitanja čita satne vrijednosti s adrese, najstarije prvo
+// Ocitanja čita satne vrijednosti postaje s adrese, najstarije prvo. Iz
+// adrese se uzima samo oznaka postaje; stranica se čita s vizugy.hu.
 func (v Vizugy) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	oznaka := PostajaVizugyIzAdrese(adresa)
 	if oznaka == "" {
 		return nil, fmt.Errorf("adresa nema oznaku postaje (AllomasVOA=…)")
 	}
+	adresa = AdresaVizugy(oznaka)
 	if v.Base != "" {
 		adresa = v.Base + "?mapModule=OpGrafikon&AllomasVOA=" + oznaka + "&mapData=OrasIdosor"
 	}
@@ -129,7 +126,7 @@ func (v Vizugy) dohvati(ctx context.Context, adresa string) ([]byte, error) {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", "goCOP (preuzimanje javnih vodostaja)")
-	resp, err := vizugyKlijent().Do(req)
+	resp, err := v.klijent().Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -138,6 +135,14 @@ func (v Vizugy) dohvati(ctx context.Context, adresa string) ([]byte, error) {
 		return nil, fmt.Errorf("%s: %s", adresa, resp.Status)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, 8<<20))
+}
+
+// klijent je klijent s njihovim međucertifikatom; test podmeće svoj
+func (v Vizugy) klijent() *http.Client {
+	if v.Client != nil && v.Client.HTTP != nil {
+		return v.Client.HTTP
+	}
+	return vizugyKlijent()
 }
 
 // CitajVizugy čita satne vrijednosti iz polja koja stranica crta.

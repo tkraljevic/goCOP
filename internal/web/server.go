@@ -67,7 +67,7 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	// čvor pod Postavom: početna lozinka vrijedi samo s ovog računala
+	// čvor pod Postavom: stara zajednička početna lozinka vrijedi samo s ovog računala
 	podPostavom  atomic.Bool
 	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
 	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
@@ -87,6 +87,7 @@ type Server struct {
 	prijave        *service.PrijavaService // prijave i obavijesti s terena
 	drugiKorak     *service.DrugiKorak     // drugi korak prijave izvana (PIN); nil dok se ne postavi
 	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	lokalnaImena   []string                // [web] lokalna_imena, malim slovima (ime_zahtjeva.go)
 	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
 	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
 	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
@@ -151,21 +152,36 @@ type Server struct {
 var verzijaPrograma string
 
 // SetPodPostavom: čvor pokreće Postava (gocop -upravitelj) na računalu
-// korisnika, pa početna lozinka iz uputa vrijedi samo s tog računala, ne iz
-// lokalne mreže (u uredu bi je mogao upotrijebiti bilo tko prije vlasnika)
+// korisnika, pa stara zajednička početna lozinka vrijedi samo s tog računala,
+// ne iz lokalne mreže (u uredu bi je mogao upotrijebiti bilo tko)
 func (s *Server) SetPodPostavom(da bool) { s.podPostavom.Store(da) }
 
-// JaviPostavljanje ispisuje u dnevnik kako postaviti svjež čvor: s ovog
-// računala bez koda, iz lokalne mreže s jednokratnim kodom
+// JaviPostavljanje ispisuje u dnevnik kako postaviti svjež čvor, ili gdje
+// preuzeti privremene lozinke računa iz imenika: s ovog računala bez koda,
+// iz lokalne mreže s jednokratnim kodom. Same lozinke u dnevnik ne idu.
 func (s *Server) JaviPostavljanje(addr string) {
-	if s.postavljanje == nil || !s.postavljanje.Svjez() {
+	if s.postavljanje == nil {
 		return
 	}
 	port := ""
 	if _, p, err := net.SplitHostPort(addr); err == nil && p != "80" && p != "" {
 		port = ":" + p
 	}
-	log.Printf("Postavljanje: svjež čvor — na ovom računalu otvorite http://localhost%s/postavljanje, a iz lokalne mreže http://<adresa ovog računala>%s/postavljanje?kod=%s", port, port, s.postavljanje.KodPostavljanja())
+	if s.postavljanje.Svjez() {
+		log.Printf("Postavljanje: svjež čvor — na ovom računalu otvorite http://localhost%s/postavljanje, a iz lokalne mreže http://<adresa ovog računala>%s/postavljanje?kod=%s", port, port, s.postavljanje.KodPostavljanja())
+	}
+	if n := s.postavljanje.CekaLozinki(); n > 0 {
+		log.Printf("Postavljanje: %d računa iz imenika ima privremenu lozinku — popis se preuzima jednom, na ovom računalu na http://localhost%s/postavljanje/lozinke, a iz lokalne mreže na http://<adresa ovog računala>%s/postavljanje/lozinke?kod=%s", n, port, port, s.postavljanje.KodPostavljanja())
+	}
+}
+
+// SetPocetneLozinke predaje stranici Postavljanje privremene lozinke računa
+// iz prvog punjenja, koje se jednom preuzimaju; preuzete zapisuje da je
+// popis preuzet, da ga ponovno pokretanje više ne složi
+func (s *Server) SetPocetneLozinke(popis []gocopdb.PocetnaLozinka, preuzete func() error) {
+	if s.postavljanje != nil {
+		s.postavljanje.SetPocetneLozinke(popis, preuzete)
+	}
 }
 
 // SetVerzijaPrograma postavlja verziju koja se ispisuje u podnožju.
@@ -597,7 +613,7 @@ func NewServer(
 	}
 
 	// Samostalne stranice: prijava i ispis dnevnika
-	for _, page := range []string{"login.html", "login_pin.html", "dnevnik_ispis.html", "uparivanje.html", "postavljanje.html"} {
+	for _, page := range []string{"login.html", "login_pin.html", "dnevnik_ispis.html", "uparivanje.html", "postavljanje.html", "pocetne_lozinke.html"} {
 		t, err := template.New(page).Funcs(tmplFuncs).ParseFS(templatesFS, page)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -909,6 +925,7 @@ func (s *Server) setupRoutes() {
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	settingsH.SetZastitaKljuca(s.authService.ProvjeriLozinku)
 	sseH := NewSSEHandler(s.sseBroker)
+	sseH.vrijedi = s.prijavaJosVrijedi
 
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
 	staticFS, err := fs.Sub(webassets.Files, "static")
@@ -930,13 +947,15 @@ func (s *Server) setupRoutes() {
 	// Postavljanje svježeg čvora: nova mreža s vlastitim administratorom
 	s.postavljanje = &PostavljanjeHandler{users: s.userService, auth: s.authService, peers: s.peersService,
 		tmpl: s.templates["postavljanje.html"], svjez: pairH.Fresh, nijeVise: pairH.NijeViseSvjez,
-		kod: noviKodPostavljanja()}
+		kod: noviKodPostavljanja(), tmplLozinke: s.templates["pocetne_lozinke.html"]}
 	pairH.SetKodPostavljanja(s.postavljanje.dopusteno)
 	s.mux.HandleFunc("GET /postavljanje", s.postavljanje.Prikazi)
 	s.mux.HandleFunc("POST /postavljanje", s.postavljanje.Osnuj)
 	s.mux.HandleFunc("GET /postavljanje/zahtjev", s.postavljanje.Zahtjev)
 	s.mux.HandleFunc("POST /postavljanje/zahtjev", s.postavljanje.NoviZahtjev)
 	s.mux.HandleFunc("POST /postavljanje/potvrda", s.postavljanje.Potvrda)
+	s.mux.HandleFunc("GET /postavljanje/lozinke", s.postavljanje.PrikaziLozinke)
+	s.mux.HandleFunc("POST /postavljanje/lozinke", s.postavljanje.PreuzmiLozinke)
 	s.mux.Handle("GET /uparivanje", pairH.Gate(http.HandlerFunc(pairH.ShowWizard)))
 	s.mux.Handle("GET /api/uparivanje/status", pairH.Gate(http.HandlerFunc(pairH.HandleStatus)))
 	s.mux.Handle("POST /api/uparivanje/listen", pairH.Gate(http.HandlerFunc(pairH.HandleListen)))
@@ -1488,8 +1507,10 @@ func (s *Server) setupRoutes() {
 	syncH.dohvatljivost = s.dohvatljivost
 	syncH.gumbProvjere = s.gumbProvjereVeze
 	syncH.mjeriMrezu = s.mjeriMrezu
+	syncH.prava = &potvrdePrava{baza: func() *sql.DB { return s.db }, rec: s.recorder}
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
 	s.mux.Handle("POST /sinkronizacija/provjeri-vezu", s.samoAdmin(http.HandlerFunc(syncH.handleProvjeriRacunalo)))
+	s.mux.Handle("POST /sinkronizacija/prava", s.samoAdmin(http.HandlerFunc(syncH.handleOdlukaPrava)))
 	s.mux.Handle("GET /api/sync/status", s.authMiddleware(http.HandlerFunc(syncH.HandleStatus)))
 	s.mux.Handle("POST /api/sync/all", s.authMiddleware(http.HandlerFunc(syncH.HandleSyncAll)))
 
@@ -1653,6 +1674,22 @@ func (s *Server) provjeriSesiju(w http.ResponseWriter, r *http.Request, sessionI
 	return view
 }
 
+// prijavaJosVrijedi javlja vrijedi li još sesija iz kolačića zahtjeva, za
+// tok koji je otvoren dulje (/api/events). Prolazna greška (npr. baze) nije
+// odjava, kao u provjeriSesiju.
+func (s *Server) prijavaJosVrijedi(r *http.Request) bool {
+	cookie, err := r.Cookie(imeKolacicaSesije)
+	if err != nil {
+		return false
+	}
+	id, err := uuid.Parse(cookie.Value)
+	if err != nil {
+		return false
+	}
+	_, err = s.authService.AuthenticateSessionView(id)
+	return err == nil || !sesijaNevaljana(err)
+}
+
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context
 func (s *Server) authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -1673,8 +1710,8 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		// Zadana lozinka piše u dokumentaciji, pa račun s njom nije račun
-		// nego otvorena vrata. Dok je osoba ne promijeni, otvara se samo
+		// Privremenu lozinku zna i onaj tko ju je dao, pa račun s njom još
+		// nije posve osobni. Dok je osoba ne promijeni, otvara se samo
 		// stranica profila; provjera je ovdje da je nijedna stranica ne zaobiđe.
 		if view.RealUser.MustChangePassword && !passwordChangeAllowed(r.URL.Path) {
 			http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)

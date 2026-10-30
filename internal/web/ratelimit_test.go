@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -175,23 +176,24 @@ func TestOgranicenjeImaGranicuKljuceva(t *testing.T) {
 func TestPonovnaLozinkaTriKrivaUpisa(t *testing.T) {
 	ponovnaLozinka = newLoginLimiter()
 	t.Cleanup(func() { ponovnaLozinka = newLoginLimiter() })
-	kljuc := kljucPonovneLozinke("", "osoba-1")
+	kljuc := kljuceviLozinkeRacuna(context.Background(), "osoba-1")
 	kriva := fmt.Errorf("omotano: %w", service.ErrKrivaLozinka)
 
-	ishodPonovneLozinke(kljuc, kriva)
-	ishodPonovneLozinke(kljuc, kriva)
-	ishodPonovneLozinke(kljuc, errors.New("nemate potpisni ključ")) // ne broji
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		t.Fatalf("dva kriva upisa ne smiju blokirati: %v", err)
+	vrati := func(err error) func() error { return func() error { return err } }
+	_ = uzGranicuPonovne(kljuc, vrati(kriva))                               // kriva lozinka se samo broji
+	_ = uzGranicuPonovne(kljuc, vrati(kriva))                               // kriva lozinka se samo broji
+	_ = uzGranicuPonovne(kljuc, vrati(errors.New("nemate potpisni ključ"))) // ne broji
+	if _, wait := ponovnaLozinka.Blocked(kljuc...); wait > 0 {
+		t.Fatalf("dva kriva upisa ne smiju blokirati (čeka %v)", wait)
 	}
-	ishodPonovneLozinke(kljuc, nil) // točna briše
+	_ = uzGranicuPonovne(kljuc, vrati(nil)) // točna briše
 	for i := 0; i < 3; i++ {
-		ishodPonovneLozinke(kljuc, kriva)
+		_ = uzGranicuPonovne(kljuc, vrati(kriva)) // kriva lozinka se samo broji
 	}
-	if err := ponovnaLozinkaDopustena(kljuc); err == nil || !strings.Contains(err.Error(), "previše krivih lozinki") {
+	if err := uzGranicuPonovne(kljuc, vrati(nil)); err == nil || !strings.Contains(err.Error(), "previše krivih lozinki") {
 		t.Errorf("nakon tri kriva upisa očekivana blokada, dobiveno %v", err)
 	}
-	if err := ponovnaLozinkaDopustena(kljucPonovneLozinke("", "osoba-2")); err != nil {
+	if err := uzGranicuPonovne(kljuceviLozinkeRacuna(context.Background(), "osoba-2"), vrati(nil)); err != nil {
 		t.Errorf("druga osoba nije blokirana: %v", err)
 	}
 
@@ -199,9 +201,9 @@ func TestPonovnaLozinkaTriKrivaUpisa(t *testing.T) {
 	pozvano := false
 	u := &models.User{ID: uuid.New()}
 	for i := 0; i < 3; i++ {
-		_, _ = otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return nil, kriva })
+		_, _ = otkljucajUzOgranicenje(context.Background(), u, func() (*potpis.Potpisnik, error) { return nil, kriva }) //nolint:errcheck // kriva lozinka se samo broji
 	}
-	_, err := otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { pozvano = true; return nil, nil })
+	_, err := otkljucajUzOgranicenje(context.Background(), u, func() (*potpis.Potpisnik, error) { pozvano = true; return nil, nil })
 	if pozvano || err == nil {
 		t.Errorf("nakon tri kriva otključavanja provjera se ne smije ni pokušati (pozvano=%v, err=%v)", pozvano, err)
 	}
@@ -210,6 +212,7 @@ func TestPonovnaLozinkaTriKrivaUpisa(t *testing.T) {
 func TestAdresaIzaPosrednika(t *testing.T) {
 	r := httptest.NewRequest("POST", "/login", nil)
 	r.RemoteAddr = "127.0.0.1:5555"
+	r.Host = adresaCvoraTesta
 	if got := clientIP(r); got != "127.0.0.1" {
 		t.Errorf("bez zaglavlja očekivan 127.0.0.1, dobiveno %s", got)
 	}
@@ -236,6 +239,7 @@ func TestAdresaIzaPosrednika(t *testing.T) {
 	// s interneta izravno: zaglavlje se ne smije uvažiti, inače ga napadač mijenja po volji
 	direct := httptest.NewRequest("POST", "/login", nil)
 	direct.RemoteAddr = "203.0.113.200:4444"
+	direct.Host = adresaCvoraTesta
 	direct.Header.Set("X-Forwarded-For", "10.9.9.9")
 	direct.Header.Set("CF-Connecting-IP", "10.8.8.8")
 	if got := clientIP(direct); got != "203.0.113.200" {
@@ -255,13 +259,15 @@ func TestSuzeniPosrednici(t *testing.T) {
 	}
 	r := httptest.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "172.17.0.1:40000"
+	r.Host = adresaCvoraTesta
 	r.Header.Set("X-Forwarded-For", "6.6.6.6, 203.0.113.5, 10.1.1.1")
 	r.Header.Set("X-Forwarded-Proto", "https")
 	k := p.Klijent(r)
 	if k.Adresa.String() != "203.0.113.5" || !k.HTTPS || !k.KrozPosrednika {
 		t.Errorf("iza pouzdanog posrednika: %+v", k)
 	}
-	r.RemoteAddr = "192.168.1.50:40000" // izravno iz LAN-a, nije na popisu
+	r.RemoteAddr = "192.168.1.50:40000"
+	r.Host = adresaCvoraTesta // izravno iz LAN-a, nije na popisu
 	k = p.Klijent(r)
 	if k.Adresa.String() != "192.168.1.50" || k.HTTPS {
 		t.Errorf("nepouzdan posrednik: %+v", k)
@@ -274,6 +280,7 @@ func TestSuzeniPosrednici(t *testing.T) {
 	// gocop.toml, a ne nitko (inače bi svi s interneta bili jedna adresa)
 	p, _ = NoviPosrednici(nil, "X-Forwarded-For")
 	r.RemoteAddr = "172.17.0.1:40000"
+	r.Host = adresaCvoraTesta
 	if k := p.Klijent(r); k.Adresa.String() != "203.0.113.5" {
 		t.Errorf("samo zaglavlje bez popisa: %+v", k)
 	}
@@ -300,6 +307,7 @@ func TestPosredniciRubniSlucajevi(t *testing.T) {
 	p, _ := NoviPosrednici(nil, "True-Client-IP")
 	r := httptest.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "127.0.0.1:1"
+	r.Host = adresaCvoraTesta
 	r.Header.Set("True-Client-IP", "203.0.113.9")
 	if k := p.Klijent(r); !k.KrozPosrednika || k.Adresa.String() != "203.0.113.9" {
 		t.Errorf("zadano zaglavlje: %+v", k)
@@ -307,6 +315,7 @@ func TestPosredniciRubniSlucajevi(t *testing.T) {
 	p, _ = NoviPosrednici([]string{"", "  "}, "")
 	r = httptest.NewRequest("GET", "/", nil)
 	r.RemoteAddr = "172.17.0.1:1"
+	r.Host = adresaCvoraTesta
 	r.Header.Set("CF-Connecting-IP", "198.51.100.1")
 	if k := p.Klijent(r); k.Adresa.String() != "198.51.100.1" {
 		t.Errorf("popis praznih stavki mora biti zadane mreže: %+v", k)
@@ -315,5 +324,37 @@ func TestPosredniciRubniSlucajevi(t *testing.T) {
 	b := kp("ana", "fd00::2", false)
 	if a[1] == b[1] {
 		t.Error("dva računala u lokalnoj IPv6 mreži su dvije adrese")
+	}
+}
+
+// Upis lozinke e-pošte broji se unaprijed; bez lozinke i kad prijave u
+// domeni granica ne dopušta, rezervirani upis se vraća
+func TestNaplatiUpisPoste(t *testing.T) {
+	ponovnaLozinka = newLoginLimiter()
+	t.Cleanup(func() { ponovnaLozinka = newLoginLimiter() })
+	kljuc := kljucPonovneLozinke("posta", "osoba-1")
+	brojeno := func() int {
+		ponovnaLozinka.mu.Lock()
+		defer ponovnaLozinka.mu.Unlock()
+		if rec := ponovnaLozinka.records[kljuc]; rec != nil {
+			return rec.failures
+		}
+		return 0
+	}
+	pozvano := false
+	if ad, err := naplatiUpisPoste(kljuc, false, func() (string, error) { pozvano = true; return "", nil }); ad != "" || err != nil || pozvano || brojeno() != 0 {
+		t.Fatalf("bez lozinke: %q %v pozvano=%v brojeno=%d", ad, err, pozvano, brojeno())
+	}
+	if _, err := naplatiUpisPoste(kljuc, true, func() (string, error) { return "", errors.New("previše prijava") }); err == nil || err.Error() != "Previše prijava." || brojeno() != 0 {
+		t.Fatalf("granica domene: %v brojeno=%d", err, brojeno())
+	}
+	if ad, err := naplatiUpisPoste(kljuc, true, func() (string, error) { return "reauth:ad:x", nil }); ad != "reauth:ad:x" || err != nil || brojeno() != 1 {
+		t.Fatalf("upis lozinke: %q %v brojeno=%d", ad, err, brojeno())
+	}
+	for range 2 {
+		_, _ = naplatiUpisPoste(kljuc, true, func() (string, error) { return "", nil }) //nolint:errcheck // samo se broji
+	}
+	if _, err := naplatiUpisPoste(kljuc, true, func() (string, error) { return "", nil }); err == nil || !strings.Contains(err.Error(), "previše krivih lozinki") {
+		t.Errorf("nakon tri upisa: %v", err)
 	}
 }

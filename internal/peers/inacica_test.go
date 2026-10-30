@@ -158,12 +158,12 @@ func copZaTest(t *testing.T, inacica int) []byte {
 func TestCitajCopInacice(t *testing.T) {
 	for _, inacica := range []int{CopInacica - 1, CopInacica} {
 		b := copZaTest(t, inacica)
-		if _, _, _, _, err := CitajCop(bytes.NewReader(b), int64(len(b))); err != nil {
+		if _, _, _, err := procitajCop(b); err != nil {
 			t.Errorf("inačica %d: %v", inacica, err)
 		}
 	}
 	b := copZaTest(t, CopInacica+1)
-	_, _, _, _, err := CitajCop(bytes.NewReader(b), int64(len(b)))
+	_, _, _, err := procitajCop(b)
 	if err == nil || !strings.Contains(err.Error(), "noviji program") || !strings.HasSuffix(err.Error(), "— nadogradite goCOP") {
 		t.Fatalf("noviji paket: %v", err)
 	}

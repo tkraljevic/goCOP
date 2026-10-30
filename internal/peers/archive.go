@@ -28,13 +28,15 @@ import (
 var upravljacArhive = "sqlite"
 
 // ExportFile piše verzije zadanih kanala u novu SQLite datoteku, zajedno
-// s rupama koje ovaj čvor u njima ima (rupe_uvoz.go)
+// s rupama koje ovaj čvor u njima ima (rupe_uvoz.go). Verzije koje razmjena
+// ne šalje (zaIzvoz) ne idu ni u datoteku.
 func (s *Service) ExportFile(ctx context.Context, path string, channels []string) (int, error) {
 	rupe := s.pocetakRupa(ctx)
 	versions, err := s.rec.InChannels(ctx, channels)
 	if err != nil {
 		return 0, err
 	}
+	versions = s.zaIzvoz(versions)
 	if len(versions) == 0 {
 		return 0, fmt.Errorf("nema nijedne verzije u zadanim kanalima")
 	}
@@ -82,6 +84,26 @@ func (s *Service) ExportFile(ctx context.Context, path string, channels []string
 		return 0, err
 	}
 	return len(versions), nil
+}
+
+// zaIzvoz su verzije koje razmjena šalje drugim čvorovima
+// (ledger.ProvjeriPrimljenu, kao zaSlanje); ostale se zabilježe kao i u
+// razmjeni (zabiljeziNeispravne). Arhivu može uvesti i stariji program, koji
+// oznaku ne provjerava, pa ih ne smije dobiti ni tim putem. Vlastito ime ne
+// gleda, kao ni zaSlanje.
+func (s *Service) zaIzvoz(versions []ledger.Version) []ledger.Version {
+	sada := ledger.Sada()
+	ispravne := make([]ledger.Version, 0, len(versions))
+	var neispravne []ledger.Version
+	for _, v := range versions {
+		if ledger.ProvjeriPrimljenu(v, "", sada) != nil {
+			neispravne = append(neispravne, v)
+			continue
+		}
+		ispravne = append(ispravne, v)
+	}
+	s.zabiljeziNeispravne(neispravne)
+	return ispravne
 }
 
 // ImportReport kaže što je uvoz donio
@@ -132,8 +154,9 @@ func (s *Service) ImportFile(ctx context.Context, path string) (ImportReport, er
 	if len(versions) == 0 {
 		return rep, fmt.Errorf("arhiva je prazna")
 	}
-	// isto kao razmjena: rupe, u knjigu, pa na površinu; arhiva knjige ne
-	// prolazi kroz Accept, pa odbijenoga nema
+	// isto kao razmjena: neispravne otpadaju odmah, pa rupe, u knjigu, pa
+	// na površinu; arhiva knjige ne prolazi kroz Accept, pa odbijenoga nema
+	versions = s.preskociNeispravne("uvoz", versions)
 	rep.Applied, err = s.uveziSRupama(ctx, versions, s.promjenaUvoza(ctx, versions, odlukeUvoza{ograda: s.ogradaSada()}, rupeIzArhive(ctx, in, versions)))
 	return rep, err
 }

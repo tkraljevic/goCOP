@@ -208,7 +208,7 @@ func (h *UvozHandler) PregledIzvora(w http.ResponseWriter, r *http.Request) {
 	}
 	z.Probno = true
 	var dnevnik strings.Builder
-	ishod, err := f.Uvezi(dat, z, &dnevnik)
+	ishod, err := f.UveziUz(r.Context(), dat, z, &dnevnik)
 	if err != nil {
 		d.ErrorMessage = err.Error()
 		d.Dnevnik = dnevnik.String()

@@ -259,7 +259,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 		}
 		for i, v := range verzije {
 			prije = v.VersionID
-			d, ok := c.opisi(v)
+			d, ok := c.opisiPromjenu(v)
 			if !ok {
 				continue
 			}
@@ -634,6 +634,16 @@ func (c *opisivac) bilaZakljucena(versionID string) bool {
 	}
 	var p models.Popis
 	return json.Unmarshal(prethodne[0].Payload, &p) == nil && p.Zakljucen()
+}
+
+// opisiPromjenu opisuje verziju koja je promijenila podatke. Verzija kojoj
+// oznaka zapisa ne odgovara sadržaju ostaje samo u knjizi i ništa ne
+// mijenja (repository.IstaOznaka), pa na zid ne ide.
+func (c *opisivac) opisiPromjenu(v ledger.Version) (Dogadjaj, bool) {
+	if !repository.IstaOznaka(v) {
+		return Dogadjaj{}, false
+	}
+	return c.opisi(v)
 }
 
 // opisi pretvara verziju u događaj; false kad verzija na zid ne ide

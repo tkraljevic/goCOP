@@ -84,16 +84,17 @@ func TestPrimjenaGreskaUpisaNaPovrsinu(t *testing.T) {
 	novaTema := models.Tema{Svijetla: models.BojeTeme{Glavna: "#112233", Naglasak: "#445566", Gumb: "#778899"}}
 	tema, err := json.Marshal(novaTema)
 	nuzno(t, err)
+	ocitanje := uuid.New()
 	for _, slucaj := range []struct {
-		entitet, tablica string
-		zapis            any
+		entitet, tablica, id string
+		zapis                any
 	}{
-		{EntityPrijave, "prijave", models.PrijavaSTerena{ID: "prijava-1", Naslov: "Procjeđivanje kod Probnog Sela"}},
-		{EntityPostavke, "postavke", Postavka{ID: PostavkaTema, Vrijednost: string(tema)}},
-		{EntityReadings, "readings", models.Reading{ID: uuid.New(), StationID: osnovaLetva.String(), MeasuredAt: kad, LevelCm: &cm}},
-		{EntityOrgTerms, "org_terms", models.OrgTerms{ID: models.TermsID, OrgName: "Probne vode"}},
+		{EntityPrijave, "prijave", "prijava-1", models.PrijavaSTerena{ID: "prijava-1", Naslov: "Procjeđivanje kod Probnog Sela"}},
+		{EntityPostavke, "postavke", PostavkaTema, Postavka{ID: PostavkaTema, Vrijednost: string(tema)}},
+		{EntityReadings, "readings", ocitanje.String(), models.Reading{ID: ocitanje, StationID: osnovaLetva.String(), MeasuredAt: kad, LevelCm: &cm}},
+		{EntityOrgTerms, "org_terms", models.TermsID, models.OrgTerms{ID: models.TermsID, OrgName: "Probne vode"}},
 	} {
-		v := verzijaZa(t, slucaj.entitet, "zapis-1", vid(1), slucaj.zapis)
+		v := verzijaZa(t, slucaj.entitet, slucaj.id, vid(1), slucaj.zapis)
 		if err := primijeniUTx(t, c, v); err == nil || !strings.Contains(err.Error(), "površina ne prima") {
 			t.Errorf("%s: %v, očekivana greška upisa", slucaj.entitet, err)
 		}
@@ -160,14 +161,14 @@ func TestPrimjenaIzvornikaSKrivimOtiskom(t *testing.T) {
 	c := noviCvor(t, "b")
 	krivi := sadrzaj.Otisak([]byte("neki drugi sadržaj"))
 	for _, slucaj := range []struct {
-		entitet, tablica string
-		zapis            any
+		entitet, tablica, id string
+		zapis                any
 	}{
-		{EntityIzvornici, "akti_izvornici", Izvornik{AktID: "akt-1", PDF: pdfProbe, Otisak: krivi}},
-		{EntityJournalIzvornici, "journal_izvornici", models.IzvornikDnevnika{JournalID: osnovaDnevnik, PDF: pdfProbe, Otisak: krivi}},
-		{EntityPrijaveIzvornici, "prijave_izvornici", models.IzvornikLista{ListID: "prijava-1", PDF: pdfProbe, Otisak: krivi}},
+		{EntityIzvornici, "akti_izvornici", "akt-1", Izvornik{AktID: "akt-1", PDF: pdfProbe, Otisak: krivi}},
+		{EntityJournalIzvornici, "journal_izvornici", osnovaDnevnik, models.IzvornikDnevnika{JournalID: osnovaDnevnik, PDF: pdfProbe, Otisak: krivi}},
+		{EntityPrijaveIzvornici, "prijave_izvornici", "prijava-1", models.IzvornikLista{ListID: "prijava-1", PDF: pdfProbe, Otisak: krivi}},
 	} {
-		err := primijeniUTx(t, c, verzijaZa(t, slucaj.entitet, "zapis-1", vid(1), slucaj.zapis))
+		err := primijeniUTx(t, c, verzijaZa(t, slucaj.entitet, slucaj.id, vid(1), slucaj.zapis))
 		if !errors.Is(err, sadrzaj.ErrOtisak) {
 			t.Errorf("%s: %v, očekivana greška otiska", slucaj.entitet, err)
 		}

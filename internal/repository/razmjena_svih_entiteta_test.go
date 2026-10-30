@@ -1092,8 +1092,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 			napravi: func(t *testing.T, a *cvor) {
 				var u models.User
 				puni(&u)
-				// novi korisnik se još nije prijavio, a zaduženja putuju zasebno
-				u.OrgType, u.LastLoginAt, u.Duties = models.OrgHrvatskeVode, nil, nil
+				// novi korisnik se još nije prijavio, a zaduženja putuju zasebno;
+				// zastavica globalnog administratora čeka potvrdu na primatelju
+				// (TestPravaRazmjenomCekajuPotvrdu)
+				u.OrgType, u.LastLoginAt, u.Duties, u.IsGlobalAdmin = models.OrgHrvatskeVode, nil, nil, false
 				nuzno(t, NewUserRepository(a.db, a.rec).CreateUser(&u, nil))
 			},
 			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {
@@ -1316,6 +1318,8 @@ func slucajeviRazmjene() []slucajRazmjene {
 			napravi: func(t *testing.T, a *cvor) {
 				var op peers.Opoziv
 				puni(&op)
+				// primjena upisuje samo opoziv koji vrijedi sam za sebe
+				op = op.Potpisi(kljucProbe)
 				tx, err := a.db.Begin()
 				nuzno(t, err)
 				defer tx.Rollback()
@@ -1408,6 +1412,16 @@ func zonaBezImena(t *testing.T) *time.Location {
 }
 
 func razmjenaSvihEntiteta(t *testing.T) {
+	zaSlucajeveRazmjene(t)
+	for _, s := range slucajeviRazmjene() {
+		t.Run(s.entitet, func(t *testing.T) { provjeriRazmjenu(t, s) })
+	}
+}
+
+// zaSlucajeveRazmjene priprema ono što slučajevi razmjene dijele s ostatkom
+// programa i vraća ga na kraju testa
+func zaSlucajeveRazmjene(t *testing.T) {
+	t.Helper()
 	// spremište sadržaja je jedno za program; izvornici ga trebaju na oba čvora
 	spremisteTesta, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
@@ -1417,13 +1431,9 @@ func razmjenaSvihEntiteta(t *testing.T) {
 	nazivi := models.Terms()
 	t.Cleanup(func() {
 		SetSpremiste(prijasnje)
-		spremisteTesta.Zatvori()
+		_ = spremisteTesta.Zatvori() // privremeno spremište testa
 		models.SetTerms(nazivi)
 	})
-
-	for _, s := range slucajeviRazmjene() {
-		t.Run(s.entitet, func(t *testing.T) { provjeriRazmjenu(t, s) })
-	}
 }
 
 func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {

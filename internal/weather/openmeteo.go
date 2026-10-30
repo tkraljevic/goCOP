@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"net/url"
@@ -89,7 +90,7 @@ func (c *Client) Fetch(ctx context.Context, lat, lon float64, day time.Time, hou
 	}
 	defer resp.Body.Close()
 	var r response
-	if err := json.NewDecoder(resp.Body).Decode(&r); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, najveciOdgovor)).Decode(&r); err != nil {
 		return nil, fmt.Errorf("vremenska usluga: neočekivan odgovor: %w", err)
 	}
 	if resp.StatusCode != http.StatusOK {
@@ -98,10 +99,37 @@ func (c *Client) Fetch(ctx context.Context, lat, lon float64, day time.Time, hou
 	return summarize(r, hour)
 }
 
+// najveciOdgovor je granica odgovora usluge. Jedan dan po satima je nekoliko
+// kilobajta; veći odgovor nije onaj koji je tražen.
+const najveciOdgovor = 1 << 20
+
+// satIzVremena čita sat iz vremena oblika 2026-10-30T12:00; kriv oblik se preskače
+func satIzVremena(ts string) (int, bool) {
+	t, err := time.Parse("2006-01-02T15:04", strings.TrimSpace(ts))
+	if err != nil {
+		return 0, false
+	}
+	return t.Hour(), true
+}
+
+// provjeriSate javlja grešku kad podataka nema ili kad nijedno vrijeme nije
+// u očekivanom obliku
+func provjeriSate(vremena []string, temperature []float64) error {
+	if len(vremena) == 0 || len(temperature) != len(vremena) {
+		return fmt.Errorf("vremenska usluga nema podataka za taj dan")
+	}
+	for _, ts := range vremena {
+		if _, ok := satIzVremena(ts); ok {
+			return nil
+		}
+	}
+	return fmt.Errorf("vremenska usluga je vratila vrijeme u neočekivanom obliku")
+}
+
 func summarize(r response, hour int) (*Day, error) {
 	h := r.Hourly
-	if len(h.Time) == 0 || len(h.Temperature) != len(h.Time) {
-		return nil, fmt.Errorf("vremenska usluga nema podataka za taj dan")
+	if err := provjeriSate(h.Time, h.Temperature); err != nil {
+		return nil, err
 	}
 	at := func(vals []float64, i int) float64 {
 		if i < len(vals) {
@@ -113,8 +141,8 @@ func summarize(r response, hour int) (*Day, error) {
 	idx := -1
 	codes := map[int]int{}
 	for i, ts := range h.Time {
-		var hh int
-		if _, err := fmt.Sscanf(ts[len(ts)-5:], "%d:", &hh); err != nil {
+		hh, ok := satIzVremena(ts)
+		if !ok {
 			continue
 		}
 		if hh == hour {

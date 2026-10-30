@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
@@ -23,7 +22,7 @@ func TestPotpisSDrugogCvoraSeCisti(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		v := []ledger.Version{{VersionID: fmt.Sprintf("%02d-potpis", i+1), Entity: EntityPotpisi, EntityID: "korisnik-1",
+		v := []ledger.Version{{VersionID: vid(i + 1), Entity: EntityPotpisi, EntityID: "korisnik-1",
 			NodeID: "cop-vukovar", Payload: p, CreatedAt: time.Now(), SchemaVersion: 1}}
 		if _, err := repo.rec.Apply(ctx, v); err != nil {
 			t.Fatal(err)

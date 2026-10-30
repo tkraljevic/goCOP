@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 
-	"gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/service"
 
@@ -27,7 +26,7 @@ type AuthHandler struct {
 	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
 	drugiKorak   func() *service.DrugiKorak                                  // PIN za prijavu izvana; nil = nema ga
 	tmplPIN      *template.Template                                          // stranica upisa PIN-a ili koda
-	// čvor pod Postavom: početna lozinka samo s ovog računala
+	// čvor pod Postavom: stara početna lozinka samo s ovog računala
 	samoOvoRacunalo func() bool
 }
 
@@ -105,11 +104,16 @@ func iscrtajPrijavu(t *template.Template, w http.ResponseWriter, ime string, pod
 	}
 }
 
-// porukaZadaneLozinkeIzMreze odbija početnu lozinku iz mreže na čvoru pod Postavom
-const porukaZadaneLozinkeIzMreze = "Početna lozinka iz uputa vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
+// staraPocetnaLozinka je zajednička početna lozinka koju su računi iz
+// imenika i račun admin dobivali do izdanja 0.0.46-alfa. Novi računi je ne
+// dobivaju (db.SeedInitialData); ostaje samo za račune koji je još imaju.
+const staraPocetnaLozinka = "gocop2026"
 
-// porukaZadaneLozinke odbija prvu prijavu zadanom lozinkom izvana
-const porukaZadaneLozinke = "Zadana lozinka izvana ne vrijedi, jer je javna. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
+// porukaZadaneLozinkeIzMreze odbija staru početnu lozinku iz mreže na čvoru pod Postavom
+const porukaZadaneLozinkeIzMreze = "Ova lozinka vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
+
+// porukaZadaneLozinke odbija prvu prijavu starom početnom lozinkom izvana
+const porukaZadaneLozinke = "Ova lozinka izvana ne vrijedi. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
 
 // SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
 func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
@@ -177,18 +181,18 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	keys := kljuceviPrijave(username, klijent)
 
 	// Previše neuspjeha: odgovor je isti bez obzira na to postoji li ime,
-	// da se iz njega ne može zaključiti tko ima račun
-	if blocked, wait := h.limiter.Blocked(keys...); blocked {
+	// da se iz njega ne može zaključiti tko ima račun. Pokušaj se broji prije
+	// provjere lozinke, pa ni istodobni zahtjevi ne prolaze granicu.
+	if ok, wait := h.limiter.Rezerviraj(keys...); !ok {
 		minutes := int(wait.Minutes()) + 1
 		h.prikaziPrijavu(w, r, http.StatusTooManyRequests, fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes))
 		return
 	}
 
 	// Deaktiviran račun javlja se tek nakon točne lozinke, inače bi poruka
-	// otkrila da ime postoji
+	// otkrila da ime postoji; i on ostaje brojen kao neuspjeh
 	user, err := h.authService.ProvjeriPrijavu(username, password)
 	if err != nil {
-		h.limiter.Fail(keys...)
 		errMsg := "Neispravno korisničko ime ili lozinka"
 		if errors.Is(err, service.ErrAccountInactive) {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
@@ -196,20 +200,21 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		h.prikaziPrijavu(w, r, http.StatusOK, errMsg)
 		return
 	}
+	h.limiter.VratiSve(keys...) // točna lozinka nije neuspjeh
 
-	// Zadana lozinka piše u dokumentaciji: tko je zna, preuzeo bi svjež čvor
-	// izvana prije vlasnika. Prva prijava njome zato ide samo iz lokalne
-	// mreže (ne kroz tunel ni s javne adrese, npr. kroz proslijeđen port);
-	// privremena lozinka koju je dao administrator vrijedi i izvana.
-	if !klijent.IzLokalneMreze() && user.MustChangePassword && password == db.ZadanaLozinka {
+	// Računi iz starijih izdanja koji još imaju zajedničku početnu lozinku
+	// prvi put se prijavljuju samo iz lokalne mreže (ne kroz tunel ni s
+	// javne adrese, npr. kroz proslijeđen port); privremena lozinka koju je
+	// dao administrator vrijedi i izvana.
+	staraLozinka := user.MustChangePassword && password == staraPocetnaLozinka
+	if !klijent.IzLokalneMreze() && staraLozinka {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
 		return
 	}
 	// Pod Postavom čvor je na nečijem računalu, a sluša za cijelu lokalnu
-	// mrežu: javnu početnu lozinku smije upotrijebiti samo vlasnik, s tog
-	// računala (ili postavi svoj račun na stranici Postavljanje)
-	if user.MustChangePassword && password == db.ZadanaLozinka && h.samoOvoRacunalo != nil &&
-		h.samoOvoRacunalo() && !klijent.Posrednik.IsLoopback() {
+	// mrežu: takav račun prvi put se prijavljuje samo s tog računala
+	if staraLozinka && h.samoOvoRacunalo != nil &&
+		h.samoOvoRacunalo() && !klijent.SOvogRacunala() {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinkeIzMreze)
 		return
 	}
@@ -245,7 +250,7 @@ func (h *AuthHandler) otvoriPrijavu(w http.ResponseWriter, r *http.Request, user
 	}
 	postaviSesiju(w, r, session.ID.String(), session.ExpiresAt)
 
-	// Sa zadanom lozinkom prvo na promjenu lozinke, tek onda u program
+	// S privremenom lozinkom prvo na promjenu lozinke, tek onda u program
 	if user.MustChangePassword {
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 		return
@@ -299,13 +304,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 
 	// Trenutna lozinka se provjerava prvo i s ograničenjem pokušaja: ukradena
 	// sesija ne smije biti proročište za pogađanje lozinke
-	kljuc := kljucPonovneLozinke("", currUser.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
-		return
-	}
-	err := h.authService.ProvjeriLozinku(currUser.ID, currentPassword)
-	ishodPonovneLozinke(kljuc, err)
+	err := uzGranicuPonovne(kljuceviLozinkeRacuna(ctx, currUser.ID.String()), func() error { return h.authService.ProvjeriLozinku(currUser.ID, currentPassword) })
 	if err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return

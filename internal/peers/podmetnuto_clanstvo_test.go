@@ -263,12 +263,12 @@ func TestKrivotvorenoClanstvoNeOtvaraImeZaDvojnika(t *testing.T) {
 		t.Fatal(err)
 	}
 	n := startNode(t, ctx, "laptop-vinkovci")
-	upisiVerziju(t, ctx, c, peers.EntityMemberships, "smece-2", razmjena.Membership{
+	upisiVerziju(t, ctx, c, peers.EntityMemberships, l.id, razmjena.Membership{
 		Network: a.svc.NetworkInfo().PublicKey, DeviceID: l.id, DeviceKey: n.svc.Node().PublicKey(), IssuedBy: a.id,
 		IssuedAt: time.Now().UTC(), ExpiresAt: time.Now().UTC().Add(time.Hour), Signature: "AAAA",
 	})
 	pravi, _ := c.svc.GetPeer(ctx, l.id)
-	upisiVerziju(t, ctx, c, peers.EntityPeers, "smece-3", peers.Peer{
+	upisiVerziju(t, ctx, c, peers.EntityPeers, l.id, peers.Peer{
 		NodeID: l.id, Name: pravi.Name, PublicKey: n.svc.Node().PublicKey(), Addresses: pravi.Addresses, CreatedAt: pravi.CreatedAt,
 	})
 	if _, _, err := c.svc.SyncWith(ctx, a.id); err != nil {

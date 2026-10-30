@@ -69,11 +69,11 @@ func (h *HidroView) Prepoznaje(adresa string) bool { return PostajaHidroViewIzAd
 // PostajaHidroViewIzAdrese vraća šifru postaje iz adrese; prazno kad adresa
 // nije njihova ili nema šifre
 func PostajaHidroViewIzAdrese(adresa string) string {
-	if !strings.Contains(strings.ToLower(adresa), "hdv.voda.hr") &&
-		!strings.Contains(strings.ToLower(adresa), "hydroview") {
+	u, ok := adresaNaPosluzitelju(adresa, PodrijetloHidroView)
+	if !ok {
 		return ""
 	}
-	m := reHidroViewPostaja.FindStringSubmatch(adresa)
+	m := reHidroViewPostaja.FindStringSubmatch(u.RawQuery + "#" + u.Fragment)
 	if m == nil {
 		return ""
 	}

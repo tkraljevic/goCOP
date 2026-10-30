@@ -392,19 +392,21 @@ func zapisiPrimjerPostavki(cfg config.Config, cfgFrom, imeIzDatoteke string, nov
 
 // otvoriBazu otvori bazu (WAL) i shemu, spremište sadržaja uz nju (s
 // preseljenjem starog sadržaja i fotografijama dnevnih listova) i upiše
-// početne podatke. Kad vrati grešku uz otvorenu bazu, pozivatelj je zatvara
-// kao i inače.
-func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
+// početne podatke. Vraća i privremene lozinke računa iz imenika, kad se
+// baza tek napunila ili kad popis iz prethodnog pokretanja nitko nije
+// preuzeo. Kad vrati grešku uz otvorenu bazu, pozivatelj je zatvara kao i
+// inače.
+func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, []db.PocetnaLozinka, error) {
 	// 1. Otvaranje SQLite baze u WAL modu
 	database, err := db.OpenDB(dbPath)
 	if err != nil {
-		return nil, nil, fmt.Errorf("Kritična greška pri otvaranju baze: %w", err)
+		return nil, nil, nil, fmt.Errorf("Kritična greška pri otvaranju baze: %w", err)
 	}
 
 	// 2. Inicijalizacija sheme
 	if err := db.InitSchema(database); err != nil {
 		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
-		return nil, nil, fmt.Errorf("Kritična greška pri inicijalizaciji sheme: %w", err)
+		return nil, nil, nil, fmt.Errorf("Kritična greška pri inicijalizaciji sheme: %w", err)
 	}
 
 	// 2a. Spremište sadržaja: PDF-ovi i slike po otisku, u vlastitoj datoteci
@@ -412,11 +414,11 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	spremiste, err := sadrzaj.Otvori(filepath.Join(filepath.Dir(dbPath), "sadrzaj.db"))
 	if err != nil {
 		_ = database.Close() // vraća se greška otvaranja, ne zatvaranja
-		return nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
+		return nil, nil, nil, fmt.Errorf("Kritična greška pri otvaranju spremišta sadržaja: %w", err)
 	}
 	repository.SetSpremiste(spremiste)
 	if n, bajtova, err := repository.PreseliSadrzaj(context.Background(), database); err != nil {
-		return database, spremiste, fmt.Errorf("Seljenje sadržaja u spremište: %w", err)
+		return database, spremiste, nil, fmt.Errorf("Seljenje sadržaja u spremište: %w", err)
 	} else if n > 0 {
 		log.Printf("Preseljeno u spremište sadržaja: %d datoteka, %.1f MB", n, float64(bajtova)/1e6)
 	}
@@ -429,10 +431,24 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, error) {
 	// Registri i imenik stoje uz bazu, izvan programa; čitaju se samo pri prvom punjenju
 	db.DataDir = filepath.Dir(dbPath)
 	db.ImenikPath = db.DataFile("imenik.json")
-	if err := db.SeedInitialData(database); err != nil {
-		return database, spremiste, fmt.Errorf("Greška pri unosu početnih podataka: %w", err)
+	lozinke, err := db.SeedInitialData(database)
+	if err != nil {
+		return database, spremiste, nil, fmt.Errorf("Greška pri unosu početnih podataka: %w", err)
 	}
-	return database, spremiste, nil
+	return database, spremiste, popisZaPreuzimanje(database, lozinke), nil
+}
+
+// popisZaPreuzimanje je popis privremenih lozinki iz punjenja, a bez njega
+// nov popis za račune čiji popis iz prethodnog pokretanja nitko nije preuzeo
+func popisZaPreuzimanje(database *sql.DB, izPunjenja []db.PocetnaLozinka) []db.PocetnaLozinka {
+	if izPunjenja != nil {
+		return izPunjenja
+	}
+	popis, err := db.ObnoviPocetneLozinke(database)
+	if err != nil {
+		log.Printf("Privremene lozinke računa iz imenika nisu ponovno složene: %v", err)
+	}
+	return popis
 }
 
 func main() {
@@ -511,7 +527,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	log.Printf("Pokretanje čvora: %s", *nodeID)
 	log.Printf("Baza podataka (čisti Go SQLite): %s", *dbPath)
 
-	database, spremiste, err := otvoriBazu(*dbPath)
+	database, spremiste, pocetneLozinke, err := otvoriBazu(*dbPath)
 	if database != nil {
 		defer database.Close()
 	}
@@ -601,6 +617,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		log.Printf("Obnova površine iz knjige (%d zapisa): %v", n, err)
 	}
 	obnoviPovrsinu(context.Background(), database, recorder)
+	go javiNeispravneUKnjizi(ctx, recorder, ledger.Sada())
 
 	userRepo := repository.NewUserRepository(database, recorder)
 	sessionRepo := repository.NewSessionRepository(database)
@@ -796,8 +813,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	server.SetLokalnaImena(cfg.Web.LokalnaImena)
 	postaviTailscale(server, cfg)
 	server.SetPodPostavom(z.podPostavom)
+	server.SetPocetneLozinke(pocetneLozinke, func() error { return db.PocetneLozinkePreuzete(database) })
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
 	ponovno := make(chan struct{}, 1)
 	server.SetPonovnoPokretanje(nacinRada(z.podPostavom, os.Getenv, postojiDatoteka, os.Getppid()), zatraziPonovno(ponovno))
@@ -935,7 +954,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 
 	go func() {
 		log.Printf("Poslužitelj spreman na http://localhost%s", *addr)
-		log.Printf("Prijava korisničkim imenom iz imenika; početna lozinka se mijenja pri prvoj prijavi")
+		log.Printf("Prijava korisničkim imenom iz imenika; privremena lozinka se mijenja pri prvoj prijavi")
 		err := server.Start()
 		if err != nil && err != http.ErrServerClosed && *addr == ":80" {
 			// Port 80 na Linuxu i macOS-u traži administratorska prava; radije

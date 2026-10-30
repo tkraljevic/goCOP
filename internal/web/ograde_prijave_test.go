@@ -18,6 +18,7 @@ import (
 func lanSaZaglavljem(adresa string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = "192.168.1.50:40000"
+		r.Host = adresaCvoraTesta
 		r.Header.Set(ZaglavljeCloudflare, adresa)
 		return r
 	}
@@ -26,6 +27,7 @@ func lanSaZaglavljem(adresa string) func(*http.Request) *http.Request {
 func izravnoS(adresa string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = adresa
+		r.Host = adresaCvoraTesta
 		return r
 	}
 }
@@ -58,6 +60,7 @@ func TestNeprocitanoZaglavljeNeZakljucavaOvoRacunalo(t *testing.T) {
 	o.racun("ana", "anina-lozinka", false, false)
 	samoXFF := func(r *http.Request) *http.Request {
 		r.RemoteAddr = "127.0.0.1:5555"
+		r.Host = adresaCvoraTesta
 		r.Header.Set("X-Forwarded-For", "203.0.113.9")
 		return r
 	}

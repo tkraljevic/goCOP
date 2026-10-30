@@ -96,7 +96,7 @@ func TestGranicaCvora0038(t *testing.T) {
 	if err := s.SavePeer(ctxRub, peer); err != nil {
 		t.Fatal(err)
 	}
-	s.noteSync(ctxRub, &peer, nil, ishodRazmjene(0, 0, theirs, time.Second, nil))
+	s.noteSync(ctxRub, &peer, ishodRazmjene(0, 0, theirs, time.Second, nil))
 	var mogucnosti, vrste string
 	var ceka, poznate int
 	if err := s.db.QueryRow(`SELECT mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate FROM peer_sync WHERE node_id = 'laptop-baranja'`).

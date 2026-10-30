@@ -160,13 +160,16 @@ func (o *okolinaIzvana) posalji(z zahtjevIzvana, metoda, put string, polja url.V
 		r.Header.Set("Referer", z.referer)
 	}
 	r.RemoteAddr = "192.168.1.50:40000"
+	r.Host = adresaCvoraTesta
 	if z.izvana {
 		// izvana preko HTTPS-a, izravno na javnu adresu
 		r.RemoteAddr = "198.51.100.7:40000"
+		r.Host = adresaCvoraTesta
 		r.TLS = &tls.ConnectionState{}
 	}
 	if z.bezHTTPS {
 		r.RemoteAddr = "127.0.0.1:5555"
+		r.Host = adresaCvoraTesta
 		r.Header.Set("CF-Connecting-IP", "198.51.100.7")
 	}
 	vidi := z.vidi
@@ -226,7 +229,7 @@ func TestRezervniKodoviJednomIBezSpremanja(t *testing.T) {
 	if n, _, _ := o.dk.StanjeRezervnih(ctx, ana.ID); n != 0 {
 		t.Fatalf("kriva lozinka napravila je %d kodova", n)
 	}
-	if b, _ := ponovnaLozinka.Blocked(kljucPonovneLozinke("", ana.ID.String())); b {
+	if b, _ := ponovnaLozinka.Blocked(kljuceviLozinkeRacuna(context.Background(), ana.ID.String())...); b {
 		t.Fatal("jedan krivi upis ne smije blokirati")
 	}
 
@@ -248,7 +251,7 @@ func TestRezervniKodoviJednomIBezSpremanja(t *testing.T) {
 	}
 	// obrasci profila poslani sa stranice kodova vraćaju se na profil, ne na
 	// POST-adresu (405)
-	sKodova := zahtjevIzvana{stvarni: ana, referer: "http://example.com/profile/rezervni-kodovi"}
+	sKodova := zahtjevIzvana{stvarni: ana, referer: "http://" + adresaCvoraTesta + "/profile/rezervni-kodovi"}
 	if loc := o.posalji(sKodova, http.MethodPost, "/profile/update", url.Values{"full_name": {"Ana"}, "email": {"ana@voda.hr"}}).Header().Get("Location"); !strings.HasPrefix(loc, "/profile?success=") {
 		t.Errorf("kontakti sa stranice kodova: %q", loc)
 	}
@@ -523,9 +526,15 @@ func TestPromjenaVlastiteAdreseNaProfilu(t *testing.T) {
 	if w := o.posalji(lokalno, http.MethodPost, "/profile/update", polja("ana.nova@voda.hr", "anina-lozinka")); !strings.Contains(w.Header().Get("Location"), "error=") || adresa() != "ana@voda.hr" {
 		t.Fatalf("nakon tri kriva upisa mora biti blokirano: %s", w.Header().Get("Location"))
 	}
-	ponovnaLozinka.Reset(kljucPonovneLozinke("", ana.ID.String()))
+	ponovnaLozinka.Reset(kljuceviLozinkeRacuna(context.Background(), ana.ID.String())...)
 	if w := o.posalji(lokalno, http.MethodPost, "/profile/update", polja("ana.nova@voda.hr", "anina-lozinka")); strings.Contains(w.Header().Get("Location"), "error=") || adresa() != "ana.nova@voda.hr" {
 		t.Fatalf("točna lozinka iz ureda: %s, adresa %s", w.Header().Get("Location"), adresa())
+	}
+	// spremanje bez promjene adrese lozinku ne provjerava, pa ne troši upise
+	for i := 0; i < 4; i++ {
+		if w := o.posalji(lokalno, http.MethodPost, "/profile/update", polja("ana.nova@voda.hr", "kriva")); strings.Contains(w.Header().Get("Location"), "error=") {
+			t.Fatalf("%d. spremanje bez promjene adrese: %s", i+1, w.Header().Get("Location"))
+		}
 	}
 }
 
@@ -602,12 +611,15 @@ func TestStranicaPosteSklopkaIStanjePosiljatelja(t *testing.T) {
 		t.Helper()
 		r := httptest.NewRequest(http.MethodGet, "/administracija/posta", nil)
 		r.RemoteAddr = "192.168.1.50:40000"
+		r.Host = adresaCvoraTesta
 		if z.izvana {
 			r.RemoteAddr = "198.51.100.7:40000"
+			r.Host = adresaCvoraTesta
 			r.TLS = &tls.ConnectionState{}
 		}
 		if z.bezHTTPS {
 			r.RemoteAddr = "127.0.0.1:5555"
+			r.Host = adresaCvoraTesta
 			r.Header.Set("CF-Connecting-IP", "198.51.100.7")
 		}
 		p, err := o.aktiH.pinStanje(r)
@@ -704,5 +716,23 @@ func TestStranicaPosteSklopkaIStanjePosiljatelja(t *testing.T) {
 	s = stranica()
 	if !strings.Contains(s, `id="pin-drugi-posluzitelj"`) || !strings.Contains(s, "Račun je upisan za drugi poslužitelj e-pošte") || strings.Contains(s, "Poslužitelj e-pošte nije podešen.") {
 		t.Fatal("račun za drugi poslužitelj: stranica mora reći da je upisan za drugi poslužitelj")
+	}
+}
+
+// Račun za slanje PIN-a: bez e-pošte ga se ne može uzeti iz računa e-pošte,
+// a brisanje ide i bez lozinke; bez e-pošte ni lozinka sandučića ne sprema se
+func TestPosiljateljPINaBezEPoste(t *testing.T) {
+	o := novaOkolinaIzvana(t)
+	admin := o.racun("uprava", "upravina-lozinka", "uprava@voda.hr", true)
+	ja := zahtjevIzvana{stvarni: admin, izvana: true}
+	if g := greskaPreusmjerenja(t, o.posalji(ja, http.MethodPost, "/administracija/posta/pin", url.Values{"radnja": {"iz_poste"}})); !strings.Contains(g, "E-pošta nije uključena") {
+		t.Errorf("iz računa e-pošte bez e-pošte: %q", g)
+	}
+	if w := o.posalji(ja, http.MethodPost, "/administracija/posta/pin", url.Values{"radnja": {"obrisi"}}); greskaPreusmjerenja(t, w) != "" || !strings.Contains(w.Header().Get("Location"), "success") {
+		t.Errorf("brisanje pošiljatelja: %s", w.Header().Get("Location"))
+	}
+	o.mux.HandleFunc("POST /profile/posta", o.aktiH.HandlePosta)
+	if w := o.posalji(ja, http.MethodPost, "/profile/posta", url.Values{"lozinka": {"x"}}); w.Code != http.StatusServiceUnavailable {
+		t.Errorf("lozinka e-pošte bez e-pošte: %d", w.Code)
 	}
 }

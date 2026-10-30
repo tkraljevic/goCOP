@@ -385,7 +385,7 @@ func TestRazgovorPreskaceNeispravnuVerziju(t *testing.T) {
 	if o.sent != 3 || o.theirs.Frontier[kljuc16] != k16v3 || o.theirs.Frontier[kljuc3] != k3los {
 		t.Errorf("poslano %d, zapamćena granica %v", o.sent, o.theirs.Frontier)
 	}
-	if n, zadnji := dnevnik.broj(); n != 2 || !strings.Contains(zadnji, "(probni)") || strings.Contains(zadnji, "Perić") || strings.Contains(zadnji, "nije json") {
+	if n, zadnji := dnevnik.broj(); n != 2 || !strings.Contains(zadnji, `("probni")`) || strings.Contains(zadnji, "Perić") || strings.Contains(zadnji, "nije json") {
 		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
 	}
 

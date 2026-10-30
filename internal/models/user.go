@@ -552,6 +552,9 @@ type Session struct {
 	UserAgent string     `json:"user_agent"`
 	ExpiresAt time.Time  `json:"expires_at"`
 	CreatedAt time.Time  `json:"created_at"`
+	// LozinkaOtisak je otisak sažetka lozinke kad je sesija otvorena
+	// (repository.OtisakLozinke); sesija vrijedi dok se slaže s lozinkom računa
+	LozinkaOtisak string `json:"-"`
 }
 
 // UserPermissions sadrži zbirne ovlasti izvedene iz svih funkcija korisnika.

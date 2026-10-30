@@ -22,6 +22,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -67,11 +68,16 @@ func (c *Client) Prepoznaje(adresa string) bool {
 // PostajaIzAdrese vraća broj postaje iz adrese Hrvatskih voda; 0 kad
 // adresa nije njihova ili nema broja
 func PostajaIzAdrese(adresa string) int {
-	a := strings.ToLower(strings.TrimSpace(adresa))
-	if !strings.Contains(a, "vodostaji.voda.hr") {
+	u, ok := adresaNaPosluzitelju(adresa, "vodostaji.voda.hr", "mvodostaji.voda.hr")
+	if !ok {
 		return 0
 	}
-	m := reHVPostaja.FindStringSubmatch(adresa)
+	return brojPostajeHV(u)
+}
+
+// brojPostajeHV čita postajaID iz upita ili oznake iza # adrese Hrvatskih voda
+func brojPostajeHV(u *url.URL) int {
+	m := reHVPostaja.FindStringSubmatch(u.RawQuery + "#" + u.Fragment)
 	if m == nil {
 		return 0
 	}
@@ -303,7 +309,7 @@ func (c *Client) klijent() *http.Client {
 	if c.HTTP != nil {
 		return c.HTTP
 	}
-	return &http.Client{Timeout: 20 * time.Second}
+	return zadaniKlijent()
 }
 
 func (c *Client) base() string {
@@ -508,14 +514,41 @@ func NoviUvoznik(s Spremiste, zapisnik func(string, ...any)) *Uvoznik {
 	}
 	c := &Client{}
 	return &Uvoznik{
-		Client: c,
-		Izvori: []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
-			PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, DanubeHIS{Client: c}, &HidroView{}, &MLetva{}},
+		Client:    c,
+		Izvori:    sviIzvori(c),
 		Spremiste: s,
 		Zapisnik:  zapisnik,
 		stanja:    map[string]StanjeLetve{},
 		cekaju:    map[string]cekanjeLetve{},
 	}
+}
+
+// sviIzvori su čitači svih javnih stranica, redom kojim se adresa prepoznaje
+func sviIzvori(c *Client) []Izvor {
+	return []Izvor{hvIzvor{c}, Hidmet{Client: c}, Vizugy{Client: c}, SHMU{Client: c}, ARSO{Client: c},
+		PegelOnline{Client: c}, GKD{Client: c}, EHYD{Client: c}, NOEL{Client: c}, DanubeHIS{Client: c}, &HidroView{}, &MLetva{}}
+}
+
+// PrepoznataAdresa javlja zna li neki čitač pročitati letvu s te adrese.
+// Obrazac letve po tome ne pušta uključiti preuzimanje s nepoznate adrese.
+func PrepoznataAdresa(adresa string) bool {
+	return (&Uvoznik{Izvori: sviIzvori(&Client{})}).IzvorZa(adresa) != nil
+}
+
+// Poveznica je adresa javne stranice koju stranica letve nudi za otvaranje.
+// Daje se samo za adresu koju neki čitač prepoznaje, pa vodi na poslužitelj
+// tog izvora, i slaže se iznova iz dijelova adrese. Prazno kad je čitač ne zna.
+func Poveznica(adresa string) string {
+	if !PrepoznataAdresa(adresa) {
+		return ""
+	}
+	u, ok := rastaviAdresu(adresa)
+	if !ok {
+		return ""
+	}
+	v := url.URL{Scheme: u.Scheme, Host: strings.ToLower(u.Hostname()), Path: u.Path, RawPath: u.RawPath,
+		RawQuery: u.RawQuery, Fragment: u.Fragment, RawFragment: u.RawFragment}
+	return v.String()
 }
 
 // hvIzvor je Hrvatske vode kao Izvor, preko Clienta koji uvoznik drži;

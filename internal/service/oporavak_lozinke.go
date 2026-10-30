@@ -8,6 +8,7 @@ import (
 	"log"
 	"strings"
 
+	"gocop/internal/db"
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -39,27 +40,12 @@ type PonistenjeSKonzole struct {
 	AdresaZauzeta string
 }
 
-// znakoviKonzole su znakovi lozinke s konzole: mala slova i znamenke bez
-// onih koji se pri prepisivanju zamijene (0 i o, 1, i i l)
-const znakoviKonzole = "abcdefghjkmnpqrstuvwxyz23456789"
-
 // GenerirajLozinkuZaKonzolu slaže privremenu lozinku oblika
-// "k7mx-2pqa-hr4t-wz9c": četiri skupine po četiri znaka, oko 79 bita. Ne čita
-// se preko telefona nego prepisuje s ekrana, pa smije biti jača od one iz
+// "k7mx-2pqa-hr4t-wz9c" (db.PrivremenaLozinka), oko 79 bita. Ne čita se
+// preko telefona nego prepisuje s ekrana, pa smije biti jača od one iz
 // Korisnika — vrijedi i izvana, a pripada globalnom administratoru.
 func GenerirajLozinkuZaKonzolu() (string, error) {
-	var b strings.Builder
-	for i := 0; i < 16; i++ {
-		if i > 0 && i%4 == 0 {
-			b.WriteByte('-')
-		}
-		idx, err := randomInt(len(znakoviKonzole))
-		if err != nil {
-			return "", err
-		}
-		b.WriteByte(znakoviKonzole[idx])
-	}
-	return b.String(), nil
+	return db.PrivremenaLozinka()
 }
 
 // oporavakLozinke je ono malo servisa što poništenje s konzole treba

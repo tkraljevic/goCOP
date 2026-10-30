@@ -142,14 +142,16 @@ uparivanje treba osoba i na drugoj strani.
 5. Razmjena zatim krene sama, a gumb **Razmijeni sa svima** na stranici
    Stanje razmjene pokreće je odmah.
    Djelatnici, registri i podaci stižu s drugog računala. Kad stignu
-   djelatnici, prijavljujete se svojim računom.
+   djelatnici, prijavljujete se svojim računom. Računi globalnih
+   administratora i njihove dužnosti na novom računalu vrijede tek kad ih
+   potvrdite: prijavite se računom `admin` i potvrdite ih na stranici
+   Stanje razmjene, pod Promjene prava koje čekaju potvrdu.
 
 ### Početni račun admin
 
-Svježe računalo ima i početni račun `admin` s javnom lozinkom. On služi samo
-za prijelaz: vrijedi samo iz lokalne mreže, a pod Postavom samo s tog
-računala, i pri prvoj prijavi traži novu lozinku. Kad računalo postavite na
-stranici Postavljanje, taj vam račun ne treba.
+Svježe računalo ima i početni račun `admin`, ali njegovu lozinku nitko ne
+zna i ne treba vam: računalo postavljate na stranici Postavljanje, koja ga
+isključi.
 
 ## 3. Što dalje
 

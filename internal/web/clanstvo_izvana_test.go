@@ -286,7 +286,11 @@ func TestUparivanjeBezPrijaveTraziKod(t *testing.T) {
 			return izravno(r)
 		}
 	}
-	ovoRacunalo := izravnoS("127.0.0.1:40000")
+	ovoRacunalo := func(r *http.Request) *http.Request {
+		r = izravnoS("127.0.0.1:40000")(r)
+		r.Host = "localhost:1160" // s ovog računala vrijedi samo ime localhost
+		return r
+	}
 	for ime, c := range map[string]struct {
 		porijeklo func(*http.Request) *http.Request
 		kod       int
@@ -415,7 +419,7 @@ func TestClanstvoIzvanaBrojiKriveLozinke(t *testing.T) {
 	ana := &models.User{ID: uuid.New(), Username: "aivic", FullName: "Ana Ivić"}
 	izvana := zahtjevMreze{porijeklo: krozTunel("198.51.100.7"), perms: admin, osoba: ana}
 	lokalno := zahtjevMreze{porijeklo: izravno, perms: admin, osoba: ana}
-	t.Cleanup(func() { ponovnaLozinka.Reset(kljucPonovneLozinke("", ana.ID.String())) })
+	t.Cleanup(func() { ponovnaLozinka.Reset(kljuceviLozinkeRacuna(context.Background(), ana.ID.String())...) })
 	for range 3 {
 		izvana.zovi(t, h.HandleOpozoviOvlast, "laptop-ilok", map[string]string{"lozinka_racuna": "kriva"})
 	}

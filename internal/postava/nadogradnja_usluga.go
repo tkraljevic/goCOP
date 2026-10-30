@@ -2,6 +2,8 @@ package postava
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -13,9 +15,10 @@ import (
 // Nadogradnja usluge sustava (Linux). Program usluge je rootov
 // (/usr/local/bin/gocop), pa ga Postava ne mijenja sama: preuzme i provjeri
 // izdanje u svoju mapu, a zamjenu radi instaliraj.sh tog izdanja, pokrenut
-// kao root preko pkexec-a. Skripta datoteke još jednom provjeri (potpis i
-// SHA-256), zaustavi uslugu, kopira bazu, zamijeni program, pokrene uslugu i
-// pričeka /zdravlje (docs/linux.md, poglavlje 9).
+// kao root preko pkexec-a iz kopije u rootovoj mapi. Skripta datoteke još
+// jednom provjeri (potpis i SHA-256), zaustavi uslugu, kopira bazu,
+// zamijeni program, pokrene uslugu i pričeka /zdravlje (docs/linux.md,
+// poglavlje 9).
 
 // Datoteke izdanja koje traži instaliraj.sh, uz program i SHA256SUMS
 const (
@@ -31,24 +34,58 @@ func imePostave(goos, goarch string) string { return "gocop-postava-" + goos + "
 // ikone
 const uputaRucno = "goCOP se tada nadograđuje ručno, kako piše u docs/linux.md, poglavlje 9."
 
+// ZaUslugu je izdanje pripremljeno za instaliraj.sh: mapa u koju je
+// preuzeto, imena datoteka i SHA-256 dviju datoteka koje root ponovno
+// provjerava u svojoj kopiji. Oba zbroja Postava drži u memoriji, pa ih
+// promjena datoteka u mapi ne mijenja.
+type ZaUslugu struct {
+	Mapa     string
+	Program  string   // ime programa čvora u mapi
+	Datoteke []string // sve datoteke u mapi koje idu skripti
+	Zbrojevi string   // SHA-256 potpisanog SHA256SUMS
+	Skripta  string   // SHA-256 instaliraj.sh iz SHA256SUMS
+}
+
 // PripremiZaUslugu preuzima u novu mapu (u mapi Postave) program,
 // instaliraj.sh, gocop.service, SHA256SUMS i potpis te, ako je u izdanju,
 // Postavu za Linux. Potpis i SHA-256 svake datoteke provjeravaju se prije
-// nego išta pokrene; kad nešto ne valja, mape nema.
-func (u Ugradnja) PripremiZaUslugu(ctx context.Context, iz Izdanje) (string, error) {
+// nego išta pokrene, a preuzeti program mora na -version javiti baš izdanje
+// koje se postavlja. Kad nešto ne valja, mape nema.
+func (u Ugradnja) PripremiZaUslugu(ctx context.Context, iz Izdanje) (ZaUslugu, error) {
 	zbrojevi, potpis, err := u.potpisaniZbrojevi(ctx, iz)
 	if err != nil {
-		return "", err
+		return ZaUslugu{}, err
 	}
 	mapa, err := os.MkdirTemp(u.M.Podaci, "nadogradnja-")
 	if err != nil {
-		return "", err
+		return ZaUslugu{}, err
 	}
-	if err := u.preuzmiZaUslugu(ctx, iz, zbrojevi, potpis, mapa); err != nil {
-		_ = os.RemoveAll(mapa)
-		return "", err
+	z := ZaUslugu{Mapa: mapa, Program: izdanje.ImeDatoteke(u.GOOS, u.GOARCH),
+		Datoteke: append([]string{izdanje.ImeZbrojeva, izdanje.ImePotpisa}, u.datotekeZaUslugu(zbrojevi)...),
+		Zbrojevi: fmt.Sprintf("%x", sha256.Sum256(zbrojevi))}
+	err = u.preuzmiZaUslugu(ctx, iz, zbrojevi, potpis, mapa)
+	if err == nil {
+		z.Skripta, err = izdanje.Zbroj(zbrojevi, imeSkripte)
 	}
-	return mapa, nil
+	if err == nil {
+		err = u.provjeriZaUslugu(ctx, filepath.Join(mapa, z.Program), iz.Verzija.String())
+	}
+	if err != nil {
+		_ = os.RemoveAll(mapa) // javlja se greška preuzimanja, ne brisanja
+		return ZaUslugu{}, err
+	}
+	return z, nil
+}
+
+// provjeriZaUslugu: preuzeti program mora na -version javiti baš izdanje
+// koje se postavlja. Kad se ne da ni pokrenuti (npr. mapa je na disku bez
+// prava izvršavanja), uz grešku ide uputa za ručnu nadogradnju.
+func (u Ugradnja) provjeriZaUslugu(ctx context.Context, put, ocekivano string) error {
+	err := u.provjeriIzdanje(ctx, put, ocekivano)
+	if err == nil || errors.As(err, new(drugoIzdanje)) {
+		return err
+	}
+	return fmt.Errorf("%w. %s", err, uputaRucno)
 }
 
 func (u Ugradnja) preuzmiZaUslugu(ctx context.Context, iz Izdanje, zbrojevi, potpis []byte, mapa string) error {
@@ -87,10 +124,43 @@ func (u Ugradnja) preuzmiIzIzdanja(ctx context.Context, iz Izdanje, zbrojevi []b
 	return odbijeno(iz, ime, u.preuzmiProvjereno(ctx, d.URL, filepath.Join(mapa, ime), zbroj))
 }
 
-// Ugradi pokreće instaliraj.sh iz pripremljene mape kao root: pkexec
-// <bash> <mapa>/instaliraj.sh <mapa>/<program>. Sustav jednom pita lozinku
-// administratora. Ispis skripte ide u dnevnik Postave.
-func (u *Usluga) Ugradi(ctx context.Context, mapa, program string, pisi func(string, ...any)) error {
+// prijenosKaoRoot je naredba koju bash izvršava kao root. Datoteke iz
+// korisnikove mape najprije kopira u novu mapu koju piše samo root, ondje
+// provjeri SHA-256 od SHA256SUMS i instaliraj.sh prema zbrojevima iz
+// Postave, pa skriptu pokrene iz te kopije. Ostale datoteke skripta sama
+// provjeri prema kopiji SHA256SUMS. Ništa se ne čita iz korisnikove mape
+// nakon kopiranja. Kopira se samo obična datoteka (ne poveznica, cijev ni
+// uređaj), i od nje najviše najveciProgram bajtova.
+//
+//	$1 mapa, $2 SHA-256 od SHA256SUMS, $3 SHA-256 od instaliraj.sh,
+//	$4 ime programa, dalje imena datoteka koje se kopiraju
+const prijenosKaoRoot = `# goCOP: nadogradnja usluge (instaliraj.sh iz provjerene kopije)
+set -eu
+mapa=$1 zbrojevi=$2 skripta=$3 program=$4
+shift 4
+cilj=$(mktemp -d /tmp/gocop-nadogradnja.XXXXXXXXXX)
+trap 'rm -rf -- "$cilj"' EXIT
+for ime in "$@"; do
+	if [ ! -f "$mapa/$ime" ] || [ -h "$mapa/$ime" ]; then
+		echo "Greška: $ime u mapi izdanja nije obična datoteka, pa nadogradnja nije pokrenuta. Pokrenite je ponovno." >&2
+		exit 1
+	fi
+	head -c 314572800 -- "$mapa/$ime" >"$cilj/$ime"
+done
+printf '%s  %s\n' "$zbrojevi" SHA256SUMS "$skripta" instaliraj.sh >"$cilj/.provjera"
+if ! (cd "$cilj" && sha256sum -c --strict --status .provjera); then
+	echo "Greška: datoteke izdanja promijenile su se nakon provjere, pa nadogradnja nije pokrenuta. Pokrenite je ponovno." >&2
+	exit 1
+fi
+"$BASH" "$cilj/instaliraj.sh" "$cilj/$program"`
+
+// Ugradi pokreće instaliraj.sh pripremljenog izdanja kao root, preko
+// pkexec-a i prijenosKaoRoot. Sustav jednom pita lozinku administratora.
+// Ispis skripte ide u dnevnik Postave.
+func (u *Usluga) Ugradi(ctx context.Context, z ZaUslugu, pisi func(string, ...any)) error {
+	if !jeZbroj(z.Zbrojevi) || !jeZbroj(z.Skripta) {
+		return errors.New("nadogradnja nije pokrenuta: za izdanje nema SHA-256 kojim se provjerava kopija. " + uputaRucno)
+	}
 	pkexec, err := u.Trazi("pkexec")
 	if err != nil {
 		return errors.New("na ovom računalu nema programa pkexec, pa Postava ne može tražiti lozinku administratora. " + uputaRucno)
@@ -99,13 +169,20 @@ func (u *Usluga) Ugradi(ctx context.Context, mapa, program string, pisi func(str
 	if err != nil {
 		return fmt.Errorf("nema programa bash (%v). %s", err, uputaRucno)
 	}
+	arg := append([]string{bash, "-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, z.Skripta, z.Program}, z.Datoteke...)
 	// Skripta se ne prekida, ni kad se Postava gasi: prekinuta usred
 	// zamjene ostavila bi uslugu zaustavljenu. Nakon lozinke ionako radi
 	// kao root, pa je korisnikov proces ne bi ni mogao ugasiti.
-	out, err := u.Naredba(context.WithoutCancel(ctx), pkexec, bash, filepath.Join(mapa, imeSkripte), filepath.Join(mapa, program))
+	out, err := u.Naredba(context.WithoutCancel(ctx), pkexec, arg...)
 	u.zaboravi()
 	pisi("instaliraj.sh (%v):\n%s", err, out)
 	return greskaUgradnje(out, err)
+}
+
+// jeZbroj: SHA-256 zapisan kao 64 heksadecimalna znaka
+func jeZbroj(s string) bool {
+	b, err := hex.DecodeString(s)
+	return err == nil && len(b) == sha256.Size
 }
 
 // greskaUgradnje: pkexec izlazi s 126 kad korisnik odustane od lozinke, a
@@ -128,16 +205,17 @@ func greskaUgradnje(out []byte, err error) error {
 }
 
 // nadogradiUslugu: preuzmi i provjeri, pokreni instaliraj.sh kao root i
-// potvrdi da usluga odgovara s novim izdanjem
+// potvrdi da usluga odgovara s novim izdanjem. Da je izdanje novije od
+// postavljenoga, provjerio je Nadogradi.
 func (p *Postava) nadogradiUslugu(ctx context.Context, iz Izdanje) (string, error) {
-	mapa, err := p.Ugradnja.PripremiZaUslugu(ctx, iz)
+	z, err := p.Ugradnja.PripremiZaUslugu(ctx, iz)
 	if err != nil {
 		p.Pisi("Nadogradnja odbijena: %v", err)
 		return "", err
 	}
-	defer func() { _ = os.RemoveAll(mapa) }()
+	defer os.RemoveAll(z.Mapa) //nolint:errcheck // preuzeto izdanje više ne treba, ostatak ne smeta
 	novo := iz.Verzija.String()
-	if err := p.usluga.Ugradi(ctx, mapa, izdanje.ImeDatoteke(p.Ugradnja.GOOS, p.Ugradnja.GOARCH), p.Pisi); err != nil {
+	if err := p.usluga.Ugradi(ctx, z, p.Pisi); err != nil {
 		p.Pisi("Nadogradnja: %v", err)
 		return "", err
 	}
@@ -146,4 +224,54 @@ func (p *Postava) nadogradiUslugu(ctx context.Context, iz Izdanje) (string, erro
 	}
 	p.Pisi("Nadogradnja na %s gotova", novo)
 	return novo, nil
+}
+
+// dopustenaNadogradnja vraća izdanje koje je sada postavljeno, ili grešku
+// kad iz nije novije od njega. Bez postavljenog čvora (prva instalacija)
+// nema s čim usporediti. Usluga je uvijek postavljena.
+func (p *Postava) dopustenaNadogradnja(ctx context.Context, iz Izdanje, zdravlje string) (string, error) {
+	if p.usluga == nil && !p.Cvor.Instaliran() {
+		return "", nil
+	}
+	staro := p.postavljenoIzdanje(ctx, zdravlje)
+	err := novijeOd(iz.Verzija, staro)
+	if err != nil && p.usluga != nil {
+		err = fmt.Errorf("%w. %s", err, uputaRucno)
+	}
+	if err != nil {
+		p.Pisi("Nadogradnja odbijena: %v", err)
+		return "", err
+	}
+	return staro, nil
+}
+
+// postavljenoIzdanje je veće od izdanja koje javlja čvor (/zdravlje) i
+// onoga koje javlja program na disku. Uz uslugu je program rootov, a na
+// /zdravlje može odgovoriti i drugi proces na istom portu.
+func (p *Postava) postavljenoIzdanje(ctx context.Context, zdravlje string) string {
+	datoteka, _ := IzdanjeDatoteke(ctx, p.M.Gocop()) // bez programa ostaje izdanje čvora
+	return veceIzdanje(zdravlje, datoteka)
+}
+
+// veceIzdanje od dva zapisa izdanja; zapis koji nije izdanje ne pobjeđuje
+func veceIzdanje(a, b string) string {
+	va, okA := izdanje.ParsirajOznaku(a)
+	vb, okB := izdanje.ParsirajOznaku(b)
+	if !okA || (okB && vb.Usporedi(va) > 0) {
+		return b
+	}
+	return a
+}
+
+// novijeOd: Postava čvor nikad ne vraća na starije ni isto izdanje, a
+// kad ne zna koje je postavljeno, ne nadograđuje
+func novijeOd(novo izdanje.Verzija, trenutno string) error {
+	v, ok := izdanje.ParsirajOznaku(trenutno)
+	if !ok {
+		return fmt.Errorf("ne zna se koje je izdanje goCOP-a sada postavljeno, pa Postava ne postavlja %s", novo)
+	}
+	if novo.Usporedi(v) <= 0 {
+		return fmt.Errorf("izdanje %s nije novije od postavljenog %s, pa ga Postava ne postavlja", novo, v)
+	}
+	return nil
 }

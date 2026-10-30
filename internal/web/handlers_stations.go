@@ -386,8 +386,7 @@ func (h *StationsHandler) HandleCreateStationAPI(w http.ResponseWriter, r *http.
 		return
 	}
 	station := form.toStation()
-	h.dopuniJavnuAdresu(ctx, &station)
-	if err := h.stationService.CreateStation(ctx, perms, &station, form.SectionCode); err != nil {
+	if err := h.unesiLetvu(ctx, perms, &station, form.SectionCode); err != nil {
 		if wantsPage(r) {
 			redirectWith(w, r, "/stations/new", "error", err.Error())
 			return
@@ -455,7 +454,7 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	if form.Obrazac != obrazacHistorijat {
 		upozorenjeRacuna = h.namjestiTelemetriju(ctx, &station, form)
 	}
-	if err := h.stationService.UpdateStation(ctx, perms, &station); err != nil {
+	if err := h.spremiLetvu(ctx, perms, &station, postojeca); err != nil {
 		if wantsPage(r) {
 			redirectWith(w, r, form.obrazacPostaje(stationID), "error", err.Error())
 			return
@@ -882,6 +881,41 @@ func (f stationForm) javnaVeza() (string, bool) {
 	}
 	uvoz := f.JavniUvoz == "1" || f.JavniUvoz == "on" || f.JavniUvoz == "true"
 	return adresa, uvoz && adresa != ""
+}
+
+// unesiLetvu dopuni i provjeri adresu javne stranice, pa upiše novu letvu
+func (h *StationsHandler) unesiLetvu(ctx context.Context, perms *models.UserPermissions, st *models.Station, dionica string) error {
+	h.dopuniJavnuAdresu(ctx, st)
+	if err := provjeriJavnuAdresu(*st, nil); err != nil {
+		return err
+	}
+	return h.stationService.CreateStation(ctx, perms, st, dionica)
+}
+
+// spremiLetvu provjeri adresu javne stranice, pa spremi izmjenu letve
+func (h *StationsHandler) spremiLetvu(ctx context.Context, perms *models.UserPermissions, st, stara *models.Station) error {
+	if err := provjeriJavnuAdresu(*st, stara); err != nil {
+		return err
+	}
+	return h.stationService.UpdateStation(ctx, perms, st)
+}
+
+// provjeriJavnuAdresu ne pušta uključiti preuzimanje s adrese koju nijedan
+// čitač javnih stranica ne zna. Letva kojoj se adresa i preuzimanje nisu
+// mijenjali sprema se kao i dosad, kao i letva koja se čita s telemetrije:
+// njoj se javna adresa ni ne čita.
+func provjeriJavnuAdresu(nova models.Station, stara *models.Station) error {
+	if !nova.JavniUvoz || javnivodostaji.PrepoznataAdresa(nova.JavniURL) {
+		return nil
+	}
+	if nova.TelemetrijaUvoz && strings.TrimSpace(nova.TelemetrijaSite) != "" {
+		return nil
+	}
+	if stara != nil && stara.JavniUvoz && stara.JavniURL == nova.JavniURL {
+		return nil
+	}
+	return fmt.Errorf("preuzimanje nije uključeno: tu adresu ne zna pročitati nijedna poznata stranica vodostaja; " +
+		"upišite adresu stranice postaje kako ju otvara preglednik")
 }
 
 // dopuniJavnuAdresu dopisuje sektor u adresu javne postaje kad ga nema:

@@ -260,3 +260,37 @@ func TestNovostiNepoznatogEntitetaBezDvostrukogBrojanja(t *testing.T) {
 		t.Errorf("javljeno: %+v", javljeno)
 	}
 }
+
+// Nepoznati entiteti pamte se zasebno do ograde, a ime koje nije ime
+// entiteta i sve iznad ograde pod jednim imenom; javi se jednom po imenu.
+// Poznat entitet novije sheme pamti se i kad je ograda puna.
+func TestNovostiOgradjene(t *testing.T) {
+	PoznatiEntiteti("poznati_ent")
+	t.Cleanup(func() {
+		shemeMu.Lock()
+		poznatiEnt = map[string]bool{}
+		shemeMu.Unlock()
+	})
+	rec := New(openTestDB(t), "stari")
+	javljeno := 0
+	rec.NaNovost(func(Novost) { javljeno++ })
+	rec.nov.zabiljezi("ustave", 1, 1)
+	rec.nov.zabiljezi(strings.Repeat("x", 65), 1, 1)
+	rec.nov.zabiljezi("Ustave <b>", 1, 1)
+	for i := range 2 * najviseNovosti {
+		rec.nov.zabiljezi(fmt.Sprintf("x%d", i), 1, 1)
+	}
+	rec.nov.zabiljezi("ustave", 1, 1)
+	rec.nov.zabiljezi("poznati_ent", 2, 1)
+	n := rec.Novosti()
+	poIme := map[string]Novost{}
+	for _, x := range n {
+		poIme[x.Entity] = x
+	}
+	if len(n) != najviseNovosti+1 || poIme["ustave"].Verzija != 2 || poIme[OstaliEntiteti].Verzija != najviseNovosti+4 || poIme["poznati_ent"].Shema != 2 {
+		t.Errorf("%d novosti; ustave %+v, ostali %+v, poznati %+v", len(n), poIme["ustave"], poIme[OstaliEntiteti], poIme["poznati_ent"])
+	}
+	if javljeno != len(n) {
+		t.Errorf("javljeno %d puta za %d novosti", javljeno, len(n))
+	}
+}

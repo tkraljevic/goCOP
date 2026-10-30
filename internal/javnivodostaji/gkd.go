@@ -6,7 +6,6 @@ package javnivodostaji
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"regexp"
 	"sort"
 	"strconv"
@@ -33,8 +32,8 @@ func (g GKD) Naziv() string { return PodrijetloGKD }
 func (g GKD) Prepoznaje(adresa string) bool { return PostajaGKDIzAdrese(adresa) != "" }
 
 func PostajaGKDIzAdrese(adresa string) string {
-	u, err := url.Parse(strings.TrimSpace(adresa))
-	if err != nil || !strings.HasSuffix(strings.ToLower(u.Hostname()), "gkd.bayern.de") {
+	u, ok := adresaIzvora(adresa, "gkd.bayern.de")
+	if !ok {
 		return ""
 	}
 	m := reGKDPostaja.FindStringSubmatch(u.Path)
@@ -48,6 +47,7 @@ func (g GKD) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	if PostajaGKDIzAdrese(adresa) == "" {
 		return nil, fmt.Errorf("GKD adresa nema broj postaje")
 	}
+	adresa = zaDohvat(adresa, "gkd.bayern.de")
 	if g.Base != "" {
 		adresa = g.Base
 	}

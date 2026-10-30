@@ -60,6 +60,7 @@ func TestOgradaSignala(t *testing.T) {
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, razmjena.PutSignala, nil)
 		r.RemoteAddr = adresa + ":5555"
+		r.Host = adresaCvoraTesta
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w

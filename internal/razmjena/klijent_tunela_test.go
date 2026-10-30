@@ -70,6 +70,7 @@ type tunelUMemoriji struct {
 	m       *mrezatest.Mreza
 	cert    tls.Certificate
 	klijent *KlijentTunela
+	tunel   *Tunel
 	// pitan broji koliko je puta B pitao vjeruje li ključu, a obrada koliko
 	// je veza došlo do obrade razmjene
 	pitan, obrada atomic.Int32
@@ -79,13 +80,15 @@ type tunelUMemoriji struct {
 // uparenom ključu
 func noviTunelUMemoriji(t *testing.T, kljucB ed25519.PrivateKey, protokolB string, upareni ed25519.PublicKey) *tunelUMemoriji {
 	t.Helper()
-	cert, korijeni := webCertifikat(t, "cop.primjer.hr", "sutljivi.primjer.hr", "gluhi.primjer.hr", "prazan.primjer.hr")
+	cert, korijeni := webCertifikat(t, "cop.primjer.hr", "sutljivi.primjer.hr", "gluhi.primjer.hr", "prazan.primjer.hr",
+		"puno.primjer.hr", "dugi.primjer.hr", "velik.primjer.hr")
 	m := mrezatest.NovaMreza()
 	m.Kasnjenje = kasnjenjeTunela
 	// klijent ne zadaje ime poslužitelja (ServerName): zadaje ga sam iz
 	// adrese, kao tls.Dialer
 	tu := &tunelUMemoriji{m: m, cert: cert, klijent: &KlijentTunela{TLS: &tls.Config{RootCAs: korijeni}, Dial: m.DialContext}}
 	tunel := NoviTunel()
+	tu.tunel = tunel
 	mux := http.NewServeMux()
 	mux.Handle("GET "+PutTunela, tunel.Handler())
 	tu.web(t, "cop.primjer.hr:443", mux)
@@ -176,7 +179,8 @@ func (tu *tunelUMemoriji) odgovori(c *Conn) {
 // smjeru, a RTT je točno jedan obilazak (dva kašnjenja). Nepoznati ključ ne
 // dođe do obrade, krivi očekivani ključ odbija pozivatelj rečenicom koju
 // korisnik zna, poslužitelj koji ne odgovori na nadogradnju istekne s rokom
-// poziva, a onaj koji ne odgovori ni na vanjski TLS s rokom od 15 s. Web bez
+// nadogradnje (10 s, prije roka poziva), a onaj koji ne odgovori ni na
+// vanjski TLS s rokom od 15 s. Web bez
 // puta tunela i certifikat za drugo ime ne daju vezu.
 func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 	const adresa = "https://cop.primjer.hr"
@@ -251,8 +255,8 @@ func TestRazmjenaKrozTunelUMemoriji(t *testing.T) {
 			if !errors.Is(err, context.DeadlineExceeded) || !strings.HasPrefix(err.Error(), "tunel https://sutljivi.primjer.hr: ") {
 				t.Fatalf("nadogradnja bez odgovora: %v", err)
 			}
-			if d := time.Since(pocetak); d != 20*time.Second {
-				t.Errorf("poziv je odustao nakon %v, a ne nakon roka od 20 s", d)
+			if d := time.Since(pocetak); d < rokNadogradnje || d > rokNadogradnje+time.Second {
+				t.Errorf("poziv je odustao nakon %v, a ne nakon roka nadogradnje %v", d, rokNadogradnje)
 			}
 		})
 	})

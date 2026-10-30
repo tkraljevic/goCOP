@@ -320,8 +320,11 @@ type ReadingHistoryData struct {
 	// telemetrije, pa stranica to tako i zove.
 	JavniTelemetrija bool
 	JavniIzvor       string // naziv čitača za adresu, prazno kad ga nema
-	JavniUvoz        bool
-	JavniStanje      *javnivodostaji.StanjeLetve
+	// JavnaPoveznica je adresa za otvaranje javne stranice; samo uz čitač,
+	// pa vodi na poslužitelj izvora
+	JavnaPoveznica string
+	JavniUvoz      bool
+	JavniStanje    *javnivodostaji.StanjeLetve
 	// Odbaceno je koliko vrijednosti ove letve nije upisano jer su izvan
 	// raspona, i koja zadnja: jedino upozorenje da je mjerilo u kvaru ili
 	// zapis u staroj evidenciji pogrešan (Odluke (8. 10. 2026.), pitanje
@@ -756,7 +759,7 @@ func (h *ReadingsHandler) podaciOcitanja(w http.ResponseWriter, r *http.Request)
 		}
 		if u := h.uvoznik(); u != nil && adresa != "" {
 			if iz := u.IzvorZa(adresa); iz != nil {
-				data.JavniIzvor = iz.Naziv()
+				data.JavniIzvor, data.JavnaPoveznica = iz.Naziv(), javnivodostaji.Poveznica(adresa)
 			}
 			if s, ok := u.Stanje(station.ID.String()); ok {
 				data.JavniStanje = &s

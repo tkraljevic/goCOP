@@ -98,7 +98,8 @@ uključi (Odluke (23. 10. 2026.)).
 Kad mreže nema dulje vrijeme, odabrani podaci prenose se i bez nje. Jedno
 računalo izda potpisan paket (Administracija → Održavanje baze → Izdaj
 .cop), a drugo ga ugradi, na primjer s USB ključa. Paket prolazi ista
-pravila kao razmjena.
+pravila kao razmjena. Računalo ugrađuje samo paket koji je izdalo računalo
+iste mreže; dok još nije u mreži, ugrađuje samo vlastite pakete.
 
 Karta bez interneta ne ide razmjenom. Razmjenom putuje samo njezin opis,
 pa sva računala znaju koja je karta zadana. Samu datoteku karte, za Sektor
@@ -138,6 +139,13 @@ nešto možda nedostaje, jer je podatke dobilo preko računala koje nije
 Računalo zatim upiše ono što je primilo i zatraži dokumente i slike uz
 zapise koje prati, a na kraju oba potvrde koliko su upisala. Jedan razgovor
 nosi ograničenu količinu. Kad ima više, odmah ide sljedeći.
+
+Sat svakog računala mora biti točan na pet minuta. Svaki zapis nosi
+vrijeme kad je nastao, a računalo ne prima zapis s vremenom više od pet
+minuta ispred svog sata: takav stigne tek kad mu vrijeme dođe. Ako sat
+jednog računala žuri ili kasni više od toga, njegovi novi podaci na ostala
+računala stižu sa zakašnjenjem. Stanje razmjene to javi za računalo čiji
+zapisi stižu iz budućnosti.
 
 Kad računala nemaju isto izdanje programa, novi dio razgovora ide samo ako
 ga znaju oba. Novi dio poruke koji starije izdanje ne poznaje ono zanemari,
@@ -249,7 +257,12 @@ s adresom za PIN o njemu dobiju e-poštu, odmah s tog računala ili, kad ono
 nema račun za slanje, s drugog koje ga ima, sat ili više kasnije. Pločica
 računala s ključem upozorava dok kopija nije spremljena i dok ovlast za
 primanje nemaju barem dva računala.
-Opoziv članstva je potpisan i putuje razmjenom, pa na drugom računalu vrijedi
+Promjena prava koja stigne s drugog računala, razmjenom ili paketom, na
+ovom računalu ne vrijedi dok je ovdje ne potvrdi globalni administrator, na
+stranici Stanje razmjene. To vrijedi za zastavicu globalnog administratora,
+za dužnost uprave organizacije i za lozinku i uključenost računa globalnog
+administratora. Ostale izmjene istog računa stižu odmah. Opoziv članstva je
+potpisan i putuje razmjenom, pa na drugom računalu vrijedi
 kad ondje stigne. Pojedinosti i granice zaštite su u
 [SECURITY.md](../SECURITY.md).
 

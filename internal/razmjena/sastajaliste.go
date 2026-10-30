@@ -20,7 +20,8 @@ package razmjena
 //     od istog pozivatelja, 8 prema istom cilju ukupno; sesija je u tijeku
 //     do odziva njezina cilja ili 30 s, a neisporučen poziv ne drži mjesto;
 //   - više od 20 poruka u sekundi na jednoj vezi prekida vezu;
-//   - po 2 rukovanja odjednom s jednog klijenta weba, s rokom od 2 s.
+//   - po 2 rukovanja odjednom s jednog klijenta weba, s rokom od 2 s;
+//   - računalo koje je dokazalo ključ prelazi u web ogradi na mjesto člana.
 
 import (
 	"context"
@@ -61,6 +62,7 @@ var (
 	errNijePrijava = errors.New("prva poruka nije prijava")
 	errKopija      = errors.New("isti ključ je spojen s drugog računala")
 	errPunRegistar = errors.New("sastajalište drži najviše računala")
+	errBezMjesta   = errors.New("sastajalište sad nema mjesta za vezu ovog računala")
 	errNijeClan    = errors.New("računalo nije član mreže")
 	errPromjena    = errors.New("u međuvremenu se javila druga veza s istim ključem")
 )
@@ -145,10 +147,16 @@ func (s *Sastajaliste) Handler() http.Handler {
 // posluzi vodi jednu vezu: rukovanje, prijava, pa poruke do prekida
 func (s *Sastajaliste) posluzi(ws *websocket.Conn) {
 	ws.PayloadType = websocket.BinaryFrame
-	nc := &wsVeza{Conn: ws, kraj: make(chan struct{}), put: PutSignala}
+	nc := &wsVeza{Conn: ws, kraj: make(chan struct{}), put: PutSignala, mjesto: mjestoIz(ws.Request().Context())}
 	defer nc.Close() //nolint:errcheck // kraj veze; greška zatvaranja nema što reći
 	v, err := s.rukovanje(klijentIz(ws.Request().Context()), nc)
 	if err != nil {
+		return
+	}
+	// član prelazi na svoje mjesto u web ogradi, da stranci ne zauzmu mjesta
+	// računala koja su prijavljena satima
+	if !nc.clan(v.kljuc) {
+		_ = v.posalji(SignalOdbijeno, odbijenoSignala{Kod: KodSignalaNedostupno, Razlog: errBezMjesta.Error()}) // veza se ionako zatvara
 		return
 	}
 	p, err := s.prijava(v)

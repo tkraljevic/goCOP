@@ -11,8 +11,10 @@ package mletva
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
@@ -69,39 +71,72 @@ func (k *Klijent) klijent() *http.Client {
 // na istom poslužitelju i s istim isteklim certifikatom (letva.voda.hr).
 func TLSBezIsteka() *tls.Config { return tlsBezIsteka() }
 
-// tlsBezIsteka provjerava certifikat u svemu osim u datumu. Certifikat
-// *.voda.hr istekao je 21. 6. 2025. i nitko ga nije obnovio, a preglednik
-// ondje samo upozori pa pusti dalje. Ovdje se lanac i naziv poslužitelja
-// provjere kao i inače, samo na trenutak prije isteka: tuđi ili samopotpisan
-// certifikat i dalje se odbija, pa lozinka ne ode nikome drugome.
+// tlsBezIsteka provjerava certifikat kao i inače, s jednom iznimkom.
+// Certifikat *.voda.hr istekao je 21. 6. 2025. i nitko ga nije obnovio, a
+// preglednik ondje samo upozori pa pusti dalje. Za taj jedan certifikat,
+// prepoznat po SHA-256 otisku, lanac i naziv poslužitelja provjere se na
+// trenutak prije isteka. Svaki drugi istekli certifikat odbija se, pa lozinka
+// ne ode nikome drugome.
 //
 // Poslužitelj (IIS 7.5) nakon rukovanja traži ponovno pregovaranje; bez
 // dopuštenja za jedno veza pukne prije prvog odgovora.
 func tlsBezIsteka() *tls.Config {
 	return &tls.Config{
 		Renegotiation:      tls.RenegotiateOnceAsClient,
-		InsecureSkipVerify: true, // provjeru radi VerifyConnection, bez datuma
+		InsecureSkipVerify: true, // provjeru radi VerifyConnection, uz iznimku za poznati istekli certifikat
 		VerifyConnection: func(cs tls.ConnectionState) error {
-			if len(cs.PeerCertificates) == 0 {
-				return fmt.Errorf("poslužitelj nije poslao certifikat")
-			}
-			list := cs.PeerCertificates[0]
-			posrednici := x509.NewCertPool()
-			for _, c := range cs.PeerCertificates[1:] {
-				posrednici.AddCert(c)
-			}
-			kad := time.Now()
-			if kad.After(list.NotAfter) {
-				kad = list.NotAfter.Add(-time.Minute)
-			}
-			_, err := list.Verify(x509.VerifyOptions{
-				DNSName:       cs.ServerName,
-				Intermediates: posrednici,
-				CurrentTime:   kad,
-			})
-			return err
+			return provjeriCertifikat(cs, nil, poznatiIstekli, time.Now())
 		},
 	}
+}
+
+// poznatiIstekli su SHA-256 otisci isteklih certifikata koji se ipak
+// prihvaćaju. Jedini je *.voda.hr (Thawte TLS RSA CA G1, serijski broj
+// 088634DBBA4DDF943B2B309AF4C2D8AD), istekao 21. 6. 2025., na mletva.voda.hr
+// i letva.voda.hr.
+var poznatiIstekli = map[[sha256.Size]byte]bool{
+	otisak("4fe950155a7774b12ab58ead76e862e96282ba4f8a2d71e02c5e14e0fd9cdf1e"): true,
+}
+
+func otisak(heks string) [sha256.Size]byte {
+	var o [sha256.Size]byte
+	b, err := hex.DecodeString(heks)
+	if err != nil || len(b) != sha256.Size {
+		panic("mletva: neispravan otisak certifikata " + heks)
+	}
+	copy(o[:], b)
+	return o
+}
+
+// provjeriCertifikat provjerava lanac i naziv poslužitelja na zadani
+// trenutak. Za poznati istekli certifikat trenutak se pomakne na minutu prije
+// isteka; korijeni nil znače korijene sustava.
+func provjeriCertifikat(cs tls.ConnectionState, korijeni *x509.CertPool, poznati map[[sha256.Size]byte]bool, sada time.Time) error {
+	if len(cs.PeerCertificates) == 0 {
+		return fmt.Errorf("poslužitelj nije poslao certifikat")
+	}
+	list := cs.PeerCertificates[0]
+	posrednici := x509.NewCertPool()
+	for _, c := range cs.PeerCertificates[1:] {
+		posrednici.AddCert(c)
+	}
+	istekao := sada.After(list.NotAfter)
+	poznat := poznati[sha256.Sum256(list.Raw)]
+	kad := sada
+	if istekao && poznat {
+		kad = list.NotAfter.Add(-time.Minute)
+	}
+	_, err := list.Verify(x509.VerifyOptions{
+		DNSName:       cs.ServerName,
+		Roots:         korijeni,
+		Intermediates: posrednici,
+		CurrentTime:   kad,
+	})
+	if err != nil && istekao && !poznat {
+		return fmt.Errorf("certifikat poslužitelja istekao je %s, a nije onaj poznati istekli certifikat; veza se ne uspostavlja: %w",
+			list.NotAfter.In(time.Local).Format("2. 1. 2006."), err)
+	}
+	return err
 }
 
 // Prijava se prijavljuje zadanim računom i pamti ga, da se istekla prijava

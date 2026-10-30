@@ -409,11 +409,11 @@ func TestTokDogadajaSaljePing(t *testing.T) {
 	}
 }
 
-// Tunel razmjene: najviše dvije veze po klijentu i osam ukupno (ovdje
-// smanjeno); višak dobije 503 s Retry-After prije nadogradnje na WebSocket,
-// a mjesto se oslobodi kad razmjena završi.
+// Tunel razmjene: ograda po klijentu i ukupno (ovdje smanjena); višak
+// dobije 503 s Retry-After prije nadogradnje na WebSocket, a mjesto se
+// oslobodi kad razmjena završi.
 func TestOgradaTunela(t *testing.T) {
-	o := novaOgradaTunela(2, 1)
+	o := novaOgradaTunela(granicaOgrade{stranaca: 2, poKlijentu: 1, poMrezi: 4, clanova: 2, poKljucu: 1})
 	pusti := make(chan struct{})
 	var usli sync.WaitGroup
 	var nadogradnji int
@@ -428,6 +428,7 @@ func TestOgradaTunela(t *testing.T) {
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", razmjena.PutTunela, nil)
 		r.RemoteAddr = adresa + ":5000"
+		r.Host = adresaCvoraTesta
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w

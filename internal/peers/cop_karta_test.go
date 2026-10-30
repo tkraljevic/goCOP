@@ -115,7 +115,7 @@ func TestPaketKarteIzmedjuCvorovaMreze(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, _, _, err := CitajCop(bytes.NewReader(paket), int64(len(paket))); err == nil || !strings.Contains(err.Error(), "Administraciji › Karte") {
+	if _, _, _, err := procitajCop(paket); err == nil || !strings.Contains(err.Error(), "Administraciji › Karte") {
 		t.Errorf("paket karte u Održavanju baze: %v", err)
 	}
 	if _, err := a.IzveziKartu(k, filepath.Join(t.TempDir(), "nema.pmtiles"), &bytes.Buffer{}); err == nil {

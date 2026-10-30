@@ -7,9 +7,13 @@ package web
 // (posluzi_sastajaliste = true, uz prijavu za WEB sync) i kad mu je program
 // dao rukovatelja (F2b); inače je 404, kao da je nema.
 //
-// Ograda je šira od tunelske: 64 veze ukupno, koliko računala drži
-// registar, i 8 po adresi, jer cijeli ured izlazi s jedne ili dvije adrese.
-// Rukovanja unutar veze ograđuje sam rukovatelj (2 po adresi, rok 2 s).
+// Ograda je šira od tunelske: dok ključ nije dokazan, 8 veza po adresi
+// (cijeli ured izlazi s jedne ili dvije adrese), 16 po mreži i 48 ukupno,
+// uz 16 mjesta za poznate klijente; računala koja su dokazala ključ imaju
+// 64 svoja mjesta, koliko ih drži registar, i najviše 3 po ključu (stara
+// veza koju puls još nije zatvorio, nova koja je zamjenjuje i još jedan
+// pokušaj). Rukovanja unutar veze ograđuje sam
+// rukovatelj (2 po adresi, rok 2 s).
 
 import (
 	"net/http"
@@ -21,6 +25,9 @@ const (
 	najviseSignala           = 64
 	najviseSignalaPoKlijentu = 8
 )
+
+var granicaSignala = granicaOgrade{stranaca: 48, poKlijentu: najviseSignalaPoKlijentu, poMrezi: 16, poMrezi6: 16,
+	poznatih: 16, clanova: najviseSignala, poKljucu: 3}
 
 // SetSignal daje poslužitelju rukovatelja sastajališta; zove se prije Start
 func (s *Server) SetSignal(h http.Handler) { s.signal = h }
@@ -62,5 +69,5 @@ func (s *Server) handleSignal(w http.ResponseWriter, r *http.Request) {
 // ograditiSignal omata rukovatelja sastajališta; mjesto se pušta kad veza
 // završi
 func ograditiSignal(next http.Handler) http.Handler {
-	return novaOgradaTunela(najviseSignala, najviseSignalaPoKlijentu).omotaj(next, "Sastajalište već drži najviše veza; pokušajte kasnije.")
+	return novaOgradaTunela(granicaSignala).omotaj(next, "Sastajalište već drži najviše veza; pokušajte kasnije.")
 }

@@ -122,7 +122,7 @@ func zatvoriSpremiste(t *testing.T, sp *sadrzaj.Spremiste) {
 func TestOtvaranjeBaze(t *testing.T) {
 	t.Run("ispravno", func(t *testing.T) {
 		dnevnik := dnevnikTesta(t)
-		baza, sp, err := otvoriBazu(filepath.Join(t.TempDir(), "gocop.db"))
+		baza, sp, _, err := otvoriBazu(filepath.Join(t.TempDir(), "gocop.db"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -136,12 +136,60 @@ func TestOtvaranjeBaze(t *testing.T) {
 			t.Errorf("dnevnik: %s", dnevnik)
 		}
 	})
+	t.Run("popis lozinki koji nitko nije preuzeo", func(t *testing.T) {
+		dnevnikTesta(t)
+		dir := t.TempDir()
+		imenik := `[{"username":"pperic","full_name":"Pero Perić","is_global_admin":true}]`
+		if err := os.WriteFile(filepath.Join(dir, "imenik.json"), []byte(imenik), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		put := filepath.Join(dir, "gocop.db")
+		otvori := func() []db.PocetnaLozinka {
+			baza, sp, popis, err := otvoriBazu(put)
+			if err != nil {
+				t.Fatal(err)
+			}
+			zatvoriSpremiste(t, sp)
+			if err := baza.Close(); err != nil {
+				t.Fatal(err)
+			}
+			return popis
+		}
+		// jednokratni način rada napuni bazu i završi bez poslužitelja
+		prvi := otvori()
+		drugi := otvori()
+		if len(prvi) == 0 || len(drugi) != len(prvi) || drugi[0].Korisnik != "pperic" || drugi[0].Lozinka == prvi[0].Lozinka {
+			t.Fatalf("drugo pokretanje mora složiti nov popis: %+v → %+v", prvi, drugi)
+		}
+		baza, err := db.OpenDB(put)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := db.PocetneLozinkePreuzete(baza); err != nil {
+			t.Fatal(err)
+		}
+		_ = baza.Close() // baza je samo za zapis preuzimanja
+		if treci := otvori(); treci != nil {
+			t.Errorf("preuzet popis se više ne slaže: %+v", treci)
+		}
+	})
+	t.Run("popis se ne da složiti", func(t *testing.T) {
+		dnevnik := dnevnikTesta(t)
+		baza, err := db.OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_ = baza.Close() // baza se namjerno zatvara
+		if popis := popisZaPreuzimanje(baza, nil); popis != nil || !strings.Contains(dnevnik.String(), "nisu ponovno složene") {
+			t.Errorf("popis %+v, dnevnik %q", popis, dnevnik.String())
+		}
+	})
 	t.Run("nije baza", func(t *testing.T) {
 		put := filepath.Join(t.TempDir(), "gocop.db")
 		if err := os.WriteFile(put, []byte(strings.Repeat("nije sqlite ", 1000)), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		baza, sp, err := otvoriBazu(put)
+		baza, sp, _, err := otvoriBazu(put)
 		if err == nil || baza != nil || sp != nil {
 			t.Fatalf("%v %v %v", baza, sp, err)
 		}
@@ -159,7 +207,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 			t.Fatal(err)
 		}
 		tudja.Close()
-		baza, sp, err := otvoriBazu(put)
+		baza, sp, _, err := otvoriBazu(put)
 		if err == nil || baza != nil || sp != nil || !strings.HasPrefix(err.Error(), "Kritična greška pri inicijalizaciji sheme") {
 			t.Fatalf("%v %v %v", baza, sp, err)
 		}
@@ -169,7 +217,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 		if err := os.WriteFile(zapreka, nil, 0o644); err != nil {
 			t.Fatal(err)
 		}
-		baza, sp, err := otvoriBazu(filepath.Join(zapreka, "gocop.db"))
+		baza, sp, _, err := otvoriBazu(filepath.Join(zapreka, "gocop.db"))
 		if err == nil || baza != nil || sp != nil {
 			t.Fatalf("%v %v %v", baza, sp, err)
 		}
@@ -182,7 +230,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 		if err := os.WriteFile(filepath.Join(dir, "organizacija.json"), []byte("{"), 0o644); err != nil {
 			t.Fatal(err)
 		}
-		baza, sp, err := otvoriBazu(filepath.Join(dir, "gocop.db"))
+		baza, sp, _, err := otvoriBazu(filepath.Join(dir, "gocop.db"))
 		if baza != nil {
 			defer baza.Close()
 		}
@@ -199,7 +247,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 		if err := os.Mkdir(filepath.Join(dir, "sadrzaj.db"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		baza, sp, err := otvoriBazu(filepath.Join(dir, "gocop.db"))
+		baza, sp, _, err := otvoriBazu(filepath.Join(dir, "gocop.db"))
 		if err == nil || baza != nil || sp != nil {
 			t.Fatalf("%v %v %v", baza, sp, err)
 		}

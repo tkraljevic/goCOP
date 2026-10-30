@@ -84,6 +84,7 @@ func (o *okolinaPrijave) racun(ime, lozinka string, admin, promijeniti bool) *mo
 // cloudflareda na istom stroju
 func izravno(r *http.Request) *http.Request {
 	r.RemoteAddr = "192.168.1.50:40000"
+	r.Host = adresaCvoraTesta
 	return r
 }
 
@@ -91,6 +92,7 @@ func izravno(r *http.Request) *http.Request {
 // proslijeđen na čvor
 func javnoIzravno(r *http.Request) *http.Request {
 	r.RemoteAddr = "203.0.113.9:40000"
+	r.Host = adresaCvoraTesta
 	return r
 }
 
@@ -112,6 +114,7 @@ func sKodomPostavljanja(h *PairHandler) *PairHandler {
 func krozTunel(klijent string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = "127.0.0.1:5555"
+		r.Host = adresaCvoraTesta
 		r.Header.Set("CF-Connecting-IP", klijent)
 		r.Header.Set("X-Forwarded-Proto", "https")
 		return r
@@ -167,15 +170,15 @@ func TestKolacicSesijeLokalnoIKrozTunel(t *testing.T) {
 	}
 }
 
-// Zadana lozinka piše u dokumentaciji: prva prijava njome kroz tunel se
-// odbija, iz lokalne mreže prolazi. Privremena lozinka od administratora
-// vrijedi i izvana.
+// Račun iz starijeg izdanja koji još ima zajedničku početnu lozinku: prva
+// prijava njome kroz tunel se odbija, iz lokalne mreže prolazi. Privremena
+// lozinka od administratora vrijedi i izvana.
 func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", db.ZadanaLozinka, true, true)
+	o.racun("admin", staraPocetnaLozinka, true, true)
 	o.racun("ana", "nasip-vrba-most-472", false, true)
 
-	w := o.prijava(krozTunel("198.51.100.7"), "admin", db.ZadanaLozinka)
+	w := o.prijava(krozTunel("198.51.100.7"), "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaZadaneLozinke) || kolacicSesije(w) != nil {
 		t.Errorf("zadana lozinka kroz tunel: %d %q, kolačić %v", w.Code, w.Body.String(), kolacicSesije(w))
 	}
@@ -185,12 +188,12 @@ func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
 		t.Errorf("privremena lozinka kroz tunel mora proći na promjenu lozinke: %d %q", w.Code, w.Header().Get("Location"))
 	}
 
-	w = o.prijava(javnoIzravno, "admin", db.ZadanaLozinka)
+	w = o.prijava(javnoIzravno, "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
 		t.Errorf("zadana lozinka s javne adrese bez posrednika: %d, kolačić %v", w.Code, kolacicSesije(w))
 	}
 
-	w = o.prijava(izravno, "admin", db.ZadanaLozinka)
+	w = o.prijava(izravno, "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
 		t.Errorf("zadana lozinka iz lokalne mreže mora proći: %d %q", w.Code, w.Body.String())
 	}
@@ -398,7 +401,7 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	}
 
 	admin := o.racun("sef", "sefova-lozinka", true, false)
-	o.racun("zadani", db.ZadanaLozinka, true, true)
+	o.racun("zadani", staraPocetnaLozinka, true, true)
 	ana := o.racun("ana", "anina-lozinka", false, false)
 	o.racuna = 4
 	o.pair.nijeSvjez.Store(false)
@@ -410,7 +413,7 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	if code, _ := o.zahtjev(izravno, o.sesija("ana", "anina-lozinka"), api); code != http.StatusForbidden {
 		t.Errorf("djelatnik koji nije administrator: %d", code)
 	}
-	if code, _ := o.zahtjev(izravno, o.sesija("zadani", db.ZadanaLozinka), api); code != http.StatusForbidden {
+	if code, _ := o.zahtjev(izravno, o.sesija("zadani", staraPocetnaLozinka), api); code != http.StatusForbidden {
 		t.Errorf("administrator sa zadanom lozinkom: %d", code)
 	}
 	sef := o.sesija("sef", "sefova-lozinka")
@@ -651,7 +654,11 @@ func TestPINSamoZaPrijavuIzvana(t *testing.T) {
 
 	for ime, porijeklo := range map[string]func(*http.Request) *http.Request{
 		"lokalna mreža": izravno,
-		"ovo računalo":  func(r *http.Request) *http.Request { r.RemoteAddr = "127.0.0.1:40000"; return r },
+		"ovo računalo": func(r *http.Request) *http.Request {
+			r.RemoteAddr = "127.0.0.1:40000"
+			r.Host = adresaCvoraTesta
+			return r
+		},
 	} {
 		w := o.prijava(porijeklo, "ana", "anina-lozinka")
 		if kolacicSesije(w) == nil || kolacic(w, imeKolacicaPrijave) != nil || w.Header().Get("Location") != "/" {
@@ -675,7 +682,11 @@ func TestPINSamoZaPrijavuIzvana(t *testing.T) {
 	// porukom, bez PIN-a i bez ikakvog kolačića
 	t.Run("javna adresa bez posrednika", func(t *testing.T) {
 		poslano := o.posta.broj()
-		w := o.prijava(func(r *http.Request) *http.Request { r.RemoteAddr = "203.0.113.20:5000"; return r }, "ana", "anina-lozinka")
+		w := o.prijava(func(r *http.Request) *http.Request {
+			r.RemoteAddr = "203.0.113.20:5000"
+			r.Host = adresaCvoraTesta
+			return r
+		}, "ana", "anina-lozinka")
 		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "samo preko HTTPS-a") || len(w.Result().Cookies()) != 0 {
 			t.Errorf("izvana preko http-a: %d, kolačići %v, tijelo %q", w.Code, w.Result().Cookies(), w.Body.String())
 		}
@@ -690,6 +701,7 @@ func TestPINSamoZaPrijavuIzvana(t *testing.T) {
 		poslano := o.posta.broj()
 		w := o.prijava(func(r *http.Request) *http.Request {
 			r.RemoteAddr = "127.0.0.1:5555"
+			r.Host = adresaCvoraTesta
 			r.Header.Set("CF-Connecting-IP", "198.51.100.8")
 			return r
 		}, "ana", "anina-lozinka")
@@ -703,11 +715,13 @@ func TestPINSamoZaPrijavuIzvana(t *testing.T) {
 	for ime, porijeklo := range map[string]func(*http.Request) *http.Request{
 		"lažni X-Forwarded-For iz lokalne mreže": func(r *http.Request) *http.Request {
 			r.RemoteAddr = "192.168.1.50:40000"
+			r.Host = adresaCvoraTesta
 			r.Header.Set("X-Forwarded-For", "192.168.1.9")
 			return r
 		},
 		"lažni CF-Connecting-IP s interneta": func(r *http.Request) *http.Request {
 			r.RemoteAddr = "203.0.113.21:5000"
+			r.Host = adresaCvoraTesta
 			r.Header.Set("CF-Connecting-IP", "192.168.1.9")
 			return r
 		},
@@ -1008,7 +1022,11 @@ func TestZapamtiRacunaloSamoPrekoHTTPS(t *testing.T) {
 	o := novaOkolinaPIN(t)
 	ana := o.osoba("ana", "anina-lozinka", "ana.anic@voda.hr", false)
 	cek := naCekanju(t, o.prijava(krozTunel("198.51.100.7"), "ana", "anina-lozinka"))
-	javna := func(r *http.Request) *http.Request { r.RemoteAddr = "203.0.113.20:5000"; return r }
+	javna := func(r *http.Request) *http.Request {
+		r.RemoteAddr = "203.0.113.20:5000"
+		r.Host = adresaCvoraTesta
+		return r
+	}
 	w := o.upisi(javna, cek, o.posta.pin(t), true)
 	if kolacicSesije(w) == nil {
 		t.Fatalf("točan PIN: %d %q", w.Code, w.Body.String())

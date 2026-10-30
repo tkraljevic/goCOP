@@ -28,7 +28,7 @@ func (h *JournalsHandler) potpisnikCOP(r *http.Request, u *models.User) (*potpis
 	if lozinka == "" {
 		return nil, fmt.Errorf("upišite lozinku: njome otključavate svoj potpisni ključ")
 	}
-	return otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return h.potpis().Potpisnik(r.Context(), u, lozinka) })
+	return otkljucajUzOgranicenje(r.Context(), u, func() (*potpis.Potpisnik, error) { return h.potpis().Potpisnik(r.Context(), u, lozinka) })
 }
 
 // pripremiOvjeruCOP priprema dnevnik za prvi potpis i provjerava da je plan

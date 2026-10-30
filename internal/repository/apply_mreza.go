@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+	"unicode/utf8"
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
@@ -37,7 +38,7 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
 		return err
 	}
-	addrs, _ := json.Marshal(p.Addresses)
+	addrs, _ := json.Marshal(ograniciAdrese(p.Addresses)) // popis tekstova uvijek se da zapisati
 	// bilješke o zadnjoj sinkronizaciji opisuju odnos dva čvora, ne čvor —
 	// ne prepisuju se tuđima.
 	// Ključ se upisuje kakav je u zapisu, i kad mijenja ključ poznatog
@@ -53,8 +54,39 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		ON CONFLICT(node_id) DO UPDATE SET
 			name = excluded.name, public_key = excluded.public_key, addresses = excluded.addresses,
 			is_bootstrap = excluded.is_bootstrap
-	`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
+	`, p.NodeID, skratiTekst(p.Name, najduljeImeCvora), p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
 	return err
+}
+
+// Zapis čvora piše i šalje bilo koji član, a ime i adrese čitaju svaki krug
+// razmjene, dnevnik i popis računala, pa ih primjena ograđuje
+const (
+	najduljeImeCvora    = 128
+	najviseAdresaCvora  = 16
+	najduljaAdresaCvora = 256
+)
+
+// ograniciAdrese su prve najviseAdresaCvora adrese zapisa čvora koje nisu
+// dulje od najduljaAdresaCvora
+func ograniciAdrese(adrese []string) []string {
+	out := adrese[:0:0] // prazan popis ostaje prazan, a ne null
+	for _, a := range adrese {
+		if len(out) < najviseAdresaCvora && len(a) <= najduljaAdresaCvora {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// skratiTekst je najviše n bajtova teksta, rezano na granici znaka
+func skratiTekst(tekst string, n int) string {
+	if len(tekst) <= n {
+		return tekst
+	}
+	for n > 0 && !utf8.RuneStart(tekst[n]) {
+		n--
+	}
+	return tekst[:n]
 }
 
 // primijeniClanstvo stavlja primljeno članstvo čvora u mreži na površinu
@@ -122,30 +154,41 @@ func primijeniOvlast(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// primijeniOpoziv stavlja primljeni opoziv članstva ili ovlasti na površinu
+// primijeniOpoziv stavlja primljeni opoziv članstva ili ovlasti na površinu.
+// Redak se upisuje samo za opoziv koji vrijedi sam za sebe (vrijediSam), i
+// zamijeni redak iste oznake koji je u tablici od prije. Smije li
+// potpisnik opozivati, provjerava se pri upotrebi (peers.opozvano), pa
+// tuđe potpisan opoziv stoji u tablici, ali ništa ne opoziva.
 func primijeniOpoziv(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
-	var op struct {
-		ID         string    `json:"id"`
-		Vrsta      string    `json:"vrsta"`
-		NodeID     string    `json:"nodeId"`
-		PublicKey  string    `json:"publicKey"`
-		IssuedAt   time.Time `json:"issuedAt"`
-		OpozvanoAt time.Time `json:"opozvanoAt"`
-		Opozvao    string    `json:"opozvao"`
-		Potpisnik  string    `json:"potpisnik"`
-		Potpis     string    `json:"potpis"`
-	}
+	var op razmjena.Opoziv
 	if err := json.Unmarshal(v.Payload, &op); err != nil {
 		return err
 	}
-	// potpis se provjerava pri upotrebi (peers.opozvano): nepotpisan ili
-	// tuđe potpisan opoziv stoji u tablici, ali ništa ne opoziva
+	if !vrijediSam(v, op) {
+		return nil // ostaje u knjizi
+	}
 	_, err := tx.ExecContext(ctx, `
 		INSERT INTO opozivi (id, vrsta, node_id, public_key, issued_at, opozvano_at, opozvao, potpisnik, potpis)
 		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-		ON CONFLICT(id) DO NOTHING
+		ON CONFLICT(id) DO UPDATE SET
+			vrsta = excluded.vrsta, node_id = excluded.node_id, public_key = excluded.public_key,
+			issued_at = excluded.issued_at, opozvano_at = excluded.opozvano_at, opozvao = excluded.opozvao,
+			potpisnik = excluded.potpisnik, potpis = excluded.potpis
 	`, op.ID, op.Vrsta, op.NodeID, op.PublicKey, op.IssuedAt.UTC(), op.OpozvanoAt.UTC(), op.Opozvao, op.Potpisnik, op.Potpis)
 	return err
+}
+
+// vrijediSam javlja vrijedi li opoziv op iz verzije v sam za sebe: oznaka u
+// sadržaju je oznaka zapisa u knjizi i izvedena je iz sadržaja i potpisa, a
+// potpis vrijedi za ključ potpisnika (razmjena.Opoziv.Ispravan)
+func vrijediSam(v ledger.Version, op razmjena.Opoziv) bool {
+	return op.ID == v.EntityID && op.Ispravan()
+}
+
+// opozivVrijedi javlja nosi li verzija opoziv koji vrijedi sam za sebe
+func opozivVrijedi(v ledger.Version) bool {
+	var op razmjena.Opoziv
+	return json.Unmarshal(v.Payload, &op) == nil && vrijediSam(v, op)
 }
 
 // ostaviOpoziv je brisanje opoziva, koje površinu ne mijenja

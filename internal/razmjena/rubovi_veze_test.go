@@ -205,7 +205,7 @@ func TestSlusalicaRazmjeneKadPadneIliJePuna(t *testing.T) {
 	rad, kraj := context.WithCancel(ctx)
 	stalo := make(chan error, 1)
 	go func() {
-		stalo <- serveTLS(rad, l, "testproto", nil, func(*Conn) { t.Error("veza bez mjesta je obrađena") }, o)
+		stalo <- serveTLS(rad, l, &tls.Config{}, "testproto", nil, func(*Conn) { t.Error("veza bez mjesta je obrađena") }, o)
 	}()
 	<-l.predano
 	kraj()

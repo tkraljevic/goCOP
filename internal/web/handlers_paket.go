@@ -159,6 +159,13 @@ func sigurnoIme(s string) string {
 	return s
 }
 
+// drugaLetva javlja je li paket druge letve. Usporedba je točna: letva koja
+// se razlikuje samo po velikim i malim slovima je druga letva, jer bi na
+// macOS-u i Windowsu pisala u istu datoteku paketa.
+func drugaLetva(uPaketu, letva string) bool {
+	return uPaketu != letva
+}
+
 // PregledPaketa prima datoteku, provjerava je i pokazuje što bi se promijenilo.
 // Ništa se ne upisuje dok korisnik ne potvrdi — arhiva se zamjenjuje u
 // cijelosti, pa mora vidjeti što odlazi.
@@ -221,7 +228,7 @@ func (h *StationsHandler) PregledPaketa(w http.ResponseWriter, r *http.Request) 
 	}
 
 	pd.Manifest = sadrzaj.Manifest
-	pd.DrugaLetva = !strings.EqualFold(sadrzaj.Manifest.Letva, data.Station.Code)
+	pd.DrugaLetva = drugaLetva(sadrzaj.Manifest.Letva, data.Station.Code)
 	if pd.DrugaLetva {
 		os.Remove(privremena.Name())
 		h.pisiPregled(w, pd)

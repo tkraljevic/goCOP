@@ -20,7 +20,6 @@ package peers
 
 import (
 	"archive/zip"
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/ed25519"
@@ -30,6 +29,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"sort"
@@ -140,12 +140,18 @@ func kanonskiCop(m CopManifest) []byte {
 func otisakIzdanja(zapisi []byte, sadrzaji []CopSadrzaj) string {
 	h := sha256.New()
 	h.Write(zapisi)
+	return hex.EncodeToString(otisakPopisa(h, sadrzaji))
+}
+
+// otisakPopisa dodaje u h, koji već ima zapise, popis sadržaja po otisku i
+// vraća otisak izdanja.
+func otisakPopisa(h hash.Hash, sadrzaji []CopSadrzaj) []byte {
 	poredani := append([]CopSadrzaj(nil), sadrzaji...)
 	sort.Slice(poredani, func(i, j int) bool { return poredani[i].Otisak < poredani[j].Otisak })
 	for _, s := range poredani {
 		fmt.Fprintf(h, "%s %s %d\n", s.Otisak, s.Vrsta, s.Bajtova)
 	}
-	return hex.EncodeToString(h.Sum(nil))
+	return h.Sum(nil)
 }
 
 const shemaCop = `
@@ -178,7 +184,6 @@ type CopIzvjestaj struct {
 	SadrzajaZeljeno int
 	PotpisValjan    bool
 	IzdavacClan     bool
-	Napomena        string
 }
 
 // IzveziCop sastavlja .cop izdanje zadanih kanala. sSadrzajem kaže nose li
@@ -204,7 +209,7 @@ func (s *Service) IzveziCop(ctx context.Context, obuhvat CopObuhvat, channels []
 		return m, fmt.Errorf("Paket nije izdan: za taj odabir nijedan zapis na ovom računalu nije ispravan. Pojedinosti su u dnevniku programa.")
 	}
 	// sadržaji koje zapisi navode: otisak iz zapisa izvornika
-	sadrzaji := s.sadrzajiUZapisima(ctx, versions)
+	sadrzaji := sadrzajiPaketa(versions)
 	m.Zapisa, m.Sadrzaja = len(versions), len(sadrzaji)
 	m.Rupe = rupe.zaIzvoz(s.rupeMijenja.Load(), versions)
 	m.Inacica = inacicaCopa(m.Rupe)
@@ -296,29 +301,48 @@ func zapisiZaCop(versions []ledger.Version) (zapisi []byte, ispravne, neispravne
 	return b.Bytes(), ispravne, neispravne
 }
 
-// sadrzajiUZapisima skuplja otiske sadržaja koje zapisi izvornika navode
-func (s *Service) sadrzajiUZapisima(ctx context.Context, versions []ledger.Version) []CopSadrzaj {
+// sadrzajiPaketa skuplja otiske sadržaja koje zapisi izvornika navode,
+// svaki jednom, s vrstom, veličinom i kanalom iz zapisa
+func sadrzajiPaketa(versions []ledger.Version) []CopSadrzaj {
 	vidjeno := map[string]bool{}
 	var out []CopSadrzaj
 	for _, v := range versions {
-		if !strings.HasSuffix(v.Entity, "_izvornici") || v.Archived {
+		sd, ok := sadrzajVerzije(v)
+		if !ok || vidjeno[sd.Otisak] {
 			continue
 		}
-		var iz struct {
-			Otisak  string `json:"otisak"`
-			Bajtova int    `json:"bajtova"`
-			Vrsta   string `json:"vrsta"`
-		}
-		if json.Unmarshal(v.Payload, &iz) != nil || iz.Otisak == "" || vidjeno[iz.Otisak] {
-			continue
-		}
-		vidjeno[iz.Otisak] = true
-		if iz.Vrsta == "" {
-			iz.Vrsta = "application/pdf"
-		}
-		out = append(out, CopSadrzaj{Otisak: iz.Otisak, Vrsta: iz.Vrsta, Bajtova: iz.Bajtova, Kanal: v.Channel})
+		vidjeno[sd.Otisak] = true
+		out = append(out, sd)
 	}
 	return out
+}
+
+// sadrzajiPoOtisku je sadrzajiPaketa po otisku.
+func sadrzajiPoOtisku(versions []ledger.Version) map[string]CopSadrzaj {
+	out := map[string]CopSadrzaj{}
+	for _, sd := range sadrzajiPaketa(versions) {
+		out[sd.Otisak] = sd
+	}
+	return out
+}
+
+// sadrzajVerzije je sadržaj koji navodi živi zapis izvornika.
+func sadrzajVerzije(v ledger.Version) (CopSadrzaj, bool) {
+	if !strings.HasSuffix(v.Entity, "_izvornici") || v.Archived {
+		return CopSadrzaj{}, false
+	}
+	var iz struct {
+		Otisak  string `json:"otisak"`
+		Bajtova int    `json:"bajtova"`
+		Vrsta   string `json:"vrsta"`
+	}
+	if json.Unmarshal(v.Payload, &iz) != nil || !jeOtisak(iz.Otisak) {
+		return CopSadrzaj{}, false
+	}
+	if iz.Vrsta == "" {
+		iz.Vrsta = "application/pdf"
+	}
+	return CopSadrzaj{Otisak: iz.Otisak, Vrsta: iz.Vrsta, Bajtova: iz.Bajtova, Kanal: v.Channel}, true
 }
 
 // ProvjeriCopPotpis javlja je li potpis valjan i vraća ključ izdavača
@@ -353,95 +377,10 @@ func citajManifestCopa(mb []byte, m *CopManifest) error {
 	return nil
 }
 
-// CitajCop otvara paket i provjerava ga bez ugradnje: manifest, otisak,
-// potpis. Vraća manifest i pročitane dijelove.
-func CitajCop(r io.ReaderAt, size int64) (CopManifest, []ledger.Version, []CopSadrzaj, map[string][]byte, error) {
-	var m CopManifest
-	z, err := zip.NewReader(r, size)
-	if err != nil {
-		return m, nil, nil, nil, fmt.Errorf("datoteka nije .cop paket: %w", err)
-	}
-	var ukupno int64
-	citaj := func(ime string) ([]byte, error) {
-		for _, f := range z.File {
-			if f.Name != ime {
-				continue
-			}
-			if ukupno += int64(f.UncompressedSize64); ukupno > najveciCop {
-				return nil, fmt.Errorf("paket je prevelik")
-			}
-			rc, err := f.Open()
-			if err != nil {
-				return nil, err
-			}
-			defer rc.Close()
-			return io.ReadAll(io.LimitReader(rc, najveciCop))
-		}
-		return nil, fmt.Errorf("u paketu nema %s", ime)
-	}
-	mb, err := citaj("manifest.json")
-	if err != nil {
-		return m, nil, nil, nil, err
-	}
-	if err := citajManifestCopa(mb, &m); err != nil {
-		return m, nil, nil, nil, err
-	}
-	// Stariji oblik se čita (novi program zna stare pakete); noviji ne, jer
-	// ovaj program ne zna što je u njemu dodano.
-	if m.Inacica > CopInacica {
-		return m, nil, nil, nil, fmt.Errorf("paket je izdao noviji program (inačica %d, ovaj čita do %d) — nadogradite goCOP", m.Inacica, CopInacica)
-	}
-	zb, err := citaj("zapisi.jsonl")
-	if err != nil {
-		return m, nil, nil, nil, err
-	}
-	sb, err := citaj("sadrzaji.json")
-	if err != nil {
-		return m, nil, nil, nil, err
-	}
-	var sadrzaji []CopSadrzaj
-	if err := json.Unmarshal(sb, &sadrzaji); err != nil {
-		return m, nil, nil, nil, fmt.Errorf("popis sadržaja nije čitljiv: %w", err)
-	}
-	if got := otisakIzdanja(zb, sadrzaji); got != m.Otisak {
-		return m, nil, nil, nil, fmt.Errorf("otisak paketa se ne slaže s manifestom: sadržaj je mijenjan ili oštećen")
-	}
-	var versions []ledger.Version
-	sc := bufio.NewScanner(bytes.NewReader(zb))
-	sc.Buffer(make([]byte, 1<<20), 64<<20)
-	for sc.Scan() {
-		if len(bytes.TrimSpace(sc.Bytes())) == 0 {
-			continue
-		}
-		var v ledger.Version
-		if err := json.Unmarshal(sc.Bytes(), &v); err != nil {
-			return m, nil, nil, nil, fmt.Errorf("zapis nije čitljiv: %w", err)
-		}
-		versions = append(versions, v)
-	}
-	if len(versions) != m.Zapisa {
-		return m, nil, nil, nil, fmt.Errorf("manifest kaže %d zapisa, u paketu ih je %d", m.Zapisa, len(versions))
-	}
-	bajtovi := map[string][]byte{}
-	for _, sd := range sadrzaji {
-		if !sd.Ukljucen {
-			continue
-		}
-		b, err := citaj("sadrzaj/" + sd.Otisak)
-		if err != nil {
-			return m, nil, nil, nil, err
-		}
-		if sadrzaj.Otisak(b) != sd.Otisak {
-			return m, nil, nil, nil, fmt.Errorf("sadržaj %.12s ne odgovara svom otisku", sd.Otisak)
-		}
-		bajtovi[sd.Otisak] = b
-	}
-	return m, versions, sadrzaji, bajtovi, nil
-}
-
 // UveziCop ugrađuje paket: provjera otiska i potpisa, izdavač mora biti
-// član mreže (osim dok čvor još nema mrežu), izdanje ne smije biti starije
-// od već primljenog istog izdavača; zatim verzije kao razmjenom, pa sadržaj.
+// član mreže ovog čvora (dok čvor nema mrežu, samo on sam), izdanje ne smije
+// biti starije od već primljenog istog izdavača; zatim verzije kao
+// razmjenom, pa sadržaj.
 func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error) {
 	var rep CopIzvjestaj
 	f, err := os.Open(put)
@@ -449,26 +388,28 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	defer f.Close()
+	// Manifest se čita prvi i sam: potpis i izdavač provjeravaju se prije
+	// nego što se raspakira ostatak paketa.
+	p := &copPaket{}
 	st, err := f.Stat()
+	if err == nil {
+		p, err = otvoriCop(f, st.Size())
+	}
+	rep.Manifest = p.m
 	if err != nil {
 		return rep, err
 	}
-	m, versions, sadrzaji, bajtovi, err := CitajCop(f, st.Size())
-	rep.Manifest, rep.Verzija = m, len(versions)
-	if err != nil {
+	m := p.m
+	if err := s.izdavacCopa(ctx, m, &rep); err != nil {
 		return rep, err
 	}
-	javni, err := ProvjeriCopPotpis(m)
+	versions, sadrzaji, err := p.zapisi()
+	rep.Verzija = len(versions)
+	if err == nil {
+		err = p.provjeriSadrzaje(sadrzaji)
+	}
 	if err != nil {
 		return rep, err
-	}
-	rep.PotpisValjan = true
-	rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni)
-	if err != nil {
-		return rep, err
-	}
-	if !rep.IzdavacClan {
-		rep.Napomena = "čvor još nije u mreži, pa se članstvo izdavača nije moglo provjeriti"
 	}
 	if err := s.shemaCopa(ctx); err != nil {
 		return rep, err
@@ -494,36 +435,79 @@ func (s *Service) UveziCop(ctx context.Context, put string) (CopIzvjestaj, error
 		return rep, err
 	}
 	filter := s.wantsFunc(ctx, &myWants)
-	wanted, odluke := s.zaUvoz(versions, filter)
-	rep.Novih, err = s.uveziSRupama(ctx, wanted, s.promjenaUvoza(ctx, wanted, odluke, rupeIzPaketa(m, versions)))
+	ispravne := s.preskociNeispravne("uvoz", versions)
+	wanted, odluke := s.zaUvoz(ispravne, filter)
+	rep.Novih, err = s.uveziSRupama(ctx, wanted, s.promjenaUvoza(ctx, wanted, odluke, rupeIzPaketa(m, ispravne)))
 	if err != nil {
 		return rep, err
 	}
-	// sadržaj: uključeni se upišu (paket je namjerno donesen), ostali na popis
-	if sp := s.spremisteSadrzaja(); sp != nil {
-		for _, sd := range sadrzaji {
-			if filter != nil && sd.Kanal != "" && !filter(sd.Kanal) {
-				continue
-			}
-			if b, ok := bajtovi[sd.Otisak]; ok {
-				if err := sp.UpisiProvjereno(ctx, sd.Otisak, sd.Vrsta, b, "cop:"+m.Izdao, sadrzaj.Veza{Kanal: sd.Kanal}); err == nil {
-					rep.SadrzajaUpisano++
-				}
-				continue
-			}
-			if !sp.Ima(ctx, sd.Otisak) {
-				if err := sp.Zeli(ctx, sd.Otisak, sd.Vrsta, sd.Bajtova, "cop", sd.Kanal); err == nil {
-					rep.SadrzajaZeljeno++
-				}
-			}
-		}
-	}
+	s.sadrzajiCopa(ctx, p, sadrzaji, wanted, &rep)
 	if _, err := s.db.ExecContext(ctx, `INSERT INTO cop_primljena (kljuc, izdao, izdanje, otisak, primljeno) VALUES (?, ?, ?, ?, ?)
 		ON CONFLICT(kljuc, izdao) DO UPDATE SET izdanje = excluded.izdanje, otisak = excluded.otisak, primljeno = excluded.primljeno`,
 		kljuc, m.Izdao, m.Izdanje, m.Otisak, time.Now().UTC().Format(time.RFC3339)); err != nil {
 		return rep, err
 	}
 	return rep, nil
+}
+
+// sadrzajiCopa upisuje uključene sadržaje paketa (paket je namjerno donesen),
+// jedan po jedan, a ostale stavlja na popis želja. Uzima samo sadržaje koje
+// navode primljeni zapisi (wanted), s vrstom i kanalom iz zapisa, ne s popisa.
+func (s *Service) sadrzajiCopa(ctx context.Context, p *copPaket, sadrzaji []CopSadrzaj, wanted []ledger.Version, rep *CopIzvjestaj) {
+	sp := s.spremisteSadrzaja()
+	if sp == nil {
+		return
+	}
+	navedeni := sadrzajiPoOtisku(wanted)
+	for _, sd := range sadrzaji {
+		zapis, ima := navedeni[sd.Otisak]
+		switch {
+		case !ima:
+		case sd.Ukljucen:
+			rep.SadrzajaUpisano += upisiSadrzajCopa(ctx, sp, p, zapis, rep.Manifest.Izdao)
+		case !sp.Ima(ctx, sd.Otisak) && sp.Zeli(ctx, zapis.Otisak, zapis.Vrsta, zapis.Bajtova, "cop", zapis.Kanal) == nil:
+			rep.SadrzajaZeljeno++
+		}
+	}
+}
+
+// upisiSadrzajCopa upisuje jedan uključeni sadržaj i vraća 1 kad je upisan.
+// sd je sadržaj kako ga navodi zapis. Kanal ide kroz želju; veze sa zapisom
+// upisuje primjena zapisa, pa sadržaj koji nijedan zapis ne drži ostaje
+// siroče. Što se ne da upisati, ostaje među željama.
+func upisiSadrzajCopa(ctx context.Context, sp *sadrzaj.Spremiste, p *copPaket, sd CopSadrzaj, izdao string) int {
+	if sp.Zeli(ctx, sd.Otisak, sd.Vrsta, sd.Bajtova, "cop", sd.Kanal) != nil {
+		return 0
+	}
+	b, err := p.procitajSadrzaj(sd.Otisak)
+	if err != nil || sp.UpisiProvjereno(ctx, sd.Otisak, sd.Vrsta, b, "cop:"+izdao) != nil {
+		return 0
+	}
+	return 1
+}
+
+// izdavacCopa provjerava potpis paketa i izdavača. U mreži izdavač mora biti
+// njezin član (izdavacClan). Čvor koji još nije u mreži ugrađuje samo paket
+// potpisan vlastitim ključem: članstvo stranog izdavača ne može provjeriti,
+// a ono što ugradi, kad uđe u mrežu, razmjenom ide svim članovima.
+func (s *Service) izdavacCopa(ctx context.Context, m CopManifest, rep *CopIzvjestaj) error {
+	javni, err := ProvjeriCopPotpis(m)
+	if err != nil {
+		return err
+	}
+	rep.PotpisValjan = true
+	if rep.IzdavacClan, err = s.izdavacClan(ctx, m.Izdao, javni); err != nil || rep.IzdavacClan {
+		return err
+	}
+	if !s.vlastitiKljuc(javni) {
+		return fmt.Errorf("paket je izdalo računalo %[1]s. Ovo računalo još nije u mreži, pa ne može provjeriti je li %[1]s u istoj mreži. Primite ovo računalo u mrežu, pa paket ugradite ponovno", m.Izdao)
+	}
+	return nil
+}
+
+// vlastitiKljuc javlja je li to javni ključ ovog čvora
+func (s *Service) vlastitiKljuc(javni ed25519.PublicKey) bool {
+	return len(s.node.key) == ed25519.PrivateKeySize && s.node.key.Public().(ed25519.PublicKey).Equal(javni)
 }
 
 // izdavacClan javlja je li paket potpisao član naše mreže koji je u

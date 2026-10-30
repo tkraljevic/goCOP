@@ -255,14 +255,17 @@ func TestZauzetUpisNakonUvoza(t *testing.T) {
 // stigne prije novijeg u istom ključu. Za obje uloge.
 func TestUvozIzaPunogKljuca(t *testing.T) {
 	const kanal = "ocitanja/16/2020"
+	// u kanalu je samo ovo, pa oznake mogu biti iz prošlosti; autor je
+	// server, kojem verzija s njegovim imenom ne smije biti iz budućnosti
+	const prefiks = "0190a000-0000"
 	verzija := func(id, zapis string) ledger.Version {
-		return stalnaVerzija("f190a000-0000-7000-8000-00000000"+id, "cop-osijek", kanal, zapis, `{"cm":1}`)
+		return stalnaVerzija(prefiks+"-7000-8000-00000000"+id, "cop-osijek", kanal, zapis, `{"cm":1}`)
 	}
 	put := putoviUvoza[1]
 	for _, u := range ulogeRazgovora {
 		a, b, c := serverLaptopIUred(t, u.pozivatelj, u.pozvani)
 		pozivatelj, pozvani := u.pozivatelj(a, b), u.pozvani(a, b)
-		upisiOdbijene(t, a, kanal, NajviseVerzijaPoRazmjeni)
+		upisiOdbijene(t, a, kanal, prefiks, NajviseVerzijaPoRazmjeni)
 		upisiStalno(t, a, verzija("9000", "staro-kraj"))
 		for krug, poslano := range []int{NajviseVerzijaPoRazmjeni, 1, 0} {
 			if p, z := razgovaraj(t, pozivatelj, pozvani); poslaoServer(a, pozivatelj, p, z) != poslano {

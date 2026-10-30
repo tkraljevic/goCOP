@@ -373,7 +373,8 @@ func InitSchema(database *sql.DB) error {
 			posljednje_slanje DATETIME,
 			expires_at DATETIME NOT NULL,
 			created_at DATETIME NOT NULL,
-			razlog TEXT NOT NULL DEFAULT ''
+			razlog TEXT NOT NULL DEFAULT '',
+			lozinka_otisak BLOB
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_na_cekanju_user ON prijave_na_cekanju(user_id);`,
 		// Zapamćeno računalo preskače PIN (nikad lozinku). Jedan token po
@@ -600,6 +601,13 @@ func InitSchema(database *sql.DB) error {
 			pin_adresa_potvrdena TEXT NOT NULL DEFAULT '',
 			pin_adresa_potvrdio TEXT NOT NULL DEFAULT '',
 			pin_adresa_potvrdena_kad DATETIME
+		);`,
+		// Računi iz prvog punjenja čiji popis privremenih lozinki još nije
+		// preuzet, sa sažetkom koji su tada dobili (pocetne_lozinke.go).
+		// Samo na ovom čvoru: ne ide razmjenom.
+		`CREATE TABLE IF NOT EXISTS pocetne_lozinke_cekaju (
+			user_id TEXT PRIMARY KEY,
+			password_hash TEXT NOT NULL
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS duties (
@@ -944,6 +952,29 @@ func InitSchema(database *sql.DB) error {
 			zadnje DATETIME NOT NULL,
 			PRIMARY KEY (dan, vrsta, put, razlog, racunalo)
 		);`,
+
+		// Primljene promjene prava koje čekaju potvrdu globalnog
+		// administratora (repository/apply_ograda_prava.go): po jedna za
+		// svaku verziju računa ili dužnosti koja nekome daje ili oduzima
+		// upravu organizacije ili mijenja račun globalnog administratora.
+		// Verzija je u knjizi; ovdje je samo odluka ovog računala o
+		// površini. preneseno = 1: odluka je prenesena s ranije verzije
+		// istog zapisa. Lokalno: ne ide u knjigu ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS prava_na_potvrdi (
+			version_id TEXT PRIMARY KEY,
+			entity TEXT NOT NULL,
+			entity_id TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			racun TEXT NOT NULL DEFAULT '',
+			promjene TEXT NOT NULL,
+			otisak TEXT NOT NULL,
+			preneseno INTEGER NOT NULL DEFAULT 0,
+			stanje TEXT NOT NULL,
+			stiglo DATETIME NOT NULL,
+			odlucio TEXT NOT NULL DEFAULT '',
+			odluceno DATETIME
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prava_na_potvrdi_zapis ON prava_na_potvrdi(entity, entity_id, version_id);`,
 
 		// Zadnji zahtjev za obnovu članstva koji je ovo računalo obradilo, po
 		// računalu (G9a, peers/obnova.go): isti zahtjev se ne obrađuje
@@ -1567,6 +1598,11 @@ func migrateSchema(database *sql.DB) error {
 		{"mts_promet", "mjesto", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
+		// Otisak sažetka lozinke s kojim je sesija otvorena: kad lozinka
+		// stigne promijenjena s drugog računala, sesija prestaje
+		// (repository.OtisakLozinke). Sesija bez otiska, otprije stupca, ne
+		// vrijedi, pa se nakon nadogradnje svi jednom ponovno prijave.
+		{"sessions", "lozinka_otisak", "TEXT NOT NULL DEFAULT ''"},
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
@@ -1718,6 +1754,9 @@ func migrateSchema(database *sql.DB) error {
 		// Zašto PIN prijave na čekanju nije poslan (oznaka), da stranica s
 		// upisom koda i nakon krivog unosa nudi novi PIN kad ima smisla
 		{"prijave_na_cekanju", "razlog", "TEXT NOT NULL DEFAULT ''"},
+		// otisak lozinke koju je prijava na čekanju provjerila; prijava bez
+		// njega, otprije stupca, ne prolazi (DrugiKorak.korisnikPrijave)
+		{"prijave_na_cekanju", "lozinka_otisak", "BLOB"},
 		// Adresa e-pošte koju je globalni administrator potvrdio za PIN
 		// prijave izvana i izvan dopuštene domene (djelatnici tvrtki
 		// izvođača), tko i kada; vrijedi samo dok je jednaka adresi računa

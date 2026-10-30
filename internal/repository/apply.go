@@ -227,17 +227,17 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 	for len(ostaje) > 0 {
 		failed = failed[:0]
 		for _, v := range ostaje {
-			naPovrsinu, primijeni, err := verzijaZaPovrsinu(ctx, rec, v)
+			naPovrsinu, primijeni, err := zaPovrsinu(ctx, tx, rec, v)
 			if err != nil {
 				return err
 			}
 			if !primijeni {
-				continue // netko je već zapisao noviju; površina je već njezina
+				continue // netko je već zapisao noviju, ili promjena prava čeka potvrdu
 			}
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := primijeniVerziju(ctx, tx, naPovrsinu); err != nil {
+			if err := primijeniVerziju(ctx, tx, rec.Cvor(), naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
@@ -355,11 +355,15 @@ func obrisi(upit string) radnjaNaPovrsini {
 }
 
 // obrisiPoBroju je brisanje zapisa čiji je identitet na površini broj;
-// identitet koji nije broj briše zapis 0
+// identitet koji nije broj zapisan kao što ga zapisuje program ne briše
+// ništa (brojUObliku)
 func obrisiPoBroju(upit string) radnjaNaPovrsini {
 	return func(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
-		id, _ := strconv.Atoi(v.EntityID)
-		_, err := tx.ExecContext(ctx, upit, id)
+		id, err := strconv.Atoi(v.EntityID)
+		if err != nil || strconv.Itoa(id) != v.EntityID {
+			return nil
+		}
+		_, err = tx.ExecContext(ctx, upit, id)
 		return err
 	}
 }
@@ -400,8 +404,12 @@ func poIdentitetu(f func(ctx context.Context, tx *sql.Tx, id string) error) radn
 }
 
 // applyOne stavlja primljenu verziju na površinu primjenom njezina
-// entiteta: živu verziju upisom, a spomenik brisanjem
+// entiteta: živu verziju upisom, a spomenik brisanjem. Verzija kojoj oznaka
+// zapisa ne odgovara sadržaju ostaje samo u knjizi (istaOznaka).
 func applyOne(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	if !istaOznaka(v) {
+		return nil // druga oznaka — verzija ostaje u knjizi
+	}
 	if v.Archived {
 		return removeFromSurface(ctx, tx, v)
 	}

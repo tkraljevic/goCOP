@@ -160,10 +160,16 @@ ispraviti datoteku, obrisati novu bazu i pokrenuti ponovno.
 
 Napomene:
 
-- **Svi računi iz `imenik.json` dobiju početnu lozinku `gocop2026`** i moraju
-  je promijeniti pri prvoj prijavi. Ako u imeniku nema računa `admin`, program
-  ga doda sam. Prije nego što čvor izložite mreži, pročitajte
-  [SECURITY.md](../../SECURITY.md).
+- **Svaki račun iz `imenik.json` dobije svoju privremenu lozinku** i mora je
+  promijeniti pri prvoj prijavi. Popis lozinki pokaže se jednom, na
+  `/postavljanje/lozinke` (dnevnik pri pokretanju kaže gdje). Ispišite ga i
+  predajte svakome njegovu. Nakon preuzimanja popisa više nema; kome lozinka
+  nedostaje, administrator daje novu u Korisnicima (Poništi lozinku). Ako se
+  čvor ponovno pokrene prije preuzimanja, svi dobiju nove lozinke i novi
+  popis. Ako u imeniku nema računa `admin`, program ga doda sam. Prije nego
+  što čvor izložite mreži, pročitajte [SECURITY.md](../../SECURITY.md).
+- **Imenik stavite uz bazu samo prvog čvora mreže.** Popis lozinki vrijedi
+  za čvor koji ga je složio; ostali čvorovi djelatnike dobiju razmjenom.
 - `imenik.json` nosi osobne podatke. Ne stavljajte ga u repozitorij ni u
   dijeljene mape.
 - **Šifra vode** je službeni naziv malim slovima, bez dijakritika, s crticama:

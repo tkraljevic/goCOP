@@ -1,6 +1,7 @@
 package peers
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log"
@@ -68,13 +69,32 @@ func (s *Service) spremisteSadrzaja() *sadrzaj.Spremiste {
 // pretplata ne pokriva preskaču se prije ograde od 200 stavki: ostaju na
 // popisu za dohvat, ali ne zauzimaju mjesta željenima iza sebe.
 func (s *Service) zeljeniOtisci(ctx context.Context, w Wants) []string {
-	out, _ := s.zeljeniSBajtovima(ctx, w)
+	zelje, _ := s.zeljeniSBajtovima(ctx, w)
+	return otisciZelja(zelje)
+}
+
+// otisciZelja su otisci želja, istim redom; bez ijedne nil
+func otisciZelja(zelje []sadrzaj.Zelja) []string {
+	var out []string
+	for _, z := range zelje {
+		out = append(out, z.Otisak)
+	}
 	return out
 }
 
-// zeljeniSBajtovima je zeljeniOtisci uz zbroj bajtova traženoga, od kojeg
-// dijelovi karte uzimaju ostatak ograde (karta_razgovor.go)
-func (s *Service) zeljeniSBajtovima(ctx context.Context, w Wants) ([]string, int) {
+// poOtisku su želje po otisku
+func poOtisku(zelje []sadrzaj.Zelja) map[string]sadrzaj.Zelja {
+	out := make(map[string]sadrzaj.Zelja, len(zelje))
+	for _, z := range zelje {
+		out[z.Otisak] = z
+	}
+	return out
+}
+
+// zeljeniSBajtovima su želje koje zeljeniOtisci traži, uz zbroj bajtova
+// traženoga, od kojeg dijelovi karte uzimaju ostatak ograde
+// (karta_razgovor.go)
+func (s *Service) zeljeniSBajtovima(ctx context.Context, w Wants) ([]sadrzaj.Zelja, int) {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
 		return nil, 0
@@ -86,17 +106,39 @@ func (s *Service) zeljeniSBajtovima(ctx context.Context, w Wants) ([]string, int
 	if err != nil {
 		return nil, 0
 	}
-	var out []string
+	var out []sadrzaj.Zelja
 	var ukupno int
 	for _, z := range zelje {
 		if ukupno+z.Bajtova > najviseBajtovaPoRazmjeni && len(out) > 0 {
 			break
 		}
 		ukupno += z.Bajtova
-		out = append(out, z.Otisak)
-		_ = sp.Trazeno(ctx, z.Otisak)
+		out = append(out, z)
+		_ = sp.Trazeno(ctx, z.Otisak) // neuspjeh samo ne pomakne želju na kraj reda
 	}
 	return out, ukupno
+}
+
+// trazeniSadrzaji su od primljenih stavki one koje je ovaj razgovor tražio
+// (mojiSadrzaji), svaka jednom i s bajtovima kako ih stavka najavi. Vrsta je
+// iz vlastite želje, a od pošiljatelja samo kad je želja nema; kanal
+// spremište uzme iz vlastite želje (primiSadrzaj). Ostalo se odbaci, uz
+// jedan redak u dnevniku po razgovoru.
+func (r *razgovorSCvorom) trazeniSadrzaji(stavke []stavkaSadrzaja) []stavkaSadrzaja {
+	var out []stavkaSadrzaja
+	for _, st := range stavke {
+		z, trazen := r.mojiSadrzaji[st.Otisak]
+		if !trazen || st.Bajtova != len(st.Podaci) {
+			continue
+		}
+		delete(r.mojiSadrzaji, st.Otisak)
+		st.Vrsta = cmp.Or(z.Vrsta, st.Vrsta)
+		out = append(out, st)
+	}
+	if odbaceno := len(stavke) - len(out); odbaceno > 0 {
+		log.Printf("sinkronizacija: odbačeno primljenih sadržaja koji nisu traženi ili ne odgovaraju najavi: %d", odbaceno)
+	}
+	return out
 }
 
 // sadrzajZa slaže odgovor: od traženih otisaka ono što ovaj čvor drži i
@@ -135,7 +177,9 @@ func (s *Service) sadrzajZa(ctx context.Context, otisci []string, njihovi *Wants
 	return out
 }
 
-// primiSadrzaj upisuje primljene sadržaje; što ne prođe otisak, ne ulazi
+// primiSadrzaj upisuje primljene sadržaje; što ne prođe otisak, ne ulazi.
+// Upisuje se bez veze: zapis koji sadržaj spominje vezao ga je već pri
+// primjeni verzije, a kanal spremište uzme iz vlastite želje.
 func (s *Service) primiSadrzaj(ctx context.Context, od string, stavke []stavkaSadrzaja) int {
 	sp := s.spremisteSadrzaja()
 	if sp == nil {
@@ -143,7 +187,7 @@ func (s *Service) primiSadrzaj(ctx context.Context, od string, stavke []stavkaSa
 	}
 	n := 0
 	for _, st := range stavke {
-		if err := sp.UpisiProvjereno(ctx, st.Otisak, st.Vrsta, st.Podaci, "cvor:"+od, sadrzaj.Veza{Kanal: st.Kanal}); err != nil {
+		if err := sp.UpisiProvjereno(ctx, st.Otisak, st.Vrsta, st.Podaci, "cvor:"+od); err != nil {
 			log.Printf("sinkronizacija: sadržaj %.12s od %s odbijen: %v", st.Otisak, od, err)
 			continue
 		}

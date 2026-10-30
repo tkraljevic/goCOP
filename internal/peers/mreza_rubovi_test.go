@@ -305,7 +305,7 @@ func TestBiljeskaORazmjeniKadZapisNeProde(t *testing.T) {
 	}
 	kvarUpisa(t, s, "UPDATE", "peers", "")
 	dnevnik := brojiDnevnik(t, "nije spremljena")
-	s.noteSync(ctxRub, &Peer{NodeID: "ured-vukovar"}, nil, syncOutcome{applied: 2, sent: 1})
+	s.noteSync(ctxRub, &Peer{NodeID: "ured-vukovar"}, syncOutcome{applied: 2, sent: 1})
 	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "ured-vukovar") {
 		t.Errorf("dnevnik: %d %q", n, zadnji)
 	}

@@ -26,7 +26,7 @@ func setupStationTestServices(t *testing.T) (*service.StationService, *repositor
 	}
 	t.Cleanup(func() { database.Close() })
 
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 
@@ -158,7 +158,7 @@ func TestSvakiUpisOstavljaVerziju(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer database.Close()
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 

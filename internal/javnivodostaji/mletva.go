@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	"gocop/internal/mletva"
@@ -46,16 +45,17 @@ func (m *MLetva) Naziv() string { return mletva.Podrijetlo }
 
 // Prepoznaje adrese postaja na mletva.voda.hr
 func (m *MLetva) Prepoznaje(adresa string) bool {
-	return strings.Contains(strings.ToLower(adresa), "mletva.voda.hr") && postajaMLetve(adresa) > 0
+	return postajaMLetve(adresa) > 0
 }
 
+// postajaMLetve vraća broj postaje iz adrese na mletva.voda.hr; 0 kad adresa
+// nije s tog poslužitelja ili nema broja
 func postajaMLetve(adresa string) int {
-	mm := reHVPostaja.FindStringSubmatch(adresa)
-	if mm == nil {
+	u, ok := adresaNaPosluzitelju(adresa, mletva.Podrijetlo)
+	if !ok {
 		return 0
 	}
-	id, _ := strconv.Atoi(mm[1])
-	return id
+	return brojPostajeHV(u)
 }
 
 // AdresaMLetve je adresa stranice protoka postaje; s nje se čita i vodostaj

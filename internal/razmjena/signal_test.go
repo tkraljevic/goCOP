@@ -41,7 +41,8 @@ type sastajalisteUMemoriji struct {
 	clanovi  map[string]string // ključ → ime
 	dnevnik  []string
 	naR      chan PotpisanaPoruka
-	sljedeci int // izvorna adresa idućeg klijenta
+	sljedeci int        // izvorna adresa idućeg klijenta
+	mjesto   MjestoVeze // mjesto web ograde uz svaku vezu; nil kad ograde nema
 }
 
 func novoSastajalisteUMemoriji(t *testing.T) *sastajalisteUMemoriji {
@@ -57,7 +58,13 @@ func novoSastajalisteUMemoriji(t *testing.T) *sastajalisteUMemoriji {
 	h := r.Handler()
 	mux.Handle("GET "+PutSignala, http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		klijent, _, _ := net.SplitHostPort(req.RemoteAddr) // mrezatest daje adresu s portom
-		h.ServeHTTP(w, req.WithContext(SKlijentom(req.Context(), klijent)))
+		ctx := SKlijentom(req.Context(), klijent)
+		su.mu.Lock()
+		if su.mjesto != nil {
+			ctx = SMjestom(ctx, su.mjesto)
+		}
+		su.mu.Unlock()
+		h.ServeHTTP(w, req.WithContext(ctx))
 	}))
 	s, err := su.m.Slusaj("cop.primjer.hr:443")
 	bezGreske(t, err)

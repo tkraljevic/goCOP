@@ -29,7 +29,8 @@ var primjeneAkata = map[string]primjena{
 // donese v, i javlja treba li je primijeniti. Za većinu zapisa to je
 // zadnja verzija u knjizi, i to samo kad je v ta zadnja: starija verzija
 // koja stigne zaobilazno ne vraća površinu unatrag. Iznimke su akt
-// (aktNaPovrsini) i opoziv (opozivZaPovrsinu).
+// (aktNaPovrsini) i opoziv (opozivZaPovrsinu). Verzija koja u sadržaju
+// nosi drugu oznaku zapisa ne broji se (istaOznaka).
 func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
 	switch v.Entity {
 	case EntityAkti:
@@ -41,6 +42,9 @@ func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Versi
 	if err != nil {
 		return v, false, err
 	}
+	if !istaOznaka(*top) {
+		return zadnjaSIstomOznakom(ctx, rec, v)
+	}
 	// Dnevni list vodočuvara i njegov izvornik slažu površinu iz svih verzija
 	// (predan list ima prednost, dva potpisa ostaju dva lista), pa ide svaka
 	// primljena verzija (primjenjujeSe; Odluke (8. 10. 2026.), pitanje 7).
@@ -50,7 +54,8 @@ func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Versi
 // aktZaPovrsinu je verzija akta koja ide na površinu kad razmjena donese
 // bilo koju njegovu verziju. Primjena je ista kad je površina već njezina,
 // pa se primjenjuje uvijek: tako i starija verzija, ovjera s drugog čvora,
-// dođe na površinu kad je u knjizi poslije nje nacrt.
+// dođe na površinu kad je u knjizi poslije nje nacrt. Bira se samo među
+// verzijama koje u sadržaju nose oznaku akta.
 func aktZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
 	povijest, err := rec.History(ctx, v.Entity, v.EntityID)
 	if err == nil && len(povijest) == 0 {
@@ -58,6 +63,10 @@ func aktZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) 
 	}
 	if err != nil {
 		return v, false, err
+	}
+	// verzija s drugom oznakom u sadržaju ne broji se ni kao ovjera
+	if povijest = sIstomOznakom(povijest); len(povijest) == 0 {
+		return v, false, nil
 	}
 	return aktNaPovrsini(povijest), true, nil
 }

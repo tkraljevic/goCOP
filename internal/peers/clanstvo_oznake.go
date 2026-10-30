@@ -23,6 +23,7 @@ package peers
 import (
 	"context"
 	"crypto/ed25519"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"log"
@@ -73,20 +74,27 @@ func (s *Service) ucitajClanstva(ctx context.Context) (*poznataClanstva, error) 
 // Verzija koja se ne da pročitati kao članstvo se preskače: poslati je
 // može bilo koji član.
 func (s *Service) clanstvaUKnjizi(ctx context.Context) ([]razmjena.Membership, error) {
-	rows, err := s.db.QueryContext(ctx, `SELECT payload FROM record_versions WHERE entity = ? ORDER BY version_id`, EntityMemberships)
+	return sadrzajiVerzija[razmjena.Membership](ctx, s.db, `SELECT payload FROM record_versions WHERE entity = ? ORDER BY version_id`, EntityMemberships)
+}
+
+// sadrzajiVerzija su sadržaji verzija iz upita koji vraća samo payload,
+// redom upita. Sadržaj koji se ne da pročitati kao T se preskače: poslati
+// ga može bilo koji član.
+func sadrzajiVerzija[T any](ctx context.Context, db *sql.DB, upit string, args ...any) ([]T, error) {
+	rows, err := db.QueryContext(ctx, upit, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var out []razmjena.Membership
+	var out []T
 	for rows.Next() {
 		var payload string
 		if err := rows.Scan(&payload); err != nil {
 			return nil, err
 		}
-		var m razmjena.Membership
-		if json.Unmarshal([]byte(payload), &m) == nil {
-			out = append(out, m)
+		var x T
+		if json.Unmarshal([]byte(payload), &x) == nil {
+			out = append(out, x)
 		}
 	}
 	return out, rows.Err()
@@ -147,6 +155,19 @@ func (p *poznataClanstva) zaOpoziv(ctx context.Context, id string) []razmjena.Me
 		}
 		vidjeno[m.Signature] = true
 		out = append(out, m)
+	}
+	return out
+}
+
+// potpisanaImena su članstva oznake id čiji potpis do ključa mreže vrijedi
+// u trenutku izdavanja, i istekla i opozvana: ključevi računala koja su to
+// ime nosila
+func (p *poznataClanstva) potpisanaImena(id string) []razmjena.Membership {
+	var out []razmjena.Membership
+	for _, m := range p.sva {
+		if pub, err := razmjena.ParsePublicKey(m.DeviceKey); m.DeviceID == id && err == nil && m.Verify(p.mreza, pub, m.IssuedAt) == nil {
+			out = append(out, m)
+		}
 	}
 	return out
 }

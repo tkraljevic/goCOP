@@ -119,6 +119,9 @@ type Service struct {
 	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
 	skracene sync.Map // *razmjena.Conn → bool
 	josIma   sync.Map // nodeID → bool, iz zadnjeg SyncWith
+	// otisci: otisak stanja s početka zadnjeg razgovora po čvoru
+	// (napredak.go), iz zadnjeg SyncWith
+	otisci sync.Map // nodeID → string
 	// kartaTece: razgovori koji su prenijeli dijelove karte, a nekoj strani
 	// još nedostaju; josKarte isto po čvoru, iz zadnjeg SyncWith
 	// (karta_razgovor.go)
@@ -184,8 +187,10 @@ type Service struct {
 
 	// izdanje programa i puna oznaka gradnje, za razmjenu (PostaviProgram)
 	program, gradnja string
-	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
+	// zadnja drukčija inačica programa zapisana u dnevnik, po čvoru
 	javljenaInacica sync.Map
+	// bilješke dolaznih razmjena koje čekaju bravu upisa (zabiljeziKasnije)
+	biljeske biljeskeNaCekanju
 	// zapisi čvorova čiji je ključ drukčiji od članstva već zapisani u
 	// dnevnik (javiDrugiKljuc)
 	javljenKljuc sync.Map
@@ -199,6 +204,9 @@ type Service struct {
 	// preskocene su primljene neispravne verzije (ledger.Ispravna) koje su
 	// već zapisane u dnevnik (preskociNeispravne); na ploči se ne broje
 	preskocene sync.Map
+	// satiDrugih su autori čije su verzije nedavno stigle s vremenom
+	// predaleko ispred sata ovog računala (sat_drugih.go); samo u memoriji
+	satiDrugih satiDrugih
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
@@ -985,6 +993,9 @@ type frontierMsg struct {
 	// razgovora preko Tailscalea; ne putuje, samo nosi primljeno do bilješke
 	// o razmjeni (noteSync)
 	tailscale []string
+	// otisak je otisak stanja obiju strana na početku razgovora
+	// (otisakStanja); ne putuje, samo kaže krugu je li se išta pomaknulo
+	otisak string
 }
 
 type deltaMsg struct {
@@ -1051,8 +1062,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	}
 	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
 	o.dolazna = true
-	// bilješka čeka bravu upisa, a mjesto razmjene treba sljedećem
-	go s.zabiljezi(ctx, peer, c, o)
+	s.zabiljeziKasnije(ctx, peer, c, o)
 }
 
 // praznaVeza: pozivatelj je zatvorio vezu prije nego što je poslao svoju
@@ -1108,6 +1118,7 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 	s.josIma.Store(nodeID, skraceno && err == nil)
 	_, karta := s.kartaTece.LoadAndDelete(conn)
 	s.josKarte.Store(nodeID, karta && err == nil)
+	s.otisci.Store(nodeID, theirs.otisak)
 	conn.Close()
 	if s.odbioTailscale(ctx, nodeID, err) {
 		s.zapamtiPokusaj(nodeID, kk.adresa, err)
@@ -1319,8 +1330,9 @@ func (s *Service) otvori(ctx context.Context, adresa string) (net.Conn, error) {
 }
 
 // najviseBajtovaDelte ograđuje jednu poruku delte (verzije kao JSON).
-// Primatelj od 0.0.25 odbija poruku veću od razmjena.NajvecaPoruka, a
-// stariji čvor nema ograde, pa ovo čuva i njegovu memoriju.
+// Primatelj od 0.0.25 odbija poruku veću od razmjena.NajvecaPoruka, a od
+// 0.0.47 deltu veću od dvostruke ove ograde (ogradaPoruke); stariji čvor
+// nema ograde, pa ovo čuva i njegovu memoriju.
 var najviseBajtovaDelte = 32 << 20
 
 // ogradiDeltu reže deltu kad bi poruka prešla najvise bajtova; ostatak ide
@@ -1416,23 +1428,30 @@ func krajKljuca(delta []ledger.Version, i int) int {
 	return j
 }
 
-// Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje)
+// Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje); uz to
+// razlozi iz ledger.Neispravnost
 var (
-	errBezOznake = errors.New("nema oznaku, entitet ili identifikator zapisa")
 	errNijeJSON  = errors.New("nije ispravan JSON")
+	errPrevelika = errors.New("je veća od najveće verzije koju razmjena prenosi")
 )
 
 // zaSlanje je verzija zapisana kao JSON, ili greška kad je neispravna: kad
-// je knjiga primatelja ne prima (ledger.Ispravna) ili se ne da zapisati kao
-// JSON. Bez provjere oznake takvu bi verziju čvor slao svakom razmjenom:
-// primatelj je preskoči, pa mu se granica ne pomakne.
+// je knjiga primatelja ne prima (ledger.ProvjeriPrimljenu: bez oznake,
+// oznaka krivog oblika ili s vremenom predaleko ispred sata ovog računala),
+// kad se ne da zapisati kao JSON ili kad je veća od najvecaVerzija
+// (primatelj je ne bi primio ni samu). Bez provjere oznake takvu bi verziju
+// čvor slao svakom razmjenom: primatelj je preskoči, pa mu se granica ne
+// pomakne. Verzija s vremenom ispred sata ide kad joj vrijeme dođe.
 func zaSlanje(v ledger.Version) ([]byte, error) {
-	if !ledger.Ispravna(v) {
-		return nil, errBezOznake
+	if err := ledger.ProvjeriPrimljenu(v, "", ledger.Sada()); err != nil {
+		return nil, err
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, errNijeJSON
+	}
+	if len(b) > najvecaVerzija {
+		return nil, errPrevelika
 	}
 	return b, nil
 }
@@ -1447,14 +1466,28 @@ func imaIspravnu(verzije []ledger.Version) bool {
 	return false
 }
 
+// bezKasnih su neispravne verzije bez onih koje se ne šalju samo zato što
+// im vrijeme još nije došlo (kasni): sat ovog računala bio je naprijed kad
+// ih je napisalo. One idu kad im vrijeme dođe, pa ne idu na ploču ni u
+// jamstvo delte, jer nisu ni poslane ni preskočene zauvijek.
+func bezKasnih(neispravne []ledger.Version) []ledger.Version {
+	out := make([]ledger.Version, 0, len(neispravne))
+	for _, v := range neispravne {
+		if _, zasto := zaSlanje(v); !kasni(zasto) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // zabiljeziNeispravne zapiše u dnevnik, jednom po verziji, verzije iz
 // knjige koje razmjena ne šalje (zaSlanje), s razlogom; sadržaj ne ide u
-// dnevnik
+// dnevnik. Verzije koje kasne (bezKasnih) ne bilježi.
 func (s *Service) zabiljeziNeispravne(neispravne []ledger.Version) {
-	for _, v := range neispravne {
+	for _, v := range bezKasnih(neispravne) {
 		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, struct{}{}); !bilo {
 			_, zasto := zaSlanje(v)
-			log.Printf("razmjena: verzija %s (%s) u knjizi %v i ne šalje se drugim čvorovima", v.VersionID, v.Entity, zasto)
+			log.Printf("razmjena: verzija %.80q (%.80q) u knjizi %v i ne šalje se drugim čvorovima", v.VersionID, v.Entity, zasto)
 		}
 	}
 }
@@ -1483,8 +1516,10 @@ func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[str
 // vraća 0 upisanih i 0 poslanih, iako je delta možda već otišla. theirs je
 // granica druge strane kakvu razgovor dotad ima; nakon delti je pomaknuta
 // za poslano i neispravno i nosi Tailscale adrese iz njezine delte.
-// Bilješka o razmjeni zato i kod greške pamti izdanje druge strane.
+// Bilješka o razmjeni zato i kod greške pamti izdanje druge strane. Predug
+// tekst greške se skraćuje (ograniciGresku).
 func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirs frontierMsg, err error) {
+	defer func() { err = ograniciGresku(err) }()
 	r, err := s.zapocniRazgovor(ctx, c, initiator)
 	if err != nil {
 		return 0, 0, frontierMsg{}, err
@@ -1519,7 +1554,7 @@ func (s *Service) Accept(fn func(ledger.Version) bool) {
 // bilješka uz zapis čvora (zapisiBiljesku). Zato razmjena ne stvara novu
 // verziju zapisa čvora. Bilješka ide zadnja: kad je ona upisana, upisano je
 // i sve ostalo.
-func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
+func (s *Service) noteSync(ctx context.Context, peer *Peer, o syncOutcome) {
 	if peer == nil {
 		return
 	}
@@ -1529,18 +1564,40 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	s.zabiljeziIshod(ctx, peer, o)
 	s.obnovaUzRazmjenu(ctx, o)
 	s.javiDrugiProgram(peer, o)
-	s.nauci(ctx, peer, c, o)
+	s.nauci(ctx, peer, o)
 	s.zapisiBiljesku(ctx, peer.NodeID, o)
 }
 
-// javiDrugiProgram zapisuje u dnevnik, jednom po čvoru i izdanju, kad drugi
-// čvor radi na drugom izdanju programa
+// javiDrugiProgram zapisuje u dnevnik kad drugi čvor radi na drugom
+// izdanju programa, jednom dok mu se izdanje ne promijeni i najviše jednom
+// u razmakJavljanjaIzdanja. Pamti se samo zadnje javljeno izdanje po čvoru.
 func (s *Service) javiDrugiProgram(peer *Peer, o syncOutcome) {
-	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
-		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
-			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
-		}
+	mojProgram, mojaGradnja := s.Program()
+	if o.program == "" || mojProgram == "" || o.program == mojProgram {
+		return
 	}
+	sada := time.Now()
+	prije, vec := s.javljenaInacica.Load(peer.NodeID)
+	if j, _ := prije.(javljenoIzdanje); vec && !j.zastarjelo(o.program, sada) { // u mapi je samo javljenoIzdanje
+		return
+	}
+	s.javljenaInacica.Store(peer.NodeID, javljenoIzdanje{program: o.program, kad: sada})
+	log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
+}
+
+// razmakJavljanjaIzdanja je najkraći razmak dva retka dnevnika o izdanju
+// istog čvora
+const razmakJavljanjaIzdanja = time.Hour
+
+// javljenoIzdanje je izdanje drugog čvora zadnji put zapisano u dnevnik
+type javljenoIzdanje struct {
+	program string
+	kad     time.Time
+}
+
+// zastarjelo: izdanje se promijenilo, a od zadnjeg retka je prošlo dovoljno
+func (j javljenoIzdanje) zastarjelo(program string, sada time.Time) bool {
+	return program != j.program && sada.Sub(j.kad) >= razmakJavljanjaIzdanja
 }
 
 // zapisiBiljesku zapisuje uz zapis čvora kad je zadnji put viđen i

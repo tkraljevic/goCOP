@@ -39,10 +39,10 @@ func ServeZdravlje(w http.ResponseWriter, r *http.Request) {
 	odgovoriZdravlje(w, r, Zdravlje{Izdanje: izdanjeZaPostavu(), Radi: true})
 }
 
-// sOvogRacunala: izravan zahtjev s ovog računala, ne kroz posrednika
+// sOvogRacunala: izravan zahtjev s ovog računala, ne kroz posrednika, upućen
+// imenu localhost ili adresi petlje (Klijent.SOvogRacunala)
 func sOvogRacunala(r *http.Request) bool {
-	k := klijentIz(r)
-	return !k.KrozPosrednika && k.Posrednik.IsLoopback()
+	return klijentIz(r).SOvogRacunala()
 }
 
 // odgovoriZdravlje šalje z samo zahtjevu s ovog računala; ostali dobiju 404
@@ -80,5 +80,5 @@ func OdbijenoPokretanje(razlog string) http.Handler {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = io.WriteString(w, tekst)
 	})
-	return skrivenoOdTrazilica(mux)
+	return (&Server{}).klijentSloj(skrivenoOdTrazilica(mux))
 }

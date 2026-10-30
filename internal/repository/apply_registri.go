@@ -160,8 +160,9 @@ func makniVezuDioniceILetve(ctx context.Context, tx *sql.Tx, v ledger.Version) e
 		SectionCode string `json:"section_code"`
 		StationID   string `json:"station_id"`
 	}
-	_ = json.Unmarshal(v.Payload, &veza)
-	if veza.SectionCode == "" || veza.StationID == "" {
+	_ = json.Unmarshal(v.Payload, &veza) // nečitljiv sadržaj: veza se uzima iz oznake zapisa
+	if veza.SectionCode+"|"+veza.StationID != v.EntityID {
+		// sadržaj bez veze ili s vezom druge oznake: veza je oznaka zapisa
 		veza.SectionCode, veza.StationID, _ = strings.Cut(v.EntityID, "|")
 	}
 	_, err := tx.ExecContext(ctx, `DELETE FROM section_stations WHERE section_code = ? AND station_id = ?`,

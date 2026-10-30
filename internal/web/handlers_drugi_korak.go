@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 
@@ -240,6 +241,27 @@ func kljuceviKoda(keys []string) []string {
 	return out
 }
 
+// zauzmiUnosKoda: dok nijedan ključ prijave nije blokiran, unaprijed broji
+// jedan krivi unos na ključevima koda (kljuceviKoda), pod istom bravom pod
+// kojom gleda blokadu, pa granica vrijedi i za unose koji stignu u istom
+// trenutku. Ključ samog imena se samo gleda. Kad ne pusti, javlja koliko
+// treba čekati.
+func (h *AuthHandler) zauzmiUnosKoda(keys []string) (bool, time.Duration) {
+	if blocked, wait := h.limiter.Blocked(keys...); blocked {
+		return false, wait
+	}
+	return h.limiter.Rezerviraj(kljuceviKoda(keys)...)
+}
+
+// ishodUnosaKoda: brojen ostaje samo kriv PIN ili kod (i peti krivi, nakon
+// kojeg prijava prestaje); točan kod, neispravan oblik ili kvar vraćaju
+// unos koji je zauzmiUnosKoda unaprijed izbrojio
+func (h *AuthHandler) ishodUnosaKoda(keys []string, err error) {
+	if !errors.Is(err, service.ErrKrivKod) && !errors.Is(err, service.ErrPrevisePokusaja) {
+		h.limiter.VratiSve(kljuceviKoda(keys)...)
+	}
+}
+
 // HandlePIN provjerava PIN, rezervni ili privremeni kod i tek tada otvara
 // sesiju; uz kvačicu pamti računalo
 func (h *AuthHandler) HandlePIN(w http.ResponseWriter, r *http.Request) {
@@ -260,23 +282,22 @@ func (h *AuthHandler) HandlePIN(w http.ResponseWriter, r *http.Request) {
 	keys := kljuceviPrijave(perms.User.Username, klijent)
 	p := h.podaciPIN(st)
 
-	if blocked, wait := h.limiter.Blocked(keys...); blocked {
+	if ok, wait := h.zauzmiUnosKoda(keys); !ok {
 		p.Error = fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", int(wait.Minutes())+1)
 		h.prikaziPIN(w, http.StatusTooManyRequests, p)
 		return
 	}
 
 	ishod, err := dk.ProvjeriKod(r.Context(), token, r.FormValue("kod"))
+	h.ishodUnosaKoda(keys, err)
 	var kriv service.KrivKod
 	switch {
 	case err == nil:
 	case errors.As(err, &kriv):
-		h.limiter.Fail(kljuceviKoda(keys)...)
 		p.Error, p.Preostalo = upperFirst(err.Error())+".", kriv.Preostalo
 		h.prikaziPIN(w, http.StatusOK, p)
 		return
 	case errors.Is(err, service.ErrPrevisePokusaja):
-		h.limiter.Fail(kljuceviKoda(keys)...)
 		h.prijavaPrekinuta(w, r, err)
 		return
 	case errors.Is(err, service.ErrOblikKoda):

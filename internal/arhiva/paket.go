@@ -17,6 +17,7 @@ import (
 	"time"
 
 	gocopdb "gocop/internal/db"
+	stavke "gocop/internal/raspakiraj"
 )
 
 // Paket je prijenosni oblik historijata jedne letve — ono što se preda na USB
@@ -135,6 +136,23 @@ var (
 // zbijeno; najveća pojedina letva raspakirana je oko 40 MB. Sto megabajta je
 // široko za svaku stvarnu letvu i usko za napad.
 const NajveceRaspakirano = 100 << 20
+
+// otvoriZip otvara ZIP paketa, ako nema više od najviseStavkiPaketa stavki:
+// zip.NewReader drži zapis za svaku stavku, pa se broj provjerava prije njega.
+func otvoriZip(r io.ReaderAt, velicina int64) (*zip.Reader, error) {
+	if err := stavke.ProvjeriBrojStavki(r, velicina, najviseStavkiPaketa); err != nil {
+		return nil, fmt.Errorf("paket: %w", err)
+	}
+	z, err := zip.NewReader(r, velicina)
+	if err != nil {
+		return nil, fmt.Errorf("paket nije ZIP: %w", err)
+	}
+	return z, nil
+}
+
+// najviseStavkiPaketa je najviše stavki u ZIP-u paketa letve, prije nego što
+// se ZIP otvori: paket ima manifest i šest dijelova (dopusteniDijelovi).
+const najviseStavkiPaketa = 32
 
 // dopusteniDijelovi su imena koja paket smije sadržavati. Sve drugo se odbija:
 // ime koje program ne čita ionako ne ulazi u otisak, pa bi bilo mjesto za
@@ -731,9 +749,9 @@ func (s *Sadrzaj) PostavkeIzvora() []izvorUPaketu { return s.Izvori }
 // poklapa ne ugrađuje se: bolje odbiti nego u arhivu upisati nešto što se
 // putem pokvarilo ili izmijenilo.
 func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
-	z, err := zip.NewReader(r, velicina)
+	z, err := otvoriZip(r, velicina)
 	if err != nil {
-		return nil, fmt.Errorf("paket nije ZIP: %w", err)
+		return nil, err
 	}
 	sadrzaj, err := raspakiraj(z)
 	if err != nil {
@@ -744,9 +762,8 @@ func Procitaj(r io.ReaderAt, velicina int64) (*Sadrzaj, error) {
 	if err := json.Unmarshal(sadrzaj["manifest.json"], &s.Manifest); err != nil {
 		return nil, fmt.Errorf("manifest se ne čita: %w", err)
 	}
-	if s.Manifest.Inacica > PaketInacica {
-		return nil, fmt.Errorf("paket je inačice %d, a ovaj program poznaje %d — nadogradi program",
-			s.Manifest.Inacica, PaketInacica)
+	if err := provjeriManifest(s.Manifest); err != nil {
+		return nil, err
 	}
 	h := sha256.New()
 	for _, ime := range dijeloviZa(s.Manifest.Inacica) {
@@ -828,6 +845,20 @@ var ErrNepotpisan = errors.New("paket nije potpisan, pa se ne ugrađuje; " +
 func TraziPotpis(s *Sadrzaj) error {
 	if s == nil || len(s.PotpisaoKljuc) == 0 {
 		return ErrNepotpisan
+	}
+	return nil
+}
+
+// provjeriManifest odbija paket novije inačice i paket čija letva nije
+// upotrebljiva kao naziv mape (ProvjeriLetvu): po njoj se paket zove u mapi
+// paketa.
+func provjeriManifest(m Manifest) error {
+	if m.Inacica > PaketInacica {
+		return fmt.Errorf("paket je inačice %d, a ovaj program poznaje %d — nadogradi program",
+			m.Inacica, PaketInacica)
+	}
+	if err := ProvjeriLetvu(m.Letva); err != nil {
+		return fmt.Errorf("paket: %w", err)
 	}
 	return nil
 }

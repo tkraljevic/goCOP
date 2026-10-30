@@ -25,7 +25,7 @@ func TestPredlozakTablice(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { baza.Close() })
-	if err := db.SeedInitialData(baza); err != nil {
+	if _, err := db.SeedInitialData(baza); err != nil {
 		t.Fatal(err)
 	}
 	rec := ledger.New(baza, "test-node")

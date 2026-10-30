@@ -512,3 +512,104 @@ func TestVraceniKatalogObjavljujeNoviBroj(t *testing.T) {
 		t.Errorf("nakon vraćenog kataloga izdano v%d, u kazalu v%d (%s), a izdani otisak je %s", r.Izdanje, izdanje, otisak, r.Otisak)
 	}
 }
+
+// Redak kataloga čija letva ili datoteka nije obično ime u mapi paketa ne
+// objavljuje se, i kad datoteka na tom putu postoji. Pravi paket iz istog
+// kataloga objavi se kao i prije.
+func TestObjavaPreskaceRedakIzvanMapePaketa(t *testing.T) {
+	ctx := context.Background()
+	baza, rec, _ := cvorZaTest(t, "laptop")
+	paketi := izdanaMapa(t, rec.Cvor())
+	k, err := arhiva.UcitajKatalog(paketi)
+	if err != nil || len(k.Paketi) != 1 {
+		t.Fatalf("katalog: %+v %v", k, err)
+	}
+	pravi, err := os.ReadFile(filepath.Join(paketi, k.Paketi[0].Datoteka))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(filepath.Dir(paketi), "izvan_v1.cop"), pravi, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	k.Paketi = append(k.Paketi,
+		arhiva.UPaketu{Letva: "../izvan", Izdanje: 1, Datoteka: "../izvan_v1.cop"},
+		arhiva.UPaketu{Letva: "pljusak-y", Izdanje: 1, Datoteka: "../izvan_v1.cop"})
+	b, err := json.Marshal(k)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(paketi, arhiva.ImeKataloga), b, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sp, err := sadrzaj.Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &razmjenaArhive{baza: baza, rec: rec, sp: sp, paketiDir: paketi, javljeno: map[string]bool{}}
+	if n, err := a.objavi(ctx); err != nil || n != 1 {
+		t.Fatalf("objavljeno %d (%v), očekivan samo pravi paket", n, err)
+	}
+	for _, letva := range []string{"../izvan", "pljusak-y"} {
+		if _, err := rec.Latest(ctx, EntitetArhive, letva); !errors.Is(err, ledger.ErrNoVersion) {
+			t.Errorf("redak %s ušao je u kazalo: %v", letva, err)
+		}
+	}
+}
+
+// Kazalo s drugog čvora čija letva nije upotrebljiva kao naziv mape ne
+// traži paket, a na pločici je odbijeno; ispravno kazalo iz iste knjige
+// traži paket i čeka kao i prije.
+func TestKazaloSLetvomIzvanPravilaNaziva(t *testing.T) {
+	ctx := context.Background()
+	bazaA, recA, _ := cvorZaTest(t, "osijek")
+	_, recB, _ := cvorZaTest(t, "server")
+	spA, errA := sadrzaj.Otvori("")
+	spB, errB := sadrzaj.Otvori("")
+	if errA != nil || errB != nil {
+		t.Fatal(errA, errB)
+	}
+	a := &razmjenaArhive{baza: bazaA, rec: recA, sp: spA, javljeno: map[string]bool{}}
+	for _, p := range []arhiva.UPaketu{
+		{Letva: "../../izvan", Izdanje: 1, Otisak: "o1", Datoteka: "izvan_v1.cop"},
+		{Letva: "batina", Izdanje: 1, Otisak: "o2", Datoteka: "batina_v1.cop"},
+	} {
+		if err := a.upisiUKazalo(ctx, p, []byte("paket "+p.Letva)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	verzije, err := recA.Since(ctx, "", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := recB.Apply(ctx, verzije); err != nil {
+		t.Fatal(err)
+	}
+	b := &razmjenaArhive{rec: recB, sp: spB, arhivaPut: filepath.Join(t.TempDir(), "vodostaji.db"), javljeno: map[string]bool{},
+		zeli: func(context.Context, string, string) bool { return true }}
+	b.primi(ctx)
+	z, err := spB.Zeljeni(ctx, 10)
+	if err != nil || len(z) != 1 || z[0].Otisak != sadrzaj.Otisak([]byte("paket batina")) {
+		t.Errorf("želje: %+v", z)
+	}
+	if st := b.stanje(ctx); st.UKazalu != 2 || st.Odbijeno != 1 || st.Ceka != 1 || st.CekaBajtova != int64(len("paket batina")) {
+		t.Errorf("stanje: %+v", st)
+	}
+}
+
+// Verzija kazala koja je obrisana, nečitljiva ili bez letve nije kazalo za
+// pločicu; ispravna jest.
+func TestKazaloZaStanje(t *testing.T) {
+	for _, p := range []struct {
+		v      ledger.Version
+		kazalo bool
+	}{
+		{ledger.Version{Payload: json.RawMessage(`{"letva":"batina"}`)}, true},
+		{ledger.Version{Payload: json.RawMessage(`{"letva":"batina"}`), Archived: true}, false},
+		{ledger.Version{Payload: json.RawMessage(`[1]`)}, false},
+		{ledger.Version{Payload: json.RawMessage(`{}`)}, false},
+	} {
+		if _, ima := kazaloZaStanje(p.v); ima != p.kazalo {
+			t.Errorf("%s (obrisano %v): %v", p.v.Payload, p.v.Archived, ima)
+		}
+	}
+}

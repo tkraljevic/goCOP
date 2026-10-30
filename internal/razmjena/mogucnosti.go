@@ -119,7 +119,8 @@ func NaseMogucnosti() []string {
 }
 
 // NepoznateOznake su ispravne oznake druge strane čije ime ovaj program ne
-// zna (G7: djelomično razumljeno), poredane
+// zna (G7: djelomično razumljeno), poredane. Gledaju se samo oznake koje
+// se pamte (ocisceneOznake), pa ih nikad nije više od najviseOznaka.
 func NepoznateOznake(njihove []string) []string {
 	znam := map[string]bool{}
 	for _, o := range append(NaseMogucnosti(), OznakaWeb) {
@@ -127,12 +128,11 @@ func NepoznateOznake(njihove []string) []string {
 		znam[ime] = true
 	}
 	var out []string
-	for o := range ispravne(njihove) {
+	for _, o := range ocisceneOznake(njihove) {
 		if ime, _, _ := procitajOznaku(o); !znam[ime] {
 			out = append(out, o)
 		}
 	}
-	slices.Sort(out)
 	return out
 }
 

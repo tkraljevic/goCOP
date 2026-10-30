@@ -1,7 +1,9 @@
 package repository
 
 import (
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -18,19 +20,60 @@ func NewSessionRepository(database *sql.DB) *SessionRepository {
 	return &SessionRepository{db: database}
 }
 
-// CreateSession sprema novu sesiju
+// OtisakLozinke je otisak sažetka lozinke računa koji sesija pamti. Lozinka
+// putuje među računalima, a sesije ne: kad se lozinka promijeni ili poništi
+// na drugom računalu, ovdje stigne samo novi sažetak, pa se po otisku vidi da
+// sesija pripada staroj lozinki. Otisak nikad nije prazan: prazan stupac ima
+// samo sesija otvorena prije nego što se otisak pamtio.
+func OtisakLozinke(sazetak string) string {
+	h := sha256.Sum256([]byte("gocop:sesija:" + sazetak))
+	return hex.EncodeToString(h[:16])
+}
+
+// otisakRacuna je otisak trenutne lozinke računa u bazi
+func (r *SessionRepository) otisakRacuna(userID uuid.UUID) (string, error) {
+	var sazetak string
+	err := r.db.QueryRow("SELECT password_hash FROM users WHERE id = ?", userID.String()).Scan(&sazetak)
+	if err != nil && err != sql.ErrNoRows {
+		return "", fmt.Errorf("greška pri čitanju lozinke računa: %w", err)
+	}
+	return OtisakLozinke(sazetak), nil
+}
+
+// CreateSession sprema novu sesiju. Sesija pamti otisak lozinke s kojim je
+// otvorena (s.LozinkaOtisak, od sažetka koji je prijava upravo provjerila);
+// bez njega uzima otisak lozinke koju račun ima u tom trenutku.
 func (r *SessionRepository) CreateSession(s *models.Session) error {
 	if s.ID == uuid.Nil {
 		s.ID = uuid.New() // token sesije: UUIDv4, 122 slučajna bita
 	}
 	s.CreatedAt = time.Now().UTC()
+	if s.LozinkaOtisak == "" {
+		otisak, err := r.otisakRacuna(s.UserID)
+		if err != nil {
+			return err
+		}
+		s.LozinkaOtisak = otisak
+	}
 
 	_, err := r.db.Exec(`
-		INSERT INTO sessions (id, user_id, ip_address, user_agent, expires_at, created_at)
-		VALUES (?, ?, ?, ?, ?, ?)
-	`, s.ID.String(), s.UserID.String(), s.IPAddress, s.UserAgent, s.ExpiresAt, s.CreatedAt)
+		INSERT INTO sessions (id, user_id, ip_address, user_agent, expires_at, created_at, lozinka_otisak)
+		VALUES (?, ?, ?, ?, ?, ?, ?)
+	`, s.ID.String(), s.UserID.String(), s.IPAddress, s.UserAgent, s.ExpiresAt, s.CreatedAt, s.LozinkaOtisak)
 	if err != nil {
 		return fmt.Errorf("greška pri kreiranju sesije: %w", err)
+	}
+	return nil
+}
+
+// ZadrziUzNovuLozinku: sesija iz koje je osoba sama promijenila lozinku
+// pamti otisak nove lozinke (sazetak je sažetak koji je ta promjena
+// upisala), pa i dalje vrijedi
+func (r *SessionRepository) ZadrziUzNovuLozinku(sessionID, userID uuid.UUID, sazetak string) error {
+	_, err := r.db.Exec("UPDATE sessions SET lozinka_otisak = ? WHERE id = ? AND user_id = ?",
+		OtisakLozinke(sazetak), sessionID.String(), userID.String())
+	if err != nil {
+		return fmt.Errorf("greška pri zadržavanju prijave uz novu lozinku: %w", err)
 	}
 	return nil
 }
@@ -38,7 +81,7 @@ func (r *SessionRepository) CreateSession(s *models.Session) error {
 // GetSession dohvaća aktivnu sesiju po tokenu
 func (r *SessionRepository) GetSession(id uuid.UUID) (*models.Session, error) {
 	row := r.db.QueryRow(`
-		SELECT id, user_id, viewing_as, ip_address, user_agent, expires_at, created_at
+		SELECT id, user_id, viewing_as, ip_address, user_agent, expires_at, created_at, lozinka_otisak
 		FROM sessions
 		WHERE id = ? AND expires_at > CURRENT_TIMESTAMP
 	`, id.String())
@@ -46,7 +89,7 @@ func (r *SessionRepository) GetSession(id uuid.UUID) (*models.Session, error) {
 	var s models.Session
 	var idStr, userStr string
 	var viewingAs sql.NullString
-	err := row.Scan(&idStr, &userStr, &viewingAs, &s.IPAddress, &s.UserAgent, &s.ExpiresAt, &s.CreatedAt)
+	err := row.Scan(&idStr, &userStr, &viewingAs, &s.IPAddress, &s.UserAgent, &s.ExpiresAt, &s.CreatedAt, &s.LozinkaOtisak)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, nil

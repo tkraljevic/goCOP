@@ -103,6 +103,7 @@ var rasporedPostavki = []redakRasporeda{
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
 	{"web.tailscale_lokalno", mjestoPostavke{"mreza", postavkaSamoCitanje, "Tailscale kao lokalna mreža", razlogPosrednika}},
+	{"web.lokalna_imena", mjestoPostavke{"mreza", postavkaSamoCitanje, "Imena u lokalnoj mreži", razlogPosrednika}},
 
 	{"povezivost.web_sync_prijava", mjestoPostavke{"websync", postavkaUrediva, "Prijava za WEB sync", ""}},
 	{"povezivost.web_sync", mjestoPostavke{"websync", postavkaUrediva, "WEB sync", ""}},

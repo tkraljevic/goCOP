@@ -23,6 +23,8 @@ type cvor struct {
 	repo *repository.UserRepository
 	auth *service.AuthService
 	uslu *service.UserService
+	// privremene lozinke računa iz imenika, po korisničkom imenu
+	lozinke map[string]string
 }
 
 // noviCvor diže čvor na izmišljenom skupu sektora P (testdata/sektor-p)
@@ -33,14 +35,15 @@ func noviCvor(t *testing.T, nodeID string) *cvor {
 	if err != nil {
 		t.Fatalf("baza čvora %s: %v", nodeID, err)
 	}
-	if err := db.SeedInitialData(database); err != nil {
+	popis, err := db.SeedInitialData(database)
+	if err != nil {
 		t.Fatalf("sjeme čvora %s: %v", nodeID, err)
 	}
 	rec := ledger.New(database, nodeID)
 	repo := repository.NewUserRepository(database, rec)
 	auth := service.NewAuthService(repo, repository.NewSessionRepository(database))
 	return &cvor{db: database, rec: rec, repo: repo, auth: auth,
-		uslu: service.NewUserService(repo, auth, service.NewSSEBroker())}
+		uslu: service.NewUserService(repo, auth, service.NewSSEBroker()), lozinke: poKorisniku(popis)}
 }
 
 // Zastavica is_active znači "smije se prijaviti", pa je svaki uvedeni
@@ -71,7 +74,7 @@ func TestUvedeniDjelatnikNijeSePrijavio(t *testing.T) {
 func TestPrijavaPomicRacunUAktivan(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	if _, _, err := n.auth.Login("aanic", "gocop2026", "127.0.0.1", "test"); err != nil {
+	if _, _, err := n.auth.Login("aanic", n.lozinke["aanic"], "127.0.0.1", "test"); err != nil {
 		t.Fatalf("prijava nije uspjela: %v", err)
 	}
 
@@ -92,7 +95,7 @@ func TestVisePrijavaIstiDanPiseJednuVerziju(t *testing.T) {
 	before := versionCount(t, n.rec, u.ID.String())
 
 	for i := 0; i < 3; i++ {
-		if _, _, err := n.auth.Login("aanic", "gocop2026", "127.0.0.1", "test"); err != nil {
+		if _, _, err := n.auth.Login("aanic", n.lozinke["aanic"], "127.0.0.1", "test"); err != nil {
 			t.Fatalf("prijava %d nije uspjela: %v", i+1, err)
 		}
 	}
@@ -114,7 +117,7 @@ func TestVisePrijavaIstiDanPiseJednuVerziju(t *testing.T) {
 func TestFiltarStanjaRacunaDijeliPopisBezPreklapanja(t *testing.T) {
 	n := noviCvor(t, "cvor-a")
 
-	if _, _, err := n.auth.Login("aanic", "gocop2026", "127.0.0.1", "test"); err != nil {
+	if _, _, err := n.auth.Login("aanic", n.lozinke["aanic"], "127.0.0.1", "test"); err != nil {
 		t.Fatalf("prijava: %v", err)
 	}
 	iskljucen, _ := n.repo.GetUserByUsername("admin")
@@ -197,4 +200,13 @@ func versionCount(t *testing.T, rec *ledger.Recorder, userID string) int {
 		t.Fatalf("povijest zapisa: %v", err)
 	}
 	return len(h)
+}
+
+// poKorisniku slaže privremene lozinke iz prvog punjenja po korisničkom imenu
+func poKorisniku(popis []db.PocetnaLozinka) map[string]string {
+	m := make(map[string]string, len(popis))
+	for _, p := range popis {
+		m[p.Korisnik] = p.Lozinka
+	}
+	return m
 }

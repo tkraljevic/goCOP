@@ -188,27 +188,29 @@ func TestSkupKljucevaIBaceno(t *testing.T) {
 // Primatelj: odbijeno, preskočeno po granici odbijenih, popuštena ograda,
 // nesigurno i pokriveno, bez vlastitog ključa i preskočenih ključeva
 func TestPromjenaRupaPrimatelja(t *testing.T) {
+	// oznake ispravnog oblika, redom slova; neispravnu odbaci ne pamti
+	o := func(slovo string) string { return fmt.Sprintf("0190a000-0000-7000-8000-%012d", slovo[0]-'a') }
 	k, g4, vl, pr := "ured|ocitanja/16/2024", "ured|ocitanja/3/2024", "laptop|ocitanja/16/2024", "ured|ocitanja/5/2024"
-	rz := razgovorZaRupe(t, map[string]string{k: "c", g4: "c", vl: "c", pr: "c"}, map[string]rupaKljuca{k: {trazi: r("a", "b")}})
+	rz := razgovorZaRupe(t, map[string]string{k: o("c"), g4: o("c"), vl: o("c"), pr: o("c")}, map[string]rupaKljuca{k: {trazi: r(o("a"), o("b"))}})
 	rz.rupe.zapisati = true
-	rz.odbijene.moje = map[string]string{g4: "f"}
-	rz.preskoceni = map[string]string{pr: "f"}
-	rz.trazeno = map[string]raspon{k: r("a", "b")}
-	rz.njihovaPopuna = map[string]raspon{k: r("a", "b"), "ured|ocitanja/9/2024": r("a", "b")}
-	rz.njihoveRupe = map[string]raspon{k: r("d", "e")}
-	for _, id := range []string{"f", "h"} {
+	rz.odbijene.moje = map[string]string{g4: o("f")}
+	rz.preskoceni = map[string]string{pr: o("f")}
+	rz.trazeno = map[string]raspon{k: r(o("a"), o("b"))}
+	rz.njihovaPopuna = map[string]raspon{k: r(o("a"), o("b")), "ured|ocitanja/9/2024": r(o("a"), o("b"))}
+	rz.njihoveRupe = map[string]raspon{k: r(o("d"), o("e"))}
+	for _, id := range []string{o("f"), o("h")} {
 		rz.odbaci(v("ured", "ocitanja/16/2024", id))
 	}
 	rz.odbaci(ledger.Version{VersionID: "x"}) // neispravna se ne pamti
-	wanted := []ledger.Version{v("ured", "ocitanja/16/2024", "d"), v("ured", "ocitanja/16/2024", "g"), v("ured", "ocitanja/3/2024", "g"),
-		v("laptop", "ocitanja/16/2024", "d"), v("ured", "ocitanja/5/2024", "g")}
+	wanted := []ledger.Version{v("ured", "ocitanja/16/2024", o("d")), v("ured", "ocitanja/16/2024", o("g")), v("ured", "ocitanja/3/2024", o("g")),
+		v("laptop", "ocitanja/16/2024", o("d")), v("ured", "ocitanja/5/2024", o("g"))}
 	p := rz.promjenaRupa(wanted)
-	if !p.pravilo || p.prije[k].trazi != r("a", "b") || len(p.kljucevi) != 3 {
+	if !p.pravilo || p.prije[k].trazi != r(o("a"), o("b")) || len(p.kljucevi) != 3 {
 		t.Fatalf("promjena: %+v", p)
 	}
 	ocekivano := map[string]promjenaKljuca{
-		k:                      {odbijeno: r("d", "h"), nesigurno: r("d", "e"), pokriveno: []raspon{r("c", "h"), r("a", "b")}, fs: "c"},
-		g4:                     {odbijeno: r("c", "f"), pokriveno: []raspon{r("f", "g"), {}}, fs: "c"},
+		k:                      {odbijeno: r(o("d"), o("h")), nesigurno: r(o("d"), o("e")), pokriveno: []raspon{r(o("c"), o("h")), r(o("a"), o("b"))}, fs: o("c")},
+		g4:                     {odbijeno: r(o("c"), o("f")), pokriveno: []raspon{r(o("f"), o("g")), {}}, fs: o("c")},
 		"ured|ocitanja/9/2024": {pokriveno: []raspon{{}, {}}},
 	}
 	if fmt.Sprint(p.kljucevi) != fmt.Sprint(ocekivano) {
@@ -218,7 +220,7 @@ func TestPromjenaRupaPrimatelja(t *testing.T) {
 	// pod bravom (podOgradom), pa promjenaRupa ograde ne čita
 	rz.s.PostaviStanjePrihvata(func() (uint64, time.Time) { t.Error("ograda pročitana prije brave"); return 1, time.Time{} })
 	rz.odbijene.ograda = stanjeOgrade{narastaj: 7}
-	if p := rz.promjenaRupa(wanted); p.ograda != rz.odbijene.ograda || p.kljucevi[k].odbijeno != r("d", "h") || !p.kljucevi[k].uTrazi.prazan() {
+	if p := rz.promjenaRupa(wanted); p.ograda != rz.odbijene.ograda || p.kljucevi[k].odbijeno != r(o("d"), o("h")) || !p.kljucevi[k].uTrazi.prazan() {
 		t.Errorf("ograda uz promjenu: %+v", p)
 	}
 }

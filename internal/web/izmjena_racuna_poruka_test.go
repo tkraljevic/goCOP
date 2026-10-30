@@ -91,6 +91,7 @@ func posaljiKaoUprava(o *okolinaIzvana, u *models.User, metoda, put string, polj
 		r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	}
 	r.RemoteAddr = "192.168.1.50:40000"
+	r.Host = adresaCvoraTesta
 	perms, err := o.repo.GetUserPermissions(u.ID)
 	if err != nil {
 		o.t.Fatal(err)

@@ -96,7 +96,8 @@ func upisiSlozeni(ctx context.Context, tx *sql.Tx, id string, l *models.Vodocuva
 	return err
 }
 
-// verzijeListaTx čita sve verzije lista iz knjige, od najstarije
+// verzijeListaTx čita sve verzije lista iz knjige, od najstarije, bez žive
+// verzije koja u sadržaju nosi list druge oznake (listPodOznakom)
 func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT archived, payload, node_id, version_id FROM record_versions
 		WHERE entity = ? AND entity_id = ? ORDER BY version_id`, EntityVodocuvarski, id)
@@ -116,7 +117,11 @@ func verzijeListaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaLista,
 		if err := json.Unmarshal([]byte(payload), &v.list); err != nil {
 			return nil, fmt.Errorf("verzija lista %s: %w", id, err)
 		}
-		out = append(out, v)
+		if v.arhivirana || listPodOznakom(id, v.list) {
+			out = append(out, v)
+		} else {
+			zabiljeziDruguOznaku(verzijaZaDnevnik(EntityVodocuvarski, id, v.cvor, v.verzija), v.list.ID)
+		}
 	}
 	return out, rows.Err()
 }

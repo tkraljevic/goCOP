@@ -5,6 +5,7 @@ package web
 // kopija ključa mreže (G9b). Samo globalni administrator.
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"time"
@@ -81,7 +82,7 @@ func (h *SettingsHandler) HandleKopijaKljuca(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	u, _ := stvarnaOsoba(r)
-	if err := h.provjeriLozinkuRacuna(u, req.LozinkaRacuna); err != nil {
+	if err := h.provjeriLozinkuRacuna(r.Context(), u, req.LozinkaRacuna); err != nil {
 		http.Error(w, "Kopija nije spremljena: "+err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -96,8 +97,8 @@ func (h *SettingsHandler) HandleKopijaKljuca(w http.ResponseWriter, r *http.Requ
 
 // provjeriLozinkuRacuna provjerava trenutnu lozinku osobe, uz isto
 // ograničenje krivih upisa kao pri promjeni lozinke
-func (h *SettingsHandler) provjeriLozinkuRacuna(u *models.User, lozinka string) error {
-	return ponovnaLozinkaRacuna(h.lozinkaRacuna, u, lozinka)
+func (h *SettingsHandler) provjeriLozinkuRacuna(ctx context.Context, u *models.User, lozinka string) error {
+	return ponovnaLozinkaRacuna(ctx, h.lozinkaRacuna, u, lozinka)
 }
 
 // HandleUcitajKopijuKljuca je gumb Učitaj kopiju ključa: nakon njega ovo

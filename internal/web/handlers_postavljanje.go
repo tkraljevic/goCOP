@@ -51,6 +51,11 @@ type PostavljanjeHandler struct {
 
 	mu     sync.Mutex
 	krivih int
+
+	// privremene lozinke računa iz imenika (handlers_pocetne_lozinke.go)
+	lozinke     pocetneLozinke
+	tmplLozinke *template.Template
+	preuzete    func() error // zapisuje da je popis preuzet
 }
 
 // PostavljanjeData su podaci za postavljanje.html
@@ -88,9 +93,14 @@ func (h *PostavljanjeHandler) dopusteno(r *http.Request, kod string) bool {
 	if !k.IzLokalneMreze() {
 		return false
 	}
-	if k.Posrednik.IsLoopback() {
+	if k.SOvogRacunala() {
 		return true
 	}
+	return h.tocanKod(kod)
+}
+
+// tocanKod provjerava kod iz dnevnika; deset promašaja i kod više ne vrijedi
+func (h *PostavljanjeHandler) tocanKod(kod string) bool {
 	kod = strings.ToUpper(strings.TrimSpace(kod))
 	if kod == "" {
 		return false

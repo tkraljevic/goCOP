@@ -257,13 +257,16 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
   SameSite Lax, a iza HTTPS-a (i tunela) i `Secure`; traje do isteka ili
   odjave. Promjena ili poništenje lozinke gasi ostale prijave te osobe na
-  istom čvoru; prijave na drugim čvorovima traju do isteka (najviše 24 h).
-  Na istom čvoru briše i zapamćena računala, prijave koje čekaju PIN i
-  privremene kodove te osobe.
-- **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
-  vlastiti profil i odjavu. Zadana lozinka je javna, pa izvana (kroz tunel)
-  ne vrijedi: prva prijava njome ide iz lokalne mreže, a izvana s privremenom
-  lozinkom koju izda administrator (Korisnici → Poništi lozinku).
+  istom čvoru, a na drugim čvorovima kad nova lozinka stigne razmjenom; tada
+  ondje prestaju i prijave koje čekaju PIN. Na istom čvoru briše i zapamćena
+  računala, prijave koje čekaju PIN i privremene kodove te osobe.
+- **Privremena lozinka mora se promijeniti.** Do tada račun može otvoriti
+  samo vlastiti profil i odjavu. Računi iz imenika dobiju svaki svoju
+  privremenu lozinku pri prvom punjenju; popis se jednom preuzima na
+  `/postavljanje/lozinke` i nigdje se ne sprema. Računi iz starijih izdanja
+  koji još imaju staru zajedničku početnu lozinku prvi put se prijavljuju
+  samo iz lokalne mreže; izvana s privremenom lozinkom koju izda
+  administrator (Korisnici → Poništi lozinku).
 - **Pogađanje lozinki je ograničeno.** Pet neuspjeha za isto ime s iste adrese
   u 15 minuta, ili dvadeset s iste adrese, blokira na 15 minuta; trideset za
   isto ime izvana u satu blokira to ime izvana na 30 minuta (prijava iz lokalne
@@ -272,7 +275,15 @@ Portovi se mijenjaju u `gocop.toml`.
 - **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
   ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
   šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
-  lokalne mreže PIN nikad ne traži. Na računalu s Tailscaleom lokalan je i
+  lokalne mreže PIN nikad ne traži kad je goCOP otvoren na adresu
+  (`http://192.168.1.20`), na ime računala (`http://tower`,
+  `http://tower.local`), na `localhost`, na `javna_adresa` ili na ime iz
+  `[web] lokalna_imena` (npr. `lokalna_imena = ['gocop.voda.hr']` kad DNS
+  ureda to ime vodi na čvor); na drugo ime prijava vrijedi kao izvana.
+  Tailscaleovo ime (`tower.tail1234.ts.net`) vrijedi samo kad zahtjev stigne
+  na Tailscale adresu računala. Pod Postavom početna lozinka i postavljanje
+  novog čvora bez koda rade samo s tog računala na `http://localhost`
+  (tako ga otvara ikona u traci). Na računalu s Tailscaleom lokalan je i
   izravan zahtjev na Tailscale adresu tog računala, npr.
   `http://100.x.y.z`; to isključuje `[web] tailscale_lokalno = false`, i tada
   takav zahtjev traži PIN, i preko IPv6. Na računalu bez Tailscalea to ne
@@ -334,8 +345,15 @@ Portovi se mijenjaju u `gocop.toml`.
   pješčaniku; u pregledniku se otvaraju samo PNG, JPEG, GIF i WebP.
 - **Ograničenja.** Obična stranica ima minutu za zahtjev i pet minuta za
   odgovor, uvozi i izvozi 30 minuta; tijelo zahtjeva je zadano do 2 MB, a
-  rute s datotekama imaju svoje granice. Poruka razmjene najviše 256 MiB,
-  tunel razmjene najviše 32 veze i 2 po klijentu, rukovanje kroz tunel 5 s.
+  rute s datotekama imaju svoje granice. Poruka razmjene ima granicu po
+  vrsti (sadržaj do 128 MiB, verzije do 64 MiB, ostale poruke manje).
+  Dok se računalo ne predstavi ključem čvora, port razmjene i tunel broje
+  veze po adresi s koje dolaze, a veza koja ne započne rukovanje u 2 s (kroz
+  tunel 3 s) zatvara se. Računalo koje je dokazalo ključ ima svoja mjesta, a
+  adresa s koje se član spojio u zadnja 24 sata ulazi i kad su ostala mjesta
+  puna. Posrednik pred portom razmjene (npr. Dockerov `userland-proxy` ili
+  nginx `stream`) mora čuvati izvornu adresu; inače sva računala dolaze s
+  jedne adrese i dijele ista mjesta.
 - **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
   šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva
   ni bajt. Kod se dogovara s obvezom unaprijed (strana koja zove obveže se
@@ -666,13 +684,26 @@ ispiše u dnevnik (`Postavljanje: … ?kod=7KQ4-M2XD`; u spremniku u dnevniku
 spremnika). Kroz tunel i s javne adrese je nema; deset krivih kodova ga gasi
 do ponovnog pokretanja.
 
-Početni račun `admin` s lozinkom iz ovih uputa ostaje za prijelaz (ručno
-pokretanje, poslužitelji): vrijedi iz lokalne mreže (privatna adresa), a kroz
-tunel i s javne adrese ne — ni kad je čvor izravno izložen kroz proslijeđen
-port. Svjež čvor ipak ne izlagati internetu prije postavljanja. Na
-čvoru koji pokreće Postava vrijedi **samo s tog računala**, jer čvor sluša za
-cijelu lokalnu mrežu, pa bi ga u uredu inače mogao preuzeti bilo tko prije
-administratora.
+Bez imenika lozinku početnog računa `admin` nitko ne zna; svjež čvor se
+postavlja na stranici *Postavljanje*. Svjež čvor ipak ne izlagati internetu
+prije postavljanja.
+
+Kad uz bazu stoji `imenik.json`, čvor nije svjež: djelatnici se upišu pri
+prvom pokretanju, svaki sa svojom privremenom lozinkom, a s njima i račun
+`admin` ako ga imenik nema. Dnevnik tada javi gdje je popis
+(`Postavljanje: … /postavljanje/lozinke?kod=…`). Popis se preuzima jednom,
+istim pravilom kao *Postavljanje*: s tog računala bez koda (na adresi
+`localhost`), iz lokalne mreže s kodom iz dnevnika. Lozinke se ne pišu u
+dnevnik ni u datoteku, pa nakon preuzimanja popisa više nema. Ako se čvor
+ugasi prije preuzimanja (npr. nakon `gocop -ugovor`), pri sljedećem
+pokretanju računi koje nitko nije mijenjao dobiju nove privremene lozinke i
+novi popis. Kome lozinka nedostaje, globalni administrator daje novu u
+Korisnicima (Poništi lozinku); ako se nitko ne može prijaviti,
+`gocop -ponisti-lozinku ime` na računalu čvora da privremenu lozinku
+globalnom administratoru.
+
+Popis vrijedi za čvor koji ga je složio. Imenik zato stavite uz bazu samo
+prvog čvora mreže; ostali čvorovi djelatnike dobiju razmjenom.
 
 Prvi korak u programu je registar Administrativna organizacija: sektori, pa
 branjena područja. Ako uz bazu stoje datoteke registara i imenika, učita i
@@ -744,9 +775,10 @@ roka; od 0.0.24-alfa čuva i zadnju verziju
 koju je svaki čvor upisao u kanal, a akt i zadnju verziju svake svoje
 ovjere), vraća prostor na disku, te izdaje kanal
 kao potpisan `.cop` paket (npr. `gocop-ocitanja-bp16-2024_v1.cop`, po izboru s PDF-ovima i slikama;
-stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u bilo koji čvor:
-arhiva na disku ili prijenos bez mreže. Stari `.db` oblik nema potpis, pa ga
-globalni administrator uvozi samo s tog računala ili iz lokalne mreže. Na stranici prijave stoji kontakt
+stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u računalo iste
+mreže: arhiva na disku ili prijenos bez mreže. Računalo koje još nije u mreži
+ugrađuje samo vlastite pakete. Stari `.db` oblik nema potpis, pa ga globalni
+administrator uvozi samo s tog računala ili iz lokalne mreže. Na stranici prijave stoji kontakt
 glavnog administratora iz registra (mobitel, e-pošta) i centar iz
 `gocop.toml` (odjeljak `[kontakt]`).
 
@@ -975,6 +1007,8 @@ obrane, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži
 (ista kuća ili ured); unutarnja mreža Hrvatskih voda među gradovima i VPN
 tada se računaju kao internet. U Dockeru uz most (bridge) čvor dok traje
 obrana kartu ne prima ni ne daje. Uz mrežu računala (host) radi kao i drugi.
+Novo računalo najprije se primi u mrežu, a tek onda ugradi paket `.cop`
+s drugog računala.
 
 0.0.46-alfa radi uz 0.0.37–0.0.45-alfa i razmjena s njima ide
 kao i dosad. Baza se ne mijenja, pa se na 0.0.45-alfa može vratiti bez kopije

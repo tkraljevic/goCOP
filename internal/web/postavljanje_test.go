@@ -28,7 +28,7 @@ type okolinaPostavljanja struct {
 
 func novaOkolinaPostavljanja(t *testing.T) *okolinaPostavljanja {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", db.ZadanaLozinka, true, true)
+	o.racun("admin", staraPocetnaLozinka, true, true)
 	dbPath := filepath.Join(t.TempDir(), "cvor.db")
 	cvor, err := peers.LoadNode(dbPath, "pperic-thinkpad", "ThinkPad", "test")
 	if err != nil {
@@ -55,6 +55,7 @@ func novaOkolinaPostavljanja(t *testing.T) *okolinaPostavljanja {
 
 func lokalno(r *http.Request) *http.Request {
 	r.RemoteAddr = "127.0.0.1:40000"
+	r.Host = "localhost:1160"
 	return r
 }
 
@@ -138,7 +139,7 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	}{
 		{"različite lozinke", obrazac("lozinka2", "druga-lozinka-1")},
 		{"kratka lozinka", obrazac("lozinka", "kratka", "lozinka2", "kratka")},
-		{"javna lozinka", obrazac("lozinka", db.ZadanaLozinka, "lozinka2", db.ZadanaLozinka)},
+		{"javna lozinka", obrazac("lozinka", staraPocetnaLozinka, "lozinka2", staraPocetnaLozinka)},
 		{"korisnik admin", obrazac("korisnik", "admin")},
 		{"bez naziva mreže", obrazac("mreza", " ")},
 		{"bez potvrde da je to nova mreža", obrazac("razumijem", "")},
@@ -165,7 +166,7 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	if n := o.mreza.NetworkInfo(); n == nil || !n.CanAdmit || n.Name != "Hrvatske vode — COP Osijek" {
 		t.Errorf("mreža: %+v", n)
 	}
-	if w := o.prijava(lokalno, "admin", db.ZadanaLozinka); kolacicSesije(w) != nil {
+	if w := o.prijava(lokalno, "admin", staraPocetnaLozinka); kolacicSesije(w) != nil {
 		t.Error("početni admin se i dalje prijavljuje")
 	}
 
@@ -181,23 +182,23 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	}
 }
 
-// Pod Postavom javna početna lozinka vrijedi samo s ovog računala
+// Pod Postavom stara zajednička početna lozinka vrijedi samo s ovog računala
 func TestPocetnaLozinkaPodPostavomSamoLokalno(t *testing.T) {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", db.ZadanaLozinka, true, true)
+	o.racun("admin", staraPocetnaLozinka, true, true)
 	podPostavom := true
 	o.authH.samoOvoRacunalo = func() bool { return podPostavom }
 
-	if w := o.prijava(izravno, "admin", db.ZadanaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
+	if w := o.prijava(izravno, "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
 		t.Errorf("iz lokalne mreže pod Postavom: %d", w.Code)
 	}
-	if w := o.prijava(lokalno, "admin", db.ZadanaLozinka); kolacicSesije(w) == nil {
+	if w := o.prijava(lokalno, "admin", staraPocetnaLozinka); kolacicSesije(w) == nil {
 		t.Errorf("s ovog računala pod Postavom: %d %q", w.Code, w.Body.String())
 	}
 	// bez Postave (NAS, ručno pokretanje) iz lokalne mreže kao dosad
 	podPostavom = false
 	ponovnaLozinka = newLoginLimiter()
-	if w := o.prijava(izravno, "admin", db.ZadanaLozinka); kolacicSesije(w) == nil {
+	if w := o.prijava(izravno, "admin", staraPocetnaLozinka); kolacicSesije(w) == nil {
 		t.Errorf("bez Postave iz lokalne mreže: %d %q", w.Code, w.Body.String())
 	}
 }

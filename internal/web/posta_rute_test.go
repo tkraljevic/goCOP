@@ -553,4 +553,12 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	if v, _ := users.GetUserByID(voditelj.ID); v.Email != "voditelj@voda.hr" || !strings.Contains(loc, "Svoju adresu e-pošte") {
 		t.Errorf("samo vlastita adresa: %q, %s", v.Email, loc)
 	}
+
+	// lozinka e-pošte briše se s ovog računala, bez brojanja upisa
+	if loc := post("/profile/posta", url.Values{"obrisi": {"1"}}); !strings.Contains(loc, "obrisana") {
+		t.Errorf("brisanje lozinke e-pošte: %s", loc)
+	}
+	if n := 0; baza.QueryRow(`SELECT COUNT(*) FROM posta_racuni`).Scan(&n) != nil || n != 0 {
+		t.Errorf("lozinka e-pošte ostala: %d", n)
+	}
 }

@@ -17,7 +17,6 @@ import (
 	"regexp"
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -50,10 +49,8 @@ func (s SHMU) Prepoznaje(adresa string) bool { return PostajaSHMUIzAdrese(adresa
 
 // PostajaSHMUIzAdrese vraća broj postaje iz adrese; 0 kad adresa nije njihova
 func PostajaSHMUIzAdrese(adresa string) int {
-	if !strings.Contains(strings.ToLower(adresa), "shmu.sk") {
-		return 0
-	}
-	m := reSHMUPostaja.FindStringSubmatch(adresa)
+	_, upit := dioIzvora(adresa, "shmu.sk")
+	m := reSHMUPostaja.FindStringSubmatch(upit)
 	if m == nil {
 		return 0
 	}
@@ -66,12 +63,14 @@ func AdresaSHMU(postajaID int) string {
 	return AdresaSHMUPostaje + "&station_id=" + strconv.Itoa(postajaID)
 }
 
-// Ocitanja čita vrijednosti s adrese, najstarije prvo
+// Ocitanja čita vrijednosti postaje s adrese, najstarije prvo. Iz adrese se
+// uzima samo broj postaje; stranica se čita sa shmu.sk.
 func (s SHMU) Ocitanja(ctx context.Context, adresa string) ([]Redak, error) {
 	id := PostajaSHMUIzAdrese(adresa)
 	if id <= 0 {
 		return nil, fmt.Errorf("adresa nema broj postaje (station_id=…)")
 	}
+	adresa = AdresaSHMU(id)
 	if s.Base != "" {
 		adresa = s.Base + "?page=765&station_id=" + strconv.Itoa(id)
 	}

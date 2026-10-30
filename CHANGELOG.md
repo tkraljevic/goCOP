@@ -6,6 +6,28 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
+  lozinke ili uključenosti globalnog administratora i dužnosti uprave
+  organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni
+  administrator, na stranici Stanje razmjene (Odluke (30. 10. 2026.)).
+- **Primanje verzija: oznaka u sadržaju mora biti oznaka zapisa.** Zapis
+  primljen s drugog računala upisuje se samo kad oznaka u njegovu sadržaju
+  odgovara oznaci zapisa. Verzija s drugom oznakom ostaje zapisana i dalje
+  se prenosi, ali ne mijenja podatke na ovom računalu, a u dnevniku
+  programa ostaje bilješka o tome. Primljeno brisanje područja, županije,
+  općine ili naselja provodi se samo kad je oznaka zapisa običan broj, bez
+  vodećih nula i predznaka.
+- **Nadogradnja: samo novije izdanje.** Ikona u traci nudi i postavlja
+  samo izdanje novije od postavljenog, na svim sustavima. Na Linuxu
+  preuzeti program mora javiti baš to izdanje, a instalacijska skripta
+  pokreće se iz kopije u mapi koju piše samo root, nakon još jedne provjere
+  SHA-256. Nadogradnju s 0.0.46-alfa najbolje je napraviti ručno.
+- **Početne lozinke: svaki račun iz imenika dobije svoju.** Zajedničke
+  početne lozinke više nema. Pri prvom punjenju iz imenika svaki račun
+  dobije svoju privremenu lozinku; popis se jednom preuzme na tom računalu
+  (stranica Postavljanje › privremene lozinke) i preda ljudima, a lozinka se
+  mijenja pri prvoj prijavi. Popis koji nitko nije preuzeo sljedeće
+  pokretanje složi iznova. U bazi je samo sažetak (Odluke (30. 10. 2026.)).
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.
@@ -59,6 +81,37 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Akti, događanja i vodočuvarski dnevnik traže Dokumentaciju; vodočuvar svoj
   dnevnik vodi i bez nje. Izvođač na zidu ne vidi dnevnik COP-a ni
   dežurstva.
+- **Opoziv člana oduzima i ovlast za primanje.** Kad računalo s ključem
+  mreže opozove člana, uvijek mu opozove i ovlast za primanje novih
+  računala, svaku izdanu do tog trenutka, i onu za koju to računalo još ne
+  zna, i kad je članu članstvo već isteklo. Program opoziv provjerava i u
+  knjizi primljenih zapisa, ne samo u popisu opoziva. U popis opoziva
+  ulazi samo opoziv čija oznaka odgovara sadržaju i potpisu.
+- **Razgovor razmjene: ograde onoga što stiže s drugog računala.** Svaka
+  vrsta poruke ima svoju najveću veličinu, a verzija koja se ne bi dala
+  poslati dalje ne prima se. Od onoga što drugo računalo javi pamti se
+  najviše 32 oznake mogućnosti, kratak razlog odbijanja, kratko izdanje
+  programa i kratko ime računala. Sadržaj se prima samo kad ga je ovo
+  računalo tražilo.
+- **Vrata razmjene i tunel: mjesta po adresi i rok rukovanja.** Na portu
+  razmjene i kroz tunel veze se ograđuju po adresi, a veza koja ne započne
+  rukovanje u 2 s (kroz tunel 3 s) zatvara se.
+- **Provjere pri uvozu: paketi, vodomjerenja i godišnjaci.** Paket arhive i
+  kazalo primaju samo letvu čiji naziv vrijedi i kao naziv mape, najviše
+  64 bajta. Izdavanje piše pakete samo u mapu paketa i preskače letvu koja se
+  od druge razlikuje samo po velikim i malim slovima. Paket kanala (.cop)
+  prvo provjeri potpis i izdavača, svaki dio čita do njegove granice, zapise
+  i popis sadržaja samo do broja iz manifesta, a sadržaj uzima samo kad ga
+  navodi zapis iz paketa. Tablica vodomjerenja HIS-2000 s redom ili stupcem
+  izvan radne tablice ili s previše ćelija javlja grešku. Čitanje godišnjaka
+  iz PDF-a staje nakon dvije minute ili kad se pregled zatvori. Kućni server
+  nadogradite prvi.
+- **Javni izvori vodostaja čitaju se i otvaraju samo na poslužitelju izvora.**
+  Odgovori vanjskih usluga čitaju se do granice, certifikat mletva.voda.hr
+  provjerava se po otisku, a poruka o prijavi na HydroView navodi samo put.
+- **Ugradnja .cop paketa: samo iz iste mreže.** Računalo ugrađuje paket
+  podataka samo kad ga je izdalo računalo iste mreže. Računalo koje još
+  nije u mreži ugrađuje samo vlastite pakete.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.
@@ -159,6 +212,23 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sektor svog branjenog područja. Uprava sad može maknuti svoje mjesto rada
   s firme koja radi i drugdje. Obavijesti o djelatnicima više ne nose ime
   osobe, a granice županija i općina s kontaktima čuva samo preglednik.
+
+- **Prijem verzija: oznaka verzije mora biti ispravnog oblika.** Razmjena,
+  arhiva i COP paket primaju samo oznaku u obliku koji program sam daje, s
+  vremenom najviše pet minuta ispred sata, a granica razmjene broji samo
+  takve. Ostale se preskoče, a razmjena ide dalje. Stanje razmjene javi
+  kad sat drugog računala odstupa.
+- **Prijava i sesije.** Promijenjena ili poništena lozinka sad zatvara
+  prijave te osobe i na drugim računalima, kad promjena stigne razmjenom,
+  i ondje prijave koje čekaju PIN. Nakon nadogradnje svi se jednom ponovno
+  prijave. Granica krivih lozinki i PIN-ova vrijedi i kad mnogo pokušaja
+  stigne u istom trenutku, a krivi upisi lozinke u jednoj prijavi ne
+  zaključavaju promjenu lozinke u drugoj. Otvorena stranica prestaje
+  primati novosti kad prijava prestane. Prijava na ime koje ne vodi na ovo
+  računalo vrijedi kao prijava izvana; na adresu, ime računala u mreži,
+  localhost, upisanu javnu adresu i imena iz `[web] lokalna_imena` sve radi
+  kao prije. Pod Postavom početna lozinka vrijedi samo na
+  `http://localhost`.
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

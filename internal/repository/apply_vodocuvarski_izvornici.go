@@ -61,7 +61,8 @@ func primijeniIzvornike(ctx context.Context, tx *sql.Tx, id string, s slozeniLis
 }
 
 // verzijeIzvornikaTx čita sve verzije izvornika zapisa iz knjige, od
-// najstarije
+// najstarije, bez žive verzije koja u sadržaju nosi izvornik lista druge
+// oznake (izvornikPodOznakom)
 func verzijeIzvornikaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaIzvornika, error) {
 	rows, err := tx.QueryContext(ctx, `SELECT archived, channel, payload, node_id, version_id FROM record_versions
 		WHERE entity = ? AND entity_id = ? ORDER BY version_id`, EntityVodocuvarskiIzvornici, id)
@@ -81,7 +82,11 @@ func verzijeIzvornikaTx(ctx context.Context, tx *sql.Tx, id string) ([]verzijaIz
 		if err := json.Unmarshal([]byte(payload), &v.iz); err != nil {
 			return nil, fmt.Errorf("verzija izvornika lista %s: %w", id, err)
 		}
-		out = append(out, v)
+		if v.arhivirana || izvornikPodOznakom(id, v.iz) {
+			out = append(out, v)
+		} else {
+			zabiljeziDruguOznaku(verzijaZaDnevnik(EntityVodocuvarskiIzvornici, id, v.cvor, v.verzija), v.iz.ListID)
+		}
 	}
 	return out, rows.Err()
 }

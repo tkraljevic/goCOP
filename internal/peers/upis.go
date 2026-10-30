@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"gocop/internal/ledger"
@@ -156,22 +157,46 @@ func (s *Service) suziNakonUpisa(ctx context.Context, p promjenaRupa, upis error
 	}
 }
 
-// preskociNeispravne izostavi primljene verzije koje knjiga ne prima
-// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji, s putem kojim
-// su stigle (razmjena ili uvoz); ostale prođu. Izostavlja ih već ovdje, a ne
-// samo knjiga, jer površina smije dobiti samo ispravne: zbog jedne
-// neispravne pala bi za cijeli paket. Sadržaj ne ide u dnevnik, a autor je
-// pod navodnicima jer ga piše druga strana. To nisu neispravne verzije iz
-// vlastite knjige (zabiljeziNeispravne), pa se ne broje na ploči.
+// preskociNeispravne izostavi primljene verzije koje knjiga ovog računala
+// ne prima (ledger.ProvjeriPrimljenu): bez oznake, entiteta ili
+// identifikatora zapisa, s oznakom koja nije ispravnog oblika, sa znakom |
+// u imenu autora ili kanala, s vremenom predaleko u budućnosti, ili s
+// imenom ovog računala i vremenom ispred njegova sata. Ostale prođu, a
+// razgovor zbog njih ne staje. Neispravnu zapiše u dnevnik jednom po
+// verziji, s putem kojim je stigla (razmjena ili uvoz) i razlogom; verzije
+// preskočene samo zbog vremena zapiše jednim retkom po autoru
+// (zabiljeziKasne), jer ih uz krivi sat stiže mnogo i stići će kad im
+// vrijeme dođe. Izostavlja ih već ovdje, a ne samo knjiga, jer površina
+// smije dobiti samo ispravne: zbog jedne neispravne pala bi za cijeli
+// paket. Sadržaj ne ide u dnevnik, a autor je pod navodnicima jer ga piše
+// druga strana. To nisu neispravne verzije iz vlastite knjige
+// (zabiljeziNeispravne), pa se ne broje na ploči.
 func (s *Service) preskociNeispravne(put string, verzije []ledger.Version) []ledger.Version {
-	ispravne, neispravne := ledger.Ispravne(verzije)
-	for _, v := range neispravne {
-		kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
-		if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
-			log.Printf("%s: primljena verzija %q (entitet %q, zapis %q, autor %q) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID)
+	sada := ledger.Sada()
+	ispravne := make([]ledger.Version, 0, len(verzije))
+	var kasne kasneVerzije
+	for _, v := range verzije {
+		zasto := ledger.ProvjeriPrimljenu(v, s.node.ID, sada)
+		switch {
+		case zasto == nil:
+			ispravne = append(ispravne, v)
+		case kasni(zasto):
+			kasne.dodaj(v, zasto)
+		default:
+			s.zabiljeziPreskocenu(put, v, zasto)
 		}
 	}
+	s.zabiljeziKasne(put, kasne)
 	return ispravne
+}
+
+// zabiljeziPreskocenu zapiše u dnevnik primljenu neispravnu verziju, jednom
+// po verziji
+func (s *Service) zabiljeziPreskocenu(put string, v ledger.Version, zasto error) {
+	kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
+	if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
+		log.Printf("%s: primljena verzija %.80q (entitet %.80q, zapis %.80q, autor %.80q) %v i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID, zasto)
+	}
 }
 
 // primiSadrzajAkoStigne upisuje primljeni sadržaj, ako brava stigne unutar
@@ -203,10 +228,10 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 		kraj, _ := razmjena.NewEnvelope(kindDone, doneMsg{})
 		kraj.DeviceID = s.node.ID
 		_ = c.Send(kraj)
-		_, _ = c.Receive()
+		_, _ = c.PrimiDo(ogradaPoruke(kindDone)) // kraj druge strane samo se pročita prije zatvaranja
 	default:
 		s.odbiliSmo(RazlogUpisZauzet, c.PeerKey)
-		_, _ = c.Receive()
+		_, _ = c.PrimiDo(ogradaPoruke(kindZelje)) // želje ili kraj pozivatelja
 		_ = c.Send(razmjena.Odbijenica(razmjena.KodUpisZauzet, razlogUpisZauzet))
 	}
 }
@@ -217,13 +242,75 @@ func (s *Service) zavrsiZauzet(c *razmjena.Conn, initiator bool, err error) {
 // upisao („database is locked” bez čekanja). Razgovor je tada gotov, pa
 // smije čekati. Put veze pamti se samo u memoriji, pa ne čeka bravu.
 func (s *Service) zabiljezi(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
+	s.upisiBiljesku(ctx, peer, s.izVeze(peer, c, o))
+}
+
+// izVeze uzme od veze sve što bilješka treba: put zadnje veze (samo u
+// memoriji), put, brojače i adresu za učenje. Bilješka tako ne drži vezu
+// dok čeka bravu.
+func (s *Service) izVeze(peer *Peer, c *razmjena.Conn, o syncOutcome) syncOutcome {
 	s.zapamtiPut(peer, c)
 	o = o.uzVezu(c)
+	if peer != nil {
+		o.ucenje, _ = s.adresaZaUcenje(peer, c, o.dolazna) // veza koja ne smije učiti daje praznu adresu
+	}
+	return o
+}
+
+// upisiBiljesku upisuje bilješku kad dobije bravu upisa
+func (s *Service) upisiBiljesku(ctx context.Context, peer *Peer, o syncOutcome) {
 	if err := s.uzmiBravu(ctx); err != nil {
 		return
 	}
 	defer s.pustiBravu()
-	s.noteSync(ctx, peer, c, o)
+	s.noteSync(ctx, peer, o)
+}
+
+// biljeskeNaCekanju su bilješke dolaznih razmjena koje čekaju bravu upisa,
+// najviše jedna po računalu
+type biljeskeNaCekanju struct {
+	mu   sync.Mutex
+	ceka map[string]biljeskaNaCekanju
+}
+
+type biljeskaNaCekanju struct {
+	peer *Peer
+	o    syncOutcome
+}
+
+// zabiljeziKasnije upisuje bilješku dolazne razmjene u svojoj gorutini,
+// jer mjesto razmjene treba sljedećem. Dok bilješka istog računala još
+// čeka bravu (npr. za dugog uvoza), novija je zamijeni, pa ne čeka više
+// gorutina ni ishoda nego što ima računala.
+func (s *Service) zabiljeziKasnije(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
+	if peer == nil {
+		return
+	}
+	o = s.izVeze(peer, c, o)
+	s.biljeske.mu.Lock()
+	if s.biljeske.ceka == nil {
+		s.biljeske.ceka = map[string]biljeskaNaCekanju{}
+	}
+	_, ceka := s.biljeske.ceka[peer.NodeID]
+	s.biljeske.ceka[peer.NodeID] = biljeskaNaCekanju{peer: peer, o: o}
+	s.biljeske.mu.Unlock()
+	if !ceka {
+		go s.upisiNaCekanju(ctx, peer.NodeID)
+	}
+}
+
+// upisiNaCekanju čeka bravu i upiše najnoviju bilješku računala koja čeka
+func (s *Service) upisiNaCekanju(ctx context.Context, nodeID string) {
+	err := s.uzmiBravu(ctx)
+	s.biljeske.mu.Lock()
+	b := s.biljeske.ceka[nodeID]
+	delete(s.biljeske.ceka, nodeID)
+	s.biljeske.mu.Unlock()
+	if err != nil {
+		return
+	}
+	defer s.pustiBravu()
+	s.noteSync(ctx, b.peer, b.o)
 }
 
 // javiPovrsinu zapisuje u dnevnik da površina nije osvježena
@@ -243,12 +330,13 @@ type odbijenaRazmjena struct {
 func (e odbijenaRazmjena) Error() string { return "čvor odbio razmjenu: " + e.razlog }
 
 // neocekivanaPoruka je greška za poruku druge strane koja nije ona koju
-// razgovor čeka; odbijenica nosi razlog i kod druge strane
+// razgovor čeka; odbijenica nosi razlog i kod druge strane. Pamti se i
+// prikazuje najviše najduljiRazlog bajtova razloga i 40 znakova vrste.
 func neocekivanaPoruka(kind string, e razmjena.Envelope) error {
 	if e.Reason != "" {
-		return odbijenaRazmjena{razlog: e.Reason, kod: kodOdbijenice(e)}
+		return odbijenaRazmjena{razlog: skrati(e.Reason, najduljiRazlog), kod: kodOdbijenice(e)}
 	}
-	return fmt.Errorf("očekivana poruka %q, stigla %q", kind, e.Kind)
+	return fmt.Errorf("očekivana poruka %q, stigla %.40q", kind, e.Kind)
 }
 
 // kodoviStarijih su kodovi odbijenica čvora 0.0.38, koji šalje samo razlog;

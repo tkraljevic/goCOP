@@ -9,10 +9,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
 	"runtime"
+	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -65,6 +68,28 @@ func datotekeIzdanja(sPostavom bool) map[string][]byte {
 		d[imePostave(runtime.GOOS, runtime.GOARCH)] = []byte("postava")
 	}
 	return d
+}
+
+// izdanjeSProgramom su datoteke izdanja s lažnim čvorom koji na -version
+// javlja izd
+func izdanjeSProgramom(t *testing.T, izd string, sPostavom bool) map[string][]byte {
+	t.Helper()
+	d := datotekeIzdanja(sPostavom)
+	d[izdanje.ImeDatoteke(runtime.GOOS, runtime.GOARCH)] = prevedi(t, t.TempDir(), izd, "radi")
+	return d
+}
+
+// postaviProgram stavlja program usluge u privremenu mapu: lažni čvor
+// izdanja izd, ili ništa kad je izd prazno
+func postaviProgram(t *testing.T, p *Postava, izd string) {
+	t.Helper()
+	p.M.Program = t.TempDir()
+	if izd == "" {
+		return
+	}
+	if err := os.WriteFile(p.M.Gocop(), prevedi(t, t.TempDir(), izd, "radi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 }
 
 // novaPostava je Postava u privremenoj mapi; usluga kaže ima li na
@@ -190,10 +215,14 @@ func TestPrviPutUzUsluguUkljucujePriPrijaviJednom(t *testing.T) {
 	}
 }
 
-// lazniCvor bilježi što je Postava tražila od vlastitog čvora
-type lazniCvor struct{ zaustavljen int }
+// lazniCvor bilježi što je Postava tražila od vlastitog čvora; nema znači
+// da čvor još nije instaliran
+type lazniCvor struct {
+	zaustavljen int
+	nema        bool
+}
 
-func (c *lazniCvor) Instaliran() bool                       { return true }
+func (c *lazniCvor) Instaliran() bool                       { return !c.nema }
 func (c *lazniCvor) Pokreni() error                         { return nil }
 func (c *lazniCvor) Zaustavi(time.Duration) error           { c.zaustavljen++; return nil }
 func (c *lazniCvor) Proces() StanjeProcesa                  { return StanjeProcesa{Radi: c.zaustavljen == 0} }
@@ -240,6 +269,7 @@ func TestNadogradnjaUsluge(t *testing.T) {
 	_, postavke := posluziZdravlje(t, &izd, &mu)
 	l := noviSustav("active")
 	p := postavaUzUslugu(t, l, postavke)
+	postaviProgram(t, p, "0.0.35-alfa")
 	p.Ugradnja.Kljucevi = []ed25519.PublicKey{javni}
 	g := noviGitHub(t)
 	p.Ugradnja.Izdanja = g.izdanjaZa()
@@ -247,15 +277,17 @@ func TestNadogradnjaUsluge(t *testing.T) {
 	program := izdanje.ImeDatoteke(runtime.GOOS, runtime.GOARCH)
 
 	// pkexec: provjeri što je pripremljeno i „nadogradi” lažni čvor
-	var naredba []string
+	var naredba, uMapiImena []string
 	var uMapi map[string]string
 	l.pkexec = func(arg []string) ([]byte, error) {
 		naredba = arg
 		uMapi = map[string]string{}
-		stavke, _ := os.ReadDir(filepath.Dir(arg[1]))
+		uMapiImena = nil
+		stavke, _ := os.ReadDir(arg[4]) // prazna mapa ispadne u usporedbi niže
 		for _, s := range stavke {
-			b, _ := os.ReadFile(filepath.Join(filepath.Dir(arg[1]), s.Name()))
+			b, _ := os.ReadFile(filepath.Join(arg[4], s.Name())) // nepročitano ispadne u usporedbi niže
 			uMapi[s.Name()] = string(b)
+			uMapiImena = append(uMapiImena, s.Name())
 		}
 		mu.Lock()
 		izd = "0.0.36-alfa"
@@ -263,7 +295,8 @@ func TestNadogradnjaUsluge(t *testing.T) {
 		return []byte("→ provjeravam potpis izdanja\ngoCOP 0.0.36-alfa radi kao usluga gocop\n"), nil
 	}
 
-	g.objavi("v0.0.36-alfa", datotekeIzdanja(true), kljuc, "")
+	zelim := izdanjeSProgramom(t, "0.0.36-alfa", true)
+	g.objavi("v0.0.36-alfa", zelim, kljuc, "")
 	if err := p.Provjeri(ctx); err != nil {
 		t.Fatal(err)
 	}
@@ -275,20 +308,29 @@ func TestNadogradnjaUsluge(t *testing.T) {
 	if err != nil || novo != "0.0.36-alfa" {
 		t.Fatalf("nadogradnja: %q %v", novo, err)
 	}
-	if len(naredba) != 3 || naredba[0] != "/usr/bin/bash" || filepath.Base(naredba[1]) != imeSkripte ||
-		naredba[2] != filepath.Join(filepath.Dir(naredba[1]), program) || !filepath.IsAbs(naredba[1]) {
+	// bash -c prijenosKaoRoot ime mapa zbroj-SHA256SUMS zbroj-skripte program datoteke...
+	if len(naredba) < 8 || naredba[0] != "/usr/bin/bash" || naredba[1] != "-c" || naredba[2] != prijenosKaoRoot ||
+		!strings.HasPrefix(naredba[4], p.M.Podaci) || naredba[7] != program {
 		t.Fatalf("pkexec %v", naredba)
 	}
-	zelim := datotekeIzdanja(true)
+	if naredba[5] != fmt.Sprintf("%x", sha256.Sum256([]byte(uMapi[izdanje.ImeZbrojeva]))) ||
+		naredba[6] != fmt.Sprintf("%x", sha256.Sum256(zelim[imeSkripte])) {
+		t.Errorf("zbrojevi za provjeru kao root: %v", naredba[5:7])
+	}
+	dat := append([]string{}, naredba[8:]...)
+	sort.Strings(dat)
+	if !reflect.DeepEqual(dat, uMapiImena) {
+		t.Errorf("datoteke za kopiju: %v, u mapi %v", naredba[8:], uMapiImena)
+	}
 	for n, b := range zelim {
 		if uMapi[n] != string(b) {
 			t.Errorf("u mapi za skriptu %s = %q", n, uMapi[n])
 		}
 	}
 	if uMapi[izdanje.ImeZbrojeva] == "" || uMapi[izdanje.ImePotpisa] == "" || len(uMapi) != len(zelim)+2 {
-		t.Errorf("u mapi za skriptu: %v", uMapi)
+		t.Errorf("u mapi za skriptu: %d datoteka", len(uMapi))
 	}
-	if _, err := os.Stat(filepath.Dir(naredba[1])); !os.IsNotExist(err) {
+	if _, err := os.Stat(naredba[4]); !os.IsNotExist(err) {
 		t.Error("mapa s preuzetim izdanjem ostala je nakon nadogradnje")
 	}
 	if b, _ := os.ReadFile(p.M.DnevnikPostave()); !strings.Contains(string(b), "radi kao usluga gocop") {
@@ -296,7 +338,7 @@ func TestNadogradnjaUsluge(t *testing.T) {
 	}
 
 	// odustajanje od lozinke i usluga koja nakon skripte ne radi
-	g.objavi("v0.0.37-alfa", datotekeIzdanja(false), kljuc, "")
+	g.objavi("v0.0.37-alfa", izdanjeSProgramom(t, "0.0.37-alfa", false), kljuc, "")
 	_ = p.Provjeri(ctx)
 	l.pkexec = func([]string) ([]byte, error) { return nil, izlazGreska(126) }
 	if _, err := p.Nadogradi(ctx); err == nil || !strings.Contains(err.Error(), "lozinka administratora nije upisana") {
@@ -317,8 +359,8 @@ func TestNadogradnjaUsluge(t *testing.T) {
 
 	// izdanje bez Postave: skripta dobiva samo čvor
 	l.pkexec = func(arg []string) ([]byte, error) {
-		_, err := os.Stat(filepath.Join(filepath.Dir(arg[1]), imePostave(runtime.GOOS, runtime.GOARCH)))
-		uMapi = map[string]string{"postava": fmt.Sprint(err == nil)}
+		_, err := os.Stat(filepath.Join(arg[4], imePostave(runtime.GOOS, runtime.GOARCH)))
+		uMapi = map[string]string{"postava": fmt.Sprint(err == nil || slices.Contains(arg[8:], imePostave(runtime.GOOS, runtime.GOARCH)))}
 		mu.Lock()
 		izd = "0.0.37-alfa"
 		mu.Unlock()
@@ -335,6 +377,7 @@ func TestNadogradnjaUslugeOdbijaPodmetnuto(t *testing.T) {
 	_, tudji, _ := ed25519.GenerateKey(rand.Reader)
 	l := noviSustav("active")
 	p := postavaUzUslugu(t, l, "")
+	postaviProgram(t, p, "0.0.35-alfa")
 	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
 	g := noviGitHub(t)
 	p.Ugradnja.Izdanja = g.izdanjaZa()
@@ -428,10 +471,14 @@ func TestPkexecZaNadogradnjuUsluge(t *testing.T) {
 	var dnevnik strings.Builder
 	pisi := func(f string, a ...any) { fmt.Fprintf(&dnevnik, f+"\n", a...) }
 
-	if err := u.Ugradi(ctx, mapa, "gocop-linux-amd64", pisi); err != nil {
+	z := ZaUslugu{Mapa: mapa, Program: "gocop-linux-amd64", Datoteke: []string{"SHA256SUMS", "instaliraj.sh", "gocop-linux-amd64"},
+		Zbrojevi: strings.Repeat("a", 64), Skripta: strings.Repeat("b", 64)}
+
+	if err := u.Ugradi(ctx, z, pisi); err != nil {
 		t.Fatal(err)
 	}
-	zelim := []string{"/usr/bin/pkexec", "/usr/bin/bash", filepath.Join(mapa, "instaliraj.sh"), filepath.Join(mapa, "gocop-linux-amd64")}
+	zelim := []string{"/usr/bin/pkexec", "/usr/bin/bash", "-c", prijenosKaoRoot, "gocop-nadogradnja", mapa,
+		strings.Repeat("a", 64), strings.Repeat("b", 64), "gocop-linux-amd64", "SHA256SUMS", "instaliraj.sh", "gocop-linux-amd64"}
 	if l.pozvano(zelim...) != 1 {
 		t.Errorf("pozivi: %v, želim %v", l.pozivi, zelim)
 	}
@@ -443,7 +490,7 @@ func TestPkexecZaNadogradnjuUsluge(t *testing.T) {
 		errors.New("fork/exec: nema ga"): "pkexec nije pokrenut",
 	} {
 		l.odgovori["/usr/bin/pkexec"] = odgovor{"→ provjeravam potpis izdanja\nGreška: potpis SHA256SUMS ne odgovara ključu izdanja\n", izlaz}
-		err := u.Ugradi(ctx, mapa, "gocop-linux-amd64", pisi)
+		err := u.Ugradi(ctx, z, pisi)
 		if err == nil || !strings.Contains(err.Error(), poruka) {
 			t.Errorf("%v: %v", izlaz, err)
 		}
@@ -455,13 +502,433 @@ func TestPkexecZaNadogradnjuUsluge(t *testing.T) {
 		t.Errorf("ispis skripte nije u dnevniku: %s", dnevnik.String())
 	}
 
+	// bez SHA-256 za provjeru kopije ništa se ne pokreće
+	for _, krivo := range []ZaUslugu{{Zbrojevi: z.Zbrojevi}, {Zbrojevi: "a", Skripta: z.Skripta}, {Zbrojevi: z.Zbrojevi, Skripta: strings.Repeat("g", 64)}} {
+		krivo.Mapa, krivo.Program, krivo.Datoteke = z.Mapa, z.Program, z.Datoteke
+		prije := len(l.pozivi)
+		if err := u.Ugradi(ctx, krivo, pisi); err == nil || !strings.Contains(err.Error(), "SHA-256") || len(l.pozivi) != prije {
+			t.Errorf("bez SHA-256 %+v: %v", krivo, err)
+		}
+	}
+
 	delete(l.programi, "bash")
-	if err := u.Ugradi(ctx, mapa, "gocop-linux-amd64", pisi); err == nil || !strings.Contains(err.Error(), "bash") {
+	if err := u.Ugradi(ctx, z, pisi); err == nil || !strings.Contains(err.Error(), "bash") {
 		t.Errorf("bez bash-a: %v", err)
 	}
 	delete(l.programi, "pkexec")
-	if err := u.Ugradi(ctx, mapa, "gocop-linux-amd64", pisi); err == nil || !strings.Contains(err.Error(), "pkexec") ||
+	if err := u.Ugradi(ctx, z, pisi); err == nil || !strings.Contains(err.Error(), "pkexec") ||
 		!strings.Contains(err.Error(), "docs/linux.md, poglavlje 9") {
 		t.Errorf("bez pkexec-a: %v", err)
+	}
+}
+
+func TestNadogradnjaUslugeProvjeravaIzdanjePrograma(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	var mu sync.Mutex
+	izd := "0.0.35-alfa"
+	_, postavke := posluziZdravlje(t, &izd, &mu)
+	l := noviSustav("active")
+	p := postavaUzUslugu(t, l, postavke)
+	postaviProgram(t, p, "0.0.35-alfa")
+	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
+	g := noviGitHub(t)
+	p.Ugradnja.Izdanja = g.izdanjaZa()
+	ctx := context.Background()
+
+	// oznaka 0.0.36-alfa, a program javlja 0.0.30-alfa
+	g.objavi("v0.0.36-alfa", izdanjeSProgramom(t, "0.0.30-alfa", true), kljuc, "")
+	if err := p.Provjeri(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if p.Stanje().Novije == nil {
+		t.Fatal("izdanje nije ponuđeno")
+	}
+	_, err := p.Nadogradi(ctx)
+	if err == nil || !strings.Contains(err.Error(), "javlja izdanje 0.0.30-alfa") {
+		t.Errorf("program drugog izdanja: %v", err)
+	}
+	if n := l.pozvano("/usr/bin/pkexec"); n != 0 {
+		t.Errorf("skripta pokrenuta uz program drugog izdanja (%d)", n)
+	}
+	ostalo, _ := filepath.Glob(filepath.Join(p.M.Podaci, "nadogradnja-*")) // uzorak je ispravan
+	if len(ostalo) != 0 {
+		t.Errorf("ostale mape: %v", ostalo)
+	}
+}
+
+func TestNadogradnjaUslugeBezPoznatogIzdanja(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	l := noviSustav("active")
+	p := postavaUzUslugu(t, l, "") // usluga ne odgovara
+	postaviProgram(t, p, "")       // i programa nema
+	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
+	g := noviGitHub(t)
+	p.Ugradnja.Izdanja = g.izdanjaZa()
+	ctx := context.Background()
+	g.objavi("v0.0.36-alfa", datotekeIzdanja(true), kljuc, "")
+	if err := p.Provjeri(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if s := p.Stanje(); s.Novije != nil {
+		t.Errorf("ponuđeno izdanje, a ne zna se koje je postavljeno: %+v", s.Novije)
+	}
+	if _, err := p.Nadogradi(ctx); err == nil {
+		t.Error("nadogradnja bez poznatog izdanja")
+	}
+	// i kad se ponuda zatekne, Nadogradi ponovno pita i odbija
+	_, err := p.dopustenaNadogradnja(ctx, *p.ponuda.GoCOP, "")
+	if err == nil || !strings.Contains(err.Error(), "ne zna se koje je izdanje") || !strings.Contains(err.Error(), "docs/linux.md") {
+		t.Errorf("bez poznatog izdanja: %v", err)
+	}
+	if n := l.pozvano("/usr/bin/pkexec"); n != 0 {
+		t.Errorf("skripta pokrenuta bez poznatog izdanja (%d)", n)
+	}
+}
+
+// Usluga ne odgovara, a rootov program javlja svoje izdanje: novije se
+// postavlja
+func TestNadogradnjaUslugeKadUslugaNeOdgovara(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	var mu sync.Mutex
+	izd := ""
+	_, postavke := posluziZdravlje(t, &izd, &mu)
+	l := noviSustav("active")
+	p := postavaUzUslugu(t, l, postavke)
+	postaviProgram(t, p, "0.0.35-alfa")
+	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
+	g := noviGitHub(t)
+	p.Ugradnja.Izdanja = g.izdanjaZa()
+	ctx := context.Background()
+	l.pkexec = func([]string) ([]byte, error) {
+		mu.Lock()
+		izd = "0.0.36-alfa"
+		mu.Unlock()
+		return nil, nil
+	}
+	g.objavi("v0.0.36-alfa", izdanjeSProgramom(t, "0.0.36-alfa", false), kljuc, "")
+	if err := p.Provjeri(ctx); err != nil {
+		t.Fatal(err)
+	}
+	p.osvjeziZdravlje(ctx)
+	if s := p.Stanje(); s.Izdanje != "" || s.Novije == nil {
+		t.Fatalf("usluga ne odgovara, program 0.0.35-alfa: %+v", s)
+	}
+	if novo, err := p.Nadogradi(ctx); err != nil || novo != "0.0.36-alfa" {
+		t.Fatalf("nadogradnja: %q %v", novo, err)
+	}
+	if n := l.pozvano("/usr/bin/pkexec"); n != 1 {
+		t.Errorf("skripta pokrenuta %d puta", n)
+	}
+}
+
+// Na /zdravlje javlja se niže izdanje od onoga koje javlja rootov program:
+// vrijedi više, pa se starije izdanje ne nudi ni ne postavlja
+func TestNadogradnjaUslugePremaVecemIzdanju(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	var mu sync.Mutex
+	izd := "0.0.1-alfa"
+	_, postavke := posluziZdravlje(t, &izd, &mu)
+	l := noviSustav("active")
+	p := postavaUzUslugu(t, l, postavke)
+	postaviProgram(t, p, "0.0.40-alfa")
+	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
+	g := noviGitHub(t)
+	p.Ugradnja.Izdanja = g.izdanjaZa()
+	ctx := context.Background()
+	g.objavi("v0.0.36-alfa", izdanjeSProgramom(t, "0.0.36-alfa", false), kljuc, "")
+	if err := p.Provjeri(ctx); err != nil {
+		t.Fatal(err)
+	}
+	p.osvjeziZdravlje(ctx)
+	if s := p.Stanje(); s.Izdanje != "0.0.1-alfa" || s.Novije != nil {
+		t.Errorf("ponuđeno starije izdanje: %+v", s.Novije)
+	}
+	if _, err := p.Nadogradi(ctx); err == nil {
+		t.Error("postavljeno starije izdanje")
+	}
+	if _, err := p.dopustenaNadogradnja(ctx, *p.ponuda.GoCOP, "0.0.1-alfa"); err == nil ||
+		!strings.Contains(err.Error(), "nije novije od postavljenog 0.0.40-alfa") {
+		t.Errorf("starije od rootova programa: %v", err)
+	}
+	if n := l.pozvano("/usr/bin/pkexec"); n != 0 {
+		t.Errorf("skripta pokrenuta za starije izdanje (%d)", n)
+	}
+}
+
+// Vlastiti čvor (Windows, macOS): isto pravilo, nikad starije ni nepoznato
+func TestNadogradnjaVlastitogCvoraSamoNovije(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	p := novaPostava(t, false)
+	c := &lazniCvor{}
+	p.Cvor, p.Ugradnja.Cvor = c, c
+	postaviProgram(t, p, "") // program ne javlja izdanje
+	p.Ugradnja.M = p.M
+	p.Ugradnja.Kljucevi = []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}
+	g := noviGitHub(t)
+	p.Ugradnja.Izdanja = g.izdanjaZa()
+	ctx := context.Background()
+	g.dodaj("v0.0.30-alfa", prevedi(t, t.TempDir(), "0.0.30-alfa", "radi"), kljuc, false)
+	if err := p.Provjeri(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if s := p.Stanje(); s.Novije != nil {
+		t.Errorf("ponuđeno uz nepoznato postavljeno izdanje: %+v", s.Novije)
+	}
+	if _, err := p.Nadogradi(ctx); err == nil {
+		t.Error("nadograđeno uz nepoznato postavljeno izdanje")
+	}
+	iz := *p.ponuda.GoCOP
+	if _, err := p.dopustenaNadogradnja(ctx, iz, ""); err == nil ||
+		!strings.Contains(err.Error(), "ne zna se") || strings.Contains(err.Error(), "linux") {
+		t.Errorf("nepoznato izdanje vlastitog čvora: %v", err)
+	}
+	if _, err := p.dopustenaNadogradnja(ctx, iz, "0.0.31-alfa"); err == nil {
+		t.Error("prihvaćeno starije izdanje")
+	}
+	if c.zaustavljen != 0 {
+		t.Errorf("čvor zaustavljen %d puta", c.zaustavljen)
+	}
+
+	// ispravna ponuda: postavljeno je 0.0.27-alfa
+	postaviProgram(t, p, "0.0.27-alfa")
+	if s := p.Stanje(); s.Novije == nil || s.Novije.Oznaka != "v0.0.30-alfa" {
+		t.Errorf("novije izdanje nije ponuđeno: %+v", s.Novije)
+	}
+	if staro, err := p.dopustenaNadogradnja(ctx, iz, ""); err != nil || staro != "0.0.27-alfa" {
+		t.Errorf("novije izdanje: %q %v", staro, err)
+	}
+	// prva instalacija: nema s čim usporediti
+	c.nema = true
+	postaviProgram(t, p, "")
+	if s := p.Stanje(); s.Cvor != NijeInstaliran || s.Novije == nil {
+		t.Errorf("prva instalacija, ponuda: %v %+v", s.Cvor, s.Novije)
+	}
+	if staro, err := p.dopustenaNadogradnja(ctx, iz, ""); err != nil || staro != "" {
+		t.Errorf("prva instalacija: %q %v", staro, err)
+	}
+}
+
+func TestVeceIzdanje(t *testing.T) {
+	for _, s := range [][3]string{
+		{"0.0.35-alfa", "0.0.40-alfa", "0.0.40-alfa"},
+		{"0.0.40-alfa", "0.0.35-alfa", "0.0.40-alfa"},
+		{"", "0.0.35-alfa", "0.0.35-alfa"},
+		{"0.0.35-alfa", "", "0.0.35-alfa"},
+		{"0.0.35-alfa", "nepoznato", "0.0.35-alfa"},
+		{"", "", ""},
+	} {
+		if got := veceIzdanje(s[0], s[1]); got != s[2] {
+			t.Errorf("veceIzdanje(%q, %q) = %q, želim %q", s[0], s[1], got, s[2])
+		}
+	}
+}
+
+// Program koji nije odgovorio pita se ponovno nakon minute, i kad se
+// datoteka nije promijenila
+func TestIzdanjeProgramaPonovnoNakonMinute(t *testing.T) {
+	p := novaPostava(t, false)
+	p.M.Program = t.TempDir()
+	kad := time.Now().Add(-time.Hour)
+	postavi := func(b []byte) {
+		t.Helper()
+		if err := os.WriteFile(p.M.Gocop(), b, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(p.M.Gocop(), kad, kad); err != nil {
+			t.Fatal(err)
+		}
+	}
+	postavi([]byte("nije program"))
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if izd := p.izdanjeDatotekeZakljucano(); izd != "" {
+		t.Fatalf("neispravan program: %q", izd)
+	}
+	postavi(prevedi(t, t.TempDir(), "0.0.35-alfa", "radi"))
+	if izd := p.izdanjeDatotekeZakljucano(); izd != "" {
+		t.Errorf("unutar minute pitano ponovno: %q", izd)
+	}
+	p.izdDatotekePitano = time.Now().Add(-2 * time.Minute)
+	if izd := p.izdanjeDatotekeZakljucano(); izd != "0.0.35-alfa" {
+		t.Errorf("nakon minute: %q", izd)
+	}
+}
+
+// Preuzeti program koji se ne da pokrenuti: greška nosi uputu za ručnu
+// nadogradnju, a program drugog izdanja ne
+func TestPripremaZaUsluguProgramSeNePokrece(t *testing.T) {
+	_, kljuc, _ := ed25519.GenerateKey(rand.Reader) // rand.Reader ne javlja grešku
+	g := noviGitHub(t)
+	u := Ugradnja{M: MjestaU(t.TempDir()), Izdanja: g.izdanjaZa(), GOOS: runtime.GOOS, GOARCH: runtime.GOARCH,
+		Kljucevi: []ed25519.PublicKey{kljuc.Public().(ed25519.PublicKey)}}
+	if err := os.MkdirAll(u.M.Podaci, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	g.objavi("v0.0.36-alfa", datotekeIzdanja(false), kljuc, "") // program je tekst
+	ponuda, err := g.izdanjaZa().Provjeri(ctx, runtime.GOOS, runtime.GOARCH, "1.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = u.PripremiZaUslugu(ctx, *ponuda.GoCOP)
+	if err == nil || !strings.Contains(err.Error(), "-version") || !strings.Contains(err.Error(), "docs/linux.md, poglavlje 9") {
+		t.Errorf("program se ne pokreće: %v", err)
+	}
+	if err := u.provjeriZaUslugu(ctx, filepath.Join(t.TempDir(), "x"), "0.0.36-alfa"); err == nil {
+		t.Error("program kojeg nema")
+	}
+	put := filepath.Join(t.TempDir(), "gocop")
+	if err := os.WriteFile(put, prevedi(t, t.TempDir(), "0.0.30-alfa", "radi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.provjeriZaUslugu(ctx, put, "0.0.36-alfa"); err == nil || strings.Contains(err.Error(), "docs/linux.md") {
+		t.Errorf("program drugog izdanja: %v", err)
+	}
+}
+
+func TestNovijeOd(t *testing.T) {
+	novo, _ := izdanje.ParsirajOznaku("0.0.36-alfa")
+	for trenutno, prolazi := range map[string]bool{
+		"0.0.35-alfa": true,
+		"0.0.36-alfa": false,
+		"0.0.40-alfa": false,
+		"0.1.0-beta":  false,
+		"":            false,
+		"nepoznato":   false,
+	} {
+		if err := novijeOd(novo, trenutno); (err == nil) != prolazi {
+			t.Errorf("%q: %v", trenutno, err)
+		}
+	}
+}
+
+// TestPrijenosKaoRoot pokreće pravi bash: skripta radi iz kopije, a ne iz
+// mape koju je pripremila Postava, i ne pokreće se kad se datoteka nakon
+// provjere promijeni
+func TestPrijenosKaoRoot(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("samo uz bash")
+	}
+	bash, err := exec.LookPath("bash")
+	if err != nil {
+		t.Skip("nema bash-a")
+	}
+	for _, n := range []string{"sha256sum", "mktemp", "cp"} {
+		if _, err := exec.LookPath(n); err != nil {
+			t.Skipf("nema %s", n)
+		}
+	}
+	l := noviSustav("active")
+	l.programi["bash"] = bash
+	l.pkexec = func(arg []string) ([]byte, error) { return exec.Command(arg[0], arg[1:]...).CombinedOutput() }
+	u := l.usluga()
+	ctx := context.Background()
+	var ispis string
+	pisi := func(f string, a ...any) { ispis = fmt.Sprintf(f, a...) }
+
+	skripta := []byte("#!/usr/bin/env bash\necho \"mapa=$(cd \"$(dirname \"$0\")\" && pwd)\"\necho \"program=$1\"\ncat \"$(dirname \"$0\")/SHA256SUMS\"\n")
+	pripremi := func() ZaUslugu {
+		t.Helper()
+		mapa := t.TempDir()
+		datoteke := map[string][]byte{izdanje.ImeZbrojeva: []byte("zbrojevi izdanja\n"), izdanje.ImePotpisa: []byte("potpis"),
+			imeSkripte: skripta, imeJedinice: []byte("[Unit]\n"), "gocop-linux-amd64": []byte("program")}
+		var imena []string
+		for n, b := range datoteke {
+			if err := os.WriteFile(filepath.Join(mapa, n), b, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			imena = append(imena, n)
+		}
+		sort.Strings(imena)
+		return ZaUslugu{Mapa: mapa, Program: "gocop-linux-amd64", Datoteke: imena,
+			Zbrojevi: fmt.Sprintf("%x", sha256.Sum256(datoteke[izdanje.ImeZbrojeva])), Skripta: fmt.Sprintf("%x", sha256.Sum256(skripta))}
+	}
+
+	// ispravno izdanje: skripta radi iz kopije, kopija se nakon toga briše
+	z := pripremi()
+	if err := u.Ugradi(ctx, z, pisi); err != nil {
+		t.Fatalf("%v\n%s", err, ispis)
+	}
+	kopija, program := "", ""
+	for _, r := range strings.Split(ispis, "\n") {
+		if v, ok := strings.CutPrefix(r, "mapa="); ok {
+			kopija = v
+		}
+		if v, ok := strings.CutPrefix(r, "program="); ok {
+			program = v
+		}
+	}
+	if kopija == "" || kopija == z.Mapa || !strings.Contains(kopija, "gocop-nadogradnja.") ||
+		program != kopija+"/gocop-linux-amd64" || !strings.Contains(ispis, "zbrojevi izdanja") {
+		t.Fatalf("skripta nije radila iz kopije:\n%s", ispis)
+	}
+	if _, err := os.Stat(kopija); !os.IsNotExist(err) {
+		t.Errorf("kopija ostala: %v", err)
+	}
+
+	// datoteke promijenjene nakon provjere: skripta se ne pokreće
+	trag := filepath.Join(t.TempDir(), "trag")
+	for ime, sadrzaj := range map[string]string{
+		imeSkripte:          "#!/usr/bin/env bash\ntouch " + trag + "\n",
+		izdanje.ImeZbrojeva: "drugi zbrojevi\n",
+	} {
+		z := pripremi()
+		if err := os.WriteFile(filepath.Join(z.Mapa, ime), []byte(sadrzaj), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		err := u.Ugradi(ctx, z, pisi)
+		if err == nil || !strings.Contains(err.Error(), "promijenile su se nakon provjere") {
+			t.Errorf("promijenjen %s: %v", ime, err)
+		}
+		if _, err := os.Stat(trag); err == nil {
+			t.Fatalf("promijenjen %s: pokrenuta je promijenjena skripta", ime)
+		}
+	}
+
+	// datoteke nema: ništa se ne pokreće
+	z = pripremi()
+	if err := os.Remove(filepath.Join(z.Mapa, imeJedinice)); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Ugradi(ctx, z, pisi); err == nil || strings.Contains(ispis, "mapa=") {
+		t.Errorf("bez jedinice: %v\n%s", err, ispis)
+	}
+
+	// poveznica umjesto datoteke: ne kopira se, ništa se ne pokreće
+	z = pripremi()
+	program = filepath.Join(z.Mapa, "gocop-linux-amd64")
+	if err := os.Remove(program); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(filepath.Join(z.Mapa, imeJedinice), program); err != nil {
+		t.Fatal(err)
+	}
+	if err := u.Ugradi(ctx, z, pisi); err == nil || !strings.Contains(err.Error(), "nije obična datoteka") || strings.Contains(ispis, "mapa=") {
+		t.Errorf("poveznica: %v\n%s", err, ispis)
+	}
+
+	// cijev umjesto datoteke: ne čeka se na nju
+	if mkfifo, err := exec.LookPath("mkfifo"); err == nil {
+		z = pripremi()
+		program = filepath.Join(z.Mapa, "gocop-linux-amd64")
+		if err := os.Remove(program); err != nil {
+			t.Fatal(err)
+		}
+		if b, err := exec.Command(mkfifo, program).CombinedOutput(); err != nil {
+			t.Fatalf("mkfifo: %v %s", err, b)
+		}
+		if err := u.Ugradi(ctx, z, pisi); err == nil || !strings.Contains(err.Error(), "nije obična datoteka") {
+			t.Errorf("cijev: %v\n%s", err, ispis)
+		}
+	}
+
+	// prazan SHA-256 skripte: redak neispravnog oblika ne prolazi
+	z = pripremi()
+	arg := append([]string{"-c", prijenosKaoRoot, "gocop-nadogradnja", z.Mapa, z.Zbrojevi, "", z.Program}, z.Datoteke...)
+	if out, err := exec.Command(bash, arg...).CombinedOutput(); err == nil || strings.Contains(string(out), "mapa=") {
+		t.Errorf("bez SHA-256 skripte: %v\n%s", err, out)
+	}
+	if !strings.Contains(prijenosKaoRoot, "head -c "+strconv.Itoa(najveciProgram)+" ") {
+		t.Error("granica kopiranja nije najveciProgram")
 	}
 }

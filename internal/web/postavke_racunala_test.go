@@ -100,7 +100,7 @@ func TestCuvanjePovijestiSamoNaRacunalu(t *testing.T) {
 		{"bez globalnog administratora", adresaLokalno, o.peroOvl, false},
 	} {
 		r := httptest.NewRequest(http.MethodGet, "/readings/station/"+id, nil)
-		r.RemoteAddr = x.adresa
+		r.RemoteAddr, r.Host = x.adresa, adresaCvoraTesta
 		r.SetPathValue("id", id)
 		data, _, ok := o.h.podaciOcitanja(httptest.NewRecorder(), zahtjevSKorisnikom(r, o.pero, x.ovl))
 		if !ok || data.CuvanjePovijesti != x.smije {
@@ -310,7 +310,9 @@ func TestPaketBezMrezeSamoNaRacunalu(t *testing.T) {
 		}
 		w := posaljiArhivu(h, cop, "paket.cop", x.u)
 		if x.poruka == "" {
-			if _, upit := preusmjerenje(t, w); !strings.HasPrefix(upit.Get("success"), "Ugrađeno izdanje 1") || !strings.Contains(upit.Get("success"), "nije u mreži") {
+			// lokalno paket prolazi do ugradnje, a ona paket drugog računala
+			// odbija dok ovo računalo nije u mreži (Odluke (30. 10. 2026.))
+			if _, upit := preusmjerenje(t, w); !strings.Contains(upit.Get("error"), "još nije u mreži") {
 				t.Errorf("%s: %v", x.opis, upit)
 			}
 			continue
