@@ -128,12 +128,15 @@ func TestDijeloviKarteStanje(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, _ = prijenosU(mapa, &k)
+	pusti := make(chan struct{})
+	d.predCitanje = func() { <-pusti }
 	if d.zeljeni(1<<20, 10) != nil {
 		t.Error("dok se stanje čita, ne traži se ništa")
 	}
 	if st := d.stanje(); !st.Prenosi || st.Dijelova != 0 {
 		t.Errorf("dok se stanje čita: %+v", st)
 	}
+	close(pusti)
 	smiri(d)
 	if st := d.stanje(); st.Slozena || st.Dijelova != 2 || st.Bajtova != 128+104 || !d.nedostaje() {
 		t.Errorf("djelomična: %+v", st)
