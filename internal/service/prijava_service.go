@@ -38,7 +38,7 @@ func (s *PrijavaService) ObrisiSlikePoObjavi(ctx context.Context, p *models.Prij
 		return
 	}
 	for _, sl := range p.Slike {
-		_ = s.repo.DeleteSlika(ctx, sl.ID)
+		_ = s.repo.DeleteSlika(ctx, p.ID, sl.ID) // PDF nosi fotografiju; neobrisana ostaje do roka čuvanja
 	}
 }
 
@@ -220,21 +220,38 @@ func podaciFotoaparata(e slike.Podaci) (*time.Time, float64, float64, string) {
 	return kad, e.Lat, e.Lon, e.Uredjaj
 }
 
-// ObrisiSliku miče fotografiju s nacrta
+// ErrSlikaNijeNaNacrtu: briše se samo fotografija koja je na tom nacrtu;
+// javlja se i kad je fotografija već maknuta (dvaput poslan obrazac)
+var ErrSlikaNijeNaNacrtu = errors.New("te fotografije nema na ovom nacrtu, možda je već maknuta. Otvorite nacrt ponovno da vidite koje su na njemu")
+
+// ObrisiSliku miče fotografiju s nacrta i briše je; fotografija koja nije
+// na tom nacrtu ostaje kakva je
 func (s *PrijavaService) ObrisiSliku(ctx context.Context, u *models.User, id, slikaID string) (*models.PrijavaSTerena, error) {
 	p, err := s.nacrtVlasnika(ctx, u, id)
 	if err != nil {
 		return nil, err
 	}
-	out := p.Slike[:0]
-	for _, sl := range p.Slike {
+	ostale, nadjena := bezSlike(p.Slike, slikaID)
+	if !nadjena {
+		return nil, ErrSlikaNijeNaNacrtu
+	}
+	p.Slike = ostale
+	if err := s.repo.Save(ctx, p); err != nil {
+		return nil, err
+	}
+	_ = s.repo.DeleteSlika(ctx, p.ID, slikaID) // nacrt je već bez nje; ostatak u spremištu samo zauzima mjesto
+	return p, nil
+}
+
+// bezSlike daje fotografije bez one sa zadanim id-om i javlja je li bila među njima
+func bezSlike(slike []models.SlikaPrijave, slikaID string) ([]models.SlikaPrijave, bool) {
+	ostale := make([]models.SlikaPrijave, 0, len(slike))
+	for _, sl := range slike {
 		if sl.ID != slikaID {
-			out = append(out, sl)
+			ostale = append(ostale, sl)
 		}
 	}
-	p.Slike = out
-	_ = s.repo.DeleteSlika(ctx, slikaID)
-	return p, s.repo.Save(ctx, p)
+	return ostale, len(ostale) < len(slike)
 }
 
 // Slika daje fotografiju onome tko prijavu smije vidjeti; nil kad je
@@ -475,6 +492,25 @@ func (s *PrijavaService) Rijesi(ctx context.Context, perms *models.UserPermissio
 	sad := time.Now()
 	p.Status, p.RijesioID, p.Rijesio, p.RijesenoAt = models.PrijavaRijesena, u.ID.String(), u.FullName, &sad
 	return p, s.repo.Save(ctx, p)
+}
+
+// RijesiSUrudzbom zatvara prijavu kao Rijesi, a prije toga upisuje klasu i
+// urudžbeni broj kad su upisani. Tko prijavu ne smije riješiti ne upisuje
+// ni urudžbu tim putem, pa ne ostane pola posla.
+func (s *PrijavaService) RijesiSUrudzbom(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba, izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) (*models.PrijavaSTerena, error) {
+	p, err := s.repo.Get(ctx, id)
+	if err != nil || p == nil {
+		return nil, fmt.Errorf("prijava ne postoji")
+	}
+	if u == nil || !s.SmijeRijesiti(perms, p) {
+		return nil, ErrUnauthorized
+	}
+	if ur.Klasa != "" || ur.Urbroj != "" {
+		if _, err := s.Urudzbiraj(ctx, perms, u, id, ur, izradi); err != nil {
+			return nil, err
+		}
+	}
+	return s.Rijesi(ctx, perms, u, id)
 }
 
 // Obrisi briše nacrt onoga tko ga je počeo

@@ -294,10 +294,21 @@ func (s *Spremiste) OtisakPoUlozi(ctx context.Context, entitet, uloga string) st
 	return otisak
 }
 
-// OdveziUlogu miče jednu vezu; sadržaj koji time ostane bez ijedne veze
-// smije se ukloniti
-func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, uloga string) error {
-	_, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE entitet = ? AND uloga = ?`, entitet, uloga)
+// OtisakZapisaPoUlozi je OtisakPoUlozi za jedan zapis: otisak sadržaja koji
+// taj zapis drži u zadanoj ulozi; prazno kad ga ne drži
+func (s *Spremiste) OtisakZapisaPoUlozi(ctx context.Context, entitet, entitetID, uloga string) string {
+	var otisak string
+	row := s.db.QueryRowContext(ctx, `SELECT otisak FROM sadrzaj_veze WHERE entitet = ? AND entitet_id = ? AND uloga = ? LIMIT 1`,
+		entitet, entitetID, uloga)
+	_ = row.Scan(&otisak) // nema veze ili greška čitanja: prazan otisak, kao da veze nema
+	return otisak
+}
+
+// OdveziUlogu miče vezu jednog zapisa u zadanoj ulozi; veze drugih zapisa
+// u istoj ulozi ostaju. Sadržaj koji time ostane bez ijedne veze smije se
+// ukloniti.
+func (s *Spremiste) OdveziUlogu(ctx context.Context, entitet, entitetID, uloga string) error {
+	_, err := s.db.ExecContext(ctx, `DELETE FROM sadrzaj_veze WHERE entitet = ? AND entitet_id = ? AND uloga = ?`, entitet, entitetID, uloga)
 	return err
 }
 

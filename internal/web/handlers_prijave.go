@@ -460,12 +460,7 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 			poruka += " " + upozorenje
 		}
 	case "rijesi":
-		if ur := urudzbaIzObrasca(r); ur.Klasa != "" || ur.Urbroj != "" {
-			if _, err = s.Urudzbiraj(r.Context(), perms, u, id, ur, h.biljeskaUrudzbe(r, s, u)); err != nil {
-				break
-			}
-		}
-		_, err = s.Rijesi(r.Context(), perms, u, id)
+		_, err = s.RijesiSUrudzbom(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))
 		poruka = "Prijava je označena kao pregledana i riješena."
 	case "urudzbiraj":
 		_, err = s.Urudzbiraj(r.Context(), perms, u, id, urudzbaIzObrasca(r), h.biljeskaUrudzbe(r, s, u))

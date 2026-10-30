@@ -99,7 +99,9 @@ func VodiDnevnik(u *models.User) bool { return u != nil && terenskaDuznost(u) !=
 
 // SmijeOvjeriti javlja smije li osoba ovjeriti list: rukovoditelj branjenog
 // područja ili zamjenik, te svi iznad njega na sektoru (uprava sektora,
-// centar, uprava organizacije)
+// centar, uprava organizacije). Svoj list ne ovjerava ni onaj tko uz
+// dužnost vodočuvara ima i dužnost koja ovjerava; ovjeri ga netko drugi.
+// Globalni administrator ostaje kakav je bio dok to ne odrede Odluke.
 func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
 	if perms == nil || l == nil {
 		return false
@@ -107,23 +109,29 @@ func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *model
 	if perms.IsGlobalAdmin {
 		return true
 	}
+	if perms.User.ID.String() == l.UserID {
+		return false
+	}
 	sad := time.Now()
 	for _, d := range perms.User.Duties {
-		if !d.CitaVodocuvarskiDnevnik(sad) {
-			continue
-		}
-		switch d.Role {
-		case models.RoleNationalLeader, models.RoleNationalDeputy, models.RoleMainCenterLeader, models.RoleMainCenterDeputy:
+		if d.CitaVodocuvarskiDnevnik(sad) && ovjeravaDuznoscu(d, l) {
 			return true
-		case models.RoleSectorLeader, models.RoleSectorDeputy, models.RoleSectorMainDeputy, models.RoleCopLeader, models.RoleCopDeputy:
-			if d.SectorID != nil && *d.SectorID == l.Sektor {
-				return true
-			}
-		case models.RoleSectorAreaDeputy, models.RoleAreaLeader, models.RoleAreaDeputy:
-			if d.AreaID != nil && *d.AreaID == l.AreaID {
-				return true
-			}
 		}
+	}
+	return false
+}
+
+// ovjeravaDuznoscu javlja ovjerava li dužnost list: uprava organizacije i
+// centra svaki, uprava sektora i COP-a listove svog sektora, rukovoditelj
+// područja i zamjenici listove svog područja
+func ovjeravaDuznoscu(d models.Duty, l *models.VodocuvarskiList) bool {
+	switch d.Role {
+	case models.RoleNationalLeader, models.RoleNationalDeputy, models.RoleMainCenterLeader, models.RoleMainCenterDeputy:
+		return true
+	case models.RoleSectorLeader, models.RoleSectorDeputy, models.RoleSectorMainDeputy, models.RoleCopLeader, models.RoleCopDeputy:
+		return d.SectorID != nil && *d.SectorID == l.Sektor
+	case models.RoleSectorAreaDeputy, models.RoleAreaLeader, models.RoleAreaDeputy:
+		return d.AreaID != nil && *d.AreaID == l.AreaID
 	}
 	return false
 }

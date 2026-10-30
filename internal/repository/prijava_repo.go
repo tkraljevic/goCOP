@@ -420,7 +420,7 @@ func (r *PrijavaRepository) Delete(ctx context.Context, id string) error {
 		return err
 	}
 	for _, sl := range p.Slike {
-		_ = r.DeleteSlika(ctx, sl.ID)
+		_ = r.DeleteSlika(ctx, p.ID, sl.ID) // nacrt se briše i bez fotografije; ostatak u spremištu samo zauzima mjesto
 	}
 	if err := arhivirajUKanalimaZapisa(ctx, tx, r.rec, prijavaChannel(p), EntityPrijave, id, p); err != nil {
 		return err
@@ -471,16 +471,17 @@ func (r *PrijavaRepository) Slika(ctx context.Context, id string) ([]byte, error
 	return ucitajSadrzaj(ctx, otisak), nil
 }
 
-// DeleteSlika miče jednu fotografiju s ovog računala
-func (r *PrijavaRepository) DeleteSlika(ctx context.Context, id string) error {
+// DeleteSlika miče jednu fotografiju prijave s ovog računala; veza iste
+// fotografije uz drugu prijavu ostaje
+func (r *PrijavaRepository) DeleteSlika(ctx context.Context, prijavaID, id string) error {
 	if spremiste == nil {
 		return nil
 	}
-	otisak := spremiste.OtisakPoUlozi(ctx, EntityPrijave, ulogaSlike(id))
+	otisak := spremiste.OtisakZapisaPoUlozi(ctx, EntityPrijave, prijavaID, ulogaSlike(id))
 	if otisak == "" {
 		return nil
 	}
-	if err := spremiste.OdveziUlogu(ctx, EntityPrijave, ulogaSlike(id)); err != nil {
+	if err := spremiste.OdveziUlogu(ctx, EntityPrijave, prijavaID, ulogaSlike(id)); err != nil {
 		return err
 	}
 	_ = spremiste.Ukloni(ctx, otisak) // drži li je još koja prijava, ostaje
@@ -493,30 +494,34 @@ func (r *PrijavaRepository) ObrisiStareSlike(ctx context.Context, prije time.Tim
 	if spremiste == nil {
 		return 0, nil
 	}
-	rows, err := r.db.QueryContext(ctx, `SELECT podaci FROM prijave WHERE objavljeno_at IS NOT NULL AND objavljeno_at < ?`, prije.UTC())
+	rows, err := r.db.QueryContext(ctx, `SELECT id, podaci FROM prijave WHERE objavljeno_at IS NOT NULL AND objavljeno_at < ?`, prije.UTC())
 	if err != nil {
 		return 0, err
 	}
-	var svi [][]models.SlikaPrijave
+	type slikePrijave struct {
+		id    string
+		slike []models.SlikaPrijave
+	}
+	var svi []slikePrijave
 	for rows.Next() {
-		var pod string
-		if err := rows.Scan(&pod); err != nil {
+		var id, pod string
+		if err := rows.Scan(&id, &pod); err != nil {
 			rows.Close()
 			return 0, err
 		}
 		var x podaciPrijave
 		if json.Unmarshal([]byte(pod), &x) == nil && len(x.Slike) > 0 {
-			svi = append(svi, x.Slike)
+			svi = append(svi, slikePrijave{id, x.Slike})
 		}
 	}
 	rows.Close()
 	var n int64
-	for _, slike := range svi {
-		for _, sl := range slike {
-			if spremiste.OtisakPoUlozi(ctx, EntityPrijave, ulogaSlike(sl.ID)) == "" {
+	for _, sp := range svi {
+		for _, sl := range sp.slike {
+			if spremiste.OtisakZapisaPoUlozi(ctx, EntityPrijave, sp.id, ulogaSlike(sl.ID)) == "" {
 				continue
 			}
-			if err := r.DeleteSlika(ctx, sl.ID); err != nil {
+			if err := r.DeleteSlika(ctx, sp.id, sl.ID); err != nil {
 				return n, err
 			}
 			n++
