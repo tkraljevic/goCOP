@@ -49,16 +49,27 @@ program.
 Postava pri pokretanju i svakih šest sati pita GitHub za popis izdanja. Ne
 šalje ništa o računalu, korisniku ni podacima. Nadograđuje se samo na klik.
 
-Postava nudi samo izdanje novije od onoga koje je sada postavljeno, a pita
-i čvor koji radi i program na disku. Starije ili isto izdanje sama ne
-postavlja. Kad ne može doznati koje je izdanje postavljeno, jer program ne
-odgovara na `-version`, ne nudi nadogradnju, pa se goCOP tada instalira
-ponovno.
+Prije zamjene Postava provjeri potpis `SHA256SUMS`, SHA-256 preuzetog
+programa i da on na `-version` javi baš izdanje koje se postavlja. Na
+Linuxu, uz uslugu sustava, zamjenu radi `instaliraj.sh` tog izdanja kao
+root. Datoteke se najprije kopiraju u mapu koju piše samo root, ondje se
+još jednom provjeri SHA-256, a skripta se pokreće iz te kopije
+([linux.md](linux.md), poglavlje 12).
+
+Postava nudi samo izdanje novije od onoga koje je sada postavljeno, na
+svim sustavima, a pita i čvor koji radi i program na disku. Starije ili
+isto izdanje sama ne postavlja. Kad ne može doznati koje je izdanje
+postavljeno, jer program ne odgovara na `-version`, ne nudi nadogradnju,
+pa se goCOP tada instalira ponovno.
 
 Starije izdanje Postava postavlja samo kad ga dopusti globalni
 administrator (Odluke (30. 10. 2026.)). Dopušta ga na stranici *Ovo
 računalo i mreža*, svojim očima, s tog računala ili iz lokalne mreže, a ne
-izvana ni kroz tunel. Upiše oznaku izdanja, npr. `0.0.45-alfa`, i potvrdi.
+izvana ni kroz tunel. U kartici *Ovaj čvor*, pod *Vraćanje na starije
+izdanje*, upiše oznaku izdanja, npr. `0.0.45-alfa`, i klikne *Dopusti
+starije izdanje*. Taj dio stranice postoji samo kad čvor pokreće Postava
+ili kad je čvor usluga sustava; u spremniku i uz ručno pokrenut čvor ga
+nema.
 Čvor dopuštenje drži samo u memoriji, 30 minuta. Ne sprema ga u bazu i ne
 šalje razmjenom. U dnevnik programa zapiše tko je dopustio i s koje adrese.
 Postava tada u izborniku ikone ponudi *Vrati na 0.0.45-alfa*. Nakon klika

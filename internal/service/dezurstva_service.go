@@ -74,8 +74,8 @@ func (s *JournalService) izvodjacUDezurstvu(d models.Dezurstvo, povijesti map[st
 }
 
 // CitaDnevnikeCOP javlja smije li osoba čitati dnevnike COP-a i plan
-// dežurstava uz njih: izvođač ne smije (Odluke (30. 10. 2026.), 2). Svoje
-// izvješće o satima i on vidi (VidiIORS).
+// dežurstava uz njih: izvođač ne smije (Odluke (30. 10. 2026.), 2). Ni
+// IORS nema, jer ga plaća njegova firma (VidiIORS).
 func (s *JournalService) CitaDnevnikeCOP(perms *models.UserPermissions) bool {
 	return perms != nil && !s.izvodjacZaCOP(perms)
 }

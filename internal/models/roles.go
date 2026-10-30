@@ -44,7 +44,7 @@ var RoleCatalog = []RoleDef{
 	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava", ScopeArea},
 	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem", ScopeArea},
 	{RoleContractDeputyA2, RoleGroupLevel3, "Zamjenik ovlaštenika za praćenje ugovora programa usluga A2", "zamjenjuje ovlaštenika A2; ista prava", ScopeArea},
-	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor obrane u području; upravlja područjem", ScopeArea},
+	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor održavanja kanala III. i IV. reda u području; upravlja područjem", ScopeArea},
 	{RoleContractDeputyA3, RoleGroupLevel3, "Zamjenik ovlaštenika za praćenje ugovora programa usluga A3", "zamjenjuje ovlaštenika A3; ista prava", ScopeArea},
 	{RoleSectionLeader, RoleGroupLevel4, "Rukovoditelj dionice", "vodi obranu na svojim dionicama (razina 4: dionica); upisuje očitanja i dnevnike za njih", ScopeSection},
 	{RoleSectionDeputy, RoleGroupLevel4, "Zamjenik rukovoditelja dionice", "zamjenjuje rukovoditelja dionice; ista prava na njegovim dionicama", ScopeSection},

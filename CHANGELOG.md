@@ -4,7 +4,14 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
-## 0.0.47-alfa — u pripremi
+## 0.0.47-alfa — 30. 10. 2026.
+
+Najveće izdanje dosad: provjere prava na svim stranicama i u razmjeni među
+računalima, odluke o pravima od 30. 10. 2026., nova administracija i
+pokrivenost testovima 90 %. Prije nadogradnje pročitati odjeljak o
+nadogradnji u `docs/INSTALACIJA.md`: najprije računalo s ključem mreže,
+sva računala isti dan, lozinke sa starom zajedničkom lozinkom promijeniti
+prije, sat točan na pet minuta.
 
 - **Izvođač ne ulazi u IORS ni u obračun sati.** Izvođača koji dežura
   plaća njegova firma, a ne Hrvatske vode, pa njegova dežurstva ne ulaze u
@@ -27,7 +34,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sliv koji već postoji (Odluke (30. 10. 2026.)).
 - **Izvješće dionice kad autor više ne vodi dionicu.** Predano izvješće
   mijenja onaj tko ga je izradio. Kad on više nije rukovoditelj ni zamjenik
-  te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik dionice
+  te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik dionice.
 - **Izvana: više radnji traži lozinku vašeg računa.** Kroz tunel ili s
   javne adrese lozinku vlastitog računa sad traže i osnivanje mreže,
   zaborav čvora, obnova članstva, adrese i oznaka „stalno izložen”, svaka
@@ -82,9 +89,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   uz vodočuvara i rukovoditelj ili zamjenik, svoj list ne ovjerava i svoju
   prijavu ne označava riješenom; to radi netko drugi.
 - **Provjere prava: dnevnik COP-a i obračun sati.** Izvođač više ne otvara
-  dnevnik COP-a ni plan dežurstava i ne piše u njih; svoje izvješće o
-  satima vidi na profilu. Obračun sati vidi uprava centra, a izvješće o
-  satima još i osoba sama. Storno i stanje naloga mijenjaju samo upis iz
+  dnevnik COP-a ni plan dežurstava i ne piše u njih. Obračun sati vidi
+  uprava centra, a izvješće o satima još i osoba sama, osim izvođača. Storno i stanje naloga mijenjaju samo upis iz
   dnevnika koji je otvoren. Ovjeren dnevnik COP-a više ne prima zapise,
   storno, ispravke ni promjenu naloga, a u dnevniku COP-a ne otvaraju se
   listovi.
@@ -224,7 +230,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   unaprijed odabrana (bio je dežurni operater). Naziv sektora na popisu
   organizacije vodi na stranicu sektora, a ne više na Dionice; do njih vodi
   gumb „Dionice sektora”. Isključivanje uloge računala traži potvrdu, a na
-  Sinkronizaciji uz svako računalo piše koje uloge ima.
+  Stanju razmjene uz svako računalo piše koje uloge ima.
 
 - **Karta bez interneta stiže razmjenom.** Kartu bez interneta trebalo je
   paketom `.cop` prenijeti na svako računalo. Sad ju računalo koje je nema
@@ -287,8 +293,7 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   primati novosti kad prijava prestane. Prijava na ime koje ne vodi na ovo
   računalo vrijedi kao prijava izvana; na adresu, ime računala u mreži,
   localhost, upisanu javnu adresu i imena iz `[web] lokalna_imena` sve radi
-  kao prije. Pod Postavom početna lozinka vrijedi samo na
-  `http://localhost`.
+  kao prije.
 - **Dnevnik COP-a: ovjera ostaje kad stigne zapis s drugog računala.**
   Zapis upisan na drugom računalu nakon ovjere ostaje u dnevniku i u izvozu
   u Excel s oznakom „nastao nakon ovjere” i vremenom upisa; ispravljen ili

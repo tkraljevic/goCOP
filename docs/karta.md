@@ -38,23 +38,51 @@ pregledniku crta biblioteka protomaps-leaflet 5.1.0 (licenca BSD-3),
 ugrađena u program, svijetlo ili tamno prema temi stranice, s nazivima na
 hrvatskom. Ona ništa ne traži s interneta.
 
-Karta se učitava u Administraciji → Karte, pod Karta bez interneta:
+Karta se učitava u Administraciji → Karte, pod Karta bez interneta. Tu
+kartu učitava i miče samo globalni administrator.
 
 1. Na jednom računalu učita se izvezena `.pmtiles` karta, uz naziv
    (npr. Sektor B) i izvor. Ona tada postaje zadana karta bez interneta
    na svim čvorovima.
-2. Na istoj stranici preuzme se njezin potpisani `.cop` paket, gumbom
-   *Preuzmi .cop za druga računala*.
-3. Paket se prenese na svako drugo računalo, npr. USB ključem, i ondje se
-   učita na istu stranicu. Paket karte ne učitava se u Održavanju baze.
+2. Ostala računala u mreži dobiju je sama, razmjenom (od 0.0.47-alfa).
+   Ništa se ne prenosi ručno.
 
-Razmjenom putuje samo opis karte: koja je karta zadana, njezino područje,
-veličina i otisak. Sama datoteka, od stotinjak MB, ne ide razmjenom.
-Računalo koje kartu nema piše to na istoj stranici („nije učitana”).
-Program paket prima samo od člana iste mreže i provjerava da karta ima
-otisak i veličinu iz potpisanog paketa. Izmijenjenu kartu ili paket s
-krivim potpisom odbije. Učitavanje karte od stotinjak MB traje i do
-minute, a karta smije imati najviše 2 GB.
+Razmjenom najprije stigne opis karte: koja je karta zadana, njezino
+područje, veličina i otisak cijele karte i svakog dijela od 4 MB. Računalo
+koje kartu nema zatim traži dijelove koji mu nedostaju, uz PDF-ove i druge
+priloge, koji imaju prednost. Dio može dati i računalo koje kartu još samo
+preuzima. Svaki dio provjerava se otiskom pri slanju i pri primanju, a
+složena karta otiskom i veličinom iz opisa. Kad se veza prekine ili se
+računalo ugasi, preuzimanje nastavlja od dijela na kojem je stalo. Stara
+karta briše se tek kad je nova cijela.
+
+Koliko je karte stiglo, piše na istoj stranici, u retku „Na ovom
+računalu”. Kad pola sata ne stigne nijedan dio, stranica kaže da karta
+čeka računalo koje je ima. Kad dijelovi stignu ispravni, a složena karta ne
+odgovara opisu, stranica to kaže, a kartu treba ponovno učitati na
+računalu koje je ima.
+
+Dok je na računalu proglašen stadij obrane, karta stiže i šalje se samo s
+računalima u istoj lokalnoj mreži, ista kuća ili ured. Unutarnja mreža
+Hrvatskih voda među gradovima, VPN, Tailscale i tunel tada se računaju kao
+internet. Svako računalo gleda svoju obranu. Čvor u Dockeru uz most
+(bridge) dok traje obrana kartu ne prima ni ne daje; uz mrežu računala
+(host) radi kao i drugi.
+
+Paketom `.cop` karta se i dalje prenosi računalu s 0.0.46-alfa ili
+starijim programom, koje dijelove karte razmjenom ne prima:
+
+1. Na računalu koje kartu ima preuzme se njezin potpisani paket, gumbom
+   *Preuzmi .cop za druga računala*.
+2. Paket se prenese na drugo računalo, npr. USB ključem, i ondje se učita
+   na istu stranicu. Paket karte ne učitava se u Održavanju baze.
+
+Program paket karte prima samo kad ga je izdalo ovo računalo ili član iste
+mreže, i provjerava da karta ima otisak i veličinu iz potpisanog paketa.
+Izmijenjenu kartu ili paket s krivim potpisom odbije. Računalo koje još
+nije u mreži prima samo vlastiti paket; kartu dobije razmjenom kad uđe u
+mrežu. Učitavanje karte od stotinjak MB traje i do minute, a karta smije
+imati najviše 2 GB.
 
 Kartu čvor daje samo prijavljenim korisnicima. Na kartama u programu
 prvo stoji obična karta, a „Karta bez interneta” bira se gumbom sa
@@ -66,8 +94,9 @@ interneta, jer se podloge biraju uz običnu kartu (niže). Karta
 teritorijalnih jedinica tada uzima zadani OpenStreetMap.
 
 Gumb *Makni kartu* miče kartu kao podlogu na svim čvorovima, a datoteku
-briše s ovog računala. *Vrati zadano* na istoj stranici kartu bez
-interneta ne dira.
+briše s ovog računala. Na ostalima datoteka ostaje dok ne stigne nova
+karta, a nedovršeno preuzimanje se briše. *Vrati zadano* na istoj stranici
+kartu bez interneta ne dira.
 
 ## Crte na karti objekta i vodotoka
 

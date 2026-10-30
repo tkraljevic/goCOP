@@ -94,7 +94,7 @@ func (h *AktiHandler) HandleUcitajKartu(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	redirectWith(w, r, "/administracija/karte#karta-bez-interneta", "success",
-		"Karta „"+k.Naziv+"” je učitana. Ostala računala dobit će je sama razmjenom; .cop paket treba samo računalu izvan mreže ili sa starijim programom.")
+		"Karta „"+k.Naziv+"” je učitana. Ostala računala dobit će je sama razmjenom; .cop paket treba samo računalu sa starijim programom.")
 }
 
 // cekanjeKarte: toliko bez ijednog novog dijela znači da karta čeka

@@ -96,7 +96,7 @@ od 3 dana unaprijed, program traži izričitu potvrdu i bilježi je uz akt
 (Odluke (8. 10. 2026.), pitanje 17).
 
 Iste provjere vrijede kad se akt ovjerava u programu i kad se učitava sken
-potpisanog akta.
+potpisanog akta. Sken učitava samo onaj tko akt smije i sam ovjeriti.
 
 ## Poništenje (storno)
 

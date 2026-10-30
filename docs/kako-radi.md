@@ -6,7 +6,7 @@ Kako se program koristi, piše u samom programu, na stranici **Pomoć**. Kako
 se postavlja, piše u [uputama administratoru](INSTALACIJA.md).
 
 Program je u alfa fazi. Ovdje je opisano ono što radi danas, u izdanju
-0.0.46-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
+0.0.47-alfa. Što još dolazi, piše u [planu razvoja](plan-razvoja.md).
 
 ## Što je goCOP
 
@@ -101,10 +101,15 @@ računalo izda potpisan paket (Administracija → Održavanje baze → Izdaj
 pravila kao razmjena. Računalo ugrađuje samo paket koji je izdalo računalo
 iste mreže; dok još nije u mreži, ugrađuje samo vlastite pakete.
 
-Karta bez interneta ne ide razmjenom. Razmjenom putuje samo njezin opis,
-pa sva računala znaju koja je karta zadana. Samu datoteku karte, za Sektor
-B oko 120 MB, globalni administrator na svako računalo prenosi njezinim
-paketom `.cop`, u Administraciji → Karte.
+Karta bez interneta, za Sektor B oko 120 MB, stiže razmjenom, dio po dio.
+Računalo koje je nema dobije je samo, i od računala koje je još preuzima,
+a kad se veza prekine, nastavlja gdje je stalo. Koliko je stiglo, piše u
+Administraciji → Karte. Dok je na računalu proglašen stadij obrane, karta
+ide samo s računalima u istoj lokalnoj mreži; unutarnja mreža Hrvatskih
+voda među gradovima, VPN, Tailscale i tunel tada se računaju kao internet
+(Odluke
+(29. 10. 2026.) i (30. 10. 2026.)). Računalu s 0.0.46-alfa ili starijim
+kartu i dalje treba prenijeti njezinim paketom `.cop`.
 
 ### Što koje računalo dobiva
 
@@ -114,7 +119,9 @@ očitanja, dnevnike, prijave s terena, vodočuvarski dnevnik i arhivu
 vodostaja, po sektoru ili branjenom području i po godinama. Uz zapise bira
 i koliko sadržaja dohvaća: sve, samo slike bez PDF-ova ili samo popis
 dokumenata. Bira i koliko dana sadržaj ostaje na računalu. Uredsko računalo
-obično prati sve, a prijenosno samo svoje područje i zadnje godine.
+obično prati sve, a prijenosno samo svoje područje i zadnje godine. Te
+izbore mijenja samo globalni administrator, s tog računala ili iz lokalne
+mreže; ostali stranicu samo gledaju.
 
 Granica je u razmjeni, ne u prikazu. Računalo ne dobiva ono što ne prati,
 pa izgubljeno prijenosno računalo nosi samo zajedničke registre i svoj dio
@@ -144,8 +151,16 @@ Sat svakog računala mora biti točan na pet minuta. Svaki zapis nosi
 vrijeme kad je nastao, a računalo ne prima zapis s vremenom više od pet
 minuta ispred svog sata: takav stigne tek kad mu vrijeme dođe. Ako sat
 jednog računala žuri ili kasni više od toga, njegovi novi podaci na ostala
-računala stižu sa zakašnjenjem. Stanje razmjene to javi za računalo čiji
-zapisi stižu iz budućnosti.
+računala stižu sa zakašnjenjem. Stanje razmjene javi kad sat drugog ili
+ovog računala odstupa. Razmjena, arhiva i paket `.cop` primaju samo
+verziju s oznakom u obliku koji program sam daje; ostale se preskoče, a
+razmjena ide dalje.
+
+Zapise koje razmjena danas ne bi primila, a u knjigu su ušli prije, npr. s
+vremenom iz budućnosti, stranica Održavanje baze pokaže i nudi njihovo
+brisanje. Briše samo globalni administrator, s tog računala ili iz lokalne
+mreže. Dnevnik programa zapiše tko je to napravio i odakle, a zapisi se
+zatim obnove iz knjige.
 
 Kad računala nemaju isto izdanje programa, novi dio razgovora ide samo ako
 ga znaju oba. Novi dio poruke koji starije izdanje ne poznaje ono zanemari,
@@ -190,8 +205,10 @@ treba i sigurnosna kopija u koju mreža ne može pisati. Mreža daje kopije u
 prostoru, a sigurnosna kopija u vremenu. Od pokvarenih zapisa pomaže samo
 kopija od prije napada. Kako se takva kopija radi, piše u
 [uputama administratoru](INSTALACIJA.md#kopija-u-koju-mreža-ne-piše).
-Potpisani zapisi i poništavanje svega što je jedno računalo upisalo od
-nekog trenutka u planu su razvoja.
+Promjene prava globalnog administratora i uprave organizacije s drugog
+računala ipak čekaju potvrdu ključem mreže (vidi [Tko smije u
+mrežu](#tko-smije-u-mrežu)). Potpisani zapisi i poništavanje svega što je
+jedno računalo upisalo od nekog trenutka u planu su razvoja.
 
 ## Uloga računala
 
@@ -206,8 +223,10 @@ izvora” i „Izdaje prognozu”. Svaka se uključuje na samo jednom računalu.
 Tako izvore ne pita svako računalo, a za isti sat ne nastanu dvije
 različite prognoze. Kad to
 računalo ne radi, vodostaji s izvora i prognoza ne obnavljaju se dok
-globalni administrator ne uključi ulogu na drugom. Samostalno prebacivanje
-uloge na drugo računalo još ne postoji.
+globalni administrator ne uključi ulogu na drugom. Uloge mijenja samo on,
+s tog računala ili iz lokalne mreže, a isključivanje uloge traži potvrdu.
+Na stranici Stanje razmjene uz svako računalo piše koje uloge ima.
+Samostalno prebacivanje uloge na drugo računalo još ne postoji.
 
 ## Tko smije u mrežu
 
@@ -215,7 +234,18 @@ Mrežu osniva prvo računalo i drži njezin ključ. Novo računalo ulazi u mrež
 uparivanjem s računalom koje smije primati članove: s onim koje drži ključ
 mreže ili s onim kojem je ono dalo ovlast za primanje. Uparivanje traži
 čovjeka na oba ekrana. Oba računala pokažu isti šesteroznamenkasti kod i
-oba ga potvrde.
+oba ga potvrde. Na novom računalu, dok je još prazno, uparivanje ide i
+bez prijave, za tim računalom ili uz kod iz dnevnika programa. U mrežu ga
+ipak prima prijavljeni globalni administrator na računalu koje prima.
+Računalo koje drži ključ mreže ili ovlast za primanje uparivanje bez
+prijave ne nudi.
+
+Primanje u mrežu, ovlast za primanje i opoziv smiju se i izvana, kroz
+tunel ili s javne adrese, ali uz lozinku računa administratora. Iz lokalne
+mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše u
+dnevniku programa. Uređaj iz iste Tailscale mreže koji se spoji na
+Tailscale adresu ovog računala vrijedi kao lokalna mreža. To se isključuje
+u `gocop.toml`, s `[web] tailscale_lokalno = false`.
 
 Računalo koje nije u istoj lokalnoj mreži s računalom koje ga prima može
 ući primanjem na daljinu. Novo računalo pokaže kod za primanje i napravi
@@ -257,20 +287,29 @@ s adresom za PIN o njemu dobiju e-poštu, odmah s tog računala ili, kad ono
 nema račun za slanje, s drugog koje ga ima, sat ili više kasnije. Pločica
 računala s ključem upozorava dok kopija nije spremljena i dok ovlast za
 primanje nemaju barem dva računala.
-Promjena prava koja stigne s drugog računala, razmjenom ili paketom, ne
-vrijedi dok je ne potvrdi globalni administrator, na stranici Stanje
-razmjene. To vrijedi za zastavicu globalnog administratora, za dužnost
-uprave organizacije i za lozinku i uključenost računa globalnog
+
+Promjena prava koja stigne s drugog računala, razmjenom, paketom ili
+arhivom, ne vrijedi dok je ne potvrdi globalni administrator. To vrijedi
+za zastavicu globalnog administratora, za dužnost uprave organizacije, i
+privremenu, te za lozinku, uključenost i brisanje računa globalnog
 administratora. Ostale izmjene istog računa stižu odmah. U mreži se
-potvrđuje ili odbija jednom, na računalu koje drži ključ mreže; odluka je
-potpisana ključem mreže i razmjenom stigne na sva računala, a svako je
-provjeri ključem svoje mreže. Izmjena prava napravljena na računalu s
-ključem mreže vrijedi na drugom računalu čim ondje stigne, bez čekanja na
-potvrdu. Računalo s ključem mreže treba nadograditi prvo: dok ono radi
-starijim programom, promjene prava s drugih računala čekaju. Opoziv članstva je
-potpisan i putuje razmjenom, pa na drugom računalu vrijedi
-kad ondje stigne. Pojedinosti i granice zaštite su u
-[SECURITY.md](../SECURITY.md).
+potvrđuje ili odbija jednom, na računalu koje drži ključ mreže, na
+stranici Stanje razmjene. Odluka se potpiše ključem mreže i vrijedi na
+svakom računalu čim do njega stigne razmjenom; ondje se o njoj više ne
+odlučuje, a popis se samo vidi. Izmjena prava napravljena na računalu s
+ključem mreže ne čeka potvrdu ni na jednom računalu. Računalo koje još
+nije u mreži odlučuje samo za sebe (Odluke (30. 10. 2026.)).
+
+Računalo s ključem mreže treba nadograditi prvo: dok ono radi starijim
+programom, promjene prava s drugih računala čekaju i nitko ih ne može
+potvrditi. Računala sa starijim programom potvrde čuvaju i šalju dalje, a
+na pločici pišu da čekaju nadogradnju.
+
+Opoziv članstva je potpisan i putuje razmjenom, pa na drugom računalu
+vrijedi kad ondje stigne. Kad člana opozove računalo s ključem mreže,
+uvijek mu oduzme i ovlast za primanje, i onu za koju to računalo još ne
+zna. Ponovni prijem nakon opoziva vrijedi odmah. Pojedinosti i granice
+zaštite su u [SECURITY.md](../SECURITY.md).
 
 Što koja osoba smije u programu, određuju njezine dužnosti. Uloge su
 opisane u dokumentu [Tko što radi u programu](uloge.md).

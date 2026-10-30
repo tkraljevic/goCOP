@@ -17,7 +17,8 @@ instalira, što dolazi i kakav je kod.
 
 ## Instalacija
 
-- [Prvo pokretanje](prvo-pokretanje.md): za početak, u nekoliko koraka.
+- [Prvo pokretanje](prvo-pokretanje.md): od preuzimanja do prve prijave,
+  privremene lozinke iz imenika i Prvi koraci u Administraciji.
 - [Upute administratoru](INSTALACIJA.md): postavljanje, mreža, sigurnosna
   kopija, nadogradnja.
 - [goCOP na Linuxu](linux.md): stalno računalo kao usluga sustava.

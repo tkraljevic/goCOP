@@ -108,7 +108,9 @@ Mape, sigurnosna kopija i nadogradnja spremnika opisani su u
 Stranica **Postavljanje** postoji samo dok u računalu još nema djelatnika.
 Radi s računala na kojem je goCOP pokrenut, a iz lokalne mreže samo uz
 jednokratni kod iz dnevnika. Preko interneta je nema. Nakon deset krivih
-kodova kod ne vrijedi do ponovnog pokretanja.
+kodova kod ne vrijedi do ponovnog pokretanja. Kad uz bazu prvog računala
+stoji imenik djelatnika, stranice nema, a postupak je opisan niže, pod
+[Prvo računalo s imenikom](#prvo-računalo-s-imenikom).
 
 ### Prvo računalo nove mreže
 
@@ -125,6 +127,37 @@ Tako nastaje vaš račun globalnog administratora, a računalo osnuje mrežu i
 zaseban svijet: ne vidi podatke drugih mreža i kasnije se ne može spojiti s
 njima. Ako niste sigurni, izaberite postojeću mrežu.
 
+### Prvo računalo s imenikom
+
+Imenik djelatnika (`imenik.json`) stavlja se samo uz bazu prvog računala
+mreže, u mapu `data`. Oblik je opisan u [predlošcima uvoza](predlosci/README.md).
+Ostala računala djelatnike dobiju razmjenom.
+
+Pri prvom pokretanju program upiše djelatnike iz imenika i svakome složi
+njegovu privremenu lozinku. Zajedničke početne lozinke nema. Kad imenik
+nema račun `admin`, i on je na popisu.
+
+1. Otvorite popis privremenih lozinki. Na tom računalu adresa je
+   `http://localhost/postavljanje/lozinke` (kad port 80 nije slobodan,
+   `http://localhost:8080/postavljanje/lozinke`). Iz lokalne mreže treba
+   adresa s kodom koju program ispiše u dnevnik, u retku koji počinje s
+   `Postavljanje:`.
+2. Popis se pokazuje samo jednom i program ga nigdje ne sprema. Ispišite ga
+   ili prepišite prije nego što zatvorite stranicu.
+3. Svakome predajte njegovu lozinku osobno ili telefonom. Pri prvoj prijavi
+   osoba je mijenja svojom.
+
+Popis vrijedi 24 sata od prvog punjenja. Ako ga u tom roku nitko ne
+preuzme, program ga briše i to zapiše u dnevnik. Ako se računalo unutar
+roka ponovno pokrene prije preuzimanja, računi koje u međuvremenu nitko
+nije mijenjao dobiju nove privremene lozinke i novi popis. Kad popisa više nema, novu lozinku daje administrator na stranici
+Djelatnici (**Poništi lozinku**). Ako se nitko ne može prijaviti, na
+računalu na kojem goCOP radi pokrenite `gocop -ponisti-lozinku
+korisničko-ime` za račun globalnog administratora.
+
+Mrežu zatim osniva globalni administrator: Administracija → Ovo računalo i
+mreža, pod Mreža, gumb **Osnuj mrežu**.
+
 ### Svako sljedeće računalo
 
 Sljedeće računalo se upari s računalom koje prima računala u mrežu. To je
@@ -137,26 +170,52 @@ uparivanje treba osoba i na drugoj strani.
    i mreža → Uparivanje.
 3. Jedno računalo čeka, a drugo ga nađe u lokalnoj mreži ili ga nazove po
    adresi.
-4. Oba ekrana pokažu isti šesteroznamenkasti kod. Ako je isti, oboje kliknu
-   **Kod se podudara — upari**. Ako nije isti, odbijte.
-5. Razmjena zatim krene sama, a gumb **Razmijeni sa svima** na stranici
-   Stanje razmjene pokreće je odmah.
+4. Oba ekrana pokažu isti kod od šest znamenki. Ako je isti, oboje kliknu
+   **Kod se podudara — upari**. Ako nije isti, odbijte. Bez tog koda
+   računala se ne upare.
+5. Razmjena zatim krene sama. Na novom računalu gumb **Sinkroniziraj** u
+   istom čarobnjaku pokreće je odmah, a na drugom računalu gumb **Razmijeni
+   sa svima** na stranici Stanje razmjene.
    Djelatnici, registri i podaci stižu s drugog računala. Kad stignu
    djelatnici, prijavljujete se svojim računom. Računi globalnih
-   administratora i njihove dužnosti vrijede odmah kad ih je potvrdilo
-   računalo koje drži ključ mreže. Ako neki ipak čeka, vidi se na stranici
-   Stanje razmjene, pod Promjene prava koje čekaju potvrdu, a potvrđuje ga
-   globalni administrator na računalu s ključem mreže.
+   administratora i dužnosti uprave organizacije upisani ili potvrđeni na
+   računalu koje drži ključ mreže vrijede odmah. Takva promjena napravljena
+   na drugom računalu čeka potvrdu. Vidi se na stranici Stanje razmjene,
+   pod Promjene prava koje čekaju potvrdu, a potvrđuje je globalni
+   administrator na računalu s ključem mreže, jednom za cijelu mrežu.
+
+Kad globalni administrator stranicu otvori izvana, kroz tunel ili s javne
+adrese, potvrda uparivanja traži i lozinku njegova računa.
+
+**Na daljinu.** Kad računala nisu u istoj lokalnoj mreži, novo računalo pod
+*Priključit ću se postojećoj mreži* napravi zahtjev i pokaže kod za
+primanje. Datoteku zahtjeva pošaljite globalnom administratoru koji prima
+računala, npr. e-poštom, a kod mu pročitajte telefonom, nikad porukom. On
+zahtjev učita na stranici Ovo računalo i mreža, pod Primanje na daljinu, i
+vrati vam potvrdu. Potvrdu učitajte na novom računalu.
 
 ### Početni račun admin
 
-Svježe računalo ima i početni račun `admin`, ali njegovu lozinku nitko ne
-zna i ne treba vam: računalo postavljate na stranici Postavljanje, koja ga
-isključi.
+Svježe računalo bez imenika ima i početni račun `admin`, ali njegovu
+lozinku nitko ne zna i ne treba vam: računalo postavljate na stranici
+Postavljanje, koja ga isključi.
+
+### Računi sa starom zajedničkom lozinkom
+
+Do 0.0.46-alfa računi iz imenika dobivali su istu početnu lozinku. Račun
+koji je još ima sad je zaključan: ne prijavljuje se ni iz ureda, a njegova
+otvorena prijava prestaje. Globalni administrator takve račune vidi na vrhu
+stranice Djelatnici. Svakome otvorite račun, kliknite **Poništi lozinku** i
+predajte mu novu privremenu. Učinite to odmah, jer se na računalu sa
+starijim izdanjem ti računi iz ureda još prijavljuju.
 
 ## 3. Što dalje
 
-Na prvom računalu mreže globalni administrator nastavlja ovim redom.
+Na prvom računalu mreže globalni administrator nastavlja ovim redom. Dok
+ustroj nije gotov, na vrhu stranice Administracija vidi **Prve korake**:
+popis poslova s poveznicama i kvačicom uz svaki gotov. Ondje su i računi
+za telemetriju i e-pošta za akte i PIN. Popis nestaje kad su koraci
+gotovi.
 
 1. **Ustroj.** U Administracija → Administrativna organizacija upišite
    sektore, a zatim branjena područja. Registre i imenik možete i uvesti iz
@@ -164,19 +223,23 @@ Na prvom računalu mreže globalni administrator nastavlja ovim redom.
 2. **Nazivi.** Ako vaša organizacija razine ustroja ili uloge zove drukčije,
    promijenite ih u Administracija → Nazivi i Administracija → Sudionici
    obrane.
-3. **Djelatnici i dužnosti.** Koje uloge postoje i što koja smije, piše u
-   dokumentu [Tko što radi u programu](uloge.md). Lozinku koju upišete
-   djelatniku on pri prvoj prijavi zamijeni svojom.
+3. **Djelatnici i dužnosti.** Djelatnici su u glavnom izborniku. Koje
+   uloge postoje i što koja smije, piše u dokumentu
+   [Tko što radi u programu](uloge.md). Lozinku koju upišete djelatniku on
+   pri prvoj prijavi zamijeni svojom.
 4. **Drugi globalni administrator.** Neka mreža ima barem dva. Kad jedan
    zaboravi lozinku, drugi mu je poništi.
 5. **Uloge računala.** U Administracija → Ovo računalo i mreža →
    Uloge ovog čvora izaberite koje računalo preuzima vodostaje i koje izdaje
    prognozu. Obično je to stalno računalo, a prijenosna računala samo
    primaju. Novo
-   računalo nema nijednu ulogu dok mu je ne uključite.
-6. **Ostala računala.** Instalirajte ih i uparite, kako piše gore. Na svakom
-   računalu osoba na svom profilu, pod Što ovo računalo prati, izabere sektor
-   ili područje i godine koje joj trebaju.
+   računalo nema nijednu ulogu dok mu je ne uključite. Uloge se mijenjaju
+   na samom računalu ili iz lokalne mreže, a isključivanje traži potvrdu.
+6. **Ostala računala.** Instalirajte ih i uparite, kako piše gore. Što
+   koje računalo prima, sektor ili područje i godine, bira globalni
+   administrator na stranici Što ovo računalo prati, s tog računala ili iz
+   lokalne mreže. Do nje vodi Administracija, skupina Ovo računalo i mreža,
+   i poveznica na profilu. Ostali tu stranicu samo gledaju.
 7. **Sigurnosna kopija.** Kopija mora obuhvatiti cijelu mapu `data`, s
    ključem računala (`node-key`), a na računalu koje drži ključ mreže i s
    ključem mreže (`network-key`). Za ključ mreže spremite i šifriranu kopiju
@@ -184,7 +247,10 @@ Na prvom računalu mreže globalni administrator nastavlja ovim redom.
    obje montirane mape. Povrat probajte prije operativnog rada. Pojedinosti
    su u [uputama administratoru, poglavlje 7](INSTALACIJA.md#7-stalni-čvor-spremnik-i-sigurnosna-kopija).
 8. **Nadogradnja.** Na Windowsu nadogradnju nudi ikona Postave, uvijek na
-   klik. Prije nadogradnje napravite kopiju podataka. Kad je redoslijed
+   klik, i to samo izdanje novije od postavljenog. Starije izdanje Postava
+   postavi samo kad ga globalni administrator dopusti na stranici Ovo
+   računalo i mreža, pod Vraćanje na starije izdanje; dopuštenje vrijedi
+   30 minuta. Prije nadogradnje napravite kopiju podataka. Kad je redoslijed
    nadogradnje računala važan, piše u [popisu izmjena](../CHANGELOG.md), uz
    izdanje na koje se nadograđuje.
 

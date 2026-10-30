@@ -49,6 +49,8 @@ držati na zadnjem izdanju, stalni čvor prvi (redoslijed je u
 
 Ukratko: **čvor vjeruje sebi, svojim prijavljenim korisnicima prema
 njihovim ovlastima, i svakom primljenom članu svoje mreže, potpuno.**
+Iznimka su promjene prava globalnog administratora i uprave organizacije:
+one s drugog računala čekaju potvrdu ključem mreže (vidi dolje).
 Sve ostalo (lokalna mreža, internet, posrednici, pronalaženje čvorova) je
 nepouzdano.
 
@@ -96,19 +98,29 @@ nepouzdano.
 - Čvor bez valjane potvrde je **poznat, ali mu se razmjena odbija**.
 - Povjerenje vrijedi za cijelu mrežu: svaki valjani član smije razmjenjivati
   sa svakim čvorom te mreže, ne samo s onim s kojim se uparivao.
-- **Opoziv** (Administracija → Čvor, mreža i sinkronizacija) zapisuje se u
-  knjigu i razmjenom stiže svim čvorovima. Vrijedi samo potpisan:
+- **Opoziv** (Administracija → Ovo računalo i mreža, pod Mreža) zapisuje
+  se u knjigu i razmjenom stiže svim čvorovima. Vrijedi samo potpisan:
   - opoziv ovlasti potpisuje ključ mreže;
   - opoziv članstva potpisuje ključ mreže ili primatelj koji je to članstvo
     izdao;
   - opoziv članstva ovlaštenog primatelja oduzima mu i ovlast, pa ga može
     napraviti samo nositelj ključa mreže.
 
+  Opoziv ključem mreže vrijedi za svako članstvo tog imena izdano do tada,
+  i ono izdano na drugom računalu, i kad je članstvo već isteklo. Uvijek
+  oduzme i svaku ovlast za primanje izdanu tom imenu do tada, i onu za
+  koju nositelj ključa još ne zna. Kad primatelj opozove člana čija ovlast
+  do njega još nije stigla, ovlast ostaje, a pločica računala s ključem
+  mreže upozorava dok je ono ne oduzme.
+
   Nepotpisan ili tuđe potpisan opoziv stoji u bazi, ali ništa ne opoziva.
-  Opoziv se ne poništava: arhivirana verzija opoziva ne briše ga ni na
-  jednom čvoru. Opozvana potvrda ne vrijedi ni kad je čvor pokaže sam, a
-  potvrda izdana nakon opoziva opet vrijedi (ponovno primanje izdaje novo
-  članstvo). Oduzeta ovlast poništava sva članstva koja je primatelj izdao.
+  U popis opoziva ulazi samo opoziv čija oznaka odgovara sadržaju i
+  potpisu, a čvor opoziv traži i u svim primljenim verzijama u knjizi, ne
+  samo u popisu. Zato se opoziv ne poništava: arhivirana verzija opoziva
+  ne briše ga ni na jednom čvoru. Opozvana potvrda ne vrijedi ni kad je
+  čvor pokaže sam, a potvrda izdana nakon opoziva vrijedi odmah (ponovno
+  primanje izdaje novo članstvo). Oduzeta ovlast poništava sva članstva
+  koja je primatelj izdao.
 - **Obnova potvrde.** Mjesec dana prije isteka čvor pri uspješnoj razmjeni
   sam upiše zahtjev za obnovu, potpisan svojim ključem čvora; isto radi
   gumb Obnovi članstvo, u svako doba. Zahtjev putuje knjigom do čvora koji
@@ -159,7 +171,10 @@ nepouzdano.
   (ima najviše jedan korisnički račun), i to samo osoba za tim računalom:
   s ovog računala bez koda, a s privatne adrese uz jednokratni kod iz
   dnevnika, isti kao za `/postavljanje`. To vrijedi i kad čvor ne radi pod
-  Postavom. Kroz posrednika nikad.
+  Postavom. Kroz posrednika nikad. Bez prijave se računala samo upare: u
+  mrežu drugo računalo prima samo prijavljeni globalni administrator, a
+  čvor koji drži ključ mreže ili ovlast za primanje uparivanje bez prijave
+  ne nudi.
 - Primanje računala u mrežu (uparivanjem ili na daljinu), davanje i
   oduzimanje ovlasti za primanje i opoziv članstva smiju i izvana, kroz
   tunel ili s javne adrese, ali uz lozinku računa upisanu u isti obrazac.
@@ -169,7 +184,8 @@ nepouzdano.
   globalnog administratora: novi račun s tim pravom, davanje i oduzimanje
   oznake ili dužnosti uprave organizacije (razina 1, i privremene), te
   poništenje ili upis lozinke, uključivanje, isključivanje i brisanje
-  računa koji to pravo ima.
+  računa koji to pravo ima. Isto traži i odluka o promjeni prava koja
+  čeka potvrdu (vidi niže).
   Krivi upisi broje se kao pri promjeni lozinke. S ovog računala i iz
   lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše
   u dnevniku programa, a tamo piše i zahtjev izvana odbijen zbog lozinke.
@@ -193,6 +209,56 @@ nepouzdano.
   potvrda. Broj pokušaja upisa koda nije ograničen; kod štiti veličina
   prostora kodova (31⁸) i cijena scrypta.
 
+### Promjene prava s drugog računala
+
+- Primljena verzija koja daje ili oduzima zastavicu globalnog
+  administratora ili dužnost uprave organizacije (razina 1, i privremenu),
+  mijenja lozinku ili uključenost računa globalnog administratora ili briše
+  takav račun ne mijenja podatke dok o njoj ne odluči globalni
+  administrator (Odluke (30. 10. 2026.)). Isto vrijedi za razmjenu, `.cop`
+  paket i arhivu. Verzija ostaje u knjizi i šalje se dalje, a ostale
+  izmjene istog računa vrijede odmah. Dok promjena čeka, taj se zapis na
+  ovom računalu ne mijenja.
+- U mreži se odlučuje jednom, na čvoru koji drži `network-key`, na
+  stranici Stanje razmjene. Potvrda ili odbijanje potpisuje se ključem
+  mreže i putuje razmjenom kao i svaki zapis; svaki čvor je provjeri
+  javnim ključem mreže iz svoje baze, pa je svejedno stigne li prije ili
+  poslije same promjene. Ostali čvorovi popis samo pokazuju.
+- Izmjena prava napravljena na čvoru s ključem mreže odmah dobiva potvrdu
+  potpisanu tim ključem i ne čeka ni na jednom čvoru.
+- Čvor koji još nije u mreži odlučuje samo za sebe, jer nema ključa mreže
+  kojim bi provjerio odluku.
+- Odlučuje globalni administrator svojim očima; izvana uz lozinku svog
+  računa.
+- Čvor s ključem mreže nadograđuje se prvi. Dok radi starijim programom,
+  promjene prava s drugih čvorova čekaju i nitko ih ne može potvrditi.
+
+### Samo s ovog računala ili iz lokalne mreže
+
+Ove radnje mijenjaju samo ovo računalo ili unose podatke bez provjerljivog
+potpisa. Radi ih samo globalni administrator, svojim očima, izravno s
+ovog računala ili iz lokalne mreže, a izvana i kroz tunel nikad, ni uz
+lozinku:
+
+- postavke ovog čvora (`gocop.toml`), ponovno pokretanje i uloge ovog
+  čvora;
+- stranica „Što ovo računalo prati”;
+- izvori arhive i „Čuvaj povijest” uz letvu;
+- uvoz stare `.db` arhive, koja nema potpis, i paketa s diska dok
+  računalo još nije u mreži; računalo izvan mreže staru `.db` arhivu ne
+  uvozi uopće;
+- spremanje i učitavanje kopije ključa mreže;
+- oba gumba za provjeru veze na stranici Stanje razmjene (STUN i veza s
+  drugim računalom);
+- dopuštenje da Postava postavi starije izdanje;
+- brisanje neispravnih zapisa iz knjige na stranici Održavanje baze. To su
+  zapisi koje razmjena danas ne bi primila, npr. s vremenom iz budućnosti.
+  Dnevnik programa zapiše tko ih je obrisao i s koje adrese.
+
+Lokalno je ovo računalo i privatna adresa, uz izravnu vezu bez
+posrednika, i Tailscale adresa ovog računala dok je `[web]
+tailscale_lokalno` uključen.
+
 ### Razmjena
 
 - Razmjena ide preko TCP porta 4710 (TLS 1.3) ili kroz web: WebSocket na
@@ -202,14 +268,29 @@ nepouzdano.
 - Certifikati čvorova su samopotpisani; ne provjerava ih tijelo za
   certifikate, nego se uspoređuje javni ključ (očekivani ključ pri pozivu,
   valjana potvrda članstva pri primanju).
-- Ograde: najviše 32 rukovanja i 4 razmjene odjednom (kroz tunel najviše
-  16 rukovanja, a s jednog klijenta 2 veze), rokovi čitanja i pisanja,
-  poruka najviše 256 MiB, u jednom razgovoru najviše 5000 verzija i 32 MiB.
+- Ograde vrata: najviše 32 rukovanja i 4 razmjene odjednom. Dok druga
+  strana ne dokaže ključ, veze se ograđuju po adresi: s jedne adrese
+  najviše 4 rukovanja, a s jedne javne mreže 8; adresa s koje je član
+  nedavno dokazao ključ ima nešto više mjesta. Kroz tunel s jednog
+  klijenta idu najviše 2 veze prije dokaza ključa, a s jednog ključa 2.
+  Veza koja u 2 s (kroz tunel 3 s) ne pošalje prvu poruku rukovanja
+  zatvara se, a cijelo rukovanje ima rok od 15 s (kroz tunel 5 s).
+- Ograde razgovora: svaka vrsta poruke ima svoju najveću veličinu, a
+  nijedna ne prelazi 256 MiB. U jednom razgovoru ide najviše 5000 verzija i
+  32 MiB. Verzija koja se ne bi dala poslati dalje ne prima se. Od onoga
+  što druga strana javi pamti se najviše 32 oznake mogućnosti, kratak
+  razlog odbijanja, kratko izdanje programa i kratko ime. Sadržaj
+  (privitak, PDF, dio karte) prima se samo kad ga je ovaj čvor tražio.
+- Primljena verzija mijenja podatke samo kad joj je oznaka u obliku koji
+  program sam daje, s vremenom najviše pet minuta ispred sata, i kad
+  oznaka u njezinu sadržaju odgovara oznaci zapisa. Ostale se preskoče ili
+  samo čuvaju i šalju dalje, a razmjena ide dalje. Isto vrijedi za `.cop`
+  paket i arhivu.
 - Pronalaženje (UDP 4712, IPv4 broadcast) je samo imenik: odgovor nosi ime,
   oznaku čvora i portove. Lažan odgovor može potrošiti pokušaj veze, ali
   ne donosi povjerenje.
 - Adrese drugih računala i poruke o greškama razmjene, koje ih nose, vidi
-  samo globalni administrator, na stranici Sinkronizacija. Drugi korisnik s
+  samo globalni administrator, na stranici Stanje razmjene. Drugi korisnik s
   modulom Administracija dobiva stanje razmjene bez njih, a pločica razmjene
   na naslovnoj, koju vidi svaki prijavljeni korisnik, pokazuje samo naziv
   puta (LAN sync, SERVER sync, Tailscale, WEB sync) i razlog rečenicom.
@@ -217,11 +298,11 @@ nepouzdano.
   web_sync_prijava = true` i na gumb Provjeri vezu, koji vidi samo
   administrator) pita dva STUN poslužitelja kojom javnom adresom vide
   računalo. Vlastitu javnu adresu i adrese za WEB sync pokazuje samo blok
-  Dohvatljivost na stranici Sinkronizacija, administratoru. STUN odgovor nije potpisan: tko je na putu, može podmetnuti
+  Dohvatljivost na stranici Stanje razmjene, administratoru. STUN odgovor nije potpisan: tko je na putu, može podmetnuti
   lažnu adresu, a tko nije, morao bi pogoditi 96-bitni ID upita. Zato se
   popis poslužitelja mijenja samo u `gocop.toml`. Lažna adresa mijenja samo
   ishod provjere, a ne povjerenje među čvorovima.
-- Provjera veze s računalom (gumb na stranici Sinkronizacija, samo
+- Provjera veze s računalom (gumb na stranici Stanje razmjene, samo
   administrator, lokalno) zove poznate adrese drugog računala i stane čim
   ono dokaže ključ, prije nego ovo pošalje svoj certifikat i potvrdu
   članstva. Na adresi gdje se javi netko drugi zato ne ostaje ništa o ovom
@@ -257,6 +338,11 @@ nepouzdano.
 - Veliki sadržaji (privici, PDF-ovi) adresirani su SHA-256 otiskom i
   provjeravaju se pri primitku. `.cop` paketi arhive potpisani su ključem
   čvora koji ih izdaje i provjeravaju se pri čitanju.
+- Paket kanala (`.cop`) prvo provjeri potpis i izdavača, pa tek onda
+  raspakira ostalo. Čvor ga ugrađuje samo kad ga je izdao član iste mreže;
+  čvor koji još nije u mreži ugrađuje samo vlastite pakete. Svaki dio
+  paketa čita se do svoje granice, a sadržaj se uzima samo kad ga navodi
+  zapis iz paketa.
 
 ### Izdanja i potpis
 
@@ -274,15 +360,27 @@ nepouzdano.
   OpenSSL-om opisana je u [docs/linux.md](docs/linux.md).
 - Potpis automatski provjerava Postava pri nadogradnji. Sam `gocop` se ne
   nadograđuje i ništa ne preuzima.
+- Postava nudi i postavlja samo izdanje novije od postavljenog. Starije
+  izdanje, najstarije 0.0.37-alfa, postavlja samo kad ga globalni
+  administrator dopusti na stranici Ovo računalo i mreža, svojim očima, s
+  tog računala ili iz lokalne mreže (Odluke (30. 10. 2026.)). Dopuštenje
+  je samo u memoriji čvora, ne putuje razmjenom i vrijedi 30 minuta, a
+  izdanje se provjerava kao i pri nadogradnji.
+- Na Linuxu preuzeti program mora javiti baš izdanje koje se postavlja, a
+  instalacijska skripta pokreće se kao root iz kopije u mapi koju piše
+  samo root, nakon još jedne provjere potpisa i SHA-256.
 
 ### Prijava
 
-- Lozinke su spremljene kao bcrypt sažetak (zadana cijena). Nova lozinka
-  ima barem 6 znakova; prvi administrator s `/postavljanje` barem 10.
+- Lozinke su spremljene kao bcrypt sažetak (zadana cijena). Lozinka svakog
+  računa ima barem 10 znakova, na svakom mjestu gdje se postavlja.
   Nepostojeće korisničko ime provjerava se jednako dugo kao postojeće.
 - Sesija traje 24 sata od prijave. Kolačić `gocop_session` je `HttpOnly`,
-  `SameSite=Lax`, a `Secure` kad je zahtjev stigao preko HTTPS-a. Promjena
-  lozinke gasi ostale sesije te osobe na tom čvoru.
+  `SameSite=Lax`, a `Secure` kad je zahtjev stigao preko HTTPS-a. Sesija
+  pamti otisak lozinke s kojom je otvorena. Promijenjena ili poništena
+  lozinka zato gasi ostale sesije te osobe, i prijave koje čekaju PIN, i
+  na drugim čvorovima, čim im promjena stigne razmjenom. Otvorena
+  stranica prestaje primati novosti kad sesija prestane.
 - Zaključavanje nakon krivih lozinki: isto ime s iste adrese 5 puta u
   15 minuta, ista adresa 20 puta u 15 minuta, a izvana isto ime 30 puta na
   sat. Izvana se IPv6 adrese broje po mreži /64, osim na Tailscaleu.
@@ -290,7 +388,8 @@ nepouzdano.
   mreži, pa se takva mreža u uredu broji kao jedna adresa. Uz isključen
   `[web] tailscale_lokalno` zahtjev preko Tailscalea je izvana i broji se
   i ime. Svaki zahtjev sa zaglavljem posrednika broji se odvojeno od iste
-  adrese kad zahtjev stigne izravno. Brojači su u memoriji i nestaju s
+  adrese kad zahtjev stigne izravno, a isto i zahtjev na ime koje ne vodi
+  na ovo računalo. Brojači su u memoriji i nestaju s
   ponovnim pokretanjem.
 - **Početne lozinke.** Nijedan novi račun nema zajedničku ni zadanu
   lozinku. Svaki račun iz imenika dobije pri prvom punjenju svoju nasumičnu
@@ -333,7 +432,10 @@ nepouzdano.
   privatna, ovo računalo ni lokalna veza. Na računalu s Tailscaleom izravan
   zahtjev na Tailscale adresu tog računala nije izvana (`[web]
   tailscale_lokalno`, zadano uključeno). Odlučuje adresa na koju je veza
-  stigla, ne adresa pošiljatelja. Postoje i zapamćena računala
+  stigla, ne adresa pošiljatelja. Izvana je i zahtjev upućen imenu za
+  koje se ne zna da vodi na ovo računalo; adresa, ime računala u mreži,
+  `localhost`, upisana javna adresa i imena iz `[web] lokalna_imena` rade
+  kao prije. Postoje i zapamćena računala
   (30 dana), rezervni kodovi i privremeni kod koji daje administrator.
   Sve to vrijedi samo na čvoru na kojem je nastalo i spremljeno je samo
   kao HMAC.
@@ -382,7 +484,9 @@ nepouzdano.
   koji zapis. Kompromitiran ili zlonamjeran član može izmijeniti ili
   obrisati bilo koji usklađeni podatak na svim čvorovima, uključujući
   korisničke račune i ovlasti, zajedničke postavke (npr. PIN izvana),
-  popis čvorova i izdavatelje potpisnih certifikata. Članstva, ovlasti i
+  popis čvorova i izdavatelje potpisnih certifikata. Iznimka su promjene
+  prava globalnog administratora i uprave organizacije, koje čekaju
+  potvrdu ključem mreže. Članstva, ovlasti i
   opozivi provjeravaju se potpisom pri uporabi, pa ih član ne može
   krivotvoriti, a opoziv ne može poništiti. Svaki član
   smije objaviti prognozu i arhivu. Potpisani zapisi i uloge izdavanja su
@@ -400,20 +504,22 @@ nepouzdano.
   posrednika ispred čvora. U lokalnoj mreži bez HTTPS-a lozinke i kolačići
   putuju nešifrirano. PIN izvana radi samo preko HTTPS-a.
 - **Svjež čvor u lokalnoj mreži.** Dok se na `/postavljanje` ne postavi
-  vlastiti administrator, uparivanje bez prijave može iskoristiti svatko s
-  privatne adrese u istoj mreži. Svjež čvor postavite
-  odmah nakon prvog pokretanja.
+  vlastiti administrator, uparivanje bez prijave može pokrenuti svatko tko
+  sjedi za tim računalom ili iz lokalne mreže ima kod iz dnevnika
+  programa. Svjež čvor postavite odmah nakon prvog pokretanja.
 - **Tailscale mreža je lokalna mreža.** Na računalu s Tailscaleom svaki
   uređaj iz iste Tailscale mreže prolazi kao iz ureda: prijava bez PIN-a,
-  popis privremenih lozinki s kodom i postavljanje svježeg čvora. Tko je u toj mreži, određuju
+  radnje nad mrežom i pravima bez lozinke računa, radnje koje se smiju
+  samo iz lokalne mreže, popis privremenih lozinki s kodom i postavljanje
+  svježeg čvora. Tko je u toj mreži, određuju
   njezin račun i pravila pristupa. Isključuje se s `[web] tailscale_lokalno =
   false` u `gocop.toml`; tada takav zahtjev traži PIN kao izvana, i preko
   IPv6. Na macOS-u se Tailscale prepozna samo kad njegova kartica ima i IPv6
   adresu iz `fd7a:115c:a1e0::/48`: karticu `utun` i adresu 100.x imaju i
   drugi VPN-ovi (npr. Cloudflare WARP), a oni nisu lokalna mreža.
 - **Sesije:** oznaka sesije je u bazi spremljena kao čisti tekst; sesija
-  ne istječe zbog neaktivnosti; promjena lozinke ne gasi sesije na drugim
-  čvorovima.
+  ne istječe zbog neaktivnosti; na drugim čvorovima promjena lozinke gasi
+  sesije tek kad ondje stigne razmjenom.
 - **Skripte u stranici:** CSP ne ograničava skripte (`script-src`), pa
   zaštita od ubačenog koda ovisi o ispravnom kodiranju ispisa u predlošcima.
 - **E-pošta:** slike iz primljenih poruka učitavaju se s udaljenih adresa,
@@ -426,8 +532,11 @@ nepouzdano.
 - **Potpisi programa:** izvršna datoteka nema Authenticode ni drugi potpis
   sustava; Docker slika i instalacijski program Postave nemaju potpis
   izdanja (Postava ima samo SHA-256).
-- **Paketi arhive:** paket bez valjanog potpisa ipak se ugrađuje (označen
-  kao nepotpisan), a potpisnik paketa ne mora biti član mreže.
+- **Paketi arhive:** paket letve učitan s diska ugrađuje se samo potpisan,
+  ključem ovog računala ili člana mreže, a dok računalo nije u mreži samo
+  vlastiti. Paket koji stigne razmjenom ugrađuje se kad mu otisak
+  odgovara kazalu koje je poslao član mreže. Potpis mu nije nužan, pa mu
+  se vjeruje koliko i članu koji je poslao kazalo.
 - **Izgubljeno ili ukradeno računalo** i administrator s pristupom
   datotekama izvan su ovog modela.
 - **Uskraćivanje usluge:** ograde ograničavaju broj veza i veličinu
