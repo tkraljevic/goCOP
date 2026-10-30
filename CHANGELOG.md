@@ -4,6 +4,20 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.47-alfa — u pripremi
+
+- **Dnevna prognoza više ne izlazi bez kiše jednom dnevno.** U prvom izdanju
+  novog dana po UTC-u, zimi u 0:45, a ljeti u 1:45, dnevni model računao je
+  bez kiše za sve letve, uz upozorenje da oborine nisu preuzete za svih
+  dana. Prognoza kiše preuzeta je još prethodnog dana, pa je zadnjem danu
+  koji model gleda falio zadnji sat. Sad se s Open-Meteo preuzima dan više.
+  (#202)
+- **U dnevniku programa vidi se zašto sat nije izdan.** Kad privremena
+  očitanja Hrvatskih voda za idući sat u :45 još nisu stigla, prognoza tog
+  sata ne izađe, a u dnevniku programa o tome nije bilo ni retka. Sad piše
+  za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
+  očitanja. (#202)
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju

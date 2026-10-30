@@ -92,6 +92,7 @@ type Ishod struct {
 	Izdane         []Izdana                   // sve izračunate vrijednosti
 	Promasaji      map[Izvor]map[int]Promasaj // po letvi i veličini
 	Preskoceno     bool                       // isti ili noviji sat već je izdan, ništa se nije mijenjalo
+	ZadnjeIzdano   int64                      // uz Preskoceno: sat zadnjeg izdanja
 	BezPrognoze    map[string]error           // letve koje nisu dale nijedan sat
 	Dnevne         []DnevnaIzdana             // dnevna prognoza za 1.–6. dan
 	OperaterVrhovi []string                   // vrhovi kojima je budućnost dao model ispuštanja elektrane
@@ -253,7 +254,7 @@ func (o *Osvjezivac) Osvjezi(ctx context.Context) (*Ishod, error) {
 	// padne unatrag, a staro izdanje zapisano iznova i poslano razmjenom
 	// prikazalo bi se kao zadnje.
 	if zadnje, ima, err := ZadnjeIzdanje(o.Baza); err == nil && ima && zadnje >= sada && !o.Iznova {
-		ishod.Preskoceno = true
+		ishod.Preskoceno, ishod.ZadnjeIzdano = true, zadnje
 		return ishod, nil
 	}
 

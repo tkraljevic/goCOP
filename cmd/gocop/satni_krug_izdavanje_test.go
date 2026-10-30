@@ -158,14 +158,17 @@ func TestKrugKazeZastoNijeIzdao(t *testing.T) {
 	_, uvoznik := okolinaKruga(t, true)
 	dnevnik := dnevnikTesta(t)
 	javiPreskoceno(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Preskoceno: true, Ceka: map[string]int64{"gornja": sat6UTC - 5}})
-	javiPreskoceno(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Preskoceno: true})
+	javiPreskoceno(uvoznik, &prognoza.Ishod{Sada: sat6UTC, Preskoceno: true, ZadnjeIzdano: sat6UTC})
 	zelim := []string{"prognoza stoji na 14.10. u 08:00 jer kasni vrh lanca: gornja (zadnje 14.10. u 03:00)",
 		"prognoza: za ovaj sat već je izdana, ništa novo"}
 	if r := redciS(uvoznik.Napredak().Redci, "prognoza"); !reflect.DeepEqual(r, zelim) {
 		t.Errorf("redci:\n%q\nželim\n%q", r, zelim)
 	}
-	if !strings.Contains(dnevnik.String(), "prognoza: prognoza stoji na 14.10. u 08:00 jer kasni vrh lanca") {
-		t.Errorf("dnevnik: %s", dnevnik)
+	for _, z := range []string{"prognoza: prognoza stoji na 14.10. u 08:00 jer kasni vrh lanca",
+		"prognoza: zadnja je izdana za 14.10. u 08:00, a za sljedeći sat još nema novih očitanja"} {
+		if !strings.Contains(dnevnik.String(), z) {
+			t.Errorf("dnevnik nema %q:\n%s", z, dnevnik)
+		}
 	}
 }
 

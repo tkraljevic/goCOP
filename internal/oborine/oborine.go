@@ -1,5 +1,5 @@
 // Package oborine preuzima živu oborinu za kvazi-kišomjere iz registra
-// slivova: zadnjih sedam dana analize i sedam dana prognoze s Open-Meteo, po
+// slivova: zadnjih sedam dana analize i osam dana prognoze s Open-Meteo, po
 // satu, za sve točke jednim zahtjevom. Čuva ih u zasebnoj bazi (oborine.db)
 // uz bazu prognoza — to nije registar ni knjiga verzija, nego radni niz koji
 // se svaki krug osvježi i uvijek se može ponovno preuzeti. Povijest za
@@ -27,10 +27,13 @@ import (
 const Adresa = "https://api.open-meteo.com/v1/forecast"
 
 // Unatrag i Unaprijed su koliko se dana prošlosti i prognoze traži. Dnevni
-// model gleda zbroj zadnjih sedam dana, a prognoza kiše čeka svoj red.
+// model gleda zbroj zadnjih sedam dana i šest dana prognoze iza sata
+// izdavanja. Open-Meteo današnji UTC dan broji kao prvi dan prognoze, a krug
+// u :45 izdaje za idući sat: oko ponoći UTC kiša je preuzeta još jučer, a
+// izdaje se već za novi dan. Zato se traži dan više od onoga što model gleda.
 const (
 	Unatrag   = 7
-	Unaprijed = 7
+	Unaprijed = 8
 )
 
 // Tocka je kišomjer za koji se oborina preuzima.
