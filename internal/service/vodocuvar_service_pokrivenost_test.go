@@ -44,23 +44,23 @@ func TestOvjeriOdbijaIPrihvaca(t *testing.T) {
 	_, ivoPrava := vdOsoba("Ivo Ivić", models.RoleWaterGuard, 1)
 	nastao := danKnjige2026(time.October, 1).Add(7 * time.Hour)
 
-	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "ne postoji") {
+	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, uuid.NewString(), false); err == nil || !strings.Contains(err.Error(), "ne postoji") {
 		t.Errorf("nepostojeći list: %v", err)
 	}
 	prenesen := o.upisiListZaUpozorenje(t, pero, danKnjige2026(time.October, 1), nastao, prenesenList)
-	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, prenesen.ID); err == nil || !strings.Contains(err.Error(), "prenesen") {
+	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, prenesen.ID, false); err == nil || !strings.Contains(err.Error(), "prenesen") {
 		t.Errorf("prenesen list: %v", err)
 	}
 	nacrt := o.upisiListZaUpozorenje(t, pero, danKnjige2026(time.October, 2), nastao.AddDate(0, 0, 1))
-	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, nacrt.ID); err == nil || !strings.Contains(err.Error(), "nije predao") {
+	if _, err := o.vs.Ovjeri(ctx, anaPrava, ana, nacrt.ID, false); err == nil || !strings.Contains(err.Error(), "nije predao") {
 		t.Errorf("nepredan list: %v", err)
 	}
 	predan := o.upisiListZaUpozorenje(t, pero, danKnjige2026(time.October, 3), nastao.AddDate(0, 0, 2), predanList)
-	if _, err := o.vs.Ovjeri(ctx, ivoPrava, ana, predan.ID); !errors.Is(err, ErrUnauthorized) {
+	if _, err := o.vs.Ovjeri(ctx, ivoPrava, ana, predan.ID, false); !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("kolega vodočuvar ovjerava: %v", err)
 	}
 
-	l, err := o.vs.Ovjeri(ctx, anaPrava, ana, predan.ID)
+	l, err := o.vs.Ovjeri(ctx, anaPrava, ana, predan.ID, false)
 	if err != nil {
 		t.Fatalf("ovjera: %v", err)
 	}
@@ -72,7 +72,7 @@ func TestOvjeriOdbijaIPrihvaca(t *testing.T) {
 	}
 	// druga ovjera iste osobe vraća list kakav jest; ponovni poziv osobe
 	// bez prava namjerno se ne provjerava dok se ne odluči kako treba
-	drugi, err := o.vs.Ovjeri(ctx, anaPrava, ana, predan.ID)
+	drugi, err := o.vs.Ovjeri(ctx, anaPrava, ana, predan.ID, false)
 	if err != nil || drugi.Potvrdio != "Ana Anić" || !drugi.PotvrdenoAt.Equal(*l.PotvrdenoAt) {
 		t.Errorf("ponovna ovjera: %+v, %v", drugi, err)
 	}

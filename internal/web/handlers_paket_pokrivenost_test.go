@@ -62,8 +62,8 @@ func (o *okolinaStraniceLetve) ugradiPaket(t *testing.T, kljuc string) *httptest
 	return zoviLetvu(t, o.h.UgradiPaket, r, id, adminPaketa)
 }
 
-// porukaPreusmjerenja vraća poruku iz adrese na koju je odgovor preusmjerio
-func porukaPreusmjerenja(t *testing.T, w *httptest.ResponseRecorder, kljuc string) string {
+// porukaPaketa vraća poruku iz adrese na koju je odgovor preusmjerio
+func porukaPaketa(t *testing.T, w *httptest.ResponseRecorder, kljuc string) string {
 	t.Helper()
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("očekivano preusmjeravanje, dobiveno %d %s", w.Code, w.Body.String())
@@ -164,7 +164,7 @@ func TestPregledPaPotvrdaUgradnje(t *testing.T) {
 		t.Errorf("pripremljenih datoteka %d, očekivana jedna", n)
 	}
 
-	poruka := porukaPreusmjerenja(t, o.ugradiPaket(t, m[1]), "success")
+	poruka := porukaPaketa(t, o.ugradiPaket(t, m[1]), "success")
 	if !strings.HasPrefix(poruka, "Historijat letve primjerovo, izdanje 1 — 7 zapisa") || !strings.HasSuffix(poruka, "u 2 niza.") {
 		t.Errorf("poruka ugradnje: %q", poruka)
 	}
@@ -175,7 +175,7 @@ func TestPregledPaPotvrdaUgradnje(t *testing.T) {
 		t.Errorf("nakon ugradnje ostalo je %d privremenih datoteka", n)
 	}
 
-	if poruka := porukaPreusmjerenja(t, o.ugradiPaket(t, m[1]), "error"); !strings.Contains(poruka, "Priprema je istekla") {
+	if poruka := porukaPaketa(t, o.ugradiPaket(t, m[1]), "error"); !strings.Contains(poruka, "Priprema je istekla") {
 		t.Errorf("drugi put isti ključ: %q", poruka)
 	}
 	if len(o.ugradjeno) != 1 {
@@ -268,7 +268,7 @@ func TestUgradnjaPaketaPrepreke(t *testing.T) {
 	// ugradnja vrati grešku
 	o.ugradnja = errors.New("disk je pun")
 	k, put := pripremi(paket)
-	if p := porukaPreusmjerenja(t, o.ugradiPaket(t, k), "error"); p != "ugradnja nije uspjela: disk je pun" {
+	if p := porukaPaketa(t, o.ugradiPaket(t, k), "error"); p != "ugradnja nije uspjela: disk je pun" {
 		t.Errorf("greška ugradnje: %q", p)
 	}
 	if _, err := os.Stat(put); !os.IsNotExist(err) {
@@ -278,7 +278,7 @@ func TestUgradnjaPaketaPrepreke(t *testing.T) {
 
 	// datoteka se pokvarila dok se čekalo
 	k, put = pripremi([]byte("pokvareno"))
-	if p := porukaPreusmjerenja(t, o.ugradiPaket(t, k), "error"); !strings.Contains(p, "paket nije ZIP") {
+	if p := porukaPaketa(t, o.ugradiPaket(t, k), "error"); !strings.Contains(p, "paket nije ZIP") {
 		t.Errorf("pokvarena datoteka: %q", p)
 	}
 	if _, err := os.Stat(put); !os.IsNotExist(err) {
@@ -287,14 +287,14 @@ func TestUgradnjaPaketaPrepreke(t *testing.T) {
 
 	// datoteke više nema
 	k = cekaju.spremi(filepath.Join(t.TempDir(), "nema.cop"), "primjerovo")
-	if p := porukaPreusmjerenja(t, o.ugradiPaket(t, k), "error"); !strings.HasPrefix(p, "datoteka je nestala") {
+	if p := porukaPaketa(t, o.ugradiPaket(t, k), "error"); !strings.HasPrefix(p, "datoteka je nestala") {
 		t.Errorf("nestala datoteka: %q", p)
 	}
 
 	// čvor ne zna kamo ugraditi
 	o.h.ugradi = nil
 	k, _ = pripremi(paket)
-	if p := porukaPreusmjerenja(t, o.ugradiPaket(t, k), "error"); !strings.Contains(p, "ugradnja nije moguća") {
+	if p := porukaPaketa(t, o.ugradiPaket(t, k), "error"); !strings.Contains(p, "ugradnja nije moguća") {
 		t.Errorf("bez ugradnje: %q", p)
 	}
 	if len(o.ugradjeno) != 0 {
