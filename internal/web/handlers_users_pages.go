@@ -28,6 +28,20 @@ func roleOptions() []option {
 	return out
 }
 
+// roleOptionsZa su uloge koje actor smije dati, istim redom; uprava
+// područja ne dobiva upravne uloge svoje razine (Odluke (30. 10. 2026.), 16).
+// Pri izmjeni dužnosti njezina dosadašnja uloga ostaje na popisu, da je
+// obrazac ne zamijeni tiho drugom.
+func roleOptionsZa(p *models.UserPermissions, dosad models.Role) []option {
+	var out []option
+	for _, o := range roleOptions() {
+		if r := models.Role(o.Value); r == dosad || service.SmijeDatiUlogu(p, r) {
+			out = append(out, o)
+		}
+	}
+	return out
+}
+
 // orgOptions su vrste organizacije; matična nosi naziv iz postavki
 func orgOptions() []option {
 	return []option{
@@ -159,7 +173,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		Permissions:    perms,
 		CanManage:      canManageUsers(perms),
 		VidiImenik:     mods.Sees(models.ModuleUsers),
-		Roles:          roleOptions(),
+		Roles:          roleOptionsZa(perms, ""),
 		Orgs:           orgOptions(),
 		SuccessMessage: r.URL.Query().Get("success"),
 		ErrorMessage:   r.URL.Query().Get("error"),
@@ -355,6 +369,7 @@ func (h *UsersHandler) ShowDutyEditForm(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	data.User, data.Duty, data.IsEdit = u, duty, true
+	data.Roles = roleOptionsZa(data.Permissions, duty.Role)
 	if duty.SectorID != nil {
 		data.DutySector = *duty.SectorID
 	}

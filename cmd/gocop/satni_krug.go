@@ -306,9 +306,13 @@ func (k *satniKrug) izracunajIIzdaj(ctx context.Context) {
 
 // javiPreskoceno kaže zašto krug nije izdao novu prognozu. Kad stoji jer
 // vrh lanca kasni, to se mora vidjeti, a ne izgledati kao da je sve u redu.
+// I bez toga u dnevnik programa ide za koji je sat zadnje izdanje, jer se
+// sat preskoči i kad privremena očitanja za idući sat u :45 još nisu stigla.
 func javiPreskoceno(uvoznik *javnivodostaji.Uvoznik, ishod *prognoza.Ishod) {
 	ceka := ishod.KoCeka()
 	if ceka == "" {
+		log.Printf("prognoza: zadnja je izdana za %s, a za sljedeći sat još nema novih očitanja",
+			time.Unix(ishod.ZadnjeIzdano*3600, 0).In(models.Zagreb).Format("2.1. u 15:04"))
 		uvoznik.Redak("prognoza: za ovaj sat već je izdana, ništa novo")
 		return
 	}

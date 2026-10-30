@@ -129,7 +129,7 @@ func TestDynamicAddDutyOnTheFly(t *testing.T) {
 	// 1. Kreiranje novog djelatnika u Primjerovu
 	newUser, err := userService.CreateUser(adminPerms, service.CreateUserRequest{
 		Username:     "operater1",
-		Password:     "tajna123",
+		Password:     "tajna-12345",
 		FullName:     "Novi Operater",
 		Title:        "ing.građ.",
 		OrgType:      models.OrgHrvatskeVode,
@@ -271,7 +271,7 @@ func TestDeleteUser(t *testing.T) {
 	area1 := 1
 	target, err := userService.CreateUser(adminPerms, service.CreateUserRequest{
 		Username:  "za_brisanje",
-		Password:  "gocop2026",
+		Password:  "gocop-2026-brisanje",
 		FullName:  "Korisnik Za Brisanje",
 		Title:     "ing.",
 		Role:      models.RoleFieldWorker,

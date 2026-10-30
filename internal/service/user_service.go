@@ -149,6 +149,16 @@ func (s *UserService) dionice() dionicaPodrucja {
 	}
 }
 
+// hashNoveLozinke provjerava duljinu lozinke koju je za račun upisao
+// administrator (novi račun, „Nova lozinka” na uređivanju djelatnika) i vraća
+// njezin hash
+func (s *UserService) hashNoveLozinke(lozinka string) (string, error) {
+	if err := ProvjeriDuljinuLozinke(lozinka); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidUserData, err)
+	}
+	return s.auth.HashPassword(lozinka)
+}
+
 // CreateUser stvara novog korisnika i dodjeljuje mu početnu funkciju
 func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRequest) (*models.User, error) {
 	if actorRank(actor) == 0 {
@@ -169,7 +179,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 			return nil, err
 		}
 		req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-		if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+		if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 			return nil, err
 		}
 	} else if !actor.IsGlobalAdmin {
@@ -193,7 +203,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		return nil, err
 	}
 
-	pwHash, err := s.auth.HashPassword(req.Password)
+	pwHash, err := s.hashNoveLozinke(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +556,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	// prvoj prijavi mora zamijeniti svojom, jer ovu zna onaj tko ju je upisao
 	tudjaLozinka := req.Password != "" && actor.User.ID != target.ID
 	if req.Password != "" {
-		pwHash, err := s.auth.HashPassword(req.Password)
+		pwHash, err := s.hashNoveLozinke(req.Password)
 		if err != nil {
 			return nil, err
 		}
@@ -628,7 +638,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		return err
 	}
 	req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-	if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+	if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {
@@ -722,7 +732,7 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	if err != nil {
 		return err
 	}
-	if err := mayAssign(actor, req.Role, sectorID, areaID, sectors); err != nil {
+	if err := mayChange(actor, duty, req.Role, sectorID, areaID, req.SectionCodes, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {
@@ -760,15 +770,23 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	duty.Title, duty.Role, duty.ScopeType = req.Title, req.Role, scope
 	duty.SectorID, duty.AreaID, duty.SectionCodes = sectorID, areaID, req.SectionCodes
 	duty.IsPrimary, duty.Reason = req.IsPrimary, req.Reason
-	// privremena uprava na svojoj razini ne produljuje ni ne trajno ostavlja
-	// dužnost preko svog isteka
-	ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, trazenaPrivremenost(req), &dosad).upisi(duty)
-	s.istekDuznosti(duty, time.Now())
-	if err := s.userRepo.UpdateDuty(duty); err != nil {
+	if err := s.spremiIzmjenu(actor, &dosad, duty, trazenaPrivremenost(req), sectors); err != nil {
 		return err
 	}
 	s.sse.Broadcast("duty_updated", fmt.Sprintf("Izmijenjeno zaduženje: %s", duty.Title), duty.ID.String())
 	return nil
+}
+
+// spremiIzmjenu upisuje dopušteni vijek izmijenjene dužnosti i sprema je.
+// Privremena uprava na svojoj razini ne produljuje dužnost ni ne ostavlja je
+// trajno preko svog isteka; tko ulogu ne smije dati, ne produljuje je.
+func (s *UserService) spremiIzmjenu(actor *models.UserPermissions, dosad, duty *models.Duty, trazeno privremenost, sectors areaSector) error {
+	ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, trazeno, dosad).upisi(duty)
+	s.istekDuznosti(duty, time.Now())
+	if err := vijekIzmjene(actor, dosad, duty, sectors); err != nil {
+		return err
+	}
+	return s.userRepo.UpdateDuty(duty)
 }
 
 // GetDuty čita jedno zaduženje, aktivno ili opozvano

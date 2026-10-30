@@ -106,7 +106,9 @@ func pokreniPrognozu(o ovisnostiPrognoze) *sql.DB {
 		log.Printf("Prognoza se neće obnavljati: očitanja: %v", err)
 		return nil
 	}
-	arhivaRO, err := sql.Open("sqlite", db.SamoZaCitanje(o.arhivaPut))
+	// Dok netko piše u arhivu, čitanje pričeka bravu umjesto da odmah javi
+	// „database is locked” — namještanju bi tada ispala veza.
+	arhivaRO, err := sql.Open("sqlite", db.SamoZaCitanje(o.arhivaPut)+"&_pragma=busy_timeout(5000)")
 	if err != nil {
 		log.Printf("Prognoza se neće obnavljati: arhiva: %v", err)
 		return nil
@@ -261,7 +263,7 @@ var (
 func pripremaModela(peersService *peers.Service, arhivaRO, pb *sql.DB, javniUvoznik *javnivodostaji.Uvoznik, osvjezivac *prognoza.Osvjezivac, objaviIzdanje func(context.Context, *prognoza.Ishod)) func(ctx context.Context, p *poslovi.Posao) error {
 	return func(ctx context.Context, p *poslovi.Posao) error {
 		if !peersService.TrenutneUloge().Izdaje {
-			return fmt.Errorf("model nije pripremljen: ovaj čvor ne izdaje prognozu, pa model prima razmjenom. Model se priprema na čvoru kojemu je uključeno „Izdaje prognozu” (Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora)")
+			return fmt.Errorf("model nije pripremljen: ovaj čvor ne izdaje prognozu, pa model prima razmjenom. Model se priprema na čvoru kojemu je uključeno „Izdaje prognozu” (Administracija → Ovo računalo i mreža → Uloge ovog čvora)")
 		}
 		zaboraviDnevneModele()
 		n, m, err := namjestiIProvjeri(arhivaRO, pb, p)

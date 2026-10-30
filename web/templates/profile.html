@@ -86,14 +86,14 @@
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" for="new_password">Nova lozinka *</label>
-            <input type="password" id="new_password" name="new_password" class="form-control" required minlength="6" autocomplete="new-password">
+            <input type="password" id="new_password" name="new_password" class="form-control" required minlength="10" autocomplete="new-password">
           </div>
           <div class="form-group">
             <label class="form-label" for="confirm_password">Ponovite novu lozinku *</label>
-            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required minlength="6" autocomplete="new-password">
+            <input type="password" id="confirm_password" name="confirm_password" class="form-control" required minlength="10" autocomplete="new-password">
           </div>
         </div>
-        <div class="form-help">Najmanje 6 znakova. Ovo nije lozinka e-pošte tvrtke; ako ste je upisali (<a href="#posta">E-pošta tvrtke</a>), nakon promjene upišite je ponovno, jer vrijedi samo uz lozinku s kojom je spremljena.</div>
+        <div class="form-help">Najmanje 10 znakova. Ovo nije lozinka e-pošte tvrtke; ako ste je upisali (<a href="#posta">E-pošta tvrtke</a>), nakon promjene upišite je ponovno, jer vrijedi samo uz lozinku s kojom je spremljena.</div>
         <div class="form-actions">
           <button type="submit" class="btn btn-primary">{{icon "check"}} Promijeni lozinku</button>
         </div>
@@ -302,7 +302,7 @@
       <h2>{{icon "radio-tower"}} Ovo računalo i ured</h2>
       <p class="page-desc">Svako računalo s programom je vlastita kopija koja se usklađuje s ostalima. Novo računalo ili mobitel uparite s uredom; razmjenu možete pokrenuti i ručno.</p>
       <div class="profil-gumbi">
-        {{if .User.IsGlobalAdmin}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje i sinkronizacija</a>{{end}}
+        {{if .User.IsGlobalAdmin}}<a href="/uparivanje" class="btn btn-secondary btn-sm">{{icon "link"}} Uparivanje</a>{{end}}
         <a href="/pretplate" class="btn btn-secondary btn-sm">{{icon "download"}} Što ovo računalo prati</a>
       </div>
     </section>

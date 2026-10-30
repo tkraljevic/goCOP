@@ -44,7 +44,9 @@ func podmetniZapisCvora(t *testing.T, ctx context.Context) (a, b, c *node) {
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := c.svc.SyncWith(ctx, a.id); err != nil {
+	// čeka i A-ovu bilješku o C-u: test koji zatim briše A-ove bilješke inače
+	// dobije ovu nakon brisanja, kao da je stigla s njegove razmjene
+	if err := nazoviICekajBiljesku(t, ctx, c, a); err != nil {
 		t.Fatalf("razmjena C → A: %v", err)
 	}
 	if p, _ := a.svc.GetPeer(ctx, b.id); p == nil || p.PublicKey != podmetnut.PublicKey || p.Addresses[0] != podmetnut.Addresses[0] {

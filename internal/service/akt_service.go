@@ -1428,6 +1428,27 @@ func (s *AktService) SpremiOpcije(ctx context.Context, perms *models.UserPermiss
 	return s.repo.SavePostavka(ctx, repository.PostavkaOpcije, string(b))
 }
 
+// IzmijeniOpcije mijenja samo ona polja koja izmjena dira, a ostala ostavlja
+// kakva su spremljena. Opcije su jedan zapis, a uređuju ih dvije stranice
+// (Administracija › Opcije i Postavke prognoze), pa svaka mijenja samo svoje.
+// Kad se zapis ne da pročitati, ništa se ne sprema, da se tuđa polja ne
+// vrate na zadano.
+func (s *AktService) IzmijeniOpcije(ctx context.Context, perms *models.UserPermissions, izmjena func(*models.Opcije)) error {
+	if perms == nil || !perms.IsGlobalAdmin {
+		return ErrUnauthorized
+	}
+	v, err := s.repo.GetPostavka(ctx, repository.PostavkaOpcije)
+	if err != nil {
+		return err
+	}
+	var o models.Opcije
+	if v != "" {
+		_ = json.Unmarshal([]byte(v), &o) // neispravan zapis čita se kao sve isključeno, kao u Opcije
+	}
+	izmjena(&o)
+	return s.SpremiOpcije(ctx, perms, o)
+}
+
 // Tema vraća boje programa iz Administracije › Tema
 func (s *AktService) Tema(ctx context.Context) models.Tema {
 	v, _ := s.repo.GetPostavka(ctx, repository.PostavkaTema)

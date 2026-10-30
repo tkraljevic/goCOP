@@ -103,6 +103,45 @@ func TestObranaSektoraNaZidu(t *testing.T) {
 	}
 }
 
+// Obrana na ovom računalu (prijenos karte preko interneta tada miruje):
+// stadij iz akata bilo kojeg sektora, ili zatečena epizoda dionice bez
+// akata; kad se stanje ne da pročitati, kao da obrana traje
+func TestObranaTrajeNaRacunalu(t *testing.T) {
+	ctx := context.Background()
+	if (&ZidService{}).ObranaTraje(ctx) {
+		t.Error("bez ičega obrana ne traje")
+	}
+	z := &ZidService{episodes: soEpizode(t)}
+	if !z.ObranaTraje(ctx) {
+		t.Error("zatečena epizoda na P.1.3")
+	}
+	akti := func(stanja map[string]models.StanjeObrane, err error) {
+		z.SetStanjaSektora(func(_ context.Context, sektor string, _ time.Time) (map[string]models.StanjeObrane, error) {
+			if sektor != "" {
+				t.Errorf("stanja se čitaju za sve sektore, a ne za %q", sektor)
+			}
+			return stanja, err
+		})
+	}
+	akti(map[string]models.StanjeObrane{"P.1.3": stanjeSa()}, nil)
+	if z.ObranaTraje(ctx) {
+		t.Error("akt je prekinuo obranu na P.1.3, a epizoda još stoji")
+	}
+	akti(map[string]models.StanjeObrane{"P.1.3": stanjeSa(), "Q.2.1": stanjeSa(models.PhasePrep)}, nil)
+	if !z.ObranaTraje(ctx) {
+		t.Error("pripremno stanje iz akta u drugom sektoru")
+	}
+	akti(nil, errors.New("akti se ne daju pročitati"))
+	if !z.ObranaTraje(ctx) {
+		t.Error("kad se akti ne daju pročitati, obrana traje")
+	}
+	akti(map[string]models.StanjeObrane{"P.1.3": stanjeSa()}, nil)
+	z.episodes = repository.NewEpisodeRepository(zatvorenaBaza(t))
+	if !z.ObranaTraje(ctx) {
+		t.Error("kad se epizode ne daju pročitati, obrana traje")
+	}
+}
+
 // Ovjera kad se akti ili epizode ne daju pročitati: provjera prije ovjere
 // vraća grešku, a usklađivanje povijesti obrane javlja upozorenje i ne
 // ruši ovjeru

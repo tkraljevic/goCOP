@@ -38,25 +38,41 @@ func prikaziNavigaciju(t *testing.T, moduli models.Visibility) string {
 	return html[od : od+do]
 }
 
-func TestDjelatniciSuUPadajucemIzbornikuRegistara(t *testing.T) {
+// Djelatnici su vlastita stavka glavnog izbornika, a Administrativna
+// organizacija ostaje pod Registrima (Odluke (30. 10. 2026.)). Isti izbornik
+// je i mobilni, otvoren gumbom.
+func TestDjelatniciSuVlastitaStavkaIzbornika(t *testing.T) {
 	nav := prikaziNavigaciju(t, models.Visibility{
 		models.ModuleRegisters: true,
 		models.ModuleUsers:     true,
 	})
-	if strings.Contains(nav, `<a href="/users" class="nav-link`) {
-		t.Error("Djelatnici su ostali zasebna stavka glavnog izbornika")
+	if !strings.Contains(nav, `<a href="/users" class="nav-link active"`) {
+		t.Error("Djelatnici nisu istaknuta stavka glavnog izbornika")
 	}
-	if !strings.Contains(nav, `<a href="/users" class="nav-dropdown-item active`) {
-		t.Error("Djelatnici nisu aktivna stavka padajućeg izbornika Registara")
+	if strings.Contains(nav, `<a href="/users" class="nav-dropdown-item`) {
+		t.Error("Djelatnici su ostali i u padajućem izborniku Registara")
+	}
+	if !strings.Contains(nav, `href="/organizacija" class="nav-dropdown-item`) {
+		t.Error("Administrativna organizacija nije pod Registrima")
+	}
+	if razredi, _, _ := strings.Cut(nav[strings.Index(nav, "nav-group-btn"):], `"`); strings.Contains(razredi, "active") {
+		t.Error("Registri su istaknuti dok je otvoren imenik djelatnika")
 	}
 }
 
-func TestDjelatniciOstajuDostupniBezOstalihRegistara(t *testing.T) {
+func TestDjelatniciBezRegistaraIRegistriBezDjelatnika(t *testing.T) {
 	nav := prikaziNavigaciju(t, models.Visibility{models.ModuleUsers: true})
-	if !strings.Contains(nav, `Registri <span class="nav-caret">`) || !strings.Contains(nav, `href="/users"`) {
-		t.Error("korisnik s imenikom nema pristup Djelatnicima kroz Registre")
+	if !strings.Contains(nav, `<a href="/users" class="nav-link`) {
+		t.Error("korisnik s imenikom nema stavku Djelatnici")
 	}
-	if strings.Contains(nav, `href="/organizacija"`) {
-		t.Error("korisniku bez modula Registra ponuđena je Administrativna organizacija")
+	if strings.Contains(nav, `Registri <span class="nav-caret">`) || strings.Contains(nav, `href="/organizacija"`) {
+		t.Error("korisniku bez modula Registri ponuđeni su Registri")
+	}
+	nav = prikaziNavigaciju(t, models.Visibility{models.ModuleRegisters: true})
+	if strings.Contains(nav, `href="/users"`) {
+		t.Error("korisniku bez modula Djelatnici ponuđeni su Djelatnici")
+	}
+	if !strings.Contains(nav, `Registri <span class="nav-caret">`) {
+		t.Error("korisnik s Registrima nema Registre")
 	}
 }

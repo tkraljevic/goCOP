@@ -2,6 +2,7 @@ package prognoza
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -71,10 +72,27 @@ func doGranice(n map[int64]float64) map[int64]float64 {
 	return n
 }
 
+// ErrArhiva znači da se arhiva nije dala pročitati: zaključana baza, kvar
+// diska. To nije isto što i veza kojoj fali podataka. Takvu vezu namještanje
+// preskoči i ide dalje, a ova greška mora prekinuti namještanje. Inače bi
+// model ostao bez veze, a namještanje bi završilo kao da je sve u redu. Tako
+// je prošla veza Mursko Središće 20. 10. 2026., kad su četiri namještanja
+// puštena na istu bazu.
+var ErrArhiva = errors.New("arhiva se nije dala pročitati")
+
 // NizIzArhive čita satni niz iz spojenog niza arhive: sat od epohe → vrijednost.
 // Spojeni niz drži očitanja u minuti u kojoj su izmjerena, a na pune sate
-// svodi ih isto pravilo kao u živoj prognozi (poSatu).
+// svodi ih isto pravilo kao u živoj prognozi (poSatu). Greška čitanja nosi
+// ErrArhiva.
 func NizIzArhive(db *sql.DB, letva, velicina string) (map[int64]float64, error) {
+	v, err := nizIzArhive(db, letva, velicina)
+	if err != nil {
+		return nil, fmt.Errorf("%w (%s, %s): %w", ErrArhiva, letva, velicina, err)
+	}
+	return v, nil
+}
+
+func nizIzArhive(db *sql.DB, letva, velicina string) (map[int64]float64, error) {
 	r, err := db.Query(`SELECT vrijeme, vrijednost FROM spoj
 		WHERE letva = ? AND velicina = ? AND korak = 'satni'`, letva, velicina)
 	if err != nil {

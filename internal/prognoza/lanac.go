@@ -6,6 +6,7 @@ package prognoza
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -416,7 +417,11 @@ func RastaviLetvu(zapis string) (string, string, error) {
 // namještanja spuštaju: dovoljno je stotinjak očitanja, a pojasu dvadesetak.
 var RijetkeLetve = map[string]bool{"ustava-draz-nizvodno": true, "dunav-zmajevac": true, "zlatna-greda": true}
 
-func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) []Pojas {
+// namjestiRacun namjesti jedan račun lanca i njegove rezerve. Račun koji se
+// ne da namjestiti (premalo podataka, nepoznata veličina) samo se napiše i
+// ne daje pojase. Greška čitanja arhive (ErrArhiva) vraća se, jer bez nje
+// bi veza tiho ispala iz modela.
+func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) ([]Pojas, error) {
 	if kod, _, _ := strings.Cut(r.Letva, ":"); RijetkeLetve[strings.TrimSpace(kod)] {
 		staro, staroPojas := NajmanjeSati, NajmanjeSatiPojasa
 		NajmanjeSati, NajmanjeSatiPojasa = 100, 20
@@ -425,7 +430,7 @@ func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) []Pojas {
 	letva, vel, err := RastaviLetvu(r.Letva)
 	if err != nil {
 		fmt.Fprintln(w, err)
-		return nil
+		return nil, nil
 	}
 	izvori := make([]Izvor, 0, len(r.Ulazi))
 	imena := make([]string, 0, len(r.Ulazi))
@@ -433,7 +438,7 @@ func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) []Pojas {
 		l, v, err := RastaviLetvu(u)
 		if err != nil {
 			fmt.Fprintln(w, err)
-			return nil
+			return nil, nil
 		}
 		izvori = append(izvori, Izvor{Letva: l, Velicina: v})
 		imena = append(imena, l+" ("+jedinicaVelicine(v)+")")
@@ -442,24 +447,46 @@ func namjestiRacun(arhiva *sql.DB, r Racun, w io.Writer) []Pojas {
 
 	pojasi, err := NamjestiLetvu(arhiva, letva, vel, izvori)
 	if err != nil {
-		fmt.Fprintf(w, "%-56s %v\n", zaglavlje, err)
-		return nil
+		return nil, preskociIliPrekini(w, err, fmt.Sprintf("%-56s", zaglavlje))
 	}
 	fmt.Fprintf(w, "%-56s %s\n", zaglavlje, vel)
 	ispisiPojase(w, pojasi, letva)
-	// Rezerve: isti cilj, drugi ulazi, zasebna inačica. Neuspjeh rezerve ne
-	// ruši glavni račun — samo se javi.
+	rezervni, err := namjestiRezerve(arhiva, letva, vel, w)
+	if err != nil {
+		return nil, err
+	}
+	return append(pojasi, rezervni...), nil
+}
+
+// namjestiRezerve namješta rezerve računa: isti cilj, drugi ulazi, svaka
+// zasebna inačica. Neuspjeh rezerve ne ruši glavni račun — samo se javi.
+// Greška čitanja arhive ruši.
+func namjestiRezerve(arhiva *sql.DB, letva, vel string, w io.Writer) ([]Pojas, error) {
+	var pojasi []Pojas
 	for i, rez := range Rezerve[letva] {
 		rezervni, err := namjestiInacicu(arhiva, letva, vel, rez, i+1)
 		if err != nil {
-			fmt.Fprintf(w, "   rezerva %d (%s): %v\n", i+1, strings.Join(rez, " + "), err)
+			if err := preskociIliPrekini(w, err, fmt.Sprintf("   rezerva %d (%s):", i+1, strings.Join(rez, " + "))); err != nil {
+				return nil, err
+			}
 			continue
 		}
 		fmt.Fprintf(w, "   rezerva %d:\n", i+1)
 		ispisiPojase(w, rezervni, letva)
 		pojasi = append(pojasi, rezervni...)
 	}
-	return pojasi
+	return pojasi, nil
+}
+
+// preskociIliPrekini razlikuje dvije vrste neuspjeha. Račun kojem fali
+// podataka samo se napiše iza opisa i preskoči (nil). Greška čitanja arhive
+// vraća se, jer bi inače veza tiho ispala iz modela.
+func preskociIliPrekini(w io.Writer, err error, opis string) error {
+	if errors.Is(err, ErrArhiva) {
+		return fmt.Errorf("%s: %w", strings.TrimSuffix(strings.TrimSpace(opis), ":"), err)
+	}
+	_, _ = fmt.Fprintf(w, "%s %v\n", opis, err) // izvještaj namještanja; neuspio ispis ne mijenja model
+	return nil
 }
 
 // namjestiInacicu namješta jednu rezervnu inačicu računa.
@@ -556,7 +583,11 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 			if o.Korak != nil {
 				o.Korak("namještam "+r.Letva, gotovo, ukupno)
 			}
-			sve = append(sve, namjestiRacun(arhiva, r, w)...)
+			pojasi, err := namjestiRacun(arhiva, r, w)
+			if err != nil {
+				return 0, fmt.Errorf("namještanje prekinuto, ništa nije spremljeno: %w", err)
+			}
+			sve = append(sve, pojasi...)
 			gotovo++
 		}
 	}
@@ -576,6 +607,8 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 	// danas), a odluka je li doseg bolji od postojanosti donosi se na zadnje
 	// dvije godine prije granice, modelom naučenim prije njih; kad je u njima
 	// premalo sati režima, na zadnjih sto sati režima (podjelaOcjene).
+	// Elektrana bez podataka samo se napiše; greška čitanja arhive vraća se
+	// kao i greška spremanja, uz broj već spremljenih pojasa.
 	granica := time.Now().Unix() / 3600
 	if NamjestiDo > 0 {
 		granica = NamjestiDo
@@ -586,6 +619,9 @@ func NamjestiLanac(arhiva, baza *sql.DB, o OpcijeNamjestanja) (int, error) {
 			o.Korak("model ispuštanja "+op.Letva, gotovo, ukupno)
 		}
 		m, err := NamjestiOperatera(arhiva, op, ocjenaOd)
+		if errors.Is(err, ErrArhiva) {
+			return len(sve), fmt.Errorf("model ispuštanja %s nije namješten: %w", op.Letva, err)
+		}
 		if err != nil {
 			fmt.Fprintf(w, "model ispuštanja %s: %v\n", op.Letva, err)
 			continue
@@ -635,6 +671,6 @@ func ProbajRacun(arhiva *sql.DB, zapis string, w io.Writer) error {
 	if err != nil {
 		return err
 	}
-	namjestiRacun(arhiva, r, w)
-	return nil
+	_, err = namjestiRacun(arhiva, r, w)
+	return err
 }

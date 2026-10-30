@@ -782,6 +782,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
 	postaviZid(zid, aktService, prijavaService)
+	// karta bez interneta stiže razmjenom u dijelovima; dok traje obrana,
+	// samo u lokalnoj mreži
+	peersService.PostaviKarte(peers.MapaKarata(*dbPath), models.VektorskaKartaPrograma, zid.ObranaTraje)
 	server.SetZid(zid)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže
@@ -959,7 +962,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 func opisMreze(net *peers.Network) string {
 	switch {
 	case net == nil:
-		return "Čvor još nije ni u jednoj mreži — osnujte je u Postavkama ili neka vas primi nositelj ključa mreže ili ovlašteni primatelj"
+		return "Čvor još nije ni u jednoj mreži — osnujte je na stranici Ovo računalo i mreža ili neka vas primi nositelj ključa mreže ili ovlašteni primatelj"
 	case net.DrziKljuc:
 		return fmt.Sprintf("Mreža %q — ovaj čvor drži ključ mreže i može primati članove", net.Name)
 	case net.CanAdmit:

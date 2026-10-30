@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "settings"}} Opcije</h1>
-    <p class="page-desc">Opći prekidači programa. Svaki nosi objašnjenje što uključuje i kada ga treba držati isključenim. Vrijede na svim čvorovima; mijenja ih samo uprava organizacije, a promjena ostaje u knjizi verzija.</p>
+    <p class="page-desc">Opći prekidači programa. Svaki nosi objašnjenje što uključuje i kada ga treba držati isključenim. Vrijede na svim čvorovima; mijenja ih samo uprava organizacije, a promjena ostaje u knjizi verzija. Rok čuvanja fotografija s terena je na stranici <a href="/administracija/baza#pohrana">Održavanje baze</a>, u dijelu Pohrana.</p>
   </div>
 </div>
 
@@ -75,23 +75,6 @@
         <p><strong>Što radi:</strong> administrator koji gleda tuđim očima (uz uključene „Upise tuđim očima”, na računu koji nije isključen) može u ime tog djelatnika potpisati dokument, npr. predati ili ovjeriti dnevni list, bez lozinke i bez pravog ključa. Program u tom trenutku napravi jednokratni simulirani ključ: certifikat nosi ime djelatnika s oznakom <strong>SIMULACIJA</strong>, blok potpisa je crven i piše „SIMULIRANI POTPIS · BEZVRIJEDNO”, a preko stranice PDF-a stoji pečat <strong>SIMULACIJA · BEZVRIJEDNO</strong> koji je dio potpisanog sadržaja pa se ne može ukloniti.</p>
         <p><strong>Što ne radi:</strong> ne dira pravi ključ djelatnika ni njegovu lozinku; simulirani potpis se u programu i u čitaču PDF-a jasno razlikuje od pravog i nema nikakvu vrijednost. Bez pogleda tuđim očima prekidač ne mijenja ništa: svatko potpisuje samo svojim ključem i lozinkom.</p>
         <p><strong>Kada uključiti:</strong> pri testiranju i uvođenju, da se cijeli tok potpisivanja (predaja, ovjera, izvornik, provjera) isproba bez tuđih lozinki. <strong>U operativnom radu držite isključeno.</strong></p>
-      </div>
-    </div>
-    <div class="opcija">
-      <label class="opcija-red" for="cuvanje_slika_dana">
-        <span class="opcija-naziv">Čuvanje fotografija s terena</span>
-        <input type="number" class="form-control max-w-7 ml-auto" id="cuvanje_slika_dana" name="cuvanje_slika_dana" min="7" max="3650" value="{{.Opcije.CuvanjeSlika}}"> <span>dana</span>
-      </label>
-      <label class="opcija-red" style="margin-top:0.4rem;">
-        <input type="checkbox" name="slike_odmah" value="1" {{if .Opcije.SlikeOdmah}}checked{{end}}>
-        <span class="opcija-naziv">Obriši izvorne slike odmah po objavi</span>
-        <span class="badge {{if .Opcije.SlikeOdmah}}badge-danger{{else}}badge-active{{end}}">{{if .Opcije.SlikeOdmah}}uključeno{{else}}isključeno{{end}}</span>
-      </label>
-      <div class="opcija-opis">
-        <p><strong>Što radi:</strong> uz prijavu s terena vodočuvar prilaže fotografije; program ih odmah smanji (najdulja stranica 1 000 px, JPEG) i pri objavi ugradi u potpisani PDF, koji ostaje trajno i putuje među čvorovima. Izvorne smanjene slike ostaju na ovom čvoru još ovoliko dana nakon objave, za pregled na stranici, pa se brišu.</p>
-        <p><strong>Odmah po objavi:</strong> s uključenim prekidačem slike se brišu čim je PDF s njima spremljen (i pri uvozu iz ranije evidencije); baza tada nosi samo dokument, a stranica prijave slike pokazuje iz PDF-a. Rok u danima vrijedi kad je prekidač isključen.</p>
-        <p><strong>Što ne radi:</strong> ne dira PDF ni nacrte; nacrt čuva svoje slike dok se ne objavi ili obriše.</p>
-        <p><strong>Zašto:</strong> u Directusu je Baranja u dva mjeseca skupila 4 GB fotografija; dokument s ugrađenim slikama nosi sve što treba za dokaz, a baza ostaje mala.</p>
       </div>
     </div>
     <div class="form-actions"><button type="submit" class="btn btn-primary">{{icon "check"}} Spremi opcije</button></div>

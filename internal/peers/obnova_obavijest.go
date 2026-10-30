@@ -160,7 +160,7 @@ func TekstObavijesti(obavijesti []ObavijestRoka, racunalo string) (predmet, teks
 	for _, o := range obavijesti {
 		b.WriteString("- " + redakObavijesti(o) + "\n")
 	}
-	b.WriteString("\nObnova se traži sama kad računalo razmjenjuje podatke. Računalo koje prima u mrežu može članstvo obnoviti odmah: Postavke, pod Mreža, gumb Obnovi uz računalo. Ovlast za primanje obnavlja računalo s ključem mreže.\n\n")
+	b.WriteString("\nObnova se traži sama kad računalo razmjenjuje podatke. Računalo koje prima u mrežu može članstvo obnoviti odmah: u Administraciji, na stranici Ovo računalo i mreža, pod Mreža, gumb Obnovi uz računalo. Ovlast za primanje obnavlja računalo s ključem mreže.\n\n")
 	b.WriteString("Poruku je poslalo računalo " + racunalo + ".\n")
 	return "goCOP: rok članstva u mreži", b.String()
 }

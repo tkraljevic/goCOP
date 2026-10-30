@@ -283,7 +283,7 @@ func TestPromjenaLozinkeKrozRukovatelja(t *testing.T) {
 	// odbijena nova lozinka ne smije prekljucati potpisni ključ
 	prekljucano := 0
 	o.authH.SetPrekljucaj(func(ctx context.Context, userID, stara, nova string) error { prekljucano++; return nil })
-	if loc := o.promjenaLozinke(ana, ova.ID, "anina-lozinka", "kra"); !strings.Contains(loc, "najmanje 6") || prekljucano != 0 {
+	if loc := o.promjenaLozinke(ana, ova.ID, "anina-lozinka", "kra"); !strings.Contains(loc, "najmanje 10") || prekljucano != 0 {
 		t.Errorf("prekratka nova lozinka: %q, ključ prekljucan %d puta", loc, prekljucano)
 	}
 

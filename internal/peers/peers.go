@@ -119,10 +119,17 @@ type Service struct {
 	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
 	skracene sync.Map // *razmjena.Conn → bool
 	josIma   sync.Map // nodeID → bool, iz zadnjeg SyncWith
-	db       *sql.DB
-	rec      *ledger.Recorder
-	node     *Node
-	ports    Ports
+	// kartaTece: razgovori koji su prenijeli dijelove karte, a nekoj strani
+	// još nedostaju; josKarte isto po čvoru, iz zadnjeg SyncWith
+	// (karta_razgovor.go)
+	kartaTece sync.Map // *razmjena.Conn → bool
+	josKarte  sync.Map // nodeID → bool
+	// karte je prijenos karte bez interneta (PostaviKarte); nil bez njega
+	karte atomic.Pointer[dijeloviKarte]
+	db    *sql.DB
+	rec   *ledger.Recorder
+	node  *Node
+	ports Ports
 
 	mu      sync.Mutex
 	pending *razmjena.PairResult // uparivanje koje čeka odluku čovjeka
@@ -349,60 +356,52 @@ func (s *Service) ListPeers(ctx context.Context) ([]Peer, error) {
 // javne adrese i izloženost iz baze kad su upisane. Njime ured objavljuje
 // domenu na kojoj ga svi mogu naći.
 func (s *Service) SelfPeer(ctx context.Context) (Peer, error) {
-	self := Peer{NodeID: s.node.ID, Name: s.node.Name, PublicKey: s.node.PublicKey(), Addresses: []string{}}
 	stored, err := s.GetPeer(ctx, s.node.ID)
-	if err != nil {
-		return self, err
-	}
+	return s.sebeIz(stored), err
+}
+
+// sebeIz je zapis ovog čvora uz adrese i izloženost iz zatečenog zapisa
+func (s *Service) sebeIz(stored *Peer) Peer {
+	self := Peer{NodeID: s.node.ID, Name: s.node.Name, PublicKey: s.node.PublicKey(), Addresses: []string{}}
 	if stored != nil {
 		self.Addresses, self.IsBootstrap, self.CreatedAt = stored.Addresses, stored.IsBootstrap, stored.CreatedAt
 	}
-	return self, nil
+	return self
 }
 
 // PublicAddress dodaje ili miče javnu adresu čvora (domenu ili IP s portom
 // razmjene) i označava ga stalno izloženim dok ima bar jednu. Vrijedi i za
 // ovaj čvor: tako ured objavi svoju domenu, a zapis stigne svima razmjenom.
 func (s *Service) PublicAddress(ctx context.Context, nodeID, add, remove string) (*Peer, error) {
-	var p Peer
-	if nodeID == s.node.ID {
-		self, err := s.SelfPeer(ctx)
-		if err != nil {
-			return nil, err
-		}
-		p = self
-	} else {
-		known, err := s.GetPeer(ctx, nodeID)
-		if err != nil {
-			return nil, err
-		}
-		if known == nil {
+	return s.IzmijeniCvor(ctx, nodeID, func(known *Peer) (*Peer, error) {
+		var p Peer
+		if nodeID == s.node.ID {
+			p = s.sebeIz(known)
+		} else if known == nil {
 			return nil, fmt.Errorf("čvor %s nije poznat — prvo ga uparite", nodeID)
+		} else {
+			p = *known
 		}
-		p = *known
-	}
-	add, remove = strings.TrimSpace(add), strings.TrimSpace(remove)
-	if add != "" {
-		if err := s.dodajAdresu(&p, add); err != nil {
-			return nil, err
-		}
-	}
-	if remove != "" {
-		var keep []string
-		for _, a := range p.Addresses {
-			host, _, splitErr := net.SplitHostPort(a)
-			if a == remove || (splitErr == nil && host == remove) {
-				continue
+		add, remove := strings.TrimSpace(add), strings.TrimSpace(remove)
+		if add != "" {
+			if err := s.dodajAdresu(&p, add); err != nil {
+				return nil, err
 			}
-			keep = append(keep, a)
 		}
-		p.Addresses = dedupe(keep)
-	}
-	p.IsBootstrap = len(p.Addresses) > 0 && (p.IsBootstrap || add != "")
-	if err := s.SavePeer(ctx, p); err != nil {
-		return nil, err
-	}
-	return &p, nil
+		if remove != "" {
+			var keep []string
+			for _, a := range p.Addresses {
+				host, _, splitErr := net.SplitHostPort(a)
+				if a == remove || (splitErr == nil && host == remove) {
+					continue
+				}
+				keep = append(keep, a)
+			}
+			p.Addresses = dedupe(keep)
+		}
+		p.IsBootstrap = len(p.Addresses) > 0 && (p.IsBootstrap || add != "")
+		return &p, nil
+	})
 }
 
 // dodajAdresu dodaje čvoru adresu koju je upisao čovjek. Tailscale adresa
@@ -552,6 +551,31 @@ func (s *Service) SavePeer(ctx context.Context, p Peer) error {
 	return tx.Commit()
 }
 
+// IzmijeniCvor pročita zapis čvora (nil kad ga nema), preda ga izmjeni i
+// spremi ono što izmjena vrati (nil: ništa), sve pod bravom upisa. Pod
+// istom bravom razmjena upisuje primljene zapise čvorova i bilješke o
+// razmjeni (zabiljezi). Bez nje bi izmjena zapisa pročitanog prije
+// primljenog spremila stari zapis kao novu verziju, a ta bi primljeno
+// pregazila i na ostalim čvorovima.
+func (s *Service) IzmijeniCvor(ctx context.Context, nodeID string, izmjena func(*Peer) (*Peer, error)) (*Peer, error) {
+	if err := s.uzmiBravu(ctx); err != nil {
+		return nil, err
+	}
+	defer s.pustiBravu()
+	zatecen, err := s.GetPeer(ctx, nodeID)
+	if err != nil {
+		return nil, err
+	}
+	p, err := izmjena(zatecen)
+	if err != nil || p == nil {
+		return p, err
+	}
+	if err := s.SavePeer(ctx, *p); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
 // ErrIstoImeDrugiKljuc: poznati čvor tog imena ima drugi ključ
 var ErrIstoImeDrugiKljuc = errors.New("ime već ima drugo računalo u mreži (drugi ključ)")
 
@@ -626,7 +650,7 @@ func obrisiZapisCvora(ctx context.Context, tx *sql.Tx, nodeID string) error {
 	}
 	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '', put = '', put_privatna = 0, rtt_ms = 0, put_od = NULL,
 		put_razlog = '', put_pokusaji = 0, put_uspjesi = 0, put_neuspjesi = 0, put_primljeno = 0, put_poslano = 0, zadnji_zvao = '',
-		priprema_pokusaji = 0, priprema_uspjesi = 0, priprema_neuspjesi = 0 WHERE node_id = ?`, nodeID)
+		priprema_pokusaji = 0, priprema_uspjesi = 0, priprema_neuspjesi = 0, uloge = '' WHERE node_id = ?`, nodeID)
 	return err
 }
 
@@ -892,12 +916,14 @@ func (s *Service) spremiUparenog(ctx context.Context, res *razmjena.PairResult) 
 	if host := res.PeerHost(); host != "" {
 		peer.Addresses = []string{withPort(host, res.Peer.Meta["exchange_port"])}
 	}
-	if existing, _ := s.GetPeer(ctx, peer.NodeID); existing != nil {
-		peer.Addresses = dedupe(append(peer.Addresses, existing.Addresses...))
-		peer.IsBootstrap = existing.IsBootstrap
-		peer.CreatedAt = existing.CreatedAt
-	}
-	if err := s.SavePeer(ctx, peer); err != nil {
+	if _, err := s.IzmijeniCvor(ctx, peer.NodeID, func(existing *Peer) (*Peer, error) {
+		if existing != nil {
+			peer.Addresses = dedupe(append(peer.Addresses, existing.Addresses...))
+			peer.IsBootstrap = existing.IsBootstrap
+			peer.CreatedAt = existing.CreatedAt
+		}
+		return &peer, nil
+	}); err != nil {
 		return err
 	}
 	s.zapamtiUparivanje(ctx, peer.NodeID, res.PeerHost(), res.Peer.Meta["exchange_port"])
@@ -1000,6 +1026,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	started := time.Now()
 	applied, sent, theirs, err := s.exchange(ctx, c, false)
 	s.skracene.Delete(c)
+	s.kartaTece.Delete(c)
 	if praznaVeza(theirs, err) {
 		return
 	}
@@ -1060,6 +1087,8 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 	applied, sent, theirs, err := s.exchange(ctx, conn, true)
 	_, skraceno := s.skracene.LoadAndDelete(conn)
 	s.josIma.Store(nodeID, skraceno && err == nil)
+	_, karta := s.kartaTece.LoadAndDelete(conn)
+	s.josKarte.Store(nodeID, karta && err == nil)
 	conn.Close()
 	if s.odbioTailscale(ctx, nodeID, err) {
 		s.zapamtiPokusaj(nodeID, kk.adresa, err)

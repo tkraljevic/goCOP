@@ -296,7 +296,7 @@ func (s *Service) izdajClanstvo(ctx context.Context, id string, kljuc ed25519.Pu
 	// Odluke (23. 10. 2026.): uz ovlast treba i vlastito članstvo koje nije
 	// isteklo; u pričuvi računalo ne prima i ne obnavlja druge
 	if m, err := s.izabranoClanstvo(ctx, s.node.ID); err != nil || m.DeviceKey != s.node.PublicKey() || rokZa(m.ExpiresAt, time.Now(), true).Stanje == RokPricuva {
-		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: njegovo članstvo u mreži je isteklo; obnovite ga (Postavke, pod Mreža: Obnovi članstvo)")
+		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: njegovo članstvo u mreži je isteklo; obnovite ga (Ovo računalo i mreža, pod Mreža: Obnovi članstvo)")
 	}
 	return razmjena.AdmitAs(s.node.key, *o, id, kljuc, MembershipValidity)
 }

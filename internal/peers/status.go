@@ -56,6 +56,10 @@ type SyncState struct {
 	Vrste             map[string]int `json:"-"`
 	CekaNadogradnju   int            `json:"ceka_nadogradnju,omitempty"` // broj zapisa, ne verzija
 	MogucnostiPoznate bool           `json:"-"`
+	// Uloge su poslovi koje drugi čvor javlja da radi za mrežu
+	// (razmjena.UlogaIzdaje, UlogaPreuzima), samo za prikaz na Stanju
+	// razmjene; prazno: nema nijednu ili ih stariji program ne javlja
+	Uloge []string `json:"uloge,omitempty"`
 	// Put je put zadnje razmjene i brojači od tada (put_razmjene.go)
 	Put PutRazmjene `json:"put"`
 }
@@ -135,10 +139,10 @@ func (s *Service) zapamtiZnanje(ctx context.Context, nodeID string, o syncOutcom
 		return
 	}
 	z := o.znanje.Ocisceno()
-	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate) VALUES (?, ?, ?, ?, 1)
+	if _, err := s.db.ExecContext(ctx, `INSERT INTO peer_sync (node_id, mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, uloge) VALUES (?, ?, ?, ?, 1, ?)
 		ON CONFLICT(node_id) DO UPDATE SET mogucnosti = excluded.mogucnosti, vrste = excluded.vrste,
-			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1`,
-		nodeID, uStupac(z.Mogucnosti), uStupac(z.Vrste), z.CekaNadogradnju); err != nil {
+			ceka_nadogradnju = excluded.ceka_nadogradnju, mogucnosti_poznate = 1, uloge = excluded.uloge`,
+		nodeID, uStupac(z.Mogucnosti), uStupac(z.Vrste), z.CekaNadogradnju, uStupac(z.Uloge)); err != nil {
 		log.Printf("razmjena: što zna čvor %s nije spremljeno: %v", nodeID, err)
 	}
 }
@@ -164,7 +168,7 @@ func uStupac(v any) string {
 // syncStates čita stanje razmjene za sve čvorove
 func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT node_id, their_frontier, last_attempt, last_ok, last_error, applied, sent, duration_ms, fails, program, gradnja, program_poznat, tailscale,
-		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese,
+		mogucnosti, vrste, ceka_nadogradnju, mogucnosti_poznate, adrese, uloge,
 		put, put_privatna, rtt_ms, put_od, put_razlog, put_pokusaji, put_uspjesi, put_neuspjesi, put_primljeno, put_poslano, zadnji_zvao,
 		priprema_pokusaji, priprema_uspjesi, priprema_neuspjesi FROM peer_sync`)
 	if err != nil {
@@ -174,12 +178,12 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 	out := map[string]SyncState{}
 	pauze := s.pripreme.pauzeDo(time.Now()) // dok je par u pauzi, pločica kaže kad WEB sync pokušava ponovno
 	for rows.Next() {
-		var id, frontier, ts, mogucnosti, vrste, adrese string
+		var id, frontier, ts, mogucnosti, vrste, adrese, uloge string
 		var st SyncState
 		var attempt, ok, od sql.NullTime
 		p := &st.Put
 		if err := rows.Scan(&id, &frontier, &attempt, &ok, &st.LastError, &st.Applied, &st.Sent, &st.DurationMs, &st.Fails, &st.Program, &st.Gradnja, &st.ProgramPoznat, &ts,
-			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese,
+			&mogucnosti, &vrste, &st.CekaNadogradnju, &st.MogucnostiPoznate, &adrese, &uloge,
 			&p.Put, &p.Privatna, &p.RTTMs, &od, &p.Razlog, &p.Pokusaji, &p.Uspjesi, &p.Neuspjesi, &p.Primljeno, &p.Poslano, &p.ZadnjiZvao,
 			&p.PripremaPokusaji, &p.PripremaUspjesi, &p.PripremaNeuspjesi); err != nil {
 			return nil, err
@@ -190,6 +194,7 @@ func (s *Service) syncStates(ctx context.Context) (map[string]SyncState, error) 
 		_ = json.Unmarshal([]byte(ts), &st.Tailscale)
 		_ = json.Unmarshal([]byte(mogucnosti), &st.Mogucnosti) // prazno: druga strana nije javila ništa
 		_ = json.Unmarshal([]byte(vrste), &st.Vrste)
+		_ = json.Unmarshal([]byte(uloge), &st.Uloge) // prazno: nema uloga ili ih ne javlja
 		st.Naucene = adreseNaucenih(naucenaIz(adrese))
 		out[id] = st
 	}
@@ -245,16 +250,7 @@ func (s *Service) syncPeers(ctx context.Context, list []Peer) map[string]string 
 			defer wg.Done()
 			slots <- struct{}{}
 			defer func() { <-slots }()
-			// pun razgovor znači da ima još: nastavlja se odmah, ne za pet minuta
-			var applied, sent, krugova int
-			var err error
-			for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
-				a, sn, e := s.SyncWith(ctx, p.NodeID)
-				applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-				if e != nil || (a < NajviseVerzijaPoRazmjeni && sn < NajviseVerzijaPoRazmjeni && !s.imaJos(p.NodeID)) {
-					break
-				}
-			}
+			applied, sent, krugova, err := s.razgovoriZaRedom(ctx, p.NodeID)
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -519,6 +515,47 @@ func label(p Peer) string {
 		return p.Name
 	}
 	return p.NodeID
+}
+
+// razgovoriZaRedom razmjenjuje s čvorom dok god ima još: pun razgovor
+// znači da ima još, pa se nastavlja odmah, ne za pet minuta. Zbog dijelova
+// karte koji još putuju ide najviše najviseRazgovoraZaKartu dodatnih
+// razgovora (dalje).
+func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied, sent, krugova int, err error) {
+	zbogKarte := 0
+	for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
+		a, sn, e := s.SyncWith(ctx, nodeID)
+		applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
+		if !s.dalje(nodeID, a, sn, e, &zbogKarte) {
+			break
+		}
+	}
+	return applied, sent, krugova, err
+}
+
+// dalje javlja treba li odmah još jedan razgovor: razgovor je bio pun ili
+// skraćen, ili je prenio dijelove karte, a ponavljanja zbog karte još nije
+// bilo najviseRazgovoraZaKartu
+func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int) bool {
+	pun := applied >= NajviseVerzijaPoRazmjeni || sent >= NajviseVerzijaPoRazmjeni || s.imaJos(nodeID)
+	karta := s.imaJosKarte(nodeID)
+	switch {
+	case err != nil:
+		return false
+	case pun:
+		return true
+	case karta && *zbogKarte < najviseRazgovoraZaKartu:
+		*zbogKarte++
+		return true
+	}
+	return false
+}
+
+// imaJosKarte javlja da je zadnja razmjena s čvorom prenijela dijelove
+// karte, a nekoj strani još nedostaju
+func (s *Service) imaJosKarte(nodeID string) bool {
+	v, ok := s.josKarte.LoadAndDelete(nodeID)
+	return ok && v.(bool)
 }
 
 // imaJos javlja da je zadnja razmjena s čvorom poslala skraćenu deltu

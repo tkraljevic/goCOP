@@ -4,6 +4,73 @@ Verzije prate [shemu iz administratorskih uputa](docs/INSTALACIJA.md#8-verzije):
 `0.y.x` od `0.1.0` (`v0.1.0-beta`), stabilno `z.y.x` od `1.0.0` (`v1.0.0`).
 Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
+## 0.0.47-alfa — u pripremi
+
+- **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
+  Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
+  govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.
+  Sad su u šest skupina, s Testnim prekidačima na dnu, a uz karticu piše
+  gdje vrijedi. Dok ustroj nije gotov, administrator iznad skupina vidi
+  Prve korake s kvačicama. Stranica Čvor, mreža i sinkronizacija sad se
+  zove „Ovo računalo i mreža” i ima svoj odjeljak za WEB sync, a
+  Sinkronizacija se zove „Stanje razmjene”. Ručna razmjena, pretraga
+  lokalne mreže i provjera veze su samo ondje (Odluke (30. 10. 2026.)).
+- **Žig centra je na stranici sektora, a Djelatnici imaju svoju stavku u
+  izborniku.** Uprava sektora nije mogla promijeniti svoj žig, jer je bio u
+  Administraciji, koju zadano ne vidi. Sad je na stranici sektora, pod
+  Registri › Administrativna organizacija; kartica u Administraciji i stare
+  adrese vode onamo. Djelatnici su u glavnom izborniku, a ne više u
+  padajućem izborniku Registri. Rok čuvanja fotografija s terena je na
+  Održavanju baze, u dijelu „Pohrana” (Odluke (30. 10. 2026.)). Adresa za
+  QR kod na dokumentima zasad je na stranici Elektronički potpisi, a adresa
+  u Domenskim čvorovima zove se „adresa za razmjenu”.
+
+- **Dnevna prognoza više ne izlazi bez kiše jednom dnevno.** U prvom izdanju
+  novog dana po UTC-u, zimi u 0:45, a ljeti u 1:45, dnevni model računao je
+  bez kiše za sve letve, uz upozorenje da oborine nisu preuzete za svih
+  dana. Prognoza kiše preuzeta je još prethodnog dana, pa je zadnjem danu
+  koji model gleda falio zadnji sat. Sad se s Open-Meteo preuzima dan više.
+  (#202)
+- **U dnevniku programa vidi se zašto sat nije izdan.** Kad privremena
+  očitanja Hrvatskih voda za idući sat u :45 još nisu stigla, prognoza tog
+  sata ne izađe, a u dnevniku programa o tome nije bilo ni retka. Sad piše
+  za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
+  očitanja. (#202)
+- **Prava u administraciji prema Odlukama (30. 10. 2026.).** Tko smije
+  uređivati letvu, sad joj i unosi podatke u arhivu, gumbom „Unos u arhivu”
+  na kartici letve. Dosad je do te stranice vodila samo Administracija.
+  Ulaganje, izdanja i brisanje nizova ostaju globalnom administratoru, a
+  drugi ih više ne vide. Stranicu „Što ovo računalo prati” mijenja samo
+  globalni administrator, s tog računala ili iz lokalne mreže, a ostali je
+  samo gledaju. Prognozu rukom pokreću dežurni operater, voditelj centra,
+  uprava sektora i globalni administrator.
+
+  Lozinka svugdje mora imati najmanje 10 znakova. Dosad je na profilu bilo
+  dovoljno 6, a za novi račun nije bilo granice. Uprava branjenog područja
+  otvara račune u svom području, ali daje samo uloge niže od svoje, npr.
+  vodočuvara ili rukovoditelja dionice. Dosad je mogla postaviti i novog
+  rukovoditelja ili zamjenika područja; to sad rade uprava sektora i
+  globalni administrator. Takvu dužnost uprava područja i dalje može
+  izmijeniti, ali je ne može produljiti ni učiniti stalnom. To pravilo
+  vrijedi kad se nadograde sva računala: računalo na 0.0.46 i dalje pušta
+  upravu područja da postavi upravu područja, a razmjena tu dužnost prenese
+  i na ostala. U obrascu novog djelatnika i novog zaduženja uloga više nije
+  unaprijed odabrana (bio je dežurni operater). Naziv sektora na popisu
+  organizacije vodi na stranicu sektora, a ne više na Dionice; do njih vodi
+  gumb „Dionice sektora”. Isključivanje uloge računala traži potvrdu, a na
+  Sinkronizaciji uz svako računalo piše koje uloge ima.
+
+- **Karta bez interneta stiže razmjenom.** Kartu bez interneta trebalo je
+  paketom `.cop` prenijeti na svako računalo. Sad ju računalo koje je nema
+  dobije razmjenom, samo od sebe, dio po dio, i od računala koje je još
+  preuzima. Kad se veza prekine, nastavlja od dijela na kojem je stala.
+  Koliko je stiglo, piše u Administraciji › Karte. Dok je na računalu
+  proglašen stadij obrane, karta stiže i šalje se samo s računalima u istoj
+  lokalnoj mreži, ista kuća ili ured, a unutarnja mreža Hrvatskih voda među
+  gradovima i VPN tada se računaju kao internet (Odluke (29. 10. 2026.) i
+  (30. 10. 2026.)). Računalu s 0.0.46-alfa ili starijim kartu i dalje treba
+  prenijeti paketom `.cop`. (#197)
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju

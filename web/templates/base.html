@@ -49,15 +49,14 @@
           {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "sync") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
-          {{if or (.Sees "registri") (.Sees "djelatnici")}}
+          {{if .Sees "registri"}}
           <div class="nav-group">
             <button type="button" class="nav-link nav-group-btn
-                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (jeNavObjekta .ActiveNav) (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva") (eq .ActiveNav "users")}}active{{end}}"
+                {{if or (eq .ActiveNav "registers") (eq .ActiveNav "organizacija") (eq .ActiveNav "sections") (eq .ActiveNav "territories") (eq .ActiveNav "stations") (eq .ActiveNav "watercourses") (eq .ActiveNav "slivovi") (jeNavObjekta .ActiveNav) (eq .ActiveNav "firme") (eq .ActiveNav "maintenance") (eq .ActiveNav "sredstva")}}active{{end}}"
                 aria-haspopup="true" aria-expanded="false" onclick="toggleNavGroup(event)">
               {{icon "book-open"}} Registri <span class="nav-caret">▾</span>
             </button>
             <div class="nav-dropdown">
-              {{if .Sees "registri"}}
               <a href="/organizacija" class="nav-dropdown-item {{if eq .ActiveNav "organizacija"}}active{{end}}">
                 {{icon "building"}} Administrativna organizacija
               </a>
@@ -90,15 +89,11 @@
               <a href="/sredstva" class="nav-dropdown-item {{if eq .ActiveNav "sredstva"}}active{{end}}">
                 {{icon "package"}} Sredstva za obranu
               </a>
-              {{end}}
-              {{if .Sees "djelatnici"}}
-              <a href="/users" class="nav-dropdown-item {{if eq .ActiveNav "users"}}active{{end}}">
-                {{icon "users"}} Djelatnici
-              </a>
-              {{end}}
             </div>
           </div>
           {{end}}
+          {{/* Djelatnici su vlastita stavka, ne dio Registara (Odluke (30. 10. 2026.)) */}}
+          {{if .Sees "djelatnici"}}<a href="/users" class="nav-link {{if eq .ActiveNav "users"}}active{{end}}">{{icon "users"}} Djelatnici</a>{{end}}
           {{if .CurrentUser}}
           <div class="nav-mobile-actions">
             <a href="/profile" class="nav-link {{if eq .ActiveNav "profile"}}active{{end}}">{{icon "user"}} Moj profil</a>

@@ -584,6 +584,42 @@ type UserPermissions struct {
 	PodrucjaDionica map[int]bool
 }
 
+// Dezurni javlja ima li osoba sada valjanu dužnost dežurnog operatera u
+// COP-u. Dežurni smije rukom pokrenuti izračun prognoze (Odluke
+// (30. 10. 2026.), 7).
+func (p *UserPermissions) Dezurni() bool {
+	return p.imaVazecuDuznost(func(d Duty) bool { return d.Role == RoleOperator })
+}
+
+// UpravaSektora javlja ima li osoba sada valjanu dužnost uprave sektora:
+// rukovoditelj sektora i zamjenik, voditelj centra obrane i zamjenik, i
+// druge uloge koje upravljaju sektorom (RazinaUprave 2)
+func (p *UserPermissions) UpravaSektora() bool {
+	return p.imaVazecuDuznost(func(d Duty) bool {
+		return d.Role.RazinaUprave() == 2 && d.SectorID != nil && *d.SectorID != ""
+	})
+}
+
+// imaVazecuDuznost: osoba sada ima aktivnu, neisteklu dužnost koja
+// zadovoljava uvjet
+func (p *UserPermissions) imaVazecuDuznost(uvjet func(Duty) bool) bool {
+	if p == nil {
+		return false
+	}
+	for _, d := range VazecaZaduzenja(p.User.Duties, time.Now()) {
+		if uvjet(d) {
+			return true
+		}
+	}
+	return false
+}
+
+// SmijeGeneriratiPrognozu: dežurni operater, uprava sektora (s voditeljem
+// centra) i globalni administrator (Odluke (30. 10. 2026.), 7 i 17)
+func (p *UserPermissions) SmijeGeneriratiPrognozu() bool {
+	return p != nil && (p.IsGlobalAdmin || p.Dezurni() || p.UpravaSektora())
+}
+
 // RadiNaDionicamaU javlja ima li osoba dužnost na dionicama u području
 func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
 	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]

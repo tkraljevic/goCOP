@@ -3,6 +3,8 @@ package peers
 import (
 	"context"
 	"errors"
+
+	"gocop/internal/razmjena"
 )
 
 // Uloge su poslovi koje jedno računalo radi za cijelu mrežu. Vodostaje s
@@ -10,10 +12,25 @@ import (
 // preuzima jedan čvor: očitanja putuju razmjenom kao i sva druga. Prognozu
 // izdaje jedan čvor, a izdanje stiže ostalima razmjenom; inače dva računala
 // izdaju dvije malo različite prognoze za isti sat i stranice izvora dobivaju
-// isti upit od svakog čvora. Uloge su lokalne: ne putuju razmjenom.
+// isti upit od svakog čvora. Uloge se mijenjaju samo na samom računalu.
+// Razmjenom putuju samo za prikaz na Stanju razmjene, u znanju granice
+// (Odluke (30. 10. 2026.), 13): drugo računalo po njima ne radi ništa.
 type Uloge struct {
 	Preuzima bool // preuzima vodostaje s izvora
 	Izdaje   bool // izdaje prognozu: tuđe prognoze, kiša, izračun
+}
+
+// Oznake su uloge kako se javljaju u znanju granice, poredane; bez ijedne
+// nil, pa granica ostaje bajt po bajt kakva je bila
+func (u Uloge) Oznake() []string {
+	var out []string
+	if u.Izdaje {
+		out = append(out, razmjena.UlogaIzdaje)
+	}
+	if u.Preuzima {
+		out = append(out, razmjena.UlogaPreuzima)
+	}
+	return out
 }
 
 const (
@@ -97,15 +114,15 @@ func (s *Service) OsvjeziSebe(ctx context.Context) error {
 	if s.node.Name == "" {
 		return nil
 	}
-	stored, err := s.GetPeer(ctx, s.node.ID)
-	if err != nil {
-		return err
-	}
-	// Bez zatečenog zapisa nema što ispraviti (zapis nastaje pri uparivanju),
-	// a novi bi s praznim adresama pregazio javne adrese koje su drugi upisali.
-	if stored == nil || stored.Name == s.node.Name {
-		return nil
-	}
-	stored.Name = s.node.Name
-	return s.SavePeer(ctx, *stored)
+	_, err := s.IzmijeniCvor(ctx, s.node.ID, func(stored *Peer) (*Peer, error) {
+		// Bez zatečenog zapisa nema što ispraviti (zapis nastaje pri
+		// uparivanju), a novi bi s praznim adresama pregazio javne adrese
+		// koje su drugi upisali.
+		if stored == nil || stored.Name == s.node.Name {
+			return nil, nil
+		}
+		stored.Name = s.node.Name
+		return stored, nil
+	})
+	return err
 }

@@ -35,8 +35,9 @@
     {{else}}
     <div class="form-group">
       <label class="form-label" for="password">{{if .IsEdit}}Nova lozinka{{else}}Lozinka *{{end}}</label>
-      <input type="password" id="password" name="password" class="form-control" {{if not .IsEdit}}required{{end}} autocomplete="new-password">
-      {{if .IsEdit}}<div class="form-help">Prazno znači da se lozinka ne mijenja. Nova lozinka gasi otvorene prijave te osobe, na ovom čvoru zaboravlja njezina zapamćena računala i briše privremene kodove, a uklanja i njezin osobni potpisni ključ (novi napravi na profilu). Osoba je pri prvoj prijavi mora zamijeniti svojom, a na ovom čvoru briše se i njezina spremljena lozinka e-pošte. Za zaboravljenu lozinku radije upotrijebite „Poništi lozinku”.</div>{{end}}
+      <input type="password" id="password" name="password" class="form-control" {{if not .IsEdit}}required{{end}} minlength="10" autocomplete="new-password">
+      {{if not .IsEdit}}<div class="form-help">Najmanje 10 znakova.</div>{{end}}
+      {{if .IsEdit}}<div class="form-help">Najmanje 10 znakova. Prazno znači da se lozinka ne mijenja. Nova lozinka gasi otvorene prijave te osobe, na ovom čvoru zaboravlja njezina zapamćena računala i briše privremene kodove, a uklanja i njezin osobni potpisni ključ (novi napravi na profilu). Osoba je pri prvoj prijavi mora zamijeniti svojom, a na ovom čvoru briše se i njezina spremljena lozinka e-pošte. Za zaboravljenu lozinku radije upotrijebite „Poništi lozinku”.</div>{{end}}
     </div>
     {{end}}
   </div>
@@ -129,12 +130,16 @@
     <input type="text" id="duty_title" name="duty_title" class="form-control" placeholder="npr. Voditelj COP Osijek ili Rukovoditelj dionica A.19.1 – A.19.4">
   </div>
   <div class="form-group">
-    <label class="form-label" for="role">Uloga *</label>
-    <select id="role" name="role" class="form-control" required>
-      {{range .Roles}}<option value="{{.Value}}" {{if eq .Value "OPERATOR"}}selected{{end}}>{{.Label}}</option>{{end}}
+    {{/* Bez unaprijed odabrane uloge (Odluke (30. 10. 2026.), 15): račun bez
+         uloge otvara samo globalni administrator, a ostali biraju ulogu */}}
+    <label class="form-label" for="role">Uloga{{if not .Permissions.IsGlobalAdmin}} *{{end}}</label>
+    <select id="role" name="role" class="form-control"{{if not .Permissions.IsGlobalAdmin}} required{{end}}>
+      <option value="">{{if .Permissions.IsGlobalAdmin}}— bez uloge —{{else}}— odaberi ulogu —{{end}}</option>
+      {{range .Roles}}<option value="{{.Value}}">{{.Label}}</option>{{end}}
     </select>
+    {{if .Permissions.IsGlobalAdmin}}<div class="form-help">Bez uloge osoba se može prijaviti, ali samo gleda dok joj ulogu ne dodijelite.</div>{{end}}
   </div>
-  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Tko nije uprava organizacije, dodjeljuje samo uloge svoje razine ili niže, u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora i uprava branjenog područja dodjeljuju uloge samo u svom dosegu: uprava sektora uloge svoje razine ili niže, a uprava područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara.</div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>

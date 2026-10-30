@@ -228,8 +228,8 @@ func OpisMetode(udio int, izdaje string) []OdjeljakMetode {
 		),
 
 		detaljiM("Izdavanje, ranija prognoza i rječnik",
-			tekstM("Prognozu računa i izdaje jedan čvor, onaj kojemu je u Administraciji, na stranici Čvor, mreža i "+
-				"sinkronizacija (Uloge ovog čvora), uključeno „Izdaje prognozu”. Svako izdanje, s kišom po "+
+			tekstM("Prognozu računa i izdaje jedan čvor, onaj kojemu je u Administraciji, na stranici Ovo računalo i "+
+				"mreža (Uloge ovog čvora), uključeno „Izdaje prognozu”. Svako izdanje, s kišom po "+
 				"međuslivovima i tuđim prognozama koje je izdavač tada imao, ide razmjenom ostalim čvorovima. Uz "+
 				"vrijeme izdanja tada piše na kojem je čvoru izdano. Upozorenja uz izdanje zapisuje čvor koji izdaje, "+
 				"pa svi čvorovi pokazuju isto."),

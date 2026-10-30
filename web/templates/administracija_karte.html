@@ -92,14 +92,14 @@
 
 <section class="detail-section" id="karta-bez-interneta">
   <div class="detail-section-head"><h2>{{icon "download"}} Karta bez interneta</h2></div>
-  <p class="text-muted">Vektorska karta (OpenStreetMap) koju čvor drži na svom disku, pa radi i kad nema interneta. Na karti se bira kao podloga „Karta bez interneta”. Učitajte izvezenu kartu (<code>.pmtiles</code>, npr. iz Protomapsa) na jednom računalu, preuzmite njezin <code>.cop</code> paket i učitajte ga na ostalima. Razmjenom ide samo koja je karta zadana, ne i sama karta.</p>
+  <p class="text-muted">Vektorska karta (OpenStreetMap) koju čvor drži na svom disku, pa radi i kad nema interneta. Na karti se bira kao podloga „Karta bez interneta”. Učitajte izvezenu kartu (<code>.pmtiles</code>, npr. iz Protomapsa) na jednom računalu, a ostala računala dobit će je sama razmjenom, dio po dio. Dok traje obrana, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured). Računalu izvan mreže ili sa starijim programom učitajte njezin <code>.cop</code> paket.</p>
   {{with .Vektorska}}
   <table class="table" style="max-width:40rem">
     <tr><th>Karta</th><td>{{.Naziv}}</td></tr>
     {{if .Izvor}}<tr><th>Izvor</th><td>{{.Izvor}}</td></tr>{{end}}
     <tr><th>Područje</th><td>{{printf "%.2f" (index .Obuhvat 0)}}° do {{printf "%.2f" (index .Obuhvat 2)}}° E, {{printf "%.2f" (index .Obuhvat 1)}}° do {{printf "%.2f" (index .Obuhvat 3)}}° N, do povećanja {{.NajviseZ}}</td></tr>
     <tr><th>Veličina</th><td>{{humanBytes .Bajtova}}</td></tr>
-    <tr><th>Na ovom računalu</th><td>{{if $.VektorskaOvdje}}<span class="badge badge-active">učitana</span>{{else}}<span class="badge badge-warning">nije učitana</span> Učitajte njezin .cop paket ispod.{{end}}</td></tr>
+    <tr><th>Na ovom računalu</th><td>{{if $.VektorskaOvdje}}<span class="badge badge-active">učitana</span>{{else}}<span class="badge badge-warning">nije učitana</span> {{$.PrijenosKarte}}{{end}}</td></tr>
   </table>
   <div class="d-flex gap-2 mt-2">
     {{if $.VektorskaOvdje}}<a class="btn btn-secondary" href="/administracija/karte/vektorska.cop">{{icon "download"}} Preuzmi .cop za druga računala</a>{{end}}

@@ -70,9 +70,9 @@ pokretanja i ponavlja se svakih pet minuta. Na naslovnoj stranici pločica
 „Razmjena s čvorovima” pokazuje zadnju razmjenu, put kojim je prošla (npr.
 „LAN sync, 3 ms”) i napredak arhive. Kad razmjena ne ide boljim putem,
 pločica rečenicom kaže zašto, bez adresa. Adrese i greške razmjene vidi
-samo administrator, na stranici Sinkronizacija.
+samo administrator, na stranici Stanje razmjene.
 
-Javnu adresu stalnog računala administrator upiše jednom, na bilo kojem
+Adresu za razmjenu stalnog računala administrator upiše jednom, na bilo kojem
 računalu mreže, a ostala je dobiju razmjenom. Dva računala koja se ne vide
 izravno razmjenjuju preko njega, pa podatak između njih čeka do idućeg kruga
 razmjene, najviše desetak minuta. WEB sync to skraćuje: stalno računalo
@@ -84,7 +84,7 @@ Prvi korak: uz `[povezivost] web_sync_prijava = true` računalo
 otvori UDP port 4713 i provjeri mrežu preko dva STUN poslužitelja, a ishod
 upiše u dnevnik. Administrator to može i gumbom *Provjeri vezu*, a pojedinosti
 (vlastita javna adresa, adrese koje bi WEB sync nudio, kuda ide promet prema
-STUN-u) vidi u bloku Dohvatljivost na stranici Sinkronizacija. Podaci tim
+STUN-u) vidi u bloku Dohvatljivost na stranici Stanje razmjene, gdje je i gumb. Podaci tim
 putem idu tek uz treći korak. Drugi korak je prijava kod sastajališta:
 stalni čvor uz `posluzi_sastajaliste` zna tko je na vezi, a ostala računala
 se kod njega prijave (`sastajaliste`, `sastajaliste_cvor`) i drže vezu, i
@@ -193,7 +193,7 @@ dostupno s interneta postaje put za druga. Prijenosno računalo na terenu
 prati samo svoje područje i razmjenjuje kad ima veze.
 
 Dvije uloge danas se ipak uključuju ručno, na stranici Administracija →
-Čvor, mreža i sinkronizacija, pod Uloge ovog čvora: „Preuzima vodostaje s
+Ovo računalo i mreža, pod Uloge ovog čvora: „Preuzima vodostaje s
 izvora” i „Izdaje prognozu”. Svaka se uključuje na samo jednom računalu.
 Tako izvore ne pita svako računalo, a za isti sat ne nastanu dvije
 različite prognoze. Kad to
@@ -223,8 +223,8 @@ odbija se. Zato novo računalo ne treba upariti sa svakim članom posebno.
 Mjesec dana prije isteka računalo pri razmjeni samo zatraži obnovu članstva.
 Zahtjev putuje razmjenom, i preko drugih računala, do računala koje prima u
 mrežu, a ono izda novo članstvo s istim imenom i ključem, ako računalo nije
-opozvano. Obnova se može tražiti i gumbom Obnovi članstvo u Postavkama, pod
-Mreža, u svako doba, a računalo koje prima ima gumb Obnovi uz svakog člana.
+opozvano. Obnova se može tražiti i gumbom Obnovi članstvo na stranici Ovo
+računalo i mreža, pod Mreža, u svako doba, a računalo koje prima ima gumb Obnovi uz svakog člana.
 Računalo koje se ne koristi samo istekne. Isteklo članstvo vrijedi za
 razmjenu još 30 dana, uz upozorenje na pločici, a u tom roku računalo ne
 prima druga. Računalo s ključem mreže samo sebi obnavlja članstvo. Ovlast za
@@ -239,7 +239,7 @@ poslati više računala: zapis o poslanoj ide razmjenom, prvo šalje računalo
 s ključem mreže (kad ih je više, jedno za drugim), a ostala čekaju po
 nekoliko sati, svako po svom redu, i šalju samo ono što do tada nije
 otišlo. Kad nijedan administrator
-nema takvu adresu, to piše u dnevniku programa. Računalo s ključem mreže u Postavkama, pod Mreža, sprema šifriranu
+nema takvu adresu, to piše u dnevniku programa. Računalo s ključem mreže na stranici Ovo računalo i mreža, pod Mreža, sprema šifriranu
 kopiju ključa za hladni disk. Lozinka kopije ima najmanje 12 znakova i čuva
 se odvojeno od diska. Kad to računalo propadne, drugo računalo iste mreže
 učita kopiju i od tada ono prima i obnavlja članstva i ovlasti. Kopija se

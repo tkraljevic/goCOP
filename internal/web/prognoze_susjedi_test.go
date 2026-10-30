@@ -401,7 +401,11 @@ func TestPostavkeDanaIzSusjeda(t *testing.T) {
 	var spremljeno models.Opcije
 	h := &PrognozeHandler{}
 	h.SetOpcije(func(context.Context) models.Opcije { return models.Opcije{} },
-		func(_ context.Context, _ *models.UserPermissions, o models.Opcije) error { spremljeno = o; return nil })
+		func(_ context.Context, _ *models.UserPermissions, izmjena func(*models.Opcije)) error {
+			spremljeno = models.Opcije{}
+			izmjena(&spremljeno)
+			return nil
+		})
 	for _, tc := range []struct {
 		forma url.Values
 		bez   bool

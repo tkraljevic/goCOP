@@ -288,7 +288,7 @@ func TestPotvrduDajeSamoGlobalniAdministrator(t *testing.T) {
 
 	// novi račun: ista pravila
 	novi := func(actor *models.UserPermissions, ime string, uloga models.Role) (*models.User, error) {
-		return o.users.CreateUser(actor, service.CreateUserRequest{Username: ime, Password: "pocetna-1", FullName: ime,
+		return o.users.CreateUser(actor, service.CreateUserRequest{Username: ime, Password: "pocetna-lozinka-1", FullName: ime,
 			OrgType: models.OrgPravnaOsoba, Email: ime + "@bistra.hr", Role: uloga, SectorID: &sektorB, PotvrdaAdrese: true})
 	}
 	if _, err := novi(upravitelj, "marko", models.RoleSectorDeputy); !errors.Is(err, service.ErrPotvrdaAdrese) {
@@ -305,7 +305,7 @@ func TestPotvrduDajeSamoGlobalniAdministrator(t *testing.T) {
 		t.Fatalf("novi račun bez potvrde: %+v", u)
 	}
 	// prazna adresa nema potvrde
-	prazan, err := o.users.CreateUser(o.admin, service.CreateUserRequest{Username: "bezadrese", Password: "pocetna-1", FullName: "Bez adrese",
+	prazan, err := o.users.CreateUser(o.admin, service.CreateUserRequest{Username: "bezadrese", Password: "pocetna-lozinka-1", FullName: "Bez adrese",
 		OrgType: models.OrgPravnaOsoba, PotvrdaAdrese: true})
 	if err != nil {
 		t.Fatal(err)
@@ -360,7 +360,7 @@ func TestPotvrdaNeTudjimOcima(t *testing.T) {
 		t.Fatalf("izmjena bez okvira: %+v", u)
 	}
 	// novi račun tuđim očima ne dobiva potvrdu
-	if _, err := o.users.CreateUser(ociDrugog, service.CreateUserRequest{Username: "luka", Password: "pocetna-1", FullName: "Luka",
+	if _, err := o.users.CreateUser(ociDrugog, service.CreateUserRequest{Username: "luka", Password: "pocetna-lozinka-1", FullName: "Luka",
 		OrgType: models.OrgPravnaOsoba, Email: "luka@bistra.hr", PotvrdaAdrese: true, TudjimOcima: true}); !errors.Is(err, service.ErrTudjimOcima) {
 		t.Fatalf("novi račun s potvrdom tuđim očima: %v", err)
 	}

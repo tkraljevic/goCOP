@@ -1750,6 +1750,10 @@ func migrateSchema(database *sql.DB) error {
 		// 1 kad je redak upisao program koji pamti mogućnosti, nakon što je
 		// granica stigla: tek tada prazne mogućnosti znače razmjena/1
 		{"peer_sync", "mogucnosti_poznate", "INTEGER NOT NULL DEFAULT 0"},
+		// Uloge koje je drugi čvor javio u granici (JSON: izdaje, preuzima),
+		// samo za prikaz na Stanju razmjene (Odluke (30. 10. 2026.), 13);
+		// prazno = nema nijednu ili ih stariji program ne javlja
+		{"peer_sync", "uloge", "TEXT NOT NULL DEFAULT ''"},
 		// Adrese drugog računala koje je ovo računalo naučilo (JSON, adresa i
 		// vrijeme zadnjeg uspjeha): ovo računalo nazvalo je tu adresu, a ne
 		// ona njega, i druga strana je dokazala svoj ključ. Ostaju na ovom

@@ -320,24 +320,6 @@ func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Requ
 		"datoteka": "gocop-potvrda-" + z.Cvor + ".json"})
 }
 
-// HandleDiscover pretraži lokalnu mrežu; odgovor nosi adrese računala, pa
-// ga dobiva samo administrator
-func (h *SettingsHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
-		return
-	}
-	found, err := h.peers.Discover(r.Context(), 1500*time.Millisecond)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if found == nil {
-		found = []peers.Discovered{}
-	}
-	writeJSON(w, map[string]any{"success": true, "found": found})
-}
-
 func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdmin(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
@@ -431,16 +413,23 @@ func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	p, err := h.peers.GetPeer(r.Context(), r.PathValue("node"))
-	if err != nil || p == nil {
+	nepoznat := false
+	_, err := h.peers.IzmijeniCvor(r.Context(), r.PathValue("node"), func(p *peers.Peer) (*peers.Peer, error) {
+		if p == nil {
+			nepoznat = true
+			return nil, nil
+		}
+		p.IsBootstrap = req.Bootstrap
+		if len(req.Addresses) > 0 {
+			p.Addresses = req.Addresses
+		}
+		return p, nil
+	})
+	if nepoznat {
 		http.Error(w, "čvor nije poznat", http.StatusNotFound)
 		return
 	}
-	p.IsBootstrap = req.Bootstrap
-	if len(req.Addresses) > 0 {
-		p.Addresses = req.Addresses
-	}
-	if err := h.peers.SavePeer(r.Context(), *p); err != nil {
+	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

@@ -28,17 +28,9 @@ func Adresa(put string, postavke ...string) string {
 }
 
 // ZaPisanje je adresa baze u koju program piše: Adresa s trajnim upisom
-// (TrajniUpis), s pravom pisanja od početka transakcije (PrvoPravoPisanja)
+// (TrajniUpis), s pravom pisanja od početka transakcije (UpisOdPocetka)
 // i s čekanjem do pet sekundi kad bazu drži drugi pisac. Bez čekanja bi
 // transakcija koja traži pravo pisanja na početku odmah pala.
 func ZaPisanje(put string, postavke ...string) string {
-	return Adresa(put, append(postavke, "_pragma=busy_timeout(5000)", TrajniUpis, PrvoPravoPisanja)...)
+	return Adresa(put, append(postavke, "_pragma=busy_timeout(5000)", TrajniUpis, UpisOdPocetka)...)
 }
-
-// PrvoPravoPisanja: transakcija uzima pravo pisanja već na početku (BEGIN
-// IMMEDIATE), a ne tek kod prvog upisa. Transakcija koja prvo čita pa piše
-// inače padne s „database is locked (517)” čim drugi upiše nešto između
-// njezina čitanja i upisa, i busy_timeout tu ne pomaže. Ovako druga
-// transakcija pričeka dok prva ne završi. Transakcija otvorena samo za
-// čitanje (sql.TxOptions{ReadOnly: true}) i dalje počinje običnim BEGIN.
-const PrvoPravoPisanja = "_txlock=immediate"

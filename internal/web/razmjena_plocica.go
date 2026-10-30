@@ -211,12 +211,12 @@ var razmjenaTmpl = template.Must(template.New("razmjena").Funcs(template.FuncMap
 <div class="razmjena-plocica">
   <div class="kisa-slivova-glava">
     <h2 class="section-title">{{icon "refresh-cw"}} Razmjena s čvorovima</h2>
-    <span class="reg-card-sub">{{if .Verzija}}ovaj čvor na {{.Verzija}} · {{end}}osvježava se sama · <a href="/sinkronizacija">Sinkronizacija</a></span>
+    <span class="reg-card-sub">{{if .Verzija}}ovaj čvor na {{.Verzija}} · {{end}}osvježava se sama · <a href="/sinkronizacija">Stanje razmjene</a></span>
   </div>
   {{range .Disk}}<div class="razmjena-upozorenje">{{icon "triangle-alert"}} {{.Poruka}} {{.Savjet}}</div>{{end}}
   {{if .UMrezi}}{{with .Signal}}<p class="reg-card-sub">{{.}}</p>{{end}}{{end}}
   {{if not .UMrezi}}
-  <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Čvor, mreža i sinkronizacija</a></p>
+  <p class="reg-card-sub">Ovaj čvor nije ni u jednoj mreži, pa se ni s kim ne usklađuje. <a href="/settings">Ovo računalo i mreža</a></p>
   {{else if .Sredeno}}
   <div class="vrijeme-stanje-mirno">
     <span class="vrijeme-zelena-kvacica">{{icon "check"}}</span>

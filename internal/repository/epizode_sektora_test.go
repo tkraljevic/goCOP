@@ -50,6 +50,11 @@ func TestOtvoreneObraneSektoraSIdentitetom(t *testing.T) {
 		t.Errorf("otvorena obrana sektora: %+v", sve[0])
 	}
 
+	// dionice s otvorenom obranom u svim sektorima, bez zatvorenih
+	if dionice, err := repo.OtvoreneDionice(ctx); err != nil || len(dionice) != 2 || dionice[0] != "P.1.1" || dionice[1] != "R.2.1" {
+		t.Errorf("otvorene dionice: %v (%v)", dionice, err)
+	}
+
 	// neispravan identitet u bazi je greška, ne epizoda bez identiteta
 	if _, err := baza.Exec(`UPDATE defense_episodes SET id = 'nije-uuid' WHERE id = ?`, otvorena.ID.String()); err != nil {
 		t.Fatal(err)
@@ -60,5 +65,8 @@ func TestOtvoreneObraneSektoraSIdentitetom(t *testing.T) {
 	baza.Close()
 	if _, err := repo.OpenEpisodesInSector(ctx, "P"); err == nil {
 		t.Error("zatvorena baza: očekivana greška")
+	}
+	if _, err := repo.OtvoreneDionice(ctx); err == nil {
+		t.Error("zatvorena baza: očekivana greška otvorenih dionica")
 	}
 }

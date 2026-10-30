@@ -105,13 +105,15 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (zapisano int, err 
 	promasaji := map[string]map[int]*zbrojProvjere{}
 	izdanja := 0
 	for t := o.Od.Unix() / 3600; t <= o.Do.Unix()/3600; t += int64(o.Korak) {
-		// Izdanje se ne smije osloniti na ono što tek dolazi: račun vidi samo
-		// ono do svojeg sata. NovoRacunalo to poštuje jer izmjereno uzima
-		// isključivo do sada.
-		odabrani, izbor := OdaberiInacice(inacice, nizovi, t)
-		r := NovoRacunalo(odabrani, nizovi, t)
+		// Izdanje se ne smije osloniti na ono što tek dolazi: ulaz vidi samo
+		// očitanja do svojeg sata, pa ni rupu u satu izdavanja ne premošćuje
+		// kasnijim očitanjem. Uživo kasnijih očitanja ni nema; NovoRacunalo i
+		// BuducnostOperatera nizove režu i sami, pa obje strane računaju isto.
+		ulaz := odrezaniDo(nizovi, t)
+		odabrani, izbor := OdaberiInacice(inacice, ulaz, t)
+		r := NovoRacunalo(odabrani, ulaz, t)
 		_, vrhovi := TrebaniIzvori(odabrani)
-		for iz, n := range BuducnostOperatera(operateri, nizovi, t) {
+		for iz, n := range BuducnostOperatera(operateri, ulaz, t) {
 			if vrhovi[iz] {
 				r.PostaviBuducnostVrha(iz, n)
 			}
@@ -124,7 +126,9 @@ func ProvjeriUnatrag(arhiva, baza *sql.DB, o OpcijeProvjere) (zapisano int, err 
 			}
 			imalo = true
 			iz := Izvor{Letva: letva, Velicina: ps[0].Velicina}
-			sada, imaSad := nizovi[iz].U(t)
+			// Postojanost je ono što se u satu izdavanja znalo, a ne
+			// vrijednost premošćena kasnijim očitanjem.
+			sada, imaSad := ulaz[iz].U(t)
 			for _, i := range izdane {
 				if p, ima := ispravakNaDosegu(zapisani[iz], i.Ciljni-t); ima {
 					// Isto što radi živa prognoza: pomak se oduzme, a raspon

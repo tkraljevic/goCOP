@@ -222,6 +222,25 @@ func getEpisodeTx(ctx context.Context, tx *sql.Tx, id string) (models.DefenseEpi
 	return scanEpisode(row)
 }
 
+// OtvoreneDionice su šifre dionica na kojima epizoda obrane još traje, u
+// svim sektorima
+func (r *EpisodeRepository) OtvoreneDionice(ctx context.Context) ([]string, error) {
+	rows, err := r.db.QueryContext(ctx, `SELECT DISTINCT section_code FROM defense_episodes WHERE ended_at IS NULL ORDER BY section_code`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var d string
+		if err := rows.Scan(&d); err != nil {
+			return nil, err
+		}
+		out = append(out, d)
+	}
+	return out, rows.Err()
+}
+
 // OpenEpisodesInSector vraća obrane koje traju na dionicama sektora, za
 // traku stanja: najviši stadij i koliko dionica. Epizoda se čita cijela, s
 // identitetom, kao u OpenEpisode.

@@ -205,11 +205,11 @@ func TestOpozivDrugogKorakaPriPromjeniLozinke(t *testing.T) {
 			if _, err := o.baza.Exec(`ALTER TABLE ` + tablica + ` RENAME TO ` + tablica + `_nema`); err != nil {
 				t.Fatal(err)
 			}
-			err := o.auth.ChangePassword(o.osoba.ID, "lozinka1", "lozinka2", uuid.Nil)
+			err := o.auth.ChangePassword(o.osoba.ID, "lozinka1", "lozinka2-nova", uuid.Nil)
 			if err == nil || !strings.HasPrefix(err.Error(), "lozinka je promijenjena, ali zapamćena računala nisu zaboravljena: ") {
 				t.Fatalf("promjena lozinke: %v", err)
 			}
-			if err := o.auth.ProvjeriLozinku(o.osoba.ID, "lozinka2"); err != nil {
+			if err := o.auth.ProvjeriLozinku(o.osoba.ID, "lozinka2-nova"); err != nil {
 				t.Errorf("nova lozinka ne vrijedi: %v", err)
 			}
 		})

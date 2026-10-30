@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -167,7 +168,7 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	created, err := h.userService.CreateUser(perms, req)
 	if err != nil {
-		redirectWith(w, r, "/users/new", "error", err.Error())
+		redirectWith(w, r, "/users/new", "error", porukaRacuna(err))
 		return
 	}
 
@@ -230,7 +231,7 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 
 	_, err = h.azurirajUzLozinku(perms, req)
 	if err != nil {
-		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", err.Error())
+		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", porukaRacuna(err))
 		return
 	}
 
@@ -319,6 +320,11 @@ func (h *UsersHandler) HandleAddDuty(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := dutyRequestFromForm(r, userID)
+	if req.Role == "" {
+		// obrazac kreće bez uloge (Odluke (30. 10. 2026.), 18)
+		redirectWith(w, r, "/users/"+userID.String()+"/duties/new", "error", "Zaduženje nije dodano: odaberite ulogu.")
+		return
+	}
 	// primarnu dužnost i vlastiti naziv daje samo tko uređuje cijeli račun;
 	// drugome se dužnost doda kao ispomoć, i to mu se kaže
 	ispomoc := (req.IsPrimary || req.Title != "") && !h.userService.SmijeUredjivatiRacun(perms, userID)
@@ -379,7 +385,12 @@ func (h *UsersHandler) HandleUpdateDuty(w http.ResponseWriter, r *http.Request) 
 		http.Redirect(w, r, "/users?error=Neispravan+korisnik", http.StatusSeeOther)
 		return
 	}
-	if err := h.userService.UpdateDuty(perms, dutyID, dutyRequestFromForm(r, userID)); err != nil {
+	req := dutyRequestFromForm(r, userID)
+	if req.Role == "" {
+		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", "Zaduženje nije izmijenjeno: odaberite ulogu.")
+		return
+	}
+	if err := h.userService.UpdateDuty(perms, dutyID, req); err != nil {
 		redirectWith(w, r, "/users/duties/"+dutyID.String()+"/edit", "error", err.Error())
 		return
 	}
@@ -450,4 +461,14 @@ func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.Redirect(w, r, "/users?success=Profil+djelatnika+uspješno+obrisan", http.StatusSeeOther)
+}
+
+// porukaRacuna je poruka osobi kad se račun ne spremi. Prekratka lozinka
+// kaže se cijelom rečenicom, bez tehničkog uvoda „neispravni podaci
+// korisnika”.
+func porukaRacuna(err error) string {
+	if errors.Is(err, service.ErrKratkaLozinka) {
+		return service.ErrKratkaLozinka.Error()
+	}
+	return err.Error()
 }

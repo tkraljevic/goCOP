@@ -84,6 +84,12 @@ type razgovorSCvorom struct {
 	njihoveRupe, njihovaPopuna map[string]raspon
 	bacio                      map[string]baceno
 	preskoceni                 map[string]string
+	// dijelovi karte (karta_razgovor.go): karta je prijenos karte kad ga
+	// ovaj razgovor smije voditi (nil: ne smije), mojiDijelovi dijelovi koje
+	// je ovaj čvor zatražio, a brojači koliko ih je poslano i upisano
+	karta                              *dijeloviKarte
+	mojiDijelovi                       []string
+	poslanoDijelova, primljenoDijelova int
 }
 
 // zapocniRazgovor pročita sve što razgovor treba prije prve poruke: granicu
@@ -125,7 +131,8 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	if err != nil {
 		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
 	}
-	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka}
+	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka,
+		Uloge: s.TrenutneUloge().Oznake()}
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje
@@ -318,6 +325,8 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 // samo naš kraj. Želje druga strana šalje tek kad je upisala primljeno, pa
 // se tek tada pamti što je nakon uvoza dobila (zapamtiUvoz).
 func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
+	r.karta = r.smijeKartu(ctx)
+	defer r.pustiDijelove()
 	njihove, gotovo, err := r.zelje(ctx)
 	if err != nil || gotovo {
 		return err
@@ -326,6 +335,7 @@ func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
 	if err = r.sadrzaj(ctx, njihove); err != nil {
 		return err
 	}
+	r.zapamtiKartu()
 	return r.kraj()
 }
 
@@ -335,7 +345,7 @@ func (r *razgovorSCvorom) sadrzajIKraj(ctx context.Context) error {
 // kad druga strana umjesto želja pošalje kraj ili pukne: odabrani otisci
 // označe se zatraženima, a to mijenja poredak želja sljedeće razmjene.
 func (r *razgovorSCvorom) zelje(ctx context.Context) (zeljeMsg, bool, error) {
-	moje := zeljeMsg{r.s.zeljeniOtisci(ctx, r.myWants)}
+	moje := zeljeMsg{r.mojeZelje(ctx)}
 	if r.initiator {
 		if err := r.posalji(kindZelje, moje); err != nil {
 			return zeljeMsg{}, false, err
@@ -382,7 +392,7 @@ func (r *razgovorSCvorom) zeljeIliKraj() (zeljeMsg, bool, error) {
 func (r *razgovorSCvorom) sadrzaj(ctx context.Context, njihove zeljeMsg) error {
 	return r.redom(
 		func() error {
-			return r.posalji(kindSadrzaj, sadrzajMsg{r.s.sadrzajZa(ctx, njihove.Otisci, r.theirs.Wants)})
+			return r.posalji(kindSadrzaj, sadrzajMsg{r.sadrzajZaDrugu(ctx, njihove.Otisci)})
 		},
 		func() error { return r.primiNjihovSadrzaj(ctx) },
 	)
@@ -390,13 +400,16 @@ func (r *razgovorSCvorom) sadrzaj(ctx context.Context, njihove zeljeMsg) error {
 
 // primiNjihovSadrzaj prima sadržaj druge strane i upiše ga kad brava stigne
 // na vrijeme; što nije upisano, ostaje među željama i traži se sljedećom
-// razmjenom
+// razmjenom. Dijelovi karte idu ravno u djelomičnu datoteku karte, bez
+// brave upisa i nikad u spremište (karta_razgovor.go).
 func (r *razgovorSCvorom) primiNjihovSadrzaj(ctx context.Context) error {
 	var stigao sadrzajMsg
 	if err := r.ocekuj(kindSadrzaj, &stigao); err != nil {
 		return err
 	}
-	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), stigao.Stavke)
+	dijelovi, ostalo := razdvojiPrimljeno(stigao.Stavke)
+	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), ostalo)
+	r.upisiDijelove(dijelovi)
 	return nil
 }
 

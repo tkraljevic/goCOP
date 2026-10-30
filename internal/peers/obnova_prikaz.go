@@ -3,7 +3,7 @@ package peers
 // Rokovi članstva i ovlasti na pločici razmjene i na stranici Sinkronizacija
 // (G9a; Odluke (18. 10. 2026.)): pločica pokazuje samo rokove koji traže
 // pažnju (manje od 30 dana, pričuva, isteklo) i ovlasti obnovljene u zadnjih
-// 7 dana; puni rokovi su u Postavkama i u stupcu Član.
+// 7 dana; puni rokovi su na stranici Ovo računalo i mreža i u stupcu Član.
 
 import (
 	"context"
@@ -69,10 +69,10 @@ func tekstVlastitogClanstva(r *Rok) string {
 	switch r.Stanje {
 	case RokIstjece:
 		d := danaDo(r.Do, time.Now())
-		return fmt.Sprintf("Članstvo ovog računala u mreži ističe %s (za %d %s). Obnova se traži sama uz razmjenu; ako ne stigne, kliknite Obnovi članstvo u Postavkama, pod Mreža.",
+		return fmt.Sprintf("Članstvo ovog računala u mreži ističe %s (za %d %s). Obnova se traži sama uz razmjenu; ako ne stigne, kliknite Obnovi članstvo na stranici Ovo računalo i mreža, pod Mreža.",
 			datumHR(r.Do), d, models.UzBrojHR(d, "dan", "dana", "dana"))
 	case RokPricuva:
-		return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s Razmjena radi još do %s, a nakon toga računalo treba ponovno primiti u mrežu. Kliknite Obnovi članstvo u Postavkama, pod Mreža. Dok je članstvo isteklo, ovo računalo ne prima druga računala.",
+		return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s Razmjena radi još do %s, a nakon toga računalo treba ponovno primiti u mrežu. Kliknite Obnovi članstvo na stranici Ovo računalo i mreža, pod Mreža. Dok je članstvo isteklo, ovo računalo ne prima druga računala.",
 			datumHR(r.Do), datumHR(r.Do.Add(PricuvniRok)))
 	case RokIsteklo:
 		return fmt.Sprintf("Članstvo ovog računala u mreži isteklo je %s i pričuva je prošla, pa razmjena ne ide. Računalo treba ponovno primiti u mrežu: uparite ga s računalom koje prima ili mu pošaljite zahtjev za primanje na daljinu.", datumHR(r.Do))
@@ -91,7 +91,7 @@ func tekstVlastiteOvlasti(r *Rok) string {
 		return fmt.Sprintf("Ovlast ovog računala za primanje ističe %s (za %d %s). Obnavlja je računalo s ključem mreže kad do njega stigne zahtjev, a zahtjev ide sam uz razmjenu.",
 			datumHR(r.Do), d, models.UzBrojHR(d, "dan", "dana", "dana"))
 	case RokIsteklo:
-		return fmt.Sprintf("Ovlast ovog računala za primanje istekla je %s, pa ovo računalo ne prima i ne obnavlja druga računala. Obnavlja je računalo s ključem mreže kad do njega stigne zahtjev; kliknite Obnovi članstvo u Postavkama, pod Mreža.", datumHR(r.Do))
+		return fmt.Sprintf("Ovlast ovog računala za primanje istekla je %s, pa ovo računalo ne prima i ne obnavlja druga računala. Obnavlja je računalo s ključem mreže kad do njega stigne zahtjev; kliknite Obnovi članstvo na stranici Ovo računalo i mreža, pod Mreža.", datumHR(r.Do))
 	}
 	return ""
 }
@@ -105,10 +105,10 @@ func (s *Service) upozorenjaClanova(ctx context.Context, clanovi []Member) []str
 	istjece, pricuva := s.clanoviPoRoku(ctx, clanovi)
 	var out []string
 	if len(istjece) > 0 {
-		out = append(out, "Članstvo ističe za manje od 30 dana: "+strings.Join(istjece, ", ")+". Obnovit će se kad ta računala razmijene podatke, ili kliknite Obnovi uz računalo u Postavkama, pod Mreža.")
+		out = append(out, "Članstvo ističe za manje od 30 dana: "+strings.Join(istjece, ", ")+". Obnovit će se kad ta računala razmijene podatke, ili kliknite Obnovi uz računalo na stranici Ovo računalo i mreža, pod Mreža.")
 	}
 	if len(pricuva) > 0 {
-		out = append(out, "Članstvo je isteklo, a razmjena radi još do kraja pričuve: "+strings.Join(pricuva, ", ")+". Kliknite Obnovi uz računalo u Postavkama, pod Mreža.")
+		out = append(out, "Članstvo je isteklo, a razmjena radi još do kraja pričuve: "+strings.Join(pricuva, ", ")+". Kliknite Obnovi uz računalo na stranici Ovo računalo i mreža, pod Mreža.")
 	}
 	return out
 }

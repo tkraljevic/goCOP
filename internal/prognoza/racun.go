@@ -159,6 +159,25 @@ func (n Niz) U(t int64) (float64, bool) {
 	return n.Iznosi[i-1] + udio*(n.Iznosi[i]-n.Iznosi[i-1]), true
 }
 
+// DoSata je niz bez očitanja kasnijih od sata t. U premošćuje rupu između
+// očitanja prije i poslije traženog sata; kad je ono poslije iza sata
+// izdavanja, prognoza bi pri provjeri unatrag vidjela budućnost, a uživo bi
+// računala drukčije od provjere. Novi niz dijeli polja sa starim, ništa se ne
+// kopira.
+func (n Niz) DoSata(t int64) Niz {
+	i := sort.Search(len(n.Sati), func(i int) bool { return n.Sati[i] > t })
+	return Niz{Sati: n.Sati[:i:i], Iznosi: n.Iznosi[:i:i]}
+}
+
+// odrezaniDo reže svaki niz na sat sada (DoSata).
+func odrezaniDo(nizovi map[Izvor]Niz, sada int64) map[Izvor]Niz {
+	out := make(map[Izvor]Niz, len(nizovi))
+	for iz, n := range nizovi {
+		out[iz] = n.DoSata(sada)
+	}
+	return out
+}
+
 // Zadnji vraća sat zadnjeg očitanja.
 func (n Niz) Zadnji() (int64, bool) {
 	if len(n.Sati) == 0 {
@@ -281,8 +300,11 @@ type kljuc struct {
 }
 
 // NovoRacunalo slaže račun. Pojasi dolaze iz baze prognoza, nizovi iz
-// očitanja, a sada je zadnji sat kojem se vjeruje kao izmjerenom.
+// očitanja, a sada je zadnji sat kojem se vjeruje kao izmjerenom. Očitanja
+// kasnija od sada račun ne vidi, ni kad bi premostila rupu u satu izdavanja:
+// uživo i u provjeri unatrag vrijedi isto pravilo.
 func NovoRacunalo(pojasi map[string][]Pojas, mjereno map[Izvor]Niz, sada int64) *Racunalo {
+	mjereno = odrezaniDo(mjereno, sada)
 	po := map[Izvor][]Pojas{}
 	for letva, ps := range pojasi {
 		for _, x := range ps {

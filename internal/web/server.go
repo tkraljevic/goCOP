@@ -586,7 +586,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -697,6 +697,7 @@ func (s *Server) setupRoutes() {
 		return repository.NewBiljeskaRepository(s.db, s.recorder)
 	})
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
+	stationsH.SetUnosUArhivu(s.letvaUStablu)
 	stationsH.SetPaket(
 		func() string { return s.arhivaPut },
 		func() string { return s.recorder.Cvor() },
@@ -788,6 +789,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /profile/potpisni-kljuc", s.authMiddleware(http.HandlerFunc(potpisH.HandleKljuc)))
 	s.mux.Handle("GET /potpis/izdavatelj.pem", s.authMiddleware(http.HandlerFunc(potpisH.Izdavatelj)))
 	s.mux.Handle("GET /administracija/potpisi", s.authMiddleware(http.HandlerFunc(potpisH.ShowAdministracija)))
+	// adresa za QR kod na dokumentima (gocop.toml) stoji uz potpise akata (Odluke (30. 10. 2026.))
+	potpisH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/potpisi/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/potpisi", http.HandlerFunc(potpisH.ShowAdministracija))))
 	vodH.SetPoslovi(s.poslovi, s.templates["posao.html"])
 	s.mux.Handle("GET /vodocuvar", s.authMiddleware(http.HandlerFunc(vodH.ShowPopis)))
 	s.mux.Handle("GET /vodocuvar/dan", s.authMiddleware(http.HandlerFunc(vodH.ShowDan)))
@@ -969,11 +973,11 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetUsers(s.userService)
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
 	prognozeH.SetPostavke(s.templates["prognoze_postavke.html"])
-	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error {
+	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
 		if s.akti == nil {
 			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
 		}
-		return s.akti.SpremiOpcije(ctx, p, o)
+		return s.akti.IzmijeniOpcije(ctx, p, izmjena)
 	})
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.kisa = func() KisaSlivovaFunc { return s.kisaSlivova }
@@ -1000,7 +1004,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPostavke)))
 	s.mux.Handle("POST /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.SpremiPostavke)))
 	s.mux.Handle("GET /prognoze/pricuvno.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPricuvno)))
-	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
+	// krug traje i po nekoliko minuta i pita sve izvore, pa ga rukom
+	// pokreću samo dežurni i administrator (Odluke (30. 10. 2026.), 7)
+	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(trebaDezurnog(http.HandlerFunc(prognozeH.Generiraj))))
 	// Priprema modela mijenja brojke svih prognoza, pa je samo za globalnog
 	// administratora. Posao se traži pri pozivu jer ga main postavlja poslije ruta.
 	prognozeH.SetPripremaModela(func(ctx context.Context, p *poslovi.Posao) error {
@@ -1017,6 +1023,7 @@ func (s *Server) setupRoutes() {
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
 	adminH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
+	adminH.SetIzvoriStanja(s.opcijeAdministracije, s.racunTelemetrije, s.postaPodesena)
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
@@ -1233,12 +1240,14 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/slivovi/sliv", s.authMiddleware(http.HandlerFunc(slivH.HandleSliv)))
 	s.mux.Handle("POST /api/slivovi/sliv/delete", s.authMiddleware(http.HandlerFunc(slivH.HandleDeleteSliv)))
 
-	// Što ovo računalo prati: pretplate na kanale, za svakog prijavljenog
+	// Što ovo računalo prati: pretplate na kanale; stranicu vidi svaki prijavljeni
 	subsH := NewSubscriptionsHandler(s.peersService, s.orgService, s.templates["pretplate.html"])
 	s.mux.Handle("GET /pretplate", s.authMiddleware(http.HandlerFunc(subsH.ShowSubscriptions)))
-	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(http.HandlerFunc(subsH.HandleAdd)))
-	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
-	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
+	// mijenja samo globalni administrator, s ovog računala ili iz lokalne
+	// mreže; ostali stranicu samo gledaju (Odluke (30. 10. 2026.), 6)
+	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandleAdd))))
+	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandleRemove))))
+	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandlePurge))))
 	subsH.postavkeCvora = s.postavkeStranice
 	s.mux.Handle("POST /pretplate/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/pretplate", http.HandlerFunc(subsH.ShowSubscriptions))))
 
@@ -1270,7 +1279,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /posta/radnja", s.authMiddleware(http.HandlerFunc(aktiH.HandleSkupnaRadnja)))
 	s.mux.Handle("GET /posta/adrese.json", s.authMiddleware(http.HandlerFunc(aktiH.AdreseJSON)))
 	aktiH.SetPotpis(s.templates["posta_potpis.html"])
-	aktiH.SetZig(s.templates["administracija_zig.html"])
+	aktiH.SetZig(s.templates["sektor.html"])
 	aktiH.SetOpcije(s.templates["administracija_opcije.html"])
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
@@ -1290,6 +1299,10 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/karte/vektorska.cop", s.samoAdmin(http.HandlerFunc(aktiH.HandleIzveziKartu)))
 	s.mux.Handle("POST /administracija/karte/vektorska/makni", s.samoAdmin(http.HandlerFunc(aktiH.HandleMakniKartu)))
 	s.mux.Handle("GET /karta/vektor/{ime}", s.authMiddleware(http.HandlerFunc(ServeVektorskaKarta)))
+	// žig je na stranici sektora (Odluke (30. 10. 2026.)); stare adrese ostaju
+	s.mux.Handle("GET /organizacija/sektori/{id}", s.authMiddleware(http.HandlerFunc(aktiH.ShowSektor)))
+	s.mux.Handle("POST /organizacija/sektori/{id}/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
+	s.mux.Handle("GET /organizacija/sektori/{id}/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
@@ -1404,6 +1417,7 @@ func (s *Server) setupRoutes() {
 	// cijelom arhivom (sirotani, ulaganje, izdavanje) ostaju na globalnom
 	// administratoru: njih doseg po dionici ne može ograničiti.
 	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
+	uvozH.SetKarticaLetve(s.karticaLetve)
 	uvozH.SetKoteLetve(s.koteNuleLetve)
 	uvozH.SetMape(s.mapaArhive)
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
@@ -1458,6 +1472,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
 	s.mux.Handle("POST /administracija/baza/spomenici", s.authMiddleware(http.HandlerFunc(dbH.HandlePurgeTombstones)))
 	dbH.SetOpcije(s.opcije)
+	dbH.SetIzmjenaOpcija(s.izmijeniOpcije)
+	s.mux.Handle("POST /administracija/baza/pohrana", s.samoAdmin(http.HandlerFunc(dbH.HandlePohrana)))
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
 	dbH.postavkeCvora = s.postavkeStranice
@@ -1466,6 +1482,7 @@ func (s *Server) setupRoutes() {
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
 	syncH.dohvatljivost = s.dohvatljivost
+	syncH.gumbProvjere = s.gumbProvjereVeze
 	syncH.mjeriMrezu = s.mjeriMrezu
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
 	s.mux.Handle("POST /sinkronizacija/provjeri-vezu", s.samoAdmin(http.HandlerFunc(syncH.handleProvjeriRacunalo)))
@@ -1474,7 +1491,7 @@ func (s *Server) setupRoutes() {
 
 	// Postavke: čvor, uparivanje, pronalaženje, sinkronizacija, povijest
 	s.mux.Handle("GET /settings", s.authMiddleware(http.HandlerFunc(settingsH.ShowSettings)))
-	s.mux.Handle("POST /settings/uloge", s.authMiddleware(http.HandlerFunc(settingsH.HandleUloge)))
+	s.mux.Handle("POST /settings/uloge", s.authMiddleware(smijeMijenjatiUloge(http.HandlerFunc(settingsH.HandleUloge))))
 	// Postavke ovog čvora (gocop.toml) i ponovno pokretanje: samo
 	// administrator, izravno iz lokalne mreže (postavke_cvora.go)
 	settingsH.postavkeCvora = s.postavkeStranice
@@ -1509,7 +1526,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))
 	s.mux.Handle("POST /api/peers/pair/dial", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairDial)))
 	s.mux.Handle("POST /api/peers/pair/confirm", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairConfirm)))
-	s.mux.Handle("GET /api/peers/discover", s.authMiddleware(http.HandlerFunc(settingsH.HandleDiscover)))
 	s.mux.Handle("POST /api/peers/{node}/sync", s.authMiddleware(http.HandlerFunc(settingsH.HandleSyncNow)))
 	s.mux.Handle("POST /api/peers/{node}/forget", s.authMiddleware(http.HandlerFunc(settingsH.HandleForgetPeer)))
 	s.mux.Handle("POST /api/peers/{node}/bootstrap", s.authMiddleware(http.HandlerFunc(settingsH.HandleSetBootstrap)))
@@ -1545,6 +1561,15 @@ func (s *Server) opcije(ctx context.Context) models.Opcije {
 	return s.akti.Opcije(ctx)
 }
 
+// izmijeniOpcije mijenja dio općih prekidača; dok servis akata nije spojen,
+// ništa se ne sprema
+func (s *Server) izmijeniOpcije(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
+	if s.akti == nil {
+		return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
+	}
+	return s.akti.IzmijeniOpcije(ctx, p, izmjena)
+}
+
 func DijeloviPredloska(stranica string) []string {
 	dijelovi := []string{"base.html", stranica}
 	switch stranica {
@@ -1552,7 +1577,7 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
-	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html":
+	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html", "administracija_potpisi.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}
 	return dijelovi
@@ -1586,6 +1611,19 @@ func trebaAdmina(next http.Handler) http.Handler {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 		if perms == nil || !perms.IsGlobalAdmin {
 			http.Error(w, "Ovo radi samo administrator", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// trebaDezurnog pušta dežurnog, upravu sektora (s voditeljem centra) i
+// globalnog administratora (SmijeGeneriratiPrognozu)
+func trebaDezurnog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+		if !perms.SmijeGeneriratiPrognozu() {
+			http.Error(w, "Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -1720,13 +1758,31 @@ func vlastitiKarton(r *http.Request, u *models.User) bool {
 	return r.URL.Path == "/users/"+u.ID.String()
 }
 
+// izuzetiOdModula su putanje pod modulom koje ne ograđuje vidljivost modula,
+// nego pravo na letvu: unos u arhivu jedne letve smije svatko tko smije
+// uređivati tu letvu (Odluke (30. 10. 2026.), 5). Rukovatelj unosa to
+// provjerava za svaku letvu (SetOvlastiLetve), a zahvati nad cijelom
+// arhivom pod istim putanjama (makni-*) ostaju iza samoAdmin.
+// Putanje su /administracija/uvoz-<ime>.
+var izuzetiOdModula = []string{"niza", "izvora", "krivulja", "profila"}
+
 func moduleForPath(path string) string {
+	for _, ime := range izuzetiOdModula {
+		if podPutanjom(path, "/administracija/uvoz-"+ime) {
+			return ""
+		}
+	}
 	for _, mp := range modulePaths {
-		if path == mp.prefix || strings.HasPrefix(path, mp.prefix+"/") {
+		if podPutanjom(path, mp.prefix) {
 			return mp.module
 		}
 	}
 	return ""
+}
+
+// podPutanjom javlja je li putanja baš prefix ili ispod njega
+func podPutanjom(path, prefix string) bool {
+	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 
 // readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:
@@ -2095,6 +2151,19 @@ func danTjednaHR(t time.Time) string {
 		"Četvrtak", "Petak", "Subota"}[int(t.Weekday())]
 }
 
+// karticaLetve daje put do kartice letve i njezin naziv po šifri; prazno
+// kad letve nema u registru
+func (s *Server) karticaLetve(ctx context.Context, letva string) (kartica, naziv string) {
+	if s.stationService == nil {
+		return "", ""
+	}
+	st, err := s.stationService.GetStationByCode(ctx, letva)
+	if err != nil || st == nil {
+		return "", ""
+	}
+	return "/stations/" + st.ID.String(), st.Name
+}
+
 // smijeUrediLetvu javlja smije li osoba dirati podatke letve zadane šifrom.
 // Pravilo je isto kao za uređivanje kartice: globalni administrator smije
 // sve, a ostali samo letve koje stoje na njihovim dionicama. Arhiva je
@@ -2123,6 +2192,14 @@ func (s *Server) smijeUrediLetvu(perms *models.UserPermissions, letva string) bo
 		}
 	}
 	return false
+}
+
+// letvaUStablu javlja drži li ovaj čvor izvorne datoteke letve: unos u
+// arhivu piše u to stablo, pa bez njega nema što unijeti
+func (s *Server) letvaUStablu(letva string) bool {
+	letve, err := arhiva.Letve(s.podaciDir)
+	_, ima := letve[strings.TrimSpace(letva)]
+	return err == nil && ima
 }
 
 // koteNuleLetve vraća kote nule letve u starom i novom sustavu. Snimka korita

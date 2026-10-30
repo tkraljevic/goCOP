@@ -59,8 +59,8 @@ type PrognozeHandler struct {
 
 	pricuvno func(ctx context.Context) (prognoza.PricuvniPodaci, bool) // pričuvni Excel
 
-	opcije       func(ctx context.Context) models.Opcije // način prikaza (satni, dnevni, kombinacija)
-	spremiOpcije func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error
+	opcije         func(ctx context.Context) models.Opcije // način prikaza (satni, dnevni, kombinacija)
+	izmijeniOpcije func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error
 
 	// Priprema modela (namještanje lanca, promašaji, ponovno izdavanje).
 	priprema     PripremaModela
@@ -358,11 +358,14 @@ type PrognozePageData struct {
 	Opcije         models.Opcije
 	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
 
-	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
-	MozePripremiti bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
-	Generira       bool   // krug upravo traje
-	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
-	Napredak       javnivodostaji.Napredak
+	MozeGenerirati bool // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
+	// SmijeGenerirati: ima krug preuzimanja, a osoba je dežurni ili
+	// administrator, pa vidi gumb „Generiraj” (Odluke (30. 10. 2026.), 7)
+	SmijeGenerirati bool
+	MozePripremiti  bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
+	Generira        bool   // krug upravo traje
+	ZadnjiKrug      string // kad je zadnji krug prošao i što je donio
+	Napredak        javnivodostaji.Napredak
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -397,17 +400,18 @@ func (h *PrognozeHandler) ShowPostavke(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.Opcije = h.nacini(r.Context())
-	data.SmijeMijenjati = h.spremiOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
+	data.SmijeMijenjati = h.izmijeniOpcije != nil && data.Permissions != nil && data.Permissions.IsGlobalAdmin
 	if err := h.postavkeTmpl.ExecuteTemplate(w, "prognoze_postavke.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// SetOpcije daje čitanje i spremanje općih opcija, u kojima je i način
-// prikaza prognoze.
+// SetOpcije daje čitanje i izmjenu općih opcija, u kojima je i način
+// prikaza prognoze. Izmjena mijenja samo polja ove stranice, a ostale
+// opcije (Administracija › Opcije) ostavlja kakve jesu.
 func (h *PrognozeHandler) SetOpcije(citaj func(ctx context.Context) models.Opcije,
-	spremi func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error) {
-	h.opcije, h.spremiOpcije = citaj, spremi
+	izmijeni func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error) {
+	h.opcije, h.izmijeniOpcije = citaj, izmijeni
 }
 
 // nacini vraća način prikaza za graf, tablicu i Excel.
@@ -450,7 +454,7 @@ func jeDnevniCilj(letva string) bool {
 // SpremiPostavke sprema način prikaza prognoze (graf, tablica, Excel).
 func (h *PrognozeHandler) SpremiPostavke(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
-	if h.spremiOpcije == nil || perms == nil || !perms.IsGlobalAdmin {
+	if h.izmijeniOpcije == nil || perms == nil || !perms.IsGlobalAdmin {
 		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", "Način prikaza mijenja uprava organizacije.")
 		return
 	}
@@ -460,10 +464,11 @@ func (h *PrognozeHandler) SpremiPostavke(w http.ResponseWriter, r *http.Request)
 		}
 		return models.PrognozaKombinacija
 	}
-	o := h.nacini(r.Context())
-	o.PrognozaPrikaz = valjan(r.FormValue("prognoza_prikaz"))
-	o.PrognozaBezSusjeda = r.FormValue("prognoza_susjedi") != "1" // neoznačen kvadratić ne šalje ništa
-	if err := h.spremiOpcije(r.Context(), perms, o); err != nil {
+	err := h.izmijeniOpcije(r.Context(), perms, func(o *models.Opcije) {
+		o.PrognozaPrikaz = valjan(r.FormValue("prognoza_prikaz"))
+		o.PrognozaBezSusjeda = r.FormValue("prognoza_susjedi") != "1" // neoznačen kvadratić ne šalje ništa
+	})
+	if err != nil {
 		redirectWith(w, r, "/prognoze/postavke#prikaz", "error", err.Error())
 		return
 	}
@@ -489,6 +494,7 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 	}
 	if u := h.uvoznik(); u != nil {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()
+		data.SmijeGenerirati = perms.SmijeGeneriratiPrognozu()
 		data.Napredak = u.Napredak()
 		if k, ima := u.ZadnjiKrug(); ima {
 			data.ZadnjiKrug = fmt.Sprintf("%s: %d %s, %d %s, %s",

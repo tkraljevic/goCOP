@@ -47,7 +47,7 @@
   <a href="#dnevnik-obracun">{{icon "calculator"}} <span><strong>Izvesti obračun</strong><small>IORS i Excel za računovodstvo</small></span></a>
   <a href="#arhiva-unos">{{icon "package"}} <span><strong>Uvesti hidrološki niz</strong><small>CSV, Excel i zatečeni podaci</small></span></a>
   <a href="#prognoze">{{icon "trending-up"}} <span><strong>Provjeriti prognozu</strong><small>Rasponi, pouzdanost i put vala</small></span></a>
-  <a href="#settings">{{icon "radio-tower"}} <span><strong>Povezati računalo</strong><small>Čvor, mreža i sinkronizacija</small></span></a>
+  <a href="#settings">{{icon "radio-tower"}} <span><strong>Povezati računalo</strong><small>Ovo računalo i mreža</small></span></a>
 </div>
 
 <nav class="pomoc-kazalo" id="pomoc-kazalo" aria-label="Sadržaj">
@@ -330,7 +330,7 @@
       čvor radi na drukčijem ili starijem izdanju, pločica to javlja upozorenjem i savjetuje
       nadogradnju. Najprije se nadograđuje stalni čvor, a odmah zatim ostala računala. Kad je
       sve usklađeno, stoji jedan redak. Osvježava se sama svakih pola minute; više je pod
-      <a href="#sync">Sinkronizacija</a>.</p>
+      <a href="#sync">Stanje razmjene</a>.</p>
     <p>Noviji goCOP može poslati zapise koje stariji program još ne razumije. Računalo ih čuva i
       šalje dalje, a primijeni ih nakon nadogradnje. Pločica kaže koliko ih je, na primjer
       „Stiglo je 120 zapisa koje ovaj program još ne razumije. Primijenit će ih nakon nadogradnje
@@ -871,6 +871,11 @@
         revidirani nizovi), <em>s letve</em> (ono što je čovjek očitao) i <em>operativno</em>
         (dojave automatike). Preračuni nose oznaku <em>preračun</em>.</li>
     </ul>
+    <p>Podatke jedne letve (niz, krivulje, snimke korita, posebni izvori, povijest s HydroViewa)
+      unosi svatko tko smije uređivati tu letvu, gumbom <em>Unos u arhivu</em> na kartici letve.
+      Gumb se vidi kad ovo računalo drži izvorne datoteke arhive te letve, a stranica unosa tada
+      već ima upisanu tu letvu. Ulaganje, pospremanje, izdanja i brisanje nizova bez datoteke radi
+      samo globalni administrator, pa ih drugi na stranici ne vide.</p>
 
     <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka</h3>
     <p>Arhiva se gradi iz izvornih datoteka u mapi <code>vodostaji/</code>, složenih po slivu i letvi.
@@ -1089,7 +1094,9 @@
       uz vodostaje uzima i kišu po međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun
       pokreće se kada stignu svježa
       očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
-      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Prognozu pritom računa
+      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Taj gumb vide i smiju
+      upotrijebiti dežurni operater, voditelj centra, uprava sektora i globalni administrator.
+      Dežurstvo kojem je istekao rok ne daje to pravo. Prognozu pritom računa
       samo čvor koji je izdaje. Ponovni izračun za isti sat zamjenjuje prethodno izdanje tog
       sata i kod čvorova koji ga primaju; ne čuva se svaka međuinačica. Prognoza u satu
       izdavanja kreće od izmjerene vrijednosti, bez naknadnog ispravka promašajima.</p>
@@ -1122,9 +1129,13 @@
 
     <h3 id="prognoze-cvorovi">Koji čvor izdaje prognozu</h3>
     <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor. Uloge uključuje globalni
-      administrator u Administraciji, na stranici <a href="/settings#uloge">Čvor, mreža i
-      sinkronizacija</a> (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
-      razmjenom. Očitanja putuju razmjenom kao i
+      administrator u Administraciji, na stranici <a href="/settings#uloge">Ovo računalo i
+      mreža</a> (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
+      razmjenom. Uloge se mijenjaju samo na samom računalu ili iz njegove lokalne mreže, ne izvana
+      ni kroz tunel. Razmjenom se drugima samo javljaju, a drugo ih računalo ne može promijeniti.
+      Isključivanje traži potvrdu. Na stranici <a href="/sinkronizacija">Stanje razmjene</a> uz
+      svako računalo piše koje uloge ima, ako ih ono javlja (starija izdanja programa to ne
+      rade). Očitanja putuju razmjenom kao i
       sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
       po međuslivovima. Namješteni model ide uz izdanje kad se promijeni. Ostali čvorovi izdanje upišu
       u svoju bazu prognoza i prikazuju ga s oznakom čvora koji ga je izdao. U razmjeni izdanja stoje
@@ -1356,7 +1367,8 @@
       vrijeme snimanja, položaj i uređaj; u dokumentu ispod toga stoji i SHA-256 otisak izvorne
       datoteke. Zato se snima s uključenom lokacijom. Prijava bez označenog mjesta dobiva položaj s fotografije.</p>
     <p>Program fotografije odmah smanjuje radi prostora. Izvorne smanjene slike ostaju lokalno
-      onoliko dana koliko administrator zada u Opcijama, a zatim se brišu; potpisani PDF sa svim
+      onoliko dana koliko globalni administrator zada na stranici <em>Održavanje baze</em>, u dijelu
+      <em>Pohrana</em>, a zatim se brišu; potpisani PDF sa svim
       slikama ostaje službeni izvornik. PDF se u spremištu sadržaja čuva jednom po SHA-256 otisku
       i prenosi odgovarajućim čvorovima prema njihovoj pretplati.</p>
 
@@ -1519,7 +1531,7 @@
       <li><strong>Vlastoručni potpis i žig na papiru</strong> koriste se kad treba i papir: nacrt
         se ispiše, potpiše i ovjeri žigom, a sken se učita kao izvornik. Potpis na skenu program
         ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra
-        uređuje samo uprava sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
+        uređuje samo uprava sektora, na stranici sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
       <li><strong>Simulirani potpis</strong> postoji isključivo za testiranje tuđim očima. Crven je,
         nosi riječ SIMULACIJA i veliki žig „BEZVRIJEDNO”; nema pravnu ni poslovnu vrijednost.</li>
     </ul>
@@ -1534,11 +1546,24 @@
   <h2>{{icon "users"}} Djelatnici</h2>
   <div class="reg-card pomoc-tekst">
     <p>Imenik ljudi u obrani s njihovim ulogama i operativnim funkcijama. Uloga određuje što
-      tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen.</p>
+      tko vidi i smije mijenjati; dužnost određuje za koje je dionice zadužen. Djelatnici imaju
+      svoju stavku u glavnom izborniku.</p>
     <p>Dužnost s područjem uvijek pripada sektoru tog područja, a dionice dužnosti moraju biti
       upisane u registar i pripadati tom području; drukčiji upis program odbija. Uprava sektora
       ili područja dodjeljuje dužnosti samo u svom dosegu i nikad sama sebi: vlastito zaduženje
       dodjeljuje, mijenja i opoziva nadređena razina.</p>
+    <p>Novi račun otvaraju globalni administrator, uprava sektora i uprava branjenog područja,
+      gumbom <em>Novi djelatnik</em>. Uloga u obrascu nije unaprijed odabrana. Uprava područja
+      otvara račune samo s ulogom u svom području, a račun globalnog administratora nikad.
+      Globalni administrator smije otvoriti račun i bez uloge: osoba se tada prijavi, na početnoj
+      stranici piše da čeka ulogu, a dotad samo gleda.</p>
+    <p>Uprava branjenog područja daje samo uloge niže od svoje, npr. rukovoditelja dionice,
+      vodočuvara ili strojara. To vrijedi za novi račun i za novu dužnost postojećem djelatniku.
+      Rukovoditelja branjenog područja, zamjenika i ovlaštenike za ugovore daju uprava sektora i
+      globalni administrator, pa ih uprava područja u obrascu ne vidi. U svom području daje ih i
+      zamjenik rukovoditelja sektora za branjeno područje.</p>
+    <p>Takvu dužnost uprava područja smije izmijeniti, ali je ne smije produljiti ni učiniti
+      stalnom. Rok može ostaviti ili skratiti.</p>
     <p>Račun bez aktivne dužnosti (opozvane, istekle ili otvoren bez nje), isključen račun i
       račun globalnog administratora zadužuje samo globalni administrator. Uprava sektora ili
       područja dodaje dužnost samo uključenom računu koji već ima aktivnu dužnost, a isteklu
@@ -1663,7 +1688,10 @@
       što se iz nje računa.</p>
     <ul>
       <li id="organizacija"><strong>Administrativna organizacija</strong> — ustroj kuće:
-        sektori, područja, uredi.</li>
+        sektori, područja, uredi. Oznaka i naziv sektora otvaraju stranicu sektora s njegovim podacima
+        i gumbom <em>Dionice sektora</em>.
+        Uprava sektora ondje mijenja i žig centra. Za to joj treba modul Registri, a
+        Administracija ne treba.</li>
       <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
         stupnjevima obrane. Razrađeno gore, <a href="#sections">Dionice</a>.</li>
       <li id="territories"><strong>Teritorijalne jedinice</strong> — županije, općine, naselja.
@@ -1738,13 +1766,32 @@
   <h2>{{icon "settings"}} Administracija</h2>
   <div class="reg-card pomoc-tekst">
     <p>Sve što se tiče samog programa, a ne obrane.</p>
+    <p id="admin-raspored">Kartice na ulaznoj stranici stoje u šest skupina: <em>Ustroj i ljudi</em>,
+      <em>Ovo računalo i mreža</em>, <em>Vodostaji, arhiva i prognoza</em>, <em>Akti i dokumenti</em>,
+      <em>Izgled</em> i, na dnu, <em>Testni prekidači</em>, uz broj uključenih. Uz karticu piše vrijedi li
+      ono što se na njoj mijenja samo na <em>ovom računalu</em>, u <em>cijeloj mreži</em>, ili
+      <em>dio ovdje, dio u mreži</em>. Telemetrija, na primjer, vrijedi samo na ovom računalu, jer lozinke ne idu
+      razmjenom, a Nazivi vrijede svugdje. Kartica bez oznake vodi na stranicu za pregled i rad, kao
+      Stanje razmjene i Unos u arhivu.
+      Tko neku stranicu ne smije otvoriti, ne vidi ni njezinu karticu, a skupina bez ijedne kartice se
+      ne prikazuje.</p>
+    <p id="prvi-koraci">Dok ustroj nije gotov, globalni administrator iznad skupina vidi <em>Prve korake</em>:
+      Nazivi, Administrativna organizacija, Djelatnici ili uvoz imenika, Uvozi podataka, Uloge ovog
+      čvora, Telemetrija, E-pošta i Uparivanje. Kvačica stoji uz korak koji je napravljen: spremljeni
+      nazivi ili nazivi sudionika obrane, barem jedan sektor, barem jedan djelatnik osim administratora,
+      upisan račun za HydroView ili mobilnu stranicu Hrvatskih voda, upisan poslužitelj e-pošte, upareno
+      drugo računalo. Za Uvoze i Uloge program to ne zna sam, pa uz njih piše „pogledajte sami”. Isto
+      piše uz Telemetriju na računalu koje ne preuzima vodostaje s izvora, jer mu ti računi ne trebaju, i
+      uz korak čije se stanje nije dalo pročitati. Kad su ostali koraci gotovi, popis nestane, a Uvozi
+      podataka ostaju kao poveznica u skupini Ustroj i ljudi.</p>
     <ul>
       <li id="moduli"><strong>Moduli i ovlasti</strong> — tablica uloga i modula: tko što vidi.
         Iznimke za pojedinog čovjeka postavljaju se na njegovoj stranici.</li>
       <li><strong>Sudionici obrane</strong> — uloge koje program poznaje i nazivi kojima ih
         organizacija zove; ovlasti se time ne mijenjaju.</li>
-      <li id="settings"><strong>Čvor, mreža i sinkronizacija</strong> — kako se ovo računalo
-        zove, u kojoj je mreži i s kim se usklađuje. Ovdje globalni administrator uključuje uloge
+      <li id="settings"><strong>Ovo računalo i mreža</strong> — kako se ovo računalo
+        zove, njegov ključ, u kojoj je mreži i s kim je upareno. Ručna razmjena, pretraga lokalne
+        mreže i provjera veze nisu ovdje, nego na stranici <em>Stanje razmjene</em>. Ovdje globalni administrator uključuje uloge
         čvora (<em>Preuzima vodostaje s izvora</em>, <em>Izdaje prognozu</em>) i upisuje adrese
         domenskih čvorova. Naziv se upisuje u <code>gocop.toml</code> i nakon ponovnog pokretanja
         sam stiže drugim čvorovima. Uparivanje i primanje novog računala u mrežu pokreće
@@ -1773,12 +1820,13 @@
         <code>gocop.toml</code> ime uzima iz baze i ne zapisuje novi primjer postavki, nego u
         dnevniku javlja da datoteke nema.</li>
       <li id="postavke-cvora"><strong>Postavke ovog čvora (gocop.toml)</strong> — dio postavki iz
-        datoteke mijenja se i u programu, svaka na stranici kojoj pripada. Na stranici <em>Čvor,
-        mreža i sinkronizacija</em> u kartici <em>Ovaj čvor</em> su javna adresa te centar i
-        telefon koji se vide na stranici prijave, a u kartici <em>Mreža</em> razmak automatske
-        sinkronizacije, razmjena preko Tailscalea te prijava za WEB sync i sam WEB sync; obje stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
+        datoteke mijenja se i u programu, svaka na stranici kojoj pripada. Na stranici <em>Ovo
+        računalo i mreža</em> u kartici <em>Ovaj čvor</em> su centar i
+        telefon koji se vide na stranici prijave, u kartici <em>Mreža</em> razmak automatske
+        sinkronizacije i razmjena preko Tailscalea, a u kartici <em>WEB sync i dohvatljivost</em>
+        prijava za WEB sync i sam WEB sync; sve stoje sklopljene dok ih ne otvorite. <em>Prati sve</em> i povijest
         tuđih očitanja su na stranici <em>Što ovo računalo prati</em>, do koje vodi i kartica u
-        Administraciji, a izvor obične karte pod <em>Karte</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
+        Administraciji, a izvor obične karte pod <em>Karte</em>. Adresa za QR kod na dokumentima je na stranici <em>Elektronički potpisi</em>. <em>Održavanje baze</em> pokazuje gdje su baza, arhiva i datoteka
         postavki, kad je datoteka mijenjana i njezine prethodne inačice. Mijenja ih globalni
         administrator, s računala na kojem je čvor ili iz lokalne mreže; izvana i kroz tunel samo
         se vide. Program novu datoteku prije spremanja provjeri; neispravno ne sprema, nego kaže
@@ -1795,11 +1843,11 @@
         sustava ili Docker (samo uz <code>--restart</code>). Čvor pokrenut ručno u terminalu gumba
         nema; zaustavite ga (Ctrl+C) i pokrenite istom naredbom. Postavke e-pošte vodi stranica
         <em>E-pošta</em>.
-        <br>Gumb <em>Provjeri vezu</em> u kartici <em>Ovaj čvor</em> pita STUN poslužitelje kojom
+        <br>Gumb <em>Provjeri vezu</em> je na stranici <em>Stanje razmjene</em>, u bloku <em>Dohvatljivost
+        ovog računala</em>, koji vidi samo administrator. Pita STUN poslužitelje kojom
         javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program
-        za to kratko otvori UDP utičnicu i odmah je zatvori. Pojedinosti, s vlastitom javnom adresom
-        i adresama koje bi WEB sync nudio drugima, su u bloku <em>Dohvatljivost ovog računala</em> na
-        stranici Sinkronizacija; vidi ga samo administrator.
+        za to kratko otvori UDP utičnicu i odmah je zatvori. Ishod, s vlastitom javnom adresom
+        i adresama koje bi WEB sync nudio drugima, stoji u istom bloku.
         <br id="vatrozid-web-sync">Kad pločica razmjene kaže da vatrozid možda ne pušta WEB sync,
         dopustite dolazni UDP na portu WEB synca (zadano 4713) u vatrozidu računala. Na Linuxu je to
         <code>sudo ufw allow 4713/udp</code>, na Windowsima pravilo za goCOP u privatnim mrežama, a na
@@ -1807,7 +1855,7 @@
         računalima pravila vatrozida postavlja informatika.
         <br>WEB sync je zadano isključen. Ako se program dvaput zaredom prekine dok WEB sync radi,
         iduće pokretanje kreće bez njega, a pločica razmjene to kaže. Razmjena ide kao i prije.
-        Kad je uzrok uklonjen, gumb <em>Ponovno uključi WEB sync</em> u kartici <em>Ovaj čvor</em>
+        Kad je uzrok uklonjen, gumb <em>Ponovno uključi WEB sync</em> u kartici <em>WEB sync i dohvatljivost</em>
         ga vraća od idućeg pokretanja.</li>
       <li id="postavljanje"><strong>Postavljanje svježeg čvora</strong> — na stranici prijave
         svježeg čvora poveznica <em>Postavite ga</em>: <em>nova mreža</em> samo za prvo računalo
@@ -1817,15 +1865,20 @@
         datoteku primatelju, a kod za primanje mu pročitati telefonom, pa učitati vraćenu
         potvrdu). Stranica radi samo s tog računala ili uz jednokratni kod iz dnevnika čvora
         (s privatne adrese), nikad kroz tunel ni s javne adrese.</li>
-      <li id="sync"><strong>Sinkronizacija</strong> — što se upravo vidi na lokalnoj mreži i
-        kad je posljednji put razmijenjeno. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
+      <li id="sync"><strong>Stanje razmjene</strong> — s kim ovo računalo razmjenjuje, što se upravo
+        vidi na lokalnoj mreži i kad je posljednji put razmijenjeno. Samo su ovdje gumbi
+        <em>Razmijeni sa svima</em>, <em>Pretraži lokalnu mrežu</em>, <em>Razmijeni</em> uz
+        pojedino računalo i <em>Provjeri vezu</em>; vidi ih globalni administrator. Uz nepoznato
+        računalo iz lokalne mreže stoji poveznica <em>Upari</em>, koja vodi na uparivanje s adresom tog
+        računala. Razmjena ide izravno, u lokalnoj mreži ili na stalnu
         adresu domenskog čvora (port razmjene), ili kroz HTTPS/WebSocket tunel; identitet se u
         svakom slučaju provjerava ključem čvora unutar TLS-a.
         Svako računalo pretplatom bira vrstu zapisa, sektor ili područje, godine,
         razinu sadržaja i rok lokalnog držanja. Hidrološka arhiva ne ulazi u običnu knjigu
         verzija kao niz mjerenja: knjiga prenosi kazalo, a potpisani <code>.cop</code> paket
         dohvaća se zasebno prema pretplati. Stranica pokazuje i izdanje programa svakog čvora
-        i upozorava na čvor koji radi na drukčijem ili starijem izdanju. Uz svaki čvor stoji put
+        i upozorava na čvor koji radi na drukčijem ili starijem izdanju, te uloge koje čvor
+        javlja (preuzima vodostaje, izdaje prognozu). Uz svaki čvor stoji put
         zadnje razmjene i koliko je razmjena tim putem uspjelo otkad ide njime. Adrese čvorova,
         greške razmjene i, za čvor koji ne odgovara, zadnji pokušaj na svakoj adresi vidi samo
         globalni administrator.
@@ -1835,14 +1888,16 @@
         „javlja se pravim ključem, 3 ms” ili „računalo je tu, ali na tom portu goCOP ne sluša”. Na
         adresi stane čim se računalo javi svojim ključem, pa se podaci ne razmjenjuju, a drugo računalo
         to ne bilježi kao neuspjelu razmjenu, nego samo kao vezu koja nije prošla rukovanje. Usput
-        izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em>. Traje do 10 sekundi.</li>
+        izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em> iznad. Traje do 10 sekundi.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
-        izvoz i obnova. Veliki službeni sadržaji odvojeno se čuvaju u
+        izvoz i obnova. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
+        čuvaju izvorne fotografije s terena; to vrijedi na svim čvorovima. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
       <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
         operativnih očitanja u arhivsko stablo i izdavanje novih potpisanih <code>.cop</code>
-        paketa. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
+        paketa. Unos za jednu letvu smije i onaj tko smije uređivati tu letvu, s kartice letve;
+        ulaganje i izdanja samo globalni administrator. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
         se nad istom arhivom izvodi samo jedan posao.</li>
       <li><strong>Izvori arhive</strong> — pregled i uređivanje izvora arhivskih podataka,
         njihove pouzdanosti i točnosti.</li>
@@ -1859,9 +1914,12 @@
       <li><strong>Opcije</strong> — osjetljive mogućnosti za čišćenje i testiranje. Njihovo značenje
         opisano je niže; operativno se drže isključenima.</li>
       <li><strong>Žig centra</strong> — slika žiga sektora i njezin trag promjena; vidi je samo
-        uprava sektora.</li>
+        uprava sektora. Kartica vodi na stranicu sektora, pod Registri › Administrativna
+        organizacija. Ondje žig mijenja i uprava sektora, koja Administraciju zadano ne vidi.</li>
       <li><strong>Elektronički potpisi</strong> — izdavatelj ovog čvora, izdavatelji uparenih
-        čvorova i pregled osobnih certifikata.</li>
+        čvorova i pregled osobnih certifikata. Ovdje je i adresa za QR kod na dokumentima
+        (<code>javna_adresa</code> u <code>gocop.toml</code>): s njom QR kod na PDF-u prijave s
+        terena vodi na dokument u goCOP-u. Vrijedi samo na ovom računalu.</li>
       <li><strong>E-pošta</strong> — zajedničke postavke Exchange/EWS ili SMTP poslužitelja te
         račun koji šalje PIN za prijavu izvana i sklopku te prijave; opisano niže,
         <a href="#admin-posta-pin">PIN za prijavu izvana</a>.</li>
@@ -1871,8 +1929,12 @@
         voda treba i čvoru koji izdaje prognozu, jer njime čita kišomjere DHMZ-a. Za mobilnu stranicu može se preuzeti korisnikov račun
         e-pošte; pojedina postaja zatim uključuje izvor.
         Račun čvora upisuje samo globalni administrator.</li>
-      <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija.</li>
-      <li><strong>Računi i lozinke</strong> — aktivacija računa i postavljanje početne lozinke;
+      <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija. Dok ustroj nije
+        gotov, stoje u Prvim koracima, a poslije kao poveznica u skupini Ustroj i ljudi.</li>
+      <li><strong>Postavke prognoze</strong> — satni lanac ili dnevni model u prikazu, izdavanje
+        prognoze odmah i priprema modela. Kartica stoji u skupini Vodostaji, arhiva i prognoza, za
+        dežurnog operatera, voditelja centra, upravu sektora i globalnog administratora; način prikaza mijenja samo globalni administrator.</li>
+      <li><strong>Djelatnici</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>
       <li id="admin-tema"><strong>Tema</strong> — boje programa, posebno za svijetlu i tamnu
@@ -1936,20 +1998,24 @@
         kartu <code>.pmtiles</code>, npr. iz Protomapsa, upišite <em>Naziv karte</em> i
         <em>Izvor</em> pa pritisnite <em>Učitaj kartu</em>. Karta od stotinjak MB učitava se do
         minute. Ta karta postaje zadana karta bez interneta na svim čvorovima.</li>
-      <li><strong>Paket za druga računala.</strong> Gumb <em>Preuzmi .cop za druga računala</em>
-        daje paket karte. Razmjenom putuje samo podatak koja je karta zadana, ne i sama karta, jer
-        je velika: za Sektor B oko 120 MB. Paket zato prenesite ručno, npr. na USB disku.</li>
-      <li><strong>Ostala računala.</strong> Na svakom računalu, pa i na kućnom serveru, učitajte
-        taj <code>.cop</code> istim poljem i gumbom <em>Učitaj kartu</em>. Naziv i izvor ne treba
-        upisivati, paket ih nosi sam. Program primi samo paket s računala iste mreže i provjeri
-        da karta nije mijenjana.</li>
+      <li><strong>Ostala računala.</strong> Kartu dobiju sama razmjenom, dio po dio, pa i od
+        računala koje je još preuzima. Karta Sektora B ima oko 120 MB. U lokalnoj mreži stigne
+        brzo, a preko interneta u nekoliko krugova razmjene. Koliko je stiglo, piše u retku
+        <em>Na ovom računalu</em>. Dok je na računalu proglašen stadij obrane, karta stiže i šalje
+        se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured). Unutarnja mreža
+        Hrvatskih voda među gradovima i VPN tada se računaju kao internet.</li>
+      <li><strong>Računalo izvan mreže ili sa starijim programom.</strong> Gumb <em>Preuzmi .cop
+        za druga računala</em> daje paket karte. Prenesite ga npr. na USB disku i na tom računalu
+        učitajte istim poljem i gumbom <em>Učitaj kartu</em>. Naziv i izvor ne treba upisivati,
+        paket ih nosi sam. Program primi samo paket s računala iste mreže i provjeri da karta
+        nije mijenjana.</li>
     </ol>
     <p>U tablici iznad obrasca piše koja je karta zadana, koje područje pokriva, do kojeg
       povećanja i koliko je velika. Redak <em>Na ovom računalu</em> kaže je li karta ovdje
       <em>učitana</em> ili <em>nije učitana</em>. Računalo bez nje tu podlogu ne nudi.</p>
     <p>Gumb <em>Makni kartu</em> miče kartu bez interneta: na svim čvorovima prestaje biti
       podloga, a s ovog računala se briše. Nova karta učitana preko stare postaje zadana umjesto
-      nje, pa i nju treba prenijeti na ostala računala.</p>
+      nje, a ostala računala dobiju je razmjenom. Staru briše tek kad je nova stigla.</p>
 
     <h3>Provjera razmjene i arhive</h3>
     <p>Prva automatska razmjena počinje oko 30 sekundi nakon pokretanja. Pločica
@@ -1972,8 +2038,7 @@
     <h3 id="admin-test">Testne opcije</h3>
     <p>Opcije mogu privremeno dopustiti trajno brisanje probnih ovjerenih akata, potpuno čišćenje
       tehničke povijesti, brisanje probnih zapisa s događanja, upis tuđim očima i simulirani
-      potpis. Ovdje se određuje i koliko se dana čuvaju lokalne fotografije objavljenih prijava s
-      terena; trajni PDF izvornik time se ne briše. Svaka stranica objašnjava što opcija radi i
+      potpis. Svaka stranica objašnjava što opcija radi i
       što ne može poništiti. Prije stvarnog rada sve testne prekidače treba isključiti i provjeriti
       da u bazi nema probnih izvornika.</p>
   </div>
@@ -1985,7 +2050,7 @@
   <div class="reg-card pomoc-tekst">
     <p>Na profilu su kontakti, promjena lozinke i odjeljak <em>Ovo računalo i ured</em>, odakle se
       otvara <em>Što ovo računalo prati</em>. Gumb <em>Moja zaduženja</em> otvara vašu stranicu
-      djelatnika sa zaduženjima i njihovom poviješću. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
+      djelatnika sa zaduženjima i njihovom poviješću. Lozinka mora imati najmanje 10 znakova. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
       ostaje zatvoren. Zadana lozinka ne vrijedi za prijavu izvana: prvu prijavu obavite
       lokalno ili od administratora zatražite privremenu lozinku. Promjena lozinke gasi
       ostale prijave na istom čvoru, ne odmah i na drugim računalima.</p>
@@ -1995,14 +2060,17 @@
     <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
       otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
     <p>Pod <strong>Što ovo računalo prati</strong> biraju se vrste zapisa, sektori, branjena
-      područja i godine koje ovaj čvor želi sinkronizirati. Na vrhu stranice piše o kojem je
+      područja i godine koje ovaj čvor želi sinkronizirati. Stranicu vidi svatko. Pretplate mijenja
+      i podatke s računala briše samo globalni administrator, s tog računala ili iz lokalne
+      mreže. Izvana i kroz tunel stranica se samo gleda. Na vrhu stranice piše o kojem je
       računalu riječ. Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan
       događaja prijave. Za PDF-ove i slike bira se i razina: samo kazalo, samo pregledi (slike,
       bez PDF-ova) ili sve, te koliko se dana primljeni sadržaj lokalno drži. Zapisi uvijek
       stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski poslužitelj obično
       prati sve, a terenski laptop samo ono što njegovu korisniku treba. Prijedlog iz zaduženja
-      nudi vodočuvarski dnevnik, očitanja, prijave s terena i dnevnike radova vašeg područja, i
-      to samo ono što računalo još ne prati.</p>
+      vidi samo globalni administrator i slaže se iz njegovih zaduženja: nudi vodočuvarski
+      dnevnik, očitanja, prijave s terena i dnevnike radova njegova područja, samo ono što
+      računalo još ne prati.</p>
     <p><em>Makni</em> uz pravilo samo ga makne: ništa se ne briše. Što pretplata više ne pokriva,
       briše se u tablici <em>Što računalo drži</em>, gumbom <em>Obriši s računala</em>. Uz gumb
       piše koliko će se zapisa i dokumenata obrisati i koliko ih ostaje. Briše se samo ono što je
@@ -2129,7 +2197,7 @@
     <p>Stalni čvor može preuzimati vodostaje i kišu te izdavati satne i dnevne prognoze.
       Ostala računala mogu primati gotova izdanja, umjesto da svako ponavlja preuzimanje i
       izračun. Uloge <em>Preuzima vodostaje s izvora</em> i <em>Izdaje prognozu</em> uključuje
-      globalni administrator na stranici <a href="/settings#uloge">Čvor, mreža i sinkronizacija</a>. Novi čvor nema nijednu dok
+      globalni administrator na stranici <a href="/settings#uloge">Ovo računalo i mreža</a>. Novi čvor nema nijednu dok
       mu se ne uključi; ako ih u mreži nema nijedan čvor, vodostaji i prognoza se ne obnavljaju.
       Kad nema veze, dostupni ostaju lokalno spremljeni
       podaci; to ne znači da su očitanja i prognoze još svježi.</p>

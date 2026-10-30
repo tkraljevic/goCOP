@@ -37,6 +37,9 @@ type PostavkeKarteData struct {
 	// VektorskaOvdje javlja ima li je ovaj čvor na disku
 	Vektorska      *models.VektorskaKarta
 	VektorskaOvdje bool
+	// PrijenosKarte je rečenica o karti koja ovom čvoru još nije stigla
+	// (prijenosKarteRijecima)
+	PrijenosKarte string
 
 	// Postavke su obična karta ovog čvora iz gocop.toml (karta.plocice…)
 	Postavke *PostavkeStranice
@@ -71,7 +74,7 @@ func (h *AktiHandler) ShowPostavkeKarte(w http.ResponseWriter, r *http.Request) 
 		Podloge: podlogeZaObrazac(p.Podloge),
 		Ikone:   append([]struct{ Ime, Naziv string }{}, models.IkoneTocaka...), Glavna: glavna,
 		Postavke:  h.postavkeCvora.za(r, "/administracija/karte"),
-		Vektorska: k, VektorskaOvdje: kartaOvdje(k), SKrugom: p.SKrugom, Velicina: p.Velicina(),
+		Vektorska: k, VektorskaOvdje: kartaOvdje(k), PrijenosKarte: h.prijenosKarte(r), SKrugom: p.SKrugom, Velicina: p.Velicina(),
 		Vlastite: p.Ikone, AdresaIkona: statickaAdresa("img/icons.svg"), AdresaSvojih: adresaVlastitihIkona(p)}
 	for _, ik := range p.Ikone {
 		d.Ikone = append(d.Ikone, struct{ Ime, Naziv string }{ik.Ime, ik.Naziv})

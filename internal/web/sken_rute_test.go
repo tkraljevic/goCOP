@@ -101,7 +101,10 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	mux.HandleFunc("GET /akti/{id}/za-ispis.pdf", h.IzvoziZaIspis)
 	mux.HandleFunc("POST /akti/{id}/ovjeri", h.HandleOvjeri)
 	mux.HandleFunc("POST /akti/{id}/obrisi", h.HandleObrisi)
-	h.SetZig(tmpl("administracija_zig.html"))
+	h.SetZig(tmpl("sektor.html"))
+	mux.HandleFunc("GET /organizacija/sektori/{id}", h.ShowSektor)
+	mux.HandleFunc("POST /organizacija/sektori/{id}/zig", h.HandleZig)
+	mux.HandleFunc("GET /organizacija/sektori/{id}/zig/slika", h.ZigSlika)
 	mux.HandleFunc("GET /administracija/zig", h.ShowZig)
 	mux.HandleFunc("POST /administracija/zig", h.HandleZig)
 	mux.HandleFunc("GET /administracija/zig/slika", h.ZigSlika)
@@ -211,19 +214,26 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	_ = mwZ.Close()
 	rz := httptest.NewRequest(http.MethodPost, "/administracija/zig", &tijeloZ)
 	rz.Header.Set("Content-Type", mwZ.FormDataContentType())
-	if loc := mustUnescape(zovi(rz).Header().Get("Location")); !strings.Contains(loc, "success") {
+	// stara adresa obrasca i dalje sprema, a vraća na vrh stranice sektora,
+	// gdje stoji poruka
+	if loc := mustUnescape(zovi(rz).Header().Get("Location")); !strings.Contains(loc, "success") || !strings.HasPrefix(loc, "/organizacija/sektori/B?") || strings.Contains(loc, "#") {
 		t.Fatalf("žig: %s", loc)
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig?sektor=B", nil)); !strings.Contains(w.Body.String(), "zig/slika?sektor=B") {
-		t.Error("stranica žiga ne pokazuje spremljeni žig")
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/organizacija/sektori/B", nil)); !strings.Contains(w.Body.String(), "/organizacija/sektori/B/zig/slika?t=") {
+		t.Error("stranica sektora ne pokazuje spremljeni žig")
 	}
-	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig/slika?sektor=B", nil)); w.Header().Get("Content-Type") != "image/png" {
-		t.Error("slika žiga")
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/administracija/zig?sektor=B", nil)); w.Code != http.StatusSeeOther || w.Header().Get("Location") != "/organizacija/sektori/B#zig" {
+		t.Errorf("stara stranica žiga: %d %s", w.Code, w.Header().Get("Location"))
+	}
+	for _, put := range []string{"/organizacija/sektori/B/zig/slika", "/administracija/zig/slika?sektor=B"} {
+		if w := zovi(httptest.NewRequest(http.MethodGet, put, nil)); w.Header().Get("Content-Type") != "image/png" {
+			t.Errorf("slika žiga %s", put)
+		}
 	}
 	// sliku žiga ne vidi tko nije uprava sektora
 	perms.IsGlobalAdmin = false
 	obicni := &models.UserPermissions{AllowedSectors: map[string]bool{"B": true}, User: *voditelj}
-	rObicni := httptest.NewRequest(http.MethodGet, "/administracija/zig/slika?sektor=B", nil)
+	rObicni := httptest.NewRequest(http.MethodGet, "/organizacija/sektori/B/zig/slika", nil)
 	cObicni := context.WithValue(context.WithValue(rObicni.Context(), contextKeyUser, voditelj), contextKeyPerms, obicni)
 	wObicni := httptest.NewRecorder()
 	mux.ServeHTTP(wObicni, rObicni.WithContext(cObicni))
@@ -234,11 +244,10 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	// premala slika ne prolazi
 	var tijeloM bytes.Buffer
 	mwM := multipart.NewWriter(&tijeloM)
-	_ = mwM.WriteField("sektor", "B")
 	fm, _ := mwM.CreateFormFile("slika", "m.png")
 	_, _ = fm.Write(sken.Bytes())
 	_ = mwM.Close()
-	rm := httptest.NewRequest(http.MethodPost, "/administracija/zig", &tijeloM)
+	rm := httptest.NewRequest(http.MethodPost, "/organizacija/sektori/B/zig", &tijeloM)
 	rm.Header.Set("Content-Type", mwM.FormDataContentType())
 	if loc := mustUnescape(zovi(rm).Header().Get("Location")); !strings.Contains(loc, "premala") {
 		t.Errorf("premala slika: %s", loc)

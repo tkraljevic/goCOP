@@ -114,7 +114,8 @@ func predlozakStranice(t *testing.T, stranica string) *template.Template {
 func prikazStranice(t *testing.T, s *Server, stranica string) http.Handler {
 	t.Helper()
 	datoteka := map[string]string{"/settings": "settings.html", "/pretplate": "pretplate.html",
-		"/administracija/baza": "baza.html", "/administracija/karte": "administracija_karte.html"}[stranica]
+		"/administracija/baza": "baza.html", "/administracija/karte": "administracija_karte.html",
+		"/administracija/potpisi": "administracija_potpisi.html"}[stranica]
 	tmpl := predlozakStranice(t, datoteka)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
@@ -130,6 +131,8 @@ func prikazStranice(t *testing.T, s *Server, stranica string) http.Handler {
 			data = SubscriptionsPageData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
 		case "baza.html":
 			data = DBMaintPageData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
+		case "administracija_potpisi.html":
+			data = PotpisiPageData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
 		default:
 			data = PostavkeKarteData{CurrentUser: adminIvic, Permissions: perms, Postavke: p}
 		}
@@ -312,11 +315,22 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 	log.SetOutput(&dnevnik)
 	t.Cleanup(func() { log.SetOutput(os.Stderr) })
 
+	// adresa za QR kod stoji uz potpise akata (Odluke (30. 10. 2026.)), a ne
+	// sprema se uz kontakt centra
+	if w := spremi(t, s, "/settings", obrazacBloka("cvor", otisakDatoteke(t, put), map[string]string{
+		"javna_adresa": "https://cop.primjer.hr"}), kaoAdmin); w.Code != http.StatusBadRequest {
+		t.Errorf("adresa za QR kod spremljena je uz čvor: %d", w.Code)
+	}
 	w := spremi(t, s, "/settings", obrazacBloka("cvor", otisakDatoteke(t, put), map[string]string{
-		"javna_adresa": "https://cop.primjer.hr", "kontakt.centar": "COP Primjer", "kontakt.centar_telefon": "",
+		"kontakt.centar": "COP Primjer", "kontakt.centar_telefon": "",
 	}), kaoAdmin)
 	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/settings?success=") {
 		t.Fatalf("spremanje: %d %s\n%s", w.Code, w.Header().Get("Location"), w.Body.String())
+	}
+	w = spremi(t, s, "/administracija/potpisi", obrazacBloka("dokumenti", otisakDatoteke(t, put), map[string]string{
+		"javna_adresa": "https://cop.primjer.hr"}), kaoAdmin)
+	if w.Code != http.StatusSeeOther || !strings.HasPrefix(w.Header().Get("Location"), "/administracija/potpisi?success=") {
+		t.Fatalf("spremanje adrese za QR kod: %d %s\n%s", w.Code, w.Header().Get("Location"), w.Body.String())
 	}
 	b, _ := os.ReadFile(put)
 	for _, mora := range []string{"# Moje bilješke o ovom čvoru: ne brisati", "nepoznato_iz_buducnosti = 'ostaje'",
@@ -329,7 +343,7 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 	if strings.Contains(string(b), "centar_telefon") {
 		t.Error("nepromijenjena postavka upisana je u datoteku")
 	}
-	if k := config.Kopije(put); len(k) != 1 {
+	if k := config.Kopije(put); len(k) != 2 {
 		t.Errorf("kopije: %+v", k)
 	}
 	if fi, _ := os.Stat(put); fi.Mode().Perm() != 0o640 {
@@ -341,20 +355,20 @@ func TestSpremanjePostavkiCvora(t *testing.T) {
 		}
 	}
 	// traka na svim stranicama s blokom, a uz postavku što vrijedi do tada
-	for _, stranica := range []string{"/settings", "/pretplate", "/administracija/baza", "/administracija/karte"} {
+	for _, stranica := range []string{"/settings", "/pretplate", "/administracija/baza", "/administracija/karte", "/administracija/potpisi"} {
 		if !strings.Contains(iscrtajPostavke(t, s, stranica, kaoAdmin), "Spremljena promjena u gocop.toml vrijedi nakon ponovnog pokretanja čvora.") {
 			t.Errorf("%s: nema trake o ponovnom pokretanju", stranica)
 		}
 	}
-	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/settings", nil, kaoAdmin), "/settings")
-	for _, st := range p.Dio("cvor").Stavke {
+	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/administracija/potpisi", nil, kaoAdmin), "/administracija/potpisi")
+	for _, st := range p.Dio("dokumenti").Stavke {
 		if st.Kljuc == "javna_adresa" && (!st.CekaPonovno || st.UDatoteci != "https://cop.primjer.hr" || st.Polje != "https://cop.primjer.hr") {
 			t.Errorf("javna_adresa nakon spremanja: %+v", st)
 		}
 	}
 	// isto još jednom ne mijenja ništa i ne pravi kopiju
 	w = spremi(t, s, "/settings", obrazacBloka("cvor", otisakDatoteke(t, put), map[string]string{"kontakt.centar": "COP Primjer"}), kaoAdmin)
-	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), url.QueryEscape("Ništa nije promijenjeno.")) || len(config.Kopije(put)) != 1 {
+	if w.Code != http.StatusSeeOther || !strings.Contains(w.Header().Get("Location"), url.QueryEscape("Ništa nije promijenjeno.")) || len(config.Kopije(put)) != 2 {
 		t.Errorf("isto spremanje: %d %s", w.Code, w.Header().Get("Location"))
 	}
 }
@@ -431,7 +445,7 @@ func TestNeispravnoSeNeZapisuje(t *testing.T) {
 		poruka        string
 	}{
 		{"/settings", "mreza", map[string]string{"sync.auto_sync": "pet minuta"}, "Upišite razmak kao 5m ili 1h"},
-		{"/settings", "cvor", map[string]string{"javna_adresa": "cop.primjer.hr"}, "Upišite punu adresu"},
+		{"/administracija/potpisi", "dokumenti", map[string]string{"javna_adresa": "cop.primjer.hr"}, "Upišite punu adresu"},
 		{"/settings", "cvor", map[string]string{"kontakt.centar": "dva\nretka"}, "u jednom retku"},
 		{"/pretplate", "pretplate", map[string]string{"vodostaji.povijest_mjeseci": "dvanaest"}, "Upišite cijeli broj"},
 		{"/administracija/karte", "karte", map[string]string{"karta.najvise_z": "25"}, "od 0 do 19"},
@@ -499,10 +513,18 @@ func TestSpremanjeBezDatoteke(t *testing.T) {
 func TestZastavicaJacaOdDatoteke(t *testing.T) {
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, map[string]string{"addr": "-addr"})
 	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/settings", nil, kaoAdmin), "/settings")
+	nadjena := false
 	for _, st := range p.Dio("cvor").Stavke {
-		if st.Kljuc == "addr" && (st.Zastavica != "-addr" || st.Prikaz != ":9999" || st.UDatoteci != ":8080" || st.CekaPonovno) {
+		if st.Kljuc != "addr" {
+			continue
+		}
+		nadjena = true
+		if st.Zastavica != "-addr" || st.Prikaz != ":9999" || st.UDatoteci != ":8080" || st.CekaPonovno {
 			t.Errorf("addr uz zastavicu: %+v", st)
 		}
+	}
+	if !nadjena {
+		t.Error("postavke addr nema u bloku čvora")
 	}
 	if p.CekaPonovno {
 		t.Error("traka bez spremljene promjene")
