@@ -3,9 +3,12 @@ package service_test
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"image"
+	"image/jpeg"
 	"image/png"
 	"strings"
 	"testing"
@@ -42,6 +45,35 @@ func slikaPNG(t *testing.T, sirina, visina int) []byte {
 		t.Fatal(err)
 	}
 	return b.Bytes()
+}
+
+// pngSMjerama vraća PNG od jedne točke kojem zaglavlje kaže zadane mjere
+func pngSMjerama(t *testing.T, w, h uint32) []byte {
+	t.Helper()
+	p := slikaPNG(t, 1, 1)
+	// zaglavlje IHDR: širina na 16, visina na 20, zbroj provjere na 29
+	binary.BigEndian.PutUint32(p[16:], w)
+	binary.BigEndian.PutUint32(p[20:], h)
+	binary.BigEndian.PutUint32(p[29:], crc32.ChecksumIEEE(p[12:29]))
+	return p
+}
+
+// jpegSMjerama vraća mali JPEG u boji kojem okvir kaže zadane mjere
+func jpegSMjerama(t *testing.T, w, h uint16) []byte {
+	t.Helper()
+	var b bytes.Buffer
+	if err := jpeg.Encode(&b, image.NewRGBA(image.Rect(0, 0, 16, 16)), nil); err != nil {
+		t.Fatal(err)
+	}
+	p := b.Bytes()
+	i := bytes.Index(p, []byte{0xFF, 0xC0})
+	if i < 0 {
+		t.Fatal("JPEG bez okvira")
+	}
+	// okvir: oznaka, duljina, preciznost, visina na 5, širina na 7
+	binary.BigEndian.PutUint16(p[i+5:], h)
+	binary.BigEndian.PutUint16(p[i+7:], w)
+	return p
 }
 
 // pokvariTablicu preimenuje tablicu, pa svako čitanje i pisanje u nju pada
@@ -335,6 +367,8 @@ func TestZigSektoraUredujeUpravaSektora(t *testing.T) {
 		{"prevelika", make([]byte, models.ZigMaxBytes+1), "slika žiga je prevelika"},
 		{"nije slika", []byte("%PDF-1.7"), "žig mora biti slika PNG ili JPEG"},
 		{"premala", slikaPNG(t, 99, 300), "slika žiga je premala (99×300)"},
+		{"previše točaka", pngSMjerama(t, 20000, 20000), "slika žiga ima previše točaka (20000×20000"},
+		{"PNG iznad 4 milijuna točaka", pngSMjerama(t, 2001, 2000), "slika žiga ima previše točaka (2001×2000, najviše 4 milijuna); izrežite je na sam žig"},
 	} {
 		if err := o.akti.SpremiZig(ctx, upravaSektoraP, o.rukovod, "P", x.slika); err == nil || !strings.Contains(err.Error(), x.greska) {
 			t.Errorf("%s: %v, želi %q", x.opis, err, x.greska)

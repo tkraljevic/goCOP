@@ -2,6 +2,8 @@ package service
 
 import (
 	"bytes"
+	"encoding/binary"
+	"hash/crc32"
 	"image"
 	"image/png"
 	"strings"
@@ -121,6 +123,15 @@ func TestPDFSkena(t *testing.T) {
 	}
 	if _, err := pdfSkena([]byte("nije ni PDF ni slika"), "Akt"); err == nil || err.Error() != "sken mora biti PDF" {
 		t.Errorf("nečitljiv sken: %v", err)
+	}
+	// PNG sken kojem bi za čitanje trebalo previše memorije dobiva poruku
+	// zašto nije primljen
+	golem := slika.Bytes()
+	binary.BigEndian.PutUint32(golem[16:], 30000)
+	binary.BigEndian.PutUint32(golem[20:], 30000)
+	binary.BigEndian.PutUint32(golem[29:], crc32.ChecksumIEEE(golem[12:29]))
+	if _, err := pdfSkena(golem, "Akt"); err == nil || !strings.Contains(err.Error(), "sken je prevelik (previše točaka)") {
+		t.Errorf("prevelik sken: %v", err)
 	}
 }
 

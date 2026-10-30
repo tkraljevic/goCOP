@@ -97,6 +97,7 @@ func TestSkenPotpisaSifriranKljucemCvora(t *testing.T) {
 		{"nije slika", []byte("%PDF-1.7"), "potpis mora biti slika PNG ili JPEG"},
 		{"preuska", slikaPNG(t, 119, 100), "slika potpisa je premala (119×100)"},
 		{"preniska", slikaPNG(t, 300, 39), "slika potpisa je premala (300×39)"},
+		{"previše točaka", pngSMjerama(t, 60000, 1000), "slika potpisa ima previše točaka (60000×1000"},
 	} {
 		if err := o.akti.SpremiPotpisSliku(ctx, o.rukovod, x.slika); err == nil || !strings.Contains(err.Error(), x.greska) {
 			t.Errorf("%s: %v, želi %q", x.opis, err, x.greska)
@@ -106,6 +107,13 @@ func TestSkenPotpisaSifriranKljucemCvora(t *testing.T) {
 		t.Fatalf("odbijen sken je spremljen: %+v", p)
 	}
 
+	// JPEG se u PDF stavlja kakav jest, pa i fotografija potpisa s telefona
+	// prolazi; PNG do 4 milijuna točaka također
+	for _, dobra := range [][]byte{jpegSMjerama(t, 4000, 3000), pngSMjerama(t, 2000, 2000)} {
+		if err := o.akti.SpremiPotpisSliku(ctx, o.rukovod, dobra); err != nil {
+			t.Errorf("dopušten sken: %v", err)
+		}
+	}
 	if err := o.akti.SpremiPotpisSliku(ctx, o.rukovod, slika); err != nil {
 		t.Fatal(err)
 	}

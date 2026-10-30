@@ -81,6 +81,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 - **Provjere prava: vodotok i šifra letve, novo očitanje.** Vodotok letve
   mijenja samo tko smije uređivati letvu, izmjena letve ne mijenja šifru, a
   novo očitanje identifikator dobije od programa.
+- **Provjere datoteka: prevelika tablica ili slika odbija se porukom.**
+  Excel izvan granica Excela, s previše ćelija ili s previše teksta više
+  se ne čita. Isto vrijedi za fotografiju, žig, potpis i sken kojem bi za
+  čitanje trebalo previše memorije, a vodočuvar vidi koja fotografija
+  prijave nije priložena.
 
 ## 0.0.46-alfa — 29. 10. 2026.
 
