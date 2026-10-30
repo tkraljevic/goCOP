@@ -607,8 +607,12 @@ func (s *Service) provjeriImeDrugog(ctx context.Context, id string, kljuc ed2551
 	return nil
 }
 
-// ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran
+// ForgetPeer uklanja čvor s popisa; u knjizi ostaje arhiviran. Ovaj čvor
+// ne zaboravlja sam sebe: svoje adrese miče kroz PublicAddress.
 func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
+	if nodeID == s.node.ID {
+		return errors.New("Ovo računalo ne može zaboraviti samo sebe. Svoju adresu za razmjenu maknite u Administraciji › Ovo računalo i mreža, pod Domenski čvorovi.")
+	}
 	// granica odbijenih zaboravi se cijela, i kad brisanje ne uspije:
 	// zaboraviti previše košta samo jedno ponovno slanje. Pokušaji
 	// spajanja, put zadnje veze i tvrdnje o adresama (pokusaji.go) zaborave
@@ -622,22 +626,18 @@ func (s *Service) ForgetPeer(ctx context.Context, nodeID string) error {
 	if p == nil {
 		return fmt.Errorf("čvor %s nije poznat", nodeID)
 	}
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
+	return s.uTransakciji(ctx, func(tx *sql.Tx) error {
+		if err := obrisiZapisCvora(ctx, tx, nodeID); err != nil {
+			return err
+		}
+		// Spomenik putuje svima, kao i verzija iz SavePeer: bilješke o
+		// razmjeni opisuju odnos dvaju čvorova i ne putuju. U bilješci o
+		// grešci zna stajati i adresa koju svi ne smiju vidjeti (npr.
+		// Tailscale).
+		p.LastSeen, p.LastSync, p.LastSyncNote = nil, nil, ""
+		_, err := s.rec.Archive(ctx, tx, EntityPeers, nodeID, p)
 		return err
-	}
-	defer tx.Rollback()
-	if err := obrisiZapisCvora(ctx, tx, nodeID); err != nil {
-		return err
-	}
-	// Spomenik putuje svima, kao i verzija iz SavePeer: bilješke o razmjeni
-	// opisuju odnos dvaju čvorova i ne putuju. U bilješci o grešci zna stajati
-	// i adresa koju svi ne smiju vidjeti (npr. Tailscale).
-	p.LastSeen, p.LastSync, p.LastSyncNote = nil, nil, ""
-	if _, err := s.rec.Archive(ctx, tx, EntityPeers, nodeID, p); err != nil {
-		return err
-	}
-	return tx.Commit()
+	})
 }
 
 // obrisiZapisCvora briše zapis čvora koji ovaj čvor zaboravlja, adrese koje
@@ -856,9 +856,12 @@ func (s *Service) DialPair(ctx context.Context, addr string) error {
 
 // PairOutcome je ishod uparivanja za ekran
 type PairOutcome struct {
-	Paired  bool   `json:"paired"`  // oba čovjeka potvrdila kod
-	Member  bool   `json:"member"`  // drugi čvor je (sada) član naše mreže
-	Message string `json:"message"` // što se dogodilo, ljudskim jezikom
+	Paired bool `json:"paired"` // oba čovjeka potvrdila kod
+	Member bool `json:"member"` // drugi čvor je (sada) član naše mreže
+	// Primljen: ovo računalo je upravo izdalo potvrdu članstva drugome; nije
+	// istina kad je ovo računalo samo ušlo u mrežu ni kad je drugo već bilo član
+	Primljen bool   `json:"primljen"`
+	Message  string `json:"message"` // što se dogodilo, ljudskim jezikom
 }
 
 // ConfirmPair je odluka čovjeka o kodu na ekranu. Oba čvora moraju
@@ -947,11 +950,12 @@ func (s *Service) spremiUparenog(ctx context.Context, res *razmjena.PairResult) 
 
 // primiDobrodoslicu obrađuje paket druge strane i kaže ishod uparivanja
 func (s *Service) primiDobrodoslicu(ctx context.Context, res *razmjena.PairResult, theirs json.RawMessage, given *welcomePack) PairOutcome {
-	member, msg, err := s.acceptWelcome(ctx, theirs, res.Peer.DeviceID, res.PeerKey, given)
+	out, err := s.acceptWelcome(ctx, theirs, res.Peer.DeviceID, res.PeerKey, given)
 	if err != nil {
 		return PairOutcome{Paired: true, Message: err.Error()}
 	}
-	return PairOutcome{Paired: true, Member: member, Message: msg}
+	out.Paired = true
+	return out
 }
 
 // ---------- razmjena verzija ----------

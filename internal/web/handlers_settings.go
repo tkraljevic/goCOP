@@ -57,6 +57,9 @@ type SettingsPageData struct {
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
+	// Izvana: stranica je otvorena kroz tunel ili s javne adrese, pa obrasci
+	// članstva traže lozinku računa (Odluke (30. 10. 2026.), 1)
+	Izvana bool
 	ViewAsBanner
 }
 
@@ -81,6 +84,7 @@ func (h *SettingsHandler) ShowSettings(w http.ResponseWriter, r *http.Request) {
 		Postavke:       h.postavkeCvora.za(r, "/settings"),
 		SuccessMessage: r.URL.Query().Get("success"),
 		ErrorMessage:   r.URL.Query().Get("error"),
+		Izvana:         klijentIz(r).Izvana(),
 	}
 
 	if list, err := h.peers.ListPeers(ctx); err == nil {
@@ -120,7 +124,7 @@ func (h *SettingsHandler) HandlePairStatus(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *SettingsHandler) HandlePairListen(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -132,7 +136,7 @@ func (h *SettingsHandler) HandlePairListen(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *SettingsHandler) HandlePairStop(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -141,7 +145,7 @@ func (h *SettingsHandler) HandlePairStop(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *SettingsHandler) HandlePairDial(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -163,22 +167,35 @@ func (h *SettingsHandler) HandlePairDial(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
+// HandlePairConfirm je odluka o kodu uparivanja. Na računalu koje prima u
+// mrežu potvrda prima i drugo računalo, pa izvana traži lozinku računa.
 func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Approved bool `json:"approved"`
+		Approved      bool   `json:"approved"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved, true) // requireAdmin gore
+	if req.Approved && h.primaClanove() {
+		if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), req.LozinkaRacuna); err != nil {
+			odbijBezLozinke(w, r, prijavljeni(r), err)
+			return
+		}
+	}
+	racunalo := h.peers.PairStatus().Peer.DeviceID
+	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved, true) // administrator svojim očima, gore
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if outcome.Primljen {
+		zapisiClanstvo(r, prijavljeni(r), "primio je u mrežu računalo %q uparivanjem", racunalo)
 	}
 	writeJSON(w, map[string]any{"success": true, "paired": outcome.Paired, "member": outcome.Member, "message": outcome.Message})
 }
@@ -187,7 +204,7 @@ func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Reque
 
 // HandleCreateNetwork osniva mrežu: ovaj čvor dobiva ključ mreže
 func (h *SettingsHandler) HandleCreateNetwork(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -217,16 +234,45 @@ func (h *SettingsHandler) HandleMembers(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, map[string]any{"success": true, "network": h.peers.NetworkInfo(), "members": members})
 }
 
-func (h *SettingsHandler) HandleRevokeMember(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+// primaClanove javlja drži li ovo računalo ključ mreže ili ovlast za primanje
+func (h *SettingsHandler) primaClanove() bool {
+	n := h.peers.NetworkInfo()
+	return n != nil && n.CanAdmit
+}
+
+// smijeClanstvo pušta promjenu članstva samo administratoru svojim očima, a
+// izvana i uz lozinku računa iz tijela zahtjeva. Kad vrati false, odgovor je
+// već napisan.
+func (h *SettingsHandler) smijeClanstvo(w http.ResponseWriter, r *http.Request) bool {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
+		return false
+	}
+	var req struct {
+		LozinkaRacuna string `json:"lozinka_racuna"`
+	}
+	if err := decodeBody(r, &req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return false
+	}
+	if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), req.LozinkaRacuna); err != nil {
+		odbijBezLozinke(w, r, prijavljeni(r), err)
+		return false
+	}
+	return true
+}
+
+func (h *SettingsHandler) HandleRevokeMember(w http.ResponseWriter, r *http.Request) {
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
-	pogodjeni, err := h.peers.RevokeMembership(r.Context(), r.PathValue("node"))
+	cvor := r.PathValue("node")
+	pogodjeni, err := h.peers.RevokeMembership(r.Context(), cvor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	zapisiClanstvo(r, prijavljeni(r), "opozvao je članstvo računala %q", cvor)
 	writeJSON(w, map[string]any{"success": true, "pogodjeni": pogodjeni})
 }
 
@@ -234,30 +280,32 @@ func (h *SettingsHandler) HandleRevokeMember(w http.ResponseWriter, r *http.Requ
 
 // HandleIzdajOvlast daje članu ovlast da prima druge (samo nositelj ključa mreže)
 func (h *SettingsHandler) HandleIzdajOvlast(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
-	o, err := h.peers.IzdajOvlast(r.Context(), r.PathValue("node"))
+	cvor := r.PathValue("node")
+	o, err := h.peers.IzdajOvlast(r.Context(), cvor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	zapisiClanstvo(r, prijavljeni(r), "dao je ovlast za primanje računalu %q", cvor)
 	writeJSON(w, map[string]any{"success": true, "ovlast": o})
 }
 
 // HandleOpozoviOvlast oduzima ovlast za primanje; vraća čvorove koje je
 // primatelj primio (njihova članstva time ne vrijede)
 func (h *SettingsHandler) HandleOpozoviOvlast(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
+	if !h.smijeClanstvo(w, r) {
 		return
 	}
-	pogodjeni, err := h.peers.OpozoviOvlast(r.Context(), r.PathValue("node"))
+	cvor := r.PathValue("node")
+	pogodjeni, err := h.peers.OpozoviOvlast(r.Context(), cvor)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	zapisiClanstvo(r, prijavljeni(r), "oduzeo je ovlast za primanje računalu %q", cvor)
 	writeJSON(w, map[string]any{"success": true, "pogodjeni": pogodjeni})
 }
 
@@ -290,16 +338,18 @@ func (h *SettingsHandler) HandleProcitajZahtjev(w http.ResponseWriter, r *http.R
 
 // HandlePrimiZahtjev prima računalo iz zahtjeva kad kod za primanje (koji je
 // čovjek s tog računala pročitao telefonom) odgovara zahtjevu, i vraća
-// potvrdu za datoteku; uz ovlast samo kod nositelja ključa mreže
+// potvrdu za datoteku; uz ovlast samo kod nositelja ključa mreže. Izvana
+// traži i lozinku računa.
 func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Zahtjev string `json:"zahtjev"`
-		Kod     string `json:"kod"`
-		Ovlast  bool   `json:"ovlast"`
+		Zahtjev       string `json:"zahtjev"`
+		Kod           string `json:"kod"`
+		Ovlast        bool   `json:"ovlast"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, najveciZahtjevPrimanja)
 	if err := decodeBody(r, &req); err != nil {
@@ -311,13 +361,26 @@ func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Requ
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	if err := lozinkaIzvana(r, h.lozinkaRacuna, prijavljeni(r), req.LozinkaRacuna); err != nil {
+		odbijBezLozinke(w, r, prijavljeni(r), err)
+		return
+	}
 	potvrda, err := h.peers.PrimiZahtjev(r.Context(), []byte(req.Zahtjev), req.Kod, req.Ovlast)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	zapisiClanstvo(r, prijavljeni(r), opisPrimanja(req.Ovlast), z.Cvor)
 	writeJSON(w, map[string]any{"success": true, "potvrda": string(potvrda),
 		"datoteka": "gocop-potvrda-" + z.Cvor + ".json"})
+}
+
+// opisPrimanja je radnja za dnevnik programa pri primanju na daljinu
+func opisPrimanja(ovlast bool) string {
+	if ovlast {
+		return "primio je u mrežu na daljinu računalo %q i dao mu ovlast za primanje"
+	}
+	return "primio je u mrežu na daljinu računalo %q"
 }
 
 func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) {
@@ -342,7 +405,7 @@ func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *SettingsHandler) HandleForgetPeer(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -356,7 +419,7 @@ func (h *SettingsHandler) HandleForgetPeer(w http.ResponseWriter, r *http.Reques
 // HandlePublicAddress dodaje ili miče javnu adresu čvora (domenski čvor);
 // za ovaj čvor time ured objavljuje gdje ga se nalazi
 func (h *SettingsHandler) HandlePublicAddress(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -399,15 +462,16 @@ func (h *SettingsHandler) HandleUloge(w http.ResponseWriter, r *http.Request) {
 	redirectWith(w, r, "/settings", "success", poruka)
 }
 
-// HandleSetBootstrap označava čvor kao stalno izložen (domena) ili to skida
+// HandleSetBootstrap označava čvor kao stalno izložen (domena) ili to skida.
+// Adrese se ovdje ne mijenjaju, nego samo kroz HandlePublicAddress, koji
+// provjerava njihov oblik.
 func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	var req struct {
-		Bootstrap bool     `json:"bootstrap"`
-		Addresses []string `json:"addresses"`
+		Bootstrap bool `json:"bootstrap"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -420,9 +484,6 @@ func (h *SettingsHandler) HandleSetBootstrap(w http.ResponseWriter, r *http.Requ
 			return nil, nil
 		}
 		p.IsBootstrap = req.Bootstrap
-		if len(req.Addresses) > 0 {
-			p.Addresses = req.Addresses
-		}
 		return p, nil
 	})
 	if nepoznat {

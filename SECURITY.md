@@ -156,8 +156,17 @@ nepouzdano.
   njegova tvrdnja.
 - Uparivati smije **globalni administrator** s promijenjenom lozinkom (ne
   dok gleda tuđim očima). Bez prijave smije samo dok je čvor **svjež**
-  (ima najviše jedan korisnički račun), i to samo zahtjev iz lokalne
-  mreže: s ovog računala ili s privatne adrese, a ne kroz posrednika.
+  (ima najviše jedan korisnički račun), i to samo osoba za tim računalom:
+  s ovog računala bez koda, a s privatne adrese uz jednokratni kod iz
+  dnevnika, isti kao za `/postavljanje`. To vrijedi i kad čvor ne radi pod
+  Postavom. Kroz posrednika nikad.
+- Primanje računala u mrežu (uparivanjem ili na daljinu), davanje i
+  oduzimanje ovlasti za primanje i opoziv članstva smiju i izvana, kroz
+  tunel ili s javne adrese, ali uz lozinku računa upisanu u isti obrazac.
+  Krivi upisi broje se kao pri promjeni lozinke. S ovog računala i iz
+  lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše
+  u dnevniku programa, a tamo piše i zahtjev izvana odbijen zbog lozinke.
+  Tuđim očima se mreža ne mijenja.
 
 ### Primanje na daljinu
 

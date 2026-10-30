@@ -5,7 +5,6 @@ package web
 // kopija ključa mreže (G9b). Samo globalni administrator.
 
 import (
-	"errors"
 	"log"
 	"net/http"
 	"time"
@@ -19,7 +18,7 @@ import (
 // HandleObnoviClanstvo je gumb Obnovi članstvo: računalo s ključem mreže
 // obnovi sebe odmah, a drugo upiše zahtjev koji ide uz razmjenu
 func (h *SettingsHandler) HandleObnoviClanstvo(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -42,7 +41,7 @@ func porukaObnove(m *razmjena.Membership) string {
 // HandleObnoviClana je gumb Obnovi uz člana: novo članstvo odmah, s istim
 // imenom i ključem
 func (h *SettingsHandler) HandleObnoviClana(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
+	if err := requireAdminSvojimOcima(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
@@ -98,16 +97,7 @@ func (h *SettingsHandler) HandleKopijaKljuca(w http.ResponseWriter, r *http.Requ
 // provjeriLozinkuRacuna provjerava trenutnu lozinku osobe, uz isto
 // ograničenje krivih upisa kao pri promjeni lozinke
 func (h *SettingsHandler) provjeriLozinkuRacuna(u *models.User, lozinka string) error {
-	if u == nil || h.lozinkaRacuna == nil {
-		return errors.New("lozinka računa ne može se provjeriti")
-	}
-	kljuc := kljucPonovneLozinke("", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		return err
-	}
-	err := h.lozinkaRacuna(u.ID, lozinka)
-	ishodPonovneLozinke(kljuc, err)
-	return err
+	return ponovnaLozinkaRacuna(h.lozinkaRacuna, u, lozinka)
 }
 
 // HandleUcitajKopijuKljuca je gumb Učitaj kopiju ključa: nakon njega ovo
@@ -142,10 +132,7 @@ func (h *SettingsHandler) HandleUcitajKopijuKljuca(w http.ResponseWriter, r *htt
 // (cmd/gocop, obavijesti), odmah s ovog računala ako ima račun za slanje,
 // a inače s drugog kojem događaj stigne razmjenom.
 func (h *SettingsHandler) javiKljuc(r *http.Request, u *models.User, sto string) {
-	tko := "nepoznata osoba"
-	if u != nil {
-		tko = u.FullName + " (" + u.Username + ")"
-	}
+	tko := opisOsobe(u)
 	odakle := klijentIz(r).String()
 	log.Printf("razmjena: %s %s s adrese %s", tko, sto, odakle)
 	if err := h.peers.ZabiljeziDogadjajKljuca(r.Context(), tko, odakle, sto); err != nil {

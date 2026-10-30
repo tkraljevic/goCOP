@@ -21,14 +21,17 @@ import (
 // čvora. Na svježem računalu ne postoji nijedan račun osim admina, jer
 // imenik stiže tek sinkronizacijom; osoba koja je program upravo pokrenula
 // mora ga prvo spojiti s uredom. Zato se čarobnjak otvara i bez prijave, ali
-// samo dok je čvor svjež (u bazi nema drugih računa) i samo izravnom
-// klijentu iz lokalne mreže, nikad kroz tunel. Bez prijave se računala samo
+// samo dok je čvor svjež (u bazi nema drugih računa) i samo osobi za tim
+// računalom: izravno s njega, ili iz lokalne mreže uz jednokratni kod iz
+// dnevnika programa, isto kao Postavljanje, i kad čvor ne radi pod Postavom
+// (Odluke (30. 10. 2026.), 15). Kroz tunel nikad. Bez prijave se računala samo
 // upare: u mrežu drugo računalo prima samo prijavljeni administrator, a
 // čvor koji drži ključ mreže ili ovlast za primanje čarobnjak bez prijave
 // ne otvara. Prijavljenom čarobnjak otvara samo globalni administrator s
 // promijenjenom lozinkom, koji ne gleda tuđim očima: njegova potvrda
-// uparivanja na čvoru koji drži ključ mreže prima drugi čvor u mrežu.
-// Osnivanje mreže, opoziv i zaboravljanje čvorova ostaju u postavkama.
+// uparivanja na čvoru koji drži ključ mreže prima drugi čvor u mrežu, a
+// izvana uz lozinku računa (Odluke (30. 10. 2026.), 1). Osnivanje mreže,
+// opoziv i zaboravljanje čvorova ostaju u postavkama.
 
 type PairHandler struct {
 	peers *peers.Service
@@ -49,6 +52,32 @@ type PairHandler struct {
 	primaClanove func() bool
 	// potvrdi prenosi odluku o kodu uparivanja; zadano razmjena čvorova
 	potvrdi func(ctx context.Context, approved, primi bool) (peers.PairOutcome, error)
+	// kodPostavljanja provjerava osobu za računalom: izravno s njega ili
+	// jednokratni kod iz dnevnika (PostavljanjeHandler.dopusteno)
+	kodPostavljanja func(r *http.Request, kod string) bool
+	// lozinkaRacuna provjerava lozinku računa za primanje izvana
+	lozinkaRacuna func(uuid.UUID, string) error
+}
+
+// zaglavljeKoda nosi kod iz dnevnika u pozivima čarobnjaka bez prijave
+const zaglavljeKoda = "X-Kod-Postavljanja"
+
+// SetKodPostavljanja daje provjeru jednokratnog koda iz dnevnika
+func (h *PairHandler) SetKodPostavljanja(f func(r *http.Request, kod string) bool) {
+	h.kodPostavljanja = f
+}
+
+// kodIz je kod iz dnevnika iz zaglavlja poziva ili iz adrese stranice
+func kodIz(r *http.Request) string {
+	if k := r.Header.Get(zaglavljeKoda); k != "" {
+		return k
+	}
+	return r.URL.Query().Get("kod")
+}
+
+// zaRacunalom javlja je li zahtjev bez prijave od osobe za ovim računalom
+func (h *PairHandler) zaRacunalom(r *http.Request) bool {
+	return h.kodPostavljanja != nil && h.kodPostavljanja(r, kodIz(r))
 }
 
 // svjezRok je koliko dugo vrijedi odgovor "čvor je svjež"
@@ -66,6 +95,9 @@ func NewPairHandler(peersSvc *peers.Service, auth *service.AuthService, users *s
 	}
 	h.potvrdi = func(ctx context.Context, approved, primi bool) (peers.PairOutcome, error) {
 		return h.peers.ConfirmPair(ctx, approved, primi)
+	}
+	if auth != nil {
+		h.lozinkaRacuna = auth.ProvjeriLozinku
 	}
 	return h
 }
@@ -140,7 +172,7 @@ func ovlastIz(r *http.Request) (ovlastUparivanja, bool) {
 	return o, ok
 }
 
-// Gate pušta globalnog administratora, a bez toga samo izravnog klijenta
+// Gate pušta globalnog administratora, a bez toga samo osobu za računalom
 // dok je čvor svjež
 func (h *PairHandler) Gate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -149,8 +181,8 @@ func (h *PairHandler) Gate(next http.Handler) http.Handler {
 		switch {
 		case smijeUparivati(view):
 			o.korisnik = view.RealUser
-		case klijentIz(r).IzLokalneMreze() && h.bezPrijave():
-			// svjež čvor, klijent iz lokalne mreže: bez prijave
+		case h.bezPrijave() && h.zaRacunalom(r):
+			// svjež čvor, osoba za računalom: bez prijave
 		default:
 			h.odbij(w, r, view)
 			return
@@ -163,12 +195,10 @@ func (h *PairHandler) Gate(next http.Handler) http.Handler {
 func (h *PairHandler) odbij(w http.ResponseWriter, r *http.Request, view *service.SessionView) {
 	api := strings.HasPrefix(r.URL.Path, "/api/")
 	switch {
+	case view == nil && api:
+		http.Error(w, "Uparivanje bez prijave moguće je samo na računalu koje još nema djelatnike: s tog računala ili iz lokalne mreže uz kod iz dnevnika programa.", http.StatusForbidden)
 	case view == nil:
-		if api {
-			http.Error(w, "Uparivanje bez prijave moguće je samo iz lokalne mreže, na računalu koje još nema djelatnike", http.StatusForbidden)
-			return
-		}
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, h.prijavaIliKod(r), http.StatusSeeOther)
 	case view.RealUser.MustChangePassword && !api:
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 	case view.RealUser.MustChangePassword:
@@ -180,6 +210,16 @@ func (h *PairHandler) odbij(w http.ResponseWriter, r *http.Request, view *servic
 	}
 }
 
+// prijavaIliKod je kamo stranica čarobnjaka vodi neprijavljenog: na svježem
+// računalu iz lokalne mreže na Postavljanje, gdje se upisuje kod iz
+// dnevnika, a inače na prijavu
+func (h *PairHandler) prijavaIliKod(r *http.Request) string {
+	if klijentIz(r).IzLokalneMreze() && h.bezPrijave() {
+		return "/postavljanje?put=postojeca"
+	}
+	return "/login"
+}
+
 type PairPageData struct {
 	User      *models.User // nil kad se uparuje bez prijave
 	Fresh     bool
@@ -189,6 +229,12 @@ type PairPageData struct {
 	InNetwork bool
 	Network   string
 	Peers     []peers.Peer
+	// Kod je kod iz dnevnika s kojim je stranica otvorena bez prijave; ide
+	// uz svaki poziv čarobnjaka
+	Kod string
+	// TraziLozinku: administrator izvana na računalu koje prima u mrežu
+	// potvrđuje kod uz lozinku računa (Odluke (30. 10. 2026.), 1)
+	TraziLozinku bool
 }
 
 // ShowWizard prikazuje čarobnjak uparivanja
@@ -198,6 +244,10 @@ func (h *PairHandler) ShowWizard(w http.ResponseWriter, r *http.Request) {
 	data := PairPageData{
 		User: o.korisnik, Fresh: h.Fresh(),
 		NodeID: node.ID, NodeName: node.Name, PairPort: h.peers.Ports().Pair,
+		TraziLozinku: h.primaIzvana(r, o),
+	}
+	if o.korisnik == nil {
+		data.Kod = kodIz(r)
 	}
 	if n := h.peers.NetworkInfo(); n != nil {
 		data.InNetwork, data.Network = true, n.Name
@@ -307,9 +357,24 @@ func stanjeUparivanja(r *http.Request, st peers.PairStatus) peers.PairStatus {
 	return st
 }
 
+// primaIzvana javlja treba li potvrda koda lozinku računa: prijavljeni
+// administrator izvana, na računalu koje prima u mrežu
+func (h *PairHandler) primaIzvana(r *http.Request, o ovlastUparivanja) bool {
+	return o.korisnik != nil && klijentIz(r).Izvana() && h.primaClanove != nil && h.primaClanove()
+}
+
+// uparuje je oznaka računala koje čeka odluku o kodu, za dnevnik programa
+func (h *PairHandler) uparuje() string {
+	if h.peers == nil {
+		return ""
+	}
+	return h.peers.PairStatus().Peer.DeviceID
+}
+
 func (h *PairHandler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 	var req struct {
-		Approved bool `json:"approved"`
+		Approved      bool   `json:"approved"`
+		LozinkaRacuna string `json:"lozinka_racuna"`
 	}
 	if err := decodeBody(r, &req); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -318,10 +383,20 @@ func (h *PairHandler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 	// u mrežu prima samo prijavljeni administrator; bez prijave drugi čvor
 	// ostaje uparen, ali ne postaje član
 	o, _ := ovlastIz(r)
+	if req.Approved && h.primaIzvana(r, o) {
+		if err := lozinkaIzvana(r, h.lozinkaRacuna, o.korisnik, req.LozinkaRacuna); err != nil {
+			odbijBezLozinke(w, r, o.korisnik, err)
+			return
+		}
+	}
+	racunalo := h.uparuje()
 	outcome, err := h.potvrdi(r.Context(), req.Approved, o.korisnik != nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	}
+	if outcome.Primljen {
+		zapisiClanstvo(r, o.korisnik, "primio je u mrežu računalo %q uparivanjem", racunalo)
 	}
 	writeJSON(w, map[string]any{"success": true, "paired": outcome.Paired, "member": outcome.Member, "message": outcome.Message})
 }

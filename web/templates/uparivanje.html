@@ -42,6 +42,10 @@
         <div id="pending" style="display:none;">
           <p class="m-0">Računalo <b id="peer-name"></b> <span class="muted mono" id="peer-id"></span></p>
           <div class="sas" id="sas"></div>
+          {{if .TraziLozinku}}<div class="form-group mb-2">
+            <label class="form-label" for="lozinka-racuna">Lozinka vašeg računa (izvana se drugo računalo prima u mrežu samo uz nju)</label>
+            <input type="password" id="lozinka-racuna" class="form-control" autocomplete="current-password" style="max-width:220px;">
+          </div>{{end}}
           <div class="actions">
             <button type="button" class="btn btn-primary" onclick="confirmPair(true)">Kod se podudara — upari</button>
             <button type="button" class="btn btn-secondary" onclick="confirmPair(false)">Odbij</button>
@@ -76,9 +80,13 @@
 // Što javlja drugo računalo (naziv, oznaka, poruka greške) neprovjereno je:
 // u stranicu ide samo kao tekst
 const escPronadjeno = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+// KOD je kod iz dnevnika s kojim je stranica otvorena bez prijave; ide uz
+// svaki poziv, jer bez prijave uparuje samo osoba za ovim računalom
+const KOD = {{.Kod}};
+const zaglavlja = KOD ? {'Content-Type': 'application/json', 'X-Kod-Postavljanja': KOD} : {'Content-Type': 'application/json'};
 const api = (url, body) => fetch(url, {
   method: body === undefined ? 'GET' : 'POST',
-  headers: {'Content-Type': 'application/json'},
+  headers: zaglavlja,
   body: body === undefined ? undefined : JSON.stringify(body)
 }).then(async r => { if (!r.ok) throw new Error(await r.text()); return r.json(); });
 
@@ -124,7 +132,8 @@ async function dial(addr) {
 }
 async function confirmPair(approved) {
   try {
-    const r = await api('/api/uparivanje/confirm', {approved});
+    const lozinka = $('lozinka-racuna');
+    const r = await api('/api/uparivanje/confirm', {approved, lozinka_racuna: lozinka ? lozinka.value : ''});
     $('pending').style.display = 'none';
     if (r.paired) {
       on('step-code', 'done'); on('step-sync', 'on');

@@ -83,4 +83,14 @@ func TestNeovlastenaPotvrdaNePrimaUMrezu(t *testing.T) {
 	if !outA.Member || !outC.Member || c.svc.NetworkInfo() == nil {
 		t.Errorf("ovlaštena potvrda mora primiti čvor u mrežu; A=%+v C=%+v", outA, outC)
 	}
+	// primio je samo A; C je ušao u mrežu, ali nikoga nije primio
+	if !outA.Primljen || outC.Primljen || outB.Primljen {
+		t.Errorf("primljen smije javiti samo računalo koje je primilo; A=%+v B=%+v C=%+v", outA, outB, outC)
+	}
+
+	// ponovno uparivanje s članom: drugi je već član, nitko nije primljen
+	outA, outC = uparenUz(t, ctx, a, c, true)
+	if !outA.Member || outA.Primljen || outC.Primljen {
+		t.Errorf("uparivanje s članom ne prima nikoga; A=%+v C=%+v", outA, outC)
+	}
 }

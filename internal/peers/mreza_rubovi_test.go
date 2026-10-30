@@ -132,7 +132,7 @@ func TestPristupMreziOdbijaNeispravanPaket(t *testing.T) {
 			t.Errorf("%s: %v", p.ime, err)
 		}
 	}
-	if _, _, err := b.acceptWelcome(ctxRub, json.RawMessage("{nije json"), a.node.ID, a.javni(), nil); err == nil || !strings.Contains(err.Error(), "ne može pročitati") {
+	if _, err := b.acceptWelcome(ctxRub, json.RawMessage("{nije json"), a.node.ID, a.javni(), nil); err == nil || !strings.Contains(err.Error(), "ne može pročitati") {
 		t.Errorf("paket koji nije JSON: %v", err)
 	}
 	if b.NetworkInfo() != nil {
@@ -150,9 +150,9 @@ func TestDobrodoslicaKadSePotvrdaNeSprema(t *testing.T) {
 		t.Fatal(err)
 	}
 	kvarUpisa(t, a, "INSERT", "memberships", "")
-	clan, poruka, err := a.acceptWelcome(ctxRub, nil, b.node.ID, b.javni(), &welcomePack{ForYou: &m})
-	if err == nil || clan || poruka != "" {
-		t.Errorf("primljen bez spremljene potvrde: %v %q %v", clan, poruka, err)
+	out, err := a.acceptWelcome(ctxRub, nil, b.node.ID, b.javni(), &welcomePack{ForYou: &m})
+	if err == nil || out.Member || out.Primljen || out.Message != "" {
+		t.Errorf("primljen bez spremljene potvrde: %+v %v", out, err)
 	}
 }
 
