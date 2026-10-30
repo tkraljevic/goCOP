@@ -13,6 +13,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"fmt"
 	"math/big"
 	"net"
 	"slices"
@@ -133,5 +134,13 @@ func TestNepoznateOznake(t *testing.T) {
 	}
 	if NepoznateOznake(NaseMogucnosti()) != nil {
 		t.Error("vlastite oznake su nepoznate")
+	}
+	var mnogo []string
+	for i := range 1000 {
+		mnogo = append(mnogo, fmt.Sprintf("oznaka-%04d/1", i))
+	}
+	got = NepoznateOznake(append(mnogo, OznakaRazmjena))
+	if len(got) != najviseOznaka-1 || !slices.IsSorted(got) || got[0] != "oznaka-0000/1" {
+		t.Errorf("od 1000 nepoznatih javljeno %d: %v…", len(got), got[:min(3, len(got))])
 	}
 }

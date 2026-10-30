@@ -114,9 +114,56 @@ func (s *Service) zabiljeziIshod(ctx context.Context, peer *Peer, o syncOutcome)
 	if errors.As(o.err, &odbijena) {
 		s.zabiljeziOdbijeno(ctx, VrstaOdbiliSu, "", razlogKoda(odbijena.kod), peer.NodeID)
 	}
-	for _, oznaka := range razmjena.NepoznateOznake(o.znanje.Mogucnosti) {
+	for _, oznaka := range s.oznakeZaZapis(ctx, peer.NodeID, razmjena.NepoznateOznake(o.znanje.Ocisceno().Mogucnosti)) {
 		s.zabiljeziOdbijeno(ctx, VrstaDjelomicno, "", RazlogOznaka+" "+oznaka, peer.NodeID)
 	}
+}
+
+// najviseOznakaDnevno je koliko različitih nepoznatih oznaka jedno računalo
+// dobije u zapisu odbijenog u jednom danu
+const najviseOznakaDnevno = 32
+
+// oznakeZaZapis su od nepoznatih oznaka one koje idu u zapis odbijenog:
+// već zapisane danas i nove dok računalo danas nema najviseOznakaDnevno
+// redaka oznaka. Kad se zapis ne da pročitati, ne ide nijedna.
+func (s *Service) oznakeZaZapis(ctx context.Context, racunalo string, oznake []string) []string {
+	if len(oznake) == 0 {
+		return nil
+	}
+	zapisane, err := s.zapisaneOznake(ctx, racunalo)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	mjesta := najviseOznakaDnevno - len(zapisane)
+	for _, o := range oznake {
+		switch {
+		case zapisane[RazlogOznaka+" "+o]:
+			out = append(out, o)
+		case mjesta > 0:
+			out = append(out, o)
+			mjesta--
+		}
+	}
+	return out
+}
+
+// zapisaneOznake su razlozi oznaka koje računalo danas već ima u zapisu
+func (s *Service) zapisaneOznake(ctx context.Context, racunalo string) (map[string]bool, error) {
+	rows, err := s.db.QueryContext(ctx, `SELECT razlog FROM razmjena_odbijeno WHERE dan = ? AND vrsta = ? AND racunalo = ? AND razlog LIKE ?`,
+		time.Now().UTC().Format(time.DateOnly), VrstaDjelomicno, racunalo, RazlogOznaka+" %")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var r string
+		if rows.Scan(&r) == nil { // razlog je uvijek tekst
+			out[r] = true
+		}
+	}
+	return out, rows.Err()
 }
 
 // razlogKoda je razlog odbijenice u zapisu; nepoznat kod ostaje broj

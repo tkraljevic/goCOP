@@ -48,20 +48,20 @@ type naucena struct {
 	Uspjeh time.Time `json:"uspjeh"`
 }
 
-// nauci su jedina vrata za učenje adresa (noteSync). Odlazna veza nauči
+// nauci su jedina vrata za učenje adresa (noteSync), s adresom koju je
+// bilješka uzela od veze (izVeze, adresaZaUcenje). Odlazna veza nauči
 // adresu na koju je otišla. Dolazna samo tvrdi da je druga strana na adresi
 // s koje je veza stigla, pa ta adresa, s portom razmjene druge strane,
 // postaje tvrdnja koju razmjena nazove kad dođe na red.
-func (s *Service) nauci(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
-	adresa, ok := s.adresaZaUcenje(peer, c, o.dolazna)
-	if !ok {
+func (s *Service) nauci(ctx context.Context, peer *Peer, o syncOutcome) {
+	if o.ucenje == "" {
 		return
 	}
 	if o.dolazna {
-		s.dodajTvrdnju(peer.NodeID, kandidat{adresa: adresa, put: razmjena.PutAdresa})
+		s.dodajTvrdnju(peer.NodeID, kandidat{adresa: o.ucenje, put: razmjena.PutAdresa})
 		return
 	}
-	s.upisiNaucenu(ctx, peer.NodeID, adresa, time.Now())
+	s.upisiNaucenu(ctx, peer.NodeID, o.ucenje, time.Now())
 }
 
 // adresaZaUcenje je adresa druge strane koju veza smije naučiti (odlazna) ili

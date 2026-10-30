@@ -160,7 +160,9 @@ func (r *razgovorSCvorom) smijeKartu(ctx context.Context) *dijeloviKarte {
 // mojeZelje su otisci PDF-ova koje ovaj čvor traži, a iza njih dijelovi
 // karte koji mu nedostaju, do onoga što od ograde ostane
 func (r *razgovorSCvorom) mojeZelje(ctx context.Context) []string {
-	otisci, bajtova := r.s.zeljeniSBajtovima(ctx, r.myWants)
+	zelje, bajtova := r.s.zeljeniSBajtovima(ctx, r.myWants)
+	r.mojiSadrzaji = poOtisku(zelje)
+	otisci := otisciZelja(zelje)
 	if r.karta == nil {
 		return otisci
 	}

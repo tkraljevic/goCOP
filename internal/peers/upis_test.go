@@ -266,6 +266,9 @@ func TestZauzetUpisSadrzaja(t *testing.T) {
 	}
 	cekajDa(t, "dnevnik kaže da sadržaj nije upisan", func() bool { n, _ := dnevnik.broj(); return n == 1 })
 	ured.pustiBravu()
+	// bilješka prve razmjene čekala je bravu; da je ne uzme usred druge
+	// razmjene, koja bravu čeka samo kratko, pričeka se da završi
+	cekajBiljeske(t, ured)
 	if _, _, err := laptop.SyncWith(ctxRub, ured.node.ID); err != nil {
 		t.Fatal(err)
 	}

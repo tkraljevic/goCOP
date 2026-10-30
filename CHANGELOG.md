@@ -76,6 +76,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zna, i kad je članu članstvo već isteklo. Program opoziv provjerava i u
   knjizi primljenih zapisa, ne samo u popisu opoziva. U popis opoziva
   ulazi samo opoziv čija oznaka odgovara sadržaju i potpisu.
+- **Razgovor razmjene: ograde onoga što stiže s drugog računala.** Svaka
+  vrsta poruke ima svoju najveću veličinu, a verzija koja se ne bi dala
+  poslati dalje ne prima se. Od onoga što drugo računalo javi pamti se
+  najviše 32 oznake mogućnosti, kratak razlog odbijanja, kratko izdanje
+  programa i kratko ime računala. Sadržaj se prima samo kad ga je ovo
+  računalo tražilo.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

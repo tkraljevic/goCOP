@@ -342,7 +342,8 @@ Portovi se mijenjaju u `gocop.toml`.
   pješčaniku; u pregledniku se otvaraju samo PNG, JPEG, GIF i WebP.
 - **Ograničenja.** Obična stranica ima minutu za zahtjev i pet minuta za
   odgovor, uvozi i izvozi 30 minuta; tijelo zahtjeva je zadano do 2 MB, a
-  rute s datotekama imaju svoje granice. Poruka razmjene najviše 256 MiB,
+  rute s datotekama imaju svoje granice. Poruka razmjene ima granicu po
+  vrsti (sadržaj do 128 MiB, verzije do 64 MiB, ostale poruke manje),
   tunel razmjene najviše 32 veze i 2 po klijentu, rukovanje kroz tunel 5 s.
 - **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
   šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva

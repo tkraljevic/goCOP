@@ -255,6 +255,41 @@ type novosti struct {
 	javi func(Novost) // prvi put kad se pojavi, za dnevnik
 }
 
+// OstaliEntiteti je ime pod kojim se broje nepoznati entiteti čije ime nije
+// ime entiteta (ispravnoImeEntiteta) i nepoznati iznad najviseNovosti; samo
+// ime nije ime entiteta, pa se ne poklopi s pravim
+const OstaliEntiteti = "(ostali)"
+
+// najviseNovosti je koliko se nepoznatih entiteta pamti zasebno; poznati
+// novije sheme pamte se uvijek, njih ima koliko ih program zna
+const najviseNovosti = 256
+
+// ispravnoImeEntiteta: ime entiteta je od 1 do 64 mala slova, znamenke, _
+// ili -, kao imena tablica (dnevna_izvjesca, karta-dio)
+func ispravnoImeEntiteta(e string) bool {
+	if e == "" || len(e) > 64 {
+		return false
+	}
+	for _, c := range e {
+		if !strings.ContainsRune("abcdefghijklmnopqrstuvwxyz0123456789_-", c) {
+			return false
+		}
+	}
+	return true
+}
+
+// kljuc je ime pod kojim se novost pamti: nepoznat entitet neispravnog
+// imena ili iznad ograde ide pod OstaliEntiteti. Zove se pod n.mu.
+func (n *novosti) kljuc(entity string, nepoznat bool) string {
+	if !nepoznat {
+		return entity
+	}
+	if _, ima := n.po[entity]; ima || ispravnoImeEntiteta(entity) && len(n.po) < najviseNovosti {
+		return entity
+	}
+	return OstaliEntiteti
+}
+
 func (n *novosti) zabiljezi(entity string, shema, koliko int) {
 	lokalna := ShemaEntiteta(entity)
 	nepoznat := !poznatEntitet(entity)
@@ -265,6 +300,7 @@ func (n *novosti) zabiljezi(entity string, shema, koliko int) {
 	if n.po == nil {
 		n.po = map[string]*Novost{}
 	}
+	entity = n.kljuc(entity, nepoznat)
 	x, bilo := n.po[entity]
 	if !bilo {
 		x = &Novost{Entity: entity, Lokalna: lokalna, Nepoznat: nepoznat}

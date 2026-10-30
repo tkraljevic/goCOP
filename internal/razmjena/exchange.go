@@ -91,17 +91,30 @@ func (e prevelikaPoruka) Error() string {
 func (e prevelikaPoruka) Is(cilj error) bool { return cilj == ErrPorukaPrevelika }
 
 // ograniceniCitac broji bajtove jedne poruke i prekida kad prijeđe ogradu.
-// Ograda se postavi prije svakog čitanja poruke. Dekoder čita unaprijed:
-// bajtovi sljedeće poruke pročitani uz prethodnu broje se prethodnoj, pa
-// ograda nije točna na bajt (najviše dvostruka), ali nijedna poruka ne raste
-// bez granice.
+// Ograda se postavi prije svakog čitanja poruke. Dekoder čita unaprijed, pa
+// bajtove koje već drži (pocetakPoruke) poruka troši od svoje ograde
+// (postaviUz): tok QUIC-a jednim čitanjem preda sve što je stiglo, i
+// sljedeće poruke. Poruku koja je tako stigla cijela citac ne vidi, pa
+// PrimiDo nakon dekodiranja provjeri i njezinu duljinu.
 type ograniceniCitac struct {
 	r      io.Reader
 	ostalo int64
 	ograda int64
 }
 
-func (o *ograniceniCitac) postavi(n int64) { o.ostalo, o.ograda = n, n }
+func (o *ograniceniCitac) postavi(n int64) { o.postaviUz(n, 0) }
+
+// postaviUz postavi ogradu n za poruku čijih je vec bajtova već pročitano
+func (o *ograniceniCitac) postaviUz(n, vec int64) { o.ostalo, o.ograda = n-vec, n }
+
+// pocetakPoruke je koliko bajtova dekoder drži nakon zadnje dekodirane
+// poruke: početak sljedeće, a možda i više
+func pocetakPoruke(dec *json.Decoder) int64 {
+	// Buffered je bytes.Reader, koji se u io.Discard preda jednim pozivom,
+	// bez kopiranja
+	n, _ := io.Copy(io.Discard, dec.Buffered()) // čitanje iz memorije ne vraća grešku
+	return n
+}
 
 func (o *ograniceniCitac) Read(p []byte) (int, error) {
 	if o.ostalo <= 0 {
@@ -203,12 +216,25 @@ func (c *Conn) Send(e Envelope) error {
 	return c.enc.Encode(e)
 }
 
-func (c *Conn) Receive() (Envelope, error) {
-	_ = c.raw.SetReadDeadline(time.Now().Add(120 * time.Second))
-	c.citac.postavi(c.najvise)
+func (c *Conn) Receive() (Envelope, error) { return c.PrimiDo(c.najvise) }
+
+// PrimiDo prima sljedeću poruku, najviše najvise bajtova (ograniceniCitac).
+// Razgovor zna koju poruku čeka, pa svakoj vrsti zada svoju ogradu; ograda
+// veća od NajvecaPoruka ne vrijedi.
+func (c *Conn) PrimiDo(najvise int64) (Envelope, error) {
+	_ = c.raw.SetReadDeadline(time.Now().Add(120 * time.Second)) // zatvorena veza javi grešku već pri čitanju
+	najvise = min(najvise, NajvecaPoruka)
+	pocetak := c.dec.InputOffset()
+	c.citac.postaviUz(najvise, pocetakPoruke(c.dec))
 	var e Envelope
-	err := c.dec.Decode(&e)
-	return e, err
+	if err := c.dec.Decode(&e); err != nil {
+		return e, err
+	}
+	if c.dec.InputOffset()-pocetak > najvise {
+		// poruka je stigla cijela uz prethodnu, pa je citac nije brojao
+		return Envelope{}, prevelikaPoruka{najvise}
+	}
+	return e, nil
 }
 
 func (c *Conn) Close() error { return c.raw.Close() }

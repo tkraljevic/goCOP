@@ -76,6 +76,9 @@ type syncOutcome struct {
 	// dolazna: razmjenu je započeo drugi čvor, pa je njegova adresa veze
 	// samo tvrdnja s prolaznim portom (nauci)
 	dolazna bool
+	// ucenje je adresa koju veza smije naučiti ili predložiti (izVeze);
+	// prazno kad ne smije
+	ucenje string
 	// put veze, je li adresa druge strane privatna, RTT i bajtovi (uzVezu)
 	// i razlog zašto razmjena nije išla boljim putem (SyncWith)
 	put                razmjena.Put
@@ -86,10 +89,13 @@ type syncOutcome struct {
 }
 
 // ishodRazmjene slaže bilješku iz onoga što je exchange vratio; inačica
-// programa vrijedi i kad je razgovor pukao nakon što je granica stigla
+// programa vrijedi i kad je razgovor pukao nakon što je granica stigla. Od
+// onoga što je druga strana javila ostaje samo ograđeno: izdanje i gradnja
+// skraćeni, očišćeno znanje i granica koja nije prevelika.
 func ishodRazmjene(applied, sent int, theirs frontierMsg, took time.Duration, err error) syncOutcome {
-	return syncOutcome{applied: applied, sent: sent, frontier: theirs.Frontier,
-		program: theirs.Program, gradnja: theirs.Gradnja, tailscale: theirs.tailscale, znanje: theirs.Znanje, took: took, err: err}
+	return syncOutcome{applied: applied, sent: sent, frontier: granicaZaPamcenje(theirs.Frontier),
+		program: skrati(theirs.Program, najduljiProgram), gradnja: skrati(theirs.Gradnja, najduljiProgram),
+		tailscale: theirs.tailscale, znanje: theirs.Znanje.Ocisceno(), took: took, err: err}
 }
 
 // recordSyncState upisuje ishod razmjene u lokalno stanje

@@ -39,6 +39,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
+	"gocop/internal/sadrzaj"
 )
 
 // razgovorSCvorom je stanje jednog razgovora i živi samo dok exchange traje.
@@ -84,6 +85,9 @@ type razgovorSCvorom struct {
 	njihoveRupe, njihovaPopuna map[string]raspon
 	bacio                      map[string]baceno
 	preskoceni                 map[string]string
+	// mojiSadrzaji su sadržaji (ne dijelovi karte) koje je ovaj razgovor
+	// zatražio, po otisku; prima se samo od njih (trazeniSadrzaji)
+	mojiSadrzaji map[string]sadrzaj.Zelja
 	// dijelovi karte (karta_razgovor.go): karta je prijenos karte kad ga
 	// ovaj razgovor smije voditi (nil: ne smije), mojiDijelovi dijelovi koje
 	// je ovaj čvor zatražio, a brojači koliko ih je poslano i upisano
@@ -179,8 +183,14 @@ func (r *razgovorSCvorom) posalji(kind string, v any) error {
 
 // ocekuj primi sljedeću poruku i dekodira je u v. Druga vrsta poruke je
 // greška; odbijenica tada nosi razlog i kod druge strane (neocekivanaPoruka).
+// Poruka veća od ograde svoje vrste (ogradaPoruke) prekida razgovor.
 func (r *razgovorSCvorom) ocekuj(kind string, v any) error {
-	e, err := r.c.Receive()
+	return r.ocekujDo(kind, ogradaPoruke(kind), v)
+}
+
+// ocekujDo je ocekuj s ogradom koju zada razgovor
+func (r *razgovorSCvorom) ocekujDo(kind string, najvise int64, v any) error {
+	e, err := r.c.PrimiDo(najvise)
 	if err != nil {
 		return err
 	}
@@ -309,6 +319,8 @@ func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Ve
 // (Accept). Odabire se prije upisa, jer razgovor bez ičega za upis ne čeka
 // bravu. Što odbije Accept, zapamti se za granicu odbijenih (odbaci); što
 // otpadne na pretplatama, ne: kanal koji se počne pratiti mora dobiti sve.
+// Prevelika verzija (prevelikaVerzija) ide kao i odbijena: ovaj čvor je ne
+// bi mogao poslati dalje.
 func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) []ledger.Version {
 	myFilter := r.s.wantsFunc(ctx, &r.myWants)
 	wanted := make([]ledger.Version, 0, len(stiglo))
@@ -316,7 +328,7 @@ func (r *razgovorSCvorom) zaUpis(ctx context.Context, stiglo []ledger.Version) [
 		if myFilter != nil && !myFilter(v.Channel) {
 			continue
 		}
-		if r.s.accept != nil && !r.s.accept(v) {
+		if r.s.accept != nil && !r.s.accept(v) || prevelikaVerzija(v) {
 			r.odbaci(v)
 			continue
 		}
@@ -372,7 +384,7 @@ func (r *razgovorSCvorom) zelje(ctx context.Context) (zeljeMsg, bool, error) {
 // krajem i razgovor je uspješno gotov; na tome stoji TestZauzetUpisPozivatelja.
 func (r *razgovorSCvorom) zeljeIliKraj() (zeljeMsg, bool, error) {
 	var njihove zeljeMsg
-	e, err := r.c.Receive()
+	e, err := r.c.PrimiDo(ogradaPoruke(kindZelje))
 	if err != nil {
 		return njihove, false, err
 	}
@@ -407,17 +419,28 @@ func (r *razgovorSCvorom) sadrzaj(ctx context.Context, njihove zeljeMsg) error {
 
 // primiNjihovSadrzaj prima sadržaj druge strane i upiše ga kad brava stigne
 // na vrijeme; što nije upisano, ostaje među željama i traži se sljedećom
-// razmjenom. Dijelovi karte idu ravno u djelomičnu datoteku karte, bez
-// brave upisa i nikad u spremište (karta_razgovor.go).
+// razmjenom. Upisuje se samo ono što je ovaj razgovor tražio
+// (trazeniSadrzaji). Dijelovi karte idu ravno u djelomičnu datoteku karte,
+// bez brave upisa i nikad u spremište (karta_razgovor.go).
 func (r *razgovorSCvorom) primiNjihovSadrzaj(ctx context.Context) error {
 	var stigao sadrzajMsg
-	if err := r.ocekuj(kindSadrzaj, &stigao); err != nil {
+	if err := r.ocekujDo(kindSadrzaj, r.ogradaSadrzaja(), &stigao); err != nil {
 		return err
 	}
 	dijelovi, ostalo := razdvojiPrimljeno(stigao.Stavke)
-	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), ostalo)
+	r.s.primiSadrzajAkoStigne(ctx, razmjena.PublicKeyString(r.c.PeerKey), r.trazeniSadrzaji(ostalo))
 	r.upisiDijelove(dijelovi)
 	return nil
+}
+
+// ogradaSadrzaja je najveća poruka sadržaja koju razgovor prima: kad ovaj
+// čvor nije tražio ništa, druga strana šalje prazan popis (sadrzajZa šalje
+// samo traženo, i u starijim izdanjima), pa stiže samo kratka poruka
+func (r *razgovorSCvorom) ogradaSadrzaja() int64 {
+	if len(r.mojiSadrzaji) == 0 && len(r.mojiDijelovi) == 0 {
+		return ogradaPoruke(kindDone)
+	}
+	return ogradaPoruke(kindSadrzaj)
 }
 
 // kraj: obje strane potvrde koliko su upisale. Pozivatelju je neuspjelo

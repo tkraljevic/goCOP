@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"time"
+	"unicode/utf8"
 
 	"gocop/internal/ledger"
 	"gocop/internal/razmjena"
@@ -37,7 +38,7 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
 		return err
 	}
-	addrs, _ := json.Marshal(p.Addresses)
+	addrs, _ := json.Marshal(ograniciAdrese(p.Addresses)) // popis tekstova uvijek se da zapisati
 	// bilješke o zadnjoj sinkronizaciji opisuju odnos dva čvora, ne čvor —
 	// ne prepisuju se tuđima.
 	// Ključ se upisuje kakav je u zapisu, i kad mijenja ključ poznatog
@@ -53,8 +54,39 @@ func primijeniCvor(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 		ON CONFLICT(node_id) DO UPDATE SET
 			name = excluded.name, public_key = excluded.public_key, addresses = excluded.addresses,
 			is_bootstrap = excluded.is_bootstrap
-	`, p.NodeID, p.Name, p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
+	`, p.NodeID, skratiTekst(p.Name, najduljeImeCvora), p.PublicKey, string(addrs), boolToInt(p.IsBootstrap), nullTime(p.LastSeen), p.CreatedAt.UTC())
 	return err
+}
+
+// Zapis čvora piše i šalje bilo koji član, a ime i adrese čitaju svaki krug
+// razmjene, dnevnik i popis računala, pa ih primjena ograđuje
+const (
+	najduljeImeCvora    = 128
+	najviseAdresaCvora  = 16
+	najduljaAdresaCvora = 256
+)
+
+// ograniciAdrese su prve najviseAdresaCvora adrese zapisa čvora koje nisu
+// dulje od najduljaAdresaCvora
+func ograniciAdrese(adrese []string) []string {
+	out := adrese[:0:0] // prazan popis ostaje prazan, a ne null
+	for _, a := range adrese {
+		if len(out) < najviseAdresaCvora && len(a) <= najduljaAdresaCvora {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// skratiTekst je najviše n bajtova teksta, rezano na granici znaka
+func skratiTekst(tekst string, n int) string {
+	if len(tekst) <= n {
+		return tekst
+	}
+	for n > 0 && !utf8.RuneStart(tekst[n]) {
+		n--
+	}
+	return tekst[:n]
 }
 
 // primijeniClanstvo stavlja primljeno članstvo čvora u mreži na površinu

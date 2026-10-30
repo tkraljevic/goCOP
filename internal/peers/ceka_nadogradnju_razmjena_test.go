@@ -61,7 +61,7 @@ func cekaKodDrugog(t *testing.T, pozivatelj, pozvani *Service) SyncState {
 	if err != nil || peer == nil {
 		t.Fatalf("%s ne zna za %s: %v", pozivatelj.node.ID, pozvani.node.ID, err)
 	}
-	pozivatelj.noteSync(ctxRub, peer, nil, ishodRazmjene(p.applied, p.sent, p.theirs, 0, nil))
+	pozivatelj.noteSync(ctxRub, peer, ishodRazmjene(p.applied, p.sent, p.theirs, 0, nil))
 	st, err := pozivatelj.Status(ctxRub, false)
 	if err != nil {
 		t.Fatal(err)

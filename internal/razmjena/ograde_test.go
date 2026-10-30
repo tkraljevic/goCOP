@@ -1,6 +1,7 @@
 package razmjena
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/tls"
@@ -73,6 +74,54 @@ func TestPorukaVecaOdOgradeSeOdbija(t *testing.T) {
 			if !errors.Is(err, ErrPorukaPrevelika) || !strings.Contains(err.Error(), "poruka razmjene veća od 4 KiB") {
 				t.Fatalf("prevelika poruka: %v", err)
 			}
+		}
+	}
+}
+
+// Ograda zadana pri primanju vrijedi samo za tu poruku: manja odbije
+// poruku koju bi zadana pustila, a sljedeća poruka opet ima zadanu ogradu
+func TestOgradaPoPoruci(t *testing.T) {
+	posluzitelj, klijent := newKey(t), newKey(t)
+	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
+	defer otkazi()
+	greske := make(chan error, 3)
+	adresa := slusalica(t, ctx, posluzitelj, novaOgrada(4, 4, time.Second), func(ed25519.PublicKey, []byte) bool { return true }, func(c *Conn) {
+		defer c.Close()
+		c.najvise = 64 << 10
+		for _, najvise := range []int64{4 << 10, 0, 4 << 10} {
+			var err error
+			if najvise == 0 {
+				_, err = c.Receive()
+			} else {
+				_, err = c.PrimiDo(najvise)
+			}
+			greske <- err
+			if err != nil {
+				return
+			}
+		}
+	})
+	c, err := DialExchange(ctx, klijent, "testproto", nil, adresa, posluzitelj.Public().(ed25519.PublicKey))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	for _, n := range []int{3000, 20000, 20000} {
+		e, err := NewEnvelope("delta", strings.Repeat("a", n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := c.Send(e); err != nil {
+			break
+		}
+	}
+	for i, ocekujeGresku := range []bool{false, false, true} {
+		err := <-greske
+		if ocekujeGresku != (err != nil) {
+			t.Fatalf("poruka %d: greška %v", i+1, err)
+		}
+		if ocekujeGresku && (!errors.Is(err, ErrPorukaPrevelika) || !strings.Contains(err.Error(), "poruka razmjene veća od 4 KiB")) {
+			t.Fatalf("prevelika poruka: %v", err)
 		}
 	}
 }
@@ -328,5 +377,47 @@ func TestZatvorenTunelZatvaraVeze(t *testing.T) {
 		}
 		ws.Close()
 		srv.Close()
+	}
+}
+
+// tokOdjednom je prijenos koji jednim čitanjem preda sve što stane, kao tok
+// QUIC-a kad je stiglo više poruka
+type tokOdjednom struct{ *bytes.Reader }
+
+func (tokOdjednom) Write(p []byte) (int, error)      { return len(p), nil }
+func (tokOdjednom) Close() error                     { return nil }
+func (tokOdjednom) SetReadDeadline(time.Time) error  { return nil }
+func (tokOdjednom) SetWriteDeadline(time.Time) error { return nil }
+func (tokOdjednom) LocalAddr() net.Addr              { return &net.TCPAddr{} }
+func (tokOdjednom) RemoteAddr() net.Addr             { return &net.TCPAddr{} }
+
+// Bajtove sljedeće poruke koje je dekoder pročitao uz veliku poruku
+// sljedeća poruka troši od svoje ograde: poruka veća od svoje ograde ne
+// prolazi ni kad je cijela već pročitana, a manje poruke iza velike
+// prolaze kao i prije
+func TestOgradaBrojiProcitanoUnaprijed(t *testing.T) {
+	var tok bytes.Buffer
+	enc := json.NewEncoder(&tok)
+	for _, n := range []int{200 << 10, 10 << 10, 20 << 10, 1 << 10} {
+		e, err := NewEnvelope("delta", strings.Repeat("a", n))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := enc.Encode(e); err != nil {
+			t.Fatal(err)
+		}
+	}
+	c := newConnKljuc(tokOdjednom{bytes.NewReader(tok.Bytes())}, nil, nil)
+	for i, slucaj := range []struct {
+		najvise int64
+		prolazi bool
+	}{{1 << 20, true}, {16 << 10, true}, {4 << 10, false}} {
+		_, err := c.PrimiDo(slucaj.najvise)
+		if slucaj.prolazi != (err == nil) {
+			t.Fatalf("poruka %d uz ogradu %d: %v", i+1, slucaj.najvise, err)
+		}
+		if !slucaj.prolazi && !errors.Is(err, ErrPorukaPrevelika) {
+			t.Fatalf("poruka %d: %v", i+1, err)
+		}
 	}
 }

@@ -210,7 +210,7 @@ func TestNoteSyncBezNoveVerzije(t *testing.T) {
 	} {
 		c := vezaIzMreze(t, s, kljuc, "192.168.24.92", sl.udaljena)
 		c.Put = sl.put
-		s.noteSync(ctxRub, peer, c, syncOutcome{applied: i, sent: 1})
+		s.noteSync(ctxRub, peer, s.izVeze(peer, c, syncOutcome{applied: i, sent: 1}))
 		if n := verzijeZapisaCvorova(t, s); n != verzija {
 			t.Errorf("%s: %d novih verzija zapisa čvora", sl.ime, n-verzija)
 		}
@@ -241,16 +241,16 @@ func TestNoteSyncNeVracaObrisanZapis(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	s.noteSync(ctxRub, peer, nil, syncOutcome{err: fmt.Errorf("veza prekinuta")})
+	s.noteSync(ctxRub, peer, syncOutcome{err: fmt.Errorf("veza prekinuta")})
 	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); err != nil || p == nil || p.LastSyncNote != "greška: veza prekinuta" || p.LastSync != nil || p.LastSeen == nil {
 		t.Fatalf("bilješka bez ijedne uspješne razmjene: %+v %v", p, err)
 	}
-	s.noteSync(ctxRub, peer, nil, syncOutcome{applied: 3, sent: 2})
+	s.noteSync(ctxRub, peer, syncOutcome{applied: 3, sent: 2})
 	uspjela, err := s.GetPeer(ctxRub, "ured-vukovar")
 	if err != nil || uspjela == nil || uspjela.LastSync == nil || uspjela.LastSyncNote != "primljeno 3, poslano 2" {
 		t.Fatalf("bilješka o uspješnoj razmjeni: %+v %v", uspjela, err)
 	}
-	s.noteSync(ctxRub, peer, nil, syncOutcome{err: fmt.Errorf("veza prekinuta")})
+	s.noteSync(ctxRub, peer, syncOutcome{err: fmt.Errorf("veza prekinuta")})
 	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); err != nil || p == nil || p.LastSyncNote != "greška: veza prekinuta" || p.LastSync == nil || !p.LastSync.Equal(*uspjela.LastSync) {
 		t.Fatalf("bilješka o grešci nakon uspješne razmjene: %+v %v", p, err)
 	}
@@ -258,7 +258,7 @@ func TestNoteSyncNeVracaObrisanZapis(t *testing.T) {
 	if _, err := s.db.Exec(`DELETE FROM peers WHERE node_id = 'ured-vukovar'`); err != nil {
 		t.Fatal(err)
 	}
-	s.noteSync(ctxRub, peer, nil, syncOutcome{applied: 1})
+	s.noteSync(ctxRub, peer, syncOutcome{applied: 1})
 	if p, err := s.GetPeer(ctxRub, "ured-vukovar"); p != nil || err != nil {
 		t.Errorf("bilješka je vratila obrisan zapis: %+v %v", p, err)
 	}

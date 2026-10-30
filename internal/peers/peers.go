@@ -187,8 +187,10 @@ type Service struct {
 
 	// izdanje programa i puna oznaka gradnje, za razmjenu (PostaviProgram)
 	program, gradnja string
-	// čvorovi čija je drukčija inačica programa već zapisana u dnevnik
+	// zadnja drukčija inačica programa zapisana u dnevnik, po čvoru
 	javljenaInacica sync.Map
+	// bilješke dolaznih razmjena koje čekaju bravu upisa (zabiljeziKasnije)
+	biljeske biljeskeNaCekanju
 	// zapisi čvorova čiji je ključ drukčiji od članstva već zapisani u
 	// dnevnik (javiDrugiKljuc)
 	javljenKljuc sync.Map
@@ -1060,8 +1062,7 @@ func (s *Service) primiRazmjenu(ctx context.Context, c *razmjena.Conn) {
 	}
 	o := ishodRazmjene(applied, sent, theirs, time.Since(started), err)
 	o.dolazna = true
-	// bilješka čeka bravu upisa, a mjesto razmjene treba sljedećem
-	go s.zabiljezi(ctx, peer, c, o)
+	s.zabiljeziKasnije(ctx, peer, c, o)
 }
 
 // praznaVeza: pozivatelj je zatvorio vezu prije nego što je poslao svoju
@@ -1329,8 +1330,9 @@ func (s *Service) otvori(ctx context.Context, adresa string) (net.Conn, error) {
 }
 
 // najviseBajtovaDelte ograđuje jednu poruku delte (verzije kao JSON).
-// Primatelj od 0.0.25 odbija poruku veću od razmjena.NajvecaPoruka, a
-// stariji čvor nema ograde, pa ovo čuva i njegovu memoriju.
+// Primatelj od 0.0.25 odbija poruku veću od razmjena.NajvecaPoruka, a od
+// 0.0.47 deltu veću od dvostruke ove ograde (ogradaPoruke); stariji čvor
+// nema ograde, pa ovo čuva i njegovu memoriju.
 var najviseBajtovaDelte = 32 << 20
 
 // ogradiDeltu reže deltu kad bi poruka prešla najvise bajtova; ostatak ide
@@ -1428,13 +1430,17 @@ func krajKljuca(delta []ledger.Version, i int) int {
 
 // Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje); uz to
 // razlozi iz ledger.Neispravnost
-var errNijeJSON = errors.New("nije ispravan JSON")
+var (
+	errNijeJSON  = errors.New("nije ispravan JSON")
+	errPrevelika = errors.New("je veća od najveće verzije koju razmjena prenosi")
+)
 
 // zaSlanje je verzija zapisana kao JSON, ili greška kad je neispravna: kad
 // je knjiga primatelja ne prima (ledger.ProvjeriPrimljenu: bez oznake,
-// oznaka krivog oblika ili s vremenom predaleko ispred sata ovog računala)
-// ili se ne da zapisati kao JSON. Bez provjere oznake takvu bi verziju čvor
-// slao svakom razmjenom: primatelj je preskoči, pa mu se granica ne
+// oznaka krivog oblika ili s vremenom predaleko ispred sata ovog računala),
+// kad se ne da zapisati kao JSON ili kad je veća od najvecaVerzija
+// (primatelj je ne bi primio ni samu). Bez provjere oznake takvu bi verziju
+// čvor slao svakom razmjenom: primatelj je preskoči, pa mu se granica ne
 // pomakne. Verzija s vremenom ispred sata ide kad joj vrijeme dođe.
 func zaSlanje(v ledger.Version) ([]byte, error) {
 	if err := ledger.ProvjeriPrimljenu(v, "", ledger.Sada()); err != nil {
@@ -1443,6 +1449,9 @@ func zaSlanje(v ledger.Version) ([]byte, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, errNijeJSON
+	}
+	if len(b) > najvecaVerzija {
+		return nil, errPrevelika
 	}
 	return b, nil
 }
@@ -1507,8 +1516,10 @@ func pomakniGranicu(granica map[string]string, poslano []ledger.Version) map[str
 // vraća 0 upisanih i 0 poslanih, iako je delta možda već otišla. theirs je
 // granica druge strane kakvu razgovor dotad ima; nakon delti je pomaknuta
 // za poslano i neispravno i nosi Tailscale adrese iz njezine delte.
-// Bilješka o razmjeni zato i kod greške pamti izdanje druge strane.
+// Bilješka o razmjeni zato i kod greške pamti izdanje druge strane. Predug
+// tekst greške se skraćuje (ograniciGresku).
 func (s *Service) exchange(ctx context.Context, c *razmjena.Conn, initiator bool) (applied, sent int, theirs frontierMsg, err error) {
+	defer func() { err = ograniciGresku(err) }()
 	r, err := s.zapocniRazgovor(ctx, c, initiator)
 	if err != nil {
 		return 0, 0, frontierMsg{}, err
@@ -1543,7 +1554,7 @@ func (s *Service) Accept(fn func(ledger.Version) bool) {
 // bilješka uz zapis čvora (zapisiBiljesku). Zato razmjena ne stvara novu
 // verziju zapisa čvora. Bilješka ide zadnja: kad je ona upisana, upisano je
 // i sve ostalo.
-func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o syncOutcome) {
+func (s *Service) noteSync(ctx context.Context, peer *Peer, o syncOutcome) {
 	if peer == nil {
 		return
 	}
@@ -1553,18 +1564,40 @@ func (s *Service) noteSync(ctx context.Context, peer *Peer, c *razmjena.Conn, o 
 	s.zabiljeziIshod(ctx, peer, o)
 	s.obnovaUzRazmjenu(ctx, o)
 	s.javiDrugiProgram(peer, o)
-	s.nauci(ctx, peer, c, o)
+	s.nauci(ctx, peer, o)
 	s.zapisiBiljesku(ctx, peer.NodeID, o)
 }
 
-// javiDrugiProgram zapisuje u dnevnik, jednom po čvoru i izdanju, kad drugi
-// čvor radi na drugom izdanju programa
+// javiDrugiProgram zapisuje u dnevnik kad drugi čvor radi na drugom
+// izdanju programa, jednom dok mu se izdanje ne promijeni i najviše jednom
+// u razmakJavljanjaIzdanja. Pamti se samo zadnje javljeno izdanje po čvoru.
 func (s *Service) javiDrugiProgram(peer *Peer, o syncOutcome) {
-	if mojProgram, mojaGradnja := s.Program(); o.program != "" && mojProgram != "" && o.program != mojProgram {
-		if _, vec := s.javljenaInacica.LoadOrStore(peer.NodeID+"\x00"+o.program, true); !vec {
-			log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
-		}
+	mojProgram, mojaGradnja := s.Program()
+	if o.program == "" || mojProgram == "" || o.program == mojProgram {
+		return
 	}
+	sada := time.Now()
+	prije, vec := s.javljenaInacica.Load(peer.NodeID)
+	if j, _ := prije.(javljenoIzdanje); vec && !j.zastarjelo(o.program, sada) { // u mapi je samo javljenoIzdanje
+		return
+	}
+	s.javljenaInacica.Store(peer.NodeID, javljenoIzdanje{program: o.program, kad: sada})
+	log.Printf("razmjena: čvor %s radi na %s, ovaj na %s", label(*peer), cmp.Or(o.gradnja, o.program), cmp.Or(mojaGradnja, mojProgram))
+}
+
+// razmakJavljanjaIzdanja je najkraći razmak dva retka dnevnika o izdanju
+// istog čvora
+const razmakJavljanjaIzdanja = time.Hour
+
+// javljenoIzdanje je izdanje drugog čvora zadnji put zapisano u dnevnik
+type javljenoIzdanje struct {
+	program string
+	kad     time.Time
+}
+
+// zastarjelo: izdanje se promijenilo, a od zadnjeg retka je prošlo dovoljno
+func (j javljenoIzdanje) zastarjelo(program string, sada time.Time) bool {
+	return program != j.program && sada.Sub(j.kad) >= razmakJavljanjaIzdanja
 }
 
 // zapisiBiljesku zapisuje uz zapis čvora kad je zadnji put viđen i
