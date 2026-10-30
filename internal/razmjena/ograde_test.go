@@ -30,7 +30,7 @@ func slusalica(t *testing.T, ctx context.Context, kljuc ed25519.PrivateKey, o *O
 		t.Fatal(err)
 	}
 	go func() {
-		_ = serveTLS(ctx, tls.NewListener(ln, cfg), "testproto", trusted, handle, o) // staje s ctx testa, a slušalicu koja padne provjerava TestSlusalicaRazmjeneKadPadneIliJePuna
+		_ = serveTLS(ctx, ln, cfg, "testproto", trusted, handle, o) // staje s ctx testa, a slušalicu koja padne provjerava TestSlusalicaRazmjeneKadPadneIliJePuna
 	}()
 	return ln.Addr().String()
 }
@@ -186,7 +186,8 @@ func TestZauzetCvorOdbijaRazmjenuSRazlogom(t *testing.T) {
 }
 
 // Veza koja ne dovrši TLS drži mjesto za rukovanje najviše rok ograde:
-// poslužitelj je zatvori, a poznati čvor koji je čekao red prolazi.
+// poslužitelj je zatvori. Dok je drži, poznati čvor koji je već razmijenio
+// s te adrese dobije mjesto u pričuvi i odmah prolazi.
 func TestRukovanjeImaRokIOgraduMjesta(t *testing.T) {
 	posluzitelj, klijent := newKey(t), newKey(t)
 	ctx, otkazi := context.WithTimeout(context.Background(), 10*time.Second)
@@ -199,26 +200,29 @@ func TestRukovanjeImaRokIOgraduMjesta(t *testing.T) {
 		odg, _ := NewEnvelope("ok", nil)
 		c.Send(odg)
 	})
-	sutljivi, err := net.Dial("tcp", adresa)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer sutljivi.Close()
-
-	// poznati čvor čeka da šutljivi istekne pa prolazi
-	gotov := make(chan error, 1)
-	go func() {
+	razmijeni := func() error {
 		c, err := DialExchange(ctx, klijent, "testproto", nil, adresa, posluzitelj.Public().(ed25519.PublicKey))
 		if err != nil {
-			gotov <- err
-			return
+			return err
 		}
 		defer c.Close()
 		e, _ := NewEnvelope("frontier", nil)
 		c.Send(e)
 		_, err = c.Receive()
-		gotov <- err
-	}()
+		return err
+	}
+	if err := razmijeni(); err != nil {
+		t.Fatalf("razmjena prije šutljive veze: %v", err)
+	}
+	sutljivi, err := net.Dial("tcp", adresa)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer sutljivi.Close()
+	time.Sleep(50 * time.Millisecond) // šutljivi zauzme jedino mjesto
+
+	gotov := make(chan error, 1)
+	go func() { gotov <- razmijeni() }()
 
 	_ = sutljivi.SetReadDeadline(time.Now().Add(3 * time.Second))
 	pocetak := time.Now()
@@ -233,10 +237,10 @@ func TestRukovanjeImaRokIOgraduMjesta(t *testing.T) {
 	select {
 	case err := <-gotov:
 		if err != nil {
-			t.Fatalf("poznati čvor nije prošao nakon isteka šutljivog: %v", err)
+			t.Fatalf("poznati čvor nije prošao uz šutljivog: %v", err)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("poznati čvor nije dočekao mjesto za rukovanje")
+		t.Fatal("poznati čvor nije dobio mjesto za rukovanje")
 	}
 }
 
@@ -333,15 +337,16 @@ func TestTunelBezRazmjeneZatvaraVezu(t *testing.T) {
 }
 
 // Tunel ima svoja rukovanja (kraći rok, ne zauzima mjesta porta), a
-// razmjene dijeli s portom
+// razmjene dijeli s portom. Rukovanja ima koliko web ograda tunela pušta
+// veza prije dokaza ključa (32).
 func TestOgradaTunelaDijeliRazmjeneSPortom(t *testing.T) {
 	port := NovaOgrada()
 	tunel := NovaOgradaTunela(port)
 	if tunel.razmjene != port.razmjene {
 		t.Error("tunel i port moraju dijeliti granicu razmjena")
 	}
-	if tunel.rukovanja == port.rukovanja || cap(tunel.rukovanja) >= cap(port.rukovanja) {
-		t.Error("tunel ima svoja, manja rukovanja")
+	if tunel.rukovanja == port.rukovanja || cap(tunel.rukovanja) != najviseRukovanja {
+		t.Errorf("tunel ima svojih %d rukovanja, a ne %d", cap(tunel.rukovanja), najviseRukovanja)
 	}
 	if tunel.rok >= port.rok {
 		t.Errorf("rok rukovanja kroz tunel %v nije kraći od porta %v", tunel.rok, port.rok)

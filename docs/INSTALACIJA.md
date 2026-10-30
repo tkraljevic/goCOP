@@ -343,8 +343,14 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Ograničenja.** Obična stranica ima minutu za zahtjev i pet minuta za
   odgovor, uvozi i izvozi 30 minuta; tijelo zahtjeva je zadano do 2 MB, a
   rute s datotekama imaju svoje granice. Poruka razmjene ima granicu po
-  vrsti (sadržaj do 128 MiB, verzije do 64 MiB, ostale poruke manje),
-  tunel razmjene najviše 32 veze i 2 po klijentu, rukovanje kroz tunel 5 s.
+  vrsti (sadržaj do 128 MiB, verzije do 64 MiB, ostale poruke manje).
+  Dok se računalo ne predstavi ključem čvora, port razmjene i tunel broje
+  veze po adresi s koje dolaze, a veza koja ne započne rukovanje u 2 s (kroz
+  tunel 3 s) zatvara se. Računalo koje je dokazalo ključ ima svoja mjesta, a
+  adresa s koje se član spojio u zadnja 24 sata ulazi i kad su ostala mjesta
+  puna. Posrednik pred portom razmjene (npr. Dockerov `userland-proxy` ili
+  nginx `stream`) mora čuvati izvornu adresu; inače sva računala dolaze s
+  jedne adrese i dijele ista mjesta.
 - **Uparivanje računala** traži čovjeka na oba ekrana: oba pokažu isti
   šesteroznamenkasti kod i oba ga potvrde. Bez toga drugo računalo ne dobiva
   ni bajt. Kod se dogovara s obvezom unaprijed (strana koja zove obveže se

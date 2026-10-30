@@ -82,6 +82,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   najviše 32 oznake mogućnosti, kratak razlog odbijanja, kratko izdanje
   programa i kratko ime računala. Sadržaj se prima samo kad ga je ovo
   računalo tražilo.
+- **Vrata razmjene i tunel: mjesta po adresi i rok rukovanja.** Na portu
+  razmjene i kroz tunel veze se ograđuju po adresi, a veza koja ne započne
+  rukovanje u 2 s (kroz tunel 3 s) zatvara se.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

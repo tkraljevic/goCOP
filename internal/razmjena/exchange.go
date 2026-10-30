@@ -11,6 +11,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"net/netip"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -265,17 +266,18 @@ func ServeExchange(ctx context.Context, priv ed25519.PrivateKey, protocol string
 	if err != nil {
 		return err
 	}
-	ln, err := tls.Listen("tcp", fmt.Sprintf(":%d", port), cfg)
+	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, ln, protocol, trusted, handle, ogradaIz(o))
+	return serveTLS(ctx, ln, cfg, protocol, trusted, handle, ogradaIz(o))
 }
 
 // Ograde primanja. Rukovanje (TLS prije nego što se zna tko je s druge
 // strane) jedino je što stranac smije potrošiti, pa ih teče najviše 32
-// odjednom i svako traje najviše 15 s (TLS 1.3 je u lokalnoj mreži gotov
-// ispod sekunde, kroz Cloudflare u nekoliko obilazaka). Razmjena s poznatim
+// odjednom, najviše četiri s jedne adrese i osam s jedne mreže
+// (vrata_adrese.go), i svako traje najviše 15 s (TLS 1.3 je u lokalnoj mreži gotov ispod sekunde, kroz
+// Cloudflare u nekoliko obilazaka). Razmjena s poznatim
 // čvorom drži u memoriji oko tri veličine poruke, a na istom računalu rade i
 // prognoze, pa ih teče najviše četiri; peta dobije odbijenicu koju i stariji
 // čvor ispiše ("čvor odbio razmjenu: …") i pokuša opet sljedećim krugom.
@@ -296,9 +298,17 @@ const VrstaOdbijeno = "odbijeno"
 // razmjene, a rukovanja imaju svoja (NovaOgradaTunela).
 type Ograda struct {
 	rukovanja chan struct{}
+	pricuva   chan struct{} // rukovanja za poznate adrese kad su ostala zauzeta
 	razmjene  chan struct{}
 	rok       time.Duration
+	prvi      time.Duration // rok do kraja prve poruke rukovanja (ClientHello)
 	odbijeno  func(RazlogVrata, ed25519.PublicKey)
+	javlja    atomic.Bool // odbijanje na ulazu se upravo zapisuje
+
+	mu       sync.Mutex
+	poAdresi map[netip.Addr]int
+	poMrezi  map[netip.Addr]int
+	poznate  *PoznateAdrese
 }
 
 // RazlogVrata je zašto vrata razmjene nisu pustila vezu (G7 u planu WEB
@@ -336,11 +346,14 @@ func NovaOgrada() *Ograda { return novaOgrada(najviseRukovanja, najviseRazmjena,
 // NovaOgradaTunela je zasebna ograda tunela: kroz njega dolazi bilo tko s
 // interneta, pa njegova nedovršena rukovanja ne smiju zauzeti mjesta porta
 // razmjene u lokalnoj mreži, a rukovanje kroz Cloudflare traje djelić
-// sekunde, pa onaj tko šuti gubi mjesto nakon 5 s. Razmjene dijeli s
-// ogradom porta: koliko razmjena čvor nosi odjednom ne ovisi o tome kojim su
-// vratima došle.
+// sekunde, pa onaj tko šuti gubi mjesto nakon 5 s (bez prve poruke
+// rukovanja nakon 3 s). Mjesta ima koliko web
+// ograda tunela pušta veza prije dokaza ključa (32), pa vezu koju je web
+// pustio tunel ne odbija. Razmjene dijeli s ogradom porta: koliko razmjena
+// čvor nosi odjednom ne ovisi o tome kojim su vratima došle.
 func NovaOgradaTunela(port *Ograda) *Ograda {
-	o := novaOgrada(najviseRukovanja/2, najviseRazmjena, 5*time.Second)
+	o := novaOgrada(najviseRukovanja, najviseRazmjena, 5*time.Second)
+	o.prvi = rokClientHelloTunela
 	if port != nil {
 		o.razmjene = port.razmjene
 	}
@@ -348,7 +361,9 @@ func NovaOgradaTunela(port *Ograda) *Ograda {
 }
 
 func novaOgrada(rukovanja, razmjena int, rok time.Duration) *Ograda {
-	return &Ograda{rukovanja: make(chan struct{}, rukovanja), razmjene: make(chan struct{}, razmjena), rok: rok}
+	return &Ograda{rukovanja: make(chan struct{}, rukovanja), pricuva: make(chan struct{}, pricuvaPoznatih),
+		razmjene: make(chan struct{}, razmjena), rok: rok, prvi: min(rokClientHello, rok),
+		poAdresi: map[netip.Addr]int{}, poMrezi: map[netip.Addr]int{}, poznate: NovePoznateAdrese()}
 }
 
 func ogradaIz(o []*Ograda) *Ograda {
@@ -361,15 +376,16 @@ func ogradaIz(o []*Ograda) *Ograda {
 // vrata primaju veze razmjene: provjere nakon rukovanja i mjesta u ogradi
 type vrata struct {
 	protokol string
+	cfg      *tls.Config
 	trusted  KeyChecker
 	handle   func(*Conn)
 	o        *Ograda
 }
 
-// serveTLS prima veze s TLS slušalice dok ctx traje; zajedničko portu
-// razmjene i tunelu
-func serveTLS(ctx context.Context, ln net.Listener, protocol string, trusted KeyChecker, handle func(*Conn), o *Ograda) error {
-	v := &vrata{protokol: protocol, trusted: trusted, handle: handle, o: o}
+// serveTLS prima veze sa slušalice dok ctx traje i s njima rukuje TLS-om
+// (cfg); zajedničko portu razmjene i tunelu
+func serveTLS(ctx context.Context, ln net.Listener, cfg *tls.Config, protocol string, trusted KeyChecker, handle func(*Conn), o *Ograda) error {
+	v := &vrata{protokol: protocol, cfg: sRokomNakonPozdrava(cfg), trusted: trusted, handle: handle, o: o}
 	go func() {
 		<-ctx.Done()
 		ln.Close()
@@ -382,22 +398,21 @@ func serveTLS(ctx context.Context, ln net.Listener, protocol string, trusted Key
 			}
 			return err
 		}
-		// kad su sva mjesta za rukovanje zauzeta, petlja čeka i ne prima
-		// dalje: nove veze čekaju u redu jezgre (ili tunela) umjesto da se
-		// gomilaju u memoriji
-		select {
-		case o.rukovanja <- struct{}{}:
-		case <-ctx.Done():
-			raw.Close()
-			return nil
+		// veza bez mjesta za rukovanje odmah se zatvara: kad bi čekala, red
+		// iza veza koje šute zadržao bi i čvor koji tek dolazi
+		pusti, ok := o.mjestoRukovanja(izvorVeze(raw.RemoteAddr(), raw.LocalAddr()))
+		if !ok {
+			o.odbijNaUlazu()
+			_ = raw.Close() // druga strana pokuša opet sljedećim krugom
+			continue
 		}
-		go v.primiTLS(ctx, raw)
+		go v.primiTLS(ctx, raw, pusti)
 	}
 }
 
 // primiTLS dovrši TLS rukovanje s vezom koju je slušalica primila, u roku
-// ograde, i preda vezu na provjeru
-func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
+// ograde (do kraja prve poruke rukovanja kraći), i preda vezu na provjeru
+func (v *vrata) primiTLS(ctx context.Context, nc net.Conn, pustiRukovanje func()) {
 	// greška u jednoj vezi ne smije srušiti čvor: veza se zatvori,
 	// a ostale i web sučelje rade dalje
 	defer func() {
@@ -406,12 +421,13 @@ func (v *vrata) primiTLS(ctx context.Context, nc net.Conn) {
 			nc.Close()
 		}
 	}()
-	pustiRukovanje := sync.OnceFunc(func() { <-v.o.rukovanja })
 	defer pustiRukovanje()
-	tc := nc.(*tls.Conn)
-	_ = tc.SetDeadline(time.Now().Add(v.o.rok)) // ne da se postaviti samo na zatvorenoj vezi, a na njoj rukovanje ionako padne
+	pocetak := time.Now()
+	_ = nc.SetDeadline(pocetak.Add(v.o.prvi)) // ne da se postaviti samo na zatvorenoj vezi, a na njoj rukovanje ionako padne
+	tc := tls.Server(&doPozdrava{Conn: nc, rok: pocetak.Add(v.o.rok)}, v.cfg)
 	if err := tc.HandshakeContext(ctx); err != nil {
 		v.o.odbij(VrataRukovanje, nil)
+		pustiRukovanje() // prije zatvaranja: web ograda tunela pušta svoje mjesto tek kad se veza zatvori
 		tc.Close()
 		return
 	}
@@ -427,6 +443,7 @@ func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje 
 	key, vj, err := dokazaniKljuc(certs, v.protokol)
 	if err != nil {
 		v.o.odbij(razlogKljuca(err), nil)
+		pustiRukovanje()
 		_ = p.Close() // veza s nečim što nije čvor s istim imenom protokola samo se prekida; greška zatvaranja nema što reći
 		return
 	}
@@ -434,10 +451,18 @@ func (v *vrata) primiVezu(p prijenos, certs []*x509.Certificate, pustiRukovanje 
 	conn.Put = putPrijenosa(p)
 	if !v.trusted(conn.PeerKey, conn.Vjerodajnice) {
 		v.o.odbij(VrataNijeClan, conn.PeerKey)
+		pustiRukovanje()
 		odbijNeclana(conn)
 		return
 	}
 	pustiRukovanje()
+	v.o.poznate.Zapamti(izvorVeze(p.RemoteAddr(), p.LocalAddr()).adresa, conn.PeerKey)
+	if !clanNaMjestu(p, conn.PeerKey) {
+		// veza još drži mjesto stranca u web ogradi, pa odbijenica ne čeka dugo
+		v.o.odbij(VrataZauzeto, conn.PeerKey)
+		odbijURoku(conn, KodZauzet, RazlogZauzet, rokOdbijanjaBezMjesta)
+		return
+	}
 	select {
 	case v.o.razmjene <- struct{}{}:
 	default:
@@ -505,9 +530,16 @@ func odbijZauzet(c *Conn) { Odbij(c, KodZauzet, RazlogZauzet) }
 // prepozna kod i ispiše razlog. Pozivatelj uvijek prvi šalje svoju granicu;
 // ona se pročita prije odbijenice, da zatvaranje s nepročitanim podacima ne
 // pošalje RST koji bi odbijenicu progutao.
-func Odbij(c *Conn, kod KodRazloga, razlog string) {
+func Odbij(c *Conn, kod KodRazloga, razlog string) { odbijURoku(c, kod, razlog, 10*time.Second) }
+
+// rokOdbijanjaBezMjesta je koliko vrata čekaju granicu druge strane kad joj
+// web ograda ne da mjesto člana
+const rokOdbijanjaBezMjesta = 2 * time.Second
+
+// odbijURoku je Odbij koji granicu druge strane čeka najviše rok
+func odbijURoku(c *Conn, kod KodRazloga, razlog string, rok time.Duration) {
 	defer c.Close()
-	_ = c.raw.SetReadDeadline(time.Now().Add(10 * time.Second))
+	_ = c.raw.SetReadDeadline(time.Now().Add(rok))
 	c.citac.postavi(1 << 20)
 	var prva Envelope
 	_ = c.dec.Decode(&prva)

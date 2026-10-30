@@ -53,8 +53,10 @@ type Tunel struct {
 	zatvori sync.Once
 }
 
-// rokPredaje je koliko WebSocket čeka da ga razmjena primi (Accept)
-var rokPredaje = 10 * time.Second
+// rokPredaje je koliko WebSocket čeka da ga razmjena primi (Accept). Vrata
+// primaju odmah, i kad nemaju mjesta (tada vezu odmah zatvore), pa se čeka
+// samo kad razmjena ne radi.
+var rokPredaje = 2 * time.Second
 
 // NoviTunel otvara slušalicu tunela
 func NoviTunel() *Tunel {
@@ -70,7 +72,7 @@ func (t *Tunel) Handler() http.Handler {
 		Handshake: func(*websocket.Config, *http.Request) error { return nil },
 		Handler: func(ws *websocket.Conn) {
 			ws.PayloadType = websocket.BinaryFrame
-			v := &wsVeza{Conn: ws, kraj: make(chan struct{})}
+			v := &wsVeza{Conn: ws, kraj: make(chan struct{}), mjesto: mjestoIz(ws.Request().Context())}
 			// Predaja čeka Accept najviše rokPredaje: kad razmjena ne radi
 			// (port razmjene 0) ili je zauzeta, veza se zatvori umjesto da
 			// gorutina i utičnica vise zauvijek.
@@ -119,12 +121,19 @@ func (a tunelAdresa) Network() string { return "websocket" }
 func (a tunelAdresa) String() string  { return string(a) }
 
 // wsVeza je WebSocket kao net.Conn; Close javlja handleru da smije završiti.
-// Put je put web sučelja (PutTunela kad je prazan, ili PutSignala).
+// Put je put web sučelja (PutTunela kad je prazan, ili PutSignala), a mjesto
+// je mjesto u web ogradi (nil kad ograde nema).
 type wsVeza struct {
 	*websocket.Conn
 	kraj    chan struct{}
 	zatvori sync.Once
 	put     string
+	mjesto  MjestoVeze
+}
+
+// clan javlja web ogradi da je druga strana dokazala ključ člana
+func (v *wsVeza) clan(kljuc ed25519.PublicKey) bool {
+	return v.mjesto == nil || v.mjesto.Clan(kljuc)
 }
 
 // RemoteAddr i LocalAddr: WebSocket na strani poslužitelja nema adresu
@@ -152,7 +161,7 @@ func ServeExchangeOn(ctx context.Context, priv ed25519.PrivateKey, protocol stri
 	if err != nil {
 		return err
 	}
-	return serveTLS(ctx, tls.NewListener(ln, cfg), protocol, trusted, handle, ogradaIz(o))
+	return serveTLS(ctx, ln, cfg, protocol, trusted, handle, ogradaIz(o))
 }
 
 // KlijentTunela spaja se na čvor kroz tunel. Nulta vrijednost je zadano:
@@ -295,17 +304,66 @@ func (k *KlijentTunela) dial(ctx context.Context, network, adresa string) (net.C
 	return (&net.Dialer{}).DialContext(ctx, network, adresa)
 }
 
+// Odgovor web poslužitelja na nadogradnju (status i zaglavlja) čita se
+// najviše do 64 KiB, koliko i web sučelje čvora prima zaglavlja zahtjeva, i
+// najviše 10 s, unutar roka konteksta
+const najveciOdgovorNadogradnje = 64 << 10
+
+var rokNadogradnje = 10 * time.Second
+
+var errOdgovorNadogradnje = errors.New("odgovor web poslužitelja na nadogradnju na WebSocket veći je od 64 KiB")
+
+// citacNadogradnje je veza dok traje nadogradnja: čita najviše ostalo bajtova,
+// a nakon nadogradnje (ostalo < 0) bez granice. Granicu gasi gorutina
+// nadogradnje prije nego što veza ide dalje.
+type citacNadogradnje struct {
+	net.Conn
+	ostalo int64
+}
+
+func (c *citacNadogradnje) Read(b []byte) (int, error) {
+	if c.ostalo < 0 {
+		return c.Conn.Read(b)
+	}
+	if c.ostalo == 0 {
+		return 0, errOdgovorNadogradnje
+	}
+	if int64(len(b)) > c.ostalo {
+		b = b[:c.ostalo]
+	}
+	n, err := c.Conn.Read(b)
+	c.ostalo -= int64(n)
+	return n, err
+}
+
+// nadogradi radi nadogradnju kroz citacNadogradnje; prevelik odgovor
+// javlja kao errOdgovorNadogradnje
+func nadogradi(cfg *websocket.Config, c *citacNadogradnje) (*websocket.Conn, error) {
+	ws, err := websocket.NewClient(cfg, c)
+	if err != nil {
+		if c.ostalo == 0 {
+			return nil, errOdgovorNadogradnje
+		}
+		return nil, err
+	}
+	c.ostalo = -1
+	return ws, nil
+}
+
 // noviWebSocket radi nadogradnju na WebSocket nad otvorenom vezom, u roku
-// konteksta. websocket.NewClient sam ne gleda kontekst, pa radi u svojoj
-// gorutini; kad kontekst istekne, rok na vezi prekine čekanje odgovora, kao u
-// websocket.Dial (x/net v0.59.0). Vezu zatvara pozivatelj.
+// konteksta (najviše rokNadogradnje). websocket.NewClient sam ne gleda
+// kontekst, pa radi u svojoj gorutini; kad kontekst istekne, rok na vezi
+// prekine čekanje odgovora, kao u websocket.Dial (x/net v0.59.0). Vezu
+// zatvara pozivatelj.
 func noviWebSocket(ctx context.Context, rwc net.Conn, cfg *websocket.Config) (*websocket.Conn, error) {
+	ctx, otkazi := context.WithTimeout(ctx, rokNadogradnje)
+	defer otkazi()
 	var ws *websocket.Conn
 	var err error
 	gotovo := make(chan struct{})
 	go func() {
 		defer close(gotovo)
-		ws, err = websocket.NewClient(cfg, rwc)
+		ws, err = nadogradi(cfg, &citacNadogradnje{Conn: rwc, ostalo: najveciOdgovorNadogradnje})
 	}()
 	select {
 	case <-gotovo:
