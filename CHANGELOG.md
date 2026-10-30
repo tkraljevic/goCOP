@@ -22,6 +22,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Vlastiti .cop paket i paket letve ugrađuje i dalje. Novi sliv u arhivi
   uvozom otvara samo globalni administrator, a ostali novu letvu uvoze u
   sliv koji već postoji (Odluke (30. 10. 2026.)).
+- **Izvješće dionice kad autor više ne vodi dionicu.** Predano izvješće
+  mijenja onaj tko ga je izradio. Kad on više nije rukovoditelj ni zamjenik
+  te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik dionice
+  (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni

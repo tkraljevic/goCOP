@@ -692,7 +692,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	mtsService := service.NewMtsService(mtsRepo, sectionRepo, userRepo)
 	mtsService.SetStructures(structureRepo)
-	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
+	// račun autora izvješća odlučuje tko mijenja predano (Odluke (30. 10. 2026.), 10)
+	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo,
+		userRepo)
 
 	if z.csvFile != "" {
 		uveziTablicu(z, csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo})

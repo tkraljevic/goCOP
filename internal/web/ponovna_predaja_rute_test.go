@@ -45,7 +45,7 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	}
 	rec := ledger.New(baza, "test")
 	svc := service.NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), repository.NewSectionRepository(baza, rec), nil, nil, nil,
-		repository.NewJournalRepository(baza, rec))
+		repository.NewJournalRepository(baza, rec), nil)
 	svc.SetSektorska(repository.NewSektorskaIzvjescaRepository(baza, rec))
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {

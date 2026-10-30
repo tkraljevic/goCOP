@@ -26,6 +26,7 @@ type okolinaIzvjesca struct {
 	dnevnici   *repository.JournalRepository
 	epizode    *repository.EpisodeRepository
 	citanja    *repository.ReadingRepository
+	korisnici  *repository.UserRepository // računi autora izvješća
 	d111, d112 *models.Section
 	d211       *models.Section
 	letva      *models.Station
@@ -58,8 +59,8 @@ func novaOkolinaIzvjesca(t *testing.T) *okolinaIzvjesca {
 	sekcije := repository.NewSectionRepository(baza, rec)
 	stanice := repository.NewStationRepository(baza, rec)
 	o := &okolinaIzvjesca{baza: baza, dnevnici: repository.NewJournalRepository(baza, rec), epizode: repository.NewEpisodeRepository(baza, rec),
-		citanja: repository.NewReadingRepository(baza, rec)}
-	o.svc = NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sekcije, stanice, o.citanja, o.epizode, o.dnevnici)
+		citanja: repository.NewReadingRepository(baza, rec), korisnici: repository.NewUserRepository(baza, rec)}
+	o.svc = NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sekcije, stanice, o.citanja, o.epizode, o.dnevnici, o.korisnici)
 	o.svc.SetSektorska(repository.NewSektorskaIzvjescaRepository(baza, rec))
 	o.letva = &models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo", Watercourse: "Primjerica"}
 	if err := stanice.CreateStation(context.Background(), o.letva); err != nil {

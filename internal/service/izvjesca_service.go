@@ -29,6 +29,16 @@ type IzvjescaService struct {
 	// stanjeObrane je stanje obrane dionice iz ovjerenih akata; nil dok se
 	// ne postavi (tada vrijedi epizoda)
 	stanjeObrane func(ctx context.Context, sektor, dionica string, t time.Time) (models.StanjeObrane, []models.Akt, error)
+	// autori čita račun onoga tko je izradio izvješće; nil kad se ne zna
+	// (tada se uzima da autor i dalje vodi dionicu)
+	autori AutoriIzvjesca
+}
+
+// AutoriIzvjesca čita račun onoga tko je izradio izvješće, s dužnostima, i
+// javlja je li račun obrisan (UserRepository)
+type AutoriIzvjesca interface {
+	GetUserByID(id uuid.UUID) (*models.User, error)
+	RacunObrisan(id uuid.UUID) (bool, error)
 }
 
 // SetStanjeObrane postavlja stanje obrane iz ovjerenih akata (AktService)
@@ -37,8 +47,10 @@ func (s *IzvjescaService) SetStanjeObrane(f func(ctx context.Context, sektor, di
 }
 
 func NewIzvjescaService(repo *repository.IzvjescaRepository, sections *repository.SectionRepository, stations *repository.StationRepository,
-	readings *repository.ReadingRepository, episodes *repository.EpisodeRepository, journals *repository.JournalRepository) *IzvjescaService {
-	return &IzvjescaService{repo: repo, sections: sections, stations: stations, readings: readings, episodes: episodes, journals: journals}
+	readings *repository.ReadingRepository, episodes *repository.EpisodeRepository, journals *repository.JournalRepository,
+	autori AutoriIzvjesca) *IzvjescaService {
+	return &IzvjescaService{repo: repo, sections: sections, stations: stations, readings: readings, episodes: episodes, journals: journals,
+		autori: autori}
 }
 
 // SmijePisati: dnevno izvješće dionice pišu i predaju samo rukovoditelj
@@ -189,12 +201,11 @@ func vodotokDionice(sec *models.Section) string {
 }
 
 // Spremi upisuje ili mijenja izvješće. Jedno po dionici i danu — drugog za
-// isti dan nema, pa predano mijenja samo tko ga je izradio (SmijeMijenjati).
+// isti dan nema, pa tko smije mijenjati izvješće koje je bilo predano
+// odlučuje SmijeMijenjati.
 // Spremljeno izvješće je nacrt: izmjena predanog vraća ga u nacrt koji se
 // mora ponovo predati, prvo vrijeme predaje ostaje, a pamte se svi koji su
 // ga mijenjali. Spremanje bez promjene predano izvješće ostavlja predanim.
-// Izvješće koje je bilo predano i dok čeka ponovnu predaju mijenja samo tko
-// ga je izradio, ili uprava koja ga smije pisati.
 func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -238,11 +249,8 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 		if !s.SmijeMijenjati(u, perms, sec, cur) {
 			return ErrPredanoMijenjaAutor
 		}
-		iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
+		zadrziAutora(iz, cur, u)
 		prije = cur
-		if iz.IzradioID == "" {
-			iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
-		}
 	} else {
 		iz.IzradioID, iz.Izradio, iz.TragPredaje = u.ID.String(), u.FullName, models.TragPredaje{}
 	}
@@ -252,19 +260,64 @@ func (s *IzvjescaService) Spremi(ctx context.Context, u *models.User, perms *mod
 	return s.spremiDnevno(ctx, iz, prije, u)
 }
 
-// ErrPredanoMijenjaAutor: izvješće koje je bilo predano mijenja samo onaj
-// tko ga je izradio
-var ErrPredanoMijenjaAutor = errors.New("izvješće koje je bilo predano mijenja samo onaj tko ga je izradio")
+// zadrziAutora: izmjena zadržava vrijeme nastanka, autora i trag predaje
+// spremljenog izvješća. Nacrt bez autora koji nikad nije predan preuzima
+// onaj tko ga mijenja; izvješću koje je bilo predano autor se naknadno ne
+// upisuje, a onaj tko ga mijenja pamti se u tragu predaje.
+func zadrziAutora(iz, cur *models.DnevnoIzvjesce, u *models.User) {
+	iz.CreatedAt, iz.IzradioID, iz.Izradio, iz.TragPredaje = cur.CreatedAt, cur.IzradioID, cur.Izradio, cur.TragPredaje
+	if iz.IzradioID == "" && !cur.BiloPredano() {
+		iz.IzradioID, iz.Izradio = u.ID.String(), u.FullName
+	}
+}
+
+// ErrPredanoMijenjaAutor: izvješće koje je bilo predano mijenja onaj tko ga
+// je izradio, a drugi rukovoditelj ili zamjenik tek kad on više ne vodi
+// dionicu
+var ErrPredanoMijenjaAutor = errors.New("izvješće koje je bilo predano mijenja onaj tko ga je izradio; drugi rukovoditelj ili zamjenik dionice može ga mijenjati tek kad on više ne vodi dionicu")
 
 // SmijeMijenjati javlja smije li osoba mijenjati spremljeno izvješće
 // dionice: piše ga tko vodi dionicu (SmijePisati), a ono koje je bilo
-// predano, i dok čeka ponovnu predaju, samo onaj tko ga je izradio, ili
-// uprava koja ga smije pisati (Odluke (8. 10. 2026.), pitanje 12)
+// predano, i dok čeka ponovnu predaju, onaj tko ga je izradio, ili uprava
+// koja ga smije pisati (Odluke (8. 10. 2026.), pitanje 12). Kad autor više
+// ne vodi dionicu, mijenja ga svaki rukovoditelj ili zamjenik te dionice
+// (Odluke (30. 10. 2026.), 10).
 func (s *IzvjescaService) SmijeMijenjati(u *models.User, perms *models.UserPermissions, sec *models.Section, iz *models.DnevnoIzvjesce) bool {
 	if u == nil || iz == nil || !s.SmijePisati(perms, sec) {
 		return false
 	}
-	return !iz.BiloPredano() || iz.IzradioID == u.ID.String() || perms.CanAdminister(sec.SectorID, sec.AreaID)
+	return !iz.BiloPredano() || iz.IzradioID == u.ID.String() || perms.CanAdminister(sec.SectorID, sec.AreaID) ||
+		!s.autorVodiDionicu(iz, sec)
+}
+
+// autorVodiDionicu javlja vodi li onaj tko je izradio izvješće sada tu
+// dionicu, kao rukovoditelj ili zamjenik s važećom dužnošću. Ne vodi je
+// autor koji nije upisan, čiji je račun isključen ili obrisan. Račun koji
+// se ne može pročitati ili još nije na ovom računalu (stiže razmjenom,
+// čeka potvrdu) ne otvara izmjenu tuđeg izvješća: uzima se da autor
+// dionicu vodi.
+func (s *IzvjescaService) autorVodiDionicu(iz *models.DnevnoIzvjesce, sec *models.Section) bool {
+	if s.autori == nil {
+		return true
+	}
+	id, err := uuid.Parse(iz.IzradioID)
+	if err != nil {
+		return false // izvješće bez upisanog autora
+	}
+	a, err := s.autori.GetUserByID(id)
+	switch {
+	case err != nil:
+		return true
+	case a == nil:
+		return !s.racunObrisan(id)
+	}
+	return a.IsActive && models.NewUserPermissions(*a).VodiDionicu(sec.AreaID, sec.Code)
+}
+
+// racunObrisan javlja je li račun autora obrisan; greška znači da nije
+func (s *IzvjescaService) racunObrisan(id uuid.UUID) bool {
+	obrisan, err := s.autori.RacunObrisan(id)
+	return err == nil && obrisan
 }
 
 // spremiDnevno upisuje izvješće dionice kao nacrt. Predano izvješće koje

@@ -560,6 +560,19 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 	return tx.Commit()
 }
 
+// RacunObrisan javlja je li račun obrisan: nema ga među računima, a zadnja
+// verzija u knjizi ga briše. Račun koji još nije stigao s drugog računala,
+// ili je u knjizi, a još nije među računima, nije obrisan.
+func (r *UserRepository) RacunObrisan(id uuid.UUID) (bool, error) {
+	var obrisan bool
+	err := r.db.QueryRow(`SELECT NOT EXISTS (SELECT 1 FROM users WHERE id = ?) AND COALESCE((SELECT archived FROM record_versions
+		WHERE entity = ? AND entity_id = ? ORDER BY version_id DESC LIMIT 1), 0)`, id.String(), EntityUsers, id.String()).Scan(&obrisan)
+	if err != nil {
+		return false, fmt.Errorf("greška pri provjeri brisanja korisnika: %w", err)
+	}
+	return obrisan, nil
+}
+
 // DeleteUser uklanja korisnika i sva zaduženja s površine; u knjizi ostaju
 // arhivirani. Sesije su lokalne i ne sinkroniziraju se, pa se samo brišu.
 func (r *UserRepository) DeleteUser(id uuid.UUID) error {

@@ -41,7 +41,8 @@ type IzvjescaPageData struct {
 	IsEdit      bool
 	SmijePisati bool
 	// SmijeMijenjati: obrazac izvješća otvara tko ga smije mijenjati; ono
-	// koje je bilo predano samo onaj tko ga je izradio
+	// koje je bilo predano onaj tko ga je izradio, a drugi rukovoditelj ili
+	// zamjenik tek kad autor više ne vodi dionicu
 	SmijeMijenjati bool
 	// SmijeBrisati: izvješće koje je bilo predano briše samo uprava
 	SmijeBrisati bool
@@ -205,7 +206,7 @@ func (h *IzvjescaHandler) ShowUredi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !data.SmijeMijenjati {
-		http.Error(w, "Izvješće koje je bilo predano mijenja samo onaj tko ga je izradio.", http.StatusForbidden)
+		http.Error(w, "Izvješće koje je bilo predano mijenja onaj tko ga je izradio. Drugi rukovoditelj ili zamjenik dionice može ga mijenjati tek kad on više ne vodi dionicu.", http.StatusForbidden)
 		return
 	}
 	data.IsEdit = true

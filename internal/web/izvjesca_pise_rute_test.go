@@ -42,9 +42,10 @@ func TestDnevnoIzvjescePiseRukovoditeljKrozRute(t *testing.T) {
 		}
 	}
 	rec := ledger.New(baza, "test")
+	korisnici := repository.NewUserRepository(baza, rec)
 	svc := service.NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), repository.NewSectionRepository(baza, rec),
 		repository.NewStationRepository(baza, rec), repository.NewReadingRepository(baza, rec), repository.NewEpisodeRepository(baza, rec),
-		repository.NewJournalRepository(baza, rec))
+		repository.NewJournalRepository(baza, rec), korisnici)
 	templatesFS, err := fs.Sub(webassets.Files, "templates")
 	if err != nil {
 		t.Fatal(err)
@@ -66,7 +67,15 @@ func TestDnevnoIzvjescePiseRukovoditeljKrozRute(t *testing.T) {
 	mux.HandleFunc("POST /izvjesca/{id}/predaj", h.HandlePredaj)
 	mux.HandleFunc("POST /izvjesca/{id}/obrisi", h.HandleObrisi)
 
-	pero := &models.User{ID: uuid.New(), FullName: "Pero Perić"}
+	// Pero je rukovoditelj dionice P.1.1 i u bazi: o njegovoj dužnosti ovisi
+	// tko mijenja izvješće koje je predao (Odluke (30. 10. 2026.), 10)
+	pero := &models.User{ID: uuid.New(), Username: "pperic", FullName: "Pero Perić", IsActive: true}
+	sektorP, podrucje1 := "P", 1
+	perina := &models.Duty{Title: "Rukovoditelj dionice", Role: models.RoleSectionLeader, ScopeType: models.ScopeSection,
+		SectorID: &sektorP, AreaID: &podrucje1, SectionCodes: "P.1.1"}
+	if err := korisnici.CreateUser(pero, perina); err != nil {
+		t.Fatal(err)
+	}
 	osoba := pero
 	zovi := func(p *models.UserPermissions, metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
 		t.Helper()
@@ -130,7 +139,7 @@ func TestDnevnoIzvjescePiseRukovoditeljKrozRute(t *testing.T) {
 	if w := zovi(zamjenik, http.MethodPost, "/izvjesca/"+id+"/predaj", url.Values{}); !strings.Contains(w.Header().Get("Location"), "success=") {
 		t.Errorf("zamjenik predaje: %q", w.Header().Get("Location"))
 	}
-	// predano izvješće mijenja samo onaj tko ga je izradio: drugi zamjenik
+	// predano izvješće mijenja onaj tko ga je izradio: drugi zamjenik
 	// ne vidi gumb Obrazac i obrazac dobiva s 403 (Odluke (8. 10. 2026.),
 	// pitanje 12); Pero ga i dalje otvara
 	urediti := `href="/izvjesca/` + id + `/uredi"`
@@ -144,8 +153,19 @@ func TestDnevnoIzvjescePiseRukovoditeljKrozRute(t *testing.T) {
 	if w := zovi(zamjenik, http.MethodGet, "/izvjesca/"+id, nil); w.Code != http.StatusOK || strings.Contains(w.Body.String(), urediti) {
 		t.Errorf("drugi zamjenik na predanom izvješću: %d, gumb Obrazac %v", w.Code, strings.Contains(w.Body.String(), urediti))
 	}
-	if w := zovi(zamjenik, http.MethodGet, "/izvjesca/"+id+"/uredi", nil); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "samo onaj tko ga je izradio") {
+	if w := zovi(zamjenik, http.MethodGet, "/izvjesca/"+id+"/uredi", nil); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "tek kad on više ne vodi dionicu") {
 		t.Errorf("drugi zamjenik otvara obrazac predanog: %d %s", w.Code, w.Body.String())
+	}
+	// kad Pero više ne vodi dionicu, drugi zamjenik vidi gumb i otvara
+	// obrazac (Odluke (30. 10. 2026.), 10)
+	if err := korisnici.RevokeDuty(perina.ID); err != nil {
+		t.Fatal(err)
+	}
+	if w := zovi(zamjenik, http.MethodGet, "/izvjesca/"+id, nil); !strings.Contains(w.Body.String(), urediti) {
+		t.Error("drugi zamjenik ne vidi gumb Obrazac kad autor više ne vodi dionicu")
+	}
+	if w := zovi(zamjenik, http.MethodGet, "/izvjesca/"+id+"/uredi", nil); w.Code != http.StatusOK {
+		t.Errorf("drugi zamjenik otvara obrazac kad autor više ne vodi dionicu: %d", w.Code)
 	}
 	osoba = pero
 	if w := zovi(upravaPodrucja, http.MethodPost, "/izvjesca/"+id+"/obrisi", url.Values{}); !strings.Contains(w.Header().Get("Location"), "success=") {
