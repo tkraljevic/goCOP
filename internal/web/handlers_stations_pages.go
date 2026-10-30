@@ -73,9 +73,13 @@ type StationPageData struct {
 	ZadnjiIzvor       string
 	WaterRegistry     []models.Watercourse
 	CanEdit           bool
-	CanRecord         bool   // smije li upisati očitanje
-	LetvaStranica     string // koja je stranica letve otvorena: kartica, ocitanja, historijat
-	HistorijatPrazan  bool   // letva još nema ništa od onoga što historijat pokazuje
+	CanRecord         bool // smije li upisati očitanje
+	// UnosUArhivu: osoba smije uređivati letvu, a ovaj čvor drži njezine
+	// izvorne datoteke, pa kartica nudi gumb „Unos u arhivu” (Odluke
+	// (30. 10. 2026.), 5)
+	UnosUArhivu      bool
+	LetvaStranica    string // koja je stranica letve otvorena: kartica, ocitanja, historijat
+	HistorijatPrazan bool   // letva još nema ništa od onoga što historijat pokazuje
 	// Sektori i područja koji letvu prate (Odluke (8. 10. 2026.), pitanje 8):
 	// izbor u obrascu i nazivi upisanih na kartici
 	IzborPracenja []SektorPracenja
@@ -122,6 +126,10 @@ func (h *StationsHandler) arh() *repository.ArhivaRepository {
 	}
 	return h.arhiva()
 }
+
+// SetUnosUArhivu daje provjeru drži li ovaj čvor izvorne datoteke letve:
+// samo tada kartica nudi unos u arhivu
+func (h *StationsHandler) SetUnosUArhivu(uStablu func(letva string) bool) { h.uStablu = uStablu }
 
 // SetKarta daje rukovatelju izvor pločica za kartu položaja letve. Uzima se
 // dohvatnik, a ne sama vrijednost: poslužitelj se sastavlja i rute se
@@ -216,6 +224,7 @@ func (h *StationsHandler) ShowStation(w http.ResponseWriter, r *http.Request) {
 	}
 	data.LetvaStranica = "kartica"
 	data.Pracenje = h.pracenjeLetve(data.Station)
+	data.UnosUArhivu = data.CanEdit && h.uStablu != nil && h.uStablu(data.Station.Code)
 	if data.Station.ImaKoordinate() {
 		if b, err := json.Marshal(h.stationMapItem(r.Context(), data.Station)); err == nil {
 			data.MapStationJSON = template.JS(b)

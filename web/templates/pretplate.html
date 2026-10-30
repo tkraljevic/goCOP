@@ -36,6 +36,7 @@
 
 <section class="detail-section">
   <h2>{{icon "check"}} Pretplate <span class="reg-chip">{{len .Rules}}</span></h2>
+  {{with .Zabrana}}<p class="form-help">{{.}}</p>{{end}}
   {{if .Rules}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
@@ -45,10 +46,12 @@
       <tr>
         <td>{{.Label}}</td>
         <td class="nowrap text-right">
+          {{if not $.Zabrana}}
           <form method="POST" action="/pretplate/ukloni" class="d-inline">
             <input type="hidden" name="id" value="{{.ID}}">
             <button type="submit" class="btn btn-sm btn-secondary" title="Pravilo prestaje vrijediti, a ništa se ne briše">Makni</button>
           </form>
+          {{end}}
         </td>
       </tr>
       {{end}}
@@ -59,6 +62,7 @@
   <div class="reg-empty">Bez pretplate ovo računalo prima samo ono što stiže svakom računalu.</div>
   {{end}}
 
+  {{if not .Zabrana}}
   {{with .Predlog}}
   <form method="POST" action="/pretplate/dodaj" class="alert alert-info d-flex gap-3 items-center flex-wrap mt-4">
     <input type="hidden" name="predlog" value="1"><input type="hidden" name="area_id" value="{{.AreaID}}"><input type="hidden" name="year_from" value="{{.YearFrom}}"><input type="hidden" name="razina" value="{{.Razina}}"><input type="hidden" name="drzi_dana" value="{{.DrziDana}}">
@@ -126,6 +130,7 @@
       <button type="submit" class="btn btn-secondary">Samo dodaj</button>
     </div>
   </form>
+  {{end}}
 </section>
 
 <section class="detail-section">
@@ -150,7 +155,7 @@
           {{else}}
           <div class="form-help">{{.NijePonudjeno}}</div>
           {{end}}
-          {{if .ImaZaBrisanje}}
+          {{if and .ImaZaBrisanje (not $.Zabrana)}}
           <form method="POST" action="/pretplate/obrisi" class="d-inline" onsubmit="return confirm({{.Potvrda}})">
             <input type="hidden" name="channel" value="{{.Channel}}">
             <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši s računala</button>

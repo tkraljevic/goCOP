@@ -149,6 +149,16 @@ func (s *UserService) dionice() dionicaPodrucja {
 	}
 }
 
+// hashNoveLozinke provjerava duljinu lozinke koju je za račun upisao
+// administrator (novi račun, „Nova lozinka” na uređivanju djelatnika) i vraća
+// njezin hash
+func (s *UserService) hashNoveLozinke(lozinka string) (string, error) {
+	if err := ProvjeriDuljinuLozinke(lozinka); err != nil {
+		return "", fmt.Errorf("%w: %w", ErrInvalidUserData, err)
+	}
+	return s.auth.HashPassword(lozinka)
+}
+
 // CreateUser stvara novog korisnika i dodjeljuje mu početnu funkciju
 func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRequest) (*models.User, error) {
 	if actorRank(actor) == 0 {
@@ -193,7 +203,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		return nil, err
 	}
 
-	pwHash, err := s.auth.HashPassword(req.Password)
+	pwHash, err := s.hashNoveLozinke(req.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -546,7 +556,7 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	// prvoj prijavi mora zamijeniti svojom, jer ovu zna onaj tko ju je upisao
 	tudjaLozinka := req.Password != "" && actor.User.ID != target.ID
 	if req.Password != "" {
-		pwHash, err := s.auth.HashPassword(req.Password)
+		pwHash, err := s.hashNoveLozinke(req.Password)
 		if err != nil {
 			return nil, err
 		}

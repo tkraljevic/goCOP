@@ -7,6 +7,7 @@ import (
 	"log"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -306,11 +307,29 @@ func (s *AuthService) ProvjeriLozinku(userID uuid.UUID, lozinka string) error {
 	return nil
 }
 
+// NajkracaLozinka je najmanji broj znakova lozinke računa, jednako za sve
+// račune i na svakom mjestu gdje se lozinka postavlja (Odluke
+// (30. 10. 2026.), 9)
+const NajkracaLozinka = 10
+
+// ErrKratkaLozinka: lozinka ima manje od NajkracaLozinka znakova
+var ErrKratkaLozinka = fmt.Errorf("lozinka mora imati najmanje %d znakova", NajkracaLozinka)
+
+// ProvjeriDuljinuLozinke je jedina provjera duljine lozinke računa: prva
+// prijava, profil, novi račun i nova lozinka na uređivanju djelatnika. Broje
+// se znakovi, ne bajtovi.
+func ProvjeriDuljinuLozinke(lozinka string) error {
+	if utf8.RuneCountInString(lozinka) < NajkracaLozinka {
+		return ErrKratkaLozinka
+	}
+	return nil
+}
+
 // ProvjeriNovuLozinku provjerava pravila za novu lozinku; rukovatelj ih pita
 // prije nego što potpisni ključ prekljuca novom lozinkom
 func ProvjeriNovuLozinku(trenutna, nova string) error {
-	if len(nova) < 6 {
-		return errors.New("nova lozinka mora imati najmanje 6 znakova")
+	if err := ProvjeriDuljinuLozinke(nova); err != nil {
+		return err
 	}
 	if trenutna == nova {
 		return errors.New("nova lozinka mora se razlikovati od trenutne")

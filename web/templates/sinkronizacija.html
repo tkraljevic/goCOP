@@ -143,6 +143,13 @@ function pokusaji(st, p, s) {
   const l = (st.pokusaji || {})[p.node_id] || [];
   return l.map(k => '<br><span class="mono">' + esc(k.adresa) + '</span> ' + (k.greska ? '<span class="err">' + esc(k.greska) + '</span>' : 'spojeno') + ' <span class="muted">' + when(k.kada) + '</span>').join('');
 }
+// uloge su poslovi koje računalo javlja da radi za mrežu; mijenjaju se samo
+// na tom računalu, pa ovdje samo stoje
+function uloge(s) {
+  const naziv = {izdaje: 'izdaje prognozu', preuzima: 'preuzima vodostaje'};
+  const l = (s.uloge || []).map(u => naziv[u]).filter(Boolean);
+  return l.length ? '<br><span class="muted">' + l.join(', ') + '</span>' : '';
+}
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
 
 function render(st) {
@@ -166,7 +173,7 @@ function render(st) {
     const total = st.versions || 1;
     const pct = Math.max(0, Math.min(100, Math.round(100 * (1 - (p.backlog || 0) / total))));
     return `<tr>
-      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}</td>
+      <td><b>${name}</b>${p.is_bootstrap ? ' <span class="reg-chip">domenski</span>' : ''}<br><span class="muted mono">${esc(p.node_id)}</span>${p.program ? '<br><span class="muted">' + esc(p.gradnja || p.program) + (p.razlicit_program ? ' — drukčija od ovog čvora' : '') + '</span>' : (p.razlicit_program ? '<br><span class="muted">starija inačica (ne javlja je)</span>' : '')}${uloge(s)}</td>
       <td><span class="dot ${p.reachability}"></span>${label[p.reachability] || p.reachability}${s.fails ? '<br><span class="muted">' + s.fails + '× zaredom bez odgovora</span>' : ''}</td>
       <td>${p.member ? clan(p.rok_clanstva) : '<span class="badge badge-inactive" title="' + esc(p.member_problem) + '">nije</span>'}</td>
       <td>${when(s.last_ok)}${put(s)}${s.last_error ? '<br><span class="err">' + esc(s.last_error) + '</span>' : ''}${s.last_attempt && s.last_attempt !== s.last_ok ? '<br><span class="muted">pokušaj ' + when(s.last_attempt) + '</span>' : ''}</td>

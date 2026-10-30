@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Unos podataka u arhivu{{end}}
 
 {{define "content"}}
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Unos u arhivu</div>
+<div class="breadcrumb">{{if .Administrator}}<a href="/administracija">Administracija</a>{{else}}<a href="/stations">Vodomjerne postaje</a>{{end}} › Unos u arhivu</div>
 
 <div class="page-header">
   <div>
@@ -56,7 +56,7 @@
 </div>
 {{end}}
 
-{{if .Sirotani}}
+{{if and .Administrator .Sirotani}}
 <div class="alert alert-warning">
   <p class="mt-0 mb-2">
     <strong>Nizovi bez datoteke u stablu.</strong> Ovi stoje u arhivi, ali datoteke iz koje su nastali više nema.
@@ -120,7 +120,7 @@
 </div>
 {{end}}
 
-{{if and .IzdavanjeRadi (not .PosaoID)}}
+{{if and .Administrator .IzdavanjeRadi (not .PosaoID)}}
 <div class="table-card okvir mb-4">
   <div class="izvor-glava mb-2">
     <div>
@@ -202,7 +202,7 @@
 </div>
 {{end}}
 
-{{if and .UlaganjeRadi (not .PosaoID) (not .Stablo.Drugdje)}}
+{{if and .Administrator .UlaganjeRadi (not .PosaoID) (not .Stablo.Drugdje)}}
 <div class="table-card okvir mb-4">
   <div class="izvor-glava mb-2">
     <div>

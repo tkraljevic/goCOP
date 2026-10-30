@@ -164,7 +164,9 @@ func TestProvjeraPrijaveModuli(t *testing.T) {
 	}
 	var z mwZapis
 	h := mwPosluzitelj(o, &z)
-	w := mwZahtjev(h, http.MethodGet, "/administracija/uvoz-niza", sesija.ID.String())
+	// unos u arhivu jedne letve nije iza modula (Odluke (30. 10. 2026.), 5),
+	// pa skriveni modul glumi izvori arhive
+	w := mwZahtjev(h, http.MethodGet, "/administracija/izvori", sesija.ID.String())
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "nije uključen za vaš račun") || z.pozvan {
 		t.Errorf("skriveni modul: %d %q, rukovatelj pozvan %v", w.Code, w.Body.String(), z.pozvan)
 	}

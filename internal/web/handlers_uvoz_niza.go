@@ -280,6 +280,22 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	d.Izvori = h.imenaIzvora()
 	d.Formati = izvori.Formati
 	d.HVRadi = h.hidroviewRadi()
+	// Ulaganje, izdanja i nizovi bez datoteke tiču se cijele arhive, pa ih
+	// vidi samo globalni administrator (Odluke (30. 10. 2026.), 5)
+	if d.Administrator() {
+		h.zaAdministratora(&d, r)
+	}
+	return d
+}
+
+// Administrator javlja vidi li osoba dijelove stranice nad cijelom arhivom:
+// ulaganje, izdanja i nizove bez datoteke
+func (d UvozPageData) Administrator() bool {
+	return d.Permissions != nil && d.Permissions.IsGlobalAdmin
+}
+
+// zaAdministratora puni dijelove stranice nad cijelom arhivom
+func (h *UvozHandler) zaAdministratora(d *UvozPageData, r *http.Request) {
 	d.UlaganjeRadi = h.ulaganjeRadi()
 	if d.UlaganjeRadi {
 		p, err := ulaganje.Pospremivo(r.Context(), h.baza())
@@ -304,18 +320,23 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	}
 	d.IzdavanjeRadi = h.izdavanjeRadi()
 	if d.IzdavanjeRadi {
-		if k, err := h.katalog(); err != nil {
-			// Katalog koji se ne čita zaustavlja izdavanje, pa je bolje da to
-			// piše ovdje nego da čovjek klikne pa dobije grešku.
-			d.ErrorMessage = "Katalog izdanja se ne čita: " + err.Error()
-		} else {
-			d.Katalog = k
-			if !k.Nastalo.IsZero() {
-				d.KatalogNastalo = k.Nastalo.In(models.Zagreb).Format("02.01.2006. 15:04")
-			}
-		}
+		h.katalogZaStranicu(d)
 	}
-	return d
+}
+
+// katalogZaStranicu čita katalog izdanja za odjeljak Izdanja
+func (h *UvozHandler) katalogZaStranicu(d *UvozPageData) {
+	k, err := h.katalog()
+	if err != nil {
+		// Katalog koji se ne čita zaustavlja izdavanje, pa je bolje da to
+		// piše ovdje nego da čovjek klikne pa dobije grešku.
+		d.ErrorMessage = "Katalog izdanja se ne čita: " + err.Error()
+		return
+	}
+	d.Katalog = k
+	if !k.Nastalo.IsZero() {
+		d.KatalogNastalo = k.Nastalo.In(models.Zagreb).Format("02.01.2006. 15:04")
+	}
 }
 
 // sirotaniUArhivi otvara arhivu samo za čitanje i pita je za nizove kojima je

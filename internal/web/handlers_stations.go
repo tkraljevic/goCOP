@@ -30,6 +30,7 @@ type StationsHandler struct {
 	watercourseService *service.WatercourseService
 	episodeService     *service.EpisodeService
 	readingService     *service.ReadingService
+	uStablu            func(letva string) bool // drži li čvor izvorne datoteke letve
 	arhiva             func() *repository.ArhivaRepository
 	ispravci           func() *repository.IspravakRepository
 	biljeske           func() *repository.BiljeskaRepository

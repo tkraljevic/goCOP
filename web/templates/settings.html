@@ -35,7 +35,9 @@
   <div class="card" id="uloge">
     <h2>Uloge ovog čvora</h2>
     <p class="desc">Vodostaje s izvora (vodostaji.voda.hr, mađarske, austrijske i ostale letve) dovoljno je da preuzima jedan čvor: očitanja putuju razmjenom. Prognozu izdaje jedan čvor, a njegovo izdanje stiže ostalima; inače dva računala izdaju dvije malo različite prognoze za isti sat.</p>
-    <form method="POST" action="/settings/uloge">
+    {{/* isključivanje uloge traži potvrdu (Odluke (30. 10. 2026.), 13); uključivanje ne */}}
+    <form method="POST" action="/settings/uloge" data-potvrda-uloga
+          onsubmit="var p=this.elements.preuzima, i=this.elements.izdaje; return !((p.defaultChecked && !p.checked) || (i.defaultChecked && !i.checked)) || confirm('Isključiti ulogu ovog računala? Ako je nijedno drugo računalo u mreži nema, vodostaji ili prognoza prestaju se obnavljati.')">
       <label class="uloga-red"><input type="checkbox" name="preuzima" value="1"{{if .Uloge.Preuzima}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>
         <span><b>Preuzima vodostaje s izvora</b><br><span class="muted">svaki sat; računi za HydroView i mobilnu stranicu Hrvatskih voda trebaju samo ovdje</span></span></label>
       <label class="uloga-red"><input type="checkbox" name="izdaje" value="1"{{if .Uloge.Izdaje}} checked{{end}}{{if not .Permissions.IsGlobalAdmin}} disabled{{end}}>

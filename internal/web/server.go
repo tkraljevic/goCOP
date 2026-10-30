@@ -696,6 +696,7 @@ func (s *Server) setupRoutes() {
 		return repository.NewBiljeskaRepository(s.db, s.recorder)
 	})
 	stationsH.SetKarta(func() KartaPostavke { return s.karta })
+	stationsH.SetUnosUArhivu(s.letvaUStablu)
 	stationsH.SetPaket(
 		func() string { return s.arhivaPut },
 		func() string { return s.recorder.Cvor() },
@@ -999,7 +1000,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.ShowPostavke)))
 	s.mux.Handle("POST /prognoze/postavke", s.authMiddleware(http.HandlerFunc(prognozeH.SpremiPostavke)))
 	s.mux.Handle("GET /prognoze/pricuvno.xlsx", s.authMiddleware(http.HandlerFunc(prognozeH.IzvoziPricuvno)))
-	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(http.HandlerFunc(prognozeH.Generiraj)))
+	// krug traje i po nekoliko minuta i pita sve izvore, pa ga rukom
+	// pokreću samo dežurni i administrator (Odluke (30. 10. 2026.), 7)
+	s.mux.Handle("POST /prognoze/generiraj", s.authMiddleware(trebaDezurnog(http.HandlerFunc(prognozeH.Generiraj))))
 	// Priprema modela mijenja brojke svih prognoza, pa je samo za globalnog
 	// administratora. Posao se traži pri pozivu jer ga main postavlja poslije ruta.
 	prognozeH.SetPripremaModela(func(ctx context.Context, p *poslovi.Posao) error {
@@ -1232,12 +1235,14 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/slivovi/sliv", s.authMiddleware(http.HandlerFunc(slivH.HandleSliv)))
 	s.mux.Handle("POST /api/slivovi/sliv/delete", s.authMiddleware(http.HandlerFunc(slivH.HandleDeleteSliv)))
 
-	// Što ovo računalo prati: pretplate na kanale, za svakog prijavljenog
+	// Što ovo računalo prati: pretplate na kanale; stranicu vidi svaki prijavljeni
 	subsH := NewSubscriptionsHandler(s.peersService, s.orgService, s.templates["pretplate.html"])
 	s.mux.Handle("GET /pretplate", s.authMiddleware(http.HandlerFunc(subsH.ShowSubscriptions)))
-	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(http.HandlerFunc(subsH.HandleAdd)))
-	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(http.HandlerFunc(subsH.HandleRemove)))
-	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(http.HandlerFunc(subsH.HandlePurge)))
+	// mijenja samo globalni administrator, s ovog računala ili iz lokalne
+	// mreže; ostali stranicu samo gledaju (Odluke (30. 10. 2026.), 6)
+	s.mux.Handle("POST /pretplate/dodaj", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandleAdd))))
+	s.mux.Handle("POST /pretplate/ukloni", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandleRemove))))
+	s.mux.Handle("POST /pretplate/obrisi", s.authMiddleware(smijePratiti(http.HandlerFunc(subsH.HandlePurge))))
 	subsH.postavkeCvora = s.postavkeStranice
 	s.mux.Handle("POST /pretplate/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/pretplate", http.HandlerFunc(subsH.ShowSubscriptions))))
 
@@ -1591,6 +1596,18 @@ func trebaAdmina(next http.Handler) http.Handler {
 	})
 }
 
+// trebaDezurnog pušta samo dežurnog i globalnog administratora
+func trebaDezurnog(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+		if !perms.SmijeGeneriratiPrognozu() {
+			http.Error(w, "Prognozu rukom pokreću dežurni i administrator.", http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // provjeriSesiju vraća prijavu za token sesije, ili nil kad je odgovor već
 // poslan. Sesija koja više ne vrijedi (istekla, nepoznata, račun isključen)
 // vodi na prijavu. Neočekivana greška (npr. baze) nije odjava: zapisuje se u
@@ -1719,13 +1736,31 @@ func vlastitiKarton(r *http.Request, u *models.User) bool {
 	return r.URL.Path == "/users/"+u.ID.String()
 }
 
+// izuzetiOdModula su putanje pod modulom koje ne ograđuje vidljivost modula,
+// nego pravo na letvu: unos u arhivu jedne letve smije svatko tko smije
+// uređivati tu letvu (Odluke (30. 10. 2026.), 5). Rukovatelj unosa to
+// provjerava za svaku letvu (SetOvlastiLetve), a zahvati nad cijelom
+// arhivom pod istim putanjama (makni-*) ostaju iza samoAdmin.
+// Putanje su /administracija/uvoz-<ime>.
+var izuzetiOdModula = []string{"niza", "izvora", "krivulja", "profila"}
+
 func moduleForPath(path string) string {
+	for _, ime := range izuzetiOdModula {
+		if podPutanjom(path, "/administracija/uvoz-"+ime) {
+			return ""
+		}
+	}
 	for _, mp := range modulePaths {
-		if path == mp.prefix || strings.HasPrefix(path, mp.prefix+"/") {
+		if podPutanjom(path, mp.prefix) {
 			return mp.module
 		}
 	}
 	return ""
+}
+
+// podPutanjom javlja je li putanja baš prefix ili ispod njega
+func podPutanjom(path, prefix string) bool {
+	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 
 // readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:
@@ -2116,6 +2151,14 @@ func (s *Server) smijeUrediLetvu(perms *models.UserPermissions, letva string) bo
 		}
 	}
 	return false
+}
+
+// letvaUStablu javlja drži li ovaj čvor izvorne datoteke letve: unos u
+// arhivu piše u to stablo, pa bez njega nema što unijeti
+func (s *Server) letvaUStablu(letva string) bool {
+	letve, err := arhiva.Letve(s.podaciDir)
+	_, ima := letve[strings.TrimSpace(letva)]
+	return err == nil && ima
 }
 
 // koteNuleLetve vraća kote nule letve u starom i novom sustavu. Snimka korita

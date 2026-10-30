@@ -125,7 +125,8 @@ func (s *Service) mojeZnanje(ctx context.Context) razmjena.Znanje {
 	if err != nil {
 		log.Printf("razmjena: koliko zapisa čeka nadogradnju nije izbrojeno: %v", err)
 	}
-	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka}
+	return razmjena.Znanje{Mogucnosti: s.mojeMogucnosti(), Vrste: s.mojKatalog(), CekaNadogradnju: ceka,
+		Uloge: s.TrenutneUloge().Oznake()}
 }
 
 // mojeMogucnosti su oznake koje ovaj program objavljuje

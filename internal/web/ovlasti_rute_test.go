@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 )
@@ -147,6 +148,10 @@ func TestUvozLetveImaProvjeruPravaNaLetvu(t *testing.T) {
 		"/administracija/uvoz-izvora/pregled",
 		"/administracija/uvoz-izvora/upisi",
 		"/administracija/uvoz-izvora/hidroview",
+		"/administracija/uvoz-krivulja/pregled",
+		"/administracija/uvoz-krivulja/upisi",
+		"/administracija/uvoz-profila/pregled",
+		"/administracija/uvoz-profila/upisi",
 	}
 	for _, put := range poLetvi {
 		nadjena := false
@@ -161,6 +166,138 @@ func TestUvozLetveImaProvjeruPravaNaLetvu(t *testing.T) {
 		}
 		if !nadjena {
 			t.Errorf("ruta %s više nije registrirana — provjeri je li uvoz preseljen", put)
+		}
+	}
+}
+
+// Odluke (30. 10. 2026.), 5: unos u arhivu jedne letve smije svatko tko smije
+// uređivati tu letvu, pa ga modul Administracija ne zatvara prije provjere
+// prava na letvu. Ostalo pod /administracija, i ulaganje i izdanja, ostaje
+// iza modula.
+func TestUnosUArhivuNijeIzaModula(t *testing.T) {
+	for put, modul := range map[string]string{
+		"/administracija/uvoz-niza":                      "",
+		"/administracija/uvoz-niza/pregled":              "",
+		"/administracija/uvoz-niza/makni-niz":            "", // iza samoAdmin, ne iza modula
+		"/administracija/uvoz-izvora/pregled":            "",
+		"/administracija/uvoz-izvora/hidroview":          "",
+		"/administracija/uvoz-krivulja/pregled":          "",
+		"/administracija/uvoz-profila/upisi":             "",
+		"/administracija":                                models.ModuleAdmin,
+		"/administracija/uvoz-nizaX":                     models.ModuleAdmin,
+		"/administracija/uvozi":                          models.ModuleAdmin,
+		"/administracija/ulaganje":                       models.ModuleAdmin,
+		"/administracija/izdavanje":                      models.ModuleAdmin,
+		"/administracija/izvori":                         models.ModuleAdmin,
+		"/stations/9f1c0b2e-0000-7000-8000-000000000000": models.ModuleRegisters,
+	} {
+		if got := moduleForPath(put); got != modul {
+			t.Errorf("%s: modul %q, a treba %q", put, got, modul)
+		}
+	}
+}
+
+// Odluke (30. 10. 2026.), 6: pretplate i brisanje kanala koji se ne prati
+// mijenja samo globalni administrator, svojim očima, s ovog računala ili iz
+// lokalne mreže. Ostali dobivaju 403, a zahtjev ne stiže do rukovatelja.
+func TestPretplateMijenjaSamoAdministratorIzLokalneMreze(t *testing.T) {
+	obican := uvjetiZahtjeva{perms: &models.UserPermissions{}, adresa: adresaLokalno, korisnik: adminIvic}
+	izvana, tunel, tudjim := kaoAdmin, kaoAdmin, kaoAdmin
+	izvana.adresa = adresaIzvana
+	tunel.adresa, tunel.tunel = adresaTunela, true
+	tudjim.tudjim = true
+	for _, put := range []string{"/pretplate/dodaj", "/pretplate/ukloni", "/pretplate/obrisi"} {
+		for _, x := range []struct {
+			opis   string
+			u      uvjetiZahtjeva
+			poruka string // prazno: prolazi
+		}{
+			{"administrator iz lokalne mreže", kaoAdmin, ""},
+			{"bez prava", uvjetiZahtjeva{adresa: adresaLokalno}, "Što ovo računalo prati mijenja samo administrator."},
+			{"obični korisnik", obican, "Što ovo računalo prati mijenja samo administrator."},
+			{"administrator izvana", izvana, "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
+			{"administrator kroz tunel", tunel, "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
+			{"tuđim očima", tudjim, "Što računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno."},
+		} {
+			presao := false
+			w := httptest.NewRecorder()
+			smijePratiti(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { presao = true })).
+				ServeHTTP(w, zahtjevPostavki(http.MethodPost, put, nil, x.u))
+			if x.poruka == "" {
+				if !presao {
+					t.Errorf("%s %s: nije prošao (%d)", put, x.opis, w.Code)
+				}
+				continue
+			}
+			if presao || w.Code != http.StatusForbidden || strings.TrimSpace(w.Body.String()) != x.poruka {
+				t.Errorf("%s %s: prošao %v, %d %q", put, x.opis, presao, w.Code, w.Body.String())
+			}
+		}
+	}
+}
+
+// Odluke (30. 10. 2026.), 7: prognozu rukom pokreću dežurni i globalni
+// administrator. Dežurstvo koje je isteklo ne vrijedi.
+func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
+	prije := time.Now().Add(-time.Hour)
+	dezurni := func(d models.Duty) *models.UserPermissions {
+		return &models.UserPermissions{User: models.User{Duties: []models.Duty{d}}}
+	}
+	for _, x := range []struct {
+		opis  string
+		perms *models.UserPermissions
+		smije bool
+	}{
+		{"bez prava", nil, false},
+		{"obični korisnik", &models.UserPermissions{}, false},
+		{"vodočuvar", dezurni(models.Duty{Role: models.RoleWaterGuard, IsActive: true}), false},
+		{"voditelj centra", dezurni(models.Duty{Role: models.RoleCopLeader, IsActive: true}), false},
+		{"dežurni", dezurni(models.Duty{Role: models.RoleOperator, IsActive: true}), true},
+		{"dežurni kojem je dežurstvo isteklo", dezurni(models.Duty{Role: models.RoleOperator, IsActive: true, ExpiresAt: &prije}), false},
+		{"isključeno dežurstvo", dezurni(models.Duty{Role: models.RoleOperator}), false},
+		{"globalni administrator", &models.UserPermissions{IsGlobalAdmin: true}, true},
+	} {
+		presao := false
+		r := httptest.NewRequest(http.MethodPost, "/prognoze/generiraj", nil)
+		r = r.WithContext(context.WithValue(r.Context(), contextKeyPerms, x.perms))
+		w := httptest.NewRecorder()
+		trebaDezurnog(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { presao = true })).ServeHTTP(w, r)
+		if presao != x.smije {
+			t.Errorf("%s: prošao %v, a treba %v", x.opis, presao, x.smije)
+		}
+		if !x.smije && (w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Prognozu rukom pokreću dežurni i administrator.")) {
+			t.Errorf("%s: %d %q", x.opis, w.Code, w.Body.String())
+		}
+	}
+}
+
+// Ograde iz Odluka (30. 10. 2026.) stoje nad samim rutama, ne samo nad
+// gumbima: pretplate kroz smijePratiti, generiranje prognoze kroz
+// trebaDezurnog.
+func TestOdlukeOPravimaStojeNadRutama(t *testing.T) {
+	b, err := os.ReadFile("server.go")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for put, ograda := range map[string]string{
+		`"POST /pretplate/dodaj"`:         "smijePratiti(",
+		`"POST /pretplate/ukloni"`:        "smijePratiti(",
+		`"POST /pretplate/obrisi"`:        "smijePratiti(",
+		`"POST /prognoze/generiraj"`:      "trebaDezurnog(",
+		`"POST /administracija/ulaganje"`: "s.samoAdmin(",
+	} {
+		nadjena := false
+		for _, redak := range strings.Split(string(b), "\n") {
+			if !strings.Contains(redak, put) {
+				continue
+			}
+			nadjena = true
+			if !strings.Contains(redak, ograda) {
+				t.Errorf("ruta %s nije iza %s: %s", put, ograda, strings.TrimSpace(redak))
+			}
+		}
+		if !nadjena {
+			t.Errorf("ruta %s nije registrirana", put)
 		}
 	}
 }

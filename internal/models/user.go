@@ -584,6 +584,27 @@ type UserPermissions struct {
 	PodrucjaDionica map[int]bool
 }
 
+// Dezurni javlja ima li osoba sada valjanu dužnost dežurnog operatera u
+// COP-u. Dežurni smije rukom pokrenuti izračun prognoze (Odluke
+// (30. 10. 2026.), 7).
+func (p *UserPermissions) Dezurni() bool {
+	if p == nil {
+		return false
+	}
+	for _, d := range VazecaZaduzenja(p.User.Duties, time.Now()) {
+		if d.Role == RoleOperator {
+			return true
+		}
+	}
+	return false
+}
+
+// SmijeGeneriratiPrognozu: dežurni i globalni administrator (Odluke
+// (30. 10. 2026.), 7)
+func (p *UserPermissions) SmijeGeneriratiPrognozu() bool {
+	return p != nil && (p.IsGlobalAdmin || p.Dezurni())
+}
+
 // RadiNaDionicamaU javlja ima li osoba dužnost na dionicama u području
 func (p *UserPermissions) RadiNaDionicamaU(areaID int) bool {
 	return p != nil && areaID > 0 && p.PodrucjaDionica[areaID]
