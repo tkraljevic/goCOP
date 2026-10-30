@@ -14,7 +14,7 @@ import (
 
 func praznaArhiva(t *testing.T) *sql.DB {
 	t.Helper()
-	db, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "a.db"))
+	db, err := sql.Open("sqlite", AdresaZaPisanje(filepath.Join(t.TempDir(), "a.db")))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -299,9 +299,6 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	}
 	sad := time.Now()
 	p.Godina = dan.Year()
-	if p.Broj, err = s.repo.SljedeciBroj(ctx, p.Sektor, p.Godina); err != nil {
-		return nil, "", err
-	}
 	p.Status, p.ObjavljenoAt, p.Cvor = models.PrijavaObjavljena, &sad, s.cvor
 	p.ListID, p.ListBroj = l.ID, l.Broj
 	if p.ListID == "" {
@@ -311,12 +308,7 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 		}
 		p.ListID = l.ID
 	}
-	pdf, err := izradi(p)
-	if err != nil {
-		return nil, "", err
-	}
-	h := sha256.Sum256(pdf)
-	if err := s.repo.Objavi(ctx, p, pdf, hex.EncodeToString(h[:])); err != nil {
+	if err := s.objaviSBrojem(ctx, p, izradi); err != nil {
 		return nil, "", err
 	}
 	s.ObrisiSlikePoObjavi(ctx, p)
@@ -326,6 +318,31 @@ func (s *PrijavaService) Objavi(ctx context.Context, u *models.User, id string, 
 	}
 	return p, "", nil
 }
+
+// objaviSBrojem dodjeljuje prijavi broj, sastavlja PDF s tim brojem i
+// objavljuje je. Broj se dodjeljuje prije PDF-a, jer ga PDF nosi. Kad ga za
+// to vrijeme dobije druga prijava istog sektora, sve se ponavlja sa
+// sljedećim brojem, najviše pokusajaObjave puta.
+func (s *PrijavaService) objaviSBrojem(ctx context.Context, p *models.PrijavaSTerena, izradi func(p *models.PrijavaSTerena) ([]byte, error)) error {
+	for pokusaj := 1; ; pokusaj++ {
+		var err error
+		if p.Broj, err = s.repo.SljedeciBroj(ctx, p.Sektor, p.Godina); err != nil {
+			return err
+		}
+		pdf, err := izradi(p)
+		if err != nil {
+			return err
+		}
+		h := sha256.Sum256(pdf)
+		err = s.repo.Objavi(ctx, p, pdf, hex.EncodeToString(h[:]))
+		if !errors.Is(err, repository.ErrBrojPrijaveZauzet) || pokusaj == pokusajaObjave {
+			return err
+		}
+	}
+}
+
+// pokusajaObjave je koliko puta objava pokuša s novim brojem
+const pokusajaObjave = 5
 
 // prijavaNaListu je upis objavljene prijave na dnevni list vodočuvara. Kad
 // list nije list dana događaja (za taj dan, koji je prošao, nema lista, pa

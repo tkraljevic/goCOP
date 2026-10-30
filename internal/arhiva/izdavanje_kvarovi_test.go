@@ -21,7 +21,7 @@ func TestNoviSadrzajDobivaSljedeceIzdanje(t *testing.T) {
 	db := napraviArhivu(t, filepath.Join(t.TempDir(), "arhiva.db"))
 	defer db.Close()
 	dodajNiz(t, db, "vodograd")
-	iz, err := Izdaj(db, mapa, "cvor-proba", "", false, nil)
+	iz, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, nil)
 	if err != nil || len(iz.Redci) != 1 || iz.Redci[0].Izdanje != 1 {
 		t.Fatalf("prvo izdavanje: %+v, %v", iz.Redci, err)
 	}
@@ -31,7 +31,7 @@ func TestNoviSadrzajDobivaSljedeceIzdanje(t *testing.T) {
 	}
 
 	var zapisi strings.Builder
-	iz, err = Izdaj(db, mapa, "cvor-proba", "", false, &zapisi)
+	iz, err = Izdaj(db, mapa, "cvor-proba", "", false, nil, &zapisi)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func TestIzdavanjePreskaceLetvuKojaSeNeDaIzvesti(t *testing.T) {
 	defer db.Close()
 	dodajNiz(t, db, "vodograd")
 	dodajNiz(t, db, "rijecica")
-	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	prije, err := UcitajKatalog(mapa)
@@ -85,7 +85,7 @@ func TestIzdavanjePreskaceLetvuKojaSeNeDaIzvesti(t *testing.T) {
 	}
 
 	var zapisi strings.Builder
-	iz, err := Izdaj(db, mapa, "cvor-proba", "", false, &zapisi)
+	iz, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, &zapisi)
 	if err != nil {
 		t.Fatalf("jedna nečitljiva letva srušila je izdavanje: %v", err)
 	}
@@ -130,7 +130,7 @@ func arhivaZaDrugoIzdanje(t *testing.T, mapa string) string {
 	db := napraviArhivu(t, put)
 	defer db.Close()
 	dodajNiz(t, db, "vodograd")
-	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost)
@@ -154,7 +154,7 @@ func TestIzdavanjeKadPaketSNovimBrojemNeUspije(t *testing.T) {
 	}
 
 	var zapisi strings.Builder
-	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, &zapisi)
+	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, nil, &zapisi)
 	if err != nil {
 		t.Fatalf("izdavanje je palo umjesto da preskoči letvu: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestIzdavanjePrimljeneLetveKadPaketSNovimBrojemNeUspije(t *testing.T) {
 	}
 	db.Close()
 
-	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, io.Discard)
+	iz, err := Izdaj(kvarUpita(t, put, upitNizovaLetve, 2), mapa, "cvor-proba", "", false, nil, io.Discard)
 	if err != nil || iz.Preskocenih != 1 {
 		t.Fatalf("izdavanje: %+v, %v", iz, err)
 	}
@@ -219,7 +219,7 @@ func TestIzdavanjeIzbacujePrazanRedakIzKataloga(t *testing.T) {
 	defer db.Close()
 	dodajNiz(t, db, "vodograd")
 	dodajNiz(t, db, "rijecica")
-	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	k, err := UcitajKatalog(mapa)
@@ -233,7 +233,7 @@ func TestIzdavanjeIzbacujePrazanRedakIzKataloga(t *testing.T) {
 	}
 
 	var zapisi strings.Builder
-	if _, err := Izdaj(db, mapa, "cvor-proba", "vodograd", false, &zapisi); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor-proba", "vodograd", false, nil, &zapisi); err != nil {
 		t.Fatal(err)
 	}
 	k, err = UcitajKatalog(mapa)
@@ -279,7 +279,7 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 	t.Run("mapa izdanja pod datotekom", func(t *testing.T) {
 		datoteka := filepath.Join(t.TempDir(), "izdanja")
 		zapisiDatoteku(t, datoteka, "x")
-		if _, err := Izdaj(arhiva(t), filepath.Join(datoteka, "v"), "cvor-proba", "", false, nil); err == nil {
+		if _, err := Izdaj(arhiva(t), filepath.Join(datoteka, "v"), "cvor-proba", "", false, nil, nil); err == nil {
 			t.Error("izdavanje u mapu koja se ne da napraviti prošlo je")
 		}
 	})
@@ -290,7 +290,7 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer drugi.Pusti()
-		_, err = Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil)
+		_, err = Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil, nil)
 		var z *Zauzeto
 		if !asZauzeto(err, &z) || z.Tko != "Ana Anić" {
 			t.Errorf("izdavanje uz zauzetu mapu: %v", err)
@@ -302,19 +302,19 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 			t.Fatal(err)
 		}
 		defer db.Close()
-		_, err = Izdaj(db, t.TempDir(), "cvor-proba", "", false, nil)
+		_, err = Izdaj(db, t.TempDir(), "cvor-proba", "", false, nil, nil)
 		greskaSadrzi(t, "bez nizova", err, "no such table: nizovi")
 	})
 	t.Run("arhiva bez letvi", func(t *testing.T) {
 		db := napraviArhivu(t, filepath.Join(t.TempDir(), "arhiva.db"))
 		defer db.Close()
-		_, err := Izdaj(db, t.TempDir(), "cvor-proba", "", false, nil)
+		_, err := Izdaj(db, t.TempDir(), "cvor-proba", "", false, nil, nil)
 		greskaSadrzi(t, "bez letvi", err, "arhiva nema nijednu letvu")
 	})
 	t.Run("pokvaren katalog", func(t *testing.T) {
 		mapa := t.TempDir()
 		zapisiDatoteku(t, filepath.Join(mapa, ImeKataloga), "{")
-		_, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil)
+		_, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil, nil)
 		greskaSadrzi(t, "pokvaren katalog", err, "katalog se ne čita")
 		if puts, _ := filepath.Glob(filepath.Join(mapa, "*.cop")); len(puts) != 0 {
 			t.Errorf("uz pokvaren katalog zapisani su paketi: %v", puts)
@@ -325,7 +325,7 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 		if err := os.Mkdir(filepath.Join(mapa, "vodograd_v1.cop.novo"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil); err == nil {
+		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil, nil); err == nil {
 			t.Error("izdavanje je prošlo iako paket nije zapisan")
 		}
 		if _, err := os.Stat(filepath.Join(mapa, ImeKataloga)); !errors.Is(err, fs.ErrNotExist) {
@@ -337,7 +337,7 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 		if err := os.Mkdir(filepath.Join(mapa, ImeKataloga+".novo"), 0o755); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil); err == nil {
+		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil, nil); err == nil {
 			t.Error("izdavanje je prošlo iako katalog nije zapisan")
 		}
 		if _, err := os.Stat(filepath.Join(mapa, "vodograd_v1.cop")); err != nil {
@@ -350,7 +350,7 @@ func TestIzdavanjeKojeNeUspije(t *testing.T) {
 			Od: time.Date(2026, 1, 1, 7, 0, 0, 0, time.UTC)})
 		zapisiDatoteku(t, filepath.Join(mapa, ImeBrave), string(mrtva))
 		var zapisi strings.Builder
-		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, &zapisi); err != nil {
+		if _, err := Izdaj(arhiva(t), mapa, "cvor-proba", "", false, nil, &zapisi); err != nil {
 			t.Fatal(err)
 		}
 		if !strings.Contains(zapisi.String(), "preuzeta brava prekinutog posla: izdavanje arhive (Marko Markić") {
@@ -374,5 +374,68 @@ func TestSljedeceIzdanjeKojeNeUspije(t *testing.T) {
 	greskaSadrzi(t, "letva bez nizova", err, `letva "kamenjak" nema nizova u arhivi`)
 	if b.Len() != 0 {
 		t.Errorf("uz grešku je zapisano %d bajta", b.Len())
+	}
+}
+
+// Zaključava da vraćeni katalog ne daje isti broj izdanja drugom sadržaju.
+// Katalog je vraćen na v1, a u kazalu je već v2: novi sadržaj dobiva v3, a
+// ne opet v2. Kad je u kazalu pod brojem iz kataloga drugi otisak, sadržaj
+// dobiva sljedeći broj. Čvorovi koji neki broj već imaju preskočili bi
+// paket s istim brojem bez traga.
+func TestVraceniKatalogNeDajeIstiBroj(t *testing.T) {
+	mapa := t.TempDir()
+	db := napraviArhivu(t, filepath.Join(t.TempDir(), "arhiva.db"))
+	defer db.Close()
+	dodajNiz(t, db, "vodograd")
+	if _, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	katalogV1, err := os.ReadFile(filepath.Join(mapa, ImeKataloga))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dodajOcitanje := func(vrijeme int) {
+		t.Helper()
+		if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost)
+			SELECT id, ?, 104 FROM nizovi WHERE letva='vodograd'`, vrijeme); err != nil {
+			t.Fatal(err)
+		}
+	}
+	dodajOcitanje(4600)
+	iz, err := Izdaj(db, mapa, "cvor-proba", "", false, nil, nil)
+	if err != nil || iz.Redci[0].Izdanje != 2 {
+		t.Fatalf("drugo izdavanje: %+v, %v", iz.Redci, err)
+	}
+	kazalo := map[int]string{2: iz.Redci[0].Otisak}
+	uMrezi := func(letva string) (int, string) {
+		zadnje := 0
+		for n := range kazalo {
+			zadnje = max(zadnje, n)
+		}
+		return zadnje, kazalo[zadnje]
+	}
+
+	// katalog se vrati na v1, a sadržaj se opet promijeni
+	if err := os.WriteFile(filepath.Join(mapa, ImeKataloga), katalogV1, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dodajOcitanje(8200)
+	iz, err = Izdaj(db, mapa, "cvor-proba", "", false, uMrezi, nil)
+	if err != nil || iz.Redci[0].Izdanje != 3 || iz.Redci[0].Datoteka != "vodograd_v3.cop" {
+		t.Fatalf("izdavanje uz vraćeni katalog: %+v, %v", iz.Redci, err)
+	}
+
+	// u kazalu je v3 s drugim otiskom (drugi čvor), a katalog kaže v3: novi broj
+	kazalo[3] = "drugi-otisak"
+	iz, err = Izdaj(db, mapa, "cvor-proba", "", false, uMrezi, nil)
+	if err != nil || iz.Redci[0].Izdanje != 4 {
+		t.Fatalf("isti broj s drugim otiskom u kazalu: %+v, %v", iz.Redci, err)
+	}
+
+	// kazalo zna isti otisak pod istim brojem: ništa se ne mijenja
+	kazalo[4] = iz.Redci[0].Otisak
+	iz, err = Izdaj(db, mapa, "cvor-proba", "", false, uMrezi, nil)
+	if err != nil || iz.Redci[0].Izdanje != 4 || iz.Istih != 1 {
+		t.Errorf("nepromijenjeno uz kazalo: %+v, %v", iz, err)
 	}
 }

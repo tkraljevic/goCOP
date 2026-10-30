@@ -17,6 +17,7 @@ import (
 	"unicode"
 
 	"gocop/internal/models"
+	"gocop/internal/trajno"
 )
 
 // Uvoz krivulja protoka spaja izvoz s datotekom koju letva već ima.
@@ -416,10 +417,10 @@ func ZapisiKrivulje(put string, csv []byte, s *Sadrzaj, izvornik []byte) (string
 	if err != nil {
 		return "", fmt.Errorf("izvornik se nije spremio: %w", err)
 	}
-	if err := os.WriteFile(filepath.Join(mapa, ime), izvornik, 0o644); err != nil {
+	if err := trajno.Zapisi(filepath.Join(mapa, ime), izvornik, 0o644); err != nil {
 		return "", fmt.Errorf("izvornik se nije spremio: %w", err)
 	}
-	if err := os.WriteFile(put, csv, 0o644); err != nil {
+	if err := trajno.Zapisi(put, csv, 0o644); err != nil {
 		return "", fmt.Errorf("upis nije uspio: %w", err)
 	}
 	return ime, nil

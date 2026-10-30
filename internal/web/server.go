@@ -96,9 +96,10 @@ type Server struct {
 	orgRepo        *repository.OrgRepository
 	karta          KartaPostavke
 	arhivaPut      string
-	brojkeStanje   brojkeStanje // brojke podataka za naslovnu, izbrojene najviše svakih pet minuta
-	podaciDir      string       // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
-	paketiDir      string       // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	brojkeStanje   brojkeStanje  // brojke podataka za naslovnu, izbrojene najviše svakih pet minuta
+	podaciDir      string        // stablo s izvornim datotekama; prazno na čvoru koji samo prima pakete
+	paketiDir      string        // mapa u koju se izdaju .cop paketi i u kojoj stoji katalog
+	kazaloArhive   arhiva.UMrezi // zadnje izdanje letve u kazalu knjige; nil = samo katalog
 	poslovi        *poslovi.Registar
 	// arhivaMu čuva pokazivač na čitača arhive. Gradnja, ugradnja i micanje
 	// niza zamjenjuju ga iz pozadinske dretve posla, dok ga HTTP zahtjevi
@@ -1958,6 +1959,12 @@ func (s *Server) SetPaketiDir(dir string) {
 	s.paketiDir = dir
 }
 
+// SetKazaloArhive daje izdavanju zadnje izdanje svake letve iz kazala u
+// knjizi, da vraćeni katalog ne dodijeli isti broj drugom sadržaju
+func (s *Server) SetKazaloArhive(f arhiva.UMrezi) {
+	s.kazaloArhive = f
+}
+
 // SetPodaciDir kazuje gdje stoji zajedničko stablo s izvornim datotekama.
 // Čvor koji arhivu dobiva paketom ga nema — ondje se ne gradi, nego prima.
 func (s *Server) SetPodaciDir(dir string) {
@@ -1971,7 +1978,7 @@ func (s *Server) UgradiPaket(sadrzaj *arhiva.Sadrzaj) error {
 	if s.arhivaPut == "" {
 		return fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis+"&"+gocopdb.UpisOdPocetka)
+	db, err := sql.Open("sqlite", arhiva.AdresaZaPisanje(s.arhivaPut))
 	if err != nil {
 		return err
 	}
@@ -2002,7 +2009,7 @@ func (s *Server) PostaviIzvor(i arhiva.Izvor) ([]string, error) {
 	if s.arhivaPut == "" {
 		return nil, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis+"&"+gocopdb.UpisOdPocetka)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut, "_pragma=journal_mode(WAL)"))
 	if err != nil {
 		return nil, err
 	}
@@ -2070,7 +2077,7 @@ func (s *Server) urediArhivu(izmjena func(db *sql.DB) (int, error)) (int, error)
 	if s.arhivaPut == "" {
 		return 0, fmt.Errorf("nije poznato gdje arhiva stoji")
 	}
-	db, err := sql.Open("sqlite", s.arhivaPut+"?_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis+"&"+gocopdb.UpisOdPocetka)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(s.arhivaPut))
 	if err != nil {
 		return 0, err
 	}
@@ -2119,7 +2126,7 @@ func (s *Server) IzdajArhivu(letva string, probno bool, zapisi io.Writer) (arhiv
 		return iz, err
 	}
 	defer db.Close()
-	return arhiva.Izdaj(db, s.paketiDir, s.recorder.Cvor(), letva, probno, zapisi)
+	return arhiva.Izdaj(db, s.paketiDir, s.recorder.Cvor(), letva, probno, s.kazaloArhive, zapisi)
 }
 
 // KatalogIzdanja čita što je dosad izdano. Mape koje nema nije greška: na ovom

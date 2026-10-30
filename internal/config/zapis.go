@@ -12,6 +12,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gocop/internal/trajno"
 )
 
 // Provjeri javlja što u postavkama ne valja, po punom ključu, riječima za
@@ -214,8 +216,8 @@ func zapisiKopiju(put string, stari []byte, sad time.Time, dopustenja os.FileMod
 	return ime, zapisiAtomski(ime, stari, dopustenja)
 }
 
-// zapisiAtomski piše u privremenu datoteku u istoj mapi i preimenuje je
-// preko odredišta. Na Windowsu odredište zna nakratko držati drugi program
+// zapisiAtomski piše u privremenu datoteku u istoj mapi, spušta je na disk,
+// preimenuje je preko odredišta i spušta mapu. Na Windowsu odredište zna nakratko držati drugi program
 // (npr. Postava koja čita port), pa se preimenovanje pokuša nekoliko puta.
 func zapisiAtomski(put string, sadrzaj []byte, dopustenja os.FileMode) error {
 	f, err := os.CreateTemp(filepath.Dir(put), "."+filepath.Base(put)+"-*")
@@ -225,7 +227,7 @@ func zapisiAtomski(put string, sadrzaj []byte, dopustenja os.FileMode) error {
 	privremena := f.Name()
 	_, err = f.Write(sadrzaj)
 	if err == nil {
-		err = f.Sync()
+		err = trajno.SpustiDatoteku(f)
 	}
 	if errZ := f.Close(); err == nil {
 		err = errZ
@@ -238,8 +240,20 @@ func zapisiAtomski(put string, sadrzaj []byte, dopustenja os.FileMode) error {
 	}
 	if err != nil {
 		_ = os.Remove(privremena)
+		return err
 	}
-	return err
+	trajno.SpustiMapu(filepath.Dir(put))
+	return nil
+}
+
+// zapisiPreko je zapisiAtomski koji zadržava prava postojeće datoteke, kao
+// os.WriteFile; nova datoteka dobiva 0644
+func zapisiPreko(put string, sadrzaj []byte) error {
+	dopustenja := os.FileMode(0o644)
+	if st, err := os.Stat(put); err == nil {
+		dopustenja = st.Mode().Perm()
+	}
+	return zapisiAtomski(put, sadrzaj, dopustenja)
 }
 
 // razmakPreimenovanja je razmak između pokušaja preimenovanja

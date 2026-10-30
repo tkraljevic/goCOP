@@ -63,7 +63,7 @@ func Otvori(put string) (*Spremiste, error) {
 		}
 		// Skenovi i PDF-ovi moraju na disk prije zapisa u glavnoj bazi koji ih
 		// navodi, inače nakon nestanka struje može ostati akt bez skena.
-		dsn = put + "?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&" + gocopdb.TrajniUpis + "&" + gocopdb.UpisOdPocetka
+		dsn = gocopdb.ZaPisanje(put, "_pragma=journal_mode(WAL)")
 	}
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {

@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"gocop/internal/trajno"
 )
 
 // Ulaz u arhivu: gdje datoteka stoji i kako se zove. Naziv je ugovor —
@@ -183,12 +185,16 @@ func Upisi(koren, sliv, letva, izvor, velicina, vrsta string, redci []Redak) (st
 	if err := os.Rename(privremeno, put); err != nil {
 		return "", err
 	}
+	// Novo ime mora biti na disku prije nego što stari niz nestane, inače
+	// nestanak struje može ostaviti mapu bez ijednog.
+	trajno.SpustiMapu(mapa)
 	var ostali error
 	for _, s := range stare {
 		if s != put {
 			ostali = errors.Join(ostali, makniStari(s, put))
 		}
 	}
+	trajno.SpustiMapu(mapa) // i brisanje starih mora na disk
 	return put, ostali
 }
 
@@ -408,7 +414,7 @@ func zapisiCSV(put, velicina string, zona *time.Location, redci []Redak) error {
 		f.Close()
 		return err
 	}
-	return f.Close()
+	return trajno.SpustiIZatvori(f)
 }
 
 // vrijemeUCSV piše sat u zoni izvora, a dan bez zone — dan je dan bez obzira

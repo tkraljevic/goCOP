@@ -2,6 +2,8 @@ package peers_test
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"testing"
@@ -55,7 +57,12 @@ func TestIzvozIUvozKanalaKrozDatoteku(t *testing.T) {
 		t.Errorf("ponovljeni uvoz mora biti bez učinka: %+v %v", again, err)
 	}
 
-	if _, err := laptop.svc.ImportFile(ctx, filepath.Join(t.TempDir(), "nema.db")); err == nil {
+	// datoteka se samo čita: nepostojeća ne nastaje kao prazna baza
+	nema := filepath.Join(t.TempDir(), "nema.db")
+	if _, err := laptop.svc.ImportFile(ctx, nema); err == nil {
 		t.Error("nepostojeća ili tuđa datoteka mora biti odbijena")
+	}
+	if _, err := os.Stat(nema); !errors.Is(err, fs.ErrNotExist) {
+		t.Errorf("uvoz je napravio datoteku koje nije bilo: %v", err)
 	}
 }

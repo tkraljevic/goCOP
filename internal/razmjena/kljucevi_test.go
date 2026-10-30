@@ -14,6 +14,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -92,5 +93,53 @@ func TestCitanjeKljucaOdbijaSveStoNijeKljuc(t *testing.T) {
 		if k, err := LoadKey(put); err == nil || k != nil || errors.Is(err, os.ErrNotExist) {
 			t.Errorf("%s: pročitan kao ključ (%v)", ime, err)
 		}
+	}
+}
+
+// Datoteka ključa koja postoji, ali se ne da pročitati, a da se pisati, ne
+// prepisuje se novim ključem: LoadOrCreateKey javlja grešku, a datoteka
+// ostaje kakva je. Novi ključ značio bi novi identitet računala, i upareni
+// čvorovi ga više ne bi prepoznali.
+func TestNecitljivKljucSeNePrepisuje(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("prava datoteke ovdje ne brane čitanje")
+	}
+	put := filepath.Join(t.TempDir(), "device-key")
+	if err := SaveKey(put, newKey(t)); err != nil {
+		t.Fatal(err)
+	}
+	prije, err := os.ReadFile(put)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(put, 0o200); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(put, 0o600) }) //nolint:errcheck // da t.TempDir može obrisati datoteku
+	if k, err := LoadOrCreateKey(put); err == nil || k != nil {
+		t.Errorf("nečitljiv ključ: vraćen ključ, greška %v", err)
+	}
+	if err := os.Chmod(put, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if poslije, err := os.ReadFile(put); err != nil || !bytes.Equal(prije, poslije) {
+		t.Errorf("datoteka nečitljivog ključa je prepisana: %v", err)
+	}
+}
+
+// Novi ključ koji se ne da zapisati (mapa samo za čitanje) javlja grešku i
+// ne vraća ključ: ključ koji nije na disku računalo bi nakon ponovnog
+// pokretanja zamijenilo drugim
+func TestNoviKljucKojiSeNeDaZapisati(t *testing.T) {
+	if runtime.GOOS == "windows" || os.Geteuid() == 0 {
+		t.Skip("prava mape ovdje ne brane pisanje")
+	}
+	mapa := t.TempDir()
+	if err := os.Chmod(mapa, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(mapa, 0o700) }) //nolint:errcheck // da t.TempDir može obrisati mapu
+	if k, err := LoadOrCreateKey(filepath.Join(mapa, "device-key")); err == nil || k != nil {
+		t.Errorf("ključ u mapi samo za čitanje: vraćen ključ, greška %v", err)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -161,13 +162,18 @@ func (r *PrijavaRepository) Objavi(ctx context.Context, p *models.PrijavaSTerena
 		return err
 	}
 	defer tx.Rollback()
-	res, err := tx.ExecContext(ctx, `UPDATE prijave SET broj = ?, godina = ?, status = ?, podaci = ?, objavljeno_at = ?, updated_at = ? WHERE id = ? AND objavljeno_at IS NULL`,
-		p.Broj, p.Godina, p.Status, prijavaArgs(p)[12], p.ObjavljenoAt.UTC(), now, p.ID)
+	// Broj se provjerava u istoj naredbi kojom se prijava objavljuje. To je
+	// prvi upis transakcije, pa druga objava između provjere i upisa ne može
+	// uzeti isti broj.
+	res, err := tx.ExecContext(ctx, `UPDATE prijave SET broj = ?, godina = ?, status = ?, podaci = ?, objavljeno_at = ?, updated_at = ?
+		WHERE id = ? AND objavljeno_at IS NULL AND NOT EXISTS (`+brojPrijaveZauzet+`)`,
+		p.Broj, p.Godina, p.Status, prijavaArgs(p)[12], p.ObjavljenoAt.UTC(), now, p.ID,
+		p.Sektor, p.Godina, p.Broj, p.ID)
 	if err != nil {
 		return fmt.Errorf("objava prijave: %w", err)
 	}
 	if n, _ := res.RowsAffected(); n != 1 {
-		return fmt.Errorf("prijava je već objavljena ili ne postoji")
+		return zastoNijeObjavljena(ctx, tx, p)
 	}
 	if _, err := r.rec.RecordIn(ctx, tx, prijavaChannel(p), EntityPrijave, p.ID, p); err != nil {
 		return err
@@ -370,7 +376,28 @@ func (r *PrijavaRepository) List(ctx context.Context, f FiltarPrijava) ([]models
 	return out, rows.Err()
 }
 
-// SljedeciBroj daje sljedeći redni broj prijave u godini po sektoru
+// ErrBrojPrijaveZauzet: broj s kojim se prijava objavljivala u međuvremenu je
+// dobila druga prijava istog sektora i godine
+var ErrBrojPrijaveZauzet = errors.New("prijava nije objavljena: njezin broj u međuvremenu je dobila druga prijava; pokušajte ponovno")
+
+// brojPrijaveZauzet nalazi drugu prijavu s istim brojem u sektoru i godini
+// (args: sektor, godina, broj, id prijave)
+const brojPrijaveZauzet = `SELECT 1 FROM prijave WHERE sektor = ? AND godina = ? AND broj = ? AND id <> ?`
+
+// zastoNijeObjavljena kaže zašto objava nije upisala prijavu: broj je u
+// međuvremenu dobila druga prijava, ili je prijava već objavljena ili je nema
+func zastoNijeObjavljena(ctx context.Context, tx *sql.Tx, p *models.PrijavaSTerena) error {
+	var zauzet bool
+	_ = tx.QueryRowContext(ctx, `SELECT EXISTS (`+brojPrijaveZauzet+`)`, p.Sektor, p.Godina, p.Broj, p.ID).Scan(&zauzet) // bez odgovora ostaje opća greška, a transakcija se vraća
+	if zauzet {
+		return ErrBrojPrijaveZauzet
+	}
+	return errors.New("prijava je već objavljena ili ne postoji")
+}
+
+// SljedeciBroj daje sljedeći redni broj prijave u godini po sektoru. Broj
+// je samo prijedlog: objava (Objavi) ga odbija s ErrBrojPrijaveZauzet ako ga
+// je u međuvremenu dobila druga prijava.
 func (r *PrijavaRepository) SljedeciBroj(ctx context.Context, sektor string, godina int) (int, error) {
 	var n int
 	err := r.db.QueryRowContext(ctx, `SELECT COALESCE(MAX(broj), 0) + 1 FROM prijave WHERE sektor = ? AND godina = ?`, sektor, godina).Scan(&n)

@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS dnevne_ranije (
 
 // Otvori otvara bazu prognoza i slaže shemu ako je nema.
 func Otvori(put string) (*sql.DB, error) {
-	db, err := sql.Open("sqlite", put+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&"+gocopdb.TrajniUpis+"&"+gocopdb.UpisOdPocetka)
+	db, err := sql.Open("sqlite", gocopdb.ZaPisanje(put, "_pragma=journal_mode(WAL)"))
 	if err != nil {
 		return nil, err
 	}

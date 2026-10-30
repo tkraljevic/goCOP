@@ -268,7 +268,7 @@ func WriteExample(path string, cfg Config) (bool, error) {
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		return false, err
 	}
-	if err := os.WriteFile(path, data, 0o644); err != nil {
+	if err := zapisiAtomski(path, data, 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -281,6 +281,7 @@ func UpisiIme(path, ime string) error {
 	if err != nil {
 		return err
 	}
+	zapisi := func(tekst string) error { return zapisiPreko(path, []byte(tekst)) }
 	redovi := strings.Split(string(b), "\n")
 	odjeljak, umetni := "", -1
 	for i, r := range redovi {
@@ -294,15 +295,14 @@ func UpisiIme(path, ime string) error {
 		}
 		if odjeljak == "[node]" && (strings.HasPrefix(t, "id ") || strings.HasPrefix(t, "id=")) {
 			redovi[i] = fmt.Sprintf("id = %q", ime)
-			return os.WriteFile(path, []byte(strings.Join(redovi, "\n")), 0o644)
+			return zapisi(strings.Join(redovi, "\n"))
 		}
 	}
 	if umetni >= 0 {
 		redovi = append(redovi[:umetni], append([]string{fmt.Sprintf("id = %q", ime)}, redovi[umetni:]...)...)
-		return os.WriteFile(path, []byte(strings.Join(redovi, "\n")), 0o644)
+		return zapisi(strings.Join(redovi, "\n"))
 	}
-	tekst := strings.TrimRight(string(b), "\n") + fmt.Sprintf("\n\n[node]\nid = %q\n", ime)
-	return os.WriteFile(path, []byte(tekst), 0o644)
+	return zapisi(strings.TrimRight(string(b), "\n") + fmt.Sprintf("\n\n[node]\nid = %q\n", ime))
 }
 
 // ZadaniIzvorPlocica je OpenStreetMapov poslužitelj pločica

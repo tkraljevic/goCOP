@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"gocop/internal/trajno"
 )
 
 // ImeKataloga je datoteka koja u mapi izdanja kaže što je izdano.
@@ -124,7 +126,13 @@ type IzvjestajIzdanja struct {
 // cjelovita izjava o letvi, pa svaki čvor uzima samo zadnje. Stara izdanja su
 // ZAPIS — ako je netko u ožujku odlučivao po v2, treba v2 da bi se vidjelo što
 // je tad imao pred sobom.
-func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer) (IzvjestajIzdanja, error) {
+//
+// Broj izdanja uzima se i iz kazala u knjizi (uMrezi; nil = samo katalog).
+// Katalog u mapi paketa može biti stariji od onoga što je već izašlo: vraćen
+// iz kopije, ili je mapa paketa zamijenjena. Isti broj tada bi dobio
+// drukčiji sadržaj, a čvorovi koji taj broj već imaju preskočili bi paket
+// bez traga. Zato novi broj dolazi iza najvećeg iz kataloga i kazala.
+func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, uMrezi UMrezi, zapisi io.Writer) (IzvjestajIzdanja, error) {
 	if zapisi == nil {
 		zapisi = io.Discard
 	}
@@ -162,22 +170,9 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 	novi := Katalog{Inacica: PaketInacica, Nastalo: time.Now().UTC(), Izdao: izdao}
 	for i, letva := range letve {
 		javi(zapisi, "sastavljam "+letva, i, len(letve))
-		prije, imaPrije := poLetvi[letva]
-		izdanje := prije.Izdanje
-		// Letva koju je ovaj čvor primio paketom, a sam je još nije izdavao,
-		// nastavlja niz izdanja onoga od koga je primljena. Inače bi čvor koji
-		// preuzme izdavanje krenuo od v1, a čvorovi koji već drže v3 odbili bi
-		// „starije” izdanje i arhiva bi im stala.
-		var primljeno *PrimljenoIzdanje
-		if !imaPrije {
-			if p, err := Primljeno(db, letva); err == nil && p != nil {
-				primljeno = p
-				izdanje = p.Izdanje
-			}
-		}
-		if izdanje < 1 {
-			izdanje = 1
-		}
+		z := zadnjeIzdanjeLetve(db, poLetvi, letva, uMrezi)
+		prije, imaPrije := z.prije, z.imaPrije
+		izdanje := z.broj()
 
 		var b bytes.Buffer
 		m, err := Izvezi(db, letva, izdanje, izdao, &b)
@@ -194,7 +189,7 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 			iz.Preskocenih++
 			continue
 		}
-		if imaPrije && m.Otisak == prije.Otisak {
+		if z.isto(m.Otisak) {
 			fmt.Fprintf(zapisi, "  %-18s v%-3d nepromijenjeno\n", letva, prije.Izdanje)
 			novi.Paketi = append(novi.Paketi, prije)
 			iz.Redci = append(iz.Redci, RedIzdanja{Letva: letva, Prije: prije.Izdanje, Izdanje: prije.Izdanje,
@@ -205,12 +200,8 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		}
 		// Sadržaj je drukčiji, pa i izdanje mora biti — a manifest nosi broj
 		// izdanja, što znači da se paket mora složiti iznova.
-		if imaPrije || (primljeno != nil && m.Otisak != primljeno.Otisak) {
-			if imaPrije {
-				izdanje = prije.Izdanje + 1
-			} else {
-				izdanje = primljeno.Izdanje + 1
-			}
+		if z.treba(izdanje, m.Otisak) {
+			izdanje = max(izdanje, z.mreza) + 1
 			b.Reset()
 			if m, err = Izvezi(db, letva, izdanje, izdao, &b); err != nil {
 				// Već izdanu letvu u katalog vraća zadrziPrijasnje. Letva
@@ -262,6 +253,66 @@ func Izdaj(db *sql.DB, uMapu, izdao, samo string, probno bool, zapisi io.Writer)
 		return iz, err
 	}
 	return iz, nil
+}
+
+// UMrezi daje zadnje izdanje letve koje je već izašlo u mrežu, kako ga
+// pamti kazalo u knjizi: broj i otisak; 0 kad ga nema.
+type UMrezi func(letva string) (izdanje int, otisak string)
+
+// zadnjeIzdanje je ono što se o letvi zna prije izdavanja: redak kataloga,
+// primljeni paket i kazalo u knjizi
+type zadnjeIzdanje struct {
+	prije       UPaketu
+	imaPrije    bool
+	primljeno   *PrimljenoIzdanje
+	mreza       int
+	mrezaOtisak string
+}
+
+// zadnjeIzdanjeLetve skuplja što se o letvi zna. Letva koju je ovaj čvor
+// primio paketom, a sam je još nije izdavao, nastavlja niz izdanja onoga od
+// koga je primljena. Inače bi čvor koji preuzme izdavanje krenuo od v1, a
+// čvorovi koji već drže v3 odbili bi „starije” izdanje i arhiva bi im stala.
+func zadnjeIzdanjeLetve(db *sql.DB, poLetvi map[string]UPaketu, letva string, uMrezi UMrezi) zadnjeIzdanje {
+	z := zadnjeIzdanje{}
+	z.prije, z.imaPrije = poLetvi[letva]
+	if !z.imaPrije {
+		z.primljeno, _ = Primljeno(db, letva) // bez zapisa o primanju letva je nova
+	}
+	if uMrezi != nil {
+		z.mreza, z.mrezaOtisak = uMrezi(letva)
+	}
+	return z
+}
+
+// broj je izdanje s kojim se letva prvo izvozi: iz kataloga, iz primljenog
+// paketa ili, kad letve nema ni u jednom, iz kazala
+func (z zadnjeIzdanje) broj() int {
+	n := z.mreza
+	switch {
+	case z.imaPrije:
+		n = z.prije.Izdanje
+	case z.primljeno != nil:
+		n = z.primljeno.Izdanje
+	}
+	return max(n, 1)
+}
+
+// sudar javlja da je pod tim brojem u mreži drukčiji sadržaj: paket s tim
+// brojem nitko tko ga već ima ne bi uzeo
+func (z zadnjeIzdanje) sudar(broj int, otisak string) bool {
+	return z.mreza == broj && z.mrezaOtisak != otisak
+}
+
+// isto javlja da se sadržaj nije promijenio od zadnjeg izdanja u katalogu i
+// da ga mreža pod tim brojem ne zna drukčijeg
+func (z zadnjeIzdanje) isto(otisak string) bool {
+	return z.imaPrije && otisak == z.prije.Otisak && !z.sudar(z.broj(), otisak)
+}
+
+// treba javlja da sadržaj traži novi broj izdanja
+func (z zadnjeIzdanje) treba(broj int, otisak string) bool {
+	return z.imaPrije || (z.primljeno != nil && otisak != z.primljeno.Otisak) || z.sudar(broj, otisak)
 }
 
 // zadrziPrijasnje vraća u novi katalog retke prijašnjeg čije letve ovo
@@ -331,7 +382,7 @@ func ZapisiSaStrane(put string, sadrzaj []byte) error {
 	}
 	_, err = f.Write(sadrzaj)
 	if err == nil {
-		err = f.Sync()
+		err = trajno.SpustiDatoteku(f)
 	}
 	if errZ := f.Close(); err == nil {
 		err = errZ
@@ -340,18 +391,9 @@ func ZapisiSaStrane(put string, sadrzaj []byte) error {
 		err = os.Rename(privremeno, put)
 	}
 	if err == nil {
-		spustiMapu(filepath.Dir(put))
+		trajno.SpustiMapu(filepath.Dir(put))
 	}
 	return err
-}
-
-// spustiMapu spušta mapu na disk, da novo ime datoteke u njoj preživi
-// nestanak struje. Windows mapu ne da spustiti, pa se greška ne javlja.
-func spustiMapu(mapa string) {
-	if d, err := os.Open(mapa); err == nil {
-		_ = d.Sync()  // Windows mapu ne da spustiti, a datoteka je već na disku
-		_ = d.Close() // mapa je otvorena samo za čitanje
-	}
 }
 
 func zapisiKatalog(mapa string, k Katalog) error {

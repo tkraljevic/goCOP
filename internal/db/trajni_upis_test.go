@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Zaključava da glavna baza piše tako da potvrđen upis preživi nestanak
@@ -77,5 +78,73 @@ func TestShemaUJednojTransakciji(t *testing.T) {
 	}
 	if err := izvediShemu(zatvorena, []string{`CREATE TABLE prva (x)`}); err == nil {
 		t.Error("shema je prošla bez greške na zatvorenoj bazi")
+	}
+}
+
+// Zaključava da transakcija koja prvo čita pa piše ne pada kad između
+// njezina čitanja i upisa piše netko drugi. Uz običan BEGIN upis je padao s
+// „database is locked (517)”, pa bi npr. ovjera ili objava javila grešku
+// samo zato što je u isto vrijeme stigla razmjena.
+func TestCitanjePaUpisUzDrugogPisca(t *testing.T) {
+	baza, err := OpenDB(filepath.Join(t.TempDir(), "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	if _, err := baza.Exec(`CREATE TABLE brojac (n INTEGER); INSERT INTO brojac VALUES (0)`); err != nil {
+		t.Fatal(err)
+	}
+	ctx := context.Background()
+	tx, err := baza.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	var n int
+	if err := tx.QueryRowContext(ctx, `SELECT n FROM brojac`).Scan(&n); err != nil {
+		t.Fatal(err)
+	}
+	drugi := make(chan error, 1)
+	go func() {
+		_, err := baza.Exec(`UPDATE brojac SET n = n + 1`)
+		drugi <- err
+	}()
+	// drugi pisac dobiva vremena da upiše prije nego prva transakcija piše
+	var errDrugi error
+	gotov := false
+	select {
+	case errDrugi = <-drugi:
+		gotov = true
+	case <-time.After(300 * time.Millisecond):
+	}
+	if _, err := tx.ExecContext(ctx, `UPDATE brojac SET n = ?`, n+1); err != nil {
+		t.Fatalf("upis nakon čitanja: %v", err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatalf("potvrda: %v", err)
+	}
+	if !gotov {
+		errDrugi = <-drugi
+	}
+	if errDrugi != nil {
+		t.Fatalf("drugi pisac: %v", errDrugi)
+	}
+	if err := baza.QueryRow(`SELECT n FROM brojac`).Scan(&n); err != nil || n != 2 {
+		t.Errorf("brojač %d, %v; treba 2, oba upisa", n, err)
+	}
+}
+
+// Zaključava da baza otvorena adresom za upis čeka na drugog pisca i kad
+// pozivatelj čekanje nije zadao (arhiva). Uz pravo pisanja na početku
+// transakcije bez čekanja bi svaka transakcija pala čim drugi piše.
+func TestAdresaZaPisanjeCeka(t *testing.T) {
+	baza, err := sql.Open("sqlite", ZaPisanje(filepath.Join(t.TempDir(), "arhiva.db"), "_pragma=journal_mode(WAL)"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	var ms int
+	if err := baza.QueryRow(`PRAGMA busy_timeout`).Scan(&ms); err != nil || ms != 5000 {
+		t.Errorf("busy_timeout %d, %v; treba 5000", ms, err)
 	}
 }
