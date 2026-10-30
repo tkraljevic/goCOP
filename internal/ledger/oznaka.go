@@ -2,6 +2,7 @@ package ledger
 
 import (
 	"context"
+	"database/sql"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -138,34 +139,73 @@ var globOznake = func() string {
 
 // NeispravneUKnjizi su verzije u knjizi ovog računala koje razmjena danas
 // ne bi primila: oznaka nije ispravnog oblika, vrijeme u njoj je više od
-// NajviseUnaprijed ispred sada, ili ime autora ili kanal imaju znak |. Takve su mogle ući prije nego što je
-// razmjena provjeravala oznaku. Vraća broj i do najvise primjera, redom
-// oznake. Knjigu ne mijenja.
+// NajviseUnaprijed ispred sada, ili ime autora ili kanal imaju znak |. Takve
+// su mogle ući prije nego što je razmjena provjeravala oznaku. Vraća broj i
+// do najvise primjera, redom oznake. Knjigu ne mijenja.
 func (r *Recorder) NeispravneUKnjizi(ctx context.Context, sada time.Time, najvise int) (int, []Version, error) {
-	granica := oznakaZa(sada.Add(NajviseUnaprijed))
-	rows, err := r.db.QueryContext(ctx, `SELECT `+columns+` FROM record_versions
-		WHERE version_id NOT GLOB ? OR version_id > ? OR instr(node_id, '|') > 0 OR instr(channel, '|') > 0
-		ORDER BY version_id`, globOznake, granica)
-	if err != nil {
-		return 0, nil, fmt.Errorf("greška pri čitanju verzija: %w", err)
-	}
-	defer rows.Close()
 	var broj int
 	var primjeri []Version
-	for rows.Next() {
-		v, err := procitajVerziju(rows)
-		if err != nil {
-			return 0, nil, err
-		}
-		if ProvjeriPrimljenu(v, "", sada) == nil {
-			continue
-		}
+	err := neispravneIz(ctx, r.db, sada, func(v Version) {
 		broj++
 		if len(primjeri) < najvise {
 			primjeri = append(primjeri, v)
 		}
+	})
+	if err != nil {
+		return 0, nil, err
 	}
-	return broj, primjeri, rows.Err()
+	return broj, primjeri, nil
+}
+
+// ObrisiNeispravne briše iz knjige verzije koje razmjena danas ne bi primila
+// (NeispravneUKnjizi) i vraća koliko ih je obrisano. Uz PreseliSadrzaj to je
+// jedina radnja koja mijenja knjigu; poziva je samo globalni administrator s
+// ovog računala ili iz lokalne mreže (Odluke (30. 10. 2026.)). Površinu ne
+// dira: nakon brisanja treba je obnoviti iz knjige.
+func (r *Recorder) ObrisiNeispravne(ctx context.Context, sada time.Time) (int, error) {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	var oznake []string
+	if err := neispravneIz(ctx, tx, sada, func(v Version) { oznake = append(oznake, v.VersionID) }); err != nil {
+		return 0, err
+	}
+	for _, o := range oznake {
+		if _, err := tx.ExecContext(ctx, `DELETE FROM record_versions WHERE version_id = ?`, o); err != nil {
+			return 0, fmt.Errorf("brisanje neispravne verzije: %w", err)
+		}
+	}
+	return len(oznake), tx.Commit()
+}
+
+// citac je baza ili transakcija iz koje se čitaju verzije
+type citac interface {
+	QueryContext(ctx context.Context, upit string, args ...any) (*sql.Rows, error)
+}
+
+// neispravneIz za svaku verziju koju razmjena danas ne bi primila zove svaka,
+// redom oznake
+func neispravneIz(ctx context.Context, db citac, sada time.Time, svaka func(Version)) error {
+	granica := oznakaZa(sada.Add(NajviseUnaprijed))
+	rows, err := db.QueryContext(ctx, `SELECT `+columns+` FROM record_versions
+		WHERE version_id NOT GLOB ? OR version_id > ? OR instr(node_id, '|') > 0 OR instr(channel, '|') > 0
+		ORDER BY version_id`, globOznake, granica)
+	if err != nil {
+		return fmt.Errorf("greška pri čitanju verzija: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		v, err := procitajVerziju(rows)
+		if err != nil {
+			return err
+		}
+		if ProvjeriPrimljenu(v, "", sada) != nil {
+			svaka(v)
+		}
+	}
+	return rows.Err()
 }
 
 // oznakaZa je najveća oznaka s vremenom t: sve oznake s vremenom do t su

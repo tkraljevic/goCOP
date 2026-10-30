@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -115,6 +116,7 @@ type DBMaintPageData struct {
 	Compactable       int // verzija koje bi sažimanje maknulo uz zadani rok
 	KeepDays          int
 	Spomenika         int           // arhiviranih verzija (spomenika)
+	Neispravnih       int           // verzija u knjizi koje razmjena danas ne bi primila
 	BrisanjePovijesti bool          // prekidač uključen
 	Opcije            models.Opcije // dio „Pohrana”: rok čuvanja fotografija s terena
 	Readings          int
@@ -162,6 +164,7 @@ func (h *DBMaintHandler) ShowMaintenance(w http.ResponseWriter, r *http.Request)
 	if fi, err := os.Stat(data.DBPath + "-wal"); err == nil {
 		data.WALBytes = fi.Size()
 	}
+	data.Neispravnih, _, _ = h.rec.NeispravneUKnjizi(ctx, time.Now(), 0) // bez broja se gumb za čišćenje ne pokaže
 	if st, err := h.rec.Stats(ctx); err == nil {
 		data.Stats = st
 	} else {
@@ -216,6 +219,25 @@ func (h *DBMaintHandler) HandleReplay(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/administracija/baza", "success", fmt.Sprintf("Zapisi su obnovljeni iz knjige: %d %s.", n, models.UzBrojHR(n, "zapis", "zapisa", "zapisa")))
+}
+
+// HandleOcistiKnjigu briše iz knjige verzije koje razmjena danas ne bi
+// primila i zatim obnovi zapise iz knjige. Smije samo globalni administrator
+// s ovog računala ili iz lokalne mreže (ruta je iza samoNaCvoru), a dnevnik
+// programa zapiše tko je to napravio i odakle.
+func (h *DBMaintHandler) HandleOcistiKnjigu(w http.ResponseWriter, r *http.Request) {
+	n, err := h.rec.ObrisiNeispravne(r.Context(), time.Now())
+	if err != nil {
+		redirectWith(w, r, "/administracija/baza", "error", "Knjiga nije očišćena: "+err.Error())
+		return
+	}
+	log.Printf("Knjiga verzija: %s je s adrese %s obrisao %d neispravnih verzija", opisOsobe(prijavljeni(r)), klijentIz(r), n)
+	obrisano := fmt.Sprintf("%d %s", n, models.UzBrojHR(n, "neispravna verzija", "neispravne verzije", "neispravnih verzija"))
+	vrsta, poruka := "success", "Iz knjige je obrisano "+obrisano+", a zapisi su obnovljeni iz knjige."
+	if _, err := repository.ReplaySurface(r.Context(), h.db(), h.rec); err != nil {
+		vrsta, poruka = "error", fmt.Sprintf("Obrisano je %s, ali zapisi se nisu obnovili iz knjige: %v. Pokrenite Obnovi zapise iz knjige.", obrisano, err)
+	}
+	redirectWith(w, r, "/administracija/baza", vrsta, poruka)
 }
 
 // HandleVacuum vraća prostor obrisanih redaka operacijskom sustavu
