@@ -15,11 +15,11 @@
 </div>
 
 {{if .Preuzima}}
-<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), pa ovi računi trebaju ovdje.</p>
+<p class="form-help">Ovaj čvor preuzima vodostaje s izvora (<a href="/settings#uloge">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), pa ovi računi trebaju ovdje.</p>
 {{else}}
 <div class="alert alert-warning">Ovaj čvor <strong>ne preuzima</strong> vodostaje s izvora: očitanja mu stižu razmjenom od čvora
   koji ih preuzima, pa mu ovi računi ne trebaju. Upišite ih na čvoru s ulogom „Preuzima vodostaje s izvora”
-  (<a href="/settings">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
+  (<a href="/settings#uloge">Čvor, mreža i sinkronizacija → Uloge ovog čvora</a>), ili ovdje kad ovaj čvor preuzme tu ulogu.</div>
 {{end}}
 
 {{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
@@ -46,11 +46,11 @@
     <input type="hidden" name="hidroview_adresa" value="{{.Adresa}}">
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
+      {{if .Korisnik}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za HydroView s ovog čvora? Ovaj čvor tada prestaje preuzimati vodostaje s tog sustava.')">{{icon "trash"}} Obriši račun</button>{{end}}
     </div>
   </form>
   <p class="form-help">
-    {{if .Korisnik}}Upisan je račun <strong>{{.Korisnik}}</strong>, od {{formatDate .Upisano}}.
-      Prazno korisničko ime briše ga s ovog čvora.{{else}}Račun još nije upisan, pa letve na tom sustavu
+    {{if .Korisnik}}Upisan je račun <strong>{{.Korisnik}}</strong>, od {{formatDate .Upisano}}.{{else}}Račun još nije upisan, pa letve na tom sustavu
       ne mogu preuzimati.{{end}}
     Prijava se provjeri prije spremanja, da letva ne bi svaki sat javljala grešku koju nitko ne gleda.
     Lozinka se sprema zaključana ključem ovog čvora: vrijedi samo na ovom računalu i ne putuje
@@ -79,11 +79,11 @@
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
       <button type="submit" name="iz_poste" value="1" class="btn">{{icon "mail"}} Uzmi moj račun e-pošte</button>
+      {{if .MLetvaKorisnik}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za mobilnu stranicu Hrvatskih voda s ovog čvora? Ovaj čvor tada prestaje preuzimati vodostaje s te stranice.')">{{icon "trash"}} Obriši račun</button>{{end}}
     </div>
   </form>
   <p class="form-help">
-    {{if .MLetvaKorisnik}}Upisan je račun <strong>{{.MLetvaKorisnik}}</strong>, od {{formatDate .MLetvaUpisano}}.
-      Prazno korisničko ime briše ga s ovog čvora.{{else}}Račun još nije upisan.{{end}}
+    {{if .MLetvaKorisnik}}Upisan je račun <strong>{{.MLetvaKorisnik}}</strong>, od {{formatDate .MLetvaUpisano}}.{{else}}Račun još nije upisan.{{end}}
     „Uzmi moj račun e-pošte“ upiše tvoj račun iz profila, bez „@voda.hr“. Prijava se i ovdje provjeri
     prije spremanja, a lozinka ostaje zaključana ključem ovog čvora.
   </p>
@@ -104,8 +104,6 @@
       {{end}}
     </tbody>
   </table>
-  <p class="form-help">Letva koja treba drugi račun — kad sektor čita svoje postaje — upisuje ga u svojoj kartici,
-    pod „Telemetrija na Geolux HydroViewu“.</p>
 </section>
 {{end}}
 {{end}}

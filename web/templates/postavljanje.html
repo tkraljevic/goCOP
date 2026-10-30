@@ -35,7 +35,7 @@
       {{else if .Uvezeno}}
 
       <div class="alert alert-success">Ovo računalo je primljeno u mrežu <b>{{.Uvezeno.Mreza}}</b>{{if .Uvezeno.Ovlast}}, s ovlašću da i samo prima računala{{end}}.</div>
-      <p>Sinkronizacija je krenula{{with .Uvezeno.Cvorovi}} s {{range $i, $c := .}}{{if $i}}, {{end}}<b>{{$c}}</b>{{end}}{{else}}, ali potvrda nije navela nijedan čvor s adresom: upišite adresu ureda pod Postavke → Poznati čvorovi kad se prijavite{{end}}.
+      <p>Sinkronizacija je krenula{{with .Uvezeno.Cvorovi}} s {{range $i, $c := .}}{{if $i}}, {{end}}<b>{{$c}}</b>{{end}}{{else}}, ali potvrda nije navela nijedan čvor s adresom. Kad se prijavite, upišite adresu ureda u Administraciji › Čvor, mreža i sinkronizacija, pod Domenski čvorovi{{end}}.
       Djelatnici, registri i podaci stižu od tamo; kad stignu, ova stranica sama vodi na prijavu, a prijavljujete se svojim računom.</p>
       <script>setTimeout(function () { location.href = '/postavljanje{{if .Kod}}?kod={{.Kod}}{{end}}'; }, 15000);</script>
 

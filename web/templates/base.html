@@ -46,7 +46,7 @@
           {{if .Sees "vodostaji"}}<a href="/readings" class="nav-link {{if eq .ActiveNav "readings"}}active{{end}}">{{icon "activity"}} Očitanja</a>{{end}}
           {{if .Sees "vodostaji"}}<a href="/prognoze" class="nav-link {{if eq .ActiveNav "prognoze"}}active{{end}}">{{icon "trending-up"}} Prognoze</a>{{end}}
           {{if .Sees "dnevnici"}}<a href="/dnevnici" class="nav-link {{if eq .ActiveNav "journals"}}active{{end}}">{{icon "notebook"}} Dokumentacija</a>{{end}}
-          {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
+          {{if .Sees "administracija"}}<a href="/administracija" class="nav-link {{if or (eq .ActiveNav "admin") (eq .ActiveNav "settings") (eq .ActiveNav "sync") (eq .ActiveNav "moduli") (eq .ActiveNav "organizacija")}}active{{end}}">{{icon "settings"}} Administracija</a>{{end}}
 
           <!-- Registri su sami po sebi skupina, pa ne troše mjesto u traci -->
           {{if or (.Sees "registri") (.Sees "djelatnici")}}

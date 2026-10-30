@@ -8,7 +8,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "mail"}} Poslužitelj e-pošte</h1>
-    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u svom profilu. Postavke vrijede na svim čvorovima. Jedino PIN za prijavu izvana šalje račun sustava, upisan na svakom čvoru posebno (dolje).</p>
+    <p class="page-desc">Preko njega goCOP šalje ovjerene akte primateljima "na znanje" i čita korisnikov sandučić. Šalje se s adrese i računa prijavljenog korisnika; lozinku svatko upisuje u <a href="/profile/posta">svom profilu</a>. Postavke vrijede na svim čvorovima. Jedino PIN za prijavu izvana šalje račun sustava, upisan na svakom čvoru posebno (dolje).</p>
   </div>
 </div>
 
@@ -85,6 +85,7 @@
   <p class="profil-stanje">
     {{if .Opcije.PIN}}<span class="badge badge-active">{{icon "check"}} uključen</span> PIN se traži za prijavu izvana{{else}}<span class="badge badge-pending">isključen</span> prijava izvana traži samo lozinku{{end}};
     PIN ide na adrese <span class="mono">@{{.Opcije.Domena}}</span> i na adrese izvan nje koje je globalni administrator potvrdio kod djelatnika.
+    <a href="/users?status=BEZ_EPOSTE">Pogledajte djelatnike bez adrese za PIN.</a>
   </p>
 
   <h3 class="obrazac-podnaslov">Račun koji šalje PIN s ovog čvora</h3>
