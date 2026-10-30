@@ -15,14 +15,15 @@ import (
 )
 
 // Stanje naloga kroz rutu jednog dnevnika usluge ne mijenja nalog iz drugog
-// dnevnika. U svom dnevniku rukovoditelj područja nalog i dalje otkazuje.
-// Podaci su izmišljeni.
+// dnevnika. U svom dnevniku nalog otkazuje ovlaštenik za praćenje ugovora,
+// a rukovoditelj područja ne, jer nije nadzor. Podaci su izmišljeni.
 func TestStanjeNalogaSamoUSvomDnevnikuKrozRutu(t *testing.T) {
 	p := novaCOPProba(t)
 	p.mux.HandleFunc("POST /dnevnici/{id}/upisi/{entry}/stanje", p.h.HandleTaskStatus)
 	ctx := context.Background()
 	prvo := 1
-	rukovoditelj := p.osoba(t, "rrukovoditelj", "Rina Rukovoditeljica", "", models.Duty{Title: "Rukovoditelj područja", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
+	rina := p.osoba(t, "rrukovoditelj", "Rina Rukovoditeljica", "", models.Duty{Title: "Rukovoditelj područja", Role: models.RoleAreaLeader, ScopeType: models.ScopeArea, AreaID: &prvo})
+	rukovoditelj := p.osoba(t, "oovlastenik", "Olga Ovlaštenica", "", models.Duty{Title: "Ovlaštenik A2", Role: models.RoleContractOfficerA2, ScopeType: models.ScopeArea, AreaID: &prvo})
 	prvi := p.dnevnik(t, 1, models.JournalKindMaintenanceA02, "A.02 prvi", "Primjer d.o.o.", "", nil)
 	drugi := p.dnevnik(t, 1, models.JournalKindMaintenanceA02, "A.02 drugi", "Primjer d.o.o.", "", nil)
 	nalog := &models.JournalEntry{JournalID: drugi.ID, Date: time.Date(2026, 10, 2, 0, 0, 0, 0, models.Zagreb), Kind: models.EntryKindTask, Text: "pokositi nasip", Status: models.TaskOpen}
@@ -36,6 +37,10 @@ func TestStanjeNalogaSamoUSvomDnevnikuKrozRutu(t *testing.T) {
 	}
 	if e, err := p.journalRepo.GetEntry(ctx, nalog.ID); err != nil || e == nil || e.Status != models.TaskOpen {
 		t.Errorf("nalog iz drugog dnevnika je promijenjen: %+v", e)
+	}
+
+	if got := ishod(p.salji(t, rina, http.MethodPost, "/dnevnici/"+drugi.ID+"/upisi/"+nalog.ID+"/stanje", otkazi)); got != "error" {
+		t.Errorf("rukovoditelj područja otkazuje nalog: %s", got)
 	}
 
 	// kontrola: u svom dnevniku nalog se otkazuje
@@ -125,12 +130,17 @@ func TestStariListCOPaSamoZaCitanje(t *testing.T) {
 		}
 	}
 	// obrasci javlja nudi li stranica lista potvrdu, upis i uvjete za izmjenu
+	var obrasciZa func(*models.User, *models.Journal) (bool, bool, bool)
 	obrasci := func(j *models.Journal) (potvrda, upis, uvjeti bool) {
+		return obrasciZa(rukovoditelj, j)
+	}
+	ovlastenik := p.osoba(t, "oovlastenik", "Olga Ovlaštenica", "", models.Duty{Title: "Ovlaštenik A2", Role: models.RoleContractOfficerA2, ScopeType: models.ScopeArea, AreaID: &prvo})
+	obrasciZa = func(osoba *models.User, j *models.Journal) (potvrda, upis, uvjeti bool) {
 		sh := &models.JournalSheet{JournalID: j.ID, Date: time.Date(2026, 10, 2, 0, 0, 0, 0, models.Zagreb)}
 		if err := p.journalRepo.SaveSheet(ctx, sh); err != nil {
 			t.Fatal(err)
 		}
-		w := p.salji(t, rukovoditelj, http.MethodGet, "/dnevnici/"+j.ID+"/listovi/"+sh.ID, nil)
+		w := p.salji(t, osoba, http.MethodGet, "/dnevnici/"+j.ID+"/listovi/"+sh.ID, nil)
 		if w.Code != http.StatusOK {
 			t.Fatalf("list %s: %d", j.Title, w.Code)
 		}
@@ -151,9 +161,14 @@ func TestStariListCOPaSamoZaCitanje(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, j := range []*models.Journal{usluga, obrana} {
-		if potvrda, upis, uvjeti := obrasci(j); !potvrda || !upis || !uvjeti {
+		if potvrda, upis, uvjeti := obrasciZa(ovlastenik, j); !potvrda || !upis || !uvjeti {
 			t.Errorf("list %s nudi potvrdu %v, upis %v, uvjete %v", j.Title, potvrda, upis, uvjeti)
 		}
+	}
+	// list usluge potvrđuje za nadzor ovlaštenik za praćenje ugovora, a ne
+	// rukovoditelj područja; upis i uvjeti mu ostaju (Odluke (30. 10. 2026.), 4)
+	if potvrda, upis, uvjeti := obrasci(usluga); potvrda || !upis || !uvjeti {
+		t.Errorf("rukovoditelju područja list usluge nudi potvrdu %v, upis %v, uvjete %v", potvrda, upis, uvjeti)
 	}
 }
 

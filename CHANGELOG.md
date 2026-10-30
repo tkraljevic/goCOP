@@ -39,6 +39,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dok računalo još nije u mreži, jer tada ne zna čiji je potpis. Gumb Makni prije micanja niza ili
   snimke korita još jednom provjeri da im datoteke i dalje nema, a s
   oglasne ploče briše se samo zapis koji se na njoj prikazuje.
+- **Provjere prava: dnevnik usluge i plan dežurstava.** U dnevniku usluge
+  nalog i ocjenu piše, nalog otkazuje i list za nadzor potvrđuje ovlaštenik
+  za praćenje ugovora. Naslovnicu mijenjaju on i uprava, a dnevnik briše
+  uprava sektora. Upis na listu koji su potvrdile obje strane više se ne
+  stornira. Ovjera dnevnika COP-a traži potvrđen plan i zaključava ga;
+  poslije nje plan ispravlja samo uprava centra, uz razlog. U plan ulazi
+  osoba s dužnošću u sektoru centra, a iz drugog sektora uz privremenu
+  dužnost u njemu (Odluke (30. 10. 2026.)). Poslovođa izvođača ne ulazi u
+  plan, vrsta dnevnika usluge ne mijenja se nakon otvaranja, a svaka strana
+  list potvrđuje jednom.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

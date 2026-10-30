@@ -68,7 +68,7 @@ func (h *JournalsHandler) HandleSaveDezurstvo(w http.ResponseWriter, r *http.Req
 		return
 	}
 	f := func(k string) string { return strings.TrimSpace(r.FormValue(k)) }
-	d := models.Dezurstvo{ID: f("id"), UserID: f("user_id"), Opis: f("opis"), Napomena: r.FormValue("napomena")}
+	d := models.Dezurstvo{ID: f("id"), UserID: f("user_id"), Opis: f("opis"), Napomena: r.FormValue("napomena"), RazlogIspravka: f("razlog")}
 	// Za koga: broj područja, ili prazno za cijeli sektor
 	if n, err := strconv.Atoi(f("podrucje")); err == nil && n > 0 {
 		d.Podrucje = &n
@@ -107,7 +107,7 @@ func (h *JournalsHandler) HandleMakniDezurstvo(w http.ResponseWriter, r *http.Re
 	}
 	u, perms := h.base(r)
 	back := "/dnevnici/" + j.ID + "/dezurstva"
-	if err := h.journals.MakniDezurstvo(r.Context(), u, perms, j, r.PathValue("dez")); err != nil {
+	if err := h.journals.MakniDezurstvo(r.Context(), u, perms, j, r.PathValue("dez"), r.FormValue("razlog")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
@@ -122,7 +122,7 @@ func (h *JournalsHandler) HandlePotvrdiDezurstvo(w http.ResponseWriter, r *http.
 	}
 	u, perms := h.base(r)
 	back := "/dnevnici/" + j.ID + "/dezurstva"
-	if err := h.journals.PotvrdiDezurstvo(r.Context(), u, perms, j, r.PathValue("dez")); err != nil {
+	if err := h.journals.PotvrdiDezurstvo(r.Context(), u, perms, j, r.PathValue("dez"), r.FormValue("razlog")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
@@ -138,12 +138,15 @@ func (h *JournalsHandler) HandleIspraviOpisDezurstva(w http.ResponseWriter, r *h
 	}
 	u, perms := h.base(r)
 	back := "/dnevnici/" + j.ID + "/dezurstva"
-	promijenjeno, err := h.journals.IspraviOpisDezurstva(r.Context(), u, perms, j, r.PathValue("dez"), strings.TrimSpace(r.FormValue("opis")))
+	promijenjeno, err := h.journals.IspraviOpisDezurstva(r.Context(), u, perms, j, r.PathValue("dez"), strings.TrimSpace(r.FormValue("opis")), r.FormValue("razlog"))
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
 	poruka := "Opis rada je ispravljen; dežurstvo čeka potvrdu."
+	if j.Ovjeren() {
+		poruka = "Opis rada je ispravljen, a razlog je zapisan uz dežurstvo."
+	}
 	if !promijenjeno {
 		poruka = "Opis rada je već takav; ništa nije promijenjeno."
 	}

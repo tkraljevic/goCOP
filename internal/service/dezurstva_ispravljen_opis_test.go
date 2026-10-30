@@ -28,7 +28,7 @@ func TestIspravljenOpisDezurstvaBiraUprava(t *testing.T) {
 		t.Fatal(err)
 	}
 	o.bezMjesta(t, jutro)
-	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Administrativni rad pri provedbi obrane od poplava"); err != nil {
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Administrativni rad pri provedbi obrane od poplava", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -42,7 +42,7 @@ func TestIspravljenOpisDezurstvaBiraUprava(t *testing.T) {
 		t.Errorf("opis promijenjen: %+v", d)
 	}
 	// ni ne miče zapis, pa da ga upiše ponovno
-	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, jutro.ID); err == nil || !strings.Contains(err.Error(), "voditelj ili zamjenik centra") {
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, jutro.ID, ""); err == nil || !strings.Contains(err.Error(), "voditelj ili zamjenik centra") {
 		t.Errorf("Pero miče zapis kojemu je opis ispravila uprava: %v", err)
 	}
 	if d, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID); d == nil {
@@ -71,7 +71,7 @@ func TestIspravljenOpisDezurstvaBiraUprava(t *testing.T) {
 		t.Errorf("uprava mijenja ispravljeni opis: %+v", d)
 	}
 	// uprava ga i miče
-	if err := o.svc.MakniDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID); err != nil {
+	if err := o.svc.MakniDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, ""); err != nil {
 		t.Errorf("uprava miče zapis s ispravljenim opisom: %v", err)
 	}
 }
@@ -97,7 +97,7 @@ func TestPotvrdaZapisujeIzvedenoMjesto(t *testing.T) {
 	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); d.Mjesto != "" || d.MjestoRada() != models.MjestoTeren {
 		t.Fatalf("priprema: %+v", d)
 	}
-	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID); err != nil {
+	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if d, _ := o.svc.repo.GetDezurstvo(ctx, obilazak.ID); !d.Potvrdeno() || d.Mjesto != models.MjestoTeren {
@@ -121,7 +121,7 @@ func TestIspravakIstimOpisomBezZapisanogMjesta(t *testing.T) {
 	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, obilazak); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID); err != nil {
+	if err := o.svc.PotvrdiDezurstvo(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := o.baza.Exec(`UPDATE dezurstva SET mjesto = '' WHERE id = ?`, obilazak.ID); err != nil {
@@ -141,7 +141,7 @@ func TestIspravakIstimOpisomBezZapisanogMjesta(t *testing.T) {
 	}
 	n := verzija()
 
-	promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, "Obilazak i pregled obrambenih objekata")
+	promijenjeno, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, obilazak.ID, "Obilazak i pregled obrambenih objekata", "")
 	if err != nil || promijenjeno {
 		t.Errorf("ispravak istim opisom: promijenjeno %v, %v", promijenjeno, err)
 	}
@@ -195,7 +195,7 @@ func TestTragIspravkaOpisaNeUpisujeSeRukom(t *testing.T) {
 	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, slicno); err != nil {
 		t.Fatalf("napomena slična tragu: %v", err)
 	}
-	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, slicno.ID); err != nil {
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, slicno.ID, ""); err != nil {
 		t.Errorf("Pero ne miče svoj zapis s napomenom sličnom tragu: %v", err)
 	}
 
@@ -204,7 +204,7 @@ func TestTragIspravkaOpisaNeUpisujeSeRukom(t *testing.T) {
 	if err := o.svc.SpremiDezurstvo(ctx, o.pperic, o.ovlPero, o.opseg, o.dnevnik, jutro); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Administrativni rad pri provedbi obrane od poplava"); err != nil {
+	if _, err := o.svc.IspraviOpisDezurstva(ctx, ana, o.ovlUprav, o.dnevnik, jutro.ID, "Administrativni rad pri provedbi obrane od poplava", ""); err != nil {
 		t.Fatal(err)
 	}
 	ispravljeno, _ := o.svc.repo.GetDezurstvo(ctx, jutro.ID)

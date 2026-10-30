@@ -28,6 +28,8 @@
   </div>
 </div>
 
+{{if .Journal.Ovjeren}}<div class="alert alert-info">{{icon "lock"}} Dnevnik COP-a je ovjeren, pa je plan dežurstava zaključan.{{if .UpravaCentra}} Ispravak radi voditelj ili zamjenik centra, uz razlog. Razlog ostaje zapisan u napomeni dežurstva.{{else}} Ispravlja ga samo voditelj ili zamjenik centra.{{end}}</div>{{end}}
+
 {{if .Dezurstva}}
 <div class="table-card"><div class="table-responsive">
   <table class="data-table">
@@ -51,6 +53,7 @@
               {{if .ZaProvjeru}}<option value="" selected disabled>odaberite opis s popisa</option>{{end}}
               {{range $.OpisiRada}}<option value="{{.Opis}}"{{if eq .Opis $opis}} selected{{end}}>{{.Opis}} ({{if eq .Mjesto "TEREN"}}teren{{else}}ured{{end}})</option>{{end}}
             </select>
+            {{if $.Journal.Ovjeren}}<input type="text" name="razlog" class="form-control" placeholder="razlog ispravka" aria-label="Razlog ispravka" required>{{end}}
             <button type="submit" class="btn btn-sm btn-primary">{{icon "check"}} Ispravi</button>
           </form>
         </details>{{end}}</td>
@@ -61,20 +64,21 @@
            dok uprava ne ispravi opis. */}}
       <td>{{if .ZaProvjeru}}<span class="badge badge-warning" title="Nije u obračunu dok uprava centra ne izabere opis rada s popisa">za provjeru</span>
         {{else if .Potvrdeno}}<span class="badge" title="{{.PotvrdenoAt.Format "2.1.2006. 15:04"}}">potvrdio {{.Potvrdio}}</span>
-        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
+        {{else if $.UpravaCentra}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/potvrdi" class="d-inline"{{if $.Journal.Ovjeren}} onsubmit="var r=prompt('Razlog ispravka zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn btn-sm btn-primary" title="Provjereno, ulazi u obračun">{{icon "check"}} potvrdi</button></form>
         {{else}}<span class="badge badge-pending">čeka potvrdu</span>{{end}}</td>
-      <td>{{if or $.UpravaCentra (and (not .Potvrdeno) (not .OpisBiraUprava) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" class="d-inline"
-        onsubmit="return confirm('Maknuti dežurstvo iz plana?');"><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
+      <td>{{if or $.UpravaCentra (and (not $.Journal.Ovjeren) (not .Potvrdeno) (not .OpisBiraUprava) (eq .UserID $.CurrentUser.ID.String))}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/dezurstva/{{.ID}}/makni" class="d-inline"
+        {{if $.Journal.Ovjeren}}onsubmit="var r=prompt('Razlog micanja iz zaključenog plana:'); if(!r) return false; this.razlog.value=r; return true;"{{else}}onsubmit="return confirm('Maknuti dežurstvo iz plana?');"{{end}}><input type="hidden" name="razlog" value=""><button type="submit" class="btn btn-sm btn-secondary" title="Makni iz plana">{{icon "x"}}</button></form>{{end}}</td>
     </tr>
     {{end}}
     </tbody>
   </table>
 </div></div>
 {{else}}
-<div class="reg-empty">U planu još nema dežurstava.{{if or .UpravaCentra .MozeSebe}} Dodajte prvo obrascem ispod.{{end}}</div>
+<div class="reg-empty">U planu još nema dežurstava.{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}} Dodajte prvo obrascem ispod.{{end}}</div>
 {{end}}
 
-{{if or .UpravaCentra .MozeSebe}}
+{{/* Plan ovjerenog dnevnika je zaključan: ispravlja ga samo uprava centra */}}
+{{if or .UpravaCentra (and .MozeSebe (not .Journal.Ovjeren))}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/dezurstva" id="novo-dezurstvo" class="reg-card novi-zapis">
   <h2 class="novi-zapis-naslov">{{icon "plus"}} Dodaj dežurstvo</h2>
   <div class="form-row novi-zapis-red">
@@ -122,6 +126,12 @@
       <label class="form-label" for="d-napomena">Napomena</label>
       <input type="text" id="d-napomena" name="napomena" class="form-control" autocomplete="off">
     </div>
+    {{if .Journal.Ovjeren}}
+    <div class="form-group">
+      <label class="form-label" for="d-razlog">Razlog ispravka *</label>
+      <input type="text" id="d-razlog" name="razlog" class="form-control" autocomplete="off" required>
+    </div>
+    {{end}}
   </div>
   <div class="form-actions">
     <button type="submit" class="btn btn-primary">{{icon "check"}} Upiši u plan</button>

@@ -31,7 +31,7 @@
   {{if and (not .Journal.Contractor) .CanManage}}<p class="page-desc mt-2">Naslovnica je prazna: upišite izvođača i nadzor.</p>{{end}}
 </div>
 
-{{if .CanManage}}
+{{if .BriseDnevnik}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/obrisi" class="mt-2"
   onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim listovima i upisima? U knjizi verzija ostaje arhiviran.');"><button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Obriši dnevnik</button></form>
 {{end}}

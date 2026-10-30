@@ -132,6 +132,7 @@ type JournalPageData struct {
 	CanWrite       bool
 	CanSupervise   bool
 	CanManage      bool
+	BriseDnevnik   bool // smije obrisati dnevnik usluge: uprava sektora ili globalni administrator
 	IsContractor   bool
 	IsEdit         bool
 	PrintSheets    []PrintSheet
@@ -287,8 +288,9 @@ func (h *JournalsHandler) fillRights(d *JournalPageData) {
 		return
 	}
 	d.CanWrite = h.journals.PiseUDnevnik(d.Permissions, d.Opseg, d.Journal)
-	d.CanSupervise = d.CanWrite && h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg)
-	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, d.Opseg)
+	d.CanSupervise = d.CanWrite && h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
+	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
+	d.BriseDnevnik = h.journals.BriseDnevnik(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
 	d.AllowedKinds = h.journals.AllowedKinds(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
 	// Zaglavlje dnevnika COP-a mijenja uprava centra, ne svatko tko piše.
 	if d.Journal != nil && d.Journal.CentarSektor != "" {
@@ -442,7 +444,7 @@ func (h *JournalsHandler) ShowJournalForm(w http.ResponseWriter, r *http.Request
 	}
 	h.fillRights(&data)
 	if !data.CanManage {
-		http.Error(w, "Naslovnicu dnevnika uređuje nadzor: tko u dnevnik piše za Hrvatske vode, a ne izvođač.", http.StatusForbidden)
+		http.Error(w, "Naslovnicu dnevnika usluge mijenja ovlaštenik za praćenje ugovora ili uprava područja ili sektora.", http.StatusForbidden)
 		return
 	}
 	if data.Area != nil {

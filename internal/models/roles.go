@@ -159,6 +159,19 @@ func (r Role) NaturalScope() ScopeType {
 	return ScopeSection
 }
 
+// ProgramUgovora je program usluga („A.02” ili „A.03”) čiji ugovor uloga
+// prati: ovlaštenik za praćenje ugovora i njegov zamjenik. Ostale uloge ne
+// prate ugovor i daju prazno.
+func (r Role) ProgramUgovora() string {
+	switch r {
+	case RoleContractOfficerA2, RoleContractDeputyA2:
+		return "A.02"
+	case RoleContractOfficerA3, RoleContractDeputyA3:
+		return "A.03"
+	}
+	return ""
+}
+
 // Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju, a
 // nepoznata uloga (npr. stigla razmjenom s novijeg čvora) ne daje ništa
 func (r Role) Writes() bool { return r != RoleViewer && r != RoleGuest && r.Poznata() }

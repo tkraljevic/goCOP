@@ -16,12 +16,16 @@ import (
 	"gocop/internal/weather"
 )
 
-// JournalService vodi građevinske dnevnike. Tko smije što:
+// JournalService vodi građevinske dnevnike. Tko smije što u dnevniku usluge
+// (Odluke (30. 10. 2026.), 4):
 //   - izvođač (voditelj usluga / poslovođa) piše rad i napomene i potvrđuje
 //     list za izvođača;
-//   - ovlaštenik za praćenje ugovora i rukovoditelji (dionice, područja,
-//     sektora) pišu napomene, naloge i ocjene i potvrđuju list za nadzor;
-//   - svi navedeni mogu pisati i rad, jer se u obrani upisuje i vlastiti rad.
+//   - nadzor je ovlaštenik za praćenje ugovora programa dnevnika (i njegov
+//     zamjenik): piše naloge i ocjene, otkazuje naloge i potvrđuje list za
+//     nadzor;
+//   - ostali s pravom pisanja (rukovoditelji, dežurni) pišu rad i napomene;
+//   - naslovnicu mijenjaju ovlaštenik i uprava područja ili sektora, a
+//     dnevnik briše uprava sektora ili globalni administrator.
 type JournalService struct {
 	repo     *repository.JournalRepository
 	stations *repository.StationRepository
@@ -31,10 +35,19 @@ type JournalService struct {
 	// (UserService.ImaoUlogu), za izvođača u dnevnicima usluga
 	// (IzvodjacZaDnevnike); bez njega (nil) gleda se samo valjana dužnost
 	imaoUlogu func(uuid.UUID, models.Role) (bool, error)
+	// povijestZaduzenja daje zaduženja osobe kroz vrijeme
+	// (UserService.PovijestZaduzenja), za provjeru da osoba u planu
+	// dežurstava ima dužnost u sektoru centra (osobaUSektoru)
+	povijestZaduzenja func(uuid.UUID) ([]models.VerzijaZaduzenja, error)
 }
 
 // SetImaoUlogu daje servisu izvor uloga koje je osoba ikad imala
 func (s *JournalService) SetImaoUlogu(f func(uuid.UUID, models.Role) (bool, error)) { s.imaoUlogu = f }
+
+// SetPovijestZaduzenja daje servisu izvor zaduženja osoba kroz vrijeme
+func (s *JournalService) SetPovijestZaduzenja(f func(uuid.UUID) ([]models.VerzijaZaduzenja, error)) {
+	s.povijestZaduzenja = f
+}
 
 func NewJournalService(repo *repository.JournalRepository, stations *repository.StationRepository, readings *repository.ReadingRepository) *JournalService {
 	return &JournalService{repo: repo, stations: stations, readings: readings, weather: &weather.Client{}}
@@ -155,16 +168,77 @@ func (s *JournalService) dnevnikIzvodjaca(ctx context.Context, u *models.User, j
 	return err == nil && pisao
 }
 
-// CanSupervise: nadzor piše nalog i ocjenu i potvrđuje list za nadzor — HV
-// strana s pravom pisanja, ne izvođač
-func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, o models.Opseg) bool {
-	return s.CanWrite(perms, o) && !IsContractor(u)
+// CanSupervise: nadzor u dnevniku j. U dnevniku usluge to je ovlaštenik za
+// praćenje ugovora (nadzorUsluge): piše nalog i ocjenu, otkazuje nalog,
+// stornira tuđi upis i potvrđuje list za nadzor. U dnevniku COP-a to je
+// svatko tko u njega piše za Hrvatske vode, a ne izvođač.
+func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if IsContractor(u) {
+		return false
+	}
+	if !dnevnikUsluge(j) {
+		return s.CanWrite(perms, o)
+	}
+	return nadzorUsluge(perms, o, j)
 }
 
-// CanManage: naslovnicu uređuje nadzor ili administrator područja
-func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions, o models.Opseg) bool {
-	return s.CanSupervise(u, perms, o)
+// dnevnikUsluge javlja vodi li se j po pravilima dnevnika usluge (A.02 i
+// A.03): nije dnevnik COP-a ni stariji dnevnik obrane po području, koji
+// zadržavaju svoja pravila. Bez dnevnika (novi dnevnik) jest.
+func dnevnikUsluge(j *models.Journal) bool {
+	return j == nil || (j.CentarSektor == "" && !j.IsDefense())
 }
+
+// nadzorUsluge javlja je li osoba nadzor u dnevniku usluge j na području o:
+// ovlaštenik za praćenje ugovora programa dnevnika ili njegov zamjenik, s
+// valjanom dužnosti na tom području, a ne dežurni ni rukovoditelj (Odluke
+// (30. 10. 2026.), 4). Globalni administrator je nadzor svuda. Bez dnevnika
+// (novi dnevnik bez vrste) vrijedi ovlaštenik bilo kojeg programa.
+func nadzorUsluge(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if perms == nil {
+		return false
+	}
+	if perms.IsGlobalAdmin {
+		return true
+	}
+	for _, d := range models.VazecaZaduzenja(perms.User.Duties, time.Now()) {
+		program := d.Role.ProgramUgovora()
+		if program == "" || d.AreaID == nil || *d.AreaID != o.Podrucje {
+			continue
+		}
+		if j == nil || program == j.Program() {
+			return true
+		}
+	}
+	return false
+}
+
+// CanManage: naslovnicu dnevnika usluge mijenjaju ovlaštenik za praćenje
+// ugovora (nadzorUsluge) i uprava područja ili sektora, a ne izvođač
+// (Odluke (30. 10. 2026.), 4)
+func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if IsContractor(u) {
+		return false
+	}
+	if !dnevnikUsluge(j) {
+		return s.CanWrite(perms, o)
+	}
+	return perms.CanAdminister(o.Sektor, o.Podrucje) || nadzorUsluge(perms, o, j)
+}
+
+// BriseDnevnik javlja smije li osoba obrisati dnevnik j koji se vodi po
+// području: dnevnik usluge briše samo uprava sektora ili globalni
+// administrator (Odluke (30. 10. 2026.), 4), a stariji dnevnik obrane po
+// području tko mu smije mijenjati naslovnicu (CanManage)
+func (s *JournalService) BriseDnevnik(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if !dnevnikUsluge(j) {
+		return s.CanManage(u, perms, o, j)
+	}
+	return perms != nil && (perms.IsGlobalAdmin || (o.Sektor != "" && perms.AdminSectors[o.Sektor]))
+}
+
+// porukaNaslovnica kaže tko mijenja naslovnicu dnevnika usluge
+const porukaNaslovnica = "naslovnicu dnevnika usluge mijenja ovlaštenik za praćenje ugovora ili uprava područja ili sektora"
 
 // izvodjacUCOP javlja je li j dnevnik COP-a, a osoba izvođač
 // (IzvodjacZaDnevnike). Zapisnik dežurstva centra vode Hrvatske vode:
@@ -197,7 +271,7 @@ func (s *JournalService) AllowedKinds(u *models.User, perms *models.UserPermissi
 	if j != nil && j.CentarSektor != "" {
 		return models.EntryKindsCOP
 	}
-	if IsContractor(u) {
+	if !s.CanSupervise(u, perms, o, j) {
 		return []string{models.EntryKindWork, models.EntryKindNote}
 	}
 	return models.EntryKinds
@@ -213,8 +287,8 @@ func (s *JournalService) GetJournal(ctx context.Context, id string) (*models.Jou
 
 // SaveJournal upisuje ili mijenja naslovnicu
 func (s *JournalService) SaveJournal(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal) error {
-	if !s.CanManage(u, perms, models.OpsegPodrucja(area)) {
-		return errors.New("naslovnicu dnevnika uređuje nadzor: tko u dnevnik piše za Hrvatske vode, a ne izvođač")
+	if !s.CanManage(u, perms, models.OpsegPodrucja(area), j) {
+		return errors.New(porukaNaslovnica)
 	}
 	if !models.IsJournalKind(j.Kind) {
 		return errors.New("nepoznata vrsta dnevnika")
@@ -234,19 +308,43 @@ func (s *JournalService) SaveJournal(ctx context.Context, u *models.User, perms 
 	if j.Investor == "" {
 		j.Investor = "Hrvatske vode, Ulica grada Vukovara 220, 10000 Zagreb"
 	}
-	if j.ID != "" {
-		cur, err := s.repo.GetJournal(ctx, j.ID)
-		if err != nil {
-			return err
-		}
-		if cur == nil || cur.AreaID != area.ID {
-			return errors.New("dnevnik nije pronađen")
-		}
+	cur, err := s.postojecaNaslovnica(ctx, u, perms, area, j)
+	if err != nil {
+		return err
+	}
+	if cur != nil {
 		j.CreatedAt, j.CreatedBy = cur.CreatedAt, cur.CreatedBy
 	} else if u != nil {
 		j.CreatedBy = u.ID.String()
 	}
 	return s.repo.SaveJournal(ctx, j)
+}
+
+// porukaVrstaDnevnika kaže da se vrsta dnevnika ne mijenja
+const porukaVrstaDnevnika = "vrsta dnevnika ne mijenja se nakon otvaranja: za drugu vrstu otvorite novi dnevnik"
+
+// postojecaNaslovnica vraća spremljeni dnevnik čiju naslovnicu j mijenja, a
+// nil za novi dnevnik. Dnevnik mora biti na području, pravo na naslovnicu
+// gleda se i nad spremljenim dnevnikom, a vrsta (pa ni program ugovora, po
+// kojem se zna tko je nadzor) se ne mijenja.
+func (s *JournalService) postojecaNaslovnica(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal) (*models.Journal, error) {
+	if j.ID == "" {
+		return nil, nil
+	}
+	cur, err := s.repo.GetJournal(ctx, j.ID)
+	if err != nil {
+		return nil, err
+	}
+	if cur == nil || cur.AreaID != area.ID {
+		return nil, errors.New("dnevnik nije pronađen")
+	}
+	if !s.CanManage(u, perms, models.OpsegPodrucja(area), cur) {
+		return nil, errors.New(porukaNaslovnica)
+	}
+	if j.Kind != cur.Kind {
+		return nil, errors.New(porukaVrstaDnevnika)
+	}
+	return cur, nil
 }
 
 func (s *JournalService) ListSheets(ctx context.Context, journalID string) ([]models.JournalSheet, error) {
@@ -420,13 +518,31 @@ func (s *JournalService) ConfirmSheet(ctx context.Context, u *models.User, perms
 	if sh == nil {
 		return errors.New("list nije pronađen")
 	}
-	now := time.Now().UTC()
-	if IsContractor(u) {
-		sh.ContractorConfirmedBy, sh.ContractorConfirmedAt = u.FullName, &now
-	} else {
-		sh.SupervisorConfirmedBy, sh.SupervisorConfirmedAt = u.FullName, &now
+	if err := s.potvrdiStranu(u, perms, o, j, sh); err != nil {
+		return err
 	}
 	return s.repo.SaveSheet(ctx, sh)
+}
+
+// potvrdiStranu upisuje potvrdu lista sh za stranu osobe: izvođača ili
+// nadzora. Svaka strana list potvrđuje jednom, pa se potvrda ne prepisuje.
+func (s *JournalService) potvrdiStranu(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sh *models.JournalSheet) error {
+	now := time.Now().UTC()
+	switch {
+	case IsContractor(u):
+		if sh.ContractorConfirmedAt != nil {
+			return fmt.Errorf("list je za izvođača već potvrdio %s", sh.ContractorConfirmedBy)
+		}
+		sh.ContractorConfirmedBy, sh.ContractorConfirmedAt = u.FullName, &now
+	case s.CanSupervise(u, perms, o, j):
+		if sh.SupervisorConfirmedAt != nil {
+			return fmt.Errorf("list je za nadzor već potvrdio %s", sh.SupervisorConfirmedBy)
+		}
+		sh.SupervisorConfirmedBy, sh.SupervisorConfirmedAt = u.FullName, &now
+	default:
+		return errors.New("list za nadzor potvrđuje ovlaštenik za praćenje ugovora")
+	}
+	return nil
 }
 
 func (s *JournalService) EntriesForSheet(ctx context.Context, sheetID string) ([]models.JournalEntry, error) {
@@ -540,8 +656,11 @@ func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *m
 	if err != nil {
 		return err
 	}
-	if e.UserID != u.ID.String() && !s.CanSupervise(u, perms, o) {
+	if e.UserID != u.ID.String() && !s.CanSupervise(u, perms, o, j) {
 		return errors.New("tuđi upis stornira samo nadzor")
+	}
+	if err := s.naPotvrdenomListu(ctx, e); err != nil {
+		return err
 	}
 	if strings.TrimSpace(reason) == "" {
 		return errors.New("storniranje traži razlog")
@@ -550,8 +669,30 @@ func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *m
 	return s.repo.SaveEntry(ctx, e)
 }
 
-// SetTaskStatus mijenja stanje naloga u dnevniku j: izvođač ga označava
-// izvedenim, nadzor ga može i otkazati ili vratiti u otvoren
+// naPotvrdenomListu odbija storno upisa s lista koji su potvrdili i izvođač
+// i nadzor: takav list se više ne mijenja, a ispravak je novi upis s
+// napomenom (Odluke (30. 10. 2026.), 6). Zapis bez lista (dnevnik COP-a)
+// prolazi.
+func (s *JournalService) naPotvrdenomListu(ctx context.Context, e *models.JournalEntry) error {
+	if e.SheetID == "" {
+		return nil
+	}
+	sh, err := s.repo.GetSheet(ctx, e.SheetID)
+	if err != nil {
+		return err
+	}
+	if sh != nil && sh.IsConfirmed() {
+		return errors.New(porukaStornoPotvrdenog)
+	}
+	return nil
+}
+
+// porukaStornoPotvrdenog kaže zašto se upis s potvrđenog lista ne stornira
+// i što umjesto toga
+const porukaStornoPotvrdenog = "list su potvrdili izvođač i nadzor, pa se upis na njemu više ne stornira: ispravak upišite kao novi upis s napomenom, na novom listu"
+
+// SetTaskStatus mijenja stanje naloga u dnevniku j: izvođač ili nadzor ga
+// označava izvedenim, a nadzor ga može i otkazati ili vratiti u otvoren
 func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, id, status string) error {
 	if u == nil || !s.PiseUDnevnik(perms, o, j) {
 		return errors.New("nemate pravo mijenjati nalog")
@@ -569,17 +710,30 @@ func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perm
 	if e.Voided {
 		return errors.New("storniran nalog ne mijenja stanje")
 	}
+	if err := s.smijeStanjeNaloga(u, perms, o, j, status); err != nil {
+		return err
+	}
+	e.Status = status
+	return s.repo.SaveEntry(ctx, e)
+}
+
+// smijeStanjeNaloga provjerava smije li osoba nalogu u dnevniku j dati
+// stanje status: izvedenim ga označava izvođač ili nadzor, a otkazuje i
+// ponovno otvara samo nadzor
+func (s *JournalService) smijeStanjeNaloga(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, status string) error {
 	switch status {
 	case models.TaskDone:
+		if !IsContractor(u) && !s.CanSupervise(u, perms, o, j) {
+			return errors.New("nalog izvedenim označava izvođač ili nadzor")
+		}
 	case models.TaskOpen, models.TaskCancelled:
-		if !s.CanSupervise(u, perms, o) {
+		if !s.CanSupervise(u, perms, o, j) {
 			return errors.New("nalog otkazuje ili ponovno otvara samo nadzor")
 		}
 	default:
 		return errors.New("nepoznato stanje naloga")
 	}
-	e.Status = status
-	return s.repo.SaveEntry(ctx, e)
+	return nil
 }
 
 // BrojPoVrstama broji dnevnike po vrsti.
@@ -696,6 +850,10 @@ func (s *JournalService) VoditeljCOP(u *models.User, j *models.Journal) bool {
 func (s *JournalService) SpremiOvjeruCOP(ctx context.Context, j *models.Journal, pdf []byte) error {
 	if j == nil || j.ZakljucenoAt == nil {
 		return errors.New("dnevnik nije pripremljen za ovjeru")
+	}
+	// plan se mogao promijeniti dok se dnevnik potpisivao
+	if err := s.PlanSpremanZaOvjeru(ctx, j); err != nil {
+		return err
 	}
 	return s.repo.SaveOvjeraCOP(ctx, j, pdf)
 }
@@ -849,9 +1007,10 @@ func podrucjeUSektoru(podrucje *int, o models.Opseg) error {
 	return errors.New("branjeno područje nije u sektoru ovog centra")
 }
 
-// ObrisiDnevnik arhivira dnevnik sa svime što nosi. Briše ga tko ga smije
-// otvoriti: dnevnik COP-a uprava centra, dnevnik usluge nadzor. Ništa ne
-// nestaje iz knjige verzija — brisanje je arhiviranje, kao i svugdje.
+// ObrisiDnevnik arhivira dnevnik sa svime što nosi. Dnevnik COP-a briše
+// uprava centra, a dnevnik usluge uprava sektora ili globalni administrator
+// (BriseDnevnik). Ništa ne nestaje iz knjige verzija — brisanje je
+// arhiviranje, kao i svugdje.
 func (s *JournalService) ObrisiDnevnik(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) (int, error) {
 	if u == nil || j == nil {
 		return 0, errors.New("brisanje zahtijeva prijavu")
@@ -863,8 +1022,8 @@ func (s *JournalService) ObrisiDnevnik(ctx context.Context, u *models.User, perm
 		if !s.UpravaCentra(perms, j) {
 			return 0, errors.New("dnevnik COP-a briše voditelj ili zamjenik centra")
 		}
-	} else if !s.CanManage(u, perms, o) {
-		return 0, errors.New("dnevnik briše nadzor: tko u njega piše za Hrvatske vode, a ne izvođač")
+	} else if !s.BriseDnevnik(u, perms, o, j) {
+		return 0, errors.New("dnevnik usluge briše uprava sektora ili globalni administrator")
 	}
 	return s.repo.ArhivirajDnevnik(ctx, j)
 }

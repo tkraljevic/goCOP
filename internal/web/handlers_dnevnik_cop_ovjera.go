@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -30,6 +31,16 @@ func (h *JournalsHandler) potpisnikCOP(r *http.Request, u *models.User) (*potpis
 	return otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return h.potpis().Potpisnik(r.Context(), u, lozinka) })
 }
 
+// pripremiOvjeruCOP priprema dnevnik za prvi potpis i provjerava da je plan
+// dežurstava spreman za zaključavanje. Najprije se gleda tko ovjerava, pa
+// tek onda stanje plana.
+func (h *JournalsHandler) pripremiOvjeruCOP(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, sad time.Time) error {
+	if err := h.journals.PripremiOvjeruCOP(u, perms, j, sad); err != nil {
+		return err
+	}
+	return h.journals.PlanSpremanZaOvjeru(ctx, j)
+}
+
 func (h *JournalsHandler) HandleOvjeraCOP(w http.ResponseWriter, r *http.Request) {
 	j, _, ok := h.loadJournal(w, r)
 	if !ok {
@@ -56,7 +67,7 @@ func (h *JournalsHandler) HandleOvjeraCOP(w http.ResponseWriter, r *http.Request
 	var pdf []byte
 	var m mjestaPotpisaCOP
 	if radnja == "zakljuci" {
-		if err = h.journals.PripremiOvjeruCOP(u, perms, j, sad); err == nil {
+		if err = h.pripremiOvjeruCOP(r.Context(), u, perms, j, sad); err == nil {
 			pdf, m = PDFDnevnikCOP(j, zapisi)
 		}
 	} else {
