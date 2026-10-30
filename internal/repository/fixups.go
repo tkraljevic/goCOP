@@ -322,7 +322,7 @@ func popraviZapis(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, entity,
 		log.Printf("popravak %s/%s: na vrhu je novija verzija %s s čvora %s, površina ostaje njezina", entity, id, nova.VersionID, nova.NodeID)
 		return true, nil
 	}
-	if err := primijeniVerziju(ctx, tx, rec.Cvor(), *nova); err != nil {
+	if err := primijeniVerziju(ctx, tx, *nova); err != nil {
 		return false, fmt.Errorf("površina %s/%s nakon popravka: %w", entity, id, err)
 	}
 	return true, nil

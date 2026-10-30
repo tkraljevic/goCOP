@@ -155,6 +155,7 @@ func (s *Service) UcitajKopijuKljuca(ctx context.Context, raw []byte, lozinka st
 		log.Printf("razmjena: datum učitane kopije ključa nije zapamćen: %v", err)
 	}
 	s.obnoviVlastituOvlast(ctx, true)
+	s.javiKljucMreze(ctx)
 	return nil
 }
 

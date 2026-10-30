@@ -163,7 +163,7 @@ func TestPravaRazmjenomCekajuPotvrdu(t *testing.T) {
 			jedinaCeka(t, c, v)
 
 			prijePotvrde := brojVerzijaUKnjizi(t, c)
-			nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje))
+			nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje))
 			if got := stupacRacuna(t, c, id, s.stupac); got != s.poslije {
 				t.Errorf("nakon potvrde %s je %q, a treba %q", s.stupac, got, s.poslije)
 			}
@@ -180,7 +180,7 @@ func TestPravaRazmjenomCekajuPotvrdu(t *testing.T) {
 			if got := stupacRacuna(t, c, id, s.stupac); got != s.poslije {
 				t.Errorf("ponovljena primjena: %s je %q", s.stupac, got)
 			}
-			if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+			if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 				t.Errorf("druga potvrda: %v", err)
 			}
 		})
@@ -367,7 +367,7 @@ func TestDuznostUpraveOrganizacijeCekaPotvrdu(t *testing.T) {
 			if p.Promjene != s.opis+": "+d.Role.Label() || !strings.Contains(p.Racun, "Markić") && !strings.Contains(p.Racun, "Drugić") {
 				t.Errorf("popis: %+v", p)
 			}
-			nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje))
+			nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje))
 			if !kakvaJeStigla(t, c, d, za) {
 				t.Error("nakon potvrde dužnost nije na površini kakva je stigla")
 			}
@@ -445,8 +445,8 @@ func TestPravaOdbijenaOstajeOdbijena(t *testing.T) {
 	v1 := tudjiRacun(t, podignut)
 	primi(t, c, []ledger.Version{v1})
 	jedinaCeka(t, c, v1)
-	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje))
-	if err := OdbijPromjenuPrava(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje))
+	if err := OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 		t.Errorf("drugo odbijanje: %v", err)
 	}
 	_, err := ReplaySurface(ctxRaz, c.db, c.rec)
@@ -471,7 +471,7 @@ func TestPravaOdbijenaOstajeOdbijena(t *testing.T) {
 	if ceka := cekaju(t, c); len(ceka) != 0 {
 		t.Errorf("odbijena promjena opet čeka: %+v", ceka)
 	}
-	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v2.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v2.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 		t.Errorf("potvrda odbijene: %v", err)
 	}
 }
@@ -494,10 +494,10 @@ func TestPravaNovijaVerzijaNosiPromjenu(t *testing.T) {
 		t.Fatalf("telefon %q, zastavica %q", stupacRacuna(t, c, u.ID, "phone"), stupacRacuna(t, c, u.ID, "is_global_admin"))
 	}
 	jedinaCeka(t, c, v2)
-	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 		t.Errorf("potvrda zamijenjene: %v", err)
 	}
-	nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v2.VersionID, tkoOdlucuje))
+	nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v2.VersionID, tkoOdlucuje))
 	if stupacRacuna(t, c, u.ID, "phone") != "099 3" || stupacRacuna(t, c, u.ID, "is_global_admin") != "1" {
 		t.Error("potvrda nije stavila zadnju verziju")
 	}
@@ -522,8 +522,8 @@ func TestPravaNovijaVerzijaBezPromjene(t *testing.T) {
 		if p := cekaju(t, c); len(p) != 0 {
 			t.Errorf("zamijenjena promjena još čeka: %+v", p)
 		}
-		for _, odluci := range []func(context.Context, *sql.DB, *ledger.Recorder, string, string) error{PotvrdiPromjenuPrava, OdbijPromjenuPrava} {
-			if err := odluci(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+		for _, odluci := range []func(context.Context, *sql.DB, *ledger.Recorder, PotpisMreze, string, string) error{PotvrdiPromjenuPrava, OdbijPromjenuPrava} {
+			if err := odluci(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 				t.Errorf("odluka o zamijenjenoj: %v", err)
 			}
 		}
@@ -543,14 +543,14 @@ func TestPravaNovijaVerzijaBezPromjene(t *testing.T) {
 		if p := jedinaCeka(t, c, v1); p.Zadnja {
 			t.Errorf("starija promjena je označena kao zadnja: %+v", p)
 		}
-		if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrPromjenaPravaNijeZadnja) {
+		if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje); !errors.Is(err, ErrPromjenaPravaNijeZadnja) {
 			t.Errorf("potvrda starije: %v", err)
 		}
 		jedinaCeka(t, c, v1)
 		if stupacRacuna(t, c, u.ID, "is_global_admin") != "0" {
 			t.Error("zastavica je stigla potvrdom starije verzije")
 		}
-		nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, v1.VersionID, tkoOdlucuje))
+		nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, v1.VersionID, tkoOdlucuje))
 	})
 }
 
@@ -571,26 +571,26 @@ func TestPravaDuznostNovogRacuna(t *testing.T) {
 		vr, vd, vd2 := tudjiRacun(t, n), tudja(t, EntityDuties, d.ID.String(), d), tudja(t, EntityDuties, d2.ID.String(), d2)
 		primi(t, c, []ledger.Version{vr, vd, vd2})
 		jedinaCeka(t, c, vr)
-		if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, vd.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+		if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, vd.VersionID, tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 			t.Errorf("dužnost prije računa: %v", err)
 		}
 		return c, vr, vd, vd2, n, d, d2
 	}
 	t.Run("potvrden_racun", func(t *testing.T) {
 		c, vr, vd, _, n, d, d2 := novi(t)
-		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, vr.VersionID, tkoOdlucuje))
+		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, vr.VersionID, tkoOdlucuje))
 		if !aktivnaDuznost(t, c, d2.ID, n.ID) || aktivnaDuznost(t, c, d.ID, n.ID) {
 			t.Fatal("s računom treba doći dužnost razine 2, a dužnost uprave organizacije čekati")
 		}
 		jedinaCeka(t, c, vd)
-		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, vd.VersionID, tkoOdlucuje))
+		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, vd.VersionID, tkoOdlucuje))
 		if !aktivnaDuznost(t, c, d.ID, n.ID) || stupacRacuna(t, c, n.ID, "is_global_admin") != "1" {
 			t.Error("nakon potvrde računa i dužnosti")
 		}
 	})
 	t.Run("odbijen_racun", func(t *testing.T) {
 		c, vr, _, vd2, n, _, d2 := novi(t)
-		nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, vr.VersionID, tkoOdlucuje))
+		nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, vr.VersionID, tkoOdlucuje))
 		primi(t, c, []ledger.Version{vd2})
 		_, err := ReplaySurface(ctxRaz, c.db, c.rec)
 		nuzno(t, err)
@@ -627,7 +627,7 @@ func TestPravaNovijaVerzijaBezZapisaNaPovrsini(t *testing.T) {
 			t.Error("naziv nije stigao ili je dužnost prenesena bez potvrde")
 		}
 		jedinaCeka(t, c, v2)
-		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v2.VersionID, tkoOdlucuje))
+		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v2.VersionID, tkoOdlucuje))
 		if !kakvaJeStigla(t, c, d, drugi.ID) {
 			t.Error("potvrda nije prenijela dužnost")
 		}
@@ -684,13 +684,13 @@ func TestPravaGreskeBaze(t *testing.T) {
 	nuzno(t, ApplyVersions(ctxRaz, c.db, c.rec, []ledger.Version{v}))
 	_, err = c.db.Exec(`CREATE TRIGGER kvar_odluke BEFORE UPDATE ON prava_na_potvrdi BEGIN SELECT RAISE(ABORT, 'kvar'); END`)
 	nuzno(t, err)
-	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje); err == nil {
+	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje); err == nil {
 		t.Error("potvrda bez zapisa odluke nije javila grešku")
 	}
 	_, err = c.db.Exec(`DROP TRIGGER kvar_odluke`)
 	nuzno(t, err)
 	jedinaCeka(t, c, v)
-	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, "nema-je", tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
+	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, "nema-je", tkoOdlucuje); !errors.Is(err, ErrNemaPromjenePrava) {
 		t.Errorf("nepoznata promjena: %v", err)
 	}
 	_, err = c.db.Exec(`DROP TABLE prava_na_potvrdi`)
@@ -701,7 +701,7 @@ func TestPravaGreskeBaze(t *testing.T) {
 	if err := ApplyVersions(ctxRaz, c.db, c.rec, []ledger.Version{v}); err == nil {
 		t.Error("primjena bez tablice odluka nije javila grešku")
 	}
-	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje); err == nil || errors.Is(err, ErrNemaPromjenePrava) {
+	if err := PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje); err == nil || errors.Is(err, ErrNemaPromjenePrava) {
 		t.Errorf("potvrda bez tablice: %v", err)
 	}
 }

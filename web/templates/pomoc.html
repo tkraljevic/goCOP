@@ -2040,15 +2040,23 @@
         <br id="prava">Blok <em>Promjene prava koje čekaju potvrdu</em> vidi samo globalni
         administrator. Kad s drugog računala stigne promjena koja nekome daje ili oduzima zastavicu
         globalnog administratora ili dužnost uprave organizacije (razina 1, i zamjenici), ili mijenja
-        lozinku ili uključenost računa globalnog administratora, ona na ovom računalu ne vrijedi dok
-        je ovdje ne potvrdi globalni administrator, svojim očima. Popis kaže čiji je račun, što se
-        mijenja i s kojeg je računala stiglo. <em>Potvrdi</em> stavlja promjenu na snagu,
-        <em>Odbij</em> je ostavlja zapisanu, ali na ovom računalu ne vrijedi, i bilježi tko je
-        odbio. Promjena ide dalje drugim računalima i dok čeka, a svako je potvrđuje za sebe.
+        lozinku ili uključenost računa globalnog administratora, ona ne vrijedi dok je ne potvrdi
+        globalni administrator. Popis kaže čiji je račun, što se mijenja i s kojeg je računala stiglo.
         Ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj račun
-        ili dužnost na ovom računalu ne može se mijenjati, pa najprije odlučite o promjeni.
-        Na novom računalu mreže tako čekaju i računi globalnih administratora: prijavite se računom
-        <code>admin</code> i potvrdite ih. Izmjene napravljene na ovom računalu ne čekaju.</li>
+        ili dužnost na ovom računalu ne može se mijenjati.
+        <br>U mreži se potvrđuje jednom, na računalu koje drži ključ mreže, svojim očima: s tog
+        računala, iz lokalne mreže ili izvana uz lozinku svog računa. <em>Potvrdi</em> stavlja
+        promjenu na snagu, <em>Odbij</em> je ostavlja zapisanu, ali ne vrijedi. Odluka se potpiše
+        ključem mreže i razmjenom stigne na sva računala, pa na ostalima vrijedi bez nove potvrde.
+        Na računalima bez ključa mreže popis se samo vidi, uz napomenu gdje se odlučuje. Izmjena
+        prava napravljena na računalu s ključem mreže ne čeka potvrdu ni na jednom računalu, pa ni
+        računi globalnih administratora na novom računalu mreže.
+        <br>Promjena napravljena na računalu bez ključa na njemu vrijedi odmah, a na ostalima čeka.
+        Ako je administrator na računalu s ključem odbije, ne vrijedi više ni ondje gdje je napravljena.
+        Kad računalo učita kopiju ključa mreže, potpiše i svoje ranije izmjene prava koje drugdje čekaju.
+        <br>Računalo s ključem mreže nadogradite prvo: dok ono radi starijim programom, promjene prava
+        s drugih računala čekaju i nitko ih ne može potvrditi.
+        <br>Računalo koje još nije u mreži odlučuje samo za sebe, na isti način.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
         <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže, i

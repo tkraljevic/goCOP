@@ -112,7 +112,10 @@ var SurfaceEntities = []string{EntitySectors, EntityAreas, EntityOrgTerms, Entit
 	EntityMtsVrste, EntityMtsSkladista, EntityMtsPromet, EntityMtsPopisi, EntityMtsPotrebe, EntityAkti, EntityRjesenjaOznaka, EntityPrimatelji, EntitySprance, EntitySluzbe, EntityIzvornici, EntitySlanja, EntityPostavke, EntityPotpisi, EntityZigovi, EntityVodocuvarski, EntityZadaci, EntityPotpisniKljucevi, EntityPotpisniIzdavatelji, EntityVodocuvarskiIzvornici, EntityJournalIzvornici, EntityPrijave, EntityPrijaveIzvornici,
 	// odbačene vrijednosti: čvor na 0.0.34 ih prima u knjigu, ali ne na
 	// površinu; nakon ažuriranja ih obnova površine pri pokretanju stavi
-	EntityOdbacena}
+	EntityOdbacena,
+	// potvrde ključem mreže nemaju površinu, ali pri pokretanju stavljaju na
+	// površinu promjene prava koje su čekale (primijeniPotpisane)
+	EntityPotvrdePrava}
 
 // PoznatiEntiteti su svi entiteti koje repozitorij zapisuje u knjigu ili
 // primjenjuje na površinu. Knjiga verziju entiteta izvan popisa sprema i
@@ -134,7 +137,7 @@ func PoznatiEntiteti() []string {
 		EntityPostavke, EntityPotpisi, EntityZigovi,
 		EntityVodocuvarski, EntityZadaci, EntityVodocuvarskiIzvornici,
 		EntityPotpisniKljucevi, EntityPotpisniIzdavatelji,
-		EntityPrijave, EntityPrijaveIzvornici,
+		EntityPrijave, EntityPrijaveIzvornici, EntityPotvrdePrava,
 		// zapisuje ih sloj razmjene (peers), a površinu osvježava applyOne
 		"peers", "memberships", "ovlasti", "opozivi",
 	}
@@ -237,7 +240,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			if _, err := tx.ExecContext(ctx, "SAVEPOINT apply_one"); err != nil {
 				return err
 			}
-			if err := primijeniVerziju(ctx, tx, rec.Cvor(), naPovrsinu); err != nil {
+			if err := primijeniVerziju(ctx, tx, naPovrsinu); err != nil {
 				if _, rerr := tx.ExecContext(ctx, "ROLLBACK TO SAVEPOINT apply_one"); rerr != nil {
 					return rerr
 				}
@@ -257,7 +260,7 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 			ostaje[i] = f.v
 		}
 	}
-	if err := tx.Commit(); err != nil {
+	if err := potvrdiPrimjenu(ctx, tx, ordered); err != nil {
 		return err
 	}
 	potvrdjeno = true
@@ -275,6 +278,16 @@ func ApplyVersions(ctx context.Context, db *sql.DB, rec *ledger.Recorder, versio
 		return &greskaNedovrsenih{broj: len(failed), prva: failed[0].v, err: failed[0].err}
 	}
 	return nil
+}
+
+// potvrdiPrimjenu primijeni potvrde ključem mreže koje su stigle poslije
+// verzije koja čeka (primijeniPotpisane) i potvrdi transakciju površine
+func potvrdiPrimjenu(ctx context.Context, tx *sql.Tx, paket []ledger.Version) error {
+	err := primijeniPotpisane(ctx, tx, paket)
+	if err == nil {
+		err = tx.Commit()
+	}
+	return err
 }
 
 // greskaNedovrsenih javlja da dio verzija nije prošao na površinu; ostale

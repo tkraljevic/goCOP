@@ -156,14 +156,14 @@ func sBrisanjemDnevnika(b ledger.Version, dnevnik []ledger.Version) bool {
 // ovjera koja stigne poslije takvog brisanja tako vrati i ono što je
 // brisanje odnijelo, pa isti skup verzija daje istu površinu kojim god redom
 // stigao.
-func vratiDjecuOvjerenog(ctx context.Context, tx *sql.Tx, ovaj, id string) error {
+func vratiDjecuOvjerenog(ctx context.Context, tx *sql.Tx, id string) error {
 	dnevnik, err := povijestTx(ctx, tx, EntityJournals, id)
 	if err != nil || len(dnevnik) == 0 || !verzijaOvjerenogDnevnika(dnevnikNaPovrsini(dnevnik)) {
 		return err
 	}
 	for _, entitet := range djecaDnevnika {
 		if err == nil {
-			err = vratiObrisanuDjecu(ctx, tx, ovaj, entitet, id, dnevnik)
+			err = vratiObrisanuDjecu(ctx, tx, entitet, id, dnevnik)
 		}
 	}
 	return err
@@ -171,14 +171,14 @@ func vratiDjecuOvjerenog(ctx context.Context, tx *sql.Tx, ovaj, id string) error
 
 // vratiObrisanuDjecu vraća djecu entiteta za vratiDjecuOvjerenog: zapise s
 // brisanjem u knjizi koje nosi dnevnik id, a na površini ih nema
-func vratiObrisanuDjecu(ctx context.Context, tx *sql.Tx, ovaj, entitet, id string, dnevnik []ledger.Version) error {
+func vratiObrisanuDjecu(ctx context.Context, tx *sql.Tx, entitet, id string, dnevnik []ledger.Version) error {
 	ids, err := idsOf(ctx, tx, `SELECT DISTINCT w.entity_id FROM record_versions w
 		WHERE w.entity = ? AND w.archived = 1
 			AND CASE WHEN json_valid(w.payload) THEN CAST(json_extract(w.payload, '$.journal_id') AS TEXT) = ? END
 			AND NOT EXISTS (SELECT 1 FROM `+entitet+` p WHERE p.id = w.entity_id)`, entitet, id)
 	for _, d := range ids {
 		if err == nil {
-			err = vratiObrisanoDijete(ctx, tx, ovaj, d, entitet, dnevnik)
+			err = vratiObrisanoDijete(ctx, tx, d, entitet, dnevnik)
 		}
 	}
 	return err
@@ -186,13 +186,13 @@ func vratiObrisanuDjecu(ctx context.Context, tx *sql.Tx, ovaj, entitet, id strin
 
 // vratiObrisanoDijete stavlja na površinu zadnju živu verziju djeteta kad je
 // njegova zadnja verzija brisanje koje ovjeru ne pogađa
-func vratiObrisanoDijete(ctx context.Context, tx *sql.Tx, ovaj, id, entitet string, dnevnik []ledger.Version) error {
+func vratiObrisanoDijete(ctx context.Context, tx *sql.Tx, id, entitet string, dnevnik []ledger.Version) error {
 	dijete, err := povijestTx(ctx, tx, entitet, id)
 	ziva, ostaje := zivoDijeteOvjerenog(dijete, dnevnik)
 	if err != nil || !ostaje {
 		return err
 	}
-	return vratiDijete(ctx, tx, ovaj, ziva)
+	return vratiDijete(ctx, tx, ziva)
 }
 
 // povijestTx su verzije zapisa iz knjige koje po oznaci idu na površinu, od

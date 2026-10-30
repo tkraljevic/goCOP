@@ -143,9 +143,10 @@ uparivanje treba osoba i na drugoj strani.
    Stanje razmjene pokreće je odmah.
    Djelatnici, registri i podaci stižu s drugog računala. Kad stignu
    djelatnici, prijavljujete se svojim računom. Računi globalnih
-   administratora i njihove dužnosti na novom računalu vrijede tek kad ih
-   potvrdite: prijavite se računom `admin` i potvrdite ih na stranici
-   Stanje razmjene, pod Promjene prava koje čekaju potvrdu.
+   administratora i njihove dužnosti vrijede odmah kad ih je potvrdilo
+   računalo koje drži ključ mreže. Ako neki ipak čeka, vidi se na stranici
+   Stanje razmjene, pod Promjene prava koje čekaju potvrdu, a potvrđuje ga
+   globalni administrator na računalu s ključem mreže.
 
 ### Početni račun admin
 

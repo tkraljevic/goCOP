@@ -976,6 +976,14 @@ func InitSchema(database *sql.DB) error {
 			odluceno DATETIME
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prava_na_potvrdi_zapis ON prava_na_potvrdi(entity, entity_id, version_id);`,
+		// Verzije računa i dužnosti napisane na ovom računalu
+		// (repository/apply_potvrda_stanje.go): na ovom računalu vrijede i
+		// dok ih računalo s ključem mreže ne potvrdi. Verzija s imenom ovog
+		// računala koja je stigla razmjenom ovdje nije, pa ne vrijedi kao
+		// vlastita. Lokalno: ne ide u knjigu ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS prava_vlastite (
+			version_id TEXT PRIMARY KEY
+		);`,
 
 		// Zadnji zahtjev za obnovu članstva koji je ovo računalo obradilo, po
 		// računalu (G9a, peers/obnova.go): isti zahtjev se ne obrađuje

@@ -494,13 +494,13 @@ func TestPravilaRoditeljaGreske(t *testing.T) {
 		radi      func(tx *sql.Tx) error
 	}{
 		{"sektor se ne da pročitati", `ALTER TABLE sectors RENAME TO sektori_drugdje`,
-			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, "", *podrucje) }},
+			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, *podrucje) }},
 		{"knjiga se ne da pročitati", `ALTER TABLE record_versions RENAME TO knjiga_drugdje`,
-			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, "", *podrucje) }},
+			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, *podrucje) }},
 		{"djeca se ne daju pročitati pri brisanju", `ALTER TABLE structures RENAME TO objekti_drugdje`,
-			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, "", spomenik) }},
+			func(tx *sql.Tx) error { return primijeniVerziju(ctxRaz, tx, spomenik) }},
 		{"djeca se ne daju pročitati pri povratku", `ALTER TABLE structures RENAME TO objekti_drugdje`,
-			func(tx *sql.Tx) error { return vratiDjecu(ctxRaz, tx, "", EntityAreas, "42") }},
+			func(tx *sql.Tx) error { return vratiDjecu(ctxRaz, tx, EntityAreas, "42") }},
 	} {
 		t.Run(slucaj.ime, func(t *testing.T) {
 			tx, err := c.db.BeginTx(ctxRaz, nil)

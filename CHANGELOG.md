@@ -38,8 +38,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
-  organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni
-  administrator, na stranici Stanje razmjene (Odluke (30. 10. 2026.)).
+  organizacije vrijedi tek kad je potvrdi globalni administrator, jednom za
+  cijelu mrežu, na računalu koje drži ključ mreže (stranica Stanje
+  razmjene). Potvrda ili odbijanje potpiše se ključem mreže i vrijedi na
+  svakom računalu čim do njega stigne razmjenom, pa se na ostalima više ne
+  odlučuje. Izmjena prava napravljena na računalu s ključem mreže ne čeka
+  potvrdu ni na jednom računalu. Računalo koje još nije u mreži odlučuje
+  samo za sebe (Odluke (30. 10. 2026.)). Najprije nadogradite računalo koje
+  drži ključ mreže: dok ono radi starijim programom, promjene prava s
+  drugih računala čekaju i nitko ih ne može potvrditi. Računala koja još
+  rade starijim programom potvrde čuvaju i prosljeđuju, a na pločici pišu
+  da čekaju nadogradnju.
 - **Primanje verzija: oznaka u sadržaju mora biti oznaka zapisa.** Zapis
   primljen s drugog računala upisuje se samo kad oznaka u njegovu sadržaju
   odgovara oznaci zapisa. Verzija s drugom oznakom ostaje zapisana i dalje

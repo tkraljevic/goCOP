@@ -24,12 +24,44 @@ const (
 type UserRepository struct {
 	db  *sql.DB
 	rec *ledger.Recorder
+	// potpis: na računalu s ključem mreže izmjena računa ili dužnosti
+	// dobiva potvrdu potpisanu ključem mreže (apply_potvrda_prava.go)
+	potpis PotpisMreze
 }
 
 // NewUserRepository traži Recorder: korisnici i zaduženja se sinkroniziraju
 // između čvorova, pa svaki upis ostavlja verziju
 func NewUserRepository(database *sql.DB, rec *ledger.Recorder) *UserRepository {
 	return &UserRepository{db: database, rec: rec}
+}
+
+// PostaviPotpisMreze zadaje čime se potpisuju potvrde promjena prava na
+// računalu s ključem mreže. Postavlja se pri pokretanju, prije prvog upisa.
+func (r *UserRepository) PostaviPotpisMreze(p PotpisMreze) { r.potpis = p }
+
+// zapisi upisuje verziju računa ili dužnosti i bilježi da je vlastita; na
+// računalu s ključem mreže izmjena prava u istoj transakciji dobiva potvrdu
+// potpisanu ključem mreže (potvrdiIzmjenu), pa vrijedi na svim računalima
+// čim do njih stigne
+func (r *UserRepository) zapisi(ctx context.Context, tx *sql.Tx, entitet, id string, sadrzaj any) (string, error) {
+	return r.uKnjigu(ctx, tx, r.rec.Record, entitet, id, sadrzaj)
+}
+
+// arhiviraj je zapisi za spomenik
+func (r *UserRepository) arhiviraj(ctx context.Context, tx *sql.Tx, entitet, id string, sadrzaj any) (string, error) {
+	return r.uKnjigu(ctx, tx, r.rec.Archive, entitet, id, sadrzaj)
+}
+
+func (r *UserRepository) uKnjigu(ctx context.Context, tx *sql.Tx, upis func(context.Context, ledger.Execer, string, string, any) (string, error),
+	entitet, id string, sadrzaj any) (string, error) {
+	oznaka, err := upis(ctx, tx, entitet, id, sadrzaj)
+	if err == nil {
+		err = zapamtiVlastitu(ctx, tx, oznaka)
+	}
+	if err == nil {
+		err = potvrdiIzmjenu(ctx, tx, r.rec, r.potpis, oznaka)
+	}
+	return oznaka, err
 }
 
 type rowQuerier interface {
@@ -180,7 +212,7 @@ func (r *UserRepository) recordDuties(ctx context.Context, tx *sql.Tx, ids []str
 		if err != nil {
 			return err
 		}
-		if _, err := r.rec.Record(ctx, tx, EntityDuties, id, d); err != nil {
+		if _, err := r.zapisi(ctx, tx, EntityDuties, id, d); err != nil {
 			return err
 		}
 	}
@@ -465,11 +497,11 @@ func (r *UserRepository) CreateUser(u *models.User, initialDuty *models.Duty) er
 	}
 
 	ctx := context.Background()
-	if _, err := r.rec.Record(ctx, tx, EntityUsers, u.ID.String(), versionOfUser(*u)); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityUsers, u.ID.String(), versionOfUser(*u)); err != nil {
 		return err
 	}
 	if initialDuty != nil {
-		if _, err := r.rec.Record(ctx, tx, EntityDuties, initialDuty.ID.String(), initialDuty); err != nil {
+		if _, err := r.zapisi(ctx, tx, EntityDuties, initialDuty.ID.String(), initialDuty); err != nil {
 			return err
 		}
 	}
@@ -553,7 +585,7 @@ func (r *UserRepository) UpdateUser(u *models.User) error {
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityUsers, u.ID.String(), versionOfUser(saved)); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityUsers, u.ID.String(), versionOfUser(saved)); err != nil {
 		return err
 	}
 
@@ -601,7 +633,7 @@ func (r *UserRepository) DeleteUser(id uuid.UUID) error {
 		return fmt.Errorf("greška pri brisanju korisnika: %w", err)
 	}
 
-	if _, err := r.rec.Archive(ctx, tx, EntityUsers, id.String(), versionOfUser(current)); err != nil {
+	if _, err := r.arhiviraj(ctx, tx, EntityUsers, id.String(), versionOfUser(current)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -620,7 +652,7 @@ func (r *UserRepository) spomeniciDuznosti(ctx context.Context, tx *sql.Tx, kori
 			d, err = getDutyTx(ctx, tx, dutyID)
 		}
 		if err == nil {
-			_, err = r.rec.Archive(ctx, tx, EntityDuties, dutyID, d)
+			_, err = r.arhiviraj(ctx, tx, EntityDuties, dutyID, d)
 		}
 	}
 	if err != nil {
@@ -695,7 +727,7 @@ func (r *UserRepository) AddDuty(d *models.Duty) error {
 	if err := r.recordDuties(ctx, tx, demoted); err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityDuties, d.ID.String(), d); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityDuties, d.ID.String(), d); err != nil {
 		return err
 	}
 
@@ -978,7 +1010,7 @@ func (r *UserRepository) ChangePassword(userID uuid.UUID, newPasswordHash string
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1007,7 +1039,7 @@ func (r *UserRepository) ResetPassword(userID uuid.UUID, newPasswordHash string)
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1048,7 +1080,7 @@ func (r *UserRepository) MarkLogin(userID uuid.UUID, at time.Time) error {
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityUsers, userID.String(), versionOfUser(saved)); err != nil {
 		return err
 	}
 	return tx.Commit()

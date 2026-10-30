@@ -115,6 +115,9 @@ type Ports struct {
 
 // Service veže identitet, popis čvorova i knjigu verzija u sinkronizaciju
 type Service struct {
+	// nakonKljuca se zove kad ovo računalo dobije ključ mreže (osnivanje
+	// mreže, učitana kopija ključa); potvrda_prava.go
+	nakonKljuca atomic.Pointer[func(context.Context)]
 	// skracene: razgovori u kojima je delta skraćena zbog veličine, pa
 	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
 	skracene sync.Map // *razmjena.Conn → bool

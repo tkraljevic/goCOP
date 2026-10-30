@@ -156,7 +156,7 @@ func TestPravaDvaKoraka(t *testing.T) {
 		if p := jedinaCeka(t, c, v); p.Promjene != "oduzima dužnost uprave organizacije: "+d.Role.Label() {
 			t.Errorf("popis: %+v", p)
 		}
-		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, v.VersionID, tkoOdlucuje))
+		nuzno(t, PotvrdiPromjenuPrava(ctxRaz, c.db, c.rec, nil, v.VersionID, tkoOdlucuje))
 		if duznostUPovrsini(t, c, d.ID) {
 			t.Error("potvrđeno brisanje nije maknulo dužnost")
 		}
@@ -218,8 +218,8 @@ func TestPravaLokalnaIzmjenaCeka(t *testing.T) {
 			t.Error("preračun isteka uzima dužnost koja čeka potvrdu")
 		}
 	}
-	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, vr.VersionID, tkoOdlucuje))
-	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, vd.VersionID, tkoOdlucuje))
+	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, vr.VersionID, tkoOdlucuje))
+	nuzno(t, OdbijPromjenuPrava(ctxRaz, c.db, c.rec, nil, vd.VersionID, tkoOdlucuje))
 	nuzno(t, repo.UpdateUser(x))
 	nuzno(t, repo.RevokeDuty(d.ID))
 	if stupacRacuna(t, c, u.ID, "phone") != "099 7" || aktivnaDuznost(t, c, d.ID, u.ID) {
@@ -259,7 +259,7 @@ func TestPravaDvaRacunala(t *testing.T) {
 		t.Fatal("A je izgubio zastavicu")
 	}
 
-	nuzno(t, OdbijPromjenuPrava(ctxRaz, b.db, b.rec, ceka[0].VersionID, tkoOdlucuje))
+	nuzno(t, OdbijPromjenuPrava(ctxRaz, b.db, b.rec, nil, ceka[0].VersionID, tkoOdlucuje))
 	nuzno(t, repoB.UpdateUser(naB))
 	posalji(t, b, a)
 	if stupacRacuna(t, a, u.ID, "is_global_admin") != "1" || stupacRacuna(t, a, u.ID, "phone") != "031 123 456" {
@@ -349,7 +349,7 @@ func TestPravaRedakSeNeDaProcitati(t *testing.T) {
 	primi(t, n, []ledger.Version{v})
 	prekinut, odustani := context.WithCancel(ctxRaz)
 	odustani()
-	if err := PotvrdiPromjenuPrava(prekinut, n.db, n.rec, v.VersionID, tkoOdlucuje); err == nil {
+	if err := PotvrdiPromjenuPrava(prekinut, n.db, n.rec, nil, v.VersionID, tkoOdlucuje); err == nil {
 		t.Error("potvrda s prekinutim zahtjevom bez greške")
 	}
 	jedinaCeka(t, n, v)
