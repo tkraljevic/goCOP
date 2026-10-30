@@ -680,6 +680,27 @@ func TestPrijavaSPotrosenimPokusajima(t *testing.T) {
 	if _, err := o.dk.Cekanje(ctx, token); !errors.Is(err, service.ErrDrugiKorakIstekao) {
 		t.Errorf("prijava s potrošenim pokušajima nije obrisana: %v", err)
 	}
+	// prijava koju je u međuvremenu potrošio drugi unos javlja istek, ne
+	// previše pokušaja: okidač preskače brisanje, kao da je redak već nestao
+	token, pin = o.novaPrijava(t)
+	o.izvrsi(t, `UPDATE prijave_na_cekanju SET pokusaja = 5`)
+	o.izvrsi(t, `CREATE TRIGGER vec_obrisana BEFORE DELETE ON prijave_na_cekanju BEGIN SELECT RAISE(IGNORE); END`)
+	if _, err := o.dk.ProvjeriKod(ctx, token, pin); !errors.Is(err, service.ErrDrugiKorakIstekao) {
+		t.Errorf("prijava potrošena u međuvremenu: %v", err)
+	}
+	o.izvrsi(t, `DROP TRIGGER vec_obrisana`)
+
+	// kad je osobi već puna granica unosa u tijeku, ni točan PIN se ne
+	// uspoređuje; kad se ti unosi završe, isti PIN prolazi
+	token, pin = o.novaPrijava(t)
+	service.UnosaUTijekuZaTest(o.dk, o.osoba.ID, service.KrivihNaSatZaTest)
+	if _, err := o.dk.ProvjeriKod(ctx, token, pin); !errors.Is(err, service.ErrKodoviZakljucani) {
+		t.Errorf("točan PIN uz punu granicu unosa u tijeku: %v", err)
+	}
+	service.UnosaUTijekuZaTest(o.dk, o.osoba.ID, 0)
+	if _, err := o.dk.ProvjeriKod(ctx, token, pin); err != nil {
+		t.Errorf("točan PIN kad se unosi završe: %v", err)
+	}
 	token, _ = o.novaPrijava(t)
 	o.izvrsi(t, `UPDATE prijave_na_cekanju SET expires_at = 'nije vrijeme'`)
 	if _, err := o.dk.Cekanje(ctx, token); err == nil || errors.Is(err, service.ErrDrugiKorakIstekao) {

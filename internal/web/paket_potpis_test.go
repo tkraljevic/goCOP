@@ -145,8 +145,11 @@ func TestPaketLetveBezPotpisaSeOdbija(t *testing.T) {
 		t.Errorf("ugradnja nepotpisanog paketa: %q, ugrađeno %v", greska, o.ugradjeno)
 	}
 
+	o.h.SetPotpisnik(func(context.Context, string, ed25519.PublicKey) (peers.Potpisnik, error) {
+		return peers.PotpisnikClan, nil
+	})
 	html = o.pregledaj(t, potpisan)
-	if !strings.Contains(html, "Paket kaže da ga je izdao čvor cop-osijek.") || !strings.Contains(html, "Ugradi historijat") {
+	if !strings.Contains(html, "Paket je potpisao čvor cop-osijek, član mreže.") || !strings.Contains(html, "Ugradi historijat") {
 		t.Error("pregled potpisanog paketa ne kaže tko ga je potpisao ili ne nudi ugradnju")
 	}
 	if uspjeh, greska := o.ugradi(t, potpisan, "batina"); uspjeh == "" || greska != "" || len(o.ugradjeno) != 1 {
@@ -160,9 +163,9 @@ func TestPaketLetveBezPotpisaSeOdbija(t *testing.T) {
 }
 
 // Potpis mora biti člana mreže ili ovog računala, kao kod .cop paketa
-// kanala. Dok računalo nije u mreži, ne zna čiji je ključ, pa paket ugrađuje
-// samo s ovog računala ili iz lokalne mreže, kao staru .db arhivu (Odluke
-// (30. 10. 2026.), 13).
+// kanala. Dok računalo nije u mreži, ne zna čiji je tuđi ključ, pa paket
+// drugog računala ne ugrađuje ni s ovog računala ni iz lokalne mreže, a
+// vlastiti ugrađuje (Odluke (30. 10. 2026.)).
 func TestPaketLetveTraziPotpisClanaMreze(t *testing.T) {
 	javni, kljuc, err := ed25519.GenerateKey(nil)
 	if err != nil {
@@ -205,25 +208,26 @@ func TestPaketLetveTraziPotpisClanaMreze(t *testing.T) {
 		t.Error("članstvo se ne provjerava po ključu kojim je paket potpisan")
 	}
 
-	bezMreze := "Paket kaže da ga je izdao čvor cop-osijek. Potpis je ispravan, ali ovo računalo još nije u mreži"
+	bezMreze := "Ovo računalo još nije u mreži, pa ne može provjeriti je li cop-osijek u istoj mreži. " +
+		"Primite ovo računalo u mrežu, pa paket ugradite ponovno"
 	odgovor(peers.PotpisnikNeprovjeren, nil)
-	provjeri("bez mreže, iz lokalne mreže", bezMreze, true)
+	provjeri("bez mreže, iz lokalne mreže", bezMreze, false)
 	odgovor(peers.PotpisnikClan, nil)
 	provjeri("član mreže", "Paket je potpisao čvor cop-osijek, član mreže.", true)
 	odgovor(peers.PotpisnikOvoRacunalo, nil)
 	provjeri("ovo računalo", "Paket je potpisalo ovo računalo.", true)
 
-	// izvana: član mreže i ovo računalo prolaze, a neprovjeren ključ ne
+	// izvana isto: član mreže i ovo računalo prolaze, a neprovjeren ključ ne
 	o.adresa = adresaIzvana
 	provjeri("ovo računalo, izvana", "Paket je potpisalo ovo računalo.", true)
 	odgovor(peers.PotpisnikClan, nil)
 	provjeri("član mreže, izvana", "član mreže.", true)
 	odgovor(peers.PotpisnikNeprovjeren, nil)
-	provjeri("bez mreže, izvana", zabranaIzvana.neprovjeren, false)
+	provjeri("bez mreže, izvana", bezMreze, false)
 	o.h.SetPotpisnik(nil)
-	provjeri("bez provjere potpisnika, izvana", zabranaIzvana.neprovjeren, false)
+	provjeri("bez provjere potpisnika, izvana", bezMreze, false)
 	o.adresa = adresaLokalno
-	provjeri("bez provjere potpisnika, iz lokalne mreže", bezMreze, true)
+	provjeri("bez provjere potpisnika, iz lokalne mreže", bezMreze, false)
 }
 
 // Poslužitelj bez razmjene ne zna čiji je ključ, a s razmjenom pita nju;

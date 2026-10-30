@@ -379,12 +379,22 @@ func (h *DBMaintHandler) uveziCop(w http.ResponseWriter, r *http.Request, tmp st
 	redirectWith(w, r, "/administracija/baza", "success", poruka)
 }
 
+// porukaStaraBezMreze kaže zašto računalo izvan mreže ne uvozi staru .db
+// arhivu i što učiniti
+const porukaStaraBezMreze = "Stara .db arhiva nije uvezena. Nema potpis, a ovo računalo još nije u mreži, " +
+	"pa ne zna od koga je arhiva. Primite ovo računalo u mrežu, pa arhivu uvezite ponovno. " +
+	"Vlastiti .cop paket ovo računalo ugrađuje i prije toga."
+
 // uveziStaruArhivu uvozi staru .db arhivu. Ona nema potpis, pa je globalni
 // administrator uvozi samo s ovog računala ili iz lokalne mreže, kao postavke
-// čvora (Odluke (30. 10. 2026.), 13).
+// čvora, i samo kad je računalo u mreži (Odluke (30. 10. 2026.)).
 func (h *DBMaintHandler) uveziStaruArhivu(w http.ResponseWriter, r *http.Request, tmp string) {
 	if poruka := porukaZabrane(r, zaStaruArhivu); poruka != "" {
 		http.Error(w, poruka, http.StatusForbidden)
+		return
+	}
+	if h.peers.NetworkInfo() == nil {
+		redirectWith(w, r, "/administracija/baza", "error", porukaStaraBezMreze)
 		return
 	}
 	rep, err := h.peers.ImportFile(r.Context(), tmp)

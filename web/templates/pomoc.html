@@ -820,10 +820,9 @@
       ima, ako ga pokriva pretplata (vidi <a href="#profile">Što ovo računalo prati</a>). Paket
       letve učitan s diska, na historijatu letve, ugrađuje se samo ako je potpisan, i to ključem
       ovog računala ili člana mreže; pregled prije ugradnje kaže tko ga je potpisao. Računalo koje
-      još nije u mreži ne zna čiji je ključ, pa takav paket ugrađuje samo s ovog računala ili iz
-      lokalne mreže. Čvor
-      bez arhive i dalje radi:
-      kartica letve se otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
+      još nije u mreži ne zna čiji je tuđi ključ, pa ugrađuje samo vlastiti paket, a
+      paket drugog računala tek kad uđe u mrežu. Čvor bez arhive i dalje radi: kartica letve se
+      otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
       glavnoj bazi, uz svaki je redak išla i verzija za razmjenu, pa je 45.547 očitanja jedne
       letve zauzelo 61 % baze.</p>
 
@@ -905,8 +904,9 @@
         eHYD, GKD, PEGELONLINE, izvoz Geolux zapisivača (SEBA) i hidrološki godišnjaci RHMZ Srbije. Svaki
         se prvo pročita bez upisa i pokaže što bi se zapisalo. Svi ZIP-ovi jednog uvoza zajedno smiju imati
         najviše 1000 datoteka i 256 MB kad se raspakiraju. Letva koja u stablu već postoji upisuje se u svoj
-        sliv; sliv se bira samo za novu letvu. Sliv, letva i izvor smiju imati samo slova, brojke, crticu i
-        točku.</li>
+        sliv; sliv se bira samo za novu letvu. Novi sliv, kojeg u stablu još nema, otvara samo globalni
+        administrator; ostali novu letvu stavljaju u sliv koji već postoji. Sliv, letva i izvor smiju
+        imati samo slova, brojke, crticu i točku.</li>
       <li><strong>2. Gradnja.</strong> Nakon potvrde program zapiše datoteke u stablo i odmah u pozadini
         izgradi letvu. Pri gradnji se izbacuju ispadi telemetrije i svi se vodostaji svode na današnju kotu
         nule.</li>
@@ -2007,9 +2007,10 @@
         <code>admin</code> i potvrdite ih. Izmjene napravljene na ovom računalu ne čekaju.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
-        <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže.
-        Dok računalo još nije u mreži, ne zna čiji je potpis na paketu, pa se dotad i
-        <code>.cop</code> paket uvozi samo s ovog računala ili iz lokalne mreže. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
+        <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže, i
+        to tek kad je računalo u mreži. Dok računalo još nije u mreži, ne zna čiji je potpis na
+        paketu, pa se dotad i <code>.cop</code> paket uvozi samo s ovog računala ili iz lokalne mreže, i
+        samo onaj koji je izdalo ovo računalo. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
         čuvaju izvorne fotografije s terena; to vrijedi na svim čvorovima. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>

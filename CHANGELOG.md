@@ -16,6 +16,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   budućnosti, stranica to kaže i nudi njihovo brisanje. Briše samo globalni
   administrator, s ovog računala ili iz lokalne mreže; dnevnik programa
   zapiše tko je to napravio i odakle, a zapisi se zatim obnove iz knjige.
+- **Stara .db arhiva, paketi letve i novi sliv.** Računalo koje još nije u
+  mreži ne uvozi staru .db arhivu, jer ona nema potpis, ni paket letve
+  drugog računala; poruka kaže da računalo najprije treba primiti u mrežu.
+  Vlastiti .cop paket i paket letve ugrađuje i dalje. Novi sliv u arhivi
+  uvozom otvara samo globalni administrator, a ostali novu letvu uvoze u
+  sliv koji već postoji (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni

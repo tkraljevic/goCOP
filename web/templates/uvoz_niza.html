@@ -734,7 +734,7 @@
       <span class="part-label">Sliv</span>
       <input type="text" name="sliv" value="{{.Prijedlg.Sliv}}" class="form-control mono" list="popis-slivova" required>
       <datalist id="popis-slivova">{{range .Slivovi}}<option value="{{.}}">{{end}}</datalist>
-      <small class="izvor-disk">Postojeća letva ga već ima; nova mora doći sa slivom.</small>
+      <small class="izvor-disk">Postojeća letva ga već ima; nova mora doći sa slivom.{{if not .Administrator}} Nova letva ide u sliv koji već postoji; novi sliv otvara globalni administrator.{{end}}</small>
     </label>
     <label class="izvor-napomena">
       <span class="part-label">Izvor</span>
