@@ -937,6 +937,11 @@ pokrenete u kartici Docker (`docker start gocop`). Slika zadaje `-addr`,
 `-arhiva`, `-podaci`, `-skenovi` i `-pakete`, pa te postavke iz `gocop.toml`
 u spremniku ne vrijede; stranice to pišu uz njih.
 
+Dok je na čvoru proglašen stadij obrane, karta bez interneta ide samo s
+računalima u istoj lokalnoj mreži. Spremnik uz most (bridge) ne vidi kućnu
+mrežu, pa čvor u Dockeru uz most dok traje obrana kartu ne prima ni ne daje.
+Uz mrežu računala (host) radi kao i drugi.
+
 U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi
 stalni čvor, a laptop prima podatke. Novom čvoru te se uloge moraju izričito
@@ -961,6 +966,14 @@ Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Sinkronizacija.
+
+0.0.47-alfa (u pripremi): karta bez interneta stiže razmjenom, ali tek kad
+su oba računala na 0.0.47-alfa. Računalu s 0.0.46-alfa ili starijim kartu i
+dalje treba prenijeti paketom `.cop`. Dok je na računalu proglašen stadij
+obrane, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži
+(ista kuća ili ured); unutarnja mreža Hrvatskih voda među gradovima i VPN
+tada se računaju kao internet. U Dockeru uz most (bridge) čvor dok traje
+obrana kartu ne prima ni ne daje. Uz mrežu računala (host) radi kao i drugi.
 
 0.0.46-alfa radi uz 0.0.37–0.0.45-alfa i razmjena s njima ide
 kao i dosad. Baza se ne mijenja, pa se na 0.0.45-alfa može vratiti bez kopije

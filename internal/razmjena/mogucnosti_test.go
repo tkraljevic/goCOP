@@ -54,8 +54,9 @@ func TestDogovor(t *testing.T) {
 		{"bez popisa (0.0.38)", NaseMogucnosti(), nil, map[string]int{"razmjena": 1}},
 		{"prazan popis", NaseMogucnosti(), []string{}, map[string]int{"razmjena": 1}},
 		// namjerno promijenjeno: G4 (plan WEB synca, §3); i granica-odbijenih.
-		// namjerno promijenjeno: G4b; i rupe
-		{"isti popis", NaseMogucnosti(), NaseMogucnosti(), map[string]int{"granica-odbijenih": 1, "razmjena": 1, "rupe": 1}},
+		// namjerno promijenjeno: G4b; i rupe. namjerno promijenjeno: karta
+		// razmjenom; i dijelovi-karte
+		{"isti popis", NaseMogucnosti(), NaseMogucnosti(), map[string]int{"dijelovi-karte": 1, "granica-odbijenih": 1, "razmjena": 1, "rupe": 1}},
 		{"druga strana bez granice odbijenih", NaseMogucnosti(), []string{"razmjena/1"}, map[string]int{"razmjena": 1}},
 		{"nepoznate se zanemaruju", NaseMogucnosti(), []string{"razmjena/1", "web/1", "gocop-veza/1", "roj/3"}, map[string]int{"razmjena": 1}},
 		{"neispravne se zanemaruju", []string{"razmjena/1", "web/01"}, []string{"razmjena/01", "razmjena/1", "web/01"}, map[string]int{"razmjena": 1}},
@@ -80,18 +81,20 @@ func TestDogovor(t *testing.T) {
 	}
 }
 
-// Naš popis: granica-odbijenih/1, razmjena/1 i rupe/1, ispravne oznake,
+// Naš popis: dijelovi-karte/1, granica-odbijenih/1, razmjena/1 i rupe/1, ispravne oznake,
 // poredan i bez ponavljanja. Oznake nikad ne nose ime protokola (ALPN je ime
 // protokola, '-' i oznaka), a imena koja pripadaju kasnijim fazama ili
 // rezervirana ne objavljuju se.
 //
 // Namjerno promijenjeno: G4 (plan WEB synca, §3). Do G4 popis je bio
 // samo razmjena/1, a dijeljenje popisa provjeravalo se na prvoj oznaci.
-// Namjerno promijenjeno: G4b; uz rupe/1.
+// Namjerno promijenjeno: G4b; uz rupe/1. Namjerno promijenjeno: karta
+// razmjenom; uz dijelovi-karte/1.
 func TestNaseMogucnosti(t *testing.T) {
 	nase := NaseMogucnosti()
-	ocekivano := []string{"granica-odbijenih/1", "razmjena/1", "rupe/1"}
-	if !slices.Equal(nase, ocekivano) || OznakaRazmjena != "razmjena/1" || OznakaGranicaOdbijenih != "granica-odbijenih/1" || OznakaRupe != "rupe/1" {
+	ocekivano := []string{"dijelovi-karte/1", "granica-odbijenih/1", "razmjena/1", "rupe/1"}
+	if !slices.Equal(nase, ocekivano) || OznakaRazmjena != "razmjena/1" || OznakaGranicaOdbijenih != "granica-odbijenih/1" || OznakaRupe != "rupe/1" ||
+		OznakaDijeloviKarte != "dijelovi-karte/1" {
 		t.Fatalf("naše mogućnosti: %v", nase)
 	}
 	if !slices.IsSorted(nase) || len(slices.Compact(slices.Clone(nase))) != len(nase) {

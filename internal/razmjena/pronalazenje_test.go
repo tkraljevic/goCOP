@@ -272,3 +272,33 @@ func TestProbaBezUticnice(t *testing.T) {
 		t.Error("nađeno bez utičnice")
 	}
 }
+
+// Mreže lokalnih sučelja imaju samo sučelja koja vode u lokalnu mrežu:
+// VPN tuneli (wg0, utun, tap0, zt), mostovi spremnika i virtualnih strojeva,
+// petlja i isključeno sučelje u njima nisu, a adresa bez maske nije mreža
+func TestMrezeLokalnihSucelja(t *testing.T) {
+	staro := procitajSucelja
+	t.Cleanup(func() { procitajSucelja = staro })
+	gore := net.FlagUp | net.FlagBroadcast
+	procitajSucelja = func() []sucelje {
+		return []sucelje{
+			{ime: "en0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "192.168.1.5/24"), &net.IPAddr{IP: net.IPv4(192, 168, 9, 9)}}},
+			{ime: "wg0", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "10.8.0.6/24")}},
+			{ime: "utun4", zastavice: net.FlagUp, adrese: []net.Addr{ipMreza(t, "10.8.1.6/24")}},
+			{ime: "tap0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "10.8.2.6/24")}},
+			{ime: "ztks5abc", zastavice: gore, adrese: []net.Addr{ipMreza(t, "10.147.17.6/24")}},
+			{ime: "docker0", zastavice: gore, adrese: []net.Addr{ipMreza(t, "172.17.0.1/16")}},
+			{ime: "bridge100", zastavice: gore, adrese: []net.Addr{ipMreza(t, "192.168.64.1/24")}},
+			{ime: "en5", zastavice: net.FlagBroadcast, adrese: []net.Addr{ipMreza(t, "192.168.2.10/24")}},
+			{ime: "lo0", zastavice: net.FlagUp | net.FlagLoopback, adrese: []net.Addr{ipMreza(t, "127.0.0.1/8")}},
+		}
+	}
+	got := MrezeLokalnihSucelja()
+	if len(got) != 1 || len(got[0]) != 1 || got[0][0].String() != "192.168.1.5/24" {
+		t.Errorf("mreže lokalnih sučelja: %v", got)
+	}
+	procitajSucelja = func() []sucelje { return nil }
+	if got := MrezeLokalnihSucelja(); len(got) != 0 {
+		t.Errorf("bez sučelja: %v", got)
+	}
+}

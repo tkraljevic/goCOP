@@ -348,9 +348,9 @@ func TestPrivremenaDatoteka(t *testing.T) {
 	}
 }
 
-// dijeloviKarte su otisci odsječaka od po velicina bajtova, računati
+// otisciDijelova su otisci odsječaka od po velicina bajtova, računati
 // neovisno o programu (sadrzaj.Otisak)
-func dijeloviKarte(b []byte, velicina int) []string {
+func otisciDijelova(b []byte, velicina int) []string {
 	var out []string
 	for i := 0; i < len(b); i += velicina {
 		out = append(out, sadrzaj.Otisak(b[i:min(i+velicina, len(b))]))
@@ -378,7 +378,7 @@ func TestSpremiKartuRacunaDijelove(t *testing.T) {
 		if err != nil {
 			t.Fatalf("dio %d: %v", velicina, err)
 		}
-		if zeli := dijeloviKarte(b, velicina); k.Dio != int64(velicina) || !reflect.DeepEqual(k.Dijelovi, zeli) {
+		if zeli := otisciDijelova(b, velicina); k.Dio != int64(velicina) || !reflect.DeepEqual(k.Dijelovi, zeli) {
 			t.Errorf("dio %d: %d %v, želi %v", velicina, k.Dio, k.Dijelovi, zeli)
 		}
 		if _, err := k.Provjereno(); err != nil {
@@ -398,7 +398,7 @@ func TestSpremiKartuRacunaDijelove(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%s: %v", opis, err)
 		}
-		if dobio.Otisak != k.Otisak || dobio.Naziv != k.Naziv || dobio.Dio != 64 || !reflect.DeepEqual(dobio.Dijelovi, dijeloviKarte(b, 64)) {
+		if dobio.Otisak != k.Otisak || dobio.Naziv != k.Naziv || dobio.Dio != 64 || !reflect.DeepEqual(dobio.Dijelovi, otisciDijelova(b, 64)) {
 			t.Errorf("%s: uvezen opis %+v", opis, dobio)
 		}
 	}

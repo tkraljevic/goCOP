@@ -782,6 +782,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
 	postaviZid(zid, aktService, prijavaService)
+	// karta bez interneta stiže razmjenom u dijelovima; dok traje obrana,
+	// samo u lokalnoj mreži
+	peersService.PostaviKarte(peers.MapaKarata(*dbPath), models.VektorskaKartaPrograma, zid.ObranaTraje)
 	server.SetZid(zid)
 	server.SetKarta(cfg.Karta.Plocice, cfg.Karta.Zasluge, cfg.Karta.NajviseZ)
 	if len(cfg.Web.PouzdaniPosrednici) > 0 || cfg.Web.ZaglavljeKlijenta != "" { // prazan popis = zadane mreže

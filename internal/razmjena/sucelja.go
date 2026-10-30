@@ -81,3 +81,27 @@ func usmjereniBroadcast(a net.Addr) net.IP {
 	}
 	return b
 }
+
+// MrezeLokalnihSucelja su mreže (adresa s maskom) sučelja koja vode u
+// lokalnu mrežu ureda ili kuće, po sučelju. Filtar je isti kao za
+// pronalaženje i lokalne kandidate (suceljaZaLAN): bez isključenih
+// sučelja, petlje, VPN tunela, Tailscalea i mostova spremnika i virtualnih
+// strojeva. Kad se sučelja ne daju pročitati, popis je prazan.
+func MrezeLokalnihSucelja() [][]*net.IPNet {
+	return mrezeSucelja(suceljaZaLAN(procitajSucelja()))
+}
+
+// mrezeSucelja su mreže svakog od sučelja; adresa bez maske nije mreža
+func mrezeSucelja(sucelja []sucelje) [][]*net.IPNet {
+	out := make([][]*net.IPNet, 0, len(sucelja))
+	for _, s := range sucelja {
+		var mreze []*net.IPNet
+		for _, a := range s.adrese {
+			if n, ok := a.(*net.IPNet); ok {
+				mreze = append(mreze, n)
+			}
+		}
+		out = append(out, mreze)
+	}
+	return out
+}
