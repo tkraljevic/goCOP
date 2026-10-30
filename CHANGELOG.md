@@ -49,6 +49,16 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dužnost u njemu (Odluke (30. 10. 2026.)). Poslovođa izvođača ne ulazi u
   plan, vrsta dnevnika usluge ne mijenja se nakon otvaranja, a svaka strana
   list potvrđuje jednom.
+- **Provjere prava: izvješća dionica, dnevni listovi, ugovori i moduli.**
+  Dnevno izvješće dionice pišu i predaju samo rukovoditelj dionice i
+  zamjenik; uprava ga čita i briše. Dnevni list ovjerava rukovoditelj
+  branjenog područja ili zamjenik, i onaj tko je zadao zadatak na listu;
+  uprava sektora i glavni rukovoditelj ovjeravaju umjesto njih uz potvrdu.
+  Svoj list ne ovjerava nitko. Novu vodu iz ugovora o održavanju u registar
+  dodaje uprava branjenog područja, a ugovor drugog područja se ne upisuje.
+  Akti, događanja i vodočuvarski dnevnik traže Dokumentaciju; vodočuvar svoj
+  dnevnik vodi i bez nje. Izvođač na zidu ne vidi dnevnik COP-a ni
+  dežurstva.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

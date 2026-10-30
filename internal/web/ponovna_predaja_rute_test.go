@@ -82,7 +82,7 @@ func TestPonovnaPredajaKrozRute(t *testing.T) {
 	ivo := &models.User{ID: uuid.New(), FullName: "Ivo Ivić"}
 	pero := &models.User{ID: uuid.New(), FullName: "Pero Perić"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"P": true}, AllowedSectors: map[string]bool{"P": true}}
-	dionica := &models.UserPermissions{AllowedSections: map[string]bool{"P.1.1": true}}
+	dionica := pravaDuznosti(models.RoleSectionLeader, models.ScopeSection, "P", 1, "P.1.1")
 	zovi := func(u *models.User, p *models.UserPermissions, metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
 		t.Helper()
 		var r *http.Request

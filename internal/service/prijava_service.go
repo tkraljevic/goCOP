@@ -84,9 +84,9 @@ func (s *PrijavaService) smijeVidjeti(ctx context.Context, perms *models.UserPer
 }
 
 // SmijeRijesiti javlja smije li osoba označiti objavljenu prijavu riješenom:
-// rukovoditelji koji ovjeravaju listove tog vodočuvara
+// uprava knjige tog vodočuvara (upravaKnjige), ali ne vlastitu prijavu
 func (s *PrijavaService) SmijeRijesiti(perms *models.UserPermissions, p *models.PrijavaSTerena) bool {
-	return perms != nil && p != nil && p.Status == models.PrijavaObjavljena && s.vodocuvar.SmijeOvjeriti(perms, probniList(p))
+	return perms != nil && p != nil && p.Status == models.PrijavaObjavljena && upravaKnjige(perms, probniList(p))
 }
 
 // Nova daje praznu prijavu vodočuvara: sektor i područje iz zaduženja, današnji dan
@@ -442,13 +442,13 @@ type Urudzba struct {
 // (samo vrsta PRIJAVA ide iz kuće u urudžbeni zapisnik). Prijava je
 // isključivo dokument vodočuvara: nitko je ne parafira; urudžba se dopisuje
 // kao bilješka na potpisani PDF, koju pozivatelj izradi (izradi smije biti
-// nil). Smije vodočuvar sam, ili tko mu ovjerava listove.
+// nil). Smije vodočuvar sam, ili uprava njegove knjige (upravaKnjige).
 func (s *PrijavaService) Urudzbiraj(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, ur Urudzba, izradi func(p *models.PrijavaSTerena, izvornik []byte) ([]byte, error)) (*models.PrijavaSTerena, error) {
 	p, err := s.repo.Get(ctx, id)
 	if err != nil || p == nil {
 		return nil, fmt.Errorf("prijava ne postoji")
 	}
-	if u == nil || !p.Objavljena() || !(p.UserID == u.ID.String() || s.vodocuvar.SmijeOvjeriti(perms, probniList(p))) {
+	if u == nil || !p.Objavljena() || !(p.UserID == u.ID.String() || upravaKnjige(perms, probniList(p))) {
 		return nil, ErrUnauthorized
 	}
 	if p.Vrsta != models.PrijavaPrijava {

@@ -238,7 +238,7 @@ func TestPredanBuduciListOvjeravaSeKadDanPocne(t *testing.T) {
 	if o.vs.DanListaPoceo(l) {
 		t.Error("sutrašnji dan ne smije biti počeo")
 	}
-	_, err := o.vs.Ovjeri(ctx, perms, ana, l.ID)
+	_, err := o.vs.Ovjeri(ctx, perms, ana, l.ID, false)
 	vdGreska(t, err, "list za "+sutra.Format("02.01.2006.")+" ovjerava se tek kad taj dan počne")
 	if spremljen, _ := o.repo.Get(ctx, l.ID); spremljen == nil || spremljen.Potvrden() {
 		t.Fatalf("budući list ovjeren: %+v", spremljen)
@@ -248,7 +248,7 @@ func TestPredanBuduciListOvjeravaSeKadDanPocne(t *testing.T) {
 	if !o.vs.DanListaPoceo(l) {
 		t.Error("u 00:00 dan lista je počeo")
 	}
-	if ovjeren, err := o.vs.Ovjeri(ctx, perms, ana, l.ID); err != nil || !ovjeren.Potvrden() {
+	if ovjeren, err := o.vs.Ovjeri(ctx, perms, ana, l.ID, false); err != nil || !ovjeren.Potvrden() {
 		t.Errorf("ovjera kad je dan počeo: %+v %v", ovjeren, err)
 	}
 }

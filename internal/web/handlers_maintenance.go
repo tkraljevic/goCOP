@@ -1,6 +1,7 @@
 package web
 
 import (
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -47,23 +48,26 @@ type MaintenanceKindGroup struct {
 
 // MaintenancePageData su podaci stranice
 type MaintenancePageData struct {
-	CurrentUser    *models.User
-	Permissions    *models.UserPermissions
-	Areas          []models.Area
-	Area           *models.Area
-	Groups         []MaintenanceGroup
-	WaterCount     int
-	Unlinked       int
-	Items          []models.WorkItem
-	InactiveItems  int
-	ShowAll        bool
-	CanEdit        bool
-	Candidates     []models.Watercourse // za vezivanje lokacija: sve vode registra
-	Embankments    []models.Structure   // nasipi područja
-	Kinds          []string
-	ImportReport   *ugovor.Report // izvješće uvoza ugovora, prije upisa
-	ImportToken    string         // datoteka koja čeka potvrdu
-	ImportFile     string
+	CurrentUser   *models.User
+	Permissions   *models.UserPermissions
+	Areas         []models.Area
+	Area          *models.Area
+	Groups        []MaintenanceGroup
+	WaterCount    int
+	Unlinked      int
+	Items         []models.WorkItem
+	InactiveItems int
+	ShowAll       bool
+	CanEdit       bool
+	Candidates    []models.Watercourse // za vezivanje lokacija: sve vode registra
+	Embankments   []models.Structure   // nasipi područja
+	Kinds         []string
+	ImportReport  *ugovor.Report // izvješće uvoza ugovora, prije upisa
+	ImportToken   string         // datoteka koja čeka potvrdu
+	ImportFile    string
+	// ImportNoveVode je broj novih voda u ugovoru koje upisuje samo uprava
+	// područja ili sektora, a osoba nije uprava
+	ImportNoveVode int
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -262,6 +266,12 @@ func (h *MaintenanceHandler) showImport(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	rep, err := h.maintenance.ImportContract(r.Context(), perms, *area, areas, path, aliases, write)
+	var noveVode service.ErrNoveVodeUpisujeUprava
+	if errors.As(err, &noveVode) {
+		// datoteka ostaje: izvješće se pokaže ponovno, da se vode vežu
+		h.prikaziIzvjesceUvoza(w, r, perms, area, rep, token, filename, err.Error())
+		return
+	}
 	if err != nil {
 		os.Remove(path)
 		redirectWith(w, r, h.back(area)+"#uvoz", "error", err.Error())
@@ -274,7 +284,13 @@ func (h *MaintenanceHandler) showImport(w http.ResponseWriter, r *http.Request, 
 				strconv.Itoa(rep.ItemsNew)+" "+models.UzBrojHR(rep.ItemsNew, "nova stavka radova", "nove stavke radova", "novih stavki radova")+".")
 		return
 	}
-	// izvješće na istoj stranici, s poljima za ručne veze i gumbom za upis
+	h.prikaziIzvjesceUvoza(w, r, perms, area, rep, token, filename, "")
+}
+
+// prikaziIzvjesceUvoza prikazuje izvješće uvoza na istoj stranici, s
+// poljima za ručne veze i gumbom za upis. Kad ugovor ima nove vode koje
+// osoba ne smije dodati, izvješće to kaže unaprijed.
+func (h *MaintenanceHandler) prikaziIzvjesceUvoza(w http.ResponseWriter, r *http.Request, perms *models.UserPermissions, area *models.Area, rep ugovor.Report, token, filename, greska string) {
 	r.URL.RawQuery = "area=" + strconv.Itoa(area.ID)
 	data, err := h.pageFor(r)
 	if err != nil {
@@ -282,6 +298,10 @@ func (h *MaintenanceHandler) showImport(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	data.ImportReport, data.ImportToken, data.ImportFile = &rep, token, filename
+	data.ImportNoveVode = service.NoveVodeBezPrava(perms, *area, rep)
+	if greska != "" {
+		data.ErrorMessage = greska
+	}
 	h.render(w, data)
 }
 

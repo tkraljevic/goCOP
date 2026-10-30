@@ -13,8 +13,8 @@ package service
 //
 // Zamjenik ima ovlasti uloge koju zamjenjuje (models.Role.OvlastKnjige).
 // Uprava sektora i organizacije zadržava dosadašnje ovlasti, a vodočuvar
-// čita svoju knjigu. Ovjera lista i rješavanje prijave ostaju onima koji
-// ovjeravaju (SmijeOvjeriti).
+// čita svoju knjigu. Rješavanje prijave ostaje upravi knjige (upravaKnjige),
+// a ovjera lista je zasebno pravilo (SmijeOvjeriti).
 //
 // Rukovoditelj dionice bez upisanih dionica vodi sve dionice svog
 // branjenog područja, kao i drugdje u programu (normalizeScope,
@@ -223,7 +223,7 @@ func (s *VodocuvarService) cita(ctx context.Context, perms *models.UserPermissio
 	if perms == nil || l == nil || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
-	if perms.User.ID.String() == l.UserID || s.SmijeOvjeriti(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID) {
+	if perms.User.ID.String() == l.UserID || upravaKnjige(perms, l) || perms.CanAdminister(l.Sektor, l.AreaID) {
 		return true
 	}
 	c := cuvarLista(l, nil, poznati)
@@ -483,7 +483,7 @@ func (s *VodocuvarService) smijeRadnju(ctx context.Context, perms *models.UserPe
 	if perms == nil || l == nil || perms.User.ID.String() == l.UserID || !perms.User.VidiVodocuvarskiDnevnik() {
 		return false
 	}
-	if s.SmijeOvjeriti(perms, l) {
+	if upravaKnjige(perms, l) {
 		return true
 	}
 	c := cuvarLista(l, v, nil)

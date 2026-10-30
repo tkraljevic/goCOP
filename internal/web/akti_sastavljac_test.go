@@ -235,6 +235,18 @@ func TestProglasiPrekiniSamoSastavljacu(t *testing.T) {
 		}
 	}
 
+	// bez modula Dnevnici gumba nema, jer bi /akti/novi dao 403 (Odluke
+	// (30. 10. 2026.), 11)
+	r := httptest.NewRequest(http.MethodGet, "/readings/station/"+o.letva.ID.String(), nil)
+	dezurni := o.osobe["dežurni"]
+	c := context.WithValue(context.WithValue(context.WithValue(r.Context(), contextKeyUser, dezurni), contextKeyPerms, ovlastiOsobe(dezurni)),
+		contextKeyModules, models.Visibility{models.ModuleReadings: true})
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, r.WithContext(c))
+	if w.Code != http.StatusOK || strings.Contains(w.Body.String(), "Proglasi / prekini") {
+		t.Errorf("bez Dnevnika: %d, gumb „Proglasi / prekini” %v", w.Code, strings.Contains(w.Body.String(), "Proglasi / prekini"))
+	}
+
 	// bez servisa akata gumba nema ni za koga
 	perms := ovlastiOsobe(o.osobe["dežurni"])
 	ctx := context.Background()

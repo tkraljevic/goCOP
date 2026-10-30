@@ -142,22 +142,73 @@ func normalizeWaterProgram(m *models.MaintainedWater) error {
 
 // ImportContract čita ugovor o održavanju iz datoteke: bez write samo
 // izvješće, s write upisuje popis lokacija i stavke radova. Datoteka mora
-// biti ugovor tog područja.
+// biti ugovor tog područja. Vodu koje nema u registru vodnih tijela uvoz
+// dodaje samo upravi tog branjenog područja ili onima iznad nje (Odluke
+// (30. 10. 2026.), 9). Oboje se provjeri u istom prolazu, prije upisa.
 func (s *MaintenanceService) ImportContract(ctx context.Context, perms *models.UserPermissions, area models.Area, areas []models.Area, path string, aliases map[string]string, write bool) (ugovor.Report, error) {
 	if !s.CanEdit(perms, area) {
 		return ugovor.Report{}, errors.New("nemate pravo uređivati popis lokacija tog područja")
 	}
 	rep, err := ugovor.Run(ctx, ugovor.Options{
 		Path: path, DryRun: !write, Aliases: aliases,
-		Deps: ugovor.Deps{Waters: s.waters, Structures: s.structures, Maintenance: s.repo, Areas: areas},
+		Deps:       ugovor.Deps{Waters: s.waters, Structures: s.structures, Maintenance: s.repo, Areas: areas},
+		PrijeUpisa: func(rep ugovor.Report) error { return provjeriUpisUgovora(perms, area, rep) },
 	})
-	if err != nil {
-		return rep, err
+	if err == nil && !write {
+		err = ugovorPodrucja(area, rep)
 	}
+	return rep, err
+}
+
+// ErrNoveVodeUpisujeUprava: ugovor ima vode kojih nema u registru vodnih
+// tijela, a osoba nije uprava područja ni sektora
+type ErrNoveVodeUpisujeUprava struct{ Broj int }
+
+func (e ErrNoveVodeUpisujeUprava) Error() string {
+	return "ugovor nije upisan: " + itoa(e.Broj) + " " + models.UzBrojHR(e.Broj, "voda nije", "vode nisu", "voda nije") +
+		" u registru vodnih tijela, a nove vode dodaje uprava branjenog područja ili sektora. Vežite ih na vode iz registra ili zamolite upravu da upiše ugovor"
+}
+
+// NoveVodeBezPrava je broj novih voda u ugovoru koje osoba ne smije dodati
+// u registar vodnih tijela; 0 kad ih nema ili kad je osoba uprava područja
+// ili sektora
+func NoveVodeBezPrava(perms *models.UserPermissions, area models.Area, rep ugovor.Report) int {
+	if perms.CanAdminister(area.SectorID, area.ID) {
+		return 0
+	}
+	return noveVode(rep)
+}
+
+// provjeriUpisUgovora: ugovor je tog područja, a nove vode upisuje samo
+// uprava područja ili sektora
+func provjeriUpisUgovora(perms *models.UserPermissions, area models.Area, rep ugovor.Report) error {
+	if err := ugovorPodrucja(area, rep); err != nil {
+		return err
+	}
+	if n := NoveVodeBezPrava(perms, area, rep); n > 0 {
+		return ErrNoveVodeUpisujeUprava{Broj: n}
+	}
+	return nil
+}
+
+// ugovorPodrucja: datoteka je ugovor tog branjenog područja
+func ugovorPodrucja(area models.Area, rep ugovor.Report) error {
 	if rep.Area != area.ID {
-		return rep, errors.New("datoteka je ugovor drugog branjenog područja (BP " + itoa(rep.Area) + ")")
+		return errors.New("datoteka je ugovor drugog branjenog područja (BP " + itoa(rep.Area) + ")")
 	}
-	return rep, nil
+	return nil
+}
+
+// noveVode broji lokacije ugovora koje bi uvoz dodao kao nove vode u
+// zajednički registar vodnih tijela; novi nasipi ostaju u području
+func noveVode(rep ugovor.Report) int {
+	n := 0
+	for _, m := range rep.Locations {
+		if m.Status == ugovor.StatusNew && !m.Structure {
+			n++
+		}
+	}
+	return n
 }
 
 func itoa(n int) string {

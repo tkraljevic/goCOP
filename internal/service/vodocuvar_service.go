@@ -97,34 +97,197 @@ func terenskaDuznost(u *models.User) *models.Duty {
 // VodiDnevnik javlja vodi li osoba vodočuvarski dnevnik
 func VodiDnevnik(u *models.User) bool { return u != nil && terenskaDuznost(u) != nil }
 
-// SmijeOvjeriti javlja smije li osoba ovjeriti list: rukovoditelj branjenog
-// područja ili zamjenik, te svi iznad njega na sektoru (uprava sektora,
-// centar, uprava organizacije). Svoj list ne ovjerava ni onaj tko uz
-// dužnost vodočuvara ima i dužnost koja ovjerava; ovjeri ga netko drugi.
-// Globalni administrator ostaje kakav je bio dok to ne odrede Odluke.
+// SmijeOvjeriti javlja smije li osoba ovjeriti list (Odluke (30. 10.
+// 2026.), 8): rukovoditelj branjenog područja ili zamjenik; rukovoditelj
+// sektora i zamjenici te glavni rukovoditelj i zamjenici, umjesto
+// rukovoditelja područja (OvjeravaUmjesto); tko je vodočuvaru zadao
+// zadatak koji stoji na listu; i globalni administrator, zasad kao rezerva.
+// Uprava COP-a i centra po dužnosti ne ovjerava. Nitko ne ovjerava svoj
+// list, ni globalni administrator ni onaj tko uz dužnost vodočuvara ima i
+// dužnost koja ovjerava.
 func (s *VodocuvarService) SmijeOvjeriti(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
-	if perms == nil || l == nil {
+	if perms == nil || l == nil || perms.User.ID.String() == l.UserID {
 		return false
 	}
-	if perms.IsGlobalAdmin {
+	return globalniAdministrator(perms) || najvisaOvjera(perms, l) != neOvjerava || s.zadaoZadatak(context.Background(), perms, l)
+}
+
+// globalniAdministrator: račun je globalni administrator ili ima valjanu
+// dužnost globalnog administratora. Uprava organizacije i centra ima ista
+// prava upravljanja, ali po dužnosti ne ovjerava list.
+func globalniAdministrator(perms *models.UserPermissions) bool {
+	if perms.User.IsGlobalAdmin {
 		return true
 	}
-	if perms.User.ID.String() == l.UserID {
-		return false
-	}
-	sad := time.Now()
-	for _, d := range perms.User.Duties {
-		if d.CitaVodocuvarskiDnevnik(sad) && ovjeravaDuznoscu(d, l) {
+	for _, d := range models.VazecaZaduzenja(perms.User.Duties, time.Now()) {
+		if d.Role == models.RoleGlobalAdmin {
 			return true
 		}
 	}
 	return false
 }
 
-// ovjeravaDuznoscu javlja ovjerava li dužnost list: uprava organizacije i
-// centra svaki, uprava sektora i COP-a listove svog sektora, rukovoditelj
-// područja i zamjenici listove svog područja
-func ovjeravaDuznoscu(d models.Duty, l *models.VodocuvarskiList) bool {
+// OvjeravaUmjesto javlja ovjerava li osoba list umjesto rukovoditelja
+// branjenog područja: smije ga ovjeriti, ali nije rukovoditelj ni zamjenik
+// tog područja niti je zadala zadatak na listu, a na području ima važećeg
+// rukovoditelja ili zamjenika. Program je tada prije ovjere pita potvrdu.
+func (s *VodocuvarService) OvjeravaUmjesto(ctx context.Context, perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	if !s.SmijeOvjeriti(perms, l) || najvisaOvjera(perms, l) == ovjeravaPodrucje || s.zadaoZadatak(ctx, perms, l) {
+		return false
+	}
+	return s.imaRukovoditeljaPodrucja(l)
+}
+
+// ErrOvjeraUmjesto: ovjera umjesto rukovoditelja branjenog područja nije
+// potvrđena
+var ErrOvjeraUmjesto = errors.New("list nije ovjeren: to branjeno područje ima rukovoditelja ili zamjenika. Ako list ovjeravate umjesto njih, označite to uz gumb Ovjeri list i pokušajte ponovno")
+
+// provjeriOvjeritelja: osoba smije ovjeriti list, a kad ovjerava umjesto
+// rukovoditelja branjenog područja, to je i potvrdila
+func (s *VodocuvarService) provjeriOvjeritelja(ctx context.Context, perms *models.UserPermissions, l *models.VodocuvarskiList, umjesto bool) error {
+	if !s.SmijeOvjeriti(perms, l) {
+		return ErrUnauthorized
+	}
+	if !umjesto && s.OvjeravaUmjesto(ctx, perms, l) {
+		return ErrOvjeraUmjesto
+	}
+	return nil
+}
+
+// Razine ovjere po dužnosti
+const (
+	neOvjerava       = iota
+	ovjeravaUmjesto  // uprava sektora i glavni rukovoditelj: umjesto rukovoditelja područja
+	ovjeravaPodrucje // rukovoditelj branjenog područja i zamjenik
+)
+
+// najvisaOvjera je najviša razina ovjere koju osobi daje ijedna valjana
+// dužnost za taj list
+func najvisaOvjera(perms *models.UserPermissions, l *models.VodocuvarskiList) int {
+	najvisa, sad := neOvjerava, time.Now()
+	for _, d := range perms.User.Duties {
+		if r := ovjeraDuznosti(d, l); d.CitaVodocuvarskiDnevnik(sad) && r > najvisa {
+			najvisa = r
+		}
+	}
+	return najvisa
+}
+
+// ovjeraDuznosti: rukovoditelj branjenog područja i zamjenik ovjeravaju
+// listove svog područja; rukovoditelj sektora i svi njegovi zamjenici
+// listove svog sektora, a glavni rukovoditelj i zamjenik svaki, oboje
+// umjesto rukovoditelja područja. Svi zamjenici imaju ista prava kao
+// rukovoditelj kojeg zamjenjuju.
+func ovjeraDuznosti(d models.Duty, l *models.VodocuvarskiList) int {
+	switch d.Role {
+	case models.RoleAreaLeader, models.RoleAreaDeputy:
+		if duznostNaPodrucju(d, l) {
+			return ovjeravaPodrucje
+		}
+	case models.RoleSectorLeader, models.RoleSectorDeputy, models.RoleSectorMainDeputy, models.RoleSectorAreaDeputy:
+		if duznostUSektoruLista(d, l) || duznostNaPodrucju(d, l) {
+			return ovjeravaUmjesto
+		}
+	case models.RoleNationalLeader, models.RoleNationalDeputy:
+		return ovjeravaUmjesto
+	}
+	return neOvjerava
+}
+
+func duznostNaPodrucju(d models.Duty, l *models.VodocuvarskiList) bool {
+	return d.AreaID != nil && *d.AreaID == l.AreaID
+}
+
+func duznostUSektoruLista(d models.Duty, l *models.VodocuvarskiList) bool {
+	return d.SectorID != nil && *d.SectorID == l.Sektor
+}
+
+// zadaoZadatak javlja je li osoba, s valjanom dužnošću koja čita dnevnik,
+// vodočuvaru zadala zadatak koji stoji na listu
+func (s *VodocuvarService) zadaoZadatak(ctx context.Context, perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	if len(l.Zadaci) == 0 || !imaDuznostKnjige(perms) {
+		return false
+	}
+	id := perms.User.ID.String()
+	for _, zl := range l.Zadaci {
+		if z, err := s.repo.GetZadatak(ctx, zl.ID); err == nil && z != nil && z.ZadaoID == id {
+			return true
+		}
+	}
+	return false
+}
+
+// imaDuznostKnjige: osoba sada ima valjanu dužnost koja čita dnevnik
+func imaDuznostKnjige(perms *models.UserPermissions) bool {
+	sad := time.Now()
+	for _, d := range perms.User.Duties {
+		if d.CitaVodocuvarskiDnevnik(sad) {
+			return true
+		}
+	}
+	return false
+}
+
+// imaRukovoditeljaPodrucja javlja ima li branjeno područje lista važećeg
+// rukovoditelja ili zamjenika, osim vodočuvara tog lista. Kad se to ne da
+// pročitati, gleda se da ima, pa program pita potvrdu.
+func (s *VodocuvarService) imaRukovoditeljaPodrucja(l *models.VodocuvarskiList) bool {
+	if s.users == nil {
+		return false
+	}
+	for _, uloga := range []models.Role{models.RoleAreaLeader, models.RoleAreaDeputy} {
+		osobe, err := s.users.ListUsers("", l.AreaID, string(uloga), "", "")
+		if err != nil {
+			return true
+		}
+		if imaVazecuUlogu(osobe, uloga, l) {
+			return true
+		}
+	}
+	return false
+}
+
+// imaVazecuUlogu: netko od osoba, a nije vodočuvar lista, ima aktivan račun
+// i valjanu dužnost uloge na području lista
+func imaVazecuUlogu(osobe []models.User, uloga models.Role, l *models.VodocuvarskiList) bool {
+	sad := time.Now()
+	for _, u := range osobe {
+		if !u.IsActive || u.ID.String() == l.UserID {
+			continue
+		}
+		for _, d := range u.Duties {
+			if d.Role == uloga && duznostNaPodrucju(d, l) && d.CitaVodocuvarskiDnevnik(sad) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// upravaKnjige javlja vodi li osoba tuđi list kao uprava: čita ga,
+// parafira, upisuje bilješke i rješava prijave s terena. To je globalni
+// administrator i dužnost koja upravlja knjigom (upravljaKnjigom); vlastiti
+// list nitko ne vodi kao uprava. Ovjera je zasebno pravilo (SmijeOvjeriti).
+func upravaKnjige(perms *models.UserPermissions, l *models.VodocuvarskiList) bool {
+	if perms == nil || l == nil || perms.User.ID.String() == l.UserID {
+		return false
+	}
+	if perms.IsGlobalAdmin {
+		return true
+	}
+	sad := time.Now()
+	for _, d := range perms.User.Duties {
+		if d.CitaVodocuvarskiDnevnik(sad) && upravljaKnjigom(d, l) {
+			return true
+		}
+	}
+	return false
+}
+
+// upravljaKnjigom javlja upravlja li dužnost knjigom vodočuvara: uprava
+// organizacije i centra svakom, uprava sektora i COP-a knjigama svog
+// sektora, rukovoditelj područja i zamjenici knjigama svog područja
+func upravljaKnjigom(d models.Duty, l *models.VodocuvarskiList) bool {
 	switch d.Role {
 	case models.RoleNationalLeader, models.RoleNationalDeputy, models.RoleMainCenterLeader, models.RoleMainCenterDeputy:
 		return true
@@ -633,8 +796,9 @@ func (s *VodocuvarService) vodocuvariZa(ctx context.Context, perms *models.UserP
 	return out
 }
 
-// Ovjeri potvrđuje list: rukovoditelj branjenog područja ili nadređeni
-func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string) (*models.VodocuvarskiList, error) {
+// Ovjeri potvrđuje list (SmijeOvjeriti). umjesto je potvrda da osoba list
+// ovjerava umjesto rukovoditelja branjenog područja (OvjeravaUmjesto).
+func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, umjesto bool) (*models.VodocuvarskiList, error) {
 	l, err := s.repo.Get(ctx, id)
 	if err != nil || l == nil {
 		return nil, fmt.Errorf("list ne postoji")
@@ -648,8 +812,8 @@ func (s *VodocuvarService) Ovjeri(ctx context.Context, perms *models.UserPermiss
 	if l.Potvrden() {
 		return l, nil
 	}
-	if !s.SmijeOvjeriti(perms, l) {
-		return nil, ErrUnauthorized
+	if err := s.provjeriOvjeritelja(ctx, perms, l, umjesto); err != nil {
+		return nil, err
 	}
 	if err := provjeriDanOvjere(l.Datum, s.sada()); err != nil {
 		return nil, err

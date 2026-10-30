@@ -266,8 +266,11 @@
       <li><strong>Administracija</strong> — postavke čvora, moduli i ovlasti, nazivi i održavanje
         baze.</li>
     </ul>
-    <p>Prognoze, izvješća, sredstva za obranu i popis firmi ne otvaraju se bez svog modula ni
-      izravnom adresom, ni njihov izvoz u Excel ili CSV. Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
+    <p>Prognoze, izvješća, akti, događanja, sredstva za obranu i popis firmi ne otvaraju se bez
+      svog modula ni izravnom adresom, ni njihov izvoz u Excel ili CSV. Akti, događanja i
+      vodočuvarska knjiga su pod Dokumentacijom. Vodočuvar svoj dnevni list vodi i bez nje,
+      osim kad mu je administrator Dokumentaciju sakrio baš za njegov račun.
+      Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
       pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
       i ovlasti</em>.</p>
 
@@ -367,7 +370,8 @@
       nalazi se pod <em>Dokumentacija → Događanja</em>.</p>
     <p>Na zidu su samo događaji modula koje vidite. Bez Registara na njemu nema sredstava ni
       registara, a bez Dokumentacije nema dnevnika, dežurstava ni izvješća. Isto vrijedi za
-      izvoz u Excel.</p>
+      izvoz u Excel. Bez Dokumentacije nema ni poveznice na stranicu Događanja. Voditelj
+      usluga / poslovođa izvođača na zidu ne vidi dnevnik COP-a ni dežurstva.</p>
     <p>Prijave s terena na zidu su objava (obavijest, prijava, izvješće ili zahtjev; vrsta
       <em>Prijava</em> je istaknuta) i rješenje, koje zatvara predmet i u naslovu nosi vrstu (npr.
       <em>Riješen zahtjev s terena</em>). Redak prijave vidi samo onaj tko tu
@@ -1272,6 +1276,8 @@
       ga podcentru. Program unaprijed nudi dionicu, vodotok, stupanj obrane i očitanje oko 07:00,
       a čovjek potvrđuje mjere, sudionike i stanje na poplavljenom području. Izvješće se izvozi
       u Excel kao obrazac na A4.</p>
+    <p>Izvješće dionice piše i predaje samo rukovoditelj dionice ili njegov zamjenik. Uprava
+      područja i sektora, globalni administrator i vodočuvar ga čitaju, ali ga ne pišu.</p>
     <p>Voditelj COP-a zatim slaže izvješće sektora iz predanih izvješća dionica i odabranih
       zapisa dnevnika COP-a. Pri spremanju se snima sadržaj tablica, pa kasnija izmjena izvornog
       izvješća ne prepisuje već izrađeni sektorski dokument.</p>
@@ -1290,7 +1296,8 @@
       Predano izvješće sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa
       je izvješće opet nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan.
       Izvješće dionice koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga
-      je izradio ili uprava, a briše ga samo uprava područja ili sektora.</p>
+      je izradio, a briše ga samo uprava područja ili sektora. Nacrt koji nikad nije predan
+      briše i rukovoditelj dionice ili zamjenik.</p>
 
     <h3 id="dogadjanja">Događanja</h3>
     <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.
@@ -1342,8 +1349,15 @@
       listovi”, a kad su predana oba, svaki nosi oznaku „dvostruki list – vidi i list br. …”,
       i na popisu i u ispisu cijele knjige.</p>
     <p>Vodočuvar list predaje osobnim elektroničkim potpisom, a rukovoditelj branjenog područja
-      ga zatim ovjerava svojim. Tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
-      ne ovjerava: ovjeri ga drugi rukovoditelj ili zamjenik tog područja ili netko iznad njega.
+      ili njegov zamjenik ga zatim ovjerava svojim. List ovjerava i onaj tko je vodočuvaru zadao
+      zadatak koji stoji na tom listu. Kad rukovoditelja i zamjenika nema, list ovjerava
+      rukovoditelj sektora ili zamjenik, glavni rukovoditelj ili zamjenik, a zasad i globalni
+      administrator. Ako područje ima rukovoditelja ili zamjenika, program ih uz gumb
+      <em>Ovjeri list</em> pita da potvrde da ovjeravaju umjesto njega. Voditelj COP-a i
+      voditelj centra list ne ovjeravaju, osim kad je na njemu njihov zadatak. Ostali, npr.
+      tehničar ili poslovođa, list parafiraju; parafa nije ovjera. Nitko ne ovjerava svoj list,
+      ni globalni administrator: tko je uz vodočuvara i rukovoditelj ili zamjenik, svoj list
+      ostavlja drugome.
       Ako predaja nije dopuštena zbog nepotpunog opisa ili zadatka,
       uneseno ostaje spremljeno kao nacrt, a poruka kaže što treba dopuniti.
       Dok list kojemu je dan prošao (od 00:00 idućeg dana) nije predan, vodočuvar na početnoj
@@ -1394,7 +1408,7 @@
       potpisuje: tko čita list vidi ih, ali samu prijavu otvara samo tko je smije čitati.
       Uprava je nakon pregleda može označiti <strong>pregledanom i riješenom</strong>; to je stanje predmeta,
       a ne naknadno arhiviranje. Objavljeni sadržaj time se ne mijenja. Tko je uz vodočuvara
-      i rukovoditelj ili zamjenik, svoju prijavu ne označava riješenom. Objava i rješenje
+      i rukovoditelj, zamjenik ili globalni administrator, svoju prijavu ne označava riješenom. Objava i rješenje
       pojavljuju se i na zidu događanja, pod gumbom <em>Prijave s terena</em>, samo onima koji
       prijavu smiju čitati.</p>
     <p>Ispod svake fotografije, u dokumentu i na stranici, stoji što je fotoaparat zapisao —
@@ -1789,7 +1803,9 @@
         ostaju iz zapisa.</li>
       <li id="firme"><strong>Licencirane firme</strong> — izvođači.</li>
       <li id="maintenance"><strong>Održavanje</strong> — lokacije izvršenja usluga i stavke
-        radova.</li>
+        radova. Ugovor o održavanju uvozi se iz Excela samo za svoje branjeno područje. Vodu
+        koje nema u registru ugovor dodaje samo kad ga upisuje uprava tog područja ili
+        sektora. Ostali je vežu na vodu iz registra.</li>
       <li><strong>Sredstva za obranu</strong> — katalog, skladišta, promet, inventure i potrebe;
         detaljno u odjeljku <a href="#sredstva">Sredstva za obranu</a>.</li>
     </ul>

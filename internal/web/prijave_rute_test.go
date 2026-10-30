@@ -294,6 +294,18 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if s := get(anic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Pregledano, riješeno") || !strings.Contains(s, "elektronički potpisao") {
 		t.Error("stranica objavljene prijave za rukovoditelja")
 	}
+	// bez Dokumentacije poveznica na dnevni list ne vodi na 403: rukovoditelj
+	// je ne vidi, a vodočuvar svoj list otvara i bez nje
+	bezDnevnika := func(u *models.User) string {
+		r := httptest.NewRequest(http.MethodGet, "/prijave/"+id, nil)
+		return zovi(u, r.WithContext(context.WithValue(r.Context(), contextKeyModules, models.Visibility{models.ModuleField: true}))).Body.String()
+	}
+	if s := bezDnevnika(anic); strings.Contains(s, `href="/vodocuvar/`) || !strings.Contains(s, "list 001/") {
+		t.Error("bez Dokumentacije rukovoditelj vidi poveznicu na dnevni list, ili ne vidi broj lista")
+	}
+	if s := bezDnevnika(ivic); !strings.Contains(s, `href="/vodocuvar/`) {
+		t.Error("vodočuvar bez Dokumentacije ne vidi poveznicu na svoj dnevni list")
+	}
 	// prijave idu s dnevnikom: po Odlukama (8. 10. 2026.), pitanje 1,
 	// dežurni operater sektora vidi dnevnik pa i objavljene prijave, na
 	// popisu i pojedinačno, a voditelj usluga / poslovođa izvođača na istom

@@ -183,7 +183,7 @@
     <div style="display:flex; flex-wrap:wrap; align-items:center; gap:0.75rem 1.25rem;">
       <span class="threshold-pill {{$vrh.Stupanj.PillClass}}">{{$vrh.Stupanj.Label}}</span>
       <span>na snazi od <strong>{{formatDate (localTime $vrh.Od)}}</strong></span>
-      <a href="/akti/{{$vrh.AktID}}" class="reg-card-sub c-primary">akt o uspostavi</a>
+      {{if .Sees "dnevnici"}}<a href="/akti/{{$vrh.AktID}}" class="reg-card-sub c-primary">akt o uspostavi</a>{{end}}
     </div>
     {{with .StanjeObrane.Pozadina}}
     <p class="page-desc mt-2 mb-0">U pozadini vrijedi{{range $i, $x := .}}{{if $i}};{{end}} {{$x.Stupanj.Label}} od {{formatDate (localTime $x.Od)}}{{end}} — kad se viši stadij ukine, vrijedi sljedeći niži.</p>
@@ -214,7 +214,7 @@
   {{end}}
 
   {{range .NajavljeniAkti}}
-  <p class="page-desc mt-2"><a href="/akti/{{.ID}}" class="c-primary fw-600">{{.Naslov}} {{.Oznaka}}</a> stupa na snagu <strong>{{formatDate (localTime .Vrijedi)}}</strong>.</p>
+  <p class="page-desc mt-2">{{if $.Sees "dnevnici"}}<a href="/akti/{{.ID}}" class="c-primary fw-600">{{.Naslov}} {{.Oznaka}}</a>{{else}}{{.Naslov}} {{.Oznaka}}{{end}} stupa na snagu <strong>{{formatDate (localTime .Vrijedi)}}</strong>.</p>
   {{end}}
 
   {{if .Gauge}}
