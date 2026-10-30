@@ -49,6 +49,11 @@ program.
 Postava pri pokretanju i svakih šest sati pita GitHub za popis izdanja. Ne
 šalje ništa o računalu, korisniku ni podacima. Nadograđuje se samo na klik.
 
+Postava nudi samo izdanje novije od onoga koje je sada postavljeno, a pita
+i čvor koji radi i program na disku. Starije ili isto izdanje ne postavlja.
+Kad ne može doznati koje je izdanje postavljeno, jer program ne odgovara na
+`-version`, ne nudi nadogradnju, pa se goCOP tada instalira ponovno.
+
 ## Ugovor između Postave i goCOP-a
 
 Postava se ne mijenja s goCOP-om, pa ono na što se oslanja mora ostati

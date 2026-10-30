@@ -567,9 +567,24 @@ Izbornik ikone:
   **Pokreni** je pokreće bez dodatnog pitanja.
 - **Nadogradi na …** preuzme novo izdanje s GitHuba u
   `~/.local/share/gocop/data`, provjeri potpis i SHA-256 svake datoteke i
-  pokrene `instaliraj.sh` tog izdanja (poglavlje 9). Ispis skripte ide u
-  dnevnik Postave. **Provjeri nadogradnje** odmah pita GitHub; inače Postava
-  pita sama, svakih šest sati.
+  provjeri da preuzeti program na `-version` javlja baš to izdanje. Zatim,
+  kao root, kopira datoteke u novu privremenu mapu koju piše samo root,
+  ondje ponovno provjeri SHA-256 i pokrene `instaliraj.sh` tog izdanja iz
+  te kopije (poglavlje 9). Ispis skripte ide u dnevnik Postave.
+  **Provjeri nadogradnje** odmah pita GitHub; inače Postava pita sama,
+  svakih šest sati.
+
+  Postava nudi i postavlja samo izdanje novije od onoga koje je sada
+  postavljeno. To doznaje od usluge i od `/usr/local/bin/gocop -version`,
+  a vrijedi više od ta dva. Kad ne može doznati nijedno, ne nudi
+  nadogradnju, pa se goCOP nadograđuje ručno. Isto vrijedi kad je `/home`
+  montiran s `noexec`: preuzeti program tada se ne da pokrenuti radi
+  provjere.
+
+  Nadogradnju s 0.0.46-alfa ili starijeg izdanja na 0.0.47-alfa radi još
+  stara Postava, starim putem. Nju je bolje napraviti ručno (poglavlje 9).
+  Ako se radi iz ikone, odmah nakon nje odjavite se i ponovno prijavite,
+  da ikona krene s novim programom.
 - **Dnevnik čvora** otvara zadnjih 2000 redaka iz `journalctl -u gocop`.
   Dnevnik sustava smiju čitati članovi grupe `adm` ili `systemd-journal`
   (prvi korisnik na Ubuntuu je u grupi `adm`); za ostale je prazan.

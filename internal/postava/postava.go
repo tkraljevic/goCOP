@@ -64,10 +64,11 @@ type Postava struct {
 	port     int
 	promjena func()
 
-	// izdanje programa na disku, dok čvor ne radi; pita se ponovno tek kad
-	// se datoteka promijeni
-	izdDatoteke    string
-	izdDatotekeKad time.Time
+	// izdanje programa na disku; pita se ponovno kad se datoteka promijeni,
+	// a kad program nije odgovorio, najranije nakon minute
+	izdDatoteke       string
+	izdDatotekeKad    time.Time
+	izdDatotekePitano time.Time
 }
 
 // Nova priprema Postavu za instalaciju u kojoj stoji exe
@@ -136,11 +137,12 @@ func (p *Postava) Stanje() Stanje {
 	proc := p.Cvor.Proces()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	instaliran := p.Cvor.Instaliran()
 	s := Stanje{Izdanje: p.izdanje, Port: p.port, Zauzeto: p.zauzeto, GreskaProvjere: p.greska,
 		ZadnjaProvjera: p.zadnja, NovijaPostava: p.ponuda.Postava, StranicaPostave: p.ponuda.PostavaStranica,
 		UslugaSustava: p.usluga != nil}
 	switch {
-	case !p.Cvor.Instaliran():
+	case !instaliran:
 		s.Cvor = NijeInstaliran
 	case proc.Pao:
 		s.Cvor = Pao
@@ -153,28 +155,33 @@ func (p *Postava) Stanje() Stanje {
 	default:
 		s.Cvor = Pokrece
 	}
-	if g := p.ponuda.GoCOP; g != nil {
-		trenutno := p.izdanje
-		if trenutno == "" {
-			trenutno = p.izdanjeDatotekeZakljucano()
-		}
-		if v, ok := izdanje.ParsirajOznaku(trenutno); !ok || g.Verzija.Usporedi(v) > 0 {
-			s.Novije = g
-		}
+	if g := p.ponuda.GoCOP; g != nil && ponuditi(g, veceIzdanje(p.izdanje, p.izdanjeDatotekeZakljucano()), instaliran) {
+		s.Novije = g
 	}
 	return s
 }
 
-// izdanjeDatotekeZakljucano pita gocop -version samo kad se program
-// promijenio (poziva se uz p.mu)
+// ponuditi: izdanje g nudi se samo kad je novije od postavljenoga. Kad se
+// ne zna koje je postavljeno, nudi se samo za prvu instalaciju.
+func ponuditi(g *Izdanje, trenutno string, instaliran bool) bool {
+	v, ok := izdanje.ParsirajOznaku(trenutno)
+	if !ok {
+		return !instaliran
+	}
+	return g.Verzija.Usporedi(v) > 0
+}
+
+// izdanjeDatotekeZakljucano pita gocop -version kad se program promijenio,
+// a kad nije odgovorio, najranije nakon minute (poziva se uz p.mu)
 func (p *Postava) izdanjeDatotekeZakljucano() string {
 	fi, err := os.Stat(p.M.Gocop())
 	if err != nil {
 		return ""
 	}
-	if !fi.ModTime().Equal(p.izdDatotekeKad) {
+	isti := fi.ModTime().Equal(p.izdDatotekeKad)
+	if !isti || (p.izdDatoteke == "" && time.Since(p.izdDatotekePitano) >= time.Minute) {
 		p.izdDatoteke, _ = IzdanjeDatoteke(context.Background(), p.M.Gocop())
-		p.izdDatotekeKad = fi.ModTime()
+		p.izdDatotekeKad, p.izdDatotekePitano = fi.ModTime(), time.Now()
 	}
 	return p.izdDatoteke
 }
@@ -268,6 +275,10 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 	}
 	defer p.oslobodi()
 	p.Pisi("Nadogradnja na %s (%s)", iz.Oznaka, iz.Stranica)
+	staro, err := p.dopustenaNadogradnja(ctx, iz, s.Izdanje)
+	if err != nil {
+		return "", err
+	}
 	if p.usluga != nil {
 		return p.nadogradiUslugu(ctx, iz)
 	}
@@ -278,10 +289,6 @@ func (p *Postava) Nadogradi(ctx context.Context) (string, error) {
 	}
 	if !p.Cvor.Instaliran() {
 		return iz.Verzija.String(), p.Ugradnja.Postavi(novi)
-	}
-	staro := s.Izdanje
-	if staro == "" {
-		staro, _ = IzdanjeDatoteke(ctx, p.M.Gocop())
 	}
 	if err := p.Ugradnja.Ugradi(ctx, novi, staro, iz.Verzija.String()); err != nil {
 		p.Pisi("Nadogradnja: %v", err)

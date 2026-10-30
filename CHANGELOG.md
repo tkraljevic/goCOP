@@ -17,6 +17,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   programa ostaje bilješka o tome. Primljeno brisanje područja, županije,
   općine ili naselja provodi se samo kad je oznaka zapisa običan broj, bez
   vodećih nula i predznaka.
+- **Nadogradnja: samo novije izdanje.** Ikona u traci nudi i postavlja
+  samo izdanje novije od postavljenog, na svim sustavima. Na Linuxu
+  preuzeti program mora javiti baš to izdanje, a instalacijska skripta
+  pokreće se iz kopije u mapi koju piše samo root, nakon još jedne provjere
+  SHA-256. Nadogradnju s 0.0.46-alfa najbolje je napraviti ručno.
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.

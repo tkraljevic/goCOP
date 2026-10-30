@@ -197,9 +197,16 @@ func (u Ugradnja) provjeriIzdanje(ctx context.Context, put, ocekivano string) er
 	}
 	if izd != ocekivano {
 		os.Remove(put)
-		return fmt.Errorf("preuzeti program javlja izdanje %s, a izdanje je %s", izd, ocekivano)
+		return drugoIzdanje{javlja: izd, ocekivano: ocekivano}
 	}
 	return nil
+}
+
+// drugoIzdanje: preuzeti program javlja drugo izdanje od ponuđenoga
+type drugoIzdanje struct{ javlja, ocekivano string }
+
+func (e drugoIzdanje) Error() string {
+	return fmt.Sprintf("preuzeti program javlja izdanje %s, a izdanje je %s", e.javlja, e.ocekivano)
 }
 
 // Postavi stavlja pripremljeni program na mjesto čvora, kad čvora još nema
