@@ -84,7 +84,7 @@ jedinicu, pa ih pokriva isti potpis kao i program. Datoteke se preuzimaju
 zasebno, u praznu mapu (oznaku izdanja zamijenite onom koju postavljate):
 
 ```sh
-IZDANJE=v0.0.46-alfa
+IZDANJE=v0.0.47-alfa
 mkdir -p ~/gocop-$IZDANJE && cd ~/gocop-$IZDANJE
 for f in gocop-linux-amd64 gocop-postava-linux-amd64 instaliraj.sh gocop.service SHA256SUMS SHA256SUMS.sig; do
   curl -fLO "https://github.com/tkraljevic/goCOP/releases/download/$IZDANJE/$f"
@@ -282,7 +282,9 @@ lokalne mreže (`[web] tailscale_lokalno` u `gocop.toml`, zadano uključeno).
 Na stranici `/postavljanje` novog čvora (npr. s laptopa u istoj mreži,
 `http://<adresa novog čvora>/postavljanje?kod=<kod>`) odaberite *Priključit
 ću se postojećoj mreži* → *Poveži ga s uredom* i uparite ga s računalom koje
-je već u mreži. Uparivanje ide preko porta 4711, koji poslije više ne treba
+drži ključ mreže ili ovlast za primanje. Na tom računalu uparivanje vodi i
+potvrđuje prijavljeni globalni administrator, i tek tada novi čvor postaje
+član mreže. Uparivanje ide preko porta 4711, koji poslije više ne treba
 (poglavlje 7). Nakon uparivanja čvor sam počne razmjenu sa svim čvorovima
 koje zna.
 

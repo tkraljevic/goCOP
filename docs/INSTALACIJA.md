@@ -1,7 +1,7 @@
 # Postavljanje i održavanje goCOP čvora
 
-Administratorske upute za izdanje 0.0.46-alfa. Pregledane 15. 10. 2026.,
-odjeljak o nadogradnji dopunjen 29. 10. 2026.
+Administratorske upute za izdanje 0.0.47-alfa. Pregledane 15. 10. 2026.,
+odjeljak o nadogradnji dopunjen 30. 10. 2026.
 Kratki pregled projekta: [README](../README.md). Korisnički postupci su u Pomoći aplikacije.
 
 Operativni program za obranu od poplava Hrvatskih voda: povezuje organizaciju,
@@ -10,7 +10,7 @@ i bez interneta; kopije na različitim računalima međusobno se usklađuju.
 Repozitorij nosi program i praznu shemu baze, a podatke unosi ili uvozi
 organizacija koja ga koristi.
 
-> **Status: alfa, izdanje 0.0.46-alfa (29. 10. 2026.), za testiranje i daljnji
+> **Status: alfa, izdanje 0.0.47-alfa (30. 10. 2026.), za testiranje i daljnji
 > razvoj.** Nije za operativnu upotrebu. Sve se još mijenja. Što je u kojem
 > izdanju, piše u [popisu izmjena](../CHANGELOG.md).
 >
@@ -42,7 +42,8 @@ prva računala. Kaže što program radi na računalu i mreži, što ne radi, i
   sadržaja po SHA-256 otisku te odvojena hidrološka arhiva s potpisanim `.cop`
   paketima koji se dohvaćaju prema pretplati.
 - **Rad bez interneta:** osnovno sučelje, podaci, unos i dokumenti rade lokalno,
-  a od 0.0.46-alfa i karta bez interneta, kad je učitana na računalo.
+  a od 0.0.46-alfa i karta bez interneta, kad je na računalu; od
+  0.0.47-alfa na ostala računala stiže razmjenom.
   Ostale karte, vrijeme, javni vodostaji, Exchange i sinkronizacija dostupni su
   samo kada postoji odgovarajuća mrežna veza.
 
@@ -82,8 +83,10 @@ Detaljni postupci i ovlasti opisani su u ugrađenoj stranici **Pomoć**.
   mapa izdanih `.cop` paketa s `katalog.json`. Pod Postavom i kad je čvor
   usluga sustava radna mapa je mapa baze, pa `vodostaji/` i `pakete/` nastaju
   u njoj. Od 0.0.46-alfa karta bez interneta stoji u mapi `karte/` uz bazu
-  (`gocop.db`), kao datoteka `<otisak>.pmtiles`, i to samo na računalu na
-  koje je učitana. Pod Postavom je to `data\karte`, u spremniku `/data/karte`.
+  (`gocop.db`), kao datoteka `<otisak>.pmtiles`, na računalu koje ju je
+  učitalo ili primilo. Dok karta stiže razmjenom, dijelovi se slažu u
+  `<otisak>.pmtiles.djelomicno` u istoj mapi ([Karte](karta.md)). Pod
+  Postavom je to `data\karte`, u spremniku `/data/karte`.
   Mapa se ne mijenja u `gocop.toml`; uvijek ide za bazom. Putanje se
   mijenjaju u `gocop.toml` (`db`, `arhiva`, `podaci`, `skenovi`, `pakete`)
   ili zastavicama.
@@ -147,11 +150,13 @@ odbije; drugi čvor zove njegovu sljedeću adresu. Na prijavu ne utječe.
 U Dockeru program vidi Tailscale samo uz mrežu računala (host);
 uz most (bridge) čvor radi kao da Tailscalea nema.
 
-**WEB sync (u izradi).** Uz `[povezivost] web_sync_prijava = true` računalo
-pri pokretanju otvori UDP utičnicu na portu 4713 i provjeri mrežu preko dva
-STUN poslužitelja različitih operatera. Kad je port zauzet, uzme nasumičan i
-to javi u dnevniku. Razmjena zasad ide samo dosadašnjim putovima, a u
-dnevniku stoji redak `povezivost:` s ishodom, npr. „NAT je lak i čuva port”.
+**WEB sync (još se dorađuje, zadano isključen).** Uz `[povezivost]
+web_sync_prijava = true` računalo pri pokretanju otvori UDP utičnicu na
+portu 4713 i provjeri mrežu preko dva STUN poslužitelja različitih
+operatera. Kad je port zauzet, uzme nasumičan i to javi u dnevniku. U
+dnevniku stoji redak `povezivost:` s ishodom, npr. „NAT je lak i čuva
+port”. Dok uz prijavu nije uključen i `web_sync = true`, razmjena ide samo
+dosadašnjim putovima; kako WEB sync nosi podatke, piše niže.
 Ako se program dvaput zaredom prekine dok WEB sync radi, iduće pokretanje
 kreće bez njega i to kaže na pločici razmjene; `gocop.toml` ostaje kakav
 jest. Gumb *Ponovno uključi WEB sync* u kartici *WEB sync i dohvatljivost* to poništi, od
@@ -254,7 +259,7 @@ Portovi se mijenjaju u `gocop.toml`.
   e-mail adrese djelatnika i sudionika obrane od poplava, kako ih
   organizacija unese ili uveze iz svog imenika. Tretirati mapu `data/` kao
   takvu.
-- **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
+- **Lozinke** imaju najmanje 10 znakova i čuvaju se kao bcrypt hash. Sesija je HttpOnly kolačić,
   SameSite Lax, a iza HTTPS-a (i tunela) i `Secure`; traje do isteka ili
   odjave. Promjena ili poništenje lozinke gasi ostale prijave te osobe na
   istom čvoru, a na drugim čvorovima kad nova lozinka stigne razmjenom; tada
@@ -483,6 +488,27 @@ Portovi se mijenjaju u `gocop.toml`.
   upozori; adresu tada uskladite ručno); prazna adresa je dopuštena.
   Korisničko ime koje već ima drugi račun, i drugim slovima, ne dobiva se ni
   preimenovanjem.
+- **Promjene prava s drugog računala čekaju potvrdu (od 0.0.47-alfa).**
+  Kad s drugog računala stigne promjena koja nekome daje ili oduzima prava
+  globalnog administratora ili dužnost uprave organizacije, ili mijenja
+  lozinku ili uključenost računa globalnog administratora, ona ne vrijedi
+  dok je ne potvrdi globalni administrator. Potvrđuje je ili odbija jednom
+  za cijelu mrežu, na računalu koje drži ključ mreže, na stranici Stanje
+  razmjene. Odluka se potpiše ključem mreže i vrijedi na svakom računalu
+  čim do njega stigne razmjenom. Izmjena prava napravljena na računalu s
+  ključem mreže ne čeka potvrdu. Računalo koje još nije u mreži odlučuje
+  samo za sebe.
+- **Izvana neke radnje traže lozinku vašeg računa (od 0.0.47-alfa).** Kroz
+  tunel ili s javne adrese uz radnju se ponovno upisuje lozinka vlastitog
+  računa: osnivanje mreže, zaborav čvora, obnova članstva, adrese i oznaka
+  „stalno izložen”, potvrda uparivanja, primanje računala u mrežu, davanje
+  i oduzimanje ovlasti za primanje, opoziv članstva, kod za prijavu izvana
+  i potvrda adrese za PIN, te potvrda ili odbijanje promjene prava na
+  stranici Stanje razmjene. Isto vrijedi za novog globalnog administratora,
+  davanje i oduzimanje tog prava oznakom ili dužnošću uprave organizacije,
+  te za lozinku, uključenost i brisanje računa koji to pravo ima. Dnevnik
+  programa zapiše tko je mijenjao mrežu i s koje adrese. Iz lokalne mreže
+  lozinka ne treba.
 - **Nacrt nije službeni zapis.** Može se mijenjati ili obrisati dok ne bude
   objavljen ili ovjeren. Objava ili ovjera zaključava sadržaj i priloge te ih
   uvodi u repozitorij službenih zapisa. Ispravak nastaje kao novi povezani
@@ -537,10 +563,13 @@ Portovi se mijenjaju u `gocop.toml`.
   bez izlaganja na internet.
 - Jedan administrator osniva mrežu (Administracija → Ovo računalo i mreža) i upravlja lozinkama. Ključ mreže ostaje na njegovu
   računalu, a svako računalo upareno s njim postaje član mreže. Uparivanje
-  pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
-  računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
-  samo za pristup iz lokalne mreže, nikad kroz tunel.
-- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.46-alfa`) ili
+  pokreće i potvrđuje globalni administrator (od 0.0.25-alfa). Na svježem
+  računalu, dok na njemu nema djelatnika, uparuje se i bez prijave: s tog
+  računala ili iz lokalne mreže uz kod iz dnevnika programa, nikad kroz
+  tunel. U mrežu ga tada prima prijavljeni globalni administrator na
+  računalu s ključem mreže ili ovlašću za primanje; takvo računalo
+  uparivanje bez prijave ne nudi.
+- Program prevesti iz označenog izdanja (npr. `git checkout v0.0.47-alfa`) ili
   koristiti sliku s oznakom izdanja. Uz izdanje na GitHubu stoje `SHA256SUMS`
   i potpis `SHA256SUMS.sig`; kako se provjeravaju, piše u
   [uputama za Linux](linux.md#2-preuzimanje-i-provjera-izdanja).
@@ -616,7 +645,10 @@ pri prijavi*, *O programu*, *Ukloni goCOP…*, *Izlaz* (gasi i čvor).
 
 **Nadogradnja** je uvijek na klik. Postava jednom pri pokretanju i svakih
 šest sati pita GitHub za popis javnih izdanja (ne šalje ništa o čvoru ni
-podacima). Pri nadogradnji: preuzme i provjeri potpis, zaustavi čvor,
+podacima). Nudi samo izdanje novije od postavljenog; starije postavi samo
+kad ga dopusti globalni administrator ([postava.md](postava.md)). Pri
+nadogradnji: preuzme izdanje, provjeri potpis i da program na `-version`
+javi baš to izdanje, zaustavi čvor,
 kopira bazu u `data\kopije\` (zadnje tri), zamijeni program, pokrene ga i
 čeka da odgovori s novim izdanjem. Ne odgovori li za 90 sekundi, vraća
 prethodni program i javlja grešku; bazu ne vraća sama, jer ju je novo izdanje
@@ -711,24 +743,34 @@ globalnom administratoru.
 Popis vrijedi za čvor koji ga je složio. Imenik zato stavite uz bazu samo
 prvog čvora mreže; ostali čvorovi djelatnike dobiju razmjenom.
 
-Prvi korak u programu je registar Administrativna organizacija: sektori, pa
-branjena područja. Ako uz bazu stoje datoteke registara i imenika, učita i
-njih. Otvoriti `http://localhost` (ili `http://localhost:8080`).
+Otvoriti `http://localhost` (ili `http://localhost:8080`). Dok ustroj nije
+gotov, globalni administrator u Administraciji, iznad skupina kartica, vidi
+**Prve korake**: nazive, registar Administrativna organizacija (sektori, pa
+branjena područja), djelatnike ili uvoz imenika, uvoze podataka, uloge
+čvora, telemetriju, e-poštu i uparivanje. Kvačica znači da je korak
+napravljen; popis nestane kad su gotovi svi koraci koje program može
+provjeriti. Ako uz bazu stoje datoteke
+registara i imenika, program učita i njih.
 Ustroj, registri i djelatnici stižu na svako računalo. Očitanja i dnevnici
 idu po kanalima „vrsta/područje/godina“ i računalo ih prima samo za ono
-što prati: na profilu, pod **Što ovo računalo prati**, osoba označi sektor
-ili područje i godine te bira prima li samo kazalo, pregled ili puni sadržaj
-i koliko dugo primljene PDF-ove i slike drži. Što joj više ne treba može
-obrisati s računala; sadržaj nastao na tom računalu ne otpušta se. Uredski
+što prati: na stranici **Što ovo računalo prati** (s profila ili iz
+Administracije) označi se sektor ili područje i godine te bira prima li
+se samo kazalo, pregled ili puni sadržaj i koliko dugo se primljeni PDF-ovi
+i slike drže. Ono što više ne treba može se obrisati s računala; sadržaj
+nastao na tom računalu ne otpušta se. Stranicu svatko vidi, a mijenja je
+samo globalni administrator, s tog računala ili iz lokalne mreže. Uredski
 poslužitelj prati sve (`sve = true` u `gocop.toml`) i drži potpunu kopiju iz
 koje se svaki laptop može ponovno napuniti.
 
 Novo računalo prvo treba povezati s uredom. Dok u njemu nema djelatnika,
-stranica prijave nudi čarobnjak **Poveži ovo računalo s uredom**: pronaći
-ured u lokalnoj mreži ili upisati adresu, usporediti kod s osobom u uredu,
-preuzeti podatke. Kad stigne imenik, osoba se prijavljuje svojim računom;
-čarobnjak bez prijave tada se zatvara, a prijavljenima ostaje u profilu za
-dodatna računala i ručnu razmjenu.
+stranica prijave vodi na *Postavljanje*, a ondje *Priključit ću se
+postojećoj mreži* → *Poveži ga s uredom* otvara čarobnjak **Poveži ovo
+računalo s uredom**: pronaći ured u lokalnoj mreži ili upisati adresu,
+usporediti kod s osobom u uredu, preuzeti podatke. Kad stigne imenik, osoba
+se prijavljuje svojim računom; čarobnjak bez prijave tada se zatvara, a
+globalnom administratoru ostaje u profilu, gumb *Uparivanje*, za dodatna
+računala. Razmjenu sa svim računalima ručno pokreće na stranici Stanje
+razmjene.
 
 **Ovlašteni primatelj.** Računala u mrežu prima čvor koji drži ključ mreže
 (`network-key`) ili član kojem je nositelj ključa dao **ovlast za primanje**
@@ -767,14 +809,21 @@ računalo. Potvrda nosi i čvorove s adresom (stalno izložene prvi), pa
 sinkronizacija kreće odmah; kad stignu djelatnici, *Postavljanje* samo vodi
 na prijavu.
 
-Sve što radi samo administrator stoji u modulu **Administracija**: ustroj i
-nazivi, računi, moduli i ovlasti, čvorovi i sinkronizacija, održavanje baze,
-arhiva, obračun sati, e-pošta, žig, elektronički potpisi, testne opcije i
-uvozi. Vidi ga zadano samo globalni administrator. Stranica
+Sve što radi administrator stoji u modulu **Administracija**, u šest
+skupina: Ustroj i ljudi; Ovo računalo i mreža (s Održavanjem baze); Vodostaji,
+arhiva i prognoza; Akti i dokumenti; Izgled; Testni prekidači. Uz karticu
+piše vrijedi li ono što se na njoj mijenja samo na ovom računalu, u cijeloj
+mreži ili dio ovdje, a dio u mreži. Vidi ga zadano samo globalni
+administrator, a kartica se ne pokazuje onome tko njezinu stranicu ne smije
+otvoriti. Djelatnici su u glavnom izborniku. Žig centra mijenja uprava
+sektora na stranici sektora, pod Registri › Administrativna organizacija.
+Stranica
 **Stanje razmjene** pokazuje tko je na mreži,
 koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
-šute zovu se sve rjeđe. **Održavanje baze** pokazuje koliko je baza velika
+šute zovu se sve rjeđe. Ondje globalni administrator ručno pokreće razmjenu,
+pretražuje lokalnu mrežu i provjerava vezu, a na računalu s ključem mreže
+ondje potvrđuje promjene prava koje čekaju potvrdu. **Održavanje baze** pokazuje koliko je baza velika
 i od čega, sažima knjigu verzija (svaki zapis zadržava zadnju verziju, a
 obrisani svoj nadgrobni spomenik; starije verzije brišu se nakon zadanog
 roka; od 0.0.24-alfa čuva i zadnju verziju
@@ -782,9 +831,15 @@ koju je svaki čvor upisao u kanal, a akt i zadnju verziju svake svoje
 ovjere), vraća prostor na disku, te izdaje kanal
 kao potpisan `.cop` paket (npr. `gocop-ocitanja-bp16-2024_v1.cop`, po izboru s PDF-ovima i slikama;
 stari oblik `.db` i dalje se može izvesti) i ugrađuje ga u računalo iste
-mreže: arhiva na disku ili prijenos bez mreže. Računalo koje još nije u mreži
-ugrađuje samo vlastite pakete. Stari `.db` oblik nema potpis, pa ga globalni
-administrator uvozi samo s tog računala ili iz lokalne mreže. Na stranici prijave stoji kontakt
+mreže: arhiva na disku ili prijenos bez mreže. Pakete ugrađuje globalni
+administrator. Računalo koje još nije u mreži ugrađuje samo vlastite `.cop`
+pakete, i to samo s tog računala ili iz lokalne mreže. Stari `.db` oblik
+nema potpis, pa se uvozi samo na računalu koje je već u mreži, i to samo s
+tog računala ili iz lokalne mreže. Kad u knjizi ima zapisa koje razmjena
+danas ne bi primila, npr. s vremenom iz budućnosti, stranica to kaže i
+nudi gumb *Obriši neispravne zapise*; briše samo globalni administrator, s
+tog računala ili iz lokalne mreže, a zapisi se zatim obnove iz knjige. U
+dijelu *Pohrana* je rok čuvanja fotografija s terena. Na stranici prijave stoji kontakt
 glavnog administratora iz registra (mobitel, e-pošta) i centar iz
 `gocop.toml` (odjeljak `[kontakt]`).
 
@@ -924,7 +979,7 @@ Stalni čvor na Linuxu bez spremnika, kao usluga systemd, opisan je u
 [uputama za Linux](linux.md).
 
 Docker slika je `ghcr.io/tkraljevic/gocop`, trenutačno za Linux amd64.
-Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.46-alfa`,
+Za ponovljivo postavljanje birati oznaku izdanja, npr. `:0.0.47-alfa`,
 umjesto promjenjive `:latest`. Spremnik sluša web na 8080, razmjenu na 4710,
 uparivanje na 4711 i pronalaženje na 4712/UDP, a WEB sync, kad se uključi,
 na 4713/UDP. Radi kao UID/GID `99:100`; mape moraju biti dostupne tom
@@ -977,7 +1032,8 @@ pokrenete u kartici Docker (`docker start gocop`). Slika zadaje `-addr`,
 u spremniku ne vrijede; stranice to pišu uz njih.
 
 Dok je na čvoru proglašen stadij obrane, karta bez interneta ide samo s
-računalima u istoj lokalnoj mreži. Spremnik uz most (bridge) ne vidi kućnu
+računalima u istoj lokalnoj mreži; VPN, Tailscale i tunel tada se računaju
+kao internet. Spremnik uz most (bridge) ne vidi kućnu
 mrežu, pa čvor u Dockeru uz most dok traje obrana kartu ne prima ni ne daje.
 Uz mrežu računala (host) radi kao i drugi.
 
@@ -1006,13 +1062,32 @@ sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
 čvorovima” i stranica Stanje razmjene.
 
-0.0.47-alfa (u pripremi): karta bez interneta stiže razmjenom, ali tek kad
+0.0.47-alfa uvodi mnogo novih provjera prava, pa se nadograđuje ovim redom
+i isti dan:
+
+- **Najprije računalo s ključem mreže**, zatim ostala. Promjenu prava
+  (globalni administrator, dužnost razine 1, lozinka takvog računa)
+  potvrđuje samo ono, a do nadogradnje svih računala neka pravila vrijede
+  samo na nadograđenima: potvrda prava, zaključan plan dežurstava i ovjera
+  dnevnika COP-a koja se ne skida.
+- **Prije nadogradnje promijeniti lozinke računima koji još imaju staru
+  zajedničku početnu lozinku.** Nakon nadogradnje takav se račun ne
+  prijavljuje dok mu administrator ne poništi lozinku (Djelatnici ih
+  pokazuju na vrhu stranice).
+- **Sat na svim računalima mora biti točan**, najviše pet minuta razlike.
+  Zapise s vremenom predaleko u budućnosti razmjena ne prima.
+- **Postavu na Linuxu s 0.0.46-alfa na 0.0.47-alfa nadograditi ručno**
+  (poglavlje 9 u `docs/linux.md`); nadogradnju iz ikone tada još radi stara
+  Postava, starim putem.
+
+Karta bez interneta stiže razmjenom, ali tek kad
 su oba računala na 0.0.47-alfa. Računalu s 0.0.46-alfa ili starijim kartu i
 dalje treba prenijeti paketom `.cop`. Dok je na računalu proglašen stadij
 obrane, karta stiže i šalje se samo s računalima u istoj lokalnoj mreži
-(ista kuća ili ured); unutarnja mreža Hrvatskih voda među gradovima i VPN
-tada se računaju kao internet. U Dockeru uz most (bridge) čvor dok traje
-obrana kartu ne prima ni ne daje. Uz mrežu računala (host) radi kao i drugi.
+(ista kuća ili ured); unutarnja mreža Hrvatskih voda među gradovima, VPN,
+Tailscale i tunel tada se računaju kao internet. U Dockeru uz most (bridge)
+čvor dok traje obrana kartu ne prima ni ne daje. Uz mrežu računala (host)
+radi kao i drugi.
 Novo računalo najprije se primi u mrežu, a tek onda ugradi paket `.cop`
 s drugog računala.
 
@@ -1024,8 +1099,8 @@ program kvačicu ne poznaje i briše je kad sam spremi dionicu, a naselja
 ostaju. Objekte bez nasipa uz oba nasipa, l.o. i d.o., pokazuje samo
 0.0.46-alfa; stariji ih i dalje stavlja uz prvi nasip.
 
-Razmjenom putuje samo opis karte bez interneta, ne i sama karta. Na
-računalu koje kartu ima globalni administrator u Administraciji › Karte
+U 0.0.46-alfa razmjenom putuje samo opis karte bez interneta, ne i sama
+karta. Na računalu koje kartu ima globalni administrator u Administraciji › Karte
 preuzme njezin paket `.cop`, a na svakom drugom računalu učita ga na istoj
 stranici. Karta Sektora B ima oko 120 MB, a učitavanje traje do minute.
 Računalo s 0.0.45-alfa kartu ne prikazuje. Opis karte čuva se odvojeno od
@@ -1407,8 +1482,8 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 Verzija stoji u kodu (`verzijaPrograma` u `cmd/gocop/main.go`) i mijenja se pri
 izdavanju; program je ispisuje u podnožju stranice i u dnevniku, s kratkom
 oznakom commita iz kojega je preveden (i zvjezdicom kad stablo ima nespremljenih
-izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.46-alfa`; iz svake takve
-oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.46-alfa` i `:latest`.
+izmjena). Izdanje u gitu nosi oznaku oblika `v0.0.47-alfa`; iz svake takve
+oznake GitHub gradi Docker sliku `ghcr.io/tkraljevic/gocop:0.0.47-alfa` i `:latest`.
 
 ## 9. Za razvoj
 
