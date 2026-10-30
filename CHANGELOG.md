@@ -6,6 +6,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
+  provjeravaju se prema onome što je već upisano, a s terena se vraća i
+  troši samo ono što je onamo izdao sektor skladišta.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

@@ -116,7 +116,49 @@ func (s *MtsService) SpremiSkladiste(ctx context.Context, perms *models.UserPerm
 	if !s.SmijeUrediti(perms, sk.Sektor, sk.AreaID) {
 		return errors.New("skladišta uređuje uprava branjenog područja ili sektora")
 	}
+	if err := s.podrucjeUSektoru(ctx, sk.AreaID, sk.Sektor); err != nil {
+		return err
+	}
+	if err := s.smijeMijenjatiSkladiste(ctx, perms, sk); err != nil {
+		return err
+	}
 	return s.repo.SaveSkladiste(ctx, sk)
+}
+
+// smijeMijenjatiSkladiste: postojeće skladište mijenja samo tko ga smije
+// uređivati takvo kakvo je upisano, a sektor mu mijenja samo globalni
+// administrator. Novo skladište nema što provjeriti.
+func (s *MtsService) smijeMijenjatiSkladiste(ctx context.Context, perms *models.UserPermissions, sk *models.Skladiste) error {
+	if sk.ID == "" {
+		return nil
+	}
+	cur, err := s.repo.GetSkladiste(ctx, sk.ID)
+	if err != nil || cur == nil {
+		return err
+	}
+	if !s.SmijeUrediti(perms, cur.Sektor, cur.AreaID) {
+		return errors.New("skladišta uređuje uprava branjenog područja ili sektora")
+	}
+	if cur.Sektor != sk.Sektor && !perms.IsGlobalAdmin {
+		return errors.New("sektor skladišta mijenja samo globalni administrator")
+	}
+	return nil
+}
+
+// podrucjeUSektoru javlja grešku kad branjeno područje nije u zadanom
+// sektoru; bez područja (0) nema što provjeriti
+func (s *MtsService) podrucjeUSektoru(ctx context.Context, areaID int, sektor string) error {
+	if areaID <= 0 || s.sections == nil {
+		return nil
+	}
+	sektorPodrucja, err := s.sections.SektorPodrucja(ctx, areaID)
+	if err != nil {
+		return err
+	}
+	if sektorPodrucja != sektor {
+		return fmt.Errorf("branjeno područje %d nije u sektoru %s", areaID, sektor)
+	}
+	return nil
 }
 
 func (s *MtsService) BrojSkladista(ctx context.Context) (int, error) {
@@ -248,14 +290,15 @@ func (s *MtsService) NaTerenu(ctx context.Context, journalID, sektor string) ([]
 }
 
 // kolikoIma javlja koliko jedne vrste u jednom obliku stoji na mjestu:
-// u skladištu, ili na mjestu na terenu
-func (s *MtsService) kolikoIma(ctx context.Context, skladisteID string, teren models.MjestoTerena, journalID, vrstaID, oblik string) (float64, error) {
+// u skladištu, ili na mjestu na terenu. Na terenu se broji samo ono što je
+// tamo izdao zadani sektor.
+func (s *MtsService) kolikoIma(ctx context.Context, skladisteID string, teren models.MjestoTerena, journalID, sektor, vrstaID, oblik string) (float64, error) {
 	var stanja []models.Stanje
 	var err error
 	if skladisteID != "" {
 		stanja, err = s.repo.Stanje(ctx, skladisteID, "", nil)
 	} else {
-		stanja, err = s.repo.StanjeNaTerenu(ctx, journalID, "")
+		stanja, err = s.repo.StanjeNaTerenu(ctx, journalID, sektor)
 	}
 	if err != nil {
 		return 0, err
@@ -296,21 +339,10 @@ func (s *MtsService) MjestaNaTerenu(ctx context.Context, journalID, sektor strin
 // mjestoTerena dopunjuje mjesto: dionica ili objekt iz registra daju
 // branjeno područje kad nije upisano; bez područja mjesto nije valjano.
 // Dionica i objekt moraju biti u registru, i kad je područje zadano.
-func (s *MtsService) mjestoTerena(ctx context.Context, z Zahvat, sektor string) (models.MjestoTerena, error) {
+func (s *MtsService) mjestoTerena(ctx context.Context, z Zahvat) (models.MjestoTerena, error) {
 	m := models.MjestoTerena{AreaID: z.AreaID, SectionCode: strings.TrimSpace(z.SectionCode), StructureID: strings.TrimSpace(z.StructureID), Mjesto: strings.TrimSpace(z.Mjesto)}
-	if m.SectionCode != "" && s.sections != nil {
-		sec, err := s.sections.GetSectionByCode(m.SectionCode)
-		if err != nil {
-			return m, err
-		}
-		if sec == nil {
-			return m, fmt.Errorf("nepoznata dionica %s", m.SectionCode)
-		}
-		if m.AreaID == 0 {
-			m.AreaID = sec.AreaID
-		} else if sec.AreaID != m.AreaID {
-			return m, fmt.Errorf("dionica %s nije u branjenom području %d", m.SectionCode, m.AreaID)
-		}
+	if err := s.podrucjeDionice(&m); err != nil {
+		return m, err
 	}
 	if m.StructureID != "" && s.structures != nil {
 		st, err := s.objektTerena(ctx, m.StructureID)
@@ -325,6 +357,27 @@ func (s *MtsService) mjestoTerena(ctx context.Context, z Zahvat, sektor string) 
 		return m, errors.New("mjesto na terenu traži branjeno područje (a po volji dionicu, objekt ili opis)")
 	}
 	return m, nil
+}
+
+// podrucjeDionice dopunjuje mjesto područjem dionice iz registra; dionica
+// mora biti u registru i u zadanom području
+func (s *MtsService) podrucjeDionice(m *models.MjestoTerena) error {
+	if m.SectionCode == "" || s.sections == nil {
+		return nil
+	}
+	sec, err := s.sections.GetSectionByCode(m.SectionCode)
+	if err != nil {
+		return err
+	}
+	if sec == nil {
+		return fmt.Errorf("nepoznata dionica %s", m.SectionCode)
+	}
+	if m.AreaID == 0 {
+		m.AreaID = sec.AreaID
+	} else if sec.AreaID != m.AreaID {
+		return fmt.Errorf("dionica %s nije u branjenom području %d", m.SectionCode, m.AreaID)
+	}
+	return nil
 }
 
 // objektTerena čita objekt mjesta na terenu iz registra; neispravan ili
@@ -420,7 +473,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 		naTeren = true
 	}
 	if naTeren {
-		if teren, err = s.mjestoTerena(ctx, z, sk.Sektor); err != nil {
+		if teren, err = s.mjestoTerena(ctx, z); err != nil {
 			return nil, err
 		}
 	}
@@ -431,7 +484,7 @@ func (s *MtsService) Provedi(ctx context.Context, u *models.User, perms *models.
 
 	// koliko se smije skinuti s mjesta
 	provjeriZalihu := func(skladisteID, oblik string, treba float64) error {
-		ima, err := s.kolikoIma(ctx, skladisteID, teren, z.JournalID, z.VrstaID, oblik)
+		ima, err := s.kolikoIma(ctx, skladisteID, teren, z.JournalID, sk.Sektor, z.VrstaID, oblik)
 		if err != nil {
 			return err
 		}
@@ -631,6 +684,10 @@ func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *mod
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
 	}
+	cur, err := s.postojeciPopis(ctx, p)
+	if err != nil {
+		return err
+	}
 	sk, err := s.repo.GetSkladiste(ctx, p.SkladisteID)
 	if err != nil {
 		return err
@@ -656,14 +713,7 @@ func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *mod
 	if postojeci != nil && postojeci.ID != p.ID {
 		return fmt.Errorf("popis skladišta %s na dan %s već postoji", sk.Naziv, p.Dan.Format("2.1.2006."))
 	}
-	if p.ID != "" {
-		cur, err := s.repo.GetPopis(ctx, p.ID)
-		if err != nil {
-			return err
-		}
-		if cur == nil {
-			return errors.New("popis nije pronađen")
-		}
+	if cur != nil {
 		if cur.Zakljucen() {
 			return errors.New("zaključeni popis se ne mijenja; razlika je proknjižena")
 		}
@@ -674,6 +724,24 @@ func (s *MtsService) SpremiPopis(ctx context.Context, u *models.User, perms *mod
 	}
 	p.IzradenoAt = time.Now().In(models.Zagreb)
 	return s.repo.SavePopis(ctx, p)
+}
+
+// postojeciPopis čita popis koji se mijenja; novi popis (bez ID-a) nema
+// ga. Postojeći ostaje na svom skladištu: skladište mu se uzima iz baze, a
+// ne iz obrasca.
+func (s *MtsService) postojeciPopis(ctx context.Context, p *models.Popis) (*models.Popis, error) {
+	if p.ID == "" {
+		return nil, nil
+	}
+	cur, err := s.repo.GetPopis(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	if cur == nil {
+		return nil, errors.New("popis nije pronađen")
+	}
+	p.SkladisteID = cur.SkladisteID
+	return cur, nil
 }
 
 // ZakljuciPopis proknjižava razliku između police i knjige. Za svaku stavku
