@@ -32,7 +32,9 @@ import (
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/pem"
+	"errors"
 	"fmt"
+	"io/fs"
 	"math/big"
 	"net/url"
 	"os"
@@ -52,34 +54,19 @@ import (
 // copy of the live database run with the inherited key WAS the live device
 // to every paired machine, and its automatic sync pushed test entries into
 // every live database on the network before anyone looked.)
+//
+// A key file that exists but cannot be read (wrong owner or permissions) is
+// an error, never a reason to mint a new key: writing over it would give
+// the device a new identity, and every paired machine would stop knowing it.
 func LoadOrCreateKey(path string) (ed25519.PrivateKey, error) {
-	if b, err := os.ReadFile(path); err == nil {
-		block, _ := pem.Decode(b)
-		if block == nil || block.Type != "PRIVATE KEY" {
-			return nil, fmt.Errorf("%s exists but is not a PEM private key — refusing to overwrite it", path)
-		}
-		key, err := x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return nil, fmt.Errorf("parsing %s: %w", path, err)
-		}
-		ek, ok := key.(ed25519.PrivateKey)
-		if !ok {
-			return nil, fmt.Errorf("%s holds a %T, not an Ed25519 key", path, key)
-		}
-		return ek, nil
+	if key, err := LoadKey(path); !errors.Is(err, fs.ErrNotExist) {
+		return key, err
 	}
 	_, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err == nil {
+		err = SaveKey(path, priv)
+	}
 	if err != nil {
-		return nil, err
-	}
-	der, err := x509.MarshalPKCS8PrivateKey(priv)
-	if err != nil {
-		return nil, err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return nil, err
-	}
-	if err := zapisiKljuc(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der})); err != nil {
 		return nil, err
 	}
 	return priv, nil
@@ -102,13 +89,13 @@ func SaveKey(path string, priv ed25519.PrivateKey) error {
 	return zapisiKljuc(path, pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: der}))
 }
 
-// zapisiKljuc zapisuje datoteku ključa kao os.WriteFile, s pravima 0600, ali
-// je prije povratka spusti na disk, zajedno s mapom u kojoj je. Ključ se
-// počne koristiti čim se vrati, pa bi bez toga nestanak struje u prvim
-// sekundama mogao ostaviti praznu datoteku ključa koji drugi čvorovi već
-// poznaju.
+// zapisiKljuc zapisuje novu datoteku ključa s pravima 0600 i prije povratka
+// je spusti na disk, zajedno s mapom u kojoj je. Ključ se počne koristiti
+// čim se vrati, pa bi bez toga nestanak struje u prvim sekundama mogao
+// ostaviti praznu datoteku ključa koji drugi čvorovi već poznaju. Postojeću
+// datoteku ne prepisuje, ni kad je se ne da pročitati.
 func zapisiKljuc(path string, sadrzaj []byte) error {
-	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
 		return err
 	}
