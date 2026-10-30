@@ -717,15 +717,14 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	models.SetPostavkeKarte(aktService.PostavkeKarte(context.Background()))
 	models.SetVektorskaKarta(aktService.KartaBezInterneta(context.Background()))
 	aktService.SetKljuc(node.PrivateKey())
-	// lozinke sandučića spremljene prije otiska lozinke računa dobiju ga
-	// (jednom, prije prve uporabe), a one kojima se lozinka računa otada
-	// promijenila, i razmjenom, brišu se
-	if err := aktService.PopuniOtiskeSanducica(context.Background()); err != nil {
-		log.Printf("e-pošta: otisak lozinke računa uz spremljene lozinke sandučića nije dodan: %v (takve se lozinke ne koriste dok se ne upišu ponovno)", err)
-	}
 	aktService.SetPosta(posta.Postavke{Nacin: cfg.Posta.Nacin, Posluzitelj: cfg.Posta.Posluzitelj, Domena: cfg.Posta.Domena, Port: cfg.Posta.Port, Sigurnost: cfg.Posta.Sigurnost})
 	server.SetAkti(aktService)
 	drugiKorak.SetPosta(aktService.Posta)
+	// lozinke e-pošte iz ranijih izdanja vežu se uz poslužitelj upisan sad
+	// (jednom, prije prve uporabe), a one koje više ne vrijede brišu se
+	if err := service.PripremiSpremljeneLozinke(context.Background(), aktService, drugiKorak); err != nil {
+		log.Printf("e-pošta: spremljene lozinke nisu pripremljene: %v (takve se lozinke ne koriste dok se ne upišu ponovno)", err)
+	}
 	server.SetDrugiKorak(drugiKorak)
 	// rok članstva u mreži i kopija ključa mreže: e-pošta administratorima
 	// (G9b); zaustavlja se prije zatvaranja baze

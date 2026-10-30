@@ -107,6 +107,8 @@ type UvozHandler struct {
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
 	nazivLetve func(ctx context.Context, letva string) string
+	// hvAdresa zamjenjuje adresu HydroViewa samo u testovima (lažni sustav)
+	hvAdresa string
 	// karticaLetve daje put do kartice letve i njezin naziv, za mrvicu
 	// natrag na letvu s koje je osoba došla
 	karticaLetve func(ctx context.Context, letva string) (kartica, naziv string)

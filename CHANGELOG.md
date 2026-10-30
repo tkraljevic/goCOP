@@ -20,6 +20,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dnevnika koji je otvoren. Ovjeren dnevnik COP-a više ne prima zapise,
   storno, ispravke ni promjenu naloga, a u dnevniku COP-a ne otvaraju se
   listovi.
+- **Provjere prava: potpisi, akti i lozinke e-pošte.** Potpis e-pošte
+  zadržava samo dopušteno oblikovanje, a sken potpisa ide samo u izvornik.
+  Sken ovjere učitava samo onaj tko akt smije ovjeriti, tuđim očima se akt
+  ne ovjerava, a nacrt drugog sektora se ne otvara.
+  Lozinka e-pošte ide samo poslužitelju za koji je upisana.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

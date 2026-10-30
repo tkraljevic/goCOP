@@ -791,6 +791,9 @@ type RacunPoste struct {
 	// otprije otiska. Kad se lozinka računa promijeni, i razmjenom s drugog
 	// čvora, otisak se više ne slaže i spremljena lozinka ne vrijedi.
 	OtisakLozinke []byte
+	// Posluzitelj je otisak poslužitelja e-pošte za koji je lozinka
+	// spremljena (posta.Postavke.Otisak); prazan kod zapisa otprije otiska
+	Posluzitelj string
 	// SazetakLozinke je trenutni sažetak lozinke računa (users.password_hash),
 	// pročitan uz zapis za usporedbu s otiskom; ne sprema se
 	SazetakLozinke string
@@ -799,19 +802,19 @@ type RacunPoste struct {
 
 // SaveRacunPoste sprema račun; samo lokalno, bez knjige verzija
 func (r *AktiRepository) SaveRacunPoste(ctx context.Context, x *RacunPoste) error {
-	_, err := r.db.ExecContext(ctx, `INSERT INTO posta_racuni (user_id, korisnik, lozinka, otisak_lozinke, updated_at) VALUES (?, ?, ?, ?, ?)
+	_, err := r.db.ExecContext(ctx, `INSERT INTO posta_racuni (user_id, korisnik, lozinka, otisak_lozinke, posluzitelj, updated_at) VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(user_id) DO UPDATE SET korisnik = excluded.korisnik, lozinka = excluded.lozinka,
-			otisak_lozinke = excluded.otisak_lozinke, updated_at = excluded.updated_at`,
-		x.UserID, x.Korisnik, x.Lozinka, x.OtisakLozinke, time.Now().UTC())
+			otisak_lozinke = excluded.otisak_lozinke, posluzitelj = excluded.posluzitelj, updated_at = excluded.updated_at`,
+		x.UserID, x.Korisnik, x.Lozinka, x.OtisakLozinke, x.Posluzitelj, time.Now().UTC())
 	return err
 }
 
 // GetRacunPoste čita račun s trenutnim sažetkom lozinke računa; nil kad ga nema
 func (r *AktiRepository) GetRacunPoste(ctx context.Context, userID string) (*RacunPoste, error) {
 	x := RacunPoste{UserID: userID}
-	err := r.db.QueryRowContext(ctx, `SELECT p.korisnik, p.lozinka, p.otisak_lozinke, COALESCE(u.password_hash, ''), p.updated_at
+	err := r.db.QueryRowContext(ctx, `SELECT p.korisnik, p.lozinka, p.otisak_lozinke, p.posluzitelj, COALESCE(u.password_hash, ''), p.updated_at
 		FROM posta_racuni p LEFT JOIN users u ON u.id = p.user_id WHERE p.user_id = ?`, userID).
-		Scan(&x.Korisnik, &x.Lozinka, &x.OtisakLozinke, &x.SazetakLozinke, &x.UpdatedAt)
+		Scan(&x.Korisnik, &x.Lozinka, &x.OtisakLozinke, &x.Posluzitelj, &x.SazetakLozinke, &x.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -849,6 +852,27 @@ func (r *AktiRepository) KorisniciSRacunomPoste(ctx context.Context) ([]string, 
 		out = append(out, id)
 	}
 	return out, rows.Err()
+}
+
+// VeziRacunePostePosluzitelju upisuje otisak poslužitelja zapisima koji ga
+// još nemaju (spremljeni prije otiska); zapise s otiskom ne dira. Uz prazan
+// otisak (pošta nije podešena) takve zapise briše. Javlja koliko je zapisa
+// vezano, odnosno obrisano.
+func (r *AktiRepository) VeziRacunePostePosluzitelju(ctx context.Context, otisak string) (vezano, obrisano int64, err error) {
+	if otisak == "" {
+		res, err := r.db.ExecContext(ctx, `DELETE FROM posta_racuni WHERE posluzitelj = ''`)
+		if err != nil {
+			return 0, 0, err
+		}
+		obrisano, err = res.RowsAffected()
+		return 0, obrisano, err
+	}
+	res, err := r.db.ExecContext(ctx, `UPDATE posta_racuni SET posluzitelj = ? WHERE posluzitelj = ''`, otisak)
+	if err != nil {
+		return 0, 0, err
+	}
+	vezano, err = res.RowsAffected()
+	return vezano, 0, err
 }
 
 // DeleteRacunPoste briše račun s ovog čvora; javlja je li ga bilo

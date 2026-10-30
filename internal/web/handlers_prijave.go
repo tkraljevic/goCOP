@@ -368,8 +368,9 @@ func (h *PrijaveHandler) nedostupna(w http.ResponseWriter, r *http.Request, u *m
 	}
 }
 
-// prilog skuplja što uz prijavu ide u dokument: sektor, područje, slike,
-// isječak karte s pločica programa i skenirani potpis
+// prilog skuplja što uz prijavu ide u dokument: sektor, područje, slike i
+// isječak karte s pločica programa. Sken potpisa dodaje se samo izvorniku,
+// pri objavi.
 func (h *PrijaveHandler) prilog(ctx context.Context, r *http.Request, s *service.PrijavaService, p *models.PrijavaSTerena) prilogPrijave {
 	pr := prilogPrijave{Slike: s.Slike(ctx, p), Otisci: models.OtisciLista{}}
 	if h.zaglavlje != nil {
@@ -392,9 +393,6 @@ func (h *PrijaveHandler) prilog(ctx context.Context, r *http.Request, s *service
 		if k := slozKartu(ctx, h.karta(), *p.Latitude, *p.Longitude, "http://"+r.Host+"/"); k != nil {
 			pr.Karta, pr.Zasluge = k.PNG, k.Zasluge
 		}
-	}
-	if h.vod.potpisSlika != nil {
-		pr.Otisci[p.UserID] = h.vod.potpisSlika(ctx, p.UserID)
 	}
 	return pr
 }
@@ -437,6 +435,7 @@ func (h *PrijaveHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) {
 		var upozorenje string
 		_, upozorenje, err = s.Objavi(r.Context(), u, id, func(p *models.PrijavaSTerena) ([]byte, error) {
 			pr := h.prilog(r.Context(), r, s, p)
+			pr.Otisci = h.vod.otisakPotpisnika(r.Context(), p.UserID, potpisnik)
 			otisci := pr.Otisci
 			pdf, m := pdfPrijave(p, pr, models.Terms(), potpisnik == nil)
 			if potpisnik == nil {

@@ -34,6 +34,17 @@ type TelemetrijaHandler struct {
 	// preuzima javlja ima li ovaj čvor ulogu preuzimanja vodostaja: računi
 	// trebaju samo ondje
 	preuzima func() bool
+	// hvAdresa zamjenjuje adresu HydroViewa samo u testovima (lažni sustav)
+	hvAdresa string
+}
+
+// adresaHV je adresa HydroViewa na kojoj se prijava provjerava i uz koju se
+// račun sprema: uvijek sustav Hrvatskih voda, a ne adresa iz obrasca
+func (h *TelemetrijaHandler) adresaHV() string {
+	if h.hvAdresa != "" {
+		return h.hvAdresa
+	}
+	return hidroview.ZadanaAdresa
 }
 
 // NewTelemetrijaHandler sastavlja stranicu.
@@ -89,9 +100,6 @@ func (h *TelemetrijaHandler) Prikazi(w http.ResponseWriter, r *http.Request) {
 	if repo != nil {
 		if racun, err := repo.Racun(ctx, ""); err == nil && racun != nil {
 			data.Korisnik, data.Upisano = racun.Korisnik, racun.UpdatedAt
-			if racun.Adresa != "" {
-				data.Adresa = racun.Adresa
-			}
 		}
 	}
 	data.Letve = h.letve(ctx, repo)
@@ -149,7 +157,7 @@ func (h *TelemetrijaHandler) Spremi(w http.ResponseWriter, r *http.Request) {
 	}
 	korisnik := strings.TrimSpace(r.FormValue("hidroview_korisnik"))
 	lozinka := r.FormValue("hidroview_lozinka")
-	adresa := strings.TrimSpace(r.FormValue("hidroview_adresa"))
+	adresa := h.adresaHV()
 	if korisnik == "" {
 		redirectWith(w, r, natrag, "error", porukaPraznogKorisnika)
 		return

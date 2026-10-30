@@ -624,6 +624,10 @@ type Posiljatelj struct {
 	Adresa       string     // adresa s koje se šalje
 	Spremljen    time.Time  // kad je lozinka upisana
 	NeispravanOd *time.Time // poslužitelj je odbio lozinku; do novog upisa se ne šalje
+	// ZaDrugiPosluzitelj: račun je upisan za drugi poslužitelj e-pošte (ili
+	// prije nego što je program pamtio poslužitelj), pa se lozinka ne šalje
+	// sadašnjem; upisuje se ponovno
+	ZaDrugiPosluzitelj bool
 }
 
 // StanjeSlanja je stanje pošiljatelja za stranicu administracije.
@@ -642,6 +646,15 @@ type StanjeSlanja struct {
 	PrimaIzvana bool
 }
 
+// posiljateljZaStanje opisuje upisani račun za slanje PIN-a; nil kad ga nema
+func posiljateljZaStanje(r *repository.RacunSustava, p posta.Postavke) *Posiljatelj {
+	if r == nil {
+		return nil
+	}
+	return &Posiljatelj{Korisnik: r.Korisnik, Adresa: r.Adresa, Spremljen: r.UpdatedAt, NeispravanOd: r.NeispravanOd,
+		ZaDrugiPosluzitelj: p.Podesena() && !zaPosluzitelj(r, p)}
+}
+
 // Stanje vraća stanje drugog koraka za administraciju
 func (d *DrugiKorak) Stanje(ctx context.Context) (*StanjeSlanja, error) {
 	s := &StanjeSlanja{Opcije: d.Opcije(ctx)}
@@ -649,11 +662,10 @@ func (d *DrugiKorak) Stanje(ctx context.Context) (*StanjeSlanja, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r != nil {
-		s.Posiljatelj = &Posiljatelj{Korisnik: r.Korisnik, Adresa: r.Adresa, Spremljen: r.UpdatedAt, NeispravanOd: r.NeispravanOd}
-	}
+	p := d.postavkePoste(ctx)
+	s.Posiljatelj = posiljateljZaStanje(r, p)
 	s.PrimaIzvana = d.primaIzvana()
-	s.BezPosiljatelja = s.Opcije.PIN && s.PrimaIzvana && neispravanPosiljatelj(r, d.postavkePoste(ctx))
+	s.BezPosiljatelja = s.Opcije.PIN && s.PrimaIzvana && neispravanPosiljatelj(r, p)
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	if d.sad().Before(d.stankaDo) {
@@ -675,9 +687,16 @@ func (d *DrugiKorak) postavkePoste(ctx context.Context) posta.Postavke {
 }
 
 // neispravanPosiljatelj: računa nema, poslužitelj ga je odbio ili pošta
-// nije podešena
+// nije podešena, ili je upisan za drugi poslužitelj
 func neispravanPosiljatelj(r *repository.RacunSustava, p posta.Postavke) bool {
-	return r == nil || r.NeispravanOd != nil || !p.Podesena()
+	return r == nil || r.NeispravanOd != nil || !zaPosluzitelj(r, p)
+}
+
+// zaPosluzitelj: pošta je podešena, a račun je upisan za taj poslužitelj.
+// Račun bez otiska poslužitelja ne vrijedi: zapise iz ranijih izdanja veže
+// VeziPosiljateljaOtprije pri pokretanju čvora.
+func zaPosluzitelj(r *repository.RacunSustava, p posta.Postavke) bool {
+	return p.Podesena() && r.Posluzitelj == p.Otisak()
 }
 
 // BezPosiljatelja javlja traži li se PIN izvana, a ovaj čvor, koji prima
@@ -763,7 +782,8 @@ func (d *DrugiKorak) SpremiPosiljatelja(ctx context.Context, actor *models.UserP
 	if err != nil {
 		return nil, nakonPrijave{err}
 	}
-	if err := d.racuni.Spremi(ctx, &repository.RacunSustava{Sustav: SustavPostaPIN, Korisnik: ime, Lozinka: zakljucana, Adresa: adresa}); err != nil {
+	if err := d.racuni.Spremi(ctx, &repository.RacunSustava{Sustav: SustavPostaPIN, Korisnik: ime, Lozinka: zakljucana, Adresa: adresa,
+		Posluzitelj: p.Otisak()}); err != nil {
 		return nil, nakonPrijave{err}
 	}
 	d.mu.Lock()
@@ -796,6 +816,55 @@ func (d *DrugiKorak) ObrisiPosiljatelja(ctx context.Context, actor *models.UserP
 	d.mu.Lock()
 	d.probaKad = time.Time{}
 	d.mu.Unlock()
+	return d.racuni.Obrisi(ctx, SustavPostaPIN)
+}
+
+// posiljatelj čita račun za slanje PIN-a koji smije slati na poslužitelj p
+func (d *DrugiKorak) posiljatelj(ctx context.Context, p posta.Postavke) (*repository.RacunSustava, error) {
+	r, err := d.racuni.Racun(ctx, SustavPostaPIN)
+	switch {
+	case err != nil:
+		return nil, err
+	case r == nil:
+		return nil, ErrNemaPosiljatelja
+	case r.NeispravanOd != nil:
+		return nil, ErrPosiljateljNeispravan
+	}
+	return r, d.posluziteljPosiljatelja(ctx, r, p)
+}
+
+// posluziteljPosiljatelja: lozinka računa za slanje PIN-a ide samo
+// poslužitelju za koji je upisana. Račun za drugi poslužitelj, i račun bez
+// otiska poslužitelja, briše se, pa ga administrator upisuje ponovno.
+func (d *DrugiKorak) posluziteljPosiljatelja(ctx context.Context, r *repository.RacunSustava, p posta.Postavke) error {
+	sada := p.Otisak()
+	if sada == "" || r.Posluzitelj == sada {
+		return nil
+	}
+	if err := d.racuni.Obrisi(ctx, SustavPostaPIN); err != nil {
+		return err
+	}
+	log.Printf("prijava izvana: račun za slanje PIN-a %s obrisan je jer je poslužitelj e-pošte promijenjen otkad je upisan", r.Korisnik)
+	return fmt.Errorf("%w: poslužitelj e-pošte promijenjen je otkad je račun upisan; administrator ga upisuje ponovno", ErrNemaPosiljatelja)
+}
+
+// VeziPosiljateljaOtprije veže račun za slanje PIN-a iz ranijih izdanja,
+// spremljen prije nego što je program pamtio poslužitelj, uz poslužitelj
+// koji je upisan pri pokretanju čvora. Zove se jednom, prije prve uporabe
+// i prije nego što se postavke mogu promijeniti. Kad pošta tada nije
+// podešena, račun se briše: ne zna se za koji je poslužitelj upisan.
+func (d *DrugiKorak) VeziPosiljateljaOtprije(ctx context.Context) error {
+	if d == nil || d.racuni == nil {
+		return nil
+	}
+	r, err := d.racuni.Racun(ctx, SustavPostaPIN)
+	if err != nil || r == nil || r.Posluzitelj != "" {
+		return err
+	}
+	if sada := d.postavkePoste(ctx).Otisak(); sada != "" {
+		return d.racuni.VeziPosluzitelju(ctx, SustavPostaPIN, sada)
+	}
+	log.Printf("prijava izvana: račun za slanje PIN-a %s obrisan je jer poslužitelj e-pošte nije podešen, pa se ne zna za koji je upisan", r.Korisnik)
 	return d.racuni.Obrisi(ctx, SustavPostaPIN)
 }
 
@@ -834,17 +903,11 @@ func (d *DrugiKorak) posalji(ctx context.Context, brojilo, kljucOsobe string, m 
 	defer func() { <-d.slanje }()
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), d.istek())
 	defer cancel()
-	r, err := d.racuni.Racun(ctx, SustavPostaPIN)
+	p := d.postavkePoste(ctx)
+	r, err := d.posiljatelj(ctx, p)
 	if err != nil {
 		return err
 	}
-	if r == nil {
-		return ErrNemaPosiljatelja
-	}
-	if r.NeispravanOd != nil {
-		return ErrPosiljateljNeispravan
-	}
-	p := d.postavkePoste(ctx)
 	if !p.Podesena() {
 		return fmt.Errorf("%w: poslužitelj e-pošte nije podešen", ErrNemaPosiljatelja)
 	}

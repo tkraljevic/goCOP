@@ -63,6 +63,8 @@ func TestPrimateljiSvihPodrucjaDionicaAkta(t *testing.T) {
 	for _, q := range []string{
 		`INSERT INTO contractors (id, name, email, active, updated_at) VALUES ('f2', 'Vodogradnja Drugo d.o.o.', 'firma@primjer.hr', 1, '2026-01-01')`,
 		`INSERT INTO contractor_assignments (id, contractor_id, sector_id, area_id, updated_at) VALUES ('fa2', 'f2', 'P', 2, '2026-01-01')`,
+		// primatelj se upisuje samo za područje koje je u sektoru
+		`INSERT INTO areas (id, sector_id, name, vgi_name) VALUES (3, 'P', 'Treće područje', 'VGI Treće')`,
 	} {
 		if _, err := o.baza.Exec(q); err != nil {
 			t.Fatal(err)

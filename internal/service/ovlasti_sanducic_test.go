@@ -119,6 +119,8 @@ func TestPostavljenaLozinkaBriseSanducic(t *testing.T) {
 func TestSanducicVrijediSamoUzIstuLozinkuRacuna(t *testing.T) {
 	ctx := context.Background()
 	o := novaOkolinaOvlasti(t)
+	// poslužitelj nije dostupan, pa se lozinka sprema bez provjere
+	o.akti.SetPosta(nedostupnaPosta)
 	vod := o.osoba(t, "vod", service.AddDutyRequest{Role: models.RoleWaterGuard, AreaID: podrucjeP(5)})
 	if _, err := o.akti.SpremiRacunPoste(ctx, vod, "vod@voda.hr", "Domenska-Lozinka-1"); err != nil {
 		t.Fatal(err)
@@ -167,6 +169,8 @@ func TestSanducicVrijediSamoUzIstuLozinkuRacuna(t *testing.T) {
 func TestPopuniOtiskeSanducica(t *testing.T) {
 	ctx := context.Background()
 	o := novaOkolinaOvlasti(t)
+	// poslužitelj nije dostupan, pa se lozinka sprema bez provjere
+	o.akti.SetPosta(nedostupnaPosta)
 	prije := time.Now().UTC().Add(-2 * time.Hour)
 	spremljeno := time.Now().UTC().Add(-time.Hour)
 	stari := func(ime string) *models.User {
@@ -214,6 +218,8 @@ func TestPopuniOtiskeSanducica(t *testing.T) {
 func TestPokretanjeBriseSanducikeNevaljaleLozinke(t *testing.T) {
 	ctx := context.Background()
 	o := novaOkolinaOvlasti(t)
+	// poslužitelj nije dostupan, pa se lozinka sprema bez provjere
+	o.akti.SetPosta(nedostupnaPosta)
 	vod := o.osoba(t, "vod", service.AddDutyRequest{Role: models.RoleWaterGuard, AreaID: podrucjeP(5)})
 	ostali := o.osoba(t, "ostali", service.AddDutyRequest{Role: models.RoleWaterGuard, AreaID: podrucjeP(5)})
 	for _, u := range []*models.User{vod, ostali} {

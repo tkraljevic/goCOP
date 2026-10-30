@@ -138,7 +138,20 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	id := strings.TrimPrefix(strings.SplitN(zovi(r).Header().Get("Location"), "?", 2)[0], "/akti/")
 
+	// sken ovjere učitava samo onaj tko akt smije ovjeriti (Odluke
+	// (11. 10. 2026.)): voditelj centra nacrt ispisuje, ali skena ne učitava
 	stranica := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
+	if !strings.Contains(stranica, "PDF za ispis") || strings.Contains(stranica, "Učitaj sken") {
+		t.Fatal("voditelju centra stranica nacrta nudi ispis, a ne sken")
+	}
+	if loc := posalji(id, anic.ID.String(), "sken.pdf", []byte("%PDF-1.4\n%%EOF\n")); !strings.Contains(loc, "error") || !strings.Contains(loc, "smije ovjeriti") {
+		t.Fatalf("sken voditelja centra: %s", loc)
+	}
+	// namjerna izmjena testa: voditelj je ujedno zamjenik rukovoditelja
+	// sektora, pa akt smije ovjeriti i sken učitati
+	perms.User.Duties = append(perms.User.Duties, models.Duty{Title: "Zamjenik rukovoditelja sektora B", Role: models.RoleSectorDeputy,
+		ScopeType: models.ScopeSector, SectorID: &b, IsActive: true})
+	stranica = zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)).Body.String()
 	for _, ocekivano := range []string{"PDF za ispis", "Učitaj sken", "Ana Anić"} {
 		if !strings.Contains(stranica, ocekivano) {
 			t.Fatalf("stranica nacrta nema %q", ocekivano)
@@ -146,6 +159,12 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}
 	if strings.Contains(stranica, `value="`+dionica.ID.String()+`"`) {
 		t.Error("rukovoditelj dionice ne smije biti ponuđen kao potpisnik")
+	}
+	// tuđim očima se akt ne ovjerava, pa stranica ne nudi ni ovjeru ni sken
+	rTudje := httptest.NewRequest(http.MethodGet, "/akti/"+id, nil)
+	rTudje = rTudje.WithContext(context.WithValue(rTudje.Context(), contextKeyViewing, true))
+	if s := zovi(rTudje).Body.String(); !strings.Contains(s, "PDF za ispis") || strings.Contains(s, "Učitaj sken") || strings.Contains(s, "Ovjeri u goCOP-u") {
+		t.Error("tuđim očima stranica nacrta nudi ovjeru")
 	}
 
 	ispis := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id+"/za-ispis.pdf", nil)).Body.Bytes()
@@ -288,6 +307,14 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")) < 2 {
 		t.Errorf("PDF ovjerenog akta mora nositi žig i potpis, slika: %d", bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")))
+	}
+	// ovjeren akt bez izvornika (npr. iz ranije evidencije) crta se iznova:
+	// žig ostaje, a sken potpisa ide samo u izvornik pri ovjeri
+	if _, err := baza.Exec(`DELETE FROM akti_izvornici WHERE akt_id = ?`, id2); err != nil {
+		t.Fatal(err)
+	}
+	if w := zovi(httptest.NewRequest(http.MethodGet, "/akti/"+id2+"/akt.pdf", nil)); bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")) != 1 {
+		t.Errorf("akt bez izvornika crta se sa žigom, bez skena potpisa, slika: %d", bytes.Count(w.Body.Bytes(), []byte("/Subtype /Image")))
 	}
 
 	// trajno brisanje ovjerenog akta: samo uz uključenu opciju

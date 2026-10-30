@@ -7,6 +7,7 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/models"
+	"gocop/internal/posta"
 	"gocop/internal/sadrzaj"
 )
 
@@ -154,13 +155,15 @@ func primijeniPrimatelja(ctx context.Context, tx *sql.Tx, v ledger.Version) erro
 	return err
 }
 
-// primijeniPotpisPoste stavlja primljeni potpis e-pošte na površinu
+// primijeniPotpisPoste stavlja primljeni potpis e-pošte na površinu,
+// očišćen istim čistačem kao potpis spremljen na ovom čvoru: drugi čvor
+// (i stariji program) potpis možda nije očistio jednako
 func primijeniPotpisPoste(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	var p PotpisPoste
 	if err := json.Unmarshal(v.Payload, &p); err != nil {
 		return err
 	}
-	_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, p.HTML, v.CreatedAt.UTC())
+	_, err := tx.ExecContext(ctx, potpisUpsert, p.UserID, posta.OcistiHTML(p.HTML), v.CreatedAt.UTC())
 	return err
 }
 

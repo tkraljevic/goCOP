@@ -153,10 +153,10 @@
 {{if .SmijePripremiti}}
 <section class="akt-potpis-opcije">
   <h2>{{icon "printer"}} Ispis, potpis i žig</h2>
-  <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.</p>
+  <p class="form-help mt-0 mb-3">Akt se ovjerava u goCOP-u gumbom Ovjeri (elektronička ovjera ključem čvora). Kad treba i papir sa žigom, ispišite nacrt, rukovoditelj ga potpiše, udarite žig i sken učitajte: sken tada postaje izvornik i akt je time ovjeren.{{if not .SmijeOvjeriti}} Sken učitava onaj tko akt smije ovjeriti.{{end}}</p>
   <ol>
     <li><a href="/akti/{{$a.ID}}/za-ispis.pdf" target="_blank" class="btn btn-sm btn-secondary">{{icon "printer"}} PDF za ispis</a></li>
-    <li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
+    {{if .SmijeOvjeriti}}<li><form method="POST" action="/akti/{{$a.ID}}/sken" enctype="multipart/form-data" class="akt-sken">
       <input type="file" name="sken" accept="application/pdf,.pdf" required class="form-control">
       <select name="potpisnik_id" class="form-control" required>
         <option value="">— tko je potpisao —</option>
@@ -165,7 +165,7 @@
       {{with .PitanjeVrijedi}}<label class="checkbox-label"><input type="checkbox" name="potvrda_vrijedi" value="1" required> {{.}} Da, točno je upisan</label>{{end}}
       {{with .Pregled}}{{if or $a.UpozorenjaPrimatelja .Upozorenja .Razlikuje}}<label class="checkbox-label"><input type="checkbox" name="potvrda_primatelja" value="1" required> Sken nosi popis primatelja s ispisa{{if or $a.UpozorenjaPrimatelja .Upozorenja}}, uz upozorenje koje i dalje stoji{{end}}{{if .Razlikuje}}, a popis složen sada bio bi drukčiji ({{.OpisRazlike}}){{end}}: svejedno ovjeravam</label>{{end}}{{end}}
       <button type="submit" class="btn btn-sm btn-secondary">{{icon "upload"}} Učitaj sken</button></form>
-      <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>
+      <div class="form-help">Sken u PDF-u. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na osobu koju odaberete i na onoga tko je sken učitao.</div></li>{{end}}
   </ol>
 </section>
 {{end}}

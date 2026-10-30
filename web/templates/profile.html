@@ -209,6 +209,9 @@
           <li><strong>Možete ga ukloniti bilo kad;</strong> već ovjereni akti ostaju kakvi jesu.</li>
         </ul>
       </details>
+      {{if .Viewing}}
+      <p class="form-help">Tuđim očima se sken potpisa ne prikazuje, ne sprema ni ne uklanja.</p>
+      {{else}}
       <div class="zig-pregled">
         {{if .ImaPotpisSliku}}<img src="/profile/potpis-slika?t={{.User.UpdatedAt.Unix}}" alt="Potpis" class="potpis-slika">{{else}}<div class="zig-prazno">Potpis još nije skeniran.</div>{{end}}
       </div>
@@ -226,6 +229,7 @@
         <input type="hidden" name="obrisi" value="1">
         <button type="submit" class="btn btn-sm btn-secondary">{{icon "trash"}} Ukloni</button>
       </form>
+      {{end}}
       {{end}}
     </section>
 

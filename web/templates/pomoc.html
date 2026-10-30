@@ -1405,6 +1405,8 @@
       centar sastavi novi. Ovjerava ga kao i dosad rukovoditelj branjenog područja ili njegov zamjenik, odnosno
       razina sektora prema stupnju, a razina 1 uvijek. Vodočuvari i rukovoditelji dionica
       ovjeren akt vide na znanje; upisuje se i na dnevne listove vodočuvara i u dnevnike usluga.
+      Nacrt otvara samo tko radi u sektoru, području ili na dionici akta, i po adresi; ovjeren akt
+      otvara cijela organizacija.
       Ovo provjerava računalo s novim izdanjem programa. Računalo sa starijom verzijom (0.0.34) i
       dalje pušta da nacrt sastavi ili mijenja i netko izvan centra, kao i dosad; takav nacrt ili
       izmjena stiže razmjenom i zamjenjuje neovjereni nacrt, a tko ga je mijenjao, uz nacrt ne piše.</p>
@@ -1420,8 +1422,11 @@
       onoga tko ovjerava, ako ga je spremio na profilu. Kad treba i papir, nacrt se ispiše,
       rukovoditelj ga vlastoručno potpiše i udari žig, a sken se učita u PDF-u i postaje
       izvornik. Potpis na skenu program ne može provjeriti, pa ovjeru bilježi na odabranu osobu i
-      na onoga tko je sken učitao. Ovjereni izvornik šalje se označenim primateljima
-      pojedinačno; za probu postoji radnja <em>Probno samo meni</em>.</p>
+      na onoga tko je sken učitao. Sken učitava onaj tko akt smije ovjeriti; nacrt za potpis
+      ispisuju i ostali koji rade s aktom. Ovjereni izvornik šalje se označenim primateljima
+      pojedinačno; za probu postoji radnja <em>Probno samo meni</em>. Šalje onaj tko akt smije
+      ovjeriti i Centar obrane od poplava sektora akta (voditelj centra, njegov zamjenik i dežurni
+      operater), dok im dužnost vrijedi.</p>
     <p>Popis primatelja („O tome obavijest”) program slaže iz registara: primatelja sektora,
       službi po županijama, licenciranih firmi i zaduženja. Firme i rukovoditelji idu za sva
       branjena područja čije su dionice u aktu, ne samo za područje akta; isto vrijedi za ispostavu
@@ -1514,7 +1519,13 @@
       na drugom računalu upisuje se ponovno. Vrijedi dok se ne promijeni lozinka računa u
       goCOP-u: poništenje i lozinka koju upiše administrator brišu je odmah; nakon vlastite
       promjene lozinke, i kad nova lozinka stigne s drugog čvora, prestaje vrijediti i briše se
-      pri prvoj sljedećoj uporabi ili pokretanju čvora. Lozinku e-pošte tada upišite ponovno.</p>
+      pri prvoj sljedećoj uporabi ili pokretanju čvora. Lozinku e-pošte tada upišite ponovno.
+      Lozinka vrijedi i samo za poslužitelj za koji je upisana: kad administrator upiše drugi
+      poslužitelj, način, port, šifriranje ili domenu, program spremljene lozinke e-pošte i račun
+      za slanje PIN-a ne šalje novom poslužitelju, nego ih briše, pa se upisuju ponovno. Dok
+      poslužitelj nije podešen, lozinka e-pošte se ne sprema. Gumb
+      <em>Ispitaj poslužitelj</em> za poslužitelj koji još nije spremljen radi samo s ovog
+      računala ili iz lokalne mreže.</p>
     <p>Sandučić prikazuje mape, nepročitana pisma, pretragu, HTML sadržaj u izoliranom okviru i
       privitke. Moguće je odgovoriti, odgovoriti svima, proslijediti, označiti više pisama i
       premjestiti ih; iz mape Obrisano može se izvesti trajno brisanje. Novo pismo koristi adresar
@@ -1549,7 +1560,10 @@
         poništenje se potpisuje ključem čvora i šalje ostalim čvorovima.</li>
       <li><strong>Vlastoručni potpis i žig na papiru</strong> koriste se kad treba i papir: nacrt
         se ispiše, potpiše i ovjeri žigom, a sken se učita kao izvornik. Potpis na skenu program
-        ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru; žig centra
+        ne može provjeriti. Sken potpisa na profilu ostaje šifriran na tom čvoru i tuđim očima se
+        ne prikazuje, ne sprema ni ne uklanja. Na PDF ide samo u izvornik, u trenutku ovjere,
+        predaje ili objave; ispis akta ili lista bez izvornika i knjiga vodočuvara crtaju se bez
+        njega, a uz simulirani potpis pravi sken ne stoji nikad. Žig centra
         uređuje samo uprava sektora, na stranici sektora. Drugima putuje gotovi PDF izvornik, ne nezaštićene slike.</li>
       <li><strong>Simulirani potpis</strong> postoji isključivo za testiranje tuđim očima. Crven je,
         nosi riječ SIMULACIJA i veliki žig „BEZVRIJEDNO”; nema pravnu ni poslovnu vrijednost.</li>
@@ -1616,7 +1630,9 @@
       adresa gasi PIN objema osobama. Prazna adresa je dopuštena. Korisničko ime koje
       već ima drugi račun, i drugim slovima, ne dobiva se ni preimenovanjem.</p>
     <p>Administrator može <em>gledati program tuđim očima</em> — provjeriti što neki djelatnik
-      vidi. Zadano je taj pogled samo za čitanje, a tuđi sandučić e-pošte ne otvara se ni tada. U testnom okruženju administrator može posebno
+      vidi. Zadano je taj pogled samo za čitanje, a tuđi sandučić e-pošte ne otvara se ni tada.
+      Ni tuđi potpis e-pošte ni sken vlastoručnog potpisa ne otvaraju se tuđim očima, a akt se
+      tuđim očima ne ovjerava, ni u goCOP-u ni skenom, i ne poništava. U testnom okruženju administrator može posebno
       uključiti upise tuđim očima i simulirani ključ; stvarni administrator ostaje zabilježen, a
       svaki simulirani potpis vidljivo je označen kao bezvrijedan. Te se opcije u operativnom
       radu drže isključenima. Isključen račun može se gledati tuđim očima, ali samo za čitanje,
@@ -1956,7 +1972,8 @@
         upisuju samo na računalima koja preuzimaju vodostaje; račun za mobilnu stranicu Hrvatskih
         voda treba i čvoru koji izdaje prognozu, jer njime čita kišomjere DHMZ-a. Za mobilnu stranicu može se preuzeti korisnikov račun
         e-pošte; pojedina postaja zatim uključuje izvor.
-        Račun čvora upisuje samo globalni administrator.</li>
+        Račun čvora upisuje samo globalni administrator. Prijava za HydroView uvijek se
+        provjerava na sustavu Hrvatskih voda (hdv.voda.hr).</li>
       <li><strong>Uvozi podataka</strong> — jednokratni uvozi iz vanjskih evidencija. Dok ustroj nije
         gotov, stoje u Prvim koracima, a poslije kao poveznica u skupini Ustroj i ljudi.</li>
       <li><strong>Postavke prognoze</strong> — satni lanac ili dnevni model u prikazu, izdavanje

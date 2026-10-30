@@ -51,11 +51,29 @@
       <div class="form-help">Exchange domenu sam objavi pri prijavi, pa goCOP kad prijava adresom ne prođe pokuša i <span class="mono">DOMENA\korisnik</span>. Upišite samo ako to ne radi.</div>
     </div>
     <div class="form-actions d-flex gap-2 flex-wrap">
-      <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi</button>
+      <button type="submit" class="btn btn-primary" onclick="return potvrdiPosluzitelj(this.form)">{{icon "check"}} Spremi</button>
       <button type="submit" class="btn btn-secondary" name="radnja" value="ispitaj">{{icon "search"}} Ispitaj poslužitelj</button>
     </div>
     <p class="form-help">Ispitivanje ne treba lozinku: provjeri je li poslužitelj dostupan, nudi li prijavu i koju domenu objavljuje.</p>
+    <p class="form-help">Drugi poslužitelj, način, port, šifriranje ili domena poništavaju spremljene lozinke e-pošte svih ljudi i račun za slanje PIN-a, pa ih treba upisati ponovno.</p>
   </form>
+  <script>
+  (function () {
+    function otisak(f) {
+      var e = f.elements;
+      return [e.nacin.value, e.posluzitelj.value.trim().toLowerCase(), e.port.value, e.sigurnost.value, e.domena.value.trim().toLowerCase()].join('|');
+    }
+    var f = document.getElementById('posta-obrazac');
+    var prije = otisak(f);
+    var bilo = f.elements.posluzitelj.value.trim() !== '';
+    window.potvrdiPosluzitelj = function (forma) {
+      if (!bilo || otisak(forma) === prije) {
+        return true;
+      }
+      return confirm('Spremiti drugi poslužitelj e-pošte? Spremljene lozinke e-pošte svih ljudi i račun za slanje PIN-a prestaju vrijediti i upisuju se ponovno.');
+    };
+  })();
+  </script>
 </section>
 
 {{if .PINGreska}}<div class="alert alert-error" id="pin">Stanje PIN-a za prijavu izvana nije pročitano: {{.PINGreska}}</div>{{end}}
@@ -65,7 +83,7 @@
   {{if .BezPosiljatelja}}
   <div class="alert alert-error d-block" id="pin-bez-posiljatelja">
     <strong>{{icon "triangle-alert"}} PIN izvana je uključen, a ovaj čvor nema ispravnog računa za slanje PIN-a.</strong>
-    {{if not .Posiljatelj}}Račun nije upisan na ovom čvoru.{{else if .Posiljatelj.NeispravanOd}}Poslužitelj e-pošte odbio je lozinku računa.{{else}}Poslužitelj e-pošte nije podešen.{{end}}
+    {{if not .Posiljatelj}}Račun nije upisan na ovom čvoru.{{else if .Posiljatelj.NeispravanOd}}Poslužitelj e-pošte odbio je lozinku računa.{{else if .Posiljatelj.ZaDrugiPosluzitelj}}Račun je upisan za drugi poslužitelj e-pošte, pa mu program lozinku ne šalje.{{else}}Poslužitelj e-pošte nije podešen.{{end}}
     Tko se kroz ovaj čvor prijavljuje izvana, PIN ne dobiva i ulazi samo rezervnim ili privremenim kodom.
     Upišite račun ispod i pošaljite probni PIN. Sklopka vrijedi na svim čvorovima: isključite PIN samo ako ga ne šalje ni jedan čvor koji prima prijave izvana.
   </div>
@@ -93,6 +111,10 @@
     {{if .Posiljatelj.NeispravanOd}}
     <div class="alert alert-error">Poslužitelj e-pošte odbio je lozinku računa <span class="mono">{{.Posiljatelj.Korisnik}}</span> {{vrijemeHR (derefTime .Posiljatelj.NeispravanOd)}}.
       PIN se više ne šalje (svaki pokušaj s krivom lozinkom zaključavao bi račun u domeni) dok lozinku ne upišete ponovno.</div>
+    {{end}}
+    {{if .Posiljatelj.ZaDrugiPosluzitelj}}
+    <div class="alert alert-error" id="pin-drugi-posluzitelj">Račun <span class="mono">{{.Posiljatelj.Korisnik}}</span> upisan je za drugi poslužitelj e-pošte.
+      PIN se njime ne šalje, a lozinka se briše pri prvom slanju. Upišite račun ponovno.</div>
     {{end}}
     <p class="form-help">Upisan je račun <strong class="mono">{{.Posiljatelj.Korisnik}}</strong>, adresa pošiljatelja <span class="mono">{{.Posiljatelj.Adresa}}</span>, od {{vrijemeHR .Posiljatelj.Spremljen}}.
       {{if not .StankaDo.IsZero}}<br><strong>Slanje stoji do {{satHR .StankaDo}}</strong>: veza s poslužiteljem e-pošte nije uspjela.{{end}}

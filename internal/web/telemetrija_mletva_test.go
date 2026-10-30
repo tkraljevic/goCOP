@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"gocop/internal/db"
+	"gocop/internal/hidroview"
 	"gocop/internal/mletva"
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -136,9 +137,9 @@ func TestTelemetrijaPraznoImeNeBriseRacun(t *testing.T) {
 func TestTelemetrijaSpremiBezLozinke(t *testing.T) {
 	h, hv, _, baza := telemetrijaZaTest(t)
 	ctx := context.Background()
-	vrsta, _ := posaljiTelemetriji(t, h.Spremi, url.Values{"hidroview_korisnik": {"novo.ime"}})
-	if x := racunHV(t, hv); vrsta != "success" || x == nil || x.Korisnik != "novo.ime" || string(x.Lozinka) != "z" {
-		t.Errorf("promjena imena: %s %+v", vrsta, x)
+	vrsta, _ := posaljiTelemetriji(t, h.Spremi, url.Values{"hidroview_korisnik": {"novo.ime"}, "hidroview_adresa": {"http://127.0.0.1:1"}})
+	if x := racunHV(t, hv); vrsta != "success" || x == nil || x.Korisnik != "novo.ime" || string(x.Lozinka) != "z" || x.Adresa != hidroview.ZadanaAdresa {
+		t.Errorf("promjena imena (adresa iz obrasca se ne sprema): %s %+v", vrsta, x)
 	}
 	// baza koja ne da upisati: poruka kaže zašto
 	if _, err := baza.ExecContext(ctx, `CREATE TRIGGER zakljucano BEFORE UPDATE ON hidroview_racuni BEGIN SELECT RAISE(ABORT, 'baza je zaključana'); END`); err != nil {
@@ -198,12 +199,15 @@ func TestTelemetrijaZakljucaj(t *testing.T) {
 	}
 }
 
-// Nova lozinka sprema se tek kad prijava na HydroView prođe.
+// Nova lozinka sprema se tek kad prijava na HydroView prođe. Prijava ide
+// samo na sustav HydroViewa, a ne na adresu iz obrasca (namjerna izmjena
+// testa: lažni sustav se zadaje rukovatelju, ne obrascem).
 func TestTelemetrijaSpremiProvjeriPrijavu(t *testing.T) {
 	h, hv, _, _ := telemetrijaZaTest(t)
 	srv := lazniHydroViewVrata(t)
+	h.hvAdresa = srv.URL
 	polja := func(korisnik string) url.Values {
-		return url.Values{"hidroview_korisnik": {korisnik}, "hidroview_lozinka": {"tajna"}, "hidroview_adresa": {srv.URL}}
+		return url.Values{"hidroview_korisnik": {korisnik}, "hidroview_lozinka": {"tajna"}, "hidroview_adresa": {"http://127.0.0.1:1"}}
 	}
 	if vrsta, poruka := posaljiTelemetriji(t, h.Spremi, polja("odbijen")); vrsta != "error" || !strings.Contains(poruka, "nije prošla") {
 		t.Errorf("odbijena prijava: %s %q", vrsta, poruka)

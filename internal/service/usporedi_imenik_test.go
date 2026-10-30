@@ -30,7 +30,7 @@ type laziAdresar struct {
 	srv      *httptest.Server
 	kontakti []posta.Kontakt
 	pokvaren map[string]string // upit → poruka greške kojom adresar odgovori
-	odbijOd  int    // od kojeg upita (1, 2, …) se prijava odbija; 0 = nikad
+	odbijOd  int               // od kojeg upita (1, 2, …) se prijava odbija; 0 = nikad
 
 	mu    sync.Mutex
 	upiti []string
@@ -164,12 +164,7 @@ func (o *okolinaImenika) ucitaj(t *testing.T, korisnik string) *models.User {
 
 func novaOkolinaImenika(t *testing.T) *okolinaImenika {
 	t.Helper()
-	ctx := context.Background()
 	o := &okolinaImenika{okolinaOvlasti: novaOkolinaOvlasti(t), djelatnici: map[string]*models.User{}}
-	// prije nego što je poslužitelj zadan, lozinka se sprema bez provjere
-	if _, err := o.akti.SpremiRacunPoste(ctx, o.sef, `voda.int\sef`, "Domenska-Lozinka-1"); err != nil {
-		t.Fatal(err)
-	}
 	o.djelatnik(t, "bezimeni", " ", "bezimeni@voda.hr", "", "", "B")
 	o.djelatnik(t, "ana", "Ana Anić", "ana.anic@voda.hr", "098 111 2222", "", "B")
 	o.djelatnik(t, "ivo", "Ivo Ivić", "ivo@voda.hr", "091 000 0000", "031 100 100", "B")
@@ -185,7 +180,8 @@ func novaOkolinaImenika(t *testing.T) *okolinaImenika {
 		posta.Kontakt{Ime: "Petra Perić", Email: "petra.peric2@voda.hr"},
 		posta.Kontakt{Ime: "Luka Lukić", Email: "luka@voda.hr", Mobitel: "099 777 8888"},
 	)
-	o.akti.SetPosta(o.adresar.Postavke())
+	// lozinka se sprema dok adresar nije dostupan, pa je ne provjerava
+	o.spremiBezProvjere(t, o.sef, `voda.int\sef`, "Domenska-Lozinka-1", o.adresar.Postavke())
 	return o
 }
 

@@ -129,7 +129,7 @@ func (h *VodocuvarHandler) izvornikPredaje(ctx context.Context, s *service.Vodoc
 		return nil
 	}
 	area := h.podrucje(ctx, l)
-	otisci := h.otisci(ctx, l)
+	otisci := h.otisakPotpisnika(ctx, l.UserID, p)
 	pdf, m := pdfLista(l, models.Terms(), area, otisci, crtanjeBlokova{vodocuvar: p == nil, rukovoditelj: true}, PrilogListaPDF{Slike: h.priloziLista(ctx, s, l)})
 	if p != nil {
 		var err error
@@ -149,7 +149,7 @@ func (h *VodocuvarHandler) izvornikOvjere(ctx context.Context, s *service.Vodocu
 		return nil
 	}
 	area := h.podrucje(ctx, l)
-	otisci := h.otisci(ctx, l)
+	otisci := h.otisakPotpisnika(ctx, l.PotvrdioID, p)
 	var pdf []byte
 	var m mjestaPotpisa
 	if iz, _ := s.Izvornik(ctx, perms, l.ID); iz != nil && len(iz.PDF) > 0 {

@@ -1731,6 +1731,13 @@ func migrateSchema(database *sql.DB) error {
 		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
 		// pri pokretanju čvora, jer otisak traži ključ čvora
 		{"posta_racuni", "otisak_lozinke", "BLOB"},
+		// Otisak poslužitelja e-pošte (način, adresa, port, domena) za koji je
+		// lozinka spremljena; poslužitelju s drugim otiskom lozinka se ne
+		// šalje, nego se zapis briše (posta.Postavke.Otisak). Prazan je kod
+		// zapisa otprije; pri pokretanju čvora veže se uz poslužitelj koji je
+		// tada upisan, a pri uporabi prazan otisak ne vrijedi.
+		{"posta_racuni", "posluzitelj", "TEXT NOT NULL DEFAULT ''"},
+		{"racuni_sustava", "posluzitelj", "TEXT NOT NULL DEFAULT ''"},
 		// Trag predaje dnevnog izvješća dionice i sektora (JSON): prvo
 		// vrijeme predaje, tko je predao i tko je mijenjao nakon predaje.
 		// Izmjena predanog izvješća vraća ga u nacrt, pa se predaje ponovno.
