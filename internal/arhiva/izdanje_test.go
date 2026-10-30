@@ -40,7 +40,7 @@ func TestSljedeceIzdanjeCekaDaSeSadrzajPromijeni(t *testing.T) {
 	}
 
 	// Izdajemo ga stvarno, pa katalog zna za v1.
-	if _, err := Izdaj(db, mapa, "cvor", "batina", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor", "batina", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 
@@ -81,10 +81,10 @@ func TestIzdavanjeJedneLetveCuvaOstale(t *testing.T) {
 	for _, letva := range []string{"batina", "vukovar"} {
 		dodajNiz(t, db, letva)
 	}
-	if _, err := Izdaj(db, mapa, "cvor", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Izdaj(db, mapa, "cvor", "vukovar", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor", "vukovar", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	k, err := UcitajKatalog(mapa)
@@ -106,7 +106,7 @@ func TestProbnoIzdavanjeNistaNePise(t *testing.T) {
 	defer db.Close()
 	dodajNiz(t, db, "batina")
 
-	iz, err := Izdaj(db, mapa, "cvor", "", true, io.Discard)
+	iz, err := Izdaj(db, mapa, "cvor", "", true, nil, io.Discard)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +144,7 @@ func TestNeuspjelaLetvaOstajeUKatalogu(t *testing.T) {
 	db := napraviArhivu(t, put)
 	dodajNiz(t, db, "batina")
 	dodajNiz(t, db, "vukovar")
-	if _, err := Izdaj(db, mapa, "cvor", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db, mapa, "cvor", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	// Batini nestanu sva očitanja — paket se više ne da sastaviti.
@@ -161,7 +161,7 @@ func TestNeuspjelaLetvaOstajeUKatalogu(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer db2.Close()
-	if _, err := Izdaj(db2, mapa, "cvor", "", false, io.Discard); err != nil {
+	if _, err := Izdaj(db2, mapa, "cvor", "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	k, err := UcitajKatalog(mapa)
@@ -190,7 +190,7 @@ func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
 		t.Fatal(err)
 	}
 	// otisak sadašnjeg sadržaja, kao da je stigao paketom v3
-	probno, err := Izdaj(db, t.TempDir(), "laptop", "pljusak-x", true, io.Discard)
+	probno, err := Izdaj(db, t.TempDir(), "laptop", "pljusak-x", true, nil, io.Discard)
 	if err != nil || len(probno.Redci) != 1 {
 		t.Fatalf("probno: %+v %v", probno, err)
 	}
@@ -198,7 +198,7 @@ func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
 		t.Fatal(err)
 	}
 	mapa := t.TempDir()
-	iz, err := Izdaj(db, mapa, "server", "pljusak-x", false, io.Discard)
+	iz, err := Izdaj(db, mapa, "server", "pljusak-x", false, nil, io.Discard)
 	if err != nil || iz.Redci[0].Izdanje != 3 {
 		t.Fatalf("isti sadržaj: izdanje %+v (%v), očekivano 3", iz.Redci, err)
 	}
@@ -207,7 +207,7 @@ func TestIzdavanjeNastavljaPrimljeniNiz(t *testing.T) {
 	if _, err := db.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1001,0.4)`, niz); err != nil {
 		t.Fatal(err)
 	}
-	iz, err = Izdaj(db, t.TempDir(), "server", "pljusak-x", false, io.Discard)
+	iz, err = Izdaj(db, t.TempDir(), "server", "pljusak-x", false, nil, io.Discard)
 	if err != nil || iz.Redci[0].Izdanje != 4 {
 		t.Fatalf("novi sadržaj: izdanje %+v (%v), očekivano 4", iz.Redci, err)
 	}

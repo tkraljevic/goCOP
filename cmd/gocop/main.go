@@ -835,6 +835,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	syncCtx, stopSync := context.WithCancel(context.Background())
 	defer stopSync()
 	razmjenaArh = novaRazmjenaArhive(database, recorder, spremiste, server, peersService, arhivaPut, z.paketi)
+	server.SetKazaloArhive(razmjenaArh.uKazalu)
 	go razmjenaArh.vrti(syncCtx)
 	var pbRazmjena *sql.DB // baza prognoza, za pločicu razmjene; postavlja se niže
 	// slobodno mjesto na diskovima čvora; malo mjesta javlja pločica razmjene

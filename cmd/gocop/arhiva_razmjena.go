@@ -164,6 +164,19 @@ func (r *razmjenaArhive) vecUKazalu(ctx context.Context, p arhiva.UPaketu) (bool
 		(bio.Izdanje > p.Izdanje || (bio.Izdanje == p.Izdanje && bio.Otisak == p.Otisak)), nil
 }
 
+// uKazalu je zadnje izdanje letve u kazalu knjige, s bilo kojeg čvora: broj
+// i otisak; 0 kad ga nema ili se ne da pročitati, pa broj ide samo po
+// katalogu, kao prije. Izdavanje po njemu bira broj, da katalog vraćen na
+// stariji ne dodijeli isti broj drugom sadržaju.
+func (r *razmjenaArhive) uKazalu(letva string) (int, string) {
+	var p paketUKnjizi
+	v, err := r.rec.Latest(context.Background(), EntitetArhive, letva)
+	if err != nil || json.Unmarshal(v.Payload, &p) != nil {
+		return 0, ""
+	}
+	return p.Izdanje, p.Otisak
+}
+
 // upisiUKazalo stavlja paket u spremište sadržaja i upisuje njegovo kazalo u
 // knjigu.
 func (r *razmjenaArhive) upisiUKazalo(ctx context.Context, p arhiva.UPaketu, b []byte) error {

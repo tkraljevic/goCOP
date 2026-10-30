@@ -45,7 +45,7 @@ func TestArhivaKrozRazmjenu(t *testing.T) {
 		t.Fatal(err)
 	}
 	paketi := filepath.Join(dirA, "pakete")
-	if _, err := arhiva.Izdaj(arhA, paketi, recA.Cvor(), "", false, io.Discard); err != nil {
+	if _, err := arhiva.Izdaj(arhA, paketi, recA.Cvor(), "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	spA, _ := sadrzaj.Otvori("")
@@ -149,7 +149,7 @@ func TestObjavaNeGaziNovijeIzdanje(t *testing.T) {
 	niz, _ := res.LastInsertId()
 	arh.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,1000,1.5)`, niz)
 	paketi := filepath.Join(dir, "pakete")
-	if _, err := arhiva.Izdaj(arh, paketi, rec.Cvor(), "", false, io.Discard); err != nil {
+	if _, err := arhiva.Izdaj(arh, paketi, rec.Cvor(), "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	sp, _ := sadrzaj.Otvori("")
@@ -213,7 +213,7 @@ func TestPaketZamjenjujeLetvuCvoraKojiNePreuzima(t *testing.T) {
 	niz(arhA, "pljusak-kotoriba", "2026-09-26", "2026-10-02", 3)
 	niz(arhA, "pljusak-tvrdja", "2026-09-26", "2026-09-30", 2)
 	paketi := filepath.Join(t.TempDir(), "pakete")
-	if _, err := arhiva.Izdaj(arhA, paketi, recA.Cvor(), "", false, io.Discard); err != nil {
+	if _, err := arhiva.Izdaj(arhA, paketi, recA.Cvor(), "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	spA, _ := sadrzaj.Otvori("")
@@ -309,7 +309,7 @@ func izdanaMapa(t *testing.T, izdao string) string {
 		t.Fatal(err)
 	}
 	paketi := filepath.Join(dir, "pakete")
-	if _, err := arhiva.Izdaj(arh, paketi, izdao, "", false, io.Discard); err != nil {
+	if _, err := arhiva.Izdaj(arh, paketi, izdao, "", false, nil, io.Discard); err != nil {
 		t.Fatal(err)
 	}
 	return paketi
@@ -449,4 +449,66 @@ func TestObjavaKojaNeUspije(t *testing.T) {
 			t.Errorf("kazalo je upisano iako upis nije uspio: %v", err)
 		}
 	})
+}
+
+// Katalog vraćen na stariji ne smije objaviti drugi sadržaj pod brojem koji
+// je već u kazalu: primatelji koji taj broj imaju preskočili bi ga bez
+// traga. Izdavanje broj uzima i iz kazala (uKazalu), pa novi sadržaj dobiva
+// broj iza zadnjeg objavljenog.
+func TestVraceniKatalogObjavljujeNoviBroj(t *testing.T) {
+	ctx := context.Background()
+	baza, rec, _ := cvorZaTest(t, "laptop")
+	dir := t.TempDir()
+	put := filepath.Join(dir, "vodostaji.db")
+	arh, err := sql.Open("sqlite", arhiva.AdresaZaPisanje(put))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer arh.Close()
+	if err := arhiva.PripremiPraznu(arh); err != nil {
+		t.Fatal(err)
+	}
+	res, err := arh.Exec(`INSERT INTO nizovi (sliv, letva, izvor, velicina, vrsta, zapisa) VALUES ('drava','pljusak-x','pljusak','oborina','satni',1)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	niz, err := res.LastInsertId()
+	if err != nil {
+		t.Fatal(err)
+	}
+	paketi := filepath.Join(dir, "pakete")
+	sp, err := sadrzaj.Otvori("")
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := &razmjenaArhive{baza: baza, rec: rec, sp: sp, arhivaPut: put, paketiDir: paketi, javljeno: map[string]bool{}}
+	izdajIObjavi := func(vrijeme int) arhiva.RedIzdanja {
+		t.Helper()
+		if _, err := arh.Exec(`INSERT INTO ocitanja (niz, vrijeme, vrijednost) VALUES (?,?,1.5)`, niz, vrijeme); err != nil {
+			t.Fatal(err)
+		}
+		iz, err := arhiva.Izdaj(arh, paketi, rec.Cvor(), "", false, a.uKazalu, io.Discard)
+		if err != nil || len(iz.Redci) != 1 {
+			t.Fatalf("izdavanje: %+v, %v", iz.Redci, err)
+		}
+		if _, err := a.objavi(ctx); err != nil {
+			t.Fatal(err)
+		}
+		return iz.Redci[0]
+	}
+	izdajIObjavi(1000)
+	katalogV1, err := os.ReadFile(filepath.Join(paketi, arhiva.ImeKataloga))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r := izdajIObjavi(4600); r.Izdanje != 2 {
+		t.Fatalf("drugo izdanje: %+v", r)
+	}
+	if err := os.WriteFile(filepath.Join(paketi, arhiva.ImeKataloga), katalogV1, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	r := izdajIObjavi(8200)
+	if izdanje, otisak := a.uKazalu("pljusak-x"); r.Izdanje != 3 || izdanje != 3 || otisak != r.Otisak {
+		t.Errorf("nakon vraćenog kataloga izdano v%d, u kazalu v%d (%s), a izdani otisak je %s", r.Izdanje, izdanje, otisak, r.Otisak)
+	}
 }

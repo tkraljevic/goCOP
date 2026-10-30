@@ -119,7 +119,7 @@ func TestIzdavanjeURelativnuMapuKojaJeDrugdje(t *testing.T) {
 	projekt := izMapeBaze(t, "pakete")
 	postavke := filepath.Join(projekt, "data", "gocop.toml")
 	for _, probno := range []bool{false, true} {
-		_, err := Izdaj(db, "pakete", "cvor", "", probno, io.Discard)
+		_, err := Izdaj(db, "pakete", "cvor", "", probno, nil, io.Discard)
 		nm := nemaMape(t, err, projekt, "pakete", "pakete")
 		porukaIma(t, err, "Paketi nisu izdani: mape paketa nema u "+nm.Puna+".",
 			"Ako je to mapa paketa ovog čvora, upišite pakete = '"+nm.Prijedlog+"'",
@@ -128,7 +128,7 @@ func TestIzdavanjeURelativnuMapuKojaJeDrugdje(t *testing.T) {
 
 	t.Cleanup(func() { config.ZapamtiIzvorMapa(config.IzvorMapa{}) })
 	config.ZapamtiIzvorMapa(config.IzvorMapa{Postavke: postavke, Zastavice: map[string]string{"pakete": "-pakete"}})
-	_, err := Izdaj(db, "pakete", "cvor", "", false, io.Discard)
+	_, err := Izdaj(db, "pakete", "cvor", "", false, nil, io.Discard)
 	nm := nemaMape(t, err, projekt, "pakete", "pakete")
 	porukaIma(t, err, "Zastavica -pakete 'pakete' ne počinje od korijena diska",
 		"zadajte punu putanju zastavicom -pakete '"+nm.Prijedlog+"' pri pokretanju. Zastavica je jača od datoteke "+postavke)
