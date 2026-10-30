@@ -97,6 +97,48 @@ func TestOpcijeSpremaSamoUpravaOrganizacije(t *testing.T) {
 	}
 }
 
+// IzmijeniOpcije mijenja samo polja koja izmjena dira, a ostala ostavlja
+// kakva su spremljena. Bez ovlasti se ništa ne mijenja i izmjena se ni ne
+// poziva; neispravan zapis čita se kao sve isključeno; kad se zapis ne da
+// pročitati, ništa se ne sprema.
+func TestIzmijeniOpcijeCuvaOstalaPolja(t *testing.T) {
+	o := novaOkolinaAkta(t)
+	ctx := context.Background()
+	zateceno := models.Opcije{UpisTudjimOcima: true, CuvanjeSlikaDana: 30, PrognozaPrikaz: models.PrognozaSatni, PrognozaBezSusjeda: true}
+	if err := o.akti.SpremiOpcije(ctx, upravaOrganizacije, zateceno); err != nil {
+		t.Fatal(err)
+	}
+	for _, perms := range []*models.UserPermissions{nil, upravaSektoraP, djelatnikBezUprave} {
+		err := o.akti.IzmijeniOpcije(ctx, perms, func(*models.Opcije) { t.Error("izmjena pozvana bez ovlasti") })
+		if !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("%+v: greška %v, želi ErrUnauthorized", perms, err)
+		}
+	}
+	if err := o.akti.IzmijeniOpcije(ctx, upravaOrganizacije, func(x *models.Opcije) { x.SlikeOdmah = true }); err != nil {
+		t.Fatal(err)
+	}
+	zateceno.SlikeOdmah = true
+	if got := o.akti.Opcije(ctx); got != zateceno {
+		t.Errorf("izmjena jednog polja:\n ima %+v\nželi %+v", got, zateceno)
+	}
+
+	if err := repoAkata(o).SavePostavka(ctx, repository.PostavkaOpcije, "{nije json"); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.akti.IzmijeniOpcije(ctx, upravaOrganizacije, func(x *models.Opcije) { x.SimulacijaKljuca = true }); err != nil {
+		t.Fatal(err)
+	}
+	if got := o.akti.Opcije(ctx); got != (models.Opcije{SimulacijaKljuca: true}) {
+		t.Errorf("izmjena neispravnog zapisa: %+v", got)
+	}
+
+	pokvariTablicu(t, o, "postavke")
+	err := o.akti.IzmijeniOpcije(ctx, upravaOrganizacije, func(*models.Opcije) { t.Error("izmjena pozvana, a zapis se ne da pročitati") })
+	if err == nil {
+		t.Error("izmjena nepročitanog zapisa javila je uspjeh")
+	}
+}
+
 // Temu sprema samo uprava organizacije. Boja premalog kontrasta se ne
 // sprema i poruka kaže koja boja, koliki je kontrast i koliki treba; tema
 // koja prolazi odmah vrijedi u programu. Odbijena tema ne mijenja ni

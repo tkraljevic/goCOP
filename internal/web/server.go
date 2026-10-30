@@ -968,11 +968,11 @@ func (s *Server) setupRoutes() {
 	prognozeH.SetUsers(s.userService)
 	prognozeH.SetMetoda(s.templates["prognoze_metoda.html"])
 	prognozeH.SetPostavke(s.templates["prognoze_postavke.html"])
-	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, o models.Opcije) error {
+	prognozeH.SetOpcije(s.opcije, func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
 		if s.akti == nil {
 			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
 		}
-		return s.akti.SpremiOpcije(ctx, p, o)
+		return s.akti.IzmijeniOpcije(ctx, p, izmjena)
 	})
 	prognozeH.SetReadings(s.readingService)
 	prognozeH.kisa = func() KisaSlivovaFunc { return s.kisaSlivova }
