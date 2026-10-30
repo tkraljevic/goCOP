@@ -182,8 +182,13 @@ func izRegistra(red *sql.Row, u ...any) error {
 // SektorPodrucja vraća sektor branjenog područja; nepostojeće područje javlja
 // kao grešku
 func (r *SectionRepository) SektorPodrucja(ctx context.Context, areaID int) (string, error) {
+	return sektorPodrucja(ctx, r.db, areaID)
+}
+
+// sektorPodrucja čita sektor branjenog područja (SektorPodrucja)
+func sektorPodrucja(ctx context.Context, db *sql.DB, areaID int) (string, error) {
 	var sektor string
-	err := r.db.QueryRowContext(ctx, `SELECT sector_id FROM areas WHERE id = ?`, areaID).Scan(&sektor)
+	err := db.QueryRowContext(ctx, `SELECT sector_id FROM areas WHERE id = ?`, areaID).Scan(&sektor)
 	if err == sql.ErrNoRows {
 		return "", fmt.Errorf("branjeno područje %d ne postoji", areaID)
 	}

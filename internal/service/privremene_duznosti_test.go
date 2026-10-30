@@ -187,7 +187,7 @@ func TestDuznostPrivremeneUpraveIsticeSNjom(t *testing.T) {
 
 	// opoziv imenovanja prekida i dodijeljeno, odmah
 	prije := time.Now()
-	if err := o.users.RevokeDuty(uprava, imenovanje.ID); err != nil {
+	if err := o.users.RevokeDuty(uprava, imenovanje.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	d := o.duznostOsobe(t, zamjenik.ID, models.RoleAreaDeputy)

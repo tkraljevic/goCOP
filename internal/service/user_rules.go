@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -215,6 +216,81 @@ func stalnaUpravaOrganizacije(p *models.UserPermissions) bool {
 	}
 	_, izvor := rokUprave(p, models.RoleGlobalAdmin, nil, nil, nil)
 	return izvor == nil
+}
+
+// stalnaUpravaRacuna: račun je stalna uprava organizacije, sa zastavicom
+// globalnog administratora ili s aktivnom dužnošću razine 1 bez roka
+func stalnaUpravaRacuna(u *models.User) bool {
+	if u.IsGlobalAdmin {
+		return true
+	}
+	sad := time.Now()
+	return slices.ContainsFunc(u.Duties, func(d models.Duty) bool { return stalnaDuznostRazine1(d, sad) })
+}
+
+// stalnaDuznostRazine1: aktivna, neistekla dužnost razine 1 bez roka
+func stalnaDuznostRazine1(d models.Duty, sad time.Time) bool {
+	return d.Role.RazinaUprave() == 1 && vrijediDuznost(d, sad) && !privremenaDuznost(d)
+}
+
+// privremenaNadStalnom: privremena uprava organizacije stalnoj ne daje
+// lozinku ni kod, ne uključuje ni ne isključuje račun i ne mijenja ni ne
+// opoziva dužnost razine 1. Za sve ostale ne vrijedi (vraća nil).
+func privremenaNadStalnom(actor *models.UserPermissions, target *models.User) error {
+	if actor == nil || !actor.IsGlobalAdmin || stalnaUpravaOrganizacije(actor) || !stalnaUpravaRacuna(target) {
+		return nil
+	}
+	return fmt.Errorf("%w: lozinku, kod za prijavu izvana, uključenost računa i dužnost stalne uprave organizacije mijenja samo stalna uprava organizacije", ErrUnauthorized)
+}
+
+// Tuđim očima vrijede ovlasti osobe čijim se očima gleda, pa se računi i
+// upravne dužnosti tada ne mijenjaju: lozinka, uključenost računa,
+// zastavica globalnog administratora i dužnosti s razinom uprave mijenjaju
+// se svojim očima (ErrTudjimOcima, kao kod za prijavu izvana).
+
+// upravaTudjimOcima: tuđim očima ne dodjeljuje se, ne mijenja i ne opoziva
+// dužnost s razinom uprave
+func upravaTudjimOcima(tudjimOcima bool, uloge ...models.Role) error {
+	if tudjimOcima && slices.ContainsFunc(uloge, func(r models.Role) bool { return r.RazinaUprave() > 0 }) {
+		return ErrTudjimOcima
+	}
+	return nil
+}
+
+// racunTudjimOcima: tuđim očima ne mijenja se lozinka, uključenost računa
+// ni zastavica globalnog administratora
+func racunTudjimOcima(target *models.User, req UpdateUserRequest) error {
+	if req.TudjimOcima && (req.Password != "" || req.IsActive != target.IsActive || req.IsGlobalAdmin != target.IsGlobalAdmin) {
+		return ErrTudjimOcima
+	}
+	return nil
+}
+
+// noviRacunTudjimOcima: tuđim očima ne otvara se račun globalnog
+// administratora ni račun s upravnom dužnošću
+func noviRacunTudjimOcima(req CreateUserRequest) error {
+	if req.TudjimOcima && req.IsGlobalAdmin {
+		return ErrTudjimOcima
+	}
+	return upravaTudjimOcima(req.TudjimOcima, req.Role)
+}
+
+// opozivStalneRazine1: stalnu dužnost razine 1 opoziva samo stalna uprava
+// organizacije (privremenaNadStalnom)
+func opozivStalneRazine1(actor *models.UserPermissions, d models.Duty) error {
+	if !stalnaDuznostRazine1(d, time.Now()) || stalnaUpravaOrganizacije(actor) {
+		return nil
+	}
+	return fmt.Errorf("%w: stalnu dužnost razine 1 („%s”) opoziva samo stalna uprava organizacije", ErrUnauthorized, d.Role.Label())
+}
+
+// izmjenaStalneRazine1: izmjena koja stalnoj dužnosti razine 1 daje rok ili
+// drugu ulogu jednaka je opozivu, pa je smije samo stalna uprava organizacije
+func izmjenaStalneRazine1(actor *models.UserPermissions, dosad, nova models.Duty) error {
+	if stalnaDuznostRazine1(nova, time.Now()) {
+		return nil
+	}
+	return opozivStalneRazine1(actor, dosad)
 }
 
 func istiNiz(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }

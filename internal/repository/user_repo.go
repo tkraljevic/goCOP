@@ -209,11 +209,13 @@ func (r *UserRepository) GetUserByID(id uuid.UUID) (*models.User, error) {
 		return nil, fmt.Errorf("greška pri dohvatu korisnika: %w", err)
 	}
 
-	// Učitaj sve funkcije i zaduženja
+	// Učitaj sve funkcije i zaduženja. Prava se odlučuju i po dužnostima
+	// osobe, pa račun bez pročitanih dužnosti ne vraća se kao da ih nema.
 	duties, err := r.GetDutiesForUser(u.ID)
-	if err == nil {
-		u.Duties = duties
+	if err != nil {
+		return nil, fmt.Errorf("greška pri dohvatu dužnosti korisnika: %w", err)
 	}
+	u.Duties = duties
 
 	return &u, nil
 }

@@ -169,7 +169,7 @@ func TestPonistenaLozinkaGasiPrijave(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, _, err := c.users.ResetPassword(&models.UserPermissions{User: *admin, IsGlobalAdmin: true}, ana.ID); err != nil {
+	if _, _, err := c.users.ResetPassword(&models.UserPermissions{User: *admin, IsGlobalAdmin: true}, ana.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if zivaSesija(t, c, s.ID) {

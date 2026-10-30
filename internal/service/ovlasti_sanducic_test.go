@@ -58,7 +58,7 @@ func TestPostavljenaLozinkaBriseSanducic(t *testing.T) {
 	}
 
 	// poništenje: uprava sektora A zna privremenu lozinku
-	_, temp, err := o.users.ResetPassword(permA, vod.ID)
+	_, temp, err := o.users.ResetPassword(permA, vod.ID, false)
 	if err != nil {
 		t.Fatal(err)
 	}

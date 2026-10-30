@@ -29,6 +29,12 @@ func NewStructureRepository(database *sql.DB, rec *ledger.Recorder) *StructureRe
 	return &StructureRepository{db: database, rec: rec}
 }
 
+// SektorPodrucja vraća sektor branjenog područja; nepostojeće područje javlja
+// kao grešku
+func (r *StructureRepository) SektorPodrucja(ctx context.Context, areaID int) (string, error) {
+	return sektorPodrucja(ctx, r.db, areaID)
+}
+
 const structureColumns = `id, code, name, kind, sector_id, area_id, watercourse_code, station_id,
 	zero_datum, zero_datum_system, capacity_text, start_cm, start_text, stop_cm, stop_text,
 	notes, origin, latitude, longitude, created_at, updated_at, station_down_id, geometry`

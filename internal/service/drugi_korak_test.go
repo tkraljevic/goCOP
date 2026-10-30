@@ -570,7 +570,7 @@ func TestPromjenaLozinkeOpozivaDrugiKorak(t *testing.T) {
 					t.Fatal(err)
 				}
 			case "poništavanje":
-				if _, _, err := o.users.ResetPassword(o.admin, o.osoba.ID); err != nil {
+				if _, _, err := o.users.ResetPassword(o.admin, o.osoba.ID, false); err != nil {
 					t.Fatal(err)
 				}
 			case "izmjena":
@@ -776,7 +776,7 @@ func TestVlastitaPromjenaAdrese(t *testing.T) {
 	}
 
 	// dok mora promijeniti lozinku, adresa se ne mijenja
-	if _, _, err := o.users.ResetPassword(o.admin, o.osoba.ID); err != nil {
+	if _, _, err := o.users.ResetPassword(o.admin, o.osoba.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	x, _ = o.repo.GetUserByID(o.osoba.ID)

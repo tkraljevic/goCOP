@@ -253,7 +253,8 @@ func (h *TerritoriesHandler) HandleGetCountiesGeoJSON(w http.ResponseWriter, r *
 		return
 	}
 	w.Header().Set("Content-Type", "application/geo+json; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=86400")
+	// nosi imena i kontakte iz registra: čuva ga samo preglednik
+	w.Header().Set("Cache-Control", "private, max-age=86400")
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && len(countiesGz) > 0 {
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Write(countiesGz)
@@ -270,7 +271,8 @@ func (h *TerritoriesHandler) HandleGetMunicipalitiesGeoJSON(w http.ResponseWrite
 		return
 	}
 	w.Header().Set("Content-Type", "application/geo+json; charset=utf-8")
-	w.Header().Set("Cache-Control", "public, max-age=86400")
+	// nosi imena i kontakte iz registra: čuva ga samo preglednik
+	w.Header().Set("Cache-Control", "private, max-age=86400")
 	if strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") && len(munisGz) > 0 {
 		w.Header().Set("Content-Encoding", "gzip")
 		w.Write(munisGz)

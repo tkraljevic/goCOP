@@ -63,13 +63,16 @@ func (s *StructureService) CanCreate(perms *models.UserPermissions) bool {
 		len(perms.AllowedSectors) > 0 || len(perms.AllowedAreas) > 0)
 }
 
-func (s *StructureService) validate(st *models.Structure) error {
+func (s *StructureService) validate(ctx context.Context, st *models.Structure) error {
 	st.Name = strings.TrimSpace(st.Name)
 	if st.Name == "" {
 		return errors.New("naziv objekta je obavezan")
 	}
-	if st.AreaID <= 0 || st.SectorID == "" {
+	if st.AreaID <= 0 {
 		return errors.New("objekt mora pripadati sektoru i branjenom području")
+	}
+	if err := s.sektorIzPodrucja(ctx, st); err != nil {
+		return err
 	}
 	known := false
 	for _, k := range models.StructureKinds {
@@ -92,8 +95,23 @@ func (s *StructureService) validate(st *models.Structure) error {
 	return nil
 }
 
+// sektorIzPodrucja upisuje objektu sektor njegova branjenog područja. Pravo
+// se priznaje i po sektoru, pa se zadani sektor koji nije sektor područja
+// odbija, a ne prihvaća.
+func (s *StructureService) sektorIzPodrucja(ctx context.Context, st *models.Structure) error {
+	sektor, err := s.repo.SektorPodrucja(ctx, st.AreaID)
+	if err != nil {
+		return err
+	}
+	if zadani := strings.TrimSpace(st.SectorID); zadani != "" && !strings.EqualFold(zadani, sektor) {
+		return fmt.Errorf("branjeno područje %d pripada sektoru %s, a za objekt je zadan sektor %s", st.AreaID, sektor, zadani)
+	}
+	st.SectorID = sektor
+	return nil
+}
+
 func (s *StructureService) Create(ctx context.Context, perms *models.UserPermissions, st *models.Structure) error {
-	if err := s.validate(st); err != nil {
+	if err := s.validate(ctx, st); err != nil {
 		return err
 	}
 	if !s.CanEdit(perms, st) {
@@ -122,7 +140,7 @@ func (s *StructureService) Update(ctx context.Context, perms *models.UserPermiss
 	if st.Origin == "" {
 		st.Origin = current.Origin
 	}
-	if err := s.validate(st); err != nil {
+	if err := s.validate(ctx, st); err != nil {
 		return err
 	}
 	// premještaj u drugo područje traži pravo i ondje; tko objekt uređuje po

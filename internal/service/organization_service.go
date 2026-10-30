@@ -271,17 +271,32 @@ func (s *OrgService) resolveAssignments(ctx context.Context, where []models.Cont
 
 // scopedAssignments pušta korisnika koji nije globalni administrator samo na
 // mjesta rada koja vodi. Postojećoj firmi mora voditi barem jedno mjesto, a
-// ona koja ne vodi dodaju se natrag da ih upis ne bi maknuo.
+// ona koja ne vodi dodaju se natrag da ih upis ne bi maknuo. Svoje mjesto
+// smije maknuti i kad ne ostavi nijedno svoje, ako firma radi i drugdje;
+// firma bez ijednog mjesta rada ne ostaje.
 func (s *OrgService) scopedAssignments(ctx context.Context, perms *models.UserPermissions, id string, clean []models.ContractorAssignment) ([]models.ContractorAssignment, error) {
-	if len(clean) == 0 {
-		return nil, fmt.Errorf("upis firme bez određenog sektora ili branjenog područja dopušten je samo globalnom administratoru")
-	}
 	if slices.ContainsFunc(clean, func(w models.ContractorAssignment) bool { return !perms.CanAdminister(w.SectorID, w.AreaID) }) {
 		return nil, fmt.Errorf("firmu možete upisati samo za sektor ili branjeno područje koje vodite")
 	}
 	if id == "" {
+		if len(clean) == 0 {
+			return nil, fmt.Errorf("upis firme bez određenog sektora ili branjenog područja dopušten je samo globalnom administratoru")
+		}
 		return clean, nil
 	}
+	clean, err := s.zadrziTudjaMjesta(ctx, perms, id, clean)
+	if err != nil {
+		return nil, err
+	}
+	if len(clean) == 0 {
+		return nil, fmt.Errorf("firma ne može ostati bez ijednog mjesta rada; ostavite barem jedno, a firmu koja ima samo jedno mjesto rada možete obrisati")
+	}
+	return clean, nil
+}
+
+// zadrziTudjaMjesta dodaje zadanim mjestima rada firme id ona koja korisnik
+// ne vodi. Firmu smije uređivati samo tko vodi barem jedno njezino mjesto.
+func (s *OrgService) zadrziTudjaMjesta(ctx context.Context, perms *models.UserPermissions, id string, clean []models.ContractorAssignment) ([]models.ContractorAssignment, error) {
 	existing, err := s.repo.GetContractor(ctx, id)
 	if err := requireFound(existing, err, "firma ne postoji"); err != nil {
 		return nil, err

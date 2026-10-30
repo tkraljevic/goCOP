@@ -56,7 +56,7 @@ func TestIstaRazinaUredjujeNePonistava(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, _, err := users.ResetPassword(perm, zamjenik.ID); !errors.Is(err, service.ErrUnauthorized) {
+	if _, _, err := users.ResetPassword(perm, zamjenik.ID, false); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("poništenje lozinke zamjeniku (ista razina): %v", err)
 	}
 	if _, _, err := o.dk.IzdajPrivremeniKod(context.Background(), perm, zamjenik.ID, false); !errors.Is(err, service.ErrUnauthorized) {
@@ -73,7 +73,7 @@ func TestIstaRazinaUredjujeNePonistava(t *testing.T) {
 	if _, err := users.UpdateUser(perm, osnovno); err != nil {
 		t.Errorf("uređivanje zamjenika (ista razina) bez lozinke: %v", err)
 	}
-	if _, _, err := users.ResetPassword(perm, vodocuvar.ID); err != nil {
+	if _, _, err := users.ResetPassword(perm, vodocuvar.ID, false); err != nil {
 		t.Errorf("poništenje lozinke vodočuvaru (niža razina): %v", err)
 	}
 }
@@ -108,7 +108,7 @@ func TestUpravaSektoraDajeOperateruLozinkuIKod(t *testing.T) {
 
 	for _, uprava := range []*models.User{rukovoditeljica, voditelj, zamjenik} {
 		p := ovlasti(uprava)
-		if _, lozinka, err := users.ResetPassword(p, operater.ID); err != nil || lozinka == "" {
+		if _, lozinka, err := users.ResetPassword(p, operater.ID, false); err != nil || lozinka == "" {
 			t.Errorf("%s: privremena lozinka operateru: %v", uprava.Username, err)
 		}
 		if kod, _, err := o.dk.IzdajPrivremeniKod(ctx, p, operater.ID, false); err != nil || kod == "" {
@@ -117,7 +117,7 @@ func TestUpravaSektoraDajeOperateruLozinkuIKod(t *testing.T) {
 	}
 	p := ovlasti(rukovoditeljica)
 	for _, ista := range []*models.User{voditelj, zamjenik} {
-		if _, _, err := users.ResetPassword(p, ista.ID); !errors.Is(err, service.ErrUnauthorized) {
+		if _, _, err := users.ResetPassword(p, ista.ID, false); !errors.Is(err, service.ErrUnauthorized) {
 			t.Errorf("poništenje lozinke upravi iste razine (%s): %v", ista.Username, err)
 		}
 		if _, _, err := o.dk.IzdajPrivremeniKod(ctx, p, ista.ID, false); !errors.Is(err, service.ErrUnauthorized) {
@@ -295,5 +295,102 @@ func TestPrivremenaUpravaOrganizacijeNeDajeZastavicu(t *testing.T) {
 	if _, err := users.CreateUser(o.admin, service.CreateUserRequest{Username: "drugi-glavni", Password: "lozinka-dg", FullName: "Drugi Glavni",
 		OrgType: models.OrgHrvatskeVode, IsGlobalAdmin: true}); err != nil {
 		t.Errorf("stalni globalni administrator: %v", err)
+	}
+}
+
+// Privremena uprava organizacije stalnoj ne poništava lozinku, ne izdaje kod,
+// ne upisuje lozinku, ne isključuje račun i ne opoziva ni skraćuje stalnu
+// dužnost razine 1; stalna uprava sve to i dalje smije, a privremena smije
+// nižim razinama
+func TestPrivremenaUpravaOrganizacijeNeDiraStalnu(t *testing.T) {
+	o, users := okolinaSektora(t)
+	ctx := context.Background()
+	istek := time.Now().Add(10 * 24 * time.Hour)
+	priv := o.racun(t, "privremeni-glavni", "lozinka-pg12", "pg@voda.hr", false, true)
+	stalniZamjenik := o.racun(t, "stalni-zamjenik", "lozinka-sz12", "sz@voda.hr", false, true)
+	vodocuvar := o.racun(t, "voda", "lozinka-voda", "voda@voda.hr", false, true)
+	for _, req := range []service.AddDutyRequest{
+		{UserID: priv.ID, Role: models.RoleNationalDeputy, IsTemporary: true, Reason: "zamjena", ExpiresAt: &istek},
+		{UserID: stalniZamjenik.ID, Role: models.RoleNationalDeputy},
+		{UserID: vodocuvar.ID, Role: models.RoleWaterGuard, AreaID: podrucjeBr(5)},
+	} {
+		if err := users.AddDuty(o.admin, req); err != nil {
+			t.Fatal(err)
+		}
+	}
+	perm, err := o.auth.PermissionsFor(priv.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duznosti, err := o.repo.GetDutiesForUser(stalniZamjenik.ID)
+	if err != nil || len(duznosti) != 1 {
+		t.Fatalf("dužnost stalnog zamjenika: %v %v", duznosti, err)
+	}
+	stalnaDuznost := duznosti[0].ID
+	stalni := procitaniRacun(t, o, o.admin.User.ID)
+	iskljuci := service.UpdateUserRequest{ID: stalni.ID, Username: stalni.Username, FullName: stalni.FullName,
+		OrgType: stalni.OrgType, Email: stalni.Email, IsActive: false, IsGlobalAdmin: true}
+	sLozinkom := iskljuci
+	sLozinkom.IsActive, sLozinkom.Password = true, "lozinka-od-privremenog"
+	skrati := service.AddDutyRequest{Role: models.RoleNationalDeputy, IsTemporary: true, Reason: "skraćeno", ExpiresAt: &istek}
+
+	odbijeno := map[string]error{
+		"poništenje lozinke stalnom administratoru":    func() error { _, _, err := users.ResetPassword(perm, stalni.ID, false); return err }(),
+		"poništenje lozinke stalnoj dužnosti razine 1": func() error { _, _, err := users.ResetPassword(perm, stalniZamjenik.ID, false); return err }(),
+		"kod za prijavu izvana stalnom administratoru": func() error { _, _, err := o.dk.IzdajPrivremeniKod(ctx, perm, stalni.ID, false); return err }(),
+		"isključenje stalnog administratora":           func() error { _, err := users.UpdateUser(perm, iskljuci); return err }(),
+		"lozinka stalnom administratoru u obrascu":     func() error { _, err := users.UpdateUser(perm, sLozinkom); return err }(),
+		"opoziv stalne dužnosti razine 1":              users.RevokeDuty(perm, stalnaDuznost, false),
+		"rok na stalnoj dužnosti razine 1":             users.UpdateDuty(perm, stalnaDuznost, skrati),
+	}
+	for radnja, err := range odbijeno {
+		if !errors.Is(err, service.ErrUnauthorized) {
+			t.Errorf("privremena uprava organizacije, %s: %v", radnja, err)
+		}
+	}
+
+	// privremena uprava i dalje upravlja nižim razinama i uređuje stalnu bez lozinke
+	if _, _, err := users.ResetPassword(perm, vodocuvar.ID, false); err != nil {
+		t.Errorf("privremena uprava, poništenje lozinke vodočuvaru: %v", err)
+	}
+	telefon := iskljuci
+	telefon.IsActive, telefon.Phone = true, "031 000 000"
+	if _, err := users.UpdateUser(perm, telefon); err != nil {
+		t.Errorf("privremena uprava, telefon stalnog administratora: %v", err)
+	}
+	naziv := service.AddDutyRequest{Role: models.RoleNationalDeputy, Title: "Zamjenik za obranu od leda"}
+	if err := users.UpdateDuty(perm, stalnaDuznost, naziv); err != nil {
+		t.Errorf("privremena uprava, naziv stalne dužnosti razine 1 bez roka: %v", err)
+	}
+	vod := procitaniRacun(t, o, vodocuvar.ID)
+	if _, err := users.UpdateUser(perm, service.UpdateUserRequest{ID: vod.ID, Username: vod.Username, FullName: vod.FullName,
+		OrgType: vod.OrgType, Email: vod.Email, IsActive: false}); err != nil {
+		t.Errorf("privremena uprava, isključenje vodočuvara: %v", err)
+	}
+	// stalna uprava organizacije smije sve to, i ona kojoj je stalna samo
+	// dužnost razine 1, bez zastavice
+	permZ, err := o.auth.PermissionsFor(stalniZamjenik.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := users.ResetPassword(permZ, o.sef.ID, false); err != nil {
+		t.Errorf("stalni zamjenik bez zastavice, poništenje lozinke stalnom administratoru: %v", err)
+	}
+	if _, _, err := o.dk.IzdajPrivremeniKod(ctx, o.admin, o.sef.ID, false); err != nil {
+		t.Errorf("stalna uprava, kod za prijavu izvana: %v", err)
+	}
+	sef := procitaniRacun(t, o, o.sef.ID)
+	if _, err := users.UpdateUser(o.admin, service.UpdateUserRequest{ID: sef.ID, Username: sef.Username, FullName: sef.FullName,
+		OrgType: sef.OrgType, Email: sef.Email, IsGlobalAdmin: true, IsActive: false, Password: "lozinka-od-stalne-uprave"}); err != nil {
+		t.Errorf("stalna uprava, isključenje i lozinka u obrascu: %v", err)
+	}
+	if _, _, err := users.ResetPassword(o.admin, stalniZamjenik.ID, false); err != nil {
+		t.Errorf("stalna uprava, poništenje lozinke: %v", err)
+	}
+	if err := users.UpdateDuty(o.admin, stalnaDuznost, skrati); err != nil {
+		t.Errorf("stalna uprava, rok na dužnosti razine 1: %v", err)
+	}
+	if err := users.RevokeDuty(o.admin, stalnaDuznost, false); err != nil {
+		t.Errorf("stalna uprava, opoziv dužnosti razine 1: %v", err)
 	}
 }

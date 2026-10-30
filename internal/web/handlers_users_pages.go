@@ -206,7 +206,7 @@ func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Reques
 		http.NotFound(w, r)
 		return
 	}
-	updated, temp, err := h.userService.ResetPassword(perms, u.ID)
+	updated, temp, err := h.userService.ResetPassword(perms, u.ID, viewBanner(r).Viewing)
 	if err != nil {
 		redirectWith(w, r, "/users/"+u.ID.String(), "error", err.Error())
 		return

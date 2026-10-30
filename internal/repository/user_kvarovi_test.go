@@ -322,3 +322,21 @@ func TestGlavnaDuznostKadSeDosadasnjeNeDajuProcitati(t *testing.T) {
 		t.Errorf("verzija dužnosti: %d, očekivana 1", v)
 	}
 }
+
+// Račun čije se dužnosti ne daju pročitati ne vraća se kao račun bez
+// dužnosti: prava se odlučuju i po njima
+func TestRacunBezProcitanihDuznostiJeGreska(t *testing.T) {
+	n := noviCvor(t, "ured")
+	repo := NewUserRepository(n.db, n.rec)
+	u := &models.User{Username: "aanic", PasswordHash: "sazetak", FullName: "Ana Anić", OrgType: models.OrgHrvatskeVode, IsActive: true}
+	if err := repo.CreateUser(u, vodocuvarDuznost(uuid.Nil, osnovaDionica)); err != nil {
+		t.Fatal(err)
+	}
+	if procitan, err := repo.GetUserByID(u.ID); err != nil || procitan == nil || len(procitan.Duties) != 1 {
+		t.Fatalf("račun s dužnošću: %+v %v", procitan, err)
+	}
+	pokvari(t, n, kvarBaze{"dužnosti se ne daju pročitati", `ALTER TABLE duties RENAME TO duties_stara`})
+	if procitan, err := repo.GetUserByID(u.ID); err == nil {
+		t.Fatalf("račun vraćen bez dužnosti: %+v", procitan)
+	}
+}

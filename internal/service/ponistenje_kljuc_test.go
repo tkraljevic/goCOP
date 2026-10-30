@@ -49,7 +49,7 @@ func TestPonistenjeIzKorisnikaUklanjaPotpisniKljuc(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, temp, err := users.ResetPassword(o.admin, o.sef.ID)
+	_, temp, err := users.ResetPassword(o.admin, o.sef.ID, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -91,7 +91,7 @@ func TestPonistenjeIzKorisnikaUklanjaPotpisniKljuc(t *testing.T) {
 	}
 
 	// bez ključa poništenje radi kao i prije
-	if _, _, err := users.ResetPassword(o.admin, o.sef.ID); err != nil {
+	if _, _, err := users.ResetPassword(o.admin, o.sef.ID, false); err != nil {
 		t.Fatalf("poništenje bez ključa: %v", err)
 	}
 }
