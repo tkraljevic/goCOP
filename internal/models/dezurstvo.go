@@ -2,6 +2,7 @@ package models
 
 import (
 	"regexp"
+	"strings"
 	"time"
 )
 
@@ -45,6 +46,12 @@ type Dezurstvo struct {
 	CreatedBy string    `json:"created_by"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+
+	// RazlogIspravka je razlog ispravka plana nakon ovjere dnevnika COP-a,
+	// kako ga uprava centra upiše u obrazac. Ne pohranjuje se i ne ide
+	// razmjenom: program ga upisuje u napomenu kao bilješku
+	// (TragIspravkaNakonOvjere).
+	RazlogIspravka string `json:"-"`
 }
 
 // Mjesto rada, kako ga obrazac razlikuje
@@ -105,6 +112,26 @@ var reTragIspravka = regexp.MustCompile(`\[opis ispravio .*?; prije: „.*?”\]
 // TragoviIspravkaOpisa su bilješke o ispravku opisa rada iz napomene, redom
 func TragoviIspravkaOpisa(napomena string) []string {
 	return reTragIspravka.FindAllString(napomena, -1)
+}
+
+// reTragNakonOvjere prepoznaje bilješku koju u napomeni ostavlja ispravak
+// plana nakon ovjere dnevnika COP-a: „[ispravak nakon ovjere: Ana Anić
+// 8.10.2026. 14:20; razlog: „…”]”
+var reTragNakonOvjere = regexp.MustCompile(`\[ispravak nakon ovjere: .*?; razlog: „.*?”\]`)
+
+// TragoviIspravkaNakonOvjere su bilješke o ispravku plana nakon ovjere
+// dnevnika COP-a iz napomene, redom
+func TragoviIspravkaNakonOvjere(napomena string) []string {
+	return reTragNakonOvjere.FindAllString(napomena, -1)
+}
+
+// TragIspravkaNakonOvjere je bilješka o ispravku plana nakon ovjere: tko,
+// kada i zašto (Odluke (30. 10. 2026.), 5). Iz razloga se izbacuju zagrade i
+// navodnici kojima bilješka počinje i završava, da je program uvijek
+// prepozna cijelu.
+func TragIspravkaNakonOvjere(tko string, kad time.Time, razlog string) string {
+	razlog = strings.Join(strings.Fields(strings.NewReplacer("[", "(", "]", ")", "„", "\"", "”", "\"").Replace(razlog)), " ")
+	return "[ispravak nakon ovjere: " + tko + " " + kad.Format("2.1.2006. 15:04") + "; razlog: „" + razlog + "”]"
 }
 
 // OpisBiraUprava javlja da opis rada ovog dežurstva bira uprava centra:

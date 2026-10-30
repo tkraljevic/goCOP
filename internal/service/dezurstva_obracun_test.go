@@ -59,13 +59,24 @@ func novaOkolinaDezurstava(t *testing.T) *okolinaDezurstava {
 	if err := repo.SaveJournal(context.Background(), j); err != nil {
 		t.Fatal(err)
 	}
+	svc := NewJournalService(repo, nil, nil)
+	svc.SetPovijestZaduzenja(duznostUSektoruOdUvijek("P"))
 	return &okolinaDezurstava{
-		baza: baza, svc: NewJournalService(repo, nil, nil), dnevnik: j,
+		baza: baza, svc: svc, dnevnik: j,
 		opseg:    models.Opseg{Sektor: "P", Podrucja: []int{1, 2}},
 		pperic:   &models.User{ID: uuid.New(), FullName: "Pero Perić"},
 		uprava:   &models.User{ID: uuid.New(), FullName: "Uprava centra"},
 		ovlUprav: &models.UserPermissions{AdminSectors: map[string]bool{"P": true}},
 		ovlPero:  &models.UserPermissions{AllowedSections: map[string]bool{"P.1.1": true}, PodrucjaDionica: map[int]bool{1: true}},
+	}
+}
+
+// duznostUSektoruOdUvijek je izvor zaduženja po kojem svaka osoba otprije
+// ima stalnu dužnost dežurnog u sektoru
+func duznostUSektoruOdUvijek(sektor string) func(uuid.UUID) ([]models.VerzijaZaduzenja, error) {
+	return func(id uuid.UUID) ([]models.VerzijaZaduzenja, error) {
+		d := models.Duty{ID: id, UserID: id, Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true}
+		return []models.VerzijaZaduzenja{{Duty: d, Od: time.Date(2020, 1, 1, 0, 0, 0, 0, models.Zagreb)}}, nil
 	}
 }
 
@@ -214,20 +225,20 @@ func TestDezurstvoPotvrdaIIzmjena(t *testing.T) {
 		t.Errorf("izmjena potvrđenog: %+v", izmjena)
 	}
 	// potvrda: ne-uprava ne smije, uprava da, druga potvrda ne mijenja ništa
-	if err := o.svc.PotvrdiDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, d.ID); err == nil {
+	if err := o.svc.PotvrdiDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, d.ID, ""); err == nil {
 		t.Error("Pero ne potvrđuje")
 	}
-	if err := o.svc.PotvrdiDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, d.ID); err != nil {
+	if err := o.svc.PotvrdiDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, d.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	prvaPotvrda, _ := o.svc.repo.GetDezurstvo(ctx, d.ID)
-	if err := o.svc.PotvrdiDezurstvo(ctx, &models.User{ID: uuid.New(), FullName: "Druga uprava"}, o.ovlUprav, o.dnevnik, d.ID); err != nil {
+	if err := o.svc.PotvrdiDezurstvo(ctx, &models.User{ID: uuid.New(), FullName: "Druga uprava"}, o.ovlUprav, o.dnevnik, d.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if ponovo, _ := o.svc.repo.GetDezurstvo(ctx, d.ID); ponovo.Potvrdio != prvaPotvrda.Potvrdio || ponovo.Potvrdio != "Uprava centra" {
 		t.Errorf("druga potvrda: %q", ponovo.Potvrdio)
 	}
-	if err := o.svc.PotvrdiDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, uuid.NewString()); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
+	if err := o.svc.PotvrdiDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, uuid.NewString(), ""); err == nil || !strings.Contains(err.Error(), "nije pronađeno") {
 		t.Errorf("potvrda nepostojećeg: %v", err)
 	}
 
@@ -267,13 +278,13 @@ func TestDezurstvoMicanje(t *testing.T) {
 		t.Fatal(err)
 	}
 	// potvrđeno svoje Pero ne miče, nepotvrđeno da
-	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, potvrdjeno.ID); err == nil {
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, potvrdjeno.ID, ""); err == nil {
 		t.Error("Pero miče potvrđeno")
 	}
-	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, svoje.ID); err != nil {
+	if err := o.svc.MakniDezurstvo(ctx, o.pperic, o.ovlPero, o.dnevnik, svoje.ID, ""); err != nil {
 		t.Fatal(err)
 	}
-	if err := o.svc.MakniDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, potvrdjeno.ID); err != nil {
+	if err := o.svc.MakniDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, potvrdjeno.ID, ""); err != nil {
 		t.Fatal(err)
 	}
 	if ostalo, _ := o.svc.Dezurstva(ctx, o.dnevnik.ID); len(ostalo) != 0 {
@@ -282,10 +293,10 @@ func TestDezurstvoMicanje(t *testing.T) {
 	if n, err := o.svc.BrojDezurstava(ctx); err != nil || n != 0 {
 		t.Errorf("broj dežurstava: %d %v", n, err)
 	}
-	if err := o.svc.MakniDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, svoje.ID); err == nil {
+	if err := o.svc.MakniDezurstvo(ctx, o.uprava, o.ovlUprav, o.dnevnik, svoje.ID, ""); err == nil {
 		t.Error("drugo micanje istog")
 	}
-	if err := o.svc.MakniDezurstvo(ctx, nil, o.ovlUprav, o.dnevnik, svoje.ID); err == nil {
+	if err := o.svc.MakniDezurstvo(ctx, nil, o.ovlUprav, o.dnevnik, svoje.ID, ""); err == nil {
 		t.Error("bez prijave")
 	}
 }

@@ -49,8 +49,17 @@ func TestPravoPisanjaUDnevnikCOPaIzDosega(t *testing.T) {
 	if len(vrste) != len(models.EntryKindsCOP) || vrste[0] != models.EntryKindReport {
 		t.Errorf("vrste u dnevniku COP-a = %v", vrste)
 	}
+	// U dnevniku usluge nalog i ocjenu piše samo nadzor, ovlaštenik za
+	// praćenje ugovora (Odluke (30. 10. 2026.), 4); ostali rad i napomenu.
 	usluga := models.OpsegPodrucja(podrucja[0])
-	if v := s.AllowedKinds(&models.User{}, vodiPodrucje(15), usluga, &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 15}); len(v) != len(models.EntryKinds) {
-		t.Errorf("vrste u dnevniku usluge = %v", v)
+	a02 := &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 15}
+	if v := s.AllowedKinds(&models.User{}, vodiPodrucje(15), usluga, a02); len(v) != 2 || v[0] != models.EntryKindWork || v[1] != models.EntryKindNote {
+		t.Errorf("vrste u dnevniku usluge bez nadzora = %v", v)
+	}
+	podrucje := 15
+	ovlastenik := models.NewUserPermissions(models.User{Duties: []models.Duty{
+		{Role: models.RoleContractOfficerA2, ScopeType: models.ScopeArea, AreaID: &podrucje, IsActive: true}}})
+	if v := s.AllowedKinds(&ovlastenik.User, ovlastenik, usluga, a02); len(v) != len(models.EntryKinds) {
+		t.Errorf("vrste u dnevniku usluge za ovlaštenika = %v", v)
 	}
 }

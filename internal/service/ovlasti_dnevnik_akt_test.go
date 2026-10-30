@@ -32,8 +32,14 @@ func TestDionicarPiseDnevnikSvogPodrucja(t *testing.T) {
 		p   *models.UserPermissions
 	}{{"rukovoditelj dionice", permD}, {"zamjenik rukovoditelja dionice", permZ}} {
 		u := &tc.p.User
-		if !js.CanWrite(tc.p, models.OpsegPodrucja(p16)) || !js.CanSupervise(u, tc.p, models.OpsegPodrucja(p16)) {
-			t.Errorf("%s B.16.1 ne piše (ili ne potvrđuje za nadzor) u dnevnik područja 16", tc.tko)
+		if !js.CanWrite(tc.p, models.OpsegPodrucja(p16)) {
+			t.Errorf("%s B.16.1 ne piše u dnevnik područja 16", tc.tko)
+		}
+		// nadzor u dnevniku usluge je ovlaštenik za praćenje ugovora
+		// (Odluke (30. 10. 2026.), 4), ne rukovoditelj dionice
+		usluga := &models.Journal{Kind: models.JournalKindMaintenanceA02, AreaID: 16}
+		if js.CanSupervise(u, tc.p, models.OpsegPodrucja(p16), usluga) {
+			t.Errorf("%s B.16.1 je nadzor u dnevniku usluge područja 16", tc.tko)
 		}
 		if js.CanWrite(tc.p, models.OpsegPodrucja(p17)) {
 			t.Errorf("%s B.16.1 piše u dnevnik područja 17", tc.tko)

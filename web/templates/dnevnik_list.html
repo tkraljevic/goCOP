@@ -12,7 +12,7 @@
   </div>
   <div class="detail-actions">
     <a href="/dnevnici/{{.Journal.ID}}/ispis?od={{.Sheet.DateKey}}&do={{.Sheet.DateKey}}" class="btn btn-secondary" target="_blank">{{icon "printer"}} Ispis lista</a>
-    {{if .CanWrite}}
+    {{if and .CanWrite (or .IsContractor .CanSupervise)}}
     <form method="POST" action="/dnevnici/{{.Journal.ID}}/listovi/{{.Sheet.ID}}/potvrdi" class="d-inline"
           onsubmit="return confirm('Potvrditi list {{.Sheet.Number}} za {{if .IsContractor}}izvođača{{else}}nadzor{{end}}?')">
       <button type="submit" class="btn btn-primary" {{if .IsContractor}}{{if .Sheet.ContractorConfirmedAt}}disabled{{end}}{{else}}{{if .Sheet.SupervisorConfirmedAt}}disabled{{end}}{{end}}>{{icon "check"}} Potvrdi list</button>
@@ -108,7 +108,7 @@
     </div>
     {{end}}
     </fieldset>
-    {{if $locked}}<p class="form-help">List je potvrđen s obje strane i više se ne mijenja.</p>{{end}}
+    {{if $locked}}<p class="form-help">List su potvrdili izvođač i nadzor, pa se više ne mijenja i upis na njemu se ne stornira. Ispravak upišite kao novi upis s napomenom, na novom listu.</p>{{end}}
   </form>
 </section>
 
@@ -144,13 +144,13 @@
         <td class="nowrap text-right">
           {{if and .IsTask (not .Voided)}}
             {{if eq .Status "OTVOREN"}}
-            <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="IZVEDEN"><button type="submit" class="btn btn-sm btn-secondary" title="Označi izvedenim">{{icon "check"}}</button></form>
+            {{if or $.IsContractor $.CanSupervise}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="IZVEDEN"><button type="submit" class="btn btn-sm btn-secondary" title="Označi izvedenim">{{icon "check"}}</button></form>{{end}}
             {{if $.CanSupervise}}<form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTKAZAN"><button type="submit" class="btn btn-sm btn-secondary" title="Otkaži nalog">{{icon "x"}}</button></form>{{end}}
             {{else if $.CanSupervise}}
             <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/stanje" class="d-inline"><input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="status" value="OTVOREN"><button type="submit" class="btn btn-sm btn-secondary" title="Ponovno otvori">{{icon "history"}}</button></form>
             {{end}}
           {{end}}
-          {{if not .Voided}}
+          {{if and (not .Voided) (not $locked)}}
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="d-inline" onsubmit="var r=prompt('Razlog storniranja upisa br. {{.Number}}:'); if(!r) return false; this.reason.value=r; return true;">
             <input type="hidden" name="sheet" value="{{$.Sheet.ID}}"><input type="hidden" name="reason" value="">
             <button type="submit" class="btn btn-sm btn-brisi" title="Storniraj upis">{{icon "trash"}}</button>

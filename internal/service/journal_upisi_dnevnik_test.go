@@ -77,11 +77,20 @@ func (p *upisiProba) zapisCOP(t *testing.T, j *models.Journal, o models.Opseg, t
 	return e
 }
 
+// ovlastenik je ovlaštenik za praćenje ugovora s ulogom uloga na području:
+// nadzor u dnevniku usluge tog programa
+func ovlastenik(podrucje int, uloga models.Role) (*models.User, *models.UserPermissions) {
+	sektor := map[int]string{15: "B", 30: "D"}[podrucje]
+	p := models.NewUserPermissions(models.User{ID: uuid.New(), FullName: "Ovlaštenik " + sektor, Duties: []models.Duty{
+		{Role: uloga, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsActive: true}}})
+	return &p.User, p
+}
+
 // nalog otvara list u dnevniku usluge i upisuje nalog kao nadzor
 func (p *upisiProba) nalog(t *testing.T, j *models.Journal, o models.Opseg) (*models.JournalSheet, *models.JournalEntry) {
 	t.Helper()
 	ctx := context.Background()
-	u, perms := sektorski(map[int]string{15: "B", 30: "D"}[j.AreaID])
+	u, perms := ovlastenik(j.AreaID, models.RoleContractOfficerA2)
 	sh, err := p.s.NewSheet(ctx, u, perms, o, j, p.pocetak, "")
 	if err != nil {
 		t.Fatal(err)
@@ -122,21 +131,22 @@ func TestStornoINalogSamoUSvomDnevniku(t *testing.T) {
 		t.Errorf("storno u svom dnevniku: %v", err)
 	}
 
+	ou, op := ovlastenik(15, models.RoleContractOfficerA2)
 	_, nalogD := p.nalog(t, p.uslugaD, p.oUD)
 	_, nalogB := p.nalog(t, p.uslugaB, p.oUB)
-	if err := p.s.SetTaskStatus(ctx, u, perms, p.oUB, p.uslugaB, nalogD.ID, models.TaskCancelled); err == nil || !strings.Contains(err.Error(), "nije pronađen u ovom dnevniku") {
+	if err := p.s.SetTaskStatus(ctx, ou, op, p.oUB, p.uslugaB, nalogD.ID, models.TaskCancelled); err == nil || !strings.Contains(err.Error(), "nije pronađen u ovom dnevniku") {
 		t.Errorf("otkazan nalog iz drugog dnevnika: %v", err)
 	}
 	if p.upis(t, nalogD.ID).Status != models.TaskOpen {
 		t.Error("nalog iz drugog dnevnika je promijenjen")
 	}
-	if err := p.s.VoidEntry(ctx, u, perms, p.oUB, p.uslugaB, nalogD.ID, "razlog"); err == nil {
+	if err := p.s.VoidEntry(ctx, ou, op, p.oUB, p.uslugaB, nalogD.ID, "razlog"); err == nil {
 		t.Error("storniran nalog iz drugog dnevnika")
 	}
-	if err := p.s.SetTaskStatus(ctx, u, perms, p.oUB, p.uslugaB, nalogB.ID, models.TaskCancelled); err != nil || p.upis(t, nalogB.ID).Status != models.TaskCancelled {
+	if err := p.s.SetTaskStatus(ctx, ou, op, p.oUB, p.uslugaB, nalogB.ID, models.TaskCancelled); err != nil || p.upis(t, nalogB.ID).Status != models.TaskCancelled {
 		t.Errorf("otkazan nalog u svom dnevniku: %v", err)
 	}
-	if err := p.s.SetTaskStatus(ctx, u, perms, p.oUB, p.uslugaB, svoj.ID, models.TaskDone); err == nil {
+	if err := p.s.SetTaskStatus(ctx, ou, op, p.oUB, p.uslugaB, svoj.ID, models.TaskDone); err == nil {
 		t.Error("stanje naloga na zapisu iz drugog dnevnika")
 	}
 }
@@ -230,7 +240,8 @@ func TestDnevnikCOPaNemaListova(t *testing.T) {
 	if err := p.s.RefreshWeather(ctx, perms, p.oUB, p.uslugaB, list); err == nil || !strings.Contains(err.Error(), "koordinata") {
 		t.Errorf("vrijeme na listu usluge bez koordinata: %v", err)
 	}
-	if err := p.s.ConfirmSheet(ctx, u, perms, p.oUB, p.uslugaB, list.ID); err != nil {
+	ou, op := ovlastenik(15, models.RoleContractOfficerA2)
+	if err := p.s.ConfirmSheet(ctx, ou, op, p.oUB, p.uslugaB, list.ID); err != nil {
 		t.Errorf("potvrda lista usluge: %v", err)
 	}
 }
@@ -240,7 +251,7 @@ func TestDnevnikCOPaNemaListova(t *testing.T) {
 func TestOvjerenDnevnikNeMijenjaNalogNiObavijest(t *testing.T) {
 	p := novaUpisiProba(t)
 	ctx := context.Background()
-	u, perms := sektorski("B")
+	u, perms := ovlastenik(15, models.RoleContractOfficerA2)
 	_, nalog := p.nalog(t, p.uslugaB, p.oUB)
 	sad := time.Now()
 	ovjerenaUsluga := *p.uslugaB
@@ -270,27 +281,5 @@ func TestOvjerenDnevnikNeMijenjaNalogNiObavijest(t *testing.T) {
 	}
 	if err := p.s.ZapisIzAkta(ctx, p.copB, obavijest()); err != nil {
 		t.Errorf("obavijest o aktu u neovjerenom dnevniku: %v", err)
-	}
-}
-
-// Naslovnicu i brisanje dnevnika usluge poruka pripisuje nadzoru, kakvo je i
-// pravilo: izvođač ih ne mijenja, a nadzor dnevnik briše.
-func TestNaslovnicuIBrisanjeUslugeRadiNadzor(t *testing.T) {
-	p := novaUpisiProba(t)
-	ctx := context.Background()
-	sektor, podrucje := "B", 15
-	izvodjac := models.User{ID: uuid.New(), FullName: "Poslovođa", Duties: []models.Duty{
-		{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeArea, SectorID: &sektor, AreaID: &podrucje, IsActive: true}}}
-	pp := models.NewUserPermissions(izvodjac)
-	if err := p.s.SaveJournal(ctx, &izvodjac, pp, models.Area{ID: podrucje, SectorID: sektor}, p.uslugaB); err == nil || !strings.Contains(err.Error(), "nadzor") {
-		t.Errorf("izvođač mijenja naslovnicu: %v", err)
-	}
-	if _, err := p.s.ObrisiDnevnik(ctx, &izvodjac, pp, p.oUB, p.uslugaB); err == nil || !strings.Contains(err.Error(), "nadzor") {
-		t.Errorf("izvođač briše dnevnik usluge: %v", err)
-	}
-	// kontrola: nadzor briše
-	u, perms := sektorski("B")
-	if _, err := p.s.ObrisiDnevnik(ctx, u, perms, p.oUB, p.uslugaB); err != nil {
-		t.Errorf("nadzor ne briše dnevnik usluge: %v", err)
 	}
 }

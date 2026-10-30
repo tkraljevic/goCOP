@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -97,6 +98,9 @@ func (s *JournalService) Dezurstva(ctx context.Context, journalID string) ([]mod
 // trajanja dnevnika: dežurstvo prije početka obrane ili poslije zaključenja
 // nije dežurstvo u ovoj obrani. Što uprava upiše potvrđeno je odmah; što
 // osoba upiše za sebe čeka potvrdu, a izmjena potvrđenog vraća ga na čekanje.
+// Tuđe dežurstvo uprava upisuje samo osobi s dužnošću u sektoru centra
+// (osobaUSektoru), a plan ovjerenog dnevnika ispravlja samo uprava, uz
+// razlog (ispravakZakljucenogPlana).
 func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, d *models.Dezurstvo) error {
 	if u == nil {
 		return errors.New("upis zahtijeva prijavu")
@@ -112,6 +116,40 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	if !uprava && !sebe {
 		return errors.New("tuđe dežurstvo upisuje voditelj ili zamjenik centra; svoje upisuje svatko tko radi u sektoru, osim izvođača")
 	}
+	trag, err := s.ispravakZakljucenogPlana(ctx, u, perms, j, d.RazlogIspravka)
+	if err != nil {
+		return err
+	}
+	if err := razmakUDnevniku(j, d); err != nil {
+		return err
+	}
+	d.Mjesto = models.MjestoZaOpis(d.Opis)
+	if d.Mjesto == "" {
+		return errors.New("odaberite opis rada s popisa")
+	}
+	if err := podrucjeDezurstva(o, d); err != nil {
+		return err
+	}
+	if err := s.osobaUSektoru(u, d, j.CentarSektor, o.Podrucja); err != nil {
+		return err
+	}
+	d.JournalID = j.ID
+	d.UserName, d.Napomena = strings.TrimSpace(d.UserName), strings.TrimSpace(d.Napomena)
+	if err := s.upisDezurstva(ctx, u, uprava, j, d); err != nil {
+		return err
+	}
+	d.Napomena = strings.TrimSpace(d.Napomena + " " + trag)
+	d.Potvrdio, d.PotvrdenoAt = "", nil
+	if potvrdiOdmah(uprava, d) {
+		now := time.Now().In(models.Zagreb)
+		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
+	}
+	return s.repo.SaveDezurstvo(ctx, d)
+}
+
+// razmakUDnevniku provjerava razmak dežurstva: kraj poslije početka, ne
+// dulje od 36 sati, i unutar trajanja dnevnika
+func razmakUDnevniku(j *models.Journal, d *models.Dezurstvo) error {
 	if !d.Do.After(d.Od) {
 		return errors.New("kraj dežurstva mora biti poslije početka")
 	}
@@ -124,35 +162,136 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	if j.EndedAt != nil && d.Do.After(j.EndedAt.AddDate(0, 0, 1)) {
 		return fmt.Errorf("dnevnik je zaključen %s: dežurstvo poslije toga ide u novi dnevnik", j.EndedAt.In(models.Zagreb).Format("2.1.2006."))
 	}
-	d.Mjesto = models.MjestoZaOpis(d.Opis)
-	if d.Mjesto == "" {
-		return errors.New("odaberite opis rada s popisa")
-	}
-	// Za koga: područje mora biti u sektoru centra; prazno je cijeli sektor.
-	if d.ZaPodrucje() {
-		uSektoru := false
-		for _, id := range o.Podrucja {
-			if id == *d.Podrucje {
-				uSektoru = true
-			}
-		}
-		if !uSektoru {
-			return errors.New("branjeno područje nije u sektoru ovog centra")
-		}
-	} else {
+	return nil
+}
+
+// podrucjeDezurstva provjerava za koga je dežurstvo: područje mora biti u
+// sektoru centra; prazno je cijeli sektor
+func podrucjeDezurstva(o models.Opseg, d *models.Dezurstvo) error {
+	if !d.ZaPodrucje() {
 		d.Podrucje = nil
+		return nil
 	}
-	d.JournalID = j.ID
-	d.UserName, d.Napomena = strings.TrimSpace(d.UserName), strings.TrimSpace(d.Napomena)
-	if err := s.upisDezurstva(ctx, u, uprava, j, d); err != nil {
+	if slices.Contains(o.Podrucja, *d.Podrucje) {
+		return nil
+	}
+	return errors.New("branjeno područje nije u sektoru ovog centra")
+}
+
+// porukaOsobaIzvanSektora kaže zašto osoba ne ulazi u plan
+const porukaOsobaIzvanSektora = "osoba na dan dežurstva nema dužnost u sektoru ovog centra: djelatnik iz drugog sektora ulazi u plan samo uz privremenu dužnost u ovom sektoru"
+
+// porukaIzvodjacUPlanu kaže zašto poslovođa izvođača ne ulazi u plan
+const porukaIzvodjacUPlanu = "poslovođa izvođača ne ulazi u plan dežurstava: plan i dnevnik COP-a vode Hrvatske vode"
+
+// osobaUSektoru provjerava da osoba kojoj se upisuje tuđe dežurstvo na dan
+// dežurstva ima dužnost u sektoru centra: svoju, ili privremenu kad je iz
+// drugog sektora (Odluke (30. 10. 2026.), 7). Dužnost se gleda kakva je bila
+// toga dana (models.ZaduzenjaZaZapis), pa ispomoć koja je u međuvremenu
+// istekla i dalje vrijedi za svoje dane. Izvođač ne ulazi u plan ni kad ga
+// upisuje uprava (Odluke (30. 10. 2026.), 2). Vlastito dežurstvo se ovdje
+// ne gleda: njega provjerava MozeSebeUPlan ili uprava centra. Bez izvora
+// dužnosti (nil) tuđe dežurstvo se ne upisuje.
+func (s *JournalService) osobaUSektoru(u *models.User, d *models.Dezurstvo, sektor string, podrucja []int) error {
+	if d.UserID == u.ID.String() {
+		return nil
+	}
+	id, err := uuid.Parse(d.UserID)
+	if err != nil || s.povijestZaduzenja == nil {
+		return errors.New(porukaOsobaIzvanSektora)
+	}
+	povijest, err := s.povijestZaduzenja(id)
+	if err != nil {
 		return err
 	}
-	d.Potvrdio, d.PotvrdenoAt = "", nil
-	if potvrdiOdmah(uprava, d) {
-		now := time.Now().In(models.Zagreb)
-		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
+	if s.izvodjacPoPovijesti(id, povijest) {
+		return errors.New(porukaIzvodjacUPlanu)
 	}
-	return s.repo.SaveDezurstvo(ctx, d)
+	for _, z := range models.ZaduzenjaZaZapis(povijest, d.Od) {
+		if duznostUSektoru(z, sektor, podrucja) {
+			return nil
+		}
+	}
+	return errors.New(porukaOsobaIzvanSektora)
+}
+
+// izvodjacPoPovijesti javlja je li osoba sada izvođač za dnevnike
+// (izvodjacZaDnevnike), po zaduženjima koja danas vrijede. Kao u
+// izvodjacZaCOP, dužnost uprave organizacije nije izvođač.
+func (s *JournalService) izvodjacPoPovijesti(id uuid.UUID, povijest []models.VerzijaZaduzenja) bool {
+	danas := models.ZaduzenjaUDanu(povijest, time.Now())
+	for _, z := range danas {
+		if z.Role.RazinaUprave() == 1 {
+			return false
+		}
+	}
+	return izvodjacZaDnevnike(&models.User{ID: id, Duties: danas}, s.imaoUlogu)
+}
+
+// duznostUSektoru javlja je li dužnost u sektoru: upisana u njemu, upisana
+// samo na branjeno područje sektora (podrucja; stariji zapis bez sektora),
+// ili dužnost uprave organizacije bez sektora, koja vrijedi svuda. Gost,
+// preglednik i izvođač ne dežuraju u centru.
+func duznostUSektoru(z models.Duty, sektor string, podrucja []int) bool {
+	if !z.Role.Writes() || z.Role == models.RoleServiceLeaderForeman {
+		return false
+	}
+	switch {
+	case z.SectorID != nil && *z.SectorID != "":
+		return *z.SectorID == sektor
+	case z.Doseg() == models.ScopeAll:
+		return true
+	}
+	return z.AreaID != nil && slices.Contains(podrucja, *z.AreaID)
+}
+
+// porukaPlanZakljucan kaže tko i kako ispravlja plan ovjerenog dnevnika
+const porukaPlanZakljucan = "plan dežurstava zaključen je ovjerom dnevnika COP-a: ispravlja ga samo voditelj ili zamjenik centra, uz razlog"
+
+// porukaIspravakTudjimOcima kaže zašto se zaključan plan ne ispravlja tuđim
+// očima
+const porukaIspravakTudjimOcima = "zaključan plan dežurstava ne ispravlja se tuđim očima: uz ispravak se zapisuje ime onoga tko ga radi; vratite se svojim očima"
+
+// ispravakZakljucenogPlana: plan dežurstava zaključava se ovjerom dnevnika
+// COP-a (Odluke (30. 10. 2026.), 5). Poslije ovjere plan ispravlja samo
+// uprava centra, uz razlog, i to svojim očima: bilješka nosi ime onoga tko
+// ispravlja. Vraća bilješku za napomenu dežurstva (tko,
+// kada, zašto), koja ostaje uz zapis i vidi se u planu, a prazno kad
+// dnevnik nije ovjeren.
+func (s *JournalService) ispravakZakljucenogPlana(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, razlog string) (string, error) {
+	if !j.Ovjeren() {
+		return "", nil
+	}
+	if !s.UpravaCentra(perms, j) {
+		return "", errors.New(porukaPlanZakljucan)
+	}
+	if gledaTudjimOcima(ctx) {
+		return "", errors.New(porukaIspravakTudjimOcima)
+	}
+	if strings.TrimSpace(razlog) == "" {
+		return "", errors.New("plan dežurstava zaključen je ovjerom dnevnika COP-a: za ispravak upišite razlog")
+	}
+	return models.TragIspravkaNakonOvjere(u.FullName, time.Now().In(models.Zagreb), razlog), nil
+}
+
+// PlanSpremanZaOvjeru provjerava da je plan dežurstava spreman za ovjeru
+// dnevnika COP-a: ovjera ga zaključava, pa sva dežurstva moraju biti
+// potvrđena, s poznatim mjestom rada (Odluke (30. 10. 2026.), 5)
+func (s *JournalService) PlanSpremanZaOvjeru(ctx context.Context, j *models.Journal) error {
+	dez, err := s.repo.ListDezurstva(ctx, j.ID)
+	if err != nil {
+		return err
+	}
+	n := 0
+	for _, d := range dez {
+		if !d.Potvrdeno() || d.ZaProvjeru() {
+			n++
+		}
+	}
+	if n > 0 {
+		return fmt.Errorf("ovjera zaključava plan dežurstava, a u njemu još ima nepotvrđenih dežurstava (%d): najprije ih potvrdite ili maknite", n)
+	}
+	return nil
 }
 
 // upisDezurstva priprema upis: izmjenu postojećeg dežurstva provjerava
@@ -212,12 +351,20 @@ func napomenaIzmjene(cur, d *models.Dezurstvo, tko string) error {
 // zaključao bi zapis: opis tada bira uprava, a osoba ga ne miče (Odluke
 // (8. 10. 2026.), pitanje 10).
 func samoPostojeciTragovi(staro, novo string) error {
-	for _, trag := range models.TragoviIspravkaOpisa(novo) {
+	for _, trag := range tragoviPrograma(novo) {
 		if !strings.Contains(staro, trag) {
-			return errors.New("bilješku o ispravku opisa („[opis ispravio …]”) upisuje program kad uprava centra ispravi opis; uklonite je iz napomene")
+			return errors.New("bilješke o ispravku („[opis ispravio …]”, „[ispravak nakon ovjere …]”) upisuje program kad uprava centra ispravi plan; uklonite ih iz napomene")
 		}
 	}
 	return nil
+}
+
+// tragoviPrograma su bilješke koje u napomenu dežurstva upisuje samo
+// program: o ispravku opisa rada i o ispravku plana nakon ovjere. Izmjena
+// napomene ih ne briše (zadrziTragIspravka), a rukom se ne upisuju
+// (samoPostojeciTragovi).
+func tragoviPrograma(napomena string) []string {
+	return append(models.TragoviIspravkaOpisa(napomena), models.TragoviIspravkaNakonOvjere(napomena)...)
 }
 
 // izmjenaBezUprave: bez uprave centra osoba mijenja samo svoje dežurstvo, i
@@ -238,7 +385,7 @@ func izmjenaBezUprave(u *models.User, cur, d *models.Dezurstvo) error {
 // zadrziTragIspravka vraća novu napomenu uz tragove ispravka opisa iz stare
 // koje nova nema: izmjena napomene ne briše tko je i kada ispravio opis
 func zadrziTragIspravka(staro, novo string) string {
-	for _, trag := range models.TragoviIspravkaOpisa(staro) {
+	for _, trag := range tragoviPrograma(staro) {
 		if !strings.Contains(novo, trag) {
 			novo = strings.TrimSpace(novo + " " + trag)
 		}
@@ -251,9 +398,13 @@ func zadrziTragIspravka(staro, novo string) string {
 // ispravi opis: potvrdom bi ušlo u obračun kao ured ili teren nasumce.
 // Mjesto izvedeno iz opisa potvrdom se zapisuje, pa potvrđeni sati ne ovise
 // o popisu opisa ni o tome kako ga čita čvor sa starijim programom.
-func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id string) error {
+func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, razlog string) error {
 	if u == nil || !s.UpravaCentra(perms, j) {
 		return errors.New("dežurstvo potvrđuje voditelj ili zamjenik centra")
+	}
+	trag, err := s.ispravakZakljucenogPlana(ctx, u, perms, j, razlog)
+	if err != nil {
+		return err
 	}
 	d, err := s.repo.GetDezurstvo(ctx, id)
 	if err != nil {
@@ -270,6 +421,7 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 	}
 	now := time.Now().In(models.Zagreb)
 	d.Potvrdio, d.PotvrdenoAt, d.Mjesto = u.FullName, &now, d.MjestoRada()
+	d.Napomena = strings.TrimSpace(d.Napomena + " " + trag)
 	return s.repo.SaveDezurstvo(ctx, d)
 }
 
@@ -281,9 +433,13 @@ func (s *JournalService) PotvrdiDezurstvo(ctx context.Context, u *models.User, p
 // Promijenjeno je false kad dežurstvo već ima taj opis i mjesto rada —
 // zapisano ili izvedeno iz opisa (stariji zapis, zapis s drugog čvora):
 // tada se ništa ne sprema, a potvrda ostaje.
-func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis string) (promijenjeno bool, err error) {
+func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, opis, razlog string) (promijenjeno bool, err error) {
 	if u == nil || !s.UpravaCentra(perms, j) {
 		return false, errors.New("opis rada ispravlja voditelj ili zamjenik centra")
+	}
+	trag, err := s.ispravakZakljucenogPlana(ctx, u, perms, j, razlog)
+	if err != nil {
+		return false, err
 	}
 	mjesto := models.MjestoZaOpis(opis)
 	if mjesto == "" {
@@ -299,10 +455,22 @@ func (s *JournalService) IspraviOpisDezurstva(ctx context.Context, u *models.Use
 	if d.Opis == opis && d.MjestoRada() == mjesto {
 		return false, nil
 	}
-	d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(d.Opis, u.FullName, time.Now().In(models.Zagreb)))
+	d.Napomena = strings.TrimSpace(d.Napomena + " " + tragIspravkaOpisa(d.Opis, u.FullName, time.Now().In(models.Zagreb)) + " " + trag)
 	d.Opis, d.Mjesto = opis, mjesto
-	d.Potvrdio, d.PotvrdenoAt = "", nil
+	potvrdaIspravka(d, u, trag != "")
 	return true, s.repo.SaveDezurstvo(ctx, d)
+}
+
+// potvrdaIspravka: dežurstvo s ispravljenim opisom uprava potvrđuje kao i
+// svako drugo, pa se potvrda povlači. Plan ovjerenog dnevnika je zaključan
+// i ispravlja ga samo uprava, uz razlog: taj je ispravak ujedno i potvrda,
+// da dežurstvo ostane u obračunu.
+func potvrdaIspravka(d *models.Dezurstvo, u *models.User, nakonOvjere bool) {
+	d.Potvrdio, d.PotvrdenoAt = "", nil
+	if nakonOvjere {
+		now := time.Now().In(models.Zagreb)
+		d.Potvrdio, d.PotvrdenoAt = u.FullName, &now
+	}
 }
 
 // tragIspravkaOpisa je bilješka o ispravku opisa rada: tko, kada i što je
@@ -317,9 +485,13 @@ func tragIspravkaOpisa(prije, tko string, kad time.Time) string {
 // MakniDezurstvo miče dežurstvo iz plana; u knjizi verzija ostaje trag.
 // Svoje nepotvrđeno miče svatko, osim kad mu opis rada bira uprava centra;
 // ostalo uprava centra.
-func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id string) error {
+func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, perms *models.UserPermissions, j *models.Journal, id, razlog string) error {
 	if u == nil || j == nil {
 		return errors.New("upis zahtijeva prijavu")
+	}
+	trag, err := s.ispravakZakljucenogPlana(ctx, u, perms, j, razlog)
+	if err != nil {
+		return err
 	}
 	d, err := s.repo.GetDezurstvo(ctx, id)
 	if err != nil {
@@ -333,6 +505,8 @@ func (s *JournalService) MakniDezurstvo(ctx context.Context, u *models.User, per
 			return err
 		}
 	}
+	// razlog micanja nakon ovjere ostaje u arhiviranoj verziji u knjizi
+	d.Napomena = strings.TrimSpace(d.Napomena + " " + trag)
 	return s.repo.ArhivirajDezurstvo(ctx, d)
 }
 

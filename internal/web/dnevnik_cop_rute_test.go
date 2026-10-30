@@ -40,7 +40,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	}
 	defer baza.Close()
 	for _, q := range []string{
-		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek')`,
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('B', 'Sektor B', 'VGO Osijek', 'COP Osijek'), ('D', 'Sektor D', 'VGO Drugo', 'COP Drugo')`,
 		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (15, 'B', 'Vuka', 'VGI Vuka', 'Osijek')`,
 	} {
 		if _, err := baza.Exec(q); err != nil {
@@ -52,6 +52,7 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(baza)), service.NewSSEBroker())
 	journalRepo := repository.NewJournalRepository(baza, rec)
 	journals := service.NewJournalService(journalRepo, nil, nil)
+	journals.SetPovijestZaduzenja(users.PovijestZaduzenja)
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -225,9 +226,23 @@ func TestDnevnikCOPKrozRute(t *testing.T) {
 	// Plan dežurstava: uprava upiše dežurnog, plan se vidi na dnevniku, a
 	// obračun iz njega računa sate. Subota 12.9.2026. 19:00 – nedjelja 07:00
 	// u COP-u (ured): subota 3 h dnevna i 2 noćna, nedjelja 6 h noćnih i 1 dnevni.
+	sektorB, prije := "B", time.Date(2026, 1, 1, 0, 0, 0, 0, models.Zagreb)
 	dezurni := &models.User{ID: uuid.New(), Username: "ana", FullName: "Ana Anić", PasswordHash: "x", IsActive: true}
-	if err := userRepo.CreateUser(dezurni, nil); err != nil {
+	if err := userRepo.CreateUser(dezurni, &models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorB, IsActive: true, CreatedAt: prije}); err != nil {
 		t.Fatal(err)
+	}
+	// osoba bez dužnosti u sektoru centra ne ulazi u plan (Odluke
+	// (30. 10. 2026.), 7)
+	sektorD := "D"
+	izDrugog := &models.User{ID: uuid.New(), Username: "iva", FullName: "Iva Ivić", PasswordHash: "x", IsActive: true}
+	if err := userRepo.CreateUser(izDrugog, &models.Duty{Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorD, IsActive: true, CreatedAt: prije}); err != nil {
+		t.Fatal(err)
+	}
+	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
+		"user_id": {izDrugog.ID.String()}, "opis": {"Dežurstvo u COP-u"},
+		"od_date": {"2026-09-12"}, "od_time": {"07:00"}, "do_time": {"19:00"}})
+	if l := w.Header().Get("Location"); !strings.Contains(l, "error=") || !strings.Contains(l, "privremenu") {
+		t.Errorf("osoba iz drugog sektora ušla je u plan: %s", l)
 	}
 	w = zovi(http.MethodPost, "/dnevnici/"+dnevnik+"/dezurstva", url.Values{
 		"user_id": {dezurni.ID.String()}, "opis": {"Dežurstvo u COP-u"}, "podrucje": {"15"},
