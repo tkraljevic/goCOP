@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	_ "image/jpeg"
@@ -24,6 +25,7 @@ import (
 	"gocop/internal/pdfw"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
+	"gocop/internal/slike"
 )
 
 // AktService sastavlja, čuva i ovjerava akte o stupnju obrane. Akt se
@@ -1068,6 +1070,9 @@ func pdfSkena(datoteka []byte, naslov string) ([]byte, error) {
 		return datoteka, nil
 	}
 	pdf, err := pdfw.PDFIzSlike(datoteka, naslov)
+	if errors.Is(err, slike.ErrPrevelikaSlika) {
+		return nil, fmt.Errorf("sken je prevelik (previše točaka); skenirajte ga s 300 dpi ili ga spremite kao PDF ili JPEG")
+	}
 	if err != nil {
 		return nil, fmt.Errorf("sken mora biti PDF")
 	}
@@ -1298,9 +1303,9 @@ func (s *AktService) SpremiZig(ctx context.Context, perms *models.UserPermission
 	if len(slika) > models.ZigMaxBytes {
 		return fmt.Errorf("slika žiga je prevelika (najviše 2 MB); smanjite razlučivost skena")
 	}
-	cfg, format, err := image.DecodeConfig(bytes.NewReader(slika))
-	if err != nil || (format != "png" && format != "jpeg") {
-		return fmt.Errorf("žig mora biti slika PNG ili JPEG")
+	cfg, format, err := mjereSkena(slika, "žig", "žiga")
+	if err != nil {
+		return err
 	}
 	if cfg.Width < 100 || cfg.Height < 100 {
 		return fmt.Errorf("slika žiga je premala (%d×%d); skenirajte s najmanje 300 dpi", cfg.Width, cfg.Height)
@@ -1310,6 +1315,29 @@ func (s *AktService) SpremiZig(ctx context.Context, perms *models.UserPermission
 		uredio = u.FullName
 	}
 	return s.repo.SaveZig(ctx, &models.Zig{Sektor: sektor, Mime: "image/" + format, Slika: slika, Uredio: uredio})
+}
+
+// najviseTocakaOtiska je najveći PNG žiga ili potpisa, u točkama. PNG se
+// pri svakom PDF-u s otiskom raspakira cijeli, a žig ili potpis skeniran
+// s 600 dpi ima oko milijun točaka. JPEG se u PDF stavlja kakav jest.
+const najviseTocakaOtiska = 4_000_000
+
+// mjereSkena čita mjere i vrstu skena žiga ili potpisa iz zaglavlja slike i
+// odbija sliku s previše točaka prije nego što se spremi
+func mjereSkena(slika []byte, sto, cega string) (image.Config, string, error) {
+	cfg, format, err := slike.Velicina(slika)
+	if errors.Is(err, slike.ErrPrevelikaSlika) || (err == nil && prevelikOtisak(cfg, format)) {
+		return cfg, format, fmt.Errorf("slika %s ima previše točaka (%d×%d, najviše 4 milijuna); izrežite je na sam %s ili je skenirajte s 300 dpi", cega, cfg.Width, cfg.Height, sto)
+	}
+	if err != nil || (format != "png" && format != "jpeg") {
+		return cfg, format, fmt.Errorf("%s mora biti slika PNG ili JPEG", sto)
+	}
+	return cfg, format, nil
+}
+
+// prevelikOtisak kaže je li PNG žiga ili potpisa veći od najviseTocakaOtiska
+func prevelikOtisak(cfg image.Config, format string) bool {
+	return format == "png" && int64(cfg.Width)*int64(cfg.Height) > najviseTocakaOtiska
 }
 
 // ObrisiZig briše žig sektora; smije uprava sektora
@@ -1365,9 +1393,9 @@ func (s *AktService) SpremiPotpisSliku(ctx context.Context, u *models.User, slik
 	if len(slika) > 1<<20 {
 		return fmt.Errorf("slika potpisa je prevelika (najviše 1 MB); izrežite je na sam potpis")
 	}
-	cfg, format, err := image.DecodeConfig(bytes.NewReader(slika))
-	if err != nil || (format != "png" && format != "jpeg") {
-		return fmt.Errorf("potpis mora biti slika PNG ili JPEG")
+	cfg, format, err := mjereSkena(slika, "potpis", "potpisa")
+	if err != nil {
+		return err
 	}
 	if cfg.Width < 120 || cfg.Height < 40 {
 		return fmt.Errorf("slika potpisa je premala (%d×%d); skenirajte s najmanje 300 dpi", cfg.Width, cfg.Height)

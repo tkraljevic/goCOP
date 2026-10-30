@@ -296,10 +296,12 @@ func (h *PrijaveHandler) HandleSpremi(w http.ResponseWriter, r *http.Request) {
 			if len(podaci) == 0 {
 				continue
 			}
-			if p, err = s.DodajSliku(r.Context(), u, p.ID, fh.Filename, podaci); err != nil {
+			sa, err := s.DodajSliku(r.Context(), u, p.ID, fh.Filename, podaci)
+			if err != nil {
 				redirectWith(w, r, "/prijave/"+p.ID, "error", "Nacrt je spremljen, ali fotografija "+fh.Filename+" nije: "+err.Error())
 				return
 			}
+			p = sa
 			dodano++
 		}
 	}

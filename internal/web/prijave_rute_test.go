@@ -199,6 +199,33 @@ func TestPrijaveSTerenaKrozRute(t *testing.T) {
 	if p == nil || p.Status != models.PrijavaNacrt || len(p.Slike) != 2 || p.Slike[0].Sirina != 1000 || p.Slike[0].Visina != 750 || p.Slike[0].Bajtova > 300<<10 || !p.ImaKoordinate() || p.AreaID != 34 {
 		t.Fatalf("nacrt: %+v", p)
 	}
+	// fotografija koja u zaglavlju ima previše točaka ne prilaže se nacrtu
+	tijelo.Reset()
+	mw = multipart.NewWriter(&tijelo)
+	for k, v := range map[string]string{"id": id, "vrsta": "PRIJAVA", "naslov": "Oštećena rampa na dravskom nasipu", "opis": "Rampa na st. 25+500 je odrezana brava; prolaz vozila slobodan.", "datum": danas,
+		"vodotok": "Drava", "dionica": "B.34.1", "stacionaza": "25+500", "lat": "45.6512", "lon": "18.7734", "element": "nasip", "vaznost": "HRVATSKE VODE – JVD"} {
+		if err := mw.WriteField(k, v); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fw, err := mw.CreateFormFile("slike", "golema.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fw.Write(pngSMjerama(t, 50000, 50000)); err != nil {
+		t.Fatal(err)
+	}
+	if err := mw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r = httptest.NewRequest(http.MethodPost, "/prijave", &tijelo)
+	r.Header.Set("Content-Type", mw.FormDataContentType())
+	if l := loc(zovi(ivic, r)); !strings.Contains(l, "error") || !strings.Contains(l, "golema.png nije: slika je prevelika (previše točaka)") {
+		t.Errorf("fotografija s previše točaka: %s", l)
+	}
+	if p, err = prijave.Get(ctx, kao(ivic), id); err != nil || p == nil || len(p.Slike) != 2 {
+		t.Fatalf("nacrt nakon odbijene fotografije: %v %+v", err, p)
+	}
 	if s := get(ivic, "/prijave/"+id).Body.String(); !strings.Contains(s, "Oštećena rampa") || !strings.Contains(s, "Objavi i potpiši") || strings.Count(s, "/slika/") < 2 || !strings.Contains(s, "karta-letve") {
 		t.Error("stranica nacrta")
 	}

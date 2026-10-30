@@ -21,6 +21,8 @@ import (
 	"sync"
 	"unicode/utf8"
 
+	"gocop/internal/slike"
+
 	"golang.org/x/image/font"
 	"golang.org/x/image/font/gofont/gobold"
 	"golang.org/x/image/font/gofont/goregular"
@@ -280,8 +282,22 @@ func (d *Doc) TekstBoja(x, y, size float64, bold bool, s string, c Boja) {
 }
 
 // SlikaPNG smješta PNG sliku; x i y od vrha su gornji lijevi kut. Prozirnost
-// se stapa s bijelom, jer akt ide na papir.
+// se stapa s bijelom, jer akt ide na papir. Slika kojoj bi za čitanje i za
+// tri bajta boje po točki trebalo više od slike.NajviseMemorije se ne
+// smješta.
 func (d *Doc) SlikaPNG(podaci []byte, x, y, w, h float64) error {
+	cfg, format, bajtova, err := slike.Memorija(podaci)
+	if err != nil {
+		return err
+	}
+	if format != "png" {
+		return fmt.Errorf("slika nije PNG, nego %s", format)
+	}
+	if bajtova+3*int64(cfg.Width)*int64(cfg.Height) > slike.NajviseMemorije {
+		return slike.ErrPrevelikaSlika
+	}
+	oslobodi := slike.Zauzmi()
+	defer oslobodi()
 	img, err := png.Decode(bytes.NewReader(podaci))
 	if err != nil {
 		return err
