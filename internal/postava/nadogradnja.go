@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"gocop/internal/izdanje"
+	"gocop/internal/trajno"
 )
 
 const (
@@ -75,6 +76,7 @@ func (u Ugradnja) Pripremi(ctx context.Context, iz Izdanje) (string, error) {
 	if err := zamijeni(dio, cilj); err != nil {
 		return "", err
 	}
+	trajno.SpustiMapu(filepath.Dir(cilj))
 	return cilj, u.provjeriIzdanje(ctx, cilj, iz.Verzija.String())
 }
 
@@ -94,8 +96,9 @@ func (u Ugradnja) potpisaniZbrojevi(ctx context.Context, iz Izdanje) (zbrojevi, 
 	return z.Bytes(), p.Bytes(), nil
 }
 
-// preuzmiProvjereno preuzima datoteku izdanja u put i uspoređuje njezin
-// SHA-256 s potpisanim; kad ne valja, datoteke nema
+// preuzmiProvjereno preuzima datoteku izdanja u put, spušta je na disk i
+// uspoređuje njezin SHA-256 s potpisanim; kad ne valja, datoteke nema.
+// Datoteka se spušta i kad preuzimanje ne uspije, jer se tada ionako briše.
 func (u Ugradnja) preuzmiProvjereno(ctx context.Context, url, put, zbroj string) error {
 	f, err := os.OpenFile(put, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o755)
 	if err != nil {
@@ -103,7 +106,7 @@ func (u Ugradnja) preuzmiProvjereno(ctx context.Context, url, put, zbroj string)
 	}
 	h := sha256.New()
 	err = u.Izdanja.preuzmi(ctx, url, najveciProgram, io.MultiWriter(f, h))
-	if cerr := f.Close(); err == nil {
+	if cerr := trajno.SpustiIZatvori(f); err == nil {
 		err = cerr
 	}
 	if err == nil && hex.EncodeToString(h.Sum(nil)) != zbroj {
@@ -161,7 +164,7 @@ func (u Ugradnja) PripremiIzMape(ctx context.Context, mapa string) (string, izda
 	}
 	h := sha256.New()
 	_, err = io.Copy(io.MultiWriter(f, h), io.LimitReader(izvor, najveciProgram))
-	if cerr := f.Close(); err == nil {
+	if cerr := trajno.SpustiIZatvori(f); err == nil {
 		err = cerr
 	}
 	if err == nil && hex.EncodeToString(h.Sum(nil)) != zbroj {
@@ -174,6 +177,7 @@ func (u Ugradnja) PripremiIzMape(ctx context.Context, mapa string) (string, izda
 	if err := zamijeni(dio, cilj); err != nil {
 		return "", izdanje.Verzija{}, err
 	}
+	trajno.SpustiMapu(filepath.Dir(cilj))
 	izd, err := IzdanjeDatoteke(ctx, cilj)
 	if err != nil {
 		return "", izdanje.Verzija{}, err
@@ -334,14 +338,14 @@ func kopiraj(iz, u string) error {
 		os.Remove(u + ".dio")
 		return err
 	}
-	if err := dst.Sync(); err != nil {
+	if err := trajno.SpustiDatoteku(dst); err != nil {
 		dst.Close()
 		return err
 	}
 	if err := dst.Close(); err != nil {
 		return err
 	}
-	return os.Rename(u+".dio", u)
+	return trajno.Preimenuj(u+".dio", u)
 }
 
 // pocisti ostavlja n najnovijih kopija (s pripadnim -wal)

@@ -22,6 +22,8 @@ import (
 	"path/filepath"
 	"sort"
 	"time"
+
+	"gocop/internal/trajno"
 )
 
 // ImeKataloga je datoteka koja u mapi izdanja kaže što je izdano.
@@ -331,7 +333,7 @@ func ZapisiSaStrane(put string, sadrzaj []byte) error {
 	}
 	_, err = f.Write(sadrzaj)
 	if err == nil {
-		err = f.Sync()
+		err = trajno.SpustiDatoteku(f)
 	}
 	if errZ := f.Close(); err == nil {
 		err = errZ
@@ -340,18 +342,9 @@ func ZapisiSaStrane(put string, sadrzaj []byte) error {
 		err = os.Rename(privremeno, put)
 	}
 	if err == nil {
-		spustiMapu(filepath.Dir(put))
+		trajno.SpustiMapu(filepath.Dir(put))
 	}
 	return err
-}
-
-// spustiMapu spušta mapu na disk, da novo ime datoteke u njoj preživi
-// nestanak struje. Windows mapu ne da spustiti, pa se greška ne javlja.
-func spustiMapu(mapa string) {
-	if d, err := os.Open(mapa); err == nil {
-		_ = d.Sync()  // Windows mapu ne da spustiti, a datoteka je već na disku
-		_ = d.Close() // mapa je otvorena samo za čitanje
-	}
 }
 
 func zapisiKatalog(mapa string, k Katalog) error {
