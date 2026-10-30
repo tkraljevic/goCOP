@@ -961,7 +961,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 func opisMreze(net *peers.Network) string {
 	switch {
 	case net == nil:
-		return "Čvor još nije ni u jednoj mreži — osnujte je u Postavkama ili neka vas primi nositelj ključa mreže ili ovlašteni primatelj"
+		return "Čvor još nije ni u jednoj mreži — osnujte je na stranici Ovo računalo i mreža ili neka vas primi nositelj ključa mreže ili ovlašteni primatelj"
 	case net.DrziKljuc:
 		return fmt.Sprintf("Mreža %q — ovaj čvor drži ključ mreže i može primati članove", net.Name)
 	case net.CanAdmit:

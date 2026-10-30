@@ -3,14 +3,17 @@ package web
 // Raspored ulazne stranice Administracije (Odluke (30. 10. 2026.), 1 i 2):
 // kartice stoje u šest skupina, iznad njih su Prvi koraci dok ustroj nije
 // gotov, a uz karticu piše vrijedi li ono što se na njoj mijenja samo na ovom
-// računalu, u cijeloj mreži ili oboje. Kartica se ne prikazuje onome tko
+// računalu, u cijeloj mreži ili dio ovdje, a dio u mreži. Kartica se ne prikazuje onome tko
 // njezinu stranicu ne smije otvoriti, a skupina bez ijedne vidljive kartice
 // se ne prikazuje.
 
 import (
 	"context"
 	"database/sql"
+	"errors"
+	"log"
 
+	"gocop/internal/mletva"
 	"gocop/internal/models"
 )
 
@@ -22,7 +25,7 @@ type DosegKartice string
 const (
 	DosegRacunalo DosegKartice = "ovo računalo"
 	DosegMreza    DosegKartice = "cijela mreža"
-	DosegOboje    DosegKartice = "oboje"
+	DosegOboje    DosegKartice = "dio ovdje, dio u mreži"
 )
 
 // Opis je objašnjenje oznake, za natpis uz nju
@@ -57,9 +60,10 @@ func uzModul(modul string) func(pravaKartice) bool {
 }
 
 // upraviSektora: žig mijenja uprava sektora na stranici sektora, a kartica
-// je vodi na njezin sektor (Odluke (30. 10. 2026.), 4)
+// je vodi na njezin sektor (Odluke (30. 10. 2026.), 4). Stranica sektora je
+// pod modulom Registri, pa bez njega kartica vodi na 403.
 func upraviSektora(p pravaKartice) bool {
-	return p.admin() || p.perms != nil && len(p.perms.AdminSectors) > 0
+	return p.admin() || p.perms != nil && len(p.perms.AdminSectors) > 0 && p.moduli.Sees(models.ModuleRegisters)
 }
 
 // dezurnomIliAdministratoru: Postavke prognoze otvara onaj tko prognozu
@@ -101,7 +105,8 @@ var karticeAdministracije = []karticaAdministracije{
 	{"telemetrija", skupinaVodostaji, DosegRacunalo, samoAdministrator},
 	{"izvori", skupinaVodostaji, DosegRacunalo, samoAdministrator},
 	{"unos", skupinaVodostaji, "", samoAdministrator},
-	{"prognoza", skupinaVodostaji, "", dezurnomIliAdministratoru},
+	// način prikaza je u Opcijama, istom zapisu u knjizi kao kartica Opcije
+	{"prognoza", skupinaVodostaji, DosegMreza, dezurnomIliAdministratoru},
 
 	{"posta", skupinaAkti, DosegOboje, samoAdministrator},
 	{"zig", skupinaAkti, DosegMreza, upraviSektora},
@@ -140,10 +145,11 @@ type KorakUstroja struct {
 	Zna, Gotov         bool
 }
 
-// stanjeUstroja je ono što je za Prve korake pročitano iz postojećih podataka
+// stanjeUstroja je ono što je za Prve korake pročitano iz postojećih
+// podataka; nil kad se ne zna: izvora nema, čitanje nije uspjelo ili korak
+// ovom računalu ne treba
 type stanjeUstroja struct {
-	nazivi, sektori, djelatnici, uparen bool
-	telemetrija, posta                  *bool // nil kad se ne da utvrditi
+	nazivi, sektori, djelatnici, uparen, telemetrija, posta *bool
 }
 
 // poznato vraća (zna, gotov) za stavku čija se gotovost možda ne da utvrditi
@@ -157,17 +163,19 @@ func poznato(b *bool) (bool, bool) {
 // prviKoraci su koraci redom kojim se postavlja novi čvor (analiza
 // administracije, skupina 0; Uvozi podataka po Odlukama (30. 10. 2026.), 2)
 func prviKoraci(s stanjeUstroja) []KorakUstroja {
-	telZna, tel := poznato(s.telemetrija)
-	postaZna, posta := poznato(s.posta)
+	korak := func(naslov, href, opis string, b *bool) KorakUstroja {
+		zna, gotov := poznato(b)
+		return KorakUstroja{Naslov: naslov, Href: href, Opis: opis, Zna: zna, Gotov: gotov}
+	}
 	return []KorakUstroja{
-		{Naslov: "Nazivi", Href: "/administracija/nazivi", Opis: "Naziv organizacije, znak i riječi za razine ustroja. Kvačica stoji kad su barem jednom spremljeni.", Zna: true, Gotov: s.nazivi},
-		{Naslov: "Administrativna organizacija", Href: "/organizacija", Opis: "Sektori s centrima obrane i branjena područja.", Zna: true, Gotov: s.sektori},
-		{Naslov: "Djelatnici ili uvoz imenika", Href: "/users", Opis: "Računi za ljude koji rade u programu, upisani rukom ili uvezeni iz imenika.", Zna: true, Gotov: s.djelatnici},
-		{Naslov: "Uvozi podataka", Href: "/administracija/uvozi", Opis: "Registri, imenik, ugovori i tablice vodostaja iz ranijih evidencija. Treba samo prvom računalu u mreži."},
-		{Naslov: "Uloge ovog računala", Href: "/settings#uloge", Opis: "Preuzima li ovo računalo vodostaje s izvora i izdaje li prognozu."},
-		{Naslov: "Telemetrija", Href: "/administracija/telemetrija", Opis: "Računi za HydroView i mobilnu stranicu Hrvatskih voda.", Zna: telZna, Gotov: tel},
-		{Naslov: "E-pošta", Href: "/administracija/posta", Opis: "Poslužitelj preko kojeg se šalju akti i PIN za prijavu izvana.", Zna: postaZna, Gotov: posta},
-		{Naslov: "Uparivanje", Href: "/uparivanje", Opis: "Drugo računalo u istoj mreži, da podaci imaju gdje ići razmjenom.", Zna: true, Gotov: s.uparen},
+		korak("Nazivi", "/administracija/nazivi", "Naziv organizacije, znak i riječi za razine ustroja. Kvačica stoji kad su nazivi ili nazivi sudionika obrane barem jednom spremljeni.", s.nazivi),
+		korak("Administrativna organizacija", "/organizacija", "Sektori s centrima obrane i branjena područja.", s.sektori),
+		korak("Djelatnici ili uvoz imenika", "/users", "Računi za ljude koji rade u programu, upisani rukom ili uvezeni iz imenika.", s.djelatnici),
+		korak("Uvozi podataka", "/administracija/uvozi", "Registri, imenik, ugovori i tablice vodostaja iz ranijih evidencija. Treba samo prvom računalu u mreži.", nil),
+		korak("Uloge ovog čvora", "/settings#uloge", "Preuzima li ovo računalo vodostaje s izvora i izdaje li prognozu.", nil),
+		korak("Telemetrija", "/administracija/telemetrija", "Računi za HydroView i mobilnu stranicu Hrvatskih voda. Trebaju samo računalu koje preuzima vodostaje s izvora.", s.telemetrija),
+		korak("E-pošta", "/administracija/posta", "Poslužitelj preko kojeg se šalju akti i PIN za prijavu izvana.", s.posta),
+		korak("Uparivanje", "/settings#uparivanje", "Drugo računalo uparite s ovim, da podaci imaju kamo ići razmjenom. Kvačica stoji kad ovo računalo zna barem jedno drugo.", s.uparen),
 	}
 }
 
@@ -192,34 +200,74 @@ func ukljucenihTestnih(o models.Opcije) int {
 	return n
 }
 
+var errBezBaze = errors.New("baza nije otvorena")
+
 // imaRacunTelemetrije javlja je li na ovom računalu upisan barem jedan račun
-// telemetrije (HydroView ili račun sustava)
-func imaRacunTelemetrije(ctx context.Context, db *sql.DB) bool {
+// telemetrije: HydroView ili račun za mobilnu stranicu Hrvatskih voda. U
+// istoj tablici je i račun koji šalje PIN, a on se ne broji.
+func imaRacunTelemetrije(ctx context.Context, db *sql.DB) (bool, error) {
 	if db == nil {
-		return false
+		return false, errBezBaze
 	}
 	var ima bool
-	err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM racuni_sustava) OR EXISTS(SELECT 1 FROM hidroview_racuni)`).Scan(&ima)
-	return err == nil && ima
+	err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM racuni_sustava WHERE sustav = ?) OR EXISTS(SELECT 1 FROM hidroview_racuni)`,
+		mletva.Podrijetlo).Scan(&ima)
+	return ima, err
 }
 
 // izvoriStanja su podaci izvan servisa ulazne stranice; svaki smije biti nil
 type izvoriStanja struct {
-	opcije      func(context.Context) models.Opcije
-	telemetrija func(context.Context) bool
-	posta       func(context.Context) bool
+	opcije             func(context.Context) models.Opcije
+	telemetrija, posta func(context.Context) (bool, error)
 }
 
 // SetIzvoriStanja spaja ulaznu stranicu s opcijama, telemetrijom i e-poštom
-func (h *AdminHandler) SetIzvoriStanja(opcije func(context.Context) models.Opcije, telemetrija, posta func(context.Context) bool) {
+func (h *AdminHandler) SetIzvoriStanja(opcije func(context.Context) models.Opcije, telemetrija, posta func(context.Context) (bool, error)) {
 	h.izvori = izvoriStanja{opcije: opcije, telemetrija: telemetrija, posta: posta}
 }
 
-// izvorStanja vraća vrijednost izvora; nil kad izvora nema
-func izvorStanja(ctx context.Context, f func(context.Context) bool) *bool {
+// izvorStanja vraća vrijednost izvora; nil kad izvora nema ili se nije dao
+// pročitati
+func izvorStanja(ctx context.Context, naziv string, f func(context.Context) (bool, error)) *bool {
 	if f == nil {
 		return nil
 	}
-	v := f(ctx)
+	v, err := f(ctx)
+	return procitano(naziv, v, err)
+}
+
+// procitano je vrijednost za Prve korake; kad čitanje nije uspjelo, korak
+// ostaje bez kvačice i ne drži popis otvorenim, a greška ide u dnevnik
+func procitano(naziv string, v bool, err error) *bool {
+	if err != nil {
+		log.Printf("administracija: za Prve korake se ne zna stanje (%s): %v", naziv, err)
+		return nil
+	}
 	return &v
+}
+
+// greskeUstroja su čitanja ulazne stranice koja nisu uspjela, za Prve korake
+type greskeUstroja struct{ sektori, racuni, razmjena error }
+
+// stanjeUstroja čita ono po čemu se vidi koji su Prvi koraci gotovi.
+// Telemetrija se gleda samo na računalu koje preuzima vodostaje s izvora;
+// ostalima računi ne trebaju.
+func (h *AdminHandler) stanjeUstroja(ctx context.Context, data *AdminPageData, g greskeUstroja) stanjeUstroja {
+	t, err := h.org.Terms(ctx)
+	s := stanjeUstroja{
+		nazivi:     procitano("nazivi", err == nil && !t.UpdatedAt.IsZero(), err),
+		sektori:    procitano("sektori", data.Sectors > 0, g.sektori),
+		djelatnici: procitano("računi", data.Djelatnika > 0, g.racuni),
+		uparen:     procitano("razmjena", data.SyncTotal > 0, g.razmjena),
+		posta:      izvorStanja(ctx, "e-pošta", h.izvori.posta),
+	}
+	if h.preuzimaVodostaje() {
+		s.telemetrija = izvorStanja(ctx, "telemetrija", h.izvori.telemetrija)
+	}
+	return s
+}
+
+// preuzimaVodostaje: ovo računalo ima ulogu „Preuzima vodostaje s izvora”
+func (h *AdminHandler) preuzimaVodostaje() bool {
+	return h.peers == nil || h.peers.TrenutneUloge().Preuzima
 }

@@ -14,7 +14,7 @@
   </div>
   {{if .Permissions.IsGlobalAdmin}}
   <div class="detail-actions">
-    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Sinkroniziraj sa svima</button>
+    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Razmijeni sa svima</button>
     <button type="button" class="btn btn-secondary" onclick="refresh(true)">{{icon "search"}} Pretraži lokalnu mrežu</button>
   </div>
   {{end}}
@@ -53,7 +53,14 @@
 {{range $.Dohvatljivost.Izlazi}}<p>{{.}}</p>{{end}}
 {{if not .Greska}}<p>Adrese za WEB sync: {{range $i, $k := $.Dohvatljivost.Kandidati}}{{if $i}}, {{end}}<span class="mono">{{$k}}</span>{{else}}nijedna{{end}}</p>{{end}}
 {{with .Razlozi}}<p class="muted">Nisu ponuđene: {{range $i, $r := .}}{{if $i}}; {{end}}{{$r}}{{end}}</p>{{end}}
-{{else}}<p class="muted">Provjere još nije bilo. Pokreće se sama pri pokretanju uz uključenu prijavu za WEB sync, ili gumbom Provjeri vezu u odjeljku <a href="/settings#web-sync">WEB sync i dohvatljivost</a> na stranici Ovo računalo i mreža.</p>
+{{else}}<p class="muted">Provjere još nije bilo. Pokreće se sama pri pokretanju uz uključenu prijavu za WEB sync, ili gumbom Provjeri vezu ispod. Prijava za WEB sync uključuje se na stranici <a href="/settings#web-sync">Ovo računalo i mreža</a>.</p>
+{{end}}
+{{with $.ProvjeraVeze}}
+<div id="provjera-veze">
+  <p class="muted">Gumb Provjeri vezu pita STUN poslužitelje kojom javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program za to kratko otvori UDP utičnicu i odmah je zatvori.</p>
+  {{if .Nudi}}<form method="POST" action="/settings/provjeri-vezu" class="actions"><button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu</button></form>
+  {{else if .Zabrana}}<p class="muted">{{.Zabrana}}</p>{{end}}
+</div>
 {{end}}
 </section>
 {{end}}
@@ -61,7 +68,7 @@
 {{with .ProvjeraRacunala}}
 <section id="provjera-racunala">
 <h2 class="mt-4" style="font-size:1rem;">Provjera veze s računalom</h2>
-<p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu. Traje do 10 sekundi.</p>
+<p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu iznad. Traje do 10 sekundi.</p>
 {{if .Racunala}}
 {{if .Nudi}}<form method="POST" action="/sinkronizacija/provjeri-vezu" class="actions">
   <select name="cvor" aria-label="Računalo">{{range .Racunala}}<option value="{{.NodeID}}"{{if eq .NodeID $.ProvjeraRacunala.Odabrano}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
@@ -152,6 +159,11 @@ function uloge(s) {
   const l = naziv.filter(([u]) => ima.includes(u)).map(([, n]) => n);
   return l.length ? '<br><span class="muted">' + l.join(', ') + '</span>' : '';
 }
+// upariPoveznica vodi administratora na uparivanje s adresom tog računala
+// (Ovo računalo i mreža upiše je u polje); ostali je ne dobiju
+function upariPoveznica(f) {
+  return IS_ADMIN && f.addr ? ' · <a href="/settings?upari=' + encodeURIComponent(f.addr) + '#uparivanje">Upari</a>' : '';
+}
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
 
 function render(st) {
@@ -189,7 +201,7 @@ function render(st) {
 
   if (st.lan) {
     $('lan').innerHTML = '<h2 style="font-size:1rem;">Lokalna mreža sada</h2>' + (st.lan.length
-      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno'}</div>`).join('')
+      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno' + upariPoveznica(f)}</div>`).join('')
       : '<div class="muted">Nijedno goCOP računalo ne javlja se u lokalnoj mreži.</div>');
   }
   $('stamp').textContent = 'Stanje od ' + new Date(st.generated_at).toLocaleTimeString('hr-HR');
@@ -203,7 +215,7 @@ async function syncAll() {
   const b = $('sync-all'); b.disabled = true; b.textContent = 'Razmjena u tijeku…';
   try { const r = await api('/api/sync/all', {}); render(r.status); }
   catch (e) { alert(e.message); }
-  b.disabled = false; b.innerHTML = 'Sinkroniziraj sa svima';
+  b.disabled = false; b.textContent = 'Razmijeni sa svima';
 }
 async function syncOne(node) {
   try { await api('/api/peers/' + encodeURIComponent(node) + '/sync', {}); } catch (e) { alert(e.message); }

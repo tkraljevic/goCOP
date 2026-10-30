@@ -75,16 +75,6 @@
 </div>
 {{end}}
 
-{{define "provjeraVeze"}}{{with .}}
-<div id="provjera-veze" class="mt-3">
-  <h3>Provjera veze</h3>
-  <p class="form-help">Pita STUN poslužitelje kojom javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program za to kratko otvori UDP utičnicu i odmah je zatvori.</p>
-  {{with .Zadnja}}<p class="form-help">Zadnja provjera {{vrijemeHR .Kad}}: {{.Sazetak}}{{if .Privremena}} Utičnica je bila otvorena samo za ovu provjeru.{{end}}{{with .Upozorenje}} {{.}}.{{end}} Pojedinosti su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>{{end}}
-  {{if .Nudi}}<form method="POST" action="/settings/provjeri-vezu"><div class="actions"><button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu</button></div></form>
-  {{else if .Zabrana}}<p class="form-help">{{.Zabrana}}</p>{{end}}
-</div>
-{{end}}{{end}}
-
 {{define "webSyncNakonPadova"}}{{with .}}
 <div id="web-sync-padovi" class="mt-3">
   <h3>WEB sync nakon padova</h3>

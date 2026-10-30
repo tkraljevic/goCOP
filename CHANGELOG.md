@@ -7,15 +7,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 ## 0.0.47-alfa — u pripremi
 
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
-  Dvadeset kartica stajalo je u jednoj mreži, bez reda, a nijedna nije
+  Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.
-  Sad su u šest skupina, s Testnim prekidačima na dnu i brojem uključenih,
-  a uz karticu piše „ovo računalo”, „cijela mreža” ili „oboje”. Tko stranicu
-  ne smije otvoriti, ne vidi ni karticu. Dok ustroj nije gotov, administrator
-  iznad skupina vidi Prve korake s kvačicama, a u njima i Uvoze podataka.
-  /settings se zove „Ovo računalo i mreža” i ima svoj odjeljak za WEB sync,
-  a /sinkronizacija „Stanje razmjene”; razmjena rukom i pretraga lokalne
-  mreže su samo ondje (Odluke (30. 10. 2026.)).
+  Sad su u šest skupina, s Testnim prekidačima na dnu, a uz karticu piše
+  gdje vrijedi. Dok ustroj nije gotov, administrator iznad skupina vidi
+  Prve korake s kvačicama. Stranica Čvor, mreža i sinkronizacija sad se
+  zove „Ovo računalo i mreža” i ima svoj odjeljak za WEB sync, a
+  Sinkronizacija se zove „Stanje razmjene”. Ručna razmjena, pretraga
+  lokalne mreže i provjera veze su samo ondje (Odluke (30. 10. 2026.)).
 - **Žig centra je na stranici sektora, a Djelatnici imaju svoju stavku u
   izborniku.** Uprava sektora nije mogla promijeniti svoj žig, jer je bio u
   Administraciji, koju zadano ne vidi. Sad je na stranici sektora, pod

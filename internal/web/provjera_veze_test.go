@@ -1,9 +1,8 @@
 package web
 
 // Provjera veze (provjera_veze.go): gumb samo administratoru izravno iz
-// lokalne mreže, sažetak u kartici bez ijedne adrese, pojedinosti s
-// javnom adresom i kandidatima samo u bloku Dohvatljivost, i upozorenje
-// kad WEB sync u spremniku nema lan_adresa.
+// lokalne mreže, u bloku Dohvatljivost s javnom adresom i kandidatima, i
+// upozorenje kad WEB sync u spremniku nema lan_adresa.
 
 import (
 	"context"
@@ -68,36 +67,39 @@ func TestSazetakProvjere(t *testing.T) {
 	}
 }
 
-// Kartica Ovaj čvor: gumb samo administratoru lokalno, a izvana razlog;
-// zadnji ishod je sažetak bez ijedne adrese, s napomenom za privremenu
-// utičnicu. Bez provjere u programu kartica nema bloka.
-func TestProvjeraVezeUKartici(t *testing.T) {
+// Gumb Provjeri vezu je u bloku Dohvatljivost na Stanju razmjene (Odluke
+// (30. 10. 2026.), 3): samo administratoru lokalno, a izvana razlog. Bez
+// provjere u programu gumba nema.
+func TestProvjeraVezeNaStanjuRazmjene(t *testing.T) {
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, nil)
-	if html := iscrtajPostavke(t, s, "/settings", kaoAdmin); strings.Contains(html, `id="provjera-veze"`) {
-		t.Error("blok provjere bez provjere u programu")
+	tmpl := predlozakStranice(t, "sinkronizacija.html")
+	iscrtaj := func(u uvjetiZahtjeva) string {
+		t.Helper()
+		h := &SyncHandler{dohvatljivost: s.dohvatljivost, gumbProvjere: s.gumbProvjereVeze}
+		r := zahtjevPostavki(http.MethodGet, "/sinkronizacija", nil, u)
+		data := SyncPageData{CurrentUser: adminIvic, Permissions: u.perms}
+		h.dodajDohvatljivost(r, &data)
+		var b strings.Builder
+		if err := tmpl.ExecuteTemplate(&b, "sinkronizacija.html", data); err != nil {
+			t.Fatal(err)
+		}
+		return b.String()
+	}
+	if html := iscrtaj(kaoAdmin); strings.Contains(html, `id="provjera-veze"`) {
+		t.Error("gumb bez provjere u programu")
 	}
 	l := &lazniProvjeravatelj{ishod: ishodProvjere()}
 	l.postavi(s)
-	html := iscrtajPostavke(t, s, "/settings", kaoAdmin)
-	if !strings.Contains(html, `id="provjera-veze"`) || !strings.Contains(html, `action="/settings/provjeri-vezu"`) || strings.Contains(html, "Zadnja provjera") {
-		t.Error("administrator: nema gumba ili ima ishod prije provjere")
+	html := iscrtaj(kaoAdmin)
+	if !strings.Contains(html, `id="provjera-veze"`) || !strings.Contains(html, `action="/settings/provjeri-vezu"`) {
+		t.Error("administrator: nema gumba Provjeri vezu")
 	}
-	l.ishod.Privremena, l.ishod.Upozorenje = true, "UDP port 4713 se ne da otvoriti (zauzet), pa je uzet nasumičan"
-	l.zadnja = &l.ishod
-	html = iscrtajPostavke(t, s, "/settings", kaoAdmin)
-	blok := html[strings.Index(html, `id="provjera-veze"`):]
-	blok = blok[:strings.Index(blok, "</div>")]
-	for _, mora := range []string{"Zadnja provjera", "NAT je lak i čuva port", "samo za ovu provjeru", "zauzet", "/sinkronizacija#dohvatljivost"} {
-		if !strings.Contains(blok, mora) {
-			t.Errorf("kartica: nema %q u %s", mora, blok)
-		}
-	}
-	if m := reAdresa.FindString(blok); m != "" {
-		t.Errorf("u kartici je adresa %q", m)
+	if i, j := strings.Index(html, `id="dohvatljivost"`), strings.Index(html, `id="provjera-veze"`); i < 0 || j < i {
+		t.Error("gumb nije u bloku Dohvatljivost")
 	}
 	izvana := kaoAdmin
 	izvana.adresa = adresaIzvana
-	if html := iscrtajPostavke(t, s, "/settings", izvana); strings.Contains(html, `action="/settings/provjeri-vezu"`) || !strings.Contains(html, zabranaIzvana.provjera) {
+	if html := iscrtaj(izvana); strings.Contains(html, `action="/settings/provjeri-vezu"`) || !strings.Contains(html, zabranaIzvana.provjera) {
 		t.Error("izvana: gumb ili bez razloga")
 	}
 }
@@ -122,7 +124,7 @@ func TestHandleProvjeriVezu(t *testing.T) {
 	}
 	w := salji(kaoAdmin)
 	lok := w.Header().Get("Location")
-	if w.Code != http.StatusSeeOther || !strings.Contains(lok, "success=") || !strings.HasSuffix(lok, "#provjera-veze") || l.puta != 1 || reAdresa.MatchString(lok) {
+	if w.Code != http.StatusSeeOther || !strings.Contains(lok, "success=") || !strings.HasPrefix(lok, "/sinkronizacija?") || !strings.HasSuffix(lok, "#dohvatljivost") || l.puta != 1 || reAdresa.MatchString(lok) {
 		t.Errorf("uspjeh: %d %q, mjerenja %d", w.Code, lok, l.puta)
 	}
 	l.ishod = ProvjeraVeze{Greska: "Provjera mreže je isključena (stun = [] u gocop.toml)."}
@@ -140,7 +142,7 @@ func TestDohvatljivostNaSinkronizaciji(t *testing.T) {
 	iscrtaj := func(admin bool) string {
 		h := &SyncHandler{dohvatljivost: s.dohvatljivost}
 		data := SyncPageData{CurrentUser: adminIvic, Permissions: &models.UserPermissions{IsGlobalAdmin: admin}}
-		h.dodajDohvatljivost(data.Permissions, &data)
+		h.dodajDohvatljivost(httptest.NewRequest(http.MethodGet, "/sinkronizacija", nil), &data)
 		var b strings.Builder
 		if err := tmpl.ExecuteTemplate(&b, "sinkronizacija.html", data); err != nil {
 			t.Fatal(err)
@@ -164,8 +166,8 @@ func TestDohvatljivostNaSinkronizaciji(t *testing.T) {
 		t.Error("blok vidi korisnik koji nije administrator")
 	}
 	// poslužitelj bez bloka (stari testovi, SyncHandler bez dohvatljivosti)
-	var data SyncPageData
-	(&SyncHandler{}).dodajDohvatljivost(&models.UserPermissions{IsGlobalAdmin: true}, &data)
+	data := SyncPageData{Permissions: &models.UserPermissions{IsGlobalAdmin: true}}
+	(&SyncHandler{}).dodajDohvatljivost(httptest.NewRequest(http.MethodGet, "/sinkronizacija", nil), &data)
 	if data.Dohvatljivost != nil {
 		t.Error("blok bez izvora")
 	}

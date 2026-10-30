@@ -10,7 +10,7 @@
 <div class="page-header">
   <div>
     <h1 class="page-title">{{icon "radio-tower"}} Ovo računalo i mreža</h1>
-    <p class="page-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Svako računalo je punopravna kopija; nijedno nije jedino. S kim se razmjenjuje i ručna razmjena su na stranici <a href="/sinkronizacija">Stanje razmjene</a>.</p>
+    <p class="page-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Svako računalo je punopravna kopija; nijedno nije jedino. Ručna razmjena, provjera veze i stanje veze s drugim računalima su na stranici <a href="/sinkronizacija">Stanje razmjene</a>.</p>
   </div>
 </div>
 
@@ -35,8 +35,8 @@
   {{with .Postavke}}
   <div class="card">
     <h2 id="web-sync">WEB sync i dohvatljivost</h2>
-    <p class="desc">WEB sync je izravna razmjena između računala iza kućnog ili uredskog usmjerivača. Ovdje se uključuje i provjerava, a vrijedi samo za ovo računalo. Pojedinosti zadnje provjere su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>
-    {{template "postavkeCvora" (.Dio "websync")}}{{template "webSyncNakonPadova" .WebSync}}{{template "provjeraVeze" .Provjera}}
+    <p class="desc">WEB sync je izravna razmjena između računala iza kućnog ili uredskog usmjerivača. Ovdje se uključuje, a vrijedi samo za ovo računalo. Gumb Provjeri vezu i ishod zadnje provjere su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>
+    {{template "postavkeCvora" (.Dio "websync")}}{{template "webSyncNakonPadova" .WebSync}}
   </div>
   {{end}}
 
@@ -188,7 +188,7 @@
   {{if .Permissions.IsGlobalAdmin}}
   <div class="card wide" id="uparivanje">
     <h2>Uparivanje</h2>
-    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga se sinkroniziraju bez nadzora.</p>
+    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga sami razmjenjuju podatke.</p>
     <div id="pair-box">
       <div class="actions">
         <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj drugi čvor</button>
@@ -212,7 +212,7 @@
   <div class="card wide">
     <h2>Poznati čvorovi</h2>
     <p class="desc">Računala s kojima ovo razmjenjuje. Adresa se mijenja, ključ ne. Računala s domenom označena su kao stalno izložena.
-      Razmjena sa svima ili s jednim računalom i pretraga lokalne mreže su na stranici <a href="/sinkronizacija" id="poveznica-stanje-razmjene">Stanje razmjene</a>.</p>
+      Gumbi Razmijeni sa svima, Razmijeni i Pretraži lokalnu mrežu su na stranici <a href="/sinkronizacija" id="poveznica-stanje-razmjene">Stanje razmjene</a>.</p>
     <div id="peer-list">
       {{range .Peers}}
       <div class="peer" id="peer-{{.NodeID}}">
@@ -236,7 +236,7 @@
         {{end}}
       </div>
       {{else}}
-      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Uparite prvi gore, pod Uparivanje; računala u lokalnoj mreži pokazuje <a href="/sinkronizacija">Stanje razmjene</a>.{{else}}Čvorove dodaje administrator.{{end}}</p>
+      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Prvo računalo uparite gore, pod Uparivanje. Koja se računala javljaju u lokalnoj mreži, pokazuje <a href="/sinkronizacija">Stanje razmjene</a>.{{else}}Čvorove dodaje administrator.{{end}}</p>
       {{end}}
     </div>
   </div>
@@ -429,6 +429,11 @@ async function forgetPeer(node, name) {
   try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {}); location.reload(); }
   catch (e) { alert(e.message); }
 }
+
+// adresa s popisa Lokalna mreža sada na Stanju razmjene (?upari=…): upiše
+// se u polje, a nazove se tek gumbom Nazovi čvor
+const upari = new URLSearchParams(location.search).get('upari');
+if (upari && document.getElementById('pair-addr')) { document.getElementById('pair-addr').value = upari; }
 
 api('/api/peers/pair/status').then(showPairStatus).catch(() => {});
 </script>

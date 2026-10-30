@@ -151,7 +151,7 @@ var opisNaStranici = map[string]string{
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
-		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu. Vrijedi od idućeg pokretanja.",
+		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu na stranici Stanje razmjene. Vrijedi od idućeg pokretanja.",
 	"povezivost.web_sync": "Uključeno: kad je uključena i prijava, računala iza kućnog ili uredskog usmjerivača razmjenjuju i izravno, WEB syncom. " +
 		"Isključeno: razmjena ide kao prije, a računalo na poziv WEB synca odgovara da ga nema.",
 }
@@ -315,7 +315,6 @@ type PostavkeStranice struct {
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
 	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Ovo računalo i mreža
 	WebSync     *WebSyncPrikaz           // samo na stranici Ovo računalo i mreža, kad je WEB sync isključen nakon padova
-	Provjera    *ProvjeraVezePrikaz      // samo na stranici Ovo računalo i mreža, kad program nudi provjeru veze
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -528,7 +527,6 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
 		out.WebSync = s.prikazWebSynca(sl.zabrana)
-		out.Provjera = s.prikazProvjereVeze(sl.zabrana)
 	}
 	return out
 }

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"gocop/internal/ledger"
+	"gocop/internal/mletva"
 	"gocop/internal/models"
 	"gocop/internal/peers"
 	"gocop/internal/razmjena"
@@ -131,7 +132,7 @@ func TestDosegKartica(t *testing.T) {
 		"telemetrija": DosegRacunalo, "izvori": DosegRacunalo, "pretplate": DosegRacunalo,
 		"nazivi": DosegMreza, "organizacija": DosegMreza, "opcije": DosegMreza, "zig": DosegMreza,
 		"racunalo": DosegOboje, "karte": DosegOboje, "posta": DosegOboje, "baza": DosegOboje,
-		"razmjena": "", "unos": "", "prognoza": "",
+		"prognoza": DosegMreza, "razmjena": "", "unos": "",
 	} {
 		if doseg[kljuc] != zeli {
 			t.Errorf("%s: %q, a treba %q", kljuc, doseg[kljuc], zeli)
@@ -144,6 +145,12 @@ func TestDosegKartica(t *testing.T) {
 	}
 	if DosegKartice("").Opis() != "" {
 		t.Error("prazna oznaka ima objašnjenje")
+	}
+	// Postavke prognoze i Opcije spremaju isti zapis (models.Opcije), pa
+	// moraju imati istu oznaku; da taj zapis ide razmjenom, provjerava
+	// TestSpremanjeJedneStraniceOpcijaCuvaDrugu
+	if doseg["prognoza"] != doseg["opcije"] {
+		t.Errorf("Postavke prognoze %q, Opcije %q", doseg["prognoza"], doseg["opcije"])
 	}
 }
 
@@ -184,8 +191,13 @@ func TestAdministracijaKarticePratePrava(t *testing.T) {
 		t.Errorf("dežurni u skupini vodostaja:\n%s", v)
 	}
 	uprava := &models.UserPermissions{User: models.User{FullName: "Petra Pavić"}, AdminSectors: map[string]bool{"P": true}}
-	if a := skupinaNaStranici(o.prikazi(t, uprava, samoModulAdm), "skupina-akti"); !strings.Contains(a, `href="/administracija/zig"`) || strings.Count(a, `class="dash-card"`) != 1 {
+	sRegistrima := models.Visibility{models.ModuleAdmin: true, models.ModuleRegisters: true}
+	if a := skupinaNaStranici(o.prikazi(t, uprava, sRegistrima), "skupina-akti"); !strings.Contains(a, `href="/administracija/zig"`) || strings.Count(a, `class="dash-card"`) != 1 {
 		t.Errorf("uprava sektora u skupini akata:\n%s", a)
+	}
+	// stranica sektora je pod Registrima: bez njih kartica bi vodila na 403
+	if html := o.prikazi(t, uprava, samoModulAdm); strings.Contains(html, `href="/administracija/zig"`) || strings.Contains(html, `id="skupina-akti"`) {
+		t.Error("uprava sektora bez modula Registri vidi karticu žiga")
 	}
 }
 
@@ -196,20 +208,23 @@ func TestPrviKoraciDokUstrojNijeGotov(t *testing.T) {
 	o := novaOkolinaAdministracije(t)
 	ctx := context.Background()
 	telemetrija, posta := false, false
-	o.h.SetIzvoriStanja(nil, func(context.Context) bool { return telemetrija }, func(context.Context) bool { return posta })
+	o.h.SetIzvoriStanja(nil, func(context.Context) (bool, error) { return telemetrija, nil }, func(context.Context) (bool, error) { return posta, nil })
+	if err := o.peers.PostaviUloge(ctx, peers.Uloge{Preuzima: true}); err != nil {
+		t.Fatal(err)
+	}
 
 	koraci := skupinaNaStranici(o.prikazi(t, administrator, nil), "prvi-koraci")
 	if strings.Count(koraci, `<li class="dash-korak`) != 8 || strings.Contains(koraci, "dash-korak gotov") {
 		t.Fatalf("svjež čvor, Prvi koraci:\n%s", koraci)
 	}
 	for _, href := range []string{"/administracija/nazivi", "/organizacija", "/users", "/administracija/uvozi", "/settings#uloge",
-		"/administracija/telemetrija", "/administracija/posta", "/uparivanje"} {
+		"/administracija/telemetrija", "/administracija/posta", "/settings#uparivanje"} {
 		if !strings.Contains(koraci, `href="`+href+`"`) {
 			t.Errorf("Prvi koraci nemaju %s", href)
 		}
 	}
-	if strings.Count(koraci, "bez-provjere") != 2 {
-		t.Error("Uvozi i Uloge moraju stajati bez okvira")
+	if strings.Count(koraci, "bez-provjere") != 2 || strings.Count(koraci, "pogledajte sami</span>") != 2 {
+		t.Error("Uvozi i Uloge moraju stajati bez kvačice, uz „pogledajte sami”")
 	}
 
 	// nazivi spremljeni: kvačica samo uz njih
@@ -264,7 +279,8 @@ func TestPrviKoraciDokUstrojNijeGotov(t *testing.T) {
 
 // Stavka čiji se izvor ne zna ostaje bez kvačice i ne drži popis otvorenim.
 func TestPrviKoraciBezIzvora(t *testing.T) {
-	k := prviKoraci(stanjeUstroja{nazivi: true, sektori: true, djelatnici: true, uparen: true})
+	da, ne := true, false
+	k := prviKoraci(stanjeUstroja{nazivi: &da, sektori: &da, djelatnici: &da, uparen: &da})
 	if !ustrojGotov(k) {
 		t.Error("bez izvora telemetrije i e-pošte popis ostaje otvoren")
 	}
@@ -273,12 +289,90 @@ func TestPrviKoraciBezIzvora(t *testing.T) {
 			t.Errorf("%s: zna %v, gotov %v", x.Naslov, x.Zna, x.Gotov)
 		}
 	}
-	ne := false
-	if ustrojGotov(prviKoraci(stanjeUstroja{nazivi: true, sektori: true, djelatnici: true, uparen: true, posta: &ne})) {
+	if ustrojGotov(prviKoraci(stanjeUstroja{nazivi: &da, sektori: &da, djelatnici: &da, uparen: &da, posta: &ne})) {
 		t.Error("neupisana e-pošta, a ustroj je gotov")
 	}
-	if izvorStanja(context.Background(), nil) != nil {
+	if izvorStanja(context.Background(), "nešto", nil) != nil {
 		t.Error("izvor bez funkcije nije nil")
+	}
+	if izvorStanja(context.Background(), "nešto", func(context.Context) (bool, error) { return true, errBezBaze }) != nil {
+		t.Error("izvor koji se nije dao pročitati nije nil")
+	}
+}
+
+// Računalo koje ne preuzima vodostaje s izvora ne treba račune telemetrije
+// (stranica Telemetrija to i kaže), pa ga korak Telemetrija ne drži u Prvim
+// koracima. Kad uloga stoji, isti nedostatak drži popis otvorenim.
+func TestPrviKoraciNaRacunaluKojeNePreuzima(t *testing.T) {
+	o := novaOkolinaAdministracije(t)
+	ctx := context.Background()
+	o.h.SetIzvoriStanja(nil, func(context.Context) (bool, error) { return false, nil }, func(context.Context) (bool, error) { return true, nil })
+	gotovUstroj(t, o)
+
+	html := o.prikazi(t, administrator, nil)
+	if strings.Contains(html, `id="prvi-koraci"`) {
+		t.Errorf("računalo ne preuzima vodostaje, a Telemetrija drži Prve korake:\n%s", skupinaNaStranici(html, "prvi-koraci"))
+	}
+	if err := o.peers.PostaviUloge(ctx, peers.Uloge{Preuzima: true}); err != nil {
+		t.Fatal(err)
+	}
+	koraci := skupinaNaStranici(o.prikazi(t, administrator, nil), "prvi-koraci")
+	if !strings.Contains(koraci, `href="/administracija/telemetrija"`) || !strings.Contains(koraci, "Trebaju samo računalu koje preuzima vodostaje") {
+		t.Errorf("računalo preuzima vodostaje bez računa telemetrije:\n%s", koraci)
+	}
+}
+
+// gotovUstroj upiše sve što Prvi koraci provjeravaju, osim telemetrije i
+// e-pošte: nazive, sektor, djelatnika i upareno računalo
+func gotovUstroj(t *testing.T, o *okolinaAdministracije) {
+	t.Helper()
+	ctx := context.Background()
+	if err := o.org.SaveTerms(ctx, models.DefaultTerms()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := o.baza.Exec(`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := o.korisnci.CreateUser(&models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}, nil); err != nil {
+		t.Fatal(err)
+	}
+	kljuc, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.peers.SavePeer(ctx, peers.Peer{NodeID: "laptop-baranja", Name: "Laptop Baranja", PublicKey: razmjena.PublicKeyString(kljuc)}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// Kad se baza ne da pročitati, Prvi koraci se ne vrate na postavljenom
+// računalu: nepročitano nije isto što i nenapravljeno.
+func TestPrviKoraciKadCitanjeNeUspije(t *testing.T) {
+	o := novaOkolinaAdministracije(t)
+	ctx := context.Background()
+	kljuc, _, err := ed25519.GenerateKey(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := o.peers.SavePeer(ctx, peers.Peer{NodeID: "laptop-baranja", Name: "Laptop Baranja", PublicKey: razmjena.PublicKeyString(kljuc)}); err != nil {
+		t.Fatal(err)
+	}
+	krnja := bazaUpita(t) // baza bez tablica: ni sektori, ni računi, ni nazivi
+	orgRepo, userRepo := repository.NewOrgRepository(krnja, ledger.New(krnja, "cop-osijek")), repository.NewUserRepository(krnja, ledger.New(krnja, "cop-osijek"))
+	users := service.NewUserService(userRepo, service.NewAuthService(userRepo, repository.NewSessionRepository(krnja)), service.NewSSEBroker())
+	o.h = NewAdminHandler(service.NewOrgService(orgRepo, service.NewSSEBroker()), users, o.peers, predlozakStranice(t, "administracija.html"), nil)
+	o.h.SetIzvoriStanja(nil, func(ctx context.Context) (bool, error) { return imaRacunTelemetrije(ctx, krnja) }, nil)
+	if err := o.peers.PostaviUloge(ctx, peers.Uloge{Preuzima: true}); err != nil {
+		t.Fatal(err)
+	}
+	if html := o.prikazi(t, administrator, nil); strings.Contains(html, `id="prvi-koraci"`) {
+		t.Errorf("greška čitanja vratila je Prve korake:\n%s", skupinaNaStranici(html, "prvi-koraci"))
+	}
+	s := o.h.stanjeUstroja(ctx, &AdminPageData{}, greskeUstroja{sektori: errBezBaze, racuni: errBezBaze, razmjena: errBezBaze})
+	for ime, b := range map[string]*bool{"nazivi": s.nazivi, "sektori": s.sektori, "djelatnici": s.djelatnici, "uparen": s.uparen, "telemetrija": s.telemetrija} {
+		if b != nil {
+			t.Errorf("%s: %v, a čitanje nije uspjelo", ime, *b)
+		}
 	}
 }
 
@@ -295,27 +389,52 @@ func TestUkljucenihTestnih(t *testing.T) {
 
 func TestImaRacunTelemetrije(t *testing.T) {
 	ctx := context.Background()
-	if imaRacunTelemetrije(ctx, nil) {
-		t.Error("bez baze ima račun")
+	if _, err := imaRacunTelemetrije(ctx, nil); err == nil {
+		t.Error("bez baze nema greške")
 	}
 	_, baza := cvorIBazaZaWeb(t, "cop-osijek")
-	if imaRacunTelemetrije(ctx, baza) {
+	ima := func() bool {
+		t.Helper()
+		v, err := imaRacunTelemetrije(ctx, baza)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	if ima() {
 		t.Error("prazna baza ima račun")
+	}
+	// račun koji šalje PIN je u istoj tablici, ali nije račun telemetrije
+	sustavi := repository.NewRacuniSustavaRepository(baza)
+	if err := sustavi.Spremi(ctx, &repository.RacunSustava{Sustav: service.SustavPostaPIN, Korisnik: "cop", Lozinka: []byte{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if ima() {
+		t.Error("upisan samo račun za PIN, a Telemetrija ima kvačicu")
+	}
+	if err := sustavi.Spremi(ctx, &repository.RacunSustava{Sustav: mletva.Podrijetlo, Korisnik: "cop", Lozinka: []byte{1}}); err != nil {
+		t.Fatal(err)
+	}
+	if !ima() {
+		t.Error("upisan račun za mobilnu stranicu Hrvatskih voda se ne vidi")
+	}
+	if err := sustavi.Obrisi(ctx, mletva.Podrijetlo); err != nil {
+		t.Fatal(err)
 	}
 	if err := repository.NewHidroViewRepository(baza).Spremi(ctx, &repository.RacunHidroView{Korisnik: "cop", Lozinka: []byte{1}}); err != nil {
 		t.Fatal(err)
 	}
-	if !imaRacunTelemetrije(ctx, baza) {
+	if !ima() {
 		t.Error("upisan račun HydroView se ne vidi")
 	}
-	if imaRacunTelemetrije(ctx, bazaUpita(t)) {
-		t.Error("baza bez tablica ima račun")
+	if _, err := imaRacunTelemetrije(ctx, bazaUpita(t)); err == nil {
+		t.Error("baza bez tablica: nema greške")
 	}
 }
 
-// Odluke (30. 10. 2026.), 3: Sinkroniziraj sa svima, Pretraži lokalnu mrežu
-// i razmjena s jednim računalom stoje samo na Stanju razmjene; Ovo računalo i
-// mreža do njih vodi poveznicom.
+// Odluke (30. 10. 2026.), 3: Razmijeni sa svima, Pretraži lokalnu mrežu,
+// razmjena s jednim računalom i Provjeri vezu stoje samo na Stanju
+// razmjene; Ovo računalo i mreža do njih vodi poveznicom.
 func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 	admin := &models.UserPermissions{IsGlobalAdmin: true}
 	var b strings.Builder
@@ -324,12 +443,13 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 		t.Fatal(err)
 	}
 	racunalo := b.String()
-	for _, nema := range []string{"Sinkroniziraj sa svima", "Pretraži lokalnu mrežu", "syncNow(", "discover(", "syncOne("} {
+	for _, nema := range []string{`onclick="syncAll()"`, `onclick="refresh(true)"`, "syncNow(", "discover(", "/api/peers/discover", `action="/settings/provjeri-vezu"`} {
 		if strings.Contains(racunalo, nema) {
 			t.Errorf("Ovo računalo i mreža ima %q", nema)
 		}
 	}
-	for _, ima := range []string{"<title>goCOP — Ovo računalo i mreža", "› Ovo računalo i mreža</div>", `id="poveznica-stanje-razmjene"`} {
+	for _, ima := range []string{"<title>goCOP — Ovo računalo i mreža", "› Ovo računalo i mreža</div>", `id="poveznica-stanje-razmjene"`,
+		"get('upari')", "getElementById('pair-addr').value = upari"} {
 		if !strings.Contains(racunalo, ima) {
 			t.Errorf("Ovo računalo i mreža nema %q", ima)
 		}
@@ -340,15 +460,22 @@ func TestGumbiRazmjeneSamoNaStanjuRazmjene(t *testing.T) {
 		t.Fatal(err)
 	}
 	stanje := b.String()
-	for _, ima := range []string{"<title>goCOP — Stanje razmjene", "› Stanje razmjene</div>", "Sinkroniziraj sa svima", "Pretraži lokalnu mrežu", "syncOne(", `href="/settings"`} {
+	for _, ima := range []string{"<title>goCOP — Stanje razmjene", "› Stanje razmjene</div>", "Razmijeni sa svima</button>", "Pretraži lokalnu mrežu", "syncOne(", `href="/settings"`} {
 		if !strings.Contains(stanje, ima) {
 			t.Errorf("Stanje razmjene nema %q", ima)
 		}
 	}
+	// nepoznato računalo iz lokalne mreže administrator uparuje jednim klikom:
+	// poveznica nosi njegovu adresu na Uparivanje
+	if !strings.Contains(stanje, `IS_ADMIN && f.addr ? ' · <a href="/settings?upari=' + encodeURIComponent(f.addr) + '#uparivanje">Upari</a>'`) ||
+		!strings.Contains(stanje, "nije upareno' + upariPoveznica(f)") {
+		t.Error("uz nepoznato računalo u lokalnoj mreži nema poveznice Upari")
+	}
 }
 
-// S5: WEB sync ima jedan odjeljak, s postavkama iz gocop.toml, ponovnim
-// uključivanjem i provjerom veze, a ne više u karticama Ovaj čvor i Mreža.
+// S5: WEB sync ima jedan odjeljak, s postavkama iz gocop.toml i ponovnim
+// uključivanjem, a ne više u karticama Ovaj čvor i Mreža. Provjera veze je
+// na Stanju razmjene (Odluke (30. 10. 2026.), 3).
 func TestWebSyncImaSvojOdjeljak(t *testing.T) {
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, nil)
 	s.SetProvjeraVeze(func(context.Context) ProvjeraVeze { return ProvjeraVeze{} }, func() *ProvjeraVeze { return nil })
@@ -357,7 +484,10 @@ func TestWebSyncImaSvojOdjeljak(t *testing.T) {
 	if odjeljak < 0 {
 		t.Fatal("nema odjeljka WEB sync i dohvatljivost")
 	}
-	for _, id := range []string{`id="postavke-websync"`, `id="provjera-veze"`, `data-postavka="povezivost.web_sync"`} {
+	if strings.Contains(html, `id="provjera-veze"`) || strings.Contains(html, `action="/settings/provjeri-vezu"`) {
+		t.Error("gumb Provjeri vezu je i na stranici Ovo računalo i mreža")
+	}
+	for _, id := range []string{`id="postavke-websync"`, `data-postavka="povezivost.web_sync"`} {
 		if i := strings.Index(html, id); i < odjeljak {
 			t.Errorf("%s nije u odjeljku WEB sync (%d < %d)", id, i, odjeljak)
 		}

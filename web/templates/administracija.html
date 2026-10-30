@@ -9,7 +9,7 @@
     <h1 class="page-title">{{icon "settings"}} Administracija</h1>
     <p class="section-desc">
       Ustroj obrane i ljudi, ovo računalo i mreža, izvori vodostaja, akti i izgled programa. Registri i dnevnici su drugdje.
-      Uz karticu piše vrijedi li ono što se na njoj mijenja samo na ovom računalu, u cijeloj mreži ili oboje.
+      Uz karticu piše vrijedi li ono što se na njoj mijenja samo na ovom računalu, u cijeloj mreži, ili dio ovdje, a dio u mreži.
     </p>
   </div>
 
@@ -37,11 +37,11 @@
   {{with .PrviKoraci}}
   <section class="dash-skupina" id="prvi-koraci">
     <h2 class="dash-skupina-naslov">{{icon "list"}} Prvi koraci</h2>
-    <p class="section-desc">Redom kojim se postavlja novi čvor. Kvačica znači da je korak napravljen. Za korake bez okvira program to ne može sam utvrditi, pa ih jednom pogledajte. Popis nestaje kad su gotovi svi koraci s okvirom.</p>
+    <p class="section-desc">Redom kojim se program postavlja na prvom računalu u mreži. Kvačica znači da je korak napravljen. Gdje piše „pogledajte sami”, program to ne zna sam, pa taj korak jednom pogledajte. Popis nestaje kad su ostali koraci gotovi.</p>
     <ol class="dash-koraci">
       {{range .}}<li class="dash-korak{{if .Gotov}} gotov{{end}}">
         <span class="dash-korak-oznaka{{if not .Zna}} bez-provjere{{end}}">{{if .Gotov}}{{icon "check"}}{{end}}</span>
-        <span><a href="{{.Href}}">{{.Naslov}}</a><br><span class="text-muted">{{.Opis}}</span></span>
+        <span><a href="{{.Href}}">{{.Naslov}}</a>{{if not .Zna}} <span class="text-muted">· pogledajte sami</span>{{end}}<br><span class="text-muted">{{.Opis}}</span></span>
       </li>{{end}}
     </ol>
   </section>
@@ -123,7 +123,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Ovo računalo i mreža</h2>
-        <p class="dash-card-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync.</p>
+        <p class="dash-card-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Uloge i WEB sync vrijede samo za ovo računalo.</p>
       </div>
       <div class="dash-card-footer"><a href="/settings" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -185,7 +185,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Izvori arhive</h2>
-        <p class="dash-card-desc">Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Isključen izvor ostaje u arhivi, ali se nigdje ne prikazuje.</p>
+        <p class="dash-card-desc">Tko javlja vodostaj, koliko mu se vjeruje i ulazi li u spojeni niz. Isključen izvor ostaje u arhivi, ali se na ovom računalu nigdje ne prikazuje.</p>
       </div>
       <div class="dash-card-footer"><a href="/administracija/izvori" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -207,7 +207,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Postavke prognoze</h2>
-        <p class="dash-card-desc">Satni lanac ili dnevni model u tablici i grafovima, izdavanje prognoze odmah, priprema modela i ranija prognoza za odabrani dan i sat.</p>
+        <p class="dash-card-desc">Satni ili dnevni model u tablici i grafovima, generiranje prognoze odmah, priprema modela i ranija prognoza za odabrani dan i sat.</p>
       </div>
       <div class="dash-card-footer"><a href="/prognoze/postavke" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -225,7 +225,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">E-pošta</h2>
-        <p class="dash-card-desc">Poslužitelj e-pošte tvrtke (Exchange) preko kojeg se ovjereni akti šalju primateljima "na znanje" i čita sandučić, te PIN za prijavu izvana. Svaki korisnik svoju lozinku upisuje u profilu.</p>
+        <p class="dash-card-desc">Poslužitelj e-pošte tvrtke (Exchange) preko kojeg se ovjereni akti šalju primateljima „na znanje” i čita sandučić, te PIN za prijavu izvana. Svaki korisnik svoju lozinku upisuje u profilu. Račun koji šalje PIN upisuje se na svakom računalu posebno.</p>
       </div>
       <div class="dash-card-footer"><a href="/administracija/posta" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -247,7 +247,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Elektronički potpisi</h2>
-        <p class="dash-card-desc">Izdavatelj certifikata ovog čvora i izdavatelji drugih čvorova, izdani osobni ključevi, certifikat izdavatelja za preuzimanje i dodavanje među pouzdane u čitaču PDF-a. Ovdje je i adresa za QR kod na dokumentima ovog računala.</p>
+        <p class="dash-card-desc">Izdavatelj certifikata ovog računala i izdavatelji drugih računala, izdani osobni ključevi, certifikat izdavatelja za preuzimanje i dodavanje među pouzdane u čitaču PDF-a. Ovdje je i adresa za QR kod na dokumentima ovog računala.</p>
       </div>
       <div class="dash-card-footer"><a href="/administracija/potpisi" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -258,7 +258,7 @@
       </div>
       <div class="dash-card-body">
         <h2 class="dash-card-title">Obračun sati</h2>
-        <p class="dash-card-desc">Blagdani, redovno radno vrijeme i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Zakon i kolektivni ugovor se mijenjaju — ovdje, ne novom verzijom programa.</p>
+        <p class="dash-card-desc">Blagdani, redovno radno vrijeme i koeficijenti po kojima se sati iz plana dežurstava pretvaraju u obračunske. Zakon i kolektivni ugovor se mijenjaju, a ovdje se to upiše bez nove verzije programa.</p>
       </div>
       <div class="dash-card-footer"><a href="/administracija/obracun" class="btn btn-secondary dash-btn"><span>Otvori</span><span class="arrow">{{icon "arrow-right"}}</span></a></div>
     </div>{{end}}
@@ -296,7 +296,7 @@
   {{end}}
   {{if .Skupina.testni}}
   <section class="dash-skupina" id="skupina-testni">
-    <h2 class="dash-skupina-naslov">Testni prekidači <span class="dash-status-pill {{if .TestnihUkljuceno}}warning{{else}}default{{end}}" id="testnih-ukljuceno">{{if .TestnihUkljuceno}}{{.TestnihUkljuceno}} {{uzBroj .TestnihUkljuceno "uključen" "uključena" "uključeno"}}{{else}}sve isključeno{{end}}</span></h2>
+    <h2 class="dash-skupina-naslov">Testni prekidači <span class="dash-status-pill {{if .TestnihUkljuceno}}warning{{else}}default{{end}}" id="testnih-ukljuceno">{{if .TestnihUkljuceno}}{{.TestnihUkljuceno}} {{uzBroj .TestnihUkljuceno "uključen" "uključena" "uključeno"}}{{else}}svi isključeni{{end}}</span></h2>
     <div class="dashboard-cards-grid">
     {{if .Vidi.opcije}}<div class="dash-card">
       <div class="dash-card-header">

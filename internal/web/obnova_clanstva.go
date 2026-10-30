@@ -1,6 +1,6 @@
 package web
 
-// Gumbi za obnovu članstva u Postavkama, pod Mreža (G9a): Obnovi članstvo
+// Gumbi za obnovu članstva na stranici Ovo računalo i mreža, pod Mreža (G9a): Obnovi članstvo
 // za ovo računalo i Obnovi uz člana na računalu koje prima; i šifrirana
 // kopija ključa mreže (G9b). Samo globalni administrator.
 
