@@ -179,7 +179,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 			return nil, err
 		}
 		req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-		if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+		if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 			return nil, err
 		}
 	} else if !actor.IsGlobalAdmin {
@@ -638,7 +638,7 @@ func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest)
 		return err
 	}
 	req.ScopeType, req.SectorID, req.AreaID = scope, sectorID, areaID
-	if err := mayAssign(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
+	if err := mayGrant(actor, req.Role, req.SectorID, req.AreaID, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {
@@ -732,7 +732,7 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	if err != nil {
 		return err
 	}
-	if err := mayAssign(actor, req.Role, sectorID, areaID, sectors); err != nil {
+	if err := mayChange(actor, duty, req.Role, sectorID, areaID, req.SectionCodes, sectors); err != nil {
 		return err
 	}
 	if !actor.IsGlobalAdmin {

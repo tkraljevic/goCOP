@@ -1095,7 +1095,8 @@
       pokreće se kada stignu svježa
       očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
       <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Taj gumb vide i smiju
-      upotrijebiti dežurni operater i globalni administrator. Prognozu pritom računa
+      upotrijebiti dežurni operater, voditelj centra, uprava sektora i globalni administrator.
+      Dežurstvo kojem je istekao rok ne daje to pravo. Prognozu pritom računa
       samo čvor koji je izdaje. Ponovni izračun za isti sat zamjenjuje prethodno izdanje tog
       sata i kod čvorova koji ga primaju; ne čuva se svaka međuinačica. Prognoza u satu
       izdavanja kreće od izmjerene vrijednosti, bez naknadnog ispravka promašajima.</p>
@@ -1553,7 +1554,10 @@
       dodjeljuje, mijenja i opoziva nadređena razina.</p>
     <p>Novi račun otvaraju globalni administrator, uprava sektora i uprava branjenog područja,
       gumbom <em>Novi djelatnik</em>. Uprava područja otvara račune samo s ulogom u svom
-      području, a račun globalnog administratora nikad. Uloga u obrascu nije unaprijed odabrana.
+      području, a račun globalnog administratora nikad. Pritom daje samo uloge niže od svoje,
+      npr. rukovoditelja dionice, vodočuvara ili strojara. Rukovoditelja branjenog područja,
+      zamjenika i ovlaštenike za ugovore daje uprava sektora ili globalni administrator, pa ih
+      uprava područja u obrascu ne vidi. Isto vrijedi kad postojećem djelatniku dodaje dužnost. Uloga u obrascu nije unaprijed odabrana.
       Globalni administrator smije otvoriti račun i bez uloge: osoba se tada prijavi, na početnoj
       stranici piše da čeka ulogu, a dotad samo gleda.</p>
     <p>Račun bez aktivne dužnosti (opozvane, istekle ili otvoren bez nje), isključen račun i
@@ -1680,7 +1684,8 @@
       što se iz nje računa.</p>
     <ul>
       <li id="organizacija"><strong>Administrativna organizacija</strong> — ustroj kuće:
-        sektori, područja, uredi. Oznaka sektora otvara stranicu sektora s njegovim podacima.
+        sektori, područja, uredi. Oznaka i naziv sektora otvaraju stranicu sektora s njegovim podacima
+        i gumbom <em>Dionice sektora</em>.
         Uprava sektora ondje mijenja i žig centra. Za to joj treba modul Registri, a
         Administracija ne treba.</li>
       <li><strong>Dionice</strong> — branjene dionice s pripadajućim letvama, objektima i
@@ -1924,7 +1929,7 @@
         gotov, stoje u Prvim koracima, a poslije kao poveznica u skupini Ustroj i ljudi.</li>
       <li><strong>Postavke prognoze</strong> — satni lanac ili dnevni model u prikazu, izdavanje
         prognoze odmah i priprema modela. Kartica stoji u skupini Vodostaji, arhiva i prognoza, za
-        dežurnog i globalnog administratora; način prikaza mijenja samo globalni administrator.</li>
+        dežurnog, upravu sektora i globalnog administratora; način prikaza mijenja samo globalni administrator.</li>
       <li><strong>Djelatnici</strong> — aktivacija računa i postavljanje početne lozinke;
         korisnik je pri prvoj prijavi mora zamijeniti.</li>
       <li><strong>Nazivi</strong> — kako se kuća i centar zovu na ispisima.</li>

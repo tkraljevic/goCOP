@@ -230,10 +230,11 @@ func TestRokUpraveIdePoDosegu(t *testing.T) {
 	if d := otvori(ovlasti(b), "zamA", models.RoleSectorDeputy, sektor("A"), nil); d.IsTemporary || d.ExpiresAt != nil {
 		t.Errorf("(B) zamjenik u sektoru A od stalne uprave A dobio je rok: %+v", d)
 	}
-	// (C) stalni zamjenik za područje 5, privremeni rukovoditelj područja 6
+	// (C) stalni zamjenik za područje 5, privremeni zamjenik za područje 6
+	// (upravu područja ne daje rukovoditelj područja, Odluke (30. 10. 2026.), 16)
 	c := o.racun(t, "zamjenik-c", "lozinka-c", "c@voda.hr", false, true)
 	dodaj(c, models.RoleSectorAreaDeputy, sektor("A"), podrucjeBr(5), false)
-	dodaj(c, models.RoleAreaLeader, nil, podrucjeBr(6), true)
+	dodaj(c, models.RoleSectorAreaDeputy, sektor("A"), podrucjeBr(6), true)
 	if d := otvori(ovlasti(c), "zam5", models.RoleAreaDeputy, nil, podrucjeBr(5)); d.IsTemporary || d.ExpiresAt != nil {
 		t.Errorf("(C) dužnost u području 5 od stalne uprave dobila je rok: %+v", d)
 	}

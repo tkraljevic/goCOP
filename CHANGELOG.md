@@ -42,13 +42,18 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   Ulaganje, izdanja i brisanje nizova ostaju globalnom administratoru, a
   drugi ih više ne vide. Stranicu „Što ovo računalo prati” mijenja samo
   globalni administrator, s tog računala ili iz lokalne mreže, a ostali je
-  samo gledaju. Prognozu rukom pokreću dežurni operater i globalni
-  administrator.
+  samo gledaju. Prognozu rukom pokreću dežurni operater, voditelj centra,
+  uprava sektora i globalni administrator.
 
   Lozinka svugdje mora imati najmanje 10 znakova. Dosad je na profilu bilo
   dovoljno 6, a za novi račun nije bilo granice. Uprava branjenog područja
-  otvara račune u svom području. U obrascu novog djelatnika uloga više nije
-  unaprijed odabrana (bio je dežurni operater). Isključivanje uloge
+  otvara račune u svom području, ali daje samo uloge niže od svoje, npr.
+  vodočuvara ili rukovoditelja dionice. Dosad je mogla postaviti i novog
+  rukovoditelja ili zamjenika područja; to sad rade uprava sektora i
+  globalni administrator. U obrascu novog djelatnika i novog zaduženja
+  uloga više nije unaprijed odabrana (bio je dežurni operater). Naziv
+  sektora na popisu organizacije vodi na stranicu sektora, a ne više na
+  Dionice; do njih vodi gumb „Dionice sektora”. Isključivanje uloge
   računala traži potvrdu, a na Sinkronizaciji uz svako računalo piše koje
   uloge ima.
 

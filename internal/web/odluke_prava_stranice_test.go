@@ -153,7 +153,7 @@ func TestGumbGenerirajSamoZaDezurnogIAdministratora(t *testing.T) {
 	d := PrognozePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{},
 		ActiveNav: "prognoze", MozeGenerirati: true}
 	html := iscrtaj(t, "prognoze_postavke.html", d)
-	if strings.Contains(html, `action="/prognoze/generiraj"`) || !strings.Contains(html, "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.") {
+	if strings.Contains(html, `action="/prognoze/generiraj"`) || !strings.Contains(html, "Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.") {
 		t.Error("tko ne smije generirati vidi gumb ili ne vidi rečenicu")
 	}
 	d.SmijeGenerirati = true

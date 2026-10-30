@@ -1616,12 +1616,13 @@ func trebaAdmina(next http.Handler) http.Handler {
 	})
 }
 
-// trebaDezurnog pušta samo dežurnog i globalnog administratora
+// trebaDezurnog pušta dežurnog, upravu sektora (s voditeljem centra) i
+// globalnog administratora (SmijeGeneriratiPrognozu)
 func trebaDezurnog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 		if !perms.SmijeGeneriratiPrognozu() {
-			http.Error(w, "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.", http.StatusForbidden)
+			http.Error(w, "Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)

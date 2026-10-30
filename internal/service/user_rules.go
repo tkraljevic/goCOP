@@ -256,6 +256,75 @@ func mayAssign(p *models.UserPermissions, role models.Role, sectorID *string, ar
 	return err
 }
 
+// mayGrant javlja smije li actor dati dužnost s tom ulogom i dosegom: kao
+// mayAssign, ali uprava branjenog područja daje samo uloge niže od svoje, ne
+// upravu područja (Odluke (30. 10. 2026.), 16). Upravu područja daju uprava
+// sektora i globalni administrator. Opoziv i uređivanje računa i dalje idu po
+// mayAssign.
+func mayGrant(p *models.UserPermissions, role models.Role, sectorID *string, areaID *int, sectors areaSector) error {
+	rank, err := razinaDodjele(p, role, sectorID, areaID, sectors)
+	if err != nil {
+		return err
+	}
+	if !dajeSRazine(p, rank, role, areaID) {
+		return fmt.Errorf("%w: ulogu „%s” daje uprava sektora ili globalni administrator", ErrUnauthorized, role.Label())
+	}
+	return nil
+}
+
+// dajeSRazine: actor s te razine smije ulogu dati novoj dužnosti u
+// području areaID (nil: u bilo kojem svom). Više razine daju sve od svoje
+// razine naniže, kao i dosad; uprava područja upravnu ulogu svoje razine
+// daje samo kad je imenovana s razine 2 (upravaPodrucjaOdozgo).
+func dajeSRazine(p *models.UserPermissions, rank int, role models.Role, areaID *int) bool {
+	if role.Rank() < rank {
+		return false
+	}
+	if rank < 3 || role.RazinaZaUpravu() > rank {
+		return true
+	}
+	return upravaPodrucjaOdozgo(p, areaID)
+}
+
+// upravaPodrucjaOdozgo: actor upravlja područjem (bez zadanog bilo kojim)
+// dužnošću imenovanom s razine 2, kao zamjenik rukovoditelja sektora za
+// branjeno područje. Ta dužnost ima prava rukovoditelja sektora u svom
+// području, pa daje i upravu područja.
+func upravaPodrucjaOdozgo(p *models.UserPermissions, areaID *int) bool {
+	sad := time.Now()
+	for _, d := range p.User.Duties {
+		if d.Role.RazinaUprave() == 3 && d.Role.Rank() < 3 && vrijediDuznost(d, sad) && pokrivaCilj(&d, 3, "", areaID) {
+			return true
+		}
+	}
+	return false
+}
+
+// mayChange javlja smije li actor dužnost dosad promijeniti u ulogu i doseg
+// iz zahtjeva: izmjena koja zadržava ulogu i doseg nije nova dodjela, pa je
+// smije tko je smije i opozvati; inače je dodjela (mayGrant)
+func mayChange(p *models.UserPermissions, dosad *models.Duty, role models.Role, sectorID *string, areaID *int, sectionCodes string, sectors areaSector) error {
+	if istaDuznost(dosad, role, sectorID, areaID, sectionCodes) {
+		return mayAssign(p, role, sectorID, areaID, sectors)
+	}
+	return mayGrant(p, role, sectorID, areaID, sectors)
+}
+
+// SmijeDatiUlogu javlja može li actor tu ulogu dati ikome, bez obzira na
+// doseg: obrazac nudi samo takve uloge. Doseg provjerava servis pri
+// spremanju.
+func SmijeDatiUlogu(p *models.UserPermissions, role models.Role) bool {
+	for _, rank := range razineUprave(p) {
+		if role == models.RoleGlobalAdmin && rank > 1 {
+			continue
+		}
+		if dajeSRazine(p, rank, role, nil) {
+			return true
+		}
+	}
+	return false
+}
+
 // razinaDodjele je najviša razina s koje actor smije dodijeliti ili
 // opozvati dužnost s tom ulogom i dosegom. Kad ne smije ni s jedne, greška
 // je ona s najviše razine.

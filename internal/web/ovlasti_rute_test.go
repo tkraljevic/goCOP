@@ -270,10 +270,12 @@ func TestUlogeCvoraMijenjajuSeSamoNaRacunalu(t *testing.T) {
 	}
 }
 
-// Odluke (30. 10. 2026.), 7: prognozu rukom pokreću dežurni i globalni
-// administrator. Dežurstvo koje je isteklo ne vrijedi.
+// Odluke (30. 10. 2026.), 7 i 17: prognozu rukom pokreću dežurni, uprava
+// sektora s voditeljem centra i globalni administrator. Dužnost koja je
+// istekla ne vrijedi.
 func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
 	prije := time.Now().Add(-time.Hour)
+	sektorB, podrucje16 := "B", 16
 	dezurni := func(d models.Duty) *models.UserPermissions {
 		return &models.UserPermissions{User: models.User{Duties: []models.Duty{d}}}
 	}
@@ -285,7 +287,10 @@ func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
 		{"bez prava", nil, false},
 		{"obični korisnik", &models.UserPermissions{}, false},
 		{"vodočuvar", dezurni(models.Duty{Role: models.RoleWaterGuard, IsActive: true}), false},
-		{"voditelj centra", dezurni(models.Duty{Role: models.RoleCopLeader, IsActive: true}), false},
+		{"voditelj centra", dezurni(models.Duty{Role: models.RoleCopLeader, SectorID: &sektorB, IsActive: true}), true},
+		{"rukovoditelj sektora", dezurni(models.Duty{Role: models.RoleSectorLeader, SectorID: &sektorB, IsActive: true}), true},
+		{"voditelj centra kojem je dužnost istekla", dezurni(models.Duty{Role: models.RoleCopLeader, SectorID: &sektorB, IsActive: true, ExpiresAt: &prije}), false},
+		{"rukovoditelj branjenog područja", dezurni(models.Duty{Role: models.RoleAreaLeader, AreaID: &podrucje16, IsActive: true}), false},
 		{"dežurni", dezurni(models.Duty{Role: models.RoleOperator, IsActive: true}), true},
 		{"dežurni kojem je dežurstvo isteklo", dezurni(models.Duty{Role: models.RoleOperator, IsActive: true, ExpiresAt: &prije}), false},
 		{"isključeno dežurstvo", dezurni(models.Duty{Role: models.RoleOperator}), false},
@@ -299,7 +304,7 @@ func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
 		if presao != x.smije {
 			t.Errorf("%s: prošao %v, a treba %v", x.opis, presao, x.smije)
 		}
-		if !x.smije && (w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.")) {
+		if !x.smije && (w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Prognozu rukom pokreću dežurni operater, voditelj centra, uprava sektora i globalni administrator. Ako vam treba odmah, javite dežurnom.")) {
 			t.Errorf("%s: %d %q", x.opis, w.Code, w.Body.String())
 		}
 	}
