@@ -154,6 +154,7 @@
         {{.ImportFile}} — BP {{$rep.Area}}: {{len $rep.Locations}} {{uzBroj (len $rep.Locations) "lokacija" "lokacije" "lokacija"}} ({{$rep.Existing}} u registru, {{$rep.Created}} {{uzBroj $rep.Created "nova" "nove" "novih"}},
         {{$rep.Suggested}} s prijedlogom, {{$rep.Ambiguous}} {{uzBroj $rep.Ambiguous "dvoznačna" "dvoznačne" "dvoznačnih"}}), {{$rep.ItemsTotal}} {{uzBroj $rep.ItemsTotal "stavka radova" "stavke radova" "stavki radova"}} ({{$rep.ItemsNew}} {{uzBroj $rep.ItemsNew "nova" "nove" "novih"}}, {{$rep.ItemsExisting}} {{uzBroj $rep.ItemsExisting "već upisana" "već upisane" "već upisanih"}}).
       </div>
+      {{with .ImportNoveVode}}<div class="alert alert-warning mb-3">{{.}} {{uzBroj . "voda iz ugovora nije" "vode iz ugovora nisu" "voda iz ugovora nije"}} u registru vodnih tijela. Nove vode dodaje uprava branjenog područja ili sektora: vežite ih na vode iz registra ili zamolite upravu da upiše ugovor.</div>{{end}}
       <div class="table-responsive">
         <table class="data-table">
           <thead><tr><th>Br.</th><th>Lokacija iz ugovora</th><th>Ishod</th><th>U registru / veza</th></tr></thead>

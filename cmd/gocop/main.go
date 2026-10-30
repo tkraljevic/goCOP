@@ -782,7 +782,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPotpis(potpisService)
 	}
 	zid := service.NewZidService(recorder, journalRepo, sectionRepo, mtsRepo, userRepo, stationRepo, episodeRepo)
-	postaviZid(zid, aktService, prijavaService)
+	postaviZid(zid, aktService, prijavaService, journalService)
 	// karta bez interneta stiže razmjenom u dijelovima; dok traje obrana,
 	// samo u lokalnoj mreži
 	peersService.PostaviKarte(peers.MapaKarata(*dbPath), models.VektorskaKartaPrograma, zid.ObranaTraje)

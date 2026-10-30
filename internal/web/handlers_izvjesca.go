@@ -40,6 +40,9 @@ type IzvjescaPageData struct {
 	Tendencije  []struct{ Kod, Naziv string }
 	IsEdit      bool
 	SmijePisati bool
+	// SmijeMijenjati: obrazac izvješća otvara tko ga smije mijenjati; ono
+	// koje je bilo predano samo onaj tko ga je izradio
+	SmijeMijenjati bool
 	// SmijeBrisati: izvješće koje je bilo predano briše samo uprava
 	SmijeBrisati bool
 	Danas        string
@@ -136,7 +139,7 @@ func (h *IzvjescaHandler) ShowNovo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !svc.SmijePisati(data.Permissions, sec) {
-		http.Error(w, "Dnevno izvješće piše rukovoditelj dionice ili zamjenik, ili uprava", http.StatusForbidden)
+		http.Error(w, "Dnevno izvješće dionice piše i predaje rukovoditelj dionice ili njegov zamjenik.", http.StatusForbidden)
 		return
 	}
 	dan := time.Now().In(models.Zagreb)
@@ -178,6 +181,7 @@ func (h *IzvjescaHandler) ucitaj(w http.ResponseWriter, r *http.Request, data *I
 	}
 	data.Izvjesce, data.Dionica, data.SmijePisati = iz, sec, svc.SmijePisati(data.Permissions, sec)
 	data.SmijeBrisati = svc.SmijeBrisati(data.Permissions, sec, iz)
+	data.SmijeMijenjati = svc.SmijeMijenjati(data.CurrentUser, data.Permissions, sec, iz)
 	return iz, sec, true
 }
 
@@ -197,7 +201,11 @@ func (h *IzvjescaHandler) ShowUredi(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !data.SmijePisati {
-		http.Error(w, "Dnevno izvješće piše rukovoditelj dionice ili zamjenik, ili uprava", http.StatusForbidden)
+		http.Error(w, "Dnevno izvješće dionice piše i predaje rukovoditelj dionice ili njegov zamjenik.", http.StatusForbidden)
+		return
+	}
+	if !data.SmijeMijenjati {
+		http.Error(w, "Izvješće koje je bilo predano mijenja samo onaj tko ga je izradio.", http.StatusForbidden)
 		return
 	}
 	data.IsEdit = true

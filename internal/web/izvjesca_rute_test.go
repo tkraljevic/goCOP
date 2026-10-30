@@ -71,7 +71,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 	})
 
 	rukovoditelj := &models.User{ID: uuid.New(), FullName: "Rukovoditelj Dionice"}
-	prava := &models.UserPermissions{AllowedSections: map[string]bool{"B.16.3": true}}
+	prava := pravaDuznosti(models.RoleSectionLeader, models.ScopeSection, "B", 16, "B.16.3")
 	zovi := func(metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
 		t.Helper()
 		var r *http.Request
@@ -234,6 +234,8 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
+	// izvješća dionica piše zamjenik rukovoditelja dionica područja 16
+	zamjenik := pravaDuznosti(models.RoleSectionDeputy, models.ScopeSection, "B", 16, "")
 	zovi := func(metoda, putanja string, obrazac url.Values) *httptest.ResponseRecorder {
 		t.Helper()
 		var r *http.Request
@@ -286,14 +288,14 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	iz1 := &models.DnevnoIzvjesce{SectionCode: "B.16.1", Dan: dan, Stadij: models.PhaseEmergency, Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Dunav", Tendencija: models.TendencijaPorast,
 		Pregled: "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800", Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12},
 		Evakuacija: models.Evakuacija{Naselja: "Zmajevac", Ljudi: 1, Kucanstava: 1}}}
-	if err := svc.Spremi(ctx, voditelj, uprava, sec1, iz1); err != nil {
+	if err := svc.Spremi(ctx, voditelj, zamjenik, sec1, iz1); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.Predaj(ctx, voditelj, uprava, sec1, iz1.ID); err != nil {
+	if err := svc.Predaj(ctx, voditelj, zamjenik, sec1, iz1.ID); err != nil {
 		t.Fatal(err)
 	}
 	iz2 := &models.DnevnoIzvjesce{SectionCode: "B.16.2", Dan: dan, Stadij: models.PhaseRegular, Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Drava", Pregled: "Bez oštećenja.", Pravne: models.SudioniciPravne{Ljudi: 6}}}
-	if err := svc.Spremi(ctx, voditelj, uprava, sec2, iz2); err != nil {
+	if err := svc.Spremi(ctx, voditelj, zamjenik, sec2, iz2); err != nil {
 		t.Fatal(err)
 	}
 

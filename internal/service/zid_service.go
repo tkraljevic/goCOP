@@ -135,6 +135,9 @@ type ZidService struct {
 	// vidiPrijavu je pravilo čitanja prijava s terena (PrijavaService); nil
 	// dok se ne postavi (tada prijave na zidu ne vidi nitko)
 	vidiPrijavu func(perms *models.UserPermissions, p *models.PrijavaSTerena) bool
+	// izvodjac javlja gleda li se osoba u dnevnicima kao izvođač
+	// (JournalService.IzvodjacZaDnevnike); nil dok se ne postavi
+	izvodjac func(u *models.User) bool
 }
 
 // SetStanjaSektora postavlja stanja obrane iz ovjerenih akata (AktService)
@@ -146,6 +149,21 @@ func (s *ZidService) SetStanjaSektora(f func(ctx context.Context, sektor string,
 // Dokumentaciji → Prijave s terena (PrijavaService.SmijeVidjeti)
 func (s *ZidService) SetVidiPrijavu(f func(perms *models.UserPermissions, p *models.PrijavaSTerena) bool) {
 	s.vidiPrijavu = f
+}
+
+// SetIzvodjac postavlja pravilo po kojem je osoba izvođač: izvođač na zidu
+// ne vidi dnevnik COP-a ni dežurstva (Odluke (30. 10. 2026.), 2)
+func (s *ZidService) SetIzvodjac(f func(u *models.User) bool) {
+	s.izvodjac = f
+}
+
+// skriveniIzvodjacu dodaje skrivenim modulima dnevnik COP-a i dežurstva kad
+// je osoba izvođač; globalni administrator nije izvođač
+func (s *ZidService) skriveniIzvodjacu(perms *models.UserPermissions, skriveni []string) []string {
+	if s.izvodjac == nil || perms == nil || perms.IsGlobalAdmin || !s.izvodjac(&perms.User) {
+		return skriveni
+	}
+	return append(slices.Clone(skriveni), ModulDnevnik, ModulDezurstva)
 }
 
 func NewZidService(rec *ledger.Recorder, journals *repository.JournalRepository, sections *repository.SectionRepository,
@@ -220,6 +238,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
+	f.Skriveni = s.skriveniIzvodjacu(perms, f.Skriveni)
 	entiteti := entitetiZida(f)
 	podrucja := s.podrucjaPoSektoru()
 	c := &opisivac{s: s, ctx: ctx, journali: map[string]*models.Journal{}, dionice: map[string]*models.Section{},

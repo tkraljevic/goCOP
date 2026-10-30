@@ -138,14 +138,17 @@ type VodocuvarPageData struct {
 	// a dan im je prošao; nil kad ih nema
 	Nepredani *UpozorenjeNepredanih
 
-	Vodocuvari      []models.User    // kojima osoba smije zadavati zadatke
-	ZadaciOsobe     []models.Zadatak // zadaci vodočuvara čiji je list otvoren
-	List            *models.VodocuvarskiList
-	Moj             bool
-	ImaKljuc        bool             // osoba ima potpisni ključ, pa predaja i ovjera traže lozinku
-	Simulacija      bool             // tuđim očima uz opciju: potpisuje se simuliranim ključem, bez lozinke
-	Izvornik        potpisiIzvornika // potpisi u potpisanom PDF-u lista
-	SmijeOvjeriti   bool
+	Vodocuvari    []models.User    // kojima osoba smije zadavati zadatke
+	ZadaciOsobe   []models.Zadatak // zadaci vodočuvara čiji je list otvoren
+	List          *models.VodocuvarskiList
+	Moj           bool
+	ImaKljuc      bool             // osoba ima potpisni ključ, pa predaja i ovjera traže lozinku
+	Simulacija    bool             // tuđim očima uz opciju: potpisuje se simuliranim ključem, bez lozinke
+	Izvornik      potpisiIzvornika // potpisi u potpisanom PDF-u lista
+	SmijeOvjeriti bool
+	// OvjeraUmjesto: osoba list ovjerava umjesto rukovoditelja branjenog
+	// područja, pa obrazac traži potvrdu (OvjeravaUmjesto)
+	OvjeraUmjesto   bool
 	SmijeParafirati bool
 	SmijeUpisati    bool // bilješka na tuđi list
 	// UpisNaredba: upis osobe na ovaj list stoji pod naredbama, jer ga smije
@@ -395,6 +398,13 @@ func nudiOvjeru(s *service.VodocuvarService, perms *models.UserPermissions, l *m
 	return s.SmijeOvjeriti(perms, l) && l.Predan() && !l.Potvrden() && !l.Rekonstrukcija && s.DanListaPoceo(l)
 }
 
+// ponudaOvjere: nudi li stranica ovjeru (nudiOvjeru) i traži li ovjera
+// potvrdu da osoba ovjerava umjesto rukovoditelja područja (OvjeravaUmjesto)
+func ponudaOvjere(ctx context.Context, s *service.VodocuvarService, perms *models.UserPermissions, l *models.VodocuvarskiList) (nudi, umjesto bool) {
+	nudi = nudiOvjeru(s, perms, l)
+	return nudi, nudi && s.OvjeravaUmjesto(ctx, perms, l)
+}
+
 func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d VodocuvarPageData, perms *models.UserPermissions, l *models.VodocuvarskiList, moj bool) {
 	s := h.svc()
 	d.List, d.Moj = l, moj
@@ -403,7 +413,7 @@ func (h *VodocuvarHandler) prikazi(w http.ResponseWriter, r *http.Request, d Vod
 		// spremi na svoj dan i kad ga vodočuvar spremi poslije ponoći
 		d.Otvoreno = h.otvaranje.oznaka(l.UserID, l.Datum, time.Now())
 	}
-	d.SmijeOvjeriti = nudiOvjeru(s, perms, l)
+	d.SmijeOvjeriti, d.OvjeraUmjesto = ponudaOvjere(r.Context(), s, perms, l)
 	if h.potpis != nil && perms != nil {
 		if ps := h.potpis(); ps != nil {
 			d.ImaKljuc = ps.Ima(r.Context(), perms.User.ID.String())
@@ -497,7 +507,7 @@ func (h *VodocuvarHandler) HandleRadnja(w http.ResponseWriter, r *http.Request) 
 			break
 		}
 		var l *models.VodocuvarskiList
-		if l, err = s.Ovjeri(r.Context(), perms, u, id); err == nil {
+		if l, err = s.Ovjeri(r.Context(), perms, u, id, r.FormValue("umjesto") == "1"); err == nil {
 			err = h.izvornikOvjere(r.Context(), s, perms, l, potpisnik)
 		}
 		poruka = "List je ovjeren."

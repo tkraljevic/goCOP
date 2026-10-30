@@ -45,8 +45,8 @@ func TestDnevnoIzvjesceTok(t *testing.T) {
 	}
 
 	rukovoditelj := &models.User{ID: uuid.New(), FullName: "Rukovoditelj Dionice"}
-	dionica := &models.UserPermissions{AllowedSections: map[string]bool{"B.16.3": true}}
-	tudja := &models.UserPermissions{AllowedSections: map[string]bool{"B.15.1": true}}
+	dionica := ovlastiOsobe(duznost(models.RoleSectionLeader, models.ScopeSection, "B", 16, "B.16.3"))
+	tudja := ovlastiOsobe(duznost(models.RoleSectionLeader, models.ScopeSection, "B", 15, "B.15.1"))
 	uprava := &models.UserPermissions{AdminAreas: map[int]bool{16: true}, AllowedAreas: map[int]bool{16: true}}
 
 	dan := time.Date(2026, 9, 12, 9, 30, 0, 0, models.Zagreb)
@@ -159,6 +159,9 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 	voditelj := &models.User{ID: uuid.New(), FullName: "Voditelj Centra"}
 	uprava := &models.UserPermissions{AdminSectors: map[string]bool{"B": true}, AllowedSectors: map[string]bool{"B": true}}
 	rukovoditelj := &models.UserPermissions{AllowedSections: map[string]bool{"B.16.1": true}}
+	// izvješća dionica piše zamjenik rukovoditelja dionica B.16.1 i B.34.1
+	zamjenik := ovlastiOsobe(duznost(models.RoleSectionDeputy, models.ScopeSection, "B", 16, "B.16.1"),
+		duznost(models.RoleSectionDeputy, models.ScopeSection, "B", 34, "B.34.1"))
 
 	// zapisi dnevnika: jedan danas, jedan storniran, jedno dežurstvo
 	js := NewJournalService(journals, nil, nil)
@@ -183,14 +186,14 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 		Pregled:   "Procjeđivanje kod Zmajevca.", Radnje: "Kontranasip 45 m.", Vrece: "1 800",
 		Pravne: models.SudioniciPravne{Ljudi: 14, Kamioni: 3}, Ostali: models.SudioniciOstali{Vatrogasci: 12},
 		Poplavljeno: models.Poplavljeno{Naselja: "Zmajevac", Stambeni: 4, PoljoprivredneHa: 35}}}
-	if err := s.Spremi(ctx, voditelj, uprava, sec16, iz16); err != nil {
+	if err := s.Spremi(ctx, voditelj, zamjenik, sec16, iz16); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.Predaj(ctx, voditelj, uprava, sec16, iz16.ID); err != nil {
+	if err := s.Predaj(ctx, voditelj, zamjenik, sec16, iz16.ID); err != nil {
 		t.Fatal(err)
 	}
 	iz34 := &models.DnevnoIzvjesce{SectionCode: "B.34.1", Dan: dan, Stadij: models.PhaseRegular, Sadrzaj: models.IzvjesceSadrzaj{Vodotok: "Dunav", Pregled: "Bez oštećenja.", Pravne: models.SudioniciPravne{Ljudi: 6}}}
-	if err := s.Spremi(ctx, voditelj, uprava, sec34, iz34); err != nil {
+	if err := s.Spremi(ctx, voditelj, zamjenik, sec34, iz34); err != nil {
 		t.Fatal(err)
 	}
 
@@ -232,7 +235,7 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 
 	// izvješće dionice se poslije mijenja, snimka u sektorskom ostaje
 	iz16.Sadrzaj.Pravne.Ljudi = 99
-	if err := s.Spremi(ctx, voditelj, uprava, sec16, iz16); err != nil {
+	if err := s.Spremi(ctx, voditelj, zamjenik, sec16, iz16); err != nil {
 		t.Fatal(err)
 	}
 	opet, _ := s.GetSektorsko(ctx, pr.ID)

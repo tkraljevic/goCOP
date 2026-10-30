@@ -16,6 +16,7 @@ import (
 	"net"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -1710,7 +1711,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Greška pri čitanju vidljivosti modula: "+err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if mod := moduleForPath(r.URL.Path); mod != "" && !visible.Sees(mod) && !vlastitiKarton(r, view.User) {
+		if mod := s.zatvorenModul(r, view.User, visible); mod != "" {
 			http.Error(w, "Modul „"+models.ModuleLabel(mod)+"“ nije uključen za vaš račun. Ako vam treba, javite se administratoru.", http.StatusForbidden)
 			return
 		}
@@ -1739,6 +1740,9 @@ var modulePaths = []struct{ prefix, module string }{
 	{"/pregrade", models.ModuleRegisters}, {"/ostali-objekti", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
 	{"/dnevnici", models.ModuleJournals}, {"/izvjesca", models.ModuleJournals}, {"/sektorsko-izvjesce", models.ModuleJournals},
+	// zasebnog modula Akti nema, pa akti, vodočuvarski dnevnik i događanja
+	// idu pod Dnevnike (Odluke (30. 10. 2026.), 11)
+	{"/akti", models.ModuleJournals}, {"/vodocuvar", models.ModuleJournals}, {"/dogadjanja", models.ModuleJournals},
 	{"/sredstva", models.ModuleRegisters}, {"/api/structures", models.ModuleRegisters},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/slivovi", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
@@ -1761,6 +1765,45 @@ func vlastitiKarton(r *http.Request, u *models.User) bool {
 		return false
 	}
 	return r.URL.Path == "/users/"+u.ID.String()
+}
+
+// zatvorenModul je modul koji putanja traži, a račun ga ne vidi; prazno
+// kad se stranica otvara (svoj karton, svoj vodočuvarski dnevnik)
+func (s *Server) zatvorenModul(r *http.Request, u *models.User, visible models.Visibility) string {
+	mod := moduleForPath(r.URL.Path)
+	if mod == "" || visible.Sees(mod) || vlastitiKarton(r, u) || s.vlastitaKnjiga(r, u) {
+		return ""
+	}
+	return mod
+}
+
+// vlastitaKnjiga javlja otvara li vodočuvar svoj vodočuvarski dnevnik.
+// Dnevnik je pod modulom Dnevnici, a terenske uloge taj modul zadano ne
+// vide; vodočuvar svoj dnevnik ipak vodi (Odluke (30. 10. 2026.), 8). Zato
+// ga otvara tko sada ima valjanu dužnost vodočuvara, osim kad mu je
+// administrator Dnevnike izričito sakrio za taj račun (Moduli i ovlasti).
+// Što u njemu smije, i da tuđe listove ne čita, provjerava
+// VodocuvarService.
+func (s *Server) vlastitaKnjiga(r *http.Request, u *models.User) bool {
+	if !vodiSvojuKnjigu(r.URL.Path, u) {
+		return false
+	}
+	o, err := s.moduleService.UserOverride(r.Context(), u.ID.String())
+	return err == nil && (o == nil || !slices.Contains(o.Hidden, models.ModuleJournals))
+}
+
+// vodiSvojuKnjigu: putanja je pod /vodocuvar, a osoba sada ima valjanu
+// dužnost vodočuvara
+func vodiSvojuKnjigu(putanja string, u *models.User) bool {
+	if u == nil || !samoPodPutanjom(putanja, "/vodocuvar") {
+		return false
+	}
+	for _, d := range models.VazecaZaduzenja(u.Duties, time.Now()) {
+		if d.Role == models.RoleWaterGuard {
+			return true
+		}
+	}
+	return false
 }
 
 // izuzetiOdModula su putanje pod modulom koje ne ograđuje vidljivost modula,

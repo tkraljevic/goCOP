@@ -642,6 +642,31 @@ func (p *UserPermissions) RadiNaDionici(areaID int, dionica string) bool {
 	return false
 }
 
+// VodiDionicu javlja je li osoba sada rukovoditelj dionice ili zamjenik
+// rukovoditelja dionice na toj dionici: dužnost na njezinu području koja
+// dionicu navodi ili ne navodi nijednu. Samo oni pišu i predaju dnevno
+// izvješće dionice (Odluke (30. 10. 2026.), 3).
+func (p *UserPermissions) VodiDionicu(areaID int, dionica string) bool {
+	if areaID <= 0 || dionica == "" {
+		return false
+	}
+	return p.imaVazecuDuznost(func(d Duty) bool {
+		return d.Role.vodiDionice() && d.naPodrucju(areaID) && d.pokrivaDionicu(dionica)
+	})
+}
+
+// VodiDionice javlja je li osoba sada rukovoditelj ili zamjenik
+// rukovoditelja ijedne dionice; dužnost bez upisanog područja ne vodi
+// nijednu (VodiDionicu)
+func (p *UserPermissions) VodiDionice() bool {
+	return p.imaVazecuDuznost(func(d Duty) bool { return d.Role.vodiDionice() && d.AreaID != nil && *d.AreaID > 0 })
+}
+
+// vodiDionice: rukovoditelj dionice i zamjenik
+func (r Role) vodiDionice() bool {
+	return r == RoleSectionLeader || r == RoleSectionDeputy
+}
+
 // RadiUSektoru javlja ima li osoba u sektoru ijednu dužnost s pravom upisa,
 // bilo kojeg dosega. Služi za prikaz i izbor, a daje i pravo upisa očitanja
 // na letvu koju sektor prati (Odluke (8. 10. 2026.), pitanje 8); ostalo

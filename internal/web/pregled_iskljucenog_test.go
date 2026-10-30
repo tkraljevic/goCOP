@@ -57,7 +57,7 @@ func TestIskljucenRacunTudjimOcimaSamoCita(t *testing.T) {
 	}
 
 	// aktivan račun: uz uključene upise upis tuđim očima prolazi
-	if w := zovi(http.MethodPost, "/vodocuvar/spremi"); w.Code != http.StatusNoContent || !pozvan || !traka.UpisiDopusteni || traka.RacunIskljucen {
+	if w := zovi(http.MethodPost, "/prijave"); w.Code != http.StatusNoContent || !pozvan || !traka.UpisiDopusteni || traka.RacunIskljucen {
 		t.Fatalf("upis na aktivan račun uz uključene upise: %d, traka %+v", w.Code, traka)
 	}
 
@@ -66,7 +66,7 @@ func TestIskljucenRacunTudjimOcimaSamoCita(t *testing.T) {
 	if w := zovi(http.MethodGet, "/dashboard"); w.Code != http.StatusNoContent || !traka.Viewing || !traka.RacunIskljucen || traka.UpisiDopusteni {
 		t.Errorf("čitanje isključenog računa tuđim očima: %d, traka %+v", w.Code, traka)
 	}
-	if w := zovi(http.MethodPost, "/vodocuvar/spremi"); w.Code != http.StatusForbidden || pozvan || !strings.Contains(w.Body.String(), "isključen") {
+	if w := zovi(http.MethodPost, "/prijave"); w.Code != http.StatusForbidden || pozvan || !strings.Contains(w.Body.String(), "isključen") {
 		t.Errorf("upis pod imenom isključenog računa: %d (rukovatelj pozvan: %v) %q", w.Code, pozvan, w.Body.String())
 	}
 	if zovi(http.MethodPost, "/view-as/stop"); !pozvan {
@@ -80,13 +80,13 @@ func TestIskljucenRacunTudjimOcimaSamoCita(t *testing.T) {
 	if w := zovi(http.MethodGet, "/dashboard"); w.Code != http.StatusNoContent || !traka.RacunIskljucen {
 		t.Errorf("pokrenut pregled isključenog računa: %d, traka %+v", w.Code, traka)
 	}
-	if w := zovi(http.MethodPost, "/vodocuvar/spremi"); w.Code != http.StatusForbidden || pozvan {
+	if w := zovi(http.MethodPost, "/prijave"); w.Code != http.StatusForbidden || pozvan {
 		t.Errorf("upis u pokrenutom pregledu isključenog računa: %d", w.Code)
 	}
 
 	// ponovno uključen račun opet prima upise
 	ukljuci(true)
-	if w := zovi(http.MethodPost, "/vodocuvar/spremi"); w.Code != http.StatusNoContent || !pozvan || traka.RacunIskljucen {
+	if w := zovi(http.MethodPost, "/prijave"); w.Code != http.StatusNoContent || !pozvan || traka.RacunIskljucen {
 		t.Errorf("upis nakon ponovnog uključenja: %d, traka %+v", w.Code, traka)
 	}
 
@@ -94,7 +94,7 @@ func TestIskljucenRacunTudjimOcimaSamoCita(t *testing.T) {
 	if err := akti.SpremiOpcije(context.Background(), o.ovlasti(uprava), models.Opcije{}); err != nil {
 		t.Fatal(err)
 	}
-	if w := zovi(http.MethodPost, "/vodocuvar/spremi"); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Upisi tuđim očima") {
+	if w := zovi(http.MethodPost, "/prijave"); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Upisi tuđim očima") {
 		t.Errorf("upis bez prekidača: %d %q", w.Code, w.Body.String())
 	}
 }
@@ -143,7 +143,7 @@ func TestSimulacijaKljucaSamoUzUpiseTudjimOcima(t *testing.T) {
 			t.Fatal(err)
 		}
 		simulacija = !p.simulacija
-		if w := mwZahtjev(h, http.MethodGet, "/vodocuvar/dan", sesija.ID.String()); w.Code != http.StatusOK || simulacija != p.simulacija {
+		if w := mwZahtjev(h, http.MethodGet, "/prijave/nova", sesija.ID.String()); w.Code != http.StatusOK || simulacija != p.simulacija {
 			t.Errorf("%s: %d, simulacija ključa %v, očekivano %v", p.opis, w.Code, simulacija, p.simulacija)
 		}
 	}

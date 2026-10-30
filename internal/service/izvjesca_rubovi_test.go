@@ -76,8 +76,12 @@ func novaOkolinaIzvjesca(t *testing.T) *okolinaIzvjesca {
 	o.d111.Parts = []models.SectionPart{{WatercourseName: "Primjerica", StationIDs: []string{o.letva.ID.String(), "nije-uuid", uuid.NewString()}}}
 	o.pero = &models.User{ID: uuid.New(), FullName: "Pero Perić"}
 	o.urednik = &models.User{ID: uuid.New(), FullName: "Pero Perić (zamjenik)"}
-	o.pisePero = &models.UserPermissions{AllowedSections: map[string]bool{"P.1.1": true}}
-	o.upravaP = &models.UserPermissions{AdminSectors: map[string]bool{"P": true}}
+	// dnevno izvješće pišu samo rukovoditelj dionice i zamjenik (Odluke
+	// (30. 10. 2026.), 3): Pero je rukovoditelj dionice P.1.1, a uprava
+	// sektora P je ujedno zamjenik rukovoditelja dionica područja 1
+	o.pisePero = ovlastiOsobe(duznost(models.RoleSectionLeader, models.ScopeSection, "P", 1, "P.1.1"))
+	o.upravaP = ovlastiOsobe(duznost(models.RoleSectorLeader, models.ScopeSector, "P", 0, ""),
+		duznost(models.RoleSectionDeputy, models.ScopeSection, "P", 1, ""))
 	return o
 }
 
@@ -383,6 +387,14 @@ func TestPravaNaIzvjesca(t *testing.T) {
 	o := novaOkolinaIzvjesca(t)
 	podr1 := &models.UserPermissions{AllowedAreas: map[int]bool{1: true}}
 	drugiSektor := &models.UserPermissions{AllowedSections: map[string]bool{"Q.3.1": true}}
+	// Odluke (30. 10. 2026.), 3: pišu samo rukovoditelj dionice i zamjenik;
+	// uprava područja i sektora, globalni administrator i vodočuvar dionice
+	// izvješće čitaju, ali ga ne pišu
+	zamjenik := ovlastiOsobe(duznost(models.RoleSectionDeputy, models.ScopeSection, "P", 1, "P.1.1"))
+	upravaPodrucja := ovlastiOsobe(duznost(models.RoleAreaLeader, models.ScopeArea, "P", 1, ""))
+	upravaSektora := ovlastiOsobe(duznost(models.RoleSectorLeader, models.ScopeSector, "P", 0, ""))
+	vodocuvar := ovlastiOsobe(duznost(models.RoleWaterGuard, models.ScopeSection, "P", 1, "P.1.1"))
+	admin := models.NewUserPermissions(models.User{ID: uuid.New(), FullName: "Pero Perić", IsGlobalAdmin: true})
 	for _, s := range []struct {
 		ime           string
 		perms         *models.UserPermissions
@@ -390,10 +402,15 @@ func TestPravaNaIzvjesca(t *testing.T) {
 		dionicaZaPisi int
 	}{
 		{"rukovoditelj dionice", o.pisePero, true, true, 1},
-		{"područje 1", podr1, true, true, 2},
-		{"uprava sektora", o.upravaP, true, true, 3},
+		{"zamjenik rukovoditelja dionice", zamjenik, true, true, 1},
+		{"uprava sektora i zamjenik na području 1", o.upravaP, true, true, 2},
+		{"uprava područja 1", upravaPodrucja, false, true, 0},
+		{"uprava sektora", upravaSektora, false, true, 0},
+		{"globalni administrator", admin, false, true, 0},
+		{"vodočuvar dionice", vodocuvar, false, true, 0},
+		{"područje 1", podr1, false, true, 0},
 		// dionica u sektoru daje uvid i u druge dionice sektora
-		{"dionica P.2.1", &models.UserPermissions{AllowedSections: map[string]bool{"P.2.1": true}}, false, true, 1},
+		{"dionica P.2.1", &models.UserPermissions{AllowedSections: map[string]bool{"P.2.1": true}}, false, true, 0},
 		{"drugi sektor", drugiSektor, false, false, 0},
 		{"bez ovlasti", nil, false, false, 0},
 	} {

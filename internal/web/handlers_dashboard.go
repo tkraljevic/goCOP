@@ -195,7 +195,7 @@ func precaciZa(perms *models.UserPermissions) []Precac {
 		dodaj("Dnevnik COP-a", "/dnevnici/popis?vrsta=OBRANA", "notebook")
 		dodaj("Izvješće sektora", "/izvjesca", "file-text")
 	}
-	if len(perms.AllowedSections) > 0 || len(perms.AdminAreas) > 0 {
+	if perms.VodiDionice() {
 		dodaj("Novo dnevno izvješće", "/izvjesca/novo", "file-text")
 	}
 	skladistar := false

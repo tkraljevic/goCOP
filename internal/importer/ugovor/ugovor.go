@@ -505,6 +505,22 @@ type Options struct {
 	AllItems bool              // uz korištene stavke upisati i cijeli ponudbeni troškovnik (bez cijena)
 	Log      func(string, ...any)
 	Deps     Deps
+	// PrijeUpisa se, kad je zadan, poziva nakon razvrstavanja lokacija, a
+	// prije prvog upisa; greška zaustavlja uvoz i ništa se ne upisuje
+	PrijeUpisa func(Report) error
+}
+
+// zaustavi javlja staje li uvoz prije upisa: probni prolaz staje bez
+// greške, a PrijeUpisa s greškom
+func (o Options) zaustavi(rep Report) (bool, error) {
+	if o.DryRun {
+		return true, nil
+	}
+	if o.PrijeUpisa == nil {
+		return false, nil
+	}
+	err := o.PrijeUpisa(rep)
+	return err != nil, err
 }
 
 // Match je jedna lokacija i što je uvoz s njom odlučio
@@ -617,8 +633,8 @@ func Run(ctx context.Context, o Options) (Report, error) {
 		}
 	}
 
-	if o.DryRun {
-		return rep, nil
+	if stani, err := o.zaustavi(rep); stani {
+		return rep, err
 	}
 
 	source := filepath.Base(o.Path)

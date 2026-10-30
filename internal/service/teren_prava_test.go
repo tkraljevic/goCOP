@@ -111,7 +111,7 @@ func TestDvojnaDuznostNeOvjeravaSvoje(t *testing.T) {
 	if vs.SmijeOvjeriti(perms, svoj) {
 		t.Error("nudi ovjeru vlastitog lista")
 	}
-	if _, err := vs.Ovjeri(ctx, perms, marko, svoj.ID); !errors.Is(err, ErrUnauthorized) {
+	if _, err := vs.Ovjeri(ctx, perms, marko, svoj.ID, false); !errors.Is(err, ErrUnauthorized) {
 		t.Errorf("ovjera vlastitog lista: %v", err)
 	}
 	if l, err := k.o.repo.Get(ctx, svoj.ID); err != nil || l == nil || l.Potvrden() {
@@ -129,18 +129,31 @@ func TestDvojnaDuznostNeOvjeravaSvoje(t *testing.T) {
 	}
 
 	// kontrola: isti zamjenik ovjerava list i rješava prijavu Pere
-	if l, err := vs.Ovjeri(ctx, perms, marko, predaj(k.pero).ID); err != nil || !l.Potvrden() {
+	if l, err := vs.Ovjeri(ctx, perms, marko, predaj(k.pero).ID, false); err != nil || !l.Potvrden() {
 		t.Errorf("ovjera tuđeg lista: %+v %v", l, err)
 	}
 	if p, err := prijave.Rijesi(ctx, perms, marko, objavi(k.pero).ID); err != nil || p.Status != models.PrijavaRijesena {
 		t.Errorf("rješavanje tuđe prijave: %+v %v", p, err)
 	}
 
-	// globalni administrator ostaje kakav je bio dok to ne odrede Odluke
+	// ni globalni administrator ne ovjerava svoj list i ne rješava svoju
+	// prijavu (Odluke (30. 10. 2026.), 8), a tuđi list ovjerava
 	admin := models.NewUserPermissions(*marko)
 	admin.IsGlobalAdmin = true
-	if !vs.SmijeOvjeriti(admin, svoj) {
-		t.Error("globalnom administratoru promijenjeno pravo ovjere")
+	if vs.SmijeOvjeriti(admin, svoj) {
+		t.Error("globalni administrator ovjerava svoj list")
+	}
+	if _, err := vs.Ovjeri(ctx, admin, marko, svoj.ID, false); !errors.Is(err, ErrUnauthorized) {
+		t.Errorf("globalni administrator ovjerio svoj list: %v", err)
+	}
+	if prijave.SmijeRijesiti(admin, svojaPrijava) {
+		t.Error("globalni administrator rješava svoju prijavu")
+	}
+	if !vs.SmijeVidjeti(admin, svoj) {
+		t.Error("globalni administrator više ne čita svoj list")
+	}
+	if l, err := vs.Ovjeri(ctx, admin, marko, predaj(k.pero).ID, false); err != nil || !l.Potvrden() {
+		t.Errorf("globalni administrator ne ovjerava tuđi list: %+v %v", l, err)
 	}
 }
 
@@ -206,27 +219,43 @@ func TestUpravaSektoraNeRjesavaSvoje(t *testing.T) {
 	}
 }
 
-// Svaka dužnost koja ovjerava ovjerava list samo u svom dosegu; vodočuvar
-// i dežurni ne ovjeravaju
+// Svaka dužnost koja ovjerava ovjerava list samo u svom dosegu: rukovoditelj
+// i zamjenik područja kao područje, uprava sektora i glavni rukovoditelj
+// umjesto njih; uprava COP-a i centra, vodočuvar i dežurni ne ovjeravaju
+// (Odluke (30. 10. 2026.), 8). Uprava knjige ostaje kakva je bila.
 func TestOvjeravaDuznoscuPoDosegu(t *testing.T) {
 	sektor, drugi, p1, p2 := "P", "Q", 1, 2
 	l := &models.VodocuvarskiList{Sektor: sektor, AreaID: p1}
 	slucajevi := []struct {
-		naziv    string
-		d        models.Duty
-		ovjerava bool
+		naziv  string
+		d      models.Duty
+		ovjera int
+		uprava bool
 	}{
-		{"uprava organizacije", models.Duty{Role: models.RoleNationalLeader}, true},
-		{"uprava sektora", models.Duty{Role: models.RoleSectorLeader, SectorID: &sektor}, true},
-		{"uprava drugog sektora", models.Duty{Role: models.RoleSectorLeader, SectorID: &drugi}, false},
-		{"uprava sektora bez sektora", models.Duty{Role: models.RoleCopLeader}, false},
-		{"zamjenik područja", models.Duty{Role: models.RoleAreaDeputy, AreaID: &p1}, true},
-		{"zamjenik drugog područja", models.Duty{Role: models.RoleAreaDeputy, AreaID: &p2}, false},
-		{"vodočuvar", models.Duty{Role: models.RoleWaterGuard, SectorID: &sektor, AreaID: &p1}, false},
+		{"glavni rukovoditelj", models.Duty{Role: models.RoleNationalLeader}, ovjeravaUmjesto, true},
+		{"zamjenik glavnog rukovoditelja", models.Duty{Role: models.RoleNationalDeputy}, ovjeravaUmjesto, true},
+		{"voditelj glavnog centra", models.Duty{Role: models.RoleMainCenterLeader}, neOvjerava, true},
+		{"uprava sektora", models.Duty{Role: models.RoleSectorLeader, SectorID: &sektor}, ovjeravaUmjesto, true},
+		{"zamjenik sektora", models.Duty{Role: models.RoleSectorDeputy, SectorID: &sektor}, ovjeravaUmjesto, true},
+		{"zamjenik sektora za područje", models.Duty{Role: models.RoleSectorAreaDeputy, AreaID: &p1}, ovjeravaUmjesto, true},
+		{"zamjenik sektora za drugo područje", models.Duty{Role: models.RoleSectorAreaDeputy, AreaID: &p2}, neOvjerava, false},
+		{"uprava drugog sektora", models.Duty{Role: models.RoleSectorLeader, SectorID: &drugi}, neOvjerava, false},
+		{"uprava sektora bez sektora", models.Duty{Role: models.RoleSectorLeader}, neOvjerava, false},
+		{"voditelj COP-a", models.Duty{Role: models.RoleCopLeader, SectorID: &sektor}, neOvjerava, true},
+		{"voditelj COP-a bez sektora", models.Duty{Role: models.RoleCopLeader}, neOvjerava, false},
+		{"rukovoditelj područja", models.Duty{Role: models.RoleAreaLeader, AreaID: &p1}, ovjeravaPodrucje, true},
+		{"rukovoditelj drugog područja", models.Duty{Role: models.RoleAreaLeader, AreaID: &p2}, neOvjerava, false},
+		{"zamjenik područja", models.Duty{Role: models.RoleAreaDeputy, AreaID: &p1}, ovjeravaPodrucje, true},
+		{"zamjenik drugog područja", models.Duty{Role: models.RoleAreaDeputy, AreaID: &p2}, neOvjerava, false},
+		{"vodočuvar", models.Duty{Role: models.RoleWaterGuard, SectorID: &sektor, AreaID: &p1}, neOvjerava, false},
+		{"dežurni", models.Duty{Role: models.RoleOperator, SectorID: &sektor, AreaID: &p1}, neOvjerava, false},
 	}
 	for _, s := range slucajevi {
-		if got := ovjeravaDuznoscu(s.d, l); got != s.ovjerava {
-			t.Errorf("%s: ovjerava %v, očekivano %v", s.naziv, got, s.ovjerava)
+		if got := ovjeraDuznosti(s.d, l); got != s.ovjera {
+			t.Errorf("%s: ovjera %v, očekivano %v", s.naziv, got, s.ovjera)
+		}
+		if got := upravljaKnjigom(s.d, l); got != s.uprava {
+			t.Errorf("%s: uprava knjige %v, očekivano %v", s.naziv, got, s.uprava)
 		}
 	}
 }

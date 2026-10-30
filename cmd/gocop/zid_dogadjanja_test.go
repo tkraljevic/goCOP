@@ -41,7 +41,7 @@ func TestZidCvoraCitaPrijavePoPraviluPrijava(t *testing.T) {
 	}
 
 	zid := service.NewZidService(rec, nil, nil, nil, userRepo, nil, nil)
-	postaviZid(zid, &service.AktService{}, prijave)
+	postaviZid(zid, &service.AktService{}, prijave, service.NewJournalService(nil, nil, nil))
 	podrucje34 := 34
 	for _, k := range []struct {
 		ime   string
