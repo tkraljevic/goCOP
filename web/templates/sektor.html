@@ -16,9 +16,6 @@
   </div>
 </div>
 
-{{if .SuccessMessage}}<div class="alert alert-success">{{.SuccessMessage}}</div>{{end}}
-{{if .ErrorMessage}}<div class="alert alert-error">{{.ErrorMessage}}</div>{{end}}
-
 <div class="reg-card p-4">
   <dl class="reg-facts">
     <div><dt>Oznaka</dt><dd>{{.Sektor.ID}}</dd></div>
@@ -35,7 +32,7 @@
   <h2>{{icon "shield"}} Žig centra</h2>
   <p class="page-desc">Skenirani žig centra obrane od poplava stoji na PDF-u svakog akta ovjerenog u goCOP-u, uz blok elektroničke ovjere. Na ispisu za vlastoručni potpis ostaje prazno mjesto za pravi žig. Svaki sektor ima svoj žig; vrijedi na svim čvorovima. Mijenja ga uprava sektora.</p>
   {{if gt (len .DrugiSektori) 1}}
-  <p class="form-help">Žig drugog sektora: {{range $i, $s := .DrugiSektori}}{{if ne $s.ID $.Sektor.ID}}<a href="/organizacija/sektori/{{$s.ID}}#zig" class="reg-chip">{{$s.ID}}</a> {{end}}{{end}}</p>
+  <p class="form-help">Drugi sektori: {{range $i, $s := .DrugiSektori}}{{if ne $s.ID $.Sektor.ID}}<a href="/organizacija/sektori/{{$s.ID}}#zig" class="reg-chip">{{$s.ID}}</a> {{end}}{{end}}</p>
   {{end}}
   <div class="zig-pregled">
     {{if .Zig}}

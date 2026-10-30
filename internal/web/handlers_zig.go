@@ -68,15 +68,22 @@ func (h *AktiHandler) ShowSektor(w http.ResponseWriter, r *http.Request) {
 	if u == nil {
 		return
 	}
-	i := slices.IndexFunc(base.Sektori, func(s models.Sector) bool { return s.ID == r.PathValue("id") })
+	// sektori se čitaju ovdje, a ne iz base(), koji grešku baze prešuti: bez
+	// toga bi kvar baze izgledao kao sektor koji ne postoji
+	sektori, err := h.users.ListSectors()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	i := slices.IndexFunc(sektori, func(s models.Sector) bool { return s.ID == r.PathValue("id") })
 	if i < 0 {
 		http.NotFound(w, r)
 		return
 	}
 	d := SektorData{CurrentUser: u, Permissions: perms, ActiveNav: "organizacija", ViewAsBanner: viewBanner(r),
-		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage, Sektor: base.Sektori[i]}
+		SuccessMessage: base.SuccessMessage, ErrorMessage: base.ErrorMessage, Sektor: sektori[i]}
 	if s := h.akti(); s != nil && perms.CanAdminister(d.Sektor.ID, 0) {
-		d.SmijeZig, d.DrugiSektori = true, h.sektoriZaZig(perms, base.Sektori)
+		d.SmijeZig, d.DrugiSektori = true, h.sektoriZaZig(perms, sektori)
 		if d.Zig = s.Zig(r.Context(), d.Sektor.ID); d.Zig != nil {
 			d.Kad = d.Zig.UpdatedAt
 		}
@@ -112,7 +119,8 @@ func (h *AktiHandler) HandleZig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	sektor := sektorZiga(r)
-	natrag := stranicaSektora(sektor) + "#zig"
+	// bez sidra #zig: poruka o uspjehu ili grešci stoji na vrhu stranice
+	natrag := stranicaSektora(sektor)
 	if r.FormValue("obrisi") == "1" {
 		if err := s.ObrisiZig(r.Context(), perms, sektor); err != nil {
 			redirectWith(w, r, natrag, "error", err.Error())

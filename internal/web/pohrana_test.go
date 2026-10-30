@@ -61,7 +61,7 @@ func TestPohranaOdbijaBezPrava(t *testing.T) {
 		h.HandlePohrana(w, r)
 		return mustUnescape(w.Header().Get("Location"))
 	}
-	if loc := posalji(&DBMaintHandler{}, &models.UserPermissions{IsGlobalAdmin: true}); !strings.HasPrefix(loc, "/administracija/baza?error=") || !strings.HasSuffix(loc, "#pohrana") {
+	if loc := posalji(&DBMaintHandler{}, &models.UserPermissions{IsGlobalAdmin: true}); !strings.HasPrefix(loc, "/administracija/baza?error=") || strings.Contains(loc, "#") {
 		t.Errorf("bez spremanja opcija: %s", loc)
 	}
 	spremljeno := false
@@ -90,5 +90,22 @@ func TestOdrzavanjeBazeCitaOpcije(t *testing.T) {
 	r := httptest.NewRequest(http.MethodGet, "/administracija/baza", nil)
 	if d := h.pageData(r); d.Opcije.CuvanjeSlika() != 20 || !h.brisanjePovijesti(r.Context()) {
 		t.Errorf("stranica nema opcija: %+v", d.Opcije)
+	}
+}
+
+// Poslužitelj sprema Pohranu kroz servis akata; dok ga nema, ništa se ne
+// sprema, a uz njega se mijenja samo zadano polje
+func TestPosluziteljIzmjenjujeOpcije(t *testing.T) {
+	bez := &Server{}
+	if err := bez.izmijeniOpcije(t.Context(), &models.UserPermissions{IsGlobalAdmin: true}, func(*models.Opcije) {}); err == nil {
+		t.Error("bez servisa akata opcije su spremljene")
+	}
+	o := novaOkolinaSastavljaca(t)
+	s := &Server{akti: o.akti}
+	if err := s.izmijeniOpcije(t.Context(), &models.UserPermissions{IsGlobalAdmin: true}, func(op *models.Opcije) { op.CuvanjeSlikaDana = 20 }); err != nil {
+		t.Fatal(err)
+	}
+	if got := o.akti.Opcije(t.Context()).CuvanjeSlikaDana; got != 20 {
+		t.Errorf("rok čuvanja nakon spremanja: %d", got)
 	}
 }

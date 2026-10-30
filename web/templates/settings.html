@@ -49,7 +49,7 @@
 
   <div class="card">
     <h2>Domenski čvorovi</h2>
-    <p class="desc">Čvor s adresom za razmjenu (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa za razmjenu putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru. Adresa za QR kod na dokumentima je posebna postavka, na stranici <a href="/administracija/potpisi#qr-adresa">Elektronički potpisi</a>.</p>
+    <p class="desc">Čvor s adresom za razmjenu (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa za razmjenu putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.{{if $.Permissions.IsGlobalAdmin}} Adresa za QR kod na dokumentima je posebna postavka, na stranici <a href="/administracija/potpisi#qr-adresa">Elektronički potpisi</a>.{{end}}</p>
     <div class="peer">
       <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovaj čvor)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
       {{/* adrese računala vidi samo administrator */}}

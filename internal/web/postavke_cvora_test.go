@@ -512,11 +512,19 @@ func TestSpremanjeBezDatoteke(t *testing.T) {
 // promjena u datoteci ne čeka ponovno pokretanje jer i dalje vrijedi zastavica.
 func TestZastavicaJacaOdDatoteke(t *testing.T) {
 	s, _ := cvorSPostavkama(t, sadrzajPostavk, map[string]string{"addr": "-addr"})
-	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/administracija/potpisi", nil, kaoAdmin), "/administracija/potpisi")
-	for _, st := range p.Dio("dokumenti").Stavke {
-		if st.Kljuc == "addr" && (st.Zastavica != "-addr" || st.Prikaz != ":9999" || st.UDatoteci != ":8080" || st.CekaPonovno) {
+	p := s.postavkeStranice(zahtjevPostavki(http.MethodGet, "/settings", nil, kaoAdmin), "/settings")
+	nadjena := false
+	for _, st := range p.Dio("cvor").Stavke {
+		if st.Kljuc != "addr" {
+			continue
+		}
+		nadjena = true
+		if st.Zastavica != "-addr" || st.Prikaz != ":9999" || st.UDatoteci != ":8080" || st.CekaPonovno {
 			t.Errorf("addr uz zastavicu: %+v", st)
 		}
+	}
+	if !nadjena {
+		t.Error("postavke addr nema u bloku čvora")
 	}
 	if p.CekaPonovno {
 		t.Error("traka bez spremljene promjene")

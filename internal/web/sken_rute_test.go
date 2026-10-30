@@ -214,8 +214,9 @@ func TestRucniPotpisISkenKrozRute(t *testing.T) {
 	_ = mwZ.Close()
 	rz := httptest.NewRequest(http.MethodPost, "/administracija/zig", &tijeloZ)
 	rz.Header.Set("Content-Type", mwZ.FormDataContentType())
-	// stara adresa obrasca i dalje sprema, a vraća na stranicu sektora
-	if loc := mustUnescape(zovi(rz).Header().Get("Location")); !strings.Contains(loc, "success") || !strings.HasPrefix(loc, "/organizacija/sektori/B?") || !strings.HasSuffix(loc, "#zig") {
+	// stara adresa obrasca i dalje sprema, a vraća na vrh stranice sektora,
+	// gdje stoji poruka
+	if loc := mustUnescape(zovi(rz).Header().Get("Location")); !strings.Contains(loc, "success") || !strings.HasPrefix(loc, "/organizacija/sektori/B?") || strings.Contains(loc, "#") {
 		t.Fatalf("žig: %s", loc)
 	}
 	if w := zovi(httptest.NewRequest(http.MethodGet, "/organizacija/sektori/B", nil)); !strings.Contains(w.Body.String(), "/organizacija/sektori/B/zig/slika?t=") {

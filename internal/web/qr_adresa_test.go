@@ -16,6 +16,7 @@ import (
 
 	"gocop/internal/db"
 	"gocop/internal/ledger"
+	"gocop/internal/models"
 	"gocop/internal/repository"
 	"gocop/internal/service"
 )
@@ -58,6 +59,19 @@ func TestAdresaZaQRNaStraniciPotpisa(t *testing.T) {
 	}
 	if html := iscrtajPostavke(t, s, "/settings", kaoAdmin); strings.Contains(html, `data-postavka="javna_adresa"`) || !strings.Contains(html, "/administracija/potpisi#qr-adresa") {
 		t.Error("Čvor i mreža još prikazuje adresu za QR kod ili ne vodi na nju")
+	}
+	// stranicu potpisa otvara samo globalni administrator, pa ostalima
+	// poveznica na nju ne stoji
+	obican := uvjetiZahtjeva{perms: &models.UserPermissions{}, adresa: adresaLokalno, korisnik: adminIvic}
+	if html := iscrtajPostavke(t, s, "/settings", obican); strings.Contains(html, "/administracija/potpisi#qr-adresa") {
+		t.Error("poveznica na adresu za QR kod stoji i onome tko stranicu potpisa ne može otvoriti")
+	}
+	// bez servisa potpisa stranica javlja da potpis nije dostupan
+	bez := NewPotpisHandler(func() *service.PotpisService { return nil }, users, predlozakStranice(t, "administracija_potpisi.html"))
+	w = httptest.NewRecorder()
+	bez.ShowAdministracija(w, zahtjevPostavki(http.MethodGet, "/administracija/potpisi", nil, kaoAdmin))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("bez servisa potpisa: %d", w.Code)
 	}
 }
 

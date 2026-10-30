@@ -1470,12 +1470,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
 	s.mux.Handle("POST /administracija/baza/spomenici", s.authMiddleware(http.HandlerFunc(dbH.HandlePurgeTombstones)))
 	dbH.SetOpcije(s.opcije)
-	dbH.SetIzmjenaOpcija(func(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
-		if s.akti == nil {
-			return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
-		}
-		return s.akti.IzmijeniOpcije(ctx, p, izmjena)
-	})
+	dbH.SetIzmjenaOpcija(s.izmijeniOpcije)
 	s.mux.Handle("POST /administracija/baza/pohrana", s.samoAdmin(http.HandlerFunc(dbH.HandlePohrana)))
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
@@ -1562,6 +1557,15 @@ func (s *Server) opcije(ctx context.Context) models.Opcije {
 		return models.Opcije{}
 	}
 	return s.akti.Opcije(ctx)
+}
+
+// izmijeniOpcije mijenja dio općih prekidača; dok servis akata nije spojen,
+// ništa se ne sprema
+func (s *Server) izmijeniOpcije(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
+	if s.akti == nil {
+		return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
+	}
+	return s.akti.IzmijeniOpcije(ctx, p, izmjena)
 }
 
 func DijeloviPredloska(stranica string) []string {

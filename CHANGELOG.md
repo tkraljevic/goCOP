@@ -7,15 +7,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 ## 0.0.47-alfa — u pripremi
 
 - **Žig centra je na stranici sektora, a Djelatnici imaju svoju stavku u
-  izborniku.** Uprava sektora nije mogla otvoriti svoj žig, jer je stajao u
-  Administraciji, a nju zadano ne vidi. Sad se žig mijenja na stranici
-  sektora, pod Registri › Administrativna organizacija; kartica u
-  Administraciji i stare adrese vode onamo. Djelatnici više nisu skriveni u
-  Registrima. Rok čuvanja fotografija s terena premješten je iz Opcija na
-  Održavanje baze, u dio „Pohrana”, a spremanje Opcija ga više ne dira.
-  Adresa za QR kod na dokumentima stoji na stranici Elektronički potpisi, a
-  adresa u Domenskim čvorovima zove se „adresa za razmjenu”. Odluke
-  (30. 10. 2026.)
+  izborniku.** Uprava sektora nije mogla promijeniti svoj žig, jer je bio u
+  Administraciji, koju zadano ne vidi. Sad je na stranici sektora, pod
+  Registri › Administrativna organizacija; kartica u Administraciji i stare
+  adrese vode onamo. Djelatnici su u glavnom izborniku, a ne više u
+  padajućem izborniku Registri. Rok čuvanja fotografija s terena je na
+  Održavanju baze, u dijelu „Pohrana” (Odluke (30. 10. 2026.)). Adresa za
+  QR kod na dokumentima zasad je na stranici Elektronički potpisi, a adresa
+  u Domenskim čvorovima zove se „adresa za razmjenu”.
 
 - **Dnevna prognoza više ne izlazi bez kiše jednom dnevno.** U prvom izdanju
   novog dana po UTC-u, zimi u 0:45, a ljeti u 1:45, dnevni model računao je

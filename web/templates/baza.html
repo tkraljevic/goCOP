@@ -90,7 +90,7 @@
   <p class="page-desc">
     Uz prijavu s terena vodočuvar prilaže fotografije. Program ih odmah smanji (najdulja stranica 1 000 px, JPEG) i pri
     objavi ugradi u potpisani PDF, koji ostaje trajno i putuje među čvorovima. Izvorne smanjene slike ostaju na čvoru
-    još ovoliko dana nakon objave, za pregled na stranici, pa se brišu. Ovo vrijedi na svim čvorovima, a promjena ostaje
+    još onoliko dana koliko je zadano niže, za pregled na stranici, a zatim se brišu. Ovo vrijedi na svim čvorovima, a promjena ostaje
     u knjizi verzija.
   </p>
   {{if .Permissions.IsGlobalAdmin}}
@@ -106,11 +106,12 @@
       </label>
       <div class="form-help">Slike se brišu čim je PDF s njima spremljen, i pri uvozu iz ranije evidencije. Baza tada nosi samo dokument, a stranica prijave slike pokazuje iz PDF-a. Rok u danima vrijedi kad je ovo isključeno.</div>
     </div>
-    <div class="form-help mb-3">Ne dira PDF ni nacrte: nacrt čuva svoje slike dok se ne objavi ili obriše. U Directusu je Baranja u dva mjeseca skupila 4 GB fotografija; dokument s ugrađenim slikama nosi sve što treba za dokaz, a baza ostaje mala.</div>
+    <div class="form-help">Ne dira PDF ni nacrte: nacrt čuva svoje slike dok se ne objavi ili obriše.</div>
+    <div class="form-help mb-3">U ranijoj evidenciji Baranja je u dva mjeseca skupila 4 GB fotografija. PDF s ugrađenim slikama dovoljan je za dokaz, a baza ostaje mala.</div>
     <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi rok čuvanja</button>
   </form>
   {{else}}
-  <p>{{if .Opcije.SlikeOdmah}}Izvorne slike brišu se odmah po objavi prijave.{{else}}Izvorne slike čuvaju se <b>{{.Opcije.CuvanjeSlika}}</b> dana nakon objave prijave.{{end}} Mijenja ih globalni administrator.</p>
+  <p>{{if .Opcije.SlikeOdmah}}Izvorne slike brišu se odmah po objavi prijave.{{else}}Izvorne slike čuvaju se <b>{{.Opcije.CuvanjeSlika}}</b> dana nakon objave prijave.{{end}} Rok mijenja globalni administrator.</p>
   {{end}}
 </section>
 

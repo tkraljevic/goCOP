@@ -52,9 +52,10 @@ func (h *DBMaintHandler) SetIzmjenaOpcija(f func(ctx context.Context, p *models.
 // JSON), pa je stariji čvorovi čitaju jednako; ostale opcije ostaju kakve
 // jesu (Odluke (30. 10. 2026.)).
 func (h *DBMaintHandler) HandlePohrana(w http.ResponseWriter, r *http.Request) {
+	// bez sidra #pohrana: poruka o uspjehu ili grešci stoji na vrhu stranice
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	if h.izmijeniOpcije == nil {
-		redirectWith(w, r, "/administracija/baza#pohrana", "error", "Rok čuvanja fotografija ne može se spremiti na ovom čvoru.")
+		redirectWith(w, r, "/administracija/baza", "error", "Rok čuvanja fotografija ne može se spremiti na ovom čvoru.")
 		return
 	}
 	err := h.izmijeniOpcije(r.Context(), perms, func(o *models.Opcije) {
@@ -62,10 +63,10 @@ func (h *DBMaintHandler) HandlePohrana(w http.ResponseWriter, r *http.Request) {
 		o.SlikeOdmah = r.FormValue("slike_odmah") == "1"
 	})
 	if err != nil {
-		redirectWith(w, r, "/administracija/baza#pohrana", "error", "Rok čuvanja fotografija nije spremljen: "+err.Error())
+		redirectWith(w, r, "/administracija/baza", "error", "Rok čuvanja fotografija nije spremljen: "+err.Error())
 		return
 	}
-	redirectWith(w, r, "/administracija/baza#pohrana", "success", "Rok čuvanja fotografija je spremljen i vrijedi na svim čvorovima.")
+	redirectWith(w, r, "/administracija/baza", "success", "Rok čuvanja fotografija je spremljen i vrijedi na svim čvorovima.")
 }
 
 func (h *DBMaintHandler) brisanjePovijesti(ctx context.Context) bool {

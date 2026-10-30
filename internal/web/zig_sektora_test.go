@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -100,6 +101,42 @@ func TestUpravaSektoraSpremaZigSaStraniceSektora(t *testing.T) {
 	}
 	if w := posalji("uprava sektora", httptest.NewRequest(http.MethodGet, "/organizacija/sektori/P/zig/slika", nil)); w.Code != http.StatusOK || w.Header().Get("Content-Type") != "image/png" {
 		t.Errorf("slika žiga upravi sektora: %d %s", w.Code, w.Header().Get("Content-Type"))
+	}
+	// poruka o spremanju stoji jednom, na vrhu stranice
+	poruka := "Žig je spremljen i od sada stoji na PDF-u svakog ovjerenog akta sektora."
+	if w := posalji("uprava sektora", httptest.NewRequest(http.MethodGet, "/organizacija/sektori/P?success="+url.QueryEscape(poruka), nil)); strings.Count(w.Body.String(), poruka) != 1 {
+		t.Errorf("poruka o spremanju žiga ispisana je %d puta", strings.Count(w.Body.String(), poruka))
+	}
+
+	// na popisu organizacije oznaka sektora vodi na stranicu sektora svima,
+	// a oznaka „žig” stoji samo upravi sektora
+	popis := o.tmpl("organizacija.html")
+	for tko, c := range map[string]struct {
+		perms   *models.UserPermissions
+		zeliZig bool
+	}{
+		"uprava sektora": {&models.UserPermissions{AdminSectors: map[string]bool{"P": true}, AllowedSectors: map[string]bool{"P": true}}, true},
+		"rukovoditelj":   {ovlastiOsobe(o.osobe["rukovoditelj"]), false},
+	} {
+		var b bytes.Buffer
+		if err := popis.ExecuteTemplate(&b, "organizacija.html", OrgPageData{CurrentUser: o.osobe[tko], Permissions: c.perms, Terms: models.Terms(),
+			Sectors: []SectorView{{Sector: models.Sector{ID: "P", Name: "Sektor P", Level: 2}}}}); err != nil {
+			t.Fatalf("%s: popis organizacije: %v", tko, err)
+		}
+		if !strings.Contains(b.String(), `href="/organizacija/sektori/P" class="section-code-badge"`) {
+			t.Errorf("%s: popis organizacije bez poveznice na stranicu sektora", tko)
+		}
+		if imaZig := strings.Contains(b.String(), `href="/organizacija/sektori/P#zig"`); imaZig != c.zeliZig {
+			t.Errorf("%s: oznaka žiga na popisu organizacije %v, želi %v", tko, imaZig, c.zeliZig)
+		}
+	}
+
+	// Pohranu na Održavanju baze uprava sektora ne može spremiti
+	prije := o.akti.Opcije(t.Context())
+	pohrana := httptest.NewRequest(http.MethodPost, "/administracija/baza/pohrana", strings.NewReader(url.Values{"cuvanje_slika_dana": {"20"}, "slike_odmah": {"1"}}.Encode()))
+	pohrana.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if w := posalji("uprava sektora", pohrana); w.Code != http.StatusForbidden || o.akti.Opcije(t.Context()) != prije {
+		t.Errorf("uprava sektora spremila je Pohranu: %d %+v", w.Code, o.akti.Opcije(t.Context()))
 	}
 
 	// rukovoditelj područja vidi podatke sektora, ali ne i žig
@@ -199,5 +236,24 @@ func TestStaraAdresaZigaVodiNaSektor(t *testing.T) {
 	h.HandleZig(w, r)
 	if loc := w.Header().Get("Location"); !strings.HasPrefix(loc, "/organizacija?error=") {
 		t.Errorf("pokvaren obrazac: %s", loc)
+	}
+}
+
+// Kad se sektori ne mogu pročitati iz baze, stranica sektora javlja grešku,
+// a ne da sektor ne postoji
+func TestStranicaSektoraUzKvarBaze(t *testing.T) {
+	o := novaOkolinaSastavljaca(t)
+	h := NewAktiHandler(func() *service.AktService { return o.akti }, o.users, nil, nil, nil, nil, nil)
+	h.SetZig(o.tmpl("sektor.html"))
+	if err := o.baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest(http.MethodGet, "/organizacija/sektori/P", nil)
+	r.SetPathValue("id", "P")
+	r = r.WithContext(context.WithValue(context.WithValue(r.Context(), contextKeyUser, o.osobe["dežurni"]), contextKeyPerms, &models.UserPermissions{IsGlobalAdmin: true}))
+	w := httptest.NewRecorder()
+	h.ShowSektor(w, r)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("stranica sektora uz kvar baze: %d", w.Code)
 	}
 }
