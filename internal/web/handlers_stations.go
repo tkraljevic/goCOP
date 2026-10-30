@@ -376,6 +376,12 @@ func (h *StationsHandler) HandleCreateStationAPI(w http.ResponseWriter, r *http.
 		return
 	}
 
+	// Pravo se provjerava prije poziva javnog popisa: tko ne smije unijeti
+	// postaju, ne pokreće ni upit prema drugom sustavu.
+	if err := h.stationService.ProvjeriUnos(perms, form.SectionCode); err != nil {
+		odbijIzmjenuPostaje(w, r, "/stations/new", err)
+		return
+	}
 	station := form.toStation()
 	h.dopuniJavnuAdresu(ctx, &station)
 	if err := h.stationService.CreateStation(ctx, perms, &station, form.SectionCode); err != nil {
@@ -429,6 +435,12 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 		http.Error(w, "Postaja ne postoji", http.StatusNotFound)
 		return
 	}
+	// Pravo se provjerava prije javnog popisa i telemetrije: tko ne smije
+	// mijenjati postaju, ne pokreće ni prijavu na drugi sustav.
+	if err := h.stationService.ProvjeriIzmjenu(perms, postojeca); err != nil {
+		odbijIzmjenuPostaje(w, r, form.obrazacPostaje(stationID), err)
+		return
+	}
 	station := *postojeca
 	form.primijeni(&station)
 	station.ID = stationID
@@ -442,11 +454,7 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	}
 	if err := h.stationService.UpdateStation(ctx, perms, &station); err != nil {
 		if wantsPage(r) {
-			natrag := "/stations/" + stationID.String() + "/edit"
-			if form.Obrazac == obrazacHistorijat {
-				natrag = "/stations/" + stationID.String() + "/historijat/uredi"
-			}
-			redirectWith(w, r, natrag, "error", err.Error())
+			redirectWith(w, r, form.obrazacPostaje(stationID), "error", err.Error())
 			return
 		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -467,6 +475,29 @@ func (h *StationsHandler) HandleUpdateStationAPI(w http.ResponseWriter, r *http.
 	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(map[string]any{"success": true, "station": station})
+}
+
+// obrazacPostaje je adresa obrasca s kojeg je izmjena poslana
+func (f stationForm) obrazacPostaje(id uuid.UUID) string {
+	if f.Obrazac == obrazacHistorijat {
+		return "/stations/" + id.String() + "/historijat/uredi"
+	}
+	return "/stations/" + id.String() + "/edit"
+}
+
+// odbijIzmjenuPostaje javlja zašto izmjena nije prošla: stranicu vraća na
+// obrazac s porukom, a API-ju odgovara s 403 kad korisnik nema pravo, a
+// inače s 400 (npr. dionica koje nema)
+func odbijIzmjenuPostaje(w http.ResponseWriter, r *http.Request, natrag string, err error) {
+	if wantsPage(r) {
+		redirectWith(w, r, natrag, "error", err.Error())
+		return
+	}
+	kod := http.StatusBadRequest
+	if errors.Is(err, service.ErrNemaOvlasti) {
+		kod = http.StatusForbidden
+	}
+	http.Error(w, err.Error(), kod)
 }
 
 // HandleDeleteStationAPI briše postaju iz registra
@@ -726,7 +757,7 @@ func (f stationForm) primijeni(st *models.Station) {
 		st.OgradeNiza = parseOgradeNiza(f.OgradeNiza)
 		return
 	}
-	st.Code = strings.TrimSpace(f.Code)
+	// Šifra se ne prenosi: ona je identitet letve i obrazac je ne mijenja
 	st.Name = strings.TrimSpace(f.Name)
 	st.Watercourse = strings.TrimSpace(f.Watercourse)
 	st.WaterArea = strings.TrimSpace(f.WaterArea)

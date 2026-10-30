@@ -966,6 +966,15 @@ func izvorniTrenutak(r *http.Request, polje string, procitano time.Time) time.Ti
 	return izvorno.UTC()
 }
 
+// novoOcitanjeIzObrasca čita obrazac novog očitanja. Identifikator novom
+// očitanju daje program, pa se poslani iz obrasca izbaci prije čitanja.
+func novoOcitanjeIzObrasca(r *http.Request) (*models.Reading, error) {
+	_ = r.FormValue("id") // pročita obrazac, da bi se polje dalo izbaciti
+	r.Form.Del("id")
+	r.PostForm.Del("id")
+	return readingFromForm(r)
+}
+
 func readingFromForm(r *http.Request) (*models.Reading, error) {
 	rd := &models.Reading{
 		StationID:      strings.TrimSpace(r.FormValue("station_id")),
@@ -1088,7 +1097,7 @@ func (h *ReadingsHandler) protokLetve(ctx context.Context, g models.GaugeSummary
 
 func (h *ReadingsHandler) HandleCreate(w http.ResponseWriter, r *http.Request) {
 	_, perms := h.base(r)
-	rd, err := readingFromForm(r)
+	rd, err := novoOcitanjeIzObrasca(r)
 	if err != nil {
 		redirectWith(w, r, "/readings/new?station="+r.FormValue("station_id")+"&structure="+r.FormValue("structure_id"), "error", err.Error())
 		return
