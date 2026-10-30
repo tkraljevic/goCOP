@@ -64,30 +64,42 @@ func granicaZa(kljuc string) granicaKljuca {
 }
 
 // kljuceviPrijave su ključevi jednog pokušaja prijave. Ključ samog imena
-// broji samo pokušaje izvana (kroz tunel): inače bi napadač s interneta s
-// nekoliko adresa zaključao račun i za prijavu iz ureda ili s ovog računala.
+// broji samo pokušaje izvana, kroz tunel ili s javne adrese: inače bi
+// pokušaji s interneta s nekoliko adresa zaključali račun i za prijavu iz
+// ureda ili s ovog računala.
 func kljuceviPrijave(ime string, k Klijent) []string {
 	ime = strings.ToLower(ime)
 	adresa := adresaZaOgranicenje(k)
 	kljucevi := []string{kljucImeAdresa + ime + "|" + adresa, kljucAdresa + adresa}
-	if k.KrozPosrednika {
+	if k.Izvana() {
 		kljucevi = append(kljucevi, kljucIme+ime)
 	}
 	return kljucevi
 }
 
+// oznakaZaglavlja stoji ispred adrese svakog zahtjeva koji nosi zaglavlje
+// posrednika, i kad se adresa iz zaglavlja nije pročitala (tada je to
+// adresa posrednika). Takva se adresa broji odvojeno od iste adrese kad
+// zahtjev stigne izravno, pa pokušaji kroz posrednika ne zaključavaju
+// računalo koje se prijavljuje izravno.
+const oznakaZaglavlja = "kroz:"
+
 // adresaZaOgranicenje: IPv4 adresa, a IPv6 izvana mreža /64, jer jedan
 // priključak dobiva čitavu mrežu adresa i mogao bi ih mijenjati po pokušaju.
 // U lokalnoj mreži svako računalo je svoja adresa, inače bi jedno zaključalo
-// cijeli ured.
+// cijeli ured; isto vrijedi za Tailscale, gdje računala dijele početak adrese.
 func adresaZaOgranicenje(k Klijent) string {
 	a := k.Adresa
-	if k.KrozPosrednika && a.IsValid() && a.Is6() && !a.Is4In6() {
+	adresa := k.String()
+	if k.Izvana() && !k.izravnoNaTailscale() && a.IsValid() && a.Is6() && !a.Is4In6() {
 		if p, err := a.Prefix(64); err == nil {
-			return p.String()
+			adresa = p.String()
 		}
 	}
-	return k.String()
+	if k.KrozPosrednika {
+		return oznakaZaglavlja + adresa
+	}
+	return adresa
 }
 
 type attemptRecord struct {

@@ -1221,9 +1221,9 @@ func (s *Server) setupRoutes() {
 	}
 	// Sastajalište za WEB sync, isto bez prijave korisnika (ograda_signala.go)
 	s.mux.Handle("GET "+razmjena.PutSignala, ograditiSignal(http.HandlerFunc(s.handleSignal)))
-	// Brojke podataka su javne: stoje i na stranici za prijavu. Nose samo
-	// zbrojeve, bez ijedne vrijednosti, imena osobe ili mjesta osim najstarije letve.
-	s.mux.HandleFunc("GET /podaci/brojke", s.ShowBrojke)
+	// Brojke podataka stoje na početnoj stranici, pa su samo za prijavljene:
+	// uz zbrojeve nose i najviše izmjerene vodostaje.
+	s.mux.Handle("GET /podaci/brojke", s.authMiddleware(http.HandlerFunc(s.ShowBrojke)))
 	s.mux.Handle("GET /slivovi/kisomjer/new", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	s.mux.Handle("GET /slivovi/kisomjer/{code}/edit", s.authMiddleware(http.HandlerFunc(slivH.ShowKisomjerForm)))
 	// Stranica kišomjera: očitanja (svježe i prognoza) i historijat (arhiva)
@@ -1727,14 +1727,15 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 // (početna, profil, pregled tuđim očima, statika) otvoreno je svima
 var modulePaths = []struct{ prefix, module string }{
 	{"/teren", models.ModuleField},
-	{"/readings", models.ModuleReadings},
+	{"/readings", models.ModuleReadings}, {"/prognoze", models.ModuleReadings},
 	{"/registri", models.ModuleRegisters},
 	{"/sections", models.ModuleRegisters}, {"/stations", models.ModuleRegisters},
 	{"/structures", models.ModuleRegisters}, {"/nasipi", models.ModuleRegisters}, {"/crpne-stanice", models.ModuleRegisters},
 	{"/ustave", models.ModuleRegisters}, {"/brane", models.ModuleRegisters}, {"/sifoni", models.ModuleRegisters},
 	{"/pregrade", models.ModuleRegisters}, {"/ostali-objekti", models.ModuleRegisters}, {"/watercourses", models.ModuleRegisters}, {"/slivovi", models.ModuleRegisters},
 	{"/territories", models.ModuleRegisters}, {"/odrzavanje", models.ModuleRegisters},
-	{"/dnevnici", models.ModuleJournals},
+	{"/dnevnici", models.ModuleJournals}, {"/izvjesca", models.ModuleJournals}, {"/sektorsko-izvjesce", models.ModuleJournals},
+	{"/sredstva", models.ModuleRegisters}, {"/api/structures", models.ModuleRegisters},
 	{"/api/sections", models.ModuleRegisters}, {"/api/stations", models.ModuleRegisters},
 	{"/api/watercourses", models.ModuleRegisters}, {"/api/slivovi", models.ModuleRegisters}, {"/api/settlements", models.ModuleRegisters},
 	{"/api/counties", models.ModuleRegisters}, {"/api/municipalities", models.ModuleRegisters}, {"/api/prijepis", models.ModuleRegisters},
@@ -1768,7 +1769,7 @@ var izuzetiOdModula = []string{"niza", "izvora", "krivulja", "profila"}
 
 func moduleForPath(path string) string {
 	for _, ime := range izuzetiOdModula {
-		if podPutanjom(path, "/administracija/uvoz-"+ime) {
+		if samoPodPutanjom(path, "/administracija/uvoz-"+ime) {
 			return ""
 		}
 	}
@@ -1780,8 +1781,15 @@ func moduleForPath(path string) string {
 	return ""
 }
 
-// podPutanjom javlja je li putanja baš prefix ili ispod njega
+// podPutanjom javlja je li putanja baš prefix, ispod njega ili njegova
+// datoteka (/firme.csv uz /firme, /prognoze.xlsx uz /prognoze)
 func podPutanjom(path, prefix string) bool {
+	return samoPodPutanjom(path, prefix) || strings.HasPrefix(path, prefix+".")
+}
+
+// samoPodPutanjom javlja je li putanja baš prefix ili ispod njega; izuzeća od
+// modula vrijede samo tako, bez datoteka uz putanju
+func samoPodPutanjom(path, prefix string) bool {
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 

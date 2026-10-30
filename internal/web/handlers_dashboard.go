@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"gocop/internal/models"
@@ -105,22 +106,8 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 		ActiveNav:    "dashboard",
 		ViewAsBanner: viewBanner(r),
 	}
-	if h.zid != nil {
-		if zid := h.zid(); zid != nil {
-			sektori, _ := h.userService.ListSectors()
-			var izv *service.IzvjescaService
-			var mts *service.MtsService
-			if h.izvjesca != nil {
-				izv = h.izvjesca()
-			}
-			if h.mts != nil {
-				mts = h.mts()
-			}
-			data.Stanja = zid.Stanje(r.Context(), perms, sektori, izv, mts)
-			data.Zid, _, _ = zid.Zadnji(r.Context(), perms, service.FiltarZida{Modul: r.URL.Query().Get("modul"), Limit: 40})
-		}
-	}
-	data.Precaci = precaciZa(perms)
+	h.stanjeIZid(r, perms, &data)
+	data.Precaci = vidljiviPrecaci(precaciZa(perms), data.Modules)
 	data.CekaUlogu = cekaUlogu(user)
 	data.Nepredani = h.nepredani(r.Context(), user)
 
@@ -135,6 +122,45 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = b.WriteTo(w) // greška znači samo da je preglednik otišao; drugog odgovora nema
+}
+
+// stanjeIZid puni stanje sektora i zid. Izvješća na pločici sektora vidi
+// samo račun s Dokumentacijom, sredstva na terenu samo račun s Registrima, a
+// zid preskače module koje račun ne vidi.
+func (h *DashboardHandler) stanjeIZid(r *http.Request, perms *models.UserPermissions, data *DashboardViewData) {
+	if h.zid == nil {
+		return
+	}
+	zid := h.zid()
+	if zid == nil {
+		return
+	}
+	vis := data.Modules
+	sektori, _ := h.userService.ListSectors() // bez popisa sektora pločica stanja ostane prazna, zid se i dalje prikaže
+	var izv *service.IzvjescaService
+	var mts *service.MtsService
+	if h.izvjesca != nil && vis.Sees(models.ModuleJournals) {
+		izv = h.izvjesca()
+	}
+	if h.mts != nil && vis.Sees(models.ModuleRegisters) {
+		mts = h.mts()
+	}
+	data.Stanja = zid.Stanje(r.Context(), perms, sektori, izv, mts)
+	f := service.FiltarZida{Modul: r.URL.Query().Get("modul"), Limit: 40, Skriveni: service.SkriveniModuliZida(vis.Sees)}
+	data.Zid, _, _ = zid.Zadnji(r.Context(), perms, f) // bez knjige zid ostane prazan, a početna se i dalje prikaže
+}
+
+// vidljiviPrecaci izbacuje prečace koji vode u modul koji račun ne vidi;
+// takva bi stranica dala 403
+func vidljiviPrecaci(svi []Precac, vis models.Visibility) []Precac {
+	var out []Precac
+	for _, p := range svi {
+		putanja, _, _ := strings.Cut(p.Link, "?")
+		if m := moduleForPath(putanja); m == "" || vis.Sees(m) {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 // cekaUlogu: račun nema nijednu dužnost koja sada vrijedi ni zastavicu

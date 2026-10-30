@@ -98,6 +98,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   se ne čita. Isto vrijedi za fotografiju, žig, potpis i sken kojem bi za
   čitanje trebalo previše memorije, a vodočuvar vidi koja fotografija
   prijave nije priložena.
+- **Provjere prava: uparivanje bez prijave, moduli i brojanje krivih
+  prijava.** Na svježem računalu bez prijave računala se samo upare, a u
+  mrežu drugo računalo prima tek prijavljeni globalni administrator.
+  Računalo koje drži ključ mreže ili ovlast za primanje uparivanje bez
+  prijave više ne nudi. Prognoze, izvješća, sredstva za obranu, popis
+  firmi u CSV-u i ucrtavanje objekta sad traže svoj modul i kad se otvore
+  izravnom adresom, a brojke podataka s početne stranice vidi samo
+  prijavljeni. Zid događanja, njegov izvoz i prečaci na početnoj stranici
+  pokazuju samo module koje račun vidi. Krive prijave s adresom koju javlja posrednik broje se
+  odvojeno od izravnih, a prijava s javne adrese bez tunela broji se kao
+  prijava kroz tunel.
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

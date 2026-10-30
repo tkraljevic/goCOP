@@ -32,9 +32,9 @@ const (
 // Modules su moduli redom kojim stoje u izborniku
 var Modules = []Module{
 	{ModuleField, "Teren", "letve koje osoba obilazi i upis očitanja na jedan dodir"},
-	{ModuleReadings, "Očitanja", "zadnja očitanja svih letvi, povijest i graf"},
+	{ModuleReadings, "Očitanja", "zadnja očitanja svih letvi, povijest i graf, prognoze"},
 	{ModuleJournals, "Dokumentacija", "dnevnik COP-a, plan dežurstava i obračun sati, dnevna izvješća, dnevnici usluga A.02 i A.03"},
-	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje"},
+	{ModuleRegisters, "Registri", "dionice, područja, postaje, objekti, vodotoci, održavanje, licencirane firme, sredstva za obranu"},
 	{ModuleUsers, "Djelatnici", "imenik, dužnosti i ovlasti"},
 	{ModuleAdmin, "Administracija", "ustroj obrane, ovlasti, čvor i mreža, uvozi — sve što radi samo administrator"},
 }

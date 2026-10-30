@@ -816,6 +816,21 @@ func (s *Service) StopListening() {
 	}
 }
 
+// prekiniUparivanje prekida čekanje i odbija poziv koji čeka odluku. Zove
+// se kad čvor dobije ključ mreže ili ovlast za primanje: uparivanje
+// započeto prije toga nakon toga ne prima drugo računalo u mrežu.
+func (s *Service) prekiniUparivanje() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.waiting != nil {
+		s.waiting()
+		s.waiting = nil
+		s.cekanje++ // poziv koji čekanje upravo dočeka odbija se (zavrsiCekanje)
+	}
+	odbijPoziv(s.pending)
+	s.pending, s.pozvao = nil, false
+}
+
 // DialPair naziva čvor koji čeka; rezultat čeka odluku čovjeka
 func (s *Service) DialPair(ctx context.Context, addr string) error {
 	s.mu.Lock()

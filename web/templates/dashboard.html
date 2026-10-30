@@ -110,7 +110,7 @@
             {{if .Dnevnik}}
             <div class="stanje-redak stanje-dnevnik-red">
               <span class="stanje-redak-ikona">{{icon "notebook"}}</span>
-              <a href="/dnevnici/{{.Dnevnik.ID}}" class="stanje-dnevnik-link">{{.Dnevnik.DisplayTitle}}</a>
+              {{if $.Sees "dnevnici"}}<a href="/dnevnici/{{.Dnevnik.ID}}" class="stanje-dnevnik-link">{{.Dnevnik.DisplayTitle}}</a>{{else}}<span class="stanje-dnevnik-link">{{.Dnevnik.DisplayTitle}}</span>{{end}}
               {{if .Dezurni}}
               <span class="stanje-dezurni-tag">· dežura <strong>{{.Dezurni}}</strong></span>
               {{else}}
@@ -119,7 +119,7 @@
             </div>
             {{end}}
 
-            {{if .Dnevnik}}
+            {{if and .Dnevnik ($.Sees "dnevnici")}}
             <div class="stanje-redak stanje-izvjesce-red">
               <span class="stanje-redak-ikona">{{icon "file-text"}}</span>
               <span>danas {{.DanasIzvjesca}} {{uzBroj .DanasIzvjesca "izvješće dionice" "izvješća dionica" "izvješća dionica"}}</span>

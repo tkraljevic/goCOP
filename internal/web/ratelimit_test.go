@@ -105,9 +105,14 @@ func TestIPv6AdreseIsteMrezeSeBrojeZajedno(t *testing.T) {
 	}
 }
 
-// kp su ključevi prijave za ime s adrese; izvana = kroz tunel
+// kp su ključevi prijave za ime s adrese; izvana = kroz tunel na ovom
+// računalu, inače izravan zahtjev s te adrese
 func kp(ime, adresa string, izvana bool) []string {
-	return kljuceviPrijave(ime, Klijent{Adresa: netip.MustParseAddr(adresa), KrozPosrednika: izvana})
+	k := Klijent{Adresa: netip.MustParseAddr(adresa), Posrednik: netip.MustParseAddr(adresa)}
+	if izvana {
+		k.Posrednik, k.KrozPosrednika = netip.MustParseAddr("127.0.0.1"), true
+	}
+	return kljuceviPrijave(ime, k)
 }
 
 func TestUspjesnaPrijavaBriseBrojac(t *testing.T) {
@@ -306,8 +311,8 @@ func TestPosredniciRubniSlucajevi(t *testing.T) {
 	if k := p.Klijent(r); k.Adresa.String() != "198.51.100.1" {
 		t.Errorf("popis praznih stavki mora biti zadane mreže: %+v", k)
 	}
-	a := kljuceviPrijave("ana", Klijent{Adresa: netip.MustParseAddr("fd00::1")})
-	b := kljuceviPrijave("ana", Klijent{Adresa: netip.MustParseAddr("fd00::2")})
+	a := kp("ana", "fd00::1", false)
+	b := kp("ana", "fd00::2", false)
 	if a[1] == b[1] {
 		t.Error("dva računala u lokalnoj IPv6 mreži su dvije adrese")
 	}

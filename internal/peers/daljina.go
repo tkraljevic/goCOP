@@ -496,6 +496,7 @@ func (s *Service) UveziPotvrdu(ctx context.Context, raw []byte) (UvozPotvrde, er
 	if err := s.udjiIliObnovi(ctx, p); err != nil {
 		return UvozPotvrde{}, err
 	}
+	s.prekiniUparivanje()
 	_ = os.Remove(s.putZahtjevaNaCekanju())
 
 	mrezni, _ := razmjena.ParsePublicKey(p.KljucMreze) // procitajPotvrdu ga je provjerio
