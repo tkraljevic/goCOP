@@ -16,7 +16,7 @@ import (
 )
 
 // Ograničenje pokušaja prijave. Bez toga bi javni čvor dopuštao pogađanje
-// lozinki u petlji, a zadana lozinka piše u dokumentaciji. Broji se na tri
+// lozinki u petlji. Broji se na tri
 // razine: ime s adrese (5 u 15 min) zaustavlja pogađanje jednog računa s
 // jednog mjesta; adresa (20 u 15 min) napadača koji mijenja imena; ime (30 u
 // sat) napadača koji mijenja adrese. Jedan napadač s pet pokušaja tako više
@@ -458,7 +458,7 @@ func clientIP(r *http.Request) string {
 }
 
 // passwordChangeAllowed javlja smije li se putanja otvoriti dok korisnik
-// još radi sa zadanom lozinkom: samo vlastiti profil, promjena lozinke,
+// još radi s privremenom lozinkom: samo vlastiti profil, promjena lozinke,
 // odjava i statika. Sve ostalo čeka dok lozinka nije postavljena.
 func passwordChangeAllowed(path string) bool {
 	switch path {

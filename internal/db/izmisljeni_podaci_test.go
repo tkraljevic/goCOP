@@ -21,7 +21,7 @@ func TestIzmisljeniSkupSektoraP(t *testing.T) {
 	if err := InitSchema(baza); err != nil {
 		t.Fatal(err)
 	}
-	if err := SeedInitialData(baza); err != nil {
+	if _, err := SeedInitialData(baza); err != nil {
 		t.Fatalf("izmišljeni skup se ne učitava: %v", err)
 	}
 

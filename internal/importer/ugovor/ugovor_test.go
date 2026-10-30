@@ -128,7 +128,7 @@ func pripremi(t *testing.T) Deps {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { database.Close() })
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 	rec := ledger.New(database, "test-node")

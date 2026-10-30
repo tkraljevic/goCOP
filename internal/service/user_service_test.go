@@ -22,6 +22,14 @@ import (
 // Marko Markić
 func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService, *service.SSEBroker, *repository.UserRepository) {
 	t.Helper()
+	us, as, sse, repo, _ := setupSLozinkama(t)
+	return us, as, sse, repo
+}
+
+// setupSLozinkama je setupTestServices s privremenim lozinkama računa iz
+// imenika, po korisničkom imenu
+func setupSLozinkama(t *testing.T) (*service.UserService, *service.AuthService, *service.SSEBroker, *repository.UserRepository, map[string]string) {
+	t.Helper()
 	db.KoristiIzmisljenePodatke(t)
 	tempDir := t.TempDir()
 	dbPath := filepath.Join(tempDir, "test_gocop.db")
@@ -31,7 +39,8 @@ func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService
 		t.Fatalf("Greška pri otvaranju test baze: %v", err)
 	}
 
-	if err := db.SeedInitialData(database); err != nil {
+	popis, err := db.SeedInitialData(database)
+	if err != nil {
 		t.Fatalf("Greška pri seed podacima: %v", err)
 	}
 
@@ -42,12 +51,12 @@ func setupTestServices(t *testing.T) (*service.UserService, *service.AuthService
 	sseBroker := service.NewSSEBroker()
 	userService := service.NewUserService(userRepo, authService, sseBroker)
 
-	return userService, authService, sseBroker, userRepo
+	return userService, authService, sseBroker, userRepo, poKorisniku(popis)
 }
 
 // TestSeedAdminProvjera provjerava profil i višestruke funkcije administratora Ive Ivića
 func TestSeedAdminProvjera(t *testing.T) {
-	_, authService, _, userRepo := setupTestServices(t)
+	_, authService, _, userRepo, lozinke := setupSLozinkama(t)
 
 	admin, err := userRepo.GetUserByUsername("iivic")
 	if err != nil {
@@ -69,9 +78,12 @@ func TestSeedAdminProvjera(t *testing.T) {
 		t.Fatalf("Očekivano barem 2 funkcije za Ivu Ivića, pronađeno: %d", len(admin.Duties))
 	}
 
-	// Provjera lozinke
-	if !authService.CheckPassword(admin.PasswordHash, "gocop2026") {
-		t.Error("Provjera lozinke nije uspjela za zadanu lozinku gocop2026")
+	// Provjera lozinke: svoja privremena, a ne nekadašnja zajednička
+	if !authService.CheckPassword(admin.PasswordHash, lozinke["iivic"]) {
+		t.Error("privremena lozinka s popisa ne otvara račun iivic")
+	}
+	if authService.CheckPassword(admin.PasswordHash, "gocop2026") {
+		t.Error("račun iz imenika ne smije imati zajedničku lozinku gocop2026")
 	}
 }
 
@@ -307,7 +319,7 @@ func TestDeleteUser(t *testing.T) {
 
 // TestChangePassword provjerava rad s početnom lozinkom, upozorenjem i promjenom lozinke
 func TestChangePassword(t *testing.T) {
-	_, authService, _, userRepo := setupTestServices(t)
+	_, authService, _, userRepo, lozinke := setupSLozinkama(t)
 
 	// 1. Dohvat korisnice nakon početnog seeda: Ana Anić
 	user, err := userRepo.GetUserByUsername("aanic")
@@ -320,10 +332,11 @@ func TestChangePassword(t *testing.T) {
 		t.Error("Očekivano da korisnik ima MustChangePassword = true nakon početnog seeda")
 	}
 
-	// 2. Prijava s početnom lozinkom mora uspjeti
-	_, loggedUser, err := authService.Login("aanic", "gocop2026", "127.0.0.1", "test-agent")
+	// 2. Prijava s privremenom lozinkom s popisa mora uspjeti
+	pocetna := lozinke["aanic"]
+	_, loggedUser, err := authService.Login("aanic", pocetna, "127.0.0.1", "test-agent")
 	if err != nil || loggedUser == nil {
-		t.Fatalf("Prijava s početnom lozinkom 'gocop2026' nije uspjela: %v", err)
+		t.Fatalf("Prijava s privremenom lozinkom nije uspjela: %v", err)
 	}
 
 	// 3. Pokušaj promjene s pogrešnom trenutnom lozinkom mora pasti
@@ -333,13 +346,13 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 4. Pokušaj postavljanja prekratke lozinke mora pasti
-	err = authService.ChangePassword(user.ID, "gocop2026", "123", uuid.Nil)
+	err = authService.ChangePassword(user.ID, pocetna, "123", uuid.Nil)
 	if err == nil {
 		t.Error("Očekivana greška za prekratku novu lozinku")
 	}
 
 	// 5. Uspješna promjena lozinke
-	err = authService.ChangePassword(user.ID, "gocop2026", "mojaNovaSigurnaLozinka", uuid.Nil)
+	err = authService.ChangePassword(user.ID, pocetna, "mojaNovaSigurnaLozinka", uuid.Nil)
 	if err != nil {
 		t.Fatalf("Greška pri promjeni lozinke: %v", err)
 	}
@@ -354,7 +367,7 @@ func TestChangePassword(t *testing.T) {
 	}
 
 	// 7. Stara lozinka više ne smije prolaziti
-	_, _, err = authService.Login("aanic", "gocop2026", "127.0.0.1", "test-agent")
+	_, _, err = authService.Login("aanic", pocetna, "127.0.0.1", "test-agent")
 	if err == nil {
 		t.Error("Stara lozinka ne smije vrijediti nakon promjene")
 	}

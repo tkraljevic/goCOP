@@ -10,7 +10,6 @@ import (
 	"net/url"
 	"strings"
 
-	"gocop/internal/db"
 	"gocop/internal/models"
 	"gocop/internal/service"
 
@@ -27,7 +26,7 @@ type AuthHandler struct {
 	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
 	drugiKorak   func() *service.DrugiKorak                                  // PIN za prijavu izvana; nil = nema ga
 	tmplPIN      *template.Template                                          // stranica upisa PIN-a ili koda
-	// čvor pod Postavom: početna lozinka samo s ovog računala
+	// čvor pod Postavom: stara početna lozinka samo s ovog računala
 	samoOvoRacunalo func() bool
 }
 
@@ -105,11 +104,16 @@ func iscrtajPrijavu(t *template.Template, w http.ResponseWriter, ime string, pod
 	}
 }
 
-// porukaZadaneLozinkeIzMreze odbija početnu lozinku iz mreže na čvoru pod Postavom
-const porukaZadaneLozinkeIzMreze = "Početna lozinka iz uputa vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
+// staraPocetnaLozinka je zajednička početna lozinka koju su računi iz
+// imenika i račun admin dobivali do izdanja 0.0.46-alfa. Novi računi je ne
+// dobivaju (db.SeedInitialData); ostaje samo za račune koji je još imaju.
+const staraPocetnaLozinka = "gocop2026"
 
-// porukaZadaneLozinke odbija prvu prijavu zadanom lozinkom izvana
-const porukaZadaneLozinke = "Zadana lozinka izvana ne vrijedi, jer je javna. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
+// porukaZadaneLozinkeIzMreze odbija staru početnu lozinku iz mreže na čvoru pod Postavom
+const porukaZadaneLozinkeIzMreze = "Ova lozinka vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
+
+// porukaZadaneLozinke odbija prvu prijavu starom početnom lozinkom izvana
+const porukaZadaneLozinke = "Ova lozinka izvana ne vrijedi. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
 
 // SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
 func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
@@ -198,18 +202,18 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	h.limiter.VratiSve(keys...) // točna lozinka nije neuspjeh
 
-	// Zadana lozinka piše u dokumentaciji: tko je zna, preuzeo bi svjež čvor
-	// izvana prije vlasnika. Prva prijava njome zato ide samo iz lokalne
-	// mreže (ne kroz tunel ni s javne adrese, npr. kroz proslijeđen port);
-	// privremena lozinka koju je dao administrator vrijedi i izvana.
-	if !klijent.IzLokalneMreze() && user.MustChangePassword && password == db.ZadanaLozinka {
+	// Računi iz starijih izdanja koji još imaju zajedničku početnu lozinku
+	// prvi put se prijavljuju samo iz lokalne mreže (ne kroz tunel ni s
+	// javne adrese, npr. kroz proslijeđen port); privremena lozinka koju je
+	// dao administrator vrijedi i izvana.
+	staraLozinka := user.MustChangePassword && password == staraPocetnaLozinka
+	if !klijent.IzLokalneMreze() && staraLozinka {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
 		return
 	}
 	// Pod Postavom čvor je na nečijem računalu, a sluša za cijelu lokalnu
-	// mrežu: javnu početnu lozinku smije upotrijebiti samo vlasnik, s tog
-	// računala (ili postavi svoj račun na stranici Postavljanje)
-	if user.MustChangePassword && password == db.ZadanaLozinka && h.samoOvoRacunalo != nil &&
+	// mrežu: takav račun prvi put se prijavljuje samo s tog računala
+	if staraLozinka && h.samoOvoRacunalo != nil &&
 		h.samoOvoRacunalo() && !klijent.SOvogRacunala() {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinkeIzMreze)
 		return
@@ -246,7 +250,7 @@ func (h *AuthHandler) otvoriPrijavu(w http.ResponseWriter, r *http.Request, user
 	}
 	postaviSesiju(w, r, session.ID.String(), session.ExpiresAt)
 
-	// Sa zadanom lozinkom prvo na promjenu lozinke, tek onda u program
+	// S privremenom lozinkom prvo na promjenu lozinke, tek onda u program
 	if user.MustChangePassword {
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 		return

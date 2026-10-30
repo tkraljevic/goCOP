@@ -170,15 +170,15 @@ func TestKolacicSesijeLokalnoIKrozTunel(t *testing.T) {
 	}
 }
 
-// Zadana lozinka piše u dokumentaciji: prva prijava njome kroz tunel se
-// odbija, iz lokalne mreže prolazi. Privremena lozinka od administratora
-// vrijedi i izvana.
+// Račun iz starijeg izdanja koji još ima zajedničku početnu lozinku: prva
+// prijava njome kroz tunel se odbija, iz lokalne mreže prolazi. Privremena
+// lozinka od administratora vrijedi i izvana.
 func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", db.ZadanaLozinka, true, true)
+	o.racun("admin", staraPocetnaLozinka, true, true)
 	o.racun("ana", "nasip-vrba-most-472", false, true)
 
-	w := o.prijava(krozTunel("198.51.100.7"), "admin", db.ZadanaLozinka)
+	w := o.prijava(krozTunel("198.51.100.7"), "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaZadaneLozinke) || kolacicSesije(w) != nil {
 		t.Errorf("zadana lozinka kroz tunel: %d %q, kolačić %v", w.Code, w.Body.String(), kolacicSesije(w))
 	}
@@ -188,12 +188,12 @@ func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
 		t.Errorf("privremena lozinka kroz tunel mora proći na promjenu lozinke: %d %q", w.Code, w.Header().Get("Location"))
 	}
 
-	w = o.prijava(javnoIzravno, "admin", db.ZadanaLozinka)
+	w = o.prijava(javnoIzravno, "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
 		t.Errorf("zadana lozinka s javne adrese bez posrednika: %d, kolačić %v", w.Code, kolacicSesije(w))
 	}
 
-	w = o.prijava(izravno, "admin", db.ZadanaLozinka)
+	w = o.prijava(izravno, "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
 		t.Errorf("zadana lozinka iz lokalne mreže mora proći: %d %q", w.Code, w.Body.String())
 	}
@@ -401,7 +401,7 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	}
 
 	admin := o.racun("sef", "sefova-lozinka", true, false)
-	o.racun("zadani", db.ZadanaLozinka, true, true)
+	o.racun("zadani", staraPocetnaLozinka, true, true)
 	ana := o.racun("ana", "anina-lozinka", false, false)
 	o.racuna = 4
 	o.pair.nijeSvjez.Store(false)
@@ -413,7 +413,7 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	if code, _ := o.zahtjev(izravno, o.sesija("ana", "anina-lozinka"), api); code != http.StatusForbidden {
 		t.Errorf("djelatnik koji nije administrator: %d", code)
 	}
-	if code, _ := o.zahtjev(izravno, o.sesija("zadani", db.ZadanaLozinka), api); code != http.StatusForbidden {
+	if code, _ := o.zahtjev(izravno, o.sesija("zadani", staraPocetnaLozinka), api); code != http.StatusForbidden {
 		t.Errorf("administrator sa zadanom lozinkom: %d", code)
 	}
 	sef := o.sesija("sef", "sefova-lozinka")

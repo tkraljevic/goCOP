@@ -9,7 +9,7 @@ import (
 // prijavi vraća sesiju administratora na čvoru
 func prijavi(t *testing.T, n *cvor, username string) *models.Session {
 	t.Helper()
-	sess, _, err := n.auth.Login(username, "gocop2026", "127.0.0.1", "test")
+	sess, _, err := n.auth.Login(username, n.lozinke[username], "127.0.0.1", "test")
 	if err != nil {
 		t.Fatalf("prijava %s: %v", username, err)
 	}

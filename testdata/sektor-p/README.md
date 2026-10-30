@@ -34,7 +34,8 @@ pojašnjenje u zagradi.
 
 ## Djelatnici
 
-Početna lozinka svih je `gocop2026`, kao u svakom sjemenu.
+Svaki račun dobije pri punjenju svoju privremenu lozinku. Testovi je
+uzimaju s popisa koji vrati `db.SeedInitialData`.
 
 | Korisničko ime | Osoba | Dužnost |
 |---|---|---|

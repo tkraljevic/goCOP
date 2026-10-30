@@ -22,6 +22,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   preuzeti program mora javiti baš to izdanje, a instalacijska skripta
   pokreće se iz kopije u mapi koju piše samo root, nakon još jedne provjere
   SHA-256. Nadogradnju s 0.0.46-alfa najbolje je napraviti ručno.
+- **Početne lozinke: svaki račun iz imenika dobije svoju.** Zajedničke
+  početne lozinke više nema. Pri prvom punjenju iz imenika svaki račun
+  dobije svoju privremenu lozinku; popis se jednom preuzme na tom računalu
+  (stranica Postavljanje › privremene lozinke) i preda ljudima, a lozinka se
+  mijenja pri prvoj prijavi. Popis koji nitko nije preuzeo sljedeće
+  pokretanje složi iznova. U bazi je samo sažetak (Odluke (30. 10. 2026.)).
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.

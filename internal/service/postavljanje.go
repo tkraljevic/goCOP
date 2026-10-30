@@ -4,8 +4,8 @@ package service
 //
 // Na svježem čvoru (nijedan djelatnik osim početnog računa admin) vlasnik na
 // stranici Postavljanje (web/handlers_postavljanje.go) napravi svoj račun
-// globalnog administratora i lozinku, pa početna lozinka iz uputa ne treba.
-// Početni račun admin se pritom isključuje: njegova je lozinka javna.
+// globalnog administratora i lozinku. Početni račun admin se pritom
+// isključuje: njegovu lozinku nitko ne zna, a račun više ne treba.
 
 import (
 	"errors"
@@ -13,7 +13,6 @@ import (
 	"regexp"
 	"strings"
 
-	"gocop/internal/db"
 	"gocop/internal/models"
 )
 
@@ -58,8 +57,6 @@ func (s *UserService) PrviAdministrator(z PrviAdministratorZahtjev) (*models.Use
 		return nil, fmt.Errorf("%w: izaberite osobno korisničko ime, ne admin", ErrInvalidUserData)
 	case z.Ime == "":
 		return nil, fmt.Errorf("%w: ime i prezime su obavezni", ErrInvalidUserData)
-	case z.Lozinka == db.ZadanaLozinka:
-		return nil, fmt.Errorf("%w: početna lozinka iz uputa je javna; izaberite svoju", ErrInvalidUserData)
 	}
 	if err := ProvjeriNovuLozinku("", z.Lozinka); err != nil {
 		return nil, err

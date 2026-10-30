@@ -16,7 +16,7 @@ func TestObjektiBaranjeVezaniNaVodomjereIDionice(t *testing.T) {
 		t.Fatal(err)
 	}
 	registriIliPreskoci(t)
-	if err := SeedInitialData(database); err != nil {
+	if _, err := SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 
@@ -54,7 +54,7 @@ func TestObjektiBaranjeVezaniNaVodomjereIDionice(t *testing.T) {
 	}
 
 	// drugo punjenje ne umnožava
-	if err := SeedInitialData(database); err != nil {
+	if _, err := SeedInitialData(database); err != nil {
 		t.Fatal(err)
 	}
 	if n := count(t, database, evidencija); n != 26 {

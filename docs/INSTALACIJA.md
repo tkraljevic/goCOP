@@ -260,10 +260,13 @@ Portovi se mijenjaju u `gocop.toml`.
   istom čvoru, a na drugim čvorovima kad nova lozinka stigne razmjenom; tada
   ondje prestaju i prijave koje čekaju PIN. Na istom čvoru briše i zapamćena
   računala, prijave koje čekaju PIN i privremene kodove te osobe.
-- **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
-  vlastiti profil i odjavu. Zadana lozinka je javna, pa izvana (kroz tunel)
-  ne vrijedi: prva prijava njome ide iz lokalne mreže, a izvana s privremenom
-  lozinkom koju izda administrator (Korisnici → Poništi lozinku).
+- **Privremena lozinka mora se promijeniti.** Do tada račun može otvoriti
+  samo vlastiti profil i odjavu. Računi iz imenika dobiju svaki svoju
+  privremenu lozinku pri prvom punjenju; popis se jednom preuzima na
+  `/postavljanje/lozinke` i nigdje se ne sprema. Računi iz starijih izdanja
+  koji još imaju staru zajedničku početnu lozinku prvi put se prijavljuju
+  samo iz lokalne mreže; izvana s privremenom lozinkom koju izda
+  administrator (Korisnici → Poništi lozinku).
 - **Pogađanje lozinki je ograničeno.** Pet neuspjeha za isto ime s iste adrese
   u 15 minuta, ili dvadeset s iste adrese, blokira na 15 minuta; trideset za
   isto ime izvana u satu blokira to ime izvana na 30 minuta (prijava iz lokalne
@@ -681,13 +684,26 @@ ispiše u dnevnik (`Postavljanje: … ?kod=7KQ4-M2XD`; u spremniku u dnevniku
 spremnika). Kroz tunel i s javne adrese je nema; deset krivih kodova ga gasi
 do ponovnog pokretanja.
 
-Početni račun `admin` s lozinkom iz ovih uputa ostaje za prijelaz (ručno
-pokretanje, poslužitelji): vrijedi iz lokalne mreže (privatna adresa), a kroz
-tunel i s javne adrese ne — ni kad je čvor izravno izložen kroz proslijeđen
-port. Svjež čvor ipak ne izlagati internetu prije postavljanja. Na
-čvoru koji pokreće Postava vrijedi **samo s tog računala**, jer čvor sluša za
-cijelu lokalnu mrežu, pa bi ga u uredu inače mogao preuzeti bilo tko prije
-administratora.
+Bez imenika lozinku početnog računa `admin` nitko ne zna; svjež čvor se
+postavlja na stranici *Postavljanje*. Svjež čvor ipak ne izlagati internetu
+prije postavljanja.
+
+Kad uz bazu stoji `imenik.json`, čvor nije svjež: djelatnici se upišu pri
+prvom pokretanju, svaki sa svojom privremenom lozinkom, a s njima i račun
+`admin` ako ga imenik nema. Dnevnik tada javi gdje je popis
+(`Postavljanje: … /postavljanje/lozinke?kod=…`). Popis se preuzima jednom,
+istim pravilom kao *Postavljanje*: s tog računala bez koda (na adresi
+`localhost`), iz lokalne mreže s kodom iz dnevnika. Lozinke se ne pišu u
+dnevnik ni u datoteku, pa nakon preuzimanja popisa više nema. Ako se čvor
+ugasi prije preuzimanja (npr. nakon `gocop -ugovor`), pri sljedećem
+pokretanju računi koje nitko nije mijenjao dobiju nove privremene lozinke i
+novi popis. Kome lozinka nedostaje, globalni administrator daje novu u
+Korisnicima (Poništi lozinku); ako se nitko ne može prijaviti,
+`gocop -ponisti-lozinku ime` na računalu čvora da privremenu lozinku
+globalnom administratoru.
+
+Popis vrijedi za čvor koji ga je složio. Imenik zato stavite uz bazu samo
+prvog čvora mreže; ostali čvorovi djelatnike dobiju razmjenom.
 
 Prvi korak u programu je registar Administrativna organizacija: sektori, pa
 branjena područja. Ako uz bazu stoje datoteke registara i imenika, učita i

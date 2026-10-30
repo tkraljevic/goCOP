@@ -10,8 +10,6 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"golang.org/x/crypto/bcrypt"
 )
 
 // Imenik djelatnika NIJE ugrađen u program: nosi imena, telefone i adrese
@@ -58,128 +56,21 @@ type seedUser struct {
 	Duties        []seedDuty `json:"duties"`
 }
 
-// ZadanaLozinka je početna lozinka svih računa iz sjemena. Piše u
-// dokumentaciji, pa je smije upotrijebiti samo izravan klijent (web/handlers_auth.go)
-const ZadanaLozinka = "gocop2026"
-
-// SeedInitialData puni praznu bazu: organizaciju i registre iz datoteka uz bazu kad ih ima, te račun admin
-func SeedInitialData(database *sql.DB) error {
+// SeedInitialData puni praznu bazu: organizaciju i registre iz datoteka uz
+// bazu kad ih ima, djelatnike iz imenika i račun admin. Vraća privremene
+// lozinke računa iz imenika, koje globalni administrator jednom preuzme i
+// preda ljudima; u bazi je samo njihov sažetak.
+func SeedInitialData(database *sql.DB) ([]PocetnaLozinka, error) {
 	// 1. Organizacija: sektori i branjena područja. Program ih ne zna sam;
 	// stvara ih globalni administrator ili se učitaju uz bazu pri prvom punjenju.
 	if err := seedOrganization(database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 3. Početni korisnici s višestrukim funkcijama
-	var userCount int
-	err := database.QueryRow("SELECT COUNT(*) FROM users").Scan(&userCount)
+	lozinke, err := seedUsers(database)
 	if err != nil {
-		return err
-	}
-
-	if userCount == 0 {
-		defaultPw := ZadanaLozinka
-		pwHash, err := bcrypt.GenerateFromPassword([]byte(defaultPw), bcrypt.DefaultCost)
-		if err != nil {
-			return err
-		}
-		hashStr := string(pwHash)
-		now := time.Now().UTC()
-
-		var users []seedUser
-		if raw, err := os.ReadFile(ImenikPath); err == nil {
-			if err := json.Unmarshal(raw, &users); err != nil {
-				return fmt.Errorf("greška pri čitanju %s: %w", ImenikPath, err)
-			}
-			log.Printf("Imenik: %d djelatnika iz %s", len(users), ImenikPath)
-		} else {
-			log.Printf("Imenik %s nije nađen — stvara se samo račun admin; djelatnici stižu sinkronizacijom ili uvozom", ImenikPath)
-		}
-
-		tx, err := database.Begin()
-		if err != nil {
-			return err
-		}
-		defer tx.Rollback()
-
-		insertUserStmt, err := tx.Prepare(`
-			INSERT INTO users (
-				id, username, password_hash, full_name, title, is_global_admin,
-				must_change_password, org_type, org_name, phone, mobile_phone, short_phone, short_mobile, email,
-				is_active, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)
-		`)
-		if err != nil {
-			return err
-		}
-		defer insertUserStmt.Close()
-
-		insertDutyStmt, err := tx.Prepare(`
-			INSERT INTO duties (
-				id, user_id, title, role, scope_type, sector_id, area_id, section_codes,
-				is_primary, is_temporary, is_active, created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 1, ?)
-		`)
-		if err != nil {
-			return err
-		}
-		defer insertDutyStmt.Close()
-
-		userIDs := make(map[string]string)
-
-		for _, u := range users {
-			// isti korisnik na svakom čvoru — identitet slijedi iz korisničkog imena
-			uIDStr := StableID("user", u.Username).String()
-			userIDs[u.Username] = uIDStr
-
-			adminFlag := 0
-			if u.IsGlobalAdmin {
-				adminFlag = 1
-			}
-
-			_, err = insertUserStmt.Exec(
-				uIDStr, u.Username, hashStr, u.FullName, u.Title, adminFlag,
-				u.OrgType, u.OrgName, u.Phone, u.MobilePhone, u.ShortPhone, u.ShortMobile, u.Email,
-				now, now,
-			)
-			if err != nil {
-				return fmt.Errorf("greška pri unosu korisnika %s: %w", u.Username, err)
-			}
-
-			for i, d := range u.Duties {
-				dID := StableID("duty", fmt.Sprintf("%s|%d", u.Username, i))
-				isPrimaryInt := 0
-				if d.IsPrimary {
-					isPrimaryInt = 1
-				}
-
-				_, err = insertDutyStmt.Exec(
-					dID.String(), uIDStr, d.Title, d.Role, d.ScopeType, d.SectorID, d.AreaID, d.SectionCodes, isPrimaryInt, now,
-				)
-				if err != nil {
-					return fmt.Errorf("greška pri unosu dužnosti '%s' za %s: %w", d.Title, u.Username, err)
-				}
-			}
-		}
-
-		// System admin alias 'admin'
-		if _, ok := userIDs["admin"]; !ok {
-			adminAliasID := StableID("user", "admin")
-			_, _ = insertUserStmt.Exec(
-				adminAliasID.String(), "admin", hashStr, "Administrator Sustava", "admin", 1,
-				"HRVATSKE_VODE", "Centar obrane od poplava",
-				"", "", "", "", "admin@example.invalid",
-				now, now,
-			)
-			dAdmin := StableID("duty", "admin|0")
-			_, _ = insertDutyStmt.Exec(
-				dAdmin.String(), adminAliasID.String(), "Glavni administrator COP-a", "GLOBAL_ADMIN", "ALL", "DIREKCIJA", nil, "", 1, now,
-			)
-		}
-
-		if err := tx.Commit(); err != nil {
-			return err
-		}
+		return nil, err
 	}
 
 	// 4. Početne štićene dionice iz prijepisa Privitka uz bazu
@@ -187,24 +78,24 @@ func SeedInitialData(database *sql.DB) error {
 	if err := database.QueryRow("SELECT COUNT(*) FROM sections").Scan(&sectionCount); err == nil && sectionCount == 0 {
 		sections, err := LoadSections()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if sections == nil {
 			log.Printf("Dionice: %s nije nađen — registri stižu sinkronizacijom s drugim čvorom", DataFile("sections.json"))
 		}
 		tx, err := database.Begin()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer tx.Rollback()
 		ctx := context.Background()
 		for i := range sections {
 			if err := WriteSection(ctx, tx, &sections[i]); err != nil {
-				return err
+				return nil, err
 			}
 		}
 		if err := tx.Commit(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -245,15 +136,15 @@ func SeedInitialData(database *sql.DB) error {
 		if errors.Is(err, ErrNoDataFile) {
 			raw = []byte("[]")
 		} else if err != nil {
-			return err
+			return nil, err
 		}
 		if err := json.Unmarshal(raw, &rawCounties); err != nil {
-			return fmt.Errorf("greška pri čitanju territories.json: %w", err)
+			return nil, fmt.Errorf("greška pri čitanju territories.json: %w", err)
 		}
 
 		tx, err := database.Begin()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer tx.Rollback()
 
@@ -262,7 +153,7 @@ func SeedInitialData(database *sql.DB) error {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer insertCountyStmt.Close()
 
@@ -271,7 +162,7 @@ func SeedInitialData(database *sql.DB) error {
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer insertMuniStmt.Close()
 
@@ -280,33 +171,33 @@ func SeedInitialData(database *sql.DB) error {
 			VALUES (?, ?, ?, ?, ?, ?)
 		`)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		defer insertSettlementStmt.Close()
 
 		for _, c := range rawCounties {
 			_, err := insertCountyStmt.Exec(c.ID, c.Code, c.Name, c.Seat, c.Prefect, c.AreaSqKm, c.Population, c.Email, c.Phone)
 			if err != nil {
-				return fmt.Errorf("greška pri unosu županije %s: %w", c.Name, err)
+				return nil, fmt.Errorf("greška pri unosu županije %s: %w", c.Name, err)
 			}
 
 			for _, m := range c.Municipalities {
 				_, err := insertMuniStmt.Exec(m.ID, m.CountyID, m.Name, m.Type, m.HeadTitle, m.HeadName, m.PostalCode, m.AreaSqKm, m.Population)
 				if err != nil {
-					return fmt.Errorf("greška pri unosu općine %s: %w", m.Name, err)
+					return nil, fmt.Errorf("greška pri unosu općine %s: %w", m.Name, err)
 				}
 
 				for _, s := range m.Settlements {
 					_, err := insertSettlementStmt.Exec(s.ID, s.MunicipalityID, s.CountyID, s.Name, s.PostalCode, s.Population)
 					if err != nil {
-						return fmt.Errorf("greška pri unosu naselja %s: %w", s.Name, err)
+						return nil, fmt.Errorf("greška pri unosu naselja %s: %w", s.Name, err)
 					}
 				}
 			}
 		}
 
 		if err := tx.Commit(); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
@@ -323,12 +214,12 @@ func SeedInitialData(database *sql.DB) error {
 		}
 		raw, err := readDataFile("section_territories.json")
 		if err != nil && !errors.Is(err, ErrNoDataFile) {
-			return err
+			return nil, err
 		}
 		if err := json.Unmarshal(raw, &rawSecTerrs); err == nil && len(rawSecTerrs) > 0 {
 			tx, err := database.Begin()
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer tx.Rollback()
 
@@ -337,7 +228,7 @@ func SeedInitialData(database *sql.DB) error {
 				VALUES (?, ?, ?, ?, ?, ?)
 			`)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			defer stmt.Close()
 
@@ -345,50 +236,50 @@ func SeedInitialData(database *sql.DB) error {
 			for _, st := range rawSecTerrs {
 				_, err := stmt.Exec(st.ID, st.SectionCode, st.CountyID, st.MunicipalityID, st.SettlementID, now)
 				if err != nil {
-					return fmt.Errorf("greška pri unosu veze dionice %s: %w", st.SectionCode, err)
+					return nil, fmt.Errorf("greška pri unosu veze dionice %s: %w", st.SectionCode, err)
 				}
 			}
 
 			if err := tx.Commit(); err != nil {
-				return err
+				return nil, err
 			}
 		}
 	}
 
 	// 7. Registar vodomjernih postaja izveden iz vodomjera navedenih na dionicama
 	if err := seedStations(database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 8. Registar vodnih tijela
 	if err := seedWatercourses(database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 9. Poddionice na registre: vode, postaje, teritorij, nasipi i brane;
 	// iz toga se obnavljaju kazala veza
 	if err := LinkAllSections(context.Background(), database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 10. Postaje na registar voda: iz naziva, a gdje ga nema, iz dionica
 	// kojima je postaja mjerodavna
 	if err := linkWatercourses(database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 11. Registar objekata: crpne stanice i ustave, za sad iz evidencije
 	// Baranje; vodomjer objekta traži se među postajama dionica područja
 	if err := seedStructures(database); err != nil {
-		return err
+		return nil, err
 	}
 
 	// 12. Objekti s poddionica na registar objekata, sad kad ga ima
 	if err := LinkAllSections(context.Background(), database); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return lozinke, nil
 }
 
 // LoadSections čita prijepis dionica uz bazu (data/sections.json). Služi

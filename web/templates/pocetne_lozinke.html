@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Privremene lozinke | goCOP — {{term "org"}}</title>
+  <meta name="color-scheme" content="light dark">
+  <script src="{{statika "js/tema.js"}}"></script>
+  <link rel="stylesheet" href="{{statika "css/style.css"}}">
+  {{with temaCSS}}<link rel="stylesheet" href="{{.}}">{{end}}
+</head>
+<body class="stranica-postavljanje">
+  <div class="login-wrapper">
+    <div class="login-box" style="max-width:44rem;">
+      <div class="login-header">
+        <div class="login-logo"><img src="{{logo}}" alt="">{{term "org"}}</div>
+        <h1 class="login-title">Privremene lozinke djelatnika</h1>
+        <p class="login-subtitle">goCOP {{.Izdanje}}</p>
+      </div>
+
+      {{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+
+      {{if .Popis}}
+      <div class="alert alert-warning">Ovaj popis vidite samo sada. Ispišite ga ili prepišite prije nego što zatvorite stranicu; program ga nigdje ne sprema.</div>
+      <p>Svakome predajte njegovu lozinku osobno ili telefonom. Pri prvoj prijavi osoba je mijenja svojom.</p>
+      <table class="data-table mb-4">
+        <thead><tr><th>Ime i prezime</th><th>Korisničko ime</th><th>Privremena lozinka</th></tr></thead>
+        <tbody>
+          {{range .Popis}}<tr><td>{{.Ime}}</td><td><code>{{.Korisnik}}</code></td><td><code>{{.Lozinka}}</code></td></tr>
+          {{end}}
+        </tbody>
+      </table>
+      <a href="/login" class="btn btn-primary w-full">Na prijavu</a>
+
+      {{else if not .Dopusteno}}
+      <p>Popis privremenih lozinki preuzima se samo na računalu na kojem je goCOP
+      instaliran, ili uz jednokratni kod koji čvor pri pokretanju ispiše u
+      dnevnik (u Dockeru: dnevnik spremnika).</p>
+      <form action="/postavljanje/lozinke" method="GET">
+        <div class="form-group mb-4">
+          <label class="form-label" for="kod">Kod iz dnevnika</label>
+          <input type="text" id="kod" name="kod" class="form-control" required autofocus placeholder="npr. 7KQ4-M2XD" autocomplete="off">
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Nastavi</button>
+      </form>
+
+      {{else if .Ceka}}
+      <p>Djelatnici iz imenika ({{.Ceka}}) imaju svaki svoju privremenu lozinku. Popis se pokazuje <b>samo jednom</b>: nakon toga ga program briše. Ako se čvor ponovno pokrene prije preuzimanja, svi dobiju nove lozinke i novi popis.</p>
+      <p class="muted mb-4">Kome lozinka nedostaje, globalni administrator daje novu u Korisnicima (Poništi lozinku).</p>
+      <form action="/postavljanje/lozinke" method="POST">
+        <input type="hidden" name="kod" value="{{.Kod}}">
+        <button type="submit" class="btn btn-primary w-full">Pokaži popis lozinki</button>
+      </form>
+
+      {{else}}
+      <p>Popisa privremenih lozinki više nema: već je preuzet.</p>
+      <p class="muted mb-4">Kome lozinka nedostaje, globalni administrator daje novu u Korisnicima (Poništi lozinku). Ako se nitko još ne može prijaviti, na računalu čvora pokrenite <code>gocop -ponisti-lozinku korisničko-ime</code> za račun globalnog administratora.</p>
+      <a href="/login" class="btn btn-primary w-full">Na prijavu</a>
+      {{end}}
+    </div>
+  </div>
+</body>
+</html>

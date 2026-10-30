@@ -149,10 +149,9 @@ uparivanje treba osoba i na drugoj strani.
 
 ### Početni račun admin
 
-Svježe računalo ima i početni račun `admin` s javnom lozinkom. On služi samo
-za prijelaz: vrijedi samo iz lokalne mreže, a pod Postavom samo s tog
-računala, i pri prvoj prijavi traži novu lozinku. Kad računalo postavite na
-stranici Postavljanje, taj vam račun ne treba.
+Svježe računalo ima i početni račun `admin`, ali njegovu lozinku nitko ne
+zna i ne treba vam: računalo postavljate na stranici Postavljanje, koja ga
+isključi.
 
 ## 3. Što dalje
 

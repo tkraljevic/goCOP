@@ -286,7 +286,11 @@ func TestUparivanjeBezPrijaveTraziKod(t *testing.T) {
 			return izravno(r)
 		}
 	}
-	ovoRacunalo := izravnoS("127.0.0.1:40000")
+	ovoRacunalo := func(r *http.Request) *http.Request {
+		r = izravnoS("127.0.0.1:40000")(r)
+		r.Host = "localhost:1160" // s ovog računala vrijedi samo ime localhost
+		return r
+	}
 	for ime, c := range map[string]struct {
 		porijeklo func(*http.Request) *http.Request
 		kod       int

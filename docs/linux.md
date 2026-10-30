@@ -319,10 +319,9 @@ Ako uredski čvor treba primati nova računala u mrežu i kad računalo s
 ključem mreže nije u uredu, na tom računalu u *Administracija → Ovo računalo i
 mreža* uz uredski čvor kliknite *Daj ovlast za primanje*.
 
-**Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Početni
-račun `admin` s lozinkom iz uputa postoji od prvog pokretanja, a čvor tu
-lozinku prima samo iz lokalne mreže, ne kroz posrednika, tunel ni s javne
-adrese (vidi [SECURITY.md](../SECURITY.md)).
+**Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Stranice
+Postavljanje i popis privremenih lozinki rade samo iz lokalne mreže, ne
+kroz posrednika, tunel ni s javne adrese (vidi [SECURITY.md](../SECURITY.md)).
 
 ## 6. Postavke i mapa podataka
 

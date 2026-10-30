@@ -202,7 +202,7 @@ func (h *PairHandler) odbij(w http.ResponseWriter, r *http.Request, view *servic
 	case view.RealUser.MustChangePassword && !api:
 		http.Redirect(w, r, "/profile?force=1#lozinka", http.StatusSeeOther)
 	case view.RealUser.MustChangePassword:
-		http.Error(w, "Prije uparivanja promijenite zadanu lozinku", http.StatusForbidden)
+		http.Error(w, "Prije uparivanja promijenite privremenu lozinku", http.StatusForbidden)
 	case view.Viewing:
 		http.Error(w, "Tuđim očima se ne uparuje; vratite se sebi pa ponovite", http.StatusForbidden)
 	default:

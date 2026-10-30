@@ -285,11 +285,22 @@ nepouzdano.
   i ime. Svaki zahtjev sa zaglavljem posrednika broji se odvojeno od iste
   adrese kad zahtjev stigne izravno. Brojači su u memoriji i nestaju s
   ponovnim pokretanjem.
-- **Početni račun** `admin` s lozinkom `gocop2026` nastaje pri prvom
-  pokretanju i traži promjenu lozinke. Ta lozinka piše u dokumentaciji, pa
-  je čvor prima samo iz lokalne mreže: s ovog računala ili s privatne
-  adrese, a nikad kroz posrednika. Pod Postavom je prima samo s ovog
-  računala.
+- **Početne lozinke.** Nijedan novi račun nema zajedničku ni zadanu
+  lozinku. Svaki račun iz imenika dobije pri prvom punjenju svoju nasumičnu
+  privremenu lozinku. Početni račun `admin` bez imenika dobije lozinku koju
+  nitko ne zna; uz imenik je i on na popisu.
+  U bazi je samo sažetak. Popis lozinki program drži u memoriji, dok ga
+  netko jednom ne preuzme na `/postavljanje/lozinke`: s tog računala na
+  adresi `localhost`, `127.0.0.1` ili `[::1]`, ili inače uz kod iz dnevnika,
+  a nikad kroz posrednika ni s javne adrese. U dnevnik lozinke ne idu. Nakon
+  preuzimanja popisa više nema. Ako se čvor ponovno pokrene prije
+  preuzimanja, računi koje u međuvremenu nitko nije mijenjao dobiju nove
+  privremene lozinke i novi popis. Privremena lozinka mijenja se pri prvoj
+  prijavi. Popis vrijedi za čvor koji ga je složio.
+- Računi iz izdanja do 0.0.46-alfa koji se još nisu prijavili i imaju
+  staru zajedničku početnu lozinku prvi put se prijavljuju samo iz lokalne
+  mreže: s ovog računala ili s privatne adrese, a nikad kroz posrednika.
+  Pod Postavom samo s ovog računala.
 - **Stranica `/postavljanje`** postoji samo dok je čvor svjež i radi samo
   iz lokalne mreže, nikad kroz posrednika. Na njoj se postavlja vlastiti
   administrator (račun `admin` se tada isključuje) i osniva mreža, ili se

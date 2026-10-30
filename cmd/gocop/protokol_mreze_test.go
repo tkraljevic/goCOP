@@ -108,7 +108,7 @@ func TestProvjeraPokretanja(t *testing.T) {
 	if err := provjeriPokretanje(smece, filepath.Join(filepath.Dir(smece.DB), config.FileName), false); err != nil {
 		t.Errorf("datoteka koja nije baza: %v", err)
 	}
-	if baza, spremiste, err := otvoriBazu(smece.DB); err == nil || baza != nil || spremiste != nil {
+	if baza, spremiste, _, err := otvoriBazu(smece.DB); err == nil || baza != nil || spremiste != nil {
 		t.Errorf("datoteka koja nije baza otvorila se: %v", err)
 	}
 }

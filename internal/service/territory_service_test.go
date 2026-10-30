@@ -24,7 +24,7 @@ func setupTestTerritoryService(t *testing.T) (*TerritoryService, *SectionService
 		t.Fatalf("Greška pri inicijalizaciji sheme: %v", err)
 	}
 
-	if err := db.SeedInitialData(database); err != nil {
+	if _, err := db.SeedInitialData(database); err != nil {
 		t.Fatalf("Greška pri unosu početnih podataka: %v", err)
 	}
 

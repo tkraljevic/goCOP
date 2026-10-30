@@ -10,8 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-
-	"gocop/internal/db"
 )
 
 // Izmišljene adrese: Tailscale adresa ovog računala, drugi uređaj u istoj
@@ -165,7 +163,7 @@ func TestTailscaleLokalnoIskljuceno(t *testing.T) {
 // iz lokalne mreže, a kroz posrednika ne
 func TestSvjezCvorPrekoTailscalea(t *testing.T) {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", db.ZadanaLozinka, true, true)
+	o.racun("admin", staraPocetnaLozinka, true, true)
 	o.authH.SetFresh(func() bool { return true })
 	o.sTailscaleom(tsOvo)
 
@@ -185,10 +183,10 @@ func TestSvjezCvorPrekoTailscalea(t *testing.T) {
 	if b := get(krozPosrednika); !strings.Contains(b, "svjez=false") {
 		t.Errorf("kroz posrednika: %q", b)
 	}
-	if w := o.prijava(krozPosrednika, "admin", db.ZadanaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
+	if w := o.prijava(krozPosrednika, "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
 		t.Errorf("početna lozinka kroz posrednika: %d, kolačić %v", w.Code, kolacicSesije(w))
 	}
-	w := o.prijava(naAdresu(tsDrugi, tsOvo), "admin", db.ZadanaLozinka)
+	w := o.prijava(naAdresu(tsDrugi, tsOvo), "admin", staraPocetnaLozinka)
 	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
 		t.Errorf("početna lozinka preko Tailscalea mora proći: %d %q", w.Code, w.Body.String())
 	}

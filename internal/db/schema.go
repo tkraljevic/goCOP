@@ -602,6 +602,13 @@ func InitSchema(database *sql.DB) error {
 			pin_adresa_potvrdio TEXT NOT NULL DEFAULT '',
 			pin_adresa_potvrdena_kad DATETIME
 		);`,
+		// Računi iz prvog punjenja čiji popis privremenih lozinki još nije
+		// preuzet, sa sažetkom koji su tada dobili (pocetne_lozinke.go).
+		// Samo na ovom čvoru: ne ide razmjenom.
+		`CREATE TABLE IF NOT EXISTS pocetne_lozinke_cekaju (
+			user_id TEXT PRIMARY KEY,
+			password_hash TEXT NOT NULL
+		);`,
 
 		`CREATE TABLE IF NOT EXISTS duties (
 			id TEXT PRIMARY KEY,
