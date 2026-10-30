@@ -300,8 +300,7 @@ sudo systemctl restart gocop
 ```
 
 `grep` treba ispisati `sve = true`. Postavku `bootstrap` program zasad ne
-čita. Čvorove sa stalnom adresom upišite u Administracija → Čvor, mreža i
-sinkronizacija → Domenski čvorovi.
+čita. Čvorove sa stalnom adresom upišite u Administracija → Ovo računalo i mreža → Domenski čvorovi.
 
 Što se vidi u dnevniku (`journalctl -u gocop -f`) dok se čvor puni:
 
@@ -317,8 +316,8 @@ sinkronizacija → Domenski čvorovi.
   kućno računalo). To je očekivano.
 
 Ako uredski čvor treba primati nova računala u mrežu i kad računalo s
-ključem mreže nije u uredu, na tom računalu u *Administracija → Čvor, mreža
-i sinkronizacija* uz uredski čvor kliknite *Daj ovlast za primanje*.
+ključem mreže nije u uredu, na tom računalu u *Administracija → Ovo računalo i
+mreža* uz uredski čvor kliknite *Daj ovlast za primanje*.
 
 **Dok čvor nije postavljen, ne smije biti dostupan s interneta.** Početni
 račun `admin` s lozinkom iz uputa postoji od prvog pokretanja, a čvor tu
@@ -338,7 +337,7 @@ datotekom; jedinica zadaje samo `-db`.
 
 Dio postavki mijenja se i u programu, bez `sudo` i uređivača: centar sa
 stranice prijave, razmak sinkronizacije te prijava za WEB sync i sam WEB sync
-(*Čvor, mreža i sinkronizacija*), adresa za QR kod na dokumentima
+(*Ovo računalo i mreža*), adresa za QR kod na dokumentima
 (*Elektronički potpisi*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
 obična karta (*Karte*); do svih se dolazi iz Administracije (opis u
 [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
@@ -390,7 +389,7 @@ Mapa mora pripadati korisniku `gocop` (`sudo chown -R gocop:gocop
 - Ključ čvora (`node-key`) i ključ mreže (`network-key`) čuvajte posebno i
   zaštićeno: tko ih ima, predstavlja se kao ovaj čvor, odnosno prima
   članove u mrežu. Za ključ mreže program sam sprema šifriranu kopiju za
-  hladni disk (Postavke, pod Mreža, Kopija ključa mreže).
+  hladni disk (Ovo računalo i mreža, pod Mreža, Kopija ključa mreže).
 - Dva čvora nikad ne smiju raditi s istim ključem čvora.
 - Bez ključa čvora uz bazu koja već ima zapise čvor ne kreće (od
   0.0.35-alfa) i u dnevniku (`journalctl -u gocop`) javlja koja datoteka

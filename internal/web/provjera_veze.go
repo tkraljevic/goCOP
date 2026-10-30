@@ -1,12 +1,12 @@
 package web
 
 // Provjera veze (plan WEB synca, F1b-3). Administrator gumbom „Provjeri
-// vezu” u kartici Ovaj čvor izmjeri mrežu ovog računala preko STUN
-// poslužitelja: kad WEB sync radi, na njegovoj utičnici, a kad ne radi, na
-// privremenoj utičnici koju program zatvori nakon mjerenja. Mjeri program
-// (cmd/gocop/povezivost.go), a ovdje su gumb i prikaz. Kartica pokazuje samo
-// sažetak bez adresa; vlastitu javnu adresu, kandidate i izlaz prema STUN-u
-// pokazuje blok Dohvatljivost na stranici Sinkronizacija, koju vidi samo
+// vezu” u bloku Dohvatljivost na stranici Stanje razmjene (Odluke
+// (30. 10. 2026.), 3) izmjeri mrežu ovog računala preko STUN poslužitelja:
+// kad WEB sync radi, na njegovoj utičnici, a kad ne radi, na privremenoj
+// utičnici koju program zatvori nakon mjerenja. Mjeri program
+// (cmd/gocop/povezivost.go), a ovdje su gumb i prikaz. Blok, s vlastitom
+// javnom adresom, kandidatima i izlazom prema STUN-u, vidi samo
 // administrator.
 
 import (
@@ -69,11 +69,16 @@ func (p povezivostCvora) zadnjaProvjera() *ProvjeraVeze {
 	return p.zadnja()
 }
 
-// ProvjeraVezePrikaz je dio kartice Ovaj čvor s gumbom „Provjeri vezu”
+// ProvjeraVezePrikaz je gumb „Provjeri vezu” u bloku Dohvatljivost
 type ProvjeraVezePrikaz struct {
 	Nudi    bool   // administrator, svojim očima, izravno iz lokalne mreže
 	Zabrana string // zašto ne s ovog zahtjeva
 	Zadnja  *ProvjeraVeze
+}
+
+// gumbProvjereVeze je gumb za ovaj zahtjev: izvana samo razlog
+func (s *Server) gumbProvjereVeze(r *http.Request) *ProvjeraVezePrikaz {
+	return s.prikazProvjereVeze(smijeMijenjatiCvor(r))
 }
 
 // prikazProvjereVeze je nil kad program provjeru ne nudi
@@ -90,27 +95,30 @@ func (s *Server) prikazProvjereVeze(zabrana *zabranaCvora) *ProvjeraVezePrikaz {
 
 // handleProvjeriVezu: POST, samo administrator, izravno iz lokalne mreže.
 // Mjerenje traje nekoliko sekundi; ishod se pamti u programu, pa ga
-// stranica iscrta nakon preusmjeravanja.
+// stranica Stanje razmjene iscrta nakon preusmjeravanja.
 func (s *Server) handleProvjeriVezu(w http.ResponseWriter, r *http.Request) {
 	if z := smijeMijenjatiCvor(r); z != nil {
 		http.Error(w, z.provjera, http.StatusForbidden)
 		return
 	}
 	if s.povezivost.provjeri == nil {
-		redirectWith(w, r, "/settings#provjera-veze", "error", "Provjera veze na ovom čvoru nije dostupna.")
+		redirectWith(w, r, stranicaProvjereVeze, "error", "Provjera veze na ovom računalu nije dostupna.")
 		return
 	}
 	ishod := s.povezivost.provjeri(r.Context())
 	log.Printf("povezivost: provjeru veze pokrenuo %s s %s", korisnikZahtjeva(r), klijentIz(r))
 	if ishod.Greska != "" {
-		redirectWith(w, r, "/settings#provjera-veze", "error", "Provjera veze nije prošla: "+ishod.Greska)
+		redirectWith(w, r, stranicaProvjereVeze, "error", "Provjera veze nije prošla: "+ishod.Greska)
 		return
 	}
-	redirectWith(w, r, "/settings#provjera-veze", "success", "Provjera veze je gotova: "+ishod.Sazetak())
+	redirectWith(w, r, stranicaProvjereVeze, "success", "Provjera veze je gotova: "+ishod.Sazetak())
 }
 
+// stranicaProvjereVeze: gumb i ishod su u bloku Dohvatljivost
+const stranicaProvjereVeze = "/sinkronizacija#dohvatljivost"
+
 // DohvatljivostPrikaz je blok „Dohvatljivost ovog računala” na stranici
-// Sinkronizacija. Vidi ga samo administrator, pa smije imati vlastitu
+// Stanje razmjene. Vidi ga samo administrator, pa smije imati vlastitu
 // javnu adresu i vlastite adrese u lokalnoj mreži.
 type DohvatljivostPrikaz struct {
 	Provjera   *ProvjeraVeze // nil: provjere još nije bilo
@@ -136,7 +144,7 @@ var rijeciIzlaza = map[string]string{
 	razmjena.IzlazBezRute:   "Prema %s nema rute.",
 }
 
-// dohvatljivost slaže blok za stranicu Sinkronizacija iz zadnje provjere
+// dohvatljivost slaže blok za stranicu Stanje razmjene iz zadnje provjere
 func (s *Server) dohvatljivost() *DohvatljivostPrikaz {
 	d := &DohvatljivostPrikaz{Provjera: s.povezivost.zadnjaProvjera(), Signal: s.redakSignala()}
 	d.Upozorenja = s.povezivost.signalStanje().upozorenja(time.Now())

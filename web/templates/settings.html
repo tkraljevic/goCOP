@@ -1,16 +1,16 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Čvor i mreža{{end}}
+{{define "title"}}goCOP — Ovo računalo i mreža{{end}}
 
 {{define "content"}}
 <div class="stranica-cvor">
 
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Čvor i mreža</div>
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Ovo računalo i mreža</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "radio-tower"}} Čvor, mreža i sinkronizacija</h1>
-    <p class="page-desc">Ovaj čvor, poznati čvorovi, uparivanje i sinkronizacija. Svaki čvor je punopravna kopija — nijedan nije jedini.</p>
+    <h1 class="page-title">{{icon "radio-tower"}} Ovo računalo i mreža</h1>
+    <p class="page-desc">Ključ i uloge ovog računala, članstvo u mreži, uparivanje, adrese za razmjenu i WEB sync. Svako računalo je punopravna kopija; nijedno nije jedino. Ručna razmjena, provjera veze i stanje veze s drugim računalima su na stranici <a href="/sinkronizacija">Stanje razmjene</a>.</p>
   </div>
 </div>
 
@@ -29,8 +29,16 @@
       <dt>Portovi</dt><dd>razmjena {{.Ports.Exchange}} · uparivanje {{.Ports.Pair}} · pronalaženje {{.Ports.Discovery}}</dd>
     </dl>
     <p class="muted" style="margin-top:0.6rem;">Ključ čvora leži uz bazu, ne u njoj — kopija baze ne nasljeđuje identitet stroja.</p>
-    {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{template "webSyncNakonPadova" .WebSync}}{{template "provjeraVeze" .Provjera}}{{end}}
+    {{with .Postavke}}{{template "postavkeCvora" (.Dio "cvor")}}{{template "ponovnoPokretanje" .Ponovno}}{{end}}
   </div>
+
+  {{with .Postavke}}
+  <div class="card">
+    <h2 id="web-sync">WEB sync i dohvatljivost</h2>
+    <p class="desc">WEB sync je izravna razmjena između računala iza kućnog ili uredskog usmjerivača. Ovdje se uključuje, a vrijedi samo za ovo računalo. Gumb Provjeri vezu i ishod zadnje provjere su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>
+    {{template "postavkeCvora" (.Dio "websync")}}{{template "webSyncNakonPadova" .WebSync}}
+  </div>
+  {{end}}
 
   <div class="card" id="uloge">
     <h2>Uloge ovog čvora</h2>
@@ -178,9 +186,9 @@
   </div>
 
   {{if .Permissions.IsGlobalAdmin}}
-  <div class="card wide">
+  <div class="card wide" id="uparivanje">
     <h2>Uparivanje</h2>
-    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga se sinkroniziraju bez nadzora.</p>
+    <p class="desc">Dva čvora se upare tako da oba pokažu isti šesteroznamenkasti kod i oba ga čovjek potvrdi. Nakon toga sami razmjenjuju podatke.</p>
     <div id="pair-box">
       <div class="actions">
         <button type="button" class="btn btn-primary" onclick="pairListen()">Čekaj drugi čvor</button>
@@ -203,12 +211,8 @@
 
   <div class="card wide">
     <h2>Poznati čvorovi</h2>
-    <p class="desc">Čvorovi s kojima se ovaj sinkronizira. Adresa se mijenja, ključ ne. Čvorovi s domenom označeni su kao stalno izloženi.</p>
-    <div class="actions mt-0 mb-2">
-      {{if .Permissions.IsGlobalAdmin}}<button type="button" class="btn btn-secondary" onclick="discover()">Pretraži lokalnu mrežu</button>
-      <button type="button" class="btn btn-primary" onclick="syncNow('all')">Sinkroniziraj sa svima</button>{{end}}
-    </div>
-    <div id="discover-results"></div>
+    <p class="desc">Računala s kojima ovo razmjenjuje. Adresa se mijenja, ključ ne. Računala s domenom označena su kao stalno izložena.
+      Gumbi Razmijeni sa svima, Razmijeni i Pretraži lokalnu mrežu su na stranici <a href="/sinkronizacija" id="poveznica-stanje-razmjene">Stanje razmjene</a>.</p>
     <div id="peer-list">
       {{range .Peers}}
       <div class="peer" id="peer-{{.NodeID}}">
@@ -225,7 +229,6 @@
         </div>
         {{if $.Permissions.IsGlobalAdmin}}
         <div class="actions">
-          <button type="button" class="btn btn-sm btn-primary" onclick="syncNow('{{.NodeID}}')">Sinkroniziraj</button>
           <button type="button" class="btn btn-sm btn-secondary" onclick="setBootstrap('{{.NodeID}}', {{if .IsBootstrap}}false{{else}}true{{end}})">
             {{if .IsBootstrap}}Nije više stalno izložen{{else}}Označi kao stalno izložen{{end}}</button>
           <button type="button" class="btn btn-sm btn-link" onclick="forgetPeer('{{.NodeID}}', '{{.Name}}')">Zaboravi</button>
@@ -233,7 +236,7 @@
         {{end}}
       </div>
       {{else}}
-      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Uparite prvi ili pretražite lokalnu mrežu.{{else}}Čvorove dodaje administrator.{{end}}</p>
+      <p class="muted">Još nema poznatih čvorova. {{if $.Permissions.IsGlobalAdmin}}Prvo računalo uparite gore, pod Uparivanje. Koja se računala javljaju u lokalnoj mreži, pokazuje <a href="/sinkronizacija">Stanje razmjene</a>.{{else}}Čvorove dodaje administrator.{{end}}</p>
       {{end}}
     </div>
   </div>
@@ -402,38 +405,6 @@ async function primiZahtjev() {
   } catch (e) { status.innerHTML = '<span class="err">' + escPronadjeno(e.message) + '</span>'; }
 }
 
-let pronadjeni = [];
-async function discover() {
-  const box = document.getElementById('discover-results');
-  box.innerHTML = '<p class="muted">Pretraživanje…</p>';
-  try {
-    const r = await api('/api/peers/discover');
-    pronadjeni = r.found || [];
-    if (!pronadjeni.length) { box.innerHTML = '<p class="muted">Na lokalnoj mreži nije nađen nijedan goCOP čvor.</p>'; return; }
-    box.innerHTML = pronadjeni.map((f, i) => `
-      <div class="peer">
-        <div class="peer-head"><span class="peer-name">${escPronadjeno(f.name || f.deviceId)}</span><span class="peer-meta mono">${escPronadjeno(f.addr)}</span></div>
-        <div class="peer-meta">${f.known ? 'poznat čvor' : 'nepoznat čvor'}${f.pairPort ? ' · čeka uparivanje' : ''}</div>
-        <div class="actions">
-          ${f.known ? `<button class="btn btn-sm btn-primary" onclick="syncNow(pronadjeni[${i}].deviceId)">Sinkroniziraj</button>`
-                    : `<button class="btn btn-sm btn-primary" onclick="document.getElementById('pair-addr').value=pronadjeni[${i}].addr; pairDial()">Upari</button>`}
-        </div>
-      </div>`).join('');
-  } catch (e) { box.innerHTML = '<p class="err">' + escPronadjeno(e.message) + '</p>'; }
-}
-
-async function syncNow(node) {
-  try {
-    const r = await api('/api/peers/' + encodeURIComponent(node) + '/sync', {});
-    if (r.results) {
-      alert(Object.entries(r.results).map(([k, v]) => k + ': ' + v).join('\n') || 'Nema poznatih čvorova.');
-    } else {
-      alert('Sinkronizirano: primljeno ' + r.applied + ', poslano ' + r.sent + '.');
-    }
-    location.reload();
-  } catch (e) { alert('Sinkronizacija nije uspjela: ' + e.message); }
-}
-
 async function addAddress() {
   const node = document.getElementById('addr-node').value;
   const add = document.getElementById('addr-new').value.trim();
@@ -458,6 +429,11 @@ async function forgetPeer(node, name) {
   try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {}); location.reload(); }
   catch (e) { alert(e.message); }
 }
+
+// adresa s popisa Lokalna mreža sada na Stanju razmjene (?upari=…): upiše
+// se u polje, a nazove se tek gumbom Nazovi čvor
+const upari = new URLSearchParams(location.search).get('upari');
+if (upari && document.getElementById('pair-addr')) { document.getElementById('pair-addr').value = upari; }
 
 api('/api/peers/pair/status').then(showPairStatus).catch(() => {});
 </script>

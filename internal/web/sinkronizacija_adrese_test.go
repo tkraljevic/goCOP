@@ -71,9 +71,9 @@ func TestStanjeSinkronizacijeBezAdresa(t *testing.T) {
 	}
 }
 
-// Stranica Čvor i mreža pokazuje adrese poznatih čvorova, domenskih
+// Stranica Ovo računalo i mreža pokazuje adrese poznatih čvorova, domenskih
 // čvorova i vlastite javne adrese, i bilješku s greškom razmjene, samo
-// administratoru; pretragu lokalne mreže nudi samo njemu.
+// administratoru. Pretraga lokalne mreže je na Stanju razmjene.
 func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 	tmpl := predlozakStranice(t, "settings.html")
 	zadnji := time.Now()
@@ -89,7 +89,7 @@ func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 			t.Fatal(err)
 		}
 		html := b.String()
-		for _, adresa := range []string{"192.168.1.30", "ured.primjer.hr", "cop-osijek.primjer.hr", "onclick=\"discover()\""} {
+		for _, adresa := range []string{"192.168.1.30", "ured.primjer.hr", "cop-osijek.primjer.hr"} {
 			if strings.Contains(html, adresa) != treba {
 				t.Errorf("administrator %v: %q na stranici %v", admin, adresa, !treba)
 			}
@@ -100,12 +100,12 @@ func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 	}
 }
 
-// Pretraga lokalne mreže, povijest zapisa iz knjige i stanje uparivanja
-// nose adrese računala, pa ih dobiva samo administrator.
+// Povijest zapisa iz knjige i stanje uparivanja nose adrese računala, pa
+// ih dobiva samo administrator.
 func TestPretragaIPovijestSamoAdministratoru(t *testing.T) {
 	s, baza := cvorIBazaZaWeb(t, "cop-osijek")
 	h := NewSettingsHandler(s, ledger.New(baza, "cop-osijek"), nil)
-	for ime, rukovatelj := range map[string]http.HandlerFunc{"pretraga": h.HandleDiscover, "povijest": h.HandleHistory, "uparivanje": h.HandlePairStatus} {
+	for ime, rukovatelj := range map[string]http.HandlerFunc{"povijest": h.HandleHistory, "uparivanje": h.HandlePairStatus} {
 		r := httptest.NewRequest(http.MethodGet, "/api/history/peers/laptop-baranja", nil)
 		r.SetPathValue("entity", "peers")
 		r.SetPathValue("id", "laptop-baranja")

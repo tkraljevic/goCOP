@@ -1438,6 +1438,87 @@ a:hover { color: var(--accent); }
   transform: translateX(4px);
 }
 
+/* Administracija: skupine kartica, oznaka dosega i Prvi koraci */
+.dash-skupina {
+  margin-top: 2rem;
+}
+
+.dash-skupina-naslov {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--naslov);
+  margin-bottom: 0.875rem;
+}
+
+.dash-skupina-poveznica {
+  margin-top: 0.875rem;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
+.dash-card-oznake {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.375rem;
+}
+
+.dash-doseg {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 9999px;
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.dash-koraci {
+  list-style: none;
+  padding: 0;
+  margin: 0.75rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.75rem 1.5rem;
+}
+
+.dash-korak {
+  display: flex;
+  gap: 0.625rem;
+  align-items: flex-start;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.dash-korak a {
+  font-weight: 600;
+}
+
+.dash-korak-oznaka {
+  flex: 0 0 auto;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.1rem;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--tint-green-fg);
+}
+
+.dash-korak-oznaka.bez-provjere {
+  border-color: transparent;
+}
+
+.dash-korak.gotov .dash-korak-oznaka {
+  border-color: var(--tint-green-fg);
+  background: var(--tint-green-bg);
+}
+
 @media (max-width: 840px) {
   .dashboard-hero {
     flex-direction: column;

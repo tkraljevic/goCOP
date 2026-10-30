@@ -320,24 +320,6 @@ func (h *SettingsHandler) HandlePrimiZahtjev(w http.ResponseWriter, r *http.Requ
 		"datoteka": "gocop-potvrda-" + z.Cvor + ".json"})
 }
 
-// HandleDiscover pretraži lokalnu mrežu; odgovor nosi adrese računala, pa
-// ga dobiva samo administrator
-func (h *SettingsHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
-	if err := requireAdmin(r); err != nil {
-		http.Error(w, err.Error(), http.StatusForbidden)
-		return
-	}
-	found, err := h.peers.Discover(r.Context(), 1500*time.Millisecond)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if found == nil {
-		found = []peers.Discovered{}
-	}
-	writeJSON(w, map[string]any{"success": true, "found": found})
-}
-
 func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) {
 	if err := requireAdmin(r); err != nil {
 		http.Error(w, err.Error(), http.StatusForbidden)

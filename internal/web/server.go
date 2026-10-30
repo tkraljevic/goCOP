@@ -1022,6 +1022,7 @@ func (s *Server) setupRoutes() {
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
 	adminH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
+	adminH.SetIzvoriStanja(s.opcijeAdministracije, s.racunTelemetrije, s.postaPodesena)
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 
@@ -1480,6 +1481,7 @@ func (s *Server) setupRoutes() {
 	// Nadzorna ploča sinkronizacije
 	syncH := NewSyncHandler(s.peersService, s.templates["sinkronizacija.html"])
 	syncH.dohvatljivost = s.dohvatljivost
+	syncH.gumbProvjere = s.gumbProvjereVeze
 	syncH.mjeriMrezu = s.mjeriMrezu
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
 	s.mux.Handle("POST /sinkronizacija/provjeri-vezu", s.samoAdmin(http.HandlerFunc(syncH.handleProvjeriRacunalo)))
@@ -1523,7 +1525,6 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /api/peers/pair/stop", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairStop)))
 	s.mux.Handle("POST /api/peers/pair/dial", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairDial)))
 	s.mux.Handle("POST /api/peers/pair/confirm", s.authMiddleware(http.HandlerFunc(settingsH.HandlePairConfirm)))
-	s.mux.Handle("GET /api/peers/discover", s.authMiddleware(http.HandlerFunc(settingsH.HandleDiscover)))
 	s.mux.Handle("POST /api/peers/{node}/sync", s.authMiddleware(http.HandlerFunc(settingsH.HandleSyncNow)))
 	s.mux.Handle("POST /api/peers/{node}/forget", s.authMiddleware(http.HandlerFunc(settingsH.HandleForgetPeer)))
 	s.mux.Handle("POST /api/peers/{node}/bootstrap", s.authMiddleware(http.HandlerFunc(settingsH.HandleSetBootstrap)))

@@ -218,7 +218,7 @@ func (s *Service) upozorenjaKljucaMreze(ctx context.Context) []string {
 	}
 	var out []string
 	if s.KopijaKljucaKad(ctx) == nil {
-		out = append(out, "Kopija ključa mreže još nije spremljena. Ako ovo računalo propadne, nitko ne može obnoviti ovlasti za primanje i mreža se raspadne. Spremite šifriranu kopiju na hladni disk u Postavkama, pod Mreža.")
+		out = append(out, "Kopija ključa mreže još nije spremljena. Ako ovo računalo propadne, nitko ne može obnoviti ovlasti za primanje i mreža se raspadne. Spremite šifriranu kopiju na hladni disk na stranici Ovo računalo i mreža, pod Mreža.")
 	}
 	if b := s.brojPrimatelja(ctx); b < 2 {
 		out = append(out, fmt.Sprintf("Ovlast za primanje ima %d %s. Dajte je još jednom računalu na drugom mjestu, da mreža radi i kad ovo računalo nije dostupno.", b, models.UzBrojHR(b, "računalo", "računala", "računala")))

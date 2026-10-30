@@ -20,6 +20,9 @@ type SyncHandler struct {
 	// dohvatljivost je blok Dohvatljivost (provjera_veze.go); čita stanje
 	// poslužitelja u trenutku zahtjeva
 	dohvatljivost func() *DohvatljivostPrikaz
+	// gumbProvjere je gumb Provjeri vezu u bloku Dohvatljivost; ovisi o tome
+	// odakle je zahtjev (Server.gumbProvjereVeze)
+	gumbProvjere func(*http.Request) *ProvjeraVezePrikaz
 	// mjeriMrezu je mjerenje mreže ovog računala uz provjeru veze s
 	// računalom (provjera_racunala.go); nil: ne mjeri se
 	mjeriMrezu func(context.Context) *ProvjeraVeze
@@ -45,6 +48,9 @@ type SyncPageData struct {
 	OdbijenoGreska string
 	// Dohvatljivost je mreža ovog računala za WEB sync, samo za administratora
 	Dohvatljivost *DohvatljivostPrikaz
+	// ProvjeraVeze je gumb Provjeri vezu u bloku Dohvatljivost (Odluke
+	// (30. 10. 2026.), 3); nil kad ga program ne nudi
+	ProvjeraVeze *ProvjeraVezePrikaz
 	// ProvjeraRacunala je provjera veze s računalom, samo za administratora
 	ProvjeraRacunala *ProvjeraRacunalaPrikaz
 	ViewAsBanner
@@ -65,19 +71,23 @@ func (h *SyncHandler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	}
 	data.Status = st
 	h.dodajOdbijeno(r.Context(), perms, &data)
-	h.dodajDohvatljivost(perms, &data)
+	h.dodajDohvatljivost(r, &data)
 	h.dodajProvjeruRacunala(r, &data)
 	if err := h.tmpl.ExecuteTemplate(w, "sinkronizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
-// dodajDohvatljivost puni blok Dohvatljivost, samo za administratora
-func (h *SyncHandler) dodajDohvatljivost(perms *models.UserPermissions, data *SyncPageData) {
-	if perms == nil || !perms.IsGlobalAdmin || h.dohvatljivost == nil {
+// dodajDohvatljivost puni blok Dohvatljivost s gumbom Provjeri vezu, samo
+// za administratora
+func (h *SyncHandler) dodajDohvatljivost(r *http.Request, data *SyncPageData) {
+	if data.Permissions == nil || !data.Permissions.IsGlobalAdmin || h.dohvatljivost == nil {
 		return
 	}
 	data.Dohvatljivost = h.dohvatljivost()
+	if h.gumbProvjere != nil {
+		data.ProvjeraVeze = h.gumbProvjere(r)
+	}
 }
 
 // HandleStatus vraća stanje kao JSON; uz ?lan=1 pita i lokalnu mrežu

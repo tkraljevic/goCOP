@@ -2,7 +2,7 @@ package web
 
 // Postavke ovog čvora iz gocop.toml u Administraciji (Odluke 12. 10. 2026.).
 // Nema zasebne stranice: svaka postavka stoji na stranici kojoj prirodno
-// pripada (Čvor i mreža, Pretplate, Održavanje baze, Karte, Elektronički
+// pripada (Ovo računalo i mreža, Pretplate, Održavanje baze, Karte, Elektronički
 // potpisi). Popis postavki, objašnjenja i vrste čitaju se iz same strukture
 // config.Config, pa se nova postavka pojavi sama; raspored niže kaže samo
 // gdje stoji i smije li se mijenjati. Test pada kad Config dobije postavku koje u rasporedu nema.
@@ -69,7 +69,7 @@ const (
 	// WEB sync (F1a): tuđi STUN poslužitelj saznao bi javne adrese računala i
 	// mogao vratiti lažne, a krivi UDP port odsiječe računalo
 	razlogPovezivosti = "Mijenja se samo u datoteci gocop.toml: tuđi STUN poslužitelj saznao bi javnu adresu ovog računala i mogao vratiti lažnu, a krivi UDP port odsiječe računalo."
-	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se samo prikazuje na stranici Sinkronizacija."
+	razlogLanAdrese   = "Mijenja se samo u datoteci gocop.toml, uz postavke spremnika: kriva adresa drugim računalima daje put koji ne vodi do ovog. Zasad se samo prikazuje na stranici Stanje razmjene."
 	// sastajalište (F2): krivim se WEB sync prijavi kod tuđeg računala ili
 	// nikoga, a uključuje se samo na stalnom čvoru
 	razlogSastajalista        = "Mijenja se samo u datoteci gocop.toml: krivom adresom ili krivim čvorom WEB sync bi se prijavljivao kod tuđeg računala ili ni kod koga."
@@ -98,19 +98,20 @@ var rasporedPostavki = []redakRasporeda{
 
 	{"sync.auto_sync", mjestoPostavke{"mreza", postavkaUrediva, "Automatska sinkronizacija", ""}},
 	{"sync.tailscale", mjestoPostavke{"mreza", postavkaUrediva, "Razmjena preko Tailscalea", ""}},
-	{"povezivost.web_sync_prijava", mjestoPostavke{"mreza", postavkaUrediva, "Prijava za WEB sync", ""}},
-	{"povezivost.web_sync", mjestoPostavke{"mreza", postavkaUrediva, "WEB sync", ""}},
 	{"sync.protokol", mjestoPostavke{"mreza", postavkaSamoCitanje, "Ime protokola mreže", razlogProtokola}},
 	{"sync.bootstrap", mjestoPostavke{"mreza", postavkaSamoCitanje, "Stalno dostupni čvorovi", razlogBootstrapa}},
 	{"web.pouzdani_posrednici", mjestoPostavke{"mreza", postavkaSamoCitanje, "Pouzdani posrednici", razlogPosrednika}},
 	{"web.zaglavlje_klijenta", mjestoPostavke{"mreza", postavkaSamoCitanje, "Zaglavlje s adresom klijenta", razlogPosrednika}},
 	{"web.tailscale_lokalno", mjestoPostavke{"mreza", postavkaSamoCitanje, "Tailscale kao lokalna mreža", razlogPosrednika}},
-	{"povezivost.udp_port", mjestoPostavke{"mreza", postavkaSamoCitanje, "UDP port WEB synca", razlogPovezivosti}},
-	{"povezivost.stun", mjestoPostavke{"mreza", postavkaSamoCitanje, "STUN poslužitelji", razlogPovezivosti}},
-	{"povezivost.lan_adresa", mjestoPostavke{"mreza", postavkaSamoCitanje, "Adresa u lokalnoj mreži", razlogLanAdrese}},
-	{"povezivost.sastajaliste", mjestoPostavke{"mreza", postavkaSamoCitanje, "Sastajalište za WEB sync", razlogSastajalista}},
-	{"povezivost.sastajaliste_cvor", mjestoPostavke{"mreza", postavkaSamoCitanje, "Čvor sastajališta", razlogSastajalista}},
-	{"povezivost.posluzi_sastajaliste", mjestoPostavke{"mreza", postavkaSamoCitanje, "Ovo računalo je sastajalište", razlogPosluziSastajaliste}},
+
+	{"povezivost.web_sync_prijava", mjestoPostavke{"websync", postavkaUrediva, "Prijava za WEB sync", ""}},
+	{"povezivost.web_sync", mjestoPostavke{"websync", postavkaUrediva, "WEB sync", ""}},
+	{"povezivost.udp_port", mjestoPostavke{"websync", postavkaSamoCitanje, "UDP port WEB synca", razlogPovezivosti}},
+	{"povezivost.stun", mjestoPostavke{"websync", postavkaSamoCitanje, "STUN poslužitelji", razlogPovezivosti}},
+	{"povezivost.lan_adresa", mjestoPostavke{"websync", postavkaSamoCitanje, "Adresa u lokalnoj mreži", razlogLanAdrese}},
+	{"povezivost.sastajaliste", mjestoPostavke{"websync", postavkaSamoCitanje, "Sastajalište za WEB sync", razlogSastajalista}},
+	{"povezivost.sastajaliste_cvor", mjestoPostavke{"websync", postavkaSamoCitanje, "Čvor sastajališta", razlogSastajalista}},
+	{"povezivost.posluzi_sastajaliste", mjestoPostavke{"websync", postavkaSamoCitanje, "Ovo računalo je sastajalište", razlogPosluziSastajaliste}},
 
 	{"sync.sve", mjestoPostavke{"pretplate", postavkaUrediva, "Prati sve", ""}},
 	{"vodostaji.povijest_mjeseci", mjestoPostavke{"pretplate", postavkaUrediva, "Povijest tuđih očitanja (mjeseci)", ""}},
@@ -150,7 +151,7 @@ var opisNaStranici = map[string]string{
 		"Isključeno: prima samo ono što je označeno na ovoj stranici (laptop, mobitel).",
 	"sync.protokol": "Računala s različitim imenom protokola ne vide se i ne razmjenjuju podatke.",
 	"povezivost.web_sync_prijava": "Uključeno: računalo otvori UDP utičnicu za WEB sync i provjeri mrežu preko STUN poslužitelja. " +
-		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu. Vrijedi od idućeg pokretanja.",
+		"Isključeno: nema UDP utičnice ni upita prema van, osim kad administrator pritisne Provjeri vezu na stranici Stanje razmjene. Vrijedi od idućeg pokretanja.",
 	"povezivost.web_sync": "Uključeno: kad je uključena i prijava, računala iza kućnog ili uredskog usmjerivača razmjenjuju i izravno, WEB syncom. " +
 		"Isključeno: razmjena ide kao prije, a računalo na poziv WEB synca odgovara da ga nema.",
 }
@@ -167,7 +168,7 @@ func redRasporeda(puni string) int {
 
 // dioOdjeljka: gdje stoji postavka koje u rasporedu (još) nema, po odjeljku
 var dioOdjeljka = map[string]string{
-	"": "cvor", "node": "cvor", "kontakt": "cvor", "web": "mreza", "sync": "mreza", "povezivost": "mreza",
+	"": "cvor", "node": "cvor", "kontakt": "cvor", "web": "mreza", "sync": "mreza", "povezivost": "websync",
 	"vodostaji": "pretplate", "karta": "karte", "posta": "posta",
 }
 
@@ -193,7 +194,7 @@ type dioPostavki struct {
 	stranica string // putanja stranice; obrazac ide na stranica + "/postavke-cvora"
 	sidro    string
 	naslov   string // naslov u kartici; prazno kad ga daje stranica
-	// sklop: blok stoji sklopljen u kartici (Čvor i mreža), da kartice
+	// sklop: blok stoji sklopljen u kartici (Ovo računalo i mreža), da kartice
 	// ispod ne siđu za cijeli ekran; otvori se sam kad spremanje ne uspije
 	sklop bool
 }
@@ -201,6 +202,9 @@ type dioPostavki struct {
 var dijeloviPostavki = []dioPostavki{
 	{ime: "cvor", stranica: "/settings", sidro: "postavke-cvor", naslov: "Postavke ovog čvora (gocop.toml)", sklop: true},
 	{ime: "mreza", stranica: "/settings", sidro: "postavke-mreza", naslov: "Postavke mreže ovog čvora (gocop.toml)", sklop: true},
+	// WEB sync ima svoj odjeljak na stranici Ovo računalo i mreža (S5 u
+	// analizi administracije), uz ponovno uključivanje i provjeru veze
+	{ime: "websync", stranica: "/settings", sidro: "postavke-websync", naslov: "Postavke WEB synca ovog računala (gocop.toml)", sklop: true},
 	{ime: "pretplate", stranica: "/pretplate", sidro: "postavke-cvora"},
 	{ime: "baza", stranica: "/administracija/baza", sidro: "postavke-cvora"},
 	{ime: "karte", stranica: "/administracija/karte", sidro: "postavke-cvora"},
@@ -309,9 +313,8 @@ type PostavkeStranice struct {
 	blokovi     map[string]*BlokPostavki
 	CekaPonovno bool                     // spremljena promjena čeka ponovno pokretanje
 	MozePonovno bool                     // s ovog zahtjeva čvor se može ponovno pokrenuti gumbom
-	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Čvor i mreža
-	WebSync     *WebSyncPrikaz           // samo na stranici Čvor i mreža, kad je WEB sync isključen nakon padova
-	Provjera    *ProvjeraVezePrikaz      // samo na stranici Čvor i mreža, kad program nudi provjeru veze
+	Ponovno     *PonovnoPokretanjePrikaz // samo na stranici Ovo računalo i mreža
+	WebSync     *WebSyncPrikaz           // samo na stranici Ovo računalo i mreža, kad je WEB sync isključen nakon padova
 }
 
 // Dio je blok s tim imenom (cvor, mreza…); nil kad ga na stranici nema
@@ -524,7 +527,6 @@ func (s *Server) postavkeStranice(r *http.Request, stranica string) *PostavkeStr
 	if stranica == "/settings" {
 		out.Ponovno = s.prikazPonovnog(sl.zabrana)
 		out.WebSync = s.prikazWebSynca(sl.zabrana)
-		out.Provjera = s.prikazProvjereVeze(sl.zabrana)
 	}
 	return out
 }

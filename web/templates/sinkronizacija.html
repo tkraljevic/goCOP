@@ -1,20 +1,20 @@
 {{template "base.html" .}}
 
-{{define "title"}}goCOP — Sinkronizacija{{end}}
+{{define "title"}}goCOP — Stanje razmjene{{end}}
 
 {{define "content"}}
 <div class="stranica-sinkronizacija">
 
-<div class="breadcrumb"><a href="/administracija">Administracija</a> › Sinkronizacija</div>
+<div class="breadcrumb"><a href="/administracija">Administracija</a> › Stanje razmjene</div>
 
 <div class="page-header">
   <div>
-    <h1 class="page-title">{{icon "activity"}} Sinkronizacija</h1>
-    <p class="page-desc">Tko je na mreži, koliko računala odgovara, s kim je zadnja razmjena uspjela i tko zaostaje. Osvježava se samo, svakih 20 sekundi.</p>
+    <h1 class="page-title">{{icon "activity"}} Stanje razmjene</h1>
+    <p class="page-desc">S kim ovo računalo razmjenjuje, tko je na mreži, s kim je zadnja razmjena uspjela i tko zaostaje. Ovdje se razmjena pokreće rukom i provjerava veza. Osvježava se samo, svakih 20 sekundi. Ključ, uloge, uparivanje i adrese su na stranici <a href="/settings">Ovo računalo i mreža</a>.</p>
   </div>
   {{if .Permissions.IsGlobalAdmin}}
   <div class="detail-actions">
-    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Sinkroniziraj sa svima</button>
+    <button type="button" class="btn btn-primary" id="sync-all" onclick="syncAll()">{{icon "refresh-cw"}} Razmijeni sa svima</button>
     <button type="button" class="btn btn-secondary" onclick="refresh(true)">{{icon "search"}} Pretraži lokalnu mrežu</button>
   </div>
   {{end}}
@@ -53,7 +53,14 @@
 {{range $.Dohvatljivost.Izlazi}}<p>{{.}}</p>{{end}}
 {{if not .Greska}}<p>Adrese za WEB sync: {{range $i, $k := $.Dohvatljivost.Kandidati}}{{if $i}}, {{end}}<span class="mono">{{$k}}</span>{{else}}nijedna{{end}}</p>{{end}}
 {{with .Razlozi}}<p class="muted">Nisu ponuđene: {{range $i, $r := .}}{{if $i}}; {{end}}{{$r}}{{end}}</p>{{end}}
-{{else}}<p class="muted">Provjere još nije bilo. Pokreće se sama pri pokretanju uz uključenu prijavu za WEB sync, ili gumbom Provjeri vezu u kartici <a href="/settings#provjera-veze">Ovaj čvor</a>.</p>
+{{else}}<p class="muted">Provjere još nije bilo. Pokreće se sama pri pokretanju uz uključenu prijavu za WEB sync, ili gumbom Provjeri vezu ispod. Prijava za WEB sync uključuje se na stranici <a href="/settings#web-sync">Ovo računalo i mreža</a>.</p>
+{{end}}
+{{with $.ProvjeraVeze}}
+<div id="provjera-veze">
+  <p class="muted">Gumb Provjeri vezu pita STUN poslužitelje kojom javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program za to kratko otvori UDP utičnicu i odmah je zatvori.</p>
+  {{if .Nudi}}<form method="POST" action="/settings/provjeri-vezu" class="actions"><button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu</button></form>
+  {{else if .Zabrana}}<p class="muted">{{.Zabrana}}</p>{{end}}
+</div>
 {{end}}
 </section>
 {{end}}
@@ -61,7 +68,7 @@
 {{with .ProvjeraRacunala}}
 <section id="provjera-racunala">
 <h2 class="mt-4" style="font-size:1rem;">Provjera veze s računalom</h2>
-<p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu. Traje do 10 sekundi.</p>
+<p class="muted">Program nazove svaku adresu koju za računalo zna, kao razmjena, i stane čim se ono javi svojim ključem; podaci se ne razmjenjuju. Usput izmjeri i mrežu ovog računala, kao gumb Provjeri vezu iznad. Traje do 10 sekundi.</p>
 {{if .Racunala}}
 {{if .Nudi}}<form method="POST" action="/sinkronizacija/provjeri-vezu" class="actions">
   <select name="cvor" aria-label="Računalo">{{range .Racunala}}<option value="{{.NodeID}}"{{if eq .NodeID $.ProvjeraRacunala.Odabrano}} selected{{end}}>{{.Naziv}}</option>{{end}}</select>
@@ -146,11 +153,16 @@ function pokusaji(st, p, s) {
 // uloge su poslovi koje računalo javlja da radi za mrežu; mijenjaju se samo
 // na tom računalu, pa ovdje samo stoje
 function uloge(s) {
-  // isti redoslijed kao na stranici Čvor, mreža i sinkronizacija
+  // isti redoslijed kao na stranici Ovo računalo i mreža
   const naziv = [['preuzima', 'preuzima vodostaje'], ['izdaje', 'izdaje prognozu']];
   const ima = s.uloge || [];
   const l = naziv.filter(([u]) => ima.includes(u)).map(([, n]) => n);
   return l.length ? '<br><span class="muted">' + l.join(', ') + '</span>' : '';
+}
+// upariPoveznica vodi administratora na uparivanje s adresom tog računala
+// (Ovo računalo i mreža upiše je u polje); ostali je ne dobiju
+function upariPoveznica(f) {
+  return IS_ADMIN && f.addr ? ' · <a href="/settings?upari=' + encodeURIComponent(f.addr) + '#uparivanje">Upari</a>' : '';
 }
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }
 
@@ -189,7 +201,7 @@ function render(st) {
 
   if (st.lan) {
     $('lan').innerHTML = '<h2 style="font-size:1rem;">Lokalna mreža sada</h2>' + (st.lan.length
-      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno'}</div>`).join('')
+      ? st.lan.map(f => `<div class="muted"><span class="dot online"></span><b>${esc(f.name || f.deviceId)}</b> <span class="mono">${esc(f.addr)}</span>${f.known ? '' : ' · nepoznato računalo, nije upareno' + upariPoveznica(f)}</div>`).join('')
       : '<div class="muted">Nijedno goCOP računalo ne javlja se u lokalnoj mreži.</div>');
   }
   $('stamp').textContent = 'Stanje od ' + new Date(st.generated_at).toLocaleTimeString('hr-HR');
@@ -203,7 +215,7 @@ async function syncAll() {
   const b = $('sync-all'); b.disabled = true; b.textContent = 'Razmjena u tijeku…';
   try { const r = await api('/api/sync/all', {}); render(r.status); }
   catch (e) { alert(e.message); }
-  b.disabled = false; b.innerHTML = 'Sinkroniziraj sa svima';
+  b.disabled = false; b.textContent = 'Razmijeni sa svima';
 }
 async function syncOne(node) {
   try { await api('/api/peers/' + encodeURIComponent(node) + '/sync', {}); } catch (e) { alert(e.message); }

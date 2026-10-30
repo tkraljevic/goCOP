@@ -50,7 +50,7 @@ func (p povezivostCvora) upozorenja() []string {
 		return []string{"WEB sync je isključen nakon padova programa i uključit će se idućim pokretanjem. Razmjena dotad ide kao i prije."}
 	case st.NakonPadova:
 		return []string{"WEB sync je isključen, jer se program dvaput zaredom prekinuo dok je WEB sync radio. Razmjena ide kao i prije. " +
-			"Administrator ga ponovno uključuje u Administraciji, pod Čvor i mreža."}
+			"Administrator ga ponovno uključuje u Administraciji, na stranici Ovo računalo i mreža, u kartici WEB sync i dohvatljivost."}
 	}
 	return nil
 }
