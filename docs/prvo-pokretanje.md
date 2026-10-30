@@ -133,13 +133,14 @@ uparivanje treba osoba i na drugoj strani.
 
 1. Na novom računalu otvorite *Priključit ću se postojećoj mreži* i kliknite
    **Poveži ga s uredom**.
-2. Na drugom računalu globalni administrator otvori Administracija → Čvor,
-   mreža i sinkronizacija → Uparivanje.
+2. Na drugom računalu globalni administrator otvori Administracija → Ovo računalo
+   i mreža → Uparivanje.
 3. Jedno računalo čeka, a drugo ga nađe u lokalnoj mreži ili ga nazove po
    adresi.
 4. Oba ekrana pokažu isti šesteroznamenkasti kod. Ako je isti, oboje kliknu
    **Kod se podudara — upari**. Ako nije isti, odbijte.
-5. Razmjena zatim krene sama, a gumb **Sinkroniziraj** pokreće je odmah.
+5. Razmjena zatim krene sama, a gumb **Razmijeni sa svima** na stranici
+   Stanje razmjene pokreće je odmah.
    Djelatnici, registri i podaci stižu s drugog računala. Kad stignu
    djelatnici, prijavljujete se svojim računom.
 
@@ -165,7 +166,7 @@ Na prvom računalu mreže globalni administrator nastavlja ovim redom.
    djelatniku on pri prvoj prijavi zamijeni svojom.
 4. **Drugi globalni administrator.** Neka mreža ima barem dva. Kad jedan
    zaboravi lozinku, drugi mu je poništi.
-5. **Uloge računala.** U Administracija → Čvor, mreža i sinkronizacija →
+5. **Uloge računala.** U Administracija → Ovo računalo i mreža →
    Uloge ovog čvora izaberite koje računalo preuzima vodostaje i koje izdaje
    prognozu. Obično je to stalno računalo, a prijenosna računala samo
    primaju. Novo
@@ -176,7 +177,7 @@ Na prvom računalu mreže globalni administrator nastavlja ovim redom.
 7. **Sigurnosna kopija.** Kopija mora obuhvatiti cijelu mapu `data`, s
    ključem računala (`node-key`), a na računalu koje drži ključ mreže i s
    ključem mreže (`network-key`). Za ključ mreže spremite i šifriranu kopiju
-   na hladni disk (Postavke, pod Mreža, Kopija ključa mreže). Kad je mapa `vodostaji` izvan nje, i nju; u spremniku
+   na hladni disk (Ovo računalo i mreža, pod Mreža, Kopija ključa mreže). Kad je mapa `vodostaji` izvan nje, i nju; u spremniku
    obje montirane mape. Povrat probajte prije operativnog rada. Pojedinosti
    su u [uputama administratoru, poglavlje 7](INSTALACIJA.md#7-stalni-čvor-spremnik-i-sigurnosna-kopija).
 8. **Nadogradnja.** Na Windowsu nadogradnju nudi ikona Postave, uvijek na

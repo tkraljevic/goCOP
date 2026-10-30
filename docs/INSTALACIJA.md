@@ -154,14 +154,14 @@ to javi u dnevniku. Razmjena zasad ide samo dosadašnjim putovima, a u
 dnevniku stoji redak `povezivost:` s ishodom, npr. „NAT je lak i čuva port”.
 Ako se program dvaput zaredom prekine dok WEB sync radi, iduće pokretanje
 kreće bez njega i to kaže na pločici razmjene; `gocop.toml` ostaje kakav
-jest. Gumb *Ponovno uključi WEB sync* u kartici *Ovaj čvor* to poništi, od
+jest. Gumb *Ponovno uključi WEB sync* u kartici *WEB sync i dohvatljivost* to poništi, od
 idućeg pokretanja. Deset minuta rada bez prekida vraća brojač prekida na nulu.
 
-Gumb *Provjeri vezu* u istoj kartici izmjeri mrežu kad god administrator
-želi. Dok WEB sync radi, mjeri na njegovoj utičnici; kad ne radi, program za
-to kratko otvori UDP utičnicu na portu 4713 i odmah je zatvori. Kartica
-pokazuje sažetak, npr. „UDP radi na :4713. NAT je lak i čuva port.”, a blok
-*Dohvatljivost ovog računala* na stranici Sinkronizacija pojedinosti: vlastitu
+Gumb *Provjeri vezu* na stranici Stanje razmjene, u bloku *Dohvatljivost
+ovog računala*, izmjeri mrežu kad god administrator želi. Dok WEB sync radi, mjeri na njegovoj utičnici; kad ne radi, program za
+to kratko otvori UDP utičnicu na portu 4713 i odmah je zatvori. Blok
+pokazuje sažetak, npr. „UDP radi na :4713. NAT je lak i čuva port.”, i
+pojedinosti: vlastitu
 javnu adresu, adrese koje bi WEB sync nudio drugima i kuda promet prema
 STUN-u izlazi (obično, kroz Tailscale ili kroz VPN). Taj blok vidi samo
 administrator. Spremnik u mostu treba `lan_adresa`: dok je nema, na to
@@ -514,8 +514,7 @@ Portovi se mijenjaju u `gocop.toml`.
 
 - Dva do tri računala u istoj lokalnoj mreži, unutar mreže Hrvatskih voda,
   bez izlaganja na internet.
-- Jedan administrator osniva mrežu (Administracija → Čvor, mreža i
-  sinkronizacija) i upravlja lozinkama. Ključ mreže ostaje na njegovu
+- Jedan administrator osniva mrežu (Administracija → Ovo računalo i mreža) i upravlja lozinkama. Ključ mreže ostaje na njegovu
   računalu, a svako računalo upareno s njim postaje član mreže. Uparivanje
   pokreće i potvrđuje globalni administrator (od 0.0.25-alfa); na svježem
   računalu, dok na njemu nema računa, čarobnjak stoji na stranici prijave, ali
@@ -696,7 +695,7 @@ dodatna računala i ručnu razmjenu.
 
 **Ovlašteni primatelj.** Računala u mrežu prima čvor koji drži ključ mreže
 (`network-key`) ili član kojem je nositelj ključa dao **ovlast za primanje**
-(Administracija → Čvor, mreža i sinkronizacija, uz člana *Daj ovlast za
+(Administracija → Ovo računalo i mreža, uz člana *Daj ovlast za
 primanje*). Tako uredski poslužitelj prima uredska računala, a ključ mreže
 ostaje kod nositelja, npr. na USB-u. Ovlast vrijedi dvije godine i putuje
 razmjenom; članstvo koje primatelj izda vrijedi najviše dok vrijedi njegova
@@ -734,8 +733,8 @@ na prijavu.
 Sve što radi samo administrator stoji u modulu **Administracija**: ustroj i
 nazivi, računi, moduli i ovlasti, čvorovi i sinkronizacija, održavanje baze,
 arhiva, obračun sati, e-pošta, žig, elektronički potpisi, testne opcije i
-uvozi. Vidi ga zadano samo globalni administrator. Nadzorna ploča
-**Sinkronizacija** pokazuje tko je na mreži,
+uvozi. Vidi ga zadano samo globalni administrator. Stranica
+**Stanje razmjene** pokazuje tko je na mreži,
 koliko računala odgovara, s kim je zadnja razmjena uspjela, tko zaostaje i
 što ne štima; razmjena ide s više čvorova istodobno, a čvorovi koji redom
 šute zovu se sve rjeđe. **Održavanje baze** pokazuje koliko je baza velika
@@ -759,7 +758,7 @@ DHMZ); javna adresa za QR kod;
 centar na stranici prijave (`[kontakt]`); izvor pločica karte (`[karta]`);
 zadani poslužitelj e-pošte (`[posta]`; postavke spremljene u Administraciji →
 E-pošta imaju prednost). Ključ `bootstrap` program zasad ne čita; domenski
-čvorovi upisuju se u Administraciji → Čvor, mreža i sinkronizacija →
+čvorovi upisuju se u Administraciji → Ovo računalo i mreža →
 Domenski čvorovi.
 Zastavice na naredbenom retku (`-addr`, `-db`, `-arhiva`, `-podaci`,
 `-skenovi`, `-pakete`, `-node`, `-name`,
@@ -769,11 +768,11 @@ imaju prednost pred datotekom.
 **Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
 pripada: centar i telefon sa stranice prijave te minutu preuzimanja
-vodostaja u *Čvor, mreža i sinkronizacija → Ovaj čvor*, adresu za QR kod na
+vodostaja u *Ovo računalo i mreža → Ovaj čvor*, adresu za QR kod na
 dokumentima pod *Elektronički potpisi*, razmak automatske sinkronizacije i razmjenu
 preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), kao i
 prijavu za WEB sync i sam WEB sync (`[povezivost] web_sync_prijava` i
-`web_sync`), `sve`
+`web_sync`) pod *WEB sync i dohvatljivost*, `sve`
 i `povijest_mjeseci` pod *Što ovo računalo prati*, obična karta ovog čvora pod *Karte*. *Održavanje baze*
 pokazuje gdje su baza, arhiva i mape na disku, gdje je datoteka, kad je
 mijenjana i njezine kopije. `[posta]` i dalje vodi stranica *E-pošta*. Radi samo s
@@ -929,7 +928,7 @@ ukloniti. Ako se ni `gocop.toml` ne može vratiti,
 prije toga ga napisati u `/data` s dosadašnjim imenom čvora (redak
 `id = "…"` pod `[node]`), inače čvor kreće pod imenom `gocop-cvor`.
 
-Ponovno pokretanje iz programa (*Čvor, mreža i sinkronizacija → Ovaj čvor*)
+Ponovno pokretanje iz programa (*Ovo računalo i mreža → Ovaj čvor*)
 spremnik izlazi s kodom 75. Docker ga vraća samo kad je spremnik pokrenut s
 `--restart unless-stopped` (ili `always`, `on-failure`); u grafičkom sučelju
 NAS-a to se upisuje u dodatne parametre predloška spremnika. Iznutra se to ne vidi, pa stranica
@@ -943,7 +942,7 @@ računalima u istoj lokalnoj mreži. Spremnik uz most (bridge) ne vidi kućnu
 mrežu, pa čvor u Dockeru uz most dok traje obrana kartu ne prima ni ne daje.
 Uz mrežu računala (host) radi kao i drugi.
 
-U **Administracija → Čvor, mreža i sinkronizacija → Uloge ovog čvora**
+U **Administracija → Ovo računalo i mreža → Uloge ovog čvora**
 odabrati preuzima li čvor vodostaje i izdaje li prognozu. Uobičajeno to radi
 stalni čvor, a laptop prima podatke. Novom čvoru te se uloge moraju izričito
 uključiti. Pristupne račune izvora upisati samo na čvorovima koji preuzimaju;
@@ -966,7 +965,7 @@ istodobnog uključivanja dvaju čvorova s istim ključem.
 Nadograđuje se redom: najprije stalni čvor, odmah zatim ostala računala. Dok
 sva ne rade na istom izdanju, ne dodavati, mijenjati ni brisati djelatnike i
 zaduženja. Na kojem izdanju radi koji čvor, pokazuju pločica „Razmjena s
-čvorovima” i stranica Sinkronizacija.
+čvorovima” i stranica Stanje razmjene.
 
 0.0.47-alfa (u pripremi): karta bez interneta stiže razmjenom, ali tek kad
 su oba računala na 0.0.47-alfa. Računalu s 0.0.46-alfa ili starijim kartu i
@@ -1053,10 +1052,10 @@ njega.
 Nakon nadogradnje računalo s ključem mreže na pločici upozorava da kopija
 ključa mreže još nije spremljena, i da ovlast za primanje nemaju barem dva
 računala. Kopiju sprema globalni administrator, s tog računala ili iz
-lokalne mreže, u Administracija → Čvor, mreža i sinkronizacija, pod Mreža,
+lokalne mreže, u Administracija → Ovo računalo i mreža, pod Mreža,
 gumbom *Spremi šifriranu kopiju*. Adrese i sirove greške razmjene više nisu
 na pločici; vidi ih samo globalni administrator, na stranicama
-Sinkronizacija i Čvor, mreža i sinkronizacija.
+Stanje razmjene i Ovo računalo i mreža.
 
 WEB sync je zadano isključen. Tko ga želi probati, postavke upisuje u
 odjeljak `[povezivost]` u `gocop.toml`. Nadograđena računala taj odjeljak
