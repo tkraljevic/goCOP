@@ -130,24 +130,25 @@ type dijeloviKarte struct {
 	opis    func() *models.VektorskaKarta
 	uObrani func(context.Context) bool
 
-	mu        sync.Mutex
-	k         *models.VektorskaKarta // opis čije se stanje drži; nil kad karte nema
-	narastaj  uint64                 // raste sa svakim pocni: koje se stanje drži
-	indeksi   map[string][]int       // otisak dijela → redni brojevi dijelova
-	ima       []bool
-	spreman   bool // stanje djelomične datoteke je pročitano
-	slozena   bool
-	slaze     bool
-	zauzeto   map[int]time.Time // dio → kad ga je razgovor zatražio
-	trazeno   []time.Time       // kad je koji dio zadnji put zatražen
-	los       map[string]bool   // opisi (kljucOpisa) čiji se dijelovi ne slažu u kartu
-	stare     map[string]bool   // otisci karata koje je ovaj prijenos prije držao
-	bezKarte  bool              // karta se ne prenosi i djelomične datoteke su pospremljene
-	pocelo    time.Time         // od kad se stanje tog opisa drži
-	zadnji    time.Time         // zadnji primljeni dio
-	neuspjelo time.Time         // zadnje slaganje koje nije uspjelo
-	pisanje   sync.Mutex        // jedan upis u djelomičnu datoteku odjednom
-	pozadina  sync.WaitGroup    // čitanje stanja i slaganje u pozadini
+	mu          sync.Mutex
+	k           *models.VektorskaKarta // opis čije se stanje drži; nil kad karte nema
+	narastaj    uint64                 // raste sa svakim pocni: koje se stanje drži
+	indeksi     map[string][]int       // otisak dijela → redni brojevi dijelova
+	ima         []bool
+	spreman     bool // stanje djelomične datoteke je pročitano
+	slozena     bool
+	slaze       bool
+	zauzeto     map[int]time.Time // dio → kad ga je razgovor zatražio
+	trazeno     []time.Time       // kad je koji dio zadnji put zatražen
+	los         map[string]bool   // opisi (kljucOpisa) čiji se dijelovi ne slažu u kartu
+	stare       map[string]bool   // otisci karata koje je ovaj prijenos prije držao
+	bezKarte    bool              // karta se ne prenosi i djelomične datoteke su pospremljene
+	pocelo      time.Time         // od kad se stanje tog opisa drži
+	zadnji      time.Time         // zadnji primljeni dio
+	neuspjelo   time.Time         // zadnje slaganje koje nije uspjelo
+	pisanje     sync.Mutex        // jedan upis u djelomičnu datoteku odjednom
+	pozadina    sync.WaitGroup    // čitanje stanja i slaganje u pozadini
+	predCitanje func()            // samo za testove: zove se prije čitanja stanja s diska
 }
 
 // PostaviKarte daje razmjeni mapu karata, opis zadane karte i javlja li
@@ -299,6 +300,9 @@ func (d *dijeloviKarte) pocni(k *models.VektorskaKarta) {
 // procitajStanje pročita koji su dijelovi opisa već u djelomičnoj datoteci
 func (d *dijeloviKarte) procitajStanje(k models.VektorskaKarta, n uint64) {
 	defer d.pozadina.Done()
+	if d.predCitanje != nil {
+		d.predCitanje()
+	}
 	ima := dijeloviNaDisku(putDjelomicne(d.mapa, k.Otisak), k)
 	d.mu.Lock()
 	defer d.mu.Unlock()
