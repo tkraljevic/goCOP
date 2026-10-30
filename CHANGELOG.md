@@ -11,6 +11,11 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   administrator dopusti na stranici Ovo računalo i mreža, s računala s
   čvorom ili iz lokalne mreže. Dopuštenje vrijedi 30 minuta, a izdanje se
   provjerava kao i pri nadogradnji (Odluke (30. 10. 2026.)).
+- **Održavanje baze: brisanje neispravnih zapisa iz knjige.** Kad u knjizi
+  ima zapisa koje razmjena danas ne bi primila, npr. s vremenom iz
+  budućnosti, stranica to kaže i nudi njihovo brisanje. Briše samo globalni
+  administrator, s ovog računala ili iz lokalne mreže; dnevnik programa
+  zapiše tko je to napravio i odakle, a zapisi se zatim obnove iz knjige.
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni

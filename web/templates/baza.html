@@ -79,7 +79,13 @@
     <form method="POST" action="/administracija/baza/obnovi" onsubmit="return confirm('Ponovno upisati zadnje stanje svih zapisa iz knjige verzija? To može potrajati.')">
       <button type="submit" class="btn btn-secondary">{{icon "history"}} Obnovi zapise iz knjige</button>
     </form>
+    {{if .Neispravnih}}
+    <form method="POST" action="/administracija/baza/ocisti-knjigu" onsubmit="return confirm('Obrisati neispravne zapise iz knjige? To se ne da vratiti.')">
+      <button type="submit" class="btn btn-danger">{{icon "trash"}} Obriši neispravne zapise</button>
+    </form>
+    {{end}}
   </div>
+  {{if .Neispravnih}}<div class="form-help">Neispravnih zapisa u knjizi: {{.Neispravnih}}. Razmjena ih danas ne bi primila, npr. zbog vremena iz budućnosti. Razmjena ih ne šalje dalje; brisanje ih makne iz knjige i obnovi zapise. Briše samo globalni administrator, s ovog računala ili iz lokalne mreže.</div>{{end}}
   <div class="form-help">Obrisani redci oslobađaju prostor unutar datoteke; VACUUM ga vraća operacijskom sustavu.</div>
   <div class="form-help">Obnova iz knjige ponovno upisuje zadnje stanje svakog zapisa iz knjige verzija. Treba samo kad ugradnja paketa ili arhive javi „površina nije osvježena”.</div>
   {{end}}
