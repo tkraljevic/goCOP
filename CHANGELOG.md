@@ -6,6 +6,10 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
+  lozinke ili uključenosti globalnog administratora i dužnosti uprave
+  organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni
+  administrator, na stranici Stanje razmjene (Odluke (30. 10. 2026.)).
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.

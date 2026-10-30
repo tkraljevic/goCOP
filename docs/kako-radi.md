@@ -256,7 +256,12 @@ s adresom za PIN o njemu dobiju e-poštu, odmah s tog računala ili, kad ono
 nema račun za slanje, s drugog koje ga ima, sat ili više kasnije. Pločica
 računala s ključem upozorava dok kopija nije spremljena i dok ovlast za
 primanje nemaju barem dva računala.
-Opoziv članstva je potpisan i putuje razmjenom, pa na drugom računalu vrijedi
+Promjena prava koja stigne s drugog računala, razmjenom ili paketom, na
+ovom računalu ne vrijedi dok je ovdje ne potvrdi globalni administrator, na
+stranici Stanje razmjene. To vrijedi za zastavicu globalnog administratora,
+za dužnost uprave organizacije i za lozinku i uključenost računa globalnog
+administratora. Ostale izmjene istog računa stižu odmah. Opoziv članstva je
+potpisan i putuje razmjenom, pa na drugom računalu vrijedi
 kad ondje stigne. Pojedinosti i granice zaštite su u
 [SECURITY.md](../SECURITY.md).
 

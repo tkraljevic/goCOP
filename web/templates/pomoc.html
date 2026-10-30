@@ -1983,7 +1983,19 @@
         „javlja se pravim ključem, 3 ms” ili „računalo je tu, ali na tom portu goCOP ne sluša”. Na
         adresi stane čim se računalo javi svojim ključem, pa se podaci ne razmjenjuju, a drugo računalo
         to ne bilježi kao neuspjelu razmjenu, nego samo kao vezu koja nije prošla rukovanje. Usput
-        izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em> iznad. Traje do 10 sekundi.</li>
+        izmjeri i mrežu ovog računala, kao gumb <em>Provjeri vezu</em> iznad. Traje do 10 sekundi.
+        <br id="prava">Blok <em>Promjene prava koje čekaju potvrdu</em> vidi samo globalni
+        administrator. Kad s drugog računala stigne promjena koja nekome daje ili oduzima zastavicu
+        globalnog administratora ili dužnost uprave organizacije (razina 1, i zamjenici), ili mijenja
+        lozinku ili uključenost računa globalnog administratora, ona na ovom računalu ne vrijedi dok
+        je ovdje ne potvrdi globalni administrator, svojim očima. Popis kaže čiji je račun, što se
+        mijenja i s kojeg je računala stiglo. <em>Potvrdi</em> stavlja promjenu na snagu,
+        <em>Odbij</em> je ostavlja zapisanu, ali na ovom računalu ne vrijedi, i bilježi tko je
+        odbio. Promjena ide dalje drugim računalima i dok čeka, a svako je potvrđuje za sebe.
+        Ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj račun
+        ili dužnost na ovom računalu ne može se mijenjati, pa najprije odlučite o promjeni.
+        Na novom računalu mreže tako čekaju i računi globalnih administratora: prijavite se računom
+        <code>admin</code> i potvrdite ih. Izmjene napravljene na ovom računalu ne čekaju.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
         <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže.

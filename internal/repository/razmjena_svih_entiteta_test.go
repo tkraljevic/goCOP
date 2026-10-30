@@ -1092,8 +1092,10 @@ func slucajeviRazmjene() []slucajRazmjene {
 			napravi: func(t *testing.T, a *cvor) {
 				var u models.User
 				puni(&u)
-				// novi korisnik se još nije prijavio, a zaduženja putuju zasebno
-				u.OrgType, u.LastLoginAt, u.Duties = models.OrgHrvatskeVode, nil, nil
+				// novi korisnik se još nije prijavio, a zaduženja putuju zasebno;
+				// zastavica globalnog administratora čeka potvrdu na primatelju
+				// (TestPravaRazmjenomCekajuPotvrdu)
+				u.OrgType, u.LastLoginAt, u.Duties, u.IsGlobalAdmin = models.OrgHrvatskeVode, nil, nil, false
 				nuzno(t, NewUserRepository(a.db, a.rec).CreateUser(&u, nil))
 			},
 			uredi: func(t *testing.T, b *cvor, _ string, p []byte) {

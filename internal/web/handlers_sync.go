@@ -29,6 +29,9 @@ type SyncHandler struct {
 	// provjeriVezuS je peers.ProvjeriVezuS; test zadaje svoj ishod
 	provjeriVezuS func(context.Context, string) (peers.ProvjeraRacunala, error)
 	provjera      zadnjaSRacunalom
+	// prava su potvrde primljenih promjena prava (sinkronizacija_prava.go);
+	// nil: bloka nema
+	prava *potvrdePrava
 }
 
 func NewSyncHandler(peersSvc *peers.Service, tmpl *template.Template) *SyncHandler {
@@ -53,6 +56,9 @@ type SyncPageData struct {
 	ProvjeraVeze *ProvjeraVezePrikaz
 	// ProvjeraRacunala je provjera veze s računalom, samo za administratora
 	ProvjeraRacunala *ProvjeraRacunalaPrikaz
+	// Prava su primljene promjene prava koje čekaju potvrdu, samo za
+	// globalnog administratora (Odluke (30. 10. 2026.), 1)
+	Prava *PravaPrikaz
 	ViewAsBanner
 }
 
@@ -73,6 +79,7 @@ func (h *SyncHandler) ShowDashboard(w http.ResponseWriter, r *http.Request) {
 	h.dodajOdbijeno(r.Context(), perms, &data)
 	h.dodajDohvatljivost(r, &data)
 	h.dodajProvjeruRacunala(r, &data)
+	h.dodajPrava(r, &data)
 	if err := h.tmpl.ExecuteTemplate(w, "sinkronizacija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

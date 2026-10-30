@@ -945,6 +945,29 @@ func InitSchema(database *sql.DB) error {
 			PRIMARY KEY (dan, vrsta, put, razlog, racunalo)
 		);`,
 
+		// Primljene promjene prava koje čekaju potvrdu globalnog
+		// administratora (repository/apply_ograda_prava.go): po jedna za
+		// svaku verziju računa ili dužnosti koja nekome daje ili oduzima
+		// upravu organizacije ili mijenja račun globalnog administratora.
+		// Verzija je u knjizi; ovdje je samo odluka ovog računala o
+		// površini. preneseno = 1: odluka je prenesena s ranije verzije
+		// istog zapisa. Lokalno: ne ide u knjigu ni u razmjenu.
+		`CREATE TABLE IF NOT EXISTS prava_na_potvrdi (
+			version_id TEXT PRIMARY KEY,
+			entity TEXT NOT NULL,
+			entity_id TEXT NOT NULL,
+			node_id TEXT NOT NULL,
+			racun TEXT NOT NULL DEFAULT '',
+			promjene TEXT NOT NULL,
+			otisak TEXT NOT NULL,
+			preneseno INTEGER NOT NULL DEFAULT 0,
+			stanje TEXT NOT NULL,
+			stiglo DATETIME NOT NULL,
+			odlucio TEXT NOT NULL DEFAULT '',
+			odluceno DATETIME
+		);`,
+		`CREATE INDEX IF NOT EXISTS idx_prava_na_potvrdi_zapis ON prava_na_potvrdi(entity, entity_id, version_id);`,
+
 		// Zadnji zahtjev za obnovu članstva koji je ovo računalo obradilo, po
 		// računalu (G9a, peers/obnova.go): isti zahtjev se ne obrađuje
 		// dvaput. Lokalno: ne ide u knjigu ni u razmjenu.

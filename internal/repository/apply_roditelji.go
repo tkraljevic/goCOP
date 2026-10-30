@@ -91,8 +91,9 @@ func kljucZapisa(entitet string) string {
 }
 
 // primijeniVerziju stavlja primljenu verziju na površinu uz pravila oslonca
-// na roditelja; sve ostalo radi applyOne
-func primijeniVerziju(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+// na roditelja; sve ostalo radi applyOne. Ovaj je oznaka ovog računala, za
+// potvrdu promjena prava djece koja se vraćaju s roditeljem.
+func primijeniVerziju(ctx context.Context, tx *sql.Tx, ovaj string, v ledger.Version) error {
 	if v.Archived {
 		return makniSDjecom(ctx, tx, v)
 	}
@@ -100,13 +101,13 @@ func primijeniVerziju(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	if err != nil {
 		return err
 	}
-	return primijeniZivu(ctx, tx, v, vracaSe)
+	return primijeniZivu(ctx, tx, ovaj, v, vracaSe)
 }
 
 // primijeniZivu stavlja živu verziju na površinu, osim kad joj je roditelj
 // obrisan. Uz sDjecom vraća i djecu zapisa koja su u knjizi živa, a na
 // površini ih nema.
-func primijeniZivu(ctx context.Context, tx *sql.Tx, v ledger.Version, sDjecom bool) error {
+func primijeniZivu(ctx context.Context, tx *sql.Tx, ovaj string, v ledger.Version, sDjecom bool) error {
 	obrisan, err := roditeljObrisan(ctx, tx, v.Entity, v.Payload)
 	if err != nil || obrisan {
 		return err
@@ -114,7 +115,7 @@ func primijeniZivu(ctx context.Context, tx *sql.Tx, v ledger.Version, sDjecom bo
 	if err := applyOne(ctx, tx, v); err != nil || !sDjecom {
 		return err
 	}
-	return vratiDjecu(ctx, tx, v.Entity, v.EntityID)
+	return vratiDjecu(ctx, tx, ovaj, v.Entity, v.EntityID)
 }
 
 // roditeljObrisan javlja oslanja li se sadržaj zapisa entiteta na obrisanog
@@ -235,12 +236,12 @@ func imaSpomenik(ctx context.Context, tx *sql.Tx, entitet, id string) (bool, err
 
 // vratiDjecu vraća na površinu djecu zapisa koja su u knjizi živa, a na
 // površini ih nema, i njihovu djecu
-func vratiDjecu(ctx context.Context, tx *sql.Tx, entitet, id string) error {
+func vratiDjecu(ctx context.Context, tx *sql.Tx, ovaj, entitet, id string) error {
 	for _, r := range vezeRoditelja[entitet] {
 		djeca, err := ziveDjeceIzKnjige(ctx, tx, r, id)
 		for _, d := range djeca {
 			if err == nil {
-				err = vratiDijete(ctx, tx, d)
+				err = vratiDijete(ctx, tx, ovaj, d)
 			}
 		}
 		if err != nil {
@@ -252,10 +253,16 @@ func vratiDjecu(ctx context.Context, tx *sql.Tx, entitet, id string) error {
 
 // vratiDijete stavlja dijete na površinu, s njegovom djecom. Dijete koje ne
 // prođe (drugi oslonac još nije stigao) ostaje među nedovršenima, a roditelj
-// ide na površinu bez njega.
-func vratiDijete(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
-	_, err := tx.ExecContext(ctx, `SAVEPOINT vrati_dijete`)
-	if err == nil && primijeniZivu(ctx, tx, v, true) != nil {
+// ide na površinu bez njega. Dijete prolazi istu potvrdu promjena prava kao
+// primljena verzija (propustiPrava): promjena koja čeka ili je odbijena ne
+// dolazi ni s roditeljem.
+func vratiDijete(ctx context.Context, tx *sql.Tx, ovaj string, v ledger.Version) error {
+	v, ide, err := propustiPrava(ctx, tx, ovaj, v)
+	if err != nil || !ide {
+		return err
+	}
+	_, err = tx.ExecContext(ctx, `SAVEPOINT vrati_dijete`)
+	if err == nil && primijeniZivu(ctx, tx, ovaj, v, true) != nil {
 		cekaOslonac(v)
 		_, err = tx.ExecContext(ctx, `ROLLBACK TO SAVEPOINT vrati_dijete`)
 	}
@@ -313,7 +320,7 @@ func zabiljeziSDjecom(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, ent
 	if err != nil || !vracaSe {
 		return err
 	}
-	return vratiDjecu(ctx, tx, entitet, id)
+	return vratiDjecu(ctx, tx, rec.Cvor(), entitet, id)
 }
 
 // arhivirajSamoUKnjizi bilježi spomenik svakom djetetu zapisa id po vezi r

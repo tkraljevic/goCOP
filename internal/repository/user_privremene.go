@@ -33,7 +33,8 @@ func ovisiOIzZapisa(s string) *uuid.UUID {
 
 // PrivremeneSIstekom su aktivne privremene dužnosti kojima istek ovisi o
 // obrani ili o drugoj dužnosti, i one kojima je istek već prošao: poništen
-// akt o prekidu obrane vraća ih
+// akt o prekidu obrane vraća ih. Dužnost za koju čeka potvrda promjene prava
+// se preskače dok se o njoj ne odluči.
 func (r *UserRepository) PrivremeneSIstekom() ([]models.Duty, error) {
 	ctx := context.Background()
 	tx, err := r.db.BeginTx(ctx, nil)
@@ -43,7 +44,8 @@ func (r *UserRepository) PrivremeneSIstekom() ([]models.Duty, error) {
 	defer tx.Rollback()
 	ids, err := idsOf(ctx, tx, `SELECT id FROM duties
 		WHERE is_active = 1 AND is_temporary = 1 AND (istece_s_obranom = 1 OR ovisi_o <> '')
-		ORDER BY created_at`)
+			AND id NOT IN (SELECT entity_id FROM prava_na_potvrdi WHERE entity = ? AND stanje = ?)
+		ORDER BY created_at`, EntityDuties, PravaCeka)
 	if err != nil {
 		return nil, err
 	}
@@ -68,6 +70,9 @@ func (r *UserRepository) PostaviIstek(id uuid.UUID, istek *time.Time) error {
 		return err
 	}
 	defer tx.Rollback()
+	if err := cekaPotvrdu(ctx, tx, EntityDuties, id.String()); err != nil {
+		return err
+	}
 	if _, err := tx.ExecContext(ctx, `UPDATE duties SET expires_at = ? WHERE id = ?`, nullTime(istek), id.String()); err != nil {
 		return err
 	}
