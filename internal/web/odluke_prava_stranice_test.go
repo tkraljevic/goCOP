@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 	"gocop/internal/poslovi"
 )
 
@@ -80,7 +82,7 @@ func TestKarticaLetveNudiUnosUArhivu(t *testing.T) {
 	for _, unos := range []bool{true, false} {
 		html := iscrtaj(t, "station_detail.html", StationPageData{CurrentUser: &models.User{FullName: "Ana Anić"},
 			Permissions: &models.UserPermissions{}, Station: st, CanEdit: true, LetvaStranica: "kartica", UnosUArhivu: unos})
-		if ima := strings.Contains(html, `href="/administracija/uvoz-niza"`); ima != unos {
+		if ima := strings.Contains(html, `href="/administracija/uvoz-niza?letva=batina"`); ima != unos {
 			t.Errorf("UnosUArhivu %v: gumb %v", unos, ima)
 		}
 	}
@@ -107,9 +109,15 @@ func TestKarticaLetveNudiUnosUArhivu(t *testing.T) {
 // stranicu bez obrazaca i jednu rečenicu zašto.
 func TestPretplateBezObrazacaZaOstale(t *testing.T) {
 	s := novaStranicaPretplata(t)
+	if _, err := s.h.peers.AddSubscription(t.Context(), peers.Subscription{Kind: "prijave", AreaID: 16}); err != nil {
+		t.Fatal(err)
+	}
 	obrasci := []string{`action="/pretplate/dodaj"`, "Nova pretplata"}
-	if html := s.prikazi(t); !strings.Contains(html, obrasci[0]) || strings.Contains(html, "mijenja samo administrator") {
+	if html := s.prikazi(t); !strings.Contains(html, obrasci[0]) || strings.Contains(html, "mijenja samo globalni administrator") {
 		t.Error("administrator iz lokalne mreže ne vidi obrazac za novu pretplatu")
+	}
+	if html := s.prikazi(t); !strings.Contains(html, "možete obrisati s ovog računala") {
+		t.Error("administratoru uvod ne kaže da može obrisati")
 	}
 	obican := uvjetiZahtjeva{perms: &models.UserPermissions{}, adresa: adresaLokalno, korisnik: adminIvic}
 	izvana := kaoAdmin
@@ -118,7 +126,7 @@ func TestPretplateBezObrazacaZaOstale(t *testing.T) {
 		u      uvjetiZahtjeva
 		poruka string
 	}{
-		"obični korisnik":      {obican, "Što ovo računalo prati mijenja samo administrator."},
+		"obični korisnik":      {obican, "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže."},
 		"administrator izvana": {izvana, "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
 	} {
 		html := s.prikaziKao(t, x.u)
@@ -127,8 +135,14 @@ func TestPretplateBezObrazacaZaOstale(t *testing.T) {
 				t.Errorf("%s vidi %q", opis, o)
 			}
 		}
-		if !strings.Contains(html, x.poruka) {
-			t.Errorf("%s: nema rečenice %q", opis, x.poruka)
+		if !strings.Contains(html, `<div class="alert alert-info">`) || !strings.Contains(html, x.poruka) {
+			t.Errorf("%s: nema rečenice %q na vrhu stranice", opis, x.poruka)
+		}
+		if strings.Contains(html, "<th></th>") || strings.Contains(html, `<td class="nowrap text-right">`) {
+			t.Errorf("%s: tablica pretplata ima prazan stupac za gumb", opis)
+		}
+		if !strings.Contains(html, "koje ovdje označi administrator") || strings.Contains(html, "možete obrisati") {
+			t.Errorf("%s: uvod stranice kaže da sam bira i briše", opis)
 		}
 	}
 }
@@ -139,7 +153,7 @@ func TestGumbGenerirajSamoZaDezurnogIAdministratora(t *testing.T) {
 	d := PrognozePageData{CurrentUser: &models.User{FullName: "P"}, Permissions: &models.UserPermissions{},
 		ActiveNav: "prognoze", MozeGenerirati: true}
 	html := iscrtaj(t, "prognoze_postavke.html", d)
-	if strings.Contains(html, `action="/prognoze/generiraj"`) || !strings.Contains(html, "Prognozu rukom pokreću dežurni i administrator.") {
+	if strings.Contains(html, `action="/prognoze/generiraj"`) || !strings.Contains(html, "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.") {
 		t.Error("tko ne smije generirati vidi gumb ili ne vidi rečenicu")
 	}
 	d.SmijeGenerirati = true
@@ -194,7 +208,8 @@ func TestNoviDjelatnikBezZadaneUloge(t *testing.T) {
 }
 
 // Račun bez uloge vidi na početnoj stranici jednu rečenicu da čeka dodjelu
-// uloge; račun s dužnošću i administrator je ne vide.
+// uloge; račun s dužnošću i administrator je ne vide. Kartica i zaglavlje
+// pišu isti naziv uloge, bez posebnog „bez uloge”.
 func TestPocetnaZaRacunBezUloge(t *testing.T) {
 	prije := time.Now().Add(-time.Hour)
 	vodocuvar := models.Duty{Role: models.RoleWaterGuard, IsActive: true, IsPrimary: true}
@@ -214,11 +229,11 @@ func TestPocetnaZaRacunBezUloge(t *testing.T) {
 			t.Errorf("%s: čeka ulogu %v", x.opis, got)
 		}
 	}
-	const recenica = "Vaš račun čeka da mu administrator dodijeli ulogu."
+	const recenica = "Vaš račun čeka da mu administrator dodijeli ulogu. Dotad možete samo gledati."
 	for _, ceka := range []bool{true, false} {
 		html := iscrtaj(t, "dashboard.html", DashboardViewData{CurrentUser: &models.User{FullName: "Ivo Novak"},
 			Perms: &models.UserPermissions{}, CekaUlogu: ceka})
-		if strings.Contains(html, recenica) != ceka || strings.Contains(html, "bez uloge") != ceka {
+		if strings.Contains(html, recenica) != ceka || strings.Contains(html, "bez uloge") {
 			t.Errorf("CekaUlogu %v: rečenica %v", ceka, strings.Contains(html, recenica))
 		}
 	}
@@ -229,7 +244,7 @@ func TestPocetnaZaRacunBezUloge(t *testing.T) {
 func TestUlogeRacunalaPotvrdaIPrikaz(t *testing.T) {
 	html := iscrtaj(t, "settings.html", SettingsPageData{CurrentUser: adminIvic,
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true}})
-	if !strings.Contains(html, "data-potvrda-uloga") || !strings.Contains(html, "Isključiti ulogu ovog računala?") ||
+	if !strings.Contains(html, "data-potvrda-uloga") || !strings.Contains(html, "Isključiti ulogu ovog čvora (") ||
 		!strings.Contains(html, "p.defaultChecked") {
 		t.Error("isključivanje uloge nema potvrdu")
 	}
@@ -240,6 +255,64 @@ func TestUlogeRacunalaPotvrdaIPrikaz(t *testing.T) {
 	for _, s := range []string{"function uloge(s)", "izdaje prognozu", "preuzima vodostaje", "${uloge(s)}"} {
 		if !strings.Contains(string(sink), s) {
 			t.Errorf("Stanje razmjene nema %q", s)
+		}
+	}
+}
+
+// S kartice letve stiže se na unos sa šifrom letve u adresi: polja „Letva”
+// već je imaju, mrvica vodi natrag na karticu, a izbornik ne ističe
+// Administraciju onome tko je nema. Letva koju osoba ne smije dirati ili
+// koje stablo nema ne upisuje se nikamo.
+func TestUnosUArhivuSKarticeLetve(t *testing.T) {
+	o := novaOkolinaVrata(t)
+	o.h.SetKarticaLetve(func(_ context.Context, letva string) (string, string) {
+		if letva == "primjerovo" {
+			return "/stations/1", "Primjerovo na Primjerici"
+		}
+		return "", ""
+	})
+	stranica := func(u *models.User, p *models.UserPermissions, letva string) (UvozPageData, string) {
+		r := zahtjevSKorisnikom(httptest.NewRequest(http.MethodGet, "/administracija/uvoz-niza?letva="+letva, nil), u, p)
+		w := httptest.NewRecorder()
+		o.h.ShowUvoz(w, r)
+		return o.h.pageData(r), w.Body.String()
+	}
+	d, html := stranica(o.ana, o.anaOvl, "primjerovo")
+	if d.Odabrana == nil || d.Odabrana.Kod != "primjerovo" || d.ActiveNav != "stations" {
+		t.Fatalf("Ana s kartice: %+v, izbornik %q", d.Odabrana, d.ActiveNav)
+	}
+	for _, s := range []string{`<a href="/stations/1">Primjerovo na Primjerici</a> › Unos u arhivu`, `value="primjerovo"`} {
+		if !strings.Contains(html, s) {
+			t.Errorf("Ana s kartice: nema %q", s)
+		}
+	}
+	if d, _ = stranica(o.ana, o.anaOvl, "drugovo"); d.Odabrana != nil {
+		t.Errorf("letva koju Ana ne smije: %+v", d.Odabrana)
+	}
+	if d, _ = stranica(o.pero, o.peroOvl, "nema-je"); d.Odabrana != nil || d.ActiveNav != "admin" {
+		t.Errorf("letva koje stablo nema: %+v, izbornik %q", d.Odabrana, d.ActiveNav)
+	}
+	if d, _ = stranica(o.pero, o.peroOvl, "drugovo"); d.Odabrana == nil || d.Odabrana.Naziv != "drugovo" || d.Odabrana.Kartica != "" {
+		t.Errorf("letva bez kartice: %+v", d.Odabrana)
+	}
+	o.h.SetKarticaLetve(nil)
+	if d, _ = stranica(o.pero, o.peroOvl, "primjerovo"); d.Odabrana == nil || d.Odabrana.Kartica != "" {
+		t.Errorf("bez puta do kartice: %+v", d.Odabrana)
+	}
+}
+
+// Tko nije administrator, ne dobiva upute koje ga šalju u Administraciju.
+func TestUnosUArhivuUputeBezAdministracije(t *testing.T) {
+	for _, admin := range []bool{true, false} {
+		d := vrataZaTest()
+		d.Permissions = &models.UserPermissions{IsGlobalAdmin: admin}
+		d.Cekaizvor = "cekajuci"
+		html := iscrtaj(t, "uvoz_niza.html", d)
+		if strings.Contains(html, `href="/administracija/izvori"`) != admin || strings.Contains(html, "na stranici Telemetrija") != admin {
+			t.Errorf("admin %v: upute u Administraciju", admin)
+		}
+		if !admin && (!strings.Contains(html, "Uključuje ga globalni administrator.") || !strings.Contains(html, "upisuje ga globalni administrator")) {
+			t.Error("ne-administrator ne zna tko uključuje izvor ili upisuje račun")
 		}
 	}
 }

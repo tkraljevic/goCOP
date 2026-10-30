@@ -213,11 +213,11 @@ func TestPretplateMijenjaSamoAdministratorIzLokalneMreze(t *testing.T) {
 			poruka string // prazno: prolazi
 		}{
 			{"administrator iz lokalne mreže", kaoAdmin, ""},
-			{"bez prava", uvjetiZahtjeva{adresa: adresaLokalno}, "Što ovo računalo prati mijenja samo administrator."},
-			{"obični korisnik", obican, "Što ovo računalo prati mijenja samo administrator."},
+			{"bez prava", uvjetiZahtjeva{adresa: adresaLokalno}, "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže."},
+			{"obični korisnik", obican, "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže."},
 			{"administrator izvana", izvana, "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
 			{"administrator kroz tunel", tunel, "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel."},
-			{"tuđim očima", tudjim, "Što računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno."},
+			{"tuđim očima", tudjim, "Što ovo računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno."},
 		} {
 			presao := false
 			w := httptest.NewRecorder()
@@ -265,7 +265,7 @@ func TestGenerirajPrognozuSmijuDezurniIAdministrator(t *testing.T) {
 		if presao != x.smije {
 			t.Errorf("%s: prošao %v, a treba %v", x.opis, presao, x.smije)
 		}
-		if !x.smije && (w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Prognozu rukom pokreću dežurni i administrator.")) {
+		if !x.smije && (w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.")) {
 			t.Errorf("%s: %d %q", x.opis, w.Code, w.Body.String())
 		}
 	}

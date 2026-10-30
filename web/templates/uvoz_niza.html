@@ -3,7 +3,7 @@
 {{define "title"}}goCOP — Unos podataka u arhivu{{end}}
 
 {{define "content"}}
-<div class="breadcrumb">{{if .Administrator}}<a href="/administracija">Administracija</a>{{else}}<a href="/stations">Vodomjerne postaje</a>{{end}} › Unos u arhivu</div>
+<div class="breadcrumb">{{if .Administrator}}<a href="/administracija">Administracija</a>{{else}}<a href="/stations">Vodomjerne postaje</a>{{with .Odabrana}}{{if .Kartica}} › <a href="{{.Kartica}}">{{.Naziv}}</a>{{end}}{{end}}{{end}} › Unos u arhivu</div>
 
 <div class="page-header">
   <div>
@@ -52,7 +52,7 @@
 <div class="alert alert-warning">
   Izvor <strong class="mono">{{.Cekaizvor}}</strong> arhiva još ne poznaje, pa <strong>ne ulazi u spojeni niz</strong> —
   podaci su upisani, ali se na letvi još ne vide. To je namjerno: novi izvor čeka odluku o točnosti i redu
-  povjerenja. Uključite ga na <a href="/administracija/izvori">Izvori arhive</a>.
+  povjerenja. {{if .Administrator}}Uključite ga na <a href="/administracija/izvori">Izvori arhive</a>.{{else}}Uključuje ga globalni administrator.{{end}}
 </div>
 {{end}}
 
@@ -350,7 +350,7 @@
     <label class="izvor-napomena m-0">
       <span class="part-label">Letva</span>
       <input list="popis-letvi-krivulje" name="letva" required class="form-control max-w-14"
-             value="{{if .Krivulje}}{{.Krivulje.Letva}}{{end}}">
+             value="{{if .Krivulje}}{{.Krivulje.Letva}}{{else if .Odabrana}}{{.Odabrana.Kod}}{{end}}">
       <datalist id="popis-letvi-krivulje">
         {{range .Letve}}<option value="{{.}}">{{end}}
       </datalist>
@@ -379,7 +379,7 @@
     <label class="izvor-napomena m-0">
       <span class="part-label">Letva</span>
       <input list="popis-letvi-krivulje" name="letva" required class="form-control max-w-14"
-             value="{{if .Profili}}{{.Profili.Letva}}{{end}}">
+             value="{{if .Profili}}{{.Profili.Letva}}{{else if .Odabrana}}{{.Odabrana.Kod}}{{end}}">
     </label>
     <label class="izvor-napomena m-0">
       <span class="part-label">Datoteke s diska</span>
@@ -406,7 +406,7 @@
     </label>
     <label class="izvor-napomena izvor-polje-letva m-0">
       <span class="part-label">Letva</span>
-      <input list="popis-letvi-krivulje" name="letva" class="form-control max-w-14">
+      <input list="popis-letvi-krivulje" name="letva" class="form-control max-w-14" value="{{with .Odabrana}}{{.Kod}}{{end}}">
     </label>
     <label class="izvor-napomena izvor-polje-postaje m-0" hidden>
       <span class="part-label">Postaje (šifra=letva)</span>
@@ -447,12 +447,12 @@
   <p class="page-desc mt-1 mb-3">
     Živa očitanja poslužitelj preuzima sam; ovo dopisuje razdoblje unatrag. Uzimaju se svi zapisivači postaje,
     svaki kao svoj izvor, i dopunjuju zatečeni niz, pa se ništa ne gubi.
-    {{if not .HVRadi}}<strong>Račun za HydroView nije upisan — upisuje se u Administraciji, na stranici Telemetrija.</strong>{{end}}
+    {{if not .HVRadi}}<strong>{{if .Administrator}}Račun za HydroView nije upisan — upisuje se u Administraciji, na stranici Telemetrija.{{else}}Račun za HydroView nije upisan; upisuje ga globalni administrator.{{end}}</strong>{{end}}
   </p>
   <div class="d-flex gap-3 flex-wrap items-end">
     <label class="izvor-napomena m-0">
       <span class="part-label">Letva</span>
-      <input list="popis-letvi-krivulje" name="letva" required class="form-control max-w-14">
+      <input list="popis-letvi-krivulje" name="letva" required class="form-control max-w-14" value="{{with .Odabrana}}{{.Kod}}{{end}}">
     </label>
     <label class="izvor-napomena m-0">
       <span class="part-label">Sliv</span>

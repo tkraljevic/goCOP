@@ -1408,6 +1408,7 @@ func (s *Server) setupRoutes() {
 	// cijelom arhivom (sirotani, ulaganje, izdavanje) ostaju na globalnom
 	// administratoru: njih doseg po dionici ne može ograničiti.
 	uvozH.SetOvlastiLetve(s.smijeUrediLetvu)
+	uvozH.SetKarticaLetve(s.karticaLetve)
 	uvozH.SetKoteLetve(s.koteNuleLetve)
 	uvozH.SetMape(s.mapaArhive)
 	s.mux.Handle("GET /administracija/uvoz-niza", s.authMiddleware(http.HandlerFunc(uvozH.ShowUvoz)))
@@ -1601,7 +1602,7 @@ func trebaDezurnog(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 		if !perms.SmijeGeneriratiPrognozu() {
-			http.Error(w, "Prognozu rukom pokreću dežurni i administrator.", http.StatusForbidden)
+			http.Error(w, "Prognozu rukom pokreću dežurni operater i globalni administrator. Ako vam treba odmah, javite dežurnom.", http.StatusForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -2121,6 +2122,19 @@ func (s *Server) SetAddr(addr string) {
 func danTjednaHR(t time.Time) string {
 	return [...]string{"Nedjelja", "Ponedjeljak", "Utorak", "Srijeda",
 		"Četvrtak", "Petak", "Subota"}[int(t.Weekday())]
+}
+
+// karticaLetve daje put do kartice letve i njezin naziv po šifri; prazno
+// kad letve nema u registru
+func (s *Server) karticaLetve(ctx context.Context, letva string) (kartica, naziv string) {
+	if s.stationService == nil {
+		return "", ""
+	}
+	st, err := s.stationService.GetStationByCode(ctx, letva)
+	if err != nil || st == nil {
+		return "", ""
+	}
+	return "/stations/" + st.ID.String(), st.Name
 }
 
 // smijeUrediLetvu javlja smije li osoba dirati podatke letve zadane šifrom.

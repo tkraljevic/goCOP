@@ -13,13 +13,14 @@
       Neki podaci stižu na svako računalo, npr. ustroj, registri, djelatnici, akti, dnevnik COP-a, prognoze i
       očitanja letvi koje nisu ni u jednom području. Očitanja, vodočuvarski dnevnik, prijave s terena i dnevnici
       radova rastu godinama i vode se po području ({{terml "podrucje"}}), pa ih računalo prima samo za područja i
-      godine koje ovdje označite. Što vam više ne treba, možete obrisati s ovog računala. Briše se samo ono što je
+      godine koje ovdje {{if .Zabrana}}označi administrator{{else}}označite. Što vam više ne treba, možete obrisati s ovog računala{{end}}. Briše se samo ono što je
       stiglo s drugih računala, a vraća se razmjenom čim ga opet počnete pratiti. Ono što je nastalo na ovom računalu
       ne briše se.{{if .PovijestMjeseci}} Tuđa očitanja starija od {{.PovijestMjeseci}} {{uzBroj .PovijestMjeseci "mjeseca" "mjeseca" "mjeseci"}} ne vraćaju se, osim za letve koje pratite, jer je tako postavljena povijest tuđih očitanja.{{end}}
     </p>
   </div>
 </div>
 
+{{with .Zabrana}}<div class="alert alert-info">{{icon "info"}} {{.}}</div>{{end}}
 
 {{template "trakaPonovnogPokretanja" .Postavke}}
 
@@ -36,23 +37,22 @@
 
 <section class="detail-section">
   <h2>{{icon "check"}} Pretplate <span class="reg-chip">{{len .Rules}}</span></h2>
-  {{with .Zabrana}}<p class="form-help">{{.}}</p>{{end}}
   {{if .Rules}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">
-      <thead><tr><th>Pravilo</th><th></th></tr></thead>
+      <thead><tr><th>Pravilo</th>{{if not $.Zabrana}}<th></th>{{end}}</tr></thead>
       <tbody>
       {{range .Rules}}
       <tr>
         <td>{{.Label}}</td>
+        {{if not $.Zabrana}}
         <td class="nowrap text-right">
-          {{if not $.Zabrana}}
           <form method="POST" action="/pretplate/ukloni" class="d-inline">
             <input type="hidden" name="id" value="{{.ID}}">
             <button type="submit" class="btn btn-sm btn-secondary" title="Pravilo prestaje vrijediti, a ništa se ne briše">Makni</button>
           </form>
-          {{end}}
         </td>
+        {{end}}
       </tr>
       {{end}}
       </tbody>
@@ -135,7 +135,7 @@
 
 <section class="detail-section">
   <h2>{{icon "activity"}} Što računalo drži <span class="reg-chip">{{len .Channels}}</span></h2>
-  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, možete obrisati s ovog računala. Briše se samo ono što je stiglo s drugih računala; ono što je nastalo ovdje ostaje.</p>
+  <p class="page-desc">Po vrsti, području i godini. Što pretplata više ne pokriva, {{if .Zabrana}}s ovog računala briše administrator{{else}}možete obrisati s ovog računala{{end}}. Briše se samo ono što je stiglo s drugih računala; ono što je nastalo ovdje ostaje.</p>
   {{if .Channels}}
   <div class="table-card"><div class="table-responsive">
     <table class="data-table">

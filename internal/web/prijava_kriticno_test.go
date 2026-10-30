@@ -170,6 +170,14 @@ func TestProvjeraPrijaveModuli(t *testing.T) {
 	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), "nije uključen za vaš račun") || z.pozvan {
 		t.Errorf("skriveni modul: %d %q, rukovatelj pozvan %v", w.Code, w.Body.String(), z.pozvan)
 	}
+	// isti skriveni modul ne zatvara unos u arhivu: prava na letvu provjerava
+	// sam rukovatelj
+	for _, put := range []string{"/administracija/uvoz-niza", "/administracija/uvoz-niza?letva=primjerovo"} {
+		z = mwZapis{}
+		if w := mwZahtjev(h, http.MethodGet, put, sesija.ID.String()); w.Code != http.StatusNoContent || !z.pozvan {
+			t.Errorf("%s uz skriveni modul Administracija: %d, rukovatelj pozvan %v", put, w.Code, z.pozvan)
+		}
+	}
 	if w := mwZahtjev(h, http.MethodGet, "/", sesija.ID.String()); w.Code != http.StatusNoContent || !z.pozvan {
 		t.Errorf("početna stranica: %d", w.Code)
 	}

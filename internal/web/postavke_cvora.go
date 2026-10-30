@@ -417,14 +417,14 @@ var (
 		ponovno:   "Čvor ponovno pokreće samo administrator.",
 		kljuc:     "Kopiju ključa mreže sprema i učitava samo administrator.",
 		provjera:  "Vezu provjerava samo administrator.",
-		pretplate: "Što ovo računalo prati mijenja samo administrator.",
+		pretplate: "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
 		postavke:  "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		ponovno:   "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		kljuc:     "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 		provjera:  "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		pretplate: "Što računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		pretplate: "Što ovo računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
 		postavke:  "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",

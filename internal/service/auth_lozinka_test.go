@@ -47,7 +47,7 @@ func TestPromjenaLozinkeSvaPravila(t *testing.T) {
 		{opis: "nepostojeća osoba", trenutna: stara, nova: "nova-lozinka",
 			tko: func(*models.User) uuid.UUID { return uuid.New() }, greska: "korisnik nije pronađen"},
 		{opis: "prekratka nova lozinka", trenutna: stara, nova: "123456789",
-			greska: "lozinka mora imati najmanje 10 znakova"},
+			greska: "Lozinka je prekratka: upišite najmanje 10 znakova."},
 		{opis: "nova jednaka trenutnoj", trenutna: stara, nova: stara,
 			greska: "nova lozinka mora se razlikovati od trenutne"},
 		{opis: "nova dulja od 72 bajta", trenutna: stara, nova: strings.Repeat("ž", 37),

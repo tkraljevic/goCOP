@@ -312,8 +312,9 @@ func (s *AuthService) ProvjeriLozinku(userID uuid.UUID, lozinka string) error {
 // (30. 10. 2026.), 9)
 const NajkracaLozinka = 10
 
-// ErrKratkaLozinka: lozinka ima manje od NajkracaLozinka znakova
-var ErrKratkaLozinka = fmt.Errorf("lozinka mora imati najmanje %d znakova", NajkracaLozinka)
+// ErrKratkaLozinka: lozinka ima manje od NajkracaLozinka znakova. Poruka je
+// cijela rečenica jer je osoba čita takvu kakva jest (profil, novi račun).
+var ErrKratkaLozinka = fmt.Errorf("Lozinka je prekratka: upišite najmanje %d znakova.", NajkracaLozinka)
 
 // ProvjeriDuljinuLozinke je jedina provjera duljine lozinke računa: prva
 // prijava, profil, novi račun i nova lozinka na uređivanju djelatnika. Broje

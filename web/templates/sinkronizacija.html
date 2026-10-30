@@ -146,8 +146,10 @@ function pokusaji(st, p, s) {
 // uloge su poslovi koje računalo javlja da radi za mrežu; mijenjaju se samo
 // na tom računalu, pa ovdje samo stoje
 function uloge(s) {
-  const naziv = {izdaje: 'izdaje prognozu', preuzima: 'preuzima vodostaje'};
-  const l = (s.uloge || []).map(u => naziv[u]).filter(Boolean);
+  // isti redoslijed kao na stranici Čvor, mreža i sinkronizacija
+  const naziv = [['preuzima', 'preuzima vodostaje'], ['izdaje', 'izdaje prognozu']];
+  const ima = s.uloge || [];
+  const l = naziv.filter(([u]) => ima.includes(u)).map(([, n]) => n);
   return l.length ? '<br><span class="muted">' + l.join(', ') + '</span>' : '';
 }
 function fmtEvery(sec) { if (!sec) return 'isključeno'; if (sec % 3600 === 0) return (sec / 3600) + ' h'; if (sec % 60 === 0) return (sec / 60) + ' min'; return sec + ' s'; }

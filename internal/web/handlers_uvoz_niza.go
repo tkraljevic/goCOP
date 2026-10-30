@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -106,6 +107,9 @@ type UvozHandler struct {
 	hvRacuni   func() *repository.HidroViewRepository
 	hvKljuc    func() []byte
 	nazivLetve func(ctx context.Context, letva string) string
+	// karticaLetve daje put do kartice letve i njezin naziv, za mrvicu
+	// natrag na letvu s koje je osoba došla
+	karticaLetve func(ctx context.Context, letva string) (kartica, naziv string)
 
 	// mapa kaže gdje su stablo i mapa paketa na disku i što učiniti kad
 	// relativne nema (mape_arhive.go)
@@ -222,6 +226,10 @@ type UvozPageData struct {
 	IzvorPregled *PregledIzvora
 	HVRadi       bool
 
+	// Letva s čije je kartice osoba došla (?letva=): polja „Letva” već je
+	// imaju, a mrvica vodi natrag na njezinu karticu
+	Odabrana *OdabranaLetva
+
 	// Dugi posao u tijeku: stranica crta traku i pita poslužitelja kako stoji.
 	PosaoID    string
 	PosaoNaziv string
@@ -284,8 +292,39 @@ func (h *UvozHandler) pageData(r *http.Request) UvozPageData {
 	// vidi samo globalni administrator (Odluke (30. 10. 2026.), 5)
 	if d.Administrator() {
 		h.zaAdministratora(&d, r)
+	} else {
+		d.ActiveNav = "stations"
 	}
+	d.Odabrana = h.odabranaLetva(r, d.Letve)
 	return d
+}
+
+// OdabranaLetva je letva s čije je kartice osoba došla na unos u arhivu
+type OdabranaLetva struct{ Kod, Naziv, Kartica string }
+
+// odabranaLetva čita letvu iz adrese (?letva=). Uzima se samo letva koju
+// stablo ima i koju osoba smije dirati (letve), inače nil.
+func (h *UvozHandler) odabranaLetva(r *http.Request, letve []string) *OdabranaLetva {
+	kod := strings.TrimSpace(r.URL.Query().Get("letva"))
+	if kod == "" || !slices.Contains(letve, kod) {
+		return nil
+	}
+	o := &OdabranaLetva{Kod: kod, Naziv: kod}
+	if h.karticaLetve == nil {
+		return o
+	}
+	if kartica, naziv := h.karticaLetve(r.Context(), kod); kartica != "" {
+		o.Kartica = kartica
+		if naziv != "" {
+			o.Naziv = naziv
+		}
+	}
+	return o
+}
+
+// SetKarticaLetve daje put do kartice letve i njezin naziv po šifri letve
+func (h *UvozHandler) SetKarticaLetve(f func(ctx context.Context, letva string) (kartica, naziv string)) {
+	h.karticaLetve = f
 }
 
 // Administrator javlja vidi li osoba dijelove stranice nad cijelom arhivom:
@@ -298,13 +337,7 @@ func (d UvozPageData) Administrator() bool {
 func (h *UvozHandler) zaAdministratora(d *UvozPageData, r *http.Request) {
 	d.UlaganjeRadi = h.ulaganjeRadi()
 	if d.UlaganjeRadi {
-		p, err := ulaganje.Pospremivo(r.Context(), h.baza())
-		if err != nil {
-			// Prva izvedba je ovu grešku progutala, pa se odjeljak o
-			// pospremanju nije pojavljivao a nitko nije znao zašto.
-			d.ErrorMessage = "Popis uloženog se ne čita: " + err.Error()
-		}
-		d.Pospremivo = p
+		h.pospremivoZaStranicu(d, r)
 	}
 	// Nizovi bez datoteke u stablu gledaju se pri svakom otvaranju, ne samo
 	// odmah nakon gradnje: sirotan ne nastaje samo ovdje — datoteka se može
@@ -322,6 +355,18 @@ func (h *UvozHandler) zaAdministratora(d *UvozPageData, r *http.Request) {
 	if d.IzdavanjeRadi {
 		h.katalogZaStranicu(d)
 	}
+}
+
+// pospremivoZaStranicu čita uložena očitanja koja se smiju pospremiti, za
+// odjeljak Ulaganje
+func (h *UvozHandler) pospremivoZaStranicu(d *UvozPageData, r *http.Request) {
+	p, err := ulaganje.Pospremivo(r.Context(), h.baza())
+	if err != nil {
+		// Prva izvedba je ovu grešku progutala, pa se odjeljak o
+		// pospremanju nije pojavljivao a nitko nije znao zašto.
+		d.ErrorMessage = "Popis uloženog se ne čita: " + err.Error()
+	}
+	d.Pospremivo = p
 }
 
 // katalogZaStranicu čita katalog izdanja za odjeljak Izdanja

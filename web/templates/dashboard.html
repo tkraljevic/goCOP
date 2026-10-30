@@ -18,7 +18,7 @@
     <div class="hero-user-card">
       <div class="user-greeting">Prijavljeni djelatnik:</div>
       <div class="user-name-large">{{.CurrentUser.FullName}}</div>
-      <div class="user-role-tag">{{if .CekaUlogu}}bez uloge{{else}}{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}{{end}}</div>
+      <div class="user-role-tag">{{roleLabel .CurrentUser.PrimaryRole}}{{if and .CurrentUser.IsGlobalAdmin .CurrentUser.PrimaryDuty}} · administrator{{end}}</div>
       <div class="user-org-text">{{icon "building-2"}} {{.CurrentUser.OrgName}}</div>
       <div class="user-card-actions">
         <a href="/profile" class="btn btn-secondary btn-sm">{{icon "user"}} Moj profil</a>
@@ -29,7 +29,7 @@
     </div>
   </div>
 
-  {{if .CekaUlogu}}<div class="alert alert-info">{{icon "info"}} Vaš račun čeka da mu administrator dodijeli ulogu.</div>{{end}}
+  {{if .CekaUlogu}}<div class="alert alert-info">{{icon "info"}} Vaš račun čeka da mu administrator dodijeli ulogu. Dotad možete samo gledati.</div>{{end}}
 
   <!-- Upozorenje vodočuvaru: dnevni listovi koje nije potpisao i predao -->
   {{template "nepredaniListovi" .Nepredani}}

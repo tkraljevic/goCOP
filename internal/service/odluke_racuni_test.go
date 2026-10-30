@@ -29,7 +29,7 @@ func TestLozinkaNajmanjeDesetZnakova(t *testing.T) {
 			t.Errorf("%q: %v", x.lozinka, err)
 		}
 	}
-	if service.ErrKratkaLozinka.Error() != "lozinka mora imati najmanje 10 znakova" {
+	if service.ErrKratkaLozinka.Error() != "Lozinka je prekratka: upišite najmanje 10 znakova." {
 		t.Errorf("poruka: %q", service.ErrKratkaLozinka)
 	}
 }

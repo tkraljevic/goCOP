@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -167,7 +168,7 @@ func (h *UsersHandler) HandleCreateUser(w http.ResponseWriter, r *http.Request) 
 
 	created, err := h.userService.CreateUser(perms, req)
 	if err != nil {
-		redirectWith(w, r, "/users/new", "error", err.Error())
+		redirectWith(w, r, "/users/new", "error", porukaRacuna(err))
 		return
 	}
 
@@ -230,7 +231,7 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 
 	_, err = h.azurirajUzLozinku(perms, req)
 	if err != nil {
-		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", err.Error())
+		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", porukaRacuna(err))
 		return
 	}
 
@@ -450,4 +451,14 @@ func (h *UsersHandler) HandleDeleteUser(w http.ResponseWriter, r *http.Request) 
 	}
 
 	http.Redirect(w, r, "/users?success=Profil+djelatnika+uspješno+obrisan", http.StatusSeeOther)
+}
+
+// porukaRacuna je poruka osobi kad se račun ne spremi. Prekratka lozinka
+// kaže se cijelom rečenicom, bez tehničkog uvoda „neispravni podaci
+// korisnika”.
+func porukaRacuna(err error) string {
+	if errors.Is(err, service.ErrKratkaLozinka) {
+		return service.ErrKratkaLozinka.Error()
+	}
+	return err.Error()
 }

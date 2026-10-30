@@ -17,20 +17,21 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sata ne izađe, a u dnevniku programa o tome nije bilo ni retka. Sad piše
   za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
   očitanja. (#202)
-- **Prava u administraciji prema Odlukama (30. 10. 2026.).** Unos u arhivu
-  za jednu letvu sad smije svatko tko smije uređivati tu letvu, s gumba
-  „Unos u arhivu” na kartici letve; dosad ga je modul Administracija
-  zatvarao prije provjere prava na letvu. Ulaganje, izdanja i brisanje
-  nizova ostaju globalnom administratoru i drugi ih na stranici više ne
-  vide. Što računalo prati mijenja samo globalni administrator, s tog
-  računala ili iz lokalne mreže; ostali stranicu samo gledaju. Prognozu
-  rukom generiraju dežurni i administrator. Lozinka svugdje ima najmanje 10
-  znakova, a ne 6. Uprava branjenog područja dobiva gumb „Novi djelatnik”
-  i otvara račune samo u svom području. Novi djelatnik nema unaprijed
-  odabranog dežurnog operatera: globalni administrator može otvoriti račun
-  bez uloge, a osoba na početnoj stranici vidi da čeka ulogu. Isključivanje
-  uloge računala traži potvrdu, a Sinkronizacija pokazuje uloge drugih
-  računala.
+- **Prava u administraciji prema Odlukama (30. 10. 2026.).** Tko smije
+  uređivati letvu, sad joj i unosi podatke u arhivu, gumbom „Unos u arhivu”
+  na kartici letve. Dosad je do te stranice vodila samo Administracija.
+  Ulaganje, izdanja i brisanje nizova ostaju globalnom administratoru, a
+  drugi ih više ne vide. Stranicu „Što ovo računalo prati” mijenja samo
+  globalni administrator, s tog računala ili iz lokalne mreže, a ostali je
+  samo gledaju. Prognozu rukom pokreću dežurni operater i globalni
+  administrator.
+
+  Lozinka svugdje mora imati najmanje 10 znakova. Dosad je na profilu bilo
+  dovoljno 6, a za novi račun nije bilo granice. Uprava branjenog područja
+  otvara račune u svom području. U obrascu novog djelatnika uloga više nije
+  unaprijed odabrana (bio je dežurni operater). Isključivanje uloge
+  računala traži potvrdu, a na Sinkronizaciji uz svako računalo piše koje
+  uloge ima.
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

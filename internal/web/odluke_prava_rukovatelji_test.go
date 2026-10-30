@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -20,10 +21,11 @@ import (
 )
 
 // Kartica letve: gumb „Unos u arhivu” dobije onaj tko smije uređivati letvu
-// Primjerovo (ovdje Pero, globalni administrator), dok čvor drži njezine
-// izvorne datoteke. Marko, koji letvu ne smije uređivati, gumb ne dobije, a
-// ni Pero kad čvor stabla nema. Tko smije uređivati letvu po dionici,
-// provjerava canEditStation.
+// Primjerovo, dok čvor drži njezine izvorne datoteke: Pero, globalni
+// administrator, i Ana, koja nije administrator, ali radi na dionici P.1.1
+// uz koju letva stoji. Marko, koji radi na drugoj dionici, gumb ne dobije, a
+// ni Pero kad čvor stabla nema. Gumb nosi šifru letve, a kartica letve vodi
+// s unosa natrag (karticaLetve).
 func TestKarticaLetveUnosUArhivuPoPravuIStablu(t *testing.T) {
 	baza, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "kartica.db"))
 	if err != nil {
@@ -38,6 +40,16 @@ func TestKarticaLetveUnosUArhivuPoPravuIStablu(t *testing.T) {
 	if err := stationRepo.CreateStation(context.Background(), letva); err != nil {
 		t.Fatal(err)
 	}
+	for _, q := range []string{
+		`INSERT INTO sectors (id, name, vgo_name, center_cop) VALUES ('P', 'Sektor P', 'VGO Primjerovo', 'COP Primjerovo')`,
+		`INSERT INTO areas (id, sector_id, name, vgi_name, subcenter) VALUES (1, 'P', 'Mali sliv Primjerica', 'VGI Primjerica', '')`,
+		`INSERT INTO sections (code, area_id, sector_id, description, created_at, updated_at) VALUES ('P.1.1', 1, 'P', 'prva', '2026-01-01 00:00:00', '2026-01-01 00:00:00')`,
+		`INSERT INTO section_stations (id, section_code, station_id, created_at) VALUES ('veza-1', 'P.1.1', '` + letva.ID.String() + `', '2026-01-01 00:00:00')`,
+	} {
+		if _, err := baza.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
 	koren := t.TempDir()
 	if err := os.MkdirAll(filepath.Join(koren, "primjerica", "primjerovo"), 0o755); err != nil {
 		t.Fatal(err)
@@ -47,6 +59,7 @@ func TestKarticaLetveUnosUArhivuPoPravuIStablu(t *testing.T) {
 	sStablom := &Server{podaciDir: koren}
 
 	pero := &models.UserPermissions{IsGlobalAdmin: true}
+	ana := &models.UserPermissions{AllowedSections: map[string]bool{"P.1.1": true}}
 	marko := &models.UserPermissions{AllowedSections: map[string]bool{"P.2.1": true}}
 	for _, x := range []struct {
 		opis    string
@@ -55,6 +68,7 @@ func TestKarticaLetveUnosUArhivuPoPravuIStablu(t *testing.T) {
 		gumb    bool
 	}{
 		{"Pero, čvor sa stablom", pero, sStablom.letvaUStablu, true},
+		{"Ana s dionice letve, čvor sa stablom", ana, sStablom.letvaUStablu, true},
 		{"Marko, čvor sa stablom", marko, sStablom.letvaUStablu, false},
 		{"Pero, čvor bez stabla", pero, (&Server{}).letvaUStablu, false},
 		{"Pero, provjera nije predana", pero, nil, false},
@@ -68,9 +82,20 @@ func TestKarticaLetveUnosUArhivuPoPravuIStablu(t *testing.T) {
 		if w.Code != http.StatusOK {
 			t.Fatalf("%s: %d %s", x.opis, w.Code, w.Body.String())
 		}
-		if ima := strings.Contains(w.Body.String(), `href="/administracija/uvoz-niza"`); ima != x.gumb {
+		if ima := strings.Contains(w.Body.String(), `href="/administracija/uvoz-niza?letva=primjerovo"`); ima != x.gumb {
 			t.Errorf("%s: gumb %v", x.opis, ima)
 		}
+	}
+
+	s := &Server{stationService: stations}
+	if kartica, naziv := s.karticaLetve(context.Background(), "primjerovo"); kartica != "/stations/"+letva.ID.String() || naziv != "Primjerovo" {
+		t.Errorf("kartica letve: %q %q", kartica, naziv)
+	}
+	if kartica, naziv := s.karticaLetve(context.Background(), "nema-je"); kartica != "" || naziv != "" {
+		t.Errorf("letva koje nema: %q %q", kartica, naziv)
+	}
+	if kartica, _ := (&Server{}).karticaLetve(context.Background(), "primjerovo"); kartica != "" {
+		t.Errorf("bez registra letava: %q", kartica)
 	}
 }
 
@@ -98,5 +123,17 @@ func TestZaglavljePrognozeSmijeGenerirati(t *testing.T) {
 		if d := h.zaglavlje(r); !d.MozeGenerirati || d.SmijeGenerirati != x.smije {
 			t.Errorf("%s: može %v, smije %v", opis, d.MozeGenerirati, d.SmijeGenerirati)
 		}
+	}
+}
+
+// Novi račun ili nova lozinka s prekratkom lozinkom: osoba čita jednu
+// rečenicu bez tehničkog uvoda, a ostale greške računa ostaju kakve jesu.
+func TestPorukaRacunaZaKratkuLozinku(t *testing.T) {
+	kratka := fmt.Errorf("%w: %w", service.ErrInvalidUserData, service.ErrKratkaLozinka)
+	if got := porukaRacuna(kratka); got != "Lozinka je prekratka: upišite najmanje 10 znakova." {
+		t.Errorf("prekratka lozinka: %q", got)
+	}
+	if got := porukaRacuna(service.ErrUsernameExists); got != service.ErrUsernameExists.Error() {
+		t.Errorf("druga greška: %q", got)
 	}
 }
