@@ -19,7 +19,11 @@ import (
 var (
 	ErrInvalidCredentials = errors.New("neispravno korisničko ime ili lozinka")
 	ErrAccountInactive    = errors.New("korisnički račun je deaktiviran")
-	ErrSessionExpired     = errors.New("sesija je istekla")
+	// ErrStaraLozinka: lozinka je točna, ali je to stara zajednička početna
+	// lozinka, pa se račun ne prijavljuje dok mu administrator ne poništi
+	// lozinku (Odluke (30. 10. 2026.))
+	ErrStaraLozinka   = errors.New("račun ima staru zajedničku početnu lozinku")
+	ErrSessionExpired = errors.New("sesija je istekla")
 	// ErrKrivaLozinka označava krivu lozinku pri ponovnoj provjeri unutar
 	// prijave (promjena lozinke, potpisni ključ): po njoj rukovatelj broji
 	// pokušaje, a poruka ostaje ona koju je javilo mjesto provjere
@@ -48,6 +52,8 @@ type AuthService struct {
 	userRepo    *repository.UserRepository
 	sessionRepo *repository.SessionRepository
 	zastita     ZastitaPrijave // drugi korak prijave izvana; nil = nema ga
+	// zakljucana javlja zaključava li sažetak račun (SetZakljucanaLozinka)
+	zakljucana func(sazetak string) bool
 }
 
 // ZastitaPrijave je ono što prijava i uređivanje računa traže od drugog
@@ -95,29 +101,62 @@ func (s *AuthService) HashPassword(password string) (string, error) {
 	return string(bytes), nil
 }
 
-// CheckPassword provjerava odgovara li lozinka hashu
+// CheckPassword provjerava odgovara li lozinka hashu. Stara zajednička
+// početna lozinka ne vrijedi ni kad odgovara: ne mijenja lozinku, ne
+// otključava potpisni ključ i ne potvrđuje druge radnje uz ponovni upis
+// lozinke (Odluke (30. 10. 2026.)).
 func (s *AuthService) CheckPassword(hash, password string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
+	return password != StaraPocetnaLozinka && sazetakOdgovara(hash, password)
+}
+
+// sazetakOdgovara je sama provjera sažetka (bcrypt), bez ikakvog pravila
+func sazetakOdgovara(hash, password string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+// StaraPocetnaLozinka je zajednička početna lozinka koju su računi iz
+// imenika i račun admin dobivali do izdanja 0.0.46-alfa. Novi računi je ne
+// dobivaju (db.SeedInitialData), a račun koji je još ima ne prijavljuje se.
+const StaraPocetnaLozinka = "gocop2026"
+
+// ImaStaruLozinku javlja otvara li stara zajednička početna lozinka račun s
+// tim sažetkom. Provjera sažetka traje (bcrypt), pa je ne treba zvati za
+// svaki zahtjev.
+func (s *AuthService) ImaStaruLozinku(sazetak string) bool {
+	return sazetakOdgovara(sazetak, StaraPocetnaLozinka)
+}
+
+// SetZakljucanaLozinka daje provjeru sažetka koji zaključava račun (stara
+// zajednička početna lozinka; zapamćen ishod, inače ImaStaruLozinku). Uz nju
+// sesija takvog računa prestaje pri prvom zahtjevu, a ne tek kad je nađe
+// pregled pri pokretanju. Postavlja se prije nego što poslužitelj primi
+// prvi zahtjev; nil = sesije se ne provjeravaju tako.
+func (s *AuthService) SetZakljucanaLozinka(zakljucana func(sazetak string) bool) {
+	s.zakljucana = zakljucana
 }
 
 // ProvjeriPrijavu provjerava ime i lozinku bez otvaranja sesije. Odgovor ne
 // smije otkriti postoji li račun: nepostojeće ime prolazi istu provjeru
-// sažetka, a deaktiviran račun se javlja tek nakon točne lozinke.
+// sažetka, a deaktiviran račun se javlja tek nakon točne lozinke. Točna
+// stara zajednička početna lozinka vraća račun uz ErrStaraLozinka: prijava
+// se odbija s bilo koje adrese, a pozivatelj račun može označiti.
 func (s *AuthService) ProvjeriPrijavu(username, password string) (*models.User, error) {
 	u, err := s.userRepo.GetUserByUsername(username)
 	if err != nil {
 		return nil, err
 	}
 	if u == nil {
-		s.CheckPassword(lazniSazetak(), password)
+		sazetakOdgovara(lazniSazetak(), password)
 		return nil, ErrInvalidCredentials
 	}
-	if !s.CheckPassword(u.PasswordHash, password) {
+	if !sazetakOdgovara(u.PasswordHash, password) {
 		return nil, ErrInvalidCredentials
 	}
 	if !u.IsActive {
 		return nil, ErrAccountInactive
+	}
+	if password == StaraPocetnaLozinka {
+		return u, ErrStaraLozinka
 	}
 	return u, nil
 }
@@ -190,19 +229,26 @@ func (s *AuthService) AuthenticateSession(sessionID uuid.UUID) (*models.User, *m
 	return &permissions.User, permissions, nil
 }
 
-// provjeriSesiju: sesija vrijedi dok je račun uključen i dok mu je lozinka
-// ona s kojom je sesija otvorena. Lozinka promijenjena ili poništena na
-// drugom računalu stiže razmjenom, a sesije ovdje ne zna, pa se otisak
-// gleda pri svakom zahtjevu; sesija stare lozinke briše se kao pri odjavi.
+// provjeriSesiju: sesija vrijedi dok je račun uključen, dok mu je lozinka
+// ona s kojom je sesija otvorena i dok ga lozinka ne zaključava. Lozinka
+// promijenjena ili poništena na drugom računalu stiže razmjenom, a sesije
+// ovdje ne zna, pa se otisak gleda pri svakom zahtjevu; sesija stare
+// lozinke briše se kao pri odjavi.
 func (s *AuthService) provjeriSesiju(session *models.Session, u *models.User) error {
 	if !u.IsActive {
 		return s.odbaciSesijuIskljucenog(session.ID)
 	}
-	if session.LozinkaOtisak != repository.OtisakLozinke(u.PasswordHash) {
+	if session.LozinkaOtisak != repository.OtisakLozinke(u.PasswordHash) || s.zakljucan(u) {
 		_ = s.sessionRepo.DeleteSession(session.ID) // sesija ionako više ne vrijedi
 		return ErrSessionExpired
 	}
 	return nil
+}
+
+// zakljucan javlja ima li račun lozinku koja ga zaključava, pa mu ni
+// otvorena sesija više ne vrijedi
+func (s *AuthService) zakljucan(u *models.User) bool {
+	return s.zakljucana != nil && s.zakljucana(u.PasswordHash)
 }
 
 // odbaciSesijuIskljucenog briše sesiju računa koji je isključen, kao pri

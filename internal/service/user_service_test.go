@@ -82,7 +82,7 @@ func TestSeedAdminProvjera(t *testing.T) {
 	if !authService.CheckPassword(admin.PasswordHash, lozinke["iivic"]) {
 		t.Error("privremena lozinka s popisa ne otvara račun iivic")
 	}
-	if authService.CheckPassword(admin.PasswordHash, "gocop2026") {
+	if authService.ImaStaruLozinku(admin.PasswordHash) {
 		t.Error("račun iz imenika ne smije imati zajedničku lozinku gocop2026")
 	}
 }

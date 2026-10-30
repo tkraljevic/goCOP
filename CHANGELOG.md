@@ -44,6 +44,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (stranica Postavljanje › privremene lozinke) i preda ljudima, a lozinka se
   mijenja pri prvoj prijavi. Popis koji nitko nije preuzeo sljedeće
   pokretanje složi iznova. U bazi je samo sažetak (Odluke (30. 10. 2026.)).
+- **Početne lozinke: popis vrijedi 24 sata, a stara zajednička lozinka više
+  ne otvara račun.** Popis privremenih lozinki koji nitko ne preuzme u 24
+  sata od prvog punjenja program briše, uz redak u dnevniku; lozinke se tada
+  daju poništenjem. Račun koji još ima staru zajedničku lozinku ne
+  prijavljuje se ni iz ureda dok mu administrator ne poništi lozinku, a
+  njegova već otvorena prijava prestaje. Globalni administrator takve
+  račune vidi na stranici Djelatnici (Odluke (30. 10. 2026.)).
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.

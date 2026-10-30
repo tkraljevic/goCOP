@@ -19,6 +19,13 @@
   </div>
 </div>
 
+{{if .StareLozinke}}
+<div class="alert alert-warning">
+  <p class="m-0"><b>Ovi računi još imaju staru zajedničku lozinku, pa su zaključani.</b> Osoba se ne može prijaviti dok joj ne poništite lozinku: otvorite račun, kliknite „Poništi lozinku” i predajte joj novu privremenu. Učinite to odmah: na računalu sa starijim izdanjem programa ovi se računi iz ureda još prijavljuju.</p>
+  <p class="m-0 mt-2">{{range $i, $u := .StareLozinke}}{{if $i}}, {{end}}<a href="/users/{{$u.ID}}">{{$u.FullName}}</a> (<code>{{$u.Username}}</code>){{end}}</p>
+</div>
+{{end}}
+
 <!-- Filteri i Pretraga -->
 <section class="filter-card">
   <form action="/users" method="GET" id="filter-form">

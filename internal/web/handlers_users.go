@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"html/template"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -38,6 +39,9 @@ type UsersHandler struct {
 	// cvor daje ime ovog čvora: rezervni i privremeni kodovi vrijede samo
 	// na čvoru na kojem su napravljeni; nil dok se ne spoji
 	cvor func() string
+	// stareLozinke daje uključene račune koje još otvara stara zajednička
+	// početna lozinka (stare_lozinke.go); nil dok se ne spoji
+	stareLozinke func() ([]models.User, error)
 }
 
 // SetPlanovi spaja profil s planom dežurstava: osoba na profilu vidi svoje
@@ -68,7 +72,24 @@ type UsersPageData struct {
 	ErrorMessage   string
 	ActiveNav      string
 	Pager          Pager
+	// StareLozinke su računi zaključani zbog stare zajedničke lozinke, samo
+	// za globalnog administratora
+	StareLozinke []models.User
 	ViewAsBanner
+}
+
+// zakljucaniRacuni su računi sa starom zajedničkom lozinkom, za globalnog
+// administratora; greška čitanja ide u dnevnik, a stranica se pokaže bez njih
+func (h *UsersHandler) zakljucaniRacuni(perms *models.UserPermissions) []models.User {
+	if h.stareLozinke == nil || perms == nil || !perms.IsGlobalAdmin {
+		return nil
+	}
+	racuni, err := h.stareLozinke()
+	if err != nil {
+		log.Printf("djelatnici: računi sa starom zajedničkom lozinkom nisu pročitani: %v", err)
+		return nil
+	}
+	return racuni
 }
 
 // ShowUsers prikazuje listu djelatnika s njihovim funkcijama i zaduženjima
@@ -112,6 +133,7 @@ func (h *UsersHandler) ShowUsers(w http.ResponseWriter, r *http.Request) {
 		ErrorMessage:   r.URL.Query().Get("error"),
 		ActiveNav:      "users",
 		ViewAsBanner:   viewBanner(r),
+		StareLozinke:   h.zakljucaniRacuni(perms),
 	}
 
 	if err := h.tmpl.ExecuteTemplate(w, "users.html", data); err != nil {

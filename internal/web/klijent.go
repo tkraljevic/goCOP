@@ -13,7 +13,7 @@ package web
 //     klijent u lokalnoj mreži ga podmetanjem samo sebi postroži pravila.
 //
 // Odluke koje smiju vrijediti samo za izravnog klijenta (uparivanje bez
-// prijave na svježem čvoru, zadana lozinka) gledaju Izvana. Brojanje
+// prijave na svježem čvoru, stranica Postavljanje) gledaju Izvana. Brojanje
 // pokušaja prijave gleda Adresa, uz to Izvana (ime i IPv6 mreža /64) i
 // KrozPosrednika (adresa kroz posrednika broji se odvojeno od izravne).
 
@@ -59,13 +59,13 @@ func (k Klijent) SOvogRacunala() bool {
 // IzLokalneMreze: izravan zahtjev (bez posrednika) s ovog računala ili s
 // privatne adrese, kao za PIN (service.IzvanaAdresa). Javna adresa nije
 // lokalna ni kad do čvora dođe izravno, npr. kroz proslijeđen port, pa joj
-// ne vrijede početna lozinka ni uparivanje i postavljanje svježeg čvora.
+// ne vrijede uparivanje i postavljanje svježeg čvora.
 func (k Klijent) IzLokalneMreze() bool {
 	return !k.Izvana()
 }
 
-// Izvana javlja dolazi li zahtjev izvana, za PIN, početnu lozinku i svjež
-// čvor: kroz posrednika ili s adrese koja nije lokalna (service.IzvanaAdresa).
+// Izvana javlja dolazi li zahtjev izvana, za PIN, popis privremenih lozinki
+// i svjež čvor: kroz posrednika ili s adrese koja nije lokalna (service.IzvanaAdresa).
 // Za izravan zahtjev na Tailscale adresu ovog računala odlučuje [web]
 // tailscale_lokalno. Uključen: zahtjev nije izvana, iako pošiljatelj ima
 // adresu 100.x, koja nije privatna. Isključen: zahtjev je izvana, i preko

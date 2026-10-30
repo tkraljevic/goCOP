@@ -80,7 +80,7 @@ func TestPomocOpisujeSigurnost025(t *testing.T) {
 	h := pomocHTML(t)
 	for _, want := range []string{
 		"tuđih stranica (CSRF)", "sigurni sesijski",
-		"Stara zajednička početna lozinka ne vrijedi za prijavu izvana",
+		"prijavljuje se ni iz ureda",
 		"i potvrđuje globalni administrator", "Svjež čvor bez računa",
 		"ostale prijave na istom čvoru", "može tražiti PIN",
 		"Potpisane ovlasti izdavatelja", "ostaju razvojni zadaci",

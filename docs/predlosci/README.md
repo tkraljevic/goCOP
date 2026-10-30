@@ -166,7 +166,8 @@ Napomene:
   predajte svakome njegovu. Nakon preuzimanja popisa više nema; kome lozinka
   nedostaje, administrator daje novu u Korisnicima (Poništi lozinku). Ako se
   čvor ponovno pokrene prije preuzimanja, svi dobiju nove lozinke i novi
-  popis. Ako u imeniku nema računa `admin`, program ga doda sam. Prije nego
+  popis. Popis vrijedi 24 sata od prvog punjenja, a nakon toga se lozinke
+  daju samo poništenjem. Ako u imeniku nema računa `admin`, program ga doda sam. Prije nego
   što čvor izložite mreži, pročitajte [SECURITY.md](../../SECURITY.md).
 - **Imenik stavite uz bazu samo prvog čvora mreže.** Popis lozinki vrijedi
   za čvor koji ga je složio; ostali čvorovi djelatnike dobiju razmjenom.

@@ -12,8 +12,10 @@ package web
 // računala upućen na drugo ime treba kod. Dok popis nije preuzet, ponovno
 // pokretanje čvora složi nove lozinke i novi popis
 // (db.ObnoviPocetneLozinke); nakon preuzimanja popisa više nema, a tko
-// lozinku nije dobio, dobiva novu poništenjem (Korisnici → Poništi lozinku
-// ili gocop -ponisti-lozinku).
+// lozinku nije dobio, dobiva novu poništenjem (Djelatnici → Poništi
+// lozinku ili gocop -ponisti-lozinku). Popis vrijedi 24 sata od prvog punjenja
+// (Odluke (30. 10. 2026.)): tada se briše iz memorije i baze, uz redak u
+// dnevniku, a stranica kaže da je rok prošao.
 
 import (
 	"bytes"
@@ -24,45 +26,113 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"time"
 
 	"gocop/internal/db"
+	"gocop/internal/models"
 )
 
-// pocetneLozinke je popis koji se preuzima jednom
+// pocetneLozinke je popis koji se preuzima jednom, do roka
 type pocetneLozinke struct {
-	mu    sync.Mutex
-	popis []db.PocetnaLozinka
+	mu      sync.Mutex
+	popis   []db.PocetnaLozinka
+	rok     time.Time // do kada popis vrijedi; nula: bez roka
+	istekao bool      // rok je prošao dok je čvor radio
+	// obrisi briše popis iz baze kad mu prođe rok (nil: nema se što brisati)
+	obrisi func() error
+	// sada i poRoku su sat i budilica; nil znači pravi sat (time.Now,
+	// time.AfterFunc)
+	sada   func() time.Time
+	poRoku func(d time.Duration, f func())
 }
 
-// postavi sprema popis nakon prvog punjenja
-func (p *pocetneLozinke) postavi(popis []db.PocetnaLozinka) {
+// postavi sprema popis nakon prvog punjenja i navije brisanje na rok
+func (p *pocetneLozinke) postavi(popis []db.PocetnaLozinka, rok time.Time, obrisi func() error) {
+	p.mu.Lock()
+	p.popis, p.rok, p.obrisi, p.istekao = popis, rok, obrisi, false
+	p.mu.Unlock()
+	if len(popis) == 0 || rok.IsZero() {
+		return
+	}
+	poRoku := p.poRoku
+	if poRoku == nil {
+		poRoku = func(d time.Duration, f func()) { time.AfterFunc(d, f) }
+	}
+	poRoku(rok.Sub(p.trenutak()), p.istekni)
+}
+
+// trenutak je sadašnje vrijeme po satu popisa
+func (p *pocetneLozinke) trenutak() time.Time {
+	if p.sada != nil {
+		return p.sada()
+	}
+	return time.Now()
+}
+
+// istekni briše popis kojemu je prošao rok: iz memorije i iz baze, uz redak
+// u dnevniku
+func (p *pocetneLozinke) istekni() {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.popis = popis
+	p.isteklo()
+}
+
+// isteklo radi brisanje za istekni i provjeriRok; zove se pod p.mu
+func (p *pocetneLozinke) isteklo() {
+	if p.popis == nil {
+		return
+	}
+	p.popis, p.istekao = nil, true
+	log.Printf("Postavljanje: popis privremenih lozinki iz imenika nitko nije preuzeo u 24 sata od prvog punjenja, pa je obrisan; lozinke se sad daju poništenjem")
+	if p.obrisi == nil {
+		return
+	}
+	if err := p.obrisi(); err != nil {
+		log.Printf("Postavljanje: istekao popis privremenih lozinki nije obrisan iz baze (%v); briše se pri sljedećem pokretanju", err)
+	}
+}
+
+// provjeriRok briše popis ako mu je rok prošao, i kad budilica kasni (npr.
+// nakon što je računalo spavalo); zove se pod p.mu
+func (p *pocetneLozinke) provjeriRok() {
+	if !p.rok.IsZero() && !p.trenutak().Before(p.rok) {
+		p.isteklo()
+	}
 }
 
 // ceka javlja koliko lozinki čeka preuzimanje
 func (p *pocetneLozinke) ceka() int {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.provjeriRok()
 	return len(p.popis)
+}
+
+// stanje javlja koliko lozinki čeka, do kada, i je li rok prošao
+func (p *pocetneLozinke) stanje() (ceka int, rok time.Time, istekao bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.provjeriRok()
+	return len(p.popis), p.rok, p.istekao
 }
 
 // uzmi vraća popis i briše ga, pa ga drugi zahtjev više ne dobije
 func (p *pocetneLozinke) uzmi() []db.PocetnaLozinka {
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	p.provjeriRok()
 	popis := p.popis
 	p.popis = nil
 	return popis
 }
 
-// vrati vraća popis koji nije stigao do preglednika
+// vrati vraća popis koji nije stigao do preglednika, ako mu rok nije prošao
 func (p *pocetneLozinke) vrati(popis []db.PocetnaLozinka) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if p.popis == nil {
+	if p.popis == nil && !p.istekao {
 		p.popis = popis
+		p.provjeriRok()
 	}
 }
 
@@ -73,15 +143,28 @@ type PocetneLozinkeData struct {
 	Error     string
 	Izdanje   string
 	Ceka      int                 // koliko lozinki čeka preuzimanje
+	Rok       string              // do kada se popis smije preuzeti
+	Istekao   bool                // popis je obrisan jer mu je prošao rok
 	Popis     []db.PocetnaLozinka // samo u odgovoru na preuzimanje
 }
 
 // SetPocetneLozinke predaje stranici popis privremenih lozinki iz prvog
-// punjenja; preuzete se zove kad je popis preuzet, prije nego što ode u
-// preglednik (nil: nema se što zapisati)
-func (h *PostavljanjeHandler) SetPocetneLozinke(popis []db.PocetnaLozinka, preuzete func() error) {
-	h.lozinke.postavi(popis)
-	h.preuzete = preuzete
+// punjenja s rokom do kojega vrijedi; obrisi briše popis iz baze kad je
+// preuzet (prije nego što ode u preglednik) ili kad mu prođe rok (nil: nema
+// se što brisati)
+func (h *PostavljanjeHandler) SetPocetneLozinke(popis []db.PocetnaLozinka, rok time.Time, obrisi func() error) {
+	h.preuzete = obrisi
+	h.lozinke.postavi(popis, rok, obrisi)
+}
+
+// stanjeLozinki upisuje u podatke stranice koliko lozinki čeka, do kada i
+// je li rok prošao
+func (h *PostavljanjeHandler) stanjeLozinki(d *PocetneLozinkeData) {
+	ceka, rok, istekao := h.lozinke.stanje()
+	d.Ceka, d.Istekao = ceka, istekao
+	if ceka > 0 && !rok.IsZero() {
+		d.Rok = rok.In(models.Zagreb).Format("02.01.2006. u 15:04")
+	}
 }
 
 // hostOvogRacunala javlja glasi li zahtjev na ime koje uvijek znači ovo
@@ -129,6 +212,7 @@ func (h *PostavljanjeHandler) iscrtajLozinke(w http.ResponseWriter, status int, 
 func (h *PostavljanjeHandler) predajPopis(w http.ResponseWriter, d PocetneLozinkeData) {
 	d.Popis = h.lozinke.uzmi()
 	if len(d.Popis) == 0 {
+		h.stanjeLozinki(&d)
 		h.iscrtajLozinke(w, http.StatusOK, d)
 		return
 	}
@@ -179,7 +263,8 @@ func (h *PostavljanjeHandler) PrikaziLozinke(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	kod := r.URL.Query().Get("kod")
-	d := PocetneLozinkeData{Kod: kod, Izdanje: izdanjeZaPostavu(), Ceka: h.lozinke.ceka()}
+	d := PocetneLozinkeData{Kod: kod, Izdanje: izdanjeZaPostavu()}
+	h.stanjeLozinki(&d)
 	d.Dopusteno = h.dopustenoLozinke(r, kod)
 	status := http.StatusOK
 	if !d.Dopusteno && kod != "" {
@@ -199,7 +284,7 @@ func (h *PostavljanjeHandler) PreuzmiLozinke(w http.ResponseWriter, r *http.Requ
 	d := PocetneLozinkeData{Kod: kod, Izdanje: izdanjeZaPostavu()}
 	if !h.dopustenoLozinke(r, kod) {
 		d.Error = "Popis se preuzima samo s ovog računala ili s kodom iz dnevnika."
-		d.Ceka = h.lozinke.ceka()
+		h.stanjeLozinki(&d)
 		h.iscrtajLozinke(w, http.StatusForbidden, d)
 		return
 	}

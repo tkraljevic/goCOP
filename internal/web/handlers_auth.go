@@ -26,8 +26,8 @@ type AuthHandler struct {
 	prekljucaj   func(ctx context.Context, userID, stara, nova string) error // potpisni ključ prati lozinku
 	drugiKorak   func() *service.DrugiKorak                                  // PIN za prijavu izvana; nil = nema ga
 	tmplPIN      *template.Template                                          // stranica upisa PIN-a ili koda
-	// čvor pod Postavom: stara početna lozinka samo s ovog računala
-	samoOvoRacunalo func() bool
+	// računi sa starom zajedničkom početnom lozinkom, za administratora; nil = ne bilježe se
+	stareLozinke *stareLozinke
 }
 
 // SetPrekljucaj daje rukovatelju način da uz promjenu lozinke prekljuca
@@ -104,16 +104,9 @@ func iscrtajPrijavu(t *template.Template, w http.ResponseWriter, ime string, pod
 	}
 }
 
-// staraPocetnaLozinka je zajednička početna lozinka koju su računi iz
-// imenika i račun admin dobivali do izdanja 0.0.46-alfa. Novi računi je ne
-// dobivaju (db.SeedInitialData); ostaje samo za račune koji je još imaju.
-const staraPocetnaLozinka = "gocop2026"
-
-// porukaZadaneLozinkeIzMreze odbija staru početnu lozinku iz mreže na čvoru pod Postavom
-const porukaZadaneLozinkeIzMreze = "Ova lozinka vrijedi samo na računalu na kojem je goCOP instaliran. Na njemu otvorite goCOP (ikona u traci) ili zatražite od administratora privremenu lozinku."
-
-// porukaZadaneLozinke odbija prvu prijavu starom početnom lozinkom izvana
-const porukaZadaneLozinke = "Ova lozinka izvana ne vrijedi. Prijavite se iz ureda (lokalna mreža) ili zatražite od administratora privremenu lozinku (Korisnici → Poništi lozinku)."
+// porukaStareLozinke odbija prijavu starom zajedničkom početnom lozinkom,
+// odakle god stigla
+const porukaStareLozinke = "Ovaj račun još ima staru zajedničku lozinku i zato je zaključan. Zamolite administratora da vam poništi lozinku i preda novu privremenu. Ako ste vi jedini administrator, na računalu na kojem goCOP radi pokrenite gocop -ponisti-lozinku sa svojim korisničkim imenom."
 
 // SetAdminContact daje rukovatelju izvor kontakta glavnog administratora
 func (h *AuthHandler) SetAdminContact(f func() (name, phone, email string, ok bool)) {
@@ -192,6 +185,15 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// Deaktiviran račun javlja se tek nakon točne lozinke, inače bi poruka
 	// otkrila da ime postoji; i on ostaje brojen kao neuspjeh
 	user, err := h.authService.ProvjeriPrijavu(username, password)
+	if errors.Is(err, service.ErrStaraLozinka) {
+		// lozinka je točna, pa se ne broji kao pogađanje imena; brojač adrese
+		// ostaje, da se s jedne adrese ne može bez granice tražiti koji
+		// računi još imaju staru lozinku
+		h.limiter.VratiSve(bezAdrese(keys)...)
+		h.stareLozinke.zabiljezi(user)
+		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaStareLozinke)
+		return
+	}
 	if err != nil {
 		errMsg := "Neispravno korisničko ime ili lozinka"
 		if errors.Is(err, service.ErrAccountInactive) {
@@ -201,23 +203,6 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.limiter.VratiSve(keys...) // točna lozinka nije neuspjeh
-
-	// Računi iz starijih izdanja koji još imaju zajedničku početnu lozinku
-	// prvi put se prijavljuju samo iz lokalne mreže (ne kroz tunel ni s
-	// javne adrese, npr. kroz proslijeđen port); privremena lozinka koju je
-	// dao administrator vrijedi i izvana.
-	staraLozinka := user.MustChangePassword && password == staraPocetnaLozinka
-	if !klijent.IzLokalneMreze() && staraLozinka {
-		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinke)
-		return
-	}
-	// Pod Postavom čvor je na nečijem računalu, a sluša za cijelu lokalnu
-	// mrežu: takav račun prvi put se prijavljuje samo s tog računala
-	if staraLozinka && h.samoOvoRacunalo != nil &&
-		h.samoOvoRacunalo() && !klijent.SOvogRacunala() {
-		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinkeIzMreze)
-		return
-	}
 
 	// Izvana, kad je PIN uključen, točna lozinka otvara samo prijavu na
 	// čekanju; brojač imena ostaje dok ne prođe i PIN ili kod, inače bi
@@ -232,15 +217,24 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	h.otvoriPrijavu(w, r, user, keys)
 }
 
+// bezAdrese su ključevi prijave bez brojača adrese
+func bezAdrese(keys []string) []string {
+	var ostali []string
+	for _, k := range keys {
+		if !strings.HasPrefix(k, kljucAdresa) {
+			ostali = append(ostali, k)
+		}
+	}
+	return ostali
+}
+
 // otvoriPrijavu pušta osobu u program nakon što je prošla sve korake
 // prijave: briše brojač imena, otvara sesiju i vodi dalje
 func (h *AuthHandler) otvoriPrijavu(w http.ResponseWriter, r *http.Request, user *models.User, keys []string) {
 	// Briše se brojač imena, ne i adrese: inače bi napadač s jednim pravim
 	// računom između pokušaja na tuđe brisao vlastitu adresu
-	for _, k := range keys {
-		if !strings.HasPrefix(k, kljucAdresa) {
-			h.limiter.Reset(k)
-		}
+	for _, k := range bezAdrese(keys) {
+		h.limiter.Reset(k)
 	}
 
 	session, err := h.authService.OtvoriSesiju(user, klijentIz(r).String(), r.UserAgent())

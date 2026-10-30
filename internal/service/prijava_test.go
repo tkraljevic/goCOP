@@ -73,6 +73,38 @@ func TestDeaktiviranRacunTekNakonTocneLozinke(t *testing.T) {
 	}
 }
 
+// Stara zajednička početna lozinka ne otvara prijavu ni kad je točna
+// (Odluke (30. 10. 2026.)): ProvjeriPrijavu vraća račun uz ErrStaraLozinka,
+// a Login ne otvara sesiju. Druga lozinka istog oblika prolazi kao i dosad.
+func TestStaraLozinkaNeOtvaraPrijavu(t *testing.T) {
+	c := noviCvorPrijave(t)
+	stari := c.racun(t, "pperic", service.StaraPocetnaLozinka, true)
+	c.racun(t, "ana", "anina-lozinka", true)
+	c.racun(t, "umirovljen", service.StaraPocetnaLozinka, false)
+
+	u, err := c.auth.ProvjeriPrijavu("pperic", service.StaraPocetnaLozinka)
+	if !errors.Is(err, service.ErrStaraLozinka) || u == nil || u.ID != stari.ID {
+		t.Errorf("stara lozinka: %v, %v", u, err)
+	}
+	if s, _, err := c.auth.Login("pperic", service.StaraPocetnaLozinka, "192.168.1.50", "test"); s != nil || !errors.Is(err, service.ErrStaraLozinka) {
+		t.Errorf("Login sa starom lozinkom: %v, %v", s, err)
+	}
+	if !c.auth.ImaStaruLozinku(stari.PasswordHash) {
+		t.Error("sažetak stare lozinke nije prepoznat")
+	}
+	if u, err := c.auth.ProvjeriPrijavu("ana", "anina-lozinka"); err != nil || u == nil {
+		t.Errorf("obična lozinka: %v, %v", u, err)
+	} else if c.auth.ImaStaruLozinku(u.PasswordHash) {
+		t.Error("obična lozinka prepoznata kao stara")
+	}
+	if _, err := c.auth.ProvjeriPrijavu("ana", service.StaraPocetnaLozinka); !errors.Is(err, service.ErrInvalidCredentials) {
+		t.Errorf("stara lozinka na tuđem računu: %v", err)
+	}
+	if _, err := c.auth.ProvjeriPrijavu("umirovljen", service.StaraPocetnaLozinka); !errors.Is(err, service.ErrAccountInactive) {
+		t.Errorf("isključen račun sa starom lozinkom: %v", err)
+	}
+}
+
 // Nepostojeće ime mora proći istu provjeru sažetka kao postojeće, inače se
 // iz vremena odgovora vidi tko ima račun. bcrypt traje desetke milisekundi,
 // a odgovor bez njega djelić milisekunde, pa je trećina sigurna granica.
@@ -205,5 +237,51 @@ func TestKrivaLozinkaPotpisnogKljuca(t *testing.T) {
 	}
 	if _, err := ps.Potpisnik(ctx, ana, "anina-lozinka"); err != nil {
 		t.Errorf("otključavanje točnom lozinkom: %v", err)
+	}
+}
+
+// Prijava otvorena prije nadogradnje sa starom zajedničkom lozinkom: ta
+// lozinka ne potvrđuje ni promjenu lozinke ni druge radnje uz ponovni upis
+// lozinke, a uz provjeru zaključanih sažetaka sesija prestaje pri prvom
+// zahtjevu. Privremena lozinka od administratora vrijedi kao i dosad.
+func TestStaraLozinkaNeVrijediUOtvorenojPrijavi(t *testing.T) {
+	c := noviCvorPrijave(t)
+	stari := c.racun(t, "pperic", service.StaraPocetnaLozinka, true)
+	ana := c.racun(t, "ana", "privremena-123", true)
+
+	if c.auth.CheckPassword(stari.PasswordHash, service.StaraPocetnaLozinka) {
+		t.Error("stara lozinka prošla provjeru lozinke")
+	}
+	if err := c.auth.ProvjeriLozinku(stari.ID, service.StaraPocetnaLozinka); !errors.Is(err, service.ErrKrivaLozinka) {
+		t.Errorf("ponovni upis stare lozinke: %v", err)
+	}
+	if err := c.auth.ChangePassword(stari.ID, service.StaraPocetnaLozinka, "moja-nova-lozinka", uuid.Nil); !errors.Is(err, service.ErrKrivaLozinka) {
+		t.Errorf("promjena lozinke uz staru lozinku: %v", err)
+	}
+	if err := c.auth.ProvjeriLozinku(ana.ID, "privremena-123"); err != nil {
+		t.Errorf("privremena lozinka: %v", err)
+	}
+
+	staraSesija, err := c.auth.OtvoriSesiju(stari, "192.168.1.50", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	aninaSesija, err := c.auth.OtvoriSesiju(ana, "192.168.1.51", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// bez provjere zaključanih sažetaka sesija vrijedi kao i dosad
+	if _, _, err := c.auth.AuthenticateSession(staraSesija.ID); err != nil {
+		t.Fatalf("sesija bez provjere: %v", err)
+	}
+	c.auth.SetZakljucanaLozinka(func(h string) bool { return h == stari.PasswordHash })
+	if _, _, err := c.auth.AuthenticateSession(staraSesija.ID); !errors.Is(err, service.ErrSessionExpired) {
+		t.Errorf("sesija računa sa starom lozinkom: %v", err)
+	}
+	if s, err := c.sessions.GetSession(staraSesija.ID); err != nil || s != nil {
+		t.Errorf("sesija računa sa starom lozinkom nije obrisana: %v %v", s, err)
+	}
+	if _, err := c.auth.AuthenticateSessionView(aninaSesija.ID); err != nil {
+		t.Errorf("sesija s privremenom lozinkom: %v", err)
 	}
 }

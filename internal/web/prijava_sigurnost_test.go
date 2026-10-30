@@ -170,32 +170,62 @@ func TestKolacicSesijeLokalnoIKrozTunel(t *testing.T) {
 	}
 }
 
-// Račun iz starijeg izdanja koji još ima zajedničku početnu lozinku: prva
-// prijava njome kroz tunel se odbija, iz lokalne mreže prolazi. Privremena
-// lozinka od administratora vrijedi i izvana.
-func TestZadanaLozinkaKrozTunelSeOdbija(t *testing.T) {
+// Račun iz starijeg izdanja koji još ima staru zajedničku lozinku ne
+// prijavljuje se ni s jedne adrese (Odluke (30. 10. 2026.)): ni kroz tunel,
+// ni iz lokalne mreže, ni s ovog računala. Račun se zabilježi za
+// administratora, a pokušaj se ne broji kao pogađanje. Privremena lozinka
+// od administratora vrijedi i izvana.
+func TestStaraLozinkaSeOdbijaSvagdje(t *testing.T) {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", staraPocetnaLozinka, true, true)
+	o.authH.stareLozinke = &stareLozinke{}
+	stari := o.racun("admin", staraPocetnaLozinka, true, true)
 	o.racun("ana", "nasip-vrba-most-472", false, true)
 
-	w := o.prijava(krozTunel("198.51.100.7"), "admin", staraPocetnaLozinka)
-	if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaZadaneLozinke) || kolacicSesije(w) != nil {
-		t.Errorf("zadana lozinka kroz tunel: %d %q, kolačić %v", w.Code, w.Body.String(), kolacicSesije(w))
+	for ime, porijeklo := range map[string]func(*http.Request) *http.Request{
+		"kroz tunel": krozTunel("198.51.100.7"), "s javne adrese": javnoIzravno, "iz lokalne mreže": izravno, "s ovog računala": lokalno,
+	} {
+		w := o.prijava(porijeklo, "admin", staraPocetnaLozinka)
+		if w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaStareLozinke) || kolacicSesije(w) != nil {
+			t.Errorf("stara lozinka %s: %d %q, kolačić %v", ime, w.Code, w.Body.String(), kolacicSesije(w))
+		}
+	}
+	if n := o.authH.stareLozinke.medju([]models.User{*stari}); len(n) != 1 {
+		t.Errorf("račun sa starom lozinkom nije zabilježen: %v", n)
+	}
+	// točna stara lozinka nije pogađanje: ni nakon više pokušaja nema granice
+	for i := 0; i < 6; i++ {
+		if w := o.prijava(izravno, "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaStareLozinke) {
+			t.Fatalf("%d. pokušaj: %d %q", i+1, w.Code, w.Body.String())
+		}
 	}
 
-	w = o.prijava(krozTunel("198.51.100.7"), "ana", "nasip-vrba-most-472")
+	w := o.prijava(krozTunel("198.51.100.7"), "ana", "nasip-vrba-most-472")
 	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
 		t.Errorf("privremena lozinka kroz tunel mora proći na promjenu lozinke: %d %q", w.Code, w.Header().Get("Location"))
 	}
-
-	w = o.prijava(javnoIzravno, "admin", staraPocetnaLozinka)
-	if w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
-		t.Errorf("zadana lozinka s javne adrese bez posrednika: %d, kolačić %v", w.Code, kolacicSesije(w))
+	// kriva lozinka istog računa ostaje obična greška
+	if w := o.prijava(izravno, "admin", "nije-ta-lozinka"); strings.Contains(w.Body.String(), porukaStareLozinke) || kolacicSesije(w) != nil {
+		t.Errorf("kriva lozinka: %d %q", w.Code, w.Body.String())
 	}
+}
 
-	w = o.prijava(izravno, "admin", staraPocetnaLozinka)
-	if w.Code != http.StatusSeeOther || kolacicSesije(w) == nil || !strings.HasPrefix(w.Header().Get("Location"), "/profile?force=1") {
-		t.Errorf("zadana lozinka iz lokalne mreže mora proći: %d %q", w.Code, w.Body.String())
+// Pokušaji starom lozinkom ne broje se za ime, ali se broje za adresu: s
+// jedne adrese ne može se bez granice tražiti koji računi je još imaju, a
+// s druge adrese ista osoba dobije istu poruku
+func TestStaraLozinkaBrojiAdresu(t *testing.T) {
+	o := novaOkolinaPrijave(t)
+	o.racun("admin", staraPocetnaLozinka, true, true)
+	trazi := krozTunel("203.0.113.66")
+	for i := 0; i < 20; i++ {
+		if w := o.prijava(trazi, "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden {
+			t.Fatalf("%d. pokušaj: %d", i+1, w.Code)
+		}
+	}
+	if w := o.prijava(trazi, "admin", staraPocetnaLozinka); w.Code != http.StatusTooManyRequests {
+		t.Errorf("nakon 20 pokušaja s iste adrese: %d", w.Code)
+	}
+	if w := o.prijava(krozTunel("198.51.100.7"), "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden || !strings.Contains(w.Body.String(), porukaStareLozinke) {
+		t.Errorf("s druge adrese: %d %q", w.Code, w.Body.String())
 	}
 }
 
@@ -401,7 +431,7 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	}
 
 	admin := o.racun("sef", "sefova-lozinka", true, false)
-	o.racun("zadani", staraPocetnaLozinka, true, true)
+	o.racun("zadani", "privremena-lozinka-1", true, true)
 	ana := o.racun("ana", "anina-lozinka", false, false)
 	o.racuna = 4
 	o.pair.nijeSvjez.Store(false)
@@ -413,8 +443,8 @@ func TestUparivanjeSamoAdministratoruIliLokalnoSvjezem(t *testing.T) {
 	if code, _ := o.zahtjev(izravno, o.sesija("ana", "anina-lozinka"), api); code != http.StatusForbidden {
 		t.Errorf("djelatnik koji nije administrator: %d", code)
 	}
-	if code, _ := o.zahtjev(izravno, o.sesija("zadani", staraPocetnaLozinka), api); code != http.StatusForbidden {
-		t.Errorf("administrator sa zadanom lozinkom: %d", code)
+	if code, _ := o.zahtjev(izravno, o.sesija("zadani", "privremena-lozinka-1"), api); code != http.StatusForbidden {
+		t.Errorf("administrator s privremenom lozinkom: %d", code)
 	}
 	sef := o.sesija("sef", "sefova-lozinka")
 	if code, ov := o.zahtjev(tunel, sef, api); code != http.StatusOK || ov == nil || ov.korisnik == nil || ov.korisnik.ID != admin.ID {
