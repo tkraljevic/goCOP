@@ -6,6 +6,9 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
 
 ## 0.0.47-alfa — u pripremi
 
+- **Izvođač ne ulazi u IORS ni u obračun sati.** Izvođača koji dežura
+  plaća njegova firma, a ne Hrvatske vode, pa njegova dežurstva ne ulaze u
+  obračun sati centra, a on svoj IORS više ne otvara.
 - **Vraćanje na starije izdanje iz ikone u traci.** Postava postavlja
   starije izdanje, najstarije 0.0.37-alfa, samo kad ga globalni
   administrator dopusti na stranici Ovo računalo i mreža, s računala s
@@ -16,6 +19,23 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   budućnosti, stranica to kaže i nudi njihovo brisanje. Briše samo globalni
   administrator, s ovog računala ili iz lokalne mreže; dnevnik programa
   zapiše tko je to napravio i odakle, a zapisi se zatim obnove iz knjige.
+- **Stara .db arhiva, paketi letve i novi sliv.** Računalo koje još nije u
+  mreži ne uvozi staru .db arhivu, jer ona nema potpis, ni paket letve
+  drugog računala; poruka kaže da računalo najprije treba primiti u mrežu.
+  Vlastiti .cop paket i paket letve ugrađuje i dalje. Novi sliv u arhivi
+  uvozom otvara samo globalni administrator, a ostali novu letvu uvoze u
+  sliv koji već postoji (Odluke (30. 10. 2026.)).
+- **Izvješće dionice kad autor više ne vodi dionicu.** Predano izvješće
+  mijenja onaj tko ga je izradio. Kad on više nije rukovoditelj ni zamjenik
+  te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik dionice
+- **Izvana: više radnji traži lozinku vašeg računa.** Kroz tunel ili s
+  javne adrese lozinku vlastitog računa sad traže i osnivanje mreže,
+  zaborav čvora, obnova članstva, adrese i oznaka „stalno izložen”, svaka
+  potvrda uparivanja, kod za prijavu izvana i potvrda adrese za PIN. Isto
+  vrijedi za novog globalnog administratora, davanje i oduzimanje tog prava
+  oznakom ili dužnošću uprave organizacije, te za lozinku, uključenost i
+  brisanje računa koji to pravo ima. Iz lokalne mreže lozinka ne treba
+  (Odluke (30. 10. 2026.)).
 - **Promjene prava s drugog računala čekaju potvrdu.** Promjena zastavice,
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni
@@ -38,6 +58,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   (stranica Postavljanje › privremene lozinke) i preda ljudima, a lozinka se
   mijenja pri prvoj prijavi. Popis koji nitko nije preuzeo sljedeće
   pokretanje složi iznova. U bazi je samo sažetak (Odluke (30. 10. 2026.)).
+- **Početne lozinke: popis vrijedi 24 sata, a stara zajednička lozinka više
+  ne otvara račun.** Popis privremenih lozinki koji nitko ne preuzme u 24
+  sata od prvog punjenja program briše, uz redak u dnevniku; lozinke se tada
+  daju poništenjem. Račun koji još ima staru zajedničku lozinku ne
+  prijavljuje se ni iz ureda dok mu administrator ne poništi lozinku, a
+  njegova već otvorena prijava prestaje. Globalni administrator takve
+  račune vidi na stranici Djelatnici (Odluke (30. 10. 2026.)).
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.
@@ -81,6 +108,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dužnost u njemu (Odluke (30. 10. 2026.)). Poslovođa izvođača ne ulazi u
   plan, vrsta dnevnika usluge ne mijenja se nakon otvaranja, a svaka strana
   list potvrđuje jednom.
+- **Dnevnici: nadzor bez ovlaštenika, plan po sektoru, predaja smjene
+  izvođača.** Dok za program na području nema ovlaštenika za praćenje
+  ugovora, nadzor u dnevniku usluge rade uprava područja i uprava sektora;
+  čim ovlaštenik postoji, samo on. Plan dežurstava i dežurstva u Excel
+  izvozu dnevnika COP-a vide sektor centra, uprava organizacije i globalni
+  administrator. U dnevniku COP-a izvođač je samo tko danas ima dužnost
+  poslovođe, a njegovu smjenu predaje uprava centra; ta smjena ne ulazi u
+  plan ni u obračun sati (Odluke (30. 10. 2026.)).
 - **Provjere prava: izvješća dionica, dnevni listovi, ugovori i moduli.**
   Dnevno izvješće dionice pišu i predaju samo rukovoditelj dionice i
   zamjenik; uprava ga čita i briše. Dnevni list ovjerava rukovoditelj
@@ -97,6 +132,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zna, i kad je članu članstvo već isteklo. Program opoziv provjerava i u
   knjizi primljenih zapisa, ne samo u popisu opoziva. U popis opoziva
   ulazi samo opoziv čija oznaka odgovara sadržaju i potpisu.
+- **Opozivi i ovlasti za primanje: vrijeme i prikaz.** Opoziv ključem
+  mreže vrijedi i za članstvo izdano na drugom računalu, a ponovni prijem i
+  nova ovlast nakon opoziva vrijede odmah. Članovi i ovlasti prikazuju se
+  iz tablice i knjige, opozvana ovlast se više ne prikazuje, a računalo s
+  ključem mreže upozori kad primatelj opozove člana s ovlašću (Odluke
+  (30. 10. 2026.)).
 - **Razgovor razmjene: ograde onoga što stiže s drugog računala.** Svaka
   vrsta poruke ima svoju najveću veličinu, a verzija koja se ne bi dala
   poslati dalje ne prima se. Od onoga što drugo računalo javi pamti se
@@ -239,6 +280,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   localhost, upisanu javnu adresu i imena iz `[web] lokalna_imena` sve radi
   kao prije. Pod Postavom početna lozinka vrijedi samo na
   `http://localhost`.
+- **Dnevnik COP-a: ovjera ostaje kad stigne zapis s drugog računala.**
+  Zapis upisan na drugom računalu nakon ovjere ostaje u dnevniku i u izvozu
+  u Excel s oznakom „nastao nakon ovjere” i vremenom upisa; ispravljen ili
+  storniran zapis dobije oznaku „izmijenjen” ili „storniran nakon ovjere”.
+  Izmjena zaglavlja ni brisanje dnevnika s računala koje ovjeru još nije
+  primilo ne skidaju ovjeru ni zapise i plan dežurstava (Odluke
+  (30. 10. 2026.)).
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

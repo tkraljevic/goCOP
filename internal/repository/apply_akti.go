@@ -29,15 +29,27 @@ var primjeneAkata = map[string]primjena{
 // donese v, i javlja treba li je primijeniti. Za većinu zapisa to je
 // zadnja verzija u knjizi, i to samo kad je v ta zadnja: starija verzija
 // koja stigne zaobilazno ne vraća površinu unatrag. Iznimke su akt
-// (aktNaPovrsini) i opoziv (opozivZaPovrsinu). Verzija koja u sadržaju
-// nosi drugu oznaku zapisa ne broji se (istaOznaka).
+// (aktNaPovrsini), dnevnik (dnevnikNaPovrsini), upis, list i dežurstvo
+// ovjerenog dnevnika (dijeteDnevnikaZaPovrsinu) i opoziv
+// (opozivZaPovrsinu). Verzija koja u sadržaju nosi drugu oznaku zapisa ne
+// broji se (istaOznaka).
 func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
 	switch v.Entity {
 	case EntityAkti:
-		return aktZaPovrsinu(ctx, rec, v)
+		return izPovijesti(ctx, rec, v, aktNaPovrsini)
+	case EntityJournals:
+		return izPovijesti(ctx, rec, v, dnevnikNaPovrsini)
+	case EntityJournalEntries, EntityJournalSheets, EntityDezurstva:
+		return dijeteDnevnikaZaPovrsinu(ctx, rec, v)
 	case entitetOpozivi:
 		return opozivZaPovrsinu(ctx, rec, v)
 	}
+	return zadnjaZaPovrsinu(ctx, rec, v)
+}
+
+// zadnjaZaPovrsinu je pravilo zadnje verzije: na površinu ide v kad je
+// zadnja u knjizi, a kad zadnja nosi drugu oznaku, zadnja koja nosi pravu
+func zadnjaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
 	top, err := rec.Latest(ctx, v.Entity, v.EntityID)
 	if err != nil {
 		return v, false, err
@@ -51,12 +63,13 @@ func verzijaZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Versi
 	return v, primjenjujeSe(top, v), nil
 }
 
-// aktZaPovrsinu je verzija akta koja ide na površinu kad razmjena donese
-// bilo koju njegovu verziju. Primjena je ista kad je površina već njezina,
-// pa se primjenjuje uvijek: tako i starija verzija, ovjera s drugog čvora,
-// dođe na površinu kad je u knjizi poslije nje nacrt. Bira se samo među
-// verzijama koje u sadržaju nose oznaku akta.
-func aktZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
+// izPovijesti je verzija akta ili dnevnika koja ide na površinu kad
+// razmjena donese bilo koju njegovu verziju: izbor je bira iz povijesti
+// zapisa, od najnovije prema najstarijoj. Primjena je ista kad je površina
+// već njezina, pa se primjenjuje uvijek: tako i starija verzija, ovjera s
+// drugog čvora, dođe na površinu kad je u knjizi poslije nje neovjerena.
+// Bira se samo među verzijama koje u sadržaju nose oznaku zapisa.
+func izPovijesti(ctx context.Context, rec *ledger.Recorder, v ledger.Version, izbor func([]ledger.Version) ledger.Version) (ledger.Version, bool, error) {
 	povijest, err := rec.History(ctx, v.Entity, v.EntityID)
 	if err == nil && len(povijest) == 0 {
 		err = ledger.ErrNoVersion
@@ -68,7 +81,7 @@ func aktZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) 
 	if povijest = sIstomOznakom(povijest); len(povijest) == 0 {
 		return v, false, nil
 	}
-	return aktNaPovrsini(povijest), true, nil
+	return izbor(povijest), true, nil
 }
 
 // aktNaPovrsini je verzija akta koja stoji na površini, iz povijesti od
@@ -81,8 +94,14 @@ func aktZaPovrsinu(ctx context.Context, rec *ledger.Recorder, v ledger.Version) 
 // Pravilo drže čvorovi od 0.0.35; čvor na 0.0.34 i dalje pokazuje
 // najnoviju verziju, dok se ne nadogradi (površina se tada obnovi iz knjige).
 func aktNaPovrsini(povijest []ledger.Version) ledger.Version {
+	return najnovijaOvjerena(povijest, verzijaOvjerenogAkta)
+}
+
+// najnovijaOvjerena je iz povijesti od najnovije prema najstarijoj prva
+// verzija koja nosi ovjeru, i brisanje kad ga nosi; bez takve, najnovija
+func najnovijaOvjerena(povijest []ledger.Version, ovjerena func(ledger.Version) bool) ledger.Version {
 	for _, x := range povijest {
-		if verzijaOvjerenogAkta(x) {
+		if ovjerena(x) {
 			return x
 		}
 	}

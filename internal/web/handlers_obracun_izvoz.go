@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/http"
 	"sort"
@@ -796,7 +797,7 @@ func (h *JournalsHandler) IzvoziDnevnik(w http.ResponseWriter, r *http.Request) 
 		zapisi = samo
 	}
 	z := h.ZaglavljeIzvozaDnevnika(j)
-	dezurstva, _ := h.journals.Dezurstva(r.Context(), j.ID)
+	dezurstva := h.dezurstvaKojaVidi(r.Context(), data, j)
 	knjiga := KnjigaDnevnika(j, zapisi, dezurstva, z, nazivi, nazivi[podrucje])
 	ime := "Dnevnik_COP_" + service.OznakaIzNaziva(z.Centar) + "_" + strconv.Itoa(j.Year)
 	if j.StartedAt != nil {
@@ -806,6 +807,33 @@ func (h *JournalsHandler) IzvoziDnevnik(w http.ResponseWriter, r *http.Request) 
 		ime += "_" + service.OznakaIzNaziva(nazivi[podrucje])
 	}
 	posaljiXLSX(w, ime+".xlsx", knjiga)
+}
+
+// dezurstvaKojaVidi su dežurstva plana dnevnika COP-a j za osobu koja plan
+// smije vidjeti (JournalService.VidiPlanDezurstava); ostalima nijedno, pa
+// izvoz i dnevnik COP-a nemaju sate iz plana. Plan koji se ne da pročitati
+// izvozi se prazan.
+func (h *JournalsHandler) dezurstvaKojaVidi(ctx context.Context, data JournalPageData, j *models.Journal) []models.Dezurstvo {
+	if !h.journals.VidiPlanDezurstava(data.Permissions, data.Opseg, j) {
+		return nil
+	}
+	dezurstva, _ := h.journals.Dezurstva(ctx, j.ID) // bez plana izvoz ostaje bez dežurstava
+	return dezurstva
+}
+
+// napomenaOvjere je napomena uz zapis ovjerenog dnevnika koji je nastao,
+// izmijenjen ili storniran nakon ovjere, kao oznaka na stranici dnevnika
+// (Odluke (30. 10. 2026.)); prazna za ostale zapise
+func napomenaOvjere(j *models.Journal, e models.JournalEntry) string {
+	switch {
+	case j.ZapisNakonOvjere(e):
+		return "\n[nastao nakon ovjere, upisan " + e.CreatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	case j.ZapisIzmijenjenNakonOvjere(e) && e.Voided:
+		return "\n[storniran nakon ovjere, " + e.UpdatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	case j.ZapisIzmijenjenNakonOvjere(e):
+		return "\n[izmijenjen nakon ovjere, " + e.UpdatedAt.In(models.Zagreb).Format("2.1.2006. 15:04") + "]"
+	}
+	return ""
 }
 
 // KnjigaDnevnika slaže dnevnik COP-a kao jedan list: zaglavlje, osnovno o
@@ -916,6 +944,7 @@ func KnjigaDnevnika(j *models.Journal, zapisi []models.JournalEntry, dezurstva [
 			}
 			tekst += "]"
 		}
+		tekst += napomenaOvjere(j, e)
 		upisaoIme := e.UserName
 		if upisaoIme == "" {
 			upisaoIme = e.UpisaoPoDezurstvu

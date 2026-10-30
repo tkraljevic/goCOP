@@ -422,3 +422,76 @@ func TestClanstvoNeTrajeDuljeOdOvlasti(t *testing.T) {
 		t.Errorf("članstvo do isteka ovlasti: %v", err)
 	}
 }
+
+// OvlastiOd potpisuje ovlast sa zadanim trenutkom izdavanja, na sekundu i u
+// UTC-u; rok se računa od tog trenutka, a bez privatnog ključa mreže nema
+// ovlasti
+func TestOvlastiOdZadanogTrenutka(t *testing.T) {
+	mreza, err := NewNetwork("Probna")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ured := kljuc(t)
+	od := time.Date(2026, 10, 30, 14, 0, 5, 700_000_000, time.FixedZone("CET", 3600))
+	o, err := mreza.OvlastiOd("ured", ured.Public().(ed25519.PublicKey), "cop", od, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 10, 30, 13, 0, 5, 0, time.UTC); !o.IssuedAt.Equal(want) || o.IssuedAt.Location() != time.UTC || !o.ExpiresAt.Equal(want.Add(time.Hour)) {
+		t.Errorf("izdano %v, ističe %v", o.IssuedAt, o.ExpiresAt)
+	}
+	if err := o.Verify(mreza.Public, o.IssuedAt); err != nil {
+		t.Errorf("ovlast od zadanog trenutka: %v", err)
+	}
+	if err := o.Verify(mreza.Public, o.IssuedAt.Add(-time.Second)); !errors.Is(err, ErrOvlast) {
+		t.Errorf("ovlast prije zadanog trenutka: %v", err)
+	}
+	if _, err := PublicNetwork("Probna", mreza.Public).OvlastiOd("x", ured.Public().(ed25519.PublicKey), "cop", od, time.Hour); err == nil {
+		t.Error("ovlast bez privatnog ključa mreže")
+	}
+}
+
+// Članstvo od zadanog trenutka: ključem mreže na sekundu u UTC-u, a
+// primatelj samo dok mu ovlast u tom trenutku vrijedi
+func TestAdmitOdZadanogTrenutka(t *testing.T) {
+	mreza, err := NewNetwork("Probna")
+	if err != nil {
+		t.Fatal(err)
+	}
+	laptop := kljuc(t).Public().(ed25519.PublicKey)
+	od := time.Now().Add(10*time.Second + 700*time.Millisecond)
+	m, err := mreza.AdmitOd("laptop", laptop, "cop", od, time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := od.UTC().Truncate(time.Second); !m.IssuedAt.Equal(want) || m.IssuedAt.Location() != time.UTC || !m.ExpiresAt.Equal(want.Add(time.Hour)) {
+		t.Errorf("izdano %v, ističe %v", m.IssuedAt, m.ExpiresAt)
+	}
+	if err := m.Verify(mreza.Public, laptop, time.Now()); err != nil {
+		t.Errorf("članstvo od zadanog trenutka: %v", err)
+	}
+	if _, err := PublicNetwork("Probna", mreza.Public).AdmitOd("x", laptop, "cop", od, time.Hour); err == nil {
+		t.Error("članstvo bez privatnog ključa mreže")
+	}
+
+	ured := kljuc(t)
+	o, err := mreza.Ovlasti("ured", ured.Public().(ed25519.PublicKey), "cop", 2*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err = AdmitAsOd(ured, o, "laptop", laptop, od, 24*time.Hour)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !m.IssuedAt.Equal(od.UTC().Truncate(time.Second)) || !m.ExpiresAt.Equal(o.ExpiresAt) {
+		t.Errorf("primatelj: izdano %v, ističe %v", m.IssuedAt, m.ExpiresAt)
+	}
+	if err := m.Verify(mreza.Public, laptop, time.Now()); err != nil {
+		t.Errorf("primatelj: članstvo od zadanog trenutka: %v", err)
+	}
+	for _, izvan := range []time.Time{o.IssuedAt.Add(-time.Second), o.ExpiresAt.Add(time.Second)} {
+		if _, err := AdmitAsOd(ured, o, "laptop", laptop, izvan, time.Hour); err == nil {
+			t.Errorf("primatelj: članstvo od %v, izvan ovlasti", izvan)
+		}
+	}
+}

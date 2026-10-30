@@ -152,6 +152,23 @@ func (j Journal) NetkoDezura() bool { return j.DezurniID != "" && j.DezurniOd !=
 
 func (j Journal) Ovjeren() bool { return j.ZakljucenoAt != nil }
 
+// ZapisNakonOvjere javlja je li zapis upisan nakon ovjere dnevnika. Ovjeren
+// dnevnik novi zapis ne prima, pa takav zapis najčešće stigne s računala koje
+// ovjeru još nije imalo. Ostaje u dnevniku i prikazuje se s oznakom, a ovjera
+// ostaje (Odluke (30. 10. 2026.)). Vrijeme upisa daje sat računala na kojem
+// je zapis nastao.
+func (j Journal) ZapisNakonOvjere(e JournalEntry) bool {
+	return j.ZakljucenoAt != nil && e.CreatedAt.After(*j.ZakljucenoAt)
+}
+
+// ZapisIzmijenjenNakonOvjere javlja je li zapis koji je postojao prije ovjere
+// izmijenjen ili storniran nakon nje. Ovjeren dnevnik ni to ne prima, pa i
+// takva izmjena stiže s računala koje ovjeru još nije imalo; prikazuje se s
+// oznakom, kao novi zapis.
+func (j Journal) ZapisIzmijenjenNakonOvjere(e JournalEntry) bool {
+	return j.ZakljucenoAt != nil && !j.ZapisNakonOvjere(e) && e.UpdatedAt.After(*j.ZakljucenoAt)
+}
+
 // IsDefense govori vodi li se dnevnik po dionici dok traju mjere obrane
 // SmijePrepravakZapisa javlja smije li se tekst zapisa mijenjati na mjestu.
 //

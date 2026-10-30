@@ -21,7 +21,13 @@ import (
 // nasumičnu privremenu lozinku; u bazu ide samo njezin sažetak, a čitljiv
 // popis program drži u memoriji dok ga globalni administrator jednom ne
 // preuzme (web/handlers_pocetne_lozinke.go) i ne preda ljudima. Osoba je
-// mijenja pri prvoj prijavi (must_change_password).
+// mijenja pri prvoj prijavi (must_change_password). Popis vrijedi 24 sata
+// od prvog punjenja (Odluke (30. 10. 2026.)); nakon toga se briše, a
+// lozinke se daju poništenjem.
+
+// RokPopisaLozinki je koliko popis privremenih lozinki vrijedi od prvog
+// punjenja
+const RokPopisaLozinki = 24 * time.Hour
 
 // PocetnaLozinka je privremena lozinka jednog računa iz prvog punjenja
 type PocetnaLozinka struct {
@@ -211,7 +217,7 @@ func upisiRacune(database *sql.DB, users []seedUser, sazeci []string, dodajAdmin
 	}
 	adminUpisan := dodajAdmina && upisiAdmina(insertUserStmt, insertDutyStmt, sazeci[len(users)], now)
 	if len(users) > 0 {
-		if err := zapamtiCekanje(tx, users, sazeci, adminUpisan); err != nil {
+		if err := zapamtiCekanje(tx, users, sazeci, adminUpisan, now); err != nil {
 			return false, err
 		}
 	}
@@ -228,15 +234,16 @@ func upisiAdmina(insertUserStmt, insertDutyStmt *sql.Stmt, sazetak string, now t
 	return true
 }
 
-// zapamtiCekanje upisuje račune čiji popis lozinki čeka preuzimanje
-func zapamtiCekanje(tx *sql.Tx, users []seedUser, sazeci []string, adminUpisan bool) error {
+// zapamtiCekanje upisuje račune čiji popis lozinki čeka preuzimanje, s
+// vremenom punjenja od kojega teče rok popisa
+func zapamtiCekanje(tx *sql.Tx, users []seedUser, sazeci []string, adminUpisan bool, napunjeno time.Time) error {
 	racuni := users
 	if adminUpisan {
 		racuni = append(append([]seedUser(nil), users...), racunAdmin)
 	}
 	for i, u := range racuni {
-		if _, err := tx.Exec(`INSERT INTO pocetne_lozinke_cekaju (user_id, password_hash) VALUES (?, ?)`,
-			StableID("user", u.Username).String(), sazeci[i]); err != nil {
+		if _, err := tx.Exec(`INSERT INTO pocetne_lozinke_cekaju (user_id, password_hash, napunjeno) VALUES (?, ?, ?)`,
+			StableID("user", u.Username).String(), sazeci[i], napunjeno); err != nil {
 			return err
 		}
 	}
@@ -347,13 +354,18 @@ func netaknutiRacuni(database *sql.DB) ([]racunNaCekanju, error) {
 
 // zamijeniLozinke upisuje nove sažetke u jednoj transakciji, pri otvaranju
 // baze, prije poslužitelja i razmjene. Popis na čekanju nakon toga nosi samo
-// nove sažetke.
+// nove sažetke, a vrijeme prvog punjenja ostaje, pa nov popis ne produljuje
+// rok.
 func zamijeniLozinke(database *sql.DB, racuni []racunNaCekanju, sazeci []string) error {
 	tx, err := database.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback() // nakon Commita ne radi ništa; prije njega poništava upis
+	napunjeno, err := prvoPunjenje(tx)
+	if err != nil {
+		return err
+	}
 	if _, err := tx.Exec(`DELETE FROM pocetne_lozinke_cekaju`); err != nil {
 		return err
 	}
@@ -362,9 +374,73 @@ func zamijeniLozinke(database *sql.DB, racuni []racunNaCekanju, sazeci []string)
 			sazeci[i], r.id, r.sazetak); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`INSERT INTO pocetne_lozinke_cekaju (user_id, password_hash) VALUES (?, ?)`, r.id, sazeci[i]); err != nil {
+		if _, err := tx.Exec(`INSERT INTO pocetne_lozinke_cekaju (user_id, password_hash, napunjeno) VALUES (?, ?, ?)`,
+			r.id, sazeci[i], sql.NullTime{Time: napunjeno, Valid: !napunjeno.IsZero()}); err != nil {
 			return err
 		}
 	}
 	return tx.Commit()
+}
+
+// citac je baza ili transakcija, za upit s jednim retkom
+type citac interface {
+	QueryRow(query string, args ...any) *sql.Row
+}
+
+// prvoPunjenje je vrijeme prvog punjenja popisa na čekanju; bez popisa (ili
+// bez zapisanog vremena) nulto vrijeme
+func prvoPunjenje(q citac) (time.Time, error) {
+	var t sql.NullTime
+	err := q.QueryRow(`SELECT napunjeno FROM pocetne_lozinke_cekaju
+		WHERE napunjeno IS NOT NULL ORDER BY napunjeno LIMIT 1`).Scan(&t)
+	if errors.Is(err, sql.ErrNoRows) {
+		return time.Time{}, nil
+	}
+	return t.Time, err
+}
+
+// RokPocetnihLozinki je trenutak do kojega se popis na čekanju smije
+// preuzeti: RokPopisaLozinki nakon prvog punjenja. Bez popisa vraća nulto
+// vrijeme.
+func RokPocetnihLozinki(database *sql.DB) (time.Time, error) {
+	t, err := prvoPunjenje(database)
+	if err != nil || t.IsZero() {
+		return time.Time{}, err
+	}
+	return t.Add(RokPopisaLozinki), nil
+}
+
+// IstekniPocetneLozinke briše popis na čekanju kojemu je u trenutku sada
+// prošao rok, uz redak u dnevniku, i javlja je li ga obrisala. Zove se pri
+// pokretanju, prije ObnoviPocetneLozinke: istekao popis se ne slaže iznova.
+// Popis iz ranijeg izdanja, bez vremena punjenja, dobije ga iz vremena upisa
+// računa (dopuniVrijemePunjenja).
+func IstekniPocetneLozinke(database *sql.DB, sada time.Time) (bool, error) {
+	if err := dopuniVrijemePunjenja(database, sada); err != nil {
+		return false, err
+	}
+	rok, err := RokPocetnihLozinki(database)
+	if err != nil || rok.IsZero() || sada.Before(rok) {
+		return false, err
+	}
+	if err := PocetneLozinkePreuzete(database); err != nil {
+		return false, err
+	}
+	log.Printf("Postavljanje: popis privremenih lozinki iz imenika nitko nije preuzeo do %s (24 sata od prvog punjenja), pa je obrisan; lozinke se sad daju poništenjem",
+		rok.Local().Format("02.01.2006. 15:04"))
+	return true, nil
+}
+
+// dopuniVrijemePunjenja upisuje vrijeme punjenja popisu iz ranijeg izdanja,
+// koji ga nema: to je vrijeme upisa računa (users.created_at), jer se računi
+// iz imenika upisuju pri punjenju, pa takav star popis istječe čim prođe 24
+// sata od tada. Redak bez računa dobije sada.
+func dopuniVrijemePunjenja(database *sql.DB, sada time.Time) error {
+	if _, err := database.Exec(`UPDATE pocetne_lozinke_cekaju SET napunjeno =
+		(SELECT u.created_at FROM users u WHERE u.id = pocetne_lozinke_cekaju.user_id)
+		WHERE napunjeno IS NULL`); err != nil {
+		return err
+	}
+	_, err := database.Exec(`UPDATE pocetne_lozinke_cekaju SET napunjeno = ? WHERE napunjeno IS NULL`, sada.UTC())
+	return err
 }

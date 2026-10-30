@@ -19,6 +19,10 @@ import (
 	"gocop/internal/service"
 )
 
+// lozinkaPocetnogAdmina je lozinka početnog računa admin u testu; na
+// pravom čvoru nju nitko ne zna
+const lozinkaPocetnogAdmina = "nasumicna-lozinka-admina"
+
 // okolinaPostavljanja je svjež čvor: samo početni račun admin
 type okolinaPostavljanja struct {
 	*okolinaPrijave
@@ -28,7 +32,7 @@ type okolinaPostavljanja struct {
 
 func novaOkolinaPostavljanja(t *testing.T) *okolinaPostavljanja {
 	o := novaOkolinaPrijave(t)
-	o.racun("admin", staraPocetnaLozinka, true, true)
+	o.racun("admin", lozinkaPocetnogAdmina, true, true)
 	dbPath := filepath.Join(t.TempDir(), "cvor.db")
 	cvor, err := peers.LoadNode(dbPath, "pperic-thinkpad", "ThinkPad", "test")
 	if err != nil {
@@ -166,7 +170,7 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	if n := o.mreza.NetworkInfo(); n == nil || !n.CanAdmit || n.Name != "Hrvatske vode — COP Osijek" {
 		t.Errorf("mreža: %+v", n)
 	}
-	if w := o.prijava(lokalno, "admin", staraPocetnaLozinka); kolacicSesije(w) != nil {
+	if w := o.prijava(lokalno, "admin", lozinkaPocetnogAdmina); kolacicSesije(w) != nil {
 		t.Error("početni admin se i dalje prijavljuje")
 	}
 
@@ -179,27 +183,6 @@ func TestPostavljanjeNoveMreze(t *testing.T) {
 	}
 	if u, _ := o.repo.GetUserByUsername("uljez"); u != nil {
 		t.Error("drugo postavljanje napravilo je račun")
-	}
-}
-
-// Pod Postavom stara zajednička početna lozinka vrijedi samo s ovog računala
-func TestPocetnaLozinkaPodPostavomSamoLokalno(t *testing.T) {
-	o := novaOkolinaPrijave(t)
-	o.racun("admin", staraPocetnaLozinka, true, true)
-	podPostavom := true
-	o.authH.samoOvoRacunalo = func() bool { return podPostavom }
-
-	if w := o.prijava(izravno, "admin", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
-		t.Errorf("iz lokalne mreže pod Postavom: %d", w.Code)
-	}
-	if w := o.prijava(lokalno, "admin", staraPocetnaLozinka); kolacicSesije(w) == nil {
-		t.Errorf("s ovog računala pod Postavom: %d %q", w.Code, w.Body.String())
-	}
-	// bez Postave (NAS, ručno pokretanje) iz lokalne mreže kao dosad
-	podPostavom = false
-	ponovnaLozinka = newLoginLimiter()
-	if w := o.prijava(izravno, "admin", staraPocetnaLozinka); kolacicSesije(w) == nil {
-		t.Errorf("bez Postave iz lokalne mreže: %d %q", w.Code, w.Body.String())
 	}
 }
 

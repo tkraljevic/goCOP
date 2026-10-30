@@ -101,7 +101,7 @@ func TestOdbijanjeIzmjenePredanogKazeTkoJeIzradio(t *testing.T) {
 	o := novaOkolinaIzvjesca(t)
 	ctx := context.Background()
 	const (
-		mijenja = "izvješće koje je bilo predano mijenja samo onaj tko ga je izradio"
+		mijenja = "izvješće koje je bilo predano mijenja onaj tko ga je izradio; drugi rukovoditelj ili zamjenik dionice može ga mijenjati tek kad on više ne vodi dionicu"
 		brise   = "izvješće koje je bilo predano briše samo uprava područja ili sektora"
 	)
 	iz := punoIzvjesce("P.1.1", danas())

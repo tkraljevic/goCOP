@@ -435,20 +435,43 @@ func otvoriBazu(dbPath string) (*sql.DB, *sadrzaj.Spremiste, []db.PocetnaLozinka
 	if err != nil {
 		return database, spremiste, nil, fmt.Errorf("Greška pri unosu početnih podataka: %w", err)
 	}
-	return database, spremiste, popisZaPreuzimanje(database, lozinke), nil
+	return database, spremiste, popisZaPreuzimanje(database, lozinke, time.Now()), nil
 }
 
 // popisZaPreuzimanje je popis privremenih lozinki iz punjenja, a bez njega
-// nov popis za račune čiji popis iz prethodnog pokretanja nitko nije preuzeo
-func popisZaPreuzimanje(database *sql.DB, izPunjenja []db.PocetnaLozinka) []db.PocetnaLozinka {
+// nov popis za račune čiji popis iz prethodnog pokretanja nitko nije
+// preuzeo, dok mu ne prođe rok od prvog punjenja
+func popisZaPreuzimanje(database *sql.DB, izPunjenja []db.PocetnaLozinka, sada time.Time) []db.PocetnaLozinka {
 	if izPunjenja != nil {
 		return izPunjenja
+	}
+	istekao, err := db.IstekniPocetneLozinke(database, sada)
+	if err != nil {
+		log.Printf("Rok popisa privremenih lozinki nije provjeren: %v", err)
+		return nil
+	}
+	if istekao {
+		return nil
 	}
 	popis, err := db.ObnoviPocetneLozinke(database)
 	if err != nil {
 		log.Printf("Privremene lozinke računa iz imenika nisu ponovno složene: %v", err)
 	}
 	return popis
+}
+
+// rokPopisaLozinki je rok popisa privremenih lozinki, kad popis postoji
+func rokPopisaLozinki(database *sql.DB, popis []db.PocetnaLozinka) time.Time {
+	if len(popis) == 0 {
+		return time.Time{}
+	}
+	rok, err := db.RokPocetnihLozinki(database)
+	if err != nil {
+		// bez roka popis ne smije ostati: istječe odmah, a lozinke se daju poništenjem
+		log.Printf("Rok popisa privremenih lozinki nije pročitan: %v", err)
+		return time.Unix(0, 0)
+	}
+	return rok
 }
 
 func main() {
@@ -654,6 +677,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// tko je bio poslovođa izvođača, u dnevnicima usluga ostaje izvođač
 	journalService.SetImaoUlogu(userService.ImaoUlogu)
 	journalService.SetPovijestZaduzenja(userService.PovijestZaduzenja)
+	// dok za program nema ovlaštenika, nadzor u dnevniku usluge je uprava
+	journalService.SetImaOvlastenika(userService.ImaOvlastenikaUgovora)
 	obracunRepo := repository.NewObracunRepository(database, recorder)
 	if err := obracunRepo.Osiguraj(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
 		log.Printf("Postavke obračuna sati nisu dopunjene: %v", err)
@@ -669,7 +694,9 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	}
 	mtsService := service.NewMtsService(mtsRepo, sectionRepo, userRepo)
 	mtsService.SetStructures(structureRepo)
-	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo)
+	// račun autora izvješća odlučuje tko mijenja predano (Odluke (30. 10. 2026.), 10)
+	izvjescaService := service.NewIzvjescaService(repository.NewIzvjescaRepository(database, recorder), sectionRepo, stationRepo, readingRepo, episodeRepo, journalRepo,
+		userRepo)
 
 	if z.csvFile != "" {
 		uveziTablicu(z, csvlevels.Deps{Readings: readingRepo, Stations: stationRepo, Structures: structureRepo})
@@ -815,9 +842,10 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
 	server.SetLokalnaImena(cfg.Web.LokalnaImena)
 	postaviTailscale(server, cfg)
-	server.SetPodPostavom(z.podPostavom)
 	server.SetKljucPostave(kljucPostave(z.podPostavom, os.Getenv, os.Unsetenv))
-	server.SetPocetneLozinke(pocetneLozinke, func() error { return db.PocetneLozinkePreuzete(database) })
+	server.SetPocetneLozinke(pocetneLozinke, rokPopisaLozinki(database, pocetneLozinke), func() error { return db.PocetneLozinkePreuzete(database) })
+	// prijava otvorena starom zajedničkom lozinkom prestaje pri prvom zahtjevu
+	authService.SetZakljucanaLozinka(server.StaraLozinkaZakljucava)
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
 	ponovno := make(chan struct{}, 1)
 	server.SetPonovnoPokretanje(nacinRada(z.podPostavom, os.Getenv, postojiDatoteka, os.Getppid()), zatraziPonovno(ponovno))
@@ -946,6 +974,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// Graceful shutdown
 	stop := make(chan os.Signal, 1)
 	server.JaviPostavljanje(*addr)
+	go server.PregledajStareLozinke(syncCtx)
 	if z.podPostavom {
 		// Windows nema SIGTERM, pa Postava čvor gasi zatvaranjem cijevi na
 		// standardnom ulazu. Zatvori se i kad Postava padne, pa čvor ne

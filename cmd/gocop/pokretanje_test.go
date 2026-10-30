@@ -180,7 +180,7 @@ func TestOtvaranjeBaze(t *testing.T) {
 			t.Fatal(err)
 		}
 		_ = baza.Close() // baza se namjerno zatvara
-		if popis := popisZaPreuzimanje(baza, nil); popis != nil || !strings.Contains(dnevnik.String(), "nisu ponovno složene") {
+		if popis := popisZaPreuzimanje(baza, nil, time.Date(2026, 10, 30, 12, 0, 0, 0, time.UTC)); popis != nil || !strings.Contains(dnevnik.String(), "nije provjeren") {
 			t.Errorf("popis %+v, dnevnik %q", popis, dnevnik.String())
 		}
 	})
@@ -294,5 +294,63 @@ func TestUlogeOdPrije(t *testing.T) {
 	zadrziUlogeOdPrije(k.prognoze, k.mreza)
 	if !strings.Contains(dnevnik.String(), "Uloge čvora nisu zapisane:") {
 		t.Errorf("dnevnik: %s", dnevnik)
+	}
+}
+
+// Popis privremenih lozinki koji nitko nije preuzeo u 24 sata od prvog
+// punjenja pri pokretanju se briše, uz redak u dnevniku, i više se ne slaže
+// iznova; prije roka se slaže nov popis s istim rokom
+func TestPopisLozinkiPriPokretanjuIstjece(t *testing.T) {
+	dnevnik := dnevnikTesta(t)
+	dir := t.TempDir()
+	imenik := `[{"username":"pperic","full_name":"Pero Perić","is_global_admin":true}]`
+	if err := os.WriteFile(filepath.Join(dir, "imenik.json"), []byte(imenik), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	baza, sp, popis, err := otvoriBazu(filepath.Join(dir, "gocop.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer baza.Close()
+	defer zatvoriSpremiste(t, sp)
+	punjenje := time.Date(2026, 10, 30, 8, 0, 0, 0, time.UTC)
+	if _, err := baza.Exec(`UPDATE pocetne_lozinke_cekaju SET napunjeno = ?`, punjenje); err != nil {
+		t.Fatal(err)
+	}
+	if rok := rokPopisaLozinki(baza, popis); !rok.Equal(punjenje.Add(24 * time.Hour)) {
+		t.Errorf("rok popisa: %v", rok)
+	}
+	if rok := rokPopisaLozinki(baza, nil); !rok.IsZero() {
+		t.Errorf("bez popisa nema roka: %v", rok)
+	}
+
+	if nov := popisZaPreuzimanje(baza, nil, punjenje.Add(23*time.Hour)); len(nov) != len(popis) {
+		t.Fatalf("prije roka nov popis: %+v", nov)
+	}
+	// rok je provjeren, a nove lozinke se ne daju upisati: popisa nema, a
+	// greška ide u dnevnik
+	if _, err := baza.Exec(`CREATE TRIGGER bez_lozinki BEFORE UPDATE ON users
+		BEGIN SELECT RAISE(ABORT, 'lozinke se ne mijenjaju'); END`); err != nil {
+		t.Fatal(err)
+	}
+	if nov := popisZaPreuzimanje(baza, nil, punjenje.Add(23*time.Hour)); nov != nil || !strings.Contains(dnevnik.String(), "nisu ponovno složene") {
+		t.Errorf("neuspjela obnova: %+v, dnevnik %q", nov, dnevnik.String())
+	}
+	if _, err := baza.Exec(`DROP TRIGGER bez_lozinki`); err != nil {
+		t.Fatal(err)
+	}
+	if nov := popisZaPreuzimanje(baza, nil, punjenje.Add(24*time.Hour)); nov != nil || !strings.Contains(dnevnik.String(), "nitko nije preuzeo") {
+		t.Errorf("nakon roka: %+v, dnevnik %q", nov, dnevnik.String())
+	}
+	if nov := popisZaPreuzimanje(baza, nil, punjenje.Add(48*time.Hour)); nov != nil {
+		t.Errorf("istekao popis složen iznova: %+v", nov)
+	}
+
+	// rok koji se ne da pročitati: popis istječe odmah
+	if err := baza.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if rok := rokPopisaLozinki(baza, popis); !rok.Equal(time.Unix(0, 0)) || !strings.Contains(dnevnik.String(), "nije pročitan") {
+		t.Errorf("nepročitan rok: %v, dnevnik %q", rok, dnevnik.String())
 	}
 }

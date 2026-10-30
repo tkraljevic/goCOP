@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -310,25 +309,21 @@ func (h *StationsHandler) potpisPaketa(r *http.Request, s *arhiva.Sadrzaj) (stri
 			return "", err
 		}
 	}
-	return opisPotpisnika(r, s.Manifest.Izdao, p)
+	return opisPotpisnika(s.Manifest.Izdao, p)
 }
 
-// opisPotpisnika kaže tko je paket potpisao. Dok računalo još nije u mreži,
-// ne zna čiji je ključ, pa paket vrijedi koliko i nepotpisan: ugrađuje se
-// samo s ovog računala ili iz lokalne mreže, kao stara .db arhiva (Odluke
-// (30. 10. 2026.), 13).
-func opisPotpisnika(r *http.Request, izdao string, p peers.Potpisnik) (string, error) {
+// opisPotpisnika kaže tko je paket potpisao. Ugrađuje se paket ovog računala
+// i paket člana mreže. Dok računalo još nije u mreži, ne zna čiji je tuđi
+// ključ, pa paket drugog računala ne ugrađuje (Odluke (30. 10. 2026.)).
+func opisPotpisnika(izdao string, p peers.Potpisnik) (string, error) {
 	switch p {
 	case peers.PotpisnikClan:
 		return "Paket je potpisao čvor " + izdao + ", član mreže.", nil
 	case peers.PotpisnikOvoRacunalo:
 		return "Paket je potpisalo ovo računalo.", nil
 	}
-	if poruka := porukaZabrane(r, zaNeprovjereno); poruka != "" {
-		return "", errors.New(poruka)
-	}
-	return "Paket kaže da ga je izdao čvor " + izdao + ". Potpis je ispravan, ali ovo računalo još nije u mreži, " +
-		"pa nije provjerilo čiji je ključ.", nil
+	return "", fmt.Errorf("paket kaže da ga je izdalo računalo %[1]s. Ovo računalo još nije u mreži, "+
+		"pa ne može provjeriti je li %[1]s u istoj mreži. Primite ovo računalo u mrežu, pa paket ugradite ponovno", izdao)
 }
 
 // procitajPotpisan čita paket i provjerava njegov potpis (potpisPaketa)

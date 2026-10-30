@@ -263,10 +263,13 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Privremena lozinka mora se promijeniti.** Do tada račun može otvoriti
   samo vlastiti profil i odjavu. Računi iz imenika dobiju svaki svoju
   privremenu lozinku pri prvom punjenju; popis se jednom preuzima na
-  `/postavljanje/lozinke` i nigdje se ne sprema. Računi iz starijih izdanja
-  koji još imaju staru zajedničku početnu lozinku prvi put se prijavljuju
-  samo iz lokalne mreže; izvana s privremenom lozinkom koju izda
-  administrator (Korisnici → Poništi lozinku).
+  `/postavljanje/lozinke`, u 24 sata od prvog punjenja, i nigdje se ne
+  sprema. Računi iz starijih izdanja koji još imaju staru zajedničku početnu
+  lozinku ne prijavljuju se dok im administrator ne poništi lozinku
+  (Djelatnici → Poništi lozinku); globalni administrator ih vidi na vrhu
+  stranice Djelatnici. To vrijedi na čvorovima s izdanjem 0.0.47-alfa ili
+  novijim: na čvoru sa starijim izdanjem takav se račun iz ureda još
+  prijavljuje, pa im lozinku poništite čim se pojave na popisu.
 - **Pogađanje lozinki je ograničeno.** Pet neuspjeha za isto ime s iste adrese
   u 15 minuta, ili dvadeset s iste adrese, blokira na 15 minuta; trideset za
   isto ime izvana u satu blokira to ime izvana na 30 minuta (prijava iz lokalne
@@ -281,8 +284,8 @@ Portovi se mijenjaju u `gocop.toml`.
   `[web] lokalna_imena` (npr. `lokalna_imena = ['gocop.voda.hr']` kad DNS
   ureda to ime vodi na čvor); na drugo ime prijava vrijedi kao izvana.
   Tailscaleovo ime (`tower.tail1234.ts.net`) vrijedi samo kad zahtjev stigne
-  na Tailscale adresu računala. Pod Postavom početna lozinka i postavljanje
-  novog čvora bez koda rade samo s tog računala na `http://localhost`
+  na Tailscale adresu računala. Pod Postavom popis privremenih lozinki i
+  postavljanje novog čvora bez koda rade samo s tog računala na `http://localhost`
   (tako ga otvara ikona u traci). Na računalu s Tailscaleom lokalan je i
   izravan zahtjev na Tailscale adresu tog računala, npr.
   `http://100.x.y.z`; to isključuje `[web] tailscale_lokalno = false`, i tada
@@ -698,8 +701,10 @@ istim pravilom kao *Postavljanje*: s tog računala bez koda (na adresi
 dnevnik ni u datoteku, pa nakon preuzimanja popisa više nema. Ako se čvor
 ugasi prije preuzimanja (npr. nakon `gocop -ugovor`), pri sljedećem
 pokretanju računi koje nitko nije mijenjao dobiju nove privremene lozinke i
-novi popis. Kome lozinka nedostaje, globalni administrator daje novu u
-Korisnicima (Poništi lozinku); ako se nitko ne može prijaviti,
+novi popis. Popis vrijedi 24 sata od prvog punjenja; tada ga program
+obriše, a u dnevniku ostane redak o tome. Kome lozinka nedostaje, novu mu
+daje administrator na stranici Djelatnici (Poništi lozinku); ako se nitko ne
+može prijaviti,
 `gocop -ponisti-lozinku ime` na računalu čvora da privremenu lozinku
 globalnom administratoru.
 
@@ -887,7 +892,7 @@ ništa ne mijenja. Naredba postavi privremenu lozinku od četiri skupine po
 četiri znaka i ispiše je jednom; nigdje se ne zapisuje, a pri prvoj prijavi
 traži se nova. U dnevnik
 naredbe ide samo da je lozinka računa poništena s konzole, a trajni trag je
-nova verzija računa u knjizi verzija. Poništenje radi isto što i Korisnici →
+nova verzija računa u knjizi verzija. Poništenje radi isto što i Djelatnici →
 Poništi lozinku: na tom čvoru gasi otvorene prijave osobe, zapamćena
 računala, prijave koje čekaju PIN i privremene kodove (rezervni kodovi
 ostaju), a sažetak nove lozinke razmjenom stiže na druge čvorove. Prijave na

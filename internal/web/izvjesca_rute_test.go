@@ -44,7 +44,7 @@ func TestDnevnaIzvjescaKrozRute(t *testing.T) {
 	rec := ledger.New(baza, "test")
 	svc := service.NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), repository.NewSectionRepository(baza, rec),
 		repository.NewStationRepository(baza, rec), repository.NewReadingRepository(baza, rec), repository.NewEpisodeRepository(baza, rec),
-		repository.NewJournalRepository(baza, rec))
+		repository.NewJournalRepository(baza, rec), nil)
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -203,7 +203,7 @@ func TestSektorskoIzvjesceKrozRute(t *testing.T) {
 	rec := ledger.New(baza, "test")
 	journals := repository.NewJournalRepository(baza, rec)
 	sections := repository.NewSectionRepository(baza, rec)
-	svc := service.NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sections, nil, nil, nil, journals)
+	svc := service.NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sections, nil, nil, nil, journals, nil)
 	svc.SetSektorska(repository.NewSektorskaIzvjescaRepository(baza, rec))
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")

@@ -898,6 +898,14 @@ func (s *UserService) ImaoUlogu(userID uuid.UUID, uloga models.Role) (bool, erro
 	return s.userRepo.ImaoUlogu(userID, uloga)
 }
 
+// ImaOvlastenikaUgovora javlja ima li na branjenom području važećeg
+// ovlaštenika za praćenje ugovora programa ili njegova zamjenika
+// (models.UlogeUgovora), s uključenim računom; prazan program znači bilo
+// koji program
+func (s *UserService) ImaOvlastenikaUgovora(podrucje int, program string) (bool, error) {
+	return s.userRepo.ImaVazeceZaduzenjeNaPodrucju(podrucje, models.UlogeUgovora(program))
+}
+
 // MjestaVodocuvara su mjesta svih zaduženja vodočuvara koja su osobe ikad
 // imale (repository.UserRepository.MjestaVodocuvara)
 func (s *UserService) MjestaVodocuvara() (map[string][]models.Duty, error) {

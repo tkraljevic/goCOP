@@ -34,7 +34,7 @@ func TestDnevnoIzvjesceTok(t *testing.T) {
 	}
 	rec := ledger.New(baza, "test")
 	journals := repository.NewJournalRepository(baza, rec)
-	s := NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), nil, nil, nil, nil, journals)
+	s := NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), nil, nil, nil, nil, journals, nil)
 	ctx := context.Background()
 
 	sec := &models.Section{Code: "B.16.3", AreaID: 16, SectorID: "B", Parts: []models.SectionPart{{WatercourseName: "Dunav"}, {WatercourseName: "Karašica"}}}
@@ -146,7 +146,7 @@ func TestSektorskoIzvjesceTok(t *testing.T) {
 	rec := ledger.New(baza, "test")
 	journals := repository.NewJournalRepository(baza, rec)
 	sections := repository.NewSectionRepository(baza, rec)
-	s := NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sections, nil, nil, nil, journals)
+	s := NewIzvjescaService(repository.NewIzvjescaRepository(baza, rec), sections, nil, nil, nil, journals, nil)
 	s.SetSektorska(repository.NewSektorskaIzvjescaRepository(baza, rec))
 	ctx := context.Background()
 

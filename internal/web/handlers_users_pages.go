@@ -18,6 +18,10 @@ import (
 
 type option struct{ Value, Label string }
 
+// Uprava javlja daje li uloga iz popisa pravo globalnog administratora:
+// obrazac izvana tada traži lozinku računa
+func (o option) Uprava() bool { return upravaOrganizacije(models.Role(o.Value)) }
+
 // roleOptions su uloge koje obrazac nudi, redom od najviše prema terenu, s
 // nazivima kako ih zove organizacija
 func roleOptions() []option {
@@ -98,8 +102,13 @@ type UserPageData struct {
 	// rezervni kodovi; nil kad drugi korak na čvoru nije spojen
 	PrijavaIzvana *ProfilPrijaveIzvana
 	// Izvana: stranica je otvorena izvana (tunel ili javna adresa), pa se
-	// vlastita adresa e-pošte ne mijenja
+	// vlastita adresa e-pošte ne mijenja, a obrasci za pravo globalnog
+	// administratora i prijavu izvana traže lozinku računa
 	Izvana bool
+	// PravoAdministratora: osoba ima pravo globalnog administratora, oznakom
+	// ili dužnošću uprave organizacije, pa izvana njezina lozinka,
+	// uključenost i brisanje traže lozinku računa
+	PravoAdministratora bool
 
 	// DomenaPIN je domena na koju ide PIN bez potvrde administratora
 	DomenaPIN string
@@ -179,6 +188,7 @@ func (h *UsersHandler) pageData(r *http.Request) UserPageData {
 		ErrorMessage:   r.URL.Query().Get("error"),
 		ActiveNav:      "users",
 		ViewAsBanner:   viewBanner(r),
+		Izvana:         dolaziIzvana(r),
 	}
 }
 
@@ -198,12 +208,17 @@ func (h *UsersHandler) loadUser(r *http.Request) (*models.User, bool) {
 // administratoru koji će je pročitati preko telefona. Otvorene sesije te
 // osobe se gase, a ona pri prijavi mora postaviti svoju lozinku. Uz kvačicu
 // „i kod za prijavu izvana” osoba dobije i privremeni kod: poništavanje
-// briše stare kodove, pa se novi izdaje tek iza njega.
+// briše stare kodove, pa se novi izdaje tek iza njega. Izvana poništenje
+// lozinke računa s pravom globalnog administratora i poništenje s kodom
+// traže lozinku vlastitog računa.
 func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	u, ok := h.loadUser(r)
 	if !ok {
 		http.NotFound(w, r)
+		return
+	}
+	if h.odbijenoBezLozinke(w, r, "/users/"+u.ID.String(), trazeLozinkuPonistenja(u, r.FormValue("i_kod") == "1")) {
 		return
 	}
 	updated, temp, err := h.userService.ResetPassword(perms, u.ID, viewBanner(r).Viewing)
@@ -220,12 +235,16 @@ func (h *UsersHandler) HandleResetPassword(w http.ResponseWriter, r *http.Reques
 
 // HandleKodPrijave izdaje osobi privremeni kod za prijavu izvana (24 sata,
 // jedna prijava) i pokaže ga jednom, kao privremenu lozinku. Smije tko smije
-// poništiti lozinku te osobe, nikad sebi ni tuđim očima.
+// poništiti lozinku te osobe, nikad sebi ni tuđim očima. Izvana uz lozinku
+// vlastitog računa.
 func (h *UsersHandler) HandleKodPrijave(w http.ResponseWriter, r *http.Request) {
 	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
 	u, ok := h.loadUser(r)
 	if !ok {
 		http.NotFound(w, r)
+		return
+	}
+	if h.odbijenoBezLozinke(w, r, "/users/"+u.ID.String(), true) {
 		return
 	}
 	kod, istjece, err := h.izdajKod(r, perms, u.ID)
@@ -276,6 +295,7 @@ func (h *UsersHandler) showUser(w http.ResponseWriter, r *http.Request, u *model
 	}
 	data.DrugiKorak = h.dk() != nil
 	data.User = u
+	data.PravoAdministratora = pravoAdministratora(u)
 	data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
 	data.AdresaPIN = h.stanjeAdrese(r, data.Permissions, u)
 	data.PotvrdaAdrese = service.SmijePotvrditiAdresu(data.Permissions, u.ID, data.Viewing)
@@ -309,6 +329,7 @@ func (h *UsersHandler) ShowUserForm(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		data.User = u
+		data.PravoAdministratora = pravoAdministratora(u)
 		data.IsEdit = true
 		data.IsSelf = data.CurrentUser != nil && data.CurrentUser.ID == u.ID
 		data.AdresaPIN = h.stanjeAdrese(r, data.Permissions, u)
@@ -407,9 +428,7 @@ func (h *UsersHandler) prikaziProfil(w http.ResponseWriter, r *http.Request, kod
 	data.IsSelf = true
 	data.ActiveNav = "profile"
 	data.Izvana = dolaziIzvana(r)
-	if h.planovi != nil {
-		data.Planovi, _ = h.planovi(r.Context(), data.User.ID.String())
-	}
+	data.Planovi = h.planoviProfila(r.Context(), data.User)
 	if h.postaRacun != nil {
 		data.PostaRacun, data.PostaKad = h.postaRacun(r.Context(), data.User.ID.String())
 	}
@@ -499,4 +518,15 @@ func (h *UsersHandler) HandleUserModules(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	redirectWith(w, r, "/users/"+u.ID.String(), "success", "Vidljivost modula za ovaj račun je spremljena.")
+}
+
+// planoviProfila su kartice dežurstava na profilu. Izvođača plaća njegova
+// firma, pa on na profilu nema dežurstava ni izvješća o satima (Odluke
+// (30. 10. 2026.)). Kartice koje se ne daju pročitati se ne pokazuju.
+func (h *UsersHandler) planoviProfila(ctx context.Context, u *models.User) []models.PlanOsobe {
+	if h.planovi == nil || u == nil || service.JeIzvodjacZaCOP(u) {
+		return nil
+	}
+	planovi, _ := h.planovi(ctx, u.ID.String()) // bez kartica profil se i dalje prikazuje
+	return planovi
 }

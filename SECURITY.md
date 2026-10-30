@@ -163,6 +163,13 @@ nepouzdano.
 - Primanje računala u mrežu (uparivanjem ili na daljinu), davanje i
   oduzimanje ovlasti za primanje i opoziv članstva smiju i izvana, kroz
   tunel ili s javne adrese, ali uz lozinku računa upisanu u isti obrazac.
+  Isto vrijedi za osnivanje mreže, zaborav čvora, obnovu članstva, adrese
+  i oznaku „stalno izložen”, svaku potvrdu uparivanja, privremeni kod za
+  prijavu izvana, potvrdu adrese na koju ide PIN i sve što dira pravo
+  globalnog administratora: novi račun s tim pravom, davanje i oduzimanje
+  oznake ili dužnosti uprave organizacije (razina 1, i privremene), te
+  poništenje ili upis lozinke, uključivanje, isključivanje i brisanje
+  računa koji to pravo ima.
   Krivi upisi broje se kao pri promjeni lozinke. S ovog računala i iz
   lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše
   u dnevniku programa, a tamo piše i zahtjev izvana odbijen zbog lozinke.
@@ -295,12 +302,21 @@ nepouzdano.
   a nikad kroz posrednika ni s javne adrese. U dnevnik lozinke ne idu. Nakon
   preuzimanja popisa više nema. Ako se čvor ponovno pokrene prije
   preuzimanja, računi koje u međuvremenu nitko nije mijenjao dobiju nove
-  privremene lozinke i novi popis. Privremena lozinka mijenja se pri prvoj
-  prijavi. Popis vrijedi za čvor koji ga je složio.
-- Računi iz izdanja do 0.0.46-alfa koji se još nisu prijavili i imaju
-  staru zajedničku početnu lozinku prvi put se prijavljuju samo iz lokalne
-  mreže: s ovog računala ili s privatne adrese, a nikad kroz posrednika.
-  Pod Postavom samo s ovog računala.
+  privremene lozinke i novi popis. Popis vrijedi 24 sata od prvog punjenja
+  (Odluke (30. 10. 2026.)); tada se briše iz memorije i baze, uz redak u
+  dnevniku, a lozinke se daju poništenjem. Privremena lozinka mijenja se
+  pri prvoj prijavi. Popis vrijedi za čvor koji ga je složio.
+- Računi iz izdanja do 0.0.46-alfa koji još imaju staru zajedničku početnu
+  lozinku ne prijavljuju se ni s jedne adrese, ni iz lokalne mreže, dok im
+  administrator ne poništi lozinku (Odluke (30. 10. 2026.)). Ta lozinka ne
+  potvrđuje ni radnje uz ponovni upis lozinke (promjena lozinke, potpisni
+  ključ), a otvorena prijava takvog računa prestaje pri prvom zahtjevu.
+  Čvor ih nakon pokretanja pronađe u pozadini i pokaže ih globalnom
+  administratoru na stranici Djelatnici. Pravilo vrijedi na čvorovima s
+  izdanjem 0.0.47-alfa ili novijim; na čvoru sa starijim izdanjem račun se
+  iz lokalne mreže još prijavljuje i sam mijenja lozinku, a nova lozinka
+  razmjenom stiže i na novije čvorove. Zato lozinke s popisa treba poništiti
+  odmah.
 - **Stranica `/postavljanje`** postoji samo dok je čvor svjež i radi samo
   iz lokalne mreže, nikad kroz posrednika. Na njoj se postavlja vlastiti
   administrator (račun `admin` se tada isključuje) i osniva mreža, ili se
@@ -384,12 +400,12 @@ nepouzdano.
   posrednika ispred čvora. U lokalnoj mreži bez HTTPS-a lozinke i kolačići
   putuju nešifrirano. PIN izvana radi samo preko HTTPS-a.
 - **Svjež čvor u lokalnoj mreži.** Dok se na `/postavljanje` ne postavi
-  vlastiti administrator, početnu lozinku i uparivanje bez prijave može
-  iskoristiti svatko s privatne adrese u istoj mreži. Svjež čvor postavite
+  vlastiti administrator, uparivanje bez prijave može iskoristiti svatko s
+  privatne adrese u istoj mreži. Svjež čvor postavite
   odmah nakon prvog pokretanja.
 - **Tailscale mreža je lokalna mreža.** Na računalu s Tailscaleom svaki
   uređaj iz iste Tailscale mreže prolazi kao iz ureda: prijava bez PIN-a,
-  početna lozinka i postavljanje svježeg čvora. Tko je u toj mreži, određuju
+  popis privremenih lozinki s kodom i postavljanje svježeg čvora. Tko je u toj mreži, određuju
   njezin račun i pravila pristupa. Isključuje se s `[web] tailscale_lokalno =
   false` u `gocop.toml`; tada takav zahtjev traži PIN kao izvana, i preko
   IPv6. Na macOS-u se Tailscale prepozna samo kad njegova kartica ima i IPv6

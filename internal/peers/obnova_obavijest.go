@@ -100,21 +100,18 @@ func (s *Service) rokoviClanstava(ctx context.Context) []ObavijestRoka {
 	return out
 }
 
-// rokoviOvlasti: neopozvane ovlasti s potpisom ključa mreže koje ističu ili
-// su istekle. Vlastita ovlast ne ide kad ovo računalo drži ključ mreže: ono
-// prima i bez nje.
+// rokoviOvlasti: zadnje neopozvane ovlasti s potpisom ključa mreže
+// (zadnjeOvlasti, tablica i knjiga) koje ističu ili su istekle. Vlastita
+// ovlast ne ide kad ovo računalo drži ključ mreže: ono prima i bez nje.
 func (s *Service) rokoviOvlasti(ctx context.Context, kljucMreze bool) []ObavijestRoka {
-	ovlasti, err := s.sveOvlasti(ctx)
+	ovlasti, err := s.zadnjeOvlasti(ctx)
 	if err != nil {
 		return nil
 	}
 	sada := time.Now()
 	var out []ObavijestRoka
 	for _, o := range ovlasti {
-		r := rokZa(o.ExpiresAt, sada, false)
-		switch {
-		case !r.TraziPaznju() || (kljucMreze && o.DeviceID == s.node.ID):
-		case s.ovlastZaObnovu(ctx, o.DeviceID, o.DeviceKey) != nil:
+		if r := rokZa(o.ExpiresAt, sada, false); r.TraziPaznju() && (!kljucMreze || o.DeviceID != s.node.ID) {
 			out = append(out, s.obavijest(ctx, o.DeviceID, VrstaObavijestiOvlast, r))
 		}
 	}

@@ -225,7 +225,7 @@ func (s *Service) izdajVlastituOvlast(ctx context.Context) error {
 	if network == nil {
 		return errors.New("ovo računalo nije ni u jednoj mreži")
 	}
-	o, err := network.Ovlasti(s.node.ID, s.node.key.Public().(ed25519.PublicKey), s.node.ID, OvlastValidity)
+	o, err := s.novaOvlast(ctx, *network, s.node.ID, s.node.key.Public().(ed25519.PublicKey))
 	if err != nil {
 		return err
 	}
@@ -265,21 +265,15 @@ func (s *Service) obnovi(ctx context.Context, m razmjena.Membership) (razmjena.M
 	return novo, s.saveMembership(ctx, novo)
 }
 
-// ovlastZaObnovu je ovlast računala nodeID s ključem kljuc koju potpisuje
-// ključ mreže i koja nije opozvana, i kad je istekla; inače nil
+// ovlastZaObnovu je zadnja izdana ovlast računala nodeID s ključem kljuc
+// koju potpisuje ključ mreže i koja nije opozvana, i kad je istekla, iz
+// tablice i knjige (ovlastiCvora); inače nil
 func (s *Service) ovlastZaObnovu(ctx context.Context, nodeID, kljuc string) *razmjena.Ovlast {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-	o, err := s.getOvlast(ctx, nodeID)
-	if network == nil || err != nil || o == nil || o.DeviceKey != kljuc {
+	ovlasti, err := s.ovlastiCvora(ctx, nodeID)
+	if err != nil {
 		return nil
 	}
-	// provjera u trenutku izdavanja: potpis, bez roka
-	if o.Verify(network.Public, o.IssuedAt) != nil || s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, network.Public) {
-		return nil
-	}
-	return o
+	return zadnjaOvlast(ovlasti, kljuc)
 }
 
 // zahtjeviObnove je zadnji potpisan zahtjev za obnovu u našoj mreži po

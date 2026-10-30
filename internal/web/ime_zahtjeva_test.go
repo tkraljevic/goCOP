@@ -32,10 +32,26 @@ func otvorilaSesiju(w *httptest.ResponseRecorder) bool {
 	return w.Code == http.StatusSeeOther && kolacicSesije(w) != nil
 }
 
-// Zahtjev upućen imenu koje ne vodi na ovo računalo vrijedi kao izvana:
-// početna lozinka tada ne otvara račun ni iz lokalne mreže ni s ovog
-// računala pod Postavom. Na adresu, ime računala u mreži, localhost i
-// upisanu javnu adresu sve radi kao prije.
+// klijentNaIme je klijent kakvim sloj klijenta vidi prijavu preglednikom
+// otvorenom na zadanom imenu
+func klijentNaIme(t *testing.T, s *Server, host, izvor string) Klijent {
+	t.Helper()
+	var k Klijent
+	stigao := false
+	h := s.klijentSloj(zaglavlja(s.zastitaOdTudjihStranica(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		k, stigao = klijentIz(r), true
+	}))))
+	if w := prijavaNaIme(h, host, izvor, "", ""); !stigao {
+		t.Fatalf("zahtjev na %s nije stigao do rukovatelja: %d", host, w.Code)
+	}
+	return k
+}
+
+// Zahtjev upućen imenu koje ne vodi na ovo računalo vrijedi kao izvana, i
+// iz lokalne mreže. Na adresu, ime računala u mreži, localhost i upisanu
+// javnu adresu zahtjev iz ureda vrijedi kao iz lokalne mreže. Prijava
+// običnom lozinkom radi na svako ime, a stara zajednička lozinka ni na
+// jedno.
 func TestPrijavaNaTudjeImeVrijediKaoIzvana(t *testing.T) {
 	o := novaOkolinaPrijave(t)
 	o.racun("djelatnik", staraPocetnaLozinka, false, true)
@@ -45,12 +61,15 @@ func TestPrijavaNaTudjeImeVrijediKaoIzvana(t *testing.T) {
 	h := s.klijentSloj(zaglavlja(s.zastitaOdTudjihStranica(o.mux)))
 	const lan = "192.168.1.50:40000"
 
-	if w := prijavaNaIme(h, "x.primjer.hr:1160", lan, "djelatnik", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
-		t.Fatalf("početna lozinka na tuđe ime iz lokalne mreže: %d %q", w.Code, w.Body.String())
+	if k := klijentNaIme(t, s, "x.primjer.hr:1160", lan); !k.Izvana() || k.IzLokalneMreze() {
+		t.Errorf("tuđe ime iz lokalne mreže mora biti izvana: %+v", k)
 	}
 	for _, host := range []string{"192.168.1.10:1160", "tower:1160", "tower.local", "[fe80::1]:1160", "COP.primjer.hr.", "cop.primjer.hr:443"} {
-		if w := prijavaNaIme(h, host, lan, "djelatnik", staraPocetnaLozinka); !otvorilaSesiju(w) {
-			t.Errorf("početna lozinka na %s iz lokalne mreže: %d %q", host, w.Code, w.Body.String())
+		if k := klijentNaIme(t, s, host, lan); k.Izvana() || !k.IzLokalneMreze() {
+			t.Errorf("%s iz lokalne mreže mora biti iz ureda: %+v", host, k)
+		}
+		if w := prijavaNaIme(h, host, lan, "djelatnik", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
+			t.Errorf("stara lozinka na %s iz lokalne mreže: %d", host, w.Code)
 		}
 	}
 	// obična lozinka na tuđe ime radi, samo uz pravila za prijavu izvana
@@ -58,18 +77,17 @@ func TestPrijavaNaTudjeImeVrijediKaoIzvana(t *testing.T) {
 		t.Errorf("obična lozinka na tuđe ime: %d %q", w.Code, w.Body.String())
 	}
 
-	// pod Postavom početna lozinka vrijedi samo s ovog računala, na njegovo ime
-	o.authH.samoOvoRacunalo = func() bool { return true }
-	if w := prijavaNaIme(h, "x.primjer.hr:1160", "127.0.0.1:40000", "djelatnik", staraPocetnaLozinka); w.Code != http.StatusForbidden {
-		t.Errorf("pod Postavom, tuđe ime s ovog računala: %d", w.Code)
+	// s ovog računala je samo zahtjev na njegovo ime
+	if k := klijentNaIme(t, s, "x.primjer.hr:1160", "127.0.0.1:40000"); k.SOvogRacunala() {
+		t.Errorf("tuđe ime s ovog računala: %+v", k)
 	}
 	for _, host := range []string{"localhost:1160", "127.0.0.1:1160", "[::1]:1160"} {
-		if w := prijavaNaIme(h, host, "127.0.0.1:40000", "djelatnik", staraPocetnaLozinka); !otvorilaSesiju(w) {
-			t.Errorf("pod Postavom, %s: %d %q", host, w.Code, w.Body.String())
+		if k := klijentNaIme(t, s, host, "127.0.0.1:40000"); !k.SOvogRacunala() {
+			t.Errorf("%s s ovog računala: %+v", host, k)
 		}
 	}
 
-	// kroz tunel prijava radi kao i prije, i početna lozinka se odbija
+	// kroz tunel prijava radi kao i prije, a stara lozinka se odbija
 	tunel := func(lozinka, ime string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodPost, "https://cop.primjer.hr/login", strings.NewReader(url.Values{"username": {ime}, "password": {lozinka}}.Encode()))
 		r.RemoteAddr = "127.0.0.1:5555"
@@ -85,7 +103,7 @@ func TestPrijavaNaTudjeImeVrijediKaoIzvana(t *testing.T) {
 		t.Errorf("kroz tunel: %d %q", w.Code, w.Body.String())
 	}
 	if w := tunel(staraPocetnaLozinka, "djelatnik"); w.Code != http.StatusForbidden {
-		t.Errorf("početna lozinka kroz tunel: %d", w.Code)
+		t.Errorf("stara lozinka kroz tunel: %d", w.Code)
 	}
 }
 
@@ -175,31 +193,25 @@ func TestImeOvogRacunala(t *testing.T) {
 	}
 }
 
-// Pod Postavom početna lozinka vrijedi samo na ime localhost ili adresu
-// petlje, ne i na ime iz lokalne mreže ni na Tailscaleovo ime kad zahtjev
-// stigne s ovog računala
-func TestPostavaTraziImeOvogRacunala(t *testing.T) {
-	o := novaOkolinaPrijave(t)
-	o.racun("djelatnik", staraPocetnaLozinka, false, true)
-	o.authH.samoOvoRacunalo = func() bool { return true }
-	h := (&Server{}).klijentSloj(zaglavlja(o.mux))
+// S ovog računala je samo zahtjev na ime localhost ili adresu petlje, a ne
+// na ime iz lokalne mreže ni na Tailscaleovo ime, i kad stigne s ovog
+// računala. Tailscaleovo ime s ovog računala (npr. kroz posrednika na istom
+// stroju) vrijedi kao izvana, a ime iz lokalne mreže iz ureda kao iz ureda.
+func TestImeZahtjevaSOvogRacunala(t *testing.T) {
+	s := &Server{}
 	for _, host := range []string{"x.local:1160", "tower:1160", "racunalo.lan", "tower.tail1234.ts.net"} {
-		if w := prijavaNaIme(h, host, "127.0.0.1:40000", "djelatnik", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
-			t.Errorf("pod Postavom, %s s ovog računala: %d", host, w.Code)
+		if k := klijentNaIme(t, s, host, "127.0.0.1:40000"); k.SOvogRacunala() {
+			t.Errorf("%s s ovog računala nije na ime ovog računala: %+v", host, k)
 		}
 	}
-	if w := prijavaNaIme(h, "localhost:1160", "127.0.0.1:40000", "djelatnik", staraPocetnaLozinka); !otvorilaSesiju(w) {
-		t.Errorf("pod Postavom, localhost: %d %q", w.Code, w.Body.String())
+	if k := klijentNaIme(t, s, "localhost:1160", "127.0.0.1:40000"); !k.SOvogRacunala() {
+		t.Errorf("localhost: %+v", k)
 	}
-	// bez Postave ime iz lokalne mreže i dalje vrijedi kao iz ureda, a
-	// Tailscaleovo ime s ovog računala (npr. kroz posrednika na istom
-	// stroju) vrijedi kao izvana
-	o.authH.samoOvoRacunalo = func() bool { return false }
-	if w := prijavaNaIme(h, "tower.tail1234.ts.net", "127.0.0.1:40000", "djelatnik", staraPocetnaLozinka); w.Code != http.StatusForbidden || kolacicSesije(w) != nil {
-		t.Errorf("Tailscaleovo ime s ovog računala: %d", w.Code)
+	if k := klijentNaIme(t, s, "tower.tail1234.ts.net", "127.0.0.1:40000"); !k.Izvana() {
+		t.Errorf("Tailscaleovo ime s ovog računala: %+v", k)
 	}
-	if w := prijavaNaIme(h, "tower.local:1160", "192.168.1.50:40000", "djelatnik", staraPocetnaLozinka); !otvorilaSesiju(w) {
-		t.Errorf("iz ureda na tower.local: %d %q", w.Code, w.Body.String())
+	if k := klijentNaIme(t, s, "tower.local:1160", "192.168.1.50:40000"); k.Izvana() || !k.IzLokalneMreze() {
+		t.Errorf("iz ureda na tower.local: %+v", k)
 	}
 }
 

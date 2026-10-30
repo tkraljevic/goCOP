@@ -186,8 +186,9 @@
     kao razmjena: provjere otiska i potpisa, pa verzije koje ovaj čvor nema uđu u knjigu, zapisi se osvježe iz
     najnovijih, uključeni sadržaj u spremište, ostali na popis za dohvat. Starije izdanje istog izdavača se odbija;
     ponovljena ugradnja iste datoteke ne mijenja ništa. Stara <span class="mono">.db</span> arhiva nema potpis, pa
-    se uvozi samo s ovog računala ili iz lokalne mreže. Računalo koje još nije u mreži ugrađuje samo vlastite
-    <span class="mono">.cop</span> pakete, i to samo s ovog računala ili iz lokalne mreže.
+    se uvozi samo kad je računalo u mreži, i to samo s ovog računala ili iz lokalne mreže. Računalo koje još
+    nije u mreži ugrađuje samo vlastite <span class="mono">.cop</span> pakete, i to samo s ovog računala ili iz
+    lokalne mreže.
   </p>
   <form method="POST" action="/administracija/baza/uvoz" enctype="multipart/form-data" class="form-page d-flex gap-2 items-end flex-wrap">
     <div class="form-group m-0">

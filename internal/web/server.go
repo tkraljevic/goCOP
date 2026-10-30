@@ -20,7 +20,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"gocop/internal/arhiva"
@@ -67,8 +66,7 @@ type KartaPostavke struct {
 func (k KartaPostavke) Ima() bool { return k.Plocice != "" }
 
 type Server struct {
-	// čvor pod Postavom: stara zajednička početna lozinka vrijedi samo s ovog računala
-	podPostavom  atomic.Bool
+	stareLozinke *stareLozinke                                     // računi sa starom zajedničkom lozinkom, stare_lozinke.go
 	postavljanje *PostavljanjeHandler                              // stranica Postavljanje svježeg čvora
 	posrednici   *Posrednici                                       // pouzdani posrednici (tunel); nil = zadani, klijent.go
 	tailscale    *tailscaleVeze                                    // veze na Tailscale adresu ovog računala; nil = zadano, tailscale.go
@@ -153,11 +151,6 @@ type Server struct {
 // verzijaPrograma je izdanje programa za podnožje stranice; postavlja ga main.
 var verzijaPrograma string
 
-// SetPodPostavom: čvor pokreće Postava (gocop -upravitelj) na računalu
-// korisnika, pa stara zajednička početna lozinka vrijedi samo s tog računala,
-// ne iz lokalne mreže (u uredu bi je mogao upotrijebiti bilo tko)
-func (s *Server) SetPodPostavom(da bool) { s.podPostavom.Store(da) }
-
 // JaviPostavljanje ispisuje u dnevnik kako postaviti svjež čvor, ili gdje
 // preuzeti privremene lozinke računa iz imenika: s ovog računala bez koda,
 // iz lokalne mreže s jednokratnim kodom. Same lozinke u dnevnik ne idu.
@@ -173,16 +166,17 @@ func (s *Server) JaviPostavljanje(addr string) {
 		log.Printf("Postavljanje: svjež čvor — na ovom računalu otvorite http://localhost%s/postavljanje, a iz lokalne mreže http://<adresa ovog računala>%s/postavljanje?kod=%s", port, port, s.postavljanje.KodPostavljanja())
 	}
 	if n := s.postavljanje.CekaLozinki(); n > 0 {
-		log.Printf("Postavljanje: %d računa iz imenika ima privremenu lozinku — popis se preuzima jednom, na ovom računalu na http://localhost%s/postavljanje/lozinke, a iz lokalne mreže na http://<adresa ovog računala>%s/postavljanje/lozinke?kod=%s", n, port, port, s.postavljanje.KodPostavljanja())
+		log.Printf("Postavljanje: %d računa iz imenika ima privremenu lozinku — popis se preuzima jednom, u 24 sata od prvog punjenja, na ovom računalu na http://localhost%s/postavljanje/lozinke, a iz lokalne mreže na http://<adresa ovog računala>%s/postavljanje/lozinke?kod=%s", n, port, port, s.postavljanje.KodPostavljanja())
 	}
 }
 
 // SetPocetneLozinke predaje stranici Postavljanje privremene lozinke računa
-// iz prvog punjenja, koje se jednom preuzimaju; preuzete zapisuje da je
-// popis preuzet, da ga ponovno pokretanje više ne složi
-func (s *Server) SetPocetneLozinke(popis []gocopdb.PocetnaLozinka, preuzete func() error) {
+// iz prvog punjenja, koje se jednom preuzimaju do roka; obrisi briše popis
+// iz baze kad je preuzet ili kad mu prođe rok, da ga ponovno pokretanje više
+// ne složi
+func (s *Server) SetPocetneLozinke(popis []gocopdb.PocetnaLozinka, rok time.Time, obrisi func() error) {
 	if s.postavljanje != nil {
-		s.postavljanje.SetPocetneLozinke(popis, preuzete)
+		s.postavljanje.SetPocetneLozinke(popis, rok, obrisi)
 	}
 }
 
@@ -657,10 +651,13 @@ func NewServer(
 
 func (s *Server) setupRoutes() {
 	authH := NewAuthHandler(s.authService, s.templates["login.html"])
+	s.stareLozinke = &stareLozinke{provjeri: s.authService.ImaStaruLozinku}
+	authH.stareLozinke = s.stareLozinke
 	authH.SetSupport(s.support)
 	authH.SetAdminContact(s.userService.GlobalAdminContact)
 	authH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak }, s.templates["login_pin.html"])
 	usersH := NewUsersHandler(s.userService, s.templates["users.html"])
+	usersH.stareLozinke = s.racuniSaStaromLozinkom
 	usersH.SetPageTemplates(s.templates["user_detail.html"], s.templates["user_form.html"], s.templates["duty_form.html"], s.templates["profile.html"])
 	usersH.SetPlanovi(s.journalService.PlanoviOsobe)
 	usersH.SetPotpisSlika(func(ctx context.Context, userID string) bool {
@@ -748,6 +745,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /moduli", s.authMiddleware(http.HandlerFunc(modulesH.ShowMatrix)))
 	s.mux.Handle("POST /moduli/save", s.authMiddleware(http.HandlerFunc(modulesH.HandleSave)))
 	usersH.SetModuleService(s.moduleService)
+	usersH.SetLozinkaRacuna(s.authService.ProvjeriLozinku)
 	s.mux.Handle("POST /users/{id}/modules", s.authMiddleware(http.HandlerFunc(usersH.HandleUserModules)))
 	vodH := NewVodocuvarHandler(func() *service.VodocuvarService { return s.vodocuvar }, s.userService, func() *repository.OrgRepository { return s.orgRepo }, s.templates["vodocuvar.html"], s.templates["vodocuvar_list.html"])
 	vodH.SetPotpisSlika(func(ctx context.Context, userID string) *models.PotpisSlika {
@@ -944,7 +942,6 @@ func (s *Server) setupRoutes() {
 	// Uparivanje: prijavljenima uvijek, neprijavljenima dok je čvor svjež
 	pairH := NewPairHandler(s.peersService, s.authService, s.userService, s.templates["uparivanje.html"])
 	authH.SetFresh(pairH.Fresh)
-	authH.samoOvoRacunalo = s.podPostavom.Load
 
 	// Postavljanje svježeg čvora: nova mreža s vlastitim administratorom
 	s.postavljanje = &PostavljanjeHandler{users: s.userService, auth: s.authService, peers: s.peersService,

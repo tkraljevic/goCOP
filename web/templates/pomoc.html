@@ -820,10 +820,9 @@
       ima, ako ga pokriva pretplata (vidi <a href="#profile">Što ovo računalo prati</a>). Paket
       letve učitan s diska, na historijatu letve, ugrađuje se samo ako je potpisan, i to ključem
       ovog računala ili člana mreže; pregled prije ugradnje kaže tko ga je potpisao. Računalo koje
-      još nije u mreži ne zna čiji je ključ, pa takav paket ugrađuje samo s ovog računala ili iz
-      lokalne mreže. Čvor
-      bez arhive i dalje radi:
-      kartica letve se otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
+      još nije u mreži ne zna čiji je tuđi ključ, pa ugrađuje samo vlastiti paket, a
+      paket drugog računala tek kad uđe u mrežu. Čvor bez arhive i dalje radi: kartica letve se
+      otvara, samo bez povijesti. Dok su povijesni nizovi stajali u
       glavnoj bazi, uz svaki je redak išla i verzija za razmjenu, pa je 45.547 očitanja jedne
       letve zauzelo 61 % baze.</p>
 
@@ -905,8 +904,9 @@
         eHYD, GKD, PEGELONLINE, izvoz Geolux zapisivača (SEBA) i hidrološki godišnjaci RHMZ Srbije. Svaki
         se prvo pročita bez upisa i pokaže što bi se zapisalo. Svi ZIP-ovi jednog uvoza zajedno smiju imati
         najviše 1000 datoteka i 256 MB kad se raspakiraju. Letva koja u stablu već postoji upisuje se u svoj
-        sliv; sliv se bira samo za novu letvu. Sliv, letva i izvor smiju imati samo slova, brojke, crticu i
-        točku.</li>
+        sliv; sliv se bira samo za novu letvu. Novi sliv, kojeg u stablu još nema, otvara samo globalni
+        administrator; ostali novu letvu stavljaju u sliv koji već postoji. Sliv, letva i izvor smiju
+        imati samo slova, brojke, crticu i točku.</li>
       <li><strong>2. Gradnja.</strong> Nakon potvrde program zapiše datoteke u stablo i odmah u pozadini
         izgradi letvu. Pri gradnji se izbacuju ispadi telemetrije i svi se vodostaji svode na današnju kotu
         nule.</li>
@@ -1203,13 +1203,26 @@
     <p><span class="reg-chip">Piše: operater u dosegu centra</span>
       <span class="reg-chip">Zaglavlje: voditelj ili zamjenik centra</span></p>
     <p>Izvođač, odnosno voditelj usluga ili poslovođa, dnevnik COP-a i plan dežurstava ne čita,
-      ne piše u njih, ne preuzima dežurstvo i ne upisuje se u plan. On piše samo u dnevnike
-      usluga svoje firme, a svoje izvješće o satima vidi na stranici <em>Moj profil</em>.</p>
+      ne piše u njih, ne preuzima dežurstvo i ne upisuje se u plan. Ni smjenu ne predaje sam:
+      ako je ostao upisan kao dežurni, smjenu mu predaje voditelj ili zamjenik centra, i tek
+      onda drugi preuzima dežurstvo. Njegova smjena tada ostaje samo zapis u dnevniku i ne
+      ulazi u plan ni u obračun sati. On piše
+      samo u dnevnike usluga svoje firme. Izvođača plaća njegova firma, pa nema IORS i ne
+      ulazi u obračun sati centra. Ovdje je izvođač samo tko danas ima važeću dužnost poslovođe; tko ju
+      je imao prije, u dnevniku COP-a radi kao i ostali djelatnici.</p>
     <p>Zapis se ne prepisuje i ne briše. Pogrešan zapis se <strong>stornira uz razlog</strong> i
       ostaje vidljiv u dnevniku. Prijepis iz stare evidencije može se ispraviti dok je označen
       kao prijepis.</p>
     <p>Ovjeren dnevnik više ne prima zapise, storno ni ispravke, ni u prijepisu. Dnevnik s
       upisanim krajem, a još neovjeren, prima samo zapise s danom do kraja.</p>
+    <p>Ovjera na druga računala stiže razmjenom. Dok ne stigne, drugo računalo dnevnik vidi kao
+      neovjeren, pa se na njemu još može upisati zapis. Takav zapis ostaje u dnevniku s oznakom
+      <em>nastao nakon ovjere</em> i vremenom upisa, a ime stoji uz zapis. Zapis koji je ondje
+      ispravljen ili storniran dobije oznaku <em>izmijenjen nakon ovjere</em> ili <em>storniran
+      nakon ovjere</em>. Ista oznaka stoji i u izvozu u Excel.</p>
+    <p>Oznaka se ravna po vremenu upisa s računala na kojem je zapis nastao. Što je ovjereno,
+      piše u potpisanom izvorniku. Ovjeru ne skida ni izmjena zaglavlja ni brisanje dnevnika s
+      računala koje ovjeru još nije imalo: dnevnik ostaje sa svim zapisima i planom dežurstava.</p>
     <p>Prije zaključivanja dnevnik mora imati upisan kraj, ne smije ostati aktivno dežurstvo, a
       sva dežurstva u planu moraju biti potvrđena. <strong>Voditelj COP-a</strong>, odgovoran za dežurstva, zaključuje ga svojim osobnim
       elektroničkim ključem. Tada nastaje trajni potpisani PDF izvornik i dnevnik se više ne
@@ -1220,10 +1233,14 @@
     <p>Plan stoji uz dnevnik COP-a i govori <strong>tko je radio, od kada do kada, za cijeli
       sektor ili određeno područje, na kojem poslu te u uredu ili na terenu</strong>. Isti zapis
       poslije postaje osnova obračuna — dežurstvo se ne prepisuje u drugu evidenciju.</p>
+    <p>Plan vide uprava i djelatnici sektora tog centra, uprava organizacije i globalni
+      administrator. Isto vrijedi za stupac dežurstava u Excel izvozu dnevnika COP-a: ostali
+      dnevnik čitaju, ali bez dežurstava.</p>
     <p>Svatko tko pripada dosegu centra može upisati sebe, osim izvođača. Takav upis čeka potvrdu uprave centra
       i tek tada ulazi u obračun. Uprava centra može upisati osobu koja na dan dežurstva ima
       dužnost u sektoru centra. Djelatnik iz drugog sektora ulazi u plan samo uz privremenu
-      dužnost u ovom sektoru. Poslovođa izvođača ne ulazi u plan. Unos uprave potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
+      dužnost u ovom sektoru. Poslovođa izvođača ne ulazi u plan; njegov upis koji je ostao
+      u planu od prije uprava ne potvrđuje ni ne ispravlja, nego ga miče. Unos uprave potvrđen je odmah, osim dežurstva duljeg od 24 sata bez stanke: ono dobiva napomenu
       i čeka zasebnu provjeru i potvrdu uprave. Nepotvrđeni vlastiti unos osoba može maknuti,
       a uprava upravlja cijelim planom.</p>
     <p>Krivo izabran opis rada uprava centra ispravlja na mjestu (<em>ispravi opis</em>), bez
@@ -1243,6 +1260,7 @@
       dežurstvo ostaje potvrđeno. Zato se zaključan plan ne ispravlja tuđim očima. Kad uprava dežurstvo makne, razlog ostaje u knjizi verzija.</p>
     <p><span class="reg-chip">Svoj unos: svatko u dosegu, osim izvođača</span>
       <span class="reg-chip">Potvrđuje: uprava centra</span>
+      <span class="reg-chip">Vidi: sektor centra i uprava organizacije</span>
       <span class="reg-chip">Nakon ovjere: uprava centra, uz razlog</span></p>
 
     <h3 id="dnevnik-obracun">Obračun sati i IORS</h3>
@@ -1295,9 +1313,11 @@
       imenom onoga tko je predao.
       Predano izvješće sektora ne briše se: predaja se može povući (<em>Povuci predaju</em>), pa
       je izvješće opet nacrt. Ne briše se ni tada; briše se samo nacrt koji nikad nije predan.
-      Izvješće dionice koje je bilo predano, i dok čeka ponovnu predaju, mijenja samo onaj tko ga
-      je izradio, a briše ga samo uprava područja ili sektora. Nacrt koji nikad nije predan
-      briše i rukovoditelj dionice ili zamjenik.</p>
+      Izvješće dionice koje je bilo predano, i dok čeka ponovnu predaju, mijenja onaj tko ga je
+      izradio, a briše ga samo uprava područja ili sektora. Kad onaj tko ga je izradio više nije
+      rukovoditelj ni zamjenik te dionice, izvješće mijenja bilo koji rukovoditelj ili zamjenik
+      dionice. Mijenja ga i uprava područja ili sektora koja je ujedno rukovoditelj ili zamjenik
+      dionice. Nacrt koji nikad nije predan briše i rukovoditelj dionice ili zamjenik.</p>
 
     <h3 id="dogadjanja">Događanja</h3>
     <p>Događanja su puna kronologija poslovnih promjena koje se na početnoj vide kao zid.
@@ -1499,8 +1519,12 @@
       promijeni u ulogu izvan ustroja obrane (vodočuvar, gost i slično): tada ne vidi ni dnevnike
       svoje firme na području na kojem više nema dužnost.</p>
     <p>Nadzor u dnevniku usluge je <strong>ovlaštenik za praćenje ugovora</strong> tog programa
-      (A.02 ili A.03) na području dnevnika, ili njegov zamjenik. Samo on piše naloge i ocjene,
-      otkazuje i ponovno otvara naloge, stornira tuđe upise i potvrđuje list za nadzor. Izvedenim
+      (A.02 ili A.03) na području dnevnika, ili njegov zamjenik. Nadzor piše naloge i ocjene,
+      otkazuje i ponovno otvara naloge, stornira tuđe upise i potvrđuje list za nadzor. Dok za
+      taj program na području nema ovlaštenika ni zamjenika s važećom dužnošću i uključenim
+      računom, nadzor rade
+      uprava područja i uprava sektora, sa zamjenicima. Čim ovlaštenik postoji, nadzor je samo
+      on. Ovlaštenik drugog programa nadzor ne preuzima. Izvedenim
       nalog označavaju izvođač ili nadzor. Rukovoditelji i dežurni s pravom pisanja upisuju rad i
       napomene. Njihov upis na listu nosi oznaku „nadzor”, kao i svaki upis Hrvatskih voda, ali
       time ne dobivaju prava nadzora.</p>
@@ -1513,7 +1537,7 @@
       potvrđenog lista i dalje se označava izvedenim, otkazuje ili ponovno otvara, jer traje dok
       se ne izvede. Gotov dnevnik ispisuje se u
       obliku obrasca za potpis.</p>
-    <p><span class="reg-chip">Nadzor: ovlaštenik za praćenje ugovora</span>
+    <p><span class="reg-chip">Nadzor: ovlaštenik za praćenje ugovora, a dok ga nema uprava</span>
       <span class="reg-chip">Naslovnica: ovlaštenik i uprava</span>
       <span class="reg-chip">Briše: uprava sektora</span></p>
     <p><a class="btn btn-secondary btn-sm" href="/dnevnici">{{icon "notebook"}} Otvori Dnevnike</a></p>
@@ -1711,6 +1735,18 @@
       djelatnik ga upisuje umjesto PIN-a. Noviji kod zamjenjuje stariji neiskorišteni. Kod se
       prikazuje samo jednom; prenesite ga osobno ili telefonom. Izdavanje se zapisuje u dnevnik,
       bez samog koda. Sebi se kod ne izdaje, a ni tuđim očima: za to se prijavite kao vi.</p>
+    <p>Globalni administrator na vrhu stranice Djelatnici vidi račune koji još imaju staru
+      zajedničku početnu lozinku. Oni se ne prijavljuju dok im netko ne poništi lozinku, pa
+      svakome od njih poništite lozinku i predajte novu privremenu. Učinite to odmah: na
+      računalu sa starijim izdanjem programa takav se račun iz ureda još prijavljuje.</p>
+    <p>Kad je stranica otvorena izvana, kroz tunel ili s javne adrese, tko izdaje kod za prijavu
+      izvana (i uz <em>Poništi lozinku</em>) upisuje i lozinku svog računa. Isto vrijedi kad se
+      potvrđuje adresa na koju ide PIN i za sve što dira pravo globalnog administratora: novi račun
+      s tim pravom, davanje i oduzimanje oznake ili dužnosti razine 1, te lozinka, uključenost i
+      brisanje računa koji to pravo ima. Pravo daje i dužnost razine 1, na primjer zamjeniku
+      rukovoditelja glavnog centra, pa i njegova lozinka izvana traži lozinku vašeg računa.</p>
+    <p>Krivi upisi broje se kao pri promjeni lozinke. S ovog računala i iz lokalne mreže lozinka
+      ne treba.</p>
     <p>Uz <em>Poništi lozinku</em> može se označiti i <em>i kod za prijavu izvana</em>, pa
       djelatnik odjednom dobije privremenu lozinku i kod. Poništiti lozinku i izdati kod smije samo
       onaj tko smije i uređivati račun te osobe: globalni administrator svakome (privremeni ne
@@ -1886,9 +1922,17 @@
         i potvrđuje globalni administrator; prima čvor koji drži ključ mreže ili član kojem je
         nositelj ključa dao <em>ovlast za primanje</em>. Oduzeta ovlast poništava članstva svih
         računala koja je taj primatelj primio, a ekran ih nabroji. Članstvo opoziva čvor koji drži
-        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Kad je stranica
-        otvorena izvana, kroz tunel ili s javne adrese, računalo se prima, ovlast za primanje daje i
-        oduzima, a članstvo opoziva samo uz lozinku vašeg računa, upisanu u isti obrazac. S ovog računala
+        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Ovlast za
+        primanje oduzima samo računalo s ključem mreže, i kad je članstvo opozvao primatelj. Kad
+        primatelj opozove članstvo računala koje ima ovlast za primanje, računalo s ključem mreže to
+        upozori dok se ovlast ne oduzme. Računalo s ovlašću za primanje vidi se u popisu članova i
+        kad na ovom računalu nema njegovog valjanog članstva, pa mu se ovlast može oduzeti. Računalo s
+        ključem mreže može opozvati i članstvo koje je ovdje isteklo, jer ga je drugo računalo možda
+        obnovilo. Računalo se nakon opoziva može odmah ponovno primiti. Kad je stranica
+        otvorena izvana, kroz tunel ili s javne adrese, sve što mijenja mrežu radi se samo uz lozinku
+        vašeg računa, upisanu u isti obrazac: osnivanje mreže, svaka potvrda uparivanja, primanje računala, ulazak
+        ovog računala u mrežu, ovlast za primanje, obnova i opoziv članstva, adrese za razmjenu,
+        oznaka <em>stalno izložen</em> i zaborav čvora. S ovog računala
         i iz lokalne mreže lozinka ne treba. Tko je to napravio i s koje adrese, piše u dnevniku
         programa. Tuđim očima se mreža ne mijenja. Uz članstvo
         piše do kad vrijedi. Mjesec dana prije isteka računalo samo zatraži obnovu pri razmjeni, a gumb
@@ -2007,9 +2051,10 @@
         <code>admin</code> i potvrdite ih. Izmjene napravljene na ovom računalu ne čekaju.</li>
       <li><strong>Održavanje baze</strong> — zauzeće operativne baze, sažimanje knjige verzija,
         izvoz i obnova. Potpisani <code>.cop</code> paket ugrađuje se i izvana, a stara
-        <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže.
-        Dok računalo još nije u mreži, ne zna čiji je potpis na paketu, pa se dotad i
-        <code>.cop</code> paket uvozi samo s ovog računala ili iz lokalne mreže. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
+        <code>.db</code> arhiva nema potpis, pa se uvozi samo s ovog računala ili iz lokalne mreže, i
+        to tek kad je računalo u mreži. Dok računalo još nije u mreži, ne zna čiji je potpis na
+        paketu, pa se dotad i <code>.cop</code> paket uvozi samo s ovog računala ili iz lokalne mreže, i
+        samo onaj koji je izdalo ovo računalo. U dijelu <em>Pohrana</em> globalni administrator zadaje koliko se dana
         čuvaju izvorne fotografije s terena; to vrijedi na svim čvorovima. Veliki službeni sadržaji odvojeno se čuvaju u
         <code>sadrzaj.db</code>, jednom po otisku; knjiga verzija prenosi njihovo kazalo, a
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
@@ -2171,8 +2216,9 @@
     <p>Na profilu su kontakti, promjena lozinke i odjeljak <em>Ovo računalo i ured</em>, odakle se
       otvara <em>Što ovo računalo prati</em>. Gumb <em>Moja zaduženja</em> otvara vašu stranicu
       djelatnika sa zaduženjima i njihovom poviješću. Lozinka mora imati najmanje 10 znakova. Privremenu lozinku od administratora mijenjate pri prvoj prijavi; do tada ostatak programa
-      ostaje zatvoren. Stara zajednička početna lozinka ne vrijedi za prijavu izvana: ako je vaš
-      račun još ima, prvu prijavu obavite lokalno ili od administratora zatražite privremenu lozinku. Promjena lozinke gasi
+      ostaje zatvoren. Račun koji još ima staru zajedničku početnu lozinku je zaključan i ne
+      prijavljuje se ni iz ureda: zamolite administratora da vam poništi lozinku i preda novu
+      privremenu. Promjena lozinke gasi
       ostale prijave na istom čvoru, ne odmah i na drugim računalima.</p>
     <p>Ovdje se postavljaju i lozinka službene e-pošte, potpis e-pošte, šifrirani sken
       vlastoručnog potpisa i osobni elektronički ključ. Svaka od tih stavki uz sebe objašnjava

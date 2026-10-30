@@ -142,18 +142,19 @@ func slivLetve(letva, upisani string, slivZa map[string]string) string {
 	return upisani
 }
 
-// smijeSveLetve provjerava pravo na svaku letvu na koju uvoz piše.
-func (h *UvozHandler) smijeSveLetve(perms *models.UserPermissions, f izvori.Format, z izvori.Zadatak) error {
+// smijeSveLetve provjerava pravo na svaku letvu na koju uvoz piše i vraća
+// te letve.
+func (h *UvozHandler) smijeSveLetve(perms *models.UserPermissions, f izvori.Format, z izvori.Zadatak) ([]string, error) {
 	letve, err := f.LetveZadatka(z)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, l := range letve {
 		if !h.smijeZa(perms, l) {
-			return fmt.Errorf("letva %s nije na vašim dionicama — njezine podatke uvozi administrator njezina područja", l)
+			return nil, fmt.Errorf("letva %s nije na vašim dionicama — njezine podatke uvozi administrator njezina područja", l)
 		}
 	}
-	return nil
+	return letve, nil
 }
 
 // PregledIzvora čita odabrane datoteke i pokazuje što bi se zapisalo. Ništa
@@ -297,6 +298,19 @@ func (h *UvozHandler) izgradiLetve(p *poslovi.Posao, letve []string, izvor strin
 	return nil
 }
 
+// zabranaPovijesti kaže zašto se povijest s HydroViewa ne smije uvesti:
+// letvu uvozi onaj tko je smije dirati, a u novi sliv samo globalni
+// administrator (smijeSliv). Prazno znači da smije.
+func (h *UvozHandler) zabranaPovijesti(d *UvozPageData, letva, sliv string) string {
+	if !h.smijeZa(d.Permissions, letva) {
+		return "Nemate pravo uvoziti podatke letve " + letva + " — uvozi ih administrator njezina područja."
+	}
+	if err := d.smijeSliv(sliv, []string{letva}); err != nil {
+		return velikimSlovom(err.Error()) + "."
+	}
+	return ""
+}
+
 // PreuzmiHidroView preuzima povijest letve s HydroViewa za zadano razdoblje
 // i dopisuje je u arhivu. Dopuna ne može ništa odnijeti, pa ide odmah kao
 // posao; „Samo provjeri” pokaže što bi se preuzelo bez upisa.
@@ -325,8 +339,8 @@ func (h *UvozHandler) PreuzmiHidroView(w http.ResponseWriter, r *http.Request) {
 		h.pisi(w, d)
 		return
 	}
-	if !h.smijeZa(d.Permissions, z.Letva) {
-		d.ErrorMessage = "Nemate pravo uvoziti podatke letve " + z.Letva + " — uvozi ih administrator njezina područja."
+	if poruka := h.zabranaPovijesti(&d, z.Letva, z.Sliv); poruka != "" {
+		d.ErrorMessage = poruka
 		h.pisi(w, d)
 		return
 	}

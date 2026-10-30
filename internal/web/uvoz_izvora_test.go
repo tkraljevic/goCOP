@@ -128,10 +128,10 @@ func TestPosebniIzvorTraziPravoNaSveLetve(t *testing.T) {
 	h.SetOvlastiLetve(func(p *models.UserPermissions, letva string) bool { return letva == "bezdan" })
 	podrucje := &models.UserPermissions{AllowedSections: map[string]bool{"x": true}}
 	f := izvoriFormat(t, "godisnjak")
-	if err := h.smijeSveLetve(podrucje, f, izvoriZadatak("42010=bezdan")); err != nil {
-		t.Errorf("svoja letva odbijena: %v", err)
+	if letve, err := h.smijeSveLetve(podrucje, f, izvoriZadatak("42010=bezdan")); err != nil || len(letve) != 1 || letve[0] != "bezdan" {
+		t.Errorf("svoja letva: %v %v", letve, err)
 	}
-	if err := h.smijeSveLetve(podrucje, f, izvoriZadatak("42010=bezdan,42015=apatin")); err == nil {
+	if _, err := h.smijeSveLetve(podrucje, f, izvoriZadatak("42010=bezdan,42015=apatin")); err == nil {
 		t.Error("tuđa letva u popisu prošla je")
 	}
 }

@@ -136,7 +136,7 @@ func TestClanstvoIzvanaTraziLozinku(t *testing.T) {
 		`"Ana Ivić (aivic)" oduzeo je ovlast za primanje računalu "pperic-thinkpad", s adrese`,
 		`"Ana Ivić (aivic)" dao je ovlast za primanje računalu "pperic-thinkpad", s adrese 192.168.1.50`,
 		`"Ana Ivić (aivic)" opozvao je članstvo računala "pperic-thinkpad", s adrese 203.0.113.9`,
-		`mreža: izvana bez točne lozinke računa odbijeno: "Ana Ivić (aivic)", POST "/api/network/x", s adrese`,
+		`izvana bez točne lozinke računa odbijeno: "Ana Ivić (aivic)", POST "/api/network/x", s adrese`,
 	} {
 		if !strings.Contains(dnevnik.String(), d) {
 			t.Errorf("dnevnik programa nema %q:\n%s", d, dnevnik.String())

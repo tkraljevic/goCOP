@@ -1,8 +1,8 @@
 package web
 
 // Ime na koje je preglednik poslao zahtjev (zaglavlje Host). Klijent iz
-// lokalne mreže smije više od klijenta izvana (početna lozinka, prijava bez
-// PIN-a, postavljanje svježeg čvora), pa takav vrijedi samo zahtjev upućen
+// lokalne mreže smije više od klijenta izvana (prijava bez PIN-a,
+// postavljanje svježeg čvora), pa takav vrijedi samo zahtjev upućen
 // imenu ili adresi za koju se zna da vodi na ovo računalo. Zahtjev na drugo
 // ime ne odbija se, nego vrijedi kao izvana: radi kao i prije, samo uz
 // pravila za prijavu s interneta.
@@ -18,8 +18,8 @@ package web
 //   - ime ovog računala, ime iz javne adrese (javna_adresa u gocop.toml) i
 //     imena iz [web] lokalna_imena.
 //
-// Ono što smije samo osoba za ovim računalom (početna lozinka pod Postavom,
-// svjež čvor bez koda, stanje za Postavu) traži više: vezu s ovog računala i
+// Ono što smije samo osoba za ovim računalom (svjež čvor i popis
+// privremenih lozinki bez koda, stanje za Postavu) traži više: vezu s ovog računala i
 // ime localhost ili adresu petlje (Klijent.SOvogRacunala). Ime iz lokalne
 // mreže može odgovoriti bilo koje računalo u istoj mreži.
 

@@ -21,7 +21,7 @@ func TestZidIzvodjacNeVidiDnevnikCOPaNiDezurstva(t *testing.T) {
 		t.Fatal(err)
 	}
 	zid := NewZidService(ledger.New(o.baza, "test"), o.svc.repo, nil, nil, nil, nil, nil)
-	zid.SetIzvodjac(o.svc.IzvodjacZaDnevnike)
+	zid.SetIzvodjac(o.svc.IzvodjacZaCOP)
 	sektor := "P"
 	izvodjac := &models.UserPermissions{AllowedSectors: map[string]bool{"P": true}, User: models.User{ID: uuid.New(), FullName: "Ivo Izvođač",
 		Duties: []models.Duty{{Role: models.RoleServiceLeaderForeman, ScopeType: models.ScopeSector, SectorID: &sektor, IsActive: true}}}}

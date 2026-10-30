@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -29,31 +30,40 @@ func (h *JournalsHandler) ShowDezurstva(w http.ResponseWriter, r *http.Request) 
 	data := h.pageData(r)
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
+	if !h.journals.VidiPlanDezurstava(data.Permissions, data.Opseg, j) {
+		http.Error(w, porukaPlanDrugogSektora, http.StatusForbidden)
+		return
+	}
 	data.Dezurstva, _ = h.journals.Dezurstva(r.Context(), j.ID)
 	data.OpisiRada = models.OpisiRada
 	data.Areas, _ = h.users.ListAreas(j.CentarSektor)
 	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 	data.MozeSebe = h.journals.MozeSebeUPlan(data.Permissions, h.opseg(j, area), j)
-	// Uprava bira bilo koga iz sektora, ali program najprije ponudi nju
-	// samu — najčešće upisuje sebe; ostali upisuju samo sebe.
-	if data.UpravaCentra {
-		data.Osobe, _ = h.users.ListUsers(j.CentarSektor, 0, "", "", "")
-		if data.CurrentUser != nil {
-			svoj := false
-			for _, o := range data.Osobe {
-				if o.ID == data.CurrentUser.ID {
-					svoj = true
-				}
-			}
-			if !svoj {
-				data.Osobe = append([]models.User{*data.CurrentUser}, data.Osobe...)
-			}
-		}
-	} else if data.MozeSebe && data.CurrentUser != nil {
-		data.Osobe = []models.User{*data.CurrentUser}
-	}
+	data.Osobe = h.osobeZaPlan(data, j)
 	h.render(w, h.tmplDezurstva, "dnevnik_dezurstva.html", data)
 }
+
+// osobeZaPlan su osobe koje obrazac plana nudi. Uprava bira bilo koga iz
+// sektora, ali program najprije ponudi nju samu — najčešće upisuje sebe;
+// ostali upisuju samo sebe.
+func (h *JournalsHandler) osobeZaPlan(data JournalPageData, j *models.Journal) []models.User {
+	ja := data.CurrentUser
+	if !data.UpravaCentra {
+		if data.MozeSebe && ja != nil {
+			return []models.User{*ja}
+		}
+		return nil
+	}
+	osobe, _ := h.users.ListUsers(j.CentarSektor, 0, "", "", "") // bez imenika uprava upisuje bar sebe
+	if ja == nil || slices.ContainsFunc(osobe, func(o models.User) bool { return o.ID == ja.ID }) {
+		return osobe
+	}
+	return append([]models.User{*ja}, osobe...)
+}
+
+// porukaPlanDrugogSektora: plan dežurstava vide samo sektor centra, uprava
+// organizacije i globalni administrator
+const porukaPlanDrugogSektora = "Plan dežurstava ovog centra vide uprava i djelatnici njegova sektora, uprava organizacije i globalni administrator."
 
 // HandleSaveDezurstvo upisuje ili mijenja dežurstvo iz obrasca na planu
 func (h *JournalsHandler) HandleSaveDezurstvo(w http.ResponseWriter, r *http.Request) {

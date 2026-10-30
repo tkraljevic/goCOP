@@ -246,5 +246,5 @@ func (s *Service) brojPrimatelja(ctx context.Context) int {
 // prima javlja prima li član u mrežu: članstvo vrijedi i nije u pričuvi,
 // a ovlast za primanje vrijedi za njegov ključ
 func (m Member) prima() bool {
-	return m.Valid && m.Rok.Stanje != RokPricuva && m.OvlastZaPrimanje != nil && m.OvlastZaPrimanje.Valid
+	return m.Valid && m.Rok.Stanje != RokPricuva && m.OvlastZaPrimanje != nil && m.OvlastZaPrimanje.Valid && !m.OvlastDrugomKljucu
 }

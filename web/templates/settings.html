@@ -76,8 +76,10 @@
         {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
       </select>
       <input type="text" id="addr-new" class="form-control" placeholder="domena, IP ili https://domena za tunel" style="max-width:260px;">
+      {{if .Izvana}}<input type="password" id="adresa-lozinka" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" style="max-width:220px;">{{end}}
       <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu za razmjenu</button>
     </div>
+    {{if .Izvana}}<p class="form-help" style="margin-top:0.4rem;">Stranicu ste otvorili izvana. Izvana se adresa dodaje ili miče samo uz lozinku vašeg računa.</p>{{end}}
     <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}; vatrozid ga mora propustiti do čvora.
       Kad se izvana smije samo na web (Cloudflare tunel), upišite web adresu čvora, npr. <span class="mono">https://cop.primjer.hr</span>:
       razmjena tada ide kroz web sučelje, a unutra je isti šifrirani razgovor s ključevima čvorova.</p>
@@ -134,8 +136,11 @@
     <div class="form-group mt-3 mb-2">
       <label class="form-label" for="clan-lozinka">Lozinka vašeg računa</label>
       <input type="password" id="clan-lozinka" class="form-control" autocomplete="current-password" style="max-width:240px;">
-      <div class="form-help">Stranicu ste otvorili izvana. Izvana se članstvo opoziva, a ovlast za primanje daje i oduzima samo uz lozinku vašeg računa.</div>
+      <div class="form-help">Stranicu ste otvorili izvana. Izvana se članstvo obnavlja i opoziva, a ovlast za primanje daje i oduzima samo uz lozinku vašeg računa.</div>
     </div>
+    {{end}}
+    {{if and .Network.CanAdmit (not .Network.DrziKljuc) .Permissions.IsGlobalAdmin}}
+    <p class="desc mt-3">Ovo računalo može opozvati članstvo računala koja je samo primilo. Ovlast za primanje oduzima samo računalo s ključem mreže.</p>
     {{end}}
     <div class="mt-3">
       {{range .Members}}
@@ -143,14 +148,15 @@
         <div class="peer-head">
           <span class="peer-name">{{.DeviceID}}{{if .IsSelf}} <span class="muted">(ovaj čvor)</span>{{end}}
             {{if not .Valid}}<span class="badge badge-inactive" title="{{.Problem}}">nevažeće</span>{{else if .Rok.TraziPaznju}}<span class="badge {{.Rok.Oznaka}}">{{.Rok.Opis}}</span>{{else}}<span class="badge badge-active">član</span>{{end}}</span>
-          <span class="peer-meta">primio {{.IssuedBy}}{{if .Primatelj}} (ovlašteni primatelj){{end}} · vrijedi do {{formatDate .ExpiresAt}}</span>
+          {{if .BezClanstva}}<span class="peer-meta">na ovom računalu nema njegovog valjanog članstva</span>{{else}}<span class="peer-meta">primio {{.IssuedBy}}{{if .Primatelj}} (ovlašteni primatelj){{end}} · vrijedi do {{formatDate .ExpiresAt}}</span>{{end}}
         </div>
         {{with .OvlastZaPrimanje}}<div class="peer-meta">{{if .Valid}}<span class="badge badge-active">ovlašteni primatelj</span> do {{formatDate .ExpiresAt}}{{else}}<span class="badge badge-inactive" title="{{.Problem}}">ovlast za primanje ne vrijedi</span>{{end}}</div>{{end}}
+        {{if .OvlastDrugomKljucu}}<div class="peer-meta">Ovlast za primanje izdana je za drugi ključ ovog računala, pa s ovim ključem ne prima.</div>{{end}}
         {{if and $.Permissions.IsGlobalAdmin (not .IsSelf)}}
         <div class="actions">
-          {{if and $.Network.DrziKljuc .Valid}}{{if and .OvlastZaPrimanje .OvlastZaPrimanje.Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="opozoviOvlast('{{.DeviceID}}')">Oduzmi ovlast za primanje</button>{{else}}<button type="button" class="btn btn-sm btn-secondary" onclick="izdajOvlast('{{.DeviceID}}')">Daj ovlast za primanje</button>{{end}}{{end}}
+          {{if $.Network.DrziKljuc}}{{if .OvlastZaPrimanje}}<button type="button" class="btn btn-sm btn-secondary" onclick="opozoviOvlast('{{.DeviceID}}')">Oduzmi ovlast za primanje</button>{{end}}{{if and .Valid (not (and .OvlastZaPrimanje .OvlastZaPrimanje.Valid (not .OvlastDrugomKljucu)))}}<button type="button" class="btn btn-sm btn-secondary" onclick="izdajOvlast('{{.DeviceID}}')">Daj ovlast za primanje</button>{{end}}{{end}}
           {{if and $.Network.CanAdmit .Valid}}<button type="button" class="btn btn-sm btn-secondary" onclick="obnoviClana('{{.DeviceID}}')">Obnovi</button>{{end}}
-          {{if or $.Network.DrziKljuc (and .Primatelj (eq .Primatelj.DeviceKey $.NodePublicKey))}}<button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}')">Opozovi članstvo</button>{{end}}
+          {{if or $.Network.DrziKljuc (and .Primatelj (eq .Primatelj.DeviceKey $.NodePublicKey))}}<button type="button" class="btn btn-sm btn-link" onclick="revokeMember('{{.DeviceID}}', {{if $.Network.DrziKljuc}}true{{else}}false{{end}})">Opozovi članstvo</button>{{end}}
         </div>
         {{end}}
       </div>
@@ -189,8 +195,10 @@
     {{if .Permissions.IsGlobalAdmin}}
     <div class="actions">
       <input type="text" id="network-name" class="form-control" placeholder="naziv mreže, npr. Hrvatske vode" style="max-width:300px;">
+      {{if .Izvana}}<input type="password" id="mreza-lozinka" class="form-control" placeholder="Lozinka vašeg računa" autocomplete="current-password" aria-label="Lozinka vašeg računa" style="max-width:220px;">{{end}}
       <button type="button" class="btn btn-primary" onclick="createNetwork()">Osnuj mrežu</button>
     </div>
+    {{if .Izvana}}<p class="form-help" style="margin-top:0.4rem;">Stranicu ste otvorili izvana. Izvana se mreža osniva samo uz lozinku vašeg računa.</p>{{end}}
     {{end}}
     {{end}}
     {{with .Postavke}}{{template "postavkeCvora" (.Dio "mreza")}}{{end}}
@@ -211,8 +219,8 @@
       <div id="pair-pending" style="display:none;">
         <p class="mt-2 mb-0">Čvor <b id="pair-peer-name"></b> (<span id="pair-peer-id" class="mono"></span>) traži uparivanje. Usporedite kod na oba ekrana:</p>
         <div class="sas" id="pair-sas"></div>
-        {{if and .Izvana .Network .Network.CanAdmit}}<div class="form-group mb-2">
-          <label class="form-label" for="pair-lozinka">Lozinka vašeg računa (izvana se drugo računalo prima u mrežu samo uz nju)</label>
+        {{if .Izvana}}<div class="form-group mb-2">
+          <label class="form-label" for="pair-lozinka">Lozinka vašeg računa (izvana se računala uparuju samo uz nju)</label>
           <input type="password" id="pair-lozinka" class="form-control" autocomplete="current-password" style="max-width:220px;">
         </div>{{end}}
         <div class="actions">
@@ -228,6 +236,13 @@
     <h2>Poznati čvorovi</h2>
     <p class="desc">Računala s kojima ovo razmjenjuje. Adresa se mijenja, ključ ne. Računala s domenom označena su kao stalno izložena.
       Gumbi Razmijeni sa svima, Razmijeni i Pretraži lokalnu mrežu su na stranici <a href="/sinkronizacija" id="poveznica-stanje-razmjene">Stanje razmjene</a>.</p>
+    {{if and .Izvana .Permissions.IsGlobalAdmin .Peers}}
+    <div class="form-group mb-2">
+      <label class="form-label" for="cvor-lozinka">Lozinka vašeg računa</label>
+      <input type="password" id="cvor-lozinka" class="form-control" autocomplete="current-password" style="max-width:240px;">
+      <div class="form-help">Stranicu ste otvorili izvana. Izvana se čvor zaboravlja i označava kao stalno izložen samo uz lozinku vašeg računa.</div>
+    </div>
+    {{end}}
     <div id="peer-list">
       {{range .Peers}}
       <div class="peer" id="peer-{{.NodeID}}">
@@ -322,15 +337,18 @@ async function createNetwork() {
   const name = document.getElementById('network-name').value.trim();
   if (!name) { alert('Upišite naziv mreže.'); return; }
   if (!confirm('Osnovati mrežu "' + name + '"? Ovaj čvor dobiva ključ mreže — čuvajte datoteku data/network-key.')) return;
-  try { await api('/api/network/create', {name}); location.reload(); } catch (e) { alert(e.message); }
+  try { await api('/api/network/create', {name, lozinka_racuna: lozinkaRacuna('mreza-lozinka')}); location.reload(); } catch (e) { alert(e.message); }
 }
 
 // pogodjeniPoruka: čvorovi čije članstvo pada s opozivom ovlasti njihova primatelja
 const pogodjeniPoruka = p => (p && p.length) ? '\n\nNjihova članstva više ne vrijede (primio ih je taj primatelj): ' + p.join(', ') +
   '.\nAko trebaju ostati u mreži, primite ih ponovno.' : '';
 
-async function revokeMember(node) {
-  if (!confirm('Opozvati članstvo čvora "' + node + '"? Od tada mu nitko u mreži ne odgovara na razmjenu. Potvrda ostaje u povijesti.\n\nAko je ovlašteni primatelj, oduzima mu se i ovlast, a time i članstva svih koje je primio.')) return;
+async function revokeMember(node, kljucMreze) {
+  const ovlast = kljucMreze
+    ? 'Ako je ovlašteni primatelj, oduzima mu se i ovlast, a time i članstva svih koje je primio.'
+    : 'Ovo računalo ne može oduzeti ovlast za primanje. Ako to računalo ima ovlast za primanje, oduzima je samo računalo s ključem mreže.';
+  if (!confirm('Opozvati članstvo čvora "' + node + '"? Od tada mu nitko u mreži ne odgovara na razmjenu. Potvrda ostaje u povijesti.\n\n' + ovlast)) return;
   try {
     const r = await api('/api/network/members/' + encodeURIComponent(node) + '/revoke', {lozinka_racuna: lozinkaRacuna('clan-lozinka')});
     if (r.pogodjeni && r.pogodjeni.length) alert('Članstvo opozvano.' + pogodjeniPoruka(r.pogodjeni));
@@ -365,11 +383,11 @@ async function ucitajKopijuKljuca() {
 }
 
 async function obnoviClanstvo() {
-  try { const r = await api('/api/network/obnovi', {}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
+  try { const r = await api('/api/network/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
 }
 
 async function obnoviClana(node) {
-  try { const r = await api('/api/network/members/' + encodeURIComponent(node) + '/obnovi', {}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
+  try { const r = await api('/api/network/members/' + encodeURIComponent(node) + '/obnovi', {lozinka_racuna: lozinkaRacuna('clan-lozinka')}); alert(r.message); location.reload(); } catch (e) { alert(e.message); }
 }
 
 async function izdajOvlast(node) {
@@ -428,24 +446,24 @@ async function addAddress() {
   const node = document.getElementById('addr-node').value;
   const add = document.getElementById('addr-new').value.trim();
   if (!add) { alert('Upišite domenu ili IP adresu.'); return; }
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {add}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {add, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); location.reload(); }
   catch (e) { alert(e.message); }
 }
 
 async function removeAddress(node, remove) {
   if (!confirm('Maknuti adresu ' + remove + '?')) return;
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {remove}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/adrese', {remove, lozinka_racuna: lozinkaRacuna('adresa-lozinka')}); location.reload(); }
   catch (e) { alert(e.message); }
 }
 
 async function setBootstrap(node, bootstrap) {
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/bootstrap', {bootstrap}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/bootstrap', {bootstrap, lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); location.reload(); }
   catch (e) { alert(e.message); }
 }
 
 async function forgetPeer(node, name) {
   if (!confirm('Zaboraviti čvor "' + (name || node) + '"? Ostaje u povijesti i može se ponovno upariti.')) return;
-  try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {}); location.reload(); }
+  try { await api('/api/peers/' + encodeURIComponent(node) + '/forget', {lozinka_racuna: lozinkaRacuna('cvor-lozinka')}); location.reload(); }
   catch (e) { alert(e.message); }
 }
 

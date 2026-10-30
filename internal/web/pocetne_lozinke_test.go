@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"gocop/internal/db"
 	webassets "gocop/web"
@@ -34,7 +35,7 @@ func okolinaLozinki(t *testing.T) (*PostavljanjeHandler, http.Handler) {
 		t.Fatal(err)
 	}
 	h := &PostavljanjeHandler{kod: "7KQ4-M2XD", tmplLozinke: tp}
-	h.SetPocetneLozinke(append([]db.PocetnaLozinka(nil), lozinkeZaTest...), nil)
+	h.SetPocetneLozinke(append([]db.PocetnaLozinka(nil), lozinkeZaTest...), time.Time{}, nil)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /postavljanje/lozinke", h.PrikaziLozinke)
 	mux.HandleFunc("POST /postavljanje/lozinke", h.PreuzmiLozinke)
@@ -159,7 +160,7 @@ func TestJaviPostavljanjeNePiseLozinke(t *testing.T) {
 	}
 
 	// preuzet popis se više ne najavljuje
-	s.SetPocetneLozinke(nil, nil)
+	s.SetPocetneLozinke(nil, time.Time{}, nil)
 	dnevnik.Reset()
 	s.JaviPostavljanje(":8080")
 	if strings.Contains(dnevnik.String(), "/postavljanje/lozinke") {
@@ -167,7 +168,7 @@ func TestJaviPostavljanjeNePiseLozinke(t *testing.T) {
 	}
 	// bez stranice Postavljanje nema ni najave
 	(&Server{}).JaviPostavljanje(":8080")
-	(&Server{}).SetPocetneLozinke(lozinkeZaTest, nil)
+	(&Server{}).SetPocetneLozinke(lozinkeZaTest, time.Time{}, nil)
 }
 
 // Zahtjev s ovog računala upućen na drugo ime iz lokalne mreže (ne

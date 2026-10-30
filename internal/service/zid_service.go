@@ -135,8 +135,8 @@ type ZidService struct {
 	// vidiPrijavu je pravilo čitanja prijava s terena (PrijavaService); nil
 	// dok se ne postavi (tada prijave na zidu ne vidi nitko)
 	vidiPrijavu func(perms *models.UserPermissions, p *models.PrijavaSTerena) bool
-	// izvodjac javlja gleda li se osoba u dnevnicima kao izvođač
-	// (JournalService.IzvodjacZaDnevnike); nil dok se ne postavi
+	// izvodjac javlja gleda li se osoba u dnevniku COP-a kao izvođač
+	// (JournalService.IzvodjacZaCOP); nil dok se ne postavi
 	izvodjac func(u *models.User) bool
 }
 
@@ -738,16 +738,20 @@ func (c *opisivac) dnevnikCOPa(d *Dogadjaj, v ledger.Version, nova bool) bool {
 	return true
 }
 
-// dezurstvo: dežurstvo na zidu je kad je upisano, maknuto i potvrđeno
+// dezurstvo: dežurstvo na zidu je kad je upisano, maknuto i potvrđeno. Plan
+// dežurstava vidi samo sektor centra (Odluke (30. 10. 2026.), dopuna 7), pa
+// dežurstvo čiji se dnevnik COP-a ne zna (obrisan, ili još nije stigao
+// razmjenom) na zidu ne stoji, kao ni zapis takvog dnevnika.
 func (c *opisivac) dezurstvo(d *Dogadjaj, v ledger.Version, nova bool) bool {
 	var z models.Dezurstvo
 	if json.Unmarshal(v.Payload, &z) != nil {
 		return false
 	}
 	j := c.journal(z.JournalID)
-	if j != nil {
-		d.Sektor = j.CentarSektor
+	if j == nil || j.CentarSektor == "" {
+		return false
 	}
+	d.Sektor = j.CentarSektor
 	d.Tko, d.Link = z.UserName, "/dnevnici/"+z.JournalID+"/dezurstva"
 	if z.Podrucje != nil {
 		d.AreaID = *z.Podrucje

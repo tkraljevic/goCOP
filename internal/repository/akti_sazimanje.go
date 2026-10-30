@@ -15,6 +15,13 @@ import (
 // pokretanju vratila ovjeren akt u nacrt, a sukob oznake nestao bez odluke
 // (Odluke (8. 10. 2026.), pitanje 4).
 //
+// Dnevnik zadržava zadnju verziju svake ovjere, a upis, list i dežurstvo
+// zadnju živu verziju: na površini ovjerenog dnevnika stoji najnovija
+// ovjerena verzija i ono što brisanje s čvora bez ovjere nije odnijelo
+// (dnevnikNaPovrsini, zivoDijeteOvjerenog). Bez toga bi obnova površine
+// nakon sažimanja skinula ovjeru ili obrisala zapise ovjerenog dnevnika
+// (Odluke (30. 10. 2026.)).
+//
 // Članstvo ostaje svako (po potpisu): razmjena ključ računala bira iz svih
 // članstava u knjizi, a vrijedi prvo izdano (peers, clanstvo_oznake.go).
 // Kad bi ostala samo zadnja verzija, tuđe članstvo pod istim imenom, koje
@@ -26,6 +33,10 @@ import (
 // sadržajem razlikuje od drugih.
 var pravilaSazimanja = []ledger.ZadrziPo{
 	{Entity: EntityAkti, Kljuc: "$.ovjera_kod"},
+	{Entity: EntityJournals, Kljuc: "$.zakljuceno_at"},
+	{Entity: EntityJournalEntries, Kljuc: "$.journal_id"},
+	{Entity: EntityJournalSheets, Kljuc: "$.journal_id"},
+	{Entity: EntityDezurstva, Kljuc: "$.journal_id"},
 	{Entity: "memberships", Kljuc: "$.signature"},
 	{Entity: "ovlasti", Kljuc: "$.signature"},
 	{Entity: entitetOpozivi, Kljuc: "$"},

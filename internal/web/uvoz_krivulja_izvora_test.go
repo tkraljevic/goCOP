@@ -299,7 +299,7 @@ func TestPotvrdaPosebnogIzvoraTraziPravo(t *testing.T) {
 // prava, da se ne bi pisalo na letve koje nitko nije provjerio.
 func TestGodisnjakSNeispravnimPopisomPostaja(t *testing.T) {
 	h := &UvozHandler{}
-	if err := h.smijeSveLetve(&models.UserPermissions{IsGlobalAdmin: true}, izvoriFormat(t, "godisnjak"),
+	if _, err := h.smijeSveLetve(&models.UserPermissions{IsGlobalAdmin: true}, izvoriFormat(t, "godisnjak"),
 		izvoriZadatak("9001-primjerovo")); err == nil || !strings.Contains(err.Error(), "šifra=letva") {
 		t.Errorf("neispravan popis postaja: %v", err)
 	}

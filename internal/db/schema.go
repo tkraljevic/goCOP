@@ -603,11 +603,12 @@ func InitSchema(database *sql.DB) error {
 			pin_adresa_potvrdena_kad DATETIME
 		);`,
 		// Računi iz prvog punjenja čiji popis privremenih lozinki još nije
-		// preuzet, sa sažetkom koji su tada dobili (pocetne_lozinke.go).
-		// Samo na ovom čvoru: ne ide razmjenom.
+		// preuzet, sa sažetkom koji su tada dobili i vremenom prvog punjenja
+		// (pocetne_lozinke.go). Samo na ovom čvoru: ne ide razmjenom.
 		`CREATE TABLE IF NOT EXISTS pocetne_lozinke_cekaju (
 			user_id TEXT PRIMARY KEY,
-			password_hash TEXT NOT NULL
+			password_hash TEXT NOT NULL,
+			napunjeno DATETIME
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS duties (
@@ -1766,6 +1767,9 @@ func migrateSchema(database *sql.DB) error {
 		{"users", "pin_adresa_potvrdena", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdio", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "pin_adresa_potvrdena_kad", "DATETIME"},
+		// Vrijeme prvog punjenja uz popis privremenih lozinki; popis bez
+		// njega dobije ga pri pokretanju (db.IstekniPocetneLozinke)
+		{"pocetne_lozinke_cekaju", "napunjeno", "DATETIME"},
 		// Otisak lozinke računa uz spremljenu lozinku sandučića e-pošte;
 		// zapise otprije popunjava (ili briše) AktService.PopuniOtiskeSanducica
 		// pri pokretanju čvora, jer otisak traži ključ čvora

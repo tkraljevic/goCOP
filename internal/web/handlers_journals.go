@@ -76,7 +76,7 @@ type JournalPageData struct {
 	// Vrsta je dnevnik koji se gleda; prazno na razdjelnici.
 	Vrsta   string
 	BrojCOP int
-	// BrojDezurstava je broj dežurstava u svim planovima, za karticu
+	// BrojDezurstava je broj dežurstava u planovima koje osoba vidi, za karticu
 	BrojDezurstava int
 	BrojIzvjesca   int
 	BrojA02        int
@@ -119,6 +119,7 @@ type JournalPageData struct {
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
 	CitaCOP        bool // smije otvoriti dnevnike COP-a i plan dežurstava; izvođač ne smije
+	VidiPlan       bool // smije vidjeti plan dežurstava ovog dnevnika COP-a (VidiPlanDezurstava)
 	VoditeljCOP    bool
 	IzvornikCOP    service.StanjeIzvornika // nalaz provjere izvornika ovjerenog dnevnika COP-a
 	MozeSebe       bool                    // smije upisati vlastito dežurstvo
@@ -310,7 +311,7 @@ func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Reques
 	data.CitaCOP = h.journals.CitaDnevnikeCOP(data.Permissions)
 	if broj, err := h.journals.BrojPoVrstama(r.Context()); err == nil {
 		data.BrojCOP = broj[models.JournalKindDefense]
-		data.BrojDezurstava, _ = h.journals.BrojDezurstava(r.Context())
+		data.BrojDezurstava = h.brojDezurstavaKojaVidi(r.Context(), data.Permissions)
 		if h.izvjesca != nil {
 			if svc := h.izvjesca(); svc != nil {
 				data.BrojIzvjesca, _ = svc.Broj(r.Context())
@@ -363,8 +364,41 @@ func (h *JournalsHandler) popisCOP(w http.ResponseWriter, r *http.Request, data 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	if data.Vrsta == models.PopisDezurstava {
+		js = h.planoviKojeVidi(data.Permissions, js)
+	}
 	data.Journals = js
 	h.render(w, h.tmplList, "dnevnici.html", data)
+}
+
+// brojDezurstavaKojaVidi je broj dežurstava za karticu plana na
+// razdjelnici: samo u planovima koje osoba smije vidjeti (planoviKojeVidi),
+// a globalnom administratoru u svima. Bez popisa ili plana broj je manji
+// ili nula; kartica samo vodi na popis.
+func (h *JournalsHandler) brojDezurstavaKojaVidi(ctx context.Context, perms *models.UserPermissions) int {
+	if perms != nil && perms.IsGlobalAdmin {
+		n, _ := h.journals.BrojDezurstava(ctx) // bez broja kartica pokazuje nulu
+		return n
+	}
+	js, _ := h.journals.ListCOPJournals(ctx, "") // bez popisa kartica pokazuje nulu
+	n := 0
+	for _, j := range h.planoviKojeVidi(perms, js) {
+		plan, _ := h.journals.Dezurstva(ctx, j.ID) // plan koji se ne da pročitati ne broji se
+		n += len(plan)
+	}
+	return n
+}
+
+// planoviKojeVidi ostavlja dnevnike COP-a čiji plan dežurstava osoba smije
+// vidjeti (JournalService.VidiPlanDezurstava)
+func (h *JournalsHandler) planoviKojeVidi(perms *models.UserPermissions, js []models.Journal) []models.Journal {
+	var out []models.Journal
+	for i := range js {
+		if h.journals.VidiPlanDezurstava(perms, h.opseg(&js[i], nil), &js[i]) {
+			out = append(out, js[i])
+		}
+	}
+	return out
 }
 
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
@@ -555,8 +589,10 @@ func (h *JournalsHandler) ShowJournal(w http.ResponseWriter, r *http.Request) {
 				data.ImaDanas = true
 			}
 		}
-		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za gumb.
-		data.Dezurstva, _ = h.journals.Dezurstva(ctx, j.ID)
+		// Plan dežurstava ima svoju stranicu; ovdje samo koliko ih je, za
+		// gumb, i samo onome tko plan smije vidjeti.
+		data.VidiPlan = h.journals.VidiPlanDezurstava(data.Permissions, data.Opseg, j)
+		data.Dezurstva = h.dezurstvaKojaVidi(ctx, data, j)
 		data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 		data.VoditeljCOP = h.journals.VoditeljCOP(data.CurrentUser, j)
 		data.IzvornikCOP = h.journals.ProvjeriIzvornikCOP(ctx, j)

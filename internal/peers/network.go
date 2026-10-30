@@ -1,14 +1,17 @@
 package peers
 
 import (
+	"cmp"
 	"context"
 	"crypto/ed25519"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"gocop/internal/razmjena"
@@ -280,8 +283,10 @@ func (s *Service) uTransakciji(ctx context.Context, fn func(tx *sql.Tx) error) e
 // (zaOpoziv), ne red u tablici. Kad opoziva ključem mreže, uvijek opoziva i
 // sve dotad izdane ovlasti za primanje ključeva tog imena, i one koje ovaj
 // čvor ne zna, a time i članstva koja su ti ključevi potpisali; vraća te
-// čvorove. Ključem mreže opoziva se i član čije je članstvo isteklo, a
-// ovlast za primanje još vrijedi.
+// čvorove. Ključem mreže opoziva se i član čije je članstvo ovdje isteklo.
+// Opoziv ključem mreže vrijedi za svako članstvo ključeva tog imena izdano
+// do sada (trenuciOpozivaClanstva), i za ono koje ovaj čvor ne zna, a
+// opoziv primatelja samo za članstvo koje je on izdao.
 func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string, error) {
 	defer s.javiPromjenuClanstva()
 	if nodeID == s.node.ID {
@@ -293,7 +298,7 @@ func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string
 	}
 	var pogodjeni []string
 	err = s.uTransakciji(ctx, func(tx *sql.Tx) error {
-		if err := s.opozoviClanstvaTx(ctx, tx, o.clanstva, o.priv); err != nil || !o.mrezni {
+		if err := s.opozoviClanstvaTx(ctx, tx, nodeID, o); err != nil || !o.mrezni {
 			return err
 		}
 		pogodjeni, err = s.opozoviOvlastiTx(ctx, tx, nodeID, o.kljucevi, o.ovlasti, o.priv)
@@ -303,26 +308,44 @@ func (s *Service) RevokeMembership(ctx context.Context, nodeID string) ([]string
 }
 
 // opozivClana je ono što opoziv člana zapisuje: valjana članstva tog imena,
-// njegove ovlasti za primanje, ključeve čije se ovlasti opozivaju i ključ
-// kojim se potpisuje (mrezni kad je to ključ mreže)
+// njegove ovlasti za primanje, ključeve čije se ovlasti opozivaju, ključ
+// kojim se potpisuje (mrezni kad je to ključ mreže) i po ključu trenutak
+// opoziva članstva (trenuciOpozivaClanstva)
 type opozivClana struct {
 	clanstva []razmjena.Membership
 	ovlasti  []razmjena.Ovlast
 	kljucevi []string
 	priv     ed25519.PrivateKey
 	mrezni   bool
+	izdano   map[string]time.Time
 }
 
-// imaSto: opoziv ima što opozvati, valjano članstvo ili, ključem mreže,
-// ovlast za primanje
-func (o opozivClana) imaSto() bool {
-	return len(o.clanstva) > 0 || (o.mrezni && len(o.ovlasti) > 0)
+// trenuciOpozivaClanstva su po ključu trenuci koje nosi opoziv članstva:
+// za svaki ključ iz kljucevi sada, a za ključ valjanog članstva (clanstva)
+// kasniji od tog i njegova izdavanja. Ključem mreže kljucevi su svi
+// poznati ključevi tog imena, pa opoziv vrijedi i za članstvo koje je do
+// sada izdalo drugo računalo, a ovo ga još ne zna. Kasniji trenutak uzima
+// se samo iz članstava koja sada vrijede, jer samo za njih vrijedi granica
+// izdavanja unaprijed (razmjena.Membership.Verify). Primatelj zadaje samo
+// članstva koja je izdao, bez ključeva i bez sada.
+func trenuciOpozivaClanstva(sada time.Time, kljucevi []string, clanstva []razmjena.Membership) map[string]time.Time {
+	out := map[string]time.Time{}
+	for _, k := range kljucevi {
+		out[k] = sada
+	}
+	for _, m := range clanstva {
+		if t, ima := out[m.DeviceKey]; !ima || m.IssuedAt.After(t) {
+			out[m.DeviceKey] = m.IssuedAt
+		}
+	}
+	return out
 }
 
 // zaOpozivClana skuplja što opoziv člana nodeID zapisuje. Ključevi za
-// opoziv ovlasti su iz svakog potpisanog članstva tog imena (i isteklog) i
-// iz svake njegove ovlasti. Bez valjanog članstva i bez ovlasti koju ovaj
-// čvor smije opozvati, čvor nije član.
+// opoziv su iz svakog potpisanog članstva tog imena (i isteklog) i iz
+// svake njegove ovlasti. Bez valjanog članstva, bez ovlasti i bez
+// neopozvanog potpisanog članstva koje ovaj čvor smije opozvati, čvor nije
+// član.
 func (s *Service) zaOpozivClana(ctx context.Context, nodeID string) (opozivClana, error) {
 	p, err := s.ucitajClanstva(ctx)
 	if errors.Is(err, errNijeClan) {
@@ -338,11 +361,24 @@ func (s *Service) zaOpozivClana(ctx context.Context, nodeID string) (opozivClana
 	if o.priv, o.mrezni, err = s.potpisnikOpoziva(o.clanstva, len(o.ovlasti) > 0); err != nil {
 		return o, err
 	}
-	if !o.imaSto() {
+	potpisana := p.potpisanaImena(nodeID)
+	if !o.imaSto(p.neopozvana(ctx, potpisana)) {
 		return o, fmt.Errorf("čvor %s nije član", nodeID)
 	}
-	o.kljucevi = kljuceviZaOpoziv(append(o.clanstva, p.potpisanaImena(nodeID)...), o.ovlasti)
+	o.kljucevi = kljuceviZaOpoziv(append(slices.Clone(o.clanstva), potpisana...), o.ovlasti)
+	sada, kljucevi := time.Time{}, []string(nil)
+	if o.mrezni {
+		sada, kljucevi = time.Now(), o.kljucevi
+	}
+	o.izdano = trenuciOpozivaClanstva(sada, kljucevi, o.clanstva)
 	return o, nil
+}
+
+// imaSto: opoziv ima što opozvati, valjano članstvo ili, ključem mreže,
+// ovlast za primanje ili potpisano članstvo koje još nije opozvano
+// (neopozvanih, npr. isteklo)
+func (o opozivClana) imaSto(neopozvanih int) bool {
+	return len(o.clanstva) > 0 || (o.mrezni && len(o.ovlasti)+neopozvanih > 0)
 }
 
 // potpisnikOpoziva je ključ kojim ovaj čvor smije opozvati sva zadana
@@ -380,27 +416,45 @@ func (s *Service) potpisnikOpozivaClanstva(m razmjena.Membership, imaOvlast bool
 	return nil, fmt.Errorf("članstvo čvora %s opoziva nositelj ključa mreže ili primatelj koji ga je izdao", m.DeviceID)
 }
 
-// opozoviClanstvaTx opoziva svako od zadanih članstava (opozoviClanstvoTx)
-func (s *Service) opozoviClanstvaTx(ctx context.Context, tx *sql.Tx, clanstva []razmjena.Membership, priv ed25519.PrivateKey) error {
-	for _, m := range clanstva {
-		if err := s.opozoviClanstvoTx(ctx, tx, m, priv); err != nil {
+// opozoviClanstvaTx miče članstvo računala nodeID (makniClanstva) i za
+// svaki ključ iz o.izdano zapisuje jedan opoziv članstva s tim trenutkom,
+// potpisan ključem o.priv (vrijedi i za potvrdu koju čvor pokaže sam)
+func (s *Service) opozoviClanstvaTx(ctx context.Context, tx *sql.Tx, nodeID string, o opozivClana) error {
+	if err := s.makniClanstva(ctx, tx, nodeID, o.clanstva); err != nil {
+		return err
+	}
+	for _, k := range slices.Sorted(maps.Keys(o.izdano)) {
+		if err := s.zapisiOpoziv(ctx, tx, o.priv, OpozivClanstva, nodeID, k, o.izdano[k]); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// opozoviClanstvoTx briše članstvo s površine, arhivira ga u knjizi i
-// zapisuje opoziv potpisan ključem priv (vrijedi i za potvrdu koju čvor
-// pokaže sam)
-func (s *Service) opozoviClanstvoTx(ctx context.Context, tx *sql.Tx, m razmjena.Membership, priv ed25519.PrivateKey) error {
-	if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE node_id = ?`, m.DeviceID); err != nil {
+// makniClanstva briše red članstva računala nodeID s površine i arhivira ga
+// u knjizi: sa svakim valjanim članstvom iz clanstva, a kad valjanih nema, s
+// onim što je u redu stajalo. Bez reda i bez valjanog članstva nema što
+// maknuti.
+func (s *Service) makniClanstva(ctx context.Context, tx *sql.Tx, nodeID string, clanstva []razmjena.Membership) error {
+	if len(clanstva) == 0 {
+		red, err := scanMembership(tx.QueryRowContext(ctx, `SELECT `+stupciClanstva+` FROM memberships WHERE node_id = ?`, nodeID))
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		clanstva = []razmjena.Membership{red}
+	}
+	if _, err := tx.ExecContext(ctx, `DELETE FROM memberships WHERE node_id = ?`, nodeID); err != nil {
 		return err
 	}
-	if _, err := s.rec.Archive(ctx, tx, EntityMemberships, m.DeviceID, m); err != nil {
-		return err
+	for _, m := range clanstva {
+		if _, err := s.rec.Archive(ctx, tx, EntityMemberships, nodeID, m); err != nil {
+			return err
+		}
 	}
-	return s.zapisiOpoziv(ctx, tx, priv, OpozivClanstva, m.DeviceID, m.DeviceKey, m.IssuedAt)
+	return nil
 }
 
 // Member je član za prikaz
@@ -409,15 +463,24 @@ type Member struct {
 	Valid   bool   `json:"valid"`
 	Problem string `json:"problem,omitempty"`
 	IsSelf  bool   `json:"is_self"`
-	// OvlastZaPrimanje je ovlast ovog člana da prima druge, kad je ima
+	// OvlastZaPrimanje je zadnja ovlast ovog imena da prima druge, kad je ima
 	OvlastZaPrimanje *Primatelj `json:"ovlast_za_primanje,omitempty"`
+	// OvlastDrugomKljucu: ovlast za primanje glasi na drugi ključ nego
+	// članstvo (npr. računalo je ponovno instalirano)
+	OvlastDrugomKljucu bool `json:"ovlast_drugom_kljucu,omitempty"`
 	// Rok je stanje roka članstva (obnova.go)
 	Rok Rok `json:"rok"`
+	// BezClanstva: računalo ima ovlast za primanje, a ovo računalo ne zna
+	// nijedno njegovo valjano članstvo (clanoviSamoSOvlascu)
+	BezClanstva bool `json:"bez_clanstva,omitempty"`
 }
 
-// ListMembers vraća sve poznate potvrde, s ocjenom vrijede li za našu mrežu
+// ListMembers vraća za svako poznato računalo članstvo koje za njega
+// vrijedi (clanstvaZaPrikaz, tablica i knjiga), a kad takvog nema, red
+// tablice s razlogom zbog kojeg ne vrijedi. Uz svako ide zadnja ovlast za
+// primanje tog imena, i kad glasi na drugi ključ.
 func (s *Service) ListMembers(ctx context.Context) ([]Member, error) {
-	clanstva, err := s.svaClanstva(ctx)
+	clanstva, err := s.clanstvaZaPrikaz(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -426,25 +489,81 @@ func (s *Service) ListMembers(ctx context.Context) ([]Member, error) {
 	network := s.network
 	s.mu.Unlock()
 
+	svi, _ := s.ListOvlasti(ctx) // bez ovlasti popis članova i dalje vrijedi
 	ovlasti := map[string]*Primatelj{}
-	if svi, err := s.ListOvlasti(ctx); err == nil {
-		for i := range svi {
-			ovlasti[svi[i].DeviceID] = &svi[i]
-		}
+	for i := range svi {
+		ovlasti[svi[i].DeviceID] = &svi[i]
 	}
 
 	out := make([]Member, 0, len(clanstva))
 	for _, m := range clanstva {
 		member := Member{Membership: m, IsSelf: m.DeviceID == s.node.ID}
-		if o := ovlasti[m.DeviceID]; o != nil && o.DeviceKey == m.DeviceKey {
-			member.OvlastZaPrimanje = o
+		if o := ovlasti[m.DeviceID]; o != nil {
+			member.OvlastZaPrimanje, member.OvlastDrugomKljucu = o, o.DeviceKey != m.DeviceKey
 		}
 		member.Problem = s.problemClanstva(ctx, network, m)
 		member.Valid = member.Problem == ""
 		member.Rok = rokZa(m.ExpiresAt, time.Now(), true)
 		out = append(out, member)
 	}
+	return append(out, s.clanoviSamoSOvlascu(clanstva, svi)...), nil
+}
+
+// clanstvaZaPrikaz su po imenu računala članstvo koje za njega vrijedi
+// (svaIzabrana, iz tablice i knjige), a za ime bez takvog red tablice,
+// poredana po izdavanju. Red tablice briše svaka arhivirana verzija, pa
+// sam ne kaže tko je član.
+func (s *Service) clanstvaZaPrikaz(ctx context.Context) ([]razmjena.Membership, error) {
+	redovi, err := s.svaClanstva(ctx)
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.ucitajClanstva(ctx)
+	if errors.Is(err, errNijeClan) {
+		return redovi, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	izabrana := p.svaIzabrana(ctx)
+	out := make([]razmjena.Membership, 0, len(izabrana)+len(redovi))
+	for _, m := range izabrana {
+		out = append(out, *m)
+	}
+	for _, m := range redovi {
+		if izabrana[m.DeviceID] == nil {
+			out = append(out, m)
+		}
+	}
+	slices.SortFunc(out, func(a, b razmjena.Membership) int {
+		return cmp.Or(a.IssuedAt.Compare(b.IssuedAt), cmp.Compare(a.DeviceID, b.DeviceID))
+	})
 	return out, nil
+}
+
+// clanoviSamoSOvlascu su za prikaz druga računala koja imaju ovlast za
+// primanje (ListOvlasti, tablica i knjiga), a nisu u popisu članstava za
+// prikaz: ovo računalo ne zna nijedno njihovo valjano članstvo ni red
+// tablice. Ne vrijede kao članovi, ali se vide, pa im računalo s ključem
+// mreže može oduzeti ovlast ili opozvati članstvo.
+func (s *Service) clanoviSamoSOvlascu(clanstva []razmjena.Membership, ovlasti []Primatelj) []Member {
+	uPopisu := map[string]bool{s.node.ID: true}
+	for _, m := range clanstva {
+		uPopisu[m.DeviceID] = true
+	}
+	var out []Member
+	for i := range ovlasti {
+		o := &ovlasti[i]
+		if uPopisu[o.DeviceID] {
+			continue
+		}
+		out = append(out, Member{
+			Membership:       razmjena.Membership{Network: o.Network, DeviceID: o.DeviceID, DeviceKey: o.DeviceKey},
+			Problem:          "na ovom računalu nema njegovog valjanog članstva",
+			OvlastZaPrimanje: o, BezClanstva: true,
+		})
+	}
+	return out
 }
 
 // svaClanstva su sva poznata članstva, najstarija prva; čitaju se do kraja

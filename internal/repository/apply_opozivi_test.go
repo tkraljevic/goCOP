@@ -12,10 +12,15 @@ import (
 
 	"gocop/internal/ledger"
 	"gocop/internal/peers"
+	"gocop/internal/razmjena"
 )
 
 // kljucProbe potpisuje opozive u testovima primjene
 var kljucProbe = ed25519.NewKeyFromSeed(bytes.Repeat([]byte{3}, ed25519.SeedSize))
+
+// mrezaProbe je mreža probe sa stalnim ključem, za ovlasti koje potpisuje
+// ključ mreže
+var mrezaProbe = razmjena.LoadNetworkKey("Probna", ed25519.NewKeyFromSeed(bytes.Repeat([]byte{4}, ed25519.SeedSize)))
 
 // opozivProbe je opoziv članstva potpisan ključem probe; primjena upisuje
 // samo opoziv koji vrijedi sam za sebe

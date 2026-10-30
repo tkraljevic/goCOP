@@ -2,6 +2,7 @@ package web
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"errors"
 	"mime/multipart"
@@ -19,6 +20,7 @@ import (
 
 	"gocop/internal/arhiva"
 	"gocop/internal/models"
+	"gocop/internal/peers"
 )
 
 var adminPaketa = &models.UserPermissions{IsGlobalAdmin: true}
@@ -32,6 +34,14 @@ func (o *okolinaStraniceLetve) izveziPaketLetve(t *testing.T, st *models.Station
 	}
 	arhiva.PostaviKljucIzdavaca(kljuc) // s diska se ugrađuje samo potpisan paket
 	defer arhiva.PostaviKljucIzdavaca(nil)
+	// paket je izdalo ovo računalo, pa se ugrađuje i dok računalo nije u mreži
+	javni := kljuc.Public().(ed25519.PublicKey)
+	o.h.SetPotpisnik(func(_ context.Context, _ string, k ed25519.PublicKey) (peers.Potpisnik, error) {
+		if k.Equal(javni) {
+			return peers.PotpisnikOvoRacunalo, nil
+		}
+		return peers.PotpisnikNeprovjeren, nil
+	})
 	id := st.ID.String()
 	w := dohvatiLetvu(t, o.h.IzveziPaket, "/stations/"+id+"/paket.cop", id, adminPaketa)
 	if w.Code != http.StatusOK {

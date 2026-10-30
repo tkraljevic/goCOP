@@ -6,6 +6,13 @@ package web
 // računala i iz lokalne mreže lozinka ne treba. Tko je to napravio i s koje
 // adrese, program upiše u dnevnik programa, odakle god da je zahtjev došao.
 // Tuđim očima se mreža ne mijenja.
+//
+// Isto vrijedi i za ostale radnje izvana koje mijenjaju mrežu ili prava
+// (Odluke (30. 10. 2026.), 12): osnivanje mreže, zaborav čvora, obnova
+// članstva, adrese i oznaka „stalno izložen”, ulazak u tuđu mrežu
+// uparivanjem, te na računima novi globalni administrator, davanje i
+// oduzimanje tog prava, tuđa lozinka globalnog administratora i kod za
+// prijavu izvana (racuni_izvana.go).
 
 import (
 	"context"
@@ -20,7 +27,7 @@ import (
 )
 
 // porukaLozinkeIzvana je odgovor kad izvana nedostaje lozinka računa
-const porukaLozinkeIzvana = "Izvana se članstvo u mreži mijenja samo uz lozinku vašeg računa. Upišite je pa pokušajte ponovno."
+const porukaLozinkeIzvana = "Izvana se ova radnja radi samo uz lozinku vašeg računa. Upišite je pa pokušajte ponovno."
 
 var errLozinkaIzvana = errors.New(porukaLozinkeIzvana)
 
@@ -51,15 +58,25 @@ func lozinkaIzvana(r *http.Request, provjeri func(uuid.UUID, string) error, u *m
 }
 
 // odbijBezLozinke odgovara 403 kad lozinka računa izvana nije prošla, i to
-// upiše u dnevnik programa: tko, koji zahtjev i s koje adrese, bez lozinke
+// upiše u dnevnik programa
 func odbijBezLozinke(w http.ResponseWriter, r *http.Request, u *models.User, err error) {
-	log.Printf("mreža: izvana bez točne lozinke računa odbijeno: %q, %s %q, s adrese %s",
+	zapisiOdbijenoIzvana(r, u)
+	http.Error(w, porukaBezLozinke(err), http.StatusForbidden)
+}
+
+// zapisiOdbijenoIzvana upiše u dnevnik programa zahtjev izvana odbijen zbog
+// lozinke računa: tko, koji zahtjev i s koje adrese, bez lozinke
+func zapisiOdbijenoIzvana(r *http.Request, u *models.User) {
+	log.Printf("izvana bez točne lozinke računa odbijeno: %q, %s %q, s adrese %s",
 		opisOsobe(u), r.Method, r.URL.Path, klijentIz(r).String())
-	poruka := err.Error()
-	if !errors.Is(err, errLozinkaIzvana) {
-		poruka = "Članstvo u mreži nije promijenjeno: " + poruka
+}
+
+// porukaBezLozinke je odgovor osobi kad lozinka računa izvana nije prošla
+func porukaBezLozinke(err error) string {
+	if errors.Is(err, errLozinkaIzvana) {
+		return err.Error()
 	}
-	http.Error(w, poruka, http.StatusForbidden)
+	return "Ništa nije promijenjeno: " + err.Error()
 }
 
 // ponovnaLozinkaRacuna provjerava trenutnu lozinku osobe, uz isto
