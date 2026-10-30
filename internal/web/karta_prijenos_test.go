@@ -31,7 +31,7 @@ func TestPrijenosKarteRijecima(t *testing.T) {
 		"stiže":         {stize, "Karta stiže razmjenom: 48,0 MB od 115,0 MB (12 od 29 dijelova)."},
 		"čeka":          {ceka, "Karta čeka računalo koje je ima. Stiglo je 48,0 MB od 115,0 MB."},
 		"ništa":         {nista, "Karta čeka računalo koje je ima. Stiglo je 0 B od 115,0 MB."},
-		"u obrani":      {obrana, "Karta stiže razmjenom: 48,0 MB od 115,0 MB (12 od 29 dijelova). Dok traje obrana, stiže samo preko lokalne mreže."},
+		"u obrani":      {obrana, "Karta stiže razmjenom: 48,0 MB od 115,0 MB (12 od 29 dijelova). Dok traje obrana, stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured)."},
 	} {
 		if got := prijenosKarteRijecima(c.st, sad); got != c.zeli {
 			t.Errorf("%s: %q", opis, got)

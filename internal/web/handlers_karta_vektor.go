@@ -110,7 +110,8 @@ func (h *AktiHandler) prijenosKarte(r *http.Request) string {
 }
 
 // prijenosKarteRijecima: koliko je karte stiglo razmjenom, čeka li
-// računalo koje je ima i miruje li prijenos preko interneta zbog obrane
+// računalo koje je ima i miruje li prijenos izvan iste lokalne mreže zbog
+// obrane
 func prijenosKarteRijecima(st peers.StanjeKarte, sad time.Time) string {
 	switch {
 	case st.Los:
@@ -123,7 +124,7 @@ func prijenosKarteRijecima(st peers.StanjeKarte, sad time.Time) string {
 		tekst = fmt.Sprintf("Karta čeka računalo koje je ima. Stiglo je %s od %s.", velicinaRijecima(st.Bajtova), velicinaRijecima(st.Ukupno))
 	}
 	if st.UObrani {
-		tekst += " Dok traje obrana, stiže samo preko lokalne mreže."
+		tekst += " Dok traje obrana, stiže i šalje se samo s računalima u istoj lokalnoj mreži (ista kuća ili ured)."
 	}
 	return tekst
 }

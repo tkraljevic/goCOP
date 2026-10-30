@@ -11,6 +11,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"slices"
@@ -412,8 +413,10 @@ func TestKartaNastavljaNakonPonovnogPokretanja(t *testing.T) {
 // Ograda dijelova po putu: lokalna mreža i privatna adresa 48 MiB, javna
 // adresa i Tailscale 16 MiB, tunel, probijanje i nepoznat put 8 MiB.
 // Dolazna veza s adrese ovog računala (posrednik na istom računalu) nije
-// lokalna mreža, a odlazna na nju jest.
+// lokalna mreža, a odlazna na nju jest. Ograda ne gleda sučelja ovog
+// računala: privatna adresa izvan njihovih mreža i dalje dobiva 48 MiB.
 func TestOgradaDijelovaPoPutu(t *testing.T) {
+	suceljaRacunala(t, []string{"192.168.1.5/24"})
 	s := rubniCvor(t, "laptop-baranja")
 	kljuc := rubniCvor(t, "cop-osijek").node.key
 	privatna := vezaIzMreze(t, s, kljuc, "10.0.0.1", "10.0.0.2:4710")
@@ -531,10 +534,12 @@ func TestKartaUzGranicuStavki(t *testing.T) {
 }
 
 // Dok je na računalu proglašen stadij obrane, preko tunela se dijelovi ne
-// traže ni ne daju, a u lokalnoj mreži idu; vrijedi za obje strane. Dolazna
-// veza s adrese ovog računala (posrednik koji prosljeđuje s interneta) nije
-// lokalna mreža.
+// traže ni ne daju, a u istoj lokalnoj mreži idu; vrijedi za obje strane.
+// Dolazna veza s adrese ovog računala (posrednik koji prosljeđuje s
+// interneta) nije lokalna mreža, a ni privatna adresa izvan mreže sučelja
+// (Odluke (30. 10. 2026.)).
 func TestKartaUObraniSamoULokalnojMrezi(t *testing.T) {
+	suceljaRacunala(t, []string{"192.168.1.5/24", "192.168.1.20/24"})
 	k, b, izvor := kartaUDijelovima(t, 300_000, 16<<10, 30)
 	for _, uObrani := range []string{"prima", "daje"} {
 		t.Run(uObrani, func(t *testing.T) {
@@ -553,12 +558,128 @@ func TestKartaUObraniSamoULokalnojMrezi(t *testing.T) {
 			_, _, _ = razgovorPutem(t, razmjena.PutAdresa, l, a, "198.51.100.7", "203.0.113.2:4710")
 			// l zove javnu adresu, a a-u veza stiže s adrese njegova računala
 			_, _, _ = razgovorPutem(t, razmjena.PutAdresa, l, a, "127.0.0.1", "203.0.113.2:4710")
+			// unutarnja mreža među gradovima: privatna adresa izvan mreže sučelja
+			_, _, _ = razgovorPutem(t, razmjena.PutAdresa, l, a, "192.168.1.5", "10.1.2.3:4710")
 			if stigloKarte(l) != 0 {
-				t.Fatalf("u obrani preko Tailscalea, javne adrese ili posrednika stiglo %d dijelova", stigloKarte(l))
+				t.Fatalf("u obrani preko Tailscalea, javne adrese, posrednika ili druge privatne mreže stiglo %d dijelova", stigloKarte(l))
 			}
-			_, _, _ = razgovorPutem(t, razmjena.PutAdresa, l, a, "10.0.0.1", "192.168.1.2:4710")
+			_, _, _ = razgovorPutem(t, razmjena.PutAdresa, l, a, "192.168.1.20", "192.168.1.5:4710")
 			if !imaKartu(t, l, k, b) {
 				t.Error("u obrani u lokalnoj mreži karta nije stigla")
+			}
+		})
+	}
+}
+
+// suceljaRacunala podmetne sučelja ovog računala za trajanje testa: svako
+// sučelje je popis adresa s maskom (192.168.1.5/24)
+func suceljaRacunala(t *testing.T, sucelja ...[]string) {
+	t.Helper()
+	var mreze [][]*net.IPNet
+	for _, adrese := range sucelja {
+		var m []*net.IPNet
+		for _, a := range adrese {
+			ip, n, err := net.ParseCIDR(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			n.IP = ip
+			m = append(m, n)
+		}
+		mreze = append(mreze, m)
+	}
+	staro := mrezeSucelja
+	mrezeSucelja = func() [][]*net.IPNet { return mreze }
+	t.Cleanup(func() { mrezeSucelja = staro })
+}
+
+// U obrani karta ide samo s računalom u istoj lokalnoj mreži (Odluke
+// (30. 10. 2026.)), u oba smjera po sučelju koje nosi lokalnu adresu veze.
+// Uz sučelja 192.168.1.5/24 i 10.20.0.5/16: s 192.168.1.5 na 10.1.2.3 nije,
+// a na 192.168.1.20 jest; u 10.20.0.0/16 jest samo s 10.20.0.5, a ne s
+// 192.168.1.5 (ruta ide drugim sučeljem); pronalaženje jest. Adresa ovog
+// računala, Tailscale, link-local, tunel, adresa koja nije IP i sučelja koja
+// se ne daju pročitati nisu.
+func TestIstaLokalnaMreza(t *testing.T) {
+	suceljaRacunala(t, []string{"192.168.1.5/24", "fe80::1/64"}, []string{"10.20.0.5/16"}, []string{"127.0.0.1/8"}, []string{"100.101.102.103/32"})
+	s := rubniCvor(t, "laptop-baranja")
+	kljuc := rubniCvor(t, "cop-osijek").node.key
+	for _, c := range []struct {
+		lokalna, udaljena string
+		put               razmjena.Put
+		ista              bool
+		opis              string
+	}{
+		{"192.168.1.5", "10.1.2.3:4710", razmjena.PutAdresa, false, "s 192.168.1.5 na 10.1.2.3"},
+		{"192.168.1.5", "192.168.1.20:4710", razmjena.PutAdresa, true, "s 192.168.1.5 na 192.168.1.20"},
+		{"192.168.1.5", "[::ffff:192.168.1.20]:4710", razmjena.PutAdresa, true, "s 192.168.1.5 na 192.168.1.20 (IPv6)"},
+		{"::ffff:192.168.1.5", "192.168.1.20:4710", razmjena.PutAdresa, true, "s 192.168.1.5 (IPv6) na 192.168.1.20"},
+		{"10.20.0.5", "10.20.3.4:4710", razmjena.PutAdresa, true, "u mreži drugog sučelja s njegove adrese"},
+		{"192.168.1.5", "10.20.3.4:4710", razmjena.PutAdresa, false, "u mrežu drugog sučelja s adrese prvog"},
+		{"192.168.7.1", "192.168.7.2:4710", razmjena.PutAdresa, false, "s adrese koja nije ni na jednom sučelju"},
+		{"fe80::1", "[fe80::2]:4710", razmjena.PutAdresa, false, "link-local"},
+		{"127.0.0.1", "127.0.0.1:4710", razmjena.PutAdresa, false, "s ovog računala na ovo računalo"},
+		{"100.101.102.103", "192.168.1.20:4710", razmjena.PutAdresa, false, "s Tailscale adrese"},
+		{"192.168.1.5", "100.101.102.104:4710", razmjena.PutAdresa, false, "na Tailscale adresu"},
+		{"192.168.1.5", "p2p:x", razmjena.PutAdresa, false, "adresa koja nije IP"},
+		{"10.0.0.1", "10.0.0.2:4710", razmjena.PutLAN, true, "pronalaženje"},
+		{"192.168.1.5", "192.168.1.20:4710", razmjena.PutTailscale, false, "tailscale"},
+		{"192.168.1.5", "192.168.1.20:4710", razmjena.PutKrozTunel, false, "tunel"},
+	} {
+		v := vezaIzMreze(t, s, kljuc, c.lokalna, c.udaljena)
+		v.Put = c.put
+		if got := istaLokalnaMreza(v); got != c.ista {
+			t.Errorf("%s: ista lokalna mreža %v", c.opis, got)
+		}
+	}
+	v := vezaIzMreze(t, s, kljuc, "192.168.1.5", "192.168.1.20:4710")
+	v.Put = razmjena.PutAdresa
+	mrezeSucelja = func() [][]*net.IPNet { return nil }
+	if istaLokalnaMreza(v) {
+		t.Error("bez sučelja veza je u istoj lokalnoj mreži")
+	}
+}
+
+// Sučelja se čitaju iz sustava filtrom pronalaženja: petlja, koju svako
+// računalo ima, nije lokalna mreža
+func TestMrezeSucelja(t *testing.T) {
+	petlja := net.ParseIP("127.0.0.1")
+	if slices.ContainsFunc(mrezeSucelja(), func(m []*net.IPNet) bool {
+		return slices.ContainsFunc(m, func(n *net.IPNet) bool { return n.Contains(petlja) })
+	}) {
+		t.Error("petlja je među mrežama lokalnih sučelja")
+	}
+}
+
+// Razgovorom: računalo u obrani sa sučeljem 192.168.1.5/24 kartu prima samo
+// od računala u istoj lokalnoj mreži, i kad zove i kad je pozvano
+func TestKartaUObraniRazgovorom(t *testing.T) {
+	suceljaRacunala(t, []string{"192.168.1.5/24"})
+	k, b, izvor := kartaUDijelovima(t, 300_000, 16<<10, 34)
+	for _, c := range []struct {
+		put      razmjena.Put
+		zove     bool // računalo u obrani zove
+		od, kamo string
+		stigne   bool
+		opis     string
+	}{
+		{razmjena.PutAdresa, true, "192.168.1.5", "10.1.2.3:4710", false, "odlazna na 10.1.2.3"},
+		{razmjena.PutAdresa, true, "192.168.1.5", "192.168.1.20:4710", true, "odlazna na 192.168.1.20"},
+		{razmjena.PutAdresa, false, "10.1.2.3", "192.168.1.5:4710", false, "dolazna s 10.1.2.3"},
+		{razmjena.PutAdresa, false, "192.168.1.20", "192.168.1.5:4710", true, "dolazna iz iste mreže"},
+		{razmjena.PutLAN, true, "192.168.1.5", "192.168.1.20:4710", true, "pronalaženje"},
+	} {
+		t.Run(c.opis, func(t *testing.T) {
+			cv := mrezaKarte(t, k, izvor, "cop-osijek", "laptop-baranja")
+			a, l := cv[0], cv[1]
+			l.obrana.Store(true)
+			if c.zove {
+				_, _, _ = razgovorPutem(t, c.put, l, a, c.od, c.kamo)
+			} else {
+				_, _, _ = razgovorPutem(t, c.put, a, l, c.od, c.kamo)
+			}
+			if imaKartu(t, l, k, b) != c.stigne || !c.stigne && stigloKarte(l) != 0 {
+				t.Errorf("stiglo %d dijelova, očekivano da karta stigne: %v", stigloKarte(l), c.stigne)
 			}
 		})
 	}

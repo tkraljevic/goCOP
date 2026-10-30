@@ -18,6 +18,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
   očitanja. (#202)
 
+- **Karta bez interneta stiže razmjenom.** Kartu bez interneta trebalo je
+  paketom `.cop` prenijeti na svako računalo. Sad ju računalo koje je nema
+  dobije razmjenom, samo od sebe, dio po dio, i od računala koje je još
+  preuzima. Kad se veza prekine, nastavlja od dijela na kojem je stala.
+  Koliko je stiglo, piše u Administraciji › Karte. Dok je na računalu
+  proglašen stadij obrane, karta stiže i šalje se samo s računalima u istoj
+  lokalnoj mreži, ista kuća ili ured, a unutarnja mreža Hrvatskih voda među
+  gradovima i VPN tada se računaju kao internet (Odluke (29. 10. 2026.) i
+  (30. 10. 2026.)). Računalu s 0.0.46-alfa ili starijim kartu i dalje treba
+  prenijeti paketom `.cop`. (#197)
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju
