@@ -139,7 +139,7 @@
     </select>
     {{if .Permissions.IsGlobalAdmin}}<div class="form-help">Bez uloge osoba se može prijaviti, ali samo gleda dok joj ulogu ne dodijelite.</div>{{end}}
   </div>
-  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora dodjeljuje uloge svoje razine ili niže, a uprava branjenog područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara. Obje samo u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora i uprava branjenog područja dodjeljuju uloge samo u svom dosegu: uprava sektora uloge svoje razine ili niže, a uprava područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara.</div>
   <div class="form-row">
     <div class="form-group">
       <label class="form-label" for="sector_id">{{term "sektor"}}</label>

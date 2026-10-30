@@ -39,10 +39,22 @@ func TestObrazacDuznostiBezZadaneUloge(t *testing.T) {
 		t.Error("uprava područja vidi u obrascu uloge koje ne smije dati, ili ne vidi vodočuvara")
 	}
 
+	// i globalnom administratoru, kojem se nudi i dežurni operater (dosad
+	// zadan), uloga nije unaprijed odabrana
+	admin := &models.UserPermissions{IsGlobalAdmin: true}
+	html = iscrtaj(t, "duty_form.html", UserPageData{CurrentUser: &models.User{FullName: "Ana Anić"}, Permissions: admin,
+		User: osoba, Roles: roleOptionsZa(admin, "")})
+	if !strings.Contains(html, `value="OPERATOR"`) || strings.Contains(html, " selected>") {
+		t.Error("globalnom administratoru obrazac ne nudi dežurnog ili je uloga unaprijed odabrana")
+	}
+
 	podrucje := 16
 	html = obrazac(&models.Duty{ID: uuid.New(), Role: models.RoleAreaDeputy, AreaID: &podrucje, IsActive: true})
 	if !strings.Contains(html, `value="AREA_DEPUTY" selected>`) {
 		t.Error("pri izmjeni nema dosadašnje uloge")
+	}
+	if strings.Contains(html, "— odaberi ulogu —") {
+		t.Error("pri izmjeni obrazac nudi praznu ulogu")
 	}
 }
 
@@ -55,9 +67,35 @@ func TestDodavanjeDuznostiBezUloge(t *testing.T) {
 	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	w := httptest.NewRecorder()
 	h.HandleAddDuty(w, r)
-	kamo, _ := url.QueryUnescape(w.Header().Get("Location"))
-	if w.Code != http.StatusSeeOther || !strings.HasPrefix(kamo, "/users/"+osoba.String()+"/duties/new?") || !strings.Contains(kamo, "Zaduženje nije dodano: odaberite ulogu.") {
-		t.Errorf("slanje bez uloge: %d %s", w.Code, kamo)
+	if kamo, upit := preusmjerenje(t, w); kamo != "/users/"+osoba.String()+"/duties/new" || upit.Get("error") != "Zaduženje nije dodano: odaberite ulogu." {
+		t.Errorf("slanje bez uloge: %s %v", kamo, upit)
+	}
+}
+
+// Neispravan djelatnik u obrascu zaduženja vraća na popis djelatnika
+func TestDodavanjeDuznostiNeispravanDjelatnik(t *testing.T) {
+	h := NewUsersHandler(nil, nil)
+	r := httptest.NewRequest(http.MethodPost, "/users/duty/add", strings.NewReader(url.Values{"user_id": {"nije-id"}, "role": {"WATER_GUARD"}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	h.HandleAddDuty(w, r)
+	if kamo, upit := preusmjerenje(t, w); kamo != "/users" || upit.Get("error") != "Neispravan korisnik" {
+		t.Errorf("neispravan djelatnik: %s %v", kamo, upit)
+	}
+}
+
+// Ni izmjena se ne sprema bez uloge: vraća na obrazac s porukom
+func TestIzmjenaDuznostiBezUloge(t *testing.T) {
+	h := NewUsersHandler(nil, nil)
+	osoba, duznost := uuid.New(), uuid.New()
+	r := httptest.NewRequest(http.MethodPost, "/users/duties/"+duznost.String()+"/update",
+		strings.NewReader(url.Values{"user_id": {osoba.String()}, "role": {""}}.Encode()))
+	r.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	r.SetPathValue("duty", duznost.String())
+	w := httptest.NewRecorder()
+	h.HandleUpdateDuty(w, r)
+	if kamo, upit := preusmjerenje(t, w); kamo != "/users/duties/"+duznost.String()+"/edit" || upit.Get("error") != "Zaduženje nije izmijenjeno: odaberite ulogu." {
+		t.Errorf("izmjena bez uloge: %s %v", kamo, upit)
 	}
 }
 

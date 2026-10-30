@@ -28,12 +28,12 @@
     <label class="form-label" for="role">Uloga *</label>
     <select id="role" name="role" class="form-control" required>
       {{/* Bez unaprijed odabrane uloge (Odluke (30. 10. 2026.), 18); pri
-           izmjeni stoji dosadašnja */}}
-      <option value="">— odaberi ulogu —</option>
+           izmjeni stoji dosadašnja, bez prazne */}}
+      {{if not .Duty}}<option value="">— odaberi ulogu —</option>{{end}}
       {{$uloga := ""}}{{if .Duty}}{{$uloga = print .Duty.Role}}{{end}}{{range .Roles}}<option value="{{.Value}}"{{if eq .Value $uloga}} selected{{end}}>{{.Label}}</option>{{end}}
     </select>
   </div>
-  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora dodjeljuje uloge svoje razine ili niže, a uprava branjenog područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara. Obje samo u svom dosegu.</div>
+  <div class="form-help mb-2">Doseg određuje uloga. Uloga razine 1 vrijedi za cijelu organizaciju; za ostale popunite polje koje uloga traži: „{{term "sektor"}}”, „{{term "podrucje"}}” ili „Dionice”. Uprava sektora i uprava branjenog područja dodjeljuju uloge samo u svom dosegu: uprava sektora uloge svoje razine ili niže, a uprava područja samo niže od svoje, npr. rukovoditelja dionice ili vodočuvara.</div>
 
   <div class="form-row">
     <div class="form-group">

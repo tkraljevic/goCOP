@@ -770,15 +770,23 @@ func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID
 	duty.Title, duty.Role, duty.ScopeType = req.Title, req.Role, scope
 	duty.SectorID, duty.AreaID, duty.SectionCodes = sectorID, areaID, req.SectionCodes
 	duty.IsPrimary, duty.Reason = req.IsPrimary, req.Reason
-	// privremena uprava na svojoj razini ne produljuje ni ne trajno ostavlja
-	// dužnost preko svog isteka
-	ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, trazenaPrivremenost(req), &dosad).upisi(duty)
-	s.istekDuznosti(duty, time.Now())
-	if err := s.userRepo.UpdateDuty(duty); err != nil {
+	if err := s.spremiIzmjenu(actor, &dosad, duty, trazenaPrivremenost(req), sectors); err != nil {
 		return err
 	}
 	s.sse.Broadcast("duty_updated", fmt.Sprintf("Izmijenjeno zaduženje: %s", duty.Title), duty.ID.String())
 	return nil
+}
+
+// spremiIzmjenu upisuje dopušteni vijek izmijenjene dužnosti i sprema je.
+// Privremena uprava na svojoj razini ne produljuje dužnost ni ne ostavlja je
+// trajno preko svog isteka; tko ulogu ne smije dati, ne produljuje je.
+func (s *UserService) spremiIzmjenu(actor *models.UserPermissions, dosad, duty *models.Duty, trazeno privremenost, sectors areaSector) error {
+	ograniciRok(actor, duty.Role, duty.SectorID, duty.AreaID, duty.SectionCodes, sectors, trazeno, dosad).upisi(duty)
+	s.istekDuznosti(duty, time.Now())
+	if err := vijekIzmjene(actor, dosad, duty, sectors); err != nil {
+		return err
+	}
+	return s.userRepo.UpdateDuty(duty)
 }
 
 // GetDuty čita jedno zaduženje, aktivno ili opozvano

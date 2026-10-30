@@ -3,6 +3,7 @@ package service_test
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/service"
@@ -114,5 +115,76 @@ func TestUpravaPodrucjaDajeSamoNizeUloge(t *testing.T) {
 		if got := service.SmijeDatiUlogu(x.p, x.uloga); got != x.smije {
 			t.Errorf("%s: %v, želi %v", x.opis, got, x.smije)
 		}
+	}
+}
+
+// Odluke (30. 10. 2026.), 16: uprava područja ne smije kroz izmjenu
+// produljiti upravu svog područja koju je s rokom dala uprava sektora. Smije
+// je ostaviti kakva je ili skratiti; produljuje je uprava sektora.
+func TestUpravaPodrucjaNeProduljujeUpravuPodrucja(t *testing.T) {
+	o, users := okolinaSektora(t)
+	ovlasti := func(u *models.User) *models.UserPermissions {
+		t.Helper()
+		p, err := o.auth.PermissionsFor(u.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	rukovoditelj := o.racun(t, "rukbp", "lozinka-rukbp", "rukbp@voda.hr", false, true)
+	zamjenik := o.racun(t, "zambp", "lozinka-zambp", "zambp@voda.hr", false, true)
+	sektorA := o.racun(t, "ruksa", "lozinka-ruksa", "ruksa@voda.hr", false, true)
+	for _, x := range []service.AddDutyRequest{
+		{UserID: rukovoditelj.ID, Role: models.RoleAreaLeader, AreaID: podrucjeBr(5)},
+		{UserID: sektorA.ID, Role: models.RoleSectorLeader, SectorID: sektor("A")},
+		{UserID: zamjenik.ID, Role: models.RoleWaterGuard, AreaID: podrucjeBr(5)},
+	} {
+		if err := users.AddDuty(o.admin, x); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bp, sa := ovlasti(rukovoditelj), ovlasti(sektorA)
+	rok := time.Now().AddDate(0, 1, 0).Truncate(time.Second)
+	if err := users.AddDuty(sa, service.AddDutyRequest{UserID: zamjenik.ID, Role: models.RoleAreaDeputy, AreaID: podrucjeBr(5),
+		IsTemporary: true, ExpiresAt: &rok, Reason: "obrana"}); err != nil {
+		t.Fatal(err)
+	}
+	var z models.Duty
+	for _, d := range ovlasti(zamjenik).User.Duties {
+		if d.Role == models.RoleAreaDeputy {
+			z = d
+		}
+	}
+	izmjena := func(p *models.UserPermissions, privremena bool, do *time.Time) error {
+		return users.UpdateDuty(p, z.ID, service.AddDutyRequest{UserID: zamjenik.ID, Role: z.Role, AreaID: z.AreaID,
+			IsTemporary: privremena, ExpiresAt: do, Reason: "obrana"})
+	}
+	kasnije, ranije := rok.AddDate(0, 1, 0), rok.AddDate(0, 0, -10)
+	if err := izmjena(bp, false, nil); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("uprava područja učinila je privremenog zamjenika stalnim: %v", err)
+	}
+	if err := izmjena(bp, true, &kasnije); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("uprava područja produljila je rok zamjeniku: %v", err)
+	}
+	if err := izmjena(bp, true, &rok); err != nil {
+		t.Errorf("uprava područja ne može spremiti isti rok: %v", err)
+	}
+	if err := izmjena(bp, true, &ranije); err != nil {
+		t.Errorf("uprava područja ne može skratiti rok: %v", err)
+	}
+
+	// istekla, a neopozvana dužnost ne oživljava
+	proslo := time.Now().Add(-time.Hour).UTC()
+	if _, err := o.db.Exec(`UPDATE duties SET expires_at = ?, rok = ? WHERE id = ?`, proslo, proslo, z.ID.String()); err != nil {
+		t.Fatal(err)
+	}
+	if err := izmjena(bp, true, &kasnije); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("uprava područja oživjela je istekloga zamjenika: %v", err)
+	}
+	if err := izmjena(bp, false, nil); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("uprava područja istekloga je zamjenika učinila stalnim: %v", err)
+	}
+	if err := izmjena(sa, false, nil); err != nil {
+		t.Errorf("uprava sektora ne može zamjenika učiniti stalnim: %v", err)
 	}
 }

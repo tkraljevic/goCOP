@@ -50,12 +50,15 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   otvara račune u svom području, ali daje samo uloge niže od svoje, npr.
   vodočuvara ili rukovoditelja dionice. Dosad je mogla postaviti i novog
   rukovoditelja ili zamjenika područja; to sad rade uprava sektora i
-  globalni administrator. U obrascu novog djelatnika i novog zaduženja
-  uloga više nije unaprijed odabrana (bio je dežurni operater). Naziv
-  sektora na popisu organizacije vodi na stranicu sektora, a ne više na
-  Dionice; do njih vodi gumb „Dionice sektora”. Isključivanje uloge
-  računala traži potvrdu, a na Sinkronizaciji uz svako računalo piše koje
-  uloge ima.
+  globalni administrator. Takvu dužnost uprava područja i dalje može
+  izmijeniti, ali je ne može produljiti ni učiniti stalnom. To pravilo
+  vrijedi kad se nadograde sva računala: računalo na 0.0.46 i dalje pušta
+  upravu područja da postavi upravu područja, a razmjena tu dužnost prenese
+  i na ostala. U obrascu novog djelatnika i novog zaduženja uloga više nije
+  unaprijed odabrana (bio je dežurni operater). Naziv sektora na popisu
+  organizacije vodi na stranicu sektora, a ne više na Dionice; do njih vodi
+  gumb „Dionice sektora”. Isključivanje uloge računala traži potvrdu, a na
+  Sinkronizaciji uz svako računalo piše koje uloge ima.
 
 - **Karta bez interneta stiže razmjenom.** Kartu bez interneta trebalo je
   paketom `.cop` prenijeti na svako računalo. Sad ju računalo koje je nema

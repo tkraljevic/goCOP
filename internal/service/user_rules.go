@@ -310,6 +310,33 @@ func mayChange(p *models.UserPermissions, dosad *models.Duty, role models.Role, 
 	return mayGrant(p, role, sectorID, areaID, sectors)
 }
 
+// vijekIzmjene: izmjenu iste uloge i dosega smije i tko tu ulogu ne smije
+// dati (uprava područja upravu svog područja, Odluke (30. 10. 2026.), 16),
+// ali dužnosti smije samo zadržati ili skratiti vijek. Kad bi ga produljila,
+// izmjena je dodjela i ide po mayGrant.
+func vijekIzmjene(p *models.UserPermissions, dosad, nova *models.Duty, sectors areaSector) error {
+	if !produljuje(*nova, *dosad) {
+		return nil
+	}
+	if err := mayGrant(p, nova.Role, nova.SectorID, nova.AreaID, sectors); err != nil {
+		return fmt.Errorf("%w; rok ove dužnosti možete ostaviti ili skratiti", err)
+	}
+	return nil
+}
+
+// produljuje: nova dužnost traje dulje od dosadašnje. Istekla bi ponovno
+// vrijedila, privremena bi postala stalna, izgubila istek s obranom ili
+// dužnost o kojoj ovisi, ili bi dobila kasniji kraj.
+func produljuje(nova, dosad models.Duty) bool {
+	if privremenaDuznost(dosad) && !privremenaDuznost(nova) {
+		return true
+	}
+	if (dosad.IsticeSObranom && !nova.IsticeSObranom) || (dosad.OvisiO != nil && nova.OvisiO == nil) {
+		return true
+	}
+	return duljeTraje(nova, dosad)
+}
+
 // SmijeDatiUlogu javlja može li actor tu ulogu dati ikome, bez obzira na
 // doseg: obrazac nudi samo takve uloge. Doseg provjerava servis pri
 // spremanju.
