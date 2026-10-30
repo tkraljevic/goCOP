@@ -571,7 +571,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	ledger.PoznatiEntiteti(append(repository.PoznatiEntiteti(),
 		peers.EntityPeers, peers.EntityMemberships, peers.EntityZahtjeviObnove, peers.EntityObavijestiRoka, peers.EntityDogadjajiKljuca,
 		prognoza.EntitetIzdanja, prognoza.EntitetModela, EntitetArhive)...)
-	ledger.BezPrijenosaPolja(peers.EntityMemberships, peers.EntityZahtjeviObnove, prognoza.EntitetIzdanja, prognoza.EntitetModela)
+	ledger.BezPrijenosaPolja(peers.EntityMemberships, peers.EntityZahtjeviObnove, prognoza.EntitetIzdanja, prognoza.EntitetModela,
+		repository.EntityPotvrdePrava)
 	recorder.NaNovost(func(n ledger.Novost) {
 		log.Printf("razmjena: %s — nadogradite goCOP", n)
 	})
@@ -643,6 +644,13 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	go javiNeispravneUKnjizi(ctx, recorder, ledger.Sada())
 
 	userRepo := repository.NewUserRepository(database, recorder)
+	// Na računalu s ključem mreže izmjena prava odmah dobiva potvrdu
+	// potpisanu ključem mreže, a stanje koje ga još nema dobiva je pri
+	// pokretanju i kad računalo dobije ključ (Odluke (30. 10. 2026.), 16)
+	userRepo.PostaviPotpisMreze(peersService)
+	potpisiStanjePrava := potpisStanjaPrava(database, recorder, peersService)
+	potpisiStanjePrava(context.Background())
+	peersService.NakonKljucaMreze(potpisiStanjePrava)
 	sessionRepo := repository.NewSessionRepository(database)
 	sectionRepo := repository.NewSectionRepository(database, recorder)
 
@@ -1058,4 +1066,23 @@ func postaviRazmjenu(s *peers.Service, cfg config.Config) {
 	s.SetWantsAll(cfg.Sync.All)
 	s.PostaviTailscale(cfg.Sync.Tailscale)
 	s.PostaviProtokol(cfg.Sync.Protokol)
+}
+
+// potpisStanjaPrava potpisuje stanje prava ključem mreže, kad ga ovo
+// računalo drži (repository.PotpisiStanjePrava), i javlja ishod u dnevnik
+func potpisStanjaPrava(baza *sql.DB, rec *ledger.Recorder, potpis repository.PotpisMreze) func(context.Context) {
+	return func(ctx context.Context) {
+		zabiljeziPotpisStanja(repository.PotpisiStanjePrava(ctx, baza, rec, potpis))
+	}
+}
+
+// zabiljeziPotpisStanja upisuje u dnevnik koliko je potvrda stanja prava
+// potpisano, ili zašto nisu
+func zabiljeziPotpisStanja(n int, err error) {
+	switch {
+	case err != nil:
+		log.Printf("razmjena: potvrde stanja prava ključem mreže nisu potpisane: %v", err)
+	case n > 0:
+		log.Printf("razmjena: potpisano %d potvrda stanja prava ključem mreže", n)
+	}
 }

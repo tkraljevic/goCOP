@@ -8,6 +8,7 @@ import (
 	"crypto/ed25519"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -152,5 +153,78 @@ func TestPromjenePravaNaStanjuRazmjene(t *testing.T) {
 	}
 	if !strings.Contains(stranica(kaoAdmin), "Promjene prava nisu pročitane") {
 		t.Error("greška čitanja nije na stranici")
+	}
+}
+
+// U mreži se o promjeni prava odlučuje na računalu s ključem mreže: ondje
+// gumbi postoje, a izvana odluka traži lozinku računa; odluka se potpiše
+// ključem mreže. Računalo mreže bez ključa pokazuje popis bez gumba, kaže
+// gdje se odlučuje i odluku ne prima.
+func TestPromjenePravaUMrezi(t *testing.T) {
+	s, baza := cvorIBazaZaWeb(t, "cop-osijek")
+	if err := s.CreateNetwork(context.Background(), "Hrvatske vode"); err != nil {
+		t.Fatal(err)
+	}
+	rec := ledger.New(baza, "cop-osijek")
+	v := primiPromjenuPrava(t, baza, rec, "prvi")
+	h := NewSyncHandler(s, predlozakStranice(t, "sinkronizacija.html"))
+	h.prava = &potvrdePrava{baza: func() *sql.DB { return baza }, rec: rec, potpis: s,
+		lozinka: func(_ uuid.UUID, l string) error {
+			if l != "tocna-lozinka" {
+				return errors.New("lozinka nije točna")
+			}
+			return nil
+		}}
+	izvana := kaoAdmin
+	izvana.adresa = adresaIzvana
+	stranica := func(u uvjetiZahtjeva) string {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.ShowDashboard(w, zahtjevPostavki(http.MethodGet, "/sinkronizacija", nil, u))
+		return w.Body.String()
+	}
+	odluci := func(u uvjetiZahtjeva, obrazac url.Values) *httptest.ResponseRecorder {
+		t.Helper()
+		w := httptest.NewRecorder()
+		h.handleOdlukaPrava(w, zahtjevPostavki(http.MethodPost, "/sinkronizacija/prava", obrazac, u))
+		return w
+	}
+	str := stranica(izvana)
+	for _, ima := range []string{"Ovo računalo drži ključ mreže", `name="lozinka_racuna"`, ">Potvrdi</button>"} {
+		if !strings.Contains(str, ima) {
+			t.Errorf("računalo s ključem izvana nema %q", ima)
+		}
+	}
+	if w := odluci(izvana, url.Values{"odluka": {"potvrdi"}, "verzija": {v.VersionID}}); !strings.Contains(w.Header().Get("Location"), "error=") {
+		t.Errorf("izvana bez lozinke: %s", w.Header().Get("Location"))
+	}
+	if w := odluci(izvana, url.Values{"odluka": {"potvrdi"}, "verzija": {v.VersionID}, "lozinka_racuna": {"kriva"}}); !strings.Contains(w.Header().Get("Location"), "error=") {
+		t.Errorf("izvana s krivom lozinkom: %s", w.Header().Get("Location"))
+	}
+	if zastavicaRacuna(t, baza, "prvi") {
+		t.Fatal("zastavica bez točne lozinke")
+	}
+	w := odluci(izvana, url.Values{"odluka": {"potvrdi"}, "verzija": {v.VersionID}, "lozinka_racuna": {"tocna-lozinka"}})
+	if !strings.Contains(w.Header().Get("Location"), "success=") || !zastavicaRacuna(t, baza, "prvi") {
+		t.Fatalf("potvrda ključem: %s", w.Header().Get("Location"))
+	}
+	var potvrda int
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = ?`, repository.EntityPotvrdePrava).Scan(&potvrda); err != nil || potvrda != 1 {
+		t.Errorf("potpisanih potvrda %d (%v)", potvrda, err)
+	}
+
+	// računalo iste mreže bez ključa
+	druga := primiPromjenuPrava(t, baza, rec, "drugi")
+	h.prava.potpis = nil
+	str = stranica(kaoAdmin)
+	if !strings.Contains(str, "Promjenu potvrđuje ili odbija globalni administrator na računalu koje drži ključ mreže") ||
+		strings.Contains(str, ">Potvrdi</button>") || !strings.Contains(str, "Račun drugi (drugi)") {
+		t.Error("računalo bez ključa: popis bez gumba i s porukom gdje se odlučuje")
+	}
+	if w := odluci(kaoAdmin, url.Values{"odluka": {"potvrdi"}, "verzija": {druga.VersionID}}); w.Code != http.StatusForbidden {
+		t.Errorf("odluka na računalu bez ključa: %d", w.Code)
+	}
+	if zastavicaRacuna(t, baza, "drugi") {
+		t.Error("zastavica na računalu bez ključa")
 	}
 }

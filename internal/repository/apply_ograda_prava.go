@@ -5,37 +5,41 @@ package repository
 // globalnog administratora, mijenja lozinku globalnog administratora,
 // isključuje, uključuje ili briše njegov račun, ili daje, mijenja ili
 // oduzima dužnost uprave organizacije (razina 1), ostaje u knjizi i ne ide
-// na površinu dok je globalni administrator ovog računala ne potvrdi na
-// stranici Stanje razmjene. Isto vrijedi za razmjenu, COP paket, arhivu i
-// obnovu površine, jer sve ide kroz ApplyVersions, i za dijete koje se vraća
-// s roditeljem (vratiDijete). Verzija se i dalje prosljeđuje drugima: odluka
-// je samo o površini ovog računala, pa se razgovor razmjene ne mijenja.
+// na površinu dok je globalni administrator ne potvrdi na stranici Stanje
+// razmjene: u mreži jednom, na računalu s ključem mreže, potvrdom potpisanom
+// tim ključem (apply_potvrda_prava.go; Odluke (30. 10. 2026.), dopuna 16),
+// a na računalu koje nije u mreži samo za njega. Isto vrijedi za razmjenu,
+// COP paket, arhivu i obnovu površine, jer sve ide kroz ApplyVersions, i za
+// dijete koje se vraća s roditeljem (vratiDijete). Verzija se i dalje
+// prosljeđuje drugima, pa se razgovor razmjene ne mijenja.
 //
-// Usporedba je s površinom, ne s prethodnom verzijom u knjizi: što površina
-// ovog računala nema, ne dolazi bez potvrde, koliko god verzija to nosilo.
-// Vlastite verzije (izmjene na ovom računalu, i u obnovi površine) idu kao i
-// do sada.
+// Dva su načina. Zapis za koji u knjizi postoji odluka potpisana ključem
+// mreže dobiva prava iz cijele povijesti i odluka (apply_potvrda_stanje.go).
+// Ostali zapisi, i svi na računalu koje nije u mreži, uspoređuju se s
+// površinom (ovdje): što površina ovog računala nema, ne dolazi bez potvrde,
+// koliko god verzija to nosilo. I verzija s imenom ovog računala koja je
+// stigla razmjenom uspoređuje se s površinom: vlastita izmjena je već na
+// površini, pa je usporedba ne zaustavlja, a podmetnuta s tuđeg računala
+// čeka.
 //
 // Dok promjena čeka, zapis koji je na površini dobiva ostala polja verzije,
 // a polja prava ostaju kakva su ovdje; zapis kojeg na površini nema ne
-// dobiva ništa. Tako isti skup verzija daje istu površinu bez obzira na
-// redoslijed primanja. Novija verzija istog zapisa čeka umjesto starije, pa
+// dobiva ništa. Novija verzija istog zapisa čeka umjesto starije, pa
 // potvrda uvijek stavlja zadnju verziju zapisa. Novija verzija s istim
 // vrijednostima polja prava kao promjena koja je odbijena ostaje odbijena.
-// Novija verzija bez promjene prava ide cijela, a starija koja je čekala
-// više ne čeka (zamijenjena je). Izmjena na ovom računalu zapisa za koji
-// promjena čeka se odbija (cekaPotvrdu u user_repo.go): nova vlastita
-// verzija bila bi novija od one koja čeka i odlučila bi umjesto
-// administratora, i na drugim računalima.
+// Novija verzija bez promjene prava ide cijela; na računalu koje nije u
+// mreži starija koja je čekala više ne čeka (zamijenjena je), a u mreži
+// čeka i dalje, da je administrator na računalu s ključem vidi. Izmjena na
+// ovom računalu zapisa za koji promjena čeka se odbija (cekaPotvrdu u
+// user_repo.go): nova vlastita verzija bila bi novija od one koja čeka i
+// odlučila bi umjesto administratora.
 
 import (
 	"context"
-	"crypto/sha256"
+	"crypto/ed25519"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 	"time"
 
@@ -78,8 +82,19 @@ type promjenaPrava struct {
 
 // ogradaPrava je provjera primljene verzije jednog entiteta
 type ogradaPrava struct {
-	// promjena javlja što verzija mijenja u pravima
-	promjena func(ctx context.Context, tx *sql.Tx, v ledger.Version) (promjenaPrava, error)
+	tablica string // tablica zapisa na površini
+	// prava su vrijednosti polja prava u verziji (apply_prava_polja.go);
+	// false kad se sadržaj ne da pročitati
+	prava func(v ledger.Version) (string, bool)
+	// pravaPovrsine su prava zapisa na površini; false kad ga nema
+	pravaPovrsine func(ctx context.Context, tx *sql.Tx, id string) (string, bool, error)
+	// identitet je oznaka zapisa pod kojom bi primjena upisala verziju
+	identitet func(v ledger.Version) string
+	// promjenaOd javlja što verzija mijenja u pravima prema pravima koja
+	// vrijede (prazno: zapisa nema)
+	promjenaOd func(ctx context.Context, tx *sql.Tx, id, prava string, v ledger.Version) (promjenaPrava, error)
+	// sPravima je verzija s poljima prava iz zapisa prava
+	sPravima func(v ledger.Version, prava string) (ledger.Version, error)
 	// bezPrava je verzija s poljima prava s površine; false kad zapisa na
 	// površini nema, pa nema ni čega zadržati
 	bezPrava func(ctx context.Context, tx *sql.Tx, v ledger.Version) (ledger.Version, bool, error)
@@ -90,51 +105,95 @@ type ogradaPrava struct {
 }
 
 var ogradePrava = map[string]ogradaPrava{
-	EntityUsers:  {promjena: promjenaRacuna, bezPrava: racunBezPrava, cekaRoditelja: bezRoditelja},
-	EntityDuties: {promjena: promjenaDuznosti, bezPrava: duznostBezPrava, cekaRoditelja: racunDuznostiCeka},
+	EntityUsers: {tablica: "users", prava: pravaVerzijeRacuna, pravaPovrsine: pravaRacunaSPovrsine, identitet: identitetRacuna,
+		promjenaOd: promjenaRacunaOd, sPravima: racunSPravima, bezPrava: racunBezPrava, cekaRoditelja: bezRoditelja},
+	EntityDuties: {tablica: "duties", prava: pravaVerzijeDuznosti, pravaPovrsine: pravaDuznostiSPovrsine, identitet: identitetDuznosti,
+		promjenaOd: promjenaDuznostiOd, sPravima: duznostSPravima, bezPrava: duznostBezPrava, cekaRoditelja: racunDuznostiCeka},
 }
 
-// zaPovrsinu je verzija koja ide na površinu i ide li: najprije pravila
-// zadnje verzije (verzijaZaPovrsinu), zatim potvrda promjena prava
+// errNemaPrava: zapis prava se ne da pročitati
+var errNemaPrava = errors.New("prava zapisa se ne daju pročitati")
+
+// zaPovrsinu je verzija koja ide na površinu i ide li. Za račun i dužnost s
+// potpisanom odlukom u knjizi odlučuje stanje iz knjige (poOdlukama), kojom
+// god je verzijom primjena krenula; inače najprije pravila zadnje verzije
+// (verzijaZaPovrsinu), zatim usporedba s površinom.
 func zaPovrsinu(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, v ledger.Version) (ledger.Version, bool, error) {
+	if _, ograda := ogradePrava[v.Entity]; !ograda {
+		return verzijaZaPovrsinu(ctx, rec, v)
+	}
+	naPovrsinu, ide, mjerodavno, err := poOdlukama(ctx, tx, v.Entity, v.EntityID)
+	if err != nil || mjerodavno {
+		return naPovrsinu, ide, err
+	}
 	naPovrsinu, primijeni, err := verzijaZaPovrsinu(ctx, rec, v)
 	if err != nil || !primijeni {
 		return naPovrsinu, primijeni, err
 	}
-	return propustiPrava(ctx, tx, rec.Cvor(), naPovrsinu)
+	return propustiPremaPovrsini(ctx, tx, naPovrsinu)
 }
 
 // propustiPrava odlučuje ide li verzija računa ili dužnosti na površinu:
 // cijela, bez polja prava ili nikako
-func propustiPrava(ctx context.Context, tx *sql.Tx, ovaj string, v ledger.Version) (ledger.Version, bool, error) {
-	o, ima := ogradePrava[v.Entity]
-	if !ima {
+func propustiPrava(ctx context.Context, tx *sql.Tx, v ledger.Version) (ledger.Version, bool, error) {
+	if _, ima := ogradePrava[v.Entity]; !ima {
 		return v, true, nil
 	}
-	if ceka, err := o.cekaRoditelja(ctx, tx, v); err != nil || ceka {
-		return v, false, err
+	naPovrsinu, ide, mjerodavno, err := poOdlukama(ctx, tx, v.Entity, v.EntityID)
+	if err != nil || mjerodavno {
+		return naPovrsinu, ide, err
 	}
-	if v.NodeID == ovaj {
-		return v, true, nil
-	}
-	return o.provjeri(ctx, tx, v)
+	return propustiPremaPovrsini(ctx, tx, v)
 }
 
-// provjeri odlučuje o tuđoj verziji: bez promjene prava ide cijela, s
-// potvrđenom promjenom cijela, a inače bez polja prava ili nikako
-func (o ogradaPrava) provjeri(ctx context.Context, tx *sql.Tx, v ledger.Version) (ledger.Version, bool, error) {
-	p, err := o.promjena(ctx, tx, v)
-	if err != nil {
+// propustiPremaPovrsini odlučuje o verziji računa ili dužnosti bez
+// potpisane odluke, usporedbom s površinom
+func propustiPremaPovrsini(ctx context.Context, tx *sql.Tx, v ledger.Version) (ledger.Version, bool, error) {
+	o := ogradePrava[v.Entity]
+	ceka, err := o.cekaRoditelja(ctx, tx, v)
+	var kljuc ed25519.PublicKey
+	if err == nil && !ceka {
+		kljuc, err = kljucMreze(ctx, tx)
+	}
+	if err != nil || ceka {
 		return v, false, err
 	}
-	if len(p.promjene) == 0 {
-		return v, true, zamijeniStarije(ctx, tx, v)
+	return o.provjeri(ctx, tx, v, kljuc != nil)
+}
+
+// promjena je promjena prava u verziji prema površini
+func (o ogradaPrava) promjena(ctx context.Context, tx *sql.Tx, v ledger.Version) (promjenaPrava, error) {
+	id := o.identitet(v)
+	prava, _, err := o.pravaPovrsine(ctx, tx, id) // bez zapisa prava su prazna
+	if err != nil {
+		return promjenaPrava{}, err
+	}
+	return o.promjenaOd(ctx, tx, id, prava, v)
+}
+
+// provjeri odlučuje o verziji: bez promjene prava ide cijela, s potvrđenom
+// promjenom cijela, a inače bez polja prava ili nikako. U mreži verzija bez
+// promjene ne zamjenjuje stariju koja čeka.
+func (o ogradaPrava) provjeri(ctx context.Context, tx *sql.Tx, v ledger.Version, uMrezi bool) (ledger.Version, bool, error) {
+	p, err := o.promjena(ctx, tx, v)
+	if err != nil || len(p.promjene) == 0 {
+		return v, err == nil, bezPromjene(ctx, tx, v, uMrezi, err)
 	}
 	z, err := odlukaOPravima(ctx, tx, v, p)
 	if err != nil || z.stanje == PravaPotvrdeno {
 		return v, err == nil, err
 	}
 	return o.bezPrava(ctx, tx, v)
+}
+
+// bezPromjene: verzija koja ne mijenja prava ide cijela; na računalu koje
+// nije u mreži starije promjene istog zapisa koje čekaju više ne čekaju.
+// Greška usporedbe (err) ide dalje.
+func bezPromjene(ctx context.Context, tx *sql.Tx, v ledger.Version, uMrezi bool, err error) error {
+	if err == nil && !uMrezi {
+		err = zamijeniStarije(ctx, tx, v)
+	}
+	return err
 }
 
 // zapisPotvrde je redak tablice prava_na_potvrdi
@@ -204,12 +263,6 @@ func zamijeniStarije(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
 	return err
 }
 
-// otisakPrava je otisak vrijednosti polja prava
-func otisakPrava(vrijednosti ...any) string {
-	h := sha256.Sum256([]byte(fmt.Sprint(vrijednosti...)))
-	return hex.EncodeToString(h[:8])
-}
-
 // bezRoditelja: račun se ne oslanja ni na koji zapis
 func bezRoditelja(context.Context, *sql.Tx, ledger.Version) (bool, error) { return false, nil }
 
@@ -277,37 +330,6 @@ var pravilaRacuna = []struct {
 	{"uključuje račun globalnog administratora", func(c racunNaPovrsini, uv userVersion) bool {
 		return c.globalni() && !c.aktivan && uv.IsActive
 	}},
-}
-
-// promjenaRacuna je promjena prava u primljenoj verziji računa. Površina se
-// gleda pod identitetom koji bi primjena upisala: spomenik briše po zapisu,
-// a upis po identitetu iz sadržaja.
-func promjenaRacuna(ctx context.Context, tx *sql.Tx, v ledger.Version) (promjenaPrava, error) {
-	if v.Archived {
-		return promjenaObrisanogRacuna(ctx, tx, v.EntityID)
-	}
-	var uv userVersion
-	if json.Unmarshal(v.Payload, &uv) != nil {
-		return promjenaPrava{}, nil // primjena javi grešku sadržaja
-	}
-	c, err := citajRacun(ctx, tx, uv.ID.String())
-	p := promjenaPrava{racun: imeZaPotvrdu(c, uv.User), otisak: otisakPrava(uv.IsGlobalAdmin, uv.IsActive, uv.PasswordHash)}
-	for _, pr := range pravilaRacuna {
-		if pr.vrijedi(c, uv) {
-			p.promjene = append(p.promjene, pr.opis)
-		}
-	}
-	return p, err
-}
-
-// promjenaObrisanogRacuna: spomenik briše račun po oznaci zapisa; čeka kad
-// je to račun globalnog administratora
-func promjenaObrisanogRacuna(ctx context.Context, tx *sql.Tx, id string) (promjenaPrava, error) {
-	c, err := citajRacun(ctx, tx, id)
-	if err != nil || !c.globalni() {
-		return promjenaPrava{}, err
-	}
-	return promjenaPrava{racun: c.ime, promjene: []string{"briše račun globalnog administratora"}, otisak: otisakPrava("obrisan")}, nil
 }
 
 // imeZaPotvrdu je ime računa kakvo je na ovom računalu; ime koje nosi
@@ -454,28 +476,6 @@ func promjenaUprave(cur, d models.Duty) string {
 	return ""
 }
 
-// promjenaDuznosti je promjena prava u primljenoj verziji dužnosti: nova
-// uprava organizacije, prenesena na drugi račun, s drukčijim trajanjem, ili
-// oduzeta (ugašena, obrisana, istekla)
-func promjenaDuznosti(ctx context.Context, tx *sql.Tx, v ledger.Version) (promjenaPrava, error) {
-	var d models.Duty
-	id := v.EntityID
-	if !v.Archived {
-		if json.Unmarshal(v.Payload, &d) != nil {
-			return promjenaPrava{}, nil // primjena javi grešku sadržaja
-		}
-		id = d.ID.String()
-	}
-	cur, err := duznostSPovrsine(ctx, tx, id)
-	opis, vlasnik := opisPromjeneDuznosti(cur, d, v.Archived, time.Now())
-	if err != nil || opis == "" {
-		return promjenaPrava{}, err
-	}
-	racun, err := imeVlasnika(ctx, tx, vlasnik.String())
-	return promjenaPrava{racun: racun, promjene: []string{opis},
-		otisak: otisakPrava(v.Archived, d.UserID, d.Role, d.IsActive, d.ExpiresAt, d.IsTemporary, d.Rok, d.IsticeSObranom, d.OvisiO)}, err
-}
-
 // duznostSPovrsine je dužnost s površine; nil kad je nema
 func duznostSPovrsine(ctx context.Context, tx *sql.Tx, id string) (*models.Duty, error) {
 	d, err := getDutyTx(ctx, tx, id)
@@ -542,19 +542,25 @@ type PromjenaPrava struct {
 	Odlucio   string
 	Odluceno  *time.Time
 	Zadnja    bool // verzija je još zadnja verzija zapisa
+	// Potvrdiva: promjena se smije potvrditi. U mreži uvijek (odluka se
+	// potpisuje i stanje računa iz knjige), a računalo koje nije u mreži
+	// potvrđuje samo zadnju verziju zapisa.
+	Potvrdiva bool
 }
 
 // PromjenePrava su primljene promjene prava: one koje čekaju i zadnje
 // odluke, najnovije prvo. Promjena koja čeka, a zapis je u međuvremenu dobio
-// noviju verziju bez nje, nosi Zadnja = false.
+// noviju verziju, nosi Zadnja = false.
 func PromjenePrava(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, odluka int) (ceka, odluke []PromjenaPrava, err error) {
 	ceka, err = citajPromjenePrava(ctx, baza, `p.stanje = ? ORDER BY p.version_id DESC`, PravaCeka)
 	if err != nil {
 		return nil, nil, err
 	}
+	kljuc, err := kljucMreze(ctx, baza)
 	for i := range ceka {
 		top, e := rec.Latest(ctx, ceka[i].Entitet, ceka[i].Zapis)
 		ceka[i].Zadnja = e == nil && top.VersionID == ceka[i].VersionID
+		ceka[i].Potvrdiva = ceka[i].Zadnja || kljuc != nil
 		if !errors.Is(e, ledger.ErrNoVersion) {
 			err = errors.Join(err, e)
 		}
@@ -588,58 +594,75 @@ func citajPromjenePrava(ctx context.Context, baza *sql.DB, uvjet string, args ..
 }
 
 // PotvrdiPromjenuPrava stavlja promjenu koja čeka na površinu, bez nove
-// verzije (verzija je već u knjizi), i bilježi tko je potvrdio. Potvrđuje
-// se samo zadnja verzija zapisa. S računom dolaze i njegove dužnosti koje
-// su čekale njega.
-func PotvrdiPromjenuPrava(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, versionID, tko string) error {
-	return odluciOPravima(ctx, baza, rec, versionID, tko, PravaPotvrdeno)
+// verzije promijenjenog zapisa (verzija je već u knjizi), i bilježi tko je
+// potvrdio. S računom dolaze i njegove dužnosti koje su čekale njega. Na
+// računalu s ključem mreže odluka se potpisuje i vrijedi svugdje
+// (odluciKljucem); na računalu u mreži bez ključa ne može se donijeti
+// (ErrOdlukaNaRacunaluSKljucem), a računalo koje nije u mreži odlučuje samo
+// za sebe i potvrđuje samo zadnju verziju zapisa.
+func PotvrdiPromjenuPrava(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, potpis PotpisMreze, versionID, tko string) error {
+	return odluciOPravima(ctx, baza, rec, potpis, versionID, tko, PravaPotvrdeno)
 }
 
 // OdbijPromjenuPrava ostavlja promjenu u knjizi, a površinu bez nje, i
-// bilježi tko je odbio
-func OdbijPromjenuPrava(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, versionID, tko string) error {
-	return odluciOPravima(ctx, baza, rec, versionID, tko, PravaOdbijeno)
+// bilježi tko je odbio; o potpisu vrijedi isto kao za potvrdu
+func OdbijPromjenuPrava(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, potpis PotpisMreze, versionID, tko string) error {
+	return odluciOPravima(ctx, baza, rec, potpis, versionID, tko, PravaOdbijeno)
 }
 
 // odluciOPravima zapisuje odluku i, uz potvrdu, stavlja verziju na površinu,
 // sve u jednoj transakciji: verzija koja u međuvremenu stigne čeka bravu,
 // pa se potvrda ne stavlja preko novije
-func odluciOPravima(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, versionID, tko, stanje string) error {
+func odluciOPravima(ctx context.Context, baza *sql.DB, rec *ledger.Recorder, potpis PotpisMreze, versionID, tko, stanje string) error {
 	tx, err := baza.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	nacin, err := nacinOdluke(ctx, tx, potpis)
+	switch {
+	case err != nil:
+	case nacin == OdlukaDrugdje:
+		err = ErrOdlukaNaRacunaluSKljucem
+	case nacin == OdlukaKljucem:
+		err = odluciKljucem(ctx, tx, rec, potpis, versionID, tko, stanje)
+	default:
+		err = zapisiOdluku(ctx, tx, versionID, tko, stanje)
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// zapisiOdluku upisuje odluku računala koje nije u mreži o promjeni koja
+// čeka i, uz potvrdu, stavlja verziju na površinu
+func zapisiOdluku(ctx context.Context, tx *sql.Tx, versionID, tko, stanje string) error {
 	var entitet, zapis string
-	err = tx.QueryRowContext(ctx, `UPDATE prava_na_potvrdi SET stanje = ?, odlucio = ?, odluceno = ?
+	err := tx.QueryRowContext(ctx, `UPDATE prava_na_potvrdi SET stanje = ?, odlucio = ?, odluceno = ?
 		WHERE version_id = ? AND stanje = ? RETURNING entity, entity_id`,
 		stanje, tko, time.Now().UTC(), versionID, PravaCeka).Scan(&entitet, &zapis)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNemaPromjenePrava
 	}
-	if err != nil {
-		return err
+	if err == nil && stanje == PravaPotvrdeno {
+		err = potvrdiNaPovrsini(ctx, tx, versionID, entitet, zapis)
 	}
-	if stanje == PravaPotvrdeno {
-		if err := potvrdiNaPovrsini(ctx, tx, rec.Cvor(), versionID, entitet, zapis); err != nil {
-			return err
-		}
-	}
-	return tx.Commit()
+	return err
 }
 
 // potvrdiNaPovrsini stavlja potvrđenu verziju na površinu, ako je još
 // zadnja verzija zapisa, a s njom i djecu zapisa koja su je čekala
-func potvrdiNaPovrsini(ctx context.Context, tx *sql.Tx, ovaj, versionID, entitet, zapis string) error {
-	v, err := zadnjaVerzijaTx(ctx, tx, entitet, zapis)
+func potvrdiNaPovrsini(ctx context.Context, tx *sql.Tx, versionID, entitet, zapis string) error {
+	v, err := zadnjaIspravnaTx(ctx, tx, entitet, zapis)
 	if err == nil && v.VersionID != versionID {
 		err = ErrPromjenaPravaNijeZadnja
 	}
 	if err == nil {
-		err = primijeniVerziju(ctx, tx, ovaj, *v)
+		err = primijeniVerziju(ctx, tx, v)
 	}
 	if err == nil && !v.Archived {
-		err = vratiDjecu(ctx, tx, ovaj, v.Entity, v.EntityID)
+		err = vratiDjecu(ctx, tx, v.Entity, v.EntityID)
 	}
 	return err
 }

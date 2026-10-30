@@ -93,7 +93,7 @@ func TestPrimjenaSpomenikaProvjeravaOznaku(t *testing.T) {
 	tx, err := c.db.BeginTx(ctxRaz, nil)
 	nuzno(t, err)
 	defer tx.Rollback()
-	nuzno(t, primijeniVerziju(ctxRaz, tx, "", ledger.Version{VersionID: vid(1), Entity: EntityAreas, EntityID: "016",
+	nuzno(t, primijeniVerziju(ctxRaz, tx, ledger.Version{VersionID: vid(1), Entity: EntityAreas, EntityID: "016",
 		Archived: true, Payload: json.RawMessage(`{"id":16}`)}))
 	for _, tablica := range []string{"areas", "sections", "journals"} {
 		var n int

@@ -93,7 +93,10 @@
 {{with .Prava}}
 <section id="prava">
 <h2 class="mt-4" style="font-size:1rem;">Promjene prava koje čekaju potvrdu</h2>
-<p class="muted">Kad s drugog računala stigne promjena koja nekome daje ili oduzima prava globalnog administratora ili dužnost uprave organizacije, ili mijenja lozinku ili uključenost računa globalnog administratora, ona na ovom računalu ne vrijedi dok je ovdje ne potvrdi globalni administrator. Do tada ostaje zapisana i ide dalje drugim računalima, a ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj se račun ili dužnost na ovom računalu ne može mijenjati. Odbijena promjena ostaje zapisana, ali ovdje ne vrijedi. Računalo u stupcu S računala je ono koje navodi sama promjena.</p>
+<p class="muted">Kad s drugog računala stigne promjena koja nekome daje ili oduzima prava globalnog administratora ili dužnost uprave organizacije, ili mijenja lozinku ili uključenost računa globalnog administratora, ona ne vrijedi dok je ne potvrdi globalni administrator. Do tada ostaje zapisana i ide dalje drugim računalima, a ostale izmjene istog računa, npr. telefon, stižu kao i prije. Dok promjena čeka, taj se račun ili dužnost na ovom računalu ne može mijenjati. Odbijena promjena ostaje zapisana, ali ne vrijedi. Računalo u stupcu S računala je ono koje navodi sama promjena.</p>
+{{if .Kljucem}}<p class="muted">Ovo računalo drži ključ mreže. Odluka se ovdje donosi jednom za cijelu mrežu: potvrda ili odbijanje potpiše se ključem mreže i stigne razmjenom na sva računala. Izmjene prava napravljene na ovom računalu vrijede na ostalima čim do njih stignu razmjenom, bez čekanja na potvrdu.</p>
+{{else if .Drugdje}}<p class="muted">Promjenu potvrđuje ili odbija globalni administrator na računalu koje drži ključ mreže. Kad ondje odluči, odluka stigne ovamo razmjenom i ovdje vrijedi bez nove potvrde.</p>
+{{else if .Ovdje}}<p class="muted">Ovo računalo još nije u mreži, pa odluka vrijedi samo na njemu.</p>{{end}}
 {{with .Greska}}<div class="alert alert-warning">{{.}}</div>{{end}}
 {{if .Ceka}}
 {{with .Zabrana}}<p class="muted">{{.}}</p>{{end}}
@@ -102,17 +105,19 @@
     <thead><tr><th>Račun</th><th>Što se mijenja</th><th>S računala</th><th>Stiglo</th><th></th></tr></thead>
     <tbody>{{range .Ceka}}<tr>
       <td>{{.Racun}}</td>
-      <td>{{.Promjene}}{{if not .Zadnja}}<div class="muted">Račun je u međuvremenu promijenjen bez ove promjene, pa se ona može samo odbiti.</div>{{end}}</td>
+      <td>{{.Promjene}}{{if not .Potvrdiva}}<div class="muted">Račun je u međuvremenu promijenjen bez ove promjene, pa se ona može samo odbiti.</div>{{else if not .Zadnja}}<div class="muted">Račun je u međuvremenu dobio noviju izmjenu. Odluka vrijedi za ovu promjenu, a novija izmjena se zatim gleda prema njoj.</div>{{end}}</td>
       <td>{{if .ImeCvora}}{{.ImeCvora}}{{else}}<span class="mono">{{.Cvor}}</span>{{end}}</td>
       <td>{{vrijemeHR .Stiglo}}</td>
       <td>{{if $.Prava.Nudi}}<form method="POST" action="/sinkronizacija/prava" class="actions">
         <input type="hidden" name="verzija" value="{{.VersionID}}">
-        {{if .Zadnja}}<button type="submit" name="odluka" value="potvrdi" class="btn btn-primary btn-sm" onclick="return confirm('Potvrditi promjenu za račun {{.Racun}}: {{.Promjene}}?')">Potvrdi</button>{{end}}
+        {{if $.Prava.TraziLozinku}}<input type="password" name="lozinka_racuna" autocomplete="current-password" placeholder="Lozinka vašeg računa" aria-label="Lozinka vašeg računa" required>{{end}}
+        {{if .Potvrdiva}}<button type="submit" name="odluka" value="potvrdi" class="btn btn-primary btn-sm" onclick="return confirm('Potvrditi promjenu za račun {{.Racun}}: {{.Promjene}}?')">Potvrdi</button>{{end}}
         <button type="submit" name="odluka" value="odbij" class="btn btn-secondary btn-sm">Odbij</button>
       </form>{{end}}</td>
     </tr>{{end}}</tbody>
   </table>
 </div></div>
+{{if and .Nudi .TraziLozinku}}<p class="muted">Izvana se o promjeni prava odlučuje uz lozinku vašeg računa.</p>{{end}}
 {{else}}<p class="muted">Nijedna promjena prava ne čeka potvrdu.</p>{{end}}
 {{if .Odluke}}
 <h3 class="mt-3" style="font-size:.95rem;">Zadnje odluke</h3>

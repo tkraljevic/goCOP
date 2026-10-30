@@ -744,6 +744,7 @@ func naciniDostave() []nacinDostave {
 var lokalneTablice = map[string]string{
 	"record_versions": "knjiga verzija, ne površina",
 	"akti_brojac":     "najveći broj akta koji je dao ovaj čvor",
+	"prava_vlastite":  "verzije računa i dužnosti koje je napisao ovaj čvor",
 }
 
 // preskociStupce su stupci koji se namjerno ne uspoređuju, sa zašto

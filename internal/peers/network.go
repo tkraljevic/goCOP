@@ -161,7 +161,7 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 	if err != nil {
 		return err
 	}
-	return s.saveMembership(ctx, self)
+	return s.nakonUpisaKljuca(ctx, s.saveMembership(ctx, self))
 }
 
 // joinNetwork prihvaća mrežu iz paketa dobrodošlice — samo kad čvor još

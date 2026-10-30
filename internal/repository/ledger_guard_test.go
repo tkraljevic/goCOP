@@ -51,7 +51,7 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 				primjenaPise[file] = true
 				continue
 			}
-			if !strings.Contains(code, "rec.Record") && !strings.Contains(code, "rec.Archive") {
+			if !strings.Contains(code, "rec.Record") && !strings.Contains(code, "rec.Archive") && !upisRacuna(code) {
 				t.Errorf("%s piše u tablicu %s, a nijednom ne poziva Recorder — verzija se ne bilježi", file, table)
 			}
 		}
@@ -62,6 +62,14 @@ func TestUpisiUSinkroniziraneTabliceIduKrozRecorder(t *testing.T) {
 			t.Errorf("%s ne piše u sinkronizirane tablice ili je nema: maknuti je s popisa datotekePrimjene", file)
 		}
 	}
+}
+
+// upisRacuna: datoteka piše verziju preko UserRepository.zapisi ili
+// arhiviraj, koji zovu Recorder i uz njega bilježe vlastitu verziju i
+// potvrdu ključem mreže (user_repo.go). Samo metode UserRepository-ja.
+func upisRacuna(code string) bool {
+	return strings.Contains(code, "func (r *UserRepository)") &&
+		(strings.Contains(code, "r.zapisi(ctx, tx, ") || strings.Contains(code, "r.arhiviraj(ctx, tx, "))
 }
 
 // datotekePrimjene su datoteke primjena po skupinama koje pišu u

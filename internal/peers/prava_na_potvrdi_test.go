@@ -59,7 +59,7 @@ func TestUvozPromjenePravaCekaPotvrdu(t *testing.T) {
 	if err != nil || len(ceka) != 1 || ceka[0].Cvor != "laptop-baranja" {
 		t.Fatalf("čeka %+v %v", ceka, err)
 	}
-	if err := repository.PotvrdiPromjenuPrava(ctxRub, ured.db, ured.rec, ceka[0].VersionID, "Ivan Ivić (iivic)"); err != nil {
+	if err := repository.PotvrdiPromjenuPrava(ctxRub, ured.db, ured.rec, nil, ceka[0].VersionID, "Ivan Ivić (iivic)"); err != nil {
 		t.Fatal(err)
 	}
 	u, err := naUredu.GetUserByID(admin.ID)

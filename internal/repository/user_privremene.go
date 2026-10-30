@@ -80,7 +80,7 @@ func (r *UserRepository) PostaviIstek(id uuid.UUID, istek *time.Time) error {
 	if err != nil {
 		return err
 	}
-	if _, err := r.rec.Record(ctx, tx, EntityDuties, id.String(), d); err != nil {
+	if _, err := r.zapisi(ctx, tx, EntityDuties, id.String(), d); err != nil {
 		return err
 	}
 	return tx.Commit()

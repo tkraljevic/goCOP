@@ -1507,7 +1507,7 @@ func (s *Server) setupRoutes() {
 	syncH.dohvatljivost = s.dohvatljivost
 	syncH.gumbProvjere = s.gumbProvjereVeze
 	syncH.mjeriMrezu = s.mjeriMrezu
-	syncH.prava = &potvrdePrava{baza: func() *sql.DB { return s.db }, rec: s.recorder}
+	syncH.prava = s.potvrdePrava()
 	s.mux.Handle("GET /sinkronizacija", s.authMiddleware(http.HandlerFunc(syncH.ShowDashboard)))
 	s.mux.Handle("POST /sinkronizacija/provjeri-vezu", s.samoAdmin(http.HandlerFunc(syncH.handleProvjeriRacunalo)))
 	s.mux.Handle("POST /sinkronizacija/prava", s.samoAdmin(http.HandlerFunc(syncH.handleOdlukaPrava)))
