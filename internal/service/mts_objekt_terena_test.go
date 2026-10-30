@@ -47,7 +47,7 @@ func TestMjestoTerenaObjekt(t *testing.T) {
 	// kontekst zahtjeva: prekinut zahtjev ne čita objekt
 	prekinut, prekini := context.WithCancel(ctx)
 	prekini()
-	if _, err := s.mjestoTerena(prekinut, Zahvat{AreaID: 34, StructureID: cs.ID.String()}, "B"); !errors.Is(err, context.Canceled) {
+	if _, err := s.mjestoTerena(prekinut, Zahvat{AreaID: 34, StructureID: cs.ID.String()}); !errors.Is(err, context.Canceled) {
 		t.Errorf("prekinut zahtjev: %v", err)
 	}
 }
