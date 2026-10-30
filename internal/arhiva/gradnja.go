@@ -2180,18 +2180,14 @@ func MakniNiz(db *sql.DB, baza, koren, letva, izvor, velicina, vrsta string) (in
 	}
 	defer tx.Rollback()
 
-	var id int64
 	// niz je pod bravom provjeren na popisu bez datoteke, pa ga u arhivi ima
-	if err := tx.QueryRow(`SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`,
-		letva, izvor, velicina, vrsta).Scan(&id); err != nil {
-		return 0, err
-	}
-	res, err := tx.Exec(`DELETE FROM ocitanja WHERE niz = ?`, id)
+	const niz = `SELECT id FROM nizovi WHERE letva=? AND izvor=? AND velicina=? AND vrsta=?`
+	res, err := tx.Exec(`DELETE FROM ocitanja WHERE niz IN (`+niz+`)`, letva, izvor, velicina, vrsta)
 	if err != nil {
 		return 0, err
 	}
 	obrisano, _ := res.RowsAffected()
-	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id = ?`, id); err != nil {
+	if _, err := tx.Exec(`DELETE FROM nizovi WHERE id IN (`+niz+`)`, letva, izvor, velicina, vrsta); err != nil {
 		return 0, err
 	}
 	if err := tx.Commit(); err != nil {
