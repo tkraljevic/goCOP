@@ -187,8 +187,12 @@ func naPovrsini(ctx context.Context, tx *sql.Tx, entitet, id string) (bool, erro
 }
 
 // makniSDjecom miče s površine zapis kojem je v spomenik, a prije njega
-// njegovu djecu
+// njegovu djecu. Spomenik koji po oznaci ne ide na površinu (istaOznaka) ne
+// miče ništa.
 func makniSDjecom(ctx context.Context, tx *sql.Tx, v ledger.Version) error {
+	if !istaOznaka(v) {
+		return nil
+	}
 	if err := makniDjecu(ctx, tx, v.Entity, v.EntityID); err != nil {
 		return err
 	}
@@ -280,33 +284,29 @@ func cekaOslonac(v ledger.Version) {
 	nedovrseni.kljucevi[v.Entity+"|"+v.EntityID] = true
 }
 
-// ziveDjeceUpit čita zadnje verzije zapisa entiteta koje su žive i u polju
-// veze nose zadani identitet roditelja. Sadržaj koji nije JSON preskače se.
-const ziveDjeceUpit = `SELECT v.version_id, v.entity_id, v.node_id, v.payload, v.channel, v.schema_version
-	FROM record_versions v
-	WHERE v.entity = ? AND v.archived = 0
-		AND v.version_id = (SELECT MAX(w.version_id) FROM record_versions w
-			WHERE w.entity = v.entity AND w.entity_id = v.entity_id)
-		AND CASE WHEN json_valid(v.payload) THEN CAST(json_extract(v.payload, ?) AS TEXT) = ? END`
+// ziveDjeceUvjet: živa verzija u polju veze nosi zadani identitet roditelja;
+// sadržaj koji nije JSON preskače se
+const ziveDjeceUvjet = `CASE WHEN json_valid(w.payload) THEN CAST(json_extract(w.payload, ?) AS TEXT) = ? END`
 
-// ziveDjeceIzKnjige su zadnje verzije djece zapisa id po vezi r koja su u
-// knjizi živa, a na površini ih nema
+// ziveDjeceIzKnjige su djeca zapisa id po vezi r koja su u knjizi živa, a na
+// površini ih nema, svako s verzijom koja po knjizi stoji na površini
+// (zadnjeZiveSIstomOznakom), kad ona u polju veze nosi id
 func ziveDjeceIzKnjige(ctx context.Context, tx *sql.Tx, r vezaNaRoditelja, id string) ([]ledger.Version, error) {
-	rows, err := tx.QueryContext(ctx, ziveDjeceUpit+` AND NOT EXISTS (SELECT 1 FROM `+r.dijete+` p
-		WHERE p.`+kljucZapisa(r.dijete)+` = v.entity_id) ORDER BY v.version_id`, r.dijete, "$."+r.stupac, id)
+	rows, err := tx.QueryContext(ctx, verzijeKandidataUpit(ziveDjeceUvjet)+` AND NOT EXISTS (SELECT 1 FROM `+r.dijete+` p
+		WHERE p.`+kljucZapisa(r.dijete)+` = v.entity_id)`+redoslijedKandidata, r.dijete, r.dijete, "$."+r.stupac, id)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []ledger.Version
-	for err == nil && rows.Next() {
-		v := ledger.Version{Entity: r.dijete}
-		var sadrzaj string
-		err = rows.Scan(&v.VersionID, &v.EntityID, &v.NodeID, &sadrzaj, &v.Channel, &v.SchemaVersion)
-		v.Payload = json.RawMessage(sadrzaj)
-		out = append(out, v)
+	zive, err := zadnjeZiveSIstomOznakom(rows, r.dijete)
+	out := zive[:0]
+	for _, v := range zive {
+		var polja map[string]json.RawMessage
+		_ = json.Unmarshal(v.Payload, &polja) // sadržaj koji nije JSON nema roditelja
+		if identitetRoditelja(polja[r.stupac]) == id {
+			out = append(out, v)
+		}
 	}
-	return out, errors.Join(err, rows.Err())
+	return out, err
 }
 
 // zabiljeziSDjecom bilježi lokalni upis zapisa u knjigu. Kad je zapis prije

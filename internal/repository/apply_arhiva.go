@@ -7,6 +7,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/google/uuid"
+
 	"gocop/internal/ledger"
 	"gocop/internal/models"
 )
@@ -57,65 +59,65 @@ func mjestoNaTrenutku(ctx context.Context, tx *sql.Tx, tablica string, t trenuta
 	return err == nil, err
 }
 
-// zivNaTrenutku je zadnja verzija bilješke ili ispravka koji je u knjizi živ
+// zivNaTrenutku je verzija bilješke ili ispravka koji je u knjizi živ, ona
+// koja po knjizi stoji na površini
 type zivNaTrenutku struct {
 	id, kanal  string
 	sadrzaj    json.RawMessage // nil kad se sadržaj ne da pročitati
-	vrijeme    time.Time
+	trenutak   trenutakNiza
 	izmijenjen time.Time
 }
 
 // naTrenutku javlja stoji li zapis na trenutku t; sadržaj koji se ne da
 // pročitati ne stoji ni na jednom
 func (z zivNaTrenutku) naTrenutku(t trenutakNiza) bool {
-	return z.sadrzaj != nil && z.vrijeme.Equal(t.vrijeme)
+	return z.sadrzaj != nil && z.trenutak.letva == t.letva && z.trenutak.velicina == t.velicina &&
+		z.trenutak.korak == t.korak && z.trenutak.vrijeme.Equal(t.vrijeme)
 }
 
-// ziviNaNizu su zadnje verzije zapisa entiteta koji su u knjizi živi i stoje
-// na nizu (letva, veličina, korak). Sadržaj koji nije JSON preskače se, da
-// jedna pokvarena verzija ne zaustavi čitanje.
-const ziviNaNizu = `SELECT v.entity_id, v.channel, v.payload FROM record_versions v
-	WHERE v.entity = ? AND v.archived = 0
-		AND v.version_id = (SELECT MAX(w.version_id) FROM record_versions w
-			WHERE w.entity = v.entity AND w.entity_id = v.entity_id)
-		AND CASE WHEN json_valid(v.payload) THEN json_extract(v.payload, '$.letva') = ?
-			AND json_extract(v.payload, '$.velicina') = ? AND json_extract(v.payload, '$.korak') = ? END
-	ORDER BY v.version_id`
+// ziviNaNizu: živa verzija stoji na nizu (letva, veličina, korak). Sadržaj
+// koji nije JSON preskače se, da jedna pokvarena verzija ne zaustavi čitanje.
+const ziviNaNizu = `CASE WHEN json_valid(w.payload) THEN json_extract(w.payload, '$.letva') = ?
+	AND json_extract(w.payload, '$.velicina') = ? AND json_extract(w.payload, '$.korak') = ? END`
 
 // ziviNaTrenutku su bilješke ili ispravci (entitet) koji su u knjizi živi i
 // stoje na trenutku t, i oni kojih na površini nema jer je trenutak dobio
-// noviji. Vrijeme se uspoređuje kao trenutak, ne kao tekst, jer ga sadržaj
-// zna nositi u drugoj vremenskoj zoni.
+// noviji. Za svaki zapis gleda se verzija koja po knjizi stoji na površini
+// (zadnjeZiveSIstomOznakom). Vrijeme se uspoređuje kao trenutak, ne kao
+// tekst, jer ga sadržaj zna nositi u drugoj vremenskoj zoni.
 func ziviNaTrenutku(ctx context.Context, tx *sql.Tx, entitet string, t trenutakNiza) ([]zivNaTrenutku, error) {
-	rows, err := tx.QueryContext(ctx, ziviNaNizu, entitet, t.letva, t.velicina, t.korak)
+	rows, err := tx.QueryContext(ctx, verzijeKandidataUpit(ziviNaNizu)+redoslijedKandidata,
+		entitet, entitet, t.letva, t.velicina, t.korak)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	zive, err := zadnjeZiveSIstomOznakom(rows, entitet)
 	var out []zivNaTrenutku
-	for err == nil && rows.Next() {
-		var z zivNaTrenutku
-		z, err = procitajZivog(rows)
-		if z.naTrenutku(t) {
+	for _, v := range zive {
+		if z := procitajZivog(v); z.naTrenutku(t) {
 			out = append(out, z)
 		}
 	}
-	return out, errors.Join(err, rows.Err())
+	return out, err
 }
 
-// procitajZivog čita redak upita ziviNaNizu
-func procitajZivog(rows *sql.Rows) (zivNaTrenutku, error) {
-	var z zivNaTrenutku
-	var sadrzaj string
-	err := rows.Scan(&z.id, &z.kanal, &sadrzaj)
+// procitajZivog čita živu verziju zapisa na trenutku; sadržaj s drugom
+// oznakom zapisa ostaje prazan
+func procitajZivog(v ledger.Version) zivNaTrenutku {
+	z := zivNaTrenutku{id: v.EntityID, kanal: v.Channel}
 	var polja struct {
+		ID        uuid.UUID `json:"id"`
+		Letva     string    `json:"letva"`
+		Velicina  string    `json:"velicina"`
+		Korak     string    `json:"korak"`
 		Vrijeme   time.Time `json:"vrijeme"`
 		UpdatedAt time.Time `json:"updated_at"`
 	}
-	if json.Unmarshal([]byte(sadrzaj), &polja) == nil {
-		z.sadrzaj, z.vrijeme, z.izmijenjen = json.RawMessage(sadrzaj), polja.Vrijeme, polja.UpdatedAt
+	if json.Unmarshal(v.Payload, &polja) == nil && polja.ID.String() == z.id {
+		z.sadrzaj, z.izmijenjen = v.Payload, polja.UpdatedAt
+		z.trenutak = trenutakNiza{polja.Letva, polja.Velicina, polja.Korak, polja.Vrijeme}
 	}
-	return z, err
+	return z
 }
 
 // najnoviji je od živih zapisa trenutka onaj koji ima prednost (novijiNaTrenutku)

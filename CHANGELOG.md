@@ -10,6 +10,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   lozinke ili uključenosti globalnog administratora i dužnosti uprave
   organizacije vrijedi na ovom računalu tek kad je ovdje potvrdi globalni
   administrator, na stranici Stanje razmjene (Odluke (30. 10. 2026.)).
+- **Primanje verzija: oznaka u sadržaju mora biti oznaka zapisa.** Zapis
+  primljen s drugog računala upisuje se samo kad oznaka u njegovu sadržaju
+  odgovara oznaci zapisa. Verzija s drugom oznakom ostaje zapisana i dalje
+  se prenosi, ali ne mijenja podatke na ovom računalu, a u dnevniku
+  programa ostaje bilješka o tome. Primljeno brisanje područja, županije,
+  općine ili naselja provodi se samo kad je oznaka zapisa običan broj, bez
+  vodećih nula i predznaka.
 - **Provjere prava: sredstva za obranu.** Skladište i nacrt inventure
   provjeravaju se prema onome što je već upisano, a s terena se vraća i
   troši samo ono što je onamo izdao sektor skladišta.

@@ -261,12 +261,21 @@ func popraviOsnovuPraga(m map[string]json.RawMessage) (bool, error) {
 	return true, nil
 }
 
+// zaPopravak javlja smije li popravak mijenjati zapis kojem je v zadnja
+// verzija: arhiviran zapis ne, a ni verziju kojoj oznaka zapisa ne odgovara
+// sadržaju, jer nije na površini i popravak je ne smije prepisati kao
+// verziju ovog čvora
+func zaPopravak(v ledger.Version) bool {
+	return !v.Archived && istaOznaka(v)
+}
+
 // popraviZapis je put kojim popravak mijenja sinkronizirani zapis: čita
 // zadnju verziju iz knjige (ne površinu), daje popravku njezin JSON i piše
 // novu verziju samo ako se sadržaj zaista promijenio. Površina se zatim
 // osvježi iz te nove verzije istim putem kao primljena razmjena (applyOne),
 // pa je površina jednaka knjizi. Polja koja ovaj program ne poznaje ostaju u
-// mapi kakva jesu. Arhiviran zapis ili zapis bez verzije se ne dira.
+// mapi kakva jesu. Arhiviran zapis, zapis bez verzije i zapis kojem zadnja
+// verzija nosi u sadržaju drugu oznaku se ne dira.
 // Vraća je li upisana nova verzija; zapis novije sheme daje
 // ledger.ErrNovijaShema i ostaje netaknut.
 func popraviZapis(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, entity, id string,
@@ -278,7 +287,7 @@ func popraviZapis(ctx context.Context, tx *sql.Tx, rec *ledger.Recorder, entity,
 	if err != nil {
 		return false, err
 	}
-	if top.Archived {
+	if !zaPopravak(*top) {
 		return false, nil
 	}
 	var m map[string]json.RawMessage

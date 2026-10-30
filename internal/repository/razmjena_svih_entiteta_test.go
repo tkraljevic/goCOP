@@ -1412,6 +1412,16 @@ func zonaBezImena(t *testing.T) *time.Location {
 }
 
 func razmjenaSvihEntiteta(t *testing.T) {
+	zaSlucajeveRazmjene(t)
+	for _, s := range slucajeviRazmjene() {
+		t.Run(s.entitet, func(t *testing.T) { provjeriRazmjenu(t, s) })
+	}
+}
+
+// zaSlucajeveRazmjene priprema ono što slučajevi razmjene dijele s ostatkom
+// programa i vraća ga na kraju testa
+func zaSlucajeveRazmjene(t *testing.T) {
+	t.Helper()
 	// spremište sadržaja je jedno za program; izvornici ga trebaju na oba čvora
 	spremisteTesta, err := sadrzaj.Otvori(filepath.Join(t.TempDir(), "sadrzaj.db"))
 	nuzno(t, err)
@@ -1421,13 +1431,9 @@ func razmjenaSvihEntiteta(t *testing.T) {
 	nazivi := models.Terms()
 	t.Cleanup(func() {
 		SetSpremiste(prijasnje)
-		spremisteTesta.Zatvori()
+		_ = spremisteTesta.Zatvori() // privremeno spremište testa
 		models.SetTerms(nazivi)
 	})
-
-	for _, s := range slucajeviRazmjene() {
-		t.Run(s.entitet, func(t *testing.T) { provjeriRazmjenu(t, s) })
-	}
 }
 
 func provjeriRazmjenu(t *testing.T, s slucajRazmjene) {

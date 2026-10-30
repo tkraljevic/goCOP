@@ -97,7 +97,7 @@ func TestPrimjenaAktaOvjeraPrijeNacrta(t *testing.T) {
 		t.Errorf("akt: %s %v %v", v.VersionID, primijeni, err)
 	}
 	sluzba := func(id string) ledger.Version {
-		return ledger.Version{VersionID: id, Entity: EntitySluzbe, EntityID: "sluzba-1", Payload: json.RawMessage(`{}`), CreatedAt: time.Now(), SchemaVersion: 1}
+		return ledger.Version{VersionID: id, Entity: EntitySluzbe, EntityID: "sluzba-1", Payload: json.RawMessage(`{"id":"sluzba-1"}`), CreatedAt: time.Now(), SchemaVersion: 1}
 	}
 	if _, err := rec.Apply(ctx, []ledger.Version{sluzba(vid(11)), sluzba(vid(12))}); err != nil {
 		t.Fatal(err)
