@@ -566,7 +566,7 @@ func TestPromjenaLozinkeOpozivaDrugiKorak(t *testing.T) {
 
 			switch nacin {
 			case "promjena":
-				if err := o.auth.ChangePassword(o.osoba.ID, "lozinka1", "lozinka2", uuid.Nil); err != nil {
+				if err := o.auth.ChangePassword(o.osoba.ID, "lozinka1", "lozinka2-nova", uuid.Nil); err != nil {
 					t.Fatal(err)
 				}
 			case "poništavanje":
@@ -576,7 +576,7 @@ func TestPromjenaLozinkeOpozivaDrugiKorak(t *testing.T) {
 			case "izmjena":
 				x := o.osoba
 				if _, err := o.users.UpdateUser(o.admin, service.UpdateUserRequest{ID: x.ID, Username: x.Username, FullName: x.FullName,
-					OrgType: x.OrgType, Email: x.Email, IsActive: true, Password: "lozinka3"}); err != nil {
+					OrgType: x.OrgType, Email: x.Email, IsActive: true, Password: "lozinka3-nova"}); err != nil {
 					t.Fatal(err)
 				}
 			}

@@ -650,7 +650,7 @@ func obrisiZapisCvora(ctx context.Context, tx *sql.Tx, nodeID string) error {
 	}
 	_, err := tx.ExecContext(ctx, `UPDATE peer_sync SET adrese = '', put = '', put_privatna = 0, rtt_ms = 0, put_od = NULL,
 		put_razlog = '', put_pokusaji = 0, put_uspjesi = 0, put_neuspjesi = 0, put_primljeno = 0, put_poslano = 0, zadnji_zvao = '',
-		priprema_pokusaji = 0, priprema_uspjesi = 0, priprema_neuspjesi = 0 WHERE node_id = ?`, nodeID)
+		priprema_pokusaji = 0, priprema_uspjesi = 0, priprema_neuspjesi = 0, uloge = '' WHERE node_id = ?`, nodeID)
 	return err
 }
 

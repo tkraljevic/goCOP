@@ -6,6 +6,7 @@ import (
 	"html/template"
 	"log"
 	"net/http"
+	"time"
 
 	"gocop/internal/models"
 	"gocop/internal/repository"
@@ -75,6 +76,7 @@ type DashboardViewData struct {
 	Moduli         []struct{ ID, Naziv, Ikona string }
 	Precaci        []Precac
 	Nepredani      *UpozorenjeNepredanih // vlastiti listovi koje vodočuvar nije predao
+	CekaUlogu      bool                  // račun još nema ulogu (cekaUlogu)
 	SuccessMessage string
 	ErrorMessage   string
 	ActiveNav      string
@@ -119,6 +121,7 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 		}
 	}
 	data.Precaci = precaciZa(perms)
+	data.CekaUlogu = cekaUlogu(user)
 	data.Nepredani = h.nepredani(r.Context(), user)
 
 	// Stranica se prvo iscrta cijela, pa tek onda šalje. Predložak koji
@@ -132,6 +135,14 @@ func (h *DashboardHandler) ShowDashboard(w http.ResponseWriter, r *http.Request)
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = b.WriteTo(w) // greška znači samo da je preglednik otišao; drugog odgovora nema
+}
+
+// cekaUlogu: račun nema nijednu dužnost koja sada vrijedi ni zastavicu
+// globalnog administratora. Novi račun nema zadanu ulogu, pa se osoba
+// prijavi i samo gleda dok joj je administrator ne dodijeli (Odluke
+// (30. 10. 2026.), 15).
+func cekaUlogu(u *models.User) bool {
+	return u != nil && !u.IsGlobalAdmin && len(models.VazecaZaduzenja(u.Duties, time.Now())) == 0
 }
 
 // Precac je gumb na naslovnoj za ono što se u toj ulozi radi svaki dan

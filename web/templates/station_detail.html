@@ -110,6 +110,8 @@
 <div class="kartica-podnozje">
   <a href="/stations/{{.Station.ID}}/izvjesce.xlsx" class="btn btn-secondary"
      title="Kartica postaje kao oblikovana Excelova datoteka">{{icon "download"}} Excel</a>
+  {{if .UnosUArhivu}}<a href="/administracija/uvoz-niza?letva={{.Station.Code}}" class="btn btn-secondary"
+     title="Niz, krivulje ili snimke korita ove letve iz datoteke, u arhivu ovog računala">{{icon "upload"}} Unos u arhivu</a>{{end}}
   {{if .CanEdit}}{{if .Permissions.IsGlobalAdmin}}
   <form method="POST" action="/api/stations/delete" class="m-0"
         data-brisanje-letve

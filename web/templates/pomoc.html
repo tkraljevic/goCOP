@@ -871,6 +871,11 @@
         revidirani nizovi), <em>s letve</em> (ono što je čovjek očitao) i <em>operativno</em>
         (dojave automatike). Preračuni nose oznaku <em>preračun</em>.</li>
     </ul>
+    <p>Podatke jedne letve (niz, krivulje, snimke korita, posebni izvori, povijest s HydroViewa)
+      unosi svatko tko smije uređivati tu letvu, gumbom <em>Unos u arhivu</em> na kartici letve.
+      Gumb se vidi kad ovo računalo drži izvorne datoteke arhive te letve, a stranica unosa tada
+      već ima upisanu tu letvu. Ulaganje, pospremanje, izdanja i brisanje nizova bez datoteke radi
+      samo globalni administrator, pa ih drugi na stranici ne vide.</p>
 
     <h3 id="arhiva-postupak">Gradnja iz izvornih datoteka</h3>
     <p>Arhiva se gradi iz izvornih datoteka u mapi <code>vodostaji/</code>, složenih po slivu i letvi.
@@ -1089,7 +1094,8 @@
       uz vodostaje uzima i kišu po međuslivovima, palu i prognoziranu (Open-Meteo). Novi račun
       pokreće se kada stignu svježa
       očitanja; gumb <em>Generiraj</em> na stranici <em>Postavke prognoze</em> (gumb
-      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Prognozu pritom računa
+      <em>Postavke</em> na stranici Prognoze) odmah ponavlja cijeli krug. Taj gumb vide i smiju
+      upotrijebiti dežurni operater i globalni administrator. Prognozu pritom računa
       samo čvor koji je izdaje. Ponovni izračun za isti sat zamjenjuje prethodno izdanje tog
       sata i kod čvorova koji ga primaju; ne čuva se svaka međuinačica. Prognoza u satu
       izdavanja kreće od izmjerene vrijednosti, bez naknadnog ispravka promašajima.</p>
@@ -1124,7 +1130,11 @@
     <p>Vodostaje s izvora preuzima i prognozu izdaje jedan čvor. Uloge uključuje globalni
       administrator u Administraciji, na stranici <a href="/settings#uloge">Čvor, mreža i
       sinkronizacija</a> (Uloge ovog čvora); na novom čvoru obje su isključene i on sve prima
-      razmjenom. Očitanja putuju razmjenom kao i
+      razmjenom. Uloge se mijenjaju samo na samom računalu ili iz njegove lokalne mreže, ne izvana
+      ni kroz tunel. Razmjenom se drugima samo javljaju, a drugo ih računalo ne može promijeniti.
+      Isključivanje traži potvrdu. Na stranici <a href="/sinkronizacija">Sinkronizacija</a> uz
+      svako računalo piše koje uloge ima, ako ih ono javlja (starija izdanja programa to ne
+      rade). Očitanja putuju razmjenom kao i
       sva druga, a svako izdanje prognoze putuje s tuđim prognozama koje je izdavač tada imao i s kišom
       po međuslivovima. Namješteni model ide uz izdanje kad se promijeni. Ostali čvorovi izdanje upišu
       u svoju bazu prognoza i prikazuju ga s oznakom čvora koji ga je izdao. U razmjeni izdanja stoje
@@ -1539,6 +1549,11 @@
       upisane u registar i pripadati tom području; drukčiji upis program odbija. Uprava sektora
       ili područja dodjeljuje dužnosti samo u svom dosegu i nikad sama sebi: vlastito zaduženje
       dodjeljuje, mijenja i opoziva nadređena razina.</p>
+    <p>Novi račun otvaraju globalni administrator, uprava sektora i uprava branjenog područja,
+      gumbom <em>Novi djelatnik</em>. Uprava područja otvara račune samo s ulogom u svom
+      području, a račun globalnog administratora nikad. Uloga u obrascu nije unaprijed odabrana.
+      Globalni administrator smije otvoriti račun i bez uloge: osoba se tada prijavi, na početnoj
+      stranici piše da čeka ulogu, a dotad samo gleda.</p>
     <p>Račun bez aktivne dužnosti (opozvane, istekle ili otvoren bez nje), isključen račun i
       račun globalnog administratora zadužuje samo globalni administrator. Uprava sektora ili
       područja dodaje dužnost samo uključenom računu koji već ima aktivnu dužnost, a isteklu
@@ -1825,7 +1840,8 @@
         razinu sadržaja i rok lokalnog držanja. Hidrološka arhiva ne ulazi u običnu knjigu
         verzija kao niz mjerenja: knjiga prenosi kazalo, a potpisani <code>.cop</code> paket
         dohvaća se zasebno prema pretplati. Stranica pokazuje i izdanje programa svakog čvora
-        i upozorava na čvor koji radi na drukčijem ili starijem izdanju. Uz svaki čvor stoji put
+        i upozorava na čvor koji radi na drukčijem ili starijem izdanju, te uloge koje čvor
+        javlja (preuzima vodostaje, izdaje prognozu). Uz svaki čvor stoji put
         zadnje razmjene i koliko je razmjena tim putem uspjelo otkad ide njime. Adrese čvorova,
         greške razmjene i, za čvor koji ne odgovara, zadnji pokušaj na svakoj adresi vidi samo
         globalni administrator.
@@ -1842,7 +1858,8 @@
         bajtove samo čvorovima koji su ih pretplatom zatražili.</li>
       <li><strong>Unos u arhivu</strong> — vrata arhive za unos CSV i Excel datoteka, ulaganje
         operativnih očitanja u arhivsko stablo i izdavanje novih potpisanih <code>.cop</code>
-        paketa. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
+        paketa. Unos za jednu letvu smije i onaj tko smije uređivati tu letvu, s kartice letve;
+        ulaganje i izdanja samo globalni administrator. Ugradnja je atomska, starije izdanje ne može samo pregaziti novije, a istodobno
         se nad istom arhivom izvodi samo jedan posao.</li>
       <li><strong>Izvori arhive</strong> — pregled i uređivanje izvora arhivskih podataka,
         njihove pouzdanosti i točnosti.</li>
@@ -1989,7 +2006,7 @@
   <div class="reg-card pomoc-tekst">
     <p>Na profilu su kontakti, promjena lozinke i odjeljak <em>Ovo računalo i ured</em>, odakle se
       otvara <em>Što ovo računalo prati</em>. Gumb <em>Moja zaduženja</em> otvara vašu stranicu
-      djelatnika sa zaduženjima i njihovom poviješću. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
+      djelatnika sa zaduženjima i njihovom poviješću. Lozinka mora imati najmanje 10 znakova. Početna lozinka mora se promijeniti pri prvoj prijavi; do tada ostatak programa
       ostaje zatvoren. Zadana lozinka ne vrijedi za prijavu izvana: prvu prijavu obavite
       lokalno ili od administratora zatražite privremenu lozinku. Promjena lozinke gasi
       ostale prijave na istom čvoru, ne odmah i na drugim računalima.</p>
@@ -1999,14 +2016,17 @@
     <p>Ovdje su i vaša dežurstva uz dnevnike COP-a. Za svaki centar u kojem ste u planu možete
       otvoriti plan i vlastito izvješće o radnim satima bez traženja dnevnika u popisu.</p>
     <p>Pod <strong>Što ovo računalo prati</strong> biraju se vrste zapisa, sektori, branjena
-      područja i godine koje ovaj čvor želi sinkronizirati. Na vrhu stranice piše o kojem je
+      područja i godine koje ovaj čvor želi sinkronizirati. Stranicu vidi svatko. Pretplate mijenja
+      i podatke s računala briše samo globalni administrator, s tog računala ili iz lokalne
+      mreže. Izvana i kroz tunel stranica se samo gleda. Na vrhu stranice piše o kojem je
       računalu riječ. Godina je ona na koju se podatak odnosi: dan mjerenja, dan lista ili dan
       događaja prijave. Za PDF-ove i slike bira se i razina: samo kazalo, samo pregledi (slike,
       bez PDF-ova) ili sve, te koliko se dana primljeni sadržaj lokalno drži. Zapisi uvijek
       stižu cijeli, a sadržaj nastao na ovom računalu ne otpušta se. Uredski poslužitelj obično
       prati sve, a terenski laptop samo ono što njegovu korisniku treba. Prijedlog iz zaduženja
-      nudi vodočuvarski dnevnik, očitanja, prijave s terena i dnevnike radova vašeg područja, i
-      to samo ono što računalo još ne prati.</p>
+      vidi samo globalni administrator i slaže se iz njegovih zaduženja: nudi vodočuvarski
+      dnevnik, očitanja, prijave s terena i dnevnike radova njegova područja, samo ono što
+      računalo još ne prati.</p>
     <p><em>Makni</em> uz pravilo samo ga makne: ništa se ne briše. Što pretplata više ne pokriva,
       briše se u tablici <em>Što računalo drži</em>, gumbom <em>Obriši s računala</em>. Uz gumb
       piše koliko će se zapisa i dokumenata obrisati i koliko ih ostaje. Briše se samo ono što je

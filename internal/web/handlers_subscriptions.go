@@ -48,9 +48,12 @@ type SubscriptionsPageData struct {
 	Predlog         *PrijedlogPretplate // pravila iz zaduženja korisnika koja još ne postoje
 	PovijestMjeseci int                 // koliko mjeseci tuđih očitanja čvor prima; 0 = sva
 	Postavke        *PostavkeStranice   // postavke ovog čvora iz gocop.toml; nil za ne-administratora
-	SuccessMessage  string
-	ErrorMessage    string
-	ActiveNav       string
+	// Zabrana kaže zašto osoba pretplate i brisanje samo gleda; prazno
+	// kad ih smije mijenjati, pa stranica pokazuje obrasce
+	Zabrana        string
+	SuccessMessage string
+	ErrorMessage   string
+	ActiveNav      string
 	ViewAsBanner
 }
 
@@ -78,6 +81,7 @@ func (h *SubscriptionsHandler) ShowSubscriptions(w http.ResponseWriter, r *http.
 	data.Areas, _ = h.org.ListAreas(ctx, "")
 	data.Predlog = predlogPretplate(currUser, data.Rules, data.ThisYear)
 	data.Postavke = h.postavkeCvora.za(r, "/pretplate")
+	data.Zabrana = zabranaPracenja(r)
 	if err := h.tmpl.ExecuteTemplate(w, "pretplate.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

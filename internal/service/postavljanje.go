@@ -64,10 +64,6 @@ func (s *UserService) PrviAdministrator(z PrviAdministratorZahtjev) (*models.Use
 	if err := ProvjeriNovuLozinku("", z.Lozinka); err != nil {
 		return nil, err
 	}
-	if len(z.Lozinka) < 10 {
-		// osnivač mreže drži sve: dulja lozinka nego za ostale račune
-		return nil, fmt.Errorf("%w: lozinka prvog administratora ima najmanje 10 znakova", ErrInvalidUserData)
-	}
 	hash, err := s.auth.HashPassword(z.Lozinka)
 	if err != nil {
 		return nil, err

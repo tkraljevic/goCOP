@@ -97,7 +97,20 @@ type Znanje struct {
 	Mogucnosti      []string       `json:"mogucnosti,omitempty"`      // oznake ime/N; bez njih vrijedi razmjena/1
 	Vrste           map[string]int `json:"vrste,omitempty"`           // vrsta zapisa (entitet) → najviša shema koju pošiljatelj razumije
 	CekaNadogradnju int            `json:"cekaNadogradnju,omitempty"` // broj ZAPISA, ne verzija, koji kod pošiljatelja čekaju nadogradnju
+	// Uloge su poslovi koje pošiljatelj radi za cijelu mrežu (UlogaIzdaje,
+	// UlogaPreuzima), samo za prikaz na Stanju razmjene (Odluke
+	// (30. 10. 2026.), 13). Ne mijenjaju razgovor ni ono što primatelj
+	// prima ili šalje, pa ne trebaju oznaku; stariji program ih ne šalje i
+	// zanemari.
+	Uloge []string `json:"uloge,omitempty"`
 }
+
+// Uloge računala koje se javljaju u znanju; mijenjaju se samo na samom
+// računalu
+const (
+	UlogaIzdaje   = "izdaje"   // izdaje prognozu
+	UlogaPreuzima = "preuzima" // preuzima vodostaje s izvora
+)
 
 // NaseMogucnosti su oznake koje ovaj program objavljuje, poredane i bez
 // ponavljanja. Svaki poziv daje novi popis.
@@ -147,9 +160,23 @@ func Dogovor(moje, njihove []string) map[string]int {
 // od 1 naviše, i broj na čekanju ne manji od nule. Nepoznate oznake
 // ostaju, jer se po njima vidi što druga strana zna, a ovaj program ne.
 // Bez ijedne ispravne oznake ili vrste to polje je nil, pa spremljene
-// oznake daju isti Dogovor kao popis koji je stigao.
+// oznake daju isti Dogovor kao popis koji je stigao. Od uloga ostaju samo
+// poznate.
 func (z Znanje) Ocisceno() Znanje {
-	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0)}
+	return Znanje{Mogucnosti: ocisceneOznake(z.Mogucnosti), Vrste: ocisceneVrste(z.Vrste), CekaNadogradnju: max(z.CekaNadogradnju, 0),
+		Uloge: ocisceneUloge(z.Uloge)}
+}
+
+// ocisceneUloge su poznate uloge druge strane, poredane i bez ponavljanja;
+// nepoznate otpadaju, jer ih stranica ne bi znala imenovati. Bez ijedne nil.
+func ocisceneUloge(uloge []string) []string {
+	var out []string
+	for _, u := range []string{UlogaIzdaje, UlogaPreuzima} {
+		if slices.Contains(uloge, u) {
+			out = append(out, u)
+		}
+	}
+	return out
 }
 
 // procitajOznaku rastavi oznaku ime/N; ok je false za sve što nije

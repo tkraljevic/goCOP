@@ -180,7 +180,7 @@ func TestStranicaPrognozaGumbGeneriraj(t *testing.T) {
 	if strings.Contains(html, "/prognoze/postavke") || strings.Contains(html, "/prognoze/generiraj") {
 		t.Error("gumb Postavke ili Generiraj stoji, a čvor nema ni krug preuzimanja ni pripremu modela")
 	}
-	osnova.MozeGenerirati = true
+	osnova.MozeGenerirati, osnova.SmijeGenerirati = true, true
 	html = iscrtaj(t, "prognoze.html", osnova)
 	// Na pregledu je samo gumb Postavke u zaglavlju, uz O prognozi; generiranje je na svojoj stranici.
 	if !strings.Contains(html, `href="/prognoze/postavke"`) {

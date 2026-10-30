@@ -358,11 +358,14 @@ type PrognozePageData struct {
 	Opcije         models.Opcije
 	SmijeMijenjati bool // može mijenjati način prikaza (uprava)
 
-	MozeGenerirati bool   // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
-	MozePripremiti bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
-	Generira       bool   // krug upravo traje
-	ZadnjiKrug     string // kad je zadnji krug prošao i što je donio
-	Napredak       javnivodostaji.Napredak
+	MozeGenerirati bool // ima krug preuzimanja, pa gumb „Generiraj” ima što pokrenuti
+	// SmijeGenerirati: ima krug preuzimanja, a osoba je dežurni ili
+	// administrator, pa vidi gumb „Generiraj” (Odluke (30. 10. 2026.), 7)
+	SmijeGenerirati bool
+	MozePripremiti  bool   // globalni administrator na čvoru s arhivom: gumb „Pripremi model”
+	Generira        bool   // krug upravo traje
+	ZadnjiKrug      string // kad je zadnji krug prošao i što je donio
+	Napredak        javnivodostaji.Napredak
 }
 
 // TablicaPrognoza je jedna voda na pregledu, letve od uzvodne prema nizvodnoj.
@@ -491,6 +494,7 @@ func (h *PrognozeHandler) zaglavlje(r *http.Request) PrognozePageData {
 	}
 	if u := h.uvoznik(); u != nil {
 		data.MozeGenerirati, data.Generira = true, u.UTijeku()
+		data.SmijeGenerirati = perms.SmijeGeneriratiPrognozu()
 		data.Napredak = u.Napredak()
 		if k, ima := u.ZadnjiKrug(); ima {
 			data.ZadnjiKrug = fmt.Sprintf("%s: %d %s, %d %s, %s",

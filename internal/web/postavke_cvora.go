@@ -406,28 +406,35 @@ type pokusajPostavki struct {
 type kljucPokusaja struct{}
 
 // zabranaCvora kaže zašto ovaj zahtjev ne smije mijenjati postavke čvora,
-// ponovno pokrenuti čvor, spremiti ili učitati kopiju ključa mreže ni
-// provjeriti vezu, za svako od toga svojim riječima
-type zabranaCvora struct{ postavke, ponovno, kljuc, provjera string }
+// ponovno pokrenuti čvor, spremiti ili učitati kopiju ključa mreže,
+// provjeriti vezu ni mijenjati što računalo prati, za svako od toga svojim
+// riječima
+type zabranaCvora struct{ postavke, ponovno, kljuc, provjera, pretplate, uloge string }
 
 var (
 	zabranaNijeAdmin = &zabranaCvora{
-		postavke: "Postavke čvora mijenja samo administrator.",
-		ponovno:  "Čvor ponovno pokreće samo administrator.",
-		kljuc:    "Kopiju ključa mreže sprema i učitava samo administrator.",
-		provjera: "Vezu provjerava samo administrator.",
+		postavke:  "Postavke čvora mijenja samo administrator.",
+		ponovno:   "Čvor ponovno pokreće samo administrator.",
+		kljuc:     "Kopiju ključa mreže sprema i učitava samo administrator.",
+		provjera:  "Vezu provjerava samo administrator.",
+		pretplate: "Što ovo računalo prati mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
+		uloge:     "Uloge ovog čvora mijenja samo globalni administrator, s ovog računala ili iz lokalne mreže.",
 	}
 	zabranaTudjimOcima = &zabranaCvora{
-		postavke: "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		ponovno:  "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		kljuc:    "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
-		provjera: "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		postavke:  "Postavke čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		ponovno:   "Čvor se ne pokreće ponovno tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		kljuc:     "Kopija ključa mreže ne sprema se i ne učitava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		provjera:  "Veza se ne provjerava tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		pretplate: "Što ovo računalo prati ne mijenja se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
+		uloge:     "Uloge ovog čvora ne mijenjaju se tuđim očima. Vratite se sebi pa pokušajte ponovno.",
 	}
 	zabranaIzvana = &zabranaCvora{
-		postavke: "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
-		ponovno:  "Čvor se ponovno pokreće samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
-		kljuc:    "Kopija ključa mreže sprema se i učitava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
-		provjera: "Veza se provjerava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		postavke:  "Postavke ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		ponovno:   "Čvor se ponovno pokreće samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		kljuc:     "Kopija ključa mreže sprema se i učitava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		provjera:  "Veza se provjerava samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		pretplate: "Što ovo računalo prati mijenja se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
+		uloge:     "Uloge ovog čvora mijenjaju se samo s ovog računala ili iz lokalne mreže, a ne izvana ni kroz tunel.",
 	}
 )
 
@@ -452,6 +459,41 @@ func smijeMijenjatiCvor(r *http.Request) *zabranaCvora {
 		return zabranaIzvana
 	}
 	return nil
+}
+
+// smijePratiti je ograda nad izmjenom pretplata i brisanjem kanala koji se ne
+// prati: mijenja ih samo globalni administrator, s ovog računala ili iz
+// lokalne mreže, isto kao postavke čvora (Odluke (30. 10. 2026.), 6)
+func smijePratiti(next http.Handler) http.Handler {
+	return samoNaCvoru(func(z *zabranaCvora) string { return z.pretplate }, next)
+}
+
+// smijeMijenjatiUloge je ista ograda nad ulogama ovog čvora: mijenjaju se
+// samo na samom računalu, a drugima se razmjenom samo javljaju (Odluke
+// (30. 10. 2026.), 13)
+func smijeMijenjatiUloge(next http.Handler) http.Handler {
+	return samoNaCvoru(func(z *zabranaCvora) string { return z.uloge }, next)
+}
+
+// samoNaCvoru pušta zahtjev dalje samo kad ga smijeMijenjatiCvor pušta, a
+// inače odbija porukom koju poruka izabere iz zabrane
+func samoNaCvoru(poruka func(*zabranaCvora) string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if z := smijeMijenjatiCvor(r); z != nil {
+			http.Error(w, poruka(z), http.StatusForbidden)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// zabranaPracenja je rečenica umjesto obrazaca na stranici „Što ovo
+// računalo prati”; prazno kad osoba smije mijenjati
+func zabranaPracenja(r *http.Request) string {
+	if z := smijeMijenjatiCvor(r); z != nil {
+		return z.pretplate
+	}
+	return ""
 }
 
 func jeAdministrator(r *http.Request) bool {

@@ -17,6 +17,21 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   sata ne izađe, a u dnevniku programa o tome nije bilo ni retka. Sad piše
   za koji je sat zadnja prognoza izdana i da za sljedeći još nema novih
   očitanja. (#202)
+- **Prava u administraciji prema Odlukama (30. 10. 2026.).** Tko smije
+  uređivati letvu, sad joj i unosi podatke u arhivu, gumbom „Unos u arhivu”
+  na kartici letve. Dosad je do te stranice vodila samo Administracija.
+  Ulaganje, izdanja i brisanje nizova ostaju globalnom administratoru, a
+  drugi ih više ne vide. Stranicu „Što ovo računalo prati” mijenja samo
+  globalni administrator, s tog računala ili iz lokalne mreže, a ostali je
+  samo gledaju. Prognozu rukom pokreću dežurni operater i globalni
+  administrator.
+
+  Lozinka svugdje mora imati najmanje 10 znakova. Dosad je na profilu bilo
+  dovoljno 6, a za novi račun nije bilo granice. Uprava branjenog područja
+  otvara račune u svom području. U obrascu novog djelatnika uloga više nije
+  unaprijed odabrana (bio je dežurni operater). Isključivanje uloge
+  računala traži potvrdu, a na Sinkronizaciji uz svako računalo piše koje
+  uloge ima.
 
 - **Karta bez interneta stiže razmjenom.** Kartu bez interneta trebalo je
   paketom `.cop` prenijeti na svako računalo. Sad ju računalo koje je nema

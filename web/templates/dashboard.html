@@ -29,6 +29,8 @@
     </div>
   </div>
 
+  {{if .CekaUlogu}}<div class="alert alert-info">{{icon "info"}} Vaš račun čeka da mu administrator dodijeli ulogu. Dotad možete samo gledati.</div>{{end}}
+
   <!-- Upozorenje vodočuvaru: dnevni listovi koje nije potpisao i predao -->
   {{template "nepredaniListovi" .Nepredani}}
 
