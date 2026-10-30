@@ -320,7 +320,7 @@ func TestRazdjelnicaDnevnikaDijeliTriVrste(t *testing.T) {
 	html := iscrtaj(t, "dnevnici_izbor.html", JournalPageData{
 		CurrentUser: &models.User{FullName: "P", IsGlobalAdmin: true},
 		Permissions: &models.UserPermissions{IsGlobalAdmin: true},
-		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4,
+		BrojCOP:     13, BrojA02: 2, BrojIzvjesca: 4, CitaCOP: true,
 	})
 	for _, want := range []string{
 		"Dokumentacija", "Dnevnici COP-a", "Dnevna izvješća", "Dnevnici usluga A.02", "Dnevnici usluga A.03",

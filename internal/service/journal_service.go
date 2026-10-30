@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -165,11 +166,32 @@ func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions
 	return s.CanSupervise(u, perms, o)
 }
 
+// izvodjacUCOP javlja je li j dnevnik COP-a, a osoba izvođač
+// (IzvodjacZaDnevnike). Zapisnik dežurstva centra vode Hrvatske vode:
+// izvođač u njega ne piše, ne preuzima dežurstvo i ne upisuje se u plan,
+// iako po dužnosti na području piše u dnevnike usluga svoje firme. Ovo je
+// jedino mjesto s tim pravilom; na njemu stoje PiseUDnevnik i MozeSebeUPlan.
+func (s *JournalService) izvodjacUCOP(perms *models.UserPermissions, j *models.Journal) bool {
+	return j != nil && j.CentarSektor != "" && s.izvodjacZaCOP(perms)
+}
+
+// izvodjacZaCOP javlja gleda li se osoba u dnevnicima COP-a kao izvođač;
+// globalni administrator nije izvođač ni kad ima dužnost poslovođe
+func (s *JournalService) izvodjacZaCOP(perms *models.UserPermissions) bool {
+	return !perms.IsGlobalAdmin && s.IzvodjacZaDnevnike(&perms.User)
+}
+
+// PiseUDnevnik: pravo pisanja u dnevnik j u dosegu o. Isto je što i
+// CanWrite, osim što izvođač ne piše u dnevnik COP-a (izvodjacUCOP).
+func (s *JournalService) PiseUDnevnik(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	return s.CanWrite(perms, o) && !s.izvodjacUCOP(perms, j)
+}
+
 // AllowedKinds vraća vrste upisa koje osoba smije pisati u dnevnik j.
 // Dnevnik COP-a ima svoje vrste: u zapisnik dežurstva ne ulazi rad
 // izvođača ni nalog, a dojava i obavijest nemaju što tražiti na listu usluge.
 func (s *JournalService) AllowedKinds(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) []string {
-	if !s.CanWrite(perms, o) {
+	if !s.PiseUDnevnik(perms, o, j) {
 		return nil
 	}
 	if j != nil && j.CentarSektor != "" {
@@ -192,7 +214,7 @@ func (s *JournalService) GetJournal(ctx context.Context, id string) (*models.Jou
 // SaveJournal upisuje ili mijenja naslovnicu
 func (s *JournalService) SaveJournal(ctx context.Context, u *models.User, perms *models.UserPermissions, area models.Area, j *models.Journal) error {
 	if !s.CanManage(u, perms, models.OpsegPodrucja(area)) {
-		return errors.New("naslovnicu dnevnika uređuje ovlaštenik ili rukovoditelj područja")
+		return errors.New("naslovnicu dnevnika uređuje nadzor: tko u dnevnik piše za Hrvatske vode, a ne izvođač")
 	}
 	if !models.IsJournalKind(j.Kind) {
 		return errors.New("nepoznata vrsta dnevnika")
@@ -239,6 +261,9 @@ func (s *JournalService) GetSheet(ctx context.Context, id string) (*models.Journ
 // strojevima s prethodnog lista i, kad ima interneta, vremenskim prilikama.
 // U danu može biti više listova — po ekipi, kao u tiskanom dnevniku.
 func (s *JournalService) NewSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, day time.Time, label string) (*models.JournalSheet, error) {
+	if err := bezListova(j); err != nil {
+		return nil, err
+	}
 	if !s.CanWrite(perms, o) {
 		return nil, errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
@@ -261,6 +286,15 @@ func (s *JournalService) NewSheet(ctx context.Context, u *models.User, perms *mo
 	return sh, nil
 }
 
+// bezListova odbija listove u dnevniku COP-a: to je zapisnik dežurstva i
+// zapisi idu izravno u dnevnik, s provjerom početka, kraja i područja
+func bezListova(j *models.Journal) error {
+	if j == nil || j.CentarSektor != "" {
+		return errors.New("dnevnik COP-a nema listova: zapis upišite izravno u dnevnik")
+	}
+	return nil
+}
+
 // fillWeather puni prilike s Open-Meteo; bez interneta ostaje prazno, bez greške
 func (s *JournalService) fillWeather(ctx context.Context, sh *models.JournalSheet, lat, lon float64) error {
 	wctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -280,6 +314,9 @@ func (s *JournalService) fillWeather(ctx context.Context, sh *models.JournalShee
 
 // RefreshWeather ponovno povlači prilike za list, na zahtjev
 func (s *JournalService) RefreshWeather(ctx context.Context, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sh *models.JournalSheet) error {
+	if err := bezListova(j); err != nil {
+		return err
+	}
 	if !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
@@ -337,7 +374,10 @@ func (s *JournalService) waterLevels(ctx context.Context, j *models.Journal, day
 }
 
 // UpdateSheet mijenja uvjete, osoblje i strojeve na listu; potvrde se ne diraju
-func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPermissions, o models.Opseg, sh *models.JournalSheet) error {
+func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sh *models.JournalSheet) error {
+	if err := bezListova(j); err != nil {
+		return err
+	}
 	if !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo pisati u ovaj dnevnik")
 	}
@@ -366,7 +406,10 @@ func (s *JournalService) UpdateSheet(ctx context.Context, perms *models.UserPerm
 }
 
 // ConfirmSheet potvrđuje list za izvođača ili za nadzor, prema tome tko potvrđuje
-func (s *JournalService) ConfirmSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, sheetID string) error {
+func (s *JournalService) ConfirmSheet(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, sheetID string) error {
+	if err := bezListova(j); err != nil {
+		return err
+	}
 	if u == nil || !s.CanWrite(perms, o) {
 		return errors.New("nemate pravo potvrditi list")
 	}
@@ -421,13 +464,10 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 	if u == nil {
 		return nil, errors.New("upis zahtijeva prijavu")
 	}
-	allowed := false
-	for _, k := range s.AllowedKinds(u, perms, o, j) {
-		if k == e.Kind {
-			allowed = true
-		}
+	if err := bezListova(j); err != nil {
+		return nil, err
 	}
-	if !allowed {
+	if !slices.Contains(s.AllowedKinds(u, perms, o, j), e.Kind) {
 		return nil, errors.New("nemate pravo na tu vrstu upisa u ovaj dnevnik")
 	}
 	if sh.IsConfirmed() {
@@ -469,17 +509,36 @@ func (s *JournalService) AddEntry(ctx context.Context, u *models.User, perms *mo
 	return sh, nil
 }
 
-// VoidEntry stornira upis: ostaje na listu s brojem i razlogom
-func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, id, reason string) error {
-	if u == nil || !s.CanWrite(perms, o) {
+// zapisUDnevniku čita upis id i vraća ga samo kad je u dnevniku j: prava
+// se računaju za dnevnik iz adrese, pa upis iz drugog dnevnika nije pronađen
+func (s *JournalService) zapisUDnevniku(ctx context.Context, j *models.Journal, id string) (*models.JournalEntry, error) {
+	e, err := s.repo.GetEntry(ctx, id)
+	if err == nil && (e == nil || j == nil || e.JournalID != j.ID) {
+		return nil, errors.New("upis nije pronađen u ovom dnevniku")
+	}
+	return e, err
+}
+
+// neOvjeren odbija izmjenu ovjerenog dnevnika: on je trajni potpisani
+// izvornik i više ne prima zapise, storno ni ispravke
+func neOvjeren(j *models.Journal) error {
+	if j != nil && j.Ovjeren() {
+		return errors.New("ovjereni dnevnik više se ne mijenja: ne prima nove zapise, storno ni ispravke")
+	}
+	return nil
+}
+
+// VoidEntry stornira upis dnevnika j: ostaje na listu s brojem i razlogom
+func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, id, reason string) error {
+	if u == nil || !s.PiseUDnevnik(perms, o, j) {
 		return errors.New("nemate pravo storniranja")
 	}
-	e, err := s.repo.GetEntry(ctx, id)
-	if err != nil {
+	if err := neOvjeren(j); err != nil {
 		return err
 	}
-	if e == nil {
-		return errors.New("upis nije pronađen")
+	e, err := s.zapisUDnevniku(ctx, j, id)
+	if err != nil {
+		return err
 	}
 	if e.UserID != u.ID.String() && !s.CanSupervise(u, perms, o) {
 		return errors.New("tuđi upis stornira samo nadzor")
@@ -491,17 +550,20 @@ func (s *JournalService) VoidEntry(ctx context.Context, u *models.User, perms *m
 	return s.repo.SaveEntry(ctx, e)
 }
 
-// SetTaskStatus mijenja stanje naloga: izvođač ga označava izvedenim,
-// nadzor ga može i otkazati ili vratiti u otvoren
-func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, id, status string) error {
-	if u == nil || !s.CanWrite(perms, o) {
+// SetTaskStatus mijenja stanje naloga u dnevniku j: izvođač ga označava
+// izvedenim, nadzor ga može i otkazati ili vratiti u otvoren
+func (s *JournalService) SetTaskStatus(ctx context.Context, u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal, id, status string) error {
+	if u == nil || !s.PiseUDnevnik(perms, o, j) {
 		return errors.New("nemate pravo mijenjati nalog")
 	}
-	e, err := s.repo.GetEntry(ctx, id)
+	if err := neOvjeren(j); err != nil {
+		return err
+	}
+	e, err := s.zapisUDnevniku(ctx, j, id)
 	if err != nil {
 		return err
 	}
-	if e == nil || !e.IsTask() {
+	if !e.IsTask() {
 		return errors.New("nalog nije pronađen")
 	}
 	if e.Voided {
@@ -696,13 +758,10 @@ func (s *JournalService) DodajZapisCOP(ctx context.Context, u *models.User, perm
 	if j == nil || j.CentarSektor == "" {
 		return errors.New("ovo nije dnevnik COP-a")
 	}
-	dopustena := false
-	for _, k := range s.AllowedKinds(u, perms, o, j) {
-		if k == e.Kind {
-			dopustena = true
-		}
+	if err := neOvjeren(j); err != nil {
+		return err
 	}
-	if !dopustena {
+	if !slices.Contains(s.AllowedKinds(u, perms, o, j), e.Kind) {
 		return errors.New("nemate pravo na tu vrstu zapisa u ovaj dnevnik")
 	}
 	e.Text = strings.TrimSpace(e.Text)
@@ -752,23 +811,17 @@ func (s *JournalService) IspraviPrijepis(ctx context.Context, u *models.User, pe
 	if j == nil || !j.SmijePrepravakZapisa() {
 		return errors.New("u živom dnevniku zapis se ne prepravlja: ispravak je novi zapis uz stari")
 	}
-	if !s.CanWrite(perms, o) {
+	if !s.PiseUDnevnik(perms, o, j) {
 		return errors.New("nemate pravo ispravljati ovaj dnevnik")
 	}
-	e, err := s.repo.GetEntry(ctx, id)
+	if err := neOvjeren(j); err != nil {
+		return err
+	}
+	e, err := s.zapisUDnevniku(ctx, j, id)
 	if err != nil {
 		return err
 	}
-	if e == nil || e.JournalID != j.ID {
-		return errors.New("zapis nije pronađen u ovom dnevniku")
-	}
-	dopustena := false
-	for _, k := range s.AllowedKinds(u, perms, o, j) {
-		if k == ispravak.Kind {
-			dopustena = true
-		}
-	}
-	if !dopustena {
+	if !slices.Contains(s.AllowedKinds(u, perms, o, j), ispravak.Kind) {
 		return errors.New("nepoznata vrsta zapisa za dnevnik COP-a")
 	}
 	ispravak.Text = strings.TrimSpace(ispravak.Text)
@@ -811,7 +864,7 @@ func (s *JournalService) ObrisiDnevnik(ctx context.Context, u *models.User, perm
 			return 0, errors.New("dnevnik COP-a briše voditelj ili zamjenik centra")
 		}
 	} else if !s.CanManage(u, perms, o) {
-		return 0, errors.New("dnevnik briše ovlaštenik ili rukovoditelj područja")
+		return 0, errors.New("dnevnik briše nadzor: tko u njega piše za Hrvatske vode, a ne izvođač")
 	}
 	return s.repo.ArhivirajDnevnik(ctx, j)
 }

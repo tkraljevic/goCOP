@@ -13,6 +13,13 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   nacrt prijave vodočuvar miče samo fotografiju koja je na tom nacrtu. Tko je
   uz vodočuvara i rukovoditelj ili zamjenik, svoj list ne ovjerava i svoju
   prijavu ne označava riješenom; to radi netko drugi.
+- **Provjere prava: dnevnik COP-a i obračun sati.** Izvođač više ne otvara
+  dnevnik COP-a ni plan dežurstava i ne piše u njih; svoje izvješće o
+  satima vidi na profilu. Obračun sati vidi uprava centra, a izvješće o
+  satima još i osoba sama. Storno i stanje naloga mijenjaju samo upis iz
+  dnevnika koji je otvoren. Ovjeren dnevnik COP-a više ne prima zapise,
+  storno, ispravke ni promjenu naloga, a u dnevniku COP-a ne otvaraju se
+  listovi.
 - **Administracija je složena u skupine, s Prvim koracima za novi čvor.**
   Dvadeset kartica stajalo je jedna do druge, bez reda, a nijedna nije
   govorila vrijedi li postavka samo za ovo računalo ili za cijelu mrežu.

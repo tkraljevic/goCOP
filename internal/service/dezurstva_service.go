@@ -29,11 +29,31 @@ func (s *JournalService) UpravaCentra(perms *models.UserPermissions, j *models.J
 	return perms != nil && j != nil && j.CentarSektor != "" && perms.CanAdminister(j.CentarSektor, 0)
 }
 
+// VidiObracun: obračun sati svih osoba u planu vidi uprava centra (Odluke
+// (30. 10. 2026.), 2)
+func (s *JournalService) VidiObracun(perms *models.UserPermissions, j *models.Journal) bool {
+	return s.UpravaCentra(perms, j)
+}
+
+// VidiIORS: izvješće o radnim satima osobe vidi uprava centra i osoba sama
+// (Odluke (30. 10. 2026.), 2)
+func (s *JournalService) VidiIORS(u *models.User, perms *models.UserPermissions, j *models.Journal, userID string) bool {
+	return s.UpravaCentra(perms, j) || (u != nil && userID != "" && u.ID.String() == userID)
+}
+
+// CitaDnevnikeCOP javlja smije li osoba čitati dnevnike COP-a i plan
+// dežurstava uz njih: izvođač ne smije (Odluke (30. 10. 2026.), 2). Svoje
+// izvješće o satima i on vidi (VidiIORS).
+func (s *JournalService) CitaDnevnikeCOP(perms *models.UserPermissions) bool {
+	return perms != nil && !s.izvodjacZaCOP(perms)
+}
+
 // MozeSebeUPlan: smije li osoba upisati vlastito dežurstvo. Dovoljno je da
 // piše igdje u sektoru centra — po sektoru, po području u njemu, ili po
 // dionici u njemu; vodočuvar ima samo dionice, i to mu je dosta.
+// Izvođač se u plan ne upisuje (izvodjacUCOP).
 func (s *JournalService) MozeSebeUPlan(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
-	if perms == nil || j == nil || j.CentarSektor == "" {
+	if perms == nil || j == nil || j.CentarSektor == "" || s.izvodjacUCOP(perms, j) {
 		return false
 	}
 	if s.CanWrite(perms, o) {
@@ -90,7 +110,7 @@ func (s *JournalService) SpremiDezurstvo(ctx context.Context, u *models.User, pe
 	uprava := s.UpravaCentra(perms, j)
 	sebe := d.UserID == u.ID.String() && s.MozeSebeUPlan(perms, o, j)
 	if !uprava && !sebe {
-		return errors.New("tuđe dežurstvo upisuje voditelj ili zamjenik centra; svoje upisuje svatko tko radi u sektoru")
+		return errors.New("tuđe dežurstvo upisuje voditelj ili zamjenik centra; svoje upisuje svatko tko radi u sektoru, osim izvođača")
 	}
 	if !d.Do.After(d.Od) {
 		return errors.New("kraj dežurstva mora biti poslije početka")
@@ -664,7 +684,7 @@ func (s *JournalService) PreuzmiDezurstvo(ctx context.Context, u *models.User, p
 		return errors.New("dnevnik je zaključen")
 	}
 	if !s.MozeSebeUPlan(perms, o, j) {
-		return errors.New("dežurstvo preuzima tko radi u sektoru centra")
+		return errors.New("dežurstvo preuzima tko radi u sektoru centra, osim izvođača")
 	}
 	if j.DezurniID == u.ID.String() {
 		return errors.New("već dežurate")

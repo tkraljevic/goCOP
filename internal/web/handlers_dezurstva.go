@@ -150,6 +150,13 @@ func (h *JournalsHandler) HandleIspraviOpisDezurstva(w http.ResponseWriter, r *h
 	redirectWith(w, r, back, "success", poruka)
 }
 
+// Poruke kad osoba ne smije vidjeti obračun sati ili tuđi IORS
+// (JournalService.VidiObracun, VidiIORS)
+const (
+	porukaObracuna = "Obračun sati vidi voditelj ili zamjenik centra. Svoje sate vidite na stranici Moj profil."
+	porukaIORS     = "Izvješće o satima vidi voditelj ili zamjenik centra, i osoba sama."
+)
+
 // ShowObracun prikazuje sate po osobi za razdoblje; zadano je cijelo
 // trajanje dnevnika, a razdoblje se sužava upitom od/do (dan uključivo)
 func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
@@ -160,8 +167,8 @@ func (h *JournalsHandler) ShowObracun(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
-	if !data.CanWrite {
-		http.Error(w, "Obračun sati vidi tko piše u dnevnik", http.StatusForbidden)
+	if !h.journals.VidiObracun(data.Permissions, j) {
+		http.Error(w, porukaObracuna, http.StatusForbidden)
 		return
 	}
 	od, do := h.razdobljeObracuna(r, j)
@@ -220,10 +227,11 @@ func (h *JournalsHandler) ShowIORS(w http.ResponseWriter, r *http.Request) {
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
 	userID := r.PathValue("user")
-	if !data.CanWrite && (data.CurrentUser == nil || data.CurrentUser.ID.String() != userID) {
-		http.Error(w, "Izvješće o satima vidi tko piše u dnevnik, i osoba sama", http.StatusForbidden)
+	if !h.journals.VidiIORS(data.CurrentUser, data.Permissions, j, userID) {
+		http.Error(w, porukaIORS, http.StatusForbidden)
 		return
 	}
+	data.UpravaCentra = h.journals.UpravaCentra(data.Permissions, j)
 	od, do := h.razdobljeObracuna(r, j)
 	data.From, data.To = od.Format("2006-01-02"), do.AddDate(0, 0, -1).Format("2006-01-02")
 	postavke := h.postavkeObracuna()

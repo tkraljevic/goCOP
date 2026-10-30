@@ -118,6 +118,7 @@ type JournalPageData struct {
 	Osobe     []models.User // koga se može staviti u plan; samo za upravu centra
 	// UpravaCentra slaže plan dežurstava; CanManage (nadzor) za to nije dovoljan
 	UpravaCentra   bool
+	CitaCOP        bool // smije otvoriti dnevnike COP-a i plan dežurstava; izvođač ne smije
 	VoditeljCOP    bool
 	IzvornikCOP    service.StanjeIzvornika // nalaz provjere izvornika ovjerenog dnevnika COP-a
 	MozeSebe       bool                    // smije upisati vlastito dežurstvo
@@ -203,6 +204,10 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 	// pet područja i nijedno nije "njegovo". Samo dnevnik usluge mora imati
 	// područje, jer se po njemu i vodi.
 	if j.CentarSektor != "" {
+		if h.copZatvoren(r) {
+			http.Error(w, porukaIzvodjacuCOP, http.StatusForbidden)
+			return nil, nil, false
+		}
 		area, _ := h.areaOf(perms, 0)
 		return j, area, true
 	}
@@ -216,6 +221,20 @@ func (h *JournalsHandler) loadJournal(w http.ResponseWriter, r *http.Request) (*
 		return nil, nil, false
 	}
 	return j, area, true
+}
+
+// porukaIzvodjacuCOP: izvođač ne čita dnevnik COP-a ni plan dežurstava
+const porukaIzvodjacuCOP = "Dnevnik COP-a i plan dežurstava vode Hrvatske vode; izvođač ih ne otvara. Svoje sate vidite na stranici Moj profil."
+
+// copZatvoren javlja da osoba ne smije otvoriti dnevnik COP-a ni plan uz
+// njega (JournalService.CitaDnevnikeCOP). Izvješće o vlastitim satima
+// otvara i izvođač.
+func (h *JournalsHandler) copZatvoren(r *http.Request) bool {
+	u, perms := h.base(r)
+	if h.journals.CitaDnevnikeCOP(perms) {
+		return false
+	}
+	return u == nil || r.PathValue("user") != u.ID.String()
 }
 
 // vidljivaPodrucja ostavlja područja čije dnevnike usluga osoba smije
@@ -267,8 +286,8 @@ func (h *JournalsHandler) fillRights(d *JournalPageData) {
 	if d.Opseg.Prazan() {
 		return
 	}
-	d.CanWrite = h.journals.CanWrite(d.Permissions, d.Opseg)
-	d.CanSupervise = h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg)
+	d.CanWrite = h.journals.PiseUDnevnik(d.Permissions, d.Opseg, d.Journal)
+	d.CanSupervise = d.CanWrite && h.journals.CanSupervise(d.CurrentUser, d.Permissions, d.Opseg)
 	d.CanManage = h.journals.CanManage(d.CurrentUser, d.Permissions, d.Opseg)
 	d.AllowedKinds = h.journals.AllowedKinds(d.CurrentUser, d.Permissions, d.Opseg, d.Journal)
 	// Zaglavlje dnevnika COP-a mijenja uprava centra, ne svatko tko piše.
@@ -286,6 +305,7 @@ func (h *JournalsHandler) fillRights(d *JournalPageData) {
 func (h *JournalsHandler) ShowJournalKinds(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	h.fillRights(&data)
+	data.CitaCOP = h.journals.CitaDnevnikeCOP(data.Permissions)
 	if broj, err := h.journals.BrojPoVrstama(r.Context()); err == nil {
 		data.BrojCOP = broj[models.JournalKindDefense]
 		data.BrojDezurstava, _ = h.journals.BrojDezurstava(r.Context())
@@ -325,6 +345,26 @@ func (h *JournalsHandler) vidljiviPoVrsti(ctx context.Context, perms *models.Use
 	return out
 }
 
+// popisCOP prikazuje popis dnevnika COP-a ili planova dežurstava po centru;
+// izvođaču je zatvoren (copZatvoren)
+func (h *JournalsHandler) popisCOP(w http.ResponseWriter, r *http.Request, data JournalPageData) {
+	if h.copZatvoren(r) {
+		http.Error(w, porukaIzvodjacuCOP, http.StatusForbidden)
+		return
+	}
+	h.fillRights(&data)
+	data.Centri, _ = h.journals.CentriSDnevnicima(r.Context()) // bez popisa centara stranica ostaje bez filtra
+	data.Centar = r.URL.Query().Get("centar")
+	data.CentriZaOtvaranje = h.centriZaOtvaranje(data.Permissions)
+	js, err := h.journals.ListCOPJournals(r.Context(), data.Centar)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	data.Journals = js
+	h.render(w, h.tmplList, "dnevnici.html", data)
+}
+
 func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 	data := h.pageData(r)
 	data.Vrsta = r.URL.Query().Get("vrsta")
@@ -334,17 +374,7 @@ func (h *JournalsHandler) ShowJournals(w http.ResponseWriter, r *http.Request) {
 	// Plan dežurstava je isti popis dnevnika COP-a, samo svaka kartica vodi
 	// na plan umjesto na zapisnik.
 	if data.Vrsta == models.JournalKindDefense || data.Vrsta == models.PopisDezurstava {
-		h.fillRights(&data)
-		data.Centri, _ = h.journals.CentriSDnevnicima(r.Context())
-		data.Centar = r.URL.Query().Get("centar")
-		data.CentriZaOtvaranje = h.centriZaOtvaranje(data.Permissions)
-		js, err := h.journals.ListCOPJournals(r.Context(), data.Centar)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		data.Journals = js
-		h.render(w, h.tmplList, "dnevnici.html", data)
+		h.popisCOP(w, r, data)
 		return
 	}
 
@@ -412,7 +442,7 @@ func (h *JournalsHandler) ShowJournalForm(w http.ResponseWriter, r *http.Request
 	}
 	h.fillRights(&data)
 	if !data.CanManage {
-		http.Error(w, "Naslovnicu dnevnika uređuje ovlaštenik ili rukovoditelj područja", http.StatusForbidden)
+		http.Error(w, "Naslovnicu dnevnika uređuje nadzor: tko u dnevnik piše za Hrvatske vode, a ne izvođač.", http.StatusForbidden)
 		return
 	}
 	if data.Area != nil {
@@ -593,6 +623,26 @@ func (h *JournalsHandler) ShowSheet(w http.ResponseWriter, r *http.Request) {
 	data.Capacity = service.SheetCapacity
 	data.Used = service.ContractorEntries(data.Entries)
 	data.IsFull = data.Used >= service.SheetCapacity && data.IsContractor
+	if !listCOPaSamoZaCitanje(&data) {
+		h.izboriLista(ctx, &data, j, area)
+	}
+	h.render(w, h.tmplSheet, "dnevnik_list.html", data)
+}
+
+// listCOPaSamoZaCitanje: dnevnik COP-a nema listova, pa list koji već stoji
+// uz njega ostaje samo za čitanje, bez obrazaca za uvjete, upis i potvrdu.
+// Javlja je li list takav.
+func listCOPaSamoZaCitanje(d *JournalPageData) bool {
+	if d.Journal == nil || d.Journal.CentarSektor == "" {
+		return false
+	}
+	d.CanWrite, d.CanSupervise, d.AllowedKinds = false, false, nil
+	return true
+}
+
+// izboriLista puni izbore obrasca za upis na list: dionice ili lokacije
+// održavanja područja i stavke rada
+func (h *JournalsHandler) izboriLista(ctx context.Context, data *JournalPageData, j *models.Journal, area *models.Area) {
 	if j.IsDefense() {
 		data.Sections, _ = h.sections.ListSections("", area.ID, "")
 	} else {
@@ -604,7 +654,6 @@ func (h *JournalsHandler) ShowSheet(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	data.WorkItems, _ = h.maintenance.ListItems(ctx, area.ID, false)
-	h.render(w, h.tmplSheet, "dnevnik_list.html", data)
 }
 
 func sheetPath(j *models.Journal, sh *models.JournalSheet) string {
@@ -647,7 +696,7 @@ func (h *JournalsHandler) HandleSheetConditions(w http.ResponseWriter, r *http.R
 	}
 	upd.Staff = models.JoinCounts(countRows(r, "staff_name", "staff_n"))
 	upd.Machines = models.JoinCounts(countRows(r, "machine_name", "machine_n"))
-	if err := h.journals.UpdateSheet(r.Context(), perms, h.opseg(j, area), &upd); err != nil {
+	if err := h.journals.UpdateSheet(r.Context(), perms, h.opseg(j, area), j, &upd); err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
 	}
@@ -709,7 +758,7 @@ func (h *JournalsHandler) HandleConfirmSheet(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	u, perms := h.base(r)
-	if err := h.journals.ConfirmSheet(r.Context(), u, perms, h.opseg(j, area), sh.ID); err != nil {
+	if err := h.journals.ConfirmSheet(r.Context(), u, perms, h.opseg(j, area), j, sh.ID); err != nil {
 		redirectWith(w, r, sheetPath(j, sh), "error", err.Error())
 		return
 	}
@@ -762,7 +811,7 @@ func (h *JournalsHandler) HandleVoidEntry(w http.ResponseWriter, r *http.Request
 	if e, _ := h.journals.GetJournal(r.Context(), j.ID); e != nil && r.FormValue("sheet") != "" {
 		back += "/listovi/" + r.FormValue("sheet")
 	}
-	if err := h.journals.VoidEntry(r.Context(), u, perms, h.opseg(j, area), r.PathValue("entry"), r.FormValue("reason")); err != nil {
+	if err := h.journals.VoidEntry(r.Context(), u, perms, h.opseg(j, area), j, r.PathValue("entry"), r.FormValue("reason")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
@@ -788,7 +837,7 @@ func (h *JournalsHandler) HandleTaskStatus(w http.ResponseWriter, r *http.Reques
 	if r.FormValue("sheet") != "" {
 		back += "/listovi/" + r.FormValue("sheet")
 	}
-	if err := h.journals.SetTaskStatus(r.Context(), u, perms, h.opseg(j, area), r.PathValue("entry"), r.FormValue("status")); err != nil {
+	if err := h.journals.SetTaskStatus(r.Context(), u, perms, h.opseg(j, area), j, r.PathValue("entry"), r.FormValue("status")); err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return
 	}
@@ -963,7 +1012,8 @@ func (h *JournalsHandler) HandleIspraviPrijepis(w http.ResponseWriter, r *http.R
 		ispravak.Podrucje = &n
 	}
 	// Dan ostaje dan zapisa; mijenja se samo sat u tom danu.
-	if e, _ := h.journals.GetEntry(r.Context(), r.PathValue("entry")); e != nil {
+	e, _ := h.journals.GetEntry(r.Context(), r.PathValue("entry")) // bez upisa nema sidra ni sata; grešku javlja IspraviPrijepis
+	if e != nil && e.JournalID == j.ID {
 		back += "#zapis-" + strconv.Itoa(e.Number)
 		if kad, err := time.ParseInLocation("2006-01-02 15:04", e.Date.In(models.Zagreb).Format("2006-01-02")+" "+f("time"), models.Zagreb); err == nil {
 			ispravak.HappenedAt = &kad

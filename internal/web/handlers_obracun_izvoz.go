@@ -129,8 +129,8 @@ func (h *JournalsHandler) IzvoziObracun(w http.ResponseWriter, r *http.Request) 
 	data := h.pageData(r)
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
-	if !data.CanWrite {
-		http.Error(w, "Obračun sati vidi tko piše u dnevnik", http.StatusForbidden)
+	if !h.journals.VidiObracun(data.Permissions, j) {
+		http.Error(w, porukaObracuna, http.StatusForbidden)
 		return
 	}
 	od, do := h.razdobljeObracuna(r, j)
@@ -157,8 +157,8 @@ func (h *JournalsHandler) IzvoziIORS(w http.ResponseWriter, r *http.Request) {
 	data.Journal, data.Area = j, area
 	h.fillRights(&data)
 	userID := r.PathValue("user")
-	if !data.CanWrite && (data.CurrentUser == nil || data.CurrentUser.ID.String() != userID) {
-		http.Error(w, "Izvješće o satima vidi tko piše u dnevnik, i osoba sama", http.StatusForbidden)
+	if !h.journals.VidiIORS(data.CurrentUser, data.Permissions, j, userID) {
+		http.Error(w, porukaIORS, http.StatusForbidden)
 		return
 	}
 	od, do := h.razdobljeObracuna(r, j)

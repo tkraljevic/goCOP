@@ -40,7 +40,7 @@
       onsubmit="return confirm('Obrisati dnevnik „{{.Journal.DisplayTitle}}“ sa svim zapisima i dežurstvima? U knjizi verzija ostaje arhiviran, ali s popisa nestaje.');"><button type="submit" class="btn btn-secondary" title="Obriši dnevnik">{{icon "trash"}}</button></form>{{end}}
     {{if .Dani}}<a href="#{{if .ImaDanas}}dan-{{.Today}}{{else}}kraj{{end}}" class="btn btn-secondary" title="{{if .ImaDanas}}Na današnje zapise{{else}}Na zadnji zapis{{end}}">{{icon "arrow-right"}} {{if .ImaDanas}}Danas{{else}}Na kraj{{end}}</a>{{end}}
     <a href="/dnevnici/{{.Journal.ID}}/dezurstva" class="btn btn-secondary">{{icon "users"}} Plan dežurstava{{if .Dezurstva}} <span class="reg-chip">{{len .Dezurstva}}</span>{{end}}</a>
-    {{if .CanWrite}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
+    {{if and .CanWrite (not .Journal.Ovjeren)}}<a href="#novi-zapis" class="btn btn-primary">{{icon "plus"}} Novi zapis</a>{{end}}
   </div>
 </div>
 
@@ -103,7 +103,7 @@
         <div class="reading-meta">storniran{{if .VoidReason}}: {{.VoidReason}}{{end}}{{if .VoidedBy}} — {{.VoidedBy}}{{end}}</div>{{end}}
         {{/* Zapis se ne briše nego stornira: ostaje s brojem i razlogom.
              U prijepisu se ne stornira — ondje se krivo pročitano ispravlja. */}}
-        {{if and $.CanWrite (not .Voided) (not $.Journal.Reconstruction)}}
+        {{if and $.CanWrite (not .Voided) (not $.Journal.Reconstruction) (not $.Journal.Ovjeren)}}
         <details class="zapis-storno">
           <summary class="btn btn-sm btn-secondary" title="Storniraj zapis br. {{.Number}}">{{icon "x"}} storno</summary>
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/storno" class="zapis-storno-obrazac">
@@ -114,7 +114,7 @@
         {{end}}
         {{/* U prijepisu se krivo pročitano ispravlja na mjestu: obrazac je uz
              zapis, sklopljen, s onim što sad piše. Dan se ne mijenja. */}}
-        {{if and $.CanWrite $.Journal.SmijePrepravakZapisa}}
+        {{if and $.CanWrite $.Journal.SmijePrepravakZapisa (not $.Journal.Ovjeren)}}
         <details class="zapis-ispravak">
           <summary class="btn btn-sm btn-secondary" title="Ispravi krivo pročitan zapis br. {{.Number}}">{{icon "pencil"}} ispravi</summary>
           <form method="POST" action="/dnevnici/{{$.Journal.ID}}/upisi/{{.ID}}/ispravak" class="zapis-ispravak-obrazac">
@@ -165,7 +165,7 @@
 {{/* Obrazac stoji ispod zapisa: dežurni piše na kraj, kao u bilježnici.
      Dan i vrijeme su odvojeni — dan je obvezan, vrijeme se upisuje kad se
      zna kad se dogodilo; kad je upisano vidi se iz zapisa samog. */}}
-{{if and .CanWrite .AllowedKinds}}
+{{if and .CanWrite .AllowedKinds (not .Journal.Ovjeren)}}
 <form method="POST" action="/dnevnici/{{.Journal.ID}}/zapisi" id="novi-zapis" class="unos-zapisa">
   {{/* Unos je traka na dnu zaslona, kao redak u bilježnici: tekst prvi i
        najveći, ostalo su sitnice s razumnim zadanim vrijednostima — sad,

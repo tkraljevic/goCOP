@@ -31,6 +31,7 @@ type uslugeProba struct {
 	userRepo    *repository.UserRepository
 	users       *service.UserService
 	journalRepo *repository.JournalRepository
+	h           *JournalsHandler
 	mux         *http.ServeMux
 }
 
@@ -67,7 +68,7 @@ func novaUslugeProba(t *testing.T) *uslugeProba {
 	h := NewJournalsHandler(js, p.users, nil, nil, nil,
 		tmpl("dnevnici_izbor.html"), tmpl("dnevnici.html"), tmpl("dnevnik_form.html"), tmpl("dnevnik.html"),
 		tmpl("dnevnik_cop.html"), tmpl("dnevnik_cop_form.html"), tmpl("dnevnik_list.html"), nil, tmpl("dnevnik_obracun.html"), tmpl("dnevnik_dezurstva.html"), tmpl("dnevnik_iors.html"))
-	p.mux = http.NewServeMux()
+	p.h, p.mux = h, http.NewServeMux()
 	p.mux.HandleFunc("GET /dnevnici", h.ShowJournalKinds)
 	p.mux.HandleFunc("GET /dnevnici/popis", h.ShowJournals)
 	p.mux.HandleFunc("GET /dnevnici/{id}", h.ShowJournal)
