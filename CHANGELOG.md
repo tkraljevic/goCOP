@@ -110,6 +110,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   odvojeno od izravnih, a prijava s javne adrese bez tunela broji se kao
   prijava kroz tunel.
 
+- **Provjere prava: stalna uprava organizacije i registri.** Privremena
+  uprava organizacije stalnoj više ne daje lozinku ni kod za prijavu
+  izvana, ne uključuje ni ne isključuje joj račun i ne mijenja ni ne
+  opoziva joj dužnost razine 1. To i dalje radi stalna uprava
+  organizacije. Tuđim očima se lozinka, uključenost računa, zastavica
+  globalnog administratora i dužnosti uprave ne mijenjaju, ni uz uključene
+  upise tuđim očima. Objekt u registru uvijek dobiva
+  sektor svog branjenog područja. Uprava sad može maknuti svoje mjesto rada
+  s firme koja radi i drugdje. Obavijesti o djelatnicima više ne nose ime
+  osobe, a granice županija i općina s kontaktima čuva samo preglednik.
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju

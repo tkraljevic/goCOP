@@ -123,7 +123,8 @@ type CreateUserRequest struct {
 	// domene (potvrda_adrese.go); drugima je to ErrPotvrdaAdrese
 	PotvrdaAdrese bool
 	// TudjimOcima: zahtjev je poslan dok se gleda tuđim očima; potvrda
-	// adrese tada se odbija (ErrTudjimOcima)
+	// adrese, zastavica globalnog administratora i upravna dužnost tada se
+	// odbijaju (ErrTudjimOcima)
 	TudjimOcima bool
 	// Inicijalna funkcija / zaduženje
 	DutyTitle    string
@@ -164,8 +165,8 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 	if actorRank(actor) == 0 {
 		return nil, ErrUnauthorized
 	}
-	if req.IsGlobalAdmin && !stalnaUpravaOrganizacije(actor) {
-		return nil, fmt.Errorf("%w: globalnog administratora postavlja samo stalna uprava organizacije", ErrUnauthorized)
+	if err := zastavicaNovogRacuna(actor, req); err != nil {
+		return nil, err
 	}
 	if req.PotvrdaAdrese {
 		if err := dopustenaPotvrda(actor, uuid.Nil, req.TudjimOcima); err != nil {
@@ -266,7 +267,7 @@ func (s *UserService) CreateUser(actor *models.UserPermissions, req CreateUserRe
 		log.Print(zapisPotvrde)
 	}
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Kreiran novi djelatnik: %s", user.FullName), user.ID.String())
+	s.sse.Broadcast("users_updated", "Upisan je novi djelatnik", user.ID.String())
 	return user, nil
 }
 
@@ -297,7 +298,8 @@ type UpdateUserRequest struct {
 	// tuđem računu; drugima je to ErrPotvrdaAdrese.
 	PotvrdaAdrese *bool
 	// TudjimOcima: zahtjev je poslan dok se gleda tuđim očima; potvrda
-	// adrese tada se ne daje ni ne uklanja (ErrTudjimOcima)
+	// adrese tada se ne daje ni ne uklanja, a lozinka, uključenost računa i
+	// zastavica globalnog administratora ne mijenjaju se (ErrTudjimOcima)
 	TudjimOcima bool
 	// izAdresara: kontakt upisan iz adresara tvrtke (PrimijeniKontakt), ne
 	// rukom; pravila vlastite promjene adrese tada ne vrijede, a potvrda
@@ -457,10 +459,8 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 	if target == nil {
 		return nil, ErrUserNotFound
 	}
-	if req.PotvrdaAdrese != nil {
-		if err := dopustenaPotvrda(actor, target.ID, req.TudjimOcima); err != nil {
-			return nil, err
-		}
+	if err := provjereRacuna(actor, target, req); err != nil {
+		return nil, err
 	}
 
 	staraAdresa := target.Email
@@ -595,8 +595,103 @@ func (s *UserService) UpdateUser(actor *models.UserPermissions, req UpdateUserRe
 		s.pozadina.Go(func() { s.auth.zastita.JaviPromjenuAdrese(context.Background(), &osoba, staraAdresa, target.Email) })
 	}
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Ažuriran djelatnik: %s", target.FullName), target.ID.String())
+	s.sse.Broadcast("users_updated", "Ažurirani su podaci djelatnika", target.ID.String())
 	return target, nil
+}
+
+// lozinkaIUkljucenostStalnih: tuđu lozinku i uključenost računa stalne
+// uprave organizacije privremena uprava ne mijenja (privremenaNadStalnom)
+func lozinkaIUkljucenostStalnih(actor *models.UserPermissions, target *models.User, req UpdateUserRequest) error {
+	if actor.User.ID == target.ID || (req.Password == "" && req.IsActive == target.IsActive) {
+		return nil
+	}
+	return privremenaNadStalnom(actor, target)
+}
+
+// provjereRacuna su provjere izmjene računa koje ne ovise o tome tko ga
+// uređuje: potvrda adrese, izmjena tuđim očima i stalna uprava organizacije
+func provjereRacuna(actor *models.UserPermissions, target *models.User, req UpdateUserRequest) error {
+	if req.PotvrdaAdrese != nil {
+		if err := dopustenaPotvrda(actor, target.ID, req.TudjimOcima); err != nil {
+			return err
+		}
+	}
+	if err := racunTudjimOcima(target, req); err != nil {
+		return err
+	}
+	return lozinkaIUkljucenostStalnih(actor, target, req)
+}
+
+// zastavicaNovogRacuna: zastavicu globalnog administratora novom računu daje
+// samo stalna uprava organizacije, i to svojim očima (noviRacunTudjimOcima)
+func zastavicaNovogRacuna(actor *models.UserPermissions, req CreateUserRequest) error {
+	if req.IsGlobalAdmin && !stalnaUpravaOrganizacije(actor) {
+		return fmt.Errorf("%w: globalnog administratora postavlja samo stalna uprava organizacije", ErrUnauthorized)
+	}
+	return noviRacunTudjimOcima(req)
+}
+
+// smijeDodijeliti su provjere dodjele prije dosega: actor nekim upravlja,
+// upravnu dužnost ne daje tuđim očima, a vlastito zaduženje dodjeljuje
+// nadređena razina (kao izmjena i opoziv)
+func smijeDodijeliti(actor *models.UserPermissions, req AddDutyRequest) error {
+	if actorRank(actor) == 0 {
+		return ErrUnauthorized
+	}
+	if err := upravaTudjimOcima(req.TudjimOcima, req.Role); err != nil {
+		return err
+	}
+	if !actor.IsGlobalAdmin && req.UserID == actor.User.ID {
+		return fmt.Errorf("%w: vlastito zaduženje dodjeljuje nadređena razina", ErrUnauthorized)
+	}
+	return nil
+}
+
+// duznostZaIzmjenu čita aktivnu dužnost koju actor smije početi mijenjati:
+// ne tuđim očima ako je ona ili nova uloga upravna, i ne vlastitu
+func (s *UserService) duznostZaIzmjenu(actor *models.UserPermissions, dutyID uuid.UUID, req AddDutyRequest) (*models.Duty, error) {
+	if actorRank(actor) == 0 {
+		return nil, ErrUnauthorized
+	}
+	duty, err := s.userRepo.GetDuty(dutyID)
+	if err != nil {
+		return nil, err
+	}
+	if duty == nil || !duty.IsActive {
+		return nil, fmt.Errorf("zaduženje nije pronađeno ili je opozvano")
+	}
+	if err := upravaTudjimOcima(req.TudjimOcima, duty.Role, req.Role); err != nil {
+		return nil, err
+	}
+	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
+		return nil, fmt.Errorf("%w: vlastito zaduženje mijenja nadređena razina", ErrUnauthorized)
+	}
+	return duty, nil
+}
+
+// smijeOpozvati: dužnost opoziva tko bi je smio dati, ne vlastitu, upravnu
+// ne tuđim očima, a stalnu razine 1 samo stalna uprava organizacije
+func (s *UserService) smijeOpozvati(actor *models.UserPermissions, dutyID uuid.UUID, tudjimOcima bool) error {
+	if actorRank(actor) == 0 {
+		return ErrUnauthorized
+	}
+	duty, err := s.userRepo.GetDuty(dutyID)
+	if err != nil {
+		return err
+	}
+	if duty == nil {
+		return fmt.Errorf("zaduženje nije pronađeno")
+	}
+	if err := upravaTudjimOcima(tudjimOcima, duty.Role); err != nil {
+		return err
+	}
+	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
+		return fmt.Errorf("%w: vlastitu dužnost opoziva nadređena razina", ErrUnauthorized)
+	}
+	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, s.areaSectors()); err != nil {
+		return err
+	}
+	return opozivStalneRazine1(actor, *duty)
 }
 
 type AddDutyRequest struct {
@@ -617,6 +712,9 @@ type AddDutyRequest struct {
 	// IsticeSObranom: privremeno imenovanje vrijedi dok na dosegu traje
 	// redovna ili izvanredna obrana ili izvanredno stanje
 	IsticeSObranom bool
+	// TudjimOcima: zahtjev je poslan dok se gleda tuđim očima; dužnost s
+	// razinom uprave tada se ne dodjeljuje ni ne mijenja (ErrTudjimOcima)
+	TudjimOcima bool
 }
 
 // AddDuty dodjeljuje korisniku dodatnu funkciju, dionice ili privremenu
@@ -625,12 +723,8 @@ type AddDutyRequest struct {
 // naziv daje samo onaj tko smije uređivati cijeli račun (mayManage), a
 // drugima je dodana dužnost ispomoć pod nazivom uloge.
 func (s *UserService) AddDuty(actor *models.UserPermissions, req AddDutyRequest) error {
-	if actorRank(actor) == 0 {
-		return ErrUnauthorized
-	}
-	// kao izmjena i opoziv: vlastito zaduženje dodjeljuje nadređena razina
-	if !actor.IsGlobalAdmin && req.UserID == actor.User.ID {
-		return fmt.Errorf("%w: vlastito zaduženje dodjeljuje nadređena razina", ErrUnauthorized)
+	if err := smijeDodijeliti(actor, req); err != nil {
+		return err
 	}
 	sectors := s.areaSectors()
 	scope, sectorID, areaID, err := normalizeScope(req.Role, req.SectorID, req.AreaID, req.SectionCodes, sectors, s.dionice())
@@ -711,18 +805,9 @@ func (s *UserService) SmijeUredjivatiRacun(actor *models.UserPermissions, userID
 // UpdateDuty mijenja postojeće zaduženje; smije tko bi ga smio dati i tko bi
 // smio dati novo takvo. Vlastito zaduženje mijenja nadređena razina.
 func (s *UserService) UpdateDuty(actor *models.UserPermissions, dutyID uuid.UUID, req AddDutyRequest) error {
-	if actorRank(actor) == 0 {
-		return ErrUnauthorized
-	}
-	duty, err := s.userRepo.GetDuty(dutyID)
+	duty, err := s.duznostZaIzmjenu(actor, dutyID, req)
 	if err != nil {
 		return err
-	}
-	if duty == nil || !duty.IsActive {
-		return fmt.Errorf("zaduženje nije pronađeno ili je opozvano")
-	}
-	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
-		return fmt.Errorf("%w: vlastito zaduženje mijenja nadređena razina", ErrUnauthorized)
 	}
 	sectors := s.areaSectors()
 	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, sectors); err != nil {
@@ -786,6 +871,9 @@ func (s *UserService) spremiIzmjenu(actor *models.UserPermissions, dosad, duty *
 	if err := vijekIzmjene(actor, dosad, duty, sectors); err != nil {
 		return err
 	}
+	if err := izmjenaStalneRazine1(actor, *dosad, *duty); err != nil {
+		return err
+	}
 	return s.userRepo.UpdateDuty(duty)
 }
 
@@ -817,21 +905,8 @@ func (s *UserService) MjestaVodocuvara() (map[string][]models.Duty, error) {
 }
 
 // RevokeDuty opoziva funkciju ili privremenu ispomoć; smije tko bi je smio i dati
-func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID) error {
-	if actorRank(actor) == 0 {
-		return ErrUnauthorized
-	}
-	duty, err := s.userRepo.GetDuty(dutyID)
-	if err != nil {
-		return err
-	}
-	if duty == nil {
-		return fmt.Errorf("zaduženje nije pronađeno")
-	}
-	if !actor.IsGlobalAdmin && duty.UserID == actor.User.ID {
-		return fmt.Errorf("%w: vlastitu dužnost opoziva nadređena razina", ErrUnauthorized)
-	}
-	if err := mayAssign(actor, duty.Role, duty.SectorID, duty.AreaID, s.areaSectors()); err != nil {
+func (s *UserService) RevokeDuty(actor *models.UserPermissions, dutyID uuid.UUID, tudjimOcima bool) error {
+	if err := s.smijeOpozvati(actor, dutyID, tudjimOcima); err != nil {
 		return err
 	}
 
@@ -878,7 +953,7 @@ func (s *UserService) DeleteUser(actor *models.UserPermissions, targetID uuid.UU
 		return err
 	}
 
-	s.sse.Broadcast("user_deleted", fmt.Sprintf("Obrisan profil djelatnika: %s", target.FullName), targetID.String())
+	s.sse.Broadcast("user_deleted", "Obrisan je profil djelatnika", targetID.String())
 	return nil
 }
 

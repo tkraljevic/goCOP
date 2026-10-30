@@ -129,6 +129,12 @@ func TestShowTerritoriesMapView(t *testing.T) {
 	if !strings.Contains(recMuniGeo.Body.String(), "gradovi-i-opcine-republike-hrvatske") {
 		t.Errorf("opcine.geojson mora sadržavati naziv zbirke")
 	}
+	// županije i općine nose imena i kontakte iz registra: samo u pregledniku
+	for ime, rec := range map[string]*httptest.ResponseRecorder{"zupanije.geojson": recZupGeo, "opcine.geojson": recMuniGeo} {
+		if cc := rec.Header().Get("Cache-Control"); !strings.HasPrefix(cc, "private") {
+			t.Errorf("%s: Cache-Control %q, a treba private", ime, cc)
+		}
+	}
 
 	// 4. Test HTTP Naselja GeoJSON rute
 	reqNaseljaGeo := httptest.NewRequest(http.MethodGet, "/territories/naselja.geojson?county_id=21", nil)

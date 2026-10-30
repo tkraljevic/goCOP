@@ -428,7 +428,7 @@ func TestRegularUserCanEditOwnProfileNotOthersOrDuties(t *testing.T) {
 
 	// 4. Korisnik NE SMIJE moći obrisati/opozvati dužnost
 	if len(user.Duties) > 0 {
-		err = userService.RevokeDuty(userPerms, user.Duties[0].ID)
+		err = userService.RevokeDuty(userPerms, user.Duties[0].ID, false)
 		if err != service.ErrUnauthorized {
 			t.Errorf("Očekivano ErrUnauthorized pri pokušaju opoziva zaduženja, dobiveno: %v", err)
 		}
@@ -477,7 +477,7 @@ func TestIzmjenaZaduzenja(t *testing.T) {
 	}
 
 	// opozvano se ne mijenja, a vidi se u povijesti
-	if err := userService.RevokeDuty(adminPerms, zad.ID); err != nil {
+	if err := userService.RevokeDuty(adminPerms, zad.ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if err := userService.UpdateDuty(adminPerms, zad.ID, req); err == nil {

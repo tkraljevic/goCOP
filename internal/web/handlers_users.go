@@ -365,6 +365,7 @@ func dutyRequestFromForm(r *http.Request, userID uuid.UUID) service.AddDutyReque
 		ExpiresAt:    rokIzObrasca(r), // „Vrijedi zaključno s”: prestaje idući dan u 0 h
 		// istek s obranom ima smisla samo uz privremenu; servis ga za stalnu briše
 		IsticeSObranom: r.FormValue("istece_s_obranom") == "1" || r.FormValue("istece_s_obranom") == "on",
+		TudjimOcima:    viewBanner(r).Viewing,
 	}
 }
 
@@ -415,7 +416,7 @@ func (h *UsersHandler) HandleRevokeDuty(w http.ResponseWriter, r *http.Request) 
 	if uid := strings.TrimSpace(r.FormValue("user_id")); uid != "" {
 		back = "/users/" + uid
 	}
-	err = h.userService.RevokeDuty(perms, dutyID)
+	err = h.userService.RevokeDuty(perms, dutyID, viewBanner(r).Viewing)
 	if err != nil {
 		redirectWith(w, r, back, "error", err.Error())
 		return

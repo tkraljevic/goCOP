@@ -89,12 +89,17 @@ func canManageTarget(actor *models.UserPermissions, target *models.User) bool {
 // niže). Jedna dužnost u dosegu nije dovoljna, inače bi uprava nižeg dosega
 // preuzela račun nadređenoga koji ima ispomoć u njezinu području, a s
 // njim, jer poništenje uklanja potpisni ključ, i potpis njegovim imenom.
+// Stalnoj upravi organizacije lozinku i kod daje samo stalna uprava
+// organizacije (privremenaNadStalnom).
 func smijePonistiti(actor *models.UserPermissions, target *models.User, sektori areaSector) error {
 	if actor == nil || target == nil {
 		return ErrUnauthorized
 	}
 	if err := mayManage(actor, target, sektori); err != nil {
 		return fmt.Errorf("%w; lozinku i kod daje onaj tko smije uređivati cijeli račun (viša razina ili globalni administrator)", err)
+	}
+	if err := privremenaNadStalnom(actor, target); err != nil {
+		return err
 	}
 	// Ljude iste razine uprava uređuje, ali im ne poništava lozinku: s
 	// lozinkom bi preuzela i potpis (poništenje uklanja potpisni ključ).
@@ -122,20 +127,34 @@ func upravaNaRaziniIliVisoj(uloga models.Role, rank int) bool {
 	return u > 0 && u <= rank
 }
 
-// ResetPassword daje osobi novu privremenu lozinku i vraća je administratoru
-// da je pročita naglas. Vraćena lozinka nigdje se ne zapisuje.
-func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid.UUID) (*models.User, string, error) {
+// racunZaPonistenje čita račun kojem actor smije poništiti lozinku: tuđi,
+// svojim očima i po pravilima smijePonistiti
+func (s *UserService) racunZaPonistenje(actor *models.UserPermissions, targetID uuid.UUID, tudjimOcima bool) (*models.User, error) {
+	if tudjimOcima {
+		return nil, ErrTudjimOcima
+	}
 	target, err := s.userRepo.GetUserByID(targetID)
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
 	if target == nil {
-		return nil, "", ErrUserNotFound
+		return nil, ErrUserNotFound
 	}
 	if actor != nil && actor.User.ID == target.ID {
-		return nil, "", fmt.Errorf("vlastitu lozinku mijenjate na svom profilu, ne poništavanjem")
+		return nil, fmt.Errorf("vlastitu lozinku mijenjate na svom profilu, ne poništavanjem")
 	}
 	if err := smijePonistiti(actor, target, s.areaSectors()); err != nil {
+		return nil, err
+	}
+	return target, nil
+}
+
+// ResetPassword daje osobi novu privremenu lozinku i vraća je administratoru
+// da je pročita naglas. Vraćena lozinka nigdje se ne zapisuje. Tuđim očima
+// se odbija (ErrTudjimOcima), kao i kod za prijavu izvana.
+func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid.UUID, tudjimOcima bool) (*models.User, string, error) {
+	target, err := s.racunZaPonistenje(actor, targetID, tudjimOcima)
+	if err != nil {
 		return nil, "", err
 	}
 
@@ -165,6 +184,6 @@ func (s *UserService) ResetPassword(actor *models.UserPermissions, targetID uuid
 	// ...a lozinka sandučića e-pošte otvarala bi poštu osobe onome tko zna privremenu
 	s.zaboraviSanducic(target)
 
-	s.sse.Broadcast("users_updated", fmt.Sprintf("Poništena lozinka: %s", target.FullName), target.ID.String())
+	s.sse.Broadcast("users_updated", "Ažurirani su podaci djelatnika", target.ID.String())
 	return target, temp, nil
 }

@@ -298,6 +298,40 @@ func TestSpremiFirmuBezPostojecihMjesta(t *testing.T) {
 	}
 }
 
+// Uprava miče svoje jedino mjesto rada s firme koja radi i drugdje: tuđe
+// mjesto ostaje. Firma koja radi samo kod nje ne ostaje bez mjesta, a nova
+// firma bez mjesta i dalje se ne upisuje.
+func TestSpremiFirmuBezSvogMjesta(t *testing.T) {
+	o := novaOkolinaFirmi(t)
+	ctx := context.Background()
+	o.postojecaFirma(t, "firma-1", models.ContractorAssignment{SectorID: "F", AreaID: 41}, models.ContractorAssignment{SectorID: "E", AreaID: 43})
+	c := &models.Contractor{ID: "firma-1", Name: "Probnoradnja d.o.o."}
+	if err := o.svc.SaveContractor(ctx, firmePodrucje41, c, nil); err != nil {
+		t.Fatalf("uprava područja 41 miče svoje mjesto: %v", err)
+	}
+	if m := o.mjestaRada(t, "firma-1"); !slices.Equal(m, []string{"E|43"}) {
+		t.Errorf("mjesta rada: %v", m)
+	}
+
+	o.postojecaFirma(t, "firma-2", models.ContractorAssignment{SectorID: "F", AreaID: 41})
+	c2 := &models.Contractor{ID: "firma-2", Name: "Primjergradnja d.o.o."}
+	if err := o.svc.SaveContractor(ctx, firmePodrucje41, c2, nil); err == nil || !strings.Contains(err.Error(), "bez ijednog mjesta rada") {
+		t.Errorf("firma samo u području 41 ostala je bez mjesta: %v", err)
+	}
+	if m := o.mjestaRada(t, "firma-2"); !slices.Equal(m, []string{"F|41"}) {
+		t.Errorf("mjesta rada nakon odbijenog upisa: %v", m)
+	}
+	// tko ne vodi nijedno mjesto, ne uređuje firmu ni s praznim popisom
+	o.postojecaFirma(t, "firma-3", models.ContractorAssignment{SectorID: "E", AreaID: 43})
+	c3 := &models.Contractor{ID: "firma-3", Name: "Treća d.o.o."}
+	if err := o.svc.SaveContractor(ctx, firmePodrucje41, c3, nil); err == nil || !strings.Contains(err.Error(), "barem jedno od njenih postojećih mjesta") {
+		t.Errorf("tuđa firma s praznim popisom: %v", err)
+	}
+	if err := o.svc.SaveContractor(ctx, firmePodrucje41, &models.Contractor{Name: "Nova d.o.o."}, nil); err == nil || !strings.Contains(err.Error(), "samo globalnom administratoru") {
+		t.Errorf("nova firma bez mjesta rada: %v", err)
+	}
+}
+
 func TestSpremiFirmuSamoTudaMjesta(t *testing.T) {
 	o := novaOkolinaFirmi(t)
 	ctx := context.Background()

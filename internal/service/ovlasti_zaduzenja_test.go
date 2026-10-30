@@ -22,7 +22,7 @@ func TestRacunBezDuznostiZaduzujeGlobalniAdministrator(t *testing.T) {
 
 	// bivši rukovoditelj sektora B: dužnost opozvana, račun isključen
 	bivsi := o.osoba(t, "bivsi", service.AddDutyRequest{Role: models.RoleSectorLeader, SectorID: sektorP("B")})
-	if err := o.users.RevokeDuty(o.admin, bivsi.Duties[0].ID); err != nil {
+	if err := o.users.RevokeDuty(o.admin, bivsi.Duties[0].ID, false); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := o.db.Exec(`UPDATE users SET is_active = 0 WHERE id = ?`, bivsi.ID.String()); err != nil {
@@ -39,7 +39,7 @@ func TestRacunBezDuznostiZaduzujeGlobalniAdministrator(t *testing.T) {
 	if err := o.users.AddDuty(perm5, d); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("uprava područja 5 zadužila je račun bez dužnosti: %v", err)
 	}
-	if _, _, err := o.users.ResetPassword(perm5, bivsi.ID); !errors.Is(err, service.ErrUnauthorized) {
+	if _, _, err := o.users.ResetPassword(perm5, bivsi.ID, false); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("uprava područja 5 poništila je lozinku računu bez dužnosti: %v", err)
 	}
 

@@ -10,8 +10,9 @@ import (
 	"gocop/internal/ledger"
 )
 
-// Sektor područja potvrđuje šifru nove dionice; područje kojeg nema i
-// nečitljiva tablica javljaju se kao greška, ne kao prazan sektor.
+// Sektor područja potvrđuje šifru nove dionice i daje sektor objektu;
+// područje kojeg nema i nečitljiva tablica javljaju se kao greška, ne kao
+// prazan sektor.
 func TestSektorPodrucja(t *testing.T) {
 	database, err := db.BazaIzPredloska(filepath.Join(t.TempDir(), "gocop.db"))
 	if err != nil {
@@ -27,9 +28,16 @@ func TestSektorPodrucja(t *testing.T) {
 		}
 	}
 	repo := NewSectionRepository(database, ledger.New(database, "test"))
+	objekti := NewStructureRepository(database, ledger.New(database, "test"))
 	ctx := context.Background()
 	if s, err := repo.SektorPodrucja(ctx, 1); err != nil || s != "P" {
 		t.Errorf("sektor područja 1: %q %v", s, err)
+	}
+	if s, err := objekti.SektorPodrucja(ctx, 1); err != nil || s != "P" {
+		t.Errorf("sektor područja 1 za objekt: %q %v", s, err)
+	}
+	if _, err := objekti.SektorPodrucja(ctx, 2); err == nil {
+		t.Error("objekt u nepostojećem području")
 	}
 	if _, err := repo.SektorPodrucja(ctx, 2); err == nil || !strings.Contains(err.Error(), "područje 2 ne postoji") {
 		t.Errorf("nepostojeće područje: %v", err)

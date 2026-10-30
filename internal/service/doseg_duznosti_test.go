@@ -84,7 +84,7 @@ func TestDuznostNeDajeTudjiSektor(t *testing.T) {
 	if permA.AdminSectors["B"] {
 		t.Fatal("uprava sektora A dobila je upravu sektora B")
 	}
-	if _, _, err := users.ResetPassword(permA, rukB.ID); !errors.Is(err, service.ErrUnauthorized) {
+	if _, _, err := users.ResetPassword(permA, rukB.ID, false); !errors.Is(err, service.ErrUnauthorized) {
 		t.Errorf("uprava sektora A poništila je lozinku rukovoditelju sektora B: %v", err)
 	}
 }
