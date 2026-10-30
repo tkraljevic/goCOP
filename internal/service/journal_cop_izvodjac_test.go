@@ -95,20 +95,63 @@ func TestIzvodjacNePiseUDnevnikCOPa(t *testing.T) {
 	}
 }
 
-// Izvođač kojem je dužnost poslovođe opozvana, a u ustroju obrane nema
-// drugu, i dalje se gleda kao izvođač: ni on ne piše u dnevnik COP-a.
-func TestBivsiPoslovodjaNePiseUDnevnikCOPa(t *testing.T) {
+// Za dnevnik COP-a i plan dežurstava izvođač je samo tko danas ima važeću
+// dužnost poslovođe (Odluke (30. 10. 2026.)). Bivši poslovođa kojem je
+// ostala terenska dužnost, i poslovođa kojem je dužnost istekla, čitaju
+// dnevnik COP-a, a prvi u njega i piše i vidi plan; u dnevnicima usluga bivši poslovođa i
+// dalje vidi samo dnevnike svoje firme. Poslovođa s važećom dužnošću ostaje
+// izvođač.
+func TestBivsiPoslovodjaPiseUDnevnikCOPa(t *testing.T) {
 	s := &JournalService{}
 	s.SetImaoUlogu(func(uuid.UUID, models.Role) (bool, error) { return true, nil })
 	cop := &models.Journal{ID: "cop", Kind: models.JournalKindDefense, CentarSektor: "P"}
 	o := models.OpsegDnevnika(*cop, nil, []models.Area{{ID: 1, SectorID: "P"}})
 	// sad mu je ostala samo terenska dužnost, bez uloge u ustroju
-	_, perms := osobaSDuznoscu(models.RoleWarehouseKeeper, models.ScopeArea, 1)
-	if !s.CanWrite(perms, o) {
-		t.Fatal("skladištar ne piše u dosegu centra")
+	skladistar, perms := osobaSDuznoscu(models.RoleWarehouseKeeper, models.ScopeArea, 1)
+	proslo := time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC)
+	istekao, _ := osobaSDuznoscu(models.RoleServiceLeaderForeman, models.ScopeArea, 1)
+	istekao.Duties[0].ExpiresAt = &proslo
+	ovlIstekao := models.NewUserPermissions(*istekao)
+	for tko, pp := range map[string]*models.UserPermissions{"bivši poslovođa": perms, "poslovođa s isteklom dužnošću": ovlIstekao} {
+		if s.IzvodjacZaCOP(&pp.User) || !s.CitaDnevnikeCOP(pp) {
+			t.Errorf("%s se u dnevniku COP-a gleda kao izvođač", tko)
+		}
 	}
-	if s.PiseUDnevnik(perms, o, cop) {
-		t.Error("bivši poslovođa piše u dnevnik COP-a")
+	if !s.PiseUDnevnik(perms, o, cop) || !s.MozeSebeUPlan(perms, o, cop) || !s.VidiPlanDezurstava(perms, o, cop) {
+		t.Error("bivši poslovođa ne piše u dnevnik COP-a")
+	}
+	if !s.IzvodjacZaDnevnike(skladistar) {
+		t.Error("bivši poslovođa u dnevnicima usluga više nije izvođač")
+	}
+	// kontrola: poslovođa s važećom dužnošću, i osoba bez računa
+	poslovodja, pp := osobaSDuznoscu(models.RoleServiceLeaderForeman, models.ScopeArea, 1)
+	if !s.IzvodjacZaCOP(poslovodja) || s.CitaDnevnikeCOP(pp) || s.PiseUDnevnik(pp, o, cop) {
+		t.Error("poslovođa s važećom dužnošću nije izvođač u dnevniku COP-a")
+	}
+	if s.IzvodjacZaCOP(nil) {
+		t.Error("osoba bez računa je izvođač")
+	}
+}
+
+// Uprava centra smije u plan upisati bivšeg poslovođu s dužnošću u sektoru,
+// a poslovođu s važećom dužnošću ne (Odluke (30. 10. 2026.)).
+func TestBivsiPoslovodjaUlaziUPlan(t *testing.T) {
+	s := &JournalService{}
+	s.SetImaoUlogu(func(uuid.UUID, models.Role) (bool, error) { return true, nil })
+	sektor, prvo := "P", 1
+	od := time.Date(2020, 1, 1, 0, 0, 0, 0, models.Zagreb)
+	opozvana := models.Duty{ID: uuid.New(), Role: models.RoleServiceLeaderForeman, SectorID: &sektor, AreaID: &prvo}
+	povijest := []models.VerzijaZaduzenja{
+		{Duty: func() models.Duty { d := opozvana; d.IsActive = true; return d }(), Od: od},
+		{Duty: opozvana, Od: od.AddDate(1, 0, 0)},
+		{Duty: models.Duty{ID: uuid.New(), Role: models.RoleWaterGuard, SectorID: &sektor, AreaID: &prvo, IsActive: true}, Od: od.AddDate(1, 0, 0)},
+	}
+	if s.izvodjacPoPovijesti(povijest) {
+		t.Error("bivši poslovođa ne ulazi u plan")
+	}
+	// kontrola: dužnost poslovođe koja danas vrijedi
+	if !s.izvodjacPoPovijesti(povijest[:1]) {
+		t.Error("poslovođa s važećom dužnošću ulazi u plan")
 	}
 }
 

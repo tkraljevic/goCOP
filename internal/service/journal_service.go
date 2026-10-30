@@ -22,7 +22,8 @@ import (
 //     list za izvođača;
 //   - nadzor je ovlaštenik za praćenje ugovora programa dnevnika (i njegov
 //     zamjenik): piše naloge i ocjene, otkazuje naloge i potvrđuje list za
-//     nadzor;
+//     nadzor; dok za program na području nema važećeg ovlaštenika, nadzor
+//     su uprava područja i uprava sektora sa zamjenicima (nadzorUsluge);
 //   - ostali s pravom pisanja (rukovoditelji, dežurni) pišu rad i napomene;
 //   - naslovnicu mijenjaju ovlaštenik i uprava područja ili sektora, a
 //     dnevnik briše uprava sektora ili globalni administrator.
@@ -39,6 +40,11 @@ type JournalService struct {
 	// (UserService.PovijestZaduzenja), za provjeru da osoba u planu
 	// dežurstava ima dužnost u sektoru centra (osobaUSektoru)
 	povijestZaduzenja func(uuid.UUID) ([]models.VerzijaZaduzenja, error)
+	// imaOvlastenika javlja ima li na branjenom području važećeg
+	// ovlaštenika za praćenje ugovora programa (UserService.ImaOvlastenikaUgovora),
+	// za nadzor u dnevniku usluge (nadzorUsluge); bez njega (nil) gleda se
+	// kao da ovlaštenik postoji
+	imaOvlastenika func(podrucje int, program string) (bool, error)
 }
 
 // SetImaoUlogu daje servisu izvor uloga koje je osoba ikad imala
@@ -47,6 +53,12 @@ func (s *JournalService) SetImaoUlogu(f func(uuid.UUID, models.Role) (bool, erro
 // SetPovijestZaduzenja daje servisu izvor zaduženja osoba kroz vrijeme
 func (s *JournalService) SetPovijestZaduzenja(f func(uuid.UUID) ([]models.VerzijaZaduzenja, error)) {
 	s.povijestZaduzenja = f
+}
+
+// SetImaOvlastenika daje servisu izvor ovlaštenika za praćenje ugovora po
+// području i programu
+func (s *JournalService) SetImaOvlastenika(f func(podrucje int, program string) (bool, error)) {
+	s.imaOvlastenika = f
 }
 
 func NewJournalService(repo *repository.JournalRepository, stations *repository.StationRepository, readings *repository.ReadingRepository) *JournalService {
@@ -169,17 +181,22 @@ func (s *JournalService) dnevnikIzvodjaca(ctx context.Context, u *models.User, j
 }
 
 // CanSupervise: nadzor u dnevniku j. U dnevniku usluge to je ovlaštenik za
-// praćenje ugovora (nadzorUsluge): piše nalog i ocjenu, otkazuje nalog,
-// stornira tuđi upis i potvrđuje list za nadzor. U dnevniku COP-a to je
-// svatko tko u njega piše za Hrvatske vode, a ne izvođač.
+// praćenje ugovora, a dok ga nema uprava područja ili sektora
+// (nadzorUsluge): piše nalog i ocjenu, otkazuje nalog, stornira tuđi upis i
+// potvrđuje list za nadzor. U dnevniku COP-a to je svatko tko u njega piše
+// (PiseUDnevnik), a izvođač je tu samo tko danas ima važeću dužnost
+// poslovođe (izvodjacZaCOP).
 func (s *JournalService) CanSupervise(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if j != nil && j.CentarSektor != "" {
+		return s.PiseUDnevnik(perms, o, j)
+	}
 	if IsContractor(u) {
 		return false
 	}
 	if !dnevnikUsluge(j) {
 		return s.CanWrite(perms, o)
 	}
-	return nadzorUsluge(perms, o, j)
+	return s.nadzorUsluge(perms, o, j)
 }
 
 // dnevnikUsluge javlja vodi li se j po pravilima dnevnika usluge (A.02 i
@@ -190,11 +207,79 @@ func dnevnikUsluge(j *models.Journal) bool {
 }
 
 // nadzorUsluge javlja je li osoba nadzor u dnevniku usluge j na području o:
-// ovlaštenik za praćenje ugovora programa dnevnika ili njegov zamjenik, s
-// valjanom dužnosti na tom području, a ne dežurni ni rukovoditelj (Odluke
-// (30. 10. 2026.), 4). Globalni administrator je nadzor svuda. Bez dnevnika
-// (novi dnevnik bez vrste) vrijedi ovlaštenik bilo kojeg programa.
-func nadzorUsluge(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+// ovlaštenik za praćenje ugovora (ovlastenikUsluge), a dok za program
+// dnevnika na tom području nema važećeg ovlaštenika, i uprava područja ili
+// sektora sa zamjenicima (upravaZaNadzor). Čim ovlaštenik postoji, nadzor
+// je samo on (Odluke (30. 10. 2026.), 4 i dopuna 5).
+func (s *JournalService) nadzorUsluge(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
+	if ovlastenikUsluge(perms, o, j) {
+		return true
+	}
+	return upravaZaNadzor(perms, o) && !s.imaOvlastenikaZa(podrucjeNadzora(o, j), j)
+}
+
+// podrucjeNadzora je branjeno područje dnevnika usluge j: ono upisano u
+// dnevniku, a za novi dnevnik (bez dnevnika) područje opsega. Dnevnik bez
+// svog područja ili s područjem drugačijim od opsega nema područja (0), pa
+// uprava nikojeg područja u njemu nije nadzor.
+func podrucjeNadzora(o models.Opseg, j *models.Journal) int {
+	if j == nil {
+		return o.Podrucje
+	}
+	if j.AreaID != o.Podrucje {
+		return 0
+	}
+	return j.AreaID
+}
+
+// imaOvlastenikaZa javlja ima li za program dnevnika j na području važećeg
+// ovlaštenika za praćenje ugovora; bez dnevnika bilo kojeg programa. Bez
+// poznatog područja, bez izvora ili uz grešku čitanja gleda se kao da ga
+// ima, pa nadzor ostaje samo ovlašteniku i globalnom administratoru.
+func (s *JournalService) imaOvlastenikaZa(podrucje int, j *models.Journal) bool {
+	if podrucje <= 0 || s.imaOvlastenika == nil {
+		return true
+	}
+	program := ""
+	if j != nil {
+		program = j.Program()
+	}
+	ima, err := s.imaOvlastenika(podrucje, program)
+	return ima || err != nil
+}
+
+// upravaZaNadzor javlja ima li osoba sada valjanu dužnost uprave područja o
+// (rukovoditelj branjenog područja, zamjenik, zamjenik rukovoditelja
+// sektora za to područje) ili uprave njegova sektora (razina uprave 2:
+// rukovoditelj sektora i zamjenici, voditelj centra i zamjenik).
+// Ovlaštenik za praćenje ugovora drugog programa nije uprava područja.
+func upravaZaNadzor(perms *models.UserPermissions, o models.Opseg) bool {
+	if perms == nil {
+		return false
+	}
+	return slices.ContainsFunc(models.VazecaZaduzenja(perms.User.Duties, time.Now()), func(d models.Duty) bool {
+		return upravljaOpsegom(d, o)
+	})
+}
+
+// upravljaOpsegom javlja je li dužnost uprava sektora opsega o (razina
+// uprave 2) ili uprava njegova područja (razina 3, bez ovlaštenika za
+// praćenje ugovora)
+func upravljaOpsegom(d models.Duty, o models.Opseg) bool {
+	switch d.Role.RazinaUprave() {
+	case 2:
+		return o.Sektor != "" && d.SectorID != nil && *d.SectorID == o.Sektor
+	case 3:
+		return d.Role.ProgramUgovora() == "" && d.AreaID != nil && *d.AreaID == o.Podrucje
+	}
+	return false
+}
+
+// ovlastenikUsluge javlja je li osoba ovlaštenik za praćenje ugovora
+// programa dnevnika usluge j ili njegov zamjenik, s valjanom dužnosti na
+// području o. Globalni administrator vrijedi svuda. Bez dnevnika (novi
+// dnevnik bez vrste) vrijedi ovlaštenik bilo kojeg programa.
+func ovlastenikUsluge(perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
 	if perms == nil {
 		return false
 	}
@@ -214,7 +299,7 @@ func nadzorUsluge(perms *models.UserPermissions, o models.Opseg, j *models.Journ
 }
 
 // CanManage: naslovnicu dnevnika usluge mijenjaju ovlaštenik za praćenje
-// ugovora (nadzorUsluge) i uprava područja ili sektora, a ne izvođač
+// ugovora (ovlastenikUsluge) i uprava područja ili sektora, a ne izvođač
 // (Odluke (30. 10. 2026.), 4)
 func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions, o models.Opseg, j *models.Journal) bool {
 	if IsContractor(u) {
@@ -223,7 +308,7 @@ func (s *JournalService) CanManage(u *models.User, perms *models.UserPermissions
 	if !dnevnikUsluge(j) {
 		return s.CanWrite(perms, o)
 	}
-	return perms.CanAdminister(o.Sektor, o.Podrucje) || nadzorUsluge(perms, o, j)
+	return perms.CanAdminister(o.Sektor, o.Podrucje) || ovlastenikUsluge(perms, o, j)
 }
 
 // BriseDnevnik javlja smije li osoba obrisati dnevnik j koji se vodi po
@@ -237,11 +322,14 @@ func (s *JournalService) BriseDnevnik(u *models.User, perms *models.UserPermissi
 	return perms != nil && (perms.IsGlobalAdmin || (o.Sektor != "" && perms.AdminSectors[o.Sektor]))
 }
 
+// porukaPotvrdaNadzora kaže tko potvrđuje list dnevnika usluge za nadzor
+const porukaPotvrdaNadzora = "list za nadzor potvrđuje ovlaštenik za praćenje ugovora; dok ga za taj program na području nema, potvrđuje ga uprava područja ili sektora"
+
 // porukaNaslovnica kaže tko mijenja naslovnicu dnevnika usluge
 const porukaNaslovnica = "naslovnicu dnevnika usluge mijenja ovlaštenik za praćenje ugovora ili uprava područja ili sektora"
 
 // izvodjacUCOP javlja je li j dnevnik COP-a, a osoba izvođač
-// (IzvodjacZaDnevnike). Zapisnik dežurstva centra vode Hrvatske vode:
+// (izvodjacZaCOP). Zapisnik dežurstva centra vode Hrvatske vode:
 // izvođač u njega ne piše, ne preuzima dežurstvo i ne upisuje se u plan,
 // iako po dužnosti na području piše u dnevnike usluga svoje firme. Ovo je
 // jedino mjesto s tim pravilom; na njemu stoje PiseUDnevnik i MozeSebeUPlan.
@@ -249,10 +337,27 @@ func (s *JournalService) izvodjacUCOP(perms *models.UserPermissions, j *models.J
 	return j != nil && j.CentarSektor != "" && s.izvodjacZaCOP(perms)
 }
 
-// izvodjacZaCOP javlja gleda li se osoba u dnevnicima COP-a kao izvođač;
-// globalni administrator nije izvođač ni kad ima dužnost poslovođe
+// izvodjacZaCOP javlja gleda li se osoba u dnevnicima COP-a kao izvođač
+// (IzvodjacZaCOP); globalni administrator nije izvođač ni kad ima dužnost
+// poslovođe
 func (s *JournalService) izvodjacZaCOP(perms *models.UserPermissions) bool {
-	return !perms.IsGlobalAdmin && s.IzvodjacZaDnevnike(&perms.User)
+	return !perms.IsGlobalAdmin && s.IzvodjacZaCOP(&perms.User)
+}
+
+// IzvodjacZaCOP javlja gleda li se osoba u dnevniku COP-a i planu
+// dežurstava kao izvođač: samo kad danas ima važeću dužnost voditelja
+// usluga / poslovođe. Prijašnja dužnost poslovođe se ne računa, za razliku
+// od dnevnika usluga (IzvodjacZaDnevnike) (Odluke (30. 10. 2026.), dopuna 6).
+func (s *JournalService) IzvodjacZaCOP(u *models.User) bool {
+	if u == nil {
+		return false
+	}
+	for _, d := range models.VazecaZaduzenja(u.Duties, time.Now()) {
+		if d.Role == models.RoleServiceLeaderForeman {
+			return true
+		}
+	}
+	return false
 }
 
 // PiseUDnevnik: pravo pisanja u dnevnik j u dosegu o. Isto je što i
@@ -540,7 +645,7 @@ func (s *JournalService) potvrdiStranu(u *models.User, perms *models.UserPermiss
 		}
 		sh.SupervisorConfirmedBy, sh.SupervisorConfirmedAt = u.FullName, &now
 	default:
-		return errors.New("list za nadzor potvrđuje ovlaštenik za praćenje ugovora")
+		return errors.New(porukaPotvrdaNadzora)
 	}
 	return nil
 }

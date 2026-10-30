@@ -43,3 +43,31 @@ func TestProgramUgovora(t *testing.T) {
 		}
 	}
 }
+
+// Uloge koje prate ugovor programa su ovlaštenik i zamjenik tog programa;
+// prazan program daje sve četiri, a nepoznat nijednu.
+func TestUlogeUgovora(t *testing.T) {
+	jednako := func(a, b []Role) bool {
+		if len(a) != len(b) {
+			return false
+		}
+		for i := range a {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+	if got := UlogeUgovora("A.02"); !jednako(got, []Role{RoleContractOfficerA2, RoleContractDeputyA2}) {
+		t.Errorf("A.02: %v", got)
+	}
+	if got := UlogeUgovora("A.03"); !jednako(got, []Role{RoleContractOfficerA3, RoleContractDeputyA3}) {
+		t.Errorf("A.03: %v", got)
+	}
+	if got := UlogeUgovora(""); len(got) != 4 {
+		t.Errorf("svi programi: %v", got)
+	}
+	if got := UlogeUgovora("A.09"); len(got) != 0 {
+		t.Errorf("nepoznat program: %v", got)
+	}
+}

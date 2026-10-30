@@ -677,6 +677,8 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 	// tko je bio poslovođa izvođača, u dnevnicima usluga ostaje izvođač
 	journalService.SetImaoUlogu(userService.ImaoUlogu)
 	journalService.SetPovijestZaduzenja(userService.PovijestZaduzenja)
+	// dok za program nema ovlaštenika, nadzor u dnevniku usluge je uprava
+	journalService.SetImaOvlastenika(userService.ImaOvlastenikaUgovora)
 	obracunRepo := repository.NewObracunRepository(database, recorder)
 	if err := obracunRepo.Osiguraj(context.Background()); errors.Is(err, ledger.ErrNovijaShema) {
 		log.Printf("Postavke obračuna sati nisu dopunjene: %v", err)

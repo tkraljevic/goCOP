@@ -98,6 +98,14 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   dužnost u njemu (Odluke (30. 10. 2026.)). Poslovođa izvođača ne ulazi u
   plan, vrsta dnevnika usluge ne mijenja se nakon otvaranja, a svaka strana
   list potvrđuje jednom.
+- **Dnevnici: nadzor bez ovlaštenika, plan po sektoru, predaja smjene
+  izvođača.** Dok za program na području nema ovlaštenika za praćenje
+  ugovora, nadzor u dnevniku usluge rade uprava područja i uprava sektora;
+  čim ovlaštenik postoji, samo on. Plan dežurstava i dežurstva u Excel
+  izvozu dnevnika COP-a vide sektor centra, uprava organizacije i globalni
+  administrator. U dnevniku COP-a izvođač je samo tko danas ima dužnost
+  poslovođe, a njegovu smjenu predaje uprava centra; ta smjena ne ulazi u
+  plan ni u obračun sati (Odluke (30. 10. 2026.)).
 - **Provjere prava: izvješća dionica, dnevni listovi, ugovori i moduli.**
   Dnevno izvješće dionice pišu i predaju samo rukovoditelj dionice i
   zamjenik; uprava ga čita i briše. Dnevni list ovjerava rukovoditelj

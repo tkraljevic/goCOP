@@ -14,7 +14,7 @@
       {{else if eq .Vrsta "OBRANA"}}Dežurstvo centra obrane od poplava. Upisuju ga operateri dok traje obrana:
       vrijeme, tko javlja i što. Teče danima, bez izvođača i nadzora.
       {{else if eq .Vrsta "ODRZAVANJE_A02"}}Održavanje voda I. i II. reda. Vodi ga izvođač svaki dan, a nadzire
-      ovlaštenik za praćenje ugovora.
+      ovlaštenik za praćenje ugovora. Dok ovlaštenika nema, nadzire uprava područja ili sektora.
       {{else if eq .Vrsta "ODRZAVANJE_A03"}}Održavanje kanala III. i IV. reda. Isti oblik kao A.02, druga usluga
       i drugi ugovor.
       {{else}}Sve vrste dnevnika.{{end}}
@@ -91,7 +91,7 @@
   </article>
   {{else}}
   <div class="reg-empty">
-    {{if eq .Vrsta "DEZURSTVA"}}Plan dežurstava otvara se s dnevnikom COP-a; još nema nijednog.
+    {{if eq .Vrsta "DEZURSTVA"}}Nema plana dežurstava koji vidite. Plan se otvara s dnevnikom COP-a, a vide ga uprava i djelatnici sektora tog centra.
     {{else if eq .Vrsta "OBRANA"}}Još nema nijednog dnevnika COP-a.{{if .CentriZaOtvaranje}} Otvara se kad počne dežurstvo, gumbom „Novi dnevnik COP-a“.{{end}}{{else if .Area}}U području {{.Area.Name}} još nema dnevnika te vrste.{{if .CanManage}} Otvorite ga gumbom „Novi dnevnik“ i popunite naslovnicu.{{end}}{{else}}Nema područja.{{end}}
   </div>
   {{end}}

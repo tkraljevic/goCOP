@@ -316,10 +316,10 @@ func TestZidOpisiDezurstvo(t *testing.T) {
 			d.Naslov, d.Tekst = "Potvrđeno dežurstvo", kad
 		}},
 		{"izmijenjeno, nije potvrđeno", verzijaZida(t, e, z, izmjenaVerzije), false, ModulDezurstva, upisano},
-		{"nepoznat dnevnik", verzijaZida(t, e, bezDnevnika), true, ModulDezurstva, func(d *Dogadjaj) {
-			d.Tko, d.Link = "Ana Anić", "/dnevnici/j-nema/dezurstva"
-			d.Naslov, d.Tekst = "Upisano dežurstvo", kad+" · teren"
-		}},
+		// dnevnik obrisan ili još nije stigao: bez sektora centra redak bi
+		// vidjeli i drugi sektori, pa ga nema (Odluke (30. 10. 2026.))
+		{"nepoznat dnevnik", verzijaZida(t, e, bezDnevnika), false, ModulDezurstva, nil},
+		{"nepoznat dnevnik, maknuto", verzijaZida(t, e, bezDnevnika, arhiviranaVerzija), false, ModulDezurstva, nil},
 		{"nečitljivo", verzijaZida(t, e, z, necitljivaVerzija), false, ModulDezurstva, nil},
 	})
 }

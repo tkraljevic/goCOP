@@ -172,6 +172,19 @@ func (r Role) ProgramUgovora() string {
 	return ""
 }
 
+// UlogeUgovora su uloge koje prate ugovor programa („A.02” ili „A.03”):
+// ovlaštenik za praćenje ugovora i njegov zamjenik (ProgramUgovora). Prazan
+// program daje uloge svih programa.
+func UlogeUgovora(program string) []Role {
+	var out []Role
+	for _, d := range RoleCatalog {
+		if p := d.Role.ProgramUgovora(); p != "" && (program == "" || p == program) {
+			out = append(out, d.Role)
+		}
+	}
+	return out
+}
+
 // Writes javlja daje li uloga pravo upisa; gost i preglednik samo gledaju, a
 // nepoznata uloga (npr. stigla razmjenom s novijeg čvora) ne daje ništa
 func (r Role) Writes() bool { return r != RoleViewer && r != RoleGuest && r.Poznata() }
