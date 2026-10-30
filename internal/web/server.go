@@ -585,7 +585,7 @@ func NewServer(
 	for _, page := range []string{"dashboard.html", "registri.html", "users.html", "user_detail.html", "user_form.html", "duty_form.html", "profile.html", "sections.html", "section_detail.html", "section_form.html", "territories.html", "county_form.html", "municipality_form.html", "municipality_detail.html", "stations.html", "station_detail.html", "station_form.html", "station_history.html", "station_history_form.html", "paket_pregled.html", "watercourses.html", "watercourse_detail.html", "watercourse_form.html", "slivovi.html", "kisomjer_form.html", "kisomjer.html", "structures.html", "structure_detail.html", "structure_form.html", "readings.html", "reading_history.html", "reading_form.html", "arhiva_ispravci.html", "uvoz_ocitanja.html", "teren.html", "moduli.html", "settings.html", "odrzavanje.html", "organizacija.html", "sector_form.html", "area_form.html", "contractor_form.html", "firme.html", "nazivi.html", "sudionici.html",
 		"administracija.html", "uvozi.html", "sinkronizacija.html", "pretplate.html", "baza.html", "izvori.html", "uvoz_niza.html",
 		"dnevnici.html", "dnevnici_izbor.html", "administracija_potpisi.html", "prijave.html", "prijava_form.html", "prijava.html", "vodocuvar.html", "vodocuvar_list.html", "vodocuvar_kalendar.html", "posao.html", "dnevnik_form.html", "dnevnik.html", "dnevnik_cop.html", "dnevnik_cop_form.html", "dnevnik_list.html", "dnevnik_obracun.html", "dnevnik_dezurstva.html", "dnevnik_iors.html", "izvjesca.html", "izvjesce_form.html", "izvjesce.html", "sektorsko_form.html", "sektorsko.html", "obracun_postavke.html",
-		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "administracija_zig.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
+		"sredstva.html", "katalog.html", "skladiste.html", "potrebe_form.html", "potrebe.html", "dogadjanja.html", "skladiste_form.html", "promet_form.html", "promet.html", "gdje_ima.html", "na_terenu.html", "popisi.html", "popis_form.html", "popis.html", "pomoc.html", "prognoze.html", "prognoze_metoda.html", "prognoze_postavke.html", "ocitanja_ispravci.html", "akti.html", "akt_form.html", "akt.html", "primatelji.html", "spranca.html", "posta_racun.html", "administracija_posta.html", "posta_sanducic.html", "posta_pismo.html", "posta_novo.html", "posta_potpis.html", "sektor.html", "administracija_opcije.html", "administracija_tema.html", "administracija_karte.html", "administracija_telemetrija.html", "imenik_exchange.html", "county_detail.html"} {
 		t, err := template.New("base.html").Funcs(tmplFuncs).ParseFS(templatesFS, DijeloviPredloska(page)...)
 		if err != nil {
 			return nil, fmt.Errorf("greška pri parsiranju predloška %s: %w", page, err)
@@ -788,6 +788,9 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /profile/potpisni-kljuc", s.authMiddleware(http.HandlerFunc(potpisH.HandleKljuc)))
 	s.mux.Handle("GET /potpis/izdavatelj.pem", s.authMiddleware(http.HandlerFunc(potpisH.Izdavatelj)))
 	s.mux.Handle("GET /administracija/potpisi", s.authMiddleware(http.HandlerFunc(potpisH.ShowAdministracija)))
+	// adresa za QR kod na dokumentima (gocop.toml) stoji uz potpise akata (Odluke (30. 10. 2026.))
+	potpisH.postavkeCvora = s.postavkeStranice
+	s.mux.Handle("POST /administracija/potpisi/postavke-cvora", s.samoAdmin(s.spremiPostavkeCvora("/administracija/potpisi", http.HandlerFunc(potpisH.ShowAdministracija))))
 	vodH.SetPoslovi(s.poslovi, s.templates["posao.html"])
 	s.mux.Handle("GET /vodocuvar", s.authMiddleware(http.HandlerFunc(vodH.ShowPopis)))
 	s.mux.Handle("GET /vodocuvar/dan", s.authMiddleware(http.HandlerFunc(vodH.ShowDan)))
@@ -1274,7 +1277,7 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /posta/radnja", s.authMiddleware(http.HandlerFunc(aktiH.HandleSkupnaRadnja)))
 	s.mux.Handle("GET /posta/adrese.json", s.authMiddleware(http.HandlerFunc(aktiH.AdreseJSON)))
 	aktiH.SetPotpis(s.templates["posta_potpis.html"])
-	aktiH.SetZig(s.templates["administracija_zig.html"])
+	aktiH.SetZig(s.templates["sektor.html"])
 	aktiH.SetOpcije(s.templates["administracija_opcije.html"])
 	s.mux.Handle("GET /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.ShowOpcije)))
 	s.mux.Handle("POST /administracija/opcije", s.samoAdmin(http.HandlerFunc(aktiH.HandleOpcije)))
@@ -1294,6 +1297,10 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("GET /administracija/karte/vektorska.cop", s.samoAdmin(http.HandlerFunc(aktiH.HandleIzveziKartu)))
 	s.mux.Handle("POST /administracija/karte/vektorska/makni", s.samoAdmin(http.HandlerFunc(aktiH.HandleMakniKartu)))
 	s.mux.Handle("GET /karta/vektor/{ime}", s.authMiddleware(http.HandlerFunc(ServeVektorskaKarta)))
+	// žig je na stranici sektora (Odluke (30. 10. 2026.)); stare adrese ostaju
+	s.mux.Handle("GET /organizacija/sektori/{id}", s.authMiddleware(http.HandlerFunc(aktiH.ShowSektor)))
+	s.mux.Handle("POST /organizacija/sektori/{id}/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
+	s.mux.Handle("GET /organizacija/sektori/{id}/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
 	s.mux.Handle("GET /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.ShowZig)))
 	s.mux.Handle("POST /administracija/zig", s.authMiddleware(http.HandlerFunc(aktiH.HandleZig)))
 	s.mux.Handle("GET /administracija/zig/slika", s.authMiddleware(http.HandlerFunc(aktiH.ZigSlika)))
@@ -1463,6 +1470,8 @@ func (s *Server) setupRoutes() {
 	s.mux.Handle("POST /administracija/baza/obnovi", s.authMiddleware(http.HandlerFunc(dbH.HandleReplay)))
 	s.mux.Handle("POST /administracija/baza/spomenici", s.authMiddleware(http.HandlerFunc(dbH.HandlePurgeTombstones)))
 	dbH.SetOpcije(s.opcije)
+	dbH.SetIzmjenaOpcija(s.izmijeniOpcije)
+	s.mux.Handle("POST /administracija/baza/pohrana", s.samoAdmin(http.HandlerFunc(dbH.HandlePohrana)))
 	s.mux.Handle("GET /administracija/baza/izvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleExport)))
 	s.mux.Handle("POST /administracija/baza/uvoz", s.authMiddleware(http.HandlerFunc(dbH.HandleImport)))
 	dbH.postavkeCvora = s.postavkeStranice
@@ -1550,6 +1559,15 @@ func (s *Server) opcije(ctx context.Context) models.Opcije {
 	return s.akti.Opcije(ctx)
 }
 
+// izmijeniOpcije mijenja dio općih prekidača; dok servis akata nije spojen,
+// ništa se ne sprema
+func (s *Server) izmijeniOpcije(ctx context.Context, p *models.UserPermissions, izmjena func(*models.Opcije)) error {
+	if s.akti == nil {
+		return fmt.Errorf("opcije se ne mogu spremiti na ovom čvoru")
+	}
+	return s.akti.IzmijeniOpcije(ctx, p, izmjena)
+}
+
 func DijeloviPredloska(stranica string) []string {
 	dijelovi := []string{"base.html", stranica}
 	switch stranica {
@@ -1557,7 +1575,7 @@ func DijeloviPredloska(stranica string) []string {
 		dijelovi = append(dijelovi, "letva_blokovi.html")
 	case "akti.html", "akt_form.html":
 		dijelovi = append(dijelovi, "obrana_nacin.html")
-	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html":
+	case "settings.html", "pretplate.html", "baza.html", "administracija_karte.html", "administracija_potpisi.html":
 		dijelovi = append(dijelovi, "postavke_cvora.html")
 	}
 	return dijelovi

@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"html/template"
 	"io/fs"
 	"net/http"
@@ -40,9 +41,11 @@ type okolinaSastavljaca struct {
 	tmpl       func(stranica string) *template.Template
 	osobe      map[string]*models.User
 	// za cijeli poslužitelj: prijava sesijom i vidljivost modula
-	auth   *service.AuthService
-	sesije *repository.SessionRepository
-	moduli *service.ModuleService
+	auth     *service.AuthService
+	sesije   *repository.SessionRepository
+	moduli   *service.ModuleService
+	userRepo *repository.UserRepository // za osobe koje pojedini test doda
+	baza     *sql.DB                    // za test koji kvari bazu
 }
 
 // djelatnik je osoba s jednom aktivnom dužnošću u sektoru P
@@ -78,7 +81,7 @@ func novaOkolinaSastavljaca(t *testing.T) *okolinaSastavljaca {
 	structureRepo := repository.NewStructureRepository(baza, rec)
 	readingRepo := repository.NewReadingRepository(baza, rec)
 	o := &okolinaSastavljaca{
-		auth: auth, sesije: sesije, moduli: service.NewModuleService(repository.NewModuleRepository(baza, rec)),
+		auth: auth, sesije: sesije, userRepo: userRepo, moduli: service.NewModuleService(repository.NewModuleRepository(baza, rec)),
 		akti: service.NewAktService(repository.NewAktiRepository(baza, rec), stationRepo, sectionRepo, repository.NewTerritoryRepository(baza, rec), readingRepo, users,
 			service.NewEpisodeService(repository.NewEpisodeRepository(baza, rec), readingRepo, stationRepo), "test"),
 		readings:   service.NewReadingService(readingRepo, stationRepo, structureRepo, sections, users),
@@ -86,6 +89,7 @@ func novaOkolinaSastavljaca(t *testing.T) *okolinaSastavljaca {
 		structures: service.NewStructureService(structureRepo),
 		users:      users,
 		osobe:      map[string]*models.User{},
+		baza:       baza,
 	}
 	ctx := context.Background()
 	o.letva = &models.Station{ID: uuid.New(), Code: "primjerovo", Name: "Primjerovo", Watercourse: "Primjerica"}

@@ -49,11 +49,11 @@
 
   <div class="card">
     <h2>Domenski čvorovi</h2>
-    <p class="desc">Čvor sa stalnom adresom (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.</p>
+    <p class="desc">Čvor s adresom za razmjenu (domena ili javni IP) dostupan je i izvan lokalne mreže: preko njega se ostali usklađuju kad nisu u istoj zgradi. Adresa za razmjenu putuje razmjenom, pa je dovoljno upisati je jednom, na bilo kojem čvoru.{{if $.Permissions.IsGlobalAdmin}} Adresa za QR kod na dokumentima je posebna postavka, na stranici <a href="/administracija/potpisi#qr-adresa">Elektronički potpisi</a>.{{end}}</p>
     <div class="peer">
       <div class="peer-head"><span class="peer-name">{{.Self.Name}} <span class="muted">(ovaj čvor)</span></span>{{if .Self.IsBootstrap}}<span class="badge badge-active">stalno izložen</span>{{end}}</div>
       {{/* adrese računala vidi samo administrator */}}
-      <div class="peer-meta">{{if .Self.Addresses}}{{if $.Permissions.IsGlobalAdmin}}{{range .Self.Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}{{else}}ima javnu adresu{{end}}{{else}}bez javne adrese — dostupan samo u lokalnoj mreži{{end}}</div>
+      <div class="peer-meta">{{if .Self.Addresses}}{{if $.Permissions.IsGlobalAdmin}}{{range .Self.Addresses}}<span class="mono">{{.}}</span> <button type="button" class="btn btn-sm btn-link" onclick="removeAddress('{{$.NodeID}}', '{{.}}')" title="Makni adresu">×</button> {{end}}{{else}}ima adresu za razmjenu{{end}}{{else}}bez adrese za razmjenu — dostupan samo u lokalnoj mreži{{end}}</div>
     </div>
     {{range .Peers}}{{if .IsBootstrap}}
     <div class="peer">
@@ -68,7 +68,7 @@
         {{range .Peers}}<option value="{{.NodeID}}">{{if .Name}}{{.Name}}{{else}}{{.NodeID}}{{end}}</option>{{end}}
       </select>
       <input type="text" id="addr-new" class="form-control" placeholder="domena, IP ili https://domena za tunel" style="max-width:260px;">
-      <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu</button>
+      <button type="button" class="btn btn-primary" onclick="addAddress()">Dodaj adresu za razmjenu</button>
     </div>
     <p class="muted" style="margin-top:0.4rem;">Bez porta uzima se port razmjene {{.Ports.Exchange}}; vatrozid ga mora propustiti do čvora.
       Kad se izvana smije samo na web (Cloudflare tunel), upišite web adresu čvora, npr. <span class="mono">https://cop.primjer.hr</span>:

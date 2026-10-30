@@ -6,6 +6,7 @@ import (
 	"encoding/pem"
 	"html/template"
 	"net/http"
+	"slices"
 	"time"
 
 	"gocop/internal/models"
@@ -19,6 +20,8 @@ type PotpisHandler struct {
 	svc   func() *service.PotpisService
 	users *service.UserService
 	tmpl  *template.Template // administracija_potpisi.html
+	// gocop.toml: adresa za QR kod na dokumentima
+	postavkeCvora izvorPostavki
 }
 
 // NewPotpisHandler sastavlja rukovatelja
@@ -137,6 +140,25 @@ type PotpisiPageData struct {
 	IzdavateljOt   string
 	Izdavatelji    []IzdavateljRed
 	Kljucevi       []PodaciKljuca
+	Postavke       *PostavkeStranice // adresa za QR kod iz gocop.toml; nil za ne-administratora
+}
+
+// redoviIzdavatelja slaže popis izdavatelja svih čvorova; ovaj je
+// izdavatelj ovog čvora (nil kad čvor nema ključ)
+func redoviIzdavatelja(ovaj *x509.Certificate, svi []*x509.Certificate) []IzdavateljRed {
+	var out []IzdavateljRed
+	for _, c := range svi {
+		red := IzdavateljRed{Naziv: c.Subject.CommonName, Otisak: potpis.Otisak(c.Raw), Do: c.NotAfter, Ovaj: ovaj != nil && c.Equal(ovaj)}
+		if len(red.Naziv) > 6 {
+			red.Cvor = red.Naziv[6:]
+		}
+		// vlastiti izdavatelj stoji i u knjizi i u servisu; jednom je dosta
+		if red.Ovaj && slices.ContainsFunc(out, func(x IzdavateljRed) bool { return x.Otisak == red.Otisak }) {
+			continue
+		}
+		out = append(out, red)
+	}
+	return out
 }
 
 // IzdavateljRed je izdavatelj jednog čvora na popisu
@@ -163,29 +185,12 @@ func (h *PotpisHandler) ShowAdministracija(w http.ResponseWriter, r *http.Reques
 	}
 	q := r.URL.Query()
 	d := PotpisiPageData{CurrentUser: u, Permissions: perms, ActiveNav: "admin", ViewAsBanner: viewBanner(r), SuccessMessage: q.Get("success"), ErrorMessage: q.Get("error")}
+	d.Postavke = h.postavkeCvora.za(r, "/administracija/potpisi")
 	d.Izdavatelj = s.Izdavatelj()
 	if d.Izdavatelj != nil {
 		d.IzdavateljOt = potpis.Otisak(d.Izdavatelj.Raw)
 	}
-	for _, c := range s.Izdavatelji(r.Context()) {
-		red := IzdavateljRed{Naziv: c.Subject.CommonName, Otisak: potpis.Otisak(c.Raw), Do: c.NotAfter, Ovaj: d.Izdavatelj != nil && c.Equal(d.Izdavatelj)}
-		if len(red.Naziv) > 6 {
-			red.Cvor = red.Naziv[6:]
-		}
-		if red.Ovaj && len(d.Izdavatelji) > 0 {
-			// vlastiti izdavatelj stoji i u knjizi i u servisu; jednom je dosta
-			dup := false
-			for _, x := range d.Izdavatelji {
-				if x.Otisak == red.Otisak {
-					dup = true
-				}
-			}
-			if dup {
-				continue
-			}
-		}
-		d.Izdavatelji = append(d.Izdavatelji, red)
-	}
+	d.Izdavatelji = redoviIzdavatelja(d.Izdavatelj, s.Izdavatelji(r.Context()))
 	for _, k := range s.Svi(r.Context()) {
 		d.Kljucevi = append(d.Kljucevi, podaciKljuca(&k))
 	}

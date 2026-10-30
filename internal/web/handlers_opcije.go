@@ -3,7 +3,6 @@ package web
 import (
 	"html/template"
 	"net/http"
-	"strconv"
 
 	"gocop/internal/models"
 )
@@ -40,7 +39,8 @@ func (h *AktiHandler) ShowOpcije(w http.ResponseWriter, r *http.Request) {
 }
 
 // HandleOpcije sprema prekidače s ove stranice; način prikaza prognoze i
-// dani iz susjeda (Postavke prognoze) ostaju kakvi jesu
+// dani iz susjeda (Postavke prognoze) te rok čuvanja fotografija
+// (Održavanje baze › Pohrana) ostaju kakvi jesu
 func (h *AktiHandler) HandleOpcije(w http.ResponseWriter, r *http.Request) {
 	_, perms, _ := h.base(r)
 	s := h.svc(w)
@@ -53,8 +53,6 @@ func (h *AktiHandler) HandleOpcije(w http.ResponseWriter, r *http.Request) {
 		o.BrisanjeSOglasnePloce = r.FormValue("brisanje_s_oglasne_ploce") == "1"
 		o.UpisTudjimOcima = r.FormValue("upis_tudjim_ocima") == "1"
 		o.SimulacijaKljuca = r.FormValue("simulacija_kljuca") == "1"
-		o.CuvanjeSlikaDana, _ = strconv.Atoi(r.FormValue("cuvanje_slika_dana"))
-		o.SlikeOdmah = r.FormValue("slike_odmah") == "1"
 	})
 	if err != nil {
 		redirectWith(w, r, "/administracija/opcije", "error", err.Error())

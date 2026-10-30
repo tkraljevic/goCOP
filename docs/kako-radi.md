@@ -72,7 +72,7 @@ pokretanja i ponavlja se svakih pet minuta. Na naslovnoj stranici pločica
 pločica rečenicom kaže zašto, bez adresa. Adrese i greške razmjene vidi
 samo administrator, na stranici Sinkronizacija.
 
-Javnu adresu stalnog računala administrator upiše jednom, na bilo kojem
+Adresu za razmjenu stalnog računala administrator upiše jednom, na bilo kojem
 računalu mreže, a ostala je dobiju razmjenom. Dva računala koja se ne vide
 izravno razmjenjuju preko njega, pa podatak između njih čeka do idućeg kruga
 razmjene, najviše desetak minuta. WEB sync to skraćuje: stalno računalo

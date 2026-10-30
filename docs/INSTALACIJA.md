@@ -768,8 +768,9 @@ imaju prednost pred datotekom.
 
 **Postavke u programu (od 0.0.37-alfa).** Dio `gocop.toml` globalni
 administrator mijenja i u Administraciji, svaku postavku na stranici kojoj
-pripada: javnu adresu, centar i telefon sa stranice prijave te minutu
-preuzimanja vodostaja u *Čvor, mreža i sinkronizacija → Ovaj čvor*, razmak automatske sinkronizacije i razmjenu
+pripada: centar i telefon sa stranice prijave te minutu preuzimanja
+vodostaja u *Čvor, mreža i sinkronizacija → Ovaj čvor*, adresu za QR kod na
+dokumentima pod *Elektronički potpisi*, razmak automatske sinkronizacije i razmjenu
 preko Tailscalea pod *Mreža* (na toj stranici obje stoje sklopljene), kao i
 prijavu za WEB sync i sam WEB sync (`[povezivost] web_sync_prijava` i
 `web_sync`), `sve`

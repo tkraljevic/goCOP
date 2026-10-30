@@ -336,9 +336,10 @@ Program postavke čita samo pri pokretanju. **Nakon izmjene obavezno:**
 `sudo systemctl restart gocop`. Zastavice u jedinici imaju prednost pred
 datotekom; jedinica zadaje samo `-db`.
 
-Dio postavki mijenja se i u programu, bez `sudo` i uređivača: javna adresa
-i centar sa stranice prijave, razmak sinkronizacije te prijava za WEB sync i
-sam WEB sync (*Čvor, mreža i sinkronizacija*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
+Dio postavki mijenja se i u programu, bez `sudo` i uređivača: centar sa
+stranice prijave, razmak sinkronizacije te prijava za WEB sync i sam WEB sync
+(*Čvor, mreža i sinkronizacija*), adresa za QR kod na dokumentima
+(*Elektronički potpisi*), `sve` i `povijest_mjeseci` (*Što ovo računalo prati*) i
 obična karta (*Karte*); do svih se dolazi iz Administracije (opis u
 [INSTALACIJA.md](INSTALACIJA.md#6-pokretanje), *Postavke u programu*). Radi samo s ovog računala ili iz lokalne mreže, a ne kroz
 tunel. Program prije spremanja provjeri novu datoteku, staru ostavi kao
