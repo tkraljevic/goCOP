@@ -69,6 +69,10 @@ func TestSpremanjeJedneStraniceOpcijaCuvaDrugu(t *testing.T) {
 	if got := akti.Opcije(ctx); got != zeli {
 		t.Errorf("spremanje Opcija promijenilo postavke prognoze ili rok čuvanja fotografija:\n ima %+v\nželi %+v", got, zeli)
 	}
+	// ulazna stranica Administracije broji uključene prekidače iz istog zapisa
+	if got := (&Server{akti: akti}).opcijeAdministracije(ctx); got != zeli {
+		t.Errorf("Administracija čita druge opcije: %+v", got)
+	}
 
 	// Postavke prognoze opet: dnevni model, dani iz susjeda uključeni;
 	// prekidači s Opcija ostaju
@@ -111,6 +115,13 @@ func TestSpremanjeJedneStraniceOpcijaCuvaDrugu(t *testing.T) {
 	v, err := aktiRepo.GetPostavka(ctx, repository.PostavkaOpcije)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// zapis je u knjizi, pa ide razmjenom: Opcije i Postavke prognoze imaju
+	// na Administraciji oznaku „cijela mreža”
+	var verzija int
+	if err := baza.QueryRow(`SELECT COUNT(*) FROM record_versions WHERE entity = ? AND entity_id = ?`,
+		repository.EntityPostavke, repository.PostavkaOpcije).Scan(&verzija); err != nil || verzija == 0 {
+		t.Errorf("opcije nisu u knjizi: %d %v", verzija, err)
 	}
 	var kljucevi map[string]any
 	if err := json.Unmarshal([]byte(v), &kljucevi); err != nil {

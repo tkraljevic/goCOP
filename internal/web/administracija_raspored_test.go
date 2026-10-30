@@ -387,6 +387,22 @@ func TestUkljucenihTestnih(t *testing.T) {
 	}
 }
 
+// Izvori Prvih koraka na poslužitelju bez akata i baze: ništa uključeno,
+// e-pošta nije upisana, a telemetrija se ne zna.
+func TestIzvoriPrvihKorakaBezServisa(t *testing.T) {
+	ctx := context.Background()
+	s := &Server{}
+	if o := s.opcijeAdministracije(ctx); o != (models.Opcije{}) {
+		t.Errorf("opcije bez akata: %+v", o)
+	}
+	if ima, err := s.postaPodesena(ctx); ima || err != nil {
+		t.Errorf("e-pošta bez akata: %v %v", ima, err)
+	}
+	if _, err := s.racunTelemetrije(ctx); err == nil {
+		t.Error("telemetrija bez baze nema greške")
+	}
+}
+
 func TestImaRacunTelemetrije(t *testing.T) {
 	ctx := context.Background()
 	if _, err := imaRacunTelemetrije(ctx, nil); err == nil {

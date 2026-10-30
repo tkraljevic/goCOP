@@ -267,6 +267,24 @@ func (h *AdminHandler) stanjeUstroja(ctx context.Context, data *AdminPageData, g
 	return s
 }
 
+// opcijeAdministracije su Opcije za broj uključenih testnih prekidača
+func (s *Server) opcijeAdministracije(ctx context.Context) models.Opcije {
+	if s.akti == nil {
+		return models.Opcije{}
+	}
+	return s.akti.Opcije(ctx)
+}
+
+// racunTelemetrije je izvor koraka Telemetrija u Prvim koracima
+func (s *Server) racunTelemetrije(ctx context.Context) (bool, error) {
+	return imaRacunTelemetrije(ctx, s.db)
+}
+
+// postaPodesena je izvor koraka E-pošta u Prvim koracima
+func (s *Server) postaPodesena(ctx context.Context) (bool, error) {
+	return s.akti != nil && s.akti.PostaPodesena(ctx), nil
+}
+
 // preuzimaVodostaje: ovo računalo ima ulogu „Preuzima vodostaje s izvora”
 func (h *AdminHandler) preuzimaVodostaje() bool {
 	return h.peers == nil || h.peers.TrenutneUloge().Preuzima
