@@ -151,6 +151,7 @@ func (s *Service) CreateNetwork(ctx context.Context, name string) error {
 	s.network = &key
 	s.joinedAt = now
 	s.mu.Unlock()
+	s.prekiniUparivanje()
 
 	// osnivač je prvi član — vlastitim potpisom
 	self, err := key.Admit(s.node.ID, s.node.key.Public().(ed25519.PublicKey), s.node.ID, ValjanostOsnivaca)

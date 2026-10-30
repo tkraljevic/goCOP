@@ -13,8 +13,9 @@ package web
 //     klijent u lokalnoj mreži ga podmetanjem samo sebi postroži pravila.
 //
 // Odluke koje smiju vrijediti samo za izravnog klijenta (uparivanje bez
-// prijave na svježem čvoru, zadana lozinka) gledaju KrozPosrednika; brojanje
-// pokušaja prijave gleda Adresa.
+// prijave na svježem čvoru, zadana lozinka) gledaju Izvana. Brojanje
+// pokušaja prijave gleda Adresa, uz to Izvana (ime i IPv6 mreža /64) i
+// KrozPosrednika (adresa kroz posrednika broji se odvojeno od izravne).
 
 import (
 	"context"
@@ -57,10 +58,16 @@ func (k Klijent) IzLokalneMreze() bool {
 // adresu 100.x, koja nije privatna. Isključen: zahtjev je izvana, i preko
 // IPv6, iako je Tailscaleova IPv6 adresa (fd7a:…) privatna.
 func (k Klijent) Izvana() bool {
-	if k.NaTailscale && !k.KrozPosrednika {
+	if k.izravnoNaTailscale() {
 		return !k.TailscaleLokalno
 	}
 	return service.IzvanaAdresa(k.KrozPosrednika, k.Posrednik)
+}
+
+// izravnoNaTailscale: zahtjev je bez posrednika stigao na Tailscale adresu
+// ovog računala
+func (k Klijent) izravnoNaTailscale() bool {
+	return k.NaTailscale && !k.KrozPosrednika
 }
 
 // String je adresa klijenta za ograničenje pokušaja i zapis sesije

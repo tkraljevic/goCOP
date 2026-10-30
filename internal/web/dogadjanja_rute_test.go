@@ -147,6 +147,49 @@ func TestNaslovnaIDogadjanjaKrozRute(t *testing.T) {
 		}
 	}
 
+	// Račun bez modula ne vidi njegove događaje, ni na naslovnoj ni u
+	// izvozu, a prečaci i poveznice ne vode u modul koji ne vidi. Uprava
+	// sa svim modulima i dalje vidi sve (gore).
+	zoviSModulima := func(putanja string, moduli ...string) string {
+		t.Helper()
+		vis := models.Visibility{}
+		for _, m := range moduli {
+			vis[m] = true
+		}
+		r := httptest.NewRequest(http.MethodGet, putanja, nil)
+		ctx := context.WithValue(r.Context(), contextKeyUser, voditelj)
+		ctx = context.WithValue(ctx, contextKeyPerms, uprava)
+		ctx = context.WithValue(ctx, contextKeyModules, vis)
+		w := httptest.NewRecorder()
+		mux.ServeHTTP(w, r.WithContext(ctx))
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: %d", putanja, w.Code)
+		}
+		return w.Body.String()
+	}
+	bezRegistara := zoviSModulima("/", models.ModuleField, models.ModuleJournals)
+	if strings.Contains(bezRegistara, "12 kom Lopata") || strings.Contains(bezRegistara, "Novo skladište") || strings.Contains(bezRegistara, `href="/sredstva"`) {
+		t.Error("naslovna bez Registara pokazuje sredstva ili prečac na sredstva")
+	}
+	if !strings.Contains(bezRegistara, "Proba zida.") || !strings.Contains(bezRegistara, `href="/izvjesca"`) || !strings.Contains(bezRegistara, "sektorsko još nije") {
+		t.Error("naslovna bez Registara skriva i dnevnik ili izvješća")
+	}
+	if b := zoviSModulima("/?modul=sredstva", models.ModuleField, models.ModuleJournals); strings.Contains(b, "12 kom Lopata") {
+		t.Error("naslovna bez Registara pokazuje sredstva kad se traže filtrom")
+	}
+	if b := zoviSModulima("/dogadjanja?modul=sredstva", models.ModuleField, models.ModuleJournals); strings.Contains(b, "12 kom Lopata") {
+		t.Error("događanja bez Registara pokazuju sredstva")
+	}
+	bezDokumentacije := zoviSModulima("/", models.ModuleField, models.ModuleReadings, models.ModuleRegisters)
+	if strings.Contains(bezDokumentacije, "Proba zida.") || strings.Contains(bezDokumentacije, `href="/izvjesca"`) ||
+		strings.Contains(bezDokumentacije, "sektorsko još nije") || strings.Contains(bezDokumentacije, `href="/dnevnici/`) {
+		t.Error("naslovna bez Dokumentacije pokazuje dnevnik, izvješća ili prečace na njih")
+	}
+	if !strings.Contains(bezDokumentacije, "12 kom Lopata") || !strings.Contains(bezDokumentacije, `href="/sredstva"`) ||
+		!strings.Contains(bezDokumentacije, "Dnevnik COP-a, proba") {
+		t.Error("naslovna bez Dokumentacije skriva i sredstva")
+	}
+
 	// brisanje s oglasne ploče: samo uz prekidač i samo uprava organizacije;
 	// zadnja verzija živog zapisa se ne briše
 	prva, _ := rec.Record(ctx, baza, "stations", "st-ploca", map[string]any{"name": "Probna"})

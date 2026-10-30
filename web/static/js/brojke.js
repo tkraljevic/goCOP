@@ -1,4 +1,4 @@
-// Brojke podataka na naslovnoj i na prijavi: koliko sustav zna. Brojevi se
+// Brojke podataka na naslovnoj, samo za prijavljene: koliko sustav zna. Brojevi se
 // odbroje od nule pri dolasku — svaki svojim tempom, veći duže — i kad stanu,
 // pločicu prijeđe bljesak. Svake minute stranica ih ponovno pita i odbroji do
 // novih: kako stižu očitanja i izdanja prognoza, tako rastu.

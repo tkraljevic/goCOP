@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"html/template"
+	"log"
 	"net/http"
 	"strings"
 	"sync"
@@ -21,11 +22,13 @@ import (
 // imenik stiže tek sinkronizacijom; osoba koja je program upravo pokrenula
 // mora ga prvo spojiti s uredom. Zato se čarobnjak otvara i bez prijave, ali
 // samo dok je čvor svjež (u bazi nema drugih računa) i samo izravnom
-// klijentu iz lokalne mreže, nikad kroz tunel. Prijavljenom čarobnjak
-// otvara samo globalni administrator s promijenjenom lozinkom, koji ne gleda
-// tuđim očima: potvrda uparivanja na čvoru koji drži ključ mreže prima drugi
-// čvor u mrežu. Osnivanje mreže, opoziv i zaboravljanje čvorova ostaju u
-// postavkama.
+// klijentu iz lokalne mreže, nikad kroz tunel. Bez prijave se računala samo
+// upare: u mrežu drugo računalo prima samo prijavljeni administrator, a
+// čvor koji drži ključ mreže ili ovlast za primanje čarobnjak bez prijave
+// ne otvara. Prijavljenom čarobnjak otvara samo globalni administrator s
+// promijenjenom lozinkom, koji ne gleda tuđim očima: njegova potvrda
+// uparivanja na čvoru koji drži ključ mreže prima drugi čvor u mrežu.
+// Osnivanje mreže, opoziv i zaboravljanje čvorova ostaju u postavkama.
 
 type PairHandler struct {
 	peers *peers.Service
@@ -41,6 +44,11 @@ type PairHandler struct {
 	svjezBio   bool
 	svjezKad   time.Time
 	brojiRacun func() (int, error) // broj računa; zadano iz registra djelatnika
+
+	// primaClanove javlja drži li čvor ključ mreže ili ovlast za primanje
+	primaClanove func() bool
+	// potvrdi prenosi odluku o kodu uparivanja; zadano razmjena čvorova
+	potvrdi func(ctx context.Context, approved, primi bool) (peers.PairOutcome, error)
 }
 
 // svjezRok je koliko dugo vrijedi odgovor "čvor je svjež"
@@ -51,6 +59,13 @@ func NewPairHandler(peersSvc *peers.Service, auth *service.AuthService, users *s
 	h.brojiRacun = func() (int, error) {
 		list, err := h.users.ListUsers("", 0, "", "", "")
 		return len(list), err
+	}
+	h.primaClanove = func() bool {
+		n := h.peers.NetworkInfo()
+		return n != nil && n.CanAdmit
+	}
+	h.potvrdi = func(ctx context.Context, approved, primi bool) (peers.PairOutcome, error) {
+		return h.peers.ConfirmPair(ctx, approved, primi)
 	}
 	return h
 }
@@ -79,6 +94,14 @@ func (h *PairHandler) Fresh() bool {
 	}
 	h.svjezBio, h.svjezKad = svjez, time.Now()
 	return svjez
+}
+
+// bezPrijave javlja smije li se uparivati bez prijave: čvor je svjež i ne
+// drži ključ mreže ni ovlast za primanje. Takav ključ čvor dobije tek od
+// administratora (osnivanje mreže, primanje s ovlašću), pa ga od tada vodi
+// samo prijavljeni administrator.
+func (h *PairHandler) bezPrijave() bool {
+	return h.Fresh() && (h.primaClanove == nil || !h.primaClanove())
 }
 
 // sessionView vraća prijavu iz kolačića, ili nil bez valjane sesije
@@ -126,7 +149,7 @@ func (h *PairHandler) Gate(next http.Handler) http.Handler {
 		switch {
 		case smijeUparivati(view):
 			o.korisnik = view.RealUser
-		case klijentIz(r).IzLokalneMreze() && h.Fresh():
+		case klijentIz(r).IzLokalneMreze() && h.bezPrijave():
 			// svjež čvor, klijent iz lokalne mreže: bez prijave
 		default:
 			h.odbij(w, r, view)
@@ -194,7 +217,7 @@ func (h *PairHandler) ShowWizard(w http.ResponseWriter, r *http.Request) {
 // --- API čarobnjaka: isto što i administratorske radnje u postavkama ---
 
 func (h *PairHandler) HandleStatus(w http.ResponseWriter, r *http.Request) {
-	st := h.peers.PairStatus()
+	st := stanjeUparivanja(r, h.peers.PairStatus())
 	writeJSON(w, map[string]any{
 		"waiting": st.Waiting, "pending": st.Pending, "sas": st.SAS, "peer": st.Peer, "peer_host": st.PeerHost, "error": st.Error,
 		"in_network": h.peers.NetworkInfo() != nil, "fresh": h.Fresh(),
@@ -227,10 +250,61 @@ func (h *PairHandler) HandleDial(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.peers.DialPair(r.Context(), strings.TrimSpace(req.Addr)); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, porukaPoziva(r, err), http.StatusBadRequest)
 		return
 	}
 	h.HandleStatus(w, r)
+}
+
+// Greške veze s drugim računalom nose adrese iz lokalne mreže. Iz lokalne
+// mreže pokazuju se cijele, a izvana opća poruka; cijela greška tada ide u
+// dnevnik programa.
+const (
+	opcaPorukaPoziva     = "Veza s tim računalom nije uspostavljena. Provjerite adresu ili pokrenite uparivanje s računala u lokalnoj mreži."
+	opcaPorukaRazmjene   = "Veza s tim računalom nije uspostavljena. Pojedinosti su u dnevniku programa."
+	opcaPorukaCekanja    = "Uparivanje nije uspjelo. Pojedinosti vidi administrator s računala u lokalnoj mreži."
+	oznakaGreskeBiljeske = "greška: "
+)
+
+// porukaPoziva je odgovor na neuspio poziv drugog računala
+func porukaPoziva(r *http.Request, err error) string {
+	return porukaVeze(r, err, opcaPorukaPoziva)
+}
+
+// porukaVeze je cijela greška za klijenta iz lokalne mreže, a opća poruka
+// za klijenta izvana
+func porukaVeze(r *http.Request, err error, opca string) string {
+	if !klijentIz(r).Izvana() {
+		return err.Error()
+	}
+	log.Printf("veza s drugim računalom, zahtjev izvana: %q", err.Error())
+	return opca
+}
+
+// rezultatiRazmjene su bilješke razmjene po računalu; izvana grešku
+// zamijeni opća poruka
+func rezultatiRazmjene(r *http.Request, rez map[string]string) map[string]string {
+	if !klijentIz(r).Izvana() {
+		return rez
+	}
+	out := make(map[string]string, len(rez))
+	for cvor, biljeska := range rez {
+		if strings.HasPrefix(biljeska, oznakaGreskeBiljeske) {
+			log.Printf("razmjena s %s, zahtjev izvana: %q", cvor, biljeska)
+			biljeska = oznakaGreskeBiljeske + opcaPorukaRazmjene
+		}
+		out[cvor] = biljeska
+	}
+	return out
+}
+
+// stanjeUparivanja je stanje uparivanja za klijenta; izvana grešku čekanja
+// zamijeni opća poruka
+func stanjeUparivanja(r *http.Request, st peers.PairStatus) peers.PairStatus {
+	if st.Error != "" && klijentIz(r).Izvana() {
+		st.Error = opcaPorukaCekanja
+	}
+	return st
 }
 
 func (h *PairHandler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
@@ -241,10 +315,10 @@ func (h *PairHandler) HandleConfirm(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	// u mrežu prima samo onaj koga je Gate pustio; bez toga čvor ostaje uparen,
-	// ali ne i član
-	_, primi := ovlastIz(r)
-	outcome, err := h.peers.ConfirmPair(r.Context(), req.Approved, primi)
+	// u mrežu prima samo prijavljeni administrator; bez prijave drugi čvor
+	// ostaje uparen, ali ne postaje član
+	o, _ := ovlastIz(r)
+	outcome, err := h.potvrdi(r.Context(), req.Approved, o.korisnik != nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -269,6 +343,6 @@ func (h *PairHandler) HandleDiscover(w http.ResponseWriter, r *http.Request) {
 func (h *PairHandler) HandleSync(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := contextWithTimeout(r, 120*time.Second)
 	defer cancel()
-	results := h.peers.SyncAll(ctx)
+	results := rezultatiRazmjene(r, h.peers.SyncAll(ctx))
 	writeJSON(w, map[string]any{"success": true, "results": results, "fresh": h.Fresh()})
 }

@@ -269,7 +269,13 @@ nepouzdano.
   lozinke gasi ostale sesije te osobe na tom čvoru.
 - Zaključavanje nakon krivih lozinki: isto ime s iste adrese 5 puta u
   15 minuta, ista adresa 20 puta u 15 minuta, a izvana isto ime 30 puta na
-  sat. Brojači su u memoriji i nestaju s ponovnim pokretanjem.
+  sat. Izvana se IPv6 adrese broje po mreži /64, osim na Tailscaleu.
+  Javna IPv6 adresa vrijedi kao izvana i kad je računalo u istoj lokalnoj
+  mreži, pa se takva mreža u uredu broji kao jedna adresa. Uz isključen
+  `[web] tailscale_lokalno` zahtjev preko Tailscalea je izvana i broji se
+  i ime. Svaki zahtjev sa zaglavljem posrednika broji se odvojeno od iste
+  adrese kad zahtjev stigne izravno. Brojači su u memoriji i nestaju s
+  ponovnim pokretanjem.
 - **Početni račun** `admin` s lozinkom `gocop2026` nastaje pri prvom
   pokretanju i traži promjenu lozinke. Ta lozinka piše u dokumentaciji, pa
   je čvor prima samo iz lokalne mreže: s ovog računala ili s privatne

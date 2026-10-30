@@ -114,6 +114,9 @@ type FiltarZida struct {
 	Od, Do time.Time
 	Prije  string // listanje unatrag: verzije starije od ove
 	Limit  int
+	// Skriveni su moduli zida koje račun ne vidi (SkriveniModuliZida); nil
+	// ne skriva ništa
+	Skriveni []string
 }
 
 // ZidService čita knjigu i opisuje promjene
@@ -161,6 +164,44 @@ var entitetiModula = map[string][]string{
 	ModulRegistar:  {repository.EntitySections, repository.EntityMtsSkladista, repository.EntityStations, repository.EntityStructures},
 }
 
+// modulPrograma je modul programa koji nosi modul zida; obrana nije ni u
+// jednom, pa je vide svi
+var modulPrograma = map[string]string{
+	ModulDnevnik: models.ModuleJournals, ModulDezurstva: models.ModuleJournals, ModulIzvjesca: models.ModuleJournals,
+	ModulSredstva: models.ModuleRegisters, ModulRegistar: models.ModuleRegisters,
+	ModulOcitanja: models.ModuleReadings, ModulPrijave: models.ModuleField,
+}
+
+// SkriveniModuliZida su moduli zida čiji modul programa račun ne vidi:
+// događaj sa sredstvima tako ne vidi tko ne vidi ni stranicu sredstava
+func SkriveniModuliZida(vidi func(modul string) bool) []string {
+	var out []string
+	for _, m := range ModuliZida {
+		if mp, ok := modulPrograma[m.ID]; ok && !vidi(mp) {
+			out = append(out, m.ID)
+		}
+	}
+	return out
+}
+
+// entitetiZida su entiteti knjige koje zid čita uz filtar, bez skrivenih
+// modula
+func entitetiZida(f FiltarZida) []string {
+	if f.Modul != "" {
+		if slices.Contains(f.Skriveni, f.Modul) {
+			return nil
+		}
+		return entitetiModula[f.Modul]
+	}
+	var out []string
+	for _, m := range ModuliZida {
+		if !slices.Contains(f.Skriveni, m.ID) {
+			out = append(out, entitetiModula[m.ID]...)
+		}
+	}
+	return out
+}
+
 func modulEntiteta(entity string) string {
 	for m, es := range entitetiModula {
 		for _, e := range es {
@@ -178,14 +219,7 @@ func (s *ZidService) Zadnji(ctx context.Context, perms *models.UserPermissions, 
 	if f.Limit <= 0 {
 		f.Limit = 50
 	}
-	var entiteti []string
-	if f.Modul != "" {
-		entiteti = entitetiModula[f.Modul]
-	} else {
-		for _, m := range ModuliZida {
-			entiteti = append(entiteti, entitetiModula[m.ID]...)
-		}
-	}
+	entiteti := entitetiZida(f)
 	podrucja := s.podrucjaPoSektoru()
 	c := &opisivac{s: s, ctx: ctx, journali: map[string]*models.Journal{}, dionice: map[string]*models.Section{},
 		vrste: map[string]*models.VrstaSredstva{}, skladista: map[string]*models.Skladiste{}, imena: map[string]string{}, postaje: map[string]*models.Station{},

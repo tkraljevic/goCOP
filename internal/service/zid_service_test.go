@@ -131,4 +131,33 @@ func TestZidIzKnjige(t *testing.T) {
 	if st[0].Mirno() {
 		t.Error("otvoren dnevnik i sredstva na terenu, a stanje kaže mirno")
 	}
+
+	// račun bez Registara ne vidi sredstva ni registar, ni kad ih traži
+	// filtrom; dnevnik i dalje vidi
+	bezRegistara := SkriveniModuliZida(func(m string) bool { return m != models.ModuleRegisters })
+	if strings.Join(bezRegistara, ",") != ModulSredstva+","+ModulRegistar {
+		t.Errorf("skriveni moduli bez Registara: %v", bezRegistara)
+	}
+	if svi := SkriveniModuliZida(func(string) bool { return true }); len(svi) != 0 {
+		t.Errorf("račun koji vidi sve module: skriveno %v", svi)
+	}
+	vidljivo, _, err := zid.Zadnji(ctx, uprava, FiltarZida{Skriveni: bezRegistara}) // zadano ograničenje
+	if err != nil {
+		t.Fatal(err)
+	}
+	dnevnik := 0
+	for _, d := range vidljivo {
+		if d.Modul == ModulSredstva || d.Modul == ModulRegistar {
+			t.Errorf("bez Registara zid pokazuje %s: %q", d.Modul, d.Naslov)
+		}
+		if d.Modul == ModulDnevnik {
+			dnevnik++
+		}
+	}
+	if dnevnik == 0 {
+		t.Error("bez Registara zid ne pokazuje ni dnevnik")
+	}
+	if trazeno, _, err := zid.Zadnji(ctx, uprava, FiltarZida{Modul: ModulSredstva, Limit: 50, Skriveni: bezRegistara}); err != nil || len(trazeno) != 0 {
+		t.Errorf("filtar skrivenog modula: %d događaja, %v", len(trazeno), err)
+	}
 }

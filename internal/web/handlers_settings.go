@@ -116,7 +116,7 @@ func (h *SettingsHandler) HandlePairStatus(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
-	writeJSON(w, h.peers.PairStatus())
+	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
 func (h *SettingsHandler) HandlePairListen(w http.ResponseWriter, r *http.Request) {
@@ -128,7 +128,7 @@ func (h *SettingsHandler) HandlePairListen(w http.ResponseWriter, r *http.Reques
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, h.peers.PairStatus())
+	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
 func (h *SettingsHandler) HandlePairStop(w http.ResponseWriter, r *http.Request) {
@@ -137,7 +137,7 @@ func (h *SettingsHandler) HandlePairStop(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	h.peers.StopListening()
-	writeJSON(w, h.peers.PairStatus())
+	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
 func (h *SettingsHandler) HandlePairDial(w http.ResponseWriter, r *http.Request) {
@@ -157,10 +157,10 @@ func (h *SettingsHandler) HandlePairDial(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := h.peers.DialPair(r.Context(), strings.TrimSpace(req.Addr)); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, porukaPoziva(r, err), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, h.peers.PairStatus())
+	writeJSON(w, stanjeUparivanja(r, h.peers.PairStatus()))
 }
 
 func (h *SettingsHandler) HandlePairConfirm(w http.ResponseWriter, r *http.Request) {
@@ -330,12 +330,12 @@ func (h *SettingsHandler) HandleSyncNow(w http.ResponseWriter, r *http.Request) 
 	defer cancel()
 
 	if nodeID == "" || nodeID == "all" {
-		writeJSON(w, map[string]any{"success": true, "results": h.peers.SyncAll(ctx)})
+		writeJSON(w, map[string]any{"success": true, "results": rezultatiRazmjene(r, h.peers.SyncAll(ctx))})
 		return
 	}
 	applied, sent, err := h.peers.SyncWith(ctx, nodeID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
+		http.Error(w, porukaVeze(r, err, opcaPorukaRazmjene), http.StatusBadGateway)
 		return
 	}
 	writeJSON(w, map[string]any{"success": true, "applied": applied, "sent": sent})

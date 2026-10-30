@@ -99,6 +99,8 @@ func grupirajPoDanima(sve []service.Dogadjaj) []DanDogadjaja {
 func (h *DogadjanjaHandler) filtar(r *http.Request, perms *models.UserPermissions) (service.FiltarZida, string, string) {
 	q := r.URL.Query()
 	f := service.FiltarZida{Modul: q.Get("modul"), Sektor: q.Get("sektor"), Osoba: strings.TrimSpace(q.Get("osoba")), Prije: q.Get("prije"), Limit: 100}
+	vis, _ := r.Context().Value(contextKeyModules).(models.Visibility)
+	f.Skriveni = service.SkriveniModuliZida(vis.Sees)
 	f.AreaID, _ = strconv.Atoi(q.Get("podrucje"))
 	od, do := q.Get("od"), q.Get("do")
 	if t, err := time.ParseInLocation("2006-01-02", od, models.Zagreb); err == nil {

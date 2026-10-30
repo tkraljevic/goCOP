@@ -255,7 +255,7 @@
       <li><strong>Teren</strong> — brzi popis vlastitih vodomjernih postaja i hidrotehničkih
         objekata, posebno prilagođen radu na mobitelu i upisu očitanja jednom rukom na terenu.</li>
       <li><strong>Očitanja</strong> — operativni vodostaji: zadnja očitana stanja, stupnjevi
-        i pragovi obrane od poplava, grafikoni kretanja vodostaja i praćene postaje.</li>
+        i pragovi obrane od poplava, grafikoni kretanja vodostaja, praćene postaje i prognoze.</li>
       <li><strong>Dokumentacija</strong> — dnevnici, dežurstva, izvješća, događanja, akti i
         vodočuvarska knjiga.</li>
       <li><strong>Registri</strong> — temeljne evidencije: administrativna organizacija, dionice,
@@ -266,7 +266,8 @@
       <li><strong>Administracija</strong> — postavke čvora, moduli i ovlasti, nazivi i održavanje
         baze.</li>
     </ul>
-    <p>Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
+    <p>Prognoze, izvješća, sredstva za obranu i popis firmi ne otvaraju se bez svog modula ni
+      izravnom adresom, ni njihov izvoz u Excel ili CSV. Ako neku karticu ne vidite, to znači da je vaša uloga u sustavu ne koristi. Ako vam je
       pojedini modul potreban za rad, ovlasti uređuje administrator pod <em>Administracija → Moduli
       i ovlasti</em>.</p>
 
@@ -303,14 +304,15 @@
       dežurstva, akti i izvješća. Bez otvorenog dnevnika sektor je u <strong>preventivnoj
       obrani</strong>. Uz sektor stoje najviši proglašeni stupanj i broj dionica u obrani,
       otvoreni dnevnik COP-a (otvara se pritiskom) s dežurnim, današnja izvješća dionica i
-      sredstva na terenu.</p>
+      sredstva na terenu. Izvješća stoje samo uz modul Dokumentacija, a sredstva samo uz modul
+      Registri.</p>
 
     <h3 id="dashboard-brojke">Podaci u sustavu</h3>
     <p>Ispod sektora stoje brojke o tome koliko program zna: zapisi u arhivi i zauzeće diska,
       godine povijesti, letve, satni i dnevni vodostaji, protoci, oborina, izdane i unatrag
       provjerene prognoze, očitanja i profili korita, uz arhivu po desetljećima i najviše
       izmjerene vodostaje na Dunavu i Dravi. Brojke su izbrojene, ne procijenjene, i rastu dok je
-      stranica otvorena. Iste brojke stoje i na stranici prijave.</p>
+      stranica otvorena. Vide ih samo prijavljeni.</p>
 
     <h3 id="dashboard-razmjena">Razmjena s čvorovima</h3>
     <p>Pločica pokazuje s kojim se čvorovima ovo računalo usklađuje, kada je bila zadnja
@@ -363,6 +365,9 @@
       <em>Izvješća</em>, <em>Prijave s terena</em>, <em>Sredstva</em>, <em>Očitanja</em>,
       <em>Registri</em>) suze ga na jedan modul. Cijela kronologija s filtrima i Excel izvozom
       nalazi se pod <em>Dokumentacija → Događanja</em>.</p>
+    <p>Na zidu su samo događaji modula koje vidite. Bez Registara na njemu nema sredstava ni
+      registara, a bez Dokumentacije nema dnevnika, dežurstava ni izvješća. Isto vrijedi za
+      izvoz u Excel.</p>
     <p>Prijave s terena na zidu su objava (obavijest, prijava, izvješće ili zahtjev; vrsta
       <em>Prijava</em> je istaknuta) i rješenje, koje zatvara predmet i u naslovu nosi vrstu (npr.
       <em>Riješen zahtjev s terena</em>). Redak prijave vidi samo onaj tko tu
@@ -374,7 +379,8 @@
     <p>Iznad zida stoje i <strong>prečaci</strong> za ono što se u vašoj dužnosti radi svaki dan:
       <em>Dnevnik COP-a</em> i <em>Izvješće sektora</em> za upravu sektora, <em>Novo dnevno
       izvješće</em> za one koji pišu po dionicama i područjima, <em>Skladišta i sredstva</em>,
-      <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>.</p>
+      <em>Teren</em> za terenske djelatnike te uvijek <em>Događanja</em>. Prečac u modul koji ne
+      vidite se ne prikazuje.</p>
   </div>
   {{template "pomocPoglavljeNav" (list "Kako se program koristi" "#pocetak" "Teren" "#teren")}}
 </section>
@@ -1823,7 +1829,9 @@
         čovjek s tog računala pročita telefonom; potvrda se preuzme i pošalje mu natrag.
         Podmetnut zahtjev ili potvrda ne odgovaraju kodu i odbijaju se. Primljeno računalo sinkronizira se sa svim članovima bez
         uparivanja sa svakim: pri spajanju pokaže svoju potvrdu članstva. Svjež čvor bez računa nudi čarobnjak samo iz
-        lokalne mreže, ne kroz javni tunel. Ime čvora u mreži (<code>[node] id</code>) zadaje se
+        lokalne mreže, ne kroz javni tunel. Bez prijave se računalo samo upari: u mrežu ga prima
+        tek prijavljeni globalni administrator. Računalo koje drži ključ mreže ili ovlast za primanje
+        čarobnjak bez prijave ne nudi. Ime čvora u mreži (<code>[node] id</code>) zadaje se
         prije prvog pokretanja i ne mijenja se; uparivanje odbija računalo s imenom koje u mreži
         već ima drugo računalo. Identitet računala je ključ čvora, datoteka <code>node-key</code>
         uz bazu. Svjež čvor ga napravi sam, a čvor čija baza već ima zapise bez njega se ne
