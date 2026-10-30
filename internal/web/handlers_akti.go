@@ -392,11 +392,23 @@ func (h *AktiHandler) ucitaj(w http.ResponseWriter, r *http.Request) (*service.A
 		return nil, nil
 	}
 	a, err := s.Get(r.Context(), r.PathValue("id"))
-	if err != nil || a == nil {
+	// nacrt drugog sektora otvara se kao da ga nema, kao i na popisu
+	perms, _ := r.Context().Value(contextKeyPerms).(*models.UserPermissions)
+	if err != nil || !service.VidiAkt(perms, a) {
 		http.NotFound(w, r)
 		return nil, nil
 	}
 	return s, a
+}
+
+// ovjeraIPonistenje javlja nudi li stranica akta ovjeru (nacrta) i
+// poništenje (ovjerenog akta). Tuđim očima ne nudi ni jedno: oboje se
+// potpisuje na ime osobe.
+func ovjeraIPonistenje(r *http.Request, s *service.AktService, perms *models.UserPermissions, u *models.User, a *models.Akt) (ovjeri, ponisti bool) {
+	if viewing, _ := r.Context().Value(contextKeyViewing).(bool); viewing {
+		return false, false
+	}
+	return !a.Ovjeren() && s.SmijeOvjeriti(perms, a), s.SmijePonistiti(perms, u, a)
 }
 
 // ShowAkt prikazuje akt: tekst kako će stajati na papiru, primatelje i ovjeru
@@ -409,15 +421,15 @@ func (h *AktiHandler) ShowAkt(w http.ResponseWriter, r *http.Request) {
 	data.Akt = a
 	data.Potpis = service.ProvjeriPotpis(a)
 	data.SmijePripremiti = !a.Ovjeren() && s.SmijePripremiti(perms, u, a)
-	if data.SmijePripremiti {
+	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
+	data.SmijeOvjeriti, data.SmijePonistiti = ovjeraIPonistenje(r, s, perms, u, a)
+	if data.SmijeOvjeriti {
+		// sken ovjere učitava samo onaj tko akt smije ovjeriti
 		data.MoguPotpisati = s.MoguPotpisati(a)
 	}
-	data.Slanje = h.slanjeZaStranicu(r, s, perms, u, a)
-	data.SmijeOvjeriti = !a.Ovjeren() && s.SmijeOvjeriti(perms, a)
 	data.SmijeObrisati = !a.Ovjeren() && u != nil && (a.IzradioID == u.ID.String() || s.SmijeOvjeriti(perms, a))
 	data.SmijeUreditiNacrt = !a.Ovjeren() && service.SmijeUreditiNacrt(perms, u, a)
 	data.SmijeObrisatiTrajno = s.SmijeObrisatiTrajno(r.Context(), perms, a)
-	data.SmijePonistiti = s.SmijePonistiti(perms, u, a)
 	h.sukobAkta(r.Context(), s, perms, a, &data)
 	pregledPrimatelja(r.Context(), s, a, &data)
 	for i := range data.Sektori {
@@ -673,11 +685,12 @@ func (h *AktiHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// bez izvornika akt se crta iznova, sa žigom, ali bez skena potpisa
 	sek, area := h.sektorIPodrucje(a)
 	ime := imeDatotekeAkta(a)
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", `inline; filename="`+ime+`"`)
-	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a)))
+	_, _ = w.Write(PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciIspisa(r.Context(), a)))
 }
 
 // IzvoziZaIspis daje PDF nacrta za ispis, vlastoručni potpis i žig

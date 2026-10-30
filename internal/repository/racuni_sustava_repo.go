@@ -25,7 +25,11 @@ type RacunSustava struct {
 	// je račun ispravan. Spremi ga upisuje kako je zadan (nova lozinka ga
 	// briše).
 	NeispravanOd *time.Time
-	UpdatedAt    time.Time
+	// Posluzitelj je otisak poslužitelja e-pošte za koji je lozinka
+	// spremljena (posta.Postavke.Otisak); prazan za druge sustave i zapise
+	// otprije otiska
+	Posluzitelj string
+	UpdatedAt   time.Time
 }
 
 // RacuniSustavaRepository čita i piše račune.
@@ -43,11 +47,11 @@ func (r *RacuniSustavaRepository) Spremi(ctx context.Context, x *RacunSustava) e
 		neispravan = x.NeispravanOd.UTC()
 	}
 	_, err := r.db.ExecContext(ctx,
-		`INSERT INTO racuni_sustava (sustav, korisnik, lozinka, adresa, neispravan_od, updated_at) VALUES (?,?,?,?,?,?)
+		`INSERT INTO racuni_sustava (sustav, korisnik, lozinka, adresa, neispravan_od, posluzitelj, updated_at) VALUES (?,?,?,?,?,?,?)
 		ON CONFLICT(sustav) DO UPDATE SET korisnik = excluded.korisnik,
 			lozinka = excluded.lozinka, adresa = excluded.adresa,
-			neispravan_od = excluded.neispravan_od, updated_at = excluded.updated_at`,
-		strings.TrimSpace(x.Sustav), strings.TrimSpace(x.Korisnik), x.Lozinka, strings.TrimSpace(x.Adresa), neispravan, time.Now())
+			neispravan_od = excluded.neispravan_od, posluzitelj = excluded.posluzitelj, updated_at = excluded.updated_at`,
+		strings.TrimSpace(x.Sustav), strings.TrimSpace(x.Korisnik), x.Lozinka, strings.TrimSpace(x.Adresa), neispravan, x.Posluzitelj, time.Now())
 	return err
 }
 
@@ -56,8 +60,8 @@ func (r *RacuniSustavaRepository) Racun(ctx context.Context, sustav string) (*Ra
 	var x RacunSustava
 	var neispravan sql.NullTime
 	err := r.db.QueryRowContext(ctx,
-		`SELECT sustav, korisnik, lozinka, adresa, neispravan_od, updated_at FROM racuni_sustava WHERE sustav = ?`,
-		strings.TrimSpace(sustav)).Scan(&x.Sustav, &x.Korisnik, &x.Lozinka, &x.Adresa, &neispravan, &x.UpdatedAt)
+		`SELECT sustav, korisnik, lozinka, adresa, neispravan_od, posluzitelj, updated_at FROM racuni_sustava WHERE sustav = ?`,
+		strings.TrimSpace(sustav)).Scan(&x.Sustav, &x.Korisnik, &x.Lozinka, &x.Adresa, &neispravan, &x.Posluzitelj, &x.UpdatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -78,6 +82,13 @@ func (r *RacuniSustavaRepository) OznaciNeispravan(ctx context.Context, sustav s
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE racuni_sustava SET neispravan_od = ? WHERE sustav = ? AND neispravan_od IS NULL`,
 		kad.UTC(), strings.TrimSpace(sustav))
+	return err
+}
+
+// VeziPosluzitelju upisuje otisak poslužitelja računu koji ga još nema
+// (spremljen prije otiska); račun s otiskom ne dira
+func (r *RacuniSustavaRepository) VeziPosluzitelju(ctx context.Context, sustav, otisak string) error {
+	_, err := r.db.ExecContext(ctx, `UPDATE racuni_sustava SET posluzitelj = ? WHERE sustav = ? AND posluzitelj = ''`, otisak, strings.TrimSpace(sustav))
 	return err
 }
 

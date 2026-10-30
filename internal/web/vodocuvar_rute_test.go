@@ -6,6 +6,9 @@ import (
 	"crypto/ed25519"
 	"encoding/json"
 	"html/template"
+	"image"
+	"image/color"
+	"image/png"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -113,6 +116,11 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 		t.Fatal(err)
 	}
 	h.SetPotpis(func() *service.PotpisService { return potpisi })
+	// svatko ima sken vlastoručnog potpisa; ide samo u izvornik, pri potpisu
+	h.SetPotpisSlika(func(_ context.Context, userID string) *models.PotpisSlika {
+		return &models.PotpisSlika{UserID: userID, Mime: "image/png", Slika: probniSkenPotpisa(t)}
+	})
+	slika := []byte("/Subtype /Image")
 	simulacija := false
 	h.SetOpcije(func(context.Context) models.Opcije {
 		return models.Opcije{SimulacijaKljuca: simulacija, UpisTudjimOcima: true}
@@ -286,6 +294,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if l := loc(zovi(ivic, http.MethodPost, "/vodocuvar/"+id+"/radnja", url.Values{"radnja": {"ovjeri"}})); !strings.Contains(l, "error") {
 		t.Error("rukovoditelj dionice ne ovjerava list")
 	}
+	// izvornik predaje nosi sken potpisa vodočuvara
+	if n := bytes.Count(mustIzvornik(t, vod, kao(anic), id), slika); n != 1 {
+		t.Errorf("izvornik predaje mora nositi sken potpisa vodočuvara, slika: %d", n)
+	}
 	// izvornik predaje: jedan valjan potpis vodočuvara, preko cijelog dokumenta
 	if ps := potpisi.Provjeri(ctx, mustIzvornik(t, vod, kao(anic), id)); len(ps) != 1 || !ps[0].Valjan || !ps[0].Cijeli || ps[0].Ime != "Marko Markić (mmarkic)" || !strings.Contains(ps[0].Razlog, "Predaja") {
 		t.Fatalf("potpis predaje: %+v", ps)
@@ -337,6 +349,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	}
 	if tk := pdfTekst(t, knjiga.Body.Bytes()); !strings.Contains(tk, "VODOČUVARSKI DNEVNIK") || !strings.Contains(tk, "Marko Markić") {
 		t.Errorf("knjiga bez naslovnice: %.300s", tk)
+	}
+	// knjiga se crta iznova, pa ne nosi skenove potpisa, iako je list potpisan
+	if n := bytes.Count(knjiga.Body.Bytes(), slika); n != 0 {
+		t.Errorf("knjiga nosi sken potpisa, slika: %d", n)
 	}
 	stranac := &models.User{ID: uuid.New(), Username: "stranac", FullName: "Netko Drugi", IsActive: true}
 	if err := userRepo.CreateUser(stranac, nil); err != nil {
@@ -442,6 +458,10 @@ func TestVodocuvarskiDnevnikKrozRute(t *testing.T) {
 	if ps := potpisi.Provjeri(ctx, sim); len(ps) != 2 || !ps[1].Simulacija || !ps[1].Valjan || !ps[0].Valjan {
 		t.Fatalf("potpisi nakon ovjere simulacijom: %+v", ps)
 	}
+	// uz simulirani ključ, tuđim očima, pravi sken potpisa ne ulazi u izvornik
+	if n := bytes.Count(sim, slika); n != 0 {
+		t.Errorf("izvornik sa simuliranim potpisom nosi pravi sken, slika: %d", n)
+	}
 	simulacija = false
 	if os.Getenv("PROBA_PDF") != "" {
 		_ = os.WriteFile(os.Getenv("PROBA_PDF"), sim, 0o644)
@@ -488,4 +508,18 @@ func pdfTekst(t *testing.T, pdf []byte) string {
 	_ = os.WriteFile(put, pdf, 0o644)
 	sirovo, _ := exec.Command("pdftotext", put, "-").Output()
 	return strings.Join(strings.Fields(string(sirovo)), " ")
+}
+
+// probniSkenPotpisa je mala slika PNG kao sken vlastoručnog potpisa
+func probniSkenPotpisa(t *testing.T) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, 240, 60))
+	for x := 0; x < 240; x++ {
+		img.Set(x, 30, color.Black)
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
 }

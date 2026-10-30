@@ -189,6 +189,7 @@ func (o *okolinaVrata) saHydroViewom(t *testing.T, adresa string) {
 			t.Fatal(err)
 		}
 	}
+	o.h.hvAdresa = adresa
 	o.h.SetHidroView(func() *repository.HidroViewRepository { return repo }, func() []byte { return hvKljuc },
 		func(_ context.Context, letva string) string {
 			if letva == "primjerovo" {

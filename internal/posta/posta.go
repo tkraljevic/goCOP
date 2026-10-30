@@ -57,6 +57,25 @@ func (p Postavke) SpremaPoslano() bool { return p.ews() }
 // Podesena javlja je li slanje uključeno
 func (p Postavke) Podesena() bool { return strings.TrimSpace(p.Posluzitelj) != "" }
 
+// Otisak opisuje poslužitelj kojem program predaje lozinku: način, adresa,
+// port, zaštita veze (SMTP) i domena. Spremljena lozinka vezana je uz otisak
+// i ne šalje se poslužitelju s drugim otiskom. Prazan je kad pošta nije
+// podešena.
+func (p Postavke) Otisak() string {
+	if !p.Podesena() {
+		return ""
+	}
+	domena := strings.ToLower(strings.TrimSpace(p.Domena))
+	if p.ews() {
+		return NacinEWS + "|" + strings.ToLower(p.ewsURL()) + "|" + domena
+	}
+	zastita := STARTTLS
+	if p.Sigurnost == TLS {
+		zastita = TLS
+	}
+	return fmt.Sprintf("%s|%s|%d|%s|%s", NacinSMTP, strings.ToLower(strings.TrimSpace(p.Posluzitelj)), p.port(), zastita, domena)
+}
+
 func (p Postavke) port() int {
 	if p.Port > 0 {
 		return p.Port

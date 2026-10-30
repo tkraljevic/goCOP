@@ -695,4 +695,14 @@ func TestStranicaPosteSklopkaIStanjePosiljatelja(t *testing.T) {
 	if !strings.Contains(b.String(), `id="pin-bez-posiljatelja"`) {
 		t.Fatal("uzbuna o pošiljatelju mora stajati i na ulaznoj stranici administracije")
 	}
+	// račun upisan za drugi poslužitelj e-pošte: stranica kaže točan razlog
+	o.postar.greska = nil
+	o.posalji(ja, http.MethodPost, "/administracija/posta/pin", url.Values{"radnja": {"spremi"}, "korisnik": {"pinpost"}, "lozinka": {"domena-1"}, "adresa": {"pin.post@voda.hr"}})
+	if _, err := o.baza.Exec(`UPDATE racuni_sustava SET posluzitelj = 'ews|https://drugi.test/ews/exchange.asmx|'`); err != nil {
+		t.Fatal(err)
+	}
+	s = stranica()
+	if !strings.Contains(s, `id="pin-drugi-posluzitelj"`) || !strings.Contains(s, "Račun je upisan za drugi poslužitelj e-pošte") || strings.Contains(s, "Poslužitelj e-pošte nije podešen.") {
+		t.Fatal("račun za drugi poslužitelj: stranica mora reći da je upisan za drugi poslužitelj")
+	}
 }

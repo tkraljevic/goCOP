@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"gocop/internal/db"
+	"gocop/internal/hidroview"
 	"gocop/internal/models"
 	"gocop/internal/posta"
 	"gocop/internal/repository"
@@ -234,8 +235,10 @@ func TestRacunZaHydroView(t *testing.T) {
 	for _, s := range []struct {
 		letva, korisnik, lozinka, adresa string
 	}{
-		{"primjerovo", "primjerovo", "lozinka-letve", "https://primjerovo.primjer.test"},
-		{"trecevo", "cvor", "lozinka-cvora", "https://hv.primjer.test"},
+		// adresa spremljena uz račun se ne koristi: povijest se uvijek
+		// preuzima sa sustava Hrvatskih voda
+		{"primjerovo", "primjerovo", "lozinka-letve", hidroview.ZadanaAdresa},
+		{"trecevo", "cvor", "lozinka-cvora", hidroview.ZadanaAdresa},
 	} {
 		k, l, a, err := h.racunHV(ctx, s.letva)
 		if err != nil || k != s.korisnik || l != s.lozinka || a != s.adresa {

@@ -51,22 +51,16 @@ func (h *VodocuvarHandler) SetPotpisSlika(f func(ctx context.Context, userID str
 	h.potpisSlika = f
 }
 
-// otisci skuplja skenirane potpise svih koji su listove potpisali
-func (h *VodocuvarHandler) otisci(ctx context.Context, listovi ...*models.VodocuvarskiList) models.OtisciLista {
+// otisakPotpisnika je sken potpisa osobe koja list upravo potpisuje, za
+// izvornik: sken ide samo u izvornik, u trenutku potpisa, a ispisi i knjiga
+// crtaju se bez njega. Tuđim očima i uz simulirani ključ sken se ne crta.
+func (h *VodocuvarHandler) otisakPotpisnika(ctx context.Context, userID string, p *potpis.Potpisnik) models.OtisciLista {
 	o := models.OtisciLista{}
-	if h.potpisSlika == nil {
+	viewing, _ := ctx.Value(contextKeyViewing).(bool)
+	if h.potpisSlika == nil || userID == "" || viewing || (p != nil && p.Simulacija) {
 		return o
 	}
-	for _, l := range listovi {
-		for _, id := range []string{l.UserID, l.PotvrdioID} {
-			if id == "" {
-				continue
-			}
-			if _, ima := o[id]; !ima {
-				o[id] = h.potpisSlika(ctx, id)
-			}
-		}
-	}
+	o[userID] = h.potpisSlika(ctx, userID)
 	return o
 }
 
@@ -663,9 +657,10 @@ func (h *VodocuvarHandler) IzvoziPDF(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write(iz.PDF)
 		return
 	}
+	// bez izvornika list se crta iznova, bez skena potpisa
 	pr := PrilogListaPDF{Slike: h.priloziLista(r.Context(), s, l)}
 	pr.Karte, pr.Zasluge = h.karteObuhvata(r.Context(), s, l)
-	_, _ = w.Write(PDFListaSPrilozima(l, models.Terms(), area, h.otisci(r.Context(), l), pr))
+	_, _ = w.Write(PDFListaSPrilozima(l, models.Terms(), area, models.OtisciLista{}, pr))
 }
 
 // IzvoziKnjigu daje cijelu godišnju knjigu vodočuvara kao PDF
@@ -712,7 +707,8 @@ func (h *VodocuvarHandler) IzvoziKnjigu(w http.ResponseWriter, r *http.Request) 
 			prilozi[id] = b
 		}
 	}
-	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area, h.otisci(r.Context(), pok...), prilozi))
+	// knjiga se crta iznova, bez skena potpisa (sken je samo u izvornicima listova)
+	_, _ = w.Write(PDFVodocuvarskaKnjiga(listovi, ime, godina, models.Terms(), area, models.OtisciLista{}, prilozi))
 }
 
 // GeokodJSON nalazi koordinate za adresu ili mjesto (obrazac područja)

@@ -1689,9 +1689,10 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler {
 			log.Printf("upis tuđim očima: %s piše kao %s (%s %s)", view.RealUser.Username, view.User.Username, r.Method, r.URL.Path)
 		}
 		// Tuđi sandučić je tuđa pošta: ni tuđim očima se ne otvara, ni samo
-		// za čitanje (otvoreno pismo označi se pročitanim na poslužitelju)
-		if view.Viewing && tudjaPosta(r.URL.Path) {
-			http.Error(w, "Tuđi sandučić e-pošte ne otvara se ni tuđim očima. Vrati se sebi pa otvori svoj.", http.StatusForbidden)
+		// za čitanje (otvoreno pismo označi se pročitanim na poslužitelju).
+		// Isto vrijedi za tuđi potpis e-pošte i sken vlastoručnog potpisa.
+		if poruka := zatvorenoTudjimOcima(r.URL.Path); view.Viewing && poruka != "" {
+			http.Error(w, poruka, http.StatusForbidden)
 			return
 		}
 		if view.Viewing {
@@ -1793,8 +1794,23 @@ func samoPodPutanjom(path, prefix string) bool {
 	return path == prefix || strings.HasPrefix(path, prefix+"/")
 }
 
-// readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:
-// samo čitanje, i izlaz iz pregleda natrag k sebi.
+// zatvorenoTudjimOcima je poruka za putanju koja se tuđim očima ne otvara
+// ni samo za čitanje; prazno kad se otvara
+func zatvorenoTudjimOcima(putanja string) string {
+	if tudjaPosta(putanja) {
+		return "Tuđi sandučić e-pošte ne otvara se ni tuđim očima. Vrati se sebi pa otvori svoj."
+	}
+	if tudjiPotpis(putanja) {
+		return "Tuđi potpis e-pošte i sken vlastoručnog potpisa ne otvaraju se ni ne mijenjaju tuđim očima. Vrati se sebi pa otvori svoj."
+	}
+	return ""
+}
+
+// tudjiPotpis: potpis e-pošte i sken vlastoručnog potpisa osobe
+func tudjiPotpis(putanja string) bool {
+	return putanja == "/profile/potpis" || putanja == "/profile/potpis-slika"
+}
+
 // tudjaPosta: putanje osobnog sandučića i spremljene lozinke e-pošte
 func tudjaPosta(putanja string) bool {
 	if putanja == "/posta/logo.png" {
@@ -1803,6 +1819,8 @@ func tudjaPosta(putanja string) bool {
 	return putanja == "/posta" || strings.HasPrefix(putanja, "/posta/") || putanja == "/profile/posta"
 }
 
+// readOnlyRequest javlja smije li zahtjev proći dok se gleda tuđim očima:
+// samo čitanje, i izlaz iz pregleda natrag k sebi.
 func readOnlyRequest(r *http.Request) bool {
 	switch r.Method {
 	case http.MethodGet, http.MethodHead, http.MethodOptions:

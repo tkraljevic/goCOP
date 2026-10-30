@@ -78,7 +78,9 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 	ana := &models.User{ID: uuid.New(), Username: "aanic", FullName: "Ana Anić", IsGlobalAdmin: true, IsActive: true,
 		Duties: []models.Duty{{Title: "Dežurni operater u COP-u", Role: models.RoleOperator, ScopeType: models.ScopeSector, SectorID: &sektorCOPa, IsActive: true}}}
 	perms := &models.UserPermissions{IsGlobalAdmin: true, User: *ana}
+	// Marko radi u sektoru B bez prava pisanja: nacrt vidi, ali s njim ne radi
 	marko := &models.User{ID: uuid.New(), Username: "mmarkic", FullName: "Marko Markić", IsActive: true}
+	markoOvl := &models.UserPermissions{User: *marko, SektoriDuznosti: map[string]bool{"B": true}}
 
 	templatesFS, _ := fs.Sub(webassets.Files, "templates")
 	tmpl := func(stranica string) *template.Template {
@@ -135,9 +137,13 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 		"Sken nosi popis primatelja s ispisa, uz upozorenje koje i dalje stoji: svejedno ovjeravam")
 	vidjela := otisakSaStranice(t, nacrt)
 	// tko s nacrtom ne radi, vidi upozorenje, ali ne i radnje
-	if w := zovi(marko, models.NewUserPermissions(*marko), http.MethodGet, "/akti/"+a.ID, nil).Body.String(); !strings.Contains(w, "Popis primatelja u nacrtu nije potpun") ||
+	if w := zovi(marko, markoOvl, http.MethodGet, "/akti/"+a.ID, nil).Body.String(); !strings.Contains(w, "Popis primatelja u nacrtu nije potpun") ||
 		strings.Contains(w, "Ponovno složi primatelje") || strings.Contains(w, `name="otisak"`) {
 		t.Error("nacrt onome tko s njim ne radi: upozorenje da, radnje ne")
+	}
+	// nacrt ne otvara tko ne radi u sektoru akta (Odluke (30. 10. 2026.), 12)
+	if w := zovi(marko, models.NewUserPermissions(*marko), http.MethodGet, "/akti/"+a.ID, nil); w.Code != http.StatusNotFound {
+		t.Errorf("nacrt drugog sektora: %d", w.Code)
 	}
 
 	// ovjera bez otiska (stranica nije otvorena) i bez kvačice ne prolazi
@@ -163,7 +169,7 @@ func TestPrimateljiNacrtaKrozRute(t *testing.T) {
 	}
 
 	// „Ponovno složi primatelje”: smije tko radi s nacrtom
-	if l := zovi(marko, models.NewUserPermissions(*marko), http.MethodPost, "/akti/"+a.ID+"/slozi-primatelje", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
+	if l := zovi(marko, markoOvl, http.MethodPost, "/akti/"+a.ID+"/slozi-primatelje", url.Values{}).Header().Get("Location"); !strings.Contains(l, "error=") {
 		t.Errorf("slaganje bez ovlasti: %s", l)
 	}
 	if l := mustUnescape(zovi(ana, perms, http.MethodPost, "/akti/"+a.ID+"/slozi-primatelje", url.Values{}).Header().Get("Location")); !strings.Contains(l, "ponovno je složen") || !strings.Contains(l, "i dalje stoji") {

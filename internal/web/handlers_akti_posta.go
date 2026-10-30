@@ -87,12 +87,7 @@ func (h *AktiHandler) HandleAdminPosta(w http.ResponseWriter, r *http.Request) {
 	p := posta.Postavke{Nacin: r.FormValue("nacin"), Posluzitelj: r.FormValue("posluzitelj"), Port: port,
 		Sigurnost: r.FormValue("sigurnost"), Domena: r.FormValue("domena")}
 	if r.FormValue("radnja") == "ispitaj" {
-		nalaz, err := posta.Ispitaj(r.Context(), p)
-		if err != nil {
-			redirectWith(w, r, "/administracija/posta", "error", "Poslužitelj nije prošao provjeru: "+err.Error())
-			return
-		}
-		redirectWith(w, r, "/administracija/posta", "nalaz", nalaz)
+		ispitajPostu(w, r, s, p)
 		return
 	}
 	if err := s.SpremiPostu(r.Context(), perms, p); err != nil {
@@ -104,6 +99,22 @@ func (h *AktiHandler) HandleAdminPosta(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	redirectWith(w, r, "/administracija/posta", "success", "Slanje e-poštom je isključeno.")
+}
+
+// ispitajPostu ispituje poslužitelj e-pošte bez lozinke. Poslužitelj koji
+// nije spremljen ispituje se kao provjera veze, samo s ovog računala ili iz
+// lokalne mreže; izvana se ispituje samo spremljeni poslužitelj.
+func ispitajPostu(w http.ResponseWriter, r *http.Request, s *service.AktService, p posta.Postavke) {
+	if z := smijeMijenjatiCvor(r); z != nil && p.Otisak() != s.Posta(r.Context()).Otisak() {
+		redirectWith(w, r, "/administracija/posta", "error", z.provjera+" Izvana se ispituje samo spremljeni poslužitelj.")
+		return
+	}
+	nalaz, err := posta.Ispitaj(r.Context(), p)
+	if err != nil {
+		redirectWith(w, r, "/administracija/posta", "error", "Poslužitelj nije prošao provjeru: "+err.Error())
+		return
+	}
+	redirectWith(w, r, "/administracija/posta", "nalaz", nalaz)
 }
 
 // porukaAkta sastavlja predmet i tekst poruke kojom se akt šalje
@@ -185,7 +196,8 @@ func (h *AktiHandler) HandlePosalji(w http.ResponseWriter, r *http.Request) {
 	}
 	sek, area := h.sektorIPodrucje(a)
 	por := porukaAkta(a, sek, u)
-	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciAkta(r.Context(), a))
+	// privitak je izvornik; bez njega akt se crta iznova, bez skena potpisa
+	por.PDF = PDFAktaSaZigom(a, models.Terms(), sek, area, s.OtisciIspisa(r.Context(), a))
 	dodatne := posta.Adrese(r.FormValue("dodatne"))
 	if r.FormValue("dodatne") != "" && len(dodatne) == 0 {
 		redirectWith(w, r, natrag+"#slanje", "error", "Dodatne adrese nisu ispravne: "+r.FormValue("dodatne"))

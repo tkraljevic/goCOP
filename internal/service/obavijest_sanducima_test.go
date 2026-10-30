@@ -21,11 +21,6 @@ func TestObavijestiSanducima(t *testing.T) {
 		t.Fatalf("bez poslužitelja e-pošte: %d, %v", n, err)
 	}
 
-	// prije nego što je poslužitelj zadan, lozinka se sprema bez provjere
-	kriva := o.osoba(t, "kriva", service.AddDutyRequest{})
-	if _, err := o.akti.SpremiRacunPoste(ctx, kriva, `voda.int\kriva`, "Stara-Lozinka"); err != nil {
-		t.Fatal(err)
-	}
 	srv, err := posta.PokreniProbniEWS(`voda.int\vod`, "Domenska-Lozinka-1")
 	if err != nil {
 		t.Fatal(err)
@@ -33,7 +28,10 @@ func TestObavijestiSanducima(t *testing.T) {
 	defer srv.Zatvori()
 	pp := srv.Postavke()
 	pp.Domena = "voda.int"
-	o.akti.SetPosta(pp)
+	// lozinka spremljena dok poslužitelj nije bio dostupan, pa je nije
+	// provjerio; poslužitelj je sad odbija
+	kriva := o.osoba(t, "kriva", service.AddDutyRequest{})
+	o.spremiBezProvjere(t, kriva, `voda.int\kriva`, "Stara-Lozinka", pp)
 	if err := o.akti.SpremiPostu(ctx, o.admin, pp); err != nil {
 		t.Fatal(err)
 	}

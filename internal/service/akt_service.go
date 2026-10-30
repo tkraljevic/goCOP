@@ -623,9 +623,11 @@ func smijeSpremiti(perms *models.UserPermissions, a, postojeci *models.Akt) bool
 // primatelja slaže se pri ovjeri ponovno; dok stoji upozorenje o popisu,
 // ovjera traži potvrdu (Odluke (8. 10. 2026.), pitanje 19), kao i „Vrijedi
 // od” izvan uobičajenog raspona koji nacrt nije potvrdio (pitanje 17).
+// Tuđim očima se akt ne ovjerava (ErrTudjimOcima): izvornik bi nosio pravi
+// sken potpisa osobe koja ga nije ovjerila.
 func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, p PotvrdaOvjere) (*models.Akt, []string, error) {
-	if perms == nil || u == nil {
-		return nil, nil, ErrUnauthorized
+	if err := ovjeraSvojimOcima(ctx, perms, u); err != nil {
+		return nil, nil, err
 	}
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
@@ -647,6 +649,17 @@ func (s *AktService) Ovjeri(ctx context.Context, perms *models.UserPermissions, 
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, perms, u, a, time.Now())
+}
+
+// ovjeraSvojimOcima: akt ovjerava prijavljena osoba svojim očima
+func ovjeraSvojimOcima(ctx context.Context, perms *models.UserPermissions, u *models.User) error {
+	if perms == nil || u == nil {
+		return ErrUnauthorized
+	}
+	if gledaTudjimOcima(ctx) {
+		return ErrTudjimOcima
+	}
+	return nil
 }
 
 // letvaAkta vraća letvu akta iz registra. Akt bez letve, ili s letvom
@@ -850,16 +863,10 @@ func (s *AktService) Storniraj(ctx context.Context, perms *models.UserPermission
 // poništiti, razlog je upisan i nijedan kasniji akt na njegovim dionicama ne
 // stoji na njemu
 func (s *AktService) provjeriStorno(ctx context.Context, perms *models.UserPermissions, u *models.User, a *models.Akt, razlog string) error {
-	switch {
-	case a == nil:
-		return fmt.Errorf("akt ne postoji")
-	case !a.Ovjeren():
-		return fmt.Errorf("poništava se samo ovjeren akt; nacrt se briše")
-	case a.Storniran():
-		return fmt.Errorf("akt %s je već poništen", a.Oznaka())
-	case !s.SmijePonistiti(perms, u, a):
-		return fmt.Errorf("%w: akt poništava onaj tko ga je pripremio ili tko ga smije ovjeriti", ErrUnauthorized)
-	case strings.TrimSpace(razlog) == "":
+	if err := s.smijeStornirati(ctx, perms, u, a); err != nil {
+		return err
+	}
+	if strings.TrimSpace(razlog) == "" {
 		return fmt.Errorf("upišite zašto se akt poništava")
 	}
 	ovjereni, err := s.repo.ListAkti(ctx, repository.FiltarAkata{Sektor: a.Sektor, Status: models.AktOvjeren})
@@ -868,6 +875,26 @@ func (s *AktService) provjeriStorno(ctx context.Context, perms *models.UserPermi
 	}
 	if k, d, ima := models.KasnijiAkt(ovjereni, *a); ima {
 		return fmt.Errorf("na dionici %s poslije njega vrijedi %s %s: najprije se poništava kasniji akt", d, strings.ToLower(k.Naslov()), k.Oznaka())
+	}
+	return nil
+}
+
+// smijeStornirati provjerava akt i osobu za poništenje: akt je ovjeren i
+// još nije poništen, a osoba ga smije poništiti (SmijePonistiti). Tuđim
+// očima se akt ne poništava (ErrTudjimOcima): poništenje se potpisuje na ime
+// osobe, kao i ovjera.
+func (s *AktService) smijeStornirati(ctx context.Context, perms *models.UserPermissions, u *models.User, a *models.Akt) error {
+	switch {
+	case a == nil:
+		return fmt.Errorf("akt ne postoji")
+	case !a.Ovjeren():
+		return fmt.Errorf("poništava se samo ovjeren akt; nacrt se briše")
+	case a.Storniran():
+		return fmt.Errorf("akt %s je već poništen", a.Oznaka())
+	case gledaTudjimOcima(ctx):
+		return ErrTudjimOcima
+	case !s.SmijePonistiti(perms, u, a):
+		return fmt.Errorf("%w: akt poništava onaj tko ga je pripremio ili tko ga smije ovjeriti", ErrUnauthorized)
 	}
 	return nil
 }
@@ -924,11 +951,12 @@ func (s *AktService) potpisiKljucemCvora(a *models.Akt) {
 	a.Potpis = base64.StdEncoding.EncodeToString(ed25519.Sign(s.kljuc, a.PorukaPotpisa()))
 }
 
-// smijePripremiti javlja smije li osoba raditi s nacrtom za ovjeru skenom i
-// slati ovjereni akt: tko ga je sastavio, tko piše na tom području ili
-// sektoru, ili tko ga smije ovjeriti. Ovjera ostaje kakva je bila; nacrt
-// mijenja samo njegov autor dok smije sastavljati (SmijeUreditiNacrt;
-// Odluke (8. 10. 2026.), pitanje 18).
+// smijePripremiti javlja smije li osoba ispisati nacrt za vlastoručni
+// potpis: tko ga je sastavio, tko piše na tom području ili sektoru, ili tko
+// ga smije ovjeriti. Sken ovjere učitava i ovjereni akt šalje samo onaj tko
+// akt smije ovjeriti, a šalje i dežurni operater u COP-u (SmijeSlati;
+// Odluke (11. 10. 2026.)). Nacrt mijenja samo njegov autor dok smije
+// sastavljati (SmijeUreditiNacrt; Odluke (8. 10. 2026.), pitanje 18).
 func (s *AktService) smijePripremiti(perms *models.UserPermissions, u *models.User, a *models.Akt) bool {
 	if perms == nil || u == nil {
 		return false
@@ -1015,10 +1043,11 @@ func (s *AktService) MoguPotpisati(a *models.Akt) []models.User {
 // UcitajSkenirani prima sken ispisa potpisanog vlastoručno i ovjerenog
 // žigom (PDF, JPEG ili PNG) i njime ovjerava akt. Sken se ne može
 // provjeriti strojno, pa onaj tko ga učitava navodi tko je potpisao; to
-// mora biti osoba koja akt smije ovjeriti. Sken postaje izvornik. Sken nosi
+// mora biti osoba koja akt smije ovjeriti. Sken učitava samo onaj tko akt i
+// sam smije ovjeriti (Odluke (11. 10. 2026.)). Sken postaje izvornik. Sken nosi
 // popis primatelja s ispisa nacrta; dok stoji upozorenje o tom popisu ili
 // bi popis složen sada bio drukčiji, ovjera traži potvrdu (Odluke
-// (8. 10. 2026.), pitanje 19).
+// (8. 10. 2026.), pitanje 19). Tuđim očima se sken ne učitava.
 func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPermissions, u *models.User, id string, datoteka []byte, potpisnikID string, p PotvrdaOvjere) (*models.Akt, []string, error) {
 	a, err := s.repo.GetAkt(ctx, id)
 	if err != nil {
@@ -1030,8 +1059,8 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 	if err := s.spremanZaOvjeruSkenom(ctx, a); err != nil {
 		return nil, nil, err
 	}
-	if !s.smijePripremiti(perms, u, a) {
-		return nil, nil, ErrUnauthorized
+	if err := s.smijeUcitatiSken(ctx, perms, u, a); err != nil {
+		return nil, nil, err
 	}
 	pdf, err := pdfSkena(datoteka, a.Naslov())
 	if err != nil {
@@ -1058,6 +1087,18 @@ func (s *AktService) UcitajSkenirani(ctx context.Context, perms *models.UserPerm
 		return nil, nil, err
 	}
 	return s.zakljuciOvjeru(ctx, potpisnikPerms, potpisnik, a, time.Now())
+}
+
+// smijeUcitatiSken: sken ovjere učitava osoba koja akt smije ovjeriti,
+// svojim očima (Odluke (11. 10. 2026.))
+func (s *AktService) smijeUcitatiSken(ctx context.Context, perms *models.UserPermissions, u *models.User, a *models.Akt) error {
+	if gledaTudjimOcima(ctx) {
+		return ErrTudjimOcima
+	}
+	if u == nil || !s.SmijeOvjeriti(perms, a) {
+		return fmt.Errorf("%w: sken ovjere učitava onaj tko akt smije ovjeriti (%s)", ErrUnauthorized, strings.ToLower(a.Potpisnik))
+	}
+	return nil
 }
 
 // pdfSkena je sken kao PDF: PDF kakav jest, a slika (fotografija s
@@ -1216,11 +1257,30 @@ func (s *AktService) List(ctx context.Context, perms *models.UserPermissions, f 
 	}
 	var out []models.Akt
 	for _, a := range akti {
-		if perms.RadiUSektoru(a.Sektor) || perms.RadiUPodrucju(a.AreaID) || perms.AdminSectors[a.Sektor] || perms.AdminAreas[a.AreaID] || vidiDionicu(perms, a) {
+		if radiPoAktu(perms, a) {
 			out = append(out, a)
 		}
 	}
 	return out, nil
+}
+
+// radiPoAktu javlja radi li osoba u sektoru, području ili na dionici akta
+// (isti uvjet kao popis akata)
+func radiPoAktu(perms *models.UserPermissions, a models.Akt) bool {
+	return perms.RadiUSektoru(a.Sektor) || perms.RadiUPodrucju(a.AreaID) || perms.AdminSectors[a.Sektor] || perms.AdminAreas[a.AreaID] || vidiDionicu(perms, a)
+}
+
+// VidiAkt javlja smije li osoba otvoriti akt po adresi: ovjeren akt vidi
+// cijela organizacija, a nacrt samo tko radi u sektoru, području ili na
+// dionici akta, kao na popisu (Odluke (30. 10. 2026.), 12)
+func VidiAkt(perms *models.UserPermissions, a *models.Akt) bool {
+	switch {
+	case a == nil || perms == nil:
+		return false
+	case a.Ovjeren() || perms.IsGlobalAdmin:
+		return true
+	}
+	return radiPoAktu(perms, *a)
 }
 
 func vidiDionicu(perms *models.UserPermissions, a models.Akt) bool {
@@ -1254,10 +1314,11 @@ func (s *AktService) Primatelji(ctx context.Context, sektor string) ([]models.Pr
 	return s.repo.ListPrimatelji(ctx, sektor)
 }
 
-// SpremiPrimatelja upisuje primatelja; smije uprava sektora
+// SpremiPrimatelja upisuje primatelja; smije uprava sektora, a uprava
+// branjenog područja za svoje područje (smijeUpisatiPrimatelja)
 func (s *AktService) SpremiPrimatelja(ctx context.Context, perms *models.UserPermissions, p *models.Primatelj) error {
-	if perms == nil || !perms.CanAdminister(p.Sektor, p.AreaID) {
-		return ErrUnauthorized
+	if err := s.smijeUpisatiPrimatelja(ctx, perms, p); err != nil {
+		return err
 	}
 	p.Naziv = strings.TrimSpace(p.Naziv)
 	if p.Naziv == "" {
@@ -1267,6 +1328,52 @@ func (s *AktService) SpremiPrimatelja(ctx context.Context, perms *models.UserPer
 		p.Skupina = models.SkupinaSluzbe
 	}
 	return s.repo.SavePrimatelj(ctx, p)
+}
+
+// smijeUpisatiPrimatelja: osoba upravlja sektorom ili područjem u koje se
+// primatelj upisuje, područje je u tom sektoru, a postojeći primatelj
+// (po id-u) je i prije bio u njezinoj upravi, kao kod brisanja
+func (s *AktService) smijeUpisatiPrimatelja(ctx context.Context, perms *models.UserPermissions, p *models.Primatelj) error {
+	if perms == nil || !perms.CanAdminister(p.Sektor, p.AreaID) {
+		return ErrUnauthorized
+	}
+	if p.AreaID > 0 && !s.podrucjeUSektoru(p.Sektor, p.AreaID) {
+		return fmt.Errorf("branjeno područje %d nije u sektoru %s", p.AreaID, p.Sektor)
+	}
+	if p.ID == "" {
+		return nil
+	}
+	return s.smijePrepisatiPrimatelja(ctx, perms, p.ID)
+}
+
+// smijePrepisatiPrimatelja: primatelj s tim id-om postoji i osoba upravlja
+// njegovim sektorom ili područjem
+func (s *AktService) smijePrepisatiPrimatelja(ctx context.Context, perms *models.UserPermissions, id string) error {
+	postojeci, err := s.repo.GetPrimatelj(ctx, id)
+	switch {
+	case err != nil:
+		return err
+	case postojeci == nil:
+		return fmt.Errorf("primatelj ne postoji; novi se upisuje bez oznake")
+	case !perms.CanAdminister(postojeci.Sektor, postojeci.AreaID):
+		return ErrUnauthorized
+	}
+	return nil
+}
+
+// podrucjeUSektoru javlja je li branjeno područje u sektoru; područja koja
+// se ne daju pročitati nisu u sektoru
+func (s *AktService) podrucjeUSektoru(sektor string, podrucje int) bool {
+	var podrucja []models.Area
+	if s.users != nil {
+		podrucja, _ = s.users.ListAreas(sektor) // greška: popis je prazan, pa područje nije u sektoru
+	}
+	for _, a := range podrucja {
+		if a.ID == podrucje {
+			return true
+		}
+	}
+	return false
 }
 
 // ObrisiPrimatelja briše primatelja iz registra
@@ -1373,7 +1480,15 @@ func (s *AktService) PotpisSlika(ctx context.Context, userID string) *models.Pot
 	return z
 }
 
-// OtisciAkta skuplja slike za PDF ovjerenog akta: žig sektora i potpis ovjeritelja
+// OtisciIspisa su slike za PDF akta koji se crta iznova (akt bez
+// izvornika, npr. iz ranije evidencije ili s drugog čvora): samo žig
+// sektora. Sken potpisa ovjeritelja ide samo u izvornik, u trenutku ovjere.
+func (s *AktService) OtisciIspisa(ctx context.Context, a *models.Akt) models.OtisciAkta {
+	return models.OtisciAkta{Zig: s.Zig(ctx, a.Sektor)}
+}
+
+// OtisciAkta skuplja slike za izvornik akta pri ovjeri: žig sektora i
+// potpis ovjeritelja
 func (s *AktService) OtisciAkta(ctx context.Context, a *models.Akt) models.OtisciAkta {
 	o := models.OtisciAkta{Zig: s.Zig(ctx, a.Sektor)}
 	if a.Ovjeren() && a.OvjerioID != "" {
@@ -1382,10 +1497,11 @@ func (s *AktService) OtisciAkta(ctx context.Context, a *models.Akt) models.Otisc
 	return o
 }
 
-// SpremiPotpisSliku sprema sken vlastitog potpisa: PNG ili JPEG do 1 MB
+// SpremiPotpisSliku sprema sken vlastitog potpisa: PNG ili JPEG do 1 MB.
+// Tuđim očima se sken ne sprema (ErrTudjimOcima): potpis je osobe same.
 func (s *AktService) SpremiPotpisSliku(ctx context.Context, u *models.User, slika []byte) error {
-	if u == nil {
-		return ErrUnauthorized
+	if err := vlastitiSkenPotpisa(ctx, u); err != nil {
+		return err
 	}
 	if len(slika) == 0 {
 		return fmt.Errorf("odaberite sliku potpisa")
@@ -1425,12 +1541,24 @@ func (s *AktService) SpremiIzvornikPDF(ctx context.Context, a *models.Akt, pdf [
 	return s.repo.SaveIzvornik(ctx, &repository.Izvornik{AktID: a.ID, PDF: pdf, Sazetak: hex.EncodeToString(h[:])})
 }
 
-// ObrisiPotpisSliku briše sken vlastitog potpisa
+// ObrisiPotpisSliku briše sken vlastitog potpisa; tuđim očima ne
 func (s *AktService) ObrisiPotpisSliku(ctx context.Context, u *models.User) error {
+	if err := vlastitiSkenPotpisa(ctx, u); err != nil {
+		return err
+	}
+	return s.repo.DeletePotpisSlika(ctx, u.ID.String())
+}
+
+// vlastitiSkenPotpisa: sken potpisa sprema i uklanja samo prijavljena
+// osoba, svojim očima
+func vlastitiSkenPotpisa(ctx context.Context, u *models.User) error {
 	if u == nil {
 		return ErrUnauthorized
 	}
-	return s.repo.DeletePotpisSlika(ctx, u.ID.String())
+	if gledaTudjimOcima(ctx) {
+		return ErrTudjimOcima
+	}
+	return nil
 }
 
 // ---- opće opcije ----

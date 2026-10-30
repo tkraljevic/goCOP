@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -185,9 +186,16 @@ func TestSlanjeNaZnanjeKrozRute(t *testing.T) {
 	_ = mw.Close()
 	r := httptest.NewRequest(http.MethodPost, "/akti/"+id+"/sken", &tijelo)
 	r.Header.Set("Content-Type", mw.FormDataContentType())
+	// sken ovjere učitava onaj tko akt smije ovjeriti (Odluke
+	// (11. 10. 2026.)); namjerna izmjena testa: za sken je voditelj ujedno
+	// zamjenik rukovoditelja sektora, a akt šalje samo kao voditelj centra
+	duznostiCOPa := perms.User.Duties
+	perms.User.Duties = append(slices.Clone(duznostiCOPa), models.Duty{Title: "Zamjenik rukovoditelja sektora B", Role: models.RoleSectorDeputy,
+		ScopeType: models.ScopeSector, SectorID: &b, IsActive: true})
 	if loc := zovi(r).Header().Get("Location"); !strings.Contains(loc, "success") {
 		t.Fatalf("sken: %s", mustUnescape(loc))
 	}
+	perms.User.Duties = duznostiCOPa
 	a, _ := akti.Get(ctx, id)
 	a.Primatelji = []models.AktPrimatelj{
 		{Naziv: "PU osječko-baranjska", Email: "osjecko-baranjska@policija.hr", Skupina: "MUP"},

@@ -43,7 +43,6 @@
                placeholder="{{if .Korisnik}}upisana — ostavi prazno da ostane{{else}}lozinka za taj sustav{{end}}">
       </div>
     </div>
-    <input type="hidden" name="hidroview_adresa" value="{{.Adresa}}">
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{{icon "check"}} Spremi račun</button>
       {{if .Korisnik}}<button type="submit" class="btn btn-secondary" name="radnja" value="obrisi" formnovalidate onclick="return confirm('Obrisati račun za HydroView s ovog čvora? Ovaj čvor tada prestaje preuzimati vodostaje s tog sustava.')">{{icon "trash"}} Obriši račun</button>{{end}}

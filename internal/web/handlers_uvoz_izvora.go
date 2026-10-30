@@ -94,7 +94,9 @@ func (h *UvozHandler) hidroviewRadi() bool {
 	return h.hvRacuni != nil && h.hvKljuc != nil && h.hvRacuni() != nil && len(h.hvKljuc()) > 0
 }
 
-// racunHV otključa račun kojim se letva čita.
+// racunHV otključa račun kojim se letva čita. Adresa je uvijek sustav
+// Hrvatskih voda: adresa spremljena uz račun u ranijim izdanjima se ne
+// koristi, da lozinka ne ode drugamo.
 func (h *UvozHandler) racunHV(ctx context.Context, letva string) (korisnik, lozinka, adresa string, err error) {
 	if !h.hidroviewRadi() {
 		return "", "", "", fmt.Errorf("račun za HydroView nije upisan na ovom čvoru (Administracija → Telemetrija)")
@@ -110,7 +112,15 @@ func (h *UvozHandler) racunHV(ctx context.Context, letva string) (korisnik, lozi
 	if err != nil {
 		return "", "", "", fmt.Errorf("lozinka računa se ne da otključati: %w", err)
 	}
-	return r.Korisnik, loz, r.Adresa, nil
+	return r.Korisnik, loz, h.adresaHV(), nil
+}
+
+// adresaHV je adresa HydroViewa s koje se preuzima povijest
+func (h *UvozHandler) adresaHV() string {
+	if h.hvAdresa != "" {
+		return h.hvAdresa
+	}
+	return hidroview.ZadanaAdresa
 }
 
 // zadatakIzObrasca slaže zadatak iz obrasca. Letva koja u stablu već stoji
