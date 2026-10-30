@@ -432,6 +432,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	}
 
 	st.Alerts = append(s.alerts(st, every, now), s.upozorenjeNeispravnih()...)
+	st.Alerts = append(st.Alerts, s.upozorenjaSata(st, now)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaRokova(ctx, clanovi)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaKljucaMreze(ctx)...)
 	return st, nil
@@ -523,10 +524,11 @@ func label(p Peer) string {
 // razgovora (dalje).
 func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied, sent, krugova int, err error) {
 	zbogKarte := 0
+	var otisak string
 	for krugova < najviseKrugovaZaRedom && ctx.Err() == nil {
 		a, sn, e := s.SyncWith(ctx, nodeID)
 		applied, sent, krugova, err = applied+a, sent+sn, krugova+1, e
-		if !s.dalje(nodeID, a, sn, e, &zbogKarte) {
+		if !s.dalje(nodeID, a, sn, e, &zbogKarte, &otisak) {
 			break
 		}
 	}
@@ -534,10 +536,11 @@ func (s *Service) razgovoriZaRedom(ctx context.Context, nodeID string) (applied,
 }
 
 // dalje javlja treba li odmah još jedan razgovor: razgovor je bio pun ili
-// skraćen, ili je prenio dijelove karte, a ponavljanja zbog karte još nije
-// bilo najviseRazgovoraZaKartu
-func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int) bool {
-	pun := applied >= NajviseVerzijaPoRazmjeni || sent >= NajviseVerzijaPoRazmjeni || s.imaJos(nodeID)
+// skraćen, a stanje se od prethodnog pomaknulo (josVerzija), ili je prenio
+// dijelove karte, a ponavljanja zbog karte još nije bilo
+// najviseRazgovoraZaKartu
+func (s *Service) dalje(nodeID string, applied, sent int, err error, zbogKarte *int, otisak *string) bool {
+	pun := s.josVerzija(nodeID, applied, sent, otisak)
 	karta := s.imaJosKarte(nodeID)
 	switch {
 	case err != nil:

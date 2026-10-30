@@ -156,22 +156,46 @@ func (s *Service) suziNakonUpisa(ctx context.Context, p promjenaRupa, upis error
 	}
 }
 
-// preskociNeispravne izostavi primljene verzije koje knjiga ne prima
-// (ledger.Ispravne) i zapiše ih u dnevnik, jednom po verziji, s putem kojim
-// su stigle (razmjena ili uvoz); ostale prođu. Izostavlja ih već ovdje, a ne
-// samo knjiga, jer površina smije dobiti samo ispravne: zbog jedne
-// neispravne pala bi za cijeli paket. Sadržaj ne ide u dnevnik, a autor je
-// pod navodnicima jer ga piše druga strana. To nisu neispravne verzije iz
-// vlastite knjige (zabiljeziNeispravne), pa se ne broje na ploči.
+// preskociNeispravne izostavi primljene verzije koje knjiga ovog računala
+// ne prima (ledger.ProvjeriPrimljenu): bez oznake, entiteta ili
+// identifikatora zapisa, s oznakom koja nije ispravnog oblika, sa znakom |
+// u imenu autora ili kanala, s vremenom predaleko u budućnosti, ili s
+// imenom ovog računala i vremenom ispred njegova sata. Ostale prođu, a
+// razgovor zbog njih ne staje. Neispravnu zapiše u dnevnik jednom po
+// verziji, s putem kojim je stigla (razmjena ili uvoz) i razlogom; verzije
+// preskočene samo zbog vremena zapiše jednim retkom po autoru
+// (zabiljeziKasne), jer ih uz krivi sat stiže mnogo i stići će kad im
+// vrijeme dođe. Izostavlja ih već ovdje, a ne samo knjiga, jer površina
+// smije dobiti samo ispravne: zbog jedne neispravne pala bi za cijeli
+// paket. Sadržaj ne ide u dnevnik, a autor je pod navodnicima jer ga piše
+// druga strana. To nisu neispravne verzije iz vlastite knjige
+// (zabiljeziNeispravne), pa se ne broje na ploči.
 func (s *Service) preskociNeispravne(put string, verzije []ledger.Version) []ledger.Version {
-	ispravne, neispravne := ledger.Ispravne(verzije)
-	for _, v := range neispravne {
-		kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
-		if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
-			log.Printf("%s: primljena verzija %q (entitet %q, zapis %q, autor %q) nema oznaku, entitet ili identifikator zapisa i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID)
+	sada := ledger.Sada()
+	ispravne := make([]ledger.Version, 0, len(verzije))
+	var kasne kasneVerzije
+	for _, v := range verzije {
+		zasto := ledger.ProvjeriPrimljenu(v, s.node.ID, sada)
+		switch {
+		case zasto == nil:
+			ispravne = append(ispravne, v)
+		case kasni(zasto):
+			kasne.dodaj(v, zasto)
+		default:
+			s.zabiljeziPreskocenu(put, v, zasto)
 		}
 	}
+	s.zabiljeziKasne(put, kasne)
 	return ispravne
+}
+
+// zabiljeziPreskocenu zapiše u dnevnik primljenu neispravnu verziju, jednom
+// po verziji
+func (s *Service) zabiljeziPreskocenu(put string, v ledger.Version, zasto error) {
+	kljuc := v.NodeID + "|" + v.VersionID + "|" + v.Entity + "|" + v.EntityID
+	if _, bilo := s.preskocene.LoadOrStore(kljuc, struct{}{}); !bilo {
+		log.Printf("%s: primljena verzija %.80q (entitet %.80q, zapis %.80q, autor %.80q) %v i ne upisuje se", put, v.VersionID, v.Entity, v.EntityID, v.NodeID, zasto)
+	}
 }
 
 // primiSadrzajAkoStigne upisuje primljeni sadržaj, ako brava stigne unutar

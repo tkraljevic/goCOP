@@ -134,10 +134,14 @@ type zapisKnjige struct{ entitet, id string }
 
 // tudjiSpomeniciVlastitih su zapisi koji imaju vlastitu verziju, a zadnja im
 // je verzija tuđi spomenik u kanalu: drugi čvor obrisao je ono što je
-// nastalo ovdje
+// nastalo ovdje. Zadnja se traži samo među verzijama koje bi razmjena danas
+// primila (ledger.OznakeGranice): verzija s oznakom krivog oblika ili iz
+// budućnosti, primljena prije te provjere, ne broji se, pa se iza nje i ne
+// upisuje vlastiti spomenik. Brisanje je tada odnese kao i ostale tuđe.
 const tudjiSpomeniciVlastitih = `SELECT z.entity, z.entity_id, z.payload, z.version_id FROM record_versions z
 	WHERE z.channel = @kanal AND z.archived = 1 AND z.node_id <> @cvor
-	  AND z.version_id = (SELECT MAX(m.version_id) FROM record_versions m WHERE m.entity = z.entity AND m.entity_id = z.entity_id)
+	  AND z.version_id = (SELECT MAX(m.version_id) FROM record_versions m WHERE m.entity = z.entity AND m.entity_id = z.entity_id
+	                      AND m.version_id GLOB @oblik AND m.version_id <= @najvisa)
 	  AND EXISTS (SELECT 1 FROM record_versions o WHERE o.entity = z.entity AND o.entity_id = z.entity_id AND +o.node_id = @cvor)`
 
 // zaObnovu su zapisi koje nakon brisanja treba vratiti iz knjige: zapisi s
@@ -166,7 +170,8 @@ const zaObnovu = `SELECT DISTINCT t.entity, t.entity_id FROM record_versions t
 // nakon brisanja treba vratiti iz knjige (zaObnovu).
 func (s *Service) vlastitoUKnjizi(ctx context.Context, tx *sql.Tx, kanal string, obrisi bool) (neupisanih int, obnova []zapisKnjige, err error) {
 	args := []any{sql.Named("kanal", kanal), sql.Named("cvor", s.rec.Cvor())}
-	spomenici, err := citajZapise(ctx, tx, tudjiSpomeniciVlastitih, args, true)
+	oblik, najvisa := ledger.OznakeGranice(ledger.Sada())
+	spomenici, err := citajZapise(ctx, tx, tudjiSpomeniciVlastitih, append(args, sql.Named("oblik", oblik), sql.Named("najvisa", najvisa)), true)
 	if err != nil || !obrisi {
 		return len(spomenici), nil, err
 	}

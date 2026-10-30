@@ -166,6 +166,9 @@ func (r *Recorder) ArchiveNakon(ctx context.Context, tx Execer, channel, entity,
 	return r.write(ctx, tx, channel, entity, entityID, payload, true, nakon)
 }
 
+// najvecaMs je najveće vrijeme koje stane u oznaku (48 bita)
+const najvecaMs = 1<<48 - 1
+
 // oznakaVerzije je oznaka nove verzije: UUIDv7 s današnjim vremenom, a kad
 // je zadana verzija nakon, UUIDv7 s vremenom milisekundu iza nje. Ostatak
 // oznake je slučajan, pa dva čvora koja upišu verziju iza iste verzije ne
@@ -173,16 +176,22 @@ func (r *Recorder) ArchiveNakon(ctx context.Context, tx Execer, channel, entity,
 func oznakaVerzije(nakon string) (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil || nakon == "" {
+		zapamtiOznaku(id, err)
 		return id.String(), err
 	}
 	prije, err := uuid.Parse(nakon)
 	if err != nil || prije.Version() != 7 {
 		return "", fmt.Errorf("verzija %s ne nosi vrijeme nastanka, pa se iza nje ne može upisati nova", nakon)
 	}
-	var ms [8]byte
-	copy(ms[2:], prije[:6])
-	binary.BigEndian.PutUint64(ms[:], binary.BigEndian.Uint64(ms[:])+1)
-	copy(id[:6], ms[2:])
+	// Vrijeme je 48 bita: iza najvećeg nema mjesta, a zbrajanje bi ga
+	// vratilo na 1970. i nova bi verzija stala ispred svih
+	ms := msOznake(prije)
+	if ms >= najvecaMs {
+		return "", fmt.Errorf("verzija %s nosi najkasnije moguće vrijeme, pa se iza nje ne može upisati nova", nakon)
+	}
+	var b [8]byte
+	binary.BigEndian.PutUint64(b[:], ms+1)
+	copy(id[:6], b[2:])
 	return id.String(), nil
 }
 
@@ -287,10 +296,12 @@ func (r *Recorder) History(ctx context.Context, entity, entityID string) ([]Vers
 }
 
 // Ispravna javlja da knjiga verziju prima. Neispravna je verzija bez oznake,
-// entiteta ili identifikatora zapisa: ne zna se ni što je ni kamo ide.
+// entiteta ili identifikatora zapisa, jer se ne zna ni što je ni kamo ide,
+// i verzija čija oznaka nije u obliku koji upisuje ovaj program
+// (IspravnaOznaka), jer se po oznaci slaže poredak i granica razmjene.
 // Razmjena takvu verziju iz svoje knjige ni ne šalje.
 func Ispravna(v Version) bool {
-	return v.VersionID != "" && v.Entity != "" && v.EntityID != ""
+	return Neispravnost(v) == nil
 }
 
 // Ispravne dijeli primljene verzije na one koje knjiga prima (Ispravna) i
@@ -388,18 +399,27 @@ func (r *Recorder) query(ctx context.Context, query string, args ...any) ([]Vers
 
 	var out []Version
 	for rows.Next() {
-		var v Version
-		var archived int
-		var payload string
-		if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
-			&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel); err != nil {
+		v, err := procitajVerziju(rows)
+		if err != nil {
 			return nil, err
 		}
-		v.Archived = archived != 0
-		v.Payload = json.RawMessage(payload)
 		out = append(out, v)
 	}
 	return out, rows.Err()
+}
+
+// procitajVerziju čita jedan redak upita sa stupcima columns
+func procitajVerziju(rows *sql.Rows) (Version, error) {
+	var v Version
+	var archived int
+	var payload string
+	if err := rows.Scan(&v.VersionID, &v.Entity, &v.EntityID, &v.NodeID, &v.Supersedes,
+		&archived, &payload, &v.CreatedAt, &v.SchemaVersion, &v.Channel); err != nil {
+		return Version{}, err
+	}
+	v.Archived = archived != 0
+	v.Payload = json.RawMessage(payload)
+	return v, nil
 }
 
 func boolInt(b bool) int {
@@ -415,8 +435,13 @@ func boolInt(b bool) int {
 // što drugi od pojedinog autora u tom kanalu još nema — i tuđe verzije koje
 // je sam primio, pa promjena stiže i preko posrednika. Kanal koji čvor ne
 // prati u granici nema, pa ga ni ne dobiva, a ne ostavlja ni rupu.
+//
+// Granica se slaže samo od verzija koje bi razmjena danas primila
+// (uvjetGranice): verzija s oznakom krivog oblika, iz budućnosti ili sa
+// znakom | u imenu autora, primljena prije te provjere, ne pomiče je.
 func (r *Recorder) Frontier(ctx context.Context) (map[string]string, error) {
-	rows, err := r.db.QueryContext(ctx, `SELECT node_id, channel, MAX(version_id) FROM record_versions GROUP BY node_id, channel`)
+	uvjet, args := uvjetGranice(Sada())
+	rows, err := r.db.QueryContext(ctx, `SELECT node_id, channel, MAX(version_id) FROM record_versions WHERE `+uvjet+` GROUP BY node_id, channel`, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -588,15 +613,19 @@ type ZadrziPo struct {
 }
 
 // sazimljive je uvjet za verzije koje sažimanje briše, s argumentima: starije
-// od roka, nisu zadnja verzija zapisa ni zadnja verzija autora u kanalu, nisu
+// od roka, nisu zadnja verzija zapisa ni zadnja verzija autora u kanalu (ni
+// zadnja od koje se slaže granica, najveceUGranici), nisu
 // verzije zapisa koje se čuvaju cijele (cuvaj), ni zadnja verzija koju čuva
 // neko od pravila zadrzi
 func sazimljive(olderThan time.Time, cuvaj []string, zadrzi []ZadrziPo) (string, []any) {
 	uvjet := `created_at < ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
-		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)`
-	args := []any{olderThan.UTC()}
+		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
+		  AND version_id NOT IN `
+	granica, args := najveceUGranici()
+	uvjet += granica
+	args = append([]any{olderThan.UTC()}, args...)
 	if len(cuvaj) > 0 {
 		uvjet += ` AND entity_id NOT IN (?` + strings.Repeat(",?", len(cuvaj)-1) + `)`
 		for _, id := range cuvaj {
@@ -784,11 +813,12 @@ func zadnjaVerzijaSeNeBrise(arhivirana bool) error {
 // svojoj bazi prognoza). Granica razmjene ostaje: zadnja verzija svakog
 // autora u svakom kanalu se ne briše, pa se obrisano ne vraća natrag.
 func (r *Recorder) Prorijedi(ctx context.Context, entity string, olderThan time.Time) (int64, error) {
+	granica, args := najveceUGranici()
 	res, err := r.db.ExecContext(ctx, `
 		DELETE FROM record_versions
 		WHERE entity = ? AND created_at < ?
 		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, entity, olderThan.UTC())
+		  AND version_id NOT IN `+granica, append([]any{entity, olderThan.UTC()}, args...)...)
 	if err != nil {
 		return 0, fmt.Errorf("prorjeđivanje knjige (%s): %w", entity, err)
 	}
@@ -801,13 +831,14 @@ func (r *Recorder) Prorijedi(ctx context.Context, entity string, olderThan time.
 // povijest ne treba (kazalo arhive: vrijedi samo zadnje izdanje letve). Zadnja
 // verzija svakog autora u svakom kanalu ostaje, pa se granica ne pomiče.
 func (r *Recorder) ProrijediZamijenjene(ctx context.Context, entity string) (int64, error) {
+	granica, args := najveceUGranici()
 	res, err := r.db.ExecContext(ctx, `
 		DELETE FROM record_versions
 		WHERE entity = ?
 		  AND version_id <> (SELECT MAX(v.version_id) FROM record_versions v
 		                     WHERE v.entity = record_versions.entity AND v.entity_id = record_versions.entity_id)
 		  AND version_id NOT IN (SELECT MAX(version_id) FROM record_versions GROUP BY node_id, channel)
-	`, entity)
+		  AND version_id NOT IN `+granica, append([]any{entity}, args...)...)
 	if err != nil {
 		return 0, fmt.Errorf("prorjeđivanje zamijenjenih (%s): %w", entity, err)
 	}

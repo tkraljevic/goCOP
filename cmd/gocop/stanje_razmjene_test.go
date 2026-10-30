@@ -104,7 +104,7 @@ func TestStanjeRazmjeneUMrezi(t *testing.T) {
 		t.Fatal(err)
 	}
 	// zapis novije sheme, kakav šalje noviji program
-	if _, err := rec.Apply(ctx, []ledger.Version{{VersionID: "v-novi", Entity: "proba_novije_sheme", EntityID: "z-1", NodeID: "cop-ured",
+	if _, err := rec.Apply(ctx, []ledger.Version{{VersionID: "0190a000-0000-7000-8000-000000000001", Entity: "proba_novije_sheme", EntityID: "z-1", NodeID: "cop-ured",
 		Payload: []byte(`{}`), CreatedAt: sad, SchemaVersion: ledger.SchemaVersion + 1}}); err != nil {
 		t.Fatal(err)
 	}

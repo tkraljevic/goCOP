@@ -601,6 +601,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		log.Printf("Obnova površine iz knjige (%d zapisa): %v", n, err)
 	}
 	obnoviPovrsinu(context.Background(), database, recorder)
+	go javiNeispravneUKnjizi(ctx, recorder, ledger.Sada())
 
 	userRepo := repository.NewUserRepository(database, recorder)
 	sessionRepo := repository.NewSessionRepository(database)

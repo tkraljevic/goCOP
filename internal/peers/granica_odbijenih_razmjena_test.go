@@ -10,6 +10,7 @@ package peers
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -153,11 +154,20 @@ func TestOdbijenoSeNeSaljeIznova(t *testing.T) {
 	}
 }
 
+// prefiksIza je početak oznake verzije (vrijeme) minutu iza sada: verzija s
+// njim je iza svih koje je postava testa upisala, a razmjena je prima, jer
+// nije predaleko u budućnosti (ledger.NajviseUnaprijed)
+func prefiksIza() string {
+	var ms [8]byte
+	binary.BigEndian.PutUint64(ms[:], uint64(time.Now().Add(time.Minute).UnixMilli()))
+	return fmt.Sprintf("%x-%x", ms[2:6], ms[6:8])
+}
+
 // upisiOdbijene upiše serveru n verzija koje laptop odbija, zaredom u istom
-// ključu (autor cop-osijek, zadani kanal). Oznake počinju s „f”, pa su iza
-// verzija koje je postava upisala u zajednički kanal (zapisi čvorova,
+// ključu (autor cop-osijek, zadani kanal). Oznake počinju prefiksom, pa su
+// iza verzija koje je postava upisala u zajednički kanal (zapisi čvorova,
 // članstva).
-func upisiOdbijene(t *testing.T, a *Service, kanal string, n int) {
+func upisiOdbijene(t *testing.T, a *Service, kanal, prefiks string, n int) {
 	t.Helper()
 	tx, err := a.db.Begin()
 	if err != nil {
@@ -166,7 +176,7 @@ func upisiOdbijene(t *testing.T, a *Service, kanal string, n int) {
 	defer tx.Rollback()
 	for i := 1; i <= n; i++ {
 		if _, err := tx.Exec(`INSERT INTO record_versions (version_id, entity, entity_id, node_id, supersedes, archived, payload, created_at, schema_version, channel)
-			VALUES (?, 'probni', ?, 'cop-osijek', '', 0, '{"cm":1}', ?, 1, ?)`, fmt.Sprintf("f190a000-0000-7000-8000-%012d", 1000+i), fmt.Sprintf("staro-%d", i), stalnoVrijeme, kanal); err != nil {
+			VALUES (?, 'probni', ?, 'cop-osijek', '', 0, '{"cm":1}', ?, 1, ?)`, fmt.Sprintf("%s-7000-8000-%012d", prefiks, 1000+i), fmt.Sprintf("staro-%d", i), stalnoVrijeme, kanal); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -181,8 +191,9 @@ func upisiOdbijene(t *testing.T, a *Service, kanal string, n int) {
 func TestIzaOdbijenihKljucNeZapne(t *testing.T) {
 	for _, laptopZove := range []bool{true, false} {
 		a, b := serverILaptop(t)
-		upisiOdbijene(t, a, "", NajviseVerzijaPoRazmjeni)
-		upisiStalno(t, a, stalnaVerzija("f190a000-0000-7000-8000-000099999999", "cop-osijek", "", "akt-novi", `{"cm":9}`))
+		prefiks := prefiksIza()
+		upisiOdbijene(t, a, "", prefiks, NajviseVerzijaPoRazmjeni)
+		upisiStalno(t, a, stalnaVerzija(prefiks+"-7000-8000-000099999999", "cop-osijek", "", "akt-novi", `{"cm":9}`))
 		pozivatelj, pozvani := a, b
 		if laptopZove {
 			pozivatelj, pozvani = b, a
@@ -207,7 +218,7 @@ func TestIzaOdbijenihKljucNeZapne(t *testing.T) {
 // razgovora s istih 5000.
 func TestKrugRazmjenaPrekoOdbijenihZavrsi(t *testing.T) {
 	a, b := serverILaptop(t)
-	upisiOdbijene(t, a, "ocitanja/16/2020", NajviseVerzijaPoRazmjeni)
+	upisiOdbijene(t, a, "ocitanja/16/2020", prefiksIza(), NajviseVerzijaPoRazmjeni)
 	peer, err := a.GetPeer(ctxRub, b.node.ID)
 	if err != nil || peer == nil {
 		t.Fatalf("laptop u popisu servera: %v", err)

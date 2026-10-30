@@ -119,6 +119,9 @@ type Service struct {
 	// ima još; razmjena tada nastavlja odmah (syncPeers), ne za pet minuta
 	skracene sync.Map // *razmjena.Conn → bool
 	josIma   sync.Map // nodeID → bool, iz zadnjeg SyncWith
+	// otisci: otisak stanja s početka zadnjeg razgovora po čvoru
+	// (napredak.go), iz zadnjeg SyncWith
+	otisci sync.Map // nodeID → string
 	// kartaTece: razgovori koji su prenijeli dijelove karte, a nekoj strani
 	// još nedostaju; josKarte isto po čvoru, iz zadnjeg SyncWith
 	// (karta_razgovor.go)
@@ -199,6 +202,9 @@ type Service struct {
 	// preskocene su primljene neispravne verzije (ledger.Ispravna) koje su
 	// već zapisane u dnevnik (preskociNeispravne); na ploči se ne broje
 	preskocene sync.Map
+	// satiDrugih su autori čije su verzije nedavno stigle s vremenom
+	// predaleko ispred sata ovog računala (sat_drugih.go); samo u memoriji
+	satiDrugih satiDrugih
 
 	every    time.Duration // razmak automatske sinkronizacije (0 = isključena)
 	autoOn   bool
@@ -985,6 +991,9 @@ type frontierMsg struct {
 	// razgovora preko Tailscalea; ne putuje, samo nosi primljeno do bilješke
 	// o razmjeni (noteSync)
 	tailscale []string
+	// otisak je otisak stanja obiju strana na početku razgovora
+	// (otisakStanja); ne putuje, samo kaže krugu je li se išta pomaknulo
+	otisak string
 }
 
 type deltaMsg struct {
@@ -1108,6 +1117,7 @@ func (k *krug) razmijeni(ctx context.Context, conn *razmjena.Conn, kk kandidat) 
 	s.josIma.Store(nodeID, skraceno && err == nil)
 	_, karta := s.kartaTece.LoadAndDelete(conn)
 	s.josKarte.Store(nodeID, karta && err == nil)
+	s.otisci.Store(nodeID, theirs.otisak)
 	conn.Close()
 	if s.odbioTailscale(ctx, nodeID, err) {
 		s.zapamtiPokusaj(nodeID, kk.adresa, err)
@@ -1416,19 +1426,19 @@ func krajKljuca(delta []ledger.Version, i int) int {
 	return j
 }
 
-// Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje)
-var (
-	errBezOznake = errors.New("nema oznaku, entitet ili identifikator zapisa")
-	errNijeJSON  = errors.New("nije ispravan JSON")
-)
+// Zašto verzija iz knjige ne ide drugim čvorovima (zaSlanje); uz to
+// razlozi iz ledger.Neispravnost
+var errNijeJSON = errors.New("nije ispravan JSON")
 
 // zaSlanje je verzija zapisana kao JSON, ili greška kad je neispravna: kad
-// je knjiga primatelja ne prima (ledger.Ispravna) ili se ne da zapisati kao
-// JSON. Bez provjere oznake takvu bi verziju čvor slao svakom razmjenom:
-// primatelj je preskoči, pa mu se granica ne pomakne.
+// je knjiga primatelja ne prima (ledger.ProvjeriPrimljenu: bez oznake,
+// oznaka krivog oblika ili s vremenom predaleko ispred sata ovog računala)
+// ili se ne da zapisati kao JSON. Bez provjere oznake takvu bi verziju čvor
+// slao svakom razmjenom: primatelj je preskoči, pa mu se granica ne
+// pomakne. Verzija s vremenom ispred sata ide kad joj vrijeme dođe.
 func zaSlanje(v ledger.Version) ([]byte, error) {
-	if !ledger.Ispravna(v) {
-		return nil, errBezOznake
+	if err := ledger.ProvjeriPrimljenu(v, "", ledger.Sada()); err != nil {
+		return nil, err
 	}
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -1447,14 +1457,28 @@ func imaIspravnu(verzije []ledger.Version) bool {
 	return false
 }
 
+// bezKasnih su neispravne verzije bez onih koje se ne šalju samo zato što
+// im vrijeme još nije došlo (kasni): sat ovog računala bio je naprijed kad
+// ih je napisalo. One idu kad im vrijeme dođe, pa ne idu na ploču ni u
+// jamstvo delte, jer nisu ni poslane ni preskočene zauvijek.
+func bezKasnih(neispravne []ledger.Version) []ledger.Version {
+	out := make([]ledger.Version, 0, len(neispravne))
+	for _, v := range neispravne {
+		if _, zasto := zaSlanje(v); !kasni(zasto) {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // zabiljeziNeispravne zapiše u dnevnik, jednom po verziji, verzije iz
 // knjige koje razmjena ne šalje (zaSlanje), s razlogom; sadržaj ne ide u
-// dnevnik
+// dnevnik. Verzije koje kasne (bezKasnih) ne bilježi.
 func (s *Service) zabiljeziNeispravne(neispravne []ledger.Version) {
-	for _, v := range neispravne {
+	for _, v := range bezKasnih(neispravne) {
 		if _, bilo := s.neispravne.LoadOrStore(v.VersionID, struct{}{}); !bilo {
 			_, zasto := zaSlanje(v)
-			log.Printf("razmjena: verzija %s (%s) u knjizi %v i ne šalje se drugim čvorovima", v.VersionID, v.Entity, zasto)
+			log.Printf("razmjena: verzija %.80q (%.80q) u knjizi %v i ne šalje se drugim čvorovima", v.VersionID, v.Entity, zasto)
 		}
 	}
 }

@@ -12,12 +12,24 @@ import (
 	"gocop/internal/ledger"
 )
 
+// losaVerzija i dobraVerzija nose oznaku ispravnog oblika koja završava
+// kratkom oznakom id (kratkaOznaka je vraća)
 func losaVerzija(cvor, id string) ledger.Version {
-	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage("nije json")}
+	return ledger.Version{VersionID: oznakaKratko(id), NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage("nije json")}
 }
 
 func dobraVerzija(cvor, id string) ledger.Version {
-	return ledger.Version{VersionID: id, NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage(`{"cm":120}`)}
+	return ledger.Version{VersionID: oznakaKratko(id), NodeID: cvor, Channel: "ocitanja/16/2026", Entity: "probni", EntityID: "r-" + id, Payload: json.RawMessage(`{"cm":120}`)}
+}
+
+// oznakaKratko je oznaka ispravnog oblika koja završava s id (do 12 znamenki)
+func oznakaKratko(id string) string {
+	return "0190a000-0000-7000-8000-" + strings.Repeat("0", 12-len(id)) + id
+}
+
+// kratkaOznaka je kratka oznaka iz oznakaKratko, bez vodećih nula
+func kratkaOznaka(oznaka string) string {
+	return strings.TrimLeft(strings.TrimPrefix(oznaka, "0190a000-0000-7000-8000-"), "0")
 }
 
 // Ključ kojemu je delta puna samo neispravnih verzija čita se dalje, do
@@ -37,11 +49,12 @@ func TestPrekoNeispravnihCitaZapeleKljuceve(t *testing.T) {
 	}
 	var pitano []string
 	citaj := func(_ context.Context, cvor, kanal, iza1 string, n int) ([]ledger.Version, error) {
-		pitano = append(pitano, cvor+"|"+iza1)
+		k := cvor + "|0" + kratkaOznaka(iza1)
+		pitano = append(pitano, k)
 		if kanal != "ocitanja/16/2026" || n != 2 {
 			t.Errorf("čita %s s ogradom %d", kanal, n)
 		}
-		return iza[cvor+"|"+iza1], nil
+		return iza[k], nil
 	}
 	out, err := prekoNeispravnih(ctxRub, delta, 2, citaj)
 	if err != nil {
@@ -52,7 +65,7 @@ func TestPrekoNeispravnihCitaZapeleKljuceve(t *testing.T) {
 	}
 	var ids []string
 	for _, v := range out[len(delta):] {
-		ids = append(ids, v.NodeID+v.VersionID)
+		ids = append(ids, v.NodeID+"0"+kratkaOznaka(v.VersionID))
 	}
 	if got := strings.Join(ids, ","); got != "a03,a04,a05,a06,b03" || len(out) != len(delta)+5 {
 		t.Errorf("dodano %s (ukupno %d)", got, len(out))

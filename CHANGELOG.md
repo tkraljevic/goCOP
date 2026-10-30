@@ -160,6 +160,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   s firme koja radi i drugdje. Obavijesti o djelatnicima više ne nose ime
   osobe, a granice županija i općina s kontaktima čuva samo preglednik.
 
+- **Prijem verzija: oznaka verzije mora biti ispravnog oblika.** Razmjena,
+  arhiva i COP paket primaju samo oznaku u obliku koji program sam daje, s
+  vremenom najviše pet minuta ispred sata, a granica razmjene broji samo
+  takve. Ostale se preskoče, a razmjena ide dalje. Stanje razmjene javi
+  kad sat drugog računala odstupa.
+
 ## 0.0.46-alfa — 29. 10. 2026.
 
 - **Karta radi i bez interneta.** Obična karta i satelitska snimka čitaju

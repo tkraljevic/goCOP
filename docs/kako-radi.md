@@ -139,6 +139,13 @@ Računalo zatim upiše ono što je primilo i zatraži dokumente i slike uz
 zapise koje prati, a na kraju oba potvrde koliko su upisala. Jedan razgovor
 nosi ograničenu količinu. Kad ima više, odmah ide sljedeći.
 
+Sat svakog računala mora biti točan na pet minuta. Svaki zapis nosi
+vrijeme kad je nastao, a računalo ne prima zapis s vremenom više od pet
+minuta ispred svog sata: takav stigne tek kad mu vrijeme dođe. Ako sat
+jednog računala žuri ili kasni više od toga, njegovi novi podaci na ostala
+računala stižu sa zakašnjenjem. Stanje razmjene to javi za računalo čiji
+zapisi stižu iz budućnosti.
+
 Kad računala nemaju isto izdanje programa, novi dio razgovora ide samo ako
 ga znaju oba. Novi dio poruke koji starije izdanje ne poznaje ono zanemari,
 pa s njim razmjena ide kao i prije, a novo počne raditi kad se i ono

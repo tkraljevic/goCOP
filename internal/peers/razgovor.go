@@ -214,12 +214,14 @@ func (r *razgovorSCvorom) razmijeni(kind string, moja, njihova any) error {
 // granice: obje strane kažu dokle znaju, a uz zajedničke oznake odmah zatim
 // i dokle su odbile poslano i što traže (nakonGranica). Tuđa granica
 // dekodira se ravno u theirs, pa i djelomično dekodirana ide u bilješku o
-// razmjeni.
+// razmjeni. Uz nju ide otisak stanja obiju strana (napredak.go).
 func (r *razgovorSCvorom) granice() error {
 	if err := r.razmijeni(kindFrontier, r.moja, &r.theirs); err != nil {
 		return err
 	}
-	return r.nakonGranica()
+	err := r.nakonGranica()
+	r.theirs.otisak = r.otisakStanja()
+	return err
 }
 
 // delte: svaka strana pošalje ono što druga prati, a nema, i vrati primljene
@@ -243,13 +245,16 @@ func (r *razgovorSCvorom) delte(ctx context.Context) ([]ledger.Version, error) {
 // omaškom (zaUpis), jer bi ostalo bez granice i vraćalo se svakom razmjenom.
 // Ne šalje se ni ono što je druga strana javila da je odbila (granicaZaDeltu).
 // Na kraju ide popuna rupa koje je druga strana zatražila, a uz deltu što
-// ovaj čvor o poslanome jamči (deltaSPopunom, jamstvoDelte).
+// ovaj čvor o poslanome jamči (deltaSPopunom, jamstvoDelte). Verzija koja
+// se ne šalje samo zato što joj vrijeme još nije došlo nije ni u jamstvu
+// (bezKasnih): pošalje se kad joj vrijeme dođe.
 func (r *razgovorSCvorom) mojaDelta(ctx context.Context) (deltaMsg, []ledger.Version, error) {
 	delta, err := r.deltaSPopunom(ctx, r.granicaZaDeltu())
 	if err != nil {
 		return deltaMsg{}, nil, err
 	}
 	delta, neispravne, skraceno := ogradiDeltu(delta, najviseBajtovaDelte)
+	neispravne = bezKasnih(neispravne)
 	r.s.zabiljeziNeispravne(neispravne)
 	rupe, popuna := r.jamstvoDelte(delta, neispravne)
 	return deltaMsg{Versions: delta, Skraceno: skraceno, Tailscale: r.s.tailscaleZaDrugoga(r.prekoTailscalea), Rupe: rupe, Popuna: popuna}, neispravne, nil
@@ -277,9 +282,11 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 	r.theirs.Frontier = spojiGranice(r.theirs.Frontier, doVlastite(r.njihoveOdbijene, r.moja.Frontier))
 }
 
-// upisiPrimljeno upiše primljene verzije pod bravom čvora (upis.go). Kad je
-// upis predugo zauzet, razgovor završi bez upisa (zavrsiZauzet), a primljeno
-// stigne sljedećom razmjenom. Ne upisuje se ni ono što bi granicu knjige
+// upisiPrimljeno upiše primljene verzije pod bravom čvora (upis.go).
+// Neispravne (preskociNeispravne) otpadaju prije svega ostalog, pa ne
+// ulaze ni u granicu odbijenih ni u rupe. Kad je upis predugo zauzet,
+// razgovor završi bez upisa (zavrsiZauzet), a primljeno stigne sljedećom
+// razmjenom. Ne upisuje se ni ono što bi granicu knjige
 // pomaknulo preko verzija koje je druga strana preskočila po granici
 // odbijenih, a ovaj čvor ih sad možda drži (bezPreskocenog). Pod istom
 // bravom, prije upisa, trajno se zapiše što je odbijeno i stiglo s rupom
@@ -287,7 +294,7 @@ func (r *razgovorSCvorom) zapamtiDelte(moja, stigla deltaMsg, neispravne []ledge
 // (zapamtiOdbijene), i to prije kraja razgovora, pa ga već sljedeći
 // razgovor javlja.
 func (r *razgovorSCvorom) upisiPrimljeno(ctx context.Context, stiglo []ledger.Version) error {
-	wanted := r.bezPreskocenog(r.zaUpis(ctx, stiglo))
+	wanted := r.bezPreskocenog(r.zaUpis(ctx, r.s.preskociNeispravne("razmjena", stiglo)))
 	applied, err := r.s.primijeniAkoStigne(ctx, wanted, r.promjenaRupa(wanted))
 	if err != nil {
 		r.s.zavrsiZauzet(r.c, r.initiator, err)

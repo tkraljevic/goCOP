@@ -692,7 +692,7 @@ func TestPonavljanjeZbogKarteImaGranicu(t *testing.T) {
 	zbogKarte, ponovljeno := 0, 0
 	for range 20 {
 		s.josKarte.Store("cop-osijek", true)
-		if !s.dalje("cop-osijek", 0, 0, nil, &zbogKarte) {
+		if !s.dalje("cop-osijek", 0, 0, nil, &zbogKarte, new(string)) {
 			break
 		}
 		ponovljeno++
@@ -701,13 +701,13 @@ func TestPonavljanjeZbogKarteImaGranicu(t *testing.T) {
 		t.Errorf("zbog karte ponovljeno %d puta", ponovljeno)
 	}
 	s.josKarte.Store("cop-osijek", true)
-	if !s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, nil, &zbogKarte) {
+	if !s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, nil, &zbogKarte, new(string)) {
 		t.Error("pun razgovor se ponavlja i nakon ograde karte")
 	}
 	if _, ima := s.josKarte.Load("cop-osijek"); ima {
 		t.Error("zapis o karti nije potrošen")
 	}
-	if s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, context.Canceled, &zbogKarte) || s.dalje("cop-osijek", 0, 0, nil, new(int)) {
+	if s.dalje("cop-osijek", NajviseVerzijaPoRazmjeni, 0, context.Canceled, &zbogKarte, new(string)) || s.dalje("cop-osijek", 0, 0, nil, new(int), new(string)) {
 		t.Error("greška ili prazan razgovor ne ponavljaju se")
 	}
 	if _, _, krugova, err := s.razgovoriZaRedom(ctxRub, "nepoznat"); krugova != 1 || err == nil {

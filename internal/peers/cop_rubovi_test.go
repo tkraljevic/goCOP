@@ -488,7 +488,7 @@ func TestIzvozCopaPreskaceNeispravnuVerziju(t *testing.T) {
 	if m.Zapisa != 2 || len(verzije) != 2 || verzije[0].VersionID != "0190a000-0000-7000-8000-000000000001" || verzije[1].VersionID != "0190a000-0000-7000-8000-000000000003" {
 		t.Errorf("u paketu %d zapisa: %+v", m.Zapisa, verzije)
 	}
-	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, "(probni)") || strings.Contains(zadnji, "Perić") {
+	if n, zadnji := dnevnik.broj(); n != 1 || !strings.Contains(zadnji, `("probni")`) || strings.Contains(zadnji, "Perić") {
 		t.Errorf("dnevnik: %d redaka, zadnji %q", n, zadnji)
 	}
 	if u := s.upozorenjeNeispravnih(); len(u) != 1 || !strings.Contains(u[0], "1 zapis koji u bazi ovog računala nije ispravan") {
