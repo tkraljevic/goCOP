@@ -87,6 +87,7 @@ type Server struct {
 	prijave        *service.PrijavaService // prijave i obavijesti s terena
 	drugiKorak     *service.DrugiKorak     // drugi korak prijave izvana (PIN); nil dok se ne postavi
 	javnaAdresa    string                  // adresa programa izvana, za QR kodove; prazno dok je nema
+	lokalnaImena   []string                // [web] lokalna_imena, malim slovima (ime_zahtjeva.go)
 	postavke       *postavkeCvora          // gocop.toml ovog čvora; nil dok ga main ne da
 	ponovno        ponovnoPokretanje       // tko podiže čvor kad izađe
 	pokrenut       time.Time               // kad je ovaj poslužitelj napravljen
@@ -909,6 +910,7 @@ func (s *Server) setupRoutes() {
 	settingsH := NewSettingsHandler(s.peersService, s.recorder, s.templates["settings.html"])
 	settingsH.SetZastitaKljuca(s.authService.ProvjeriLozinku)
 	sseH := NewSSEHandler(s.sseBroker)
+	sseH.vrijedi = s.prijavaJosVrijedi
 
 	// Statičke datoteke (CSS, JS) poslužene iz embed.FS
 	staticFS, err := fs.Sub(webassets.Files, "static")
@@ -1653,6 +1655,22 @@ func (s *Server) provjeriSesiju(w http.ResponseWriter, r *http.Request, sessionI
 		return nil
 	}
 	return view
+}
+
+// prijavaJosVrijedi javlja vrijedi li još sesija iz kolačića zahtjeva, za
+// tok koji je otvoren dulje (/api/events). Prolazna greška (npr. baze) nije
+// odjava, kao u provjeriSesiju.
+func (s *Server) prijavaJosVrijedi(r *http.Request) bool {
+	cookie, err := r.Cookie(imeKolacicaSesije)
+	if err != nil {
+		return false
+	}
+	id, err := uuid.Parse(cookie.Value)
+	if err != nil {
+		return false
+	}
+	_, err = s.authService.AuthenticateSessionView(id)
+	return err == nil || !sesijaNevaljana(err)
 }
 
 // authMiddleware provjerava sesijski kolačić i postavlja korisnika u context

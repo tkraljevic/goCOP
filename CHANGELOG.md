@@ -175,6 +175,17 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   vremenom najviše pet minuta ispred sata, a granica razmjene broji samo
   takve. Ostale se preskoče, a razmjena ide dalje. Stanje razmjene javi
   kad sat drugog računala odstupa.
+- **Prijava i sesije.** Promijenjena ili poništena lozinka sad zatvara
+  prijave te osobe i na drugim računalima, kad promjena stigne razmjenom,
+  i ondje prijave koje čekaju PIN. Nakon nadogradnje svi se jednom ponovno
+  prijave. Granica krivih lozinki i PIN-ova vrijedi i kad mnogo pokušaja
+  stigne u istom trenutku, a krivi upisi lozinke u jednoj prijavi ne
+  zaključavaju promjenu lozinke u drugoj. Otvorena stranica prestaje
+  primati novosti kad prijava prestane. Prijava na ime koje ne vodi na ovo
+  računalo vrijedi kao prijava izvana; na adresu, ime računala u mreži,
+  localhost, upisanu javnu adresu i imena iz `[web] lokalna_imena` sve radi
+  kao prije. Pod Postavom početna lozinka vrijedi samo na
+  `http://localhost`.
 
 ## 0.0.46-alfa — 29. 10. 2026.
 

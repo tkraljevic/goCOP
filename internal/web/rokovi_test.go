@@ -428,6 +428,7 @@ func TestOgradaTunela(t *testing.T) {
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest("GET", razmjena.PutTunela, nil)
 		r.RemoteAddr = adresa + ":5000"
+		r.Host = adresaCvoraTesta
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
 		return w

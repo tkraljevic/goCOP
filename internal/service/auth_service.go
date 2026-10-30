@@ -124,13 +124,16 @@ func (s *AuthService) ProvjeriPrijavu(username, password string) (*models.User, 
 
 // OtvoriSesiju stvara sesiju za provjerenog korisnika. Token je UUIDv4:
 // 122 slučajna bita, dok UUIDv7 nosi vrijeme i brojač pa ih ima samo 62.
+// Sesija pamti otisak sažetka lozinke iz u, onog koji je prijava provjerila:
+// lozinka koja u međuvremenu stigne s drugog računala tu sesiju gasi.
 func (s *AuthService) OtvoriSesiju(u *models.User, ip, userAgent string) (*models.Session, error) {
 	session := &models.Session{
-		ID:        uuid.New(),
-		UserID:    u.ID,
-		IPAddress: ip,
-		UserAgent: userAgent,
-		ExpiresAt: time.Now().UTC().Add(24 * time.Hour), // 24 sata trajanja sesije
+		ID:            uuid.New(),
+		UserID:        u.ID,
+		IPAddress:     ip,
+		UserAgent:     userAgent,
+		ExpiresAt:     time.Now().UTC().Add(24 * time.Hour), // 24 sata trajanja sesije
+		LozinkaOtisak: repository.OtisakLozinke(u.PasswordHash),
 	}
 
 	if err := s.sessionRepo.CreateSession(session); err != nil {
@@ -180,12 +183,26 @@ func (s *AuthService) AuthenticateSession(sessionID uuid.UUID) (*models.User, *m
 	if err != nil {
 		return nil, nil, err
 	}
-
-	if !permissions.User.IsActive {
-		return nil, nil, s.odbaciSesijuIskljucenog(sessionID)
+	if err := s.provjeriSesiju(session, &permissions.User); err != nil {
+		return nil, nil, err
 	}
 
 	return &permissions.User, permissions, nil
+}
+
+// provjeriSesiju: sesija vrijedi dok je račun uključen i dok mu je lozinka
+// ona s kojom je sesija otvorena. Lozinka promijenjena ili poništena na
+// drugom računalu stiže razmjenom, a sesije ovdje ne zna, pa se otisak
+// gleda pri svakom zahtjevu; sesija stare lozinke briše se kao pri odjavi.
+func (s *AuthService) provjeriSesiju(session *models.Session, u *models.User) error {
+	if !u.IsActive {
+		return s.odbaciSesijuIskljucenog(session.ID)
+	}
+	if session.LozinkaOtisak != repository.OtisakLozinke(u.PasswordHash) {
+		_ = s.sessionRepo.DeleteSession(session.ID) // sesija ionako više ne vrijedi
+		return ErrSessionExpired
+	}
+	return nil
 }
 
 // odbaciSesijuIskljucenog briše sesiju računa koji je isključen, kao pri
@@ -232,8 +249,8 @@ func (s *AuthService) AuthenticateSessionView(sessionID uuid.UUID) (*SessionView
 	if err != nil {
 		return nil, err
 	}
-	if !perms.User.IsActive {
-		return nil, s.odbaciSesijuIskljucenog(sessionID)
+	if err := s.provjeriSesiju(session, &perms.User); err != nil {
+		return nil, err
 	}
 
 	view := &SessionView{User: &perms.User, Perms: perms, RealUser: &perms.User}
@@ -357,6 +374,17 @@ func (s *AuthService) ChangePassword(userID uuid.UUID, currentPassword, newPassw
 
 	if err := s.userRepo.ChangePassword(userID, newHash); err != nil {
 		return err
+	}
+	return s.nakonNoveLozinke(userID, zadrzi, newHash)
+}
+
+// nakonNoveLozinke: prijava zadrzi pamti novu lozinku (sazetak) i ostaje,
+// ostale prijave te osobe se brišu, a zapamćena računala zaboravljaju.
+// Sesije pamte otisak lozinke, pa ostale ne vrijede ni kad se ne daju
+// obrisati.
+func (s *AuthService) nakonNoveLozinke(userID, zadrzi uuid.UUID, sazetak string) error {
+	if err := s.sessionRepo.ZadrziUzNovuLozinku(zadrzi, userID, sazetak); err != nil {
+		return fmt.Errorf("lozinka je promijenjena, ali ova prijava nije zadržana; prijavite se ponovno: %w", err)
 	}
 	if err := s.sessionRepo.DeleteOtherSessionsForUser(userID, zadrzi); err != nil {
 		return fmt.Errorf("lozinka je promijenjena, ali ostale prijave nisu odjavljene: %w", err)

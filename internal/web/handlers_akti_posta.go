@@ -1,6 +1,8 @@
 package web
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"html/template"
 	"net/http"
@@ -262,6 +264,46 @@ func (h *AktiHandler) ShowPosta(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// naplatiPrijavePoste unaprijed broji prijave računa u domeni koje upis
+// lozinke e-pošte potroši, zajedno s računom koji šalje PIN: upisano ime (ili
+// adresa osobe), DOMENA\ime iz postavki i, bez domene, još jednom s domenom
+// koju objavi poslužitelj. Vraća ključ računa u domeni (ishodPrijaveAD).
+func naplatiPrijavePoste(ctx context.Context, s *service.AktService, u *models.User, korisnik string) (string, error) {
+	korisnik = strings.TrimSpace(korisnik)
+	if korisnik == "" {
+		korisnik = u.Email
+	}
+	if korisnik == "" {
+		return "", nil
+	}
+	n := len(s.Posta(ctx).Imena(korisnik))
+	if prijavaBezDomene(korisnik) {
+		n++
+	}
+	return naplatiPrijaveAD(u.ID.String(), korisnik, n)
+}
+
+// naplatiUpisPoste unaprijed broji upis lozinke e-pošte osobe (kljuc) i,
+// preko naplati, prijave računa u domeni. Bez lozinke nema upisa koji bi se
+// brojio, pa se rezervirani upis vraća; vraća se i kad prijave u domeni
+// granica više ne dopušta. Vraća ključ računa u domeni (ishodPrijaveAD) i
+// grešku s porukom za korisnika.
+func naplatiUpisPoste(kljuc string, imaLozinku bool, naplati func() (string, error)) (string, error) {
+	if err := rezervirajPonovnuLozinku(kljuc); err != nil {
+		return "", err
+	}
+	if !imaLozinku {
+		ponovnaLozinka.VratiSve(kljuc)
+		return "", nil
+	}
+	kljucAD, err := naplati()
+	if err != nil {
+		ponovnaLozinka.VratiSve(kljuc)
+		return "", errors.New(upperFirst(err.Error()) + ".")
+	}
+	return kljucAD, nil
+}
+
 // HandlePosta sprema korisničko ime i lozinku e-pošte
 func (h *AktiHandler) HandlePosta(w http.ResponseWriter, r *http.Request) {
 	u, _, _ := h.base(r)
@@ -282,31 +324,12 @@ func (h *AktiHandler) HandlePosta(w http.ResponseWriter, r *http.Request) {
 	// ne razlikuje pouzdano od nedostupnog poslužitelja; upis koji poslužitelj
 	// primi vraća svoj pokušaj (ishodPrijaveAD)
 	kljuc := kljucPonovneLozinke("posta", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+	kljucAD, err := naplatiUpisPoste(kljuc, r.FormValue("lozinka") != "", func() (string, error) {
+		return naplatiPrijavePoste(r.Context(), s, u, r.FormValue("korisnik"))
+	})
+	if err != nil {
 		redirectWith(w, r, "/profile/posta", "error", err.Error())
 		return
-	}
-	// Uz to se broje prijave računa u domeni, zajedno s računom koji šalje
-	// PIN: upisano ime, DOMENA\ime iz postavki i, bez domene, još jednom s
-	// domenom koju objavi poslužitelj
-	var kljucAD string
-	if r.FormValue("lozinka") != "" {
-		korisnik := strings.TrimSpace(r.FormValue("korisnik"))
-		if korisnik == "" {
-			korisnik = u.Email
-		}
-		if korisnik != "" {
-			n := len(s.Posta(r.Context()).Imena(korisnik))
-			if prijavaBezDomene(korisnik) {
-				n++
-			}
-			var err error
-			if kljucAD, err = naplatiPrijaveAD(u.ID.String(), korisnik, n); err != nil {
-				redirectWith(w, r, "/profile/posta", "error", upperFirst(err.Error())+".")
-				return
-			}
-		}
-		ponovnaLozinka.Fail(kljuc)
 	}
 	upozorenje, err := s.SpremiRacunPoste(r.Context(), u, r.FormValue("korisnik"), r.FormValue("lozinka"))
 	if kljucAD != "" {

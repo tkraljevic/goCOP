@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -8,6 +9,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/uuid"
 
 	"gocop/internal/service"
 )
@@ -36,10 +39,14 @@ const (
 	kljucImeAdresa = "user+ip:"
 	kljucAdresa    = "ip:"
 	kljucIme       = "user:"
-	kljucPonovna   = "reauth:" // ponovni upis lozinke unutar prijave
+	kljucPonovna   = "reauth:" // ponovni upis lozinke unutar prijave (e-pošta)
 	// prijave na poslužitelj e-pošte jednim računom u domeni (vidi
 	// kljucPrijaveAD); počinje s kljucPonovna, ali ima svoju granicu
 	kljucPonovnaAD = kljucPonovna + "ad:"
+	// ponovni upis lozinke računa: po prijavi (sesiji) i po osobi, vidi
+	// kljuceviLozinkeRacuna
+	kljucPonovnaSesija = "reauth-sesija:"
+	kljucPonovnaOsoba  = "reauth-osoba:"
 )
 
 // granicaKljuca je granica jedne vrste ključa
@@ -57,8 +64,10 @@ func granicaZa(kljuc string) granicaKljuca {
 		return granicaKljuca{30, time.Hour, 30 * time.Minute}
 	case strings.HasPrefix(kljuc, kljucPonovnaAD):
 		return granicaKljuca{najviseKrivihAD, 30 * time.Minute, 30 * time.Minute}
-	case strings.HasPrefix(kljuc, kljucPonovna):
+	case strings.HasPrefix(kljuc, kljucPonovna), strings.HasPrefix(kljuc, kljucPonovnaSesija):
 		return granicaKljuca{3, 15 * time.Minute, 15 * time.Minute}
+	case strings.HasPrefix(kljuc, kljucPonovnaOsoba):
+		return granicaKljuca{najviseKrivihOsobe, 15 * time.Minute, 15 * time.Minute}
 	}
 	return granicaKljuca{loginMaxAttempts, loginWindow, loginBlock}
 }
@@ -84,17 +93,28 @@ func kljuceviPrijave(ime string, k Klijent) []string {
 // računalo koje se prijavljuje izravno.
 const oznakaZaglavlja = "kroz:"
 
+// oznakaTudjegImena stoji ispred adrese zahtjeva na ime koje ne vodi na ovo
+// računalo (Klijent.TudjeIme). Pokušaji na takvo ime broje se odvojeno, pa
+// ne zaključavaju isto računalo kad se prijavljuje na adresu ili ime čvora.
+const oznakaTudjegImena = "ime:"
+
 // adresaZaOgranicenje: IPv4 adresa, a IPv6 izvana mreža /64, jer jedan
 // priključak dobiva čitavu mrežu adresa i mogao bi ih mijenjati po pokušaju.
 // U lokalnoj mreži svako računalo je svoja adresa, inače bi jedno zaključalo
 // cijeli ured; isto vrijedi za Tailscale, gdje računala dijele početak adrese.
+// Mrežu određuje porijeklo zahtjeva, ne ime na koje je upućen.
 func adresaZaOgranicenje(k Klijent) string {
 	a := k.Adresa
 	adresa := k.String()
-	if k.Izvana() && !k.izravnoNaTailscale() && a.IsValid() && a.Is6() && !a.Is4In6() {
+	poPorijeklu := k
+	poPorijeklu.TudjeIme = false
+	if poPorijeklu.Izvana() && !k.izravnoNaTailscale() && a.IsValid() && a.Is6() && !a.Is4In6() {
 		if p, err := a.Prefix(64); err == nil {
 			adresa = p.String()
 		}
+	}
+	if k.TudjeIme {
+		adresa = oznakaTudjegImena + adresa
 	}
 	if k.KrozPosrednika {
 		return oznakaZaglavlja + adresa
@@ -124,23 +144,54 @@ func newLoginLimiter() *loginLimiter {
 func (l *loginLimiter) Blocked(keys ...string) (bool, time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	now := l.now()
+	d := l.blokada(l.now(), keys)
+	return d > 0, d
+}
+
+// blokada je najdulje preostalo čekanje među ključevima; 0 kad nijedan
+// nije blokiran. Zove se pod bravom.
+func (l *loginLimiter) blokada(now time.Time, keys []string) time.Duration {
 	var longest time.Duration
 	for _, k := range keys {
 		if rec, ok := l.records[k]; ok && rec.blockedUntil.After(now) {
-			if d := rec.blockedUntil.Sub(now); d > longest {
-				longest = d
-			}
+			longest = max(longest, rec.blockedUntil.Sub(now))
 		}
 	}
-	return longest > 0, longest
+	return longest
 }
 
 // Fail bilježi neuspjeh; nakon najviše neuspjeha u prozoru ključ se blokira
 func (l *loginLimiter) Fail(keys ...string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	l.zabiljezi(l.now(), keys)
+}
+
+// Rezerviraj unaprijed broji pokušaj na svim ključevima, pod istom bravom
+// pod kojom provjerava blokadu, pa istodobni zahtjevi ne prolaze granicu
+// prije nego što se prvi neuspjeh upiše. Kad je neki ključ blokiran, ne
+// broji ništa i javi koliko treba čekati. Točna lozinka pokušaj vraća
+// (VratiSve), kriva ga ostavlja kao neuspjeh.
+func (l *loginLimiter) Rezerviraj(keys ...string) (bool, time.Duration) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	now := l.now()
+	if d := l.blokada(now, keys); d > 0 {
+		return false, d
+	}
+	l.zabiljezi(now, keys)
+	return true, 0
+}
+
+// VratiSve vraća po jedan pokušaj na svakom ključu (Rezerviraj)
+func (l *loginLimiter) VratiSve(keys ...string) {
+	for _, k := range keys {
+		l.Vrati(k, 1)
+	}
+}
+
+// zabiljezi broji neuspjeh na svakom ključu; zove se pod bravom
+func (l *loginLimiter) zabiljezi(now time.Time, keys []string) {
 	for _, k := range keys {
 		if k == "" {
 			continue
@@ -263,23 +314,42 @@ func (l *loginLimiter) sweep(now time.Time) {
 }
 
 // Ponovni upis lozinke unutar prijave (promjena lozinke, potpisni ključ,
-// lozinka e-pošte) je proročište za pogađanje kome je sesija ukradena: ključ
-// reauth:+osoba dopušta tri kriva upisa u 15 minuta. Brojač je zajednički
-// svim rukovateljima, pa se ne zaobilazi prelaskom na drugu stranicu.
+// lozinka e-pošte) je proročište za pogađanje kome je sesija ukradena.
+// Lozinka računa broji se po prijavi, tri kriva upisa u 15 minuta, i po
+// osobi, najviseKrivihOsobe: krivi upisi iz jedne prijave ne zaključavaju
+// promjenu lozinke i potpis u drugim prijavama iste osobe. Lozinka e-pošte broji
+// se po osobi (kljucPonovneLozinke). Brojač je zajednički svim
+// rukovateljima, pa se ne zaobilazi prelaskom na drugu stranicu.
 var ponovnaLozinka = newLoginLimiter()
 
-// kljucPonovneLozinke je ključ osobe; vrsta odvaja brojače (npr. posta, čiji
-// poslužitelj sam zaključava račun nakon nekoliko krivih lozinki)
+// najviseKrivihOsobe su krivi upisi lozinke računa jedne osobe iz svih
+// njezinih prijava zajedno u 15 minuta
+const najviseKrivihOsobe = 10
+
+// kljucPonovneLozinke je ključ osobe za lozinku koja nije lozinka računa;
+// vrsta odvaja brojače (npr. posta, čiji poslužitelj sam zaključava račun
+// nakon nekoliko krivih lozinki)
 func kljucPonovneLozinke(vrsta, userID string) string {
-	if vrsta == "" {
-		return kljucPonovna + userID
-	}
 	return kljucPonovna + vrsta + ":" + userID
 }
 
-// ponovnaLozinkaDopustena javlja grešku dok je osoba blokirana
-func ponovnaLozinkaDopustena(kljuc string) error {
-	if blocked, wait := ponovnaLozinka.Blocked(kljuc); blocked {
+// kljuceviLozinkeRacuna su ključevi ponovnog upisa lozinke računa: prijava
+// iz koje je upisana (sesija iz konteksta zahtjeva) i osoba. Bez sesije u
+// kontekstu sve prijave osobe dijele jedan ključ prijave.
+func kljuceviLozinkeRacuna(ctx context.Context, userID string) []string {
+	prijava := "osoba:" + userID
+	if id, ok := ctx.Value(contextKeySession).(uuid.UUID); ok && id != uuid.Nil {
+		prijava = id.String()
+	}
+	return []string{kljucPonovnaSesija + prijava, kljucPonovnaOsoba + userID}
+}
+
+// rezervirajPonovnuLozinku unaprijed broji jedan upis lozinke na svakom
+// ključu; dok je neki blokiran, javlja grešku i ne broji ništa. Svaki uspjeh
+// mora imati svoj ishod (ishodRezervacije ili ponovnaLozinka.VratiSve),
+// inače upis ostaje brojen kao kriv.
+func rezervirajPonovnuLozinku(kljucevi ...string) error {
+	if ok, wait := ponovnaLozinka.Rezerviraj(kljucevi...); !ok {
 		return fmt.Errorf("previše krivih lozinki; pokušajte ponovno za %d min", int(wait.Minutes())+1)
 	}
 	return nil
@@ -358,14 +428,27 @@ func ishodPrijaveAD(prosla bool, kljucAD, kljucOsobe string) {
 	}
 }
 
-// ishodPonovneLozinke broji krivu lozinku, a točna briše brojač
-func ishodPonovneLozinke(kljuc string, err error) {
+// ishodRezervacije: točna lozinka briše brojač, kriva ostaje brojena, a
+// druga greška (npr. osoba nema potpisni ključ) vraća upis koji je
+// rezervirajPonovnuLozinku unaprijed izbrojio
+func ishodRezervacije(err error, kljucevi ...string) {
 	switch {
 	case err == nil:
-		ponovnaLozinka.Reset(kljuc)
-	case errors.Is(err, service.ErrKrivaLozinka):
-		ponovnaLozinka.Fail(kljuc)
+		ponovnaLozinka.Reset(kljucevi...)
+	case !errors.Is(err, service.ErrKrivaLozinka):
+		ponovnaLozinka.VratiSve(kljucevi...)
 	}
+}
+
+// uzGranicuPonovne provjerava lozinku osobe uz granicu krivih upisa: upis se
+// broji prije provjere, pa istodobni zahtjevi ne zaobilaze granicu
+func uzGranicuPonovne(kljucevi []string, provjeri func() error) error {
+	if err := rezervirajPonovnuLozinku(kljucevi...); err != nil {
+		return err
+	}
+	err := provjeri()
+	ishodRezervacije(err, kljucevi...)
+	return err
 }
 
 // clientIP vraća adresu klijenta za ograničenje pokušaja i zapis sesije;

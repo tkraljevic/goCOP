@@ -8,6 +8,7 @@ package web
 // Tuđim očima se mreža ne mijenja.
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -46,7 +47,7 @@ func lozinkaIzvana(r *http.Request, provjeri func(uuid.UUID, string) error, u *m
 	if lozinka == "" {
 		return errLozinkaIzvana
 	}
-	return ponovnaLozinkaRacuna(provjeri, u, lozinka)
+	return ponovnaLozinkaRacuna(r.Context(), provjeri, u, lozinka)
 }
 
 // odbijBezLozinke odgovara 403 kad lozinka računa izvana nije prošla, i to
@@ -63,17 +64,11 @@ func odbijBezLozinke(w http.ResponseWriter, r *http.Request, u *models.User, err
 
 // ponovnaLozinkaRacuna provjerava trenutnu lozinku osobe, uz isto
 // ograničenje krivih upisa kao pri promjeni lozinke
-func ponovnaLozinkaRacuna(provjeri func(uuid.UUID, string) error, u *models.User, lozinka string) error {
+func ponovnaLozinkaRacuna(ctx context.Context, provjeri func(uuid.UUID, string) error, u *models.User, lozinka string) error {
 	if u == nil || provjeri == nil {
 		return errors.New("lozinka računa ne može se provjeriti")
 	}
-	kljuc := kljucPonovneLozinke("", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		return err
-	}
-	err := provjeri(u.ID, lozinka)
-	ishodPonovneLozinke(kljuc, err)
-	return err
+	return uzGranicuPonovne(kljuceviLozinkeRacuna(ctx, u.ID.String()), func() error { return provjeri(u.ID, lozinka) })
 }
 
 // prijavljeni je stvarno prijavljena osoba, i kad gleda tuđim očima

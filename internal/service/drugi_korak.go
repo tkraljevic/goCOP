@@ -1164,7 +1164,8 @@ func (d *DrugiKorak) ZapocniPrijavu(ctx context.Context, u *models.User, ip, ua 
 	sad := d.sad()
 	id := d.idPrijave(token)
 	p := &repository.PrijavaNaCekanju{ID: id, UserID: u.ID, IPAddress: ip, UserAgent: ua,
-		CreatedAt: sad, ExpiresAt: sad.Add(TrajanjePrijaveNaCekanju)}
+		CreatedAt: sad, ExpiresAt: sad.Add(TrajanjePrijaveNaCekanju),
+		LozinkaOtisak: d.otisakLozinke(u.PasswordHash)}
 	ishod := &PocetakPrijave{Token: token, Istjece: p.ExpiresAt}
 	if hash, adresa, err := d.posaljiPIN(ctx, u, id, ip); err != nil {
 		ishod.Razlog = razlogZaKorisnika(err)
@@ -1342,6 +1343,8 @@ func razloziUnos(unos string) (vrsta, oznaka, tajna string, ok bool) {
 //   - ErrPrevisePokusaja: peti krivi unos, prijava na čekanju je obrisana;
 //   - ErrKodoviZakljucani: osoba ima deset krivih unosa u satu;
 //   - ErrAccountInactive: račun je u međuvremenu isključen.
+//
+// Lozinka promijenjena nakon početka prijave daje ErrDrugiKorakIstekao.
 func (d *DrugiKorak) ProvjeriKod(ctx context.Context, token, unos string) (*IshodDrugogKoraka, error) {
 	p, err := d.prijavaIzTokena(ctx, token)
 	if err != nil {
@@ -1412,15 +1415,9 @@ func (d *DrugiKorak) ProvjeriKod(ctx context.Context, token, unos string) (*Isho
 			return nil, ErrDrugiKorakIstekao
 		}
 	}
-	u, err := d.korisnici.GetUserByID(p.UserID)
+	u, err := d.korisnikPrijave(p)
 	if err != nil {
 		return nil, err
-	}
-	if u == nil {
-		return nil, ErrDrugiKorakIstekao
-	}
-	if !u.IsActive {
-		return nil, ErrAccountInactive
 	}
 	ishod := &IshodDrugogKoraka{Korisnik: u, Vrsta: vrsta}
 	switch vrsta {
@@ -1431,6 +1428,27 @@ func (d *DrugiKorak) ProvjeriKod(ctx context.Context, token, unos string) (*Isho
 		log.Printf("prijava izvana: %s ušao privremenim kodom od administratora", u.Username)
 	}
 	return ishod, nil
+}
+
+// korisnikPrijave je račun prijave na čekanju nakon točnog PIN-a ili koda.
+// Prijava vrijedi samo uz lozinku koju je provjerila: kad je lozinka u
+// međuvremenu promijenjena (i na drugom računalu, pa stigla razmjenom),
+// prijava je istekla.
+func (d *DrugiKorak) korisnikPrijave(p *repository.PrijavaNaCekanju) (*models.User, error) {
+	u, err := d.korisnici.GetUserByID(p.UserID)
+	if err != nil {
+		return nil, err
+	}
+	if u == nil {
+		return nil, ErrDrugiKorakIstekao
+	}
+	if !u.IsActive {
+		return nil, ErrAccountInactive
+	}
+	if !hmac.Equal(p.LozinkaOtisak, d.otisakLozinke(u.PasswordHash)) {
+		return nil, ErrDrugiKorakIstekao
+	}
+	return u, nil
 }
 
 // ---- zapamćeno računalo ----

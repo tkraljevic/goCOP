@@ -590,7 +590,14 @@ func TestPromjenaLozinkeOpozivaDrugiKorak(t *testing.T) {
 				t.Errorf("prijava na čekanju ostala: %v", err)
 			}
 			o.pomakni(6 * time.Minute)
-			p, _ = o.dk.ZapocniPrijavu(ctx, o.osoba, "", "")
+			// nova prijava ide s računom kakav je sad, s novom lozinkom
+			svjez, err := o.repo.GetUserByID(o.osoba.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if p, err = o.dk.ZapocniPrijavu(ctx, svjez, "", ""); err != nil {
+				t.Fatal(err)
+			}
 			if _, err := o.dk.ProvjeriKod(ctx, p.Token, kod); !errors.Is(err, service.ErrKrivKod) {
 				t.Errorf("privremeni kod ostao: %v", err)
 			}

@@ -41,6 +41,19 @@ type Klijent struct {
 	// (tailscale.go); TailscaleLokalno: [web] tailscale_lokalno je uključen
 	NaTailscale      bool
 	TailscaleLokalno bool
+	// TudjeIme: zahtjev je upućen imenu za koje se ne zna da vodi na ovo
+	// računalo (ime_zahtjeva.go); takav vrijedi kao izvana
+	TudjeIme bool
+	// ImeOvogRacunala: zahtjev je upućen imenu localhost ili adresi petlje
+	ImeOvogRacunala bool
+}
+
+// SOvogRacunala: izravan zahtjev s ovog računala (veza s adrese petlje, bez
+// posrednika), upućen imenu localhost ili adresi petlje. Samo takav smije
+// ono što smije samo osoba za ovim računalom: ime iz lokalne mreže
+// (.local, ime bez točke) može odgovoriti i drugo računalo u istoj mreži.
+func (k Klijent) SOvogRacunala() bool {
+	return !k.KrozPosrednika && k.Posrednik.IsLoopback() && k.ImeOvogRacunala
 }
 
 // IzLokalneMreze: izravan zahtjev (bez posrednika) s ovog računala ili s
@@ -56,8 +69,12 @@ func (k Klijent) IzLokalneMreze() bool {
 // Za izravan zahtjev na Tailscale adresu ovog računala odlučuje [web]
 // tailscale_lokalno. Uključen: zahtjev nije izvana, iako pošiljatelj ima
 // adresu 100.x, koja nije privatna. Isključen: zahtjev je izvana, i preko
-// IPv6, iako je Tailscaleova IPv6 adresa (fd7a:…) privatna.
+// IPv6, iako je Tailscaleova IPv6 adresa (fd7a:…) privatna. Zahtjev na
+// tuđe ime (TudjeIme) uvijek je izvana.
 func (k Klijent) Izvana() bool {
+	if k.TudjeIme {
+		return true
+	}
 	if k.izravnoNaTailscale() {
 		return !k.TailscaleLokalno
 	}
@@ -253,15 +270,19 @@ func (s *Server) klijentSloj(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		k := p.Klijent(r)
 		k.NaTailscale, k.TailscaleLokalno = ts.stigloNa(r), !ts.iskljuceno.Load()
+		s.oznaciIme(&k, r.Host)
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), kljucKlijenta{}, k)))
 	})
 }
 
-// klijentIz vraća porijeklo zahtjeva; bez sloja (testovi rukovatelja)
-// računa ga sa zadanim posrednicima
+// klijentIz vraća porijeklo zahtjeva; bez sloja (testovi rukovatelja,
+// stranica čvora koji se ne pokreće) računa ga sa zadanim posrednicima i
+// istom provjerom imena, bez javne adrese i bez Tailscalea
 func klijentIz(r *http.Request) Klijent {
 	if k, ok := r.Context().Value(kljucKlijenta{}).(Klijent); ok {
 		return k
 	}
-	return ZadaniPosrednici().Klijent(r)
+	k := ZadaniPosrednici().Klijent(r)
+	(&Server{}).oznaciIme(&k, r.Host)
+	return k
 }

@@ -29,6 +29,7 @@ const (
 func naAdresu(izvor, odrediste string) func(*http.Request) *http.Request {
 	return func(r *http.Request) *http.Request {
 		r.RemoteAddr = net.JoinHostPort(izvor, "40000")
+		r.Host = net.JoinHostPort(odrediste, "1160") // preglednik je otvorio adresu na koju veza stiže
 		lok := &net.TCPAddr{IP: net.ParseIP(odrediste), Port: 80}
 		return r.WithContext(context.WithValue(r.Context(), http.LocalAddrContextKey, lok))
 	}

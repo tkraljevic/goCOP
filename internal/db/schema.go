@@ -373,7 +373,8 @@ func InitSchema(database *sql.DB) error {
 			posljednje_slanje DATETIME,
 			expires_at DATETIME NOT NULL,
 			created_at DATETIME NOT NULL,
-			razlog TEXT NOT NULL DEFAULT ''
+			razlog TEXT NOT NULL DEFAULT '',
+			lozinka_otisak BLOB
 		);`,
 		`CREATE INDEX IF NOT EXISTS idx_prijave_na_cekanju_user ON prijave_na_cekanju(user_id);`,
 		// Zapamćeno računalo preskače PIN (nikad lozinku). Jedan token po
@@ -1590,6 +1591,11 @@ func migrateSchema(database *sql.DB) error {
 		{"mts_promet", "mjesto", "TEXT NOT NULL DEFAULT ''"},
 		{"users", "last_login_at", "DATETIME"},
 		{"sessions", "viewing_as", "TEXT"},
+		// Otisak sažetka lozinke s kojim je sesija otvorena: kad lozinka
+		// stigne promijenjena s drugog računala, sesija prestaje
+		// (repository.OtisakLozinke). Sesija bez otiska, otprije stupca, ne
+		// vrijedi, pa se nakon nadogradnje svi jednom ponovno prijave.
+		{"sessions", "lozinka_otisak", "TEXT NOT NULL DEFAULT ''"},
 		{"sections", "parts", "TEXT NOT NULL DEFAULT '[]'"},
 		{"users", "short_mobile", "TEXT"},
 		{"record_versions", "channel", "TEXT NOT NULL DEFAULT ''"},
@@ -1741,6 +1747,9 @@ func migrateSchema(database *sql.DB) error {
 		// Zašto PIN prijave na čekanju nije poslan (oznaka), da stranica s
 		// upisom koda i nakon krivog unosa nudi novi PIN kad ima smisla
 		{"prijave_na_cekanju", "razlog", "TEXT NOT NULL DEFAULT ''"},
+		// otisak lozinke koju je prijava na čekanju provjerila; prijava bez
+		// njega, otprije stupca, ne prolazi (DrugiKorak.korisnikPrijave)
+		{"prijave_na_cekanju", "lozinka_otisak", "BLOB"},
 		// Adresa e-pošte koju je globalni administrator potvrdio za PIN
 		// prijave izvana i izvan dopuštene domene (djelatnici tvrtki
 		// izvođača), tko i kada; vrijedi samo dok je jednaka adresi računa

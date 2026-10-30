@@ -88,7 +88,7 @@ func (h *PostavljanjeHandler) dopusteno(r *http.Request, kod string) bool {
 	if !k.IzLokalneMreze() {
 		return false
 	}
-	if k.Posrednik.IsLoopback() {
+	if k.SOvogRacunala() {
 		return true
 	}
 	kod = strings.ToUpper(strings.TrimSpace(kod))

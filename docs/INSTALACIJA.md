@@ -257,9 +257,9 @@ Portovi se mijenjaju u `gocop.toml`.
 - **Lozinke** se čuvaju kao bcrypt hash. Sesija je HttpOnly kolačić,
   SameSite Lax, a iza HTTPS-a (i tunela) i `Secure`; traje do isteka ili
   odjave. Promjena ili poništenje lozinke gasi ostale prijave te osobe na
-  istom čvoru; prijave na drugim čvorovima traju do isteka (najviše 24 h).
-  Na istom čvoru briše i zapamćena računala, prijave koje čekaju PIN i
-  privremene kodove te osobe.
+  istom čvoru, a na drugim čvorovima kad nova lozinka stigne razmjenom; tada
+  ondje prestaju i prijave koje čekaju PIN. Na istom čvoru briše i zapamćena
+  računala, prijave koje čekaju PIN i privremene kodove te osobe.
 - **Zadana lozinka mora se promijeniti.** Do tada račun može otvoriti samo
   vlastiti profil i odjavu. Zadana lozinka je javna, pa izvana (kroz tunel)
   ne vrijedi: prva prijava njome ide iz lokalne mreže, a izvana s privremenom
@@ -272,7 +272,15 @@ Portovi se mijenjaju u `gocop.toml`.
 - **PIN za prijavu izvana (od 0.0.26-alfa).** Prijava izvana, kroz posrednika
   ili s adrese koja nije privatna, loopback ni link-local, nakon lozinke traži
   šesteroznamenkasti PIN poslan na službenu e-poštu korisnika. Prijava iz
-  lokalne mreže PIN nikad ne traži. Na računalu s Tailscaleom lokalan je i
+  lokalne mreže PIN nikad ne traži kad je goCOP otvoren na adresu
+  (`http://192.168.1.20`), na ime računala (`http://tower`,
+  `http://tower.local`), na `localhost`, na `javna_adresa` ili na ime iz
+  `[web] lokalna_imena` (npr. `lokalna_imena = ['gocop.voda.hr']` kad DNS
+  ureda to ime vodi na čvor); na drugo ime prijava vrijedi kao izvana.
+  Tailscaleovo ime (`tower.tail1234.ts.net`) vrijedi samo kad zahtjev stigne
+  na Tailscale adresu računala. Pod Postavom početna lozinka i postavljanje
+  novog čvora bez koda rade samo s tog računala na `http://localhost`
+  (tako ga otvara ikona u traci). Na računalu s Tailscaleom lokalan je i
   izravan zahtjev na Tailscale adresu tog računala, npr.
   `http://100.x.y.z`; to isključuje `[web] tailscale_lokalno = false`, i tada
   takav zahtjev traži PIN, i preko IPv6. Na računalu bez Tailscalea to ne

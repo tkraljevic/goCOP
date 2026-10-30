@@ -32,15 +32,16 @@ func (o *opozivBezBaze) JaviPromjenuAdrese(context.Context, *models.User, string
 func TestPromjenaLozinkeSvaPravila(t *testing.T) {
 	const stara = "anina-lozinka"
 	for _, x := range []struct {
-		opis      string
-		pripremi  func(t *testing.T, c *prazanCvorPrijave)
-		trenutna  string
-		nova      string
-		tko       func(ana *models.User) uuid.UUID
-		greska    string // početak poruke; prazno = uspjeh
-		krivaLoz  bool   // greška je ErrKrivaLozinka
-		upisana   bool   // nova lozinka vrijedi
-		odjavljen bool   // druga prijava je ugašena
+		opis       string
+		pripremi   func(t *testing.T, c *prazanCvorPrijave)
+		trenutna   string
+		nova       string
+		tko        func(ana *models.User) uuid.UUID
+		greska     string // početak poruke; prazno = uspjeh
+		krivaLoz   bool   // greška je ErrKrivaLozinka
+		upisana    bool   // nova lozinka vrijedi
+		odjavljen  bool   // druga prijava je ugašena
+		ovaUgasena bool   // ni prijava iz koje se mijenja ne ostaje
 	}{
 		{opis: "kriva trenutna lozinka", trenutna: "kriva", nova: "nova-lozinka",
 			greska: "trenutna lozinka nije točna", krivaLoz: true},
@@ -65,7 +66,17 @@ func TestPromjenaLozinkeSvaPravila(t *testing.T) {
 					BEGIN SELECT RAISE(ABORT, 'prijave zaključane'); END`); err != nil {
 					t.Fatal(err)
 				}
-			}, greska: "lozinka je promijenjena, ali ostale prijave nisu odjavljene", upisana: true},
+			}, greska: "lozinka je promijenjena, ali ostale prijave nisu odjavljene", upisana: true,
+			// sesija pamti otisak lozinke, pa druga ne vrijedi ni neobrisana
+			odjavljen: true},
+		{opis: "ova prijava se ne da zadržati", trenutna: stara, nova: "nova-lozinka",
+			pripremi: func(t *testing.T, c *prazanCvorPrijave) {
+				if _, err := c.db.Exec(`CREATE TRIGGER prijave_zakljucane BEFORE UPDATE ON sessions
+					BEGIN SELECT RAISE(ABORT, 'prijave zaključane'); END`); err != nil {
+					t.Fatal(err)
+				}
+			}, greska: "lozinka je promijenjena, ali ova prijava nije zadržana", upisana: true,
+			odjavljen: true, ovaUgasena: true},
 		{opis: "opoziv zapamćenih računala ne uspije", trenutna: stara, nova: "nova-lozinka",
 			pripremi: func(t *testing.T, c *prazanCvorPrijave) { c.auth.SetZastitaPrijave(&opozivBezBaze{}) },
 			greska:   "lozinka je promijenjena, ali zapamćena računala nisu zaboravljena: baza drugog koraka nije dostupna",
@@ -109,8 +120,8 @@ func TestPromjenaLozinkeSvaPravila(t *testing.T) {
 			if err := c.auth.ProvjeriLozinku(ana.ID, vrijedi); err != nil {
 				t.Errorf("lozinka %q ne vrijedi: %v", vrijedi, err)
 			}
-			if _, _, err := c.auth.AuthenticateSession(ova.ID); err != nil {
-				t.Errorf("prijava iz koje se mijenja ugašena: %v", err)
+			if _, _, err := c.auth.AuthenticateSession(ova.ID); (err != nil) != x.ovaUgasena {
+				t.Errorf("prijava iz koje se mijenja: %v, želi ugašena=%v", err, x.ovaUgasena)
 			}
 			_, _, err = c.auth.AuthenticateSession(druga.ID)
 			if x.odjavljen != errors.Is(err, service.ErrSessionExpired) {

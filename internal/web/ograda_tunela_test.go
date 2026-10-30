@@ -40,6 +40,7 @@ func TestOgradaTunelaKrozRukovatelj(t *testing.T) {
 	zahtjev := func(adresa string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, "/razmjena/tunel", nil)
 		r.RemoteAddr = "127.0.0.1:5555"
+		r.Host = adresaCvoraTesta
 		r.Header.Set("CF-Connecting-IP", adresa)
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)

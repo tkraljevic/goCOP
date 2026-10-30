@@ -229,7 +229,7 @@ func (h *UsersHandler) HandleUpdateUser(w http.ResponseWriter, r *http.Request) 
 	}
 	req.TudjimOcima = viewBanner(r).Viewing
 
-	_, err = h.azurirajUzLozinku(perms, req)
+	_, err = h.azurirajUzLozinku(r.Context(), perms, req)
 	if err != nil {
 		redirectWith(w, r, "/users/"+userID.String()+"/edit", "error", porukaRacuna(err))
 		return
@@ -273,7 +273,7 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 		Izvana:          dolaziIzvana(r),
 	}
 
-	updated, err := h.azurirajUzLozinku(perms, req)
+	updated, err := h.azurirajUzLozinku(r.Context(), perms, req)
 	if err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return
@@ -288,19 +288,22 @@ func (h *UsersHandler) HandleUpdateProfile(w http.ResponseWriter, r *http.Reques
 // azurirajUzLozinku sprema izmjenu računa; kad je upisana trenutna lozinka
 // (promjena vlastite adrese e-pošte), kriva se broji kao i pri promjeni
 // lozinke, da obrazac ne postane proročište za pogađanje
-func (h *UsersHandler) azurirajUzLozinku(perms *models.UserPermissions, req service.UpdateUserRequest) (*models.User, error) {
+func (h *UsersHandler) azurirajUzLozinku(ctx context.Context, perms *models.UserPermissions, req service.UpdateUserRequest) (*models.User, error) {
 	if req.TrenutnaLozinka == "" || perms == nil || perms.User.ID != req.ID {
 		return h.userService.UpdateUser(perms, req)
 	}
-	kljuc := kljucPonovneLozinke("", perms.User.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
+	kljucevi := kljuceviLozinkeRacuna(ctx, perms.User.ID.String())
+	if err := rezervirajPonovnuLozinku(kljucevi...); err != nil {
 		return nil, err
 	}
 	u, err := h.userService.UpdateUser(perms, req)
 	// točna lozinka briše brojač samo kad je doista provjerena (adresa se
-	// mijenjala); inače bi spremanje bez promjene adrese brisalo krive upise
+	// mijenjala); inače bi spremanje bez promjene adrese brisalo krive upise,
+	// pa se vraća samo rezervirani upis
 	if err != nil || !strings.EqualFold(strings.TrimSpace(req.Email), strings.TrimSpace(perms.User.Email)) {
-		ishodPonovneLozinke(kljuc, err)
+		ishodRezervacije(err, kljucevi...)
+	} else {
+		ponovnaLozinka.VratiSve(kljucevi...)
 	}
 	return u, err
 }

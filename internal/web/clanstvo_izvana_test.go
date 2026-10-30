@@ -415,7 +415,7 @@ func TestClanstvoIzvanaBrojiKriveLozinke(t *testing.T) {
 	ana := &models.User{ID: uuid.New(), Username: "aivic", FullName: "Ana Ivić"}
 	izvana := zahtjevMreze{porijeklo: krozTunel("198.51.100.7"), perms: admin, osoba: ana}
 	lokalno := zahtjevMreze{porijeklo: izravno, perms: admin, osoba: ana}
-	t.Cleanup(func() { ponovnaLozinka.Reset(kljucPonovneLozinke("", ana.ID.String())) })
+	t.Cleanup(func() { ponovnaLozinka.Reset(kljuceviLozinkeRacuna(context.Background(), ana.ID.String())...) })
 	for range 3 {
 		izvana.zovi(t, h.HandleOpozoviOvlast, "laptop-ilok", map[string]string{"lozinka_racuna": "kriva"})
 	}

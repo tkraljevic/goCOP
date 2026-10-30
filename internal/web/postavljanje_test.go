@@ -55,6 +55,7 @@ func novaOkolinaPostavljanja(t *testing.T) *okolinaPostavljanja {
 
 func lokalno(r *http.Request) *http.Request {
 	r.RemoteAddr = "127.0.0.1:40000"
+	r.Host = "localhost:1160"
 	return r
 }
 

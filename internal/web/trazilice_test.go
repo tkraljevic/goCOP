@@ -57,6 +57,7 @@ func TestRobotsTxtBezPrijave(t *testing.T) {
 		for _, metoda := range []string{http.MethodGet, http.MethodHead} {
 			r := httptest.NewRequest(metoda, "/robots.txt", nil)
 			r.RemoteAddr = "127.0.0.1:5000"
+			r.Host = adresaCvoraTesta
 			for k, v := range zag {
 				r.Header.Set(k, v)
 			}
@@ -108,6 +109,7 @@ func TestTrazilicaNaUlazuVidiNoindex(t *testing.T) {
 	zovi := func(put string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, put, nil)
 		r.RemoteAddr = "127.0.0.1:5000"
+		r.Host = adresaCvoraTesta
 		r.Header.Set("CF-Connecting-IP", "203.0.113.9")
 		w := httptest.NewRecorder()
 		h.ServeHTTP(w, r)
@@ -157,6 +159,7 @@ func TestSkrivenoOdTrazilica(t *testing.T) {
 	} {
 		r := httptest.NewRequest(c.metoda, c.put, nil)
 		r.RemoteAddr = "127.0.0.1:5000"
+		r.Host = "localhost:1160"
 		if c.metoda == "POST" {
 			r.Header.Set("Sec-Fetch-Site", "cross-site")
 		}

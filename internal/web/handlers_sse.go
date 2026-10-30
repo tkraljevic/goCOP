@@ -10,6 +10,10 @@ import (
 
 type SSEHandler struct {
 	broker *service.SSEBroker
+	// vrijedi javlja vrijedi li još prijava zahtjeva; tok se otvara iza
+	// provjere prijave, a traje satima, pa se prijava gleda uz svaki ping.
+	// nil = ne gleda se (testovi).
+	vrijedi func(*http.Request) bool
 }
 
 // razmakPinga je koliko tok događaja smije šutjeti. Cloudflare prekida
@@ -47,10 +51,9 @@ func (h *SSEHandler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 		case <-notify:
 			return
 		case <-ping.C:
-			if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+			if !h.ping(w, r, rc) {
 				return
 			}
-			_ = rc.Flush()
 		case msg, ok := <-clientChan:
 			if !ok {
 				return
@@ -59,4 +62,17 @@ func (h *SSEHandler) ServeSSE(w http.ResponseWriter, r *http.Request) {
 			_ = rc.Flush()
 		}
 	}
+}
+
+// ping pošalje komentar koji drži vezu otvorenom, ako prijava još vrijedi
+// (npr. lozinka nije promijenjena, osoba se nije odjavila); false = tok
+// treba zatvoriti
+func (h *SSEHandler) ping(w http.ResponseWriter, r *http.Request, rc *http.ResponseController) bool {
+	if h.vrijedi != nil && !h.vrijedi(r) {
+		return false
+	}
+	if _, err := fmt.Fprint(w, ": ping\n\n"); err != nil {
+		return false
+	}
+	return rc.Flush() == nil
 }

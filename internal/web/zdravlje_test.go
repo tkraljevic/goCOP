@@ -30,6 +30,7 @@ func TestZdravljeSamoSOvogRacunala(t *testing.T) {
 	for _, s := range slucajevi {
 		r := httptest.NewRequest(http.MethodGet, "/zdravlje", nil)
 		r.RemoteAddr = s.adresa
+		r.Host = "127.0.0.1:1160" // Postava pita čvor na adresi petlje
 		if s.zaglavlje != "" {
 			r.Header.Set(s.zaglavlje, "203.0.113.7")
 		}
@@ -67,6 +68,7 @@ func TestOdbijenoPokretanje(t *testing.T) {
 	zahtjev := func(put, adresa, zaglavlje string) *httptest.ResponseRecorder {
 		r := httptest.NewRequest(http.MethodGet, put, nil)
 		r.RemoteAddr = adresa
+		r.Host = "localhost:1160"
 		if zaglavlje != "" {
 			r.Header.Set(zaglavlje, "203.0.113.7")
 		}

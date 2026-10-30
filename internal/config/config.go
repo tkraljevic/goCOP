@@ -42,6 +42,7 @@ type Config struct {
 		PouzdaniPosrednici []string `toml:"pouzdani_posrednici" comment:"Posrednici (tunel, nginx) kojima se vjeruje adresa klijenta iz\nzaglavlja; zahtjev koji dođe preko njih uvijek je vanjski.\nPrazno = ovo računalo i privatne mreže.\n  pouzdani_posrednici = ['172.17.0.1']   # cloudflared u Dockeru, preko mosta\n  pouzdani_posrednici = ['127.0.0.1']    # nginx na istom računalu"`
 		ZaglavljeKlijenta  string   `toml:"zaglavlje_klijenta" comment:"Zaglavlje s adresom klijenta. Prazno = CF-Connecting-IP (Cloudflare tunel).\n  zaglavlje_klijenta = 'X-Forwarded-For'   # iza nginxa"`
 		TailscaleLokalno   bool     `toml:"tailscale_lokalno" comment:"Na računalu s Tailscaleom zahtjev koji stigne na Tailscale adresu ovog računala\nvrijedi kao iz lokalne mreže (prijava bez PIN-a). Na računalu bez Tailscalea ne\nmijenja ništa. Uz false takav zahtjev vrijedi kao izvana i traži PIN.\n  tailscale_lokalno = false"`
+		LokalnaImena       []string `toml:"lokalna_imena" comment:"Imena pod kojima se program otvara u lokalnoj mreži, a nisu adresa, ime\nračunala ni ime iz javna_adresa: npr. ime iz DNS-a ureda pod javnom domenom.\nZahtjev na ime koje program ne zna vrijedi kao izvana i traži PIN.\n  lokalna_imena = ['gocop.voda.hr']"`
 	} `toml:"web"`
 
 	Node struct {

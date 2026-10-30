@@ -177,18 +177,18 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	keys := kljuceviPrijave(username, klijent)
 
 	// Previše neuspjeha: odgovor je isti bez obzira na to postoji li ime,
-	// da se iz njega ne može zaključiti tko ima račun
-	if blocked, wait := h.limiter.Blocked(keys...); blocked {
+	// da se iz njega ne može zaključiti tko ima račun. Pokušaj se broji prije
+	// provjere lozinke, pa ni istodobni zahtjevi ne prolaze granicu.
+	if ok, wait := h.limiter.Rezerviraj(keys...); !ok {
 		minutes := int(wait.Minutes()) + 1
 		h.prikaziPrijavu(w, r, http.StatusTooManyRequests, fmt.Sprintf("Previše neuspjelih pokušaja prijave. Pokušajte ponovno za %d min.", minutes))
 		return
 	}
 
 	// Deaktiviran račun javlja se tek nakon točne lozinke, inače bi poruka
-	// otkrila da ime postoji
+	// otkrila da ime postoji; i on ostaje brojen kao neuspjeh
 	user, err := h.authService.ProvjeriPrijavu(username, password)
 	if err != nil {
-		h.limiter.Fail(keys...)
 		errMsg := "Neispravno korisničko ime ili lozinka"
 		if errors.Is(err, service.ErrAccountInactive) {
 			errMsg = "Korisnički račun je privremeno deaktiviran"
@@ -196,6 +196,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 		h.prikaziPrijavu(w, r, http.StatusOK, errMsg)
 		return
 	}
+	h.limiter.VratiSve(keys...) // točna lozinka nije neuspjeh
 
 	// Zadana lozinka piše u dokumentaciji: tko je zna, preuzeo bi svjež čvor
 	// izvana prije vlasnika. Prva prijava njome zato ide samo iz lokalne
@@ -209,7 +210,7 @@ func (h *AuthHandler) HandleLogin(w http.ResponseWriter, r *http.Request) {
 	// mrežu: javnu početnu lozinku smije upotrijebiti samo vlasnik, s tog
 	// računala (ili postavi svoj račun na stranici Postavljanje)
 	if user.MustChangePassword && password == db.ZadanaLozinka && h.samoOvoRacunalo != nil &&
-		h.samoOvoRacunalo() && !klijent.Posrednik.IsLoopback() {
+		h.samoOvoRacunalo() && !klijent.SOvogRacunala() {
 		h.prikaziPrijavu(w, r, http.StatusForbidden, porukaZadaneLozinkeIzMreze)
 		return
 	}
@@ -299,13 +300,7 @@ func (h *AuthHandler) HandleChangePassword(w http.ResponseWriter, r *http.Reques
 
 	// Trenutna lozinka se provjerava prvo i s ograničenjem pokušaja: ukradena
 	// sesija ne smije biti proročište za pogađanje lozinke
-	kljuc := kljucPonovneLozinke("", currUser.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
-		return
-	}
-	err := h.authService.ProvjeriLozinku(currUser.ID, currentPassword)
-	ishodPonovneLozinke(kljuc, err)
+	err := uzGranicuPonovne(kljuceviLozinkeRacuna(ctx, currUser.ID.String()), func() error { return h.authService.ProvjeriLozinku(currUser.ID, currentPassword) })
 	if err != nil {
 		http.Redirect(w, r, returnURL+"?error="+url.QueryEscape(err.Error()), http.StatusSeeOther)
 		return

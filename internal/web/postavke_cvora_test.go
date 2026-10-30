@@ -84,6 +84,7 @@ func zahtjevPostavki(metoda, putanja string, obrazac url.Values, u uvjetiZahtjev
 		r = httptest.NewRequest(metoda, putanja, nil)
 	}
 	r.RemoteAddr = u.adresa
+	r.Host = adresaCvoraTesta
 	if u.tunel {
 		r.Header.Set(ZaglavljeCloudflare, "198.51.100.4")
 	}

@@ -59,19 +59,18 @@ func (h *VodocuvarHandler) potpisnikZa(r *http.Request, u *models.User, lozinka 
 	if lozinka == "" {
 		return nil, fmt.Errorf("upišite lozinku: njome otključavate svoj potpisni ključ")
 	}
-	return otkljucajUzOgranicenje(u, func() (*potpis.Potpisnik, error) { return ps.Potpisnik(ctx, u, lozinka) })
+	return otkljucajUzOgranicenje(ctx, u, func() (*potpis.Potpisnik, error) { return ps.Potpisnik(ctx, u, lozinka) })
 }
 
 // otkljucajUzOgranicenje otključava potpisni ključ lozinkom računa uz
 // ograničenje krivih upisa (ratelimit.go): ključ je zaključan lozinkom, pa bi
 // inače svaki potpis bio proročište za njezino pogađanje
-func otkljucajUzOgranicenje(u *models.User, otkljucaj func() (*potpis.Potpisnik, error)) (*potpis.Potpisnik, error) {
-	kljuc := kljucPonovneLozinke("", u.ID.String())
-	if err := ponovnaLozinkaDopustena(kljuc); err != nil {
-		return nil, err
-	}
-	p, err := otkljucaj()
-	ishodPonovneLozinke(kljuc, err)
+func otkljucajUzOgranicenje(ctx context.Context, u *models.User, otkljucaj func() (*potpis.Potpisnik, error)) (*potpis.Potpisnik, error) {
+	var p *potpis.Potpisnik
+	err := uzGranicuPonovne(kljuceviLozinkeRacuna(ctx, u.ID.String()), func() (err error) {
+		p, err = otkljucaj()
+		return err
+	})
 	return p, err
 }
 

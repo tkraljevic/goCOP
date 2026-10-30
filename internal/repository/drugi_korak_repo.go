@@ -36,6 +36,9 @@ type PrijavaNaCekanju struct {
 	// Razlog je oznaka zašto PIN nije poslan (prazno kad jest), da je
 	// stranica s upisom koda zna i nakon krivog unosa
 	Razlog string
+	// LozinkaOtisak je otisak sažetka lozinke koju je prijava provjerila;
+	// prijava vrijedi samo dok račun ima tu lozinku
+	LozinkaOtisak []byte
 }
 
 // ZapamcenoRacunalo je preglednik koji osobi preskače PIN (ne lozinku).
@@ -106,10 +109,10 @@ func (r *DrugiKorakRepository) ZapocniPrijavu(ctx context.Context, p *PrijavaNaC
 		p.CreatedAt = time.Now().UTC()
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO prijave_na_cekanju
-		(id, user_id, pin_hash, pokusaja, poslano_na, ip_address, user_agent, posljednje_slanje, expires_at, created_at, razlog)
-		VALUES (?,?,?,?,?,?,?,?,?,?,?)`,
+		(id, user_id, pin_hash, pokusaja, poslano_na, ip_address, user_agent, posljednje_slanje, expires_at, created_at, razlog, lozinka_otisak)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
 		p.ID, p.UserID.String(), p.PinHash, p.Pokusaja, p.PoslanoNa, p.IPAddress, p.UserAgent,
-		vrijemeIli(p.PosljednjeSlanje), p.ExpiresAt.UTC(), p.CreatedAt.UTC(), p.Razlog); err != nil {
+		vrijemeIli(p.PosljednjeSlanje), p.ExpiresAt.UTC(), p.CreatedAt.UTC(), p.Razlog, p.LozinkaOtisak); err != nil {
 		return fmt.Errorf("prijava na čekanju nije spremljena: %w", err)
 	}
 	return tx.Commit()
@@ -122,8 +125,8 @@ func (r *DrugiKorakRepository) Prijava(ctx context.Context, id []byte) (*Prijava
 	var user string
 	var slanje sql.NullTime
 	err := r.db.QueryRowContext(ctx, `SELECT id, user_id, pin_hash, pokusaja, poslano_na, ip_address, user_agent,
-		posljednje_slanje, expires_at, created_at, razlog FROM prijave_na_cekanju WHERE id = ?`, id).
-		Scan(&p.ID, &user, &p.PinHash, &p.Pokusaja, &p.PoslanoNa, &p.IPAddress, &p.UserAgent, &slanje, &p.ExpiresAt, &p.CreatedAt, &p.Razlog)
+		posljednje_slanje, expires_at, created_at, razlog, lozinka_otisak FROM prijave_na_cekanju WHERE id = ?`, id).
+		Scan(&p.ID, &user, &p.PinHash, &p.Pokusaja, &p.PoslanoNa, &p.IPAddress, &p.UserAgent, &slanje, &p.ExpiresAt, &p.CreatedAt, &p.Razlog, &p.LozinkaOtisak)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

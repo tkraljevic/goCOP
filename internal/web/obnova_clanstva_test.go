@@ -154,6 +154,7 @@ func TestKopijaKljucaUPostavkama(t *testing.T) {
 		r.Header.Set("Content-Type", "application/json")
 		if !u.izvana {
 			r.RemoteAddr = "127.0.0.1:5000"
+			r.Host = adresaCvoraTesta
 		}
 		ctx := context.WithValue(r.Context(), contextKeyPerms, u.perms)
 		ctx = context.WithValue(ctx, contextKeyUser, ivic)
@@ -257,14 +258,14 @@ func TestZastitaKopijeKljucaRubovi(t *testing.T) {
 	t.Cleanup(func() { log.SetOutput(stari) })
 	h := &SettingsHandler{peers: primateljNaDaljinu(t)}
 	osoba := &models.User{ID: uuid.New(), Username: "bbrkic", FullName: "Branko Brkić"}
-	if err := h.provjeriLozinkuRacuna(osoba, "bilo-sto"); err == nil {
+	if err := h.provjeriLozinkuRacuna(context.Background(), osoba, "bilo-sto"); err == nil {
 		t.Error("lozinka provjerena bez provjere")
 	}
 	h.SetZastitaKljuca(func(uuid.UUID, string) error { return service.ErrKrivaLozinka })
 	for range 3 {
-		_ = h.provjeriLozinkuRacuna(osoba, "kriva") // brojač krivih upisa
+		_ = h.provjeriLozinkuRacuna(context.Background(), osoba, "kriva") // brojač krivih upisa
 	}
-	if err := h.provjeriLozinkuRacuna(osoba, "kriva"); err == nil || !strings.Contains(err.Error(), "previše krivih lozinki") {
+	if err := h.provjeriLozinkuRacuna(context.Background(), osoba, "kriva"); err == nil || !strings.Contains(err.Error(), "previše krivih lozinki") {
 		t.Errorf("četvrta kriva: %v", err)
 	}
 	r := httptest.NewRequest(http.MethodPost, "/api/network/kljuc", nil)

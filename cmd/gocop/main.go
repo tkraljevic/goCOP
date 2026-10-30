@@ -797,6 +797,7 @@ func run(ctx context.Context, args []string, ulaz io.Reader) int {
 		server.SetPosrednici(posrednici)
 	}
 	server.SetJavnaAdresa(cfg.JavnaAdresa)
+	server.SetLokalnaImena(cfg.Web.LokalnaImena)
 	postaviTailscale(server, cfg)
 	server.SetPodPostavom(z.podPostavom)
 	// ponovno pokretanje iz Administracije (postavke čvora niže, uz putanje)
