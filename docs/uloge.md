@@ -64,13 +64,17 @@ od poplava.
 
 Kod Hrvatskih voda to je vodnogospodarska ispostava s podcentrom obrane.
 A2 i A3 u nazivima uloga su programi usluga A.02 i A.03, uz koje se vode
-dnevnici usluga.
+dnevnici usluga. Program A.02 obuhvaća vodotoke, međudržavne vode,
+retencije, bujice, kanale I. i II. reda, nasipe i slično, a A.03 kanale
+III. i IV. reda, kako ih dijeli Zakon o vodama. Oba održavaju i njima
+upravljaju Hrvatske vode, a razlikuju se po vlasništvu: vode iz A.02 su
+vlasništvo Republike Hrvatske, a kanali III. i IV. reda županije.
 
 | Uloga | Doseg | Što radi u programu |
 |---|---|---|
 | Rukovoditelj branjenog područja | branjeno područje | Vodi obranu područja i upravlja područjem i njegovim dionicama. Ovjerava akte svog područja i dnevne listove vodočuvara. Čita i parafira listove vodočuvara i zadaje im zadatke. |
 | Zamjenik rukovoditelja branjenog područja | branjeno područje | Zamjenjuje rukovoditelja područja. |
-| Ovlaštenik za praćenje ugovora programa usluga A2 | branjeno područje | Prati ugovor održavanja voda I. i II. reda (A.02) u području i upravlja područjem. U dnevnicima usluga A.02 svog područja on je nadzor. Čita i parafira listove vodočuvara. |
+| Ovlaštenik za praćenje ugovora programa usluga A2 | branjeno područje | Prati ugovor održavanja (A.02) vodotoka, međudržavnih voda, retencija, bujica, kanala I. i II. reda, nasipa i sličnog u području i upravlja područjem. U dnevnicima usluga A.02 svog područja on je nadzor. Čita i parafira listove vodočuvara. |
 | Zamjenik ovlaštenika za praćenje ugovora programa usluga A2 | branjeno područje | Zamjenjuje ovlaštenika za ugovor A2. |
 | Ovlaštenik za praćenje ugovora programa usluga A3 | branjeno područje | Prati ugovor održavanja kanala III. i IV. reda (A.03) u području i upravlja područjem. U dnevnicima usluga A.03 svog područja on je nadzor. Čita i parafira listove vodočuvara. |
 | Zamjenik ovlaštenika za praćenje ugovora programa usluga A3 | branjeno područje | Zamjenjuje ovlaštenika za ugovor A3. |

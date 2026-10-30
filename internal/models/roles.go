@@ -42,7 +42,7 @@ var RoleCatalog = []RoleDef{
 	{RoleOperator, RoleGroupLevel2, "Dežurni operater u COP-u", "privremena dužnost za vrijeme aktivne obrane: dežura u centru, prima očitanja i vodi dnevnik u dosegu zaduženja; upisuje se kao privremena, s rokom", ScopeSector},
 	{RoleAreaLeader, RoleGroupLevel3, "Rukovoditelj branjenog područja", "vodi obranu jednog branjenog područja; upravlja područjem i njegovim dionicama", ScopeArea},
 	{RoleAreaDeputy, RoleGroupLevel3, "Zamjenik rukovoditelja branjenog područja", "zamjenjuje rukovoditelja područja; ista prava", ScopeArea},
-	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja u području; upravlja područjem", ScopeArea},
+	{RoleContractOfficerA2, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A2", "prati ugovor održavanja vodotoka, međudržavnih voda, retencija, bujica, kanala I. i II. reda i nasipa u području; upravlja područjem", ScopeArea},
 	{RoleContractDeputyA2, RoleGroupLevel3, "Zamjenik ovlaštenika za praćenje ugovora programa usluga A2", "zamjenjuje ovlaštenika A2; ista prava", ScopeArea},
 	{RoleContractOfficerA3, RoleGroupLevel3, "Ovlaštenik za praćenje ugovora programa usluga A3", "prati ugovor održavanja kanala III. i IV. reda u području; upravlja područjem", ScopeArea},
 	{RoleContractDeputyA3, RoleGroupLevel3, "Zamjenik ovlaštenika za praćenje ugovora programa usluga A3", "zamjenjuje ovlaštenika A3; ista prava", ScopeArea},
