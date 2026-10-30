@@ -371,11 +371,20 @@ func TestOvlastRubovi(t *testing.T) {
 	if _, err := a.OpozoviOvlast(ctxRub, b.node.ID); err == nil {
 		t.Error("opozvana ovlast koje nema")
 	}
-	// članstvo s pokvarenim potpisom: nema ovlasti
+	// red tablice s pokvarenim potpisom ne zaklanja valjano članstvo iz
+	// knjige; samo nevaljano članstvo ne daje ovlast
 	if _, err := a.db.Exec(`UPDATE memberships SET signature = ? WHERE node_id = ?`, base64.StdEncoding.EncodeToString(make([]byte, 64)), b.node.ID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.IzdajOvlast(ctxRub, b.node.ID); err == nil || !strings.Contains(err.Error(), "ne vrijedi") {
+	if o, err := a.IzdajOvlast(ctxRub, b.node.ID); err != nil || o.DeviceKey != b.node.PublicKey() {
+		t.Errorf("ovlast uz pokvaren red i valjano članstvo u knjizi: %+v, %v", o, err)
+	}
+	lazno := mustClanstvo(t, a, b)
+	lazno.DeviceID, lazno.Signature = "laptop-x", base64.StdEncoding.EncodeToString(make([]byte, 64))
+	if err := a.saveMembership(ctxRub, lazno); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.IzdajOvlast(ctxRub, lazno.DeviceID); err == nil || !strings.Contains(err.Error(), "nema valjano članstvo") {
 		t.Errorf("ovlast uz nevaljano članstvo: %v", err)
 	}
 }
@@ -408,8 +417,10 @@ func TestPopisOvlastiOcjenjuje(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	// opozvana ovlast se ne nudi (ListOvlasti čita kao ovlastiCvora), i kad
+	// joj red još stoji u tablici
 	svi, err := a.ListOvlasti(ctxRub)
-	if err != nil || len(svi) != 1 || svi[0].Valid || !strings.Contains(svi[0].Problem, "opozvan") {
+	if err != nil || len(svi) != 0 {
 		t.Errorf("opozvana ovlast: %+v %v", svi, err)
 	}
 	if err := a.provjeriOvlast(ctxRub, a.network.Public, o); !errors.Is(err, ErrOpozvano) {
@@ -420,8 +431,8 @@ func TestPopisOvlastiOcjenjuje(t *testing.T) {
 	if err := bezMreze.saveOvlast(ctxRub, o); err != nil {
 		t.Fatal(err)
 	}
-	if svi, _ := bezMreze.ListOvlasti(ctxRub); len(svi) != 1 || svi[0].Valid || svi[0].Problem == "" {
-		t.Errorf("ovlast na čvoru bez mreže: %+v", svi)
+	if svi, err := bezMreze.ListOvlasti(ctxRub); err != nil || len(svi) != 0 {
+		t.Errorf("ovlast na čvoru bez mreže: %+v, %v", svi, err)
 	}
 }
 

@@ -144,13 +144,20 @@ func (s *Service) opozvano(ctx context.Context, vrsta, kljuc string, izdano time
 // (razmjena.Opoziv.Oznaka).
 func (s *Service) opoziviKljuca(ctx context.Context, vrsta, kljuc string) ([]Opoziv, error) {
 	od, do := rasponOznaka(vrsta, kljuc)
+	opozivi, err := s.opoziviURasponu(ctx, od, do)
+	return slices.DeleteFunc(opozivi, func(op Opoziv) bool { return op.Vrsta != vrsta || op.PublicKey != kljuc }), err
+}
+
+// opoziviURasponu su redovi tablice i opozivi iz svih verzija u knjizi s
+// oznakom u rasponu [od, do)
+func (s *Service) opoziviURasponu(ctx context.Context, od, do string) ([]Opoziv, error) {
 	uTablici, err := s.opoziviUTablici(ctx, od, do)
 	if err != nil {
 		return nil, err
 	}
 	uKnjizi, err := sadrzajiVerzija[Opoziv](ctx, s.db, `SELECT payload FROM record_versions WHERE entity = ? AND entity_id >= ? AND entity_id < ?`,
 		EntityOpozivi, od, do)
-	return slices.DeleteFunc(append(uTablici, uKnjizi...), func(op Opoziv) bool { return op.Vrsta != vrsta || op.PublicKey != kljuc }), err
+	return append(uTablici, uKnjizi...), err
 }
 
 // rasponOznaka su granice oznaka opoziva te vrste i ključa: od
@@ -184,6 +191,12 @@ func (s *Service) provjeriClanstvo(ctx context.Context, networkPub ed25519.Publi
 	if err := m.Verify(networkPub, pub, time.Now()); err != nil && !uPricuvi(m, err, time.Now()) {
 		return err
 	}
+	return s.opozivClanstva(ctx, networkPub, m)
+}
+
+// opozivClanstva je greška ErrOpozvano kad je članstvo m opozvano, ili
+// ovlast njegova primatelja; inače nil. Rok i potpis se ovdje ne gledaju.
+func (s *Service) opozivClanstva(ctx context.Context, networkPub ed25519.PublicKey, m razmjena.Membership) error {
 	if s.opozvano(ctx, OpozivClanstva, m.DeviceKey, m.IssuedAt, opozivateljiClanstva(networkPub, m)...) {
 		return fmt.Errorf("%w: članstvo čvora %s", ErrOpozvano, m.DeviceID)
 	}
@@ -261,49 +274,68 @@ func (s *Service) upisiOvlast(ctx context.Context, tx *sql.Tx, o razmjena.Ovlast
 	return err
 }
 
-// mojaOvlast je važeća ovlast ovog čvora za primanje, ili nil
+// mojaOvlast je važeća ovlast ovog čvora za primanje, ili nil: od
+// poznatih ovlasti za njegov ključ (ovlastiCvora, tablica i knjiga) zadnja
+// izdana koja vrijedi sada
 func (s *Service) mojaOvlast(ctx context.Context) *razmjena.Ovlast {
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
-	if network == nil {
+	ovlasti, err := s.ovlastiCvora(ctx, s.node.ID)
+	if err != nil {
 		return nil
 	}
-	o, err := s.getOvlast(ctx, s.node.ID)
-	if err != nil || o == nil || o.DeviceKey != s.node.PublicKey() {
-		return nil
-	}
-	if s.provjeriOvlast(ctx, network.Public, *o) != nil {
-		return nil
-	}
-	return o
+	sada := time.Now()
+	return zadnjaOvlast(slices.DeleteFunc(ovlasti, func(o razmjena.Ovlast) bool { return !uRoku(o, sada) }), s.node.PublicKey())
 }
 
 // izdajClanstvo prima uređaj u mrežu: ključem mreže kad ga ovaj čvor drži,
-// inače ključem ovog čvora uz njegovu ovlast
+// inače ključem ovog čvora uz njegovu ovlast. Članstvo nosi trenutak iza
+// zadnjeg opoziva članstva tog ključa koji je potpisao ključ mreže ili ovaj
+// čvor (nakonOpoziva), pa ponovni prijem nakon opoziva vrijedi i u istoj
+// sekundi i kad sat ovog računala kasni.
 func (s *Service) izdajClanstvo(ctx context.Context, id string, kljuc ed25519.PublicKey) (razmjena.Membership, error) {
 	s.mu.Lock()
 	network := s.network
 	s.mu.Unlock()
-	switch {
-	case network == nil:
+	if network == nil {
 		return razmjena.Membership{}, fmt.Errorf("ovaj čvor nije ni u jednoj mreži")
-	case network.CanSign():
-		return network.Admit(id, kljuc, s.node.ID, MembershipValidity)
 	}
+	sada := time.Now()
+	od, err := s.nakonOpoziva(ctx, OpozivClanstva, razmjena.PublicKeyString(kljuc), sada, network.Public, s.node.key.Public().(ed25519.PublicKey))
+	if err != nil {
+		return razmjena.Membership{}, err
+	}
+	if network.CanSign() {
+		return network.AdmitOd(id, kljuc, s.node.ID, od, MembershipValidity)
+	}
+	return s.izdajKaoPrimatelj(ctx, id, kljuc, sada, od)
+}
+
+// najviseUnaprijed je koliko članstvo koje izda primatelj smije nositi
+// trenutak unaprijed, kao razlika satova u razmjena.Membership.Verify
+const najviseUnaprijed = time.Hour
+
+// izdajKaoPrimatelj prima uređaj ključem ovog čvora uz njegovu ovlast i
+// vlastito članstvo izvan pričuve, s trenutkom od. Članstvo koje bi nosilo
+// trenutak više od sat vremena iza sada druga računala ne bi primila, pa
+// takav prijem radi samo računalo s ključem mreže.
+func (s *Service) izdajKaoPrimatelj(ctx context.Context, id string, kljuc ed25519.PublicKey, sada, od time.Time) (razmjena.Membership, error) {
 	o := s.mojaOvlast(ctx)
 	if o == nil {
 		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: nema ključ mreže ni ovlast za primanje")
 	}
 	// Odluke (23. 10. 2026.): uz ovlast treba i vlastito članstvo koje nije
 	// isteklo; u pričuvi računalo ne prima i ne obnavlja druge
-	if m, err := s.izabranoClanstvo(ctx, s.node.ID); err != nil || m.DeviceKey != s.node.PublicKey() || rokZa(m.ExpiresAt, time.Now(), true).Stanje == RokPricuva {
+	if m, err := s.izabranoClanstvo(ctx, s.node.ID); err != nil || m.DeviceKey != s.node.PublicKey() || rokZa(m.ExpiresAt, sada, true).Stanje == RokPricuva {
 		return razmjena.Membership{}, fmt.Errorf("ovaj čvor ne smije primati članove: njegovo članstvo u mreži je isteklo; obnovite ga (Ovo računalo i mreža, pod Mreža: Obnovi članstvo)")
 	}
-	return razmjena.AdmitAs(s.node.key, *o, id, kljuc, MembershipValidity)
+	if od.After(sada.Add(najviseUnaprijed)) {
+		return razmjena.Membership{}, fmt.Errorf("članstvo računala %s opozvano je do %s; ponovno ga može primiti samo računalo s ključem mreže", id, datumHR(od))
+	}
+	return razmjena.AdmitAsOd(s.node.key, *o, id, kljuc, od, MembershipValidity)
 }
 
-// IzdajOvlast daje članu ovlast da prima druge. Samo nositelj ključa mreže.
+// IzdajOvlast daje članu ovlast da prima druge, za ključ iz članstva koje
+// za njega vrijedi (izabranoClanstvo), ne iz reda tablice. Samo nositelj
+// ključa mreže.
 func (s *Service) IzdajOvlast(ctx context.Context, nodeID string) (razmjena.Ovlast, error) {
 	s.mu.Lock()
 	network := s.network
@@ -314,21 +346,15 @@ func (s *Service) IzdajOvlast(ctx context.Context, nodeID string) (razmjena.Ovla
 	if nodeID == s.node.ID {
 		return razmjena.Ovlast{}, fmt.Errorf("ovaj čvor drži ključ mreže; ovlast mu ne treba")
 	}
-	m, err := s.getMembership(ctx, nodeID)
+	m, err := s.izabranoClanstvo(ctx, nodeID)
+	if errors.Is(err, errNijeClan) {
+		return razmjena.Ovlast{}, fmt.Errorf("čvor %s nema valjano članstvo u mreži", nodeID)
+	}
 	if err != nil {
 		return razmjena.Ovlast{}, err
 	}
-	if m == nil {
-		return razmjena.Ovlast{}, fmt.Errorf("čvor %s nije član mreže", nodeID)
-	}
-	kljuc, err := razmjena.ParsePublicKey(m.DeviceKey)
-	if err != nil {
-		return razmjena.Ovlast{}, err
-	}
-	if err := s.provjeriClanstvo(ctx, network.Public, *m, kljuc); err != nil {
-		return razmjena.Ovlast{}, fmt.Errorf("članstvo čvora %s ne vrijedi: %w", nodeID, err)
-	}
-	o, err := network.Ovlasti(nodeID, kljuc, s.node.ID, OvlastValidity)
+	kljuc, _ := razmjena.ParsePublicKey(m.DeviceKey) // izabrano vrijedi, pa se ključ da pročitati
+	o, err := s.novaOvlast(ctx, *network, nodeID, kljuc)
 	if err != nil {
 		return razmjena.Ovlast{}, err
 	}
@@ -362,9 +388,17 @@ func (s *Service) OpozoviOvlast(ctx context.Context, nodeID string) ([]string, e
 }
 
 // ovlastiCvora su ovlasti za primanje računala nodeID koje vrijede
-// (ovlastVrijedi): red tablice i ovlasti iz svih verzija u knjizi, i
-// arhiviranih.
+// (ovlastVrijedi): iz svih verzija u knjizi, i arhiviranih, pa red tablice
+// (vazeceOvlasti).
 func (s *Service) ovlastiCvora(ctx context.Context, nodeID string) ([]razmjena.Ovlast, error) {
+	return s.vazeceOvlasti(ctx, func(o razmjena.Ovlast) bool { return o.DeviceID == nodeID })
+}
+
+// vazeceOvlasti su ovlasti za primanje za koje vrijedi koje i koje vrijede
+// (ovlastVrijedi): iz svih verzija u knjizi, i arhiviranih, redom nastanka,
+// pa redovi tablice, svaki sadržaj jednom. Red tablice piše svaka primljena
+// verzija, a briše ga svaka arhivirana, pa sam ne kaže koja ovlast vrijedi.
+func (s *Service) vazeceOvlasti(ctx context.Context, koje func(razmjena.Ovlast) bool) ([]razmjena.Ovlast, error) {
 	s.mu.Lock()
 	network := s.network
 	s.mu.Unlock()
@@ -375,26 +409,32 @@ func (s *Service) ovlastiCvora(ctx context.Context, nodeID string) ([]razmjena.O
 	if err != nil {
 		return nil, err
 	}
-	red, err := s.getOvlast(ctx, nodeID)
+	redovi, err := s.sveOvlasti(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if red != nil {
-		sve = append(sve, *red)
-	}
-	var out []razmjena.Ovlast
-	for _, o := range sve {
-		if s.ovlastVrijedi(ctx, network.Public, nodeID, o) {
-			out = append(out, o)
-		}
-	}
-	return out, nil
+	return s.valjaneOvlasti(ctx, network.Public, append(sve, redovi...), koje), nil
 }
 
-// ovlastVrijedi: ovlast računala nodeID koju je potpisao ključ mreže i koja
-// nije opozvana; rok se ne gleda, jer opoziv pokriva i isteklu
-func (s *Service) ovlastVrijedi(ctx context.Context, mreza ed25519.PublicKey, nodeID string, o razmjena.Ovlast) bool {
-	return o.DeviceID == nodeID && o.Verify(mreza, o.IssuedAt) == nil && !s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, mreza)
+// valjaneOvlasti su od zadanih ovlasti one za koje vrijedi koje i koje
+// vrijede (ovlastVrijedi), redom, svaki sadržaj jednom
+func (s *Service) valjaneOvlasti(ctx context.Context, mreza ed25519.PublicKey, ovlasti []razmjena.Ovlast, koje func(razmjena.Ovlast) bool) []razmjena.Ovlast {
+	var out []razmjena.Ovlast
+	vidjeno := map[string]bool{}
+	for _, o := range ovlasti {
+		k := kljucSadrzaja(o)
+		if !vidjeno[k] && koje(o) && s.ovlastVrijedi(ctx, mreza, o) {
+			out = append(out, o)
+		}
+		vidjeno[k] = true
+	}
+	return out
+}
+
+// ovlastVrijedi: ovlast koju je potpisao ključ mreže i koja nije opozvana;
+// rok se ne gleda, jer opoziv pokriva i isteklu
+func (s *Service) ovlastVrijedi(ctx context.Context, mreza ed25519.PublicKey, o razmjena.Ovlast) bool {
+	return o.Verify(mreza, o.IssuedAt) == nil && !s.opozvano(ctx, OpozivOvlasti, o.DeviceKey, o.IssuedAt, mreza)
 }
 
 // kljuceviZaOpoziv su ključevi čije se ovlasti za primanje opozivaju:
@@ -494,33 +534,30 @@ type Primatelj struct {
 	Problem string `json:"problem,omitempty"`
 }
 
-// ListOvlasti vraća poznate ovlasti za primanje, s ocjenom vrijede li
+// ListOvlasti vraća za svako računalo zadnju poznatu ovlast za primanje
+// koju je potpisao ključ mreže i koja nije opozvana (zadnjeOvlasti), s
+// ocjenom vrijedi li sada (rok). Bez mreže nema ovlasti.
 func (s *Service) ListOvlasti(ctx context.Context) ([]Primatelj, error) {
-	ovlasti, err := s.sveOvlasti(ctx)
+	s.mu.Lock()
+	bezMreze := s.network == nil
+	s.mu.Unlock()
+	if bezMreze {
+		return nil, nil
+	}
+	ovlasti, err := s.zadnjeOvlasti(ctx)
 	if err != nil {
 		return nil, err
 	}
-
-	s.mu.Lock()
-	network := s.network
-	s.mu.Unlock()
+	sada := time.Now()
 	out := make([]Primatelj, 0, len(ovlasti))
 	for _, o := range ovlasti {
-		p := Primatelj{Ovlast: o}
-		if network == nil {
-			p.Problem = "čvor nije ni u jednoj mreži"
-		} else if err := s.provjeriOvlast(ctx, network.Public, o); err != nil {
-			p.Problem = err.Error()
-		} else {
-			p.Valid = true
-		}
-		out = append(out, p)
+		out = append(out, Primatelj{Ovlast: o, Valid: uRoku(o, sada), Problem: problemRoka(o, sada)})
 	}
 	return out, nil
 }
 
-// sveOvlasti su sve poznate ovlasti za primanje; čitaju se do kraja prije
-// ocjene, jer ocjena čita opozive iz iste baze
+// sveOvlasti su redovi tablice ovlasti; čitaju se do kraja prije ocjene,
+// jer ocjena čita opozive iz iste baze
 func (s *Service) sveOvlasti(ctx context.Context) ([]razmjena.Ovlast, error) {
 	rows, err := s.db.QueryContext(ctx, `SELECT `+stupciOvlasti+` FROM ovlasti ORDER BY node_id`)
 	if err != nil {

@@ -1922,7 +1922,13 @@
         i potvrđuje globalni administrator; prima čvor koji drži ključ mreže ili član kojem je
         nositelj ključa dao <em>ovlast za primanje</em>. Oduzeta ovlast poništava članstva svih
         računala koja je taj primatelj primio, a ekran ih nabroji. Članstvo opoziva čvor koji drži
-        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Kad je stranica
+        ključ mreže, ili primatelj za članstva koja je sam izdao; opoziv se ne poništava. Ovlast za
+        primanje oduzima samo računalo s ključem mreže, i kad je članstvo opozvao primatelj. Kad
+        primatelj opozove članstvo računala koje ima ovlast za primanje, računalo s ključem mreže to
+        upozori dok se ovlast ne oduzme. Računalo s ovlašću za primanje vidi se u popisu članova i
+        kad na ovom računalu nema njegovog valjanog članstva, pa mu se ovlast može oduzeti. Računalo s
+        ključem mreže može opozvati i članstvo koje je ovdje isteklo, jer ga je drugo računalo možda
+        obnovilo. Računalo se nakon opoziva može odmah ponovno primiti. Kad je stranica
         otvorena izvana, kroz tunel ili s javne adrese, sve što mijenja mrežu radi se samo uz lozinku
         vašeg računa, upisanu u isti obrazac: osnivanje mreže, svaka potvrda uparivanja, primanje računala, ulazak
         ovog računala u mrežu, ovlast za primanje, obnova i opoziv članstva, adrese za razmjenu,

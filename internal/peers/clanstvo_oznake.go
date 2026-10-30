@@ -112,16 +112,48 @@ func (p *poznataClanstva) vrijedi(ctx context.Context, m razmjena.Membership) bo
 func (p *poznataClanstva) izabrano(ctx context.Context, id string) *razmjena.Membership {
 	var izabrano *razmjena.Membership
 	for i := range p.sva {
-		m := &p.sva[i]
-		switch {
-		case m.DeviceID != id || !p.vrijedi(ctx, *m):
-		case izabrano == nil || m.DeviceKey == izabrano.DeviceKey:
-			izabrano = m
-		default:
-			p.s.javiSukob(*izabrano, *m)
+		if m := &p.sva[i]; m.DeviceID == id && p.vrijedi(ctx, *m) {
+			izabrano = p.izaberi(izabrano, m)
 		}
 	}
 	return izabrano
+}
+
+// svaIzabrana su po oznaci računala članstva koja vrijede (izabrano), u
+// jednom prolazu; isti sadržaj se provjerava jednom
+func (p *poznataClanstva) svaIzabrana(ctx context.Context) map[string]*razmjena.Membership {
+	out := map[string]*razmjena.Membership{}
+	vrijedi := map[string]bool{}
+	for i := range p.sva {
+		m := &p.sva[i]
+		k := kljucSadrzaja(*m)
+		v, provjereno := vrijedi[k]
+		if !provjereno {
+			v = p.vrijedi(ctx, *m)
+			vrijedi[k] = v
+		}
+		if v {
+			out[m.DeviceID] = p.izaberi(out[m.DeviceID], m)
+		}
+	}
+	return out
+}
+
+// izaberi je izabrano članstvo nakon valjanog članstva m istog imena: m kad
+// izabranog još nema ili ima isti ključ, inače dosadašnje, uz zapis sukoba
+func (p *poznataClanstva) izaberi(izabrano, m *razmjena.Membership) *razmjena.Membership {
+	if izabrano == nil || m.DeviceKey == izabrano.DeviceKey {
+		return m
+	}
+	p.s.javiSukob(*izabrano, *m)
+	return izabrano
+}
+
+// kljucSadrzaja je cijeli sadržaj potvrde kao niz: dvije potvrde s istim
+// nizom vrijede ili ne vrijede jednako
+func kljucSadrzaja(v any) string {
+	b, _ := json.Marshal(v) // potvrde su strukture nizova i vremena, uvijek se daju zapisati
+	return string(b)
 }
 
 // oznakaKljuca je oznaka računala kojem je pub ključ iz izabranog
@@ -170,6 +202,18 @@ func (p *poznataClanstva) potpisanaImena(id string) []razmjena.Membership {
 		}
 	}
 	return out
+}
+
+// neopozvana je broj zadanih članstava koja nisu opozvana, ni ona ni
+// ovlast njihova primatelja (opozivClanstva), i kad su istekla
+func (p *poznataClanstva) neopozvana(ctx context.Context, clanstva []razmjena.Membership) int {
+	n := 0
+	for _, m := range clanstva {
+		if p.s.opozivClanstva(ctx, p.mreza, m) == nil {
+			n++
+		}
+	}
+	return n
 }
 
 // izabranoClanstvo je članstvo koje vrijedi za računalo nodeID (izabrano).

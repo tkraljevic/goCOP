@@ -129,6 +129,12 @@ Alfa traje dok se ne zaokruže funkcionalnosti koje program treba imati.
   zna, i kad je članu članstvo već isteklo. Program opoziv provjerava i u
   knjizi primljenih zapisa, ne samo u popisu opoziva. U popis opoziva
   ulazi samo opoziv čija oznaka odgovara sadržaju i potpisu.
+- **Opozivi i ovlasti za primanje: vrijeme i prikaz.** Opoziv ključem
+  mreže vrijedi i za članstvo izdano na drugom računalu, a ponovni prijem i
+  nova ovlast nakon opoziva vrijede odmah. Članovi i ovlasti prikazuju se
+  iz tablice i knjige, opozvana ovlast se više ne prikazuje, a računalo s
+  ključem mreže upozori kad primatelj opozove člana s ovlašću (Odluke
+  (30. 10. 2026.)).
 - **Razgovor razmjene: ograde onoga što stiže s drugog računala.** Svaka
   vrsta poruke ima svoju najveću veličinu, a verzija koja se ne bi dala
   poslati dalje ne prima se. Od onoga što drugo računalo javi pamti se

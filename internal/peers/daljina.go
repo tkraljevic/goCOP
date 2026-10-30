@@ -291,7 +291,7 @@ func (s *Service) PrimiZahtjev(ctx context.Context, raw []byte, kod string, sOvl
 // prijeUpisaPrimljenog su provjere i čitanja koja primanje treba prije
 // upisa: ovlast ako je tražena, ime novog čvora i popis čvorova za potvrdu
 func (s *Service) prijeUpisaPrimljenog(ctx context.Context, network razmjena.NetworkKey, id string, pub ed25519.PublicKey, sOvlascu bool) (*razmjena.Ovlast, []CvorPotvrde, error) {
-	ovlast, err := ovlastAkoJeTrazena(network, id, pub, s.node.ID, sOvlascu)
+	ovlast, err := s.ovlastAkoJeTrazena(ctx, network, id, pub, sOvlascu)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -317,12 +317,12 @@ func procitajZahtjevSKodom(raw []byte, kod string) (Zahtjev, []byte, error) {
 }
 
 // ovlastAkoJeTrazena je ovlast za primanje za novi čvor kad je tražena;
-// daje je samo nositelj ključa mreže (NetworkKey.Ovlasti)
-func ovlastAkoJeTrazena(network razmjena.NetworkKey, id string, pub ed25519.PublicKey, izdao string, trazena bool) (*razmjena.Ovlast, error) {
+// daje je samo nositelj ključa mreže (novaOvlast)
+func (s *Service) ovlastAkoJeTrazena(ctx context.Context, network razmjena.NetworkKey, id string, pub ed25519.PublicKey, trazena bool) (*razmjena.Ovlast, error) {
 	if !trazena {
 		return nil, nil
 	}
-	o, err := network.Ovlasti(id, pub, izdao, OvlastValidity)
+	o, err := s.novaOvlast(ctx, network, id, pub)
 	if err != nil {
 		return nil, err
 	}

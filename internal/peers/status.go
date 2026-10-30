@@ -441,6 +441,7 @@ func (s *Service) Status(ctx context.Context, lan bool) (*Status, error) {
 	st.Alerts = append(st.Alerts, s.upozorenjaSata(st, now)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaRokova(ctx, clanovi)...)
 	st.Alerts = append(st.Alerts, s.upozorenjaKljucaMreze(ctx)...)
+	st.Alerts = append(st.Alerts, s.upozorenjaOpozivaPrimatelja(ctx)...)
 	return st, nil
 }
 

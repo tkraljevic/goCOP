@@ -139,7 +139,7 @@ func TestNeuspjelaObnovaNaZahtjev(t *testing.T) {
 		t.Errorf("dnevnik %d puta, obrađen %v:\n%s", n, p.obradjen(ctxRub, z), dnevnik)
 	}
 
-	// ovlast se ne da obnoviti kad člana nema na površini osnivača
+	// ovlast se ne da obnoviti kad se nova ovlast ne da upisati
 	q := rubniCvor(t, "server-ured")
 	primiIzravno(t, a, q)
 	kratka, err := a.network.Ovlasti(q.node.ID, q.javni(), a.node.ID, 10*dan)
@@ -150,8 +150,10 @@ func TestNeuspjelaObnovaNaZahtjev(t *testing.T) {
 		t.Fatal(err)
 	}
 	zq := zahtjevOd(t, a, q, true)
-	if _, err := a.db.Exec(`DELETE FROM memberships WHERE node_id = ?`, q.node.ID); err != nil {
-		t.Fatal(err)
+	for _, upis := range []string{"INSERT", "UPDATE"} {
+		if _, err := a.db.Exec(`CREATE TRIGGER bez_upisa_ovlasti_` + upis + ` BEFORE ` + upis + ` ON ovlasti BEGIN SELECT RAISE(FAIL, 'upis ovlasti nije moguć'); END`); err != nil {
+			t.Fatal(err)
+		}
 	}
 	a.obradiZahtjeveObnove(ctxRub)
 	if !strings.Contains(dnevnik.String(), "obnova ovlasti za primanje računala server-ured") || a.obradjen(ctxRub, zq) {
@@ -177,7 +179,8 @@ func mustClanstvo(t *testing.T, a, b *Service) razmjena.Membership {
 }
 
 // Svježa ovlast se na zahtjev ne obnavlja; opozvana i ona s pokvarenim
-// potpisom nisu za obnovu ni za pločicu.
+// potpisom nisu za obnovu ni za pločicu. Red tablice s pokvarenim potpisom
+// ne zaklanja valjanu ovlast iz knjige.
 func TestOvlastKojaSeNeObnavlja(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	p := rubniCvor(t, "ured-vukovar")
@@ -191,7 +194,13 @@ func TestOvlastKojaSeNeObnavlja(t *testing.T) {
 	if _, err := a.db.Exec(`UPDATE ovlasti SET signature = 'pokvaren' WHERE node_id = ?`, p.node.ID); err != nil {
 		t.Fatal(err)
 	}
-	if a.ovlastZaObnovu(ctxRub, p.node.ID, p.node.PublicKey()) != nil {
+	if o := a.ovlastZaObnovu(ctxRub, p.node.ID, p.node.PublicKey()); o == nil || o.Signature == "pokvaren" {
+		t.Errorf("uz pokvaren red tablice za obnovu je %+v, a treba valjana ovlast iz knjige", o)
+	}
+	pokvarena := razmjena.Ovlast{Network: razmjena.PublicKeyString(a.network.Public), DeviceID: "laptop-x", DeviceKey: p.node.PublicKey(),
+		IssuedAt: time.Now().UTC().Truncate(time.Second), ExpiresAt: time.Now().Add(OvlastValidity).UTC().Truncate(time.Second), Signature: "pokvaren"}
+	primiVerziju(t, a, EntityOvlasti, "laptop-x", "racunalo-x", false, pokvarena)
+	if a.ovlastZaObnovu(ctxRub, "laptop-x", p.node.PublicKey()) != nil {
 		t.Error("ovlast s pokvarenim potpisom je za obnovu")
 	}
 	if u := a.obnovljeneOvlasti(ctxRub, true); u != nil {

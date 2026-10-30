@@ -142,13 +142,19 @@ func (o Ovlast) signedBytes() []byte {
 
 // Ovlasti potpisuje članu dopuštenje da prima druge, na zadano vrijeme
 func (n NetworkKey) Ovlasti(deviceID string, deviceKey ed25519.PublicKey, issuedBy string, validFor time.Duration) (Ovlast, error) {
+	return n.OvlastiOd(deviceID, deviceKey, issuedBy, time.Now(), validFor)
+}
+
+// OvlastiOd je Ovlasti s trenutkom izdavanja od (na sekundu), npr. iza
+// zadnjeg opoziva istog ključa
+func (n NetworkKey) OvlastiOd(deviceID string, deviceKey ed25519.PublicKey, issuedBy string, od time.Time, validFor time.Duration) (Ovlast, error) {
 	if !n.CanSign() {
 		return Ovlast{}, errors.New("samo nositelj ključa mreže daje ovlast za primanje")
 	}
-	now := time.Now().UTC().Truncate(time.Second)
+	od = od.UTC().Truncate(time.Second)
 	o := Ovlast{
 		Network: PublicKeyString(n.Public), DeviceID: deviceID, DeviceKey: PublicKeyString(deviceKey),
-		IssuedBy: issuedBy, IssuedAt: now, ExpiresAt: now.Add(validFor),
+		IssuedBy: issuedBy, IssuedAt: od, ExpiresAt: od.Add(validFor),
 	}
 	o.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(n.private, o.signedBytes()))
 	return o, nil
@@ -175,10 +181,17 @@ func (o Ovlast) Verify(networkPub ed25519.PublicKey, at time.Time) error {
 // AdmitAs prima uređaj ključem ovlaštenog primatelja (priv) uz njegovu
 // ovlast. Članstvo ne smije vrijediti dulje od ovlasti.
 func AdmitAs(priv ed25519.PrivateKey, o Ovlast, deviceID string, deviceKey ed25519.PublicKey, validFor time.Duration) (Membership, error) {
+	return AdmitAsOd(priv, o, deviceID, deviceKey, time.Now(), validFor)
+}
+
+// AdmitAsOd je AdmitAs s trenutkom izdavanja od (na sekundu), npr. iza
+// zadnjeg opoziva članstva istog ključa; ovlast mora vrijediti u tom
+// trenutku
+func AdmitAsOd(priv ed25519.PrivateKey, o Ovlast, deviceID string, deviceKey ed25519.PublicKey, od time.Time, validFor time.Duration) (Membership, error) {
 	if PublicKeyString(priv.Public().(ed25519.PublicKey)) != o.DeviceKey {
 		return Membership{}, errors.New("ovlast nije izdana ovom čvoru")
 	}
-	now := time.Now().UTC().Truncate(time.Second)
+	now := od.UTC().Truncate(time.Second)
 	if now.Before(o.IssuedAt) || (!o.ExpiresAt.IsZero() && now.After(o.ExpiresAt)) {
 		return Membership{}, errors.New("ovlast za primanje je istekla")
 	}
@@ -197,10 +210,16 @@ func AdmitAs(priv ed25519.PrivateKey, o Ovlast, deviceID string, deviceKey ed255
 
 // Admit signs a device into the network for the given validity.
 func (n NetworkKey) Admit(deviceID string, deviceKey ed25519.PublicKey, issuedBy string, validFor time.Duration) (Membership, error) {
+	return n.AdmitOd(deviceID, deviceKey, issuedBy, time.Now(), validFor)
+}
+
+// AdmitOd je Admit s trenutkom izdavanja od (na sekundu), npr. iza zadnjeg
+// opoziva članstva istog ključa
+func (n NetworkKey) AdmitOd(deviceID string, deviceKey ed25519.PublicKey, issuedBy string, od time.Time, validFor time.Duration) (Membership, error) {
 	if !n.CanSign() {
 		return Membership{}, errors.New("this device does not hold the network key and cannot admit members")
 	}
-	now := time.Now().UTC().Truncate(time.Second)
+	now := od.UTC().Truncate(time.Second)
 	m := Membership{
 		Network:   PublicKeyString(n.Public),
 		DeviceID:  deviceID,

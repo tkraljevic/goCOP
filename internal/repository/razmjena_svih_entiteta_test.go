@@ -1294,9 +1294,12 @@ func slucajeviRazmjene() []slucajRazmjene {
 			entitet: peers.EntityOvlasti, tablica: "ovlasti", kljuc: "node_id",
 			napravi: func(t *testing.T, a *cvor) {
 				// ovlast upisuje samo nositelj ključa mreže (IzdajOvlast, uz
-				// potpis); ovdje isti upis površine i ista verzija
+				// potpis); ovdje isti upis površine i ista verzija, s ovlašću
+				// koju je potpisao ključ mreže probe
 				var o razmjena.Ovlast
 				puni(&o)
+				o, err := mrezaProbe.OvlastiOd(o.DeviceID, kljucProbe.Public().(ed25519.PublicKey), o.IssuedBy, time.Now().Add(-time.Hour), 24*time.Hour)
+				nuzno(t, err)
 				tx, err := a.db.Begin()
 				nuzno(t, err)
 				defer tx.Rollback()
@@ -1309,6 +1312,11 @@ func slucajeviRazmjene() []slucajRazmjene {
 			},
 			bezUredjivanja: "ovlast se mijenja samo izdavanjem ili opozivom nositelja ključa mreže",
 			procitaj: func(t *testing.T, n *cvor, _ string, _ []byte) (any, error) {
+				// popis ovlasti vidi samo ovlasti koje je potpisao ključ
+				// mreže kojoj čvor pripada
+				_, err := n.db.Exec(`INSERT OR IGNORE INTO network (id, name, public_key, joined_at, protokol) VALUES (1, ?, ?, ?, 'gocop')`,
+					mrezaProbe.Name, razmjena.PublicKeyString(mrezaProbe.Public), time.Now().UTC())
+				nuzno(t, err)
 				return servisCvorova(t, n).ListOvlasti(ctxRaz)
 			},
 			preskoci: map[string]string{"created_at": vrijemeVerzije},

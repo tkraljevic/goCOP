@@ -6,7 +6,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -66,8 +65,8 @@ func potpisanaOvlast(t *testing.T, priv ed25519.PrivateKey, id string, kljuc ed2
 
 // Ključem mreže opoziva se i član kojem je članstvo isteklo i prošlo
 // pričuvu, a ovlast za primanje još vrijedi: opoziv opozove ovlast, pa
-// članstvo koje bi si član njome sam potpisao ne vrijedi. Bez ovlasti takav
-// član i dalje nije član.
+// članstvo koje bi si član njome sam potpisao ne vrijedi. Isteklog člana
+// bez ovlasti opoziva TestOpozivKljucemMrezeBezValjanogClanstva.
 func TestOpozivClanaSIsteklimClanstvom(t *testing.T) {
 	a := rubnaMreza(t, "cop-osijek")
 	b := rubniCvor(t, "ured-vukovar")
@@ -77,10 +76,6 @@ func TestOpozivClanaSIsteklimClanstvom(t *testing.T) {
 	if err := a.saveMembership(ctxRub, mb); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.RevokeMembership(ctxRub, b.node.ID); err == nil || !strings.Contains(err.Error(), "nije član") {
-		t.Errorf("opoziv isteklog člana bez ovlasti: %v", err)
-	}
-
 	o := potpisanaOvlast(t, a.network.Private(), b.node.ID, b.javni(), izdano, izdano.Add(OvlastValidity))
 	if err := a.saveOvlast(ctxRub, o); err != nil {
 		t.Fatal(err)
