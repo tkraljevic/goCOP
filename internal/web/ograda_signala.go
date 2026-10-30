@@ -44,7 +44,7 @@ func (s *Server) upozorenjeSastajalista() string {
 		return ""
 	}
 	return "Ovo računalo je postavljeno kao sastajalište za WEB sync (posluzi_sastajaliste), ali prijava za WEB sync je " +
-		"isključena, pa se druga računala kod njega ne mogu prijaviti. Administrator je uključuje u Administraciji, pod Čvor i mreža."
+		"isključena, pa se druga računala kod njega ne mogu prijaviti. Administrator je uključuje u Administraciji, na stranici Ovo računalo i mreža."
 }
 
 // handleSignal predaje vezu rukovatelju sastajališta, ili 404. Uz vezu ide

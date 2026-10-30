@@ -1,6 +1,7 @@
 package web
 
 import (
+	"context"
 	"html/template"
 	"net/http"
 
@@ -23,6 +24,7 @@ type AdminHandler struct {
 	// drugiKorak daje drugi korak prijave izvana, za upozorenje kad PIN
 	// izvana nema tko slati; nil dok se ne spoji
 	drugiKorak func() *service.DrugiKorak
+	izvori     izvoriStanja // opcije, telemetrija i e-pošta za raspored i Prve korake
 }
 
 // SetDrugiKorak spaja ulaznu stranicu s drugim korakom prijave izvana
@@ -48,7 +50,19 @@ type AdminPageData struct {
 	// ispravnog računa za slanje PIN-a, pa se izvana ulazi samo kodovima
 	PINBezPosiljatelja bool
 
-	SyncOnline, SyncTotal, SyncAlerts int // sažetak sinkronizacije za karticu
+	SyncOnline, SyncTotal, SyncAlerts int // sažetak razmjene za karticu Stanje razmjene
+
+	Djelatnika int // računi bez zastavice globalnog administratora
+
+	// Raspored (administracija_raspored.go): ključ kartice ili skupine → vidi
+	// li je ovaj korisnik, i gdje vrijedi ono što se na kartici mijenja
+	Vidi    map[string]bool
+	Skupina map[string]bool
+	Doseg   map[string]DosegKartice
+	// PrviKoraci: samo administratoru, dok ustroj nije gotov
+	PrviKoraci []KorakUstroja
+	// TestnihUkljuceno: koliko je prekidača na stranici Opcije uključeno
+	TestnihUkljuceno int
 
 	SuccessMessage string
 	ErrorMessage   string
@@ -71,24 +85,7 @@ func (h *AdminHandler) pageData(r *http.Request) AdminPageData {
 func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	data := h.pageData(r)
-
-	if sectors, err := h.org.ListSectors(ctx); err == nil {
-		data.Sectors = len(sectors)
-	}
-	if areas, err := h.org.ListAreas(ctx, ""); err == nil {
-		data.Areas = len(areas)
-	}
-	if users, err := h.users.ListUsers("", 0, "", "", ""); err == nil {
-		data.Users = len(users)
-		for _, u := range users {
-			if u.MustChangePassword {
-				data.Locked++
-			}
-			if !u.IsActive {
-				data.Inactive++
-			}
-		}
-	}
+	h.dodajUstroj(ctx, &data)
 	if _, _, _, ok := h.users.GlobalAdminContact(); !ok {
 		data.NoContact = true
 	}
@@ -98,10 +95,62 @@ func (h *AdminHandler) ShowAdmin(w http.ResponseWriter, r *http.Request) {
 	if st, err := h.peers.Status(ctx, false); err == nil {
 		data.SyncOnline, data.SyncTotal, data.SyncAlerts = st.Online, st.Total, len(st.Alerts)
 	}
+	h.dodajRaspored(ctx, &data)
 
 	if err := h.tmplAdmin.ExecuteTemplate(w, "administracija.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// dodajUstroj broji sektore, područja i račune
+func (h *AdminHandler) dodajUstroj(ctx context.Context, data *AdminPageData) {
+	if sectors, err := h.org.ListSectors(ctx); err == nil {
+		data.Sectors = len(sectors)
+	}
+	if areas, err := h.org.ListAreas(ctx, ""); err == nil {
+		data.Areas = len(areas)
+	}
+	users, err := h.users.ListUsers("", 0, "", "", "")
+	if err != nil {
+		return
+	}
+	data.Users = len(users)
+	for _, u := range users {
+		if u.MustChangePassword {
+			data.Locked++
+		}
+		if !u.IsActive {
+			data.Inactive++
+		}
+		if !u.IsGlobalAdmin {
+			data.Djelatnika++
+		}
+	}
+}
+
+// dodajRaspored slaže Prve korake (samo administratoru) i raspored kartica
+func (h *AdminHandler) dodajRaspored(ctx context.Context, data *AdminPageData) {
+	moduli, _ := ctx.Value(contextKeyModules).(models.Visibility)
+	p := pravaKartice{perms: data.Permissions, moduli: moduli}
+	if p.admin() {
+		if k := prviKoraci(h.stanjeUstroja(ctx, data)); !ustrojGotov(k) {
+			data.PrviKoraci = k
+		}
+		if h.izvori.opcije != nil {
+			data.TestnihUkljuceno = ukljucenihTestnih(h.izvori.opcije(ctx))
+		}
+	}
+	data.Vidi, data.Skupina, data.Doseg = rasporedKartica(p, data.PrviKoraci != nil)
+}
+
+// stanjeUstroja čita ono po čemu se vidi koji su Prvi koraci gotovi
+func (h *AdminHandler) stanjeUstroja(ctx context.Context, data *AdminPageData) stanjeUstroja {
+	s := stanjeUstroja{sektori: data.Sectors > 0, djelatnici: data.Djelatnika > 0, uparen: data.SyncTotal > 0,
+		telemetrija: izvorStanja(ctx, h.izvori.telemetrija), posta: izvorStanja(ctx, h.izvori.posta)}
+	if t, err := h.org.Terms(ctx); err == nil { // naziva se ne da pročitati: stavka ostaje bez kvačice
+		s.nazivi = !t.UpdatedAt.IsZero()
+	}
+	return s
 }
 
 // ShowImports prikazuje što se i odakle uvozi u ovaj čvor

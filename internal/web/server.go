@@ -1022,6 +1022,13 @@ func (s *Server) setupRoutes() {
 	// Administracija: ulazna stranica i sve što radi samo administrator
 	adminH := NewAdminHandler(s.orgService, s.userService, s.peersService, s.templates["administracija.html"], s.templates["uvozi.html"])
 	adminH.SetDrugiKorak(func() *service.DrugiKorak { return s.drugiKorak })
+	adminH.SetIzvoriStanja(func(ctx context.Context) models.Opcije {
+		if s.akti == nil {
+			return models.Opcije{}
+		}
+		return s.akti.Opcije(ctx)
+	}, func(ctx context.Context) bool { return imaRacunTelemetrije(ctx, s.db) },
+		func(ctx context.Context) bool { return s.akti != nil && s.akti.PostaPodesena(ctx) })
 	s.mux.Handle("GET /administracija", s.authMiddleware(http.HandlerFunc(adminH.ShowAdmin)))
 	s.mux.Handle("GET /administracija/uvozi", s.authMiddleware(http.HandlerFunc(adminH.ShowImports)))
 

@@ -71,9 +71,9 @@ func TestStanjeSinkronizacijeBezAdresa(t *testing.T) {
 	}
 }
 
-// Stranica Čvor i mreža pokazuje adrese poznatih čvorova, domenskih
+// Stranica Ovo računalo i mreža pokazuje adrese poznatih čvorova, domenskih
 // čvorova i vlastite javne adrese, i bilješku s greškom razmjene, samo
-// administratoru; pretragu lokalne mreže nudi samo njemu.
+// administratoru. Pretraga lokalne mreže je na Stanju razmjene.
 func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 	tmpl := predlozakStranice(t, "settings.html")
 	zadnji := time.Now()
@@ -89,7 +89,7 @@ func TestPoznatiCvoroviBezAdresa(t *testing.T) {
 			t.Fatal(err)
 		}
 		html := b.String()
-		for _, adresa := range []string{"192.168.1.30", "ured.primjer.hr", "cop-osijek.primjer.hr", "onclick=\"discover()\""} {
+		for _, adresa := range []string{"192.168.1.30", "ured.primjer.hr", "cop-osijek.primjer.hr"} {
 			if strings.Contains(html, adresa) != treba {
 				t.Errorf("administrator %v: %q na stranici %v", admin, adresa, !treba)
 			}

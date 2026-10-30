@@ -1,7 +1,7 @@
 {{/* Postavke ovog čvora iz gocop.toml (internal/web/postavke_cvora.go):
      blok na stranici kojoj postavka pripada, traka kad promjena čeka
      ponovno pokretanje i gumb za ponovno pokretanje u kartici Ovaj čvor.
-     Na stranici Čvor i mreža blok je sklopljen (<details>), da kartice ispod
+     Na stranici Ovo računalo i mreža blok je sklopljen (<details>), da kartice ispod
      ne siđu za cijeli ekran; otvori se sam kad spremanje ne uspije. Otvoren
      na širokom ekranu stoji u dva stupca: što se mijenja i što se samo vidi. */}}
 
@@ -79,7 +79,7 @@
 <div id="provjera-veze" class="mt-3">
   <h3>Provjera veze</h3>
   <p class="form-help">Pita STUN poslužitelje kojom javnom adresom vide ovo računalo i kakav je NAT, za WEB sync. Kad WEB sync ne radi, program za to kratko otvori UDP utičnicu i odmah je zatvori.</p>
-  {{with .Zadnja}}<p class="form-help">Zadnja provjera {{vrijemeHR .Kad}}: {{.Sazetak}}{{if .Privremena}} Utičnica je bila otvorena samo za ovu provjeru.{{end}}{{with .Upozorenje}} {{.}}.{{end}} Pojedinosti su na stranici <a href="/sinkronizacija#dohvatljivost">Sinkronizacija</a>.</p>{{end}}
+  {{with .Zadnja}}<p class="form-help">Zadnja provjera {{vrijemeHR .Kad}}: {{.Sazetak}}{{if .Privremena}} Utičnica je bila otvorena samo za ovu provjeru.{{end}}{{with .Upozorenje}} {{.}}.{{end}} Pojedinosti su na stranici <a href="/sinkronizacija#dohvatljivost">Stanje razmjene</a>.</p>{{end}}
   {{if .Nudi}}<form method="POST" action="/settings/provjeri-vezu"><div class="actions"><button type="submit" class="btn btn-secondary">{{icon "activity"}} Provjeri vezu</button></div></form>
   {{else if .Zabrana}}<p class="form-help">{{.Zabrana}}</p>{{end}}
 </div>

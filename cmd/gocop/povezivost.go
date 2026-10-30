@@ -114,7 +114,7 @@ func pokreniPovezivost(ctx context.Context, cfg config.Povezivost, dir string, c
 	if p.pad.Iskljucen() {
 		p.nakonPadova = true
 		javi("povezivost: WEB sync je isključen, jer se program dvaput zaredom prekinuo dok je WEB sync radio; " +
-			"ponovno se uključuje u Administraciji, pod Čvor i mreža")
+			"ponovno se uključuje u Administraciji, na stranici Ovo računalo i mreža")
 		return stani
 	}
 	p.pokreniSignal(cvor, w)
