@@ -105,11 +105,15 @@ Proširenja su:
   ručno, paketom .cop. Još dolazi modul Karte, koji sve to povezuje u
   slojeve: vodotoci, nasipi i dionice, objekti, letve i obuhvati poplave iz
   karata opasnosti od poplava.
-- Mobilna aplikacija za teren, kao pojednostavljen goCOP za mobitel: svima
-  prognoza, stanje letvi i upis očitanja, vodočuvaru dnevni zadaci i dnevni
-  list, rukovoditelju dionice dnevno izvješće. Dolazi tek kad je goCOP
-  stabilan. Što će točno raditi i kako, još ne znamo; vjerojatno kao tanka
-  aplikacija koja s čvorom razgovara preko sučelja (API).
+- Mobilna aplikacija za teren (goCOP-mobile, Flutter), kao pojednostavljen
+  goCOP za mobitel: svima prognoza, stanje letvi i upis očitanja, vodočuvaru
+  dnevni zadaci i dnevni list, rukovoditelju dionice dnevno izvješće. Nije
+  čvor: s čvorom razgovara preko sučelja (API), a na mobitelu drži samo
+  upise spremljene dok nema veze i zadnje dohvaćeno. Dolazi tek nakon bete
+  (Odluke (31. 10. 2026.)): do tada mobitel pokriva web u novom izgledu, a
+  rad bez veze za očitanja dobiva web, kao red upisa u pregledniku koji se
+  pošalje kad se veza vrati. Sučelje (API) nastaje uz dovršene ekrane weba,
+  prvo za očitanja i dnevnik, pa ga mobilna aplikacija preuzme gotovo.
 - Akti: rješenje o privremenom imenovanju kao akt, čijom ovjerom privremena
   dužnost počinje, a stornom prestaje; QR kod na aktu za provjeru izvornika,
   kad program dobije javnu adresu; dopis županu uz proglašenje izvanrednog
